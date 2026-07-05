@@ -1,0 +1,69 @@
+# 新乡海滨智能运营管理平台
+
+新乡海滨智能运营管理平台面向企业级智能运营管理，长期目标是在 Frappe/ERPNext 开源底座上建设海滨自定义业务 App、外部 AI/视频/算法服务、Vue/React 驾驶舱、飞书集成与 Docker 部署体系。
+
+准确架构叫法：Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
+
+## 当前阶段
+
+当前处于 M0 第一轮工程启动阶段。
+
+本轮只创建项目工程骨架和 AI 上下文管理文档，用于约束后续规划、执行、审查与验收。本轮不安装、不运行、不生成 Frappe/ERPNext，也不创建任何 Frappe App。
+
+## 仓库定位
+
+当前仓库用于承载 M0 工程启动文档、AI 协作规则、里程碑状态、阅读指南、计划文档和架构决策记录。
+
+它不是业务代码仓库，不是 Frappe App 仓库，也不是 Docker 运行环境仓库。
+
+## 主技术栈
+
+- Frappe Framework
+- ERPNext
+- Frappe HR
+- Python
+- JavaScript
+- MariaDB/MySQL 兼容体系
+- Redis
+- Docker
+- Docker Compose
+- Vue/React
+- ECharts
+- FastAPI
+
+## 长期仓库规划
+
+长期建议按职责拆分仓库，当前仅记录规划，不在 M0 第一轮创建这些仓库：
+
+- `haibin-hbos-infra`：基础设施、部署、环境编排与运维脚本
+- `hb_core_app`：海滨核心主数据、权限、组织与平台扩展
+- `hb_attendance_app`：考勤业务扩展
+- `hb_feishu_app`：飞书集成扩展
+- `hb_production_app`：生产运营扩展
+- `hb_quality_app`：质量管理扩展
+- `hb_safety_app`：安全管理扩展
+- `hb_ai_ops_app`：AI 运营、视频、算法服务对接扩展
+- `hbos-dashboard-web`：Vue/React 驾驶舱与大屏前端
+
+## 当前禁止事项
+
+M0 第一轮明确禁止：
+
+- 不安装 Frappe、ERPNext 或 Frappe HR
+- 不运行 Frappe/ERPNext
+- 不生成 Frappe bench
+- 不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
+- 不写 `docker-compose.yml`
+- 不开发考勤业务
+- 不接飞书
+- 不做前端驾驶舱
+- 不浏览或搬运大量 Obsidian 长文
+
+## AI 协作方式
+
+- ChatGPT：负责规划、拆解、上下文整理与方案边界确认
+- Claude：负责按计划执行文档或代码变更
+- Codex：负责工程审查、边界检查、验证与交付复核
+- 用户：负责最终验收、取舍确认与里程碑放行
+
+每轮任务开始前，AI 必须说明本轮读取了哪些文档。默认只读 `CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`，禁止默认递归读取整个 `docs/`。
