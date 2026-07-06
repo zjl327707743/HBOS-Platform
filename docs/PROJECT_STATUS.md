@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 当前阶段：M0
-- 当前轮次：M0-R3B Frappe HR / HRMS 安装前评估
+- 当前轮次：M0-R3C Frappe HR / HRMS 安装验证
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估，等待 Codex 审查；当前未安装 HRMS，未创建自定义 App，未开发业务
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证，HRMS 已安装到本地 `frontend` site，基础 HR 模块可访问；当前未创建海滨自定义 App，未开发业务
 
 ## 状态更新制度
 
@@ -222,7 +222,7 @@
 
 ## M0-R3B 状态
 
-状态：REVIEWING。
+状态：COMPLETED。
 
 本轮目标：
 
@@ -230,6 +230,7 @@
 - 比较现有容器 / bench 内安装与自定义镜像 / 扩展 Compose 流程两种候选方案
 - 给出 M0-R3C 推荐安装方式、边界、风险和回滚建议
 - 更新项目状态、当前里程碑和 M0 里程碑台账
+- 根据 Codex 审查结论收口 M0-R3B 状态
 
 当前结论：
 
@@ -238,6 +239,7 @@
 - 官方 `frappe/hrms` 存在 `version-16` 分支和 v16 tag；`version-16` 依赖声明要求 Frappe / ERPNext `>=16.0.0,<17.0.0`
 - 从主版本范围看，HRMS `version-16` 与当前 Frappe / ERPNext v16 环境方向一致；具体 tag / branch 仍需 M0-R3C 实际安装验证
 - 推荐 M0-R3C 在备份和可回滚前提下安装 HRMS，并只验证 HRMS App 和基础 HR 模块可访问
+- M0-R3B 已通过 Codex 审查，状态已从 REVIEWING 收口为 COMPLETED
 
 本轮未做：
 
@@ -254,6 +256,55 @@
 - 未提交真实密钥
 - 未 push
 
+## M0-R3C 状态
+
+状态：COMPLETED。
+
+本轮目标：
+
+- 将 M0-R3B 从 REVIEWING 收口为 COMPLETED
+- 备份当前 `frontend` site 并记录安装前环境状态
+- 基于官方 `frappe/hrms` 的 `version-16` 分支安装 Frappe HR / HRMS
+- 验证 HRMS App 已安装，基础 HR 模块可在 Desk 中访问
+- 记录安装命令、日志摘要、版本、验证结果、风险与回滚方式
+
+当前结果：
+
+- 安装前已完成 site 备份，备份位于 Docker volume 内的 `/home/frappe/frappe-bench/sites/frontend/private/backups/`
+- HRMS 来源为官方 `frappe/hrms` 仓库 `version-16` 分支，分支 commit 为 `666bf10a9271421abc361bded124d2d961a977e3`
+- 已执行 `bench get-app hrms --branch version-16`
+- 已执行 `bench --site frontend install-app hrms`
+- 已执行 `bench --site frontend migrate`
+- 已执行最小必要服务刷新
+- 安装后 `bench version` 显示 `hrms 16.12.0 version-16 (666bf10)`
+- 安装后 `bench --site frontend list-apps` 显示 `hrms 16.12.0 version-16`
+- Desk 登录页 `http://localhost:8081/login` 返回 `HTTP 200`
+- 登录后 `/app/hr`、`/app/hr-setup`、`/app/employee`、`/app/leave-application`、`/app/shift-and-attendance` 均可访问并返回 `HTTP 200`
+- HR Workspace 已包含 `HR Setup`、`Leaves`、`Shift & Attendance`、`Recruitment` 等入口
+
+已知风险：
+
+- 本轮采用现有容器 / bench 内安装验证，适合 M0-R3C 验证，不代表长期可复现部署方案已经完成。
+- 当前 Compose 的 `configurator` 会基于镜像内 `apps` 目录重写 `sites/apps.txt`；后续如要长期保留 HRMS，应治理自定义镜像或 Compose 持久化策略。
+
+本轮未做：
+
+- 未创建 `hb_core_app`
+- 未创建 `hb_attendance_app`
+- 未创建 `hb_feishu_app`
+- 未创建任何海滨自定义 Frappe App
+- 未开发考勤业务规则
+- 未配置飞书
+- 未执行飞书真实写入
+- 未开发前端驾驶舱
+- 未写 Python/JavaScript/TypeScript 业务代码
+- 未修改 Frappe/ERPNext/HRMS 核心源码
+- 未修改 `docker-compose.yml`
+- 未修改 `.env.example`
+- 未提交 `.env`
+- 未提交真实密钥
+- 未 push
+
 ## 下一步
 
-下一轮建议交给 Codex 做 M0-R3B 审查；审查通过后再决定是否进入 M0-R3C：Frappe HR / HRMS 安装验证，不在本轮启动。
+下一轮建议交给 Codex 做 M0-R3C 审查；审查通过后再规划 M0-R3D：HRMS 能力盘点与 M1 考勤一期边界设计，不在本轮启动。

@@ -71,6 +71,6 @@
 
 ## 当前里程碑提醒
 
-当前 M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地。当前 M0-R3B 只允许读取 HRMS 安装前评估所需的官方 Frappe HR、`frappe/hrms`、`frappe/frappe_docker`、ERPNext / Frappe v16 资料，以及本项目 M0-R3A 落地记录。
+当前 M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地，M0-R3C 已完成 Frappe HR / HRMS 安装验证。后续涉及 HRMS 环境治理或能力盘点时，可读取本轮安装验证记录、官方 Frappe HR、`frappe/hrms`、`frappe/frappe_docker`、ERPNext / Frappe v16 资料。
 
-不得在 M0-R3B 安装 HRMS；不得创建海滨自定义 Frappe App；不得开发业务代码；不得接飞书真实写入；不得做前端驾驶舱；不得提交真实 `.env` 或真实密钥。
+不得因 HRMS 已安装而创建海滨自定义 Frappe App；不得开发业务代码；不得接飞书真实写入；不得做前端驾驶舱；不得提交真实 `.env` 或真实密钥。

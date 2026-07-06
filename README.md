@@ -21,9 +21,10 @@
 - M0-R2 环境设计、里程碑治理与 Skill 路由规范已完成
 - M0-R2E 公共入口文件收尾规则补强已完成
 - M0-R3A Frappe / Docker 最小环境落地已完成，Docker 镜像已拉取，容器已启动，测试 site 已初始化，Frappe Desk 登录页已验证
-- M0-R3B Frappe HR / HRMS 安装前评估已完成，等待 Codex 审查，当前不安装 HRMS
+- M0-R3B Frappe HR / HRMS 安装前评估已完成并通过 Codex 审查
+- M0-R3C Frappe HR / HRMS 安装验证已完成，HRMS 已安装到本地 `frontend` site，基础 HR 模块可访问
 
-M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证，正在评估 Frappe HR / HRMS 安装方案；仍禁止创建自定义 Frappe App、业务代码、飞书真实写入和前端驾驶舱。
+M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证和 Frappe HR / HRMS 安装验证；仍禁止创建海滨自定义 Frappe App、业务代码、飞书真实写入和前端驾驶舱。
 
 ## 仓库定位
 
@@ -66,7 +67,7 @@ M0 阶段明确禁止：
 
 - 不创建自定义 Frappe App
 - 不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
-- 未进入 M0-R3C 前，不安装 Frappe HR / HRMS
+- 不把 HRMS 安装验证等同于考勤业务开发完成
 - 不提交真实 `.env` 或真实密钥
 - 不开发业务
 - 不接飞书真实写入
