@@ -4,10 +4,11 @@
 
 ## 当前状态
 
-- 当前阶段：M0
-- 当前轮次：M0-R3E HRMS 环境可复现性收口
+- 当前阶段：M0 已完成并封板
+- 当前轮次：M0-FINAL 文档与状态收口
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口，当前等待 Codex 审查；当前未创建海滨自定义 App，未开发业务，M1 / M2 未启动
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；当前未创建海滨自定义 App，未开发业务，M1 / M2 未启动，当前仍无远端 remote
+- 下一步路线：先执行 M0-REMOTE，创建 GitHub Private remote、添加 `origin` 并首次 push `main`；M0-REMOTE 完成后，才按 `docs/milestones/M1_START_GATE.md` 进入 M1-R0；M1-R1 才验证 HRMS 原生考勤对象模型。
 
 ## 状态更新制度
 
@@ -397,7 +398,7 @@
 
 ## M0-R3E 状态
 
-状态：REVIEWING。
+状态：COMPLETED。
 
 本轮目标：
 
@@ -415,6 +416,7 @@
 - `bench --site frontend list-apps` 显示 `frappe`、`erpnext`、`hrms`。
 - 已确认 HRMS 仍属于运行态安装成果，仓库当前没有固化包含 HRMS 的自定义镜像。
 - 已新增 `docs/deployment/M0-R3E_HRMS环境可复现性收口.md`，记录风险、策略、M1 环境保护规则和恢复手册草案。
+- M0-R3E 已通过 Codex 审查，状态已从待审查收口为 COMPLETED。
 - 当前推荐 M1-R1 至 M1-R5 期间优先保护当前已跑通环境，不急于重构镜像；如未来多人开发、服务器部署、长期交付或 CI/CD，再单独启动环境可复现阶段。
 
 本轮未做：
@@ -440,6 +442,36 @@
 - 未配置 remote
 - 未 push
 
+## M0-FINAL 状态
+
+状态：COMPLETED。
+
+M0 最终边界：
+
+- Docker / Frappe / ERPNext / HRMS 基线已跑通。
+- HRMS 已安装并验证。
+- HR Workspace 可访问。
+- HR 基础 DocType 存在。
+- HRMS 环境可复现性风险、保护规则和恢复手册草案已收口。
+- 当前仍未创建自定义 App。
+- 当前仍未开发考勤业务。
+- 当前仍未接飞书。
+- 当前仍无远端 remote。
+
+后续架构原则：
+
+- 不直接修改 Frappe / ERPNext / HRMS 核心源码。
+- 优先使用原生配置、角色权限、DocType、报表、导入、API 和低代码定制。
+- 自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。
+- M1 初期不立即创建 `hb_attendance_app`。
+- 飞书真实写入必须用户明确授权。
+- 不得执行 `docker compose down -v`，不得删除 volume，不得重建 `frontend` site。
+- `.env`、备份文件、密钥、数据库、Docker volume 和运行时数据不得提交。
+
 ## 下一步
 
-下一轮建议交给 Codex 做 M0-R3E 审查。审查通过后，由用户决定做 M0 最终收口，或确认是否进入 M1-R1 启动决策；本轮不启动 M1 / M2。
+1. M0-REMOTE：创建 GitHub Private remote、添加 `origin`、首次 push `main`。
+2. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+3. M1-R1：HRMS 原生考勤对象模型验证。
+
+M1 当前仍为 PLANNED，未启动。

@@ -6,7 +6,9 @@
 
 ## 当前轮次
 
-M0-R3E：HRMS 环境可复现性收口。当前状态：REVIEWING。
+M0-FINAL：文档与状态收口。当前状态：COMPLETED。
+
+M0-R3E HRMS 环境可复现性收口已通过 Codex 审查，状态为 COMPLETED。M0 整体已完成并封板。M1 尚未启动。
 
 权威计划文件：
 
@@ -20,12 +22,13 @@ M0-R3E：HRMS 环境可复现性收口。当前状态：REVIEWING。
 
 ## 本轮范围
 
-在当前 Frappe / ERPNext v16 Docker 最小环境和已安装 HRMS 基础上，只读确认环境事实，识别运行态 HRMS 安装的可复现性风险，设计 M1 环境保护规则、未来可复现策略和恢复手册草案。
+只做 M0-FINAL 文档与状态收口：将 M0-R3E 从待审查收口为 COMPLETED，将 M0 整体收口为 COMPLETED，建立 M1 启动门禁，并同步公共入口文件。
 
 交付内容：
 
-- `docs/deployment/M0-R3E_HRMS环境可复现性收口.md`
+- `docs/milestones/M1_START_GATE.md`
 - 项目状态、当前里程碑和 M0 里程碑文件更新
+- 公共入口文件过期状态清理
 
 ## 本轮禁止事项
 
@@ -43,6 +46,7 @@ M0-R3E：HRMS 环境可复现性收口。当前状态：REVIEWING。
 - 不重建 `frontend` site
 - 不重新安装 HRMS
 - 不修改 `docker-compose.yml`、`.env.example`、`.gitignore`
+- 不创建 remote
 - 不 push
 
 ## 当前批次状态
@@ -58,16 +62,17 @@ M0-R3E：HRMS 环境可复现性收口。当前状态：REVIEWING。
 - M0-R3C 已完成：HRMS 已安装到 `frontend` site，`hrms 16.12.0 version-16` 已验证，Desk 与基础 HR 模块可访问。
 - M0-R3C-FIX 已完成：HRMS 资源 404、Frappe HR 图标缺失和 Roster 白屏已修复，`/hr/roster/` 已验证渲染 Roster 月视图。
 - M0-R3D 已完成能力盘点与 M1 考勤一期边界设计。
-- M0-R3E 已完成 HRMS 环境可复现性收口，当前等待 Codex 审查。
+- M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查。
+- M0 已完成并封板。
 
 ## 验收标准
 
-- 当前 Frappe / ERPNext / HRMS 版本、apps 清单、Desk 可访问性和运行态 HRMS 安装事实已记录
-- HRMS 可复现性风险、三种治理策略、当前推荐结论已记录
-- M1 环境保护规则、HRMS 恢复手册草案、M1-R1 启动条件已记录
-- `docs/PROJECT_STATUS.md` 和 `docs/milestones/M0.md` 同步 M0-R3E 状态
-- M1 / M2 未提前启动，未创建海滨自定义 App、未开发业务、未接飞书真实写入、未做前端驾驶舱，未修改 Compose 配置
+- M0-R3E 状态已同步为 COMPLETED
+- M0 整体状态已同步为 COMPLETED
+- M1 启动门禁已建立
+- 下一步路线记录为先 M0-REMOTE，再 M1-R0，再 M1-R1
+- M1 / M2 未提前启动，未创建海滨自定义 App、未开发业务、未接飞书真实写入、未做前端驾驶舱，未修改 Compose 配置，未创建 remote，未 push
 
 ## 下一轮预告
 
-下一步交给 Codex 做 M0-R3E 审查。审查通过后，由用户决定做 M0 最终收口，或确认是否进入 M1-R1 启动决策；本轮不启动 M1。
+下一步建议先执行 M0-REMOTE：创建 GitHub Private remote、添加 `origin`、首次 push `main`。M0-REMOTE 完成后，再按 `docs/milestones/M1_START_GATE.md` 进入 M1-R0；M1-R1 才验证 HRMS 原生考勤对象模型。本轮不启动 M1。

@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前处于 M0 工程启动阶段。
+当前 M0 工程启动阶段已完成并封板，M1 尚未启动。
 
 当前真实进度以以下文件为准：
 
@@ -25,9 +25,10 @@
 - M0-R3C Frappe HR / HRMS 安装验证已完成，HRMS 已安装到本地 `frontend` site，基础 HR 模块可访问
 - M0-R3C-FIX HRMS 前端资源与 Roster 白屏诊断修复已完成，Frappe HR 图标、基础 HR 模块和 Roster 页面已验证可访问
 - M0-R3D HRMS 能力盘点与 M1 考勤一期边界设计已完成
-- M0-R3E HRMS 环境可复现性收口已完成，当前等待 Codex 审查
+- M0-R3E HRMS 环境可复现性收口已完成，并已通过 Codex 审查
+- M0 整体已完成并封板
 
-M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计和 HRMS 环境可复现性收口；M1 尚未启动，仍禁止创建海滨自定义 Frappe App、业务代码、飞书真实写入和前端驾驶舱。
+M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计和 HRMS 环境可复现性收口；M1 尚未启动，下一步先做 M0-REMOTE：创建 GitHub Private remote、添加 `origin` 并首次 push `main`。M0-REMOTE 完成后，才可按 `docs/milestones/M1_START_GATE.md` 进入 M1-R0 启动决策。
 
 ## 仓库定位
 
@@ -66,16 +67,26 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 
 ## 当前禁止事项
 
-M0 阶段明确禁止：
+当前 M0 已封板，M1 尚未启动。继续禁止：
 
 - 不创建自定义 Frappe App
 - 不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
 - 不把 HRMS 安装验证等同于考勤业务开发完成
 - 不提交真实 `.env` 或真实密钥
+- 不提交备份文件、数据库、Docker volume 或运行时数据
 - 不开发业务
 - 不接飞书真实写入
 - 不做前端驾驶舱
 - 不浏览或搬运大量 Obsidian 长文
+- 不执行 `docker compose down -v`
+- 不删除 volume
+- 不重建 `frontend` site
+
+后续路线只记录，不代表已启动：
+
+1. M0-REMOTE：创建 GitHub Private remote、添加 `origin`、首次 push `main`。
+2. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+3. M1-R1：HRMS 原生考勤对象模型验证。
 
 ## AI 协作方式
 

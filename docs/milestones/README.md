@@ -30,9 +30,17 @@
 
 | 里程碑 | 名称 | 状态 |
 | --- | --- | --- |
-| M0 | 工程启动与项目骨架 | IN_PROGRESS |
+| M0 | 工程启动与项目骨架 | COMPLETED |
 | M1 | 考勤一期 | PLANNED |
 | M2 | 飞书集成 | PLANNED |
+
+## 下一步路线
+
+1. M0-REMOTE：创建 GitHub Private remote、添加 `origin`、首次 push `main`。
+2. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+3. M1-R1：HRMS 原生考勤对象模型验证。
+
+M1 尚未启动，必须先满足 `docs/milestones/M1_START_GATE.md`。
 
 ## 更新规则
 
