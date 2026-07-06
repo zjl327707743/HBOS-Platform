@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 当前阶段：M0
-- 当前轮次：M0-R2E README 阶段描述修复与公共入口文件收尾规则补强
-- 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR 与环境设计文档
-- 当前实现状态：M0-R2 批次已提交；M0-R2E 公共入口文件收尾规则补强已完成；未落地运行环境
+- 当前轮次：M0-R3A Frappe / Docker 最小环境落地
+- 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
+- 当前实现状态：M0-R3A 已形成最小 Docker 配置与落地记录；原执行时因本机 `docker` 命令不可用阻塞，本轮提交前只读复查显示 Docker CLI 已可见，但按本轮禁止事项未启动容器，未完成 site 初始化和 Desk 访问验证
 
 ## 状态更新制度
 
@@ -51,7 +51,7 @@
 
 ## M0-R2 状态
 
-状态：已完成并通过 Codex 审查，尚未提交。
+状态：已完成并通过 Codex 审查，已提交。
 
 本轮目标：
 
@@ -74,7 +74,7 @@
 
 ## M0-R2B 状态
 
-状态：已完成并通过 Codex 审查，尚未提交。
+状态：已完成并通过 Codex 审查，已提交。
 
 本轮目标：
 
@@ -121,7 +121,7 @@
 
 ## M0-R2A 状态
 
-状态：已完成并通过 Codex 审查，尚未提交。
+状态：已完成并通过 Codex 审查，已提交。
 
 本轮目标：
 
@@ -178,6 +178,41 @@
 - 未执行飞书真实写入
 - 未开发前端驾驶舱
 
+## M0-R3A 状态
+
+状态：BLOCKED。
+
+本轮目标：
+
+- 创建 Frappe / ERPNext / Docker 最小本地环境配置
+- 创建 `.env.example`、`.gitignore` 和落地记录文档
+- 基于官方 `frappe/frappe_docker` 资料确认版本和服务结构
+- 拉取镜像、启动容器、初始化本地测试 site、验证 Frappe Desk
+
+当前结果：
+
+- 已创建最小 Docker 配置和落地记录
+- 已基于官方 `pwd.yml` 确认服务结构与镜像 tag
+- 原执行时本机执行 `docker --version && docker compose version` 返回 `zsh:1: command not found: docker`
+- 本轮提交前只读复查显示 `docker --version` 和 `docker compose version` 已可用
+- 因本轮明确禁止启动 Docker / 容器，未执行镜像拉取、容器启动、site 初始化和 Desk 访问验证
+
+本轮未做：
+
+- 未创建 `hb_core_app`
+- 未创建 `hb_attendance_app`
+- 未创建 `hb_feishu_app`
+- 未安装自定义 Frappe App
+- 未安装 Frappe HR / HRMS
+- 未开发考勤业务
+- 未执行飞书真实写入
+- 未开发前端驾驶舱
+- 未写 Python/JavaScript/TypeScript 业务代码
+- 未引入第三方业务源码
+- 未 push
+- 未配置 remote
+- 未提交真实密钥
+
 ## 下一步
 
-M0-R3 未开始；M0-R3 在用户明确批准后，才进入 Frappe / ERPNext / Docker 最小环境实际落地。
+下一轮如用户明确授权继续执行，可从 M0-R3A 的镜像拉取、容器启动、site 初始化和 Desk 访问验证继续。

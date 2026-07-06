@@ -1,0 +1,12 @@
+.env
+*.local
+.DS_Store
+logs/
+tmp/
+.frappe/
+sites/
+volumes/
+backups/
+node_modules/
+.venv/
+__pycache__/

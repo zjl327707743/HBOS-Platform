@@ -19,10 +19,10 @@
 
 - M0-R1 工程骨架与 AI 上下文治理已完成
 - M0-R2 环境设计、里程碑治理与 Skill 路由规范已完成
-- M0-R2E 正在修复公共入口文件收尾规则
-- M0-R3 尚未开始
+- M0-R2E 公共入口文件收尾规则补强已完成
+- M0-R3A Frappe / Docker 最小环境落地已开始，配置已准备，容器启动与 Desk 验证待下一轮授权继续
 
-M0 阶段用于约束后续规划、执行、审查与验收。未进入对应轮次前，不安装、不运行、不生成 Frappe/ERPNext，也不创建任何 Frappe App。
+M0 阶段用于约束后续规划、执行、审查与验收。本轮允许 Frappe / ERPNext / Docker 最小环境落地，但仍禁止创建自定义 Frappe App、业务代码、飞书真实写入和前端驾驶舱。
 
 ## 仓库定位
 
@@ -63,11 +63,9 @@ M0 阶段用于约束后续规划、执行、审查与验收。未进入对应�
 
 M0 阶段明确禁止：
 
-- 未进入对应轮次前，不安装 Frappe、ERPNext 或 Frappe HR
-- 不创建 Frappe App
+- 不创建自定义 Frappe App
 - 不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
-- 不写 `docker-compose.yml`
-- 不创建 `.env`
+- 不提交真实 `.env` 或真实密钥
 - 不开发业务
 - 不接飞书真实写入
 - 不做前端驾驶舱
