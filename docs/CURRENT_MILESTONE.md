@@ -1,14 +1,14 @@
 # Current Milestone
 
-## M0：工程启动与上下文治理
+## M1：平台入口、身份与考勤一期准备
 
 项目名称：新乡海滨智能运营管理平台。
 
 ## 当前轮次
 
-M0-REMOTE：GitHub Private remote 收口。当前状态：COMPLETED。
+M1-R0：平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案。当前状态：REVIEWING。
 
-M0-R3E HRMS 环境可复现性收口已通过 Codex 审查，状态为 COMPLETED。M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 尚未启动。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 只做规划与诊断，不进入业务开发。
 
 权威计划文件：
 
@@ -22,12 +22,12 @@ M0-R3E HRMS 环境可复现性收口已通过 Codex 审查，状态为 COMPLETED
 
 ## 本轮范围
 
-只做 M0-REMOTE：创建 GitHub Private remote，绑定 `origin`，首次 push `main`，确认 private visibility 和 `origin/main` 一致性，并同步状态文件。
+只做 M1-R0 文档方案：平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
 
 交付内容：
 
-- `docs/milestones/M0_REMOTE.md`
-- 项目状态、当前里程碑和 M0 里程碑文件更新
+- `docs/milestones/M1_R0_平台入口账号权限与本地化诊断方案.md`
+- 项目状态、当前里程碑和里程碑索引文件更新
 - 公共入口文件过期状态清理
 
 ## 本轮禁止事项
@@ -39,6 +39,8 @@ M0-R3E HRMS 环境可复现性收口已通过 Codex 审查，状态为 COMPLETED
 - 不开发考勤业务
 - 不接飞书
 - 不接飞书真实写入
+- 不实现 SSO
+- 不修改中文翻译源码
 - 不做前端驾驶舱
 - 不引入外部源码
 - 不执行 `docker compose down -v`
@@ -46,8 +48,7 @@ M0-R3E HRMS 环境可复现性收口已通过 Codex 审查，状态为 COMPLETED
 - 不重建 `frontend` site
 - 不重新安装 HRMS
 - 不修改 `docker-compose.yml`、`.env.example`、`.gitignore`
-- 不创建 public 仓库
-- 不创建 GitHub Actions、Secrets、Deploy Key、Webhook
+- 不提交 `.env`、备份、密钥、数据库、日志、缓存或运行时产物
 
 ## 当前批次状态
 
@@ -65,15 +66,18 @@ M0-R3E HRMS 环境可复现性收口已通过 Codex 审查，状态为 COMPLETED
 - M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查。
 - M0 已完成并封板。
 - M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。
+- M1-R0 已完成平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案，当前等待 Codex 审查。
+- M1-R1 仍为 PLANNED。
 
 ## 验收标准
 
-- M0-REMOTE 状态已同步为 COMPLETED
-- GitHub remote URL 和 visibility 已记录
-- 本地 `main` 与 `origin/main` 一致性已确认
-- 下一步路线记录为 M1-R0，再 M1-R1
-- M1 / M2 未提前启动，未创建海滨自定义 App、未开发业务、未接飞书真实写入、未做前端驾驶舱，未修改 Compose 配置
+- M1-R0 目标、边界、入口设计、账号体系、角色权限、飞书 SSO 可行性和中文化 / 本地化诊断已记录
+- 飞书登录目标已明确为：飞书登录为主，HBOS 内部 User 自动映射，Frappe 权限体系承接系统权限和审计
+- M1-R0 状态已同步为 REVIEWING
+- M1 状态已同步为 IN_PROGRESS
+- M1-R1 保持 PLANNED
+- 未创建海滨自定义 App、未开发业务、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码
 
 ## 下一轮预告
 
-下一步建议进入 M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。M1-R1 才验证 HRMS 原生考勤对象模型。本轮不启动 M1。
+下一步建议交给 Codex 审查 M1-R0。审查通过后，再决定是否进入 M1-R1：HRMS 原生考勤对象模型验证。
