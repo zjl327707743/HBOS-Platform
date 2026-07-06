@@ -10,9 +10,19 @@
 
 主技术栈：Frappe Framework、ERPNext、Frappe HR、Python、JavaScript、MariaDB/MySQL 兼容体系、Redis、Docker、Docker Compose、Vue/React、ECharts、FastAPI。
 
-## M0 第一轮边界
+## 进度来源
 
-本轮只做文档和目录骨架。
+`CLAUDE.md` 是 Claude 协作规则入口，不承载具体项目进度。
+
+当前项目进度以以下文件为准：
+
+- `docs/PROJECT_STATUS.md`
+- `docs/CURRENT_MILESTONE.md`
+- `docs/milestones/`
+
+## 当前里程碑边界
+
+每轮任务必须以用户当前指令和 `docs/CURRENT_MILESTONE.md` 为准。
 
 禁止事项：
 
@@ -24,6 +34,13 @@
 - 不接飞书
 - 不做前端驾驶舱
 - 不浏览或搬运大量 Obsidian 长文
+
+## 每轮任务收尾强制要求
+
+- 如本轮改变项目状态，必须更新 `docs/PROJECT_STATUS.md`。
+- 如本轮改变当前里程碑或轮次，必须更新 `docs/CURRENT_MILESTONE.md`。
+- 如本轮属于某个里程碑，必须更新 `docs/milestones/M0.md` 或对应里程碑文件。
+- 输出结果时必须说明状态文件是否已更新；如未更新，必须说明原因。
 
 ## AI 上下文读取规则
 
@@ -47,7 +64,47 @@
 
 只有任务明确涉及当前里程碑时，才读取 `docs/plans/m0_engineering_bootstrap.md`。
 
+当前里程碑任务可读取对应的 `docs/milestones/` 文件；例如 M0 任务可读取 `docs/milestones/M0.md`。不得默认全量读取 `docs/milestones/`。
+
+只有任务涉及 Skill、Agent 调度或飞书 skill 选择时，才读取 `docs/AI技能路由规范.md`。
+
 只有架构决策变更时，才读取 `docs/adr/`。
+
+## Skill 使用规则
+
+涉及 Skill、Agent 调度或飞书 skill 选择的任务，必须读取：
+
+- `docs/AI技能路由规范.md`
+
+当前已确认可用 skill：
+
+- `superpowers`：全部代码开发、修复、重构、测试、工程规范
+- `frontend-design`：前端页面设计、UI、组件、驾驶舱、看板、复杂交互
+- `lark-cli`：飞书官方 CLI 工具（`https://github.com/larksuite/cli`），不是统一总 skill
+- `lark-shared`：飞书官方共享基础 skill（认证登录、身份切换、权限管理）
+- `lark-*`：飞书官方领域 skills（如 `lark-im`、`lark-base`、`lark-doc`、`lark-contact`、`lark-task`、`lark-approval` 等），详见 `docs/AI技能路由规范.md`
+
+未安装 skill 只能作为候选，不得直接调用。
+
+禁止：
+
+- 默认递归读取整个 `docs/`
+- 因 skill 输出扩大任务范围
+- 未经审查直接采纳 skill 生成的代码或设计
+- 自行编造未确认的 skill 名称
+- 假装已安装候选 skill
+- 将 `lark-cli` 当作统一总 skill
+- 未经用户明确授权执行飞书真实写入
+
+## 提交与文档命名规范
+
+- Git commit message 以后优先使用中文描述。
+- 可以保留 conventional commit 前缀，如 `docs`、`fix`、`feat`、`chore`，但冒号后的描述必须使用中文。
+- 示例：`docs: 完成 M0-R2 环境设计、里程碑治理与 Skill 路由规范`
+- 新增文档文件名优先使用中文或中英混合命名。
+- 技术专有名词可保留英文，例如 Frappe、Docker、ERPNext、FastAPI、API、Skill。
+- 根目录约定文件可以保留英文，例如 `README.md`、`CLAUDE.md`、`AGENTS.md`。
+- 已提交历史文件不为追求中文而随意重命名，除非用户明确要求。
 
 ## 执行原则
 
