@@ -6,7 +6,7 @@
 
 ## 当前轮次
 
-M0-R2C/R2D：状态收口与提交。
+M0-R2E：README 阶段描述修复与公共入口文件收尾规则补强。
 
 权威计划文件：
 
@@ -20,16 +20,14 @@ M0-R2C/R2D：状态收口与提交。
 
 ## 本轮范围
 
-只做 M0-R2 批次状态收口、AI Skill 路由文档纳入、中文提交与文档命名规范固化，并创建一次 Git 提交。
+只做 README 阶段描述修复、公共入口文件收尾规则补强、状态台账同步，并创建一次 Git 提交。
 
 交付内容：
 
-- `docs/AI技能路由规范.md`
-- `CLAUDE.md` 中的 Skill 使用规则
-- `AGENTS.md` 中的 Agent Skill Routing 规则
-- `docs/AI_CONTEXT.md` 中的 Skill 路由说明
-- `docs/READING_GUIDE.md` 中的 Skill 路由条件读取规则
-- 中文提交与新增文档中文命名优先规则
+- `README.md` 阶段描述修复
+- `CLAUDE.md` 中的公共入口文件收尾强制要求
+- `AGENTS.md` 中的 Codex 公共入口文件审查要求
+- `docs/READING_GUIDE.md` 中的公共入口文件收尾检查规则
 - 项目状态、当前里程碑和 M0 里程碑文件更新
 
 ## 本轮禁止事项
@@ -56,18 +54,17 @@ M0-R2C/R2D：状态收口与提交。
 - M0-R2B 里程碑状态管理规范已完成。
 - M0-R2C AI Skill 路由文档纳入已完成。
 - M0-R2D 中文提交与文档命名规范已完成。
-- M0-R2、M0-R2A、M0-R2B、M0-R2C、M0-R2D 将一起收口提交。
+- M0-R2E README 阶段描述修复与公共入口文件收尾规则补强正在提交。
 - M0-R3 仍未开始。
 
 ## 验收标准
 
-- `docs/AI技能路由规范.md` 存在
-- `docs/AI技能路由规范.md` 区分已确认可用 skill 与候选 skill
-- `CLAUDE.md` 和 `AGENTS.md` 引用 `docs/AI技能路由规范.md`
-- `docs/AI_CONTEXT.md` 补充 Skill 路由说明
-- `docs/READING_GUIDE.md` 将 `docs/AI技能路由规范.md` 设为条件读取
-- `CLAUDE.md` 和 `AGENTS.md` 固化中文提交与新增文档中文命名优先规则
-- 新增文档已尽量使用中文或中英混合文件名
+- `README.md` 不再写死过期阶段描述
+- `README.md` 指向权威状态文件
+- `CLAUDE.md` 写入公共入口文件收尾强制要求
+- `AGENTS.md` 写入 Codex 对公共入口文件的审查要求
+- `docs/READING_GUIDE.md` 写入公共入口文件收尾检查规则
+- `docs/PROJECT_STATUS.md` 和 `docs/milestones/M0.md` 同步 M0-R2E 状态
 - 未出现 skill 安装、飞书真实写入、Frappe 安装、App 创建、Docker Compose、`.env`、`.gitignore`、容器启动或业务代码
 
 ## 下一轮预告

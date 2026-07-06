@@ -37,10 +37,15 @@
 
 ## 每轮任务收尾强制要求
 
+- 状态台账必须检查：`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`、`docs/milestones/` 中的对应里程碑文件。
+- 公共入口文件必须检查：`README.md`、`CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/READING_GUIDE.md`。
 - 如本轮改变项目状态，必须更新 `docs/PROJECT_STATUS.md`。
 - 如本轮改变当前里程碑或轮次，必须更新 `docs/CURRENT_MILESTONE.md`。
 - 如本轮属于某个里程碑，必须更新 `docs/milestones/M0.md` 或对应里程碑文件。
-- 输出结果时必须说明状态文件是否已更新；如未更新，必须说明原因。
+- 公共入口文件不一定每轮修改，但必须检查是否存在过期阶段描述。
+- 禁止只更新状态台账而忽略 `README.md` 等人类入口文件。
+- 输出结果时必须说明状态台账是否已更新；如未更新，必须说明原因。
+- 输出结果时必须说明公共入口文件是否已检查、哪些入口文件需要更新、哪些入口文件无需更新及原因。
 
 ## AI 上下文读取规则
 

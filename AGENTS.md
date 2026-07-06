@@ -16,6 +16,8 @@
 
 `CLAUDE.md` 和 `AGENTS.md` 是协作规则文件，不承载具体项目进度。
 
+`README.md` 是人类入口文件，不能保留过期阶段描述。
+
 当前项目进度以以下文件为准：
 
 - `docs/PROJECT_STATUS.md`
@@ -45,6 +47,7 @@
 - 如本轮改变项目状态，必须更新 `docs/PROJECT_STATUS.md`。
 - 如本轮改变当前里程碑或轮次，必须更新 `docs/CURRENT_MILESTONE.md`。
 - 如本轮属于某个里程碑，必须更新 `docs/milestones/M0.md` 或对应里程碑文件。
+- 每轮收尾必须检查公共入口文件是否存在过期阶段描述：`README.md`、`CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/READING_GUIDE.md`。
 - 每轮输出结果时，必须说明状态文件是否已更新；如未更新，必须说明原因。
 
 ## 默认读取规则
@@ -116,6 +119,9 @@ Codex 审查时必须检查：
 - 新增文档是否优先中文或中英混合命名。
 - commit message 是否使用中文描述。
 - 如果使用英文文件名，是否有兼容性、生态约定或根目录约定理由。
+- 状态台账是否同步，包括 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 和对应 `docs/milestones/` 文件。
+- 公共入口文件是否存在过期阶段描述。
+- 若 `README.md`、`CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/READING_GUIDE.md` 中存在过期阶段描述，应按影响标记 WARN 或 FAIL。
 
 ## 协作分工
 

@@ -6,9 +6,23 @@
 
 ## 当前阶段
 
-当前处于 M0 第一轮工程启动阶段。
+当前处于 M0 工程启动阶段。
 
-本轮只创建项目工程骨架和 AI 上下文管理文档，用于约束后续规划、执行、审查与验收。本轮不安装、不运行、不生成 Frappe/ERPNext，也不创建任何 Frappe App。
+当前真实进度以以下文件为准：
+
+- `docs/PROJECT_STATUS.md`
+- `docs/CURRENT_MILESTONE.md`
+- `docs/milestones/README.md`
+- `docs/milestones/M0.md`
+
+当前状态摘要：
+
+- M0-R1 工程骨架与 AI 上下文治理已完成
+- M0-R2 环境设计、里程碑治理与 Skill 路由规范已完成
+- M0-R2E 正在修复公共入口文件收尾规则
+- M0-R3 尚未开始
+
+M0 阶段用于约束后续规划、执行、审查与验收。未进入对应轮次前，不安装、不运行、不生成 Frappe/ERPNext，也不创建任何 Frappe App。
 
 ## 仓库定位
 
@@ -33,7 +47,7 @@
 
 ## 长期仓库规划
 
-长期建议按职责拆分仓库，当前仅记录规划，不在 M0 第一轮创建这些仓库：
+长期建议按职责拆分仓库，当前仅记录规划，不在未批准轮次创建这些仓库：
 
 - `haibin-hbos-infra`：基础设施、部署、环境编排与运维脚本
 - `hb_core_app`：海滨核心主数据、权限、组织与平台扩展
@@ -47,15 +61,15 @@
 
 ## 当前禁止事项
 
-M0 第一轮明确禁止：
+M0 阶段明确禁止：
 
-- 不安装 Frappe、ERPNext 或 Frappe HR
-- 不运行 Frappe/ERPNext
-- 不生成 Frappe bench
+- 未进入对应轮次前，不安装 Frappe、ERPNext 或 Frappe HR
+- 不创建 Frappe App
 - 不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
 - 不写 `docker-compose.yml`
-- 不开发考勤业务
-- 不接飞书
+- 不创建 `.env`
+- 不开发业务
+- 不接飞书真实写入
 - 不做前端驾驶舱
 - 不浏览或搬运大量 Obsidian 长文
 
