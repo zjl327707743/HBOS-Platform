@@ -7,7 +7,7 @@
 - 当前阶段：M0
 - 当前轮次：M0-R3A Frappe / Docker 最小环境落地
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已形成最小 Docker 配置与落地记录；原执行时因本机 `docker` 命令不可用阻塞，本轮提交前只读复查显示 Docker CLI 已可见，但按本轮禁止事项未启动容器，未完成 site 初始化和 Desk 访问验证
+- 当前实现状态：M0-R3A 已形成最小 Docker 配置与落地记录；本轮已获授权执行本地 Docker 验证，Docker CLI 与 Docker Compose 可用，但 `docker compose pull` 在 Docker Hub token 获取处失败，未启动容器，未初始化 site，未验证 Desk
 
 ## 状态更新制度
 
@@ -194,8 +194,11 @@
 - 已创建最小 Docker 配置和落地记录
 - 已基于官方 `pwd.yml` 确认服务结构与镜像 tag
 - 原执行时本机执行 `docker --version && docker compose version` 返回 `zsh:1: command not found: docker`
-- 本轮提交前只读复查显示 `docker --version` 和 `docker compose version` 已可用
-- 因本轮明确禁止启动 Docker / 容器，未执行镜像拉取、容器启动、site 初始化和 Desk 访问验证
+- 本轮 M0-R3A-VERIFY 已获用户授权继续执行真实 Docker 本地启动验证
+- 本轮确认 `docker --version` 和 `docker compose version` 已可用
+- 已从 `.env.example` 生成本地 `.env`，`.env` 被 `.gitignore` 忽略且未被 Git 追踪
+- 已执行 `docker compose pull`，但在拉取镜像时失败：Docker Hub token 获取返回 EOF
+- 因镜像拉取失败，未执行 `docker compose up -d`，未启动容器，未初始化 site，未验证 Frappe Desk
 
 本轮未做：
 
@@ -215,4 +218,4 @@
 
 ## 下一步
 
-下一轮如用户明确授权继续执行，可从 M0-R3A 的镜像拉取、容器启动、site 初始化和 Desk 访问验证继续。
+下一轮建议先确认 Docker Hub 网络和登录状态，再重试 M0-R3A 的镜像拉取、容器启动、site 初始化和 Desk 访问验证。

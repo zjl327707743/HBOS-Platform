@@ -82,7 +82,10 @@
 3. 已创建 `.env.example`，只包含占位符和本地开发默认值，不含真实密钥。
 4. 已创建 `.gitignore`，忽略 `.env`、运行目录和常见本地缓存。
 5. 原执行 Docker 可用性检查时，当前机器返回 `zsh:1: command not found: docker`。
-6. 本轮提交前只读复查时，`docker --version` 和 `docker compose version` 已可用，但本轮明确禁止启动 Docker / 容器，因此未继续执行启动验证。
+6. 后续阻塞记录提交前复查时，`docker --version` 和 `docker compose version` 已可用，但当轮明确禁止启动 Docker / 容器，因此未继续执行启动验证。
+7. M0-R3A-VERIFY 已获用户明确授权执行真实 Docker 本地启动验证。
+8. 已从 `.env.example` 生成本地 `.env`；`.env` 被 `.gitignore` 忽略，未被 Git 追踪。
+9. 已执行 `docker compose pull`，但镜像拉取阶段在 Docker Hub 授权 token 获取处失败。
 
 ## 验证结果
 
@@ -90,16 +93,32 @@
 
 原执行时本机未提供 `docker` 命令，无法继续执行镜像拉取、容器启动、site 初始化、ERPNext 安装和 Frappe Desk 访问验证。
 
-本轮提交前只读复查结果：
+后续阻塞记录提交前只读复查显示 Docker CLI 与 Docker Compose 已可用，但当轮明确禁止启动 Docker / 容器，因此未继续执行启动验证。
+
+M0-R3A-VERIFY 复查结果：
 
 ```text
 Docker version 29.6.1, build 8900f1d
 Docker Compose version v5.3.0
 ```
 
-由于本轮明确禁止启动 Docker / 容器，未继续执行 `docker compose up`、site 初始化或 Desk 访问验证。M0-R3A 仍保持 BLOCKED，等待下一轮用户明确授权继续。
+本轮已执行：
 
-已执行的检查：
+```text
+docker compose pull
+```
+
+镜像拉取结果：失败。
+
+错误摘要：
+
+```text
+failed to authorize: failed to fetch oauth token: Post "https://auth.docker.io/token": EOF
+```
+
+由于镜像拉取失败，按本轮规则停止执行，未继续执行 `docker compose up -d`、site 初始化或 Desk 访问验证。
+
+历史阻塞时执行的检查：
 
 ```text
 docker --version && docker compose version
@@ -115,14 +134,14 @@ zsh:1: command not found: docker
 
 计划访问地址：`http://localhost:${HTTP_PORT}`，按 `.env.example` 默认值为 `http://localhost:8080`。
 
-实际访问验证：未完成，原因是原执行时 Docker 不可用；本轮提交前虽已能看到 Docker CLI，但禁止启动容器，未继续验证。
+实际访问验证：未完成。本轮 Docker CLI 与 Docker Compose 已可用，但 `docker compose pull` 在 Docker Hub token 获取处失败，容器未启动，Desk 未验证。
 
 ## 已知问题
 
 - 原执行时本机缺少 Docker CLI 或 Docker Desktop 未安装 / 未加入当前 shell PATH。
-- 本轮提交前只读复查显示 Docker CLI 已可见，但未获本轮启动授权。
+- M0-R3A-VERIFY 已获启动授权后，`docker compose pull` 失败，错误为 Docker Hub token 获取 EOF。
 - 尚不能确认 `frappe/erpnext:v16.26.2` 镜像实际拉取、容器健康状态、site 初始化和 Desk 登录页。
-- `.env` 已删除，避免后续误用；待继续执行时再从 `.env.example` 复制并填写本地开发值。
+- 本地 `.env` 已从 `.env.example` 生成，仅用于本机验证；该文件被 `.gitignore` 忽略，不能提交。
 
 ## 未做事项
 
@@ -145,11 +164,10 @@ zsh:1: command not found: docker
 下一轮由用户明确授权继续后，再执行：
 
 ```text
-cp .env.example .env
 docker compose pull
 docker compose up -d
 docker compose ps
 docker compose logs create-site
 ```
 
-如果 `create-site` 成功，再访问 `http://localhost:8080` 验证 Frappe Desk 登录页。
+建议先确认 Docker Hub 网络连通性和登录状态，再重试 `docker compose pull`。如果镜像拉取成功，再执行 `docker compose up -d`，并在 `create-site` 成功后访问 `http://localhost:8080` 验证 Frappe Desk 登录页。
