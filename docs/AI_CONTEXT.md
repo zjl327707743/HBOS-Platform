@@ -19,13 +19,13 @@
 
 ## 当前上下文
 
-当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已完成 M1-R0 规划收口。
+当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已完成 M1-R0 规划收口，M1-R1 已形成 HRMS 原生考勤对象模型验证记录并进入 REVIEWING。
 
-当前目标：准备进入 M1-R1 前审查；当前 Docker 最小环境已跑通，测试 site 为 `frontend`，Desk 可访问地址为 `http://localhost:8081/login`。
+当前目标：等待 Codex 审查 M1-R1；当前 Docker 最小环境已跑通，测试 site 为 `frontend`，Desk 可访问地址为 `http://localhost:8081/login`。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
-M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；当前不创建海滨自定义 Frappe App，不开发业务代码，不录入真实业务数据，不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
+M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，状态为 REVIEWING。当前不创建海滨自定义 Frappe App，不开发业务代码，不录入真实业务数据，不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
 
 ## AI 默认读取规则
 
@@ -83,8 +83,8 @@ Skill 路由规范文件为：
 
 后续路线只记录，不代表已启动：
 
-1. 准备进入 M1-R1。
-2. M1-R1：HRMS 原生考勤对象模型验证。
+1. Codex 审查 M1-R1。
+2. 审查通过后再决定是否进入 M1-R2：HRMS 原生考勤配置试运行方案。
 
 ## 边界提醒
 
