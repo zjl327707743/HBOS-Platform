@@ -4,7 +4,9 @@
 
 ## M1-R2 目标与边界
 
-状态：REVIEWING。
+状态：COMPLETED。
+
+收口记录：M1-R2 已通过 Codex 独立审查，并在 M1-R2-CLOSEOUT 中从待审查状态收口为 COMPLETED。
 
 本轮目标：
 

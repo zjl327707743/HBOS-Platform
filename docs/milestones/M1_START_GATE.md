@@ -4,7 +4,7 @@
 
 ## 文件定位
 
-本文件记录 M1 启动前必须满足的门禁条件。M1-R0 已按本门禁完成规划收口，M1-R1 已按门禁只读验证 HRMS 原生考勤对象模型并收口为 COMPLETED，M1-R2 已按门禁形成 HRMS 原生考勤配置试运行方案并进入 REVIEWING，但尚未进入业务开发。
+本文件记录 M1 启动前必须满足的门禁条件。M1-R0 已按本门禁完成规划收口，M1-R1 已按门禁只读验证 HRMS 原生考勤对象模型并收口为 COMPLETED，M1-R2 已按门禁形成 HRMS 原生考勤配置试运行方案并收口为 COMPLETED，但尚未进入业务开发。
 
 ## 必须满足的前置条件
 
@@ -36,7 +36,7 @@ M1-R0 不做：
 
 M1-R1 才验证 HRMS 原生考勤对象模型。M1-R1 当前状态：COMPLETED，已通过 Codex 独立审查，验证记录见 `docs/milestones/M1_R1_HRMS原生考勤对象模型验证记录.md`。
 
-M1-R2 当前状态：REVIEWING。M1-R2 只做 HRMS 原生考勤配置试运行方案，不执行配置，不创建测试数据，不创建 App，不接真实考勤机，不接真实飞书，不录入生产数据。方案文件见 `docs/milestones/M1_R2_HRMS原生考勤配置试运行方案.md`。
+M1-R2 当前状态：COMPLETED，已通过 Codex 独立审查。M1-R2 只做 HRMS 原生考勤配置试运行方案，未执行配置，未创建测试数据，未创建 App，未接真实考勤机，未接真实飞书，未录入生产数据。方案文件见 `docs/milestones/M1_R2_HRMS原生考勤配置试运行方案.md`。
 
 M1-R3 当前状态：PLANNED。M1-R3 建议在用户明确授权后，才可使用虚构最小测试数据试运行 HRMS 原生考勤配置。
 
@@ -91,4 +91,4 @@ M1 初期不创建 `hb_attendance_app`。
 3. M1-R2：HRMS 原生考勤配置试运行方案。
 4. M1-R3：HRMS 原生考勤最小测试数据试运行。
 
-M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已形成方案，等待 Codex 审查。M1-R3 仍为 PLANNED，需 M1-R2 审查通过后再决定是否进入。
+M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 仍为 PLANNED，需 M1-R2-CLOSEOUT 审查通过后再由用户决定是否授权进入。

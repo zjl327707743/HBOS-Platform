@@ -39,16 +39,16 @@
 | M1 | 考勤一期 | IN_PROGRESS |
 | M1-R0 | 平台入口账号权限与本地化诊断方案 | COMPLETED |
 | M1-R1 | HRMS 原生考勤对象模型验证 | COMPLETED |
-| M1-R2 | HRMS 原生考勤配置试运行方案 | REVIEWING |
+| M1-R2 | HRMS 原生考勤配置试运行方案 | COMPLETED |
 | M1-R3 | HRMS 原生考勤最小测试数据试运行 | PLANNED |
 | M2 | 飞书集成 | PLANNED |
 
 ## 下一步路线
 
-1. Codex 审查 M1-R2。
-2. 审查通过后再决定是否进入 M1-R3：HRMS 原生考勤最小测试数据试运行。
+1. M1-R3：HRMS 原生考勤最小测试数据试运行。
+2. 进入 M1-R3 前先交给 Codex 审查 M1-R2-CLOSEOUT，并由用户明确授权。
 
-M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已形成配置试运行方案并进入 REVIEWING，但尚未进入业务开发。M1-R3 仍为 PLANNED。
+M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED，但尚未进入业务开发。M1-R3 仍为 PLANNED。
 
 ## 更新规则
 

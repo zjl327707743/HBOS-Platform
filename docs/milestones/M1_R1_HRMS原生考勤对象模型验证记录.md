@@ -241,7 +241,7 @@ Attendance
 
 ## M1-R2 承接
 
-M1-R2 已形成 `HRMS 原生考勤配置试运行方案`，当前状态为 REVIEWING。
+M1-R2 已形成 `HRMS 原生考勤配置试运行方案`，并已通过 Codex 独立审查收口为 COMPLETED。
 
 M1-R2 仍然遵守：
 

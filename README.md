@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前 M0 工程启动阶段已完成并封板，M0-REMOTE 已完成，M1 已完成 M1-R0 规划收口和 M1-R1 对象模型验证收口，M1-R2 HRMS 原生考勤配置试运行方案已形成，当前等待 Codex 审查。
+当前 M0 工程启动阶段已完成并封板，M0-REMOTE 已完成，M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R2 已通过 Codex 独立审查，状态为 COMPLETED。
 
 当前真实进度以以下文件为准：
 
@@ -30,7 +30,7 @@
 - M0-REMOTE GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push 已完成
 - M1-R0 平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案已完成，并已通过 Codex 独立审查
 - M1-R1 HRMS 原生考勤对象模型验证记录已完成，并已通过 Codex 独立审查，状态为 COMPLETED
-- M1-R2 HRMS 原生考勤配置试运行方案已完成文档交付，当前状态为 REVIEWING，等待 Codex 审查
+- M1-R2 HRMS 原生考勤配置试运行方案已完成文档交付，并已通过 Codex 独立审查，状态为 COMPLETED
 
 M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计、HRMS 环境可复现性收口、GitHub Private remote 首次同步、M1-R0 规划诊断收口、M1-R1 对象模型验证记录和 M1-R2 配置试运行方案设计；M1 仍未进入业务开发。
 
@@ -88,8 +88,8 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 
 后续路线只记录，不代表已启动：
 
-1. Codex 审查 M1-R2。
-2. 审查通过后再决定是否进入 M1-R3：HRMS 原生考勤最小测试数据试运行。
+1. M1-R3：HRMS 原生考勤最小测试数据试运行。
+2. 进入 M1-R3 前先交给 Codex 审查 M1-R2-CLOSEOUT，并由用户明确授权。
 
 ## AI 协作方式
 
