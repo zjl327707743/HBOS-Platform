@@ -6,7 +6,7 @@
 
 ## 当前轮次
 
-M0-R3A：Frappe / Docker 最小环境落地。当前状态：BLOCKED。
+M0-R3A：Frappe / Docker 最小环境落地。当前状态：COMPLETED。
 
 权威计划文件：
 
@@ -51,16 +51,16 @@ M0-R3A：Frappe / Docker 最小环境落地。当前状态：BLOCKED。
 - M0-R2C AI Skill 路由文档纳入已完成。
 - M0-R2D 中文提交与文档命名规范已完成。
 - M0-R2E README 阶段描述修复与公共入口文件收尾规则补强已完成。
-- M0-R3A 已开始，配置已准备；本轮已获授权执行 Docker 验证，但 `docker compose pull` 在 Docker Hub token 获取处失败，容器未启动，site 未初始化，Desk 未验证。
+- M0-R3A 已完成：镜像拉取成功，容器启动成功，测试 site 初始化成功，Frappe Desk 登录页验证成功。
 
 ## 验收标准
 
 - Docker 配置文件存在且不包含真实密钥
 - `.env.example` 存在，`.env` 不被 Git 追踪
-- 落地记录说明官方参考来源、版本矩阵、执行步骤和本轮镜像拉取阻塞原因
+- 落地记录说明官方参考来源、版本矩阵、执行步骤、端口调整原因和 Desk 验证结果
 - `docs/PROJECT_STATUS.md` 和 `docs/milestones/M0.md` 同步 M0-R3A 状态
 - 未创建自定义 App、未开发业务、未接飞书真实写入、未做前端驾驶舱
 
 ## 下一轮预告
 
-下一步先确认 Docker Hub 网络和登录状态，再继续 M0-R3A 的镜像拉取、容器启动、site 初始化与 Desk 访问验证。
+下一步交给 Codex 做 M0-R3A-PULL-RETRY 审查。审查通过后再规划 M0-R3B 或后续环境治理事项，本轮不启动下一轮。

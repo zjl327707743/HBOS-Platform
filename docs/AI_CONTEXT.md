@@ -21,9 +21,9 @@
 
 当前阶段：M0 工程启动与上下文治理。
 
-当前目标：推进 M0-R3A Frappe / ERPNext / Docker 最小本地环境落地；当前已准备配置并获授权执行本地 Docker 验证，但 `docker compose pull` 在 Docker Hub token 获取处失败，容器未启动，site 未初始化，Desk 未验证。
+当前目标：完成 M0-R3A Frappe / ERPNext / Docker 最小本地环境落地；当前 Docker 镜像已拉取，容器已启动，测试 site 已初始化，Frappe Desk 登录页已验证。
 
-本轮允许使用现有最小 Docker Compose、创建本地 `.env`、执行镜像拉取和启动验证；仍不创建海滨自定义 Frappe App，不开发业务代码，不接飞书真实写入，不做前端驾驶舱。
+本轮已使用现有最小 Docker Compose 和本地 `.env` 完成启动验证；仍不创建海滨自定义 Frappe App，不开发业务代码，不接飞书真实写入，不做前端驾驶舱。
 
 ## AI 默认读取规则
 

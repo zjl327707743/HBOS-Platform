@@ -7,7 +7,7 @@
 - 当前阶段：M0
 - 当前轮次：M0-R3A Frappe / Docker 最小环境落地
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已形成最小 Docker 配置与落地记录；本轮已获授权执行本地 Docker 验证，Docker CLI 与 Docker Compose 可用，但 `docker compose pull` 在 Docker Hub token 获取处失败，未启动容器，未初始化 site，未验证 Desk
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；Docker 镜像已拉取，容器已启动，测试 site 已初始化，Frappe Desk 登录页已验证
 
 ## 状态更新制度
 
@@ -180,7 +180,7 @@
 
 ## M0-R3A 状态
 
-状态：BLOCKED。
+状态：COMPLETED。
 
 本轮目标：
 
@@ -198,7 +198,11 @@
 - 本轮确认 `docker --version` 和 `docker compose version` 已可用
 - 已从 `.env.example` 生成本地 `.env`，`.env` 被 `.gitignore` 忽略且未被 Git 追踪
 - 已执行 `docker compose pull`，但在拉取镜像时失败：Docker Hub token 获取返回 EOF
-- 因镜像拉取失败，未执行 `docker compose up -d`，未启动容器，未初始化 site，未验证 Frappe Desk
+- M0-R3A-PULL-RETRY 已重试 `docker compose pull` 并成功拉取 `redis:6.2-alpine`、`mariadb:11.8`、`frappe/erpnext:v16.26.2`
+- 首次 `docker compose up -d` 遇到宿主机 `8080` 端口占用，仅调整本地 `.env` 的 `HTTP_PORT=8081` 后启动成功；`.env` 未被 Git 追踪
+- `create-site` 已成功完成，测试 site 为 `frontend`
+- `bench version` 验证：ERPNext `16.26.2`，Frappe `16.25.0`
+- Frappe Desk 登录页已通过 `http://localhost:8081/login` 验证，返回 `HTTP 200`
 
 本轮未做：
 
@@ -218,4 +222,4 @@
 
 ## 下一步
 
-下一轮建议先确认 Docker Hub 网络和登录状态，再重试 M0-R3A 的镜像拉取、容器启动、site 初始化和 Desk 访问验证。
+下一轮建议交给 Codex 做 M0-R3A-PULL-RETRY 审查；审查通过后再规划 M0-R3B 或后续环境治理事项，不在本轮启动。
