@@ -23,8 +23,9 @@
 - M0-R3A Frappe / Docker 最小环境落地已完成，Docker 镜像已拉取，容器已启动，测试 site 已初始化，Frappe Desk 登录页已验证
 - M0-R3B Frappe HR / HRMS 安装前评估已完成并通过 Codex 审查
 - M0-R3C Frappe HR / HRMS 安装验证已完成，HRMS 已安装到本地 `frontend` site，基础 HR 模块可访问
+- M0-R3C-FIX HRMS 前端资源与 Roster 白屏诊断修复已完成，Frappe HR 图标、基础 HR 模块和 Roster 页面已验证可访问
 
-M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证和 Frappe HR / HRMS 安装验证；仍禁止创建海滨自定义 Frappe App、业务代码、飞书真实写入和前端驾驶舱。
+M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证和 HRMS 前端资源修复；仍禁止创建海滨自定义 Frappe App、业务代码、飞书真实写入和前端驾驶舱。
 
 ## 仓库定位
 

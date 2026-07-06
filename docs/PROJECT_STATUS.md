@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 当前阶段：M0
-- 当前轮次：M0-R3C Frappe HR / HRMS 安装验证
+- 当前轮次：M0-R3C-FIX HRMS 前端资源与 Roster 白屏诊断修复
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证，HRMS 已安装到本地 `frontend` site，基础 HR 模块可访问；当前未创建海滨自定义 App，未开发业务
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复，Frappe HR 图标、基础 HR 模块和 Roster 页面可访问；当前未创建海滨自定义 App，未开发业务
 
 ## 状态更新制度
 
@@ -305,6 +305,52 @@
 - 未提交真实密钥
 - 未 push
 
+## M0-R3C-FIX 状态
+
+状态：COMPLETED。
+
+本轮目标：
+
+- 复现并诊断 Frappe HR 图标缺失、HRMS 子模块图标缺失和 `/hr/roster` 白屏问题。
+- 修复 HRMS 前端资源 404 与 Roster 静态资源不可访问问题。
+- 验证 Frappe HR 图标、基础 HR 模块和 Roster 页面可访问。
+- 更新项目状态、当前里程碑、M0 里程碑台账和修复记录。
+
+当前结果：
+
+- 复现到 `/assets/hrms/...` JS、CSS、SVG、favicon 资源返回 `404 text/html`，Roster 页面因资源缺失呈现白屏。
+- 诊断根因为当前容器内 `sites/assets` 指向容器本地 `/home/frappe/frappe-bench/assets`，而 frontend 容器没有 backend 中 `bench get-app hrms` 得到的 app public 目录，导致 HRMS assets 软链在 frontend 中不可解析。
+- 已执行 `bench --site frontend clear-cache`、`clear-website-cache`、`bench build` 和最小必要服务刷新。
+- 已用解引用方式将 backend 构建后的真实静态资源同步到 frontend 容器实际 Nginx 资源目录。
+- 已将官方 HRMS app 同步到 scheduler、queue 和 websocket 容器，并在 bench venv 中注册，避免后台服务因 `No module named 'hrms'` 重启。
+- HTTP 验证显示 Frappe、ERPNext、HRMS 和 Roster 关键静态资源均返回 `HTTP 200`。
+- 浏览器验证显示 `/app` Frappe HR 图标不再 broken，`/app/employee`、`/app/employee-checkin`、`/app/attendance`、`/app/shift-type` 均可渲染，`/hr/roster/` 已显示 Roster 月视图。
+
+已知风险：
+
+- 当前修复是运行时容器资源同步和运行时 app 同步，适合 M0-R3C-FIX 诊断修复，不代表长期可复现部署方案已经完成。
+- 后续如重建 frontend、scheduler、queue 或 websocket 容器，仍需治理 HRMS 自定义镜像、Compose assets 持久化或部署流程。
+- 浏览器控制台仍存在 `socket.io` Invalid origin 相关提示，本轮判断为非 HRMS 资源白屏根因，留待后续环境治理。
+
+本轮未做：
+
+- 未创建 `hb_core_app`
+- 未创建 `hb_attendance_app`
+- 未创建 `hb_feishu_app`
+- 未创建任何海滨自定义 Frappe App
+- 未开发考勤业务规则
+- 未配置飞书
+- 未执行飞书真实写入
+- 未做 Vue / React 前端驾驶舱
+- 未新增 Python / JavaScript / TypeScript 业务代码
+- 未修改 Frappe / ERPNext / HRMS 核心源码
+- 未修改 `docker-compose.yml`
+- 未修改 `.env.example`
+- 未提交 `.env`
+- 未提交真实密钥
+- 未配置 remote
+- 未 push
+
 ## 下一步
 
-下一轮建议交给 Codex 做 M0-R3C 审查；审查通过后再规划 M0-R3D：HRMS 能力盘点与 M1 考勤一期边界设计，不在本轮启动。
+下一轮建议交给 Codex 做 M0-R3C-FIX 审查；审查通过后再由用户决定是否恢复 M0-R3D：HRMS 能力盘点与 M1 考勤一期边界设计，不在本轮启动。

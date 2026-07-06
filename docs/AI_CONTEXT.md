@@ -21,9 +21,9 @@
 
 当前阶段：M0 工程启动与上下文治理。
 
-当前目标：完成 M0-R3C Frappe HR / HRMS 安装验证；当前 Docker 最小环境已跑通，测试 site 为 `frontend`，Desk 可访问地址为 `http://localhost:8081/login`。
+当前目标：完成 M0-R3C-FIX HRMS 前端资源与 Roster 白屏诊断修复；当前 Docker 最小环境已跑通，测试 site 为 `frontend`，Desk 可访问地址为 `http://localhost:8081/login`。
 
-本轮已在用户授权范围内安装 HRMS 并验证基础 HR 模块可访问；仍不创建海滨自定义 Frappe App，不开发业务代码，不接飞书真实写入，不做前端驾驶舱。
+当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证；仍不创建海滨自定义 Frappe App，不开发业务代码，不接飞书真实写入，不做前端驾驶舱。
 
 ## AI 默认读取规则
 
@@ -79,4 +79,4 @@ Skill 路由规范文件为：
 
 ## 边界提醒
 
-M0-R3C 只做 Frappe HR / HRMS 安装验证。任何海滨自定义 App 生成、业务模型、飞书真实写入、前端驾驶舱、AI 视频服务实现，都属于后续轮次或后续明确授权范围。
+M0-R3C-FIX 只做 HRMS 前端资源与 Roster 白屏诊断修复。任何海滨自定义 App 生成、业务模型、飞书真实写入、前端驾驶舱、AI 视频服务实现，都属于后续轮次或后续明确授权范围。
