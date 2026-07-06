@@ -35,16 +35,16 @@
 | M0 | 工程启动与项目骨架 | COMPLETED |
 | M0-REMOTE | GitHub Private remote 收口 | COMPLETED |
 | M1 | 考勤一期 | IN_PROGRESS |
-| M1-R0 | 平台入口账号权限与本地化诊断方案 | REVIEWING |
+| M1-R0 | 平台入口账号权限与本地化诊断方案 | COMPLETED |
 | M1-R1 | HRMS 原生考勤对象模型验证 | PLANNED |
 | M2 | 飞书集成 | PLANNED |
 
 ## 下一步路线
 
-1. M1-R0 审查通过。
+1. 准备进入 M1-R1。
 2. M1-R1：HRMS 原生考勤对象模型验证。
 
-M1 已进入 M1-R0 规划审查阶段，但尚未进入业务开发。
+M1 已完成 M1-R0 规划收口，但尚未进入业务开发。M1-R1 仍为 PLANNED。
 
 ## 更新规则
 

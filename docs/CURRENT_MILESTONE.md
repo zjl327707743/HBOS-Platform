@@ -6,9 +6,9 @@
 
 ## 当前轮次
 
-M1-R0：平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案。当前状态：REVIEWING。
+M1-R0-CLOSEOUT：M1-R0 审查通过后状态收口。当前状态：COMPLETED。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 只做规划与诊断，不进入业务开发。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 仍为 PLANNED，尚未启动。
 
 权威计划文件：
 
@@ -22,11 +22,11 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-只做 M1-R0 文档方案：平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+只做 M1-R0-CLOSEOUT：将 M1-R0 从待审查收口为 COMPLETED，并同步公共入口状态。
 
 交付内容：
 
-- `docs/milestones/M1_R0_平台入口账号权限与本地化诊断方案.md`
+- `docs/milestones/M1_R0_平台入口账号权限与本地化诊断方案.md` 状态记录更新
 - 项目状态、当前里程碑和里程碑索引文件更新
 - 公共入口文件过期状态清理
 
@@ -66,18 +66,17 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查。
 - M0 已完成并封板。
 - M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。
-- M1-R0 已完成平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案，当前等待 Codex 审查。
+- M1-R0 已完成平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案，并已通过 Codex 独立审查，状态为 COMPLETED。
 - M1-R1 仍为 PLANNED。
 
 ## 验收标准
 
-- M1-R0 目标、边界、入口设计、账号体系、角色权限、飞书 SSO 可行性和中文化 / 本地化诊断已记录
-- 飞书登录目标已明确为：飞书登录为主，HBOS 内部 User 自动映射，Frappe 权限体系承接系统权限和审计
-- M1-R0 状态已同步为 REVIEWING
+- M1-R0 已通过 Codex 独立审查并收口为 COMPLETED
+- 飞书登录目标已保留为：飞书登录为主，HBOS 内部 User 自动映射，Frappe 权限体系承接系统权限和审计
 - M1 状态已同步为 IN_PROGRESS
 - M1-R1 保持 PLANNED
 - 未创建海滨自定义 App、未开发业务、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码
 
 ## 下一轮预告
 
-下一步建议交给 Codex 审查 M1-R0。审查通过后，再决定是否进入 M1-R1：HRMS 原生考勤对象模型验证。
+下一步建议交给 Codex 审查 M1-R0-CLOSEOUT。审查通过后，再进入 M1-R1：HRMS 原生考勤对象模型验证。

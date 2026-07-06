@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划阶段
-- 当前轮次：M1-R0 平台入口账号权限与本地化诊断方案
+- 当前轮次：M1-R0-CLOSEOUT 审查通过后状态收口
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1 已进入 M1-R0 规划审查阶段，当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED，当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-R0 通过 Codex 审查后，才进入 M1-R1 HRMS 原生考勤对象模型验证。
+- 下一步路线：M1-R0-CLOSEOUT 通过 Codex 审查后，才进入 M1-R1 HRMS 原生考勤对象模型验证。
 
 ## 状态更新制度
 
@@ -474,8 +474,8 @@ M0 最终边界：
 M0-FINAL 收口后的路线已执行到 M1-R0：
 
 1. M0-REMOTE：已完成。
-2. M1-R0：已完成方案文档，当前 REVIEWING。
-3. M1-R1：PLANNED，待 M1-R0 审查后再决定是否进入。
+2. M1-R0：已通过 Codex 独立审查，状态 COMPLETED。
+3. M1-R1：PLANNED，待 M1-R0-CLOSEOUT 审查后再决定是否进入。
 
 ## M0-REMOTE 状态
 
@@ -496,7 +496,7 @@ M0-FINAL 收口后的路线已执行到 M1-R0：
 - visibility：`PRIVATE`
 - 首次 push 的本地 HEAD：`0a29ca526a417d7ec666234f9312dd3de47a687b`
 - 首次 push 后本地 `main` 与 `origin/main` 一致。
-- M0-REMOTE 本轮仅完成远端创建、绑定、push 和状态记录；当时 M1 尚未启动。当前 M1-R0 已进入 REVIEWING。
+- M0-REMOTE 本轮仅完成远端创建、绑定、push 和状态记录；当时 M1 尚未启动。当前 M1-R0 已收口为 COMPLETED。
 
 本轮未做：
 
@@ -520,12 +520,13 @@ M1 当前仅进入规划与诊断阶段，不代表进入业务开发。
 
 当前轮次：
 
-- M1-R0：REVIEWING。
+- M1-R0：COMPLETED。
 - M1-R1：PLANNED。
 
 M1-R0 当前结果：
 
 - 已新增 `docs/milestones/M1_R0_平台入口账号权限与本地化诊断方案.md`。
+- 已通过 Codex 独立审查，并在 M1-R0-CLOSEOUT 中收口为 COMPLETED。
 - 已明确 HBOS 账号目标：飞书登录为主，HBOS 内部账号自动映射，Frappe 权限体系承接系统权限和审计。
 - 已规划平台入口、账号体系、角色权限、飞书 SSO 可行性和中文化 / 本地化诊断。
 - 已明确 M1-R1 前置条件。
