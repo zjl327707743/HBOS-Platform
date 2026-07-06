@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1-R1 HRMS 原生考勤对象模型验证
+- 当前轮次：M1-R1-CLOSEOUT 审查通过后状态收口
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已形成 HRMS 原生考勤对象模型验证记录，当前状态为 REVIEWING；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：先交给 Codex 审查 M1-R1；审查通过后，再决定是否进入 M1-R2 HRMS 原生考勤配置试运行方案。
+- 下一步路线：M1-R2 HRMS 原生考勤配置试运行方案；进入前先交给 Codex 审查 M1-R1-CLOSEOUT。
 
 ## 状态更新制度
 
@@ -475,8 +475,8 @@ M0-FINAL 收口后的路线已执行到 M1-R1：
 
 1. M0-REMOTE：已完成。
 2. M1-R0：已通过 Codex 独立审查，状态 COMPLETED。
-3. M1-R1：已形成 HRMS 原生考勤对象模型验证记录，状态 REVIEWING。
-4. M1-R2：PLANNED，待 M1-R1 审查后再决定是否进入。
+3. M1-R1：已通过 Codex 独立审查，状态 COMPLETED。
+4. M1-R2：PLANNED，待 M1-R1-CLOSEOUT 审查后再进入。
 
 ## M0-REMOTE 状态
 
@@ -522,7 +522,7 @@ M1 当前仅进入规划与诊断阶段，不代表进入业务开发。
 当前轮次：
 
 - M1-R0：COMPLETED。
-- M1-R1：REVIEWING。
+- M1-R1：COMPLETED。
 - M1-R2：PLANNED。
 
 M1-R0 当前结果：
@@ -551,6 +551,7 @@ M1-R0 未做：
 M1-R1 当前结果：
 
 - 已新增 `docs/milestones/M1_R1_HRMS原生考勤对象模型验证记录.md`。
+- M1-R1 已通过 Codex 独立审查，并在 M1-R1-CLOSEOUT 中从待审查状态收口为 COMPLETED。
 - 已通过只读命令确认当前运行态环境：Frappe `16.25.0`、ERPNext `16.26.2`、HRMS `16.12.0 version-16 (666bf10)`，site 为 `frontend`，Desk 登录页 `http://localhost:8081/login` 返回 `HTTP 200`。
 - 已通过只读元数据查询确认 User、Employee、Department、Company、Holiday List、Shift Type、Shift Assignment、Employee Checkin、Attendance、Attendance Request、Leave Application、Leave Type 等 DocType 存在。
 - 已确认 Shift Type 原生具备自动考勤、IN / OUT 判断、工时计算、迟到早退宽限、打卡时间窗等字段。

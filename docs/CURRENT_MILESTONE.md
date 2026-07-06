@@ -6,9 +6,9 @@
 
 ## 当前轮次
 
-M1-R1：HRMS 原生考勤对象模型验证。当前状态：REVIEWING。
+M1-R1-CLOSEOUT：M1-R1 审查通过后状态收口。当前状态：COMPLETED。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已形成 HRMS 原生考勤对象模型验证记录，等待 Codex 审查。M1-R2 仍为 PLANNED，尚未启动。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 仍为 PLANNED，尚未启动。
 
 权威计划文件：
 
@@ -22,7 +22,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-只做 M1-R1：只读验证 HRMS 原生考勤对象模型，判断原生 Employee、Shift Type、Shift Assignment、Employee Checkin、Attendance、Attendance Request、Leave Application、Leave Type、Auto Attendance、HR Workspace 等能力能否支撑新乡海滨考勤一期。
+只做 M1-R1-CLOSEOUT：将 M1-R1 从待审查状态收口为 COMPLETED，并同步公共入口状态。
 
 交付内容：
 
@@ -67,12 +67,12 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M0 已完成并封板。
 - M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。
 - M1-R0 已完成平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案，并已通过 Codex 独立审查，状态为 COMPLETED。
-- M1-R1 已形成 HRMS 原生考勤对象模型验证记录，状态为 REVIEWING。
+- M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。
 - M1-R2 仍为 PLANNED。
 
 ## 验收标准
 
-- M1-R1 已形成只读 HRMS 原生考勤对象模型验证记录，状态为 REVIEWING
+- M1-R1 已通过 Codex 独立审查并收口为 COMPLETED
 - M1-R0 飞书登录目标已保留为：飞书登录为主，HBOS 内部 User 自动映射，Frappe 权限体系承接系统权限和审计
 - M1 状态已同步为 IN_PROGRESS
 - M1-R2 保持 PLANNED
@@ -80,4 +80,4 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 下一轮预告
 
-下一步建议交给 Codex 审查 M1-R1。审查通过后，再决定是否进入 M1-R2：HRMS 原生考勤配置试运行方案。
+下一步为 M1-R2：HRMS 原生考勤配置试运行方案；进入前先交给 Codex 审查 M1-R1-CLOSEOUT。

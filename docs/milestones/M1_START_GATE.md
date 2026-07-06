@@ -4,7 +4,7 @@
 
 ## 文件定位
 
-本文件记录 M1 启动前必须满足的门禁条件。M1-R0 已按本门禁完成规划收口，M1-R1 已按门禁只读验证 HRMS 原生考勤对象模型并进入 REVIEWING，但尚未进入业务开发。
+本文件记录 M1 启动前必须满足的门禁条件。M1-R0 已按本门禁完成规划收口，M1-R1 已按门禁只读验证 HRMS 原生考勤对象模型，并已通过 Codex 独立审查收口为 COMPLETED，但尚未进入业务开发。
 
 ## 必须满足的前置条件
 
@@ -34,7 +34,7 @@ M1-R0 不做：
 - 不实现 Vue / React 驾驶舱。
 - 不修改 Frappe / ERPNext / HRMS 核心源码。
 
-M1-R1 才验证 HRMS 原生考勤对象模型。M1-R1 当前状态：REVIEWING，验证记录见 `docs/milestones/M1_R1_HRMS原生考勤对象模型验证记录.md`。
+M1-R1 才验证 HRMS 原生考勤对象模型。M1-R1 当前状态：COMPLETED，已通过 Codex 独立审查，验证记录见 `docs/milestones/M1_R1_HRMS原生考勤对象模型验证记录.md`。
 
 M1-R2 当前状态：PLANNED。M1-R2 建议只做 HRMS 原生考勤配置试运行方案，不创建 App，不接真实考勤机，不接真实飞书，不录入生产数据。
 
@@ -88,4 +88,4 @@ M1 初期不创建 `hb_attendance_app`。
 2. M1-R1：HRMS 原生考勤对象模型验证。
 3. M1-R2：HRMS 原生考勤配置试运行方案。
 
-M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已形成验证记录，等待 Codex 审查。M1-R2 仍为 PLANNED，需 M1-R1 审查通过后再决定是否进入。
+M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 仍为 PLANNED，需 M1-R1-CLOSEOUT 审查通过后再进入。
