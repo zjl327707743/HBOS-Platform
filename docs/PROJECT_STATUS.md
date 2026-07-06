@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 当前阶段：M0
-- 当前轮次：M0-R3A Frappe / Docker 最小环境落地
+- 当前轮次：M0-R3B Frappe HR / HRMS 安装前评估
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；Docker 镜像已拉取，容器已启动，测试 site 已初始化，Frappe Desk 登录页已验证
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估，等待 Codex 审查；当前未安装 HRMS，未创建自定义 App，未开发业务
 
 ## 状态更新制度
 
@@ -220,6 +220,40 @@
 - 未配置 remote
 - 未提交真实密钥
 
+## M0-R3B 状态
+
+状态：REVIEWING。
+
+本轮目标：
+
+- 评估 Frappe HR / HRMS 官方信息、v16 分支 / tag 与当前环境的兼容性
+- 比较现有容器 / bench 内安装与自定义镜像 / 扩展 Compose 流程两种候选方案
+- 给出 M0-R3C 推荐安装方式、边界、风险和回滚建议
+- 更新项目状态、当前里程碑和 M0 里程碑台账
+
+当前结论：
+
+- 当前环境为 ERPNext `16.26.2`、Frappe `16.25.0`，site 为 `frontend`，Desk 地址为 `http://localhost:8081/login`
+- 当前仅安装 `frappe` 和 `erpnext`，未安装 HRMS
+- 官方 `frappe/hrms` 存在 `version-16` 分支和 v16 tag；`version-16` 依赖声明要求 Frappe / ERPNext `>=16.0.0,<17.0.0`
+- 从主版本范围看，HRMS `version-16` 与当前 Frappe / ERPNext v16 环境方向一致；具体 tag / branch 仍需 M0-R3C 实际安装验证
+- 推荐 M0-R3C 在备份和可回滚前提下安装 HRMS，并只验证 HRMS App 和基础 HR 模块可访问
+
+本轮未做：
+
+- 未安装 Frappe HR / HRMS
+- 未创建 `hb_core_app`
+- 未创建 `hb_attendance_app`
+- 未创建 `hb_feishu_app`
+- 未安装自定义 Frappe App
+- 未开发考勤业务
+- 未执行飞书真实写入
+- 未开发前端驾驶舱
+- 未写 Python/JavaScript/TypeScript 业务代码
+- 未修改 `docker-compose.yml`、`.env.example`、`.gitignore`
+- 未提交真实密钥
+- 未 push
+
 ## 下一步
 
-下一轮建议交给 Codex 做 M0-R3A-PULL-RETRY 审查；审查通过后再规划 M0-R3B 或后续环境治理事项，不在本轮启动。
+下一轮建议交给 Codex 做 M0-R3B 审查；审查通过后再决定是否进入 M0-R3C：Frappe HR / HRMS 安装验证，不在本轮启动。
