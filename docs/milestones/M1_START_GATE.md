@@ -9,7 +9,7 @@
 ## 必须满足的前置条件
 
 - M0 状态必须为 COMPLETED。
-- M0-REMOTE 必须完成：创建 GitHub Private remote、添加 `origin`、首次 push `main`。
+- M0-REMOTE 必须完成：创建 GitHub Private remote、添加 `origin`、首次 push `main`。（已完成，见 `docs/milestones/M0_REMOTE.md`。）
 - `git status` 必须 clean。
 - 不允许提交 `.env`、备份文件、密钥、数据库、Docker volume 或运行时数据。
 - 当前 Frappe / ERPNext / HRMS 环境应保持可访问；如 HRMS 丢失，必须先恢复环境，再讨论 M1。
@@ -80,8 +80,7 @@ M1 初期不创建 `hb_attendance_app`。
 
 ## 启动顺序
 
-1. M0-REMOTE：创建 GitHub Private remote、添加 `origin`、首次 push `main`。
-2. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
-3. M1-R1：HRMS 原生考勤对象模型验证。
+1. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+2. M1-R1：HRMS 原生考勤对象模型验证。
 
-未完成 M0-REMOTE 前，不启动 M1-R0。
+M0-REMOTE 已完成，但 M1-R0 仍需用户明确启动。

@@ -21,11 +21,11 @@
 
 当前阶段：M0 工程启动与上下文治理已完成并封板；M1 尚未启动。
 
-当前目标：等待用户执行或授权 M0-REMOTE；当前 Docker 最小环境已跑通，测试 site 为 `frontend`，Desk 可访问地址为 `http://localhost:8081/login`。
+当前目标：等待用户确认是否进入 M1-R0；当前 Docker 最小环境已跑通，测试 site 为 `frontend`，Desk 可访问地址为 `http://localhost:8081/login`。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
-当前仍不进入 M1，不创建海滨自定义 Frappe App，不开发业务代码，不录入真实业务数据，不接飞书真实写入，不做前端驾驶舱，不创建 remote，不 push，除非用户明确授权对应轮次。
+M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。当前仍不进入 M1，不创建海滨自定义 Frappe App，不开发业务代码，不录入真实业务数据，不接飞书真实写入，不做前端驾驶舱，除非用户明确授权对应轮次。
 
 ## AI 默认读取规则
 
@@ -83,9 +83,8 @@ Skill 路由规范文件为：
 
 后续路线只记录，不代表已启动：
 
-1. M0-REMOTE：创建 GitHub Private remote、添加 `origin`、首次 push `main`。
-2. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
-3. M1-R1：HRMS 原生考勤对象模型验证。
+1. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+2. M1-R1：HRMS 原生考勤对象模型验证。
 
 ## 边界提醒
 

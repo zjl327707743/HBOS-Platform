@@ -27,8 +27,9 @@
 - M0-R3D HRMS 能力盘点与 M1 考勤一期边界设计已完成
 - M0-R3E HRMS 环境可复现性收口已完成，并已通过 Codex 审查
 - M0 整体已完成并封板
+- M0-REMOTE GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push 已完成
 
-M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计和 HRMS 环境可复现性收口；M1 尚未启动，下一步先做 M0-REMOTE：创建 GitHub Private remote、添加 `origin` 并首次 push `main`。M0-REMOTE 完成后，才可按 `docs/milestones/M1_START_GATE.md` 进入 M1-R0 启动决策。
+M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计、HRMS 环境可复现性收口和 GitHub Private remote 首次同步；M1 尚未启动，下一步可按 `docs/milestones/M1_START_GATE.md` 进入 M1-R0 启动决策。
 
 ## 仓库定位
 
@@ -84,9 +85,8 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 
 后续路线只记录，不代表已启动：
 
-1. M0-REMOTE：创建 GitHub Private remote、添加 `origin`、首次 push `main`。
-2. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
-3. M1-R1：HRMS 原生考勤对象模型验证。
+1. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+2. M1-R1：HRMS 原生考勤对象模型验证。
 
 ## AI 协作方式
 

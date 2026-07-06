@@ -6,6 +6,7 @@
 
 - `docs/milestones/README.md`：全项目里程碑索引和状态总览。
 - `docs/milestones/M0.md`：M0 工程启动与项目骨架的规划、轮次和状态。
+- `docs/milestones/M0_REMOTE.md`：M0 后 GitHub Private remote 创建、绑定和首次 push 记录。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -31,16 +32,16 @@
 | 里程碑 | 名称 | 状态 |
 | --- | --- | --- |
 | M0 | 工程启动与项目骨架 | COMPLETED |
+| M0-REMOTE | GitHub Private remote 收口 | COMPLETED |
 | M1 | 考勤一期 | PLANNED |
 | M2 | 飞书集成 | PLANNED |
 
 ## 下一步路线
 
-1. M0-REMOTE：创建 GitHub Private remote、添加 `origin`、首次 push `main`。
-2. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
-3. M1-R1：HRMS 原生考勤对象模型验证。
+1. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+2. M1-R1：HRMS 原生考勤对象模型验证。
 
-M1 尚未启动，必须先满足 `docs/milestones/M1_START_GATE.md`。
+M1 尚未启动。M0-REMOTE 已满足 `docs/milestones/M1_START_GATE.md` 中的远端前置条件。
 
 ## 更新规则
 
