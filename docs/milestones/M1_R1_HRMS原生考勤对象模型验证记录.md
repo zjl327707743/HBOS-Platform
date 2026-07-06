@@ -239,11 +239,11 @@ Attendance
 | 员工自助查看差距 | Employee 可读部分考勤对象，但员工端入口体验和可见范围需确认 | 短期用 Frappe Desk / Workspace，后续再考虑员工侧入口优化 |
 | 中文化 / 本地化体验差距 | HRMS 原生中文覆盖、Workspace、Report、按钮和字段文案可能不完整 | 继续诊断，不改核心源码；优先 Custom Translation / 配置 / 后续自定义 App 承载 |
 
-## M1-R2 建议
+## M1-R2 承接
 
-建议下一轮为：`M1-R2：HRMS 原生考勤配置试运行方案`。
+M1-R2 已形成 `HRMS 原生考勤配置试运行方案`，当前状态为 REVIEWING。
 
-M1-R2 建议仍然遵守：
+M1-R2 仍然遵守：
 
 - 不创建 App。
 - 不创建 `hb_attendance_app`。

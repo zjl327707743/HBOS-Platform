@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1-R1-CLOSEOUT 审查通过后状态收口
+- 当前轮次：M1-R2 HRMS 原生考勤配置试运行方案
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已形成 HRMS 原生考勤配置试运行方案，状态为 REVIEWING；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-R2 HRMS 原生考勤配置试运行方案；进入前先交给 Codex 审查 M1-R1-CLOSEOUT。
+- 下一步路线：先交给 Codex 审查 M1-R2；审查通过后，再决定是否进入 M1-R3 HRMS 原生考勤最小测试数据试运行。
 
 ## 状态更新制度
 
@@ -471,12 +471,13 @@ M0 最终边界：
 
 ## M0 后续路线记录
 
-M0-FINAL 收口后的路线已执行到 M1-R1：
+M0-FINAL 收口后的路线已执行到 M1-R2：
 
 1. M0-REMOTE：已完成。
 2. M1-R0：已通过 Codex 独立审查，状态 COMPLETED。
 3. M1-R1：已通过 Codex 独立审查，状态 COMPLETED。
-4. M1-R2：PLANNED，待 M1-R1-CLOSEOUT 审查后再进入。
+4. M1-R2：已形成 HRMS 原生考勤配置试运行方案，状态 REVIEWING。
+5. M1-R3：PLANNED，待 M1-R2 审查后再决定是否进入。
 
 ## M0-REMOTE 状态
 
@@ -523,7 +524,8 @@ M1 当前仅进入规划与诊断阶段，不代表进入业务开发。
 
 - M1-R0：COMPLETED。
 - M1-R1：COMPLETED。
-- M1-R2：PLANNED。
+- M1-R2：REVIEWING。
+- M1-R3：PLANNED。
 
 M1-R0 当前结果：
 
@@ -574,6 +576,35 @@ M1-R1 未做：
 - 未修改中文翻译源码。
 - 未录入真实员工、真实考勤或真实生产数据。
 - 未创建测试员工、测试打卡或测试考勤结果。
+- 未执行 `docker compose down -v`。
+- 未删除 volume。
+- 未重建 `frontend` site。
+- 未提交 `.env`、备份、密钥、数据库、日志、缓存或运行时产物。
+
+M1-R2 当前结果：
+
+- 已新增 `docs/milestones/M1_R2_HRMS原生考勤配置试运行方案.md`。
+- 已承接 M1-R1 结论：HRMS 原生能力是 M1 初期主路线，当前不建议创建 `hb_attendance_app`。
+- 已设计最小测试组织、最小班次、最小打卡场景、HRMS 配置步骤草案、打卡数据导入字段草案、验收用例、成功标准、风险与待确认事项。
+- 已明确 M1-R2 只是方案设计，不执行配置试运行，不创建测试数据，不生成可直接导入的 CSV / Excel 测试数据文件。
+- 已建议下一轮为 M1-R3：HRMS 原生考勤最小测试数据试运行。
+
+M1-R2 未做：
+
+- 未执行配置试运行。
+- 未创建测试 Employee / Shift Type / Employee Checkin / Attendance / Leave Application。
+- 未创建可直接导入的 CSV / Excel / JSON 测试数据文件。
+- 未创建自定义 Frappe App。
+- 未创建 `hb_attendance_app`。
+- 未新增业务 DocType。
+- 未开发考勤业务。
+- 未接真实考勤机。
+- 未接真实飞书。
+- 未写入飞书。
+- 未实现 SSO。
+- 未修改 Frappe / ERPNext / HRMS 核心源码。
+- 未修改中文翻译源码。
+- 未录入真实员工、真实打卡、真实考勤或真实生产数据。
 - 未执行 `docker compose down -v`。
 - 未删除 volume。
 - 未重建 `frontend` site。
