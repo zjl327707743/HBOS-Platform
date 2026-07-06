@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 当前阶段：M0
-- 当前轮次：M0-R3D HRMS 能力盘点与 M1 考勤一期边界设计
+- 当前轮次：M0-R3E HRMS 环境可复现性收口
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计，当前等待 Codex 审查；当前未创建海滨自定义 App，未开发业务，M1 / M2 未启动
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口，当前等待 Codex 审查；当前未创建海滨自定义 App，未开发业务，M1 / M2 未启动
 
 ## 状态更新制度
 
@@ -353,7 +353,7 @@
 
 ## M0-R3D 状态
 
-状态：REVIEWING。
+状态：COMPLETED。
 
 本轮目标：
 
@@ -395,6 +395,51 @@
 - 未配置 remote
 - 未 push
 
+## M0-R3E 状态
+
+状态：REVIEWING。
+
+本轮目标：
+
+- 只读确认当前 Frappe / ERPNext / HRMS 容器环境、版本、apps 清单和 Desk 可访问性。
+- 识别当前 HRMS 运行态安装带来的可复现性风险。
+- 比较运行态文档化恢复、安装脚本 / 运维手册、自定义镜像三种可复现策略。
+- 设计 M1 环境保护规则和 HRMS 恢复手册草案。
+- 明确本轮不修改 `docker-compose.yml`、`.env.example`、`.gitignore`，不重建容器，不删除 volume，不重新安装 HRMS。
+
+当前结果：
+
+- 当前容器均处于运行状态，`db` healthy。
+- Desk 地址 `http://localhost:8081/login` 返回 `HTTP 200 text/html; charset=utf-8`。
+- `bench version` 显示 ERPNext `16.26.2`、Frappe `16.25.0`、HRMS `16.12.0 version-16 (666bf10)`。
+- `bench --site frontend list-apps` 显示 `frappe`、`erpnext`、`hrms`。
+- 已确认 HRMS 仍属于运行态安装成果，仓库当前没有固化包含 HRMS 的自定义镜像。
+- 已新增 `docs/deployment/M0-R3E_HRMS环境可复现性收口.md`，记录风险、策略、M1 环境保护规则和恢复手册草案。
+- 当前推荐 M1-R1 至 M1-R5 期间优先保护当前已跑通环境，不急于重构镜像；如未来多人开发、服务器部署、长期交付或 CI/CD，再单独启动环境可复现阶段。
+
+本轮未做：
+
+- 未执行 `docker compose down -v`
+- 未删除 Docker volume
+- 未重建 site
+- 未重新安装 HRMS
+- 未修改 `docker-compose.yml`
+- 未修改 `.env.example`
+- 未修改 `.gitignore`
+- 未创建 `hb_core_app`
+- 未创建 `hb_attendance_app`
+- 未创建 `hb_feishu_app`
+- 未创建任何海滨自定义 Frappe App
+- 未新增 Python / JavaScript / TypeScript 业务代码
+- 未修改 Frappe / ERPNext / HRMS 核心源码
+- 未录入真实员工数据
+- 未配置真实班次或真实考勤规则
+- 未接飞书真实写入
+- 未做 Vue / React 前端驾驶舱
+- 未提交 `.env`、备份文件或真实密钥
+- 未配置 remote
+- 未 push
+
 ## 下一步
 
-下一轮建议交给 Codex 做 M0-R3D 审查。审查通过后，由用户决定进入 M1 启动前决策，或先做 M0-R3E 环境可复现性收口；本轮不启动 M1 / M2。
+下一轮建议交给 Codex 做 M0-R3E 审查。审查通过后，由用户决定做 M0 最终收口，或确认是否进入 M1-R1 启动决策；本轮不启动 M1 / M2。
