@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 当前阶段：M0
-- 当前轮次：M0-R3C-FIX HRMS 前端资源与 Roster 白屏诊断修复
+- 当前轮次：M0-R3D HRMS 能力盘点与 M1 考勤一期边界设计
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复，Frappe HR 图标、基础 HR 模块和 Roster 页面可访问；当前未创建海滨自定义 App，未开发业务
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计，当前等待 Codex 审查；当前未创建海滨自定义 App，未开发业务，M1 / M2 未启动
 
 ## 状态更新制度
 
@@ -351,6 +351,50 @@
 - 未配置 remote
 - 未 push
 
+## M0-R3D 状态
+
+状态：REVIEWING。
+
+本轮目标：
+
+- 只读盘点 HRMS 原生考勤能力。
+- 结合新乡海滨考勤一期需求，设计 M1 最小边界。
+- 设计 M1 分轮计划、自定义 App 决策建议、飞书边界和 M1 启动前待确认清单。
+- 更新项目状态、当前里程碑和 M0 里程碑台账。
+- 创建一次 Git 提交。
+
+当前结果：
+
+- 已确认当前环境为 Frappe `16.25.0`、ERPNext `16.26.2`、HRMS `16.12.0 version-16 (666bf10)`，site 为 `frontend`，Desk `http://localhost:8081/login` 返回 `HTTP 200`。
+- 已确认本地核心容器均为 Up，`db` healthy。
+- 已确认当前未创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`。
+- 已确认当前未录入真实员工、打卡、班次、考勤、请假、假日等业务数据；`Employee`、`Attendance`、`Employee Checkin`、`Shift Type`、`Shift Assignment`、`Shift Schedule`、`Leave Application`、`Holiday List` 均为 0 条。
+- 已盘点 HRMS 原生能力：Employee、Attendance、Employee Checkin、Auto Attendance、Shift Type、Shift Assignment、Shift Schedule、Leave Application、Holiday List、Department / Branch / Company、Employee Attendance Tool、Attendance 报表、Biometric / 外部考勤设备集成思路、Payroll 边界。
+- 已形成 M1 一期推荐边界：优先用测试数据验证 HRMS 原生对象，覆盖测试员工、早 / 中 / 夜班、Employee Checkin 导入、Auto Attendance、迟到早退、请假联动和最小报表。
+- 已明确 M1 初期不建议立即创建 `hb_attendance_app`；只有 HRMS 原生对象无法表达海滨特有规则或验收报表必须定制时，才进入自定义 App 决策。
+- 已明确 M1 一期不做飞书真实写入；飞书请假 / 加班同步应另开飞书集成阶段，并需用户明确授权。
+
+本轮未做：
+
+- 未创建 `hb_core_app`
+- 未创建 `hb_attendance_app`
+- 未创建 `hb_feishu_app`
+- 未创建任何自定义 Frappe App
+- 未新增 Python / JavaScript / TypeScript 业务代码
+- 未修改 Frappe / ERPNext / HRMS 核心源码
+- 未录入真实员工数据
+- 未配置真实班次
+- 未配置真实考勤规则
+- 未配置真实请假 / 审批流
+- 未接飞书真实写入
+- 未做 Vue / React 前端驾驶舱
+- 未修改 `docker-compose.yml`
+- 未修改 `.env.example`
+- 未提交 `.env`
+- 未提交真实密钥
+- 未配置 remote
+- 未 push
+
 ## 下一步
 
-下一轮建议交给 Codex 做 M0-R3C-FIX 审查；审查通过后再由用户决定是否恢复 M0-R3D：HRMS 能力盘点与 M1 考勤一期边界设计，不在本轮启动。
+下一轮建议交给 Codex 做 M0-R3D 审查。审查通过后，由用户决定进入 M1 启动前决策，或先做 M0-R3E 环境可复现性收口；本轮不启动 M1 / M2。

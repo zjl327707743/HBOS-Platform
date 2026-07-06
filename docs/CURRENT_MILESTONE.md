@@ -6,7 +6,7 @@
 
 ## 当前轮次
 
-M0-R3C-FIX：HRMS 前端资源与 Roster 白屏诊断修复。当前状态：COMPLETED。
+M0-R3D：HRMS 能力盘点与 M1 考勤一期边界设计。当前状态：REVIEWING。
 
 权威计划文件：
 
@@ -20,12 +20,11 @@ M0-R3C-FIX：HRMS 前端资源与 Roster 白屏诊断修复。当前状态：COM
 
 ## 本轮范围
 
-在当前 Frappe / ERPNext v16 Docker 最小环境中诊断并修复 HRMS 前端资源 404、Frappe HR 图标缺失、HRMS 模块图标缺失和 `/hr/roster` 白屏问题，并记录复现证据、修复命令、验证结果、风险与回滚方式。
+在当前 Frappe / ERPNext v16 Docker 最小环境和已安装 HRMS 基础上，只读盘点 HRMS 原生考勤能力，结合新乡海滨考勤一期需求设计 M1 最小边界、分轮计划、自定义 App 决策建议、飞书边界和 M1 启动前待确认清单。
 
 交付内容：
 
-- `docs/deployment/M0-R3C_FIX_HRMS前端资源与Roster白屏修复记录.md`
-- `docs/deployment/M0-R3C_Frappe_HR安装验证记录.md`
+- `docs/design/M0-R3D_HRMS能力盘点与M1考勤边界设计.md`
 - 项目状态、当前里程碑和 M0 里程碑文件更新
 
 ## 本轮禁止事项
@@ -53,15 +52,16 @@ M0-R3C-FIX：HRMS 前端资源与 Roster 白屏诊断修复。当前状态：COM
 - M0-R3B 已完成评估并通过 Codex 审查。
 - M0-R3C 已完成：HRMS 已安装到 `frontend` site，`hrms 16.12.0 version-16` 已验证，Desk 与基础 HR 模块可访问。
 - M0-R3C-FIX 已完成：HRMS 资源 404、Frappe HR 图标缺失和 Roster 白屏已修复，`/hr/roster/` 已验证渲染 Roster 月视图。
+- M0-R3D 已完成能力盘点与 M1 考勤一期边界设计，当前等待 Codex 审查。
 
 ## 验收标准
 
-- HRMS 前端资源 404 复现证据已记录
-- HRMS 资源根因、修复命令和验证结果已记录
-- Frappe HR 图标、基础 HR 模块和 Roster 页面已通过浏览器验证
-- `docs/PROJECT_STATUS.md` 和 `docs/milestones/M0.md` 同步 M0-R3C-FIX 状态
-- 未创建海滨自定义 App、未开发业务、未接飞书真实写入、未做前端驾驶舱
+- HRMS 原生能力、当前本地 DocType / 字段 / 记录数事实已记录
+- M1 考勤一期推荐边界和明确不做事项已记录
+- M1 分轮建议、自定义 App 决策建议、飞书边界和待确认清单已记录
+- `docs/PROJECT_STATUS.md` 和 `docs/milestones/M0.md` 同步 M0-R3D 状态
+- M1 / M2 未提前启动，未创建海滨自定义 App、未开发业务、未接飞书真实写入、未做前端驾驶舱
 
 ## 下一轮预告
 
-下一步交给 Codex 做 M0-R3C-FIX 审查。审查通过后再由用户决定是否恢复 M0-R3D：HRMS 能力盘点与 M1 考勤一期边界设计，本轮不启动下一轮。
+下一步交给 Codex 做 M0-R3D 审查。审查通过后，由用户决定进入 M1 启动前决策，或先做 M0-R3E 环境可复现性收口；本轮不启动 M1。
