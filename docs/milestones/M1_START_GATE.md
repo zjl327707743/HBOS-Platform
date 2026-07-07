@@ -42,7 +42,9 @@ M1-R3 当前状态：BLOCKED。M1-R3 已使用 `TEST-HBOS-M1R3-` 前缀尝试虚
 
 M1-R3A 当前状态：COMPLETED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查，记录见 `docs/milestones/M1_R3A_运行态阻断诊断与TEST数据隔离清理方案.md`。本轮未继续创建测试数据，未执行配置试运行，未清理数据。
 
-M1-R3B 当前状态：PLANNED。M1-R3B 可在用户授权后执行运行态阻断修复或 TEST 数据隔离 / 清理，仍不得创建自定义 App、不得开发考勤业务、不得接真实考勤机或真实飞书。
+M1-R3B 当前状态：REVIEWING。M1-R3B 已完成运行态最小修复方案，记录见 `docs/milestones/M1_R3B_运行态最小修复方案.md`。本轮只写方案，未执行修复，未清理 TEST 数据，未继续试运行。
+
+M1-R3C 当前状态：PLANNED。M1-R3C 仅可在运行态最小修复完成、TEST 数据隔离边界明确且用户授权后，重新执行 HRMS 原生考勤虚构 TEST 数据试运行；仍不得接真实考勤机、真实飞书或 SSO。
 
 M1-R4 当前状态：PLANNED，尚未启动。
 
@@ -97,7 +99,8 @@ M1 初期不创建 `hb_attendance_app`。
 3. M1-R2：HRMS 原生考勤配置试运行方案。
 4. M1-R3：HRMS 原生考勤最小测试数据试运行。
 5. M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。
-6. M1-R3B：运行态阻断修复或 TEST 数据隔离 / 清理执行，需用户授权。
-7. M1-R4：后续考勤配置 / 报表或异常口径验证，当前仅为 PLANNED。
+6. M1-R3B：运行态最小修复方案。
+7. M1-R3C：HRMS 原生考勤重新试运行，当前仅为 PLANNED。
+8. M1-R4：后续考勤配置 / 报表或异常口径验证，当前仅为 PLANNED。
 
-M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 为 PLANNED。M1-R4 仍为 PLANNED，尚未启动。
+M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 为 REVIEWING。M1-R3C 为 PLANNED。M1-R4 仍为 PLANNED，尚未启动。
