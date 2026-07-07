@@ -11,6 +11,7 @@
 - `docs/milestones/M1_R1_HRMS原生考勤对象模型验证记录.md`：M1-R1 HRMS 原生考勤对象模型验证记录。
 - `docs/milestones/M1_R2_HRMS原生考勤配置试运行方案.md`：M1-R2 HRMS 原生考勤配置试运行方案。
 - `docs/milestones/M1_R3_HRMS原生考勤最小测试数据试运行记录.md`：M1-R3 HRMS 原生考勤最小测试数据试运行记录。
+- `docs/milestones/M1_R3A_运行态阻断诊断与TEST数据隔离清理方案.md`：M1-R3A 运行态阻断诊断与 TEST 数据隔离 / 清理方案。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -42,16 +43,18 @@
 | M1-R1 | HRMS 原生考勤对象模型验证 | COMPLETED |
 | M1-R2 | HRMS 原生考勤配置试运行方案 | COMPLETED |
 | M1-R3 | HRMS 原生考勤最小测试数据试运行 | BLOCKED |
-| M1-R3A | 运行态阻断诊断与 TEST 数据隔离 / 清理方案 | PLANNED |
+| M1-R3A | 运行态阻断诊断与 TEST 数据隔离 / 清理方案 | REVIEWING |
+| M1-R3B | 运行态阻断修复或 TEST 数据隔离 / 清理执行 | PLANNED |
 | M1-R4 | 后续考勤配置 / 报表或异常口径验证 | PLANNED |
 | M2 | 飞书集成 | PLANNED |
 
 ## 下一步路线
 
-1. M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。
-2. M1-R4 保持 PLANNED，尚未启动。
+1. 等待 M1-R3A 审查。
+2. 审查通过后，由用户决定是否授权进入 M1-R3B：运行态阻断修复或 TEST 数据隔离 / 清理执行。
+3. M1-R4 保持 PLANNED，尚未启动。
 
-M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED：仅部分 TEST 基础数据落库，Company / User / Employee 创建被运行态阻断，14 个打卡场景未完成验证。M1 尚未进入业务开发，M1-R3A 为 PLANNED，M1-R4 仍为 PLANNED。
+M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED：部分 TEST 数据已落库，14 个打卡场景未完成 Attendance 闭环验证。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，状态为 REVIEWING。M1 尚未进入业务开发，M1-R3B 为 PLANNED，M1-R4 仍为 PLANNED。
 
 ## 更新规则
 

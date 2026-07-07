@@ -6,9 +6,9 @@
 
 ## 当前轮次
 
-M1-R3-BLOCKED-CLOSEOUT：M1-R3 审查通过后阻断状态收口。当前状态：COMPLETED。
+M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。当前状态：REVIEWING。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 为 PLANNED。M1-R4 为 PLANNED，尚未启动。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 为 REVIEWING。M1-R3B 为 PLANNED。M1-R4 为 PLANNED，尚未启动。
 
 权威计划文件：
 
@@ -22,21 +22,22 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-只做 M1-R3-BLOCKED-CLOSEOUT：将 M1-R3 从 REVIEWING 收口为 BLOCKED，并同步公共入口状态。
+只做 M1-R3A：诊断 M1-R3 的运行态阻断原因，并形成 TEST 数据隔离 / 清理方案。
 
 交付内容：
 
-- `docs/milestones/M1_R3_HRMS原生考勤最小测试数据试运行记录.md`
+- `docs/milestones/M1_R3A_运行态阻断诊断与TEST数据隔离清理方案.md`
 - 项目状态、当前里程碑和里程碑索引文件更新
 - 公共入口文件过期状态清理
 
 本轮实际结果：
 
-- Codex 审查 PASS。
-- M1-R3 未标记为 COMPLETED，最终状态为 BLOCKED。
-- 已确认本轮未越界、未提交敏感文件。
-- 保留事实：已创建少量 `TEST-HBOS-M1R3-*` 数据；Company / User / Employee 创建被运行态阻断；14 个打卡场景未完成验证。
-- M1-R3A 设为 PLANNED，M1-R4 未启动。
+- 已执行只读运行态诊断，未继续试运行，未清理数据。
+- 已确认 `redis-cache` 与 `redis-queue` 退出，queue worker 和 websocket 反复重启。
+- 已确认 `bench doctor` 因 Redis Queue 连接失败无法完成，`list-apps` 和 `/login` 检查存在长时间无返回症状。
+- 已确认 TEST 数据范围：Company 0、Department 2、User 0、Employee 8、Holiday List 1、Shift Type 4、Shift Assignment 6、Employee Checkin 12、Leave Type 1、Leave Application 0、Attendance 0。
+- 已形成 TEST 数据清理顺序建议，并明确清理需用户授权。
+- M1-R3A 设为 REVIEWING，M1-R3B 设为 PLANNED，M1-R4 未启动。
 
 ## 本轮禁止事项
 
@@ -78,19 +79,21 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。
 - M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。
 - M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态为 BLOCKED。
-- M1-R3A 为 PLANNED。
+- M1-R3A 为 REVIEWING。
+- M1-R3B 为 PLANNED。
 - M1-R4 为 PLANNED，尚未启动。
 
 ## 验收标准
 
 - M1-R2 已通过 Codex 独立审查并收口为 COMPLETED
 - M1-R3 已通过 Codex 审查并收口为 BLOCKED，不得标记为 COMPLETED
+- M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，状态为 REVIEWING
 - M1-R0 飞书登录目标已保留为：飞书登录为主，HBOS 内部 User 自动映射，Frappe 权限体系承接系统权限和审计
 - M1 状态已同步为 IN_PROGRESS
-- M1-R3A 保持 PLANNED
+- M1-R3B 保持 PLANNED
 - M1-R4 保持 PLANNED
 - 本轮未继续创建测试数据，未清理测试数据，未创建海滨自定义 App、未开发考勤业务、未接真实考勤机、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码、未录入真实业务数据
 
 ## 下一轮预告
 
-下一步建议进入 M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。M1-R4 仍为 PLANNED，尚未启动。
+下一步建议先交给 Codex 审查 M1-R3A。审查通过后，再由用户决定是否授权进入 M1-R3B：运行态阻断修复或 TEST 数据隔离 / 清理执行。M1-R4 仍为 PLANNED，尚未启动。

@@ -26,8 +26,8 @@
 
 - 未完成 TEST Company 创建。
 - 未完成 TEST User 创建。
-- 未完成 TEST Employee 创建。
-- 未完成 Shift Type / Shift Assignment / Employee Checkin / Leave Application / Attendance 闭环。
+- 未完成 TEST User 创建。
+- 未完成 Attendance 闭环。
 - 未完成 14 个打卡场景的 Auto Attendance 结果验证。
 
 本轮仍严格未做：
@@ -127,10 +127,10 @@ docker compose exec -T backend bash -lc "cd /home/frappe/frappe-bench && bench -
 | --- | --- | --- |
 | Company | `TEST-HBOS-M1R3-虚构公司` | 标准 ORM 创建在 `tabCompany` insert 阶段触发 lock wait / 长时间阻塞，未创建 |
 | User | `TEST-HBOS-M1R3-*` 虚构账号 | 第一个 User 创建长时间阻塞，未创建 |
-| Employee | `TEST-HBOS-M1R3-E001` 至 `TEST-HBOS-M1R3-E008` | 起始 Employee 创建长时间阻塞，未创建 |
-| Shift Type | 早班 / 中班 / 夜班 / 跨夜班 | 因 Employee 创建未完成，未继续创建 |
-| Shift Assignment | 14 场景排班 | 未创建 |
-| Employee Checkin | 14 场景虚构打卡 | 未创建 |
+| Employee | `M1R3虚构员工E001` 至 `M1R3虚构员工E008` | 后续只读诊断确认已落库 8 条，但均未绑定 User |
+| Shift Type | 早班 / 中班 / 夜班 / 跨夜班 | 后续只读诊断确认已落库 4 条 |
+| Shift Assignment | 14 场景排班 | 后续只读诊断确认已落库 6 条，均为已提交记录 |
+| Employee Checkin | 14 场景虚构打卡 | 后续只读诊断确认已落库 12 条 |
 | Leave Application | 半天 / 全天虚构请假 | 未创建 |
 | Attendance | Auto Attendance 结果 | 未生成 |
 
@@ -141,11 +141,11 @@ docker compose exec -T backend bash -lc "cd /home/frappe/frappe-bench && bench -
 | Company | 0 |
 | Department | 2 |
 | User | 0 |
-| Employee | 0 |
+| Employee | 8 |
 | Holiday List | 1 |
-| Shift Type | 0 |
-| Shift Assignment | 0 |
-| Employee Checkin | 0 |
+| Shift Type | 4 |
+| Shift Assignment | 6 |
+| Employee Checkin | 12 |
 | Leave Type | 1 |
 | Leave Application | 0 |
 | Attendance | 0 |
@@ -161,19 +161,21 @@ docker compose exec -T backend bash -lc "cd /home/frappe/frappe-bench && bench -
 
 实际结果：
 
-- 未完成 Shift Type 创建。
-- 未完成早 / 中 / 夜 / 跨夜班配置验证。
-- 未完成 `enable_auto_attendance`、IN / OUT 识别策略、迟到早退宽限、跨夜时间窗的运行态验证。
+- 后续只读诊断确认 4 个 Shift Type 已落库。
+- 后续只读诊断确认 6 条 Shift Assignment 已落库。
+- 后续只读诊断确认 12 条 Employee Checkin 已落库。
+- 但 Attendance 为 0，早 / 中 / 夜 / 跨夜班未完成 Auto Attendance 结果验证。
+- 未完成 `enable_auto_attendance`、IN / OUT 识别策略、迟到早退宽限、跨夜时间窗的最终运行态验证。
 
 阻断原因：
 
 - Company 标准创建出现 lock wait / 长时间阻塞。
-- User / Employee 创建阶段同样出现长时间阻塞。
-- 在没有 Employee 和 Shift Type 的前提下，不继续伪造下游 Attendance 结果。
+- User 创建阶段出现长时间阻塞，Employee / Shift / Checkin 只完成了部分落库。
+- 在没有生成 Attendance 的前提下，不伪造下游考勤结果。
 
 ## 14 个打卡场景验证结果
 
-M1-R2 设计的 14 个场景在本轮被转为过去日期区间 `2026-06-22` 至 `2026-06-29`，避免未来 Attendance 日期校验干扰。但由于 Employee / Shift Type / Employee Checkin 未能创建，场景验证未执行完成。
+M1-R2 设计的 14 个场景在本轮被转为过去日期区间 `2026-06-22` 至 `2026-06-29`，避免未来 Attendance 日期校验干扰。后续 M1-R3A 只读诊断确认已落库部分 Employee、Shift Type、Shift Assignment 和 Employee Checkin，但 Attendance 仍为 0，因此场景验证未执行完成。
 
 | 场景 | 目标 | 实际结果 | 结论 |
 | --- | --- | --- | --- |
@@ -228,18 +230,23 @@ Gap：
 
 ## 测试数据清理与隔离建议
 
-当前已落库 TEST 数据数量很少，建议暂时保留到 M1-R3 审查完成，便于复核：
+当前已落库 TEST 数据建议暂时保留到 M1-R3A 审查完成，便于复核：
 
 - `TEST-HBOS-M1R3-虚构节假日`
 - `TEST-HBOS-M1R3-生产一部 - 健D`
 - `TEST-HBOS-M1R3-生产二部 - 健D`
 - `TEST-HBOS-M1R3-虚构事假`
+- `M1R3虚构员工E001` 至 `M1R3虚构员工E008`
+- 4 个 `TEST-HBOS-M1R3-*` Shift Type
+- 6 条 Shift Assignment
+- 12 条 Employee Checkin
 
 后续清理建议：
 
 1. 审查确认不再需要后，再由用户授权清理 TEST 数据。
 2. 清理顺序应从下游到上游：Attendance、Leave Application、Employee Checkin、Shift Assignment、Shift Type、Employee、User、Leave Type、Department、Holiday List、Company。
-3. 本轮不执行清理，避免在写入阻断尚未定位前扩大数据库操作。
+3. 已提交的 Shift Assignment 需要先 cancel 再 delete。
+4. 本轮不执行清理，避免在写入阻断尚未定位前扩大数据库操作。
 
 ## 下一步建议
 
@@ -261,6 +268,8 @@ M1-R3A 建议范围：
 - 仍不得录入真实员工、真实打卡或真实生产数据。
 - 仍不得创建自定义 App 或开发业务代码。
 
-M1-R3A 当前状态：PLANNED。
+M1-R3A 当前状态：REVIEWING。
+
+M1-R3B 当前状态：PLANNED，用于后续运行态阻断修复或 TEST 数据隔离 / 清理执行，仍需用户授权。
 
 M1-R4 保持 PLANNED，尚未启动。只有运行态阻断处理清楚、TEST 数据隔离 / 清理边界明确，并经用户授权后，才考虑后续验证轮次。
