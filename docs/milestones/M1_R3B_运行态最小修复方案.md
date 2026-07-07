@@ -6,7 +6,7 @@
 
 状态：COMPLETED。
 
-收口记录：M1-R3B 已通过 Codex 审查，审查结果为 PASS。本次 M1-R3B-CLOSEOUT 仅做状态收口，不执行修复，不启动或重启服务，不清理 TEST 数据，不继续试运行。
+收口记录：M1-R3B 已通过 Codex 审查，审查结果为 PASS，并已收口为 COMPLETED。后续 M1-R3B-FIX 已按本方案执行运行态最小修复，当前为 REVIEWING，等待 Codex 审查；M1-R3C 仍为 PLANNED，尚未启动。
 
 本轮目标是基于 M1-R3A 诊断结论，制定用于解除 M1-R3 运行态阻断的最小修复方案。方案覆盖 Redis、worker、scheduler、`bench doctor`、Desk login、Company / User / Employee 创建阻断复测，以及 TEST 数据隔离边界。
 
@@ -310,10 +310,12 @@ M1-R3C 仍不得接真实考勤机、不得接真实飞书、不得实现 SSO、
 
 M1-R3B 已通过 Codex 审查并收口为 COMPLETED。
 
-下一步由用户决定：
+M1-R3B-FIX 已按本方案执行运行态最小修复，当前状态为 REVIEWING，等待 Codex 审查。执行记录见 `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`。
 
-- 授权执行 M1-R3B-FIX：按本方案做运行态最小修复。
+下一步由用户在 M1-R3B-FIX 审查通过后决定：
+
+- 授权进入 M1-R3C：继续 HRMS 原生考勤虚构 TEST 数据重新试运行。
 - 或授权 M1-R3B-CLEANUP：按 M1-R3A 清理顺序隔离 / 清理 TEST 数据。
-- 或暂缓运行态修复，继续保持 M1-R3 BLOCKED。
+- 或暂缓后续试运行，继续保持 M1-R3 BLOCKED。
 
-M1-R3C 保持 PLANNED，只有运行态最小修复完成、TEST 数据隔离边界明确且用户授权后，才可进入重新试运行。
+M1-R3C 保持 PLANNED，只有 M1-R3B-FIX 审查通过、TEST 数据隔离边界明确且用户授权后，才可进入重新试运行。

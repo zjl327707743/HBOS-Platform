@@ -6,9 +6,9 @@
 
 ## 当前轮次
 
-M1-R3B-CLOSEOUT：M1-R3B 审查通过后状态收口。当前状态：COMPLETED。
+M1-R3B-FIX：运行态最小修复执行记录。当前状态：REVIEWING。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 为 PLANNED。M1-R4 为 PLANNED，尚未启动。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已执行运行态最小修复，当前为 REVIEWING。M1-R3C 为 PLANNED。M1-R4 为 PLANNED，尚未启动。
 
 权威计划文件：
 
@@ -22,25 +22,26 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-只做 M1-R3B-CLOSEOUT：将 M1-R3B 从 REVIEWING 收口为 COMPLETED，并同步公共入口状态。
+只做 M1-R3B-FIX：按 `docs/milestones/M1_R3B_运行态最小修复方案.md` 执行最小运行态修复，并记录结果。不得启动 M1-R3C。
 
 交付内容：
 
+- `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`
 - `docs/milestones/M1_R3B_运行态最小修复方案.md`
 - 项目状态、当前里程碑和里程碑索引文件更新
 - 公共入口文件过期状态清理
 
 本轮实际结果：
 
-- M1-R3B Codex 审查 PASS。
-- M1-R3B 已从 REVIEWING 收口为 COMPLETED。
-- 已完成运行态最小修复方案。
-- 方案保留 M1-R3A 只读运行态诊断结论：`redis-cache` 与 `redis-queue` 退出，queue worker 和 websocket 反复重启，`bench doctor` 因 Redis Queue 连接失败无法完成，`list-apps` 和 `/login` 检查存在长时间无返回症状。
-- 已确认 TEST 数据范围：Company 0、Department 2、User 0、Employee 8、Holiday List 1、Shift Type 4、Shift Assignment 6、Employee Checkin 12、Leave Type 1、Leave Application 0、Attendance 0。
-- 已形成 Redis / worker / scheduler / bench doctor / login 的诊断与最小修复步骤草案。
-- 已形成 Company / User / Employee 创建阻断的复测路径。
-- 已明确本轮不执行修复、不清理 TEST 数据、不继续试运行。
-- M1-R3B 设为 COMPLETED，M1-R3C 保持 PLANNED，M1-R4 未启动。
+- 已执行 `docker compose up -d redis-cache redis-queue`，将已退出的 Redis 服务恢复为 Up。
+- `queue-short`、`queue-long`、`websocket` 恢复为 Up；worker 已启动，`bench doctor` 复跑显示 `Workers online: 2`。
+- `bench --site frontend list-apps` 可返回 `frappe`、`erpnext`、`hrms`。
+- `/login` 返回 HTTP 200。
+- `bench --site frontend scheduler status` 返回 `Scheduler is enabled for site frontend`。
+- 当前只读计数确认 TEST 数据范围为 Company 0、Department 2、User 0、Employee 8、Holiday List 1、Holiday child row 1、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Type 1、Leave Application 2、Attendance 12。
+- 当前 TEST 数据计数高于 M1-R3A / M1-R3B 旧记录；本轮没有手工创建、删除或清理 TEST 数据，差异需在 M1-R3C 或清理授权前复核。
+- Company / User / Employee 写入阻断未在本轮复测，因为本轮禁止继续创建测试数据。
+- M1-R3B-FIX 设为 REVIEWING，M1-R3C 保持 PLANNED，M1-R4 未启动。
 
 ## 本轮禁止事项
 
@@ -84,6 +85,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态为 BLOCKED。
 - M1-R3A 为 COMPLETED。
 - M1-R3B 为 COMPLETED。
+- M1-R3B-FIX 为 REVIEWING。
 - M1-R3C 为 PLANNED。
 - M1-R4 为 PLANNED，尚未启动。
 
@@ -95,10 +97,11 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R0 飞书登录目标已保留为：飞书登录为主，HBOS 内部 User 自动映射，Frappe 权限体系承接系统权限和审计
 - M1 状态已同步为 IN_PROGRESS
 - M1-R3B 已通过 Codex 审查并收口为 COMPLETED
+- M1-R3B-FIX 已执行运行态最小修复，当前为 REVIEWING
 - M1-R3C 保持 PLANNED
 - M1-R4 保持 PLANNED
-- 本轮未执行修复，未继续创建测试数据，未清理测试数据，未创建海滨自定义 App、未开发考勤业务、未接真实考勤机、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码、未录入真实业务数据
+- 本轮未清理 TEST 数据，未继续创建测试数据，未执行 HRMS 考勤试运行，未创建海滨自定义 App、未开发考勤业务、未接真实考勤机、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码、未录入真实业务数据
 
 ## 下一轮预告
 
-下一步由用户决定是否授权执行运行态最小修复或 TEST 数据隔离 / 清理。M1-R3C 与 M1-R4 仍为 PLANNED，尚未启动。
+下一步交给 Codex 审查 M1-R3B-FIX。审查通过后，由用户决定是否授权进入 M1-R3C 或先做 TEST 数据隔离 / 清理。M1-R3C 与 M1-R4 仍为 PLANNED，尚未启动。
