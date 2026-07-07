@@ -4,7 +4,7 @@
 
 ## 文件定位
 
-本文件记录 M1 启动前必须满足的门禁条件。M1-R0 已按本门禁完成规划收口，M1-R1 已按门禁只读验证 HRMS 原生考勤对象模型并收口为 COMPLETED，M1-R2 已按门禁形成 HRMS 原生考勤配置试运行方案并收口为 COMPLETED。M1-R3 已按用户授权尝试虚构 TEST 最小数据试运行，状态为 REVIEWING，实际结论为 PARTIAL / BLOCKED，尚未进入业务开发。
+本文件记录 M1 启动前必须满足的门禁条件。M1-R0 已按本门禁完成规划收口，M1-R1 已按门禁只读验证 HRMS 原生考勤对象模型并收口为 COMPLETED，M1-R2 已按门禁形成 HRMS 原生考勤配置试运行方案并收口为 COMPLETED。M1-R3 已按用户授权尝试虚构 TEST 最小数据试运行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED，尚未进入业务开发。
 
 ## 必须满足的前置条件
 
@@ -38,9 +38,11 @@ M1-R1 才验证 HRMS 原生考勤对象模型。M1-R1 当前状态：COMPLETED�
 
 M1-R2 当前状态：COMPLETED，已通过 Codex 独立审查。M1-R2 只做 HRMS 原生考勤配置试运行方案，未执行配置，未创建测试数据，未创建 App，未接真实考勤机，未接真实飞书，未录入生产数据。方案文件见 `docs/milestones/M1_R2_HRMS原生考勤配置试运行方案.md`。
 
-M1-R3 当前状态：REVIEWING。M1-R3 已使用 `TEST-HBOS-M1R3-` 前缀尝试虚构最小测试数据试运行 HRMS 原生考勤配置；本轮仅落库 Holiday List、Department、Leave Type 等部分基础数据，Company / User / Employee / Shift / Checkin / Attendance 闭环因运行态 ORM 写入阻塞未完成。记录见 `docs/milestones/M1_R3_HRMS原生考勤最小测试数据试运行记录.md`。
+M1-R3 当前状态：BLOCKED。M1-R3 已使用 `TEST-HBOS-M1R3-` 前缀尝试虚构最小测试数据试运行 HRMS 原生考勤配置；本轮仅落库 Holiday List、Department、Leave Type 等部分基础数据，Company / User / Employee / Shift / Checkin / Attendance 闭环因运行态 ORM 写入阻塞未完成。Codex 审查 PASS，但该轮不是成功完成，不得标记为 COMPLETED。记录见 `docs/milestones/M1_R3_HRMS原生考勤最小测试数据试运行记录.md`。
 
-M1-R4 当前状态：PLANNED，尚未启动。进入 M1-R4 前应先审查 M1-R3 记录，并由用户决定是否补做 M1-R3-FIX / M1-R3-RETRY。
+M1-R3A 当前状态：PLANNED。M1-R3A 建议只做运行态阻断诊断与 TEST 数据隔离 / 清理方案，不继续创建测试数据，不执行配置试运行，不清理数据，除非用户另行明确授权。
+
+M1-R4 当前状态：PLANNED，尚未启动。
 
 ## 中文化与核心源码边界
 
@@ -92,6 +94,7 @@ M1 初期不创建 `hb_attendance_app`。
 2. M1-R1：HRMS 原生考勤对象模型验证。
 3. M1-R2：HRMS 原生考勤配置试运行方案。
 4. M1-R3：HRMS 原生考勤最小测试数据试运行。
-5. M1-R4：后续考勤配置 / 报表或异常口径验证，当前仅为 PLANNED。
+5. M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。
+6. M1-R4：后续考勤配置 / 报表或异常口径验证，当前仅为 PLANNED。
 
-M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已执行并进入 REVIEWING。M1-R4 仍为 PLANNED，需 M1-R3 审查后再由用户决定是否进入。
+M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 为 PLANNED。M1-R4 仍为 PLANNED，尚未启动。

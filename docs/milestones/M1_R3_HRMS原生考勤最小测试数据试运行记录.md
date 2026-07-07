@@ -4,9 +4,11 @@
 
 ## M1-R3 目标与边界
 
-状态：REVIEWING。
+状态：BLOCKED。
 
 试运行结论：PARTIAL / BLOCKED。
+
+收口记录：M1-R3 已通过 Codex 审查，审查结果为 PASS。由于 M1-R3 实际结果为 PARTIAL / BLOCKED，而不是 HRMS 原生考勤链路成功完成，本轮不得标记为 COMPLETED，最终状态收口为 BLOCKED。
 
 本轮目标是按 `docs/milestones/M1_R2_HRMS原生考勤配置试运行方案.md`，在本地 `frontend` site 中使用 `TEST-HBOS-M1R3-` 前缀的虚构最小测试数据验证 HRMS 原生考勤配置链路。
 
@@ -17,6 +19,8 @@
 - 已创建部分虚构 TEST 基础数据。
 - 已记录 Company / User / Employee 创建阶段的运行态阻断。
 - 已记录 14 个打卡场景的实际验证结果。
+- 已通过 Codex 审查，审查 PASS。
+- 已确认本轮未越界、未提交 `.env`、密钥、数据库、日志、缓存、备份或运行时产物。
 
 本轮未完成：
 
@@ -239,15 +243,24 @@ Gap：
 
 ## 下一步建议
 
-M1-R3 当前交付进入 REVIEWING，建议先交给 Codex 审查本记录。
+M1-R3 已完成阻断状态收口，最终状态为 BLOCKED。
 
-审查通过后，不建议直接进入 M1-R4。应先由用户决定是否补做一个 M1-R3-FIX 或 M1-R3-RETRY：
+Codex 审查已 PASS，但本轮不是成功完成。M1-R3 最终状态收口为 BLOCKED，不建议直接进入 M1-R4。
+
+下一步应进入 M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。
+
+M1-R3A 建议范围：
 
 - 先定位并解除当前 site 的 ORM 写入 / lock wait 问题。
-- 再重新执行 Employee、Shift Type、Shift Assignment、Employee Checkin、Leave Application、Auto Attendance 的最小闭环。
+- 先制定 TEST 数据隔离 / 清理方案。
+- 不继续创建测试数据。
+- 不执行配置试运行。
+- 不清理数据，除非用户另行明确授权。
 - 仍不得接真实考勤机。
 - 仍不得接真实飞书。
 - 仍不得录入真实员工、真实打卡或真实生产数据。
 - 仍不得创建自定义 App 或开发业务代码。
 
-M1-R4 保持 PLANNED，只有 M1-R3 的真实 14 场景闭环完成并通过审查后，才建议进入。
+M1-R3A 当前状态：PLANNED。
+
+M1-R4 保持 PLANNED，尚未启动。只有运行态阻断处理清楚、TEST 数据隔离 / 清理边界明确，并经用户授权后，才考虑后续验证轮次。

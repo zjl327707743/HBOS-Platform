@@ -6,9 +6,9 @@
 
 ## 当前轮次
 
-M1-R3：HRMS 原生考勤最小测试数据试运行。当前状态：REVIEWING。
+M1-R3-BLOCKED-CLOSEOUT：M1-R3 审查通过后阻断状态收口。当前状态：COMPLETED。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并进入 REVIEWING，实际结论为 PARTIAL / BLOCKED。M1-R4 为 PLANNED，尚未启动。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 为 PLANNED。M1-R4 为 PLANNED，尚未启动。
 
 权威计划文件：
 
@@ -22,7 +22,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-只做 M1-R3：使用 `TEST-HBOS-M1R3-` 前缀虚构最小测试数据试运行 HRMS 原生考勤配置链路，并同步公共入口状态。
+只做 M1-R3-BLOCKED-CLOSEOUT：将 M1-R3 从 REVIEWING 收口为 BLOCKED，并同步公共入口状态。
 
 交付内容：
 
@@ -32,9 +32,11 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 本轮实际结果：
 
-- 已创建部分 `TEST-HBOS-M1R3-` 虚构基础数据。
-- Company / User / Employee 标准创建出现运行态 ORM 写入阻塞，未完成 14 场景 Attendance 闭环。
-- M1-R3 进入 REVIEWING，等待 Codex 审查本次阻断记录。
+- Codex 审查 PASS。
+- M1-R3 未标记为 COMPLETED，最终状态为 BLOCKED。
+- 已确认本轮未越界、未提交敏感文件。
+- 保留事实：已创建少量 `TEST-HBOS-M1R3-*` 数据；Company / User / Employee 创建被运行态阻断；14 个打卡场景未完成验证。
+- M1-R3A 设为 PLANNED，M1-R4 未启动。
 
 ## 本轮禁止事项
 
@@ -75,18 +77,20 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R0 已完成平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案，并已通过 Codex 独立审查，状态为 COMPLETED。
 - M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。
 - M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。
-- M1-R3 已执行并进入 REVIEWING，实际结论为 PARTIAL / BLOCKED。
+- M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态为 BLOCKED。
+- M1-R3A 为 PLANNED。
 - M1-R4 为 PLANNED，尚未启动。
 
 ## 验收标准
 
 - M1-R2 已通过 Codex 独立审查并收口为 COMPLETED
-- M1-R3 已产出试运行记录并进入 REVIEWING
+- M1-R3 已通过 Codex 审查并收口为 BLOCKED，不得标记为 COMPLETED
 - M1-R0 飞书登录目标已保留为：飞书登录为主，HBOS 内部 User 自动映射，Frappe 权限体系承接系统权限和审计
 - M1 状态已同步为 IN_PROGRESS
+- M1-R3A 保持 PLANNED
 - M1-R4 保持 PLANNED
-- 本轮仅创建部分虚构 TEST 基础数据，未创建海滨自定义 App、未开发考勤业务、未接真实考勤机、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码、未录入真实业务数据
+- 本轮未继续创建测试数据，未清理测试数据，未创建海滨自定义 App、未开发考勤业务、未接真实考勤机、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码、未录入真实业务数据
 
 ## 下一轮预告
 
-下一步建议交给 Codex 审查 M1-R3 试运行记录。审查通过后，由用户决定是否先补做 M1-R3-FIX / M1-R3-RETRY 解除运行态写入阻塞，再决定是否进入 M1-R4。
+下一步建议进入 M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。M1-R4 仍为 PLANNED，尚未启动。

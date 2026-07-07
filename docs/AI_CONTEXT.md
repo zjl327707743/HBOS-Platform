@@ -19,13 +19,13 @@
 
 ## 当前上下文
 
-当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已执行 HRMS 原生考勤最小测试数据试运行，状态为 REVIEWING，实际结论为 PARTIAL / BLOCKED。
+当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。
 
-当前目标：交给 Codex 审查 M1-R3 试运行记录；审查通过后，由用户决定是否先补做 M1-R3-FIX / M1-R3-RETRY 解除运行态 ORM 写入阻塞，再决定是否进入 M1-R4。当前 Docker 最小环境已跑通，测试 site 为 `frontend`，Desk 可访问地址为 `http://localhost:8081/login`。
+当前目标：进入 M1-R3A 前置准备。下一步建议为 M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。当前 Docker 最小环境已跑通，测试 site 为 `frontend`，Desk 可访问地址为 `http://localhost:8081/login`。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
-M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构基础数据，但 Company / User / Employee / Shift / Checkin / Attendance 闭环因运行态写入阻塞未完成，状态为 REVIEWING。M1-R4 为 PLANNED，尚未启动。当前不创建海滨自定义 Frappe App，不开发业务代码，不录入真实业务数据，不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
+M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构基础数据，但 Company / User / Employee / Shift / Checkin / Attendance 闭环因运行态写入阻塞未完成；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 为 PLANNED。M1-R4 为 PLANNED，尚未启动。当前不创建海滨自定义 Frappe App，不开发业务代码，不录入真实业务数据，不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
 
 ## AI 默认读取规则
 
@@ -83,9 +83,8 @@ Skill 路由规范文件为：
 
 后续路线只记录，不代表已启动：
 
-1. Codex 审查 M1-R3 试运行记录。
-2. 用户决定是否先补做 M1-R3-FIX / M1-R3-RETRY，解除运行态 ORM 写入阻塞并完成 14 场景闭环。
-3. M1-R4 保持 PLANNED，尚未启动。
+1. M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。
+2. M1-R4 保持 PLANNED，尚未启动。
 
 ## 边界提醒
 
