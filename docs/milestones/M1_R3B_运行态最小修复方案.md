@@ -4,7 +4,9 @@
 
 ## M1-R3B 目标与边界
 
-状态：REVIEWING。
+状态：COMPLETED。
+
+收口记录：M1-R3B 已通过 Codex 审查，审查结果为 PASS。本次 M1-R3B-CLOSEOUT 仅做状态收口，不执行修复，不启动或重启服务，不清理 TEST 数据，不继续试运行。
 
 本轮目标是基于 M1-R3A 诊断结论，制定用于解除 M1-R3 运行态阻断的最小修复方案。方案覆盖 Redis、worker、scheduler、`bench doctor`、Desk login、Company / User / Employee 创建阻断复测，以及 TEST 数据隔离边界。
 
@@ -306,9 +308,9 @@ M1-R3C 仍不得接真实考勤机、不得接真实飞书、不得实现 SSO、
 
 ## 下一步建议
 
-M1-R3B 完成本轮方案后，状态进入 REVIEWING，等待 Codex 审查。
+M1-R3B 已通过 Codex 审查并收口为 COMPLETED。
 
-审查通过后，下一步由用户决定：
+下一步由用户决定：
 
 - 授权执行 M1-R3B-FIX：按本方案做运行态最小修复。
 - 或授权 M1-R3B-CLEANUP：按 M1-R3A 清理顺序隔离 / 清理 TEST 数据。

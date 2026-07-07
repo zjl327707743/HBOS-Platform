@@ -271,7 +271,7 @@ Employee 创建链路：
 
 M1-R3A 已通过 Codex 审查并收口为 COMPLETED。
 
-下一步已进入 M1-R3B：运行态最小修复方案，状态为 REVIEWING；本轮只写方案，不执行修复、不清理 TEST 数据。
+M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED；该轮只写方案，不执行修复、不清理 TEST 数据。
 
 M1-R3B 方案建议后续只在授权后选择其一：
 
