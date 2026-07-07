@@ -4,7 +4,9 @@
 
 ## M1-R3A 目标与边界
 
-状态：REVIEWING。
+状态：COMPLETED。
+
+收口记录：M1-R3A 已通过 Codex 审查，审查结果为 PASS。本次 M1-R3A-CLOSEOUT 仅做状态收口，不修复运行态，不清理或删除 TEST 数据，不继续创建测试数据。
 
 本轮目标是诊断 M1-R3 的运行态阻断原因，并形成 `TEST-HBOS-M1R3-*` 虚构测试数据的隔离与清理方案。
 
@@ -267,7 +269,7 @@ Employee 创建链路：
 
 ## 下一步建议
 
-M1-R3A 完成本轮诊断后，状态进入 REVIEWING，等待 Codex 审查。
+M1-R3A 已通过 Codex 审查并收口为 COMPLETED。
 
 下一步建议为 M1-R3B：运行态阻断修复或 TEST 数据隔离 / 清理执行，仍需用户明确授权。
 
