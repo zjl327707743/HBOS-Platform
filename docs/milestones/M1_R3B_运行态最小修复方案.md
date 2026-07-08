@@ -6,7 +6,7 @@
 
 状态：COMPLETED。
 
-收口记录：M1-R3B 已通过 Codex 审查，审查结果为 PASS，并已收口为 COMPLETED。后续 M1-R3B-FIX 已按本方案执行运行态最小修复，并已通过 Codex 审查收口为 COMPLETED；M1-R3C 仍为 PLANNED，尚未启动。
+收口记录：M1-R3B 已通过 Codex 审查，审查结果为 PASS，并已收口为 COMPLETED。后续 M1-R3B-FIX 已按本方案执行运行态最小修复，并已通过 Codex 审查收口为 COMPLETED；M1-R3C 已在用户授权下执行 HRMS 原生考勤最小试运行复测，当前状态为 REVIEWING。
 
 本轮目标是基于 M1-R3A 诊断结论，制定用于解除 M1-R3 运行态阻断的最小修复方案。方案覆盖 Redis、worker、scheduler、`bench doctor`、Desk login、Company / User / Employee 创建阻断复测，以及 TEST 数据隔离边界。
 
@@ -318,4 +318,4 @@ M1-R3B-FIX 已按本方案执行运行态最小修复，并已通过 Codex 审�
 - 或授权 M1-R3B-CLEANUP：按 M1-R3A 清理顺序隔离 / 清理 TEST 数据。
 - 或暂缓后续试运行，继续保持 M1-R3 BLOCKED。
 
-M1-R3C 保持 PLANNED，只有 TEST 数据隔离边界明确且用户授权后，才可进入重新试运行。
+M1-R3C 已在用户授权后进入并完成复测交付，当前状态为 REVIEWING。后续需先完成 M1-R3C 审查，再由用户决定是否进入 M1-R3D。

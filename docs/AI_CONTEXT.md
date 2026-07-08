@@ -19,13 +19,13 @@
 
 ## 当前上下文
 
-当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。
+当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已按用户授权执行 HRMS 原生考勤最小试运行复测，当前状态为 REVIEWING。
 
-当前目标：等待用户决定是否授权进入 M1-R3C 或先做 TEST 数据隔离 / 清理。当前 Docker 最小环境曾跑通，测试 site 为 `frontend`，Desk 地址为 `http://localhost:8081/login`；M1-R3B-FIX 只执行 `docker compose up -d redis-cache redis-queue`，已将 `redis-cache`、`redis-queue` 恢复为 Up，queue worker / scheduler / `bench doctor` / `/login` 已恢复或改善，但未执行 Company / User / Employee 写入复测，用户尚未授权 M1-R3C。
+当前目标：等待 Codex 审查 M1-R3C 复测记录。当前 Docker 最小环境曾跑通，测试 site 为 `frontend`，Desk 地址为 `http://localhost:8081/login`；M1-R3B-FIX 只执行 `docker compose up -d redis-cache redis-queue`，已将 `redis-cache`、`redis-queue` 恢复为 Up，queue worker / scheduler / `bench doctor` / `/login` 已恢复或改善。M1-R3C 已在用户授权下使用 `TEST-HBOS-M1R3C-*` 虚构数据完成复测：Company / User / Employee 写入阻断已解除，13 条 Attendance 已生成，但迟到 / 早退、缺卡、请假前置、加班和节假日业务口径仍需 M1-R3D 诊断。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
-M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 只读计数确认当前 TEST 数据包括 Employee 8、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Application 2、Attendance 12 等；本轮没有手工创建、清理或删除 TEST 数据，该计数差异需在 M1-R3C 或清理授权前复核。M1-R3C 为 PLANNED。M1-R4 为 PLANNED，尚未启动。当前不创建海滨自定义 Frappe App，不开发业务代码，不录入真实业务数据，不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
+M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已新增 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据，最终计数包括 Company 1、Department 2、User 8、Employee 8、Holiday List 1、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Type 1、Attendance 13；Leave Application 因缺少 Leave Allocation 未创建。M1-R3C 当前为 REVIEWING。M1-R3D 为 PLANNED。M1-R4 为 PLANNED，尚未启动。当前不创建海滨自定义 Frappe App，不开发业务代码，不录入真实业务数据，不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
 
 ## AI 默认读取规则
 
@@ -83,8 +83,8 @@ Skill 路由规范文件为：
 
 后续路线只记录，不代表已启动：
 
-1. 由用户决定是否授权进入 M1-R3C 或先做 TEST 数据隔离 / 清理。
-2. M1-R3C 保持 PLANNED，尚未启动。
+1. 先交给 Codex 审查 M1-R3C 复测记录。
+2. 审查通过后，再由用户决定是否进入 M1-R3D：HRMS 原生考勤异常口径与配置 Gap 诊断。
 3. M1-R4 保持 PLANNED，尚未启动。
 
 ## 边界提醒

@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1-R3B-FIX-CLOSEOUT 审查通过后状态收口
+- 当前轮次：M1-R3C HRMS 原生考勤最小试运行复测
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已按用户授权执行 HRMS 原生考勤最小试运行复测，当前状态为 REVIEWING；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：由用户决定是否授权进入 M1-R3C 或先做 TEST 数据隔离 / 清理。M1-R3C 与 M1-R4 保持 PLANNED，尚未启动。
+- 下一步路线：先交给 Codex 审查 M1-R3C。审查通过后，再由用户决定是否进入 M1-R3D：HRMS 原生考勤异常口径与配置 Gap 诊断。M1-R3D 与 M1-R4 保持 PLANNED，尚未启动。
 
 ## 状态更新制度
 
@@ -54,8 +54,12 @@
 - M1-R3B-FIX 只执行 `docker compose up -d redis-cache redis-queue`，未再执行额外服务启动 / 重启，未清理 TEST 数据，未继续试运行。
 - M1-R3B-FIX 已确认 `redis-cache`、`redis-queue`、queue worker、scheduler、`bench doctor` 和 `/login` 已恢复或改善。
 - M1-R3B-FIX 只读计数确认当前 TEST 数据包括 Employee 8、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Application 2、Attendance 12 等；本轮没有手工创建、删除或清理 TEST 数据，计数高于 M1-R3A / M1-R3B 旧记录，来源需在 M1-R3C 或清理授权前复核。
-- Company / User / Employee 写入阻断未复测；用户尚未授权 M1-R3C。
-- M1-R3C 设为 PLANNED，用于后续运行态修复完成后的 HRMS 原生考勤重新试运行。
+- M1-R3C 已按用户授权执行 HRMS 原生考勤最小试运行复测，使用新前缀 `TEST-HBOS-M1R3C-*` / `test-hbos-m1r3c-*`，未覆盖旧 `TEST-HBOS-M1R3-*` 数据。
+- Company / User / Employee 写入阻断已解除：Company 1、User 8、Employee 8 已成功创建。
+- M1-R3C 最终计数包括 Department 2、Holiday List 1、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Type 1、Attendance 13；Leave Application 因缺少 Leave Allocation 未创建。
+- 14 个场景已完成复测记录：正常早班、中班、夜班、跨夜班、临时调班等基础链路可用；迟到 / 早退标记、缺卡、请假前置、全天缺勤、加班和节假日业务口径仍存在配置或业务 Gap。
+- M1-R3C 设为 REVIEWING，等待 Codex 审查。
+- M1-R3D 设为 PLANNED，用于 HRMS 原生考勤异常口径与配置 Gap 诊断。
 - M1-R4 保持 PLANNED，尚未启动。
 
 ## 已确认架构方向
@@ -509,7 +513,7 @@ M0 最终边界：
 
 ## M0 后续路线记录
 
-M0-FINAL 收口后的路线已执行到 M1-R3B-FIX：
+M0-FINAL 收口后的路线已执行到 M1-R3C：
 
 1. M0-REMOTE：已完成。
 2. M1-R0：已通过 Codex 独立审查，状态 COMPLETED。
@@ -519,8 +523,9 @@ M0-FINAL 收口后的路线已执行到 M1-R3B-FIX：
 6. M1-R3A：COMPLETED，运行态阻断诊断与 TEST 数据隔离 / 清理方案，已通过 Codex 审查。
 7. M1-R3B：COMPLETED，运行态最小修复方案，已通过 Codex 审查。
 8. M1-R3B-FIX：COMPLETED，运行态最小修复已执行并通过 Codex 审查。
-9. M1-R3C：PLANNED，HRMS 原生考勤重新试运行，尚未启动。
-10. M1-R4：PLANNED，尚未启动。
+9. M1-R3C：REVIEWING，HRMS 原生考勤最小试运行复测，等待 Codex 审查。
+10. M1-R3D：PLANNED，HRMS 原生考勤异常口径与配置 Gap 诊断，尚未启动。
+11. M1-R4：PLANNED，尚未启动。
 
 ## M0-REMOTE 状态
 
@@ -571,7 +576,9 @@ M1 当前仅进入规划与诊断阶段，不代表进入业务开发。
 - M1-R3：BLOCKED。
 - M1-R3A：COMPLETED。
 - M1-R3B：COMPLETED。
-- M1-R3C：PLANNED。
+- M1-R3B-FIX：COMPLETED。
+- M1-R3C：REVIEWING。
+- M1-R3D：PLANNED。
 - M1-R4：PLANNED。
 
 M1-R0 当前结果：
@@ -721,6 +728,33 @@ M1-R3B 未做：
 - 未创建 `hb_attendance_app`。
 - 未新增 DocType。
 - 未开发考勤业务。
+- 未接真实考勤机。
+- 未接真实飞书。
+- 未写入飞书。
+- 未实现 SSO。
+- 未修改 Frappe / ERPNext / HRMS 核心源码。
+- 未提交 `.env`、备份、密钥、数据库、日志、缓存或运行时产物。
+
+M1-R3C 当前结果：
+
+- 已新增 `docs/milestones/M1_R3C_HRMS原生考勤最小试运行复测记录.md`。
+- M1-R3C 已在用户明确授权下使用虚构 TEST 数据重新试运行，当前状态为 REVIEWING，等待 Codex 审查。
+- 本轮使用新前缀 `TEST-HBOS-M1R3C-*` / `test-hbos-m1r3c-*`，未覆盖旧 `TEST-HBOS-M1R3-*` 数据。
+- 运行态复核显示 `/login` 返回 HTTP 200，scheduler enabled，`bench doctor` 显示 worker online，Redis / queue / scheduler / frontend / backend / db 容器可用。
+- Company / User / Employee 写入阻断已解除：Company 1、User 8、Employee 8 已成功创建。
+- M1-R3C 最终虚构数据计数包括 Department 2、Holiday List 1、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Type 1、Attendance 13；Leave Application 因缺少 Leave Allocation 未创建。
+- 14 个场景已完成复测记录：正常早班、中班、夜班、跨夜班、临时调班等基础链路可用；迟到 / 早退标记、缺卡、请假前置、全天缺勤、加班和节假日业务口径仍存在配置或业务 Gap。
+- 当前仍不建议创建 `hb_attendance_app`。
+- M1-R3D 保持 PLANNED，用于 HRMS 原生考勤异常口径与配置 Gap 诊断；M1-R4 未启动。
+
+M1-R3C 未做：
+
+- 未使用真实员工、真实部门、真实考勤机、真实飞书或生产数据。
+- 未清理、删除或覆盖旧 TEST 数据。
+- 未创建自定义 Frappe App。
+- 未创建 `hb_attendance_app`。
+- 未新增 DocType。
+- 未开发考勤业务代码。
 - 未接真实考勤机。
 - 未接真实飞书。
 - 未写入飞书。

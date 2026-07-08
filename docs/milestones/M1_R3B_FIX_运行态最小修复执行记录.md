@@ -12,7 +12,7 @@
 
 本轮不是 M1-R3C，不执行 HRMS 考勤重新试运行，不继续创建 TEST 数据，不清理或删除 TEST 数据，不创建 App / DocType / 代码，不接真实考勤机、真实飞书或 SSO。
 
-M1-R3 仍为 BLOCKED。M1-R3B-FIX 已收口为 COMPLETED。M1-R3C 仍为 PLANNED，尚未启动，用户尚未授权进入 M1-R3C。
+M1-R3 仍为 BLOCKED。M1-R3B-FIX 已收口为 COMPLETED。M1-R3C 已在后续用户授权下执行 HRMS 原生考勤最小试运行复测，当前状态为 REVIEWING。
 
 ## 读取文件
 
@@ -165,7 +165,7 @@ docker compose exec -T backend bash -lc 'cd /home/frappe/frappe-bench && bench -
 
 ## Company / User / Employee 阻断复测
 
-本轮未执行 Company / User / Employee 写入复测。
+M1-R3B-FIX 本轮未执行 Company / User / Employee 写入复测；该复测已在后续 M1-R3C 中完成。
 
 原因：
 
@@ -189,7 +189,7 @@ docker compose exec -T backend bash -lc 'cd /home/frappe/frappe-bench && bench -
 | `bench --site frontend list-apps` 可返回 HRMS | 满足 |
 | TEST 数据范围已重新只读确认 | 已确认，但当前计数高于 M1-R3A / M1-R3B 旧记录 |
 | Company / User / Employee 写入阻断已复测 | 未满足，本轮禁止继续创建 TEST 数据 |
-| 用户授权 M1-R3C | 未满足，M1-R3C 仍为 PLANNED |
+| 用户授权 M1-R3C | M1-R3B-FIX 本轮未满足；后续 M1-R3C 已获用户授权并执行，当前为 REVIEWING |
 
 结论：运行态层面的 Redis / worker / scheduler / bench / login 阻断已经最小修复；但 M1-R3C 仍不能自动启动。进入 M1-R3C 前，必须由用户确认是否接受当前 TEST 数据范围并授权继续虚构数据试运行，或先授权 TEST 数据隔离 / 清理。
 
@@ -229,4 +229,4 @@ M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。
 2. 或授权先做 TEST 数据隔离 / 清理，再进入重新试运行。
 3. 或保持 M1-R3 BLOCKED，暂缓考勤链路试运行。
 
-M1-R3C 仍为 PLANNED，尚未启动。M1-R4 未启动。
+M1-R3C 已在后续用户授权下执行，当前为 REVIEWING。M1-R3D 为 PLANNED，M1-R4 未启动。
