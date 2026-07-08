@@ -62,8 +62,9 @@ M1-R5 当前状态：COMPLETED。M1-R5 已完成 HRMS 配置基线、考勤工�
 
 M1-R6A 当前状态：COMPLETED。M1-R6A 已完成 Excel 导入与异常流程落地方案 / Gate 判定文档交付，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付。审查记录：Codex 初审 FAIL（未提交、工作区不 clean），复审 PASS（修复后 closeout 收口为 COMPLETED）。本轮未导入 Excel、未创建 App、未创建 DocType、未写代码。
 
-M1-R6B 当前状态：PLANNED（待 R6A closeout 后用户授权启动）。
-M1-R6C 当前状态：PLANNED（待 R6B closeout 后用户授权启动）。
+M1-R6B 当前状态：REVIEWING。M1-R6B 已完成脱敏打卡流水导入最小实现，主文档 `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md` 已交付。本轮先将 Owner 提供 Excel 判定为混合表，未将其作为 Employee Checkin 导入源；使用脱敏 Demo 原始打卡流水写入 5 条 Employee Checkin，并通过 HRMS 原生 Auto Attendance 生成 3 条 Attendance。本轮未提交 Excel / CSV，未创建 App，未创建自定义 DocType，未启动 R6C/R7。
+
+M1-R6C 当前状态：PLANNED（待 R6B 审查 PASS 并 closeout 后用户授权启动）。
 M1-R7 当前状态：PLANNED，待用户授权启动。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
@@ -128,9 +129,9 @@ M1 初期不创建 `hb_attendance_app`。
 13. M1-R4：M1 Demo 技术方案与实施路线拆分，当前为 COMPLETED。
 14. M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo，当前为 COMPLETED。
 15. M1-R6A：Excel 导入与异常流程落地方案 / Gate 判定，当前为 COMPLETED。
-16. M1-R6B：Excel 导入与考勤异常自动识别，当前为 PLANNED。
+16. M1-R6B：脱敏打卡流水导入最小实现，当前为 REVIEWING。
 17. M1-R6C：异常说明流程与 R6 收口，当前为 PLANNED。
 18. M1-R7：飞书登录、领导汇总 Demo 与 M1 收口，当前为 PLANNED。
 19. M1-R8：M1 Demo 验收修复与文档收口（可选缓冲轮），当前为 PLANNED。
 
-M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B/R6C/R7 为 PLANNED，尚未启动。
+M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 REVIEWING。M1-R6C/R7 为 PLANNED，尚未启动。
