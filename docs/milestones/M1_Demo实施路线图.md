@@ -146,7 +146,8 @@ R5/R6/R7 仅为建议，实际启动需用户逐轮授权。
 ## 状态与下一步
 
 - M1-REQ-DESIGN-DRAFT：COMPLETED，已通过 Codex 审查并收口。
-- M1-R4：PLANNED，尚未启动。
-- M1-R5/R6/R7：PLANNED（建议），需用户逐轮授权。
+- M1-R4：COMPLETED，已通过 Codex 审查并收口。
+- M1-R5：REVIEWING，HRMS 配置基线、考勤工作台与月度汇总 Demo 主文档已交付。
+- M1-R6/R7：PLANNED，需用户逐轮授权。
 
 本轮未试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。
