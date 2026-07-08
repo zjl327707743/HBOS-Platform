@@ -37,6 +37,7 @@
 - `AGENTS.md`
 - `docs/AI_CONTEXT.md`
 - `docs/READING_GUIDE.md`
+- `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`（仅前端相关轮次）
 
 此外，每轮收尾还必须检查：
 
@@ -50,6 +51,10 @@
 只有任务明确涉及当前里程碑时，才读取：
 
 - `docs/plans/m0_engineering_bootstrap.md`
+
+只有任务涉及独立前端开发、驾驶舱、AI 工作台或复杂交互页面时，才读取：
+
+- `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`
 
 ## 里程碑文件读取规则
 

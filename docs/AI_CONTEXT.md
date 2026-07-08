@@ -86,6 +86,14 @@ Skill 路由规范文件为：
 1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
 2. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C/R7 均为 PLANNED / 待授权 / 未启动。
 
+## 前端实施流程规范
+
+独立前端（Vue/React 驾驶舱、AI 工作台、复杂交互页面）开发必须遵循"原型先行 + Owner 审查 + 复刻实现 + 功能接入"流程。详见：
+
+- `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`
+
+核心规则：凡涉及漂亮页面、驾驶舱、AI 工作台、复杂交互页面，必须先使用 `frontend-design` skill 产出原型/视觉方案，Owner 人工审查通过后再进入前端复刻和功能接入。Frappe Desk 后台页面不要强行重做成独立前端。
+
 ## 边界提醒
 
 不直接修改 Frappe / ERPNext / HRMS 核心源码。优先使用原生配置、角色权限、DocType、报表、导入、API 和低代码定制。自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。M1 初期不立即创建 `hb_attendance_app`。任何飞书真实写入必须由用户明确授权。

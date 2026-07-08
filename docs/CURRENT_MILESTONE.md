@@ -30,6 +30,8 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 
 只做 M1-R6B：脱敏打卡流水导入最小实现。不得启动 M1-R6C/R7。
 
+在 M1-R6B closeout 后，Owner 确认新增前端实施流程规范 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`，确立"原型先行 + Owner 审查 + 复刻实现 + 功能接入"的前端开发流程。此为项目长期规范，不改变 M1 当前范围。
+
 交付内容：
 
 - `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md`（本轮主文档）

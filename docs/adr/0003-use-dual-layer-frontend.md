@@ -42,3 +42,7 @@
 ### Risks
 
 - 双层前端可能造成体验割裂；缓解方式是在后续里程碑中统一导航、权限策略和 API 契约。
+
+## References
+
+- 前端实施流程规范：`docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`（独立前端必须原型先行 → Owner 审查 → 复刻实现 → 功能接入）

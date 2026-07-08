@@ -9,7 +9,7 @@
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
 - 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R5 已通过 Codex 审查并收口为 COMPLETED；M1-R6A 当前为 COMPLETED；M1-R6B 当前为 COMPLETED（脱敏打卡流水导入最小闭环已完成并 closeout）；M1-R6C/R7/R8 均为 PLANNED / 待授权 / 未启动；当前未创建海滨自定义 App，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-R6B 已完成 closeout。M1-R6C/R7 均为 PLANNED / 待授权 / 未启动。
+- 下一步路线：M1-R6B 已完成 closeout。M1-R6C/R7 均为 PLANNED / 待授权 / 未启动。本次在 M1-R6B 后新增 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`（前端实施流程规范），确立"原型先行 + Owner 审查 + 复刻实现 + 功能接入"的前端开发流程，已更新相应入口文件。
 
 ## 状态更新制度
 
@@ -926,3 +926,16 @@ M1-R6B 未做：
 - 未修改 Frappe / ERPNext / HRMS 核心源码。
 - 未部署公司内网或云服务器。
 - 未提交真实员工姓名、真实工号或未脱敏数据。
+
+## 前端实施流程规范（M1-R6B 后补充）
+
+在 M1-R6B closeout 后，Owner 确认新增前端实施流程规范，本轮执行记录：
+
+- 已新增 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`：定义前端分层（Frappe Desk vs Vue/React 独立前端）、独立前端启动 Gate（原型先行 → Owner 审查 → 前端复刻 → 功能接入）、组件库选择原则、Agent Skill 使用要求。
+- 已更新 `docs/AI_CONTEXT.md`：加入前端实施流程规范摘要和链接。
+- 已更新 `docs/READING_GUIDE.md`：加入前端规范的读取条件和公共入口文件检查清单。
+- 已更新入口文件 `README.md`、`CLAUDE.md`、`AGENTS.md`：补充独立前端开发规则摘要。
+- 已更新 `docs/adr/0003-use-dual-layer-frontend.md`：补充前端实施流程规范引用。
+- 本轮未启动实际前端开发、不引入 npm 包、不创建 Vue/React 工程、不修改业务代码、不改变 M1 当前范围。
+
+## M0 后续路线记录
