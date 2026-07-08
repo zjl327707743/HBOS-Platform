@@ -16,6 +16,7 @@
 - `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`：M1-R3B-FIX 运行态最小修复执行记录。
 - `docs/milestones/M1_R3C_HRMS原生考勤最小试运行复测记录.md`：M1-R3C HRMS 原生考勤最小试运行复测记录。
 - `docs/milestones/M1_R3D_异常口径与Gap诊断.md`：M1-R3D 异常口径与 Gap 诊断。
+- `docs/milestones/M1_R3E_配置复核与业务口径确认表.md`：M1-R3E 配置复核清单与业务口径确认表。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -52,17 +53,17 @@
 | M1-R3B-FIX | 运行态最小修复执行 | COMPLETED |
 | M1-R3C | HRMS 原生考勤最小试运行复测 | COMPLETED |
 | M1-R3D | HRMS 原生考勤异常口径与配置 Gap 诊断 | COMPLETED |
-| M1-R3E | 配置复核或业务口径确认 | PLANNED |
+| M1-R3E | 配置复核清单与业务口径确认表 | REVIEWING |
 | M1-R4 | 后续考勤配置 / 报表或异常口径验证 | PLANNED |
 | M2 | 飞书集成 | PLANNED |
 
 ## 下一步路线
 
 1. M1-R3D 已通过 Codex 审查并收口，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。
-2. 下一步由用户决定是否进入 M1-R3E：配置复核或业务口径确认。
-3. M1-R4 保持 PLANNED，尚未启动。
+2. M1-R3E 已形成配置复核清单与海滨业务口径确认表，当前等待 Codex 审查。
+3. M1-R4 保持 PLANNED，尚未启动；M1-R4 才考虑二次最小验证或报表设计。
 
-M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED：部分 TEST 数据已落库，14 个打卡场景未完成 Attendance 闭环验证。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1 尚未进入业务开发，M1-R3E 与 M1-R4 仍为 PLANNED。
+M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED：部分 TEST 数据已落库，14 个打卡场景未完成 Attendance 闭环验证。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已完成配置复核清单与业务口径确认表文档交付，当前为 REVIEWING。M1 尚未进入业务开发，M1-R4 仍为 PLANNED。
 
 ## 更新规则
 
