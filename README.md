@@ -105,7 +105,7 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 4. M1-R3F 已通过 Codex 审查并收口，业务口径确认包已交付。
 5. M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口，需求设计四份文档全部完成。
 6. M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R4 定位为 Demo 技术方案与实施路线拆分，后续 R5/R6/R7 按递进拆分。
-7. M1-R5 当前为 REVIEWING；本轮定位为 HRMS 配置基线、考勤工作台与月度汇总 Demo，未启动 R6/R7。
+7. M1-R5 已通过 Codex 审查并收口为 COMPLETED；本轮定位为 HRMS 配置基线、考勤工作台与月度汇总 Demo，未启动 R6/R7。
 
 ## AI 协作方式
 

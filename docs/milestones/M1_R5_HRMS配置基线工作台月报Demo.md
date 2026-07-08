@@ -202,7 +202,7 @@ R5 Excel 导出路径只针对“月报展示 / 导出路径”，不是脱敏 E
 | 6 | 不创建 App | 已遵守 |
 | 7 | 不创建 DocType | 已遵守 |
 | 8 | 不启动 R6/R7 功能 | 已遵守 |
-| 9 | 状态进入 `M1-R5 = REVIEWING` | 已同步 |
+| 9 | 状态进入 `M1-R5 = REVIEWING`（执行完成）→ closeout 后状态收口为 `M1-R5 = COMPLETED` | 已同步 |
 | 10 | 后续 `M1-R6/R7` 仍未启动 | 已同步 |
 
 ## 10. R5 风险与后续 Gate
@@ -244,7 +244,7 @@ R5 Excel 导出路径只针对“月报展示 / 导出路径”，不是脱敏 E
 
 本轮完成后状态为：
 
-- `M1-R5 = REVIEWING`
+- `M1-R5 = COMPLETED`
 - `M1-R4 = COMPLETED`
 - `M1-R6 = PLANNED / 待授权 / 未启动`
 - `M1-R7 = PLANNED / 待授权 / 未启动`

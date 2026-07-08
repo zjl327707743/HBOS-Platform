@@ -83,7 +83,7 @@ Skill 路由规范文件为：
 
 后续路线只记录，不代表已启动：
 
-1. M1-R5 当前为 REVIEWING，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
+1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
 2. M1-R6/R7 当前为 PLANNED，待用户逐轮授权。
 
 ## 边界提醒
