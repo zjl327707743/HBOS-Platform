@@ -547,7 +547,7 @@ R7 如果启动，可能需要包含：
 - `M1-R6A = COMPLETED`
 - `M1-R6B = COMPLETED`
 - `M1-R6C = COMPLETED`
-- `M1-R7 = PLANNED / 待授权 / 未启动`
+- `M1-R7 = REVIEWING`
 
 ## 17. Closeout 结论
 

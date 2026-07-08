@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1-R6C 异常识别与异常说明流程最小实现（COMPLETED）
+- 当前轮次：M1-R7 飞书登录、领导 Demo 与 M1 收口准备（REVIEWING）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R5 已通过 Codex 审查并收口为 COMPLETED；M1-R6A 当前为 COMPLETED；M1-R6B 当前为 COMPLETED（脱敏打卡流水导入最小闭环已完成并 closeout）；M1-R6C 当前为 COMPLETED（异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout）；M1-R7/R8 均为 PLANNED / 待授权 / 未启动；当前未创建海滨自定义 App，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0 整体状态为 COMPLETED；M1-R0~R6C 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 当前为 COMPLETED（异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout）；M1-R7 当前为 REVIEWING；M1-R8 为 PLANNED（可选缓冲轮）；当前未创建海滨自定义 App，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-R6C 已通过 Codex 审查并 closeout，状态为 COMPLETED。M1-R7 为 PLANNED / 待授权 / 未启动。
+- 下一步路线：M1-R7 已进入 REVIEWING，主文档 `docs/milestones/M1_R7_飞书登录领导Demo与M1收口准备.md` 已交付。
 
 ## 状态更新制度
 
@@ -599,7 +599,7 @@ M1 当前仅进入规划与诊断阶段，不代表进入业务开发。
 - M1-R6A：COMPLETED。
 - M1-R6B：COMPLETED。
 - M1-R6C：COMPLETED，异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout。
-- M1-R7：PLANNED / 待授权 / 未启动。
+- M1-R7：REVIEWING，飞书登录、领导 Demo 与 M1 收口准备，主文档已交付。
 - M1-R8：PLANNED（可选缓冲轮）。
 
 M1-R0 当前结果：
