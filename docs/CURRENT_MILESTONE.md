@@ -6,7 +6,7 @@
 
 ## 当前轮次
 
-M1-R6B：脱敏打卡流水导入最小实现。当前状态：REVIEWING。
+M1-R6B：脱敏打卡流水导入最小实现。当前状态：COMPLETED。
 
 M1-R6A：Excel 导入与异常流程落地方案 / Gate 判定。当前状态：COMPLETED。
 
@@ -14,7 +14,7 @@ M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo。当前状态�
 
 M1-REQ-DESIGN-DRAFT-CLOSEOUT：M1 需求设计草案审查通过后状态收口。当前状态：COMPLETED。
 
-M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 REVIEWING。M1-R6C/R7/R8 均为 PLANNED，待用户逐轮授权。
+M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C/R7/R8 均为 PLANNED / 待授权 / 未启动。
 
 权威计划文件：
 
@@ -45,8 +45,8 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - 已调用 HRMS 原生 `process_auto_attendance()`，生成 3 条 Attendance。
 - 已验证 `Employee Checkin -> Auto Attendance -> Attendance` 最小链路通过。
 - 迟到 / 早退候选 Attendance 已生成，但 `late_entry` / `early_exit` 未置位，留给 R6C 或后续配置复核。
-- M1-R6B 当前状态为 REVIEWING，等待 Codex 审查。
-- M1-R6C/R7 均为 PLANNED，待用户逐轮授权；M1-R8 为可选缓冲轮。
+- M1-R6B 已通过 Codex 审查并收口为 COMPLETED。
+- M1-R6C/R7 均为 PLANNED / 待授权 / 未启动；M1-R8 为可选缓冲轮。
 - 本轮未提交 Excel / CSV，未创建 App，未创建 DocType，未修改核心源码，未接真实考勤机，未接飞书，未提交真实员工姓名或未脱敏数据。
 
 ## 本轮禁止事项
@@ -109,7 +109,8 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - M1-R4 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R5 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6A 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6B 当前状态为 REVIEWING，等待 Codex 审查。
+- M1-R6B 当前状态为 COMPLETED，已通过 Codex 审查并收口。
+- M1-R6C 当前状态为 PLANNED，待授权，未启动。
 - M1-R7 当前状态为 PLANNED，待授权，未启动。
 
 ## 验收标准
@@ -129,11 +130,11 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - M1-R4 当前状态为 COMPLETED，已通过 Codex 审查并收口
 - M1-R5 当前状态为 COMPLETED，Codex 审查 PASS 后完成 closeout 收口
 - M1-R6A 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6B 当前状态为 REVIEWING，等待 Codex 审查。
-- M1-R6C 保持 PLANNED，未启动
-- M1-R7/R8 保持 PLANNED，未启动
+- M1-R6B 当前状态为 COMPLETED，已通过 Codex 审查并收口。
+- M1-R6C 保持 PLANNED / 待授权 / 未启动
+- M1-R7/R8 保持 PLANNED / 待授权 / 未启动
 - 本轮未开发业务代码；仅写入虚构脱敏 R6B 本地验证数据到 `frontend` site；未创建海滨自定义 App / DocType / 核心源码变更
 
 ## 下一轮预告
 
-M1-R6B 已完成脱敏打卡流水导入最小验证并进入 REVIEWING，等待 Codex 审查。M1-R6C/R7 均为 PLANNED，需用户逐轮授权后方可启动。
+M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1-R6C/R7 均为 PLANNED / 待授权 / 未启动。

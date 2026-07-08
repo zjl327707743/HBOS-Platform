@@ -2,9 +2,11 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
 
 执行日期：2026-07-09。
+
+Closeout 日期：2026-07-09。
 
 ## 1. 本轮定位
 
@@ -193,7 +195,7 @@ R6A 判定 Frappe / HRMS 原生 Data Import 理论可导入 `Employee Checkin`�
 - Owner 文件被判定为混合表且含真实身份，不能直接导入。
 - 本轮重点是验证 `Employee Checkin → Auto Attendance → Attendance` 最小闭环。
 - 不提交脱敏 CSV / Excel，避免误把样例数据纳入仓库。
-- 后续如 Owner 授权，可在 R6B closeout 后继续用 Frappe Data Import UI / Data Import DocType 做同模板上传验证。
+- 后续如 Owner 授权，可在 M1-R6C 或后续专门导入验证轮继续用 Frappe Data Import UI / Data Import DocType 做同模板上传验证。
 
 ## 10. 最小验证过程
 
@@ -306,6 +308,19 @@ R6C 不因 R6B 完成而自动启动。
 ## 16. 当前状态
 
 - `M1-R6A = COMPLETED`
-- `M1-R6B = REVIEWING`
+- `M1-R6B = COMPLETED`
 - `M1-R6C = PLANNED / 待授权 / 未启动`
 - `M1-R7 = PLANNED / 待授权 / 未启动`
+
+## 17. Closeout 结论
+
+M1-R6B 已通过 Codex 审查并完成 closeout，状态收口为 COMPLETED。
+
+Closeout 结论：
+
+- R6B 脱敏打卡流水导入最小闭环已完成。
+- Owner 提供 Excel 已判定为混合表，不能直接作为 `Employee Checkin` 导入源。
+- 原始 Excel 未提交，`docs/data/` 数据文件已由 `.gitignore` 防误提交。
+- `Employee Checkin` 最小写入验证完成。
+- Auto Attendance 已处理并生成 Attendance。
+- M1-R6C / M1-R7 未启动；下一步只能等待 Owner 授权后进入 M1-R6C。
