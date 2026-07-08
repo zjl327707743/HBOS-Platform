@@ -4,7 +4,7 @@
 
 状态：COMPLETED。
 
-审查记录：Codex 审查 PASS。本轮 closeout 将 M1-R5 从 REVIEWING 收口为 COMPLETED；未开发、未试运行、未动数据库、未创建 App / DocType / 代码。主文档 `docs/milestones/M1_R5_HRMS配置基线工作台月报Demo.md` 已交付。
+审查记录：Codex 审查 PASS。本轮 closeout 已完成，M1-R5 状态为 COMPLETED；未启动 M1-R6，未开发，未试运行，未创建 App / DocType。
 
 执行日期：2026-07-08。
 
@@ -202,7 +202,7 @@ R5 Excel 导出路径只针对“月报展示 / 导出路径”，不是脱敏 E
 | 6 | 不创建 App | 已遵守 |
 | 7 | 不创建 DocType | 已遵守 |
 | 8 | 不启动 R6/R7 功能 | 已遵守 |
-| 9 | 状态进入 `M1-R5 = REVIEWING`（执行完成）→ closeout 后状态收口为 `M1-R5 = COMPLETED` | 已同步 |
+| 9 | 状态收口为 `M1-R5 = COMPLETED` | 已同步 |
 | 10 | 后续 `M1-R6/R7` 仍未启动 | 已同步 |
 
 ## 10. R5 风险与后续 Gate
