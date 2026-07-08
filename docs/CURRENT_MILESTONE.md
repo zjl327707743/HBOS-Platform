@@ -6,6 +6,8 @@
 
 ## 当前轮次
 
+M1-R6C：异常识别与异常说明流程最小实现。当前状态：REVIEWING。
+
 M1-R6B：脱敏打卡流水导入最小实现。当前状态：COMPLETED。
 
 M1-R6A：Excel 导入与异常流程落地方案 / Gate 判定。当前状态：COMPLETED。
@@ -14,7 +16,7 @@ M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo。当前状态�
 
 M1-REQ-DESIGN-DRAFT-CLOSEOUT：M1 需求设计草案审查通过后状态收口。当前状态：COMPLETED。
 
-M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C/R7/R8 均为 PLANNED / 待授权 / 未启动。
+M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 REVIEWING。M1-R7/R8 为 PLANNED / 待授权 / 未启动。
 
 权威计划文件：
 
@@ -28,57 +30,51 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 
 ## 本轮范围
 
-只做 M1-R6B：脱敏打卡流水导入最小实现。不得启动 M1-R6C/R7。
+只做 M1-R6C：异常识别与异常说明流程最小实现。不得启动 M1-R7。
 
-在 M1-R6B closeout 后，Owner 确认新增前端实施流程规范 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`，确立"原型先行 + Owner 审查 + 复刻实现 + 功能接入"的前端开发流程。此为项目长期规范，不改变 M1 当前范围。
+在 M1-R6C 执行前，Owner 确认本轮已授权进入 R6C，但只做 R6C，不启动 R7，不做飞书登录。
 
 交付内容：
 
-- `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md`（本轮主文档）
+- `docs/milestones/M1_R6C_异常识别与异常说明流程最小实现.md`（本轮主文档）
 - 项目状态、当前里程碑和里程碑索引文件更新
 - 公共入口文件过期状态清理
 
 本轮实际结果：
 
-- Owner 提供 Excel 已判定为混合表，不适合作为 `Employee Checkin` 直接导入源。
-- 已补充 `.gitignore` 覆盖 `docs/data/*.xlsx`、`docs/data/*.xls`、`docs/data/*.csv`，防止真实导出文件误提交。
-- 已固定 Demo 脱敏原始打卡流水模板和 `attendance_device_id` 匹配规则。
-- 已在本地 `frontend` site 写入 3 名虚构员工、1 个 R6B Shift Type、3 条 Shift Assignment 和 5 条 Employee Checkin。
-- 已调用 HRMS 原生 `process_auto_attendance()`，生成 3 条 Attendance。
-- 已验证 `Employee Checkin -> Auto Attendance -> Attendance` 最小链路通过。
-- 迟到 / 早退候选 Attendance 已生成，但 `late_entry` / `early_exit` 未置位，留给 R6C 或后续配置复核。
-- M1-R6B 已通过 Codex 审查并收口为 COMPLETED。
-- M1-R6C/R7 均为 PLANNED / 待授权 / 未启动；M1-R8 为可选缓冲轮。
-- 本轮未提交 Excel / CSV，未创建 App，未创建 DocType，未修改核心源码，未接真实考勤机，未接飞书，未提交真实员工姓名或未脱敏数据。
+- 异常识别 7 个场景已通过（正常/迟到/早退/上班缺卡/下班缺卡）。
+- Shift Type 配置修复后 `late_entry`/`early_exit` 正确置位。
+- 11 个 Custom Field 已在 HRMS 原生 Attendance Request 上扩展完成，覆盖 6 种异常类型 + 三级流程状态。
+- HRMS 原生 `validate_no_attendance_to_create()` 在已有 Attendance 场景下阻止 Attendance Request 创建，4 条 Demo AR 全部被拒绝。
+- 员工提交说明/主管确认/人事处理的运行时三级流程未完成验证（依赖 AR 记录存在）。
+- R6C 记录完整的设计承载关系、验证过程和 Gate 结论。
+- M1-R7 为 PLANNED / 待授权 / 未启动。
+- 本轮未创建 App、未创建 DocType、未修改核心源码、未提交 Excel / CSV。
 
 ## 本轮禁止事项
 
-- 不实现完整 Excel 导入生产功能
-- 不导入真实或脱敏 Excel
-- 不使用真实 Employee Checkin / Attendance 数据
-- 不创建 Frappe bench
+- 不启动 R7
+- 不接飞书登录
+- 不接飞书请假
+- 不接飞书工作台
+- 不接真实考勤机
+- 不实现月度汇总 Excel 导入
 - 不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
 - 不创建 `hb_hr_app`
 - 不创建任何海滨自定义 Frappe App
+- 不创建自定义 DocType
+- 不创建 `Attendance Exception` / `Attendance Correction`
 - 不做业务代码
-- 不开发考勤业务
-- 不接飞书登录
-- 不正式接飞书请假
-- 不接飞书工作台
-- 不接飞书真实写入
-- 不实现 SSO
-- 不修改中文翻译源码
-- 不做前端驾驶舱
-- 不引入外部源码
+- 不修改 Frappe / ERPNext / HRMS 核心源码
+- 不部署公司内网/云服务器
+- 不启动大型 Vue 前端
 - 不执行 `docker compose down -v`
 - 不删除 volume
 - 不重建 `frontend` site
 - 不重新安装 HRMS
 - 不修改 `docker-compose.yml`、`.env.example`
-- `.gitignore` 仅允许为防止 `docs/data` 本地 Excel / CSV 误提交做最小更新
-- 不创建新的 Frappe App
-- 不创建新的自定义 DocType
 - 不提交 `.env`、备份、密钥、数据库、日志、缓存或运行时产物
+- 不提交 Excel / CSV / 真实数据
 
 ## 当前批次状态
 
@@ -112,7 +108,7 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - M1-R5 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6A 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6B 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6C 当前状态为 PLANNED，待授权，未启动。
+- M1-R6C 当前状态为 REVIEWING。
 - M1-R7 当前状态为 PLANNED，待授权，未启动。
 
 ## 验收标准
@@ -133,10 +129,10 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - M1-R5 当前状态为 COMPLETED，Codex 审查 PASS 后完成 closeout 收口
 - M1-R6A 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6B 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6C 保持 PLANNED / 待授权 / 未启动
+- M1-R6C 当前状态为 REVIEWING，异常识别验证已完成，Custom Field 已扩展，但 Attendance Request 运行时创建被原生验证阻止。
 - M1-R7/R8 保持 PLANNED / 待授权 / 未启动
-- 本轮未开发业务代码；仅写入虚构脱敏 R6B 本地验证数据到 `frontend` site；未创建海滨自定义 App / DocType / 核心源码变更
+- 本轮未创建自定义 App / DocType / 核心源码变更；仅扩展了 11 个 Custom Field 到 HRMS 原生 Attendance Request
 
 ## 下一轮预告
 
-M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1-R6C/R7 均为 PLANNED / 待授权 / 未启动。
+M1-R6C 当前为 REVIEWING。M1-R7 为 PLANNED / 待授权 / 未启动。

@@ -64,7 +64,7 @@ M1-R6A 当前状态：COMPLETED。M1-R6A 已完成 Excel 导入与异常流程�
 
 M1-R6B 当前状态：COMPLETED。M1-R6B 已完成脱敏打卡流水导入最小实现，主文档 `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md` 已交付并完成 closeout。审查记录：Codex 审查 PASS，closeout 已完成。本轮先将 Owner 提供 Excel 判定为混合表，未将其作为 Employee Checkin 导入源；使用脱敏 Demo 原始打卡流水写入 5 条 Employee Checkin，并通过 HRMS 原生 Auto Attendance 生成 3 条 Attendance。本轮未提交 Excel / CSV，未创建 App，未创建自定义 DocType，未启动 R6C/R7。
 
-M1-R6C 当前状态：PLANNED / 待授权 / 未启动。
+M1-R6C 当前状态：REVIEWING。M1-R6C 已完成异常识别与异常说明流程最小实现的主文档交付，主文档 `docs/milestones/M1_R6C_异常识别与异常说明流程最小实现.md` 已交付。异常识别 7 个场景已验证通过（正常/迟到/早退/上班缺卡/下班缺卡）；`late_entry`/`early_exit` 在 Shift Type 配置修复后正确置位；11 个 Custom Field 已在 HRMS 原生 Attendance Request 上扩展完成；HRMS 原生 `validate_no_attendance_to_create()` 在已有 Attendance 场景下阻止 Attendance Request 创建，4 条 Demo AR 全部被拒绝；员工提交说明/主管确认/人事处理的运行时三级流程未完成验证。本轮未创建 App、未创建 DocType、未修改核心源码、未提交 Excel / CSV。
 M1-R7 当前状态：PLANNED / 待授权 / 未启动。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
