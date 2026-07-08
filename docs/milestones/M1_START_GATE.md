@@ -4,7 +4,7 @@
 
 ## 文件定位
 
-本文件记录 M1 启动前必须满足的门禁条件。M1-R0 已按本门禁完成规划收口，M1-R1 已按门禁只读验证 HRMS 原生考勤对象模型并收口为 COMPLETED，M1-R2 已按门禁形成 HRMS 原生考勤配置试运行方案并收口为 COMPLETED。M1-R3 已按用户授权尝试虚构 TEST 最小数据试运行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED，尚未进入业务开发。M1-R3B-FIX 已执行运行态最小修复，当前为 REVIEWING，等待 Codex 审查。
+本文件记录 M1 启动前必须满足的门禁条件。M1-R0 已按本门禁完成规划收口，M1-R1 已按门禁只读验证 HRMS 原生考勤对象模型并收口为 COMPLETED，M1-R2 已按门禁形成 HRMS 原生考勤配置试运行方案并收口为 COMPLETED。M1-R3 已按用户授权尝试虚构 TEST 最小数据试运行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED，尚未进入业务开发。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。
 
 ## 必须满足的前置条件
 
@@ -44,7 +44,7 @@ M1-R3A 当前状态：COMPLETED。M1-R3A 已完成运行态阻断诊断与 TEST 
 
 M1-R3B 当前状态：COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查，记录见 `docs/milestones/M1_R3B_运行态最小修复方案.md`。本轮只是修复方案和状态收口，不是修复执行；未执行修复，未启动或重启服务，未清理 TEST 数据，未继续试运行。
 
-M1-R3B-FIX 当前状态：REVIEWING。M1-R3B-FIX 已按 M1-R3B 方案执行运行态最小修复，记录见 `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`。`redis-cache`、`redis-queue`、queue worker、scheduler、`bench doctor` 和 `/login` 已恢复到可验证状态；本轮未清理 TEST 数据，未继续创建 TEST 数据，未执行 HRMS 考勤试运行。Company / User / Employee 写入阻断未在本轮复测，M1-R3C 仍需用户明确授权。
+M1-R3B-FIX 当前状态：COMPLETED。M1-R3B-FIX 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`。该轮只执行 `docker compose up -d redis-cache redis-queue`，`redis-cache`、`redis-queue`、queue worker、scheduler、`bench doctor` 和 `/login` 已恢复或改善；未清理 TEST 数据，未继续创建 TEST 数据，未执行 HRMS 考勤试运行。TEST 数据计数发生变化，来源需后续复核。Company / User / Employee 写入阻断未在本轮复测，M1-R3C 仍需用户明确授权。
 
 M1-R3C 当前状态：PLANNED。M1-R3C 仅可在运行态最小修复完成、TEST 数据隔离边界明确且用户授权后，重新执行 HRMS 原生考勤虚构 TEST 数据试运行；仍不得接真实考勤机、真实飞书或 SSO。
 
@@ -102,8 +102,8 @@ M1 初期不创建 `hb_attendance_app`。
 4. M1-R3：HRMS 原生考勤最小测试数据试运行。
 5. M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。
 6. M1-R3B：运行态最小修复方案。
-7. M1-R3B-FIX：运行态最小修复执行，当前为 REVIEWING。
+7. M1-R3B-FIX：运行态最小修复执行，当前为 COMPLETED。
 8. M1-R3C：HRMS 原生考勤重新试运行，当前仅为 PLANNED。
 9. M1-R4：后续考勤配置 / 报表或异常口径验证，当前仅为 PLANNED。
 
-M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 REVIEWING。M1-R3C 为 PLANNED。M1-R4 仍为 PLANNED，尚未启动。
+M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 PLANNED。M1-R4 仍为 PLANNED，尚未启动。

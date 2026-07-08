@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前 M0 工程启动阶段已完成并封板，M0-REMOTE 已完成，M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，现收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已执行运行态最小修复，当前为 REVIEWING。
+当前 M0 工程启动阶段已完成并封板，M0-REMOTE 已完成，M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，现收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。
 
 当前真实进度以以下文件为准：
 
@@ -34,7 +34,7 @@
 - M1-R3 HRMS 原生考勤最小测试数据试运行已执行并通过 Codex 审查，最终状态为 BLOCKED；本轮未完成 14 场景闭环
 - M1-R3A 运行态阻断诊断与 TEST 数据隔离 / 清理方案已通过 Codex 审查并收口为 COMPLETED
 - M1-R3B 运行态最小修复方案已通过 Codex 审查并收口为 COMPLETED；本轮未执行修复、未清理 TEST 数据、未继续试运行
-- M1-R3B-FIX 已按方案执行运行态最小修复，Redis / worker / scheduler / bench doctor / login 已恢复到可验证状态；当前为 REVIEWING，等待 Codex 审查
+- M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；该轮只执行 `docker compose up -d redis-cache redis-queue`，Redis / worker / scheduler / bench doctor / login 已恢复或改善
 - M1-R3C HRMS 原生考勤重新试运行为 PLANNED，尚未启动
 
 M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计、HRMS 环境可复现性收口、GitHub Private remote 首次同步、M1-R0 规划诊断收口、M1-R1 对象模型验证记录、M1-R2 配置试运行方案设计、M1-R3 局部试运行记录、M1-R3A 阻断诊断方案、M1-R3B 运行态最小修复方案和 M1-R3B-FIX 运行态最小修复执行记录；M1 仍未进入业务开发。
@@ -93,10 +93,9 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 
 后续路线只记录，不代表已启动：
 
-1. 交给 Codex 审查 M1-R3B-FIX。
-2. 审查通过后，由用户决定是否授权进入 M1-R3C 或先做 TEST 数据隔离 / 清理。
-3. M1-R3C：HRMS 原生考勤重新试运行，当前仅为 PLANNED，尚未启动。
-4. M1-R4：后续考勤配置 / 报表或异常口径验证，当前仅为 PLANNED，尚未启动。
+1. 由用户决定是否授权进入 M1-R3C 或先做 TEST 数据隔离 / 清理。
+2. M1-R3C：HRMS 原生考勤重新试运行，当前仅为 PLANNED，尚未启动。
+3. M1-R4：后续考勤配置 / 报表或异常口径验证，当前仅为 PLANNED，尚未启动。
 
 ## AI 协作方式
 

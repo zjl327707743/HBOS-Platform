@@ -272,7 +272,7 @@ M1-R3A 当前状态：COMPLETED，已通过 Codex 审查并收口。
 
 M1-R3B 当前状态：COMPLETED，已完成运行态最小修复方案并通过 Codex 审查。
 
-M1-R3B-FIX 当前状态：REVIEWING，已按 M1-R3B 方案执行运行态最小修复，记录见 `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`。本轮未清理 TEST 数据，未继续创建 TEST 数据，未执行 HRMS 考勤重新试运行。
+M1-R3B-FIX 当前状态：COMPLETED，已按 M1-R3B 方案执行运行态最小修复，并通过 Codex 审查收口；记录见 `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`。该轮未清理 TEST 数据，未继续创建 TEST 数据，未执行 HRMS 考勤重新试运行。
 
 M1-R3C 当前状态：PLANNED，用于后续运行态最小修复完成后的 HRMS 原生考勤重新试运行，仍需用户授权。
 

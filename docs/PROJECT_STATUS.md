@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1-R3B-FIX 运行态最小修复执行记录
+- 当前轮次：M1-R3B-FIX-CLOSEOUT 审查通过后状态收口
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已按方案执行运行态最小修复，当前为 REVIEWING；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：交给 Codex 审查 M1-R3B-FIX；审查通过后，由用户决定是否授权进入 M1-R3C 或先做 TEST 数据隔离 / 清理。M1-R3C 与 M1-R4 保持 PLANNED，尚未启动。
+- 下一步路线：由用户决定是否授权进入 M1-R3C 或先做 TEST 数据隔离 / 清理。M1-R3C 与 M1-R4 保持 PLANNED，尚未启动。
 
 ## 状态更新制度
 
@@ -50,8 +50,11 @@
 - 阻断点是运行态 ORM 写入 / 数据库连接或锁问题，不是 HRMS 原生对象模型已被证明无法覆盖。
 - M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。
 - M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED；本轮未执行修复、未清理 TEST 数据、未继续试运行。
-- M1-R3B-FIX 已执行运行态最小修复并形成记录，状态为 REVIEWING；`redis-cache`、`redis-queue`、queue worker、scheduler、`bench doctor` 和 `/login` 已恢复到可验证状态。
-- M1-R3B-FIX 只读计数确认当前 TEST 数据包括 Employee 8、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Application 2、Attendance 12 等；本轮没有手工创建、删除或清理 TEST 数据，计数高于 M1-R3A / M1-R3B 旧记录，需在 M1-R3C 或清理授权前复核。
+- M1-R3B-FIX 已通过 Codex 审查，审查结果 PASS，状态已从 REVIEWING 收口为 COMPLETED。
+- M1-R3B-FIX 只执行 `docker compose up -d redis-cache redis-queue`，未再执行额外服务启动 / 重启，未清理 TEST 数据，未继续试运行。
+- M1-R3B-FIX 已确认 `redis-cache`、`redis-queue`、queue worker、scheduler、`bench doctor` 和 `/login` 已恢复或改善。
+- M1-R3B-FIX 只读计数确认当前 TEST 数据包括 Employee 8、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Application 2、Attendance 12 等；本轮没有手工创建、删除或清理 TEST 数据，计数高于 M1-R3A / M1-R3B 旧记录，来源需在 M1-R3C 或清理授权前复核。
+- Company / User / Employee 写入阻断未复测；用户尚未授权 M1-R3C。
 - M1-R3C 设为 PLANNED，用于后续运行态修复完成后的 HRMS 原生考勤重新试运行。
 - M1-R4 保持 PLANNED，尚未启动。
 
@@ -515,7 +518,7 @@ M0-FINAL 收口后的路线已执行到 M1-R3B-FIX：
 5. M1-R3：BLOCKED，已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，实际结论为 PARTIAL / BLOCKED。
 6. M1-R3A：COMPLETED，运行态阻断诊断与 TEST 数据隔离 / 清理方案，已通过 Codex 审查。
 7. M1-R3B：COMPLETED，运行态最小修复方案，已通过 Codex 审查。
-8. M1-R3B-FIX：REVIEWING，运行态最小修复已执行，等待 Codex 审查。
+8. M1-R3B-FIX：COMPLETED，运行态最小修复已执行并通过 Codex 审查。
 9. M1-R3C：PLANNED，HRMS 原生考勤重新试运行，尚未启动。
 10. M1-R4：PLANNED，尚未启动。
 
@@ -700,7 +703,7 @@ M1-R3B 当前结果：
 - 已新增 `docs/milestones/M1_R3B_运行态最小修复方案.md`。
 - M1-R3B 只制定运行态最小修复方案，已通过 Codex 审查并收口为 COMPLETED。
 - 方案承接 M1-R3A 诊断结论：`redis-cache` 与 `redis-queue` 退出，queue worker 和 websocket 反复重启，`bench doctor` 因 Redis Queue 连接失败无法完成，`list-apps` 与 `/login` 存在长时间无返回症状。
-- M1-R3B-FIX 已按方案执行运行态最小修复，当前为 REVIEWING，等待 Codex 审查。
+- M1-R3B-FIX 已按方案执行运行态最小修复，并已通过 Codex 审查收口为 COMPLETED。
 - M1-R3B-FIX 只读计数确认当前 TEST 数据范围包括 Employee 8、Shift Type 4、Shift Assignment 14、Employee Checkin 22、Leave Application 2、Attendance 12 等；该计数高于 M1-R3A / M1-R3B 旧记录，需在 M1-R3C 或清理授权前复核。
 - 方案覆盖 Redis、worker、scheduler、`bench doctor`、`list-apps`、login 的最小诊断与修复步骤草案。
 - 方案覆盖 Company / User / Employee 创建阻断的复测路径。
@@ -710,7 +713,7 @@ M1-R3B 当前结果：
 
 M1-R3B 未做：
 
-- M1-R3B 方案轮本身未执行运行态修复；运行态修复执行已在 M1-R3B-FIX 中记录并进入 REVIEWING。
+- M1-R3B 方案轮本身未执行运行态修复；运行态修复执行已在 M1-R3B-FIX 中记录并收口为 COMPLETED。
 - 未清理或删除 TEST 数据。
 - 未继续创建测试数据。
 - 未执行 HRMS 配置试运行。

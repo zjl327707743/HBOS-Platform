@@ -4,13 +4,15 @@
 
 ## 目标与边界
 
-状态：REVIEWING。
+状态：COMPLETED。
+
+收口记录：M1-R3B-FIX 已通过 Codex 审查，审查结果为 PASS。本次 M1-R3B-FIX-CLOSEOUT 仅做状态收口，将 M1-R3B-FIX 从 REVIEWING 改为 COMPLETED；未继续试运行，未创建、删除或清理 TEST 数据，未再启动或重启服务，未创建 App / DocType / 代码。
 
 本轮目标是按 `docs/milestones/M1_R3B_运行态最小修复方案.md` 执行最小运行态修复，使本地 `frontend` site 的 Redis、worker、scheduler、`bench doctor` 和 `/login` 恢复到可继续判断 M1-R3C 的状态。
 
 本轮不是 M1-R3C，不执行 HRMS 考勤重新试运行，不继续创建 TEST 数据，不清理或删除 TEST 数据，不创建 App / DocType / 代码，不接真实考勤机、真实飞书或 SSO。
 
-M1-R3 仍为 BLOCKED。M1-R3B-FIX 完成后进入 REVIEWING，等待 Codex 审查。M1-R3C 仍为 PLANNED，尚未启动。
+M1-R3 仍为 BLOCKED。M1-R3B-FIX 已收口为 COMPLETED。M1-R3C 仍为 PLANNED，尚未启动，用户尚未授权进入 M1-R3C。
 
 ## 读取文件
 
@@ -88,7 +90,7 @@ docker compose logs --tail=80 queue-short queue-long scheduler websocket
 - `websocket` 状态为 `Up`，日志显示 `Realtime service listening on: ws://0.0.0.0:9000`。
 - `scheduler` 容器状态为 `Up`，后续 `bench --site frontend scheduler status` 显示 site scheduler 已启用。
 
-本轮仅启动已退出的 Redis 服务；未执行 `docker compose down -v`，未删除 volume，未重建 `frontend` site。
+本轮仅执行 `docker compose up -d redis-cache redis-queue` 以启动已退出的 Redis 服务；未执行 `docker compose down -v`，未删除 volume，未重建 `frontend` site。
 
 ### bench 与登录页验证
 
@@ -173,7 +175,7 @@ docker compose exec -T backend bash -lc 'cd /home/frappe/frappe-bench && bench -
 
 当前判断：
 
-- Redis / worker / scheduler / `bench doctor` / `/login` 运行态阻断已经解除。
+- Redis / worker / scheduler / `bench doctor` / `/login` 运行态阻断已经恢复或改善。
 - Company / User / Employee 写入阻断尚未在本轮复测，需在用户明确授权的 M1-R3C 或独立复测轮次中验证。
 
 ## M1-R3C 进入条件判断
@@ -219,9 +221,9 @@ M1-R3 的阻断来自本地运行态和 TEST 数据链路不稳定，不是 HRMS
 
 ## 下一步建议
 
-M1-R3B-FIX 当前状态为 REVIEWING，建议先交给 Codex 审查。
+M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。
 
-审查通过后，由用户决定下一步：
+下一步由用户决定：
 
 1. 授权进入 M1-R3C：在当前运行态恢复后，继续 HRMS 原生考勤虚构 TEST 数据重新试运行。
 2. 或授权先做 TEST 数据隔离 / 清理，再进入重新试运行。
