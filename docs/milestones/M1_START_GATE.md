@@ -56,7 +56,12 @@ M1-R3F 当前状态：COMPLETED。M1-R3F 已通过 Codex 审查，审查结果 P
 
 M1-REQ-DESIGN-DRAFT 当前状态：COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查，审查结果 PASS（初审员工姓名脱敏 blocker 已修复，提交 `69aec6a`），并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_考勤一期真实需求确认.md`、`docs/milestones/M1_考勤一期产品需求说明书.md`、`docs/milestones/M1_考勤一期技术设计方案.md`、`docs/milestones/M1_Demo实施路线图.md`。本轮只写文档，未试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码，不修改核心源码。已补齐 M1 真实需求、PRD、技术设计、Demo 实施路线图四份文档。M1-R4 定位为 Demo 技术方案与实施路线拆分。
 
-M1-R4 当前状态：PLANNED，尚未启动。
+M1-R4 当前状态：REVIEWING。M1-R4 已启动，主文档 `docs/milestones/M1_R4_Demo技术方案与实施路线拆分.md` 已交付。M1-R4 定位为规划拆分轮，不开发、不试运行、不创建 App/DocType/代码。等待 Codex 审查。
+
+M1-R5 当前状态：PLANNED，待用户授权启动。
+M1-R6 当前状态：PLANNED，待用户授权启动。
+M1-R7 当前状态：PLANNED，待用户授权启动。
+M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界
 
@@ -116,6 +121,10 @@ M1 初期不创建 `hb_attendance_app`。
 10. M1-R3E：配置复核清单与业务口径确认表，当前为 COMPLETED。
 11. M1-R3F：业务口径确认包，当前为 COMPLETED。
 12. M1-REQ-DESIGN-DRAFT：M1 考勤一期需求设计草案，当前为 COMPLETED。
-13. M1-R4：M1 Demo 技术方案与实施路线拆分，当前仅为 PLANNED。
+13. M1-R4：M1 Demo 技术方案与实施路线拆分，当前为 REVIEWING。
+14. M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo，当前为 PLANNED。
+15. M1-R6：脱敏 Excel 导入、异常识别与异常说明流程，当前为 PLANNED。
+16. M1-R7：飞书登录、领导汇总 Demo 与 M1 收口，当前为 PLANNED。
+17. M1-R8：M1 Demo 验收修复与文档收口（可选缓冲轮），当前为 PLANNED。
 
 M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 仍为 PLANNED，尚未启动。

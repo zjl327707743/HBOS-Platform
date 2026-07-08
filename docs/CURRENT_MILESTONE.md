@@ -6,9 +6,11 @@
 
 ## 当前轮次
 
+M1-R4：M1 Demo 技术方案与实施路线拆分。当前状态：REVIEWING。
+
 M1-REQ-DESIGN-DRAFT-CLOSEOUT：M1 需求设计草案审查通过后状态收口。当前状态：COMPLETED。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 为 PLANNED，尚未启动。
+M1 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已启动，当前状态为 REVIEWING。M1-R5/R6/R7/R8 均为 PLANNED，待用户逐轮授权。
 
 权威计划文件：
 
@@ -22,26 +24,25 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-只做 M1-REQ-DESIGN-DRAFT-CLOSEOUT：将 M1-REQ-DESIGN-DRAFT 从 REVIEWING 收口为 COMPLETED，并同步公共入口状态。不得启动 M1-R4。
+只做 M1-R4：M1 Demo 技术方案与实施路线拆分。不得启动 M1-R5/R6/R7。
 
 交付内容：
 
-- `docs/milestones/M1_考勤一期真实需求确认.md`
-- `docs/milestones/M1_考勤一期产品需求说明书.md`
-- `docs/milestones/M1_考勤一期技术设计方案.md`
-- `docs/milestones/M1_Demo实施路线图.md`
+- `docs/milestones/M1_R4_Demo技术方案与实施路线拆分.md`（本轮主文档）
 - 项目状态、当前里程碑和里程碑索引文件更新
 - 公共入口文件过期状态清理
 
 本轮实际结果：
 
-- M1-REQ-DESIGN-DRAFT Codex 审查 PASS。初审 FAIL 的员工姓名脱敏 blocker 已修复（提交 `69aec6a`），复审 PASS。
-- M1-REQ-DESIGN-DRAFT 已从 REVIEWING 收口为 COMPLETED。
-- 保留四份设计文档：需求确认、PRD、技术设计、Demo 路线图。
-- 保留设计结论：M1-R4 定位为 Demo 技术方案与实施路线拆分，后续 R5/R6/R7 按递进拆分。
+- M1-R4 Demo 技术方案与实施路线拆分已交付，当前状态为 REVIEWING，等待 Codex 审查。
+- 基于 4 份已完成的 M1 设计文档，拆分出后续 R5/R6/R7/可选 R8 的详细执行路线。
+- 每轮有明确的目标、输入、范围、禁止项、验收点和审查/closeout 要求。
+- 已重申 M1 技术边界（复用优先、不修改核心源码、本地 Docker 运行）。
+- 已明确数据与脱敏边界（虚构员工姓名、两类导入区分、导入批次、操作留痕）。
+- 已列出 12 项 Gate 检查点（均为技术评估/待验证，非已确认需求）。
+- M1-R5/R6/R7 均为 PLANNED，待用户逐轮授权。M1-R8 为可选缓冲轮。
 - 当前仍不建议创建 `hb_hr_app`。
-- M1-REQ-DESIGN-DRAFT 为 COMPLETED，M1-R4 保持 PLANNED，尚未启动。
-- 本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。
+- 本轮未开发，未试运行，未动数据库，未创建 App / DocType / 代码。
 
 ## 本轮禁止事项
 
@@ -106,9 +107,11 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app
 - M1-R3E 已通过 Codex 审查并收口为 COMPLETED
 - M1-R3F 已通过 Codex 审查并收口为 COMPLETED
-- M1-R4 保持 PLANNED
-- 本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建海滨自定义 App、未开发考勤业务、未接真实考勤机、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码、未录入真实业务数据
+- M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED
+- M1-R4 当前状态为 REVIEWING，等待 Codex 审查
+- M1-R5/R6/R7 保持 PLANNED，未启动
+- 本轮未开发，未试运行，未动数据库，未创建海滨自定义 App / DocType / 代码
 
 ## 下一轮预告
 
-下一步由用户决定是否进入 M1-R4：二次最小验证或报表设计。M1-R4 仍为 PLANNED，尚未启动；M1-R4 之前必须完成 7 项阻塞性确认主题的业务口径确认或 Owner 临时拍板。
+M1-R4 当前为 REVIEWING，等待 Codex 审查。Codex PASS 后由用户决定是否授权进入 M1-R5（HRMS 配置基线、考勤工作台与月度汇总 Demo）。M1-R5/R6/R7 均为 PLANNED，需用户逐轮授权后方可启动。
