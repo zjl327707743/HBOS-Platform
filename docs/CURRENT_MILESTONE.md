@@ -6,9 +6,9 @@
 
 ## 当前轮次
 
-M1-R3F：业务口径确认包。当前状态：REVIEWING。
+M1-R3F-CLOSEOUT：M1-R3F 审查通过后状态收口。当前状态：COMPLETED。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已完成业务口径确认包文档交付，当前为 REVIEWING。M1-R4 为 PLANNED，尚未启动。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-R4 为 PLANNED，尚未启动。
 
 权威计划文件：
 
@@ -22,7 +22,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-只做 M1-R3F 文档交付：基于 M1-R3E 的业务口径确认表，整理给业务负责人确认的简洁版确认包。不得继续试运行，不得清理 TEST 数据，不得创建 App / DocType / 代码，不得启动 M1-R4。
+只做 M1-R3F-CLOSEOUT：将 M1-R3F 从 REVIEWING 收口为 COMPLETED，并同步公共入口状态。不得启动 M1-R4。
 
 交付内容：
 
@@ -32,13 +32,12 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 本轮实际结果：
 
-- M1-R3F 已新增业务口径确认包。
-- 确认包面向业务负责人，覆盖迟到、早退、上班缺卡、下班缺卡、缺勤、请假、加班、节假日出勤和临时调班 9 项确认主题。
-- 每项包含建议默认口径、需确认的问题列表、影响范围和 M1-R4 阻塞判断。
-- 7 项必须业务负责人确认才能进入 M1-R4（迟到、早退、上班缺卡、下班缺卡、缺勤、请假、加班）；2 项可先按建议默认值推进（节假日出勤、临时调班）。
+- M1-R3F Codex 审查 PASS。
+- M1-R3F 已从 REVIEWING 收口为 COMPLETED。
+- 保留 M1-R3F 结论：9 项确认主题中 7 项必须业务负责人确认才能进入 M1-R4，2 项可先按建议默认值推进。
 - M1-R4 前必须先完成阻塞性业务口径确认或 Owner 临时拍板。
 - 当前仍不建议创建 `hb_attendance_app`。
-- M1-R3F 当前为 REVIEWING，M1-R4 保持 PLANNED，尚未启动。
+- M1-R3F 为 COMPLETED，M1-R4 保持 PLANNED，尚未启动。
 - 本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。
 
 ## 本轮禁止事项
@@ -87,7 +86,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R3C 为 COMPLETED。
 - M1-R3D 为 COMPLETED。
 - M1-R3E 为 COMPLETED。
-- M1-R3F 为 REVIEWING。
+- M1-R3F 为 COMPLETED。
 - M1-R4 为 PLANNED，尚未启动。
 
 ## 验收标准
@@ -102,10 +101,10 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED
 - M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app
 - M1-R3E 已通过 Codex 审查并收口为 COMPLETED
-- M1-R3F 为 REVIEWING，等待 Codex 审查
+- M1-R3F 已通过 Codex 审查并收口为 COMPLETED
 - M1-R4 保持 PLANNED
 - 本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建海滨自定义 App、未开发考勤业务、未接真实考勤机、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码、未录入真实业务数据
 
 ## 下一轮预告
 
-下一步先交给 Codex 审查 M1-R3F。审查通过后，将确认包提交业务负责人确认。M1-R4 仍为 PLANNED，尚未启动；M1-R4 前必须完成 7 项阻塞性确认主题的业务口径确认或 Owner 临时拍板。
+下一步由用户决定是否进入 M1-R4：二次最小验证或报表设计。M1-R4 仍为 PLANNED，尚未启动；M1-R4 之前必须完成 7 项阻塞性确认主题的业务口径确认或 Owner 临时拍板。

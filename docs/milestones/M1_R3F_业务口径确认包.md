@@ -2,7 +2,9 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
+
+审查记录：M1-R3F 已通过 Codex 审查，审查结果为 PASS。本次 M1-R3F-CLOSEOUT 仅做状态收口，将 M1-R3F 从 REVIEWING 改为 COMPLETED；未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。
 
 执行日期：2026-07-08。
 
@@ -164,9 +166,9 @@ M1-R3F 承接 M1-R3E 的配置复核清单与业务口径确认表，整理成�
 ## 状态与下一步
 
 - M1-R3E：COMPLETED。
-- M1-R3F：REVIEWING，等待 Codex 审查。
+- M1-R3F：COMPLETED，已通过 Codex 审查并收口。
 - M1-R4：PLANNED，等待业务口径确认后启动。
 
-下一步建议：先交给 Codex 审查 M1-R3F。审查通过后，将本文件提交给业务负责人确认。M1-R4 在 7 项阻塞性确认主题完成业务口径确认或 Owner 临时拍板后方可启动。
+下一步建议：M1-R3F 已通过 Codex 审查并收口为 COMPLETED。将本文件提交给业务负责人确认。M1-R4 在 7 项阻塞性确认主题完成业务口径确认或 Owner 临时拍板后方可启动。
 
 本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码，未接飞书 / SSO / 真实考勤机，未修改核心源码，未提交数据库、日志、缓存、`.env`、密钥或备份。
