@@ -2,11 +2,11 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
 
 执行日期：2026-07-08。
 
-审查记录：本轮为规划拆分轮，尚未提交 Codex 审查。
+审查记录：Codex 初审 FAIL（发现 3 类 blocker：Git 同步门槛、公共入口 M1-R4 过期状态残留、阶段文字错误），已在 `2fbb6dc` 中修复。Codex 复审 PASS。M1-R4 已从 REVIEWING 收口为 COMPLETED。
 
 ## 1. 文档定位
 
