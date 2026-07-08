@@ -60,17 +60,16 @@
 | M1-R3D | HRMS 原生考勤异常口径与配置 Gap 诊断 | COMPLETED |
 | M1-R3E | 配置复核清单与业务口径确认表 | COMPLETED |
 | M1-R3F | 业务口径确认包 | COMPLETED |
-| M1-REQ-DESIGN-DRAFT | M1 考勤一期需求设计草案 | REVIEWING |
+| M1-REQ-DESIGN-DRAFT | M1 考勤一期需求设计草案 | COMPLETED |
 | M1-R4 | M1 Demo 技术方案与实施路线拆分 | PLANNED |
 | M2 | 飞书集成 | PLANNED |
 
 ## 下一步路线
 
-1. M1-R3F 已通过 Codex 审查并收口，9 项确认主题中 7 项必须确认。
-2. M1-REQ-DESIGN-DRAFT 已完成需求确认、PRD、技术设计和 Demo 路线图四份文档交付，当前为 REVIEWING。
-3. M1-R4 保持 PLANNED，尚未启动；M1-R4 新定位为 Demo 技术方案与实施路线拆分。
+1. M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口，四份设计文档全部完成，初审 blocker 已修复。
+2. M1-R4 保持 PLANNED，尚未启动；M1-R4 定位为 Demo 技术方案与实施路线拆分。
 
-M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已完成需求确认、PRD、技术设计和 Demo 路线图四份文档交付，当前为 REVIEWING。M1 尚未进入业务开发，M1-R4 仍为 PLANNED。
+M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1 尚未进入业务开发，M1-R4 仍为 PLANNED。
 
 ## 更新规则
 

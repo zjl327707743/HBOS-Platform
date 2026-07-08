@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前 M0 工程启动阶段已完成并封板，M0-REMOTE 已完成，M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，现收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已完成需求确认、PRD、技术设计和 Demo 路线图四份文档交付，当前为 REVIEWING。
+当前 M0 工程启动阶段已完成并封板，M0-REMOTE 已完成，M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，现收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。
 
 当前真实进度以以下文件为准：
 
@@ -39,7 +39,7 @@
 - M1-R3D HRMS 原生考勤异常口径与配置 Gap 诊断已通过 Codex 审查并收口为 COMPLETED；结论为 Gap 四类分类、均不需要立即创建 `hb_attendance_app`
 - M1-R3E 配置复核清单与业务口径确认表已通过 Codex 审查并收口为 COMPLETED；配置清单已覆盖 8 类配置复核项，业务口径表已确认 8/10 项阻塞 M1-R4
 - M1-R3F 业务口径确认包已通过 Codex 审查并收口为 COMPLETED；9 项确认主题中 7 项必须确认，2 项可先按默认值推进
-- M1-REQ-DESIGN-DRAFT 已完成需求确认、PRD、技术设计和 Demo 路线图四份文档交付，当前为 REVIEWING
+- M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；四份设计文档交付完成
 - M1-R4 Demo 技术方案与实施路线拆分为 PLANNED，尚未启动
 
 M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计、HRMS 环境可复现性收口、GitHub Private remote 首次同步、M1-R0 规划诊断收口、M1-R1 对象模型验证记录、M1-R2 配置试运行方案设计、M1-R3 局部试运行记录、M1-R3A 阻断诊断方案、M1-R3B 运行态最小修复方案、M1-R3B-FIX 运行态最小修复执行记录、M1-R3C 原生考勤最小试运行复测记录、M1-R3D 异常口径与 Gap 诊断、M1-R3E 配置复核与业务口径确认表和 M1-R3F 业务口径确认包；M1 仍未进入业务开发。
@@ -102,8 +102,8 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 2. M1-R3D 已通过 Codex 审查并收口，Gap 已四类分类，均不需要立即创建 App。
 3. M1-R3E 已通过 Codex 审查并收口，配置复核清单与业务口径确认表已交付。
 4. M1-R3F 已通过 Codex 审查并收口，业务口径确认包已交付。
-5. M1-REQ-DESIGN-DRAFT 已完成需求设计四份文档交付，当前等待 Codex 审查；M1-R4 新定位为 Demo 技术方案与实施路线拆分。
-6. M1-R4 当前仅为 PLANNED，尚未启动。
+5. M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口，需求设计四份文档全部完成。
+6. M1-R4 当前仅为 PLANNED，尚未启动；M1-R4 定位为 Demo 技术方案与实施路线拆分。
 
 ## AI 协作方式
 

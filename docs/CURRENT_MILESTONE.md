@@ -6,9 +6,9 @@
 
 ## 当前轮次
 
-M1-REQ-DESIGN-DRAFT：M1 考勤一期需求设计草案。当前状态：REVIEWING。
+M1-REQ-DESIGN-DRAFT-CLOSEOUT：M1 需求设计草案审查通过后状态收口。当前状态：COMPLETED。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已完成需求确认、PRD、技术设计和 Demo 路线图四份文档交付，当前为 REVIEWING。M1-R4 为 PLANNED，尚未启动。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 为 PLANNED，尚未启动。
 
 权威计划文件：
 
@@ -22,7 +22,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-只做 M1-REQ-DESIGN-DRAFT 文档交付：基于 Owner 与 ChatGPT 5 轮需求访谈结论，补齐 M1 考勤一期真实需求确认、PRD、技术设计和 Demo 实施路线图。不得启动 M1-R4，不得创建 App / DocType / 代码。
+只做 M1-REQ-DESIGN-DRAFT-CLOSEOUT：将 M1-REQ-DESIGN-DRAFT 从 REVIEWING 收口为 COMPLETED，并同步公共入口状态。不得启动 M1-R4。
 
 交付内容：
 
@@ -35,13 +35,13 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 本轮实际结果：
 
-- M1-REQ-DESIGN-DRAFT 已完成四份文档交付。
-- 真实需求确认覆盖 M1 定位、一周优先级、用户角色、考勤规则、数据来源与导入、页面策略、飞书登录边界、技术路线边界和 12 项验收标准。
-- PRD 已定义 5 个使用场景、6 个页面入口、三级异常处理流程、数据权限矩阵和月度汇总导出方案。
-- 技术设计方案基于 Frappe/ERPNext/HRMS v16 原生对象，含 Excel 导入设计（两类导入严格区分）、通用适配层接口契约、异常流程 DocType 评估、飞书登录匹配设计、权限映射和导入批次结构。
-- Demo 路线图拆分 M1-R4（路线拆分）→ R5（配置+工作台）→ R6（导入+异常）→ R7（飞书+领导Demo）四轮递进。
-- 本轮不创建 `hb_hr_app`，不创建 DocType，不修改核心源码。
-- M1-REQ-DESIGN-DRAFT 当前为 REVIEWING，M1-R4 保持 PLANNED，尚未启动。
+- M1-REQ-DESIGN-DRAFT Codex 审查 PASS。初审 FAIL 的员工姓名脱敏 blocker 已修复（提交 `69aec6a`），复审 PASS。
+- M1-REQ-DESIGN-DRAFT 已从 REVIEWING 收口为 COMPLETED。
+- 保留四份设计文档：需求确认、PRD、技术设计、Demo 路线图。
+- 保留设计结论：M1-R4 定位为 Demo 技术方案与实施路线拆分，后续 R5/R6/R7 按递进拆分。
+- 当前仍不建议创建 `hb_hr_app`。
+- M1-REQ-DESIGN-DRAFT 为 COMPLETED，M1-R4 保持 PLANNED，尚未启动。
+- 本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。
 
 ## 本轮禁止事项
 
@@ -90,7 +90,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R3D 为 COMPLETED。
 - M1-R3E 为 COMPLETED。
 - M1-R3F 为 COMPLETED。
-- M1-REQ-DESIGN-DRAFT 为 REVIEWING。
+- M1-REQ-DESIGN-DRAFT 为 COMPLETED。
 - M1-R4 为 PLANNED，尚未启动。
 
 ## 验收标准

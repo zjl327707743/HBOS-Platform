@@ -2,7 +2,9 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
+
+审查记录：M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。
 
 执行日期：2026-07-08。
 
@@ -143,7 +145,7 @@ R5/R6/R7 仅为建议，实际启动需用户逐轮授权。
 
 ## 状态与下一步
 
-- M1-REQ-DESIGN-DRAFT：REVIEWING。
+- M1-REQ-DESIGN-DRAFT：COMPLETED，已通过 Codex 审查并收口。
 - M1-R4：PLANNED，尚未启动。
 - M1-R5/R6/R7：PLANNED（建议），需用户逐轮授权。
 
