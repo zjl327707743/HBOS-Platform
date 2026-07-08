@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1-R5 HRMS 配置基线、考勤工作台与月度汇总 Demo（COMPLETED）
+- 当前轮次：M1-R6A Excel 导入与异常流程落地方案 / Gate 判定（REVIEWING）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R5 已通过 Codex 审查并收口为 COMPLETED；M1-R6/R7/R8 均为 PLANNED，待用户逐轮授权；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R5 已通过 Codex 审查并收口为 COMPLETED；M1-R6A 当前为 REVIEWING（主文档已交付，等待 Codex 审查）；M1-R6B/R6C/R7/R8 均为 PLANNED，待用户逐轮授权；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6/R7 均为 PLANNED，待用户逐轮授权。下一步由用户决定是否授权进入 M1-R6。
+- 下一步路线：M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 当前为 REVIEWING，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付，等待 Codex 审查。M1-R6B/R6C/R7 均为 PLANNED，待用户逐轮授权。
 
 ## 状态更新制度
 
@@ -534,9 +534,11 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 13. M1-REQ-DESIGN-DRAFT：COMPLETED，需求设计四份文档已通过 Codex 审查。
 14. M1-R4：COMPLETED，Demo 技术方案与实施路线拆分已通过 Codex 审查并收口。
 15. M1-R5：COMPLETED，HRMS 配置基线、考勤工作台与月度汇总 Demo 已通过 Codex 审查并收口。主文档 `docs/milestones/M1_R5_HRMS配置基线工作台月报Demo.md` 已交付。
-16. M1-R6：PLANNED，待用户授权启动。
-17. M1-R7：PLANNED，待用户授权启动。
-18. M1-R8：PLANNED（可选缓冲轮）。
+16. M1-R6A：REVIEWING，Excel 导入与异常流程落地方案 / Gate 判定，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付，等待 Codex 审查。
+17. M1-R6B：PLANNED（待 R6A closeout 后用户授权启动）。
+18. M1-R6C：PLANNED（待 R6B closeout 后用户授权启动）。
+19. M1-R7：PLANNED，待用户授权启动。
+20. M1-R8：PLANNED（可选缓冲轮）。
 
 ## M0-REMOTE 状态
 
@@ -594,7 +596,9 @@ M1 当前仅进入规划与诊断阶段，不代表进入业务开发。
 - M1-R3F：COMPLETED。
 - M1-R4：COMPLETED。
 - M1-R5：COMPLETED。
-- M1-R6：PLANNED。
+- M1-R6A：REVIEWING。
+- M1-R6B：PLANNED。
+- M1-R6C：PLANNED。
 - M1-R7：PLANNED。
 - M1-R8：PLANNED（可选缓冲轮）。
 
@@ -833,5 +837,47 @@ M1-R3E 未做：
 - 未接真实飞书。
 - 未写入飞书。
 - 未实现 SSO。
+- 未修改 Frappe / ERPNext / HRMS 核心源码。
+- 未提交 `.env`、备份、密钥、数据库、日志、缓存或运行时产物。
+
+## M1-R6A 状态
+
+状态：REVIEWING。
+
+审查记录：本轮主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付，M1-R6A 进入 REVIEWING，等待 Codex 独立审查。
+
+本轮目标：
+
+- 明确 R6 的最小实现路径。
+- 核验 HRMS/Frappe 原生能力能否支撑原始打卡流水导入、月度汇总 Excel 导入、Attendance Request 异常说明流程、员工→主管→人事的三级处理流程。
+- 判断 R6B 是否需要自定义导入入口、导入批次记录、Attendance Exception、Attendance Correction、`hb_hr_app`。
+- 拆分 R6B / R6C 后续执行任务。
+
+当前结果：
+
+- 已明确两类 Excel 导入边界（原始打卡流水导入 ≠ 月度汇总 Excel 导入）。
+- 已完成 Frappe Data Import 对 Employee Checkin 导入的能力评估：PASS，原生可覆盖；如需导入批次记录则需自定义 DocType `HBOS Import Log`。
+- 已完成 Attendance Request 对异常说明三级流程的能力评估：CONDITIONAL PASS，优先方案 A（Custom Field 扩展原生 Attendance Request + Custom Workflow），方案 B 为备选。
+- 已判定 R6B/R6C 不需要创建 `hb_hr_app`。
+- 已判定 R6B 需要创建有限的自定义 DocType（`HBOS Import Log`、月度汇总 DocType）。
+- 已拆分 R6B（Excel 导入与自动识别）和 R6C（异常流程与月度汇总整合）的详细边界和目标。
+- 已完成 6 项 R6 相关 Gate 的逐项判定。
+- 本轮未导入 Excel、未创建 App、未创建 DocType、未写代码、未动数据库。
+- 本轮未接真实考勤机、未接飞书、未修改核心源码。
+
+M1-R6A 未做：
+
+- 未实现 Excel 导入功能。
+- 未导入真实或脱敏 Excel。
+- 未创建 App。
+- 未创建 DocType。
+- 未写正式导入代码。
+- 未写异常流程正式代码。
+- 未启动 M1-R7。
+- 未接飞书登录。
+- 未接真实考勤机。
+- 未正式接飞书请假。
+- 未接飞书工作台。
+- 未部署公司内网/云服务器。
 - 未修改 Frappe / ERPNext / HRMS 核心源码。
 - 未提交 `.env`、备份、密钥、数据库、日志、缓存或运行时产物。
