@@ -52,6 +52,8 @@ M1-R3D 当前状态：COMPLETED。M1-R3D 已通过 Codex 审查，审查结果 P
 
 M1-R3E 当前状态：COMPLETED。M1-R3E 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_R3E_配置复核与业务口径确认表.md`。本轮仅做文档交付，未试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。配置复核清单覆盖 8 类问题，业务口径确认表覆盖 10 项业务口径，8/10 项阻塞 M1-R4。
 
+M1-R3F 当前状态：REVIEWING。M1-R3F 已形成面向业务负责人的业务口径确认包；9 项确认主题中 7 项必须确认，2 项可先按默认值推进。M1-R3F-FIX 仅修正两个非阻塞主题的独立拆分和数量表述，未试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。
+
 M1-R4 当前状态：PLANNED，尚未启动。
 
 ## 中文化与核心源码边界

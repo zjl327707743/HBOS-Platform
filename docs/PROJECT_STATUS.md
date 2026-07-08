@@ -9,7 +9,7 @@
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
 - 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已完成业务口径确认包文档交付，当前为 REVIEWING；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：先交给 Codex 审查 M1-R3F。审查通过后，提交给业务负责人确认阻塞性口径。M1-R4 保持 PLANNED，尚未启动；M1-R4 前必须完成 6 项阻塞性业务口径确认或 Owner 临时拍板。
+- 下一步路线：先交给 Codex 审查 M1-R3F。审查通过后，提交给业务负责人确认阻塞性口径。M1-R4 保持 PLANNED，尚未启动；M1-R4 前必须完成 7 项阻塞性确认主题的业务口径确认或 Owner 临时拍板。
 
 ## 状态更新制度
 
@@ -61,7 +61,7 @@
 - M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3C 是试运行完成，不是考勤业务闭环完成。
 - M1-R3D 已完成异常口径与 Gap 诊断文档交付，并已通过 Codex 审查收口为 COMPLETED；结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。
 - M1-R3E 已形成配置复核清单与海滨业务口径确认表，并已通过 Codex 审查收口为 COMPLETED；8/10 项业务口径阻塞 M1-R4。
-- M1-R3F 已形成面向业务负责人的确认包，当前为 REVIEWING；6 项必须确认，2 项可先按默认值推进。
+- M1-R3F 已形成面向业务负责人的确认包，当前为 REVIEWING；9 项确认主题中 7 项必须确认，2 项可先按默认值推进。
 - M1-R4 保持 PLANNED，尚未启动。
 
 ## 已确认架构方向
