@@ -48,6 +48,8 @@
 - 如本轮改变当前里程碑或轮次，必须更新 `docs/CURRENT_MILESTONE.md`。
 - 如本轮属于某个里程碑，必须更新 `docs/milestones/M0.md` 或对应里程碑文件。
 - 每轮收尾必须检查公共入口文件是否存在过期阶段描述：`README.md`、`CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/READING_GUIDE.md`。
+- 每轮收尾必须检查当前阶段门禁文档：M1 阶段为 `docs/milestones/M1_START_GATE.md`，未来 M2/M3 阶段分别为 `docs/milestones/M2_START_GATE.md`、`docs/milestones/M3_START_GATE.md`。阶段门禁文档用于记录当前阶段的目标、边界、门禁、子轮次状态和下一步路线。
+- 每轮进入 REVIEWING 或 closeout 时，必须同步更新当前轮次主文档（指本轮实际交付的 `docs/milestones/Mx_Ry_*.md` 文档，例如 `docs/milestones/M1_R3F_业务口径确认包.md`）的状态。
 - 每轮输出结果时，必须说明状态文件是否已更新；如未更新，必须说明原因。
 
 ## 默认读取规则
@@ -121,6 +123,8 @@ Codex 审查时必须检查：
 - 如果使用英文文件名，是否有兼容性、生态约定或根目录约定理由。
 - 状态台账是否同步，包括 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 和对应 `docs/milestones/` 文件。
 - 公共入口文件是否存在过期阶段描述。
+- 当前阶段门禁文档是否同步：M1 阶段为 `docs/milestones/M1_START_GATE.md`，未来 M2/M3 阶段对应为 `M2_START_GATE.md`、`M3_START_GATE.md`。
+- 当前轮次主文档（`docs/milestones/Mx_Ry_*.md`）状态是否与本轮交付一致。
 - 若 `README.md`、`CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/READING_GUIDE.md` 中存在过期阶段描述，应按影响标记 WARN 或 FAIL。
 
 ## 协作分工

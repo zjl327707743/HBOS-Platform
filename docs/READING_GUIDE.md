@@ -38,6 +38,11 @@
 - `docs/AI_CONTEXT.md`
 - `docs/READING_GUIDE.md`
 
+此外，每轮收尾还必须检查：
+
+- 当前阶段门禁文档：M1 阶段为 `docs/milestones/M1_START_GATE.md`，未来 M2/M3 阶段分别为 `docs/milestones/M2_START_GATE.md`、`docs/milestones/M3_START_GATE.md`。阶段门禁文档用于记录当前阶段的目标、边界、门禁、子轮次状态和下一步路线。
+- 当前轮次主文档：指本轮实际交付的 `docs/milestones/Mx_Ry_*.md` 文档，例如 `docs/milestones/M1_R3F_业务口径确认包.md`。每轮进入 REVIEWING 或 closeout 时，必须同步更新该轮次主文档状态。
+
 这些文件不一定每轮修改，但必须检查是否存在过期阶段描述。检查公共入口文件不等于允许递归读取整个 `docs/`。
 
 ## 条件读取规则

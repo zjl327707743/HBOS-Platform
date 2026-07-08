@@ -39,9 +39,12 @@
 
 - 状态台账必须检查：`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`、`docs/milestones/` 中的对应里程碑文件。
 - 公共入口文件必须检查：`README.md`、`CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/READING_GUIDE.md`。
+- 当前阶段门禁文档必须检查：M1 阶段为 `docs/milestones/M1_START_GATE.md`，未来 M2/M3 阶段分别为 `docs/milestones/M2_START_GATE.md`、`docs/milestones/M3_START_GATE.md`。
+- 当前轮次主文档必须检查：指本轮实际交付的 `docs/milestones/Mx_Ry_*.md` 文档，例如 `docs/milestones/M1_R3F_业务口径确认包.md`。
 - 如本轮改变项目状态，必须更新 `docs/PROJECT_STATUS.md`。
 - 如本轮改变当前里程碑或轮次，必须更新 `docs/CURRENT_MILESTONE.md`。
 - 如本轮属于某个里程碑，必须更新 `docs/milestones/M0.md` 或对应里程碑文件。
+- 每轮进入 REVIEWING 或 closeout 时，必须同步更新当前轮次主文档状态。
 - 公共入口文件不一定每轮修改，但必须检查是否存在过期阶段描述。
 - 禁止只更新状态台账而忽略 `README.md` 等人类入口文件。
 - 输出结果时必须说明状态台账是否已更新；如未更新，必须说明原因。
