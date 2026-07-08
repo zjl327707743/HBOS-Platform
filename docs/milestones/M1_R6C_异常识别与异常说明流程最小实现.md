@@ -527,7 +527,7 @@ R6C 未配置 Attendance Request 的 Workflow，原因：
 
 ## 15. R7 后续边界
 
-M1-R7 当前为 REVIEWING，飞书登录领导Demo与M1收口准备主文档已交付。
+M1-R7 当前为 COMPLETED，飞书登录领导Demo与M1收口准备已通过 Codex 审查并 closeout。
 
 R6C 结论传递给 R7 的关键信息：
 
@@ -547,7 +547,7 @@ R7 如果启动，可能需要包含：
 - `M1-R6A = COMPLETED`
 - `M1-R6B = COMPLETED`
 - `M1-R6C = COMPLETED`
-- `M1-R7 = REVIEWING`
+- `M1-R7 = COMPLETED`
 
 ## 17. Closeout 结论
 

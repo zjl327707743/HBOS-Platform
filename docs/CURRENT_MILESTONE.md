@@ -6,7 +6,7 @@
 
 ## 当前轮次
 
-M1-R7：飞书登录、领导 Demo 与 M1 收口准备。当前状态：REVIEWING。
+M1-R7：飞书登录、领导 Demo 与 M1 收口准备。当前状态：COMPLETED。
 
 M1-R6C：异常识别与异常说明流程最小实现。当前状态：COMPLETED。
 
@@ -18,7 +18,7 @@ M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo。当前状态�
 
 M1-REQ-DESIGN-DRAFT-CLOSEOUT：M1 需求设计草案审查通过后状态收口。当前状态：COMPLETED。
 
-M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 REVIEWING。M1-R8 为 PLANNED（可选缓冲轮）。
+M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 COMPLETED。M1-R8 为 PLANNED（可选缓冲轮）。
 
 权威计划文件：
 
@@ -115,7 +115,7 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - M1-R6A 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6B 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6C 当前状态为 COMPLETED。
-- M1-R7 当前状态为 REVIEWING；M1 closeout 未启动
+- M1-R7 当前状态为 COMPLETED，已通过 Codex 审查并 closeout。
 - M1-R8 当前状态为 PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 验收标准
@@ -137,10 +137,10 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - M1-R6A 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6B 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6C 当前状态为 COMPLETED，已通过 Codex 审查并 closeout。
-- M1-R7 当前状态为 REVIEWING，主文档 `docs/milestones/M1_R7_飞书登录领导Demo与M1收口准备.md` 已交付。
+- M1-R7 当前状态为 COMPLETED，已通过 Codex 审查并 closeout。
 - M1-R8 保持 PLANNED（可选缓冲轮）
 - 本轮未创建自定义 App / DocType / 核心源码变更；方案设计和文档交付为主
 
 ## 下一轮预告
 
-M1-R7 已进入 REVIEWING。下一步需 Codex 审查通过后才能考虑 M1 closeout 或 M1-R8 缓冲轮。M1 closeout 为 PLANNED / 待授权 / 未启动。
+M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED。下一步需 Owner 授权后，才可进入 M1 总收口 / M1 closeout。M1 closeout 为 PLANNED / 待授权 / 未启动。

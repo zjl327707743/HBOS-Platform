@@ -21,11 +21,11 @@
 
 当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。
 
-当前目标：M1-R7 已进入 REVIEWING，飞书 OAuth 登录方案设计完成，领导汇总 Demo 指标定义与实现路径已固化，M1 Demo 演示路径已整理，M1 收口准备项已列出。当前仍不建议创建 `hb_hr_app`。M1 closeout 未启动。
+当前目标：M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED，飞书 OAuth 登录方案设计、领导汇总 Demo 指标定义与实现路径、M1 Demo 演示路径和 M1 收口准备项清单已全部完成。当前仍不建议创建 `hb_hr_app`。M1 closeout 未启动。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
-M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已新增 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED，已通过 Codex 审查并收口。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED（已通过 Codex 审查并 closeout）。M1-R7 为 REVIEWING（飞书登录、领导 Demo 与 M1 收口准备，主文档已交付）。M1 closeout 未启动。当前不创建海滨自定义 Frappe App，不录入真实业务数据，不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
+M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已新增 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED，已通过 Codex 审查并收口。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED（已通过 Codex 审查并 closeout）。M1-R7 为 COMPLETED（已通过 Codex 审查并 closeout）。M1 closeout 未启动。当前不创建海滨自定义 Frappe App，不录入真实业务数据，不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
 
 ## AI 默认读取规则
 
@@ -84,7 +84,7 @@ Skill 路由规范文件为：
 后续路线只记录，不代表已启动：
 
 1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
-2. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 已通过 Codex 审查并 closeout 为 COMPLETED；M1-R7 为 REVIEWING。
+2. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 已通过 Codex 审查并 closeout 为 COMPLETED；M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED。
 
 ## 前端实施流程规范
 

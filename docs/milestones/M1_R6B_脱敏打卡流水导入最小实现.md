@@ -310,7 +310,7 @@ R6C 不因 R6B 完成而自动启动。
 - `M1-R6A = COMPLETED`
 - `M1-R6B = COMPLETED`
 - `M1-R6C = PLANNED / 待授权 / 未启动`
-- `M1-R7 = REVIEWING`
+- `M1-R7 = COMPLETED`
 
 ## 17. Closeout 结论
 

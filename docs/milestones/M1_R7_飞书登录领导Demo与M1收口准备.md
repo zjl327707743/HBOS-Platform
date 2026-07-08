@@ -2,9 +2,13 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
 
 执行日期：2026-07-09。
+
+Closeout 日期：2026-07-09。
+
+审查记录：Codex 初审 FAIL（发现 3 类 blocker：远端未同步、PROJECT_STATUS 残留 PLANNED、milestones/README 残留 PLANNED），已在 `e812e32` 中最小修复；Codex 复审 PASS。R7 已从 REVIEWING 收口为 COMPLETED。
 
 ## 1. 本轮定位
 
@@ -763,27 +767,37 @@ M2 的启动条件：
 
 M2 不因 M1-R7 进入 REVIEWING 而自动启动。
 
-## 18. 当前状态
+## 18. 当前状态（closeout 前）
 
 - `M1-R6A = COMPLETED`
 - `M1-R6B = COMPLETED`
 - `M1-R6C = COMPLETED`
-- `M1-R7 = REVIEWING`
+- `M1-R7 = COMPLETED`
 - `M1 closeout = 未启动`
 - `M2 = PLANNED（未启动）`
 
-## 19. 状态同步声明
+## 20. Closeout 结论
 
-本轮完成后需同步以下文件：
+M1-R7 已通过 Codex 审查并完成 closeout，状态收口为 COMPLETED。
 
-| 文件 | 是否需要更新 | 原因 |
-| --- | --- | --- |
-| `docs/PROJECT_STATUS.md` | 是 | 新增 M1-R7 状态记录，更新当前轮次 |
-| `docs/CURRENT_MILESTONE.md` | 是 | 更新当前轮次为 M1-R7 |
-| `docs/AI_CONTEXT.md` | 是 | 更新当前上下文，新增 M1-R7 状态 |
-| `docs/READING_GUIDE.md` | 是 | 更新当前里程碑提醒 |
-| `docs/milestones/README.md` | 是 | 新增 M1-R7 索引条目，更新状态为 REVIEWING |
-| `docs/milestones/M1_START_GATE.md` | 是 | 更新 M1-R7 状态为 REVIEWING |
-| `README.md` | 是 | 更新阶段描述，新增 M1-R7 |
-| `CLAUDE.md` | 否 | 无需变更（进度来源指向不变） |
-| `AGENTS.md` | 否 | 无需变更 |
+Closeout 结论：
+
+- R7 飞书 OAuth 登录方案、Employee 匹配规则、权限边界、未匹配处理和本地管理员兜底登录已全部完成文档化。
+- R7 领导汇总 Demo 核心指标定义（4 项）、Query Report SQL 设计、Dashboard Chart 设计和月报查看/导出路径已全部固化。
+- M1 Demo 完整演示路径（10 个环节）已整理，M1 收口准备项清单（10 项）和 Owner 决策项（5 项）已列出。
+- 飞书 OAuth 端到端验证未执行：有飞书平台侧 + 网络侧 + 安全侧三类 blocker，不属于 Frappe 端可独立完成的范围。未伪造飞书登录成功。
+- `late_entry`/`early_exit` 在 Shift Type 配置修复后正确置位（R6C），异常识别 7 个场景全部通过。
+- 11 个 Custom Field 已在 HRMS 原生 Attendance Request 上扩展完成，但 native `validate_no_attendance_to_create()` 冲突仍是后续 Owner 决策项。
+- 本轮未创建 `hb_hr_app`，未创建自定义 DocType，未修改 Frappe / ERPNext / HRMS 核心源码。
+- 本轮未提交 `.env`、飞书 App ID / App Secret、Excel、CSV、数据库、日志、缓存或任何运行时产物。
+- Codex 初审 FAIL（3 类 blocker）已在 `e812e32` 中最小修复，复审 PASS。
+- 下一步：等待 Owner 授权后，才可进入 `M1 总收口 / M1 closeout`。M2 仍为 PLANNED，不因 R7 closeout 自动启动。
+
+## 21. 当前状态
+
+- `M1-R6A = COMPLETED`
+- `M1-R6B = COMPLETED`
+- `M1-R6C = COMPLETED`
+- `M1-R7 = COMPLETED`
+- `M1 closeout = 未启动`
+- `M2 = PLANNED（未启动）`

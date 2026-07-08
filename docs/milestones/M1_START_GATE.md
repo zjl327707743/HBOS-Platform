@@ -66,7 +66,7 @@ M1-R6B 当前状态：COMPLETED。M1-R6B 已完成脱敏打卡流水导入最小
 
 M1-R6C 当前状态：COMPLETED。M1-R6C 已完成异常识别与异常说明流程最小实现，主文档 `docs/milestones/M1_R6C_异常识别与异常说明流程最小实现.md` 已交付并完成 closeout。审查记录：执行审查 PASS，closeout 已完成。异常识别 7 个场景已验证通过；`late_entry`/`early_exit` 在 Shift Type 配置修复后正确置位；11 个 Custom Field 已在 HRMS 原生 Attendance Request 上扩展完成；HRMS 原生 `validate_no_attendance_to_create()` 在已有 Attendance 场景下阻止 Attendance Request 创建已记录为后续 Owner 授权点。本轮未创建 App、未创建 DocType、未修改核心源码、未提交 Excel / CSV。
 
-M1-R7 当前状态：REVIEWING。M1-R7 已完成飞书 OAuth 登录方案设计、领导汇总 Demo 指标定义与实现路径、M1 Demo 演示路径整理和 M1 收口准备项清单，主文档 `docs/milestones/M1_R7_飞书登录领导Demo与M1收口准备.md` 已交付。本轮未创建 App / DocType / 代码，未执行飞书 OAuth 端到端验证（有飞书平台侧 + 网络侧 + 安全侧 blocker），未启动 M1 closeout。
+M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计、领导汇总 Demo 指标定义与实现路径、M1 Demo 演示路径整理和 M1 收口准备项清单。审查记录：Codex 初审 FAIL（3 类 blocker），已在 `e812e32` 中修复；复审 PASS，已 closeout 为 COMPLETED。本轮未创建 App / DocType / 代码，未执行飞书 OAuth 端到端验证，未启动 M1 closeout。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界
@@ -131,8 +131,8 @@ M1 初期不创建 `hb_attendance_app`。
 14. M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo，当前为 COMPLETED。
 15. M1-R6A：Excel 导入与异常流程落地方案 / Gate 判定，当前为 COMPLETED。
 16. M1-R6B：脱敏打卡流水导入最小实现，当前为 COMPLETED。
-17. M1-R6C：异常识别与异常说明流程最小实现，当前为 REVIEWING。
-17. M1-R7：飞书登录、领导汇总 Demo 与 M1 收口准备，当前为 REVIEWING。
-18. M1-R8：M1 Demo 验收修复与文档收口（可选缓冲轮），当前为 PLANNED。
+17. M1-R6C：异常识别与异常说明流程最小实现，当前为 COMPLETED。
+18. M1-R7：飞书登录、领导汇总 Demo 与 M1 收口准备，当前为 COMPLETED。
+19. M1-R8：M1 Demo 验收修复与文档收口（可选缓冲轮），当前为 PLANNED。
 
-M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 REVIEWING。M1-R8 为 PLANNED（可选缓冲轮）。
+M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 COMPLETED。M1-R8 为 PLANNED（可选缓冲轮）。
