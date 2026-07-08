@@ -2,9 +2,9 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
 
-审查记录：本轮主文档已交付，M1-R6A 进入 REVIEWING，等待 Codex 独立审查。Codex PASS 后才允许 closeout 并进入 R6B。
+审查记录：Codex 初审 FAIL（R6A 文档未提交、工作区不 clean），已在 `330f320` 中修复并提交。Codex 复审 PASS。M1-R6A 已从 REVIEWING 收口为 COMPLETED。M1-R6A closeout 完成，后续由 Owner 决定是否授权进入 M1-R6B。
 
 执行日期：2026-07-08。
 
@@ -646,8 +646,8 @@ R6 全部需求均可通过原生能力 + Custom DocType + Custom Field + Server
 
 | 项目 | 变更前 | 变更后 |
 | --- | --- | --- |
-| M1-R6A | （新增） | REVIEWING |
-| M1-R6 | PLANNED | PLANNED（待 R6A closeout 后拆分为 R6B/R6C） |
+| M1-R6A | （新增） | COMPLETED（Codex 审查 PASS，已 closeout） |
+| M1-R6 | PLANNED | PLANNED（已拆分为 R6B/R6C） |
 | M1-R7 | PLANNED | PLANNED（不变） |
 
 ### 10.2 需同步的文件
@@ -675,4 +675,4 @@ R6 全部需求均可通过原生能力 + Custom DocType + Custom Field + Server
 - [x] 已列出 R6 实施前待验证的风险项
 - [x] 本轮未导入 Excel、未创建 App、未创建 DocType、未写代码、未动数据库
 - [x] 本轮未接真实考勤机、未接飞书、未修改核心源码
-- [x] M1-R6A 进入 REVIEWING，等待 Codex 独立审查
+- [x] M1-R6A Codex 审查 PASS，已从 REVIEWING 收口为 COMPLETED

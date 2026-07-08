@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1-R6A Excel 导入与异常流程落地方案 / Gate 判定（REVIEWING）
+- 当前轮次：M1-R6A Excel 导入与异常流程落地方案 / Gate 判定（COMPLETED）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R5 已通过 Codex 审查并收口为 COMPLETED；M1-R6A 当前为 REVIEWING（主文档已交付，等待 Codex 审查）；M1-R6B/R6C/R7/R8 均为 PLANNED，待用户逐轮授权；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0-R3B 已完成 HRMS 安装前评估并通过 Codex 审查；M0-R3C 已完成 HRMS 安装验证；M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复；M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计；M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查；M0 整体状态为 COMPLETED；M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push；M1-R0 已通过 Codex 独立审查并收口为 COMPLETED；M1-R1 已通过 Codex 独立审查并收口为 COMPLETED；M1-R2 已通过 Codex 独立审查并收口为 COMPLETED；M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R5 已通过 Codex 审查并收口为 COMPLETED；M1-R6A 当前为 COMPLETED（主文档已交付，Codex 审查 PASS 后完成 closeout）；M1-R6B/R6C/R7/R8 均为 PLANNED，待用户逐轮授权；当前未创建海滨自定义 App，未开发业务，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 当前为 REVIEWING，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付，等待 Codex 审查。M1-R6B/R6C/R7 均为 PLANNED，待用户逐轮授权。
+- 下一步路线：M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B/R6C/R7 均为 PLANNED，待用户逐轮授权。
 
 ## 状态更新制度
 
@@ -534,7 +534,7 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 13. M1-REQ-DESIGN-DRAFT：COMPLETED，需求设计四份文档已通过 Codex 审查。
 14. M1-R4：COMPLETED，Demo 技术方案与实施路线拆分已通过 Codex 审查并收口。
 15. M1-R5：COMPLETED，HRMS 配置基线、考勤工作台与月度汇总 Demo 已通过 Codex 审查并收口。主文档 `docs/milestones/M1_R5_HRMS配置基线工作台月报Demo.md` 已交付。
-16. M1-R6A：REVIEWING，Excel 导入与异常流程落地方案 / Gate 判定，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付，等待 Codex 审查。
+16. M1-R6A：COMPLETED，Excel 导入与异常流程落地方案 / Gate 判定，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付，Codex 审查 PASS。
 17. M1-R6B：PLANNED（待 R6A closeout 后用户授权启动）。
 18. M1-R6C：PLANNED（待 R6B closeout 后用户授权启动）。
 19. M1-R7：PLANNED，待用户授权启动。
@@ -596,7 +596,7 @@ M1 当前仅进入规划与诊断阶段，不代表进入业务开发。
 - M1-R3F：COMPLETED。
 - M1-R4：COMPLETED。
 - M1-R5：COMPLETED。
-- M1-R6A：REVIEWING。
+- M1-R6A：COMPLETED。
 - M1-R6B：PLANNED。
 - M1-R6C：PLANNED。
 - M1-R7：PLANNED。
@@ -842,9 +842,9 @@ M1-R3E 未做：
 
 ## M1-R6A 状态
 
-状态：REVIEWING。
+状态：COMPLETED。
 
-审查记录：本轮主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付，M1-R6A 进入 REVIEWING，等待 Codex 独立审查。
+审查记录：Codex 初审 FAIL（R6A 文档未提交、工作区不 clean），已在 `330f320` 中修复并提交。Codex 复审 PASS。M1-R6A 已从 REVIEWING 收口为 COMPLETED。本次 closeout 仅做状态收口，未启动 R6B/R6C/R7，未修改方案结论。
 
 本轮目标：
 
