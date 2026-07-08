@@ -274,6 +274,6 @@ M1-R3B 当前状态：COMPLETED，已完成运行态最小修复方案并通过 
 
 M1-R3B-FIX 当前状态：COMPLETED，已按 M1-R3B 方案执行运行态最小修复，并通过 Codex 审查收口；记录见 `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`。该轮未清理 TEST 数据，未继续创建 TEST 数据，未执行 HRMS 考勤重新试运行。
 
-M1-R3C 当前状态：REVIEWING，已在用户授权下使用 `TEST-HBOS-M1R3C-*` / `test-hbos-m1r3c-*` 虚构 TEST 数据完成 HRMS 原生考勤最小试运行复测。复测已解除 Company / User / Employee 写入阻断，并生成 13 条 Attendance，但迟到 / 早退标记、缺卡、请假前置、全天缺勤、加班和节假日业务口径仍需后续诊断。记录见 `docs/milestones/M1_R3C_HRMS原生考勤最小试运行复测记录.md`。
+M1-R3C 当前状态：COMPLETED，已通过 Codex 审查并收口，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3C 已在用户授权下使用 `TEST-HBOS-M1R3C-*` / `test-hbos-m1r3c-*` 虚构 TEST 数据完成 HRMS 原生考勤最小试运行复测。复测已解除 Company / User / Employee 写入阻断，并生成 13 条 Attendance，但迟到 / 早退标记、缺卡、请假前置、全天缺勤、加班和节假日业务口径仍需后续诊断。记录见 `docs/milestones/M1_R3C_HRMS原生考勤最小试运行复测记录.md`。
 
-M1-R3D 保持 PLANNED，尚未启动，用于 HRMS 原生考勤异常口径与配置 Gap 诊断。M1-R4 保持 PLANNED，尚未启动。只有 M1-R3C 通过审查，并经用户授权后，才考虑后续验证轮次。
+M1-R3D 保持 PLANNED，尚未启动，用于 HRMS 原生考勤异常口径与配置 Gap 诊断。M1-R4 保持 PLANNED，尚未启动。只有用户授权后，才进入后续验证轮次。

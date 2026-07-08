@@ -6,9 +6,9 @@
 
 ## 当前轮次
 
-M1-R3C：HRMS 原生考勤最小试运行复测。当前状态：REVIEWING。
+M1-R3C-CLOSEOUT：M1-R3C 审查通过后状态收口。当前状态：COMPLETED。
 
-M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已按用户授权执行 HRMS 原生考勤最小试运行复测，当前为 REVIEWING。M1-R3D 为 PLANNED。M1-R4 为 PLANNED，尚未启动。
+M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 为 PLANNED。M1-R4 为 PLANNED，尚未启动。
 
 权威计划文件：
 
@@ -22,7 +22,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 ## 本轮范围
 
-执行 M1-R3C：在 Redis / worker / scheduler / bench doctor / login 恢复后，使用 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据重新试运行 HRMS 原生考勤最小链路，并同步公共入口状态。不得启动 M1-R3D。
+只做 M1-R3C-CLOSEOUT：将 M1-R3C 从 REVIEWING 收口为 COMPLETED，并同步公共入口状态。不得启动 M1-R3D。
 
 交付内容：
 
@@ -32,13 +32,18 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 
 本轮实际结果：
 
+- M1-R3C Codex 审查 PASS。
+- M1-R3C 已从 REVIEWING 收口为 COMPLETED。
+- M1-R3C 结论为 PARTIAL / GAP_IDENTIFIED；这是试运行完成，不是考勤业务闭环完成。
 - 用户已授权 M1-R3C 使用虚构 TEST 数据重新试运行。
 - 运行态复核显示 Redis、queue worker、scheduler、`bench doctor` 和 `/login` 可用或改善。
 - M1-R3C 使用新前缀 `TEST-HBOS-M1R3C-*` / `test-hbos-m1r3c-*`，未覆盖旧 `TEST-HBOS-M1R3-*` 数据。
 - Company / User / Employee 写入阻断已解除：Company 1、User 8、Employee 8 已成功创建。
 - 已创建 / 确认 Shift Type 4、Shift Assignment 14、Employee Checkin 22、Attendance 13。
-- 14 个场景中，正常早班、中班、夜班、跨夜班、临时调班等基础链路可用；迟到 / 早退标记、缺卡、请假前置、全天缺勤、加班和节假日业务口径仍存在配置或业务 Gap。
-- M1-R3 仍为 BLOCKED，M1-R3C 为 REVIEWING，M1-R3D 为 PLANNED，M1-R4 未启动。
+- 14 个场景中 8 个通过，6 个为 GAP / PARTIAL。
+- Attendance 可由 HRMS 原生生成，但迟到 / 早退未置位、缺卡 / 缺勤口径、请假 Leave Allocation、加班业务口径仍是 Gap 或待定义项。
+- 当前仍不建议创建 `hb_attendance_app`。
+- M1-R3 仍为 BLOCKED，M1-R3C 为 COMPLETED，M1-R3D 为 PLANNED，M1-R4 未启动。
 
 ## 本轮禁止事项
 
@@ -83,7 +88,7 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1-R3A 为 COMPLETED。
 - M1-R3B 为 COMPLETED。
 - M1-R3B-FIX 为 COMPLETED。
-- M1-R3C 为 REVIEWING。
+- M1-R3C 为 COMPLETED。
 - M1-R3D 为 PLANNED。
 - M1-R4 为 PLANNED，尚未启动。
 
@@ -96,11 +101,11 @@ M0 整体已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建�
 - M1 状态已同步为 IN_PROGRESS
 - M1-R3B 已通过 Codex 审查并收口为 COMPLETED
 - M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED
-- M1-R3C 已按用户授权执行，当前保持 REVIEWING
+- M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED
 - M1-R3D 保持 PLANNED
 - M1-R4 保持 PLANNED
 - 本轮未使用真实数据，未创建、删除或清理旧 TEST 数据，未创建海滨自定义 App、未开发考勤业务、未接真实考勤机、未接飞书真实写入、未实现 SSO、未修改核心源码、未修改中文化源码、未录入真实业务数据
 
 ## 下一轮预告
 
-下一步先交给 Codex 审查 M1-R3C。审查通过后，再由用户决定是否进入 M1-R3D：HRMS 原生考勤异常口径与配置 Gap 诊断。M1-R3D 与 M1-R4 仍为 PLANNED，尚未启动。
+下一步由用户决定是否进入 M1-R3D：HRMS 原生考勤异常口径与配置 Gap 诊断。M1-R3D 与 M1-R4 仍为 PLANNED，尚未启动。

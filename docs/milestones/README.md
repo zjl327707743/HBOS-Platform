@@ -49,18 +49,18 @@
 | M1-R3A | 运行态阻断诊断与 TEST 数据隔离 / 清理方案 | COMPLETED |
 | M1-R3B | 运行态最小修复方案 | COMPLETED |
 | M1-R3B-FIX | 运行态最小修复执行 | COMPLETED |
-| M1-R3C | HRMS 原生考勤最小试运行复测 | REVIEWING |
+| M1-R3C | HRMS 原生考勤最小试运行复测 | COMPLETED |
 | M1-R3D | HRMS 原生考勤异常口径与配置 Gap 诊断 | PLANNED |
 | M1-R4 | 后续考勤配置 / 报表或异常口径验证 | PLANNED |
 | M2 | 飞书集成 | PLANNED |
 
 ## 下一步路线
 
-1. 先交给 Codex 审查 M1-R3C 复测记录。
-2. 审查通过后，再由用户决定是否进入 M1-R3D：HRMS 原生考勤异常口径与配置 Gap 诊断。
+1. M1-R3C 已通过 Codex 审查并收口，试运行完成但业务闭环未完成。
+2. 下一步由用户决定是否进入 M1-R3D：HRMS 原生考勤异常口径与配置 Gap 诊断。
 3. M1-R4 保持 PLANNED，尚未启动。
 
-M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED：部分 TEST 数据已落库，14 个打卡场景未完成 Attendance 闭环验证。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已按用户授权执行 HRMS 原生考勤最小试运行复测，当前为 REVIEWING；Company / User / Employee 写入阻断已解除，13 条 Attendance 已生成，但异常口径和配置 Gap 仍需 M1-R3D 诊断。M1 尚未进入业务开发，M1-R3D 与 M1-R4 仍为 PLANNED。
+M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED：部分 TEST 数据已落库，14 个打卡场景未完成 Attendance 闭环验证。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；Company / User / Employee 写入阻断已解除，13 条 Attendance 已生成，但异常口径和配置 Gap 仍需 M1-R3D 诊断。M1 尚未进入业务开发，M1-R3D 与 M1-R4 仍为 PLANNED。
 
 ## 更新规则
 

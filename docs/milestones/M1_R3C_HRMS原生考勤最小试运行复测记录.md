@@ -2,7 +2,11 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
+
+审查记录：M1-R3C 已通过 Codex 审查，审查结果为 PASS。本次 M1-R3C-CLOSEOUT 仅做状态收口，将 M1-R3C 从 REVIEWING 改为 COMPLETED；未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。
+
+收口结论：PARTIAL / GAP_IDENTIFIED。M1-R3C 是 HRMS 原生考勤最小试运行完成，不是海滨考勤业务闭环完成。
 
 执行日期：2026-07-08。
 
@@ -143,6 +147,8 @@ Company 创建期间仍出现 ERPNext 初始化默认部门树的非阻断性报
 
 ## 14 个场景验证结果
 
+Codex PASS 口径：14 个场景中 8 个通过，6 个为 GAP / PARTIAL。Attendance 可由 HRMS 原生生成，但异常口径和业务口径仍需 M1-R3D 继续诊断。
+
 | 编号 | 场景 | 结果 | 结论 |
 | --- | --- | --- | --- |
 | AT-001 | 正常早班 | 生成 `HR-ATT-2026-00013`，Present，8.13 小时 | PASS |
@@ -159,6 +165,12 @@ Company 创建期间仍出现 ERPNext 初始化默认部门树的非阻断性报
 | AT-012 | 加班候选 | 生成 `HR-ATT-2026-00016`，Present，10.53 小时 | PARTIAL |
 | AT-013 | 节假日出勤 | 生成 `HR-ATT-2026-00017`，Present，8.0 小时 | PASS / PARTIAL |
 | AT-014 | 临时调班 | 生成 `HR-ATT-2026-00021`，Present，8.1 小时，按中班处理 | PASS |
+
+收口解释：
+
+- 通过项表示 HRMS 原生对象链路能生成或记录对应最小验证证据，不代表海滨业务口径已闭环。
+- GAP / PARTIAL 项集中在迟到 / 早退标记、缺卡 / 缺勤口径、请假 Leave Allocation、加班业务口径。
+- 加班场景仅证明 Attendance `working_hours` 可记录长工时，不代表加班审批、调休、薪资或报表口径已定义。
 
 ## 迟到、早退、缺卡、请假、加班、节假日、调班结论
 
@@ -211,14 +223,14 @@ Company 创建期间仍出现 ERPNext 初始化默认部门树的非阻断性报
 ## 数据隔离与清理建议
 
 - 旧 `TEST-HBOS-M1R3-*` 数据本轮不清理、不覆盖。
-- 新 `TEST-HBOS-M1R3C-*` / `test-hbos-m1r3c-*` 数据应继续隔离保留到 M1-R3C 审查完成。
+- 新 `TEST-HBOS-M1R3C-*` / `test-hbos-m1r3c-*` 数据已完成 M1-R3C 审查收口，后续仍应隔离保留，除非用户另行授权清理。
 - 若用户后续授权清理，应按依赖顺序执行：Attendance、Leave Application、Employee Checkin、Shift Assignment、Shift Type、Leave Type、Employee、User、Department、Holiday List、Company。
 - 清理必须另开授权轮次，不应在 M1-R3C 文档收口中顺手执行。
 
 ## 状态与下一步
 
 - M1-R3 保持 `BLOCKED`，因为原 M1-R3 不是成功完成。
-- M1-R3C 标记为 `REVIEWING`，等待 Codex 审查。
+- M1-R3C 标记为 `COMPLETED`，结论为 `PARTIAL / GAP_IDENTIFIED`。
 - M1-R3D 标记为 `PLANNED`，不得直接启动。
 - M1-R4 未启动。
 
