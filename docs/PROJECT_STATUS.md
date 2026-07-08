@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1-R7 飞书登录、领导 Demo 与 M1 收口准备（COMPLETED）
+- 当前轮次：M1 总收口准备（REVIEWING）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0 整体状态为 COMPLETED；M1-R0~R6C 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 当前为 COMPLETED（异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout）；M1-R7 当前为 COMPLETED；M1-R8 为 PLANNED（可选缓冲轮）；当前未创建海滨自定义 App，未接真实飞书，未实现 SSO
+- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0 整体状态为 COMPLETED；M1-R0~R7 已通过 Codex 审查并收口为 COMPLETED；M1 总收口当前为 REVIEWING（总收口审查中，不得写 COMPLETED）；M1-R8 为 PLANNED（可选缓冲轮）；当前未创建海滨自定义 App，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED。M1 closeout 为 PLANNED / 待授权 / 未启动。
+- 下一步路线：M1 总收口为 REVIEWING，供 Codex 独立审查。Codex PASS 后下一轮才允许执行 M1 closeout。
 
 ## 状态更新制度
 
@@ -539,6 +539,7 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 18. M1-R6C：COMPLETED，异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout。
 19. M1-R7：COMPLETED，飞书登录、领导 Demo 与 M1 收口准备，已通过 Codex 审查并 closeout。
 20. M1-R8：PLANNED（可选缓冲轮）。
+21. M1 总收口准备：REVIEWING，材料已交付，供 Codex 独立审查，不得写 COMPLETED。
 
 ## M0-REMOTE 状态
 
