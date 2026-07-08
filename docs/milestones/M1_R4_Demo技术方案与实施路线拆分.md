@@ -459,7 +459,7 @@ M1 全阶段（含后续 R5/R6/R7）保持以下环境保护规则：
 | 轮次 | 状态 | 说明 |
 | --- | --- | --- |
 | M1-REQ-DESIGN-DRAFT | COMPLETED | 4 份设计文档已通过 Codex 审查 |
-| M1-R4 | REVIEWING | 本轮：Demo 技术方案与实施路线拆分，等待 Codex 审查 |
+| M1-R4 | COMPLETED | 已通过 Codex 审查并完成 closeout |
 | M1-R5 | PLANNED | 待用户授权启动 |
 | M1-R6 | PLANNED | 待用户授权启动 |
 | M1-R7 | PLANNED | 待用户授权启动 |
