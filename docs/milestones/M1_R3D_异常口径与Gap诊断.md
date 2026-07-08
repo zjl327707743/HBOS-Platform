@@ -296,7 +296,7 @@ M1-R3E 仍不得接真实考勤机、不得接真实飞书、不得录入真实�
 
 - M1-R3C：COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。
 - M1-R3D：COMPLETED，已通过 Codex 审查并收口，结论为优先走 HRMS 配置复核、原生 / 自定义报表和海滨业务口径定义。
-- M1-R3E：REVIEWING，已形成配置复核清单与业务口径确认表，等待 Codex 审查。
+- M1-R3E：COMPLETED，已通过 Codex 审查并收口。
 - M1-R4：未启动。
 
 本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码，未接飞书 / SSO / 真实考勤机，未修改核心源码，未提交数据库、日志、缓存、`.env`、密钥或备份。

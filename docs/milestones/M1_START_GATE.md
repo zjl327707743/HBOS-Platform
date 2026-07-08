@@ -50,7 +50,7 @@ M1-R3C 当前状态：COMPLETED。M1-R3C 已通过 Codex 审查，审查结果 P
 
 M1-R3D 当前状态：COMPLETED。M1-R3D 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_R3D_异常口径与Gap诊断.md`。结论为 Gap 四类分类（HRMS 配置、原生 / 自定义报表、海滨业务规则定义、未来自定义 App 候选），8 个 Gap 均不需要立即创建 `hb_attendance_app`。本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码，未接真实考勤机、真实飞书或 SSO。
 
-M1-R3E 当前状态：REVIEWING。M1-R3E 仅用于配置复核清单与业务口径确认表，未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码；如需继续创建或调整虚构 TEST 数据，必须由用户另行明确授权。
+M1-R3E 当前状态：COMPLETED。M1-R3E 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_R3E_配置复核与业务口径确认表.md`。本轮仅做文档交付，未试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。配置复核清单覆盖 8 类问题，业务口径确认表覆盖 10 项业务口径，8/10 项阻塞 M1-R4。
 
 M1-R4 当前状态：PLANNED，尚未启动。
 
@@ -109,7 +109,7 @@ M1 初期不创建 `hb_attendance_app`。
 7. M1-R3B-FIX：运行态最小修复执行，当前为 COMPLETED。
 8. M1-R3C：HRMS 原生考勤最小试运行复测，当前为 COMPLETED。
 9. M1-R3D：HRMS 原生考勤异常口径与配置 Gap 诊断，当前为 COMPLETED。
-10. M1-R3E：配置复核清单与业务口径确认表，当前为 REVIEWING。
+10. M1-R3E：配置复核清单与业务口径确认表，当前为 COMPLETED。
 11. M1-R4：后续考勤配置 / 报表或异常口径验证，当前仅为 PLANNED。
 
 M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 REVIEWING。M1-R4 仍为 PLANNED，尚未启动。
