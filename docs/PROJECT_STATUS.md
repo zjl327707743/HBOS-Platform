@@ -4,12 +4,12 @@
 
 ## 当前状态
 
-- 当前阶段：M1 规划与验证阶段
-- 当前轮次：M1 总收口准备（REVIEWING）
+- 当前阶段：M1 规划与验证阶段（COMPLETED）
+- 当前轮次：M1 closeout（COMPLETED）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地；M0 整体状态为 COMPLETED；M1-R0~R7 已通过 Codex 审查并收口为 COMPLETED；M1 总收口当前为 REVIEWING（总收口审查中，不得写 COMPLETED）；M1-R8 为 PLANNED（可选缓冲轮）；当前未创建海滨自定义 App，未接真实飞书，未实现 SSO
+- 当前实现状态：M0 整体为 COMPLETED；M1 已通过 Codex 审查并 closeout 为 COMPLETED；M1-R0~R7 已通过 Codex 审查并收口为 COMPLETED；M2 未启动 / 待 Owner 授权；当前未创建海滨自定义 App，未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1 总收口为 REVIEWING，供 Codex 独立审查。Codex PASS 后下一轮才允许执行 M1 closeout。
+- 下一步路线：M1 已 closeout 为 COMPLETED。下一步等待 Owner 授权进入 M2 飞书集成阶段规划。M2 未启动。
 
 ## 状态更新制度
 
@@ -538,8 +538,11 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 17. M1-R6B：COMPLETED，脱敏打卡流水导入最小验证，主文档 `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md` 已交付并完成 closeout。
 18. M1-R6C：COMPLETED，异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout。
 19. M1-R7：COMPLETED，飞书登录、领导 Demo 与 M1 收口准备，已通过 Codex 审查并 closeout。
-20. M1-R8：PLANNED（可选缓冲轮）。
-21. M1 总收口准备：REVIEWING，材料已交付，供 Codex 独立审查，不得写 COMPLETED。
+20. M1-R8：PLANNED（可选缓冲轮，因 M1 closeout 完成可能跳过）。
+21. M1 总收口：COMPLETED（closeout 已完成，M1 = COMPLETED）。
+22. M2：未启动 / 待 Owner 授权。
+21. M1 总收口准备：COMPLETED，已通过 Codex 审查并 closeout。
+22. M2：未启动 / 待 Owner 授权。
 
 ## M0-REMOTE 状态
 
@@ -578,9 +581,9 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 
 ## M1 状态
 
-状态：IN_PROGRESS。
+状态：COMPLETED。
 
-M1 当前仅进入规划与诊断阶段，不代表进入业务开发。
+M1 考勤一期已 closeout。M1 全程为规划、验证与 Demo 准备阶段，不代表进入正式业务开发。
 
 当前轮次：
 

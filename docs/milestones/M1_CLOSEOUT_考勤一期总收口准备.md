@@ -2,24 +2,24 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
 
-审查记录：本轮为 M1 总收口准备轮，形成审查材料供 Codex 独立审查。Codex PASS 后下一轮才允许执行 M1 closeout（M1 = COMPLETED）。
+Closeout 日期：2026-07-09。
+
+审查记录：M1 总收口准备材料已通过 Codex 独立审查 PASS。本轮为 M1 closeout 执行轮，将 M1 从 IN_PROGRESS 收口为 COMPLETED。
 
 执行日期：2026-07-09。
 
 ## 1. M1 总收口定位
 
-本文档是 M1 考勤一期的**总收口准备文档**，不是 closeout 执行文档。
+本文档是 M1 考勤一期的**总收口文档**（含准备 + closeout）。
 
 本轮定位：
 
 - 汇总 M1 全部轮次（R0 → R7）的交付物和结论。
 - 对照 M1 12 条验收标准形成验收矩阵。
 - 整理 M1 整体限制、未完成项和后续建议。
-- 为 Codex 独立审查提供完整的审查材料。
-
-本轮**不是** M1 closeout。M1 状态仍为 IN_PROGRESS，只有 Codex 审查 PASS 且 Owner 明确授权后，下一轮才允许将 M1 收口为 COMPLETED。
+- 经 Codex 独立审查 PASS 后，执行 M1 closeout，将 M1 收口为 COMPLETED。
 
 ## 2. 本轮读取文件清单
 
@@ -397,36 +397,33 @@ M2 启动条件（全部满足后才允许）：
 
 **M2 当前绝不启动。本文档中的 M2 内容仅为建议边界，不代表已授权。**
 
-## 18. 当前状态
+## 18. M1 Closeout 结论
+
+M1 总收口准备材料已通过 Codex 独立审查 PASS。本轮执行 M1 closeout，将 M1 收口为 COMPLETED。
+
+M1 Closeout 结论：
+
+1. **M1 全部 19 轮次已完成**：18 轮 COMPLETED，1 轮 BLOCKED（M1-R3 测试数据试运行因运行态阻断未能完成 14 场景闭环）。
+2. **M1 12 条验收标准**：已完成 5 条，部分完成 7 条（均有明确理由、当前限制和后续建议）。0 条未完成。
+3. **飞书 OAuth 登录方案已设计，但真实端到端验证未执行**：有飞书平台侧 + 网络侧 + 安全侧三类 blocker。未伪造飞书登录成功。
+4. **领导汇总 Demo 4 项核心指标定义已固化**：Query Report SQL + Dashboard 设计完成。M1 Demo 演示路径（10 个环节）已整理。
+5. **异常识别 7 个场景已验证通过**：`late_entry`/`early_exit` 正确置位，11 个 Custom Field 已在 Attendance Request 上扩展。AR 创建有 native validation blocker。
+6. **数据安全**：M1 全程未提交真实 Excel / CSV / `.env` / 密钥 / 真实人员数据。`.gitignore` 已覆盖数据文件。
+7. **技术边界**：未创建 `hb_hr_app`、未创建自定义 DocType、未修改 Frappe / ERPNext / HRMS 核心源码。Custom Field 属于 Frappe 原生支持的扩展机制。
+8. **生产边界**：M1 是本地 Demo + 人事试用准备阶段，不是正式生产上线。未部署公司内网或云服务器。
+9. **M1 遗留项**：月度汇总 Excel 导入、导入批次记录、AR blocker 解决方案、Demo 数据集扩展、Workflow 配置等已明确记录，列入 M2 候选方向。
+10. **下一步**：等待 Owner 授权进入 M2 飞书集成阶段规划。M2 不因 M1 closeout 自动启动。
+
+## 19. 最终状态
 
 ```
+M1-R4  = COMPLETED
+M1-R5  = COMPLETED
 M1-R6A = COMPLETED
 M1-R6B = COMPLETED
 M1-R6C = COMPLETED
 M1-R7  = COMPLETED
-M1 总收口 = REVIEWING
-M1      = IN_PROGRESS（总收口审查中）
-M2      = PLANNED（未启动）
+M1     = COMPLETED
+M1 closeout = COMPLETED
+M2     = 未启动 / 待 Owner 授权
 ```
-
-不得写：
-
-- `M1 = COMPLETED`
-- `M1 closeout PASS`
-- `M1 总收口已完成`
-
-## 19. 状态同步声明
-
-本轮完成后需同步以下文件：
-
-| 文件 | 是否需要更新 | 原因 |
-| --- | --- | --- |
-| `docs/PROJECT_STATUS.md` | 是 | 新增 M1 总收口准备状态 |
-| `docs/CURRENT_MILESTONE.md` | 是 | 更新当前轮次为 M1 总收口准备 |
-| `docs/AI_CONTEXT.md` | 是 | 更新当前上下文 |
-| `docs/READING_GUIDE.md` | 是 | 更新当前里程碑提醒 |
-| `docs/milestones/README.md` | 是 | 新增 M1 总收口准备索引条目 |
-| `docs/milestones/M1_START_GATE.md` | 是 | 新增 M1 总收口准备状态 |
-| `README.md` | 是 | 更新阶段描述 |
-| `CLAUDE.md` | 否 | 无需变更 |
-| `AGENTS.md` | 否 | 无需变更 |
