@@ -6,13 +6,13 @@
 
 ## 当前轮次
 
-M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo。当前状态：REVIEWING。
+M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo。当前状态：COMPLETED。
 
 M1-R4：M1 Demo 技术方案与实施路线拆分。当前状态：COMPLETED。
 
 M1-REQ-DESIGN-DRAFT-CLOSEOUT：M1 需求设计草案审查通过后状态收口。当前状态：COMPLETED。
 
-M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已完成文档交付并进入 REVIEWING。M1-R6/R7/R8 均为 PLANNED，待用户逐轮授权。
+M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1 当前状态：IN_PROGRESS。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6/R7/R8 均为 PLANNED，待用户逐轮授权。
 
 权威计划文件：
 
@@ -41,7 +41,7 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - 已形成月度汇总 Demo 展示路径，并对 14 个字段逐项标注原生可覆盖、需计算汇总和暂无法直接覆盖的部分。
 - 已形成 Excel 月报导出路径，优先使用 Frappe Report Export、List View Export 和 Data Export。
 - 已记录当前仓库没有可承载 Workspace / Report fixture 的已存在自定义 App，因此本轮不硬写 Frappe site 数据库配置，仅提交可审查的文档与配置说明。
-- M1-R5 当前状态为 REVIEWING，等待审查或验收。
+- M1-R5 当前状态为 COMPLETED，Codex 审查 PASS 后完成 closeout 收口。
 - M1-R6/R7 均为 PLANNED，待用户逐轮授权；M1-R8 为可选缓冲轮。
 - 本轮未创建 App，未创建 DocType，未修改核心源码，未接真实考勤机，未接飞书登录，未正式接飞书请假，未接飞书工作台，未提交真实员工姓名或未脱敏数据。
 
@@ -98,7 +98,7 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - M1-R3F 为 COMPLETED。
 - M1-REQ-DESIGN-DRAFT 为 COMPLETED。
 - M1-R4 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R5 当前状态为 REVIEWING，主文档已交付。
+- M1-R5 当前状态为 COMPLETED，已通过 Codex 审查并收口。
 - M1-R6 当前状态为 PLANNED，待授权，未启动。
 - M1-R7 当前状态为 PLANNED，待授权，未启动。
 
@@ -117,10 +117,10 @@ M1 考勤一期仍在推进中。M0 已完成并封板。M0-REMOTE 已完成 Git
 - M1-R3F 已通过 Codex 审查并收口为 COMPLETED
 - M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED
 - M1-R4 当前状态为 COMPLETED，已通过 Codex 审查并收口
-- M1-R5 当前状态为 REVIEWING，等待审查或验收
+- M1-R5 当前状态为 COMPLETED，Codex 审查 PASS 后完成 closeout 收口
 - M1-R6/R7 保持 PLANNED，未启动
 - 本轮未开发业务代码，未写入站点数据库，未创建海滨自定义 App / DocType / 核心源码变更
 
 ## 下一轮预告
 
-M1-R5 当前为 REVIEWING。审查或验收通过后，由用户决定是否授权进入 M1-R6（脱敏 Excel 导入、异常识别与异常说明流程）。M1-R6/R7 均为 PLANNED，需用户逐轮授权后方可启动。
+M1-R5 已通过 Codex 审查并收口为 COMPLETED。审查或验收通过后，由用户决定是否授权进入 M1-R6（脱敏 Excel 导入、异常识别与异常说明流程）。M1-R6/R7 均为 PLANNED，需用户逐轮授权后方可启动。
