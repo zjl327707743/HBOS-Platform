@@ -84,7 +84,7 @@ Skill 路由规范文件为：
 后续路线只记录，不代表已启动：
 
 1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
-2. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C/R7 均为 PLANNED / 待授权 / 未启动。
+2. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 已通过 Codex 审查并 closeout 为 COMPLETED；M1-R7 为 PLANNED / 待授权 / 未启动。
 
 ## 前端实施流程规范
 
