@@ -2,7 +2,9 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-状态：REVIEWING。
+状态：COMPLETED。
+
+审查记录：M1-R6C 执行审查 PASS。R6C 异常识别与异常说明流程最小实现已通过审查并收口为 COMPLETED。closeout 仅做状态收口，未启动 R7。
 
 执行日期：2026-07-09。
 
@@ -544,10 +546,26 @@ R7 如果启动，可能需要包含：
 
 - `M1-R6A = COMPLETED`
 - `M1-R6B = COMPLETED`
-- `M1-R6C = REVIEWING`
+- `M1-R6C = COMPLETED`
 - `M1-R7 = PLANNED / 待授权 / 未启动`
 
-## 17. 状态同步声明
+## 17. Closeout 结论
+
+M1-R6C 已通过 Codex 审查并完成 closeout，状态收口为 COMPLETED。
+
+Closeout 结论：
+
+- R6C 异常识别与异常说明流程最小实现已完成。
+- 已覆盖迟到、早退、上班缺卡、下班缺卡、缺勤的最小识别口径。
+- 异常识别 7 个场景已验证通过（正常/迟到/早退/上班缺卡/下班缺卡）。
+- `late_entry`/`early_exit` 在 Shift Type 配置修复后正确置位。
+- 11 个 Custom Field 已在 HRMS 原生 Attendance Request 上扩展完成，覆盖 6 种异常类型 + 三级流程状态。
+- HRMS 原生 `validate_no_attendance_to_create()` 在已有 Attendance 场景下阻止 Attendance Request 创建的核心 Gap 已记录为后续 Owner 授权点。
+- 优先复用 HRMS 原生能力的 Gate 已完成：Attendance Request 结构可承载异常说明字段，但运行时创建被原生设计语义冲突阻止。
+- 当前仍不建议创建 `hb_hr_app`。
+- M1-R7 未启动；下一步只能等待 Owner 授权后进入 M1-R7。
+
+## 18. 状态同步声明
 
 本轮完成后需同步以下文件：
 
