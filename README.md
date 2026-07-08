@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前 M0 工程启动阶段已完成并封板，M0-REMOTE 已完成，M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，现收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R5 已通过 Codex 审查并收口为 COMPLETED；M1-R6A 已通过 Codex 审查并收口为 COMPLETED；M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 已通过 Codex 审查并 closeout 为 COMPLETED。M1-R7 当前为 REVIEWING。M1-R7 当前为 REVIEWING。
+当前 M0 工程启动阶段已完成并封板，M0-REMOTE 已完成，M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已通过 Codex 审查，但实际结果为 PARTIAL / BLOCKED，现收口为 BLOCKED；M1-R3A 已通过 Codex 审查并收口为 COMPLETED；M1-R3B 已通过 Codex 审查并收口为 COMPLETED；M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app；M1-R3E 已通过 Codex 审查并收口为 COMPLETED；M1-R3F 已通过 Codex 审查并收口为 COMPLETED；M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R5 已通过 Codex 审查并收口为 COMPLETED；M1-R6A 已通过 Codex 审查并收口为 COMPLETED；M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 已通过 Codex 审查并 closeout 为 COMPLETED。M1-R7 当前为 REVIEWING。
 
 当前真实进度以以下文件为准：
 

@@ -527,7 +527,7 @@ R6C 未配置 Attendance Request 的 Workflow，原因：
 
 ## 15. R7 后续边界
 
-M1-R7 仍保持 PLANNED / 待授权 / 未启动。
+M1-R7 当前为 REVIEWING，飞书登录领导Demo与M1收口准备主文档已交付。
 
 R6C 结论传递给 R7 的关键信息：
 

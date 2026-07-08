@@ -537,7 +537,7 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 16. M1-R6A：COMPLETED，Excel 导入与异常流程落地方案 / Gate 判定，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付，Codex 审查 PASS。
 17. M1-R6B：COMPLETED，脱敏打卡流水导入最小验证，主文档 `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md` 已交付并完成 closeout。
 18. M1-R6C：COMPLETED，异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout。
-19. M1-R7：PLANNED / 待授权 / 未启动。
+19. M1-R7：REVIEWING，飞书登录、领导 Demo 与 M1 收口准备，主文档已交付。
 20. M1-R8：PLANNED（可选缓冲轮）。
 
 ## M0-REMOTE 状态
