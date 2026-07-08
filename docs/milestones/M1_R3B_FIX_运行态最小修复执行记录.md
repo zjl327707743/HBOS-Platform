@@ -229,4 +229,4 @@ M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。
 2. 或授权先做 TEST 数据隔离 / 清理，再进入重新试运行。
 3. 或保持 M1-R3 BLOCKED，暂缓考勤链路试运行。
 
-M1-R3C 已在后续用户授权下执行并收口为 COMPLETED。M1-R3D 为 PLANNED，M1-R4 未启动。
+M1-R3C 已在后续用户授权下执行并收口为 COMPLETED。M1-R3D 当前为 REVIEWING，M1-R3E 为 PLANNED，M1-R4 未启动。
