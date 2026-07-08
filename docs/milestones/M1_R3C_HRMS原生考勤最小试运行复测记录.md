@@ -231,8 +231,8 @@ Codex PASS 口径：14 个场景中 8 个通过，6 个为 GAP / PARTIAL。Atten
 
 - M1-R3 保持 `BLOCKED`，因为原 M1-R3 不是成功完成。
 - M1-R3C 标记为 `COMPLETED`，结论为 `PARTIAL / GAP_IDENTIFIED`。
-- M1-R3D 已完成异常口径与 Gap 诊断文档交付，当前状态为 `REVIEWING`。
+- M1-R3D 已通过 Codex 审查并收口为 `COMPLETED`，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。
 - M1-R3E 标记为 `PLANNED`，不得直接启动。
 - M1-R4 未启动。
 
-M1-R3D 已聚焦 HRMS 原生考勤异常口径与配置 Gap 诊断，覆盖迟到 / 早退标记、缺卡异常、全天缺勤生成、Leave Allocation 请假前置、加班和节假日出勤报表口径。下一步 M1-R3E 建议做配置复核或业务口径确认，仍不得接真实考勤机、不得接真实飞书、不得录入真实生产数据、不得创建自定义 App、不得开发业务代码。
+M1-R3D 已聚焦 HRMS 原生考勤异常口径与配置 Gap 诊断，覆盖迟到 / 早退标记、缺卡异常、全天缺勤生成、Leave Allocation 请假前置、加班和节假日出勤报表口径，全部归入 HRMS 配置、原生 / 自定义报表、海滨业务规则定义和未来自定义 App 候选四类。下一步 M1-R3E 建议做配置复核或业务口径确认，仍不得接真实考勤机、不得接真实飞书、不得录入真实生产数据、不得创建自定义 App、不得开发业务代码。
