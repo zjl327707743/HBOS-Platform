@@ -29,6 +29,7 @@
 - `docs/milestones/M1_R6C_异常识别与异常说明流程最小实现.md`：M1-R6C 异常识别与异常说明流程最小实现。
 - `docs/milestones/M1_R7_飞书登录领导Demo与M1收口准备.md`：M1-R7 飞书登录、领导 Demo 与 M1 收口准备。
 - `docs/milestones/M1_CLOSEOUT_考勤一期总收口准备.md`：M1 考勤一期总收口准备。
+- `docs/milestones/M1_FIX_功能补漏实施方案.md`：M1-FIX-A 功能补漏差距盘点与实施方案。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -76,15 +77,17 @@
 | M1-R7 | 飞书登录、领导汇总 Demo 与 M1 收口准备 | COMPLETED |
 | M1 总收口 | M1 考勤一期总收口 | COMPLETED |
 | M1-R8 | M1 Demo 验收修复与文档收口（可选缓冲轮） | PLANNED |
+| M1-FIX-A | M1 功能补漏差距盘点与实施方案 | REVIEWING |
 | M2 | 飞书集成 | PLANNED |
 
 ## 下一步路线
 
 1. M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口，四份设计文档全部完成。
 2. M1-R4 已通过 Codex 审查并收口为 COMPLETED，主文档 `M1_R4_Demo技术方案与实施路线拆分.md` 已交付。
-3. M1 已 closeout 为 COMPLETED。
+3. M1 已 closeout 为 COMPLETED，但 Owner 验收发现功能缺口。
+4. M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。
 
-M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1 考勤一期已 closeout 为 COMPLETED。M1-R6C = COMPLETED。M1-R7 = COMPLETED。M2 为 PLANNED / 未启动 / 待 Owner 授权。
+M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1 考勤一期已 closeout 为 COMPLETED。M1-R6C = COMPLETED。M1-R7 = COMPLETED。M1-FIX-A = REVIEWING。M2 为 PLANNED / 未启动 / 待 Owner 授权。
 
 ## 更新规则
 

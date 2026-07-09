@@ -68,9 +68,9 @@ M1-R6C 当前状态：COMPLETED。M1-R6C 已完成异常识别与异常说明流
 
 M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计、领导汇总 Demo 指标定义与实现路径、M1 Demo 演示路径整理和 M1 收口准备项清单。审查记录：Codex 初审 FAIL（3 类 blocker），已在 `e812e32` 中修复；复审 PASS，已 closeout 为 COMPLETED。
 
-M1 总收口当前状态：COMPLETED。M1 = COMPLETED。
+M1 总收口当前状态：COMPLETED。M1 = COMPLETED（但 Owner 验收发现功能缺口）。
 
-M1 已 closeout 为 COMPLETED。M2 未启动 / 待 Owner 授权。
+M1 已 closeout 为 COMPLETED。M1-FIX 功能补漏阶段已启动。M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。M2 未启动 / 待 Owner 授权。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界

@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前 M0 已完成并封板，M1 考勤一期已 closeout 为 COMPLETED。M1-R0 至 M1-R7 全部轮次已通过 Codex 审查并收口为 COMPLETED（含 R3 子轮次共 19 轮）。M2 未启动 / 待 Owner 授权。
+当前 M0 已完成并封板，M1 考勤一期已 closeout 为 COMPLETED（M1-R0 至 M1-R7 全部轮次已通过 Codex 审查并收口，含 R3 子轮次共 19 轮）。M1 closeout 后 Owner 验收发现大量产品功能没有真正页面可体验，M1-FIX 功能补漏阶段已启动。M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。M2 未启动 / 待 Owner 授权。
 
 当前真实进度以以下文件为准：
 

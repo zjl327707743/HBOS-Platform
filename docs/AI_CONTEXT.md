@@ -19,9 +19,9 @@
 
 ## 当前上下文
 
-当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已完成 M1-R0 规划收口、M1-R1 对象模型验证收口和 M1-R2 配置试运行方案收口。M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。
+当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已 closeout 为 COMPLETED（含 19 轮次汇总、12 条验收矩阵、M2 建议边界），但 Owner 亲自验收后发现大量产品功能没有真正页面可体验——「方案完成」不等于「功能完成」。M1-FIX 功能补漏阶段已启动，M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。
 
-当前目标：M1 已 closeout 为 COMPLETED（含 19 轮次汇总、12 条验收矩阵、M2 建议边界）。当前仍不建议创建 `hb_hr_app`。M2 未启动 / 待 Owner 授权。
+当前目标：M1-FIX-A 为 REVIEWING。等待 Owner 审阅方案后授权进入 M1-FIX-B（Excel 导入与 Demo 数据闭环）。M2 未启动 / 待 Owner 授权。当前仍不建议创建 `hb_hr_app`。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 

@@ -1,32 +1,30 @@
 # Current Milestone
 
-## M1：平台入口、身份与考勤一期准备
+## M1-FIX：M1 考勤一期功能补漏阶段
 
 项目名称：新乡海滨智能运营管理平台。
 
+M1 已 closeout 为 COMPLETED，但 Owner 亲自验收后发现大量产品功能没有真正页面可体验——「方案完成」不等于「功能完成」。M1-FIX 阶段定位为功能补漏，补齐 M1 承诺但未实际可体验的产品功能。
+
 ## 当前轮次
 
-M1 closeout：COMPLETED。M1 已从 IN_PROGRESS 收口为 COMPLETED。
+M1-FIX-A：功能补漏差距盘点与实施方案。当前状态：REVIEWING。
 
-M1 总收口准备：已完成并通过 Codex 审查。
+M1-FIX 后续规划轮次（仅规划，不自动启动）：
 
-M1-R7：飞书登录、领导 Demo 与 M1 收口准备。当前状态：COMPLETED。
+| 轮次 | 名称 | 优先级 | 状态 |
+| --- | --- | --- | --- |
+| M1-FIX-A | 差距盘点与实施方案 | — | REVIEWING |
+| M1-FIX-B | Excel 导入与 Demo 数据闭环 | P0 | PLANNED |
+| M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
+| M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
+| M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
 
-M1-R6C：异常识别与异常说明流程最小实现。当前状态：COMPLETED。
+## M1 历史轮次（已完成）
 
-M1-R6B：脱敏打卡流水导入最小实现。当前状态：COMPLETED。
+M1 已 closeout 为 COMPLETED。全部 19 轮次状态（R0 → R7，含 R3 子轮次）均为 COMPLETED（除 M1-R3 为 BLOCKED）。M1-R8 为 PLANNED（可选缓冲轮）。
 
-M1-R6A：Excel 导入与异常流程落地方案 / Gate 判定。当前状态：COMPLETED。
-
-M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo。当前状态：COMPLETED。
-
-M1-REQ-DESIGN-DRAFT-CLOSEOUT：M1 需求设计草案审查通过后状态收口。当前状态：COMPLETED。
-
-M1 考勤一期已 closeout 为 COMPLETED。M0 已完成并封板。M1-R0 已通过 Codex 独立审查并收口为 COMPLETED。M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 COMPLETED。M1-R8 为 PLANNED（可选缓冲轮）。
-
-权威计划文件：
-
-- `docs/plans/M0-R2_Frappe_Docker最小环境方案设计.md`
+M0 已完成并封板。M0-REMOTE 已完成。
 
 权威状态文件：
 
@@ -34,121 +32,63 @@ M1 考勤一期已 closeout 为 COMPLETED。M0 已完成并封板。M1-R0 已通
 - `docs/CURRENT_MILESTONE.md`
 - `docs/milestones/M0.md`
 
+权威方案文件：
+
+- `docs/milestones/M1_FIX_功能补漏实施方案.md`
+
 ## 本轮范围
 
-执行 M1 closeout。将 M1 从 IN_PROGRESS 收口为 COMPLETED。
+M1-FIX-A 只做差距盘点与实施方案：
 
-交付内容：
-
-- `docs/milestones/M1_CLOSEOUT_考勤一期总收口准备.md`（本轮主文档）
-- M1 阶段目标回顾
-- M1 全部 19 轮次交付物汇总
-- M1 12 条验收标准验收矩阵
-- M1 未完成 / 后续保留项清单
-- M2 建议边界（不启动）
-- 项目状态、当前里程碑和里程碑索引文件更新
-
-本轮实际结果：
-
-- 飞书 OAuth 登录方案设计完成（Social Login Key 配置参数表、User/Employee 匹配规则、未匹配处理、本地管理员兜底、权限边界）。
-- 飞书 OAuth 端到端验证未执行（blocker：飞书平台侧 + 网络侧 + 安全侧条件未满足）。
-- 领导汇总 Demo 4 个核心指标定义、Query Report SQL 和 Dashboard 设计已固化。
-- 月报查看（4 条路径）和导出（4 种方式）已整理。
-- M1 Demo 完整演示路径（10 个环节）已整理。
-- M1 收口准备项（10 项）和 Owner 决策项（5 项）清单已列出。
-- M1 12 条验收标准逐条对照已完成。
-- M1 closeout 未启动，M2 未启动。
-- 本轮未创建 App、未创建 DocType、未修改核心源码、未提交 Excel / CSV / secret。
+- 执行 Git Gate 检查并记录结果
+- 读取 M1 关键文档还原当前实际可体验状态
+- 输出 20 项差距矩阵（缺口编号、需求来源、M1 承诺、当前实际、差距判断、优先级、推荐实现方式、是否需要自定义 App/DocType、风险、验收方式）
+- 给出是否需要自定义 App/DocType 的清晰判断
+- 给出 M1-FIX-B/C/D/E 推荐拆分顺序
+- 输出 Owner 需确认的 5 项 Gate 决策建议
+- 更新项目状态文档使 M1-FIX-A 进入 REVIEWING
 
 ## 本轮禁止事项
 
-- 不 closeout R7
-- 不启动 M1 总收口
-- 不接飞书工作台
-- 不接飞书请假
+- 不创建 App
+- 不创建 DocType
+- 不写业务代码
+- 不导入 Excel/CSV
+- 不创建/删除/清理 TEST 数据
+- 不接真实考勤机
+- 不配置真实飞书密钥
+- 不要求 Owner 在聊天中粘贴 App Secret
+- 不提交 `.env`、密钥、token、数据库、日志、缓存、运行产物
+- 不修改 Frappe/ERPNext/HRMS 核心源码
+- 不启动大型 Vue/React 前端
+- 不启动 M2
+- 不把「计划可行」写成「功能已实现」
+
+## M1-FIX 全阶段禁止事项
+
+- 不创建 `hb_core_app`
+- 不修改 Frappe/ERPNext/HRMS 核心源码
+- 不提交 `.env`、App Secret、密钥、token
+- 不提交真实员工姓名、真实工号、真实数据
+- 不提交 Excel/CSV 数据文件
 - 不接真实考勤机
 - 不部署公司内网/云服务器
-- 不启动大型 Vue 前端
-- 不重写 R6A / R6B / R6C
-- 不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
-- 不创建 `hb_hr_app`
-- 不创建自定义 DocType
-- 不做业务代码
-- 不修改 Frappe / ERPNext / HRMS 核心源码
+- 不启动大型 Vue/React 前端
+- 不启动 M2
+- 不伪造飞书登录成功
 - 不执行 `docker compose down -v`
-- 不删除 volume
+- 不删除 Docker volume
 - 不重建 `frontend` site
-- 不重新安装 HRMS
-- 不修改 `docker-compose.yml`、`.env.example`
-- 不提交 `.env`、备份、密钥、数据库、日志、缓存或运行时产物
-- 不提交 Excel / CSV / 真实数据
-- 不写 M1 = COMPLETED
-- 不写 M1 closeout PASS
-- 不写 M1 总收口已完成
 
-## 当前批次状态
+## 当前状态口径
 
-- M0-R2 设计文档已完成并提交。
-- M0-R2A 默认入口文档过期描述修复已完成。
-- M0-R2B 里程碑状态管理规范已完成。
-- M0-R2C AI Skill 路由文档纳入已完成。
-- M0-R2D 中文提交与文档命名规范已完成。
-- M0-R2E README 阶段描述修复与公共入口文件收尾规则补强已完成。
-- M0-R3A 已完成：镜像拉取成功，容器启动成功，测试 site 初始化成功，Frappe Desk 登录页验证成功。
-- M0-R3B 已完成评估并通过 Codex 审查。
-- M0-R3C 已完成：HRMS 已安装到 `frontend` site，`hrms 16.12.0 version-16` 已验证，Desk 与基础 HR 模块可访问。
-- M0-R3C-FIX 已完成：HRMS 资源 404、Frappe HR 图标缺失和 Roster 白屏已修复，`/hr/roster/` 已验证渲染 Roster 月视图。
-- M0-R3D 已完成能力盘点与 M1 考勤一期边界设计。
-- M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查。
-- M0 已完成并封板。
-- M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。
-- M1-R0 已完成平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案，并已通过 Codex 独立审查，状态为 COMPLETED。
-- M1-R1 已通过 Codex 独立审查并收口为 COMPLETED。
-- M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。
-- M1-R3 已通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态为 BLOCKED。
-- M1-R3A 为 COMPLETED。
-- M1-R3B 为 COMPLETED。
-- M1-R3B-FIX 为 COMPLETED。
-- M1-R3C 为 COMPLETED。
-- M1-R3D 为 COMPLETED。
-- M1-R3E 为 COMPLETED。
-- M1-R3F 为 COMPLETED。
-- M1-REQ-DESIGN-DRAFT 为 COMPLETED。
-- M1-R4 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R5 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6A 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6B 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6C 当前状态为 COMPLETED。
-- M1-R7 当前状态为 COMPLETED，已通过 Codex 审查并 closeout。
-- M1 总收口当前状态为 COMPLETED。M1 = COMPLETED。
-- M1-R8 当前状态为 PLANNED（可选缓冲轮，不预先承诺一定执行）。
-
-## 验收标准
-
-- M1-R2 已通过 Codex 独立审查并收口为 COMPLETED
-- M1-R3 已通过 Codex 审查并收口为 BLOCKED，不得标记为 COMPLETED
-- M1-R3A 已通过 Codex 审查并收口为 COMPLETED
-- M1-R0 飞书登录目标已保留为：飞书登录为主，HBOS 内部 User 自动映射，Frappe 权限体系承接系统权限和审计
-- M1 状态已同步为 IN_PROGRESS
-- M1-R3B 已通过 Codex 审查并收口为 COMPLETED
-- M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED
-- M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED
-- M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app
-- M1-R3E 已通过 Codex 审查并收口为 COMPLETED
-- M1-R3F 已通过 Codex 审查并收口为 COMPLETED
-- M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED
-- M1-R4 当前状态为 COMPLETED，已通过 Codex 审查并收口
-- M1-R5 当前状态为 COMPLETED，Codex 审查 PASS 后完成 closeout 收口
-- M1-R6A 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6B 当前状态为 COMPLETED，已通过 Codex 审查并收口。
-- M1-R6C 当前状态为 COMPLETED，已通过 Codex 审查并 closeout。
-- M1-R7 当前状态为 COMPLETED，已通过 Codex 审查并 closeout。
-- M1-R8 保持 PLANNED（可选缓冲轮）
-- M1 总收口 = COMPLETED
-- M1 = COMPLETED
-- M1 closeout = COMPLETED
-- 本轮未创建自定义 App / DocType / 核心源码变更；审查材料汇总为主
+```
+M1     = COMPLETED（但 Owner 验收发现功能缺口）
+M1-FIX = IN_PROGRESS
+M1-FIX-A = REVIEWING
+M2     = PLANNED / NOT STARTED / WAITING OWNER AUTHORIZATION
+```
 
 ## 下一轮预告
 
-M1 已 closeout 为 COMPLETED。下一步等待 Owner 授权进入 M2 飞书集成阶段规划。M2 未启动。
+等待 Owner 审阅 M1-FIX-A 方案后，授权进入 M1-FIX-B（Excel 导入与 Demo 数据闭环）。M2 未启动。
