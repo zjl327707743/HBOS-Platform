@@ -1,0 +1,26 @@
+{
+ "creation": "2026-07-09 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "upload",
+ "idx": 0,
+ "modified": "2026-07-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Attendance",
+ "name": "hbos-attendance-import",
+ "owner": "Administrator",
+ "page_name": "hbos-attendance-import",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "HR Manager"
+  },
+  {
+   "role": "HR User"
+  }
+ ],
+ "standard": "Yes",
+ "title": "导入考勤机导出表"
+}

@@ -14,6 +14,8 @@
   "source_file",
   "source_file_name",
   "source_file_hash",
+  "is_repeat_import",
+  "same_file_import_count",
   "period_start",
   "period_end",
   "stats_section",
@@ -24,6 +26,7 @@
   "created_employees",
   "created_checkins",
   "created_attendance",
+  "existing_attendance",
   "skipped_duplicates",
   "auto_attendance_used",
   "fallback_used",
@@ -31,6 +34,7 @@
   "started_at",
   "finished_at",
   "details_section",
+  "readable_summary",
   "mapping_summary",
   "exception_summary",
   "failure_details",
@@ -46,12 +50,12 @@
    "reqd": 1
   },
   {
-   "default": "月度汇总表",
+   "default": "考勤机月度导出表",
    "fieldname": "import_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "导入类型",
-   "options": "原始打卡流水\n月度汇总表\nDemo 转换导入\n混合/未知格式",
+   "options": "考勤机月度导出表\n考勤机导出表适配导入\n逐条原始打卡流水表\n混合/未知格式",
    "reqd": 1
   },
   {
@@ -91,6 +95,21 @@
    "fieldname": "source_file_hash",
    "fieldtype": "Data",
    "label": "来源文件 Hash",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_repeat_import",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "是否重复导入",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "same_file_import_count",
+   "fieldtype": "Int",
+   "label": "同一文件第几次识别",
    "read_only": 1
   },
   {
@@ -151,35 +170,42 @@
    "default": "0",
    "fieldname": "created_checkins",
    "fieldtype": "Int",
-   "label": "创建 Checkin 数",
+   "label": "新增打卡流水",
    "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "created_attendance",
    "fieldtype": "Int",
-   "label": "创建 Attendance 数",
+   "label": "新增考勤结果",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "existing_attendance",
+   "fieldtype": "Int",
+   "label": "已存在考勤结果",
    "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "skipped_duplicates",
    "fieldtype": "Int",
-   "label": "跳过重复数",
+   "label": "跳过重复打卡流水",
    "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "auto_attendance_used",
    "fieldtype": "Check",
-   "label": "已尝试 Auto Attendance",
+   "label": "已触发自动考勤",
    "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "fallback_used",
    "fieldtype": "Check",
-   "label": "使用 fallback",
+   "label": "使用兜底生成",
    "read_only": 1
   },
   {
@@ -203,6 +229,12 @@
    "fieldname": "details_section",
    "fieldtype": "Section Break",
    "label": "摘要"
+  },
+  {
+   "fieldname": "readable_summary",
+   "fieldtype": "Long Text",
+   "label": "中文导入说明",
+   "read_only": 1
   },
   {
    "fieldname": "mapping_summary",

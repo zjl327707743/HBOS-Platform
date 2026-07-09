@@ -10,12 +10,15 @@ M1 已 closeout 为 COMPLETED，但 Owner 亲自验收后发现大量产品功�
 
 M1-FIX-B：Excel 导入与真实本地数据闭环。当前状态：REVIEWING。
 
+M1-FIX-B-FIX：Excel 导入与中文体验修复。当前状态：REVIEWING。本轮只修复 Owner 对 M1-FIX-B 人工验收提出的阻塞项，不启动 M1-FIX-C/D/E，不启动 M2，不 closeout。
+
 M1-FIX 后续规划轮次（仅规划，不自动启动）：
 
 | 轮次 | 名称 | 优先级 | 状态 |
 | --- | --- | --- | --- |
 | M1-FIX-A | 差距盘点与实施方案 | — | REVIEWING |
 | M1-FIX-B | Excel 导入与真实本地数据闭环 | P0 | REVIEWING |
+| M1-FIX-B-FIX | Excel 导入与中文体验修复 | P0 | REVIEWING |
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
@@ -38,15 +41,16 @@ M0 已完成并封板。M0-REMOTE 已完成。
 
 ## 本轮范围
 
-M1-FIX-B 只做 Excel 导入与真实本地数据闭环：
+M1-FIX-B / M1-FIX-B-FIX 只做 Excel 导入与真实本地数据闭环修复：
 
 - 创建轻量 `hb_attendance_app`
-- 创建 `HBOS Attendance Import Log`
-- 支持 Owner 本地真实 Excel 识别、预览、导入日志与本地转换导入
+- 创建导入日志
+- 支持 Owner 在 Frappe Desk 页面上传考勤机月度导出表、识别预览、确认导入、查看导入日志与中文结果
 - 创建 / 匹配 Employee
-- 生成 Demo Employee Checkin
-- 尝试 HRMS 原生 Auto Attendance，并在必要时记录 fallback
-- 生成 Attendance 并展示导入统计和失败摘要
+- 生成打卡流水
+- 尝试 HRMS 原生自动考勤，并在必要时记录本地兜底生成
+- 生成考勤结果并展示导入统计、重复跳过说明和失败摘要
+- 默认白班/行政班为 08:30-17:30
 - 不提交真实 Excel、真实员工清单或导入产物
 
 ## 本轮禁止事项
@@ -88,9 +92,10 @@ M1     = COMPLETED（但 Owner 验收发现功能缺口）
 M1-FIX = IN_PROGRESS
 M1-FIX-A = REVIEWING
 M1-FIX-B = REVIEWING
-M2     = PLANNED / NOT STARTED / WAITING OWNER AUTHORIZATION
+M1-FIX-B-FIX = REVIEWING
+M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
 ## 下一轮预告
 
-等待 Owner 验收 M1-FIX-B。M1-FIX-C/D/E 与 M2 均未启动。
+等待 Owner 复验 M1-FIX-B-FIX。M1-FIX-C/D/E 与 M2 均未启动。

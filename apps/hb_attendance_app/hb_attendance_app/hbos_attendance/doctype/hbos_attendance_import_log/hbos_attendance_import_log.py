@@ -15,6 +15,10 @@ from frappe.utils import get_datetime, getdate, now_datetime
 NS = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 TIME_RE = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b")
 DATE_RE = re.compile(r"(\d{2})-(\d{2})-(\d{2})")
+LEGACY_DAY_SHIFT = "HBOS-M1-FIX-B-白班-0800-1600"
+DEFAULT_DAY_SHIFT = "HBOS-M1-FIX-B-白班-0830-1730"
+LEGACY_DEVICE_ID = "HBOS-M1-FIX-B-MONTHLY-DEMO"
+DEFAULT_DEVICE_ID = "HBOS-M1-FIX-B-MONTHLY-ADAPTER"
 
 
 class HBOSAttendanceImportLog(Document):
@@ -48,7 +52,7 @@ def run_import(log_name=None, source_file=None, local_path=None, create_missing_
 	frappe.db.commit()
 
 	try:
-		result = _execute_import(parsed, bool(int(create_missing_employees)), int(limit_rows or 0))
+		result = _execute_import(parsed, bool(int(create_missing_employees)), int(limit_rows or 0), log)
 		status = "Success" if result["failed_rows"] == 0 else "Partial Success"
 		_apply_summary(log, result, status=status)
 	except Exception as exc:
@@ -102,11 +106,17 @@ def _get_or_create_log(log_name, source_file, file_name, path):
 		log = frappe.get_doc("HBOS Attendance Import Log", log_name)
 	else:
 		log = frappe.new_doc("HBOS Attendance Import Log")
-		log.import_type = "月度汇总表"
+		log.import_type = "考勤机月度导出表"
 		log.import_status = "Draft"
 		log.source_file = source_file
 	log.source_file_name = file_name
 	log.source_file_hash = _sha256(path)
+	previous_count = frappe.db.count(
+		"HBOS Attendance Import Log",
+		{"source_file_hash": log.source_file_hash, "name": ("!=", log.name or "")},
+	)
+	log.same_file_import_count = previous_count + 1
+	log.is_repeat_import = int(previous_count > 0)
 	log.run_by = frappe.session.user
 	return log
 
@@ -132,6 +142,7 @@ def _apply_summary(log, result, status):
 		"created_employees",
 		"created_checkins",
 		"created_attendance",
+		"existing_attendance",
 		"skipped_duplicates",
 	):
 		log.set(field, int(result.get(field) or 0))
@@ -140,8 +151,44 @@ def _apply_summary(log, result, status):
 	log.mapping_summary = json.dumps(result.get("mapping_summary", {}), ensure_ascii=False, indent=2)
 	log.exception_summary = json.dumps(result.get("exception_summary", {}), ensure_ascii=False, indent=2)
 	log.failure_details = json.dumps(result.get("failure_details", []), ensure_ascii=False, indent=2)
+	log.readable_summary = _readable_summary(log, result, status)
 	if result.get("notes"):
 		log.notes = result["notes"]
+
+
+def _readable_summary(log, result, status):
+	repeat_text = "是" if getattr(log, "is_repeat_import", 0) else "否"
+	same_count = int(getattr(log, "same_file_import_count", 1) or 1)
+	reason_parts = []
+	exceptions = result.get("exception_summary") or {}
+	if exceptions:
+		reason_parts.append("异常口径：" + "，".join(f"{key} {value}" for key, value in exceptions.items()))
+	failures = result.get("failure_details") or []
+	if failures:
+		reason_parts.append(f"失败 {len(failures)} 条，详见失败摘要")
+	if not reason_parts:
+		reason_parts.append("未发现阻断性失败")
+	auto_text = "已触发 HRMS 自动考勤" if result.get("auto_attendance_used") else "未触发 HRMS 自动考勤"
+	fallback_text = "本批次使用本地兜底生成补齐考勤结果；该兜底仅用于 M1 本地演示补偿，不代表正式生产口径。" if result.get("fallback_used") else "本批次未使用本地兜底生成。"
+	return "\n".join(
+		[
+			f"批次号：{log.name or '预览批次'}",
+			f"文件名：{getattr(log, 'source_file_name', '') or '未记录'}",
+			f"文件 Hash：{getattr(log, 'source_file_hash', '') or '未记录'}",
+			f"是否重复导入：{repeat_text}",
+			f"同一文件第几次识别/导入：第 {same_count} 次",
+			f"新增打卡流水：{int(result.get('created_checkins') or 0)}",
+			f"跳过重复打卡流水：{int(result.get('skipped_duplicates') or 0)}",
+			f"新增考勤结果：{int(result.get('created_attendance') or 0)}",
+			f"已存在考勤结果：{int(result.get('existing_attendance') or 0)}",
+			f"失败记录：{int(result.get('failed_rows') or 0)}",
+			f"原因摘要：{'；'.join(reason_parts)}",
+			auto_text,
+			fallback_text,
+			"本次导入未重复创建已有打卡记录，系统自动跳过已存在记录。",
+			f"当前状态：{status}",
+		]
+	)
 
 
 class MonthlyWorkbook:
@@ -160,7 +207,7 @@ class MonthlyWorkbook:
 	def preview_summary(self):
 		dates = [item["date"] for item in self.daily_columns]
 		return {
-			"import_type": "月度汇总表",
+			"import_type": "考勤机月度导出表",
 			"total_rows": len(self.rows),
 			"matched_rows": 0,
 			"success_rows": 0,
@@ -168,6 +215,7 @@ class MonthlyWorkbook:
 			"created_employees": 0,
 			"created_checkins": 0,
 			"created_attendance": 0,
+			"existing_attendance": 0,
 			"skipped_duplicates": 0,
 			"period_start": min(dates).isoformat() if dates else None,
 			"period_end": max(dates).isoformat() if dates else None,
@@ -179,12 +227,14 @@ class MonthlyWorkbook:
 				"detected_headers": self.headers,
 				"daily_columns": [item["header"] for item in self.daily_columns],
 				"identity_rows": self.identity_rows,
-				"classification": "月度汇总表 / Demo 转换导入",
-				"source_note": "该文件不是一行一条原始打卡流水；导入会按月度汇总表转换生成 Demo Checkin / Attendance。",
+				"classification": "考勤机月度导出表 / 适配导入",
+				"source_note": "该文件不是一行一条原始打卡流水；导入会按月度汇总表适配生成打卡流水与考勤结果。",
+				"supported_routes": ["考勤机月度导出表", "逐条原始打卡流水表（后续适配）"],
+				"default_shift": "白班/行政班 08:30-17:30；中班 16:00-00:00；夜班 00:00-08:00；跨夜班 20:00-04:00",
 			},
 			"exception_summary": {},
 			"failure_details": [],
-			"notes": "Preview only; no Employee, Employee Checkin, or Attendance records were written.",
+			"notes": "仅预览校验；未写入员工、打卡流水或考勤结果。",
 		}
 
 
@@ -314,18 +364,17 @@ def _number(value):
 		return 0
 
 
-def _execute_import(parsed, create_missing_employees, limit_rows):
+def _execute_import(parsed, create_missing_employees, limit_rows, log=None):
 	company = _default_company()
 	holiday_list = _default_holiday_list()
 	leave_type = _default_leave_type()
-	shifts = _ensure_demo_shifts(parsed, holiday_list)
+	shifts = _ensure_hbos_shifts(parsed, holiday_list)
 	failures = []
 	stats = Counter()
 	exceptions = Counter()
 	created_checkin_names = []
-	attendance_before = set(_attendance_names_for_records(parsed.records, parsed.daily_columns))
-
 	records = parsed.records[:limit_rows] if limit_rows else parsed.records
+	attendance_before = set(_attendance_names_for_records(records, parsed.daily_columns))
 	for record in records:
 		try:
 			employee, created = _match_or_create_employee(record, company, holiday_list, create_missing_employees)
@@ -338,7 +387,7 @@ def _execute_import(parsed, create_missing_employees, limit_rows):
 				shift_name = _select_shift(day_tokens, shifts)
 				assigned_shift = _ensure_shift_assignment(employee, shift_name, date_value)
 				exceptions.update(_day_exception_labels(date_value, day_tokens, assigned_shift, status_plan))
-				names, skipped = _create_demo_checkins(employee, date_value, day_tokens, assigned_shift, status_plan)
+				names, skipped = _create_adapted_checkins(employee, date_value, day_tokens, assigned_shift, status_plan)
 				stats["created_checkins"] += len(names)
 				stats["skipped_duplicates"] += skipped
 				created_checkin_names.extend(names)
@@ -358,7 +407,9 @@ def _execute_import(parsed, create_missing_employees, limit_rows):
 	stats["auto_attendance_used"] = 1
 
 	fallback_created = _fallback_attendance(records, parsed.daily_columns, shifts, leave_type)
-	stats["created_attendance"] = len(set(_attendance_names_for_records(records, parsed.daily_columns)) - attendance_before)
+	attendance_after = set(_attendance_names_for_records(records, parsed.daily_columns))
+	stats["created_attendance"] = len(attendance_after - attendance_before)
+	stats["existing_attendance"] = len(attendance_after & attendance_before)
 	if fallback_created:
 		stats["fallback_used"] = 1
 		stats["created_attendance"] = max(stats["created_attendance"], fallback_created)
@@ -371,12 +422,13 @@ def _execute_import(parsed, create_missing_employees, limit_rows):
 		"created_employees": stats["created_employees"],
 		"created_checkins": stats["created_checkins"],
 		"created_attendance": stats["created_attendance"],
+		"existing_attendance": stats["existing_attendance"],
 		"skipped_duplicates": stats["skipped_duplicates"],
 		"auto_attendance_used": bool(stats["auto_attendance_used"]),
 		"fallback_used": bool(stats["fallback_used"]),
 		"exception_summary": dict(exceptions),
 		"failure_details": failures[:50],
-		"notes": "由月度汇总表转换生成 Demo Checkin；不是原始打卡机流水导入。",
+		"notes": "由考勤机月度导出表适配生成打卡流水与考勤结果；不是逐条原始打卡流水导入。默认白班/行政班为 08:30-17:30。",
 	}
 
 
@@ -400,13 +452,13 @@ def _default_leave_type():
 	)
 
 
-def _ensure_demo_shifts(parsed, holiday_list):
+def _ensure_hbos_shifts(parsed, holiday_list):
 	dates = [item["date"] for item in parsed.daily_columns]
 	start = min(dates) if dates else getdate()
 	end = max(dates) if dates else getdate()
 	last_sync = get_datetime(datetime.combine(end, time(23, 59, 59)) + timedelta(days=1))
 	specs = {
-		"day": ("HBOS-M1-FIX-B-白班-0800-1600", "08:00:00", "16:00:00"),
+		"day": (DEFAULT_DAY_SHIFT, "08:30:00", "17:30:00"),
 		"middle": ("HBOS-M1-FIX-B-中班-1600-0000", "16:00:00", "00:00:00"),
 		"night": ("HBOS-M1-FIX-B-夜班-0000-0800", "00:00:00", "08:00:00"),
 		"cross": ("HBOS-M1-FIX-B-跨夜班-2000-0400", "20:00:00", "04:00:00"),
@@ -440,6 +492,7 @@ def _ensure_demo_shifts(parsed, holiday_list):
 		)
 		doc.save(ignore_permissions=True)
 		result[key] = name
+	_replace_legacy_day_shift(result["day"])
 	return result
 
 
@@ -542,7 +595,7 @@ def _ensure_shift_assignment(employee, shift, date_value):
 		},
 	):
 		return shift
-	existing_shift = frappe.db.get_value(
+	existing_assignment = frappe.db.get_value(
 		"Shift Assignment",
 		{
 			"employee": employee,
@@ -551,10 +604,14 @@ def _ensure_shift_assignment(employee, shift, date_value):
 			"docstatus": 1,
 			"status": "Active",
 		},
-		"shift_type",
+		["name", "shift_type"],
+		as_dict=True,
 	)
-	if existing_shift:
-		return existing_shift
+	if existing_assignment:
+		if existing_assignment.shift_type == LEGACY_DAY_SHIFT and shift == DEFAULT_DAY_SHIFT:
+			frappe.db.set_value("Shift Assignment", existing_assignment.name, "shift_type", DEFAULT_DAY_SHIFT)
+			return DEFAULT_DAY_SHIFT
+		return existing_assignment.shift_type
 	doc = frappe.new_doc("Shift Assignment")
 	doc.employee = employee
 	doc.shift_type = shift
@@ -564,6 +621,22 @@ def _ensure_shift_assignment(employee, shift, date_value):
 	doc.insert(ignore_permissions=True)
 	doc.submit()
 	return shift
+
+
+def _replace_legacy_day_shift(new_shift):
+	if not frappe.db.exists("Shift Type", LEGACY_DAY_SHIFT):
+		return
+	for doctype, fieldname in (
+		("Shift Assignment", "shift_type"),
+		("Attendance", "shift"),
+		("Employee Checkin", "shift"),
+	):
+		if not frappe.db.has_column(doctype, fieldname):
+			continue
+		for row in frappe.get_all(doctype, filters={fieldname: LEGACY_DAY_SHIFT}, pluck="name"):
+			frappe.db.set_value(doctype, row, fieldname, new_shift, update_modified=False)
+	for row in frappe.get_all("Employee Checkin", filters={"device_id": LEGACY_DEVICE_ID}, pluck="name"):
+		frappe.db.set_value("Employee Checkin", row, "device_id", DEFAULT_DEVICE_ID, update_modified=False)
 
 
 def _day_exception_labels(date_value, tokens, shift, status_plan):
@@ -593,7 +666,7 @@ def _day_exception_labels(date_value, tokens, shift, status_plan):
 	return labels
 
 
-def _create_demo_checkins(employee, date_value, tokens, shift, status_plan):
+def _create_adapted_checkins(employee, date_value, tokens, shift, status_plan):
 	if not tokens or status_plan["status"] in {"Absent", "On Leave"}:
 		return [], 0
 	checkins = _checkin_plan(date_value, tokens, shift)
@@ -607,7 +680,7 @@ def _create_demo_checkins(employee, date_value, tokens, shift, status_plan):
 		doc.employee = employee
 		doc.time = checkin_time
 		doc.log_type = log_type
-		doc.device_id = "HBOS-M1-FIX-B-MONTHLY-DEMO"
+		doc.device_id = DEFAULT_DEVICE_ID
 		doc.skip_auto_attendance = 0
 		doc.insert(ignore_permissions=True)
 		created.append(doc.name)

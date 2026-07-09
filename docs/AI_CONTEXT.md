@@ -19,13 +19,13 @@
 
 ## 当前上下文
 
-当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已 closeout 为 COMPLETED（含 19 轮次汇总、12 条验收矩阵、M2 建议边界），但 Owner 亲自验收后发现大量产品功能没有真正页面可体验——「方案完成」不等于「功能完成」。M1-FIX 功能补漏阶段已启动，M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING，M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。
+当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已 closeout 为 COMPLETED（含 19 轮次汇总、12 条验收矩阵、M2 建议边界），但 Owner 亲自验收后发现大量产品功能没有真正页面可体验——「方案完成」不等于「功能完成」。M1-FIX 功能补漏阶段已启动，M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING，M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING；M1-FIX-B-FIX 已补齐浏览器导入入口、中文体验、重复导入可读日志和默认白班/行政班 08:30-17:30，当前进入 REVIEWING。
 
-当前目标：M1-FIX-B 为 REVIEWING。等待 Owner 验收 Excel 导入与真实本地数据闭环。M1-FIX-C/D/E 未启动。M2 未启动 / 待 Owner 授权。当前仍不建议创建 `hb_hr_app`。
+当前目标：M1-FIX-B 和 M1-FIX-B-FIX 均为 REVIEWING，等待 Owner 复验 Excel 导入与真实本地数据闭环。M1-FIX-C/D/E 未启动。M2 未启动 / 待 Owner 授权。当前仍不建议创建 `hb_hr_app`。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
-M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已新增 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED，已通过 Codex 审查并收口。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED（已通过 Codex 审查并 closeout）。M1-R7 为 COMPLETED（已通过 Codex 审查并 closeout）。M1 总收口为 COMPLETED。M1 已 closeout 为 COMPLETED。M1-FIX-B 已创建轻量 `hb_attendance_app`、`HBOS Attendance Import Log` 和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；真实 Excel、真实员工清单和导入产物不提交 Git。M2 未启动。当前不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
+M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已新增 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED，已通过 Codex 审查并收口。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED（已通过 Codex 审查并 closeout）。M1-R7 为 COMPLETED（已通过 Codex 审查并 closeout）。M1 总收口为 COMPLETED。M1 已 closeout 为 COMPLETED。M1-FIX-B 已创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐页面导入与中文体验；真实 Excel、真实员工清单和导入产物不提交 Git。M2 未启动。当前不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
 
 ## AI 默认读取规则
 
@@ -84,7 +84,7 @@ Skill 路由规范文件为：
 后续路线只记录，不代表已启动：
 
 1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
-2. M1 已 closeout 为 COMPLETED。M1-FIX-B 为 REVIEWING。M2 未启动 / 待 Owner 授权。
+2. M1 已 closeout 为 COMPLETED。M1-FIX-B 与 M1-FIX-B-FIX 为 REVIEWING。M2 未启动 / 待 Owner 授权。
 
 ## 前端实施流程规范
 
