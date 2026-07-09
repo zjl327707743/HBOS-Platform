@@ -1,0 +1,111 @@
+{
+ "app": "hb_attendance_app",
+ "charts": [],
+ "content": "[{\"id\":\"hbos-import-header\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>导入与结果</b></span>\",\"col\":12}},{\"id\":\"hbos-import-card\",\"type\":\"card\",\"data\":{\"card_name\":\"导入与结果\",\"col\":4}},{\"id\":\"hbos-attendance-card\",\"type\":\"card\",\"data\":{\"card_name\":\"HRMS 考勤对象\",\"col\":4}}]",
+ "creation": "2026-07-09 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "calendar",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "海滨考勤工作台",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "导入与结果",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "考勤导入日志",
+   "link_count": 0,
+   "link_to": "HBOS Attendance Import Log",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "HRMS 考勤对象",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Employee Checkin",
+   "link_count": 0,
+   "link_to": "Employee Checkin",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Attendance",
+   "link_count": 0,
+   "link_to": "Attendance",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-07-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Attendance",
+ "name": "海滨考勤工作台",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "HR Manager"
+  },
+  {
+   "role": "HR User"
+  }
+ ],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "考勤导入日志",
+   "link_to": "HBOS Attendance Import Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "List",
+   "label": "Employee Checkin",
+   "link_to": "Employee Checkin",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "Attendance",
+   "link_to": "Attendance",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "海滨考勤工作台",
+ "type": "Workspace"
+}

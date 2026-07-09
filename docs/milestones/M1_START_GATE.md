@@ -70,7 +70,7 @@ M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计�
 
 M1 总收口当前状态：COMPLETED。M1 = COMPLETED（但 Owner 验收发现功能缺口）。
 
-M1 已 closeout 为 COMPLETED。M1-FIX 功能补漏阶段已启动。M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。M2 未启动 / 待 Owner 授权。
+M1 已 closeout 为 COMPLETED。M1-FIX 功能补漏阶段已启动。M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。M2 未启动 / 待 Owner 授权。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界
@@ -89,7 +89,7 @@ M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）�
 
 ## 自定义 App 决策边界
 
-M1 初期不创建 `hb_attendance_app`。
+M1 初期不创建 `hb_attendance_app`。M1-FIX-B 已经 Owner 明确授权创建轻量 `hb_attendance_app`，仅用于导入入口、导入日志和 M1-FIX 必需扩展。
 
 优先复用 HRMS 原生考勤能力。只有 HRMS 原生能力无法覆盖新乡海滨特有规则，或用户明确批准进入自定义 App 阶段时，才考虑创建自定义 App。
 

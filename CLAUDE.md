@@ -27,7 +27,7 @@
 禁止事项：
 
 - 不安装、不运行、不生成 Frappe/ERPNext
-- 不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
+- 未经用户明确授权，不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
 - 不写 Docker Compose
 - 不做业务代码
 - 不开发考勤业务

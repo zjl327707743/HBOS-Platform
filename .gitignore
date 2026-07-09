@@ -10,6 +10,7 @@ backups/
 node_modules/
 .venv/
 __pycache__/
+runtime/
 
 # Local attendance exports and validation data must not be committed.
 docs/data/*.xlsx

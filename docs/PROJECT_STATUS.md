@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段（COMPLETED，但 Owner 验收发现功能缺口）；M1-FIX 功能补漏阶段（IN_PROGRESS）
-- 当前轮次：M1-FIX-A（REVIEWING）
-- 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档与最小 Docker 配置
-- 当前实现状态：M0 整体为 COMPLETED；M1 已通过 Codex 审查并 closeout 为 COMPLETED，但 Owner 亲自验收后发现大量产品功能没有真正页面可体验；M1-R0~R7 已通过 Codex 审查并收口为 COMPLETED；M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING；M2 未启动 / 待 Owner 授权；当前未创建海滨自定义 App，未接真实飞书，未实现 SSO
+- 当前轮次：M1-FIX-B（REVIEWING）
+- 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
+- 当前实现状态：M0 整体为 COMPLETED；M1 已通过 Codex 审查并 closeout 为 COMPLETED，但 Owner 亲自验收后发现大量产品功能没有真正页面可体验；M1-R0~R7 已通过 Codex 审查并收口为 COMPLETED；M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING；M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现并进入 REVIEWING；已创建轻量 `hb_attendance_app` 与 `HBOS Attendance Import Log`；M2 未启动 / 待 Owner 授权；未接真实飞书，未实现 SSO
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：等待 Owner 审阅 M1-FIX-A 方案后，授权进入 M1-FIX-B（Excel 导入与 Demo 数据闭环）。M2 未启动。
+- 下一步路线：等待 Owner 验收 M1-FIX-B（Excel 导入与真实本地数据闭环）；不自动启动 M1-FIX-C/D/E。M2 未启动。
 
 ## 状态更新制度
 
@@ -541,7 +541,8 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 20. M1-R8：PLANNED（可选缓冲轮，因 M1 closeout 完成可能跳过）。
 21. M1 总收口：COMPLETED（closeout 已完成，M1 = COMPLETED，但 Owner 验收发现功能缺口）。
 22. M1-FIX-A：REVIEWING，功能补漏差距盘点与实施方案已交付。
-23. M2：未启动 / 待 Owner 授权。
+23. M1-FIX-B：REVIEWING，Excel 导入与真实本地数据闭环已实现。
+24. M2：未启动 / 待 Owner 授权。
 
 ## M1-FIX 状态
 
@@ -551,12 +552,14 @@ M1 已 closeout 为 COMPLETED，但 Owner 亲自验收后发现「方案完成�
 
 M1-FIX-A：REVIEWING。本轮为差距盘点与补漏实施方案，主文档 `docs/milestones/M1_FIX_功能补漏实施方案.md` 已交付。识别 20 项差距、给出自定义 App/DocType 初步判断、拆分 M1-FIX-B/C/D/E 推荐顺序。
 
+M1-FIX-B：REVIEWING。本轮已创建轻量 `hb_attendance_app`、`HBOS Attendance Import Log` 和 `海滨考勤工作台`，支持 Owner 本地真实 Excel 识别、员工匹配 / 创建、Demo Checkin 转换、Auto Attendance 尝试、fallback 标记和导入日志统计。主文档 `docs/milestones/M1_FIX_B_Excel导入与真实数据闭环.md` 已交付。
+
 M1-FIX 后续规划（仅规划，不自动启动）：
 
 | 轮次 | 名称 | 优先级 | 状态 |
 | --- | --- | --- | --- |
 | M1-FIX-A | 差距盘点与实施方案 | — | REVIEWING |
-| M1-FIX-B | Excel 导入与 Demo 数据闭环 | P0 | PLANNED |
+| M1-FIX-B | Excel 导入与真实本地数据闭环 | P0 | REVIEWING |
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
@@ -565,9 +568,10 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1 = COMPLETED（但 Owner 验收发现功能缺口）
 - M1-FIX = IN_PROGRESS
 - M1-FIX-A = REVIEWING
+- M1-FIX-B = REVIEWING
 - M2 = PLANNED / NOT STARTED / WAITING OWNER AUTHORIZATION
 
-M1-FIX 全程禁止：不创建 `hb_core_app`，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不启动 M2，不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
+M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不启动 M2，不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
 
 ## M0-REMOTE 状态
 

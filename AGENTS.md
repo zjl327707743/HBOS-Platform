@@ -35,7 +35,7 @@
 - 安装 Frappe、ERPNext、Frappe HR
 - 创建 Frappe bench
 - 创建任何 Frappe App
-- 创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
+- 未经用户明确授权，不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
 - 编写 `docker-compose.yml`
 - 开发考勤业务
 - 接入飞书

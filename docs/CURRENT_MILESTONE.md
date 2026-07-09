@@ -8,14 +8,14 @@ M1 已 closeout 为 COMPLETED，但 Owner 亲自验收后发现大量产品功�
 
 ## 当前轮次
 
-M1-FIX-A：功能补漏差距盘点与实施方案。当前状态：REVIEWING。
+M1-FIX-B：Excel 导入与真实本地数据闭环。当前状态：REVIEWING。
 
 M1-FIX 后续规划轮次（仅规划，不自动启动）：
 
 | 轮次 | 名称 | 优先级 | 状态 |
 | --- | --- | --- | --- |
 | M1-FIX-A | 差距盘点与实施方案 | — | REVIEWING |
-| M1-FIX-B | Excel 导入与 Demo 数据闭环 | P0 | PLANNED |
+| M1-FIX-B | Excel 导入与真实本地数据闭环 | P0 | REVIEWING |
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
@@ -38,22 +38,23 @@ M0 已完成并封板。M0-REMOTE 已完成。
 
 ## 本轮范围
 
-M1-FIX-A 只做差距盘点与实施方案：
+M1-FIX-B 只做 Excel 导入与真实本地数据闭环：
 
-- 执行 Git Gate 检查并记录结果
-- 读取 M1 关键文档还原当前实际可体验状态
-- 输出 20 项差距矩阵（缺口编号、需求来源、M1 承诺、当前实际、差距判断、优先级、推荐实现方式、是否需要自定义 App/DocType、风险、验收方式）
-- 给出是否需要自定义 App/DocType 的清晰判断
-- 给出 M1-FIX-B/C/D/E 推荐拆分顺序
-- 输出 Owner 需确认的 5 项 Gate 决策建议
-- 更新项目状态文档使 M1-FIX-A 进入 REVIEWING
+- 创建轻量 `hb_attendance_app`
+- 创建 `HBOS Attendance Import Log`
+- 支持 Owner 本地真实 Excel 识别、预览、导入日志与本地转换导入
+- 创建 / 匹配 Employee
+- 生成 Demo Employee Checkin
+- 尝试 HRMS 原生 Auto Attendance，并在必要时记录 fallback
+- 生成 Attendance 并展示导入统计和失败摘要
+- 不提交真实 Excel、真实员工清单或导入产物
 
 ## 本轮禁止事项
 
-- 不创建 App
-- 不创建 DocType
-- 不写业务代码
-- 不导入 Excel/CSV
+-- 不创建 `hb_core_app`
+-- 不创建 `hb_feishu_app`
+-- 不创建月度汇总 DocType
+-- 不创建异常三级流程 DocType
 - 不创建/删除/清理 TEST 数据
 - 不接真实考勤机
 - 不配置真实飞书密钥
@@ -86,9 +87,10 @@ M1-FIX-A 只做差距盘点与实施方案：
 M1     = COMPLETED（但 Owner 验收发现功能缺口）
 M1-FIX = IN_PROGRESS
 M1-FIX-A = REVIEWING
+M1-FIX-B = REVIEWING
 M2     = PLANNED / NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
 ## 下一轮预告
 
-等待 Owner 审阅 M1-FIX-A 方案后，授权进入 M1-FIX-B（Excel 导入与 Demo 数据闭环）。M2 未启动。
+等待 Owner 验收 M1-FIX-B。M1-FIX-C/D/E 与 M2 均未启动。

@@ -1,0 +1,282 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-07-09 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "import_type",
+  "import_status",
+  "run_by",
+  "source_section",
+  "source_file",
+  "source_file_name",
+  "source_file_hash",
+  "period_start",
+  "period_end",
+  "stats_section",
+  "total_rows",
+  "matched_rows",
+  "success_rows",
+  "failed_rows",
+  "created_employees",
+  "created_checkins",
+  "created_attendance",
+  "skipped_duplicates",
+  "auto_attendance_used",
+  "fallback_used",
+  "time_section",
+  "started_at",
+  "finished_at",
+  "details_section",
+  "mapping_summary",
+  "exception_summary",
+  "failure_details",
+  "notes"
+ ],
+ "fields": [
+  {
+   "default": "HBOS-ATT-IMP-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "HBOS-ATT-IMP-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "default": "月度汇总表",
+   "fieldname": "import_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "导入类型",
+   "options": "原始打卡流水\n月度汇总表\nDemo 转换导入\n混合/未知格式",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "import_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "导入状态",
+   "options": "Draft\nPreviewed\nRunning\nSuccess\nPartial Success\nFailed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "run_by",
+   "fieldtype": "Link",
+   "label": "执行人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_section",
+   "fieldtype": "Section Break",
+   "label": "来源文件"
+  },
+  {
+   "fieldname": "source_file",
+   "fieldtype": "Attach",
+   "label": "来源文件（私有）"
+  },
+  {
+   "fieldname": "source_file_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "来源文件名",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_file_hash",
+   "fieldtype": "Data",
+   "label": "来源文件 Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "period_start",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "开始日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "period_end",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "结束日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stats_section",
+   "fieldtype": "Section Break",
+   "label": "导入统计"
+  },
+  {
+   "default": "0",
+   "fieldname": "total_rows",
+   "fieldtype": "Int",
+   "label": "总行数",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "matched_rows",
+   "fieldtype": "Int",
+   "label": "匹配员工行数",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "success_rows",
+   "fieldtype": "Int",
+   "label": "成功行数",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "failed_rows",
+   "fieldtype": "Int",
+   "label": "失败行数",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "created_employees",
+   "fieldtype": "Int",
+   "label": "创建员工数",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "created_checkins",
+   "fieldtype": "Int",
+   "label": "创建 Checkin 数",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "created_attendance",
+   "fieldtype": "Int",
+   "label": "创建 Attendance 数",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "skipped_duplicates",
+   "fieldtype": "Int",
+   "label": "跳过重复数",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_attendance_used",
+   "fieldtype": "Check",
+   "label": "已尝试 Auto Attendance",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "fallback_used",
+   "fieldtype": "Check",
+   "label": "使用 fallback",
+   "read_only": 1
+  },
+  {
+   "fieldname": "time_section",
+   "fieldtype": "Section Break",
+   "label": "执行时间"
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "开始时间",
+   "read_only": 1
+  },
+  {
+   "fieldname": "finished_at",
+   "fieldtype": "Datetime",
+   "label": "完成时间",
+   "read_only": 1
+  },
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "摘要"
+  },
+  {
+   "fieldname": "mapping_summary",
+   "fieldtype": "Long Text",
+   "label": "字段识别摘要",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exception_summary",
+   "fieldtype": "Long Text",
+   "label": "异常统计摘要",
+   "read_only": 1
+  },
+  {
+   "fieldname": "failure_details",
+   "fieldtype": "Long Text",
+   "label": "失败摘要",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Long Text",
+   "label": "备注"
+  }
+ ],
+ "icon": "upload",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-07-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Attendance",
+ "name": "HBOS Attendance Import Log",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
