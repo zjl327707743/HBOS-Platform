@@ -10,7 +10,9 @@ M1 已 closeout 为 COMPLETED，但 Owner 亲自验收后发现大量产品功�
 
 M1-FIX-B2：导入口径、安全与准确性修复。当前状态：COMPLETED。已通过 Claude 审查（初审 FAIL → B2-FIX 复审 PASS），Codex closeout 已完成。
 
-M1-FIX-B-FIX：Excel 导入与中文体验修复。当前状态：REVIEWING。本轮只修复 Owner 对 M1-FIX-B 人工验收提出的阻塞项，不启动 M1-FIX-C/D/E，不启动 M2，不 closeout。
+M1-FIX-B3：考勤工作台入口、App 命名与 HRMS 数据一致性修复。当前状态：REVIEWING，等待 Claude 审查。
+
+M1-FIX-B-FIX：Excel 导入与中文体验修复。历史轮次；当前后续修复由 M1-FIX-B2、M1-FIX-B3 管理。
 
 M1-FIX 后续规划轮次（仅规划，不自动启动）：
 
@@ -20,13 +22,14 @@ M1-FIX 后续规划轮次（仅规划，不自动启动）：
 | M1-FIX-B | Excel 导入与真实本地数据闭环 | P0 | REVIEWING |
 | M1-FIX-B-FIX | Excel 导入与中文体验修复 | P0 | REVIEWING |
 | M1-FIX-B2 | 导入口径、安全与准确性修复 | P0 | COMPLETED |
+| M1-FIX-B3 | 考勤工作台入口、App 命名与 HRMS 数据一致性修复 | P0 | REVIEWING |
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
 
 ## M1 历史轮次（已完成）
 
-M1 已 closeout 为 COMPLETED。全部 19 轮次状态（R0 → R7，含 R3 子轮次）均为 COMPLETED（除 M1-R3 为 BLOCKED）。M1-R8 为 PLANNED（可选缓冲轮）。
+M1 规划收口已完成；产品交付仍在 M1-FIX 中，尚未完成。全部 19 个历史轮次状态见里程碑索引。
 
 M0 已完成并封板。M0-REMOTE 已完成。
 
@@ -89,15 +92,16 @@ M1-FIX-B / M1-FIX-B-FIX 只做 Excel 导入与真实本地数据闭环修复：
 ## 当前状态口径
 
 ```
-M1     = COMPLETED（但 Owner 验收发现功能缺口）
+M1     = IN_PROGRESS（产品交付，M1-FIX 中）
 M1-FIX = IN_PROGRESS
 M1-FIX-A = REVIEWING
 M1-FIX-B = REVIEWING
 M1-FIX-B-FIX = REVIEWING
 M1-FIX-B2 = COMPLETED
+M1-FIX-B3 = REVIEWING
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
 ## 下一轮预告
 
-M1-FIX-B2 已 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。
+M1-FIX-B2 已 COMPLETED；当前等待 Claude 审查 M1-FIX-B3。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。

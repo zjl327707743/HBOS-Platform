@@ -1,8 +1,8 @@
 {
  "app": "hb_attendance_app",
  "charts": [],
- "content": "[{\"id\":\"hbos-import-header\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>导入与结果</b></span>\",\"col\":12}},{\"id\":\"hbos-import-card\",\"type\":\"card\",\"data\":{\"card_name\":\"导入与结果\",\"col\":4}},{\"id\":\"hbos-attendance-card\",\"type\":\"card\",\"data\":{\"card_name\":\"中文考勤视图\",\"col\":4}},{\"id\":\"hbos-hrms-card\",\"type\":\"card\",\"data\":{\"card_name\":\"HRMS 原始对象\",\"col\":4}}]",
- "creation": "2026-07-09 00:00:00.000000",
+ "content": "[{\"id\":\"hbos-title\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>海滨考勤工作台</b></span><br><span class=\\\"text-muted\\\">M1-FIX-B2 已完成；异常流程、月报和飞书登录待后续授权。</span>\",\"col\":12}},{\"id\":\"hbos-import-card\",\"type\":\"card\",\"data\":{\"card_name\":\"导入与数据\",\"col\":4}},{\"id\":\"hbos-report-card\",\"type\":\"card\",\"data\":{\"card_name\":\"HBOS 中文报表\",\"col\":4}},{\"id\":\"hbos-hrms-card\",\"type\":\"card\",\"data\":{\"card_name\":\"HRMS 原生数据\",\"col\":4}}]",
+ "creation": "2026-07-10 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -13,92 +13,18 @@
  "is_hidden": 0,
  "label": "海滨考勤工作台",
  "links": [
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "导入与结果",
-   "link_count": 2,
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "导入考勤机导出表",
-   "link_count": 0,
-   "link_to": "hbos-attendance-import",
-   "link_type": "Page",
-   "onboard": 1,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "考勤导入日志",
-   "link_count": 0,
-   "link_to": "HBOS Attendance Import Log",
-   "link_type": "DocType",
-   "onboard": 1,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "中文考勤视图",
-   "link_count": 2,
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "打卡流水",
-   "link_count": 0,
-   "link_to": "打卡流水",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "考勤结果",
-   "link_count": 0,
-   "link_to": "考勤结果",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "HRMS 原始对象",
-   "link_count": 2,
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "原始打卡记录",
-   "link_count": 0,
-   "link_to": "Employee Checkin",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "出勤记录",
-   "link_count": 0,
-   "link_to": "Attendance",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  }
+  {"hidden": 0, "is_query_report": 0, "label": "导入与数据", "link_count": 3, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "导入考勤机导出表", "link_count": 0, "link_to": "hbos-attendance-import", "link_type": "Page", "onboard": 1, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "考勤导入日志", "link_count": 0, "link_to": "HBOS Attendance Import Log", "link_type": "DocType", "onboard": 1, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "月度汇总 / 对账暂存", "link_count": 0, "link_to": "HBOS Attendance Import Log", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "HBOS 中文报表", "link_count": 2, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 1, "label": "HBOS 打卡流水（中文）", "link_count": 0, "link_to": "打卡流水", "link_type": "Report", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 1, "label": "HBOS 考勤结果（中文）", "link_count": 0, "link_to": "考勤结果", "link_type": "Report", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "HRMS 原生数据", "link_count": 2, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "HRMS 原始打卡记录", "link_count": 0, "link_to": "Employee Checkin", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "HRMS 原生考勤结果", "link_count": 0, "link_to": "Attendance", "link_type": "DocType", "onboard": 0, "type": "Link"}
  ],
- "modified": "2026-07-09 00:00:00.000000",
+ "modified": "2026-07-10 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "HBOS Attendance",
  "name": "海滨考勤工作台",
@@ -106,49 +32,13 @@
  "owner": "Administrator",
  "public": 1,
  "quick_lists": [],
- "roles": [
-  {
-   "role": "System Manager"
-  },
-  {
-   "role": "HR Manager"
-  },
-  {
-   "role": "HR User"
-  }
- ],
+ "roles": [{"role": "System Manager"}, {"role": "HR Manager"}, {"role": "HR User"}],
  "sequence_id": 1.0,
  "shortcuts": [
-  {
-   "color": "Blue",
-   "label": "导入考勤机导出表",
-   "link_to": "hbos-attendance-import",
-   "type": "Page"
-  },
-  {
-   "color": "Blue",
-   "doc_view": "List",
-   "label": "考勤导入日志",
-   "link_to": "HBOS Attendance Import Log",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Green",
-   "doc_view": "Report Builder",
-   "label": "打卡流水",
-   "link_to": "打卡流水",
-   "stats_filter": "[]",
-   "type": "Report"
-  },
-  {
-   "color": "Orange",
-   "doc_view": "Report Builder",
-   "label": "考勤结果",
-   "link_to": "考勤结果",
-   "stats_filter": "[]",
-   "type": "Report"
-  }
+  {"color": "Blue", "label": "导入考勤机导出表", "link_to": "hbos-attendance-import", "type": "Page"},
+  {"color": "Blue", "doc_view": "List", "label": "考勤导入日志", "link_to": "HBOS Attendance Import Log", "stats_filter": "[]", "type": "DocType"},
+  {"color": "Green", "doc_view": "Report Builder", "label": "HBOS 打卡流水（中文）", "link_to": "打卡流水", "stats_filter": "[]", "type": "Report"},
+  {"color": "Orange", "doc_view": "Report Builder", "label": "HBOS 考勤结果（中文）", "link_to": "考勤结果", "stats_filter": "[]", "type": "Report"}
  ],
  "title": "海滨考勤工作台",
  "type": "Workspace"

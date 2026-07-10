@@ -19,9 +19,9 @@
 
 ## 当前上下文
 
-当前阶段：M0 工程启动与上下文治理已完成并封板；M0-REMOTE 已完成；M1 已 closeout 为 COMPLETED（含 19 轮次汇总、12 条验收矩阵、M2 建议边界），但 Owner 亲自验收后发现大量产品功能没有真正页面可体验——「方案完成」不等于「功能完成」。M1-FIX 功能补漏阶段已启动，M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING，M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING；M1-FIX-B-FIX 已补齐浏览器导入入口、中文体验、重复导入可读日志和默认白班/行政班 08:30-17:30，当前进入 REVIEWING。
+当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成。M1-FIX-B2 已 COMPLETED；当前 M1-FIX-B3 已修复海滨考勤桌面入口、工作台卡片、统一报表入口与 HRMS 数据关系，状态 REVIEWING。
 
-当前目标：M1-FIX-B2 为 COMPLETED（已通过 Claude 审查并 closeout）；M1-FIX-C/D/E 未启动。M2 未启动 / 待 Owner 授权。当前仍不建议创建 `hb_hr_app`。
+当前目标：M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING，等待 Claude 独立审查。M1 产品交付仍未完成，M1-FIX-C/D/E 未启动。M2 未启动 / 待 Owner 授权。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 

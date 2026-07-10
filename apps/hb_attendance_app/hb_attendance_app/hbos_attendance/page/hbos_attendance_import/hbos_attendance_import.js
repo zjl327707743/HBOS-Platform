@@ -42,9 +42,9 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 				</section>
 			</div>
 			<div class="hbos-links">
-				<button class="btn btn-default" data-route="List/HBOS Attendance Import Log">导入日志</button>
-				<button class="btn btn-default" data-route="query-report/打卡流水">打卡流水</button>
-				<button class="btn btn-default" data-route="query-report/考勤结果">考勤结果</button>
+					<button class="btn btn-default" data-route="List/HBOS Attendance Import Log">考勤导入日志</button>
+					<button class="btn btn-default" data-route="query-report/打卡流水">HBOS 打卡流水（中文）</button>
+					<button class="btn btn-default" data-route="query-report/考勤结果">HBOS 考勤结果（中文）</button>
 			</div>
 		</div>
 		<style>

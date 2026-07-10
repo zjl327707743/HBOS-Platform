@@ -72,10 +72,10 @@ def execute(filters=None):
 
 def _columns():
 	return [
-		{"label": "员工", "fieldname": "employee", "fieldtype": "Link", "options": "Employee", "width": 130},
 		{"label": "员工姓名", "fieldname": "employee_name", "fieldtype": "Data", "width": 120},
 		{"label": "工号", "fieldname": "employee_number", "fieldtype": "Data", "width": 110},
 		{"label": "部门", "fieldname": "department", "fieldtype": "Link", "options": "Department", "width": 150},
+		{"label": "HRMS Employee ID", "fieldname": "employee", "fieldtype": "Link", "options": "Employee", "width": 130},
 		{"label": "打卡时间", "fieldname": "time", "fieldtype": "Datetime", "width": 170},
 		{"label": "打卡类型", "fieldname": "log_type", "fieldtype": "Data", "width": 100},
 		{"label": "班次", "fieldname": "shift", "fieldtype": "Link", "options": "Shift Type", "width": 170},
