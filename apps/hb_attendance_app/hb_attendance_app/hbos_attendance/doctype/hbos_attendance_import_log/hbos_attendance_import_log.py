@@ -11,6 +11,16 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import get_datetime, getdate, now_datetime
 
+from hb_attendance_app.hbos_attendance.import_contract import (
+	ImportValidationError,
+	MAX_IMPORT_FILE_SIZE,
+	MONTHLY_SUMMARY,
+	RAW_CHECKIN,
+	classify_headers,
+	classify_raw_day,
+	validate_upload_metadata,
+)
+
 
 NS = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 TIME_RE = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b")
@@ -28,10 +38,10 @@ class HBOSAttendanceImportLog(Document):
 
 
 @frappe.whitelist()
-def preview_import(log_name=None, source_file=None, local_path=None):
+def preview_import(log_name=None, source_file=None):
 	frappe.only_for(("System Manager", "HR Manager", "HR User"))
-	path, file_name = _resolve_source(log_name=log_name, source_file=source_file, local_path=local_path)
-	parsed = _parse_monthly_xlsx(path)
+	path, file_name = _resolve_source(log_name=log_name, source_file=source_file)
+	parsed = _parse_xlsx(path)
 	log = _get_or_create_log(log_name, source_file, file_name, path)
 	_apply_summary(log, parsed.preview_summary(), status="Previewed")
 	log.save(ignore_permissions=True)
@@ -40,10 +50,10 @@ def preview_import(log_name=None, source_file=None, local_path=None):
 
 
 @frappe.whitelist()
-def run_import(log_name=None, source_file=None, local_path=None, create_missing_employees=1, limit_rows=None):
+def run_import(log_name=None, source_file=None, create_missing_employees=1, limit_rows=None):
 	frappe.only_for(("System Manager", "HR Manager", "HR User"))
-	path, file_name = _resolve_source(log_name=log_name, source_file=source_file, local_path=local_path)
-	parsed = _parse_monthly_xlsx(path)
+	path, file_name = _resolve_source(log_name=log_name, source_file=source_file)
+	parsed = _parse_xlsx(path)
 	log = _get_or_create_log(log_name, source_file, file_name, path)
 	log.import_status = "Running"
 	log.started_at = now_datetime()
@@ -73,32 +83,27 @@ def run_import(log_name=None, source_file=None, local_path=None, create_missing_
 	return {"log_name": log.name, **result}
 
 
-def _resolve_source(log_name=None, source_file=None, local_path=None):
-	if local_path:
-		path = Path(local_path)
-		if not path.exists():
-			frappe.throw(f"Local file not found: {local_path}")
-		return path, path.name
-
+def _resolve_source(log_name=None, source_file=None):
 	file_url = source_file
 	if log_name and not file_url:
 		file_url = frappe.db.get_value("HBOS Attendance Import Log", log_name, "source_file")
 
 	if not file_url:
-		frappe.throw("source_file, local_path, or log_name with source_file is required")
-
-	if file_url.startswith("/private/files/"):
-		relative = file_url.replace("/private/", "", 1)
-		path = Path(frappe.get_site_path("private", relative.replace("files/", "files/", 1)))
-	elif file_url.startswith("/files/"):
-		path = Path(frappe.get_site_path("public", file_url.lstrip("/")))
-	else:
-		file_doc = frappe.get_doc("File", {"file_url": file_url})
-		return _resolve_source(source_file=file_doc.file_url)
-
-	if not path.exists():
-		frappe.throw(f"Attached file not found on site: {file_url}")
-	return path, path.name
+		frappe.throw("必须上传私有 .xlsx 附件")
+	file_doc = frappe.get_doc("File", {"file_url": file_url})
+	if not frappe.has_permission("File", "read", file_doc.name):
+		frappe.throw("无权访问该导入附件", frappe.PermissionError)
+	try:
+		validate_upload_metadata(
+			is_private=bool(file_doc.is_private), file_name=file_doc.file_name, size=file_doc.file_size
+		)
+	except ImportValidationError as exc:
+		frappe.throw(str(exc))
+	root = Path(frappe.get_site_path("private", "files")).resolve()
+	path = Path(file_doc.get_full_path()).resolve()
+	if root not in path.parents or not path.is_file():
+		frappe.throw("附件路径不在站点私有文件目录内")
+	return path, file_doc.file_name
 
 
 def _get_or_create_log(log_name, source_file, file_name, path):
@@ -238,19 +243,49 @@ class MonthlyWorkbook:
 		}
 
 
-def _parse_monthly_xlsx(path):
+class RawCheckinWorkbook:
+	def __init__(self, rows, header_index, headers, records, sheet_names):
+		self.rows, self.header_index, self.headers, self.records, self.sheet_names = rows, header_index, headers, records, sheet_names
+		self.daily_columns = []
+
+	@property
+	def identity_rows(self):
+		return len(self.records)
+
+	def preview_summary(self):
+		dates = [record["checkin_time"].date() for record in self.records]
+		return {
+			"import_type": RAW_CHECKIN, "total_rows": len(self.rows), "matched_rows": 0,
+			"success_rows": 0, "failed_rows": 0, "created_employees": 0,
+			"created_checkins": 0, "created_attendance": 0, "existing_attendance": 0,
+			"skipped_duplicates": 0, "period_start": min(dates).isoformat() if dates else None,
+			"period_end": max(dates).isoformat() if dates else None,
+			"auto_attendance_used": False, "fallback_used": False,
+			"mapping_summary": {"sheet_names": self.sheet_names, "header_row": self.header_index + 1,
+				"detected_headers": self.headers, "identity_rows": self.identity_rows,
+				"classification": RAW_CHECKIN, "source_note": "逐条原始打卡事件；仅此类型可写入 Employee Checkin。"},
+			"exception_summary": {}, "failure_details": [], "notes": "仅预览校验；未写入数据。",
+		}
+
+
+def _parse_xlsx(path):
 	rows, sheet_names = _read_first_sheet(path)
 	header_index = None
+	import_type = None
 	for index, row in enumerate(rows):
-		values = {cell.strip() for cell in row if isinstance(cell, str)}
-		if {"姓名", "工号", "部门"}.issubset(values):
+		try:
+			import_type = classify_headers([cell.strip().replace("\n", " ") for cell in row])
 			header_index = index
 			break
+		except ImportValidationError:
+			continue
 	if header_index is None:
-		frappe.throw("未识别到包含 姓名 / 工号 / 部门 的表头行")
+		frappe.throw("未识别到受支持的 Excel 表头")
 
 	headers = [cell.strip().replace("\n", " ") for cell in rows[header_index]]
 	header_map = {header: idx for idx, header in enumerate(headers) if header}
+	if import_type == RAW_CHECKIN:
+		return _parse_raw_workbook(rows, header_index, headers, sheet_names)
 	daily_columns = []
 	for idx, header in enumerate(headers):
 		match = DATE_RE.search(header)
@@ -260,6 +295,30 @@ def _parse_monthly_xlsx(path):
 
 	records = _collect_identity_records(rows[header_index + 1 :], header_map, daily_columns, header_index)
 	return MonthlyWorkbook(rows, header_index, headers, records, daily_columns, sheet_names)
+
+
+def _parse_raw_workbook(rows, header_index, headers, sheet_names):
+	lookup = {header: index for index, header in enumerate(headers) if header}
+	def first_index(options):
+		return next((lookup[item] for item in options if item in lookup), None)
+	identifier_index = first_index(("工号", "员工工号", "employee_number", "employee_identifier"))
+	time_index = first_index(("打卡时间", "checkin_time", "签到时间"))
+	type_index = first_index(("打卡类型", "checkin_type", "log_type"))
+	name_index, device_index, shift_index = lookup.get("姓名"), lookup.get("设备ID"), lookup.get("班次")
+	records = []
+	for row_number, row in enumerate(rows[header_index + 1 :], start=header_index + 2):
+		if not any(row):
+			continue
+		try:
+			log_type = _value(row, type_index).upper()
+			if log_type not in {"IN", "OUT"}:
+				raise ValueError("打卡类型必须为 IN 或 OUT")
+			records.append({"row": row_number, "employee_number": _value(row, identifier_index),
+				"employee_name": _value(row, name_index), "checkin_time": get_datetime(_value(row, time_index)),
+				"log_type": log_type, "device_id": _value(row, device_index), "shift": _value(row, shift_index)})
+		except Exception as exc:
+			frappe.throw(f"第 {row_number} 行原始打卡流水无效：{exc}")
+	return RawCheckinWorkbook(rows, header_index, headers, records, sheet_names)
 
 
 def _read_first_sheet(path):
@@ -365,6 +424,62 @@ def _number(value):
 
 
 def _execute_import(parsed, create_missing_employees, limit_rows, log=None):
+	if isinstance(parsed, MonthlyWorkbook):
+		return _stage_monthly_summary(parsed, log)
+	return _execute_raw_checkins(parsed, create_missing_employees, limit_rows, log)
+
+
+def _stage_monthly_summary(parsed, log):
+	"""月度汇总只能暂存/对账，绝不伪造逐条打卡或 Attendance。"""
+	rows = [{key: value for key, value in record.items() if key != "daily"} for record in parsed.records]
+	if hasattr(log, "monthly_summary_staging"):
+		log.monthly_summary_staging = json.dumps({"schema_version": "M1-FIX-B2", "records": rows}, ensure_ascii=False)
+	return {**parsed.preview_summary(), "matched_rows": len(rows), "success_rows": len(rows),
+		"notes": "月度汇总仅已暂存用于对账/演示；未写入 Employee Checkin，未触发 Auto Attendance。"}
+
+
+def _execute_raw_checkins(parsed, create_missing_employees, limit_rows, log):
+	company, holiday_list = _default_company(), _default_holiday_list()
+	records = parsed.records[:limit_rows] if limit_rows else parsed.records
+	stats, failures, impacted, daily_types = Counter(), [], set(), defaultdict(list)
+	for record in records:
+		try:
+			employee, created = _match_or_create_employee(record, company, holiday_list, create_missing_employees)
+			stats["matched_rows"] += 1; stats["created_employees"] += int(created)
+			if frappe.db.exists("Employee Checkin", {"employee": employee, "time": record["checkin_time"], "log_type": record["log_type"]}):
+				stats["skipped_duplicates"] += 1
+			else:
+				doc = frappe.new_doc("Employee Checkin")
+				doc.update({"employee": employee, "time": record["checkin_time"], "log_type": record["log_type"],
+					"device_id": record["device_id"] or "HBOS-RAW-IMPORT", "skip_auto_attendance": 0})
+				doc.insert(ignore_permissions=True); stats["created_checkins"] += 1
+			impacted.add((employee, getdate(record["checkin_time"])))
+			daily_types[(employee, getdate(record["checkin_time"]))].append(record["log_type"])
+		except Exception as exc:
+			stats["failed_rows"] += 1; failures.append({"row": record["row"], "reason": str(exc), "suggestion": "检查工号、员工和排班后重试"})
+	for employee, date_value in impacted:
+		assignment = frappe.db.get_value("Shift Assignment", {"employee": employee, "start_date": ("<=", date_value), "end_date": (">=", date_value), "docstatus": 1}, "shift_type")
+		if assignment:
+			frappe.get_doc("Shift Type", assignment).process_auto_attendance(is_manually_triggered=False)
+			stats["auto_attendance_used"] = 1
+			for attendance in frappe.get_all("Attendance", filters={"employee": employee, "attendance_date": date_value, "docstatus": ("<", 2)}, pluck="name"):
+				_mark_attendance_source(attendance, log.name, "HRMS Auto Attendance")
+	exceptions = Counter(classify_raw_day(types) for types in daily_types.values())
+	return {**parsed.preview_summary(), "matched_rows": stats["matched_rows"],
+		"success_rows": stats["matched_rows"] - stats["failed_rows"], "failed_rows": stats["failed_rows"],
+		"created_employees": stats["created_employees"], "created_checkins": stats["created_checkins"],
+		"skipped_duplicates": stats["skipped_duplicates"], "auto_attendance_used": bool(stats["auto_attendance_used"]),
+		"fallback_used": False, "exception_summary": dict(exceptions), "failure_details": failures[:50],
+		"notes": "原始流水已写入 Employee Checkin；单边打卡只标记缺卡，不合成虚假 IN/OUT；未使用本地兜底。"}
+
+
+def _mark_attendance_source(attendance_name, log_name, source_type):
+	if frappe.db.has_column("Attendance", "hbos_source_type"):
+		frappe.db.set_value("Attendance", attendance_name, {"hbos_source_type": source_type, "hbos_import_log": log_name,
+			"hbos_fallback_generated": 0, "hbos_calc_version": "M1-FIX-B2"}, update_modified=False)
+
+
+def _legacy_execute_import(parsed, create_missing_employees, limit_rows, log=None):
 	company = _default_company()
 	holiday_list = _default_holiday_list()
 	leave_type = _default_leave_type()
@@ -440,16 +555,27 @@ def _default_company():
 
 
 def _default_holiday_list():
-	return (
-		frappe.db.get_value("Holiday List", {"holiday_list_name": ("like", "%M1R3C%")}, "name")
-		or frappe.db.get_value("Holiday List", {}, "name")
-	)
+	try:
+		rows = frappe.db.sql("SELECT name FROM \`tabHoliday List\` WHERE name LIKE '%M1R3C%' LIMIT 1", as_dict=True)
+		if rows: return rows[0].name
+	except: pass
+	try:
+		rows = frappe.db.sql("SELECT name FROM \`tabHoliday List\` LIMIT 1", as_dict=True)
+		if rows: return rows[0].name
+	except: pass
+	return None
 
 
 def _default_leave_type():
-	return frappe.db.get_value("Leave Type", {"name": ("like", "%事假%")}, "name") or frappe.db.get_value(
-		"Leave Type", {}, "name"
-	)
+	try:
+		rows = frappe.db.sql("SELECT name FROM \`tabLeave Type\` WHERE name LIKE '%事假%' LIMIT 1", as_dict=True)
+		if rows: return rows[0].name
+	except: pass
+	try:
+		rows = frappe.db.sql("SELECT name FROM \`tabLeave Type\` LIMIT 1", as_dict=True)
+		if rows: return rows[0].name
+	except: pass
+	return None
 
 
 def _ensure_hbos_shifts(parsed, holiday_list):

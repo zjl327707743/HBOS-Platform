@@ -89,7 +89,7 @@ M0 历史任务曾允许读取：
 2. M1 已 closeout 为 COMPLETED，但 Owner 验收发现功能缺口。
 3. M1-FIX 功能补漏阶段已启动，M1-FIX-A 为 REVIEWING。
 4. M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。
-5. M1-FIX-B-FIX Excel 导入与中文体验修复已实现并进入 REVIEWING，等待 Owner 复验。
+5. M1-FIX-B2 导入口径、安全与准确性修复已实现并进入 REVIEWING，等待 Claude 独立审查；M1-FIX-C/D/E 未启动。
 
 后续涉及 HRMS 环境治理、前端资源复核、能力盘点或 M1 考勤一期边界时，可读取 M0-R3C 安装验证记录、M0-R3C-FIX 修复记录、M0-R3D 设计记录、M0-R3E 环境可复现性收口记录、官方 Frappe HR、`frappe/hrms`、`frappe/frappe_docker`、ERPNext / Frappe v16 资料。
 

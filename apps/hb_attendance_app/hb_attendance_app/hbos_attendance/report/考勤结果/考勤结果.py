@@ -8,12 +8,6 @@ STATUS_LABELS = {
 	"Half Day": "半天",
 	"Work From Home": "正常出勤",
 }
-SOURCE_LABELS = {
-	"HBOS-M1-FIX-B-MONTHLY-DEMO": "考勤机月度导出表适配导入",
-	"HBOS-M1-FIX-B-MONTHLY-ADAPTER": "考勤机月度导出表适配导入",
-}
-
-
 def execute(filters=None):
 	filters = filters or {}
 	conditions = ["a.docstatus < 2"]
@@ -42,12 +36,8 @@ def execute(filters=None):
 			a.early_exit,
 			a.working_hours,
 			a.shift,
-			(
-				select max(ec.device_id)
-				from `tabEmployee Checkin` ec
-				where ec.employee = a.employee
-				  and date(ec.time) = a.attendance_date
-			) as source_batch
+			a.hbos_source_type as source_type,
+			a.hbos_import_log as source_batch
 		from `tabAttendance` a
 		left join `tabEmployee` emp on emp.name = a.employee
 		where {where}
@@ -64,7 +54,7 @@ def execute(filters=None):
 			status = "迟到"
 		if row.early_exit:
 			status = f"{status}/早退" if status else "早退"
-		source = SOURCE_LABELS.get(row.source_batch, row.source_batch or "HRMS/既有记录")
+			source = row.source_type or "HRMS/既有记录"
 		data.append(
 			{
 				"employee": row.employee,
@@ -78,7 +68,7 @@ def execute(filters=None):
 				"working_hours": row.working_hours,
 				"shift": row.shift,
 				"source_batch": source,
-				"remarks": "考勤机月度导出表适配导入" if source == "考勤机月度导出表适配导入" else "既有考勤结果",
+				"remarks": row.source_batch or "既有考勤结果",
 			}
 		)
 	return _columns(), data

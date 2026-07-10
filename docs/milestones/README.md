@@ -82,6 +82,7 @@
 | M1-FIX-A | M1 功能补漏差距盘点与实施方案 | REVIEWING |
 | M1-FIX-B | Excel 导入与真实本地数据闭环 | REVIEWING |
 | M1-FIX-B-FIX | Excel 导入与中文体验修复 | REVIEWING |
+| M1-FIX-B2 | 导入口径、安全与准确性修复 | REVIEWING |
 | M2 | 飞书集成 | NOT STARTED |
 
 ## 下一步路线

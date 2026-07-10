@@ -37,8 +37,9 @@
   "readable_summary",
   "mapping_summary",
   "exception_summary",
-  "failure_details",
-  "notes"
+    "failure_details",
+    "monthly_summary_staging",
+    "notes"
  ],
  "fields": [
   {
@@ -255,7 +256,13 @@
    "read_only": 1
   },
   {
-   "fieldname": "notes",
+	  "fieldname": "monthly_summary_staging",
+	  "fieldtype": "Long Text",
+	  "label": "月度汇总暂存（JSON）",
+	  "read_only": 1
+	 },
+	 {
+    "fieldname": "notes",
    "fieldtype": "Long Text",
    "label": "备注"
   }

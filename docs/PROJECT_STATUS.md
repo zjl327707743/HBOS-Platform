@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段（COMPLETED，但 Owner 验收发现功能缺口）；M1-FIX 功能补漏阶段（IN_PROGRESS）
-- 当前轮次：M1-FIX-B-FIX（REVIEWING）；M1-FIX-B 仍为 REVIEWING
+- 当前轮次：M1-FIX-B2（REVIEWING，等待 Claude 审查）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M0 整体为 COMPLETED；M1 已通过 Codex 审查并 closeout 为 COMPLETED，但 Owner 亲自验收后发现大量产品功能没有真正页面可体验；M1-R0~R7 已通过 Codex 审查并收口为 COMPLETED；M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING；M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现并进入 REVIEWING；M1-FIX-B-FIX 已补齐浏览器导入入口、中文体验、重复导入可读日志和默认白班/行政班 08:30-17:30，当前进入 REVIEWING；已创建轻量 `hb_attendance_app` 与导入日志；M2 未启动 / 待 Owner 授权；未接真实飞书，未实现 SSO
+- 当前实现状态：M1-FIX-B2 已修复导入安全、月度/原始流水分流、缺卡误合成、无条件 fallback 与 Attendance 来源追溯，当前 REVIEWING；M1-FIX-C/D/E 未启动。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：等待 Owner 复验 M1-FIX-B-FIX（Excel 导入与中文体验修复）；不自动启动 M1-FIX-C/D/E。M2 未启动。
+- 下一步路线：等待 Claude 审查 M1-FIX-B2；不自动启动 M1-FIX-C/D/E。M2 未启动。
 
 ## 状态更新制度
 

@@ -70,7 +70,7 @@ M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计�
 
 M1 总收口当前状态：COMPLETED。M1 = COMPLETED（但 Owner 验收发现功能缺口）。
 
-M1 已 closeout 为 COMPLETED。M1-FIX 功能补漏阶段已启动。M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。M1-FIX-B-FIX Excel 导入与中文体验修复已实现并进入 REVIEWING。M2 未启动 / 待 Owner 授权。
+M1 已 closeout 为 COMPLETED。M1-FIX 功能补漏阶段已启动；当前 M1-FIX-B2 为 REVIEWING，等待 Claude 审查。M1-FIX-C/D/E 与 M2 未启动。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界
