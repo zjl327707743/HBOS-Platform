@@ -52,9 +52,9 @@ def execute(filters=None):
 		status = STATUS_LABELS.get(row.status, row.status or "")
 		if row.late_entry:
 			status = "迟到"
+		source = row.source_type or "HRMS/既有记录"
 		if row.early_exit:
 			status = f"{status}/早退" if status else "早退"
-			source = row.source_type or "HRMS/既有记录"
 		data.append(
 			{
 				"employee": row.employee,
