@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前 M0 已完成并封板，M1 closeout 后进入 M1-FIX 功能补漏。当前轮次为 M1-FIX-B2（REVIEWING，等待 Claude 审查）：已修复导入安全、月度/原始流水分流、缺卡误合成、无条件 fallback 与 Attendance 来源追溯；M1-FIX-C/D/E 和 M2 未启动。
+当前 M0 已完成并封板，M1 closeout 后进入 M1-FIX 功能补漏。当前轮次为 M1-FIX-B2（COMPLETED）：已修复导入安全、月度/原始流水分流、缺卡误合成、无条件 fallback 与 Attendance 来源追溯，已通过 Claude 审查并 closeout；M1-FIX-C/D/E 和 M2 未启动。
 
 当前真实进度以以下文件为准：
 

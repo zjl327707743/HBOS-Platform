@@ -70,7 +70,7 @@ M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计�
 
 M1 总收口当前状态：COMPLETED。M1 = COMPLETED（但 Owner 验收发现功能缺口）。
 
-M1 已 closeout 为 COMPLETED。M1-FIX 功能补漏阶段已启动；当前 M1-FIX-B2 为 REVIEWING，等待 Claude 审查。M1-FIX-C/D/E 与 M2 未启动。
+M1 已 closeout 为 COMPLETED。M1-FIX 功能补漏阶段已启动；当前 M1-FIX-B2 为 COMPLETED（已通过 Claude 审查并 closeout）。M1-FIX-C/D/E 与 M2 未启动。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界
@@ -142,7 +142,8 @@ M1 初期不创建 `hb_attendance_app`。M1-FIX-B 已经 Owner 明确授权创�
 21. M1-FIX-A：功能补漏差距盘点与实施方案，当前为 REVIEWING。
 22. M1-FIX-B：Excel 导入与真实本地数据闭环，当前为 REVIEWING。
 23. M1-FIX-B-FIX：Excel 导入与中文体验修复，当前为 REVIEWING。
-24. M1-FIX-C/D/E：后续补漏轮次，当前为 PLANNED。
+24. M1-FIX-B2：导入口径、安全与准确性修复，当前为 COMPLETED。
+25. M1-FIX-C/D/E：后续补漏轮次，当前为 PLANNED。
 25. M2：飞书集成，当前为 NOT STARTED / 待 Owner 授权。
 
 M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 COMPLETED。M1 总收口当前为 COMPLETED。M1 = COMPLETED。M1-R8 为 PLANNED（可选缓冲轮）。

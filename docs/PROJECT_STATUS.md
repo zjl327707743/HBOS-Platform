@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1 规划与验证阶段（COMPLETED，但 Owner 验收发现功能缺口）；M1-FIX 功能补漏阶段（IN_PROGRESS）
-- 当前轮次：M1-FIX-B2（REVIEWING，等待 Claude 审查）
+- 当前轮次：M1-FIX-B2（COMPLETED，已通过 Claude 审查并 closeout）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已修复导入安全、月度/原始流水分流、缺卡误合成、无条件 fallback 与 Attendance 来源追溯，当前 REVIEWING；M1-FIX-C/D/E 未启动。
+- 当前实现状态：M1-FIX-B2 已修复导入安全、月度/原始流水分流、缺卡误合成、无条件 fallback 与 Attendance 来源追溯，当前 COMPLETED；M1-FIX-C/D/E 未启动。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：等待 Claude 审查 M1-FIX-B2；不自动启动 M1-FIX-C/D/E。M2 未启动。
+- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M2 未启动。
 
 ## 状态更新制度
 
@@ -542,7 +542,8 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 21. M1 总收口：COMPLETED（closeout 已完成，M1 = COMPLETED，但 Owner 验收发现功能缺口）。
 22. M1-FIX-A：REVIEWING，功能补漏差距盘点与实施方案已交付。
 23. M1-FIX-B：REVIEWING，Excel 导入与真实本地数据闭环已实现。
-24. M2：未启动 / 待 Owner 授权。
+24. M1-FIX-B2：COMPLETED，导入口径、安全与准确性修复已通过 Claude 审查并 closeout。
+25. M2：未启动 / 待 Owner 授权。
 
 ## M1-FIX 状态
 
@@ -563,6 +564,7 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 | M1-FIX-A | 差距盘点与实施方案 | — | REVIEWING |
 | M1-FIX-B | Excel 导入与真实本地数据闭环 | P0 | REVIEWING |
 | M1-FIX-B-FIX | Excel 导入与中文体验修复 | P0 | REVIEWING |
+| M1-FIX-B2 | 导入口径、安全与准确性修复 | P0 | COMPLETED |
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
@@ -573,6 +575,7 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1-FIX-A = REVIEWING
 - M1-FIX-B = REVIEWING
 - M1-FIX-B-FIX = REVIEWING
+- M1-FIX-B2 = COMPLETED
 - M2 = NOT STARTED / WAITING OWNER AUTHORIZATION
 
 M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不启动 M2，不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
