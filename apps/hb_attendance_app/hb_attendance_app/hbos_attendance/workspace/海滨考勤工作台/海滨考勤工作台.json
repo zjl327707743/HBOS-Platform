@@ -1,7 +1,7 @@
 {
  "app": "hb_attendance_app",
  "charts": [],
- "content": "[{\"id\":\"hbos-title\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>海滨考勤工作台</b></span><br><span class=\\\"text-muted\\\">M1-FIX-B2 已完成；异常流程、月报和飞书登录待后续授权。</span>\",\"col\":12}},{\"id\":\"hbos-import-card\",\"type\":\"card\",\"data\":{\"card_name\":\"导入与数据\",\"col\":4}},{\"id\":\"hbos-report-card\",\"type\":\"card\",\"data\":{\"card_name\":\"HBOS 中文报表\",\"col\":4}},{\"id\":\"hbos-hrms-card\",\"type\":\"card\",\"data\":{\"card_name\":\"HRMS 原生数据\",\"col\":4}}]",
+ "content": "[{\"id\":\"hbos-title\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>海滨考勤工作台</b></span><br><span class=\\\"text-muted\\\">海滨考勤复用 HRMS 的员工、打卡和考勤结果数据；本模块负责考勤机 Excel 导入、中文报表、月度对账和后续异常处理。</span>\",\"col\":12}},{\"id\":\"hbos-import-card\",\"type\":\"card\",\"data\":{\"card_name\":\"导入与数据\",\"col\":4}},{\"id\":\"hbos-report-card\",\"type\":\"card\",\"data\":{\"card_name\":\"HBOS 中文报表\",\"col\":4}},{\"id\":\"hbos-hrms-card\",\"type\":\"card\",\"data\":{\"card_name\":\"HRMS 原生数据\",\"col\":4}}]",
  "creation": "2026-07-10 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,

@@ -24,6 +24,13 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 
 	$(page.body).html(`
 		<div class="hbos-import-page">
+			<div class="hbos-import-heading">
+				<div>
+					<div class="hbos-breadcrumb">海滨考勤工作台 / 导入考勤机导出表</div>
+					<p class="text-muted">海滨考勤复用 HRMS 的员工、打卡和考勤结果数据；本页面负责考勤机 Excel 导入并汇入 HBOS 中文报表主线。</p>
+				</div>
+				<button class="btn btn-default" data-route="Workspaces/海滨考勤工作台">返回海滨考勤工作台</button>
+			</div>
 			<div class="hbos-import-toolbar">
 				<input class="hbos-file-input hidden" type="file" accept=".xlsx" />
 				<button class="btn btn-primary" data-action="choose-file">上传原始表格</button>
@@ -42,13 +49,15 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 				</section>
 			</div>
 			<div class="hbos-links">
-					<button class="btn btn-default" data-route="List/HBOS Attendance Import Log">考勤导入日志</button>
-					<button class="btn btn-default" data-route="query-report/打卡流水">HBOS 打卡流水（中文）</button>
-					<button class="btn btn-default" data-route="query-report/考勤结果">HBOS 考勤结果（中文）</button>
+					<button class="btn btn-default" data-route="List/HBOS Attendance Import Log">查看考勤导入日志</button>
+					<button class="btn btn-default" data-route="query-report/打卡流水">查看 HBOS 打卡流水</button>
+					<button class="btn btn-default" data-route="query-report/考勤结果">查看 HBOS 考勤结果</button>
 			</div>
 		</div>
 		<style>
 			.hbos-import-page { padding: 16px 0 32px; }
+			.hbos-import-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+			.hbos-breadcrumb { font-weight: 600; margin-bottom: 4px; }
 			.hbos-import-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 			.hbos-import-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 			.hbos-panel { border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; background: var(--fg-color); min-height: 220px; }
@@ -58,7 +67,7 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 			.hbos-metric .label { color: var(--text-muted); font-size: 12px; }
 			.hbos-metric .value { font-weight: 600; margin-top: 2px; word-break: break-word; }
 			.hbos-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-			@media (max-width: 900px) { .hbos-import-layout { grid-template-columns: 1fr; } }
+			@media (max-width: 900px) { .hbos-import-heading { flex-direction: column; } .hbos-import-layout { grid-template-columns: 1fr; } }
 		</style>
 	`);
 

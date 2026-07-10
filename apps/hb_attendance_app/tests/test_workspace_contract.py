@@ -6,6 +6,8 @@ from pathlib import Path
 APP = Path(__file__).parents[1] / "hb_attendance_app"
 WORKSPACE = APP / "hbos_attendance/workspace/海滨考勤工作台/海滨考勤工作台.json"
 DESKTOP = APP / "config/desktop.py"
+SETUP = APP / "hbos_attendance/setup.py"
+IMPORT_PAGE = APP / "hbos_attendance/page/hbos_attendance_import/hbos_attendance_import.js"
 CHECKIN_REPORT = APP / "hbos_attendance/report/打卡流水/打卡流水.py"
 
 
@@ -17,12 +19,36 @@ class WorkspaceContractTest(unittest.TestCase):
 	def test_workspace_renders_authoritative_cards_and_routes(self):
 		workspace = json.loads(WORKSPACE.read_text())
 		content = workspace["content"]
+		self.assertIn("海滨考勤复用 HRMS 的员工、打卡和考勤结果数据", content)
 		for card in ("导入与数据", "HBOS 中文报表", "HRMS 原生数据"):
 			self.assertIn(f'"card_name":"{card}"', content)
 		labels = {link.get("label"): link.get("link_to") for link in workspace["links"]}
 		self.assertEqual(labels["导入考勤机导出表"], "hbos-attendance-import")
 		self.assertEqual(labels["HBOS 打卡流水（中文）"], "打卡流水")
 		self.assertEqual(labels["HBOS 考勤结果（中文）"], "考勤结果")
+		self.assertEqual(labels["HRMS 原始打卡记录"], "Employee Checkin")
+		self.assertEqual(labels["HRMS 原生考勤结果"], "Attendance")
+
+	def test_after_migrate_syncs_sidebar_and_desktop_icon_runtime_objects(self):
+		content = SETUP.read_text()
+		self.assertIn('DESKTOP_LABEL = "海滨考勤"', content)
+		self.assertIn('DESKTOP_LOGO_URL = "/assets/hb_attendance_app/hbos-attendance-logo.svg"', content)
+		self.assertIn("def _sync_sidebar", content)
+		self.assertIn("def _sync_desktop_icon", content)
+		self.assertIn("def _hide_stale_workspace_desktop_icon", content)
+		for label in ("导入考勤机导出表", "考勤导入日志", "HBOS 打卡流水", "HBOS 考勤结果", "月度汇总 / 对账暂存"):
+			self.assertIn(label, content)
+		self.assertIn("stale_icon.hidden = 0", content)
+		self.assertIn("stale_icon.parent_icon = DESKTOP_LABEL", content)
+
+	def test_import_page_shows_workspace_breadcrumb_and_hbos_buttons(self):
+		content = IMPORT_PAGE.read_text()
+		self.assertIn("海滨考勤工作台 / 导入考勤机导出表", content)
+		self.assertIn("返回海滨考勤工作台", content)
+		self.assertIn('data-route="Workspaces/海滨考勤工作台"', content)
+		self.assertIn("查看 HBOS 打卡流水", content)
+		self.assertIn("查看 HBOS 考勤结果", content)
+		self.assertIn("查看考勤导入日志", content)
 
 	def test_checkin_report_prioritizes_name_number_and_department_before_employee_id(self):
 		content = CHECKIN_REPORT.read_text()
