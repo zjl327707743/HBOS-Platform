@@ -4,7 +4,7 @@
 
 ## 文件定位
 
-本文件记录 M1 启动前必须满足的门禁条件。M1 规划轮次已历史收口，但产品交付仍在 M1-FIX 中；M1-FIX-B2 已 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，当前 M1-FIX-B4 为 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-C/D/E 和 M2 未启动。
+本文件记录 M1 启动前必须满足的门禁条件。M1 规划轮次已历史收口，但产品交付仍在 M1-FIX 中；M1-FIX-B2 已 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，当前 M1-FIX-B5 为 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-C/D/E 和 M2 未启动。
 
 ## 必须满足的前置条件
 
@@ -70,7 +70,7 @@ M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计�
 
 M1 总收口历史 closeout 已完成；Owner UI 验收发现功能缺口后，当前 M1 产品交付仍在 M1-FIX 中，尚未完成。
 
-M1 规划收口已完成，但产品交付仍在 M1-FIX 中，尚未完成；M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，当前 M1-FIX-B4 为 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-C/D/E 与 M2 未启动。
+M1 规划收口已完成，但产品交付仍在 M1-FIX 中，尚未完成；M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，当前 M1-FIX-B5 为 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-C/D/E 与 M2 未启动。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界
@@ -143,8 +143,10 @@ M1 初期不创建 `hb_attendance_app`。M1-FIX-B 已经 Owner 明确授权创�
 22. M1-FIX-B：Excel 导入与真实本地数据闭环，当前为 REVIEWING。
 23. M1-FIX-B-FIX：Excel 导入与中文体验修复，当前为 REVIEWING。
 24. M1-FIX-B2：导入口径、安全与准确性修复，当前为 COMPLETED。
-25. M1-FIX-B3：考勤工作台入口、App 命名与 HRMS 数据一致性修复，当前为 REVIEWING。
-26. M1-FIX-C/D/E：后续补漏轮次，当前为 PLANNED。
-25. M2：飞书集成，当前为 NOT STARTED / 待 Owner 授权。
+25. M1-FIX-B3：考勤工作台入口、App 命名与 HRMS 数据一致性修复，当前为 REVIEWING / Owner UI 验收未通过。
+26. M1-FIX-B4：考勤模块架构收敛与单一入口重整，当前为 REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。
+27. M1-FIX-B5：导入数据链路核查与报表口径收敛，当前为 REVIEWING。
+28. M1-FIX-C/D/E：后续补漏轮次，当前为 PLANNED。
+29. M2：飞书集成，当前为 NOT STARTED / 待 Owner 授权。
 
 M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 COMPLETED。M1 总收口历史 closeout 已完成；当前产品交付仍在 M1-FIX 中。M1-R8 为 PLANNED（可选缓冲轮）。

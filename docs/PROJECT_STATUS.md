@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-B4（REVIEWING，等待 Owner 和 Claude 审查）
+- 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，不能 closeout；M1-FIX-B4 已收敛海滨考勤桌面入口、Workspace Sidebar、导入页归属和 HBOS / HRMS 数据主线说明，当前 REVIEWING；M1-FIX-C/D/E 未启动。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
 - 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M2 未启动。
 
@@ -544,8 +544,9 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 23. M1-FIX-B：REVIEWING，Excel 导入与真实本地数据闭环已实现。
 24. M1-FIX-B2：COMPLETED，导入口径、安全与准确性修复已通过 Claude 审查并 closeout。
 25. M1-FIX-B3：REVIEWING / Owner UI 验收未通过，考勤工作台入口、App 命名与 HRMS 数据一致性修复不能 closeout。
-26. M1-FIX-B4：REVIEWING，考勤模块架构收敛与单一入口重整已交付，等待 Owner 和 Claude 审查。
-27. M2：未启动 / 待 Owner 授权。
+26. M1-FIX-B4：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；B4 不 closeout。
+27. M1-FIX-B5：REVIEWING，导入数据链路核查与报表口径收敛已交付，等待 Owner 和 Claude 审查。
+28. M2：未启动 / 待 Owner 授权。
 
 ## M1-FIX 状态
 
@@ -563,7 +564,9 @@ M1-FIX-B2：COMPLETED。导入口径、安全与准确性修复已通过 Claude 
 
 M1-FIX-B3：REVIEWING / Owner UI 验收未通过。本轮不 closeout B3，Owner 真实浏览器发现桌面 icon、左侧导航、导入页归属和 HBOS / HRMS 入口口径仍混乱。
 
-M1-FIX-B4：REVIEWING。本轮按 Owner 确认的方案 A 收敛运行态入口：`after_migrate` 幂等同步 Workspace、Workspace Sidebar、Desktop Icon；桌面入口显示为 `海滨考勤` 并使用实际可见 SVG；导入页增加 `海滨考勤工作台 / 导入考勤机导出表` 说明和返回入口；HBOS 报表与 HRMS 原生入口显示口径已区分。主文档 `docs/milestones/M1_FIX_B4_考勤模块架构收敛与单一入口重整.md` 已交付。
+M1-FIX-B4：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题。本轮按 Owner 确认的方案 A 收敛运行态入口：`after_migrate` 幂等同步 Workspace、Workspace Sidebar、Desktop Icon；桌面入口显示为 `海滨考勤` 并使用实际可见 SVG；导入页增加 `海滨考勤工作台 / 导入考勤机导出表` 说明和返回入口；HBOS 报表与 HRMS 原生入口显示口径已区分。主文档 `docs/milestones/M1_FIX_B4_考勤模块架构收敛与单一入口重整.md` 已交付，B4 本轮不 closeout。
+
+M1-FIX-B5：REVIEWING。本轮核查真实数据库中 Employee / Employee Checkin / Attendance / HBOS Attendance Import Log / 月度汇总暂存链路；确认 HRMS 原生月度考勤表空表主因是用户默认 Company 指向 Demo，正确 Company 下有 2026-07 Attendance；修复 HBOS 报表固定 500 行截断与缺少部门 / 批次过滤的问题；新增 `HBOS 月度汇总暂存（对账）` 报表；HRMS 原生入口降级为技术核查。主文档 `docs/milestones/M1_FIX_B5_导入数据链路核查与报表口径收敛.md` 已交付。
 
 M1-FIX 后续规划（仅规划，不自动启动）：
 
@@ -574,7 +577,8 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 | M1-FIX-B-FIX | Excel 导入与中文体验修复 | P0 | REVIEWING |
 | M1-FIX-B2 | 导入口径、安全与准确性修复 | P0 | COMPLETED |
 | M1-FIX-B3 | 考勤工作台入口、App 命名与 HRMS 数据一致性修复 | P0 | REVIEWING / Owner UI 验收未通过 |
-| M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | P0 | REVIEWING |
+| M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | P0 | REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题 |
+| M1-FIX-B5 | 导入数据链路核查与报表口径收敛 | P0 | REVIEWING |
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
@@ -587,7 +591,8 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1-FIX-B-FIX = REVIEWING
 - M1-FIX-B2 = COMPLETED
 - M1-FIX-B3 = REVIEWING / Owner UI 验收未通过
-- M1-FIX-B4 = REVIEWING
+- M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题
+- M1-FIX-B5 = REVIEWING
 - M2 = NOT STARTED / WAITING OWNER AUTHORIZATION
 
 M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不启动 M2，不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。

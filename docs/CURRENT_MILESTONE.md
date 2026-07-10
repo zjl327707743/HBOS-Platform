@@ -12,9 +12,11 @@ M1-FIX-B2：导入口径、安全与准确性修复。当前状态：COMPLETED�
 
 M1-FIX-B3：考勤工作台入口、App 命名与 HRMS 数据一致性修复。当前状态：REVIEWING，等待 Claude 审查。
 
-M1-FIX-B4：考勤模块架构收敛与单一入口重整。当前状态：REVIEWING，等待 Owner 和 Claude 审查。B4 只收敛桌面入口、Workspace、Workspace Sidebar、导入页和 HBOS / HRMS 入口口径；M1-FIX-B3 不 closeout。
+M1-FIX-B4：考勤模块架构收敛与单一入口重整。当前状态：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题。B4 只收敛桌面入口、Workspace、Workspace Sidebar、导入页和 HBOS / HRMS 入口口径；M1-FIX-B3 不 closeout。
 
-M1-FIX-B-FIX：Excel 导入与中文体验修复。历史轮次；当前后续修复由 M1-FIX-B2、M1-FIX-B3、M1-FIX-B4 管理。
+M1-FIX-B5：导入数据链路核查与报表口径收敛。当前状态：REVIEWING，等待 Owner 和 Claude 审查。B5 只核查真实 Employee / Checkin / Attendance / 月度暂存链路，收敛 HBOS 报表和 HRMS 技术核查入口；M1-FIX-B3 / B4 不 closeout。
+
+M1-FIX-B-FIX：Excel 导入与中文体验修复。历史轮次；当前后续修复由 M1-FIX-B2、M1-FIX-B3、M1-FIX-B4、M1-FIX-B5 管理。
 
 M1-FIX 后续规划轮次（仅规划，不自动启动）：
 
@@ -25,7 +27,8 @@ M1-FIX 后续规划轮次（仅规划，不自动启动）：
 | M1-FIX-B-FIX | Excel 导入与中文体验修复 | P0 | REVIEWING |
 | M1-FIX-B2 | 导入口径、安全与准确性修复 | P0 | COMPLETED |
 | M1-FIX-B3 | 考勤工作台入口、App 命名与 HRMS 数据一致性修复 | P0 | REVIEWING / Owner UI 验收未通过 |
-| M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | P0 | REVIEWING |
+| M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | P0 | REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题 |
+| M1-FIX-B5 | 导入数据链路核查与报表口径收敛 | P0 | REVIEWING |
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
@@ -102,10 +105,11 @@ M1-FIX-B = REVIEWING
 M1-FIX-B-FIX = REVIEWING
 M1-FIX-B2 = COMPLETED
 M1-FIX-B3 = REVIEWING / Owner UI 验收未通过
-M1-FIX-B4 = REVIEWING
+M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题
+M1-FIX-B5 = REVIEWING
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
 ## 下一轮预告
 
-M1-FIX-B4 已进入 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。
+M1-FIX-B5 已进入 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。

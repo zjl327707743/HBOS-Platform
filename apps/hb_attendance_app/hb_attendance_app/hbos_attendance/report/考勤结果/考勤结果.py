@@ -21,6 +21,17 @@ def execute(filters=None):
 	if filters.get("employee"):
 		conditions.append("a.employee = %(employee)s")
 		values["employee"] = filters["employee"]
+	if filters.get("department"):
+		conditions.append("emp.department = %(department)s")
+		values["department"] = filters["department"]
+	if filters.get("import_log"):
+		conditions.append("a.hbos_import_log = %(import_log)s")
+		values["import_log"] = filters["import_log"]
+	if filters.get("source_type"):
+		conditions.append("a.hbos_source_type = %(source_type)s")
+		values["source_type"] = filters["source_type"]
+	if filters.get("hbos_only"):
+		conditions.append("(a.hbos_import_log is not null or a.hbos_source_type is not null or a.hbos_fallback_generated = 1)")
 	where = " and ".join(conditions)
 	rows = frappe.db.sql(
 		f"""
@@ -42,12 +53,20 @@ def execute(filters=None):
 		left join `tabEmployee` emp on emp.name = a.employee
 		where {where}
 		order by a.attendance_date desc, a.employee asc
-		limit 500
 		""",
 		values,
 		as_dict=True,
 	)
 	data = []
+	if not rows and filters.get("import_log") and frappe.db.has_column("Employee Checkin", "hbos_import_log"):
+		checkin_count = frappe.db.count("Employee Checkin", {"hbos_import_log": filters.get("import_log")})
+		if checkin_count:
+			return _columns(), [{
+				"employee_name": "已导入打卡，尚未生成考勤结果",
+				"status": "待生成",
+				"source_batch": filters.get("import_log"),
+				"remarks": f"该批次已有 {checkin_count} 条 Employee Checkin；HRMS Auto Attendance 尚未产出 Attendance。",
+			}]
 	for row in rows:
 		status = STATUS_LABELS.get(row.status, row.status or "")
 		if row.late_entry:

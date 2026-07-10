@@ -11,7 +11,7 @@ PRIMARY_SIDEBAR_ITEMS = [
 	{"label": "考勤导入日志", "link_type": "DocType", "link_to": "HBOS Attendance Import Log", "type": "Link", "icon": "list"},
 	{"label": "HBOS 打卡流水", "link_type": "Report", "link_to": "打卡流水", "type": "Link", "icon": "clock"},
 	{"label": "HBOS 考勤结果", "link_type": "Report", "link_to": "考勤结果", "type": "Link", "icon": "calendar-check"},
-	{"label": "月度汇总 / 对账暂存", "link_type": "DocType", "link_to": "HBOS Attendance Import Log", "type": "Link", "icon": "clipboard-list"},
+	{"label": "月度汇总 / 对账暂存", "link_type": "Report", "link_to": "HBOS 月度汇总暂存（对账）", "type": "Link", "icon": "clipboard-list"},
 ]
 
 
@@ -19,6 +19,13 @@ def after_migrate():
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
     create_custom_fields({
+        "Employee Checkin": [
+            {"fieldname": "hbos_source_type", "label": "HBOS 来源类型", "fieldtype": "Select",
+             "options": "HBOS raw checkin import\nHBOS monthly adapter\nHRMS native / existing", "read_only": 1},
+            {"fieldname": "hbos_import_log", "label": "HBOS 导入批次", "fieldtype": "Link",
+             "options": "HBOS Attendance Import Log", "read_only": 1},
+            {"fieldname": "hbos_calc_version", "label": "HBOS 计算版本", "fieldtype": "Data", "read_only": 1},
+        ],
         "Attendance": [
             {"fieldname": "hbos_source_type", "label": "HBOS 来源类型", "fieldtype": "Select",
              "options": "HRMS Auto Attendance\nHBOS fallback\nMonthly Summary staging\nManual correction", "read_only": 1},

@@ -50,8 +50,9 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 			</div>
 			<div class="hbos-links">
 					<button class="btn btn-default" data-route="List/HBOS Attendance Import Log">查看考勤导入日志</button>
-					<button class="btn btn-default" data-route="query-report/打卡流水">查看 HBOS 打卡流水</button>
-					<button class="btn btn-default" data-route="query-report/考勤结果">查看 HBOS 考勤结果</button>
+					<button class="btn btn-default" data-report="打卡流水">查看 HBOS 打卡流水</button>
+					<button class="btn btn-default" data-report="考勤结果">查看 HBOS 考勤结果</button>
+					<button class="btn btn-default" data-report="HBOS 月度汇总暂存（对账）">查看月度汇总暂存</button>
 			</div>
 		</div>
 		<style>
@@ -79,6 +80,12 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 	$body.find("[data-action='run']").on("click", () => runImport());
 	$body.find("[data-route]").on("click", function () {
 		frappe.set_route($(this).attr("data-route").split("/"));
+	});
+	$body.find("[data-report]").on("click", function () {
+		if (state.result && state.result.log_name) {
+			frappe.route_options = { import_log: state.result.log_name };
+		}
+		frappe.set_route("query-report", $(this).attr("data-report"));
 	});
 	$fileInput.on("change", async function () {
 		if (!this.files || !this.files.length) return;
@@ -174,7 +181,7 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 				${metric("表头行", mapping.header_row || "-")}
 				${metric("默认班次", "白班/行政班 08:30-17:30")}
 			</div>
-			<p class="text-muted" style="margin-top: 12px;">当前支持：考勤机月度导出表。后续适配：逐条原始打卡流水表。</p>
+			<p class="text-muted" style="margin-top: 12px;">月度汇总表只进入“月度汇总 / 对账暂存”；逐条原始打卡流水才写入 Employee Checkin 并触发 HRMS Auto Attendance。</p>
 		`);
 	}
 
@@ -184,18 +191,23 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 			$target.html('<span class="text-muted">完成预览后可确认导入。</span>');
 			return;
 		}
+		const isMonthlyStaging = (data.notes || "").includes("月度汇总仅已暂存");
 		$target.html(`
 			<div class="hbos-metrics">
 				${metric("批次号", data.log_name)}
-				${metric("新增打卡流水", data.created_checkins || 0)}
+				${metric("导入类型", data.import_type || "-")}
+				${metric(isMonthlyStaging ? "暂存员工数" : "匹配员工数", data.matched_rows || 0)}
+				${metric(isMonthlyStaging ? "月度行数" : "成功行数", data.success_rows || 0)}
+				${metric("写入打卡流水", isMonthlyStaging ? "不写入" : data.created_checkins || 0)}
 				${metric("跳过重复记录", data.skipped_duplicates || 0)}
-				${metric("新增考勤结果", data.created_attendance || 0)}
+				${metric("生成 Attendance", isMonthlyStaging ? "不生成" : data.created_attendance || 0)}
 				${metric("已存在考勤结果", data.existing_attendance || 0)}
 				${metric("失败记录", data.failed_rows || 0)}
-				${metric("自动考勤", data.auto_attendance_used ? "已触发" : "未触发")}
+				${metric("自动考勤", isMonthlyStaging ? "不触发" : data.auto_attendance_used ? "已触发" : "未触发")}
 				${metric("兜底生成", data.fallback_used ? "本批次使用" : "未使用")}
 			</div>
-			<p style="margin-top: 12px;">本次导入未重复创建已有打卡记录，系统自动跳过已存在记录。</p>
+			<p style="margin-top: 12px;">${escapeHtml(data.notes || "本次导入未重复创建已有打卡记录，系统自动跳过已存在记录。")}</p>
+			<p class="text-muted">查看结果：原始流水看 HBOS 打卡流水；考勤结果看 HBOS 考勤结果；月度汇总表看“月度汇总 / 对账暂存”。</p>
 		`);
 	}
 

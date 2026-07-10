@@ -164,6 +164,7 @@ def _apply_summary(log, result, status):
 def _readable_summary(log, result, status):
 	repeat_text = "是" if getattr(log, "is_repeat_import", 0) else "否"
 	same_count = int(getattr(log, "same_file_import_count", 1) or 1)
+	is_monthly_staging = "月度汇总仅已暂存" in (result.get("notes") or "")
 	reason_parts = []
 	exceptions = result.get("exception_summary") or {}
 	if exceptions:
@@ -173,8 +174,9 @@ def _readable_summary(log, result, status):
 		reason_parts.append(f"失败 {len(failures)} 条，详见失败摘要")
 	if not reason_parts:
 		reason_parts.append("未发现阻断性失败")
-	auto_text = "已触发 HRMS 自动考勤" if result.get("auto_attendance_used") else "未触发 HRMS 自动考勤"
+	auto_text = "月度汇总暂存不触发 HRMS 自动考勤" if is_monthly_staging else "已触发 HRMS 自动考勤" if result.get("auto_attendance_used") else "未触发 HRMS 自动考勤"
 	fallback_text = "本批次使用本地兜底生成补齐考勤结果；该兜底仅用于 M1 本地演示补偿，不代表正式生产口径。" if result.get("fallback_used") else "本批次未使用本地兜底生成。"
+	target_text = "查看路径：月度汇总 / 对账暂存。" if is_monthly_staging else "查看路径：HBOS 打卡流水、HBOS 考勤结果。"
 	return "\n".join(
 		[
 			f"批次号：{log.name or '预览批次'}",
@@ -190,7 +192,8 @@ def _readable_summary(log, result, status):
 			f"原因摘要：{'；'.join(reason_parts)}",
 			auto_text,
 			fallback_text,
-			"本次导入未重复创建已有打卡记录，系统自动跳过已存在记录。",
+			"月度汇总只用于暂存 / 对账，不写入 Employee Checkin，不生成 Attendance。" if is_monthly_staging else "本次导入未重复创建已有打卡记录，系统自动跳过已存在记录。",
+			target_text,
 			f"当前状态：{status}",
 		]
 	)
@@ -452,6 +455,7 @@ def _execute_raw_checkins(parsed, create_missing_employees, limit_rows, log):
 				doc = frappe.new_doc("Employee Checkin")
 				doc.update({"employee": employee, "time": record["checkin_time"], "log_type": record["log_type"],
 					"device_id": record["device_id"] or "HBOS-RAW-IMPORT", "skip_auto_attendance": 0})
+				_apply_checkin_source(doc, log.name, "HBOS raw checkin import")
 				doc.insert(ignore_permissions=True); stats["created_checkins"] += 1
 			impacted.add((employee, getdate(record["checkin_time"])))
 			daily_types[(employee, getdate(record["checkin_time"]))].append(record["log_type"])
@@ -477,6 +481,15 @@ def _mark_attendance_source(attendance_name, log_name, source_type):
 	if frappe.db.has_column("Attendance", "hbos_source_type"):
 		frappe.db.set_value("Attendance", attendance_name, {"hbos_source_type": source_type, "hbos_import_log": log_name,
 			"hbos_fallback_generated": 0, "hbos_calc_version": "M1-FIX-B2"}, update_modified=False)
+
+
+def _apply_checkin_source(doc, log_name, source_type):
+	if frappe.db.has_column("Employee Checkin", "hbos_source_type"):
+		doc.hbos_source_type = source_type
+	if frappe.db.has_column("Employee Checkin", "hbos_import_log"):
+		doc.hbos_import_log = log_name
+	if frappe.db.has_column("Employee Checkin", "hbos_calc_version"):
+		doc.hbos_calc_version = "M1-FIX-B5"
 
 
 def _legacy_execute_import(parsed, create_missing_employees, limit_rows, log=None):
