@@ -173,6 +173,9 @@ docker compose exec backend bash
 bench --site frontend install-app hb_attendance_app
 
 # 执行数据库迁移
+# bench migrate 会触发 hb_attendance_app 的 after_migrate hooks，
+# 自动创建或校验 Custom Field、Desktop Icon、Workspace Sidebar 等幂等配置。
+# 因此首次安装 App 后不得省略该步骤。
 bench --site frontend migrate
 
 # 退出容器
