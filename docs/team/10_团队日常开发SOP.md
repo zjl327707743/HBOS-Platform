@@ -927,10 +927,134 @@ docker compose ps
 
 ---
 
+---
+
+## 10. G1D 多人协作治理（2026-07-17 生效）
+
+### 10.1 分支与合并规则
+
+> 以下规则已通过 GitHub 仓库设置强制执行，违反操作将被 GitHub 拒绝。
+
+| 规则 | 要求 |
+|------|------|
+| 合并方式 | 仅允许 **Squash Merge**（Merge Commit 和 Rebase Merge 已关闭） |
+| 合并后分支 | **自动删除**已合并的功能分支 |
+| 直接 push main | **禁止**（所有成员，包括 Write 权限） |
+| force push main | **禁止** |
+| 删除 main 分支 | **禁止** |
+| 线性历史 | 要求 PR 分支与 main 无分叉（需 rebase 后再合并） |
+
+### 10.2 PR 门禁要求
+
+每个合并到 main 的 PR 必须满足：
+
+- [ ] **至少 1 名非作者批准**（Owner 也不能批准自己的 PR）
+- [ ] **新提交后旧批准失效**（推送新 commit 后需重新审查）
+- [ ] **所有 Review Conversation 已解决**
+- [ ] **HBOS 质量门禁（CI）全部通过**
+- [ ] **PR 描述完整**（使用 `.github/pull_request_template.md` 模板）
+
+### 10.3 日常开发完整流程
+
+```
+每天早上：
+  git checkout main
+  git pull origin main
+  docker compose ps
+
+创建功能分支：
+  git checkout -b feat/<scope>-<description>
+  # 禁止基于旧分支创建新分支，禁止长期存在的个人分支
+
+开发完成后：
+  git fetch origin
+  git diff origin/main...HEAD          # 检查差异
+  docker compose exec backend python3 -m unittest discover -s apps/hb_attendance_app/tests -v
+  git add <files>
+  git commit -m "feat: <description>"
+  git push -u origin feat/<scope>-<description>
+
+创建 PR：
+  1. 打开 https://github.com/zjl327707743/HBOS/pulls
+  2. 点击 "New pull request"
+  3. base: main, compare: feat/<scope>-<description>
+  4. 使用 PR 模板填写完整描述
+  5. 等待 CI 通过
+  6. 请求 Reviewer 审查
+
+Review 与修改：
+  - Reviewer 在 PR 页面提交 Review（Approve / Request Changes / Comment）
+  - 如需修改：在本地同一分支修改 → git push → 旧批准自动失效
+  - 所有 Conversation 标记为 Resolved 后通知 Reviewer 重新审查
+
+合并：
+  - 满足所有门禁后，点击 "Squash and merge"
+  - 合并后分支自动删除
+  - 本地同步：git checkout main && git pull origin main
+```
+
+### 10.4 冲突处理
+
+```
+1. git checkout main && git pull origin main
+2. git checkout <你的功能分支>
+3. git merge main          # 在本地将 main 合并到功能分支
+4. 解决冲突文件（搜索 <<<<<<< 标记）
+5. git add <冲突文件>
+6. git commit -m "chore: 解决与 main 的合并冲突"
+7. git push
+8. 通知 Reviewer 重新审查（旧批准已失效）
+```
+
+### 10.5 紧急修复流程
+
+1. 从 `main` 创建 `fix/<description>` 分支
+2. 完成修复并验证
+3. 创建 PR 并在标题标注 `[紧急]`
+4. 获得批准后 Squash Merge
+5. **禁止**以任何理由直接 push 到 `main`，即使紧急情况
+
+### 10.6 Owner 应急管理权限（Break-glass）
+
+Owner 保留仓库管理权限，但**仅限以下场景**：
+
+| 场景 | 示例 |
+|------|------|
+| 仓库故障 | CI 配置损坏导致所有 PR 被阻塞 |
+| 严重安全事件 | 密钥泄露需立即回滚 |
+| 门禁自身失效 | Ruleset 配置错误阻止合法操作 |
+
+**日常开发不得绕过 PR、Review 和 CI 流程。** 每次使用应急权限必须：
+
+1. 记录时间、原因、操作内容
+2. 追加到 `docs/team/audits/` 目录下的审计报告
+
+### 10.7 禁止普通成员直接操作 main
+
+- 任何 Write 权限成员**不得**直接 push、force push 或删除 `main` 分支
+- 所有变更必须通过 PR → Review → CI → Squash Merge
+- 合并操作由 PR 作者或 Reviewer 在 GitHub UI 完成
+
+### 10.8 Codex 审查时机
+
+- Codex 审查**仅在重大 Gate（阶段里程碑）结束时**进行一次
+- 日常 PR **不触发** Codex 审查
+- Codex 审查由 Owner 发起
+
+### 10.9 配置、迁移和数据库资产代码化
+
+- 数据库结构变更必须通过 Frappe DocType JSON 或 Patch 代码化
+- 稳定配置项（系统设置、自定义字段）必须代码化，不得仅在数据库中手动修改
+- 迁移脚本必须可重复执行且幂等
+
+---
+
 > **文档维护者**：HBOS 开发团队
 > **创建日期**：2026-07-14
-> **最后更新**：2026-07-14
+> **最后更新**：2026-07-17（G1D-A 多人协作治理生效）
 > **相关文档**：
 > - `03_Git与GitHub多人协作规范.md`
 > - `06_Frappe自定义内容与数据库迁移规范.md`
 > - `12_常用Git与Docker命令解释.md`
+> - `CONTRIBUTING.md`（仓库根目录）
+> - `.github/pull_request_template.md`（PR 模板）
