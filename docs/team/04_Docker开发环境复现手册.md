@@ -227,7 +227,7 @@ docker compose exec backend bench --site frontend list-apps
 # 应显示：frappe, erpnext, hrms, hb_attendance_app
 
 # 4. 访问 Desk
-# 浏览器打开 http://localhost:8081/login
+# 浏览器打开 http://localhost:${HTTP_PORT:-8080}/login
 # 使用 ADMIN_PASSWORD 登录
 # 验证 Desk 可访问
 # 验证 HR Workspace 可访问
@@ -518,7 +518,7 @@ docker compose exec backend bench doctor
 
 ### 6.8 登录页面无法访问
 
-**症状：** 浏览器访问 `http://localhost:8081/login` 无响应
+**症状：** 浏览器访问 `http://localhost:${HTTP_PORT:-8080}/login` 无响应
 
 **排查：**
 
@@ -603,6 +603,145 @@ docker compose exec backend bench version
 
 # 健康检查
 docker compose exec backend bench doctor
+```
+
+---
+
+## 10. 长期服务健康检查与恢复
+
+本章节记录 HBOS Docker 环境的长期服务健康检查、恢复顺序和故障排查 SOP，基于 G1B-A 和 G1B-B 的实际恢复经验。
+
+### 10.1 服务角色
+
+**长期运行服务（9 个）：**
+
+| 服务 | 作用 | 关键依赖 |
+|------|------|----------|
+| db | MariaDB 数据库 | 无 |
+| redis-cache | Redis 缓存 | 无 |
+| redis-queue | Redis 队列 | 无 |
+| backend | Gunicorn WSGI 应用服务器 | db, redis-cache, redis-queue |
+| scheduler | Frappe 定时任务调度器 | db, redis-cache, redis-queue |
+| queue-long | RQ Worker（long/default/short 队列） | db, redis-cache, redis-queue |
+| queue-short | RQ Worker（short/default 队列） | db, redis-cache, redis-queue |
+| websocket | Socket.IO 实时通信服务 | redis-cache, redis-queue |
+| frontend | Nginx 反向代理 + 静态资源 | backend, websocket |
+
+**一次性初始化服务（2 个）：**
+
+| 服务 | 作用 | 预期状态 |
+|------|------|----------|
+| configurator | 一次性配置写入（common_site_config.json） | Exited (0) |
+| create-site | 一次性 site 初始化 | Exited (0) 或 Exited (1)（site 已存在） |
+
+### 10.2 恢复顺序
+
+```
+db
+→ redis-cache / redis-queue
+→ backend / scheduler / queue-long / queue-short
+→ websocket
+→ frontend
+```
+
+**原则：** 先启动无依赖的底层服务（db、Redis），再启动依赖它们的应用服务，最后启动依赖应用服务的前端代理。
+
+### 10.3 现有容器恢复（最小操作）
+
+适用于容器已存在但部分 Exited 的场景：
+
+```bash
+# 第一步：启动 Redis（底层依赖）
+docker compose start redis-cache redis-queue
+
+# 第二步：启动 Worker（依赖 Redis）
+docker compose start queue-long queue-short
+
+# websocket 通常会在 Redis 恢复后通过 restart policy 自动恢复
+# 如果未自动恢复，执行：
+docker compose start websocket
+```
+
+### 10.4 恢复后验证
+
+```bash
+# 1. 全服务状态检查
+docker compose ps -a
+# 所有长期运行服务应为 Up，configurator 应为 Exited (0)
+
+# 2. bench doctor 健康检查
+docker compose exec -T backend bash -lc \
+  'cd /home/frappe/frappe-bench && bench doctor'
+# 应显示 Workers online: 2，无 Redis 连接错误
+
+# 3. HTTP 验证（使用环境变量口径，不硬编码端口）
+curl -I "http://localhost:${HTTP_PORT:-8080}"
+# 应返回 HTTP 200
+
+# 4. Socket.IO 握手验证
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:${HTTP_PORT:-8080}/api/method/frappe.realtime.get_user_info"
+# 应返回 200
+```
+
+### 10.5 完整启动（容器已停止）
+
+```bash
+# 启动所有服务
+docker compose up -d
+
+# 等待 db 健康检查通过
+docker compose ps db
+# 应显示 healthy
+
+# 查看各服务状态
+docker compose ps
+```
+
+### 10.6 Nginx 运行态重载（仅限紧急恢复）
+
+**⚠️ 此操作仅在以下条件**全部同时满足**时才能执行：**
+
+1. backend 正常运行（`docker compose ps backend` 显示 Up）
+2. Redis 和 Worker 正常运行
+3. frontend 仍返回 502 Bad Gateway
+4. frontend 日志明确指向旧 backend 上游地址或连接拒绝
+5. 确认没有 Nginx 配置文件错误
+
+**执行命令：**
+
+```bash
+# 在 frontend 容器内执行运行态重载
+docker compose exec frontend nginx -s reload
+```
+
+**执行后必须记录：**
+
+| 记录项 | 内容 |
+|--------|------|
+| 执行命令 | `nginx -s reload` |
+| 执行原因 | 日志证据（如 DNS 缓存旧 IP 导致 502） |
+| 执行前 HTTP 状态 | 502 |
+| 执行后 HTTP 状态 | 200 |
+
+**禁止将 `nginx -s reload` 写为每次启动的固定步骤。** 这是运行态紧急恢复操作，不是正常启动流程的一部分。
+
+### 10.7 常见故障恢复速查
+
+| 故障 | 症状 | 恢复操作 |
+|------|------|----------|
+| Redis 退出 | websocket Restarting，Worker Exited，bench doctor 报 Redis 连接错误 | `docker compose start redis-cache redis-queue` → 等待 30s → 验证 websocket 自动恢复 → `docker compose start queue-long queue-short` |
+| Worker 退出 | bench doctor 显示 Workers=0 | `docker compose start queue-long queue-short` |
+| websocket 重启循环 | websocket 状态 Restarting，RestartCount 持续增加 | 先恢复 Redis，websocket 会自动恢复 |
+| frontend 502 | HTTP 返回 502，backend 正常 | 先检查 backend 是否正常 → 检查 frontend 日志 → 如确认 DNS 缓存问题，执行 `nginx -s reload` |
+| db 不健康 | `docker compose ps db` 不显示 healthy | 检查 db 日志：`docker compose logs db` → 确认 Volume 存在 → 可能需要 `docker compose restart db` |
+
+### 10.8 禁止操作
+
+- ❌ `docker compose down -v` — 删除所有 Volume，数据永久丢失
+- ❌ 在未备份的情况下手动 `DROP DATABASE`
+- ❌ 将 `nginx -s reload` 加入自动启动脚本或固定步骤
+- ❌ 在 Redis 未恢复时强制重启 websocket（会继续 crash）
+
 ```
 
 ---
