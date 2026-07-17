@@ -1,0 +1,23 @@
+# CODEOWNERS — HBOS 代码所有权
+#
+# 默认所有者：Owner（zjl327707743）
+# 所有 PR 涉及以下路径时，自动请求 Owner 审查
+
+* @zjl327707743
+
+# 治理与 CI 资产
+/.github/                                          @zjl327707743
+
+# Docker 与环境配置
+/docker-compose.yml                                @zjl327707743
+/.env.example                                      @zjl327707743
+
+# AI 协作规则
+/CLAUDE.md                                         @zjl327707743
+/AGENTS.md                                         @zjl327707743
+
+# 团队文档
+/docs/team/                                        @zjl327707743
+
+# 海滨考勤 App
+/apps/hb_attendance_app/                           @zjl327707743

@@ -1,0 +1,18 @@
+.env
+*.local
+.DS_Store
+logs/
+tmp/
+.frappe/
+sites/
+volumes/
+backups/
+node_modules/
+.venv/
+__pycache__/
+runtime/
+
+# Local attendance exports and validation data must not be committed.
+docs/data/*.xlsx
+docs/data/*.xls
+docs/data/*.csv

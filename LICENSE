@@ -1,0 +1,29 @@
+GNU General Public License v3.0
+
+Copyright (C) 2026 新乡海滨智能运营管理平台 (HBOS)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+---
+
+HBOS 自定义 Frappe App（apps/hb_attendance_app/）采用 GPL-3.0 许可，
+与上游 Frappe/ERPNext 生态兼容。
+
+本项目依赖以下开源项目：
+
+- Frappe Framework (MIT)
+- ERPNext (GPL-3.0)
+- Frappe HR / HRMS (GPL-3.0)
+
+以上依赖的版权归各自原作者所有，HBOS 不对第三方上游源码声明原创。

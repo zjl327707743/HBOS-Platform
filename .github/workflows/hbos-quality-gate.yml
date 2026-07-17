@@ -1,0 +1,135 @@
+name: HBOS Quality Gate
+
+# 轻量 CI 质量门禁
+# 仅在 pull_request 到 main 时运行
+# 不连接数据库、不启动 Docker、不上传第三方
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    name: 质量门禁
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # ─── 检查 1：禁止提交敏感文件 ──────────────────────────
+      - name: 禁止 .env 文件
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -qE '(^|/)\.env'; then
+            echo "::error:: 禁止提交 .env 文件（含敏感配置）"
+            exit 1
+          fi
+          echo " 无 .env 文件提交"
+
+      - name: 禁止数据库 dump 和备份文件
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -qE '\.sql(\.gz)?$'; then
+            echo "::error:: 禁止提交数据库 dump 或备份文件"
+            exit 1
+          fi
+          echo " 无数据库 dump 文件"
+
+      - name: 禁止 Excel 和真实数据 CSV
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -qiE '\.(xlsx|xls|csv)$'; then
+            echo "::error:: 禁止提交 Excel 或 CSV 文件（可能含真实数据）"
+            exit 1
+          fi
+          echo " 无 Excel / CSV 文件"
+
+      - name: 禁止私钥和证书
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -qiE '\.(pem|key|crt|cer|p12|pfx)$'; then
+            echo "::error:: 禁止提交私钥或证书文件"
+            exit 1
+          fi
+          echo " 无私钥或证书"
+
+      - name: 禁止日志和 Site 配置
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -qiE '(\.log$|site_config\.json|sites/.*/site_config\.json)'; then
+            echo "::error:: 禁止提交日志或 Site 配置文件"
+            exit 1
+          fi
+          echo " 无日志或 Site 配置"
+
+      # ─── 检查 2：Python 语法编译 ────────────────────────────
+      - name: Python 语法编译检查
+        run: |
+          echo "检查 Python 文件语法..."
+          python -m compileall -q apps/ 2>&1 || {
+            echo "::error:: Python 语法编译失败"
+            exit 1
+          }
+          echo " Python 语法编译通过"
+
+      # ─── 检查 3：脱敏离线回归测试 ───────────────────────────
+      - name: 运行 hb_attendance_app 回归测试
+        run: |
+          echo "运行脱敏离线回归测试..."
+          # Frappe app 目录结构为 apps/<app>/<app>/，需将 apps/hb_attendance_app 加入路径
+          export PYTHONPATH="$PWD/apps/hb_attendance_app:$PYTHONPATH"
+          python -m unittest discover -s apps/hb_attendance_app/tests -v 2>&1
+          echo " 回归测试全部通过"
+
+      # ─── 检查 4：CI 工作流自身语法 ──────────────────────────
+      - name: 检查 CI 工作流 YAML 语法
+        run: |
+          echo "检查工作流文件语法..."
+          pip install -q pyyaml 2>&1
+          for f in .github/workflows/*.yml; do
+            python -c "import yaml; yaml.safe_load(open('$f')); print(f'  $f: OK')"
+          done
+          echo " 工作流语法检查通过"
+
+      # ─── 检查 5：关键 Markdown 文件存在 ─────────────────────
+      - name: 关键 Markdown 文件存在性检查
+        run: |
+          echo "检查关键文档..."
+          required=(
+            "README.md"
+            "CLAUDE.md"
+            "AGENTS.md"
+            "CONTRIBUTING.md"
+          )
+          for f in "${required[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error:: 缺少关键文件: $f"
+              exit 1
+            fi
+            echo "  $f: 存在"
+          done
+          echo " 关键文档检查通过"
+
+      # ─── 检查 6：治理脚本语法（如存在）─────────────────────
+      - name: 治理脚本语法检查
+        run: |
+          if [ -f scripts/ci/verify_repo_policy.sh ]; then
+            echo "检查治理脚本语法..."
+            bash -n scripts/ci/verify_repo_policy.sh && echo "  verify_repo_policy.sh 语法正确"
+          else
+            echo " 未找到治理脚本，跳过"
+          fi
+
+      # ─── 汇总 ───────────────────────────────────────────────
+      - name: 质量门禁通过
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════"
+          echo "  HBOS 质量门禁全部通过"
+          echo "═══════════════════════════════════════════"
