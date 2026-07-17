@@ -45,3 +45,4 @@
 ## 许可证
 
 本项目采用 GPL-3.0 许可。详见 [LICENSE](../LICENSE)。
+<!-- Bootstrap: verify CI quality gate -->
