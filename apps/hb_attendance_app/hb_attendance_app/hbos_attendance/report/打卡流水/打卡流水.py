@@ -36,7 +36,7 @@ def execute(filters=None):
 		conditions.append("ec.hbos_import_log = %(import_log)s")
 		values["import_log"] = filters["import_log"]
 	if filters.get("hbos_only"):
-		source_conditions = ["ec.device_id like 'HBOS-%'", "ec.device_id like '%MONTHLY%'"]
+		source_conditions = ["ec.device_id like 'HBOS-%%'", "ec.device_id like '%%MONTHLY%%'"]
 		if has_import_log:
 			source_conditions.append("ec.hbos_import_log is not null")
 		conditions.append("(" + " or ".join(source_conditions) + ")")
