@@ -15,6 +15,10 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      FEISHU_APP_ID: ${FEISHU_APP_ID}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
+      DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
+      DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
 
   configurator:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -208,6 +212,10 @@ services:
       - schedule
     environment:
       PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      FEISHU_APP_ID: ${FEISHU_APP_ID}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
+      DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
+      DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app

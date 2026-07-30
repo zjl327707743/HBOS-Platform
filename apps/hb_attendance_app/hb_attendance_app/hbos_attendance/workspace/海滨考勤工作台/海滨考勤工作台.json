@@ -39,7 +39,8 @@
   {"color": "Blue", "doc_view": "List", "label": "考勤导入日志", "link_to": "HBOS Attendance Import Log", "stats_filter": "[]", "type": "DocType"},
   {"color": "Green", "doc_view": "Report Builder", "label": "HBOS 打卡流水（中文）", "link_to": "打卡流水", "stats_filter": "[]", "type": "Report"},
   {"color": "Orange", "doc_view": "Report Builder", "label": "HBOS 考勤结果（中文）", "link_to": "考勤结果", "stats_filter": "[]", "type": "Report"},
-  {"color": "Purple", "doc_view": "Report Builder", "label": "月度汇总 / 对账暂存", "link_to": "HBOS 月度汇总暂存（对账）", "stats_filter": "[]", "type": "Report"}
+  {"color": "Purple", "doc_view": "Report Builder", "label": "月度汇总 / 对账暂存", "link_to": "HBOS 月度汇总暂存（对账）", "stats_filter": "[]", "type": "Report"},
+  {"color": "Teal", "doc_view": "Report Builder", "label": "月度考勤汇总", "link_to": "月度考勤汇总", "stats_filter": "[]", "type": "Report"}
  ],
  "title": "海滨考勤工作台",
  "type": "Workspace"

@@ -1,0 +1,174 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "field:feishu_approval_id",
+ "creation": "2026-07-27 13:47:30.068423",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "department",
+  "column_break_3",
+  "leave_type",
+  "start_date",
+  "end_date",
+  "leave_days",
+  "section_break_6",
+  "feishu_approval_id",
+  "approval_status",
+  "feishu_sync_time",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "\u5458\u5de5",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "\u59d3\u540d",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "employee.department",
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "\u90e8\u95e8",
+   "options": "Department",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "leave_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "\u8bf7\u5047\u7c7b\u578b",
+   "options": "\u5e74\u5047\n\u4e8b\u5047\n\u75c5\u5047\n\u5a5a\u5047\n\u4ea7\u5047\n\u4e27\u5047\n\u8c03\u4f11\n\u5176\u4ed6",
+   "reqd": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "\u5f00\u59cb\u65e5\u671f",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "\u7ed3\u675f\u65e5\u671f",
+   "reqd": 1
+  },
+  {
+   "fieldname": "leave_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "\u8bf7\u5047\u5929\u6570"
+  },
+  {
+   "fieldname": "section_break_6",
+   "fieldtype": "Section Break",
+   "label": "\u98de\u4e66\u540c\u6b65\u4fe1\u606f"
+  },
+  {
+   "fieldname": "feishu_approval_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "\u98de\u4e66\u5ba1\u6279\u5355\u53f7",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "\u5df2\u901a\u8fc7",
+   "fieldname": "approval_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "\u5ba1\u6279\u72b6\u6001",
+   "options": "\u5df2\u901a\u8fc7\n\u5df2\u9a73\u56de\n\u5df2\u64a4\u9500\n\u5ba1\u6279\u4e2d"
+  },
+  {
+   "fieldname": "feishu_sync_time",
+   "fieldtype": "Datetime",
+   "label": "\u540c\u6b65\u65f6\u95f4",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "\u5907\u6ce8"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-27 13:47:30.068423",
+ "modified_by": "Administrator",
+ "module": "HBOS Attendance",
+ "name": "HBOS Leave Record",
+ "naming_rule": "By fieldname",
+ "nsm_parent_field": "parent_hbos_leave_record",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "employee_name",
+ "track_changes": 1
+}

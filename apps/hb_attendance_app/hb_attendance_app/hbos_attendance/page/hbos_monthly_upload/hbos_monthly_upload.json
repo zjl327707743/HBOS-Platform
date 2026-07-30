@@ -1,0 +1,7 @@
+{
+ "title": "月度考勤表上传",
+ "icon": "upload",
+ "route": "hbos-monthly-upload",
+ "standard": 1,
+ "roles": [{"role": "System Manager"}, {"role": "HR Manager"}, {"role": "HR User"}]
+}
