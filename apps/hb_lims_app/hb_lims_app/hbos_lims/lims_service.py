@@ -386,6 +386,9 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 			frappe.throw(f"检测记录 {result_name} 状态为 {old.result_status}，当前状态不可修订。")
 
 		old_value = str(old.get(field) or "")
+		if not old_value:
+			# 记录型结果 result_value 可能为空，用展示值兜底（ALCOA：修改前值必填）
+			old_value = _result_display_value(old) or ""
 
 		revision = frappe.get_doc({
 			"doctype": "HBOS Result Revision",
