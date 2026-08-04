@@ -39,6 +39,7 @@
 - `docs/milestones/M2_START_GATE.md`：M2-LIMS 启动门禁（实验室信息管理系统板块）。
 - `docs/milestones/M2_LIMS_总方案与轮次拆分.md`：M2-LIMS 总方案与轮次拆分。
 - `docs/milestones/M2_R1_环境与骨架.md`：M2-R1 环境与骨架（hb_lims_app 创建与安装验证）。
+- `docs/milestones/M2_R2_主数据与判定引擎.md`：M2-R2 主数据与判定引擎（6 个主数据 DocType + 判定引擎 + 规格校验）。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -95,7 +96,7 @@
 | M1-FIX-B5 | 导入数据链路核查与报表口径收敛 | REVIEWING |
 | M2-LIMS | 实验室信息管理系统板块（HB LIMS） | IN_PROGRESS |
 | M2-R1 | 环境与骨架 | COMPLETED |
-| M2-R2 | 主数据与判定引擎 | PLANNED |
+| M2-R2 | 主数据与判定引擎 | COMPLETED |
 | M2-R3 | 检验流程闭环 | PLANNED |
 | M2-R4 | COA 与报表 | PLANNED |
 | M2-R5 | 验证收口 | PLANNED |
@@ -108,7 +109,7 @@
 4. M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。
 5. M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。
 6. M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，不能 closeout；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，不能 closeout；当前 M1-FIX-B5 为 REVIEWING。M1 产品交付未完成；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权。
-7. M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动：`hb_lims_app` 已创建并安装到本地 `frontend` site，M2-R1 已收口为 COMPLETED，M2-R2 至 M2-R5 为 PLANNED。M1-FIX 未决轮次为并行事项，不阻塞 M2-LIMS。
+7. M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动：`hb_lims_app` 已创建并安装到本地 `frontend` site，M2-R1（环境与骨架）、M2-R2（主数据与判定引擎）已收口为 COMPLETED，M2-R3 至 M2-R5 为 PLANNED。M1-FIX 未决轮次为并行事项，不阻塞 M2-LIMS。
 
 M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1 历史 closeout 已完成，但 Owner UI 验收发现功能缺口，当前产品交付仍在 M1-FIX 中。M1-R6C = COMPLETED。M1-R7 = COMPLETED。M1-FIX-A = REVIEWING。M1-FIX-B = REVIEWING。M1-FIX-B-FIX = REVIEWING。M1-FIX-B2 = COMPLETED。M1-FIX-B3 = REVIEWING / Owner UI 验收未通过。M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。M1-FIX-B5 = REVIEWING。M2 为 NOT STARTED / 未启动 / 待 Owner 授权。
 

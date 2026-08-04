@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:item_code",
+ "creation": "2026-08-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "item_name",
+  "item_category",
+  "method_sop",
+  "test_unit",
+  "significant_digits",
+  "calculation",
+  "limits_type",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Data",
+   "label": "项目编码",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "项目名称",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "项目类别",
+   "options": "理化检验\n仪器检验\n微生物检验\n记录型",
+   "reqd": 1
+  },
+  {
+   "fieldname": "method_sop",
+   "fieldtype": "Data",
+   "label": "方法SOP号"
+  },
+  {
+   "fieldname": "test_unit",
+   "fieldtype": "Data",
+   "label": "默认单位"
+  },
+  {
+   "default": "2",
+   "fieldname": "significant_digits",
+   "fieldtype": "Int",
+   "label": "有效位数（小数位）",
+   "reqd": 1
+  },
+  {
+   "fieldname": "calculation",
+   "fieldtype": "Link",
+   "label": "计算公式",
+   "options": "HBOS Calculation"
+  },
+  {
+   "fieldname": "limits_type",
+   "fieldtype": "Select",
+   "label": "默认限度模式",
+   "options": "上限\n下限\n区间\n记录型"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "说明"
+  }
+ ],
+ "icon": "list",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Test Item",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

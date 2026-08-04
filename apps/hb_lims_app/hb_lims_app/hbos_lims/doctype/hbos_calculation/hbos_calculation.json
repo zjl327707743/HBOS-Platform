@@ -1,0 +1,109 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:calc_code",
+ "creation": "2026-08-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "calc_code",
+  "calc_name",
+  "formula_type",
+  "expression_template",
+  "parameter_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "calc_code",
+   "fieldtype": "Data",
+   "label": "公式编码",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "calc_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "公式名称",
+   "reqd": 1
+  },
+  {
+   "fieldname": "formula_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "公式类型",
+   "options": "含量%内置模板\n自定义表达式",
+   "reqd": 1
+  },
+  {
+   "fieldname": "expression_template",
+   "fieldtype": "Data",
+   "label": "表达式模板",
+   "description": "含量%：A样×C对×D稀释 / (A对×W样) × 100%"
+  },
+  {
+   "fieldname": "parameter_notes",
+   "fieldtype": "Long Text",
+   "label": "参数说明"
+  }
+ ],
+ "icon": "calculator",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Calculation",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
