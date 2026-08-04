@@ -1,31 +1,29 @@
 # Current Milestone
 
-## M1-FIX：M1 考勤一期功能补漏阶段
+## M2-LIMS：实验室信息管理系统板块（当前里程碑）
 
 项目名称：新乡海滨智能运营管理平台。
 
-M1 已 closeout 为 COMPLETED，但 Owner 亲自验收后发现大量产品功能没有真正页面可体验——「方案完成」不等于「功能完成」。M1-FIX 阶段定位为功能补漏，补齐 M1 承诺但未实际可体验的产品功能。
+M2-LIMS 在 HBOS 平台（Frappe/ERPNext 底座）上新增实验室信息管理系统（LIMS）板块，以《海滨药业LIMS系统开发方案》为业务口径（12 模块），参考开源 SENAITE LIMS 的功能结构（仅业务模型参考，不搬代码），自定义 Frappe App `hb_lims_app` 承载。第一版为核心闭环 MVP：样品管理 + 质量标准 + 检验流程 + COA 报告。
 
 ## 当前轮次
 
-M1-FIX-B2：导入口径、安全与准确性修复。当前状态：COMPLETED。已通过 Claude 审查（初审 FAIL → B2-FIX 复审 PASS），Codex closeout 已完成。
+M2-R1（环境与骨架）：COMPLETED。`hb_lims_app` 已创建并安装到本地 `frontend` site，after_migrate 幂等同步 3 个 LIMS 角色、`海滨LIMS工作台` Workspace、Sidebar 与桌面图标，离线契约测试 8/8 全绿。主文档 `docs/milestones/M2_R1_环境与骨架.md`。
 
-M1-FIX-B3：考勤工作台入口、App 命名与 HRMS 数据一致性修复。当前状态：REVIEWING，等待 Claude 审查。
+M2-R2（主数据与判定引擎）：PLANNED，下一轮。交付：6 个主数据 DocType（HBOS Sample Type / HBOS Lab Department / HBOS Test Item / HBOS Calculation / HBOS Specification + Item）、`result_contract.py` 判定引擎与测试全绿、spec 生效校验、DocType 三角色权限。
 
-M1-FIX-B4：考勤模块架构收敛与单一入口重整。当前状态：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题。B4 只收敛桌面入口、Workspace、Workspace Sidebar、导入页和 HBOS / HRMS 入口口径；M1-FIX-B3 不 closeout。
+M2-R3（检验流程闭环）：PLANNED。交付：HBOS Sample(+Item) / Sample Task / Test Result / Result Revision、`workflow_contract.py` 状态机、`lims_service.py` 业务方法全链、待检任务看板报表、虚构数据闭环。
 
-M1-FIX-B5：导入数据链路核查与报表口径收敛。当前状态：REVIEWING，等待 Owner 和 Claude 审查。B5 只核查真实 Employee / Checkin / Attendance / 月度暂存链路，收敛 HBOS 报表和 HRMS 技术核查入口；M1-FIX-B3 / B4 不 closeout。
+M2-R4（COA 与报表）：PLANNED。交付：HBOS COA(+Item) + Print Format + 发布链路、检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录 4 个报表。
 
-M1-FIX-B-FIX：Excel 导入与中文体验修复。历史轮次；当前后续修复由 M1-FIX-B2、M1-FIX-B3、M1-FIX-B4、M1-FIX-B5 管理。
+M2-R5（验证收口）：PLANNED。交付：全量演练 + 11 项验收、入口可见、台账更新、closeout。
 
-M1-FIX 后续规划轮次（仅规划，不自动启动）：
+## 并行未决事项（不阻塞 M2-LIMS）
+
+M1 产品交付仍在 M1-FIX 功能补漏中，B3 / B4 / B5 为 REVIEWING，等待 Owner 和 Claude 审查，未 closeout；M1-FIX-C/D/E 为 PLANNED，未启动。M1-FIX 工作线在 `m1-fix-frontend-zh` 分支，M2-LIMS 工作线在 `m2-lims` 分支，互不干扰。
 
 | 轮次 | 名称 | 优先级 | 状态 |
 | --- | --- | --- | --- |
-| M1-FIX-A | 差距盘点与实施方案 | — | REVIEWING |
-| M1-FIX-B | Excel 导入与真实本地数据闭环 | P0 | REVIEWING |
-| M1-FIX-B-FIX | Excel 导入与中文体验修复 | P0 | REVIEWING |
-| M1-FIX-B2 | 导入口径、安全与准确性修复 | P0 | COMPLETED |
 | M1-FIX-B3 | 考勤工作台入口、App 命名与 HRMS 数据一致性修复 | P0 | REVIEWING / Owner UI 验收未通过 |
 | M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | P0 | REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题 |
 | M1-FIX-B5 | 导入数据链路核查与报表口径收敛 | P0 | REVIEWING |
@@ -33,83 +31,53 @@ M1-FIX 后续规划轮次（仅规划，不自动启动）：
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
 
-## M1 历史轮次（已完成）
+## 本轮范围（M2-R1，已收口）
 
-M1 规划收口已完成；产品交付仍在 M1-FIX 中，尚未完成。全部 19 个历史轮次状态见里程碑索引。
+- 建立 M2-LIMS 启动门禁与总方案文档。
+- 将 `hb_lims_app` 挂载进 Docker Compose 环境（8 处 service + 6 处 PYTHONPATH）。
+- 创建 `hb_lims_app` 完整骨架（双层结构 + hooks + config + public logo + after_migrate 幂等同步）。
+- 安装到 `frontend` site 并验证入口对象与静态资源可达。
+- 搭建离线测试脚手架并跑通。
 
-M0 已完成并封板。M0-REMOTE 已完成。
+M2-R1 禁止事项：不创建 DocType；不创建业务方法；不修改 Frappe/ERPNext/HRMS 核心源码；不录入样品 / 人员 / 检测数据；不提交 `.env`、密钥、Excel/CSV、数据库或运行时产物；不执行 `docker compose down -v`；不删除 volume；不重建 `frontend` site。
+
+## M2-LIMS 全阶段禁止事项
+
+- 不创建 `hb_core_app`、`hb_feishu_app` 或其他未授权 App
+- 不修改 Frappe/ERPNext/HRMS 核心源码
+- 不把 `hb_lims_app` 扩大为 12 模块全量 LIMS（仪器集成、稳定性、环测、微生物、试剂、留样、OOS 调查等另行规划）
+- 不做大型 Vue/React 独立前端（须原型先行 + Owner 审查）
+- 不接真实仪器、不录入真实样品 / 人员 / 检测数据；演示数据一律 `TEST-HBOS-M2-*` 前缀
+- 不提交 `.env`、App Secret、密钥、token、真实数据、Excel/CSV
+- 不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site
+- 不把「计划可行」写成「功能已实现」
+
+## 当前状态口径
+
+```
+M2-LIMS   = IN_PROGRESS
+M2-R1     = COMPLETED
+M2-R2     = PLANNED（下一轮）
+M2-R3     = PLANNED
+M2-R4     = PLANNED
+M2-R5     = PLANNED
+M1-FIX    = IN_PROGRESS（并行未决，B3/B4/B5 REVIEWING）
+M1-FIX-C/D/E = PLANNED / 待 Owner 授权
+```
+
+## 下一轮预告
+
+M2-R2（主数据与判定引擎）：创建 6 个主数据 DocType JSON（中文 label、Section Break 分组、tri-role 权限）、`result_contract.py` 判定引擎（judge_result / round_significant / apply_formula / verdict_to_label）与离线测试全绿、规格生效校验（草稿不可被引用、同码同版本去重）、Desk 手工创建 `TEST-HBOS-M2-*` 主数据验证。
 
 权威状态文件：
 
 - `docs/PROJECT_STATUS.md`
 - `docs/CURRENT_MILESTONE.md`
-- `docs/milestones/M0.md`
+- `docs/milestones/M2_START_GATE.md`
+- `docs/milestones/M2_LIMS_总方案与轮次拆分.md`
+- `docs/milestones/README.md`
 
 权威方案文件：
 
-- `docs/milestones/M1_FIX_功能补漏实施方案.md`
-
-## 本轮范围
-
-M1-FIX-B / M1-FIX-B-FIX 只做 Excel 导入与真实本地数据闭环修复：
-
-- 创建轻量 `hb_attendance_app`
-- 创建导入日志
-- 支持 Owner 在 Frappe Desk 页面上传考勤机月度导出表、识别预览、确认导入、查看导入日志与中文结果
-- 创建 / 匹配 Employee
-- 生成打卡流水
-- 尝试 HRMS 原生自动考勤，并在必要时记录本地兜底生成
-- 生成考勤结果并展示导入统计、重复跳过说明和失败摘要
-- 默认白班/行政班为 08:30-17:30
-- 不提交真实 Excel、真实员工清单或导入产物
-
-## 本轮禁止事项
-
--- 不创建 `hb_core_app`
--- 不创建 `hb_feishu_app`
--- 不创建月度汇总 DocType
--- 不创建异常三级流程 DocType
-- 不创建/删除/清理 TEST 数据
-- 不接真实考勤机
-- 不配置真实飞书密钥
-- 不要求 Owner 在聊天中粘贴 App Secret
-- 不提交 `.env`、密钥、token、数据库、日志、缓存、运行产物
-- 不修改 Frappe/ERPNext/HRMS 核心源码
-- 不启动大型 Vue/React 前端
-- 不启动 M2
-- 不把「计划可行」写成「功能已实现」
-
-## M1-FIX 全阶段禁止事项
-
-- 不创建 `hb_core_app`
-- 不修改 Frappe/ERPNext/HRMS 核心源码
-- 不提交 `.env`、App Secret、密钥、token
-- 不提交真实员工姓名、真实工号、真实数据
-- 不提交 Excel/CSV 数据文件
-- 不接真实考勤机
-- 不部署公司内网/云服务器
-- 不启动大型 Vue/React 前端
-- 不启动 M2
-- 不伪造飞书登录成功
-- 不执行 `docker compose down -v`
-- 不删除 Docker volume
-- 不重建 `frontend` site
-
-## 当前状态口径
-
-```
-M1     = IN_PROGRESS（产品交付，M1-FIX 中）
-M1-FIX = IN_PROGRESS
-M1-FIX-A = REVIEWING
-M1-FIX-B = REVIEWING
-M1-FIX-B-FIX = REVIEWING
-M1-FIX-B2 = COMPLETED
-M1-FIX-B3 = REVIEWING / Owner UI 验收未通过
-M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题
-M1-FIX-B5 = REVIEWING
-M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
-```
-
-## 下一轮预告
-
-M1-FIX-B5 已进入 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。
+- `docs/milestones/M2_LIMS_总方案与轮次拆分.md`
+- `/Users/hbzl/Desktop/海滨药业LIMS系统开发方案.md`（私有，不入库，业务口径来源）

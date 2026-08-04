@@ -1,0 +1,9 @@
+app_name = "hb_lims_app"
+app_title = "HBOS LIMS"
+app_icon = "assets/hb_lims_app/hbos-lims-logo.svg"
+app_publisher = "HBOS"
+app_description = "HBOS Laboratory Information Management System (M2-LIMS)"
+app_email = "admin@example.com"
+app_license = "GPL-3.0"
+required_apps = ["frappe"]
+after_migrate = "hb_lims_app.hbos_lims.setup.after_migrate"

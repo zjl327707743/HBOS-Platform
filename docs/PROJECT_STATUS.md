@@ -4,12 +4,12 @@
 
 ## 当前状态
 
-- 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）
-- 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。
+- 当前阶段：M2-LIMS 实验室信息管理系统板块（IN_PROGRESS）；M1-FIX 功能补漏为并行未决事项（IN_PROGRESS，B3/B4/B5 未 closeout）
+- 当前轮次：M2-R1（环境与骨架，COMPLETED）；下一轮 M2-R2（主数据与判定引擎，PLANNED）
+- 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置、M1-FIX 轻量自定义 App（hb_attendance_app）与 M2-LIMS 自定义 App（hb_lims_app）
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。M2-R1 已完成 hb_lims_app 骨架创建与安装验证；M2-R2 至 M2-R5 未启动。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M2 未启动。
+- 下一步路线：M2-R2（主数据与判定引擎）为 PLANNED / 待启动；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权，不自动启动。
 
 ## 状态更新制度
 
@@ -546,7 +546,28 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 25. M1-FIX-B3：REVIEWING / Owner UI 验收未通过，考勤工作台入口、App 命名与 HRMS 数据一致性修复不能 closeout。
 26. M1-FIX-B4：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；B4 不 closeout。
 27. M1-FIX-B5：REVIEWING，导入数据链路核查与报表口径收敛已交付，等待 Owner 和 Claude 审查。
-28. M2：未启动 / 待 Owner 授权。
+28. M2-LIMS：IN_PROGRESS（实验室信息管理系统板块，Owner 已授权）。M2-R1 环境与骨架 COMPLETED；M2-R2 主数据与判定引擎、M2-R3 检验流程闭环、M2-R4 COA 与报表、M2-R5 验证收口为 PLANNED。
+
+## M2-LIMS 状态
+
+状态：IN_PROGRESS。
+
+M2-LIMS 是实验室信息管理系统板块（HB LIMS），以《海滨药业LIMS系统开发方案》为业务口径（12 模块），参考开源 SENAITE LIMS 功能结构（仅业务模型参考，不搬代码），自定义 Frappe App `hb_lims_app` 承载，技术承载为 HBOS 既有 Frappe 底座。
+
+M2-R1（环境与骨架）：COMPLETED。本轮目标为建立 M2-LIMS 启动门禁与总方案文档、将 `hb_lims_app` 挂载进 Docker Compose 环境（8 处 service + 6 处 PYTHONPATH）、创建 App 完整骨架（hooks / config / public logo / after_migrate 幂等同步）、安装到 `frontend` site 并验证入口对象与静态资源可达、搭建离线测试脚手架并跑通。执行结果：
+
+- 已新建分支 `m2-lims`（自 `m1-fix-frontend-zh` 切出），M2-LIMS 全部工作在该分支进行。
+- `docker compose config --quiet` 通过；`docker compose up -d` 重建容器成功（未执行 down -v，未删 volume）。
+- `bench --site frontend install-app hb_lims_app` 成功；`migrate` 触发 after_migrate 成功；`list-apps` 显示 `hb_lims_app 0.0.1`。
+- 3 个 LIMS 角色（LIMS Manager / LIMS Analyst / LIMS Reviewer）已创建；Workspace `海滨LIMS工作台`（4 卡片分区 + 4 角色）、Desktop Icon `海滨LIMS`、2 条 Workspace Sidebar 均已创建。
+- `bench build --app hb_lims_app` 成功；frontend 容器 assets 软链接已补建（含恢复 hb_attendance_app 回归缺失）；`http://localhost:8080/login`（Host: frontend）200，LIMS / 考勤 logo 均 200。
+- 离线契约测试 8/8 全绿（`python3 -m unittest discover -s apps/hb_lims_app/tests`）。
+- 排障记录：业务包名由 `hb_lims` 重命名为 `hbos_lims`（对齐 Frappe 模块名 "HBOS LIMS" 的包名约定）；Desktop Icon `bg_color` 由 `green` 改为 `blue`（v16 仅允许 gray/blue）；端口口径为 `HTTP_PORT=8080`（8081 为本机 SENAITE 演示容器，勿混淆）。
+- 主文档 `docs/milestones/M2_R1_环境与骨架.md`、门禁 `docs/milestones/M2_START_GATE.md`、总方案 `docs/milestones/M2_LIMS_总方案与轮次拆分.md` 已交付。
+
+M2-LIMS 本轮未做：未创建 DocType；未创建业务方法（判定引擎 / 状态机 / lims_service）；未修改 Frappe / ERPNext / HRMS 核心源码；未录入任何样品 / 人员 / 检测数据；未提交 `.env`、密钥、Excel / CSV、数据库或运行时产物。
+
+M2-R2 规划：主数据与判定引擎——6 个主数据 DocType（HBOS Sample Type / HBOS Lab Department / HBOS Test Item / HBOS Calculation / HBOS Specification + Item）、`result_contract.py` 判定引擎与测试、spec 生效校验、DocType 权限。M2-R3 至 M2-R5 为 PLANNED。
 
 ## M1-FIX 状态
 
