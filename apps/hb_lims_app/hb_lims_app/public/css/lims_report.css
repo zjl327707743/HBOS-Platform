@@ -1,0 +1,32 @@
+/* 海滨LIMS：报表表格纵向滚动修复
+   Frappe datatable 仅定义 Firefox scrollbar-width:thin，WebKit（Chrome/Safari）无
+   ::-webkit-scrollbar 样式，滚动条不显示且内容超高时无法滚动。
+   本样式：表格高度自适应（max-height 限高）+ 滚动条始终可见。 */
+
+.page-query-report .datatable .dt-scrollable {
+	height: auto !important;
+	max-height: calc(100vh - 300px);
+	overflow-y: auto !important;
+	overflow-x: auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--gray-400) var(--gray-100);
+}
+
+.page-query-report .dt-scrollable::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+.page-query-report .dt-scrollable::-webkit-scrollbar-track {
+	background: var(--gray-100);
+	border-radius: 5px;
+}
+
+.page-query-report .dt-scrollable::-webkit-scrollbar-thumb {
+	background: var(--gray-400);
+	border-radius: 5px;
+}
+
+.page-query-report .dt-scrollable::-webkit-scrollbar-thumb:hover {
+	background: var(--gray-500);
+}

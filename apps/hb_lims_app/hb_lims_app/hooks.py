@@ -7,3 +7,4 @@ app_email = "admin@example.com"
 app_license = "GPL-3.0"
 required_apps = ["frappe"]
 after_migrate = "hb_lims_app.hbos_lims.setup.after_migrate"
+app_include_css = "/assets/hb_lims_app/css/lims_report.css"
