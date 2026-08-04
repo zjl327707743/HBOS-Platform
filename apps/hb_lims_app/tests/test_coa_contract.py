@@ -107,7 +107,8 @@ class TestPrintFormatContract(unittest.TestCase):
 
 
 class TestReportsContract(unittest.TestCase):
-    REPORTS = ("检验结果清单", "样品台账", "审计追踪查询", "COA 发布记录")
+    # 目录名遵循 Frappe scrub(report_name) 约定：ASCII 小写、空格转下划线
+    REPORTS = ("检验结果清单", "样品台账", "审计追踪查询", "coa_发布记录")
 
     def test_report_files_exist(self):
         for name in self.REPORTS:

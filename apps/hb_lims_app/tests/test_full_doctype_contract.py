@@ -87,6 +87,20 @@ class TestAllDoctypeContracts(unittest.TestCase):
                 self.assertRegex(label, r"[一-鿿]", f"{dirname}.{f['fieldname']} label 非中文: {label}")
 
 
+class TestReportDirNamingContract(unittest.TestCase):
+    """报表目录名必须等于 frappe.scrub(report_name)（ASCII 小写、空格转下划线），否则浏览器路径解析失败。"""
+
+    def test_report_dirs_match_scrub(self):
+        report_dir = HBOS_LIMS / "report"
+        report_names = ("待检任务看板", "检验结果清单", "样品台账", "审计追踪查询", "COA 发布记录")
+        for name in report_names:
+            expected_dir = name.lower().replace(" ", "_")
+            self.assertTrue((report_dir / expected_dir).exists(), f"{name} -> {expected_dir}")
+            self.assertTrue((report_dir / expected_dir / f"{expected_dir}.json").exists(), name)
+            self.assertTrue((report_dir / expected_dir / f"{expected_dir}.py").exists(), name)
+            self.assertTrue((report_dir / expected_dir / f"{expected_dir}.js").exists(), name)
+
+
 class TestEntryPointsContract(unittest.TestCase):
     def test_workspace_links_cover_all_routes(self):
         payload = json.loads((HBOS_LIMS / "workspace" / "海滨LIMS工作台" / "海滨LIMS工作台.json").read_text(encoding="utf-8"))
@@ -104,6 +118,9 @@ class TestEntryPointsContract(unittest.TestCase):
         for l in payload["links"]:
             if l.get("link_type") == "Report":
                 self.assertEqual(l["is_query_report"], 1, l["label"])
+            if l.get("label") == "COA 发布记录":
+                # 链接指向报表名，报表模块目录为 scrub 形式
+                self.assertTrue((HBOS_LIMS / "report" / "coa_发布记录" / "coa_发布记录.json").exists())
 
     def test_workspace_shortcuts(self):
         payload = json.loads((HBOS_LIMS / "workspace" / "海滨LIMS工作台" / "海滨LIMS工作台.json").read_text(encoding="utf-8"))
