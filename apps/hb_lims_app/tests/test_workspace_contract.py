@@ -53,6 +53,9 @@ class TestSkeletonContracts(unittest.TestCase):
         self.assertEqual(payload["module"], "HBOS LIMS")
         self.assertEqual(payload["app"], "hb_lims_app")
         self.assertEqual(payload["public"], 1)
+        # 公开仓库：工作台介绍不得引用私有开发方案或外部开源项目
+        self.assertNotIn("开发方案", payload["content"])
+        self.assertNotIn("SENAITE", payload["content"])
         # 四个卡片分区：数据录入与任务 / 业务查询 / 报告管理 / 主数据维护
         content = json.loads(payload["content"])
         cards = [b["data"]["card_name"] for b in content if b["type"] == "card"]

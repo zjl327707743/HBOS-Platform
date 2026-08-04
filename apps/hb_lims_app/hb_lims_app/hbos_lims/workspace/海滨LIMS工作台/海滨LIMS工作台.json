@@ -1,7 +1,7 @@
 {
  "app": "hb_lims_app",
  "charts": [],
- "content": "[{\"id\":\"hbos-lims-title\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>海滨LIMS工作台</b></span><br><span class=\\\"text-muted\\\">实验室信息管理系统（LIMS）：样品登记、检验任务、结果自动判定、复核与 COA 报告。以《海滨药业LIMS系统开发方案》为业务口径，参考 SENAITE LIMS 结构设计。</span>\",\"col\":12}},{\"id\":\"hbos-lims-input-card\",\"type\":\"card\",\"data\":{\"card_name\":\"数据录入与任务\",\"col\":4}},{\"id\":\"hbos-lims-query-card\",\"type\":\"card\",\"data\":{\"card_name\":\"业务查询\",\"col\":4}},{\"id\":\"hbos-lims-report-card\",\"type\":\"card\",\"data\":{\"card_name\":\"报告管理\",\"col\":4}},{\"id\":\"hbos-lims-master-card\",\"type\":\"card\",\"data\":{\"card_name\":\"主数据维护\",\"col\":4}}]",
+ "content": "[{\"id\":\"hbos-lims-title\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>海滨LIMS工作台</b></span><br><span class=\\\"text-muted\\\">实验室信息管理系统（LIMS）：样品登记、检验任务、结果自动判定、复核与 COA 报告。</span>\",\"col\":12}},{\"id\":\"hbos-lims-input-card\",\"type\":\"card\",\"data\":{\"card_name\":\"数据录入与任务\",\"col\":4}},{\"id\":\"hbos-lims-query-card\",\"type\":\"card\",\"data\":{\"card_name\":\"业务查询\",\"col\":4}},{\"id\":\"hbos-lims-report-card\",\"type\":\"card\",\"data\":{\"card_name\":\"报告管理\",\"col\":4}},{\"id\":\"hbos-lims-master-card\",\"type\":\"card\",\"data\":{\"card_name\":\"主数据维护\",\"col\":4}}]",
  "creation": "2026-08-04 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
