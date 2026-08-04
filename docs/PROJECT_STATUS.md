@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M2-LIMS 实验室信息管理系统板块（IN_PROGRESS）；M1-FIX 功能补漏为并行未决事项（IN_PROGRESS，B3/B4/B5 未 closeout）
-- 当前轮次：M2-R3（检验流程闭环，COMPLETED）；下一轮 M2-R4（COA 与报表，PLANNED）
+- 当前轮次：M2-R4（COA 与报表，COMPLETED）；下一轮 M2-R5（验证收口，PLANNED）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置、M1-FIX 轻量自定义 App（hb_attendance_app）与 M2-LIMS 自定义 App（hb_lims_app）
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。M2-R1 已完成 hb_lims_app 骨架创建与安装验证；M2-R2 已完成 6 个主数据 DocType 与判定引擎；M2-R3 已完成检验流程闭环（11 个 DocType + 状态机 + 业务方法 + 待检任务看板，闭环验证 29/29 通过）；M2-R4/R5 未启动。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。M2-R1 已完成 hb_lims_app 骨架创建与安装验证；M2-R2 已完成 6 个主数据 DocType 与判定引擎；M2-R3 已完成检验流程闭环；M2-R4 已完成 COA 与报表（13 个 DocType + Print Format + 5 个报表，COA 发布链路验证 19/19 通过）；M2-R5 未启动。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M2-R4（COA 与报表）为 PLANNED / 待启动；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权，不自动启动。
+- 下一步路线：M2-R5（验证收口）为 PLANNED / 待启动；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权，不自动启动。
 
 ## 状态更新制度
 
@@ -546,7 +546,7 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 25. M1-FIX-B3：REVIEWING / Owner UI 验收未通过，考勤工作台入口、App 命名与 HRMS 数据一致性修复不能 closeout。
 26. M1-FIX-B4：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；B4 不 closeout。
 27. M1-FIX-B5：REVIEWING，导入数据链路核查与报表口径收敛已交付，等待 Owner 和 Claude 审查。
-28. M2-LIMS：IN_PROGRESS（实验室信息管理系统板块，Owner 已授权）。M2-R1 环境与骨架 COMPLETED；M2-R2 主数据与判定引擎 COMPLETED；M2-R3 检验流程闭环 COMPLETED；M2-R4 COA 与报表、M2-R5 验证收口为 PLANNED。
+28. M2-LIMS：IN_PROGRESS（实验室信息管理系统板块，Owner 已授权）。M2-R1 环境与骨架 COMPLETED；M2-R2 主数据与判定引擎 COMPLETED；M2-R3 检验流程闭环 COMPLETED；M2-R4 COA 与报表 COMPLETED；M2-R5 验证收口为 PLANNED。
 
 ## M2-LIMS 状态
 
@@ -571,7 +571,9 @@ M2-R2（主数据与判定引擎）：COMPLETED。本轮交付 6 个主数据 Do
 
 M2-R3（检验流程闭环）：COMPLETED。本轮交付 5 个事务 DocType（HBOS Sample + Item 子表 / Sample Task / Test Result / Result Revision）、`workflow_contract.py` 状态机（Sample/Task/Result 全状态转移表 + 角色矩阵）、`lims_service.py` 业务方法全链（register → generate_tasks → assign → start[自动创建检测记录] → submit[自动判定 + OOS 触发] → review → approve → revise[Revision + superseded 链] → release/reject）、待检任务看板 Script Report。离线测试 73/73 全绿。虚构数据闭环验证 29/29 通过（合格闭环 12 项 / OOS 6 项 / 修订 6 项 / 权限 3 项 / 报表 2 项）。排障并固化：子表 `istable: 1` 与 parent 列、Result 提交锁定基于提交前状态、任务 OOS 路径补全、PYTHONPATH 完整值、get_roles list 适配、修订自转移防护。主文档 `docs/milestones/M2_R3_检验流程闭环.md` 已交付。
 
-M2-R4 规划：COA 与报表——HBOS COA(+Item) + Print Format `HBOS COA` + create_coa / review_coa / publish_coa（PDF 附件归档）+ 检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录 4 个报表 + 发布后快照不可改。M2-R5 为 PLANNED。
+M2-R4（COA 与报表）：COMPLETED。本轮交付 HBOS COA(+Item 子表) DocType、Print Format `HBOS COA`（中文 Jinja 模板 + 签名栏）、lims_service 扩展（create_coa / review_coa / publish_coa，PDF 附件归档 + 快照保护）、4 个 Script Report（检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录）。HBOS LIMS 模块 13 个 DocType 全部就位。离线测试 89/89 全绿；COA 发布链路虚构数据验证 19/19 通过（创建/快照/重复拒绝/QA 审核/PDF 生成 17.8KB/发布人时间/快照锁定/4 报表）。排障并固化：publish 改为直接渲染 fixture 模板（绕开 frappe.get_print 的 website 管线，规避 hrms Job Opening 环境缺失）、记录型结果优先 result_text、fetch 字段防篡改还原语义、带空格报表名用 importlib 导入。主文档 `docs/milestones/M2_R4_COA与报表.md` 已交付。
+
+M2-R5 规划：验证收口——全量演练（13 DocType 全链路）、11 项验收、Workspace 全卡片链接填充、入口可见性验证、台账收口 closeout。
 
 ## M1-FIX 状态
 

@@ -9,6 +9,7 @@
 """
 
 import json
+from pathlib import Path
 
 import frappe
 
@@ -54,10 +55,12 @@ def _rollback():
 
 
 def _result_display_value(result):
-	"""结果展示值：数值结果带单位 / 记录型文本。"""
+	"""结果展示值：记录型优先结果文本；数值结果带单位。"""
+	if result.result_text:
+		return result.result_text
 	if result.result_value is not None and result.result_value != "":
 		return f"{result.result_value}{result.unit or ''}"
-	return result.result_text or str(result.raw_value or "")
+	return str(result.raw_value or "")
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +436,132 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 # ---------------------------------------------------------------------------
 # 样品放行 / 拒绝
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# COA 报告（创建 -> QA 审核 -> 发布 PDF 归档）
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def create_coa(sample_name):
+	"""生成 COA：仅样品检验完成且全部结果已批准时，提取已批准结果生成报告快照。"""
+	_check_action("release_sample")
+	try:
+		sample = frappe.get_doc("HBOS Sample", sample_name)
+		if sample.oos_locked or sample.status != "检验完成":
+			frappe.throw(f"样品 {sample_name} 状态为 {sample.status}（OOS锁定={sample.oos_locked}），"
+						 "仅检验完成且无 OOS 锁定的样品可生成 COA。")
+		results = frappe.get_all(
+			"HBOS Test Result",
+			filters={"sample": sample_name, "result_status": "已批准", "is_oos_candidate": 0},
+			order_by="creation asc",
+		)
+		if not results:
+			frappe.throw(f"样品 {sample_name} 没有已批准且非 OOS 的检验结果，无法生成 COA。")
+		if len(results) < len(sample.items):
+			frappe.throw(f"样品 {sample_name} 仍有检验结果未批准，无法生成 COA。")
+
+		existing = frappe.db.get_value("HBOS COA", {"sample": sample_name, "report_status": ["!=", "已发布"]}, "name")
+		if existing:
+			frappe.throw(f"样品 {sample_name} 已存在未发布 COA（{existing}），请勿重复生成。")
+
+		coa = frappe.get_doc({
+			"doctype": "HBOS COA",
+			"sample": sample_name,
+			"report_status": "草稿",
+			"items": [_coa_item_from_result(r["name"]) for r in results],
+		})
+		coa.insert(ignore_permissions=True)
+		_commit()
+		return coa.name
+	except Exception:
+		_rollback()
+		raise
+
+
+def _coa_print_html(coa):
+	"""渲染 COA Print Format 模板：优先 Print Format 文档 html 字段，为空则读版本化 fixture 模板。"""
+	from frappe.utils.jinja import render_template
+
+	# 读取 fixture 模板（版本化来源，避免 DB 字段漂移）
+	fixture = Path(__file__).parent / "print_format" / "hbos_coa" / "hbos_coa.html"
+	template = fixture.read_text(encoding="utf-8")
+	html = render_template(template, {"doc": coa})
+	# 兜底：Print Format 文档自定义样式（css）
+	pf = frappe.get_doc("Print Format", "HBOS COA")
+	if pf.css:
+		html = f"<style>{pf.css}</style>{html}"
+	return html
+
+
+def _coa_item_from_result(result_name):
+	"""从已批准检测记录生成 COA 项目行（结果含单位 / 标准限度串 / 判定）。"""
+	result = frappe.get_doc("HBOS Test Result", result_name)
+	standard = _limits_text(result)
+	return {
+		"test_item": result.test_item,
+		"item_name": result.item_name,
+		"method_sop": frappe.get_value("HBOS Test Item", result.test_item, "method_sop") or "",
+		"standard": standard,
+		"result": _result_display_value(result),
+		"verdict": result.verdict,
+	}
+
+
+@frappe.whitelist()
+def review_coa(coa_name):
+	"""QA 审核（Reviewer / Manager）：草稿 -> 已审核。"""
+	_check_action("review_result")
+	try:
+		coa = frappe.get_doc("HBOS COA", coa_name)
+		if coa.report_status != "草稿":
+			frappe.throw(f"COA {coa_name} 状态为 {coa.report_status}，仅草稿可审核。")
+		coa.report_status = "已审核"
+		coa.qa_reviewer = _user()
+		coa.qa_reviewed_at = _now()
+		coa.save(ignore_permissions=True)
+		_commit()
+		return coa.name
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def publish_coa(coa_name):
+	"""发布 COA：生成 PDF 附件归档，状态 已审核 -> 已发布（发布后不可修改）。"""
+	_check_action("review_result")
+	try:
+		coa = frappe.get_doc("HBOS COA", coa_name)
+		if coa.report_status != "已审核":
+			frappe.throw(f"COA {coa_name} 状态为 {coa.report_status}，仅已审核可发布。")
+
+		# 生成 PDF（直接渲染 Print Format 模板，绕开 website 渲染管线；中文支持）
+		html = _coa_print_html(coa)
+		pdf = frappe.utils.pdf.get_pdf(html)
+
+		# 附件归档（私有文件，关联 COA）
+		filename = f"{coa_name}.pdf"
+		file_doc = frappe.get_doc({
+			"doctype": "File",
+			"file_name": filename,
+			"is_private": 1,
+			"content": pdf,
+			"attached_to_doctype": "HBOS COA",
+			"attached_to_name": coa_name,
+		})
+		file_doc.insert(ignore_permissions=True)
+
+		coa.pdf_attachment = file_doc.file_url
+		coa.report_status = "已发布"
+		coa.published_by = _user()
+		coa.published_at = _now()
+		coa.save(ignore_permissions=True)
+		_commit()
+		return {"coa": coa.name, "pdf": file_doc.file_url}
+	except Exception:
+		_rollback()
+		raise
+
 
 @frappe.whitelist()
 def release_sample(sample_name):
