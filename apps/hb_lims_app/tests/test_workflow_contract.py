@@ -46,6 +46,12 @@ class TestTaskTransitions(unittest.TestCase):
         self.assertTrue(wf.can_transition(wf.FLOW_TASK, wf.TASK_OOS_CANDIDATE, wf.TASK_TESTING))
         self.assertFalse(wf.can_transition(wf.FLOW_TASK, wf.TASK_OOS_LOCKED, wf.TASK_APPROVED))
 
+    def test_revision_rollback_from_approved(self):
+        # 已批准结果修订后任务回退待复核（已提交）
+        self.assertTrue(wf.can_transition(wf.FLOW_TASK, wf.TASK_APPROVED, wf.TASK_SUBMITTED))
+        # 已批准 -> 已复核 仍非法（只能回退到已提交）
+        self.assertFalse(wf.can_transition(wf.FLOW_TASK, wf.TASK_APPROVED, wf.TASK_REVIEWED))
+
 
 class TestResultTransitions(unittest.TestCase):
     def test_valid_path(self):

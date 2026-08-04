@@ -250,14 +250,16 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 		result.submitted_at = _now()
 		result.save(ignore_permissions=True)
 
-		# 联动任务与样品
+		# 联动任务与样品（修订后的新版本提交时任务可能已在目标状态，避免自转移）
 		task = frappe.get_doc("HBOS Sample Task", result.task)
 		if result.is_oos_candidate:
-			_set_status(task, wf.FLOW_TASK, task.status, "OOS候选")
+			if task.status != "OOS候选":
+				_set_status(task, wf.FLOW_TASK, task.status, "OOS候选")
 			task.save(ignore_permissions=True)
 			_lock_sample_oos(result.sample)
 		else:
-			_set_status(task, wf.FLOW_TASK, task.status, "已提交")
+			if task.status != "已提交":
+				_set_status(task, wf.FLOW_TASK, task.status, "已提交")
 			task.save(ignore_permissions=True)
 		_commit()
 		return {"result": result.name, "verdict": result.verdict, "is_oos_candidate": result.is_oos_candidate}

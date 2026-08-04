@@ -8,7 +8,13 @@ WORKSPACE_TITLE = "海滨LIMS工作台"
 DESKTOP_LABEL = "海滨LIMS"
 DESKTOP_LOGO_URL = "/assets/hb_lims_app/hbos-lims-logo.svg"
 LIMS_ROLES = ["LIMS Manager", "LIMS Analyst", "LIMS Reviewer"]
-PRIMARY_SIDEBAR_ITEMS = []  # R2+ 轮次填充：样品登记 / 待检任务看板 / 检验结果清单 / 质量标准等
+PRIMARY_SIDEBAR_ITEMS = [
+	{"label": "新建样品登记", "link_type": "DocType", "link_to": "HBOS Sample", "type": "Link", "icon": "box"},
+	{"label": "待检任务看板", "link_type": "Report", "link_to": "待检任务看板", "type": "Link", "icon": "check-square"},
+	{"label": "检验结果清单", "link_type": "Report", "link_to": "检验结果清单", "type": "Link", "icon": "flask"},
+	{"label": "COA 发布记录", "link_type": "Report", "link_to": "COA 发布记录", "type": "Link", "icon": "file-text"},
+	{"label": "质量标准", "link_type": "DocType", "link_to": "HBOS Specification", "type": "Link", "icon": "book"},
+]
 
 
 def after_migrate():

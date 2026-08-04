@@ -18,7 +18,7 @@ M2-R3（检验流程闭环）：PLANNED。交付：HBOS Sample(+Item) / Sample T
 
 M2-R4（COA 与报表）：COMPLETED。HBOS COA(+Item) + Print Format `HBOS COA` + create_coa / review_coa / publish_coa（PDF 附件归档 + 快照保护）、4 个报表（检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录）已交付；离线测试 89/89 全绿；COA 发布链路验证 19/19 通过。主文档 `docs/milestones/M2_R4_COA与报表.md`。
 
-M2-R5（验证收口）：PLANNED，下一轮。交付：全量演练（13 DocType 全链路）+ 11 项验收、Workspace 全卡片链接填充、入口可见性验证、测试补齐、台账收口 closeout。
+M2-R5（验证收口）：REVIEWING，等待 Owner 和 Claude 审查。全量演练 19/19 通过、11 项验收全部通过、离线测试 100/100 全绿、Workspace 四卡片 13 链接 + 5 快捷入口已落库。主文档 `docs/milestones/M2_R5_验证收口.md`。审查通过后 closeout，M2-LIMS MVP 整体收口。
 
 ## 并行未决事项（不阻塞 M2-LIMS）
 
@@ -57,12 +57,12 @@ M2-R1 禁止事项：不创建 DocType；不创建业务方法；不修改 Frapp
 ## 当前状态口径
 
 ```
-M2-LIMS   = IN_PROGRESS
+M2-LIMS   = IN_PROGRESS（MVP 交付完成，R5 待审查）
 M2-R1     = COMPLETED
 M2-R2     = COMPLETED
 M2-R3     = COMPLETED
 M2-R4     = COMPLETED
-M2-R5     = PLANNED（下一轮）
+M2-R5     = REVIEWING（待 closeout）
 M2-R4     = PLANNED
 M2-R5     = PLANNED
 M1-FIX    = IN_PROGRESS（并行未决，B3/B4/B5 REVIEWING）
@@ -71,7 +71,7 @@ M1-FIX-C/D/E = PLANNED / 待 Owner 授权
 
 ## 下一轮预告
 
-M2-R5（验证收口）：全量演练（主数据→样品登记→任务→检验→复核→批准→COA 发布全链路）、11 项验收（DocType 可访问/闭环/判定边界/复核锁定/修订留痕/COA PDF/报表/入口可见/测试全绿/无真实数据/Git 干净）、Workspace 四卡片挂接全部 DocType 与报表路由、浏览器入口可见性验证、台账收口 closeout。
+M2-R5 审查 closeout：等待 Owner 浏览器 UI 验收（海滨LIMS 桌面图标 → 工作台 → 样品登记 → 检验全流程 → COA 发布）与 Claude 审查；通过后 M2-LIMS MVP 整体收口为 COMPLETED。M2-LIMS 扩展模块（仪器集成、稳定性、环测、微生物、试剂、留样、OOS 调查、审计追踪通用引擎、国密电子签名）另行规划，不自动启动。
 
 权威状态文件：
 

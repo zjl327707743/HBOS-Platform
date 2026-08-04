@@ -13,10 +13,23 @@
  "is_hidden": 0,
  "label": "海滨LIMS工作台",
  "links": [
-  {"hidden": 0, "is_query_report": 0, "label": "数据录入与任务", "link_count": 0, "onboard": 0, "type": "Card Break"},
-  {"hidden": 0, "is_query_report": 0, "label": "业务查询", "link_count": 0, "onboard": 0, "type": "Card Break"},
-  {"hidden": 0, "is_query_report": 0, "label": "报告管理", "link_count": 0, "onboard": 0, "type": "Card Break"},
-  {"hidden": 0, "is_query_report": 0, "label": "主数据维护", "link_count": 0, "onboard": 0, "type": "Card Break"}
+  {"hidden": 0, "is_query_report": 0, "label": "数据录入与任务", "link_count": 3, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "新建样品登记", "link_count": 0, "link_to": "HBOS Sample", "link_type": "DocType", "onboard": 1, "type": "Link"},
+  {"hidden": 0, "is_query_report": 1, "label": "待检任务看板", "link_count": 0, "link_to": "待检任务看板", "link_type": "Report", "onboard": 1, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "检测记录", "link_count": 0, "link_to": "HBOS Test Result", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "业务查询", "link_count": 3, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 1, "label": "样品台账", "link_count": 0, "link_to": "样品台账", "link_type": "Report", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 1, "label": "检验结果清单", "link_count": 0, "link_to": "检验结果清单", "link_type": "Report", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 1, "label": "审计追踪查询", "link_count": 0, "link_to": "审计追踪查询", "link_type": "Report", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "报告管理", "link_count": 2, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "新建 COA", "link_count": 0, "link_to": "HBOS COA", "link_type": "DocType", "onboard": 1, "type": "Link"},
+  {"hidden": 0, "is_query_report": 1, "label": "COA 发布记录", "link_count": 0, "link_to": "COA 发布记录", "link_type": "Report", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "主数据维护", "link_count": 5, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "质量标准", "link_count": 0, "link_to": "HBOS Specification", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "检验项目", "link_count": 0, "link_to": "HBOS Test Item", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "计算公式", "link_count": 0, "link_to": "HBOS Calculation", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "样品类型", "link_count": 0, "link_to": "HBOS Sample Type", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "检验组", "link_count": 0, "link_to": "HBOS Lab Department", "link_type": "DocType", "onboard": 0, "type": "Link"}
  ],
  "modified": "2026-08-04 00:00:00.000000",
  "modified_by": "Administrator",
@@ -28,7 +41,13 @@
  "quick_lists": [],
  "roles": [{"role": "System Manager"}, {"role": "LIMS Manager"}, {"role": "LIMS Analyst"}, {"role": "LIMS Reviewer"}],
  "sequence_id": 2.0,
- "shortcuts": [],
+ "shortcuts": [
+  {"color": "Blue", "doc_view": "List", "label": "新建样品登记", "link_to": "HBOS Sample", "stats_filter": "[]", "type": "DocType"},
+  {"color": "Green", "doc_view": "Report Builder", "label": "待检任务看板", "link_to": "待检任务看板", "stats_filter": "[]", "type": "Report"},
+  {"color": "Orange", "doc_view": "Report Builder", "label": "检验结果清单", "link_to": "检验结果清单", "stats_filter": "[]", "type": "Report"},
+  {"color": "Purple", "doc_view": "Report Builder", "label": "COA 发布记录", "link_to": "COA 发布记录", "stats_filter": "[]", "type": "Report"},
+  {"color": "Blue", "doc_view": "List", "label": "质量标准", "link_to": "HBOS Specification", "stats_filter": "[]", "type": "DocType"}
+ ],
  "title": "海滨LIMS工作台",
  "type": "Workspace"
 }
