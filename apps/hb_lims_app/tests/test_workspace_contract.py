@@ -46,6 +46,8 @@ class TestSkeletonContracts(unittest.TestCase):
         css = APP_ROOT / "hb_lims_app" / "public" / "css" / "lims_report.css"
         self.assertTrue(css.exists())
         content = css.read_text(encoding="utf-8")
+        # 页面容器无 page-query-report 类，必须用 id 选择器（#page-query-report）
+        self.assertIn("#page-query-report", content)
         self.assertIn(".dt-scrollable", content)
         self.assertIn("overflow-y: auto !important", content)
         self.assertIn("::-webkit-scrollbar", content)
