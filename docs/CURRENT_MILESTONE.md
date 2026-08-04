@@ -12,11 +12,11 @@ M2-R1（环境与骨架）：COMPLETED。`hb_lims_app` 已创建并安装到本�
 
 M2-R2（主数据与判定引擎）：COMPLETED。6 个主数据 DocType 已同步到 frontend site（规格命名 `format:{spec_code}-V{version}` 支持多版本）、`result_contract.py` 判定引擎、规格生效校验；离线测试 40/40 全绿；`TEST-HBOS-M2-*` 虚构主数据验证通过（含多版本/重复拒绝/限度校验/生效查询）。主文档 `docs/milestones/M2_R2_主数据与判定引擎.md`。
 
-M2-R3（检验流程闭环）：PLANNED，下一轮。交付：HBOS Sample(+Item) / Sample Task / Test Result / Result Revision、`workflow_contract.py` 状态机、`lims_service.py` 业务方法全链、待检任务看板报表、虚构数据闭环。
+M2-R3（检验流程闭环）：COMPLETED。5 个事务 DocType（Sample+Item/Task/Test Result/Result Revision）、状态机、业务方法全链、待检任务看板报表已交付；离线测试 73/73 全绿；虚构数据闭环验证 29/29 通过（合格/OOS/修订/权限/报表）。主文档 `docs/milestones/M2_R3_检验流程闭环.md`。
 
 M2-R3（检验流程闭环）：PLANNED。交付：HBOS Sample(+Item) / Sample Task / Test Result / Result Revision、`workflow_contract.py` 状态机、`lims_service.py` 业务方法全链、待检任务看板报表、虚构数据闭环。
 
-M2-R4（COA 与报表）：PLANNED。交付：HBOS COA(+Item) + Print Format + 发布链路、检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录 4 个报表。
+M2-R4（COA 与报表）：PLANNED，下一轮。交付：HBOS COA(+Item) + Print Format `HBOS COA` + create_coa / review_coa / publish_coa（PDF 附件归档）、检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录 4 个报表、发布后快照不可改。
 
 M2-R5（验证收口）：PLANNED。交付：全量演练 + 11 项验收、入口可见、台账更新、closeout。
 
@@ -60,7 +60,8 @@ M2-R1 禁止事项：不创建 DocType；不创建业务方法；不修改 Frapp
 M2-LIMS   = IN_PROGRESS
 M2-R1     = COMPLETED
 M2-R2     = COMPLETED
-M2-R3     = PLANNED（下一轮）
+M2-R3     = COMPLETED
+M2-R4     = PLANNED（下一轮）
 M2-R4     = PLANNED
 M2-R5     = PLANNED
 M1-FIX    = IN_PROGRESS（并行未决，B3/B4/B5 REVIEWING）
@@ -69,7 +70,7 @@ M1-FIX-C/D/E = PLANNED / 待 Owner 授权
 
 ## 下一轮预告
 
-M2-R3（检验流程闭环）：创建 HBOS Sample(+Item) / Sample Task / Test Result / Result Revision 5 个事务 DocType（快照冻结限度、状态流转、签名字段、superseded 链）、`workflow_contract.py` 状态机（Sample/Task/Result 全状态转移表）、`lims_service.py` 业务方法（register_sample → generate_tasks → assign_task → start_task → submit_result[自动判定+OOS] → review_result → approve_result → revise_result）、待检任务看板报表、虚构数据闭环 1-8 步验证。
+M2-R4（COA 与报表）：创建 HBOS COA(+Item) 与 Print Format `HBOS COA`（中文排版 + 签名栏）、create_coa / review_coa / publish_coa 业务方法（PDF 生成与附件归档、发布后快照不可改）、检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录 4 个 Script Report、虚构数据 COA 发布验证。
 
 权威状态文件：
 
