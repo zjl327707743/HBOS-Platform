@@ -30,7 +30,7 @@
    "default": "HBOS-SMP-.YYYY.-",
    "fieldname": "naming_series",
    "fieldtype": "Select",
-   "label": "Series",
+   "label": "编号系列",
    "options": "HBOS-SMP-.YYYY.-",
    "reqd": 1
   },

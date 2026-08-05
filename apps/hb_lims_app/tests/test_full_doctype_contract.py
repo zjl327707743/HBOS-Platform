@@ -73,18 +73,27 @@ class TestAllDoctypeContracts(unittest.TestCase):
             self.assertEqual(fields["naming_series"]["options"], series, dirname)
 
     def test_all_fields_have_chinese_labels(self):
-        """所有字段 label 必须为中文（无 label 的 section/列字段除外）。"""
+        """所有字段 label 必须为中文（无 label 的 section/列字段除外，含 naming_series）。"""
         no_label_fieldtypes = {"Section Break", "Column Break", "Tab Break"}
         for dirname, payload in self.doctypes.items():
             for f in payload["fields"]:
                 if f["fieldtype"] in no_label_fieldtypes:
                     continue
                 label = f.get("label") or ""
-                # 允许 Series/工程字段保留英文
-                if f["fieldname"] == "naming_series" or label.startswith("Series"):
-                    continue
                 self.assertTrue(label, f"{dirname}.{f['fieldname']} 缺少中文 label")
                 self.assertRegex(label, r"[一-鿿]", f"{dirname}.{f['fieldname']} label 非中文: {label}")
+
+    def test_translations_cover_doctypes(self):
+        """简体中文翻译文件必须覆盖全部 13 个 DocType 名与模块名（控制面板简体中文）。"""
+        csv_path = APP_ROOT / "hb_lims_app" / "translations" / "zh.csv"
+        self.assertTrue(csv_path.exists())
+        lines = [l for l in csv_path.read_text(encoding="utf-8").strip().splitlines() if l]
+        self.assertEqual(lines[0], "source,target")
+        pairs = dict(l.split(",") for l in lines[1:])
+        for doctype in EXPECTED_DOCTYPES.values():
+            self.assertIn(doctype, pairs, f"{doctype} 缺少中文翻译")
+            self.assertRegex(pairs[doctype], r"[一-鿿]", f"{doctype} 翻译非中文")
+        self.assertEqual(pairs["HBOS LIMS"], "海滨LIMS")
 
 
 class TestReportDirNamingContract(unittest.TestCase):
