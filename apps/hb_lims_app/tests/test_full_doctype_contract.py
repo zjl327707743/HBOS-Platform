@@ -72,6 +72,22 @@ class TestAllDoctypeContracts(unittest.TestCase):
             fields = {f["fieldname"]: f for f in self.doctypes[dirname]["fields"]}
             self.assertEqual(fields["naming_series"]["options"], series, dirname)
 
+    def test_sample_default_report_view(self):
+        """样品登记（HBOS Sample）默认视图必须为 Report（用户需求：新建样品登记默认为报表视图）；
+        其他 LIMS DocType 不设 default_view，保持原生默认列表视图。"""
+        for dirname, payload in self.doctypes.items():
+            if dirname == "hbos_sample":
+                self.assertEqual(
+                    payload.get("default_view"),
+                    "Report",
+                    "HBOS Sample 应默认报表视图",
+                )
+            else:
+                self.assertIsNone(
+                    payload.get("default_view"),
+                    f"{dirname} 不应设置 default_view，保持默认列表视图",
+                )
+
     def test_all_fields_have_chinese_labels(self):
         """所有字段 label 必须为中文（无 label 的 section/列字段除外，含 naming_series）。"""
         no_label_fieldtypes = {"Section Break", "Column Break", "Tab Break"}
@@ -183,6 +199,36 @@ class TestEntryPointsContract(unittest.TestCase):
         self.assertTrue(js.exists())
         self.assertIn("dt-cell__content", js.read_text(encoding="utf-8"))
 
+    def test_table_text_centered_assets(self):
+        """表格字段文字居中增强（用户需求：所有表格字段文字剧中）：
+        CSS 对 HBOS LIMS 标记容器（.hbos-lims-list / .hbos-lims-grid / .hbos-lims-report）
+        内的表格单元格 text-align:center；JS 注入标记类，非 LIMS 页面不受影响。
+        表头居中补充：列表视图表头 flex justify-content:center + 第一列 checkbox 绝对定位
+        （消除全选框占位偏右）；datatable 表头 padding-left 补偿（消除左右不对称偏左 5px）。"""
+        css = (APP_ROOT / "hb_lims_app" / "public" / "css" / "lims_report.css").read_text(encoding="utf-8")
+        self.assertIn("text-align: center", css)
+        self.assertIn(".hbos-lims-list .datatable .dt-cell__content", css)
+        self.assertIn(".hbos-lims-list .list-row-col", css)
+        self.assertIn(".hbos-lims-grid .grid-static-col", css)
+        self.assertIn("#page-query-report.hbos-lims-report .datatable .dt-cell__content", css)
+        # 表头居中补充：列表视图 flex 表头 + 第一列 checkbox 绝对定位
+        self.assertIn(".hbos-lims-list .list-row-head .list-row-col {", css)
+        self.assertIn("justify-content: center", css)
+        self.assertIn(".list-subject.level .select-like", css)
+        self.assertIn("position: absolute", css)
+        self.assertIn(".list-subject.level [data-sort-by]", css)
+        # datatable 表头 padding 对称补偿
+        self.assertIn(".dt-row-header .dt-cell__content", css)
+        self.assertIn("padding-left: 16px", css)
+        # JS 注入标记类
+        list_js = (APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_list_resize.js").read_text(encoding="utf-8")
+        self.assertIn('addClass("hbos-lims-list")', list_js)
+        grid_js = (APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_grid_resize.js").read_text(encoding="utf-8")
+        self.assertIn('addClass("hbos-lims-grid")', grid_js)
+        report_js = (APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_report.js").read_text(encoding="utf-8")
+        self.assertIn("hbos-lims-report", report_js)
+        self.assertIn("MutationObserver", report_js)
+
     def test_list_column_resize_assets(self):
         """列表视图列宽拖拽增强（用户反馈：DocType 列表页无法拖宽列）：
         lims_list_resize.js monkey-patch apply_column_widths 恢复持久化宽度并注入
@@ -199,6 +245,31 @@ class TestEntryPointsContract(unittest.TestCase):
         self.assertIn("dblclick", code)
         css = (APP_ROOT / "hb_lims_app" / "public" / "css" / "lims_report.css").read_text(encoding="utf-8")
         self.assertIn(".list-view .list-row-head .list-row-col .list-col-resize-handle", css)
+        self.assertIn("opacity: 1 !important", css)
+        # 表头/数据对齐修复：数据行 Subject 列（.list-subject.level）必须与表头同规则
+        # （checkbox 绝对定位最左 + 文字居中），否则表头标题居中、数据行靠左造成错位
+        self.assertIn(".hbos-lims-list .list-row .list-subject.level .select-like", css)
+        self.assertIn("position: absolute", css)
+
+    def test_grid_column_resize_assets(self):
+        """表单子表网格列宽拖拽增强（用户反馈：新建样品登记等表单页子表无法拖宽列）：
+        lims_grid_resize.js monkey-patch ControlTable.prototype.make + MutationObserver 兜底，
+        wrap grid 实例 refresh 恢复持久化列宽并注入表头拖拽手柄，限定 HBOS LIMS 模块；
+        CSS 含子表手柄 hover 显示规则。"""
+        hooks = (APP_ROOT / "hb_lims_app" / "hooks.py").read_text(encoding="utf-8")
+        self.assertIn('"/assets/hb_lims_app/js/lims_grid_resize.js"', hooks)
+        js = APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_grid_resize.js"
+        code = js.read_text(encoding="utf-8")
+        self.assertIn("ControlTable.prototype.make", code)
+        self.assertIn("grid-col-resize-handle", code)
+        self.assertIn("hbos_lims_grid_column_widths", code)
+        self.assertIn("localStorage", code)
+        self.assertIn('"HBOS LIMS"', code)
+        self.assertIn("dblclick", code)
+        self.assertIn("MutationObserver", code)
+        self.assertIn(".grid-static-col[data-fieldname]", code)
+        css = (APP_ROOT / "hb_lims_app" / "public" / "css" / "lims_report.css").read_text(encoding="utf-8")
+        self.assertIn(".form-grid .grid-heading-row .grid-static-col .grid-col-resize-handle", css)
         self.assertIn("opacity: 1 !important", css)
 
     def test_boot_session_sidebar_cache_workaround(self):
