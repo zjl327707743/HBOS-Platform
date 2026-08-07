@@ -171,6 +171,18 @@ class TestEntryPointsContract(unittest.TestCase):
         logo = APP_ROOT / "hb_lims_app" / "public" / "hbos-lims-logo.svg"
         self.assertTrue(logo.exists())
 
+    def test_report_column_resize_assets(self):
+        """报表表格列宽拖拽增强：hooks 注入 CSS/JS，CSS 必须含 hover 显示拖拽手柄规则。"""
+        hooks = (APP_ROOT / "hb_lims_app" / "hooks.py").read_text(encoding="utf-8")
+        self.assertIn('app_include_css = "/assets/hb_lims_app/css/lims_report.css"', hooks)
+        self.assertIn('app_include_js = "/assets/hb_lims_app/js/lims_report.js"', hooks)
+        css = (APP_ROOT / "hb_lims_app" / "public" / "css" / "lims_report.css").read_text(encoding="utf-8")
+        self.assertIn(".dt-cell__resize-handle", css)
+        self.assertIn("opacity: 1 !important", css)
+        js = APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_report.js"
+        self.assertTrue(js.exists())
+        self.assertIn("dt-cell__content", js.read_text(encoding="utf-8"))
+
     def test_boot_session_sidebar_cache_workaround(self):
         """Frappe v16.26.3 核心 bug workaround：get_can_read_items 缺 return 导致
         非管理员侧边栏 DocType 项全被过滤；hb_lims_app 在 boot_session 预置

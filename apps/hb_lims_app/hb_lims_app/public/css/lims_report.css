@@ -36,3 +36,19 @@
 #page-query-report .dt-scrollable::-webkit-scrollbar-thumb:hover {
 	background: var(--gray-500);
 }
+
+/* 报表 DataTable 列宽拖拽：datatable 原生支持拖拽调列宽（最小 30px）与
+   双击表头手柄自适应列宽，但 resize-handle 默认 opacity:0 且无 hover 显示规则，
+   手柄不可见导致无法拖拽，fixed 布局下列宽不足时内容被 ellipsis 截断。
+   本样式：hover 表头单元格时显示拖拽手柄（含手柄自身 hover），并加宽命中区。 */
+#page-query-report .datatable .dt-row-header .dt-cell__resize-handle {
+	width: 9px;
+	right: -4px;
+	cursor: col-resize;
+	transition: opacity 0.15s;
+}
+
+#page-query-report .datatable .dt-row-header .dt-cell:hover .dt-cell__resize-handle,
+#page-query-report .datatable .dt-row-header .dt-cell__resize-handle:hover {
+	opacity: 1 !important;
+}

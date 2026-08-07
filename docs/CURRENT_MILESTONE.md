@@ -18,7 +18,7 @@ M2-R3（检验流程闭环）：PLANNED。交付：HBOS Sample(+Item) / Sample T
 
 M2-R4（COA 与报表）：COMPLETED。HBOS COA(+Item) + Print Format `HBOS COA` + create_coa / review_coa / publish_coa（PDF 附件归档 + 快照保护）、4 个报表（检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录）已交付；离线测试 89/89 全绿；COA 发布链路验证 19/19 通过。主文档 `docs/milestones/M2_R4_COA与报表.md`。
 
-M2-R5（验证收口）：REVIEWING，等待 Owner 和 Claude 审查。全量演练 19/19 通过、11 项验收全部通过、离线测试 104/104 全绿、Workspace 四卡片 13 链接 + 5 快捷入口已落库。审查期间增强：控制面板全面简体中文（Series→编号系列 + zh.csv DocType 名翻译）；侧边导航按业务模块下拉分组（原生 Section Break，样品管理/检验流程/报告管理/质量主数据/审计追踪 5 分组 17 子项）；定位并 workaround Frappe v16.26.3 侧边栏 DocType 项过滤核心 bug（boot_session hook 预置 user_perm_can_read 缓存，不改核心源码）。主文档 `docs/milestones/M2_R5_验证收口.md`。审查通过后 closeout，M2-LIMS MVP 整体收口。
+M2-R5（验证收口）：REVIEWING，等待 Owner 和 Claude 审查。全量演练 19/19 通过、11 项验收全部通过、离线测试 105/105 全绿、Workspace 四卡片 13 链接 + 5 快捷入口已落库。审查期间增强：控制面板全面简体中文（Series→编号系列 + zh.csv DocType 名翻译）；侧边导航按业务模块下拉分组（原生 Section Break，样品管理/检验流程/报告管理/质量主数据/审计追踪 5 分组 17 子项）；定位并 workaround Frappe v16.26.3 侧边栏 DocType 项过滤核心 bug（boot_session hook 预置 user_perm_can_read 缓存，不改核心源码）；报表表格列宽拖拽修复（resize-handle 默认 opacity:0 不可见，CSS hover 表头显示手柄恢复原生拖拽与双击自适应，JS 单元格 hover 全文提示）。主文档 `docs/milestones/M2_R5_验证收口.md`。审查通过后 closeout，M2-LIMS MVP 整体收口。
 
 ## 并行未决事项（不阻塞 M2-LIMS）
 
