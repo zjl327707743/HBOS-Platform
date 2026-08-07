@@ -573,7 +573,7 @@ M2-R3（检验流程闭环）：COMPLETED。本轮交付 5 个事务 DocType（H
 
 M2-R4（COA 与报表）：COMPLETED。本轮交付 HBOS COA(+Item 子表) DocType、Print Format `HBOS COA`（中文 Jinja 模板 + 签名栏）、lims_service 扩展（create_coa / review_coa / publish_coa，PDF 附件归档 + 快照保护）、4 个 Script Report（检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录）。HBOS LIMS 模块 13 个 DocType 全部就位。离线测试 89/89 全绿；COA 发布链路虚构数据验证 19/19 通过（创建/快照/重复拒绝/QA 审核/PDF 生成 17.8KB/发布人时间/快照锁定/4 报表）。排障并固化：publish 改为直接渲染 fixture 模板（绕开 frappe.get_print 的 website 管线，规避 hrms Job Opening 环境缺失）、记录型结果优先 result_text、fetch 字段防篡改还原语义、带空格报表名用 importlib 导入。主文档 `docs/milestones/M2_R4_COA与报表.md` 已交付。
 
-M2-R5（验证收口）：REVIEWING。本轮交付 Workspace 四卡片 13 链接 + 5 快捷入口 + Sidebar 5 主项（after_migrate 幂等同步验证）、test_full_doctype_contract 全量契约测试（13 DocType 中文 label 全覆盖）、全量演练 19/19 通过（登记→任务→检验→判定→复核→批准→修订→COA→发布→放行 + 5 报表 + 数据盘点）、11 项验收全部通过、离线测试 100/100 全绿。排障并固化：状态机补「已批准→已提交」修订回退、submit_result 任务联动自转移防护。主文档 `docs/milestones/M2_R5_验证收口.md` 已交付，等待 Owner 和 Claude 审查后 closeout。
+M2-R5（验证收口）：REVIEWING。本轮交付 Workspace 四卡片 13 链接 + 5 快捷入口 + Sidebar 5 主项（after_migrate 幂等同步验证）、test_full_doctype_contract 全量契约测试（13 DocType 中文 label 全覆盖）、全量演练 19/19 通过（登记→任务→检验→判定→复核→批准→修订→COA→发布→放行 + 5 报表 + 数据盘点）、11 项验收全部通过、离线测试 100/100 全绿。排障并固化：状态机补「已批准→已提交」修订回退、submit_result 任务联动自转移防护。审查期间增强：①控制面板全面简体中文（Series 标签→编号系列 + translations/zh.csv 13 DocType 名中文化，契约测试强制中文 label 与翻译覆盖）；②侧边导航按业务模块下拉分组（原生 Section Break + collapsible + child，5 分组 17 子项，与工作台四卡片对应）；③定位并 workaround Frappe v16.26.3 核心 bug（`get_can_read_items` 缺 return 致非管理员侧边栏 DocType 项全被过滤，hb_lims_app 注册 boot_session hook 预置 `user_perm_can_read` 缓存，不改核心源码）。离线测试 104/104 全绿。主文档 `docs/milestones/M2_R5_验证收口.md` 已交付，等待 Owner 和 Claude 审查后 closeout。
 
 ## M1-FIX 状态
 

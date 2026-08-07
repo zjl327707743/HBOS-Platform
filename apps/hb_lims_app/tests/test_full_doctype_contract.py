@@ -139,12 +139,30 @@ class TestEntryPointsContract(unittest.TestCase):
         self.assertIn("待检任务看板", shortcut_labels)
         self.assertIn("质量标准", shortcut_labels)
 
-    def test_sidebar_items_populated(self):
+    def test_sidebar_grouped_by_module(self):
+        """侧边导航按业务模块分组（Section Break 分组 + collapsible 下拉 + child 子项缩进）。"""
         setup = (HBOS_LIMS / "setup.py").read_text(encoding="utf-8")
-        self.assertIn('{"label": "新建样品登记", "link_type": "DocType", "link_to": "HBOS Sample"', setup)
-        self.assertIn('"link_to": "待检任务看板"', setup)
-        self.assertIn('"link_to": "COA 发布记录"', setup)
-        self.assertIn('"link_to": "HBOS Specification"', setup)
+        # 5 个模块分组，均为可下拉的 Section Break
+        for section in ("样品管理", "检验流程", "报告管理", "质量主数据", "审计追踪"):
+            self.assertIn(f'{{"label": "{section}", "type": "Section Break", "collapsible": 1, "keep_closed":', setup)
+        # 关键子项均标记 child=1（归入分组下拉）
+        for link in (
+            '{"label": "新建样品登记", "link_type": "DocType", "link_to": "HBOS Sample", "type": "Link", "icon": "box", "child": 1}',
+            '"link_to": "待检任务看板", "type": "Link", "icon": "kanban", "child": 1}',
+            '"link_to": "COA 发布记录", "type": "Link", "icon": "paper-plane", "child": 1}',
+            '"link_to": "HBOS Specification", "type": "Link", "icon": "book", "child": 1}',
+            '"link_to": "审计追踪查询", "type": "Link", "icon": "search", "child": 1}',
+        ):
+            self.assertIn(link, setup)
+        # 分组顺序：每个 Section Break 后跟其模块子项（样例抽查）
+        sample_section = setup.index('"label": "样品管理", "type": "Section Break"')
+        flow_section = setup.index('"label": "检验流程", "type": "Section Break"')
+        report_section = setup.index('"label": "报告管理", "type": "Section Break"')
+        self.assertTrue(
+            sample_section < setup.index('"link_to": "HBOS Sample", "type": "Link", "icon": "box", "child": 1}')
+            < flow_section < setup.index('"link_to": "待检任务看板"')
+            < report_section
+        )
 
     def test_desktop_icon_and_logo(self):
         setup = (HBOS_LIMS / "setup.py").read_text(encoding="utf-8")
@@ -152,6 +170,19 @@ class TestEntryPointsContract(unittest.TestCase):
         self.assertIn("restrict_removal = 1", setup)
         logo = APP_ROOT / "hb_lims_app" / "public" / "hbos-lims-logo.svg"
         self.assertTrue(logo.exists())
+
+    def test_boot_session_sidebar_cache_workaround(self):
+        """Frappe v16.26.3 核心 bug workaround：get_can_read_items 缺 return 导致
+        非管理员侧边栏 DocType 项全被过滤；hb_lims_app 在 boot_session 预置
+        user_perm_can_read 缓存恢复原生权限语义（不改 Frappe 核心源码）。"""
+        hooks = (APP_ROOT / "hb_lims_app" / "hooks.py").read_text(encoding="utf-8")
+        self.assertIn(
+            'boot_session = "hb_lims_app.hbos_lims.setup.sync_user_perm_can_read_cache"', hooks
+        )
+        setup = (HBOS_LIMS / "setup.py").read_text(encoding="utf-8")
+        self.assertIn("def sync_user_perm_can_read_cache(bootinfo=None):", setup)
+        self.assertIn('frappe.cache.set_value("user_perm_can_read"', setup)
+        self.assertIn("21600", setup)
 
 
 if __name__ == "__main__":

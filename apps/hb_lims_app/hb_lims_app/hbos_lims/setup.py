@@ -8,12 +8,34 @@ WORKSPACE_TITLE = "海滨LIMS工作台"
 DESKTOP_LABEL = "海滨LIMS"
 DESKTOP_LOGO_URL = "/assets/hb_lims_app/hbos-lims-logo.svg"
 LIMS_ROLES = ["LIMS Manager", "LIMS Analyst", "LIMS Reviewer"]
+# 侧边导航按业务模块分组（Section Break 分组 + collapsible 下拉 + child 子项），
+# 与海滨LIMS工作台四卡片分区一一对应，由 Frappe 原生 Workspace Sidebar 渲染。
 PRIMARY_SIDEBAR_ITEMS = [
-	{"label": "新建样品登记", "link_type": "DocType", "link_to": "HBOS Sample", "type": "Link", "icon": "box"},
-	{"label": "待检任务看板", "link_type": "Report", "link_to": "待检任务看板", "type": "Link", "icon": "check-square"},
-	{"label": "检验结果清单", "link_type": "Report", "link_to": "检验结果清单", "type": "Link", "icon": "flask"},
-	{"label": "COA 发布记录", "link_type": "Report", "link_to": "COA 发布记录", "type": "Link", "icon": "file-text"},
-	{"label": "质量标准", "link_type": "DocType", "link_to": "HBOS Specification", "type": "Link", "icon": "book"},
+	# —— 样品管理 ——
+	{"label": "样品管理", "type": "Section Break", "collapsible": 1, "keep_closed": 0, "icon": "box"},
+	{"label": "新建样品登记", "link_type": "DocType", "link_to": "HBOS Sample", "type": "Link", "icon": "box", "child": 1},
+	{"label": "样品台账", "link_type": "Report", "link_to": "样品台账", "type": "Link", "icon": "list", "child": 1},
+	{"label": "样品类型", "link_type": "DocType", "link_to": "HBOS Sample Type", "type": "Link", "icon": "tag", "child": 1},
+	# —— 检验流程 ——
+	{"label": "检验流程", "type": "Section Break", "collapsible": 1, "keep_closed": 1, "icon": "check-square"},
+	{"label": "待检任务看板", "link_type": "Report", "link_to": "待检任务看板", "type": "Link", "icon": "kanban", "child": 1},
+	{"label": "检验任务", "link_type": "DocType", "link_to": "HBOS Sample Task", "type": "Link", "icon": "list", "child": 1},
+	{"label": "检验结果清单", "link_type": "Report", "link_to": "检验结果清单", "type": "Link", "icon": "flask", "child": 1},
+	{"label": "检测记录", "link_type": "DocType", "link_to": "HBOS Test Result", "type": "Link", "icon": "file-text", "child": 1},
+	# —— 报告管理 ——
+	{"label": "报告管理", "type": "Section Break", "collapsible": 1, "keep_closed": 1, "icon": "file-text"},
+	{"label": "新建检验报告书", "link_type": "DocType", "link_to": "HBOS COA", "type": "Link", "icon": "file-plus", "child": 1},
+	{"label": "COA 发布记录", "link_type": "Report", "link_to": "COA 发布记录", "type": "Link", "icon": "paper-plane", "child": 1},
+	# —— 质量主数据 ——
+	{"label": "质量主数据", "type": "Section Break", "collapsible": 1, "keep_closed": 1, "icon": "book"},
+	{"label": "质量标准", "link_type": "DocType", "link_to": "HBOS Specification", "type": "Link", "icon": "book", "child": 1},
+	{"label": "检验项目", "link_type": "DocType", "link_to": "HBOS Test Item", "type": "Link", "icon": "list", "child": 1},
+	{"label": "计算公式", "link_type": "DocType", "link_to": "HBOS Calculation", "type": "Link", "icon": "calculator", "child": 1},
+	{"label": "检验组", "link_type": "DocType", "link_to": "HBOS Lab Department", "type": "Link", "icon": "users", "child": 1},
+	# —— 审计追踪 ——
+	{"label": "审计追踪", "type": "Section Break", "collapsible": 1, "keep_closed": 1, "icon": "history"},
+	{"label": "审计追踪查询", "link_type": "Report", "link_to": "审计追踪查询", "type": "Link", "icon": "search", "child": 1},
+	{"label": "结果修订记录", "link_type": "DocType", "link_to": "HBOS Result Revision", "type": "Link", "icon": "history", "child": 1},
 ]
 
 
@@ -22,6 +44,21 @@ def after_migrate():
 	for role in LIMS_ROLES:
 		_sync_role(role)
 	sync_lims_workspace()
+
+
+def sync_user_perm_can_read_cache(bootinfo=None):
+	"""Workaround（Frappe v16.26.3 核心 bug）：WorkspaceSidebar.get_can_read_items()
+	缺少 return，user_perm_can_read 缓存恒为 None，导致非 Administrator 用户
+	侧边栏中所有 DocType 项被 is_item_allowed 过滤（仅报表/看板项可见）。
+
+	方案：在 boot_session hook 中按用户预置该缓存（与 frappe 原生的 6 小时
+	缓存同 key/同语义），侧边栏 DocType 项恢复按角色权限展示。缓存值本身
+	由 Frappe 权限系统计算，不改动权限语义；frappe 升级修复后此预置无副作用。
+	"""
+	user = frappe.get_user()
+	if not user.can_read:
+		user.build_permissions()
+	frappe.cache.set_value("user_perm_can_read", user.can_read, frappe.session.user, 21600)
 
 
 def _sync_role(role_name):
