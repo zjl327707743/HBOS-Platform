@@ -52,3 +52,27 @@
 #page-query-report .datatable .dt-row-header .dt-cell__resize-handle:hover {
 	opacity: 1 !important;
 }
+
+/* 列表视图（DocType 列表页）列宽拖拽：v16 原生仅按内容自动计算列宽，无拖拽交互；
+   JS（lims_list_resize.js）为 LIMS 列表页表头列注入 .list-col-resize-handle 手柄，
+   本样式 hover 表头列时显示手柄并加宽命中区（拖拽改列宽、双击复位为自动宽度）。 */
+.list-view .list-row-head .list-row-col {
+	position: relative;
+}
+
+.list-view .list-row-head .list-row-col .list-col-resize-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: -3px;
+	width: 9px;
+	z-index: 1;
+	cursor: col-resize;
+	opacity: 0;
+	transition: opacity 0.15s;
+}
+
+.list-view .list-row-head .list-row-col:hover .list-col-resize-handle,
+.list-view .list-row-head .list-row-col .list-col-resize-handle:hover {
+	opacity: 1 !important;
+}
