@@ -85,5 +85,9 @@ def _fetch(filters):
 	for row in rows:
 		row.status = TASK_STATUS_LABELS.get(row.status, row.status)
 		row.priority = PRIORITY_LABELS.get(row.priority, row.priority)
-		row.overdue = "是" if (row.due_date and row.due_date < today and row.status not in ("已批准",)) else ""
+		overdue = False
+		if row.due_date and row.status not in ("已批准",):
+			# due_date 为 date 类型，today 为 str，统一转 date 再比较
+			overdue = frappe.utils.getdate(row.due_date) < frappe.utils.getdate(today)
+		row.overdue = "是" if overdue else ""
 	return rows
