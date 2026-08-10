@@ -190,8 +190,8 @@ class TestEntryPointsContract(unittest.TestCase):
     def test_report_column_resize_assets(self):
         """报表表格列宽拖拽增强：hooks 注入 CSS/JS，CSS 必须含 hover 显示拖拽手柄规则。"""
         hooks = (APP_ROOT / "hb_lims_app" / "hooks.py").read_text(encoding="utf-8")
-        self.assertIn('app_include_css = "/assets/hb_lims_app/css/lims_report.css"', hooks)
-        self.assertIn('"/assets/hb_lims_app/js/lims_report.js"', hooks)
+        self.assertIn('app_include_css = "/assets/hb_lims_app/css/lims_report.css', hooks)
+        self.assertIn('"/assets/hb_lims_app/js/lims_report.js', hooks)
         css = (APP_ROOT / "hb_lims_app" / "public" / "css" / "lims_report.css").read_text(encoding="utf-8")
         self.assertIn(".dt-cell__resize-handle", css)
         self.assertIn("opacity: 1 !important", css)
@@ -220,6 +220,11 @@ class TestEntryPointsContract(unittest.TestCase):
         # datatable 表头 padding 对称补偿
         self.assertIn(".dt-row-header .dt-cell__content", css)
         self.assertIn("padding-left: 16px", css)
+        # 列表视图行列高度修复（结果修订记录异常：字段名 result 命中 Frappe 原生
+        # .frappe-list .result { min-height:200px } 被撑高，行高异常 + 列错位）
+        self.assertIn(".hbos-lims-list .list-row .list-row-col {", css)
+        self.assertIn("min-height: auto", css)
+        self.assertIn("height: auto", css)
         # JS 注入标记类
         list_js = (APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_list_resize.js").read_text(encoding="utf-8")
         self.assertIn('addClass("hbos-lims-list")', list_js)
@@ -234,7 +239,7 @@ class TestEntryPointsContract(unittest.TestCase):
         lims_list_resize.js monkey-patch apply_column_widths 恢复持久化宽度并注入
         表头拖拽手柄，限定 HBOS LIMS 模块；CSS 含列表页手柄 hover 显示规则。"""
         hooks = (APP_ROOT / "hb_lims_app" / "hooks.py").read_text(encoding="utf-8")
-        self.assertIn('"/assets/hb_lims_app/js/lims_list_resize.js"', hooks)
+        self.assertIn('"/assets/hb_lims_app/js/lims_list_resize.js', hooks)
         js = APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_list_resize.js"
         code = js.read_text(encoding="utf-8")
         self.assertIn("apply_column_widths", code)
@@ -257,7 +262,7 @@ class TestEntryPointsContract(unittest.TestCase):
         wrap grid 实例 refresh 恢复持久化列宽并注入表头拖拽手柄，限定 HBOS LIMS 模块；
         CSS 含子表手柄 hover 显示规则。"""
         hooks = (APP_ROOT / "hb_lims_app" / "hooks.py").read_text(encoding="utf-8")
-        self.assertIn('"/assets/hb_lims_app/js/lims_grid_resize.js"', hooks)
+        self.assertIn('"/assets/hb_lims_app/js/lims_grid_resize.js', hooks)
         js = APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_grid_resize.js"
         code = js.read_text(encoding="utf-8")
         self.assertIn("ControlTable.prototype.make", code)

@@ -158,3 +158,14 @@
 #page-query-report.hbos-lims-report .datatable .dt-row-header .dt-cell__content {
 	padding-left: 16px !important;
 }
+
+/* 列表视图行列高度修复（结果修订记录列表异常）：
+   Frappe 原生规则 .frappe-list .result { min-height: 200px } 不仅命中列表结果容器
+   .result，也会命中字段名恰为 result 的列表列（.list-row-col.result，Link 字段"结果记录"），
+   把该列撑高到 200px、整行拉高到 200px+，导致编号与后续列之间出现一条独立"HBOS-TR-2026-"
+   且行高异常。通用修复：LIMS 列表视图全部数据行列重置 min-height/height，避免任何字段名
+   与 Frappe 容器类（result/freeze/no-result 等）冲突时被原生规则误撑高。 */
+.hbos-lims-list .list-row .list-row-col {
+	min-height: auto !important;
+	height: auto !important;
+}

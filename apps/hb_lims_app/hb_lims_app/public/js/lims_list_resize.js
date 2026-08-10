@@ -124,6 +124,8 @@
 			if (!is_lims_doctype(this.doctype)) {
 				return;
 			}
+			// 标记 HBOS LIMS 列表容器，供 CSS 限定样式（如文字居中）
+			this.$frappe_list.addClass("hbos-lims-list");
 			var widths = load_widths()[this.doctype];
 			if (widths) {
 				Object.keys(widths).forEach(function (fieldname) {
@@ -132,6 +134,22 @@
 			}
 			ensure_resize_handles(this);
 		};
+
+		// list.bundle.js 路由懒加载，patch 时机可能晚于首个 LIMS 列表页实例的
+		// 首次渲染（渲染已调用 patch 前的原生 apply_column_widths，手柄未注入）。
+		// 对已存在且已渲染的 LIMS 列表实例补调一次，注入手柄并恢复持久化列宽。
+		Object.keys(frappe.views.list_view).forEach(function (route) {
+			var lv = frappe.views.list_view[route];
+			if (
+				lv &&
+				lv.doctype &&
+				is_lims_doctype(lv.doctype) &&
+				lv.$frappe_list &&
+				lv.$frappe_list.length
+			) {
+				lv.apply_column_widths();
+			}
+		});
 	}
 
 	setTimeout(init, 300);

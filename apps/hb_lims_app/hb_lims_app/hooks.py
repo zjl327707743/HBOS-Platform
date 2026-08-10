@@ -7,10 +7,11 @@ app_email = "admin@example.com"
 app_license = "GPL-3.0"
 required_apps = ["frappe"]
 after_migrate = "hb_lims_app.hbos_lims.setup.after_migrate"
-app_include_css = "/assets/hb_lims_app/css/lims_report.css"
+app_include_css = "/assets/hb_lims_app/css/lims_report.css?v=2"
 app_include_js = [
-	"/assets/hb_lims_app/js/lims_report.js",
-	"/assets/hb_lims_app/js/lims_list_resize.js",
+	"/assets/hb_lims_app/js/lims_report.js?v=2",
+	"/assets/hb_lims_app/js/lims_list_resize.js?v=2",
+	"/assets/hb_lims_app/js/lims_grid_resize.js?v=2",
 ]
 # Frappe v16.26.3 侧边栏 DocType 项过滤 bug workaround：
 # desk/doctype/workspace_sidebar/workspace_sidebar.py 的 get_can_read_items() 缺 return，

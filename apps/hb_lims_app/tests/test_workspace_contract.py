@@ -40,7 +40,7 @@ class TestSkeletonContracts(unittest.TestCase):
         self.assertIn('required_apps = ["frappe"]', source)
         self.assertIn('after_migrate = "hb_lims_app.hbos_lims.setup.after_migrate"', source)
         self.assertIn("hbos-lims-logo.svg", source)
-        self.assertIn('app_include_css = "/assets/hb_lims_app/css/lims_report.css"', source)
+        self.assertIn('app_include_css = "/assets/hb_lims_app/css/lims_report.css', source)
 
     def test_report_scroll_css_exists(self):
         css = APP_ROOT / "hb_lims_app" / "public" / "css" / "lims_report.css"
