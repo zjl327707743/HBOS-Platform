@@ -32,6 +32,11 @@ def execute(filters=None):
 		values["source_type"] = filters["source_type"]
 	if filters.get("hbos_only"):
 		conditions.append("(a.hbos_import_log is not null or a.hbos_source_type is not null or a.hbos_fallback_generated = 1)")
+	# 豁免名单过滤: 经理以上人员不计入异常考勤
+	from hb_attendance_app.hbos_attendance.api import EXEMPT_NUMS
+	if EXEMPT_NUMS:
+		quoted = ",".join("'%s'" % v.replace("'", "") for v in sorted(EXEMPT_NUMS))
+		conditions.append("emp.employee_number NOT IN (%s)" % quoted)
 	where = " and ".join(conditions)
 	rows = frappe.db.sql(
 		f"""
@@ -47,6 +52,7 @@ def execute(filters=None):
 			a.early_exit,
 			a.working_hours,
 			a.shift,
+			a.hbos_missing_out,
 			a.hbos_source_type as source_type,
 			a.hbos_import_log as source_batch
 		from `tabAttendance` a
@@ -74,6 +80,8 @@ def execute(filters=None):
 		source = row.source_type or "HRMS/既有记录"
 		if row.early_exit:
 			status = f"{status}/早退" if status else "早退"
+		if row.hbos_missing_out:
+			status = f"{status}/缺下班卡" if status else "缺下班卡"
 		data.append(
 			{
 				"employee": row.employee,
@@ -87,7 +95,7 @@ def execute(filters=None):
 				"working_hours": row.working_hours,
 				"shift": row.shift,
 				"source_batch": source,
-				"remarks": row.source_batch or "既有考勤结果",
+				"remarks": "缺下班打卡记录" if row.hbos_missing_out else (row.source_batch or "既有考勤结果"),
 			}
 		)
 	return _columns(), data

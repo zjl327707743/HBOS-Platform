@@ -8,6 +8,7 @@ DESKTOP_LABEL = "海滨考勤"
 DESKTOP_LOGO_URL = "/assets/hb_attendance_app/hbos-attendance-logo.svg"
 PRIMARY_SIDEBAR_ITEMS = [
 	{"label": "导入考勤机导出表", "link_type": "Page", "link_to": "hbos-attendance-import", "type": "Link", "icon": "upload"},
+	{"label": "考勤异常仪表盘", "link_type": "Page", "link_to": "hbos-attendance-dashboard", "type": "Link", "icon": "dashboard"},
 	{"label": "考勤导入日志", "link_type": "DocType", "link_to": "HBOS Attendance Import Log", "type": "Link", "icon": "list"},
 	{"label": "飞书请假记录", "link_type": "DocType", "link_to": "HBOS Leave Record", "type": "Link", "icon": "leave"},
 	{"label": "飞书加班记录", "link_type": "DocType", "link_to": "HBOS Overtime Record", "type": "Link", "icon": "clock"},
@@ -37,6 +38,7 @@ def after_migrate():
             {"fieldname": "hbos_fallback_generated", "label": "HBOS 兜底生成", "fieldtype": "Check", "read_only": 1},
             {"fieldname": "hbos_calc_version", "label": "HBOS 计算版本", "fieldtype": "Data", "read_only": 1},
             {"fieldname": "hbos_raw_reference", "label": "HBOS 原始引用", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_missing_out", "label": "HBOS 缺下班卡", "fieldtype": "Check", "read_only": 1},
         ]
     })
     sync_attendance_workspace()
