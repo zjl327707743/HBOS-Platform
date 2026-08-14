@@ -1,0 +1,22 @@
+{
+ "actions": [],
+ "creation": "2026-08-12 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "dashboard",
+ "idx": 0,
+ "module": "HBOS Attendance",
+ "name": "hbos-attendance-dashboard",
+ "owner": "Administrator",
+ "page_name": "hbos-attendance-dashboard",
+ "roles": [
+  {"role": "System Manager"},
+  {"role": "HR Manager"},
+  {"role": "HR User"}
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "考勤异常仪表盘"
+}
