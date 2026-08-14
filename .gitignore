@@ -16,3 +16,14 @@ runtime/
 docs/data/*.xlsx
 docs/data/*.xls
 docs/data/*.csv
+
+# 批量改部门:核对表与执行记录含真实员工姓名,禁止提交
+apps/hb_attendance_app/hb_attendance_app/hbos_attendance/部门调整核对表_*.csv
+apps/hb_attendance_app/hb_attendance_app/hbos_attendance/批量改部门_执行记录.md
+
+# 考勤数据导出文件（含真实员工信息，禁止提交）
+*.csv
+*.xlsx
+anomaly_list.json
+feishu_records.json
+.claude/launch.json

@@ -36,6 +36,12 @@ def execute(filters=None):
         conditions.append("YEAR(a.attendance_date) = %(year)s")
         values["year"] = int(filters["year"])
 
+    # 豁免名单过滤: 经理以上人员不计入异常考勤
+    from hb_attendance_app.hbos_attendance.api import EXEMPT_NUMS
+    if EXEMPT_NUMS:
+        quoted = ",".join("'%s'" % v.replace("'", "") for v in sorted(EXEMPT_NUMS))
+        conditions.append("emp.employee_number NOT IN (%s)" % quoted)
+
     where = " AND ".join(conditions) if conditions else "1=1"
 
     # Get all attendance records

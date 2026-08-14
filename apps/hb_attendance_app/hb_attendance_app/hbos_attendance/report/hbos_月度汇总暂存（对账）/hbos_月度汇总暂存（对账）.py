@@ -10,6 +10,9 @@ def execute(filters=None):
 	if filters.get("import_log"):
 		log_filters["name"] = filters["import_log"]
 
+	# 豁免名单: 经理以上人员不计入异常考勤
+	from hb_attendance_app.hbos_attendance.api import EXEMPT_NUMS
+
 	logs = frappe.get_all(
 		"HBOS Attendance Import Log",
 		filters=log_filters,
@@ -20,6 +23,8 @@ def execute(filters=None):
 	for log in logs:
 		for record in _records(log):
 			if not _matches_filters(record, log, filters):
+				continue
+			if record.get("employee_number") in EXEMPT_NUMS:
 				continue
 			data.append(
 				{
