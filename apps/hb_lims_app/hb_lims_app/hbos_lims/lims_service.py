@@ -66,6 +66,18 @@ def _result_display_value(result):
 # ---------------------------------------------------------------------------
 # 样品登记与任务分配
 # ---------------------------------------------------------------------------
+# 独立前端辅助（HBOS LIMS Vue 前端挂载于 /hbos-lims，不经过 Frappe desk 渲染，
+# 拿不到 frappe.csrf_token 变量；此处暴露 CSRF token 供 POST 请求携带）。
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def get_csrf_token():
+	"""返回当前会话的 CSRF token（供独立前端 POST 请求使用）。"""
+	from frappe.sessions import get_csrf_token
+	return get_csrf_token()
+
+
+# ---------------------------------------------------------------------------
 
 @frappe.whitelist()
 def register_sample(sample_type=None, material_code=None, material_name=None,
@@ -600,3 +612,162 @@ def reject_sample(sample_name, reason=None):
 	except Exception:
 		_rollback()
 		raise
+
+
+# ---------------------------------------------------------------------------
+# 质量标准管理（新增 / 修订 / 升版 / 废止 / 删除）
+# ---------------------------------------------------------------------------
+
+SPEC_DRAFT = "草稿"
+SPEC_ACTIVE = "已生效"
+SPEC_OBSOLETE = "已废止"
+
+
+def _spec_doc(spec_name):
+	return frappe.get_doc("HBOS Specification", spec_name)
+
+
+@frappe.whitelist()
+def create_specification(spec_code, spec_name, material_code=None, material_name=None,
+						 standard_source=None, effective_date=None, version=None, items=None,
+						 remarks=None, storage_condition=None, retain_sample_qty=None):
+	"""新增质量标准（Manager）：创建为草稿，检验项目明细从 items 传入。
+	version 用于升版场景（基于当前版本 +0.1 复制为新版本）；缺省默认 1.0。
+	storage_condition / retain_sample_qty 供样品登记时自动匹配。"""
+	_check_action("create_specification")
+	try:
+		spec = frappe.get_doc({
+			"doctype": "HBOS Specification",
+			"spec_code": spec_code,
+			"spec_name": spec_name,
+			"material_code": material_code,
+			"material_name": material_name,
+			"standard_source": standard_source,
+			"effective_date": effective_date,
+			"version": version or "1.0",
+			"status": SPEC_DRAFT,
+			"remarks": remarks,
+			"storage_condition": storage_condition,
+			"retain_sample_qty": retain_sample_qty,
+			"items": _normalize_spec_items(items),
+		})
+		spec.insert(ignore_permissions=True)
+		_commit()
+		return spec.name
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def update_specification(spec_name, spec_code=None, spec_name_label=None, material_code=None,
+						 material_name=None, standard_source=None, effective_date=None,
+						 items=None, remarks=None, storage_condition=None, retain_sample_qty=None):
+	"""修订质量标准（Manager）：编辑内容不改版本号；已废止不可再改。"""
+	_check_action("update_specification")
+	try:
+		spec = _spec_doc(spec_name)
+		if spec.status == SPEC_OBSOLETE:
+			frappe.throw(f"质量标准 {spec_name} 已废止，不可再修订。")
+		if spec_code:
+			spec.spec_code = spec_code
+		if spec_name_label:
+			spec.spec_name = spec_name_label
+		if material_code is not None:
+			spec.material_code = material_code
+		if material_name is not None:
+			spec.material_name = material_name
+		if standard_source:
+			spec.standard_source = standard_source
+		if effective_date:
+			spec.effective_date = effective_date
+		if remarks is not None:
+			spec.remarks = remarks
+		if storage_condition is not None:
+			spec.storage_condition = storage_condition
+		if retain_sample_qty is not None:
+			spec.retain_sample_qty = retain_sample_qty
+		if items is not None:
+			spec.items = _normalize_spec_items(items)
+		spec.save(ignore_permissions=True)
+		_commit()
+		return spec.name
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def activate_specification(spec_name):
+	"""生效质量标准（Manager）：草稿 -> 已生效。"""
+	_check_action("activate_specification")
+	try:
+		spec = _spec_doc(spec_name)
+		if spec.status != SPEC_DRAFT:
+			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅草稿可生效。")
+		spec.status = SPEC_ACTIVE
+		spec.save(ignore_permissions=True)
+		_commit()
+		return spec.name
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def obsolete_specification(spec_name):
+	"""废止质量标准（Manager）：已生效 -> 已废止。"""
+	_check_action("obsolete_specification")
+	try:
+		spec = _spec_doc(spec_name)
+		if spec.status != SPEC_ACTIVE:
+			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅已生效可废止。")
+		spec.status = SPEC_OBSOLETE
+		spec.save(ignore_permissions=True)
+		_commit()
+		return spec.name
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def delete_specification(spec_name):
+	"""删除质量标准（Manager）：仅草稿可删（已生效/已废止可能被样品引用）。"""
+	_check_action("delete_specification")
+	try:
+		spec = _spec_doc(spec_name)
+		if spec.status != SPEC_DRAFT:
+			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅草稿可删除。")
+		# 校验无样品引用
+		referenced = frappe.db.exists("HBOS Sample", {"specification": spec_name})
+		if referenced:
+			frappe.throw(f"质量标准 {spec_name} 已被样品 {referenced} 引用，不可删除。")
+		frappe.delete_doc("HBOS Specification", spec_name, force=1)
+		_commit()
+		return spec_name
+	except Exception:
+		_rollback()
+		raise
+
+
+def _normalize_spec_items(items):
+	"""把前端传来的项目明细规范为子表行（字段名对齐 HBOS Specification Item）。"""
+	if not items:
+		return []
+	rows = []
+	for it in items or []:
+		if not isinstance(it, dict):
+			continue
+		rows.append({
+			"item": it.get("item") or it.get("test_item"),
+			"item_name": it.get("item_name") or it.get("test_item"),
+			"method_sop": it.get("method_sop") or it.get("method"),
+			"limits_type": it.get("limits_type") or "记录型",
+			"lower_limit": it.get("lower_limit"),
+			"upper_limit": it.get("upper_limit"),
+			"unit": it.get("unit"),
+			"significant_digits": it.get("significant_digits"),
+			"remark": it.get("remark"),
+		})
+	return rows

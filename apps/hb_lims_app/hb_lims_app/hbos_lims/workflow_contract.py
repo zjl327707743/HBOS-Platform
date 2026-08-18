@@ -92,6 +92,12 @@ ACTION_ROLES = {
 	"confirm_oos": {ROLE_MANAGER, ROLE_SYSTEM},
 	"release_sample": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	"reject_sample": {ROLE_MANAGER, ROLE_SYSTEM},
+	# 质量标准管理（Manager 维护主数据）
+	"create_specification": {ROLE_MANAGER, ROLE_SYSTEM},
+	"update_specification": {ROLE_MANAGER, ROLE_SYSTEM},
+	"delete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
+	"activate_specification": {ROLE_MANAGER, ROLE_SYSTEM},
+	"obsolete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
 }
 
 

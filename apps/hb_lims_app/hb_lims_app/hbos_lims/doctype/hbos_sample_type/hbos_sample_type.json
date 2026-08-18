@@ -24,7 +24,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "样品类型名称",
-   "options": "原料\n中间体\n成品\n包装材料\n工艺用水\n环境样品\n稳定性样品\n清洁验证样品",
+   "options": "原料\n中间体\n成品\n包装材料\n工艺用水\n水\n环境样品\n稳定性样品\n清洁验证样品",
    "reqd": 1
   },
   {

@@ -6,7 +6,8 @@
 
 ## 当前阶段
 
-当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；M1-FIX-B5 为 REVIEWING（等待 Owner 和 Claude 审查），M1-FIX-B3 / B4 不 closeout，M1-FIX-C/D/E 未启动。M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动：M2-R1（环境与骨架）已 COMPLETED，`hb_lims_app` 已创建并安装到本地 `frontend` site；M2-R2 至 M2-R5（主数据、检验流程闭环、COA 与报表、验证收口）为 PLANNED。M1-FIX 为并行未决事项，不阻塞 M2-LIMS。
+当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；M1-FIX-B5 为 REVIEWING（等待 Owner 和 Claude 审查），M1-FIX-B3 / B4 不 closeout，M1-FIX-C/D/E 未启动。M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动：M2-R1 至 M2-R4（环境与骨架、主数据与判定引擎、检验流程闭环、COA 与报表）已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，未创建 Vue 工程。M1-FIX 为并行未决事项，不阻塞 M2-LIMS。
+M2-R6A（样品登记动态表单设计）已交付下拉决策条 + 9 类样品类型完整表单切换方案，进入 REVIEWING，等待 Owner 审查。
 
 当前真实进度以以下文件为准：
 
@@ -47,6 +48,8 @@
 - M1-R6C 异常识别与异常说明流程最小实现当前为 COMPLETED；已通过 Codex 审查并 closeout
 - M1-FIX-B 已按 Owner 授权创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐 `导入考勤机导出表` 浏览器入口、中文 `打卡流水` / `考勤结果` 报表、重复导入可读日志和默认白班/行政班 08:30-17:30；M1-FIX-B4 已收敛桌面入口、Workspace Sidebar、导入页归属和 HBOS / HRMS 入口口径；M1-FIX-B5 已核查真实 Employee / Checkin / Attendance / 月度暂存链路，并收敛 HBOS 报表和 HRMS 技术核查入口；真实 Excel、真实员工清单和导入产物不提交 Git
 - M2-R1 已按 Owner 授权创建 `hb_lims_app`（实验室信息管理系统板块骨架），已安装到本地 `frontend` site，after_migrate 幂等同步 3 个 LIMS 角色、`海滨LIMS工作台` Workspace、Sidebar 与桌面图标，离线契约测试 8/8 全绿；本轮未创建 DocType / 业务方法（主数据与检验流程为 M2-R2 至 M2-R5）
+- M2-R2 主数据与判定引擎、M2-R3 检验流程闭环、M2-R4 COA 与报表已 COMPLETED；M2-R5 验证收口为 REVIEWING（全量演练 19/19、11 项验收、离线测试 109/109）
+- M2-R6 Vue 前端原型与开发流程已交付（`docs/frontend/M2_LIMS_Vue前端原型.html` + `docs/frontend/M2_LIMS_Vue前端开发流程.md`），REVIEWING 等待 Owner 审查；未创建 Vue 工程、未接真实 API
 
 M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计、HRMS 环境可复现性收口、GitHub Private remote 首次同步、M1-R0 规划诊断收口、M1-R1 对象模型验证记录、M1-R2 配置试运行方案设计、M1-R3 局部试运行记录、M1-R3A 阻断诊断方案、M1-R3B 运行态最小修复方案、M1-R3B-FIX 运行态最小修复执行记录、M1-R3C 原生考勤最小试运行复测记录、M1-R3D 异常口径与 Gap 诊断、M1-R3E 配置复核与业务口径确认表、M1-R3F 业务口径确认包、M1 需求设计四份文档、M1-R4 Demo 技术方案与实施路线拆分、M1-R5 HRMS 配置基线、考勤工作台与月度汇总 Demo、M1-R6A Gate 判定和 M1-R6B 脱敏打卡流水导入最小验证；M1 仍未进入完整考勤业务开发。
 
@@ -98,7 +101,7 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 - 不提交备份文件、数据库、Docker volume 或运行时数据
 - 不开发业务
 - 不接飞书真实写入
-- 不做前端驾驶舱
+- 不在原型审查通过前实现前端驾驶舱
 - 不浏览或搬运大量 Obsidian 长文
 - 不执行 `docker compose down -v`
 - 不删除 volume
@@ -118,7 +121,8 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 8. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；本轮定位为 Excel 导入与异常流程落地方案 / Gate 判定，已 closeout。
 9. M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 为 COMPLETED。M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED。
 10. M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现，M1-FIX-B-FIX 已补齐浏览器导入与中文体验修复，M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS 但数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING。
-11. M2-LIMS 已启动：M2-R1（环境与骨架）COMPLETED；M2-R2 主数据与判定引擎、M2-R3 检验流程闭环、M2-R4 COA 与报表、M2-R5 验证收口为 PLANNED。
+11. M2-LIMS 已启动：M2-R1 至 M2-R4（环境与骨架、主数据与判定引擎、检验流程闭环、COA 与报表）COMPLETED；M2-R5 验证收口 REVIEWING；M2-R6 Vue 前端原型与开发流程 REVIEWING（待 Owner 审查，审查通过后才进入 Vue 工程初始化与页面复刻）。
+M2-R6A 样品登记动态表单设计 REVIEWING（随 M2-R6 并行审查）。
 
 ## AI 协作方式
 

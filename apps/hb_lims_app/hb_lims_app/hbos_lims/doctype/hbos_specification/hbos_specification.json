@@ -14,6 +14,8 @@
   "effective_date",
   "status",
   "standard_source",
+  "storage_condition",
+  "retain_sample_qty",
   "items_section",
   "items",
   "remarks"
@@ -74,6 +76,16 @@
    "fieldtype": "Select",
    "label": "标准依据",
    "options": "中国药典\nEP\nUSP\n客户标准\n企业内控"
+  },
+  {
+   "fieldname": "storage_condition",
+   "fieldtype": "Data",
+   "label": "储存条件"
+  },
+  {
+   "fieldname": "retain_sample_qty",
+   "fieldtype": "Data",
+   "label": "留样量"
   },
   {
    "fieldname": "items_section",

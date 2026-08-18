@@ -6,48 +6,49 @@
         <p>{{ todayLabel }} · 实验室检验运行态势与待办</p>
       </div>
       <div class="page-actions">
-        <el-button type="primary" @click="$router.push('/samples')">
-          <el-icon><DocumentAdd /></el-icon>&nbsp;新建样品登记
-        </el-button>
-        <el-button @click="$router.push('/tasks')">查看待检任务</el-button>
+        <a-button type="primary" @click="$router.push('/samples')">
+          <template #icon><PlusOutlined /></template>
+          新建样品登记
+        </a-button>
+        <a-button @click="$router.push('/tasks')">查看待检任务</a-button>
       </div>
     </div>
 
     <div v-if="overdueCount > 0" class="alert-strip warn">
-      <el-icon><WarningFilled /></el-icon>
+      <WarningOutlined />
       <span>{{ overdueCount }} 个检验任务即将超时，{{ oosCount }} 个结果处于 OOS 候选待调查。</span>
       <a @click="$router.push('/tasks')">立即处理</a>
     </div>
 
-    <div v-loading="loading" class="kpi-grid">
+    <div class="kpi-grid">
       <div class="kpi">
         <div>
           <div class="label">待检任务</div>
           <div class="value">{{ kpi.pending }} <small>项</small></div>
           <div class="trend up">{{ todayDue }} 项今日到期</div>
         </div>
-        <div class="icon teal"><el-icon :size="18"><Tickets /></el-icon></div>
+        <div class="icon teal"><SnippetsOutlined /></div>
       </div>
       <div class="kpi">
         <div>
           <div class="label">检验中</div>
           <div class="value">{{ kpi.testing }} <small>项</small></div>
         </div>
-        <div class="icon amber"><el-icon :size="18"><Timer /></el-icon></div>
+        <div class="icon amber"><ClockCircleOutlined /></div>
       </div>
       <div class="kpi">
         <div>
           <div class="label">待复核</div>
           <div class="value">{{ kpi.review }} <small>项</small></div>
         </div>
-        <div class="icon green"><el-icon :size="18"><CircleCheck /></el-icon></div>
+        <div class="icon green"><CheckCircleOutlined /></div>
       </div>
       <div class="kpi">
         <div>
           <div class="label">待发布 COA</div>
           <div class="value">{{ kpi.coa }} <small>份</small></div>
         </div>
-        <div class="icon red"><el-icon :size="18"><Document /></el-icon></div>
+        <div class="icon red"><FileTextOutlined /></div>
       </div>
     </div>
 
@@ -84,31 +85,31 @@
           <h3>最近样品</h3>
           <div class="sub">最新登记样品（来自样品台账）</div>
         </div>
-        <el-button text type="primary" @click="$router.push('/samples')">查看全部</el-button>
+        <a-button type="link" @click="$router.push('/samples?tab=ledger')">查看全部</a-button>
       </div>
       <div class="panel-body table-wrap">
-        <el-table :data="recentSamples" size="small" stripe v-loading="loading">
-          <el-table-column prop="name" label="样品编号" width="180">
-            <template #default="{ row }"><span class="mono">{{ row.name }}</span></template>
-          </el-table-column>
-          <el-table-column prop="material_name" label="物料名称" min-width="150" />
-          <el-table-column prop="batch_no" label="批号" width="130">
-            <template #default="{ row }"><span class="mono">{{ row.batch_no }}</span></template>
-          </el-table-column>
-          <el-table-column prop="priority" label="优先级" width="90">
-            <template #default="{ row }">
-              <span class="pill" :class="priorityClass(row.priority)">{{ row.priority }}</span>
+        <a-table
+          :columns="columns"
+          :data-source="recentSamples"
+          :loading="loading"
+          size="small"
+          row-key="name"
+          :pagination="false"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'name'"><span class="mono">{{ record.name }}</span></template>
+            <template v-else-if="column.key === 'batch_no'"><span class="mono">{{ record.batch_no }}</span></template>
+            <template v-else-if="column.key === 'priority'">
+              <span class="pill" :class="priorityClass(record.priority)">{{ record.priority }}</span>
             </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="110">
-            <template #default="{ row }">
-              <span class="pill" :class="statusClass(row.status)">{{ row.status }}</span>
+            <template v-else-if="column.key === 'status'">
+              <span class="pill" :class="statusClass(record.status)">{{ record.status }}</span>
             </template>
-          </el-table-column>
-          <el-table-column prop="creation" label="登记日期" width="120">
-            <template #default="{ row }"><span class="mono">{{ (row.creation || '').slice(0, 10) }}</span></template>
-          </el-table-column>
-        </el-table>
+            <template v-else-if="column.key === 'creation'">
+              <span class="mono">{{ (record.creation || '').slice(0, 10) }}</span>
+            </template>
+          </template>
+        </a-table>
       </div>
     </div>
   </div>
@@ -117,7 +118,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
-import { DocumentAdd, WarningFilled, Tickets, Timer, CircleCheck, Document } from '@element-plus/icons-vue'
+import {
+  PlusOutlined, WarningOutlined, SnippetsOutlined,
+  ClockCircleOutlined, CheckCircleOutlined, FileTextOutlined,
+} from '@ant-design/icons-vue'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useSampleStore } from '@/stores/sample'
 
@@ -144,6 +148,15 @@ const todayDue = computed(() => dashboard.tasksTodayDue)
 const oosCount = computed(() => dashboard.tasksOos)
 
 const recentSamples = computed(() => sampleStore.samples.slice(0, 5))
+
+const columns = [
+  { title: '样品编号', key: 'name', width: 180 },
+  { title: '物料名称', key: 'material_name' },
+  { title: '批号', key: 'batch_no', width: 130 },
+  { title: '优先级', key: 'priority', width: 90 },
+  { title: '状态', key: 'status', width: 110 },
+  { title: '登记日期', key: 'creation', width: 120 },
+]
 
 function priorityClass(p: string) {
   return { 特急: 'pill-danger', 加急: 'pill-warn', 常规: 'pill-info' }[p] || 'pill-muted'
@@ -230,7 +243,7 @@ onMounted(async () => {
 .kpi .trend { font-size: 11px; margin-top: 4px; }
 .kpi .trend.up { color: var(--danger); }
 .kpi .trend.down { color: var(--pass); }
-.kpi .icon { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; flex: 0 0 38px; }
+.kpi .icon { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; flex: 0 0 38px; font-size: 18px; }
 .kpi .icon.teal { background: var(--primary-soft); color: var(--primary); }
 .kpi .icon.amber { background: var(--warn-soft); color: var(--warn); }
 .kpi .icon.green { background: var(--pass-soft); color: var(--pass); }
@@ -244,7 +257,7 @@ onMounted(async () => {
 .panel-body { padding: 16px; }
 .panel-body.table-wrap { padding: 0; }
 .panel-body .chart { height: 220px; }
-.table-wrap :deep(.el-table) { --el-table-header-bg-color: var(--surface-2); --el-table-border-color: var(--line); }
+.table-wrap :deep(.ant-table) { font-size: 13px; }
 
 @media (max-width: 1180px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } .grid-2 { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } .page-head { flex-direction: column; align-items: flex-start; gap: 8px; } }

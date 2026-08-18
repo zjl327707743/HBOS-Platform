@@ -3,12 +3,6 @@ import { useAuthStore } from '@/stores/auth'
 
 const routes = [
   {
-    path: '/login',
-    name: 'login',
-    component: () => import('@/views/LoginView.vue'),
-    meta: { title: '登录', public: true },
-  },
-  {
     path: '/',
     component: () => import('@/components/layout/AppShell.vue'),
     children: [
@@ -32,14 +26,22 @@ const routes = [
         meta: { title: '待检任务看板' },
       },
       {
+        path: 'results',
+        name: 'results-list',
+        component: () => import('@/views/ResultListView.vue'),
+        meta: { title: '检验结果清单' },
+      },
+      {
+        path: 'results/ledger',
+        name: 'results-ledger',
+        component: () => import('@/views/ResultLedgerView.vue'),
+        meta: { title: '检验结果台账' },
+      },
+      {
         path: 'results/:id',
         name: 'results',
         component: () => import('@/views/ResultEntryView.vue'),
         meta: { title: '检验结果录入' },
-      },
-      {
-        path: 'results',
-        redirect: '/tasks',
       },
       {
         path: 'coas',
@@ -65,23 +67,18 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 
-// 认证守卫：非 public 路由需要登录
-router.beforeEach(async (to) => {
+// 认证守卫：HBOS LIMS 无独立登录页，必须通过 Frappe Desk 登录后进入
+// （Desk 桌面图标 target=_blank 打开，新标签页继承 Frappe 会话 cookie）。
+// 不再做"未登录跳 /login"（Frappe 已登录访问 /login 会重定向回 /desk 造成死循环），
+// 若会话未建立，Frappe 后端 API 会拒绝未授权请求并返回错误。
+router.beforeEach(async () => {
   const auth = useAuthStore()
-  if (to.meta.public) {
-    // 已登录访问登录页则跳转到工作台
-    if (auth.initialized && auth.isLoggedIn) return '/dashboard'
-    return true
-  }
   if (!auth.initialized) {
     await auth.checkSession()
-  }
-  if (!auth.isLoggedIn) {
-    return { name: 'login', query: { redirect: to.fullPath } }
   }
   return true
 })

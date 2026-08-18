@@ -1,15 +1,35 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { message } from 'ant-design-vue'
 
 // ============================================================
 // Frappe REST API 客户端
 // 同域部署：复用 Frappe session Cookie（withCredentials）
-// CSRF Token 从 Cookie 中的 csrftoken 读取
+// CSRF Token 从 Cookie 中的 csrftoken 读取；若无（独立前端挂载于
+// /hbos-lims 不经 Frappe desk 渲染拿不到 csrf_token 变量），
+// 首次请求前调用 hb_lims_app 提供的 get_csrf_token 获取并缓存。
 // ============================================================
+
+let cachedCsrf: string | null = null
 
 function readCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'))
   return match ? decodeURIComponent(match[2]) : null
+}
+
+async function ensureCsrfToken(): Promise<string | null> {
+  const fromCookie = readCookie('csrftoken')
+  if (fromCookie) return fromCookie
+  if (cachedCsrf) return cachedCsrf
+  try {
+    const res = await axios.get('/api/method/hb_lims_app.hbos_lims.lims_service.get_csrf_token', {
+      withCredentials: true,
+      timeout: 15000,
+    })
+    cachedCsrf = res.data?.message || null
+    return cachedCsrf
+  } catch {
+    return null
+  }
 }
 
 const api = axios.create({
@@ -19,8 +39,9 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-api.interceptors.request.use((config) => {
-  const csrf = readCookie('csrftoken')
+api.interceptors.request.use(async (config) => {
+  if (config.method === 'get') return config
+  const csrf = await ensureCsrfToken()
   if (csrf) {
     config.headers['X-Frappe-CSRF-Token'] = csrf
   }
@@ -35,7 +56,7 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status
     if (status === 401) {
-      ElMessage.warning('登录已失效，请重新登录')
+      message.warning('登录已失效，请重新登录')
     } else {
       // 提取 Frappe 错误消息
       const serverMessages = error.response?.data?._server_messages
@@ -44,13 +65,13 @@ api.interceptors.response.use(
           const messages = JSON.parse(serverMessages)
           for (const m of messages) {
             const parsed = JSON.parse(m)
-            ElMessage.error(parsed.message || '请求失败')
+            message.error(parsed.message || '请求失败')
           }
         } catch {
-          ElMessage.error(error.message || '网络错误')
+          message.error(error.message || '网络错误')
         }
       } else {
-        ElMessage.error(error.message || '网络错误')
+        message.error(error.message || '网络错误')
       }
     }
     return Promise.reject(error)

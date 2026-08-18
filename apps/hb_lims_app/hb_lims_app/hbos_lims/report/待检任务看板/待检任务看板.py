@@ -77,7 +77,11 @@ def _fetch(filters):
 			t.status AS status
 		FROM `tabHBOS Sample Task` t
 		LEFT JOIN `tabHBOS Sample` s ON s.name = t.sample
+		LEFT JOIN `tabHBOS COA` c ON c.sample = s.name
 		WHERE {where}
+		-- 样品已生成 COA 时，其已批准任务视为已完成报告阶段，不再作为待检任务展示
+		AND NOT (t.status = '已批准' AND c.name IS NOT NULL)
+		GROUP BY t.name
 		ORDER BY t.creation DESC
 	""", params, as_dict=1)
 

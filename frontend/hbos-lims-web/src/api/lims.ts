@@ -76,6 +76,59 @@ export function releaseSample(sample_name: string) {
   return callMethod('hb_lims_app.hbos_lims.lims_service.release_sample', { sample_name })
 }
 
+// ---- 质量标准管理 ----
+export interface SpecItemInput {
+  item?: string
+  item_name?: string
+  method_sop?: string
+  limits_type?: string
+  lower_limit?: number | null
+  upper_limit?: number | null
+  unit?: string
+  significant_digits?: number
+  remark?: string
+}
+
+export function createSpecification(params: {
+  spec_code: string
+  spec_name: string
+  material_code?: string
+  material_name?: string
+  standard_source?: string
+  effective_date?: string
+  version?: string
+  items?: SpecItemInput[]
+  remarks?: string
+}) {
+  return callMethod<string>('hb_lims_app.hbos_lims.lims_service.create_specification', params)
+}
+
+export function updateSpecification(params: {
+  spec_name: string
+  spec_code?: string
+  spec_name_label?: string
+  material_code?: string
+  material_name?: string
+  standard_source?: string
+  effective_date?: string
+  items?: SpecItemInput[]
+  remarks?: string
+}) {
+  return callMethod<string>('hb_lims_app.hbos_lims.lims_service.update_specification', params)
+}
+
+export function activateSpecification(spec_name: string) {
+  return callMethod<string>('hb_lims_app.hbos_lims.lims_service.activate_specification', { spec_name })
+}
+
+export function obsoleteSpecification(spec_name: string) {
+  return callMethod<string>('hb_lims_app.hbos_lims.lims_service.obsolete_specification', { spec_name })
+}
+
+export function deleteSpecification(spec_name: string) {
+  return callMethod<string>('hb_lims_app.hbos_lims.lims_service.delete_specification', { spec_name })
+}
+
 // ---- 报表查询（Frappe Script Report）----
 export interface ReportColumn {
   label: string

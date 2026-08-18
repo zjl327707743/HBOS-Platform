@@ -44,10 +44,12 @@ M2-LIMS 在 HBOS 平台（Frappe 底座）上新增实验室信息管理系统�
 | 轮次 | 名称 | 交付物 | 状态 |
 | --- | --- | --- | --- |
 | M2-R1 | 环境与骨架 | M2_START_GATE / 总方案、docker-compose 挂载、hb_lims_app 骨架、after_migrate 幂等同步（3 Role + Workspace + Sidebar + Desktop Icon）、安装验证、测试脚手架 | COMPLETED |
-| M2-R2 | 主数据与判定引擎 | 6 个主数据 DocType JSON、result_contract.py + 测试全绿、spec 生效校验 | PLANNED |
-| M2-R3 | 检验流程闭环 | Sample / Task / Result / Revision、workflow_contract、lims_service 全链、待检任务看板、虚构数据闭环 | PLANNED |
-| M2-R4 | COA 与报表 | COA(+Item) + Print Format + 发布链路、4 个报表 | PLANNED |
-| M2-R5 | 验证收口 | 全量演练 + 验收、入口可见、台账更新、closeout | PLANNED |
+| M2-R2 | 主数据与判定引擎 | 6 个主数据 DocType JSON、result_contract.py + 测试全绿、spec 生效校验 | COMPLETED |
+| M2-R3 | 检验流程闭环 | Sample / Task / Result / Revision、workflow_contract、lims_service 全链、待检任务看板、虚构数据闭环 | COMPLETED |
+| M2-R4 | COA 与报表 | COA(+Item) + Print Format + 发布链路、4 个报表 | COMPLETED |
+| M2-R5 | 验证收口 | 全量演练 + 验收、入口可见、台账更新、closeout | REVIEWING |
+| M2-R6 | Vue 前端原型与开发流程 | 交互式 HTML 原型（7 视图）+ 开发流程文档 + Vue 3 技术栈与 API 契约映射；原型 REVIEWING 待 Owner 审查 | REVIEWING |
+| M2-R6A | 样品登记动态表单设计 | 固定样品类型 / 检验优先级决策条 + 9 类样品类型模板驱动表单；方案文档与原型交互 REVIEWING 待 Owner 审查 | REVIEWING |
 
 ## 后续轮次（MVP 之外，仅规划）
 

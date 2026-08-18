@@ -5,11 +5,13 @@
 ## 当前状态
 
 - 当前阶段：M2-LIMS 实验室信息管理系统板块（IN_PROGRESS）；M1-FIX 功能补漏为并行未决事项（IN_PROGRESS，B3/B4/B5 未 closeout）
-- 当前轮次：M2-R5（验证收口，REVIEWING，等待 Owner 和 Claude 审查）；M2-LIMS MVP 全量交付完成
+- 当前轮次：M2-R6（Vue 前端原型与开发流程，REVIEWING，等待 Owner 审查）；M2-R5（验证收口）并行 REVIEWING，M2-LIMS MVP 全量交付完成
+- M2-R6A（样品登记动态表单设计，REVIEWING）：样品类型 / 检验优先级下拉决策条 + 9 类整表单切换，方案与交互原型已交付
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置、M1-FIX 轻量自定义 App（hb_attendance_app）与 M2-LIMS 自定义 App（hb_lims_app）
 - 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。M2-LIMS MVP 全量交付：M2-R1 骨架、M2-R2 主数据与判定引擎、M2-R3 检验流程闭环、M2-R4 COA 与报表、M2-R5 验证收口（全量演练 19/19 + 11 项验收 + 离线测试 109/109 + Workspace 全链接入口），M2-R5 为 REVIEWING 等待审查。
+- M2-R6 Vue 前端原型与开发流程已交付（交互式 HTML 原型 + 开发流程文档），REVIEWING 等待 Owner 审查；未创建 Vue 工程、未接真实 API。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M2-R5 审查 closeout；M2-LIMS 扩展模块（仪器集成、稳定性、环测、微生物、试剂、留样、OOS 调查等）另行规划；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权，不自动启动。
+- 下一步路线：M2-R6 原型 Owner 审查通过后进入 Vue 工程初始化与页面复刻；M2-R5 审查 closeout；M2-LIMS 扩展模块（仪器集成、稳定性、环测、微生物、试剂、留样、OOS 调查等）另行规划；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权，不自动启动。
 
 ## 状态更新制度
 
@@ -548,6 +550,8 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 27. M1-FIX-B5：REVIEWING，导入数据链路核查与报表口径收敛已交付，等待 Owner 和 Claude 审查。
 28. M2-LIMS：IN_PROGRESS（实验室信息管理系统板块，Owner 已授权）。M2-R1 环境与骨架 COMPLETED；M2-R2 主数据与判定引擎 COMPLETED；M2-R3 检验流程闭环 COMPLETED；M2-R4 COA 与报表 COMPLETED；M2-R5 验证收口 REVIEWING（待审查 closeout）。
 
+29. M2-R6：REVIEWING，Vue 前端原型与开发流程已交付（交互式 HTML 原型 + 开发流程文档），等待 Owner 审查；未创建 Vue 工程、未接真实 API。
+30. M2-R6A：REVIEWING，样品登记动态表单设计已交付（`docs/frontend/M2_R6A_样品登记动态表单设计.md` + 原型 `#sample` 动态表单交互），样品类型 / 检验优先级为下拉决策条，9 类样品类型各对应一张完整表单，等待 Owner 审查。
 ## M2-LIMS 状态
 
 状态：IN_PROGRESS。
@@ -574,6 +578,9 @@ M2-R3（检验流程闭环）：COMPLETED。本轮交付 5 个事务 DocType（H
 M2-R4（COA 与报表）：COMPLETED。本轮交付 HBOS COA(+Item 子表) DocType、Print Format `HBOS COA`（中文 Jinja 模板 + 签名栏）、lims_service 扩展（create_coa / review_coa / publish_coa，PDF 附件归档 + 快照保护）、4 个 Script Report（检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录）。HBOS LIMS 模块 13 个 DocType 全部就位。离线测试 89/89 全绿；COA 发布链路虚构数据验证 19/19 通过（创建/快照/重复拒绝/QA 审核/PDF 生成 17.8KB/发布人时间/快照锁定/4 报表）。排障并固化：publish 改为直接渲染 fixture 模板（绕开 frappe.get_print 的 website 管线，规避 hrms Job Opening 环境缺失）、记录型结果优先 result_text、fetch 字段防篡改还原语义、带空格报表名用 importlib 导入。主文档 `docs/milestones/M2_R4_COA与报表.md` 已交付。
 
 M2-R5（验证收口）：REVIEWING。本轮交付 Workspace 四卡片 13 链接 + 5 快捷入口 + Sidebar 5 主项（after_migrate 幂等同步验证）、test_full_doctype_contract 全量契约测试（13 DocType 中文 label 全覆盖）、全量演练 19/19 通过（登记→任务→检验→判定→复核→批准→修订→COA→发布→放行 + 5 报表 + 数据盘点）、11 项验收全部通过、离线测试 100/100 全绿。排障并固化：状态机补「已批准→已提交」修订回退、submit_result 任务联动自转移防护。审查期间增强：①控制面板全面简体中文（Series 标签→编号系列 + translations/zh.csv 13 DocType 名中文化，契约测试强制中文 label 与翻译覆盖）；②侧边导航按业务模块下拉分组（原生 Section Break + collapsible + child，5 分组 17 子项，与工作台四卡片对应）；③定位并 workaround Frappe v16.26.3 核心 bug（`get_can_read_items` 缺 return 致非管理员侧边栏 DocType 项全被过滤，hb_lims_app 注册 boot_session hook 预置 `user_perm_can_read` 缓存，不改核心源码）；④报表表格列宽拖拽修复（datatable resize-handle 默认 opacity:0 无 hover 规则致手柄不可见，CSS hover 表头显示手柄 + 加宽命中区恢复原生拖拽与双击自适应，JS 注入单元格 hover 全文 title 提示）；⑤列表视图列宽拖拽（用户反馈 DocType 列表页无法拖宽列；v16 apply_column_widths 仅按内容自动算宽无拖拽交互，lims_list_resize.js monkey-patch 注入表头手柄 + localStorage 持久化 + 双击复位，限定 HBOS LIMS 模块；修复 patch 时机晚于首次渲染竞态，补扫已存在 LIMS 列表实例）；⑥表单子表网格列宽拖拽（用户反馈新建样品登记等表单子表无法拖宽列；Frappe v16 子表列宽由 Bootstrap col-xs-N 栅格类固定无拖拽，lims_grid_resize.js monkey-patch ControlTable.prototype.make + MutationObserver 兜底，wrap grid 实例 refresh 恢复持久化列宽并注入表头手柄 + localStorage 持久化 + 双击复位，限定 HBOS LIMS 模块）；⑦样品登记默认报表视图（用户需求：新建样品登记默认为报表视图；HBOS Sample DocType 设 default_view=Report，打开 /app/hbos-sample 自动进入报表视图，datatable 原生列宽拖拽，不设 force_re_route 故仍可切回列表视图，其他 LIMS DocType 不受影响）；⑧表格字段文字居中（用户需求：所有表格字段文字剧中；CSS 对 HBOS LIMS 标记容器 .hbos-lims-list / .hbos-lims-grid / .hbos-lims-report 内的报表 datatable、列表视图、子表网格单元格 text-align:center，JS 在 LIMS 列表/子表/Query Report 容器注入标记类，非 LIMS 页面不受影响）；⑨列表视图表头/数据错位修复（用户反馈结果修订记录页错位；文字居中断言下 Subject 列表头 checkbox 绝对定位+标题文字居中、数据行 checkbox+链接靠左，上下不对称；CSS 对数据行 Subject 列施加同表头规则——checkbox 置最左 + 文字居中，全 LIMS 列表页对齐）。离线测试 109/109 全绿。主文档 `docs/milestones/M2_R5_验证收口.md` 已交付，等待 Owner 和 Claude 审查后 closeout。
+
+M2-R6（Vue 前端原型与开发流程）：REVIEWING。本轮结合《海滨药业LIMS系统开发方案》与 `hb_lims_app` 实际闭环，交付交互式 HTML 原型 `docs/frontend/M2_LIMS_Vue前端原型.html`（工作台总览 / 样品登记 / 待检任务看板 / 结果录入 / COA 报告 / 质量标准库 / 审计追踪查询，共 7 个视图，演示数据 `TEST-HBOS-M2-*`）与开发流程文档 `docs/frontend/M2_LIMS_Vue前端开发流程.md`（强制 Gate、Vue 3 + Vite + TypeScript + Pinia + Vue Router + Element Plus + ECharts 技术选型、页面信息架构、视觉方案、组件拆分、`lims_service.py` whitelist 方法映射）。桌面与移动端渲染验证通过；`frontend-design` skill 当前环境不可用，按项目规则等价人工设计。本轮只到原型 / 视觉方案阶段，未创建 Vue 工程、未接真实 API。主文档 `docs/milestones/M2_R6_Vue前端原型与开发流程.md` 已交付，等待 Owner 审查。
+M2-R6A（样品登记动态表单设计）：REVIEWING。基于 `/hbos-lims/samples` 实际需求，交付方案文档 `docs/frontend/M2_R6A_样品登记动态表单设计.md` 并在交互式原型新增 `#sample` 动态表单页：样品类型与检验优先级固定为顶部下拉决策条（sticky），每个样品类型各对应一张完整表单，不拆分通用 / 专属信息区；切换下拉即整表单替换（成品 / 原料 / 中间体 / 包装材料 / 工艺用水 / 水 / 环境样品 / 稳定性样品 / 清洁验证样品，共 9 类），含字段映射、必填与联动规则、视觉与响应式策略、可直接复用中文设计提示词。桌面 / 移动端截图验证通过；本轮仍为原型 / 方案 REVIEWING，未创建 Vue 工程、未接真实 API。
 
 ## M1-FIX 状态
 

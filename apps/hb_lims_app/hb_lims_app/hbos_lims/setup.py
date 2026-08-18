@@ -103,12 +103,17 @@ def _sidebar_home_item():
 
 
 def _sync_desktop_icon():
+	"""Desk 桌面图标：点击进入 HBOS LIMS 独立 Vue 前端（/hbos-lims）。
+	Frappe v16 Desktop Icon link_type 支持 External，link 指向独立前端根路径，
+	点击在新标签页打开；after_migrate 幂等同步。"""
 	icon = frappe.get_doc("Desktop Icon", DESKTOP_LABEL) if frappe.db.exists("Desktop Icon", DESKTOP_LABEL) else frappe.new_doc("Desktop Icon")
 	icon.label = DESKTOP_LABEL
 	icon.icon_type = "Link"
-	icon.link_type = "Workspace Sidebar"
-	icon.link_to = DESKTOP_LABEL
-	icon.sidebar = DESKTOP_LABEL
+	icon.link_type = "External"
+	icon.link = "/hbos-lims/dashboard"
+	# 关键：sidebar 字段必须为空，否则 Frappe DesktopIcon 构造函数不会计算
+	# icon_route（`!this.icon_data.sidebar`），External 跳转不生效。
+	icon.sidebar = ""
 	icon.icon = "flask"
 	icon.logo_url = DESKTOP_LOGO_URL
 	icon.icon_image = DESKTOP_LOGO_URL

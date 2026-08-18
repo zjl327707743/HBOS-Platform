@@ -14,11 +14,22 @@ M2-R2（主数据与判定引擎）：COMPLETED。6 个主数据 DocType 已同�
 
 M2-R3（检验流程闭环）：COMPLETED。5 个事务 DocType（Sample+Item/Task/Test Result/Result Revision）、状态机、业务方法全链、待检任务看板报表已交付；离线测试 73/73 全绿；虚构数据闭环验证 29/29 通过（合格/OOS/修订/权限/报表）。主文档 `docs/milestones/M2_R3_检验流程闭环.md`。
 
-M2-R3（检验流程闭环）：PLANNED。交付：HBOS Sample(+Item) / Sample Task / Test Result / Result Revision、`workflow_contract.py` 状态机、`lims_service.py` 业务方法全链、待检任务看板报表、虚构数据闭环。
-
 M2-R4（COA 与报表）：COMPLETED。HBOS COA(+Item) + Print Format `HBOS COA` + create_coa / review_coa / publish_coa（PDF 附件归档 + 快照保护）、4 个报表（检验结果清单 / 样品台账 / 审计追踪查询 / COA 发布记录）已交付；离线测试 89/89 全绿；COA 发布链路验证 19/19 通过。主文档 `docs/milestones/M2_R4_COA与报表.md`。
 
 M2-R5（验证收口）：REVIEWING，等待 Owner 和 Claude 审查。全量演练 19/19 通过、11 项验收全部通过、离线测试 109/109 全绿、Workspace 四卡片 13 链接 + 5 快捷入口已落库。审查期间增强：控制面板全面简体中文（Series→编号系列 + zh.csv DocType 名翻译）；侧边导航按业务模块下拉分组（原生 Section Break，样品管理/检验流程/报告管理/质量主数据/审计追踪 5 分组 17 子项）；定位并 workaround Frappe v16.26.3 侧边栏 DocType 项过滤核心 bug（boot_session hook 预置 user_perm_can_read 缓存，不改核心源码）；报表表格列宽拖拽修复（resize-handle 默认 opacity:0 不可见，CSS hover 表头显示手柄恢复原生拖拽与双击自适应，JS 单元格 hover 全文提示）；列表视图列宽拖拽（DocType 列表页 v16 原生不支持，monkey-patch apply_column_widths 注入表头手柄 + localStorage 持久化 + 双击复位，限定 HBOS LIMS 模块）；表单子表网格列宽拖拽（新建样品登记等表单子表列宽由 Bootstrap col-xs-N 固定无拖拽，monkey-patch ControlTable.make + MutationObserver 兜底，注入表头手柄 + localStorage 持久化 + 双击复位，限定 HBOS LIMS 模块）；样品登记默认报表视图（HBOS Sample 设 default_view=Report，打开自动进入报表视图，可切回列表）；表格字段文字居中（LIMS 标记容器内报表 datatable、列表视图、子表网格单元格 text-align:center，非 LIMS 页面不受影响）；列表视图表头/数据错位修复（文字居中下 Subject 列表头与数据行规则不一致致上下错位，数据行施同表头规则对齐）；结果修订记录列表行高异常修复（用户反馈编号与变更字段间出现独立 HBOS-TR-2026- 且行高异常；根因：字段名 result 命中 Frappe 原生 `.frappe-list .result { min-height:200px }` 被撑高至 200px，整行 211px，LIMS 列表行列重置 min-height/height 修复；CSS 资产 URL 无版本号致浏览器磁盘缓存旧版，hooks 资产 URL 加 ?v=2 版本参数强制刷新）。主文档 `docs/milestones/M2_R5_验证收口.md`。审查通过后 closeout，M2-LIMS MVP 整体收口。
+
+M2-R6（Vue 前端原型与开发流程）：REVIEWING，等待 Owner 审查。已交付交互式 HTML 原型（`docs/frontend/M2_LIMS_Vue前端原型.html`，7 个视图，桌面 / 移动端渲染验证通过）与开发流程文档（`docs/frontend/M2_LIMS_Vue前端开发流程.md`）；推荐 Vue 3 + Vite + TypeScript + Pinia + Vue Router + Element Plus + ECharts；API 复用 `lims_service.py` 现有 whitelist 方法与 5 个 Script Report；`frontend-design` skill 当前环境不可用，按项目规则等价人工设计。未创建 Vue 工程、未接真实 API。主文档 `docs/milestones/M2_R6_Vue前端原型与开发流程.md`。
+M2-R6A（样品登记动态表单设计）：REVIEWING，等待 Owner 审查。结合 `/hbos-lims/samples` 实际需求，交付 `docs/frontend/M2_R6A_样品登记动态表单设计.md` 与原型 `#sample` 动态表单交互；样品类型 / 检验优先级为顶部 sticky 下拉决策条，每个样品类型各对应一张完整表单，切换下拉即整表单替换（成品 / 原料 / 中间体 / 包装材料 / 工艺用水 / 水 / 环境样品 / 稳定性样品 / 清洁验证样品），桌面 / 移动端渲染验证通过。
+
+## 本轮补充（M2-R6A，已交付 REVIEWING）
+
+## 本轮范围（M2-R6，已交付 REVIEWING）
+
+- 结合《海滨药业LIMS系统开发方案》与 `hb_lims_app` 实际闭环，产出 HBOS LIMS Vue 前端原型与开发流程。
+- 交付 `docs/frontend/M2_LIMS_Vue前端原型.html`（7 个视图，交互式，演示数据 `TEST-HBOS-M2-*`）与 `docs/frontend/M2_LIMS_Vue前端开发流程.md`。
+- 推荐 Vue 3 + Vite + TypeScript + Pinia + Vue Router + Element Plus + ECharts；API 复用 `lims_service.py` 现有 whitelist 方法与 5 个 Script Report。
+- 本轮只到原型 / 视觉方案阶段，未创建 Vue 工程、未接真实 API；`frontend-design` skill 当前环境不可用，按项目规则等价人工设计。
+- 样品登记动态表单设计：样品类型与检验优先级为下拉决策条，每个样品类型各对应一张完整表单，切换下拉即整表单替换；交付 `docs/frontend/M2_R6A_样品登记动态表单设计.md` 与设计提示词。
 
 ## 并行未决事项（不阻塞 M2-LIMS）
 
@@ -33,7 +44,7 @@ M1 产品交付仍在 M1-FIX 功能补漏中，B3 / B4 / B5 为 REVIEWING，等�
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
 
-## 本轮范围（M2-R1，已收口）
+## M2-R1 范围（历史，已收口）
 
 - 建立 M2-LIMS 启动门禁与总方案文档。
 - 将 `hb_lims_app` 挂载进 Docker Compose 环境（8 处 service + 6 处 PYTHONPATH）。
@@ -63,15 +74,16 @@ M2-R2     = COMPLETED
 M2-R3     = COMPLETED
 M2-R4     = COMPLETED
 M2-R5     = REVIEWING（待 closeout）
-M2-R4     = PLANNED
-M2-R5     = PLANNED
+M2-R6     = REVIEWING（Vue 前端原型待 Owner 审查）
+M2-R6A    = REVIEWING（样品登记动态表单设计待 Owner 审查）
 M1-FIX    = IN_PROGRESS（并行未决，B3/B4/B5 REVIEWING）
 M1-FIX-C/D/E = PLANNED / 待 Owner 授权
 ```
 
 ## 下一轮预告
 
-M2-R5 审查 closeout：等待 Owner 浏览器 UI 验收（海滨LIMS 桌面图标 → 工作台 → 样品登记 → 检验全流程 → COA 发布）与 Claude 审查；通过后 M2-LIMS MVP 整体收口为 COMPLETED。M2-LIMS 扩展模块（仪器集成、稳定性、环测、微生物、试剂、留样、OOS 调查、审计追踪通用引擎、国密电子签名）另行规划，不自动启动。
+M2-R5 审查 closeout 与 M2-R6 原型审查并行：M2-R5 等待 Owner 浏览器 UI 验收（海滨LIMS 桌面图标 → 工作台 → 样品登记 → 检验全流程 → COA 发布）与 Claude 审查，通过后 M2-LIMS MVP 整体收口；M2-R6 等待 Owner 审查交互式 HTML 原型与开发流程，通过后再进入 Vue 工程初始化与页面复刻。M2-LIMS 扩展模块（仪器集成、稳定性、环测、微生物、试剂、留样、OOS 调查、审计追踪通用引擎、国密电子签名）另行规划，不自动启动。
+M2-R6A 随 M2-R6 并行审查：Owner 审查动态表单方案与原型交互（含 9 类样品类型切换、必填联动、桌 / 移双端）通过后，将样品登记页纳入 Vue 页面复刻范围。
 
 权威状态文件：
 

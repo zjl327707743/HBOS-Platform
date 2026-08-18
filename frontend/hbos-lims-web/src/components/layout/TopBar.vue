@@ -2,16 +2,16 @@
   <header class="topbar">
     <div class="crumb">
       <span class="muted">HBOS LIMS</span>
-      <el-icon class="sep"><ArrowRight /></el-icon>
+      <span class="sep">/</span>
       <span class="current">{{ route.meta.title || '' }}</span>
     </div>
 
     <div class="topbar-right">
-      <el-tooltip content="刷新数据" placement="bottom">
+      <a-tooltip title="刷新数据">
         <button class="icon-btn" @click="$emit('refresh')">
-          <el-icon><Refresh /></el-icon>
+          <ReloadOutlined />
         </button>
-      </el-tooltip>
+      </a-tooltip>
 
       <div class="user">
         <div class="avatar">海</div>
@@ -27,7 +27,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowRight, Refresh } from '@element-plus/icons-vue'
+import { ReloadOutlined } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
 defineEmits<{ refresh: [] }>()
@@ -64,7 +64,7 @@ const roleLabel = computed(() => {
   color: var(--muted);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .crumb .current {
@@ -72,7 +72,7 @@ const roleLabel = computed(() => {
   font-weight: 600;
 }
 
-.crumb .sep { font-size: 12px; }
+.crumb .sep { color: var(--line); }
 
 .topbar-right {
   margin-left: auto;
@@ -111,8 +111,6 @@ const roleLabel = computed(() => {
 }
 
 .user-meta { line-height: 1.3; }
-
 .user-name { font-size: 13px; font-weight: 600; color: var(--ink); }
-
 .user-role { font-size: 11px; color: var(--muted); }
 </style>
