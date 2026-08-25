@@ -36,6 +36,7 @@
 - `docs/milestones/M1_FIX_B3_考勤工作台入口与数据一致性修复.md`：M1-FIX-B3 考勤工作台入口、App 命名与 HRMS 数据一致性修复。
 - `docs/milestones/M1_FIX_B4_考勤模块架构收敛与单一入口重整.md`：M1-FIX-B4 考勤模块架构收敛与单一入口重整。
 - `docs/milestones/M1_FIX_B5_导入数据链路核查与报表口径收敛.md`：M1-FIX-B5 导入数据链路核查与报表口径收敛。
+- `docs/milestones/M2_R0_飞书登录实现记录.md`：M2-R0 飞书 OAuth 登录实现与本地真实验证记录。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -91,6 +92,7 @@
 | M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题 |
 | M1-FIX-B5 | 导入数据链路核查与报表口径收敛 | REVIEWING |
 | M2 | 飞书集成 | NOT STARTED |
+| M2-R0 | 飞书 OAuth 登录实现与本地真实验证 | REVIEWING |
 
 ## 下一步路线
 
