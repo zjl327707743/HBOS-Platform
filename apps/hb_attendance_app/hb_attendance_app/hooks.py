@@ -8,6 +8,7 @@ app_license = "MIT"
 required_apps = ["frappe", "erpnext", "hrms"]
 after_migrate = "hb_attendance_app.hbos_attendance.setup.after_migrate"
 web_include_js = ["/assets/hb_attendance_app/js/feishu_login_button.js"]
+boot_session = ["hb_attendance_app.hbos_attendance.setup.localize_app_data"]
 
 scheduler_events = {
     "cron": {

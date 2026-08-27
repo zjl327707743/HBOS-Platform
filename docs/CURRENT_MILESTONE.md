@@ -116,6 +116,11 @@ M1-FIX-B5 已进入 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 
 
 ## 飞书登录提前实现记录（M2-R0）
 
-由 Owner 直接授权，在 M2 整体未启动前，提前落地 M2 飞书集成的首项「飞书 OAuth 登录」：已完成代码实现并在本地 Docker 环境用真实飞书应用完成端到端验证（授权跳转 → 回调 → 自动建号绑定 → 进入 Desk）。详见 `docs/milestones/M2_R0_飞书登录实现记录.md`，状态 REVIEWING。
+由 Owner 直接授权，在 M2 整体未启动前，提前落地 M2 飞书集成的两项：
+
+1. **飞书 OAuth 登录**：已完成代码实现并在本地 Docker 环境用真实飞书应用完成端到端验证（授权跳转 → 回调 → 自动建号绑定 → 进入 Desk）。
+2. **HRMS 汉化与「Frappe HR」→「海滨HR」改名**：切系统语言为中文、编译 HRMS 自带中文翻译、Custom Translation 改名与补漏，已本地验证通过。
+
+详见 `docs/milestones/M2_R0_飞书登录实现记录.md`，状态 REVIEWING。
 
 本轮不改动 M2 整体状态（M2 仍 NOT STARTED）；M1-FIX 各轮次状态不变。遗留：飞书身份 → Employee 匹配未实现、临时默认角色为 `Desk User`、访问地址为临时 cpolar 隧道。

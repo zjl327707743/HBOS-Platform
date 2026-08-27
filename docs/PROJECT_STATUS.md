@@ -10,7 +10,7 @@
 - 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
 - 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M2 未启动。
-- 飞书登录（M2-R0）：由 Owner 授权提前实现 M2 飞书集成首项，代码实现与本地真实验证已完成（REVIEWING），详见 `docs/milestones/M2_R0_飞书登录实现记录.md`；M2 整体仍 NOT STARTED。
+- 飞书登录（M2-R0）：由 Owner 授权提前实现 M2 飞书集成首项，代码实现与本地真实验证已完成（REVIEWING）；同步完成 HRMS 界面汉化与「Frappe HR」→「海滨HR」改名（REVIEWING）。详见 `docs/milestones/M2_R0_飞书登录实现记录.md`；M2 整体仍 NOT STARTED。
 
 ## 状态更新制度
 

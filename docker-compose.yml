@@ -130,7 +130,14 @@ services:
       - websocket
     restart: on-failure
     command:
-      - nginx-entrypoint.sh
+      - bash
+      - -c
+      - |
+        # 挂载进入的 hrms / hb_attendance_app 不在镜像 bake 的 assets 目录里，
+        # 需在启动时补建符号链接，否则 /assets/hrms、/assets/hb_attendance_app 404（图标缺失）。
+        ln -sfn /home/frappe/frappe-bench/apps/hrms/hrms/public /home/frappe/frappe-bench/assets/hrms
+        ln -sfn /home/frappe/frappe-bench/apps/hb_attendance_app/hb_attendance_app/public /home/frappe/frappe-bench/assets/hb_attendance_app
+        nginx-entrypoint.sh
     environment:
       BACKEND: backend:8000
       FRAPPE_SITE_NAME_HEADER: ${FRAPPE_SITE_NAME_HEADER}

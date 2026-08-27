@@ -6,6 +6,13 @@ MODULE = "HBOS Attendance"
 WORKSPACE_TITLE = "海滨考勤工作台"
 DESKTOP_LABEL = "海滨考勤"
 DESKTOP_LOGO_URL = "/assets/hb_attendance_app/hbos-attendance-logo.svg"
+# HRMS 界面汉化：覆盖官方翻译与补漏（源文本 → 中文译文）。
+HRMS_ZH_TRANSLATIONS = {
+    "Frappe HR": "海滨HR",
+    "Tenure": "任职",
+    "Expenses": "费用报销",
+    "HR Setup": "HR 设置",
+}
 PRIMARY_SIDEBAR_ITEMS = [
 	{"label": "导入考勤机导出表", "link_type": "Page", "link_to": "hbos-attendance-import", "type": "Link", "icon": "upload"},
 	{"label": "考勤异常仪表盘", "link_type": "Page", "link_to": "hbos-attendance-dashboard", "type": "Link", "icon": "dashboard"},
@@ -42,6 +49,104 @@ def after_migrate():
         ]
     })
     sync_attendance_workspace()
+    apply_hr_localization()
+    fix_hr_setup_groups()
+    reorder_hr_icon()
+
+
+def fix_hr_setup_groups():
+    """修复「HR 设置」里 Setup / Settings 两个分组都被译成「设置」的问题。
+
+    HRMS 原版 HR Setup 的 Card Break「Setup」「Settings」在中文翻译里都是「设置」，
+    造成两个同名分组。这里直接把分组名改为中文「组织架构」「系统设置」（幂等）。
+    """
+    if not frappe.db.exists("Workspace", "HR Setup"):
+        return
+    rename = {"Setup": "组织架构", "Settings": "系统设置"}
+    doc = frappe.get_doc("Workspace", "HR Setup")
+
+    for link in doc.get("links"):
+        if link.get("type") == "Card Break" and link.get("label") in rename:
+            link.set("label", rename[link.get("label")])
+
+    try:
+        content = json.loads(doc.content) if isinstance(doc.content, str) else doc.content
+    except (TypeError, ValueError):
+        content = []
+    for card in content:
+        card_name = card.get("data", {}).get("card_name") if isinstance(card.get("data"), dict) else None
+        if card.get("type") == "card" and card_name in rename:
+            card["data"]["card_name"] = rename[card_name]
+    doc.content = json.dumps(content)
+
+    doc.save(ignore_permissions=True)
+
+
+def reorder_hr_icon():
+    """把「海滨考勤」「海滨HR」排到最前两个，其余图标恢复各 App 原始顺序。
+
+    海滨考勤 idx=-2、海滨HR（Frappe HR）idx=-1（负数确保排最前、且不与
+    其他 App 图标的 idx 冲突）；其余图标从各 App 的 desktop_icon fixture 读回
+    原始 idx，恢复安装时的默认顺序。
+    """
+    import os
+    import glob
+
+    if frappe.db.exists("Desktop Icon", "海滨考勤"):
+        frappe.db.set_value("Desktop Icon", "海滨考勤", "idx", -2)
+    if frappe.db.exists("Desktop Icon", "Frappe HR"):
+        frappe.db.set_value("Desktop Icon", "Frappe HR", "idx", -1)
+
+    for app in frappe.get_installed_apps():
+        icon_dir = os.path.join(frappe.get_app_path(app), "desktop_icon")
+        if not os.path.isdir(icon_dir):
+            continue
+        for f in glob.glob(os.path.join(icon_dir, "*.json")):
+            try:
+                with open(f) as fp:
+                    d = json.load(fp)
+            except (OSError, ValueError):
+                continue
+            label = d.get("label")
+            if not label or label in ("海滨考勤", "Frappe HR"):
+                continue
+            if frappe.db.exists("Desktop Icon", label):
+                frappe.db.set_value("Desktop Icon", label, "idx", d.get("idx", 0))
+
+
+def localize_app_data(bootinfo):
+    """把 boot 数据里 hrms 的 app_title 改为「海滨HR」。
+
+    Frappe 侧边栏副标题（header_subtitle）直接读 boot.app_data 的 app_title，
+    不走翻译，因此需在 boot_session 阶段覆盖。其余显示点（桌面图标 label 等）走翻译，
+    已由 apply_hr_localization 处理。
+    """
+    for app in getattr(bootinfo, "app_data", None) or []:
+        if app.get("app_name") == "hrms":
+            app["app_title"] = "海滨HR"
+
+
+def apply_hr_localization():
+    """HRMS 汉化与「Frappe HR」→「海滨HR」改名。
+
+    通过 Frappe Custom Translation 机制写入，不修改 HRMS 第三方源码；
+    clone 后执行 migrate 即自动生效（幂等，可重复执行）。
+    """
+    from frappe.translate import clear_cache, update_translations_for_source
+
+    for source, translated in HRMS_ZH_TRANSLATIONS.items():
+        update_translations_for_source(source, json.dumps({"zh": translated}))
+
+    # 编译 HRMS 自带中文翻译（.po → .mo），使「班次与考勤」「假期列表」等原生翻译生效。
+    # hrms 未安装（get-app 未执行）时 .po 不存在，函数内部静默跳过。
+    try:
+        from frappe.gettext.translate import _compile_translation
+
+        _compile_translation("hrms", "zh")
+    except Exception:
+        frappe.log_error("HRMS 中文翻译编译失败", "hrms_localization")
+
+    clear_cache()
 
 
 def sync_attendance_workspace():
