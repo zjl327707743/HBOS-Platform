@@ -102,6 +102,18 @@ class RulesBoardContractTest(unittest.TestCase):
         for builder in ("builtin_shifts", "list_groups", "pairing_params", "priority_chain"):
             self.assertIn(f"rb.{builder}", content)
 
+    def test_js_has_tabs_and_rules_board_render(self):
+        content = JS.read_text()
+        self.assertIn('id="tab-setup"', content)
+        self.assertIn('id="tab-rules-board"', content)
+        self.assertIn('id="rules-board-container"', content)
+        self.assertIn("renderRulesBoard", content)
+        self.assertIn("get_rules_board", content)
+        # 现有端点路径不变
+        self.assertIn("get_shift_overview", content)
+        self.assertIn("get_department_shifts", content)
+        self.assertIn("get_department_employees", content)
+
 
 if __name__ == "__main__":
     unittest.main()
