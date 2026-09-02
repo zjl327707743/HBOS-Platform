@@ -60,5 +60,27 @@ class RosterClassifyTest(unittest.TestCase):
         self.assertEqual(len(LIST_SYSTEMS), 5)
 
 
+class RosterExportContractTest(unittest.TestCase):
+    def test_export_module_declares_whitelisted_endpoint(self):
+        content = ROSTER.read_text()
+        self.assertIn("@frappe.whitelist()", content)
+        self.assertIn("def export_shift_roster(", content)
+        self.assertIn("openpyxl", content)
+        self.assertIn("from hb_attendance_app.hbos_attendance.roster_classify import classify, LIST_SYSTEMS", content)
+
+    def test_export_builds_five_sheets_and_classify_rows(self):
+        content = ROSTER.read_text()
+        for sheet in ("部门-班次-人员", "豁免人员", "特殊班次", "行政班名单", "说明"):
+            self.assertIn(sheet, content)
+        self.assertIn("通用倒班", content)
+        # 姓名含工号
+        self.assertIn("{name}({num})", content)
+
+    def test_js_has_export_button(self):
+        content = JS.read_text()
+        self.assertIn("导出班次人员维护表", content)
+        self.assertIn("export_shift_roster", content)
+
+
 if __name__ == "__main__":
     unittest.main()
