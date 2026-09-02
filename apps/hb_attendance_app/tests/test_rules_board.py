@@ -12,6 +12,8 @@ from hb_attendance_app.hbos_attendance.pairing import (
 
 APP = Path(__file__).parents[1] / "hb_attendance_app"
 API = APP / "hbos_attendance/api.py"
+DATA = APP / "hbos_attendance/page/hbos_shift_management/shift_management_data.py"
+JS = APP / "hbos_attendance/page/hbos_shift_management/hbos_shift_management.js"
 
 
 class RuleListsExtractionTest(unittest.TestCase):
@@ -79,6 +81,26 @@ class RulesBoardDataTest(unittest.TestCase):
         self.assertEqual(steps, sorted(steps))
         self.assertEqual(chain[0]["name"], "排班表")
         self.assertIn("硬编码兜底", [s["name"] for s in chain])
+
+
+class RulesBoardContractTest(unittest.TestCase):
+    """get_rules_board 依赖 frappe 运行态，测试按仓库惯例用文件内容校验契约。"""
+
+    def test_data_module_declares_whitelisted_get_rules_board(self):
+        content = DATA.read_text()
+        self.assertIn("@frappe.whitelist()", content)
+        self.assertIn("def get_rules_board(", content)
+        for key in ("rules", "builtin_shifts", "lists", "pairing_params", "priority_chain"):
+            self.assertIn(key, content)
+        self.assertIn("assigned_count", content)
+        # 复用现有时间规范化函数，口径一致
+        self.assertIn("_fmt_rule", content)
+
+    def test_data_module_imports_rules_board_builders(self):
+        content = DATA.read_text()
+        self.assertIn("import rules_board as rb", content)
+        for builder in ("builtin_shifts", "list_groups", "pairing_params", "priority_chain"):
+            self.assertIn(f"rb.{builder}", content)
 
 
 if __name__ == "__main__":
