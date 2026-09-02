@@ -102,6 +102,12 @@ class RulesBoardContractTest(unittest.TestCase):
         for builder in ("builtin_shifts", "list_groups", "pairing_params", "priority_chain"):
             self.assertIn(f"rb.{builder}", content)
 
+    def test_data_module_enriches_lists_with_employee_names(self):
+        content = DATA.read_text()
+        self.assertIn('g["names"]', content)
+        self.assertIn("num_to_name", content)
+        self.assertIn("employee_name", content)
+
     def test_js_has_tabs_and_rules_board_render(self):
         content = JS.read_text()
         self.assertIn('id="tab-setup"', content)
@@ -109,6 +115,8 @@ class RulesBoardContractTest(unittest.TestCase):
         self.assertIn('id="rules-board-container"', content)
         self.assertIn("renderRulesBoard", content)
         self.assertIn("get_rules_board", content)
+        # 名单展开优先显示姓名，未建档/离职工号兜底显示工号
+        self.assertIn("g.names || g.nums", content)
         # 现有端点路径不变
         self.assertIn("get_shift_overview", content)
         self.assertIn("get_department_shifts", content)

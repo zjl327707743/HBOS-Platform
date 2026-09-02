@@ -127,13 +127,14 @@ function renderRulesBoardSections($c, data) {
 	});
 	h += '</tbody></table></div>';
 
-	// 4. 名单规则卡片
-	h += '<div class="rb-sec"><h5>名单规则（点击卡片展开工号）</h5><div class="rb-grid">';
+	// 4. 名单规则卡片（点击展开姓名，未建档/离职工号兜底显示工号）
+	h += '<div class="rb-sec"><h5>名单规则（点击卡片展开姓名）</h5><div class="rb-grid">';
 	(data.lists || []).forEach(g => {
+		const items = (g.names || g.nums || []);
 		h += '<div class="rb-card" data-key="' + g.key + '">'
 			+ '<span class="t">' + g.title + '</span><span class="c">' + g.count + ' 个</span>'
 			+ '<div class="d">' + (g.desc || '') + '</div>'
-			+ '<div class="rb-nums">' + (g.nums || []).join(' ') + '</div>'
+			+ '<div class="rb-nums">' + items.join(' ') + '</div>'
 			+ '</div>';
 	});
 	h += '</div></div>';

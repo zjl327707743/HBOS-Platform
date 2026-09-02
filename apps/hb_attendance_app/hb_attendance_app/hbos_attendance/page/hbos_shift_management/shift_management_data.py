@@ -490,10 +490,28 @@ def get_rules_board():
     except Exception as e:
         errors["rules"] = str(e)
 
-    # 2-5. 静态数据（纯函数，见 rules_board.py）
+    # 2. 名单规则: 补充员工姓名映射(工号→姓名, 未建档/离职工号用工号兜底)
+    try:
+        lists = rb.list_groups()
+        all_nums = set()
+        for g in lists:
+            all_nums.update(g["nums"])
+        num_to_name = {}
+        if all_nums:
+            for e in frappe.db.get_all(
+                "Employee", fields=["employee_number", "employee_name"],
+                filters={"employee_number": ["in", list(all_nums)]},
+            ):
+                num_to_name[e.employee_number] = e.employee_name or ""
+        for g in lists:
+            g["names"] = [num_to_name.get(n, n) for n in g["nums"]]
+        out["lists"] = lists
+    except Exception as e:
+        errors["lists"] = str(e)
+
+    # 3-5. 其余静态数据（纯函数，见 rules_board.py）
     for key, builder in (
         ("builtin_shifts", rb.builtin_shifts),
-        ("lists", rb.list_groups),
         ("pairing_params", rb.pairing_params),
         ("priority_chain", rb.priority_chain),
     ):
