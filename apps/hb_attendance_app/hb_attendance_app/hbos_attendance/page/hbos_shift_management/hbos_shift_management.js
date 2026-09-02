@@ -188,7 +188,7 @@ function renderRulesBoardSections($c, data) {
 	});
 	h += '</tbody></table></div>';
 
-	$c.find(".rb-loading").html(h);
+	$c.find(".rb-loading").removeClass("text-center p-5").html(h);
 
 	$c.find(".rb-card").on("click", function () {
 		$(this).find(".rb-nums").toggle();
