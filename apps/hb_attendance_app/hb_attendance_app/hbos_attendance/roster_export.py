@@ -66,16 +66,18 @@ def _fmt(t):
 def _rule_time_for(shift_type, department, rules_by_dept):
     """取某部门+班次类型最匹配的生效规则时间；无则全局；再否则内置默认。
 
+    全局规则与运行时一致：先「全部部门 - HD」，再兜底「全部部门」。
     返回 (时间描述, 迟到起算)。
     """
     today = frappe.utils.today()
+    pools = [rules_by_dept.get(department, [])]
+    pools.extend(rules_by_dept.get(g, []) for g in ("全部部门 - HD", "全部部门"))
     candidates = []
-    dept_rules = rules_by_dept.get(department, [])
-    global_rules = rules_by_dept.get("全部部门 - HD", [])
-    for pool, label in ((dept_rules, "dept"), (global_rules, "global")):
-        for r in pool:
-            if r.shift_type == shift_type and r.status == "生效" and str(r.effective_from) <= today:
-                candidates.append(r)
+    for pool in pools:
+        candidates = [
+            r for r in pool
+            if r.shift_type == shift_type and r.status == "生效" and str(r.effective_from) <= today
+        ]
         if candidates:
             break
     if candidates:
@@ -93,7 +95,6 @@ def export_shift_roster():
     try:
         import openpyxl
         from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-        from openpyxl.utils import get_column_letter
     except ImportError:
         frappe.throw("请安装 openpyxl: pip install openpyxl")
 
@@ -115,6 +116,10 @@ def export_shift_roster():
         "HBOS Shift Rule", fields=["name", "shift_type"])}
     for b in sorted(binds, key=lambda x: not x.is_primary):  # primary 优先
         bound_map.setdefault(b.employee, rule_type.get(b.shift_rule, ""))
+    # 无 HBOS Employee Shift 绑定但有单绑字段 → 回退 hbos_fixed_shift（Rule name → shift_type）
+    for e in emps:
+        if e.name not in bound_map and e.hbos_fixed_shift:
+            bound_map[e.name] = rule_type.get(e.hbos_fixed_shift, "")
 
     # 生效规则表（部门/班次类型/状态/时间）
     rules_by_dept = {}
@@ -124,18 +129,11 @@ def export_shift_roster():
     ):
         rules_by_dept.setdefault(r.department, []).append(r)
 
-    # 部门中文名简称排序键（全局不出现于主表）
-    def dept_key(d):
-        return (d or "")
-
     # ---- 主表行聚合 ----
     rows = {}  # (department, label) -> {"people": [(num, name, origin)], }
-    exempt_rows = []      # (num, name, dept, reason)
-    special_rows = []     # (label, num, name, dept)
-    admin_rows = []       # (num, name, dept)
     emp_num_to_name_dept = {}
 
-    def fmt_person(num, name, dept):
+    def fmt_person(num, name):
         return f"{name}({num})" if name else num
 
     for e in emps:
@@ -146,23 +144,21 @@ def export_shift_roster():
         bound = bound_map.get(e.name, "")
         label = classify(num, bound)
         if label == "":
-            # 豁免名单（EXEMPT 命中 → classify 返回空）
-            exempt_rows.append((num, name, dept, EXEMPT_REASONS.get(num, "管理层 / 不计异常考勤")))
+            # 豁免名单（EXEMPT 命中 → classify 返回空）：不进主表
             continue
-        origin = "绑定" if bound else ("名单" if num in EXEMPT_NUMS or any(num in s for s, _ in LIST_SYSTEMS) else "通用")
+        origin = "绑定" if bound else ("名单" if any(num in s for s, _ in LIST_SYSTEMS) else "通用")
         rows.setdefault((dept, label), []).append((num, name, origin))
 
-    # 名单 sheet 行
+    # 名单 sheet 行：遍历名单常量全部工号（在职建档取姓名/部门；未建档/已离职仅工号）
+    exempt_rows = [
+        (num,) + emp_num_to_name_dept.get(num, ("", ""))
+        + (EXEMPT_REASONS.get(num, "管理层 / 不计异常考勤"),)
+        for num in EXEMPT_NUMS
+    ]
     exempt_rows.sort(key=lambda x: (x[2], x[1]))
-    for label, nums in SPECIAL_SECTIONS:
-        for n in sorted(nums):
-            name, dept = emp_num_to_name_dept.get(n, ("", ""))
-            if name:
-                special_rows.append((label, n, name, dept))
-    for n in sorted(ADMIN_NUMS):
-        name, dept = emp_num_to_name_dept.get(n, ("", ""))
-        if name:
-            admin_rows.append((n, name, dept))
+    admin_rows = [
+        (num,) + emp_num_to_name_dept.get(num, ("", "")) for num in sorted(ADMIN_NUMS)
+    ]
 
     # ---- Workbook ----
     wb = openpyxl.Workbook()
@@ -216,7 +212,7 @@ def export_shift_roster():
         style_cell(ws, r, 4, time_txt, center=True, fill=fill)
         style_cell(ws, r, 5, late_txt, center=True, fill=fill)
         style_cell(ws, r, 6, len(people), center=True, fill=fill, bold=True)
-        style_cell(ws, r, 7, "、".join(fmt_person(n, nm, d) for n, nm, _ in people), wrap=True, fill=fill)
+        style_cell(ws, r, 7, "、".join(fmt_person(n, nm) for n, nm, _ in people), wrap=True, fill=fill)
         style_cell(ws, r, 8, "/".join(origins), center=True, fill=fill)
         r += 1
 
@@ -241,13 +237,10 @@ def export_shift_roster():
     style_header(ws3, 1, ["小类", "工号", "姓名", "部门"])
     rr = 2
     for label, nums in SPECIAL_SECTIONS:
-        sec = [(label, n) for n in sorted(nums)]
-        sec = [(lb, n, emp_num_to_name_dept.get(n, ("", ""))[0], emp_num_to_name_dept.get(n, ("", ""))[1]) for lb, n in sec if emp_num_to_name_dept.get(n, ("", ""))[0]]
-        if not sec:
-            continue
-        for i, (lb, num, name, dept) in enumerate(sec):
+        for i, num in enumerate(sorted(nums)):
+            name, dept = emp_num_to_name_dept.get(num, ("", ""))
             fill = C_STRIPE if i % 2 else None
-            style_cell(ws3, rr, 1, lb, center=True, fill=fill)
+            style_cell(ws3, rr, 1, label, center=True, fill=fill)
             style_cell(ws3, rr, 2, num, center=True, fill=fill)
             style_cell(ws3, rr, 3, name, center=True, fill=fill)
             style_cell(ws3, rr, 4, dept, fill=fill)
@@ -276,12 +269,12 @@ def export_shift_roster():
         "  其余按名单归入 无菌倒班/四班次倒班/行政班/安全倒班/食堂；都不命中者归入 通用倒班。",
         "备注列来源：绑定 = 绑定规则；名单 = 系统名单；通用 = 未绑定且不在名单。",
         "",
-        "【豁免人员】EXEMPT_NUMS 名单在职成员（管理层、产假/病假等），不参与迟到/早退/缺勤异常判定，不进主表。",
-        "【特殊班次】无菌倒班 / 四班次 / 安全倒班 / 食堂 名单在职成员（主表中另有对应体系行）。",
-        "【行政班名单】ADMIN_NUMS 名单在职成员（固定 8:30-17:30，08:31 起算迟到，周末双休）。",
+        "【豁免人员】EXEMPT_NUMS 名单成员（管理层、产假/病假等），不参与迟到/早退/缺勤异常判定，不进主表。",
+        "【特殊班次】无菌倒班 / 四班次 / 安全倒班 / 食堂 名单全部成员（在职建档者主表中另有对应体系行）。",
+        "【行政班名单】ADMIN_NUMS 名单全部成员（固定 8:30-17:30，08:31 起算迟到，周末双休）。",
         "",
         "名单之间允许交叉（如某员工同时在特殊班次名单与豁免名单，会分列对应 sheet）。",
-        "工号为 HB- 前缀且无姓名的条目为未建档/历史工号，仅保留在名单 sheet 不进主表。",
+        "豁免/特殊班次/行政班名单 sheet 均列出名单全部成员：在职建档者显示姓名/部门；未建档（HB- 前缀）或已离职者姓名/部门留空，仅显示工号，且不进主表。",
     ]
     for i, line in enumerate(lines, 1):
         c = ws5.cell(row=i, column=1, value=line)
@@ -291,10 +284,12 @@ def export_shift_roster():
     # ---- 存 File ----
     tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
     tmp.close()
-    wb.save(tmp.name)
-    with open(tmp.name, "rb") as f:
-        file_content = f.read()
-    os.unlink(tmp.name)
+    try:
+        wb.save(tmp.name)
+        with open(tmp.name, "rb") as f:
+            file_content = f.read()
+    finally:
+        os.unlink(tmp.name)
 
     file_name = f"HBOS班次人员维护表_{today.replace('-', '')}.xlsx"
     file_doc = frappe.get_doc({
