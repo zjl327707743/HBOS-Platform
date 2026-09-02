@@ -99,24 +99,44 @@ function renderRulesBoardSections($c, data) {
 	});
 	h += '</div></div>';
 
-	// 2. 班次规则记录
+	// 2. 班次规则记录（按部门分区：全局规则排前，各部门独立表格，停用历史可展开）
 	const rules = data.rules || [];
-	const activeRules = rules.filter(r => r.status === "生效" || r.status === "草稿");
-	const inactiveRules = rules.filter(r => r.status === "停用");
-	const tableHead = '<thead><tr><th>规则名称</th><th>部门</th><th>班次类型</th><th>上班</th><th>下班</th><th>迟到起算</th><th>最小工时</th><th>生效日期</th><th>状态</th><th>绑定人数</th></tr></thead>';
-	const ruleRow = r => '<tr><td>' + r.rule_name + '</td><td>' + r.department + '</td><td>' + r.shift_type + '</td>'
+	const tableHead = '<thead><tr><th>规则名称</th><th>班次类型</th><th>上班</th><th>下班</th><th>迟到起算</th><th>最小工时</th><th>生效日期</th><th>状态</th><th>绑定人数</th></tr></thead>';
+	const ruleRow = r => '<tr><td>' + r.rule_name + '</td><td>' + r.shift_type + '</td>'
 		+ '<td>' + fmtTime(r.start_time) + '</td><td>' + fmtTime(r.end_time) + '</td><td>' + fmtTime(r.late_after) + '</td>'
 		+ '<td>' + (r.min_hours != null ? r.min_hours : "") + '</td><td>' + r.effective_from + '</td>'
 		+ '<td>' + statusBadge(r.status) + '</td><td>' + (r.assigned_count || 0) + '</td></tr>';
-	h += '<div class="rb-sec"><h5>班次规则记录（' + rules.length + ' 条）</h5><table>' + tableHead + '<tbody>';
-	(activeRules.length ? activeRules : rules).forEach(r => { h += ruleRow(r); });
-	h += '</tbody></table>';
-	if (inactiveRules.length) {
-		h += '<div class="text-muted" style="margin-top:6px;"><a href="#" id="rb-toggle-inactive" style="font-size:12px;">展开已停用历史规则（' + inactiveRules.length + ' 条）</a></div>';
-		h += '<div id="rb-inactive" style="display:none;"><table>' + tableHead + '<tbody>';
-		inactiveRules.forEach(r => { h += ruleRow(r); });
-		h += '</tbody></table></div>';
-	}
+	// 按部门分组；部门名含「全部部门」判定为全局规则
+	const byDept = {};
+	(rules || []).forEach(r => { (byDept[r.department] = byDept[r.department] || []).push(r); });
+	const isGlobalDept = d => (d || "").indexOf("全部部门") === 0;
+	const deptNames = Object.keys(byDept).sort((a, b) => {
+		const ag = isGlobalDept(a) ? 0 : 1;
+		const bg = isGlobalDept(b) ? 0 : 1;
+		if (ag !== bg) return ag - bg;
+		return a.localeCompare(b, "zh");
+	});
+	h += '<div class="rb-sec"><h5>班次规则记录（' + rules.length + ' 条，按部门分组）</h5>';
+	deptNames.forEach((dept, di) => {
+		const dRules = byDept[dept];
+		const dActive = dRules.filter(r => r.status !== "停用");
+		const dInactive = dRules.filter(r => r.status === "停用");
+		const shown = dActive.length ? dActive : dRules;
+		const cardTitle = isGlobalDept(dept) ? '全局规则（' + dept + '）' : dept;
+		h += '<div class="rb-dept-card" style="border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;margin-bottom:12px;">';
+		h += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">' + cardTitle
+			+ ' <span class="text-muted" style="font-weight:400;font-size:12px;">' + dRules.length + ' 条规则</span></div>';
+		h += '<table style="width:100%;font-size:13px;border-collapse:collapse;"><thead>' + tableHead + '</thead><tbody>';
+		shown.forEach(r => { h += ruleRow(r); });
+		h += '</tbody></table>';
+		if (dInactive.length) {
+			h += '<div class="text-muted" style="margin-top:6px;"><a href="#" class="rb-toggle-dept" data-di="' + di + '" data-count="' + dInactive.length + '" style="font-size:12px;">展开已停用历史规则（' + dInactive.length + ' 条）</a></div>';
+			h += '<div class="rb-dept-inactive" data-di="' + di + '" style="display:none;"><table style="width:100%;font-size:13px;border-collapse:collapse;"><thead>' + tableHead + '</thead><tbody>';
+			dInactive.forEach(r => { h += ruleRow(r); });
+			h += '</tbody></table></div>';
+		}
+		h += '</div>';
+	});
 	h += '</div>';
 
 	// 3. 内置默认班次
@@ -151,12 +171,15 @@ function renderRulesBoardSections($c, data) {
 	$c.find(".rb-card").on("click", function () {
 		$(this).find(".rb-nums").toggle();
 	});
-	$c.find("#rb-toggle-inactive").on("click", function (e) {
+	// 部门分区内「展开/收起已停用历史规则」
+	$c.find(".rb-toggle-dept").on("click", function (e) {
 		e.preventDefault();
-		$("#rb-inactive").toggle();
-		$(this).text($("#rb-inactive").is(":visible")
+		const $panel = $c.find(".rb-dept-inactive[data-di='" + $(this).attr("data-di") + "']");
+		const count = $(this).attr("data-count") || "";
+		$panel.toggle();
+		$(this).text($panel.is(":visible")
 			? "收起已停用历史规则"
-			: "展开已停用历史规则（" + inactiveRules.length + " 条）");
+			: "展开已停用历史规则（" + count + " 条）");
 	});
 }
 

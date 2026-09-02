@@ -117,6 +117,11 @@ class RulesBoardContractTest(unittest.TestCase):
         self.assertIn("get_rules_board", content)
         # 名单展开优先显示姓名，未建档/离职工号兜底显示工号
         self.assertIn("g.names || g.nums", content)
+        # 班次规则记录按部门分组（全局规则排前）
+        self.assertIn("按部门分组", content)
+        self.assertIn("rb-dept-card", content)
+        self.assertIn("isGlobalDept", content)
+        self.assertIn("rb-toggle-dept", content)
         # 现有端点路径不变
         self.assertIn("get_shift_overview", content)
         self.assertIn("get_department_shifts", content)
