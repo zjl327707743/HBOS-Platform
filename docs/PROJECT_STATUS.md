@@ -7,6 +7,8 @@
 - 当前阶段：M2-LIMS 实验室信息管理系统板块（IN_PROGRESS）；M1-FIX 功能补漏为并行未决事项（IN_PROGRESS，B3/B4/B5 未 closeout）
 - 当前轮次：M2-R6（Vue 前端原型与开发流程，REVIEWING，等待 Owner 审查）；M2-R5（验证收口）并行 REVIEWING，M2-LIMS MVP 全量交付完成
 - M2-R6A（样品登记动态表单设计，REVIEWING）：样品类型 / 检验优先级下拉决策条 + 9 类整表单切换，方案与交互原型已交付
+- M2-R6B（检验结果台账双模式设计，REVIEWING / Owner 已确认原型与交互）：明细台账（受控记录）+ 样品表（每样品种类一张表、一行一个批次），后端 `HBOS Ledger Template` + `get_result_ledger` 落地设计已交付
+- M2-R6C（检验结果台账 Vue 复刻与生产部署，DEPLOYED）：双模式已复刻进 Vue 并上线生产，Owner 已确认测试路径
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置、M1-FIX 轻量自定义 App（hb_attendance_app）与 M2-LIMS 自定义 App（hb_lims_app）
 - 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。M2-LIMS MVP 全量交付：M2-R1 骨架、M2-R2 主数据与判定引擎、M2-R3 检验流程闭环、M2-R4 COA 与报表、M2-R5 验证收口（全量演练 19/19 + 11 项验收 + 离线测试 109/109 + Workspace 全链接入口），M2-R5 为 REVIEWING 等待审查。
 - M2-R6 Vue 前端原型与开发流程已交付（交互式 HTML 原型 + 开发流程文档），REVIEWING 等待 Owner 审查；未创建 Vue 工程、未接真实 API。
@@ -552,6 +554,8 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 
 29. M2-R6：REVIEWING，Vue 前端原型与开发流程已交付（交互式 HTML 原型 + 开发流程文档），等待 Owner 审查；未创建 Vue 工程、未接真实 API。
 30. M2-R6A：REVIEWING，样品登记动态表单设计已交付（`docs/frontend/M2_R6A_样品登记动态表单设计.md` + 原型 `#sample` 动态表单交互），样品类型 / 检验优先级为下拉决策条，9 类样品类型各对应一张完整表单，等待 Owner 审查。
+31. M2-R6B：REVIEWING，检验结果台账双模式设计已交付（`docs/frontend/M2_R6B_检验结果台账设计方案.md` + 原型 `#ledger` 双模式交互）。Owner 已确认原型与交互：明细台账（受控记录视角，样品卡片 + 检验项目逐行 + 下钻抽屉签名/修订/审计）+ 样品表（每样品种类一张表、一行一个批次、首列序号、次列样品批号，左侧按类型分组可收缩下拉列表，数据区含判定/记录状态列，侧边栏与固定标签不含）；视觉规范已确认（表头 12px/600 统一、判定/状态徽章 12px）。后端落地设计为 `HBOS Ledger Template` DocType + `get_result_ledger` 聚合 API（只读投影，限度/结果/判定受控可溯源），待实现轮另行规划。
+32. M2-R6C：DEPLOYED，检验结果台账双模式 Vue 复刻与生产部署完成。`ResultLedgerView.vue` 复刻双模式（明细台账 + 样品表），数据来自真实 Frappe API（HBOS Sample / Test Result / COA / Result Revision 聚合，只读投影，superseded 链过滤，修订/审计摘要）；新增判定列 + 记录状态列筛选、记录状态语义配色（放行/批准绿、检验完成/检验中蓝、登记/草稿灰、拒绝/OOS 红）；`vue-tsc` 0 错误；生产构建 `npm run build:prod` 同步至容器 `hbos-m0-r3a-frontend-1`（备份 `hbos-lims.bak-20260827a`），生产 URL `http://localhost:8080/hbos-lims/` HTTP 200 验证通过，Owner 已确认测试路径效果。后端同步：`lims_service.py` 新增 `get_result_ledger` 聚合查询 whitelist（只读投影，返回 samples / results / revisions / coas / groups / meta，服务端派生 limits_text/display/report_date，对齐前端 ResultLedgerView），`workflow_contract.py` ACTION_ROLES 注册 `get_result_ledger`（LIMS Analyst/Reviewer/Manager + System 可读）；离线契约测试 114/114 全绿（新增 6 项台账契约）；真实环境跑通（全量 7 样品/17 结果/2 修订/3 COA 日期/分组 + sample_type=成品 3 样品 + material=测试01 2 样品筛选均验证）；backend gunicorn 已重启加载新代码。
 ## M2-LIMS 状态
 
 状态：IN_PROGRESS。
@@ -581,6 +585,10 @@ M2-R5（验证收口）：REVIEWING。本轮交付 Workspace 四卡片 13 链接
 
 M2-R6（Vue 前端原型与开发流程）：REVIEWING。本轮结合《海滨药业LIMS系统开发方案》与 `hb_lims_app` 实际闭环，交付交互式 HTML 原型 `docs/frontend/M2_LIMS_Vue前端原型.html`（工作台总览 / 样品登记 / 待检任务看板 / 结果录入 / COA 报告 / 质量标准库 / 审计追踪查询，共 7 个视图，演示数据 `TEST-HBOS-M2-*`）与开发流程文档 `docs/frontend/M2_LIMS_Vue前端开发流程.md`（强制 Gate、Vue 3 + Vite + TypeScript + Pinia + Vue Router + Element Plus + ECharts 技术选型、页面信息架构、视觉方案、组件拆分、`lims_service.py` whitelist 方法映射）。桌面与移动端渲染验证通过；`frontend-design` skill 当前环境不可用，按项目规则等价人工设计。本轮只到原型 / 视觉方案阶段，未创建 Vue 工程、未接真实 API。主文档 `docs/milestones/M2_R6_Vue前端原型与开发流程.md` 已交付，等待 Owner 审查。
 M2-R6A（样品登记动态表单设计）：REVIEWING。基于 `/hbos-lims/samples` 实际需求，交付方案文档 `docs/frontend/M2_R6A_样品登记动态表单设计.md` 并在交互式原型新增 `#sample` 动态表单页：样品类型与检验优先级固定为顶部下拉决策条（sticky），每个样品类型各对应一张完整表单，不拆分通用 / 专属信息区；切换下拉即整表单替换（成品 / 原料 / 中间体 / 包装材料 / 工艺用水 / 水 / 环境样品 / 稳定性样品 / 清洁验证样品，共 9 类），含字段映射、必填与联动规则、视觉与响应式策略、可直接复用中文设计提示词。桌面 / 移动端截图验证通过；本轮仍为原型 / 方案 REVIEWING，未创建 Vue 工程、未接真实 API。
+
+M2-R6B（检验结果台账双模式设计）：REVIEWING / Owner 已确认原型与交互。针对"每种样品登记信息类型不同、检验项目不同"与 GMP 数据完整性（检验项目、限度、结果、判定均为受控记录、可审计追踪）需求，交付双模式方案 `docs/frontend/M2_R6B_检验结果台账设计方案.md` 并在交互式原型新增 `#ledger` 页：①明细台账（受控记录视角）——左侧样品列表（类型筛选 + 搜索 + 汇总判定角标），右侧样品卡片（登记信息按类型渲染 + 检验项目逐行展示 限度快照/结果/判定/检验人/状态），下钻抽屉含标准限度快照、三级电子签名、修订记录、审计摘要，OOS 完整链路展示；②样品表（每样品种类一张表）——左侧按类型分组可收缩下拉列表（每个样品种类一个条目，显示 N 批检验记录，不含判定），右侧每个样品种类单独一张表：首列序号、次列样品批号、登记信息字段、检验项目字段、判定、记录状态，一行一个批次按检测顺序填入。视觉规范已确认（表头 12px/600 统一、判定/状态徽章 12px、侧边栏与表头固定标签不含判定/状态）。桌面 / 移动端渲染验证通过、浏览器自动验证（侧边栏无判定徽章、表头纯净、字号统一、控制台无错误）。后端落地设计为 `HBOS Ledger Template` DocType + `get_result_ledger` 聚合 API（只读投影，模板缺失自动回退推导），待实现轮另行规划；本轮未创建 Vue 工程、未接真实 API。
+
+M2-R6C（检验结果台账 Vue 复刻与生产部署）：DEPLOYED。将 R6B 双模式复刻进 Vue 工程 `frontend/hbos-lims-web/src/views/ResultLedgerView.vue`：①明细台账——左侧样品列表（类型筛选 + 搜索 + 汇总判定角标）、右侧样品卡片（登记信息 + 检验项目逐行 限度/结果/判定/检验人/记录状态）、下钻抽屉（标准限度快照 / 三级电子签名 / 修订记录 / 审计摘要，OOS 完整链路）；②样品表——左侧按类型分组可收缩列表（每个样品种类一个条目、不含判定），右侧每样品种类一张表（首列序号、次列样品批号、登记字段、项目列、判定、记录状态，一行一个批次）。数据来自真实 Frappe API：HBOS Sample / HBOS Test Result / HBOS COA / HBOS Result Revision 前端聚合，只读投影、superseded 链过滤、修订/审计摘要。增强：判定列 + 记录状态列筛选（下拉动态取当前表数据、可叠加、切换样品种类自动重置）、记录状态语义配色（放行/批准绿、检验完成/检验中蓝、登记/草稿灰、拒绝/OOS 红）。`vue-tsc` 类型检查 0 错误；生产构建 `npm run build:prod` 后经 `docker cp` 同步至容器 `hbos-m0-r3a-frontend-1` 生产路径 `/home/frappe/frappe-bench/sites/frontend/public/hbos-lims/`（部署前备份 `hbos-lims.bak-20260827a` 可回滚），生产 URL `http://localhost:8080/hbos-lims/` HTTP 200、静态资源全部 200 验证通过。Owner 已确认测试路径效果。后端同步：`lims_service.py` 新增 `get_result_ledger` 聚合查询 whitelist（只读投影，返回 samples / results / revisions / coas / groups / meta 六段，服务端派生 limits_text / display / report_date，支持 sample_type / material 筛选，对齐前端 ResultLedgerView 双模式数据需求，避免前端多路 get_list 拼接）；`workflow_contract.py` ACTION_ROLES 注册 `get_result_ledger`（LIMS Analyst / Reviewer / Manager + System Manager 可读）；离线契约测试 114/114 全绿（新增 TestLedgerContract 6 项：whitelist、角色注册、字段契约、派生字段、_ledger_groups）；真实环境跑通——全量返回 7 样品 / 17 结果 / 2 修订 / 3 个 COA 报告日期 / 类型分组（原材料→阿司匹林原料药 3 批等、成品→测试01 2 批等），`sample_type=成品` 3 样品、`material=测试01` 2 样品筛选均验证通过；backend 容器 gunicorn 已重启加载新代码（期间误杀主进程致容器退出，已 `docker start` 恢复，容器健康、生产前端 / 登录页 200）。
 
 ## M1-FIX 状态
 

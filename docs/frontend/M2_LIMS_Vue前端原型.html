@@ -570,6 +570,209 @@
     .context-head { flex-direction: column; }
     .context-state { white-space: normal; }
   }
+
+  /* ============ 检验结果台账（双模式） ============ */
+  .ledger-mode-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 5px;
+    width: fit-content;
+  }
+  .ledger-tab {
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 7px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ledger-tab .tag { font-size: 10px; color: var(--muted); background: #edf1ef; border-radius: 4px; padding: 1px 6px; }
+  .ledger-tab.active { background: var(--primary); color: #fff; font-weight: 600; }
+  .ledger-tab.active .tag { background: rgba(255,255,255,.18); color: #fff; }
+  .ledger-mode-pane[hidden] { display: none; }
+
+  .ledger-detail-layout { display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: start; }
+  .ledger-master .filter-bar { margin-bottom: 10px; }
+  .ledger-item { padding: 11px 14px; border-bottom: 1px solid #edf1ef; cursor: pointer; background: var(--surface); }
+  .ledger-item:hover { background: var(--surface-2); }
+  .ledger-item.active { background: var(--primary-soft); border-left: 3px solid var(--primary); }
+  .ledger-item .li-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ledger-item .name { font-weight: 600; font-size: 12px; }
+  .ledger-item .li-meta { font-size: 10px; color: var(--muted); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .ledger-item .li-foot { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+  .ledger-item .li-foot .verdict-line { margin-left: auto; }
+
+  .ledger-sample-card .card-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid #edf1ef;
+  }
+  .ledger-sample-card .card-head h2 { font-size: 15px; }
+  .ledger-sample-card .card-head .sub { font-size: 11px; color: var(--muted); margin-top: 3px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .ledger-reg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px 16px; padding: 14px 16px; }
+  .ledger-reg-grid .rg { display: flex; flex-direction: column; gap: 2px; }
+  .ledger-reg-grid .rg .k { font-size: 10px; color: var(--muted); }
+  .ledger-reg-grid .rg .v { font-size: 12px; font-weight: 500; }
+  .ledger-reg-grid .rg .v.mono { font-family: var(--mono); font-size: 11px; }
+  .ledger-section-title { font-size: 12px; font-weight: 700; padding: 10px 16px; background: var(--surface-2); border-top: 1px solid #edf1ef; border-bottom: 1px solid #edf1ef; display: flex; align-items: center; gap: 8px; }
+  .ledger-section-title .tag { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .ledger-section-title .count { margin-left: auto; font-weight: 500; color: var(--muted); font-size: 11px; }
+
+  .ledger-item-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .ledger-item-table th { text-align: left; padding: 9px 16px; font-size: 11px; color: var(--muted); font-weight: 600; background: var(--surface-2); border-bottom: 1px solid #edf1ef; white-space: nowrap; }
+  .ledger-item-table td { padding: 10px 16px; border-bottom: 1px solid #f0f4f1; vertical-align: middle; }
+  .ledger-item-table tr:last-child td { border-bottom: 0; }
+  .ledger-item-table tr.item-row { cursor: pointer; }
+  .ledger-item-table tr.item-row:hover td { background: #f7faf8; }
+  .ledger-item-table td .i-name { font-weight: 600; }
+  .ledger-item-table td .i-sop { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .limit-text { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .limit-text b { color: var(--ink); font-weight: 500; }
+  .res-value { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .res-value.oos { color: var(--danger); }
+  .res-unit { color: var(--muted); font-size: 11px; margin-left: 3px; }
+  .res-desc { font-size: 11px; color: var(--muted); }
+  .verdict-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .verdict-badge.ok { background: var(--pass-soft); color: var(--pass); }
+  .verdict-badge.bad { background: var(--danger-soft); color: var(--danger); }
+  .verdict-badge.na { background: #edf1ef; color: var(--muted); }
+  .verdict-badge.oos { background: #f7e9e6; color: var(--oos); }
+  .status-pill { font-size: 12px; padding: 1px 8px; border-radius: 9px; background: var(--info-soft); color: var(--info); white-space: nowrap; }
+  .status-pill.done { background: var(--pass-soft); color: var(--pass); }
+  .status-pill.draft { background: #edf1ef; color: var(--muted); }
+  .row-more { color: var(--muted); font-size: 11px; }
+  .row-more b { color: var(--primary); cursor: pointer; }
+  .row-more b:hover { text-decoration: underline; }
+  .row-more .hist-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); margin-right: 3px; }
+
+  .ledger-empty { text-align: center; color: var(--muted); font-size: 12px; padding: 40px 0; }
+
+  .ledger-drawer-mask { position: fixed; inset: 0; background: rgba(13,43,40,.38); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  .ledger-drawer-mask.open { opacity: 1; pointer-events: auto; }
+  .ledger-drawer {
+    position: fixed; top: 0; right: 0; height: 100vh; width: 430px; max-width: 92vw;
+    background: var(--surface); z-index: 41; box-shadow: -12px 0 32px rgba(13,43,40,.18);
+    transform: translateX(100%); transition: transform .24s ease;
+    display: flex; flex-direction: column;
+  }
+  .ledger-drawer.open { transform: translateX(0); }
+  .ledger-drawer .drawer-head { padding: 16px 18px; border-bottom: 1px solid #edf1ef; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .ledger-drawer .drawer-head h3 { font-size: 14px; }
+  .ledger-drawer .drawer-head .sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .ledger-drawer .drawer-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+  .drawer-sec { margin-bottom: 18px; }
+  .drawer-sec .ds-title { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .drawer-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px dashed #e7ede9; font-size: 12px; }
+  .drawer-row:last-child { border-bottom: 0; }
+  .drawer-row .k { color: var(--muted); flex: 0 0 84px; }
+  .drawer-row .v { text-align: right; font-family: var(--mono); font-size: 11px; }
+  .drawer-row .v.zh { font-family: inherit; font-size: 12px; }
+  .sig-card { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
+  .sig-card .sig-top { display: flex; align-items: center; justify-content: space-between; }
+  .sig-card .sig-role { font-size: 11px; font-weight: 600; }
+  .sig-card .sig-who { font-size: 13px; font-weight: 600; margin-top: 3px; }
+  .sig-card .sig-when { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+  .sig-card .sig-sign { font-size: 14px; font-family: "Kaiti SC", "KaiTi", cursive; color: var(--primary); }
+  .sig-card.pending { background: var(--surface-2); }
+  .sig-card.pending .sig-who { color: var(--muted); font-weight: 500; }
+  .rev-chain { border-left: 2px solid #e7ede9; margin-left: 6px; padding-left: 14px; }
+  .rev-item { padding: 8px 0; border-bottom: 1px dashed #e7ede9; font-size: 12px; }
+  .rev-item:last-child { border-bottom: 0; }
+  .rev-item .rev-no { font-family: var(--mono); font-size: 11px; color: var(--warn); font-weight: 600; }
+  .rev-item .rev-change { margin-top: 3px; }
+  .rev-item .rev-change .old { color: var(--danger); text-decoration: line-through; }
+  .rev-item .rev-change .new { color: var(--pass); font-weight: 600; }
+  .rev-item .rev-reason { color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .rev-item .rev-when { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 2px; }
+  .drawer-close { border: 0; background: var(--surface-2); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1; }
+  .drawer-close:hover { background: var(--danger-soft); color: var(--danger); }
+
+  .ledger-gmp-note {
+    display: flex; gap: 10px; align-items: flex-start; margin-top: 14px;
+    background: var(--primary-soft); border: 1px solid #cfe6df; border-radius: var(--radius);
+    padding: 10px 14px; font-size: 11px; color: var(--primary-strong);
+  }
+  .ledger-gmp-note svg { width: 16px; height: 16px; flex: 0 0 16px; margin-top: 1px; }
+
+  .ledger-bitable { display: grid; grid-template-columns: 264px 1fr; gap: 14px; align-items: start; }
+  .bitable-sidebar { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .bitable-sidebar-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px; border-bottom: 1px solid #edf1ef; font-weight: 700; font-size: 12px;
+  }
+  .bitable-sidebar-head .bi-count { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .bitable-group-list { max-height: 66vh; overflow-y: auto; }
+  .bitable-group { border-bottom: 1px solid #f0f4f1; }
+  .bitable-group-title {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 9px 14px; border: 0; background: var(--surface-2); cursor: pointer;
+    font-family: inherit; font-size: 11px; font-weight: 700; color: var(--muted); text-align: left;
+  }
+  .bitable-group-title .arrow {
+    width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid var(--muted); transition: transform .15s ease; margin-left: auto;
+  }
+  .bitable-group.collapsed .bitable-group-title .arrow { transform: rotate(-90deg); }
+  .bitable-group.collapsed .bitable-items { display: none; }
+  .bitable-item {
+    display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 14px;
+    border: 0; background: transparent; cursor: pointer; font-family: inherit; text-align: left;
+    border-left: 3px solid transparent; transition: background .12s ease;
+  }
+  .bitable-item:hover { background: var(--surface-2); }
+  .bitable-item.active { background: var(--primary-soft); border-left-color: var(--primary); }
+  .bitable-item .bi-icon {
+    width: 26px; height: 26px; flex: 0 0 26px; border-radius: 6px;
+    background: #eef3f0; color: var(--primary); display: grid; place-items: center; font-size: 12px;
+  }
+  .bitable-item.active .bi-icon { background: var(--primary); color: #fff; }
+  .bitable-item .bi-text { min-width: 0; }
+  .bitable-item .bi-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bitable-item .bi-meta { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bitable-item .bi-status { margin-left: auto; flex: 0 0 auto; }
+
+  .bitable-main { min-width: 0; }
+  .bitable-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 13px 16px; margin-bottom: 12px;
+  }
+  .bitable-head h2 { font-size: 15px; }
+  .bitable-head .sub { font-size: 11px; color: var(--muted); margin-top: 3px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .bitable-head .sum-badge { flex: 0 0 auto; }
+
+  .bitable-table-wrap { overflow-x: auto; }
+  .bitable-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 780px; }
+  .bitable-table th {
+    background: var(--surface-2); text-align: center; padding: 10px 14px;
+    border-bottom: 1px solid #edf1ef; font-size: 12px; color: var(--ink); font-weight: 600; white-space: nowrap;
+  }
+  .bitable-table th.reg-th { color: var(--ink); font-weight: 600; background: var(--surface-2); }
+  .bitable-table td { padding: 9px 14px; border-bottom: 1px solid #f0f4f1; text-align: center; vertical-align: middle; white-space: nowrap; }
+  .bitable-table tr:last-child td { border-bottom: 0; }
+  .bitable-table tbody tr:hover td { background: #f7faf8; }
+  .bitable-table td.row-num { color: var(--muted); font-family: var(--mono); line-height: 1.3; }
+  .bitable-table td.p-name { text-align: left; font-weight: 600; }
+  .bitable-table td.p-batch { font-family: var(--mono); font-size: 12px; }
+  .bitable-table .th-name { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+  .bitable-table .th-name b { color: var(--ink); font-size: 12px; font-weight: 600; }
+  .bitable-table .th-name span { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .bitable-table .oos-bg { background: #fdf1ef; }
+  .bitable-empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 12px; }
+
+  @media (max-width: 1180px) {
+    .ledger-detail-layout { grid-template-columns: 1fr; }
+    .ledger-bitable { grid-template-columns: 1fr; }
+    .bitable-group-list { max-height: 30vh; }
+  }
 </style>
 </head>
 <body>
@@ -610,6 +813,10 @@
         <button class="nav-item" data-view="result">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>
           <span>结果录入</span>
+        </button>
+        <button class="nav-item" data-view="ledger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/><path d="m15.5 14 .8.8 1.7-2"/></svg>
+          <span>检验结果台账</span>
         </button>
         <button class="nav-item" data-view="coa">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
@@ -1226,6 +1433,75 @@
         </div>
       </section>
 
+      <!-- ============ Result Ledger（检验结果台账 · 双模式） ============ -->
+      <section id="view-ledger" class="view">
+        <div class="page-head">
+          <div>
+            <h1>检验结果台账</h1>
+            <p>检验项目、限度、结果、判定均为受控记录，随录入与任务流转更新，可下钻签名与修订链</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              导出
+            </button>
+            <button class="btn primary" data-goto="result">结果录入</button>
+          </div>
+        </div>
+
+        <div class="ledger-mode-tabs" role="tablist">
+          <button class="ledger-tab active" data-ledger-mode="detail">明细台账 <span class="tag">受控记录</span></button>
+          <button class="ledger-tab" data-ledger-mode="pivot">样品表 <span class="tag">每样品一表</span></button>
+        </div>
+
+        <!-- ===== 明细台账（GMP 视角） ===== -->
+        <div class="ledger-mode-pane" data-ledger-pane="detail">
+          <div class="ledger-detail-layout">
+            <div class="ledger-master">
+              <div class="filter-bar">
+                <input class="input" id="ledger-search" placeholder="搜索名称 / 批号 / 检验编号">
+                <select class="input" id="ledger-type-filter" aria-label="样品类型筛选">
+                  <option value="">全部类型</option>
+                  <option>成品</option><option>原料</option><option>包装材料</option><option>工艺用水</option>
+                </select>
+              </div>
+              <div class="master-list" id="ledger-sample-list"></div>
+            </div>
+
+            <div class="ledger-detail-pane">
+              <div class="panel ledger-sample-card" id="ledger-sample-detail"></div>
+              <div class="ledger-gmp-note">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                <div>本台账为只读受控视图：限度为规格冻结快照，判定由引擎计算，修改结果必须走「提交 → 复核 → 批准 → 修订」流程，原记录不可覆盖（ALCOA+）。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== 样品表浏览（每个样品一张表，左侧按类型分组可收缩） ===== -->
+        <div class="ledger-mode-pane" data-ledger-pane="pivot" hidden>
+          <div class="ledger-bitable">
+            <div class="bitable-sidebar">
+              <div class="bitable-sidebar-head">
+                <span>检验台账</span>
+                <span class="bi-count" id="bitable-count"></span>
+              </div>
+              <div class="bitable-group-list" id="bitable-group-list"></div>
+            </div>
+            <div class="bitable-main">
+              <div class="bitable-head" id="bitable-head"></div>
+              <div class="panel">
+                <div class="panel-body bitable-table-wrap" id="bitable-table-wrap" style="padding:0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下钻抽屉 -->
+        <div class="ledger-drawer-mask" id="ledger-drawer-mask"></div>
+        <aside class="ledger-drawer" id="ledger-drawer" aria-label="检验记录详情"></aside>
+      </section>
+
       <!-- ============ COA ============ -->
       <section id="view-coa" class="view">
         <div class="page-head">
@@ -1584,6 +1860,7 @@
     sample: '样品登记',
     tasks: '待检任务看板',
     result: '结果录入',
+    ledger: '检验结果台账',
     coa: 'COA 报告',
     spec: '质量标准',
     audit: '审计追踪'
@@ -1782,6 +2059,421 @@
   }
   window.addEventListener('hashchange', showViewFromHash);
   showViewFromHash();
+
+  // ================= 检验结果台账 · 双模式原型 =================
+  // 数据模型对齐 HBOS Test Result 受控字段：限度冻结快照 / 判定引擎 / 电子签名 / 修订链
+  const LEDGER = {
+    samples: [
+      {
+        no: 'HBOS-SMP-2026-0101', type: '成品', material: '成品片剂A', batch: 'B240801', status: 'OOS锁定', spec: 'TEST-HBOS-M2-SPEC-FG001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-FG-001'],['批数量','12000 片'],['生产日期','2026-07-28'],['有效期至','2029-07-27'],['请验日期','2026-07-30'],['检验时限','2026-08-06'],['报告日期','—'],['留样','12 盒']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-01 10:12', rv2:'陈 QA', rat:'2026-08-01 14:30', ap:'孙 QA', aat:'2026-08-02 09:05' },
+          { name:'含量测定', sop:'SOP-QC-021', lm:['区间','100.0','105.0','%'], rv:'98.6', vu:'%', verdict:'不合格', oos:1, st:'已批准', an:'林质检', at:'2026-08-01 15:40', rv2:'陈 QA', rat:'2026-08-02 10:00', ap:'孙 QA', aat:'2026-08-02 15:20',
+            revs:[{ no:'HBOS-REV-2026-0011', field:'result_value', old:'99.1', val:'98.6', reason:'核对原始图谱后修正峰面积计算值', by:'林质检', when:'2026-08-02 09:11' }],
+            audit:[['result_value','99.1','98.6','林质检','2026-08-02 09:11'],['verdict','—','不合格','判定引擎','2026-08-02 09:11']] },
+          { name:'水分', sop:'SOP-QC-013', lm:['上限','','1.0','%'], rv:'0.3', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 11:05', rv2:'陈 QA', rat:'2026-08-01 16:20', ap:'孙 QA', aat:'2026-08-02 09:05' },
+          { name:'干燥失重', sop:'SOP-QC-014', lm:['上限','','0.5','%'], rv:'0.2', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 11:20', rv2:'陈 QA', rat:'2026-08-01 16:25', ap:'孙 QA', aat:'2026-08-02 09:06' },
+          { name:'有关物质', sop:'SOP-QC-022', lm:['上限','','0.5','%'], rv:'0.21', vu:'%', verdict:'合格', st:'已复核', an:'林质检', at:'2026-08-02 09:30', rv2:'陈 QA', rat:'2026-08-02 11:10' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0102', type: '成品', material: '成品片剂A', batch: 'B240802', status: '已放行', spec: 'TEST-HBOS-M2-SPEC-FG001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-FG-001'],['批数量','12000 片'],['生产日期','2026-07-30'],['有效期至','2029-07-29'],['请验日期','2026-08-01'],['检验时限','2026-08-07'],['报告日期','2026-08-06'],['留样','12 盒']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-02 09:20', rv2:'陈 QA', rat:'2026-08-02 15:10', ap:'孙 QA', aat:'2026-08-03 10:30' },
+          { name:'含量测定', sop:'SOP-QC-021', lm:['区间','100.0','105.0','%'], rv:'102.4', vu:'%', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-02 11:30', rv2:'陈 QA', rat:'2026-08-02 16:40', ap:'孙 QA', aat:'2026-08-03 10:31' },
+          { name:'水分', sop:'SOP-QC-013', lm:['上限','','1.0','%'], rv:'0.4', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-02 10:10', rv2:'陈 QA', rat:'2026-08-02 16:45', ap:'孙 QA', aat:'2026-08-03 10:32' },
+          { name:'干燥失重', sop:'SOP-QC-014', lm:['上限','','0.5','%'], rv:'0.3', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-02 10:25', rv2:'陈 QA', rat:'2026-08-02 16:50', ap:'孙 QA', aat:'2026-08-03 10:33' },
+          { name:'有关物质', sop:'SOP-QC-022', lm:['上限','','0.5','%'], rv:'0.18', vu:'%', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-02 11:50', rv2:'陈 QA', rat:'2026-08-02 17:00', ap:'孙 QA', aat:'2026-08-03 10:34' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0103', type: '成品', material: '成品片剂B', batch: 'B240803', status: '检验中', spec: 'TEST-HBOS-M2-SPEC-FG002-V1',
+        reg: [['物料编码','TEST-HBOS-M2-FG-002'],['批数量','8000 片'],['生产日期','2026-08-02'],['有效期至','2029-08-01'],['请验日期','2026-08-03'],['检验时限','2026-08-09'],['报告日期','—'],['留样','8 盒']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已提交', an:'林质检', at:'2026-08-04 09:15' },
+          { name:'含量测定', sop:'SOP-QC-021', lm:['区间','95.0','105.0','%'], rv:'', vu:'%', verdict:'', st:'草稿', an:'林质检' },
+          { name:'水分', sop:'SOP-QC-013', lm:['上限','','2.0','%'], rv:'', vu:'%', verdict:'', st:'草稿', an:'赵理化' },
+          { name:'有关物质', sop:'SOP-QC-022', lm:['上限','','1.0','%'], rv:'', vu:'%', verdict:'', st:'草稿', an:'林质检' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0111', type: '原料', material: '原料A', batch: 'RM-B2607', status: '已放行', spec: 'TEST-HBOS-M2-SPEC-RM001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-RM-001'],['供应商','鲁南化工'],['到货日期','2026-07-30'],['请验日期','2026-07-30'],['检验时限','2026-08-06'],['报告日期','2026-08-05'],['留样','2 袋']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 10:00', rv2:'陈 QA', rat:'2026-08-01 15:00', ap:'孙 QA', aat:'2026-08-02 09:10' },
+          { name:'鉴别', sop:'SOP-QC-032', lm:['记录型','','',''], rv:'呈正反应', vu:'', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 10:20', rv2:'陈 QA', rat:'2026-08-01 15:10', ap:'孙 QA', aat:'2026-08-02 09:11' },
+          { name:'含量测定', sop:'SOP-QC-031', lm:['区间','98.0','102.0','%'], rv:'100.3', vu:'%', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-01 14:00', rv2:'陈 QA', rat:'2026-08-02 09:30', ap:'孙 QA', aat:'2026-08-02 15:00' },
+          { name:'干燥失重', sop:'SOP-QC-014', lm:['上限','','5.0','%'], rv:'2.1', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 11:00', rv2:'陈 QA', rat:'2026-08-02 09:40', ap:'孙 QA', aat:'2026-08-02 15:01' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0112', type: '原料', material: '原料A', batch: 'RM-B2608', status: '检验完成', spec: 'TEST-HBOS-M2-SPEC-RM001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-RM-001'],['供应商','鲁南化工'],['到货日期','2026-08-01'],['请验日期','2026-08-02'],['检验时限','2026-08-08'],['报告日期','—'],['留样','2 袋']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-03 09:00', rv2:'陈 QA', rat:'2026-08-03 15:00', ap:'孙 QA', aat:'2026-08-04 09:10' },
+          { name:'鉴别', sop:'SOP-QC-032', lm:['记录型','','',''], rv:'呈正反应', vu:'', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-03 09:15', rv2:'陈 QA', rat:'2026-08-03 15:05', ap:'孙 QA', aat:'2026-08-04 09:11' },
+          { name:'含量测定', sop:'SOP-QC-031', lm:['区间','98.0','102.0','%'], rv:'99.5', vu:'%', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-03 13:00', rv2:'陈 QA', rat:'2026-08-04 09:20', ap:'孙 QA', aat:'2026-08-04 11:00' },
+          { name:'干燥失重', sop:'SOP-QC-014', lm:['上限','','5.0','%'], rv:'3.0', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-03 10:30', rv2:'陈 QA', rat:'2026-08-04 09:30', ap:'孙 QA', aat:'2026-08-04 11:01' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0121', type: '工艺用水', material: '纯化水', batch: 'PW-20260801', status: '已放行', spec: 'TEST-HBOS-M2-SPEC-WT001-V1',
+        reg: [['水系统','纯化水制备系统'],['取样点','制备系统出口'],['取样时间','2026-08-01 08:30'],['取样人','王微检'],['请验日期','2026-08-01'],['检验时限','2026-08-01 16:30'],['报告日期','2026-08-01'],['留样','—']],
+        items: [
+          { name:'性状', sop:'SOP-QC-041', lm:['记录型','','',''], rv:'无色澄清', vu:'', verdict:'合格', st:'已批准', an:'王微检', at:'2026-08-01 09:10', rv2:'陈 QA', rat:'2026-08-01 14:00', ap:'孙 QA', aat:'2026-08-01 16:00' },
+          { name:'酸碱度', sop:'SOP-QC-042', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'王微检', at:'2026-08-01 09:20', rv2:'陈 QA', rat:'2026-08-01 14:05', ap:'孙 QA', aat:'2026-08-01 16:01' },
+          { name:'电导率', sop:'SOP-QC-043', lm:['上限','','5.1','μS/cm'], rv:'2.8', vu:'μS/cm', verdict:'合格', st:'已批准', an:'王微检', at:'2026-08-01 10:00', rv2:'陈 QA', rat:'2026-08-01 14:10', ap:'孙 QA', aat:'2026-08-01 16:02' },
+          { name:'微生物限度', sop:'SOP-QC-044', lm:['上限','','100','CFU/mL'], rv:'12', vu:'CFU/mL', verdict:'合格', st:'已批准', an:'王微检', at:'2026-08-01 11:00', rv2:'陈 QA', rat:'2026-08-01 14:20', ap:'孙 QA', aat:'2026-08-01 16:03' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0131', type: '包装材料', material: '铝箔内包材', batch: 'PK-0612', status: '已登记', spec: 'TEST-HBOS-M2-SPEC-PK001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-PK-001'],['供应商','华强包装'],['材质/规格','铝箔 / PET'],['抽样数量','50 只'],['请验日期','2026-08-02'],['检验时限','2026-08-05'],['报告日期','—'],['留样','—']],
+        items: [
+          { name:'外观', sop:'SOP-QC-051', lm:['记录型','','',''], rv:'', vu:'', verdict:'', st:'草稿', an:'' },
+          { name:'尺寸', sop:'SOP-QC-052', lm:['记录型','','',''], rv:'', vu:'', verdict:'', st:'草稿', an:'' },
+          { name:'印刷质量', sop:'SOP-QC-053', lm:['记录型','','',''], rv:'', vu:'', verdict:'', st:'草稿', an:'' },
+          { name:'微生物限度', sop:'SOP-QC-054', lm:['上限','','100','CFU/g'], rv:'', vu:'CFU/g', verdict:'', st:'草稿', an:'' }
+        ]
+      }
+    ]
+  };
+
+  // 样品表模式数据：一个样品种类 = 一张表，表内每行 = 一个批次的检验记录（按检测顺序）
+  const BGROUPS = [
+    {
+      type: '成品', material: '成品片剂A', spec: 'TEST-HBOS-M2-SPEC-FG001-V1',
+      regLabels: ['物料编码', '批数量', '生产日期', '有效期至', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '性状', sop: 'SOP-QC-011', lm: ['记录型', '', '', ''] },
+        { name: '含量测定', sop: 'SOP-QC-021', lm: ['区间', '100.0', '105.0', '%'] },
+        { name: '水分', sop: 'SOP-QC-013', lm: ['上限', '', '1.0', '%'] },
+        { name: '干燥失重', sop: 'SOP-QC-014', lm: ['上限', '', '0.5', '%'] },
+        { name: '有关物质', sop: 'SOP-QC-022', lm: ['上限', '', '0.5', '%'] }
+      ],
+      rows: [
+        { batch: 'B240801', reg: ['TEST-HBOS-M2-FG-001', '12000 片', '2026-07-28', '2029-07-27', '2026-07-30', '2026-08-06', '—', '12 盒'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '含量测定': { rv: '98.6', vu: '%', oos: 1, verdict: '不合格' }, '水分': { rv: '0.3', vu: '%', verdict: '合格' }, '干燥失重': { rv: '0.2', vu: '%', verdict: '合格' }, '有关物质': { rv: '0.21', vu: '%', verdict: '合格' } },
+          verdict: '不合格', status: 'OOS锁定' },
+        { batch: 'B240802', reg: ['TEST-HBOS-M2-FG-001', '12000 片', '2026-07-30', '2029-07-29', '2026-08-01', '2026-08-07', '2026-08-06', '12 盒'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '含量测定': { rv: '102.4', vu: '%', verdict: '合格' }, '水分': { rv: '0.4', vu: '%', verdict: '合格' }, '干燥失重': { rv: '0.3', vu: '%', verdict: '合格' }, '有关物质': { rv: '0.18', vu: '%', verdict: '合格' } },
+          verdict: '合格', status: '已放行' }
+      ]
+    },
+    {
+      type: '成品', material: '成品片剂B', spec: 'TEST-HBOS-M2-SPEC-FG002-V1',
+      regLabels: ['物料编码', '批数量', '生产日期', '有效期至', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '性状', sop: 'SOP-QC-011', lm: ['记录型', '', '', ''] },
+        { name: '含量测定', sop: 'SOP-QC-021', lm: ['区间', '95.0', '105.0', '%'] },
+        { name: '水分', sop: 'SOP-QC-013', lm: ['上限', '', '2.0', '%'] },
+        { name: '有关物质', sop: 'SOP-QC-022', lm: ['上限', '', '1.0', '%'] }
+      ],
+      rows: [
+        { batch: 'B240803', reg: ['TEST-HBOS-M2-FG-002', '8000 片', '2026-08-02', '2029-08-01', '2026-08-03', '2026-08-09', '—', '8 盒'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '含量测定': { rv: '', verdict: '' }, '水分': { rv: '', verdict: '' }, '有关物质': { rv: '', verdict: '' } },
+          verdict: '待判定', status: '检验中' }
+      ]
+    },
+    {
+      type: '原料', material: '原料A', spec: 'TEST-HBOS-M2-SPEC-RM001-V1',
+      regLabels: ['物料编码', '供应商', '到货日期', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '性状', sop: 'SOP-QC-011', lm: ['记录型', '', '', ''] },
+        { name: '鉴别', sop: 'SOP-QC-032', lm: ['记录型', '', '', ''] },
+        { name: '含量测定', sop: 'SOP-QC-031', lm: ['区间', '98.0', '102.0', '%'] },
+        { name: '干燥失重', sop: 'SOP-QC-014', lm: ['上限', '', '5.0', '%'] }
+      ],
+      rows: [
+        { batch: 'RM-B2607', reg: ['TEST-HBOS-M2-RM-001', '鲁南化工', '2026-07-30', '2026-07-30', '2026-08-06', '2026-08-05', '2 袋'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '鉴别': { rv: '呈正反应', verdict: '合格' }, '含量测定': { rv: '100.3', vu: '%', verdict: '合格' }, '干燥失重': { rv: '2.1', vu: '%', verdict: '合格' } },
+          verdict: '合格', status: '已放行' },
+        { batch: 'RM-B2608', reg: ['TEST-HBOS-M2-RM-001', '鲁南化工', '2026-08-01', '2026-08-02', '2026-08-08', '—', '2 袋'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '鉴别': { rv: '呈正反应', verdict: '合格' }, '含量测定': { rv: '99.5', vu: '%', verdict: '合格' }, '干燥失重': { rv: '3.0', vu: '%', verdict: '合格' } },
+          verdict: '合格', status: '检验完成' }
+      ]
+    },
+    {
+      type: '工艺用水', material: '纯化水', spec: 'TEST-HBOS-M2-SPEC-WT001-V1',
+      regLabels: ['水系统', '取样点', '取样时间', '取样人', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '性状', sop: 'SOP-QC-041', lm: ['记录型', '', '', ''] },
+        { name: '酸碱度', sop: 'SOP-QC-042', lm: ['记录型', '', '', ''] },
+        { name: '电导率', sop: 'SOP-QC-043', lm: ['上限', '', '5.1', 'μS/cm'] },
+        { name: '微生物限度', sop: 'SOP-QC-044', lm: ['上限', '', '100', 'CFU/mL'] }
+      ],
+      rows: [
+        { batch: 'PW-20260801', reg: ['纯化水制备系统', '制备系统出口', '2026-08-01 08:30', '王微检', '2026-08-01', '2026-08-01 16:30', '2026-08-01', '—'],
+          items: { '性状': { rv: '无色澄清', verdict: '合格' }, '酸碱度': { rv: '符合规定', verdict: '合格' }, '电导率': { rv: '2.8', vu: 'μS/cm', verdict: '合格' }, '微生物限度': { rv: '12', vu: 'CFU/mL', verdict: '合格' } },
+          verdict: '合格', status: '已放行' }
+      ]
+    },
+    {
+      type: '包装材料', material: '铝箔内包材', spec: 'TEST-HBOS-M2-SPEC-PK001-V1',
+      regLabels: ['物料编码', '供应商', '材质/规格', '抽样数量', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '外观', sop: 'SOP-QC-051', lm: ['记录型', '', '', ''] },
+        { name: '尺寸', sop: 'SOP-QC-052', lm: ['记录型', '', '', ''] },
+        { name: '印刷质量', sop: 'SOP-QC-053', lm: ['记录型', '', '', ''] },
+        { name: '微生物限度', sop: 'SOP-QC-054', lm: ['上限', '', '100', 'CFU/g'] }
+      ],
+      rows: [
+        { batch: 'PK-0612', reg: ['TEST-HBOS-M2-PK-001', '华强包装', '铝箔 / PET', '50 只', '2026-08-02', '2026-08-05', '—', '—'],
+          items: { '外观': { rv: '', verdict: '' }, '尺寸': { rv: '', verdict: '' }, '印刷质量': { rv: '', verdict: '' }, '微生物限度': { rv: '', verdict: '' } },
+          verdict: '待判定', status: '已登记' }
+      ]
+    }
+  ];
+
+  function ledgerLimitText(l) {
+    if (l[0] === '记录型') return '<span class="res-desc">记录型 · 应符合规定</span>';
+    if (l[0] === '区间') return 'X ∈ [' + l[1] + ' , ' + l[2] + '] ' + l[3];
+    if (l[0] === '上限') return '≤ ' + l[2] + ' ' + l[3];
+    return '≥ ' + l[1] + ' ' + l[3];
+  }
+  function ledgerLimitHtml(l) {
+    return '<span class="limit-text">' + ledgerLimitText(l) + '</span>';
+  }
+  function ledgerVerdict(v, oos) {
+    if (oos) return '<span class="verdict-badge oos">⛔ OOS候选</span>';
+    if (v === '合格') return '<span class="verdict-badge ok">✓ 合格</span>';
+    if (v === '不合格') return '<span class="verdict-badge bad">✗ 不合格</span>';
+    if (v === '不适用') return '<span class="verdict-badge na">— 不适用</span>';
+    return '<span class="res-desc">待判定</span>';
+  }
+  function ledgerStatusPill(st, s) {
+    if (s === 'OOS锁定') return '<span class="status-pill" style="background:#f7e9e6;color:var(--oos)">OOS锁定</span>';
+    var cls = st === '已批准' || st === '已放行' ? 'done' : (st === '草稿' ? 'draft' : '');
+    return '<span class="status-pill ' + cls + '">' + st + '</span>';
+  }
+  function ledgerResultCell(it) {
+    if (!it.rv && !it.vu) return '<span class="res-desc">待录入</span>';
+    var oosCls = it.oos ? ' oos' : '';
+    return '<span class="res-value' + oosCls + '">' + it.rv + (it.vu ? '<span class="res-unit">' + it.vu + '</span>' : '') + '</span>';
+  }
+  function ledgerSummaryVerdict(items) {
+    var bad = items.filter(function (i) { return i.verdict === '不合格'; });
+    var ok = items.filter(function (i) { return i.verdict === '合格'; });
+    if (bad.length) return { label: '不合格', cls: 'bad', icon: '✗' };
+    if (ok.length === items.length && ok.length) return { label: '合格', cls: 'ok', icon: '✓' };
+    if (ok.length) return { label: '部分合格', cls: 'na', icon: '·' };
+    return { label: '待判定', cls: 'na', icon: '·' };
+  }
+  function ledgerSampleStatusPill(s) {
+    var map = { '已放行': 'pill pass', 'OOS锁定': 'pill danger', '检验中': 'pill info', '检验完成': 'pill teal', '已登记': 'pill neutral' };
+    var cls = map[s.status] || 'pill neutral';
+    return '<span class="pill ' + cls + '">' + s.status + '</span>';
+  }
+
+  var $ledgerList = document.getElementById('ledger-sample-list');
+  var $ledgerDetail = document.getElementById('ledger-sample-detail');
+  var $ledgerSearch = document.getElementById('ledger-search');
+  var $ledgerTypeFilter = document.getElementById('ledger-type-filter');
+  var $ledgerDrawer = document.getElementById('ledger-drawer');
+  var $ledgerMask = document.getElementById('ledger-drawer-mask');
+  var $bitableCount = document.getElementById('bitable-count');
+  var $bitableGroupList = document.getElementById('bitable-group-list');
+  var $bitableHead = document.getElementById('bitable-head');
+  var $bitableTableWrap = document.getElementById('bitable-table-wrap');
+  var ledgerSelectedNo = LEDGER.samples[0].no;
+  var bitableSelectedMaterial = BGROUPS[0].material;
+  var bitableCollapsed = {};
+
+  function ledgerFilteredSamples() {
+    var kw = ($ledgerSearch.value || '').trim();
+    var t = $ledgerTypeFilter.value;
+    return LEDGER.samples.filter(function (s) {
+      var hitKw = !kw || (s.material + s.batch + s.no).indexOf(kw) !== -1;
+      var hitType = !t || s.type === t;
+      return hitKw && hitType;
+    });
+  }
+  function renderLedgerList() {
+    var list = ledgerFilteredSamples();
+    $ledgerList.innerHTML = list.map(function (s) {
+      var sum = ledgerSummaryVerdict(s.items);
+      return '<div class="ledger-item' + (s.no === ledgerSelectedNo ? ' active' : '') + '" data-no="' + s.no + '">' +
+        '<div class="li-top"><span class="name">' + s.material + '</span>' + ledgerSampleStatusPill(s) + '</div>' +
+        '<div class="li-meta"><span>' + s.no + '</span><span>批号 ' + s.batch + '</span><span>' + s.type + '</span></div>' +
+        '<div class="li-foot"><span class="status-pill">' + s.type + '</span>' +
+        '<span class="verdict-line"><span class="verdict-badge ' + sum.cls + '">' + sum.icon + ' 汇总 ' + sum.label + '</span></span></div>' +
+        '</div>';
+    }).join('') || '<div class="ledger-empty">无匹配样品</div>';
+    $ledgerList.querySelectorAll('.ledger-item').forEach(function (el) {
+      el.addEventListener('click', function () {
+        ledgerSelectedNo = el.dataset.no;
+        renderLedgerList();
+        renderLedgerDetail(ledgerSelectedNo);
+      });
+    });
+  }
+  function renderLedgerDetail(no) {
+    var s = LEDGER.samples.filter(function (x) { return x.no === no; })[0];
+    if (!s) return;
+    var sum = ledgerSummaryVerdict(s.items);
+    $ledgerDetail.innerHTML =
+      '<div class="card-head">' +
+        '<div><h2>' + s.material + ' ' + ledgerSampleStatusPill(s) + '</h2>' +
+        '<div class="sub"><span>' + s.no + '</span><span>批号 ' + s.batch + '</span><span>' + s.type + '</span><span>质量标准 ' + s.spec + '</span></div></div>' +
+        '<div><span class="verdict-badge ' + sum.cls + '">' + sum.icon + ' 汇总判定：' + sum.label + '</span></div>' +
+      '</div>' +
+      '<div class="ledger-reg-grid">' + s.reg.map(function (r) { return '<div class="rg"><span class="k">' + r[0] + '</span><span class="v mono">' + r[1] + '</span></div>'; }).join('') + '</div>' +
+      '<div class="ledger-section-title">检验项目 <span class="tag">限度冻结快照 · 判定引擎计算</span><span class="count">' + s.items.length + ' 项 · 点击行查看受控记录</span></div>' +
+      '<table class="ledger-item-table"><thead><tr><th>检验项目</th><th>限度要求</th><th>结果</th><th>判定</th><th>检验人</th><th>记录状态</th><th></th></tr></thead><tbody>' +
+      s.items.map(function (it, idx) {
+        var hist = it.revs ? ' <span class="hist-dot" title="有修订记录"></span>' : '';
+        var more = it.revs ? '<b data-open="' + no + '" data-idx="' + idx + '">修订 ' + it.revs.length + '</b>' : '';
+        return '<tr class="item-row" data-open="' + no + '" data-idx="' + idx + '">' +
+          '<td><div class="i-name">' + it.name + hist + '</div><div class="i-sop">' + it.sop + '</div></td>' +
+          '<td>' + ledgerLimitHtml(it.lm) + '</td>' +
+          '<td>' + ledgerResultCell(it) + '</td>' +
+          '<td>' + ledgerVerdict(it.verdict, it.oos) + '</td>' +
+          '<td>' + (it.an || '—') + '</td>' +
+          '<td>' + ledgerStatusPill(it.st, s.status) + '</td>' +
+          '<td class="row-more">' + more + '</td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+    $ledgerDetail.querySelectorAll('[data-open]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openLedgerDrawer(el.dataset.open, parseInt(el.dataset.idx, 10));
+      });
+    });
+  }
+  function openLedgerDrawer(no, idx) {
+    var s = LEDGER.samples.filter(function (x) { return x.no === no; })[0];
+    var it = s.items[idx];
+    var revsHtml = (it.revs || []).map(function (r) {
+      return '<div class="rev-item"><div class="rev-no">' + r.no + ' · 修订' + r.field + '</div>' +
+        '<div class="rev-change"><span class="old">' + r.old + '</span> → <span class="new">' + r.val + (it.vu ? ' ' + it.vu : '') + '</span></div>' +
+        '<div class="rev-reason">原因：' + r.reason + '</div><div class="rev-when">' + r.by + ' · ' + r.when + '</div></div>';
+    }).join('');
+    var auditHtml = (it.audit || []).map(function (a) {
+      return '<div class="drawer-row"><span class="k">' + a[0] + '</span><span class="v">' + a[1] + ' → ' + a[2] + ' · ' + a[3] + ' · ' + a[4] + '</span></div>';
+    }).join('');
+    var sigHtml =
+      '<div class="sig-card' + (it.at ? '' : ' pending') + '"><div class="sig-top"><span class="sig-role">检验人</span><span class="sig-sign">' + (it.at ? it.an : '待检验') + '</span></div>' +
+      '<div class="sig-who">' + (it.an || '—') + '</div><div class="sig-when">' + (it.at || '提交时生成') + '</div></div>' +
+      '<div class="sig-card' + (it.rat ? '' : ' pending') + '"><div class="sig-top"><span class="sig-role">复核人</span><span class="sig-sign">' + (it.rat ? it.rv2 : '待复核') + '</span></div>' +
+      '<div class="sig-who">' + (it.rv2 || '—') + '</div><div class="sig-when">' + (it.rat || '第二人独立审核') + '</div></div>' +
+      '<div class="sig-card' + (it.aat ? '' : ' pending') + '"><div class="sig-top"><span class="sig-role">批准人</span><span class="sig-sign">' + (it.aat ? it.ap : '待批准') + '</span></div>' +
+      '<div class="sig-who">' + (it.ap || '—') + '</div><div class="sig-when">' + (it.aat || '批准后放行') + '</div></div>';
+    $ledgerDrawer.innerHTML =
+      '<div class="drawer-head"><div><h3>' + it.name + ' · ' + (it.sop || '') + '</h3><div class="sub">' + s.no + ' · ' + s.material + ' · ' + s.batch + '</div></div>' +
+      '<button class="drawer-close" id="ledger-drawer-close">×</button></div>' +
+      '<div class="drawer-body">' +
+        '<div class="drawer-sec"><div class="ds-title">标准限度（冻结快照）</div>' +
+          '<div class="drawer-row"><span class="k">限度模式</span><span class="v zh">' + (it.lm[0] === '记录型' ? '记录型' : (it.lm[0] === '区间' ? '区间' : it.lm[0])) + '</span></div>' +
+          '<div class="drawer-row"><span class="k">限度要求</span><span class="v zh">' + ledgerLimitText(it.lm) + '</span></div>' +
+        '</div>' +
+        '<div class="drawer-sec"><div class="ds-title">结果与判定</div>' +
+          '<div class="drawer-row"><span class="k">检验结果</span><span class="v">' + (it.rv || '—') + (it.vu ? ' ' + it.vu : '') + '</span></div>' +
+          '<div class="drawer-row"><span class="k">判定</span><span class="v zh">' + (it.verdict || '待判定') + (it.oos ? '（OOS 候选，样品锁定）' : '') + '</span></div>' +
+          '<div class="drawer-row"><span class="k">记录状态</span><span class="v zh">' + it.st + '</span></div>' +
+        '</div>' +
+        '<div class="drawer-sec"><div class="ds-title">电子签名</div>' + sigHtml + '</div>' +
+        (revsHtml ? '<div class="drawer-sec"><div class="ds-title">修订记录</div><div class="rev-chain">' + revsHtml + '</div></div>' : '') +
+        (auditHtml ? '<div class="drawer-sec"><div class="ds-title">审计摘要</div>' + auditHtml + '</div>' : '') +
+      '</div>';
+    $ledgerDrawer.classList.add('open');
+    $ledgerMask.classList.add('open');
+    document.getElementById('ledger-drawer-close').addEventListener('click', closeLedgerDrawer);
+  }
+  function closeLedgerDrawer() {
+    $ledgerDrawer.classList.remove('open');
+    $ledgerMask.classList.remove('open');
+  }
+
+  // ---- 样品表浏览：左侧按类型分组可收缩，一个样品种类 = 一张表 ----
+  function bitableTypeIcon(t) {
+    var map = { '成品': '成', '原料': '原', '包装材料': '包', '工艺用水': '水', '水': '水', '中间体': '中', '环境样品': '环', '稳定性样品': '稳', '清洁验证样品': '清' };
+    return map[t] || t.slice(0, 1);
+  }
+  function renderBitableSidebar() {
+    var types = [];
+    BGROUPS.forEach(function (g) { if (types.indexOf(g.type) === -1) types.push(g.type); });
+    $bitableCount.textContent = BGROUPS.length + ' 个样品';
+    $bitableGroupList.innerHTML = types.map(function (t) {
+      var group = BGROUPS.filter(function (g) { return g.type === t; });
+      var collapsed = bitableCollapsed[t] ? ' collapsed' : '';
+      var items = group.map(function (g) {
+        return '<button class="bitable-item' + (g.material === bitableSelectedMaterial ? ' active' : '') + '" data-material="' + g.material + '">' +
+          '<span class="bi-icon">' + bitableTypeIcon(t) + '</span>' +
+          '<span class="bi-text"><span class="bi-name">' + g.material + '</span><span class="bi-meta">' + g.rows.length + ' 批检验记录</span></span>' +
+          '</button>';
+      }).join('');
+      return '<div class="bitable-group' + collapsed + '">' +
+        '<button class="bitable-group-title" data-type="' + t + '"><span>' + t + '</span><span class="bi-count">' + group.length + '</span><span class="arrow"></span></button>' +
+        '<div class="bitable-items">' + items + '</div>' +
+        '</div>';
+    }).join('');
+    $bitableGroupList.querySelectorAll('.bitable-group-title').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var t = el.dataset.type;
+        bitableCollapsed[t] = !bitableCollapsed[t];
+        el.closest('.bitable-group').classList.toggle('collapsed', !!bitableCollapsed[t]);
+      });
+    });
+    $bitableGroupList.querySelectorAll('.bitable-item').forEach(function (el) {
+      el.addEventListener('click', function () {
+        bitableSelectedMaterial = el.dataset.material;
+        renderBitableSidebar();
+        renderBitableTable(bitableSelectedMaterial);
+      });
+    });
+  }
+
+  function renderBitableTable(material) {
+    var g = BGROUPS.filter(function (x) { return x.material === material; })[0];
+    if (!g) return;
+    $bitableHead.innerHTML =
+      '<div><h2>' + g.material + '</h2>' +
+      '<div class="sub"><span>' + g.type + '</span><span>质量标准 ' + g.spec + '</span><span>检验批次 ' + g.rows.length + ' 批</span></div></div>';
+    var head = '<tr><th>序号</th><th class="reg-th">样品批号</th>' +
+      g.regLabels.map(function (l) { return '<th class="reg-th">' + l + '</th>'; }).join('') +
+      g.proj.map(function (p) { return '<th><div class="th-name"><b>' + p.name + '</b></div></th>'; }).join('') +
+      '<th>判定</th><th>记录状态</th></tr>';
+    var body = g.rows.map(function (r, idx) {
+      var regCells = r.reg.map(function (v) { return '<td>' + v + '</td>'; }).join('');
+      var projCells = g.proj.map(function (p) {
+        var it = r.items[p.name];
+        if (!it) return '<td>—</td>';
+        var oosCls = it.oos ? ' oos-bg' : '';
+        var val = it.rv
+          ? '<span class="res-value' + (it.oos ? ' oos' : '') + '">' + it.rv + '</span>' + (it.vu ? '<span class="res-unit">' + it.vu + '</span>' : '')
+          : '<span class="res-desc">待录入</span>';
+        return '<td class="' + oosCls + '" title="' + p.name + ' · 限度 ' + ledgerLimitText(p.lm) + '">' + val + '</td>';
+      }).join('');
+      var icon = r.verdict === '不合格' ? '✗' : (r.verdict === '合格' ? '✓' : '·');
+      var vcls = r.verdict === '不合格' ? 'bad' : (r.verdict === '合格' ? 'ok' : 'na');
+      return '<tr><td class="row-num">' + (idx + 1) + '</td><td class="p-batch">' + r.batch + '</td>' +
+        regCells + projCells +
+        '<td><span class="verdict-badge ' + vcls + '">' + icon + ' ' + r.verdict + '</span></td>' +
+        '<td>' + ledgerStatusPill(r.status, r.status) + '</td></tr>';
+    }).join('');
+    $bitableTableWrap.innerHTML = '<table class="bitable-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+  }
+
+  function initLedger() {
+    renderLedgerList();
+    renderLedgerDetail(ledgerSelectedNo);
+    renderBitableSidebar();
+    renderBitableTable(bitableSelectedMaterial);
+    $ledgerSearch.addEventListener('input', renderLedgerList);
+    $ledgerTypeFilter.addEventListener('change', renderLedgerList);
+    $ledgerMask.addEventListener('click', closeLedgerDrawer);
+    document.querySelectorAll('.ledger-tab').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.ledger-tab').forEach(function (b) { b.classList.toggle('active', b === btn); });
+        document.querySelectorAll('.ledger-mode-pane').forEach(function (p) {
+          p.hidden = p.dataset.ledgerPane !== btn.dataset.ledgerMode;
+        });
+      });
+    });
+  }
+  initLedger();
 </script>
 </body>
 </html>

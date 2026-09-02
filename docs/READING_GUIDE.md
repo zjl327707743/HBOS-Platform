@@ -96,3 +96,4 @@ M0 历史任务曾允许读取：
 不得因 HRMS 已安装而擅自创建新的海滨自定义 Frappe App；`hb_attendance_app` 仅限 M1-FIX-B 已授权的轻量导入能力，不得扩大范围；不得接飞书真实写入；不得在原型审查通过前实现前端驾驶舱；不得提交真实 `.env` 或真实密钥。
 M2-LIMS 当前进入 M2-R6：Vue 前端原型与开发流程 REVIEWING，待 Owner 审查；审查通过前不创建 Vue 工程、不接真实 API。
 M2-R6A（样品登记动态表单设计）随 M2-R6 并行 REVIEWING；样品登记动态表单方案见 `docs/frontend/M2_R6A_样品登记动态表单设计.md`。
+M2-R6B（检验结果台账双模式设计）REVIEWING，Owner 已确认原型与交互；双模式（明细台账 + 样品表每样品种类一表）方案见 `docs/frontend/M2_R6B_检验结果台账设计方案.md`。

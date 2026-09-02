@@ -68,12 +68,36 @@
                       />
                       <!-- 复验期/有效期至：年月 / 年月日 可切换 -->
                       <div v-else-if="f.type === 'date' && f.picker === 'flex'" class="flex-date">
+                        <!-- slashIfEmpty：无值时显示 "/"，可点"选择日期"改为日期 -->
+                        <template v-if="f.slashIfEmpty && form[f.key] === '/'">
+                          <a-input
+                            value="/"
+                            readOnly
+                            class="slash-display"
+                            style="flex:1"
+                          />
+                          <a-popover trigger="click" placement="bottomLeft">
+                            <template #content>
+                              <a-date-picker
+                                :value="null"
+                                :picker="form[f.key + '_picker'] === 'month' ? 'month' : 'date'"
+                                :value-format="form[f.key + '_picker'] === 'month' ? 'YYYY-MM' : 'YYYY-MM-DD'"
+                                open
+                                @change="(val: any) => onExpiryChange(f, val)"
+                              />
+                            </template>
+                            <a-button size="small" class="date-mode-btn">选择日期</a-button>
+                          </a-popover>
+                        </template>
                         <a-date-picker
+                          v-else
                           v-model:value="form[f.key]"
                           :picker="form[f.key + '_picker'] === 'month' ? 'month' : 'date'"
                           :value-format="form[f.key + '_picker'] === 'month' ? 'YYYY-MM' : 'YYYY-MM-DD'"
                           style="flex:1"
                           :placeholder="form[f.key + '_picker'] === 'month' ? '选择年-月' : '选择年-月-日'"
+                          allow-clear
+                          @change="(val: any) => onExpiryChange(f, val)"
                         />
                         <a-button
                           size="small"
@@ -356,6 +380,7 @@ interface TypeField {
   unitOptions?: string[]
   readonly?: boolean
   picker?: string
+  slashIfEmpty?: boolean
   placeholder?: string
 }
 
@@ -394,18 +419,19 @@ const typeTemplates: Record<string, TypeTemplate> = {
     tag: '表单 · 包装材料',
     specHint: '包装材料',
     fields: [
-      { key: 'material_code', label: '物料编码', required: true, placeholder: 'TEST-HBOS-M2-PK-001' },
-      { key: 'material_name', label: '物料名称', required: true, placeholder: 'TEST-HBOS-M2-铝箔内包材-01' },
-      { key: 'supplier', label: '供应商', required: true, placeholder: 'TEST-HBOS-M2-供应商-华强包装' },
-      { key: 'material_spec', label: '材质/规格', required: true, placeholder: '铝箔 / PET' },
-      { key: 'supplier_batch', label: '供应商批号', required: true, placeholder: 'TEST-HBOS-M2-PK-0612' },
-      { key: 'sample_qty', label: '抽样数量', required: true, placeholder: '50 只' },
-      { key: 'sample_source', label: '样品来源', required: true, type: 'select', options: ['来样送检', '生产取样'] },
-      { key: 'specification', label: '质量标准', required: true, type: 'select', options: [] },
-      { key: 'test_due_date', label: '检验时限', placeholder: '选择日期' },
-      { key: 'storage_cond', label: '储存条件', placeholder: '干燥、清洁、避光' },
-      { key: 'default_retain_days', label: '默认留样天数', placeholder: '24 天' },
-      { key: 'remarks', label: '样品说明', full: true, placeholder: '包装材料入厂检验' },
+      { key: 'material_name', label: '样品名称', required: true, placeholder: 'TEST-HBOS-M2-铝箔内包材-01' },
+      { key: 'material_code', label: '物料代码', required: true, placeholder: 'TEST-HBOS-M2-PK-001' },
+      { key: 'in_batch_no', label: '进厂批号', required: true, placeholder: 'TEST-HBOS-M2-PK-0612' },
+      { key: 'origin_batch_no', label: '原厂批号', required: true, placeholder: 'TEST-HBOS-M2-SB-20260712' },
+      { key: 'supplier', label: '供货单位', required: true, placeholder: 'TEST-HBOS-M2-供应商-华强包装' },
+      { key: 'producer', label: '生产单位', required: true, placeholder: 'TEST-HBOS-M2-生产商-中包材料' },
+      { key: 'qty', label: '数量', required: true, type: 'unit', unitOptions: ['个'], placeholder: '填写数量' },
+      { key: 'piece_qty', label: '件数', required: true, type: 'unit', unitOptions: ['件'], placeholder: '填写件数' },
+      { key: 'request_dept', label: '请验部门', required: true, placeholder: '如 质量控制部' },
+      { key: 'request_date', label: '请验日期', required: true, type: 'date' },
+      { key: 'expiry_date', label: '复验期/有效期至', type: 'date', picker: 'flex', slashIfEmpty: true, placeholder: '无则填 /' },
+      { key: 'specification', label: '质量标准', type: 'select', options: [] },
+      { key: 'remarks', label: '备注', full: true, placeholder: '登记备注' },
     ],
   },
   中间体: {
@@ -417,7 +443,7 @@ const typeTemplates: Record<string, TypeTemplate> = {
       { key: 'batch_no', label: '样品批号', required: true, placeholder: 'TEST-HBOS-M2-INT-0728' },
       { key: 'material_code', label: '物料代码', placeholder: '无则填 /' },
       { key: 'batch_qty', label: '批/数量', required: true, type: 'unit', unitOptions: ['g', 'kg'], placeholder: '填写数量' },
-      { key: 'sample_qty', label: '样品数量', required: true, type: 'unit', unitOptions: ['g', 'kg'], placeholder: '填写数量' },
+      { key: 'sample_qty', label: '样品数量', required: true, type: 'unit', unitOptions: ['g', 'kg', 'ml'], placeholder: '填写数量' },
       { key: 'sample_source', label: '样品来源', required: true, type: 'select', options: ['生产取样', '中间站取样'] },
       { key: 'request_dept', label: '请验部门', required: true, placeholder: '如 质量控制部' },
       { key: 'prod_date', label: '生产日期', required: true, type: 'date' },
@@ -438,7 +464,7 @@ const typeTemplates: Record<string, TypeTemplate> = {
       { key: 'batch_no', label: '样品批号', required: true, placeholder: 'TEST-HBOS-M2-B240801' },
       { key: 'material_code', label: '物料代码', placeholder: '无则填 /' },
       { key: 'batch_qty', label: '批/数量', required: true, type: 'unit', unitOptions: ['g', 'kg'], placeholder: '填写数量' },
-      { key: 'sample_qty', label: '样品数量', required: true, type: 'unit', unitOptions: ['g', 'kg'], placeholder: '填写数量' },
+      { key: 'sample_qty', label: '样品数量', required: true, type: 'unit', unitOptions: ['g', 'kg', 'ml'], placeholder: '填写数量' },
       { key: 'sample_source', label: '样品来源', required: true, type: 'select', options: ['生产取样', '来样送检', '稳定性取样', '环境监测'] },
       { key: 'request_dept', label: '请验部门', required: true, placeholder: '如 质量控制部' },
       { key: 'prod_date', label: '生产日期', required: true, type: 'date' },
@@ -455,19 +481,18 @@ const typeTemplates: Record<string, TypeTemplate> = {
     tag: '表单 · 回收溶剂',
     specHint: '回收溶剂',
     fields: [
-      { key: 'solvent_name', label: '溶剂名称', required: true, placeholder: '乙醇' },
-      { key: 'recovery_batch', label: '回收批号', required: true, placeholder: 'TEST-HBOS-M2-REC-0728' },
-      { key: 'recovery_source', label: '回收来源', required: true, placeholder: '提取工序' },
-      { key: 'recovery_date', label: '回收日期', required: true, placeholder: '2026-07-28' },
-      { key: 'recovery_qty', label: '回收数量', required: true, placeholder: '200 L' },
-      { key: 'assay', label: '含量测定', required: true, placeholder: '≥ 95.0%' },
-      { key: 'moisture', label: '水分', required: true, placeholder: '≤ 1.0%' },
+      { key: 'material_name', label: '样品名称', required: true, placeholder: 'TEST-HBOS-M2-回收溶剂-01' },
+      { key: 'batch_no', label: '样品批号', required: true, placeholder: 'TEST-HBOS-M2-REC-0728' },
+      { key: 'material_code', label: '物料代码', placeholder: '无则填 /' },
+      { key: 'batch_qty', label: '批/数量', required: true, type: 'unit', unitOptions: ['g', 'kg'], placeholder: '填写数量' },
+      { key: 'sample_qty', label: '样品数量', required: true, type: 'unit', unitOptions: ['g', 'kg', 'ml'], placeholder: '填写数量' },
       { key: 'sample_source', label: '样品来源', required: true, type: 'select', options: ['回收取样', '生产取样'] },
-      { key: 'specification', label: '质量标准', required: true, type: 'select', options: [] },
-      { key: 'test_due_date', label: '检验时限', placeholder: '选择日期' },
-      { key: 'storage_cond', label: '储存条件', placeholder: '密闭、远离火源、通风' },
-      { key: 'default_retain_days', label: '默认留样天数', placeholder: '15 天' },
-      { key: 'remarks', label: '样品说明', full: true, placeholder: '回收溶剂复用检验' },
+      { key: 'request_dept', label: '请验部门', required: true, placeholder: '如 质量控制部' },
+      { key: 'prod_date', label: '生产日期', required: true, type: 'date' },
+      { key: 'expiry_date', label: '复验期至', required: true, type: 'date', picker: 'flex' },
+      { key: 'request_date', label: '请验日期', required: true, type: 'date' },
+      { key: 'specification', label: '质量标准', type: 'select', options: [] },
+      { key: 'remarks', label: '备注', full: true, placeholder: '登记备注' },
     ],
   },
   过程控制: {
@@ -627,10 +652,12 @@ async function onTypeChange(_val: string) {
   form.sample_type = _val
   form.priority = keep.priority
   form.sample_source = '生产取样'
-  // unit 字段默认单位
+  // 包装材料复验期默认 "/"（无则填 /）
+  form.expiry_date = _val === '包装材料' ? '/' : ''
+  // unit 字段默认单位（按类型）
   form.batch_qty_unit = 'g'
   form.sample_qty_unit = 'g'
-  form.qty_unit = '公斤'
+  form.qty_unit = _val === '包装材料' ? '个' : '公斤'
   form.piece_qty_unit = '件'
   // 联动质量标准
   const active = specifications.value.find((s) => s.status === '已生效')
@@ -670,10 +697,15 @@ async function loadSpecItems(specName: string) {
 function toggleDateMode(key: string) {
   const modeKey = key + '_picker'
   form[modeKey] = form[modeKey] === 'month' ? 'date' : 'month'
-  // 切换模式时清空已选值，避免格式冲突
-  form[key] = ''
+  // 切换模式时清空已选值，避免格式冲突（slashIfEmpty 字段回到 "/"）
+  const f = activeFields.value.find((x) => x.key === key)
+  form[key] = f?.slashIfEmpty ? '/' : ''
 }
 
+// slashIfEmpty 字段：选择日期则替换 "/"，清空则回到 "/"
+function onExpiryChange(f: TypeField, val: any) {
+  form[f.key] = val ? val : '/'
+}
 function formatLimits(row: any): string {
   const type = row.limits_type
   if (type === '记录型') return '记录型'
@@ -738,7 +770,7 @@ function resetForm() {
   form.sample_source = '生产取样'
   form.batch_qty_unit = 'g'
   form.sample_qty_unit = 'g'
-  form.qty_unit = '公斤'
+  form.qty_unit = form.sample_type === '包装材料' ? '个' : '公斤'
   form.piece_qty_unit = '件'
   const active = specifications.value.find((s) => s.status === '已生效')
   if (active) {
@@ -762,13 +794,18 @@ async function submitSample() {
       return
     }
   }
-  if (form.sample_type === '原材料') {
+  if (['原材料', '包装材料'].includes(form.sample_type)) {
     if (!form.material_code || !form.in_batch_no || !form.origin_batch_no || !form.supplier || !form.producer || !form.qty || !form.piece_qty) {
       message.warning('请填写物料代码、进厂批号、原厂批号、供货单位、生产单位、数量和件数')
       return
     }
-    if (!form.request_dept || !form.request_date || !form.expiry_date) {
-      message.warning('请填写请验部门、请验日期和复验期/有效期至')
+    if (!form.request_dept || !form.request_date) {
+      message.warning('请填写请验部门、请验日期')
+      return
+    }
+    // 复验期/有效期至：包装材料非必填（无则填 /）
+    if (form.sample_type === '原材料' && !form.expiry_date) {
+      message.warning('请填写复验期/有效期至')
       return
     }
   }
@@ -853,6 +890,10 @@ onMounted(async () => {
 .type-form .unit-field .ant-input-number { width: auto; }
 .type-form .flex-date { display: flex; gap: 6px; align-items: center; }
 .type-form .flex-date .date-mode-btn { flex: 0 0 auto; color: var(--primary); font-size: 12px; }
+.type-form .flex-date .slash-display {
+  background: var(--surface-2); color: var(--muted);
+  cursor: not-allowed; font-weight: 500;
+}
 .type-form :deep(.ant-form-item-label > label) { font-weight: 500; }
 .type-form :deep(.ant-input[readonly]) { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
 

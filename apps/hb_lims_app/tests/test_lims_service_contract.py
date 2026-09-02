@@ -73,6 +73,52 @@ class TestLimsServiceContract(unittest.TestCase):
         self.assertIn("OOS 候选结果不允许批准放行", source)
 
 
+class TestLedgerContract(unittest.TestCase):
+    """M2-R6C 检验结果台账聚合查询契约（get_result_ledger 对齐前端 ResultLedgerView）。"""
+
+    def test_get_result_ledger_whitelist(self):
+        source = SERVICE.read_text(encoding="utf-8")
+        idx = source.index("def get_result_ledger")
+        prefix = source[max(0, idx - 200):idx]
+        self.assertIn("@frappe.whitelist()", prefix, "get_result_ledger 缺少 whitelist")
+        self.assertIn("_check_action(\"get_result_ledger\")", source, "缺少角色校验")
+
+    def test_ledger_action_registered(self):
+        wf = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn('"get_result_ledger"', wf, "workflow_contract ACTION_ROLES 未注册 get_result_ledger")
+        self.assertIn("ROLE_ANALYST", wf)
+        self.assertIn("ROLE_REVIEWER", wf)
+
+    def test_ledger_field_contract(self):
+        """聚合字段覆盖前端 ResultLedgerView 渲染所需全部字段。"""
+        source = SERVICE.read_text(encoding="utf-8")
+        for field in ("material_name", "batch_no", "sample_type", "spec_version", "status",
+                      "test_due_date", "oos_locked"):
+            self.assertIn(f'"{field}"', source, f"samples 缺少字段 {field}")
+        for field in ("item_name", "result_value", "result_text", "unit", "verdict",
+                      "result_status", "limits_type", "lower_limit", "upper_limit",
+                      "analyst", "submitted_at", "reviewer", "reviewed_at", "approver",
+                      "approved_at", "superseded_by"):
+            self.assertIn(f'"{field}"', source, f"results 缺少字段 {field}")
+        for field in ("field_changed", "old_value", "new_value", "changed_by", "changed_at", "change_reason"):
+            self.assertIn(f'"{field}"', source, f"revisions 缺少字段 {field}")
+
+    def test_ledger_derived_fields(self):
+        source = SERVICE.read_text(encoding="utf-8")
+        self.assertIn("report_date", source, "samples 缺 report_date 派生")
+        self.assertIn("limits_text", source, "results 缺 limits_text 派生")
+        self.assertIn('"display"', source, "results 缺 display 派生")
+        self.assertIn('"coas"', source, "返回缺 coas")
+        self.assertIn('"groups"', source, "返回缺 groups")
+
+    def test_ledger_groups_helper(self):
+        source = SERVICE.read_text(encoding="utf-8")
+        self.assertIn("def _ledger_groups(samples):", source)
+        self.assertIn("sample_type", source)
+        self.assertIn("material_name", source)
+        self.assertIn('"count"', source)
+
+
 class TestTransactionalDoctypeContracts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

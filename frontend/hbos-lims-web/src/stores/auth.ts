@@ -73,16 +73,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchUserRoles(username: string) {
+    // 用 hb_lims_app 提供的 get_user_roles（基于 frappe.get_roles），
+    // 避免直接读 Has Role（普通用户无权限，会触发 PermissionError）
     try {
-      const res = await api.post('frappe.client.get_list', {
-        doctype: 'Has Role',
-        filters: { parent: username },
-        fields: ['role'],
-        limit_page_length: 50,
-      })
-      const rows = res.data?.message
-      if (Array.isArray(rows)) {
-        user.value = { ...user.value!, roles: rows.map((r: { role: string }) => r.role) }
+      const res = await api.post('hb_lims_app.hbos_lims.lims_service.get_user_roles', { username })
+      const roles = res.data?.message
+      if (Array.isArray(roles)) {
+        user.value = { ...user.value!, roles }
       }
     } catch {
       // 忽略角色获取失败

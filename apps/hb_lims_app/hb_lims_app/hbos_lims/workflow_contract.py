@@ -98,6 +98,8 @@ ACTION_ROLES = {
 	"delete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
 	"activate_specification": {ROLE_MANAGER, ROLE_SYSTEM},
 	"obsolete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
+	# 检验结果台账聚合查询（只读，所有 LIMS 角色 + System）
+	"get_result_ledger": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 }
 
 

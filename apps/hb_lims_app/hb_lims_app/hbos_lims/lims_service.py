@@ -77,6 +77,18 @@ def get_csrf_token():
 	return get_csrf_token()
 
 
+@frappe.whitelist()
+def get_user_roles(username=None):
+	"""返回指定用户（缺省当前会话用户）的角色列表。
+	基于 frappe.get_roles，避免前端直接读 Has Role（普通用户无权限）。"""
+	if username and username != frappe.session.user:
+		# 仅 Administrator / System Manager 可查询他人角色
+		if "System Manager" not in frappe.get_roles() and not frappe.session.user == "Administrator":
+			frappe.throw("无权查看其他用户的角色。")
+		return frappe.get_roles(username)
+	return frappe.get_roles()
+
+
 # ---------------------------------------------------------------------------
 
 @frappe.whitelist()
@@ -771,3 +783,114 @@ def _normalize_spec_items(items):
 			"remark": it.get("remark"),
 		})
 	return rows
+
+
+# ---------------------------------------------------------------------------
+# 检验结果台账聚合查询（只读投影，对齐前端 ResultLedgerView 双模式）
+# ---------------------------------------------------------------------------
+
+LEDGER_SAMPLE_FIELDS = [
+	"name", "material_name", "material_code", "batch_no", "sample_type",
+	"sample_source", "specification", "spec_version", "priority", "status",
+	"requestor", "received_date", "test_due_date", "creation", "remarks", "oos_locked",
+]
+LEDGER_RESULT_FIELDS = [
+	"name", "sample", "item_name", "result_value", "result_text", "raw_value", "unit",
+	"verdict", "result_status", "limits_type", "lower_limit", "upper_limit", "analyst",
+	"submitted_at", "reviewer", "reviewed_at", "approver", "approved_at",
+	"superseded_by", "creation",
+]
+LEDGER_REVISION_FIELDS = [
+	"name", "result", "field_changed", "old_value", "new_value",
+	"changed_by", "changed_at", "change_reason",
+]
+
+
+def _ledger_groups(samples):
+	"""按 样品类型 → 样品种类 聚合批次数（对齐前端样品表左侧分组列表）。"""
+	type_map = {}
+	for s in samples:
+		t = s.get("sample_type") or "未分类"
+		m = s.get("material_name") or s.get("name") or "未知物料"
+		if t not in type_map:
+			type_map[t] = {}
+		type_map[t][m] = type_map[t].get(m, 0) + 1
+	return [
+		{"type": t, "items": [{"material": m, "count": c} for m, c in mats.items()]}
+		for t, mats in type_map.items()
+	]
+
+
+@frappe.whitelist()
+def get_result_ledger(sample_type=None, material=None):
+	"""检验结果台账聚合查询（只读）：返回 样品 + 检验项目受控记录 + 修订链 + COA 报告日期，
+	对齐前端 ResultLedgerView 双模式渲染所需数据，避免前端多路 get_list 拼接。
+
+	- samples: 样品主信息（含 report_date 派生自已发布 COA）
+	- results: 检验项目受控记录（含 limits_text / display 服务端派生，superseded 链保留由前端过滤）
+	- revisions: 修订记录
+	- coas: {sample: 报告日期}
+	- groups: 样品表左侧分组（类型 → 样品种类 → 批次数）
+	"""
+	_check_action("get_result_ledger")
+	try:
+		filters = {}
+		if sample_type:
+			filters["sample_type"] = sample_type
+		if material:
+			filters["material_name"] = material
+
+		samples = frappe.get_all(
+			"HBOS Sample",
+			filters=filters,
+			fields=LEDGER_SAMPLE_FIELDS,
+			order_by="creation asc",
+		)
+		sample_names = [s["name"] for s in samples]
+
+		coa_map = {}
+		if sample_names:
+			for c in frappe.get_all(
+				"HBOS COA",
+				filters={"sample": ["in", sample_names], "report_status": "已发布"},
+				fields=["sample", "published_at"],
+			):
+				if c["published_at"]:
+					coa_map[c["sample"]] = str(c["published_at"])[:10]
+
+		results = []
+		revisions = []
+		if sample_names:
+			results = frappe.get_all(
+				"HBOS Test Result",
+				filters={"sample": ["in", sample_names]},
+				fields=LEDGER_RESULT_FIELDS,
+				order_by="creation asc",
+			)
+			if results:
+				revisions = frappe.get_all(
+					"HBOS Result Revision",
+					filters={"result": ["in", [r["name"] for r in results]]},
+					fields=LEDGER_REVISION_FIELDS,
+					order_by="changed_at desc",
+				)
+
+		# 服务端派生字段（前端可直接消费）
+		for s in samples:
+			s["report_date"] = coa_map.get(s["name"], "")
+		for r in results:
+			doc = frappe._dict(r)
+			r["limits_text"] = _limits_text(doc) if r.get("limits_type") else ""
+			r["display"] = _result_display_value(doc)
+
+		return {
+			"samples": samples,
+			"results": results,
+			"revisions": revisions,
+			"coas": coa_map,
+			"groups": _ledger_groups(samples),
+			"meta": {"total_samples": len(samples)},
+		}
+	except Exception:
+		_rollback()
+		raise

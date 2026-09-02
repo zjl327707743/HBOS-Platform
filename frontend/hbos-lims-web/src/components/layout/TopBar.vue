@@ -13,13 +13,32 @@
         </button>
       </a-tooltip>
 
-      <div class="user">
-        <div class="avatar">海</div>
-        <div class="user-meta">
-          <div class="user-name">{{ userDisplayName }}</div>
-          <div class="user-role">{{ roleLabel }}</div>
+      <a-dropdown placement="bottomRight" trigger="click">
+        <div class="user" role="button" tabindex="0">
+          <div class="avatar">{{ avatarText }}</div>
+          <div class="user-meta">
+            <div class="user-name">{{ userDisplayName }}</div>
+            <div class="user-role">{{ roleLabel }}</div>
+          </div>
         </div>
-      </div>
+        <template #overlay>
+          <a-menu>
+            <a-menu-item key="desktop" @click="goDesktop">
+              <template #icon><DesktopOutlined /></template>
+              返回桌面
+            </a-menu-item>
+            <a-menu-item key="refresh" @click="$emit('refresh')">
+              <template #icon><ReloadOutlined /></template>
+              刷新
+            </a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="logout" danger @click="doLogout">
+              <template #icon><LogoutOutlined /></template>
+              退出登录
+            </a-menu-item>
+          </a-menu>
+        </template>
+      </a-dropdown>
     </div>
   </header>
 </template>
@@ -27,7 +46,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { ReloadOutlined } from '@ant-design/icons-vue'
+import { ReloadOutlined, DesktopOutlined, LogoutOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import { useAuthStore } from '@/stores/auth'
 
 defineEmits<{ refresh: [] }>()
@@ -36,6 +56,10 @@ const route = useRoute()
 const auth = useAuthStore()
 
 const userDisplayName = computed(() => auth.user?.full_name || auth.user?.name || '未登录')
+const avatarText = computed(() => {
+  const name = userDisplayName.value
+  return name && name !== '未登录' ? name.substring(0, 1) : '海'
+})
 const roleLabel = computed(() => {
   const roles = auth.user?.roles || []
   if (roles.includes('HBOS LIMS Manager')) return 'LIMS 经理'
@@ -43,6 +67,17 @@ const roleLabel = computed(() => {
   if (roles.includes('HBOS LIMS Analyst')) return 'LIMS 检验员'
   return '未认证'
 })
+
+// 返回 Frappe Desk 桌面
+function goDesktop() {
+  window.location.href = `${window.location.origin}/desk`
+}
+
+async function doLogout() {
+  await auth.logout()
+  message.success('已退出登录')
+  window.location.href = `${window.location.origin}/login`
+}
 </script>
 
 <style scoped>
@@ -96,7 +131,8 @@ const roleLabel = computed(() => {
 
 .icon-btn:hover { background: var(--surface-2); color: var(--primary); border-color: var(--primary); }
 
-.user { display: flex; align-items: center; gap: 10px; }
+.user { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 8px; border-radius: 8px; transition: background 0.12s ease; }
+.user:hover { background: var(--surface-2); }
 
 .avatar {
   width: 32px;

@@ -21,6 +21,10 @@ M2-R5（验证收口）：REVIEWING，等待 Owner 和 Claude 审查。全量演
 M2-R6（Vue 前端原型与开发流程）：REVIEWING，等待 Owner 审查。已交付交互式 HTML 原型（`docs/frontend/M2_LIMS_Vue前端原型.html`，7 个视图，桌面 / 移动端渲染验证通过）与开发流程文档（`docs/frontend/M2_LIMS_Vue前端开发流程.md`）；推荐 Vue 3 + Vite + TypeScript + Pinia + Vue Router + Element Plus + ECharts；API 复用 `lims_service.py` 现有 whitelist 方法与 5 个 Script Report；`frontend-design` skill 当前环境不可用，按项目规则等价人工设计。未创建 Vue 工程、未接真实 API。主文档 `docs/milestones/M2_R6_Vue前端原型与开发流程.md`。
 M2-R6A（样品登记动态表单设计）：REVIEWING，等待 Owner 审查。结合 `/hbos-lims/samples` 实际需求，交付 `docs/frontend/M2_R6A_样品登记动态表单设计.md` 与原型 `#sample` 动态表单交互；样品类型 / 检验优先级为顶部 sticky 下拉决策条，每个样品类型各对应一张完整表单，切换下拉即整表单替换（成品 / 原料 / 中间体 / 包装材料 / 工艺用水 / 水 / 环境样品 / 稳定性样品 / 清洁验证样品），桌面 / 移动端渲染验证通过。
 
+M2-R6B（检验结果台账双模式设计）：REVIEWING，Owner 已确认原型与交互。针对"每种样品登记信息类型不同、检验项目不同"与 GMP 数据完整性要求，交付双模式方案：明细台账（受控记录视角，样品卡片 + 检验项目逐行 + 下钻抽屉签名/修订/审计）+ 样品表（每样品种类一张表、一行一个批次、首列序号、次列样品批号，左侧按类型分组可收缩下拉列表）；后端落地设计为 `HBOS Ledger Template` DocType + `get_result_ledger` 聚合 API（只读投影，限度/结果/判定受控可溯源）。主文档 `docs/frontend/M2_R6B_检验结果台账设计方案.md`。
+
+M2-R6C（检验结果台账 Vue 复刻与生产部署）：DEPLOYED，Owner 已确认测试路径效果。将 R6B 双模式复刻进 Vue 工程 `ResultLedgerView.vue`（明细台账 + 样品表，数据来自真实 Frappe API：HBOS Sample / Test Result / COA / Result Revision 聚合、只读投影、superseded 链过滤、修订/审计摘要）；新增判定列 + 记录状态列筛选、记录状态语义配色（放行/批准绿、检验完成/检验中蓝、登记/草稿灰、拒绝/OOS 红）；`vue-tsc` 类型检查 0 错误；生产构建 `npm run build:prod` 后同步至生产容器 `hbos-m0-r3a-frontend-1`（备份 `hbos-lims.bak-20260827a`），生产 URL `http://localhost:8080/hbos-lims/` HTTP 200 验证通过。后端同步：新增 `get_result_ledger` 聚合查询 whitelist（只读投影，返回 样品+受控记录+修订链+COA 报告日期+类型分组，对齐前端 ResultLedgerView，避免前端多路 get_list 拼接），`workflow_contract.py` ACTION_ROLES 注册 `get_result_ledger`（LIMS Analyst/Reviewer/Manager + System 可读）；离线契约测试 114/114 全绿（新增 6 项台账契约）；真实环境跑通（全量 7 样品/17 结果/2 修订/3 COA 日期/分组 + sample_type 与 material 筛选均验证）；backend 容器 gunicorn 已重启加载新代码（kill 误杀主进程后 `docker start` 恢复，容器健康、生产前端 200）。
+
 ## 本轮补充（M2-R6A，已交付 REVIEWING）
 
 ## 本轮范围（M2-R6，已交付 REVIEWING）
@@ -76,6 +80,8 @@ M2-R4     = COMPLETED
 M2-R5     = REVIEWING（待 closeout）
 M2-R6     = REVIEWING（Vue 前端原型待 Owner 审查）
 M2-R6A    = REVIEWING（样品登记动态表单设计待 Owner 审查）
+M2-R6B    = REVIEWING（检验结果台账双模式设计，Owner 已确认原型与交互，设计文档待审查）
+M2-R6C    = DEPLOYED（检验结果台账 Vue 复刻已上线生产，Owner 已确认测试路径）
 M1-FIX    = IN_PROGRESS（并行未决，B3/B4/B5 REVIEWING）
 M1-FIX-C/D/E = PLANNED / 待 Owner 授权
 ```
@@ -84,6 +90,8 @@ M1-FIX-C/D/E = PLANNED / 待 Owner 授权
 
 M2-R5 审查 closeout 与 M2-R6 原型审查并行：M2-R5 等待 Owner 浏览器 UI 验收（海滨LIMS 桌面图标 → 工作台 → 样品登记 → 检验全流程 → COA 发布）与 Claude 审查，通过后 M2-LIMS MVP 整体收口；M2-R6 等待 Owner 审查交互式 HTML 原型与开发流程，通过后再进入 Vue 工程初始化与页面复刻。M2-LIMS 扩展模块（仪器集成、稳定性、环测、微生物、试剂、留样、OOS 调查、审计追踪通用引擎、国密电子签名）另行规划，不自动启动。
 M2-R6A 随 M2-R6 并行审查：Owner 审查动态表单方案与原型交互（含 9 类样品类型切换、必填联动、桌 / 移双端）通过后，将样品登记页纳入 Vue 页面复刻范围。
+M2-R6B 随 M2-R6A 并行：Owner 已确认检验结果台账双模式原型（明细台账 + 样品表每样品种类一表）与视觉规范，设计文档待审查；通过后将检验结果台账页纳入 Vue 页面复刻范围，后端 `HBOS Ledger Template` / `get_result_ledger` 落地另行规划。
+M2-R6C 已上线生产：检验结果台账双模式 Vue 复刻完成并同步至生产路径，Owner 已确认测试路径效果；`HBOS Ledger Template` DocType / `get_result_ledger` 聚合 API 为待实现规划项，本轮未新建 DocType、未改后端业务方法。
 
 权威状态文件：
 

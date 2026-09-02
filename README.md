@@ -8,6 +8,8 @@
 
 当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；M1-FIX-B5 为 REVIEWING（等待 Owner 和 Claude 审查），M1-FIX-B3 / B4 不 closeout，M1-FIX-C/D/E 未启动。M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动：M2-R1 至 M2-R4（环境与骨架、主数据与判定引擎、检验流程闭环、COA 与报表）已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，未创建 Vue 工程。M1-FIX 为并行未决事项，不阻塞 M2-LIMS。
 M2-R6A（样品登记动态表单设计）已交付下拉决策条 + 9 类样品类型完整表单切换方案，进入 REVIEWING，等待 Owner 审查。
+M2-R6B（检验结果台账双模式设计）已交付明细台账 + 样品表（每样品种类一表）双模式方案，Owner 已确认原型与交互，进入 REVIEWING，设计文档待审查。
+M2-R6C（检验结果台账 Vue 复刻与生产部署）双模式已复刻进 Vue 并上线生产，Owner 已确认测试路径效果，DEPLOYED。
 
 当前真实进度以以下文件为准：
 
@@ -123,6 +125,8 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 10. M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现，M1-FIX-B-FIX 已补齐浏览器导入与中文体验修复，M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS 但数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING。
 11. M2-LIMS 已启动：M2-R1 至 M2-R4（环境与骨架、主数据与判定引擎、检验流程闭环、COA 与报表）COMPLETED；M2-R5 验证收口 REVIEWING；M2-R6 Vue 前端原型与开发流程 REVIEWING（待 Owner 审查，审查通过后才进入 Vue 工程初始化与页面复刻）。
 M2-R6A 样品登记动态表单设计 REVIEWING（随 M2-R6 并行审查）。
+M2-R6B 检验结果台账双模式设计 REVIEWING（Owner 已确认原型与交互，设计文档待审查）。
+M2-R6C 检验结果台账 Vue 复刻与生产部署 DEPLOYED（双模式已上线生产）。
 
 ## AI 协作方式
 
