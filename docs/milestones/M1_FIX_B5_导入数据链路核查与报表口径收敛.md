@@ -208,6 +208,18 @@ Owner 数据链路验收后续，修复多处班次误判（不改变 B5 主结�
 `shift_management_data.get_rules_board()`（白名单端点）、`hbos_shift_management.js`（Tab + 渲染）。
 名单常量从 api.py 抽离为纯模块，判定逻辑零改动。新增离线测试 9 例，全量 88 通过。
 
+## 2026-09-02 追加交付：班次人员维护表导出
+
+规则看板新增「导出班次人员维护表」按钮，导出 5-sheet xlsx（`HBOS班次人员维护表_YYYYMMDD.xlsx`）：
+
+- 部门-班次-人员：主表，行 = 有人的「部门×班次体系」组合；人员归行优先级 豁免(不进主表) > 绑定班次 > 名单(无菌/四班次/行政/安全/食堂) > 通用倒班；姓名含工号。
+- 豁免人员：EXEMPT_NUMS 在职成员（含原因）。
+- 特殊班次：无菌倒班/四班次/安全倒班/食堂 名单在职成员。
+- 行政班名单：ADMIN_NUMS 在职成员。
+- 说明：口径与数据日期。
+
+实现：`roster_classify.py`（归行纯函数）、`roster_export.py`（export_shift_roster 白名单端点 + openpyxl 5-sheet）、规则看板按钮。只读不触发考勤生成。新增离线测试，全量 97 通过。
+
 ## 状态口径
 
 - M1-FIX-B2 = COMPLETED。
