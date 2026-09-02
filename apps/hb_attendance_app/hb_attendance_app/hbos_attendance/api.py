@@ -3,88 +3,31 @@ import frappe
 import json
 import requests
 from datetime import datetime
+from datetime import timezone as _tz
+from datetime import timedelta as _timedelta
+
+# 得力云 check_time 为标准 UTC 时间戳; 用固定 +8 时区转换, 不依赖容器 TZ 设置
+# (2026-08-20 事故: queue worker 容器为 UTC, fromtimestamp 导致打卡时间错位 8 小时)
+DELICLOUD_TZ = _tz(_timedelta(hours=8))
+
+from hb_attendance_app.hbos_attendance.pairing import pair_employee_checkins, FOUR_SHIFT_NUMS
+from hb_attendance_app.hbos_attendance.rule_lists import ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS
 
 
 # 飞书多维表格固定配置
-BITABLE_APP_TOKEN = "DNTYbsdcRaomxksiKgNccgXonKg"
-BITABLE_TABLE_ID = "tblINWQsvCeHn3gZ"
+# 请假表（Owner 2026-08-19 确认以此表为准）:
+# https://j0eukrlohu.feishu.cn/base/PwSXbltzha1uG1sr38hcQzMrnwb?table=tblmcJzOXsi6zfy3
+BITABLE_APP_TOKEN = "PwSXbltzha1uG1sr38hcQzMrnwb"
+BITABLE_TABLE_ID = "tblmcJzOXsi6zfy3"
 OVERTIME_BITABLE_APP_TOKEN = "Tb0YwuXY6iglUXkzpcWc5EADnxe"
 OVERTIME_BITABLE_TABLE_ID = "tblIQlEJk7TcxItX"
 EXCEPTION_BITABLE_APP_TOKEN = "TnDnbgjbPa5erasF407crN7Yn47"
 EXCEPTION_BITABLE_TABLE_ID = "tblP3tzAoO7NGBc6"
 DELICLOUD_PATH = "/v2.0/cloudappapi"
 
-# ==================== 班次判定名单（模块级常量，供配对算法与修复脚本复用） ====================
-
-# 行政班名单(按工号，强制8:30-17:30判定)
-ADMIN_NUMS = {
-    '10003001','10003003','10003006',
-    '10004003','10004005','10004006','10004020','10004022',
-    '10006001','10006002','10006020','10006022','10006030',
-    '10007003','10007004','10007007','10007008','10007009',
-    '10008003','10008004','10008005','10008006','10008007','10008008','10008009','10008010','10008011','10008012','10008013','10008014',
-    '10008015','10008016','10008019','10008021','10008022','10008023','10008025','10008026','10008027',
-    '10009002','10009004','10009005','10009006','10009007','10009008','10009009','10009010','10009011','10009013',
-    '10009014','10009015','10009016','10009018','10009022','10009023','10009024','10009029',
-    '10010003','10010004','10010005','10010006','10010008','10010012',
-    '10011001','10011002','10011003','10011005','10011006',
-    '10012003','10012005','10012008','10012009','10012010',
-    '10013002','10013003','10013004','10013005','10013006','10013007','10013008','10013012','10013013','10013017','10013018','10013022',
-    '10014005','10014007','10014016','10014017','10014022',
-    '10015001','10015002','10015003','10015004','10015005','10015006','10015007','10015008','10015009','10015010','10015011','10015012','10015013','10015015','10015016','10015018','10015019','10015021','10015022','10015023','10015025','10015026','10015028','10015030','10015031','10015035','10015036','10015039','10015040','10015042','10015043','10015045','10015046','10015047','10015048','10015051','10015052','10015053','10015056','10015057','10015058','10015060','10015061','10015062','10015063','10015064','10015065','10015066','10015068','10015069','10015071',
-    '10016001','10016002','10016003','10016004','10016005',
-    '11001003','11001004','11001005','11001006','11001007','11001008','11001010','11001018',
-    '11002001','11002002','11002003','11002004','11002006','11002007',
-    '11003003','11003052','11003055','11003056',
-    '11004002','11004004','11004006','11004007','11004010','11004011','11004012','11004014','11004049','11004050',
-    '11005005','11005006','11005007','11005008',
-    '11006002','11006003','11006005','11006006','11006007','11006008','11006009','11006010','11006011','11006012',
-    '11006093','11006104','11006105','11006107','11006112',
-    '11007002','11007003','11007004',
-    '11008002','11008004','11008005','11008011','11008012',
-    '11009003','11009006','11009007','11009008','11009011','11009016','11009017','11009018','11009019','11009020','11009021','11009026','11009028','11009030','11009032','11009033','11009034','11009041','11009042','11009043','11009044','11009045',
-}
-
-# 食堂人员(不判迟到早退)
-FOOD_NUMS = {
-    '11009046','11009047','11009048','11009049','11009050','11009051','11009052',
-}
-
-# 无菌倒班(按行政班8:30规则, 8:31起算迟到)
-WUJUN_NUMS = {
-    '10014020','10015055','11004008',
-    '11008005','11008007','11008009','11008011','11008012','11008013','11008015','11008016','11008017','11008018','11008019','11008020','11008021','11008023','11008024','11008026','11008027','11008028','11008029','11008030','11008031','11008032','11008034','11008035','11008037','11008038','11008039','11008040','11008041','11008043','11008045','11008046','11008047','11008048','11008049','11008050','11008052','11008054','11008055','11008056','11008057','11008058','11008059','11008060','11008063',
-    '11009035','11009036','11009037','11009038','11009039','11009040',
-}
-
-# 安全人员倒班(早班8:30, 8:31起算迟到)
-SAFETY_NUMS = {
-    '10006022','10006023','10006024','10006025','10006026','10006027','10006028','10006029','10006030','10006031','10006032','10006033','10006034','10006035','11009004',
-}
-
-# 不计入异常考勤的豁免名单（管理层，Owner 提供 2026-08-13）
-# 这些工号的员工: 迟到/早退/缺勤均不进入异常判定
-EXEMPT_NUMS = {
-    '10003001','10006001','10006025','10006026','10006027',
-    '10007003','10007004','10008003','10008004','10008015',
-    '10009002','10009013','10010003','10011001','10013002',
-    '10013006','10013007','10013008','10015001','10015002',
-    '10015005','10015023','10015028','10015069','10016001',
-    '11001001','11001003','11001005','11002001','11002002',
-    '11002003','11003003','11004002','11004004','11005005',
-    '11006002','11006003','11006008','11006107','11006112',
-    '11008002','11008004','11008005','11009007','11009013',
-    '11009016','11009033','11009041','11009042','11009043',
-    # Owner 2026-08-14 追加
-    '10004020','11009003','10013018','10003006',
-    # Owner 2026-08-14 追加（Excel名单补录人员）
-    'HB-梁春盛','HB-尚磊磊','HB-陈广涛','10003002','10004001',
-    '10010001','10010002','11009027','10006018','10006019',
-    '10007001','10007002','10012001','10014002','10012004',
-    '10013001','10014003','10009001','10008001','11003001',
-    '11003002','11004001','11004003','11004005','11005001',
-    '11006001','11006113','11007001',
-}
+# 旧无菌倒班名单已废弃(2026-08-20): 无菌人员统一走 pairing.py 的 SPECIAL_SHIFT_NUMS,
+# 原 WUJUN_NUMS 中 3 名设备动力部人员(11008005/11008011/11008012)误加, 回归通用判定
+WUJUN_NUMS = set()
 
 
 def _is_exempt(emp_num):
@@ -99,25 +42,43 @@ def _is_admin_shift_num(emp_num):
 
 def _get_shift_and_late(ck_dt, emp_num="", cross_day=False):
     """返回 (系统班次名, 是否迟到)。系统班次: 早班/中班/晚班/行政班早班"""
+    # 规则表优先(按部门+班次类型匹配, 硬编码兜底)
+    # 为保持纯函数可测性, 规则查询在 regenerate_attendance 外层预加载后传入;
+    # 此处直接走硬编码逻辑, 规则表接入见 _get_shift_and_late_with_rules
+    return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
+
+
+def _get_shift_and_late_with_rules(ck_dt, emp_num="", cross_day=False, rules_by_dept=None):
+    """规则表优先的班次判定。
+
+    rules_by_dept: {dept_name: [{"shift_type","start_time","late_after",...}]}
+    部门规则匹配不到或未传规则时回退硬编码。
+    """
+    if rules_by_dept:
+        from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
+        # 全局规则 + 部门规则合并匹配(部门优先已在调用方排序)
+        for dept_rules in rules_by_dept.values():
+            matched = match_rule_by_time(dept_rules, ck_dt, cross_day)
+            if matched:
+                return matched
+    return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
+
+
+def _get_shift_and_late_builtin(ck_dt, emp_num="", cross_day=False):
+    """硬编码班次判定(兜底)。"""
     # 食堂不判迟到早退
     if emp_num in FOOD_NUMS:
         return ("行政班早班", False)
-    # 无菌倒班: 白班→早班(8:30标准), 夜班→晚班(20:30标准)
-    if emp_num in WUJUN_NUMS:
-        ts = ck_dt.strftime("%H:%M:%S")
-        if ck_dt.hour >= 20 or ck_dt.hour < 4:
-            return ("晚班", ts >= "20:31:00")
-        return ("早班", ts >= "08:31:00")
     # 安全人员倒班: 早班(8:30标准), 晚班(20:30标准) —— 与无菌倒班一致
     if emp_num in SAFETY_NUMS:
         ts = ck_dt.strftime("%H:%M:%S")
         if ck_dt.hour >= 20 or ck_dt.hour < 4:
             return ("晚班", ts >= "20:31:00")
         return ("早班", ts >= "08:31:00")
-    # 行政班名单→行政班早班
+    # 行政班名单→行政班早班(8:31起算迟到; 夜间/凌晨卡不判迟到, Owner 2026-08-21)
     if emp_num in ADMIN_NUMS:
-        ts = ck_dt.strftime("%H:%M:%S")
-        return ("行政班早班", ts >= "08:31:00")
+        from hb_attendance_app.hbos_attendance.pairing import admin_shift_from_gap
+        return admin_shift_from_gap(ck_dt)
     h = ck_dt.hour; m = ck_dt.minute; ts = ck_dt.strftime("%H:%M:%S")
     if h >= 20 or h < 4: return ("晚班", h >= 0 and ts > "00:00:00" and h < 4)
     if 4 <= h < 6: return ("早班", False)
@@ -141,27 +102,50 @@ STATUS_MAP = {
 
 @frappe.whitelist()
 def sync_from_bitable():
+    """飞书请假同步（以 Owner 指定的请假表格为准）。
+
+    字段: 请假人员_姓名/工号/开始时间/结束时间/请假天数 + SourceID(审批实例ID) + 申请状态
+    去重键: feishu-bitable-<SourceID>
+    """
     try: token = _get_token(); records = _fetch_all_records(token)
     except Exception as e: frappe.log_error(str(e), "飞书同步"); frappe.throw(f"读取飞书表格失败: {e}")
     created = updated = skipped = 0
     for record in records:
         fields = record.get("fields", {}); rid = record.get("id", "")
-        name = fields.get("姓名", ""); emp_num = fields.get("工号", "")
+        name = fields.get("请假人员_姓名", "") or ""
+        emp_num = fields.get("请假人员_工号", "") or ""
+        source_id = fields.get("SourceID", "") or ""
         if not name or not emp_num: skipped += 1; continue
         emp = frappe.db.get_value("Employee", {"employee_number": emp_num}, "name")
         if not emp: skipped += 1; continue
-        st = fields.get("开始时间", 0) or 0; et = fields.get("结束时间", 0) or 0
+        st = fields.get("请假人员_开始时间", 0) or 0
+        et = fields.get("请假人员_结束时间", 0) or 0
         sd = datetime.fromtimestamp(st/1000).strftime("%Y-%m-%d") if st else None
         ed = datetime.fromtimestamp(et/1000).strftime("%Y-%m-%d") if et else None
-        aid = f"feishu-bitable-{rid}"
-        if frappe.db.exists("HBOS Leave Record", {"feishu_approval_id": aid}):
+        # 去重键: SourceID 过长(集体审批单超140字符)时用 SHA-256 截断, 原始ID存 feishu_source_id
+        import hashlib
+        raw_source = source_id or rid
+        digest = hashlib.sha256(raw_source.encode()).hexdigest()[:40]
+        aid = f"feishu-bitable-{digest}"
+        existing = frappe.db.exists("HBOS Leave Record", {"feishu_approval_id": aid})
+        if not existing:
+            # 兼容旧记录: 此前以原始 SourceID 为键(长度<140时)
+            legacy_aid = f"feishu-bitable-{raw_source}"
+            existing = frappe.db.exists("HBOS Leave Record", {"feishu_approval_id": legacy_aid})
+            if existing:
+                aid = legacy_aid
+        if existing:
             doc = frappe.get_doc("HBOS Leave Record", {"feishu_approval_id": aid}); is_new = False
         else: doc = frappe.get_doc({"doctype": "HBOS Leave Record", "feishu_approval_id": aid}); is_new = True
         doc.update({"employee": emp, "leave_type": fields.get("请假类型", ""), "start_date": sd, "end_date": ed,
-                     "leave_days": float(fields.get("请假天数", 0) or 0),
+                     "leave_days": float(fields.get("请假人员_请假天数", 0) or 0),
                      "approval_status": STATUS_MAP.get(fields.get("申请状态", ""), "审批中"),
-                     "feishu_sync_time": frappe.utils.now_datetime(), "remarks": fields.get("请假事由", "")})
-        try: doc.save(ignore_permissions=True); frappe.db.commit(); created += 1 if is_new else updated; updated += 0 if is_new else 1
+                     "feishu_sync_time": frappe.utils.now_datetime(), "remarks": fields.get("请假事由", ""),
+                     "feishu_source_id": raw_source})
+        try:
+            doc.save(ignore_permissions=True); frappe.db.commit()
+            if is_new: created += 1
+            else: updated += 1
         except Exception: skipped += 1
     return {"total": len(records), "created": created, "updated": updated, "skipped": skipped}
 
@@ -238,7 +222,8 @@ def sync_delicloud_checkin():
             emp_num = cd.get("employee_num", ""); member_name = cd.get("member_name", "").strip(); cts = rec.get("check_time", 0)
             if not cts: skipped += 1; continue
             try:
-                cdt = dt_mod.fromtimestamp(cts)
+                # 得力云 check_time 为 UTC 时间戳, 用固定 +8 时区转换(不依赖容器 TZ)
+                cdt = dt_mod.fromtimestamp(cts, tz=DELICLOUD_TZ).replace(tzinfo=None)
                 # Skip future dates (2030+)
                 if cdt.year >= 2030: skipped += 1; continue
                 ts = cdt.strftime("%Y-%m-%d %H:%M:%S")
@@ -258,9 +243,40 @@ def sync_delicloud_checkin():
                     skipped += 1
                     continue
             lt = "IN"
-            if frappe.db.exists("Employee Checkin", {"employee": emp, "time": ts}): continue
+            # 设备信息采集(2026-08-18 新增): 分打卡机区分上下班，打卡记录需保留打卡机信息
+            device_name = cd.get("device_name", "")
+            terminal_sn = rec.get("terminal_id", "")
+            deli_id = str(rec.get("id", ""))
+            check_type = rec.get("check_type", "")
+            dept_name = cd.get("dept_name", "")
+            # GPS/外勤打卡: 手机定位打卡, 无考勤机 SN, 名称标记为「手机打卡」
+            # (Owner 2026-08-27 确认: 手机打卡不参与方向判定, 不判缺勤)
+            if (check_type or "").lower() in ("gps", "out_work"):
+                device_name = "手机打卡"
+            existing = frappe.db.get_value("Employee Checkin", {"employee": emp, "time": ts}, "name")
+            if existing:
+                # 历史记录回填设备信息(字段为空时才写入, 不覆盖已有值)
+                try:
+                    for fname, val in (("device_id", device_name), ("hbos_terminal_sn", terminal_sn),
+                                       ("hbos_delicloud_id", deli_id), ("hbos_employee_num", emp_num),
+                                       ("hbos_dept_name", dept_name), ("hbos_check_type", check_type)):
+                        if val and not frappe.db.get_value("Employee Checkin", existing, fname):
+                            frappe.db.set_value("Employee Checkin", existing, fname, val,
+                                                update_modified=False)
+                except Exception:
+                    pass
+                continue
             try:
-                doc = frappe.get_doc({"doctype": "Employee Checkin", "employee": emp, "time": ts, "log_type": lt})
+                doc = frappe.get_doc({
+                    "doctype": "Employee Checkin",
+                    "employee": emp, "time": ts, "log_type": lt,
+                    "device_id": device_name,
+                    "hbos_terminal_sn": terminal_sn,
+                    "hbos_delicloud_id": deli_id,
+                    "hbos_employee_num": emp_num,
+                    "hbos_dept_name": dept_name,
+                    "hbos_check_type": check_type,
+                })
                 doc.insert(ignore_permissions=True); created += 1
             except Exception: skipped += 1
 
@@ -310,21 +326,41 @@ def regenerate_attendance(range_start, range_end):
     from datetime import datetime as _dt, timedelta as _td
     from datetime import date as _date, timedelta as _tdelta
 
+    # 自动轮转排班(设备动力部 12h 倒班, Owner 2026-08-26 确认):
+    # 生成到「重算终点」与「未来 30 天」的较晚者, 保证休息日在排班表中有记录,
+    # 缺勤判定的「排班休息日无打卡=休息」逻辑会自动豁免, 不会误判缺勤。
+    from hb_attendance_app.hbos_attendance.rotation_schedule import generate_rotation_schedule
+    _rot_until = max(range_end, (_date.today() + _tdelta(days=30)).isoformat())
+    generate_rotation_schedule(_rot_until)
+
     # 拉取足够多的历史打卡确保配对上下文(覆盖生成范围+前后各1天)
     fetch_start = (_date.fromisoformat(range_start) - _tdelta(days=1)).strftime("%Y-%m-%d")
     fetch_end = (_date.fromisoformat(range_end) + _tdelta(days=1)).strftime("%Y-%m-%d")
 
     all_ck = frappe.db.sql("""
-        SELECT ec.employee, ec.time, emp.employee_name, emp.employee_number, emp.department
+        SELECT ec.employee, ec.time, emp.employee_name, emp.employee_number, emp.department,
+               ec.hbos_terminal_sn, ec.hbos_check_type
         FROM `tabEmployee Checkin` ec
         JOIN tabEmployee emp ON emp.name = ec.employee
         WHERE DATE(ec.time) BETWEEN %s AND %s
+          AND emp.status = 'Active'
         ORDER BY ec.employee, ec.time
     """, (fetch_start, fetch_end), as_dict=True)
 
     by_emp = defaultdict(list)
     for ck in all_ck:
         by_emp[ck["employee"]].append(ck)
+
+    # GPS 打卡日期集合(Owner 2026-08-27 确认): 当天存在任意 GPS/外勤打卡时,
+    # 视为已打卡出勤(外勤/居家/手机打卡), 不判缺勤。GPS/外勤打卡无考勤机 SN,
+    # 方向未知, 直接参与配对会误判缺勤(姚娜 8/26 案例: 08:20 gps + 17:33 gps 被判 Absent)。
+    gps_ck_set = set()
+    for eid, cks in by_emp.items():
+        for c in cks:
+            ctype = (c.get("hbos_check_type") or "").lower()
+            if ctype in ("gps", "out_work"):
+                gps_ck_set.add((eid, c["time"].strftime("%Y-%m-%d")))
+
 
     # 请假日期集合: employee -> set(日期)，配对分支与零打卡分支共用
     leaves = frappe.db.get_all(
@@ -342,172 +378,199 @@ def regenerate_attendance(range_start, range_end):
             emp_leave_dates[l.employee].add(cur.strftime("%Y-%m-%d"))
             cur += _tdelta(days=1)
 
+    # 排班表中的请假日期也计入请假豁免(排班表优先于飞书请假)
+    # 排班「休息」的日期单独记录(休息日无打卡=无记录, 不生成 On Leave)
+    emp_rest_dates = defaultdict(set)
+    for s in frappe.db.get_all("HBOS Employee Schedule",
+            filters={"leave_type": ["is", "set"]},
+            fields=["employee", "schedule_date", "leave_type"]):
+        emp_leave_dates[s.employee].add(str(s.schedule_date))
+    for s in frappe.db.get_all("HBOS Employee Schedule",
+            filters={"shift_type": "休息"},
+            fields=["employee", "schedule_date"]):
+        emp_rest_dates[s.employee].add(str(s.schedule_date))
+
     # 清空生成范围内已有用 HBOS 逻辑生成的 Attendance(保留 HRMS 生成的)
+    # 同时清掉 range_end 之后的残留(当天数据不完整的假缺勤, 由早期版本生成)
     frappe.db.sql(
         "DELETE FROM tabAttendance WHERE name LIKE 'HBOS-ATT-%%' AND attendance_date BETWEEN %s AND %s",
         (range_start, range_end),
     )
+    frappe.db.sql(
+        "DELETE FROM tabAttendance WHERE name LIKE 'HBOS-ATT-%%' AND attendance_date > %s",
+        (range_end,),
+    )
     frappe.db.commit()
 
-    # 对每个员工做贪心配对
-    # 规则: 先去重(相邻10min内合并), 然后凌晨打卡优先向前配对
+    # 对每个员工做贪心配对（纯函数，见 pairing.py）
+    # 规则: 先去重(相邻10min内合并), 凌晨卡先向前配对, 再零点夜班配对, 最后向后配对
+    # 同时记录每个员工的「夜班下班日」集合(8-10点的下班卡日期), 用于零打卡休息豁免
+    from hb_attendance_app.hbos_attendance.pairing import dedup_checkins_with_mapping, night_out_days_from_roles
+    # 班次规则表预加载 + 按日期版本化(历史稳定: 某天用当天生效的规则版本)
+    # 结构: {(department, shift_type): [(effective_from, rule), ...]} 按 effective_from 升序
+    # 注意: 状态包含「生效」和「停用」——停用的规则是旧版本, 对生效日期之前的历史仍有效
+    rules_versioned = {}
+    for r in frappe.db.get_all(
+        "HBOS Shift Rule",
+        filters={"status": ["in", ["生效", "停用"]], "effective_from": ["<=", range_end]},
+        fields=["name", "department", "shift_type", "start_time", "end_time", "late_after", "min_hours", "effective_from"],
+        order_by="department, shift_type, effective_from",
+    ):
+        key = (r.department, r.shift_type)
+        rules_versioned.setdefault(key, []).append(r)
+
+    def shift_fn_with_rules(ck_dt, emp_num, cross_day=False):
+        # 按打卡日期取该日生效的规则版本(生效日期 <= 打卡日期 的最新版)
+        # 部门专属规则优先于全局规则: 员工的部门有专属规则时用它, 否则用「全部部门」规则
+        day = ck_dt.date().strftime("%Y-%m-%d")
+        eid = emp_num_to_eid.get(emp_num, "") if emp_num else ""
+        emp_dept = frappe.db.get_value("Employee", eid, "department") if eid else None
+        rules_by_dept = {}
+        for (dept, _stype), versions in rules_versioned.items():
+            chosen = None
+            for v in versions:
+                if str(v.effective_from) <= day:
+                    chosen = v
+            if chosen is not None:
+                rules_by_dept.setdefault(dept, []).append(chosen)
+        # 部门专属优先
+        if emp_dept and emp_dept in rules_by_dept:
+            dept_rules = rules_by_dept[emp_dept]
+            from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
+            matched = match_rule_by_time(dept_rules, ck_dt, cross_day)
+            if matched:
+                return matched
+        # 全局兜底(全部部门 - HD)
+        for global_name in ("全部部门 - HD", "全部部门"):
+            if global_name in rules_by_dept:
+                from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
+                matched = match_rule_by_time(rules_by_dept[global_name], ck_dt, cross_day)
+                if matched:
+                    return matched
+        return _get_shift_and_late_with_rules(ck_dt, emp_num, cross_day, rules_by_dept)
+
+    # 固定班次绑定: 员工 -> 绑定的规则名列表(多班次轮班支持)
+    # 数据源: HBOS Employee Shift(多绑定) + Employee.hbos_fixed_shift(单绑定兼容)
+    fixed_shift_map = {}
+    for b in frappe.db.get_all("HBOS Employee Shift",
+            fields=["employee", "shift_rule"]):
+        fixed_shift_map.setdefault(b.employee, []).append(b.shift_rule)
+    for e in frappe.db.get_all("Employee",
+            fields=["name", "hbos_fixed_shift"],
+            filters={"hbos_fixed_shift": ["is", "set"]}):
+        if e.name not in fixed_shift_map:
+            fixed_shift_map[e.name] = [e.hbos_fixed_shift]
+
+    # 排班表(员工排班): 排班优先于一切规则
+    schedule_map = {}
+    for s in frappe.db.get_all("HBOS Employee Schedule",
+            fields=["employee", "schedule_date", "shift_type", "leave_type"]):
+        schedule_map.setdefault(s.employee, {})[str(s.schedule_date)] = s
+
+    def shift_fn_with_fixed(ck_dt, emp_num, cross_day=False):
+        """判定优先级: 排班表 > 固定班次绑定 > 部门/全局规则 > 硬编码。
+
+        行政班名单人员(Owner 2026-08-21): 硬编码短路规则表——
+        四车间行政班 08:0x 打卡曾被全局规则表匹配为「早班 08:00 标准」误判迟到,
+        名单人员统一 08:31 起算迟到, 20 点后/凌晨卡按晚班不判迟到。
+        """
+        if emp_num in ADMIN_NUMS:
+            return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
+        eid = emp_num_to_eid.get(emp_num, "") if emp_num else ""
+        # 1. 排班表优先
+        if eid:
+            day = ck_dt.date().strftime("%Y-%m-%d")
+            sched = schedule_map.get(eid, {}).get(day)
+            if sched and sched.shift_type == "休息":
+                # 休息日来上班(Owner 2026-08-21 口径A): 正常出勤, 不判迟到不判异常
+                return ("休息日加班", False)
+            elif sched and sched.shift_type:
+                stype = sched.shift_type
+                # 找该班次类型的默认时间, 用于迟到判定
+                from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
+                default = BUILTIN_SHIFTS.get(stype)
+                if default:
+                    late_after = default[2]
+                    ts = ck_dt.strftime("%H:%M:%S")
+                    # 夜班跨零点特殊处理
+                    if stype == "夜班":
+                        return (stype, ck_dt.hour < 4 and ts > late_after)
+                    return (stype, ts > late_after)
+                return (stype, False)
+        # 2. 固定班次绑定
+        bound_rules = fixed_shift_map.get(eid) if eid else None
+        if bound_rules:
+            day = ck_dt.date().strftime("%Y-%m-%d")
+            # 收集绑定的全部规则(按日期取最新版本), 用 match_rule_by_time 自动选最匹配的
+            candidates = []
+            for rule_name in bound_rules:
+                versions = [
+                    v for key, versions in rules_versioned.items()
+                    for v in versions
+                    if v.name == rule_name and str(v.effective_from) <= day
+                ]
+                if versions:
+                    candidates.append(max(versions, key=lambda v: str(v.effective_from)))
+            if candidates:
+                from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
+                matched = match_rule_by_time(candidates, ck_dt, cross_day)
+                if matched:
+                    return matched
+        return shift_fn_with_rules(ck_dt, emp_num, cross_day)
+
+    # 工号→员工ID 映射(固定班次匹配用)
+    emp_num_to_eid = {
+        e.employee_number: e.name
+        for e in frappe.db.get_all("Employee",
+            fields=["name", "employee_number"],
+            filters={"employee_number": ["is", "set"]})
+    }
+    # 工号→部门映射: 环保部/质量控制部配对上限放宽到 18h(Owner 2026-08-27),
+    # 其余部门保持 16h
+    emp_num_to_dept = {
+        e.employee_number: e.department
+        for e in frappe.db.get_all("Employee",
+            fields=["name", "employee_number", "department"],
+            filters={"employee_number": ["is", "set"]})
+    }
+    MAX_GAP_DEPTS = {"环保部", "质量控制部"}
+
+    emp_night_out_days = {}
     att_to_insert = []
     for eid, cks in by_emp.items():
         cks.sort(key=lambda x: x["time"])
-
-        # 去重: 相邻打卡间隔<10min视为重复, 保留最早的
-        # 10分钟是上限: 跨班次背靠背卡(如 07:54夜班下班+08:07早班上班)间隔13分钟, 不能合并
-        dedup_ck = []
-        skip_until = None
-        for i in range(len(cks)):
-            if skip_until and cks[i]["time"] <= skip_until:
-                continue
-            dedup_ck.append(cks[i])
-            skip_until = cks[i]["time"] + _td(minutes=10)
-        cks = dedup_ck
-
-        used = [False] * len(cks)
-
-        # ===== 阶段0: 跨天夜班配对优先锁定 =====
-        # 夜班/晚班上班卡(22:00-24:00) 与 次日凌晨/早晨下班卡(04:00-10:00) 优先配对
-        # 先锁定这些无歧义的夜班对, 避免主循环把「中班下班卡」配给夜班上班卡,
-        # 导致次日早晨的夜班下班卡被误判为早班迟到(李开新 8/8 08:05 案例)
-        # 固定早班群体(行政/安全/食堂)不参与
-        emp_num_for_night = cks[0].get("employee_number", "") if cks else ""
-        if emp_num_for_night not in ADMIN_NUMS and emp_num_for_night not in SAFETY_NUMS and emp_num_for_night not in FOOD_NUMS:
-            for i in range(len(cks)):
-                if used[i]: continue
-                h_i = cks[i]["time"].hour
-                if 22 <= h_i <= 23:
-                    for j in range(i + 1, len(cks)):
-                        if used[j]: continue
-                        cj = cks[j]["time"]
-                        if cj.date() == cks[i]["time"].date():
-                            continue
-                        if not (4 <= cj.hour < 10):
-                            continue
-                        gap = (cj - cks[i]["time"]).total_seconds() / 3600
-                        if 4 <= gap <= 18:
-                            used[i] = True; used[j] = True
-                            shift, late = _get_shift_and_late(cks[i]["time"], emp_num_for_night, cross_day=True)
-                            if _is_exempt(emp_num_for_night):
-                                late = 0
-                            hours = round(gap, 2)
-                            att_to_insert.append((
-                                "HBOS-ATT-" + eid + "-" + cks[i]["time"].strftime("%Y-%m-%d"),
-                                eid, cks[i]["time"].strftime("%Y-%m-%d"), "Present", shift,
-                                1 if late else 0, cks[i]["time"].strftime("%Y-%m-%d %H:%M:%S"), hours, 0
-                            ))
-                            break
-
-        # ===== 主循环: 剩余卡的贪心配对 =====
-        for i in range(len(cks)):
-            if used[i]: continue
-            ck1 = cks[i]
-            h = ck1["time"].hour
-            emp_num = ck1.get("employee_number", "")
-            is_exempt = _is_exempt(emp_num)
-
-            # 凌晨/早晨打卡(H<10)向前配对(跨天班次下班卡)
-            # 倒班员工早上7-9点的卡既可能是早班上班卡, 也可能是前夜晚班下班卡
-            # 向前配对优先, 消除「晚班下班卡被误判为早班迟到」的错配
-            # 固定早班群体(行政/安全/食堂)无跨天班次, 跳过向前配对
-            fixed_morning = is_exempt or emp_num in ADMIN_NUMS or emp_num in SAFETY_NUMS or emp_num in FOOD_NUMS
-            paired = False
-            if h < 10 and i > 0 and not fixed_morning:
-                # 向前配对 — 前一天 14:00 后的卡(中班/晚班上班卡)
-                for p in range(i - 1, -1, -1):
-                    if used[p]: continue
-                    if cks[p]["time"].date() == ck1["time"].date():
-                        continue
-                    if cks[p]["time"].hour < 14:
-                        continue
-                    gap = (ck1["time"] - cks[p]["time"]).total_seconds() / 3600
-                    if 2 <= gap <= 18:
-                        used[p] = True; used[i] = True
-                        shift, late = _get_shift_and_late(cks[p]["time"], cks[p].get("employee_number", ""), cross_day=True)
-                        hours = round(gap, 2)
-                        if _is_exempt(cks[p].get("employee_number", "")):
-                            late = 0
-                        att_to_insert.append((
-                            "HBOS-ATT-" + eid + "-" + cks[p]["time"].strftime("%Y-%m-%d"),
-                            eid, cks[p]["time"].strftime("%Y-%m-%d"), "Present", shift,
-                            1 if late else 0, cks[p]["time"].strftime("%Y-%m-%d %H:%M:%S"), hours, 0
-                        ))
-                        paired = True
-                        break
-
-            if paired:
-                continue
-
-            # 凌晨打卡(0-4点)无法向前配对→缺勤；豁免人员除外
-            if h < 4:
-                used[i] = True
-                if is_exempt:
-                    continue
-                ds_cur = ck1["time"].strftime("%Y-%m-%d")
-                if ds_cur in emp_leave_dates.get(eid, set()):
-                    continue
-                # 行政班周末加班: 周末只要有打卡记录就不算异常
-                if emp_num in ADMIN_NUMS:
-                    ck_date = ck1["time"].date()
-                    if ck_date.weekday() >= 5:
-                        continue
-                att_to_insert.append((
-                    "HBOS-ATT-" + eid + "-" + ck1["time"].strftime("%Y-%m-%d"),
-                    eid, ck1["time"].strftime("%Y-%m-%d"), "Absent", "", 0,
-                    ck1["time"].strftime("%Y-%m-%d %H:%M:%S"), 0, 0
-                ))
-                continue
-
-            # 正常向后配对: 同一天内配对, 时长2-12小时(业务规则)
-            # 下限2小时: 间隔<2h的两张卡是重复打卡(忘记已打卡/多台考勤机), 不配成短班
-            # 上限12小时: 最长班次12小时
-            # 跨天只允许中班/晚班(16:00-24:00 上班、次日凌晨/早晨下班)
-            # 行政班固定 8:30-17:30 无跨天班次, 其上班卡跨天必为「漏下班卡」错配
-            best_j = -1
-            for j in range(i + 1, len(cks)):
-                if used[j]: continue
-                gap = (cks[j]["time"] - ck1["time"]).total_seconds() / 3600
-                if 2 <= gap <= 18:
-                    cross_day = cks[j]["time"].date() != ck1["time"].date()
-                    if cross_day:
-                        if emp_num in ADMIN_NUMS:
-                            continue
-                    best_j = j; break
-
-            if best_j == -1:
-                # 孤立的上班卡(有上班无下班) → 判缺勤；豁免人员不判
-                used[i] = True
-                if is_exempt:
-                    continue
-                ds_cur = ck1["time"].strftime("%Y-%m-%d")
-                if ds_cur in emp_leave_dates.get(eid, set()):
-                    continue
-                # 行政班周末加班: 周末只要有打卡记录就不算异常
-                # (周末加班可能只有单卡, 如只打上班卡或下班卡)
-                if emp_num in ADMIN_NUMS:
-                    ck_date = ck1["time"].date()
-                    if ck_date.weekday() >= 5:
-                        continue
-                att_to_insert.append((
-                    "HBOS-ATT-" + eid + "-" + ck1["time"].strftime("%Y-%m-%d"),
-                    eid, ck1["time"].strftime("%Y-%m-%d"), "Absent", "", 0,
-                    ck1["time"].strftime("%Y-%m-%d %H:%M:%S"), 0, 0
-                ))
-                continue
-            ck2 = cks[best_j]
-            used[i] = True; used[best_j] = True
-            cd = ck1["time"].date() != ck2["time"].date()
-            shift, late = _get_shift_and_late(ck1["time"], emp_num, cross_day=cd)
-            if is_exempt:
-                late = 0
-            gap_hours = round((ck2["time"] - ck1["time"]).total_seconds() / 3600, 2)
-            att_to_insert.append((
-                "HBOS-ATT-" + eid + "-" + ck1["time"].strftime("%Y-%m-%d"),
-                eid, ck1["time"].strftime("%Y-%m-%d"), "Present", shift,
-                1 if late else 0, ck1["time"].strftime("%Y-%m-%d %H:%M:%S"), gap_hours, 0
-            ))
+        emp_num = cks[0].get("employee_number", "") if cks else ""
+        is_admin = emp_num in ADMIN_NUMS
+        # 环保部/质量控制部配对上限 18h, 其余 16h
+        max_gap_hours = 18 if emp_num_to_dept.get(emp_num) in MAX_GAP_DEPTS else 16
+        # 有排班记录的员工放开行政班约束(排班表明确今天上什么班, 夜班跨天合法)
+        has_schedule = bool(schedule_map.get(eid))
+        if has_schedule:
+            is_admin = False
+        skip_forward = is_admin or emp_num in SAFETY_NUMS or emp_num in FOOD_NUMS or _is_exempt(emp_num)
+        skip_night_lock = is_admin or emp_num in SAFETY_NUMS or emp_num in FOOD_NUMS
+        deduped_cks, dedup_mapping = dedup_checkins_with_mapping(cks, terminal_aware=True)
+        atts, roles = pair_employee_checkins(
+            deduped_cks, eid, emp_num, shift_fn_with_fixed,
+            is_exempt=_is_exempt(emp_num),
+            is_admin=is_admin,
+            skip_forward=skip_forward,
+            skip_night_lock=skip_night_lock,
+            emp_leave_dates=emp_leave_dates.get(eid, set()),
+            track_roles=True,
+            max_gap_hours=max_gap_hours,
+            terminal_aware=True,
+        )
+        # 只保留生成范围内的记录: range_end 之后(今天)的卡只作配对伙伴,
+        # 不生成当天考勤记录(当天数据不完整, 下班卡未打, 否则全员假缺勤)
+        atts = [a for a in atts if range_start <= a[2] <= range_end]
+        # GPS/外勤打卡日期: 去掉 Absent(Owner 2026-08-27 确认, 视为已出勤)
+        atts = [
+            a for a in atts
+            if not (a[3] == "Absent" and (eid, a[2]) in gps_ck_set)
+        ]
+        att_to_insert.extend(atts)
+        emp_night_out_days[eid] = night_out_days_from_roles(deduped_cks, roles)
 
     # 批量插入(去重: 同一天Present优先, 其次保留第一条)
     seen = {}
@@ -521,52 +584,93 @@ def regenerate_attendance(range_start, range_end):
         seen[key] = (name, emp, date, status, shift, late, ck, wh, miss_out)
     deduped = list(seen.values())
 
+    # 四班次人员(Owner 2026-08-20): 上够8小时算正常出勤, 不足8小时置早退标记
+    four_shift_emps = set(
+        r[1] for r in deduped
+        if frappe.db.get_value("Employee", r[1], "employee_number") in FOUR_SHIFT_NUMS
+    )
+    deduped = [
+        (name, emp, date, status, shift, late, ck, wh, miss_out,
+         1 if emp in four_shift_emps and status == "Present" and wh < 8 else 0)
+        for name, emp, date, status, shift, late, ck, wh, miss_out in deduped
+    ]
+
     for i in range(0, len(deduped), 500):
         chunk = deduped[i:i+500]
         values = ",".join(
-            "('%s','%s','%s','%s','%s',%s,'%s',%s,%s)" % (name, emp, date, status, shift, str(late), ck, str(wh), str(miss_out))
-            for name, emp, date, status, shift, late, ck, wh, miss_out in chunk
+            "('%s','%s','%s','%s','%s',%s,%s,'%s',%s,%s)" % (name, emp, date, status, shift, str(late), str(early), ck, str(wh), str(miss_out))
+            for name, emp, date, status, shift, late, ck, wh, miss_out, early in chunk
         )
-        frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out) VALUES " + values)
+        frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, early_exit, creation, working_hours, hbos_missing_out) VALUES " + values)
     frappe.db.commit()
 
-    # ===== 零打卡缺勤: 在职员工当天完全无打卡 → 生成 Absent =====
-    # 豁免: 已通过的请假记录覆盖当天 → 判 On Leave, 不算缺勤
+    # ===== 零打卡缺勤: 在职员工当天完全无打卡 =====
+    # 豁免顺序(Owner 2026-08-19/20 确认):
+    #   请假 → On Leave
+    #   豁免名单 → 跳过
+    #   行政班周末 → 休息
+    #   单天无打卡(连续计数第1天) → 休息, 不判缺勤
+    #   连续无打卡从第2天起 → Absent
+    # Owner 2026-08-27 修订: 连续无打卡 1-2 天不判缺勤, 连续 3 天及以上才判缺勤
+    # 连续计数在有打卡/已有考勤记录/请假/豁免/行政班周末时归零
     zero_absent = []
     leave_absent = []
+    emp_streak = {}
     active_emps = frappe.db.get_all(
         "Employee",
         filters={"status": "Active"},
         fields=["name", "employee_number", "department"],
     )
 
-    d = _date.fromisoformat(range_start)
+    # 从 range_start 前一天开始, 预置连续计数(该天不生成记录)
+    d = _date.fromisoformat(range_start) - _tdelta(days=1)
     end_d = _date.fromisoformat(range_end)
     while d <= end_d:
         ds = d.strftime("%Y-%m-%d")
         is_weekend = d.weekday() >= 5  # 周六(5)/周日(6)
+        in_range = range_start <= ds <= range_end
         ck_emps = frappe.db.sql("SELECT DISTINCT ec.employee FROM `tabEmployee Checkin` ec WHERE DATE(ec.time) = %s", ds, as_dict=True)
         ck_emp_set = set(c["employee"] for c in ck_emps)
 
         for e in active_emps:
-            if e["name"] in ck_emp_set:
+            eid = e["name"]
+            if eid in ck_emp_set:
+                emp_streak[eid] = 0
                 continue
-            key = e["name"] + "_" + ds
+            key = eid + "_" + ds
+            # 已有考勤记录(配对分支: 有卡或孤卡) → 连续计数归零
             if key in seen:
+                emp_streak[eid] = 0
+                continue
+            # 排班休息日: 无打卡=休息(不生成任何记录)
+            if ds in emp_rest_dates.get(eid, set()):
+                emp_streak[eid] = 0
                 continue
             # 请假豁免
-            if ds in emp_leave_dates.get(e["name"], set()):
-                leave_absent.append(("HBOS-ATT-" + e["name"] + "-" + ds, e["name"], ds, "On Leave", "", 0, ds + " 00:00:00", 0, 0))
-                seen[key] = leave_absent[-1]
+            if ds in emp_leave_dates.get(eid, set()):
+                emp_streak[eid] = 0
+                if in_range:
+                    leave_absent.append(("HBOS-ATT-" + eid + "-" + ds, eid, ds, "On Leave", "", 0, ds + " 00:00:00", 0, 0))
+                    seen[key] = leave_absent[-1]
                 continue
             # 豁免名单: 不计入异常考勤
             if _is_exempt(e.get("employee_number", "")):
+                emp_streak[eid] = 0
                 continue
             # 行政班周末双休: 周六/周日无打卡不算缺勤
             if is_weekend and e.get("employee_number", "") in ADMIN_NUMS:
+                emp_streak[eid] = 0
                 continue
-            zero_absent.append(("HBOS-ATT-" + e["name"] + "-" + ds, e["name"], ds, "Absent", "", 0, ds + " 00:00:00", 0, 0))
-            seen[key] = zero_absent[-1]
+            # 夜班下班次日休息(叠加豁免, Owner 2026-08-20 确认):
+            # 前一天是夜班下班日(8-10点打下班卡) → 休息, 且连续计数归零
+            if (d - _tdelta(days=1)) in emp_night_out_days.get(eid, set()):
+                emp_streak[eid] = 0
+                continue
+            # 连续无打卡 1-2 天不判缺勤, 连续 3 天及以上才判缺勤 (Owner 2026-08-27 确认)
+            emp_streak[eid] = emp_streak.get(eid, 0) + 1
+            if emp_streak[eid] >= 3 and in_range:
+                zero_absent.append(("HBOS-ATT-" + eid + "-" + ds, eid, ds, "Absent", "", 0, ds + " 00:00:00", 0, 0))
+                seen[key] = zero_absent[-1]
         d += _tdelta(days=1)
 
     # 批量插入请假记录
@@ -588,57 +692,15 @@ def regenerate_attendance(range_start, range_end):
         frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out) VALUES " + values)
     frappe.db.commit()
 
-    # ===== 孤卡补缺: 员工当天有打卡但所有卡都被跨天配对消耗(生成范围内无记录) → 补 Absent =====
-    # 典型场景: 早上 8 点的卡被配给前一天晚班下班, 当天再无其他打卡,
-    # 零打卡缺勤因「当天有打卡」跳过, 导致该员工当天完全没有考勤记录。
-    # 请假豁免同样应用。
-    orphan_days = []
-    d = _date.fromisoformat(range_start)
-    while d <= end_d:
-        ds = d.strftime("%Y-%m-%d")
-        is_weekend = d.weekday() >= 5
-        # 每个有打卡但(生成后)无记录的在职员工
-        rows = frappe.db.sql("""
-            SELECT DISTINCT ec.employee, e.employee_number
-            FROM `tabEmployee Checkin` ec
-            JOIN tabEmployee e ON e.name = ec.employee
-            WHERE DATE(ec.time) = %s AND e.status = 'Active'
-              AND NOT EXISTS (
-                  SELECT 1 FROM tabAttendance a
-                  WHERE a.employee = ec.employee AND a.attendance_date = %s AND a.docstatus < 2
-              )
-        """, (ds, ds), as_dict=True)
-        for r in rows:
-            key = r["employee"] + "_" + ds
-            if key in seen:
-                continue
-            if ds in emp_leave_dates.get(r["employee"], set()):
-                continue
-            # 豁免名单: 不计入异常考勤
-            if _is_exempt(r.get("employee_number", "")):
-                continue
-            # 行政班周末双休: 周六/周日不算缺勤
-            if is_weekend and r.get("employee_number", "") in ADMIN_NUMS:
-                continue
-            orphan_days.append(("HBOS-ATT-" + r["employee"] + "-" + ds, r["employee"], ds, "Absent", "", 0, ds + " 00:00:00", 0, 0))
-            seen[key] = orphan_days[-1]
-        d += _tdelta(days=1)
-
-    # 批量插入孤卡缺勤
-    for i in range(0, len(orphan_days), 500):
-        chunk = orphan_days[i:i+500]
-        values = ",".join(
-            "('%s','%s','%s','%s','%s',%s,'%s',%s,%s)" % (name, emp, date, status, shift, str(late), ck, str(wh), str(miss_out))
-            for name, emp, date, status, shift, late, ck, wh, miss_out in chunk
-        )
-        frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out) VALUES " + values)
-    frappe.db.commit()
+    # 注意: 原「孤卡补缺」逻辑已删除（Owner 2026-08-17 确认）——
+    # 员工当天打卡全部被前一夜班配对消耗时（下夜班休息日，如早晨 8 点的下班卡
+    # 配给前晚夜班），当天视为休息日，不再补判缺勤。
+    # 见 docs/HBOS考勤判定规则.md 5.3 修订与 pairing.py。
 
     return {
         "paired_present": sum(1 for x in deduped if x[3] == "Present"),
         "paired_absent": sum(1 for x in deduped if x[3] == "Absent"),
         "zero_absent": len(zero_absent),
-        "orphan_absent": len(orphan_days),
         "leave_absent": len(leave_absent),
         "range": [range_start, range_end],
     }
@@ -664,8 +726,12 @@ def sync_attendance_exceptions_to_bitable():
 
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
-    # 1. 查询迟到/早退记录（含首次/末次打卡时间）
-    records = frappe.db.sql("""
+    # 1. 查询迟到/早退记录（含首次/末次打卡时间）；豁免名单不计入异常考勤
+    exempt_where = ""
+    if EXEMPT_NUMS:
+        quoted = ",".join("'%s'" % v.replace("'", "") for v in sorted(EXEMPT_NUMS))
+        exempt_where = f" AND emp.employee_number NOT IN ({quoted})"
+    records = frappe.db.sql(f"""
         SELECT a.employee, a.employee_name, emp.employee_number, emp.department,
                a.attendance_date, a.late_entry, a.early_exit, a.shift, a.working_hours,
                (SELECT MIN(ec.time) FROM `tabEmployee Checkin` ec
@@ -675,7 +741,7 @@ def sync_attendance_exceptions_to_bitable():
         FROM tabAttendance a
         LEFT JOIN tabEmployee emp ON emp.name = a.employee
         WHERE (a.late_entry = 1 OR a.early_exit = 1)
-          AND a.docstatus < 2
+          AND a.docstatus < 2{exempt_where}
         ORDER BY a.attendance_date DESC, a.employee_name ASC
     """, as_dict=True)
 
