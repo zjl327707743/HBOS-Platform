@@ -149,16 +149,21 @@ def export_shift_roster():
         origin = "绑定" if bound else ("名单" if any(num in s for s, _ in LIST_SYSTEMS) else "通用")
         rows.setdefault((dept, label), []).append((num, name, origin))
 
-    # 名单 sheet 行：遍历名单常量全部工号（在职建档取姓名/部门；未建档/已离职仅工号）
-    exempt_rows = [
-        (num,) + emp_num_to_name_dept.get(num, ("", ""))
-        + (EXEMPT_REASONS.get(num, "管理层 / 不计异常考勤"),)
-        for num in EXEMPT_NUMS
-    ]
+    # 名单 sheet 行：仅列在职建档成员（emp_num_to_name_dept 只收 Active 员工；
+    # 已离职/未建档工号 get 到空姓名部门，整行不列出，避免空白行）
+    exempt_rows = []
+    for num in EXEMPT_NUMS:
+        name, dept = emp_num_to_name_dept.get(num, ("", ""))
+        if not name:
+            continue
+        exempt_rows.append((num, name, dept, EXEMPT_REASONS.get(num, "管理层 / 不计异常考勤")))
     exempt_rows.sort(key=lambda x: (x[2], x[1]))
-    admin_rows = [
-        (num,) + emp_num_to_name_dept.get(num, ("", "")) for num in sorted(ADMIN_NUMS)
-    ]
+    admin_rows = []
+    for num in sorted(ADMIN_NUMS):
+        name, dept = emp_num_to_name_dept.get(num, ("", ""))
+        if not name:
+            continue
+        admin_rows.append((num, name, dept))
 
     # ---- Workbook ----
     wb = openpyxl.Workbook()
@@ -239,6 +244,8 @@ def export_shift_roster():
     for label, nums in SPECIAL_SECTIONS:
         for i, num in enumerate(sorted(nums)):
             name, dept = emp_num_to_name_dept.get(num, ("", ""))
+            if not name:
+                continue  # 仅列在职建档成员
             fill = C_STRIPE if i % 2 else None
             style_cell(ws3, rr, 1, label, center=True, fill=fill)
             style_cell(ws3, rr, 2, num, center=True, fill=fill)
@@ -274,7 +281,7 @@ def export_shift_roster():
         "【行政班名单】ADMIN_NUMS 名单全部成员（固定 8:30-17:30，08:31 起算迟到，周末双休）。",
         "",
         "名单之间允许交叉（如某员工同时在特殊班次名单与豁免名单，会分列对应 sheet）。",
-        "豁免/特殊班次/行政班名单 sheet 均列出名单全部成员：在职建档者显示姓名/部门；未建档（HB- 前缀）或已离职者姓名/部门留空，仅显示工号，且不进主表。",
+        "豁免/特殊班次/行政班名单 sheet 均只列出在职建档成员；已离职或未建档（HB- 前缀无档）工号不列出。",
     ]
     for i, line in enumerate(lines, 1):
         c = ws5.cell(row=i, column=1, value=line)

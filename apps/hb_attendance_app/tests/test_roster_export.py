@@ -81,6 +81,17 @@ class RosterExportContractTest(unittest.TestCase):
         self.assertIn("导出班次人员维护表", content)
         self.assertIn("export_shift_roster", content)
 
+    def test_list_sheets_only_include_active_archived_members(self):
+        """名单 sheet 只列在职建档成员，离职/未建档工号整行不列出（避免空白行）。"""
+        content = ROSTER.read_text()
+        self.assertIn("emp_num_to_name_dept", content)
+        # 豁免/行政班名单 sheet 过滤空姓名成员
+        self.assertIn("exempt_rows", content)
+        self.assertIn("if not name:", content)
+        # 特殊班次 sheet 同样只列在职建档成员
+        self.assertIn("name, dept = emp_num_to_name_dept.get(num, (\"\", \"\"))", content)
+        self.assertIn("if not name:\n                continue", content)
+
 
 if __name__ == "__main__":
     unittest.main()
