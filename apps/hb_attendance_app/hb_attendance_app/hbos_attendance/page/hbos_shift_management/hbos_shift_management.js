@@ -52,18 +52,40 @@ function switchTab(tab) {
 
 function renderRulesBoard() {
 	const $c = $("#rules-board-container");
-	$c.html('<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">加载规则看板...</p></div>');
+	$c.html('<div class="rb-toolbar" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">'
+		+ '<button class="btn btn-primary btn-sm" id="rb-export-roster">导出班次人员维护表</button></div>'
+		+ '<div class="rb-loading text-center p-5"><div class="spinner-border text-primary"></div>'
+		+ '<p class="mt-2 text-muted">加载规则看板...</p></div>');
+	$c.find("#rb-export-roster").on("click", function () {
+		const $btn = $(this).prop("disabled", true);
+		frappe.call({
+			method: "hb_attendance_app.hbos_attendance.roster_export.export_shift_roster",
+			callback(r) {
+				$btn.prop("disabled", false);
+				if (r.message) {
+					frappe.show_alert({ message: __("已生成导出文件，开始下载"), indicator: "green" });
+					window.open(r.message, "_blank");
+				} else {
+					frappe.show_alert({ message: __("导出失败，请重试"), indicator: "red" });
+				}
+			},
+			error() {
+				$btn.prop("disabled", false);
+				frappe.show_alert({ message: __("导出失败，请查看服务端错误"), indicator: "red" });
+			},
+		});
+	});
 	frappe.call({
 		method: "hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data.get_rules_board",
 		callback(r) {
 			if (!r.message) {
-				$c.html('<div class="p-5 text-center text-danger">无法加载规则看板</div>');
+				$c.find(".rb-loading").html('<div class="p-5 text-center text-danger">无法加载规则看板</div>');
 				return;
 			}
 			renderRulesBoardSections($c, r.message);
 		},
 		error() {
-			$c.html('<div class="p-5 text-center text-danger">加载失败，请重试</div>');
+			$c.find(".rb-loading").html('<div class="p-5 text-center text-danger">加载失败，请重试</div>');
 		},
 	});
 }
@@ -166,7 +188,7 @@ function renderRulesBoardSections($c, data) {
 	});
 	h += '</tbody></table></div>';
 
-	$c.html(h);
+	$c.find(".rb-loading").html(h);
 
 	$c.find(".rb-card").on("click", function () {
 		$(this).find(".rb-nums").toggle();
