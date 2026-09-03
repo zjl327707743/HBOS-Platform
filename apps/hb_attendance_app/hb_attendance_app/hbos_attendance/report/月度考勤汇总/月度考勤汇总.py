@@ -1,3 +1,5 @@
+import calendar
+
 import frappe
 from collections import defaultdict
 from datetime import date, timedelta
@@ -15,6 +17,7 @@ SHIFT_NAMES = {
 
 def execute(filters=None):
     filters = filters or {}
+    enable_ai = bool(filters.get("enable_ai"))
     conditions = []
     values = {}
 
@@ -182,13 +185,208 @@ def execute(filters=None):
                 "leave_detail": "  ".join(s["leave_list"]),
             })
 
-        return _columns(), data
+        if enable_ai:
+            _attach_ai_review(data, filters, emp_leave_dates)
 
-    return _columns(), []
+        return _columns(enable_ai), data
+
+    return _columns(enable_ai), []
 
 
-def _columns():
-    return [
+def _range_from_filters(filters):
+    """返回 (start, end) 字符串日期，覆盖报表统计范围。
+
+    优先用 from_date/to_date；否则按 month/year 折算整月；都没有则返回空串。
+    """
+    filters = filters or {}
+    from_date = filters.get("from_date")
+    to_date = filters.get("to_date")
+    if from_date and to_date:
+        return str(from_date), str(to_date)
+    month, year = filters.get("month"), filters.get("year")
+    if month is None or year is None:
+        return "", ""
+    y, m = int(year), int(month)
+    last_day = calendar.monthrange(y, m)[1]
+    return f"{y}-{m:02d}-01", f"{y}-{m:02d}-{last_day:02d}"
+
+
+def _range_ym(filters):
+    """从 filters 推导报表所属 (year, month)；无时间范围则返回 None。"""
+    filters = filters or {}
+    if filters.get("month") is not None and filters.get("year") is not None:
+        return int(filters["year"]), int(filters["month"])
+    start, _ = _range_from_filters(filters)
+    if start:
+        return int(start[:4]), int(start[5:7])
+    return None
+
+
+def _split_tokens(text):
+    return [t for t in (text or "").split() if t]
+
+
+def _row_anomaly(r):
+    """行是否有异常：迟到/早退/缺勤任一 >0。"""
+    return ((r.get("late_count") or 0) + (r.get("early_count") or 0)
+            + (r.get("absent_count") or 0)) > 0
+
+
+def _detail_has(detail, d):
+    """detail（空格分隔日标签）是否含日期 d（YYYY-MM-DD）。标签为两位日号或 MM-DD。"""
+    yyyy, mm, dd = d.split("-")
+    for t in _split_tokens(detail):
+        if t == dd or t == f"{mm}-{dd}":
+            return True
+    return False
+
+
+def _anomaly_dates(r, filters):
+    """把行内 late/early/absent_detail 的日标签还原为 YYYY-MM-DD 全集（去重保序）。
+
+    日报表 detail 只存两位日号（如 "15"），这里用 filters 的 year/month 补全成完整日期，
+    供 build_prompt / parse_review 使用。
+    """
+    ym = _range_ym(filters)
+    if ym is None:
+        return []
+    year, month = ym
+    dates = []
+    for t in (_split_tokens(r.get("late_detail")) + _split_tokens(r.get("early_detail"))
+              + _split_tokens(r.get("absent_detail"))):
+        try:
+            if "-" in t:
+                mm, dd = t.split("-", 1)
+                full = f"{year:04d}-{int(mm):02d}-{int(dd):02d}"
+            else:
+                full = f"{year:04d}-{month:02d}-{int(t):02d}"
+        except ValueError:
+            continue
+        if full not in dates:
+            dates.append(full)
+    return dates
+
+
+def _type_for_date(r, d):
+    """返回日期 d（YYYY-MM-DD）在行 r 中属哪类异常：迟到/早退/缺勤。"""
+    if _detail_has(r.get("late_detail"), d):
+        return "迟到"
+    if _detail_has(r.get("early_detail"), d):
+        return "早退"
+    if _detail_has(r.get("absent_detail"), d):
+        return "缺勤"
+    return "异常"
+
+
+def _rule_line_for(r):
+    """返回该员工班次判定文本。本期为通用文本，并标注豁免/行政班名单命中。"""
+    parts = ["按系统规则（部门-班次-人员 + 内置班次）判定"]
+    num = str(r.get("employee_number") or "").strip()
+    if num:
+        try:
+            from hb_attendance_app.hbos_attendance.api import ADMIN_NUMS, EXEMPT_NUMS
+        except Exception:
+            ADMIN_NUMS = set()
+            EXEMPT_NUMS = set()
+        if num in EXEMPT_NUMS:
+            parts.append("该员工在免异常考勤白名单")
+        if num in ADMIN_NUMS:
+            parts.append("该员工为行政班（周末双休、不判缺勤）")
+    return "；".join(parts) + "。"
+
+
+def _attach_ai_review(data, filters, emp_leave_dates):
+    """enable_ai 时：为当月有异常的员工逐人调 AI，写 ai_review 文本。
+
+    仅复核迟到/早退/缺勤任一 >0 的员工；逐人失败回落提示，不整体中断。
+    """
+    from hb_attendance_app.hbos_attendance.ai_review import (
+        build_prompt, call_llm, env_config, parse_review,
+    )
+    cfg = env_config()
+    if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
+        for r in data:
+            if _row_anomaly(r):
+                r["ai_review"] = "AI复核失败：未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）"
+        return
+
+    if _range_ym(filters) is None:
+        for r in data:
+            if _row_anomaly(r):
+                r["ai_review"] = "AI复核失败：缺少时间范围（请选择 month/year 或 from_date/to_date）"
+        return
+
+    # 收集有异常员工的异常日期 + 考勤明细
+    target = [(r, _anomaly_dates(r, filters)) for r in data if _row_anomaly(r)]
+    emp_ids = [r["employee"] for r, _ in target]
+    if not emp_ids:
+        return
+
+    # 打卡流水（供 AI 判断；按员工拉全部当月卡，facts 内筛对应异常日）
+    from_date, to_date = _range_from_filters(filters)
+    checkin_map = {}
+    if emp_ids:
+        q = ",".join("'%s'" % e.replace("'", "") for e in emp_ids)
+        rows = frappe.db.sql(
+            f"SELECT employee, time, log_type, device_id FROM `tabEmployee Checkin` "
+            f"WHERE employee IN ({q}) AND DATE(time) BETWEEN %(s)s AND %(e)s "
+            f"ORDER BY employee, time",
+            {"s": from_date, "e": to_date}, as_dict=True)
+        for c in rows:
+            checkin_map.setdefault(c.employee, []).append(c)
+
+    for r, dates in target:
+        emp_id = r["employee"]
+        rule_line = _rule_line_for(r)
+        cks = checkin_map.get(emp_id, [])
+        ck_lines = "\n".join(
+            f"{c.time.strftime('%m/%d %H:%M')} {c.log_type or ''} {c.device_id or ''}"
+            for c in cks if str(c.time.date()) in dates
+        ) or "无打卡记录"
+        items = [(d, _type_for_date(r, d)) for d in dates]
+        prompt = build_prompt(
+            {"name": r["employee_name"], "num": r["employee_number"], "dept": r["department"]},
+            items, ck_lines, rule_line,
+        )
+        try:
+            text = call_llm(cfg, prompt)
+            parsed = parse_review(text, dates)
+            r["ai_review"] = "\n".join(f"{d}｜{parsed[d]}" for d in dates if d in parsed) or "AI复核失败：无有效返回"
+        except Exception as e:
+            r["ai_review"] = f"AI复核失败：{e}"
+
+
+@frappe.whitelist()
+def ai_review_preview(month=None, year=None, employee=None, department=None,
+                      from_date=None, to_date=None):
+    """AI复核确认弹窗：统计当前范围有异常员工数与异常条数（已剔豁免名单）。"""
+    filters = {"enable_ai": 0}
+    if month is not None:
+        filters["month"] = month
+    if year is not None:
+        filters["year"] = year
+    if employee:
+        filters["employee"] = employee
+    if department:
+        filters["department"] = department
+    if from_date:
+        filters["from_date"] = from_date
+    if to_date:
+        filters["to_date"] = to_date
+    _, data = execute(filters)
+    employees = set()
+    anomaly_count = 0
+    for r in data:
+        n = ((r.get("late_count") or 0) + (r.get("early_count") or 0)
+             + (r.get("absent_count") or 0))
+        if n > 0:
+            employees.add(r["employee"])
+            anomaly_count += n
+    return {"employee_count": len(employees), "anomaly_count": anomaly_count}
+
+
+def _columns(enable_ai=False):
+    cols = [
         {"label": "员工姓名", "fieldname": "employee_name", "fieldtype": "Data", "width": 100},
         {"label": "工号", "fieldname": "employee_number", "fieldtype": "Data", "width": 100},
         {"label": "部门", "fieldname": "department", "fieldtype": "Link", "options": "Department", "width": 150},
@@ -206,3 +404,7 @@ def _columns():
         {"label": "缺勤详情", "fieldname": "absent_detail", "fieldtype": "Small Text", "width": 500},
         {"label": "请假详情", "fieldname": "leave_detail", "fieldtype": "Small Text", "width": 500},
     ]
+    if enable_ai:
+        cols.append({"label": "AI复核", "fieldname": "ai_review",
+                     "fieldtype": "Small Text", "width": 450})
+    return cols

@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+
 from hb_attendance_app.hbos_attendance import ai_review
 
 
@@ -44,3 +46,37 @@ class AiParseReviewTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+APP = Path(__file__).parents[1] / "hb_attendance_app"
+REPORT_PY = APP / "hbos_attendance/report/月度考勤汇总/月度考勤汇总.py"
+REPORT_JS = APP / "hbos_attendance/report/月度考勤汇总/月度考勤汇总.js"
+EXPORT_PY = APP / "hbos_attendance/report/月度考勤汇总/export.py"
+
+
+class AiMonthlyReportContractTest(unittest.TestCase):
+    def test_report_enable_ai_gates_column_and_build(self):
+        content = REPORT_PY.read_text()
+        self.assertIn('enable_ai', content)
+        self.assertIn("def _columns(enable_ai=False)", content)
+        self.assertIn('"AI复核"', content)
+        self.assertIn("ai_review", content)
+        self.assertIn("build_prompt", content)
+        self.assertIn("parse_review", content)
+        self.assertIn("call_llm", content)
+        self.assertIn("ai_review_preview", content)
+
+    def test_report_skips_ai_when_disabled(self):
+        content = REPORT_PY.read_text()
+        self.assertIn("if enable_ai:", content)
+
+    def test_export_passes_enable_ai(self):
+        content = EXPORT_PY.read_text()
+        self.assertIn("enable_ai", content)
+
+    def test_js_has_ai_review_button_and_confirm_and_reset(self):
+        content = REPORT_JS.read_text()
+        self.assertIn("AI复核", content)
+        self.assertIn("ai_review_preview", content)
+        self.assertIn("enable_ai", content)
+        self.assertIn("confirm", content)
