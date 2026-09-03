@@ -81,9 +81,14 @@ frappe.query_reports["月度考勤汇总"] = {
 				method: "hb_attendance_app.hbos_attendance.report.月度考勤汇总.月度考勤汇总.ai_review_preview",
 				args: args,
 				callback: function (r) {
-					var m = r.message || { employee_count: 0, anomaly_count: 0 };
+					var m = r.message || { employee_count: 0, anomaly_count: 0, batch: 20 };
 					if (!m.employee_count) {
 						frappe.msgprint(__("当前范围没有需复核的异常员工"));
+						return;
+					}
+					if (m.employee_count > m.batch) {
+						frappe.msgprint(__("当前范围 ") + m.employee_count + __(" 名异常员工，超过单批复核上限 ") + m.batch +
+							__(" 人。请先用部门 / 员工过滤缩小范围，或分批逐次复核。"));
 						return;
 					}
 					frappe.confirm(

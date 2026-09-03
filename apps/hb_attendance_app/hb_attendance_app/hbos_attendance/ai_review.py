@@ -9,6 +9,10 @@ import os
 
 CONCLUSIONS = ("属实", "存疑", "非异常")
 
+# 单批复核上限（人）：同步逐人调 LLM 放进单次报表请求，须限制在代理/浏览器
+# 可接受耗时内（PROXY_READ_TIMEOUT=120s）。超出提示分批/缩小范围。
+AI_BATCH = 20
+
 
 def env_config():
     """读取 AI 配置。缺失项为空字符串，由调用方判断并 throw。"""

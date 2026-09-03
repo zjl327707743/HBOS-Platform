@@ -301,7 +301,7 @@ def _attach_ai_review(data, filters, emp_leave_dates):
     仅复核迟到/早退/缺勤任一 >0 的员工；逐人失败回落提示，不整体中断。
     """
     from hb_attendance_app.hbos_attendance.ai_review import (
-        build_prompt, call_llm, env_config, parse_review,
+        AI_BATCH, build_prompt, call_llm, env_config, parse_review,
     )
     cfg = env_config()
     if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
@@ -317,7 +317,14 @@ def _attach_ai_review(data, filters, emp_leave_dates):
         return
 
     # 收集有异常员工的异常日期 + 考勤明细
-    target = [(r, _anomaly_dates(r, filters)) for r in data if _row_anomaly(r)]
+    all_target = [(r, _anomaly_dates(r, filters)) for r in data if _row_anomaly(r)]
+    if not all_target:
+        return
+    # 单批上限：同步逐人调 LLM 受报表请求超时限制（PROXY_READ_TIMEOUT=120s），
+    # 只复核前 AI_BATCH 人，其余异常员工标记未复核（不发起调用、不产生费用）
+    target = all_target[:AI_BATCH]
+    for r, _ in all_target[AI_BATCH:]:
+        r["ai_review"] = f"未复核：本批上限 {AI_BATCH} 人，当前异常员工较多，请用部门/员工过滤缩小范围或分批逐次复核"
     emp_ids = [r["employee"] for r, _ in target]
     if not emp_ids:
         return
@@ -382,7 +389,9 @@ def ai_review_preview(month=None, year=None, employee=None, department=None,
         if n > 0:
             employees.add(r["employee"])
             anomaly_count += n
-    return {"employee_count": len(employees), "anomaly_count": anomaly_count}
+    from hb_attendance_app.hbos_attendance.ai_review import AI_BATCH
+    return {"employee_count": len(employees), "anomaly_count": anomaly_count,
+            "batch": AI_BATCH}
 
 
 def _columns(enable_ai=False):

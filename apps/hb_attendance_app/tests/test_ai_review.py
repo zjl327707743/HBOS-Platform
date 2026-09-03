@@ -70,6 +70,18 @@ class AiMonthlyReportContractTest(unittest.TestCase):
         content = REPORT_PY.read_text()
         self.assertIn("if enable_ai:", content)
 
+    def test_batch_limit_gates_review(self):
+        content = REPORT_PY.read_text()
+        # 后端兜底：只复核前 AI_BATCH 人，其余标记未复核（防超代理超时）
+        self.assertIn("AI_BATCH", content)
+        self.assertIn("all_target[:AI_BATCH]", content)
+        self.assertIn("未复核：本批上限", content)
+        # preview 返回 batch，前端据此提示分批
+        self.assertIn('"batch": AI_BATCH', content)
+        js = REPORT_JS.read_text()
+        self.assertIn("m.employee_count > m.batch", js)
+        self.assertIn("超过单批复核上限", js)
+
     def test_export_passes_enable_ai(self):
         content = EXPORT_PY.read_text()
         self.assertIn("enable_ai", content)
