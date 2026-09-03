@@ -309,7 +309,7 @@ def export_exceptions(month=None, year=None, from_date=None, to_date=None, emplo
         uc.alignment = Alignment(horizontal="left", vertical="top")
 
     st_title(ws, "B11", "每日异常分布", 13)
-    st_header(ws, 12, ["日期", "迟到", "早退", "缺勤", "合计"])
+    st_header(ws, 12, ["日期", "迟到", "早退", "缺勤", "合计"], 2)
     for i, d in enumerate(DATES):
         rr = 13 + i
         fill = C_STRIPE if i % 2 else None
@@ -327,7 +327,7 @@ def export_exceptions(month=None, year=None, from_date=None, to_date=None, emplo
 
     st_title(ws, "B" + str(tr + 2), "缺勤按部门分布（人次）", 13)
     hdr_row = tr + 3
-    st_header(ws, hdr_row, ["部门", "缺勤人次", "占比"])
+    st_header(ws, hdr_row, ["部门", "缺勤人次", "占比"], 2)
     for i, (dept, cnt) in enumerate(dept_absent):
         rr = hdr_row + 1 + i
         fill = C_STRIPE if i % 2 else None
