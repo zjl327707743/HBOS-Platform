@@ -59,10 +59,10 @@ class WorkspaceContractTest(unittest.TestCase):
 
 	def test_checkin_report_prioritizes_name_number_and_department_before_employee_id(self):
 		content = CHECKIN_REPORT.read_text()
-		self.assertIn('"HRMS Employee ID"', content)
-		self.assertLess(content.index('"员工姓名"'), content.index('"HRMS Employee ID"'))
-		self.assertLess(content.index('"工号"'), content.index('"HRMS Employee ID"'))
-		self.assertLess(content.index('"部门"'), content.index('"HRMS Employee ID"'))
+		self.assertIn('"员工（HRMS）"', content)
+		self.assertLess(content.index('"员工姓名"'), content.index('"员工（HRMS）"'))
+		self.assertLess(content.index('"工号"'), content.index('"员工（HRMS）"'))
+		self.assertLess(content.index('"部门"'), content.index('"员工（HRMS）"'))
 
 	def test_reports_have_lineage_filters_without_fixed_500_row_cutoff(self):
 		for report in (CHECKIN_REPORT, ATTENDANCE_REPORT):

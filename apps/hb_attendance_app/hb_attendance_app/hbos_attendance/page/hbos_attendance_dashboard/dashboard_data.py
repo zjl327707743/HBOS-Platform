@@ -85,13 +85,17 @@ def get_data(start_str=None, end_str=None):
         d += timedelta(days=1)
 
     # ---------- Aggregate per employee ----------
+    from hb_attendance_app.hbos_attendance.api import _is_exempt
     emp_data = defaultdict(lambda: {
-        "late_dates": [], "early_dates": [], "absent_dates": [],
+        "late_dates": set(), "early_dates": set(), "absent_dates": set(),
         "name": "", "num": "", "dept": "",
     })
+    # 已有考勤记录的 (员工, 日期) 集合, 零打卡检测不得重复计数
     seen_emp_date = set()
     for r in atts:
         eid = r.employee
+        if _is_exempt(r.employee_number or ""):
+            continue
         emp_data[eid]["name"] = r.employee_name or ""
         emp_data[eid]["num"] = r.employee_number or ""
         emp_data[eid]["dept"] = r.department or ""
@@ -101,13 +105,13 @@ def get_data(start_str=None, end_str=None):
             continue
         seen_emp_date.add(key)
         if r.late_entry:
-            emp_data[eid]["late_dates"].append(ds)
+            emp_data[eid]["late_dates"].add(ds)
         if r.early_exit:
-            emp_data[eid]["early_dates"].append(ds)
+            emp_data[eid]["early_dates"].add(ds)
         if r.status == "Absent":
             is_leave = ds in emp_leave_dates.get(eid, set())
             if not is_leave:
-                emp_data[eid]["absent_dates"].append(ds)
+                emp_data[eid]["absent_dates"].add(ds)
 
     # ---------- Zero-checkin absent detection (per day) ----------
     from hb_attendance_app.hbos_attendance import api as hb_api
@@ -118,10 +122,16 @@ def get_data(start_str=None, end_str=None):
         present_set = daily_present.get(ds, set())
         for e in active_emps:
             if e.name not in present_set and e.name not in emp_leave_dates:
+                # 已有考勤记录(含Absent)的日期跳过, 防止重复计数
+                if (e.name, ds) in seen_emp_date:
+                    continue
+                # 豁免名单: 不计入异常考勤(迟到/早退/缺勤均不统计)
+                if hb_api._is_exempt(e.employee_number or ""):
+                    continue
                 # 行政班周末双休: 周六/周日无打卡不算缺勤
                 if ds in weekends and hb_api._is_admin_shift_num(e.employee_number or ""):
                     continue
-                emp_data[e.name]["absent_dates"].append(ds)
+                emp_data[e.name]["absent_dates"].add(ds)
                 if not emp_data[e.name]["name"]:
                     emp_data[e.name].update({
                         "name": e.employee_name or "",
@@ -187,44 +197,23 @@ def get_data(start_str=None, end_str=None):
     dept_anomaly_data.sort(key=lambda x: -(x["late"] + x["absent"] + x["early"]))
 
     # ---------- Daily trend (per-date anomaly counts) ----------
-    daily_late = Counter()
-    daily_early = Counter()
-    daily_absent = Counter()
-    for r in rows:
-        for ds in r.get("_late_dates", []):
-            daily_late[ds] += 1
-        for ds in r.get("_early_dates", []):
-            daily_early[ds] += 1
-        for ds in r.get("_absent_dates", []):
-            daily_absent[ds] += 1
-    # Rebuild from atts for daily trend
+    # 趋势图直接按 emp_data 的去重日期集合聚合, 与排行表口径一致, 避免重复计数
     daily_late2 = Counter()
     daily_early2 = Counter()
     daily_absent2 = Counter()
-    for r in atts:
-        ds = str(r.attendance_date)
-        if r.late_entry:
+    for eid, data in emp_data.items():
+        for ds in data["late_dates"]:
             daily_late2[ds] += 1
-        if r.early_exit:
+        for ds in data["early_dates"]:
             daily_early2[ds] += 1
-        if r.status == "Absent":
+        for ds in data["absent_dates"]:
             daily_absent2[ds] += 1
-    # Merge with zero-checkin absent
-    daily_absent3 = Counter(daily_absent2)
-    d = start
-    while d <= end:
-        ds = d.isoformat()
-        present_set = daily_present.get(ds, set())
-        for e in active_emps:
-            if e.name not in present_set and e.name not in emp_leave_dates and ds not in weekends:
-                daily_absent3[ds] += 1
-        d += timedelta(days=1)
 
     all_dates = sorted({str(start + timedelta(days=i)) for i in range((end - start).days + 1)})
     trend_labels = [dd[5:] for dd in all_dates]  # MM-DD
     trend_late = [daily_late2.get(dd, 0) for dd in all_dates]
     trend_early = [daily_early2.get(dd, 0) for dd in all_dates]
-    trend_absent = [daily_absent3.get(dd, 0) for dd in all_dates]
+    trend_absent = [daily_absent2.get(dd, 0) for dd in all_dates]
 
     # ---------- Table rows (anomaly leaderboard) ----------
     table_rows = []
