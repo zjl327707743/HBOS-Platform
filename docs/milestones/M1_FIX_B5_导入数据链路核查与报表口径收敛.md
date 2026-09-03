@@ -220,6 +220,20 @@ Owner 数据链路验收后续，修复多处班次误判（不改变 B5 主结�
 
 实现：`roster_classify.py`（归行纯函数）、`roster_export.py`（export_shift_roster 白名单端点 + openpyxl 5-sheet）、规则看板按钮。只读不触发考勤生成。新增离线测试，全量 97 通过。
 
+## 2026-09-03 追加交付：月度考勤汇总 AI 复核
+
+「月度考勤汇总」报表新增「AI复核」：把当月异常（迟到 / 早退 / 缺勤）逐条交给真实大模型复核，返回逐日「日期｜类型｜结论｜理由」意见，作为替代人工逐条审的辅助列；AI 只生成复核意见文本，不改写考勤 / 打卡数据、不落库。
+
+- 交互：报表点「AI复核」按钮（位于「导出异常考勤」按钮之后）→ 服务端 `ai_review_preview` 先算当前筛选范围有异常员工数与异常条数（剔豁免名单）→ 弹确认框（含 HBOS_AI_* 配置与调用费用提示；异常员工 >50 提示分批）→ 确认后置隐藏过滤 `enable_ai=1` 并刷新 → 报表追加「AI复核」列逐人显示结果。
+- enable_ai：隐藏 Check 过滤，默认 0。默认态无 AI 列、不调 LLM；再次筛选 / 换部门月份 → 前端自动复位 enable_ai=0 → AI 列消失，下次点击 = 重新复核。
+- 复核逻辑：对当前筛选结果中当月有异常的员工逐人构建「事实包」（该员工异常日 + 对应考勤结果 / 当日打卡流水 / 班次规则摘要），按 OpenAI 兼容协议逐人调用 LLM；返回解析为逐日「结论：理由」，结论限「属实 / 存疑 / 非异常（非异常=系统误判须给依据）」；逐人失败隔离，单人失败回落「AI复核失败：原因」不中断其余员工。
+- 配置：env `HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL / HBOS_AI_TIMEOUT`（默认 60s，不入 git 不入库）；未配置时按钮 / 执行给中文提示「未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）」。
+- 导出：「导出 Excel」与「导出异常考勤」两按钮均透传 enable_ai；AI 开时「导出 Excel」随报表数据带「AI复核」列（列在服务端数据）。
+
+实现：新增 `ai_review.py`（事实包 / prompt / 返回解析 / env 纯函数 + `call_llm`，离线可测）、`月度考勤汇总.py`（`enable_ai` 过滤 + `_columns()` 追加 AI 列 + `_attach_ai_review` 逐人复核 + `ai_review_preview` 白名单端点）、`月度考勤汇总.js`（AI复核按钮 + 确认流 + 过滤复位 + 导出透传）、`export.py`（`export_xlsx` 签名接 `enable_ai`）。新增离线测试 `test_ai_review.py` 9 例，全量 107 通过。运行时需 Owner 配置 HBOS_AI_* env 后人工验证（无密钥环境无法调 LLM）。
+
+> 说明：随本批 commit，此前 B5 §17 / PROJECT_STATUS 2026-08-27 ⑨ 记为「运行环境已交付、但从未入库」的既有特性「异常考勤导出」`export_exceptions`（三表：总览 / 缺勤汇总 / 迟到早退）首次纳入版本控制；其总览与缺勤分布两表表头列错位已在同一批 commit 修复。
+
 ## 状态口径
 
 - M1-FIX-B2 = COMPLETED。

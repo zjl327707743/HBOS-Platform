@@ -145,7 +145,7 @@ M1 初期不创建 `hb_attendance_app`。M1-FIX-B 已经 Owner 明确授权创�
 24. M1-FIX-B2：导入口径、安全与准确性修复，当前为 COMPLETED。
 25. M1-FIX-B3：考勤工作台入口、App 命名与 HRMS 数据一致性修复，当前为 REVIEWING / Owner UI 验收未通过。
 26. M1-FIX-B4：考勤模块架构收敛与单一入口重整，当前为 REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。
-27. M1-FIX-B5：导入数据链路核查与报表口径收敛，当前为 REVIEWING（2026-09-02 已追加：规则看板 Tab 三类规则可视化 + 班次人员维护表导出 5-sheet）。
+27. M1-FIX-B5：导入数据链路核查与报表口径收敛，当前为 REVIEWING（2026-09-02 已追加：规则看板 Tab 三类规则可视化 + 班次人员维护表导出 5-sheet；2026-09-03 再追加：月度考勤汇总 AI复核 enable_ai 临时列）。
 28. M1-FIX-C/D/E：后续补漏轮次，当前为 PLANNED。
 29. M2：飞书集成，当前为 NOT STARTED / 待 Owner 授权。
 
