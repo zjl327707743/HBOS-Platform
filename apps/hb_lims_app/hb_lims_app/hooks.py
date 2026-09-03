@@ -18,3 +18,42 @@ app_include_js = [
 # 导致 user_perm_can_read 缓存恒为 None，非 Administrator 用户侧边栏 DocType 项全部不可见。
 # 在 boot 阶段按用户预置该缓存，恢复原生权限语义（不修改 Frappe 核心源码）。
 boot_session = "hb_lims_app.hbos_lims.setup.sync_user_perm_can_read_cache"
+
+# 合规审计日志：全量 doc_events 捕获（创建/修改/删除），write-once
+doc_events = {
+	"HBOS Sample": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Sample Task": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Test Result": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS COA": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Specification": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Sample Type": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Test Item": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+}

@@ -235,7 +235,6 @@ import { computed, onMounted, ref } from 'vue'
 import { DownloadOutlined, ReloadOutlined, SafetyOutlined } from '@ant-design/icons-vue'
 import { listDoctype } from '@/api/lims'
 import { message } from 'ant-design-vue'
-
 interface LedgerResult {
   name: string
   sample: string

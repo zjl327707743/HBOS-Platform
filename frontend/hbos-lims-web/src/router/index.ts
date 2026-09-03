@@ -61,6 +61,12 @@ const routes = [
         component: () => import('@/views/AuditTrailView.vue'),
         meta: { title: '审计追踪查询' },
       },
+      {
+        path: 'audit-log',
+        name: 'audit-log',
+        component: () => import('@/views/AuditLogView.vue'),
+        meta: { title: '合规审计日志' },
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

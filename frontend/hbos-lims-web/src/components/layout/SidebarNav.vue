@@ -54,9 +54,13 @@
 
       <div class="nav-group">
         <div v-if="!collapsed" class="nav-group-title">合规</div>
-        <router-link to="/audit" class="nav-item" :class="{ active: isActive('/audit') }" :title="collapsed ? '审计追踪查询' : ''">
+        <router-link to="/audit" class="nav-item" :class="{ active: isActive('/audit') && !route.path.includes('/audit-log') }" :title="collapsed ? '审计追踪查询' : ''">
           <SearchOutlined />
           <span v-if="!collapsed">审计追踪查询</span>
+        </router-link>
+        <router-link to="/audit-log" class="nav-item" :class="{ active: isActive('/audit-log') }" :title="collapsed ? '合规审计日志' : ''">
+          <AuditOutlined />
+          <span v-if="!collapsed">合规审计日志</span>
         </router-link>
       </div>
     </nav>
@@ -80,7 +84,7 @@ import { useRoute } from 'vue-router'
 import {
   DashboardOutlined, FileAddOutlined,
   CarryOutOutlined, FormOutlined, FileTextOutlined, ReadOutlined, SearchOutlined,
-  MenuFoldOutlined, MenuUnfoldOutlined,
+  MenuFoldOutlined, MenuUnfoldOutlined, AuditOutlined,
 } from '@ant-design/icons-vue'
 
 defineProps<{ collapsed: boolean }>()

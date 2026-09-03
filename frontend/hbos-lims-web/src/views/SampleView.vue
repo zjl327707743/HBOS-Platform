@@ -330,6 +330,17 @@ const specLoading = ref(false)
 const ledgerLoading = ref(false)
 
 const typeOptions = ['原材料', '包装材料', '中间体', '成品', '回收溶剂', '过程控制', '化学残留', '方法验证', '水']
+const TYPE_FIELD_MAP: Record<string, { name: string; code?: string; batch?: string }> = {
+  原材料: { name: 'material_name', code: 'material_code', batch: 'in_batch_no' },
+  包装材料: { name: 'material_name', code: 'material_code', batch: 'in_batch_no' },
+  中间体: { name: 'material_name', code: 'material_code', batch: 'batch_no' },
+  成品: { name: 'material_name', code: 'material_code', batch: 'batch_no' },
+  回收溶剂: { name: 'material_name', code: 'material_code', batch: 'batch_no' },
+  过程控制: { name: 'process_name', batch: 'sampling_point' },
+  化学残留: { name: 'equip_name', batch: 'clean_batch' },
+  方法验证: { name: 'verify_item', batch: 'verify_batch' },
+  水: { name: 'water_system', batch: 'sampling_point' },
+}
 const specifications = ref<{ name: string; status: string; version: string }[]>([])
 const specItems = ref<{ item: string; limits: string; unit: string }[]>([])
 const ledgerRows = ref<Record<string, unknown>[]>([])
@@ -780,9 +791,19 @@ function resetForm() {
 }
 
 async function submitSample() {
-  if (!form.material_name || !form.batch_no || !form.sample_type || !form.specification) {
+  const fieldMap = TYPE_FIELD_MAP[form.sample_type] || {}
+  const materialName = form[fieldMap.name || 'material_name'] || form.material_name
+  const materialCode = form[fieldMap.code || 'material_code'] || form.material_code || materialName
+  const batchNo = form[fieldMap.batch || 'batch_no'] || form.batch_no
+  if (!materialName || !batchNo || !form.sample_type || !form.specification) {
     message.warning('请填写样品类型、样品名称、批号和质量标准')
     return
+  }
+  for (const field of activeFields.value) {
+    if (field.required && !form[field.key]) {
+      message.warning(`请填写${field.label}`)
+      return
+    }
   }
   if (['成品', '中间体'].includes(form.sample_type)) {
     if (!form.batch_qty || !form.sample_qty) {
@@ -813,9 +834,9 @@ async function submitSample() {
   try {
     const name = await registerSample({
       sample_type: form.sample_type,
-      material_code: form.material_code,
-      material_name: form.material_name,
-      batch_no: form.batch_no,
+      material_code: materialCode,
+      material_name: materialName,
+      batch_no: batchNo,
       sample_source: form.sample_source,
       specification: form.specification,
       priority: form.priority,

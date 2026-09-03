@@ -97,3 +97,4 @@ M0 历史任务曾允许读取：
 M2-LIMS 当前进入 M2-R6：Vue 前端原型与开发流程 REVIEWING，待 Owner 审查；审查通过前不创建 Vue 工程、不接真实 API。
 M2-R6A（样品登记动态表单设计）随 M2-R6 并行 REVIEWING；样品登记动态表单方案见 `docs/frontend/M2_R6A_样品登记动态表单设计.md`。
 M2-R6B（检验结果台账双模式设计）REVIEWING，Owner 已确认原型与交互；双模式（明细台账 + 样品表每样品种类一表）方案见 `docs/frontend/M2_R6B_检验结果台账设计方案.md`。
+M2-R6C（检验结果台账 Vue 复刻与生产部署）DEPLOYED：双模式已复刻进 Vue 上线生产；M2-R6D（合规审计日志）DEPLOYED：合规审计日志 DocType/全量捕获/前端页已上线，并修复生产部署 hash 错配致个别页面 404。

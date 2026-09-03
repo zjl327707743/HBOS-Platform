@@ -6,6 +6,34 @@ import { callMethod, getMethod } from './client'
 // 与 docs/frontend/M2_LIMS_Vue前端开发流程.md 第 7 节一致
 // ============================================================
 
+// ---- 合规审计日志（只读） ----
+export interface AuditEvent {
+  name: string
+  log_type: string
+  doctype_target: string
+  doc_name: string
+  action_text: string
+  field_changed: string
+  old_value: string
+  new_value: string
+  reason: string
+  user: string
+  created_at: string
+  checksum: string
+}
+
+export function getAuditLog(params: {
+  log_type?: string
+  doctype_target?: string
+  user?: string
+  keyword?: string
+  from_date?: string
+  to_date?: string
+  limit?: number
+} = {}): Promise<{ events: AuditEvent[]; total: number }> {
+  return callMethod('hb_lims_app.hbos_lims.lims_service.get_audit_log', params)
+}
+
 // ---- 样品登记与任务 ----
 export function registerSample(params: {
   sample_type?: string

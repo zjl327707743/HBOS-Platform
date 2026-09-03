@@ -9,6 +9,7 @@
 """
 
 import json
+import hashlib
 from pathlib import Path
 
 import frappe
@@ -48,6 +49,101 @@ def _set_status(doc, flow, current, target):
 
 def _commit():
 	frappe.db.commit()
+
+
+# ---------------------------------------------------------------------------
+# 合规审计日志：write-once 全量事件捕获（创建/修改/删除/状态流转/仪器使用）
+# ---------------------------------------------------------------------------
+
+AUDIT_EXCLUDE_DOCTYPES = {"HBOS Audit Log"}  # 审计日志自身不入日志（避免递归）
+
+
+def _checksum(payload):
+	"""记录指纹 sha1，防篡改标记。"""
+	raw = "|".join(str(payload.get(k) or "") for k in
+				   ("doctype_target", "doc_name", "log_type", "user", "created_at",
+					"old_value", "new_value"))
+	return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def audit_log(log_type, doctype_target, doc_name, action_text="", field_changed="",
+			  old_value="", new_value="", reason="", user=None, created_at=None,
+			  commit=True):
+	"""写入一条合规审计事件（供系统钩子与业务方法内部调用）。
+	只允许 System Manager 手动调用；常规路径由 doc_events 与业务方法注入。"""
+	if user is None:
+		user = frappe.session.user
+	if not created_at:
+		created_at = frappe.utils.now_datetime()
+
+	payload = {
+		"doctype": "HBOS Audit Log",
+		"log_type": log_type,
+		"doctype_target": doctype_target,
+		"doc_name": str(doc_name),
+		"action_text": action_text,
+		"field_changed": field_changed,
+		"old_value": str(old_value),
+		"new_value": str(new_value),
+		"reason": reason,
+		"user": user,
+		"created_at": created_at,
+	}
+	payload["checksum"] = _checksum(payload)
+	doc = frappe.get_doc(payload)
+	doc.flags.audit_immutable = True
+	doc.insert(ignore_permissions=True)
+	if commit:
+		frappe.db.commit()
+	return doc.name
+
+
+# ---- doc_events 全量捕获（创建 / 修改 / 删除） ----
+
+def audit_on_insert(doc, method=None):
+	if doc.doctype in AUDIT_EXCLUDE_DOCTYPES:
+		return
+	user = doc.get("owner") or doc.get("modified_by") or doc.get("requestor") or frappe.session.user
+	audit_log("创建", doc.doctype, doc.name,
+			  action_text=f"创建 {doc.doctype} 记录", user=user, commit=False)
+
+
+def audit_on_update(doc, method=None):
+	if doc.doctype in AUDIT_EXCLUDE_DOCTYPES:
+		return
+	before = doc.get_doc_before_save()
+	if not before:
+		return
+
+	for field in AUDIT_WATCHED_FIELDS:
+		old = before.get(field)
+		new = doc.get(field)
+		if str(old or "") == str(new or ""):
+			continue
+		audit_log(
+			"修改", doc.doctype, doc.name,
+			action_text=f"修改 {doc.doctype} 字段",
+			field_changed=field, old_value=old, new_value=new,
+			user=doc.get("modified_by") or frappe.session.user, commit=False,
+		)
+
+
+def audit_on_trash(doc, method=None):
+	if doc.doctype in AUDIT_EXCLUDE_DOCTYPES:
+		frappe.throw("审计日志不可删除（数据完整性）。")
+	audit_log(
+		"删除", doc.doctype, doc.name,
+		action_text=f"删除 {doc.doctype} 记录", user=frappe.session.user, commit=False,
+	)
+
+
+AUDIT_WATCHED_FIELDS = [
+	"status", "result_status", "report_status", "verdict", "result_value",
+	"result_text", "raw_value", "unit", "lower_limit", "upper_limit",
+	"material_name", "batch_no", "sample_type", "sample_source", "priority",
+	"spec_version", "test_due_date", "oos_locked", "approver", "reviewer",
+	"special_note", "remarks",
+]
 
 
 def _rollback():
@@ -274,6 +370,17 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 		result.submitted_at = _now()
 		result.save(ignore_permissions=True)
 
+		# 合规审计：仪器使用（提交携带仪器时记一笔）
+		if instrument_used:
+			audit_log("仪器使用", "Instrument", instrument_used,
+					  action_text=f"{result.item_name or result.test_item or ''} 使用仪器",
+					  user=result.analyst, commit=False)
+		# 合规审计：结果提交 + 自动判定
+		audit_log("提交", result.doctype, result.name,
+				  action_text=f"结果提交 · 自动判定 {result.verdict}",
+				  field_changed="result_status", old_value="草稿", new_value="已提交",
+				  user=result.analyst, commit=False)
+
 		# 联动任务与样品（修订后的新版本提交时任务可能已在目标状态，避免自转移）
 		task = frappe.get_doc("HBOS Sample Task", result.task)
 		if result.is_oos_candidate:
@@ -281,6 +388,10 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 				_set_status(task, wf.FLOW_TASK, task.status, "OOS候选")
 			task.save(ignore_permissions=True)
 			_lock_sample_oos(result.sample)
+			audit_log("OOS", result.doctype, result.name,
+					  action_text="检出 OOS 候选 · 样品锁定",
+					  field_changed="result_status", old_value="已提交", new_value="OOS锁定",
+					  reason=reason, user=result.analyst, commit=False)
 		else:
 			if task.status != "已提交":
 				_set_status(task, wf.FLOW_TASK, task.status, "已提交")
@@ -345,6 +456,10 @@ def review_result(result_name):
 		task = frappe.get_doc("HBOS Sample Task", result.task)
 		_set_status(task, wf.FLOW_TASK, task.status, "已复核")
 		task.save(ignore_permissions=True)
+		audit_log("复核", result.doctype, result.name,
+				  action_text="结果复核（第二人独立）",
+				  field_changed="result_status", old_value="已提交", new_value="已复核",
+				  user=result.reviewer, commit=False)
 		_commit()
 		return result.name
 	except Exception:
@@ -373,6 +488,10 @@ def approve_result(result_name):
 		_set_status(task, wf.FLOW_TASK, task.status, "已批准")
 		task.save(ignore_permissions=True)
 		_advance_sample_after_task(task.sample)
+		audit_log("批准", result.doctype, result.name,
+				  action_text="结果批准",
+				  field_changed="result_status", old_value="已复核", new_value="已批准",
+				  user=result.approver, commit=False)
 		_commit()
 		return result.name
 	except Exception:
@@ -455,6 +574,10 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 		if task.status != "已提交":
 			_set_status(task, wf.FLOW_TASK, task.status, "已提交")
 		task.save(ignore_permissions=True)
+		audit_log("修订", old.doctype, old.name,
+				  action_text="结果修订 · 生成新版本",
+				  field_changed=field, old_value=old_value, new_value=str(new_value),
+				  reason=reason, user=_user(), commit=False)
 		_commit()
 		return {"revision": revision.name, "new_result": new_doc.name}
 	except Exception:
@@ -602,6 +725,10 @@ def release_sample(sample_name):
 			frappe.throw(f"样品 {sample_name} 处于 OOS 锁定，不可放行。")
 		_set_status(sample, wf.FLOW_SAMPLE, sample.status, "已放行")
 		sample.save(ignore_permissions=True)
+		audit_log("放行", sample.doctype, sample.name,
+				  action_text="样品放行",
+				  field_changed="status", old_value="检验完成", new_value="已放行",
+				  user=_user(), commit=False)
 		_commit()
 		return sample.name
 	except Exception:
@@ -619,6 +746,10 @@ def reject_sample(sample_name, reason=None):
 		if reason:
 			sample.remarks = (sample.remarks or "") + f" | 拒绝原因：{reason}"
 		sample.save(ignore_permissions=True)
+		audit_log("拒绝", sample.doctype, sample.name,
+				  action_text="样品拒绝",
+				  field_changed="status", old_value="检验中", new_value="已拒绝",
+				  reason=reason or "", user=_user(), commit=False)
 		_commit()
 		return sample.name
 	except Exception:
@@ -719,6 +850,10 @@ def activate_specification(spec_name):
 			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅草稿可生效。")
 		spec.status = SPEC_ACTIVE
 		spec.save(ignore_permissions=True)
+		audit_log("规格生效", spec.doctype, spec.name,
+				  action_text="质量标准生效",
+				  field_changed="status", old_value=SPEC_DRAFT, new_value=SPEC_ACTIVE,
+				  user=_user(), commit=False)
 		_commit()
 		return spec.name
 	except Exception:
@@ -736,6 +871,10 @@ def obsolete_specification(spec_name):
 			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅已生效可废止。")
 		spec.status = SPEC_OBSOLETE
 		spec.save(ignore_permissions=True)
+		audit_log("规格废止", spec.doctype, spec.name,
+				  action_text="质量标准废止",
+				  field_changed="status", old_value=SPEC_ACTIVE, new_value=SPEC_OBSOLETE,
+				  user=_user(), commit=False)
 		_commit()
 		return spec.name
 	except Exception:
@@ -891,6 +1030,56 @@ def get_result_ledger(sample_type=None, material=None):
 			"groups": _ledger_groups(samples),
 			"meta": {"total_samples": len(samples)},
 		}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---------------------------------------------------------------------------
+# 合规审计日志查询（只读，对齐前端 合规审计日志 页）
+# ---------------------------------------------------------------------------
+
+LEDGER_AUDIT_FIELDS = [
+	"name", "log_type", "doctype_target", "doc_name", "action_text",
+	"field_changed", "old_value", "new_value", "reason", "user",
+	"created_at", "checksum",
+]
+
+
+@frappe.whitelist()
+def get_audit_log(log_type=None, doctype_target=None, user=None,
+				  keyword=None, from_date=None, to_date=None, limit=500):
+	"""合规审计日志查询（只读）：返回审计事件流，支持按类型/对象/操作人/关键字/时间范围筛选。"""
+	_check_action("get_audit_log")
+	try:
+		filters = []
+		or_filters = []
+		if log_type:
+			filters.append(["log_type", "=", log_type])
+		if doctype_target:
+			filters.append(["doctype_target", "=", doctype_target])
+		if user:
+			filters.append(["user", "=", user])
+		if from_date:
+			filters.append(["created_at", ">=", from_date + " 00:00:00"])
+		if to_date:
+			filters.append(["created_at", "<=", to_date + " 23:59:59"])
+		if keyword:
+			kw = f"%{keyword}%"
+			or_filters.extend([
+				["doc_name", "like", kw],
+				["action_text", "like", kw],
+				["checksum", "like", kw],
+			])
+		rows = frappe.get_all(
+			"HBOS Audit Log",
+			filters=filters,
+			or_filters=or_filters,
+			fields=LEDGER_AUDIT_FIELDS,
+			order_by="created_at desc",
+			limit=max(1, min(int(limit or 500), 500)),
+		)
+		return {"events": rows, "total": len(rows)}
 	except Exception:
 		_rollback()
 		raise

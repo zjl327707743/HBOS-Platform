@@ -100,6 +100,8 @@ ACTION_ROLES = {
 	"obsolete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
 	# 检验结果台账聚合查询（只读，所有 LIMS 角色 + System）
 	"get_result_ledger": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	# 合规审计日志查询（只读，Reviewer / Manager / System 可读）
+	"get_audit_log": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 }
 
 

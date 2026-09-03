@@ -1,0 +1,144 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-08-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "log_type",
+  "doctype_target",
+  "doc_name",
+  "action_text",
+  "field_changed",
+  "old_value",
+  "new_value",
+  "reason",
+  "user",
+  "created_at",
+  "checksum"
+ ],
+ "fields": [
+  {
+   "default": "HBOS-AUDIT-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-AUDIT-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "log_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "事件类型",
+   "options": "创建\n修改\n删除\n提交\n复核\n批准\n修订\n放行\n拒绝\nOOS\n仪器使用\n规格生效\n规格废止",
+   "reqd": 1
+  },
+  {
+   "fieldname": "doctype_target",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "对象类型",
+   "reqd": 1
+  },
+  {
+   "fieldname": "doc_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "对象名称",
+   "reqd": 1
+  },
+  {
+   "fieldname": "action_text",
+   "fieldtype": "Data",
+   "label": "动作摘要"
+  },
+  {
+   "fieldname": "field_changed",
+   "fieldtype": "Data",
+   "label": "变更字段"
+  },
+  {
+   "fieldname": "old_value",
+   "fieldtype": "Long Text",
+   "label": "修改前值"
+  },
+  {
+   "fieldname": "new_value",
+   "fieldtype": "Long Text",
+   "label": "修改后值"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "原因"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "操作人",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "操作时间",
+   "reqd": 1
+  },
+  {
+   "fieldname": "checksum",
+   "fieldtype": "Data",
+   "label": "记录指纹",
+   "read_only": 1
+  }
+ ],
+ "icon": "file-search",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Audit Log",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -9,6 +9,8 @@
 当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；M1-FIX-B5 为 REVIEWING（等待 Owner 和 Claude 审查），M1-FIX-B3 / B4 不 closeout，M1-FIX-C/D/E 未启动。M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动：M2-R1 至 M2-R4（环境与骨架、主数据与判定引擎、检验流程闭环、COA 与报表）已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，未创建 Vue 工程。M1-FIX 为并行未决事项，不阻塞 M2-LIMS。
 M2-R6A（样品登记动态表单设计）已交付下拉决策条 + 9 类样品类型完整表单切换方案，进入 REVIEWING，等待 Owner 审查。
 M2-R6B（检验结果台账双模式设计）已交付明细台账 + 样品表（每样品种类一表）双模式方案，Owner 已确认原型与交互，进入 REVIEWING，设计文档待审查。
+M2-R6C（检验结果台账 Vue 复刻与生产部署）已将双模式复刻进 Vue 并上线生产，Owner 已确认测试路径。
+M2-R6D（合规审计日志）已交付：后端 HBOS Audit Log DocType（write-once 防篡改）+ 全量捕获 + 查询 API + 业务埋点，前端合规组新增合规审计日志入口与页面；已上线生产，Owner 已确认测试路径；并修复生产部署新旧 hash 错配致个别页面 404。
 M2-R6C（检验结果台账 Vue 复刻与生产部署）双模式已复刻进 Vue 并上线生产，Owner 已确认测试路径效果，DEPLOYED。
 
 当前真实进度以以下文件为准：

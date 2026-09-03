@@ -25,6 +25,8 @@ M2-R6B（检验结果台账双模式设计）：REVIEWING，Owner 已确认原�
 
 M2-R6C（检验结果台账 Vue 复刻与生产部署）：DEPLOYED，Owner 已确认测试路径效果。将 R6B 双模式复刻进 Vue 工程 `ResultLedgerView.vue`（明细台账 + 样品表，数据来自真实 Frappe API：HBOS Sample / Test Result / COA / Result Revision 聚合、只读投影、superseded 链过滤、修订/审计摘要）；新增判定列 + 记录状态列筛选、记录状态语义配色（放行/批准绿、检验完成/检验中蓝、登记/草稿灰、拒绝/OOS 红）；`vue-tsc` 类型检查 0 错误；生产构建 `npm run build:prod` 后同步至生产容器 `hbos-m0-r3a-frontend-1`（备份 `hbos-lims.bak-20260827a`），生产 URL `http://localhost:8080/hbos-lims/` HTTP 200 验证通过。后端同步：新增 `get_result_ledger` 聚合查询 whitelist（只读投影，返回 样品+受控记录+修订链+COA 报告日期+类型分组，对齐前端 ResultLedgerView，避免前端多路 get_list 拼接），`workflow_contract.py` ACTION_ROLES 注册 `get_result_ledger`（LIMS Analyst/Reviewer/Manager + System 可读）；离线契约测试 114/114 全绿（新增 6 项台账契约）；真实环境跑通（全量 7 样品/17 结果/2 修订/3 COA 日期/分组 + sample_type 与 material 筛选均验证）；backend 容器 gunicorn 已重启加载新代码（kill 误杀主进程后 `docker start` 恢复，容器健康、生产前端 200）。
 
+M2-R6D（合规审计日志 + 生产部署错配修复）：DEPLOYED，Owner 已确认测试路径效果。新增合规审计日志（全量自动捕获 + write-once + 防篡改）：后端新增 `HBOS Audit Log` DocType（log_type/doctype_target/doc_name/action_text/field_changed/old_value/new_value/reason/user/created_at/checksum，permissions 仅 Reviewer/Manager/System 可读无 create/edit/delete 常规权限，写入仅系统钩子内部 insert），`hooks.py` 注册 doc_events 全量捕获创建/修改/删除（HBOS Sample/Task/Test Result/COA/Specification/Sample Type/Test Item），`lims_service.py` 新增 `audit_log` 写核心（sha1 指纹防篡改）与 `get_audit_log` 查询 whitelist（类型/对象/操作人/关键字/时间筛选）及各业务方法埋点（提交质检/复核/批准/修订/放行/拒绝/OOS/仪器使用/规格生效-废止），`workflow_contract.py` 注册 `get_audit_log`；离线契约测试 123/123 全绿（新增 9 项）；真实环境跑通（DocType 建表、事件流、register_sample 自动触发创建事件）。前端：合规组新增 合规审计日志 入口 + `/audit-log` 路由 + `AuditLogView.vue`（事件类型语义色 Pill/对象/操作人/时间/变更前后值/原因/指纹，下钻抽屉含数据完整性）+ getAuditLog。生产部署修复：Owner 反馈「海滨LIMS 已可进入但样品登记异常/审计追踪进不去」，根因为生产 `index.html` 引用旧 bundle `index-Ty0i1qY8.js` 与生产 assets 混 129 个历史旧 chunk（新旧哈希错配致 view chunk 懒加载 404/崩溃）；以 root 清空旧 assets 后重新部署最新干净 dist（主 bundle `index-BnAvve8_.js` + 39 资产与本地逐字节一致），全引用资产 200 + 正确 MIME 验证；注入 nginx SPA fallback（`location ^~ /hbos-lims/` try_files 命中 public/hbos-lims 并 fallback index.html）修 `/hbos-lims` history 404，备份 `frappe.conf.bak-20260903-spa`。生产部署机制：前端经 `docker cp dist/.` 覆盖至 `/home/frappe/frappe-bench/sites/frontend/public/hbos-lims/`（先 root 清 assets 防残留），后端经 bind mount 实时生效。
+
 ## 本轮补充（M2-R6A，已交付 REVIEWING）
 
 ## 本轮范围（M2-R6，已交付 REVIEWING）
@@ -82,6 +84,7 @@ M2-R6     = REVIEWING（Vue 前端原型待 Owner 审查）
 M2-R6A    = REVIEWING（样品登记动态表单设计待 Owner 审查）
 M2-R6B    = REVIEWING（检验结果台账双模式设计，Owner 已确认原型与交互，设计文档待审查）
 M2-R6C    = DEPLOYED（检验结果台账 Vue 复刻已上线生产，Owner 已确认测试路径）
+M2-R6D    = DEPLOYED（合规审计日志已上线生产，Owner 已确认测试路径；含生产部署错配修复）
 M1-FIX    = IN_PROGRESS（并行未决，B3/B4/B5 REVIEWING）
 M1-FIX-C/D/E = PLANNED / 待 Owner 授权
 ```

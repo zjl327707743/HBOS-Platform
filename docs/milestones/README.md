@@ -46,6 +46,7 @@
 - `docs/milestones/M2_R6_Vue前端原型与开发流程.md`：M2-R6 Vue 前端原型与开发流程（交互式 HTML 原型 + 开发流程 + API 契约映射）。
 - `docs/frontend/M2_R6A_样品登记动态表单设计.md`：M2-R6A 样品登记动态表单设计（下拉决策条 + 9 类完整表单 + 设计提示词）。
 - `docs/frontend/M2_R6B_检验结果台账设计方案.md`：M2-R6B 检验结果台账双模式设计（明细台账 + 样品表每样品种类一表 + 后端落地设计）。
+- `docs/frontend/M2_R6D_合规审计日志原型.html`：M2-R6D 合规审计日志原型（全量事件类型 + 下钻含数据完整性与指纹）。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -110,6 +111,7 @@
 | M2-R6A | 样品登记动态表单设计 | REVIEWING |
 | M2-R6B | 检验结果台账双模式设计 | REVIEWING / Owner 已确认原型与交互 |
 | M2-R6C | 检验结果台账 Vue 复刻与生产部署 | DEPLOYED |
+| M2-R6D | 合规审计日志 + 生产部署错配修复 | DEPLOYED |
 
 ## 下一步路线
 
@@ -123,11 +125,13 @@
 8. M2-R6A（样品登记动态表单设计）已交付 `docs/frontend/M2_R6A_样品登记动态表单设计.md` 与原型 `#sample` 动态表单交互，进入 REVIEWING，等待 Owner 审查；审查通过后纳入 Vue 页面复刻范围。
 9. M2-R6B（检验结果台账双模式设计）已交付 `docs/frontend/M2_R6B_检验结果台账设计方案.md` 与原型 `#ledger` 双模式交互，Owner 已确认原型与交互（明细台账 + 样品表每样品种类一表），进入 REVIEWING，设计文档待审查；审查通过后纳入 Vue 页面复刻范围，后端 `HBOS Ledger Template` / `get_result_ledger` 落地另行规划。
 10. M2-R6C（检验结果台账 Vue 复刻与生产部署）已交付：`ResultLedgerView.vue` 复刻双模式并接入真实 Frappe API（Sample / Test Result / COA / Result Revision 聚合、只读投影、superseded 链过滤、修订/审计摘要），新增判定/状态列筛选与语义配色；生产构建已同步至容器 `hbos-m0-r3a-frontend-1`（备份 `hbos-lims.bak-20260827a`），生产 URL HTTP 200 验证通过，Owner 已确认测试路径效果，DEPLOYED。
+11. M2-R6D（合规审计日志 + 生产部署错配修复）已交付：后端 `HBOS Audit Log` DocType（write-once+sha1 防篡改）+ hooks doc_events 全量捕获 + `get_audit_log` 查询 + 业务埋点；前端合规组新增 合规审计日志 入口 + `/audit-log` + `AuditLogView.vue`；离线契约 123/123 全绿、真实环境跑通、已上线生产，Owner 已确认测试路径。另修复生产部署错配（index.html 与 assets 新旧哈希错配致样品登记/审计追踪等个别页面 404）——root 清旧 assets 后重新部署最新干净 dist，注入 nginx SPA fallback 修 `/hbos-lims` history 路由 404，DEPLOYED。
 
 M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1 历史 closeout 已完成，但 Owner UI 验收发现功能缺口，当前产品交付仍在 M1-FIX 中。M1-R6C = COMPLETED。M1-R7 = COMPLETED。M1-FIX-A = REVIEWING。M1-FIX-B = REVIEWING。M1-FIX-B-FIX = REVIEWING。M1-FIX-B2 = COMPLETED。M1-FIX-B3 = REVIEWING / Owner UI 验收未通过。M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。M1-FIX-B5 = REVIEWING。M2-LIMS = IN_PROGRESS，M2-R1 至 M2-R4 COMPLETED，M2-R5 REVIEWING，M2-R6 REVIEWING。
 M2-R6A REVIEWING。
 M2-R6B REVIEWING / Owner 已确认原型与交互。
 M2-R6C DEPLOYED。
+M2-R6D DEPLOYED（合规审计日志 + 生产部署错配修复）。
 
 ## 更新规则
 
