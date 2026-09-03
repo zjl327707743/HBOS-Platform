@@ -6,6 +6,7 @@ frappe.query_reports["月度考勤汇总"] = {
 		{fieldname:"department",label:__("部门"),fieldtype:"Link",options:"Department"},
 		{fieldname:"from_date",label:__("开始日期"),fieldtype:"Date"},
 		{fieldname:"to_date",label:__("结束日期"),fieldtype:"Date"},
+		{fieldname:"enable_ai",label:__("启用AI复核"),fieldtype:"Check",default:0,hidden:1},
 	],
 
 	formatter: function (value, row, column, data, default_formatter) {
@@ -35,6 +36,7 @@ frappe.query_reports["月度考勤汇总"] = {
 				department: report.get_filter_value("department"),
 				from_date: report.get_filter_value("from_date"),
 				to_date: report.get_filter_value("to_date"),
+				enable_ai: report.get_filter_value("enable_ai"),
 			};
 			frappe.call({
 				method: "hb_attendance_app.hbos_attendance.report.月度考勤汇总.export.export_xlsx",
@@ -44,6 +46,64 @@ frappe.query_reports["月度考勤汇总"] = {
 						window.open(r.message, "_blank");
 					}
 				},
+			});
+		});
+		report.page.add_inner_button(__("异常考勤导出"), function () {
+			var args = {
+				month: report.get_filter_value("month"),
+				year: report.get_filter_value("year"),
+				employee: report.get_filter_value("employee"),
+				department: report.get_filter_value("department"),
+				from_date: report.get_filter_value("from_date"),
+				to_date: report.get_filter_value("to_date"),
+				enable_ai: report.get_filter_value("enable_ai"),
+			};
+			frappe.call({
+				method: "hb_attendance_app.hbos_attendance.report.月度考勤汇总.export.export_exceptions",
+				args: args,
+				callback: function (r) {
+					if (r.message) {
+						window.open(r.message, "_blank");
+					}
+				},
+			});
+		});
+		report.page.add_inner_button(__("AI复核"), function () {
+			var args = {
+				month: report.get_filter_value("month"),
+				year: report.get_filter_value("year"),
+				employee: report.get_filter_value("employee"),
+				department: report.get_filter_value("department"),
+				from_date: report.get_filter_value("from_date"),
+				to_date: report.get_filter_value("to_date"),
+			};
+			frappe.call({
+				method: "hb_attendance_app.hbos_attendance.report.月度考勤汇总.月度考勤汇总.ai_review_preview",
+				args: args,
+				callback: function (r) {
+					var m = r.message || { employee_count: 0, anomaly_count: 0 };
+					if (!m.employee_count) {
+						frappe.msgprint(__("当前范围没有需复核的异常员工"));
+						return;
+					}
+					frappe.confirm(
+						__("将调用 AI 复核 ") + m.employee_count + __(" 名异常员工（约 ") + m.anomaly_count + __(" 条异常）。") +
+						__("将调用外部大模型，请确认已配置 HBOS_AI_* 且接受相应费用。继续？"),
+						function () {
+							report.set_filter_value("enable_ai", 1);
+							report.refresh();
+						}
+					);
+				},
+			});
+		});
+		// 修改可见过滤时复位 enable_ai，保证再次点击会重新复核
+		["month","year","employee","department","from_date","to_date"].forEach(function (fn) {
+			var f = report.get_filter(fn);
+			if (f && f.$input) f.$input.on("change", function () {
+				if (report.get_filter_value("enable_ai")) {
+					report.set_filter_value("enable_ai", 0);
+				}
 			});
 		});
 	},
