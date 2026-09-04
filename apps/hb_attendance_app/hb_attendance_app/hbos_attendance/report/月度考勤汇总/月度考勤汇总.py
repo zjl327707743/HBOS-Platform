@@ -21,12 +21,15 @@ def execute(filters=None):
     conditions = []
     values = {}
 
-    if filters.get("from_date"):
+    # 日期范围过滤：仅当 from_date 与 to_date 都提供且 from<=to 时才生效，
+    # 避免「只填开始/结束日期」「起止倒置」等输入产生空结果、界面消失
+    from_date = filters.get("from_date") or ""
+    to_date = filters.get("to_date") or ""
+    if from_date and to_date and str(from_date) <= str(to_date):
         conditions.append("a.attendance_date >= %(from_date)s")
-        values["from_date"] = filters["from_date"]
-    if filters.get("to_date"):
+        values["from_date"] = from_date
         conditions.append("a.attendance_date <= %(to_date)s")
-        values["to_date"] = filters["to_date"]
+        values["to_date"] = to_date
     if filters.get("employee"):
         conditions.append("a.employee = %(employee)s")
         values["employee"] = filters["employee"]

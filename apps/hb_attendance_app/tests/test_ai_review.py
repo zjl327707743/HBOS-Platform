@@ -93,6 +93,14 @@ class AiMonthlyReportContractTest(unittest.TestCase):
         content = EXPORT_PY.read_text()
         self.assertIn("enable_ai", content)
 
+    def test_date_range_filter_requires_both_and_not_inverted(self):
+        """避免「只填开始/结束」或「起止倒置」导致空结果、界面消失。"""
+        content = REPORT_PY.read_text()
+        self.assertIn("str(from_date) <= str(to_date)", content)
+        self.assertIn("if from_date and to_date and", content)
+        # 旧逻辑的「单独 from_date」写法应移除：不再无条件 append >= from_date
+        self.assertIn("if from_date and to_date and str(from_date) <= str(to_date):", content)
+
     def test_js_has_ai_review_button_and_confirm_and_reset(self):
         content = REPORT_JS.read_text()
         self.assertIn("AI复核", content)
