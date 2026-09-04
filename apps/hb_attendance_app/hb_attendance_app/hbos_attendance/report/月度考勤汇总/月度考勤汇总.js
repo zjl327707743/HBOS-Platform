@@ -102,15 +102,8 @@ frappe.query_reports["月度考勤汇总"] = {
 				},
 			});
 		});
-		// 修改可见过滤时复位 enable_ai，保证再次点击会重新复核
-		["month","year","employee","department","from_date","to_date"].forEach(function (fn) {
-			var f = report.get_filter(fn);
-			if (f && f.$input) f.$input.on("change", function () {
-				if (report.get_filter_value("enable_ai")) {
-					report.set_filter_value("enable_ai", 0);
-				}
-			});
-		});
+		// enable_ai 只在 AI 复核确认流程里被置 1；月份/部门等普通筛选变更时
+		// Frappe 报表框架会自动重查且不带该参数，无需手动复位，避免干扰筛选 change 流程
 	},
 };
 

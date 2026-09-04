@@ -70,6 +70,13 @@ class AiMonthlyReportContractTest(unittest.TestCase):
         content = REPORT_PY.read_text()
         self.assertIn("if enable_ai:", content)
 
+    def test_js_filter_reset_removed_to_not_break_screening(self):
+        # 防止 6 个 filter 的 change 复位监听干扰月份/部门筛选的正常提交（曾导致点8月看不到）
+        js = REPORT_JS.read_text()
+        self.assertNotIn('["month","year","employee","department","from_date","to_date"].forEach(function (fn)', js)
+        self.assertNotIn('f.$input.on("change"', js)
+        self.assertIn('AI复核', js)
+
     def test_batch_limit_gates_review(self):
         content = REPORT_PY.read_text()
         # 后端兜底：只复核前 AI_BATCH 人，其余标记未复核（防超代理超时）
