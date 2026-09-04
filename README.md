@@ -99,7 +99,7 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 - 未经 Owner 明确授权，不创建新的自定义 Frappe App（已授权：`hb_attendance_app`、`hb_lims_app`）
 - 不创建 `hb_core_app`、`hb_feishu_app`
 - 不把 `hb_attendance_app` 扩大为大而全 HR App
-- 不把 `hb_lims_app` 扩大为 M2-LIMS MVP 之外的模块（仪器集成、稳定性、环测、微生物、试剂、留样、OOS 调查等另行规划）
+- 不把 `hb_lims_app` 扩大为 M2-LIMS MVP 之外的模块（仪器集成、稳定性、环测、微生物、试剂、OOS 调查等另行规划）。**例外（已授权）**：留样板块 M2-R7 已按 Owner 2026-09-04 授权纳入范围，R7A~D 子轮须在方案审查通过后逐轮启动
 - 不把 HRMS 安装验证等同于考勤业务开发完成
 - 不提交真实 `.env` 或真实密钥
 - 不提交备份文件、数据库、Docker volume 或运行时数据
