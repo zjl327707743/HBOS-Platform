@@ -56,6 +56,18 @@ const routes = [
         meta: { title: '质量标准库' },
       },
       {
+        path: 'retention',
+        name: 'retention',
+        component: () => import('@/views/RetentionView.vue'),
+        meta: { title: '留样登记与台账' },
+      },
+      {
+        path: 'retention/products',
+        name: 'retention-products',
+        component: () => import('@/views/RetentionProductView.vue'),
+        meta: { title: '留样产品' },
+      },
+      {
         path: 'audit',
         name: 'audit',
         component: () => import('@/views/AuditTrailView.vue'),

@@ -53,6 +53,18 @@
       </div>
 
       <div class="nav-group">
+        <div v-if="!collapsed" class="nav-group-title">留样管理</div>
+        <router-link to="/retention" class="nav-item" :class="{ active: isActive('/retention') && !route.path.includes('/retention/products') }" :title="collapsed ? '留样登记与台账' : ''">
+          <DatabaseOutlined />
+          <span v-if="!collapsed">留样登记与台账</span>
+        </router-link>
+        <router-link to="/retention/products" class="nav-item" :class="{ active: isActive('/retention/products') }" :title="collapsed ? '留样产品' : ''">
+          <TagsOutlined />
+          <span v-if="!collapsed">留样产品</span>
+        </router-link>
+      </div>
+
+      <div class="nav-group">
         <div v-if="!collapsed" class="nav-group-title">合规</div>
         <router-link to="/audit" class="nav-item" :class="{ active: isActive('/audit') && !route.path.includes('/audit-log') }" :title="collapsed ? '审计追踪查询' : ''">
           <SearchOutlined />
@@ -85,6 +97,7 @@ import {
   DashboardOutlined, FileAddOutlined,
   CarryOutOutlined, FormOutlined, FileTextOutlined, ReadOutlined, SearchOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, AuditOutlined,
+  DatabaseOutlined, TagsOutlined,
 } from '@ant-design/icons-vue'
 
 defineProps<{ collapsed: boolean }>()
