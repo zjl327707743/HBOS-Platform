@@ -46,7 +46,7 @@
    "default": "HBOS-ATT-IMP-.YYYY.-",
    "fieldname": "naming_series",
    "fieldtype": "Select",
-   "label": "Series",
+   "label": "编号",
    "options": "HBOS-ATT-IMP-.YYYY.-",
    "reqd": 1
   },

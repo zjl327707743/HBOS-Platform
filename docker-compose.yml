@@ -9,6 +9,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - assets-data:/home/frappe/frappe-bench/assets
     environment:
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
@@ -19,6 +20,9 @@ services:
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
       DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
+      HBOS_AI_BASE_URL: ${HBOS_AI_BASE_URL}
+      HBOS_AI_API_KEY: ${HBOS_AI_API_KEY}
+      HBOS_AI_MODEL: ${HBOS_AI_MODEL}
 
   configurator:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -145,6 +149,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - assets-data:/home/frappe/frappe-bench/assets
     ports:
       - "${HTTP_PORT}:8080"
 
@@ -164,9 +169,14 @@ services:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
       PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      FEISHU_APP_ID: ${FEISHU_APP_ID}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
+      DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
+      DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
 
   queue-short:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -184,9 +194,14 @@ services:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
       PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      FEISHU_APP_ID: ${FEISHU_APP_ID}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
+      DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
+      DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
 
   redis-queue:
     image: redis:6.2-alpine
@@ -244,6 +259,7 @@ volumes:
   redis-queue-data:
   sites:
   logs:
+  assets-data:
 
 networks:
   frappe_network:

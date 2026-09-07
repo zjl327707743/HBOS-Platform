@@ -6,6 +6,7 @@ frappe.query_reports["月度考勤汇总"] = {
 		{fieldname:"department",label:__("部门"),fieldtype:"Link",options:"Department"},
 		{fieldname:"from_date",label:__("开始日期"),fieldtype:"Date"},
 		{fieldname:"to_date",label:__("结束日期"),fieldtype:"Date"},
+		{fieldname:"enable_ai",label:__("启用AI复核"),fieldtype:"Check",default:0,hidden:1},
 	],
 
 	formatter: function (value, row, column, data, default_formatter) {
@@ -35,6 +36,7 @@ frappe.query_reports["月度考勤汇总"] = {
 				department: report.get_filter_value("department"),
 				from_date: report.get_filter_value("from_date"),
 				to_date: report.get_filter_value("to_date"),
+				enable_ai: report.get_filter_value("enable_ai"),
 			};
 			frappe.call({
 				method: "hb_attendance_app.hbos_attendance.report.月度考勤汇总.export.export_xlsx",
@@ -46,6 +48,62 @@ frappe.query_reports["月度考勤汇总"] = {
 				},
 			});
 		});
+		report.page.add_inner_button(__("异常考勤导出"), function () {
+			var args = {
+				month: report.get_filter_value("month"),
+				year: report.get_filter_value("year"),
+				employee: report.get_filter_value("employee"),
+				department: report.get_filter_value("department"),
+				from_date: report.get_filter_value("from_date"),
+				to_date: report.get_filter_value("to_date"),
+				enable_ai: report.get_filter_value("enable_ai"),
+			};
+			frappe.call({
+				method: "hb_attendance_app.hbos_attendance.report.月度考勤汇总.export.export_exceptions",
+				args: args,
+				callback: function (r) {
+					if (r.message) {
+						window.open(r.message, "_blank");
+					}
+				},
+			});
+		});
+		report.page.add_inner_button(__("AI复核"), function () {
+			var args = {
+				month: report.get_filter_value("month"),
+				year: report.get_filter_value("year"),
+				employee: report.get_filter_value("employee"),
+				department: report.get_filter_value("department"),
+				from_date: report.get_filter_value("from_date"),
+				to_date: report.get_filter_value("to_date"),
+			};
+			frappe.call({
+				method: "hb_attendance_app.hbos_attendance.report.月度考勤汇总.月度考勤汇总.ai_review_preview",
+				args: args,
+				callback: function (r) {
+					var m = r.message || { employee_count: 0, anomaly_count: 0, batch: 20 };
+					if (!m.employee_count) {
+						frappe.msgprint(__("当前范围没有需复核的异常员工"));
+						return;
+					}
+					if (m.employee_count > m.batch) {
+						frappe.msgprint(__("当前范围 ") + m.employee_count + __(" 名异常员工，超过单批复核上限 ") + m.batch +
+							__(" 人。请先用部门 / 员工过滤缩小范围，或分批逐次复核。"));
+						return;
+					}
+					frappe.confirm(
+						__("将调用 AI 复核 ") + m.employee_count + __(" 名异常员工（约 ") + m.anomaly_count + __(" 条异常）。") +
+						__("将调用外部大模型，请确认已配置 HBOS_AI_* 且接受相应费用。继续？"),
+						function () {
+							report.set_filter_value("enable_ai", 1);
+							report.refresh();
+						}
+					);
+				},
+			});
+		});
+		// enable_ai 只在 AI 复核确认流程里被置 1；月份/部门等普通筛选变更时
+		// Frappe 报表框架会自动重查且不带该参数，无需手动复位，避免干扰筛选 change 流程
 	},
 };
 

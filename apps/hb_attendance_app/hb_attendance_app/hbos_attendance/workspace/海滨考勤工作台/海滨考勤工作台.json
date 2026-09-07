@@ -16,6 +16,38 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "月度考勤汇总",
+   "link_count": 0,
+   "link_to": "月度考勤汇总",
+   "link_type": "Report",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "基础设置",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "label": "班次管理",
+   "link_to": "hbos-shift-management",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "label": "人员管理",
+   "link_to": "hbos-employee-management",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "导入与数据",
    "link_count": 3,
    "onboard": 0,

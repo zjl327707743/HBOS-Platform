@@ -7,6 +7,9 @@ WORKSPACE_TITLE = "海滨考勤工作台"
 DESKTOP_LABEL = "海滨考勤"
 DESKTOP_LOGO_URL = "/assets/hb_attendance_app/hbos-attendance-logo.svg"
 PRIMARY_SIDEBAR_ITEMS = [
+	{"label": "月度考勤汇总", "link_type": "Report", "link_to": "月度考勤汇总", "type": "Link", "icon": "milestone"},
+	{"label": "班次管理", "link_type": "Page", "link_to": "hbos-shift-management", "type": "Link", "icon": "setting"},
+	{"label": "人员管理", "link_type": "Page", "link_to": "hbos-employee-management", "type": "Link", "icon": "users"},
 	{"label": "导入考勤机导出表", "link_type": "Page", "link_to": "hbos-attendance-import", "type": "Link", "icon": "upload"},
 	{"label": "考勤异常仪表盘", "link_type": "Page", "link_to": "hbos-attendance-dashboard", "type": "Link", "icon": "dashboard"},
 	{"label": "考勤导入日志", "link_type": "DocType", "link_to": "HBOS Attendance Import Log", "type": "Link", "icon": "list"},
@@ -14,7 +17,6 @@ PRIMARY_SIDEBAR_ITEMS = [
 	{"label": "飞书加班记录", "link_type": "DocType", "link_to": "HBOS Overtime Record", "type": "Link", "icon": "clock"},
 	{"label": "HBOS 打卡流水", "link_type": "Report", "link_to": "打卡流水", "type": "Link", "icon": "clock"},
 	{"label": "HBOS 考勤结果", "link_type": "Report", "link_to": "考勤结果", "type": "Link", "icon": "calendar-check"},
-	{"label": "月度考勤汇总", "link_type": "Report", "link_to": "月度考勤汇总", "type": "Link", "icon": "milestone"},
 	{"label": "月度汇总 / 对账暂存", "link_type": "Report", "link_to": "HBOS 月度汇总暂存（对账）", "type": "Link", "icon": "clipboard-list"},
 ]
 

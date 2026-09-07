@@ -3,7 +3,10 @@ from collections import Counter
 from datetime import datetime, timedelta, date
 from collections import defaultdict
 
-EXCLUDE_NUMS = {
+from hb_attendance_app.hbos_attendance.api import EXEMPT_NUMS
+
+# 飞书异常汇总排除名单 = 豁免名单(EXEMPT_NUMS, 82人) + 飞书侧额外排除的食堂/无菌工号
+EXCLUDE_NUMS = set(EXEMPT_NUMS) | {
     '11009034','11009043','11009033','11009052','11009046','11009050','11009051',
     '11009048','11009049','11009047','11009042','11009041','11009038','11009040',
     '11009037','11009039','11009036','11009035','11009044','11009045'
