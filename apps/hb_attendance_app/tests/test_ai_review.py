@@ -101,6 +101,15 @@ class AiMonthlyReportContractTest(unittest.TestCase):
         # 旧逻辑的「单独 from_date」写法应移除：不再无条件 append >= from_date
         self.assertIn("if from_date and to_date and str(from_date) <= str(to_date):", content)
 
+    def test_batch_time_budget_caps_sync_calls(self):
+        """串行 20 人 × ≤60s 最坏 1200s 超代理超时：增加单批时间预算，超预算停新调用。"""
+        content = REPORT_PY.read_text()
+        self.assertIn("AI_BATCH_SECONDS", content)
+        self.assertIn("batch_deadline", content)
+        self.assertIn("单批时间预算", content)
+        ai = APP.joinpath("hbos_attendance/ai_review.py").read_text()
+        self.assertIn("AI_BATCH_SECONDS = 100", ai)
+
     def test_js_has_ai_review_button_and_confirm_and_reset(self):
         content = REPORT_JS.read_text()
         self.assertIn("AI复核", content)

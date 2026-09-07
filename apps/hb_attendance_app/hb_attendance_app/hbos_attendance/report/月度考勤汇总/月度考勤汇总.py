@@ -304,7 +304,7 @@ def _attach_ai_review(data, filters, emp_leave_dates):
     仅复核迟到/早退/缺勤任一 >0 的员工；逐人失败回落提示，不整体中断。
     """
     from hb_attendance_app.hbos_attendance.ai_review import (
-        AI_BATCH, build_prompt, call_llm, env_config, parse_review,
+        AI_BATCH, AI_BATCH_SECONDS, build_prompt, call_llm, env_config, parse_review,
     )
     cfg = env_config()
     if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
@@ -345,7 +345,16 @@ def _attach_ai_review(data, filters, emp_leave_dates):
         for c in rows:
             checkin_map.setdefault(c.employee, []).append(c)
 
+    import time as _time
+    batch_deadline = _time.monotonic() + AI_BATCH_SECONDS
     for r, dates in target:
+        # 累计时间预算：超预算停止新调用（请求须在代理超时内返回），剩余标记未复核
+        if _time.monotonic() > batch_deadline:
+            idx = target.index((r, dates))
+            for rr, _ in target[idx:]:
+                if rr.get("ai_review") is None:
+                    rr["ai_review"] = f"未复核：单批时间预算 {AI_BATCH_SECONDS}s 已到，请缩小范围或分批复核"
+            break
         emp_id = r["employee"]
         rule_line = _rule_line_for(r)
         cks = checkin_map.get(emp_id, [])
