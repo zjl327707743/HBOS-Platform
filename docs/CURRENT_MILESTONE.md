@@ -27,7 +27,7 @@ M2-R6C（检验结果台账 Vue 复刻与生产部署）：DEPLOYED，Owner 已�
 
 M2-R6D（合规审计日志 + 生产部署错配修复）：DEPLOYED，Owner 已确认测试路径效果。新增合规审计日志（全量自动捕获 + write-once + 防篡改）：后端新增 `HBOS Audit Log` DocType（log_type/doctype_target/doc_name/action_text/field_changed/old_value/new_value/reason/user/created_at/checksum，permissions 仅 Reviewer/Manager/System 可读无 create/edit/delete 常规权限，写入仅系统钩子内部 insert），`hooks.py` 注册 doc_events 全量捕获创建/修改/删除（HBOS Sample/Task/Test Result/COA/Specification/Sample Type/Test Item），`lims_service.py` 新增 `audit_log` 写核心（sha1 指纹防篡改）与 `get_audit_log` 查询 whitelist（类型/对象/操作人/关键字/时间筛选）及各业务方法埋点（提交质检/复核/批准/修订/放行/拒绝/OOS/仪器使用/规格生效-废止），`workflow_contract.py` 注册 `get_audit_log`；离线契约测试 123/123 全绿（新增 9 项）；真实环境跑通（DocType 建表、事件流、register_sample 自动触发创建事件）。前端：合规组新增 合规审计日志 入口 + `/audit-log` 路由 + `AuditLogView.vue`（事件类型语义色 Pill/对象/操作人/时间/变更前后值/原因/指纹，下钻抽屉含数据完整性）+ getAuditLog。生产部署修复：Owner 反馈「海滨LIMS 已可进入但样品登记异常/审计追踪进不去」，根因为生产 `index.html` 引用旧 bundle `index-Ty0i1qY8.js` 与生产 assets 混 129 个历史旧 chunk（新旧哈希错配致 view chunk 懒加载 404/崩溃）；以 root 清空旧 assets 后重新部署最新干净 dist（主 bundle `index-BnAvve8_.js` + 39 资产与本地逐字节一致），全引用资产 200 + 正确 MIME 验证；注入 nginx SPA fallback（`location ^~ /hbos-lims/` try_files 命中 public/hbos-lims 并 fallback index.html）修 `/hbos-lims` history 404，备份 `frappe.conf.bak-20260903-spa`。生产部署机制：前端经 `docker cp dist/.` 覆盖至 `/home/frappe/frappe-bench/sites/frontend/public/hbos-lims/`（先 root 清 assets 防残留），后端经 bind mount 实时生效。
 
-M2-R7（留样管理板块开发方案）：REVIEWING rev4（rev1 首轮 FAIL 8 项 → rev2 → rev3 二轮 9 项 → rev4 三轮 9 项），待复审；未创建 DocType、未写业务代码。以 JXH-SOP-LC-1-00-007-09《留样管理规程》全套文件（1 正文 + 4 记录 + 2 附件，Owner 2026-09-04 提供并授权）为第一业务依据，两份桌面方案评审为业务采纳、技术路线 Frappe 原生化。rev3 定案：5 主 DocType + 1 子表（Retention Product（default_uom Select 受控枚举为 UOM 唯一权威）/ Retention Sample + Stock Log 通用库存操作流水 / Observation / Usage Apply / Disposal Apply（qa_manager_required 4/5 级可配））+ 标签 Print Format + 4 报表；数量语义统一（available_qty=current_qty−reserved_qty 派生量不落库）+ 四步锁协议 + 各操作锁内复核；观察批数量校验（同产品同年度 ≤3 批 + 看板 N/3）；审计事件受控枚举 16 类；角色动作矩阵 + 两条 SoD 硬校验；状态机含驳回终态/已转出/qm_approved_at/4-5 级双路径；Sample→留样映射 6 规则成节；scheduler 扫描；R7A~C 验收含三组并发负向用例。rev4 三轮复审修订 9 项（5 P1 + 4 P2）：①confirm_stock 纳入四步锁协议与单一写路径（防并发确认超额预占）；②execute_usage 锁内复核条件修正——本单预占有效性（reserved_qty>=apply_qty）+ 总量守恒（current_qty>=reserved_qty），弃用 available_qty 判本单；③观察批选取并发防护——产品行 FOR UPDATE 锁内计数；④全检量 2 倍自动计算加 UOM 一致性闸（full_test_qty_uom≠default_uom 禁算）；⑤R7A 验收「调整低于预占」用例归位 R7C（预占由使用申请产生），R7A 改测负结存边界；⑥README/AI_CONTEXT/milestones README 补 R7 进度；⑦分支策略（m2-r6 vs m2-lims）列为待确认第 8 项并 M2_START_GATE 加注记；⑧scheduler 由 daily 改 cron（30 0 * * *）；⑨观察批 3 批口径定稿（上限硬校验、不足 3 批弹性允许 + 看板完整性提示）。主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
+M2-R7（留样管理板块开发方案）：REVIEWING rev5（rev1→rev4 四轮修订，rev4 复审 PASS WITH WARN，rev5 完成 2 项 P2 修正），待 Owner 放行确认；未创建 DocType、未写业务代码。以 JXH-SOP-LC-1-00-007-09《留样管理规程》全套文件（1 正文 + 4 记录 + 2 附件，Owner 2026-09-04 提供并授权）为第一业务依据，两份桌面方案评审为业务采纳、技术路线 Frappe 原生化。rev3 定案：5 主 DocType + 1 子表（Retention Product（default_uom Select 受控枚举为 UOM 唯一权威）/ Retention Sample + Stock Log 通用库存操作流水 / Observation / Usage Apply / Disposal Apply（qa_manager_required 4/5 级可配））+ 标签 Print Format + 4 报表；数量语义统一（available_qty=current_qty−reserved_qty 派生量不落库）+ 四步锁协议 + 各操作锁内复核；观察批数量校验（同产品同年度 ≤3 批 + 看板 N/3）；审计事件受控枚举 16 类；角色动作矩阵 + 两条 SoD 硬校验；状态机含驳回终态/已转出/qm_approved_at/4-5 级双路径；Sample→留样映射 6 规则成节；scheduler 扫描；R7A~C 验收含三组并发负向用例。rev4 三轮复审修订 9 项（5 P1 + 4 P2）：①confirm_stock 纳入四步锁协议与单一写路径（防并发确认超额预占）；②execute_usage 锁内复核条件修正——本单预占有效性（reserved_qty>=apply_qty）+ 总量守恒（current_qty>=reserved_qty），弃用 available_qty 判本单；③观察批选取并发防护——产品行 FOR UPDATE 锁内计数；④全检量 2 倍自动计算加 UOM 一致性闸（full_test_qty_uom≠default_uom 禁算）；⑤R7A 验收「调整低于预占」用例归位 R7C（预占由使用申请产生），R7A 改测负结存边界；⑥README/AI_CONTEXT/milestones README 补 R7 进度；⑦分支策略（m2-r6 vs m2-lims）列为待确认第 8 项并 M2_START_GATE 加注记；⑧scheduler 由 daily 改 cron（30 0 * * *）；⑨观察批 3 批口径定稿（上限硬校验、不足 3 批弹性允许 + 看板完整性提示）。主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
 
 ## 本轮补充（M2-R6A，已交付 REVIEWING）
 
@@ -87,7 +87,7 @@ M2-R6A    = REVIEWING（样品登记动态表单设计待 Owner 审查）
 M2-R6B    = REVIEWING（检验结果台账双模式设计，Owner 已确认原型与交互，设计文档待审查）
 M2-R6C    = DEPLOYED（检验结果台账 Vue 复刻已上线生产，Owner 已确认测试路径）
 M2-R6D    = DEPLOYED（合规审计日志已上线生产，Owner 已确认测试路径；含生产部署错配修复）
-M2-R7     = REVIEWING rev4（留样板块已按 Owner 授权纳入范围；rev1 8 项 + rev2 9 项 + rev4 9 项审查意见均已修订，待复审；未建 DocType、未写代码）
+M2-R7     = REVIEWING rev5（留样板块已按 Owner 授权纳入范围；四轮审查修订完成，rev4 复审 PASS WITH WARN，rev5 已消 WARN；未建 DocType、未写代码）
 M1-FIX    = IN_PROGRESS（并行未决，B3/B4/B5 REVIEWING）
 M1-FIX-C/D/E = PLANNED / 待 Owner 授权
 ```
@@ -98,7 +98,7 @@ M2-R5 审查 closeout 与 M2-R6 原型审查并行：M2-R5 等待 Owner 浏览�
 M2-R6A 随 M2-R6 并行审查：Owner 审查动态表单方案与原型交互（含 9 类样品类型切换、必填联动、桌 / 移双端）通过后，将样品登记页纳入 Vue 页面复刻范围。
 M2-R6B 随 M2-R6A 并行：Owner 已确认检验结果台账双模式原型（明细台账 + 样品表每样品种类一表）与视觉规范，设计文档待审查；通过后将检验结果台账页纳入 Vue 页面复刻范围，后端 `HBOS Ledger Template` / `get_result_ledger` 落地另行规划。
 M2-R6C 已上线生产：检验结果台账双模式 Vue 复刻完成并同步至生产路径，Owner 已确认测试路径效果；`HBOS Ledger Template` DocType / `get_result_ledger` 聚合 API 为待实现规划项，本轮未新建 DocType、未改后端业务方法。
-M2-R7 方案 rev4 待 Owner 复审：通过后按子轮启动 M2-R7A（主数据与留样登记），待确认清单 8 项（角色方案、标签尺寸、观察批选取、历史迁移、法规条号、销毁层级 4/5 级可配、提醒提前量、分支策略）在对应子轮前逐项收口；留样板块（M2-R7）已按 Owner 2026-09-04 授权纳入 `hb_lims_app` 范围，R7A~D 子轮须方案审查通过后逐轮启动。
+M2-R7 方案 rev5 待 Owner 放行确认（技术复审已 PASS WITH WARN 且 WARN 已消除）：通过后按子轮启动 M2-R7A（主数据与留样登记），待确认清单 8 项（角色方案、标签尺寸、观察批选取、历史迁移、法规条号、销毁层级 4/5 级可配、提醒提前量、分支策略——分支策略须 R7A 启动前拍板）在对应子轮前逐项收口；留样板块（M2-R7）已按 Owner 2026-09-04 授权纳入 `hb_lims_app` 范围，R7A~D 子轮须方案审查通过后逐轮启动。
 
 权威状态文件：
 

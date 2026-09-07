@@ -21,7 +21,7 @@
 
 当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成（M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING）；M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动。
 
-当前目标：M2-R1 至 M2-R4 已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，等待 Owner 审查。M2-R7（留样管理板块开发方案）REVIEWING rev4：Owner 已授权留样板块纳入 `hb_lims_app` 范围，方案经三轮审查修订待复审，未创建 DocType、未写业务代码，R7A~D 子轮须方案审查通过后逐轮启动。M1-FIX-B3 / B4 / B5 为并行未决事项，不 closeout，不阻塞 M2-LIMS。M1-FIX-C/D/E 未启动。
+当前目标：M2-R1 至 M2-R4 已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，等待 Owner 审查。M2-R7（留样管理板块开发方案）REVIEWING rev5：Owner 已授权留样板块纳入 `hb_lims_app` 范围，方案经四轮审查修订（rev4 复审 PASS WITH WARN，rev5 已消 WARN），待 Owner 放行确认，未创建 DocType、未写业务代码，R7A~D 子轮须方案审查通过后逐轮启动。M1-FIX-B3 / B4 / B5 为并行未决事项，不 closeout，不阻塞 M2-LIMS。M1-FIX-C/D/E 未启动。
 M2-R6A（样品登记动态表单设计）随 M2-R6 并行 REVIEWING，等待 Owner 审查。
 M2-R6B（检验结果台账双模式设计）REVIEWING，Owner 已确认原型与交互（明细台账 + 样品表每样品种类一表），设计文档待审查。
 M2-R6C（检验结果台账 Vue 复刻与生产部署）DEPLOYED，双模式已复刻进 Vue 并上线生产，Owner 已确认测试路径。
@@ -97,6 +97,8 @@ Skill 路由规范文件为：
 M2-R6A 样品登记动态表单设计 REVIEWING（随 M2-R6 并行审查）。
 M2-R6B 检验结果台账双模式设计 REVIEWING（Owner 已确认原型与交互，设计文档待审查；通过后纳入 Vue 页面复刻范围，后端 `HBOS Ledger Template` / `get_result_ledger` 落地另行规划）。
 M2-R6C 检验结果台账 Vue 复刻与生产部署 DEPLOYED（双模式已上线生产，Owner 已确认测试路径；后端聚合 API 落地另行规划）。
+M2-R6D 合规审计日志 + 生产部署错配修复 DEPLOYED（write-once 审计日志已上线生产，Owner 已确认测试路径）。
+M2-R7 留样管理板块开发方案 REVIEWING rev5：Owner 已授权留样板块纳入 `hb_lims_app` 范围（R7A~D 子轮须方案审查通过后启动），方案经四轮审查修订（rev4 复审 PASS WITH WARN 后 rev5 完成 2 项 P2 修正），待 Owner 放行确认；未创建 DocType、未写业务代码；分支策略（m2-r6 vs m2-lims）为 R7A 启动前待 Owner 拍板项。主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
 
 ## 前端实施流程规范
 
