@@ -12,6 +12,7 @@ M2-R6B（检验结果台账双模式设计）已交付明细台账 + 样品表�
 M2-R6C（检验结果台账 Vue 复刻与生产部署）已将双模式复刻进 Vue 并上线生产，Owner 已确认测试路径。
 M2-R6D（合规审计日志）已交付：后端 HBOS Audit Log DocType（write-once 防篡改）+ 全量捕获 + 查询 API + 业务埋点，前端合规组新增合规审计日志入口与页面；已上线生产，Owner 已确认测试路径；并修复生产部署新旧 hash 错配致个别页面 404。
 M2-R6C（检验结果台账 Vue 复刻与生产部署）双模式已复刻进 Vue 并上线生产，Owner 已确认测试路径效果，DEPLOYED。
+M2-R7（留样管理板块开发方案）REVIEWING rev4：Owner 已授权留样板块纳入 `hb_lims_app` 范围，方案文档 `docs/milestones/M2_R7_留样管理板块开发方案.md` 经三轮审查修订（rev1 8 项 → rev2 → rev3 9 项 → rev4 9 项），待复审；未创建 DocType、未写业务代码；R7A~D 子轮须方案审查通过后逐轮启动。
 
 当前真实进度以以下文件为准：
 
