@@ -81,8 +81,9 @@ jobs:
       # ─── 检查 3：脱敏离线回归测试 ───────────────────────────
       - name: 运行 hb_attendance_app 回归测试
         run: |
+          echo "安装 openpyxl..."
+          pip install -q openpyxl
           echo "运行脱敏离线回归测试..."
-          # Frappe app 目录结构为 apps/<app>/<app>/，需将 apps/hb_attendance_app 加入路径
           export PYTHONPATH="$PWD/apps/hb_attendance_app:$PYTHONPATH"
           python -m unittest discover -s apps/hb_attendance_app/tests -v 2>&1
           echo " 回归测试全部通过"
