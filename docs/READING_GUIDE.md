@@ -98,4 +98,4 @@ M2-LIMS 当前进入 M2-R6：Vue 前端原型与开发流程 REVIEWING，待 Own
 M2-R6A（样品登记动态表单设计）随 M2-R6 并行 REVIEWING；样品登记动态表单方案见 `docs/frontend/M2_R6A_样品登记动态表单设计.md`。
 M2-R6B（检验结果台账双模式设计）REVIEWING，Owner 已确认原型与交互；双模式（明细台账 + 样品表每样品种类一表）方案见 `docs/frontend/M2_R6B_检验结果台账设计方案.md`。
 M2-R6C（检验结果台账 Vue 复刻与生产部署）DEPLOYED：双模式已复刻进 Vue 上线生产；M2-R6D（合规审计日志）DEPLOYED：合规审计日志 DocType/全量捕获/前端页已上线，并修复生产部署 hash 错配致个别页面 404。
-M2-R7（留样管理板块开发方案）REVIEWING rev5：Owner 已授权留样板块纳入 `hb_lims_app` 范围（R7A~D 子轮须方案审查通过后启动），方案文档见 `docs/milestones/M2_R7_留样管理板块开发方案.md`，rev1 首轮 8 项、rev3 二轮 9 项与 rev4 三轮 9 项审查意见均已修订，rev4 复审 PASS WITH WARN 后 rev5 完成 2 项 P2 修正，待 Owner 放行确认。
+M2-R7（留样管理板块开发方案）REVIEWING rev5：Owner 已授权留样板块纳入 `hb_lims_app` 范围（R7A~D 子轮须方案审查通过后启动），方案文档见 `docs/milestones/M2_R7_留样管理板块开发方案.md`；rev1 首轮 8 项、rev3 二轮 9 项与 rev4 三轮 9 项审查意见均已修订，rev4 复审 PASS WITH WARN 后 rev5 完成 2 项 P2 修正；Owner 2026-09-07 已确认角色方案 B+SoD 与分支策略 b，余 6 项按节拍推进，R7A 启动待 Owner 指令。

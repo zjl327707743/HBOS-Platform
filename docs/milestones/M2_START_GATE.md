@@ -43,6 +43,6 @@ M2-LIMS 是实验室信息管理系统板块（HB LIMS）的开发里程碑，�
 
 ## Git 工作线
 
-- M2-LIMS 全部工作在分支 `m2-lims`（自 `m1-fix-frontend-zh` 切出）上进行。
-- **注记（M2-R7 起）**：R6C/R6D 起实际工作线已延伸至 `m2-r6` 分支（R6 系列 Vue 复刻与生产部署），M2-R7 方案文档亦在 `m2-r6` 上交付。分支策略（合并回 `m2-lims` 或确认 `m2-r6` 为 M2 延伸工作线）为 M2-R7 方案待确认清单第 8 项，Owner 拍板后更新本节。
+- M2-LIMS MVP（R1~R5）工作在分支 `m2-lims`（自 `m1-fix-frontend-zh` 切出）上进行。
+- **M2-LIMS 延伸工作线（Owner 2026-09-07 拍板分支策略 b）**：自 R6C/R6D 起，M2 后续工作（R6 系列 Vue 复刻与生产部署、R7 留样板块及其子轮 R7A~D）在 `m2-r6` 分支上进行，作为 M2-LIMS 的延伸工作线，不回并 `m2-lims`；`m2-lims` 保留为 MVP 历史线。
 - 未跟踪文件（`start.sh`、`apps/hb_attendance_app/__init__.py`、`.claude/`）按 M1 既有处理原则，不误提交。
