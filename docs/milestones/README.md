@@ -113,7 +113,7 @@
 | M2-R6B | 检验结果台账双模式设计 | REVIEWING / Owner 已确认原型与交互 |
 | M2-R6C | 检验结果台账 Vue 复刻与生产部署 | DEPLOYED |
 | M2-R6D | 合规审计日志 + 生产部署错配修复 | DEPLOYED |
-| M2-R7 | 留样管理板块开发方案（Owner 已授权，R7A~D 须方案审查通过后启动） | REVIEWING rev2 |
+| M2-R7 | 留样管理板块开发方案（Owner 已授权，R7A~D 须方案审查通过后启动） | REVIEWING rev3 |
 
 ## 下一步路线
 
