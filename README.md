@@ -130,7 +130,7 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 M2-R6A 样品登记动态表单设计 REVIEWING（随 M2-R6 并行审查）。
 M2-R6B 检验结果台账双模式设计 REVIEWING（Owner 已确认原型与交互，设计文档待审查）。
 M2-R6C 检验结果台账 Vue 复刻与生产部署 DEPLOYED（双模式已上线生产）。
-M2-R7 留样管理板块开发方案 REVIEWING rev5：Owner 已授权留样板块纳入 `hb_lims_app` 范围，方案经四轮审查修订（rev4 复审 PASS WITH WARN 后 rev5 完成 2 项 P2 修正）；Owner 2026-09-07 已确认角色方案 B+SoD 与分支策略 b（m2-r6 为 M2 延伸工作线），余 6 项待确认按节拍推进；未创建 DocType、未写业务代码，R7A~D 子轮须方案审查通过后逐轮启动，R7A 启动待 Owner 指令。
+M2-R7 留样管理板块开发方案 REVIEWING rev6：Owner 已授权留样板块纳入 `hb_lims_app` 范围，方案经五轮审查修订（rev6 终审完成 1 P1 + 3 P2 修订与 P3 六项分轮实现注意事项）；Owner 2026-09-07 已确认角色方案 B+SoD 与分支策略 b（m2-r6 为 M2 延伸工作线），余 6 项待确认按节拍推进；未创建 DocType、未写业务代码，R7A~D 子轮须方案审查通过后逐轮启动，R7A 启动待 Owner 指令。
 
 ## AI 协作方式
 

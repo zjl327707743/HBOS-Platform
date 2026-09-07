@@ -50,11 +50,11 @@ M2-LIMS 在 HBOS 平台（Frappe 底座）上新增实验室信息管理系统�
 | M2-R5 | 验证收口 | 全量演练 + 验收、入口可见、台账更新、closeout | REVIEWING |
 | M2-R6 | Vue 前端原型与开发流程 | 交互式 HTML 原型（7 视图）+ 开发流程文档 + Vue 3 技术栈与 API 契约映射；原型 REVIEWING 待 Owner 审查 | REVIEWING |
 | M2-R6A | 样品登记动态表单设计 | 固定样品类型 / 检验优先级决策条 + 9 类样品类型模板驱动表单；方案文档与原型交互 REVIEWING 待 Owner 审查 | REVIEWING |
-| M2-R7 | 留样管理板块开发方案 | 以《留样管理规程》v09 为业务依据的完整开发方案（5 主 + 1 子 DocType、三状态机、审计复用 R6D、R7A~D 四子轮拆分）；Owner 已授权，方案 REVIEWING rev5；角色方案 B 与分支策略 b 已 Owner 2026-09-07 确认，余 6 项按节拍推进 | REVIEWING |
+| M2-R7 | 留样管理板块开发方案 | 以《留样管理规程》v09 为业务依据的完整开发方案（5 主 + 1 子 DocType、三状态机、审计复用 R6D、R7A~D 四子轮拆分）；Owner 已授权，方案 REVIEWING rev6（终审修订完成）；角色方案 B 与分支策略 b 已 Owner 2026-09-07 确认，余 6 项按节拍推进 | REVIEWING |
 
 ## 后续轮次（MVP 之外，仅规划）
 
-仪器集成、稳定性、环境监测、试剂与标准品、微生物、OOS/OOT 完整调查流程、审计追踪通用引擎、国密电子签名——均在 M2-LIMS MVP 收口后另行规划，不自动启动。**留样管理（M2-R7）已按 Owner 2026-09-04 授权启动**：方案见 `docs/milestones/M2_R7_留样管理板块开发方案.md`（REVIEWING rev5；角色方案 B 与分支策略 b 已 Owner 确认），R7A~D 子轮须方案审查通过后逐轮启动，R7A 启动待 Owner 指令。
+仪器集成、稳定性、环境监测、试剂与标准品、微生物、OOS/OOT 完整调查流程、审计追踪通用引擎、国密电子签名——均在 M2-LIMS MVP 收口后另行规划，不自动启动。**留样管理（M2-R7）已按 Owner 2026-09-04 授权启动**：方案见 `docs/milestones/M2_R7_留样管理板块开发方案.md`（REVIEWING rev6，终审修订完成；角色方案 B 与分支策略 b 已 Owner 确认），R7A~D 子轮须方案审查通过后逐轮启动，R7A 启动待 Owner 指令。
 
 ## 验证与验收（M2-R5 全量）
 
