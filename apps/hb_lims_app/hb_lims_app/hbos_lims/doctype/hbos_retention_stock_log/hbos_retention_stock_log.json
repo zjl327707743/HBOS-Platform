@@ -1,0 +1,104 @@
+{
+ "actions": [],
+ "creation": "2026-09-07 11:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "transaction_date",
+  "transaction_type",
+  "column_break_1",
+  "source_doctype",
+  "source_name",
+  "section_qty",
+  "qty_delta",
+  "qty_uom",
+  "remaining_qty",
+  "operator",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "transaction_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "变动日期",
+   "reqd": 1
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "操作类型",
+   "options": "入库（登记）\n使用出库\n销毁出库\n受托转出\n手动调整",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "来源单据类型"
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Dynamic Link",
+   "label": "来源单据",
+   "options": "source_doctype"
+  },
+  {
+   "fieldname": "section_qty",
+   "fieldtype": "Section Break",
+   "label": "数量"
+  },
+  {
+   "description": "带符号变动量（入库 +，出库 −）",
+   "fieldname": "qty_delta",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "变动量",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty_uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "单位"
+  },
+  {
+   "description": "变动后结存（= 变动前 current_qty + qty_delta）",
+   "fieldname": "remaining_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "变动后结存"
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "经手人",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注（手动调整原因必填）"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-07 11:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Retention Stock Log",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

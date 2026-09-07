@@ -10,6 +10,7 @@ OOS 触发：判定不合格 → OOS候选 → OOS锁定（禁止放行）。
 FLOW_SAMPLE = "sample"
 FLOW_TASK = "task"
 FLOW_RESULT = "result"
+FLOW_RETENTION = "retention"
 
 # 样品状态
 SAMPLE_DRAFT = "草稿"
@@ -37,11 +38,30 @@ RESULT_REVIEWED = "已复核"
 RESULT_APPROVED = "已批准"
 RESULT_REVISED = "已修订"
 
+# 留样状态（M2-R7，方案 6.1 rev6）
+RET_IN_STOCK = "在库"
+RET_PARTIAL_USED = "部分使用"
+RET_EXHAUSTED = "已用尽"
+RET_PENDING = "待处理"
+RET_DESTROYED = "已销毁"
+RET_TRANSFERRED = "已转出"
+
+RETENTION_TRANSITIONS = {
+	RET_IN_STOCK: {RET_PARTIAL_USED, RET_PENDING, RET_TRANSFERRED},
+	RET_PARTIAL_USED: {RET_PARTIAL_USED, RET_EXHAUSTED, RET_PENDING, RET_TRANSFERRED},
+	RET_EXHAUSTED: {RET_PENDING, RET_TRANSFERRED},
+	# 回退按进入待处理前的状态快照恢复（rev6）
+	RET_PENDING: {RET_DESTROYED, RET_IN_STOCK, RET_PARTIAL_USED},
+	RET_DESTROYED: set(),
+	RET_TRANSFERRED: set(),
+}
+
 # 角色
 ROLE_MANAGER = "LIMS Manager"
 ROLE_ANALYST = "LIMS Analyst"
 ROLE_REVIEWER = "LIMS Reviewer"
 ROLE_SYSTEM = "System Manager"
+ROLE_LIMS_QA = "LIMS QA"
 
 # 状态转移表（current -> allowed targets）
 SAMPLE_TRANSITIONS = {
@@ -75,6 +95,7 @@ RESULT_TRANSITIONS = {
 
 FLOW_TRANSITIONS = {
 	FLOW_SAMPLE: SAMPLE_TRANSITIONS,
+	FLOW_RETENTION: RETENTION_TRANSITIONS,
 	FLOW_TASK: TASK_TRANSITIONS,
 	FLOW_RESULT: RESULT_TRANSITIONS,
 }
@@ -100,6 +121,9 @@ ACTION_ROLES = {
 	"obsolete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
 	# 检验结果台账聚合查询（只读，所有 LIMS 角色 + System）
 	"get_result_ledger": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	# 留样板块 R7A（方案 6.3 动作矩阵，角色方案 B）
+	"register_retention": {ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
+	"adjust_stock": {ROLE_MANAGER, ROLE_SYSTEM},
 	# 合规审计日志查询（只读，Reviewer / Manager / System 可读）
 	"get_audit_log": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 }

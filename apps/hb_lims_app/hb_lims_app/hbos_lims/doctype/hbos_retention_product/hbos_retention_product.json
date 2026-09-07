@@ -1,0 +1,215 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:product_code",
+ "creation": "2026-09-07 11:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "product_code",
+  "product_name",
+  "category",
+  "column_break_product",
+  "is_active",
+  "section_rule",
+  "retention_qty_rule",
+  "full_test_qty",
+  "full_test_qty_uom",
+  "column_break_qty",
+  "default_uom",
+  "is_liquid",
+  "is_outsource",
+  "section_storage",
+  "storage_condition",
+  "section_obs",
+  "obs_rule"
+ ],
+ "fields": [
+  {
+   "fieldname": "product_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "产品编码",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "产品名称",
+   "reqd": 1
+  },
+  {
+   "default": "关键物料",
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "类别",
+   "options": "关键物料\n成品（原料药）\n外售产品",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_product",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "启用"
+  },
+  {
+   "fieldname": "section_rule",
+   "fieldtype": "Section Break",
+   "label": "留样规则"
+  },
+  {
+   "default": "全检量 2 倍",
+   "fieldname": "retention_qty_rule",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "留样数量规则",
+   "options": "全检量 2 倍\n按实际\n按客户要求"
+  },
+  {
+   "description": "全检量参照（数值）",
+   "fieldname": "full_test_qty",
+   "fieldtype": "Float",
+   "label": "全检量"
+  },
+  {
+   "fieldname": "full_test_qty_uom",
+   "fieldtype": "Select",
+   "label": "全检量单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他"
+  },
+  {
+   "fieldname": "column_break_qty",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "description": "全板块计量单位唯一权威来源，下游留样/申请只读带出",
+   "fieldname": "default_uom",
+   "fieldtype": "Select",
+   "label": "默认计量单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "勾选后登记留样被硬拦截（规程：液体物料不留样）",
+   "fieldname": "is_liquid",
+   "fieldtype": "Check",
+   "label": "液体物料"
+  },
+  {
+   "default": "0",
+   "description": "勾选后登记提示由受托方留样，转出登记不经在库",
+   "fieldname": "is_outsource",
+   "fieldtype": "Check",
+   "label": "受托生产（受托方留样）"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_storage",
+   "fieldtype": "Section Break",
+   "label": "储存"
+  },
+  {
+   "fieldname": "storage_condition",
+   "fieldtype": "Data",
+   "label": "储存条件"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_obs",
+   "fieldtype": "Section Break",
+   "label": "观察"
+  },
+  {
+   "default": "不观察",
+   "fieldname": "obs_rule",
+   "fieldtype": "Select",
+   "label": "观察规则",
+   "options": "每批观察（外售产品）\n每年选 3 批（原料药成品）\n不观察"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-07 11:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Retention Product",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "product_name"
+}

@@ -7,7 +7,8 @@ MODULE = "HBOS LIMS"
 WORKSPACE_TITLE = "海滨LIMS工作台"
 DESKTOP_LABEL = "海滨LIMS"
 DESKTOP_LOGO_URL = "/assets/hb_lims_app/hbos-lims-logo.svg"
-LIMS_ROLES = ["LIMS Manager", "LIMS Analyst", "LIMS Reviewer"]
+# LIMS QA 为 M2-R7 方案 B 新增（Owner 2026-09-07 确认）：QA 线与 QC 线权限分离
+LIMS_ROLES = ["LIMS Manager", "LIMS Analyst", "LIMS Reviewer", "LIMS QA"]
 # 侧边导航按业务模块分组（Section Break 分组 + collapsible 下拉 + child 子项），
 # 与海滨LIMS工作台四卡片分区一一对应，由 Frappe 原生 Workspace Sidebar 渲染。
 PRIMARY_SIDEBAR_ITEMS = [
@@ -32,6 +33,11 @@ PRIMARY_SIDEBAR_ITEMS = [
 	{"label": "检验项目", "link_type": "DocType", "link_to": "HBOS Test Item", "type": "Link", "icon": "list", "child": 1},
 	{"label": "计算公式", "link_type": "DocType", "link_to": "HBOS Calculation", "type": "Link", "icon": "calculator", "child": 1},
 	{"label": "检验组", "link_type": "DocType", "link_to": "HBOS Lab Department", "type": "Link", "icon": "users", "child": 1},
+	# —— 留样管理 ——
+	{"label": "留样管理", "type": "Section Break", "collapsible": 1, "keep_closed": 0, "icon": "archive"},
+	{"label": "留样登记", "link_type": "DocType", "link_to": "HBOS Retention Sample", "type": "Link", "icon": "archive", "child": 1},
+	{"label": "留样台账", "link_type": "Report", "link_to": "留样台账", "type": "Link", "icon": "list", "child": 1},
+	{"label": "留样产品", "link_type": "DocType", "link_to": "HBOS Retention Product", "type": "Link", "icon": "tag", "child": 1},
 	# —— 审计追踪 ——
 	{"label": "审计追踪", "type": "Section Break", "collapsible": 1, "keep_closed": 1, "icon": "history"},
 	{"label": "审计追踪查询", "link_type": "Report", "link_to": "审计追踪查询", "type": "Link", "icon": "search", "child": 1},

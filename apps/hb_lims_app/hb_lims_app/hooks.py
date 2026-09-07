@@ -56,4 +56,15 @@ doc_events = {
 		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
 		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
 	},
+	# M2-R7 留样板块（write-once 全量捕获）
+	"HBOS Retention Product": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Retention Sample": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
 }
