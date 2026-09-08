@@ -204,3 +204,13 @@ class DataLayerContractTest(unittest.TestCase):
         self.assertIn("attendance=attendance.get", content)
         self.assertIn("ORDER BY employee, time", content)
         self.assertIn("FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS", content)
+
+
+class LiveSyncContractTest(unittest.TestCase):
+    """live_sync 手动同步端点契约：frappe 运行态函数，测试用文件内容校验。"""
+
+    def test_live_sync_throttle_present(self):
+        content = DATA_PY.read_text()
+        self.assertIn("def live_sync()", content)
+        self.assertIn("sync_delicloud_checkin", content)
+        self.assertIn("120", content)  # 节流秒数

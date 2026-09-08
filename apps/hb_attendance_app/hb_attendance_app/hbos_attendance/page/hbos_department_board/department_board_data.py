@@ -299,3 +299,30 @@ def _aggregate(rows):
     s["no_card"] = no_card
     s["attendance_rate"] = round(present / expected * 100, 1) if expected else None
     return s
+
+
+SYNC_THROTTLE_SECONDS = 120  # live_sync 手动同步最小间隔（秒）
+
+
+@frappe.whitelist()
+def live_sync():
+    """手动触发得力云打卡同步（节流 ≥120s），返回同步结果。"""
+    import time
+    key = "hbos_department_board_live_sync_at"
+    last = frappe.cache.get_value(key)
+    if last:
+        try:
+            last_f = float(last)
+        except Exception:
+            last_f = 0
+        left = SYNC_THROTTLE_SECONDS - (time.time() - last_f)
+        if left > 0:
+            return {"throttled": True, "seconds_left": int(left)}
+    from hb_attendance_app.hbos_attendance.api import sync_delicloud_checkin
+    try:
+        result = sync_delicloud_checkin()
+    except Exception as e:
+        frappe.log_error(str(e), "部门看板手动同步")
+        return {"throttled": False, "error": f"同步失败: {e}"}
+    frappe.cache.set_value(key, str(time.time()))
+    return {"throttled": False, "result": result}
