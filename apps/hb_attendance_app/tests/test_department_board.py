@@ -7,6 +7,7 @@ from hb_attendance_app.hbos_attendance.department_board import (
 )
 
 DATA_PY = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/department_board_data.py"
+WS_JSON = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/workspace/海滨考勤工作台/海滨考勤工作台.json"
 
 
 def profile(**kw):
@@ -214,3 +215,30 @@ class LiveSyncContractTest(unittest.TestCase):
         self.assertIn("def live_sync()", content)
         self.assertIn("sync_delicloud_checkin", content)
         self.assertIn("120", content)  # 节流秒数
+
+
+class FrontendContractTest(unittest.TestCase):
+    """前端 Page JS/JSON 与工作台 workspace 契约：仅文件文本断言，不 import 运行态模块。"""
+
+    def test_page_js_has_controls_and_endpoints(self):
+        js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
+        self.assertIn('frappe.pages["hbos-department-board"]', js)
+        self.assertIn("db-dept", js)
+        self.assertIn("db-date", js)
+        self.assertIn("db-autorefresh", js)
+        self.assertIn("db-sync", js)
+        self.assertIn("get_data", js)
+        self.assertIn("live_sync", js)
+        self.assertIn("visibilityState", js)
+
+    def test_page_json_and_folder_named(self):
+        folder = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board"
+        self.assertTrue((folder / "hbos_department_board.json").exists())
+        self.assertTrue((folder / "department_board_data.py").exists())
+        content = (folder / "hbos_department_board.json").read_text()
+        self.assertIn('"name": "hbos-department-board"', content)
+
+    def test_workspace_json_link_and_shortcut(self):
+        content = WS_JSON.read_text()
+        self.assertIn('"label": "部门看板"', content)
+        self.assertIn('"link_to": "hbos-department-board"', content)

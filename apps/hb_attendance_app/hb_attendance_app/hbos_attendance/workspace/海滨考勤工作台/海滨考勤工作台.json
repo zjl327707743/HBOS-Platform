@@ -115,7 +115,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "仪表盘",
-   "link_count": 1,
+   "link_count": 2,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -125,6 +125,16 @@
    "label": "考勤异常仪表盘",
    "link_count": 0,
    "link_to": "hbos-attendance-dashboard",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "部门看板",
+   "link_count": 0,
+   "link_to": "hbos-department-board",
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
@@ -229,6 +239,12 @@
    "color": "Red",
    "label": "考勤异常仪表盘",
    "link_to": "hbos-attendance-dashboard",
+   "type": "Page"
+  },
+  {
+   "color": "Teal",
+   "label": "部门看板",
+   "link_to": "hbos-department-board",
    "type": "Page"
   }
  ],
