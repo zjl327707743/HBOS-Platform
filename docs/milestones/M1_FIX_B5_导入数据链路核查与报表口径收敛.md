@@ -243,3 +243,21 @@ Owner 数据链路验收后续，修复多处班次误判（不改变 B5 主结�
 - M1 整体仍未完成。
 - M1-FIX-C / D / E = PLANNED / 待授权。
 - M2 = NOT STARTED / WAITING OWNER AUTHORIZATION。
+
+## 2026-09-08 追加交付：部门实时出勤看板
+
+海滨考勤工作台新增「部门看板」（Desk 页面 `/app/hbos-department-board`，仪表盘卡片 + 快捷入口）：
+按部门展示当日实时出勤快照（统计卡：在册 / 应出勤 / 已到岗 / 迟到 / 未打卡·无考勤 / 请假 / 休息 / 豁免 / 待确认 / 出勤率 + 逐人明细），并支持历史日期回顾。
+
+- 判定口径（Owner 2026-09-08 确认）：排班优先（HBOS Employee Schedule）→ 固定班次绑定（HBOS Employee Shift / hbos_fixed_shift）→ 名单归类（行政班 / 安全 / 食堂 / 豁免，周末双休）→ 无命中员工按「通用倒班」计入应出勤（只报打卡事实、不判到点）→ 防御性「在册待确认」。已通过请假记录（HBOS Leave Record）不被 unknown 短路，显示「请假」。
+- 迟到 / 到点提示保守：仅期望班次时间确定且无跨天歧义时做 to 点判定；「未打卡（已到班次点）」为琥珀提示不定性、不写缺勤；回顾模式以 HRMS 考勤结果为准，无配对考勤记录显示「当日无配对考勤记录」不判缺勤。
+- 实时增强：页面 60s 自动刷新（visibilitychange 暂停）+ 手动「立即同步打卡」（live_sync 120s 节流调用得力云同步，失败 log_error 不阻断）。
+- 出勤率分母 = 全部应出勤（kind=shift，含通用倒班 / 缺勤），缺勤真实拉低出勤率（Owner 拍板）。
+- 时区：today / now 统一 +8（TZ_PLUS8，与打卡同步 DELICLOUD_TZ 同基准），修复容器 UTC 时实时模式每天 00:00-08:00 时段错位。
+- 接口：`get_data` / `live_sync` 加 `frappe.only_for(["HR Manager","HR User","System Manager"])` 角色门禁。
+
+实现：新增 `department_board.py`（纯函数 resolve_expected / live_state / day_review，无 frappe 依赖离线可测）、
+`page/hbos_department_board/`（department_board_data.py 数据层 + hbos_department_board.js/json Page）、
+workspace「仪表盘」区 + 快捷入口。新增离线测试 `test_department_board.py` 22 例，全量 144 通过。
+设计 spec：`docs/superpowers/specs/2026-09-08-部门实时出勤看板设计.md`；实施计划：`docs/superpowers/plans/2026-09-08-部门实时出勤看板.md`。
+运行态：需 Owner 授权执行 `bench --site frontend migrate` 注册 Page 与重放 workspace 后浏览器验证。
