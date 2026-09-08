@@ -83,3 +83,97 @@ class ResolveExpectedTest(unittest.TestCase):
         e = resolve_expected(profile(), weekday=0)
         self.assertEqual(e["kind"], "unknown")
         self.assertEqual(e["label"], "在册待确认")
+
+
+class LiveStateTest(unittest.TestCase):
+    def _day(self):
+        return datetime(2026, 9, 8)  # 周二
+
+    def test_leave_record_no_card(self):
+        p = profile(leave_record=True, leave_record_type="事假",
+                    schedule={"kind": "shift", "shift_type": "行政班",
+                              "start_time": "08:30", "late_after": "08:31", "leave_type": None})
+        e = resolve_expected(p, weekday=1)
+        st = live_state(e, p, [], datetime(2026, 9, 8, 10, 0))
+        self.assertEqual(st["state"], "leave")
+        self.assertIn("事假", st["label"])
+
+    def test_leave_record_but_clocked_is_present(self):
+        p = profile(leave_record=True, leave_record_type="病假",
+                    schedule={"kind": "shift", "shift_type": "行政班",
+                              "start_time": "08:30", "late_after": "08:31", "leave_type": None})
+        e = resolve_expected(p, weekday=1)
+        # 8:25 在入窗点(04:30)之后、迟到点(08:31)之前 → 出勤非迟到
+        ev = [datetime(2026, 9, 8, 8, 25)]
+        st = live_state(e, p, ev, datetime(2026, 9, 8, 12, 0))
+        self.assertEqual(st["state"], "present")
+        self.assertEqual(st["first_hm"], "08:25")
+
+    def test_before_start(self):
+        e = {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+             "late_after": "08:31", "label": "行政班"}
+        st = live_state(e, profile(), [], datetime(2026, 9, 8, 7, 0))
+        self.assertEqual(st["state"], "before_start")
+
+    def test_pending_between_start_and_late(self):
+        e = {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+             "late_after": "08:31", "label": "行政班"}
+        # 08:30:30 在上班点(08:30)之后、迟到点(08:31)之前 → 未打卡待判定
+        st = live_state(e, profile(), [], datetime(2026, 9, 8, 8, 30, 30))
+        self.assertEqual(st["state"], "pending")
+
+    def test_absent_expected_after_late(self):
+        e = {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+             "late_after": "08:31", "label": "行政班"}
+        st = live_state(e, profile(), [], datetime(2026, 9, 8, 12, 0))
+        self.assertEqual(st["state"], "absent_expected")
+        self.assertTrue(st["note"])
+
+    def test_present_not_late(self):
+        e = {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+             "late_after": "08:31", "label": "行政班"}
+        st = live_state(e, profile(), [datetime(2026, 9, 8, 8, 20)], datetime(2026, 9, 8, 9, 0))
+        self.assertEqual(st["state"], "present")
+        self.assertEqual(st["tags"], [])
+
+    def test_late(self):
+        e = {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+             "late_after": "08:31", "label": "行政班"}
+        st = live_state(e, profile(), [datetime(2026, 9, 8, 8, 45)], datetime(2026, 9, 8, 9, 0))
+        self.assertEqual(st["state"], "late")
+        self.assertIn("迟到", st["tags"])
+
+    def test_offwindow_card_not_absent(self):
+        e = {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+             "late_after": "08:31", "label": "行政班"}
+        # 只有 00:30 一张卡（入窗点 04:30 之前），不应判「未打卡」
+        st = live_state(e, profile(), [datetime(2026, 9, 8, 0, 30)], datetime(2026, 9, 8, 9, 0))
+        self.assertIn(st["state"], ("present_offwindow",))
+        self.assertFalse(st["tags"])
+
+    def test_fact_only(self):
+        e = {"kind": "shift", "shift_type": None, "start_time": None, "late_after": None,
+             "label": "食堂"}
+        st = live_state(e, profile(food=True), [datetime(2026, 9, 8, 10, 0)],
+                        datetime(2026, 9, 8, 12, 0))
+        self.assertEqual(st["state"], "fact_present")
+        st2 = live_state(e, profile(food=True), [], datetime(2026, 9, 8, 12, 0))
+        self.assertEqual(st2["state"], "fact_none")
+
+    def test_rest_leave_exempt_unknown(self):
+        self.assertEqual(live_state({"kind": "rest", "label": "休息"}, profile(),
+                                    [], datetime(2026, 9, 8, 12, 0))["state"], "rest")
+        self.assertEqual(live_state({"kind": "exempt", "label": "豁免"}, profile(),
+                                    [], datetime(2026, 9, 8, 12, 0))["state"], "exempt")
+        self.assertEqual(live_state({"kind": "unknown", "label": "在册待确认"}, profile(),
+                                    [], datetime(2026, 9, 8, 12, 0))["state"], "unknown")
+
+
+class DayReviewTest(unittest.TestCase):
+    def test_no_attendance_shift_without_events_no_pair(self):
+        p = profile(schedule={"kind": "shift", "shift_type": "行政班",
+                              "start_time": "08:30", "late_after": "08:31", "leave_type": None})
+        e = resolve_expected(p, weekday=1)
+        st = day_review(e, p, [], datetime(2026, 9, 8, 23, 59))
+        self.assertEqual(st["state"], "no_pair")
+        self.assertFalse(st["tags"])  # 不判缺勤
