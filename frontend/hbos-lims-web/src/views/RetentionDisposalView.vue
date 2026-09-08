@@ -1,14 +1,21 @@
 <template>
   <div class="page">
+    <a-alert
+      type="info"
+      show-icon
+      class="mode-bar"
+      message="真实数据模式：已连接 hb_lims_app retention_service——处理申请、QC/QA/QM 逐级审批（4/5 级）、销毁双签与续留改期均写入真实数据库，审批受 SoD 硬校验约束。"
+    />
+
     <div class="page-head">
       <div>
         <h1>处理申请</h1>
         <p class="page-desc">季度到期清单 · QC/QA/QM 审批链 · 销毁双签与续留改期</p>
       </div>
       <div class="page-actions">
-        <a-button @click="scrollToQuarter">
-          <template #icon><CalendarOutlined /></template>
-          季度清单
+        <a-button :loading="loading" @click="reload()">
+          <template #icon><ReloadOutlined /></template>
+          刷新
         </a-button>
         <a-button type="primary" @click="openCreate()">
           <template #icon><PlusOutlined /></template>
@@ -17,18 +24,18 @@
       </div>
     </div>
 
-    <DemoBar />
-
-    <!-- 季度到期清单 -->
-    <div ref="quarterRef" class="panel">
+    <!-- 季度到期处理清单（非完结处理单投影） -->
+    <div class="panel">
       <div class="panel-head">
         <div>
-          <div class="panel-title">季度到期清单 · Q3 2026</div>
-          <div class="panel-sub">留样期至 ≤ 2026-09-30 且未完成 · 以季度台账为准</div>
+          <div class="panel-title">季度到期处理清单</div>
+          <div class="panel-sub">
+            到期 / 在途处理单（草稿 · 审批中 · 待执行 · 待续留）· 销毁超期按 deadline 派生（后端无该状态）
+          </div>
         </div>
         <div class="panel-filter">
           <span class="pill pill-warn">临期 {{ quarterCounts.lin }}</span>
-          <span class="pill pill-primary">已批准待执行 {{ quarterCounts.ready }}</span>
+          <span class="pill pill-primary">待执行 {{ quarterCounts.ready }}</span>
           <span class="pill pill-danger">销毁超期 {{ quarterCounts.overdue }}</span>
         </div>
       </div>
@@ -36,43 +43,46 @@
         <a-table
           :columns="quarterColumns"
           :data-source="quarterRows"
+          :loading="loading"
           :pagination="false"
           size="small"
-          row-key="retentionName"
-          :scroll="{ x: 900 }"
+          row-key="name"
+          :scroll="{ x: 1060 }"
+          :custom-row="customRow"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'name'">
-              <span class="mono">{{ record.retentionName }}</span>
+              <span class="mono">{{ record.name }}</span>
             </template>
             <template v-else-if="column.key === 'sample'">
               <div class="ret-main">{{ record.product }} <span class="dim">/ {{ record.batch }}</span></div>
             </template>
-            <template v-else-if="column.key === 'category'">
-              {{ record.category }}
+            <template v-else-if="column.key === 'type'">
+              {{ record.type }}
             </template>
-            <template v-else-if="column.key === 'dueDate'">
-              <span class="mono">{{ record.dueDate }}</span>
+            <template v-else-if="column.key === 'level'">
+              {{ record.qa_manager_required ? '5 级' : '4 级·跳过' }}
             </template>
-            <template v-else-if="column.key === 'remain'">
-              <span :class="record.remainDays < 0 ? 'danger-text' : 'dim'">
-                {{ record.remainDays < 0 ? `超期 ${-record.remainDays} 天` : `${record.remainDays} 天` }}
-              </span>
+            <template v-else-if="column.key === 'deadline'">
+              <span class="mono" :class="{ 'danger-text': isOverdue(record) }">{{ record.deadline || '—' }}</span>
             </template>
-            <template v-else-if="column.key === 'state'">
-              <span class="pill" :class="quarterPillClass(record.state)">{{ record.state }}</span>
+            <template v-else-if="column.key === 'status'">
+              <div>
+                <span class="pill" :class="displayStatus(record).cls">{{ displayStatus(record).text }}</span>
+                <div v-if="displayStatus(record).note" class="pill-note danger-text">{{ displayStatus(record).note }}</div>
+              </div>
             </template>
-            <template v-else-if="column.key === 'suggest'">
-              <a-button
-                v-if="quarterSuggestText(record)"
-                type="link"
-                size="small"
-                @click.stop="onQuarterSuggest(record)"
-              >{{ quarterSuggestText(record) }}</a-button>
-              <span v-else class="dim">{{ record.suggestion || '—' }}</span>
+            <template v-else-if="column.key === 'action'">
+              <a-button type="link" size="small" @click.stop="selectRow(record)">{{ rowActionLabel(record) }}</a-button>
             </template>
           </template>
         </a-table>
+        <a-empty
+          v-if="!quarterRows.length && !loading"
+          description="当前无到期 / 在途处理单"
+          :image="Empty.PRESENTED_IMAGE_SIMPLE"
+          style="padding: 24px 0"
+        />
       </div>
     </div>
 
@@ -99,10 +109,12 @@
           <a-table
             :columns="columns"
             :data-source="filteredRows"
+            :loading="loading"
             :pagination="false"
             size="small"
             row-key="name"
             :scroll="{ x: 900 }"
+            :row-class-name="rowClassName"
             :custom-row="customRow"
           >
             <template #bodyCell="{ column, record }">
@@ -111,29 +123,27 @@
               </template>
               <template v-else-if="column.key === 'retention'">
                 <div class="ret-main">{{ record.product }} <span class="dim">/ {{ record.batch }}</span></div>
-                <div class="ret-sub mono">{{ record.retentionName }}</div>
+                <div class="ret-sub mono">{{ record.retention_name }}</div>
               </template>
               <template v-else-if="column.key === 'type'">
                 {{ record.type }}
               </template>
               <template v-else-if="column.key === 'level'">
-                {{ record.qaManagerRequired ? '5 级' : '4 级' }}
+                {{ record.qa_manager_required ? '5 级' : '4 级·跳过' }}
               </template>
               <template v-else-if="column.key === 'deadline'">
-                <span class="mono" :class="{ 'danger-text': record.status === '销毁超期' }">
-                  {{ record.deadline || '—' }}
-                </span>
+                <span class="mono" :class="{ 'danger-text': isOverdue(record) }">{{ record.deadline || '—' }}</span>
               </template>
               <template v-else-if="column.key === 'status'">
-                <span class="pill" :class="statusPillClass(record.status)">{{ record.status }}</span>
+                <span class="pill" :class="displayStatus(record).cls">{{ displayStatus(record).text }}</span>
               </template>
               <template v-else-if="column.key === 'action'">
-                <a-button type="link" size="small" @click.stop="selectRow(record)">{{ rowActionText(record) }}</a-button>
+                <a-button type="link" size="small" @click.stop="selectRow(record)">{{ rowActionLabel(record) }}</a-button>
               </template>
             </template>
           </a-table>
           <a-empty
-            v-if="!filteredRows.length"
+            v-if="!filteredRows.length && !loading"
             description="当前筛选无处理申请"
             :image="Empty.PRESENTED_IMAGE_SIMPLE"
             style="padding: 24px 0"
@@ -155,13 +165,19 @@
             <div class="hero">
               <div>
                 <div class="hero-title">{{ selected.product }} <span class="dim">/ {{ selected.batch }}</span></div>
-                <div class="hero-sub">留样编号 <span class="mono">{{ selected.retentionName }}</span></div>
+                <div class="hero-sub">留样编号 <span class="mono">{{ selected.retention_name }}</span></div>
                 <div class="hero-sub">
-                  销毁量 = 当前结存 <span class="num">{{ selected.currentQty }}</span> {{ selected.uom }}
-                  · 预占 <span class="num">{{ selected.reservedQty }}</span>
+                  处理量 <span class="num">{{ selected.qty }}</span> {{ selected.uom }}
+                  · 结存 <span class="num">{{ selected.current_qty }}</span> {{ selected.uom }}
+                  · 预占 <span class="num">{{ selected.reserved_qty }}</span>
                 </div>
               </div>
-              <span class="pill" :class="statusPillClass(selected.status)">{{ selected.status }}</span>
+              <div>
+                <span class="pill" :class="displayStatus(selected).cls">{{ displayStatus(selected).text }}</span>
+                <div v-if="displayStatus(selected).note" class="pill-note danger-text" style="text-align: right">
+                  {{ displayStatus(selected).note }}
+                </div>
+              </div>
             </div>
 
             <div class="divider"></div>
@@ -169,41 +185,41 @@
             <div class="section-label">处理要求</div>
             <div class="field">
               <label>处理类型 / 原因</label>
-              <div class="static">{{ selected.type }} · {{ selected.reason }}</div>
+              <div class="static">{{ selected.type }} · {{ selected.reason || '—' }}</div>
             </div>
             <div class="field">
               <label>方式 / 地点</label>
-              <div class="static">{{ selected.method }} · {{ selected.location }}</div>
+              <div class="static">{{ selected.method || '—' }} · {{ selected.location || '—' }}</div>
             </div>
             <div class="field">
-              <label>申请人 / 日期</label>
-              <div class="static">{{ selected.applicant }}（{{ selected.applicantDate }}）</div>
+              <label>申请人 / 申请日期</label>
+              <div class="static">{{ selected.applicant || '—' }}（{{ selected.applicant_date || '—' }}）</div>
             </div>
-            <div v-if="deadlineField(selected)" class="field">
-              <label>销毁时限</label>
-              <div class="static" :class="{ 'danger-text': selected.status === '销毁超期' }">
-                {{ deadlineField(selected) }}
+            <div v-if="selected.type !== DSP_CONTINUE && selected.deadline" class="field">
+              <label>处理 deadline</label>
+              <div class="static" :class="{ 'danger-text': isOverdue(selected) }">
+                QM 批准 {{ (selected.qm_approved_at || '').slice(0, 10) || '—' }} + 3 个月 → {{ selected.deadline }}
               </div>
             </div>
-            <div v-if="selected.type === '期满续留' && selected.newDueDate" class="field">
+            <div v-if="selected.type === DSP_CONTINUE && selected.new_retention_due_date" class="field">
               <label>新留样期至</label>
-              <div class="static mono">{{ selected.newDueDate }}</div>
+              <div class="static mono">{{ selected.new_retention_due_date }}</div>
             </div>
-            <div v-if="selected.status === '销毁超期'" class="soe red">
+            <div v-if="isOverdue(selected)" class="soe red">
               <ExclamationCircleOutlined style="margin-right: 6px" />
-              销毁 deadline（{{ selected.deadline }}）已过，请 Manager 立即决策：督导销毁或取消。
+              销毁 deadline（{{ selected.deadline }}）已过 {{ -dayDiff(selected.deadline || '') }} 天，请 Manager 立即决策：督导销毁双签或取消。
             </div>
 
-            <div class="section-label">审批链 · {{ disposalLevelLabel(selected) }}</div>
+            <div class="section-label">
+              审批链 · {{ selected.qa_manager_required ? '5 级' : '4 级（跳过 QA 负责人）' }}
+            </div>
             <div class="chain">
               <template v-for="(st, idx) in selectedChain" :key="st.key">
                 <div
                   class="step"
                   :class="{ done: st.state === 'done', active: st.state === 'active', skipped: st.state === 'skipped' }"
                 >
-                  <span class="dot">
-                    {{ st.state === 'done' ? '✓' : st.state === 'skipped' ? '—' : String(idx) }}
-                  </span>
+                  <span class="dot">{{ st.dot }}</span>
                   <div>
                     <div class="step-name">{{ st.label }}</div>
                     <div class="step-who">{{ st.who }}</div>
@@ -213,48 +229,76 @@
               </template>
             </div>
 
-            <!-- 执行双签 / 续留双签 -->
-            <template v-if="pendingExec(selected)">
-              <div class="section-label">{{ selected.type === '期满销毁' ? '执行双签' : '续留双签' }}</div>
+            <!-- 销毁 / 其他：待执行双签 -->
+            <template v-if="selected.type !== DSP_CONTINUE && selected.status === '待执行'">
+              <div class="section-label">执行双签（双签齐备自动出库）</div>
               <div class="dual">
                 <div class="field">
-                  <label>处理人</label>
-                  <a-input v-model:value="execForm.handler" placeholder="默认检验员王敏" />
+                  <label>处理人（Analyst / Manager）</label>
+                  <div v-if="!selected.disposal_by">
+                    <a-button
+                      v-if="can('disposal_handler')"
+                      size="small"
+                      type="primary"
+                      :loading="signing"
+                      @click="sign('handler')"
+                    >处理人签名</a-button>
+                    <div v-else class="dim">待签名</div>
+                  </div>
+                  <div v-else class="static">{{ selected.disposal_by }}</div>
                 </div>
                 <div class="field">
-                  <label>监督人（QA）</label>
-                  <a-input v-model:value="execForm.supervisor" placeholder="默认 QA 刘洋" />
+                  <label>监督人（QA / Manager）</label>
+                  <div v-if="!selected.monitor_by">
+                    <a-button
+                      v-if="can('disposal_monitor')"
+                      size="small"
+                      type="primary"
+                      :loading="signing"
+                      @click="sign('monitor')"
+                    >监督人签名</a-button>
+                    <div v-else class="dim">待签名 · 需 QA 角色</div>
+                  </div>
+                  <div v-else class="static">{{ selected.monitor_by }}</div>
                 </div>
               </div>
-              <div v-if="selected.type === '期满续留'" class="field">
-                <label>新留样期至</label>
-                <a-date-picker
-                  v-model:value="execForm.newDueDate"
-                  value-format="YYYY-MM-DD"
-                  style="width: 100%"
-                />
-              </div>
-              <div v-if="selected.type === '期满销毁'" class="soe">
+              <div class="soe">
                 <ExclamationCircleOutlined style="margin-right: 6px" />
-                销毁 deadline：{{ selected.deadline || '—' }}，须在处理期限内由处理人执行、QA 现场监督，双签后写入销毁出库流水。
+                双签完成后系统自动写入销毁出库流水并置「已完成」；deadline 为 QM 批准日 + 3 个月，须在此期限内完成。
               </div>
-              <div v-if="can(demo.role, 'disposal_execute')" class="detail-actions">
-                <a-button type="primary" @click="doExecute">
-                  {{ selected.type === '期满销毁' ? '完成销毁双签' : '完成续留双签' }}
-                </a-button>
-              </div>
-              <div v-else class="dim" style="margin-top: 8px">当前演示身份不可执行，需检验员 / QA / Manager 完成双签。</div>
             </template>
-            <template v-else-if="selected.status === '已销毁' || selected.status === '已完成续留'">
-              <div class="section-label">执行双签</div>
+
+            <!-- 续留：执行改期 -->
+            <template v-else-if="selected.type === DSP_CONTINUE && (selected.status === '已批准' || selected.status === '待执行')">
+              <div class="section-label">续留执行</div>
+              <div class="field">
+                <label>新留样期至（QM 已批准）</label>
+                <div class="static mono">{{ selected.new_retention_due_date || '—' }}</div>
+              </div>
+              <div class="soe">
+                <ExclamationCircleOutlined style="margin-right: 6px" />
+                续留将把留样期至回写为 {{ selected.new_retention_due_date || '—' }} 并恢复样品状态，无需 QA 监督双签。
+              </div>
+              <a-button
+                v-if="can('disposal_handler')"
+                type="primary"
+                :loading="signing"
+                @click="sign('continue')"
+              >续留执行</a-button>
+              <div v-else class="dim">续留执行需 Analyst / Manager 角色。</div>
+            </template>
+
+            <!-- 已完成：静态双签落位 -->
+            <template v-else-if="selected.status === '已完成'">
+              <div class="section-label">{{ selected.type === DSP_CONTINUE ? '续留执行' : '销毁双签' }}</div>
               <div class="dual">
                 <div class="field">
-                  <label>处理人</label>
-                  <div class="static">{{ selected.handler }}</div>
+                  <label>{{ selected.type === DSP_CONTINUE ? '执行人' : '处理人' }}</label>
+                  <div class="static">{{ selected.disposal_by || '—' }}</div>
                 </div>
-                <div class="field">
+                <div v-if="selected.type !== DSP_CONTINUE" class="field">
                   <label>监督人（QA）</label>
-                  <div class="static">{{ selected.supervisor }}</div>
+                  <div class="static">{{ selected.monitor_by || '—' }}</div>
                 </div>
               </div>
             </template>
@@ -267,13 +311,14 @@
                 :key="b.key"
                 :type="b.primary ? 'primary' : 'default'"
                 :danger="b.danger"
+                :loading="acting && b.key === actingKey"
                 @click="runDetail(b.key)"
               >
                 <template #icon v-if="b.danger"><CloseCircleOutlined /></template>
                 {{ b.label }}
               </a-button>
             </div>
-            <div v-else class="dim" style="margin-top: 10px">当前状态与演示身份下无可用操作，仅查看。</div>
+            <div v-else-if="noActionHint" class="dim" style="margin-top: 10px">当前状态与您的角色下无可用审批 / 执行操作，仅查看。</div>
           </template>
         </div>
       </div>
@@ -283,43 +328,43 @@
     <a-modal
       v-model:open="createOpen"
       title="新建处理申请"
-      ok-text="创建申请"
+      ok-text="创建并提交"
       cancel-text="取消"
       width="640"
+      :confirm-loading="creating"
       @ok="confirmCreate"
     >
       <a-form layout="vertical">
         <a-form-item label="留样批次" required>
           <a-select
-            v-model:value="createForm.retentionName"
-            placeholder="选择季度清单中临期 / 超期未处理留样"
+            v-model:value="createForm.retention_name"
+            placeholder="选择留样（在库 / 部分使用）"
+            show-search
+            option-filter-prop="label"
             :options="createOptions"
-            @change="onPickRetention"
+            @change="onPickCandidate"
           />
-          <div v-if="!createOptions.length" class="dim" style="margin-top: 6px">当前无未发起处理申请的临期 / 超期留样。</div>
+          <div v-if="!createOptions.length" class="dim" style="margin-top: 6px">当前无可用留样批次。</div>
         </a-form-item>
-        <template v-if="pickedQuarter">
+        <template v-if="pickedCandidate">
           <div class="field">
-            <label>留样信息（只读带出）</label>
+            <label>批次信息（只读带出）</label>
             <div class="static">
-              {{ createForm.product }} · {{ createForm.batch }} · 类别 {{ createForm.category }}
-              · 留样期至 <span class="mono">{{ createForm.dueDate }}</span>
+              {{ createForm.product }} · 批号 {{ createForm.batch }} · 状态 {{ createForm.status }}
             </div>
           </div>
           <div class="dim" style="margin: -2px 0 12px">
-            结存 {{ pickedStock ? `${pickedStock.currentQty} ${pickedStock.uom}` : '—' }}
-            <template v-if="pickedStock">· 预占 {{ pickedStock.reservedQty }} {{ pickedStock.uom }}</template>
-            <template v-else>（未匹配到处理单库存快照，数量请按台账填写）</template>
+            结存 {{ pickedCandidate.current_qty }} {{ pickedCandidate.qty_uom }}
+            · 预占 {{ pickedCandidate.reserved_qty }} · 可用 {{ pickedCandidate.available_qty }} {{ pickedCandidate.qty_uom }}
           </div>
         </template>
         <a-form-item label="处理类型" required>
-          <a-radio-group v-model:value="createForm.type">
-            <a-radio-button value="期满销毁">期满销毁</a-radio-button>
-            <a-radio-button value="期满续留">期满续留</a-radio-button>
-            <a-radio-button value="其他">其他</a-radio-button>
-          </a-radio-group>
-          <div v-if="createForm.type === '期满销毁'" class="dim" style="margin-top: 6px">
-            销毁申请批准后按 QM 批准日 + 3 个月生成销毁 deadline。
+          <a-select v-model:value="createForm.disposal_type" :options="typeOptions" />
+          <div v-if="createForm.disposal_type === DSP_DESTROY" class="dim" style="margin-top: 6px">
+            销毁申请 QM 批准后按批准日 + 3 个月生成销毁 deadline，留样进入「待处理」直至双签出库。
+          </div>
+          <div v-if="createForm.disposal_type === DSP_CONTINUE" class="dim" style="margin-top: 6px">
+            续留申请 QM 批准后回写留样期至，无需销毁双签。
           </div>
         </a-form-item>
         <a-row :gutter="12">
@@ -328,22 +373,22 @@
               <a-input-number
                 v-model:value="createForm.qty"
                 :min="1"
+                :disabled="!pickedCandidate"
                 style="width: 100%"
-                :disabled="!pickedQuarter"
                 placeholder="默认取该留样结存"
               />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="UOM">
-              <a-input v-model:value="createForm.uom" :disabled="!pickedQuarter" placeholder="如 g / 瓶" />
+            <a-form-item label="UOM（只读）">
+              <div class="static-readonly">{{ pickedCandidate ? pickedCandidate.qty_uom : '—' }}</div>
             </a-form-item>
           </a-col>
         </a-row>
         <a-form-item label="审批层级">
           <div class="level-row">
-            <a-switch v-model:checked="createForm.qaManagerRequired" size="small" />
-            <span>{{ createForm.qaManagerRequired ? '5 级（含 QA 负责人审核）' : '4 级（跳过 QA 负责人）' }}</span>
+            <a-switch v-model:checked="createForm.qa_manager_required" size="small" />
+            <span>{{ createForm.qa_manager_required ? '5 级（含 QA 负责人审核）' : '4 级（跳过 QA 负责人）' }}</span>
           </div>
         </a-form-item>
         <a-form-item label="原因" required>
@@ -352,19 +397,24 @@
         <a-row :gutter="12">
           <a-col :span="12">
             <a-form-item label="方式" required>
-              <a-input v-model:value="createForm.method" placeholder="如高温焚烧 / 延期续留" />
+              <a-input v-model:value="createForm.disposal_method" placeholder="如高温焚烧" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
             <a-form-item label="地点" required>
-              <a-input v-model:value="createForm.location" placeholder="如危废暂存间（QA 现场监督）" />
+              <a-input v-model:value="createForm.disposal_location" placeholder="如危废暂存间（QA 现场监督）" />
             </a-form-item>
           </a-col>
         </a-row>
-        <div class="field">
-          <label>申请人 / 申请日期</label>
-          <div class="static-readonly">{{ APPLICANT }} · {{ TODAY }}（演示固定）</div>
-        </div>
+        <template v-if="createForm.disposal_type === DSP_CONTINUE">
+          <a-form-item label="新留样期至" required>
+            <a-date-picker
+              v-model:value="createForm.new_retention_due_date"
+              value-format="YYYY-MM-DD"
+              style="width: 100%"
+            />
+          </a-form-item>
+        </template>
       </a-form>
     </a-modal>
 
@@ -384,9 +434,9 @@
       <a-textarea
         v-model:value="rejectReason"
         :rows="3"
-        placeholder="驳回原因（必填，将写入审批链与审计）"
+        placeholder="驳回原因（必填，将写入审计）"
       />
-      <div class="soe red" style="margin: 12px 0 0">驳回后申请终止，留样不释放、按原状留存，可重新发起处理。</div>
+      <div class="soe red" style="margin: 12px 0 0">驳回后申请终止，留样不进入待处理、按原状留存，可重新发起处理申请。</div>
     </a-modal>
 
     <!-- Manager 取消逃生口 -->
@@ -409,7 +459,7 @@
         placeholder="取消原因（必填，将写入审计）"
       />
       <div class="soe red" style="margin: 12px 0 0">
-        确认后将取消并按进入处理前的状态快照恢复留样（演示）。
+        待执行取消将按进入处理前的状态快照恢复留样（草稿 / 审批中取消不改动留样）。
       </div>
     </a-modal>
   </div>
@@ -419,237 +469,289 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { message, Empty } from 'ant-design-vue'
 import type { TableColumnsType } from 'ant-design-vue'
-import { CalendarOutlined, CloseCircleOutlined, ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons-vue'
-import { useRoute } from 'vue-router'
-import DemoBar from '@/components/retention/DemoBar.vue'
 import {
-  DEMO_ROLES, demo, can, demoPerson, SOD_NOTE,
-  seedDisposalApplies, seedQuarterRows,
-  advanceDisposal, executeDisposal,
-  disposalActionNeeded, disposalChainSteps, disposalLevelLabel,
-  type DisposalApply, type DisposalStatus, type DisposalType, type QuarterRow,
-} from '@/demo/retentionDemo'
+  CloseCircleOutlined, ExclamationCircleOutlined, PlusOutlined, ReloadOutlined,
+} from '@ant-design/icons-vue'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import {
+  disposalList,
+  createDisposalApply,
+  submitDisposalApply,
+  approveDisposal,
+  rejectDisposal,
+  cancelDisposalApply,
+  disposalHandle,
+  disposalMonitor,
+  continueRetention,
+  retentionCandidates,
+  canAction,
+  SOD_NOTE,
+  type DisposalRow,
+  type RetentionCandidate,
+} from '@/api/retention'
 
-const APPLICANT = demoPerson('analyst') // 王敏
-const TODAY = '2026-09-07'
-const route = useRoute()
+const DSP_DESTROY = '留样期满销毁'
+const DSP_CONTINUE = '留样期满继续留样'
 
-// ---------- 列表数据 ----------
-const rows = ref<DisposalApply[]>(seedDisposalApplies())
-const quarterRows = ref<QuarterRow[]>(seedQuarterRows())
-const selected = ref<DisposalApply | null>(null)
+// ---------- 日期工具 ----------
+function pad(n: number): string {
+  return String(n).padStart(2, '0')
+}
+function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+function dayDiff(dateStr: string): number {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const t = new Date(`${dateStr}T00:00:00`).getTime()
+  return Math.round((t - now.getTime()) / 86400_000)
+}
+
+// ---------- 角色 ----------
+const auth = useAuthStore()
+const roles = computed(() => auth.user?.roles ?? [])
+function can(action: string): boolean {
+  return canAction(roles.value, action)
+}
+
+// ---------- 列表数据（真实后端） ----------
+const loading = ref(false)
+const rows = ref<DisposalRow[]>([])
+const selected = ref<DisposalRow | null>(null)
 const filter = ref<'all' | 'mine' | 'overdue'>('all')
 
-const mineRows = computed<DisposalApply[]>(() =>
+type FilterKey = 'all' | 'mine' | 'overdue'
+const TERMINAL = ['已完成', '已驳回', '已取消']
+
+function isTerminal(d: DisposalRow): boolean {
+  return TERMINAL.includes(d.status)
+}
+function isOverdue(d: DisposalRow): boolean {
+  if (d.type === DSP_CONTINUE || !d.deadline) return false
+  if (isTerminal(d)) return false
+  return d.deadline < localToday()
+}
+const isDestroyClass = (d: DisposalRow): boolean => d.type !== DSP_CONTINUE
+
+// 当前状态所需的审批动作键（与后端 _DSP_APPROVE_MAP / ACTION_ROLES 对齐）
+function approvalKey(d: DisposalRow): string {
+  if (d.status === '草稿') return 'create_disposal_apply'
+  switch (d.status) {
+    case '待QC主管审核':
+    case '待QC负责人审核':
+      return 'disposal_qc'
+    case '待QA审核':
+    case '待QA负责人审核':
+      return 'disposal_qa'
+    case '待QM批准':
+      return 'disposal_qm'
+    default:
+      return ''
+  }
+}
+
+// 执行/续留阶段我还可做的动作：'' | 'handler' | 'monitor' | 'continue'
+function execKeyFor(d: DisposalRow): string {
+  if (d.type === DSP_CONTINUE && (d.status === '已批准' || d.status === '待执行')) {
+    return can('disposal_handler') ? 'continue' : ''
+  }
+  if (isDestroyClass(d) && d.status === '待执行') {
+    if (!d.disposal_by && can('disposal_handler')) return 'handler'
+    if (!d.monitor_by && can('disposal_monitor')) return 'monitor'
+  }
+  return ''
+}
+
+const mineRows = computed<DisposalRow[]>(() =>
   rows.value.filter((d) => {
-    const act = disposalActionNeeded(d.status)
-    return !!act && can(demo.role, act)
+    const ak = approvalKey(d)
+    if (ak && can(ak)) return true
+    return execKeyFor(d).length > 0
   }),
 )
+const overdueRows = computed<DisposalRow[]>(() => rows.value.filter((d) => isOverdue(d)))
 
-const roleLabel = computed(() => DEMO_ROLES.find((r) => r.value === demo.role)?.label ?? demo.role)
-const listSub = computed(() => `当前演示身份「${roleLabel.value}」待我审批 ${mineRows.value.length} 份`)
-
-const overdueCount = computed(() => rows.value.filter((d) => d.status === '销毁超期').length)
-
-const filterChips = computed<{ key: 'all' | 'mine' | 'overdue'; label: string }[]>(() => [
+const listSub = computed(() => `共 ${rows.value.length} 份处理单 · 待我处理 ${mineRows.value.length} 份`)
+const filterChips = computed<{ key: FilterKey; label: string }[]>(() => [
   { key: 'all', label: '全部' },
-  { key: 'mine', label: `待我审批 ${mineRows.value.length}` },
-  { key: 'overdue', label: `超期 ${overdueCount.value}` },
+  { key: 'mine', label: `待我处理 ${mineRows.value.length}` },
+  { key: 'overdue', label: `超期 ${overdueRows.value.length}` },
 ])
 
-const filteredRows = computed<DisposalApply[]>(() => {
+const filteredRows = computed<DisposalRow[]>(() => {
   if (filter.value === 'all') return rows.value
-  if (filter.value === 'overdue') return rows.value.filter((d) => d.status === '销毁超期')
+  if (filter.value === 'overdue') return overdueRows.value
   return mineRows.value
 })
 
-const columns: TableColumnsType<DisposalApply> = [
-  { title: '处理单号', key: 'order', width: 175 },
-  { title: '留样 / 批号', key: 'retention', width: 205 },
-  { title: '类型', key: 'type', width: 90 },
-  { title: '层级', key: 'level', width: 80 },
+const columns: TableColumnsType<DisposalRow> = [
+  { title: '处理单号', key: 'order', width: 190 },
+  { title: '留样 / 批号', key: 'retention', width: 235 },
+  { title: '类型', key: 'type', width: 155 },
+  { title: '层级', key: 'level', width: 100 },
   { title: 'deadline', key: 'deadline', width: 110 },
-  { title: '状态', key: 'status', width: 120 },
-  { title: '操作', key: 'action', width: 100 },
+  { title: '状态', key: 'status', width: 130 },
+  { title: '操作', key: 'action', width: 110 },
 ]
 
-const quarterColumns: TableColumnsType<QuarterRow> = [
-  { title: '留样编号', key: 'name', dataIndex: 'retentionName', width: 200 },
-  { title: '样品 / 批号', key: 'sample', width: 195 },
-  { title: '类别', key: 'category', dataIndex: 'category', width: 110 },
-  { title: '留样期至', key: 'dueDate', dataIndex: 'dueDate', width: 105 },
-  { title: '剩余天数', key: 'remain', dataIndex: 'remainDays', width: 100 },
-  { title: '处理状态', key: 'state', dataIndex: 'state', width: 110 },
-  { title: '建议', key: 'suggest', width: 150 },
+// ---------- 季度到期处理清单（非完结单投影） ----------
+const IN_FLIGHT = ['待QC主管审核', '待QC负责人审核', '待QA审核', '待QA负责人审核', '待QM批准']
+
+const quarterRows = computed<DisposalRow[]>(() =>
+  rows.value
+    .filter((d) => !isTerminal(d))
+    .slice()
+    .sort((a, b) => (isOverdue(b) ? 1 : 0) - (isOverdue(a) ? 1 : 0)),
+)
+const quarterCounts = computed(() => ({
+  lin: quarterRows.value.filter((d) => IN_FLIGHT.includes(d.status)).length,
+  ready: quarterRows.value.filter(
+    (d) => d.status === '待执行' || (d.status === '已批准' && d.type === DSP_CONTINUE),
+  ).length,
+  overdue: quarterRows.value.filter((d) => isOverdue(d)).length,
+}))
+
+const quarterColumns: TableColumnsType<DisposalRow> = [
+  { title: '处理单号', key: 'name', width: 200 },
+  { title: '产品 / 批号', key: 'sample', width: 215 },
+  { title: '类型', key: 'type', width: 160 },
+  { title: '层级', key: 'level', width: 115 },
+  { title: 'deadline', key: 'deadline', width: 115 },
+  { title: '状态', key: 'status', width: 165 },
+  { title: '操作', key: 'action', width: 120 },
 ]
 
-const quarterCounts = computed(() => {
-  const q = quarterRows.value
-  return {
-    lin: q.filter((r) => r.state === '临期').length,
-    ready: q.filter((r) => r.state === '已批准待执行').length,
-    overdue: q.filter((r) => r.state === '销毁超期').length,
-  }
-})
-
-function statusPillClass(s: DisposalStatus): string {
-  if (s === '销毁超期') return 'pill-danger'
-  if (s === '已销毁' || s === '已完成续留') return 'pill-pass'
+// ---------- 状态展示 ----------
+function statusPillClass(s: string): string {
+  if (s === '已完成') return 'pill-pass'
   if (s === '已批准') return 'pill-primary'
   if (s === '草稿' || s === '已驳回' || s === '已取消') return 'pill-muted'
   return 'pill-warn'
 }
-
-function quarterPillClass(s: QuarterRow['state']): string {
-  if (s === '销毁超期') return 'pill-danger'
-  if (s === '临期' || s === '已批准待执行') return 'pill-warn'
-  if (s === '已完成') return 'pill-pass'
-  return 'pill-muted'
-}
-
-function rowActionText(d: DisposalApply): string {
-  const act = disposalActionNeeded(d.status)
-  if (act && can(demo.role, act)) {
-    if (d.status === '草稿') return '提交'
-    if (d.status === '待QC主管审核' || d.status === '待QC负责人审核' || d.status === '待QA审核' || d.status === '待QM批准') return '审批'
-    if (d.status === '待执行') return '双签执行'
+function displayStatus(d: DisposalRow): { text: string; cls: string; note: string } {
+  if (isOverdue(d)) {
+    return { text: '销毁超期', cls: 'pill-danger', note: `deadline ${d.deadline} 已过 ${-dayDiff(d.deadline || '')} 天` }
   }
-  return d.status === '销毁超期' ? '决策' : '查看'
+  return { text: d.status, cls: statusPillClass(d.status), note: '' }
 }
 
-// 季度清单建议列的按钮文案 / 点击行为
-function quarterSuggestText(r: QuarterRow): string {
-  if (r.disposalName) return r.state === '销毁超期' ? 'Manager 决策' : '查看处理单'
-  if (r.state === '临期' || r.state === '销毁超期') return '发起处理'
-  return ''
+function rowActionLabel(d: DisposalRow): string {
+  const ak = approvalKey(d)
+  if (ak && can(ak)) return d.status === '草稿' ? '提交' : '审批'
+  const ek = execKeyFor(d)
+  if (ek === 'handler') return '处理人签名'
+  if (ek === 'monitor') return '监督人签名'
+  if (ek === 'continue') return '续留执行'
+  return '查看'
 }
 
-function onQuarterSuggest(r: QuarterRow) {
-  if (r.disposalName) {
-    const d = rows.value.find((x) => x.name === r.disposalName)
-    if (d) {
-      filter.value = 'all'
-      selectRow(d)
-    } else {
-      message.info('处理单不在当前列表中（演示数据）。')
-    }
-    return
-  }
-  if (r.state === '临期' || r.state === '销毁超期') openCreate(r.retentionName)
-}
-
-// 选择行：加载右侧详情并滚动到双栏区域
+// ---------- 行选择与滚动 ----------
 const layoutRef = ref<HTMLElement | null>(null)
-const quarterRef = ref<HTMLElement | null>(null)
 
-function scrollToQuarter() {
-  quarterRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
-function pendingExec(d: DisposalApply): boolean {
-  return d.status === '待执行' || (d.type === '期满续留' && d.status === '已批准')
-}
-
-const execForm = reactive({ handler: '', supervisor: '', newDueDate: '' })
-
-function addYears(iso: string, years: number): string {
-  const [y, m, dd] = iso.split('-').map(Number)
-  return `${y + years}-${String(m).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
-}
-
-function seedExec(d: DisposalApply) {
-  if (!pendingExec(d)) return
-  execForm.handler = d.handler && d.handler !== '待签名' ? d.handler : demoPerson('analyst')
-  execForm.supervisor = d.supervisor && d.supervisor !== '待签名' ? d.supervisor : demoPerson('qa')
-  execForm.newDueDate = d.newDueDate || addYears(d.dueDate, 3)
-}
-
-function selectRow(d: DisposalApply) {
+function selectRow(d: DisposalRow) {
   selected.value = d
-  seedExec(d)
   layoutRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
+function customRow(record: DisposalRow) {
+  return { onClick: () => selectRow(record), style: { cursor: 'pointer' } }
+}
+function rowClassName(record: DisposalRow): string {
+  return selected.value && selected.value.name === record.name ? 'sel-row' : ''
+}
 
-function customRow(record: DisposalApply) {
-  return {
-    onClick: () => selectRow(record),
-    style: { cursor: 'pointer' },
+// ---------- 审批链（真实签名位） ----------
+interface ChainStep {
+  key: string
+  label: string
+  who: string
+  dot: string
+  state: 'done' | 'active' | 'skipped' | 'todo'
+}
+
+const selectedChain = computed<ChainStep[]>(() => {
+  const d = selected.value
+  if (!d) return []
+  const steps: ChainStep[] = []
+  const add = (key: string, label: string, who: string, state: ChainStep['state'], dot: string) =>
+    steps.push({ key, label, who, dot, state })
+  const node = (key: string, label: string, sign: string | undefined, pending: string, seq: number) => {
+    if (sign) {
+      add(key, label, sign, 'done', '✓')
+    } else if (d.status === pending) {
+      add(key, label, '待签', 'active', String(seq))
+    } else {
+      add(key, label, '—', 'todo', String(seq))
+    }
   }
-}
 
-// ---------- 详情：审批链 / 双签 / 动作 ----------
-const selectedChain = computed(() => (selected.value ? disposalChainSteps(selected.value) : []))
+  add('applicant', '申请人', d.applicant || '—', 'done', '✓')
+  node('qc_supervisor', 'QC 主管', d.qc_supervisor_sign, '待QC主管审核', 2)
+  node('qc_manager', 'QC 负责人', d.qc_manager_sign, '待QC负责人审核', 3)
+  node('qa_review', 'QA 审核', d.qa_review_sign, '待QA审核', 4)
+  if (d.qa_manager_required) {
+    node('qa_manager', 'QA 负责人', d.qa_manager_sign, '待QA负责人审核', 5)
+  } else {
+    add('qa_manager', 'QA 负责人', '审批层跳过', 'skipped', '—')
+  }
+  node('qm', 'QM 批准', d.qm_sign, '待QM批准', d.qa_manager_required ? 6 : 5)
+  return steps
+})
 
-function deadlineField(d: DisposalApply): string | null {
-  if (d.type !== '期满销毁') return null
-  if (!['待执行', '已销毁', '销毁超期'].includes(d.status)) return null
-  const qm = d.signedBy.qm
-  return `QM 批准 ${qm ? qm.at : '—'} + 3 个月 → ${d.deadline || '—'}`
-}
-
+// ---------- 详情动作（提交 / 逐级批准 / 驳回 / Manager 取消） ----------
 interface DetailBtn { key: string; label: string; primary?: boolean; danger?: boolean }
 
-// Manager 取消逃生口适用的状态（草稿不在此列）
-const CANCELABLE: DisposalStatus[] = [
-  '待QC主管审核', '待QC负责人审核', '待QA审核', '待QM批准',
-  '已批准', '待执行', '销毁超期',
-]
+const approveLabel: Record<string, string> = {
+  待QC主管审核: 'QC 主管通过',
+  待QC负责人审核: 'QC 负责人通过',
+  待QA审核: 'QA 审核通过',
+  待QA负责人审核: 'QA 负责人通过',
+  待QM批准: 'QM 批准',
+}
 
 const detailActions = computed<DetailBtn[]>(() => {
-  const s = selected.value
-  if (!s) return []
+  const d = selected.value
+  if (!d) return []
   const list: DetailBtn[] = []
-  const st = s.status
-  if (st === '草稿') {
-    if (can(demo.role, 'disposal_create')) list.push({ key: 'advance', label: '提交审核', primary: true })
-  } else if (st === '待QC主管审核' || st === '待QC负责人审核' || st === '待QA审核' || st === '待QM批准') {
-    const approveKey =
-      st === '待QC主管审核' || st === '待QC负责人审核' ? 'disposal_qclevel' : st === '待QA审核' ? 'disposal_qalevel' : 'disposal_qm'
-    const approveLabel =
-      st === '待QC主管审核' ? 'QC 主管通过'
-        : st === '待QC负责人审核' ? 'QC 负责人通过'
-          : st === '待QA审核' ? 'QA 通过' : 'QM 批准'
-    if (can(demo.role, approveKey)) {
-      list.push({ key: 'advance', label: approveLabel, primary: true })
+  const ak = approvalKey(d)
+  if (ak && can(ak)) {
+    if (d.status === '草稿') list.push({ key: 'approve', label: '提交审核', primary: true })
+    else {
+      list.push({ key: 'approve', label: approveLabel[d.status] ?? '通过', primary: true })
       list.push({ key: 'reject', label: '驳回', danger: true })
     }
   }
-  if (st !== '草稿' && CANCELABLE.includes(st) && can(demo.role, 'disposal_cancel')) {
+  if (!isTerminal(d) && can('disposal_cancel')) {
     list.push({ key: 'cancel', label: 'Manager 取消', danger: true })
   }
   return list
 })
 
-function syncRows(name: string) {
-  rows.value = [...rows.value]
-  selected.value = rows.value.find((r) => r.name === name) ?? selected.value
-}
+const noActionHint = computed(() => {
+  const d = selected.value
+  if (!d) return false
+  return !detailActions.value.length && !execKeyFor(d)
+})
 
-function advanceNote(d: DisposalApply): string {
-  switch (d.status) {
-    case '待QC主管审核': return '已提交，进入 QC 主管审核'
-    case '待QC负责人审核': return 'QC 主管审核通过，进入 QC 负责人审核'
-    case '待QA审核': return 'QC 负责人审核通过，进入 QA 审核'
-    case '待QM批准': return 'QA 审核通过，进入 QM 批准'
-    case '待执行': return `QM 批准完成：销毁 deadline ${d.deadline}（QM 批准 + 3 个月）`
-    case '已批准': return d.type === '期满续留' ? 'QM 批准完成，可办理续留双签' : 'QM 批准完成'
-    default: return ''
-  }
-}
-
-function advanceOne() {
-  const s = selected.value
-  if (!s) return
-  advanceDisposal(s)
-  syncRows(s.name)
-  seedExec(s)
-  message.success(`${s.name} → ${s.status}：${advanceNote(s)}（演示）`)
-}
-
-function runDetail(key: string) {
-  if (key === 'advance') {
-    advanceOne()
+const acting = ref(false)
+const actingKey = ref('')
+async function runDetail(key: string) {
+  const d = selected.value
+  if (!d) return
+  if (key === 'approve') {
+    acting.value = true
+    actingKey.value = 'approve'
+    try {
+      const res = await approveDisposal(d.name)
+      message.success(`${d.name} → ${res.status}`)
+      await reload(d.name)
+    } catch {
+      /* 错误提示已由 client 拦截器给出 */
+    } finally {
+      acting.value = false
+      actingKey.value = ''
+    }
   } else if (key === 'reject') {
     rejectReason.value = ''
     rejectOpen.value = true
@@ -659,177 +761,139 @@ function runDetail(key: string) {
   }
 }
 
-// ---------- 执行双签 ----------
-function doExecute() {
-  const s = selected.value
-  if (!s) return
-  const handler = execForm.handler.trim()
-  const supervisor = execForm.supervisor.trim()
-  if (!handler || !supervisor) {
-    message.warning('请填写处理人与监督人（QA）')
-    return
-  }
-  if (s.type !== '期满销毁') {
-    const nd = execForm.newDueDate || ''
-    if (!nd) {
-      message.warning('请选择新留样期至')
-      return
+// ---------- 执行：销毁双签 / 续留执行 ----------
+const signing = ref(false)
+async function sign(kind: 'handler' | 'monitor' | 'continue') {
+  const d = selected.value
+  if (!d) return
+  signing.value = true
+  try {
+    let res: { name: string; status: string }
+    if (kind === 'handler') res = await disposalHandle(d.name)
+    else if (kind === 'monitor') res = await disposalMonitor(d.name)
+    else res = await continueRetention(d.name)
+    if (res.status === '已完成') {
+      message.success(`${res.name}：${kind === 'continue' ? '续留改期完成，留样期至已回写' : '双签齐备，已写入销毁出库流水'}`)
+    } else {
+      message.success(`${res.name} 已签署${kind === 'monitor' ? '（监督人）' : kind === 'handler' ? '（处理人）' : ''}，等待${kind === 'continue' ? '完成' : '另一方双签'}`)
     }
-    if (nd <= s.dueDate) {
-      message.warning('新留样期至须晚于原留样期至')
-      return
-    }
-    s.newDueDate = nd
-  }
-  const destroy = s.type === '期满销毁'
-  executeDisposal(s, handler, supervisor)
-  syncRows(s.name)
-  if (destroy) {
-    completeQuarter(s.name, '已销毁')
-    message.success('已写入销毁出库流水（演示）')
-  } else {
-    completeQuarter(s.name, `已完成续留至 ${s.newDueDate}`)
-    message.success(`续留完成：新留样期至 ${s.newDueDate}（演示）`)
+    await reload(d.name)
+  } catch {
+    /* 错误提示已由 client 拦截器给出 */
+  } finally {
+    signing.value = false
   }
 }
 
 // ---------- 驳回 / Manager 取消 ----------
 const rejectOpen = ref(false)
 const rejectReason = ref('')
-function confirmReject() {
-  const s = selected.value
-  if (!s) return
+async function confirmReject() {
+  const d = selected.value
+  if (!d) return
   if (!rejectReason.value.trim()) {
     message.warning('请填写驳回原因')
     return
   }
-  s.status = '已驳回'
-  syncRows(s.name)
-  rejectOpen.value = false
-  message.info('已驳回：留样按原状留存，可重新发起处理（演示）')
+  acting.value = true
+  actingKey.value = 'reject'
+  try {
+    await rejectDisposal(d.name, rejectReason.value.trim())
+    message.info(`${d.name} 已驳回：留样按原状留存，可重新发起处理`)
+    rejectOpen.value = false
+    await reload(d.name)
+  } catch {
+    /* client 已提示 */
+  } finally {
+    acting.value = false
+    actingKey.value = ''
+  }
 }
 
 const cancelOpen = ref(false)
 const cancelReason = ref('')
-function confirmCancel() {
-  const s = selected.value
-  if (!s) return
+async function confirmCancel() {
+  const d = selected.value
+  if (!d) return
   if (!cancelReason.value.trim()) {
     message.warning('请填写取消原因')
     return
   }
-  s.status = '已取消'
-  releaseQuarter(s.name)
-  syncRows(s.name)
-  cancelOpen.value = false
-  message.success('已取消：按进入处理前的状态快照恢复留样（演示）')
-}
-
-// ---------- 季度清单联动 ----------
-function linkQuarter(retentionName: string, name: string) {
-  quarterRows.value = quarterRows.value.map((r) =>
-    r.retentionName === retentionName ? { ...r, disposalName: name } : r,
-  )
-}
-
-function completeQuarter(name: string, text: string) {
-  quarterRows.value = quarterRows.value.map((r) =>
-    r.disposalName === name ? { ...r, state: '已完成', suggestion: text } : r,
-  )
-}
-
-function releaseQuarter(name: string) {
-  quarterRows.value = quarterRows.value.map((r) => {
-    if (r.disposalName !== name) return r
-    const overdue = r.dueDate < TODAY
-    const next: QuarterRow = { ...r }
-    delete next.disposalName
-    next.state = overdue ? '销毁超期' : '临期'
-    next.suggestion = overdue ? 'Manager 决策' : '发起处理申请'
-    return next
-  })
+  acting.value = true
+  actingKey.value = 'cancel'
+  try {
+    await cancelDisposalApply(d.name, cancelReason.value.trim())
+    message.success(`${d.name} 已取消${d.status === '待执行' ? '，并按进入处理前快照恢复留样' : ''}`)
+    cancelOpen.value = false
+    await reload(d.name)
+  } catch {
+    /* client 已提示 */
+  } finally {
+    acting.value = false
+    actingKey.value = ''
+  }
 }
 
 // ---------- 新建处理申请 ----------
 const createOpen = ref(false)
+const creating = ref(false)
+const candidates = ref<RetentionCandidate[]>([])
 const createForm = reactive({
-  retentionName: '',
+  retention_name: undefined as string | undefined,
+  disposal_type: DSP_DESTROY,
   product: '',
   batch: '',
-  category: '',
-  dueDate: '',
-  type: '期满销毁' as DisposalType,
+  status: '',
   qty: undefined as number | undefined,
-  uom: '',
-  qaManagerRequired: true,
+  qa_manager_required: true,
   reason: '',
-  method: '',
-  location: '',
+  disposal_method: '',
+  disposal_location: '',
+  new_retention_due_date: undefined as string | undefined,
 })
+
+const typeOptions = [
+  { value: DSP_DESTROY, label: DSP_DESTROY },
+  { value: DSP_CONTINUE, label: DSP_CONTINUE },
+  { value: '其他', label: '其他' },
+]
 
 const createOptions = computed(() =>
-  quarterRows.value
-    .filter((r) => !r.disposalName && (r.state === '临期' || r.state === '销毁超期'))
-    .map((r) => ({
-      value: r.retentionName,
-      label: `${r.product} · ${r.batch} · 留样期至 ${r.dueDate}`,
-    })),
+  candidates.value.map((c) => ({
+    value: c.name,
+    label: `${c.product_name} · 批 ${c.batch_no}（结存 ${c.current_qty} ${c.qty_uom} / 可用 ${c.available_qty} ${c.qty_uom}）`,
+  })),
 )
 
-const pickedQuarter = computed<QuarterRow | null>(
-  () => quarterRows.value.find((r) => r.retentionName === createForm.retentionName) ?? null,
+const pickedCandidate = computed<RetentionCandidate | undefined>(
+  () => candidates.value.find((c) => c.name === createForm.retention_name),
 )
 
-const pickedStock = computed<{ currentQty: number; reservedQty: number; uom: string } | null>(() => {
-  const name = createForm.retentionName
-  if (!name) return null
-  const m = rows.value.find(
-    (d) => d.retentionName === name && !['已取消', '已驳回', '已销毁', '已完成续留'].includes(d.status),
-  )
-  return m ? { currentQty: m.currentQty, reservedQty: m.reservedQty, uom: m.uom } : null
-})
+function onPickCandidate() {
+  const c = pickedCandidate.value
+  createForm.product = c?.product_name ?? ''
+  createForm.batch = c?.batch_no ?? ''
+  createForm.status = c?.status ?? ''
+  createForm.qty = c?.current_qty ?? undefined
+}
 
-function openCreate(preRetention?: string) {
+async function openCreate() {
   Object.assign(createForm, {
-    retentionName: '',
-    product: '', batch: '', category: '', dueDate: '',
-    type: '期满销毁' as DisposalType,
-    qty: undefined,
-    uom: '',
-    qaManagerRequired: true,
-    reason: '',
-    method: '',
-    location: '',
+    retention_name: undefined, disposal_type: DSP_DESTROY, product: '', batch: '', status: '',
+    qty: undefined, qa_manager_required: true, reason: '',
+    disposal_method: '', disposal_location: '', new_retention_due_date: undefined,
   })
-  if (preRetention) {
-    createForm.retentionName = preRetention
-    onPickRetention(preRetention)
-  }
   createOpen.value = true
+  try {
+    candidates.value = await retentionCandidates(['在库', '部分使用'])
+  } catch {
+    candidates.value = []
+  }
 }
 
-function onPickRetention(val: string) {
-  const r = quarterRows.value.find((x) => x.retentionName === val)
-  if (!r) return
-  createForm.product = r.product
-  createForm.batch = r.batch
-  createForm.category = r.category
-  createForm.dueDate = r.dueDate
-  createForm.qty = pickedStock.value?.currentQty ?? undefined
-  createForm.uom = pickedStock.value?.uom ?? ''
-}
-
-function nextOrderNo(): string {
-  const max = rows.value.reduce((m, d) => {
-    const tail = Number(d.name.split('-').pop() ?? 0)
-    return Number.isFinite(tail) ? Math.max(m, tail) : m
-  }, 0)
-  return `HBOS-RET-DSP-2026-${String(max + 1).padStart(5, '0')}`
-}
-
-function confirmCreate() {
-  const q = pickedQuarter.value
-  if (!q) {
+async function confirmCreate() {
+  const c = pickedCandidate.value
+  if (!c) {
     message.error('请选择留样批次')
     return
   }
@@ -838,70 +902,81 @@ function confirmCreate() {
     message.error('数量须大于 0（默认取该留样结存）')
     return
   }
-  if (!createForm.uom.trim()) {
-    message.error('请填写 UOM')
+  if (c.available_qty <= 0) {
+    message.error('该留样可用量为 0，不可发起处理')
+    return
+  }
+  if (qty > c.available_qty) {
+    message.error(`数量超过可用量（可用 ${c.available_qty} ${c.qty_uom}）`)
     return
   }
   if (!createForm.reason.trim()) {
     message.error('请填写处理原因')
     return
   }
-  if (!createForm.method.trim() || !createForm.location.trim()) {
+  if (!createForm.disposal_method.trim() || !createForm.disposal_location.trim()) {
     message.error('请填写处理方式与地点')
     return
   }
-  if (pickedStock.value && qty > pickedStock.value.currentQty) {
-    message.error(`数量超过当前结存（${pickedStock.value.currentQty} ${pickedStock.value.uom}）`)
+  if (createForm.disposal_type === DSP_CONTINUE && !createForm.new_retention_due_date) {
+    message.error('续留类型必须填写新留样期至')
     return
   }
-  const no = nextOrderNo()
-  const na: DisposalApply = {
-    name: no,
-    retentionName: createForm.retentionName,
-    product: createForm.product,
-    batch: createForm.batch,
-    category: createForm.category,
-    dueDate: createForm.dueDate,
-    type: createForm.type,
-    reason: createForm.reason.trim(),
-    method: createForm.method.trim(),
-    location: createForm.location.trim(),
-    applicant: APPLICANT,
-    applicantDate: TODAY,
-    qaManagerRequired: createForm.qaManagerRequired,
-    status: '草稿',
-    signedBy: {},
-    qty,
-    uom: createForm.uom.trim(),
-    currentQty: pickedStock.value?.currentQty ?? qty,
-    reservedQty: 0,
-    deadline: '',
-    newDueDate: '',
-    handler: '',
-    supervisor: '',
+  creating.value = true
+  try {
+    const created = await createDisposalApply({
+      retention_name: c.name,
+      disposal_type: createForm.disposal_type,
+      qty,
+      reason: createForm.reason.trim(),
+      disposal_method: createForm.disposal_method.trim(),
+      disposal_location: createForm.disposal_location.trim(),
+      qa_manager_required: createForm.qa_manager_required ? 1 : 0,
+      new_retention_due_date: createForm.disposal_type === DSP_CONTINUE ? createForm.new_retention_due_date : undefined,
+    })
+    await submitDisposalApply(created.name)
+    message.success(`处理申请 ${created.name} 已创建并提交审批`)
+    createOpen.value = false
+    filter.value = 'all'
+    await reload(created.name)
+  } catch {
+    /* client 已提示 */
+  } finally {
+    creating.value = false
   }
-  rows.value = [na, ...rows.value]
-  selected.value = na
-  filter.value = 'all'
-  linkQuarter(na.retentionName, na.name)
-  createOpen.value = false
-  message.success(`处理申请 ${no} 已创建（草稿），申请人 ${APPLICANT}`)
 }
 
-// ---------- 初始选中 & focus 路由（来自工作台“去处理”） ----------
-const focusName = typeof route.query.focus === 'string' ? route.query.focus : ''
-selected.value =
-  (focusName ? rows.value.find((d) => d.name === focusName) : undefined) ??
-  mineRows.value[0] ??
-  rows.value[0] ??
-  null
-if (selected.value) seedExec(selected.value)
+// ---------- 载入与路由 focus ----------
+async function reload(preferName?: string) {
+  loading.value = true
+  try {
+    const res = await disposalList()
+    rows.value = res.rows || []
+    const keepName = preferName || selected.value?.name
+    if (keepName) {
+      selected.value = rows.value.find((r) => r.name === keepName) ?? selected.value
+    } else {
+      selected.value = null
+    }
+  } catch {
+    /* client 已提示 */
+  } finally {
+    loading.value = false
+  }
+}
 
-onMounted(() => {
+async function initialLoad() {
+  await reload()
+  const focusName = typeof route.query.focus === 'string' ? route.query.focus : ''
+  const focusRow = focusName ? rows.value.find((r) => r.name === focusName) : undefined
+  selected.value = focusRow ?? mineRows.value[0] ?? rows.value[0] ?? null
   if (focusName && selected.value) {
     nextTick(() => layoutRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
-})
+}
+
+const route = useRoute()
+onMounted(initialLoad)
 </script>
 
 <style scoped>
@@ -910,11 +985,15 @@ onMounted(() => {
 .ret-main { color: var(--ink); }
 .ret-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
+.mode-bar { margin-bottom: 14px; }
+
 .hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .hero-title { font-size: 15px; font-weight: 700; color: var(--ink); }
 .hero-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
 .level-row { display: flex; align-items: center; gap: 10px; }
+
+.pill-note { font-size: 11px; margin-top: 2px; line-height: 1.4; }
 
 .dual {
   display: grid;
@@ -931,5 +1010,9 @@ onMounted(() => {
   padding: 7px 10px;
   font-size: 12px;
   color: var(--ink);
+}
+
+:deep(.sel-row > td) {
+  background: var(--primary-soft) !important;
 }
 </style>

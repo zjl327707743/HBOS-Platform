@@ -47,7 +47,7 @@
 - `docs/frontend/M2_R6A_样品登记动态表单设计.md`：M2-R6A 样品登记动态表单设计（下拉决策条 + 9 类完整表单 + 设计提示词）。
 - `docs/frontend/M2_R6B_检验结果台账设计方案.md`：M2-R6B 检验结果台账双模式设计（明细台账 + 样品表每样品种类一表 + 后端落地设计）。
 - `docs/frontend/M2_R6D_合规审计日志原型.html`：M2-R6D 合规审计日志原型（全量事件类型 + 下钻含数据完整性与指纹）。
-- `docs/milestones/M2_R7_留样管理板块开发方案.md`：M2-R7 留样管理板块开发方案（规程数字化定案 + 5 主 1 子 DocType + 三状态机 + R7A~D 四子轮拆分，REVIEWING rev6 口径已定稿；R7A 与 R7D 已落地，R7B/C 后端 PLANNED）。
+- `docs/milestones/M2_R7_留样管理板块开发方案.md`：M2-R7 留样管理板块开发方案（规程数字化定案 + 5 主 1 子 DocType + 三状态机 + R7A~D 四子轮拆分，REVIEWING rev6 口径已定稿；R7A 与 R7D 已落地，R7B/C 后端已实现并真实验证）。
 - `docs/milestones/M2_R7D_留样板块前端设计.md`：M2-R7D 留样板块前端设计（原型三件套 → Vue 6 视图复刻 → 生产部署 `/hbos-lims`，DEPLOYED，Owner 2026-09-08 已确认测试路径）。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
@@ -114,8 +114,8 @@
 | M2-R6B | 检验结果台账双模式设计 | REVIEWING / Owner 已确认原型与交互 |
 | M2-R6C | 检验结果台账 Vue 复刻与生产部署 | DEPLOYED |
 | M2-R6D | 合规审计日志 + 生产部署错配修复 | DEPLOYED |
-| M2-R7 | 留样管理板块（方案 rev6 口径定稿；R7A 主数据与留样登记已在 m2-r6 交付并测试路径验证；R7B/C 后端 PLANNED） | REVIEWING rev6 |
-| M2-R7D | 留样板块前端 Vue 复刻与生产部署（6 视图；工作台/观察/使用/处理以演示数据先行，登记台账/产品接真实 R7A API；Owner 2026-09-08 确认） | DEPLOYED |
+| M2-R7 | 留样管理板块（方案 rev6 口径定稿；R7A 主数据与留样登记已在 m2-r6 交付并测试路径验证；R7B/C 后端已实现并真实验证） | REVIEWING rev6 |
+| M2-R7D | 留样板块前端 Vue 复刻与生产部署（6 视图；工作台/观察/使用/处理已切换真实后端接入，登记台账/产品接真实 R7A API；Owner 2026-09-08 确认） | DEPLOYED |
 
 ## 下一步路线
 
@@ -131,15 +131,15 @@
 10. M2-R6C（检验结果台账 Vue 复刻与生产部署）已交付：`ResultLedgerView.vue` 复刻双模式并接入真实 Frappe API（Sample / Test Result / COA / Result Revision 聚合、只读投影、superseded 链过滤、修订/审计摘要），新增判定/状态列筛选与语义配色；生产构建已同步至容器 `hbos-m0-r3a-frontend-1`（备份 `hbos-lims.bak-20260827a`），生产 URL HTTP 200 验证通过，Owner 已确认测试路径效果，DEPLOYED。
 11. M2-R6D（合规审计日志 + 生产部署错配修复）已交付：后端 `HBOS Audit Log` DocType（write-once+sha1 防篡改）+ hooks doc_events 全量捕获 + `get_audit_log` 查询 + 业务埋点；前端合规组新增 合规审计日志 入口 + `/audit-log` + `AuditLogView.vue`；离线契约 123/123 全绿、真实环境跑通、已上线生产，Owner 已确认测试路径。另修复生产部署错配（index.html 与 assets 新旧哈希错配致样品登记/审计追踪等个别页面 404）——root 清旧 assets 后重新部署最新干净 dist，注入 nginx SPA fallback 修 `/hbos-lims` history 路由 404，DEPLOYED。
 12. M2-R7（留样管理板块开发方案）REVIEWING rev6：Owner 已授权留样板块纳入 `hb_lims_app` 范围（R7A~D 子轮须方案审查通过后启动）。以《留样管理规程》JXH-SOP-LC-1-00-007-09 为第一业务依据，方案定案 5 主 + 1 子 DocType（Retention Product / Retention Sample+Stock Log / Observation / Usage Apply / Disposal Apply）+ 标签 Print Format + 4 报表 + 三状态机 + 审计复用 R6D；经 rev1 首轮 8 项、rev3 二轮 9 项、rev4 三轮 9 项审查修订，rev4 复审结论 PASS WITH WARN，rev5 完成 2 项 P2 修正。rev6 完成终审修订（P1 释放预占绑定本单状态、P2 待处理回退/审批逃生口/受托转出落位、P3 六项分轮注意事项）。Owner 2026-09-07 两项决策：角色方案 B+SoD 采纳（第 1 项）、分支策略 b（第 8 项，m2-r6 为 M2 延伸工作线，M2_START_GATE 已同步）；余 6 项——标签尺寸/法规条号/销毁层级为 R7A 前核对项，观察批先手动/历史不迁移/提醒 30 天按默认值推进。未创建 DocType、未写业务代码。主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
-13. M2-R7D（留样板块前端 Vue 复刻与生产部署）DEPLOYED：Owner 2026-09-08 确认测试路径并授权同步生产。按 `docs/frontend/M2_R7_留样板块前端设计方案.md` 与交互式原型在 `m2-r6` Vue 工程落地 6 视图（工作台 + samples/products/observations/usage/disposal），侧栏「留样管理」扩为 6 入口；新增工作台/观察/使用/处理四视图 + `retention.scss` + `src/demo/retentionDemo.ts` 演示数据与角色矩阵 + `DemoBar`；登记台账/产品沿用真实 R7A API 并小幅对齐（可用量列/临期范围筛选/页头样式统一）；`vue-tsc` 0 错误、生产构建成功并同步 `/hbos-lims`（备份 hbos-lims.bak-20260908101325，root 清旧 assets），全路由与 bundle HTTP 200。R7B（观察管理）/R7C（使用与处理审批）后端 PLANNED，落地后替换演示数据源为 retention_service whitelist。
+13. M2-R7D（留样板块前端 Vue 复刻与生产部署）DEPLOYED：Owner 2026-09-08 确认测试路径并授权同步生产。按 `docs/frontend/M2_R7_留样板块前端设计方案.md` 与交互式原型在 `m2-r6` Vue 工程落地 6 视图（工作台 + samples/products/observations/usage/disposal），侧栏「留样管理」扩为 6 入口；新增工作台/观察/使用/处理四视图 + `retention.scss` + `src/demo/retentionDemo.ts` 演示数据与角色矩阵 + `DemoBar`；登记台账/产品沿用真实 R7A API 并小幅对齐（可用量列/临期范围筛选/页头样式统一）；`vue-tsc` 0 错误、生产构建成功并同步 `/hbos-lims`（备份 hbos-lims.bak-20260908101325，root 清旧 assets），全路由与 bundle HTTP 200。R7B（观察管理）/R7C（使用与处理审批）后端已实现并真实验证，落地后替换演示数据源为 retention_service whitelist。
 
 M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1 历史 closeout 已完成，但 Owner UI 验收发现功能缺口，当前产品交付仍在 M1-FIX 中。M1-R6C = COMPLETED。M1-R7 = COMPLETED。M1-FIX-A = REVIEWING。M1-FIX-B = REVIEWING。M1-FIX-B-FIX = REVIEWING。M1-FIX-B2 = COMPLETED。M1-FIX-B3 = REVIEWING / Owner UI 验收未通过。M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。M1-FIX-B5 = REVIEWING。M2-LIMS = IN_PROGRESS，M2-R1 至 M2-R4 COMPLETED，M2-R5 REVIEWING，M2-R6 REVIEWING。
 M2-R6A REVIEWING。
 M2-R6B REVIEWING / Owner 已确认原型与交互。
 M2-R6C DEPLOYED。
 M2-R6D DEPLOYED（合规审计日志 + 生产部署错配修复）。
-M2-R7 REVIEWING rev6（留样管理板块开发方案口径定稿，Owner 已确认角色方案 B 与分支策略 b；R7A 已在 m2-r6 交付 3 DocType+retention_service+前端两页；R7B/C 后端 PLANNED）。
-M2-R7D DEPLOYED（留样板块前端 Vue 复刻与生产部署，6 视图已同步 /hbos-lims，工作台/观察/使用/处理以演示数据先行，Owner 2026-09-08 确认）。
+M2-R7 REVIEWING rev6（留样管理板块开发方案口径定稿，Owner 已确认角色方案 B 与分支策略 b；R7A 已在 m2-r6 交付 3 DocType+retention_service+前端两页；R7B/C 后端已实现并真实验证）。
+M2-R7D DEPLOYED（留样板块前端 Vue 复刻与生产部署，6 视图已同步 /hbos-lims，工作台/观察/使用/处理已切换真实后端接入，Owner 2026-09-08 确认）。
 
 ## 更新规则
 

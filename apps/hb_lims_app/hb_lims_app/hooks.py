@@ -67,4 +67,30 @@ doc_events = {
 		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
 		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
 	},
+	# R7B 观察记录
+	"HBOS Retention Observation": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	# R7C 使用/处理申请
+	"HBOS Retention Usage Apply": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Retention Disposal Apply": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+}
+
+# R7C：销毁超期 / 到期提醒派生扫描（cron 每日 00:30 服务器本地；纯派生不改状态，见方案 8.3）
+scheduler_events = {
+	"cron": {
+		"30 0 * * *": [
+			"hb_lims_app.hbos_lims.retention_service.scheduler_scan",
+		],
+	},
 }

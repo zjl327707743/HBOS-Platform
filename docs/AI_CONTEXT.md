@@ -21,7 +21,7 @@
 
 当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成（M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING）；M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动。
 
-当前目标：M2-R1 至 M2-R4 已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，等待 Owner 审查。M2-R7D（留样板块前端 Vue 复刻与生产部署）DEPLOYED：留样方案 rev6 口径定稿（Owner 2026-09-07 确认角色方案 B+SoD、分支策略 b）；R7A（主数据与留样登记 3 DocType + retention_service + 前端两页）已在 m2-r6 交付并测试路径验证；6 视图 Vue 板块已同步生产 `/hbos-lims`（工作台/观察/使用/处理 4 视图以演示数据 TEST-HBOS-M2-RET-* 先行并横幅标注，登记台账/产品接真实 R7A API），Owner 2026-09-08 已确认测试路径；R7B（观察管理）/R7C（使用与处理审批）后端 PLANNED。M1-FIX-B3 / B4 / B5 为并行未决事项，不 closeout，不阻塞 M2-LIMS。M1-FIX-C/D/E 未启动。
+当前目标：M2-R1 至 M2-R4 已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，等待 Owner 审查。M2-R7D（留样板块前端 Vue 复刻与生产部署）DEPLOYED：留样方案 rev6 口径定稿（Owner 2026-09-07 确认角色方案 B+SoD、分支策略 b）；R7A（主数据与留样登记 3 DocType + retention_service + 前端两页）已在 m2-r6 交付并测试路径验证；6 视图 Vue 板块已同步生产 `/hbos-lims`（工作台/观察/使用/处理 4 视图以演示数据 TEST-HBOS-M2-RET-* 先行并横幅标注，登记台账/产品接真实 R7A API），Owner 2026-09-08 已确认测试路径；R7B（观察管理）/R7C（使用与处理审批）后端已实现并真实验证。M1-FIX-B3 / B4 / B5 为并行未决事项，不 closeout，不阻塞 M2-LIMS。M1-FIX-C/D/E 未启动。
 M2-R6A（样品登记动态表单设计）随 M2-R6 并行 REVIEWING，等待 Owner 审查。
 M2-R6B（检验结果台账双模式设计）REVIEWING，Owner 已确认原型与交互（明细台账 + 样品表每样品种类一表），设计文档待审查。
 M2-R6C（检验结果台账 Vue 复刻与生产部署）DEPLOYED，双模式已复刻进 Vue 并上线生产，Owner 已确认测试路径。
@@ -98,7 +98,7 @@ M2-R6A 样品登记动态表单设计 REVIEWING（随 M2-R6 并行审查）。
 M2-R6B 检验结果台账双模式设计 REVIEWING（Owner 已确认原型与交互，设计文档待审查；通过后纳入 Vue 页面复刻范围，后端 `HBOS Ledger Template` / `get_result_ledger` 落地另行规划）。
 M2-R6C 检验结果台账 Vue 复刻与生产部署 DEPLOYED（双模式已上线生产，Owner 已确认测试路径；后端聚合 API 落地另行规划）。
 M2-R6D 合规审计日志 + 生产部署错配修复 DEPLOYED（write-once 审计日志已上线生产，Owner 已确认测试路径）。
-M2-R7D 留样板块前端 Vue 复刻与生产部署 DEPLOYED（Owner 2026-09-08 已确认测试路径并授权同步生产 `/hbos-lims`）：留样方案 rev6 口径定稿（Owner 2026-09-07 确认角色方案 B+SoD、分支策略 b，m2-r6 为 M2 延伸工作线）；R7A（主数据与留样登记 3 DocType + retention_service + 前端两页）已在 m2-r6 交付并测试路径验证；按设计稿在 Vue 工程落地 6 视图（工作台/登记台账/产品/观察/使用/处理），工作台/观察/使用/处理 4 视图以演示数据（TEST-HBOS-M2-RET-*）+ 演示角色矩阵先行并横幅标注，登记台账/产品接真实 R7A API；`vue-tsc` 0 错误、生产构建成功并同步 `/hbos-lims`（备份 hbos-lims.bak-20260908101325）。R7B（观察管理）/R7C（使用与处理审批）后端 PLANNED。方案主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
+M2-R7D 留样板块前端 Vue 复刻与生产部署 DEPLOYED（Owner 2026-09-08 已确认测试路径并授权同步生产 `/hbos-lims`）：留样方案 rev6 口径定稿（Owner 2026-09-07 确认角色方案 B+SoD、分支策略 b，m2-r6 为 M2 延伸工作线）；R7A（主数据与留样登记 3 DocType + retention_service + 前端两页）已在 m2-r6 交付并测试路径验证；按设计稿在 Vue 工程落地 6 视图（工作台/登记台账/产品/观察/使用/处理），工作台/观察/使用/处理 4 视图以演示数据（TEST-HBOS-M2-RET-*）+ 演示角色矩阵先行并横幅标注，登记台账/产品接真实 R7A API；`vue-tsc` 0 错误、生产构建成功并同步 `/hbos-lims`（备份 hbos-lims.bak-20260908101325）。R7B（观察管理）/R7C（使用与处理审批）后端已实现并真实验证。方案主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
 
 ## 前端实施流程规范
 

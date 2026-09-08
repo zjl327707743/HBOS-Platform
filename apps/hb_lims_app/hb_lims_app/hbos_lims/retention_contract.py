@@ -38,12 +38,14 @@ RETENTION_TRANSITIONS = {
 UOM_OPTIONS = ["g", "kg", "mg", "mL", "L", "瓶", "支", "袋", "桶", "盒", "其他"]
 
 # Sample→留样 来源映射（方案第九节）
-SAMPLE_TYPE_WHITELIST = {"原料", "成品"}  # 原料→关键物料、成品→成品（原料药）
+# 白名单兼容实际主数据：HBOS Sample.sample_type 为 Link 到 HBOS Sample Type，
+# 本环境原料类样品类型名为「原材料」（历史沿用），「原料」亦保留兼容（P1 修复）
+SAMPLE_TYPE_WHITELIST = {"原料", "原材料", "成品"}  # 原料/原材料→关键物料、成品→成品（原料药）
 SAMPLE_STATUS_WHITELIST = {"检验完成", "已放行"}
 RECURSION_SAMPLE_SOURCE = "留样"  # 防递归：sample_source=留样 的样品不得再生成留样
 
 # 类别映射
-SAMPLE_TYPE_TO_CATEGORY = {"原料": "关键物料", "成品": "成品（原料药）"}
+SAMPLE_TYPE_TO_CATEGORY = {"原料": "关键物料", "原材料": "关键物料", "成品": "成品（原料药）"}
 
 
 def can_retention_transition(current, target):
@@ -186,5 +188,32 @@ def check_sample_source_mapping(sample_type, sample_status, sample_source, mater
 
 
 def map_sample_type_to_category(sample_type):
-	"""原料→关键物料、成品→成品（原料药）（方案第九节规则 1）。"""
+	"""原料/原材料→关键物料、成品→成品（原料药）（方案第九节规则 1）。"""
 	return SAMPLE_TYPE_TO_CATEGORY.get(sample_type)
+
+
+# ---------------------------------------------------------------------------
+# R7B/R7C 契约纯函数（供 offline 单测）
+# ---------------------------------------------------------------------------
+
+OBS_REASON_ANNUAL = "年度观察批（每年 3 批）"
+OBS_REASON_SALE = "外售产品每批"
+OBS_REASON_OTHER = "其他"
+OBS_ANNUAL_CAP = 3
+
+
+def check_sod_sign(applicant, prev_signer, signer):
+	"""两条 SoD 硬校验（方案 6.4）：申请人不得任一级签署；同一用户不得连续两级签署。
+
+	返回 (ok, error_message)。prev_signer 为紧邻上一级签署人（无则 None）。
+	"""
+	if signer and applicant and signer == applicant:
+		return False, "申请人（{}）不得担任本单审批签署人（SoD）。".format(applicant)
+	if prev_signer and signer and prev_signer == signer:
+		return False, "同一用户（{}）不得在同一单据连续两级签署（SoD）。".format(signer)
+	return True, None
+
+
+def release_requires(from_state):
+	"""释放预占前置：仅已过库存确认（持有预占）的阶段才释放（rev6 P1）。"""
+	return from_state in ("待QC批准", "待QA批准", "待QM批准", "已批准")

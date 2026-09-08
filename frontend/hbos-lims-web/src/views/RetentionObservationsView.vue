@@ -4,37 +4,51 @@
     <div class="page-head">
       <div>
         <h1>观察任务</h1>
-        <p class="page-desc">0 月基线 + 年度外观性状观察 · 应观察清单、N/3 完整性提示 · 演示数据 TEST-HBOS-M2-RET-*</p>
+        <p class="page-desc">年度外观性状观察 · 应观察清单、N/3 完整性、观察批选取 · 真实后端</p>
       </div>
       <div class="page-actions">
-        <a-button @click="openSelectModal">
+        <a-button @click="loadBoard()">
+          <template #icon><ReloadOutlined /></template>
+          刷新
+        </a-button>
+        <a-button
+          :disabled="!canSelect"
+          :title="canSelect ? '' : '当前会话角色不可选取观察批（需 LIMS Reviewer / Manager）'"
+          @click="openSelectModal"
+        >
           <template #icon><CalendarOutlined /></template>
           观察批选取
         </a-button>
         <a-button
           type="primary"
-          :disabled="!canRecord"
-          :title="!canRecord ? '当前演示身份不可录入观察记录（Analyst / Manager 可录入）' : ''"
-          @click="onAddRecord"
+          :disabled="!canRecordTodo"
+          :title="recordBtnHint"
+          @click="quickStartRecord"
         >
           <template #icon><PlusOutlined /></template>
-          新增观察记录
+          录入观察
         </a-button>
       </div>
     </div>
 
-    <DemoBar />
+    <!-- 真实后端说明条 -->
+    <a-alert
+      type="info"
+      show-icon
+      message="已接入真实后端 · 观察录入/审核受会话角色与后端校验约束"
+      style="margin-bottom: 14px"
+    />
 
-    <!-- N/3 完整性条 -->
+    <!-- 完整性条 -->
     <div class="obs-strip" v-if="completeness.length">
-      <div class="obs-chip" v-for="c in completeness" :key="c.product">
+      <div class="obs-chip" v-for="c in completeness" :key="`${c.product}-${c.year}`">
         <span class="chip-name">{{ c.product }} · {{ c.year }}</span>
         <span class="chip-bar"><i :class="complBarCls(c)" :style="{ width: complBarPct(c) + '%' }"></i></span>
-        <span class="chip-num mono">{{ c.cap ? `${c.selected}/${c.cap}` : '每批' }}</span>
+        <span class="chip-num mono">{{ c.cap !== null ? `${c.selected}/${c.cap}` : '每批' }}</span>
         <span class="pill" :class="complPillCls(c)">{{ complPillText(c) }}</span>
       </div>
-      <span class="dim">年度各产品已选观察批 N/3 · 超选由后端拦截</span>
     </div>
+    <div v-else class="dim obs-strip-empty">暂无已选观察批（在「观察批选取」中纳入留样后此处显示各产品年度完整性）</div>
 
     <div class="detail-layout">
       <!-- 左：计划看板 -->
@@ -42,7 +56,7 @@
         <div class="panel-head">
           <div>
             <div class="panel-title">计划看板</div>
-            <div class="panel-sub">单击行载入右侧观察记录 · 应观察未完成优先，异常结论标红</div>
+            <div class="panel-sub">单击行载入右侧观察记录 · 待办优先，已逾期标红</div>
           </div>
           <div class="head-filter page-actions">
             <a-button
@@ -58,6 +72,7 @@
           <a-table
             :columns="columns"
             :data-source="boardRows"
+            :loading="loading"
             :pagination="false"
             row-key="name"
             size="small"
@@ -68,24 +83,36 @@
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'name'"><span class="mono">{{ record.name }}</span></template>
               <template v-else-if="column.key === 'sample'">
-                {{ record.sampleName }}<span class="dim"> / {{ record.batch }}</span>
+                {{ record.product }}
+                <span class="dim" v-if="record.batch">/ {{ record.batch }}</span>
               </template>
-              <template v-else-if="column.key === 'offset'"><span class="mono">{{ record.monthOffset }}</span></template>
-              <template v-else-if="column.key === 'plan'"><span class="mono">{{ record.planDate }}</span></template>
+              <template v-else-if="column.key === 'offset'">
+                <span class="mono">{{ record.monthOffset ?? '—' }}</span>
+              </template>
+              <template v-else-if="column.key === 'plan'">
+                <span class="mono">{{ record.planDate || '—' }}</span>
+              </template>
               <template v-else-if="column.key === 'due'">
                 <span class="pill" :class="duePillCls(record.due)">{{ record.due }}</span>
-                <div v-if="record.due === '已逾期'" class="obs-overdue">已逾期 {{ overdueDays(record.planDate) }} 天</div>
+                <div v-if="record.due === '已逾期' && record.planDate" class="obs-overdue">
+                  已逾期 {{ overDays(record.planDate) }} 天
+                </div>
               </template>
               <template v-else-if="column.key === 'result'">
                 <span v-if="record.result" class="pill" :class="resultPillCls(record.result)">{{ record.result }}</span>
                 <span v-else class="dim">—</span>
               </template>
               <template v-else-if="column.key === 'action'">
-                <a-button v-if="record.due !== '已完成'" type="link" size="small" @click="selectRow(record)">录入</a-button>
-                <a-button v-else type="link" size="small" @click="selectRow(record)">查看</a-button>
+                <a-button type="link" size="small" @click="selectRow(record)">{{ actionText(record.due) }}</a-button>
               </template>
             </template>
           </a-table>
+          <a-empty
+            v-if="!loading && !rows.length"
+            description="暂无观察计划：留样登记时勾选观察样品，或用「观察批选取」将留样纳入计划"
+            :image="Empty.PRESENTED_IMAGE_SIMPLE"
+            style="padding: 24px 0"
+          />
         </div>
       </div>
 
@@ -94,68 +121,46 @@
         <div class="panel-head">
           <div>
             <div class="panel-title">观察记录</div>
-            <div class="panel-sub" v-if="selected"><span class="mono">{{ selected.name }}</span> · <span class="mono">{{ selected.batch }}</span></div>
+            <div class="panel-sub" v-if="selected">
+              <span class="mono">{{ selected.name }}</span> · {{ selected.product }}
+              <span v-if="selected.batch" class="dim">/ {{ selected.batch }}</span>
+            </div>
             <div class="panel-sub" v-else>未选择观察批次</div>
           </div>
-          <span v-if="selected" class="pill pill-warn">obs_month {{ selected.monthOffset }}</span>
+          <span v-if="selected" class="pill" :class="duePillCls(selected.due)">{{ selected.due }}</span>
         </div>
         <div class="panel-body">
-          <a-empty v-if="!selected" description="从左侧计划看板选择一行后查看 / 录入观察记录" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
+          <a-empty
+            v-if="!selected"
+            description="从左侧计划看板选择一行后查看 / 录入观察记录"
+            :image="Empty.PRESENTED_IMAGE_SIMPLE"
+          />
 
-          <!-- 已观察：只读摘要 -->
-          <template v-else-if="selected.due === '已完成'">
-            <div class="grid-2" style="gap: 10px; margin-bottom: 0">
-              <div class="field">
-                <label>实际观察日期</label>
-                <div class="static mono">{{ selected.observedDate || '—' }}</div>
-              </div>
-              <div class="field">
-                <label>观察结果</label>
-                <div class="static" style="padding-top: 6px; padding-bottom: 6px">
-                  <span v-if="selected.result" class="pill" :class="resultPillCls(selected.result)">{{ selected.result }}</span>
-                  <span v-else class="dim">—</span>
-                </div>
-              </div>
-            </div>
-            <div class="grid-2" style="gap: 10px; margin-bottom: 0">
-              <div class="field">
-                <label>观察人</label>
-                <div class="static">{{ selected.observer || '—' }}</div>
-              </div>
-              <div class="field">
-                <label>审核人</label>
-                <div class="static">
-                  {{ selected.reviewer || '待审核' }}
-                  <span v-if="selected.reviewer && selected.reviewer !== '待审核'" class="pill pill-pass" style="margin-left: 6px">已审核</span>
-                </div>
-              </div>
-            </div>
-            <div v-if="selected.anomaly" class="field">
-              <label>异常描述</label>
-              <div class="static">{{ selected.anomaly }}</div>
-            </div>
-            <div v-if="canReview && selected.reviewer === '待审核'" class="review-zone">
-              <span class="dim">当前演示身份为 {{ reviewerRoleLabel }}，可对该条记录审核</span>
-              <a-button type="primary" size="small" @click="reviewObs">审核通过</a-button>
-            </div>
-          </template>
-
-          <!-- 未观察：录入表单 -->
-          <template v-else>
+          <!-- 待办（应观察 / 已逾期）：录入表单 -->
+          <template v-else-if="isTodo(selected)">
             <div class="field">
               <label>观察时间窗</label>
               <div class="static">
-                计划日期 <span class="mono">{{ selected.planDate }}</span>
-                <span class="dim"> · 观察期至 {{ windowEnd(selected.planDate) }}</span>
+                计划日期 <span class="mono">{{ selected.planDate || '—' }}</span>
+                <span v-if="selected.due === '已逾期'" class="dim warn-text"> · 已逾期，请尽快观察</span>
               </div>
             </div>
             <div class="field">
               <label>实际观察日期</label>
-              <a-date-picker v-model:value="draft.date" value-format="YYYY-MM-DD" style="width: 100%" :disabled="!canRecord" />
+              <a-date-picker
+                v-model:value="draft.date"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+                :disabled="!canRecord"
+              />
             </div>
             <div class="field">
               <label>外观性状</label>
-              <a-input v-model:value="draft.appearance" placeholder="如 白色至类白色片剂，外观完整" :disabled="!canRecord" />
+              <a-input
+                v-model:value="draft.appearance"
+                placeholder="如 白色至类白色片剂，外观完整"
+                :disabled="!canRecord"
+              />
             </div>
             <div class="field">
               <label>结果</label>
@@ -166,63 +171,248 @@
             </div>
             <div v-if="draft.result === '异常'" class="field">
               <label>异常描述 <span class="dim">（结果异常时必填）</span></label>
-              <a-textarea v-model:value="draft.anomaly" :rows="3" placeholder="填写异常表现与报告对象" :disabled="!canRecord" />
+              <a-textarea
+                v-model:value="draft.anomaly"
+                :rows="3"
+                placeholder="填写异常表现与报告对象"
+                :disabled="!canRecord"
+              />
             </div>
-            <div class="grid-2" style="gap: 10px; margin-bottom: 0">
-              <div class="field">
-                <label>观察人</label>
-                <div class="static">{{ observerLabel }}</div>
-              </div>
-              <div class="field">
-                <label>审核人</label>
-                <div class="static">{{ selected.reviewer || '待审核' }}</div>
-              </div>
+
+            <div class="form-actions">
+              <a-button type="primary" :disabled="!canRecord" :loading="submitting" @click="submitObs">
+                提交观察
+              </a-button>
+              <a-popconfirm
+                title="确认取消该留样的观察批选取？"
+                ok-text="确认取消"
+                cancel-text="保留"
+                @confirm="cancelSelection"
+              >
+                <a-button danger size="small" :disabled="!canCancel">取消选取</a-button>
+              </a-popconfirm>
             </div>
-            <div v-if="canRecord" class="form-actions">
-              <a-button @click="saveDraft">保存草稿</a-button>
-              <a-button type="primary" @click="submitObs">提交观察</a-button>
-            </div>
-            <p v-else class="dim obs-perm-note">当前演示身份无观察录入权限（Analyst / Manager 可录入观察，QA / Manager 可审核）。</p>
+            <p v-if="!canRecord" class="dim obs-perm-note">
+              当前会话角色不可录入观察记录（Analyst / Reviewer / Manager 可录入）。
+            </p>
+            <p v-else class="dim obs-perm-note">
+              提交后进入「待审核」，由 Reviewer / QA / Manager 审核通过后锁定并排入下一观察期。
+            </p>
           </template>
 
-          <div v-if="selected" class="soe red">职责分离（SoD）：{{ SOD_NOTE }}</div>
+          <!-- 待审核：只读展示 + 审核 -->
+          <template v-else-if="selected.due === '待审核'">
+            <a-spin :spinning="historyLoading">
+              <template v-if="currentRecord">
+                <div class="grid-2" style="gap: 10px; margin-bottom: 0">
+                  <div class="field">
+                    <label>实际观察日期</label>
+                    <div class="static mono">{{ currentRecord.obs_date || '—' }}</div>
+                  </div>
+                  <div class="field">
+                    <label>观察结果</label>
+                    <div class="static" style="padding-top: 6px; padding-bottom: 6px">
+                      <span v-if="currentRecord.result" class="pill" :class="resultPillCls(currentRecord.result)">
+                        {{ currentRecord.result }}
+                      </span>
+                      <span v-else class="dim">—</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="grid-2" style="gap: 10px; margin-bottom: 0">
+                  <div class="field">
+                    <label>观察人</label>
+                    <div class="static">{{ currentRecord.observer || '—' }}</div>
+                  </div>
+                  <div class="field">
+                    <label>审核人</label>
+                    <div class="static">待审核</div>
+                  </div>
+                </div>
+                <div v-if="currentRecord.appearance" class="field">
+                  <label>外观性状</label>
+                  <div class="static">{{ currentRecord.appearance }}</div>
+                </div>
+                <div v-if="currentRecord.result === '异常'" class="field">
+                  <label>异常描述</label>
+                  <div class="static">{{ currentRecord.abnormal_note || '—' }}</div>
+                  <p class="dim obs-perm-note">异常结论的异常描述由录入人填写，审核时不可修改。</p>
+                </div>
+              </template>
+              <a-empty v-else description="暂无该观察期记录" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
+            </a-spin>
+
+            <div v-if="currentRecord && !currentRecord.reviewed_by" class="review-zone">
+              <span class="dim" v-if="canReview">
+                当前会话角色可审核该条观察记录
+              </span>
+              <span class="dim" v-else>
+                当前会话角色不可审核（Reviewer / QA / Manager 可审核）
+              </span>
+              <a-button type="primary" size="small" :disabled="!canReview" :loading="reviewing" @click="reviewObs">
+                审核通过
+              </a-button>
+            </div>
+          </template>
+
+          <!-- 已完成 / 计划完成：只读摘要 + 全部观察记录 -->
+          <template v-else>
+            <template v-if="selected.due === '已完成'">
+              <a-spin :spinning="historyLoading">
+                <template v-if="currentRecord">
+                  <div class="grid-2" style="gap: 10px; margin-bottom: 0">
+                    <div class="field">
+                      <label>实际观察日期</label>
+                      <div class="static mono">{{ currentRecord.obs_date || '—' }}</div>
+                    </div>
+                    <div class="field">
+                      <label>观察结果</label>
+                      <div class="static" style="padding-top: 6px; padding-bottom: 6px">
+                        <span v-if="currentRecord.result" class="pill" :class="resultPillCls(currentRecord.result)">
+                          {{ currentRecord.result }}
+                        </span>
+                        <span v-else class="dim">—</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="grid-2" style="gap: 10px; margin-bottom: 0">
+                    <div class="field">
+                      <label>观察人</label>
+                      <div class="static">{{ currentRecord.observer || '—' }}</div>
+                    </div>
+                    <div class="field">
+                      <label>审核人</label>
+                      <div class="static">
+                        {{ currentRecord.reviewed_by || '待审核' }}
+                        <span v-if="currentRecord.reviewed_by && currentRecord.reviewed_date" class="dim">
+                          （{{ currentRecord.reviewed_date }}）
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="currentRecord.appearance" class="field">
+                    <label>外观性状</label>
+                    <div class="static">{{ currentRecord.appearance }}</div>
+                  </div>
+                  <div v-if="currentRecord.result === '异常'" class="field">
+                    <label>异常描述</label>
+                    <div class="static">{{ currentRecord.abnormal_note || '—' }}</div>
+                  </div>
+                </template>
+              </a-spin>
+            </template>
+            <template v-else-if="selected.due === '计划完成'">
+              <div class="field">
+                <label>计划说明</label>
+                <div class="static">
+                  该留样的年度观察已覆盖至留样期至，计划完成，无新增观察任务。
+                </div>
+              </div>
+            </template>
+
+            <div v-if="history.length" class="obs-history">
+              <div class="section-label">该留样全部观察记录（只读）</div>
+              <div class="mini-list">
+                <div class="mini-row" v-for="h in history" :key="h.name">
+                  <div class="mini-main">
+                    <div class="mini-title">
+                      <span class="pill" :class="resultPillCls(h.result || '')">{{ h.result || '—' }}</span>
+                      <span class="mono">{{ h.name }}</span>
+                    </div>
+                    <div class="mini-sub">
+                      观察月 <span class="mono">{{ h.obs_month }}</span>
+                      <span v-if="h.obs_date"> · {{ h.obs_date }}</span>
+                      <span v-if="h.observer"> · 观察人 {{ h.observer }}</span>
+                      <span v-if="h.reviewed_by"> · 审核人 {{ h.reviewed_by }}</span>
+                    </div>
+                    <div v-if="h.appearance" class="mini-sub">外观：{{ h.appearance }}</div>
+                    <div v-if="h.abnormal_note" class="mini-sub danger-text">异常描述：{{ h.abnormal_note }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <a-empty
+              v-else-if="!historyLoading"
+              description="暂无观察记录"
+              :image="Empty.PRESENTED_IMAGE_SIMPLE"
+            />
+          </template>
+
+          <div v-if="selected" class="soe red">{{ SOD_NOTE }}</div>
         </div>
       </div>
     </div>
 
     <!-- 观察批选取弹窗 -->
     <a-modal
-      v-model:open="selectModal.open"
+      v-model:open="modal.open"
       title="观察批选取"
-      width="560"
+      width="580"
       ok-text="提交选取"
       cancel-text="取消"
+      :confirm-loading="submitting"
       @ok="submitSelect"
     >
       <div style="padding-top: 6px">
         <div class="field">
           <label>产品</label>
-          <a-select v-model:value="selectModal.product" :options="productOptions" placeholder="选择留样产品" style="width: 100%" />
+          <a-select
+            v-model:value="modal.product"
+            :options="candidateProductOptions"
+            placeholder="选择留样产品"
+            style="width: 100%"
+            @change="onModalProductChange"
+          />
         </div>
         <div class="grid-2" style="gap: 10px; margin-bottom: 0">
           <div class="field">
-            <label>年度</label>
-            <a-select v-model:value="selectModal.year" :options="yearOptions" style="width: 100%" />
+            <label>观察年度</label>
+            <a-select v-model:value="modal.year" :options="yearOptions" style="width: 100%" />
           </div>
           <div class="field">
-            <label>批次（留样批号）</label>
-            <a-input v-model:value="selectModal.batch" placeholder="如 T260901" />
+            <label>完整性</label>
+            <div class="static" style="padding-top: 6px; padding-bottom: 6px">
+              <span v-if="modalCompleteness" class="pill" :class="complPillCls(modalCompleteness)">
+                {{ complPillText(modalCompleteness) }}
+              </span>
+              <span v-if="modalCompleteness && modalCompleteness.cap !== null" class="chip-num mono" style="margin-left: 6px">
+                {{ modalCompleteness.selected }}/{{ modalCompleteness.cap }}
+              </span>
+              <span v-if="modalCompleteness && modalCompleteness.cap === null" class="dim" style="margin-left: 6px">每批观察</span>
+              <span v-if="!modalCompleteness" class="dim">—</span>
+            </div>
           </div>
         </div>
         <div class="field">
-          <label>原因</label>
-          <a-radio-group v-model:value="selectModal.reason">
-            <a-radio value="年度观察批">年度观察批</a-radio>
-            <a-radio value="外售产品每批">外售产品每批</a-radio>
-            <a-radio value="其他" :disabled="demo.role !== 'manager'">其他（Manager 专用）</a-radio>
+          <label>批次选择（在库 / 部分使用且未纳入观察的候选留样）</label>
+          <a-radio-group v-model:value="modal.name" class="cand-group">
+            <div class="cand-row" v-for="c in modalCandidates" :key="c.retention_name">
+              <a-radio :value="c.retention_name">
+                <span class="mono">{{ c.batch_no }}</span>
+                <span class="dim"> {{ c.sample_name }} · 留样 {{ c.retention_date }}</span>
+              </a-radio>
+            </div>
           </a-radio-group>
-          <p v-if="demo.role !== 'manager'" class="dim" style="margin-top: 4px">「其他」原因仅 Manager 可选：超出年度 N/3 上限的补选需 Manager 审批。</p>
-          <p v-else-if="selectModal.reason === '其他'" class="soe blue">「其他」已选中：该原因将绕过年度 N/3 上限，由 Manager 审批后生效。</p>
+          <a-empty
+            v-if="!modalCandidates.length"
+            description="该产品暂无候选留样"
+            :image="Empty.PRESENTED_IMAGE_SIMPLE"
+            style="margin: 8px 0"
+          />
+        </div>
+        <div class="field">
+          <label>选取原因</label>
+          <a-radio-group v-model:value="modal.reason">
+            <a-radio value="年度观察批（每年 3 批）">年度观察批（每年 3 批）</a-radio>
+            <a-radio value="外售产品每批">外售产品每批</a-radio>
+            <a-radio value="其他" :disabled="!isManager">其他</a-radio>
+          </a-radio-group>
+          <p v-if="!isManager" class="dim" style="margin-top: 4px">
+            「其他」原因仅 Manager 可选：用于超出年度 N/3 上限等特殊补选。
+          </p>
+          <p v-else-if="modal.reason === '其他'" class="soe blue">
+            「其他」已选中：该原因将绕过年度 N/3 上限（后端对 Manager 校验后放行）。
+          </p>
         </div>
       </div>
     </a-modal>
@@ -230,83 +420,134 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { Empty, message } from 'ant-design-vue'
-import { CalendarOutlined, PlusOutlined } from '@ant-design/icons-vue'
-import DemoBar from '@/components/retention/DemoBar.vue'
+import { CalendarOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { useAuthStore } from '@/stores/auth'
 import {
-  can, demo, demoPerson, seedObsBoard, seedObsCompleteness, SOD_NOTE,
+  obsPlan, selectObsBatch, cancelObsBatch, recordObservation, reviewObservation,
+  canAction, SOD_NOTE,
   type ObsBoardRow, type ObsCompleteness,
-} from '@/demo/retentionDemo'
+} from '@/api/retention'
+import { listDoctype, getDoc } from '@/api/lims'
 
-const TODAY = '2026-09-07'
-const CURRENT_YEAR = 2026
-const EXTRA_PRODUCT = 'TEST 成品片剂B' // 选取弹窗的任意候选产品（不在 N/3 统计清单内）
-const OBSERVER_NAME = demoPerson('analyst') // 演示固定观察人（王敏）
+// ---------- 类型 ----------
+type ObsFilter = 'all' | 'todo' | 'done'
 
-type ObsFilter = 'all' | 'due' | 'done'
-type ObsSelectReason = '年度观察批' | '外售产品每批' | '其他'
+interface ObsRecord {
+  name: string
+  obs_month: number
+  obs_date?: string
+  appearance?: string
+  result?: string
+  abnormal_note?: string
+  observer?: string
+  reviewed_by?: string
+  reviewed_date?: string
+}
 
-// ---------- 数据（演示副本） ----------
-const rows = ref<ObsBoardRow[]>(seedObsBoard())
-const completeness = ref<ObsCompleteness[]>(seedObsCompleteness())
+interface Candidate {
+  retention_name: string
+  sample_name: string
+  batch_no: string
+  retention_date: string
+  product_name: string
+}
+
+// ---------- 常量 ----------
+const REASON_ANNUAL = '年度观察批（每年 3 批）'
+const REASON_SALE = '外售产品每批'
+const CURRENT_YEAR = new Date().getFullYear()
+
+function todayStr(): string {
+  const d = new Date()
+  const mm = `${d.getMonth() + 1}`.padStart(2, '0')
+  const dd = `${d.getDate()}`.padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
+// ---------- 会话角色 ----------
+const auth = useAuthStore()
+const canKey = (action: string): boolean => canAction(auth.user?.roles, action)
+const canSelect = computed(() => canKey('select_obs_batch'))
+const canCancel = computed(() => canKey('cancel_obs_batch'))
+const canRecord = computed(() => canKey('record_observation'))
+const canReview = computed(() => canKey('review_observation'))
+const isManager = computed(() => {
+  const roles = auth.user?.roles ?? []
+  return roles.includes('LIMS Manager') || roles.includes('System Manager')
+})
+
+// ---------- 数据 ----------
+const rows = ref<ObsBoardRow[]>([])
+const completeness = ref<ObsCompleteness[]>([])
+const loading = ref(false)
 const filter = ref<ObsFilter>('all')
 const selected = ref<ObsBoardRow | null>(null)
 const rightPanel = ref<HTMLElement | null>(null)
+const history = ref<ObsRecord[]>([])
+const historyLoading = ref(false)
+let historyReq = 0
 
 const draft = reactive({
-  date: TODAY,
+  date: todayStr(),
   appearance: '',
   result: '正常' as '正常' | '异常',
   anomaly: '',
 })
+const submitting = ref(false)
+const reviewing = ref(false)
 
 const filterTabs: { key: ObsFilter; label: string }[] = [
   { key: 'all', label: '全部' },
-  { key: 'due', label: '应观察' },
-  { key: 'done', label: '已观察' },
+  { key: 'todo', label: '待办' },
+  { key: 'done', label: '已完成' },
 ]
 
 const columns = [
-  { title: '留样编号', key: 'name', dataIndex: 'name', width: 200 },
-  { title: '产品 / 批号', key: 'sample', width: 175 },
-  { title: '偏移月', key: 'offset', dataIndex: 'monthOffset', width: 70 },
-  { title: '计划日期', key: 'plan', dataIndex: 'planDate', width: 100 },
-  { title: '应观察状态', key: 'due', width: 120 },
+  { title: '留样编号', key: 'name', dataIndex: 'name', width: 190 },
+  { title: '产品 / 批号', key: 'sample', width: 210 },
+  { title: '偏移月', key: 'offset', width: 80 },
+  { title: '计划日期', key: 'plan', width: 110 },
+  { title: '应观察状态', key: 'due', width: 110 },
   { title: '结果', key: 'result', width: 90 },
-  { title: '操作', key: 'action', width: 80 },
+  { title: '操作', key: 'action', width: 90 },
 ]
 
-// ---------- 角色能力 ----------
-const canRecord = computed(() => can(demo.role, 'obs_record'))
-const canReview = computed(() => can(demo.role, 'obs_review'))
-const reviewerRoleLabel = computed(() => (demo.role === 'qa' ? 'QA' : demo.role === 'manager' ? 'Manager' : demo.role))
-const observerLabel = `${OBSERVER_NAME}（Analyst）`
+// ---------- 看板筛选 / 工具 ----------
+const boardRows = computed(() => {
+  if (filter.value === 'todo') return rows.value.filter((r) => r.due !== '已完成' && r.due !== '计划完成')
+  if (filter.value === 'done') return rows.value.filter((r) => r.due === '已完成' || r.due === '计划完成')
+  return rows.value
+})
 
-// ---------- 看板筛选 ----------
-const boardRows = computed(() =>
-  rows.value.filter((r) => {
-    if (filter.value === 'due') return r.due !== '已完成'
-    if (filter.value === 'done') return r.due === '已完成'
-    return true
-  }),
-)
+function isTodo(r: ObsBoardRow): boolean {
+  return r.due === '应观察' || r.due === '已逾期'
+}
+
+function actionText(due: string): string {
+  if (due === '待审核') return '审核'
+  if (due === '已完成' || due === '计划完成') return '查看'
+  return '录入'
+}
 
 function rowActiveCls(r: ObsBoardRow): string {
   return selected.value?.name === r.name ? 'obs-row-active' : ''
 }
 
-function selectRow(r: ObsBoardRow) {
-  if (selected.value?.name === r.name) return
-  selected.value = r
-  if (r.due !== '已完成') resetDraft()
+function duePillCls(due: string): string {
+  if (due === '已完成') return 'pill-pass'
+  if (due === '待审核' || due === '应观察') return 'pill-warn'
+  if (due === '已逾期') return 'pill-danger'
+  return 'pill-muted'
 }
 
-function resetDraft() {
-  draft.date = TODAY
-  draft.appearance = ''
-  draft.result = '正常'
-  draft.anomaly = ''
+function resultPillCls(result: string): string {
+  return result === '正常' ? 'pill-pass' : 'pill-danger'
+}
+
+function overDays(dateStr: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000))
 }
 
 // ---------- 完整性条 ----------
@@ -324,62 +565,91 @@ function complPillText(c: ObsCompleteness): string {
   return c.cap !== null && c.selected < c.cap ? `可补选 ${c.cap - c.selected} 批` : '完整'
 }
 
-// ---------- 状态 pill / 日期工具 ----------
-function duePillCls(d: ObsBoardRow['due']): string {
-  if (d === '已完成') return 'pill-pass'
-  if (d === '应观察') return 'pill-warn'
-  return 'pill-danger'
-}
-function resultPillCls(r: string): string {
-  return r === '正常' ? 'pill-pass' : 'pill-danger'
-}
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : `${n}`
-}
-function daysBetween(from: string, to: string): number {
-  const [fy, fm, fd] = from.split('-').map(Number)
-  const [ty, tm, td] = to.split('-').map(Number)
-  return Math.round((new Date(ty, tm - 1, td).getTime() - new Date(fy, fm - 1, fd).getTime()) / 86400000)
-}
-function overdueDays(planDate: string): number {
-  return daysBetween(planDate, TODAY)
-}
-function addYears(day: string, n: number): string {
-  const [y, m, d] = day.split('-').map(Number)
-  const dt = new Date(y + n, m - 1, d)
-  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`
-}
-function windowEnd(planDate: string): string {
-  return addYears(planDate, 3)
-}
-
-// ---------- 新增观察记录 / 提交 / 审核 ----------
-function onAddRecord() {
-  if (!canRecord.value) return
-  const cur = selected.value
-  if (!cur) {
-    message.warning('请先在左侧计划看板选择一条「应观察 / 已逾期」记录')
-    return
+// ---------- 计划加载 ----------
+async function loadBoard(prefer?: string | null) {
+  loading.value = true
+  try {
+    const plan = await obsPlan()
+    rows.value = plan.rows
+    completeness.value = plan.completeness
+    const keepName = prefer !== undefined ? prefer : selected.value?.name ?? null
+    const next = keepName ? rows.value.find((x) => x.name === keepName) ?? null : null
+    selected.value = next
+    if (next) await loadHistory(next)
+    else history.value = []
+  } catch {
+    // 后端错误 / 未登录提示由 axios 拦截器统一弹出
+  } finally {
+    loading.value = false
   }
-  if (cur.due === '已完成') {
-    message.warning('当前所选记录已观察完成，请改选「应观察 / 已逾期」行')
-    return
+}
+
+async function selectRow(r: ObsBoardRow) {
+  if (selected.value?.name === r.name) return
+  selected.value = r
+  if (isTodo(r)) resetDraft()
+  await loadHistory(r)
+}
+
+async function loadHistory(r: ObsBoardRow) {
+  const req = ++historyReq
+  historyLoading.value = true
+  try {
+    const list = await listDoctype<ObsRecord>(
+      'HBOS Retention Observation',
+      ['name', 'obs_month', 'obs_date', 'appearance', 'result', 'abnormal_note', 'observer', 'reviewed_by', 'reviewed_date'],
+      { retention_sample: r.name },
+      0,
+      'obs_month asc',
+    )
+    if (req !== historyReq) return
+    history.value = list
+  } catch {
+    if (req === historyReq) history.value = []
+  } finally {
+    if (req === historyReq) historyLoading.value = false
   }
-  resetDraft()
-  message.info(`已就绪：录入 ${cur.name} 的观察记录`)
-  nextTick(() => {
-    rightPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  })
 }
 
-function saveDraft() {
-  if (!selected.value || selected.value.due === '已完成') return
-  message.info('观察记录已存为草稿（演示，不落库）')
-}
-
-function submitObs() {
+const currentRecord = computed<ObsRecord | null>(() => {
   const r = selected.value
-  if (!r || r.due === '已完成') return
+  if (!r || r.monthOffset === null || r.monthOffset === undefined) return null
+  const m = Number(r.monthOffset)
+  return history.value.find((h) => Number(h.obs_month) === m) ?? null
+})
+
+function resetDraft() {
+  draft.date = todayStr()
+  draft.appearance = ''
+  draft.result = '正常'
+  draft.anomaly = ''
+}
+
+// ---------- 录入 / 审核 / 取消 ----------
+const canRecordTodo = computed(() =>
+  !!selected.value && isTodo(selected.value) && canRecord.value,
+)
+const recordBtnHint = computed(() => {
+  if (!selected.value || !isTodo(selected.value)) return '请先在左侧选择「应观察 / 已逾期」行'
+  if (!canRecord.value) return '当前会话角色不可录入观察记录（Analyst / Reviewer / Manager 可录入）'
+  return ''
+})
+
+function quickStartRecord() {
+  const r = selected.value
+  if (!r || !isTodo(r)) {
+    message.warning('请先在左侧计划看板选择一条「应观察 / 已逾期」待办')
+    return
+  }
+  if (!canRecord.value) return
+  resetDraft()
+  message.info(`已就绪：录入 ${r.name} 的观察记录`)
+  rightPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+async function submitObs() {
+  const r = selected.value
+  if (!r || !isTodo(r) || r.monthOffset === null || r.monthOffset === undefined) return
   if (!draft.appearance.trim()) {
     message.warning('请填写外观性状')
     return
@@ -388,72 +658,200 @@ function submitObs() {
     message.warning('结果异常时必须填写异常描述')
     return
   }
-  const reviewer = canReview.value ? demoPerson() : '待审核'
-  Object.assign(r, {
-    due: '已完成' as const,
-    result: draft.result,
-    anomaly: draft.result === '异常' ? draft.anomaly.trim() : '',
-    observedDate: draft.date || TODAY,
-    observer: OBSERVER_NAME,
-    reviewer,
-  })
-  rows.value = [...rows.value]
-  message.success(`观察记录已提交：${r.name}（结果 ${draft.result}）`)
+  submitting.value = true
+  try {
+    await recordObservation({
+      retention_name: r.name,
+      obs_month: Number(r.monthOffset),
+      obs_date: draft.date || todayStr(),
+      appearance: draft.appearance.trim(),
+      result: draft.result,
+      abnormal_note: draft.result === '异常' ? draft.anomaly.trim() : undefined,
+    })
+    message.success(`观察记录已录入：${r.name}（${draft.result}），待审核`)
+    resetDraft()
+    await loadBoard(r.name)
+  } catch {
+    // 后端校验错误由 axios 拦截器提示
+  } finally {
+    submitting.value = false
+  }
 }
 
-function reviewObs() {
+async function reviewObs() {
   const r = selected.value
-  if (!r || r.due !== '已完成' || r.reviewer !== '待审核') return
-  r.reviewer = demoPerson()
-  rows.value = [...rows.value]
-  message.success('观察记录审核通过，已记审核人并锁定')
+  if (!r || r.due !== '待审核' || r.monthOffset === null || r.monthOffset === undefined) return
+  reviewing.value = true
+  try {
+    await reviewObservation(r.name, Number(r.monthOffset))
+    message.success(`观察记录审核通过：${r.name}（观察月 ${r.monthOffset}），已锁定并排入下一观察期`)
+    selected.value = null
+    await loadBoard()
+  } catch {
+    // 后端校验错误由 axios 拦截器提示
+  } finally {
+    reviewing.value = false
+  }
+}
+
+async function cancelSelection() {
+  const r = selected.value
+  if (!r) return
+  if (!canCancel.value) return
+  try {
+    await cancelObsBatch(r.name)
+    message.success(`已取消「${r.name}」观察批选取，该留样退出观察计划`)
+    selected.value = null
+    await loadBoard()
+  } catch {
+    // 已产生观察记录时后端会拒绝取消
+  }
 }
 
 // ---------- 观察批选取弹窗 ----------
+const candidates = ref<Candidate[]>([])
+const productRules = ref<Record<string, string>>({})
 const yearOptions = [{ value: CURRENT_YEAR, label: `${CURRENT_YEAR} 年` }]
-const productOptions = computed(() => {
-  const names = completeness.value.map((c) => c.product)
-  if (!names.includes(EXTRA_PRODUCT)) names.push(EXTRA_PRODUCT)
-  return names.map((n) => ({ value: n, label: n }))
-})
-const selectModal = reactive({
+const modal = reactive({
   open: false,
-  product: undefined as string | undefined,
+  product: '',
   year: CURRENT_YEAR,
-  batch: '',
-  reason: '年度观察批' as ObsSelectReason,
+  reason: REASON_ANNUAL as string,
+  name: '',
 })
 
-function openSelectModal() {
-  selectModal.product = completeness.value[0]?.product
-  selectModal.year = CURRENT_YEAR
-  selectModal.batch = ''
-  selectModal.reason = '年度观察批'
-  selectModal.open = true
+const candidateProductOptions = computed(() => {
+  const seen = new Set<string>()
+  const opts: { value: string; label: string }[] = []
+  for (const c of candidates.value) {
+    if (!seen.has(c.product_name)) {
+      seen.add(c.product_name)
+      opts.push({ value: c.product_name, label: c.product_name })
+    }
+  }
+  return opts
+})
+
+const modalCandidates = computed(() =>
+  candidates.value.filter((c) => c.product_name === modal.product),
+)
+
+const modalCompleteness = computed<ObsCompleteness | null>(() => {
+  const hit = completeness.value.find((c) => c.product === modal.product && c.year === modal.year)
+  if (hit) return hit
+  const rule = productRules.value[modal.product]
+  if (rule === '每年选 3 批（原料药成品）') {
+    return { product: modal.product, rule: '年度观察批', year: modal.year, selected: 0, cap: 3 }
+  }
+  if (rule === '每批观察（外售产品）') {
+    return { product: modal.product, rule: '每批观察', year: modal.year, selected: 0, cap: null }
+  }
+  return null
+})
+
+function applyReasonForProduct(productName: string) {
+  const rule = productRules.value[productName]
+  if (rule === '每年选 3 批（原料药成品）') modal.reason = REASON_ANNUAL
+  else if (rule === '每批观察（外售产品）') modal.reason = REASON_SALE
+  else modal.reason = REASON_ANNUAL
 }
 
-function submitSelect() {
-  const product = selectModal.product
-  if (!product) {
-    message.warning('请选择产品')
-    return
+async function loadCandidates(): Promise<Candidate[]> {
+  const metaCache = new Map<string, { product_name: string; obs_rule: string }>()
+  const samples = await listDoctype<Record<string, unknown>>(
+    'HBOS Retention Sample',
+    ['*'],
+    { observed_flag: 0, status: ['in', ['在库', '部分使用']] },
+    0,
+    'retention_date desc',
+  )
+  const out: Candidate[] = []
+  for (const s of samples) {
+    const pid = String(s.retention_product || '')
+    if (!pid) continue
+    let meta = metaCache.get(pid)
+    if (!meta) {
+      const product = await getDoc<{ product_name: string; obs_rule: string }>('HBOS Retention Product', pid)
+      meta = { product_name: product.product_name || '', obs_rule: product.obs_rule || '' }
+      metaCache.set(pid, meta)
+    }
+    if (meta.obs_rule === '不观察') continue
+    out.push({
+      retention_name: String(s.name || ''),
+      sample_name: String(s.sample_name || ''),
+      batch_no: String(s.batch_no || ''),
+      retention_date: String(s.retention_date || ''),
+      product_name: meta.product_name,
+    })
+    productRules.value[meta.product_name] = meta.obs_rule
   }
-  if (!selectModal.batch.trim()) {
-    message.warning('请填写批次号')
-    return
-  }
-  const item = completeness.value.find((c) => c.product === product)
-  if (item && item.cap !== null && item.selected >= item.cap) {
-    message.error(`${product} ${selectModal.year} 年已达 N/3 上限（${item.selected}/${item.cap}），后端拦截本次选取并还原`)
-    return
-  }
-  if (item) {
-    item.selected += 1
-    completeness.value = [...completeness.value]
-  }
-  message.success(`观察批选取已提交：${product} · ${selectModal.year} 年 · 批次 ${selectModal.batch} · 原因「${selectModal.reason}」`)
-  selectModal.open = false
+  return out
 }
+
+async function openSelectModal() {
+  if (!canSelect.value) return
+  submitting.value = false
+  try {
+    candidates.value = await loadCandidates()
+  } catch {
+    return
+  }
+  if (!candidates.value.length) {
+    message.info('暂无候选留样：请先在「留样登记」登记在库留样（状态 在库/部分使用、未纳入观察），或在「留样产品」页维护观察规则')
+    return
+  }
+  const first = candidates.value[0]
+  modal.product = first.product_name
+  modal.name = first.retention_name
+  modal.year = CURRENT_YEAR
+  applyReasonForProduct(modal.product)
+  modal.open = true
+}
+
+function onModalProductChange() {
+  if (!modalCandidates.value.some((c) => c.retention_name === modal.name)) {
+    modal.name = modalCandidates.value[0]?.retention_name ?? ''
+  }
+  applyReasonForProduct(modal.product)
+}
+
+async function submitSelect() {
+  if (!modal.name) {
+    message.warning('请选择要纳入观察计划的批次')
+    return
+  }
+  const compl = modalCompleteness.value
+  const rule = productRules.value[modal.product]
+  if (modal.reason === REASON_ANNUAL && rule && rule !== '每年选 3 批（原料药成品）') {
+    message.warning('「年度观察批（每年 3 批）」仅适用于观察规则为每年选 3 批的产品')
+    return
+  }
+  if (modal.reason === REASON_SALE && rule && rule !== '每批观察（外售产品）') {
+    message.warning('「外售产品每批」仅适用于每批观察的外售产品')
+    return
+  }
+  if (
+    modal.reason === REASON_ANNUAL
+    && compl && compl.cap !== null && compl.selected >= compl.cap
+  ) {
+    message.warning(`${modal.product} ${modal.year} 年年度观察批已达上限 ${compl.cap} 批（${compl.selected}/${compl.cap}），如需补选请由 Manager 用「其他」原因操作`)
+    return
+  }
+  const cand = candidates.value.find((c) => c.retention_name === modal.name)
+  submitting.value = true
+  try {
+    await selectObsBatch(modal.name, modal.year, modal.reason)
+    message.success(`观察批选取成功：${modal.product} · ${modal.year} 年 · 批号 ${cand?.batch_no || modal.name} · ${modal.reason}`)
+    modal.open = false
+    await loadBoard()
+  } catch {
+    // 后端校验错误由 axios 拦截器提示
+  } finally {
+    submitting.value = false
+  }
+}
+
+void loadBoard()
 </script>
 
 <style scoped>
@@ -464,11 +862,15 @@ function submitSelect() {
   gap: 8px;
   margin-bottom: 14px;
 }
+.obs-strip-empty {
+  margin-bottom: 14px;
+  font-size: 12px;
+}
 .obs-chip {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 6px 12px;
@@ -495,8 +897,12 @@ function submitSelect() {
 
 .head-filter { display: flex; gap: 6px; flex-wrap: wrap; }
 
-.form-actions { display: flex; gap: 8px; }
-.obs-perm-note { margin-top: 2px; }
+.form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.obs-perm-note { margin-top: 4px; }
 
 .review-zone {
   display: flex;
@@ -509,6 +915,29 @@ function submitSelect() {
   padding: 8px 10px;
   margin-top: 2px;
 }
+
+.obs-history { margin-top: 4px; }
+.obs-history .mini-sub.danger-text { color: var(--danger); }
+
+.cand-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.cand-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.cand-row:hover { background: var(--surface-2); }
+
+.mono { font-family: var(--mono); font-size: 12px; }
 
 :deep(.obs-row-active) > td { background: var(--primary-soft); }
 :deep(.obs-row-active:hover) > td { background: var(--primary-soft); }

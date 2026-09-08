@@ -44,7 +44,7 @@ Owner 2026-09-08 确认按本方案进入 Vue 复刻并授权同步生产。在 
 
 - **路由与导航**：`/retention`（工作台总览）、`/retention/samples`、`/retention/products`、`/retention/observations`、`/retention/usage`、`/retention/disposal`；侧栏「留样管理」扩为 6 入口。
 - **新增文件**：`RetentionDashboardView / RetentionObservationsView / RetentionUsageView / RetentionDisposalView` 四视图；`styles/retention.scss` 共用布局/状态样式；`src/demo/retentionDemo.ts` 演示数据源与演示角色矩阵；`components/retention/DemoBar`（演示横幅 + 身份切换，驱动角色动作矩阵显隐与 SoD 提示）；登记台账/产品沿用真实 R7A 页并小幅对齐（可用量独立列、临期范围筛选、页头样式统一）。
-- **数据口径**：登记台账/产品接真实 R7A API；工作台/观察/使用/处理 4 视图因 R7B/C 后端未落地，先以演示数据（TEST-HBOS-M2-RET-*）渲染完整 UI 与交互并横幅标注，操作不真实落库；R7B/C 后端落地后将 `retentionDemo` 演示数据源替换为 `retention_service` whitelist。
+- **数据口径**：登记台账/产品接真实 R7A API；工作台/观察/使用/处理 4 视图因 R7B/C 后端已实现（演示数据源已切换真实 API），先以演示数据（TEST-HBOS-M2-RET-*）渲染完整 UI 与交互并横幅标注，操作不真实落库；R7B/C 后端落地后将 `retentionDemo` 演示数据源替换为 `retention_service` whitelist。
 - **验证与部署**：`vue-tsc` 0 错误；六路由浏览器回归无控制台错误；生产构建 `npm run build:prod`；`docker cp` 同步生产容器 `hbos-m0-r3a-frontend-1`（备份 `hbos-lims.bak-20260908101325`，root 清旧 assets 防新旧 hash 残留）；`http://localhost:8080/hbos-lims/` 全部页面与主/视图 bundle HTTP 200。
 
 ## 验收清单（Owner 审查点）
@@ -54,6 +54,8 @@ Owner 2026-09-08 确认按本方案进入 Vue 复刻并授权同步生产。在 
 - 角色动作、SoD 提示、4/5 级审批跳过、N/3 完整性提示是否与方案一致。
 - 库存量口径、UOM 只读、全检量 2 倍计算规则是否在原型中有正确体现。
 - 是否同意进入 Vue 复刻阶段。
+
+**后续（2026-09-08）R7B/C 后端落地与前端真实接入**：新增 Observation / Usage Apply / Disposal Apply DocType 与 retention_service 全链方法（四步锁 / SoD / 4/5 级 / scheduler / 审计）并真实库验证（R7B 13/13、R7C 19/19、并发确认恰一单成功，离线契约 179/179）；观察/使用/处理/工作台四页已由 `retentionDemo` 演示数据切换为 retention_service whitelist（真实 API 接入，含会话角色 `canAction` 显隐与后端 SoD 约束），演示层移除。具体契约见 `src/api/retention.ts` 与后端 `retention_service.py`。
 
 ## 状态同步
 
