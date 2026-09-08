@@ -61,8 +61,8 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	}
 
 	var colorFor = function (s) {
-		if (s === "late" || s === "absent_day" || s === "absent_expected") return "b-red";
-		if (s === "present") return "b-green";
+		if (s === "late" || s === "absent_day") return "b-red";
+		if (s === "present" || s === "out_day") return "b-green";
 		if (s === "leave") return "b-purple";
 		if (s === "rest") return "b-blue";
 		if (s === "exempt") return "b-grey";

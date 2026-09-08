@@ -88,6 +88,15 @@ class ResolveExpectedTest(unittest.TestCase):
         self.assertEqual(e["kind"], "unknown")
         self.assertEqual(e["label"], "在册待确认")
 
+    def test_general_rotate_label_fact_only(self):
+        """数据层兜底：无排班/绑定/名单命中者 rotate_label=通用倒班 →
+        kind=shift、无起算点 → 只报打卡事实、计入应出勤。"""
+        e = resolve_expected(profile(rotate_label="通用倒班"), weekday=1)
+        self.assertEqual(e["kind"], "shift")
+        self.assertIsNone(e["start_time"])
+        self.assertIsNone(e["late_after"])
+        self.assertEqual(e["label"], "通用倒班")
+
 
 class LiveStateTest(unittest.TestCase):
     def _day(self):
@@ -172,6 +181,27 @@ class LiveStateTest(unittest.TestCase):
         self.assertEqual(live_state({"kind": "unknown", "label": "在册待确认"}, profile(),
                                     [], datetime(2026, 9, 8, 12, 0))["state"], "unknown")
 
+    def test_unknown_with_leave_record_is_leave(self):
+        """无排班/绑定/名单命中（kind=unknown）但有已通过请假记录 →
+        不得被 unknown 短路，显示请假并带请假类型。"""
+        p = profile(leave_record=True, leave_record_type="病假")
+        e = resolve_expected(p, weekday=1)
+        self.assertEqual(e["kind"], "unknown")
+        st = live_state(e, p, [], datetime(2026, 9, 8, 12, 0))
+        self.assertEqual(st["state"], "leave")
+        self.assertIn("病假", st["label"])
+
+    def test_rest_still_beats_leave_record(self):
+        """豁免/休息优先级保留：排班休息 + 有请假记录 → 仍显示休息。"""
+        p = profile(leave_record=True, leave_record_type="事假",
+                    schedule={"kind": "rest", "shift_type": "休息",
+                              "start_time": None, "late_after": None, "leave_type": None})
+        e = resolve_expected(p, weekday=1)
+        self.assertEqual(e["kind"], "rest")
+        st = live_state(e, p, [], datetime(2026, 9, 8, 12, 0))
+        self.assertEqual(st["state"], "rest")
+        self.assertNotEqual(st["state"], "leave")
+
 
 class DayReviewTest(unittest.TestCase):
     def test_no_attendance_shift_without_events_no_pair(self):
@@ -181,6 +211,25 @@ class DayReviewTest(unittest.TestCase):
         st = day_review(e, p, [], datetime(2026, 9, 8, 23, 59))
         self.assertEqual(st["state"], "no_pair")
         self.assertFalse(st["tags"])  # 不判缺勤
+
+    def test_unknown_with_leave_record_is_leave(self):
+        """回顾模式同构：kind=unknown + 已通过请假记录 → 显示请假（含类型）。"""
+        p = profile(leave_record=True, leave_record_type="病假")
+        e = resolve_expected(p, weekday=1)
+        self.assertEqual(e["kind"], "unknown")
+        st = day_review(e, p, [], datetime(2026, 9, 8, 23, 59))
+        self.assertEqual(st["state"], "leave")
+        self.assertIn("病假", st["label"])
+
+    def test_rest_still_beats_leave_record(self):
+        """回顾模式：排班休息 + 有请假记录 → 仍显示休息。"""
+        p = profile(leave_record=True, leave_record_type="事假",
+                    schedule={"kind": "rest", "shift_type": "休息",
+                              "start_time": None, "late_after": None, "leave_type": None})
+        e = resolve_expected(p, weekday=1)
+        self.assertEqual(e["kind"], "rest")
+        st = day_review(e, p, [], datetime(2026, 9, 8, 23, 59))
+        self.assertEqual(st["state"], "rest")
 
 
 class DataLayerContractTest(unittest.TestCase):
@@ -205,6 +254,17 @@ class DataLayerContractTest(unittest.TestCase):
         self.assertIn("attendance=attendance.get", content)
         self.assertIn("ORDER BY employee, time", content)
         self.assertIn("FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS", content)
+
+    def test_role_gate_tz_plus8_and_general_rotate_fallback(self):
+        """整分支审查拍板：API 角色门禁、时区 +8、通用倒班兜底入应出勤。"""
+        content = DATA_PY.read_text()
+        # get_data 与 live_sync 两处均需门禁
+        self.assertGreaterEqual(content.count("frappe.only_for"), 2)
+        self.assertIn("TZ_PLUS8", content)
+        self.assertIn('timezone(timedelta(hours=8))', content)
+        # 通用倒班兜底：非名单命中的无排班员工计入应出勤分母
+        self.assertIn("通用倒班", content)
+        self.assertIn('_rotating_label(ROTATE_SYSTEM, num) or "通用倒班"', content)
 
 
 class LiveSyncContractTest(unittest.TestCase):
@@ -242,3 +302,13 @@ class FrontendContractTest(unittest.TestCase):
         content = WS_JSON.read_text()
         self.assertIn('"label": "部门看板"', content)
         self.assertIn('"link_to": "hbos-department-board"', content)
+
+    def test_color_for_review_fix(self):
+        """配色修正：红=late/absent_day（确凿）；绿=present/out_day（回顾权威出勤）；
+        absent_expected（未打卡不定性）落琥珀默认，不再判红。"""
+        js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
+        self.assertIn('if (s === "late" || s === "absent_day") return "b-red";', js)
+        self.assertIn('if (s === "present" || s === "out_day") return "b-green";', js)
+        self.assertNotIn('absent_expected") return "b-red', js)
+        # out_day 回顾权威出勤已入绿，absent_expected 不再出现于 red 判定文本
+        self.assertNotIn("absent_expected", js)

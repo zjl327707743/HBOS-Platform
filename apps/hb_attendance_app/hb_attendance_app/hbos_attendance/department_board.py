@@ -106,19 +106,26 @@ def _base_state(expected, profile, events, now):
 def live_state(expected, profile, events, now):
     """实时模式（now 注入）。"""
     kind = expected["kind"]
-    if kind in ("rest", "exempt", "unknown"):
+    # 豁免/休息优先：管理层豁免或排班休息不因请假记录改标
+    if kind in ("rest", "exempt"):
         return _base_state(expected, profile, events, now)
 
-    # 排班/请假记录 → 请假（当天有卡属异常边缘，仍显示请假并提示，不与排班矛盾）
+    # 排班请假 → 请假（有卡属异常边缘，仍显示请假并提示人工核实）
     if kind == "leave":
         st = _base_state(expected, profile, events, now)
         if events:
             st["note"] = "排班标注请假但当天有打卡，请人工核实"
         return st
+
+    # 已通过请假记录 → 请假（含无排班/绑定/名单命中的 unknown 员工，不被短路）
     if profile.get("leave_record") and not events:
         lt = profile.get("leave_record_type") or ""
         return {"state": "leave", "label": f"请假（{lt}）" if lt else "请假",
                 "first_hm": None, "card_count": 0, "tags": [], "note": "已通过请假记录"}
+
+    # 无请假记录的待确认员工 → 在册待确认（防御分支）
+    if kind == "unknown":
+        return _base_state(expected, profile, events, now)
 
     start = expected.get("start_time")
     late = expected.get("late_after")
@@ -186,7 +193,7 @@ def day_review(expected, profile, events, now, attendance=None):
                     "card_count": len(events), "tags": [], "note": "以 HRMS 考勤结果为准"}
         # 其他状态（None/未生成等）回落下方逻辑
 
-    if kind in ("rest", "exempt", "unknown"):
+    if kind in ("rest", "exempt"):
         return _base_state(expected, profile, events, now)
     if kind == "leave":
         if not events:
@@ -194,10 +201,14 @@ def day_review(expected, profile, events, now, attendance=None):
         st = _base_state(expected, profile, events, now)
         st["note"] = "排班标注请假但当天有打卡，请人工核实"
         return st
+    # 已通过请假记录 → 请假（含无排班/绑定/名单命中的 unknown 员工，不被短路）
     if profile.get("leave_record") and not events:
         lt = profile.get("leave_record_type") or ""
         return {"state": "leave", "label": f"请假（{lt}）" if lt else "请假",
                 "first_hm": None, "card_count": 0, "tags": [], "note": "已通过请假记录"}
+    # 无请假记录的待确认员工 → 在册待确认（防御分支）
+    if kind == "unknown":
+        return _base_state(expected, profile, events, now)
 
     if not expected.get("start_time") or not expected.get("late_after"):
         if events:

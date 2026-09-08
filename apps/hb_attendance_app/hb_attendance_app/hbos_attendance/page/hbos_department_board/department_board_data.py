@@ -2,7 +2,7 @@
 
 只读 + 节流同步；不写业务数据。
 """
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import frappe
 
@@ -16,6 +16,9 @@ from hb_attendance_app.hbos_attendance.rule_lists import (
 from hb_attendance_app.hbos_attendance.pairing import (
     FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS,
 )
+
+# 与 api.py DELICLOUD_TZ 同基准：打卡时间已按 +8 转 naive 存储，今天/now 同用 +8 对齐
+TZ_PLUS8 = timezone(timedelta(hours=8))
 
 ROTATE_SYSTEM = {
     "四班次倒班": FOUR_SHIFT_NUMS,
@@ -157,15 +160,16 @@ def _load_attendance(date_str, emp_names):
 
 
 def _today():
-    return datetime.strptime(frappe.utils.today(), "%Y-%m-%d").date()
+    return datetime.now(TZ_PLUS8).replace(tzinfo=None).date()
 
 
 @frappe.whitelist()
 def get_data(department=None, date_str=None):
     """部门看板数据。date_str 缺省=今天；仅允许今天及以前（实时/回顾）。"""
+    frappe.only_for(["HR Manager", "HR User", "System Manager"])
     today = _today()
     if not date_str:
-        date_str = frappe.utils.today()
+        date_str = today.isoformat()
         target = today
     else:
         try:
@@ -175,7 +179,7 @@ def get_data(department=None, date_str=None):
         if target > today:
             frappe.throw("不能查看未来日期")
 
-    now = datetime.now().replace(microsecond=0)
+    now = datetime.now(TZ_PLUS8).replace(tzinfo=None, microsecond=0)
     mode = "live" if target == today else "review"
     weekday = target.weekday()
 
@@ -213,7 +217,7 @@ def get_data(department=None, date_str=None):
             "admin_list": num in ADMIN_NUMS,
             "food": num in FOOD_NUMS,
             "safety": num in SAFETY_NUMS,
-            "rotate_label": _rotating_label(ROTATE_SYSTEM, num),
+            "rotate_label": _rotating_label(ROTATE_SYSTEM, num) or "通用倒班",
             "bound": bool(bound_shift),
             "bound_shift_type": bound_shift,
             "bound_start": b_start,
@@ -307,6 +311,7 @@ SYNC_THROTTLE_SECONDS = 120  # live_sync 手动同步最小间隔（秒）
 @frappe.whitelist()
 def live_sync():
     """手动触发得力云打卡同步（节流 ≥120s），返回同步结果。"""
+    frappe.only_for(["HR Manager", "HR User", "System Manager"])
     import time
     key = "hbos_department_board_live_sync_at"
     last = frappe.cache.get_value(key)
