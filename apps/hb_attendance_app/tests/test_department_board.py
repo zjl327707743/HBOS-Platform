@@ -196,3 +196,11 @@ class DataLayerContractTest(unittest.TestCase):
         self.assertIn("live_state", content)
         self.assertIn("day_review", content)
         self.assertIn("resolve_expected", content)
+
+    def test_aggregate_rate_and_contract(self):
+        content = DATA_PY.read_text()
+        self.assertIn('"kind": exp["kind"]', content)
+        self.assertIn("_PRESENT_STATES", content)
+        self.assertIn("attendance=attendance.get", content)
+        self.assertIn("ORDER BY employee, time", content)
+        self.assertIn("FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS", content)

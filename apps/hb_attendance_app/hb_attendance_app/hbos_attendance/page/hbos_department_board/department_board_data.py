@@ -2,7 +2,7 @@
 
 只读 + 节流同步；不写业务数据。
 """
-from datetime import datetime, date, timedelta
+from datetime import datetime
 
 import frappe
 
@@ -237,13 +237,14 @@ def get_data(department=None, date_str=None):
             "num": p["num"],
             "name": e.employee_name or "",
             "expected_label": exp["label"],
+            "kind": exp["kind"],
             "fact_only": exp.get("start_time") is None or exp.get("late_after") is None,
             "state": st["state"], "label": st["label"],
             "first_hm": st["first_hm"], "card_count": st["card_count"],
             "tags": st["tags"], "note": st["note"],
         })
 
-    stats = _aggregate(rows, mode)
+    stats = _aggregate(rows)
     return {"departments": _all_depts(), "meta": {"date": date_str, "mode": mode,
                                                   "now_hm": now.strftime("%H:%M"),
                                                   "scope": department or "全部部门"},
@@ -262,36 +263,39 @@ def _empty_stats():
             "leave": 0, "rest": 0, "exempt": 0, "unknown": 0, "attendance_rate": None}
 
 
-def _aggregate(rows, mode):
+_PRESENT_STATES = {"present", "late", "fact_present", "present_offwindow",
+                   "out_day", "out_offwindow"}
+
+
+def _aggregate(rows):
+    """统计卡聚合。
+
+    口径（Owner 2026-09-08 确认）：出勤率分母 = 全部应出勤(kind=shift)；
+    已到岗(present) = 有卡/考勤出勤；缺勤/未到会真实拉低出勤率。
+    before_start(未到上班点) 不计入「未打卡/无考勤」。late 计入 present 与 expected。
+    """
     s = _empty_stats()
     s["total"] = len(rows)
-    expected = present = 0
+    expected = present = no_card = 0
     for r in rows:
-        st = r["state"]
-        if st == "exempt":
-            s["exempt"] += 1
-        elif st == "rest":
-            s["rest"] += 1
-        elif st == "unknown":
-            s["unknown"] += 1
-        elif st == "leave":
-            s["leave"] += 1
-        elif st in ("absent_day", "absent_expected"):
-            s["no_card"] += 1  # 展示为「未打卡/无考勤」
-        elif st == "late":
+        if r["state"] == "late":
             s["late"] += 1
-            s["present"] += 1
+        if r["state"] == "exempt":
+            s["exempt"] += 1
+        elif r["state"] == "rest":
+            s["rest"] += 1
+        elif r["state"] == "leave":
+            s["leave"] += 1
+        elif r["kind"] == "shift":
             expected += 1
-        elif st in ("present", "fact_present", "present_offwindow", "out_day",
-                    "out_offwindow"):
-            s["present"] += 1
-            expected += 1
-        elif st in ("before_start", "pending"):
-            expected += 1
-        elif st == "no_pair":
-            expected += 1
-        else:  # fact_none 食堂等仍在册但无法定应出勤
+            if r["state"] in _PRESENT_STATES:
+                present += 1
+            elif r["state"] != "before_start":
+                no_card += 1
+        else:
             s["unknown"] += 1
     s["expected"] = expected
+    s["present"] = present
+    s["no_card"] = no_card
     s["attendance_rate"] = round(present / expected * 100, 1) if expected else None
     return s
