@@ -1,9 +1,12 @@
 import unittest
 from datetime import datetime, date
+from pathlib import Path
 
 from hb_attendance_app.hbos_attendance.department_board import (
     resolve_expected, live_state, day_review,
 )
+
+DATA_PY = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/department_board_data.py"
 
 
 def profile(**kw):
@@ -177,3 +180,19 @@ class DayReviewTest(unittest.TestCase):
         st = day_review(e, p, [], datetime(2026, 9, 8, 23, 59))
         self.assertEqual(st["state"], "no_pair")
         self.assertFalse(st["tags"])  # 不判缺勤
+
+
+class DataLayerContractTest(unittest.TestCase):
+    """数据层 get_data 依赖 frappe 运行态，测试按仓库惯例用文件内容校验契约。"""
+
+    def test_data_module_whitelists_get_data(self):
+        content = DATA_PY.read_text()
+        self.assertIn("@frappe.whitelist()", content)
+        self.assertIn("def get_data(department=None, date_str=None)", content)
+        self.assertIn('frappe.throw("不能查看未来日期")', content)
+        # 复用名单/班次常量，不内联复制
+        self.assertIn("from hb_attendance_app.hbos_attendance.rule_lists import", content)
+        self.assertIn("from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS", content)
+        self.assertIn("live_state", content)
+        self.assertIn("day_review", content)
+        self.assertIn("resolve_expected", content)
