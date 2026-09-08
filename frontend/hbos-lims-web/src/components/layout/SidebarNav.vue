@@ -54,13 +54,29 @@
 
       <div class="nav-group">
         <div v-if="!collapsed" class="nav-group-title">留样管理</div>
-        <router-link to="/retention" class="nav-item" :class="{ active: isActive('/retention') && !route.path.includes('/retention/products') }" :title="collapsed ? '留样登记与台账' : ''">
+        <router-link to="/retention" class="nav-item" :class="{ active: isRetentionActive('dashboard') }" :title="collapsed ? '留样工作台' : ''">
+          <FundProjectionScreenOutlined />
+          <span v-if="!collapsed">留样工作台</span>
+        </router-link>
+        <router-link to="/retention/samples" class="nav-item" :class="{ active: isRetentionActive('samples') }" :title="collapsed ? '留样登记与台账' : ''">
           <DatabaseOutlined />
           <span v-if="!collapsed">留样登记与台账</span>
         </router-link>
-        <router-link to="/retention/products" class="nav-item" :class="{ active: isActive('/retention/products') }" :title="collapsed ? '留样产品' : ''">
+        <router-link to="/retention/products" class="nav-item" :class="{ active: isRetentionActive('products') }" :title="collapsed ? '留样产品' : ''">
           <TagsOutlined />
           <span v-if="!collapsed">留样产品</span>
+        </router-link>
+        <router-link to="/retention/observations" class="nav-item" :class="{ active: isRetentionActive('observations') }" :title="collapsed ? '观察任务' : ''">
+          <EyeOutlined />
+          <span v-if="!collapsed">观察任务</span>
+        </router-link>
+        <router-link to="/retention/usage" class="nav-item" :class="{ active: isRetentionActive('usage') }" :title="collapsed ? '使用申请' : ''">
+          <ExportOutlined />
+          <span v-if="!collapsed">使用申请</span>
+        </router-link>
+        <router-link to="/retention/disposal" class="nav-item" :class="{ active: isRetentionActive('disposal') }" :title="collapsed ? '处理申请' : ''">
+          <HistoryOutlined />
+          <span v-if="!collapsed">处理申请</span>
         </router-link>
       </div>
 
@@ -97,7 +113,7 @@ import {
   DashboardOutlined, FileAddOutlined,
   CarryOutOutlined, FormOutlined, FileTextOutlined, ReadOutlined, SearchOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, AuditOutlined,
-  DatabaseOutlined, TagsOutlined,
+  DatabaseOutlined, TagsOutlined, FundProjectionScreenOutlined, EyeOutlined, ExportOutlined, HistoryOutlined,
 } from '@ant-design/icons-vue'
 
 defineProps<{ collapsed: boolean }>()
@@ -107,6 +123,12 @@ const route = useRoute()
 
 function isActive(path: string): boolean {
   return route.path === path || (path !== '/dashboard' && route.path.startsWith(path))
+}
+
+const RETENTION_KEYS = ['dashboard', 'samples', 'products', 'observations', 'usage', 'disposal'] as const
+function isRetentionActive(key: (typeof RETENTION_KEYS)[number]): boolean {
+  if (key === 'dashboard') return route.path === '/retention'
+  return route.path === `/retention/${key}`
 }
 
 // TODO: 联调后从 API 读取待办角标数

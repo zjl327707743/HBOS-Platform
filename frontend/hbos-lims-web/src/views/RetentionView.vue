@@ -3,7 +3,7 @@
     <div class="page-head">
       <div>
         <h1>留样登记与台账</h1>
-        <p>批次留样全生命周期：登记入库、库存结存、留样期至与观察计划</p>
+        <p class="page-desc">批次留样全生命周期：登记入库、库存结存、留样期至与观察计划</p>
       </div>
       <div class="page-actions">
         <a-button @click="loadData">
@@ -41,6 +41,7 @@
         <div class="filter-bar">
           <a-select v-model:value="filters.category" placeholder="类别" allow-clear style="width: 130px" size="small" :options="categoryOptions" @change="loadData" />
           <a-select v-model:value="filters.status" placeholder="状态" allow-clear style="width: 110px" size="small" :options="statusOptions" @change="loadData" />
+          <a-select v-model:value="filters.expireRange" placeholder="临期范围" allow-clear style="width: 130px" size="small" :options="expireRangeOptions" @change="loadData" />
           <a-input v-model:value="filters.batch_no" placeholder="批号搜索" allow-clear style="width: 160px" size="small" @pressEnter="loadData" />
           <a-button size="small" @click="loadData">查询</a-button>
         </div>
@@ -64,6 +65,9 @@
               <span :class="{ 'stock-warn': record.available_qty <= 0 && record.status === '在库' }">
                 {{ record.current_qty }}{{ record.reserved_qty > 0 ? `（预占 ${record.reserved_qty}）` : '' }}
               </span>
+            </template>
+            <template v-else-if="column.key === 'available'">
+              <span class="mono" :class="record.available_qty > 0 ? 'stock-ok' : 'stock-warn'">{{ record.available_qty }}</span>
             </template>
             <template v-else-if="column.key === 'observed'">
               <span class="pill" :class="record.observed_flag ? 'pill-green' : 'pill-gray'">
@@ -239,7 +243,7 @@ const rows = ref<LedgerRow[]>([])
 const products = ref<RetentionProduct[]>([])
 const loading = ref(false)
 
-const filters = reactive({ category: undefined as string | undefined, status: undefined as string | undefined, batch_no: '' })
+const filters = reactive({ category: undefined as string | undefined, status: undefined as string | undefined, expireRange: undefined as string | undefined, batch_no: '' })
 
 const categoryOptions = [
   { value: '关键物料', label: '关键物料' },
@@ -247,6 +251,11 @@ const categoryOptions = [
   { value: '外售产品', label: '外售产品' },
 ]
 const statusOptions = ['在库', '部分使用', '已用尽', '待处理', '已销毁', '已转出'].map((s) => ({ value: s, label: s }))
+const expireRangeOptions = [
+  { value: 'exp30', label: '30 天内到期' },
+  { value: 'exp90', label: '90 天内到期' },
+  { value: 'over', label: '已超期' },
+]
 const expiryTypeOptions = [
   { value: '有效期至', label: '有效期至' },
   { value: '复验期至', label: '复验期至' },
@@ -261,6 +270,7 @@ const columns = [
   { title: '留样日期', key: 'retention_date', dataIndex: 'retention_date', width: 100 },
   { title: '留样量', key: 'qty', width: 100 },
   { title: '结存（预占）', key: 'stock', width: 120 },
+  { title: '可用量', key: 'available', width: 90 },
   { title: '留样期至', key: 'retention_due_date', dataIndex: 'retention_due_date', width: 100 },
   { title: '观察', key: 'observed', width: 60 },
   { title: '状态', key: 'status', width: 80 },
@@ -293,9 +303,21 @@ async function loadData() {
     if (filters.category) conditions.category = filters.category
     if (filters.status) conditions.status = filters.status
     const list = await listDoctype<RetentionSample>('HBOS Retention Sample', ['*'], conditions, 0, 'retention_date desc')
-    const filtered = filters.batch_no
+    let filtered = filters.batch_no
       ? list.filter((r) => r.batch_no?.includes(filters.batch_no))
       : list
+    // 临期范围（客户端推导，与统计条口径一致）
+    if (filters.expireRange) {
+      const now = Date.now()
+      const in30 = now + 30 * 86400_000
+      const in90 = now + 90 * 86400_000
+      filtered = filtered.filter((r) => {
+        if (!r.retention_due_date || r.status === '已销毁' || r.status === '已转出') return false
+        const due = new Date(r.retention_due_date).getTime()
+        if (filters.expireRange === 'over') return due < now
+        return due <= (filters.expireRange === 'exp30' ? in30 : in90)
+      })
+    }
     rows.value = filtered.map((r) => ({ ...r, available_qty: (r.current_qty || 0) - (r.reserved_qty || 0) }))
   } catch (e) {
     message.error('加载留样台账失败')
@@ -474,6 +496,7 @@ onMounted(async () => {
 .filter-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .stock-warn { color: #dc2626; font-weight: 600; }
+.stock-ok { color: var(--pass); font-weight: 600; }
 .pill {
   display: inline-block; padding: 1px 8px; border-radius: 999px;
   font-size: 12px; white-space: nowrap;

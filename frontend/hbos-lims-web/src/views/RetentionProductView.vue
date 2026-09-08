@@ -3,7 +3,7 @@
     <div class="page-head">
       <div>
         <h1>留样产品</h1>
-        <p>留样主数据（附件二《留样产品清单》电子化）：类别、留样量规则、UOM 与观察规则</p>
+        <p class="page-desc">留样主数据（附件二《留样产品清单》电子化）：类别、留样量规则、UOM 与观察规则</p>
       </div>
       <div class="page-actions">
         <a-button @click="loadData">

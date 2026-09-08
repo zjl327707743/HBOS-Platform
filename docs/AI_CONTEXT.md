@@ -21,7 +21,7 @@
 
 当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成（M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING）；M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动。
 
-当前目标：M2-R1 至 M2-R4 已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，等待 Owner 审查。M2-R7（留样管理板块开发方案）REVIEWING rev6：Owner 已授权留样板块纳入 `hb_lims_app` 范围，方案经五轮审查修订，rev6 完成终审修订（P1 释放预占绑定本单状态、P2 待处理回退/审批逃生口/受托转出落位、P3 六项分轮注意事项）；Owner 2026-09-07 已确认角色方案 B+SoD 与分支策略 b（m2-r6 为 M2 延伸工作线），余 6 项待确认按节拍推进，R7A 启动待 Owner 指令；未创建 DocType、未写业务代码。M1-FIX-B3 / B4 / B5 为并行未决事项，不 closeout，不阻塞 M2-LIMS。M1-FIX-C/D/E 未启动。
+当前目标：M2-R1 至 M2-R4 已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，等待 Owner 审查。M2-R7D（留样板块前端 Vue 复刻与生产部署）DEPLOYED：留样方案 rev6 口径定稿（Owner 2026-09-07 确认角色方案 B+SoD、分支策略 b）；R7A（主数据与留样登记 3 DocType + retention_service + 前端两页）已在 m2-r6 交付并测试路径验证；6 视图 Vue 板块已同步生产 `/hbos-lims`（工作台/观察/使用/处理 4 视图以演示数据 TEST-HBOS-M2-RET-* 先行并横幅标注，登记台账/产品接真实 R7A API），Owner 2026-09-08 已确认测试路径；R7B（观察管理）/R7C（使用与处理审批）后端 PLANNED。M1-FIX-B3 / B4 / B5 为并行未决事项，不 closeout，不阻塞 M2-LIMS。M1-FIX-C/D/E 未启动。
 M2-R6A（样品登记动态表单设计）随 M2-R6 并行 REVIEWING，等待 Owner 审查。
 M2-R6B（检验结果台账双模式设计）REVIEWING，Owner 已确认原型与交互（明细台账 + 样品表每样品种类一表），设计文档待审查。
 M2-R6C（检验结果台账 Vue 复刻与生产部署）DEPLOYED，双模式已复刻进 Vue 并上线生产，Owner 已确认测试路径。
@@ -98,7 +98,7 @@ M2-R6A 样品登记动态表单设计 REVIEWING（随 M2-R6 并行审查）。
 M2-R6B 检验结果台账双模式设计 REVIEWING（Owner 已确认原型与交互，设计文档待审查；通过后纳入 Vue 页面复刻范围，后端 `HBOS Ledger Template` / `get_result_ledger` 落地另行规划）。
 M2-R6C 检验结果台账 Vue 复刻与生产部署 DEPLOYED（双模式已上线生产，Owner 已确认测试路径；后端聚合 API 落地另行规划）。
 M2-R6D 合规审计日志 + 生产部署错配修复 DEPLOYED（write-once 审计日志已上线生产，Owner 已确认测试路径）。
-M2-R7 留样管理板块开发方案 REVIEWING rev6：Owner 已授权留样板块纳入 `hb_lims_app` 范围（R7A~D 子轮须方案审查通过后启动），方案经五轮审查修订（rev6 终审：1 P1 + 3 P2 修订 + P3 六项分轮实现注意事项）；Owner 2026-09-07 已确认角色方案 B+SoD 与分支策略 b（m2-r6 为 M2 延伸工作线），余 6 项按节拍推进，R7A 启动待 Owner 指令；未创建 DocType、未写业务代码。主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
+M2-R7D 留样板块前端 Vue 复刻与生产部署 DEPLOYED（Owner 2026-09-08 已确认测试路径并授权同步生产 `/hbos-lims`）：留样方案 rev6 口径定稿（Owner 2026-09-07 确认角色方案 B+SoD、分支策略 b，m2-r6 为 M2 延伸工作线）；R7A（主数据与留样登记 3 DocType + retention_service + 前端两页）已在 m2-r6 交付并测试路径验证；按设计稿在 Vue 工程落地 6 视图（工作台/登记台账/产品/观察/使用/处理），工作台/观察/使用/处理 4 视图以演示数据（TEST-HBOS-M2-RET-*）+ 演示角色矩阵先行并横幅标注，登记台账/产品接真实 R7A API；`vue-tsc` 0 错误、生产构建成功并同步 `/hbos-lims`（备份 hbos-lims.bak-20260908101325）。R7B（观察管理）/R7C（使用与处理审批）后端 PLANNED。方案主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
 
 ## 前端实施流程规范
 
@@ -110,6 +110,6 @@ M2-R7 留样管理板块开发方案 REVIEWING rev6：Owner 已授权留样板�
 
 ## 边界提醒
 
-不直接修改 Frappe / ERPNext / HRMS 核心源码。优先使用原生配置、角色权限、DocType、报表、导入、API 和低代码定制。自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。`hb_attendance_app` 已在 M1-FIX-B 经 Owner 授权创建，后续不得擅自扩大为大而全 HR App。`hb_lims_app` 已在 M2-R1 经 Owner 授权创建，MVP 范围限定样品管理、质量标准、检验流程与 COA 报告，不擅自扩大为 12 模块全量 LIMS；**留样板块（M2-R7）已按 Owner 2026-09-04 授权纳入 `hb_lims_app` 范围**（R7A~D 子轮须方案审查通过后启动），其余扩展模块仍另行规划。任何飞书真实写入必须由用户明确授权。
+不直接修改 Frappe / ERPNext / HRMS 核心源码。优先使用原生配置、角色权限、DocType、报表、导入、API 和低代码定制。自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。`hb_attendance_app` 已在 M1-FIX-B 经 Owner 授权创建，后续不得擅自扩大为大而全 HR App。`hb_lims_app` 已在 M2-R1 经 Owner 授权创建，MVP 范围限定样品管理、质量标准、检验流程与 COA 报告，不擅自扩大为 12 模块全量 LIMS；**留样板块（M2-R7）已按 Owner 2026-09-04 授权纳入 `hb_lims_app` 范围**（R7 子轮按 Owner 授权推进：R7A 与 R7D 前端已落地、R7B/C 后端待启动轮实现），其余扩展模块仍另行规划。任何飞书真实写入必须由用户明确授权。
 
 任何海滨自定义 App 生成、业务模型实现、真实业务数据配置、飞书真实写入、前端驾驶舱、AI 视频服务实现，以及 Docker volume 删除、site 重建或环境重构，都属于后续轮次或后续明确授权范围。

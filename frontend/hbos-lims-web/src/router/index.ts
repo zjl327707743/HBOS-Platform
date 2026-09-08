@@ -57,7 +57,13 @@ const routes = [
       },
       {
         path: 'retention',
-        name: 'retention',
+        name: 'retention-dashboard',
+        component: () => import('@/views/RetentionDashboardView.vue'),
+        meta: { title: '留样工作台' },
+      },
+      {
+        path: 'retention/samples',
+        name: 'retention-samples',
         component: () => import('@/views/RetentionView.vue'),
         meta: { title: '留样登记与台账' },
       },
@@ -66,6 +72,24 @@ const routes = [
         name: 'retention-products',
         component: () => import('@/views/RetentionProductView.vue'),
         meta: { title: '留样产品' },
+      },
+      {
+        path: 'retention/observations',
+        name: 'retention-observations',
+        component: () => import('@/views/RetentionObservationsView.vue'),
+        meta: { title: '观察任务' },
+      },
+      {
+        path: 'retention/usage',
+        name: 'retention-usage',
+        component: () => import('@/views/RetentionUsageView.vue'),
+        meta: { title: '使用申请' },
+      },
+      {
+        path: 'retention/disposal',
+        name: 'retention-disposal',
+        component: () => import('@/views/RetentionDisposalView.vue'),
+        meta: { title: '处理申请' },
       },
       {
         path: 'audit',
