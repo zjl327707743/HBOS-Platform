@@ -1048,8 +1048,9 @@ LEDGER_AUDIT_FIELDS = [
 
 @frappe.whitelist()
 def get_audit_log(log_type=None, doctype_target=None, user=None,
-				  keyword=None, from_date=None, to_date=None, limit=500):
-	"""合规审计日志查询（只读）：返回审计事件流，支持按类型/对象/操作人/关键字/时间范围筛选。"""
+				  keyword=None, from_date=None, to_date=None, limit=500, offset=0):
+	"""合规审计日志查询（只读）：分页返回审计事件流，支持类型/对象/操作人/关键字/时间筛选。
+	返回 events（当前页）与 total（满足筛选的全部条数，供前端真分页，保证历史可逐页看全）。"""
 	_check_action("get_audit_log")
 	try:
 		filters = []
@@ -1071,15 +1072,38 @@ def get_audit_log(log_type=None, doctype_target=None, user=None,
 				["action_text", "like", kw],
 				["checksum", "like", kw],
 			])
+		def _conds(arr):
+			parts, ps = [], []
+			for item in arr:
+				fld, op, val = item[0], str(item[1]), item[2]
+				op_sql = "LIKE" if op.lower() == "like" else op if op in (">=", "<=", ">", "<", "=") else "="
+				parts.append("`{}` {} %s".format(fld, op_sql))
+				ps.append(val)
+			return parts, ps
+
+		and_parts, a_ps = _conds(filters)
+		or_parts, o_ps = _conds(or_filters)
+		where = []
+		if and_parts:
+			where.append(" AND ".join(and_parts))
+		if or_parts:
+			where.append("( " + " OR ".join(or_parts) + " )")
+		sql = "SELECT COUNT(*) FROM `tabHBOS Audit Log`"
+		if where:
+			sql += " WHERE " + " AND ".join(where)
+		total = frappe.db.sql(sql, a_ps + o_ps)[0][0] or 0
+		page_size = max(1, min(int(limit or 500), 500))
+		start = max(0, int(offset or 0))
 		rows = frappe.get_all(
 			"HBOS Audit Log",
 			filters=filters,
 			or_filters=or_filters,
 			fields=LEDGER_AUDIT_FIELDS,
 			order_by="created_at desc",
-			limit=max(1, min(int(limit or 500), 500)),
+			limit_page_length=page_size,
+			limit_start=start,
 		)
-		return {"events": rows, "total": len(rows)}
+		return {"events": rows, "total": total}
 	except Exception:
 		_rollback()
 		raise

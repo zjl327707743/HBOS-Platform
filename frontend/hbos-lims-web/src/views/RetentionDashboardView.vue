@@ -33,6 +33,27 @@
       <div class="panel">
         <div class="panel-head">
           <div>
+            <div class="panel-title">留样状态分布</div>
+            <div class="panel-sub">当前留样生命周期状态（结存/在途/终态）</div>
+          </div>
+        </div>
+        <div class="panel-body"><div ref="statusEl" class="ret-chart"></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">留样期至趋势 · 未来 12 个月</div>
+            <div class="panel-sub">按留样期至月份统计（不含已销毁/已转出）</div>
+          </div>
+        </div>
+        <div class="panel-body"><div ref="dueEl" class="ret-chart"></div></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
             <div class="panel-title">观察计划完整性</div>
             <div class="panel-sub">各产品年度已选观察批 N/3（不足提示可补选）</div>
           </div>
@@ -124,10 +145,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { Empty } from 'ant-design-vue'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import * as echarts from 'echarts'
 import { useAuthStore } from '@/stores/auth'
 import {
   usageList, disposalList, obsPlan, canAction,
@@ -142,6 +164,12 @@ const rowsU = ref<UsageRow[]>([])
 const rowsD = ref<DisposalRow[]>([])
 const completeness = ref<ObsCompleteness[]>([])
 const samples = ref<{ name: string; status: string; retention_due_date?: string }[]>([])
+
+// ECharts 实例（状态分布 + 到期趋势）
+const statusEl = ref<HTMLElement>()
+const dueEl = ref<HTMLElement>()
+let statusChart: echarts.ECharts | null = null
+let dueChart: echarts.ECharts | null = null
 
 function can(key: string): boolean {
   return canAction(auth.user?.roles, key)
@@ -158,6 +186,7 @@ async function loadAll() {
     rowsD.value = d.rows
     completeness.value = plan.completeness
     samples.value = s
+    renderCharts()
   } catch (e: any) {
     message.error((e && e.message) || '加载工作台失败（需登录）')
   }
@@ -242,6 +271,75 @@ function statusPill(s: string): string {
   return 'pill-muted'
 }
 
+const STATUS_META: { label: string; color: string; keys: string[] }[] = [
+  { label: '在库', color: '#1d8a5b', keys: ['在库'] },
+  { label: '部分使用', color: '#2b6cb0', keys: ['部分使用'] },
+  { label: '待处理', color: '#d1871d', keys: ['待处理'] },
+  { label: '已用尽', color: '#8a9a94', keys: ['已用尽'] },
+  { label: '已转出', color: '#6b7f78', keys: ['已转出'] },
+  { label: '已销毁', color: '#c24d3f', keys: ['已销毁'] },
+]
+
+const statusDist = computed(() =>
+  STATUS_META
+    .map((s) => ({ name: s.label, value: samples.value.filter((x) => s.keys.includes(x.status)).length, itemStyle: { color: s.color } }))
+    .filter((d) => d.value > 0))
+
+const dueTrend = computed(() => {
+  const now = new Date()
+  const months: string[] = []
+  const counts: number[] = []
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    months.push(key)
+    counts.push(samples.value.filter((x) => x.retention_due_date
+      && x.status !== '已销毁' && x.status !== '已转出'
+      && String(x.retention_due_date).startsWith(key)).length)
+  }
+  return { months, counts }
+})
+
+function renderCharts() {
+  if (statusEl.value && !statusChart) statusChart = echarts.init(statusEl.value)
+  if (statusEl.value && statusChart) {
+    statusChart.setOption({
+      tooltip: { trigger: 'item' },
+      legend: { bottom: 0, icon: 'circle', textStyle: { fontSize: 11, color: '#5f726d' } },
+      series: [{
+        type: 'pie', radius: ['46%', '68%'], center: ['50%', '46%'],
+        avoidLabelOverlap: false,
+        itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+        label: { show: false },
+        emphasis: { label: { show: true, fontSize: 12, fontWeight: 'bold' } },
+        data: statusDist.value,
+      }],
+    }, true)
+  }
+  if (dueEl.value && !dueChart) dueChart = echarts.init(dueEl.value)
+  if (dueEl.value && dueChart) {
+    dueChart.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: 40, right: 14, top: 24, bottom: 26 },
+      xAxis: {
+        type: 'category', data: dueTrend.value.months,
+        axisLine: { lineStyle: { color: '#d8e2dd' } },
+        axisLabel: { color: '#5f726d', fontSize: 10 },
+      },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#eef2f0' } }, axisLabel: { color: '#5f726d' } },
+      series: [{
+        type: 'bar', data: dueTrend.value.counts,
+        itemStyle: { color: '#d1871d', borderRadius: [4, 4, 0, 0] }, barWidth: 16,
+      }],
+    }, true)
+  }
+}
+
+function resizeCharts() {
+  statusChart?.resize()
+  dueChart?.resize()
+}
+
 const dColumns = [
   { title: '处理单号', key: 'name', width: 200 },
   { title: '产品 / 批号', key: 'sample', width: 220 },
@@ -252,5 +350,21 @@ const dColumns = [
   { title: '操作', key: 'action', width: 80 },
 ]
 
-loadAll()
+async function boot() {
+  window.addEventListener('resize', resizeCharts)
+  await loadAll()
+}
+onMounted(boot)
+onUnmounted(() => {
+  window.removeEventListener('resize', resizeCharts)
+  statusChart?.dispose()
+  dueChart?.dispose()
+  statusChart = null
+  dueChart = null
+})
 </script>
+
+<style scoped>
+.ret-chart { width: 100%; height: 232px; }
+@media (max-width: 900px) { .ret-chart { height: 200px; } }
+</style>

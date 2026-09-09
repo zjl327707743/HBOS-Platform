@@ -5,7 +5,7 @@
         <h1>合规审计日志</h1>
         <p>全量自动记录登记、修改、仪器使用等数据完整性与法规要求可追溯事件（只读 · 防篡改）</p>
       </div>
-      <span class="pill muted total-pill">{{ events.length }} 条事件</span>
+      <span class="pill muted total-pill">{{ total }} 条事件</span>
     </div>
 
     <div class="filter-bar">
@@ -30,7 +30,7 @@
           :data-source="events"
           :loading="loading"
           size="small"
-          :pagination="{ pageSize: 20 }"
+          :pagination="{ current: page, pageSize, total, showSizeChanger: false, onChange: onPageChange }"
           row-key="name"
         >
           <template #bodyCell="{ column, record }">
@@ -96,9 +96,14 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ReloadOutlined } from '@ant-design/icons-vue'
 import { getAuditLog, type AuditEvent } from '@/api/lims'
 
-const LOG_TYPES = ['创建', '修改', '删除', '提交', '复核', '批准', '修订', '放行', '拒绝', 'OOS', '仪器使用', '规格生效', '规格废止']
+const LOG_TYPES = ['创建', '修改', '删除', '登记入库', '提交', '复核', '批准', '修订', '放行', '拒绝',
+  'OOS', '仪器使用', '规格生效', '规格废止', '预占', '释放预占', '使用出库', '销毁出库', '受托转出',
+  '手动调整', '续留改期', '观察完成', '观察异常', '审批签署', '审批层跳过', '驳回', '越权拦截', 'SoD 拦截']
 
 const events = ref<AuditEvent[]>([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
 const loading = ref(false)
 const filters = reactive({
   log_type: '',
@@ -145,7 +150,7 @@ function openDrawer(e: AuditEvent) {
   drawerOpen.value = true
 }
 
-async function load() {
+async function fetchPage(p: number) {
   loading.value = true
   try {
     const res = await getAuditLog({
@@ -155,11 +160,21 @@ async function load() {
       keyword: filters.keyword || undefined,
       from_date: filters.dateRange?.[0],
       to_date: filters.dateRange?.[1],
+      limit: pageSize.value,
+      offset: (p - 1) * pageSize.value,
     })
     events.value = res.events || []
+    total.value = res.total || 0
+    page.value = p
   } finally {
     loading.value = false
   }
+}
+function load() {
+  fetchPage(1)
+}
+function onPageChange(p: number) {
+  fetchPage(p)
 }
 
 onMounted(load)

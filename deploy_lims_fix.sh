@@ -51,9 +51,31 @@ fi
 log "7/8 Restart application services"
 "$DOCKER" compose restart backend frontend scheduler queue-short queue-long websocket
 
+log "7b/8 Rebuild frontend container-local assets symlinks (lost on container recreation)"
+FRONTEND_ID="$("$DOCKER" compose ps -q frontend)"
+[ -n "$FRONTEND_ID" ] || fail "frontend container is not running"
+"$DOCKER" exec "$FRONTEND_ID" sh -c \
+  'cd /home/frappe/frappe-bench/assets && for a in hb_lims_app hb_attendance_app hrms; do rm -f "$a"; t="/home/frappe/frappe-bench/apps/$a/$a/public"; [ -d "$t" ] && ln -s "$t" "$a" && echo "linked $a"; done'
+
+log "7c/8 Re-inject /hbos-lims nginx SPA fallback (lost on container recreation)"
+"$DOCKER" exec -i "$FRONTEND_ID" python3 - <<'PY'
+p = "/etc/nginx/conf.d/frappe.conf"
+s = open(p).read()
+if "^~ /hbos-lims/" not in s:
+    block = "\n\tlocation ^~ /hbos-lims/ {\n\t\ttry_files /frontend/public$uri /frontend/public/hbos-lims/index.html =404;\n\t}\n"
+    anchor = "\n\tlocation /socket.io {"
+    assert anchor in s, "nginx anchor not found"
+    open(p, "w").write(s.replace(anchor, block + anchor, 1))
+    print("SPA fallback injected")
+else:
+    print("SPA fallback already present")
+PY
+"$DOCKER" exec "$FRONTEND_ID" sh -c 'nginx -t && nginx -s reload'
+
 log "8/8 HTTP smoke checks"
 sleep 8
-for path in /hbos-lims/ /hbos-lims/dashboard /hbos-lims/samples /hbos-lims/audit /hbos-lims/audit-log; do
+for path in /hbos-lims/ /hbos-lims/dashboard /hbos-lims/samples /hbos-lims/audit /hbos-lims/audit-log \
+  /assets/hb_lims_app/hbos-lims-logo.svg /assets/hb_attendance_app/hbos-attendance-logo.svg; do
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "http://localhost:8080$path")"
   printf '%-28s %s\n' "$path" "$code"
   [ "$code" = "200" ] || fail "HTTP check failed for $path (status $code)"

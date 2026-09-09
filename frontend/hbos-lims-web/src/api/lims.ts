@@ -30,6 +30,7 @@ export function getAuditLog(params: {
   from_date?: string
   to_date?: string
   limit?: number
+  offset?: number
 } = {}): Promise<{ events: AuditEvent[]; total: number }> {
   return callMethod('hb_lims_app.hbos_lims.lims_service.get_audit_log', params)
 }

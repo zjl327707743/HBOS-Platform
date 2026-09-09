@@ -23,6 +23,13 @@
       "autoPort": false
     },
     {
+      "name": "HBOS LIMS Vue 本会话 5174",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "5174"],
+      "cwd": "/Users/hbzl/Vibe Coding/HBOS-Platform/frontend/hbos-lims-web",
+      "port": 5174
+    },
+    {
       "name": "HBOS LIMS 原型静态页",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8099", "--bind", "127.0.0.1"],
