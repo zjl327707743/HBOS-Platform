@@ -11,6 +11,7 @@ PRIMARY_SIDEBAR_ITEMS = [
 	{"label": "班次管理", "link_type": "Page", "link_to": "hbos-shift-management", "type": "Link", "icon": "setting"},
 	{"label": "人员管理", "link_type": "Page", "link_to": "hbos-employee-management", "type": "Link", "icon": "users"},
 	{"label": "导入考勤机导出表", "link_type": "Page", "link_to": "hbos-attendance-import", "type": "Link", "icon": "upload"},
+	{"label": "部门看板", "link_type": "Page", "link_to": "hbos-department-board", "type": "Link", "icon": "users"},
 	{"label": "考勤异常仪表盘", "link_type": "Page", "link_to": "hbos-attendance-dashboard", "type": "Link", "icon": "dashboard"},
 	{"label": "考勤导入日志", "link_type": "DocType", "link_to": "HBOS Attendance Import Log", "type": "Link", "icon": "list"},
 	{"label": "飞书请假记录", "link_type": "DocType", "link_to": "HBOS Leave Record", "type": "Link", "icon": "leave"},
