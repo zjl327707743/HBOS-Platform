@@ -74,6 +74,8 @@ def register_retention(retention_product=None, batch_no=None, retention_date=Non
 				frappe.throw(err)
 		if qty is None:
 			frappe.throw("请填写留样量（未自动计算：产品规则非 2 倍、全检量未维护或 UOM 不一致）。")
+		if float(qty) <= 0:
+			frappe.throw("留样量必须大于 0。")
 
 		is_outsource = bool(product.is_outsource)
 
@@ -199,6 +201,7 @@ def adjust_stock(retention_name, new_current_qty, reason):
 			frappe.throw(err)
 
 		doc = frappe.get_doc("HBOS Retention Sample", retention_name)
+		doc.flags.setdefault('allow_system_fields', True)
 		delta = (new_current_qty or 0) - (row.current_qty or 0)
 		doc.current_qty = new_current_qty
 		doc.save(ignore_permissions=True)
@@ -239,6 +242,7 @@ def select_obs_batch(retention_name, obs_year, obs_selected_reason, obs_selected
 		frappe.throw("请填写观察年度。")
 	try:
 		doc = frappe.get_doc("HBOS Retention Sample", retention_name)
+		doc.flags.setdefault('allow_system_fields', True)
 		if doc.observed_flag:
 			frappe.throw("该留样已是观察样品，如需更换请先取消选取（保留选取历史后重选）。")
 		product = frappe.get_doc("HBOS Retention Product", doc.retention_product)
@@ -293,6 +297,7 @@ def cancel_obs_batch(retention_name):
 	_check_action("cancel_obs_batch")
 	try:
 		doc = frappe.get_doc("HBOS Retention Sample", retention_name)
+		doc.flags.setdefault('allow_system_fields', True)
 		if not doc.observed_flag:
 			frappe.throw("该留样不在观察计划内，无需取消。")
 		# 若已有该观察批观察记录则禁止取消（先删记录或已完成观察不允许回退）
@@ -324,6 +329,7 @@ def record_observation(retention_name, obs_month, obs_date=None, appearance=None
 	obs_month = int(obs_month)
 	try:
 		sample = frappe.get_doc("HBOS Retention Sample", retention_name)
+		sample.flags.setdefault('allow_system_fields', True)
 		if not sample.observed_flag:
 			frappe.throw("该留样未入选观察批，不在观察计划内。")
 		if sample.status in ("已销毁", "已转出", "已用尽"):
@@ -388,6 +394,7 @@ def review_observation(observation_name=None, retention_name=None, obs_month=Non
 		doc.save(ignore_permissions=True)
 
 		sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+		sample.flags.setdefault('allow_system_fields', True)
 		_recompute_next_obs(sample)
 		sample.save(ignore_permissions=True)
 		_audit("观察完成" if doc.result == "正常" else "观察异常",
@@ -551,6 +558,7 @@ def create_usage_apply(retention_name, apply_qty, reason_type, reason_detail="",
 		frappe.throw("不支持的触发场景。")
 	try:
 		sample = frappe.get_doc("HBOS Retention Sample", retention_name)
+		sample.flags.setdefault('allow_system_fields', True)
 		if sample.status not in ("在库", "部分使用"):
 			frappe.throw("留样状态为「{}」，不可申请使用。".format(sample.status))
 		if (sample.current_qty or 0) <= 0:
@@ -604,6 +612,7 @@ def confirm_stock(usage_name):
 		if not ok:
 			frappe.throw(err)
 		sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+		sample.flags.setdefault('allow_system_fields', True)
 		before = (sample.current_qty or 0) - (sample.reserved_qty or 0)
 		sample.reserved_qty = (sample.reserved_qty or 0) + doc.apply_qty
 		sample.save(ignore_permissions=True)
@@ -665,6 +674,7 @@ def execute_usage(usage_name):
 		if not ok:
 			frappe.throw(err)
 		sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+		sample.flags.setdefault('allow_system_fields', True)
 		sample.current_qty = (sample.current_qty or 0) - doc.apply_qty
 		sample.reserved_qty = (sample.reserved_qty or 0) - doc.apply_qty
 		_apply_usage_status(sample)
@@ -707,6 +717,7 @@ def reject_usage(usage_name, reason):
 		if not reason:
 			frappe.throw("驳回必须填写原因。")
 		sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+		sample.flags.setdefault('allow_system_fields', True)
 		row = _lock_row(doc.retention_sample)
 		if _release_reservation(sample, doc.apply_qty, doc.status):
 			_audit_on("HBOS Retention Usage Apply", "释放预占", doc.name,
@@ -733,6 +744,7 @@ def cancel_usage_apply(usage_name, reason):
 		if not reason:
 			frappe.throw("取消必须填写原因。")
 		sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+		sample.flags.setdefault('allow_system_fields', True)
 		if doc.status == "已批准":
 			_lock_row(doc.retention_sample)
 			if _release_reservation(sample, doc.apply_qty, "已批准"):
@@ -791,8 +803,23 @@ def create_disposal_apply(retention_name, disposal_type, qty, reason="",
 		frappe.throw("续留类型必须填写新留样期至。")
 	try:
 		sample = frappe.get_doc("HBOS Retention Sample", retention_name)
+		sample.flags.setdefault('allow_system_fields', True)
 		if sample.status not in ("在库", "部分使用"):
 			frappe.throw("留样状态为「{}」，不可发起处理申请。".format(sample.status))
+		# 同留样唯一在途处理申请（防多单并发改同一结存）
+		inflight = frappe.db.get_all(
+			"HBOS Retention Disposal Apply",
+			filters={"retention_sample": retention_name,
+					 "status": ("in", ["草稿", "待QC主管审核", "待QC负责人审核", "待QA审核",
+										"待QA负责人审核", "待QM批准", "已批准", "待执行"])},
+			fields=["name"], limit=1)
+		if inflight:
+			frappe.throw("该留样已有在途处理申请（{}），请处理完成或取消后再新建。".format(inflight[0]["name"]))
+		if disposal_type != DSP_TYPE_CONTINUE:
+			if (sample.reserved_qty or 0) != 0:
+				frappe.throw("该留样存在在途预占，不可发起销毁/其他类处理申请。")
+			if float(qty) != float(sample.current_qty or 0):
+				frappe.throw("销毁/其他类处理数量必须等于当前结存（当前结存 {}，申请 {}）。".format(sample.current_qty, qty))
 		doc = frappe.get_doc({
 			"doctype": "HBOS Retention Disposal Apply",
 			"retention_sample": retention_name,
@@ -842,6 +869,9 @@ def approve_disposal(dsp_name):
 			frappe.throw("当前状态「{}」无批准动作。".format(doc.status))
 		action, field, prev_field = info
 		_check_action(action)
+		if field == "qm_sign":
+			# QM 上一签按链型取最近签署位：5 级=QA 负责人；4 级（跳过 QA 负责人）=QA 审核
+			prev_field = "qa_manager_sign" if doc.qa_manager_required else "qa_review_sign"
 		prev_signer = doc.get(prev_field) if prev_field else None
 		ok, err = rtc.check_sod_sign(doc.applicant, prev_signer, _user())
 		if not ok:
@@ -897,6 +927,7 @@ def _add_months_dt(dt, months):
 def _enter_pending(doc):
 	"""QM 批准销毁类处理 → 留样进入待处理并记录进入前状态快照。"""
 	sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+	sample.flags.setdefault('allow_system_fields', True)
 	if sample.status == "待处理":
 		return
 	if sample.status not in (rtc.RET_IN_STOCK, rtc.RET_PARTIAL_USED):
@@ -931,7 +962,16 @@ def _dsp_sign(dsp_name, who_field, date_field):
 			frappe.throw("仅「待执行」状态可执行处理。")
 		if doc.get(who_field):
 			frappe.throw("该签署位已签名，不能重复。")
-		doc.set(who_field, _user())
+		who = _user()
+		if who_field == "disposal_by" and doc.monitor_by and doc.monitor_by == who:
+			_audit_commit("HBOS Retention Disposal Apply", "SoD 拦截", dsp_name,
+						 action_text="处理人与监督人同人", reason="SoD")
+			frappe.throw("处理人与监督人不得为同一用户（SoD）。")
+		if who_field == "monitor_by" and doc.disposal_by and doc.disposal_by == who:
+			_audit_commit("HBOS Retention Disposal Apply", "SoD 拦截", dsp_name,
+						 action_text="处理人与监督人同人", reason="SoD")
+			frappe.throw("处理人与监督人不得为同一用户（SoD）。")
+		doc.set(who_field, who)
 		doc.set(date_field, frappe.utils.today())
 		doc.save(ignore_permissions=True)
 		_complete_if_signed(doc)
@@ -945,7 +985,8 @@ def _dsp_sign(dsp_name, who_field, date_field):
 def _complete_if_signed(doc):
 	"""销毁类双签齐备 → 出库完成；续留类无需监督人，由续留方法收口。"""
 	sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
-	if doc.disposal_type == DSP_TYPE_DESTROY:
+	sample.flags.setdefault('allow_system_fields', True)
+	if doc.disposal_type in (DSP_TYPE_DESTROY, DSP_TYPE_OTHER):
 		if not (doc.disposal_by and doc.monitor_by):
 			return
 		row = _lock_row(doc.retention_sample)
@@ -977,6 +1018,7 @@ def continue_retention(dsp_name):
 		if not doc.new_retention_due_date:
 			frappe.throw("缺少续留新留样期至。")
 		sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+		sample.flags.setdefault('allow_system_fields', True)
 		old = sample.retention_due_date
 		sample.retention_due_date = doc.new_retention_due_date
 		if doc.sample_prev_status and sample.status == rtc.RET_PENDING:
@@ -1030,6 +1072,7 @@ def cancel_disposal_apply(dsp_name, reason):
 			frappe.throw("取消必须填写原因。")
 		if doc.status == "待执行" and doc.sample_prev_status:
 			sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+			sample.flags.setdefault('allow_system_fields', True)
 			if sample.status == rtc.RET_PENDING:
 				sample.status = doc.sample_prev_status
 				sample.save(ignore_permissions=True)
@@ -1072,6 +1115,7 @@ def _write_stock_log(doc, transaction_type, qty_delta, source_doctype, source_na
 		"remaining_qty": doc.current_qty or 0,
 		"operator": _user(),
 	})
+	doc.flags.setdefault("allow_system_fields", True)
 	doc.save(ignore_permissions=True)
 
 
@@ -1120,6 +1164,7 @@ def scheduler_scan():
 def _sample_brief(name):
 	"""留样投影：产品名/批号/单位/结存/预占/可用量。"""
 	s = frappe.get_doc("HBOS Retention Sample", name)
+	s.flags.setdefault('allow_system_fields', True)
 	pname = frappe.db.get_value("HBOS Retention Product", s.retention_product, "product_name")
 	return {
 		"retention_name": name,
@@ -1217,3 +1262,28 @@ def list_disposal_applies(status=None):
 			"qm_sign": doc.qm_sign,
 		})
 	return {"rows": out, "total": len(out)}
+
+
+@frappe.whitelist()
+def transfer_out(retention_name, reason="受托转出"):
+	"""受托转出（Manager；四步锁协议）：前置 reserved_qty==0，结存整量转出（已转出终态）。"""
+	_check_action("transfer_out")
+	try:
+		row = _lock_row(retention_name)
+		ok, err = rtc.check_transfer_out(row.reserved_qty)
+		if not ok:
+			frappe.throw(err)
+		doc = frappe.get_doc("HBOS Retention Sample", retention_name)
+		doc.flags.setdefault('allow_system_fields', True)
+		qty = doc.current_qty or 0
+		doc.current_qty = 0
+		doc.status = rtc.RET_TRANSFERRED
+		doc.save(ignore_permissions=True)
+		_write_stock_log(doc, "受托转出", -qty, "", None)
+		_audit("受托转出", doc.name, action_text="受托转出整量", reason=reason,
+			   old_value="current_qty={}".format(qty), new_value="current_qty=0")
+		_commit()
+		return {"name": doc.name, "status": doc.status, "qty": qty}
+	except Exception:
+		_rollback()
+		raise

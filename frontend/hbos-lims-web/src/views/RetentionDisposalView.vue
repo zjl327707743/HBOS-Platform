@@ -906,6 +906,15 @@ async function confirmCreate() {
     message.error('该留样可用量为 0，不可发起处理')
     return
   }
+  const destroyLike = createForm.disposal_type !== DSP_CONTINUE
+  if (destroyLike && c.reserved_qty > 0) {
+    message.error('该留样存在在途预占，不可发起销毁/其他类处理申请')
+    return
+  }
+  if (destroyLike && qty !== c.current_qty) {
+    message.error(`销毁/其他类处理数量必须等于当前结存（结存 ${c.current_qty} ${c.qty_uom}）`)
+    return
+  }
   if (qty > c.available_qty) {
     message.error(`数量超过可用量（可用 ${c.available_qty} ${c.qty_uom}）`)
     return

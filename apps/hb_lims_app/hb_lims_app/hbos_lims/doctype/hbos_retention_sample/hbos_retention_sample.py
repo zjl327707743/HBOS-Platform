@@ -14,6 +14,36 @@ class HBOSRetentionSample(Document):
 		self._generate_business_key()
 		self._auto_due_date()
 		self._validate_obs_fields()
+		self._guard_system_fields()
+		self._guard_stock_invariants()
+
+	def _guard_system_fields(self):
+		"""字段级系统写入守卫：库存/状态字段仅系统服务（带 allow_system_fields 标记）
+		或 System Manager/Administrator 可改；普通角色直写（frappe.client.set_value/
+		DocType 表单）一律拦截（read_only 不构成服务端保护，此处为双保险）。"""
+		import frappe
+		before = self.get_doc_before_save()
+		if not before:
+			return
+		roles = frappe.get_roles()
+		if frappe.session.user == "Administrator" or "System Manager" in roles:
+			return
+		if self.flags.get("allow_system_fields"):
+			return
+		for f in ("current_qty", "reserved_qty", "status"):
+			if str(before.get(f) or "") != str(self.get(f) or ""):
+				frappe_throw("库存/状态字段「{}」仅能通过业务操作（服务方法）修改，禁止直接编辑。".format(f))
+
+	def _guard_stock_invariants(self):
+		"""库存不变量（防御层，任何写入路径都生效）：结存/预占不为负、预占不超结存。"""
+		cur = self.current_qty
+		res = self.reserved_qty
+		if cur is not None and float(cur) < 0:
+			frappe_throw("当前结存不得为负。")
+		if res is not None and float(res) < 0:
+			frappe_throw("预占量不得为负。")
+		if cur is not None and res is not None and float(res) > float(cur):
+			frappe_throw("预占量不得大于当前结存（当前结存 {} / 预占 {}）。".format(cur, res))
 
 	def before_insert(self):
 		"""登记即入库（初始状态=在库）；受托产品直接以已转出落位（rev6）。"""

@@ -98,7 +98,7 @@ M2-R6A 样品登记动态表单设计 REVIEWING（随 M2-R6 并行审查）。
 M2-R6B 检验结果台账双模式设计 REVIEWING（Owner 已确认原型与交互，设计文档待审查；通过后纳入 Vue 页面复刻范围，后端 `HBOS Ledger Template` / `get_result_ledger` 落地另行规划）。
 M2-R6C 检验结果台账 Vue 复刻与生产部署 DEPLOYED（双模式已上线生产，Owner 已确认测试路径；后端聚合 API 落地另行规划）。
 M2-R6D 合规审计日志 + 生产部署错配修复 DEPLOYED（write-once 审计日志已上线生产，Owner 已确认测试路径）。
-M2-R7D 留样板块前端 Vue 复刻与生产部署 DEPLOYED（Owner 2026-09-08 已确认测试路径并授权同步生产 `/hbos-lims`）：留样方案 rev6 口径定稿（Owner 2026-09-07 确认角色方案 B+SoD、分支策略 b，m2-r6 为 M2 延伸工作线）；R7A（主数据与留样登记 3 DocType + retention_service + 前端两页）已在 m2-r6 交付并测试路径验证；按设计稿在 Vue 工程落地 6 视图（工作台/登记台账/产品/观察/使用/处理），工作台/观察/使用/处理 4 视图以演示数据（TEST-HBOS-M2-RET-*）+ 演示角色矩阵先行并横幅标注，登记台账/产品接真实 R7A API；`vue-tsc` 0 错误、生产构建成功并同步 `/hbos-lims`（备份 hbos-lims.bak-20260908101325）。R7B（观察管理）/R7C（使用与处理审批）后端已实现并真实验证。方案主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
+M2-R7D 留样板块前端 Vue 复刻与生产部署 DEPLOYED（Owner 2026-09-08 已确认测试路径并授权同步生产 `/hbos-lims`）：留样方案 rev6 口径定稿（Owner 2026-09-07 确认角色方案 B+SoD、分支策略 b，m2-r6 为 M2 延伸工作线）；R7A（主数据与留样登记 3 DocType + retention_service + 前端两页）已在 m2-r6 交付并测试路径验证；按设计稿在 Vue 工程落地 6 视图（工作台/登记台账/产品/观察/使用/处理），工作台/观察/使用/处理 4 视图已切换真实后端接入，登记台账/产品沿用 R7A API；`vue-tsc` 0 错误、生产构建成功并同步 `/hbos-lims`（备份 hbos-lims.bak-20260908101325）。R7B（观察管理）/R7C（使用与处理审批）后端已实现并真实验证。方案主文档 `docs/milestones/M2_R7_留样管理板块开发方案.md`。
 
 ## 前端实施流程规范
 
@@ -110,6 +110,6 @@ M2-R7D 留样板块前端 Vue 复刻与生产部署 DEPLOYED（Owner 2026-09-08 
 
 ## 边界提醒
 
-不直接修改 Frappe / ERPNext / HRMS 核心源码。优先使用原生配置、角色权限、DocType、报表、导入、API 和低代码定制。自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。`hb_attendance_app` 已在 M1-FIX-B 经 Owner 授权创建，后续不得擅自扩大为大而全 HR App。`hb_lims_app` 已在 M2-R1 经 Owner 授权创建，MVP 范围限定样品管理、质量标准、检验流程与 COA 报告，不擅自扩大为 12 模块全量 LIMS；**留样板块（M2-R7）已按 Owner 2026-09-04 授权纳入 `hb_lims_app` 范围**（R7 子轮按 Owner 授权推进：R7A 与 R7D 前端已落地、R7B/C 后端待启动轮实现），其余扩展模块仍另行规划。任何飞书真实写入必须由用户明确授权。
+不直接修改 Frappe / ERPNext / HRMS 核心源码。优先使用原生配置、角色权限、DocType、报表、导入、API 和低代码定制。自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。`hb_attendance_app` 已在 M1-FIX-B 经 Owner 授权创建，后续不得擅自扩大为大而全 HR App。`hb_lims_app` 已在 M2-R1 经 Owner 授权创建，MVP 范围限定样品管理、质量标准、检验流程与 COA 报告，不擅自扩大为 12 模块全量 LIMS；**留样板块（M2-R7）已按 Owner 2026-09-04 授权纳入 `hb_lims_app` 范围**（R7 子轮按 Owner 授权推进：R7A/R7D 前端已落地，R7B/C 后端已实现并真实验证、前端已真实接入），其余扩展模块仍另行规划。任何飞书真实写入必须由用户明确授权。
 
 任何海滨自定义 App 生成、业务模型实现、真实业务数据配置、飞书真实写入、前端驾驶舱、AI 视频服务实现，以及 Docker volume 删除、site 重建或环境重构，都属于后续轮次或后续明确授权范围。
