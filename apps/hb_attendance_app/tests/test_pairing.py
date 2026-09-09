@@ -135,6 +135,22 @@ class MultiCardFallbackTest(unittest.TestCase):
         self.assertIn(("2026-08-17", "Present", "早班", 0, 8.5), s)
         self.assertIn(("2026-08-16", "Absent", "", 0, 0), s)
 
+    def test_night_double_out_card_not_absent(self):
+        # 黄法普/于洋 9/7 型(2h 去重回归): 9/6 23:44 晚班上班机 → 9/7 08:09 下班机已配对,
+        # 9/7 08:27 同下班机二次刷卡(间隔18min) 被 2h 去重合并, 不再落孤立下班卡判缺勤
+        def dck(day, hm, sn):
+            return {"time": datetime(2026, 9, day, *hm), "employee_name": "测试",
+                    "department": "生产部", "hbos_terminal_sn": sn}
+        IN = "13750CS_D7C69C16EC0B2447"
+        OUT = "13750CS_93C9390B9995FE8C"
+        cks = [dck(6, (23, 44), IN),
+               dck(7, (8, 9), OUT),
+               dck(7, (8, 27), OUT)]
+        atts = pair_employee_checkins(cks, "E1", "11002029", fake_shift_fn, terminal_aware=True)
+        s = statuses(atts)
+        self.assertIn(("2026-09-06", "Present", "晚班", 0, 8.42), s)
+        self.assertNotIn(("2026-09-07", "Absent", "", 0, 0), s)
+
 
 class NightOutMispunchTest(unittest.TestCase):
     """跨天夜班下班误刷上班机(Owner 2026-08-21, 吕玉升/庞冠军 8/16 案例)。"""
@@ -350,12 +366,35 @@ class RestDayAfterNightShiftTest(unittest.TestCase):
 
 
 class DedupTest(unittest.TestCase):
-    def test_adjacent_under_10min_merged(self):
-        out = dedup_checkins([ck(3, 8, 0, 0), ck(3, 8, 5, 0)])
+    """去重窗口 10min → 2h(120min) (Owner 2026-09-08 确认)。
+
+    背景: 下班不止打一次卡(同机间隔几分钟~1小时多)产生孤立下班卡误判缺勤
+    (黄法普/于洋 9/7: 次日 08:09 + 08:27 同下班机两次刷卡, 08:27 落孤立 → Absent)。
+    2h 去重把同机重复合并为最早卡, 消除该误判; 方向不同/未知的卡保留(防吞真实班次)。
+    """
+    def test_adjacent_under_2h_merged(self):
+        out = dedup_checkins([ck(3, 8, 0, 0), ck(3, 8, 5, 0), ck(3, 9, 30, 0)])
         self.assertEqual(len(out), 1)
 
-    def test_adjacent_over_10min_kept(self):
-        out = dedup_checkins([ck(3, 8, 0, 0), ck(3, 8, 11, 0)])
+    def test_adjacent_over_2h_kept(self):
+        out = dedup_checkins([ck(3, 8, 0, 0), ck(3, 10, 1, 0)])
+        self.assertEqual(len(out), 2)
+
+    def test_same_machine_duplicate_out_merged(self):
+        # 黄法普 9/7 型: 同下班机 08:09 + 08:27(间隔18min<2h) 去重为一张
+        out = dedup_checkins([
+            {"time": datetime(2026, 9, 7, 8, 9, 52), "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"},
+            {"time": datetime(2026, 9, 7, 8, 27, 11), "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"},
+        ])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["time"], datetime(2026, 9, 7, 8, 9, 52))
+
+    def test_diff_direction_adjacent_not_merged(self):
+        # 陈雨欣 8/19: 上班机 17:33 + 下班机 17:34(隔84s) 方向不同不合并
+        out = dedup_checkins([
+            {"time": datetime(2026, 8, 19, 17, 33, 0), "hbos_terminal_sn": "13750CS_D7C69C16EC0B2447"},
+            {"time": datetime(2026, 8, 19, 17, 34, 0), "hbos_terminal_sn": "13750CS_9FB66A86CF3487D7"},
+        ], terminal_aware=True)
         self.assertEqual(len(out), 2)
 
 

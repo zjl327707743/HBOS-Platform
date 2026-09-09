@@ -208,8 +208,12 @@ def role_from_terminal(terminal_sn, checkin_time=None):
     return None
 
 
-def dedup_checkins(cks, min_gap_min=10, terminal_aware=False):
+def dedup_checkins(cks, min_gap_min=120, terminal_aware=False):
     """相邻打卡间隔 < min_gap_min 分钟视为重复打卡，保留最早的一条。
+
+    去重窗口由 10 分钟放宽到 2 小时(120min) (Owner 2026-09-08 确认):
+    下班不止打一次卡(同机重复刷卡, 间隔常达几十分钟)被 2h 合并为最早卡,
+    消除「多余下班卡落孤立 → 误判缺勤」(黄法普/于洋 9/7 案例)。
 
     terminal_aware=True 时: 上下班机方向不同的相邻卡不合并
     (陈雨欣 8/19 案例: 17:33 上班机卡与 17:34 下班机卡相隔 84 秒,
@@ -233,10 +237,12 @@ def night_out_days_from_roles(cks, roles):
     }
 
 
-def dedup_checkins_with_mapping(cks, min_gap_min=10, terminal_aware=False):
+def dedup_checkins_with_mapping(cks, min_gap_min=120, terminal_aware=False):
     """去重并返回 (去重后的卡列表, 原始索引→去重后索引的映射)。
 
     被合并的重复卡映射到保留它的卡（同一张卡的角色一致）。
+    去重窗口默认 2 小时(120min) (Owner 2026-09-08 确认): 同机重复刷卡
+    (下班二次打卡, 间隔几分钟~1 小时多)合并为最早卡, 避免多余卡落孤立误判缺勤。
     terminal_aware=True 时: 上下班机方向不同的相邻卡不合并
     (陈雨欣 8/19 案例: 17:33 上班机卡与 17:34 下班机卡相隔 84 秒,
      合并会吞掉唯一的下班机卡, 导致误判缺勤)。
@@ -318,7 +324,7 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
             return "out"
         return None
 
-    # 去重: 10分钟合并, 但上下班机方向不同的相邻卡不合并(陈雨欣 8/19 案例:
+    # 去重: 2小时合并同机重复刷卡, 但上下班机方向不同的相邻卡不合并(陈雨欣 8/19 案例:
     # 17:33 上班机卡与 17:34 下班机卡相隔 84 秒, 合并会吞掉唯一的下班机卡)
     cks = dedup_checkins(orig_cks, terminal_aware=terminal_aware)
     used = [False] * len(cks)

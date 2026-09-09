@@ -318,7 +318,7 @@ def regenerate_attendance(range_start, range_end):
 
     流程:
         1. 删除该范围内所有 HBOS-ATT-* 记录（保留 HRMS 原生记录）
-        2. 对打卡流水做 10 分钟去重 + 贪心配对（凌晨打卡向前跨天配对）
+        2. 对打卡流水做 2 小时去重（同机重复刷卡合并为最早卡）+ 贪心配对（凌晨打卡向前跨天配对）
         3. 计算工作时长写入 working_hours
         4. 零打卡缺勤生成 Absent
     """

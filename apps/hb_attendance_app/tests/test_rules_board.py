@@ -70,7 +70,7 @@ class RulesBoardDataTest(unittest.TestCase):
 
     def test_pairing_params_has_key_params(self):
         params = {p["name"]: p["value"] for p in rules_board.pairing_params()}
-        self.assertEqual(params["打卡去重间隔"], "10 分钟")
+        self.assertEqual(params["打卡去重间隔"], "2 小时")
         self.assertEqual(params["最短班次"], "2 小时")
         self.assertEqual(params["连续无打卡缺勤门槛"], "3 天起判")
 
