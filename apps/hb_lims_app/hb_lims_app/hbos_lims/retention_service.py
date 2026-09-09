@@ -802,11 +802,11 @@ def create_disposal_apply(retention_name, disposal_type, qty, reason="",
 	if disposal_type == DSP_TYPE_CONTINUE and not new_retention_due_date:
 		frappe.throw("续留类型必须填写新留样期至。")
 	try:
-		sample = frappe.get_doc("HBOS Retention Sample", retention_name)
-		sample.flags.setdefault('allow_system_fields', True)
-		if sample.status not in ("在库", "部分使用"):
-			frappe.throw("留样状态为「{}」，不可发起处理申请。".format(sample.status))
-		# 同留样唯一在途处理申请（防多单并发改同一结存）
+		# 先取行锁：并发下 唯一在途/状态/数量/预占 复核都在该锁内（防两并发单都读到“无在途”）
+		row = _lock_row(retention_name)
+		if row.get("status") not in ("在库", "部分使用"):
+			frappe.throw("留样状态为「{}」，不可发起处理申请。".format(row.get("status")))
+		# 同留样唯一在途处理申请（在行锁内复核，防并发同建多单）
 		inflight = frappe.db.get_all(
 			"HBOS Retention Disposal Apply",
 			filters={"retention_sample": retention_name,
@@ -816,10 +816,10 @@ def create_disposal_apply(retention_name, disposal_type, qty, reason="",
 		if inflight:
 			frappe.throw("该留样已有在途处理申请（{}），请处理完成或取消后再新建。".format(inflight[0]["name"]))
 		if disposal_type != DSP_TYPE_CONTINUE:
-			if (sample.reserved_qty or 0) != 0:
+			if (row.get("reserved_qty") or 0) != 0:
 				frappe.throw("该留样存在在途预占，不可发起销毁/其他类处理申请。")
-			if float(qty) != float(sample.current_qty or 0):
-				frappe.throw("销毁/其他类处理数量必须等于当前结存（当前结存 {}，申请 {}）。".format(sample.current_qty, qty))
+			if float(qty) != float(row.get("current_qty") or 0):
+				frappe.throw("销毁/其他类处理数量必须等于当前结存（当前结存 {}，申请 {}）。".format(row.get("current_qty"), qty))
 		doc = frappe.get_doc({
 			"doctype": "HBOS Retention Disposal Apply",
 			"retention_sample": retention_name,
@@ -1017,11 +1017,12 @@ def continue_retention(dsp_name):
 			frappe.throw("当前状态不可续留执行。")
 		if not doc.new_retention_due_date:
 			frappe.throw("缺少续留新留样期至。")
+		row = _lock_row(doc.retention_sample)
 		sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
 		sample.flags.setdefault('allow_system_fields', True)
 		old = sample.retention_due_date
 		sample.retention_due_date = doc.new_retention_due_date
-		if doc.sample_prev_status and sample.status == rtc.RET_PENDING:
+		if doc.sample_prev_status and row.get("status") == rtc.RET_PENDING:
 			sample.status = doc.sample_prev_status
 		sample.save(ignore_permissions=True)
 		doc.status = "已完成"
@@ -1071,9 +1072,10 @@ def cancel_disposal_apply(dsp_name, reason):
 		if not reason:
 			frappe.throw("取消必须填写原因。")
 		if doc.status == "待执行" and doc.sample_prev_status:
-			sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
-			sample.flags.setdefault('allow_system_fields', True)
-			if sample.status == rtc.RET_PENDING:
+			row = _lock_row(doc.retention_sample)
+			if row.get("status") == rtc.RET_PENDING:
+				sample = frappe.get_doc("HBOS Retention Sample", doc.retention_sample)
+				sample.flags.setdefault('allow_system_fields', True)
 				sample.status = doc.sample_prev_status
 				sample.save(ignore_permissions=True)
 		doc.status = "已取消"
@@ -1094,7 +1096,7 @@ def cancel_disposal_apply(dsp_name, reason):
 def _lock_row(retention_name):
 	"""四步锁协议第 2 步：FOR UPDATE 行级锁并返回锁内值。"""
 	row = frappe.db.sql(
-		"SELECT current_qty, reserved_qty FROM `tabHBOS Retention Sample`"
+		"SELECT status, current_qty, reserved_qty FROM `tabHBOS Retention Sample`"
 		" WHERE name=%s FOR UPDATE",
 		retention_name, as_dict=True)
 	if not row:
@@ -1273,7 +1275,12 @@ def transfer_out(retention_name, reason="受托转出"):
 		ok, err = rtc.check_transfer_out(row.reserved_qty)
 		if not ok:
 			frappe.throw(err)
+		if not rtc.can_retention_transition(row.get("status"), rtc.RET_TRANSFERRED):
+			frappe.throw("留样状态「{}」不可执行受托转出（终态/待处理禁止）。".format(row.get("status")))
 		doc = frappe.get_doc("HBOS Retention Sample", retention_name)
+		product = frappe.get_doc("HBOS Retention Product", doc.retention_product)
+		if not product.is_outsource:
+			frappe.throw("仅受托（is_outsource）留样产品可执行受托转出；常规留样转出请走处置流程。")
 		doc.flags.setdefault('allow_system_fields', True)
 		qty = doc.current_qty or 0
 		doc.current_qty = 0
