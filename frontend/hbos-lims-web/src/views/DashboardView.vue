@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import {
   PlusOutlined, WarningOutlined, SnippetsOutlined,
@@ -135,11 +135,14 @@ const sampleStore = useSampleStore()
 
 const loading = computed(() => dashboard.loading)
 
+const clock = ref(new Date())
 const todayLabel = computed(() => {
-  const now = new Date()
+  const d = clock.value
+  const pad = (n: number) => String(n).padStart(2, '0')
   const weekdays = ['日', '一', '二', '三', '四', '五', '六']
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} 周${weekdays[now.getDay()]}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 周${weekdays[d.getDay()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 })
+let clockTimer: number | undefined
 
 const kpi = computed(() => dashboard.kpi)
 const taskCount = computed(() => dashboard.taskCount)
@@ -214,11 +217,13 @@ function resizeCharts() {
   donutChart?.resize()
 }
 
+clockTimer = window.setInterval(() => { clock.value = new Date() }, 1000)
 onMounted(async () => {
   window.addEventListener('resize', resizeCharts)
   await Promise.all([dashboard.loadAll(), sampleStore.fetchAll()])
   renderCharts()
 })
+onUnmounted(() => window.clearInterval(clockTimer))
 </script>
 
 <style scoped>
