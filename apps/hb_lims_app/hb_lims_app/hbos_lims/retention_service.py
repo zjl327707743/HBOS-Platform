@@ -250,8 +250,8 @@ def select_obs_batch(retention_name, obs_year, obs_selected_reason, obs_selected
 			frappe.throw("「外售产品每批」仅适用于每批观察的外售产品。")
 		if obs_selected_reason == OBS_REASON_OTHER and not _user_has_any(
 				[wf.ROLE_MANAGER, wf.ROLE_SYSTEM]):
-			_audit("越权拦截", retention_name,
-				   action_text="尝试以「其他」原因选取观察批绕过 N/3 上限")
+			_audit_commit("HBOS Retention Sample", "越权拦截", retention_name,
+						 action_text="尝试以「其他」原因选取观察批绕过 N/3 上限")
 			frappe.throw("「其他」原因选取观察批仅 LIMS Manager 可操作（防绕过年度 3 批上限）。")
 
 		# 年度观察批：产品行 FOR UPDATE 锁内计数（防并发第 4 批同时通过）
@@ -523,6 +523,13 @@ def _audit_on(doctype, log_type, doc_name, action_text="", old_value="", new_val
 			  old_value=old_value, new_value=new_value, reason=reason, commit=False)
 
 
+def _audit_commit(doctype, log_type, doc_name, action_text="", old_value="", new_value="", reason=""):
+	"""违规尝试（SoD/越权）审计：抛错前独立提交，避免随主事务回滚丢失（write-once 合规）。"""
+	from hb_lims_app.hbos_lims.lims_service import audit_log
+	audit_log(log_type, doctype, doc_name, action_text=action_text,
+			  old_value=old_value, new_value=new_value, reason=reason, commit=True)
+
+
 def _release_reservation(sample, apply_qty, from_state):
 	"""释放预占（rev6 P1）：本单已持有预占才释放（锁已由调用方持有）。"""
 	if not rtc.release_requires(from_state):
@@ -627,8 +634,8 @@ def approve_usage(usage_name):
 		prev_signer = doc.get(prev_field) or None
 		ok, err = rtc.check_sod_sign(doc.applicant, prev_signer, _user())
 		if not ok:
-			_audit_on("HBOS Retention Usage Apply", "SoD 拦截", doc.name,
-					  action_text="审批签署 SoD", reason=err)
+			_audit_commit("HBOS Retention Usage Apply", "SoD 拦截", doc.name,
+						 action_text="审批签署 SoD", reason=err)
 			frappe.throw(err)
 		doc.set(field, _user())
 		if nxt == "已批准":
@@ -838,8 +845,8 @@ def approve_disposal(dsp_name):
 		prev_signer = doc.get(prev_field) if prev_field else None
 		ok, err = rtc.check_sod_sign(doc.applicant, prev_signer, _user())
 		if not ok:
-			_audit_on("HBOS Retention Disposal Apply", "SoD 拦截", doc.name,
-					  action_text="处理审批 SoD", reason=err)
+			_audit_commit("HBOS Retention Disposal Apply", "SoD 拦截", doc.name,
+						 action_text="处理审批 SoD", reason=err)
 			frappe.throw(err)
 		doc.set(field, _user())
 		nxt = _dsp_next(doc.status, doc.qa_manager_required)
