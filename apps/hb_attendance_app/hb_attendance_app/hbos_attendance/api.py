@@ -42,25 +42,9 @@ def _is_admin_shift_num(emp_num):
 
 def _get_shift_and_late(ck_dt, emp_num="", cross_day=False):
     """返回 (系统班次名, 是否迟到)。系统班次: 早班/中班/晚班/行政班早班"""
-    # 规则表优先(按部门+班次类型匹配, 硬编码兜底)
-    # 为保持纯函数可测性, 规则查询在 regenerate_attendance 外层预加载后传入;
-    # 此处直接走硬编码逻辑, 规则表接入见 _get_shift_and_late_with_rules
-    return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
-
-
-def _get_shift_and_late_with_rules(ck_dt, emp_num="", cross_day=False, rules_by_dept=None):
-    """规则表优先的班次判定。
-
-    rules_by_dept: {dept_name: [{"shift_type","start_time","late_after",...}]}
-    部门规则匹配不到或未传规则时回退硬编码。
-    """
-    if rules_by_dept:
-        from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
-        # 全局规则 + 部门规则合并匹配(部门优先已在调用方排序)
-        for dept_rules in rules_by_dept.values():
-            matched = match_rule_by_time(dept_rules, ck_dt, cross_day)
-            if matched:
-                return matched
+    # 规则表只在员工【有明确绑定】时生效(见 shift_fn_with_fixed 第 2 步)；
+    # 未绑定者一律走硬编码判定 —— 按「最接近上班时间」把部门/全局规则套到所有人身上
+    # 会把普通员工匹配成特种班次(实测 703 天被当成无菌 12 小时班)，故不走那条路。
     return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
 
 
@@ -419,36 +403,6 @@ def regenerate_attendance(range_start, range_end):
         key = (r.department, r.shift_type)
         rules_versioned.setdefault(key, []).append(r)
 
-    def shift_fn_with_rules(ck_dt, emp_num, cross_day=False):
-        # 按打卡日期取该日生效的规则版本(生效日期 <= 打卡日期 的最新版)
-        # 部门专属规则优先于全局规则: 员工的部门有专属规则时用它, 否则用「全部部门」规则
-        day = ck_dt.date().strftime("%Y-%m-%d")
-        eid = emp_num_to_eid.get(emp_num, "") if emp_num else ""
-        emp_dept = frappe.db.get_value("Employee", eid, "department") if eid else None
-        rules_by_dept = {}
-        for (dept, _stype), versions in rules_versioned.items():
-            chosen = None
-            for v in versions:
-                if str(v.effective_from) <= day:
-                    chosen = v
-            if chosen is not None:
-                rules_by_dept.setdefault(dept, []).append(chosen)
-        # 部门专属优先
-        if emp_dept and emp_dept in rules_by_dept:
-            dept_rules = rules_by_dept[emp_dept]
-            from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
-            matched = match_rule_by_time(dept_rules, ck_dt, cross_day)
-            if matched:
-                return matched
-        # 全局兜底(全部部门 - HD)
-        for global_name in ("全部部门 - HD", "全部部门"):
-            if global_name in rules_by_dept:
-                from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
-                matched = match_rule_by_time(rules_by_dept[global_name], ck_dt, cross_day)
-                if matched:
-                    return matched
-        return _get_shift_and_late_with_rules(ck_dt, emp_num, cross_day, rules_by_dept)
-
     # 固定班次绑定: 员工 -> 绑定的规则名列表(多班次轮班支持)
     # 数据源: HBOS Employee Shift(多绑定) + Employee.hbos_fixed_shift(单绑定兼容)
     fixed_shift_map = {}
@@ -468,7 +422,11 @@ def regenerate_attendance(range_start, range_end):
         schedule_map.setdefault(s.employee, {})[str(s.schedule_date)] = s
 
     def shift_fn_with_fixed(ck_dt, emp_num, cross_day=False):
-        """判定优先级: 排班表 > 固定班次绑定 > 部门/全局规则 > 硬编码。
+        """判定优先级: 排班表 > 固定班次绑定 > 硬编码。
+
+        规则表(HBOS Shift Rule)只在员工有明确绑定(第 2 步)时生效；
+        未绑定者走硬编码——按「最接近上班时间」把部门/全局规则套到所有人身上
+        会把普通员工匹配成特种班次(实测 703 天被当成无菌 12 小时班)，故不采用。
 
         行政班名单人员(Owner 2026-08-21): 硬编码短路规则表——
         四车间行政班 08:0x 打卡曾被全局规则表匹配为「早班 08:00 标准」误判迟到,
@@ -516,7 +474,7 @@ def regenerate_attendance(range_start, range_end):
                 matched = match_rule_by_time(candidates, ck_dt, cross_day)
                 if matched:
                     return matched
-        return shift_fn_with_rules(ck_dt, emp_num, cross_day)
+        return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
 
     # 工号→员工ID 映射(固定班次匹配用)
     emp_num_to_eid = {
