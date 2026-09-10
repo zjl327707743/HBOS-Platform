@@ -278,6 +278,10 @@ def get_data(department=None, date_str=None):
     rows = []
     for e in emps:
         p = _profile(e)
+        # 豁免人员（管理层/产假/长期病假等不计异常考勤者）不进看板（Owner 2026-09-11）。
+        # 在源头跳过：KPI、部门表、明细因此一致，无需各处分别过滤。
+        if p["exempt"]:
+            continue
         ev = events.get(e.name, [])
         outs = out_events.get(e.name, [])
         exp = resolve_expected(p, weekday)
@@ -306,10 +310,17 @@ def get_data(department=None, date_str=None):
 
 
 def _all_depts():
+    """按部门统计在册人数；豁免人员不计入（与看板口径一致，Owner 2026-09-11）。"""
+    where = "WHERE status = 'Active'"
+    values = ()
+    if EXEMPT_NUMS:
+        where += " AND IFNULL(employee_number, '') NOT IN (%s)" % ", ".join(
+            ["%s"] * len(EXEMPT_NUMS))
+        values = tuple(sorted(EXEMPT_NUMS))
     return frappe.db.sql("""
         SELECT department AS name, COUNT(*) AS count FROM tabEmployee
-        WHERE status = 'Active' GROUP BY department ORDER BY department
-    """, as_dict=True)
+        %s GROUP BY department ORDER BY department
+    """ % where, values, as_dict=True)
 
 
 SYNC_THROTTLE_SECONDS = 120  # live_sync 手动同步最小间隔（秒）

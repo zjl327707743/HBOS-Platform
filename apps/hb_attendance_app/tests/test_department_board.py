@@ -566,3 +566,31 @@ class LateExemptBoardTest(unittest.TestCase):
         st = live_state(self._shift(), profile(), ev, datetime(2026, 9, 10, 14, 0))
         self.assertEqual(st["state"], "late")
         self.assertIn("迟到", st["tags"])
+
+
+class ExemptHiddenFromBoardTest(unittest.TestCase):
+    """豁免人员不进部门看板（Owner 2026-09-11）：源头上过滤，KPI/部门表/明细一致。
+
+    豁免 = 管理层 / 产假 / 长期病假等不计异常考勤者（EXEMPT_NUMS）。
+    与「暂不记迟到」（LATE_EXEMPT_NUMS，仍要显示到岗事实）语义不同，勿混。
+    """
+
+    def test_data_layer_skips_exempt_rows(self):
+        content = DATA_PY.read_text()
+        self.assertIn('if p["exempt"]:', content)
+        self.assertIn("continue", content)
+        # 人数统计也要剔除，否则下拉里的部门人数与表格对不上
+        self.assertIn("NOT IN", content)
+
+    def test_frontend_has_no_exempt_kpi(self):
+        js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
+        self.assertNotIn('["豁免", s.exempt, ""]', js)
+
+    def test_late_exempt_still_shown_by_design(self):
+        """对照：暂不记迟到的人仍要出现在看板上（只是不标迟到）。"""
+        from hb_attendance_app.hbos_attendance.department_board import live_state
+        st = live_state({"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+                         "late_after": "08:31", "label": "行政班 08:30"},
+                        {"num": "1", "exempt": False, "late_exempt": True},
+                        [datetime(2026, 9, 10, 9, 30)], datetime(2026, 9, 10, 14, 0))
+        self.assertEqual(st["state"], "present")

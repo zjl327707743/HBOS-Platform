@@ -165,7 +165,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		[["应出勤", s.expected, ""], ["已到岗", s.present, ""],
 		 ["迟到", s.late, "bad"], ["未打卡", s.noCard, "warn"],
 		 ["缺勤", s.absent, "bad"], ["请假", s.leave, ""],
-		 ["休息", s.rest, ""], ["豁免", s.exempt, ""]].forEach(function (c) {
+		 ["休息", s.rest, ""]].forEach(function (c) {
 			h += '<div class="db-kpi-i ' + c[2] + '"><div class="v">' + c[1] + '</div><div class="k">' + __(c[0]) + '</div></div>';
 		});
 		h += '</div></div>';
