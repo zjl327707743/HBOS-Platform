@@ -35,9 +35,9 @@ def match_rule_by_time(rules, ck_dt, cross_day=False):
     if ck_secs < 4 * 3600:
         for r in rules:
             st = r.get("start_time") or BUILTIN_SHIFTS.get(r["shift_type"], ("", "", "", 8))[0]
-            if _to_secs(st) == 0:
-                late_after = r.get("late_after") or BUILTIN_SHIFTS.get(r["shift_type"], ("", "", "", 8))[2]
-                return (r["shift_type"], ck_secs > _to_secs(late_after))
+            st_secs = _to_secs(st)
+            if st_secs == 0:
+                return (r["shift_type"], ck_secs > _effective_late_secs(r, st_secs))
         return None
     # 其余时段: 选上班时间最接近的规则
     best = None
@@ -50,14 +50,41 @@ def match_rule_by_time(rules, ck_dt, cross_day=False):
         dist = abs(ck_secs - st_secs)
         if best_dist is None or dist < best_dist:
             best_dist = dist
-            late_after = r.get("late_after") or BUILTIN_SHIFTS.get(r["shift_type"], ("", "", "", 8))[2]
-            best = (r["shift_type"], ck_secs > _to_secs(late_after))
+            best = (r["shift_type"], ck_secs > _effective_late_secs(r, st_secs))
     return best
 
 
-def _to_secs(t_str):
+def _effective_late_secs(rule, start_secs):
+    """规则的迟到起算秒数；数据异常（早于/等于上班时间）时回落「上班 +1 分钟」。
+
+    例：环保部「两班倒中班 13:00-20:00」的 late_after 误填 08:31，
+    若不修正，「晚于 late_after 即迟到」对任何 08:31 后到岗恒成立 → 必然误判迟到。
+    """
+    raw = rule.get("late_after")
+    la = _to_secs(raw) if raw else _to_secs(
+        BUILTIN_SHIFTS.get(rule["shift_type"], ("", "", "", 8))[2])
+    if start_secs and la <= start_secs:
+        return start_secs + 60
+    return la
+
+
+def _to_secs(t_val):
+    """Time 值 → 当日秒数。
+
+    兼容三种形态：frappe 从库中读出的 datetime.timedelta（Time 字段）、
+    字符串 "HH:MM" / "HH:MM:SS"、以及 datetime.time。
+    早期实现只按字符串 split，遇到 timedelta 会抛异常被吞成 0，
+    导致所有规则被当成 0 点上班（夜班）跳过 —— 规则表实际从未生效。
+    """
+    if t_val is None or t_val == "":
+        return 0
+    if hasattr(t_val, "total_seconds"):          # timedelta
+        return int(t_val.total_seconds())
     try:
-        hh, mm, ss = (t_str or "00:00:00").split(":")
-        return int(hh) * 3600 + int(mm) * 60 + int(ss)
+        parts = (str(t_val) or "00:00:00").split(":")
+        hh = int(parts[0])
+        mm = int(parts[1]) if len(parts) > 1 else 0
+        ss = float(parts[2]) if len(parts) > 2 else 0
+        return int(hh * 3600 + mm * 60 + ss)
     except Exception:
         return 0
