@@ -98,6 +98,63 @@ class ResolveExpectedTest(unittest.TestCase):
         self.assertEqual(e["label"], "通用倒班")
 
 
+class OutCardNotArrivalTest(unittest.TestCase):
+    """下班机卡不得当作到岗卡（吕玉升 2026-09-10：08:01 下班卡被误标早班迟到）。"""
+
+    def _d(self, h, m=0):
+        return datetime(2026, 9, 10, h, m)
+
+    def _morning_shift(self):
+        return {"kind": "shift", "shift_type": "早班", "start_time": "08:00",
+                "late_after": "08:01", "label": "早班"}
+
+    def test_out_only_card_is_not_late(self):
+        ev = [self._d(8, 1)]                      # 当天只有一张下班机卡
+        st = live_state(self._morning_shift(), profile(), ev, self._d(14), out_events=ev)
+        self.assertNotIn("迟到", st["tags"])       # 关键：不得判迟到
+        self.assertEqual(st["state"], "out_only")
+        self.assertEqual(st["out_hm"], "08:01")
+
+    def test_out_card_not_picked_as_first_arrival(self):
+        # 凌晨 00:05 是前夜班的尾巴（下班机卡），真正的上班卡是 07:55 → 到岗取 07:55
+        outs = [self._d(0, 5)]
+        ev = [self._d(0, 5), self._d(7, 55)]
+        st = live_state(self._morning_shift(), profile(), ev, self._d(9), out_events=outs)
+        self.assertEqual(st["state"], "present")
+        self.assertEqual(st["first_hm"], "07:55")
+
+    def test_night_shift_worker_before_start_not_present(self):
+        # 晚班 20:00 上班、现在 13:59：早上那张是前夜下班卡 → 还没上班，不是「已到岗」
+        e = {"kind": "shift", "shift_type": "晚班", "start_time": "20:00",
+             "late_after": "20:01", "label": "晚班"}
+        outs = [self._d(8, 8)]
+        st = live_state(e, profile(), outs, self._d(13, 59), out_events=outs)
+        self.assertEqual(st["state"], "before_start")
+        self.assertNotIn("迟到", st["tags"])
+
+    def test_night_shift_worker_after_start_shows_out_only(self):
+        # 同一人到了 21:00 仍未打上班卡 → 只报「仅下班卡」，不判迟到/缺勤
+        e = {"kind": "shift", "shift_type": "晚班", "start_time": "20:00",
+             "late_after": "20:01", "label": "晚班"}
+        outs = [self._d(8, 8)]
+        st = live_state(e, profile(), outs, self._d(21), out_events=outs)
+        self.assertEqual(st["state"], "out_only")
+        self.assertNotIn("迟到", st["tags"])
+
+    def test_direction_unknown_keeps_time_based_judgement(self):
+        # 分机实施前 / GPS / 未登记设备：无方向信息，仍按时间判定（不回归）
+        e = {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+             "late_after": "08:31", "label": "行政班"}
+        st = live_state(e, profile(), [self._d(8, 45)], self._d(9), out_events=[])
+        self.assertEqual(st["state"], "late")
+
+    def test_review_mode_out_only(self):
+        st = day_review(self._morning_shift(), profile(), [self._d(8, 1)], self._d(23),
+                        out_events=[self._d(8, 1)])
+        self.assertEqual(st["state"], "out_only")
+        self.assertNotIn("迟到", st["tags"])
+
+
 class OutPunchTest(unittest.TestCase):
     """「已下班」判定：仅当有可信下班卡（下班机 + 与首次到岗间隔 >=2h）时给出 out_hm。"""
 

@@ -102,7 +102,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 
 	// ---- 状态语义（与后端 state 串一一对应）----
 	var PRESENT_STATES = { present: 1, late: 1, fact_present: 1, present_offwindow: 1, out_day: 1, out_offwindow: 1 };
-	var ATTENTION_STATES = { late: 1, absent_day: 1, absent_expected: 1, no_pair: 1, fact_none: 1, out_offwindow: 1 };
+	var ATTENTION_STATES = { late: 1, absent_day: 1, absent_expected: 1, no_pair: 1, fact_none: 1, out_offwindow: 1, out_only: 1 };
 
 	function cls(state) {
 		if (state === "late" || state === "absent_day") return "s-red";      // 仅确凿定性用红
@@ -121,6 +121,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		"当日有排班/固定班次但无配对考勤记录，未判缺勤": "未判缺勤",
 		"当日有卡但无 HRMS 配对考勤结果": "无配对考勤",
 		"班次时段内无卡，未定性为缺勤，请以月度考勤汇总为准": "未定性缺勤",
+		"当天仅有下班卡，无到岗卡，未判迟到/缺勤": "仅下班卡",
 		"排班标注请假但当天有打卡，请人工核实": "有卡请核实",
 	};
 	function shortNote(note) {

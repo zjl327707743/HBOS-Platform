@@ -111,6 +111,29 @@ _ON_DUTY_STATES = {"present", "late", "present_offwindow", "fact_present",
                    "out_day", "out_offwindow"}
 
 
+def _arrival_events(events, out_events):
+    """可用于「到岗」判定的卡：剔除已知的下班机卡。
+
+    夜班人员当天的下班卡（早上 8 点或凌晨离开）若被当成到岗卡，会误判迟到
+    （吕玉升 2026-09-10：08:01 下班机卡被算成早班到岗 → 误标迟到）。
+    方向未知的卡（分机实施前、GPS/手机打卡、未登记设备）仍保留，不改变旧行为。
+    """
+    if not out_events:
+        return events
+    outs = set(out_events)
+    return [e for e in events if e not in outs]
+
+
+def _out_only_state(events, out_events, now):
+    """当天只有下班机卡、没有到岗卡 → 只报事实，不判到岗/迟到/缺勤。"""
+    outs = sorted(out_events) if out_events else sorted(events)
+    last = outs[-1] if outs else None
+    return {"state": "out_only", "label": "仅下班卡",
+            "first_hm": None, "out_hm": last.strftime("%H:%M") if last else None,
+            "card_count": len(events), "tags": [],
+            "note": "当天仅有下班卡，无到岗卡，未判迟到/缺勤"}
+
+
 def _out_hm(state, first_hm, out_events, day):
     """返回当天的下班打卡时间 "HH:MM"；没有可信下班卡则 None。
 
@@ -135,12 +158,13 @@ def live_state(expected, profile, events, now, out_events=None, day=None):
 
     day: 目标日期（回顾模式下 now 是今天、目标却是历史日，必须显式传入）。
     """
-    st = _live_state_inner(expected, profile, events, now)
-    st["out_hm"] = _out_hm(st["state"], st["first_hm"], out_events or [], day or now.date())
+    st = _live_state_inner(expected, profile, events, now, out_events)
+    if st.get("out_hm") is None:
+        st["out_hm"] = _out_hm(st["state"], st["first_hm"], out_events or [], day or now.date())
     return st
 
 
-def _live_state_inner(expected, profile, events, now):
+def _live_state_inner(expected, profile, events, now, out_events=None):
     kind = expected["kind"]
     # 豁免/休息优先：管理层豁免或排班休息不因请假记录改标
     if kind in ("rest", "exempt"):
@@ -166,12 +190,21 @@ def _live_state_inner(expected, profile, events, now):
     start = expected.get("start_time")
     late = expected.get("late_after")
     day = now.date()
+    arrivals = _arrival_events(events, out_events)
+
+    # 当天只有下班机卡（无到岗卡）：班次还没开始 → 尚未上班；已过班次点 → 只报事实
+    if events and not arrivals:
+        start_dt_ = _hm_to_dt(start, day)
+        if start and start_dt_ and now < start_dt_:
+            return {"state": "before_start", "label": f"未开始（{start} 上班）",
+                    "first_hm": None, "card_count": len(events), "tags": [], "note": ""}
+        return _out_only_state(events, out_events, now)
 
     # 到点判定不适用（起算点未知/食堂）→ 只报打卡事实
     # 文案区分「已打卡（有个卡，但不知道几点上班，不判到点）」与「已到岗（按班次判定的到岗）」
     if not start or not late:
-        if events:
-            first = events[0]
+        if arrivals:
+            first = arrivals[0]
             return {"state": "fact_present", "label": f"已打卡 {first.strftime('%H:%M')}",
                     "first_hm": first.strftime("%H:%M"), "card_count": len(events),
                     "tags": [], "note": "仅记录打卡事实，不判到点/迟到（班次起算点待排班/规则确认）"}
@@ -182,11 +215,11 @@ def _live_state_inner(expected, profile, events, now):
     win = _window_start_hm(start)
     start_dt = _hm_to_dt(start, day)
     late_dt = _hm_to_dt(late, day)
-    first = _first_in_window(events, win, day)
+    first = _first_in_window(arrivals, win, day)
 
     if not first:
-        if events:
-            f0 = events[0]
+        if arrivals:
+            f0 = arrivals[0]
             return {"state": "present_offwindow", "label": f"已打卡 {f0.strftime('%H:%M')}（班次时段外）",
                     "first_hm": f0.strftime("%H:%M"), "card_count": len(events),
                     "tags": [], "note": ""}
@@ -210,12 +243,13 @@ def _live_state_inner(expected, profile, events, now):
 
 def day_review(expected, profile, events, now, attendance=None, out_events=None, day=None):
     """回顾模式。attendance: None | {status, late_entry, early_exit}"""
-    st = _day_review_inner(expected, profile, events, now, attendance)
-    st["out_hm"] = _out_hm(st["state"], st["first_hm"], out_events or [], day or now.date())
+    st = _day_review_inner(expected, profile, events, now, attendance, out_events)
+    if st.get("out_hm") is None:
+        st["out_hm"] = _out_hm(st["state"], st["first_hm"], out_events or [], day or now.date())
     return st
 
 
-def _day_review_inner(expected, profile, events, now, attendance=None):
+def _day_review_inner(expected, profile, events, now, attendance=None, out_events=None):
     kind = expected["kind"]
     if attendance:
         a = attendance
@@ -255,9 +289,15 @@ def _day_review_inner(expected, profile, events, now, attendance=None):
     if kind == "unknown":
         return _base_state(expected, profile, events, now)
 
+    arrivals = _arrival_events(events, out_events)
+
+    # 当天只有下班机卡（无到岗卡）→ 只报事实，不判到岗/迟到（与实时模式同口径）
+    if events and not arrivals:
+        return _out_only_state(events, out_events, now)
+
     if not expected.get("start_time") or not expected.get("late_after"):
-        if events:
-            f0 = events[0]
+        if arrivals:
+            f0 = arrivals[0]
             return {"state": "fact_present", "label": f"已打卡 {f0.strftime('%H:%M')}",
                     "first_hm": f0.strftime("%H:%M"), "card_count": len(events),
                     "tags": [], "note": "班次起算点待排班/规则确认，仅记录打卡事实"}
@@ -270,7 +310,7 @@ def _day_review_inner(expected, profile, events, now, attendance=None):
         return {"state": "no_pair", "label": "当日无配对考勤记录",
                 "first_hm": None, "card_count": 0, "tags": [],
                 "note": "当日有排班/固定班次但无配对考勤记录，未判缺勤"}
-    f0 = events[0]
+    f0 = arrivals[0]
     return {"state": "out_offwindow", "label": f"已打卡 {f0.strftime('%H:%M')}",
             "first_hm": f0.strftime("%H:%M"), "card_count": len(events),
             "tags": [], "note": "当日有卡但无 HRMS 配对考勤结果"}
