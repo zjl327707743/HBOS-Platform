@@ -28,14 +28,14 @@ class RuleListsExtractionTest(unittest.TestCase):
 
     def test_api_reimports_rule_lists_constants(self):
         content = API.read_text()
-        self.assertIn(
-            "from hb_attendance_app.hbos_attendance.rule_lists import "
-            "ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS",
-            content,
-        )
+        # api.py 从 rule_lists 引入全部名单常量（含 LATE_EXEMPT_NUMS，允许换行书写）
+        self.assertIn("from hb_attendance_app.hbos_attendance.rule_lists import", content)
+        for name in ("ADMIN_NUMS", "EXEMPT_NUMS", "FOOD_NUMS", "SAFETY_NUMS", "LATE_EXEMPT_NUMS"):
+            self.assertIn(name, content)
         # 名单集合字面量不应再定义在 api.py 中
         self.assertNotIn("ADMIN_NUMS = {", content)
         self.assertNotIn("EXEMPT_NUMS = {", content)
+        self.assertNotIn("LATE_EXEMPT_NUMS = {", content)
 
 
 class RulesBoardDataTest(unittest.TestCase):

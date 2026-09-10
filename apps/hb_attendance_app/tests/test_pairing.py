@@ -417,3 +417,34 @@ class FixedMorningGroupTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LateExemptTest(unittest.TestCase):
+    """暂不记迟到名单（LATE_EXEMPT_NUMS）: 只清迟到, 到岗与缺勤判定照常。"""
+
+    def _in(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "厂外QA", "hbos_terminal_sn": "13750CS_02281E713F33A9A8"}
+
+    def _out(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "厂外QA", "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"}
+
+    def test_late_cleared_but_present_kept(self):
+        # 09:30 到岗（fake_shift_fn 对 9-12 点判「行政班早班 + 迟到」）→
+        # late_exempt 时迟到清零, 但仍记为出勤
+        cks = [self._in(10, 9, 30), self._out(10, 18, 0)]
+        base = pair_employee_checkins(cks, "E1", "10014018", fake_shift_fn,
+                                      is_admin=True, terminal_aware=True)
+        exempt = pair_employee_checkins(cks, "E1", "10014018", fake_shift_fn,
+                                        is_admin=True, terminal_aware=True, is_late_exempt=True)
+        self.assertTrue(any(a[3] == "Present" and a[5] == 1 for a in base), "基准应判迟到")
+        self.assertTrue(any(a[3] == "Present" for a in exempt))
+        self.assertFalse(any(a[5] == 1 for a in exempt), "豁免后不应有迟到")
+
+    def test_absence_still_judged(self):
+        # 只有一张上班卡 → 仍判缺勤（迟到豁免不等于异常全免）
+        cks = [self._in(10, 8, 40)]
+        atts = pair_employee_checkins(cks, "E1", "10014018", fake_shift_fn,
+                                      is_admin=True, terminal_aware=True, is_late_exempt=True)
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))

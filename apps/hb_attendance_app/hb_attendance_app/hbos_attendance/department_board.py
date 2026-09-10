@@ -298,7 +298,8 @@ def _live_state_inner(expected, profile, events, now, out_events=None):
                 "note": "班次时段内无卡，未定性为缺勤，请以月度考勤汇总为准"}
 
     first_hm = first.strftime("%H:%M")
-    if first > late_dt:
+    # late_exempt（暂不记迟到名单）: 只影响迟到标记, 到岗事实照常显示
+    if first > late_dt and not profile.get("late_exempt"):
         return {"state": "late", "label": f"已到岗 {first_hm}", "first_hm": first_hm,
                 "card_count": len(events), "tags": ["迟到"], "note": ""}
     return {"state": "present", "label": f"已到岗 {first_hm}", "first_hm": first_hm,

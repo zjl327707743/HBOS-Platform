@@ -12,7 +12,7 @@ WS_JSON = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/workspa
 
 def profile(**kw):
     base = {
-        "num": "1", "exempt": False, "admin_list": False, "food": False,
+        "num": "1", "exempt": False, "late_exempt": False, "admin_list": False, "food": False,
         "safety": False, "rotate_label": None,
         "bound": False, "bound_shift_type": None, "bound_start": None, "bound_late": None,
         "schedule": None, "leave_record": False, "leave_record_type": None,
@@ -521,3 +521,25 @@ class FrontendContractTest(unittest.TestCase):
         green_line = next(l for l in js.splitlines() if 'return "s-green"' in l)
         self.assertIn('"present"', green_line)
         self.assertIn('"out_day"', green_line)
+
+
+class LateExemptBoardTest(unittest.TestCase):
+    """看板侧：暂不记迟到名单只清迟到标记，到岗事实照常显示。"""
+
+    def _shift(self):
+        return {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+                "late_after": "08:31", "label": "行政班 08:30"}
+
+    def test_late_exempt_hides_late_tag(self):
+        ev = [datetime(2026, 9, 10, 12, 56)]
+        st = live_state(self._shift(), profile(late_exempt=True), ev,
+                        datetime(2026, 9, 10, 14, 0))
+        self.assertEqual(st["state"], "present")
+        self.assertNotIn("迟到", st["tags"])
+        self.assertEqual(st["first_hm"], "12:56")     # 到岗时间照常显示
+
+    def test_without_exempt_still_late(self):
+        ev = [datetime(2026, 9, 10, 12, 56)]
+        st = live_state(self._shift(), profile(), ev, datetime(2026, 9, 10, 14, 0))
+        self.assertEqual(st["state"], "late")
+        self.assertIn("迟到", st["tags"])

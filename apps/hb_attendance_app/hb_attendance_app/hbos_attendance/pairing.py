@@ -285,7 +285,8 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                            is_exempt=False, is_admin=False,
                            skip_forward=False, skip_night_lock=False,
                            emp_leave_dates=None, track_roles=False,
-                           terminal_aware=False, max_gap_hours=16):
+                           terminal_aware=False, max_gap_hours=16,
+                           is_late_exempt=False):
     """对单个员工按时间升序的打卡做 HBOS 配对。
 
     参数:
@@ -401,6 +402,13 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
             return four_shift_from_gap(ck_dt, gap_h)
         return shift_fn(ck_dt, emp_num, cross_day)
 
+    def compute_shift(ck_dt, cross_day, gap_h):
+        """算班次并应用豁免：is_exempt（全部异常豁免）与 is_late_exempt（仅不记迟到）。"""
+        shift, late = resolve_shift(ck_dt, cross_day, gap_h)
+        if is_exempt or is_late_exempt:
+            late = False
+        return shift, late
+
     # ===== 分机后纯设备方向顺序配对 (Owner 2026-08-21 确认) =====
     # 8/15 起上下班打卡分机: 上班机卡=上班, 下班机卡=下班, 方向由设备确定,
     # 不需要任何启发式(向前配对/时段锁定/猜班次)。
@@ -444,9 +452,7 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                     continue
                 mark_pair(i, j)
                 cross_day = cks[i]["time"].date() != cks[j]["time"].date()
-                shift, late = resolve_shift(cks[i]["time"], cross_day, round(gap, 2))
-                if is_exempt:
-                    late = False
+                shift, late = compute_shift(cks[i]["time"], cross_day, round(gap, 2))
                 add(cks[i]["time"].strftime("%Y-%m-%d"), "Present", shift, late,
                     cks[i]["time"].strftime("%Y-%m-%d %H:%M:%S"), round(gap, 2))
                 break
@@ -487,9 +493,7 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                     gap = (cj - cks[i]["time"]).total_seconds() / 3600
                     if 4 <= gap <= max_gap_hours:
                         mark_pair(i, j)
-                        shift, late = resolve_shift(cks[i]["time"], True, round(gap, 2))
-                        if is_exempt:
-                            late = False
+                        shift, late = compute_shift(cks[i]["time"], True, round(gap, 2))
                         add(cks[i]["time"].strftime("%Y-%m-%d"), "Present", shift, late,
                             cks[i]["time"].strftime("%Y-%m-%d %H:%M:%S"), round(gap, 2))
                         break
@@ -521,9 +525,7 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                 gap = (ck1["time"] - cks[p]["time"]).total_seconds() / 3600
                 if 2 <= gap <= 14:
                     mark_pair(p, i)
-                    shift, late = resolve_shift(cks[p]["time"], True, round(gap, 2))
-                    if is_exempt:
-                        late = False
+                    shift, late = compute_shift(cks[p]["time"], True, round(gap, 2))
                     add(cks[p]["time"].strftime("%Y-%m-%d"), "Present", shift, late,
                         cks[p]["time"].strftime("%Y-%m-%d %H:%M:%S"), round(gap, 2))
                     paired = True
@@ -552,9 +554,7 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                 gap = (cj - ck1["time"]).total_seconds() / 3600
                 if 2 <= gap <= 12:
                     mark_pair(i, j)
-                    shift, late = resolve_shift(ck1["time"], False, round(gap, 2))
-                    if is_exempt:
-                        late = False
+                    shift, late = compute_shift(ck1["time"], False, round(gap, 2))
                     add(ck1["time"].strftime("%Y-%m-%d"), "Present", shift, late,
                         ck1["time"].strftime("%Y-%m-%d %H:%M:%S"), round(gap, 2))
                     paired = True
@@ -635,9 +635,7 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
         mark_pair(i, best_j)
         cd = ck1["time"].date() != ck2["time"].date()
         gap_hours = round((ck2["time"] - ck1["time"]).total_seconds() / 3600, 2)
-        shift, late = resolve_shift(ck1["time"], cd, gap_hours)
-        if is_exempt:
-            late = False
+        shift, late = compute_shift(ck1["time"], cd, gap_hours)
         gap_hours = round((ck2["time"] - ck1["time"]).total_seconds() / 3600, 2)
         add(ck1["time"].strftime("%Y-%m-%d"), "Present", shift, late,
             ck1["time"].strftime("%Y-%m-%d %H:%M:%S"), gap_hours)

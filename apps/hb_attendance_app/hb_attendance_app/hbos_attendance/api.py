@@ -11,7 +11,9 @@ from datetime import timedelta as _timedelta
 DELICLOUD_TZ = _tz(_timedelta(hours=8))
 
 from hb_attendance_app.hbos_attendance.pairing import pair_employee_checkins, FOUR_SHIFT_NUMS
-from hb_attendance_app.hbos_attendance.rule_lists import ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS
+from hb_attendance_app.hbos_attendance.rule_lists import (
+    ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS, LATE_EXEMPT_NUMS,
+)
 
 
 # 飞书多维表格固定配置
@@ -507,6 +509,7 @@ def regenerate_attendance(range_start, range_end):
         atts, roles = pair_employee_checkins(
             deduped_cks, eid, emp_num, shift_fn_with_fixed,
             is_exempt=_is_exempt(emp_num),
+            is_late_exempt=emp_num in LATE_EXEMPT_NUMS,
             is_admin=is_admin,
             skip_forward=skip_forward,
             skip_night_lock=skip_night_lock,

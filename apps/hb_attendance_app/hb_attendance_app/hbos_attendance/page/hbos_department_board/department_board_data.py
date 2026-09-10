@@ -12,7 +12,7 @@ from hb_attendance_app.hbos_attendance.department_board import (
 )
 from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
 from hb_attendance_app.hbos_attendance.rule_lists import (
-    ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS,
+    ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS, LATE_EXEMPT_NUMS,
 )
 from hb_attendance_app.hbos_attendance.pairing import (
     FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS,
@@ -260,6 +260,7 @@ def get_data(department=None, date_str=None):
         return {
             "num": num,
             "exempt": num in EXEMPT_NUMS,
+            "late_exempt": num in LATE_EXEMPT_NUMS,
             "admin_list": num in ADMIN_NUMS,
             "food": num in FOOD_NUMS,
             "safety": num in SAFETY_NUMS,
