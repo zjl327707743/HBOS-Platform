@@ -104,7 +104,8 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	// ---- 状态语义（与后端 state 串一一对应）----
 	var ATTENTION_STATES = { late: 1, absent_day: 1, absent_expected: 1, no_pair: 1, fact_none: 1, out_offwindow: 1, out_only: 1 };
 
-	function cls(state) {
+	function cls(state, r) {
+		if (r && r.anomaly_hidden) return "s-grey";                          // 不显示异常 → 中性
 		if (state === "late" || state === "absent_day") return "s-red";      // 仅确凿定性用红
 		if (state === "present" || state === "out_day" || state === "fact_present") return "s-green";
 		if (state === "leave") return "s-purple";
@@ -138,8 +139,11 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	}
 
 	function hasTag(r, t) { return (r.tags || []).indexOf(t) >= 0; }
-	function isLate(r) { return r.state === "late" || hasTag(r, "迟到"); }
-	function needsAttention(r) { return isLate(r) || !!ATTENTION_STATES[r.state]; }
+	// 看板不显示异常的人（anomaly_hidden，如设备动力部）：只展示打卡事实，
+	// 不标迟到/缺勤，也不算「异常」（只看异常不列出、排序不置顶）
+	function isLate(r) { return !r.anomaly_hidden && (r.state === "late" || hasTag(r, "迟到")); }
+	function needsAttention(r) { return !r.anomaly_hidden && (isLate(r) || !!ATTENTION_STATES[r.state]); }
+	function rowTags(r) { return r.anomaly_hidden ? [] : (r.tags || []); }
 
 	function groupByDept(rows) {
 		var out = {};
@@ -220,7 +224,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 				+ '<th>' + __("状态") + '</th><th class="r">' + __("首卡") + '</th><th class="r">' + __("卡数") + '</th>'
 				+ '</tr></thead><tbody>';
 			list.forEach(function (r) {
-				var tags = (r.tags || []).map(function (t) {
+				var tags = rowTags(r).map(function (t) {
 					return '<span class="db-s s-red">' + frappe.utils.escape_html(t) + '</span>';
 				}).join("");
 				var note = shortNote(r.note);
@@ -228,7 +232,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 					+ '<td class="db-num">' + frappe.utils.escape_html(r.num || "-") + '</td>'
 					+ '<td>' + frappe.utils.escape_html(r.name || "-") + '</td>'
 					+ '<td>' + __(frappe.utils.escape_html(r.expected_label || "-")) + '</td>'
-					+ '<td><span class="db-s ' + cls(r.state) + '">' + frappe.utils.escape_html(statusText(r)) + '</span>'
+					+ '<td><span class="db-s ' + cls(r.state, r) + '">' + frappe.utils.escape_html(statusText(r)) + '</span>'
 					+ (tags ? " " + tags : "") + (note ? '<span class="db-chip">' + __(note) + '</span>' : "") + '</td>'
 					+ '<td class="r db-num">' + (r.first_hm || "-") + '</td>'
 					+ '<td class="r db-num">' + (r.card_count || 0) + '</td>'
@@ -250,7 +254,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			+ '<th>' + __("状态") + '</th><th class="r">' + __("首卡") + '</th><th class="r">' + __("卡数") + '</th>'
 			+ '</tr></thead><tbody>';
 		list.forEach(function (r) {
-			var tags = (r.tags || []).map(function (t) {
+			var tags = rowTags(r).map(function (t) {
 				return '<span class="db-s s-red">' + frappe.utils.escape_html(t) + '</span>';
 			}).join("");
 			var note = shortNote(r.note);
@@ -259,7 +263,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 				+ '<td>' + frappe.utils.escape_html(r.name || "-") + '</td>'
 				+ '<td>' + frappe.utils.escape_html(r.dept || "-") + '</td>'
 				+ '<td>' + __(frappe.utils.escape_html(r.expected_label || "-")) + '</td>'
-				+ '<td><span class="db-s ' + cls(r.state) + '">' + frappe.utils.escape_html(statusText(r)) + '</span>'
+				+ '<td><span class="db-s ' + cls(r.state, r) + '">' + frappe.utils.escape_html(statusText(r)) + '</span>'
 				+ (tags ? " " + tags : "") + (note ? '<span class="db-chip">' + __(note) + '</span>' : "") + '</td>'
 				+ '<td class="r db-num">' + (r.first_hm || "-") + '</td>'
 				+ '<td class="r db-num">' + (r.card_count || 0) + '</td>'

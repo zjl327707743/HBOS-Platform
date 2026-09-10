@@ -39,6 +39,10 @@ def summarize_rows(rows):
     s = dict(_EMPTY)
     s["total"] = len(rows)
     for r in rows:
+        # 「看板不显示异常」的人（Owner 2026-09-11，如设备动力部）：仍出现在明细里，
+        # 但不参与任何桶的统计——否则部门表会显示「迟到 5」而展开后一条也看不到。
+        if r.get("anomaly_hidden"):
+            continue
         st = r.get("state")
         if st == "exempt":
             s["exempt"] += 1

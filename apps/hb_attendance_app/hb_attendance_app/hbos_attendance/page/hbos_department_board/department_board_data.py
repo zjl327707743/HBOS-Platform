@@ -13,6 +13,7 @@ from hb_attendance_app.hbos_attendance.department_board import (
 from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
 from hb_attendance_app.hbos_attendance.rule_lists import (
     ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS, LATE_EXEMPT_NUMS,
+    ANOMALY_HIDDEN_NUMS,
 )
 from hb_attendance_app.hbos_attendance.pairing import (
     FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS,
@@ -301,6 +302,9 @@ def get_data(department=None, date_str=None):
             "first_hm": st["first_hm"], "out_hm": st.get("out_hm"),
             "card_count": st["card_count"],
             "tags": st["tags"], "note": st["note"],
+            # 看板不显示异常（Owner 2026-09-11，如设备动力部）：行照常展示，
+            # 但统计口径与前端都不把它当异常（判定与数据均未改动）
+            "anomaly_hidden": p["num"] in ANOMALY_HIDDEN_NUMS,
         })
 
     return {"departments": _all_depts(), "meta": {"date": date_str, "mode": mode,

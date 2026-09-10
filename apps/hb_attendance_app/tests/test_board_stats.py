@@ -127,3 +127,65 @@ class GroupAndDeptSummaryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AnomalyHiddenTest(unittest.TestCase):
+    """看板不显示异常的行：仍出现在明细里，但不参与任何统计（Owner 2026-09-11）。"""
+
+    def _r(self, state, hidden=False, kind="shift"):
+        return {"dept": "设备动力部", "state": state, "tags": ["迟到"] if state == "late" else [],
+                "kind": kind, "anomaly_hidden": hidden}
+
+    def test_hidden_rows_excluded_from_all_buckets(self):
+        rows = [self._r("present"), self._r("late", hidden=True),
+                self._r("absent_expected", hidden=True), self._r("absent_day", hidden=True)]
+        s = summarize_rows(rows)
+        self.assertEqual(s["total"], 4)      # 仍在明细里
+        self.assertEqual(s["expected"], 1)   # 只算未隐藏的那条
+        self.assertEqual(s["late"], 0)
+        self.assertEqual(s["noCard"], 0)
+        self.assertEqual(s["absent"], 0)
+        self.assertEqual(s["present"], 1)
+
+    def test_identity_holds_with_hidden_rows(self):
+        rows = [self._r("present"), self._r("late"), self._r("out_only"),
+                self._r("fact_none"), self._r("before_start"), self._r("absent_day"),
+                self._r("absent_expected", hidden=True), self._r("late", hidden=True)]
+        s = summarize_rows(rows)
+        self.assertEqual(
+            s["expected"],
+            s["present"] + s["noCard"] + s["outOnly"] + s["unknownTime"]
+            + s["notStarted"] + s["absent"],
+        )
+
+    def test_dept_summary_excludes_hidden_from_anomaly_counts(self):
+        rows = [self._r("present"), self._r("late", hidden=True)]
+        out = dept_summary(rows)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["total"], 2)
+        self.assertEqual(out[0]["late"], 0)
+
+
+class AnomalyHiddenFrontendTest(unittest.TestCase):
+    """前端：不显示异常的人用中性色、无迟到标记、不进「只看异常」。"""
+
+    def test_frontend_neutralizes_anomaly_hidden(self):
+        from pathlib import Path
+        js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
+        self.assertIn("anomaly_hidden", js)
+        self.assertIn("rowTags", js)
+        # needsAttention 必须排除隐藏行，否则「只看异常」仍会列出他们
+        self.assertIn("!r.anomaly_hidden && (isLate(r)", js)
+
+
+class AnomalyHiddenListTest(unittest.TestCase):
+    """名单定义：设备动力部 40 人在内；与其它名单语义区分。"""
+
+    def test_list_contains_equipment_dept_members(self):
+        from hb_attendance_app.hbos_attendance.rule_lists import (
+            ANOMALY_HIDDEN_NUMS, EXEMPT_NUMS, LATE_EXEMPT_NUMS)
+        self.assertEqual(len(ANOMALY_HIDDEN_NUMS), 40)
+        self.assertIn("10009025", ANOMALY_HIDDEN_NUMS)   # 付全喜（设备动力部）
+        self.assertIn("10009017", ANOMALY_HIDDEN_NUMS)   # 李振中（不在任何其它名单，验证取全部门）
+        # 不得与「暂不记迟到」混用；与豁免名单可以重叠（重叠者已被豁免隐藏，无副作用）
+        self.assertFalse(ANOMALY_HIDDEN_NUMS & LATE_EXEMPT_NUMS)
