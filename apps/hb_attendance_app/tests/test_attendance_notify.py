@@ -6,7 +6,9 @@ from datetime import datetime
 from unittest import mock
 
 from hb_attendance_app.hbos_attendance import attendance_notify
-from hb_attendance_app.hbos_attendance.attendance_notify import render_report, build_payload
+from hb_attendance_app.hbos_attendance.attendance_notify import (
+    render_report, build_feishu_payload, feishu_result,
+)
 
 
 def d(dept, expected, present, no_card, late=0):
@@ -46,25 +48,54 @@ class RenderReportTest(unittest.TestCase):
         self.assertIn("0", line)
 
 
-class BuildPayloadTest(unittest.TestCase):
-    def test_payload_shape(self):
-        stats = [d("A", 10, 9, 1)]
-        p = build_payload("2026-09-10", "2026-09-10 09:00:03", "TEXT", stats)
-        self.assertEqual(p["type"], "attendance_daily")
-        self.assertEqual(p["date"], "2026-09-10")
-        self.assertEqual(p["generated_at"], "2026-09-10 09:00:03")
-        self.assertEqual(p["text"], "TEXT")
-        self.assertEqual(len(p["dept_stats"]), 1)
-        self.assertEqual(p["dept_stats"][0]["dept"], "A")
+class FeishuPayloadTest(unittest.TestCase):
+    """飞书自定义机器人要求的报文格式（Owner 2026-09-11 选定路线 B）。"""
 
-    def test_payload_dept_stats_has_snake_keys(self):
-        # 传输层统一 snake_case，便于 OpenClaw 侧消费
-        p = build_payload("2026-09-10", "x", "t", [d("A", 10, 9, 1)])
-        self.assertEqual(
-            sorted(p["dept_stats"][0].keys()),
-            ["absent", "dept", "expected", "late", "leave", "no_card", "not_started",
-             "out_only", "present", "total", "unknown_time"],
-        )
+    def test_text_message_shape(self):
+        from hb_attendance_app.hbos_attendance.attendance_notify import build_feishu_payload
+        p = build_feishu_payload("【考勤到岗】2026-09-10 09:00\n部门 ...")
+        self.assertEqual(p, {"msg_type": "text",
+                             "content": {"text": "【考勤到岗】2026-09-10 09:00\n部门 ..."}})
+
+    def test_payload_has_only_expected_keys(self):
+        from hb_attendance_app.hbos_attendance.attendance_notify import build_feishu_payload
+        p = build_feishu_payload("x")
+        self.assertEqual(sorted(p.keys()), ["content", "msg_type"])
+
+
+class FeishuResultTest(unittest.TestCase):
+    """飞书即使失败也可能返回 HTTP 200，错误在 body 的 code 里 —— 不能只看状态码。"""
+
+    def setUp(self):
+        from hb_attendance_app.hbos_attendance.attendance_notify import feishu_result
+        self.f = feishu_result
+
+    def test_success_code_zero(self):
+        ok, msg = self.f(200, '{"code":0,"msg":"success","data":{}}')
+        self.assertTrue(ok)
+        self.assertIn("200", msg)
+
+    def test_http_200_but_error_code_is_failure(self):
+        # 典型：token 错误 / 签名不匹配 / 被限流，飞书给 200 + 非零 code
+        ok, msg = self.f(200, '{"code":19021,"msg":"sign match fail"}')
+        self.assertFalse(ok)
+        self.assertIn("19021", msg)
+
+    def test_legacy_status_code_field(self):
+        ok, _ = self.f(200, '{"StatusCode":0,"StatusMessage":"success"}')
+        self.assertTrue(ok)
+        ok2, _ = self.f(200, '{"StatusCode":9499,"StatusMessage":"Bad Request"}')
+        self.assertFalse(ok2)
+
+    def test_non_2xx_is_failure(self):
+        ok, msg = self.f(500, "oops")
+        self.assertFalse(ok)
+        self.assertIn("500", msg)
+
+    def test_unparseable_body_with_2xx_treated_as_success(self):
+        # 兼容非飞书端点（如自建网关返回纯文本）
+        ok, _ = self.f(200, "OK")
+        self.assertTrue(ok)
 
 
 if __name__ == "__main__":
@@ -84,9 +115,11 @@ class HeaderAlignmentTest(unittest.TestCase):
         self.assertNotIn("已到岗未打卡", header)
         self.assertNotIn("未打卡迟到", header)
 
-    def test_payload_title_with_bad_generated_at_falls_back(self):
-        p = build_payload("2026-09-10", "bad-format", "T", [])
-        self.assertEqual(p["title"], "【考勤到岗】2026-09-10")
+    def test_feishu_payload_carries_rendered_title(self):
+        text = render_report("2026-09-10", "09:00", [])
+        from hb_attendance_app.hbos_attendance.attendance_notify import build_feishu_payload
+        p = build_feishu_payload(text)
+        self.assertIn("【考勤到岗】2026-09-10 09:00", p["content"]["text"])
 
 
 class ShouldSendNowTest(unittest.TestCase):

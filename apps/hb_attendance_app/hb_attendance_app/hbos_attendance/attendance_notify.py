@@ -45,43 +45,33 @@ def render_report(date_str, hhmm, dept_stats):
     return "\n".join(lines)
 
 
-def _to_snake(d):
-    return {
-        "dept": d.get("dept"),
-        "total": d.get("total", 0),
-        "expected": d.get("expected", 0),
-        "present": d.get("present", 0),
-        "no_card": d.get("noCard", 0),
-        "out_only": d.get("outOnly", 0),
-        "unknown_time": d.get("unknownTime", 0),
-        "not_started": d.get("notStarted", 0),
-        "late": d.get("late", 0),
-        "absent": d.get("absent", 0),
-        "leave": d.get("leave", 0),
-    }
+def build_feishu_payload(text):
+    """飞书自定义机器人（群机器人）要求的报文：{"msg_type":"text","content":{"text":...}}。
+
+    Owner 2026-09-11 选定路线 B：通知直接发到飞书群的自定义机器人 webhook，
+    不经 OpenClaw（长连接只解决「群里说话→机器人收」，解决不了「把数据发出去」）。
+    """
+    return {"msg_type": "text", "content": {"text": text}}
 
 
-def _hhmm_of(generated_at):
-    """从 "YYYY-MM-DD HH:MM:SS" 取 "HH:MM"；格式异常时回退空串（不抛）。"""
+def feishu_result(status_code, body_text):
+    """判定飞书响应是否真的成功，返回 (是否成功, 说明)。
+
+    飞书在失败时也可能返回 HTTP 200（如签名不匹配、被限流），错误码在 body 里，
+    故不能只看状态码。成功判据：2xx 且 body 的 code / StatusCode 为 0 或缺失。
+    body 非 JSON（例如自建网关返回纯文本）时，2xx 即视为成功。
+    """
+    if not (200 <= status_code < 300):
+        return False, "HTTP %s: %s" % (status_code, (body_text or "")[:200])
     try:
-        parts = str(generated_at).split(" ")
-        if len(parts) >= 2 and len(parts[1]) >= 5:
-            return parts[1][:5]
+        import json
+        data = json.loads(body_text or "{}")
     except Exception:
-        pass
-    return ""
-
-
-def build_payload(date_str, generated_at, text, dept_stats):
-    """构造待 POST 的 JSON 体。"""
-    return {
-        "type": "attendance_daily",
-        "date": date_str,
-        "generated_at": generated_at,
-        "title": ("%s%s %s" % (TITLE_PREFIX, date_str, _hhmm_of(generated_at))).strip(),
-        "text": text,
-        "dept_stats": [_to_snake(d) for d in dept_stats],
-    }
+        return True, "HTTP %s" % status_code
+    code = data.get("code", data.get("StatusCode")) if isinstance(data, dict) else None
+    if code in (0, None):
+        return True, "HTTP %s" % status_code
+    return False, "HTTP %s code=%s: %s" % (status_code, code, (body_text or "")[:200])
 
 
 def should_send_now(now_bj):
@@ -111,16 +101,18 @@ def mark_sent(date_str):
 
 
 def post_to_webhook(url, token, payload):
-    """POST 到 OpenClaw；永不抛异常，返回 (是否成功, 说明)。"""
+    """POST 到飞书群机器人 webhook；永不抛异常，返回 (是否成功, 说明)。
+
+    token 一般用不到（飞书自定义机器人靠 URL 里的 key 鉴权），保留以便接自建网关。
+    成功与否交给 feishu_result 判定——飞书失败时也可能返回 HTTP 200。
+    """
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer %s" % token
     try:
         import requests  # 放进 try：连 import 失败也吞掉，函数任何情况下都不上抛
         r = requests.post(url, json=payload, headers=headers, timeout=15)
-        if 200 <= r.status_code < 300:
-            return True, "HTTP %s" % r.status_code
-        return False, "HTTP %s: %s" % (r.status_code, (r.text or "")[:200])
+        return feishu_result(r.status_code, r.text)
     except Exception as e:
         return False, str(e)
 
@@ -160,7 +152,7 @@ def send_daily_report(force=False):
         data = get_data(department=None, date_str=date_str)
         dept_stats = data.get("dept_stats") or []
         text = render_report(date_str, now.strftime("%H:%M"), dept_stats)
-        payload = build_payload(date_str, now.strftime("%Y-%m-%d %H:%M:%S"), text, dept_stats)
+        payload = build_feishu_payload(text)
 
         dry = os.environ.get("HBOS_NOTIFY_DRY_RUN", "") == "1"
         url = os.environ.get("HBOS_NOTIFY_WEBHOOK_URL", "")
