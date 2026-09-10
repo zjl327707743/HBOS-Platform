@@ -10,7 +10,8 @@ EMPTY_HINT = "（今日暂无应出勤人员）"
 NO_CARD_HINT = "（晚班 20:00 / 夜班 0:00 上班，未到班次时间不计入未打卡）"
 
 _DEPT_COL = 20          # 部门名显示宽度（西文按 1，中文按 2 计算）
-_NUM_COLS = [("应出勤", 6), ("已到岗", 6), ("未打卡", 6), ("迟到", 5)]
+# 每个数字列比表头自身宽 1 格：否则中文表头正好填满，"应出勤已到岗未打卡迟到" 会连成一片
+_NUM_COLS = [("应出勤", 7), ("已到岗", 7), ("未打卡", 7), ("迟到", 6)]
 
 
 def _width(s):
@@ -60,13 +61,24 @@ def _to_snake(d):
     }
 
 
+def _hhmm_of(generated_at):
+    """从 "YYYY-MM-DD HH:MM:SS" 取 "HH:MM"；格式异常时回退空串（不抛）。"""
+    try:
+        parts = str(generated_at).split(" ")
+        if len(parts) >= 2 and len(parts[1]) >= 5:
+            return parts[1][:5]
+    except Exception:
+        pass
+    return ""
+
+
 def build_payload(date_str, generated_at, text, dept_stats):
     """构造待 POST 的 JSON 体。"""
     return {
         "type": "attendance_daily",
         "date": date_str,
         "generated_at": generated_at,
-        "title": "%s%s %s" % (TITLE_PREFIX, date_str, generated_at[11:16]),
+        "title": ("%s%s %s" % (TITLE_PREFIX, date_str, _hhmm_of(generated_at))).strip(),
         "text": text,
         "dept_stats": [_to_snake(d) for d in dept_stats],
     }

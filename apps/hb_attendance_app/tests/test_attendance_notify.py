@@ -63,3 +63,21 @@ class BuildPayloadTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HeaderAlignmentTest(unittest.TestCase):
+    """表头与数据行必须能看出列间隔（中文表头正好填满列宽会连成一片）。"""
+
+    def test_header_labels_separated(self):
+        text = render_report("2026-09-10", "09:00", [d("A", 10, 9, 1, 0)])
+        header = [l for l in text.splitlines() if l.startswith("部门")][0]
+        for label in ("应出勤", "已到岗", "未打卡", "迟到"):
+            self.assertIn(label, header)
+        # 相邻两个表头标签之间必须至少有一处空格分隔
+        self.assertNotIn("应出勤已到岗", header)
+        self.assertNotIn("已到岗未打卡", header)
+        self.assertNotIn("未打卡迟到", header)
+
+    def test_payload_title_with_bad_generated_at_falls_back(self):
+        p = build_payload("2026-09-10", "bad-format", "T", [])
+        self.assertEqual(p["title"], "【考勤到岗】2026-09-10")

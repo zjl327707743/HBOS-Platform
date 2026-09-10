@@ -294,10 +294,11 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			if (state.openDepts[name]) delete state.openDepts[name];
 			else state.openDepts[name] = true;
 			$(this).toggleClass("open");
-			var $cnt = $(this).closest("table");
 			var deptRows = groupByDept(rows)[name] || [];
 			if (state.openDepts[name]) {
-				$(detailRowHtml(deptRows, 7)).insertAfter($(this));
+				// 部门表共 8 列（部门 + 在册/应出勤/已到岗/迟到/未打卡/缺勤/请假），
+				// colspan 必须与之一致，否则展开的明细行错位
+				$(detailRowHtml(deptRows, 8)).insertAfter($(this));
 			} else {
 				$(this).next(".db-detail").remove();
 			}
