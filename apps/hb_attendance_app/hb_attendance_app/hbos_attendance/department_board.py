@@ -132,13 +132,14 @@ def live_state(expected, profile, events, now):
     day = now.date()
 
     # 到点判定不适用（起算点未知/食堂）→ 只报打卡事实
+    # 文案区分「已打卡（有个卡，但不知道几点上班，不判到点）」与「已到岗（按班次判定的到岗）」
     if not start or not late:
         if events:
             first = events[0]
             return {"state": "fact_present", "label": f"已打卡 {first.strftime('%H:%M')}",
                     "first_hm": first.strftime("%H:%M"), "card_count": len(events),
                     "tags": [], "note": "仅记录打卡事实，不判到点/迟到（班次起算点待排班/规则确认）"}
-        return {"state": "fact_none", "label": "未打卡",
+        return {"state": "fact_none", "label": "无打卡记录",
                 "first_hm": None, "card_count": 0, "tags": [],
                 "note": "仅记录打卡事实，不判到点/迟到（班次起算点待排班/规则确认）"}
 
@@ -157,11 +158,11 @@ def live_state(expected, profile, events, now):
             return {"state": "before_start", "label": f"未开始（{start} 上班）",
                     "first_hm": None, "card_count": 0, "tags": [], "note": ""}
         if now < late_dt:
-            return {"state": "pending", "label": f"未打卡（{start} 起上班）",
+            return {"state": "pending", "label": f"未到班次点（{start} 上班，尚未打卡）",
                     "first_hm": None, "card_count": 0, "tags": [], "note": ""}
-        return {"state": "absent_expected", "label": "未打卡（已到班次点）",
+        return {"state": "absent_expected", "label": "无打卡记录（已到班次点）",
                 "first_hm": None, "card_count": 0, "tags": [],
-                "note": "当日应出勤但班次时段内无卡，未判缺勤，请以月度考勤汇总为准"}
+                "note": "班次时段内无卡，未定性为缺勤，请以月度考勤汇总为准"}
 
     first_hm = first.strftime("%H:%M")
     if first > late_dt:
@@ -216,7 +217,7 @@ def day_review(expected, profile, events, now, attendance=None):
             return {"state": "fact_present", "label": f"已打卡 {f0.strftime('%H:%M')}",
                     "first_hm": f0.strftime("%H:%M"), "card_count": len(events),
                     "tags": [], "note": "班次起算点待排班/规则确认，仅记录打卡事实"}
-        return {"state": "fact_none", "label": "未打卡",
+        return {"state": "fact_none", "label": "无打卡记录",
                 "first_hm": None, "card_count": 0, "tags": [],
                 "note": "班次起算点待排班/规则确认，仅记录打卡事实"}
 

@@ -116,10 +116,11 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	// 删掉逐行重复的长说明，只保留有信息量的短标记
 	var NOTE_MAP = {
 		"以 HRMS 考勤结果为准": "",
-		"班次起算点待排班/规则确认，仅记录打卡事实": "仅记录打卡",
+		"班次起算点待排班/规则确认，仅记录打卡事实": "班次待定",
+		"仅记录打卡事实，不判到点/迟到（班次起算点待排班/规则确认）": "班次待定",
 		"当日有排班/固定班次但无配对考勤记录，未判缺勤": "未判缺勤",
 		"当日有卡但无 HRMS 配对考勤结果": "无配对考勤",
-		"当日应出勤但班次时段内无卡，未判缺勤，请以月度考勤汇总为准": "未判缺勤",
+		"班次时段内无卡，未定性为缺勤，请以月度考勤汇总为准": "未定性缺勤",
 		"排班标注请假但当天有打卡，请人工核实": "有卡请核实",
 	};
 	function shortNote(note) {
@@ -134,10 +135,13 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	function needsAttention(r) { return isLate(r) || !!ATTENTION_STATES[r.state]; }
 
 	// ---- 汇总：整页只用这一处定义，KPI 与部门表因此永远一致 ----
-	// 应出勤 = kind==shift；已到岗含迟到；未打卡 = 应出勤但既未到岗也未到班次点。
+	// 应出勤 = kind==shift；已到岗含迟到（含「已打卡」事实行）；
+	// 缺勤仅指已定性的缺勤（回顾模式的 HRMS Absent），未定性的无卡归「无打卡记录」——
+	// 结论与未知不得混在一张卡片里。
 	// 迟到在回顾模式来自 HRMS 考勤标签(out_day + tags[迟到])，故按标签统计而非 state。
 	function summarize(rows) {
-		var s = { total: rows.length, expected: 0, present: 0, late: 0, noCard: 0, leave: 0, rest: 0, exempt: 0 };
+		var s = { total: rows.length, expected: 0, present: 0, late: 0,
+		          noCard: 0, absent: 0, leave: 0, rest: 0, exempt: 0 };
 		rows.forEach(function (r) {
 			if (r.state === "exempt") { s.exempt += 1; return; }
 			if (r.state === "rest") { s.rest += 1; return; }
@@ -146,6 +150,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			if (!isShift(r)) return;
 			s.expected += 1;
 			if (isLate(r)) s.late += 1;
+			if (r.state === "absent_day") { s.absent += 1; return; }
 			if (isPresent(r)) s.present += 1;
 			else if (r.state !== "before_start") s.noCard += 1;
 		});
@@ -175,8 +180,9 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			+ '<div class="k">' + __("出勤率") + '</div></div>';
 		h += '<div class="db-kpis db-num">';
 		[["应出勤", s.expected, ""], ["已到岗", s.present, ""],
-		 ["未打卡/无考勤", s.noCard, "warn"], ["迟到", s.late, "bad"],
-		 ["请假", s.leave, ""], ["休息", s.rest, ""], ["豁免", s.exempt, ""]].forEach(function (c) {
+		 ["迟到", s.late, "bad"], ["无打卡记录", s.noCard, "warn"],
+		 ["缺勤", s.absent, "bad"], ["请假", s.leave, ""],
+		 ["休息", s.rest, ""], ["豁免", s.exempt, ""]].forEach(function (c) {
 			h += '<div class="db-kpi-i ' + c[2] + '"><div class="v">' + c[1] + '</div><div class="k">' + __(c[0]) + '</div></div>';
 		});
 		h += '</div></div>';
@@ -194,8 +200,9 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		h += '<table class="db-tbl"><thead><tr>'
 			+ '<th>' + __("部门") + '</th>'
 			+ '<th class="r">' + __("在册") + '</th><th class="r">' + __("应出勤") + '</th>'
-			+ '<th class="r">' + __("已到岗") + '</th><th class="r">' + __("未打卡") + '</th>'
-			+ '<th class="r">' + __("迟到") + '</th><th class="r">' + __("请假") + '</th>'
+			+ '<th class="r">' + __("已到岗") + '</th><th class="r">' + __("迟到") + '</th>'
+			+ '<th class="r">' + __("无打卡") + '</th><th class="r">' + __("缺勤") + '</th>'
+			+ '<th class="r">' + __("请假") + '</th>'
 			+ '</tr></thead><tbody>';
 		names.forEach(function (d) {
 			var rows = byDept[d], s = summarize(rows);
@@ -205,11 +212,12 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			h += '<td class="r db-num">' + s.total + '</td>';
 			h += '<td class="r db-num">' + s.expected + '</td>';
 			h += '<td class="r db-num">' + s.present + '</td>';
-			h += '<td class="r db-num">' + (s.noCard ? '<span class="db-strong" style="color:#b26a00;">' + s.noCard + '</span>' : '<span class="db-zero">0</span>') + '</td>';
 			h += '<td class="r db-num">' + (s.late ? '<span class="db-strong" style="color:#b3261e;">' + s.late + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (s.noCard ? '<span class="db-strong" style="color:#b26a00;">' + s.noCard + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (s.absent ? '<span class="db-strong" style="color:#b3261e;">' + s.absent + '</span>' : '<span class="db-zero">0</span>') + '</td>';
 			h += '<td class="r db-num">' + (s.leave ? s.leave : '<span class="db-zero">0</span>') + '</td>';
 			h += '</tr>';
-			if (open) h += detailRowHtml(rows, 7);
+			if (open) h += detailRowHtml(rows, 8);
 		});
 		h += '</tbody></table>';
 		return h;

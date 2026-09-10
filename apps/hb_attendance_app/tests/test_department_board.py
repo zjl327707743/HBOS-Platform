@@ -303,6 +303,15 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn("openDepts", js)
         self.assertIn("silent", js)
 
+    def test_kpi_splits_absent_from_no_record(self):
+        """缺勤（已定性）与无打卡记录（未知）必须是两张分开的卡片，不得混在一张里。"""
+        js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
+        self.assertNotIn("未打卡/无考勤", js)
+        self.assertIn('"无打卡记录"', js)
+        self.assertIn('"缺勤"', js)
+        self.assertIn("s.absent", js)             # 缺勤独立计数
+        self.assertIn('r.state === "absent_day"', js)   # 仅已定性的缺勤计入缺勤
+
     def test_page_json_and_folder_named(self):
         folder = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board"
         self.assertTrue((folder / "hbos_department_board.json").exists())
