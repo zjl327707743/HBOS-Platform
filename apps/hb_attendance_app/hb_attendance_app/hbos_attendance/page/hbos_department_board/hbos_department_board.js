@@ -52,6 +52,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		".s-purple{background:#f3ecfb;color:#6b3fa0;}" +
 		".s-grey{background:#eef0f3;color:#6b7684;}" +
 		".db-chip{font-size:11px;color:#8b95a1;margin-left:6px;}" +
+		".db-note{font-size:12px;color:#6b7684;padding:2px 2px 10px;}" +
 		".db-empty{padding:26px 2px;text-align:center;color:#8b95a1;font-size:13px;}" +
 		".db-updating{font-size:12px;color:#8b95a1;margin-left:auto;opacity:0;transition:opacity .15s ease;}" +
 		".db-updating.on{opacity:1;}"
@@ -101,7 +102,6 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	}
 
 	// ---- 状态语义（与后端 state 串一一对应）----
-	var PRESENT_STATES = { present: 1, late: 1, fact_present: 1, present_offwindow: 1, out_day: 1, out_offwindow: 1 };
 	var ATTENTION_STATES = { late: 1, absent_day: 1, absent_expected: 1, no_pair: 1, fact_none: 1, out_offwindow: 1, out_only: 1 };
 
 	function cls(state) {
@@ -137,34 +137,9 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		return t;
 	}
 
-	function isShift(r) { return r.kind === "shift"; }
-	function isPresent(r) { return !!PRESENT_STATES[r.state]; }
 	function hasTag(r, t) { return (r.tags || []).indexOf(t) >= 0; }
 	function isLate(r) { return r.state === "late" || hasTag(r, "迟到"); }
 	function needsAttention(r) { return isLate(r) || !!ATTENTION_STATES[r.state]; }
-
-	// ---- 汇总：整页只用这一处定义，KPI 与部门表因此永远一致 ----
-	// 应出勤 = kind==shift；已到岗含迟到（含「已打卡」事实行）；
-	// 缺勤仅指已定性的缺勤（回顾模式的 HRMS Absent），未定性的无卡归「无打卡记录」——
-	// 结论与未知不得混在一张卡片里。
-	// 迟到在回顾模式来自 HRMS 考勤标签(out_day + tags[迟到])，故按标签统计而非 state。
-	function summarize(rows) {
-		var s = { total: rows.length, expected: 0, present: 0, late: 0,
-		          noCard: 0, absent: 0, leave: 0, rest: 0, exempt: 0 };
-		rows.forEach(function (r) {
-			if (r.state === "exempt") { s.exempt += 1; return; }
-			if (r.state === "rest") { s.rest += 1; return; }
-			if (r.state === "leave") { s.leave += 1; return; }
-			if (r.state === "unknown") return;
-			if (!isShift(r)) return;
-			s.expected += 1;
-			if (isLate(r)) s.late += 1;
-			if (r.state === "absent_day") { s.absent += 1; return; }
-			if (isPresent(r)) s.present += 1;
-			else if (r.state !== "before_start") s.noCard += 1;
-		});
-		return s;
-	}
 
 	function groupByDept(rows) {
 		var out = {};
@@ -181,29 +156,31 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		return String(a.num || "").localeCompare(String(b.num || ""));
 	}
 
-	function kpiHtml(rows) {
-		var s = summarize(rows);
-		var rate = s.expected ? Math.round((s.present / s.expected) * 1000) / 10 : null;
+	function kpiHtml(s) {
+		var rate = s.attendance_rate;
 		var h = '<div class="db-kpi">';
 		h += '<div class="db-hero"><div class="v db-num">' + (rate == null ? "—" : rate + "%") + '</div>'
 			+ '<div class="k">' + __("出勤率") + '</div></div>';
 		h += '<div class="db-kpis db-num">';
 		[["应出勤", s.expected, ""], ["已到岗", s.present, ""],
-		 ["迟到", s.late, "bad"], ["无打卡记录", s.noCard, "warn"],
+		 ["迟到", s.late, "bad"], ["未打卡", s.noCard, "warn"],
 		 ["缺勤", s.absent, "bad"], ["请假", s.leave, ""],
 		 ["休息", s.rest, ""], ["豁免", s.exempt, ""]].forEach(function (c) {
 			h += '<div class="db-kpi-i ' + c[2] + '"><div class="v">' + c[1] + '</div><div class="k">' + __(c[0]) + '</div></div>';
 		});
 		h += '</div></div>';
+		// 非预警桶单列一行，避免与「未打卡」混淆（9 点时这两类人最多）
+		var others = [["仅下班卡", s.outOnly], ["班次未定", s.unknownTime], ["未开始", s.notStarted]]
+			.filter(function (x) { return x[1]; });
+		if (others.length) {
+			h += '<div class="db-note db-num">' + __("其他") + "：" +
+				others.map(function (x) { return __(x[0]) + " " + x[1]; }).join(" · ") +
+				'<span class="db-chip">' + __("（不计入未打卡）") + "</span></div>";
+		}
 		return h;
 	}
 
-	function deptTableHtml(byDept) {
-		var names = Object.keys(byDept).sort(function (a, b) {
-			var sa = summarize(byDept[a]), sb = summarize(byDept[b]);
-			if ((sb.noCard + sb.late) !== (sa.noCard + sa.late)) return (sb.noCard + sb.late) - (sa.noCard + sa.late);
-			return sb.total - sa.total;
-		});
+	function deptTableHtml(deptStats, byDept) {
 		var h = '<div class="db-sec"><h5>' + __("部门概览") + '</h5>'
 			+ '<span class="hint">' + __("点击部门行展开人员明细") + '</span></div>';
 		h += '<table class="db-tbl"><thead><tr>'
@@ -213,20 +190,19 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			+ '<th class="r">' + __("无打卡") + '</th><th class="r">' + __("缺勤") + '</th>'
 			+ '<th class="r">' + __("请假") + '</th>'
 			+ '</tr></thead><tbody>';
-		names.forEach(function (d) {
-			var rows = byDept[d], s = summarize(rows);
-			var open = !!state.openDepts[d];
-			h += '<tr class="db-dept-row' + (open ? " open" : "") + '" data-dept="' + frappe.utils.escape_html(d) + '">';
-			h += '<td class="nm"><span class="caret">▶</span> ' + frappe.utils.escape_html(d) + '</td>';
-			h += '<td class="r db-num">' + s.total + '</td>';
-			h += '<td class="r db-num">' + s.expected + '</td>';
-			h += '<td class="r db-num">' + s.present + '</td>';
-			h += '<td class="r db-num">' + (s.late ? '<span class="db-strong" style="color:#b3261e;">' + s.late + '</span>' : '<span class="db-zero">0</span>') + '</td>';
-			h += '<td class="r db-num">' + (s.noCard ? '<span class="db-strong" style="color:#b26a00;">' + s.noCard + '</span>' : '<span class="db-zero">0</span>') + '</td>';
-			h += '<td class="r db-num">' + (s.absent ? '<span class="db-strong" style="color:#b3261e;">' + s.absent + '</span>' : '<span class="db-zero">0</span>') + '</td>';
-			h += '<td class="r db-num">' + (s.leave ? s.leave : '<span class="db-zero">0</span>') + '</td>';
+		deptStats.forEach(function (d) {
+			var open = !!state.openDepts[d.dept];
+			h += '<tr class="db-dept-row' + (open ? " open" : "") + '" data-dept="' + frappe.utils.escape_html(d.dept) + '">';
+			h += '<td class="nm"><span class="caret">▶</span> ' + frappe.utils.escape_html(d.dept) + '</td>';
+			h += '<td class="r db-num">' + d.total + '</td>';
+			h += '<td class="r db-num">' + d.expected + '</td>';
+			h += '<td class="r db-num">' + d.present + '</td>';
+			h += '<td class="r db-num">' + (d.late ? '<span class="db-strong" style="color:#b3261e;">' + d.late + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (d.noCard ? '<span class="db-strong" style="color:#b26a00;">' + d.noCard + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (d.absent ? '<span class="db-strong" style="color:#b3261e;">' + d.absent + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (d.leave ? d.leave : '<span class="db-zero">0</span>') + '</td>';
 			h += '</tr>';
-			if (open) h += detailRowHtml(rows, 8);
+			if (open) h += detailRowHtml(byDept[d.dept] || [], 8);
 		});
 		h += '</tbody></table>';
 		return h;
@@ -302,13 +278,13 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 
 		var scrollTop = (document.scrollingElement || document.documentElement).scrollTop;
 
-		var h = kpiHtml(rows);
+		var h = kpiHtml(data.stats || {});
 		if (!rows.length) {
 			h += '<div class="db-empty">' + __("当前范围无在册员工") + '</div>';
 		} else if (d.scope && d.scope !== "全部部门") {
 			h += flatTableHtml(rows);          // 单部门：直接明细，不要多余的汇总层
 		} else {
-			h += deptTableHtml(groupByDept(rows));
+			h += deptTableHtml(data.dept_stats || [], groupByDept(rows));
 		}
 		container.html(h);
 		(document.scrollingElement || document.documentElement).scrollTop = scrollTop;

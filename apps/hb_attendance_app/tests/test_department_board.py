@@ -503,13 +503,23 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn("silent", js)
 
     def test_kpi_splits_absent_from_no_record(self):
-        """缺勤（已定性）与无打卡记录（未知）必须是两张分开的卡片，不得混在一张里。"""
+        """缺勤（已定性）与未打卡（未知）必须是两张分开的卡片，不得混在一张里。
+
+        口径已上移到后端 stats：前端只渲染 s.absent / s.noCard，不再自行判定。"""
         js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
         self.assertNotIn("未打卡/无考勤", js)
-        self.assertIn('"无打卡记录"', js)
+        self.assertIn('"未打卡"', js)
         self.assertIn('"缺勤"', js)
         self.assertIn("s.absent", js)             # 缺勤独立计数
-        self.assertIn('r.state === "absent_day"', js)   # 仅已定性的缺勤计入缺勤
+        self.assertIn("s.noCard", js)             # 未打卡独立计数
+        self.assertNotIn('r.state === "absent_day"', js)   # 定性逻辑不再留在前端
+
+    def test_frontend_uses_server_stats(self):
+        js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
+        self.assertIn("data.stats", js)
+        self.assertIn("data.dept_stats", js)
+        # 前端不得再自带汇总实现（口径只能在后端一处）
+        self.assertNotIn("function summarize(", js)
 
     def test_page_json_and_folder_named(self):
         folder = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board"
