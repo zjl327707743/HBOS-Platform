@@ -448,3 +448,83 @@ class LateExemptTest(unittest.TestCase):
         atts = pair_employee_checkins(cks, "E1", "10014018", fake_shift_fn,
                                       is_admin=True, terminal_aware=True, is_late_exempt=True)
         self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+
+class ShiftUnfinishedTest(unittest.TestCase):
+    """班次可能尚未结束时不判缺勤（Owner 2026-09-11）。
+
+    场景：凌晨重算「昨天」时，当晚 18 点后上班的夜班还没下班（次日 8 点才打下班卡），
+    孤立上班卡是必然的，若直接判缺勤会一次误报上百人（实测 9/10 有 99 人如此）。
+    """
+
+    def _in(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "一车间", "hbos_terminal_sn": "13750CS_D7C69C16EC0B2447"}
+
+    def _out(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "一车间", "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"}
+
+    def test_helper_boundary(self):
+        from hb_attendance_app.hbos_attendance.pairing import shift_may_be_unfinished
+        ck = datetime(2026, 9, 10, 23, 41)
+        # 23:41 上班 + 18h = 9/11 17:41；此刻 03:57 → 未结束
+        self.assertTrue(shift_may_be_unfinished(ck, datetime(2026, 9, 11, 3, 57), 18))
+        # 已过 17:41 → 结束
+        self.assertFalse(shift_may_be_unfinished(ck, datetime(2026, 9, 11, 18, 0), 18))
+        # 未传 now（历史离线调用）→ 维持旧行为，不豁免
+        self.assertFalse(shift_may_be_unfinished(ck, None, 18))
+
+    def test_night_in_card_not_absent_when_shift_unfinished(self):
+        # 9/10 23:41 上班卡孤立；此刻 9/11 凌晨 → 不判缺勤
+        cks = [self._in(10, 23, 41)]
+        atts = pair_employee_checkins(cks, "E1", "11001012", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 3, 57))
+        self.assertNotIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+    def test_same_card_absent_after_shift_window_passed(self):
+        # 同一张卡，第二天傍晚再看：理论下班时刻已过 → 仍判缺勤
+        cks = [self._in(10, 23, 41)]
+        atts = pair_employee_checkins(cks, "E1", "11001012", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 18, 0))
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+    def test_daytime_lone_in_card_still_absent(self):
+        # 白班 08:14 上班卡孤立：+18h 已过 → 照常判缺勤（不掩盖真缺卡）
+        cks = [self._in(10, 8, 14)]
+        atts = pair_employee_checkins(cks, "E1", "10009023", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 3, 57))
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+    def test_no_now_dt_keeps_legacy_behavior(self):
+        # 不传 now_dt（离线/历史调用）→ 维持旧行为
+        cks = [self._in(10, 23, 41)]
+        atts = pair_employee_checkins(cks, "E1", "11001012", fake_shift_fn, terminal_aware=True)
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+
+class NightOutDupTest(unittest.TestCase):
+    """前一夜班的下班卡不再另立缺勤（韩百泉 9/10 08:17 案例）。"""
+
+    def _in(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "五车间", "hbos_terminal_sn": "13750CS_D7C69C16EC0B2447"}
+
+    def _out(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "五车间", "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"}
+
+    def test_morning_out_after_prev_night_in_not_absent(self):
+        # 9/9 20:00 上班(前夜班) → 9/10 08:17 下班卡孤立在当日
+        cks = [self._in(9, 20, 0), self._out(10, 8, 17)]
+        atts = pair_employee_checkins(cks, "E1", "11005002", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 4, 0))
+        s = statuses(atts)
+        self.assertNotIn(("2026-09-10", "Absent", "", 0, 0), s)
+
+    def test_lone_morning_out_without_prev_night_in_still_absent(self):
+        # 无前一夜班上班卡 → 仍判缺勤（不掩盖真漏卡）
+        cks = [self._out(10, 8, 17)]
+        atts = pair_employee_checkins(cks, "E1", "11005002", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 4, 0))
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))

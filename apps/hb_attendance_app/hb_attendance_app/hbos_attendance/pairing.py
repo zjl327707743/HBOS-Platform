@@ -281,12 +281,25 @@ def dedup_checkins_with_mapping(cks, min_gap_min=120, terminal_aware=False):
     return out, mapping
 
 
+def shift_may_be_unfinished(ck_time, now_dt, max_gap_hours):
+    """孤立上班卡的理论下班时刻尚未到 → 班次可能还没结束，不判缺勤。
+
+    Owner 2026-09-11：凌晨重算「昨天」时，当晚 18:00 后上班的夜班还没下班
+    （下班卡次日 8 点才打），其上班卡必然配对失败，若直接判缺勤会一次误报上百人
+    （实测 9/10 有 99 人如此）。判据用「上班卡 + 最长班次时长 > 现在」——超过这个
+    时刻仍无下班卡，才算真的缺卡。
+    """
+    if now_dt is None:
+        return False
+    return ck_time + timedelta(hours=max_gap_hours) > now_dt
+
+
 def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                            is_exempt=False, is_admin=False,
                            skip_forward=False, skip_night_lock=False,
                            emp_leave_dates=None, track_roles=False,
                            terminal_aware=False, max_gap_hours=16,
-                           is_late_exempt=False):
+                           is_late_exempt=False, now_dt=None):
     """对单个员工按时间升序的打卡做 HBOS 配对。
 
     参数:
@@ -390,6 +403,25 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                 return True
         return False
 
+    def night_out_dup(i):
+        """前一夜班的下班卡(Owner 2026-09-11): 早 4-12 点的孤立下班机卡,
+        且前一日 18 点后存在上班机卡时, 视为该夜班的下班卡(已被前一日配对消耗或重复),
+        当日不再另立缺勤。韩百泉 9/10 08:17 案例(前夜 20 点上夜班, 次日 8 点下班)。"""
+        c = cks[i]
+        if not (4 <= c["time"].hour < 12):
+            return False
+        if terminal_role(c) != "out":
+            return False
+        prev_date = c["time"].date() - timedelta(days=1)
+        for p in range(len(cks)):
+            if cks[p]["time"].date() != prev_date:
+                continue
+            if terminal_role(cks[p]) != "in":
+                continue
+            if cks[p]["time"].hour >= 18:
+                return True
+        return False
+
     # 班次解析: SPECIAL_SHIFT_NUMS 人员走独立班次体系(按时长区分12h/8h), 其他人走原 shift_fn
     special_shift = emp_num in SPECIAL_SHIFT_NUMS
     # 四班次人员: 班次按打卡时段判定, 上够8小时算正常
@@ -426,9 +458,12 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                 continue
             role_i = terminal_role(cks[i])
             if role_i == "out":
-                # 下班机卡孤立 → 缺勤; 当天已有完整上下班结构时视为重复卡
+                # 下班机卡孤立 → 缺勤; 但以下情形不判:
+                #   a) 当天已有完整上下班结构 → 视为重复卡(陈雨欣 8/19)
+                #   b) 属前一夜班的下班卡(早 4-12 点, 且前一日 18 点后有上班机卡)
+                #      —— 该卡已被前一日的配对消耗或因故重复, 当日不再另立缺勤
                 used[i] = True
-                if not is_exempt and not day_has_span(i):
+                if not is_exempt and not day_has_span(i) and not night_out_dup(i):
                     ds_cur = cks[i]["time"].strftime("%Y-%m-%d")
                     if ds_cur not in leave_dates:
                         add(ds_cur, "Absent", "", False,
@@ -457,9 +492,12 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                     cks[i]["time"].strftime("%Y-%m-%d %H:%M:%S"), round(gap, 2))
                 break
             else:
-                # 上班机卡孤立 → 缺勤; 但当天已有完整上下班结构 或 前一夜班下班误刷 时不判
+                # 上班机卡孤立 → 缺勤; 但以下情形不判:
+                #   a) 当天已有完整上下班结构(重复卡) b) 前一夜班下班误刷上班机
+                #   c) 班次可能尚未结束(凌晨重算"昨天"时, 当晚夜班还没下班)
                 used[i] = True
-                if not is_exempt and not day_has_span(i) and not night_out_mispunch(i):
+                if (not is_exempt and not day_has_span(i) and not night_out_mispunch(i)
+                        and not shift_may_be_unfinished(cks[i]["time"], now_dt, max_gap_hours)):
                     ds_cur = cks[i]["time"].strftime("%Y-%m-%d")
                     if ds_cur not in leave_dates:
                         add(ds_cur, "Absent", "", False,
@@ -624,6 +662,10 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                 continue
             # 多次卡兜底: 当天已有完整上下班结构 → 本卡为重复卡
             if day_has_span(i):
+                continue
+            # 班次可能尚未结束: 凌晨重算「昨天」时, 当晚夜班(18 点后上班)的下班卡
+            # 要次日早上才产生, 此时孤立上班卡是必然的, 不能判缺勤(Owner 2026-09-11)
+            if shift_may_be_unfinished(ck1["time"], now_dt, max_gap_hours):
                 continue
             if is_admin and ck1["time"].weekday() >= 5:
                 continue

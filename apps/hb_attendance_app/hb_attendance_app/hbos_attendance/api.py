@@ -517,6 +517,9 @@ def regenerate_attendance(range_start, range_end):
             track_roles=True,
             max_gap_hours=max_gap_hours,
             terminal_aware=True,
+            # 与打卡时间同基准（+8 naive）：容器 TZ 为 UTC，直接用 now() 会差 8 小时，
+            # 使「班次未结束」的豁免窗口整体偏移（见 pairing.shift_may_be_unfinished）
+            now_dt=_dt.now(DELICLOUD_TZ).replace(tzinfo=None),
         )
         # 只保留生成范围内的记录: range_end 之后(今天)的卡只作配对伙伴,
         # 不生成当天考勤记录(当天数据不完整, 下班卡未打, 否则全员假缺勤)
