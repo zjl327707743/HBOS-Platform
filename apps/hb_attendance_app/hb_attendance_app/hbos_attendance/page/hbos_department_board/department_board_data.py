@@ -17,6 +17,7 @@ from hb_attendance_app.hbos_attendance.rule_lists import (
 from hb_attendance_app.hbos_attendance.pairing import (
     FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS,
 )
+from hb_attendance_app.hbos_attendance.board_stats import summarize_rows, dept_summary
 
 # 与 api.py DELICLOUD_TZ 同基准：打卡时间已按 +8 转 naive 存储，今天/now 同用 +8 对齐
 TZ_PLUS8 = timezone(timedelta(hours=8))
@@ -229,7 +230,7 @@ def get_data(department=None, date_str=None):
         return {"departments": _all_depts(), "meta": {"date": date_str, "mode": mode,
                                                       "now_hm": now.strftime("%H:%M"),
                                                       "scope": department or "全部部门"},
-                "stats": _empty_stats(), "rows": []}
+                "stats": summarize_rows([]), "dept_stats": [], "rows": []}
 
     emp_names = [e.name for e in emps]
     schedule = _load_schedule(date_str, emp_names)
@@ -298,11 +299,10 @@ def get_data(department=None, date_str=None):
             "tags": st["tags"], "note": st["note"],
         })
 
-    stats = _aggregate(rows)
     return {"departments": _all_depts(), "meta": {"date": date_str, "mode": mode,
                                                   "now_hm": now.strftime("%H:%M"),
                                                   "scope": department or "全部部门"},
-            "stats": stats, "rows": rows}
+            "stats": summarize_rows(rows), "dept_stats": dept_summary(rows), "rows": rows}
 
 
 def _all_depts():
@@ -310,49 +310,6 @@ def _all_depts():
         SELECT department AS name, COUNT(*) AS count FROM tabEmployee
         WHERE status = 'Active' GROUP BY department ORDER BY department
     """, as_dict=True)
-
-
-def _empty_stats():
-    return {"total": 0, "expected": 0, "present": 0, "late": 0, "no_card": 0,
-            "leave": 0, "rest": 0, "exempt": 0, "unknown": 0, "attendance_rate": None}
-
-
-_PRESENT_STATES = {"present", "late", "fact_present", "present_offwindow",
-                   "out_day", "out_offwindow"}
-
-
-def _aggregate(rows):
-    """统计卡聚合。
-
-    口径（Owner 2026-09-08 确认）：出勤率分母 = 全部应出勤(kind=shift)；
-    已到岗(present) = 有卡/考勤出勤；缺勤/未到会真实拉低出勤率。
-    before_start(未到上班点) 不计入「未打卡/无考勤」。late 计入 present 与 expected。
-    """
-    s = _empty_stats()
-    s["total"] = len(rows)
-    expected = present = no_card = 0
-    for r in rows:
-        if r["state"] == "late":
-            s["late"] += 1
-        if r["state"] == "exempt":
-            s["exempt"] += 1
-        elif r["state"] == "rest":
-            s["rest"] += 1
-        elif r["state"] == "leave":
-            s["leave"] += 1
-        elif r["kind"] == "shift":
-            expected += 1
-            if r["state"] in _PRESENT_STATES:
-                present += 1
-            elif r["state"] != "before_start":
-                no_card += 1
-        else:
-            s["unknown"] += 1
-    s["expected"] = expected
-    s["present"] = present
-    s["no_card"] = no_card
-    s["attendance_rate"] = round(present / expected * 100, 1) if expected else None
-    return s
 
 
 SYNC_THROTTLE_SECONDS = 120  # live_sync 手动同步最小间隔（秒）

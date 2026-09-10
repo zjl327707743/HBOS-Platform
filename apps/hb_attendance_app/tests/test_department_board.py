@@ -436,7 +436,10 @@ class DataLayerContractTest(unittest.TestCase):
     def test_aggregate_rate_and_contract(self):
         content = DATA_PY.read_text()
         self.assertIn('"kind": exp["kind"]', content)
-        self.assertIn("_PRESENT_STATES", content)
+        # 统计口径已上移到 board_stats 纯模块（单一来源）；
+        # 数据层不再自带 _PRESENT_STATES 这类重复定义
+        self.assertIn("summarize_rows(rows)", content)
+        self.assertNotIn("_PRESENT_STATES", content)
         self.assertIn("attendance=attendance.get", content)
         self.assertIn("ORDER BY employee, time", content)
         self.assertIn("FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS", content)
@@ -451,6 +454,16 @@ class DataLayerContractTest(unittest.TestCase):
         # 通用倒班兜底：非名单命中的无排班员工计入应出勤分母
         self.assertIn("通用倒班", content)
         self.assertIn('_rotating_label(ROTATE_SYSTEM, num) or "通用倒班"', content)
+
+    def test_data_layer_uses_shared_board_stats(self):
+        content = DATA_PY.read_text()
+        self.assertIn("from hb_attendance_app.hbos_attendance.board_stats import", content)
+        self.assertIn("summarize_rows", content)
+        self.assertIn("dept_summary", content)
+        self.assertIn('"dept_stats"', content)
+        # 旧的自有聚合实现必须移除，口径只能有一处
+        self.assertNotIn("def _aggregate(", content)
+        self.assertNotIn("def _empty_stats(", content)
 
 
 class LiveSyncContractTest(unittest.TestCase):
