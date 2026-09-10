@@ -112,17 +112,31 @@ def mark_sent(date_str):
 
 def post_to_webhook(url, token, payload):
     """POST 到 OpenClaw；永不抛异常，返回 (是否成功, 说明)。"""
-    import requests
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = "Bearer %s" % token
     try:
+        import requests  # 放进 try：连 import 失败也吞掉，函数任何情况下都不上抛
         r = requests.post(url, json=payload, headers=headers, timeout=15)
         if 200 <= r.status_code < 300:
             return True, "HTTP %s" % r.status_code
         return False, "HTTP %s: %s" % (r.status_code, (r.text or "")[:200])
     except Exception as e:
         return False, str(e)
+
+
+def _mark_sent_best_effort(date_str):
+    """落幂等位；失败只记日志，绝不让调用方判失败。
+
+    消息已经送达（或已按干跑处理），若 mark 失败被外层 except 抓住，会返回
+    sent=False 且幂等位没落，同一个 9 点窗口（或第二条 cron）将重复发送——
+    已送达却重发比漏记幂等位更糟，故此处必须独立兜住。
+    """
+    import frappe
+    try:
+        mark_sent(date_str)
+    except Exception as e:
+        frappe.log_error(str(e), "HBOS考勤通知幂等位写入失败")
 
 
 def send_daily_report(force=False):
@@ -153,12 +167,12 @@ def send_daily_report(force=False):
         if dry or not url:
             frappe.log_error(text, "HBOS考勤通知(未发送: %s)" % ("dry_run" if dry else "no_webhook"))
             if dry:
-                mark_sent(date_str)
+                _mark_sent_best_effort(date_str)
             return {"sent": False, "reason": "dry_run" if dry else "no_webhook", "text": text}
 
         ok, msg = post_to_webhook(url, os.environ.get("HBOS_NOTIFY_TOKEN", ""), payload)
         if ok:
-            mark_sent(date_str)
+            _mark_sent_best_effort(date_str)
             return {"sent": True, "detail": msg}
         frappe.log_error("%s\n%s" % (msg, text), "HBOS考勤通知发送失败")
         return {"sent": False, "reason": msg}
