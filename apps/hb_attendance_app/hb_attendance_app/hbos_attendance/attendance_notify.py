@@ -82,3 +82,86 @@ def build_payload(date_str, generated_at, text, dept_stats):
         "text": text,
         "dept_stats": [_to_snake(d) for d in dept_stats],
     }
+
+
+def should_send_now(now_bj):
+    """仅北京时间 09:00-09:59 触发发送（cron 时刻不可信, 以守卫为准）。"""
+    return now_bj.hour == 9
+
+
+# ---- 以下依赖 frappe / requests ----
+
+def _bj_now():
+    from datetime import datetime, timedelta, timezone
+    return datetime.now(timezone(timedelta(hours=8))).replace(tzinfo=None)
+
+
+def _sent_key(date_str):
+    return "hbos_notify_sent:%s" % date_str
+
+
+def already_sent(date_str):
+    import frappe
+    return bool(frappe.cache.get_value(_sent_key(date_str)))
+
+
+def mark_sent(date_str):
+    import frappe
+    frappe.cache.set_value(_sent_key(date_str), "1")
+
+
+def post_to_webhook(url, token, payload):
+    """POST 到 OpenClaw；永不抛异常，返回 (是否成功, 说明)。"""
+    import requests
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = "Bearer %s" % token
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=15)
+        if 200 <= r.status_code < 300:
+            return True, "HTTP %s" % r.status_code
+        return False, "HTTP %s: %s" % (r.status_code, (r.text or "")[:200])
+    except Exception as e:
+        return False, str(e)
+
+
+def send_daily_report(force=False):
+    """scheduler 入口：算当日部门统计 → 渲染 → 出站推送。
+
+    守卫：北京时间 09:00-09:59（force=True 时跳过，供干跑验证）；
+    幂等：同日已发送则跳过；未配 webhook 静默跳过；
+    异常：只记 Error Log，不抛（不影响调度器）。
+    """
+    import frappe
+    from hb_attendance_app.hbos_attendance.page.hbos_department_board.department_board_data import get_data
+
+    try:
+        now = _bj_now()
+        date_str = now.strftime("%Y-%m-%d")
+        if not force and not should_send_now(now):
+            return {"skipped": "not_9am_bj"}
+        if not force and already_sent(date_str):
+            return {"skipped": "already_sent"}
+
+        data = get_data(department=None, date_str=date_str)
+        dept_stats = data.get("dept_stats") or []
+        text = render_report(date_str, now.strftime("%H:%M"), dept_stats)
+        payload = build_payload(date_str, now.strftime("%Y-%m-%d %H:%M:%S"), text, dept_stats)
+
+        dry = os.environ.get("HBOS_NOTIFY_DRY_RUN", "") == "1"
+        url = os.environ.get("HBOS_NOTIFY_WEBHOOK_URL", "")
+        if dry or not url:
+            frappe.log_error(text, "HBOS考勤通知(未发送: %s)" % ("dry_run" if dry else "no_webhook"))
+            if dry:
+                mark_sent(date_str)
+            return {"sent": False, "reason": "dry_run" if dry else "no_webhook", "text": text}
+
+        ok, msg = post_to_webhook(url, os.environ.get("HBOS_NOTIFY_TOKEN", ""), payload)
+        if ok:
+            mark_sent(date_str)
+            return {"sent": True, "detail": msg}
+        frappe.log_error("%s\n%s" % (msg, text), "HBOS考勤通知发送失败")
+        return {"sent": False, "reason": msg}
+    except Exception as e:
+        frappe.log_error(str(e), "HBOS考勤通知异常")
+        return {"sent": False, "reason": str(e)}

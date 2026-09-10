@@ -81,3 +81,34 @@ class HeaderAlignmentTest(unittest.TestCase):
     def test_payload_title_with_bad_generated_at_falls_back(self):
         p = build_payload("2026-09-10", "bad-format", "T", [])
         self.assertEqual(p["title"], "【考勤到岗】2026-09-10")
+
+
+class ShouldSendNowTest(unittest.TestCase):
+    def test_only_nine_am_beijing(self):
+        from datetime import datetime
+        from hb_attendance_app.hbos_attendance.attendance_notify import should_send_now
+        self.assertTrue(should_send_now(datetime(2026, 9, 10, 9, 0)))
+        self.assertTrue(should_send_now(datetime(2026, 9, 10, 9, 59)))
+        self.assertFalse(should_send_now(datetime(2026, 9, 10, 8, 59)))
+        self.assertFalse(should_send_now(datetime(2026, 9, 10, 10, 0)))
+        self.assertFalse(should_send_now(datetime(2026, 9, 10, 17, 0)))  # 容器 UTC 误触发
+
+
+class ModuleContractTest(unittest.TestCase):
+    def test_exposes_scheduler_entry_and_endpoint(self):
+        from pathlib import Path
+        src = (Path(__file__).parents[1]
+               / "hb_attendance_app/hbos_attendance/attendance_notify.py").read_text()
+        self.assertIn("def send_daily_report(", src)
+        self.assertIn("def post_to_webhook(", src)
+        self.assertIn("HBOS_NOTIFY_WEBHOOK_URL", src)
+        self.assertIn("HBOS_NOTIFY_TOKEN", src)
+        self.assertIn("HBOS_NOTIFY_DRY_RUN", src)
+        self.assertIn("hbos_notify_sent:", src)
+
+    def test_hooks_registers_nine_am_cron(self):
+        from pathlib import Path
+        src = (Path(__file__).parents[1] / "hb_attendance_app/hooks.py").read_text()
+        self.assertIn("attendance_notify.send_daily_report", src)
+        self.assertIn('"0 1 * * *"', src)   # UTC 容器下的北京 09:00
+        self.assertIn('"0 9 * * *"', src)   # 北京时区容器

@@ -10,6 +10,12 @@ after_migrate = "hb_attendance_app.hbos_attendance.setup.after_migrate"
 
 scheduler_events = {
     "cron": {
+        "0 1 * * *": [
+            "hb_attendance_app.hbos_attendance.attendance_notify.send_daily_report"
+        ],
+        "0 9 * * *": [
+            "hb_attendance_app.hbos_attendance.attendance_notify.send_daily_report"
+        ],
         "0 10 * * *": [
             "hb_attendance_app.hbos_attendance.daily_feishu_sync.daily_sync_to_feishu"
         ],
