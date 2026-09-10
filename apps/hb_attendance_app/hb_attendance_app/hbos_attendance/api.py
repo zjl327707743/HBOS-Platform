@@ -483,15 +483,11 @@ def regenerate_attendance(range_start, range_end):
             fields=["name", "employee_number"],
             filters={"employee_number": ["is", "set"]})
     }
-    # 工号→部门映射: 环保部/质量控制部配对上限放宽到 18h(Owner 2026-08-27),
-    # 其余部门保持 16h
-    emp_num_to_dept = {
-        e.employee_number: e.department
-        for e in frappe.db.get_all("Employee",
-            fields=["name", "employee_number", "department"],
-            filters={"employee_number": ["is", "set"]})
-    }
-    MAX_GAP_DEPTS = {"环保部", "质量控制部"}
+    # 配对上限(小时): 正常班次最长 12 小时, 上限给加班与偶发超时留缓冲。
+    # Owner 2026-09-10 统一放宽到 18h(原为 16h, 环保部/质量控制部已 18h):
+    # 范乃刚 9/9 07:58→次日 00:01 = 16.05h 属真实超长班, 原上限把它挡在配对之外 →
+    # 上班卡成孤立卡 → 误判缺勤。
+    MAX_GAP_HOURS = 18
 
     emp_night_out_days = {}
     att_to_insert = []
@@ -499,8 +495,8 @@ def regenerate_attendance(range_start, range_end):
         cks.sort(key=lambda x: x["time"])
         emp_num = cks[0].get("employee_number", "") if cks else ""
         is_admin = emp_num in ADMIN_NUMS
-        # 环保部/质量控制部配对上限 18h, 其余 16h
-        max_gap_hours = 18 if emp_num_to_dept.get(emp_num) in MAX_GAP_DEPTS else 16
+        # 配对上限统一 18h（见 MAX_GAP_HOURS）
+        max_gap_hours = MAX_GAP_HOURS
         # 有排班记录的员工放开行政班约束(排班表明确今天上什么班, 夜班跨天合法)
         has_schedule = bool(schedule_map.get(eid))
         if has_schedule:
