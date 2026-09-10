@@ -1107,3 +1107,15 @@ def get_audit_log(log_type=None, doctype_target=None, user=None,
 	except Exception:
 		_rollback()
 		raise
+
+
+@frappe.whitelist()
+def get_audit_targets():
+	"""审计『对象』筛选抽屉：返回全部审计数据中出现过的对象类型（非仅当前页），
+	供前端按业务板块分组的下拉（业务操作 / 报告与标准 / 质量主数据 / 留样管理等）。"""
+	_check_action("get_audit_log")
+	rows = frappe.db.sql(
+		"SELECT DISTINCT doctype_target FROM `tabHBOS Audit Log`"
+		" WHERE doctype_target IS NOT NULL AND doctype_target <> ''"
+		" ORDER BY doctype_target", as_list=True)
+	return [r[0] for r in rows]

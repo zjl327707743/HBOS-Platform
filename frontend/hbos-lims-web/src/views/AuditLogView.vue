@@ -13,8 +13,10 @@
       <a-select v-model:value="filters.log_type" placeholder="全部事件类型" allow-clear style="width:150px" @change="load">
         <a-select-option v-for="t in logTypes" :key="t" :value="t">{{ t }}</a-select-option>
       </a-select>
-      <a-select v-model:value="filters.doctype_target" placeholder="全部对象" allow-clear style="width:170px" @change="load">
-        <a-select-option v-for="t in targetTypes" :key="t" :value="t">{{ t }}</a-select-option>
+      <a-select v-model:value="filters.doctype_target" placeholder="全部对象（按板块）" allow-clear style="width:210px" @change="load">
+        <a-select-opt-group v-for="g in groupedTargets" :key="g.label" :label="g.label">
+          <a-select-option v-for="t in g.items" :key="t" :value="t">{{ TARGET_LABELS[t] || t }}</a-select-option>
+        </a-select-opt-group>
       </a-select>
       <a-select v-model:value="filters.user" placeholder="全部操作人" allow-clear style="width:150px" @change="load">
         <a-select-option v-for="u in users" :key="u" :value="u">{{ u }}</a-select-option>
@@ -94,7 +96,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ReloadOutlined } from '@ant-design/icons-vue'
-import { getAuditLog, type AuditEvent } from '@/api/lims'
+import { getAuditLog, getAuditTargets, type AuditEvent } from '@/api/lims'
 
 const LOG_TYPES = ['创建', '修改', '删除', '登记入库', '提交', '复核', '批准', '修订', '放行', '拒绝',
   'OOS', '仪器使用', '规格生效', '规格废止', '预占', '释放预占', '使用出库', '销毁出库', '受托转出',
@@ -117,7 +119,36 @@ const drawerEvent = ref<AuditEvent | null>(null)
 
 const logTypes = LOG_TYPES
 
-const targetTypes = computed(() => [...new Set(events.value.map((e) => e.doctype_target).filter(Boolean))])
+const TARGET_LABELS: Record<string, string> = {
+  'HBOS Sample': '样品登记', 'HBOS Sample Task': '检验任务', 'HBOS Test Result': '检测记录',
+  'HBOS Result Revision': '结果修订', 'HBOS COA': 'COA 报告', 'HBOS Specification': '质量标准',
+  'HBOS Sample Type': '样品类型', 'HBOS Test Item': '检验项目', 'HBOS Calculation': '计算公式',
+  'HBOS Lab Department': '检验组',
+  'HBOS Retention Product': '留样产品', 'HBOS Retention Sample': '留样登记',
+  'HBOS Retention Observation': '观察记录', 'HBOS Retention Usage Apply': '使用申请',
+  'HBOS Retention Disposal Apply': '处理申请',
+}
+// 按业务板块分组（后续新增板块在此追加；未归类的自动进「其他」）
+const TARGET_GROUPS: { label: string; items: string[] }[] = [
+  { label: '业务操作', items: ['HBOS Sample', 'HBOS Sample Task', 'HBOS Test Result', 'HBOS Result Revision'] },
+  { label: '报告与标准', items: ['HBOS COA', 'HBOS Specification'] },
+  { label: '质量主数据', items: ['HBOS Sample Type', 'HBOS Test Item', 'HBOS Calculation', 'HBOS Lab Department'] },
+  { label: '留样管理', items: ['HBOS Retention Product', 'HBOS Retention Sample', 'HBOS Retention Observation', 'HBOS Retention Usage Apply', 'HBOS Retention Disposal Apply'] },
+]
+/** 全量对象抽屉（非仅当前页） */
+const targetFacets = ref<string[]>([])
+const groupedTargets = computed(() => {
+  const known = new Set(TARGET_GROUPS.flatMap((g) => g.items))
+  const groups = TARGET_GROUPS
+    .map((g) => ({ label: g.label, items: g.items.filter((t) => targetFacets.value.includes(t)) }))
+    .filter((g) => g.items.length)
+  const others = targetFacets.value.filter((t) => !known.has(t))
+  if (others.length) groups.push({ label: '其他', items: others })
+  return groups
+})
+async function fetchTargets() {
+  try { targetFacets.value = await getAuditTargets() } catch { /* 未登录/无权限时降级为空 */ }
+}
 const users = computed(() => [...new Set(events.value.map((e) => e.user).filter(Boolean))])
 
 const columns = [
@@ -177,7 +208,7 @@ function onPageChange(p: number) {
   fetchPage(p)
 }
 
-onMounted(load)
+onMounted(async () => { await fetchTargets(); load() })
 </script>
 
 <style scoped>

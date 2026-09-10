@@ -35,6 +35,11 @@ export function getAuditLog(params: {
   return callMethod('hb_lims_app.hbos_lims.lims_service.get_audit_log', params)
 }
 
+/** 审计对象全量抽屉（全库 distinct，供按板块分组筛选，非仅当前页）。 */
+export function getAuditTargets(): Promise<string[]> {
+  return callMethod('hb_lims_app.hbos_lims.lims_service.get_audit_targets', {})
+}
+
 // ---- 样品登记与任务 ----
 export function registerSample(params: {
   sample_type?: string
