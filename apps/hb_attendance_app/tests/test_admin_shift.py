@@ -73,3 +73,78 @@ class AdminPairingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+import ast
+import re
+import unittest
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
+
+
+API = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/api.py"
+
+
+def _fn_source(name):
+    """取出 api.py 中某个函数的源码（含嵌套 def）。"""
+    src = API.read_text()
+    tree = ast.parse(src)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return ast.get_source_segment(src, node)
+    raise AssertionError("未找到函数 %s" % name)
+
+
+class AdminListDoesNotOverrideConfigTest(unittest.TestCase):
+    """行政班名单短路仅在该人「没有另绑其它班次」时生效（Owner 2026-09-11）。
+
+    事故：卞德志(11004006) 在行政班名单里，但实际绑定「中班 16:00」+「行政班 8:30」，
+    原实现把名单短路放在函数最前，使他 15:4x 的上班卡一律按「行政班早班」判定 →
+    被判迟到。显式绑定比名单启发式更具体，应优先。
+    反向要求：只绑行政班（焦德龙 11004012）或未绑定的名单人员，行为必须不变
+    ——他的 23:30 夜班上班卡若被按行政班标准判会误报迟到。
+    """
+
+    def test_short_circuit_is_conditional_on_binding(self):
+        fn = _fn_source("shift_fn_with_fixed")
+        self.assertIn("_admin_bound_other_shift", fn,
+                      "名单短路必须带上「是否另绑其它班次」的条件")
+
+    def test_helper_exists_and_documented(self):
+        src = API.read_text()
+        self.assertIn("def _admin_bound_other_shift(", src)
+        self.assertIn("shift_type_by_rule", src)
+
+    def test_night_card_for_admin_only_binding_not_late(self):
+        """只绑行政班的人，23:30 的夜班上班卡不得按 08:31 标准判迟到。"""
+        from hb_attendance_app.hbos_attendance.pairing import admin_shift_from_gap
+        shift, late = admin_shift_from_gap(datetime(2026, 8, 15, 23, 30))
+        self.assertEqual(shift, "晚班")
+        self.assertFalse(late)
+
+    def test_multi_shift_binding_picks_nearest_not_admin(self):
+        """绑定「中班 16:00」+「行政班 8:30」时，15:4x 的卡应判中班且不迟到。"""
+        candidates = [
+            {"shift_type": "中班", "start_time": timedelta(hours=16),
+             "late_after": timedelta(hours=16, minutes=1)},
+            {"shift_type": "行政班", "start_time": timedelta(hours=8, minutes=30),
+             "late_after": timedelta(hours=8, minutes=31)},
+        ]
+        for hm in ((15, 34), (15, 42), (15, 53)):
+            shift, late = match_rule_by_time(candidates, datetime(2026, 9, 10, *hm), True)
+            self.assertEqual(shift, "中班", "%02d:%02d 应判中班" % hm)
+            self.assertFalse(late, "%02d:%02d 不应判迟到" % hm)
+
+    def test_morning_card_still_admin(self):
+        candidates = [
+            {"shift_type": "中班", "start_time": timedelta(hours=16),
+             "late_after": timedelta(hours=16, minutes=1)},
+            {"shift_type": "行政班", "start_time": timedelta(hours=8, minutes=30),
+             "late_after": timedelta(hours=8, minutes=31)},
+        ]
+        shift, _ = match_rule_by_time(candidates, datetime(2026, 9, 10, 8, 45), False)
+        self.assertEqual(shift, "行政班")
+
+
+if __name__ == "__main__":
+    unittest.main()

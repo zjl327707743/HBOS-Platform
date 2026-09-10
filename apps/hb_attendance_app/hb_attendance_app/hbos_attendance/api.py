@@ -424,19 +424,24 @@ def regenerate_attendance(range_start, range_end):
         schedule_map.setdefault(s.employee, {})[str(s.schedule_date)] = s
 
     def shift_fn_with_fixed(ck_dt, emp_num, cross_day=False):
-        """判定优先级: 排班表 > 固定班次绑定 > 硬编码。
+        """判定优先级: 排班表 > 固定班次绑定 > 行政班名单 > 硬编码。
 
         规则表(HBOS Shift Rule)只在员工有明确绑定(第 2 步)时生效；
         未绑定者走硬编码——按「最接近上班时间」把部门/全局规则套到所有人身上
         会把普通员工匹配成特种班次(实测 703 天被当成无菌 12 小时班)，故不采用。
 
-        行政班名单人员(Owner 2026-08-21): 硬编码短路规则表——
-        四车间行政班 08:0x 打卡曾被全局规则表匹配为「早班 08:00 标准」误判迟到,
-        名单人员统一 08:31 起算迟到, 20 点后/凌晨卡按晚班不判迟到。
+        行政班名单(Owner 2026-08-21): 硬编码短路——四车间行政班 08:0x 打卡曾被
+        匹配为「早班 08:00 标准」误判迟到；名单人员统一 08:31 起算迟到，夜间/凌晨卡
+        按晚班不判迟到。
+
+        Owner 2026-09-11 修正: 名单短路**仅在其绑定里没有其它班次时生效**。
+        名单里但同时绑定中班/夜班的人（卞德志 11004006: 中班+行政班，上 15:4x→次日
+        00:0x），原实现被一律按行政班早班判定 → 15:4x 被判「行政班早班 + 迟到」。
+        显式绑定比名单启发式更具体，应优先；只绑行政班的人（焦德龙）行为不变。
         """
-        if emp_num in ADMIN_NUMS:
-            return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
         eid = emp_num_to_eid.get(emp_num, "") if emp_num else ""
+        if emp_num in ADMIN_NUMS and not _admin_bound_other_shift(eid):
+            return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
         # 1. 排班表优先
         if eid:
             day = ck_dt.date().strftime("%Y-%m-%d")
@@ -476,6 +481,8 @@ def regenerate_attendance(range_start, range_end):
                 matched = match_rule_by_time(candidates, ck_dt, cross_day)
                 if matched:
                     return matched
+        # 3. 兜底硬编码；名单规则在 _get_shift_and_late_builtin 内部生效
+        #    （admin_shift_from_gap：08:31 起算迟到、夜间/凌晨卡按晚班）
         return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
 
     # 工号→员工ID 映射(固定班次匹配用)
@@ -485,6 +492,25 @@ def regenerate_attendance(range_start, range_end):
             fields=["name", "employee_number"],
             filters={"employee_number": ["is", "set"]})
     }
+
+    # 规则名 → 班次类型（判断行政班名单人员是否另绑了其它班次）
+    shift_type_by_rule = {
+        r.name: r.shift_type
+        for key, versions in rules_versioned.items()
+        for r in versions
+    }
+
+    def _admin_bound_other_shift(eid):
+        """该行政班名单人员是否另绑了非「行政班」的班次（如中班/夜班）。
+
+        是 → 名单短路让位给绑定（Owner 2026-09-11，卞德志中班被误判迟到）；
+        否 → 维持名单短路（焦德龙等只绑/未绑行政班的人行为不变）。
+        """
+        for rule_name in (fixed_shift_map.get(eid) or []):
+            st = shift_type_by_rule.get(rule_name)
+            if st and st != "行政班":
+                return True
+        return False
     # 配对上限(小时): 正常班次最长 12 小时, 上限给加班与偶发超时留缓冲。
     # Owner 2026-09-10 统一放宽到 18h(原为 16h, 环保部/质量控制部已 18h):
     # 范乃刚 9/9 07:58→次日 00:01 = 16.05h 属真实超长班, 原上限把它挡在配对之外 →
