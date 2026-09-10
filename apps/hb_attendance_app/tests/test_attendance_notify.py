@@ -116,8 +116,10 @@ class ModuleContractTest(unittest.TestCase):
         from pathlib import Path
         src = (Path(__file__).parents[1] / "hb_attendance_app/hooks.py").read_text()
         self.assertIn("attendance_notify.send_daily_report", src)
-        self.assertIn('"0 1 * * *"', src)   # UTC 容器下的北京 09:00
-        self.assertIn('"0 9 * * *"', src)   # 北京时区容器
+        self.assertIn('"0 9 * * *"', src)          # 北京时间 09:00
+        # 同一方法只能挂一条：Scheduled Job Type 以 method 为唯一键，
+        # 挂多条会互相覆盖，可能被覆盖成非 9 点而导致守卫拒发
+        self.assertEqual(src.count("attendance_notify.send_daily_report"), 1)
 
 
 _DATA_MOD = ("hb_attendance_app.hbos_attendance.page."

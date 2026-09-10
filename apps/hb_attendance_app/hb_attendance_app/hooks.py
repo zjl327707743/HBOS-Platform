@@ -10,9 +10,10 @@ after_migrate = "hb_attendance_app.hbos_attendance.setup.after_migrate"
 
 scheduler_events = {
     "cron": {
-        "0 1 * * *": [
-            "hb_attendance_app.hbos_attendance.attendance_notify.send_daily_report"
-        ],
+        # 考勤通知：北京时间 09:00（Frappe 系统时区为 Asia/Shanghai，cron 按本地时区判定，
+        # 已实测 "0 10 * * *" 的下次执行为本地 10:00）。
+        # 只挂一条：Scheduled Job Type 以 method 为唯一键，同一方法挂多条会互相覆盖，
+        # 谁胜出取决于遍历顺序——若被覆盖成非 9 点的时刻，守卫会拒发且悄无声息。
         "0 9 * * *": [
             "hb_attendance_app.hbos_attendance.attendance_notify.send_daily_report"
         ],
