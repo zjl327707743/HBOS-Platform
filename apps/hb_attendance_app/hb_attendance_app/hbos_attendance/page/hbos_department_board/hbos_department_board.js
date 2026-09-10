@@ -128,6 +128,14 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		return NOTE_MAP.hasOwnProperty(note) ? NOTE_MAP[note] : note;
 	}
 
+	// 状态文案：「已下班 HH:MM」只在有可信下班卡时追加
+	// （后端按设备 SN 判定 + 最短班次 2h，避免误刷/上班卡伪造已下班）
+	function statusText(r) {
+		var t = __(r.label || r.state);
+		if (r.out_hm) t += " · " + __("已下班") + " " + r.out_hm;
+		return t;
+	}
+
 	function isShift(r) { return r.kind === "shift"; }
 	function isPresent(r) { return !!PRESENT_STATES[r.state]; }
 	function hasTag(r, t) { return (r.tags || []).indexOf(t) >= 0; }
@@ -243,7 +251,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 					+ '<td class="db-num">' + frappe.utils.escape_html(r.num || "-") + '</td>'
 					+ '<td>' + frappe.utils.escape_html(r.name || "-") + '</td>'
 					+ '<td>' + __(frappe.utils.escape_html(r.expected_label || "-")) + '</td>'
-					+ '<td><span class="db-s ' + cls(r.state) + '">' + __(frappe.utils.escape_html(r.label || r.state)) + '</span>'
+					+ '<td><span class="db-s ' + cls(r.state) + '">' + frappe.utils.escape_html(statusText(r)) + '</span>'
 					+ (tags ? " " + tags : "") + (note ? '<span class="db-chip">' + __(note) + '</span>' : "") + '</td>'
 					+ '<td class="r db-num">' + (r.first_hm || "-") + '</td>'
 					+ '<td class="r db-num">' + (r.card_count || 0) + '</td>'
@@ -274,7 +282,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 				+ '<td>' + frappe.utils.escape_html(r.name || "-") + '</td>'
 				+ '<td>' + frappe.utils.escape_html(r.dept || "-") + '</td>'
 				+ '<td>' + __(frappe.utils.escape_html(r.expected_label || "-")) + '</td>'
-				+ '<td><span class="db-s ' + cls(r.state) + '">' + __(frappe.utils.escape_html(r.label || r.state)) + '</span>'
+				+ '<td><span class="db-s ' + cls(r.state) + '">' + frappe.utils.escape_html(statusText(r)) + '</span>'
 				+ (tags ? " " + tags : "") + (note ? '<span class="db-chip">' + __(note) + '</span>' : "") + '</td>'
 				+ '<td class="r db-num">' + (r.first_hm || "-") + '</td>'
 				+ '<td class="r db-num">' + (r.card_count || 0) + '</td>'

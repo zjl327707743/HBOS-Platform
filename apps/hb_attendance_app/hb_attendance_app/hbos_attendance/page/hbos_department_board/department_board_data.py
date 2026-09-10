@@ -130,18 +130,28 @@ def _load_bindings(emp_names):
 
 
 def _load_events(date_str, emp_names):
-    """employee -> list[datetime]，含 GPS 卡；升序。"""
+    """返回 (events, out_events)。
+
+    events:     employee -> 当天全部打卡时间(升序)，含 GPS 卡；
+    out_events: employee -> 当天「下班机」打卡（按设备 SN 判定；分机实施前为空），
+                供「已下班」判定使用——误把上班卡当下班会伪造「已下班」。
+
+    events 升序是纯函数的前置契约，故 SQL 必须 ORDER BY employee, time。
+    """
+    events, out_events = {}, {}
     if not emp_names:
-        return {}
-    out = {}
+        return events, out_events
+    from hb_attendance_app.hbos_attendance.pairing import role_from_terminal
     rows = frappe.db.sql("""
-        SELECT employee, time FROM `tabEmployee Checkin`
+        SELECT employee, time, hbos_terminal_sn FROM `tabEmployee Checkin`
         WHERE DATE(time) = %(d)s AND employee IN %(emps)s
         ORDER BY employee, time
     """, {"d": date_str, "emps": emp_names}, as_dict=True)
     for r in rows:
-        out.setdefault(r.employee, []).append(r.time)
-    return out
+        events.setdefault(r.employee, []).append(r.time)
+        if role_from_terminal(r.hbos_terminal_sn or "", r.time) == "out":
+            out_events.setdefault(r.employee, []).append(r.time)
+    return events, out_events
 
 
 def _load_attendance(date_str, emp_names):
@@ -200,7 +210,7 @@ def get_data(department=None, date_str=None):
     schedule = _load_schedule(date_str, emp_names)
     leave_recs = _load_leave_records(date_str, emp_names)
     bindings = _load_bindings(emp_names)
-    events = _load_events(date_str, emp_names)
+    events, out_events = _load_events(date_str, emp_names)
     attendance = _load_attendance(date_str, emp_names)
 
     def _profile(e):
@@ -231,11 +241,13 @@ def get_data(department=None, date_str=None):
     for e in emps:
         p = _profile(e)
         ev = events.get(e.name, [])
+        outs = out_events.get(e.name, [])
         exp = resolve_expected(p, weekday)
         if mode == "review":
-            st = day_review(exp, p, ev, now, attendance=attendance.get(e.name))
+            st = day_review(exp, p, ev, now, attendance=attendance.get(e.name),
+                            out_events=outs, day=target)
         else:
-            st = live_state(exp, p, ev, now)
+            st = live_state(exp, p, ev, now, out_events=outs, day=target)
         rows.append({
             "dept": e.department or "",
             "num": p["num"],
@@ -244,7 +256,8 @@ def get_data(department=None, date_str=None):
             "kind": exp["kind"],
             "fact_only": exp.get("start_time") is None or exp.get("late_after") is None,
             "state": st["state"], "label": st["label"],
-            "first_hm": st["first_hm"], "card_count": st["card_count"],
+            "first_hm": st["first_hm"], "out_hm": st.get("out_hm"),
+            "card_count": st["card_count"],
             "tags": st["tags"], "note": st["note"],
         })
 

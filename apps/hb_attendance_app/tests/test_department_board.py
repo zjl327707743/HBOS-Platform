@@ -98,6 +98,84 @@ class ResolveExpectedTest(unittest.TestCase):
         self.assertEqual(e["label"], "通用倒班")
 
 
+class OutPunchTest(unittest.TestCase):
+    """「已下班」判定：仅当有可信下班卡（下班机 + 与首次到岗间隔 >=2h）时给出 out_hm。"""
+
+    def _shift(self):
+        return {"kind": "shift", "shift_type": "行政班", "start_time": "08:30",
+                "late_after": "08:31", "label": "行政班"}
+
+    def _d(self, h, m=0):
+        return datetime(2026, 9, 8, h, m)
+
+    def test_finished_shift_reports_out_hm(self):
+        st = live_state(self._shift(), profile(),
+                        [self._d(8, 20), self._d(17, 2)],
+                        self._d(18), out_events=[self._d(17, 2)])
+        self.assertEqual(st["state"], "present")
+        self.assertEqual(st["first_hm"], "08:20")
+        self.assertEqual(st["out_hm"], "17:02")     # 上完一整班 → 标出已下班
+
+    def test_still_on_duty_has_no_out_hm(self):
+        # 只打了上班卡（还没下班）→ 不显示已下班
+        st = live_state(self._shift(), profile(), [self._d(8, 20)],
+                        self._d(12), out_events=[])
+        self.assertEqual(st["state"], "present")
+        self.assertIsNone(st["out_hm"])
+
+    def test_short_gap_out_ignored(self):
+        # 上班后 15 分钟就出现下班机卡（误刷/连刷，不足最短班次 2h）→ 不算已下班
+        st = live_state(self._shift(), profile(),
+                        [self._d(8, 20), self._d(8, 35)],
+                        self._d(12), out_events=[self._d(8, 35)])
+        self.assertIsNone(st["out_hm"])
+
+    def test_last_qualified_out_wins(self):
+        # 下班后折返又刷一次 → 取最后一次
+        st = live_state(self._shift(), profile(),
+                        [self._d(8, 20), self._d(17, 2), self._d(19, 30)],
+                        self._d(20), out_events=[self._d(17, 2), self._d(19, 30)])
+        self.assertEqual(st["out_hm"], "19:30")
+
+    def test_fact_only_shift_also_reports_out_hm(self):
+        # 班次起算点未定（通用倒班）也应能看出已下班
+        e = {"kind": "shift", "shift_type": None, "start_time": None,
+             "late_after": None, "label": "通用倒班"}
+        st = live_state(e, profile(), [self._d(7, 45), self._d(17, 20)],
+                        self._d(18), out_events=[self._d(17, 20)])
+        self.assertEqual(st["state"], "fact_present")
+        self.assertEqual(st["out_hm"], "17:20")
+
+    def test_review_mode_day_param_wins_over_now(self):
+        """回顾模式：now 是今天、目标是历史日，day 必须显式传入，否则 out_hm 会因
+        日期不匹配而丢失（now.date() != 目标日）。"""
+        e = resolve_expected(profile(), weekday=1)
+        st = day_review(e, profile(), [self._d(8, 20), self._d(17, 2)], self._d(23),
+                        attendance={"status": "Present", "late_entry": False,
+                                    "early_exit": False},
+                        out_events=[self._d(17, 2)], day=datetime(2026, 9, 8).date())
+        self.assertEqual(st["out_hm"], "17:02")
+
+    def test_review_mode_reports_out_hm_and_first_card(self):
+        e = resolve_expected(profile(), weekday=1)
+        st = day_review(e, profile(), [self._d(8, 20), self._d(17, 2)], self._d(23),
+                        attendance={"status": "Present", "late_entry": False,
+                                    "early_exit": False},
+                        out_events=[self._d(17, 2)])
+        self.assertEqual(st["state"], "out_day")
+        self.assertEqual(st["first_hm"], "08:20")   # 回顾模式首卡不再是空
+        self.assertEqual(st["out_hm"], "17:02")
+
+    def test_absent_row_has_no_out_hm(self):
+        e = resolve_expected(profile(), weekday=1)
+        st = day_review(e, profile(), [], self._d(23),
+                        attendance={"status": "Absent", "late_entry": False,
+                                    "early_exit": False},
+                        out_events=[self._d(8, 35)])
+        self.assertEqual(st["state"], "absent_day")
+        self.assertIsNone(st["out_hm"])
+
+
 class LiveStateTest(unittest.TestCase):
     def _day(self):
         return datetime(2026, 9, 8)  # 周二

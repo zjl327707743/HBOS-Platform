@@ -98,13 +98,49 @@ def _base_state(expected, profile, events, now):
     """把 expected 折叠成展示用基础行状态（不含到点判定前的确定性分支）。"""
     return {
         "state": expected["kind"], "label": expected["label"],
-        "first_hm": None, "card_count": len(events),
+        "first_hm": None, "out_hm": None, "card_count": len(events),
         "tags": [], "note": "",
     }
 
 
-def live_state(expected, profile, events, now):
-    """实时模式（now 注入）。"""
+# 下班认定沿用配对算法的最短班次口径：不足 2 小时的两张卡不算一个班次
+MIN_SHIFT_HOURS = 2
+
+# 只有这些状态代表「人已到岗」，才谈得上「已下班」
+_ON_DUTY_STATES = {"present", "late", "present_offwindow", "fact_present",
+                   "out_day", "out_offwindow"}
+
+
+def _out_hm(state, first_hm, out_events, day):
+    """返回当天的下班打卡时间 "HH:MM"；没有可信下班卡则 None。
+
+    判据（与 pairing 保持一致）：
+    - out_events 只收「下班机」卡（数据层按设备 SN 判定），避免误把上班卡当下班；
+    - 该下班卡须晚于首次到岗卡、且间隔 >= 最短班次 2 小时（误刷/连刷不算）；
+    - 同一天有多张合格下班卡时取最后一张（真正走人的那次）。
+    """
+    if not out_events or state not in _ON_DUTY_STATES or not first_hm:
+        return None
+    start = _hm_to_dt(first_hm, day)
+    if start is None:
+        return None
+    qualified = [o for o in out_events
+                 if o.date() == day and o > start
+                 and (o - start).total_seconds() >= MIN_SHIFT_HOURS * 3600]
+    return qualified[-1].strftime("%H:%M") if qualified else None
+
+
+def live_state(expected, profile, events, now, out_events=None, day=None):
+    """实时模式（now 注入）。out_events: 当天下班机打卡（数据层按设备 SN 判定）。
+
+    day: 目标日期（回顾模式下 now 是今天、目标却是历史日，必须显式传入）。
+    """
+    st = _live_state_inner(expected, profile, events, now)
+    st["out_hm"] = _out_hm(st["state"], st["first_hm"], out_events or [], day or now.date())
+    return st
+
+
+def _live_state_inner(expected, profile, events, now):
     kind = expected["kind"]
     # 豁免/休息优先：管理层豁免或排班休息不因请假记录改标
     if kind in ("rest", "exempt"):
@@ -172,25 +208,33 @@ def live_state(expected, profile, events, now):
             "card_count": len(events), "tags": [], "note": ""}
 
 
-def day_review(expected, profile, events, now, attendance=None):
+def day_review(expected, profile, events, now, attendance=None, out_events=None, day=None):
     """回顾模式。attendance: None | {status, late_entry, early_exit}"""
+    st = _day_review_inner(expected, profile, events, now, attendance)
+    st["out_hm"] = _out_hm(st["state"], st["first_hm"], out_events or [], day or now.date())
+    return st
+
+
+def _day_review_inner(expected, profile, events, now, attendance=None):
     kind = expected["kind"]
     if attendance:
         a = attendance
         status = a.get("status")
+        # 回顾模式也填首卡时间（此前为空），供明细「首卡」列与「已下班」判定使用
+        first_hm = events[0].strftime("%H:%M") if events else None
         if status == "Present":
             tags = []
             if a.get("late_entry"):
                 tags.append("迟到")
             if a.get("early_exit"):
                 tags.append("早退")
-            return {"state": "out_day", "label": "出勤", "first_hm": None,
+            return {"state": "out_day", "label": "出勤", "first_hm": first_hm,
                     "card_count": len(events), "tags": tags, "note": "以 HRMS 考勤结果为准"}
         if status == "Absent":
             return {"state": "absent_day", "label": "缺勤", "first_hm": None,
                     "card_count": len(events), "tags": [], "note": "以 HRMS 考勤结果为准"}
         if status in ("On Leave", "Half Day"):
-            return {"state": "leave", "label": "请假", "first_hm": None,
+            return {"state": "leave", "label": "请假", "first_hm": first_hm,
                     "card_count": len(events), "tags": [], "note": "以 HRMS 考勤结果为准"}
         # 其他状态（None/未生成等）回落下方逻辑
 
