@@ -20,6 +20,65 @@ def _hm_to_dt(hm, day):
         return None
 
 
+def _plus_one_minute(hm):
+    """返回 HM 之后 1 分钟的 "HH:MM"（跨零点回到 00:00）。"""
+    h, m = (hm or "00:00").split(":")[:2]
+    total = (int(h) * 60 + int(m) + 1) % (24 * 60)
+    return f"{total // 60:02d}:{total % 60:02d}"
+
+
+def bound_times(start_hm, late_hm):
+    """绑定的迟到起算点：缺省或早于上班时间（规则数据错误）时回落到上班时间 +1 分钟。
+
+    例：环保部「两班倒中班 13:00-20:00」的 late_after 误填 08:31（比上班时间还早），
+    若不修正，「首卡晚于 late_after 即迟到」对任何 08:31 之后的到岗都成立 → 必然误判迟到。
+    """
+    if not start_hm:
+        return (start_hm, late_hm)
+    if not late_hm or late_hm <= start_hm:
+        return (start_hm, _plus_one_minute(start_hm))
+    return (start_hm, late_hm)
+
+
+def pick_bound_rule(bound_rules, ref_hm):
+    """在多条绑定规则里挑与参考时间最接近的上班时间那条（倒班人员会绑定多个班次）。
+
+    bound_rules: [{"shift_type","start_hm","late_hm"}, ...]
+    ref_hm: 当天首张到岗卡时间 "HH:MM"；为 None（当天无卡）时取第一条（主班）。
+    返回 (shift_type, start_hm, late_hm) 或 None。
+    """
+    if not bound_rules:
+        return None
+    if not ref_hm:
+        r = bound_rules[0]
+        return (r.get("shift_type"), r.get("start_hm"), r.get("late_hm"))
+    try:
+        h, m = ref_hm.split(":")[:2]
+        ref_min = int(h) * 60 + int(m)
+    except Exception:
+        r = bound_rules[0]
+        return (r.get("shift_type"), r.get("start_hm"), r.get("late_hm"))
+
+    best = None
+    best_dist = None
+    for r in bound_rules:
+        st = r.get("start_hm")
+        if not st:
+            continue
+        try:
+            sh, sm = st.split(":")[:2]
+            st_min = int(sh) * 60 + int(sm)
+        except Exception:
+            continue
+        dist = abs(ref_min - st_min)
+        if best_dist is None or dist < best_dist:
+            best_dist = dist
+            best = r
+    if best is None:
+        return None
+    return (best.get("shift_type"), best.get("start_hm"), best.get("late_hm"))
+
+
 def resolve_expected(profile, weekday):
     """返回该员工在目标日期的期望班次。weekday: 0=周一 .. 6=周日。
 
@@ -44,9 +103,14 @@ def resolve_expected(profile, weekday):
                     "label": s.get("shift_type") or "排班"}
 
     if profile.get("bound"):
-        return {"kind": "shift", "shift_type": profile.get("bound_shift_type"),
-                "start_time": profile.get("bound_start"), "late_after": profile.get("bound_late"),
-                "label": profile.get("bound_shift_type") or "固定班次"}
+        stype = profile.get("bound_shift_type")
+        st_hm = profile.get("bound_start")
+        # 带上上班时间：同一 shift_type 可能对应多个时段（如环保部 13:00-20:00 记作「行政班」），
+        # 只显示类型名会误导（看着像 08:30 上班）
+        label = f"{stype} {st_hm}" if (stype and st_hm) else (stype or "固定班次")
+        return {"kind": "shift", "shift_type": stype,
+                "start_time": st_hm, "late_after": profile.get("bound_late"),
+                "label": label}
 
     if profile.get("admin_list"):
         if weekday < 5:
@@ -111,7 +175,7 @@ _ON_DUTY_STATES = {"present", "late", "present_offwindow", "fact_present",
                    "out_day", "out_offwindow"}
 
 
-def _arrival_events(events, out_events):
+def arrival_events(events, out_events):
     """可用于「到岗」判定的卡：剔除已知的下班机卡。
 
     夜班人员当天的下班卡（早上 8 点或凌晨离开）若被当成到岗卡，会误判迟到
@@ -190,7 +254,7 @@ def _live_state_inner(expected, profile, events, now, out_events=None):
     start = expected.get("start_time")
     late = expected.get("late_after")
     day = now.date()
-    arrivals = _arrival_events(events, out_events)
+    arrivals = arrival_events(events, out_events)
 
     # 当天只有下班机卡（无到岗卡）：班次还没开始 → 尚未上班；已过班次点 → 只报事实
     if events and not arrivals:
@@ -289,7 +353,7 @@ def _day_review_inner(expected, profile, events, now, attendance=None, out_event
     if kind == "unknown":
         return _base_state(expected, profile, events, now)
 
-    arrivals = _arrival_events(events, out_events)
+    arrivals = arrival_events(events, out_events)
 
     # 当天只有下班机卡（无到岗卡）→ 只报事实，不判到岗/迟到（与实时模式同口径）
     if events and not arrivals:

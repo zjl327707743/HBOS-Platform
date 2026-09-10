@@ -3,7 +3,7 @@ from datetime import datetime, date
 from pathlib import Path
 
 from hb_attendance_app.hbos_attendance.department_board import (
-    resolve_expected, live_state, day_review,
+    resolve_expected, live_state, day_review, bound_times, pick_bound_rule,
 )
 
 DATA_PY = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/department_board_data.py"
@@ -96,6 +96,57 @@ class ResolveExpectedTest(unittest.TestCase):
         self.assertIsNone(e["start_time"])
         self.assertIsNone(e["late_after"])
         self.assertEqual(e["label"], "通用倒班")
+
+
+class BoundRulePickTest(unittest.TestCase):
+    """倒班人员绑定多条规则：按当天首卡时间挑班次；坏 late_after 不得误判迟到。
+
+    案例（陈飞 10007015 环保部，2026-09-10）：绑定「早班 08:00-16:00」+「两班倒中班
+    13:00-20:00」，当天 12:48 打卡。原实现只取一条绑定、且该中班规则的 late_after
+    误填 08:31（早于上班时间），导致 12:48 被判迟到。
+    """
+
+    def test_bad_late_after_falls_back_to_start_plus_one(self):
+        self.assertEqual(bound_times("13:00", "08:31"), ("13:00", "13:01"))
+        self.assertEqual(bound_times("13:00", None), ("13:00", "13:01"))
+        self.assertEqual(bound_times("08:00", "08:01"), ("08:00", "08:01"))  # 正常不动
+
+    def test_pick_nearest_start_by_reference_time(self):
+        rules = [
+            {"shift_type": "早班", "start_hm": "08:00", "late_hm": "08:01"},
+            {"shift_type": "行政班", "start_hm": "13:00", "late_hm": "08:31"},
+        ]
+        self.assertEqual(pick_bound_rule(rules, "12:48")[0], "行政班")   # 接近 13:00
+        self.assertEqual(pick_bound_rule(rules, "07:54")[0], "早班")     # 接近 08:00
+
+    def test_pick_without_reference_uses_first(self):
+        rules = [
+            {"shift_type": "早班", "start_hm": "08:00", "late_hm": "08:01"},
+            {"shift_type": "行政班", "start_hm": "13:00", "late_hm": "08:31"},
+        ]
+        self.assertEqual(pick_bound_rule(rules, None)[0], "早班")
+
+    def test_pick_empty_returns_none(self):
+        self.assertIsNone(pick_bound_rule([], "09:00"))
+        self.assertIsNone(pick_bound_rule(None, "09:00"))
+
+    def test_chen_fei_1248_not_late(self):
+        """端到端（纯函数）：12:48 到岗、选中 13:00 中班 → 不判迟到。"""
+        rules = [
+            {"shift_type": "早班", "start_hm": "08:00", "late_hm": "08:01"},
+            {"shift_type": "行政班", "start_hm": "13:00", "late_hm": "08:31"},
+        ]
+        picked = pick_bound_rule(rules, "12:48")
+        start_hm, late_hm = bound_times(picked[1], picked[2])
+        p = profile(bound=True, bound_shift_type=picked[0],
+                    bound_start=start_hm, bound_late=late_hm)
+        e = resolve_expected(p, weekday=3)      # 2026-09-10 是周四
+        self.assertEqual(e["kind"], "shift")
+        self.assertEqual(e["start_time"], "13:00")
+        st = live_state(e, p, [datetime(2026, 9, 10, 12, 48)],
+                        datetime(2026, 9, 10, 14, 0))
+        self.assertEqual(st["state"], "present")
+        self.assertNotIn("迟到", st["tags"])
 
 
 class OutCardNotArrivalTest(unittest.TestCase):

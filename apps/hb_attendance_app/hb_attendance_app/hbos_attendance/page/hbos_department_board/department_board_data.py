@@ -7,7 +7,8 @@ from datetime import datetime, timedelta, timezone
 import frappe
 
 from hb_attendance_app.hbos_attendance.department_board import (
-    resolve_expected, live_state, day_review,
+    resolve_expected, live_state, day_review, bound_times, pick_bound_rule,
+    arrival_events,
 )
 from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
 from hb_attendance_app.hbos_attendance.rule_lists import (
@@ -51,10 +52,9 @@ def _rule_times_for(dept, shift_type, effective_on):
         )
         if rows:
             r = max(rows, key=lambda x: str(x.effective_from or ""))
-            if r.start_time and r.late_after:
-                return (str(r.start_time)[:5], str(r.late_after)[:5])
-            if r.start_time:
-                return (str(r.start_time)[:5], None)
+            st, lt = _fmt_hm(r.start_time), _fmt_hm(r.late_after)
+            if st:
+                return (st, lt)
     return _builtin_times(shift_type)
 
 
@@ -98,9 +98,28 @@ def _load_leave_records(date_str, emp_names):
     return out
 
 
+def _fmt_hm(v):
+    """Time 字段（frappe 返回 timedelta，或字符串）→ "HH:MM"；无效返回 None。
+
+    注意 str(timedelta(seconds=30660)) == "8:31:00"（不补零），
+    直接切片会得到 "8:31:"，故必须按整数重新格式化。
+    """
+    if v is None or v == "":
+        return None
+    try:
+        parts = str(v).split(":")
+        return "%02d:%02d" % (int(parts[0]), int(parts[1]))
+    except Exception:
+        return None
+
+
 def _load_bindings(emp_names):
-    """employee -> (shift_type, start_hm, late_hm)。HBOS Employee Shift 主班优先，
-    否则 hbos_fixed_shift 回退（对照 roster_export 口径）。"""
+    """employee -> [{shift_type, start_hm, late_hm}, ...]（主班优先）。
+
+    一名员工可绑定多条规则（倒班：如环保部 早班 + 13:00 中班），
+    必须全部返回，由调用方按当天打卡时间挑最接近的班次
+    （原来只取第一条，倒班人员会被套用错误的班次→误判迟到）。
+    """
     if not emp_names:
         return {}
     binds = frappe.db.get_all(
@@ -114,9 +133,12 @@ def _load_bindings(emp_names):
         r = rules.get(b.shift_rule)
         if not r or r.status != "生效":
             continue
-        out.setdefault(b.employee, (r.shift_type, str(r.start_time or "")[:5] or None,
-                                    str(r.late_after or "")[:5] or None))
-    # hbos_fixed_shift 兜底
+        out.setdefault(b.employee, []).append({
+            "shift_type": r.shift_type,
+            "start_hm": _fmt_hm(r.start_time),
+            "late_hm": _fmt_hm(r.late_after),
+        })
+    # hbos_fixed_shift 兜底（单绑定字段）
     for e in frappe.db.get_all(
             "Employee", filters={"name": ["in", emp_names], "hbos_fixed_shift": ["is", "set"]},
             fields=["name", "hbos_fixed_shift"]):
@@ -124,8 +146,11 @@ def _load_bindings(emp_names):
             continue
         r = rules.get(e.hbos_fixed_shift)
         if r and r.status == "生效":
-            out[e.name] = (r.shift_type, str(r.start_time or "")[:5] or None,
-                           str(r.late_after or "")[:5] or None)
+            out[e.name] = [{
+                "shift_type": r.shift_type,
+                "start_hm": _fmt_hm(r.start_time),
+                "late_hm": _fmt_hm(r.late_after),
+            }]
     return out
 
 
@@ -220,7 +245,18 @@ def get_data(department=None, date_str=None):
             # 排班班次时间：优先用部门规则，其次内置
             st, lt = _rule_times_for(e.department or "", sched["shift_type"], target)
             sched = dict(sched, start_time=st, late_after=lt)
-        bound_shift, b_start, b_late = bindings.get(e.name, (None, None, None))
+        # 绑定规则：按当天首张「到岗」卡挑最接近的班次（倒班人员绑定多个班次）
+        # 注意必须排除下班机卡——夜班人员凌晨的下班卡会把参考时间拉到 00:0x，
+        # 从而挑中错误的班次并误判迟到（卞德志 9/10：00:01 下班卡 + 15:53 上班卡）。
+        ev_today = events.get(e.name, [])
+        arrivals_today = arrival_events(ev_today, out_events.get(e.name, []))
+        ref_hm = arrivals_today[0].strftime("%H:%M") if arrivals_today else None
+        picked = pick_bound_rule(bindings.get(e.name) or [], ref_hm)
+        if picked:
+            bound_shift = picked[0]
+            b_start, b_late = bound_times(picked[1], picked[2])
+        else:
+            bound_shift, b_start, b_late = (None, None, None)
         return {
             "num": num,
             "exempt": num in EXEMPT_NUMS,
