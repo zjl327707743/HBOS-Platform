@@ -286,10 +286,22 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn("db-dept", js)
         self.assertIn("db-date", js)
         self.assertIn("db-autorefresh", js)
+        self.assertIn("db-only-attention", js)
         self.assertIn("db-sync", js)
         self.assertIn("get_data", js)
         self.assertIn("live_sync", js)
         self.assertIn("visibilityState", js)
+
+    def test_page_js_overview_first_layout(self):
+        """整洁化改版：概览优先 + 展开式明细，取代「每部门一张卡片堆叠」。"""
+        js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
+        self.assertIn("db-dept-row", js)          # 部门汇总行（可点击展开）
+        self.assertIn("db-detail", js)            # 内联展开的人员明细
+        self.assertIn("tabular-nums", js)         # 数字列对齐可读
+        self.assertNotIn("db-dept-card", js)      # 旧的多卡片堆叠已移除
+        # 轮询静默刷新：自动刷新不再整屏 spinner，且保留展开状态
+        self.assertIn("openDepts", js)
+        self.assertIn("silent", js)
 
     def test_page_json_and_folder_named(self):
         folder = Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board"
@@ -304,11 +316,13 @@ class FrontendContractTest(unittest.TestCase):
         self.assertIn('"link_to": "hbos-department-board"', content)
 
     def test_color_for_review_fix(self):
-        """配色修正：红=late/absent_day（确凿）；绿=present/out_day（回顾权威出勤）；
-        absent_expected（未打卡不定性）落琥珀默认，不再判红。"""
+        """配色：红=late/absent_day（确凿）；绿=present/out_day/fact_present；
+        absent_expected（未打卡不定性）落琥珀默认，不得进红分支。"""
         js = (Path(__file__).parents[1] / "hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js").read_text()
-        self.assertIn('if (s === "late" || s === "absent_day") return "b-red";', js)
-        self.assertIn('if (s === "present" || s === "out_day") return "b-green";', js)
-        self.assertNotIn('absent_expected") return "b-red', js)
-        # out_day 回顾权威出勤已入绿，absent_expected 不再出现于 red 判定文本
-        self.assertNotIn("absent_expected", js)
+        red_line = next(l for l in js.splitlines() if 'return "s-red"' in l)
+        self.assertIn('"late"', red_line)
+        self.assertIn('"absent_day"', red_line)
+        self.assertNotIn("absent_expected", red_line)
+        green_line = next(l for l in js.splitlines() if 'return "s-green"' in l)
+        self.assertIn('"present"', green_line)
+        self.assertIn('"out_day"', green_line)

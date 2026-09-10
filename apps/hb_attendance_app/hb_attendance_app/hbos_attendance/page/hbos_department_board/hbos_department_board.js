@@ -3,48 +3,90 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		parent: wrapper, title: __("部门看板"), single_column: true,
 	});
 
+	// 设计: 概览优先。KPI 一行 → 部门汇总表（可展开）→ 人员明细内联展开。
+	// 用发丝分隔线替代卡片阴影; 数字 tabular-nums 右对齐; 唯一的大数字是出勤率。
 	$("<style>").text(
-		".db-stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}" +
-		".db-stat{flex:1;min-width:110px;background:#fff;border-radius:8px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.07);}" +
-		".db-stat .num{font-size:24px;font-weight:700;}" +
-		".db-stat .lbl{font-size:12px;color:#888;margin-top:2px;}" +
-		".db-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;background:#fff;border-bottom:1px solid #e0e0e0;margin-bottom:16px;}" +
-		".db-dept-card{background:#fff;border-radius:8px;padding:14px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}" +
-		".db-dept-card h5{margin:0 0 8px 0;font-size:15px;color:#333;}" +
-		".db-table{width:100%;font-size:13px;border-collapse:collapse;}" +
-		".db-table th{background:#f7f8fa;text-align:left;padding:7px;border-bottom:2px solid #e0e0e0;}" +
-		".db-table td{padding:6px 7px;border-bottom:1px solid #f0f0f0;}" +
-		".badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;margin-right:4px;}" +
-		".b-green{background:#e6f7e6;color:#1e8e3e;}" +
-		".b-red{background:#fde8e8;color:#c0392b;}" +
-		".b-amber{background:#fef3e4;color:#e67e22;}" +
-		".b-grey{background:#eef1f4;color:#5f6b7a;}" +
-		".b-blue{background:#e8f1fb;color:#2c7be5;}" +
-		".b-purple{background:#f3e8ff;color:#7c3aed;}" +
-		".b-orange{background:#fff1e0;color:#e67e22;}"
+		".db-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;background:#fff;border-bottom:1px solid #e6e9ee;margin-bottom:18px;}" +
+		".db-toolbar label{font-size:13px;color:#4b5563;margin:0;font-weight:500;}" +
+		".db-toolbar .db-ctl{display:inline-flex;align-items:center;gap:6px;}" +
+		".db-wrap{padding:0 18px 40px;}" +
+		".db-num{font-variant-numeric:tabular-nums;font-feature-settings:'tnum';}" +
+		// KPI
+		".db-kpi{display:flex;align-items:flex-end;gap:34px;flex-wrap:wrap;padding:4px 2px 18px;border-bottom:1px solid #e6e9ee;}" +
+		".db-hero{line-height:1;}" +
+		".db-hero .v{font-size:38px;font-weight:650;color:#1c2126;letter-spacing:-0.02em;}" +
+		".db-hero .k{font-size:12px;color:#6b7684;margin-top:8px;}" +
+		".db-kpis{display:flex;gap:26px;flex-wrap:wrap;padding-bottom:3px;}" +
+		".db-kpi-i{min-width:64px;}" +
+		".db-kpi-i .v{font-size:19px;font-weight:600;color:#1c2126;}" +
+		".db-kpi-i .k{font-size:12px;color:#6b7684;margin-top:4px;}" +
+		".db-kpi-i.warn .v{color:#b26a00;}" +
+		".db-kpi-i.bad .v{color:#b3261e;}" +
+		// 分节标题
+		".db-sec{display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 8px;}" +
+		".db-sec h5{margin:0;font-size:14px;font-weight:600;color:#1c2126;}" +
+		".db-sec .hint{font-size:12px;color:#8b95a1;}" +
+		// 表格
+		".db-tbl{width:100%;border-collapse:collapse;font-size:13px;}" +
+		".db-tbl th{text-align:left;font-weight:500;font-size:12px;color:#6b7684;padding:8px 10px;border-bottom:1px solid #e6e9ee;white-space:nowrap;}" +
+		".db-tbl td{padding:9px 10px;border-bottom:1px solid #f0f2f5;color:#1c2126;vertical-align:middle;}" +
+		".db-tbl th.r,.db-tbl td.r{text-align:right;}" +
+		".db-tbl tbody tr:hover td{background:#fafbfc;}" +
+		".db-dept-row{cursor:pointer;}" +
+		".db-dept-row .nm{font-weight:500;}" +
+		".db-dept-row .caret{display:inline-block;width:12px;color:#8b95a1;font-size:10px;transition:transform .12s ease;}" +
+		".db-dept-row.open .caret{transform:rotate(90deg);}" +
+		".db-zero{color:#c3c9d2;}" +
+		".db-strong{font-weight:600;}" +
+		".db-detail td{background:#fbfcfd;padding:0;border-bottom:1px solid #e6e9ee;}" +
+		".db-detail .inner{padding:2px 10px 8px 26px;}" +
+		".db-tbl.mini th{font-size:11px;color:#8b95a1;padding:6px 10px;border-bottom:1px solid #eceff3;}" +
+		".db-tbl.mini td{padding:6px 10px;font-size:12.5px;border-bottom:1px solid #f4f6f8;}" +
+		".db-tbl.mini tbody tr:last-child td{border-bottom:none;}" +
+		// 状态色块
+		".db-s{display:inline-block;padding:1px 8px;border-radius:3px;font-size:12px;line-height:18px;white-space:nowrap;}" +
+		".s-green{background:#e8f6ee;color:#1e7f4f;}" +
+		".s-red{background:#fdecea;color:#b3261e;}" +
+		".s-amber{background:#fdf3e3;color:#b26a00;}" +
+		".s-blue{background:#e9f1fd;color:#2c7be5;}" +
+		".s-purple{background:#f3ecfb;color:#6b3fa0;}" +
+		".s-grey{background:#eef0f3;color:#6b7684;}" +
+		".db-chip{font-size:11px;color:#8b95a1;margin-left:6px;}" +
+		".db-empty{padding:26px 2px;text-align:center;color:#8b95a1;font-size:13px;}" +
+		".db-updating{font-size:12px;color:#8b95a1;margin-left:auto;opacity:0;transition:opacity .15s ease;}" +
+		".db-updating.on{opacity:1;}"
 	).appendTo("head");
 
-	var today = new Date();
 	var fmt = function (d) {
 		return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 	};
 
-	var state = { dept: "全部部门", date: fmt(today), poll: true, timer: null, loading: false };
+	var state = {
+		dept: "全部部门",
+		date: fmt(new Date()),
+		onlyAttention: false,
+		openDepts: {},      // 展开的部门（轮询刷新后保持）
+		timer: null,
+		inFlight: false,
+	};
 
 	var toolbar = '<div class="db-toolbar">'
-		+ '<label style="font-size:13px;font-weight:600;">' + __("部门") + '</label> '
-		+ '<select id="db-dept" class="form-control" style="width:180px;display:inline-block;"><option value="全部部门">' + __("全部部门") + '</option></select> '
-		+ '<label style="font-size:13px;font-weight:600;">' + __("日期") + '</label> '
-		+ '<input type="date" id="db-date" class="form-control" style="width:150px;display:inline-block;" value="' + state.date + '" max="' + state.date + '"> '
-		+ '<button class="btn btn-primary btn-sm" id="db-go">' + __("查询") + '</button> '
-		+ '<label class="checkbox" style="font-size:13px;margin:0 0 0 8px;"><input type="checkbox" id="db-autorefresh" checked> ' + __("自动刷新(60s)") + '</label> '
-		+ '<button class="btn btn-secondary btn-sm" id="db-sync" style="display:none;">' + __("立即同步打卡") + '</button>'
-		+ '<span id="db-sync-msg" style="font-size:12px;color:#888;"></span>'
+		+ '<span class="db-ctl"><label>' + __("部门") + '</label>'
+		+ '<select id="db-dept" class="form-control input-xs" style="width:170px;"><option value="全部部门">' + __("全部部门") + '</option></select></span>'
+		+ '<span class="db-ctl"><label>' + __("日期") + '</label>'
+		+ '<input type="date" id="db-date" class="form-control input-xs" style="width:140px;" value="' + state.date + '" max="' + state.date + '"></span>'
+		+ '<button class="btn btn-primary btn-xs" id="db-go">' + __("查询") + '</button>'
+		+ '<span class="db-ctl"><label class="db-chk" style="margin:0;font-weight:400;">'
+		+ '<input type="checkbox" id="db-only-attention"> ' + __("只看异常") + '</label></span>'
+		+ '<span class="db-ctl"><label style="margin:0;font-weight:400;">'
+		+ '<input type="checkbox" id="db-autorefresh" checked> ' + __("自动刷新(60s)") + '</label></span>'
+		+ '<button class="btn btn-default btn-xs" id="db-sync" style="display:none;">' + __("立即同步打卡") + '</button>'
+		+ '<span id="db-sync-msg" class="db-chip" style="margin-left:0;"></span>'
+		+ '<span class="db-updating db-num" id="db-updating">' + __("更新中…") + '</span>'
 		+ '</div>';
-	toolbar += '<div id="db-content" style="padding:0 16px 16px;"></div>';
+	toolbar += '<div class="db-wrap" id="db-content"></div>';
 	$(wrapper).html(toolbar);
 
-	// 加载部门下拉
 	frappe.call({
 		method: "hb_attendance_app.hbos_attendance.page.hbos_department_board.department_board_data.get_data",
 		args: { date_str: state.date },
@@ -54,86 +96,245 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	function populateDepts(depts) {
 		var sel = $("#db-dept");
 		(depts || []).forEach(function (d) {
-			if (d.name) {
-				sel.append('<option value="' + d.name + '">' + d.name + " (" + d.count + ")</option>");
+			if (d.name) sel.append('<option value="' + d.name + '">' + d.name + " (" + d.count + ")");
+		});
+	}
+
+	// ---- 状态语义（与后端 state 串一一对应）----
+	var PRESENT_STATES = { present: 1, late: 1, fact_present: 1, present_offwindow: 1, out_day: 1, out_offwindow: 1 };
+	var ATTENTION_STATES = { late: 1, absent_day: 1, absent_expected: 1, no_pair: 1, fact_none: 1, out_offwindow: 1 };
+
+	function cls(state) {
+		if (state === "late" || state === "absent_day") return "s-red";      // 仅确凿定性用红
+		if (state === "present" || state === "out_day" || state === "fact_present") return "s-green";
+		if (state === "leave") return "s-purple";
+		if (state === "rest") return "s-blue";
+		if (state === "exempt") return "s-grey";
+		return "s-amber";                                                    // 未打卡/待确认等一律中性琥珀
+	}
+
+	// 删掉逐行重复的长说明，只保留有信息量的短标记
+	var NOTE_MAP = {
+		"以 HRMS 考勤结果为准": "",
+		"班次起算点待排班/规则确认，仅记录打卡事实": "仅记录打卡",
+		"当日有排班/固定班次但无配对考勤记录，未判缺勤": "未判缺勤",
+		"当日有卡但无 HRMS 配对考勤结果": "无配对考勤",
+		"当日应出勤但班次时段内无卡，未判缺勤，请以月度考勤汇总为准": "未判缺勤",
+		"排班标注请假但当天有打卡，请人工核实": "有卡请核实",
+	};
+	function shortNote(note) {
+		if (!note) return "";
+		return NOTE_MAP.hasOwnProperty(note) ? NOTE_MAP[note] : note;
+	}
+
+	function isShift(r) { return r.kind === "shift"; }
+	function isPresent(r) { return !!PRESENT_STATES[r.state]; }
+	function hasTag(r, t) { return (r.tags || []).indexOf(t) >= 0; }
+	function isLate(r) { return r.state === "late" || hasTag(r, "迟到"); }
+	function needsAttention(r) { return isLate(r) || !!ATTENTION_STATES[r.state]; }
+
+	// ---- 汇总：整页只用这一处定义，KPI 与部门表因此永远一致 ----
+	// 应出勤 = kind==shift；已到岗含迟到；未打卡 = 应出勤但既未到岗也未到班次点。
+	// 迟到在回顾模式来自 HRMS 考勤标签(out_day + tags[迟到])，故按标签统计而非 state。
+	function summarize(rows) {
+		var s = { total: rows.length, expected: 0, present: 0, late: 0, noCard: 0, leave: 0, rest: 0, exempt: 0 };
+		rows.forEach(function (r) {
+			if (r.state === "exempt") { s.exempt += 1; return; }
+			if (r.state === "rest") { s.rest += 1; return; }
+			if (r.state === "leave") { s.leave += 1; return; }
+			if (r.state === "unknown") return;
+			if (!isShift(r)) return;
+			s.expected += 1;
+			if (isLate(r)) s.late += 1;
+			if (isPresent(r)) s.present += 1;
+			else if (r.state !== "before_start") s.noCard += 1;
+		});
+		return s;
+	}
+
+	function groupByDept(rows) {
+		var out = {};
+		rows.forEach(function (r) {
+			var d = r.dept || "未分组";
+			(out[d] = out[d] || []).push(r);
+		});
+		return out;
+	}
+
+	function detailSort(a, b) {
+		var pa = needsAttention(a) ? 0 : 1, pb = needsAttention(b) ? 0 : 1;
+		if (pa !== pb) return pa - pb;
+		return String(a.num || "").localeCompare(String(b.num || ""));
+	}
+
+	function kpiHtml(rows) {
+		var s = summarize(rows);
+		var rate = s.expected ? Math.round((s.present / s.expected) * 1000) / 10 : null;
+		var h = '<div class="db-kpi">';
+		h += '<div class="db-hero"><div class="v db-num">' + (rate == null ? "—" : rate + "%") + '</div>'
+			+ '<div class="k">' + __("出勤率") + '</div></div>';
+		h += '<div class="db-kpis db-num">';
+		[["应出勤", s.expected, ""], ["已到岗", s.present, ""],
+		 ["未打卡/无考勤", s.noCard, "warn"], ["迟到", s.late, "bad"],
+		 ["请假", s.leave, ""], ["休息", s.rest, ""], ["豁免", s.exempt, ""]].forEach(function (c) {
+			h += '<div class="db-kpi-i ' + c[2] + '"><div class="v">' + c[1] + '</div><div class="k">' + __(c[0]) + '</div></div>';
+		});
+		h += '</div></div>';
+		return h;
+	}
+
+	function deptTableHtml(byDept) {
+		var names = Object.keys(byDept).sort(function (a, b) {
+			var sa = summarize(byDept[a]), sb = summarize(byDept[b]);
+			if ((sb.noCard + sb.late) !== (sa.noCard + sa.late)) return (sb.noCard + sb.late) - (sa.noCard + sa.late);
+			return sb.total - sa.total;
+		});
+		var h = '<div class="db-sec"><h5>' + __("部门概览") + '</h5>'
+			+ '<span class="hint">' + __("点击部门行展开人员明细") + '</span></div>';
+		h += '<table class="db-tbl"><thead><tr>'
+			+ '<th>' + __("部门") + '</th>'
+			+ '<th class="r">' + __("在册") + '</th><th class="r">' + __("应出勤") + '</th>'
+			+ '<th class="r">' + __("已到岗") + '</th><th class="r">' + __("未打卡") + '</th>'
+			+ '<th class="r">' + __("迟到") + '</th><th class="r">' + __("请假") + '</th>'
+			+ '</tr></thead><tbody>';
+		names.forEach(function (d) {
+			var rows = byDept[d], s = summarize(rows);
+			var open = !!state.openDepts[d];
+			h += '<tr class="db-dept-row' + (open ? " open" : "") + '" data-dept="' + frappe.utils.escape_html(d) + '">';
+			h += '<td class="nm"><span class="caret">▶</span> ' + frappe.utils.escape_html(d) + '</td>';
+			h += '<td class="r db-num">' + s.total + '</td>';
+			h += '<td class="r db-num">' + s.expected + '</td>';
+			h += '<td class="r db-num">' + s.present + '</td>';
+			h += '<td class="r db-num">' + (s.noCard ? '<span class="db-strong" style="color:#b26a00;">' + s.noCard + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (s.late ? '<span class="db-strong" style="color:#b3261e;">' + s.late + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (s.leave ? s.leave : '<span class="db-zero">0</span>') + '</td>';
+			h += '</tr>';
+			if (open) h += detailRowHtml(rows, 7);
+		});
+		h += '</tbody></table>';
+		return h;
+	}
+
+	function detailRowHtml(rows, span) {
+		var list = rows.slice().sort(detailSort);
+		if (state.onlyAttention) list = list.filter(needsAttention);
+		var inner;
+		if (!list.length) {
+			inner = '<div class="db-empty">' + (state.onlyAttention ? __("该部门无异常") : __("无人员")) + '</div>';
+		} else {
+			inner = '<table class="db-tbl mini"><thead><tr>'
+				+ '<th>' + __("工号") + '</th><th>' + __("姓名") + '</th><th>' + __("班次") + '</th>'
+				+ '<th>' + __("状态") + '</th><th class="r">' + __("首卡") + '</th><th class="r">' + __("卡数") + '</th>'
+				+ '</tr></thead><tbody>';
+			list.forEach(function (r) {
+				var tags = (r.tags || []).map(function (t) {
+					return '<span class="db-s s-red">' + frappe.utils.escape_html(t) + '</span>';
+				}).join("");
+				var note = shortNote(r.note);
+				inner += '<tr>'
+					+ '<td class="db-num">' + frappe.utils.escape_html(r.num || "-") + '</td>'
+					+ '<td>' + frappe.utils.escape_html(r.name || "-") + '</td>'
+					+ '<td>' + __(frappe.utils.escape_html(r.expected_label || "-")) + '</td>'
+					+ '<td><span class="db-s ' + cls(r.state) + '">' + __(frappe.utils.escape_html(r.label || r.state)) + '</span>'
+					+ (tags ? " " + tags : "") + (note ? '<span class="db-chip">' + __(note) + '</span>' : "") + '</td>'
+					+ '<td class="r db-num">' + (r.first_hm || "-") + '</td>'
+					+ '<td class="r db-num">' + (r.card_count || 0) + '</td>'
+					+ '</tr>';
+			});
+			inner += '</tbody></table>';
+		}
+		return '<tr class="db-detail"><td colspan="' + span + '"><div class="inner">' + inner + '</div></td></tr>';
+	}
+
+	function flatTableHtml(rows) {
+		var list = rows.slice().sort(detailSort);
+		if (state.onlyAttention) list = list.filter(needsAttention);
+		var h = '<div class="db-sec"><h5>' + __("人员明细") + '</h5>'
+			+ '<span class="hint db-num">' + list.length + ' / ' + rows.length + ' ' + __("人") + '</span></div>';
+		if (!list.length) return h + '<div class="db-empty">' + (state.onlyAttention ? __("当前范围无异常") : __("当前范围无在册员工")) + '</div>';
+		h += '<table class="db-tbl"><thead><tr>'
+			+ '<th>' + __("工号") + '</th><th>' + __("姓名") + '</th><th>' + __("部门") + '</th><th>' + __("班次") + '</th>'
+			+ '<th>' + __("状态") + '</th><th class="r">' + __("首卡") + '</th><th class="r">' + __("卡数") + '</th>'
+			+ '</tr></thead><tbody>';
+		list.forEach(function (r) {
+			var tags = (r.tags || []).map(function (t) {
+				return '<span class="db-s s-red">' + frappe.utils.escape_html(t) + '</span>';
+			}).join("");
+			var note = shortNote(r.note);
+			h += '<tr>'
+				+ '<td class="db-num">' + frappe.utils.escape_html(r.num || "-") + '</td>'
+				+ '<td>' + frappe.utils.escape_html(r.name || "-") + '</td>'
+				+ '<td>' + frappe.utils.escape_html(r.dept || "-") + '</td>'
+				+ '<td>' + __(frappe.utils.escape_html(r.expected_label || "-")) + '</td>'
+				+ '<td><span class="db-s ' + cls(r.state) + '">' + __(frappe.utils.escape_html(r.label || r.state)) + '</span>'
+				+ (tags ? " " + tags : "") + (note ? '<span class="db-chip">' + __(note) + '</span>' : "") + '</td>'
+				+ '<td class="r db-num">' + (r.first_hm || "-") + '</td>'
+				+ '<td class="r db-num">' + (r.card_count || 0) + '</td>'
+				+ '</tr>';
+		});
+		h += '</tbody></table>';
+		return h;
+	}
+
+	function render(data) {
+		var d = data.meta || {};
+		var rows = data.rows || [];
+		var container = $("#db-content");
+		page.set_title(__("部门看板") + " — " + d.scope + " · " + d.date +
+			(d.mode === "live" ? " · " + __("实时") + " " + (d.now_hm || "") : " · " + __("回顾")));
+
+		var scrollTop = (document.scrollingElement || document.documentElement).scrollTop;
+
+		var h = kpiHtml(rows);
+		if (!rows.length) {
+			h += '<div class="db-empty">' + __("当前范围无在册员工") + '</div>';
+		} else if (d.scope && d.scope !== "全部部门") {
+			h += flatTableHtml(rows);          // 单部门：直接明细，不要多余的汇总层
+		} else {
+			h += deptTableHtml(groupByDept(rows));
+		}
+		container.html(h);
+		(document.scrollingElement || document.documentElement).scrollTop = scrollTop;
+
+		container.find(".db-dept-row").on("click", function () {
+			var name = $(this).attr("data-dept");
+			if (state.openDepts[name]) delete state.openDepts[name];
+			else state.openDepts[name] = true;
+			$(this).toggleClass("open");
+			var $cnt = $(this).closest("table");
+			var deptRows = groupByDept(rows)[name] || [];
+			if (state.openDepts[name]) {
+				$(detailRowHtml(deptRows, 7)).insertAfter($(this));
+			} else {
+				$(this).next(".db-detail").remove();
 			}
 		});
 	}
 
-	var colorFor = function (s) {
-		if (s === "late" || s === "absent_day") return "b-red";
-		if (s === "present" || s === "out_day") return "b-green";
-		if (s === "leave") return "b-purple";
-		if (s === "rest") return "b-blue";
-		if (s === "exempt") return "b-grey";
-		return "b-amber";
-	};
+	function isLive() { return state.date === fmt(new Date()); }
 
-	function render(data) {
-		var d = data.meta || {};
-		var s = data.stats || {};
-		var rows = data.rows || [];
-		var container = $("#db-content");
-		page.set_title(__("部门看板") + " — " + d.scope + " · " + d.date +
-			(d.mode === "live" ? " · 实时 " + (d.now_hm || "") : " · 回顾"));
-
-		var h = '<div class="db-stats">';
-		[["total", __("在册"), "#2c3e50"], ["expected", __("应出勤"), "#2c3e50"],
-		 ["present", __("已到岗"), "#27ae60"], ["late", __("迟到"), "#e74c3c"],
-		 ["no_card", __("未打卡/无考勤"), "#e67e22"], ["leave", __("请假"), "#8e44ad"],
-		 ["rest", __("休息"), "#3498db"], ["exempt", __("豁免"), "#7f8c8d"],
-		 ["unknown", __("待确认"), "#95a5a6"]].forEach(function (c) {
-			h += '<div class="db-stat"><div class="num" style="color:' + c[2] + ';">' + (s[c[0]] || 0) +
-				'</div><div class="lbl">' + __(c[1]) + "</div></div>";
-		});
-		if (s.attendance_rate != null) {
-			h += '<div class="db-stat"><div class="num" style="color:#16a085;">' + s.attendance_rate + "%</div><div class=\"lbl\">" + __("出勤率") + "</div></div>";
-		}
-		h += "</div>";
-
-		var byDept = {};
-		rows.forEach(function (r) { (byDept[r.dept || "未分组"] = byDept[r.dept || "未分组"] || []).push(r); });
-		Object.keys(byDept).sort().forEach(function (dept) {
-			h += '<div class="db-dept-card"><h5>' + __(dept) + " <span style=\"font-weight:400;font-size:12px;color:#888;\">" + byDept[dept].length + " 人</span></h5>";
-			h += '<div class="db-table-scroll" style="max-height:420px;overflow-y:auto;"><table class="db-table"><thead><tr>';
-			h += "<th>" + __("工号") + "</th><th>" + __("姓名") + "</th><th>" + __("期望班次") + "</th><th>" + __("状态") + "</th><th>" + __("首卡") + "</th><th>" + __("卡数") + "</th><th>" + __("说明") + "</th>";
-			h += "</tr></thead><tbody>";
-			byDept[dept].forEach(function (r) {
-				var tags = (r.tags || []).map(function (t) {
-					return '<span class="badge b-red">' + __(t) + "</span>";
-				}).join("");
-				h += "<tr><td>" + (r.num || "-") + "</td><td>" + (r.name || "-") + "</td><td>" + __(r.expected_label || "-") + "</td>";
-				h += "<td><span class=\"badge " + colorFor(r.state) + "\">" + __(r.label || r.state) + "</span>" + tags + "</td>";
-				h += "<td>" + (r.first_hm || "-") + "</td><td>" + (r.card_count || 0) + "</td><td style=\"font-size:12px;color:#888;\">" + __(r.note || "") + "</td>";
-				h += "</tr>";
-			});
-			h += "</tbody></table></div></div>";
-		});
-		if (!rows.length) h = '<div class="p-5 text-center text-muted">' + __("当前范围无在册员工") + "</div>";
-		container.html(h);
-	}
-
-	function isLive() {
-		return state.date === fmt(new Date());
-	}
-
-	function load() {
-		if (state.loading) return;
-		state.loading = true;
+	function load(opts) {
+		opts = opts || {};
+		if (state.inFlight) return;
+		state.inFlight = true;
 		$("#db-sync").toggle(isLive());
-		$("#db-content").html('<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">' + __("加载考勤数据...") + "</p></div>");
+		var silent = !!opts.silent;            // 轮询静默刷新：不闪屏、不打断阅读
+		if (silent) $("#db-updating").addClass("on");
+		else $("#db-content").html('<div class="db-empty">' + __("加载考勤数据…") + "</div>");
 		frappe.call({
 			method: "hb_attendance_app.hbos_attendance.page.hbos_department_board.department_board_data.get_data",
 			args: { department: state.dept, date_str: state.date },
 			callback: function (r) {
-				state.loading = false;
+				state.inFlight = false;
+				$("#db-updating").removeClass("on");
 				if (r.message && r.message.meta) render(r.message);
-				else $("#db-content").html('<div class="p-5 text-center text-danger">' + __("无法加载数据") + "</div>");
+				else $("#db-content").html('<div class="db-empty" style="color:#b3261e;">' + __("无法加载数据") + "</div>");
 			},
 			error: function (r) {
-				state.loading = false;
+				state.inFlight = false;
+				$("#db-updating").removeClass("on");
 				var msg = (r && r.message) ? __(r.message) : __("加载失败，请重试");
-				$("#db-content").html('<div class="p-5 text-center text-danger">' + msg + "</div>");
+				if (!silent) $("#db-content").html('<div class="db-empty" style="color:#b3261e;">' + msg + "</div>");
 			}
 		});
 	}
@@ -141,10 +342,16 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	function go() {
 		state.dept = $("#db-dept").val() || "全部部门";
 		state.date = $("#db-date").val() || fmt(new Date());
+		state.openDepts = {};
 		stopPoll(); load(); startPoll();
 	}
 
 	$("#db-go").on("click", go);
+	$("#db-dept").on("change", go);
+	$("#db-only-attention").on("change", function () {
+		state.onlyAttention = $(this).is(":checked");
+		load();
+	});
 	$("#db-autorefresh").on("change", function () { if ($(this).is(":checked")) startPoll(); else stopPoll(); });
 
 	$("#db-sync").on("click", function () {
@@ -156,7 +363,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			callback: function (r) {
 				var m = r.message || {};
 				$("#db-sync-msg").text(m.throttled ? __("请稍后再试(" + m.seconds_left + "s)") : (m.error ? __(m.error) : __("同步完成")));
-				setTimeout(function () { $("#db-sync").prop("disabled", false); load(); }, 1500);
+				setTimeout(function () { $("#db-sync").prop("disabled", false); load({ silent: true }); }, 1500);
 			},
 			error: function () {
 				$("#db-sync-msg").text(__("同步失败"));
@@ -169,12 +376,12 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 		stopPoll();
 		if (!$("#db-autorefresh").is(":checked") || !isLive()) return;
 		state.timer = setInterval(function () {
-			if (document.visibilityState === "visible") load();
+			if (document.visibilityState === "visible") load({ silent: true });
 		}, 60000);
 	}
 	function stopPoll() { if (state.timer) { clearInterval(state.timer); state.timer = null; } }
 	$(document).on("visibilitychange", function () {
-		if (document.visibilityState === "visible") { load(); startPoll(); }
+		if (document.visibilityState === "visible") { load({ silent: true }); startPoll(); }
 		else stopPoll();
 	});
 
