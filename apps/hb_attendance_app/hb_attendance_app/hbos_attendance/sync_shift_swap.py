@@ -3,43 +3,16 @@
 注意：换班表链接是 /wiki/ 形式，其节点 ID 不是 bitable app_token，
 必须先用 wiki API 解析真实 obj_token，否则读取会失败（且不能静默跳过）。
 """
+import frappe
 import requests
-
-try:
-    import frappe
-except ImportError:
-    # 离线单测环境未安装 frappe（本机无 bench）：注册最小桩，使本模块及其
-    # api 依赖可被导入，纯函数 resolve_wiki_obj_token 得以离线测试。
-    # 桩仅覆盖导入期用到的 whitelist；真实 frappe 调用仍由 bench 运行时提供。
-    import sys
-    import types
-
-    frappe = types.SimpleNamespace(whitelist=lambda *a, **k: (lambda fn: fn))
-    sys.modules.setdefault("frappe", frappe)
 
 from hb_attendance_app.hbos_attendance.api import _get_token, _fetch_all_records_custom
 from hb_attendance_app.hbos_attendance.swap_mapping import (
-    swap_fields, SWAP_WIKI_NODE, SWAP_TABLE_ID,
+    swap_fields, resolve_wiki_obj_token, SWAP_WIKI_NODE, SWAP_TABLE_ID,
 )
 
 DOCTYPE = "HBOS Shift Swap Record"
 ID_PREFIX = "feishu-bitable-swap-"
-WIKI_NODE_API = "https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node"
-
-
-def resolve_wiki_obj_token(token, node_token, get=requests.get):
-    """wiki 节点 → 真实 bitable app_token；任何异常都抛出（不静默）。"""
-    resp = get(WIKI_NODE_API, params={"token": node_token},
-               headers={"Authorization": "Bearer " + token}, timeout=15)
-    data = resp.json()
-    if data.get("code") != 0:
-        raise Exception("解析 wiki 节点失败: code=%s msg=%s"
-                        % (data.get("code"), data.get("msg")))
-    node = (data.get("data") or {}).get("node") or {}
-    obj_token = node.get("obj_token")
-    if not obj_token:
-        raise Exception("wiki 节点未返回 obj_token: %s" % node_token)
-    return obj_token
 
 
 def _match_employee(num, name):
@@ -56,7 +29,7 @@ def _match_employee(num, name):
 def sync_shift_swap_from_bitable():
     try:
         token = _get_token()
-        app_token = resolve_wiki_obj_token(token, SWAP_WIKI_NODE)
+        app_token = resolve_wiki_obj_token(token, SWAP_WIKI_NODE, requests.get)
         records = _fetch_all_records_custom(token, app_token, SWAP_TABLE_ID)
     except Exception as e:
         frappe.log_error(str(e), "飞书换班同步")

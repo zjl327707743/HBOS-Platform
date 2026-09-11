@@ -1,6 +1,8 @@
 import unittest
 
-from hb_attendance_app.hbos_attendance.sync_shift_swap import resolve_wiki_obj_token
+# resolve_wiki_obj_token 是无依赖纯函数，放在 swap_mapping（纯标准库模块）里，
+# 使本测试无需 frappe / requests 即可运行（本机与 CI 都没有 bench）。
+from hb_attendance_app.hbos_attendance.swap_mapping import resolve_wiki_obj_token
 
 
 class _Resp:

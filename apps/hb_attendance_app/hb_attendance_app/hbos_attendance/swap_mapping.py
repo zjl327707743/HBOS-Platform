@@ -18,6 +18,30 @@ SWAP_TABLE_ID = "tbltVlpHx6NzG6WG"
 REST_LEAVE_APP_TOKEN = "XLD0bPiGXaP0JTsicHCcSLA4nlQ"
 REST_LEAVE_TABLE_ID = "tblYHBgNJdvVCiFM"
 
+WIKI_NODE_API = "https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node"
+
+
+def resolve_wiki_obj_token(token, node_token, get):
+    """wiki 节点 → 真实 bitable app_token；任何失败都抛异常（不静默）。
+
+    换班表链接是 /wiki/ 形式，其节点 ID 不是 bitable app_token，直接拿去读表必然失败。
+    若这里静默返回空，同步会「成功但一条没进来」，属最难排查的故障，故一律抛出。
+
+    get 由调用方注入（同步脚本传 requests.get）：本模块保持纯标准库，
+    离线测试可传假函数，CI 无需安装第三方包。
+    """
+    resp = get(WIKI_NODE_API, params={"token": node_token},
+               headers={"Authorization": "Bearer " + token}, timeout=15)
+    data = resp.json()
+    if data.get("code") != 0:
+        raise Exception("解析 wiki 节点失败: code=%s msg=%s"
+                        % (data.get("code"), data.get("msg")))
+    node = (data.get("data") or {}).get("node") or {}
+    obj_token = node.get("obj_token")
+    if not obj_token:
+        raise Exception("wiki 节点未返回 obj_token: %s" % node_token)
+    return obj_token
+
 
 def ts_to_date(ms):
     """飞书毫秒时间戳 → "YYYY-MM-DD"；空/0/异常返回 None。"""
