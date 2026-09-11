@@ -16,6 +16,8 @@ PRIMARY_SIDEBAR_ITEMS = [
 	{"label": "考勤导入日志", "link_type": "DocType", "link_to": "HBOS Attendance Import Log", "type": "Link", "icon": "list"},
 	{"label": "飞书请假记录", "link_type": "DocType", "link_to": "HBOS Leave Record", "type": "Link", "icon": "leave"},
 	{"label": "飞书加班记录", "link_type": "DocType", "link_to": "HBOS Overtime Record", "type": "Link", "icon": "clock"},
+	{"label": "飞书调休记录", "link_type": "DocType", "link_to": "HBOS Rest Leave Record", "type": "Link", "icon": "leave"},
+	{"label": "飞书换班记录", "link_type": "DocType", "link_to": "HBOS Shift Swap Record", "type": "Link", "icon": "refresh-cw"},
 	{"label": "HBOS 打卡流水", "link_type": "Report", "link_to": "打卡流水", "type": "Link", "icon": "clock"},
 	{"label": "HBOS 考勤结果", "link_type": "Report", "link_to": "考勤结果", "type": "Link", "icon": "calendar-check"},
 	{"label": "月度汇总 / 对账暂存", "link_type": "Report", "link_to": "HBOS 月度汇总暂存（对账）", "type": "Link", "icon": "clipboard-list"},

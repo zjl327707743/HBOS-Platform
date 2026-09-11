@@ -49,7 +49,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "导入与数据",
-   "link_count": 3,
+   "link_count": 5,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -71,6 +71,26 @@
    "link_to": "HBOS Attendance Import Log",
    "link_type": "DocType",
    "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "飞书调休记录",
+   "link_count": 0,
+   "link_to": "HBOS Rest Leave Record",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "飞书换班记录",
+   "link_count": 0,
+   "link_to": "HBOS Shift Swap Record",
+   "link_type": "DocType",
+   "onboard": 0,
    "type": "Link"
   },
   {
