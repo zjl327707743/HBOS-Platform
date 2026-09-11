@@ -10,7 +10,7 @@ from datetime import timedelta as _timedelta
 # (2026-08-20 事故: queue worker 容器为 UTC, fromtimestamp 导致打卡时间错位 8 小时)
 DELICLOUD_TZ = _tz(_timedelta(hours=8))
 
-from hb_attendance_app.hbos_attendance.pairing import pair_employee_checkins, FOUR_SHIFT_NUMS
+from hb_attendance_app.hbos_attendance.pairing import pair_employee_checkins, FOUR_SHIFT_NUMS, safety_shift_from_gap
 from hb_attendance_app.hbos_attendance.rule_lists import (
     ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS, LATE_EXEMPT_NUMS,
 )
@@ -55,12 +55,10 @@ def _get_shift_and_late_builtin(ck_dt, emp_num="", cross_day=False):
     # 食堂不判迟到早退
     if emp_num in FOOD_NUMS:
         return ("行政班早班", False)
-    # 安全人员倒班: 早班(8:30标准), 晚班(20:30标准) —— 与无菌倒班一致
+    # 安全人员倒班: 早班(8:30标准), 晚班(21:00标准) —— Owner 2026-09-11 对齐规则表
+    # （安全部-倒班晚班 21:00-8:30, late 21:01）；原 20:31 会把 20:5x 提前到岗误判迟到
     if emp_num in SAFETY_NUMS:
-        ts = ck_dt.strftime("%H:%M:%S")
-        if ck_dt.hour >= 20 or ck_dt.hour < 4:
-            return ("晚班", ts >= "20:31:00")
-        return ("早班", ts >= "08:31:00")
+        return safety_shift_from_gap(ck_dt)
     # 行政班名单→行政班早班(8:31起算迟到; 夜间/凌晨卡不判迟到, Owner 2026-08-21)
     if emp_num in ADMIN_NUMS:
         from hb_attendance_app.hbos_attendance.pairing import admin_shift_from_gap

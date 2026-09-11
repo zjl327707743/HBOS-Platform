@@ -149,6 +149,19 @@ def four_shift_from_gap(ck_dt, gap_h):
     return ("中班", False)
 
 
+def safety_shift_from_gap(ck_dt):
+    """安全部倒班判定（Owner 2026-09-11 对齐班次规则表「安全部-倒班晚班 21:00-8:30」）。
+
+    晚班 21:00 上班、21:01 起算迟到（原 20:31 会把 20:5x 提前到岗误判迟到，
+    樊祥岩/王翔宇/谷亚超 9/10 案例）；早班 8:30 / 8:31 与规则表一致。
+    """
+    h = ck_dt.hour
+    ts = ck_dt.strftime("%H:%M:%S")
+    if h >= 20 or h < 4:
+        return ("晚班", ts >= "21:01:00")
+    return ("早班", ts >= "08:31:00")
+
+
 def special_shift_from_gap(ck_dt, gap_h=None, emp_num=None):
     """独立班次体系判定（SPECIAL_SHIFT_NUMS 人员专用）。
 

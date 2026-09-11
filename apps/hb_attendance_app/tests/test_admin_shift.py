@@ -148,3 +148,42 @@ class AdminListDoesNotOverrideConfigTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SafetyNightShiftTest(unittest.TestCase):
+    """安全部晚班 21:00 上班、21:01 起算迟到（Owner 2026-09-11 对齐规则表）。
+
+    事故：原硬编码 20:31 起算迟到，樊祥岩/王翔宇/谷亚超 9/10 的 20:5x 上班卡
+    （提前到岗）被误判迟到。
+    """
+
+    def _get_shift_and_late(self, h, m):
+        # SAFETY_NUMS 分支已抽为 pairing 纯函数（离线可测，api 层直接调用它）
+        from hb_attendance_app.hbos_attendance.pairing import safety_shift_from_gap
+        return safety_shift_from_gap(datetime(2026, 9, 10, h, m))
+
+    def test_2057_not_late(self):
+        shift, late = self._get_shift_and_late(20, 57)
+        self.assertEqual(shift, "晚班")
+        self.assertFalse(late)
+
+    def test_2101_late(self):
+        shift, late = self._get_shift_and_late(21, 1)
+        self.assertEqual(shift, "晚班")
+        self.assertTrue(late)
+
+    def test_2105_late(self):
+        shift, late = self._get_shift_and_late(21, 5)
+        self.assertEqual(shift, "晚班")
+        self.assertTrue(late)
+
+    def test_morning_0831_still_late(self):
+        # 早班 8:31 起算迟到，不变
+        shift, late = self._get_shift_and_late(8, 31)
+        self.assertEqual(shift, "早班")
+        self.assertTrue(late)
+
+    def test_morning_0830_not_late(self):
+        shift, late = self._get_shift_and_late(8, 30)
+        self.assertEqual(shift, "早班")
+        self.assertFalse(late)
