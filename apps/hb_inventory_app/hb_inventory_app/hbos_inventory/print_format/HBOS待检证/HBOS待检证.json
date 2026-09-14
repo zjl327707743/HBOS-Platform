@@ -1,0 +1,22 @@
+{
+ "align_labels_right": 0,
+ "creation": "2026-09-14 00:00:00.000000",
+ "custom_format": 1,
+ "disabled": 0,
+ "doc_type": "Batch",
+ "docstatus": 0,
+ "doctype": "Print Format",
+ "font_size": 10,
+ "html": "<style>\n@page { size: 75mm 110mm; margin: 4mm 5mm; }\n.hbos-qc { font-family: SimSun, \"宋体\", serif; font-size: 9pt; color: #000; }\n.hbos-qc table { width: 100%; border-collapse: collapse; table-layout: fixed; }\n.hbos-qc td { border: 1px solid #000; padding: 2px 3px; vertical-align: middle; word-break: break-all; }\n.hbos-qc .title { font-weight: bold; font-size: 9.5pt; text-align: center; }\n.hbos-qc .lbl { width: 27%; white-space: nowrap; }\n.hbos-qc .spacer { height: 7mm; }\n.hbos-qc .foot { white-space: nowrap; }\n</style>\n<div class=\"hbos-qc\">\n  <table>\n    <tr><td colspan=\"2\" class=\"title\">待检证（Quarantine）&nbsp;编码：APP-SOP-QA -1-A-003-13/4.0</td></tr>\n    <tr><td class=\"lbl\">品名：</td><td>{{ doc.item_name or doc.item or \"\" }}</td></tr>\n    <tr><td class=\"lbl\">物料代码：</td><td>{{ doc.item or \"\" }}</td></tr>\n    <tr><td class=\"lbl\">供货单位：</td><td>{{ hbos_supplier_name(doc.name) }}</td></tr>\n    <tr><td class=\"lbl\">生产单位：</td><td>{{ hbos_production_unit(doc.name) }}</td></tr>\n    <tr><td class=\"lbl\">批号：</td><td>{{ doc.batch_id or \"\" }}</td></tr>\n    <tr><td class=\"lbl\">数量：</td><td>{{ hbos_qty_with_count(doc.name) }}</td></tr>\n    <tr><td class=\"lbl\">储存条件：</td><td>{{ hbos_storage_condition(doc.item) }}</td></tr>\n    <tr><td colspan=\"2\" class=\"spacer\"></td></tr>\n    <tr><td colspan=\"2\" class=\"foot\">操作人/日期：{{ hbos_operator(doc.name) }}{{ hbos_datetime_cn(hbos_batch_in_date(doc.name)) }}</td></tr>\n  </table>\n</div>",
+ "idx": 0,
+ "line_breaks": 0,
+ "modified": "2026-09-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Inventory",
+ "name": "HBOS 待检证",
+ "owner": "Administrator",
+ "print_format_builder": 0,
+ "print_format_type": "Jinja",
+ "show_section_headings": 0,
+ "standard": "Yes"
+}

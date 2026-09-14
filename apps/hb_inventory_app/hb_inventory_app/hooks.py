@@ -18,3 +18,8 @@ doc_events = {
         "before_submit": "hb_inventory_app.hbos_inventory.release_gate.validate_release",
     },
 }
+
+# 打印辅助方法：整个模块的函数注册为 Jinja 全局方法，供 Print Format 直接调用。
+jinja = {
+    "methods": ["hb_inventory_app.hbos_inventory.print_utils"],
+}

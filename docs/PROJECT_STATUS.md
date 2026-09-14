@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成。M3 仓储库存数字化管理已由 Owner 授权新开（IN_PROGRESS，与 M1-FIX 并列）
-- 当前轮次：M1-FIX-B5（REVIEWING）；M3-R0 / M3-R1 / M3-R2 / M3-R3（REVIEWING，其中 M3-R2、M3-R3 已执行完毕）
+- 当前轮次：M1-FIX-B5（REVIEWING）；M3-R0 / M3-R1 / M3-R2 / M3-R3 / M3-R4（REVIEWING，其中 M3-R2、M3-R3、M3-R4 已执行完毕）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 已执行完毕：已新建并安装 `hb_inventory_app`、落地主数据与 2 个报表、货位树改挂到 `3904`。M3-R3 已执行完毕：新增出库放行门禁、货位变更复验、`效期预警` 与 `库级盘点三对账` 报表、补建 `仓储库存工作台` 入口。两者均 REVIEWING。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 已执行完毕：已新建并安装 `hb_inventory_app`、落地主数据与 2 个报表、货位树改挂到 `3904`。M3-R3 已执行完毕：新增出库放行门禁、货位变更复验、`效期预警` 与 `库级盘点三对账` 报表、补建 `仓储库存工作台` 入口。M3-R4 已执行完毕：三个 Print Format（待检证 + 自产/外购货位卡）按批次自动生成，渲染与 PDF 均通过。均 REVIEWING。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS-Platform.git`，GitHub visibility = `PUBLIC`（公开协作仓库，范围见 `PUBLIC_REPOSITORY_SCOPE.md`）。另有内部私有归档库 `https://github.com/zjl327707743/HBOS.git`（`PRIVATE`，不接受普通成员开发），当前工作副本**未绑定**该私有库。历史记录中的 `HBOS.git` 为 M0-REMOTE 时期的绑定，已被当前的 `HBOS-Platform.git` 取代。
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R4（待检证与货位卡）为 PLANNED / 待 Owner 授权。M2 未启动。
+- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R5（货位二维码与手机扫码页）为 PLANNED / 待 Owner 授权。M2 未启动。
 - 飞书登录（M2-R0）：由 Owner 授权提前实现 M2 飞书集成首项，代码实现与本地真实验证已完成（REVIEWING）；同步完成 HRMS 界面汉化与「Frappe HR」→「海滨HR」改名（REVIEWING）。详见 `docs/milestones/M2_R0_飞书登录实现记录.md`；M2 整体仍 NOT STARTED。
 
 ## 状态更新制度
@@ -721,7 +721,7 @@ M3 后续轮次（仅规划，不自动启动）：
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | REVIEWING |
 | M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
-| M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
+| M3-R4 | 待检证与货位卡自动生成 | P1 | REVIEWING |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
 | M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |
@@ -754,6 +754,40 @@ M3 全程禁止：不修改 Frappe/ERPNext/HRMS 核心源码；未经 Owner 逐�
 实现过程中修复两个自身缺陷（已记录）：`Desktop Icon.link_to / sidebar` 必须指向已存在的 `Workspace Sidebar`；`Desktop Icon.bg_color` 与 `Workspace Shortcut.color` 取值受枚举限制。
 
 M3-R3 未做：待检证与货位卡 `Print Format`（M3-R4）、货位二维码与扫码页（M3-R5）、入库拍照识别（M3-R6）、定制化录入页（当前走原生表单）、效期预警主动推送（当前仅查询报表）、盘点差异系统回写、未创建真实产品主数据、未修改核心源码、未接飞书写入、未执行 `docker compose down -v`、未删除 volume、未重建 site。
+
+## M3-R4 状态
+
+状态：REVIEWING（已执行，等待 Owner 和 Claude 审查）。
+
+主文档：`docs/milestones/M3_R4_待检证与货位卡自动生成.md`。
+
+本轮交付**按批次数据自动生成待检证与两种货位卡**：
+
+- 新增三个 `Print Format`（`doc_type = Batch`、`standard = Yes`、`print_format_type = Jinja`、HTML 内嵌）：
+  - `HBOS 待检证`：75mm × 110mm 小标签，10 行表格（标题+固定编码 / 品名 / 物料代码 / 供货单位 / 生产单位 / 批号 / 数量 / 储存条件 / 空行 / 操作人日期）。
+  - `HBOS 自产货位卡`：A4，表头 4 行 + 入库/待检/放行 3 行（货位号垂直合并）+ 12 行流水表 + 备注。
+  - `HBOS 外购货位卡`：A4，表头 6 行（含供货单位 / 生产单位 / 原厂批号 / 进厂批号）+ 状态 3 行 + 12 行流水表（含领料单位 / 用途）+ 备注。
+  - 版式取自 Owner 提供的实物模板结构（`待检证/`、`自产/`、`新版货位卡外购/`），但 HTML/CSS 为**重新实现**，未复制真实文件内容。
+- 新增 `hbos_inventory/print_utils.py`（打印辅助方法，全部只读），经 `hooks.py` 的 `jinja.methods` 注册为 Jinja 全局方法。
+- 新增 `Batch` 自定义字段 `hbos_source_type`（自产 / 外购，默认自产），用于判别打印哪种货位卡；函数仍带推断兜底。
+- **本轮定案**：一批散放多货位时，在「货位号」单元格内**逐行列出**全部货位，不改变原表结构（纸质卡该格本为单个合并单元格）。
+- 其他口径：**件数按容器类型汇总**（依据实物卡写法 `42件5听10瓶` 反推：41+1=42、4+1=5、9+1=10）；流水表**按单据净减少**判断——库内移库一出一进净影响为 0，不计入「发出」；「Kg」统一显示为「kg」。
+- 留空字段（系统无数据，供手写）：入库经手人 / 复核人、经手人 / 复核人、待检日期、去向、领料单位、用途、流水的件数列。已预填：入库日期、放行日期、放行勾选、复检期 / 有效期勾选。
+
+验证结果（`TEST-M3R1-` 虚构数据）：
+
+| 模板 | 渲染 | PDF |
+| --- | --- | --- |
+| `HBOS 待检证`（自产 B001） | 通过 | 通过（17.5 KB） |
+| `HBOS 待检证`（外购 B002） | 通过 | — |
+| `HBOS 自产货位卡`（B001） | 通过 | 通过（18.1 KB） |
+| `HBOS 外购货位卡`（B002） | 通过 | 通过（18.2 KB） |
+
+关键抽查：自产卡 B001 的件数 `13件3听1瓶`、货位号显示两行（`16-03-221` / `16-03-223`）、放行 ☑、流水表仅一条真实领用（发出 5.00 / 结存 95.00，移库未污染）。
+
+实现中发现并修复 5 处问题：① `hbos_production_unit` 误从 `Batch` 读 `hbos_workshop`（该字段在 `Item` 上）；② 件数未按容器类型汇总；③ 单位显示 `Kg` 与纸质表 `kg` 不一致；④ 流水表把库内移库误记为「发出」；⑤ **Jinja 方法注册机制会连带注册 `import` 进来的函数**，可能覆盖 Frappe 同名全局（如 `flt` / `getdate`），故 `print_utils.py` 只 `import frappe`、改用全限定调用。
+
+M3-R4 未做：批量打印（一次打印多个批次）、打印后流程联动、二维码字段（留 M3-R5）、货位扫码页（M3-R5）、入库拍照识别（M3-R6）、未创建真实产品主数据、未修改核心源码、未接飞书写入、未执行 `docker compose down -v`、未删除 volume、未重建 site、未提交真实模板文件。
 
 ## M0-REMOTE 状态
 

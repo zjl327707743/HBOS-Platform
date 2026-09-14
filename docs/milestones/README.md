@@ -43,6 +43,7 @@
 - `docs/milestones/M3_R1_货位主数据建模与粒度验证.md`：M3-R1 货位主数据建模与粒度验证。
 - `docs/milestones/M3_R2_入库登记与批次货位台账方案与执行记录.md`：M3-R2 入库登记与批次货位台账方案与执行记录。
 - `docs/milestones/M3_R3_出库核销效期预警与盘点导出.md`：M3-R3 出库核销、效期预警与盘点导出。
+- `docs/milestones/M3_R4_待检证与货位卡自动生成.md`：M3-R4 待检证与货位卡自动生成。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -104,7 +105,7 @@
 | M3-R1 | 货位与批次主数据建模 | REVIEWING |
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | REVIEWING |
 | M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | PLANNED |
-| M3-R4 | 待检证与货位卡自动生成 | PLANNED |
+| M3-R4 | 待检证与货位卡自动生成 | REVIEWING |
 | M3-R5 | 货位二维码与手机扫码页 | PLANNED |
 | M3-R6 | 入库拍照识别服务 | PLANNED |
 | M3-R7 | 总审查与收口 | PLANNED |
@@ -117,7 +118,7 @@
 4. M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。
 5. M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。
 6. M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，不能 closeout；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，不能 closeout；当前 M1-FIX-B5 为 REVIEWING。M1 产品交付未完成；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权。
-7. M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列；M3-R0 只读盘点与需求确认、M3-R1 货位主数据建模与粒度验证均已交付并进入 REVIEWING。M3-R1 已建立 203 个货位的 `Warehouse` 树，并通过"按批号查货位"双向验证；同时更正了 M3-R0 关于批次存储位置的结论（v16 中批次在 `Serial and Batch Entry`，不在 `SLE.batch_no`）。M3-R2 已执行完毕（新建并安装 `hb_inventory_app`、落地主数据与报表、货位树改挂到 `3904`）；M3-R3 已执行完毕（出库放行门禁、货位变更、效期预警与库级盘点三对账报表、补建操作入口）。两者均为 REVIEWING。
+7. M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列；M3-R0 只读盘点与需求确认、M3-R1 货位主数据建模与粒度验证均已交付并进入 REVIEWING。M3-R1 已建立 203 个货位的 `Warehouse` 树，并通过"按批号查货位"双向验证；同时更正了 M3-R0 关于批次存储位置的结论（v16 中批次在 `Serial and Batch Entry`，不在 `SLE.batch_no`）。M3-R2 已执行完毕（新建并安装 `hb_inventory_app`、落地主数据与报表、货位树改挂到 `3904`）；M3-R3 已执行完毕（出库放行门禁、货位变更、效期预警与库级盘点三对账报表、补建操作入口）；M3-R4 已执行完毕（待检证与两种货位卡 Print Format，渲染与 PDF 均验证通过）。均为 REVIEWING。
 
 M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1 历史 closeout 已完成，但 Owner UI 验收发现功能缺口，当前产品交付仍在 M1-FIX 中。M1-R6C = COMPLETED。M1-R7 = COMPLETED。M1-FIX-A = REVIEWING。M1-FIX-B = REVIEWING。M1-FIX-B-FIX = REVIEWING。M1-FIX-B2 = COMPLETED。M1-FIX-B3 = REVIEWING / Owner UI 验收未通过。M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。M1-FIX-B5 = REVIEWING。M2 为 NOT STARTED / 未启动 / 待 Owner 授权。
 

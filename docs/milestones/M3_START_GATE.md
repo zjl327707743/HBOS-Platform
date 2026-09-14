@@ -8,7 +8,7 @@
 
 M3 由 Owner 明确授权新开，与 M1-FIX（考勤功能补漏）并列，不替代、不阻塞 M1-FIX。
 
-当前状态：M3-R0 至 M3-R3 均为 REVIEWING，等待 Owner 和 Claude 审查（M3-R2、M3-R3 已执行完毕）；M3-R4 及之后为 PLANNED，待 Owner 逐轮授权。
+当前状态：M3-R0 至 M3-R4 均为 REVIEWING，等待 Owner 和 Claude 审查（M3-R2、M3-R3、M3-R4 已执行完毕）；M3-R5 及之后为 PLANNED，待 Owner 逐轮授权。
 
 ## 必须满足的前置条件
 
@@ -161,7 +161,9 @@ Owner 已在 M3-R2 方案阶段**明确授权创建 `hb_inventory_app`**（模�
 
 - 待检证字段已明确（已满足）。
 - 货位卡字段与版式已确认、一批一卡规则已确认（已满足）。
-- 一批多货位时卡上货位号的呈现方式已设计。
+- 一批多货位时卡上货位号的呈现方式已设计（**M3-R4 定案：单元格内逐行列出**）。
+
+M3-R4 已交付：`docs/milestones/M3_R4_待检证与货位卡自动生成.md`。三个 Print Format 已落地并验证渲染与 PDF 生成。
 
 进入 M3-R6（拍照识别）前必须满足：
 
@@ -175,7 +177,7 @@ Owner 已在 M3-R2 方案阶段**明确授权创建 `hb_inventory_app`**（模�
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | REVIEWING |
 | M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
-| M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
+| M3-R4 | 待检证与货位卡自动生成 | P1 | REVIEWING |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
 | M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |

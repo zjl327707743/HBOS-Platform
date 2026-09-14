@@ -134,12 +134,21 @@ def sync_custom_fields():
             ],
             "Batch": [
                 {
+                    "fieldname": "hbos_source_type",
+                    "label": "HBOS 来源类型",
+                    "fieldtype": "Select",
+                    "options": "自产\n外购",
+                    "default": "自产",
+                    "insert_after": "batch_id",
+                    "description": "决定打印时使用自产货位卡还是外购货位卡",
+                },
+                {
                     "fieldname": "hbos_release_status",
                     "label": "HBOS 放行状态",
                     "fieldtype": "Select",
                     "options": "待检\n已放行\n不放行",
                     "default": "待检",
-                    "insert_after": "batch_id",
+                    "insert_after": "hbos_source_type",
                     "description": "出库门禁依据：须为「已放行」且有合格证",
                 },
                 {
