@@ -8,7 +8,7 @@
 
 当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 M1-FIX-B5（REVIEWING）：正在核查导入数据链路并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-C/D/E 和 M2 未启动。
 
-M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。当前轮次为 M3-R1（REVIEWING）：已建立 203 个货位的 `Warehouse` 树并通过"按批号查货位"粒度验证；M3-R0（REVIEWING）已完成只读盘点与需求确认；M3-R2 方案已就绪（PLANNED / 待授权），其中 Owner 已授权创建 `hb_inventory_app`。
+M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。当前轮次为 M3-R1（REVIEWING）：已建立 203 个货位的 `Warehouse` 树并通过"按批号查货位"粒度验证；M3-R0（REVIEWING）已完成只读盘点与需求确认；M3-R2 方案已就绪（PLANNED / 待授权），其中 Owner 已授权创建 `hb_inventory_app`，并已提供产品主数据口径（物料代码 8 位、SAP 按前四位分大类；六车间 8 个库位；计量单位 11 种；盘点按库级三对账）。
 
 当前真实进度以以下文件为准：
 

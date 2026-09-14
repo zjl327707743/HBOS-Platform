@@ -27,3 +27,12 @@ apps/hb_attendance_app/hb_attendance_app/hbos_attendance/批量改部门_执行�
 anomaly_list.json
 feishu_records.json
 .claude/launch.json
+
+# M3 仓储：待检证 / 货位卡模板含真实物料名称、物料代码、批号、供货单位，禁止提交
+待检证/
+新版货位卡外购/
+自产/
+docs/**/*待检证*.docx
+docs/**/*货位卡*.docx
+*.doc
+~$*

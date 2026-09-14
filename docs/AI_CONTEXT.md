@@ -85,7 +85,7 @@ Skill 路由规范文件为：
 
 1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
 2. M1 历史 closeout 已完成，但产品交付仍在 M1-FIX 中，尚未完成。M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING。M2 未启动 / 待 Owner 授权。
-3. M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。M3-R0、M3-R1 均为 REVIEWING；M3-R2 方案已就绪（PLANNED / 待授权）；M3-R3 至 M3-R7 为 PLANNED / 待 Owner 逐轮授权。M3 优先复用 ERPNext 原生 `Stock` 模块，不重写已有功能。Owner 已授权创建 `hb_inventory_app`。
+3. M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。M3-R0、M3-R1 均为 REVIEWING；M3-R2 方案已就绪（PLANNED / 待授权）；M3-R3 至 M3-R7 为 PLANNED / 待 Owner 逐轮授权。M3 优先复用 ERPNext 原生 `Stock` 模块，不重写已有功能。Owner 已授权创建 `hb_inventory_app`，并已提供产品主数据口径：物料代码 8 位、SAP 按前四位分大类（1000 原料药 / 1100 包材 / 120x 辅助用品 / 1300 中间体 / 1400 成品）；六车间 8 个库位需一并建入 `Warehouse`；计量单位按实际建 11 种；盘点按库级三对账（ERP数量 / 货位卡数量 / 实物数量）。
 
 ## 前端实施流程规范
 
