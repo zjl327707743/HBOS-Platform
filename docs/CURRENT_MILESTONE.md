@@ -41,14 +41,14 @@ M3 由 Owner 明确授权新开，与 M1（考勤）为并列里程碑，不替�
 | --- | --- | --- | --- |
 | M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
-| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED（方案已就绪） |
+| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | REVIEWING |
 | M3-R3 | 出库核销、效期预警、盘点导出 | P0 | PLANNED |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
 | M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |
 
-当前轮次：M3-R1（REVIEWING，等待 Owner 和 Claude 审查）——货位主数据建模与粒度验证。
+当前轮次：M3-R2（REVIEWING，已执行，等待 Owner 和 Claude 审查）——入库登记与批次货位台账。
 
 M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 → 五个层 → 203 个货位` + 2 个非货位区域，共 212 节点），层分布 39 / 39 / 39 / 43 / 43 校验通过，NestedSet 结构完整，脚本幂等；用 `TEST-M3R1-` 虚构数据完成粒度验证，"按批号查货位"与"货位→全部批号"双向通过。**并更正了 M3-R0 的一处关键结论**：批次不在 `Stock Ledger Entry.batch_no`（v16 中该列为空），实际在 `Serial and Batch Bundle` / `Serial and Batch Entry`。详见 `docs/milestones/M3_R1_货位主数据建模与粒度验证.md`。
 
@@ -58,7 +58,7 @@ M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 �
 - `docs/milestones/M3_START_GATE.md`
 - `docs/milestones/M3_R0_仓储库存只读盘点与需求确认.md`
 - `docs/milestones/M3_R1_货位主数据建模与粒度验证.md`
-- `docs/milestones/M3_R2_入库登记与批次货位台账方案.md`
+- `docs/milestones/M3_R2_入库登记与批次货位台账方案与执行记录.md`
 
 ## M1 历史轮次（已完成）
 
@@ -137,7 +137,7 @@ M1-FIX-B5 = REVIEWING
 M3     = IN_PROGRESS
 M3-R0  = REVIEWING
 M3-R1  = REVIEWING
-M3-R2  = PLANNED（方案已就绪，待授权执行）
+M3-R2  = REVIEWING（已执行）
 M3-R3+ = PLANNED
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
@@ -148,9 +148,11 @@ M1-FIX-B5 已进入 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 
 
 M3-R0 与 M3-R1 均已进入 REVIEWING，等待 Owner 和 Claude 审查。M3-R1 已交付货位主数据树（212 节点）与粒度验证。
 
-M3-R2 方案已就绪，设计决策已由 Owner 确认（包装构成走自定义子表 + 「件」仅作计数；待检/放行走 `Batch` 自定义字段；**授权新建 `hb_inventory_app`**；新建海滨产品分类树；**计量单位按实际建全部 11 种**；**盘点按库级三对账**）。Owner 已提供产品主数据口径：物料代码 8 位数字、SAP 创建，按前四位分大类（`1000` 原料药 / `1100` 包材 / `120x` 辅助用品 / `1300` 中间体 / `1400` 成品）；六车间 **8 个库位**（3902/3903/3904/3906/3907/3908/3914/3915）已确认一并建入 `Warehouse`；5 个库位盘存表合计 433 行、94 个物料代码。
+M3-R2 已执行完毕（REVIEWING）。Owner 授权后：新建 `hb_inventory_app` 并安装；Owner 授权修改 `docker-compose.yml`（8 个服务）并重建容器（volume 全保留）；落地 10 个 UOM、六车间 7 个新库位、5 个分类树节点、Item 5 + Batch 7 自定义字段、子表 `HBOS Packaging Detail`、2 个报表；货位树改名改挂到 `3904`（203 货位保留、层分布不变）；全链路验证通过。
 
-**仍待确认一处**：`16号楼产品库`（M3-R1 已建 203 货位）与 `3904 六车间中间库` 是同一处还是两处。当前 PLANNED / 待 Owner 授权执行。
+**修复既有缺陷**：`hb_attendance_app` 的 `hbos_monthly_upload.json` 缺 `doctype` 等必需字段，导致 `bench migrate` 全站失败（`KeyError: 'doctype'`）；已按同目录标准结构补齐，migrate 恢复正常。此前任何依赖 migrate 的操作（含 `after_migrate` 钩子）均不生效。
+
+M3-R3（出库核销、效期预警、盘点导出）为 PLANNED / 待 Owner 授权。
 
 ## 飞书登录提前实现记录（M2-R0）
 

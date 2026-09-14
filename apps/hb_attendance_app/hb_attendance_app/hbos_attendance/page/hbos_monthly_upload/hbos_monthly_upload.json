@@ -1,7 +1,26 @@
 {
- "title": "月度考勤表上传",
+ "creation": "2026-07-09 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
  "icon": "upload",
- "route": "hbos-monthly-upload",
- "standard": 1,
- "roles": [{"role": "System Manager"}, {"role": "HR Manager"}, {"role": "HR User"}]
+ "idx": 0,
+ "modified": "2026-09-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Attendance",
+ "name": "hbos-monthly-upload",
+ "owner": "Administrator",
+ "page_name": "hbos-monthly-upload",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "HR Manager"
+  },
+  {
+   "role": "HR User"
+  }
+ ],
+ "standard": "Yes",
+ "title": "月度考勤表上传"
 }
