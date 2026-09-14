@@ -4,12 +4,12 @@
 
 ## 当前状态
 
-- 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）
+- 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成。M3 仓储库存数字化管理已由 Owner 授权新开（IN_PROGRESS，与 M1-FIX 并列）
+- 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）；M3-R0（REVIEWING，等待 Owner 和 Claude 审查）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 及之后为 PLANNED。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M2 未启动。
+- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R1（货位与批次主数据建模）为 PLANNED / 待 Owner 授权。M2 未启动。
 - 飞书登录（M2-R0）：由 Owner 授权提前实现 M2 飞书集成首项，代码实现与本地真实验证已完成（REVIEWING）；同步完成 HRMS 界面汉化与「Frappe HR」→「海滨HR」改名（REVIEWING）。详见 `docs/milestones/M2_R0_飞书登录实现记录.md`；M2 整体仍 NOT STARTED。
 
 ## 状态更新制度
@@ -597,6 +597,70 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M2 = NOT STARTED / WAITING OWNER AUTHORIZATION
 
 M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不启动 M2，不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
+
+## M3 状态
+
+状态：IN_PROGRESS。
+
+M3 仓储库存数字化管理由 Owner 明确授权新开，与 M1（考勤）为并列里程碑，不替代、不阻塞 M1-FIX。
+
+M3-R0：REVIEWING。本轮为仓储库存只读盘点与需求确认，已交付主文档 `docs/milestones/M3_R0_仓储库存只读盘点与需求确认.md`、门禁文档 `docs/milestones/M3_START_GATE.md` 和里程碑台账 `docs/milestones/M3.md`。
+
+本轮已确认 Owner 三项决策：
+
+- 里程碑归属：新开 M3 仓储里程碑。
+- 入库拍照识别：外部 FastAPI + 视觉模型独立服务，返回结构化 JSON，人工校对后入台账。
+- 货位二维码扫码页：Frappe 原生 Web 页，不启动独立 Vue/React 前端。
+
+本轮只读盘点结论：
+
+- ERPNext `Stock` 模块 44 个非子表 DocType 均可用，包括 `Item`、`Batch`、`Warehouse`、`Bin`、`Stock Ledger Entry`、`Stock Entry`、`Purchase Receipt`、`Delivery Note`、`Stock Reconciliation`、`Quality Inspection`、`Inventory Dimension`。
+- 当前 site 无任何库存业务数据：`Item` 0、`Batch` 0、`Bin` 0、`Stock Ledger Entry` 0、`Stock Entry` 0；`Warehouse` 5（ERPNext 默认库位树）、`UOM` 239、`Item Group` 6、`Company` 1。
+- `Batch` 原生具备 `batch_id`、`manufacturing_date`、`expiry_date`、`batch_qty`，可承载批号与效期。
+- 结论：除拍照识别与扫码页外，其余需求应优先复用 ERPNext 原生 `Stock` 模块，不自建 DocType。复核实际表结构后确认："批次 × 货位 → 数量"由 `Stock Ledger Entry` 聚合得出（`tabStock Ledger Entry` 同时含 `warehouse` 与 `batch_no`）；`Bin` 粒度只到"物料 × 货位"（唯一索引 `unique_item_warehouse`，不含 `batch_no`），不可直接当作批次台账。
+- 货位建模候选：`Warehouse` 树 / `Inventory Dimension` / 自定义 DocType 三方案；Owner 已定案走**方案 A（`Warehouse` = 货位）**、**方案 A1（层作为 `Warehouse` 树一级）**，"工作台""退回产品区"建成叶子 `Warehouse`，存放模式为**固定货位 + 随机存放**，试点范围**只做 16 号楼产品库**（203 个货位）。
+- 只读分析确认"层"**不能由货位编码推导**（205–282 奇 = 第一层 / 偶 = 第二层；285 起不单调：316–359 第四层、360–368 又回第三层、369 起第五层），层必须显式录入；层分布 39 / 39 / 39 / 43 / 43。
+- Owner 补充提供两份《自产物料/产品货位卡》实例，已解析字段与版式（含品名、物料代码、生产车间、生产批号、包装规格、件数、复检期/有效期勾选、入库经手人/复核人、入库数量与单位、货位号、待检日期、放行/不放行勾选、出入库流水表），作为 M3-R4 货位卡生成的直接依据。
+- 货位卡暴露三处文档未明确的约束：① 存在"待检 → 放行 / 不放行"**状态门禁**，不只是生成待检证，Owner 明确**出库须有 QA 放行手续与合格证**；② "件数"是**件 / 听 / 瓶 混合构成**（件 = 5kg 一桶、尾桶 = 不足 5kg、听/瓶 = 取样小样），ERPNext 双 `UOM` 单一换算系数装不下；③ 卡片只有一个"货位号"字段，Owner 明确**一个批号只对应一张货位卡**，不论散放多少货位。
+- 业务口径新增明确 5 项：**批号由车间生成、仓库按车间批号登记**（M3 不做批号生成）；双单位为 **KG / 件**；效期按**产品质量标准**逐产品设定（2 年 / 3 年不等，分**复检期**与**有效期**）；出库核销为 **FIFO + 客户指定先出**；货位卡模板已提供。
+- Owner 提供批号编制规则（两张图片）：三类型结构——① 原料药/中间体 `生产线-年-月-流水号(3位，001–999)`，同月同品种递增、不随日期更改、换月重置；② 混粉 `生产线-主要两组份拼音首字母-年-月-流水号`；③ 亚批次 `主批号-1/-2/-3`（按生产时间顺序）。**生产日期 = 投料当天，有效期自投料当天起算**。已用两份货位卡批号验证类型一格式通过（批号原值不写入仓库）。
+- 批号规则建模问题结论（三处均已收口）：① ~~撞号~~ → **Owner 明确不存在撞号，已排除**；`Batch.batch_id` 可直接承载业务批号，无需组合键，**"按批号查货位"以批号为唯一键成立**；② ~~混粉多来源承载~~ → **Owner 明确混粉与成品完全一样、登记流程完全相同，已解除**——仓库对所有产品种类走**同一套登记流程**，混配与来源批次追溯不在仓库范围；③ **亚批次**同样按统一流程登记，如需追溯 `Batch.parent_batch` 原生可选支持。
+- 本轮重要简化：初稿一度为混粉引入"多来源批次追溯"特殊建模，经 Owner 澄清后确认多余；M3-R2 无需按产品种类分支。
+- 有效期口径**按产品种类区分**（原料药/中间体与亚批次从投料当天起算；混粉从混料当天起算；相同原料不同批次混合取最短批次）。初稿曾登记为"口径不一致"，**属表述不当已修正**——规则表按产品种类组织，不同种类口径不同是设计如此。系统含义：产品主数据上维护"效期类型（复检期/有效期）+ 期限"，来源为产品质量标准。
+- Owner 明确两项关键规则：**出库须有 QA 放行手续与合格证，缺任一项不可出库**（硬门禁）；**一个批号只对应一张货位卡**，不论该批散放多少个货位。
+- Owner 提出需要"货位明细表"（一个货位上的全部批号）；该视图由 `Stock Ledger Entry` 按 `warehouse` 聚合即可，是"批号→货位"的反向视图，**无需新建数据表**。
+- 澄清包装构成：货位卡"件数"（如 `34件3听1瓶`）是**同一批次的包装构成**——**件 = 5kg 一桶**（两桶一纸箱）、**尾桶** = 分装剩余不足 5kg 单独装桶、**听 / 瓶** = QC 或客户取样用小样，均同批次同货位存放；既非批次也非货位概念。ERPNext 双 `UOM` 单一换算系数装不下，M3-R2 需定承载方案。
+- 更正：`Batch.manufacturing_date` 原生语义即"投料当天"，无需自定义；需自定义的是生产车间与效期类型（复检期 / 有效期）。
+
+本轮飞书参考文档获取（Owner 授权）：
+
+- 已安装 `lark-cli` 1.0.95（`~/.local/bin/lark-cli`）与 28 个 `lark-*` skill（`~/.claude/skills`）。
+- 已新建专用飞书应用（App ID `cli_aa2debd5d3b85ce8`，与 M2-R0 登录应用相互独立）并完成 OAuth 登录。
+- 已只读拉取 Owner 提供的两篇参考文档与两个附件；**未执行任何飞书写入**。
+- 提取结论：批次 ↔ 货位为多对多；货位二维码存查询链接、扫码实时查库；货位编码格式 `16-03-NNN`（203 个，按第一层 ~ 第五层组织）；待检证字段为品名 / 物料代码 / 供货单位 / 生产单位 / 批号 / 数量 / 储存条件 / 操作人日期；试点为 16 号楼产品库。
+- 含真实业务数据的附件仅下载到 `/tmp` 解析，未进仓库、未提交 Git。
+
+M3-R0 待确认项：
+
+1. 业务口径 20 项：已明确 12 项、已确认决策 3 项、部分明确 2 项、待确认 4 项（产品主数据、盘点口径、扫码可见信息、拍照校对责任，**均非阻塞**）。**已无高优先级待确认项**，M3-R0 具备收口条件。另有 2 项技术承载方式待 M3-R2 落定（包装构成、待检 / 放行联动实现）。
+2. 飞书权限偏宽（观察项）：`--domain docs,wiki,drive` 实际授予了写入类 scope，本任务不需要；本轮未执行任何写入，建议后续收窄。
+
+M3-R0 未做：未创建自定义 Frappe App、未创建 DocType、未写业务代码、未创建业务数据、未执行 `migrate`、未修改 Frappe/ERPNext/HRMS 核心源码、未执行任何飞书写入、未启动外部 FastAPI 服务、未调用视觉模型、未启动独立前端、未提交 `.env`/密钥/真实数据/Excel/CSV、未执行 `docker compose down -v`、未删除 volume、未重建 `frontend` site。
+
+M3 后续轮次（仅规划，不自动启动）：
+
+| 轮次 | 名称 | 优先级 | 状态 |
+| --- | --- | --- | --- |
+| M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
+| M3-R1 | 货位与批次主数据建模 | P0 | PLANNED |
+| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED |
+| M3-R3 | 出库核销、效期预警、盘点导出 | P0 | PLANNED |
+| M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
+| M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
+| M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
+| M3-R7 | 总审查与收口 | P2 | PLANNED |
+
+M3 全程禁止：不修改 Frappe/ERPNext/HRMS 核心源码；未经 Owner 逐轮授权不创建自定义 Frappe App 与 DocType；不启动独立 Vue/React 前端；不接飞书真实写入；不提交 `.env`、密钥、token、真实产品清单、真实批次数据、Excel/CSV；不执行 `docker compose down -v`；不删除 Docker volume；不重建 `frontend` site；不启动 M1-FIX-C/D/E 与 M2。
 
 ## M0-REMOTE 状态
 

@@ -33,6 +33,39 @@ M1-FIX 后续规划轮次（仅规划，不自动启动）：
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
 
+## M3：仓储库存数字化管理
+
+M3 由 Owner 明确授权新开，与 M1（考勤）为并列里程碑，不替代、不阻塞 M1-FIX。
+
+| 轮次 | 名称 | 优先级 | 状态 |
+| --- | --- | --- | --- |
+| M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
+| M3-R1 | 货位与批次主数据建模 | P0 | PLANNED |
+| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED |
+| M3-R3 | 出库核销、效期预警、盘点导出 | P0 | PLANNED |
+| M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
+| M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
+| M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
+| M3-R7 | 总审查与收口 | P2 | PLANNED |
+
+当前轮次：M3-R0（REVIEWING，等待 Owner 和 Claude 审查）。
+
+本轮范围：只读盘点 ERPNext 原生 `Stock` 模块能力，只读拉取 Owner 提供的两篇飞书参考文档，确认"产品—批次—货位"台账、批次查询、出库核销、效期预警、盘点导出、待检证与货位卡、货位二维码与扫码页、入库拍照识别的需求口径，并拆出 M3 后续轮次。
+
+本轮已确认决策：新开 M3 里程碑；拍照识别用外部 FastAPI + 视觉模型；扫码页用 Frappe 原生 Web 页；二维码存查询链接、扫码实时查库；存放模式为**固定货位 + 随机存放**；货位建模走**方案 A（`Warehouse` = 货位）**；层管理走**方案 A1（层作为 `Warehouse` 树一级）**；"工作台""退回产品区"建成叶子 `Warehouse`；试点范围**只做 16 号楼产品库**（203 个货位）。
+
+本轮禁止事项：不创建自定义 Frappe App；不创建 DocType；不写业务代码；不创建业务数据；不执行 `migrate`；不修改 Frappe/ERPNext/HRMS 核心源码；不执行任何飞书写入；不启动外部 FastAPI 服务；不启动独立 Vue/React 前端；不提交 `.env`、密钥、真实数据、Excel/CSV；不执行 `docker compose down -v`；不删除 volume；不重建 `frontend` site。
+
+本轮进展：`lark-cli` 1.0.95 已安装并完成 OAuth 登录，两篇参考文档与两个附件已只读拉取。提取到货位编码格式 `16-03-NNN`（203 个，按第一层 ~ 第五层组织）、待检证字段、批次 ↔ 货位多对多规则、试点为 16 号楼产品库。Owner 补充提供两份《自产物料/产品货位卡》实例与批号编制规则（三类型结构），已解析并暴露关键约束：**出库须 QA 放行手续 + 合格证**、**一个批号一张货位卡**、**批号不存在撞号**、货位卡"件数"是包装构成（件/听/瓶，含尾桶与小样）、**所有产品种类（含混粉）走同一套登记流程**。含真实业务数据的附件仅下载到 `/tmp`，未进仓库。
+
+本轮待确认项：业务口径 20 项（已明确 12 项、已确认决策 3 项、部分明确 2 项、待确认 4 项，均非阻塞）。**已无高优先级待确认项，M3-R0 具备收口条件**。观察项：飞书授权范围偏宽（含写入类 scope），本轮未执行任何写入。
+
+权威文件：
+
+- `docs/milestones/M3.md`
+- `docs/milestones/M3_START_GATE.md`
+- `docs/milestones/M3_R0_仓储库存只读盘点与需求确认.md`
+
 ## M1 历史轮次（已完成）
 
 M1 规划收口已完成；产品交付仍在 M1-FIX 中，尚未完成。全部 19 个历史轮次状态见里程碑索引。
@@ -107,12 +140,17 @@ M1-FIX-B2 = COMPLETED
 M1-FIX-B3 = REVIEWING / Owner UI 验收未通过
 M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题
 M1-FIX-B5 = REVIEWING
+M3     = IN_PROGRESS
+M3-R0  = REVIEWING
+M3-R1+ = PLANNED
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
 ## 下一轮预告
 
 M1-FIX-B5 已进入 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。
+
+M3-R0 已进入 REVIEWING，等待 Owner 和 Claude 审查。参考文档已只读拉取到位。M3-R1（货位与批次主数据建模）为 PLANNED / 待 Owner 授权，进入前需先补齐 M3-R0 登记的业务口径确认项（重点是"固定货位 vs 动态管理"）。
 
 ## 飞书登录提前实现记录（M2-R0）
 

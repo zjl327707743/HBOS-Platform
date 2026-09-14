@@ -24,22 +24,25 @@
 
 每轮任务必须以用户当前指令和 `docs/CURRENT_MILESTONE.md` 为准。
 
+当前并行里程碑：M1-FIX（考勤功能补漏，IN_PROGRESS）与 M3（仓储库存数字化管理，IN_PROGRESS，仅 M3-R0 已授权执行）。当前阶段门禁文档为 `docs/milestones/M1_START_GATE.md` 与 `docs/milestones/M3_START_GATE.md`。
+
 禁止事项：
 
-- 不安装、不运行、不生成 Frappe/ERPNext
-- 未经用户明确授权，不创建 `hb_core_app`、`hb_attendance_app`、`hb_feishu_app`
+- 不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site
+- 未经用户明确授权，不创建新的自定义 Frappe App（`hb_core_app`、`hb_feishu_app` 仍未创建；`hb_attendance_app` 不得扩大为大而全 HR App）
+- 未经用户逐轮授权，不启动 M3-R1 及之后轮次，不创建 M3 相关 DocType，不写 M3 业务代码，不创建库存业务数据
 - 不写 Docker Compose
-- 不做业务代码
-- 不开发考勤业务
-- 不接飞书
 - 不做前端驾驶舱
+- 不接飞书真实写入
+- 不修改 Frappe/ERPNext/HRMS 核心源码
+- 不提交 `.env`、密钥、token、真实业务数据、Excel/CSV
 - 不浏览或搬运大量 Obsidian 长文
 
 ## 每轮任务收尾强制要求
 
 - 状态台账必须检查：`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`、`docs/milestones/` 中的对应里程碑文件。
 - 公共入口文件必须检查：`README.md`、`CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/READING_GUIDE.md`。
-- 当前阶段门禁文档必须检查：M1 阶段为 `docs/milestones/M1_START_GATE.md`，未来 M2/M3 阶段分别为 `docs/milestones/M2_START_GATE.md`、`docs/milestones/M3_START_GATE.md`。
+- 当前阶段门禁文档必须检查：M1 阶段为 `docs/milestones/M1_START_GATE.md`，M3 阶段为 `docs/milestones/M3_START_GATE.md`（已创建），未来 M2 阶段为 `docs/milestones/M2_START_GATE.md`。
 - 当前轮次主文档必须检查：指本轮实际交付的 `docs/milestones/Mx_Ry_*.md` 文档，例如 `docs/milestones/M1_R3F_业务口径确认包.md`。
 - 如本轮改变项目状态，必须更新 `docs/PROJECT_STATUS.md`。
 - 如本轮改变当前里程碑或轮次，必须更新 `docs/CURRENT_MILESTONE.md`。
