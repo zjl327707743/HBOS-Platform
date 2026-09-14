@@ -8,7 +8,7 @@
 
 当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 M1-FIX-B5（REVIEWING）：正在核查导入数据链路并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-C/D/E 和 M2 未启动。
 
-M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。当前轮次为 M3-R1（REVIEWING）：已建立 203 个货位的 `Warehouse` 树并通过"按批号查货位"粒度验证；M3-R0（REVIEWING）已完成只读盘点与需求确认；M3-R2 及之后为 PLANNED / 待 Owner 逐轮授权。
+M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。当前轮次为 M3-R1（REVIEWING）：已建立 203 个货位的 `Warehouse` 树并通过"按批号查货位"粒度验证；M3-R0（REVIEWING）已完成只读盘点与需求确认；M3-R2 方案已就绪（PLANNED / 待授权），其中 Owner 已授权创建 `hb_inventory_app`。
 
 当前真实进度以以下文件为准：
 
@@ -122,7 +122,7 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 8. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；本轮定位为 Excel 导入与异常流程落地方案 / Gate 判定，已 closeout。
 9. M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 为 COMPLETED。M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED。
 10. M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现，M1-FIX-B-FIX 已补齐浏览器导入与中文体验修复，M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS 但数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING。
-11. M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列；M3-R0 只读盘点与需求确认、M3-R1 货位主数据建模与粒度验证均已交付并进入 REVIEWING。M3-R1 已建立 203 个货位的 `Warehouse` 树（212 节点，层分布 39/39/39/43/43 校验通过），粒度验证"按批号查货位"双向通过；同时更正 M3-R0 结论——v16 中批次在 `Serial and Batch Entry`，`SLE.batch_no` 为空列。M3-R2 至 M3-R7 为 PLANNED / 待 Owner 逐轮授权。
+12. M3-R2 方案已交付（`docs/milestones/M3_R2_入库登记与批次货位台账方案.md`），四项设计决策已由 Owner 确认：包装构成走自定义子表、「件」仅作计数；待检/放行走 `Batch` 自定义字段；授权新建 `hb_inventory_app`；新建海滨产品分类树。当前 PLANNED / 待 Owner 授权执行，唯一剩余缺口为产品主数据口径。
 
 ## AI 协作方式
 

@@ -35,7 +35,7 @@
 不得执行：
 
 - 执行 `docker compose down -v`、删除 Docker volume 或重建 `frontend` site
-- 未经用户明确授权创建任何新的 Frappe App（`hb_core_app`、`hb_feishu_app` 仍未创建；`hb_attendance_app` 不得扩大为大而全 HR App）
+- 未经用户明确授权创建任何新的 Frappe App（`hb_core_app`、`hb_feishu_app` 仍未创建；`hb_attendance_app` 不得扩大为大而全 HR App）。`hb_inventory_app` 已由 Owner 在 M3-R2 方案阶段授权，但须在 M3-R2 执行时按该轮授权创建，不得提前
 - 未经用户逐轮授权启动 M3-R1 及之后轮次、创建 M3 相关 DocType、编写 M3 业务代码或创建库存业务数据
 - 编写 `docker-compose.yml`
 - 修改 Frappe/ERPNext/HRMS 核心源码

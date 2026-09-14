@@ -8,7 +8,7 @@
 
 M3 由 Owner 明确授权新开，与 M1-FIX（考勤功能补漏）并列，不替代、不阻塞 M1-FIX。
 
-当前状态：M3-R0 为 REVIEWING、M3-R1 为 REVIEWING，等待 Owner 和 Claude 审查；M3-R2 及之后为 PLANNED，待 Owner 逐轮授权。
+当前状态：M3-R0 为 REVIEWING、M3-R1 为 REVIEWING，等待 Owner 和 Claude 审查；M3-R2 为 PLANNED（方案已就绪，待授权执行）；M3-R3 及之后为 PLANNED，待 Owner 逐轮授权。
 
 ## 必须满足的前置条件
 
@@ -55,6 +55,11 @@ M3 不允许做：
 | 批次功能开关 | `Stock Settings.enable_serial_and_batch_no_for_item` 默认关闭，M3-R1 已经 Owner 确认开启 | Owner 确认 + M3-R1 第五节 F1 |
 | 出库批次选取 | `Stock Settings.pick_serial_and_batch_based_on` 原生即为 **FIFO**，与需求一致 | M3-R1 第五节 F2 |
 | 计量单位 | `UOM` 中无「件」，M3-R2 需创建；双单位为 KG / 件 | M3-R1 第五节 F4 |
+| 包装构成承载 | 自定义子表 `HBOS 包装明细`（容器类型 + 单件重量 + 件数），挂 `Batch`；「件」仅作计数单位不做换算 | Owner 确认（M3-R2 方案） |
+| 待检 / 放行实现 | `Batch` 自定义字段：放行状态 + 放行日期 + 合格证编号 + 附件；出库时校验 | Owner 确认（M3-R2 方案） |
+| 自定义字段归属 | **授权新建 `hb_inventory_app`**，沿用 `hb_attendance_app` 的 `after_migrate` + `create_custom_fields` 代码化模式 | Owner 授权（M3-R2 方案） |
+| 产品分类 | 新建海滨分类树（挂 `Item Group` 下），与批号规则 / 效期口径的产品种类对齐 | Owner 确认（M3-R2 方案） |
+| 效期期限字段 | `Item.shelf_life_in_days`（原生 Int，天数）可承载期限；"复检期 / 有效期"类型需自定义字段 | M3-R2 方案调研 |
 | 试点范围 | 只做 16 号楼产品库（203 个货位），暂不含无菌成品库；设计预留多库房扩展 | Owner 确认 |
 | 入库拍照识别 | 外部 FastAPI + 视觉模型独立服务，返回结构化 JSON，人工校对后入台账 | Owner 授权 |
 | 货位二维码扫码页 | Frappe 原生 Web 页，不启动独立 Vue / React 前端 | Owner 授权 |
@@ -107,8 +112,24 @@ Owner 提供的两篇飞书参考文档已通过 `lark-cli` 只读拉取，内�
 进入 M3-R2（入库登记与台账）前必须满足：
 
 - M3-R1 已收口。
-- 「件」计量单位与包装构成承载方式已定。
-- 产品主数据口径已确认（第 3 项）。
+- 「件」计量单位与包装构成承载方式已定（已满足：Owner 已确认自定义子表方案）。
+- 待检 / 放行实现方式已定（已满足：Owner 已确认 `Batch` 自定义字段方案）。
+- 自定义字段归属已定（已满足：Owner 已授权新建 `hb_inventory_app`）。
+- 产品分类方案已定（已满足：Owner 已确认新建海滨分类树）。
+- **产品主数据口径已提供**（产品清单、编码规则、种类归属）——**当前唯一剩余缺口**。
+
+M3-R2 方案已交付：`docs/milestones/M3_R2_入库登记与批次货位台账方案.md`。
+
+## 自定义 App 授权记录
+
+Owner 已在 M3-R2 方案阶段**明确授权创建 `hb_inventory_app`**（模块名 `HBOS Inventory`），用于承载 M3 的自定义字段、UOM、产品分类树、子表 DocType、报表、Print Format 与扫码 Web 页。
+
+边界：
+
+- 仅用于海滨仓储特有规则，不重写 ERPNext 已有功能。
+- 与 `hb_attendance_app` 并列独立，不互相依赖，不并入考勤 App。
+- 创建动作在 M3-R2 执行时进行，需 Owner 授权启动该轮。
+- `hb_core_app`、`hb_feishu_app` 仍未授权创建。
 
 进入 M3-R3（出库核销）前必须满足：
 
@@ -132,7 +153,7 @@ Owner 提供的两篇飞书参考文档已通过 `lark-cli` 只读拉取，内�
 | --- | --- | --- | --- |
 | M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
-| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED |
+| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED（方案已就绪） |
 | M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | PLANNED |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |

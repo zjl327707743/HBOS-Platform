@@ -41,7 +41,7 @@ M3 由 Owner 明确授权新开，与 M1（考勤）为并列里程碑，不替�
 | --- | --- | --- | --- |
 | M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
-| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED |
+| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED（方案已就绪） |
 | M3-R3 | 出库核销、效期预警、盘点导出 | P0 | PLANNED |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
@@ -58,6 +58,7 @@ M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 �
 - `docs/milestones/M3_START_GATE.md`
 - `docs/milestones/M3_R0_仓储库存只读盘点与需求确认.md`
 - `docs/milestones/M3_R1_货位主数据建模与粒度验证.md`
+- `docs/milestones/M3_R2_入库登记与批次货位台账方案.md`
 
 ## M1 历史轮次（已完成）
 
@@ -136,7 +137,8 @@ M1-FIX-B5 = REVIEWING
 M3     = IN_PROGRESS
 M3-R0  = REVIEWING
 M3-R1  = REVIEWING
-M3-R2+ = PLANNED
+M3-R2  = PLANNED（方案已就绪，待授权执行）
+M3-R3+ = PLANNED
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
@@ -144,7 +146,9 @@ M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 
 M1-FIX-B5 已进入 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。
 
-M3-R0 与 M3-R1 均已进入 REVIEWING，等待 Owner 和 Claude 审查。M3-R1 已交付货位主数据树（212 节点）与粒度验证。M3-R2（入库登记与"产品—批次—货位"台账）为 PLANNED / 待 Owner 授权，进入前需先定「件」计量单位与包装构成承载方式、以及产品主数据口径。
+M3-R0 与 M3-R1 均已进入 REVIEWING，等待 Owner 和 Claude 审查。M3-R1 已交付货位主数据树（212 节点）与粒度验证。
+
+M3-R2 方案已就绪，四项设计决策已由 Owner 确认（包装构成走自定义子表 + 「件」仅作计数；待检/放行走 `Batch` 自定义字段；**授权新建 `hb_inventory_app`**；新建海滨产品分类树）。当前 PLANNED / 待 Owner 授权执行，唯一剩余缺口为**产品主数据口径**（产品清单、编码规则、种类归属）。
 
 ## 飞书登录提前实现记录（M2-R0）
 

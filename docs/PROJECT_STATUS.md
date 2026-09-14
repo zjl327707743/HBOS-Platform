@@ -7,9 +7,9 @@
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成。M3 仓储库存数字化管理已由 Owner 授权新开（IN_PROGRESS，与 M1-FIX 并列）
 - 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）；M3-R0 与 M3-R1（REVIEWING，等待 Owner 和 Claude 审查）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 及之后为 PLANNED。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 方案已就绪（PLANNED / 待授权），Owner 已授权创建 `hb_inventory_app`。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS-Platform.git`，GitHub visibility = `PUBLIC`（公开协作仓库，范围见 `PUBLIC_REPOSITORY_SCOPE.md`）。另有内部私有归档库 `https://github.com/zjl327707743/HBOS.git`（`PRIVATE`，不接受普通成员开发），当前工作副本**未绑定**该私有库。历史记录中的 `HBOS.git` 为 M0-REMOTE 时期的绑定，已被当前的 `HBOS-Platform.git` 取代。
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R2（入库登记与"产品—批次—货位"台账）为 PLANNED / 待 Owner 授权。M2 未启动。
+- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R2（入库登记与"产品—批次—货位"台账）方案已就绪，PLANNED / 待 Owner 授权执行。M2 未启动。
 - 飞书登录（M2-R0）：由 Owner 授权提前实现 M2 飞书集成首项，代码实现与本地真实验证已完成（REVIEWING）；同步完成 HRMS 界面汉化与「Frappe HR」→「海滨HR」改名（REVIEWING）。详见 `docs/milestones/M2_R0_飞书登录实现记录.md`；M2 整体仍 NOT STARTED。
 
 ## 状态更新制度
@@ -620,6 +620,33 @@ M3-R1 创建的虚构 TEST 数据（`TEST-M3R1-` 前缀）：`Item` 1、`Batch` 
 
 M3-R1 未做：未创建自定义 Frappe App、未创建 DocType、未实现任何业务功能、未创建真实产品数据、未创建「件」计量单位、未修改 Frappe/ERPNext/HRMS 核心源码（除 Owner 已确认的 `Stock Settings` 批次开关外未改其他全局设置）、未执行飞书写入、未启动外部服务与独立前端、未提交 `.env`/密钥/真实数据、未执行 `docker compose down -v`、未删除 volume、未重建 `frontend` site。
 
+## M3-R2 状态
+
+状态：PLANNED（方案已就绪，待 Owner 授权执行）。
+
+本轮为方案轮，只固化设计决策与实现路径，未执行任何实现。已交付主文档 `docs/milestones/M3_R2_入库登记与批次货位台账方案.md`。
+
+Owner 已确认四项设计决策：
+
+| 议题 | 决策 |
+| --- | --- |
+| 包装构成（件 / 听 / 瓶） | 自定义子表 `HBOS 包装明细`（容器类型 + 单件重量 + 件数），挂 `Batch`；「件」仅作计数单位不做换算；`kg` 为权威数量 |
+| 「待检 → 放行 / 不放行」门禁 | `Batch` 自定义字段（放行状态 + 放行日期 + 合格证编号 + 附件），出库时校验 |
+| 自定义字段 / UOM / 模板归属 | **Owner 授权新建 `hb_inventory_app`**（模块 `HBOS Inventory`），沿用 `hb_attendance_app` 的 `after_migrate` + `create_custom_fields` 代码化模式 |
+| 产品分类 | 新建海滨分类树（挂 `Item Group` 下），与批号规则 / 有效期口径的产品种类对齐 |
+
+调研发现（只读查询，未改配置）：
+
+- `Item.shelf_life_in_days`（Int）+ `has_expiry_date` 原生可承载"效期期限"（2 年 = 730 天），但"复检期 / 有效期"类型需自定义字段。
+- `Item.uoms` = 原生 `UOM Conversion Detail`，是**固定换算系数**，装不下"整桶 5kg / 尾桶 4.33kg"，印证自定义子表方案。
+- `Quality Inspection` 原生存在（`status` = Accepted / Rejected / Cancelled，`batch_no` Link），但要求挂具体单据且必填检验人，属"检验记录"语义，与 Owner 的"放行手续 + 合格证"凭证语义不匹配，故未采用；保留为未来可选。
+- `Item Group` 仅有标准 6 类（Products / Raw Material / Sub Assemblies / Consumable / Services），无海滨产品种类。
+- **更正此前一处误判**：自定义字段实际是**有版本化**的——`hb_attendance_app` 通过 `hooks.py` 注册 `after_migrate`，在 `setup.py` 中调用 `create_custom_fields(...)` 声明式创建（Employee Checkin 3 个、Attendance 6 个等），代码化、幂等、可复现。M3 沿用同一模式，这也是授权新建 `hb_inventory_app` 的意义。
+
+M3-R2 唯一剩余缺口：**产品主数据口径**（产品清单、编码规则、种类归属、分类树要求）。
+
+M3-R2 未做：未创建 App、未创建 DocType、未创建自定义字段、未创建 UOM、未建分类树、未写业务代码、未创建真实产品数据、未修改核心源码、未接飞书写入、未启动外部服务与独立前端。
+
 本轮已确认 Owner 三项决策：
 
 - 里程碑归属：新开 M3 仓储里程碑。
@@ -668,7 +695,7 @@ M3 后续轮次（仅规划，不自动启动）：
 | --- | --- | --- | --- |
 | M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
-| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED |
+| M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED（方案已就绪） |
 | M3-R3 | 出库核销、效期预警、盘点导出 | P0 | PLANNED |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |

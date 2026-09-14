@@ -29,7 +29,7 @@
 禁止事项：
 
 - 不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site
-- 未经用户明确授权，不创建新的自定义 Frappe App（`hb_core_app`、`hb_feishu_app` 仍未创建；`hb_attendance_app` 不得扩大为大而全 HR App）
+- 未经用户明确授权，不创建新的自定义 Frappe App（`hb_core_app`、`hb_feishu_app` 仍未创建；`hb_attendance_app` 不得扩大为大而全 HR App）。`hb_inventory_app` 已由 Owner 在 M3-R2 方案阶段授权创建，但须在 M3-R2 执行时按该轮授权创建，不得提前
 - 未经用户逐轮授权，不启动 M3-R1 及之后轮次，不创建 M3 相关 DocType，不写 M3 业务代码，不创建库存业务数据
 - 不写 Docker Compose
 - 不做前端驾驶舱
