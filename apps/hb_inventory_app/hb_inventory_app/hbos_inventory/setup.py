@@ -191,5 +191,8 @@ def after_migrate():
     sync_warehouses()
     sync_item_groups()
     sync_custom_fields()
+    from hb_inventory_app.hbos_inventory.workspace_setup import sync_inventory_workspace
+
+    sync_inventory_workspace()
     frappe.db.commit()
     _log("HBOS Inventory", "after_migrate 完成")

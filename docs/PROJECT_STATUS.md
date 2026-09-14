@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成。M3 仓储库存数字化管理已由 Owner 授权新开（IN_PROGRESS，与 M1-FIX 并列）
-- 当前轮次：M1-FIX-B5（REVIEWING）；M3-R0 / M3-R1 / M3-R2（REVIEWING，其中 M3-R2 已执行完毕）
+- 当前轮次：M1-FIX-B5（REVIEWING）；M3-R0 / M3-R1 / M3-R2 / M3-R3（REVIEWING，其中 M3-R2、M3-R3 已执行完毕）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 已执行完毕并进入 REVIEWING：已新建并安装 `hb_inventory_app`、落地主数据与 2 个报表、货位树改挂到 `3904`、全链路验证通过。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 已执行完毕：已新建并安装 `hb_inventory_app`、落地主数据与 2 个报表、货位树改挂到 `3904`。M3-R3 已执行完毕：新增出库放行门禁、货位变更复验、`效期预警` 与 `库级盘点三对账` 报表、补建 `仓储库存工作台` 入口。两者均 REVIEWING。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS-Platform.git`，GitHub visibility = `PUBLIC`（公开协作仓库，范围见 `PUBLIC_REPOSITORY_SCOPE.md`）。另有内部私有归档库 `https://github.com/zjl327707743/HBOS.git`（`PRIVATE`，不接受普通成员开发），当前工作副本**未绑定**该私有库。历史记录中的 `HBOS.git` 为 M0-REMOTE 时期的绑定，已被当前的 `HBOS-Platform.git` 取代。
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R3（出库核销、效期预警、盘点导出）为 PLANNED / 待 Owner 授权。M2 未启动。
+- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R4（待检证与货位卡）为 PLANNED / 待 Owner 授权。M2 未启动。
 - 飞书登录（M2-R0）：由 Owner 授权提前实现 M2 飞书集成首项，代码实现与本地真实验证已完成（REVIEWING）；同步完成 HRMS 界面汉化与「Frappe HR」→「海滨HR」改名（REVIEWING）。详见 `docs/milestones/M2_R0_飞书登录实现记录.md`；M2 整体仍 NOT STARTED。
 
 ## 状态更新制度
@@ -720,13 +720,40 @@ M3 后续轮次（仅规划，不自动启动）：
 | M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | REVIEWING |
-| M3-R3 | 出库核销、效期预警、盘点导出 | P0 | PLANNED |
+| M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
 | M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |
 
 M3 全程禁止：不修改 Frappe/ERPNext/HRMS 核心源码；未经 Owner 逐轮授权不创建自定义 Frappe App 与 DocType；不启动独立 Vue/React 前端；不接飞书真实写入；不提交 `.env`、密钥、token、真实产品清单、真实批次数据、Excel/CSV；不执行 `docker compose down -v`；不删除 Docker volume；不重建 `frontend` site；不启动 M1-FIX-C/D/E 与 M2。
+
+## M3-R3 状态
+
+状态：REVIEWING（已执行，等待 Owner 和 Claude 审查）。
+
+主文档：`docs/milestones/M3_R3_出库核销效期预警与盘点导出.md`。
+
+本轮交付四件事并补建一处入口：
+
+- **出库放行门禁（核心）**：新增 `hb_inventory_app/hbos_inventory/release_gate.py`，经 `hooks.py` 的 `doc_events` 挂在 `Delivery Note` 与 `Stock Entry`（`purpose = Material Issue`）的 **`before_submit`**（不挂 `validate`，使草稿仍可保存）。出库批次须 `Batch.hbos_release_status = 已放行` 且 `hbos_certificate_no` 非空，否则中止提交并给出明确提示。
+- 门禁**有意收窄**：`Material Receipt`（入库）与 `Material Transfer`（库内移库，含移入不合格品库）不门禁；`Delivery Note` 的退货方向（`is_return`）不门禁。
+- 批次取法：优先明细行 `batch_no`，回落 `serial_and_batch_bundle` 查 `tabSerial and Batch Entry`（依据 M3-R1 实测：v16 中 `SLE.batch_no` 为空列）。
+- **实测**：待检批次出库被拦截（提示准确）；已放行批次出库通过；待检批次移库与入库均不受影响。
+- **货位变更**：复用原生 `Stock Entry`（Material Transfer），无需新代码；复验 15 kg 移库成功、结存闭合。
+- **效期预警报表**：按预警天数（默认 90）列出临近到期批次，含紧急度分级（已过期 / ≤30 天 / ≤90 天）、剩余天数、效期类型、放行状态。实测近效期虚构批次正确返回「紧急（≤30 天）」。
+- **库级盘点三对账报表**：按库位出 ERP 数量，货位卡数量与实物数量**留空**供导出后现场填写（对齐纸质《物料及产品盘存记录》口径，该表本身无货位号列）。
+- **补建操作入口**：M3-R2 遗漏的「入库登记入口」经核实后已在其主文档 9.5 补记为**偏差三**；本轮新建 `仓储库存工作台`（Workspace + 侧边栏 + 桌面图标，幂等，由 `after_migrate` 同步），入口指向原生表单与四个报表。
+
+前置条件处理：
+
+- 出库核销口径：Owner 早前已确认 FIFO + 客户指定先出；只读核对 `Stock Settings.pick_serial_and_batch_based_on = FIFO`，**原生即符合**。
+- QA 放行校验方式：本轮定案为 `before_submit` 硬门禁。
+- 负库存：采用 ERPNext 默认「不允许」（`allow_negative_stock = 0`、`allow_negative_stock_for_batch = 0`），未改配置。
+
+实现过程中修复两个自身缺陷（已记录）：`Desktop Icon.link_to / sidebar` 必须指向已存在的 `Workspace Sidebar`；`Desktop Icon.bg_color` 与 `Workspace Shortcut.color` 取值受枚举限制。
+
+M3-R3 未做：待检证与货位卡 `Print Format`（M3-R4）、货位二维码与扫码页（M3-R5）、入库拍照识别（M3-R6）、定制化录入页（当前走原生表单）、效期预警主动推送（当前仅查询报表）、盘点差异系统回写、未创建真实产品主数据、未修改核心源码、未接飞书写入、未执行 `docker compose down -v`、未删除 volume、未重建 site。
 
 ## M0-REMOTE 状态
 

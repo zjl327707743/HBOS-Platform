@@ -8,7 +8,7 @@
 
 M3 由 Owner 明确授权新开，与 M1-FIX（考勤功能补漏）并列，不替代、不阻塞 M1-FIX。
 
-当前状态：M3-R0、M3-R1、M3-R2 均为 REVIEWING，等待 Owner 和 Claude 审查（M3-R2 已执行完毕）；M3-R3 及之后为 PLANNED，待 Owner 逐轮授权。
+当前状态：M3-R0 至 M3-R3 均为 REVIEWING，等待 Owner 和 Claude 审查（M3-R2、M3-R3 已执行完毕）；M3-R4 及之后为 PLANNED，待 Owner 逐轮授权。
 
 ## 必须满足的前置条件
 
@@ -153,9 +153,9 @@ Owner 已在 M3-R2 方案阶段**明确授权创建 `hb_inventory_app`**（模�
 
 进入 M3-R3（出库核销）前必须满足：
 
-- 出库核销口径已确认（已满足：FIFO + 客户指定先出）。
-- **QA 放行手续 / 合格证的校验方式已确认**（已明确需校验；实现方式待 M3-R2 定）。
-- 是否允许负库存已确认。
+- 出库核销口径已确认（已满足：FIFO + 客户指定先出；只读核对 `pick_serial_and_batch_based_on = FIFO`，原生即符合）。
+- **QA 放行手续 / 合格证的校验方式已确认**（M3-R3 定案：`before_submit` 硬门禁，限 `Delivery Note` 与 `Stock Entry`（Material Issue）；入库与库内移库不门禁）。
+- 是否允许负库存已确认（M3-R3 定案：采用 ERPNext 默认「不允许」）。
 
 进入 M3-R4（待检证与货位卡）前必须满足：
 
@@ -174,7 +174,7 @@ Owner 已在 M3-R2 方案阶段**明确授权创建 `hb_inventory_app`**（模�
 | M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | REVIEWING |
-| M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | PLANNED |
+| M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
 | M3-R6 | 入库拍照识别服务 | P1 | PLANNED |

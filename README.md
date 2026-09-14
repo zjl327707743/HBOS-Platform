@@ -8,7 +8,7 @@
 
 当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 M1-FIX-B5（REVIEWING）：正在核查导入数据链路并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-C/D/E 和 M2 未启动。
 
-M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。当前轮次为 M3-R2（REVIEWING，已执行）：已新建并安装 `hb_inventory_app`，落地 10 个 UOM、六车间 8 个库位、5 个产品分类、Item/Batch 自定义字段、包装构成子表与 2 个报表，货位树已改挂到 `3904`；M3-R0 只读盘点与需求确认、M3-R1 货位主数据建模均已 REVIEWING。
+M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。当前轮次为 M3-R3（REVIEWING，已执行）：出库放行门禁（无 QA 放行与合格证不可出库）、货位变更、`效期预警` 与 `库级盘点三对账` 报表、`仓储库存工作台` 入口；M3-R2 已落地 `hb_inventory_app`、主数据、包装构成子表与台账报表，并把货位树改挂到 `3904`；M3-R0、M3-R1 亦为 REVIEWING。
 
 当前真实进度以以下文件为准：
 
@@ -49,6 +49,7 @@ M3 仓储库存数字化管理已由 Owner 授权新开，与 M1-FIX 并列。�
 - M1-R6B 脱敏打卡流水导入最小实现已通过 Codex 审查并收口为 COMPLETED；本轮未提交 Excel / CSV，未创建 App / DocType，未启动 R6C/R7
 - M1-R6C 异常识别与异常说明流程最小实现当前为 COMPLETED；已通过 Codex 审查并 closeout
 - M1-FIX-B 已按 Owner 授权创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐 `导入考勤机导出表` 浏览器入口、中文 `打卡流水` / `考勤结果` 报表、重复导入可读日志和默认白班/行政班 08:30-17:30；M1-FIX-B4 已收敛桌面入口、Workspace Sidebar、导入页归属和 HBOS / HRMS 入口口径；M1-FIX-B5 已核查真实 Employee / Checkin / Attendance / 月度暂存链路，并收敛 HBOS 报表和 HRMS 技术核查入口；真实 Excel、真实员工清单和导入产物不提交 Git
+- M3-R3 出库核销、货位变更、效期预警与盘点导出已执行完毕并进入 REVIEWING：新增出库放行门禁（`before_submit`，限 `Delivery Note` 与 `Stock Entry` Material Issue；待检批次出库被拦截、已放行批次通过、入库与移库不受影响）；货位变更复用原生 Material Transfer 并复验通过；新增 `效期预警`（紧急度分级）与 `库级盘点三对账`（ERP数量 + 留空的货位卡/实物列）两个报表；补建 `仓储库存工作台` 入口（补 M3-R2 遗漏）
 - M3-R2 入库登记与批次货位台账已执行完毕并进入 REVIEWING：新建并安装 `hb_inventory_app`，落地 10 个 UOM、六车间 8 个库位、5 个产品分类树节点、Item 5 + Batch 7 自定义字段、包装构成子表 `HBOS Packaging Detail`、报表 `按批号查货位` / `货位明细表`；货位树由 `16号楼产品库` 改名改挂为 `3904 六车间中间库`（203 货位保留、层分布 39/39/39/43/43 不变）；全链路验证通过；并修复 `hb_attendance_app` 一处导致 `bench migrate` 全站失败的既有缺陷
 - M3-R0 仓储库存只读盘点与需求确认已完成并进入 REVIEWING；已确认 ERPNext 原生 `Stock` 模块可覆盖除拍照识别与扫码页之外的绝大部分需求，当前 site 无库存业务数据可直接从零建模；已确认 Owner 决策（新开 M3 里程碑、拍照识别用外部 FastAPI + 视觉模型、扫码页用 Frappe 原生 Web 页、固定货位 + 随机存放、货位建模走方案 A、层管理走方案 A1、"工作台""退回产品区"建成叶子 `Warehouse`、试点只做 16 号楼产品库）；已由 Owner 授权安装 `lark-cli` 并只读拉取两篇飞书参考文档与附件，提取到货位编码格式、待检证字段与关键业务规则；Owner 补充提供两份《自产物料/产品货位卡》实例与批号编制规则（三类型结构），已解析并据此暴露关键约束：出库须有 QA 放行手续与合格证、一个批号只对应一张货位卡、批号不存在撞号（`batch_id` 可直接用）、有效期口径按产品种类区分、货位卡"件数"属包装构成（件=5kg桶含尾桶，听/瓶为取样小样）、**所有产品种类（含混粉）走同一套登记流程**；业务口径 20 项中 12 项已明确、3 项决策已确认，已无高优先级待确认项
 - M3-R1 货位主数据建模与粒度验证已完成并进入 REVIEWING；已建立 `16号楼产品库 → 03区 → 五个层 → 203 个货位` 的 `Warehouse` 树（共 212 节点，层分布 39/39/39/43/43 校验通过，NestedSet 结构完整，脚本幂等），并用 `TEST-M3R1-` 虚构数据验证"按批号查货位"与"货位→全部批号"双向通过；**更正 M3-R0 结论**：v16 中批次数据在 `Serial and Batch Entry`（关联 `Serial and Batch Bundle`），`SLE.batch_no` 为空列不可用；另发现批次功能开关默认关闭（已开启）、出库批次选取原生即为 FIFO、`UOM` 中无「件」
@@ -123,6 +124,7 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 8. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；本轮定位为 Excel 导入与异常流程落地方案 / Gate 判定，已 closeout。
 9. M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 为 COMPLETED。M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED。
 10. M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现，M1-FIX-B-FIX 已补齐浏览器导入与中文体验修复，M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS 但数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING。
+13. M3-R3 已执行完毕（`docs/milestones/M3_R3_出库核销效期预警与盘点导出.md`）：出库放行门禁、货位变更、效期预警与库级盘点三对账报表、仓储库存工作台入口。前置口径：出库批次选取原生即 FIFO；负库存采用默认「不允许」。当前 REVIEWING。
 12. M3-R2 已交付并执行完毕（`docs/milestones/M3_R2_入库登记与批次货位台账方案与执行记录.md`）：新建并安装 `hb_inventory_app`；Owner 授权修改 `docker-compose.yml` 并重建容器（volume 全保留）；落地 10 个 UOM、六车间 7 个新库位、5 个分类树节点、Item 5 + Batch 7 自定义字段、子表 `HBOS Packaging Detail`、2 个报表；货位树改名改挂到 `3904`（203 货位保留）；全链路验证通过。另修复 `hb_attendance_app` 一处导致 `bench migrate` 全站失败的既有缺陷。当前 REVIEWING。
 
 ## AI 协作方式

@@ -42,13 +42,13 @@ M3 由 Owner 明确授权新开，与 M1（考勤）为并列里程碑，不替�
 | M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
 | M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | REVIEWING |
-| M3-R3 | 出库核销、效期预警、盘点导出 | P0 | PLANNED |
+| M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
 | M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |
 
-当前轮次：M3-R2（REVIEWING，已执行，等待 Owner 和 Claude 审查）——入库登记与批次货位台账。
+当前轮次：M3-R3（REVIEWING，已执行，等待 Owner 和 Claude 审查）——出库核销、货位变更、效期预警与盘点导出。
 
 M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 → 五个层 → 203 个货位` + 2 个非货位区域，共 212 节点），层分布 39 / 39 / 39 / 43 / 43 校验通过，NestedSet 结构完整，脚本幂等；用 `TEST-M3R1-` 虚构数据完成粒度验证，"按批号查货位"与"货位→全部批号"双向通过。**并更正了 M3-R0 的一处关键结论**：批次不在 `Stock Ledger Entry.batch_no`（v16 中该列为空），实际在 `Serial and Batch Bundle` / `Serial and Batch Entry`。详见 `docs/milestones/M3_R1_货位主数据建模与粒度验证.md`。
 
@@ -59,6 +59,7 @@ M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 �
 - `docs/milestones/M3_R0_仓储库存只读盘点与需求确认.md`
 - `docs/milestones/M3_R1_货位主数据建模与粒度验证.md`
 - `docs/milestones/M3_R2_入库登记与批次货位台账方案与执行记录.md`
+- `docs/milestones/M3_R3_出库核销效期预警与盘点导出.md`
 
 ## M1 历史轮次（已完成）
 
@@ -138,7 +139,8 @@ M3     = IN_PROGRESS
 M3-R0  = REVIEWING
 M3-R1  = REVIEWING
 M3-R2  = REVIEWING（已执行）
-M3-R3+ = PLANNED
+M3-R3  = REVIEWING（已执行）
+M3-R4+ = PLANNED
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
@@ -152,7 +154,9 @@ M3-R2 已执行完毕（REVIEWING）。Owner 授权后：新建 `hb_inventory_ap
 
 **修复既有缺陷**：`hb_attendance_app` 的 `hbos_monthly_upload.json` 缺 `doctype` 等必需字段，导致 `bench migrate` 全站失败（`KeyError: 'doctype'`）；已按同目录标准结构补齐，migrate 恢复正常。此前任何依赖 migrate 的操作（含 `after_migrate` 钩子）均不生效。
 
-M3-R3（出库核销、效期预警、盘点导出）为 PLANNED / 待 Owner 授权。
+M3-R3 已执行完毕（REVIEWING）：新增出库放行门禁（`before_submit`，限 `Delivery Note` 与 `Stock Entry` Material Issue；待检批次出库被拦截、已放行批次通过、入库与移库不受影响）；货位变更复用原生 Material Transfer 并复验通过；新增 `效期预警` 与 `库级盘点三对账` 两个报表；补建 `仓储库存工作台` 入口（补 M3-R2 遗漏）。前置口径：出库批次选取原生即 FIFO；负库存采用 ERPNext 默认「不允许」。
+
+M3-R4（待检证与货位卡）为 PLANNED / 待 Owner 授权。
 
 ## 飞书登录提前实现记录（M2-R0）
 
