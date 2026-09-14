@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成。M3 仓储库存数字化管理已由 Owner 授权新开（IN_PROGRESS，与 M1-FIX 并列）
-- 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）；M3-R0（REVIEWING，等待 Owner 和 Claude 审查）
+- 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）；M3-R0 与 M3-R1（REVIEWING，等待 Owner 和 Claude 审查）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 及之后为 PLANNED。
-- 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R1（货位与批次主数据建模）为 PLANNED / 待 Owner 授权。M2 未启动。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 及之后为 PLANNED。
+- 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS-Platform.git`，GitHub visibility = `PUBLIC`（公开协作仓库，范围见 `PUBLIC_REPOSITORY_SCOPE.md`）。另有内部私有归档库 `https://github.com/zjl327707743/HBOS.git`（`PRIVATE`，不接受普通成员开发），当前工作副本**未绑定**该私有库。历史记录中的 `HBOS.git` 为 M0-REMOTE 时期的绑定，已被当前的 `HBOS-Platform.git` 取代。
+- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R2（入库登记与"产品—批次—货位"台账）为 PLANNED / 待 Owner 授权。M2 未启动。
 - 飞书登录（M2-R0）：由 Owner 授权提前实现 M2 飞书集成首项，代码实现与本地真实验证已完成（REVIEWING）；同步完成 HRMS 界面汉化与「Frappe HR」→「海滨HR」改名（REVIEWING）。详见 `docs/milestones/M2_R0_飞书登录实现记录.md`；M2 整体仍 NOT STARTED。
 
 ## 状态更新制度
@@ -606,6 +606,20 @@ M3 仓储库存数字化管理由 Owner 明确授权新开，与 M1（考勤）�
 
 M3-R0：REVIEWING。本轮为仓储库存只读盘点与需求确认，已交付主文档 `docs/milestones/M3_R0_仓储库存只读盘点与需求确认.md`、门禁文档 `docs/milestones/M3_START_GATE.md` 和里程碑台账 `docs/milestones/M3.md`。
 
+M3-R1：REVIEWING。本轮为货位主数据建模与粒度验证，已交付主文档 `docs/milestones/M3_R1_货位主数据建模与粒度验证.md` 与三个脚本（`scripts/M3R1_货位清单.json`、`scripts/M3R1_建立货位主数据.py`、`scripts/M3R1_粒度验证.py`）。
+
+M3-R1 当前结果：
+
+- 按方案 A1 建立货位树：`16号楼产品库 → 03区 → 五个层 → 203 个货位` + 2 个非货位区域，共 **212 个新节点**；`Warehouse` 总数由 5 增至 217。
+- 层分布校验 **39 / 39 / 39 / 43 / 43 全部通过**；NestedSet（`lft`/`rgt`）完整性校验通过（无缺口、无重复、无非法区间、父子包含 0 违规、兄弟重叠 0）；脚本幂等验证通过（重复执行"新建 0 / 跳过 212"）。
+- 用 `TEST-M3R1-` 虚构数据完成粒度验证：**"按批号查货位"与"货位→全部批号"双向通过**；同一批次散放多货位（B001 同时在两个货位）成立；移库后数量正确。
+- **重要更正**：M3-R0 依据表结构推断"批次在 `Stock Ledger Entry.batch_no`"，**实测该列在 v16 中为空**。批次实际存放在 `Serial and Batch Bundle` / `Serial and Batch Entry`，通过 `SLE.serial_and_batch_bundle` 关联。正确的聚合 SQL 已实测通过，并已同步更正 M3-R0 §2.7、§4 映射表与门禁文档。
+- 其他发现：`Stock Settings` 的批次开关默认关闭（已按 Owner 确认开启）；出库批次选取规则原生即为 **FIFO**（与需求一致）；`Batch.batch_qty` 是累计收货量而非结存；`UOM` 中**没有「件」**，M3-R2 需创建。
+
+M3-R1 创建的虚构 TEST 数据（`TEST-M3R1-` 前缀）：`Item` 1、`Batch` 2、已提交 `Stock Entry` 3、`Stock Ledger Entry` 4、`Serial and Batch Bundle` 4、`Serial and Batch Entry` 4、`Bin` 3。仅影响 `16-03-221`/`222`/`223` 三个货位，无真实产品、批号或数量。
+
+M3-R1 未做：未创建自定义 Frappe App、未创建 DocType、未实现任何业务功能、未创建真实产品数据、未创建「件」计量单位、未修改 Frappe/ERPNext/HRMS 核心源码（除 Owner 已确认的 `Stock Settings` 批次开关外未改其他全局设置）、未执行飞书写入、未启动外部服务与独立前端、未提交 `.env`/密钥/真实数据、未执行 `docker compose down -v`、未删除 volume、未重建 `frontend` site。
+
 本轮已确认 Owner 三项决策：
 
 - 里程碑归属：新开 M3 仓储里程碑。
@@ -617,7 +631,8 @@ M3-R0：REVIEWING。本轮为仓储库存只读盘点与需求确认，已交付
 - ERPNext `Stock` 模块 44 个非子表 DocType 均可用，包括 `Item`、`Batch`、`Warehouse`、`Bin`、`Stock Ledger Entry`、`Stock Entry`、`Purchase Receipt`、`Delivery Note`、`Stock Reconciliation`、`Quality Inspection`、`Inventory Dimension`。
 - 当前 site 无任何库存业务数据：`Item` 0、`Batch` 0、`Bin` 0、`Stock Ledger Entry` 0、`Stock Entry` 0；`Warehouse` 5（ERPNext 默认库位树）、`UOM` 239、`Item Group` 6、`Company` 1。
 - `Batch` 原生具备 `batch_id`、`manufacturing_date`、`expiry_date`、`batch_qty`，可承载批号与效期。
-- 结论：除拍照识别与扫码页外，其余需求应优先复用 ERPNext 原生 `Stock` 模块，不自建 DocType。复核实际表结构后确认："批次 × 货位 → 数量"由 `Stock Ledger Entry` 聚合得出（`tabStock Ledger Entry` 同时含 `warehouse` 与 `batch_no`）；`Bin` 粒度只到"物料 × 货位"（唯一索引 `unique_item_warehouse`，不含 `batch_no`），不可直接当作批次台账。
+- 结论：除拍照识别与扫码页外，其余需求应优先复用 ERPNext 原生 `Stock` 模块，不自建 DocType。`Bin` 粒度只到"物料 × 货位"（唯一索引 `unique_item_warehouse`，不含 `batch_no`），不可直接当作批次台账。**批次 × 货位的正确来源见下方 M3-R1 更正**。
+- **M3-R1 实测更正**：本轮曾依据表结构判断"批次 × 货位 → 数量由 `Stock Ledger Entry` 聚合（SLE 含 `warehouse` + `batch_no`）"。M3-R1 实际写入后实测发现 **`SLE.batch_no` 在 v16 中为空列**；批次数据实际存放在 `Serial and Batch Bundle` / `Serial and Batch Entry`（含 `batch_no`、`warehouse`、`qty`），通过 `SLE.serial_and_batch_bundle` 关联。正确聚合路径已实测通过并写入 M3-R1 主文档第四节，M3-R0 正文相关段落已同步更正。
 - 货位建模候选：`Warehouse` 树 / `Inventory Dimension` / 自定义 DocType 三方案；Owner 已定案走**方案 A（`Warehouse` = 货位）**、**方案 A1（层作为 `Warehouse` 树一级）**，"工作台""退回产品区"建成叶子 `Warehouse`，存放模式为**固定货位 + 随机存放**，试点范围**只做 16 号楼产品库**（203 个货位）。
 - 只读分析确认"层"**不能由货位编码推导**（205–282 奇 = 第一层 / 偶 = 第二层；285 起不单调：316–359 第四层、360–368 又回第三层、369 起第五层），层必须显式录入；层分布 39 / 39 / 39 / 43 / 43。
 - Owner 补充提供两份《自产物料/产品货位卡》实例，已解析字段与版式（含品名、物料代码、生产车间、生产批号、包装规格、件数、复检期/有效期勾选、入库经手人/复核人、入库数量与单位、货位号、待检日期、放行/不放行勾选、出入库流水表），作为 M3-R4 货位卡生成的直接依据。
@@ -652,7 +667,7 @@ M3 后续轮次（仅规划，不自动启动）：
 | 轮次 | 名称 | 优先级 | 状态 |
 | --- | --- | --- | --- |
 | M3-R0 | 仓储库存只读盘点与需求确认 | — | REVIEWING |
-| M3-R1 | 货位与批次主数据建模 | P0 | PLANNED |
+| M3-R1 | 货位与批次主数据建模 | P0 | REVIEWING |
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | PLANNED |
 | M3-R3 | 出库核销、效期预警、盘点导出 | P0 | PLANNED |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | PLANNED |
@@ -682,6 +697,12 @@ M3 全程禁止：不修改 Frappe/ERPNext/HRMS 核心源码；未经 Owner 逐�
 - 首次 push 的本地 HEAD：`0a29ca526a417d7ec666234f9312dd3de47a687b`
 - 首次 push 后本地 `main` 与 `origin/main` 一致。
 - M0-REMOTE 本轮仅完成远端创建、绑定、push 和状态记录；当时 M1 尚未启动。当前 M1-R0 已收口为 COMPLETED。
+
+后续变更（M3-R0 记录）：
+
+- 上述记录描述的是 M0-REMOTE 当时的真实状态，保留不改。
+- 当前工作副本的 `origin` 已变为 `https://github.com/zjl327707743/HBOS-Platform.git`（**PUBLIC** 公开协作仓库）。`HBOS.git`（PRIVATE）现作为内部归档库存在，当前未绑定。
+- 因此**本仓库的提交会进入公开仓库**，`PUBLIC_REPOSITORY_SCOPE.md` 的公开范围声明对每轮提交都有约束力。
 
 本轮未做：
 
