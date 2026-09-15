@@ -44,11 +44,11 @@ M3 由 Owner 明确授权新开，与 M1（考勤）为并列里程碑，不替�
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | REVIEWING |
 | M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | REVIEWING |
-| M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
+| M3-R5 | 货位二维码与手机扫码页 | P1 | REVIEWING |
 | M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |
 
-当前轮次：M3-R4（REVIEWING，已执行，等待 Owner 和 Claude 审查）——待检证与货位卡自动生成。
+当前轮次：M3-R5（REVIEWING，已执行，等待 Owner 和 Claude 审查）——货位二维码与手机扫码页。
 
 M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 → 五个层 → 203 个货位` + 2 个非货位区域，共 212 节点），层分布 39 / 39 / 39 / 43 / 43 校验通过，NestedSet 结构完整，脚本幂等；用 `TEST-M3R1-` 虚构数据完成粒度验证，"按批号查货位"与"货位→全部批号"双向通过。**并更正了 M3-R0 的一处关键结论**：批次不在 `Stock Ledger Entry.batch_no`（v16 中该列为空），实际在 `Serial and Batch Bundle` / `Serial and Batch Entry`。详见 `docs/milestones/M3_R1_货位主数据建模与粒度验证.md`。
 
@@ -61,6 +61,7 @@ M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 �
 - `docs/milestones/M3_R2_入库登记与批次货位台账方案与执行记录.md`
 - `docs/milestones/M3_R3_出库核销效期预警与盘点导出.md`
 - `docs/milestones/M3_R4_待检证与货位卡自动生成.md`
+- `docs/milestones/M3_R5_货位二维码与手机扫码页.md`
 
 ## M1 历史轮次（已完成）
 
@@ -142,7 +143,8 @@ M3-R1  = REVIEWING
 M3-R2  = REVIEWING（已执行）
 M3-R3  = REVIEWING（已执行）
 M3-R4  = REVIEWING（已执行）
-M3-R5+ = PLANNED
+M3-R5  = REVIEWING（已执行）
+M3-R6+ = PLANNED
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
@@ -160,7 +162,9 @@ M3-R3 已执行完毕（REVIEWING）：新增出库放行门禁（`before_submit
 
 M3-R4 已执行完毕（REVIEWING）：新增三个 Print Format（`HBOS 待检证` 75×110mm 小标签、`HBOS 自产货位卡`、`HBOS 外购货位卡`，后两者 A4），挂在 `Batch` 上按批次数据自动生成；新增打印辅助方法与 `Batch.hbos_source_type` 字段；定案「多货位在货位号单元格内逐行列出」；件数按容器类型汇总；流水表按单据净减少判断（库内移库不计入发出）。三个模板渲染与 PDF 生成均验证通过。
 
-M3-R5（货位二维码与手机扫码页）为 PLANNED / 待 Owner 授权。
+M3-R5 已执行完毕（REVIEWING）：货位二维码内容为**货位查询链接**（不含静态物料信息，扫码实时查库）；新增打印格式 `HBOS 货位二维码`（60×40mm 标签，内联 SVG）；扫码页 `/hbos_bin` 为 Frappe 原生 www 页面，传货位短码显示该货位明细、传库位/层显示下级汇总。Owner 确认**展示全部字段、不脱敏**。实测 6 个场景（匿名跳转/货位/库位汇总/层/不存在/无参数）均正确。修复 www 路由含连字符导致 500、以及 hooks.py 中 `jinja` 重复定义两处问题。
+
+M3-R6（入库拍照识别）为 PLANNED / 待 Owner 授权。
 
 ## 飞书登录提前实现记录（M2-R0）
 

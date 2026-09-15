@@ -24,13 +24,13 @@
 
 每轮任务必须以用户当前指令和 `docs/CURRENT_MILESTONE.md` 为准。
 
-当前并行里程碑：M1-FIX（考勤功能补漏，IN_PROGRESS）与 M3（仓储库存数字化管理，IN_PROGRESS，M3-R0 / R1 / R2 / R3 / R4 已执行）。当前阶段门禁文档为 `docs/milestones/M1_START_GATE.md` 与 `docs/milestones/M3_START_GATE.md`。
+当前并行里程碑：M1-FIX（考勤功能补漏，IN_PROGRESS）与 M3（仓储库存数字化管理，IN_PROGRESS，M3-R0 / R1 / R2 / R3 / R4 / R5 已执行）。当前阶段门禁文档为 `docs/milestones/M1_START_GATE.md` 与 `docs/milestones/M3_START_GATE.md`。
 
 禁止事项：
 
 - 不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site
 - 未经用户明确授权，不创建新的自定义 Frappe App（`hb_core_app`、`hb_feishu_app` 仍未创建；`hb_attendance_app` 不得扩大为大而全 HR App）。`hb_inventory_app` 已由 Owner 授权并在 M3-R2 创建安装（仓储库存扩展），`docker-compose.yml` 已按授权为其补挂载；不得擅自扩大其范围
-- 未经用户逐轮授权，不启动 M3-R5 及之后轮次，不创建 M3 相关 DocType，不写 M3 业务代码，不创建库存业务数据
+- 未经用户逐轮授权，不启动 M3-R6 及之后轮次，不创建 M3 相关 DocType，不写 M3 业务代码，不创建库存业务数据
 - 不写 Docker Compose（`hb_inventory_app` 的挂载已由 Owner 授权补入，不得擅自再改）
 - 不做前端驾驶舱
 - 不接飞书真实写入

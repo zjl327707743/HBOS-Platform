@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成。M3 仓储库存数字化管理已由 Owner 授权新开（IN_PROGRESS，与 M1-FIX 并列）
-- 当前轮次：M1-FIX-B5（REVIEWING）；M3-R0 / M3-R1 / M3-R2 / M3-R3 / M3-R4（REVIEWING，其中 M3-R2、M3-R3、M3-R4 已执行完毕）
+- 当前轮次：M1-FIX-B5（REVIEWING）；M3-R0 至 M3-R5（REVIEWING，其中 M3-R2 至 M3-R5 已执行完毕）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 已执行完毕：已新建并安装 `hb_inventory_app`、落地主数据与 2 个报表、货位树改挂到 `3904`。M3-R3 已执行完毕：新增出库放行门禁、货位变更复验、`效期预警` 与 `库级盘点三对账` 报表、补建 `仓储库存工作台` 入口。M3-R4 已执行完毕：三个 Print Format（待检证 + 自产/外购货位卡）按批次自动生成，渲染与 PDF 均通过。均 REVIEWING。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。M3-R0 已完成仓储库存只读盘点、飞书参考文档只读拉取与需求确认，当前 REVIEWING；M3-R1 已建立货位主数据树（212 节点）并完成粒度验证，当前 REVIEWING；M3-R2 已执行完毕：已新建并安装 `hb_inventory_app`、落地主数据与 2 个报表、货位树改挂到 `3904`。M3-R3 已执行完毕：新增出库放行门禁、货位变更复验、`效期预警` 与 `库级盘点三对账` 报表、补建 `仓储库存工作台` 入口。M3-R4 已执行完毕：三个 Print Format（待检证 + 自产/外购货位卡）按批次自动生成。M3-R5 已执行完毕：货位二维码标签 + 扫码页（全部字段、不脱敏）。均 REVIEWING。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS-Platform.git`，GitHub visibility = `PUBLIC`（公开协作仓库，范围见 `PUBLIC_REPOSITORY_SCOPE.md`）。另有内部私有归档库 `https://github.com/zjl327707743/HBOS.git`（`PRIVATE`，不接受普通成员开发），当前工作副本**未绑定**该私有库。历史记录中的 `HBOS.git` 为 M0-REMOTE 时期的绑定，已被当前的 `HBOS-Platform.git` 取代。
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R5（货位二维码与手机扫码页）为 PLANNED / 待 Owner 授权。M2 未启动。
+- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M3-R6（入库拍照识别）为 PLANNED / 待 Owner 授权。M2 未启动。
 - 飞书登录（M2-R0）：由 Owner 授权提前实现 M2 飞书集成首项，代码实现与本地真实验证已完成（REVIEWING）；同步完成 HRMS 界面汉化与「Frappe HR」→「海滨HR」改名（REVIEWING）。详见 `docs/milestones/M2_R0_飞书登录实现记录.md`；M2 整体仍 NOT STARTED。
 
 ## 状态更新制度
@@ -722,7 +722,7 @@ M3 后续轮次（仅规划，不自动启动）：
 | M3-R2 | 入库登记与"产品—批次—货位"台账 | P0 | REVIEWING |
 | M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | REVIEWING |
-| M3-R5 | 货位二维码与手机扫码页 | P1 | PLANNED |
+| M3-R5 | 货位二维码与手机扫码页 | P1 | REVIEWING |
 | M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |
 
@@ -788,6 +788,35 @@ M3-R3 未做：待检证与货位卡 `Print Format`（M3-R4）、货位二维码
 实现中发现并修复 5 处问题：① `hbos_production_unit` 误从 `Batch` 读 `hbos_workshop`（该字段在 `Item` 上）；② 件数未按容器类型汇总；③ 单位显示 `Kg` 与纸质表 `kg` 不一致；④ 流水表把库内移库误记为「发出」；⑤ **Jinja 方法注册机制会连带注册 `import` 进来的函数**，可能覆盖 Frappe 同名全局（如 `flt` / `getdate`），故 `print_utils.py` 只 `import frappe`、改用全限定调用。
 
 M3-R4 未做：批量打印（一次打印多个批次）、打印后流程联动、二维码字段（留 M3-R5）、货位扫码页（M3-R5）、入库拍照识别（M3-R6）、未创建真实产品主数据、未修改核心源码、未接飞书写入、未执行 `docker compose down -v`、未删除 volume、未重建 site、未提交真实模板文件。
+
+## M3-R5 状态
+
+状态：REVIEWING（已执行，等待 Owner 和 Claude 审查）。
+
+主文档：`docs/milestones/M3_R5_货位二维码与手机扫码页.md`。
+
+本轮交付**货位二维码与手机扫码查询页**：
+
+- 二维码内容 = **货位查询链接**`{站点}/hbos_bin?bin={货位短码}`，**不含静态物料信息**，扫码后服务端实时查库（Owner 在 M3-R0 已定）。货位短码去掉 ` - HB` 后缀；含中文的短码入二维码前做 URL 编码。
+- 扫码页 `/hbos_bin` 为 **Frappe 原生 www 页面**（服务端渲染，非独立前端工程）：
+  - 传货位短码 → 展示该货位全部在库明细；
+  - 传库位 / 层（分组节点）→ 展开其下全部叶子货位汇总，页首标注"库位汇总（含下级货位）"；
+  - 未登录 → 跳登录页并**回跳本页**；货位不存在 / 缺参数 → 友好提示。
+- **展示全部字段、不脱敏（Owner 在 M3-R5 确认）**：批号 / 物料代码与名称 / 数量单位 / 包装规格 / 件数 / 放行状态（含合格证号与放行日期）/ 来源类型 / 生产日期 / 有效期（含效期类型）/ 生产车间 / 生产单位 / 供货单位 / 原厂批号；页首汇总批次数、物料数、合计数量。
+- 新增 Print Format **`HBOS 货位二维码`**（60mm × 40mm 标签纸，挂 `Warehouse`），含短码大字、库位名、内联 SVG 二维码、提示语与完整链接。二维码由 Frappe 自带 `pyqrcode` 生成，**未新增第三方包**。
+- 货位短码解析做三级匹配（完整名 → 短码精确 → **短码前缀**），手输 `3904` 可命中 `3904 六车间中间库`。
+- 与 M3-R4 共用 `print_utils`，保证**扫码页与货位卡的包装规格、件数写法一致**。
+
+**登录边界（需 Owner 知悉）**：扫码页要求登录。"不脱敏"指对已登录员工全部开放；**免登录扫码本轮未做**，如需请另行授权并界定可见范围。
+
+验证（HTTP 实测）：匿名访问 301 跳登录且回跳参数正确编码；`?bin=16-03-221` 显示货位明细；`?bin=3904` 前缀命中并显示库位汇总；`?bin=第一层` 分组展开；不存在与无参数均为友好提示。二维码渲染与 PDF 通过。**M3-R4 三个模板回归通过**。
+
+实现中发现并修复 6 处问题，两处值得注意：
+
+1. **www 路由名含连字符会导致整页 500**——`www/hbos-bin.py` 无法作为 Python 模块 import，`get_context` 不执行，模板缺变量报错。改为下划线路由 `/hbos_bin`。
+2. **`hooks.py` 中 `jinja` 被重复定义**（M3-R4 遗留缺陷）——Python 后定义覆盖前定义，当时 `print_utils` 仍注册成功故未暴露；本轮新增 `qr_utils` 时才显现，已合并为一个定义。
+
+M3-R5 未做：免登录扫码、二维码批量打印（当前在 `Warehouse` 表单逐个打印）、货位平面图导航、扫码页库存变动历史、入库拍照识别（M3-R6）、未修改核心源码、未接飞书写入、未执行 `docker compose down -v`、未删除 volume、未重建 site。
 
 ## M0-REMOTE 状态
 

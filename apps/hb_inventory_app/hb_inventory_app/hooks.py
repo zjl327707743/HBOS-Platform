@@ -19,7 +19,12 @@ doc_events = {
     },
 }
 
-# 打印辅助方法：整个模块的函数注册为 Jinja 全局方法，供 Print Format 直接调用。
+# Print Format 用的 Jinja 全局方法（打印辅助 + 货位二维码）。
+# 注册机制会收集所列模块内的所有函数，故这些模块只 `import frappe`，
+# 第三方依赖一律在函数内按需 import。
 jinja = {
-    "methods": ["hb_inventory_app.hbos_inventory.print_utils"],
+    "methods": [
+        "hb_inventory_app.hbos_inventory.print_utils",
+        "hb_inventory_app.hbos_inventory.qr_utils",
+    ]
 }

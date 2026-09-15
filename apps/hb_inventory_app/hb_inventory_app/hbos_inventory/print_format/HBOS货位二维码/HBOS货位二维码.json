@@ -1,0 +1,22 @@
+{
+ "align_labels_right": 0,
+ "creation": "2026-09-14 00:00:00.000000",
+ "custom_format": 1,
+ "disabled": 0,
+ "doc_type": "Warehouse",
+ "docstatus": 0,
+ "doctype": "Print Format",
+ "font_size": 10,
+ "html": "<style>\n@page { size: 60mm 40mm; margin: 3mm; }\n.hbos-qr { font-family: SimSun, \"宋体\", serif; text-align: center; color: #000; }\n.hbos-qr .code { font-size: 13pt; font-weight: bold; letter-spacing: 0.5px; }\n.hbos-qr .name { font-size: 9pt; margin-top: 1px; }\n.hbos-qr .img { margin: 1mm 0; }\n.hbos-qr .img svg { width: 26mm; height: 26mm; }\n.hbos-qr .hint { font-size: 8pt; color: #444; }\n.hbos-qr .url { font-size: 6.5pt; color: #666; word-break: break-all; }\n</style>\n<div class=\"hbos-qr\">\n  <div class=\"code\">{{ hbos_bin_code(doc.name) }}</div>\n  {% if doc.warehouse_name and hbos_bin_code(doc.name) != doc.warehouse_name %}\n  <div class=\"name\">{{ doc.warehouse_name }}</div>\n  {% endif %}\n  <div class=\"img\">{{ hbos_bin_qr_svg(doc.name) }}</div>\n  <div class=\"hint\">扫码查看该货位在库明细</div>\n  <div class=\"url\">{{ hbos_bin_url(doc.name) }}</div>\n</div>",
+ "idx": 0,
+ "line_breaks": 0,
+ "modified": "2026-09-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Inventory",
+ "name": "HBOS 货位二维码",
+ "owner": "Administrator",
+ "print_format_builder": 0,
+ "print_format_type": "Jinja",
+ "show_section_headings": 0,
+ "standard": "Yes"
+}

@@ -31,6 +31,7 @@ SIDEBAR_ITEMS = [
 	{"label": "货位明细表", "link_type": "Report", "link_to": "货位明细表", "type": "Link", "icon": "list"},
 	{"label": "效期预警", "link_type": "Report", "link_to": "效期预警", "type": "Link", "icon": "milestone"},
 	{"label": "库级盘点三对账", "link_type": "Report", "link_to": "库级盘点三对账", "type": "Link", "icon": "clipboard-list"},
+	{"label": "货位二维码（在货位上打印）", "link_type": "DocType", "link_to": "Warehouse", "type": "Link", "icon": "qr-code"},
 ]
 
 WORKSPACE_CONTENT = """[
@@ -45,7 +46,9 @@ WORKSPACE_CONTENT = """[
  {"id":"r1","type":"paragraph","data":{"text":"按批号查货位、货位明细表——批次与货位的双向查询。","col":12}},
  {"id":"sp2","type":"spacer","data":{"col":12}},
  {"id":"cd_m","type":"card","data":{"card_name":"效期与盘点","col":12}},
- {"id":"r2","type":"paragraph","data":{"text":"效期预警按产品质量标准的到期日提前预警；库级盘点三对账用于导出后现场盘点。","col":12}}
+ {"id":"r2","type":"paragraph","data":{"text":"效期预警按产品质量标准的到期日提前预警；库级盘点三对账用于导出后现场盘点。","col":12}},
+ {"id":"cd_p","type":"card","data":{"card_name":"打印与二维码","col":12}},
+ {"id":"r3","type":"paragraph","data":{"text":"批次上可打印待检证与货位卡（自产 / 外购两种版式）；货位上可打印货位二维码，贴于货架，手机扫码即可查看该货位在库明细（需登录）。","col":12}}
 ]"""
 
 WORKSPACE_LINKS = [

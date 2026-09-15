@@ -1,0 +1,79 @@
+<!-- 货位扫码页：手机扫码后打开，展示该货位全部库存明细（字段不脱敏） -->
+<style>
+  .hbos-bin { max-width: 900px; margin: 0 auto; padding: 12px; }
+  .hbos-bin h1 { font-size: 20px; margin: 8px 0 4px; }
+  .hbos-bin .summary { color: #555; font-size: 13px; margin-bottom: 12px; }
+  .hbos-bin .card {
+    border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px;
+    margin-bottom: 10px; background: #fff;
+  }
+  .hbos-bin .card h2 { font-size: 15px; margin: 0 0 6px; }
+  .hbos-bin .batch-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .hbos-bin .batch-no { font-family: monospace; font-size: 14px; font-weight: 600; }
+  .hbos-bin .qty { font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .hbos-bin table.kv { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  .hbos-bin table.kv td { border-top: 1px solid #eee; padding: 3px 6px 3px 0; vertical-align: top; }
+  .hbos-bin table.kv td.k { color: #777; width: 30%; white-space: nowrap; }
+  .hbos-bin .tag {
+    display: inline-block; padding: 1px 7px; border-radius: 10px;
+    font-size: 12px; border: 1px solid #bbb; color: #333;
+  }
+  .hbos-bin .tag.ok { border-color: #2e7d32; color: #2e7d32; }
+  .hbos-bin .tag.warn { border-color: #ed6c02; color: #ed6c02; }
+  .hbos-bin .tag.bad { border-color: #c62828; color: #c62828; }
+  .hbos-bin .alert { padding: 10px 12px; border-radius: 6px; background: #fff4e5; border: 1px solid #ed6c02; color: #663c00; }
+  @media (max-width: 480px) {
+    .hbos-bin table.kv td.k { width: 38%; }
+  }
+</style>
+
+<div class="hbos-bin">
+{% if error %}
+  <div class="alert">{{ error }}</div>
+{% else %}
+  <h1>货位 {{ warehouse_label or bin_code }}</h1>
+  <div class="summary">
+    {% if is_group %}库位汇总（含下级货位）{% else %}货位明细{% endif %}
+    &nbsp;·&nbsp; 批次数 {{ batch_count }} &nbsp;·&nbsp; 物料数 {{ item_count }}
+    &nbsp;·&nbsp; 合计 {{ "%.3f"|format(total_qty) }} kg
+  </div>
+
+  {% if not rows %}
+    <div class="card">该货位当前没有在库物料。</div>
+  {% endif %}
+
+  {% for r in rows %}
+  <div class="card">
+    <div class="batch-head">
+      <div>
+        <div class="batch-no">{{ r.batch_no or "（无批号）" }}</div>
+        <div>{{ r.item_name or "" }} <span style="color:#777">（{{ r.item_code or "" }}）</span></div>
+      </div>
+      <div class="qty">{{ "%.3f"|format(r.qty) }} {{ r.uom }}</div>
+    </div>
+    <table class="kv">
+      {% if is_group %}<tr><td class="k">货位</td><td>{{ r.warehouse }}</td></tr>{% endif %}
+      <tr><td class="k">包装规格</td><td>{{ r.packaging_spec }}</td></tr>
+      <tr><td class="k">件数</td><td>{{ r.packaging_count }}</td></tr>
+      <tr>
+        <td class="k">放行状态</td>
+        <td>
+          <span class="tag {% if r.release_status == '已放行' %}ok{% elif r.release_status == '不放行' %}bad{% else %}warn{% endif %}">{{ r.release_status }}</span>
+          {% if r.certificate_no %} 合格证 {{ r.certificate_no }}{% endif %}
+          {% if r.release_date %} · {{ r.release_date }}{% endif %}
+        </td>
+      </tr>
+      <tr><td class="k">来源</td><td>{{ r.source_type }}</td></tr>
+      {% if r.manufacturing_date %}<tr><td class="k">生产日期</td><td>{{ r.manufacturing_date }}</td></tr>{% endif %}
+      {% if r.expiry_date %}<tr><td class="k">有效期至</td><td>{{ r.expiry_date }}{% if r.shelf_life_type %} （{{ r.shelf_life_type }}）{% endif %}</td></tr>{% endif %}
+      {% if r.workshop %}<tr><td class="k">生产车间</td><td>{{ r.workshop }}</td></tr>{% endif %}
+      {% if r.manufacturer %}<tr><td class="k">生产单位</td><td>{{ r.manufacturer }}</td></tr>{% endif %}
+      {% if r.supplier %}<tr><td class="k">供货单位</td><td>{{ r.supplier }}</td></tr>{% endif %}
+      {% if r.supplier_batch_no %}<tr><td class="k">原厂批号</td><td>{{ r.supplier_batch_no }}</td></tr>{% endif %}
+    </table>
+  </div>
+  {% endfor %}
+
+  <div class="summary">扫码时间：{{ frappe.utils.now() }}</div>
+{% endif %}
+</div>
