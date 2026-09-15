@@ -30,7 +30,7 @@
 
 每轮任务必须按当前里程碑工作，不得擅自扩大范围或提前进入下一里程碑。
 
-当前并行里程碑为 M1-FIX（考勤功能补漏，IN_PROGRESS）与 M3（仓储库存数字化管理，IN_PROGRESS，M3-R0 至 R5 已执行、M3-R6 方案已就绪）。权威进度以 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 为准。
+当前并行里程碑为 M1-FIX（考勤功能补漏，IN_PROGRESS）与 M3（仓储库存数字化管理，IN_PROGRESS，M3-R0 至 R5 已执行、M3-R6 门禁已确认待授权）。权威进度以 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 为准。
 
 不得执行：
 
