@@ -30,13 +30,13 @@
 
 每轮任务必须按当前里程碑工作，不得擅自扩大范围或提前进入下一里程碑。
 
-当前并行里程碑为 M1-FIX（考勤功能补漏，IN_PROGRESS）与 M3（仓储库存数字化管理，IN_PROGRESS，M3-R0 至 R5 已执行、M3-R6 门禁已确认待授权）。权威进度以 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 为准。
+当前并行里程碑为 M1-FIX（考勤功能补漏，IN_PROGRESS）与 M3（仓储库存数字化管理，IN_PROGRESS，M3-R0 至 R5 已执行、M3-R6 已开工）。权威进度以 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 为准。
 
 不得执行：
 
 - 执行 `docker compose down -v`、删除 Docker volume 或重建 `frontend` site
 - 未经用户明确授权创建任何新的 Frappe App（`hb_core_app`、`hb_feishu_app` 仍未创建；`hb_attendance_app` 不得扩大为大而全 HR App）。`hb_inventory_app` 已由 Owner 授权并在 M3-R2 创建安装（仓储库存扩展），`docker-compose.yml` 已按授权为其补挂载；不得擅自扩大其范围
-- 未经用户逐轮授权启动 M3-R6 执行及之后轮次、创建 M3 相关 DocType、编写 M3 业务代码或创建库存业务数据
+- 未经用户逐轮授权启动 M3-R7 及之后轮次、创建 M3 相关 DocType、编写 M3 业务代码或创建库存业务数据；**启动 M3-R6 常驻服务须单独授权**
 - 编写 `docker-compose.yml`（`hb_inventory_app` 的挂载已由 Owner 授权补入，不得擅自再改）
 - 修改 Frappe/ERPNext/HRMS 核心源码
 - 接入飞书真实写入（飞书只读拉取同样需授权，且须使用已确认可用的 skill）
