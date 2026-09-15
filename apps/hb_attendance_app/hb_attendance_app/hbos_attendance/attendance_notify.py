@@ -8,6 +8,8 @@ import os  # noqa: F401  (Task 5 使用；本任务保持模块可独立导入)
 TITLE_PREFIX = "【考勤到岗】"
 EMPTY_HINT = "（今日暂无应出勤人员）"
 NO_CARD_HINT = "（晚班 20:00 / 夜班 0:00 上班，未到班次时间不计入未打卡）"
+MAX_NAMES_PER_DEPT = 6      # 单个部门最多显示的人名数，超出收成「等 N 人」
+MAX_EXCEPTION_DEPTS = 10    # 卡片最多列出的异常部门数，超出收成「另有 N 个部门」
 
 _DEPT_COL = 20          # 部门名显示宽度（西文按 1，中文按 2 计算）
 # 每个数字列比表头自身宽 1 格：否则中文表头正好填满，"应出勤已到岗未打卡迟到" 会连成一片
@@ -77,6 +79,42 @@ def feishu_result(status_code, body_text):
 def should_send_now(now_bj):
     """仅北京时间 09:00-09:59 触发发送（cron 时刻不可信, 以守卫为准）。"""
     return now_bj.hour == 9
+
+
+def collect_exceptions(rows):
+    """挑出未打卡 / 迟到的人，按部门聚合。
+
+    归桶不重写规则：对每行调一次 board_stats.summarize_rows([r])，直接取它的
+    late / noCard 计数作为该行的归桶判定 —— 与统计口径字面同源，board_stats.py 不改。
+    返回只含至少一项异常的部门，部门顺序与 dept_summary 一致（未打卡+迟到降序）。
+    """
+    from hb_attendance_app.hbos_attendance import board_stats as bs
+
+    buckets = {}
+    for r in rows:
+        # anomaly_hidden 的行不进任何桶（与看板、统计一致，如设备动力部）
+        if r.get("anomaly_hidden"):
+            continue
+        # 单行统计即该行的归桶判定。expected 为假的行（豁免/休息/请假/班次未定/非班次）
+        # 一律不算异常——注意这里不能改用 bs.is_late(r) 单独判迟到，
+        # 那会把「非应出勤行 + 迟到标签」也算进来，而 summarize_rows 不计，两处数字就会漂移。
+        s = bs.summarize_rows([r])
+        if not s["expected"] or not (s["late"] or s["noCard"]):
+            continue
+        dept = r.get("dept") or "未分组"
+        b = buckets.setdefault(dept, {"dept": dept, "noCard": [], "late": []})
+        person = {"name": r.get("name") or "", "num": r.get("num") or ""}
+        if s["late"]:
+            b["late"].append(person)
+        if s["noCard"]:
+            b["noCard"].append(person)
+
+    order = {s["dept"]: i for i, s in enumerate(bs.dept_summary(rows))}
+    out = sorted(buckets.values(), key=lambda b: order.get(b["dept"], len(order)))
+    for b in out:
+        b["noCard"].sort(key=lambda p: p["num"])
+        b["late"].sort(key=lambda p: p["num"])
+    return out
 
 
 # ---- 以下依赖 frappe / requests ----

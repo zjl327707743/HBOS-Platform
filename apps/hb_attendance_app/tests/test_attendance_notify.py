@@ -5,15 +5,21 @@ import unittest
 from datetime import datetime
 from unittest import mock
 
-from hb_attendance_app.hbos_attendance import attendance_notify
+from hb_attendance_app.hbos_attendance import attendance_notify, board_stats
 from hb_attendance_app.hbos_attendance.attendance_notify import (
-    render_report, build_feishu_payload, feishu_result,
+    render_report, build_feishu_payload, feishu_result, collect_exceptions,
 )
 
 
 def d(dept, expected, present, no_card, late=0):
     return {"dept": dept, "total": expected, "expected": expected, "present": present,
             "noCard": no_card, "late": late, "absent": 0, "leave": 0}
+
+
+def row(dept, num, name, state, kind="shift", tags=None, anomaly_hidden=False):
+    """明细行（get_data()['rows'] 的元素）测试构造器。"""
+    return {"dept": dept, "num": num, "name": name, "state": state, "kind": kind,
+            "tags": tags or [], "anomaly_hidden": anomaly_hidden}
 
 
 class RenderReportTest(unittest.TestCase):
@@ -242,3 +248,103 @@ class SendDailyReportDispatchTest(unittest.TestCase):
         self.assertFalse(result["sent"])
         self.assertIn("boom-from-get-data", result["reason"])
         self.assertTrue(self.log_calls)                   # frappe.log_error 被调用
+
+
+class CollectExceptionsTest(unittest.TestCase):
+    """异常名录的取数与 board_stats 同一口径（不重写判定规则）。"""
+
+    def test_no_card_and_late_split_by_type(self):
+        rows = [
+            row("六车间", "0002", "李四", "absent_expected"),
+            row("六车间", "0001", "张三", "absent_expected"),
+            row("六车间", "0003", "王五", "late"),
+        ]
+        out = collect_exceptions(rows)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["dept"], "六车间")
+        self.assertEqual([p["name"] for p in out[0]["noCard"]], ["张三", "李四"])  # 按工号升序
+        self.assertEqual([p["name"] for p in out[0]["late"]], ["王五"])
+
+    def test_skips_non_alert_states(self):
+        rows = [row("A", "1", "甲", "present"), row("A", "2", "乙", "rest"),
+                row("A", "3", "丙", "leave"), row("A", "4", "丁", "exempt"),
+                row("A", "5", "戊", "unknown"), row("A", "6", "己", "before_start"),
+                row("A", "7", "庚", "out_only"), row("A", "8", "辛", "fact_none")]
+        self.assertEqual(collect_exceptions(rows), [])
+
+    def test_skips_anomaly_hidden_and_non_shift(self):
+        rows = [row("A", "1", "甲", "absent_expected", anomaly_hidden=True),
+                row("A", "2", "乙", "absent_expected", kind="holiday")]
+        self.assertEqual(collect_exceptions(rows), [])
+
+    def test_late_via_tag_is_caught(self):
+        # 回顾模式：HRMS 打「迟到」标签而 state 非 late
+        rows = [row("A", "1", "甲", "present", tags=["迟到"])]
+        out = collect_exceptions(rows)
+        self.assertEqual([p["name"] for p in out[0]["late"]], ["甲"])
+
+    def test_late_tag_on_non_expected_row_is_ignored(self):
+        # 关键回归：非应出勤行（休假/休息/豁免/无排班/非班次）即使带「迟到」标签也不算异常——
+        # summarize_rows 不计它，卡片若计入就会与看板数字漂移。
+        # 注：fact_none 不属于「非应出勤」——board_stats 对 kind="shift" 的 fact_none 仍计入
+        # expected，其「迟到」标签也计入 late（见 test_matches_summarize_rows_over_all_states），
+        # 故此处只列真正的非应出勤行。
+        rows = [row("A", "1", "甲", "leave", tags=["迟到"]),
+                row("A", "2", "乙", "rest", tags=["迟到"]),
+                row("A", "3", "丙", "exempt", tags=["迟到"]),
+                row("A", "4", "丁", "unknown", tags=["迟到"]),
+                row("A", "6", "己", "present", tags=["迟到"], kind="holiday")]
+        self.assertEqual(collect_exceptions(rows), [])
+
+    def test_matches_summarize_rows_over_all_states(self):
+        # 逐 state × kind × 迟到标签 全枚举，断言卡片名单与统计口径逐项一致
+        states = ["present", "late", "fact_present", "present_offwindow", "out_day",
+                  "out_offwindow", "out_only", "fact_none", "before_start",
+                  "absent_expected", "no_pair", "pending", "absent_day",
+                  "leave", "rest", "exempt", "unknown", "unexpected_state"]
+        for st in states:
+            for kind in ("shift", "holiday"):
+                for tags in ([], ["迟到"]):
+                    r = row("D", "1", "甲", st, kind=kind, tags=tags)
+                    s = board_stats.summarize_rows([r])
+                    out = collect_exceptions([r])
+                    got_nc = bool(out and out[0]["noCard"])
+                    got_lt = bool(out and out[0]["late"])
+                    self.assertEqual(got_nc, bool(s["noCard"]), "%s/%s/%s" % (st, kind, tags))
+                    self.assertEqual(got_lt, bool(s["late"]), "%s/%s/%s" % (st, kind, tags))
+                    if not s["expected"]:
+                        self.assertEqual(out, [], "%s/%s" % (st, kind))
+
+    def test_anomaly_hidden_never_listed(self):
+        rows = [row("A", "1", "甲", "absent_expected", anomaly_hidden=True),
+                row("A", "2", "乙", "late", anomaly_hidden=True)]
+        self.assertEqual(collect_exceptions(rows), [])
+
+    def test_counts_match_summarize_rows(self):
+        rows = [row("六车间", "1", "甲", "absent_expected"),
+                row("六车间", "2", "乙", "no_pair"),
+                row("六车间", "3", "丙", "late"),
+                row("仓储部", "4", "丁", "pending"),
+                row("仓储部", "5", "戊", "present")]
+        out = {e["dept"]: e for e in collect_exceptions(rows)}
+        for dept in ("六车间", "仓储部"):
+            s = board_stats.summarize_rows([r for r in rows if r["dept"] == dept])
+            self.assertEqual(len(out[dept]["noCard"]), s["noCard"], dept)
+            self.assertEqual(len(out[dept]["late"]), s["late"], dept)
+
+    def test_dept_order_matches_dept_summary(self):
+        rows = [row("A", "1", "甲", "absent_expected"),
+                row("B", "2", "乙", "absent_expected"),
+                row("B", "3", "丙", "absent_expected")]
+        out = [e["dept"] for e in collect_exceptions(rows)]
+        ordered = [d_["dept"] for d_ in board_stats.dept_summary(rows) if d_["dept"] in out]
+        self.assertEqual(out, ordered)
+        self.assertEqual(out, ["B", "A"])          # 异常多的部门在前
+
+    def test_depts_without_exception_omitted(self):
+        rows = [row("正常部", "1", "甲", "present"),
+                row("异常部", "2", "乙", "absent_expected")]
+        self.assertEqual([e["dept"] for e in collect_exceptions(rows)], ["异常部"])
+
+    def test_empty_rows(self):
+        self.assertEqual(collect_exceptions([]), [])
