@@ -117,6 +117,106 @@ def collect_exceptions(rows):
     return out
 
 
+CARD_TITLE_PREFIX = "考勤到岗 · "
+
+
+def _md(content):
+    """卡片文本元素（lark_md 支持 **粗体** 与换行）。"""
+    return {"tag": "div", "text": {"tag": "lark_md", "content": content}}
+
+
+def _fmt_names(people):
+    """人名串；超过 MAX_NAMES_PER_DEPT 人时收成「等 N 人」，N 必须显式写出。"""
+    names = [p["name"] for p in people]
+    if len(names) > MAX_NAMES_PER_DEPT:
+        return " · ".join(names[:MAX_NAMES_PER_DEPT]) + " 等 %d 人" % (
+            len(names) - MAX_NAMES_PER_DEPT)
+    return " · ".join(names)
+
+
+def _counts_text(exc):
+    """部门行的计数：只写非零项，不出现「迟到 0」。"""
+    parts = []
+    if exc["noCard"]:
+        parts.append("未打卡 %d" % len(exc["noCard"]))
+    if exc["late"]:
+        parts.append("迟到 %d" % len(exc["late"]))
+    return "　".join(parts)
+
+
+def _dept_block(exc):
+    """一个异常部门：标题行 + 人名行。两类都有时给人名加标签，只有一类时省略标签。"""
+    lines = ["**%s**　%s" % (exc["dept"], _counts_text(exc))]
+    no_card, late = exc["noCard"], exc["late"]
+    if no_card and late:
+        lines.append("未打卡：%s" % _fmt_names(no_card))
+        lines.append("迟到：%s" % _fmt_names(late))
+    elif no_card:
+        lines.append(_fmt_names(no_card))
+    elif late:
+        lines.append(_fmt_names(late))
+    return "\n".join(lines)
+
+
+def _factory_line(stats):
+    """全厂汇总：应出勤与已到岗恒显示，未打卡 / 迟到为 0 时省略。"""
+    parts = ["应出勤 %d" % stats.get("expected", 0),
+             "已到岗 %d" % stats.get("present", 0)]
+    if stats.get("noCard"):
+        parts.append("未打卡 %d" % stats["noCard"])
+    if stats.get("late"):
+        parts.append("迟到 %d" % stats["late"])
+    return "**全厂**　" + " · ".join(parts)
+
+
+def _needs_note(stats):
+    """有「未到上班时间 / 仅下班卡 / 班次未定」的人时，才需要附口径说明。"""
+    return bool(stats.get("notStarted") or stats.get("outOnly") or stats.get("unknownTime"))
+
+
+def render_card(date_str, hhmm, stats, dept_stats, exceptions):
+    """渲染飞书卡片 JSON（纯函数，不涉及网络，不含 msg_type）。
+
+    有异常 → 橙色标题；无异常 → 绿色标题。只列异常部门，正常部门收成一行。
+    """
+    expected_depts = [x for x in dept_stats if (x.get("expected") or 0) > 0]
+    has_alert = bool(exceptions)
+    elements = []
+
+    if not expected_depts:
+        elements.append(_md(EMPTY_HINT))
+    else:
+        elements.append(_md(_factory_line(stats)))
+        if has_alert:
+            elements.append({"tag": "hr"})
+            elements.append(_md("⚠ 需处理（%d 个部门）" % len(exceptions)))
+            shown = exceptions[:MAX_EXCEPTION_DEPTS]
+            for exc in shown:
+                elements.append(_md(_dept_block(exc)))
+            omitted = len(exceptions) - len(shown)
+            if omitted > 0:
+                elements.append(_md("另有 %d 个部门存在异常（详见部门看板）" % omitted))
+            normal = len(expected_depts) - len(exceptions)
+            if normal > 0:
+                elements.append({"tag": "hr"})
+                elements.append(_md("其余 %d 个部门全部正常" % normal))
+        else:
+            elements.append(_md("✅ 各部门全部正常，无未打卡、无迟到"))
+        if _needs_note(stats):
+            elements.append({"tag": "hr"})
+            elements.append(_md(NO_CARD_HINT))
+
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "template": "orange" if has_alert else "green",
+            "title": {"tag": "plain_text",
+                      "content": "%s%s %s" % (CARD_TITLE_PREFIX, date_str, hhmm)},
+        },
+        "elements": elements,
+    }
+
+
 # ---- 以下依赖 frappe / requests ----
 
 def _bj_now():

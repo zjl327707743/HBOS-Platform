@@ -8,6 +8,7 @@ from unittest import mock
 from hb_attendance_app.hbos_attendance import attendance_notify, board_stats
 from hb_attendance_app.hbos_attendance.attendance_notify import (
     render_report, build_feishu_payload, feishu_result, collect_exceptions,
+    render_card, EMPTY_HINT, NO_CARD_HINT,
 )
 
 
@@ -348,3 +349,139 @@ class CollectExceptionsTest(unittest.TestCase):
 
     def test_empty_rows(self):
         self.assertEqual(collect_exceptions([]), [])
+
+
+def card_text(card):
+    """把卡片里所有文本元素拍平，便于断言（分隔线等无文本元素自动跳过）。"""
+    parts = []
+    for el in card["elements"]:
+        t = (el.get("text") or {}).get("content")
+        if t:
+            parts.append(t)
+    return "\n".join(parts)
+
+
+class RenderCardTest(unittest.TestCase):
+    STATS = {"expected": 696, "present": 651, "noCard": 12, "late": 3,
+             "notStarted": 40, "outOnly": 8, "unknownTime": 5}
+
+    def _card(self, exceptions, dept_stats=None, stats=None):
+        return render_card("2026-09-11", "09:00", stats or self.STATS,
+                           dept_stats if dept_stats is not None else [d("六车间", 40, 36, 3)],
+                           exceptions)
+
+    def test_header_orange_when_alert(self):
+        card = self._card([{"dept": "六车间", "noCard": [{"name": "张三", "num": "1"}], "late": []}])
+        self.assertEqual(card["header"]["template"], "orange")
+        self.assertEqual(card["header"]["title"]["content"], "考勤到岗 · 2026-09-11 09:00")
+
+    def test_header_green_and_hint_when_no_alert(self):
+        card = self._card([], dept_stats=[d("六车间", 40, 36, 0)],
+                          stats=dict(self.STATS, noCard=0, late=0))
+        self.assertEqual(card["header"]["template"], "green")
+        self.assertIn("全部正常", card_text(card))
+
+    def test_factory_line_shows_expected_and_present_always(self):
+        card = self._card([], dept_stats=[d("六车间", 40, 36, 0)],
+                          stats=dict(self.STATS, noCard=0, late=0))
+        txt = card_text(card)
+        self.assertIn("应出勤 696", txt)
+        self.assertIn("已到岗 651", txt)
+
+    def test_factory_line_omits_zero_fields(self):
+        card = self._card([], dept_stats=[d("六车间", 40, 36, 0)],
+                          stats=dict(self.STATS, noCard=0, late=0))
+        txt = card_text(card)
+        self.assertNotIn("未打卡 0", txt)
+        self.assertNotIn("迟到 0", txt)
+
+    def test_dept_line_shows_only_nonzero_counts(self):
+        card = self._card([{"dept": "仓储部", "noCard": [{"name": "赵六", "num": "1"}], "late": []}],
+                          dept_stats=[d("仓储部", 17, 15, 1)])
+        txt = card_text(card)
+        self.assertIn("未打卡 1", txt)
+        self.assertNotIn("迟到 0", txt)
+
+    def test_single_type_omits_name_label(self):
+        txt = card_text(self._card(
+            [{"dept": "六车间", "noCard": [{"name": "张三", "num": "1"}], "late": []}]))
+        self.assertIn("张三", txt)
+        self.assertNotIn("未打卡：张三", txt)
+
+    def test_both_types_get_labels(self):
+        txt = card_text(self._card(
+            [{"dept": "六车间", "noCard": [{"name": "张三", "num": "1"}],
+              "late": [{"name": "李四", "num": "2"}]}],
+            dept_stats=[d("六车间", 40, 36, 1, 1)]))
+        self.assertIn("未打卡：张三", txt)
+        self.assertIn("迟到：李四", txt)
+
+    def test_names_truncated_at_six(self):
+        people = [{"name": "人%d" % i, "num": "%03d" % i} for i in range(1, 10)]   # 9 人
+        txt = card_text(self._card([{"dept": "六车间", "noCard": people, "late": []}],
+                                   dept_stats=[d("六车间", 40, 36, 9)]))
+        self.assertIn("等 3 人", txt)
+        self.assertNotIn("人9", txt)
+
+    def test_depts_truncated_at_ten(self):
+        dept_stats = [d("D%02d" % i, 10, 9, 1) for i in range(1, 13)]             # 12 个部门
+        exc = [{"dept": "D%02d" % i, "noCard": [{"name": "张三", "num": "1"}], "late": []}
+               for i in range(1, 13)]
+        txt = card_text(self._card(exc, dept_stats=dept_stats))
+        self.assertIn("另有 2 个部门存在异常", txt)
+        self.assertNotIn("D11", txt)
+        self.assertNotIn("D12", txt)
+
+    def test_normal_dept_count(self):
+        dept_stats = [d("A", 10, 9, 1), d("B", 10, 10, 0), d("C", 10, 10, 0)]
+        txt = card_text(self._card(
+            [{"dept": "A", "noCard": [{"name": "张三", "num": "1"}], "late": []}],
+            dept_stats=dept_stats))
+        self.assertIn("其余 2 个部门全部正常", txt)
+
+    def test_no_normal_dept_line_when_all_alert(self):
+        dept_stats = [d("A", 10, 9, 1)]
+        txt = card_text(self._card(
+            [{"dept": "A", "noCard": [{"name": "张三", "num": "1"}], "late": []}],
+            dept_stats=dept_stats))
+        self.assertIn("⚠ 需处理（1 个部门）", txt)
+        self.assertNotIn("其余", txt)
+
+    def test_zero_expected_dept_not_counted_as_normal(self):
+        dept_stats = [d("A", 10, 9, 1), d("全员休息", 0, 0, 0)]
+        txt = card_text(self._card(
+            [{"dept": "A", "noCard": [{"name": "张三", "num": "1"}], "late": []}],
+            dept_stats=dept_stats))
+        self.assertNotIn("其余 1 个部门全部正常", txt)
+
+    def test_note_present_when_not_started_group_exists(self):
+        txt = card_text(self._card([], dept_stats=[d("A", 10, 9, 0)],
+                                   stats=dict(self.STATS, noCard=0, late=0)))
+        self.assertIn(NO_CARD_HINT, txt)
+
+    def test_note_absent_when_no_not_started_group(self):
+        txt = card_text(self._card([], dept_stats=[d("A", 10, 9, 0)],
+                                   stats=dict(self.STATS, noCard=0, late=0,
+                                              notStarted=0, outOnly=0, unknownTime=0)))
+        self.assertNotIn(NO_CARD_HINT, txt)
+
+    def test_no_expected_dept_shows_empty_hint_only(self):
+        card = render_card("2026-09-11", "09:00",
+                           dict(self.STATS, expected=0, present=0, noCard=0, late=0), [], [])
+        self.assertEqual(card["header"]["template"], "green")
+        txt = card_text(card)
+        self.assertIn(EMPTY_HINT, txt)
+        self.assertNotIn(NO_CARD_HINT, txt)
+
+    def test_serializable(self):
+        import json
+        card = self._card([{"dept": "六车间", "noCard": [{"name": "张三", "num": "1"}], "late": []}])
+        self.assertIsInstance(json.dumps(card, ensure_ascii=False), str)
+
+    def test_every_element_is_renderable(self):
+        # 卡片元素只允许 div / hr（最小能力集，避免依赖表格组件的版本兼容性）
+        card = self._card([{"dept": "六车间", "noCard": [{"name": "张三", "num": "1"}], "late": []}])
+        self.assertEqual(card["config"], {"wide_screen_mode": True})
+        self.assertIn("header", card)
+        for el in card["elements"]:
+            self.assertIn(el["tag"], ("div", "hr"))
