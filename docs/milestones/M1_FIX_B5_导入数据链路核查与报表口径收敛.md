@@ -261,3 +261,19 @@ Owner 数据链路验收后续，修复多处班次误判（不改变 B5 主结�
 workspace「仪表盘」区 + 快捷入口。新增离线测试 `test_department_board.py` 22 例，全量 144 通过。
 设计 spec：`docs/superpowers/specs/2026-09-08-部门实时出勤看板设计.md`；实施计划：`docs/superpowers/plans/2026-09-08-部门实时出勤看板.md`。
 运行态：需 Owner 授权执行 `bench --site frontend migrate` 注册 Page 与重放 workspace 后浏览器验证。
+
+## 2026-09-11 追加交付：考勤提醒卡片化
+
+每日 09:00 的考勤通知（`attendance_notify.send_daily_report`，出站到飞书群自定义机器人）由纯文本改为**飞书交互卡片**（`msg_type: interactive`）。**仅呈现层改动，考勤判定规则与统计口径一行未改。**
+
+- 版式：有异常 → 橙色标题（`orange`）、无异常 → 绿色标题（`green`）；标题文本 `考勤到岗 · <YYYY-MM-DD> <HH:MM>`。正文 = 全厂汇总行（应出勤 / 已到岗恒显示，未打卡 / 迟到为 0 时省略该字段）+ 异常区（「⚠ 需处理（N 个部门）」+ 逐部门一行标题、一行人名）+ 一行「其余 N 个部门全部正常」；全厂无异常时为一行「✅ 各部门全部正常」；当日无应出勤人员时正文仅一句「（今日暂无应出勤人员）」。部门顺序沿用 `dept_summary` 排序，与部门看板同序。
+- 改版原因（Owner 2026-09-11 反馈）：① 旧版用空格补位手工对齐（`_width` / `_pad` 按中文 2 格手算宽度），只在等宽字体下成立，飞书客户端为比例字体，四列数字必然散开，无论怎么调空格都不可能对齐；② 旧版全部门平铺，正常部门与问题部门混在一起，坏消息被好消息淹没。改后对齐交卡片组件负责，正常部门收成一行。
+- 截断：单部门人名上限 **6** → 收成「等 N 人」；异常部门上限 **10** → 收成「另有 N 个部门存在异常（详见部门看板）」。两条截断均**显式写出省略数量**，不静默截断。人名只放姓名不放工号（部门已在行首，工号无人阅读只会加长行宽）；重名本轮不处理。
+- 兜底：卡片 JSON 构造抛异常 → **自动降级为纯文本（`msg_type: text`）照常发出**（宁可丑，不能不发），异常与文本一并记 Error Log（标题「HBOS考勤通知卡片渲染失败(降级为纯文本)」）。群内偶发的纯文本消息是**设计内兜底**，不是故障。卡片被飞书拒绝（body `code` 非 0）时按既有链路记 Error Log、**不补发纯文本**（code 非 0 通常意味着地址或鉴权有问题，纯文本同样发不出去），幂等位不落。成功判据为「2xx 且 body 的 `code` / `StatusCode` 为 0 或缺失」——飞书失败时也可能返回 HTTP 200。
+- 口径（关键）：**通知不实现自己的判定规则**。异常名录提取（`collect_exceptions`）对每行调用一次 `board_stats.summarize_rows([r])`，取 `late` / `noCard` 计数并以其 `expected` 为前置门槛，与统计口径**字面同源**；**`board_stats.py` 一行未改**。09:00 时点，晚班 20:00 / 夜班 0:00 未到上班时间（`before_start`）、跨天夜班仅刷下班机（`out_only`）、无排班无绑定（`fact_none`）三类**均不计入「未打卡」**，卡片在存在这三类人员时附一行口径说明（`NO_CARD_HINT`）。
+- 配置：`HBOS_NOTIFY_WEBHOOK_URL`（**未配置 → 静默跳过发送**，只记日志不报错）、`HBOS_NOTIFY_TOKEN`（可选 `Authorization: Bearer`；飞书自定义机器人靠 URL 里的 key 鉴权，一般无需）、`HBOS_NOTIFY_DRY_RUN`（`=1` 只写 Error Log 不发送，日志同时留**纯文本与卡片 JSON**）。密钥与地址放本机 `.env`（已被 `.gitignore` 忽略），**不入仓库**。清空 webhook 变量即静默不再发送。
+- 调度与幂等不变：cron `"0 9 * * *"`（系统时区 Asia/Shanghai）+ 北京时间 9 点守卫（`force=True` 可绕，仅供干跑）；`frappe.cache` 键 `hbos_notify_sent:<YYYY-MM-DD>` 同日只发一次，**发送失败不落幂等位**（次日自然再算）。
+
+实现：`attendance_notify.py` 新增纯函数 `collect_exceptions`（按部门聚合异常，复用 `summarize_rows` 单行归桶）/ `render_card` / `build_text_payload` / `feishu_result` 等，`build_feishu_payload` 的 `msg_type` 由 `text` 改 `interactive`，`render_report`（纯文本）保留作降级与留档（出错时人读文本日志而非 JSON）；常量 `MAX_NAMES_PER_DEPT = 6`、`MAX_EXCEPTION_DEPTS = 10`。离线测试 `tests/test_attendance_notify.py` 扩展（归桶一致性与降级路径）。
+设计 spec：`docs/superpowers/specs/2026-09-11-考勤提醒卡片化设计.md`；实施计划：`docs/superpowers/plans/2026-09-11-考勤提醒卡片化.md`。
+运行态：本批**未做飞书真实写入**（未发卡片、未调 webhook）。卡片组件版本兼容性无法离线验证，需 Owner 授权后按 spec §7.1 先发最小卡片确认渲染，再做干跑比对与实发。
