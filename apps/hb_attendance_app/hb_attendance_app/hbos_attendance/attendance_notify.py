@@ -51,8 +51,14 @@ def build_feishu_payload(card):
     """飞书卡片报文（msg_type=interactive）。
 
     Owner 2026-09-11：纯文本 + 空格补位在飞书比例字体下必然错列，改发卡片由组件负责对齐。
+
+    字段名说明（终审修复，高置信度但未实测）：**群自定义机器人 webhook** 的 interactive
+    消息把卡片对象放在顶层 `card` 键；`content` 是 `im/v1/messages` OpenAPI 的写法
+    （那里卡片是 JSON 字符串放在 `content` 里），两者不是同一个面。飞书文档通路被网络策略
+    阻断，无法离线实测；实发时若飞书返回参数类错误码，改用 `content` 重发同一张最小卡片
+    验证（见 spec §7.1 / plan Task 4 Step 1）。
     """
-    return {"msg_type": "interactive", "content": card}
+    return {"msg_type": "interactive", "card": card}
 
 
 def build_text_payload(text):

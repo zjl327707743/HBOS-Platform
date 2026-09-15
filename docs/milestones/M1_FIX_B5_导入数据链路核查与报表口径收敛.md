@@ -277,3 +277,5 @@ workspace「仪表盘」区 + 快捷入口。新增离线测试 `test_department
 实现：`attendance_notify.py` 新增纯函数 `collect_exceptions`（按部门聚合异常，复用 `summarize_rows` 单行归桶）/ `render_card` / `build_text_payload` / `feishu_result` 等，`build_feishu_payload` 的 `msg_type` 由 `text` 改 `interactive`，`render_report`（纯文本）保留作降级与留档（出错时人读文本日志而非 JSON）；常量 `MAX_NAMES_PER_DEPT = 6`、`MAX_EXCEPTION_DEPTS = 10`。离线测试 `tests/test_attendance_notify.py` 扩展（归桶一致性与降级路径）。
 设计 spec：`docs/superpowers/specs/2026-09-11-考勤提醒卡片化设计.md`；实施计划：`docs/superpowers/plans/2026-09-11-考勤提醒卡片化.md`。
 运行态：本批**未做飞书真实写入**（未发卡片、未调 webhook）。卡片组件版本兼容性无法离线验证，需 Owner 授权后按 spec §7.1 先发最小卡片确认渲染，再做干跑比对与实发。
+
+终审修复（2026-09-15）：`build_feishu_payload` 的 interactive 报文外壳由 `content` 改为**顶层 `card`**（群自定义机器人 webhook 的形状；`content` 是 `im/v1/messages` OpenAPI 的写法，那里卡片是 JSON 字符串），测试补一条**结构性断言**锁定顶层键集合恰为 `{"msg_type", "card"}`（离线测试此前从不约束这个外壳，字段名 bug 正住在这里）。该字段名**高置信度但未实测**（飞书文档通路被网络策略阻断）：spec §7.1 与 plan Task 4 Step 1 已改写为**程序化** runbook——先按 `card` 发最小卡片，若飞书返回参数类错误码则**立即改用 `content` 重发同一张**，哪次渲染成功就把键名定为那一个，并把返回 `code` 原样记入报告与 `docs/HBOS考勤判定规则.md`；两种都失败再试卡片 v1 结构，仍失败走纯文本保底。同批修正 `docs/HBOS考勤判定规则.md` §13.2 与 spec §4.4 的「人名缩进跟随」表述为**不做缩进**（与实现一致；markdown 会吃掉行首空格）。

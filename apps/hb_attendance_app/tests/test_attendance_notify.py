@@ -61,11 +61,21 @@ class FeishuPayloadTest(unittest.TestCase):
     def test_interactive_message_shape(self):
         card = {"header": {"template": "green"}, "elements": []}
         p = build_feishu_payload(card)
-        self.assertEqual(p, {"msg_type": "interactive", "content": card})
+        self.assertEqual(p, {"msg_type": "interactive", "card": card})
 
     def test_payload_has_only_expected_keys(self):
         p = build_feishu_payload({"elements": []})
-        self.assertEqual(sorted(p.keys()), ["content", "msg_type"])
+        self.assertEqual(sorted(p.keys()), ["card", "msg_type"])
+
+    def test_payload_top_level_keys_are_exactly_msg_type_and_card(self):
+        # 结构性断言：群机器人 webhook 的 interactive 报文外壳只有这两个键。
+        # 卡片对象必须放顶层 `card`（不是 im/v1/messages 那套的 `content`）——
+        # 字段名不对飞书会返回非零 code，且按设计不自动补发纯文本，提醒会彻底消失。
+        # 之前的离线测试从不约束这个外壳，本 bug 正住在这里。
+        p = build_feishu_payload({"elements": []})
+        self.assertEqual(set(p.keys()), {"msg_type", "card"})
+        self.assertEqual(p["msg_type"], "interactive")
+        self.assertEqual(p["card"], {"elements": []})
 
     def test_text_payload_shape(self):
         p = build_text_payload("【考勤到岗】2026-09-11 09:00\n部门 ...")
@@ -271,9 +281,9 @@ class SendDailyReportDispatchTest(unittest.TestCase):
         self.assertTrue(result["sent"])
         payload = captured["payload"]
         self.assertEqual(payload["msg_type"], "interactive")
-        self.assertEqual(payload["content"]["header"]["template"], "orange")   # 有未打卡 → 橙
+        self.assertEqual(payload["card"]["header"]["template"], "orange")   # 有未打卡 → 橙
         body = "\n".join(el.get("text", {}).get("content", "")
-                         for el in payload["content"]["elements"])
+                         for el in payload["card"]["elements"])
         self.assertIn("张三", body)
 
     def test_card_render_failure_degrades_to_text_and_still_sends(self):
