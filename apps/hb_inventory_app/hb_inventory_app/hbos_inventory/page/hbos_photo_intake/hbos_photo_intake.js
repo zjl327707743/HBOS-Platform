@@ -205,7 +205,7 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 					return;
 				}
 				state.fileUrl = msg.file_url;
-				state.fileDocName = msg.name;
+				state.fileDocName = msg.name; // File docname，用于精确定位附件
 				state.result = null;
 				state.corrections = {};
 				$preview.html(
@@ -340,6 +340,7 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 				qty: qty,
 				warehouse: wh,
 				file_url: state.fileUrl,
+				file_name: state.fileDocName,
 				source_type: $sourceType.val(),
 				manufacturing_date: merged.manufacturing_date || null,
 				expiry_date: merged.expiry_date || null,

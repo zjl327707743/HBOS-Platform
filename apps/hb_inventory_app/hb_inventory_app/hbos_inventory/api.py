@@ -180,6 +180,7 @@ def create_intake_draft(
 	qty,
 	warehouse: str,
 	file_url: str,
+	file_name: str | None = None,
 	source_type: str | None = None,
 	manufacturing_date: str | None = None,
 	expiry_date: str | None = None,
@@ -258,7 +259,7 @@ def create_intake_draft(
 	entry.flags.ignore_permissions = True
 	entry.insert()
 
-	_attach_photo(file_url, "Stock Entry", entry.name)
+	_attach_photo(file_url, "Stock Entry", entry.name, file_name=file_name)
 
 	return {
 		"name": entry.name,
@@ -314,17 +315,33 @@ def _ensure_batch(
 	return batch.name
 
 
-def _attach_photo(file_url: str, doctype: str, docname: str) -> None:
+def _attach_photo(
+	file_url: str, doctype: str, docname: str, file_name: str | None = None
+) -> None:
 	"""把标签照片挂到单据上（原始凭证留存）。
 
 	照片最终归档在 **Frappe 的 `File`**（本司内网），随单据走；
 	识别服务侧不长期留存（M3-R6 方案第六节）。
+
+	定位方式：**优先用 `File` 的 docname**。原因：两份内容相同的上传可能产生
+	**两条 `File` 记录共用同一个 `file_url`**，此时按 `file_url` 取会拿到不确定的
+	那一条，可能把别人已挂的附件改挂走。前端上传后拿到 `message.name`，
+	一并传下来即可精确定位。
 	"""
-	if not file_url:
+	if not (file_name or file_url):
 		return
-	try:
-		source = frappe.get_doc("File", {"file_url": file_url})
-	except frappe.DoesNotExistError:
+
+	source = None
+	if file_name and frappe.db.exists("File", file_name):
+		source = frappe.get_doc("File", file_name)
+	else:
+		# 兜底：按 file_url 取（取最早一条，行为确定）
+		rows = frappe.get_all(
+			"File", filters={"file_url": file_url}, fields=["name"], order_by="creation asc", limit=1
+		)
+		if rows:
+			source = frappe.get_doc("File", rows[0].name)
+	if source is None:
 		return
 
 	# 已经是挂在该单据上的就不重复挂
