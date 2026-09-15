@@ -7,8 +7,8 @@ from unittest import mock
 
 from hb_attendance_app.hbos_attendance import attendance_notify, board_stats
 from hb_attendance_app.hbos_attendance.attendance_notify import (
-    render_report, build_feishu_payload, feishu_result, collect_exceptions,
-    render_card, EMPTY_HINT, NO_CARD_HINT,
+    render_report, build_feishu_payload, build_text_payload, feishu_result,
+    collect_exceptions, render_card, EMPTY_HINT, NO_CARD_HINT,
 )
 
 
@@ -56,18 +56,21 @@ class RenderReportTest(unittest.TestCase):
 
 
 class FeishuPayloadTest(unittest.TestCase):
-    """飞书自定义机器人要求的报文格式（Owner 2026-09-11 选定路线 B）。"""
+    """飞书报文构造（Owner 2026-09-11：纯文本改为 interactive 卡片，纯文本仅作降级）。"""
 
-    def test_text_message_shape(self):
-        from hb_attendance_app.hbos_attendance.attendance_notify import build_feishu_payload
-        p = build_feishu_payload("【考勤到岗】2026-09-10 09:00\n部门 ...")
-        self.assertEqual(p, {"msg_type": "text",
-                             "content": {"text": "【考勤到岗】2026-09-10 09:00\n部门 ..."}})
+    def test_interactive_message_shape(self):
+        card = {"header": {"template": "green"}, "elements": []}
+        p = build_feishu_payload(card)
+        self.assertEqual(p, {"msg_type": "interactive", "content": card})
 
     def test_payload_has_only_expected_keys(self):
-        from hb_attendance_app.hbos_attendance.attendance_notify import build_feishu_payload
-        p = build_feishu_payload("x")
+        p = build_feishu_payload({"elements": []})
         self.assertEqual(sorted(p.keys()), ["content", "msg_type"])
+
+    def test_text_payload_shape(self):
+        p = build_text_payload("【考勤到岗】2026-09-11 09:00\n部门 ...")
+        self.assertEqual(p, {"msg_type": "text",
+                             "content": {"text": "【考勤到岗】2026-09-11 09:00\n部门 ..."}})
 
 
 class FeishuResultTest(unittest.TestCase):
@@ -122,10 +125,9 @@ class HeaderAlignmentTest(unittest.TestCase):
         self.assertNotIn("已到岗未打卡", header)
         self.assertNotIn("未打卡迟到", header)
 
-    def test_feishu_payload_carries_rendered_title(self):
+    def test_text_payload_carries_rendered_title(self):
         text = render_report("2026-09-10", "09:00", [])
-        from hb_attendance_app.hbos_attendance.attendance_notify import build_feishu_payload
-        p = build_feishu_payload(text)
+        p = build_text_payload(text)
         self.assertIn("【考勤到岗】2026-09-10 09:00", p["content"]["text"])
 
 
@@ -215,7 +217,11 @@ class SendDailyReportDispatchTest(unittest.TestCase):
 
     def _default_get_data(self, department=None, date_str=None):
         self.get_data_calls.append((department, date_str))
-        return {"dept_stats": [d("无菌车间", 60, 58, 2)]}
+        rows = [row("无菌车间", "0001", "张三", "absent_expected"),
+                row("无菌车间", "0002", "李四", "present")]
+        return {"stats": board_stats.summarize_rows(rows),
+                "dept_stats": board_stats.dept_summary(rows),
+                "rows": rows}
 
     def test_force_bypasses_both_guards(self):
         # 幂等位已落 + 当前非 9 点：非 force 会被双守卫挡住，force 必须绕过并取数
@@ -249,6 +255,55 @@ class SendDailyReportDispatchTest(unittest.TestCase):
         self.assertFalse(result["sent"])
         self.assertIn("boom-from-get-data", result["reason"])
         self.assertTrue(self.log_calls)                   # frappe.log_error 被调用
+
+    def test_card_path_sends_interactive_payload(self):
+        captured = {}
+
+        def fake_post(url, token, payload):
+            captured["payload"] = payload
+            return True, "HTTP 200"
+
+        with mock.patch.dict(os.environ, {
+                "HBOS_NOTIFY_DRY_RUN": "",
+                "HBOS_NOTIFY_WEBHOOK_URL": "https://example.invalid/hook"}, clear=False), \
+                mock.patch.object(attendance_notify, "post_to_webhook", fake_post):
+            result = attendance_notify.send_daily_report(force=True)
+        self.assertTrue(result["sent"])
+        payload = captured["payload"]
+        self.assertEqual(payload["msg_type"], "interactive")
+        self.assertEqual(payload["content"]["header"]["template"], "orange")   # 有未打卡 → 橙
+        body = "\n".join(el.get("text", {}).get("content", "")
+                         for el in payload["content"]["elements"])
+        self.assertIn("张三", body)
+
+    def test_card_render_failure_degrades_to_text_and_still_sends(self):
+        captured = {}
+
+        def fake_post(url, token, payload):
+            captured["payload"] = payload
+            return True, "HTTP 200"
+
+        with mock.patch.dict(os.environ, {
+                "HBOS_NOTIFY_DRY_RUN": "",
+                "HBOS_NOTIFY_WEBHOOK_URL": "https://example.invalid/hook"}, clear=False), \
+                mock.patch.object(attendance_notify, "render_card",
+                                  side_effect=RuntimeError("card-boom")), \
+                mock.patch.object(attendance_notify, "post_to_webhook", fake_post):
+            result = attendance_notify.send_daily_report(force=True)
+        self.assertTrue(result["sent"])                      # 降级后仍发出，不漏发
+        self.assertEqual(captured["payload"]["msg_type"], "text")
+        self.assertIn("考勤到岗", captured["payload"]["content"]["text"])
+        self.assertTrue(self.log_calls)                      # 降级有留痕
+
+    def test_dry_run_logs_both_card_and_text(self):
+        with mock.patch.dict(os.environ, {
+                "HBOS_NOTIFY_DRY_RUN": "1",
+                "HBOS_NOTIFY_WEBHOOK_URL": ""}, clear=False):
+            result = attendance_notify.send_daily_report(force=True)
+        self.assertEqual(result["reason"], "dry_run")
+        logged = "\n".join(str(c) for c in self.log_calls)
+        self.assertIn("interactive", logged)                 # 卡片 JSON 留档
+        self.assertIn("纯文本", logged)                       # 纯文本留档
 
 
 class CollectExceptionsTest(unittest.TestCase):

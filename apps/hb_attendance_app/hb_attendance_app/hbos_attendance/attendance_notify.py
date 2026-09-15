@@ -47,12 +47,16 @@ def render_report(date_str, hhmm, dept_stats):
     return "\n".join(lines)
 
 
-def build_feishu_payload(text):
-    """飞书自定义机器人（群机器人）要求的报文：{"msg_type":"text","content":{"text":...}}。
+def build_feishu_payload(card):
+    """飞书卡片报文（msg_type=interactive）。
 
-    Owner 2026-09-11 选定路线 B：通知直接发到飞书群的自定义机器人 webhook，
-    不经 OpenClaw（长连接只解决「群里说话→机器人收」，解决不了「把数据发出去」）。
+    Owner 2026-09-11：纯文本 + 空格补位在飞书比例字体下必然错列，改发卡片由组件负责对齐。
     """
+    return {"msg_type": "interactive", "content": card}
+
+
+def build_text_payload(text):
+    """纯文本报文；卡片渲染失败时降级使用。"""
     return {"msg_type": "text", "content": {"text": text}}
 
 
@@ -269,6 +273,25 @@ def _mark_sent_best_effort(date_str):
         frappe.log_error(str(e), "HBOS考勤通知幂等位写入失败")
 
 
+def _build_payload(data, date_str, hhmm, dept_stats, text):
+    """构造出站报文；卡片渲染任何异常都降级为纯文本（宁可丑，不能不发）。"""
+    import frappe
+    try:
+        exceptions = collect_exceptions(data.get("rows") or [])
+        card = render_card(date_str, hhmm, data.get("stats") or {}, dept_stats, exceptions)
+        return build_feishu_payload(card)
+    except Exception as e:
+        frappe.log_error("%s\n%s" % (e, text), "HBOS考勤通知卡片渲染失败(降级为纯文本)")
+        return build_text_payload(text)
+
+
+def _dry_run_detail(payload, text):
+    """干跑留档：卡片 JSON 与纯文本都留，便于先核对版式再配地址。"""
+    import json
+    return "纯文本:\n%s\n\n报文JSON:\n%s" % (
+        text, json.dumps(payload, ensure_ascii=False, indent=2))
+
+
 def send_daily_report(force=False):
     """scheduler 入口：算当日部门统计 → 渲染 → 出站推送。
 
@@ -289,13 +312,15 @@ def send_daily_report(force=False):
 
         data = get_data(department=None, date_str=date_str)
         dept_stats = data.get("dept_stats") or []
-        text = render_report(date_str, now.strftime("%H:%M"), dept_stats)
-        payload = build_feishu_payload(text)
+        hhmm = now.strftime("%H:%M")
+        text = render_report(date_str, hhmm, dept_stats)      # 纯文本：降级与留档用
+        payload = _build_payload(data, date_str, hhmm, dept_stats, text)
 
         dry = os.environ.get("HBOS_NOTIFY_DRY_RUN", "") == "1"
         url = os.environ.get("HBOS_NOTIFY_WEBHOOK_URL", "")
         if dry or not url:
-            frappe.log_error(text, "HBOS考勤通知(未发送: %s)" % ("dry_run" if dry else "no_webhook"))
+            frappe.log_error(_dry_run_detail(payload, text),
+                             "HBOS考勤通知(未发送: %s)" % ("dry_run" if dry else "no_webhook"))
             if dry:
                 _mark_sent_best_effort(date_str)
             return {"sent": False, "reason": "dry_run" if dry else "no_webhook", "text": text}
