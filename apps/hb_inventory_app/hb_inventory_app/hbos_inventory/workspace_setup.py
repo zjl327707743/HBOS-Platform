@@ -18,8 +18,10 @@ DESKTOP_ICON = "stock"
 
 SIDEBAR_ITEMS = [
 	{"label": "仓储库存工作台", "link_type": "Workspace", "link_to": WORKSPACE_TITLE, "type": "Link", "icon": "home"},
+	# 入库拍照识别：本 App 的 Desk 页面（拍照 → 识别 → 校对 → 生成草稿）
+	{"label": "入库拍照识别", "link_type": "Page", "link_to": "hbos-photo-intake", "type": "Link", "icon": "camera"},
 	# 入库登记：走原生 Stock Entry（Material Receipt）表单
-	{"label": "入库登记", "link_type": "DocType", "link_to": "Stock Entry", "type": "Link", "icon": "stock-entry"},
+	{"label": "入库登记（原生）", "link_type": "DocType", "link_to": "Stock Entry", "type": "Link", "icon": "stock-entry"},
 	# 出库核销：走原生 Stock Entry（Material Issue）表单，受 QA 放行门禁约束
 	{"label": "出库核销", "link_type": "DocType", "link_to": "Stock Entry", "type": "Link", "icon": "stock-entry"},
 	# 货位变更：走原生 Stock Entry（Material Transfer）表单
@@ -36,8 +38,9 @@ SIDEBAR_ITEMS = [
 
 WORKSPACE_CONTENT = """[
  {"id":"hdr","type":"header","data":{"text":"<span class=\\"h4\\"><b>仓储库存</b></span>","col":12}},
- {"id":"sb1","type":"paragraph","data":{"text":"入库登记、出库核销、货位变更均使用 ERPNext 原生库存单据；出库须先取得 QA 放行与合格证。","col":12}},
- {"id":"sc_in","type":"shortcut","data":{"shortcut_name":"入库登记","col":3}},
+ {"id":"sb1","type":"paragraph","data":{"text":"入库可走「入库拍照识别」（拍照 → 识别 → 人工校对 → 生成草稿）；出库核销与货位变更使用 ERPNext 原生库存单据；出库须先取得 QA 放行与合格证。","col":12}},
+ {"id":"sc_photo","type":"shortcut","data":{"shortcut_name":"入库拍照识别","col":3}},
+ {"id":"sc_in","type":"shortcut","data":{"shortcut_name":"入库登记（原生）","col":3}},
  {"id":"sc_out","type":"shortcut","data":{"shortcut_name":"出库核销","col":3}},
  {"id":"sc_mv","type":"shortcut","data":{"shortcut_name":"货位变更","col":3}},
  {"id":"sc_bt","type":"shortcut","data":{"shortcut_name":"批次","col":3}},
@@ -52,6 +55,8 @@ WORKSPACE_CONTENT = """[
 ]"""
 
 WORKSPACE_LINKS = [
+	{"label": "入库", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 1},
+	{"label": "入库拍照识别", "type": "Link", "link_type": "Page", "link_to": "hbos-photo-intake", "hidden": 0, "is_query_report": 0, "link_count": 0},
 	{"label": "查询与台账", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 2},
 	{"label": "按批号查货位", "type": "Link", "link_type": "Report", "link_to": "按批号查货位", "hidden": 0, "is_query_report": 1, "link_count": 0},
 	{"label": "货位明细表", "type": "Link", "link_type": "Report", "link_to": "货位明细表", "hidden": 0, "is_query_report": 1, "link_count": 0},
@@ -92,7 +97,8 @@ def sync_inventory_workspace():
 	workspace.content = json.dumps(_parse_content(WORKSPACE_CONTENT))
 
 	workspace.set("shortcuts", [
-		{"label": "入库登记", "type": "DocType", "link_to": "Stock Entry", "color": "Blue", "doc_view": ""},
+		{"label": "入库拍照识别", "type": "Page", "link_to": "hbos-photo-intake", "color": "Blue", "doc_view": ""},
+		{"label": "入库登记（原生）", "type": "DocType", "link_to": "Stock Entry", "color": "Gray", "doc_view": ""},
 		{"label": "出库核销", "type": "DocType", "link_to": "Stock Entry", "color": "Blue", "doc_view": ""},
 		{"label": "货位变更", "type": "DocType", "link_to": "Stock Entry", "color": "Gray", "doc_view": ""},
 		{"label": "批次", "type": "DocType", "link_to": "Batch", "color": "Gray", "doc_view": ""},
