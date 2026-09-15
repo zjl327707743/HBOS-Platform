@@ -45,10 +45,10 @@ M3 由 Owner 明确授权新开，与 M1（考勤）为并列里程碑，不替�
 | M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | REVIEWING |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | REVIEWING |
-| M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
+| M3-R6 | 入库拍照识别服务 | P1 | PLANNED（方案已就绪） |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |
 
-当前轮次：M3-R5（REVIEWING，已执行，等待 Owner 和 Claude 审查）——货位二维码与手机扫码页。
+当前轮次：M3-R6（PLANNED，方案已就绪，等待 Owner 确认门禁并授权执行）——入库拍照识别服务。
 
 M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 → 五个层 → 203 个货位` + 2 个非货位区域，共 212 节点），层分布 39 / 39 / 39 / 43 / 43 校验通过，NestedSet 结构完整，脚本幂等；用 `TEST-M3R1-` 虚构数据完成粒度验证，"按批号查货位"与"货位→全部批号"双向通过。**并更正了 M3-R0 的一处关键结论**：批次不在 `Stock Ledger Entry.batch_no`（v16 中该列为空），实际在 `Serial and Batch Bundle` / `Serial and Batch Entry`。详见 `docs/milestones/M3_R1_货位主数据建模与粒度验证.md`。
 
@@ -62,6 +62,7 @@ M3-R1 已完成：按方案 A1 建立货位树（`16号楼产品库 → 03区 �
 - `docs/milestones/M3_R3_出库核销效期预警与盘点导出.md`
 - `docs/milestones/M3_R4_待检证与货位卡自动生成.md`
 - `docs/milestones/M3_R5_货位二维码与手机扫码页.md`
+- `docs/milestones/M3_R6_入库拍照识别服务方案.md`
 
 ## M1 历史轮次（已完成）
 
@@ -144,7 +145,8 @@ M3-R2  = REVIEWING（已执行）
 M3-R3  = REVIEWING（已执行）
 M3-R4  = REVIEWING（已执行）
 M3-R5  = REVIEWING（已执行）
-M3-R6+ = PLANNED
+M3-R6  = PLANNED（方案已就绪）
+M3-R7  = PLANNED
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
@@ -164,7 +166,9 @@ M3-R4 已执行完毕（REVIEWING）：新增三个 Print Format（`HBOS 待检�
 
 M3-R5 已执行完毕（REVIEWING）：货位二维码内容为**货位查询链接**（不含静态物料信息，扫码实时查库）；新增打印格式 `HBOS 货位二维码`（60×40mm 标签，内联 SVG）；扫码页 `/hbos_bin` 为 Frappe 原生 www 页面，传货位短码显示该货位明细、传库位/层显示下级汇总。Owner 确认**展示全部字段、不脱敏**。实测 6 个场景（匿名跳转/货位/库位汇总/层/不存在/无参数）均正确。修复 www 路由含连字符导致 500、以及 hooks.py 中 `jinja` 重复定义两处问题。
 
-M3-R6（入库拍照识别）为 PLANNED / 待 Owner 授权。
+M3-R6 方案已就绪（PLANNED）：`docs/milestones/M3_R6_入库拍照识别服务方案.md`。方案指出门禁三项（部署位置 / 模型选型 / 数据留存与脱敏）本质是同一问题——**标签照片能否出内网**，属**合规决策须 Owner 拍板**；给出 A（云端多模态）/ B（云端 OCR）/ C（本地部署）三方案，**推荐先用 A 做 20–50 张样本试跑、量出准确率后再定长期方案**；核心设计是**识别后端可插拔**（切换不重写服务）。实测环境：本机 Docker、Apple M4 / 16GB / 无 NVIDIA GPU，**方案 C 目前无可部署硬件**。
+
+待 Owner 确认 6 项，重点是第 1 项「照片是否出内网」。确认后授权启动执行。
 
 ## 飞书登录提前实现记录（M2-R0）
 

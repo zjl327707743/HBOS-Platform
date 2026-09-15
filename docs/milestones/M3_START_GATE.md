@@ -8,7 +8,7 @@
 
 M3 由 Owner 明确授权新开，与 M1-FIX（考勤功能补漏）并列，不替代、不阻塞 M1-FIX。
 
-当前状态：M3-R0 至 M3-R5 均为 REVIEWING，等待 Owner 和 Claude 审查（M3-R2 至 M3-R5 已执行完毕）；M3-R6 及之后为 PLANNED，待 Owner 逐轮授权。
+当前状态：M3-R0 至 M3-R5 均为 REVIEWING，等待 Owner 和 Claude 审查（M3-R2 至 M3-R5 已执行完毕）；M3-R6 方案已就绪（PLANNED，待授权执行），M3-R7 为 PLANNED，待 Owner 逐轮授权。
 
 ## 必须满足的前置条件
 
@@ -173,7 +173,11 @@ M3-R5 已交付：`docs/milestones/M3_R5_货位二维码与手机扫码页.md`�
 
 进入 M3-R6（拍照识别）前必须满足：
 
-- 外部 FastAPI 服务的部署位置、模型选型、数据留存与脱敏规则已确认。
+- 外部 FastAPI 服务的部署位置、模型选型、数据留存与脱敏规则已确认——**尚未满足**。
+
+M3-R6 方案已交付：`docs/milestones/M3_R6_入库拍照识别服务方案.md`。方案指出门禁三项本质是同一问题（**标签照片能否出内网**），属合规决策须 Owner 拍板；并给出 A（云端多模态）/B（云端 OCR）/C（本地部署）三方案与推荐路径（先小样本试跑量准确率，再定长期方案）。
+
+**当前环境实测（影响方案 C）**：承载环境为本机 Docker（非公司服务器），Apple M4 / 16GB / 无 NVIDIA GPU，bench 内无 OCR/CV 依赖。方案 C 目前无可部署硬件。
 
 ## 子轮次状态
 
@@ -185,7 +189,7 @@ M3-R5 已交付：`docs/milestones/M3_R5_货位二维码与手机扫码页.md`�
 | M3-R3 | 出库核销、货位变更、效期预警、盘点导出 | P0 | REVIEWING |
 | M3-R4 | 待检证与货位卡自动生成 | P1 | REVIEWING |
 | M3-R5 | 货位二维码与手机扫码页 | P1 | REVIEWING |
-| M3-R6 | 入库拍照识别服务 | P1 | PLANNED |
+| M3-R6 | 入库拍照识别服务 | P1 | PLANNED（方案已就绪） |
 | M3-R7 | 总审查与收口 | P2 | PLANNED |
 
 ## 飞书边界
