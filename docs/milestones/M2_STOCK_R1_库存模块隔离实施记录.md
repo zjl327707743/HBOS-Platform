@@ -79,9 +79,40 @@ Backup for Site frontend has been successfully completed with files
 
 恢复方式（如需）：
 
-```bash
-docker exec hbos-m0-r3a-backend-1 bash -lc 'cd /home/frappe/frappe-bench && bench --site frontend --force restore /home/frappe/frappe-bench/sites/frontend/private/backups/20260916_150559-frontend-database.sql.gz'
+> **警告（务必先读）：`--force` 会覆盖现网数据。** 下文的 `bench restore --force` 会**直接覆盖 `frontend` 当前运行的数据库**，并覆盖站点内已存在的 public / private 文件。因此恢复前**必须先把「当前」的 `frontend` 再备份一次**（`bench --site frontend backup --with-files`），否则会用本次恢复点覆盖掉恢复点之后产生的新数据，且没有退路。**不要对 `frontend` 之外的站点执行 restore；不要用任何清理动作（`drop-site` / `down -v`）「重来一遍」。**
+
+以本栈实测 `bench restore --help` 为准（**不凭记忆**），`--with-public-files` 与 `--with-private-files` 是**两个相互独立的开关**，各自接收对应的 tar 文件路径：
+
+```text
+Usage: bench  restore [OPTIONS] SQL_FILE_PATH
+
+  --db-root-username, --mariadb-root-username TEXT
+  --db-root-password, --mariadb-root-password TEXT
+  --db-name TEXT
+  --admin-password TEXT
+  --install-app TEXT
+  --with-public-files TEXT    Restores the public files of the site, given path to its tar file
+  --with-private-files TEXT   Restores the private files of the site, given path to its tar file
+  --force                     Ignore the validations and downgrade warnings. This action is not recommended
+  --encryption-key TEXT
 ```
+
+因此正确做法是**一次调用同时带上 4 件套**（数据库 + public 文件 + private 文件）。**只 restore 数据库那一个文件，会造成「数据库回来了、导出文件与附件全丢」的静默降级**——本次 `files.tar` 有 30 个条目（含 `HBOS异常考勤报表_*.xlsx`、`月度考勤汇总_*.xlsx`、`异常班次_*.xlsx` 等导出），`private-files.tar` 有 6 个条目（含 `四车间排班表.xlsx`、`月度汇总表_*.xlsx` 及 3 个 `.json.gz`），这些数据都在 tar 里，但只 restore 数据库时恢复程序根本不会去读它们。
+
+```bash
+docker exec hbos-m0-r3a-backend-1 bash -lc 'cd /home/frappe/frappe-bench && bench --site frontend --force restore \
+  /home/frappe/frappe-bench/sites/frontend/private/backups/20260916_150559-frontend-database.sql.gz \
+  --with-public-files /home/frappe/frappe-bench/sites/frontend/private/backups/20260916_150559-frontend-files.tar \
+  --with-private-files /home/frappe/frappe-bench/sites/frontend/private/backups/20260916_150559-frontend-private-files.tar'
+```
+
+概念上的先后顺序（三者由上面**同一条命令**一次完成，`--help` 中并没有「只恢复文件」的独立子命令）：
+
+1. **先 restore database**：`...-database.sql.gz`（位置参数 `SQL_FILE_PATH`），恢复主数据。
+2. **再 restore public files**：`--with-public-files ...-files.tar`，恢复公开附件与导出文件。
+3. **最后 restore private files**：`--with-private-files ...-private-files.tar`，恢复私有附件。
+
+> 本任务**不执行**任何 restore（含演练）——「备份能否真恢复」属后续验证项，本次仅登记正确用法与已知风险。
 
 ### Step 2：改动前 `common_site_config.json` 全文（基线）
 
@@ -133,7 +164,7 @@ docker exec -e STOCK_ADMIN_PASSWORD hbos-m0-r3a-backend-1 bash -lc \
 要点：
 
 - **未传 `--set-default`**（该参数是布尔开关，不是键值对；带上会抢走 `frontend` 的默认站点身份）。
-- 密码通过 `docker exec -e` 从宿主机 shell 环境传入，**未出现在命令行字面量里**；容器内 root 密码直接引用已注入的 `MARIADB_ROOT_PASSWORD`。
+- 密码通过 `docker exec -e`（**不带 `=值`**）从宿主机 shell 环境传入，**宿主机侧不再进入 argv**；但容器内 `bash -lc '... --admin-password="$STOCK_ADMIN_PASSWORD" ...'` 会展开该变量，`bench new-site` 进程的 argv 仍含明文（容器内 `ps` 可见）。这与本栈既有做法一致，不是本任务引入的回归。容器内 root 密码直接引用已注入的 `MARIADB_ROOT_PASSWORD`。
 - 先用 `bench new-site --help` 核对过 `--mariadb-user-host-login-scope` / `--admin-password` / `--db-root-password` / `--install-app` 均存在。
 
 实际输出（进度条已省略）：
@@ -179,7 +210,7 @@ docker exec hbos-m0-r3a-backend-1 bash -lc 'cat /home/frappe/frappe-bench/sites/
 }
 ```
 
-**与 Step 2 逐字段对比结论：全文 9 个字段完全一致，`default_site` 仍为 `frontend`，未被 `stock` 抢走。**
+**与 Step 2 逐字段对比结论：全文 8 个字段完全一致（键、值、顺序均相同），`default_site` 仍为 `frontend`，未被 `stock` 抢走。**
 
 补充核对：`stock` 站点的 `sites/stock/site_config.json` 独立生成，`installed_apps` 为 `["frappe", "erpnext"]`；`sites/frontend/site_config.json` 与备份中的 `20260916_150559-frontend-site_config_backup.json` **逐字节相同**（`diff` 无输出），证明建站未触碰 `frontend` 的站点配置。
 
@@ -210,6 +241,59 @@ erpnext 16.26.2 UNVERSIONED
 | MariaDB 中 frontend 库 | `_7aecc840db82aaec` | `_7aecc840db82aaec` 仍存在 | PASS |
 
 结论：**`frontend` 站点完全可用，数据与入口无任何回归。** 新建的 `stock` 站点使用独立数据库 `_f77d036c56d5d4af`。
+
+### Step 7 补充：frontend 更宽回归不变量快照（只读采集）
+
+单看 `Employee Checkin = 47770` 太弱（该表在本栈是**持续写入**的活表，见下方「漂移说明」）。因此额外采集一组更宽的不变量作为回归判定依据。**全部为只读查询，未执行任何写操作或 restore。**
+
+采集时间：**2026-09-16 15:23:32 CST**（宿主机 `TZ=Asia/Shanghai date`；容器内同时刻为 `07:23 UTC`）。
+
+| 不变量（`frontend` 站点） | 采集值 |
+| --- | --- |
+| `Employee` | 710 |
+| `Employee Checkin` | 47776 |
+| `Attendance` | 26535 |
+| `Shift Assignment` | 623 |
+| `Shift Schedule` | 0（该 doctype 在本栈存在但无数据） |
+| `HBOS Employee Schedule` | 4440 |
+| `HBOS Attendance Import Log` | 0（该 doctype 由 `hb_attendance_app` 使用，表存在、零行，属合法基线） |
+| `HBOS Shift Rule` | 17 |
+| `HBOS Leave Record` | 10150 |
+| `HBOS Overtime Record` | 516 |
+| `Data Import Log` | 0 |
+| `File` | 45 |
+| `User` | 3 |
+| `information_schema.TABLES` 表数量 / 库大小 | 896 张 / 约 405.2 MB |
+| MariaDB 库名 | `_7aecc840db82aaec`（与基线一致） |
+| `frontend` 已装 App | frappe 16.26.3 / erpnext 16.26.2 / hrms 16.13.0（version-16）/ hb_attendance_app 0.0.1 |
+| `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login` | 200 |
+
+`bench --site frontend doctor` 摘要（退出码 0）：
+
+```text
+-----Checking scheduler status-----
+Workers online: 2
+-----frontend Jobs-----
+```
+
+采集命令（只读）：
+
+```bash
+# 行数：把 SQL 写成 JSON 参数文件后 docker cp 进容器，避免 shell 反引号转义问题
+docker exec hbos-m0-r3a-backend-1 bash -lc \
+  'cd /home/frappe/frappe-bench && bench --site frontend execute frappe.db.sql --args "$(cat /tmp/task3-inv.json)"'
+
+# 库大小 / 表数量
+docker exec hbos-m0-r3a-backend-1 bash -lc \
+  'cd /home/frappe/frappe-bench && bench --site frontend execute frappe.db.sql --args "$(cat /tmp/task3-q2.json)"'
+
+# 健康检查
+docker exec hbos-m0-r3a-backend-1 bash -lc 'cd /home/frappe/frappe-bench && bench --site frontend doctor'
+```
+
+**漂移说明（重要）**：`frontend` 是本栈的**生产性试验活站**，`Employee Checkin` 由后台任务按小时持续写入（最近批次 `2026-09-16 15:20:01`，`EMP-CKIN-09-2026-015209` 起）。故本表采集时该计数为 **47776**，较 Step 7 建站时刻的 47770 多 6 条——**这是活站正常增长，不是回归**（本任务全程未对 `frontend` 执行任何写操作）。因此 `Employee Checkin` 的正确不变量是**「单调不减 + 站点可读可登录」**，而非与某个固定数字严格相等；后续轮次复测时请以「不小于上表采集值、且库名 / 库大小 / 表数量 / App 列表 / 登录码不变」为判定口径。
+
+同样地，这也意味着**任何 restore 恢复点都是活站的某一时刻切片**——一旦 `--force` 覆盖，恢复点之后新产生的打卡会被回滚。这正是上文恢复步骤要求「先备份当前 `frontend` 再 restore」的原因。
 
 ## Task 4：安装 hb_stock_app 并生成海滨库存工作台
 
