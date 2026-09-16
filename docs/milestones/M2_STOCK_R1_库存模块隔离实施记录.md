@@ -248,25 +248,29 @@ erpnext 16.26.2 UNVERSIONED
 
 采集时间：**2026-09-16 15:23:32 CST**（宿主机 `TZ=Asia/Shanghai date`；容器内同时刻为 `07:23 UTC`）。
 
-| 不变量（`frontend` 站点） | 采集值 |
+**口径图例**：`≥` = 活表（可能增长，判据为**单调不减**，须另设上界，见下方「漂移说明」）；`=` = 冻结表（判据为**逐一相等**，不得增减）。
+
+| 不变量（`frontend` 站点） | 采集值 / 口径 |
 | --- | --- |
-| `Employee` | 710 |
-| `Employee Checkin` | 47776 |
-| `Attendance` | 26535 |
-| `Shift Assignment` | 623 |
-| `Shift Schedule` | 0（该 doctype 在本栈存在但无数据） |
-| `HBOS Employee Schedule` | 4440 |
-| `HBOS Attendance Import Log` | 0（该 doctype 由 `hb_attendance_app` 使用，表存在、零行，属合法基线） |
-| `HBOS Shift Rule` | 17 |
-| `HBOS Leave Record` | 10150 |
-| `HBOS Overtime Record` | 516 |
-| `Data Import Log` | 0 |
-| `File` | 45 |
-| `User` | 3 |
-| `information_schema.TABLES` 表数量 / 库大小 | 896 张 / 约 405.2 MB |
-| MariaDB 库名 | `_7aecc840db82aaec`（与基线一致） |
-| `frontend` 已装 App | frappe 16.26.3 / erpnext 16.26.2 / hrms 16.13.0（version-16）/ hb_attendance_app 0.0.1 |
-| `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login` | 200 |
+| `Employee` | `=` 710 |
+| `Employee Checkin` | `≥` 47776（活表） |
+| `Attendance` | `≥` 26535（由打卡派生，潜在增长） |
+| `Shift Assignment` | `≥` 623（bitable 每 30 分钟同步，潜在增长） |
+| `Shift Schedule` | `=` 0（该 doctype 在本栈存在但无数据） |
+| `HBOS Employee Schedule` | `≥` 4440（bitable 同步，潜在增长） |
+| `HBOS Attendance Import Log` | `=` 0（该 doctype 由 `hb_attendance_app` 使用，表存在、零行，属合法基线） |
+| `HBOS Shift Rule` | `=` 17 |
+| `HBOS Leave Record` | `≥` 10150（bitable 同步，潜在增长） |
+| `HBOS Overtime Record` | `≥` 516（bitable 同步，潜在增长） |
+| `Data Import Log` | `=` 0 |
+| `File` | `≥` 45（导出/附件增长） |
+| `User` | `=` 3 |
+| `information_schema.TABLES` 表数量 / 库大小 | `=` 896 张 / 约 405.2 MB |
+| MariaDB 库名 | `=` `_7aecc840db82aaec`（与基线一致） |
+| `frontend` 已装 App | `=` frappe 16.26.3 / erpnext 16.26.2 / hrms 16.13.0（version-16）/ hb_attendance_app 0.0.1 |
+| `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login` | `=` 200 |
+
+标注依据（只读复测，非推测）：采集时刻 +16 分钟（15:39）复测，**上表仅 `Employee Checkin` 实际增长**（47776 → 47786，即 15:32 批次 10 条），其余全部不变；`hb_attendance_app/hooks.py` 中以 `*/30 * * * *` 挂载的 bitable 同步会在源数据变化时增长，故对这几张表取更保守的 `≥` 口径。
 
 `bench --site frontend doctor` 摘要（退出码 0）：
 
@@ -291,7 +295,26 @@ docker exec hbos-m0-r3a-backend-1 bash -lc \
 docker exec hbos-m0-r3a-backend-1 bash -lc 'cd /home/frappe/frappe-bench && bench --site frontend doctor'
 ```
 
-**漂移说明（重要）**：`frontend` 是本栈的**生产性试验活站**，`Employee Checkin` 由后台任务按小时持续写入（最近批次 `2026-09-16 15:20:01`，`EMP-CKIN-09-2026-015209` 起）。故本表采集时该计数为 **47776**，较 Step 7 建站时刻的 47770 多 6 条——**这是活站正常增长，不是回归**（本任务全程未对 `frontend` 执行任何写操作）。因此 `Employee Checkin` 的正确不变量是**「单调不减 + 站点可读可登录」**，而非与某个固定数字严格相等；后续轮次复测时请以「不小于上表采集值、且库名 / 库大小 / 表数量 / App 列表 / 登录码不变」为判定口径。
+**漂移说明（重要）**：`frontend` 是本栈的**生产性试验活站**，`Employee Checkin` 由后台任务持续写入。写入周期为 **`*/10 * * * *`，即每 10 分钟触发一次**——依据 `apps/hb_attendance_app/hb_attendance_app/hooks.py` 中 `scheduler_events["cron"]` 将 `hb_attendance_app.hbos_attendance.api.sync_delicloud_checkin` 挂在 `*/10 * * * *` 上（**不是每小时**）。
+
+**每批实际插入条数极不均一**（由外部 delicloud 增量驱动，源侧无新数据时该批次插入 0 条）：安静时段单批仅 **1–10 条**，而早班打卡峰单批可达 **113 条**（08:32 那个 10 分钟桶）。本日按**行创建时间**（`creation`，即实际入库时间）实测小时插入量：`00 时 117`、`06 时 11`、`07 时 103`、`08 时 317`（日内峰值，早班打卡峰）、`09 时 7`、`11/12 时各 1`、`14 时 4`、`15 时 32`（截至 15:39）。故该表计数在不同时刻**几乎没有可比性**：Step 7 建站时刻 47770 → 本表采集 47776 → 15:39 复测 47786——**这是活站正常增长，不是回归**（本任务全程未对 `frontend` 执行任何写操作）。
+
+由此给出后续轮次（Task 4 / 6 / 7）的统一判定口径——**活表必须同时设下界与上界**，只设下界发现不了「异常灌入」（例如误连生产 API 造成暴增）：
+
+- **下界（单调不减）**：`当前值 ≥ 基线值`（上表标注 `≥` 的项）。用途是发现数据丢失。
+- **上界（异常灌入告警）**：按 `基线值 + 周期数 × 单批条数 × 余量` 估算。以实测**小时峰值 317 条**、余量 3× 计，取 **约 1000 条/小时** 为告警上界，判定式为：
+
+  ```
+  基线值 ≤ 复测值 ≤ 基线值 + 1000 × 距基线经过小时数
+  ```
+
+  任一计数**超过上界即须人工解释**（首要怀疑误连生产 API、源侧重复推送），不得直接判通过。两条说明：
+
+  - **未采用**「实测约 6 条/批 × 6 批/小时 ≈ 36 条/小时」这一估算：6 条/批 只是**安静时段**的批均，早班峰单批可达 113 条、小时合计 317 条，**固定批均假设不成立**（若照该公式代入峰值单批 113 条，得 `6 × 113 × 3 ≈ 2000 条/小时`）。本表取更直接的实测小时峰值 `317 × 3 ≈ 1000 条/小时`。
+  - 该上界针对**万级量级的暴增**（误连生产库之类）；数百条/小时的**持续小量**异常单点看不出来，须靠多时刻累计比对。
+- **冻结表（上表标注 `=` 的项）**：`当前值 == 基线值`；并保持 `库名 / 库大小 / 表数量 / App 列表 / 登录码` 不变。
+
+**跨文档一致性提示**：`docs/superpowers/plans/2026-09-16-库存模块隔离实施计划.md` 的零回归判据组目前仍写「实测一批约 6 条，即约 36 条/小时」，与本表口径不一致。该文件不属本任务改动范围，故此处仅登记差异——请协调方裁定后，由该文件负责人在 Task 6 / 7 之前统一，避免下游按 36 条/小时 设界产生正常早班峰即误报。
 
 同样地，这也意味着**任何 restore 恢复点都是活站的某一时刻切片**——一旦 `--force` 覆盖，恢复点之后新产生的打卡会被回滚。这正是上文恢复步骤要求「先备份当前 `frontend` 再 restore」的原因。
 
