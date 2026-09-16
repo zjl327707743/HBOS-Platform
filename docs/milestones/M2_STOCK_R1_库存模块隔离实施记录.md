@@ -3,7 +3,7 @@
 项目名称：新乡海滨智能运营管理平台。
 
 轮次：M2-STOCK-R1（库存模块隔离）。
-状态：IN_PROGRESS（本文档在 Task 3 建立骨架，Task 4 / 5 / 7 / 8 继续追加）。
+状态：IN_PROGRESS。Task 3 已交付（`stock` 站点建成）；**Task 4 BLOCKED**（`install-app hb_stock_app` 因 fixture 顶层缺 `doctype` 字段而 KeyError 失败，未产生持久化变更，`frontend` 零回归）——详见下方「Task 4」节。Task 5 / 7 / 8 继续追加。
 
 ## 目标与边界
 
@@ -320,7 +320,184 @@ docker exec hbos-m0-r3a-backend-1 bash -lc 'cd /home/frappe/frappe-bench && benc
 
 ## Task 4：安装 hb_stock_app 并生成海滨库存工作台
 
-（由 Task 4 追加）
+**状态：BLOCKED**（Step 1 `install-app` 失败，**未完成安装，未生成工作台**；未产生任何持久化变更，`frontend` 零回归）。
+
+### Step 0：开工前只读基线
+
+采集时间 **2026-09-16 17:02:38 CST**（容器内 `09:02:38Z`）。
+
+`stock` 站点（写入前）：
+
+| 项 | 值 |
+| --- | --- |
+| `list-apps` | `frappe 16.26.3` / `erpnext 16.26.2`（只有这两个） |
+| 站点库名 | `_f77d036c56d5d4af` |
+| 原生 `Stock` 工作台 | links 72 / charts 1 / number_cards 3 / card_breaks 8 |
+| `Workspace 海滨库存` | 不存在（`frappe.db.exists` 返回空 + `DoesNotExistError`） |
+| `Workspace` 总数 / `Module Def` 总数 / 库表数 | 19 / 32 / 736 |
+
+### Step 1：安装 App —— **失败**
+
+命令（执行前已逐字核对 `--site` 参数为 `stock`，不是 `frontend`）：
+
+```bash
+docker exec hbos-m0-r3a-backend-1 bash -lc \
+  'cd /home/frappe/frappe-bench && bench --site stock install-app hb_stock_app'
+```
+
+实际输出（完整，仅省略 frappe traceback 的局部变量转储）：
+
+```text
+=== start: 2026-09-16T09:02:58Z ===
+App frappe already installed
+App erpnext already installed
+
+Installing hb_stock_app...
+An error occurred while installing hb_stock_app: 'doctype'
+Traceback (most recent call last):
+  File "apps/frappe/frappe/commands/site.py", line 522, in install_app
+    _install_app(app, verbose=context.verbose, force=force)
+  File "apps/frappe/frappe/installer.py", line 323, in install_app
+    sync_for(name, force=force, reset_permissions=True)
+  File "apps/frappe/frappe/model/sync.py", line 131, in sync_for
+    imported = import_file_by_path(
+  File "apps/frappe/frappe/modules/import_file.py", line 123, in import_file_by_path
+    db_modified_timestamp = frappe.db.get_value(doc["doctype"], doc["name"], "modified")
+builtins.KeyError: 'doctype'
+=== exit code: 1 ===
+=== end: 2026-09-16T09:02:59Z ===
+```
+
+#### 根因（只读定位，未改动任何 App / 核心代码）
+
+失败点是 **Task 1 产出的 fixture 文件本身**，不是环境问题：
+
+1. `frappe/installer.py::install_app` 的顺序是 `add_module_defs()` → **`sync_for(name)`** → 才 `add_to_installed_apps(name)`。异常发生在 `sync_for` 内，所以 App 从未被登记进 `installed_apps`。
+2. `sync_for` 经 `get_doc_files()` 收 `<module>/workspace/<docname>/<docname>.json`，本次 `files` 恰为 1 个：`apps/hb_stock_app/hb_stock_app/hbos_stock/workspace/海滨库存/海滨库存.json`（traceback 中 `i = 0, l = 1`，即**第一个文件就失败**）。
+3. `import_file_by_path()` 第 123 行无条件读 `doc["doctype"]`；而该 fixture 顶层**没有** `doctype` 键。实测顶层键集合：
+
+   ```text
+   ['app', 'charts', 'content', 'icon', 'is_hidden', 'label', 'links', 'module',
+    'name', 'number_cards', 'public', 'roles', 'sequence_id', 'shortcuts', 'title', 'type']
+   ```
+
+   对照 ERPNext 原生 `apps/erpnext/erpnext/stock/workspace/stock/stock.json`，其顶层**含** `"doctype": "Workspace"`。
+4. 成因在 `apps/hb_stock_app/hb_stock_app/hbos_stock/workspace_builder.py`：
+   - `ROW_DROP_FIELDS` 把 `doctype` 列为「必须剥离」（本意**只针对子表行**，剥离子表 docname 身份）；
+   - 但 `TOP_LEVEL_KEEP_FIELDS` 白名单里**也没有** `doctype`，于是顶层 `doctype` 既没被保留、也没被保留列表断言拦住；
+   - `_assert_no_drop_fields()` 只遍历 payload 的**列表**值（子表），**不检查顶层标量**，因此这个缺失是静默的。
+5. 单测为什么没拦住：`apps/hb_stock_app/tests/test_workspace_builder.py` 的 `synthetic_source()` 顶层同样没有 `doctype`，`test_link_rows_drop_child_identity` 也只对 `p["links"]` 的行断言。**单测全绿，但产物不是 Frappe 可导入的文档。** 这正是 Task 1 审查时要求「必须在运行态验证」的那类问题。
+
+**建议的最小修复方向（本任务未实施，等 Owner / 协调方裁定）**：让 fixture 顶层带上 `"doctype": "Workspace"`（例如把 `doctype` 加入 `TOP_LEVEL_KEEP_FIELDS` 并在 `build_workspace_payload` 里显式置为 `"Workspace"`），同时**保持**子表行继续剥离 `doctype` / `name` / `parent` 等身份字段；并给 `test_workspace_builder.py` 补一条「顶层必须含 `doctype == "Workspace"`」的断言。按本任务纪律（「不要自行修改 fixture 或 App 代码绕过」），**未执行此修复**。
+
+#### 失败未产生持久化变更（实测确认）
+
+| 检查项 | 结果 |
+| --- | --- |
+| `bench --site stock list-apps` | 仍只有 `frappe` / `erpnext` |
+| `sites/stock/site_config.json` 的 `installed_apps` | 仍为 `["frappe", "erpnext"]` |
+| `Workspace 海滨库存` | 不存在 |
+| `Module Def HBOS Stock` | 不存在（`add_module_defs` 的写入随事务回滚） |
+| `Workspace` 总数 / `Module Def` 总数 / `stock` 库表数 | 19 / 32 / 736（与 Step 0 完全一致） |
+| `grep -l hb_stock_app sites/*/site_config.json` | 无任何站点命中 |
+
+### Step 2：执行 migrate 触发 after_migrate —— **未执行（无意义）**
+
+App 未安装成功，`hb_stock_app` 不在 `installed_apps` 中，其 `after_migrate` 钩子不会被加载；此时对 `stock` 跑 `migrate` 只会跑 frappe/erpnext 自身的 patch，无法触及本任务目标，故跳过，不做无意义的写入。
+
+### Step 3：确认工作台已生成 —— **未达成**
+
+`Workspace 海滨库存` 从未被创建。实测（与 Step 1 失败输出一致）：
+
+```text
+frappe.exceptions.DoesNotExistError: Workspace 海滨库存 not found
+```
+
+故 **name / label / module / app、links / charts / number_cards / card_breaks 的实测计数全部无从产生**——预期口径 `海滨库存 / HBOS Stock / hb_stock_app / 72 / 1 / 3 / 8` 未验证。
+
+### Step 4：原生 Stock 工作台是否被搬空 —— **运行态未验证（这是本任务的遗留风险）**
+
+失败后（**2026-09-16 17:04 CST**）复测 `stock` 站点原生 `Stock`：
+
+```text
+name: Stock | label: Stock | module: Stock | app: erpnext
+links: 72 | charts: 1 | number_cards: 3
+card_breaks: 8
+```
+
+与 Step 0 逐值一致，**表面上 72 / 1 未被破坏**。但必须明确标注证据强度：
+
+> **这不是子表身份字段剥离正确的证据。** fixture 在 `import_file_by_path` 读取阶段就 KeyError 中断，**从未进入 frappe 的子表写入路径**，也就从未有机会复用同名子文档，因此「Stock 仍是 72 条」是**必然结果**，不能用来证明剥离逻辑正确。
+>
+> 作为旁证（**静态**，非运行态）：对 fixture 文件做只读检查，`links` / `charts` / `number_cards` 三张子表**没有任何一行**携带 `name`、`parent`、`parentfield`、`parenttype`、`doctype` 等身份字段（72 / 1 / 3 行，携带 `name` 的行数为 0）。这只说明**产物文件**是干净的，不能替代运行态验证。
+>
+> **结论：Step 4 的核验（原生 Stock 在安装后仍为 72 links / 1 chart）必须在 fixture 修好、`install-app` + `migrate` 真正跑通之后重做。**
+
+### Step 5：确认考勤站点未被装上 hb_stock_app —— **PASS**
+
+```text
+$ bench --site frontend list-apps
+
+frappe            16.26.3 UNVERSIONED
+erpnext           16.26.2 UNVERSIONED
+hrms              16.13.0 version-16
+hb_attendance_app 0.0.1   UNVERSIONED
+```
+
+**不含 `hb_stock_app`**，与 Task 3 登记的基线逐项一致，不多不少。
+
+### Step 6：考勤站点零回归（A / B / C 三组）—— **PASS**
+
+采集时间 **2026-09-16 17:04:01 CST**。`frontend` 为活站，`Employee Checkin` 后台任务周期为 `*/10 * * * *`。
+
+#### A. 结构不变量（逐值相等）
+
+| 检查项 | 基线 | 实测 | 结论 |
+| --- | --- | --- | --- |
+| `common_site_config.json` 的 `default_site` | `frontend` | `frontend`（全文 8 字段与 Task 3 Step 2 逐字段一致） | PASS |
+| `sites/frontend/site_config.json` 的 `db_name` | `_7aecc840db82aaec` | `_7aecc840db82aaec` | PASS |
+| `bench --site frontend list-apps` | frappe 16.26.3 / erpnext 16.26.2 / hrms 16.13.0 version-16 / hb_attendance_app 0.0.1 | 同上，逐行一致 | PASS |
+| MariaDB 库列表 | `_7aecc840db82aaec`、`_f77d036c56d5d4af` | 同上，未新增库 | PASS |
+
+#### B. 活表单调不减 + 上界
+
+| 不变量 | Task 3 基线（15:23:32） | 本任务实测（17:04:01） | 判据 | 结论 |
+| --- | --- | --- | --- | --- |
+| `Employee` | `=` 710 | 710 | 相等 | PASS |
+| `Employee Checkin` | `≥` 47776 | 47933 | 47776 ≤ 47933 ≤ 47776 + 1000×1.675 = 49451 | PASS |
+| `Attendance` | `≥` 26535 | 26535 | ≥ 基线 | PASS |
+| `Shift Assignment` | `≥` 623 | 623 | ≥ 基线 | PASS |
+| `Shift Schedule` | `=` 0 | 0 | 相等 | PASS |
+| `HBOS Employee Schedule` | `≥` 4440 | 4440 | ≥ 基线 | PASS |
+| `HBOS Attendance Import Log` | `=` 0 | 0 | 相等 | PASS |
+| `HBOS Shift Rule` | `=` 17 | 17 | 相等 | PASS |
+| `HBOS Leave Record` | `≥` 10150 | 10190 | ≥ 基线 | PASS |
+| `HBOS Overtime Record` | `≥` 516 | 516 | ≥ 基线 | PASS |
+| `Data Import Log` | `=` 0 | 0 | 相等 | PASS |
+| `File` | `≥` 45 | 45 | ≥ 基线 | PASS |
+| `User` | `=` 3 | 3 | 相等 | PASS |
+| `information_schema.TABLES` 表数 / 库大小 | `=` 896 / 405.2 MB | 896 / 405.2 MB | 相等 | PASS |
+
+上界口径说明：`1000 条/小时` 取自 Task 3 文档「漂移说明」的实测小时峰值 317 条 × 3 倍余量。基线到复测经过 `1.6747` 小时，故上界 `47776 + 1675 = 49451`。`Employee Checkin` 实测 47933，落在区间内。另：开工前 17:02:38 与收工后 17:04:01 两次读数**相同**（47933），与 `*/10` 的 10 分钟批次节奏一致，不是异常。
+
+#### C. 健康存活
+
+| 检查项 | 实测 | 结论 |
+| --- | --- | --- |
+| `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login`（宿主机） | `200` | PASS |
+| 同一 URL 从 `hbos-m0-r3a-frontend-1` 容器内 | `200` | PASS |
+| `bench --site frontend doctor` | 退出码 0；`Workers online: 2`；`-----frontend Jobs-----`（无错误段） | PASS |
+| `hbos-m0-r3a-backend-1` 容器日志尾部 | 无新增 error（仅 whoosh SyntaxWarning，为既有） | PASS |
+
+**C 组口径提示**：`http://localhost:8080/login` 在 **`backend-1` 容器内不可达**（实测 `curl` 退出码 7 / `000`），该端口由 `hbos-m0-r3a-frontend-1` 容器暴露。本任务的登录检查在**宿主机**与 **`frontend-1` 容器内**执行，两处均为 200。后续轮次做该检查时不要误在 `backend-1` 内执行，否则会得到假阴性。
+
+**零回归总结论：A / B / C 三组全部 PASS，`frontend` 站点数据与入口无任何回归。本任务全程未对 `frontend` 执行任何写操作（仅 `list-apps` / `doctor` / `execute frappe.db.sql` 只读查询）。**
+
+### Step 7 / 8：本轮改动与提交
+
+- 本轮**唯一**改动的仓库文件：本文档。
+- 未改动 `apps/hb_stock_app/` 任何代码、未改动 fixture、未改动 `docker-compose.yml`、未改动 `.env`。
+- Task 4 的 `hb_stock_app` 安装与「海滨库存」工作台生成**尚未完成**，Task 5 无法在其之上开工（缺少 `Module Def HBOS Stock` 与 `海滨库存` 工作台），需先修 fixture 后重跑 Task 4。
 
 ## Task 5：初始化 stock 站点（Company HAIBIN + 默认仓库）
 
@@ -356,5 +533,6 @@ Task 3 之后（尚未安装 `hb_stock_app`，`stock` 站点内无业务数据�
 ## 遗留事项
 
 - `stock` 站点目前尚无定期备份习惯，待 Task 8 或后续轮次纳入（不得删除本次 `frontend` 恢复点）。
+- **Task 4 阻塞项（P0，阻断 Task 5）**：`hb_stock_app` 的 fixture（`apps/hb_stock_app/hb_stock_app/hbos_stock/workspace/海滨库存/海滨库存.json`）顶层缺 `doctype` 字段，`bench --site stock install-app hb_stock_app` 必然 KeyError 失败。需在 Task 1 的 `workspace_builder.py` / fixture 生成器侧修复（并补单测断言），再重跑 Task 4 全部 Step。**修好重跑时，Step 4「原生 Stock 工作台仍为 72 links / 1 chart」必须作为硬判据重做**——本次因 fixture 未真正导入，该判据未被有效验证。
 - `stock` 站点物料档案为空，待后续业务轮次录入。
 - 状态台账（`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`）、`docs/milestones/README.md`（其中 `M2` 仍标为 `NOT STARTED`）与公共入口文件的更新不在 Task 3 范围，统一由 Task 8 收口。
