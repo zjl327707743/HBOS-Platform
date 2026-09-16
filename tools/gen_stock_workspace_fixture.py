@@ -39,7 +39,8 @@ def main():
 	source = extract_json(Path(sys.argv[1]).read_text())
 	payload = build_workspace_payload(source)
 	FIXTURE.parent.mkdir(parents=True, exist_ok=True)
-	FIXTURE.write_text(json.dumps(payload, ensure_ascii=False, indent=1, sort_keys=True))
+	FIXTURE.write_text(
+		json.dumps(payload, ensure_ascii=False, indent=1, sort_keys=True) + "\n")
 	print(f"已写入 {FIXTURE}")
 	print(f"links={len(payload['links'])} charts={len(payload['charts'])} "
 	      f"number_cards={len(payload['number_cards'])}")

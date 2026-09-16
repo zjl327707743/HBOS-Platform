@@ -61,11 +61,32 @@ def build_workspace_payload(source):
 	]
 
 	payload["content"] = _prepend_title_header(source.get("content"))
+	_assert_no_drop_fields(payload)
 	return payload
 
 
 def _pick(row, fields):
 	return {f: row.get(f) for f in fields if f in row}
+
+
+def _assert_no_drop_fields(payload):
+	"""任何输出子表行都不得携带 ROW_DROP_FIELDS 中的身份字段。
+
+	剥离靠的是各 *_KEEP_FIELDS 白名单，这里是第二道防线：白名单一旦被改错
+	（例如有人把 name 加回 LINK_KEEP_FIELDS），会当场报错，而不是把原生
+	Stock 的子文档名悄悄带进目标站点。
+	"""
+	for table, rows in payload.items():
+		if not isinstance(rows, list):
+			continue
+		for row in rows:
+			if not isinstance(row, dict):
+				continue
+			leaked = sorted(set(row) & set(ROW_DROP_FIELDS))
+			if leaked:
+				raise ValueError(
+					f"子表 {table} 的输出行携带了必须剥离的字段 {leaked}：{row}"
+				)
 
 
 def _prepend_title_header(content):
