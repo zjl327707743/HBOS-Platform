@@ -1,6 +1,14 @@
 """把 ERPNext 原生 Stock 工作台的 payload 转换为海滨库存工作台 payload。
 
 纯函数模块：不导入 frappe，不访问数据库，可离线测试。
+
+产物的使用者有两个，字段取舍必须同时满足：
+1. Frappe 的 fixture 导入链路（`frappe/model/sync.py::sync_for` →
+   `frappe/modules/import_file.py::import_file_by_path`）会按约定路径
+   `<module>/workspace/<name>/<name>.json` 读到它。该链路要求顶层带
+   `doctype` 与 `name`，缺 `doctype` 会 `KeyError` 并中断 install-app / migrate。
+2. `hb_stock_app.hbos_stock.setup.sync_stock_workspace()` 按
+   `TOP_LEVEL_KEEP_FIELDS` / 各子表白名单逐字段落库。
 """
 
 import json
@@ -17,9 +25,25 @@ ROW_DROP_FIELDS = (
 	"docstatus", "idx", "parent", "parentfield", "parenttype", "doctype",
 )
 
+# 顶层保留字段。判据不是「我觉得该留什么」，而是「生成的 fixture 能否被 Frappe
+# 正常导入」，以运行态源 payload 与已上线的「海滨考勤工作台」参考产物（同样放在
+# <module>/workspace/<name>/<name>.json，走同一条导入链路）的交集为准。
+#
+# doctype 必须保留：Frappe 安装/迁移时按模块目录同步，链路是
+# frappe/model/sync.py::sync_for → frappe/modules/import_file.py::
+# import_file_by_path，该函数第一步就取 doc["doctype"]（import_file.py:123），
+# 缺了这个键会 KeyError: 'doctype'，整个 install-app / migrate 直接中断。
+# custom_blocks、quick_lists 是 Workspace 的子表字段（源 payload 与参考产物都有），
+# 同 links/charts/number_cards/roles/shortcuts 一样需要输出。
+# for_user、hide_custom 同样在源与参考产物中都存在，保留成本为零。
+#
+# 未保留的源字段：external_link / indicator_color / link_to / link_type /
+# parent_page / restrict_to_domain。它们在运行态源里全为空值（None / ''），参考
+# 产物也不含；保留会把原生 Stock 的页面归属与域限制语义带进目标站点，且对导入
+# 无任何必要性。
 TOP_LEVEL_KEEP_FIELDS = (
-	"app", "content", "icon", "is_hidden", "label", "module",
-	"public", "sequence_id", "title", "type",
+	"app", "content", "doctype", "for_user", "hide_custom", "icon",
+	"is_hidden", "label", "module", "public", "sequence_id", "title", "type",
 )
 LINK_KEEP_FIELDS = (
 	"type", "label", "icon", "description", "hidden", "link_type", "link_to",
@@ -29,6 +53,10 @@ LINK_KEEP_FIELDS = (
 CHART_KEEP_FIELDS = ("chart_name", "label")
 NUMBER_CARD_KEEP_FIELDS = ("number_card_name", "label")
 SHORTCUT_KEEP_FIELDS = ("color", "doc_view", "label", "link_to", "stats_filter", "type")
+# Workspace Custom Block / Workspace Quick List 的字段白名单（只留数据字段，
+# 布局用的 section_break_* / column_break_* 不带）。
+CUSTOM_BLOCK_KEEP_FIELDS = ("custom_block_name", "label")
+QUICK_LIST_KEEP_FIELDS = ("document_type", "label", "quick_list_filter")
 
 TITLE_HEADER_ID = "hbos-stock-title"
 TITLE_HEADER_TEXT = (
@@ -58,6 +86,12 @@ def build_workspace_payload(source):
 	payload["roles"] = [_pick(r, ("role",)) for r in source.get("roles") or []]
 	payload["shortcuts"] = [
 		_pick(r, SHORTCUT_KEEP_FIELDS) for r in source.get("shortcuts") or []
+	]
+	payload["custom_blocks"] = [
+		_pick(r, CUSTOM_BLOCK_KEEP_FIELDS) for r in source.get("custom_blocks") or []
+	]
+	payload["quick_lists"] = [
+		_pick(r, QUICK_LIST_KEEP_FIELDS) for r in source.get("quick_lists") or []
 	]
 
 	payload["content"] = _prepend_title_header(source.get("content"))

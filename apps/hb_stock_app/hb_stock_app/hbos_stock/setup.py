@@ -11,7 +11,8 @@ import frappe
 from hb_stock_app.hbos_stock.workspace_builder import TOP_LEVEL_KEEP_FIELDS
 
 WORKSPACE_TITLE = "海滨库存"
-CHILD_TABLES = ("links", "charts", "number_cards", "roles", "shortcuts")
+CHILD_TABLES = ("links", "charts", "number_cards", "roles", "shortcuts",
+                "custom_blocks", "quick_lists")
 
 
 def after_migrate():

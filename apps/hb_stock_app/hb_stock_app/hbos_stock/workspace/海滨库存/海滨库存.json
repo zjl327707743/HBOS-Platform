@@ -7,6 +7,10 @@
   }
  ],
  "content": "[{\"id\": \"hbos-stock-title\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>海滨库存</b></span><br><span class=\\\"text-muted\\\">本工作台承载海滨独立库存数据，复用 ERPNext 原生库存单据与报表；与考勤站点数据完全隔离。</span>\", \"col\": 12}}, {\"id\": \"1cdTNYy-TO\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Stock Value by Item Group\", \"col\": 12}}, {\"id\": \"WKeeHLcyXI\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Total Stock Value\", \"col\": 4}}, {\"id\": \"6nVoOHuy5w\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Total Warehouses\", \"col\": 4}}, {\"id\": \"OUex5VED7d\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Total Active Items\", \"col\": 4}}, {\"id\": \"3SmmwBbOER\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters &amp; Reports</b></span>\", \"col\": 12}}, {\"id\": \"OAGNH9njt7\", \"type\": \"card\", \"data\": {\"card_name\": \"Items Catalogue\", \"col\": 4}}, {\"id\": \"jF9eKz0qr0\", \"type\": \"card\", \"data\": {\"card_name\": \"Stock Transactions\", \"col\": 4}}, {\"id\": \"tyTnQo-MIS\", \"type\": \"card\", \"data\": {\"card_name\": \"Stock Reports\", \"col\": 4}}, {\"id\": \"dJaJw6YNPU\", \"type\": \"card\", \"data\": {\"card_name\": \"Settings\", \"col\": 4}}, {\"id\": \"rQf5vK4N_T\", \"type\": \"card\", \"data\": {\"card_name\": \"Serial No and Batch\", \"col\": 4}}, {\"id\": \"7oM7hFL4v8\", \"type\": \"card\", \"data\": {\"card_name\": \"Tools\", \"col\": 4}}, {\"id\": \"ve3L6ZifkB\", \"type\": \"card\", \"data\": {\"card_name\": \"Key Reports\", \"col\": 4}}, {\"id\": \"8Kfvu3umw7\", \"type\": \"card\", \"data\": {\"card_name\": \"Other Reports\", \"col\": 4}}]",
+ "custom_blocks": [],
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
  "icon": "stock",
  "is_hidden": 0,
  "label": "海滨库存",
@@ -1109,6 +1113,7 @@
   }
  ],
  "public": 1,
+ "quick_lists": [],
  "roles": [],
  "sequence_id": 7.0,
  "shortcuts": [],
