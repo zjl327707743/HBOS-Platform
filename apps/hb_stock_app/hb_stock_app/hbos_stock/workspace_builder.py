@@ -39,8 +39,11 @@ ROW_DROP_FIELDS = (
 #
 # 未保留的源字段：external_link / indicator_color / link_to / link_type /
 # parent_page / restrict_to_domain。它们在运行态源里全为空值（None / ''），参考
-# 产物也不含；保留会把原生 Stock 的页面归属与域限制语义带进目标站点，且对导入
-# 无任何必要性。
+# 产物也不含；保留对导入无任何必要性，且会把归属类语义带进目标站点——其中
+# parent_page 的 options 是 Workspace，指**工作台之间的父子嵌套**（不是「页面
+# 归属」），域限制字段是 restrict_to_domain（options 为 Domain）；link_type /
+# link_to / external_link 用于把工作台做成某个入口的跳转，indicator_color 是
+# 侧边栏指示色，都与本工作台无关。
 TOP_LEVEL_KEEP_FIELDS = (
 	"app", "content", "doctype", "for_user", "hide_custom", "icon",
 	"is_hidden", "label", "module", "public", "sequence_id", "title", "type",

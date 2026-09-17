@@ -16,15 +16,45 @@ FIXTURE_PATH = (
     / f"{TARGET_WORKSPACE}.json"
 )
 
-# 外部判据：hb_attendance_app 的工作台产物已上线、已被证明能被 Frappe 正常导入，
-# 因此用它当作 oracle，而不是用我们自己对「顶层该有哪些键」的假设。
-# 之所以要跨 App 读它：本次事故正是「测试与实现共享同一个盲点」——合成源自造了
-# 一份缺少 doctype 的 payload，于是单测全绿而产物不可导入。
-# 该文件只读、不写入，也不构成运行时依赖（仅测试期读取）。
-ORACLE_PATH = (
+# oracle 快照：本 App 内的测试数据，是 hb_attendance_app 的工作台产物的**逐字节副本**。
+# 选它的理由：该产物已上线、已被证明能被 Frappe 正常导入，因此可以当作判据，而不是
+# 用我们自己对「顶层该有哪些键」的假设。本次事故正是「测试与实现共享同一个盲点」——
+# 合成源自造了一份缺少 doctype 的 payload，于是单测全绿而产物不可导入。
+#
+# 来源路径（上游，只读，不构成运行时依赖）：
+#   apps/hb_attendance_app/hb_attendance_app/hbos_attendance/workspace/海滨考勤工作台/海滨考勤工作台.json
+# 出处 commit：9ea07c426d8dd19cdb38192d2f91c1ce7b97ba07
+#   （feat: 调休/换班记录接入定时同步与工作台入口）
+# 上游 git blob：aab0209be3b70b368226fbb960266626a25eb79f
+# 快照 sha256：0fd8f12342226eda56180387c424e8f1bf87c26d1a109c491d6eb5c356c63621
+# 复制方式：cp -p（字节完全一致；未做任何「修正」「美化」——它的价值就在于原样）。
+#
+# 为什么快照进本 App 而不是每次直读上游：上游产物一旦重命名 / 移动 / 删除，直读方案
+# 会**静默失效**（只剩 skipped，suite 仍 OK），而那正是本防线要防的失效模式。
+ORACLE_SNAPSHOT_PATH = (
+    Path(__file__).resolve().parent / "oracle" / "海滨考勤工作台.json"
+)
+
+# 上游原路径（仅供重建提示与人工追溯引用，测试逻辑不读它）。
+ORACLE_SOURCE_PATH = (
     Path(__file__).resolve().parents[2]
     / "hb_attendance_app" / "hb_attendance_app" / "hbos_attendance"
     / "workspace" / "海滨考勤工作台" / "海滨考勤工作台.json"
+)
+
+FIXTURE_REBUILD_HINT = (
+    "重建方式（在仓库根目录执行）：\n"
+    "  docker exec hbos-m0-r3a-backend-1 bash -lc 'cd /home/frappe/frappe-bench && "
+    "bench --site frontend execute frappe.client.get "
+    "--kwargs \"{\\\"doctype\\\":\\\"Workspace\\\",\\\"name\\\":\\\"Stock\\\"}\" > /tmp/stock_ws.json'\n"
+    "  docker cp hbos-m0-r3a-backend-1:/tmp/stock_ws.json /tmp/stock_ws.json\n"
+    "  PYTHONPATH=apps/hb_stock_app python3 tools/gen_stock_workspace_fixture.py /tmp/stock_ws.json"
+)
+
+ORACLE_REBUILD_HINT = (
+    f"重建方式：从上游产物重新快照一份（只读上游，勿修改它）：\n"
+    f"  cp -p '{ORACLE_SOURCE_PATH}' apps/hb_stock_app/tests/oracle/海滨考勤工作台.json\n"
+    f"  出处 commit：9ea07c426d8dd19cdb38192d2f91c1ce7b97ba07"
 )
 
 # Frappe 框架自己写入、不必由 fixture 携带的审计字段。
@@ -129,6 +159,46 @@ def synthetic_source():
 
 IDENTITY_FIELDS = ("name", "owner", "creation", "modified", "modified_by",
                    "docstatus", "idx", "parent", "parentfield", "parenttype", "doctype")
+
+
+class PreconditionTest(unittest.TestCase):
+    """无条件前置条件检查：必需测试数据缺失时**响亮失败**，不带任何 skip。
+
+    背景：本套件里依赖文件的用例全都带 skip / skipTest。文件被重命名、搬走或删除时，
+    suite 依旧输出 `OK`，只是 skipped 数变多；CI 若只看退出码，防线就等于不存在。
+    这与本轮事故（「测试全绿、产物不可用」）是同一个失效模式，所以必须有一条
+    **不带 skip 的**用例兜底：缺失即为 FAIL，并打印期望路径与如何重建。
+
+    覆盖的路径（两条都是本 App 内的、已入库的必需测试数据，不是可选场景）：
+    1. `FIXTURE_PATH`——待验证的落盘产物本身；
+    2. `ORACLE_SNAPSHOT_PATH`——oracle 快照；它一旦消失，整条超集防线会静默失效。
+    真正的可选场景（例如某字段不存在时的分支）仍保留 skip，不在此列。
+    """
+
+    def test_required_artifacts_exist_and_parse(self):
+        required = (
+            ("落盘 fixture", FIXTURE_PATH, FIXTURE_REBUILD_HINT),
+            ("oracle 快照", ORACLE_SNAPSHOT_PATH, ORACLE_REBUILD_HINT),
+        )
+        missing = [
+            f"  - {label} 缺失：{path}\n      {hint}"
+            for label, path, hint in required if not path.is_file()
+        ]
+        self.assertEqual(
+            missing, [],
+            "以下必需测试数据缺失（这是 FAIL，不是 skip）：\n" + "\n".join(missing),
+        )
+        for label, path, _hint in required:
+            with self.subTest(artifact=label):
+                try:
+                    data = json.loads(path.read_text())
+                except Exception as exc:
+                    self.fail(
+                        f"{label} 存在但无法解析为 JSON：{path}\n"
+                        f"      {type(exc).__name__}: {exc}"
+                    )
+                self.assertIsInstance(
+                    data, dict, f"{label} 顶层不是 JSON 对象：{path}")
 
 
 class BuildPayloadTest(unittest.TestCase):
@@ -249,13 +319,16 @@ class OracleSupersetTest(unittest.TestCase):
 
     只断言超集而非相等：我们允许比 oracle 多键（多出来的键由本生成器的白名单显式
     控制，另由其他用例覆盖），但绝不允许少键。
+
+    读的是本 App 内的快照 `tests/oracle/海滨考勤工作台.json`（来源与出处 commit 见
+    文件头注释）。这里**没有 skip**：oracle 快照是本 App 已入库的测试数据，缺失不是
+    可选场景；若给它加 skip，整个防线会随文件消失而静默熄灭——正是要防的失效模式。
+    缺失时由 `PreconditionTest` 给出带重建提示的 FAIL，本类则直接报错。
     """
 
     @classmethod
     def setUpClass(cls):
-        if not ORACLE_PATH.exists():
-            raise unittest.SkipTest(f"oracle 参考产物不存在，跳过：{ORACLE_PATH}")
-        cls.oracle = json.loads(ORACLE_PATH.read_text())
+        cls.oracle = json.loads(ORACLE_SNAPSHOT_PATH.read_text())
 
     def _assert_superset(self, payload, label):
         expected = set(self.oracle) - AUDIT_FIELDS
@@ -263,7 +336,7 @@ class OracleSupersetTest(unittest.TestCase):
         self.assertEqual(
             missing, [],
             f"{label} 缺少已上线参考产物所需的顶层键 {missing}；"
-            f"oracle={ORACLE_PATH}",
+            f"oracle 快照={ORACLE_SNAPSHOT_PATH}",
         )
 
     def test_builder_output_covers_oracle(self):
