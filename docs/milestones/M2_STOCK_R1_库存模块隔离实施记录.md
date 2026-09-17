@@ -3,7 +3,7 @@
 项目名称：新乡海滨智能运营管理平台。
 
 轮次：M2-STOCK-R1（库存模块隔离）。
-状态：IN_PROGRESS。Task 3 已交付（`stock` 站点建成）；**Task 4 已交付（PASS）**——首个回合因 fixture 顶层缺 `doctype` 字段导致 `install-app hb_stock_app` KeyError 失败（BLOCKED），该缺陷已由 Task 1 在 `014dc24` 修复；修复后重跑全部 Step 通过：App 安装成功、「海滨库存」工作台生成（72 / 1 / 3 / 8）、原生 `Stock` 工作台未被搬空（硬判据已在运行态重做）、`migrate` 幂等（连续两次退出码 0）、`frontend` 零回归 A / B / C 全 PASS。详见下方「Task 4」节。Task 5 / 7 / 8 继续追加。
+状态：IN_PROGRESS。Task 3 已交付（`stock` 站点建成）；**Task 4 已交付（PASS）**——首个回合因 fixture 顶层缺 `doctype` 字段导致 `install-app hb_stock_app` KeyError 失败（BLOCKED），该缺陷已由 Task 1 在 `014dc24` 修复；修复后重跑全部 Step 通过：App 安装成功、「海滨库存」工作台生成（72 / 1 / 3 / 8）、原生 `Stock` 工作台未被搬空（硬判据已在运行态重做）、`migrate` 幂等（连续两次退出码 0）、`frontend` 零回归 A / B / C 全 PASS。详见下方「Task 4」节。**Task 5 已交付（PASS）**——首个回合因原计划误设「`install-app erpnext` 会带来 ERPNext 建站主数据」而 `LinkValidationError: Could not find Warehouse Type: Transit` 失败（BLOCKED）；经裁定采用方案 A（建公司前先用 ERPNext 原生 `install_fixtures.install("China")` 补齐建站主数据）后，`stock` 建成 `Company HAIBIN`（abbr `H` / China / CNY）与 5 个默认仓库（逐字对齐 `frontend`）及 95 条科目 / 2 个成本中心，幂等复跑 `created=False`，`frontend` 零回归 A / B / C 全 PASS。详见下方「Task 5」节。Task 7 / 8 继续追加。
 
 ## 目标与边界
 
@@ -576,7 +576,133 @@ hb_attendance_app 0.0.1   UNVERSIONED
 
 ## Task 5：初始化 stock 站点（Company HAIBIN + 默认仓库）
 
-（由 Task 5 追加）
+**状态：已交付（PASS）。** 首个回合以 `LinkValidationError: Could not find Warehouse Type: Transit` 失败（BLOCKED），根因为 `stock` 站点**从未跑过 ERPNext 的 setup wizard**，ERPNext 建站主数据（`Warehouse Type` / `UOM` / `Item Group` / `Party Type` …）一条都没有——这是原计划文本的一个错误假设（误以为 `install-app erpnext` 会带来这些主数据；实际只有 setup wizard 第 2 阶段 `install_fixtures.install()` 才会）。经协调人裁定采用方案 A：本脚本在建公司前，先用 ERPNext **原生装配器**补齐建站主数据。
+
+### Step 0：交付物
+
+- 新增脚本：`apps/hb_stock_app/hb_stock_app/hbos_stock/init_site.py`
+- 调用方式：`bench --site stock execute hb_stock_app.hbos_stock.init_site.run`
+- **未新建任何 DocType、未重写库存逻辑**；脚本内只调用 ERPNext 原生 DocType 与原生函数（`erpnext.setup.setup_wizard.operations.install_fixtures.install()`、`frappe.new_doc("Company")`）。
+
+### Step 1：脚本要点（幂等设计）
+
+1. **建站主数据补齐（新增，方案 A）**：以 `Warehouse Type` 为空作为建站主数据缺失的探针（该 Doctype 只由 setup wizard 装配器创建，且恰是 `Company.on_update -> create_default_warehouses()` 建默认仓库路径的硬依赖——它为「Goods In Transit」仓写死 `warehouse_type="Transit"`）。探针为空时调用 `install_fixtures.install("China")`（国家与 `frontend` 一致）。
+2. **整体门控**：`install()` 整段包在 `if not frappe.db.count("Warehouse Type")` 之下，而非无条件执行——因为 `install()` 尾部还会无条件 `.save()` 一次 `Selling Settings` / `Buying Settings`；门控后重复执行不再触碰这些 Single，幂等在脚本层面显式成立（`install()` 自身经 `make_records()` → `doc.insert(ignore_permissions=True, ignore_if_duplicate=True)` 包在 savepoint 里，本身也已设计为幂等）。
+3. **公司创建**：`frappe.new_doc("Company")` + `company_name="HAIBIN"` / `abbr="H"` / `country="China"` / `default_currency="CNY"`（逐字对齐 `frontend`），整段包在 `frappe.db.savepoint()` 中，异常即 `rollback(save_point=...)` 并 `raise`，**失败不留半成品**。
+4. 脚本自带自检输出（公司名 / `created` / `master_data_created` / 仓库数 / 科目数 / 价目表数 / 仓库名列表），供执行后立即核对。
+
+### Step 2：首次执行（`stock`）
+
+```
+$ bench --site stock execute hb_stock_app.hbos_stock.init_site.run
+company=HAIBIN created=True master_data_created=True warehouses=5 accounts=95 price_lists=0
+warehouses=['All Warehouses - H', 'Finished Goods - H', 'Goods In Transit - H', 'Stores - H', 'Work In Progress - H']
+```
+
+**公司字段核对（`stock` 实测）**：`abbr=H`、`country=China`、`default_currency=CNY` —— 与 `frontend` 逐字一致。
+
+### Step 3：默认仓库与 `frontend` 逐字比对 —— PASS
+
+`stock` 的 5 个仓库（含 `company` / `is_group` / `warehouse_type`）：
+
+| 仓库名 | company | is_group | warehouse_type |
+| --- | --- | --- | --- |
+| `All Warehouses - H` | HAIBIN | 1 | — |
+| `Finished Goods - H` | HAIBIN | 0 | — |
+| `Goods In Transit - H` | HAIBIN | 0 | `Transit` |
+| `Stores - H` | HAIBIN | 0 | — |
+| `Work In Progress - H` | HAIBIN | 0 | — |
+
+与 `frontend` 的 5 个仓库名**逐字相等**，别名后缀均为 ` - H`（对应 abbr），**不是** ` - HAIBIN`。ERPNext 自动生成的会计科目 `95` 条、成本中心 `2` 个，亦与 `frontend` 完全相等（见 Step 6 对照表）。
+
+### Step 4：第二次执行（幂等复跑）—— PASS
+
+```
+$ bench --site stock execute hb_stock_app.hbos_stock.init_site.run   # EXITCODE=0
+company=HAIBIN created=False master_data_created=False warehouses=5 accounts=95 price_lists=0
+warehouses=['All Warehouses - H', 'Finished Goods - H', 'Goods In Transit - H', 'Stores - H', 'Work In Progress - H']
+```
+
+`created=False`、`master_data_created=False`，仓库仍为 `5`、科目仍为 `95`，**未重复建、未报错**。重复执行前后 `Warehouse Type` / `UOM` 等主数据计数不变（Step 6 对照表中为 `1` / `239`）。
+
+### Step 5：`Item` 计数（打印式只读 SQL）—— PASS
+
+口径提示：`bench execute` 对**假值返回值（`0` / `None`）不打印任何输出**，故 `frappe.client.get_count` 无法用于验证「应为 0」。本步改用会打印结果集的只读 SQL：
+
+```
+SELECT COUNT(*) FROM `tabItem`   →  0
+```
+
+`stock` 站点 `Item = 0`，`Customer = 0`，与 `frontend` 一致（`frontend` 的 `Item` 亦为 0 条，物料档案迁移不在本里程碑范围）。
+
+### Step 6：建站主数据 / 双站点对照表（只读 SQL）
+
+| 计数项 | `stock` | `frontend` | 结论 |
+| --- | --- | --- | --- |
+| `Company` | 1 | 1 | 相等 |
+| `Warehouse` | 5 | 5 | 相等 |
+| `Account` | 95 | 95 | 相等 |
+| `Cost Center` | 2 | 2 | 相等 |
+| `Warehouse Type` | 1 | 1 | 相等 |
+| `UOM` | 239 | 239 | 相等 |
+| `Item Group` | 6 | 6 | 相等 |
+| `Party Type` | 4 | 4 | 相等 |
+| `Price List` | **0** | **2** | **差异，见下** |
+| `Item` | 0 | 0 | 相等 |
+| `Customer` | 0 | 0 | 相等 |
+| 限定 `company='HAIBIN'` 的 `Warehouse` / `Account` / `Cost Center` | 5 / 95 / 2 | 5 / 95 / 2 | 相等 |
+
+**`Price List` 专项结论（协调人加问）**：`stock` 执行 `install_fixtures.install("China")` 后 `Price List` 仍为 `0`，`frontend` 为 `2`（`Standard Selling` / `Standard Buying`）。这是**预期内的**，原因：`Standard Selling` / `Standard Buying` 由 `erpnext/setup/setup_wizard/operations/defaults_setup.py:66 create_price_lists()` 创建，属 setup wizard 的 **defaults 阶段**（`setup_defaults`），**不在** `install_fixtures.install()`（fixtures 阶段）内，而本脚本按方案 A 只调用了后者。**`Price List` 不是创建 Company / 默认仓库 / 会计科目的前置依赖**——本任务在 `Price List = 0` 的条件下已完整创建公司、5 个默认仓库、95 条科目与 2 个成本中心（且 `install()` 自身的 `update_selling_defaults()` / `update_buying_defaults()` 只写 `cust_master_name` / `so_required` / `dn_required` 等字段，**不涉及** `price_list` 链接字段，实测 `stock` 的 `Selling Settings.selling_price_list` / `Buying Settings.buying_price_list` 均为空，**不存在悬空链接**）。若 Task 7 端到端验收需要价目表（如建销售/采购单据），再另行补建或补跑 setup wizard 的 defaults 阶段即可。
+
+### Step 7：`System Settings.setup_complete` 依赖链调查（协调人加问，**仅报告，未置位**）
+
+**结论：未置位时确有跳转，且发生在客户端；正确的置位途径是 ERPNext 原生机制，不是手写 `frappe.db.set_single_value`。**
+
+实测两站点现状：
+
+| 站点 | `Installed Application` 行（`is_setup_complete`） | `System Settings.setup_complete` | `frappe.is_setup_complete()` |
+| --- | --- | --- | --- |
+| `frontend` | `frappe=1`、`erpnext=1`（`hrms=0`、`hb_attendance_app=0`） | `1` | **True** |
+| `stock` | `frappe=0`、`erpnext=0`（`hb_stock_app=0`） | 空 | **False** |
+
+依赖链（逐层已核对源码）：
+
+1. `frappe/frappe/__init__.py:1537 is_setup_complete()` —— 读取 `Installed Application` 中 `app_name in ("frappe","erpnext")` 两行的 `is_setup_complete`，`all(...)` 为真才算完成；**不直接读 `System Settings.setup_complete`**。
+2. `frappe/frappe/boot.py:48` —— `bootinfo.sysdefaults["setup_complete"] = frappe.is_setup_complete()`。
+3. `frappe/frappe/public/js/frappe/desk.js:293` —— `frappe.boot.setup_complete = frappe.boot.sysdefaults["setup_complete"]`（前端取的是 sysdefaults 这一路）。
+4. **跳转点（客户端，非服务端）**：`frappe/frappe/public/js/frappe/router.js:137`——
+   `if (frappe.boot.setup_complete) { ... } else if (!sub_path.startsWith("setup-wizard")) { frappe.set_route(["setup-wizard"]); }`
+   即：`setup_complete` 为假时，用户访问 `/app` 下**任何非 `setup-wizard` 路由都会被强制改道到 setup wizard 页面**。另有 `desk.js:63`（`startup_setup_dialog` 弹窗）与 `frappe/boot.py:246`（`bootinfo.setup_wizard_requires = frappe.get_hooks("setup_wizard_requires")` → `erpnext/hooks.py:63 = assets/erpnext/js/setup_wizard.js`）同源受此标志驱动。
+   补充：`frappe/www/`、`frappe/website/` 下 **grep 不到** `setup-wizard` 相关服务端跳转，`www/desk.py` 只处理 Guest 跳登录，**服务端不跳**——所以这是纯前端路由行为。
+5. **唯一的原生置位者**：`frappe/frappe/core/doctype/installed_applications/installed_applications.py:31 update_versions()` —— 对 `frappe` 行取 `has_non_admin_user()`（存在**非 `Administrator`/`Guest` 的 System User**），对 `erpnext` 行取 `has_company()`（**存在任一 `Company`**），随后 `frappe.db.set_single_value("System Settings","setup_complete", frappe.is_setup_complete())`。该函数由 `frappe/frappe/migrate.py:198` 与 `frappe/frappe/installer.py:360/374/432` 调用，即**由 `bench migrate` / `install-app` 触发**。
+
+**建议（供裁定）**：
+
+- 本任务完成后 `stock` 已有 `Company HAIBIN`，故 `erpnext` 行在下次 `update_versions()` 时会置 `1`；但 `frappe` 行依赖 `has_non_admin_user()`，`stock` 当前只有 `Administrator`（System User）+ `Guest`（Website User），**为 False**。因此**单独跑 `bench --site stock migrate` 仍不足以让 `is_setup_complete()` 为真**（`frontend` 之所以为真，正因为它有 `isstascha121@gmail.com` 这个非管理员 System User）。
+- 推荐路径（原生、可持续）：在 Task 6/7 为 `stock` 建一个**非 Administrator 的 System User**（真实登录本来也需要），再跑 `bench --site stock migrate` 触发 `update_versions()` 重算两行。**不建议**手写 `frappe.db.set_single_value("System Settings","setup_complete",1)`——它既不改变 `Installed Application` 两行（`is_setup_complete()` 仍为假、跳转依旧），又会被下一次 `migrate` 立即覆盖回去。
+- 该项**未阻塞本任务**：公司、仓库、科目均已建成，`stock` 站点后端完全可用。
+
+### Step 8：`frontend` 零回归（A / B / C）—— 全 PASS
+
+| 组 | 检查项 | 实测 | 结论 |
+| --- | --- | --- | --- |
+| A | `common_site_config.json` 的 `default_site` | `frontend` | PASS |
+| A | `bench --site frontend list-apps`（逐行） | `frappe 16.26.3` / `erpnext 16.26.2` / `hrms 16.13.0 version-16` / `hb_attendance_app 0.0.1`，不多不少 | PASS |
+| A | `bench --site frontend doctor` | 退出码 `0` | PASS |
+| A | `sites/frontend/site_config.json` 的 `db_name` | `_7aecc840db82aaec`（与 Task 3 基线一致） | PASS |
+| B | `Employee Checkin` 计数 | 基线 `47776`（2026-09-16 15:23:32 CST）；本次实测 `48796`（2026-09-17 06:54:23 UTC，历时 23.514 h） | PASS |
+| B | 上界 `47776 + 1000 × 23.514 = 71290` | `48796 ≤ 71290`，且 `48796 ≥ 47776`（净增 1020 条 ≈ 43.4 条/小时，符合 `*/10` 批量写入节奏） | PASS |
+| C | `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login`（**宿主机**执行） | `200` | PASS |
+
+**零回归总结论：A / B / C 三组全部 PASS，`frontend` 活站数据与入口无任何回归。**
+
+### Step 9：本轮改动与提交
+
+- 本轮改动的仓库文件：`apps/hb_stock_app/hb_stock_app/hbos_stock/init_site.py`（新增）与本文档。
+- **仅对 `stock` 站点执行写操作**；`--site` 参数逐字确认为 `stock`。**未对 `frontend` 执行任何写操作**（全程只读查询）。
+- 未改动 `docker-compose.yml`、`.env`；未改动 `workspace_builder.py` / `setup.py` / fixture / 既有 tests；未改动 Frappe / ERPNext / HRMS 核心源码；未新建 DocType。
+- 未执行 `docker compose down -v`；未删除任何 Docker volume；未重建 `frontend` 站点。
+- 首回合失败后**未自行删公司/删仓库重来**：失败后实测 `stock` 的 `Company` / `Warehouse` / `Account` 仍为 `0/0/0`，全事务已回滚、无残留，故无需清理。
 
 ## Task 6：暴露 stock 站点（frontend-stock 服务 + 8082）
 
@@ -611,4 +737,7 @@ Task 3 之后（尚未安装 `hb_stock_app`，`stock` 站点内无业务数据�
 - **工作台子表行名每次 `after_migrate` 都会重新生成**（本次实测 `7b7*` / `7b8*` → `bds*`，见 Task 4 Step 4「子表行名漂移」）。这是 Task 1 有意剥离子表行 `name` 以保全 docname 全局唯一性的副作用，**计数与内容稳定、非回归**。后续轮次做证据采集或回归判据时，**不要**用子表行名做锚点，请用计数与工作台 docname。若后续希望消除该 churn，可在 `_apply_payload` 侧改为「按顺序复用既有子行 docname」，但与「不得窃取原生 `Stock` 行」的设计约束需一并评估。
 - ~~**Task 4 阻塞项（P0，阻断 Task 5）**：`hb_stock_app` 的 fixture 顶层缺 `doctype` 字段，`bench --site stock install-app hb_stock_app` 必然 KeyError 失败。~~ **已解除（2026-09-17）**：Task 1 已在 `014dc24` 修复 fixture 顶层缺 `doctype`（`TOP_LEVEL_KEEP_FIELDS` 补 `doctype` / `for_user` / `hide_custom` 并新增 `custom_blocks` / `quick_lists`，新增以参考产物为 oracle 的 `OracleSupersetTest` 补上「顶层键集合须为参考产物超集」的防线），并在 `setup.py` / fixture / `workspace_builder.py` / 单测四处同步。修复后本任务重跑 Step 1–8 全部通过。**首回合遗留的硬判据已按承诺重做**：Step 4「原生 `Stock` 工作台在安装 + migrate 后仍为 72 links / 1 chart / 3 number_cards」已在真正进入运行态子表写入路径后复测通过（见 Step 4），并有 `tabWorkspace *` 按行名前缀分组的数据库级佐证。
 - `stock` 站点物料档案为空，待后续业务轮次录入。
+- **Task 5 遗留（转 Task 6/7，非阻塞）**：
+  - `stock` 的 `System Settings.setup_complete` 仍为空、`frappe.is_setup_complete()` 为 `False`，浏览器访问 `/app` 会被**前端路由**改道到 setup wizard（详见 Task 5 Step 7）。原生解法是「建一个非 `Administrator` 的 System User → `bench --site stock migrate`」触发 `Installed Applications.update_versions()` 重算；**不要**手写 `frappe.db.set_single_value("System Settings","setup_complete",1)`。
+  - `stock` 的 `Price List` 为 `0`（`frontend` 为 `2`）：`Standard Selling` / `Standard Buying` 属 setup wizard 的 **defaults 阶段**，本任务的 `install_fixtures.install()` 不覆盖。**不影响** Company / 仓库 / 科目的创建与本任务验收；若 Task 7 需要价目表再补建。
 - 状态台账（`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`）、`docs/milestones/README.md`（其中 `M2` 仍标为 `NOT STARTED`）与公共入口文件的更新不在 Task 3 范围，统一由 Task 8 收口。
