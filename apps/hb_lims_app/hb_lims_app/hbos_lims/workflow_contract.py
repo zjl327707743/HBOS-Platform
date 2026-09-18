@@ -6,6 +6,10 @@
 OOS 触发：判定不合格 → OOS候选 → OOS锁定（禁止放行）。
 """
 
+# M2-R8A 稳定性流程转移表由 stability_contract 单一持有，此处只做合并引用
+# （R7 时期 retention 转移表在两处重复定义，此处不再重复，避免双源漂移）
+from hb_lims_app.hbos_lims import stability_contract as stb_contract
+
 # 流程类型
 FLOW_SAMPLE = "sample"
 FLOW_TASK = "task"
@@ -115,6 +119,9 @@ ROLE_ANALYST = "LIMS Analyst"
 ROLE_REVIEWER = "LIMS Reviewer"
 ROLE_SYSTEM = "System Manager"
 ROLE_LIMS_QA = "LIMS QA"
+# M2-R8A 新增两角色（Owner 2026-09-16 确认采纳方案 6.2；QM ≠ QP、QA 经理 ≠ QA 审核人）
+ROLE_LIMS_QA_MANAGER = "LIMS QA Manager"   # QA 经理：一般变更批准
+ROLE_LIMS_QP = "LIMS QP"                   # 质量受权人：重大变更批准 / 方案与报告作废
 
 # 状态转移表（current -> allowed targets）
 SAMPLE_TRANSITIONS = {
@@ -153,6 +160,8 @@ FLOW_TRANSITIONS = {
 	FLOW_DISPOSAL_APPLY: DISPOSAL_APPLY_TRANSITIONS,
 	FLOW_TASK: TASK_TRANSITIONS,
 	FLOW_RESULT: RESULT_TRANSITIONS,
+	# M2-R8A 稳定性（R8B~R8D 的 Sample/Timepoint/Result/Report/Change/Fault 按子轮增量并入）
+	**stb_contract.STABILITY_FLOW_TRANSITIONS,
 }
 
 # 动作 -> 允许角色（动作语义见 lims_service）
@@ -208,6 +217,36 @@ ACTION_ROLES = {
 	"get_disposal_quarterly": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_MANAGER, ROLE_SYSTEM},
 	# 合规审计日志查询（只读，Reviewer / Manager / System 可读）
 	"get_audit_log": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	# ---- M2-R8A 稳定性板块（方案 6.3.1 / 6.3.2 动作矩阵逐行落地）----
+	# 通知单提出方为 QA 线（方案 5.2.1 `qa_applicant`），建档动作同权限
+	"create_notice": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	# 6.3.1 FLOW_STB_NOTICE
+	"register_review": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"submit_notice": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"confirm_notice_qc": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	"approve_notice": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"reject_notice": {ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"cancel_notice": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"close_notice": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	# 6.3.2 FLOW_STB_PROTOCOL
+	"submit_protocol": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	# 方案 5.2.2 定义 qa_review_by / qa_approve_by 两个签署位，6.4 要求
+	# 「QA 审核人 ≠ QA 批准人」——审核为状态不变的准入动作（同 register_review 模式），
+	# 角色取 6.3.6 review_report 行口径
+	"review_protocol": {ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER,
+						ROLE_MANAGER, ROLE_SYSTEM},
+	"approve_protocol": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"reject_protocol": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"void_protocol": {ROLE_LIMS_QP, ROLE_MANAGER, ROLE_SYSTEM},
+	# 主数据维护（对齐既有 create_specification 惯例：Manager 维护主数据）
+	"manage_stability_master": {ROLE_MANAGER, ROLE_SYSTEM},
+	# 稳定性只读聚合（工作台 / 通知单台账）
+	"get_stability_dashboard": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+								ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"get_stability_notices": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+							  ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"get_stability_notice_detail": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+									ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
 }
 
 

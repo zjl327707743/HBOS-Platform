@@ -6,6 +6,12 @@
 
 本文件记录 M2-LIMS（实验室信息管理系统板块）启动前必须满足的门禁条件，以及 M2-LIMS 的范围边界与并行事项记录。
 
+## 当前子轮状态
+
+- **M2-R8E（稳定性板块前端设计方案与 HTML 原型）**：REVIEWING / Owner 已确认原型。已交付 7 个原型视图、关键抽屉交互、PNG 设计图和移动端检查；本轮不创建 Vue 工程、不接真实 API、不创建稳定性 DocType，不改变 R8A 启动前置门禁。
+- **M2-R8F（稳定性板块前端 Vue 复刻与生产部署）**：**DEPLOYED**，Owner 2026-09-16 已确认测试路径并授权同步生产。按 `M2-R8E` 设计方案与 HTML 原型，在 `frontend/hbos-lims-web` 复刻稳定性 **7 视图** + 7 条 `/stability*` 路由 + 侧栏「稳定性管理」分组 7 入口 + 演示数据层 `src/demo/stabilityDemo.ts`（`TEST-HBOS-M2-STB-*`）+ 样式 `stability.scss` + 3 个共享组件；`vue-tsc` 0 错误、`npm run build` 通过、浏览器 7 路由 / 12 抽屉 / 375px 移动端回归通过；生产构建 `npm run build:prod` 后同步 `/hbos-lims`（备份 `hbos-lims.bak-20260916120644`，84 个文件与本地逐字节一致、全路由与 7 个稳定性 chunk 均 200、既有模块无回归），`deploy_lims_fix.sh` 冒烟清单已补 `/stability*` 路由。本轮**不创建稳定性 DocType、不改 `hb_lims_app`、不接真实 API**（稳定性视图零 API 调用，全部为演示数据）；真实 API 接入待 R8B~R8C 落地后按设计方案 §8 顺序推进。主文档 `docs/milestones/M2_R8F_稳定性板块前端Vue复刻与生产部署.md`。
+- **M2-R8A（稳定性主数据与通知单/方案后端）**：**DONE / 待 Owner 审查**。11.3 启动门禁 7/7 已闭环（Owner 2026-09-16，记录见 `docs/milestones/M2_R8A_启动门禁确认包.md`）。在 `hb_lims_app` 落地 10 个 DocType（4 主数据 + Notice + Protocol + 4 子表）、`FLOW_STB_NOTICE`/`FLOW_STB_PROTOCOL` 两条状态机、新增 `LIMS QA Manager`/`LIMS QP` 两角色、批准后冻结快照与版本链；`stability_contract.py`/`stability_guards.py`/`stability_service.py` 三模块，DocType 层 6 个 LIMS 角色一律只读（方案 8.6）。实机 `migrate` 已执行，端到端 + 负向用例 **28/28 通过**、离线契约 **199/199 全绿**；验证中修复 4 项缺陷（非法 fieldtype、`extra_condition_reason` 缺失致 >2 条件不可提交、审计 `log_type` 未入受控枚举、越权/SoD/非法转移/删除未留痕）。本轮未接前端真实 API、未启动 R8B、未改动 R7。主文档 `docs/milestones/M2_R8A_后端实现与实机验证.md`。
+
 ## 必须满足的前置条件
 
 - M0 状态必须为 COMPLETED（已满足）。
@@ -28,7 +34,7 @@ M2-LIMS 是实验室信息管理系统板块（HB LIMS）的开发里程碑，�
 
 ## M2-LIMS 不做（本轮及 MVP 边界）
 
-- 不做仪器数据集成（仅预留 `instrument_used` 字段）、稳定性考察、环境监测、试剂与标准品、微生物检验、OOS/OOT 完整调查流程（仅保留触发与锁定接口）。**留样管理（M2-R7）已按 Owner 2026-09-04 授权纳入范围**：R7 子轮按 Owner 授权推进（R7A/R7D 前端已落地，R7B/C 后端已实现并真实验证、前端已真实接入），其余扩展仍另行规划。
+- 不做仪器数据集成（仅预留 `instrument_used` 字段）、环境监测、试剂与标准品、微生物检验、OOS/OOT 完整调查流程（仅保留触发与锁定接口）。**留样管理（M2-R7）已按 Owner 2026-09-04 授权纳入范围**：R7 子轮按 Owner 授权推进（R7A/R7D 前端已落地，R7B/C 后端已实现并真实验证、前端已真实接入）。**稳定性管理（M2-R8）已按 Owner 2026-09-15 授权纳入范围**：方案 `docs/milestones/M2_R8_稳定性管理板块开发方案.md` REVIEWING **rev15**（v9.0 为拟执行依据，生效待确认——11.3-1）（rev1 审核 FAIL 后 rev2 修订 4 P0 + 6 P1，复审"有条件通过"后 rev3 修订 5 必修 + 3 补强、rev4 修订 3 P1 + 8 P2 + 9 P3，四轮复审 FAIL 后 rev5 修订 2 P0 + 8 P1，五轮复审"有条件通过"后 rev6 修订 4 P1 + 5 P2 + 10 P3，六轮复审 FAIL 后 rev7 修订 2 P0 + 6 P1 + 5 P2，七轮复审 FAIL 后 rev8 修订 7 P1 + 5 P2，八轮复审 FAIL 后 rev9 修订 3 P1 + 3 P2（启动门禁 7 项已全部闭环 / 验收门禁 21 条），九轮复审 FAIL 后 rev10 修订 1 P1 + 2 P2，十轮复审 FAIL 后 rev11 修订 4 P1 + 4 P2（验收门禁保持 21 条），十一轮复审 FAIL 后 rev12 修订 1 P0 结论确认 + 3 P1 + 2 P2 补强，十二轮复审 FAIL 后 rev13 修订 1 P0 结论确认 + 2 P1 + 1 P2（`client_code` 重定案：删名称回退、新增 `customer` Link；台账修复；业务依据统一 v9.0 拟执行依据；验收门禁保持 21 条），十三轮复审 FAIL 后 rev14 修订 1 P0 结论确认 + 3 P1 + 1 P2（`client_code` 只读派生 + 硬校验 `client_code == customer.name`；Customer 主数据命名闭环、删隐式规范化；台账旧口径修复；`report_period_key` 入键成分禁 `#`、非专项报告三字段必须为空；验收门禁保持 21 条），十四轮复审 FAIL 后 rev15 修订 1 P0 结论确认 + 2 P1 + 2 P2（Customer 编码格式 validate 强制校验 + R8A 前存量扫描；「规范化 client_code」旧措辞统一为 Customer 文档名原值；`client` 只读派生 `customer.customer_name`；文档头重复修订史清理；验收门禁保持 21 条）；两项范围边界 Owner 已确认：全量 12 模块、稳定性室手工记录纳入本板块），11.3 启动门禁 7/7 已闭环（Owner 2026-09-16），R8A 已启动并完成（10 DocType + 2 状态机 + `LIMS QA Manager`/`LIMS QP` + 冻结快照与版本链；实机 28/28、离线 199/199），R8B~R8E 待逐轮启动。其余扩展仍另行规划。
 - 不创建 `hb_core_app`、不创建 `hb_feishu_app`。
 - 不修改 Frappe / ERPNext / HRMS 核心源码。
 - 不做大型 Vue / React 独立前端（Frappe Desk 原生页面；独立前端须走原型先行 + Owner 审查流程）。
@@ -45,4 +51,5 @@ M2-LIMS 是实验室信息管理系统板块（HB LIMS）的开发里程碑，�
 
 - M2-LIMS MVP（R1~R5）工作在分支 `m2-lims`（自 `m1-fix-frontend-zh` 切出）上进行。
 - **M2-LIMS 延伸工作线（Owner 2026-09-07 拍板分支策略 b）**：自 R6C/R6D 起，M2 后续工作（R6 系列 Vue 复刻与生产部署、R7 留样板块及其子轮 R7A~D）在 `m2-r6` 分支上进行，作为 M2-LIMS 的延伸工作线，不回并 `m2-lims`；`m2-lims` 保留为 MVP 历史线。
+- **M2-R8 稳定性板块工作分支（✅ Owner 2026-09-15 已指定）**：从当时 HEAD `0948cf8` 新建 **`m2-r8`**，R8 及其子轮（R8A~R8E）在 `m2-r8` 上进行，不回并 `m2-lims`；`m2-r6` 保留为 R7 历史线。**`dev-r7-20260910` 与 `m2-r6` 指向同一提交 `0948cf8`，为冗余别名，不再作为工作分支使用**（暂保留分支对象，未删除）。方案第十五节待确认第 12 项已闭环。
 - 未跟踪文件（`start.sh`、`apps/hb_attendance_app/__init__.py`、`.claude/`）按 M1 既有处理原则，不误提交。

@@ -8,7 +8,13 @@ WORKSPACE_TITLE = "海滨LIMS工作台"
 DESKTOP_LABEL = "海滨LIMS"
 DESKTOP_LOGO_URL = "/assets/hb_lims_app/hbos-lims-logo.svg"
 # LIMS QA 为 M2-R7 方案 B 新增（Owner 2026-09-07 确认）：QA 线与 QC 线权限分离
-LIMS_ROLES = ["LIMS Manager", "LIMS Analyst", "LIMS Reviewer", "LIMS QA"]
+# LIMS QA Manager / LIMS QP 为 M2-R8A 新增（Owner 2026-09-16 确认采纳方案 6.2）：
+# QA 经理（一般变更批准）与质量受权人（重大变更批准）在权限层与 QA 审核人、Manager 分离。
+# 人员权限、身份与群组管理后续统一设置，本轮只做角色结构性创建。
+LIMS_ROLES = [
+	"LIMS Manager", "LIMS Analyst", "LIMS Reviewer", "LIMS QA",
+	"LIMS QA Manager", "LIMS QP",
+]
 # 侧边导航按业务模块分组（Section Break 分组 + collapsible 下拉 + child 子项），
 # 与海滨LIMS工作台四卡片分区一一对应，由 Frappe 原生 Workspace Sidebar 渲染。
 PRIMARY_SIDEBAR_ITEMS = [

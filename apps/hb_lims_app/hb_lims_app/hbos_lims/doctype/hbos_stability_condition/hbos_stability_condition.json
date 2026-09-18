@@ -1,0 +1,221 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "condition_code",
+  "description",
+  "condition_type",
+  "column_break_temp",
+  "temp_min",
+  "temp_max",
+  "humidity_min",
+  "humidity_max",
+  "climate_zone",
+  "column_break_active",
+  "is_active",
+  "section_photo",
+  "illuminance_lx_min",
+  "illuminance_lx_max",
+  "total_lux_hr_min",
+  "uv_wh_m2_min"
+ ],
+ "fields": [
+  {
+   "fieldname": "condition_code",
+   "fieldtype": "Data",
+   "label": "条件编码",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "如 LT-25-60"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "展示名",
+   "in_list_view": 1,
+   "description": "如 25±2℃/60±5%RH"
+  },
+  {
+   "fieldname": "condition_type",
+   "fieldtype": "Select",
+   "label": "条件类型",
+   "options": "长期\n加速\n中间\n影响因素-高温\n影响因素-高湿\n影响因素-强光",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_temp",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "temp_min",
+   "fieldtype": "Float",
+   "label": "温度下限（℃）"
+  },
+  {
+   "fieldname": "temp_max",
+   "fieldtype": "Float",
+   "label": "温度上限（℃）"
+  },
+  {
+   "fieldname": "humidity_min",
+   "fieldtype": "Float",
+   "label": "湿度下限（%RH）",
+   "description": "无要求留空"
+  },
+  {
+   "fieldname": "humidity_max",
+   "fieldtype": "Float",
+   "label": "湿度上限（%RH）",
+   "description": "无要求留空"
+  },
+  {
+   "fieldname": "climate_zone",
+   "fieldtype": "Select",
+   "label": "气候带",
+   "options": "Ⅰ\nⅡ\nⅢ\nⅣa\nⅣb\nN/A"
+  },
+  {
+   "fieldname": "column_break_active",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "启用",
+   "default": "1"
+  },
+  {
+   "fieldname": "section_photo",
+   "fieldtype": "Section Break",
+   "label": "强光条件参数（仅影响因素-强光使用）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "illuminance_lx_min",
+   "fieldtype": "Float",
+   "label": "照度下限（lx）"
+  },
+  {
+   "fieldname": "illuminance_lx_max",
+   "fieldtype": "Float",
+   "label": "照度上限（lx）"
+  },
+  {
+   "fieldname": "total_lux_hr_min",
+   "fieldtype": "Float",
+   "label": "总照度下限（lux·hr）"
+  },
+  {
+   "fieldname": "uv_wh_m2_min",
+   "fieldtype": "Float",
+   "label": "近紫外能量下限（W·hr/m²）"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Condition",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QP",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "allow_rename": 1,
+ "autoname": "field:condition_code",
+ "naming_rule": "By fieldname",
+ "title_field": "description"
+}

@@ -1,0 +1,57 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "stability_test_item",
+  "is_full_test",
+  "is_key_item",
+  "test_method",
+  "method_version"
+ ],
+ "fields": [
+  {
+   "fieldname": "stability_test_item",
+   "fieldtype": "Link",
+   "label": "稳定性考察项目",
+   "options": "HBOS Stability Test Item",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_full_test",
+   "fieldtype": "Check",
+   "label": "全项（首末点）",
+   "default": "0"
+  },
+  {
+   "fieldname": "is_key_item",
+   "fieldtype": "Check",
+   "label": "重点考察项目",
+   "default": "0"
+  },
+  {
+   "fieldname": "test_method",
+   "fieldtype": "Data",
+   "label": "检测方法"
+  },
+  {
+   "fieldname": "method_version",
+   "fieldtype": "Data",
+   "label": "方法版本"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Protocol Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1
+}

@@ -1,0 +1,31 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "dosage_form"
+ ],
+ "fields": [
+  {
+   "fieldname": "dosage_form",
+   "fieldtype": "Select",
+   "label": "剂型",
+   "options": "原料药\n片剂\n胶囊剂\n注射剂\n吸入粉雾剂\n口服混悬剂\n中间体\n其它",
+   "reqd": 1,
+   "in_list_view": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Test Item Form",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1
+}
