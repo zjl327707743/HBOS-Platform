@@ -8,11 +8,13 @@ M2-LIMS 在 HBOS 平台（Frappe/ERPNext 底座）上新增实验室信息管理
 
 ## 当前轮次
 
-当前子轮：M2-R8A（稳定性主数据与通知单/方案：后端实现与实机验证）**DONE / 待 Owner 审查**。R8A 启动门禁 7/7 已闭环（Owner 2026-09-16，逐项记录见 `docs/milestones/M2_R8A_启动门禁确认包.md`）。本轮在 `hb_lims_app` 落地 **10 个 DocType**（主数据 4：Product / Condition / Room / Test Item；记录一 Notice；方案 Protocol；子表 4：Test Item Form / Batch / Study Condition / Protocol Item）+ `FLOW_STB_NOTICE` / `FLOW_STB_PROTOCOL` 两条状态机 + 新增 `LIMS QA Manager` / `LIMS QP` 两角色 + 批准后冻结快照与版本链；新增 `stability_contract.py`（纯契约，零 Frappe 依赖）/ `stability_guards.py`（系统字段 + 冻结快照 + 删除拦截守卫）/ `stability_service.py`（唯一合法写路径：通知单与方案全链、SoD、越权与非法转移审计），DocType 层 6 个 LIMS 角色一律只读（方案 8.6）。实机 `bench --site frontend migrate` 已执行（10 个 DocType 与 6 角色全部落库），端到端 + 负向用例 **28/28 通过**、离线契约 **199/199 全绿**（含稳定性 28 项）。验证中发现并修复 4 项缺陷：①`test_method_ref` 字段类型/标签写反（非法 fieldtype 落库）；②`create_stability_notice` 缺 `extra_condition_reason` 入参致 **>2 个条件的通知单无法提交**；③审计 `log_type` 未登记受控枚举致 `register_review` 等直接报错；④越权 / SoD / 非法转移 / 删除尝试**未留痕**（方案 8.7 / 8.3 / 门禁 6、17），已补 `_audit_commit` 独立提交与 `on_trash` 删除拦截。本轮**未接前端真实 API**（R8F 稳定性视图仍为演示数据）、**未启动 R8B**、未改动 R7 代码。主文档 `docs/milestones/M2_R8A_后端实现与实机验证.md`。
+当前子轮：M2-R8G（稳定性前端接入真实 API：工作台 + 考察申请与方案）**DONE / 待 Owner 审查**。把 R8F 的演示数据前端接到 R8A 后端：后端补 5 个只读接口（`get_stability_products` / `get_stability_master`（doctype 白名单）/ `get_stability_protocols` / `get_stability_protocol_detail` / `get_stability_audit`，4 个新动作已注册角色）；前端新增 `src/api/stability.ts`（7 只读 + 14 写 + `ACTION_ROLES`/`canAction`），重写「稳定性工作台」与「考察申请与方案」两视图（读 + 写全接：建档 / 提交 / QC 确认 / 批准 / 驳回 / 取消 / 关闭 + 方案起草 / 提交 / 审核 / 批准 / 驳回 / 作废），按钮按会话角色显隐（后端仍为硬校验）；其余 5 视图保留演示数据但明确标注「演示数据 · 待 R8B~R8D」，顶部原「R8A 门禁 5 项未闭环」的**过期**提示条删除。验证中修复 2 项 R8A 遗留缺陷：①`HBOS Stability Protocol` **漏建 `snapshot_frozen` 字段**致方案冻结快照守卫恒失效（方案 7.7）；②命名系列 `-####` 写法在本版 Frappe 下**非法**（`set_name_by_naming_series` 无条件追加 `.#####`），实际生成 `HBOS-STB-NOT-2026-####00009` 畸形单号——已改为不含 `#` 的既有约定写法，并清理 4 条钉住旧值的 Property Setter、同步更正方案与门禁包中共 36 处写法。证据：离线契约 **203/203**、R8A 端到端 **28/28**、只读接口 **7/7**、浏览器真实会话走通读 + 写全链与角色门控、`vue-tsc` 0 错误、`npm run build` 成功、375px 三页无溢出。**未部署生产**（先给测试端链接，Owner 确认后再同步）。主文档 `docs/milestones/M2_R8G_稳定性前端接入真实API.md`。
 
-前一子轮：M2-R8F（稳定性板块前端 Vue 复刻与生产部署）**DEPLOYED**，Owner 2026-09-16 已确认测试路径并授权同步生产。按设计方案与 HTML 原型在 `frontend/hbos-lims-web` 复刻稳定性 **7 视图**（工作台 / 考察申请与方案 / 样品入箱与台账 / 取样与检测计划 / 结果录入与趋势 / 报告与有效期 / 变更·稳定性室·设备）、7 条 `/stability*` 路由、侧栏「稳定性管理」分组 7 入口、演示数据层 `src/demo/stabilityDemo.ts`（`TEST-HBOS-M2-STB-*`）与样式 `stability.scss`；`vue-tsc` 0 错误、`npm run build` 通过、浏览器 7 路由 + 12 个抽屉 + 移动端 375px 回归通过；生产构建 `npm run build:prod` 后同步生产 `/hbos-lims`（备份 `hbos-lims.bak-20260916120644`；84 个文件与本地逐字节一致、全路由与 7 个稳定性 chunk 均 200、既有模块无回归）。本轮不创建稳定性 DocType、不改 `hb_lims_app`、不接真实 API，R8A 启动门禁仍按 11.3 的 5 项未闭环口径执行。主文档 `docs/milestones/M2_R8F_稳定性板块前端Vue复刻与生产部署.md`。
+前一子轮：M2-R8A（稳定性主数据与通知单/方案：后端实现与实机验证）**DONE / 待 Owner 审查**。R8A 启动门禁 7/7 已闭环（Owner 2026-09-16，逐项记录见 `docs/milestones/M2_R8A_启动门禁确认包.md`）。本轮在 `hb_lims_app` 落地 **10 个 DocType**（主数据 4：Product / Condition / Room / Test Item；记录一 Notice；方案 Protocol；子表 4：Test Item Form / Batch / Study Condition / Protocol Item）+ `FLOW_STB_NOTICE` / `FLOW_STB_PROTOCOL` 两条状态机 + 新增 `LIMS QA Manager` / `LIMS QP` 两角色 + 批准后冻结快照与版本链；新增 `stability_contract.py`（纯契约，零 Frappe 依赖）/ `stability_guards.py`（系统字段 + 冻结快照 + 删除拦截守卫）/ `stability_service.py`（唯一合法写路径：通知单与方案全链、SoD、越权与非法转移审计），DocType 层 6 个 LIMS 角色一律只读（方案 8.6）。实机 `bench --site frontend migrate` 已执行（10 个 DocType 与 6 角色全部落库），端到端 + 负向用例 **28/28 通过**、离线契约 **199/199 全绿**（含稳定性 28 项）。验证中发现并修复 4 项缺陷：①`test_method_ref` 字段类型/标签写反（非法 fieldtype 落库）；②`create_stability_notice` 缺 `extra_condition_reason` 入参致 **>2 个条件的通知单无法提交**；③审计 `log_type` 未登记受控枚举致 `register_review` 等直接报错；④越权 / SoD / 非法转移 / 删除尝试**未留痕**（方案 8.7 / 8.3 / 门禁 6、17），已补 `_audit_commit` 独立提交与 `on_trash` 删除拦截。本轮**未接前端真实 API**（R8F 稳定性视图仍为演示数据）、**未启动 R8B**、未改动 R7 代码。主文档 `docs/milestones/M2_R8A_后端实现与实机验证.md`。
 
-更早子轮：M2-R8E（稳定性板块前端设计方案与 HTML 原型）REVIEWING / Owner 已确认原型。交付 `docs/milestones/M2_R8E_稳定性板块前端设计方案.md`、`docs/frontend/M2_R8_稳定性板块前端原型.html`（7 视图）与 `docs/frontend/assets/M2_R8_稳定性工作台设计图.png`；其 Vue 复刻阶段由 M2-R8F 承接。
+更早子轮：M2-R8F（稳定性板块前端 Vue 复刻与生产部署）**DEPLOYED**，Owner 2026-09-16 已确认测试路径并授权同步生产。按设计方案与 HTML 原型在 `frontend/hbos-lims-web` 复刻稳定性 **7 视图**（工作台 / 考察申请与方案 / 样品入箱与台账 / 取样与检测计划 / 结果录入与趋势 / 报告与有效期 / 变更·稳定性室·设备）、7 条 `/stability*` 路由、侧栏「稳定性管理」分组 7 入口、演示数据层 `src/demo/stabilityDemo.ts`（`TEST-HBOS-M2-STB-*`）与样式 `stability.scss`；`vue-tsc` 0 错误、`npm run build` 通过、浏览器 7 路由 + 12 个抽屉 + 移动端 375px 回归通过；生产构建 `npm run build:prod` 后同步生产 `/hbos-lims`（备份 `hbos-lims.bak-20260916120644`；84 个文件与本地逐字节一致、全路由与 7 个稳定性 chunk 均 200、既有模块无回归）。本轮不创建稳定性 DocType、不改 `hb_lims_app`、不接真实 API（**该轮口径；其后 R8A 已完成后端、R8G 已把工作台与考察申请与方案两视图接入真实 API**）。主文档 `docs/milestones/M2_R8F_稳定性板块前端Vue复刻与生产部署.md`。
+
+更早前：M2-R8E（稳定性板块前端设计方案与 HTML 原型）REVIEWING / Owner 已确认原型。交付 `docs/milestones/M2_R8E_稳定性板块前端设计方案.md`、`docs/frontend/M2_R8_稳定性板块前端原型.html`（7 视图）与 `docs/frontend/assets/M2_R8_稳定性工作台设计图.png`；其 Vue 复刻阶段由 M2-R8F 承接。
 
 M2-R1（环境与骨架）：COMPLETED。`hb_lims_app` 已创建并安装到本地 `frontend` site，after_migrate 幂等同步 3 个 LIMS 角色、`海滨LIMS工作台` Workspace、Sidebar 与桌面图标，离线契约测试 8/8 全绿。主文档 `docs/milestones/M2_R1_环境与骨架.md`。
 
@@ -101,7 +103,8 @@ M2-R6D    = DEPLOYED（合规审计日志已上线生产，Owner 已确认测试
 M2-R8E    = REVIEWING（稳定性板块前端设计方案 + HTML 原型，Owner 已确认原型）
 M2-R8F    = DEPLOYED（稳定性板块前端 Vue 复刻与生产部署，Owner 2026-09-16 已确认测试路径并授权同步生产 /hbos-lims，备份 hbos-lims.bak-20260916120644）
 M2-R8     = REVIEWING rev15（方案口径；11.3 启动门禁 7/7 已闭环，R8A 已启动并完成，R8B~R8E 待逐轮启动）
-M2-R8A    = DONE / 待 Owner 审查（稳定性主数据 4 + 通知单 + 方案 + 子表 4 后端；实机 28/28、离线 199/199；未接前端真实 API、未启动 R8B）
+M2-R8A    = DONE / 待 Owner 审查（稳定性主数据 4 + 通知单 + 方案 + 子表 4 后端；实机 28/28、离线 199/199）
+M2-R8G    = DONE / 待 Owner 审查（稳定性前端接入真实 API：工作台 + 考察申请与方案；后端 +5 只读接口；修 2 项 R8A 遗留缺陷；未部署生产）
 M2-R7     = REVIEWING rev6（方案口径定稿：角色方案 B+SoD、分支策略 b 已 Owner 确认；R7A 已在 m2-r6 交付 3 DocType+retention_service+前端两页；R7B/C 后端已实现并真实验证）
 M2-R7D    = DEPLOYED（Vue 前端 6 视图复刻并同步生产 /hbos-lims，工作台/观察/使用/处理已切换真实后端接入，Owner 2026-09-08 已确认测试路径）
 M2-R7B/R7C = 后端已实现并真实验证（Observation / Usage Apply / Disposal Apply DocType + retention_service 全链方法：四步锁 / SoD / 4-5 级 / scheduler / 审计；真实流程 R7B 13/13、R7C 19/19、并发库存确认恰一单成功），R7D 前端已切换真实 API
@@ -117,7 +120,7 @@ M2-R6B 随 M2-R6A 并行：Owner 已确认检验结果台账双模式原型（�
 M2-R6C 已上线生产：检验结果台账双模式 Vue 复刻完成并同步至生产路径，Owner 已确认测试路径效果；`HBOS Ledger Template` DocType / `get_result_ledger` 聚合 API 为待实现规划项，本轮未新建 DocType、未改后端业务方法。
 M2-R7D 已 DEPLOYED：留样板块 Vue 前端 6 视图已复刻并同步生产 `/hbos-lims`（备份 `hbos-lims.bak-20260908101325`），Owner 2026-09-08 已确认测试路径；工作台/观察/使用/处理 4 视图已切换真实后端接入，登记台账/产品沿用 R7A API。R7B（观察管理）/R7C（使用与处理审批）后端已实现并真实验证（含并发与审计连通）；前端四页已切换真实 API，演示数据源 `retentionDemo` 已移除；观察批 N/3、审批链与逃生口、SoD、四步锁协议均按方案 rev6 落地。留样板块（M2-R7）已按 Owner 2026-09-04 授权纳入 `hb_lims_app` 范围；R7A/R7B/R7C/R7D 落地状态已入台账。
 
-M2-R8A 已 DONE（待 Owner 审查）：11.3 启动门禁 7/7 已闭环，R8A 后端（10 DocType + 2 状态机 + 2 角色 + 冻结快照/版本链）已落地并 migrate，实机端到端与负向用例 28/28、离线契约 199/199。R8F 稳定性 7 视图仍为演示数据，真实 API 接入待 R8B~R8C 落地后按设计方案 §8 顺序推进；R8B（样品入箱与台账 / 取样与检测计划）为下一子轮。
+M2-R8G 已 DONE（待 Owner 审查）：稳定性「工作台」与「考察申请与方案」两视图已接入真实后端（读 + 写全接、按角色显隐），其余 5 视图标注「演示数据 · 待 R8B~R8D」。**未部署生产**——按规则先给测试端链接 `http://localhost:5173/stability`，Owner 确认后再同步 `/hbos-lims`。下一步为 R8B（样品入箱与台账 / 取样与检测计划），其落地后这 5 个视图再逐个接入。
 
 权威状态文件：
 

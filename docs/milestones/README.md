@@ -120,6 +120,7 @@
 | M2-R8E | 稳定性板块前端设计方案与 HTML 原型（7 视图、桌面设计图、移动端检查；不进入 Vue 复刻） | REVIEWING（Owner 已确认原型） |
 | M2-R8F | 稳定性板块前端 Vue 复刻与生产部署（7 视图 + 路由 + 侧栏「稳定性管理」分组 + 演示数据层；`TEST-HBOS-M2-STB-*` 演示数据、零 API 调用；Owner 2026-09-16 已确认测试路径并授权同步生产 `/hbos-lims`，备份 `hbos-lims.bak-20260916120644`） | DEPLOYED |
 | M2-R8A | 稳定性主数据与通知单/方案后端实现与实机验证（10 DocType：Product/Condition/Room/Test Item + Notice + Protocol + 4 子表；`FLOW_STB_NOTICE`/`FLOW_STB_PROTOCOL`；新增 `LIMS QA Manager`/`LIMS QP`；冻结快照与版本链；DocType 层 LIMS 角色全只读；实机 28/28、离线 199/199） | DONE / 待 Owner 审查 |
+| M2-R8G | 稳定性前端接入真实 API（工作台 + 考察申请与方案；后端 +5 只读接口；前端 `api/stability.ts` + 两视图读/写全接 + 角色显隐；修 2 项 R8A 遗留缺陷：Protocol 冻结守卫失效、命名系列非法致畸形单号；离线 203/203、实机 28/28、只读 7/7；未部署生产） | DONE / 待 Owner 审查 |
 
 ## 下一步路线
 

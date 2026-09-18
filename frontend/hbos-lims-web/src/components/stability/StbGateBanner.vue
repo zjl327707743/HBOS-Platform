@@ -1,40 +1,28 @@
 <template>
-  <!-- 原型阶段固定提示条：稳定性板块所有视图顶部展示，说明数据为演示数据且 R8A 门禁未闭环 -->
-  <div class="stb-gate-banner">
-    <AlertOutlined class="stb-gate-icon" />
+  <!-- 稳定性板块顶部提示条：区分「已接入真实后端」与「仍为演示数据」两类视图 -->
+  <div class="stb-gate-banner" :class="mode === 'live' ? 'is-live' : 'is-demo'">
+    <component :is="mode === 'live' ? CheckCircleOutlined : AlertOutlined" class="stb-gate-icon" />
     <span class="stb-gate-text">
-      <strong>前端复刻原型</strong> · {{ GATE_NOTE }}
+      <strong>{{ mode === 'live' ? '已接入真实后端' : '演示数据' }}</strong> · {{ text }}
     </span>
-    <a-button type="link" size="small" @click="open = true">查看门禁</a-button>
   </div>
-
-  <a-drawer v-model:open="open" title="R8A 启动前置确认门禁" :width="520" placement="right">
-    <p class="stb-gate-sub">当前仍有 5 项待确认，原型不开放业务实施动作。</p>
-    <div class="stb-gate-list">
-      <div v-for="g in GATE_ITEMS" :key="g.code" class="stb-audit-line">
-        <span class="stb-audit-dot amber"></span>
-        <div>
-          <strong>{{ g.code }} · {{ g.title }}</strong>
-          <span>{{ g.desc }}</span>
-        </div>
-      </div>
-    </div>
-    <div class="stb-notice" style="margin-top: 14px">
-      已确认：电子签名采用路线①「操作签名 + 审计追踪」；工作分支为新建
-      <span class="mono">m2-r8</span>。
-    </div>
-    <template #footer>
-      <a-button type="primary" @click="open = false">关闭提示</a-button>
-    </template>
-  </a-drawer>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { AlertOutlined } from '@ant-design/icons-vue'
-import { GATE_ITEMS, GATE_NOTE } from '@/demo/stabilityDemo'
+import { computed } from 'vue'
+import { AlertOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 
-const open = ref(false)
+const props = withDefaults(defineProps<{ mode?: 'live' | 'demo'; note?: string }>(), {
+  mode: 'demo',
+  note: '',
+})
+
+const DEFAULT_TEXT = {
+  live: '本页数据来自 hb_lims_app 稳定性业务服务（R8A：4 主数据 + 考察通知单 + 方案）；操作受会话角色与后端校验约束。',
+  demo: '本页沿用已审查通过的原型数据（TEST-HBOS-M2-STB-*）；对应后端接口属 R8B~R8D，尚未接入，页面交互不代表已上线功能。',
+} as const
+
+const text = computed(() => props.note || DEFAULT_TEXT[props.mode])
 </script>
 
 <style scoped>
@@ -42,21 +30,29 @@ const open = ref(false)
   display: flex;
   align-items: center;
   gap: 9px;
-  background: #eef9f5;
-  border: 1px solid #c7e2d9;
   border-radius: var(--radius);
   padding: 9px 13px;
   font-size: 12px;
-  color: #35675d;
   margin-bottom: 16px;
 }
-.stb-gate-icon { font-size: 16px; color: #1c6558; flex: 0 0 16px; }
+.stb-gate-banner.is-live {
+  background: #eef9f5;
+  border: 1px solid #c7e2d9;
+  color: #35675d;
+}
+.stb-gate-banner.is-live .stb-gate-icon { color: #1c6558; }
+.stb-gate-banner.is-live strong { color: #1c6558; }
+.stb-gate-banner.is-demo {
+  background: #fdf6ec;
+  border: 1px solid #ecd9b4;
+  color: #7a5a24;
+}
+.stb-gate-icon { font-size: 15px; flex: 0 0 15px; }
+.stb-gate-banner.is-demo .stb-gate-icon { color: #a8762a; }
+.stb-gate-banner.is-demo strong { color: #8a5a12; }
 .stb-gate-text { flex: 1; min-width: 0; line-height: 1.5; }
-.stb-gate-text strong { color: #1c6558; }
-.stb-gate-sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
-.stb-gate-list { display: flex; flex-direction: column; }
 
 @media (max-width: 640px) {
-  .stb-gate-banner { flex-wrap: wrap; align-items: flex-start; }
+  .stb-gate-banner { align-items: flex-start; }
 }
 </style>

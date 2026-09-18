@@ -118,16 +118,22 @@ v9.0 生效状态明确后按需开变更轮微调**。
 | 2 | HBOS Stability Condition | 主数据 | `field:condition_code` |
 | 3 | HBOS Stability Room | 主数据 | `field:room_code` |
 | 4 | HBOS Stability Test Item | 主数据 | `field:item_code` |
-| 5 | HBOS Stability Notice | 记录一（考察通知单） | `HBOS-STB-NOT-.YYYY.-####` |
-| 6 | HBOS Stability Protocol | 方案 | `HBOS-STB-PRO-.YYYY.-####` |
-| 7 | HBOS Stability Sample | 记录二（存放清单） | `HBOS-STB-SMP-.YYYY.-#####` |
-| 8 | HBOS Stability Timepoint | 附件二（独立主） | `HBOS-STB-TPT-.YYYY.-#####` |
-| 9 | HBOS Stability Result | 结果 | `HBOS-STB-RES-.YYYY.-#####` |
-| 10 | HBOS Stability Report | 报告 | `HBOS-STB-RPT-.YYYY.-####` |
-| 11 | HBOS Stability Change | 记录三（变更审批表） | `HBOS-STB-CHG-.YYYY.-####` |
-| 12 | HBOS Stability Room Log | 记录四（温湿度记录） | `HBOS-STB-RML-.YYYY.-####` |
-| 13 | HBOS Stability Equipment | 设备台账 | `HBOS-STB-EQP-####` |
-| 14 | HBOS Stability Fault Ticket | 故障工单 | `HBOS-STB-FLT-.YYYY.-####` |
+| 5 | HBOS Stability Notice | 记录一（考察通知单） | `HBOS-STB-NOT-.YYYY.-` |
+| 6 | HBOS Stability Protocol | 方案 | `HBOS-STB-PRO-.YYYY.-` |
+| 7 | HBOS Stability Sample | 记录二（存放清单） | `HBOS-STB-SMP-.YYYY.-` |
+| 8 | HBOS Stability Timepoint | 附件二（独立主） | `HBOS-STB-TPT-.YYYY.-` |
+| 9 | HBOS Stability Result | 结果 | `HBOS-STB-RES-.YYYY.-` |
+| 10 | HBOS Stability Report | 报告 | `HBOS-STB-RPT-.YYYY.-` |
+| 11 | HBOS Stability Change | 记录三（变更审批表） | `HBOS-STB-CHG-.YYYY.-` |
+| 12 | HBOS Stability Room Log | 记录四（温湿度记录） | `HBOS-STB-RML-.YYYY.-` |
+| 13 | HBOS Stability Equipment | 设备台账 | `HBOS-STB-EQP-` |
+| 14 | HBOS Stability Fault Ticket | 故障工单 | `HBOS-STB-FLT-.YYYY.-` |
+
+> **命名系列更正（M2-R8G，2026-09-18）**：上表原列的 `-####` / `-#####` 写法在本版
+> Frappe 下**不可用**——`set_name_by_naming_series()` 会对系列无条件追加 `.#####`，
+> 系列自带 `#` 会生成 `HBOS-STB-NOT-2026-####00009` 之类的畸形单号（R8A 实际发生）。
+> 已按上文更正为**不含 `#`、以 `-` 结尾**的写法（与既有 `HBOS-SMP-.YYYY.-` 同一约定）。
+> **Owner 2026-09-16 确认的是 DocType 清单与父级关系，命名写法属实现细节，此处更正不影响确认结论。**
 
 **子表（8）**
 

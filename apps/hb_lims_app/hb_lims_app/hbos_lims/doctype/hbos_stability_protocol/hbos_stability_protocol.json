@@ -27,6 +27,7 @@
   "spec_version",
   "test_method_ref",
   "method_version",
+  "snapshot_frozen",
   "section_signoff",
   "drafted_by",
   "draft_date",
@@ -48,8 +49,8 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "编号系列",
-   "options": "HBOS-STB-PRO-.YYYY.-####",
-   "default": "HBOS-STB-PRO-.YYYY.-####",
+   "options": "HBOS-STB-PRO-.YYYY.-",
+   "default": "HBOS-STB-PRO-.YYYY.-",
    "reqd": 1
   },
   {
@@ -183,6 +184,13 @@
    "fieldname": "method_version",
    "fieldtype": "Data",
    "label": "方法版本快照"
+  },
+  {
+   "fieldname": "snapshot_frozen",
+   "fieldtype": "Check",
+   "label": "快照已冻结",
+   "read_only": 1,
+   "description": "批准时由业务服务置 1；此后快照字段只读（方案 7.7）"
   },
   {
    "fieldname": "section_signoff",

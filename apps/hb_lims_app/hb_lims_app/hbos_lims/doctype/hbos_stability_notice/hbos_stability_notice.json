@@ -54,8 +54,8 @@
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "编号系列",
-   "options": "HBOS-STB-NOT-.YYYY.-####",
-   "default": "HBOS-STB-NOT-.YYYY.-####",
+   "options": "HBOS-STB-NOT-.YYYY.-",
+   "default": "HBOS-STB-NOT-.YYYY.-",
    "reqd": 1
   },
   {

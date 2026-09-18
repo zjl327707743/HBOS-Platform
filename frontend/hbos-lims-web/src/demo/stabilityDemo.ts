@@ -1,11 +1,12 @@
 // ============================================================
-// 稳定性板块演示数据（M2-R8E Vue 复刻）
+// 稳定性板块演示数据
 //
-// 说明：稳定性后端（R8A 的 22 个 DocType）尚未创建、11.3 启动门禁
-// 仍有 5 项未闭环，因此本轮只做原型复刻，数据全部为
-// `TEST-HBOS-M2-STB-*` 前缀虚构演示数据，不接真实 API。
-// 数据与 docs/frontend/M2_R8_稳定性板块前端原型.html 保持一致。
-// R8A 落地后再替换为 get_stability_ledger / get_stability_trend 只读聚合。
+// 说明：仅服务**尚未接入后端**的 5 个视图（样品入箱 / 取样与检测计划 /
+// 结果与趋势 / 报告与有效期 / 变更·稳定性室·设备），其后端接口属 R8B~R8D。
+// 数据全部为 `TEST-HBOS-M2-STB-*` 前缀虚构演示数据，不接真实 API。
+//
+// 「稳定性工作台」与「考察申请与方案」两视图已于 R8G 接入真实后端
+// （见 src/api/stability.ts），其演示数据已从此文件移除。
 // ============================================================
 
 export type Tone = 'pass' | 'warn' | 'danger' | 'info' | 'muted'
@@ -23,21 +24,7 @@ export function toneClass(tone: Tone): string {
   return `pill ${TONE_CLASS[tone]}`
 }
 
-// ---- 启动门禁提示（页面顶部固定展示） ----
-export const GATE_NOTE =
-  '数据为 TEST-HBOS-M2-STB-* 演示数据；R8A 启动门禁仍有 5 项待确认，本页不代表业务已实施。'
-
-export const GATE_ITEMS: { code: string; title: string; desc: string }[] = [
-  { code: '11.3-1', title: 'v9.0 是否正式生效', desc: '生效日期与正式依据尚待确认' },
-  { code: '11.3-2', title: '角色身份映射', desc: 'QM / QP、QA Manager 等实际归属尚待确认' },
-  { code: '11.3-4', title: '取样延期算法基数', desc: '10% 的基数口径尚待确认' },
-  { code: '11.3-5', title: 'DocType 与子表清单', desc: '按方案第 5.8 节逐项核对' },
-  { code: '11.3-7', title: '期限审批口径', desc: '政策宽容期和委外窗口规则尚待确认' },
-]
-
-// ============================================================
-// 1. 工作台总览
-// ============================================================
+// ---- 共享类型（其余视图仍在用） ----
 
 export interface Kpi {
   label: string
@@ -48,24 +35,6 @@ export interface Kpi {
   icon: 'calendar' | 'pen' | 'alert' | 'shield'
 }
 
-export const DASHBOARD_KPIS: Kpi[] = [
-  { label: '待取样时间点', value: '12', unit: '个', hint: '3 个 7 日内到期', tone: 'warn', icon: 'calendar' },
-  { label: '检测中', value: '8', unit: '个', hint: '较上周下降 2 个', tone: 'pass', icon: 'pen' },
-  { label: '待复核结果', value: '3', unit: '项', hint: '1 项显著变化候选', tone: 'danger', icon: 'alert' },
-  { label: '临近 / 逾期', value: '4', unit: '项', hint: '2 项延期审批中', tone: 'warn', icon: 'shield' },
-]
-
-export const DASHBOARD_ALERT =
-  '当前有 2 个时间点已进入政策宽容期，1 个结果待复核，1 个稳定性室记录超限待评估。'
-
-/** 时间点执行趋势（近 8 周：计划 / 已完成） */
-export const EXEC_TREND = {
-  weeks: ['7/21', '7/28', '8/04', '8/11', '8/18', '8/25', '9/01', '9/08'],
-  done: [4, 7, 11, 8, 17, 15, 22, 25],
-  planned: [3, 4, 8, 9, 11, 14, 17, 18],
-  rate: '82%',
-}
-
 export interface RiskItem {
   tone: Tone
   title: string
@@ -73,95 +42,8 @@ export interface RiskItem {
   tag: string
 }
 
-export const RISK_ITEMS: RiskItem[] = [
-  { tone: 'danger', title: 'TEST-STB-T260901-AC-06 已超过计划日 2 天', sub: '实际取样未登记 · 有效截止日 2026-09-18', tag: '高' },
-  { tone: 'warn', title: '取样延期申请待 QA Manager 审批', sub: 'TEST-HBOS-M2-STB-DLY-0003 · requested 2026-09-16', tag: '待批' },
-  { tone: 'danger', title: '含量结果触发显著变化候选', sub: 'TEST-HBOS-M2-STB-RES-0008 · 结果版本 v1', tag: '复核' },
-  { tone: 'info', title: 'STB-RM-02 温湿度记录超房间上限', sub: '2026-09-14 14:00 · 温度 27.1℃ / 上限 26℃', tag: '评估' },
-]
-
-export interface RecentTimepoint {
-  point: string
-  product: string
-  batch: string
-  planned: string
-  status: string
-  tone: Tone
-}
-
-export const RECENT_TIMEPOINTS: RecentTimepoint[] = [
-  { point: 'M3 / 03', product: 'TEST 片剂 A', batch: 'T260901', planned: '09-16', status: '待取样', tone: 'warn' },
-  { point: 'M6 / 02', product: 'TEST 原料 B', batch: 'RM260601', planned: '09-18', status: '检测中', tone: 'info' },
-  { point: 'M12 / 01', product: 'TEST 胶囊 C', batch: 'C260301', planned: '09-21', status: '待复核', tone: 'info' },
-]
-
-/** 执行结构：按储存条件统计当前样品 */
-export const CONDITION_STRUCTURE: { label: string; count: number; color: string }[] = [
-  { label: '长期', count: 24, color: '#0c7c6a' },
-  { label: '加速', count: 11, color: '#2b6cb0' },
-  { label: '中间', count: 7, color: '#d1871d' },
-  { label: '影响因素', count: 4, color: '#c6d5d0' },
-]
-
-export const CONDITION_TOTAL = 46
-
-export const WEEK_ACTIONS: { date: string; title: string; sub: string }[] = [
-  { date: '09-16', title: '3 个时间点到期', sub: '含 1 个延期审批中' },
-  { date: '09-17', title: '复核 2 个结果版本', sub: '其中 1 个显著变化候选' },
-  { date: '09-18', title: '报告 QA 判定 1 份', sub: '外推助手建议已生成' },
-]
-
 // ============================================================
-// 2. 考察申请与方案
-// ============================================================
-
-export interface NoticeRow {
-  name: string
-  status: string
-  tone: Tone
-  product: string
-  category: string
-  meta: string
-}
-
-export const NOTICES: NoticeRow[] = [
-  { name: 'STB-NOT-2026-0008', status: '已批准', tone: 'info', product: 'TEST 片剂 A', category: '新产品 / 工艺验证类', meta: '创建人：陈 QA · 2026-09-02' },
-  { name: 'STB-NOT-2026-0007', status: '待复核', tone: 'warn', product: 'TEST 原料 B', category: '年度持续稳定性考察类', meta: '创建人：赵 QC · 2026-09-01' },
-  { name: 'STB-NOT-2026-0006', status: '草稿', tone: 'muted', product: 'TEST 胶囊 C', category: '变更类', meta: '创建人：林质检 · 2026-08-29' },
-  { name: 'STB-NOT-2026-0005', status: '已关闭', tone: 'pass', product: 'TEST 注射剂 D', category: '影响因素类', meta: '关闭日期：2026-08-21' },
-]
-
-export const NOTICE_DETAIL = {
-  name: 'STB-NOT-2026-0008',
-  title: 'TEST 片剂 A · 稳定性考察申请通知单',
-  stats: [
-    { label: '当前批次', value: '3 批' },
-    { label: '储存条件', value: '3 个' },
-    { label: '重点项目', value: '8 项' },
-    { label: '版本', value: 'v2' },
-  ],
-  flow: [
-    { label: '草稿', state: 'done' as const },
-    { label: '已提交', state: 'done' as const },
-    { label: '已批准', state: 'done' as const },
-    { label: '方案执行', state: 'current' as const },
-  ],
-  fields: [
-    { label: '产品编码', value: 'TEST-STB-TAB-A', mono: true },
-    { label: '剂型', value: '片剂', mono: false },
-    { label: '考察分类', value: '新产品 / 工艺验证类', mono: false },
-    { label: '有效期', value: '24 个月', mono: false },
-    { label: '默认用量', value: '1.5 倍全检量', mono: false },
-    { label: '当前负责人', value: '林质检 · QA Manager', mono: false },
-  ],
-  frozen: [
-    { condition: '长期', condSub: '25±2℃ / 60±5%RH', room: 'STB-RM-01', points: 'M0 / M1 / M3 / M6 / M12 / M24', items: '性状、含量、有关物质等 8 项' },
-    { condition: '加速', condSub: '40±2℃ / 75±5%RH', room: 'STB-RM-02', points: 'M0 / M1 / M3 / M6', items: '重点项目 5 项' },
-  ],
-}
-
-// ============================================================
-// 3. 样品入箱与台账
+// 1. 样品入箱与台账
 // ============================================================
 
 export const SAMPLE_KPIS: Kpi[] = [
@@ -222,7 +104,7 @@ export const SAMPLES: SampleRow[] = [
 ]
 
 // ============================================================
-// 4. 取样与检测计划
+// 2. 取样与检测计划
 // ============================================================
 
 export interface ScheduleRow {
@@ -347,7 +229,7 @@ export const DELAY_APPLIES: DelayApplyRow[] = [
 
 
 // ============================================================
-// 5. 结果录入与趋势
+// 3. 结果录入与趋势
 // ============================================================
 
 export interface ResultItem {
@@ -504,7 +386,7 @@ export const TREND_NOTE =
   '在途版本 v1 预计低于当前趋势带。结果批准前不切换 is_current，也不影响当前趋势图。'
 
 // ============================================================
-// 6. 报告与有效期
+// 4. 报告与有效期
 // ============================================================
 
 export interface ReportRow {
@@ -567,7 +449,7 @@ export const EXTRAPOLATION = {
 }
 
 // ============================================================
-// 7. 变更 / 稳定性室 / 设备
+// 5. 变更 / 稳定性室 / 设备
 // ============================================================
 
 export interface ChangeRow {
@@ -666,10 +548,3 @@ export const FAULT = {
   note: '关闭故障前需完成样品影响评估和 QA 处置意见；设备状态不由前端直接修改。',
 }
 
-// ---- 合规审计摘要（沿用既有 HBOS Audit Log 入口） ----
-export const AUDIT_SUMMARY: { tone: Tone; title: string; desc: string }[] = [
-  { tone: 'info', title: '结果草稿已提交复核', desc: 'TEST-HBOS-M2-STB-RES-0008 · 林质检 · 10:42' },
-  { tone: 'warn', title: '延期申请已创建', desc: 'TEST-HBOS-M2-STB-DLY-0003 · 陈 QC · 09:15' },
-  { tone: 'danger', title: '温湿度超限已记录', desc: 'STB-RM-02 · 2026-09-14 14:00 · 赵 QC' },
-  { tone: 'info', title: '方案冻结快照已生成', desc: 'STB-NOT-2026-0008 · v2 · 2026-09-02' },
-]

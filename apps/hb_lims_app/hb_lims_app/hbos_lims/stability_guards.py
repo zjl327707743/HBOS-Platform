@@ -24,7 +24,7 @@ NOTICE_SYSTEM_FIELDS = (
 )
 
 PROTOCOL_SYSTEM_FIELDS = (
-	"status", "version", "supersedes",
+	"status", "snapshot_frozen", "version", "supersedes",
 	"drafted_by", "draft_date",
 	"qa_review_by", "qa_review_date",
 	"qa_approve_by", "approve_date", "effective_date",

@@ -232,8 +232,12 @@ def next_version(current_version):
 # 业务键与命名（方案 5.8）
 # ---------------------------------------------------------------------------
 
-NAMING_NOTICE = "HBOS-STB-NOT-.YYYY.-####"
-NAMING_PROTOCOL = "HBOS-STB-PRO-.YYYY.-####"
+# 命名系列：Frappe 在 set_name_by_naming_series 中无条件追加 ".#####"
+# （frappe/model/naming.py），故系列本身不得含 "#"——否则会生成
+# `HBOS-STB-NOT-2026-####00009` 这类畸形单号（R8G 修复）。
+# 与既有 HBOS-SMP- / HBOS-RET- 同一约定。
+NAMING_NOTICE = "HBOS-STB-NOT-.YYYY.-"
+NAMING_PROTOCOL = "HBOS-STB-PRO-.YYYY.-"
 
 
 def make_notice_version_key(notice_name, version):

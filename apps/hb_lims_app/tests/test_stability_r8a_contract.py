@@ -125,6 +125,33 @@ class TestStabilityDoctypeContracts(unittest.TestCase):
 		names = [f["fieldname"] for f in self.masters["hbos_stability_room"]["fields"]]
 		self.assertNotIn("strictest_equipment", names)
 
+	def test_snapshot_fields_exist_on_doctypes(self):
+		"""契约声明的冻结快照字段必须真实存在于对应 DocType。
+
+		曾发生 Protocol 漏建 `snapshot_frozen` 致该单的快照守卫恒不生效（方案 7.7）。
+		"""
+		for dirname, fields in (
+			("hbos_stability_notice", stb.SNAPSHOT_FIELDS_NOTICE),
+			("hbos_stability_protocol", stb.SNAPSHOT_FIELDS_PROTOCOL),
+		):
+			names = {f["fieldname"] for f in self.masters[dirname]["fields"]}
+			self.assertIn("snapshot_frozen", names, "{} 缺冻结标记字段".format(dirname))
+			for field in fields:
+				self.assertIn(field, names, "{} 缺契约声明的快照字段 {}".format(dirname, field))
+
+	def test_naming_series_has_no_hash_placeholder(self):
+		"""命名系列不得含 `#`。
+
+		Frappe 的 `set_name_by_naming_series` 会无条件追加 `.#####`
+		（frappe/model/naming.py），系列自带 `#` 会生成
+		`HBOS-STB-NOT-2026-####00009` 这类畸形单号（R8G 修复）。
+		"""
+		for dirname in ("hbos_stability_notice", "hbos_stability_protocol"):
+			field = next(f for f in self.masters[dirname]["fields"]
+						 if f["fieldname"] == "naming_series")
+			self.assertNotIn("#", field["options"],
+							 "{} 命名系列 {} 不应含 `#`".format(dirname, field["options"]))
+
 	def test_all_fieldtypes_are_valid(self):
 		"""字段定义不能出现非法 fieldtype（曾发生 fieldtype/label 写反致非法值落库）。"""
 		valid = {
@@ -198,7 +225,8 @@ class TestActionMatrixCoverage(unittest.TestCase):
 		names = {a for a, _f, _s, _d in stb.ACTION_TRANSITIONS}
 		names |= set(stb.ACTION_ADMISSION_ONLY)
 		names |= {"create_notice", "review_protocol", "get_stability_dashboard", "get_stability_notices",
-				  "get_stability_notice_detail"}
+				  "get_stability_notice_detail", "get_stability_master", "get_stability_products",
+				  "get_stability_protocols", "get_stability_audit"}
 		for name in names:
 			self.assertIn(name, wf.ACTION_ROLES, "动作 {} 未注册角色".format(name))
 			self.assertTrue(wf.ACTION_ROLES[name], "动作 {} 角色集为空".format(name))
@@ -258,6 +286,29 @@ class TestAuditEventEnums(unittest.TestCase):
 		self.assertTrue(used, "未从 stability_service 解析到任何审计事件")
 		self.assertEqual(set(), used - allowed,
 						 "审计事件未登记进 HBOS Audit Log.log_type 受控枚举：{}".format(sorted(used - allowed)))
+
+
+class TestStabilityReadInterfaces(unittest.TestCase):
+	"""前端接入所需的只读接口已导出并注册角色（静态扫描源码，不导入 Frappe）。"""
+
+	READ_METHODS = [
+		"get_stability_dashboard", "get_stability_notices", "get_stability_notice_detail",
+		"get_stability_master", "get_stability_products",
+		"get_stability_protocols", "get_stability_protocol_detail", "get_stability_audit",
+	]
+
+	def test_service_exports_read_methods(self):
+		src = (APP_ROOT / "hb_lims_app" / "hbos_lims" / "stability_service.py").read_text(encoding="utf-8")
+		for name in self.READ_METHODS:
+			self.assertIn("def {}(".format(name), src,
+						  "stability_service 缺少只读接口 {}".format(name))
+
+	def test_new_read_actions_registered(self):
+		for action in ("get_stability_master", "get_stability_products",
+					   "get_stability_protocols", "get_stability_audit"):
+			self.assertIn(action, wf.ACTION_ROLES, "只读动作 {} 未注册角色".format(action))
+			self.assertTrue(wf.ACTION_ROLES[action])
+			self.assertIn(wf.ROLE_ANALYST, wf.ACTION_ROLES[action])
 
 
 class TestStabilityContractRules(unittest.TestCase):

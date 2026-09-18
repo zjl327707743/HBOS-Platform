@@ -33,6 +33,15 @@ def _commit():
 	frappe.db.commit()
 
 
+def _truthy(value):
+	"""whitelist 参数经 POST 过来可能是字符串（"1" / "0" / "true"），统一判定。"""
+	if value is None:
+		return False
+	if isinstance(value, str):
+		return value.strip().lower() in ("1", "true", "yes", "on")
+	return bool(value)
+
+
 def _rollback():
 	frappe.db.rollback()
 
@@ -449,6 +458,7 @@ def approve_protocol(protocol_name, effective_date=None):
 		doc.qa_approve_by = _user()
 		doc.approve_date = _today()
 		doc.effective_date = effective_date or _today()
+		doc.snapshot_frozen = 1
 		doc.save(ignore_permissions=True)
 		_audit_on("HBOS Stability Protocol", "方案批准", doc.name,
 				  action_text="方案批准并冻结快照",
@@ -616,6 +626,203 @@ def get_stability_notices(keyword=None, status=None, limit=50, offset=0):
 		r["category"] = product.get("category")
 		r["dosage_form"] = product.get("dosage_form")
 	return {"rows": rows}
+
+
+# ---------------------------------------------------------------------------
+# 主数据与方案的只读接口（前端「考察申请与方案」建档与各 tab 的数据源）
+# ---------------------------------------------------------------------------
+
+# 主数据只读白名单：DocType -> (返回字段, 关键字可搜索字段)
+# 用白名单而非直接透传 doctype，避免本方法被当成任意 DocType 的读取入口。
+STABILITY_MASTER_QUERY = {
+	"HBOS Stability Condition": (
+		["name", "condition_code", "description", "condition_type", "temp_min", "temp_max",
+		 "humidity_min", "humidity_max", "climate_zone", "is_active"],
+		["condition_code", "description"],
+	),
+	"HBOS Stability Room": (
+		["name", "room_code", "room_name", "location", "temp_min", "temp_max",
+		 "humidity_min", "humidity_max", "is_locked_managed", "is_active"],
+		["room_code", "room_name"],
+	),
+	"HBOS Stability Test Item": (
+		["name", "item_code", "item_name", "item_category", "result_type", "is_full_test_only",
+		 "is_key_item", "significant_change_rule", "change_threshold", "is_active"],
+		["item_code", "item_name"],
+	),
+}
+
+
+@frappe.whitelist()
+def get_stability_master(doctype, keyword=None, include_inactive=0):
+	"""主数据只读列表（储存条件 / 稳定性室 / 检验项目）。doctype 走白名单校验。"""
+	_check_action("get_stability_master", "HBOS Stability Product", "-")
+	conf = STABILITY_MASTER_QUERY.get(doctype)
+	if not conf:
+		_reject("HBOS Stability Product", "-",
+				"不支持的主数据类型：{}".format(doctype), "非法主数据类型请求")
+	fields, searchable = conf
+	filters = {}
+	if not _truthy(include_inactive):
+		filters["is_active"] = 1
+	or_filters = None
+	kw = (keyword or "").strip()
+	if kw:
+		or_filters = [[f, "like", "%{}%".format(kw)] for f in searchable]
+	return {"rows": frappe.get_all(
+		doctype, filters=filters, or_filters=or_filters, fields=fields,
+		order_by="name asc", limit_page_length=0)}
+
+
+@frappe.whitelist()
+def get_stability_products(keyword=None, include_inactive=0):
+	"""稳定性产品主数据只读列表（建档选产品 + 「产品规则」tab）。"""
+	_check_action("get_stability_products", "HBOS Stability Product", "-")
+	filters = {}
+	if not _truthy(include_inactive):
+		filters["is_active"] = 1
+	or_filters = None
+	kw = (keyword or "").strip()
+	if kw:
+		or_filters = [["product_code", "like", "%{}%".format(kw)],
+					  ["product_name", "like", "%{}%".format(kw)]]
+	return {"rows": frappe.get_all(
+		"HBOS Stability Product", filters=filters, or_filters=or_filters,
+		fields=["name", "product_code", "product_name", "category", "dosage_form",
+				"default_uom", "vd_months", "qty_factor", "pack_desc", "is_outsource",
+				"need_inverted", "is_active", "storage_cond_long", "storage_cond_acc",
+				"storage_cond_inter"],
+		order_by="product_code asc", limit_page_length=0)}
+
+
+@frappe.whitelist()
+def get_stability_protocols(notice=None, status=None, keyword=None, limit=50, offset=0):
+	"""稳定性方案台账（「稳定性方案」tab）。"""
+	_check_action("get_stability_protocols", "HBOS Stability Protocol", "-")
+	filters = {}
+	if notice:
+		filters["notice"] = notice
+	if status:
+		filters["status"] = status
+	or_filters = None
+	kw = (keyword or "").strip()
+	if kw:
+		or_filters = [["name", "like", "%{}%".format(kw)],
+					  ["notice", "like", "%{}%".format(kw)]]
+	rows = frappe.get_all(
+		"HBOS Stability Protocol", filters=filters, or_filters=or_filters,
+		fields=["name", "notice", "status", "version", "effective_date", "drafted_by",
+				"draft_date", "qa_review_by", "qa_approve_by", "approve_date",
+				"reject_reason", "void_reason", "creation"],
+		order_by="creation desc",
+		limit_page_length=int(limit), limit_start=int(offset))
+	_enrich_protocol_products(rows)
+	return {"rows": rows}
+
+
+def _enrich_protocol_products(rows):
+	"""批量补产品编码/名称（notice → stability_product），避免逐行 N+1。"""
+	notice_names = sorted({r["notice"] for r in rows if r.get("notice")})
+	if not notice_names:
+		return
+	notice_product = dict(frappe.get_all(
+		"HBOS Stability Notice", filters={"name": ["in", notice_names]},
+		fields=["name", "stability_product"], as_list=True))
+	product_codes = sorted({p for p in notice_product.values() if p})
+	product_names = {}
+	if product_codes:
+		product_names = dict(frappe.get_all(
+			"HBOS Stability Product", filters={"name": ["in", product_codes]},
+			fields=["name", "product_name"], as_list=True))
+	for row in rows:
+		code = notice_product.get(row.get("notice"))
+		row["stability_product"] = code
+		row["product_name"] = product_names.get(code)
+
+
+@frappe.whitelist()
+def get_stability_protocol_detail(protocol_name):
+	"""方案详情（批次 / 条件 / 项目子表 + 冻结快照 + 签署链），供详情与起草抽屉。"""
+	_check_action("get_stability_protocols", "HBOS Stability Protocol", protocol_name)
+	doc = frappe.get_doc("HBOS Stability Protocol", protocol_name)
+	notice = frappe.get_doc("HBOS Stability Notice", doc.notice)
+	product = _product_of_notice(notice)
+	return {
+		"name": doc.name,
+		"notice": doc.notice,
+		"notice_status": notice.status,
+		"stability_product": product.name,
+		"product_code": product.product_code,
+		"product_name": product.product_name,
+		"category": product.category,
+		"status": doc.status,
+		"version": doc.version,
+		"purpose": doc.purpose,
+		"scope": doc.scope,
+		"batches": [{
+			"batch_no": r.batch_no, "batch_size": r.batch_size,
+			"manufacture_date": r.manufacture_date, "finish_date": r.finish_date,
+			"is_inverted": r.is_inverted, "remark": r.remark,
+		} for r in (doc.batches or [])],
+		"study_conditions": [{
+			"condition_type": r.condition_type, "storage_cond": r.storage_cond,
+			"exposure_days": r.exposure_days, "is_required": r.is_required,
+			"remark": r.remark,
+		} for r in (doc.study_conditions or [])],
+		"items": [{
+			"stability_test_item": r.stability_test_item, "is_full_test": r.is_full_test,
+			"is_key_item": r.is_key_item, "test_method": r.test_method,
+			"method_version": r.method_version,
+		} for r in (doc.items or [])],
+		"qty": doc.qty,
+		"qty_uom": doc.qty_uom,
+		"pack_desc": doc.pack_desc,
+		"room_temp_recovery_days": doc.room_temp_recovery_days,
+		"snapshot": {
+			"spec_ref": doc.spec_ref,
+			"spec_version": doc.spec_version,
+			"test_method_ref": doc.test_method_ref,
+			"method_version": doc.method_version,
+			"vd_months_snapshot": doc.vd_months_snapshot,
+			"frozen": bool(doc.snapshot_frozen),
+		},
+		"signoff": {
+			"drafted_by": doc.drafted_by, "draft_date": doc.draft_date,
+			"qa_review_by": doc.qa_review_by, "qa_review_date": doc.qa_review_date,
+			"qa_approve_by": doc.qa_approve_by, "approve_date": doc.approve_date,
+			"effective_date": doc.effective_date,
+			"reject_reason": doc.reject_reason, "reject_by": doc.reject_by,
+			"reject_date": doc.reject_date,
+			"void_reason": doc.void_reason, "void_by": doc.void_by,
+			"void_date": doc.void_date,
+		},
+	}
+
+
+# 稳定性板块纳入审计摘要的 DocType（R8A 已交付范围；R8B~R8D 落地后追加）
+STABILITY_AUDIT_DOCTYPES = [
+	"HBOS Stability Product", "HBOS Stability Condition", "HBOS Stability Room",
+	"HBOS Stability Test Item", "HBOS Stability Notice", "HBOS Stability Protocol",
+]
+
+
+@frappe.whitelist()
+def get_stability_audit(doc_name=None, limit=20):
+	"""稳定性板块的合规审计摘要（只读），供详情抽屉的「审计」页签。
+
+	按 `doctype_target` 限定在稳定性 DocType 内（既有 `get_audit_log` 只支持单值精确匹配，
+	无法做板块前缀筛选，故在此做稳定性作用域的只读投影，不改 R6D 既有方法）。
+	"""
+	_check_action("get_stability_audit", "HBOS Stability Notice", doc_name or "-")
+	filters = {"doctype_target": ["in", STABILITY_AUDIT_DOCTYPES]}
+	if doc_name:
+		filters["doc_name"] = doc_name
+	rows = frappe.get_all(
+		"HBOS Audit Log", filters=filters,
+		fields=["name", "log_type", "doctype_target", "doc_name", "action_text",
+				"old_value", "new_value", "reason", "user", "created_at"],
+		order_by="created_at desc", limit_page_length=int(limit))
+	return {"events": rows, "total": frappe.db.count("HBOS Audit Log", filters)}
 
 
 @frappe.whitelist()
