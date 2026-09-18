@@ -15,6 +15,7 @@
   "pack_desc",
   "column_break_flags",
   "is_outsource",
+  "outsourced_test_window_days",
   "need_inverted",
   "is_active",
   "section_conditions",
@@ -93,6 +94,12 @@
    "fieldtype": "Check",
    "label": "委托生产产品",
    "default": "0"
+  },
+  {
+   "fieldname": "outsourced_test_window_days",
+   "fieldtype": "Int",
+   "label": "委外检测窗口（天）",
+   "description": "仅委托生产产品适用；留空 = 不限制（Owner 2026-09-16 决定，方案 7.3）"
   },
   {
    "fieldname": "need_inverted",

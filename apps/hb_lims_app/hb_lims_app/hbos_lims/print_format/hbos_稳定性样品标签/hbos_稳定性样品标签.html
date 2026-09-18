@@ -1,0 +1,61 @@
+{# HBOS 稳定性样品标签（附件一 APP-SOP-LC-1-00-019-01 电子化）
+
+   尺寸口径：附件一原件**未定义标签物理尺寸**——它是一张 A4 页面上的表格
+   （页边距 2.5cm，内容宽 4684 twips ≈ 82.6mm），文中出现的 -31115/41275 是内嵌小图标的
+   锚点偏移，不是标签尺寸。故此处取「内容宽 82.6mm × 常见高度 55mm」，
+   尺寸集中在下面 .label 一处（方案第十五节待确认第 11 项：待 Owner 确认实物规格后一行即可改）。
+
+   字段严格对齐附件一：品名 / 批号 / 留样数量及号码 / 留样位号 / 储存人-复核人 / 储存条件 / 储存日期。
+#}
+{% set product = frappe.get_doc("HBOS Stability Product", doc.stability_product) if doc.stability_product else None %}
+{% set room_name = frappe.db.get_value("HBOS Stability Room", doc.room, "room_name") if doc.room else None %}
+<style>
+  .stb-label {
+    /* ↓↓↓ 标签物理尺寸：确定实物规格后只改这一行 ↓↓↓ */
+    width: 82.6mm;
+    min-height: 55mm;
+    box-sizing: border-box;
+    border: 1px solid #000;
+    padding: 3mm 3mm 2mm;
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    font-size: 10px;
+    line-height: 1.5;
+    color: #000;
+    page-break-inside: avoid;
+  }
+  .stb-label__head { display: flex; align-items: center; gap: 2mm; border-bottom: 1px solid #000; padding-bottom: 1.5mm; }
+  .stb-label__logo { width: 7.6mm; height: 7.3mm; object-fit: contain; }
+  .stb-label__company { flex: 1; text-align: center; }
+  .stb-label__company .zh { font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+  .stb-label__company .en { font-size: 7px; color: #333; }
+  .stb-label__title { text-align: center; font-size: 12px; font-weight: 700; margin: 1.5mm 0 1mm; letter-spacing: 1px; }
+  .stb-label__code { text-align: right; font-size: 7px; color: #333; margin-bottom: 1mm; }
+  .stb-label__rows { width: 100%; border-collapse: collapse; }
+  .stb-label__rows td { padding: 0.8mm 0; vertical-align: top; }
+  .stb-label__rows td.k { width: 22mm; white-space: nowrap; }
+  .stb-label__rows td.v { border-bottom: 1px dotted #666; }
+  .stb-label__mono { font-family: "Courier New", monospace; }
+</style>
+
+<div class="stb-label">
+  <div class="stb-label__head">
+    {% if logo_url %}<img class="stb-label__logo" src="{{ logo_url }}" alt="" />{% endif %}
+    <div class="stb-label__company">
+      <div class="zh">新乡海滨药业有限公司</div>
+      <div class="en">Xinxiang Haibin Pharmaceutical Co., Ltd</div>
+    </div>
+  </div>
+
+  <div class="stb-label__title">稳定性试验样品标签</div>
+  <div class="stb-label__code">编码 / Code：APP-SOP-LC-1-00-019-01</div>
+
+  <table class="stb-label__rows">
+    <tr><td class="k">品名：</td><td class="v">{{ doc.sample_name or (product.product_name if product else '') or '' }}</td></tr>
+    <tr><td class="k">批号：</td><td class="v stb-label__mono">{{ doc.batch_no or '' }}</td></tr>
+    <tr><td class="k">留样数量及号码：</td><td class="v">{{ (doc.init_qty | string) if doc.init_qty is not none else '' }}{{ ' ' + doc.qty_uom if doc.qty_uom else '' }}{{ ('　' + doc.label_no) if doc.label_no else '' }}</td></tr>
+    <tr><td class="k">留样位号：</td><td class="v">{{ (room_name + ' / ') if room_name else '' }}{{ doc.storage_location or '' }}</td></tr>
+    <tr><td class="k">储存人/复核人：</td><td class="v">{{ doc.stored_by or '' }} / {{ doc.reviewed_by or '' }}</td></tr>
+    <tr><td class="k">储存条件：</td><td class="v">{{ doc.condition_snapshot or '' }}</td></tr>
+    <tr><td class="k">储存日期：</td><td class="v">{{ frappe.utils.formatdate(doc.in_date, "yyyy-MM-dd") if doc.in_date else '' }}</td></tr>
+  </table>
+</div>

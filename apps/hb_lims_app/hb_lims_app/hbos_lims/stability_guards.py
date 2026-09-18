@@ -69,6 +69,28 @@ def guard_snapshot_frozen(doc, fields, flag_field="snapshot_frozen"):
 NOTICE_DELETABLE_STATUSES = ("草稿", "已驳回", "已取消")
 PROTOCOL_DELETABLE_STATUSES = ("草稿",)
 MASTER_DELETABLE_STATUSES = None
+# Stability Sample：全生命周期禁删（方案 8.3）
+SAMPLE_DELETABLE_STATUSES = ()
+# Stability Timepoint：仅「待取样」可删（且要求无取样/检测/延期记录，由控制器另判）
+TIMEPOINT_DELETABLE_STATUSES = ("待取样",)
+
+# ---- M2-R8B 样品与时间点的系统字段（只允许业务服务写入，方案 8.6） ----
+
+SAMPLE_SYSTEM_FIELDS = (
+	"status", "current_qty", "start_date", "condition_snapshot",
+	"need_evaluation", "evaluated_by", "evaluation_date",
+	"stored_by", "reviewed_by", "reviewed_date",
+	"pre_disposal_status", "disposal_mark_reason",
+	"disposal_marked_by", "disposal_marked_date",
+	"disposal_cancel_reason", "disposal_cancelled_by", "disposal_cancelled_date",
+)
+
+TIMEPOINT_SYSTEM_FIELDS = (
+	"status", "sample_cond_point_key", "time_point_label",
+	"plan_sample_date", "plan_test_date", "delay_limit_days",
+	"is_full_test", "sample_by", "test_by",
+	"extra_approver_by", "extra_approve_date", "cancel_reason",
+)
 
 
 def _audit_delete_block(doctype, doc_name, action_text, reason):

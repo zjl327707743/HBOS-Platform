@@ -282,7 +282,9 @@ class TestAuditEventEnums(unittest.TestCase):
 		allowed = set(log_type["options"].split("\n"))
 
 		src = (APP_ROOT / "hb_lims_app" / "hbos_lims" / "stability_service.py").read_text(encoding="utf-8")
-		used = set(re.findall(r'_audit_(?:on|commit)\(\s*"[^"]+",\s*"([^"]+)"', src))
+		# 首参可以是字面量或常量名（如 SAMPLE_DOCTYPE）
+		used = set(re.findall(r'_audit_(?:on|commit)\(\s*[^,]+,\s*"([^"]+)"', src))
+		used = {u for u in used if "{" not in u}
 		self.assertTrue(used, "未从 stability_service 解析到任何审计事件")
 		self.assertEqual(set(), used - allowed,
 						 "审计事件未登记进 HBOS Audit Log.log_type 受控枚举：{}".format(sorted(used - allowed)))

@@ -1,0 +1,386 @@
+{
+ "actions": [],
+ "creation": "2026-09-18 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "stability_sample",
+  "condition_type",
+  "storage_cond",
+  "column_break_tp",
+  "time_point_value",
+  "time_point_unit",
+  "time_point_label",
+  "sample_cond_point_key",
+  "section_plan",
+  "plan_sample_date",
+  "actual_sample_date",
+  "column_break_plan",
+  "plan_test_date",
+  "actual_test_date",
+  "delay_limit_days",
+  "section_items",
+  "test_items",
+  "is_full_test",
+  "column_break_items",
+  "is_zero_month",
+  "is_extra",
+  "extra_reason",
+  "extra_approver_by",
+  "extra_approve_date",
+  "section_delay",
+  "delays",
+  "section_exec",
+  "sample_by",
+  "test_by",
+  "column_break_exec",
+  "eval_date",
+  "evaluator",
+  "trend_conclusion",
+  "oot_ref",
+  "cancel_reason",
+  "section_status",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-TPT-.YYYY.-",
+   "default": "HBOS-STB-TPT-.YYYY.-",
+   "reqd": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "stability_sample",
+   "fieldtype": "Link",
+   "label": "稳定性样品",
+   "options": "HBOS Stability Sample",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "condition_type",
+   "fieldtype": "Select",
+   "label": "条件类型",
+   "in_list_view": 1,
+   "options": "长期\n加速\n中间\n影响因素-高温\n影响因素-高湿\n影响因素-强光"
+  },
+  {
+   "fieldname": "storage_cond",
+   "fieldtype": "Link",
+   "label": "储存条件",
+   "options": "HBOS Stability Condition"
+  },
+  {
+   "fieldname": "column_break_tp",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "time_point_value",
+   "fieldtype": "Int",
+   "label": "时间点数值",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "time_point_unit",
+   "fieldtype": "Select",
+   "label": "时间点单位",
+   "reqd": 1,
+   "default": "月",
+   "options": "天\n月"
+  },
+  {
+   "fieldname": "time_point_label",
+   "fieldtype": "Data",
+   "label": "时间点",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sample_cond_point_key",
+   "fieldtype": "Data",
+   "label": "业务键",
+   "unique": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "hidden": 1,
+   "description": "sample#condition_code#value+unit（唯一）"
+  },
+  {
+   "fieldname": "section_plan",
+   "fieldtype": "Section Break",
+   "label": "计划日期（系统生成）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "plan_sample_date",
+   "fieldtype": "Date",
+   "label": "计划取样日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_sample_date",
+   "fieldtype": "Date",
+   "label": "实际取样日期"
+  },
+  {
+   "fieldname": "column_break_plan",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "plan_test_date",
+   "fieldtype": "Date",
+   "label": "计划检测日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_test_date",
+   "fieldtype": "Date",
+   "label": "实际检测日期"
+  },
+  {
+   "fieldname": "delay_limit_days",
+   "fieldtype": "Int",
+   "label": "取样延期上限（天）",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_items",
+   "fieldtype": "Section Break",
+   "label": "检测项目",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "test_items",
+   "fieldtype": "Table",
+   "label": "检测项目",
+   "options": "HBOS Stability Timepoint Item"
+  },
+  {
+   "fieldname": "is_full_test",
+   "fieldtype": "Check",
+   "label": "全项（首末点）",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_items",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "is_zero_month",
+   "fieldtype": "Check",
+   "label": "0 月点"
+  },
+  {
+   "fieldname": "is_extra",
+   "fieldtype": "Check",
+   "label": "超方案取样"
+  },
+  {
+   "fieldname": "extra_reason",
+   "fieldtype": "Data",
+   "label": "超方案取样原因"
+  },
+  {
+   "fieldname": "extra_approver_by",
+   "fieldtype": "Link",
+   "label": "超方案批准人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "extra_approve_date",
+   "fieldtype": "Date",
+   "label": "超方案批准日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_delay",
+   "fieldtype": "Section Break",
+   "label": "延期申请与审批",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "delays",
+   "fieldtype": "Table",
+   "label": "延期",
+   "options": "HBOS Stability Timepoint Delay"
+  },
+  {
+   "fieldname": "section_exec",
+   "fieldtype": "Section Break",
+   "label": "执行与签署",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "sample_by",
+   "fieldtype": "Link",
+   "label": "取样人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "test_by",
+   "fieldtype": "Link",
+   "label": "检测人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_exec",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "eval_date",
+   "fieldtype": "Date",
+   "label": "趋势评估日期"
+  },
+  {
+   "fieldname": "evaluator",
+   "fieldtype": "Link",
+   "label": "趋势评估人",
+   "options": "User"
+  },
+  {
+   "fieldname": "trend_conclusion",
+   "fieldtype": "Select",
+   "label": "趋势结论",
+   "options": "正常\n超趋势"
+  },
+  {
+   "fieldname": "oot_ref",
+   "fieldtype": "Data",
+   "label": "超趋势调查引用"
+  },
+  {
+   "fieldname": "cancel_reason",
+   "fieldtype": "Data",
+   "label": "取消原因",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_status",
+   "fieldtype": "Section Break",
+   "label": "状态",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "待取样\n待检测\n检测中\n已完成\n已取消",
+   "default": "待取样",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-18 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Timepoint",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "LIMS Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Analyst",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Reviewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QP",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  }
+ ]
+}

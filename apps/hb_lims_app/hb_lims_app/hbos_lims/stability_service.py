@@ -46,11 +46,16 @@ def _rollback():
 	frappe.db.rollback()
 
 
-def _check_action(action, doctype_target, doc_name=""):
+def _check_action(action, doctype_target, doc_name="", system=False):
 	"""角色校验。失败时先独立提交「越权拦截」审计再抛错（方案 8.7 / 门禁 17）。
 
 	审计写入本身失败不得掩盖权限拒绝——包一层 try 并落错误日志。
+	`system=True` 用于系统触发动作（complete_testing / reopen_timepoint / mark_superseded）：
+	**角色豁免、动作名不豁免**（门禁 10 / 20）——动作名仍须登记在 ACTION_ROLES，
+	但由服务内部调用，不做调用者角色判定。
 	"""
+	if system:
+		return
 	roles = frappe.get_roles(_user())
 	if not any(wf.action_allowed(action, role) for role in roles):
 		_audit_violation(doctype_target, doc_name,
@@ -887,3 +892,1326 @@ def get_stability_notice_detail(notice_name):
 		},
 		"protocols": protocols,
 	}
+
+
+# ===========================================================================
+# M2-R8B：样品与时间点（方案 5.3 / 6.3.3 / 6.3.4 / 7.1 / 7.2 / 7.3 / 7.8）
+# ===========================================================================
+
+SAMPLE_DOCTYPE = "HBOS Stability Sample"
+TIMEPOINT_DOCTYPE = "HBOS Stability Timepoint"
+
+# 日期工具在契约层（纯函数，可离线单测）；此处给短别名便于阅读
+_add_days = stb._add_days
+
+
+# ---- 通用工具 -------------------------------------------------------------
+
+def _lock_row(doctype, name):
+	"""四步锁协议第 2 步：`SELECT ... FOR UPDATE` 锁行（方案 7.8）。
+
+	调用方须遵守**固定锁顺序 Sample → Timepoint**（同事务需要两把锁时）。
+	"""
+	if not frappe.db.exists(doctype, name):
+		frappe.throw("{}「{}」不存在。".format(doctype, name))
+	frappe.db.get_value(doctype, name, "name", for_update=True)
+	return _load(doctype, name)
+
+
+def _has_result_doctype():
+	return bool(frappe.db.exists("DocType", "HBOS Stability Result"))
+
+
+def _result_fields():
+	if not _has_result_doctype():
+		return set()
+	return {f.fieldname for f in frappe.get_meta("HBOS Stability Result").fields}
+
+
+def _approved_item_codes(timepoint_name):
+	"""该时间点「已批准且生效」的结果所覆盖的检验项目集合。
+
+	`HBOS Stability Result` 属 R8C。未落地（或缺所需字段）时返回空集合——语义上即
+	「没有任何必检项目有已批准结果」，故 `complete_testing` 会被前置校验拒绝；
+	这是**正确判定而非桩**，R8C 落地后本函数自动生效。
+	"""
+	need = {"timepoint", "stability_test_item", "status", "is_current"}
+	if not need <= _result_fields():
+		return set()
+	return set(frappe.get_all(
+		"HBOS Stability Result",
+		filters={"timepoint": timepoint_name, "status": "已批准", "is_current": 1},
+		pluck="stability_test_item"))
+
+
+def _has_inflight_result(timepoint_name):
+	"""该时间点是否有在途（草稿/已提交/已复核）结果（方案 6.3.4 取消前置）。"""
+	if "timepoint" not in _result_fields():
+		return False
+	return bool(frappe.db.exists("HBOS Stability Result", {
+		"timepoint": timepoint_name, "status": ["in", ["草稿", "已提交", "已复核"]]}))
+
+
+def _has_approved_result(timepoint_name):
+	"""该时间点是否有已批准结果（取消前置：有则须先全部作废）。"""
+	if "timepoint" not in _result_fields():
+		return False
+	return bool(frappe.db.exists("HBOS Stability Result", {
+		"timepoint": timepoint_name, "status": "已批准"}))
+
+
+def _delay_dicts(tp):
+	return [{"delay_type": d.delay_type, "status": d.status,
+			 "approve_at": d.approve_at, "approved_due_date": d.approved_due_date}
+			for d in (tp.delays or [])]
+
+
+def _policy_latest_sample(tp):
+	return _add_days(tp.plan_sample_date, stb.delay_limit_days(tp.time_point_value, tp.time_point_unit))
+
+
+def _effective_sample_due(tp):
+	policy = _policy_latest_sample(tp)
+	return stb.effective_due_date(_delay_dicts(tp), "取样延期", policy), policy
+
+
+def _product_of_sample(sample):
+	if not sample.stability_product:
+		return None
+	return frappe.get_doc("HBOS Stability Product", sample.stability_product)
+
+
+def _policy_latest_test(tp, product=None):
+	"""检测侧政策硬上限：`plan_test_date + 30 天`；委外产品按 `outsourced_test_window_days`（留空=不限制）。"""
+	window = None
+	if product is not None and product.is_outsource:
+		window = product.outsourced_test_window_days
+	if product is not None and product.is_outsource and window in (None, "", 0):
+		# 委外且窗口留空 = 不限制（Owner 2026-09-16 决定）
+		if window is None or window == "":
+			return None
+	return _add_days(tp.plan_test_date, stb.TEST_WINDOW_DAYS if window is None else int(window))
+
+
+def _effective_test_due(tp, product=None):
+	policy = _policy_latest_test(tp, product)
+	return stb.effective_due_date(_delay_dicts(tp), "检测延期", policy), policy
+
+
+def _append_sample_log(sample, transaction_type, qty_delta=0, remaining_qty=0,
+					   source_timepoint=None, sampling_reason=None, remarks="",
+					   reviewer=None, transaction_date=None,
+					   sample_no_out=None, return_sample_no=None, remaining_sample_no=None):
+	sample.append("logs", {
+		"transaction_date": transaction_date or _today(),
+		"transaction_type": transaction_type,
+		"source_timepoint": source_timepoint,
+		"sampling_reason": sampling_reason,
+		"sample_no_out": sample_no_out,
+		"return_sample_no": return_sample_no,
+		"remaining_sample_no": remaining_sample_no,
+		"qty_delta": qty_delta,
+		"qty_uom": sample.qty_uom,
+		"remaining_qty": remaining_qty,
+		"operator": _user(),
+		"reviewer": reviewer,
+		"remarks": remarks,
+	})
+
+
+def _set_sample_status(sample, target):
+	if not wf.can_transition(stb.FLOW_STB_SAMPLE, sample.status, target):
+		_reject(SAMPLE_DOCTYPE, sample.name,
+				"非法状态流转：{} -> {}（样品）".format(sample.status, target),
+				"非法状态转移：{} -> {}".format(sample.status, target))
+	sample.status = target
+
+
+def _inbox_status(current_qty, init_qty):
+	"""按结存判定在箱/部分取样/已取尽（方案 6.1 三态）。"""
+	if float(current_qty or 0) <= 0:
+		return stb.SAMPLE_DEPLETED
+	if float(current_qty) < float(init_qty or 0):
+		return stb.SAMPLE_PARTIAL
+	return stb.SAMPLE_IN_STORAGE
+
+
+# ---- 样品：登记与复核 -----------------------------------------------------
+
+@frappe.whitelist()
+def register_stability_sample(notice, stability_product, batch_no, in_date,
+							  protocol=None, sample_name=None, material_code=None,
+							  batch_size=None, manufacture_date=None, finish_date=None,
+							  send_date=None, full_test_sample_date=None,
+							  storage_cond=None, room=None, storage_location=None,
+							  pack_desc=None, is_sterile_pack=0, package_count=None,
+							  package_spec=None, inverted_flag=None,
+							  init_qty=None, qty_uom=None, source_sample=None,
+							  label_no=None, evaluation_conclusion=None,
+							  evaluated_by=None, evaluation_date=None):
+	"""样品入箱登记（记录二）：→ 在箱；登记成功后触发时间点生成（方案 6.3.3 / 7.1）。"""
+	_check_action("register_stability_sample", SAMPLE_DOCTYPE, batch_no)
+	try:
+		product = frappe.get_doc("HBOS Stability Product", stability_product)
+		if not product.is_active:
+			frappe.throw("该稳定性产品已停用，不再登记样品。")
+
+		notice_doc = frappe.get_doc("HBOS Stability Notice", notice)
+		yearly = stb.check_year_long_study_no_protocol(product.category)
+		if yearly and protocol:
+			frappe.throw("年度持续稳定性考察类不建方案单，样品只挂通知单（方案 4.2.5）。")
+		if not yearly:
+			if not protocol:
+				frappe.throw("非年度持续稳定性考察类必须关联已批准的稳定性方案。")
+			pstatus = frappe.db.get_value("HBOS Stability Protocol", protocol, "status")
+			if pstatus != stb.PROTOCOL_APPROVED:
+				frappe.throw("关联方案须为「已批准」方可登记样品（当前：{}）。".format(pstatus))
+		if notice_doc.status != stb.NOTICE_APPROVED:
+			frappe.throw("关联通知单须为「已批准」方可登记样品（当前：{}）。".format(notice_doc.status))
+
+		in_d = stb._as_date(in_date)
+		if not in_d:
+			frappe.throw("进箱日期必填。")
+		# 送样 ≤ 全检样 + 3 周（方案 4.1 / 6.3.3）
+		if send_date and full_test_sample_date:
+			limit = _add_days(full_test_sample_date, 21)
+			if stb._as_date(send_date) > limit:
+				frappe.throw("送样日期（{}）距全检样送样日期超过 3 周（上限 {}）。".format(
+					send_date, limit))
+
+		# 进箱超生产 1 个月 → 强制评估四件套（不拦截，方案 P1-2）
+		need_eval = 0
+		if manufacture_date and in_d > _add_months(manufacture_date, 1):
+			need_eval = 1
+			if not (evaluation_conclusion or "").strip() or not evaluated_by or not evaluation_date:
+				frappe.throw("进箱日期超过生产日期 1 个月：必须填写评估结论、评估人与评估日期（方案 5.3.1）。")
+
+		cond_snapshot = None
+		if storage_cond:
+			cond_snapshot = frappe.db.get_value("HBOS Stability Condition", storage_cond, "description")
+
+		doc = frappe.get_doc({
+			"doctype": SAMPLE_DOCTYPE,
+			"notice": notice,
+			"protocol": protocol,
+			"stability_product": stability_product,
+			"sample_name": sample_name,
+			"material_code": material_code,
+			"batch_no": batch_no,
+			"batch_size": batch_size,
+			"manufacture_date": manufacture_date,
+			"finish_date": finish_date,
+			"send_date": send_date,
+			"full_test_sample_date": full_test_sample_date,
+			"storage_cond": storage_cond,
+			"condition_snapshot": cond_snapshot,
+			"room": room,
+			"storage_location": storage_location,
+			"pack_desc": pack_desc or product.pack_desc,
+			"is_sterile_pack": 1 if is_sterile_pack else 0,
+			"package_count": package_count,
+			"package_spec": package_spec,
+			"inverted_flag": inverted_flag,
+			"init_qty": init_qty,
+			"current_qty": init_qty,
+			"qty_uom": qty_uom,
+			"source_sample": source_sample,
+			"label_no": label_no,
+			"in_date": in_date,
+			"start_date": in_date,
+			"need_evaluation": need_eval,
+			"evaluation_conclusion": evaluation_conclusion,
+			"evaluated_by": evaluated_by,
+			"evaluation_date": evaluation_date,
+			"stored_by": _user(),
+			"status": stb.SAMPLE_IN_STORAGE,
+		})
+		doc.flags.allow_system_fields = True
+		_append_sample_log(doc, "入库", qty_delta=init_qty or 0,
+						   remaining_qty=init_qty or 0, transaction_date=in_date,
+						   remarks="入箱登记")
+		doc.insert(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "入箱登记", doc.name,
+				  action_text="稳定性样品入箱登记",
+				  new_value="batch={} qty={}".format(batch_no, init_qty))
+		if need_eval:
+			_audit_on(SAMPLE_DOCTYPE, "超期进箱评估", doc.name,
+					  action_text="进箱超生产 1 个月，已强制评估",
+					  new_value=evaluation_conclusion or "")
+		_commit()
+	except Exception:
+		_rollback()
+		raise
+
+	# 登记先提交（进箱是物理事实）；生成失败不回滚登记（方案 7.1 失败语义）
+	try:
+		generate_timepoints(doc.name)
+	except Exception as exc:
+		frappe.db.rollback()
+		_audit_commit(SAMPLE_DOCTYPE, "时间点生成失败", doc.name,
+					  action_text="入箱后自动生成时间点失败", reason=str(exc)[:200])
+		frappe.db.set_value(SAMPLE_DOCTYPE, doc.name, "timepoint_gen_error",
+							str(exc)[:500], update_modified=False)
+		frappe.db.commit()
+	return {"name": doc.name, "status": frappe.db.get_value(SAMPLE_DOCTYPE, doc.name, "status")}
+
+
+def _add_months(date_value, months):
+	d = stb._as_date(date_value)
+	if not d:
+		return None
+	return stb.add_time_point(d, months, "月")
+
+
+@frappe.whitelist()
+def review_sample_storage(sample_name):
+	"""储存复核（状态不变，方案 6.3.3）。"""
+	_check_action("review_sample_storage", SAMPLE_DOCTYPE, sample_name)
+	try:
+		doc = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		doc.reviewed_by = _user()
+		doc.reviewed_date = _today()
+		doc.save(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "储存复核", doc.name, action_text="储存复核")
+		_commit()
+		return {"name": doc.name}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- 样品：取样 / 返还 ----------------------------------------------------
+
+@frappe.whitelist()
+def record_sampling(sample_name, timepoint=None, qty=None, sampling_reason=None,
+					sample_date=None, sample_no_out=None, remarks=""):
+	"""取样出库：在箱/部分取样 → 在箱/部分取样/已取尽；扣减结存并写流水（方案 6.3.3 / 7.3）。"""
+	_check_action("record_sampling", SAMPLE_DOCTYPE, sample_name)
+	if qty is None or float(qty) <= 0:
+		frappe.throw("取样数量必须大于 0。")
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		actual = stb._as_date(sample_date) or _today()
+
+		tp = None
+		if timepoint:
+			tp = _load(TIMEPOINT_DOCTYPE, timepoint)   # 锁顺序：Sample 已锁，再取 Timepoint
+			if tp.stability_sample != sample.name:
+				frappe.throw("时间点「{}」不属于样品「{}」。".format(timepoint, sample.name))
+			effective, policy = _effective_sample_due(tp)
+			ok, err = stb.check_sampling_not_late(actual, effective, policy)
+			if not ok:
+				frappe.throw(err)
+
+		new_qty = float(sample.current_qty or 0) - float(qty)
+		if new_qty < 0:
+			frappe.throw("取样后结存为负（当前结存 {}，取样 {}）。".format(sample.current_qty, qty))
+
+		sample.current_qty = new_qty
+		_set_sample_status(sample, _inbox_status(new_qty, sample.init_qty))
+		_append_sample_log(sample, "取样出库", qty_delta=-float(qty), remaining_qty=new_qty,
+						   source_timepoint=timepoint, sampling_reason=sampling_reason,
+						   remarks=remarks, sample_no_out=sample_no_out,
+						   transaction_date=actual)
+		sample.save(ignore_permissions=True)
+
+		if tp:
+			tp.flags.allow_system_fields = True
+			tp.sample_by = _user()
+			tp.save(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "取样出库", sample.name,
+				  action_text="取样出库", new_value="qty=-{} remaining={}".format(qty, new_qty))
+		_commit()
+		return {"name": sample.name, "status": sample.status, "current_qty": new_qty}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def return_sample(sample_name, qty=None, timepoint=None, return_sample_no=None,
+				  remarks="", reviewer=None):
+	"""取样返还：自环（在箱→在箱 / 部分取样→部分取样），回补结存（方案 6.3.3）。"""
+	_check_action("return_sample", SAMPLE_DOCTYPE, sample_name)
+	if qty is None or float(qty) <= 0:
+		frappe.throw("返还数量必须大于 0。")
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		if sample.status not in (stb.SAMPLE_IN_STORAGE, stb.SAMPLE_PARTIAL):
+			_reject(SAMPLE_DOCTYPE, sample_name,
+					"仅「在箱 / 部分取样」状态可返还（当前：{}）。".format(sample.status),
+					"非法状态：{} 调用 return_sample".format(sample.status))
+		new_qty = float(sample.current_qty or 0) + float(qty)
+		if new_qty > float(sample.init_qty or 0):
+			frappe.throw("返还后结存超过初始量（{} > {}）。".format(new_qty, sample.init_qty))
+		sample.current_qty = new_qty
+		_set_sample_status(sample, _inbox_status(new_qty, sample.init_qty))
+		_append_sample_log(sample, "返还", qty_delta=float(qty), remaining_qty=new_qty,
+						   source_timepoint=timepoint, remarks=remarks,
+						   reviewer=reviewer, return_sample_no=return_sample_no)
+		sample.save(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "返还", sample.name,
+				  action_text="取样返还", new_value="qty=+{} remaining={}".format(qty, new_qty))
+		_commit()
+		return {"name": sample.name, "status": sample.status, "current_qty": new_qty}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- 样品：处置四件套 -----------------------------------------------------
+
+@frappe.whitelist()
+def mark_for_disposal(sample_name, reason):
+	"""进入待处置：在箱/部分取样/已取尽 → 待处理；写 pre_disposal_status 快照（方案 6.3.3 / 门禁 13）。"""
+	_check_action("mark_for_disposal", SAMPLE_DOCTYPE, sample_name)
+	if not (reason or "").strip():
+		frappe.throw("进入待处置的原因必填。")
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		if sample.status not in stb.SAMPLE_DISPOSAL_SOURCE_STATES:
+			_reject(SAMPLE_DOCTYPE, sample_name,
+					"仅「在箱 / 部分取样 / 已取尽」可进入待处置（当前：{}）。".format(sample.status),
+					"非法状态：{} 调用 mark_for_disposal".format(sample.status))
+		sample.pre_disposal_status = sample.status
+		_set_sample_status(sample, stb.SAMPLE_PENDING_DISPOSAL)
+		sample.disposal_mark_reason = reason
+		sample.disposal_marked_by = _user()
+		sample.disposal_marked_date = _today()
+		sample.save(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "样品进入待处置", sample.name,
+				  action_text="样品进入待处置", reason=reason,
+				  new_value="pre_status={}".format(sample.pre_disposal_status))
+		_commit()
+		return {"name": sample.name, "status": sample.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def cancel_disposal(sample_name, reason):
+	"""取消待处置（回库）：待处理 → 按 pre_disposal_status 快照恢复三态之一（方案 6.3.3 / 门禁 13）。"""
+	_check_action("cancel_disposal", SAMPLE_DOCTYPE, sample_name)
+	if not (reason or "").strip():
+		frappe.throw("取消待处置的原因必填。")
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		if sample.status != stb.SAMPLE_PENDING_DISPOSAL:
+			_reject(SAMPLE_DOCTYPE, sample_name,
+					"仅「待处理」状态可取消待处置（当前：{}）。".format(sample.status),
+					"非法状态：{} 调用 cancel_disposal".format(sample.status))
+		target = sample.pre_disposal_status
+		if target not in stb.SAMPLE_PRE_DISPOSAL_STATES:
+			frappe.throw("进入待处置前的状态快照缺失或非法（{}），无法回退。".format(target))
+		if not wf.can_transition(stb.FLOW_STB_SAMPLE, sample.status, target):
+			frappe.throw("按快照回退到「{}」不在样品状态机允许的转移内。".format(target))
+		sample.status = target
+		sample.disposal_cancel_reason = reason
+		sample.disposal_cancelled_by = _user()
+		sample.disposal_cancelled_date = _today()
+		sample.save(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "待处置取消（回库）", sample.name,
+				  action_text="取消待处置并回库", reason=reason, new_value="restored={}".format(target))
+		_commit()
+		return {"name": sample.name, "status": sample.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def dispose_sample(sample_name, qty=None, remarks="", reviewer=None, location=None):
+	"""销毁：待处理 → 已销毁；销毁量须等于当前结存，且须先 mark_for_disposal（方案 6.3.3）。"""
+	_check_action("dispose_sample", SAMPLE_DOCTYPE, sample_name)
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		if sample.status != stb.SAMPLE_PENDING_DISPOSAL:
+			_reject(SAMPLE_DOCTYPE, sample_name,
+					"仅「待处理」状态可销毁；须先执行「进入待处置」（当前：{}）。".format(sample.status),
+					"非法状态：{} 调用 dispose_sample".format(sample.status))
+		current = float(sample.current_qty or 0)
+		destroy_qty = current if qty is None else float(qty)
+		if abs(destroy_qty - current) > 1e-9:
+			frappe.throw("销毁数量（{}）必须等于当前结存（{}）。".format(destroy_qty, current))
+		_set_sample_status(sample, stb.SAMPLE_DESTROYED)
+		sample.current_qty = 0
+		_append_sample_log(sample, "销毁", qty_delta=-destroy_qty, remaining_qty=0,
+						   remarks=remarks or (location or ""), reviewer=reviewer)
+		sample.save(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "销毁出库", sample.name,
+				  action_text="样品销毁", new_value="destroyed={} supervisor={}".format(
+					  destroy_qty, reviewer or "—"))
+		_commit()
+		return {"name": sample.name, "status": sample.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def adjust_stock(sample_name, qty_delta, remarks):
+	"""手动调整结存（状态不变，原因必填；调整后结存 ≥ 0，方案 6.3.3）。"""
+	_check_action("adjust_stock", SAMPLE_DOCTYPE, sample_name)
+	if not (remarks or "").strip():
+		frappe.throw("手动调整必须填写原因。")
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		if sample.status in stb.SAMPLE_TERMINAL_STATES:
+			frappe.throw("终态样品不可调整结存（当前：{}）。".format(sample.status))
+		new_qty = float(sample.current_qty or 0) + float(qty_delta or 0)
+		if new_qty < 0:
+			frappe.throw("调整后结存不得为负（{}）。".format(new_qty))
+		sample.current_qty = new_qty
+		if sample.status not in (stb.SAMPLE_PENDING_DISPOSAL,):
+			_set_sample_status(sample, _inbox_status(new_qty, sample.init_qty))
+		_append_sample_log(sample, "手动调整", qty_delta=float(qty_delta or 0),
+						   remaining_qty=new_qty, remarks=remarks)
+		sample.save(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "手动调整", sample.name,
+				  action_text="手动调整结存", reason=remarks,
+				  new_value="delta={} remaining={}".format(qty_delta, new_qty))
+		_commit()
+		return {"name": sample.name, "status": sample.status, "current_qty": new_qty}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def transfer_out(sample_name, remarks=""):
+	"""受托转出：在箱/部分取样/已取尽 → 已转出（方案 6.3.3；流水记「受托转出」）。"""
+	_check_action("transfer_out", SAMPLE_DOCTYPE, sample_name)
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		if sample.status not in stb.SAMPLE_DISPOSAL_SOURCE_STATES:
+			_reject(SAMPLE_DOCTYPE, sample_name,
+					"仅「在箱 / 部分取样 / 已取尽」可转出（当前：{}）。".format(sample.status),
+					"非法状态：{} 调用 transfer_out".format(sample.status))
+		_set_sample_status(sample, stb.SAMPLE_TRANSFERRED)
+		remaining = float(sample.current_qty or 0)
+		_append_sample_log(sample, "受托转出", qty_delta=0, remaining_qty=remaining,
+						   remarks=remarks or "受托转出")
+		sample.current_qty = 0
+		sample.save(ignore_permissions=True)
+		_audit_on(SAMPLE_DOCTYPE, "受托转出", sample.name,
+				  action_text="受托转出", new_value="remaining_cleared={}".format(remaining))
+		_commit()
+		return {"name": sample.name, "status": sample.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- 时间点：生成 ---------------------------------------------------------
+
+@frappe.whitelist()
+def generate_timepoints(sample_name):
+	"""按样品逐条件生成时间点（幂等、可重跑；方案 7.1）。
+
+	方案/Notice 已批准 + 样品已入箱为前置资格；锁 Sample 行（方案 7.8）。
+	已存在的 `sample_cond_point_key` 一律跳过，绝不覆盖。
+	"""
+	_check_action("generate_timepoints", SAMPLE_DOCTYPE, sample_name)
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		created = _generate_timepoints_impl(sample)
+		if frappe.db.get_value(SAMPLE_DOCTYPE, sample.name, "timepoint_gen_error"):
+			frappe.db.set_value(SAMPLE_DOCTYPE, sample.name, "timepoint_gen_error", "",
+								update_modified=False)
+		_commit()
+		return {"sample": sample.name, "created": created}
+	except Exception:
+		_rollback()
+		raise
+
+
+def _timepoint_source(sample):
+	"""返回 (category, vd_months, conditions, room_temp_recovery_days)。"""
+	product = _product_of_sample(sample)
+	category = product.category
+	vd_months = product.vd_months
+	recovery = 0
+	conditions = []
+	if sample.protocol:
+		proto = frappe.get_doc("HBOS Stability Protocol", sample.protocol)
+		recovery = proto.room_temp_recovery_days or 0
+		for row in proto.study_conditions or []:
+			conditions.append({
+				"condition_type": row.condition_type,
+				"condition_code": row.storage_cond or row.condition_type,
+				"exposure_days": row.exposure_days,
+			})
+	else:
+		notice = frappe.get_doc("HBOS Stability Notice", sample.notice)
+		for row in notice.study_conditions or []:
+			conditions.append({
+				"condition_type": row.condition_type,
+				"condition_code": row.storage_cond or row.condition_type,
+				"exposure_days": row.exposure_days,
+			})
+	return category, vd_months, conditions, recovery
+
+
+def _timepoint_items(sample):
+	"""时间点检测项目来源：方案 items（is_key_item → is_required）；无方案时留空。"""
+	items = []
+	if sample.protocol:
+		proto = frappe.get_doc("HBOS Stability Protocol", sample.protocol)
+		for row in proto.items or []:
+			if not row.stability_test_item:
+				continue
+			items.append({
+				"stability_test_item": row.stability_test_item,
+				"is_full_test": 1 if row.is_full_test else 0,
+				"is_required": 1 if (row.is_key_item or row.is_full_test) else 0,
+			})
+	return items
+
+
+def _generate_timepoints_impl(sample):
+	"""生成实现（供 generate_timepoints 与 append_conditions 复用）。假定 Sample 已锁。"""
+	category, vd_months, conditions, recovery = _timepoint_source(sample)
+	plan = stb.plan_timepoints(category, vd_months, conditions, recovery)
+	items = _timepoint_items(sample)
+	start = sample.start_date or sample.in_date
+	created = 0
+	for point in plan:
+		key = stb.make_sample_cond_point_key(sample.name, point["condition_code"],
+											 point["value"], point["unit"])
+		if frappe.db.exists(TIMEPOINT_DOCTYPE, {"sample_cond_point_key": key}):
+			continue      # 锁内幂等：已存在一律跳过（方案 7.1）
+		plan_sample = stb.add_time_point(start, point["value"], point["unit"])
+		plan_test = _add_days(plan_sample, recovery)
+		doc = frappe.get_doc({
+			"doctype": TIMEPOINT_DOCTYPE,
+			"stability_sample": sample.name,
+			"condition_type": point["condition_type"],
+			"storage_cond": point["condition_code"] if frappe.db.exists(
+				"HBOS Stability Condition", point["condition_code"]) else None,
+			"time_point_value": point["value"],
+			"time_point_unit": point["unit"],
+			"time_point_label": point["label"],
+			"sample_cond_point_key": key,
+			"plan_sample_date": plan_sample,
+			"plan_test_date": plan_test,
+			"delay_limit_days": stb.delay_limit_days(point["value"], point["unit"]),
+			"is_full_test": point["is_full_test"],
+			"is_zero_month": 1 if (point["unit"] == "月" and point["value"] == 0) else 0,
+			"test_items": items,
+			"status": stb.TP_WAIT_SAMPLE,
+		})
+		doc.flags.allow_system_fields = True
+		doc.insert(ignore_permissions=True)
+		created += 1
+	if created:
+		_audit_on(SAMPLE_DOCTYPE, "时间点生成", sample.name,
+				  action_text="生成稳定性时间点", new_value="created={}".format(created))
+	return created
+
+
+# ---- 时间点：取样 → 检测 → 完成 -------------------------------------------
+
+@frappe.whitelist()
+def complete_sampling(timepoint_name, actual_sample_date=None):
+	"""取样完成：待取样 → 待检测（方案 6.3.4）。"""
+	_check_action("complete_sampling", TIMEPOINT_DOCTYPE, timepoint_name)
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		if tp.status != stb.TP_WAIT_SAMPLE:
+			_reject(TIMEPOINT_DOCTYPE, timepoint_name,
+					"仅「待取样」可完成取样（当前：{}）。".format(tp.status),
+					"非法状态：{} 调用 complete_sampling".format(tp.status))
+		tp.flags.allow_system_fields = True
+		tp.actual_sample_date = actual_sample_date or tp.actual_sample_date or _today()
+		_set_status(tp, stb.FLOW_STB_TIMEPOINT, stb.TP_WAIT_TEST)
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "取样完成", tp.name,
+				  action_text="取样完成", new_value=str(tp.actual_sample_date))
+		_commit()
+		return {"name": tp.name, "status": tp.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def import_zero_month_result(timepoint_name, source, baseline_doctype=None, baseline_name=None,
+							 actual_sample_date=None):
+	"""0 月免取样：待取样 → 待检测（豁免 #1/#2 校验，写豁免审计，方案 7.3 / P1-1）。
+
+	结果落库（`HBOS Stability Result` 与 `baseline_*` 字段）属 R8C；本轮记录来源并留痕。
+	"""
+	_check_action("import_zero_month_result", TIMEPOINT_DOCTYPE, timepoint_name)
+	if not stb.zero_month_exempt(1, source):
+		frappe.throw("仅 0 月时间点、且来源为「出厂全检 / 委外」时适用免取样导入（当前来源：{}）。".format(source))
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		if not tp.is_zero_month:
+			frappe.throw("该时间点不是 0 月点，不适用免取样导入。")
+		if tp.status != stb.TP_WAIT_SAMPLE:
+			_reject(TIMEPOINT_DOCTYPE, timepoint_name,
+					"仅「待取样」可导入 0 月数据（当前：{}）。".format(tp.status),
+					"非法状态：{} 调用 import_zero_month_result".format(tp.status))
+		tp.flags.allow_system_fields = True
+		tp.actual_sample_date = actual_sample_date or tp.actual_sample_date
+		_set_status(tp, stb.FLOW_STB_TIMEPOINT, stb.TP_WAIT_TEST)
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "0 月数据豁免校验", tp.name,
+				  action_text="0 月免取样导入（豁免 #1/#2 日期校验）",
+				  new_value="source={} baseline={}/{}".format(source, baseline_doctype, baseline_name))
+		_commit()
+		return {"name": tp.name, "status": tp.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def start_testing(timepoint_name):
+	"""检测开始：待检测 → 检测中（方案 6.3.4）。"""
+	_check_action("start_testing", TIMEPOINT_DOCTYPE, timepoint_name)
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		if tp.status != stb.TP_WAIT_TEST:
+			_reject(TIMEPOINT_DOCTYPE, timepoint_name,
+					"仅「待检测」可开始检测（当前：{}）。".format(tp.status),
+					"非法状态：{} 调用 start_testing".format(tp.status))
+		tp.flags.allow_system_fields = True
+		tp.test_by = _user()
+		_set_status(tp, stb.FLOW_STB_TIMEPOINT, stb.TP_TESTING)
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "检测开始", tp.name, action_text="检测开始")
+		_commit()
+		return {"name": tp.name, "status": tp.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def complete_testing(timepoint_name):
+	"""检测完成：检测中 → 已完成（**系统动作**，角色豁免、动作名不豁免）。
+
+	前置：该时间点**全部必检项目均有已批准结果**（方案 6.3.4）。Result（R8C）未落地时
+	`_approved_item_codes` 返回空集合，故本动作会被前置校验拒绝——这是正确判定（没有
+	结果就不能完成检测），R8C 落地后自动生效。
+	"""
+	_check_action("complete_testing", TIMEPOINT_DOCTYPE, timepoint_name, system=True)
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		if tp.status != stb.TP_TESTING:
+			_reject(TIMEPOINT_DOCTYPE, timepoint_name,
+					"仅「检测中」可完成检测（当前：{}）。".format(tp.status),
+					"非法状态：{} 调用 complete_testing".format(tp.status))
+		required = {row.stability_test_item for row in (tp.test_items or [])
+					if row.is_required and row.stability_test_item}
+		approved = _approved_item_codes(tp.name)
+		missing = sorted(required - approved)
+		if missing:
+			frappe.throw("以下必检项目尚无已批准结果，不能完成检测：{}".format(" / ".join(missing)))
+		_set_status(tp, stb.FLOW_STB_TIMEPOINT, stb.TP_DONE)
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "检测完成", tp.name, action_text="检测完成")
+		_commit()
+		return {"name": tp.name, "status": tp.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+def reopen_timepoint(timepoint_name):
+	"""时间点重开：已完成 → 检测中（**系统动作**，由 R8C 的 `void_result` 同事务调用）。
+
+	守卫（方案 6.3.4 / P1 rev12）：**仅当 `status=已完成` 时才调用**；已是「检测中」则不调用
+	本动作（保持原状态，仅记审计），避免非法转移。用户不可直接调用。
+	"""
+	_check_action("reopen_timepoint", TIMEPOINT_DOCTYPE, timepoint_name, system=True)
+	tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+	if tp.status != stb.TP_DONE:
+		_audit_on(TIMEPOINT_DOCTYPE, "时间点重开", tp.name,
+				  action_text="跳过重开（非「已完成」）", new_value="status={}".format(tp.status))
+		return {"name": tp.name, "status": tp.status, "reopened": False}
+	tp.flags.allow_system_fields = True
+	_set_status(tp, stb.FLOW_STB_TIMEPOINT, stb.TP_TESTING)
+	tp.save(ignore_permissions=True)
+	_audit_on(TIMEPOINT_DOCTYPE, "时间点重开", tp.name, action_text="时间点重开")
+	return {"name": tp.name, "status": tp.status, "reopened": True}
+
+
+@frappe.whitelist()
+def cancel_timepoint(timepoint_name, reason):
+	"""取消时间点：待取样/待检测/检测中 → 已取消（方案 6.3.4）。
+
+	前置：原因必填；**若已有已批准结果须先全部作废**；**无在途结果**（草稿/已提交/已复核）。
+	（Result 属 R8C，未落地时这两项判定恒为「无」，即不受限。）
+	"""
+	_check_action("cancel_timepoint", TIMEPOINT_DOCTYPE, timepoint_name)
+	if not (reason or "").strip():
+		frappe.throw("取消原因必填。")
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		if tp.status not in stb.TIMEPOINT_CANCELLABLE_STATES:
+			_reject(TIMEPOINT_DOCTYPE, timepoint_name,
+					"仅「待取样 / 待检测 / 检测中」可取消（当前：{}）。".format(tp.status),
+					"非法状态：{} 调用 cancel_timepoint".format(tp.status))
+		if _has_approved_result(tp.name):
+			frappe.throw("该时间点已有已批准结果，须先全部作废方可取消（方案 6.3.4）。")
+		if _has_inflight_result(tp.name):
+			frappe.throw("该时间点存在在途结果（草稿/已提交/已复核），须先处理后再取消。")
+		tp.flags.allow_system_fields = True
+		tp.cancel_reason = reason
+		_set_status(tp, stb.FLOW_STB_TIMEPOINT, stb.TP_CANCELLED)
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "时间点取消", tp.name,
+				  action_text="时间点取消", reason=reason)
+		_commit()
+		return {"name": tp.name, "status": tp.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- 时间点：追加条件 / 超方案取样 ----------------------------------------
+
+@frappe.whitelist()
+def append_conditions(change_name):
+	"""追加条件/时间点（受控入口，准入动作，**不推进变更单状态**；方案 7.1 / 6.3.4）。
+
+	单独调用要求变更单 `status=已批准 且 change_scope ∈ {涉条件与时间点, 涉方案}`。
+	`HBOS Stability Change` 属 R8D；未落地时本入口一律拒绝——这是正确判定，
+	R8D 的 `implement_change` 会在同事务内直接调用 `_append_conditions_impl`。
+	"""
+	_check_action("append_conditions", SAMPLE_DOCTYPE, change_name)
+	if not frappe.db.exists("DocType", "HBOS Stability Change"):
+		frappe.throw("追加条件须由变更实施发起（变更单 DocType 尚未落地，属 R8D）。")
+	change = frappe.get_doc("HBOS Stability Change", change_name)
+	if change.status != "已批准" or change.change_scope not in ("涉条件与时间点", "涉方案"):
+		frappe.throw("仅「已批准」且落点为「涉条件与时间点 / 涉方案」的变更单可追加条件（当前：{} / {}）。".format(
+			change.status, change.get("change_scope")))
+	sample_name = change.get("stability_sample")
+	if not sample_name:
+		frappe.throw("变更单未指定稳定性样品。")
+	try:
+		sample = _lock_row(SAMPLE_DOCTYPE, sample_name)
+		created = _append_conditions_impl(sample, _extra_conditions_of(change))
+		_commit()
+		return {"sample": sample.name, "created": created}
+	except Exception:
+		_rollback()
+		raise
+
+
+def _extra_conditions_of(change):
+	"""从变更单取追加条件（字段属 R8D，落地前返回空）。"""
+	rows = change.get("extra_conditions") or []
+	return [{"condition_type": r.get("condition_type"),
+			 "condition_code": r.get("storage_cond") or r.get("condition_type"),
+			 "exposure_days": r.get("exposure_days")} for r in rows]
+
+
+def _append_conditions_impl(sample, extra_conditions):
+	"""锁内只新增（幂等、不覆盖、不改期、不删）；供 `implement_change`（R8D）同事务调用。"""
+	created = 0
+	category, vd_months, _conds, recovery = _timepoint_source(sample)
+	items = _timepoint_items(sample)
+	start = sample.start_date or sample.in_date
+	for point in stb.plan_timepoints(category, vd_months, extra_conditions, recovery):
+		key = stb.make_sample_cond_point_key(sample.name, point["condition_code"],
+											 point["value"], point["unit"])
+		if frappe.db.exists(TIMEPOINT_DOCTYPE, {"sample_cond_point_key": key}):
+			continue
+		plan_sample = stb.add_time_point(start, point["value"], point["unit"])
+		doc = frappe.get_doc({
+			"doctype": TIMEPOINT_DOCTYPE,
+			"stability_sample": sample.name,
+			"condition_type": point["condition_type"],
+			"storage_cond": point["condition_code"] if frappe.db.exists(
+				"HBOS Stability Condition", point["condition_code"]) else None,
+			"time_point_value": point["value"],
+			"time_point_unit": point["unit"],
+			"time_point_label": point["label"],
+			"sample_cond_point_key": key,
+			"plan_sample_date": plan_sample,
+			"plan_test_date": _add_days(plan_sample, recovery),
+			"delay_limit_days": stb.delay_limit_days(point["value"], point["unit"]),
+			"is_full_test": point["is_full_test"],
+			"is_zero_month": 1 if (point["unit"] == "月" and point["value"] == 0) else 0,
+			"test_items": items,
+			"status": stb.TP_WAIT_SAMPLE,
+		})
+		doc.flags.allow_system_fields = True
+		doc.insert(ignore_permissions=True)
+		created += 1
+	if created:
+		_audit_on(SAMPLE_DOCTYPE, "追加条件/时间点", sample.name,
+				  action_text="追加条件与时间点", new_value="created={}".format(created))
+	return created
+
+
+@frappe.whitelist()
+def approve_extra_sampling(timepoint_name, reason=None):
+	"""超方案取样批准（准入动作，状态不变；方案 6.3.4）。"""
+	_check_action("approve_extra_sampling", TIMEPOINT_DOCTYPE, timepoint_name)
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		tp.flags.allow_system_fields = True
+		tp.is_extra = 1
+		tp.extra_reason = reason or tp.extra_reason
+		tp.extra_approver_by = _user()
+		tp.extra_approve_date = _today()
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "超方案取样批准", tp.name,
+				  action_text="超方案取样批准", reason=reason or "")
+		_commit()
+		return {"name": tp.name}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- 延期三段流程（方案 7.3 / 门禁 7、12、18） ----------------------------
+
+def _delay_rows(tp, delay_type):
+	return [d for d in (tp.delays or []) if d.delay_type == delay_type]
+
+
+def _planned_due_of(tp, delay_type):
+	return tp.plan_sample_date if delay_type == "取样延期" else tp.plan_test_date
+
+
+def _policy_latest_of(tp, delay_type, product=None):
+	if delay_type == "取样延期":
+		return _policy_latest_sample(tp)
+	return _policy_latest_test(tp, product)
+
+
+@frappe.whitelist()
+def apply_delay(timepoint_name, delay_type, requested_due_date, reason):
+	"""延期申请：追加一条 Delay 子表行（`— → 待批准`）；日期链前半段校验（方案 6.3.4）。"""
+	_check_action("apply_delay", TIMEPOINT_DOCTYPE, timepoint_name)
+	if delay_type not in stb.DELAY_TYPES:
+		frappe.throw("延期类型必须是「取样延期」或「检测延期」。")
+	if not (reason or "").strip():
+		frappe.throw("延期原因必填。")
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		if any(d.status == stb.DELAY_WAIT_APPROVE for d in _delay_rows(tp, delay_type)):
+			frappe.throw("该类型的延期申请已有在途（待批准）记录，须先处理。")
+		sample = frappe.get_doc(SAMPLE_DOCTYPE, tp.stability_sample)
+		planned = _planned_due_of(tp, delay_type)
+		policy = _policy_latest_of(tp, delay_type, _product_of_sample(sample))
+		ok, err = stb.check_delay_apply(planned, requested_due_date, policy)
+		if not ok:
+			frappe.throw(err)
+		tp.append("delays", {
+			"delay_type": delay_type,
+			"planned_due_date": planned,
+			"policy_latest_due_date": policy,
+			"requested_due_date": requested_due_date,
+			"reason": reason,
+			"apply_by": _user(),
+			"apply_date": _today(),
+			"status": stb.DELAY_WAIT_APPROVE,
+		})
+		tp.flags.allow_system_fields = True
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "{}申请".format(delay_type), tp.name,
+				  action_text="{}申请".format(delay_type), reason=reason,
+				  new_value="requested={}".format(requested_due_date))
+		_commit()
+		return {"name": tp.name, "delay_type": delay_type}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def approve_delay(timepoint_name, delay_type, approved_due_date):
+	"""延期批准：`待批准 → 已批准`；SoD（申请≠批准）+ 日期链后半段 + 禁止批准倒退（方案 6.3.4 / 7.3）。"""
+	_check_action("approve_delay", TIMEPOINT_DOCTYPE, timepoint_name)
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		row = next((d for d in _delay_rows(tp, delay_type)
+					if d.status == stb.DELAY_WAIT_APPROVE), None)
+		if not row:
+			frappe.throw("该类型没有「待批准」的延期申请。")
+		me = _user()
+		if row.apply_by and row.apply_by == me:
+			_audit_commit(TIMEPOINT_DOCTYPE, "SoD 拦截", tp.name,
+						  action_text="延期批准违反职责分离",
+						  reason="申请人同为 {}".format(row.apply_by))
+			frappe.throw("延期批准人不得为申请人（SoD，方案 6.4）。")
+		ok, err = stb.check_delay_approve(row.planned_due_date, row.requested_due_date,
+										  approved_due_date, row.policy_latest_due_date)
+		if not ok:
+			frappe.throw(err)
+		prev = [d for d in _delay_rows(tp, delay_type) if d.status == stb.DELAY_APPROVED]
+		prev_sorted = sorted(prev, key=lambda d: str(d.approve_at or ""), reverse=True)
+		if prev_sorted:
+			ok, err = stb.check_approve_not_backwards(
+				prev_sorted[0].approved_due_date, prev_sorted[0].approve_at,
+				approved_due_date, _now())
+			if not ok:
+				frappe.throw(err)
+		if not wf.can_transition(stb.FLOW_STB_TIMEPOINT_DELAY, row.status, stb.DELAY_APPROVED):
+			frappe.throw("非法状态流转：{} -> 已批准（延期）".format(row.status))
+		row.status = stb.DELAY_APPROVED
+		row.approver_by = me
+		row.approve_at = _now()
+		row.approved_due_date = approved_due_date
+		tp.flags.allow_system_fields = True
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "{}批准".format(delay_type), tp.name,
+				  action_text="{}批准".format(delay_type),
+				  new_value="approved={}".format(approved_due_date))
+		_commit()
+		return {"name": tp.name, "delay_type": delay_type, "approved_due_date": approved_due_date}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def reject_delay(timepoint_name, delay_type, reason):
+	"""延期驳回：`待批准 → 已驳回`（驳回后仍按原截止日判定，可重新申请）。"""
+	_check_action("reject_delay", TIMEPOINT_DOCTYPE, timepoint_name)
+	if not (reason or "").strip():
+		frappe.throw("驳回原因必填。")
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		row = next((d for d in _delay_rows(tp, delay_type)
+					if d.status == stb.DELAY_WAIT_APPROVE), None)
+		if not row:
+			frappe.throw("该类型没有「待批准」的延期申请。")
+		if not wf.can_transition(stb.FLOW_STB_TIMEPOINT_DELAY, row.status, stb.DELAY_REJECTED):
+			frappe.throw("非法状态流转：{} -> 已驳回（延期）".format(row.status))
+		row.status = stb.DELAY_REJECTED
+		row.reject_reason = reason
+		row.approver_by = _user()
+		row.approve_at = _now()
+		tp.flags.allow_system_fields = True
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "{}驳回".format(delay_type), tp.name,
+				  action_text="{}驳回".format(delay_type), reason=reason)
+		_commit()
+		return {"name": tp.name, "delay_type": delay_type}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- 只读接口（供 R8H 前端接入；方案 §10 API 复用模式） --------------------
+
+@frappe.whitelist()
+def get_stability_samples(keyword=None, status=None, stability_product=None,
+						  limit=200, offset=0):
+	"""稳定性样品台账（「样品入箱与台账」视图）。"""
+	_check_action("get_stability_samples", SAMPLE_DOCTYPE, "-")
+	filters = {}
+	if status:
+		filters["status"] = status
+	if stability_product:
+		filters["stability_product"] = stability_product
+	or_filters = None
+	kw = (keyword or "").strip()
+	if kw:
+		or_filters = [["name", "like", "%{}%".format(kw)], ["batch_no", "like", "%{}%".format(kw)],
+					  ["sample_name", "like", "%{}%".format(kw)]]
+	rows = frappe.get_all(
+		SAMPLE_DOCTYPE, filters=filters, or_filters=or_filters,
+		fields=["name", "notice", "protocol", "stability_product", "sample_name", "batch_no",
+				"batch_size", "storage_cond", "condition_snapshot", "room", "storage_location",
+				"inverted_flag", "init_qty", "current_qty", "qty_uom", "in_date", "start_date",
+				"need_evaluation", "evaluation_conclusion", "timepoint_gen_error",
+				"pack_desc", "is_sterile_pack", "package_count", "label_no", "status"],
+		order_by="creation desc", limit_page_length=int(limit), limit_start=int(offset))
+	_enrich_sample_products(rows)
+	return {"rows": rows}
+
+
+def _enrich_sample_products(rows):
+	applied = sorted({r["stability_product"] for r in rows if r.get("stability_product")})
+	if not applied:
+		return
+	names = dict(frappe.get_all("HBOS Stability Product", filters={"name": ["in", applied]},
+								fields=["name", "product_name"], as_list=True))
+	for row in rows:
+		row["product_name"] = names.get(row.get("stability_product"))
+
+
+@frappe.whitelist()
+def get_stability_sample_detail(sample_name):
+	"""样品详情（含库存流水），供下钻抽屉。"""
+	_check_action("get_stability_sample_detail", SAMPLE_DOCTYPE, sample_name)
+	doc = frappe.get_doc(SAMPLE_DOCTYPE, sample_name)
+	product = _product_of_sample(doc)
+	return {
+		"name": doc.name,
+		"notice": doc.notice,
+		"protocol": doc.protocol,
+		"stability_product": doc.stability_product,
+		"product_name": product.product_name if product else None,
+		"category": product.category if product else None,
+		"sample_name": doc.sample_name,
+		"material_code": doc.material_code,
+		"batch_no": doc.batch_no,
+		"batch_size": doc.batch_size,
+		"manufacture_date": doc.manufacture_date,
+		"finish_date": doc.finish_date,
+		"send_date": doc.send_date,
+		"full_test_sample_date": doc.full_test_sample_date,
+		"in_date": doc.in_date,
+		"start_date": doc.start_date,
+		"storage_cond": doc.storage_cond,
+		"condition_snapshot": doc.condition_snapshot,
+		"room": doc.room,
+		"storage_location": doc.storage_location,
+		"inverted_flag": doc.inverted_flag,
+		"pack_desc": doc.pack_desc,
+		"is_sterile_pack": doc.is_sterile_pack,
+		"package_count": doc.package_count,
+		"package_spec": doc.package_spec,
+		"init_qty": doc.init_qty,
+		"current_qty": doc.current_qty,
+		"qty_uom": doc.qty_uom,
+		"label_no": doc.label_no,
+		"timepoint_gen_error": doc.timepoint_gen_error,
+		"need_evaluation": doc.need_evaluation,
+		"evaluation_conclusion": doc.evaluation_conclusion,
+		"evaluated_by": doc.evaluated_by,
+		"evaluation_date": doc.evaluation_date,
+		"stored_by": doc.stored_by,
+		"reviewed_by": doc.reviewed_by,
+		"reviewed_date": doc.reviewed_date,
+		"pre_disposal_status": doc.pre_disposal_status,
+		"disposal_mark_reason": doc.disposal_mark_reason,
+		"disposal_marked_by": doc.disposal_marked_by,
+		"disposal_marked_date": doc.disposal_marked_date,
+		"disposal_cancel_reason": doc.disposal_cancel_reason,
+		"disposal_cancelled_by": doc.disposal_cancelled_by,
+		"disposal_cancelled_date": doc.disposal_cancelled_date,
+		"status": doc.status,
+		"logs": [{
+			"transaction_date": r.transaction_date, "transaction_type": r.transaction_type,
+			"source_timepoint": r.source_timepoint, "sampling_reason": r.sampling_reason,
+			"sample_no_out": r.sample_no_out, "return_sample_no": r.return_sample_no,
+			"remaining_sample_no": r.remaining_sample_no,
+			"qty_delta": r.qty_delta, "qty_uom": r.qty_uom, "remaining_qty": r.remaining_qty,
+			"operator": r.operator, "reviewer": r.reviewer, "remarks": r.remarks,
+		} for r in (doc.logs or [])],
+		"timepoints": frappe.get_all(
+			TIMEPOINT_DOCTYPE, filters={"stability_sample": sample_name},
+			fields=["name", "time_point_label", "condition_type", "status",
+					"plan_sample_date", "plan_test_date", "actual_sample_date", "actual_test_date"],
+			order_by="plan_sample_date asc", limit_page_length=0),
+	}
+
+
+@frappe.whitelist()
+def get_stability_schedule(month=None, condition=None, exec_status=None, keyword=None,
+						   limit=500):
+	"""取样与检测计划看板数据（逾期为纯派生，不改状态；方案 5.6 / 8.4）。"""
+	_check_action("get_stability_schedule", TIMEPOINT_DOCTYPE, "-")
+	filters = {}
+	if condition:
+		filters["condition_type"] = condition
+	or_filters = None
+	kw = (keyword or "").strip()
+	if kw:
+		or_filters = [["name", "like", "%{}%".format(kw)],
+					  ["stability_sample", "like", "%{}%".format(kw)]]
+	rows = frappe.get_all(
+		TIMEPOINT_DOCTYPE, filters=filters, or_filters=or_filters,
+		fields=["name", "stability_sample", "condition_type", "storage_cond",
+				"time_point_label", "time_point_value", "time_point_unit",
+				"plan_sample_date", "actual_sample_date", "plan_test_date", "actual_test_date",
+				"delay_limit_days", "is_full_test", "is_zero_month", "status",
+				"sample_cond_point_key"],
+		order_by="plan_sample_date asc, time_point_value asc",
+		limit_page_length=int(limit))
+	rows = _enrich_schedule(rows)
+	if month:
+		rows = [r for r in rows if str(r.get("plan_sample_date") or "").startswith(str(month))]
+	if exec_status:
+		rows = [r for r in rows if r.get("exec_state") == exec_status or r.get("status") == exec_status]
+	return {"rows": rows, "summary": _schedule_summary(rows)}
+
+
+def _enrich_schedule(rows):
+	today = _today()
+	if isinstance(today, str):
+		today = stb._as_date(today)
+	sample_names = sorted({r["stability_sample"] for r in rows if r.get("stability_sample")})
+	samples = {}
+	if sample_names:
+		for s in frappe.get_all(SAMPLE_DOCTYPE, filters={"name": ["in", sample_names]},
+								fields=["name", "batch_no", "sample_name", "stability_product",
+										"room", "status", "current_qty"], limit_page_length=0):
+			samples[s.name] = s
+	prod_names = sorted({s["stability_product"] for s in samples.values() if s.get("stability_product")})
+	products = {}
+	if prod_names:
+		products = dict(frappe.get_all("HBOS Stability Product",
+									   filters={"name": ["in", prod_names]},
+									   fields=["name", "product_name"], as_list=True))
+	for r in rows:
+		s = samples.get(r["stability_sample"]) or {}
+		r["batch_no"] = s.get("batch_no")
+		r["sample_name"] = s.get("sample_name")
+		r["room"] = s.get("room")
+		r["product_name"] = products.get(s.get("stability_product"))
+		r["sample_status"] = s.get("status")
+		r["current_qty"] = s.get("current_qty")
+		r["effective_sample_due"] = None
+		r["effective_test_due"] = None
+		r["sample_overdue"] = 0
+		r["test_overdue"] = 0
+		r["exec_state"] = r["status"]
+		if r["status"] == stb.TP_WAIT_SAMPLE and r.get("plan_sample_date"):
+			policy = stb._add_days(r["plan_sample_date"], r.get("delay_limit_days") or 0)
+			r["effective_sample_due"] = str(policy) if policy else None
+			if policy and today > policy:
+				r["sample_overdue"] = 1
+				r["exec_state"] = "取样逾期"
+		if r["status"] in (stb.TP_WAIT_TEST, stb.TP_TESTING) and r.get("plan_test_date"):
+			policy = stb._add_days(r["plan_test_date"], stb.TEST_WINDOW_DAYS)
+			r["effective_test_due"] = str(policy) if policy else None
+			if policy and today > policy:
+				r["test_overdue"] = 1
+				r["exec_state"] = "检测逾期"
+	return rows
+
+
+def _schedule_summary(rows):
+	return {
+		"total": len(rows),
+		"wait_sample": sum(1 for r in rows if r["status"] == stb.TP_WAIT_SAMPLE),
+		"wait_test": sum(1 for r in rows if r["status"] == stb.TP_WAIT_TEST),
+		"testing": sum(1 for r in rows if r["status"] == stb.TP_TESTING),
+		"done": sum(1 for r in rows if r["status"] == stb.TP_DONE),
+		"cancelled": sum(1 for r in rows if r["status"] == stb.TP_CANCELLED),
+		"sample_overdue": sum(1 for r in rows if r.get("sample_overdue")),
+		"test_overdue": sum(1 for r in rows if r.get("test_overdue")),
+	}
+
+
+@frappe.whitelist()
+def get_stability_timepoint_detail(timepoint_name):
+	"""时间点详情（含检测项目与延期历史）。"""
+	_check_action("get_stability_timepoint_detail", TIMEPOINT_DOCTYPE, timepoint_name)
+	doc = frappe.get_doc(TIMEPOINT_DOCTYPE, timepoint_name)
+	sample = frappe.get_doc(SAMPLE_DOCTYPE, doc.stability_sample)
+	product = _product_of_sample(sample)
+	effective_sample, policy_sample = _effective_sample_due(doc)
+	effective_test, policy_test = _effective_test_due(doc, product)
+	return {
+		"name": doc.name,
+		"stability_sample": doc.stability_sample,
+		"batch_no": sample.batch_no,
+		"sample_name": sample.sample_name,
+		"product_name": product.product_name if product else None,
+		"condition_type": doc.condition_type,
+		"storage_cond": doc.storage_cond,
+		"time_point_value": doc.time_point_value,
+		"time_point_unit": doc.time_point_unit,
+		"time_point_label": doc.time_point_label,
+		"plan_sample_date": doc.plan_sample_date,
+		"actual_sample_date": doc.actual_sample_date,
+		"plan_test_date": doc.plan_test_date,
+		"actual_test_date": doc.actual_test_date,
+		"delay_limit_days": doc.delay_limit_days,
+		"effective_sample_due": str(effective_sample) if effective_sample else None,
+		"policy_latest_sample_due": str(policy_sample) if policy_sample else None,
+		"effective_test_due": str(effective_test) if effective_test else None,
+		"policy_latest_test_due": str(policy_test) if policy_test else None,
+		"is_full_test": doc.is_full_test,
+		"is_zero_month": doc.is_zero_month,
+		"is_extra": doc.is_extra,
+		"extra_reason": doc.extra_reason,
+		"extra_approver_by": doc.extra_approver_by,
+		"extra_approve_date": doc.extra_approve_date,
+		"sample_by": doc.sample_by,
+		"test_by": doc.test_by,
+		"eval_date": doc.eval_date,
+		"evaluator": doc.evaluator,
+		"trend_conclusion": doc.trend_conclusion,
+		"cancel_reason": doc.cancel_reason,
+		"status": doc.status,
+		"test_items": [{
+			"stability_test_item": r.stability_test_item,
+			"is_full_test": r.is_full_test, "is_required": r.is_required,
+		} for r in (doc.test_items or [])],
+		"delays": [{
+			"delay_type": d.delay_type, "planned_due_date": d.planned_due_date,
+			"policy_latest_due_date": d.policy_latest_due_date,
+			"requested_due_date": d.requested_due_date, "reason": d.reason,
+			"apply_by": d.apply_by, "apply_date": d.apply_date, "status": d.status,
+			"approver_by": d.approver_by, "approve_at": d.approve_at,
+			"approved_due_date": d.approved_due_date, "reject_reason": d.reject_reason,
+		} for d in (doc.delays or [])],
+	}
+
+
+# ---- scheduler（方案 8.4：逾期纯派生，不改状态、不推送） -------------------
+
+def scheduler_scan():
+	"""每日扫描：取样/检测逾期、检测临近、检测完成推荐期到期、在箱无时间点。
+
+	结果写 site cache `hbos_stability_scheduler_summary` 供报表/看板派生展示；
+	**不改单据状态、不做推送**（逾期为纯派生标识，方案 P1-10）。
+	"""
+	today = stb._as_date(_today())
+	rows = frappe.get_all(
+		TIMEPOINT_DOCTYPE,
+		filters={"status": ["in", [stb.TP_WAIT_SAMPLE, stb.TP_WAIT_TEST, stb.TP_TESTING]]},
+		fields=["name", "stability_sample", "status", "plan_sample_date", "plan_test_date",
+				"actual_sample_date", "delay_limit_days", "time_point_value", "time_point_unit"],
+		limit_page_length=0)
+	sample_overdue, test_overdue, test_near, recommend_due = [], [], [], []
+	for r in rows:
+		if r["status"] == stb.TP_WAIT_SAMPLE and r["plan_sample_date"]:
+			policy = stb._add_days(r["plan_sample_date"], r["delay_limit_days"] or 0)
+			if policy and today > policy:
+				sample_overdue.append(r["name"])
+		if r["status"] in (stb.TP_WAIT_TEST, stb.TP_TESTING) and r["plan_test_date"]:
+			policy = stb._add_days(r["plan_test_date"], stb.TEST_WINDOW_DAYS)
+			if policy and today > policy:
+				test_overdue.append(r["name"])
+			if stb._as_date(r["plan_test_date"]) >= today and \
+					(stb._as_date(r["plan_test_date"]) - today).days <= 7:
+				test_near.append(r["name"])
+		if r["status"] in (stb.TP_WAIT_TEST, stb.TP_TESTING) and r["actual_sample_date"]:
+			limit_days = 14 if _to_days_of(r) <= 1 else 28
+			due = stb._add_days(r["actual_sample_date"], limit_days)
+			if due and today > due:
+				recommend_due.append(r["name"])
+	# 在箱但无任何时间点的样品（方案 7.1：可恢复的正常中间态，看板单列提示）
+	samples = frappe.get_all(SAMPLE_DOCTYPE, filters={"status": stb.SAMPLE_IN_STORAGE},
+							 fields=["name"], limit_page_length=0)
+	no_timepoint = []
+	for s in samples:
+		if not frappe.db.exists(TIMEPOINT_DOCTYPE, {"stability_sample": s["name"]}):
+			no_timepoint.append(s["name"])
+	summary = {
+		"date": str(today),
+		"sample_overdue": len(sample_overdue),
+		"test_overdue": len(test_overdue),
+		"test_near_7d": len(test_near),
+		"recommend_due": len(recommend_due),
+		"sample_without_timepoint": len(no_timepoint),
+		"details": {
+			"sample_overdue": sample_overdue[:200],
+			"test_overdue": test_overdue[:200],
+			"test_near_7d": test_near[:200],
+			"recommend_due": recommend_due[:200],
+			"sample_without_timepoint": no_timepoint[:200],
+		},
+	}
+	frappe.cache.set_value("hbos_stability_scheduler_summary", summary)
+	return summary
+
+
+def _to_days_of(timepoint_row):
+	"""时间点折算天数（1 月点 = 30 天 → 推荐期 14 天；更长点 28 天）。"""
+	return stb._to_days(timepoint_row.get("time_point_value"), timepoint_row.get("time_point_unit"))
