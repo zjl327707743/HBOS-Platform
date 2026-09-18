@@ -32,6 +32,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      // 标签打印走 Frappe 打印视图（生产同源天然可用，开发需代理）
+      '/printview': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
   build: {

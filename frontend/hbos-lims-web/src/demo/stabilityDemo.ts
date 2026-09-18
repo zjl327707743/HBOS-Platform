@@ -1,12 +1,12 @@
 // ============================================================
 // 稳定性板块演示数据
 //
-// 说明：仅服务**尚未接入后端**的 5 个视图（样品入箱 / 取样与检测计划 /
-// 结果与趋势 / 报告与有效期 / 变更·稳定性室·设备），其后端接口属 R8B~R8D。
+// 说明：仅服务**尚未接入后端**的 3 个视图（结果与趋势 / 报告与有效期 /
+// 变更·稳定性室·设备），其后端接口属 R8C / R8D。
 // 数据全部为 `TEST-HBOS-M2-STB-*` 前缀虚构演示数据，不接真实 API。
 //
-// 「稳定性工作台」与「考察申请与方案」两视图已于 R8G 接入真实后端
-// （见 src/api/stability.ts），其演示数据已从此文件移除。
+// 「稳定性工作台」「考察申请与方案」已于 R8G、「样品入箱与台账」「取样与检测计划」
+// 已于 R8H 接入真实后端（见 src/api/stability.ts），其演示数据已从此文件移除。
 // ============================================================
 
 export type Tone = 'pass' | 'warn' | 'danger' | 'info' | 'muted'
@@ -26,14 +26,6 @@ export function toneClass(tone: Tone): string {
 
 // ---- 共享类型（其余视图仍在用） ----
 
-export interface Kpi {
-  label: string
-  value: string
-  unit?: string
-  hint: string
-  tone: Tone
-  icon: 'calendar' | 'pen' | 'alert' | 'shield'
-}
 
 export interface RiskItem {
   tone: Tone
@@ -43,193 +35,7 @@ export interface RiskItem {
 }
 
 // ============================================================
-// 1. 样品入箱与台账
-// ============================================================
-
-export const SAMPLE_KPIS: Kpi[] = [
-  { label: '在箱样品', value: '46', unit: '个', hint: '当前有效', tone: 'pass', icon: 'shield' },
-  { label: '本月入箱', value: '9', unit: '个', hint: '较上月 +2', tone: 'pass', icon: 'pen' },
-  { label: '强制评估', value: '2', unit: '个', hint: '入箱超过 1 个月', tone: 'warn', icon: 'alert' },
-  { label: '待处置', value: '1', unit: '个', hint: '需要 QA 复核', tone: 'danger', icon: 'alert' },
-]
-
-export interface SampleRow {
-  name: string
-  product: string
-  batch: string
-  form: string
-  condition: string
-  room: string
-  inDate: string
-  qty: string
-  status: string
-  statusTone: Tone
-  eval: string
-  evalTone: Tone
-  /** 详情抽屉用 */
-  log: { action: string; delta: string; meta: string }[]
-}
-
-export const SAMPLES: SampleRow[] = [
-  {
-    name: 'TEST-HBOS-M2-STB-SMP-00021', product: 'TEST 片剂 A', batch: 'T260901', form: '片剂',
-    condition: '长期', room: 'STB-RM-01', inDate: '2026-09-03', qty: '18 盒',
-    status: '在箱', statusTone: 'pass', eval: '无需', evalTone: 'muted',
-    log: [{ action: '入箱', delta: '+18 盒', meta: '2026-09-03 · 陈 QC · STB-RM-01' }],
-  },
-  {
-    name: 'TEST-HBOS-M2-STB-SMP-00020', product: 'TEST 原料 B', batch: 'RM260601', form: '原料药',
-    condition: '加速', room: 'STB-RM-02', inDate: '2026-08-01', qty: '12 瓶',
-    status: '部分取样', statusTone: 'info', eval: '强制评估', evalTone: 'warn',
-    log: [
-      { action: '入箱', delta: '+12 瓶', meta: '2026-08-01 · 陈 QC · STB-RM-02' },
-      { action: '取样', delta: '-2 瓶', meta: '2026-09-01 · 赵 QC · M1' },
-    ],
-  },
-  {
-    name: 'TEST-HBOS-M2-STB-SMP-00019', product: 'TEST 胶囊 C', batch: 'C260301', form: '胶囊剂',
-    condition: '中间', room: 'STB-RM-03', inDate: '2026-07-12', qty: '8 盒',
-    status: '待处理', statusTone: 'warn', eval: '已评估', evalTone: 'muted',
-    log: [
-      { action: '入箱', delta: '+10 盒', meta: '2026-07-12 · 陈 QC · STB-RM-03' },
-      { action: '取样', delta: '-2 盒', meta: '2026-08-20 · 赵 QC · M3' },
-    ],
-  },
-  {
-    name: 'TEST-HBOS-M2-STB-SMP-00018', product: 'TEST 注射剂 D', batch: 'D260501', form: '注射剂',
-    condition: '长期', room: 'STB-RM-01', inDate: '2026-05-10', qty: '6 瓶',
-    status: '在箱', statusTone: 'pass', eval: '无需', evalTone: 'muted',
-    log: [{ action: '入箱', delta: '+6 瓶', meta: '2026-05-10 · 陈 QC · STB-RM-01' }],
-  },
-]
-
-// ============================================================
-// 2. 取样与检测计划
-// ============================================================
-
-export interface ScheduleRow {
-  product: string
-  condition: string
-  batch: string
-  /** 本行时间点覆盖的执行状态（供看板「执行状态」筛选） */
-  states: string[]
-  /** 7 个计划格（对应 PLAN_DAYS），空串表示无时间点 */
-  cells: { point?: string; tone?: Tone }[]
-}
-
-export const SCHEDULE_ROWS: ScheduleRow[] = [
-  {
-    product: 'TEST 片剂 A', condition: '长期', batch: 'T260901',
-    states: ['待取样', '检测中'],
-    cells: [{}, { point: 'M3', tone: 'warn' }, {}, {}, {}, {}, { point: 'M6' }],
-  },
-  {
-    product: 'TEST 原料 B', condition: '加速', batch: 'RM260601',
-    states: ['检测中'],
-    cells: [{}, {}, { point: 'M3' }, { point: '延期', tone: 'danger' }, {}, {}, {}],
-  },
-  {
-    product: 'TEST 胶囊 C', condition: '中间', batch: 'C260301',
-    states: ['待取样'],
-    cells: [{}, {}, {}, {}, {}, { point: 'M12' }, {}],
-  },
-]
-
-export const DATE_CHAIN = {
-  name: 'TEST-STB-T260901-AC-06 · M3',
-  status: '延期审批中',
-  fields: [
-    { label: '计划检测日', value: '2026-09-16' },
-    { label: '申请日期', value: '2026-09-15' },
-    { label: '有效截止日', value: '2026-09-18' },
-    { label: '政策硬上限', value: '2026-09-20' },
-    { label: '实际取样日', value: '未登记' },
-    { label: '检测窗口', value: '计划日后 30 天内', mono: false },
-  ],
-  note: '日期链校验：planned ≤ requested ≤ approved ≤ policy_latest。当前审批日期未落库，因此有效截止日仍按原计划口径展示。',
-}
-
-export const WEEK_DUE: { point: string; product: string; due: string; status: string; tone: Tone }[] = [
-  { point: 'M3 / 03', product: 'TEST 片剂 A', due: '09-18', status: '临近', tone: 'warn' },
-  { point: 'M6 / 02', product: 'TEST 原料 B', due: '09-19', status: '检测中', tone: 'info' },
-  { point: 'M12 / 01', product: 'TEST 胶囊 C', due: '09-21', status: '正常', tone: 'pass' },
-]
-
-/** 计划台账：每行必须同时给出计划检测日 / 有效截止日 / 政策硬上限 / 延期状态 / 检测窗口 */
-export interface ScheduleLedgerRow {
-  point: string
-  product: string
-  batch: string
-  condition: string
-  planned: string
-  effective: string
-  policyLatest: string
-  delay: string
-  delayTone: Tone
-  sampleDate: string
-  status: string
-  statusTone: Tone
-}
-
-export const SCHEDULE_LEDGER: ScheduleLedgerRow[] = [
-  {
-    point: 'M3 / 03', product: 'TEST 片剂 A', batch: 'T260901', condition: '长期',
-    planned: '2026-09-16', effective: '2026-09-18', policyLatest: '2026-09-20',
-    delay: '审批中', delayTone: 'warn', sampleDate: '未登记', status: '待取样', statusTone: 'warn',
-  },
-  {
-    point: 'M6 / 02', product: 'TEST 原料 B', batch: 'RM260601', condition: '加速',
-    planned: '2026-09-18', effective: '2026-09-18', policyLatest: '2026-09-25',
-    delay: '无', delayTone: 'muted', sampleDate: '2026-09-18', status: '检测中', statusTone: 'info',
-  },
-  {
-    point: 'M12 / 01', product: 'TEST 胶囊 C', batch: 'C260301', condition: '中间',
-    planned: '2026-09-21', effective: '2026-09-21', policyLatest: '2026-10-01',
-    delay: '无', delayTone: 'muted', sampleDate: '未登记', status: '正常', statusTone: 'pass',
-  },
-  {
-    point: 'M6 / 01', product: 'TEST 注射剂 D', batch: 'D260501', condition: '长期',
-    planned: '2026-09-08', effective: '2026-09-08', policyLatest: '2026-09-15',
-    delay: '已批准', delayTone: 'pass', sampleDate: '2026-09-10', status: '已完成', statusTone: 'pass',
-  },
-]
-
-/** 延期审批：申请与批准是独立动作，申请不等同已顺延 */
-export interface DelayApplyRow {
-  name: string
-  point: string
-  product: string
-  delayType: string
-  planned: string
-  requested: string
-  approved: string
-  policyLatest: string
-  status: string
-  statusTone: Tone
-  applicant: string
-}
-
-export const DELAY_APPLIES: DelayApplyRow[] = [
-  {
-    name: 'TEST-HBOS-M2-STB-DLY-0003', point: 'M3 / 03', product: 'TEST 片剂 A', delayType: '取样延期',
-    planned: '2026-09-16', requested: '2026-09-17', approved: '—', policyLatest: '2026-09-20',
-    status: '待 QA Manager 审批', statusTone: 'warn', applicant: '陈 QC · 2026-09-15',
-  },
-  {
-    name: 'TEST-HBOS-M2-STB-DLY-0002', point: 'M6 / 01', product: 'TEST 注射剂 D', delayType: '检测延期',
-    planned: '2026-09-08', requested: '2026-09-10', approved: '2026-09-10', policyLatest: '2026-09-15',
-    status: '已批准', statusTone: 'pass', applicant: '赵 QC · 2026-09-05',
-  },
-  {
-    name: 'TEST-HBOS-M2-STB-DLY-0001', point: 'M1 / 02', product: 'TEST 原料 B', delayType: '取样延期',
-    planned: '2026-08-12', requested: '2026-08-14', approved: '—', policyLatest: '2026-08-18',
-    status: '已驳回', statusTone: 'muted', applicant: '陈 QC · 2026-08-10',
-  },
-]
-
-
-// ============================================================
-// 3. 结果录入与趋势
+// 1. 结果录入与趋势
 // ============================================================
 
 export interface ResultItem {
@@ -386,7 +192,7 @@ export const TREND_NOTE =
   '在途版本 v1 预计低于当前趋势带。结果批准前不切换 is_current，也不影响当前趋势图。'
 
 // ============================================================
-// 4. 报告与有效期
+// 2. 报告与有效期
 // ============================================================
 
 export interface ReportRow {
@@ -449,7 +255,7 @@ export const EXTRAPOLATION = {
 }
 
 // ============================================================
-// 5. 变更 / 稳定性室 / 设备
+// 3. 变更 / 稳定性室 / 设备
 // ============================================================
 
 export interface ChangeRow {

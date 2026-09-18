@@ -121,6 +121,7 @@
 | M2-R8F | 稳定性板块前端 Vue 复刻与生产部署（7 视图 + 路由 + 侧栏「稳定性管理」分组 + 演示数据层；`TEST-HBOS-M2-STB-*` 演示数据、零 API 调用；Owner 2026-09-16 已确认测试路径并授权同步生产 `/hbos-lims`，备份 `hbos-lims.bak-20260916120644`） | DEPLOYED |
 | M2-R8A | 稳定性主数据与通知单/方案后端实现与实机验证（10 DocType：Product/Condition/Room/Test Item + Notice + Protocol + 4 子表；`FLOW_STB_NOTICE`/`FLOW_STB_PROTOCOL`；新增 `LIMS QA Manager`/`LIMS QP`；冻结快照与版本链；DocType 层 LIMS 角色全只读；实机 28/28、离线 199/199） | DONE / 待 Owner 审查 |
 | M2-R8G | 稳定性前端接入真实 API（工作台 + 考察申请与方案；后端 +5 只读接口；前端 `api/stability.ts` + 两视图读/写全接 + 角色显隐；修 2 项 R8A 遗留缺陷：Protocol 冻结守卫失效、命名系列非法致畸形单号；离线 203/203、实机 28/28、只读 7/7；未部署生产） | DONE / 待 Owner 审查 |
+| M2-R8H | 稳定性前端接入：样品入箱与台账 + 取样与检测计划（后端 +1 只读接口与 schedule 增列；前端 22 个接口函数 + 两视图读/写全接 + 角色显隐；月度看板改整月日期列；标签打印走 Frappe 打印视图；离线 246/246、`vue-tsc` 0 错误、build 成功、浏览器读写全链、375px 三页无溢出；未部署生产） | DONE / 待 Owner 审查 |
 | M2-R8B | 稳定性样品、时间点与取样检测计划后端（5 DocType：Sample+Log / Timepoint+Timepoint Item+Timepoint Delay；3 条状态机；21 动作 + 4 只读 + scheduler；标签 Print Format + 「取样与检测计划看板」报表；四步锁与固定锁顺序、时间点生成幂等、延期日期链全段校验、逾期纯派生；Result 依赖处前向兼容守卫；离线 244/244、实机 40/40、补充 10/10；未部署生产） | DONE / 待 Owner 审查 |
 
 ## 下一步路线

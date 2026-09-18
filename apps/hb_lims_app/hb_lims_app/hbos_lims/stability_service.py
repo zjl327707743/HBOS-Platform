@@ -981,20 +981,21 @@ def _product_of_sample(sample):
 	return frappe.get_doc("HBOS Stability Product", sample.stability_product)
 
 
-def _policy_latest_test(tp, product=None):
+def _policy_latest_test(plan_test_date, is_outsource=None, outsourced_window=None):
 	"""检测侧政策硬上限：`plan_test_date + 30 天`；委外产品按 `outsourced_test_window_days`（留空=不限制）。"""
-	window = None
-	if product is not None and product.is_outsource:
-		window = product.outsourced_test_window_days
-	if product is not None and product.is_outsource and window in (None, "", 0):
-		# 委外且窗口留空 = 不限制（Owner 2026-09-16 决定）
-		if window is None or window == "":
-			return None
-	return _add_days(tp.plan_test_date, stb.TEST_WINDOW_DAYS if window is None else int(window))
+	window = outsourced_window if is_outsource else None
+	if is_outsource and (window is None or window == ""):
+		return None      # 委外且窗口留空 = 不限制（Owner 2026-09-16 决定）
+	if window is None:
+		window = stb.TEST_WINDOW_DAYS
+	return _add_days(plan_test_date, int(window))
 
 
 def _effective_test_due(tp, product=None):
-	policy = _policy_latest_test(tp, product)
+	policy = _policy_latest_test(
+		tp.plan_test_date,
+		product.is_outsource if product is not None else None,
+		product.outsourced_test_window_days if product is not None else None)
 	return stb.effective_due_date(_delay_dicts(tp), "检测延期", policy), policy
 
 
@@ -1783,7 +1784,9 @@ def _planned_due_of(tp, delay_type):
 def _policy_latest_of(tp, delay_type, product=None):
 	if delay_type == "取样延期":
 		return _policy_latest_sample(tp)
-	return _policy_latest_test(tp, product)
+	return _policy_latest_test(tp.plan_test_date,
+							   product.is_outsource if product is not None else None,
+							   product.outsourced_test_window_days if product is not None else None)
 
 
 @frappe.whitelist()
@@ -2052,34 +2055,60 @@ def _enrich_schedule(rows):
 	prod_names = sorted({s["stability_product"] for s in samples.values() if s.get("stability_product")})
 	products = {}
 	if prod_names:
-		products = dict(frappe.get_all("HBOS Stability Product",
-									   filters={"name": ["in", prod_names]},
-									   fields=["name", "product_name"], as_list=True))
+		for p in frappe.get_all("HBOS Stability Product", filters={"name": ["in", prod_names]},
+								fields=["name", "product_name", "is_outsource",
+										"outsourced_test_window_days"], limit_page_length=0):
+			products[p.name] = p
+	# 延期：按时间点批量取（算有效截止日与延期状态），避免逐行 N+1
+	delay_map = {}
+	tp_names = [r["name"] for r in rows]
+	if tp_names:
+		for d in frappe.get_all(
+				"HBOS Stability Timepoint Delay",
+				filters={"parent": ["in", tp_names], "parenttype": TIMEPOINT_DOCTYPE},
+				fields=["parent", "delay_type", "status", "approve_at", "approved_due_date"],
+				limit_page_length=0):
+			delay_map.setdefault(d.parent, []).append(d)
 	for r in rows:
 		s = samples.get(r["stability_sample"]) or {}
+		p = products.get(s.get("stability_product")) or {}
 		r["batch_no"] = s.get("batch_no")
 		r["sample_name"] = s.get("sample_name")
 		r["room"] = s.get("room")
-		r["product_name"] = products.get(s.get("stability_product"))
+		r["product_name"] = p.get("product_name")
 		r["sample_status"] = s.get("status")
 		r["current_qty"] = s.get("current_qty")
-		r["effective_sample_due"] = None
-		r["effective_test_due"] = None
+		delays = delay_map.get(r["name"], [])
+
+		policy_sample = stb._add_days(r["plan_sample_date"], r.get("delay_limit_days") or 0)
+		policy_test = _policy_latest_test(r["plan_test_date"], p.get("is_outsource"),
+										  p.get("outsourced_test_window_days"))
+		eff_sample = stb.effective_due_date(delays, "取样延期", policy_sample)
+		eff_test = stb.effective_due_date(delays, "检测延期", policy_test)
+		r["policy_latest_sample_due"] = str(policy_sample) if policy_sample else None
+		r["policy_latest_test_due"] = str(policy_test) if policy_test else None
+		r["effective_sample_due"] = str(eff_sample) if eff_sample else None
+		r["effective_test_due"] = str(eff_test) if eff_test else None
+
+		inflight = [d for d in delays if d.status == stb.DELAY_WAIT_APPROVE]
+		approved = [d for d in delays if d.status == stb.DELAY_APPROVED]
+		if inflight:
+			r["delay_state"] = "{}（待批准）".format(inflight[-1].delay_type)
+		elif approved:
+			latest = sorted(approved, key=lambda d: str(d.approve_at or ""))[-1]
+			r["delay_state"] = "{} 延至 {}".format(latest.delay_type, latest.approved_due_date)
+		else:
+			r["delay_state"] = ""
+
 		r["sample_overdue"] = 0
 		r["test_overdue"] = 0
 		r["exec_state"] = r["status"]
-		if r["status"] == stb.TP_WAIT_SAMPLE and r.get("plan_sample_date"):
-			policy = stb._add_days(r["plan_sample_date"], r.get("delay_limit_days") or 0)
-			r["effective_sample_due"] = str(policy) if policy else None
-			if policy and today > policy:
-				r["sample_overdue"] = 1
-				r["exec_state"] = "取样逾期"
-		if r["status"] in (stb.TP_WAIT_TEST, stb.TP_TESTING) and r.get("plan_test_date"):
-			policy = stb._add_days(r["plan_test_date"], stb.TEST_WINDOW_DAYS)
-			r["effective_test_due"] = str(policy) if policy else None
-			if policy and today > policy:
-				r["test_overdue"] = 1
-				r["exec_state"] = "检测逾期"
+		if r["status"] == stb.TP_WAIT_SAMPLE and eff_sample and today > eff_sample:
+			r["sample_overdue"] = 1
+			r["exec_state"] = "取样逾期"
+		if r["status"] in (stb.TP_WAIT_TEST, stb.TP_TESTING) and eff_test and today > eff_test:
+			r["test_overdue"] = 1
+			r["exec_state"] = "检测逾期"
 	return rows
 
 
@@ -2151,6 +2180,75 @@ def get_stability_timepoint_detail(timepoint_name):
 			"approved_due_date": d.approved_due_date, "reject_reason": d.reject_reason,
 		} for d in (doc.delays or [])],
 	}
+
+
+@frappe.whitelist()
+def get_stability_delays(delay_type=None, status=None, keyword=None, limit=200):
+	"""延期申请列表（跨时间点），供「延期审批」tab（方案 7.3 / 6.3.4）。
+
+	延期是 `HBOS Stability Timepoint Delay` 子表行，此处按需扁平成独立行并补出
+	产品/批号/时间点标签等展示字段（批量取，避免 N+1）。
+	"""
+	_check_action("get_stability_delays", TIMEPOINT_DOCTYPE, "-")
+	filters = {"parenttype": TIMEPOINT_DOCTYPE}
+	if delay_type:
+		filters["delay_type"] = delay_type
+	if status:
+		filters["status"] = status
+	rows = frappe.get_all(
+		"HBOS Stability Timepoint Delay", filters=filters,
+		fields=["name", "parent", "idx", "delay_type", "planned_due_date",
+				"policy_latest_due_date", "requested_due_date", "reason",
+				"apply_by", "apply_date", "status", "approver_by", "approve_at",
+				"approved_due_date", "reject_reason"],
+		order_by="apply_date desc, creation desc", limit_page_length=int(limit))
+	if not rows:
+		return {"rows": [], "summary": {"pending": 0, "approved": 0, "rejected": 0}}
+
+	tp_names = sorted({r["parent"] for r in rows})
+	timepoints = {}
+	for t in frappe.get_all(TIMEPOINT_DOCTYPE, filters={"name": ["in", tp_names]},
+							fields=["name", "stability_sample", "condition_type",
+									"time_point_label", "status", "plan_sample_date",
+									"plan_test_date", "actual_sample_date"],
+							limit_page_length=0):
+		timepoints[t.name] = t
+	sample_names = sorted({t["stability_sample"] for t in timepoints.values()
+						   if t.get("stability_sample")})
+	samples, products = {}, {}
+	if sample_names:
+		for s in frappe.get_all(SAMPLE_DOCTYPE, filters={"name": ["in", sample_names]},
+								fields=["name", "batch_no", "sample_name", "stability_product"],
+								limit_page_length=0):
+			samples[s.name] = s
+		prod_names = sorted({s["stability_product"] for s in samples.values()
+							 if s.get("stability_product")})
+		if prod_names:
+			products = dict(frappe.get_all("HBOS Stability Product",
+										   filters={"name": ["in", prod_names]},
+										   fields=["name", "product_name"], as_list=True))
+
+	kw = (keyword or "").strip().lower()
+	out = []
+	for r in rows:
+		t = timepoints.get(r["parent"]) or {}
+		s = samples.get(t.get("stability_sample")) or {}
+		r["batch_no"] = s.get("batch_no")
+		r["sample_name"] = s.get("sample_name")
+		r["product_name"] = products.get(s.get("stability_product"))
+		r["time_point_label"] = t.get("time_point_label")
+		r["condition_type"] = t.get("condition_type")
+		r["timepoint_status"] = t.get("status")
+		if kw and kw not in "{} {} {} {}".format(
+				r["parent"], r["batch_no"] or "", r["product_name"] or "",
+				r["reason"] or "").lower():
+			continue
+		out.append(r)
+	return {"rows": out, "summary": {
+		"pending": sum(1 for r in rows if r["status"] == stb.DELAY_WAIT_APPROVE),
+		"approved": sum(1 for r in rows if r["status"] == stb.DELAY_APPROVED),
+		"rejected": sum(1 for r in rows if r["status"] == stb.DELAY_REJECTED),
+	}}
 
 
 # ---- scheduler（方案 8.4：逾期纯派生，不改状态、不推送） -------------------

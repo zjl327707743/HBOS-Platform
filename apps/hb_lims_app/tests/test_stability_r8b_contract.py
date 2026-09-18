@@ -430,6 +430,22 @@ class TestR8BAuditEvents(unittest.TestCase):
 		self.assertEqual(set(), cand - allowed,
 						 "审计事件未登记进受控枚举：{}".format(sorted(cand - allowed)))
 
+	def test_r8h_read_interfaces_exported(self):
+		"""R8H 前端接入所需的补充只读接口已导出并注册角色。"""
+		src = (APP_ROOT / "hb_lims_app" / "hbos_lims" / "stability_service.py").read_text(encoding="utf-8")
+		for name in ("get_stability_samples", "get_stability_sample_detail",
+					 "get_stability_schedule", "get_stability_timepoint_detail",
+					 "get_stability_delays"):
+			self.assertIn("def {}(".format(name), src, "缺只读接口 {}".format(name))
+		self.assertIn("get_stability_delays", wf.ACTION_ROLES)
+		self.assertTrue(wf.ACTION_ROLES["get_stability_delays"])
+
+	def test_schedule_rows_expose_three_layer_dates(self):
+		"""计划台账需要三层日期与延期状态：schedule 的投影代码须包含这些键。"""
+		src = (APP_ROOT / "hb_lims_app" / "hbos_lims" / "stability_service.py").read_text(encoding="utf-8")
+		for key in ("policy_latest_sample_due", "policy_latest_test_due", "delay_state"):
+			self.assertIn(key, src, "schedule 缺 {}".format(key))
+
 
 if __name__ == "__main__":
 	unittest.main()

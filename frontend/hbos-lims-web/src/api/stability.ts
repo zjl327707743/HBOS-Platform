@@ -305,6 +305,305 @@ export function voidProtocol(protocolName: string, reason: string) {
   })
 }
 
+// ---- M2-R8B 样品与时间点（R8H 接入用） ----
+
+export interface SampleRow {
+  name: string
+  notice?: string
+  protocol?: string
+  stability_product: string
+  product_name?: string
+  sample_name?: string
+  batch_no: string
+  batch_size?: string
+  storage_cond?: string
+  condition_snapshot?: string
+  room?: string
+  storage_location?: string
+  inverted_flag?: string
+  init_qty?: number
+  current_qty?: number
+  qty_uom?: string
+  in_date?: string
+  start_date?: string
+  need_evaluation?: number
+  evaluation_conclusion?: string
+  timepoint_gen_error?: string
+  pack_desc?: string
+  is_sterile_pack?: number
+  package_count?: number
+  label_no?: string
+  status: string
+}
+
+export interface SampleLogRow {
+  transaction_date: string
+  transaction_type: string
+  source_timepoint?: string
+  sampling_reason?: string
+  sample_no_out?: string
+  return_sample_no?: string
+  remaining_sample_no?: string
+  qty_delta?: number
+  qty_uom?: string
+  remaining_qty?: number
+  operator?: string
+  reviewer?: string
+  remarks?: string
+}
+
+export interface SampleDetail extends SampleRow {
+  material_code?: string
+  manufacture_date?: string
+  finish_date?: string
+  send_date?: string
+  full_test_sample_date?: string
+  package_spec?: string
+  evaluated_by?: string
+  evaluation_date?: string
+  stored_by?: string
+  reviewed_by?: string
+  reviewed_date?: string
+  pre_disposal_status?: string
+  disposal_mark_reason?: string
+  disposal_marked_by?: string
+  disposal_marked_date?: string
+  disposal_cancel_reason?: string
+  disposal_cancelled_by?: string
+  disposal_cancelled_date?: string
+  logs: SampleLogRow[]
+  timepoints: {
+    name: string
+    time_point_label: string
+    condition_type: string
+    status: string
+    plan_sample_date?: string
+    plan_test_date?: string
+    actual_sample_date?: string
+    actual_test_date?: string
+  }[]
+}
+
+export interface ScheduleRow {
+  name: string
+  stability_sample: string
+  condition_type: string
+  storage_cond?: string
+  time_point_label: string
+  time_point_value: number
+  time_point_unit: string
+  plan_sample_date?: string
+  actual_sample_date?: string
+  plan_test_date?: string
+  actual_test_date?: string
+  delay_limit_days?: number
+  is_full_test?: number
+  is_zero_month?: number
+  status: string
+  batch_no?: string
+  sample_name?: string
+  room?: string
+  product_name?: string
+  sample_status?: string
+  current_qty?: number
+  policy_latest_sample_due?: string | null
+  policy_latest_test_due?: string | null
+  effective_sample_due?: string | null
+  effective_test_due?: string | null
+  delay_state?: string
+  sample_overdue?: number
+  test_overdue?: number
+  exec_state?: string
+}
+
+export interface TimepointDetail {
+  name: string
+  stability_sample: string
+  batch_no?: string
+  sample_name?: string
+  product_name?: string
+  condition_type: string
+  storage_cond?: string
+  time_point_value: number
+  time_point_unit: string
+  time_point_label: string
+  plan_sample_date?: string
+  actual_sample_date?: string
+  plan_test_date?: string
+  actual_test_date?: string
+  delay_limit_days?: number
+  effective_sample_due?: string | null
+  policy_latest_sample_due?: string | null
+  effective_test_due?: string | null
+  policy_latest_test_due?: string | null
+  is_full_test?: number
+  is_zero_month?: number
+  is_extra?: number
+  extra_reason?: string
+  extra_approver_by?: string
+  extra_approve_date?: string
+  sample_by?: string
+  test_by?: string
+  status: string
+  test_items: { stability_test_item: string; is_full_test?: number; is_required?: number }[]
+  delays: DelayRow[]
+}
+
+export interface DelayRow {
+  name?: string
+  parent?: string
+  delay_type: string
+  planned_due_date?: string
+  policy_latest_due_date?: string
+  requested_due_date?: string
+  reason?: string
+  apply_by?: string
+  apply_date?: string
+  status: string
+  approver_by?: string
+  approve_at?: string
+  approved_due_date?: string
+  reject_reason?: string
+  batch_no?: string
+  sample_name?: string
+  product_name?: string
+  time_point_label?: string
+  condition_type?: string
+  timepoint_status?: string
+}
+
+export function samples(params: { keyword?: string; status?: string; stability_product?: string; limit?: number; offset?: number } = {}) {
+  return callMethod<{ rows: SampleRow[] }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_samples', params)
+}
+export function sampleDetail(sampleName: string): Promise<SampleDetail> {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.get_stability_sample_detail', {
+    sample_name: sampleName,
+  })
+}
+export function schedule(params: { month?: string; condition?: string; exec_status?: string; keyword?: string; limit?: number } = {}) {
+  return callMethod<{ rows: ScheduleRow[]; summary: Record<string, number> }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_schedule', params)
+}
+export function timepointDetail(timepointName: string): Promise<TimepointDetail> {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.get_stability_timepoint_detail', {
+    timepoint_name: timepointName,
+  })
+}
+export function delays(params: { delay_type?: string; status?: string; keyword?: string; limit?: number } = {}) {
+  return callMethod<{ rows: DelayRow[]; summary: { pending: number; approved: number; rejected: number } }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_delays', params)
+}
+
+// ---- 样品写操作（方案 6.3.3） ----
+
+export function registerSample(params: {
+  notice: string
+  stability_product: string
+  batch_no: string
+  in_date: string
+  protocol?: string
+  sample_name?: string
+  material_code?: string
+  batch_size?: string
+  manufacture_date?: string
+  finish_date?: string
+  send_date?: string
+  full_test_sample_date?: string
+  storage_cond?: string
+  room?: string
+  storage_location?: string
+  pack_desc?: string
+  is_sterile_pack?: number
+  package_count?: number
+  package_spec?: string
+  inverted_flag?: string
+  init_qty?: number
+  qty_uom?: string
+  source_sample?: string
+  label_no?: string
+  evaluation_conclusion?: string
+  evaluated_by?: string
+  evaluation_date?: string
+}) {
+  return callMethod<{ name: string; status: string }>(
+    'hb_lims_app.hbos_lims.stability_service.register_stability_sample', params)
+}
+export function reviewSampleStorage(sampleName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.review_sample_storage', { sample_name: sampleName })
+}
+export function recordSampling(sampleName: string, params: {
+  timepoint?: string; qty: number; sampling_reason?: string; sample_date?: string
+  sample_no_out?: string; remarks?: string
+}) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.record_sampling',
+    { sample_name: sampleName, ...params })
+}
+export function returnSample(sampleName: string, params: {
+  qty: number; timepoint?: string; return_sample_no?: string; remarks?: string; reviewer?: string
+}) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.return_sample',
+    { sample_name: sampleName, ...params })
+}
+export function markForDisposal(sampleName: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.mark_for_disposal',
+    { sample_name: sampleName, reason })
+}
+export function cancelDisposal(sampleName: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.cancel_disposal',
+    { sample_name: sampleName, reason })
+}
+export function disposeSample(sampleName: string, params: { qty?: number; remarks?: string; reviewer?: string; location?: string } = {}) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.dispose_sample',
+    { sample_name: sampleName, ...params })
+}
+export function adjustStock(sampleName: string, qtyDelta: number, remarks: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.adjust_stock',
+    { sample_name: sampleName, qty_delta: qtyDelta, remarks })
+}
+export function transferOut(sampleName: string, remarks?: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.transfer_out',
+    { sample_name: sampleName, remarks })
+}
+
+// ---- 时间点写操作（方案 6.3.4） ----
+
+export function generateTimepoints(sampleName: string) {
+  return callMethod<{ sample: string; created: number }>(
+    'hb_lims_app.hbos_lims.stability_service.generate_timepoints', { sample_name: sampleName })
+}
+export function completeSampling(timepointName: string, actualSampleDate?: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.complete_sampling',
+    { timepoint_name: timepointName, actual_sample_date: actualSampleDate })
+}
+export function importZeroMonthResult(timepointName: string, source: string, baselineDoctype?: string, baselineName?: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.import_zero_month_result',
+    { timepoint_name: timepointName, source, baseline_doctype: baselineDoctype, baseline_name: baselineName })
+}
+export function startTesting(timepointName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.start_testing', { timepoint_name: timepointName })
+}
+export function cancelTimepoint(timepointName: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.cancel_timepoint',
+    { timepoint_name: timepointName, reason })
+}
+export function approveExtraSampling(timepointName: string, reason?: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.approve_extra_sampling',
+    { timepoint_name: timepointName, reason })
+}
+export function applyDelay(timepointName: string, delayType: string, requestedDueDate: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.apply_delay',
+    { timepoint_name: timepointName, delay_type: delayType, requested_due_date: requestedDueDate, reason })
+}
+export function approveDelay(timepointName: string, delayType: string, approvedDueDate: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.approve_delay',
+    { timepoint_name: timepointName, delay_type: delayType, approved_due_date: approvedDueDate })
+}
+export function rejectDelay(timepointName: string, delayType: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.reject_delay',
+    { timepoint_name: timepointName, delay_type: delayType, reason })
+}
+
 // ---- 角色动作矩阵（与后端 workflow_contract.ACTION_ROLES 对齐，逐行照方案 6.3.1 / 6.3.2） ----
 // 仅用于前端按钮显隐；真正的准入判定在后端 `_check_action` + SoD，前端不可绕过。
 
@@ -334,6 +633,27 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   approve_protocol: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
   reject_protocol: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
   void_protocol: [ROLE.qp, ROLE.manager, ROLE.system],
+  // 6.3.3 FLOW_STB_SAMPLE
+  register_stability_sample: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  review_sample_storage: [ROLE.reviewer, ROLE.qa, ROLE.manager, ROLE.system],
+  record_sampling: [ROLE.analyst, ROLE.manager, ROLE.system],
+  return_sample: [ROLE.analyst, ROLE.manager, ROLE.system],
+  mark_for_disposal: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  cancel_disposal: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  dispose_sample: [ROLE.analyst, ROLE.manager, ROLE.system],
+  adjust_stock: [ROLE.manager, ROLE.system],
+  transfer_out: [ROLE.manager, ROLE.system],
+  // 6.3.4 FLOW_STB_TIMEPOINT
+  generate_timepoints: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  complete_sampling: [ROLE.analyst, ROLE.manager, ROLE.system],
+  import_zero_month_result: [ROLE.analyst, ROLE.manager, ROLE.system],
+  start_testing: [ROLE.analyst, ROLE.manager, ROLE.system],
+  cancel_timepoint: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  append_conditions: [ROLE.reviewer, ROLE.qaManager, ROLE.manager, ROLE.system],
+  apply_delay: [ROLE.analyst, ROLE.manager, ROLE.system],
+  approve_delay: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  reject_delay: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  approve_extra_sampling: [ROLE.manager, ROLE.system],
 }
 
 /** 当前会话角色下是否可执行指定动作（含 System Manager 放行）。 */
