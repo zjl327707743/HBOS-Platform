@@ -75,6 +75,10 @@ PY
 log "8/8 HTTP smoke checks"
 sleep 8
 for path in /hbos-lims/ /hbos-lims/dashboard /hbos-lims/samples /hbos-lims/audit /hbos-lims/audit-log \
+  /hbos-lims/retention /hbos-lims/retention/samples /hbos-lims/retention/observations \
+  /hbos-lims/stability /hbos-lims/stability/study /hbos-lims/stability/samples \
+  /hbos-lims/stability/schedule /hbos-lims/stability/results /hbos-lims/stability/reports \
+  /hbos-lims/stability/ops \
   /assets/hb_lims_app/hbos-lims-logo.svg /assets/hb_attendance_app/hbos-attendance-logo.svg; do
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "http://localhost:8080$path")"
   printf '%-28s %s\n' "$path" "$code"

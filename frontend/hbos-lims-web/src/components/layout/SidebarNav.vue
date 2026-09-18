@@ -81,6 +81,40 @@
       </div>
 
       <div class="nav-group">
+        <div v-if="!collapsed" class="nav-group-title">稳定性管理</div>
+        <router-link to="/stability" class="nav-item" :class="{ active: isStabilityActive('dashboard') }" :title="collapsed ? '稳定性工作台' : ''">
+          <ExperimentOutlined />
+          <span v-if="!collapsed">稳定性工作台</span>
+        </router-link>
+        <router-link to="/stability/study" class="nav-item" :class="{ active: isStabilityActive('study') }" :title="collapsed ? '考察申请与方案' : ''">
+          <ProfileOutlined />
+          <span v-if="!collapsed">考察申请与方案</span>
+        </router-link>
+        <router-link to="/stability/samples" class="nav-item" :class="{ active: isStabilityActive('samples') }" :title="collapsed ? '样品入箱与台账' : ''">
+          <InboxOutlined />
+          <span v-if="!collapsed">样品入箱与台账</span>
+        </router-link>
+        <router-link to="/stability/schedule" class="nav-item" :class="{ active: isStabilityActive('schedule') }" :title="collapsed ? '取样与检测计划' : ''">
+          <CalendarOutlined />
+          <span v-if="!collapsed">取样与检测计划</span>
+          <span v-if="!collapsed" class="nav-badge">4</span>
+        </router-link>
+        <router-link to="/stability/results" class="nav-item" :class="{ active: isStabilityActive('results') }" :title="collapsed ? '结果录入与趋势' : ''">
+          <LineChartOutlined />
+          <span v-if="!collapsed">结果录入与趋势</span>
+          <span v-if="!collapsed" class="nav-badge">3</span>
+        </router-link>
+        <router-link to="/stability/reports" class="nav-item" :class="{ active: isStabilityActive('reports') }" :title="collapsed ? '报告与有效期' : ''">
+          <FileProtectOutlined />
+          <span v-if="!collapsed">报告与有效期</span>
+        </router-link>
+        <router-link to="/stability/ops" class="nav-item" :class="{ active: isStabilityActive('ops') }" :title="collapsed ? '变更 / 稳定性室 / 设备' : ''">
+          <ToolOutlined />
+          <span v-if="!collapsed">变更 / 稳定性室 / 设备</span>
+        </router-link>
+      </div>
+
+      <div class="nav-group">
         <div v-if="!collapsed" class="nav-group-title">合规</div>
         <router-link to="/audit" class="nav-item" :class="{ active: isActive('/audit') && !route.path.includes('/audit-log') }" :title="collapsed ? '审计追踪查询' : ''">
           <SearchOutlined />
@@ -114,6 +148,8 @@ import {
   CarryOutOutlined, FormOutlined, FileTextOutlined, ReadOutlined, SearchOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, AuditOutlined,
   DatabaseOutlined, TagsOutlined, FundProjectionScreenOutlined, EyeOutlined, ExportOutlined, HistoryOutlined,
+  ExperimentOutlined, ProfileOutlined, InboxOutlined, CalendarOutlined,
+  LineChartOutlined, FileProtectOutlined, ToolOutlined,
 } from '@ant-design/icons-vue'
 
 defineProps<{ collapsed: boolean }>()
@@ -129,6 +165,12 @@ const RETENTION_KEYS = ['dashboard', 'samples', 'products', 'observations', 'usa
 function isRetentionActive(key: (typeof RETENTION_KEYS)[number]): boolean {
   if (key === 'dashboard') return route.path === '/retention'
   return route.path === `/retention/${key}`
+}
+
+const STABILITY_KEYS = ['dashboard', 'study', 'samples', 'schedule', 'results', 'reports', 'ops'] as const
+function isStabilityActive(key: (typeof STABILITY_KEYS)[number]): boolean {
+  if (key === 'dashboard') return route.path === '/stability'
+  return route.path === `/stability/${key}`
 }
 
 // TODO: 联调后从 API 读取待办角标数

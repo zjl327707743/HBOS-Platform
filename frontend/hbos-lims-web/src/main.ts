@@ -4,6 +4,7 @@ import Antd from 'ant-design-vue'
 import 'ant-design-vue/dist/reset.css'
 import './styles/tokens.scss'
 import './styles/retention.scss'
+import './styles/stability.scss'
 import App from './App.vue'
 import router from './router'
 
