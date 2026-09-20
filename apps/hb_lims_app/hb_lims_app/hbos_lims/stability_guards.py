@@ -92,6 +92,33 @@ TIMEPOINT_SYSTEM_FIELDS = (
 	"extra_approver_by", "extra_approve_date", "cancel_reason",
 )
 
+# ---- M2-R8C 结果与报告 ----
+
+# Result：仅「草稿」可删（方案 8.3）
+RESULT_DELETABLE_STATUSES = ("草稿",)
+# Report：仅「草稿」可删
+REPORT_DELETABLE_STATUSES = ("草稿",)
+
+RESULT_SYSTEM_FIELDS = (
+	"status", "is_current", "result_version_key", "revision_no", "supersedes",
+	"stability_sample", "item_snapshot", "method_version", "spec_limit", "spec_version",
+	"result_baseline", "baseline_ref", "baseline_doctype", "baseline_name",
+	"is_qualified", "is_significant_change", "significant_change_basis", "is_zero_month",
+	"oos_flag", "oot_flag",
+	"analyst", "submitted_by", "submitted_at", "reviewed_by", "reviewed_at",
+	"approved_by", "approved_at", "return_reason", "void_reason",
+)
+
+# 注：`client_code` / `client` **不列入**系统字段守卫——它们由控制器按 `customer`
+# 只读派生（方案 5.4.2），其防篡改由「派生不一致即拒绝」保证，见控制器 _sync_customer。
+REPORT_SYSTEM_FIELDS = (
+	"status", "report_period_key", "seq",
+	"proposed_validity_months", "proposed_validity_date",
+	"proposed_validity_type", "proposed_validity_basis",
+	"drafted_by", "draft_date", "qa_review_by", "qa_review_date",
+	"qa_approve_by", "approve_date", "reject_reason", "void_reason",
+)
+
 
 def _audit_delete_block(doctype, doc_name, action_text, reason):
 	"""删除拦截审计独立提交（方案 8.7）：不随 frappe.throw 的回滚丢失。"""
@@ -116,3 +143,20 @@ def guard_delete(doc, doctype, deletable_statuses):
 						"受控记录不允许删除（方案 8.3）；主数据请用「停用」代替删除")
 	frappe.throw("「{}」当前状态（{}）不允许删除（方案 8.3）；主数据请用「停用」代替删除。".format(
 		doc.name, status or "无状态"))
+
+
+def validate_customer_code(doc, method=None):
+	"""Customer 命名规范强制校验（方案 5.4.2 ②a，注册在 `doc_events["Customer"]["validate"]`）。
+
+	**仅当该客户已被稳定性专项报告引用时生效**，由此同时满足方案的两条要求：
+	「validate 钩子强制校验」与「不改核心源码、**不干扰非稳定性客户**」。
+	真正要防的是「在用客户被改名」破坏 `report_period_key`（键含 client_code）。
+	"""
+	from hb_lims_app.hbos_lims import stability_contract as stb
+	if not frappe.db.exists("DocType", "HBOS Stability Report"):
+		return
+	if not doc.name or not frappe.db.exists("HBOS Stability Report", {"customer": doc.name}):
+		return
+	ok, err = stb.check_customer_code(doc.name)
+	if not ok:
+		frappe.throw(err)

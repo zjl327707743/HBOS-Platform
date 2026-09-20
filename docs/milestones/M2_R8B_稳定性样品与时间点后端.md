@@ -9,6 +9,8 @@
 > 边界：**本轮只做后端 + 标签 + 报表**；「样品入箱与台账」「取样与检测计划」两视图的前端接入另起一轮
 >
 > **后续进展（M2-R8H，2026-09-18）**：本轮交付的后端已由 **M2-R8H** 接入「样品入箱与台账」与「取样与检测计划」两个视图（读 + 写全接、按角色显隐），并补了跨时间点延期列表接口与 schedule 的三层日期列。见 `docs/milestones/M2_R8H_稳定性样品与计划前端接入.md`。
+>
+> **后续进展（M2-R8C，2026-09-18）**：本轮的 Result 前向兼容守卫已由 **M2-R8C** 全部打通（`complete_testing` 在全部必检项目批准后放行、`current_result` 补建并纳入六步切换维护、`Timepoint Item` 增加生效结果指针）。见 `docs/milestones/M2_R8C_稳定性结果与报告后端.md`。
 
 ---
 
@@ -48,6 +50,7 @@
 
 **未建 `Timepoint Item.current_result`**：其 Link 目标 `HBOS Stability Result` 属 R8C，
 按 R8A 先例（Room 不 Link 到 R8D 的 Equipment）本轮不建悬空 Link，由 R8C 补。
+（**已兑现（M2-R8C，2026-09-18）**：`current_result` 字段随 R8C 建表补建，六步原子切换在 Timepoint 行锁内维护该指针。见 `docs/milestones/M2_R8C_稳定性结果与报告后端.md`。）
 
 ## 3. 实施中发现并处置的四项方案缺口
 

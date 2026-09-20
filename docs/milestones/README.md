@@ -122,6 +122,7 @@
 | M2-R8A | 稳定性主数据与通知单/方案后端实现与实机验证（10 DocType：Product/Condition/Room/Test Item + Notice + Protocol + 4 子表；`FLOW_STB_NOTICE`/`FLOW_STB_PROTOCOL`；新增 `LIMS QA Manager`/`LIMS QP`；冻结快照与版本链；DocType 层 LIMS 角色全只读；实机 28/28、离线 199/199） | DONE / 待 Owner 审查 |
 | M2-R8G | 稳定性前端接入真实 API（工作台 + 考察申请与方案；后端 +5 只读接口；前端 `api/stability.ts` + 两视图读/写全接 + 角色显隐；修 2 项 R8A 遗留缺陷：Protocol 冻结守卫失效、命名系列非法致畸形单号；离线 203/203、实机 28/28、只读 7/7；未部署生产） | DONE / 待 Owner 审查 |
 | M2-R8H | 稳定性前端接入：样品入箱与台账 + 取样与检测计划（后端 +1 只读接口与 schedule 增列；前端 22 个接口函数 + 两视图读/写全接 + 角色显隐；月度看板改整月日期列；标签打印走 Frappe 打印视图；离线 246/246、`vue-tsc` 0 错误、build 成功、浏览器读写全链、375px 三页无溢出；未部署生产） | DONE / 待 Owner 审查 |
+| M2-R8C | 稳定性结果、趋势评估与报告后端（2 DocType：Result + Report；`FLOW_STB_RESULT`/`FLOW_STB_REPORT`；结果 9 动作 + 报告 8 动作 + 只读 6 接口 + 外推助手 + 客户存量扫描；六步原子切换与生效指针、修订不改旧版、作废按必检项目粒度重开、显著变化双套判定、趋势线不含控制限、报告防重键与 QA 判定有效期；`SCOPED_ACTION_ROLES` 同名动作按 DocType 作用域授权；修 2 项实机缺陷：六步切换漏持久化 `is_current` 致第三态、非专项报告填客户仅被 Link 校验拦截；补建 `Timepoint Item.current_result`；离线 288/288、实机 34/34、R8B 回归 40/40；未部署生产） | DONE / 待 Owner 审查 |
 | M2-R8B | 稳定性样品、时间点与取样检测计划后端（5 DocType：Sample+Log / Timepoint+Timepoint Item+Timepoint Delay；3 条状态机；21 动作 + 4 只读 + scheduler；标签 Print Format + 「取样与检测计划看板」报表；四步锁与固定锁顺序、时间点生成幂等、延期日期链全段校验、逾期纯派生；Result 依赖处前向兼容守卫；离线 244/244、实机 40/40、补充 10/10；未部署生产） | DONE / 待 Owner 审查 |
 
 ## 下一步路线
@@ -148,7 +149,7 @@ M2-R6C DEPLOYED。
 M2-R6D DEPLOYED（合规审计日志 + 生产部署错配修复）。
 M2-R7 REVIEWING rev6（留样管理板块开发方案口径定稿，Owner 已确认角色方案 B 与分支策略 b；R7A 已在 m2-r6 交付 3 DocType+retention_service+前端两页；R7B/C 后端已实现并真实验证）。
 M2-R7D DEPLOYED（留样板块前端 Vue 复刻与生产部署，6 视图已同步 /hbos-lims，工作台/观察/使用/处理已切换真实后端接入，Owner 2026-09-08 确认）。
-M2-R8 REVIEWING rev15（稳定性管理板块开发方案（v9.0 **已正式生效**，Owner 2026-09-16 确认 11.3-1），以《稳定性管理》v9.0 为业务依据，14 主 + 8 子 DocType（= 22） + 8 状态机 + R8A~R8E 子轮，rev1 FAIL 后 rev2 修订 4 P0 + 6 P1，复审"有条件通过"后 rev3 修订 5 必修 + 3 补强、rev4 修订 3 P1 + 8 P2 + 9 P3，四轮复审 FAIL 后 rev5 修订 2 P0 + 8 P1，五轮复审"有条件通过"后 rev6 修订 4 P1 + 5 P2 + 10 P3，Owner 2026-09-15 授权并确认两项范围边界；**11.3 启动门禁 7/7 已闭环，R8A 已启动并完成，R8B~R8E 待逐轮启动**）。
+M2-R8 REVIEWING rev15（稳定性管理板块开发方案（v9.0 **已正式生效**，Owner 2026-09-16 确认 11.3-1），以《稳定性管理》v9.0 为业务依据，14 主 + 8 子 DocType（= 22） + 8 状态机 + R8A~R8E 子轮，rev1 FAIL 后 rev2 修订 4 P0 + 6 P1，复审"有条件通过"后 rev3 修订 5 必修 + 3 补强、rev4 修订 3 P1 + 8 P2 + 9 P3，四轮复审 FAIL 后 rev5 修订 2 P0 + 8 P1，五轮复审"有条件通过"后 rev6 修订 4 P1 + 5 P2 + 10 P3，Owner 2026-09-15 授权并确认两项范围边界；**11.3 启动门禁 7/7 已闭环；R8A/R8B/R8C 已完成（DONE / 待 Owner 审查），R8G/R8H 前端接入 4 视图已完成；R8D（变更单 / 稳定性室 / 设备 / 故障工单）与剩余 3 视图前端接入待逐轮启动**）。
 
 ## 更新规则
 

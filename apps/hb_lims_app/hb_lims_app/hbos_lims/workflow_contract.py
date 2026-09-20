@@ -297,6 +297,49 @@ ACTION_ROLES = {
 									   ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
 	"get_stability_delays": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
 							 ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	# ---- M2-R8C 稳定性结果与报告（方案 6.3.5 / 6.3.6）----
+	# 注：`submit_result` / `review_result` / `approve_result` / `revise_result` 与 R3 检验流程
+	#     同名但角色不同，见 SCOPED_ACTION_ROLES（按 DocType 作用域覆盖，避免互相放宽）。
+	"void_result": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"return_result": {ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"record_result": {ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
+	"mark_superseded": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER,
+						ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"eval_trend": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	"create_stability_report": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	"submit_report": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	"review_report": {ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER,
+					  ROLE_MANAGER, ROLE_SYSTEM},
+	"approve_report": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"reject_report": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	"void_report": {ROLE_LIMS_QP, ROLE_MANAGER, ROLE_SYSTEM},
+	# R8C 只读
+	"get_stability_results": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+							  ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"get_stability_result_detail": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+									ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"get_stability_trend": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+							ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"get_stability_reports": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+							  ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"get_stability_report_detail": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+									ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"get_stability_validity_advice": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+									  ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+	"get_stability_customer_scan": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA,
+									ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
+}
+
+# 同名但角色不同的动作：按 DocType 作用域覆盖（见 action_allowed 文档）
+SCOPED_ACTION_ROLES = {
+	("HBOS Stability Result", "submit_result"):
+		{ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
+	("HBOS Stability Result", "review_result"):
+		{ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	("HBOS Stability Result", "approve_result"):
+		{ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
+	("HBOS Stability Result", "revise_result"):
+		{ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
 }
 
 
@@ -311,8 +354,18 @@ def can_transition(flow, current, target):
 	return target in allowed
 
 
-def action_allowed(action, actor_role):
-	"""角色是否允许执行指定动作。"""
+def action_allowed(action, actor_role, scope=None):
+	"""角色是否允许执行指定动作。
+
+	`scope`（DocType 名）用于**同名但角色不同**的动作：M2-R3 检验流程与 M2-R8C 稳定性结果
+	都有 `submit_result` / `review_result` / `approve_result` / `revise_result`，二者角色集
+	不同（如 R3 允许 Reviewer 批准结果以支持其检测→复核→批准链，稳定性则限定 QA 线）。
+	合并进全局表会**互相放宽权限**，故按 DocType 作用域覆盖。
+	"""
+	if scope:
+		scoped = SCOPED_ACTION_ROLES.get((scope, action))
+		if scoped is not None:
+			return actor_role in scoped
 	return actor_role in ACTION_ROLES.get(action, set())
 
 

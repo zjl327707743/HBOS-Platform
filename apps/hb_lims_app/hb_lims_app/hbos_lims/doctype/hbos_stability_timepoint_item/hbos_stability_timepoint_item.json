@@ -6,7 +6,8 @@
  "field_order": [
   "stability_test_item",
   "is_full_test",
-  "is_required"
+  "is_required",
+  "current_result"
  ],
  "fields": [
   {
@@ -28,6 +29,15 @@
    "fieldtype": "Check",
    "label": "必检",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "current_result",
+   "fieldtype": "Link",
+   "label": "当前生效结果",
+   "options": "HBOS Stability Result",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "由 Timepoint 行锁内维护；必须指向 is_current=1 且 status=已批准 的结果（方案 7.7）"
   }
  ],
  "index_web_pages_for_search": 0,

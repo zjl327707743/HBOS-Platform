@@ -19,9 +19,9 @@
 
 ## 当前上下文
 
-当前子轮：M2-R8H（稳定性前端接入：样品入箱与台账 + 取样与检测计划）**DONE / 待 Owner 审查**。后端补 3 处（schedule 增三层日期与延期状态、新增跨时间点延期列表接口）；前端新增 22 个接口函数并重写两视图（样品台账 + 详情 + 动作弹窗；月度看板改整月日期列 + 日期链 + 计划台账三层日期 + 延期审批含批准/驳回），标签打印走 Frappe 打印视图（dev 补 `/printview` 代理）。验证：离线 246/246、`vue-tsc` 0 错误、build 成功、浏览器真实会话读写全链与角色门控、375px 三页无溢出。稳定性 7 视图中 4 个已接真实后端。**未部署生产**。主文档 `docs/milestones/M2_R8H_稳定性样品与计划前端接入.md`。
+当前子轮：M2-R8C（稳定性后端：结果、趋势评估与报告）**DONE / 待 Owner 审查**。交付 2 个 DocType（`HBOS Stability Result` / `HBOS Stability Report`）+ 2 条状态机 + `Timepoint Item.current_result`（兑现 R8B 前向兼容承诺）；结果 9 动作 + 报告 8 动作 + 只读 6 接口 + ICH Q1E 外推助手 + 客户存量扫描。核心口径：`result_version_key` 唯一 + `is_current` 生效指针、六步原子切换（Timepoint 行锁内）、修订不改旧版、作废生效件按必检项目粒度重开、显著变化双套判定（基线按储存条件隔离）、趋势线不含统计控制限、报告防重键与 QA 判定有效期分离；新增 `SCOPED_ACTION_ROLES`——R3 检验流程与稳定性结果 4 个同名动作按 DocType 作用域分别授权。实机验证修复 2 项自身缺陷（六步切换漏持久化 `is_current` 致第三态；非专项报告填客户仅被 Link 校验拦截，补 `check_report_scope`）。验证：离线 288/288、实机 34/34、R8B 回归 40/40。R8B 前向守卫（`complete_testing` 等）已自动打通。前端「结果录入与趋势」「报告与有效期」接入另起一轮；**未部署生产**。主文档 `docs/milestones/M2_R8C_稳定性结果与报告后端.md`。
 
-前一子轮：M2-R8B（稳定性后端：样品、时间点与取样检测计划）**DONE / 待 Owner 审查**。交付 5 个 DocType（Sample+Log / Timepoint+Timepoint Item+Timepoint Delay）+ 3 条状态机 + 21 个动作 + 4 只读接口 + `scheduler_scan` + 标签 Print Format + 「取样与检测计划看板」报表。核心口径：单一写路径与四步锁（Sample → Timepoint）、时间点生成幂等、延期日期链全链校验、逾期纯派生；Result（R8C）依赖处做前向兼容守卫。证据：离线 244/244、实机 40/40、补充 10/10。本轮只做后端 + 标签 + 报表，前端接入另起一轮；**未部署生产**。主文档 `docs/milestones/M2_R8B_稳定性样品与时间点后端.md`。
+前一子轮：M2-R8H（稳定性前端接入：样品入箱与台账 + 取样与检测计划）**DONE / 待 Owner 审查**。后端补 3 处（schedule 增三层日期与延期状态、新增跨时间点延期列表接口）；前端新增 22 个接口函数并重写两视图（样品台账 + 详情 + 动作弹窗；月度看板改整月日期列 + 日期链 + 计划台账三层日期 + 延期审批含批准/驳回），标签打印走 Frappe 打印视图（dev 补 `/printview` 代理）。验证：离线 246/246、`vue-tsc` 0 错误、build 成功、浏览器真实会话读写全链与角色门控、375px 三页无溢出。稳定性 7 视图中 4 个已接真实后端。**未部署生产**。主文档 `docs/milestones/M2_R8H_稳定性样品与计划前端接入.md`。
 
 更早子轮：M2-R8G（稳定性前端接入真实 API：工作台 + 考察申请与方案）**DONE / 待 Owner 审查**。后端补 5 个只读接口（`get_stability_products`/`get_stability_master`（doctype 白名单）/`get_stability_protocols`/`get_stability_protocol_detail`/`get_stability_audit`）；前端新增 `src/api/stability.ts`（7 只读 + 14 写 + `ACTION_ROLES`/`canAction`），两视图读 + 写全接、按角色显隐；其余 5 视图标注「演示数据 · 待 R8B~R8D」。修复 2 项 R8A 遗留缺陷（Protocol 缺 `snapshot_frozen` 致冻结守卫失效、命名系列 `-####` 非法致畸形单号）。验证：离线 203/203、实机 28/28、只读 7/7、浏览器真实会话读写全链、`vue-tsc` 0 错误、build 成功、375px 无溢出。**未部署生产**。主文档 `docs/milestones/M2_R8G_稳定性前端接入真实API.md`。
 

@@ -126,6 +126,21 @@ doc_events = {
 		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
 		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
 	},
+	# M2-R8C 结果与报告
+	"HBOS Stability Result": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Stability Report": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	# 稳定性专项报告引用的客户：命名规范强制校验（方案 5.4.2；仅作用于已引用客户）
+	"Customer": {
+		"validate": "hb_lims_app.hbos_lims.stability_guards.validate_customer_code",
+	},
 }
 
 # R7C：销毁超期 / 到期提醒派生扫描（cron 每日 00:30 服务器本地；纯派生不改状态，见方案 8.3）

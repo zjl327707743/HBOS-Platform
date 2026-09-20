@@ -13,6 +13,7 @@ R8B~R8D 的样品/时间点/结果/报告/变更/故障方法按子轮增量补�
 
 import frappe
 
+from hb_lims_app.hbos_lims import result_contract as rc
 from hb_lims_app.hbos_lims import stability_contract as stb
 from hb_lims_app.hbos_lims import workflow_contract as wf
 
@@ -57,7 +58,8 @@ def _check_action(action, doctype_target, doc_name="", system=False):
 	if system:
 		return
 	roles = frappe.get_roles(_user())
-	if not any(wf.action_allowed(action, role) for role in roles):
+	# scope=doctype_target：同名动作（R3 检验流程 vs 稳定性结果）按 DocType 分别授权
+	if not any(wf.action_allowed(action, role, scope=doctype_target) for role in roles):
 		_audit_violation(doctype_target, doc_name,
 						 "角色不足：{}".format(action),
 						 "当前用户（{}）没有执行「{}」的权限".format(_user(), action))
@@ -2291,18 +2293,37 @@ def scheduler_scan():
 	for s in samples:
 		if not frappe.db.exists(TIMEPOINT_DOCTYPE, {"stability_sample": s["name"]}):
 			no_timepoint.append(s["name"])
+	# 趋势评估逾期（方案 8.4）：已完成时间点，末次结果批准后 > 5 个工作日仍未评估
+	holidays = _holiday_set()
+	trend_overdue = []
+	if frappe.db.exists("DocType", RESULT_DOCTYPE):
+		done_tps = frappe.get_all(
+			TIMEPOINT_DOCTYPE,
+			filters={"status": stb.TP_DONE, "eval_date": ["is", "not set"]},
+			pluck="name", limit_page_length=0)
+		for name in done_tps:
+			last = frappe.get_all(
+				RESULT_DOCTYPE, filters={"timepoint": name, "status": stb.RESULT_APPROVED},
+				fields=["approved_at"], order_by="approved_at desc", limit_page_length=1)
+			if not last or not last[0].approved_at:
+				continue
+			due = stb.add_working_days(stb._as_date(last[0].approved_at), 5, holidays)
+			if due and today > due:
+				trend_overdue.append(name)
 	summary = {
 		"date": str(today),
 		"sample_overdue": len(sample_overdue),
 		"test_overdue": len(test_overdue),
 		"test_near_7d": len(test_near),
 		"recommend_due": len(recommend_due),
+		"trend_eval_overdue": len(trend_overdue),
 		"sample_without_timepoint": len(no_timepoint),
 		"details": {
 			"sample_overdue": sample_overdue[:200],
 			"test_overdue": test_overdue[:200],
 			"test_near_7d": test_near[:200],
 			"recommend_due": recommend_due[:200],
+			"trend_eval_overdue": trend_overdue[:200],
 			"sample_without_timepoint": no_timepoint[:200],
 		},
 	}
@@ -2313,3 +2334,1174 @@ def scheduler_scan():
 def _to_days_of(timepoint_row):
 	"""时间点折算天数（1 月点 = 30 天 → 推荐期 14 天；更长点 28 天）。"""
 	return stb._to_days(timepoint_row.get("time_point_value"), timepoint_row.get("time_point_unit"))
+
+
+# ===========================================================================
+# M2-R8C：结果与报告（方案 6.3.5 / 6.3.6 / 7.4 / 7.5 / 7.6 / 7.7）
+# ===========================================================================
+
+RESULT_DOCTYPE = "HBOS Stability Result"
+REPORT_DOCTYPE = "HBOS Stability Report"
+
+
+# ---- 来源链与快照 ---------------------------------------------------------
+
+def _source_doc_of_sample(sample):
+	"""按样品类别分派来源链（方案 7.7）：有方案 → Protocol；年度类无方案 → Notice。"""
+	if sample.protocol:
+		return frappe.get_doc("HBOS Stability Protocol", sample.protocol)
+	if sample.notice:
+		return frappe.get_doc("HBOS Stability Notice", sample.notice)
+	return None
+
+
+def _spec_row_for(spec_ref, stability_test_item):
+	"""在质量标准里找到该稳定性检验项目对应的限度行（经 base_test_item 映射）。"""
+	if not spec_ref:
+		return None
+	base = frappe.db.get_value("HBOS Stability Test Item", stability_test_item, "base_test_item")
+	if not base:
+		return None
+	spec = frappe.get_doc("HBOS Specification", spec_ref)
+	for row in (spec.items or []):
+		if row.item == base:
+			return row
+	return None
+
+
+def _limit_text_of(row):
+	if row is None:
+		return None
+	return stb._limit_text(row.limits_type, row.lower_limit, row.upper_limit)
+
+
+def _spec_context_for(sample, stability_test_item):
+	"""按类别来源链解析标准上下文（方案 7.7）。
+
+	返回 (spec_ref, spec_version, method_version, test_method, spec_row)。
+	Result 不存 `spec_ref`（方案 5.4.1 字段表无该字段），标准溯源一律实时走来源链。
+	"""
+	src = _source_doc_of_sample(sample)
+	spec_ref = src.spec_ref if src is not None else None
+	# Protocol 用 `test_method_ref`、Notice 用 `test_method`，两者字段不同名
+	test_method = None
+	if src is not None:
+		test_method = getattr(src, "test_method_ref", None) or getattr(src, "test_method", None)
+	return (
+		spec_ref,
+		src.spec_version if src is not None else None,
+		src.method_version if src is not None else None,
+		test_method,
+		_spec_row_for(spec_ref, stability_test_item),
+	)
+
+
+# ---- 基线选取与显著变化（方案 7.4） ---------------------------------------
+
+def _results_of_item(timepoint_name, item_code):
+	return frappe.get_all(
+		RESULT_DOCTYPE,
+		filters={"timepoint": timepoint_name, "stability_test_item": item_code},
+		fields=["name", "status", "is_current", "result_value", "is_zero_month", "source",
+				"baseline_doctype", "baseline_name", "revision_no"],
+		limit_page_length=0)
+
+
+def _approved_results_of_sample(sample_name, item_code, condition_type=None):
+	"""该样品该项目的全部**已批准且生效**结果（按时间点计划日排序）。"""
+	rows = frappe.get_all(
+		RESULT_DOCTYPE,
+		filters={"stability_sample": sample_name, "stability_test_item": item_code,
+				 "status": stb.RESULT_APPROVED, "is_current": 1},
+		fields=["name", "timepoint", "result_value", "is_zero_month", "source"],
+		limit_page_length=0)
+	if not rows:
+		return []
+	tp_ids = [r.timepoint for r in rows]
+	tps = {t.name: t for t in frappe.get_all(
+		TIMEPOINT_DOCTYPE, filters={"name": ["in", tp_ids]},
+		fields=["name", "condition_type", "plan_sample_date", "time_point_value",
+				"time_point_unit"], limit_page_length=0)}
+	out = []
+	for r in rows:
+		t = tps.get(r.timepoint) or {}
+		if condition_type and t.get("condition_type") != condition_type:
+			continue
+		r["condition_type"] = t.get("condition_type")
+		r["plan_sample_date"] = t.get("plan_sample_date")
+		out.append(r)
+	out.sort(key=lambda x: str(x.get("plan_sample_date") or ""))
+	return out
+
+
+def _pick_baseline(sample_name, item_code, condition_type, current_result_name=None):
+	"""基线选择（方案 7.4）：① 0 月已批准 → ② source=出厂全检 → ③ 首个已批准点。"""
+	approved = [r for r in _approved_results_of_sample(sample_name, item_code, condition_type)
+				if r["name"] != current_result_name]
+	if not approved:
+		return None
+	zero = [r for r in approved if r["is_zero_month"]]
+	if zero:
+		return {"value": zero[0]["result_value"], "ref": "0月",
+				"doctype": "HBOS Stability Result", "name": zero[0]["name"]}
+	outsourced = [r for r in approved if r["source"] == "出厂全检"]
+	if outsourced:
+		return {"value": outsourced[0]["result_value"], "ref": "出厂全检",
+				"doctype": "HBOS Stability Result", "name": outsourced[0]["name"]}
+	first = approved[0]
+	return {"value": first["result_value"], "ref": "首点",
+			"doctype": "HBOS Stability Result", "name": first["name"]}
+
+
+def _apply_judgement(res, item, spec_row, baseline, source_doc):
+	"""符合性 + 显著变化判定（方案 7.4），并把依据写入。"""
+	limits_type = spec_row.limits_type if spec_row is not None else None
+	lower = spec_row.lower_limit if spec_row is not None else None
+	upper = spec_row.upper_limit if spec_row is not None else None
+
+	verdict = rc.judge_result(res.result_value, limits_type or rc.LIMITS_RECORD, lower, upper)
+	res.is_qualified = 1 if verdict == rc.VERDICT_PASS else 0
+	res.oos_flag = 1 if verdict == rc.VERDICT_FAIL else 0
+
+	sig, basis = stb.check_significant_change(
+		item.significant_change_rule, res.result_value,
+		baseline=baseline.get("value") if baseline else None,
+		threshold=item.change_threshold, limits_type=limits_type,
+		lower=lower, upper=upper, result_type=item.result_type)
+	res.is_significant_change = 1 if sig else 0
+	res.significant_change_basis = basis
+	return sig, basis
+
+
+def _current_result_of(timepoint_name, item_code, exclude=None):
+	rows = frappe.get_all(
+		RESULT_DOCTYPE,
+		filters={"timepoint": timepoint_name, "stability_test_item": item_code,
+				 "is_current": 1},
+		pluck="name", limit_page_length=1)
+	if not rows:
+		return None
+	return rows[0] if rows[0] != exclude else None
+
+
+def _next_revision_no(timepoint_name, item_code):
+	rows = frappe.get_all(
+		RESULT_DOCTYPE,
+		filters={"timepoint": timepoint_name, "stability_test_item": item_code},
+		pluck="revision_no", limit_page_length=0)
+	return (max([int(r or 0) for r in rows]) + 1) if rows else 1
+
+
+def _write_current_pointer(tp, item_code, result_name):
+	tp.flags.allow_system_fields = True
+	for row in (tp.test_items or []):
+		if row.stability_test_item == item_code:
+			row.current_result = result_name
+	tp.save(ignore_permissions=True)
+
+
+def _clear_current_pointer(tp, item_code):
+	_write_current_pointer(tp, item_code, None)
+
+
+# ---- 结果动作（方案 6.3.5） -----------------------------------------------
+
+@frappe.whitelist()
+def record_result(timepoint_name, stability_test_item, result_value, test_date=None,
+				  unit=None, source="自检", remark=None):
+	"""结果录入（→ 草稿）。仅 `Timepoint.status=检测中`；同一 (时间点, 项目) 无在途（方案 6.3.5）。"""
+	_check_action("record_result", RESULT_DOCTYPE, timepoint_name)
+	if result_value is None or str(result_value).strip() == "":
+		frappe.throw("结果值必填。")
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		if tp.status != stb.TP_TESTING:
+			_reject(TIMEPOINT_DOCTYPE, timepoint_name,
+					"仅「检测中」的时间点可录入结果（当前：{}）。".format(tp.status),
+					"非法状态：{} 调用 record_result".format(tp.status))
+		if not frappe.db.exists("HBOS Stability Test Item", stability_test_item):
+			frappe.throw("检验项目「{}」不存在。".format(stability_test_item))
+		inflight = [r for r in _results_of_item(tp.name, stability_test_item)
+					if r.status in stb.RESULT_INFLIGHT_STATES]
+		if inflight:
+			frappe.throw("该项目已有在途结果（{}），须先处理后再录入。".format(inflight[0].name))
+
+		sample = frappe.get_doc(SAMPLE_DOCTYPE, tp.stability_sample)
+		revision_no = _next_revision_no(tp.name, stability_test_item)
+		item = frappe.get_doc("HBOS Stability Test Item", stability_test_item)
+
+		res = frappe.get_doc({
+			"doctype": RESULT_DOCTYPE,
+			"timepoint": tp.name,
+			"stability_sample": sample.name,
+			"stability_test_item": stability_test_item,
+			"result_value": result_value,
+			"unit": unit or (frappe.db.get_value("HBOS Stability Product",
+												 sample.stability_product, "default_uom")),
+			"source": source or "自检",
+			"is_zero_month": 1 if tp.is_zero_month else 0,
+			"revision_no": revision_no,
+			"result_version_key": stb.make_result_version_key(
+				tp.name, stability_test_item, revision_no),
+			"is_current": 0,
+			"status": stb.RESULT_DRAFT,
+			"analyst": _user(),
+			"test_date": test_date,
+			"remark": remark,
+		})
+		res.flags.allow_system_fields = True
+		_spec_ref, spec_version, method_version, test_method, spec_row = \
+			_spec_context_for(sample, stability_test_item)
+		res.spec_version = spec_version
+		res.method_version = method_version
+		res.test_method = test_method
+		res.item_snapshot = item.item_name
+		if spec_row is not None:
+			res.spec_limit = _limit_text_of(spec_row)
+		baseline = _pick_baseline(sample.name, stability_test_item, tp.condition_type)
+		if baseline:
+			res.result_baseline = baseline["value"]
+			res.baseline_ref = baseline["ref"]
+			res.baseline_doctype = baseline["doctype"]
+			res.baseline_name = baseline["name"]
+		sig, _basis = _apply_judgement(res, item, spec_row, baseline, None)
+		res.insert(ignore_permissions=True)
+		_audit_on(RESULT_DOCTYPE, "结果录入", res.name,
+				  action_text="结果录入（v{}）".format(revision_no),
+				  new_value="item={} result={}".format(stability_test_item, result_value))
+		if sig:
+			_audit_on(RESULT_DOCTYPE, "显著变化判定", res.name,
+					  action_text="显著变化判定", new_value=res.significant_change_basis)
+		_commit()
+		return {"name": res.name, "status": res.status, "revision_no": revision_no,
+				"is_significant_change": res.is_significant_change}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def submit_result(result_name, test_date=None):
+	"""提交结果（草稿 → 已提交）。硬校验 #1–#3（方案 7.3）+ 快照一致性（7.7）。"""
+	_check_action("submit_result", RESULT_DOCTYPE, result_name)
+	try:
+		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		tp = _lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)
+		res = _load(RESULT_DOCTYPE, result_name)
+		if res.status != stb.RESULT_DRAFT:
+			_reject(RESULT_DOCTYPE, result_name,
+					"仅「草稿」可提交（当前：{}）。".format(res.status),
+					"非法状态：{} 调用 submit_result".format(res.status))
+		actual = test_date or res.test_date
+		if not actual:
+			frappe.throw("实际检测日期必填。")
+
+		sample = frappe.get_doc(SAMPLE_DOCTYPE, tp.stability_sample)
+		product = _product_of_sample(sample)
+		effective, policy = _effective_test_due(tp, product)
+		exempt = stb.zero_month_exempt(res.is_zero_month, res.source)
+		ok, err = stb.check_test_dates(actual, tp.actual_sample_date, tp.plan_test_date,
+									   effective, policy, exempt_zero_month=exempt)
+		if not ok:
+			frappe.throw(err)
+
+		# 快照一致性（方案 7.7）：标准版本与限度须与来源链当前值一致
+		_spec_ref, spec_version, _mv, _tm, row = _spec_context_for(sample, res.stability_test_item)
+		if (spec_version or "") != (res.spec_version or ""):
+			frappe.throw("结果的标准版本快照（{}）与来源链当前版本（{}）不一致，"
+						 "请走变更流程后重录。".format(res.spec_version, spec_version))
+		if row is not None and (_limit_text_of(row) or "") != (res.spec_limit or ""):
+			frappe.throw("结果的限度快照（{}）与质量标准当前值（{}）不一致，请走变更流程后重录。".format(
+				res.spec_limit, _limit_text_of(row)))
+
+		res.flags.allow_system_fields = True
+		res.test_date = actual
+		res.status = stb.RESULT_SUBMITTED
+		res.submitted_by = _user()
+		res.submitted_at = _now()
+		res.save(ignore_permissions=True)
+		if not tp.actual_test_date:
+			tp.flags.allow_system_fields = True
+			tp.actual_test_date = actual
+			tp.save(ignore_permissions=True)
+		_audit_on(RESULT_DOCTYPE, "结果提交", res.name,
+				  action_text="结果提交", new_value="test_date={}".format(actual))
+		_commit()
+		return {"name": res.name, "status": res.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def review_result(result_name):
+	"""结果复核（已提交 → 已复核）。SoD：检测人 ≠ 复核人。"""
+	_check_action("review_result", RESULT_DOCTYPE, result_name)
+	try:
+		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		_lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)
+		res = _load(RESULT_DOCTYPE, result_name)
+		if res.status != stb.RESULT_SUBMITTED:
+			_reject(RESULT_DOCTYPE, result_name,
+					"仅「已提交」可复核（当前：{}）。".format(res.status),
+					"非法状态：{} 调用 review_result".format(res.status))
+		if res.analyst and res.analyst == _user():
+			_audit_commit(RESULT_DOCTYPE, "SoD 拦截", res.name,
+						  action_text="结果复核违反职责分离", reason="检测人同为 {}".format(res.analyst))
+			frappe.throw("复核人不得为检测人（SoD，方案 6.4）。")
+		res.flags.allow_system_fields = True
+		res.status = stb.RESULT_REVIEWED
+		res.reviewed_by = _user()
+		res.reviewed_at = _now()
+		res.save(ignore_permissions=True)
+		_audit_on(RESULT_DOCTYPE, "结果复核", res.name, action_text="结果复核")
+		_commit()
+		return {"name": res.name, "status": res.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def return_result(result_name, reason):
+	"""结果退回（已提交→草稿 / 已复核→已提交），原因必填。"""
+	_check_action("return_result", RESULT_DOCTYPE, result_name)
+	if not (reason or "").strip():
+		frappe.throw("退回原因必填。")
+	try:
+		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		_lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)
+		res = _load(RESULT_DOCTYPE, result_name)
+		if res.status == stb.RESULT_SUBMITTED:
+			target = stb.RESULT_DRAFT
+		elif res.status == stb.RESULT_REVIEWED:
+			target = stb.RESULT_SUBMITTED
+		else:
+			_reject(RESULT_DOCTYPE, result_name,
+					"仅「已提交 / 已复核」可退回（当前：{}）。".format(res.status),
+					"非法状态：{} 调用 return_result".format(res.status))
+		res.flags.allow_system_fields = True
+		if not wf.can_transition(stb.FLOW_STB_RESULT, res.status, target):
+			frappe.throw("非法状态流转：{} -> {}（结果）".format(res.status, target))
+		res.status = target
+		res.return_reason = reason
+		res.save(ignore_permissions=True)
+		_audit_on(RESULT_DOCTYPE, "结果退回", res.name,
+				  action_text="结果退回", reason=reason, new_value=target)
+		_commit()
+		return {"name": res.name, "status": res.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def approve_result(result_name):
+	"""结果批准（已复核 → 已批准）并**同事务六步切换生效指针**（方案 7.7 / 门禁 11、15）。
+
+	六步：(a) 旧版 已批准→已修订 (b) 旧版 is_current 1→0 (c) 新版 已复核→已批准
+	(d) 新版 is_current 0→1 (e) 回写 Timepoint Item.current_result (f) commit。
+	首版（无旧版）只走新版侧。
+	"""
+	_check_action("approve_result", RESULT_DOCTYPE, result_name)
+	try:
+		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		tp = _lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)     # 锁 Timepoint（方案 7.8）
+		res = _load(RESULT_DOCTYPE, result_name)               # 锁内重读
+		if res.status != stb.RESULT_REVIEWED:
+			_reject(RESULT_DOCTYPE, result_name,
+					"仅「已复核」可批准（当前：{}）。".format(res.status),
+					"非法状态：{} 调用 approve_result".format(res.status))
+		if not res.reviewed_by:
+			frappe.throw("结果须先复核才能批准。")
+		if res.reviewed_by == _user():
+			_audit_commit(RESULT_DOCTYPE, "SoD 拦截", res.name,
+						  action_text="结果批准违反职责分离", reason="复核人同为 {}".format(res.reviewed_by))
+			frappe.throw("批准人不得为复核人（SoD，方案 6.4）。")
+
+		old_name = _current_result_of(tp.name, res.stability_test_item, exclude=res.name)
+		if old_name:
+			old = _load(RESULT_DOCTYPE, old_name)
+			if old.status == stb.RESULT_APPROVED:          # (a) 幂等：已是「已修订」则跳过
+				mark_superseded(old_name)                  # 内部子步骤（含审计「结果被取代」）
+				old = _load(RESULT_DOCTYPE, old_name)      # mark_superseded 已独立落库，重读防脏覆盖
+			old.is_current = 0                             # (b) 须显式落库，否则残留「已修订+current=1」第三态
+			old.save(ignore_permissions=True)
+
+		res.flags.allow_system_fields = True
+		res.status = stb.RESULT_APPROVED                   # (c)
+		res.is_current = 1                                 # (d)
+		res.approved_by = _user()
+		res.approved_at = _now()
+		res.save(ignore_permissions=True)
+		_write_current_pointer(tp, res.stability_test_item, res.name)   # (e)
+		_audit_on(RESULT_DOCTYPE, "结果批准", res.name,
+				  action_text="结果批准（含生效切换）",
+				  new_value="v{} current=1{}".format(res.revision_no,
+													 " 取代 " + old_name if old_name else ""))
+		_commit()                                          # (f)
+		return {"name": res.name, "status": res.status, "is_current": 1,
+				"superseded": old_name}
+	except Exception:
+		_rollback()
+		raise
+
+
+def mark_superseded(result_name):
+	"""**系统内部子步骤**（非公开入口）：旧版 已批准 → 已修订（方案 6.3.5 P2-4 rev11）。
+
+	幂等：仅当旧版 `status=已批准` 时才置「已修订」，否则跳过（不重复写审计）。
+	仅由 `approve_result` 在同一事务内调用。
+	"""
+	_check_action("mark_superseded", RESULT_DOCTYPE, result_name, system=True)
+	old = _load(RESULT_DOCTYPE, result_name)
+	if old.status != stb.RESULT_APPROVED:
+		return {"name": old.name, "status": old.status, "changed": False}
+	old.flags.allow_system_fields = True
+	old.status = stb.RESULT_REVISED
+	old.save(ignore_permissions=True)
+	_audit_on(RESULT_DOCTYPE, "结果被取代", old.name, action_text="结果被新版取代")
+	return {"name": old.name, "status": old.status, "changed": True}
+
+
+@frappe.whitelist()
+def revise_result(result_name):
+	"""结果修订（准入行）：**不改旧版状态、不碰指针**，仅新建一条草稿（方案 7.7 P0-1）。"""
+	_check_action("revise_result", RESULT_DOCTYPE, result_name)
+	try:
+		old0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		tp = _lock_row(TIMEPOINT_DOCTYPE, old0.timepoint)
+		old = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		if old.status not in (stb.RESULT_APPROVED, stb.RESULT_VOIDED):
+			frappe.throw("仅「已批准 / 已作废」的结果可修订（当前：{}）。".format(old.status))
+		inflight = [r for r in _results_of_item(tp.name, old.stability_test_item)
+					if r.status in stb.RESULT_INFLIGHT_STATES]
+		if inflight:
+			frappe.throw("该项目已有在途结果（{}），须先处理后再修订。".format(inflight[0].name))
+
+		sample = frappe.get_doc(SAMPLE_DOCTYPE, tp.stability_sample)
+		revision_no = _next_revision_no(tp.name, old.stability_test_item)
+		item = frappe.get_doc("HBOS Stability Test Item", old.stability_test_item)
+		res = frappe.get_doc({
+			"doctype": RESULT_DOCTYPE,
+			"timepoint": tp.name,
+			"stability_sample": sample.name,
+			"stability_test_item": old.stability_test_item,
+			"result_value": old.result_value,
+			"unit": old.unit,
+			"source": old.source,
+			"is_zero_month": old.is_zero_month,
+			"revision_no": revision_no,
+			"supersedes": old.name,
+			"result_version_key": stb.make_result_version_key(
+				tp.name, old.stability_test_item, revision_no),
+			"spec_version": old.spec_version,
+			"spec_limit": old.spec_limit,
+			"test_method": old.test_method,
+			"method_version": old.method_version,
+			"item_snapshot": old.item_snapshot,
+			"analyst": _user(),
+			"test_date": old.test_date,
+			"is_current": 0,
+			"status": stb.RESULT_DRAFT,
+		})
+		res.flags.allow_system_fields = True
+		baseline = _pick_baseline(sample.name, old.stability_test_item, tp.condition_type)
+		_spec_ref, _sv, _mv, _tm, spec_row = _spec_context_for(sample, old.stability_test_item)
+		if baseline:
+			res.result_baseline = baseline["value"]
+			res.baseline_ref = baseline["ref"]
+			res.baseline_doctype = baseline["doctype"]
+			res.baseline_name = baseline["name"]
+		_apply_judgement(res, item, spec_row, baseline, None)
+		res.insert(ignore_permissions=True)
+		_audit_on(RESULT_DOCTYPE, "结果修订", res.name,
+				  action_text="结果修订（新建修订件）",
+				  old_value=old.name, new_value="v{}".format(revision_no))
+		_commit()
+		return {"name": res.name, "status": res.status, "revision_no": revision_no}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def void_result(result_name, reason):
+	"""结果作废（草稿/已提交/已复核/已批准 → 已作废）。
+
+	生效件作废时**同事务**清 `is_current` + 清指针 + 写 `生效结果作废` 审计；
+	再按**必检项目粒度**判定是否重开时间点（方案 6.3.5 / 门禁 19）。
+	"""
+	_check_action("void_result", RESULT_DOCTYPE, result_name)
+	if not (reason or "").strip():
+		frappe.throw("作废原因必填。")
+	try:
+		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		tp = _lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)
+		res = _load(RESULT_DOCTYPE, result_name)
+		if res.status not in (stb.RESULT_DRAFT, stb.RESULT_SUBMITTED,
+							  stb.RESULT_REVIEWED, stb.RESULT_APPROVED):
+			_reject(RESULT_DOCTYPE, result_name,
+					"当前状态（{}）不可作废。".format(res.status),
+					"非法状态：{} 调用 void_result".format(res.status))
+		was_current = int(res.is_current or 0) == 1
+		res.flags.allow_system_fields = True
+		res.status = stb.RESULT_VOIDED
+		res.void_reason = reason
+		if was_current:
+			res.is_current = 0
+		res.save(ignore_permissions=True)
+		_audit_on(RESULT_DOCTYPE, "结果作废", res.name,
+				  action_text="结果作废", reason=reason)
+		if was_current:
+			_clear_current_pointer(tp, res.stability_test_item)
+			_audit_on(RESULT_DOCTYPE, "生效结果作废", res.name,
+					  action_text="生效结果作废并清空指针", reason=reason)
+			_maybe_reopen_timepoint(tp)
+		_commit()
+		return {"name": res.name, "status": res.status, "was_current": was_current}
+	except Exception:
+		_rollback()
+		raise
+
+
+def _maybe_reopen_timepoint(tp):
+	"""按必检项目粒度判定重开（方案 6.3.5 / P1-1 rev11）：
+
+	该时间点**有任一必检项目当前无生效结果**即需回退；**仅当 status=已完成 才调用**
+	`reopen_timepoint`，若已是「检测中」则保持原状态、仅记审计（不产生非法转移）。
+	"""
+	required = [r.stability_test_item for r in (tp.test_items or [])
+				if r.is_required and r.stability_test_item]
+	if not required:
+		return
+	missing = [code for code in required
+			   if not frappe.db.exists(RESULT_DOCTYPE, {
+				   "timepoint": tp.name, "stability_test_item": code,
+				   "is_current": 1, "status": stb.RESULT_APPROVED})]
+	if not missing:
+		return
+	if tp.status == stb.TP_DONE:
+		reopen_timepoint(tp.name)
+	else:
+		_audit_on(TIMEPOINT_DOCTYPE, "结果作废", tp.name,
+				  action_text="结果作废（时间点本已可重录）",
+				  new_value="status={} missing={}".format(tp.status, " / ".join(missing)))
+
+
+# ---- 趋势评估（方案 6.3.4 准入行，R8B 遗漏补入） --------------------------
+
+@frappe.whitelist()
+def eval_trend(timepoint_name, conclusion, remark=None):
+	"""趋势评估（状态不变，准入动作；方案 6.3.4）。"""
+	_check_action("eval_trend", TIMEPOINT_DOCTYPE, timepoint_name)
+	if conclusion not in ("正常", "超趋势"):
+		frappe.throw("趋势结论必须是「正常」或「超趋势」。")
+	try:
+		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
+		tp.flags.allow_system_fields = True
+		tp.eval_date = _today()
+		tp.evaluator = _user()
+		tp.trend_conclusion = conclusion
+		tp.oot_ref = remark
+		tp.save(ignore_permissions=True)
+		_audit_on(TIMEPOINT_DOCTYPE, "趋势评估", tp.name,
+				  action_text="趋势评估", new_value=conclusion)
+		_commit()
+		return {"name": tp.name, "trend_conclusion": conclusion}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- 报告（方案 6.3.6 / 5.4.2 / 7.6） -------------------------------------
+
+def _validity_inputs(product_name, sample_name=None):
+	"""外推助手输入（方案 7.6）——**全部由系统从已批准结果推导**，并随建议一并返回以便追溯。
+
+	口径（方案未逐条给出判定阈值，此处为显式化实现，见主文档「外推助手口径」）：
+	- `x_months`：该产品**长期条件**已批准结果中时间点值（月）的最大值（覆盖时长）
+	- `sig_change_3m` / `sig_change_6m`：加速条件 3 / 6 月点是否存在显著变化
+	- `intermediate_ok`：存在中间条件已批准结果且**均无显著变化**（无中间条件视为不充分）
+	- `correlated`：长期已批准结果 ≥ 3 点且趋势线 R² ≥ 0.8
+	- `long_term_sufficient`：长期已批准结果 ≥ 4 点且覆盖 ≥ 12 月
+	- `refrigerated`：长期储存条件描述含冷藏关键词（冷藏 / 2~8 / 5±3）
+	"""
+	rows = frappe.get_all(
+		RESULT_DOCTYPE,
+		filters={"status": stb.RESULT_APPROVED, "is_current": 1},
+		fields=["name", "timepoint", "result_value", "is_significant_change"],
+		limit_page_length=0)
+	tp_ids = sorted({r.timepoint for r in rows})
+	tps = {}
+	if tp_ids:
+		for t in frappe.get_all(TIMEPOINT_DOCTYPE, filters={"name": ["in", tp_ids]},
+								fields=["name", "stability_sample", "condition_type",
+										"time_point_value", "time_point_unit"],
+								limit_page_length=0):
+			tps[t.name] = t
+	sample_names = sorted({t.stability_sample for t in tps.values() if t.get("stability_sample")})
+	my_samples = set()
+	if sample_names:
+		for s in frappe.get_all(SAMPLE_DOCTYPE, filters={"name": ["in", sample_names]},
+								fields=["name", "stability_product"], limit_page_length=0):
+			if s.stability_product == product_name:
+				my_samples.add(s.name)
+	if sample_name:
+		my_samples &= {sample_name}
+
+	long_pts, acc_sig = [], {}
+	inter_pts = []
+	for r in rows:
+		t = tps.get(r.timepoint)
+		if not t or t.stability_sample not in my_samples:
+			continue
+		if t.condition_type == "长期" and t.time_point_unit == "月":
+			long_pts.append((int(t.time_point_value or 0), r.result_value))
+		elif t.condition_type == "加速" and t.time_point_unit == "月":
+			acc_sig[int(t.time_point_value or 0)] = bool(r.is_significant_change)
+		elif t.condition_type == "中间":
+			inter_pts.append(bool(r.is_significant_change))
+
+	long_pts.sort()
+	x_months = max([p[0] for p in long_pts], default=0)
+	trend = stb.fit_trend_line(long_pts)
+	correlated = len(long_pts) >= 3 and trend is not None and trend.get("r2", 0) >= 0.8
+	long_term_sufficient = len(long_pts) >= 4 and x_months >= 12
+
+	refrigerated = False
+	cond = frappe.db.get_value("HBOS Stability Product", product_name, "storage_cond_long")
+	if cond:
+		desc = frappe.db.get_value("HBOS Stability Condition", cond, "description") or ""
+		refrigerated = any(k in desc for k in ("冷藏", "2~8", "2-8", "5±3"))
+
+	return {
+		"x_months": x_months,
+		"long_points": len(long_pts),
+		"sig_change_3m": bool(acc_sig.get(3)),
+		"sig_change_6m": bool(acc_sig.get(6)),
+		"intermediate_ok": bool(inter_pts) and not any(inter_pts),
+		"correlated": correlated,
+		"long_term_sufficient": long_term_sufficient,
+		"refrigerated": refrigerated,
+		"trend": trend,
+	}
+
+
+@frappe.whitelist()
+def get_stability_validity_advice(stability_product, sample=None):
+	"""ICH Q1E 有效期外推建议（只读预览）。返回输入口径 + 建议分支 + 依据（方案 7.6）。"""
+	_check_action("get_stability_validity_advice", REPORT_DOCTYPE, stability_product)
+	inputs = _validity_inputs(stability_product, sample)
+	months, branch, basis = stb.advise_validity(
+		inputs["x_months"], inputs["sig_change_3m"], inputs["sig_change_6m"],
+		inputs["intermediate_ok"], inputs["correlated"],
+		inputs["long_term_sufficient"], inputs["refrigerated"])
+	return {"inputs": inputs, "advised_months": months, "branch": branch, "basis": basis}
+
+
+def _next_report_seq(product, year, client_code):
+	"""专项报告序号：锁 `HBOS Stability Product` 产品行取 max+1（方案 5.4.2 P1-4）。"""
+	frappe.db.get_value("HBOS Stability Product", product, "name", for_update=True)
+	rows = frappe.get_all(
+		REPORT_DOCTYPE,
+		filters={"stability_product": product, "year": int(year or 0),
+				 "client_code": client_code},
+		pluck="seq", limit_page_length=0)
+	return (max([int(s or 0) for s in rows]) + 1) if rows else 1
+
+
+@frappe.whitelist()
+def create_stability_report(report_type, stability_product, year=None,
+							source_doctype=None, source_name=None, customer=None,
+							study_scope=None, period_from=None, period_to=None,
+							storage_conds=None, spec_ref=None, client_requirement=None):
+	"""报告建档（草稿）。`proposed_validity_*` 由**服务端计算并写入**（方案 7.6）。"""
+	_check_action("create_stability_report", REPORT_DOCTYPE, stability_product)
+	try:
+		product = frappe.get_doc("HBOS Stability Product", stability_product)
+		if report_type == stb.REPORT_TYPE_SPECIAL and not customer:
+			frappe.throw("专项报告必须指定客户。")
+		client_code = customer or None
+		if customer:
+			ok, err = stb.check_customer_code(customer)
+			if not ok:
+				frappe.throw(err)
+		# 范围校验（方案 5.4.2 / rev14 P2-2）：非专项报告 customer/client_code/seq 必须为空
+		scope_ok, scope_err = stb.check_report_scope(
+			report_type, source_doctype, customer or None, client_code, None)
+		if not scope_ok and "不得填写客户" in scope_err:
+			frappe.throw(scope_err)
+		# 常规报告：同产品同年度同类型同来源唯一
+		seq = _next_report_seq(stability_product, year, client_code) \
+			if report_type == stb.REPORT_TYPE_SPECIAL else None
+		key = stb.make_report_period_key(product.product_code, year, report_type,
+										 source_doctype, source_name, client_code, seq)
+
+		inputs = _validity_inputs(stability_product)
+		months, _branch, basis = stb.advise_validity(
+			inputs["x_months"], inputs["sig_change_3m"], inputs["sig_change_6m"],
+			inputs["intermediate_ok"], inputs["correlated"],
+			inputs["long_term_sufficient"], inputs["refrigerated"])
+		proposed_date = stb.add_time_point(period_from or _today(), months, "月") if months else None
+
+		doc = frappe.get_doc({
+			"doctype": REPORT_DOCTYPE,
+			"report_type": report_type,
+			"stability_product": stability_product,
+			"year": int(year) if year else None,
+			"source_doctype": source_doctype or None,
+			"source_name": source_name or None,
+			"customer": customer or None,
+			"seq": seq,
+			"report_period_key": key,
+			"study_scope": study_scope,
+			"period_from": period_from,
+			"period_to": period_to,
+			"storage_conds": storage_conds,
+			"spec_ref": spec_ref,
+			"client_requirement": client_requirement,
+			"proposed_validity_months": months,
+			"proposed_validity_date": proposed_date,
+			"proposed_validity_type": "有效期",
+			"proposed_validity_basis": "{}（{}）｜输入：X={}月 长期点={} 3月显著={} 6月显著={} "
+									   "中间充分={} 相关支持={} 长期充分={} 冷藏={}".format(
+										   _branch, basis, inputs["x_months"], inputs["long_points"],
+										   inputs["sig_change_3m"], inputs["sig_change_6m"],
+										   inputs["intermediate_ok"], inputs["correlated"],
+										   inputs["long_term_sufficient"], inputs["refrigerated"]),
+			"drafted_by": _user(),
+			"draft_date": _today(),
+			"status": stb.REPORT_DRAFT,
+		})
+		doc.flags.allow_system_fields = True
+		for _attempt in range(3):     # `report_period_key` unique 兜底，冲突时有上限重试
+			try:
+				doc.insert(ignore_permissions=True)
+				break
+			except Exception as exc:
+				if "1062" not in str(exc) and "Duplicate" not in str(exc):
+					raise
+				_rollback()
+				if report_type != stb.REPORT_TYPE_SPECIAL:
+					raise
+				seq = _next_report_seq(stability_product, year, client_code)
+				doc.seq = seq
+				doc.report_period_key = stb.make_report_period_key(
+					product.product_code, year, report_type, source_doctype, source_name,
+					client_code, seq)
+		else:
+			frappe.throw("报告防重键冲突且重试 3 次仍未成功，请手工核查序号后重试。")
+		_audit_on(REPORT_DOCTYPE, "创建", doc.name,
+				  action_text="创建稳定性报告草稿",
+				  new_value="type={} key={}".format(report_type, doc.report_period_key))
+		_commit()
+		return {"name": doc.name, "status": doc.status, "seq": doc.seq,
+				"advised_months": months, "basis": basis}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def submit_report(report_name):
+	"""报告提交（草稿 → 待QA审核）。"""
+	_check_action("submit_report", REPORT_DOCTYPE, report_name)
+	try:
+		doc = _load(REPORT_DOCTYPE, report_name)
+		if doc.status != stb.REPORT_DRAFT:
+			_reject(REPORT_DOCTYPE, report_name,
+					"仅「草稿」可提交（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 submit_report".format(doc.status))
+		if not (doc.conclusion or "").strip():
+			frappe.throw("报告评价与结论必填（方案 4.6.4 报告要素完整）。")
+		_set_status(doc, stb.FLOW_STB_REPORT, stb.REPORT_WAIT_QA)
+		doc.save(ignore_permissions=True)
+		_audit_on(REPORT_DOCTYPE, "报告起草提交", doc.name,
+				  action_text="报告提交", new_value=doc.status)
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def review_report(report_name):
+	"""报告 QA 审核记录（状态不变，准入动作）。"""
+	_check_action("review_report", REPORT_DOCTYPE, report_name)
+	try:
+		doc = _load(REPORT_DOCTYPE, report_name)
+		if doc.status != stb.REPORT_WAIT_QA:
+			frappe.throw("仅「待QA审核」可记录审核（当前：{}）。".format(doc.status))
+		doc.qa_review_by = _user()
+		doc.qa_review_date = _today()
+		doc.save(ignore_permissions=True)
+		_audit_on(REPORT_DOCTYPE, "报告审核", doc.name,
+				  action_text="报告 QA 审核记录", new_value=doc.qa_review_by)
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def approve_report(report_name, final_validity_months=None, final_validity_date=None,
+				   final_validity_type=None):
+	"""报告批准（待QA审核 → 已批准）并确定有效期（方案 6.3.6 三条硬前置）。"""
+	_check_action("approve_report", REPORT_DOCTYPE, report_name)
+	try:
+		doc = _load(REPORT_DOCTYPE, report_name)
+		if doc.status != stb.REPORT_WAIT_QA:
+			_reject(REPORT_DOCTYPE, report_name,
+					"仅「待QA审核」可批准（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 approve_report".format(doc.status))
+		if not doc.qa_review_by or not doc.qa_review_date:
+			frappe.throw("报告须先完成 QA 审核（review_report）才能批准。")
+		if doc.qa_review_by == _user():
+			_audit_commit(REPORT_DOCTYPE, "SoD 拦截", doc.name,
+						  action_text="报告批准违反职责分离", reason="审核人同为 {}".format(doc.qa_review_by))
+			frappe.throw("报告批准人不得为审核人（SoD，方案 6.4）。")
+		months = final_validity_months or doc.final_validity_months
+		date = final_validity_date or doc.final_validity_date
+		vtype = final_validity_type or doc.final_validity_type
+		if not months or not date or not vtype:
+			frappe.throw("批准即确定有效期：QA 判定有效期（月数 / 至 / 类型）三项必填。")
+		_set_status(doc, stb.FLOW_STB_REPORT, stb.REPORT_APPROVED)
+		doc.final_validity_months = int(months)
+		doc.final_validity_date = date
+		doc.final_validity_type = vtype
+		doc.qa_approve_by = _user()
+		doc.approve_date = _today()
+		doc.save(ignore_permissions=True)
+		_audit_on(REPORT_DOCTYPE, "报告批准", doc.name,
+				  action_text="报告批准并确定有效期",
+				  new_value="{} {} 至 {}".format(vtype, months, date))
+		_audit_on(REPORT_DOCTYPE, "有效期判定", doc.name,
+				  action_text="QA 判定有效期",
+				  old_value="建议 {} 月".format(doc.proposed_validity_months or "—"),
+				  new_value="{} 月".format(months))
+		_commit()
+		return {"name": doc.name, "status": doc.status, "final_validity_months": doc.final_validity_months,
+				"final_validity_date": str(doc.final_validity_date)}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def reject_report(report_name, reason):
+	"""报告驳回（待QA审核 → 已驳回），原因必填。"""
+	_check_action("reject_report", REPORT_DOCTYPE, report_name)
+	if not (reason or "").strip():
+		frappe.throw("驳回原因必填。")
+	try:
+		doc = _load(REPORT_DOCTYPE, report_name)
+		if doc.status != stb.REPORT_WAIT_QA:
+			_reject(REPORT_DOCTYPE, report_name,
+					"仅「待QA审核」可驳回（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 reject_report".format(doc.status))
+		_set_status(doc, stb.FLOW_STB_REPORT, stb.REPORT_REJECTED)
+		doc.reject_reason = reason
+		doc.save(ignore_permissions=True)
+		_audit_on(REPORT_DOCTYPE, "驳回", doc.name,
+				  action_text="报告驳回", reason=reason, new_value=doc.status)
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def void_report(report_name, reason):
+	"""报告作废（草稿 / 已批准 → 已作废；QP / Manager，原因必填）。"""
+	_check_action("void_report", REPORT_DOCTYPE, report_name)
+	if not (reason or "").strip():
+		frappe.throw("作废原因必填。")
+	try:
+		doc = _load(REPORT_DOCTYPE, report_name)
+		if doc.status not in (stb.REPORT_DRAFT, stb.REPORT_APPROVED):
+			_reject(REPORT_DOCTYPE, report_name,
+					"仅「草稿 / 已批准」可作废（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 void_report".format(doc.status))
+		_set_status(doc, stb.FLOW_STB_REPORT, stb.REPORT_VOIDED)
+		doc.void_reason = reason
+		doc.save(ignore_permissions=True)
+		_audit_on(REPORT_DOCTYPE, "报告作废", doc.name,
+				  action_text="报告作废", reason=reason, new_value=doc.status)
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- 结果与报告的只读接口（供 R8I 前端与报表） ----------------------------
+
+@frappe.whitelist()
+def get_stability_results(timepoint=None, stability_sample=None, stability_test_item=None,
+						  status=None, limit=300):
+	"""结果台账（按时间点 / 样品 / 项目筛选）。"""
+	_check_action("get_stability_results", RESULT_DOCTYPE, timepoint or stability_sample or "-")
+	filters = {}
+	if timepoint:
+		filters["timepoint"] = timepoint
+	if stability_sample:
+		filters["stability_sample"] = stability_sample
+	if stability_test_item:
+		filters["stability_test_item"] = stability_test_item
+	if status:
+		filters["status"] = status
+	rows = frappe.get_all(
+		RESULT_DOCTYPE, filters=filters,
+		fields=["name", "timepoint", "stability_sample", "stability_test_item", "item_snapshot",
+				"result_value", "unit", "is_qualified", "is_significant_change",
+				"significant_change_basis", "result_baseline", "baseline_ref",
+				"baseline_doctype", "baseline_name", "is_zero_month", "source",
+				"revision_no", "is_current", "status", "analyst", "test_date",
+				"submitted_by", "submitted_at", "reviewed_by", "reviewed_at",
+				"approved_by", "approved_at", "return_reason", "void_reason",
+				"spec_limit", "spec_version", "method_version", "test_method",
+				"oos_flag", "oot_flag", "result_version_key", "supersedes"],
+		order_by="creation desc", limit_page_length=int(limit))
+	return {"rows": rows}
+
+
+@frappe.whitelist()
+def get_stability_result_detail(result_name):
+	"""结果详情（含同 (时间点, 项目) 的**修订链**）。"""
+	_check_action("get_stability_result_detail", RESULT_DOCTYPE, result_name)
+	doc = frappe.get_doc(RESULT_DOCTYPE, result_name)
+	chain = frappe.get_all(
+		RESULT_DOCTYPE,
+		filters={"timepoint": doc.timepoint, "stability_test_item": doc.stability_test_item},
+		fields=["name", "revision_no", "status", "is_current", "result_value",
+				"supersedes", "approved_at", "void_reason"],
+		order_by="revision_no asc", limit_page_length=0)
+	return {
+		"name": doc.name,
+		"timepoint": doc.timepoint,
+		"stability_sample": doc.stability_sample,
+		"stability_test_item": doc.stability_test_item,
+		"item_snapshot": doc.item_snapshot,
+		"result_value": doc.result_value,
+		"unit": doc.unit,
+		"is_qualified": doc.is_qualified,
+		"is_significant_change": doc.is_significant_change,
+		"significant_change_basis": doc.significant_change_basis,
+		"result_baseline": doc.result_baseline,
+		"baseline_ref": doc.baseline_ref,
+		"baseline_doctype": doc.baseline_doctype,
+		"baseline_name": doc.baseline_name,
+		"is_zero_month": doc.is_zero_month,
+		"source": doc.source,
+		"revision_no": doc.revision_no,
+		"is_current": doc.is_current,
+		"status": doc.status,
+		"spec_limit": doc.spec_limit,
+		"spec_version": doc.spec_version,
+		"test_method": doc.test_method,
+		"method_version": doc.method_version,
+		"analyst": doc.analyst,
+		"test_date": doc.test_date,
+		"submitted_by": doc.submitted_by,
+		"submitted_at": doc.submitted_at,
+		"reviewed_by": doc.reviewed_by,
+		"reviewed_at": doc.reviewed_at,
+		"approved_by": doc.approved_by,
+		"approved_at": doc.approved_at,
+		"return_reason": doc.return_reason,
+		"void_reason": doc.void_reason,
+		"oos_flag": doc.oos_flag,
+		"oot_flag": doc.oot_flag,
+		"revision_chain": chain,
+	}
+
+
+@frappe.whitelist()
+def get_stability_trend(stability_product, stability_test_item, condition_type=None,
+						sample=None):
+	"""稳定性趋势图数据（方案 7.5）：时间点序列 + 规格限 + 线性趋势线。
+
+	**只返回规格限、折线与趋势线拟合参数；不计算统计控制限**（`SOP-QA-2-00-005` 口径待 QA 确认）。
+	取数一律 `is_current=1 且 status=已批准`。
+	"""
+	_check_action("get_stability_trend", RESULT_DOCTYPE, stability_product)
+	q = frappe.get_all(SAMPLE_DOCTYPE, filters={"stability_product": stability_product},
+					   fields=["name"], limit_page_length=0)
+	sample_names = [s.name for s in q]
+	if sample:
+		sample_names = [n for n in sample_names if n == sample]
+	series = []
+	if sample_names:
+		rows = frappe.get_all(
+			RESULT_DOCTYPE,
+			filters={"stability_sample": ["in", sample_names],
+					 "stability_test_item": stability_test_item,
+					 "status": stb.RESULT_APPROVED, "is_current": 1},
+			fields=["name", "timepoint", "result_value", "unit", "is_significant_change",
+					"significant_change_basis", "spec_limit", "spec_version"],
+			limit_page_length=0)
+		tp_ids = sorted({r.timepoint for r in rows})
+		tps = {}
+		if tp_ids:
+			for t in frappe.get_all(TIMEPOINT_DOCTYPE, filters={"name": ["in", tp_ids]},
+									fields=["name", "condition_type", "time_point_value",
+											"time_point_unit", "plan_sample_date"],
+									limit_page_length=0):
+				tps[t.name] = t
+		for r in rows:
+			t = tps.get(r.timepoint)
+			if not t:
+				continue
+			if condition_type and t.condition_type != condition_type:
+				continue
+			if t.time_point_unit != "月":
+				continue
+			series.append({
+				"name": r.name,
+				"x": int(t.time_point_value or 0),
+				"label": "{}月".format(int(t.time_point_value or 0)),
+				"y": _to_float(r.result_value),
+				"raw": r.result_value,
+				"unit": r.unit,
+				"condition_type": t.condition_type,
+				"plan_sample_date": t.plan_sample_date,
+				"is_significant_change": r.is_significant_change,
+				"significant_change_basis": r.significant_change_basis,
+				"spec_limit": r.spec_limit,
+				"spec_version": r.spec_version,
+			})
+		series.sort(key=lambda x: x["x"])
+
+	# 规格限：优先从来源链解析结构化限度；文本快照取最新一条生效结果
+	spec_limit_text = series[-1]["spec_limit"] if series else None
+	spec_version = series[-1]["spec_version"] if series else None
+	limits_type, lower, upper = None, None, None
+	resolved = _resolve_spec_limits(stability_product, stability_test_item)
+	if resolved:
+		limits_type, lower, upper = resolved
+
+	return {
+		"product": stability_product,
+		"stability_test_item": stability_test_item,
+		"condition_type": condition_type,
+		"series": series,
+		"spec": {"limits_type": limits_type, "lower": lower, "upper": upper,
+				 "text": spec_limit_text, "version": spec_version},
+		"trend_line": stb.fit_trend_line([(p["x"], p["y"]) for p in series if p["y"] is not None]),
+		"note": "仅规格限 + 折线 + 线性趋势线；统计控制限口径（SOP-QA-2-00-005）待 QA 确认前不计算、不展示",
+	}
+
+
+def _to_float(value):
+	try:
+		return float(value)
+	except (TypeError, ValueError):
+		return None
+
+
+def _resolve_spec_limits(stability_product, stability_test_item):
+	"""从该产品任一已批准结果的来源链解析规格限度（结构化）。"""
+	sample = frappe.get_all(SAMPLE_DOCTYPE, filters={"stability_product": stability_product},
+							pluck="name", limit_page_length=1)
+	if not sample:
+		return None
+	sample_doc = frappe.get_doc(SAMPLE_DOCTYPE, sample[0])
+	src = _source_doc_of_sample(sample_doc)
+	if src is None:
+		return None
+	row = _spec_row_for(src.spec_ref, stability_test_item)
+	if row is None:
+		return None
+	return row.limits_type, row.lower_limit, row.upper_limit
+
+
+@frappe.whitelist()
+def get_stability_reports(report_type=None, status=None, keyword=None, limit=200):
+	"""稳定性报告台账。"""
+	_check_action("get_stability_reports", REPORT_DOCTYPE, "-")
+	filters = {}
+	if report_type:
+		filters["report_type"] = report_type
+	if status:
+		filters["status"] = status
+	or_filters = None
+	kw = (keyword or "").strip()
+	if kw:
+		or_filters = [["name", "like", "%{}%".format(kw)],
+					  ["study_scope", "like", "%{}%".format(kw)],
+					  ["client", "like", "%{}%".format(kw)]]
+	rows = frappe.get_all(
+		REPORT_DOCTYPE, filters=filters, or_filters=or_filters,
+		fields=["name", "report_type", "stability_product", "year", "source_doctype",
+				"source_name", "customer", "client_code", "client", "seq",
+				"period_from", "period_to", "proposed_validity_months",
+				"proposed_validity_date", "final_validity_months", "final_validity_date",
+				"final_validity_type", "status", "drafted_by", "draft_date",
+				"qa_review_by", "qa_approve_by", "approve_date", "report_period_key"],
+		order_by="creation desc", limit_page_length=int(limit))
+	prod_names = sorted({r.stability_product for r in rows if r.get("stability_product")})
+	products = dict(frappe.get_all("HBOS Stability Product", filters={"name": ["in", prod_names]},
+								   fields=["name", "product_name"], as_list=True)) if prod_names else {}
+	for r in rows:
+		r["product_name"] = products.get(r.get("stability_product"))
+	return {"rows": rows}
+
+
+@frappe.whitelist()
+def get_stability_report_detail(report_name):
+	"""报告详情（全字段）。"""
+	_check_action("get_stability_report_detail", REPORT_DOCTYPE, report_name)
+	doc = frappe.get_doc(REPORT_DOCTYPE, report_name)
+	out = {}
+	for field in ("name", "report_type", "stability_product", "year", "source_doctype",
+				  "source_name", "customer", "client_code", "client", "seq",
+				  "report_period_key", "study_scope", "period_from", "period_to",
+				  "storage_conds", "spec_ref", "trend_analysis", "impurity_profile",
+				  "trend_chart_ref", "conclusion", "proposed_validity_months",
+				  "proposed_validity_date", "proposed_validity_type", "proposed_validity_basis",
+				  "final_validity_months", "final_validity_date", "final_validity_type",
+				  "client_requirement", "drafted_by", "draft_date", "qa_review_by",
+				  "qa_review_date", "qa_approve_by", "approve_date", "reject_reason",
+				  "void_reason", "status"):
+		out[field] = doc.get(field)
+	out["product_name"] = frappe.db.get_value(
+		"HBOS Stability Product", doc.stability_product, "product_name")
+	return out
+
+
+@frappe.whitelist()
+def get_stability_customer_scan(limit=300):
+	"""稳定性板块客户编码存量合规扫描（方案 P1 rev15 ②b）。
+
+	列出全库 `Customer` 文档名中**不符合命名规范**的项，交 QA 处置（改名 / 停用）
+	后专项报告方可引用。**只读**，不自动修改。
+	"""
+	_check_action("get_stability_customer_scan", REPORT_DOCTYPE, "-")
+	names = frappe.get_all("Customer", pluck="name", limit_page_length=int(limit))
+	bad = []
+	for n in names:
+		ok, err = stb.check_customer_code(n)
+		if not ok:
+			bad.append({"name": n, "reason": err,
+						"referenced": bool(frappe.db.exists(
+							REPORT_DOCTYPE, {"customer": n}))})
+	return {"scanned": len(names), "non_compliant": bad}
+
+
+def _holiday_set():
+	"""公司默认假日表（用于「5 个工作日」判定）；无配置或读取失败时返回空集合（退化为自然日）。"""
+	try:
+		company = (frappe.defaults.get_user_default("Company")
+				   or frappe.db.get_single_value("Global Defaults", "default_company"))
+		hl = frappe.db.get_value("Company", company, "default_holiday_list") if company else None
+		if not hl:
+			return set()
+		return {d.holiday_date for d in frappe.get_all(
+			"Holiday", filters={"parent": hl, "weekly_off": 0},
+			fields=["holiday_date"], limit_page_length=0) if d.holiday_date}
+	except Exception:
+		return set()

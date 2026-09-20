@@ -91,10 +91,13 @@ class TestR8BDoctypeContracts(unittest.TestCase):
 		for dirname, payload in self.children.items():
 			self.assertFalse(payload.get("permissions"), "{} 不应有权限行".format(dirname))
 
-	def test_timepoint_item_defers_result_link(self):
-		"""R8B 不建 `current_result`（Link 目标 HBOS Stability Result 属 R8C），避免悬空 Link。"""
+	def test_timepoint_item_has_current_result(self):
+		"""`current_result` 生效指针（Link → HBOS Stability Result）。
+
+		R8B 时因 Link 目标 DocType 尚未落地而暂缓（避免悬空 Link），R8C 创建 Result 后补建。
+		"""
 		names = [f["fieldname"] for f in self.children["hbos_stability_timepoint_item"]["fields"]]
-		self.assertNotIn("current_result", names)
+		self.assertIn("current_result", names)
 
 	def test_all_fieldtypes_valid(self):
 		valid = {
