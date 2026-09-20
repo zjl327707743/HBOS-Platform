@@ -46,7 +46,7 @@
 | `reopen_timepoint` | 已实现并登记（系统动作，角色豁免）；守卫「仅当 status=已完成 才调用」，本轮无公开调用方，由 R8C 的 `void_result` 同事务调用 |
 | `import_zero_month_result` | 校验 `is_zero_month=1` 且来源 ∈ {出厂全检, 委外} → 待取样 → 待检测 + 写 `0 月数据豁免校验` 审计（含来源单据）；**Result 落库与 `baseline_*` 字段留 R8C**（字段在 Result 上） |
 | `cancel_timepoint` 前置「已有已批准 Result 须先全部作废 / 无在途 Result」 | 同上按 DocType 存在性守卫 |
-| `append_conditions` | 受控入口；`HBOS Stability Change` 属 R8D，未落地时一律拒绝；`_append_conditions_impl` 已备好供 R8D 的 `implement_change` 同事务调用 |
+| `append_conditions` | 受控入口；`HBOS Stability Change` 属 R8D，未落地时一律拒绝；`_append_conditions_impl` 已备好供 R8D 的 `implement_change` 同事务调用（**已兑现（M2-R8D，2026-09-20）**：`implement_change` 7.9 原子事务与受控入口均已打通，实机验证追加 4 时间点成功。见 `docs/milestones/M2_R8D_变更稳定性室与设备后端.md`） |
 
 **未建 `Timepoint Item.current_result`**：其 Link 目标 `HBOS Stability Result` 属 R8C，
 按 R8A 先例（Room 不 Link 到 R8D 的 Equipment）本轮不建悬空 Link，由 R8C 补。

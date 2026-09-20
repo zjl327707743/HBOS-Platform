@@ -119,6 +119,28 @@ REPORT_SYSTEM_FIELDS = (
 	"qa_approve_by", "approve_date", "reject_reason", "void_reason",
 )
 
+# ---- M2-R8D 变更 / 稳定性室 / 设备 / 故障 ----
+
+# Change：草稿、已取消可删（方案 8.3）
+CHANGE_DELETABLE_STATUSES = ("草稿", "已取消")
+# Room Log：温湿度原始记录全状态禁删；Equipment：台账禁删（用「停用」）；Fault Ticket：待处理可删
+ROOM_LOG_DELETABLE_STATUSES = ()
+EQUIPMENT_DELETABLE_STATUSES = ()
+FAULT_DELETABLE_STATUSES = ("待处理",)
+
+CHANGE_SYSTEM_FIELDS = (
+	"status", "supersedes",
+	"qa_review_by", "qa_review_date", "approver_by", "approve_date", "reject_reason",
+	"implement_record", "implement_by", "implement_date",
+	"post_assessment", "post_assessment_result", "post_assess_by", "post_assess_date",
+	"applicant", "apply_date",
+)
+ROOM_LOG_SYSTEM_FIELDS = (
+	"room_date_period_key", "temp_min", "temp_max", "humidity_min", "humidity_max",
+	"within_spec", "status",
+)
+FAULT_SYSTEM_FIELDS = ("status", "last_fault_date", "handler", "handle_date")
+
 
 def _audit_delete_block(doctype, doc_name, action_text, reason):
 	"""删除拦截审计独立提交（方案 8.7）：不随 frappe.throw 的回滚丢失。"""

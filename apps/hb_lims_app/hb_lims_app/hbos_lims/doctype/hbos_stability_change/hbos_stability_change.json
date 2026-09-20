@@ -1,0 +1,370 @@
+{
+ "actions": [],
+ "creation": "2026-09-20 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Change",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "istable": 0,
+ "field_order": [
+  "naming_series",
+  "change_scope",
+  "change_level",
+  "supersedes",
+  "sec_target",
+  "notice",
+  "protocol",
+  "stability_sample",
+  "sec_content",
+  "change_content",
+  "change_reason",
+  "impact_assessment",
+  "support_docs",
+  "extra_conditions",
+  "applicant_dept",
+  "sec_signoff",
+  "applicant",
+  "apply_date",
+  "qa_review_by",
+  "qa_review_date",
+  "column_break_signoff",
+  "approver_by",
+  "approve_date",
+  "effective_date",
+  "reject_reason",
+  "sec_impl",
+  "implement_record",
+  "implement_by",
+  "implement_date",
+  "column_break_impl",
+  "post_assessment",
+  "post_assessment_result",
+  "post_assess_by",
+  "post_assess_date",
+  "sec_status",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-CHG-.YYYY.-",
+   "default": "HBOS-STB-CHG-.YYYY.-",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "change_scope",
+   "fieldtype": "Select",
+   "label": "变更落点",
+   "options": "\n涉方案\n涉通知单\n涉条件与时间点\n涉样品",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "change_level",
+   "fieldtype": "Select",
+   "label": "变更级别",
+   "options": "\n一般\n重大",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "supersedes",
+   "fieldtype": "Link",
+   "label": "被替代变更单",
+   "options": "HBOS Stability Change"
+  },
+  {
+   "fieldname": "sec_target",
+   "fieldtype": "Section Break",
+   "label": "变更对象（至少一项）"
+  },
+  {
+   "fieldname": "notice",
+   "fieldtype": "Link",
+   "label": "考察通知单",
+   "options": "HBOS Stability Notice"
+  },
+  {
+   "fieldname": "protocol",
+   "fieldtype": "Link",
+   "label": "稳定性方案",
+   "options": "HBOS Stability Protocol"
+  },
+  {
+   "fieldname": "stability_sample",
+   "fieldtype": "Link",
+   "label": "稳定性样品",
+   "options": "HBOS Stability Sample"
+  },
+  {
+   "fieldname": "sec_content",
+   "fieldtype": "Section Break",
+   "label": "变更内容",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "change_content",
+   "fieldtype": "Long Text",
+   "label": "变更内容",
+   "reqd": 1
+  },
+  {
+   "fieldname": "change_reason",
+   "fieldtype": "Long Text",
+   "label": "变更原因",
+   "reqd": 1
+  },
+  {
+   "fieldname": "impact_assessment",
+   "fieldtype": "Long Text",
+   "label": "影响评估",
+   "reqd": 1
+  },
+  {
+   "fieldname": "support_docs",
+   "fieldtype": "Attach",
+   "label": "主要支持性资料"
+  },
+  {
+   "fieldname": "applicant_dept",
+   "fieldtype": "Select",
+   "label": "申请部门",
+   "options": "\n研发部门\n生产部门\n质量控制部门\n质量保证部门"
+  },
+  {
+   "fieldname": "sec_signoff",
+   "fieldtype": "Section Break",
+   "label": "审批链"
+  },
+  {
+   "fieldname": "applicant",
+   "fieldtype": "Link",
+   "label": "申请人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "apply_date",
+   "fieldtype": "Date",
+   "label": "申请日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_review_by",
+   "fieldtype": "Link",
+   "label": "QA 审核人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_review_date",
+   "fieldtype": "Date",
+   "label": "QA 审核日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_signoff",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "approver_by",
+   "fieldtype": "Link",
+   "label": "批准人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approve_date",
+   "fieldtype": "Date",
+   "label": "批准日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "effective_date",
+   "fieldtype": "Date",
+   "label": "生效日期"
+  },
+  {
+   "fieldname": "reject_reason",
+   "fieldtype": "Long Text",
+   "label": "驳回原因",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_impl",
+   "fieldtype": "Section Break",
+   "label": "实施与后评估"
+  },
+  {
+   "fieldname": "implement_record",
+   "fieldtype": "Long Text",
+   "label": "实施记录"
+  },
+  {
+   "fieldname": "implement_by",
+   "fieldtype": "Link",
+   "label": "实施人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "implement_date",
+   "fieldtype": "Date",
+   "label": "实施日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_impl",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "post_assessment",
+   "fieldtype": "Long Text",
+   "label": "后评估结论"
+  },
+  {
+   "fieldname": "post_assessment_result",
+   "fieldtype": "Select",
+   "label": "后评估结果",
+   "options": "\n达标\n不达标需纠正"
+  },
+  {
+   "fieldname": "post_assess_by",
+   "fieldtype": "Link",
+   "label": "后评估人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "post_assess_date",
+   "fieldtype": "Date",
+   "label": "后评估日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_status",
+   "fieldtype": "Section Break",
+   "label": "状态"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "草稿\n待QA审核\n待QA经理批准\n待QP批准\n已批准\n已实施\n已评估完成\n后评估不通过\n已驳回\n已取消",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "default": "草稿"
+  },
+  {
+   "fieldname": "extra_conditions",
+   "fieldtype": "Table",
+   "label": "变更后条件（追加）",
+   "options": "HBOS Stability Study Condition",
+   "description": "落点「涉条件与时间点 / 涉方案」时填写的变更后新条件（共享子表，方案 5.8 / 7.1；R8D 实施缺口补建）"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "LIMS Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Analyst",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Reviewer",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QP",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  }
+ ]
+}

@@ -2310,6 +2310,40 @@ def scheduler_scan():
 			due = stb.add_working_days(stb._as_date(last[0].approved_at), 5, holidays)
 			if due and today > due:
 				trend_overdue.append(name)
+	# 设备/校准/确认到期（方案 8.4）：任一到期日距今 ≤ 30 天
+	equipment_due = []
+	if frappe.db.exists("DocType", EQUIPMENT_DOCTYPE):
+		for eq in frappe.get_all(
+				EQUIPMENT_DOCTYPE,
+				filters={"status": ["in", [stb.EQUIPMENT_STATUSES[0], stb.EQUIPMENT_STATUSES[2]]]},
+				fields=["name", "calibration_due", "maintenance_due", "qualification_due"],
+				limit_page_length=0):
+			for field in ("calibration_due", "maintenance_due", "qualification_due"):
+				due = stb._as_date(eq.get(field))
+				if due and stb._add_days(today, 30) >= due >= today:
+					equipment_due.append({"name": eq.name, "field": field, "due": str(due)})
+					break
+	# 温湿度缺卡（方案 8.4 P3）：某房间某工作日（依 Holiday List）缺上午或下午记录
+	room_log_missing = []
+	if frappe.db.exists("DocType", ROOM_LOG_DOCTYPE):
+		rooms = frappe.get_all("HBOS Stability Room", filters={"is_active": 1},
+							   pluck="name", limit_page_length=0)
+		if rooms:
+			holiday_dates = _holiday_set()
+			for offset in range(1, 8):
+				day = stb._as_date(frappe.utils.add_days(str(today), -offset))
+				if day.weekday() >= 5 or day in holiday_dates:
+					continue
+				for room in rooms:
+					logged = {r.period for r in frappe.get_all(
+						ROOM_LOG_DOCTYPE, filters={"room": room, "log_date": str(day)},
+						fields=["period"], limit_page_length=0)}
+					missing = [p for p in stb.LOG_PERIODS if p not in logged]
+					if missing:
+						room_log_missing.append(
+							{"room": room, "date": str(day), "missing": missing})
+	# 运行期一致性扫描（方案 8.6 / P2 rev12）
+	consistency_violations = _consistency_scan()
 	summary = {
 		"date": str(today),
 		"sample_overdue": len(sample_overdue),
@@ -2318,6 +2352,9 @@ def scheduler_scan():
 		"recommend_due": len(recommend_due),
 		"trend_eval_overdue": len(trend_overdue),
 		"sample_without_timepoint": len(no_timepoint),
+		"equipment_due": len(equipment_due),
+		"room_log_missing": len(room_log_missing),
+		"consistency_violations": len(consistency_violations),
 		"details": {
 			"sample_overdue": sample_overdue[:200],
 			"test_overdue": test_overdue[:200],
@@ -2325,10 +2362,88 @@ def scheduler_scan():
 			"recommend_due": recommend_due[:200],
 			"trend_eval_overdue": trend_overdue[:200],
 			"sample_without_timepoint": no_timepoint[:200],
+			"equipment_due": equipment_due[:200],
+			"room_log_missing": room_log_missing[:200],
+			"consistency_violations": consistency_violations[:200],
 		},
 	}
 	frappe.cache.set_value("hbos_stability_scheduler_summary", summary)
 	return summary
+
+
+def _consistency_scan():
+	"""运行期一致性扫描（方案 8.6 / P2 rev12）：只检出与告警，不自动修复。
+
+	四类不变式：生效指针 / 流水对账 / 日期链 / 业务键唯一。违反写审计事件「一致性异常」。
+	"""
+	violations = []
+	# ① 生效指针不变式（7.7 / 门禁 11、15）
+	if frappe.db.exists("DocType", RESULT_DOCTYPE):
+		for row in frappe.get_all(
+				RESULT_DOCTYPE, filters={"is_current": 1},
+				fields=["name", "timepoint", "stability_test_item", "status"],
+				limit_page_length=0):
+			if row.status != stb.RESULT_APPROVED:
+				violations.append(("生效指针不变式", RESULT_DOCTYPE, row.name,
+								   "is_current=1 但 status={}".format(row.status)))
+			elif not frappe.db.exists("HBOS Stability Timepoint Item",
+									  {"current_result": row.name}):
+				violations.append(("生效指针不变式", RESULT_DOCTYPE, row.name,
+								   "无 Timepoint Item.current_result 指向"))
+	# 同一 (时间点, 项目) 至多一条 is_current=1
+		dup_rows = frappe.get_all(
+			RESULT_DOCTYPE, filters={"is_current": 1},
+			fields=["timepoint", "stability_test_item"], limit_page_length=0)
+		seen = {}
+		for r in dup_rows:
+			k = (r.timepoint, r.stability_test_item)
+			if k in seen:
+				violations.append(("生效指针不变式", RESULT_DOCTYPE, seen[k],
+								   "与 {} 同键均 is_current=1".format(r.name)))
+			seen[k] = r.name
+	# ② 流水对账（7.8 / 门禁 7）
+	for s in frappe.get_all(SAMPLE_DOCTYPE, fields=["name", "current_qty"],
+							limit_page_length=0):
+		logs = frappe.get_all("HBOS Stability Sample Log", filters={"parent": s.name},
+							  fields=["qty_delta"], limit_page_length=0)
+		total = sum(float(l.qty_delta or 0) for l in logs)
+		if abs(total - float(s.current_qty or 0)) > 1e-6:
+			violations.append(("流水对账", SAMPLE_DOCTYPE, s.name,
+							   "流水累计 {} ≠ current_qty {}".format(total, s.current_qty)))
+	# ③ 日期链（7.3 / 门禁 18）：已批准延期行 planned ≤ requested ≤ approved ≤ policy_latest
+	for d in frappe.get_all("HBOS Stability Timepoint Delay",
+							filters={"status": stb.DELAY_APPROVED},
+							fields=["name", "planned_due_date", "requested_due_date",
+									"approved_due_date", "policy_latest_due_date"],
+							limit_page_length=0):
+		chain = [d.planned_due_date, d.requested_due_date, d.approved_due_date,
+				 d.policy_latest_due_date]
+		if all(chain) and not (chain[0] <= chain[1] <= chain[2] <= chain[3]):
+			violations.append(("日期链", "HBOS Stability Timepoint Delay", d.name,
+							   "planned≤requested≤approved≤policy_latest 不成立"))
+	# ④ 业务键唯一（5.6）：DB unique 之外的应用层抽查
+	for check in ((TIMEPOINT_DOCTYPE, "sample_cond_point_key"),
+				  (RESULT_DOCTYPE, "result_version_key"),
+				  (ROOM_LOG_DOCTYPE, "room_date_period_key")):
+		if not frappe.db.exists("DocType", check[0]):
+			continue
+		names = frappe.get_all(check[0], pluck=check[1], limit_page_length=0)
+		seen_keys = set()
+		for key in names:
+			if not key:
+				continue
+			if key in seen_keys:
+				violations.append(("业务键唯一", check[0], key, "重复业务键"))
+			seen_keys.add(key)
+	# 违反写审计（独立提交，扫描器自身不成为写路径）
+	for invariant, dt, name, detail in violations:
+		try:
+			_audit_on(dt, "一致性异常", name, action_text="运行期一致性扫描",
+					  reason="{}：{}".format(invariant, detail))
+		except Exception as exc:
+			frappe.log_error("一致性异常审计写入失败：{}".format(exc), "HBOS Stability 一致性扫描")
+	_commit()
+	return violations
 
 
 def _to_days_of(timepoint_row):
@@ -3505,3 +3620,687 @@ def _holiday_set():
 			fields=["holiday_date"], limit_page_length=0) if d.holiday_date}
 	except Exception:
 		return set()
+
+
+# ===========================================================================
+# M2-R8D 变更、稳定性室与设备（方案 6.3.7 / 6.3.8 / 7.9）
+# ===========================================================================
+
+CHANGE_DOCTYPE = "HBOS Stability Change"
+ROOM_LOG_DOCTYPE = "HBOS Stability Room Log"
+EQUIPMENT_DOCTYPE = "HBOS Stability Equipment"
+FAULT_DOCTYPE = "HBOS Stability Fault Ticket"
+
+
+# ---- 6.3.7 变更审批链 ------------------------------------------------------
+
+@frappe.whitelist()
+def create_stability_change(change_scope, change_level, change_content, change_reason,
+							impact_assessment, notice=None, protocol=None,
+							stability_sample=None, supersedes=None,
+							applicant_dept=None, effective_date=None,
+							support_docs=None):
+	"""变更申请（草稿）。变更对象至少一项；落点与对象匹配由控制器校验（方案 5.5.1 / 7.9）。"""
+	_check_action("create_change", CHANGE_DOCTYPE, "-")
+	if change_scope not in stb.CHANGE_SCOPES:
+		frappe.throw("变更落点「{}」不在受控枚举内。".format(change_scope))
+	if change_level not in stb.CHANGE_LEVELS:
+		frappe.throw("变更级别「{}」不在受控枚举内。".format(change_level))
+	try:
+		doc = frappe.get_doc({
+			"doctype": CHANGE_DOCTYPE,
+			"change_scope": change_scope,
+			"change_level": change_level,
+			"notice": notice or None,
+			"protocol": protocol or None,
+			"stability_sample": stability_sample or None,
+			"supersedes": supersedes or None,
+			"change_content": change_content,
+			"change_reason": change_reason,
+			"impact_assessment": impact_assessment,
+			"applicant_dept": applicant_dept or None,
+			"effective_date": effective_date or None,
+			"support_docs": support_docs or None,
+			"applicant": _user(),
+			"apply_date": _today(),
+			"status": stb.CHANGE_DRAFT,
+		})
+		doc.insert(ignore_permissions=True)
+		_audit_on(CHANGE_DOCTYPE, "变更申请", doc.name,
+				  action_text="变更申请", new_value="{} / {}".format(change_scope, change_level))
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def submit_change(change_name):
+	"""变更提交（草稿 → 待QA审核）。"""
+	_check_action("submit_change", CHANGE_DOCTYPE, change_name)
+	try:
+		doc = _load(CHANGE_DOCTYPE, change_name)
+		if doc.status != stb.CHANGE_DRAFT:
+			_reject(CHANGE_DOCTYPE, change_name,
+					"仅「草稿」可提交（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 submit_change".format(doc.status))
+		_set_status(doc, stb.FLOW_STB_CHANGE, stb.CHANGE_WAIT_QA)
+		doc.save(ignore_permissions=True)
+		_audit_on(CHANGE_DOCTYPE, "变更申请", doc.name, action_text="变更提交")
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def review_change(change_name):
+	"""变更 QA 审核（待QA审核 → 按级别分流：一般→待QA经理批准；重大→待QP批准）。"""
+	_check_action("review_change", CHANGE_DOCTYPE, change_name)
+	try:
+		doc = _load(CHANGE_DOCTYPE, change_name)
+		if doc.status != stb.CHANGE_WAIT_QA:
+			_reject(CHANGE_DOCTYPE, change_name,
+					"仅「待QA审核」可审核（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 review_change".format(doc.status))
+		target = stb.CHANGE_WAIT_QP if doc.change_level == "重大" else stb.CHANGE_WAIT_QAM
+		doc.flags.allow_system_fields = True
+		doc.qa_review_by = _user()
+		doc.qa_review_date = _today()
+		_set_status(doc, stb.FLOW_STB_CHANGE, target)
+		doc.save(ignore_permissions=True)
+		_audit_on(CHANGE_DOCTYPE, "变更QA审核", doc.name,
+				  action_text="变更 QA 审核", new_value=target)
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def approve_change_general(change_name):
+	"""一般变更批准（待QA经理批准 → 已批准）。QA 经理专属（方案 S7，无 Manager 兜底）。"""
+	_check_action("approve_change_general", CHANGE_DOCTYPE, change_name)
+	return _approve_change(change_name, stb.CHANGE_WAIT_QAM, "一般变更批准")
+
+
+@frappe.whitelist()
+def approve_change_major(change_name):
+	"""重大变更批准（待QP批准 → 已批准）。QP 专属。"""
+	_check_action("approve_change_major", CHANGE_DOCTYPE, change_name)
+	return _approve_change(change_name, stb.CHANGE_WAIT_QP, "重大变更批准")
+
+
+def _approve_change(change_name, expected_status, event):
+	doc = _load(CHANGE_DOCTYPE, change_name)
+	if doc.status != expected_status:
+		_reject(CHANGE_DOCTYPE, change_name,
+				"仅「{}」可批准（当前：{}）。".format(expected_status, doc.status),
+				"非法状态：{} 调用 {} ".format(doc.status, event))
+	doc.flags.allow_system_fields = True
+	doc.approver_by = _user()
+	doc.approve_date = _today()
+	_set_status(doc, stb.FLOW_STB_CHANGE, stb.CHANGE_APPROVED)
+	doc.save(ignore_permissions=True)
+	_audit_on(CHANGE_DOCTYPE, event, doc.name, action_text=event)
+	_commit()
+	return {"name": doc.name, "status": doc.status}
+
+
+@frappe.whitelist()
+def reject_change(change_name, reason):
+	"""变更驳回（三个在审状态 → 已驳回），原因必填。"""
+	_check_action("reject_change", CHANGE_DOCTYPE, change_name)
+	if not (reason or "").strip():
+		frappe.throw("驳回原因必填。")
+	try:
+		doc = _load(CHANGE_DOCTYPE, change_name)
+		if doc.status not in (stb.CHANGE_WAIT_QA, stb.CHANGE_WAIT_QAM, stb.CHANGE_WAIT_QP):
+			_reject(CHANGE_DOCTYPE, change_name,
+					"仅「在审」状态可驳回（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 reject_change".format(doc.status))
+		doc.flags.allow_system_fields = True
+		doc.reject_reason = reason
+		_set_status(doc, stb.FLOW_STB_CHANGE, stb.CHANGE_REJECTED)
+		doc.save(ignore_permissions=True)
+		_audit_on(CHANGE_DOCTYPE, "驳回", doc.name, action_text="变更驳回", reason=reason)
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def cancel_change(change_name, reason=None):
+	"""变更取消（草稿 → 已取消）。"""
+	_check_action("cancel_change", CHANGE_DOCTYPE, change_name)
+	try:
+		doc = _load(CHANGE_DOCTYPE, change_name)
+		if doc.status != stb.CHANGE_DRAFT:
+			_reject(CHANGE_DOCTYPE, change_name,
+					"仅「草稿」可取消（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 cancel_change".format(doc.status))
+		_set_status(doc, stb.FLOW_STB_CHANGE, stb.CHANGE_CANCELLED)
+		doc.save(ignore_permissions=True)
+		_audit_on(CHANGE_DOCTYPE, "变更取消", doc.name, action_text="变更取消", reason=reason or "")
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def implement_change(change_name, implement_record):
+	"""变更实施（已批准 → 已实施）：**单一原子事务**（方案 7.9 / P1-9）。
+
+	同事务内 (a) 按 `change_scope` 执行落点回写（方案升版 / 新通知单 / 追加条件 / 新样品），
+	(b) 写落点审计 + 汇总审计，(c) 置「已实施」；任一步失败整体回滚，变更单停留「已批准」。
+	"""
+	_check_action("implement_change", CHANGE_DOCTYPE, change_name)
+	if not (implement_record or "").strip():
+		frappe.throw("实施记录必填（方案 5.5.1）。")
+	try:
+		doc = _load(CHANGE_DOCTYPE, change_name)
+		if doc.status != stb.CHANGE_APPROVED:
+			_reject(CHANGE_DOCTYPE, change_name,
+					"仅「已批准」可实施（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 implement_change".format(doc.status))
+		result = {"scope": doc.change_scope, "created": None, "appended": 0}
+		if doc.change_scope == "涉方案":
+			result["created"] = _implement_protocol_new_version(doc)
+			_audit_on(CHANGE_DOCTYPE, "变更实施回写", doc.name,
+					  action_text="变更实施-方案升版", new_value=result["created"])
+		elif doc.change_scope == "涉通知单":
+			result["created"] = _implement_new_notice(doc)
+			_audit_on(CHANGE_DOCTYPE, "变更实施回写", doc.name,
+					  action_text="变更实施-新通知单", new_value=result["created"])
+		elif doc.change_scope == "涉条件与时间点":
+			sample = _lock_row(SAMPLE_DOCTYPE, doc.stability_sample)
+			result["appended"] = _append_conditions_impl(sample, _extra_conditions_of(doc))
+			_audit_on(CHANGE_DOCTYPE, "变更实施回写", doc.name,
+					  action_text="变更实施-追加条件",
+					  new_value="{} 个时间点".format(result["appended"]))
+		elif doc.change_scope == "涉样品":
+			result["created"] = _implement_new_sample(doc)
+			_audit_on(CHANGE_DOCTYPE, "变更实施回写", doc.name,
+					  action_text="变更实施-新样品", new_value=result["created"])
+		else:
+			frappe.throw("变更落点「{}」无法分派实施动作。".format(doc.change_scope))
+		doc.flags.allow_system_fields = True
+		doc.implement_record = implement_record
+		doc.implement_by = _user()
+		doc.implement_date = _today()
+		_set_status(doc, stb.FLOW_STB_CHANGE, stb.CHANGE_IMPLEMENTED)
+		doc.save(ignore_permissions=True)
+		_audit_on(CHANGE_DOCTYPE, "变更实施回写", doc.name,
+				  action_text="变更实施完成", new_value=doc.status)
+		_commit()
+		return {"name": doc.name, "status": doc.status, "result": result}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def assess_change(change_name, post_assessment, post_assessment_result):
+	"""变更后评估（已实施 → 已评估完成 / 后评估不通过）；不达标须另立新单（supersedes）。"""
+	_check_action("assess_change", CHANGE_DOCTYPE, change_name)
+	if not (post_assessment or "").strip():
+		frappe.throw("后评估结论必填。")
+	if post_assessment_result not in ("达标", "不达标需纠正"):
+		frappe.throw("后评估结果须为「达标 / 不达标需纠正」。")
+	try:
+		doc = _load(CHANGE_DOCTYPE, change_name)
+		if doc.status != stb.CHANGE_IMPLEMENTED:
+			_reject(CHANGE_DOCTYPE, change_name,
+					"仅「已实施」可后评估（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 assess_change".format(doc.status))
+		target = stb.CHANGE_ASSESS_FAILED if post_assessment_result == "不达标需纠正" \
+			else stb.CHANGE_ASSESSED
+		doc.flags.allow_system_fields = True
+		doc.post_assessment = post_assessment
+		doc.post_assessment_result = post_assessment_result
+		doc.post_assess_by = _user()
+		doc.post_assess_date = _today()
+		_set_status(doc, stb.FLOW_STB_CHANGE, target)
+		doc.save(ignore_permissions=True)
+		_audit_on(CHANGE_DOCTYPE, "变更后评估", doc.name,
+				  action_text="变更后评估", new_value=target)
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def reopen_change(change_name, new_change_name):
+	"""变更重启校验（后评估不通过 → 另立新单）：仅校验 supersedes 指向，不改本单状态。"""
+	_check_action("reopen_change", CHANGE_DOCTYPE, change_name)
+	try:
+		doc = frappe.get_doc(CHANGE_DOCTYPE, change_name)
+		if doc.status != stb.CHANGE_ASSESS_FAILED:
+			_reject(CHANGE_DOCTYPE, change_name,
+					"仅「后评估不通过」的变更单可重启（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 reopen_change".format(doc.status))
+		new_doc = frappe.get_doc(CHANGE_DOCTYPE, new_change_name)
+		if new_doc.supersedes != change_name:
+			frappe.throw("重启新单（{}）的 supersedes 必须指向本单（{}）（方案 6.1）。".format(
+				new_change_name, change_name))
+		_audit_on(CHANGE_DOCTYPE, "变更重启", doc.name,
+				  action_text="变更重启校验通过", new_value=new_change_name)
+		_commit()
+		return {"name": new_change_name, "supersedes": change_name, "ok": True}
+	except Exception:
+		_rollback()
+		raise
+
+
+def _implement_protocol_new_version(change):
+	"""落点「涉方案」：生成 Protocol 新版本（version+1 + supersedes），原版置已作废（7.9）。
+
+	注意：快照字段随新版本复制，**不改原版任何字段**（冻结快照 7.7，作废为状态转移非字段改写）。
+	"""
+	if not change.protocol:
+		frappe.throw("落点「涉方案」的变更单未指定方案（7.9）。")
+	old = frappe.get_doc("HBOS Stability Protocol", change.protocol)
+	old.flags.allow_system_fields = True
+	_set_status(old, stb.FLOW_STB_PROTOCOL, stb.PROTOCOL_VOIDED)
+	old.save(ignore_permissions=True)
+	new = frappe.get_doc({
+		"doctype": "HBOS Stability Protocol",
+		"notice": old.notice,
+		"version": (old.version or 1) + 1,
+		"supersedes": old.name,
+		"purpose": old.purpose,
+		"scope": old.scope,
+		"qty": old.qty,
+		"qty_uom": old.qty_uom,
+		"pack_desc": old.pack_desc,
+		"room_temp_recovery_days": old.room_temp_recovery_days,
+		"spec_ref": old.spec_ref,
+		"spec_version": old.spec_version,
+		"test_method_ref": old.test_method_ref,
+		"method_version": old.method_version,
+		"batches": [r.as_dict() for r in (old.batches or [])],
+		"study_conditions": [r.as_dict() for r in (old.study_conditions or [])],
+		"items": [r.as_dict() for r in (old.items or [])],
+		"status": stb.PROTOCOL_DRAFT,
+	})
+	new.flags.allow_system_fields = True
+	new.insert(ignore_permissions=True)
+	return new.name
+
+
+def _implement_new_notice(change):
+	"""落点「涉通知单」：另立新 Notice 草稿（version+1 + supersedes），原 Notice 不动（7.9）。
+
+	新通知单为草稿，须走 R8A 的提交流程；本方法只完成"另立"动作。
+	"""
+	if not change.notice:
+		frappe.throw("落点「涉通知单」的变更单未指定通知单（7.9）。")
+	old = frappe.get_doc("HBOS Stability Notice", change.notice)
+	new = frappe.get_doc({
+		"doctype": "HBOS Stability Notice",
+		"stability_product": old.stability_product,
+		"version": (old.version or 1) + 1,
+		"supersedes": old.name,
+		"study_reason": "变更实施另立（源自 {}）：{}".format(old.name, old.study_reason or ""),
+		"qty": old.qty,
+		"qty_uom": old.qty_uom,
+		"pack_desc": old.pack_desc,
+		"test_cycle": old.test_cycle,
+		"test_method": old.test_method,
+		"spec_ref": old.spec_ref,
+		"spec_version": old.spec_version,
+		"method_version": old.method_version,
+		"limits_snapshot": old.limits_snapshot,
+		"study_conditions": [r.as_dict() for r in (old.study_conditions or [])],
+		"batches": [r.as_dict() for r in (old.batches or [])],
+		"status": stb.NOTICE_DRAFT,
+	})
+	new.flags.allow_system_fields = True
+	new.insert(ignore_permissions=True)
+	return new.name
+
+
+def _implement_new_sample(change):
+	"""落点「涉样品」：另立新 Sample（按新条件/包装重新入箱），原样品记录不动（7.9）。
+
+	新样品复用原 Notice / Protocol 作为来源链；入箱信息由变更单上的支持性说明提供。
+	"""
+	if not change.stability_sample:
+		frappe.throw("落点「涉样品」的变更单未指定样品（7.9）。")
+	frappe.throw("落点「涉样品」须按新条件/包装重新入箱，请使用 `register_stability_sample` "
+				 "建新样品后再在本变更单实施记录中登记新样品编号（7.9）。")
+
+
+# ---- 6.3.8 稳定性室：温湿度记录 / 设备台账 / 故障工单 -----------------------
+
+@frappe.whitelist()
+def log_room_env(room, log_date, period, temperature, humidity,
+				 checker=None, check_date=None, exception_desc=None, action_taken=None,
+				 deviation_ref=None, capa_ref=None):
+	"""温湿度手工记录（记录四）。同房间同日期同班次唯一；超标必填异常描述（方案 5.5.2）。
+
+	`within_spec` 由控制器判定；快照上下限在控制器写入。此方法为唯一合法写入口。
+	"""
+	_check_action("log_room_env", ROOM_LOG_DOCTYPE, room)
+	try:
+		doc = frappe.get_doc({
+			"doctype": ROOM_LOG_DOCTYPE,
+			"room": room,
+			"log_date": log_date,
+			"period": period,
+			"temperature": temperature,
+			"humidity": humidity,
+			"checker": checker or _user(),
+			"check_date": check_date or _today(),
+			"exception_desc": exception_desc or None,
+			"action_taken": action_taken or None,
+			"deviation_ref": deviation_ref or None,
+			"capa_ref": capa_ref or None,
+			"status": "正常",
+		})
+		doc.insert(ignore_permissions=True)   # 控制器判 within_spec、生成业务键
+		_audit_on(ROOM_LOG_DOCTYPE, "温湿度记录" if doc.within_spec else "温湿度超标",
+				  doc.name, action_text="温湿度记录（{}）".format(period),
+				  new_value="{}℃ / {}%RH".format(temperature, humidity))
+		_commit()
+		return {"name": doc.name, "within_spec": int(doc.within_spec)}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def manage_equipment(equipment_name=None, room=None, location=None, storage_cond=None,
+					 qualification_status=None, qualification_due=None,
+					 calibration_due=None, maintenance_due=None,
+					 is_monitored=None, has_ups=None, has_alarm=None,
+					 alarm_test_date=None, status=None, equipment=None):
+	"""设备台账建档 / 变更（方案 6.3.8 `manage_equipment`）。
+
+	`equipment` 传编号则为变更（受控字段仍经控制器守卫），否则建档。
+	"""
+	_check_action("manage_equipment", EQUIPMENT_DOCTYPE, equipment or equipment_name)
+	try:
+		if equipment:
+			doc = _load(EQUIPMENT_DOCTYPE, equipment)
+			for field in ("equipment_name", "room", "location", "storage_cond",
+						  "qualification_status", "qualification_due", "calibration_due",
+						  "maintenance_due", "is_monitored", "has_ups", "has_alarm",
+						  "alarm_test_date", "status"):
+				if locals().get(field) is not None:
+					doc.set(field, locals()[field])
+			doc.save(ignore_permissions=True)
+			_audit_on(EQUIPMENT_DOCTYPE, "设备台账变更", doc.name, action_text="设备台账变更")
+		else:
+			if not equipment_name or not status:
+				frappe.throw("设备建档须提供设备名称与状态。")
+			doc = frappe.get_doc({
+				"doctype": EQUIPMENT_DOCTYPE,
+				"equipment_name": equipment_name,
+				"room": room or None,
+				"location": location or None,
+				"storage_cond": storage_cond or None,
+				"qualification_status": qualification_status or None,
+				"qualification_due": qualification_due or None,
+				"calibration_due": calibration_due or None,
+				"maintenance_due": maintenance_due or None,
+				"is_monitored": _truthy(is_monitored),
+				"has_ups": _truthy(has_ups),
+				"has_alarm": _truthy(has_alarm),
+				"alarm_test_date": alarm_test_date or None,
+				"status": status,
+			})
+			doc.insert(ignore_permissions=True)
+			_audit_on(EQUIPMENT_DOCTYPE, "设备台账变更", doc.name, action_text="设备建档")
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def open_fault_ticket(equipment, description, fault_start, fault_end=None,
+					  affected_samples=None, emergency_action=None, transfer_path=None):
+	"""设备故障工单（→ 待处理）。受影响样品子表由本方法写入（方案 5.5.4 / 8.3 流水表）。"""
+	_check_action("open_fault_ticket", FAULT_DOCTYPE, equipment)
+	if not (description or "").strip():
+		frappe.throw("故障描述必填。")
+	try:
+		doc = frappe.get_doc({
+			"doctype": FAULT_DOCTYPE,
+			"equipment": equipment,
+			"fault_start": fault_start,
+			"fault_end": fault_end or None,
+			"description": description,
+			"emergency_action": emergency_action or None,
+			"transfer_path": transfer_path or None,
+			"status": stb.FAULT_PENDING,
+		})
+		for row in (affected_samples or []):
+			doc.append("affected_samples", {
+				"stability_sample": row.get("stability_sample"),
+				"timepoint": row.get("timepoint") or None,
+				"impact_desc": row.get("impact_desc") or None,
+				"is_transferred": _truthy(row.get("is_transferred")),
+			})
+		doc.insert(ignore_permissions=True)
+		frappe.db.set_value(EQUIPMENT_DOCTYPE, equipment, "last_fault_date",
+							str(fault_start)[:10], update_modified=False)
+		_audit_on(FAULT_DOCTYPE, "设备故障", doc.name, action_text="设备故障", new_value=equipment)
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def start_fault_handling(ticket_name, emergency_action):
+	"""故障处理开始（待处理 → 处理中），紧急措施必填。"""
+	_check_action("start_fault_handling", FAULT_DOCTYPE, ticket_name)
+	if not (emergency_action or "").strip():
+		frappe.throw("紧急措施必填（方案 6.3.8）。")
+	try:
+		doc = _load(FAULT_DOCTYPE, ticket_name)
+		if doc.status != stb.FAULT_PENDING:
+			_reject(FAULT_DOCTYPE, ticket_name,
+					"仅「待处理」可开始处理（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 start_fault_handling".format(doc.status))
+		doc.flags.allow_system_fields = True
+		doc.emergency_action = emergency_action
+		doc.handler = _user()
+		doc.handle_date = _today()
+		_set_status(doc, stb.FLOW_STB_FAULT, stb.FAULT_HANDLING)
+		doc.save(ignore_permissions=True)
+		_audit_on(FAULT_DOCTYPE, "故障处理中", doc.name, action_text="故障处理中")
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def submit_fault_assessment(ticket_name, risk_assessment):
+	"""故障风险评估提交（处理中 → 待评估），风险评估必填。"""
+	_check_action("submit_fault_assessment", FAULT_DOCTYPE, ticket_name)
+	if not (risk_assessment or "").strip():
+		frappe.throw("风险评估必填（方案 6.3.8）。")
+	try:
+		doc = _load(FAULT_DOCTYPE, ticket_name)
+		if doc.status != stb.FAULT_HANDLING:
+			_reject(FAULT_DOCTYPE, ticket_name,
+					"仅「处理中」可提交评估（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 submit_fault_assessment".format(doc.status))
+		doc.flags.allow_system_fields = True
+		doc.risk_assessment = risk_assessment
+		_set_status(doc, stb.FLOW_STB_FAULT, stb.FAULT_WAIT_ASSESS)
+		doc.save(ignore_permissions=True)
+		_audit_on(FAULT_DOCTYPE, "故障待评估", doc.name, action_text="故障待评估")
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def return_fault_handling(ticket_name, reason=None):
+	"""故障退回处理（待评估 → 处理中）：风险评估未决需继续处置（P2-3）。"""
+	_check_action("return_fault_handling", FAULT_DOCTYPE, ticket_name)
+	try:
+		doc = _load(FAULT_DOCTYPE, ticket_name)
+		if doc.status != stb.FAULT_WAIT_ASSESS:
+			_reject(FAULT_DOCTYPE, ticket_name,
+					"仅「待评估」可退回处理（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 return_fault_handling".format(doc.status))
+		_set_status(doc, stb.FLOW_STB_FAULT, stb.FAULT_HANDLING)
+		doc.save(ignore_permissions=True)
+		_audit_on(FAULT_DOCTYPE, "退回处理", doc.name, action_text="故障退回处理", reason=reason or "")
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def close_fault_ticket(ticket_name, deviation_ref=None, capa_ref=None):
+	"""故障关闭（待处理/处理中/待评估 → 已关闭）。直接关闭须关联偏差/CAPA（P2-3）。"""
+	_check_action("close_fault_ticket", FAULT_DOCTYPE, ticket_name)
+	try:
+		doc = _load(FAULT_DOCTYPE, ticket_name)
+		if doc.status not in (stb.FAULT_PENDING, stb.FAULT_HANDLING, stb.FAULT_WAIT_ASSESS):
+			_reject(FAULT_DOCTYPE, ticket_name,
+					"当前状态（{}）不可关闭。".format(doc.status),
+					"非法状态：{} 调用 close_fault_ticket".format(doc.status))
+		if not (deviation_ref or capa_ref):
+			frappe.throw("关闭故障工单必须关联偏差或 CAPA 引用（方案 6.3.8）。")
+		doc.flags.allow_system_fields = True
+		doc.deviation_ref = deviation_ref or doc.deviation_ref
+		doc.capa_ref = capa_ref or doc.capa_ref
+		doc.fault_end = doc.fault_end or frappe.utils.now()
+		doc.handler = doc.handler or _user()
+		doc.handle_date = doc.handle_date or _today()
+		_set_status(doc, stb.FLOW_STB_FAULT, stb.FAULT_CLOSED)
+		doc.save(ignore_permissions=True)
+		_audit_on(FAULT_DOCTYPE, "故障关闭", doc.name, action_text="故障关闭",
+				  new_value="deviation={} capa={}".format(doc.deviation_ref or "-", doc.capa_ref or "-"))
+		_commit()
+		return {"name": doc.name, "status": doc.status}
+	except Exception:
+		_rollback()
+		raise
+
+
+# ---- R8D 只读接口 -----------------------------------------------------------
+
+@frappe.whitelist()
+def get_stability_changes(status=None, change_scope=None, keyword=None, limit=200):
+	"""变更台账（只读投影）。"""
+	_check_action("get_stability_changes", CHANGE_DOCTYPE, "-")
+	filters = {}
+	if status:
+		filters["status"] = status
+	if change_scope:
+		filters["change_scope"] = change_scope
+	rows = frappe.get_all(
+		CHANGE_DOCTYPE, filters=filters,
+		fields=["name", "change_scope", "change_level", "status", "notice", "protocol",
+				"stability_sample", "change_content", "applicant", "apply_date",
+				"approver_by", "approve_date", "supersedes",
+				"implement_by", "implement_date", "post_assessment_result"],
+		order_by="modified desc", limit_page_length=int(limit or 200))
+	if keyword:
+		kw = keyword.lower()
+		rows = [r for r in rows if kw in (r.change_content or "").lower()
+				or kw in (r.name or "").lower()]
+	return {"rows": rows, "total": len(rows)}
+
+
+@frappe.whitelist()
+def get_stability_change_detail(change_name):
+	"""变更详情（含落点与实施结果）。"""
+	_check_action("get_stability_change_detail", CHANGE_DOCTYPE, change_name)
+	doc = frappe.get_doc(CHANGE_DOCTYPE, change_name)
+	return {"doc": doc.as_dict()}
+
+
+@frappe.whitelist()
+def get_stability_room_logs(room=None, from_date=None, to_date=None,
+							only_abnormal=0, limit=500):
+	"""温湿度记录查询（含超标筛选，方案 5.6 第 5 张报表数据源）。"""
+	_check_action("get_stability_room_logs", ROOM_LOG_DOCTYPE, "-")
+	filters = {}
+	if room:
+		filters["room"] = room
+	if from_date:
+		filters["log_date"] = [">=", from_date]
+	if to_date:
+		filters.setdefault("log_date", {})
+		if isinstance(filters["log_date"], dict):
+			filters["log_date"]["<="] = to_date
+		else:
+			filters["log_date"] = [">=", from_date]
+	if _truthy(only_abnormal):
+		filters["within_spec"] = 0
+	rows = frappe.get_all(
+		ROOM_LOG_DOCTYPE, filters=filters,
+		fields=["name", "room", "log_date", "period", "temperature", "temp_min", "temp_max",
+				"humidity", "humidity_min", "humidity_max", "within_spec",
+				"exception_desc", "action_taken", "deviation_ref", "capa_ref",
+				"checker", "check_date"],
+		order_by="log_date desc, period desc", limit_page_length=int(limit or 500))
+	return {"rows": rows, "total": len(rows)}
+
+
+@frappe.whitelist()
+def get_stability_equipments(room=None, status=None):
+	"""设备台账列表（只读投影）。"""
+	_check_action("get_stability_equipments", EQUIPMENT_DOCTYPE, "-")
+	filters = {}
+	if room:
+		filters["room"] = room
+	if status:
+		filters["status"] = status
+	rows = frappe.get_all(
+		EQUIPMENT_DOCTYPE, filters=filters,
+		fields=["name", "equipment_name", "room", "location", "storage_cond",
+				"qualification_status", "qualification_due", "calibration_due",
+				"maintenance_due", "is_monitored", "has_ups", "has_alarm",
+				"alarm_test_date", "last_fault_date", "status"],
+		order_by="modified desc", limit_page_length=0)
+	return {"rows": rows, "total": len(rows)}
+
+
+@frappe.whitelist()
+def get_stability_fault_tickets(status=None, equipment=None, limit=200):
+	"""故障工单列表（只读投影）。"""
+	_check_action("get_stability_fault_tickets", FAULT_DOCTYPE, "-")
+	filters = {}
+	if status:
+		filters["status"] = status
+	if equipment:
+		filters["equipment"] = equipment
+	rows = frappe.get_all(
+		FAULT_DOCTYPE, filters=filters,
+		fields=["name", "equipment", "fault_start", "fault_end", "status", "description",
+				"emergency_action", "risk_assessment", "deviation_ref", "capa_ref",
+				"handler", "handle_date"],
+		order_by="modified desc", limit_page_length=int(limit or 200))
+	for r in rows:
+		r["affected_samples"] = frappe.get_all(
+			"HBOS Stability Fault Sample", filters={"parent": r.name},
+			fields=["stability_sample", "timepoint", "impact_desc", "is_transferred"],
+			limit_page_length=0)
+	return {"rows": rows, "total": len(rows)}

@@ -137,6 +137,27 @@ doc_events = {
 		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
 		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
 	},
+	# M2-R8D 变更、稳定性室与设备
+	"HBOS Stability Change": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Stability Room Log": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Stability Equipment": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
+	"HBOS Stability Fault Ticket": {
+		"after_insert": "hb_lims_app.hbos_lims.lims_service.audit_on_insert",
+		"on_update": "hb_lims_app.hbos_lims.lims_service.audit_on_update",
+		"on_trash": "hb_lims_app.hbos_lims.lims_service.audit_on_trash",
+	},
 	# 稳定性专项报告引用的客户：命名规范强制校验（方案 5.4.2；仅作用于已引用客户）
 	"Customer": {
 		"validate": "hb_lims_app.hbos_lims.stability_guards.validate_customer_code",

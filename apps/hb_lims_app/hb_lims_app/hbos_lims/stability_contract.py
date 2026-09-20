@@ -752,6 +752,80 @@ RESULT_TERMINAL_STATES = {RESULT_REVISED, RESULT_VOIDED}
 RESULT_INFLIGHT_STATES = {RESULT_DRAFT, RESULT_SUBMITTED, RESULT_REVIEWED}
 
 # ---------------------------------------------------------------------------
+# FLOW_STB_CHANGE（方案 6.1 / 6.3.7；P1-9 修订）
+# ---------------------------------------------------------------------------
+
+FLOW_STB_CHANGE = "stability_change"
+FLOW_STB_FAULT = "stability_fault"
+
+CHANGE_DRAFT = "草稿"
+CHANGE_WAIT_QA = "待QA审核"
+CHANGE_WAIT_QAM = "待QA经理批准"
+CHANGE_WAIT_QP = "待QP批准"
+CHANGE_APPROVED = "已批准"
+CHANGE_IMPLEMENTED = "已实施"
+CHANGE_ASSESSED = "已评估完成"
+CHANGE_ASSESS_FAILED = "后评估不通过"
+CHANGE_REJECTED = "已驳回"
+CHANGE_CANCELLED = "已取消"
+
+CHANGE_TRANSITIONS = {
+	CHANGE_DRAFT: {CHANGE_WAIT_QA, CHANGE_CANCELLED},
+	# review_change 按 change_level 分流：一般 → 待QA经理批准；重大 → 待QP批准
+	CHANGE_WAIT_QA: {CHANGE_WAIT_QAM, CHANGE_WAIT_QP, CHANGE_REJECTED},
+	CHANGE_WAIT_QAM: {CHANGE_APPROVED, CHANGE_REJECTED},
+	CHANGE_WAIT_QP: {CHANGE_APPROVED, CHANGE_REJECTED},
+	CHANGE_APPROVED: {CHANGE_IMPLEMENTED},
+	CHANGE_IMPLEMENTED: {CHANGE_ASSESSED, CHANGE_ASSESS_FAILED},
+	# 后评估不通过为终态（P1-3）：本单停留，纠正须另立新单（supersedes 指向本单）
+	CHANGE_ASSESS_FAILED: set(),
+	CHANGE_ASSESSED: set(),
+	CHANGE_REJECTED: set(),
+	CHANGE_CANCELLED: set(),
+}
+
+CHANGE_TERMINAL_STATES = {CHANGE_ASSESS_FAILED, CHANGE_ASSESSED, CHANGE_REJECTED, CHANGE_CANCELLED}
+
+# 变更落点（方案 7.9）与 change_level
+CHANGE_SCOPES = ["涉方案", "涉通知单", "涉条件与时间点", "涉样品"]
+CHANGE_LEVELS = ["一般", "重大"]
+APPLICANT_DEPTS = ["研发部门", "生产部门", "质量控制部门", "质量保证部门"]
+
+# ---------------------------------------------------------------------------
+# FLOW_STB_FAULT（方案 6.1 / 6.3.8）
+# ---------------------------------------------------------------------------
+
+FAULT_PENDING = "待处理"
+FAULT_HANDLING = "处理中"
+FAULT_WAIT_ASSESS = "待评估"
+FAULT_CLOSED = "已关闭"
+
+FAULT_TRANSITIONS = {
+	FAULT_PENDING: {FAULT_HANDLING, FAULT_CLOSED},
+	FAULT_HANDLING: {FAULT_WAIT_ASSESS, FAULT_CLOSED},
+	FAULT_WAIT_ASSESS: {FAULT_CLOSED, FAULT_HANDLING},
+	FAULT_CLOSED: set(),
+}
+
+FAULT_TERMINAL_STATES = {FAULT_CLOSED}
+
+# Room Log / Equipment / Fault Ticket 受控枚举（方案 5.5.2~5.5.4）
+LOG_PERIODS = ["上午", "下午"]
+EQUIPMENT_TYPES = ["恒温恒湿箱", "医用冷藏箱", "强光照射试验箱", "其它"]
+QUALIFICATION_STATUSES = ["已确认", "待确认", "过期"]
+EQUIPMENT_STATUSES = ["在用", "停用", "维修中"]
+
+NAMING_CHANGE = "HBOS-STB-CHG-.YYYY.-"
+NAMING_ROOM_LOG = "HBOS-STB-RML-.YYYY.-"
+NAMING_EQUIPMENT = "HBOS-STB-EQP-"
+NAMING_FAULT = "HBOS-STB-FLT-.YYYY.-"
+
+
+def make_room_log_key(room, log_date, period):
+	"""温湿度记录业务键（unique 单字段）：`{room}#{log_date}#{period}`（方案 5.5.2）。"""
+	return "{}#{}#{}".format(room or "", log_date or "", period or "")
+
+# ---------------------------------------------------------------------------
 # FLOW_STB_REPORT（方案 6.1）
 # ---------------------------------------------------------------------------
 
@@ -774,6 +848,8 @@ REPORT_TERMINAL_STATES = {REPORT_REJECTED, REPORT_VOIDED}
 STABILITY_FLOW_TRANSITIONS.update({
 	FLOW_STB_RESULT: RESULT_TRANSITIONS,
 	FLOW_STB_REPORT: REPORT_TRANSITIONS,
+	FLOW_STB_CHANGE: CHANGE_TRANSITIONS,
+	FLOW_STB_FAULT: FAULT_TRANSITIONS,
 })
 
 ACTION_TRANSITIONS += [
@@ -794,12 +870,36 @@ ACTION_TRANSITIONS += [
 	("reject_report", FLOW_STB_REPORT, REPORT_WAIT_QA, REPORT_REJECTED),
 	("void_report", FLOW_STB_REPORT, REPORT_DRAFT, REPORT_VOIDED),
 	("void_report", FLOW_STB_REPORT, REPORT_APPROVED, REPORT_VOIDED),
+	# 6.3.7 FLOW_STB_CHANGE
+	("submit_change", FLOW_STB_CHANGE, CHANGE_DRAFT, CHANGE_WAIT_QA),
+	("review_change", FLOW_STB_CHANGE, CHANGE_WAIT_QA, CHANGE_WAIT_QAM),
+	("review_change", FLOW_STB_CHANGE, CHANGE_WAIT_QA, CHANGE_WAIT_QP),
+	("approve_change_general", FLOW_STB_CHANGE, CHANGE_WAIT_QAM, CHANGE_APPROVED),
+	("approve_change_major", FLOW_STB_CHANGE, CHANGE_WAIT_QP, CHANGE_APPROVED),
+	("reject_change", FLOW_STB_CHANGE, CHANGE_WAIT_QA, CHANGE_REJECTED),
+	("reject_change", FLOW_STB_CHANGE, CHANGE_WAIT_QAM, CHANGE_REJECTED),
+	("reject_change", FLOW_STB_CHANGE, CHANGE_WAIT_QP, CHANGE_REJECTED),
+	("cancel_change", FLOW_STB_CHANGE, CHANGE_DRAFT, CHANGE_CANCELLED),
+	("implement_change", FLOW_STB_CHANGE, CHANGE_APPROVED, CHANGE_IMPLEMENTED),
+	("assess_change", FLOW_STB_CHANGE, CHANGE_IMPLEMENTED, CHANGE_ASSESSED),
+	("assess_change", FLOW_STB_CHANGE, CHANGE_IMPLEMENTED, CHANGE_ASSESS_FAILED),
+	# 6.3.8 FLOW_STB_FAULT
+	("start_fault_handling", FLOW_STB_FAULT, FAULT_PENDING, FAULT_HANDLING),
+	("close_fault_ticket", FLOW_STB_FAULT, FAULT_PENDING, FAULT_CLOSED),
+	("submit_fault_assessment", FLOW_STB_FAULT, FAULT_HANDLING, FAULT_WAIT_ASSESS),
+	("return_fault_handling", FLOW_STB_FAULT, FAULT_WAIT_ASSESS, FAULT_HANDLING),
+	("close_fault_ticket", FLOW_STB_FAULT, FAULT_HANDLING, FAULT_CLOSED),
+	("close_fault_ticket", FLOW_STB_FAULT, FAULT_WAIT_ASSESS, FAULT_CLOSED),
 ]
 
 ACTION_ADMISSION_ONLY |= {
 	"record_result", "revise_result", "create_stability_report", "review_report", "eval_trend",
 }
 SYSTEM_TRIGGERED_ACTIONS |= {"mark_superseded"}
+# R8D 准入动作：review_change 状态不变（审核落分流由服务内决定）；open_fault_ticket 为
+# 创建（无源状态，R8C 的 record_result / create_stability_report 同口径不进转移表）；
+# log_room_env / manage_equipment 为记录/台账类动作（FLOW 无状态机）
+ACTION_ADMISSION_ONLY |= {"review_change", "open_fault_ticket", "log_room_env", "manage_equipment"}
 
 # ---------------------------------------------------------------------------
 # 业务键（方案 5.4.1 / 5.4.2；分隔符 `#`，入键成分禁 `#`）
