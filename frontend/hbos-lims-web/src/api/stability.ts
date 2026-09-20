@@ -604,6 +604,398 @@ export function rejectDelay(timepointName: string, delayType: string, reason: st
     { timepoint_name: timepointName, delay_type: delayType, reason })
 }
 
+// ---- R8C：结果与报告（方案 6.3.5 / 6.3.6） ----
+
+export interface ResultRow {
+  name: string
+  timepoint: string
+  stability_sample: string
+  stability_test_item: string
+  item_snapshot?: string
+  result_value?: number | string
+  unit?: string
+  status: string
+  is_current?: number
+  revision_no?: number
+  supersedes?: string
+  is_qualified?: number
+  oos_flag?: number
+  result_baseline?: string
+  baseline_ref?: string
+  is_significant_change?: number
+  significant_change_basis?: string
+  is_zero_month?: number
+  source?: string
+  analyst?: string
+  test_date?: string
+  reviewed_by?: string
+  approved_by?: string
+  creation: string
+}
+
+export interface ResultDetail extends ResultRow {
+  spec_version?: string
+  spec_limit?: string
+  test_method?: string
+  method_version?: string
+  submitted_at?: string
+  reviewed_at?: string
+  approved_at?: string
+  return_reason?: string
+  void_reason?: string
+  remark?: string
+  revision_chain: { name: string; revision_no?: number; status: string; is_current?: number; supersedes?: string }[]
+}
+
+export interface TrendPoint {
+  label: string
+  timepoint: string
+  plan_sample_date?: string
+  result_value?: number
+  status: string
+  is_current?: number
+  is_significant_change?: number
+}
+
+export interface TrendData {
+  series: TrendPoint[]
+  trend_line: { slope: number; intercept: number; r2: number; points: number } | null
+  note: string
+}
+
+export interface ReportRow {
+  name: string
+  report_type: string
+  stability_product: string
+  product_name?: string
+  year?: number
+  status: string
+  source_doctype?: string
+  source_name?: string
+  customer?: string
+  client_code?: string
+  seq?: number
+  period_from?: string
+  period_to?: string
+  proposed_validity_months?: number
+  proposed_validity_type?: string
+  final_validity_months?: number
+  final_validity_date?: string
+  final_validity_type?: string
+  drafted_by?: string
+  draft_date?: string
+  qa_approve_by?: string
+  approve_date?: string
+  creation: string
+}
+
+export interface ReportDetail extends ReportRow {
+  study_scope?: string
+  storage_conds?: string
+  spec_ref?: string
+  trend_analysis?: string
+  impurity_profile?: string
+  conclusion?: string
+  trend_chart_ref?: string
+  proposed_validity_basis?: string
+  proposed_validity_date?: string
+  client_requirement?: string
+  qa_review_by?: string
+  qa_review_date?: string
+  reject_reason?: string
+  void_reason?: string
+}
+
+export function results(params: { timepoint?: string; stability_sample?: string; stability_test_item?: string; status?: string; keyword?: string; limit?: number } = {}) {
+  return callMethod<{ rows: ResultRow[] }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_results', params)
+}
+export function resultDetail(resultName: string): Promise<ResultDetail> {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.get_stability_result_detail', {
+    result_name: resultName,
+  })
+}
+export function trend(stabilityProduct: string, stabilityTestItem: string, conditionType?: string) {
+  return callMethod<TrendData>('hb_lims_app.hbos_lims.stability_service.get_stability_trend', {
+    stability_product: stabilityProduct, stability_test_item: stabilityTestItem,
+    condition_type: conditionType,
+  })
+}
+export function validityAdvice(stabilityProduct: string, sample?: string) {
+  return callMethod<Record<string, unknown>>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_validity_advice',
+    { stability_product: stabilityProduct, sample })
+}
+export function reports(params: { report_type?: string; status?: string; keyword?: string; limit?: number } = {}) {
+  return callMethod<{ rows: ReportRow[] }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_reports', params)
+}
+export function reportDetail(reportName: string): Promise<ReportDetail> {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.get_stability_report_detail', {
+    report_name: reportName,
+  })
+}
+
+export function recordResult(timepointName: string, stabilityTestItem: string, resultValue: number | string,
+                             testDate?: string, unit?: string, source = '自检', remark?: string) {
+  return callMethod<{ name: string; status: string; revision_no: number; is_significant_change?: number }>(
+    'hb_lims_app.hbos_lims.stability_service.record_result',
+    { timepoint_name: timepointName, stability_test_item: stabilityTestItem,
+      result_value: resultValue, test_date: testDate, unit, source, remark })
+}
+export function submitResult(resultName: string, testDate?: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.submit_result',
+    { result_name: resultName, test_date: testDate })
+}
+export function reviewResult(resultName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.review_result', { result_name: resultName })
+}
+export function returnResult(resultName: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.return_result',
+    { result_name: resultName, reason })
+}
+export function approveResult(resultName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.approve_result', { result_name: resultName })
+}
+export function reviseResult(resultName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.revise_result', { result_name: resultName })
+}
+export function voidResult(resultName: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.void_result',
+    { result_name: resultName, reason })
+}
+export function evalTrend(timepointName: string, conclusion: string, remark?: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.eval_trend',
+    { timepoint_name: timepointName, conclusion, remark })
+}
+export function completeTesting(timepointName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.complete_testing',
+    { timepoint_name: timepointName })
+}
+
+export function createReport(params: {
+  report_type: string; stability_product: string; year?: number
+  source_doctype?: string; source_name?: string; customer?: string
+  study_scope?: string; period_from?: string; period_to?: string
+  storage_conds?: string; spec_ref?: string; client_requirement?: string
+}) {
+  return callMethod<{ name: string; status: string; seq?: number; advised_months?: number }>(
+    'hb_lims_app.hbos_lims.stability_service.create_stability_report', params)
+}
+export function submitReport(reportName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.submit_report', { report_name: reportName })
+}
+export function reviewReport(reportName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.review_report', { report_name: reportName })
+}
+export function approveReport(reportName: string, params: {
+  finalValidityMonths: number; finalValidityDate: string; finalValidityType: string
+}) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.approve_report',
+    { report_name: reportName,
+      final_validity_months: params.finalValidityMonths,
+      final_validity_date: params.finalValidityDate,
+      final_validity_type: params.finalValidityType })
+}
+export function rejectReport(reportName: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.reject_report',
+    { report_name: reportName, reason })
+}
+export function voidReport(reportName: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.void_report',
+    { report_name: reportName, reason })
+}
+
+// ---- R8D：变更、稳定性室与设备（方案 6.3.7 / 6.3.8） ----
+
+export interface ChangeRow {
+  name: string
+  change_scope: string
+  change_level: string
+  status: string
+  notice?: string
+  protocol?: string
+  stability_sample?: string
+  change_content?: string
+  applicant?: string
+  apply_date?: string
+  approver_by?: string
+  approve_date?: string
+  supersedes?: string
+  implement_by?: string
+  implement_date?: string
+  post_assessment_result?: string
+  creation: string
+}
+
+export interface RoomLogRow {
+  name: string
+  room: string
+  log_date: string
+  period: string
+  temperature: number
+  temp_min?: number
+  temp_max?: number
+  humidity: number
+  humidity_min?: number
+  humidity_max?: number
+  within_spec?: number
+  exception_desc?: string
+  action_taken?: string
+  deviation_ref?: string
+  capa_ref?: string
+  checker?: string
+  check_date?: string
+}
+
+export interface EquipmentRow {
+  name: string
+  equipment_name: string
+  room?: string
+  location?: string
+  storage_cond?: string
+  qualification_status?: string
+  qualification_due?: string
+  calibration_due?: string
+  maintenance_due?: string
+  is_monitored?: number
+  has_ups?: number
+  has_alarm?: number
+  alarm_test_date?: string
+  last_fault_date?: string
+  status: string
+}
+
+export interface FaultSampleRow {
+  stability_sample: string
+  timepoint?: string
+  impact_desc?: string
+  is_transferred?: number
+}
+
+export interface FaultTicketRow {
+  name: string
+  equipment: string
+  fault_start: string
+  fault_end?: string
+  status: string
+  description: string
+  emergency_action?: string
+  transfer_path?: string
+  risk_assessment?: string
+  deviation_ref?: string
+  capa_ref?: string
+  handler?: string
+  handle_date?: string
+  affected_samples: FaultSampleRow[]
+}
+
+export function changes(params: { status?: string; change_scope?: string; keyword?: string; limit?: number } = {}) {
+  return callMethod<{ rows: ChangeRow[] }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_changes', params)
+}
+export function changeDetail(changeName: string) {
+  return callMethod<{ doc: ChangeRow & Record<string, unknown> }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_change_detail',
+    { change_name: changeName })
+}
+export function roomLogs(params: { room?: string; from_date?: string; to_date?: string; only_abnormal?: number; limit?: number } = {}) {
+  return callMethod<{ rows: RoomLogRow[] }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_room_logs', params)
+}
+export function equipments(params: { room?: string; status?: string } = {}) {
+  return callMethod<{ rows: EquipmentRow[] }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_equipments', params)
+}
+export function faultTickets(params: { status?: string; equipment?: string; limit?: number } = {}) {
+  return callMethod<{ rows: FaultTicketRow[] }>(
+    'hb_lims_app.hbos_lims.stability_service.get_stability_fault_tickets', params)
+}
+
+export function createChange(params: {
+  change_scope: string; change_level: string; change_content: string
+  change_reason: string; impact_assessment: string
+  notice?: string; protocol?: string; stability_sample?: string; supersedes?: string
+  applicant_dept?: string; effective_date?: string
+}) {
+  return callMethod<{ name: string; status: string }>(
+    'hb_lims_app.hbos_lims.stability_service.create_stability_change', params)
+}
+export function submitChange(changeName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.submit_change', { change_name: changeName })
+}
+export function reviewChange(changeName: string) {
+  return callMethod<{ name: string; status: string }>(
+    'hb_lims_app.hbos_lims.stability_service.review_change', { change_name: changeName })
+}
+export function approveChangeGeneral(changeName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.approve_change_general',
+    { change_name: changeName })
+}
+export function approveChangeMajor(changeName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.approve_change_major',
+    { change_name: changeName })
+}
+export function rejectChange(changeName: string, reason: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.reject_change',
+    { change_name: changeName, reason })
+}
+export function cancelChange(changeName: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.cancel_change',
+    { change_name: changeName })
+}
+export function implementChange(changeName: string, implementRecord: string) {
+  return callMethod<{ name: string; status: string; result: Record<string, unknown> }>(
+    'hb_lims_app.hbos_lims.stability_service.implement_change',
+    { change_name: changeName, implement_record: implementRecord })
+}
+export function assessChange(changeName: string, postAssessment: string, postAssessmentResult: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.assess_change',
+    { change_name: changeName, post_assessment: postAssessment,
+      post_assessment_result: postAssessmentResult })
+}
+export function logRoomEnv(params: {
+  room: string; log_date: string; period: string; temperature: number; humidity: number
+  checker?: string; check_date?: string; exception_desc?: string; action_taken?: string
+  deviation_ref?: string; capa_ref?: string
+}) {
+  return callMethod<{ name: string; within_spec: number }>(
+    'hb_lims_app.hbos_lims.stability_service.log_room_env', params)
+}
+export function manageEquipment(params: {
+  equipment?: string; equipment_name?: string; room?: string; location?: string
+  storage_cond?: string; qualification_status?: string; qualification_due?: string
+  calibration_due?: string; maintenance_due?: string; is_monitored?: number
+  has_ups?: number; has_alarm?: number; alarm_test_date?: string; status?: string
+}) {
+  return callMethod<{ name: string; status: string }>(
+    'hb_lims_app.hbos_lims.stability_service.manage_equipment', params)
+}
+export function openFaultTicket(params: {
+  equipment: string; description: string; fault_start: string; fault_end?: string
+  affected_samples?: { stability_sample: string; timepoint?: string; impact_desc?: string }[]
+  emergency_action?: string; transfer_path?: string
+}) {
+  return callMethod<{ name: string; status: string }>(
+    'hb_lims_app.hbos_lims.stability_service.open_fault_ticket', params)
+}
+export function startFaultHandling(ticketName: string, emergencyAction: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.start_fault_handling',
+    { ticket_name: ticketName, emergency_action: emergencyAction })
+}
+export function submitFaultAssessment(ticketName: string, riskAssessment: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.submit_fault_assessment',
+    { ticket_name: ticketName, risk_assessment: riskAssessment })
+}
+export function returnFaultHandling(ticketName: string, reason?: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.return_fault_handling',
+    { ticket_name: ticketName, reason })
+}
+export function closeFaultTicket(ticketName: string, deviationRef?: string, capaRef?: string) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.close_fault_ticket',
+    { ticket_name: ticketName, deviation_ref: deviationRef, capa_ref: capaRef })
+}
+
 // ---- 角色动作矩阵（与后端 workflow_contract.ACTION_ROLES 对齐，逐行照方案 6.3.1 / 6.3.2） ----
 // 仅用于前端按钮显隐；真正的准入判定在后端 `_check_action` + SoD，前端不可绕过。
 
@@ -654,6 +1046,41 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   approve_delay: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
   reject_delay: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
   approve_extra_sampling: [ROLE.manager, ROLE.system],
+  // 6.3.5 FLOW_STB_RESULT（submit/review/approve/revise_result 与 R3 同名，稳定性口径见 SCOPED_ACTION_ROLES）
+  record_result: [ROLE.analyst, ROLE.manager, ROLE.system],
+  submit_result: [ROLE.analyst, ROLE.manager, ROLE.system],
+  review_result: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  return_result: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  approve_result: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  revise_result: [ROLE.analyst, ROLE.manager, ROLE.system],
+  void_result: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  eval_trend: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  complete_testing: [ROLE.analyst, ROLE.manager, ROLE.system],
+  // 6.3.6 FLOW_STB_REPORT
+  create_stability_report: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  submit_report: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  review_report: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  approve_report: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  reject_report: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  void_report: [ROLE.qp, ROLE.manager, ROLE.system],
+  // 6.3.7 FLOW_STB_CHANGE
+  create_change: [ROLE.analyst, ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  submit_change: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  review_change: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  approve_change_general: [ROLE.qaManager, ROLE.system],
+  approve_change_major: [ROLE.qp, ROLE.system],
+  reject_change: [ROLE.qaManager, ROLE.qp, ROLE.manager, ROLE.system],
+  cancel_change: [ROLE.analyst, ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  implement_change: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  assess_change: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
+  // 6.3.8 稳定性室与设备
+  log_room_env: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  manage_equipment: [ROLE.reviewer, ROLE.manager, ROLE.system],
+  open_fault_ticket: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  start_fault_handling: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  submit_fault_assessment: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  return_fault_handling: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  close_fault_ticket: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
 }
 
 /** 当前会话角色下是否可执行指定动作（含 System Manager 放行）。 */

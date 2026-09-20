@@ -18,8 +18,8 @@ const props = withDefaults(defineProps<{ mode?: 'live' | 'demo'; note?: string }
 })
 
 const DEFAULT_TEXT = {
-  live: '本页数据来自 hb_lims_app 稳定性业务服务（R8A：4 主数据 + 考察通知单 + 方案）；操作受会话角色与后端校验约束。',
-  demo: '本页沿用已审查通过的原型数据（TEST-HBOS-M2-STB-*）；对应后端接口属 R8B~R8D，尚未接入，页面交互不代表已上线功能。',
+  live: '本页数据来自 hb_lims_app 稳定性业务服务（R8A~R8D 后端全量交付）；操作受会话角色与后端校验约束。',
+  demo: '本页数据为原型演示（TEST-HBOS-M2-STB-*），对应后端接口尚未接入。',
 } as const
 
 const text = computed(() => props.note || DEFAULT_TEXT[props.mode])

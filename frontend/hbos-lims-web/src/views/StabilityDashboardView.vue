@@ -2,7 +2,7 @@
   <div class="page">
     <StbGateBanner
       mode="live"
-      note="工作台 KPI、待办通知单与方案、主数据计数均来自 hb_lims_app 稳定性业务服务（R8A）。时间点 / 结果 / 报告类指标属 R8B~R8D，尚未接入。"
+      note="工作台 KPI 与各板块汇总均来自 hb_lims_app 稳定性业务服务（R8A~R8D 后端全量交付，7 视图已全部接入真实 API）。"
     />
 
     <div class="page-head">
