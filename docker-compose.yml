@@ -8,6 +8,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
       - assets-data:/home/frappe/frappe-bench/assets
@@ -55,6 +57,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
@@ -72,6 +76,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     entrypoint:
@@ -153,6 +159,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
       - assets-data:/home/frappe/frappe-bench/assets
@@ -173,6 +181,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
@@ -201,6 +211,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
@@ -249,6 +261,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
@@ -267,6 +281,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
@@ -276,6 +292,11 @@ volumes:
   sites:
   logs:
   assets-data:
+  # 编译产物共享卷：apps/frappe 与 apps/erpnext 未做宿主挂载，各容器各有独立副本，
+  # 因此在 A 容器 bench build 的产物 B 容器（含 nginx）看不到，且容器重建即丢失。
+  # 把这两个 app 的 dist 目录挂成同一个命名卷，让「构建」与「对外提供」看到同一份文件。
+  frappe-dist:
+  erpnext-dist:
 
 networks:
   frappe_network:
