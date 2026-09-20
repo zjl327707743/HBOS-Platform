@@ -65,6 +65,32 @@ def guard_snapshot_frozen(doc, fields, flag_field="snapshot_frozen"):
 			)
 
 
+def _table_signature(rows, child_doctype):
+	"""子表内容指纹：按行内容排序拼接，用于判断「行是否被增删改」（行序变化不算）。"""
+	if not rows:
+		return ""
+	fieldnames = [f.fieldname for f in frappe.get_meta(child_doctype).fields
+				  if f.fieldname and f.fieldtype not in ("Section Break", "Column Break", "Tab Break")]
+	lines = []
+	for row in rows:
+		lines.append("|".join(str(row.get(f) or "") for f in fieldnames))
+	return "\n".join(sorted(lines))
+
+
+def guard_child_table_frozen(doc, table_field):
+	"""子表冻结守卫：服务专用写入的流水子表，行不得被非特权用户直接增删改（方案 8.3 / 8.6）。
+
+	仅在文档已有前值（非首次插入）时生效；业务服务写入前须置 `allow_system_fields`。
+	"""
+	before = doc.get_doc_before_save()
+	if not before or _privileged() or doc.flags.get("allow_system_fields"):
+		return
+	child_doctype = frappe.get_meta(doc.doctype).get_field(table_field).options
+	if _table_signature(before.get(table_field), child_doctype) != \
+			_table_signature(doc.get(table_field), child_doctype):
+		frappe.throw("「{}」为服务专用写入的流水子表，禁止直接增删改（方案 8.6）。".format(table_field))
+
+
 # 删除拦截允许状态（方案 8.3 主 DocType 删除拦截表）；None = 全部禁删
 NOTICE_DELETABLE_STATUSES = ("草稿", "已驳回", "已取消")
 PROTOCOL_DELETABLE_STATUSES = ("草稿",)
@@ -140,6 +166,10 @@ ROOM_LOG_SYSTEM_FIELDS = (
 	"within_spec", "status",
 )
 FAULT_SYSTEM_FIELDS = ("status", "last_fault_date", "handler", "handle_date")
+
+# 注：Equipment 的 `status` 是受控终止机制（方案 8.3 用「停用」代替删除），
+# `last_fault_date` 由 `open_fault_ticket` 派生回写——两者均须经业务服务写入。
+EQUIPMENT_SYSTEM_FIELDS = ("status", "last_fault_date")
 
 
 def _audit_delete_block(doctype, doc_name, action_text, reason):

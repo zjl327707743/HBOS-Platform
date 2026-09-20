@@ -98,6 +98,8 @@
                   </template>
                   <template v-else-if="column.key === 'action'">
                     <a-space size="small">
+                      <a-button v-if="can('submit_result') && record.status === '草稿'" type="link" size="small"
+                                @click="runAction('提交结果', () => submitResult(record.name))">提交</a-button>
                       <a-button v-if="can('review_result') && record.status === '已提交'" type="link" size="small"
                                 @click="runAction('复核结果', () => reviewResult(record.name))">复核</a-button>
                       <a-button v-if="can('approve_result') && record.status === '已复核'" type="link" size="small"
@@ -113,8 +115,9 @@
             <div class="page-actions" style="margin-top: 14px">
               <a-button size="small" type="primary" :disabled="!can('record_result') || current.status !== '检测中'"
                         @click="submitRecord">录入结果</a-button>
-              <a-button size="small" v-if="can('complete_testing') && current.status === '检测中'"
-                        @click="runAction('完成检测', () => completeTesting(current!.name))">完成检测</a-button>
+              <span class="panel-sub" v-if="current.status === '检测中'">
+                全部必检项目批准后由系统自动完成检测
+              </span>
             </div>
           </div>
         </template>
@@ -167,8 +170,8 @@ import StbGateBanner from '@/components/stability/StbGateBanner.vue'
 import StbAuditDrawer from '@/components/stability/StbAuditDrawer.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
-  approveResult, canAction, completeTesting, products, results,
-  reviewResult, trend, validityAdvice, voidResult,
+  approveResult, canAction, products, results,
+  reviewResult, submitResult, trend, validityAdvice, voidResult,
   type ResultRow, type TrendData, type ProductRow,
 } from '@/api/stability'
 import { toneClass } from '@/demo/stabilityDemo'
@@ -193,7 +196,7 @@ const resultColumns = [
   { title: '版本', dataIndex: 'revision_no', key: 'rev', width: 60 },
   { title: '状态', key: 'status', width: 100 },
   { title: '显著变化', key: 'sig', dataIndex: 'is_significant_change', width: 70 },
-  { title: '操作', key: 'action', width: 170 },
+  { title: '操作', key: 'action', width: 215 },
 ]
 
 const itemOptions = computed(() => {

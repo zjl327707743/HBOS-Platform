@@ -126,6 +126,7 @@
 | M2-R8D | 稳定性变更、稳定性室与设备后端（4 DocType + 1 子表：Change / Room Log（`room_date_period_key` unique）/ Equipment / Fault Ticket + Fault Sample 流水子表；`FLOW_STB_CHANGE`/`FLOW_STB_FAULT`——方案 8 条状态机全部落地；变更链 10 动作（一般批准 QAM 专属 S7、重大批准 QP 专属、7.9 原子事务实施）+ 稳定性室 8 动作 + 只读 5 接口 + scheduler 扩展（设备到期 / 温湿度缺卡 / 运行期一致性扫描四类不变式）+ 审计枚举 +17；处置 3 项方案缺口（Change 补共享子表承载新条件、`handle_exception` 由字段组承载、5 报表以只读数据源交付）；离线 311/311、实机 39/39、R8B/C 回归 40+34；未部署生产） | DONE / 待 Owner 审查 |
 | M2-R8I | 稳定性剩余三视图前端接入 + 5 张 Script Report 物化（稳定性台账 / 检测进度跟踪 / 年度覆盖清单 / 温湿度记录查询 / 设备与校准到期清单；`api/stability.ts` +64 函数与 6.3.5~6.3.8 动作角色；结果三栏 + 报告三栏 + Ops 三标签全部接真实后端；横幅改 live、演示层退役 356→21 行；处置 2 项：effective_*_due 改服务层派生、417 为 gunicorn 旧缓存；`vue-tsc` 0 错误、build 成功、浏览器读写全链与角色显隐、375px 三页无溢出；未部署生产） | DONE / 待 Owner 审查 |
 | M2-R8B | 稳定性样品、时间点与取样检测计划后端（5 DocType：Sample+Log / Timepoint+Timepoint Item+Timepoint Delay；3 条状态机；21 动作 + 4 只读 + scheduler；标签 Print Format + 「取样与检测计划看板」报表；四步锁与固定锁顺序、时间点生成幂等、延期日期链全段校验、逾期纯派生；Result 依赖处前向兼容守卫；离线 244/244、实机 40/40、补充 10/10；未部署生产） | DONE / 待 Owner 审查 |
+| M2-R8J | 稳定性板块前后端审查与缺陷修复（独立审查：后端写路径 4306 行 + 22 DocType 权限 + 守卫层，前端 7 视图 + 接口层；结论——核心设计成立，零裸 SQL / 无 `v-html`、91 个 whitelist 方法全部经 `_check_action`、锁顺序无冲突、负向拦截全部留痕）；修 **3 P1 + 2 P2**：①报告 `conclusion` 无写入路径致报告链断裂（Report 对 LIMS 角色只读而 `submit_report` 硬校验其非空）→ 新增 `save_report_draft` + 前端「编辑报告内容」弹窗；②结果页缺「提交」致工作流 UI 走不通 → 操作列补「提交」；③`complete_testing` 公开 + `system=True` 豁免角色校验致越权（实测无角色用户可强制完成检测）→ 移 whitelist 改由 `approve_result` 自动调用；④`Equipment.status` 无守卫 → 补 `EQUIPMENT_SYSTEM_FIELDS` + `validate` + `read_only`；⑤故障流水子表行可被 LIMS 角色增删改 → 新增 `guard_child_table_frozen`；另补审计枚举 `报告起草`；离线 311/311、`vue-tsc` 0 错误 + build 成功、实机修复验证 15/16 → 补测 5/5、负向回归 11/11、浏览器读写全链；P3 加固项 7 条未处置；未部署生产、未提交） | DONE / 待 Owner 审查 |
 
 ## 下一步路线
 
@@ -152,6 +153,7 @@ M2-R6D DEPLOYED（合规审计日志 + 生产部署错配修复）。
 M2-R7 REVIEWING rev6（留样管理板块开发方案口径定稿，Owner 已确认角色方案 B 与分支策略 b；R7A 已在 m2-r6 交付 3 DocType+retention_service+前端两页；R7B/C 后端已实现并真实验证）。
 M2-R7D DEPLOYED（留样板块前端 Vue 复刻与生产部署，6 视图已同步 /hbos-lims，工作台/观察/使用/处理已切换真实后端接入，Owner 2026-09-08 确认）。
 M2-R8 REVIEWING rev15（稳定性管理板块开发方案（v9.0 **已正式生效**，Owner 2026-09-16 确认 11.3-1），以《稳定性管理》v9.0 为业务依据，14 主 + 8 子 DocType（= 22） + 8 状态机 + R8A~R8E 子轮，rev1 FAIL 后 rev2 修订 4 P0 + 6 P1，复审"有条件通过"后 rev3 修订 5 必修 + 3 补强、rev4 修订 3 P1 + 8 P2 + 9 P3，四轮复审 FAIL 后 rev5 修订 2 P0 + 8 P1，五轮复审"有条件通过"后 rev6 修订 4 P1 + 5 P2 + 10 P3，Owner 2026-09-15 授权并确认两项范围边界；**11.3 启动门禁 7/7 已闭环；稳定性板块整体交付完成——后端 R8A~R8D（8 条状态机全部落地、6 张报表全部物化）与前端 R8G/R8H/R8I（7 视图全部接入真实 API）均 DONE / 待 Owner 审查**）。
+M2-R8J DONE / 待 Owner 审查（稳定性板块前后端审查与缺陷修复：独立审查后端写路径 + 22 DocType 权限 + 守卫层与前端 7 视图 + 接口层，并以非 Administrator 真实用户跑端到端模拟与负向安全用例；结论——核心设计成立，无注入 / XSS / 越权读取面；修 3 P1 + 2 P2：报告 `conclusion` 无写入路径致报告链断裂、结果页缺「提交」致工作流 UI 走不通、`complete_testing` 公开 + `system=True` 豁免角色校验致越权、`Equipment.status` 无守卫、故障流水子表行可被 LIMS 角色增删改；离线 311/311、`vue-tsc` 0 错误 + build 成功、实机修复验证 15/16 → 补测 5/5、负向回归 11/11、浏览器读写全链；P3 加固项 7 条未处置；未部署生产、未提交）。主文档 `docs/milestones/M2_R8J_稳定性板块审查与修复.md`。
 
 ## 更新规则
 

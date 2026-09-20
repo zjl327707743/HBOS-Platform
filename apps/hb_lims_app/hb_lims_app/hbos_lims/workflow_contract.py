@@ -273,6 +273,8 @@ ACTION_ROLES = {
 	"import_zero_month_result": {ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
 	"start_testing": {ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
 	# 系统触发动作（门禁 10/20：角色豁免、动作名不豁免）——由服务内部调用，用户不可直接调用
+	# 注：三者均**无 @frappe.whitelist**（非公开入口）；complete_testing 由 approve_result
+	#     在全部必检项目获批后自动调用，reopen_timepoint 由 void_result 调用。
 	"complete_testing": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER,
 						 ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
 	"reopen_timepoint": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER,
@@ -307,6 +309,7 @@ ACTION_ROLES = {
 						ROLE_MANAGER, ROLE_LIMS_QP, ROLE_SYSTEM},
 	"eval_trend": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	"create_stability_report": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	"save_report_draft": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	"submit_report": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	"review_report": {ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER,
 					  ROLE_MANAGER, ROLE_SYSTEM},

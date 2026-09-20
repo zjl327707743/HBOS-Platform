@@ -16,3 +16,5 @@ class HBOSStabilityFaultTicket(Document):
 
 	def validate(self):
 		guards.guard_system_fields(self, guards.FAULT_SYSTEM_FIELDS)
+		# 受影响样品为服务专用写入的流水子表（方案 8.6 第 3 张），行不得直接增删改
+		guards.guard_child_table_frozen(self, "affected_samples")

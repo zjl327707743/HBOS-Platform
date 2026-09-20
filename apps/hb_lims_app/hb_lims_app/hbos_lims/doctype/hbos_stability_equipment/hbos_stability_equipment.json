@@ -141,6 +141,7 @@
    "options": "在用\n停用\n维修中",
    "reqd": 1,
    "default": "在用",
+   "read_only": 1,
    "in_list_view": 1,
    "in_standard_filter": 1
   }

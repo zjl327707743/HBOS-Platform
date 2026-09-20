@@ -1592,9 +1592,11 @@ def start_testing(timepoint_name):
 		raise
 
 
-@frappe.whitelist()
 def complete_testing(timepoint_name):
 	"""检测完成：检测中 → 已完成（**系统动作**，角色豁免、动作名不豁免）。
+
+	**非公开入口**（无 `@frappe.whitelist`）：仅由 `approve_result` 在「该时间点全部必检
+	项目均已批准」时自动调用（方案 6.3.4「全部必检项目批准后自动完成」/ 门禁 10）。
 
 	前置：该时间点**全部必检项目均有已批准结果**（方案 6.3.4）。Result（R8C）未落地时
 	`_approved_item_codes` 返回空集合，故本动作会被前置校验拒绝——这是正确判定（没有
@@ -1621,6 +1623,21 @@ def complete_testing(timepoint_name):
 	except Exception:
 		_rollback()
 		raise
+
+
+def _maybe_complete_testing(tp):
+	"""结果批准后按必检项目粒度判定自动完成检测（方案 6.3.4 / 门禁 10）。
+
+	仅当 `status=检测中` 且该时间点**全部必检项目均有生效批准结果**时才调用
+	`complete_testing`；否则保持原状态（与 `_maybe_reopen_timepoint` 对称）。
+	"""
+	if tp.status != stb.TP_TESTING:
+		return
+	required = {r.stability_test_item for r in (tp.test_items or [])
+				if r.is_required and r.stability_test_item}
+	if not required or (required - _approved_item_codes(tp.name)):
+		return
+	complete_testing(tp.name)
 
 
 def reopen_timepoint(timepoint_name):
@@ -2854,6 +2871,7 @@ def approve_result(result_name):
 				  action_text="结果批准（含生效切换）",
 				  new_value="v{} current=1{}".format(res.revision_no,
 													 " 取代 " + old_name if old_name else ""))
+		_maybe_complete_testing(tp)                        # 全部必检项目获批 → 自动完成检测
 		_commit()                                          # (f)
 		return {"name": res.name, "status": res.status, "is_current": 1,
 				"superseded": old_name}
@@ -3213,6 +3231,43 @@ def create_stability_report(report_type, stability_product, year=None,
 		_commit()
 		return {"name": doc.name, "status": doc.status, "seq": doc.seq,
 				"advised_months": months, "basis": basis}
+	except Exception:
+		_rollback()
+		raise
+
+
+@frappe.whitelist()
+def save_report_draft(report_name, conclusion=None, trend_analysis=None,
+					  impurity_profile=None, trend_chart_ref=None):
+	"""报告草稿内容保存（准入动作，状态不变）：评价与结论 / 趋势分析 / 杂质概况 / 趋势图引用。
+
+	这四项在建档（`create_stability_report`）时不收——报告要素随分析推进逐步填写；而
+	LIMS 角色对 Report 只读（方案 8.6），故必须经本方法与 `_load` 写入。`submit_report`
+	的前置「报告评价与结论必填」（方案 4.6.4）依赖本方法先落 `conclusion`。
+	"""
+	_check_action("save_report_draft", REPORT_DOCTYPE, report_name)
+	try:
+		doc = _load(REPORT_DOCTYPE, report_name)
+		if doc.status != stb.REPORT_DRAFT:
+			_reject(REPORT_DOCTYPE, report_name,
+					"仅「草稿」可修改报告内容（当前：{}）。".format(doc.status),
+					"非法状态：{} 调用 save_report_draft".format(doc.status))
+		changed = []
+		for field, value in (("conclusion", conclusion),
+							 ("trend_analysis", trend_analysis),
+							 ("impurity_profile", impurity_profile),
+							 ("trend_chart_ref", trend_chart_ref)):
+			if value is None:
+				continue
+			doc.set(field, value)
+			changed.append(field)
+		if not changed:
+			frappe.throw("未提供任何可保存字段。")
+		doc.save(ignore_permissions=True)
+		_audit_on(REPORT_DOCTYPE, "报告起草", doc.name,
+				  action_text="保存报告草稿内容", new_value=" / ".join(changed))
+		_commit()
+		return {"name": doc.name, "status": doc.status, "fields": changed}
 	except Exception:
 		_rollback()
 		raise

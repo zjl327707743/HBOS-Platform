@@ -84,6 +84,8 @@
               外推依据：{{ detail.proposed_validity_basis }}
             </div>
             <div class="page-actions" style="margin-top: 14px" v-if="detail">
+              <a-button v-if="can('save_report_draft') && detail.status === '草稿'" size="small"
+                        @click="draftOpen = true">编辑报告内容</a-button>
               <a-button v-if="can('submit_report') && detail.status === '草稿'" size="small" type="primary"
                         @click="runAction('提交报告', () => submitReport(detail!.name))">提交</a-button>
               <a-button v-if="can('review_report') && detail.status === '待QA审核'" size="small"
@@ -198,6 +200,27 @@
       <div class="stb-notice amber">批准即确定有效期；须先完成审核且审核人 ≠ 批准人（SoD，后端硬校验）。</div>
     </a-modal>
 
+    <!-- 草稿内容编辑（评价与结论 / 趋势分析 / 杂质概况 / 趋势图引用） -->
+    <a-modal v-model:open="draftOpen" title="编辑报告内容（草稿）" :confirm-loading="busy" width="640px" @ok="saveDraft">
+      <div class="stb-form-field full">
+        <label>评价与结论 *</label>
+        <a-textarea v-model:value="draftForm.conclusion" :rows="4" placeholder="提交报告的前置必填项（方案 4.6.4）" />
+      </div>
+      <div class="stb-form-field full" style="margin-top: 10px">
+        <label>趋势分析</label>
+        <a-textarea v-model:value="draftForm.trend_analysis" :rows="3" />
+      </div>
+      <div class="stb-form-field full" style="margin-top: 10px">
+        <label>杂质概况分析</label>
+        <a-textarea v-model:value="draftForm.impurity_profile" :rows="3" />
+      </div>
+      <div class="stb-form-field full" style="margin-top: 10px">
+        <label>趋势图引用</label>
+        <a-input v-model:value="draftForm.trend_chart_ref" />
+      </div>
+      <div class="stb-notice">仅「草稿」可修改；保存后即可提交（方案 8.6：报告对 LIMS 角色只读，须经业务服务写入）。</div>
+    </a-modal>
+
     <!-- 原因弹窗 -->
     <a-modal v-model:open="reasonOpen" :title="reasonTitle" :confirm-loading="busy" @ok="confirmReason">
       <a-textarea v-model:value="reasonText" :rows="3" placeholder="原因必填" />
@@ -213,7 +236,7 @@ import StbGateBanner from '@/components/stability/StbGateBanner.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   approveReport, canAction, createReport, products, rejectReport, reportDetail, reports,
-  reviewReport, submitReport, voidReport, validityAdvice,
+  reviewReport, saveReportDraft, submitReport, voidReport, validityAdvice,
   type ReportRow, type ReportDetail, type ProductRow,
 } from '@/api/stability'
 import { toneClass } from '@/demo/stabilityDemo'
@@ -286,9 +309,41 @@ async function openReport(r: ReportRow) {
   detailLoading.value = true
   try {
     detail.value = await reportDetail(r.name)
+    fillDraftForm()
   } finally {
     detailLoading.value = false
   }
+}
+
+// 草稿内容（评价与结论等四项在建档时不收，须经 save_report_draft 写入）
+const draftOpen = ref(false)
+const draftForm = reactive({
+  conclusion: '',
+  trend_analysis: '',
+  impurity_profile: '',
+  trend_chart_ref: '',
+})
+function fillDraftForm() {
+  const d = detail.value
+  draftForm.conclusion = d?.conclusion || ''
+  draftForm.trend_analysis = d?.trend_analysis || ''
+  draftForm.impurity_profile = d?.impurity_profile || ''
+  draftForm.trend_chart_ref = d?.trend_chart_ref || ''
+}
+async function saveDraft() {
+  const d = detail.value
+  if (!d) return
+  if (!draftForm.conclusion.trim()) { message.warning('评价与结论必填（提交报告的前置）'); return }
+  await runAction('保存报告内容', async () => {
+    await saveReportDraft(d.name, {
+      conclusion: draftForm.conclusion,
+      trendAnalysis: draftForm.trend_analysis,
+      impurityProfile: draftForm.impurity_profile,
+      trendChartRef: draftForm.trend_chart_ref,
+    })
+    draftOpen.value = false
+    await openReport({ name: d.name } as ReportRow)
+  })
 }
 
 function stepDone(status: string): boolean {

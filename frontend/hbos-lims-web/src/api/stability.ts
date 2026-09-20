@@ -768,10 +768,8 @@ export function evalTrend(timepointName: string, conclusion: string, remark?: st
   return callMethod('hb_lims_app.hbos_lims.stability_service.eval_trend',
     { timepoint_name: timepointName, conclusion, remark })
 }
-export function completeTesting(timepointName: string) {
-  return callMethod('hb_lims_app.hbos_lims.stability_service.complete_testing',
-    { timepoint_name: timepointName })
-}
+// 注：`complete_testing` 为系统动作、非公开入口（方案 6.3.4），由后端在
+// 「全部必检项目均已批准」时自动调用，前端无对应接口与按钮。
 
 export function createReport(params: {
   report_type: string; stability_product: string; year?: number
@@ -781,6 +779,16 @@ export function createReport(params: {
 }) {
   return callMethod<{ name: string; status: string; seq?: number; advised_months?: number }>(
     'hb_lims_app.hbos_lims.stability_service.create_stability_report', params)
+}
+export function saveReportDraft(reportName: string, params: {
+  conclusion?: string; trendAnalysis?: string; impurityProfile?: string; trendChartRef?: string
+}) {
+  return callMethod('hb_lims_app.hbos_lims.stability_service.save_report_draft',
+    { report_name: reportName,
+      conclusion: params.conclusion,
+      trend_analysis: params.trendAnalysis,
+      impurity_profile: params.impurityProfile,
+      trend_chart_ref: params.trendChartRef })
 }
 export function submitReport(reportName: string) {
   return callMethod('hb_lims_app.hbos_lims.stability_service.submit_report', { report_name: reportName })
@@ -1055,9 +1063,10 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   revise_result: [ROLE.analyst, ROLE.manager, ROLE.system],
   void_result: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
   eval_trend: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
-  complete_testing: [ROLE.analyst, ROLE.manager, ROLE.system],
+  // complete_testing 为系统动作、无公开入口（方案 6.3.4），不在此登记
   // 6.3.6 FLOW_STB_REPORT
   create_stability_report: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
+  save_report_draft: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
   submit_report: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
   review_report: [ROLE.reviewer, ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
   approve_report: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],

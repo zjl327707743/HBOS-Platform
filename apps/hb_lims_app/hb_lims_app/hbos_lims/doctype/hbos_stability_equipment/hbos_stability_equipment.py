@@ -13,3 +13,6 @@ class HBOSStabilityEquipment(Document):
 	def on_trash(self):
 		"""设备台账全状态禁删，用「停用」代替删除（方案 8.3）。"""
 		guards.guard_delete(self, "HBOS Stability Equipment", guards.EQUIPMENT_DELETABLE_STATUSES)
+
+	def validate(self):
+		guards.guard_system_fields(self, guards.EQUIPMENT_SYSTEM_FIELDS)
