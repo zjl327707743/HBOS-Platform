@@ -41,14 +41,27 @@ def hbos_bin_url(warehouse):
 	return f"{frappe.utils.get_url()}/{BIN_PAGE_ROUTE}?bin={quote(code)}"
 
 
-def hbos_bin_qr_svg(warehouse):
-	"""货位二维码，返回内联 SVG 字符串（黑底白字反色，适合打印贴标签）。
+def hbos_bin_qr_svg(warehouse, size_mm=20):
+	"""货位二维码，返回内联 SVG 字符串（适合打印贴标签）。
+
+	**尺寸由 `size_mm` 定，直接写进 SVG 的 width/height 属性。**
+
+	为什么不能只在模板里用 CSS 定尺寸（实测教训）：pyqrcode 生成的 SVG 自带
+	`height="520" width="520"`（约 138mm），而 **wkhtmltopdf 不认 CSS 对 svg 的
+	`width`/`height` 覆盖**。于是那个 138mm 的块会把 60×40mm 的标签撑爆。
+	改成把尺寸写进 SVG 属性后，wkhtmltopdf 就认了。
+
+	⚠ **默认值 20mm 是与「HBOS 货位二维码」模板配套实测出来的**：
+	该标签纸型 60×40mm，减去 3mm 四周页边距后可用高约 34mm。
+	实测在这个尺寸下，「二维码 + 货位号(13pt) + 提示行(7pt)」刚好一页；
+	调到 22mm 就会溢出成两页。**改这个默认值前请先跑一遍打印验证。**
 
 	无货位或生成失败时返回空串，模板需自行兜底。
 	"""
 	url = hbos_bin_url(warehouse)
 	if not url:
 		return ""
+	import re
 	from io import BytesIO
 
 	from pyqrcode import create as qrcreate
@@ -57,14 +70,25 @@ def hbos_bin_qr_svg(warehouse):
 	try:
 		qr = qrcreate(url)
 		qr.svg(stream, scale=8, background="white", module_color="black")
-		return stream.getvalue().decode()
+		svg = stream.getvalue().decode()
 	finally:
 		stream.close()
 
+	# 去掉 XML 声明——内联进 HTML 时才合法
+	svg = re.sub(r"^\s*<\?xml[^>]*\?>\s*", "", svg)
 
-def hbos_bin_qr_data_uri(warehouse):
+	# 把自带的像素尺寸换掉。注意 pyqrcode 的 520 是随 QR 版本变的，不能写死，
+	# 故按属性名替换而不是按数值匹配。
+	def _resize(m):
+		attrs = re.sub(r'\s(?:width|height)="[^"]*"', "", m.group(1))
+		return f'<svg{attrs} width="{size_mm}mm" height="{size_mm}mm"'
+
+	return re.sub(r"<svg([^>]*)", _resize, svg, count=1)
+
+
+def hbos_bin_qr_data_uri(warehouse, size_mm=26):
 	"""货位二维码，返回可直接放进 `img src` 的 data URI。"""
-	svg = hbos_bin_qr_svg(warehouse)
+	svg = hbos_bin_qr_svg(warehouse, size_mm=size_mm)
 	if not svg:
 		return ""
 	from base64 import b64encode

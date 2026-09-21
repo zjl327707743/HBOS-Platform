@@ -16,8 +16,15 @@ doc_events = {
     },
     "Stock Entry": {
         "before_submit": "hb_inventory_app.hbos_inventory.release_gate.validate_release",
+        # 入库提交后自动生成「待检证 + 货位卡」并挂到批次附件。
+        # 挂 on_submit 而非生成草稿时——货位卡依赖真实库存流水（SLE），
+        # 而 ERPNext 的 on_submit 先建 SLE，我们的钩子在其后跑。详见 doc_gen.py。
+        "on_submit": "hb_inventory_app.hbos_inventory.doc_gen.generate_for_stock_entry",
     },
 }
+
+# 批次表单上的「重新生成货位卡 / 待检证」按钮（自动生成失败或数据变更后补生成）
+doctype_js = {"Batch": "public/js/batch.js"}
 
 # Print Format 用的 Jinja 全局方法（打印辅助 + 货位二维码）。
 # 注册机制会收集所列模块内的所有函数，故这些模块只 `import frappe`，
