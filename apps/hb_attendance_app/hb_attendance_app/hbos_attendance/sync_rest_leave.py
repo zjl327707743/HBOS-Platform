@@ -8,17 +8,28 @@
   * 单条记录的任何异常都被就地兜住，不会中断整批、也不会丢摘要。
 加班日的解析与核实分别见 parse_pending_rest_leaves / verify_pending_rest_leaves。
 """
+import time as _time
+
 import frappe
 
+from hb_attendance_app.hbos_attendance.ai_review import call_llm, env_config
 from hb_attendance_app.hbos_attendance.api import (
     STATUS_MAP, _fetch_all_records_custom, _get_token,
 )
 from hb_attendance_app.hbos_attendance.rest_leave import (
     ID_PREFIX, PARSE_PENDING, REST_LEAVE_APP_TOKEN, REST_LEAVE_TABLE_ID,
-    rest_leave_fields,
+    VERIFY_PARSE_FAIL, VERIFY_PENDING,
+    build_overtime_prompt, parse_overtime_dates, rest_leave_fields,
 )
 
 DOCTYPE = "HBOS Rest Leave Record"
+
+# 单批解析的时间预算（秒）。ai_review.AI_BATCH_SECONDS=100 是为「单次 HTTP 请求
+# 须在代理 120s 内返回」而设；本函数跑在 30 分钟一次的调度任务里，没有代理超时，
+# 但必须给同一调度周期内的其他任务留出余地（Frappe 调度串行执行）。取 1200s
+# 即周期的 2/3，余下 10 分钟给其他任务。串行逐条调用若每条 ≤60s，最坏仍是
+# limit×60s，故必须有此硬预算：超预算立即停手，剩余记录留待下次运行。
+PARSE_BATCH_SECONDS = 1200
 
 
 def _match_employee(num, name):
@@ -108,7 +119,85 @@ def sync_rest_leave_from_bitable():
             else:
                 summary["created"] += 1
         except Exception as e:
-            frappe.log_error(str(e), "飞书调休写入失败")
+            # 带上飞书行 id：N 条失败时才分得清是哪条。
+            # 标题取中立说法——这个 try 覆盖匹配/解析/get_doc/save，
+            # 写成「写入失败」会掩盖真实的失败阶段。
+            frappe.log_error(
+                "%s: %s" % (record.get("id") or "", e), "飞书调休单条处理失败")
             summary["failed"] += 1
 
+    return summary
+
+
+def parse_pending_rest_leaves(limit=200):
+    """对 verify_status=待解析 的记录调 LLM 提取加班日并落库。
+
+    仅在同步之后调用。判定每 10 分钟重算一次，**绝不能在判定路径调用 LLM**：
+    成本与延迟不可接受，且同样输入未必同样输出，判定必须基于稳定的落库结论。
+
+    每批有 PARSE_BATCH_SECONDS 的时间预算：超预算即停止发起新调用，剩余记录
+    留在待解析（下一次运行继续），不计入 failed——「没轮到」不是失败。
+
+    摘要键集合在所有返回路径上完全一致，调用方可以无条件读取任何一个键：
+      parsed 本轮成功解析出加班日、状态转「待核实」的条数
+      failed 本轮失败条数（LLM 调用失败 / 解析不出日期 / 落库失败）
+      remaining 本轮结束后仍处于待解析的条数（积压可见）
+      error 配置阶段的失败原因，非空即表示本轮未处理任何记录
+    """
+    summary = {"parsed": 0, "failed": 0, "remaining": 0, "error": ""}
+    try:
+        cfg = env_config()
+    except Exception as e:
+        frappe.log_error(str(e), "调休加班日解析")
+        summary["error"] = str(e)
+        return summary
+    if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
+        summary["error"] = "未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）"
+        return summary
+
+    pending = frappe.db.get_all(
+        DOCTYPE,
+        filters={"verify_status": PARSE_PENDING},
+        fields=["name", "employee_name", "employee_number", "remarks", "start_date"],
+        limit_page_length=limit,
+        order_by="creation asc",
+    )
+    batch_deadline = _time.monotonic() + PARSE_BATCH_SECONDS
+    for row in pending:
+        # 时间预算：超预算停止发起新调用，剩余记录保持待解析，下次运行继续。
+        # 不计入 failed——它们是「还没轮到」，与调用失败/解析失败不是一回事。
+        if _time.monotonic() > batch_deadline:
+            break
+
+        year = str(row.start_date or "")[:4] or "2026"
+        prompt = build_overtime_prompt(
+            row.employee_name or "", row.employee_number or "",
+            row.remarks or "", year)
+        try:
+            text = call_llm(cfg, prompt)
+        except Exception as e:
+            # 调用失败不写 parsed_at、不改状态：下次同步/解析可重试
+            # （与「解析不出日期 → 转人工、不重试」区分开）
+            frappe.log_error(
+                "%s: %s" % (row.name, e), "调休加班日 LLM 调用失败")
+            summary["failed"] += 1
+            continue
+
+        dates = parse_overtime_dates(text, year)
+        doc = frappe.get_doc(DOCTYPE, row.name)
+        doc.parsed_at = frappe.utils.now_datetime()
+        doc.overtime_dates = ",".join(dates)
+        # 解析不出日期 → 解析失败，转人工；不豁免、不重试
+        doc.verify_status = VERIFY_PENDING if dates else VERIFY_PARSE_FAIL
+        try:
+            doc.save(ignore_permissions=True)
+            frappe.db.commit()
+            summary["parsed" if dates else "failed"] += 1
+        except Exception as e:
+            frappe.log_error(
+                "%s: %s" % (row.name, e), "调休加班日写入失败")
+            summary["failed"] += 1
+
+    summary["remaining"] = frappe.db.count(
+        DOCTYPE, {"verify_status": PARSE_PENDING})
     return summary
