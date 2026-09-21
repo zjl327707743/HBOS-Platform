@@ -105,7 +105,7 @@ def _diagnose_feishu_fields(info):
     """
     # 1. OAuth (oidc) 直接返回的字段
     oidc_keys = sorted([k for k, v in info.items() if v])
-    frappe.log_error("feishu_login", f"oidc 字段: {oidc_keys}")
+    frappe.log_error(f"oidc 字段: {oidc_keys}", "feishu_login")
 
     # 2. 用 contact 接口尝试取更完整的用户字段（手机号/邮箱/工号/部门）
     open_id = info.get("open_id")
@@ -130,21 +130,21 @@ def _diagnose_feishu_fields(info):
         if data.get("code") == 0:
             user = data.get("data", {}).get("user", {})
             dkeys = sorted([k for k, v in user.items() if v])
-            frappe.log_error("feishu_login", f"directory 字段: {dkeys}")
+            frappe.log_error(f"directory 字段: {dkeys}", "feishu_login")
             frappe.log_error(
-                "feishu_login",
                 "directory 关键字段: "
                 f"department_ids={bool(user.get('department_ids'))}, "
                 f"employee_no={bool(user.get('employee_no') or user.get('employee_id'))}, "
                 f"mobile={bool(user.get('mobile'))}",
+                "feishu_login",
             )
         else:
             frappe.log_error(
-                "feishu_login",
                 f"directory 接口返回: code={data.get('code')} msg={data.get('msg')}",
+                "feishu_login",
             )
     except Exception as e:
-        frappe.log_error("feishu_login", f"directory 诊断失败: {e}")
+        frappe.log_error(f"directory 诊断失败: {e}", "feishu_login")
 
     # 旧版 contact 接口（contact:* 权限体系）
     try:
@@ -157,23 +157,23 @@ def _diagnose_feishu_fields(info):
         data = resp.json()
         if data.get("code") != 0:
             frappe.log_error(
-                "feishu_login",
                 f"contact 接口返回: code={data.get('code')} msg={data.get('msg')}",
+                "feishu_login",
             )
             return
         user = data.get("data", {}).get("user", {})
         contact_keys = sorted([k for k, v in user.items() if v])
-        frappe.log_error("feishu_login", f"contact 字段: {contact_keys}")
+        frappe.log_error(f"contact 字段: {contact_keys}", "feishu_login")
         frappe.log_error(
-            "feishu_login",
             "contact 关键字段: "
             f"mobile={bool(user.get('mobile'))}, "
             f"email={bool(user.get('email'))}, "
             f"employee_no={bool(user.get('employee_no') or user.get('employee_id'))}, "
             f"department_ids={bool(user.get('department_ids'))}",
+            "feishu_login",
         )
     except Exception as e:
-        frappe.log_error("feishu_login", f"contact 诊断失败: {e}")
+        frappe.log_error(f"contact 诊断失败: {e}", "feishu_login")
 
 
 def _get_user_info(code):
