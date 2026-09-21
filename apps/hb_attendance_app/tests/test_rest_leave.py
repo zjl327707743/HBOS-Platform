@@ -109,6 +109,48 @@ class ParseOvertimeDatesTest(unittest.TestCase):
     def test_chinese_format_uses_year_hint(self):
         self.assertEqual(parse_overtime_dates("8月2日", "2026"), ["2026-08-02"])
 
+    def test_chinese_hao_form(self):
+        """真实 104 条说明里「月+号」71 条、「月+日」13 条；号是主要写法，必须都认。"""
+        self.assertEqual(parse_overtime_dates("8月2号加的班", "2026"),
+                         ["2026-08-02"])
+        self.assertEqual(parse_overtime_dates("8月2号", "2026"),
+                         parse_overtime_dates("8月2日", "2026"))
+        self.assertEqual(parse_overtime_dates("8月2号、8月16号", "2026"),
+                         ["2026-08-02", "2026-08-16"])
+
+    def test_time_span_not_read_as_date(self):
+        """「9月20号晚上17:30-21:30」里的时间不得被当成日期产出。"""
+        self.assertEqual(
+            parse_overtime_dates("9月20号晚上17:30-21:30加的班", "2026"),
+            ["2026-09-20"])
+        # 冒号写成点号（17.30-21.30）时也不得产出 17 月 30 日之类的伪日期
+        self.assertEqual(parse_overtime_dates("8月2号加班 17.30-21.30", "2026"),
+                         ["2026-08-02"])
+
+    def test_multiple_chinese_dates_all_extracted_no_range_expansion(self):
+        """多条中文日期一律提取，且不做区间展开（保持单日逐个产出）。
+
+        说明同时提到加班日与调休日时会多提一个休息日，这是**有意**的保守行为：
+        多提只会让核实更严格（核实不通过 → 转人工），漏提才会把真实加班误判成解析失败。
+        """
+        self.assertEqual(
+            parse_overtime_dates("9月6号加班，调休9月11号休息", "2026"),
+            ["2026-09-06", "2026-09-11"])
+
+    def test_dotted_pair_extracted(self):
+        """「08.09加的班，调休到08.19」两个短式日期都要提取。"""
+        self.assertEqual(parse_overtime_dates("08.09加的班，调休到08.19", "2026"),
+                         ["2026-08-09", "2026-08-19"])
+
+    def test_chinese_with_explicit_year_beats_hint(self):
+        """「2026年8月2号」自带年份，不依赖【申请年】；年份冲突时以原文为准。"""
+        self.assertEqual(parse_overtime_dates("2026年8月2号加班", "2026"),
+                         ["2026-08-02"])
+        self.assertEqual(parse_overtime_dates("2026年8月2号加班", None),
+                         ["2026-08-02"])
+        self.assertEqual(parse_overtime_dates("2026年8月2号加班", "2025"),
+                         ["2026-08-02"])
+
     def test_dedupes(self):
         self.assertEqual(parse_overtime_dates("2026-08-02\n2026-08-02", "2026"),
                          ["2026-08-02"])
