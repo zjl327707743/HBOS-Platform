@@ -3,6 +3,7 @@
 纯标准库模块，无 frappe / requests 依赖，可离线单测（与 board_stats.py 同模式）。
 判定规则见 docs/superpowers/specs/2026-09-21-调休接入考勤判定设计.md §4。
 """
+import math
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -37,11 +38,14 @@ def _safe_float(v):
     """调休天数是 Text 字段（实测 115/115 返回 str），脏值回落 0 且不抛异常。
 
     原实现直接 float()，一条脏值即抛异常并中断整次同步（全批数据丢失）。
+    另：float() 接受 "nan"/"inf"，非有限值会原样写进 Float 字段与 JSON，
+    因此非有限值也一并回落 0。
     """
     try:
-        return float(str(v).strip())
+        out = float(str(v).strip())
     except (TypeError, ValueError):
         return 0.0
+    return out if math.isfinite(out) else 0.0
 
 
 def rest_leave_fields(fields):
@@ -91,7 +95,7 @@ _PROMPT_HEAD = (
     "3. 日期可能写作「8月2日」「08.02」「8/2」等，一律换算成 YYYY-MM-DD；\n"
     "4. 年份以【申请年】为准；\n"
     "5. 找不到任何日期就只输出「无」；\n"
-    "6. 只输出日期，一行一个，不要任何解释文字。\n"
+    "6. 只输出 YYYY-MM-DD 格式的日期，一行一个，不要任何解释文字。\n"
     "注意：说明里提到「调休到 X 号」的日期是休息日，不是加班日，不要输出。\n"
 )
 
@@ -105,26 +109,76 @@ def build_overtime_prompt(emp_name, emp_num, remarks, year):
     )
 
 
+# 完整日期：2026-08-02 / 2026.8.2 / 2026/8/2（自带年份）
+_FULL_DATE_RE = re.compile(r"(\d{4})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{1,2})")
+# 中文式：8月2日（年份取【申请年】）
+_CN_DATE_RE = re.compile(r"(\d{1,2})\s*月\s*(\d{1,2})\s*日")
+# 短式：08.02 / 8/2（年份取【申请年】）；前后不能再接数字或分隔符，
+# 避免把完整日期的片段（26.08）或版本号之类再解读一次
+_SHORT_DATE_RE = re.compile(r"(?<![\d./-])(\d{1,2})\s*[./]\s*(\d{1,2})(?![\d./-])")
+
+
+def _valid_date(year, month, day):
+    """构造 "YYYY-MM-DD" 并校验是真实日历日；非法（如 13 月 45 日）返回 None。"""
+    try:
+        s = "%04d-%02d-%02d" % (int(year), int(month), int(day))
+        datetime.strptime(s, "%Y-%m-%d")
+        return s
+    except (TypeError, ValueError):
+        return None
+
+
+def _year_hint(year):
+    """申请年 → 四位年份 int；缺失/不可用返回 None。
+
+    只接受 1000–9999：否则 "26" 会被格式化成 "0026-08-02" 这种看似合法、
+    实则无意义（且永远不可能出现在配对集合里）的日期。
+    """
+    try:
+        hint = int(str(year).strip())
+    except (TypeError, ValueError):
+        return None
+    return hint if 1000 <= hint <= 9999 else None
+
+
 def parse_overtime_dates(text, year):
     """解析 LLM 输出 → ["YYYY-MM-DD", ...]；无法解析返回 []。
 
     只认严格日期，不做模糊匹配——解析不出即「解析失败」，转人工，
     宁可漏判也不猜（猜错会把没加过的班认成加班）。
+    接受四种写法：完整日期（2026-08-02 / 2026.8.2 / 2026/8/2）、
+    中文式（8月2日）、短式（08.02 / 8/2，年份取【申请年】）。
+    每个候选都按真实日历校验，非法日期一律不产出，而不是原样当日期返回。
+    年份缺失时不猜年份：只保留文本里自带年份的完整日期。
     """
     if not text:
         return []
+    text = str(text)
     out = []
-    for m in re.finditer(r"(\d{4})-(\d{2})-(\d{2})", str(text)):
-        s = m.group(0)
-        if s not in out:
-            out.append(s)
-    if out:
+
+    def _add(candidate):
+        if candidate and candidate not in out:
+            out.append(candidate)
+
+    # 第一遍：自带年份的完整日期；命中的区间先屏蔽，
+    # 免得 "2026.08.02" 又被下面的短式规则按 "26.08" 二次解读。
+    chars = list(text)
+    for m in _FULL_DATE_RE.finditer(text):
+        _add(_valid_date(m.group(1), m.group(2), m.group(3)))
+        for i in range(m.start(), m.end()):
+            chars[i] = " "
+    rest = "".join(chars)
+
+    hint = _year_hint(year)
+    if hint is None:
         return out
-    # 容错：模型只回了 M月D日
-    for m in re.finditer(r"(\d{1,2})\s*月\s*(\d{1,2})\s*日", str(text)):
-        s = "%04d-%02d-%02d" % (int(year), int(m.group(1)), int(m.group(2)))
-        if s not in out:
-            out.append(s)
+
+    # 第二遍：中文式；第三遍：短式（均需【申请年】补年份）。
+    # 两遍都跑完再返回——命中 ISO 不代表后面的写法就不存在（如「2026-08-02 and 7月5日」）。
+    for m in _CN_DATE_RE.finditer(rest):
+        _add(_valid_date(hint, m.group(1), m.group(2)))
+    for m in _SHORT_DATE_RE.finditer(rest):
+        _add(_valid_date(hint, m.group(1), m.group(2)))
     return out
 
 

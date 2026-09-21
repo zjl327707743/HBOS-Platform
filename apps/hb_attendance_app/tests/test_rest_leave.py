@@ -63,6 +63,14 @@ class RestLeaveFieldsTest(unittest.TestCase):
         out = rest_leave_fields(f)
         self.assertNotIn("13800000000", str(out))
 
+    def test_days_non_finite_falls_back_to_zero(self):
+        """float() 接受 nan/inf，非有限值不得写进 Float 字段与 JSON。"""
+        for bad in ("nan", "NaN", "inf", "-inf", float("nan"), float("inf")):
+            with self.subTest(bad=bad):
+                f = {"调休人员_姓名": "张三", "调休人员_工号": "10001",
+                     "调休人员_开始时间": MS_0901, "调休人员_调休天数": bad}
+                self.assertEqual(rest_leave_fields(f)["rest_days"], 0.0)
+
 
 class ExpandDatesTest(unittest.TestCase):
     def test_single_day(self):
@@ -81,6 +89,12 @@ class ExpandDatesTest(unittest.TestCase):
 
     def test_end_defaults_to_start(self):
         self.assertEqual(expand_dates("2026-08-18", None), ["2026-08-18"])
+
+    def test_reverse_range_is_swapped(self):
+        """起止写反（08-18 → 08-13）时按区间展开，不返回空。"""
+        self.assertEqual(expand_dates("2026-08-18", "2026-08-13"),
+                         ["2026-08-13", "2026-08-14", "2026-08-15",
+                          "2026-08-16", "2026-08-17", "2026-08-18"])
 
     def test_bad_input_returns_empty(self):
         self.assertEqual(expand_dates(None, None), [])
@@ -103,6 +117,36 @@ class ParseOvertimeDatesTest(unittest.TestCase):
         self.assertEqual(parse_overtime_dates("无", "2026"), [])
         self.assertEqual(parse_overtime_dates("", "2026"), [])
         self.assertEqual(parse_overtime_dates(None, "2026"), [])
+
+    def test_missing_year_hint_returns_empty_not_raise(self):
+        """申请年取不到时不得抛异常：说明原文会被整批中断的失败模式不能重现。"""
+        self.assertEqual(parse_overtime_dates("8月2日", None), [])
+        self.assertEqual(parse_overtime_dates("8月2日", ""), [])
+        self.assertEqual(parse_overtime_dates("8月2日", "abc"), [])
+        # 非四位年份不是可用年份：宁可解析失败，也不要编出 "0026-08-02"
+        self.assertEqual(parse_overtime_dates("8月2日", "26"), [])
+        self.assertEqual(parse_overtime_dates("8月2日", 0), [])
+        # 自带年份的完整日期不依赖申请年，仍应解析出来
+        self.assertEqual(parse_overtime_dates("2026-08-02\n8月2日", None),
+                         ["2026-08-02"])
+
+    def test_impossible_calendar_date_not_emitted(self):
+        """正则只约束数字形状，非法日历日不得当成日期产出。"""
+        self.assertEqual(parse_overtime_dates("2026-13-45", "2026"), [])
+        self.assertEqual(parse_overtime_dates("13月45日", "2026"), [])
+        self.assertEqual(parse_overtime_dates("2026-02-30", "2026"), [])
+
+    def test_iso_and_chinese_forms_merge(self):
+        """两种写法混排时不得因命中 ISO 就丢掉后面的中文式日期。"""
+        self.assertEqual(parse_overtime_dates("2026-08-02 and 7月5日", "2026"),
+                         ["2026-08-02", "2026-07-05"])
+
+    def test_dotted_and_slashed_forms(self):
+        """prompt 告知模型输入可能是「08.02」「8/2」，模型原样回显时也要能解析。"""
+        self.assertEqual(parse_overtime_dates("08.02", "2026"), ["2026-08-02"])
+        self.assertEqual(parse_overtime_dates("8/2", "2026"), ["2026-08-02"])
+        self.assertEqual(parse_overtime_dates("2026.08.02", "2026"), ["2026-08-02"])
+        self.assertEqual(parse_overtime_dates("2026/8/2", "2026"), ["2026-08-02"])
 
 
 class BuildPromptTest(unittest.TestCase):
