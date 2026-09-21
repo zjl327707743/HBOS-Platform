@@ -29,7 +29,15 @@ DOCTYPE = "HBOS Rest Leave Record"
 # 但必须给同一调度周期内的其他任务留出余地（Frappe 调度串行执行）。取 1200s
 # 即周期的 2/3，余下 10 分钟给其他任务。串行逐条调用若每条 ≤60s，最坏仍是
 # limit×60s，故必须有此硬预算：超预算立即停手，剩余记录留待下次运行。
+# 注意：预算是「是否再发起一次调用」的截止线，**已在途的那次调用不受它约束**，
+# 所以最坏占用是 PARSE_BATCH_SECONDS + 单次调用耗时（≤ timeout，默认 60s），
+# 而不是恰好 PARSE_BATCH_SECONDS。
 PARSE_BATCH_SECONDS = 1200
+
+# 年份提示缺失时的兜底年份。仅用于「8月2号」这类省略年份的写法；说明文本里
+# 自带年份的写法优先，不受此值影响。取错只会让该条落到「核实不通过 → 人工」，
+# 不会产生假通过（见 rest_leave.parse_overtime_dates）。
+DEFAULT_HINT_YEAR = "2026"
 
 
 def _match_employee(num, name):
@@ -122,8 +130,11 @@ def sync_rest_leave_from_bitable():
             # 带上飞书行 id：N 条失败时才分得清是哪条。
             # 标题取中立说法——这个 try 覆盖匹配/解析/get_doc/save，
             # 写成「写入失败」会掩盖真实的失败阶段。
+            # record 未必是 mapping（上游可能给畸形行），取值前先做类型守卫：
+            # 在 except 里二次抛错会直接冒泡出函数，等于毁掉逐条兜底本身。
+            rid = record.get("id") if isinstance(record, dict) else ""
             frappe.log_error(
-                "%s: %s" % (record.get("id") or "", e), "飞书调休单条处理失败")
+                "%s: %s" % (rid, e), "飞书调休单条处理失败")
             summary["failed"] += 1
 
     return summary
@@ -169,34 +180,44 @@ def parse_pending_rest_leaves(limit=200):
         if _time.monotonic() > batch_deadline:
             break
 
-        year = str(row.start_date or "")[:4] or "2026"
-        prompt = build_overtime_prompt(
-            row.employee_name or "", row.employee_number or "",
-            row.remarks or "", year)
+        # 逐条处理整体兜底。取年份、拼说明、读 DocType 都在这里，而读 DocType
+        # 是会抛的——比如这条记录在 get_all 之后被删掉。异常一旦冒出函数，
+        # 本批已落库的计数与本轮积压数全部丢失，还会打断调度链
+        # （与 Task 3 是同一种失效模式，故形状保持一致）。
         try:
-            text = call_llm(cfg, prompt)
+            year = str(row.start_date or "")[:4] or DEFAULT_HINT_YEAR
+            prompt = build_overtime_prompt(
+                row.employee_name or "", row.employee_number or "",
+                row.remarks or "", year)
+            try:
+                text = call_llm(cfg, prompt)
+            except Exception as e:
+                # 调用失败不写 parsed_at、不改状态：下次同步/解析可重试
+                # （与「解析不出日期 → 转人工、不重试」区分开）
+                frappe.log_error(
+                    "%s: %s" % (row.name, e), "调休加班日 LLM 调用失败")
+                summary["failed"] += 1
+                continue
+
+            dates = parse_overtime_dates(text, year)
+            doc = frappe.get_doc(DOCTYPE, row.name)
+            doc.parsed_at = frappe.utils.now_datetime()
+            doc.overtime_dates = ",".join(dates)
+            # 解析不出日期 → 解析失败，转人工；不豁免、不重试
+            doc.verify_status = VERIFY_PENDING if dates else VERIFY_PARSE_FAIL
+            try:
+                doc.save(ignore_permissions=True)
+                frappe.db.commit()
+                summary["parsed" if dates else "failed"] += 1
+            except Exception as e:
+                frappe.log_error(
+                    "%s: %s" % (row.name, e), "调休加班日写入失败")
+                summary["failed"] += 1
         except Exception as e:
-            # 调用失败不写 parsed_at、不改状态：下次同步/解析可重试
-            # （与「解析不出日期 → 转人工、不重试」区分开）
             frappe.log_error(
-                "%s: %s" % (row.name, e), "调休加班日 LLM 调用失败")
+                "%s: %s" % (row.name, e), "调休加班日单条处理失败")
             summary["failed"] += 1
             continue
-
-        dates = parse_overtime_dates(text, year)
-        doc = frappe.get_doc(DOCTYPE, row.name)
-        doc.parsed_at = frappe.utils.now_datetime()
-        doc.overtime_dates = ",".join(dates)
-        # 解析不出日期 → 解析失败，转人工；不豁免、不重试
-        doc.verify_status = VERIFY_PENDING if dates else VERIFY_PARSE_FAIL
-        try:
-            doc.save(ignore_permissions=True)
-            frappe.db.commit()
-            summary["parsed" if dates else "failed"] += 1
-        except Exception as e:
-            frappe.log_error(
-                "%s: %s" % (row.name, e), "调休加班日写入失败")
-            summary["failed"] += 1
 
     summary["remaining"] = frappe.db.count(
         DOCTYPE, {"verify_status": PARSE_PENDING})
