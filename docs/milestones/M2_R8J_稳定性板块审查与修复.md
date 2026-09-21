@@ -1,6 +1,6 @@
 # M2-R8J 稳定性板块前后端审查与缺陷修复
 
-> 状态：**DEPLOYED / 待 Owner 测试路径验收**（离线 321/321、前端 `vue-tsc` 0 错误 + build 成功；两轮共修复 **3 + 8 项 P1** 与 **2 + 2 项 P2**；实机逐项验证通过、负向回归 9/9；已提交 `e447f97` 并同步生产 `/hbos-lims`）
+> 状态：**DEPLOYED / 待 Owner 测试路径验收**（离线 321/321、前端 `vue-tsc` 0 错误 + build 成功；两轮共修复 **3 + 8 项 P1** 与 **2 + 2 项 P2**；实机逐项验证通过、负向回归 9/9；已提交 `e447f97` + `66691d6` + `b61f83d` 并同步生产 `/hbos-lims`；上线后 Owner 验收发现的稳定性工作台占位文案已修复，见 §8）
 >
 > 轮次：M2-R8J（R8 板块整体交付后的独立审查与修复轮），工作分支 `m2-r8`
 >
@@ -132,3 +132,23 @@
 - `frontend/hbos-lims-web/src/api/stability.ts`（补计划项目、趋势字段与变更条件输入契约）
 - `frontend/hbos-lims-web/src/views/StabilityOpsView.vue`（补变更后考察条件表单与储存条件选项）
 - `apps/hb_lims_app/tests/test_stability_r8j_contract.py`（新增 R8J 10 项离线契约回归）
+
+## 8. 上线后 Owner 验收修复（2026-09-21）
+
+上线后 Owner 在 `/hbos-lims` 稳定性工作台发现仍有 R8G 时期的占位文案：「样品 / 时间点 / 结果」KPI 卡显示 `待 R8B~R8D`、提示「后端尚未交付，不展示占位数字」，且右侧整块面板标题为「待 R8B~R8D 接入」。
+
+**根因**：R8G 时期后端只有 R8A，后端 `get_stability_dashboard` 的 docstring 明确写着「R8B~R8D 的时间点/结果/报告类 KPI 待对应子轮落地后并入」，前端据此把该项硬编码为占位；其后 R8B/R8C/R8D 相继交付，**无人回收该占位**（R8G 的验证记录「『样品 / 时间点 / 结果』显示『待 R8B~R8D』而非占位数字」当时是符合预期的，交付后即成为陈旧陈述）。这不是后端缺数据，是**前后端各留了一处未随子轮推进回收的占位**。
+
+**处置**：
+
+| 位置 | 修法 |
+| --- | --- |
+| 后端 `get_stability_dashboard` | 补 `sample_count` / `timepoint_count` / `result_count` 与 `timepoint_by_status`（待取样/待检测/检测中/已完成/已取消 五态）真实计数；更正 docstring 与 `scope` 串 |
+| 前端 KPI | 原占位卡拆为 3 张真实 KPI 卡（稳定性样品 / 时间点 / 检测结果），KPI 由 6 张增至 **8 张，恰好铺满 4×2 栅格**（原 4+2 留两个空位） |
+| 前端面板 | 「待 R8B~R8D 接入」面板改为**「时间点执行结构」**（五态分布 + 取样与检测计划入口） |
+| 孤儿样式 | 删除因本次改动失去引用的 `.stb-timeline*` 共 5 条规则 |
+| `api/stability.ts` 头注释 | 更正为「R8A~R8D 后端全量，7 视图全部接入，无演示数据」 |
+
+**验证**：生产路径浏览器实测（`http://localhost:8080/hbos-lims/stability`，LIMS Analyst 真实会话）——KPI 8 张均为真实计数（通知单待批 0 / 已批准 1 / 方案待审 0 / 已批准 1 / 产品 3 / 样品 1 / 时间点 10 / 结果 0）；执行结构 待取样 8 / 待检测 0 / 检测中 2 / 已完成 0 / 已取消 0；页面正文**已无**任何「待 R8B / 尚未交付」文案；控制台仅既有噪音（`hrms.bundle.*` 直连 8080 亦 404、socket.io origin），无新增错误；窄屏 2 列 / 宽屏 4 列自适应、无横向溢出。离线契约 **321/321**。源码全库 grep 确认该类文案已清除。
+
+**同步**：提交 `b61f83d`，经 `deploy_lims_fix.sh` 同步生产（备份 `hbos-lims.bak-20260921115904`），清理 5 个历史残留 chunk 后远端 **86 文件与本地 `dist` md5 逐条一致**，`/hbos-lims/` 引用新 bundle `index-BRnnDybL.js`。
