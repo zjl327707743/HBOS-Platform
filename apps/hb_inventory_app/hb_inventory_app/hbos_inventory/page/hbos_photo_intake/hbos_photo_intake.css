@@ -168,3 +168,170 @@
 	border-color: #d9d9d9;
 	color: #9aa0a6;
 }
+
+/* --- ④ 补充信息 --- */
+
+/* 卡片内的小节标题，与 h5 拉开层次 */
+.hbos-pi-sub {
+	margin: 12px 0 4px;
+	font-size: 13px;
+	font-weight: 600;
+	color: #343a40;
+	border-bottom: 1px solid #eef1f4;
+	padding-bottom: 3px;
+}
+
+.hbos-pi-subnote {
+	font-weight: 400;
+	color: #8d99ae;
+	font-size: 12px;
+}
+
+/* 「主数据已有」/「为空，可补」标记——操作员据此知道这个框能不能填 */
+.hbos-pi-src {
+	font-size: 11px;
+	font-weight: 400;
+	margin-left: 4px;
+	padding: 0 5px;
+	border-radius: 8px;
+	border: 1px solid transparent;
+}
+
+.hbos-pi-src:empty {
+	display: none;
+}
+
+.hbos-pi-src.has {
+	color: #2f7a4b;
+	background: #eef8f1;
+	border-color: #cfe8d8;
+}
+
+.hbos-pi-src.empty {
+	color: #b35c00;
+	background: #fff6ec;
+	border-color: #f3d9bd;
+}
+
+/* 「须人工填写」标识——比 .hbos-pi-src 更显眼。
+   这几项 OCR 读不准（小字汉字），**必须有人照标签填**，不是可选动作，
+   所以用一个偏警示的色，别让人以为是「提示一下」的可忽略标记。 */
+.hbos-pi-must {
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 600;
+	color: #fff;
+	background: #b35c00;
+	border-radius: 8px;
+	padding: 0 6px;
+	margin-left: 4px;
+	vertical-align: middle;
+}
+
+/* 被主数据填满而禁用的输入框——要看得出来是「不用改」而非「坏掉」 */
+.hbos-pi-field input:disabled,
+.hbos-pi-field select:disabled {
+	background: #f5f7f8;
+	color: #6c757d;
+	cursor: not-allowed;
+}
+
+/* 物料代码 ↔ 主数据物料名的并排对照 */
+.hbos-pi-pair {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	font-size: 12px;
+	color: #495057;
+}
+
+.hbos-pi-note {
+	font-size: 12px;
+	color: #8d99ae;
+	margin-top: 4px;
+}
+
+/* 包装构成行：下拉窄、重量中、件数窄、删除键靠右 */
+.hbos-pi-pkgrow {
+	display: grid;
+	grid-template-columns: 72px 1fr 84px 30px;
+	gap: 6px;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.hbos-pi-pkgrow select,
+.hbos-pi-pkgrow input {
+	width: 100%;
+}
+
+.hbos-pi-pkgsum {
+	float: right;
+	font-weight: 600;
+	color: #1a7f4b;
+}
+
+/* 识别原文：折叠区。操作员对着照片逐字核对时展开。 */
+.hbos-pi-rawbox {
+	margin-top: 12px;
+	border: 1px solid #e2e6ea;
+	border-radius: 6px;
+	background: #fafbfc;
+}
+
+.hbos-pi-rawbox > summary {
+	cursor: pointer;
+	padding: 6px 10px;
+	font-size: 12px;
+	color: #495057;
+	user-select: none;
+}
+
+.hbos-pi-rawbox[open] > summary {
+	border-bottom: 1px solid #e2e6ea;
+}
+
+.hbos-pi-rawbox > pre {
+	margin: 0;
+	padding: 10px;
+	max-height: 260px;
+	overflow: auto;
+	font-size: 11.5px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	word-break: break-all;
+	color: #343a40;
+	font-family: Menlo, Consolas, monospace;
+}
+
+/* 标签原文逐行（可编辑）。行号用固定宽度左栏，输入框占满剩余。 */
+.hbos-pi-rawlines {
+	border: 1px solid #eceff1;
+	border-radius: 6px;
+	padding: 6px 8px;
+	max-height: 420px;
+	overflow: auto;
+	background: #fafbfc;
+}
+
+.hbos-pi-rawline {
+	display: grid;
+	grid-template-columns: 26px 1fr;
+	gap: 6px;
+	align-items: center;
+	margin-bottom: 3px;
+}
+
+.hbos-pi-rawidx {
+	font-size: 11px;
+	color: #a6adb4;
+	text-align: right;
+	font-family: Menlo, Consolas, monospace;
+	user-select: none;
+}
+
+.hbos-pi-rawline input {
+	width: 100%;
+	font-size: 12.5px;
+	padding: 2px 6px;
+}

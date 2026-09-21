@@ -219,11 +219,22 @@ def hbos_production_unit(batch):
 
 
 def hbos_supplier_name(batch):
-	"""供货单位：外购取批次供应商，自产无此项。"""
+	"""供货单位：外购取批次供货单位，自产无此项。
+
+	**优先取 `hbos_supplier_name`（自由文本），为空才回落标准 `supplier` 链接。**
+	原因：`Batch.supplier` 是**只读的 Link → Supplier**，而库里供应商档案数远少于
+	实际供货单位数（样本上就有十几家）。入库时操作员是照标签打字，写不进那个链接；
+	强塞自由文本还会让批次日后保存不了（校验报「找不到 Supplier」）。
+	"""
 	if not batch:
 		return BLANK
-	supplier = frappe.db.get_value("Batch", batch, "supplier")
-	return (supplier or "").strip() or BLANK
+	row = frappe.db.get_value("Batch", batch, ["hbos_supplier_name", "supplier"], as_dict=True)
+	if not row:
+		return BLANK
+	text = (row.get("hbos_supplier_name") or "").strip()
+	if text:
+		return text
+	return (row.get("supplier") or "").strip() or BLANK
 
 
 def hbos_item_workshop(item):

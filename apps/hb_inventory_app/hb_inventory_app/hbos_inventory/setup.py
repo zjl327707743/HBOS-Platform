@@ -34,12 +34,15 @@ WAREHOUSES = [
 
 # 海滨产品分类树。注意：SAP 代码前缀不等于业务分类
 # （对外发货的最终产品业务上是成品，但代码为 1300），故分类独立维护。
+#
+# `is_group = 0`（叶子）——物料要**直接**放进这 5 个节点。M3-R2 初建时误设为 1
+# （分组节点），导致物料无处可放：`sync_item_groups` 补了纠偏逻辑，见下。
 ITEM_GROUPS = [
-    ("原料药", 1),
-    ("包材", 1),
-    ("辅助用品", 1),
-    ("中间体", 1),
-    ("成品", 1),
+    ("原料药", 0),
+    ("包材", 0),
+    ("辅助用品", 0),
+    ("中间体", 0),
+    ("成品", 0),
 ]
 
 
@@ -77,20 +80,40 @@ def sync_warehouses():
 
 
 def sync_item_groups():
-    created = []
+    """建海滨分类树，并把已存在节点的 `is_group` **纠偏**。
+
+    纠偏是必需的：`sync_*` 一律「存在即跳过」，所以光改上面的 `ITEM_GROUPS`
+    对库里已有的节点无效——`bench migrate` 跑一百遍也不会把 M3-R2 误设的
+    `is_group = 1` 改回来。而只要它还是 1，物料就放不进去（分类树形同虚设）。
+
+    只对**没有子节点**的节点纠偏，避免把一个真正的分组节点改坏。
+    """
+    created, fixed = [], []
     for short, is_group in ITEM_GROUPS:
-        if frappe.db.exists("Item Group", short):
+        if not frappe.db.exists("Item Group", short):
+            frappe.get_doc(
+                {
+                    "doctype": "Item Group",
+                    "item_group_name": short,
+                    "parent_item_group": "All Item Groups",
+                    "is_group": is_group,
+                }
+            ).insert(ignore_permissions=True)
+            created.append(short)
             continue
-        frappe.get_doc(
-            {
-                "doctype": "Item Group",
-                "item_group_name": short,
-                "parent_item_group": "All Item Groups",
-                "is_group": is_group,
-            }
-        ).insert(ignore_permissions=True)
-        created.append(short)
+
+        cur = frappe.db.get_value("Item Group", short, "is_group")
+        if cur == is_group:
+            continue
+        has_children = frappe.db.exists("Item Group", {"parent_item_group": short})
+        if has_children:
+            continue
+        frappe.db.set_value("Item Group", short, "is_group", is_group, update_modified=False)
+        fixed.append(f"{short}:{cur}->{is_group}")
+
     _log("Item Group", "新建", len(created), created)
+    if fixed:
+        _log("Item Group", "纠偏 is_group", len(fixed), fixed)
 
 
 def sync_custom_fields():
@@ -177,10 +200,21 @@ def sync_custom_fields():
                     "description": "外购物料的供应商批号；batch_id 存进厂批号",
                 },
                 {
+                    "fieldname": "hbos_supplier_name",
+                    "label": "HBOS 供货单位",
+                    "fieldtype": "Data",
+                    "insert_after": "hbos_supplier_batch_no",
+                    "description": (
+                        "照标签填写的供货单位名称（自由文本）。"
+                        "待检证的「供货单位」优先取本字段，为空才回落到标准 supplier 链接——"
+                        "标准字段是只读的 Supplier 链接，库里供应商档案远少于实际供货单位。"
+                    ),
+                },
+                {
                     "fieldname": "hbos_manufacturer",
                     "label": "HBOS 生产单位",
                     "fieldtype": "Data",
-                    "insert_after": "hbos_supplier_batch_no",
+                    "insert_after": "hbos_supplier_name",
                 },
                 {
                     "fieldname": "hbos_packaging",
@@ -188,6 +222,17 @@ def sync_custom_fields():
                     "fieldtype": "Table",
                     "options": "HBOS Packaging Detail",
                     "insert_after": "hbos_manufacturer",
+                },
+                {
+                    "fieldname": "hbos_label_text",
+                    "label": "HBOS 标签原文（人工校对后）",
+                    "fieldtype": "Long Text",
+                    "insert_after": "hbos_packaging",
+                    "description": (
+                        "入库拍照识别读到的标签全文，**经操作员逐行校对后**留存。"
+                        "照片是原始凭证（挂在入库单上），这段文字是可检索的转录件——"
+                        "照片没法搜，文字可以。**不参与打印**。"
+                    ),
                 },
             ],
         }
