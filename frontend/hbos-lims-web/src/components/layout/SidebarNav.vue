@@ -97,12 +97,14 @@
         <router-link to="/stability/schedule" class="nav-item" :class="{ active: isStabilityActive('schedule') }" :title="collapsed ? '取样与检测计划' : ''">
           <CalendarOutlined />
           <span v-if="!collapsed">取样与检测计划</span>
-          <span v-if="!collapsed" class="nav-badge">4</span>
+          <span v-if="!collapsed && stabilityCounts.schedule > 0" class="nav-badge amber"
+                :title="`待执行时间点（待取样 + 待检测）：${stabilityCounts.schedule}`">{{ stabilityCounts.schedule }}</span>
         </router-link>
         <router-link to="/stability/results" class="nav-item" :class="{ active: isStabilityActive('results') }" :title="collapsed ? '结果录入与趋势' : ''">
           <LineChartOutlined />
           <span v-if="!collapsed">结果录入与趋势</span>
-          <span v-if="!collapsed" class="nav-badge">3</span>
+          <span v-if="!collapsed && stabilityCounts.results > 0" class="nav-badge amber"
+                :title="`检测中时间点（待录入结果）：${stabilityCounts.results}`">{{ stabilityCounts.results }}</span>
         </router-link>
         <router-link to="/stability/reports" class="nav-item" :class="{ active: isStabilityActive('reports') }" :title="collapsed ? '报告与有效期' : ''">
           <FileProtectOutlined />
@@ -142,6 +144,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   DashboardOutlined, FileAddOutlined,
@@ -151,11 +154,14 @@ import {
   ExperimentOutlined, ProfileOutlined, InboxOutlined, CalendarOutlined,
   LineChartOutlined, FileProtectOutlined, ToolOutlined,
 } from '@ant-design/icons-vue'
+import { dashboard as stabilityDashboard } from '@/api/stability'
+import { useAuthStore } from '@/stores/auth'
 
 defineProps<{ collapsed: boolean }>()
 defineEmits<{ toggle: [] }>()
 
 const route = useRoute()
+const auth = useAuthStore()
 
 function isActive(path: string): boolean {
   return route.path === path || (path !== '/dashboard' && route.path.startsWith(path))
@@ -175,6 +181,33 @@ function isStabilityActive(key: (typeof STABILITY_KEYS)[number]): boolean {
 
 // TODO: 联调后从 API 读取待办角标数
 const pendingCount = 0
+
+// 稳定性角标：取自真实时间点执行状态，无权限/未登录时不显示。
+// 「取样与检测计划」= 待取样 + 待检测（待执行工作量）；「结果录入与趋势」= 检测中（待录入结果）。
+const stabilityCounts = ref({ schedule: 0, results: 0 })
+
+function hasLimsRole(): boolean {
+  const roles = auth.user?.roles || []
+  return roles.some((r) => r.startsWith('LIMS ') || r === 'System Manager')
+}
+
+async function loadStabilityBadges() {
+  if (!hasLimsRole()) return
+  try {
+    const k = await stabilityDashboard()
+    stabilityCounts.value = {
+      schedule: k.timepoint_by_status.wait_sample + k.timepoint_by_status.wait_test,
+      results: k.timepoint_by_status.testing,
+    }
+  } catch {
+    stabilityCounts.value = { schedule: 0, results: 0 }
+  }
+}
+
+onMounted(() => { void auth.checkSession() })
+// 角色就绪后取一次；进入稳定性板块时刷新，避免动作后角标滞后
+watch(() => auth.user?.roles?.length ?? 0, () => { void loadStabilityBadges() }, { immediate: true })
+watch(() => route.path, (p) => { if (p.startsWith('/stability')) void loadStabilityBadges() })
 </script>
 
 <style scoped>
