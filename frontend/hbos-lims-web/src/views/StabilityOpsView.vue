@@ -263,6 +263,27 @@
           <label>申请部门</label>
           <a-select v-model:value="changeForm.applicant_dept" :options="deptOptions" style="width: 100%" allow-clear />
         </div>
+        <div v-if="changeForm.change_scope === '涉条件与时间点' || changeForm.change_scope === '涉方案'"
+             class="stb-form-field full">
+          <label>变更后考察条件</label>
+          <div class="stb-change-condition-list">
+            <div v-for="(row, index) in extraConditionRows" :key="index" class="stb-change-condition-row">
+              <a-select v-model:value="row.condition_type" :options="conditionTypeOptions" style="width: 150px" />
+              <a-select v-model:value="row.storage_cond" :options="conditionOptions" allow-clear
+                        placeholder="储存条件" style="flex: 1" />
+              <a-input-number v-if="row.condition_type === '影响因素-强光'"
+                              v-model:value="row.exposure_days" :min="1" placeholder="天数"
+                              style="width: 90px" />
+              <a-button type="text" danger @click="removeExtraCondition(index)" aria-label="删除条件">
+                <DeleteOutlined />
+              </a-button>
+            </div>
+          </div>
+          <a-button type="link" size="small" @click="addExtraCondition">
+            <template #icon><PlusOutlined /></template>
+            添加条件
+          </a-button>
+        </div>
       </div>
       <div class="stb-notice">落点与对象须匹配（涉方案须指定方案、涉通知单须指定通知单、涉条件/涉样品须指定样品）。</div>
       <template #footer>
@@ -416,7 +437,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Empty, message } from 'ant-design-vue'
-import { FileTextOutlined, MonitorOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { DeleteOutlined, FileTextOutlined, MonitorOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import StbGateBanner from '@/components/stability/StbGateBanner.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -454,6 +475,26 @@ const changeColumns = [
 
 const scopeOptions = ['涉方案', '涉通知单', '涉条件与时间点', '涉样品'].map((v) => ({ value: v, label: v }))
 const deptOptions = ['研发部门', '生产部门', '质量控制部门', '质量保证部门'].map((v) => ({ value: v, label: v }))
+const conditionTypeOptions = ['长期', '加速', '中间', '影响因素-高温', '影响因素-高湿', '影响因素-强光']
+  .map((v) => ({ value: v, label: v }))
+const conditionMasterRows = ref<{ name: string; description?: string }[]>([])
+const conditionOptions = computed(() => conditionMasterRows.value.map((row) => ({
+  value: row.name,
+  label: row.description ? `${row.description}（${row.name}）` : row.name,
+})))
+const extraConditionRows = ref<{ condition_type: string; storage_cond?: string; exposure_days?: number }[]>([
+  { condition_type: '长期' },
+])
+function addExtraCondition() {
+  extraConditionRows.value.push({ condition_type: '长期' })
+}
+function removeExtraCondition(index: number) {
+  if (extraConditionRows.value.length === 1) {
+    extraConditionRows.value[0] = { condition_type: '长期' }
+    return
+  }
+  extraConditionRows.value.splice(index, 1)
+}
 
 async function loadChanges() {
   changeLoading.value = true
@@ -494,6 +535,16 @@ async function submitChangeCreate() {
       || !changeForm.impact_assessment.trim()) {
     message.warning('变更内容 / 原因 / 影响评估均必填'); return
   }
+  const extraConditions = (changeForm.change_scope === '涉条件与时间点' || changeForm.change_scope === '涉方案')
+    ? extraConditionRows.value.filter((row) => row.storage_cond).map((row) => ({
+      condition_type: row.condition_type,
+      storage_cond: row.storage_cond as string,
+      exposure_days: row.exposure_days,
+    }))
+    : []
+  if (changeForm.change_scope === '涉条件与时间点' && !extraConditions.length) {
+    message.warning('请至少填写一条变更后考察条件'); return
+  }
   await runAction('变更建档', async () => {
     await createChange({
       change_scope: changeForm.change_scope,
@@ -505,6 +556,7 @@ async function submitChangeCreate() {
       change_reason: changeForm.change_reason.trim(),
       impact_assessment: changeForm.impact_assessment.trim(),
       applicant_dept: changeForm.applicant_dept,
+      extra_conditions: extraConditions.length ? extraConditions : undefined,
     })
     changeCreateOpen.value = false
     await loadChanges()
@@ -748,12 +800,18 @@ async function runAction(label: string, fn: () => Promise<unknown>) {
 
 onMounted(async () => {
   void auth.checkSession()
-  // 房间选项来自主数据白名单接口
+  // 房间与储存条件选项来自主数据白名单接口
   try {
-    const res = await callMethod<{ rows: { name: string; room_name?: string }[] }>(
+    const [roomRes, conditionRes] = await Promise.all([
+      callMethod<{ rows: { name: string; room_name?: string }[] }>(
       'hb_lims_app.hbos_lims.stability_service.get_stability_master',
-      { doctype: 'HBOS Stability Room' })
-    roomOptions.value = (res.rows || []).map((r) => ({ value: r.name, label: r.room_name || r.name }))
+      { doctype: 'HBOS Stability Room' }),
+      callMethod<{ rows: { name: string; description?: string }[] }>(
+        'hb_lims_app.hbos_lims.stability_service.get_stability_master',
+        { doctype: 'HBOS Stability Condition' }),
+    ])
+    roomOptions.value = (roomRes.rows || []).map((r) => ({ value: r.name, label: r.room_name || r.name }))
+    conditionMasterRows.value = conditionRes.rows || []
   } catch { /* 未登录等场景由拦截层提示 */ }
   await Promise.all([loadChanges(), loadRoomLogs(), loadEquipments(), loadFaults()])
 })
@@ -765,4 +823,6 @@ onMounted(async () => {
 .good-text { color: var(--pass); }
 .danger-text { color: var(--danger); }
 .dim { color: var(--muted); font-size: 12px; }
+.stb-change-condition-list { display: grid; gap: 8px; }
+.stb-change-condition-row { display: flex; align-items: center; gap: 8px; }
 </style>

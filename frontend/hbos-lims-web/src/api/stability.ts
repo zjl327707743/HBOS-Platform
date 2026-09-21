@@ -414,6 +414,7 @@ export interface ScheduleRow {
   sample_overdue?: number
   test_overdue?: number
   exec_state?: string
+  test_items?: { stability_test_item: string; is_full_test?: number; is_required?: number }[]
 }
 
 export interface TimepointDetail {
@@ -651,7 +652,7 @@ export interface TrendPoint {
   label: string
   timepoint: string
   plan_sample_date?: string
-  result_value?: number
+  result_value?: number | null
   status: string
   is_current?: number
   is_significant_change?: number
@@ -925,6 +926,7 @@ export function createChange(params: {
   change_reason: string; impact_assessment: string
   notice?: string; protocol?: string; stability_sample?: string; supersedes?: string
   applicant_dept?: string; effective_date?: string
+  extra_conditions?: { condition_type: string; storage_cond: string; exposure_days?: number; is_required?: number; remark?: string }[]
 }) {
   return callMethod<{ name: string; status: string }>(
     'hb_lims_app.hbos_lims.stability_service.create_stability_change', params)

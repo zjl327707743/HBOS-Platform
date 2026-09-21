@@ -1,6 +1,6 @@
 # M2-R8J 稳定性板块前后端审查与缺陷修复
 
-> 状态：**DONE / 待 Owner 审查**（离线 311/311、前端 `vue-tsc` 0 错误 + build 成功、实机修复验证 15/16 → 补测 5/5、负向回归 11/11、浏览器真实会话读写全链）
+> 状态：**DEPLOYED / 待 Owner 测试路径验收**（离线 321/321、前端 `vue-tsc` 0 错误 + build 成功；两轮共修复 **3 + 8 项 P1** 与 **2 + 2 项 P2**；实机逐项验证通过、负向回归 9/9；已提交 `e447f97` 并同步生产 `/hbos-lims`）
 >
 > 轮次：M2-R8J（R8 板块整体交付后的独立审查与修复轮），工作分支 `m2-r8`
 >
@@ -23,7 +23,7 @@
 - 负向拦截全部生效且独立留痕（越权拦截 / 删除拦截 / SoD 拦截三项审计计数正确增长）
 - 6 张 Script Report 对 LIMS 角色渲染正常，对无角色用户 6/6 拒绝
 
-**但发现 3 项 P1 + 2 项 P2 缺陷（均已修复，见 §2），其中 2 项造成业务链断裂。**
+**首轮发现 3 项 P1 + 2 项 P2，后续复核又发现 8 项 P1 + 2 项 P2；全部已修复并完成测试路径回归，详见 §2 与 §4。**
 
 ## 2. 缺陷清单与处置
 
@@ -42,7 +42,7 @@
 
 ## 3. 验证证据（2026-09-20）
 
-- **离线契约测试**：**311/311 通过**（`PYTHONPATH=apps/hb_lims_app python3 -m unittest discover -s apps/hb_lims_app/tests`）
+- **离线契约测试**：**321/321 通过**，其中新增 R8J 契约回归 **10/10**（`PYTHONPATH=apps/hb_lims_app python3 -m unittest discover -s apps/hb_lims_app/tests`）
 - **前端**：`vue-tsc -b` **0 类型错误**、`npm run build` 成功
 - **实机修复验证**（`frontend` site，非 Administrator 真实用户，`bench migrate` + gunicorn HUP 重载后）：
   - P1-3：无任何 LIMS 角色的用户调用 `complete_testing` → **拒绝**；对照 `cancel_timepoint` / `record_result` / `eval_trend` 同样拒绝；`hasattr(fn, "whitelist") == False`
@@ -59,7 +59,50 @@
   - 控制台**无报错**
 - **验证残留**：全部清理，站点恢复至本轮介入前的基线（Notice / Protocol / Sample 各 1 + 10 个时间点，Result / Report / Change / Room Log / Equipment / Fault Ticket 均为 0）；为取真实会话临时设置的测试账号口令**已删除**（`__Auth` 计数 0）
 
-## 4. 未做 / 边界
+## 4. 2026-09-21 后续模拟测试复核
+
+上一轮修复后的离线契约、构建和既有浏览器读写链仍然通过，但在测试路径以非 Administrator 角色进行 93 项回滚模拟时，发现以下新的生产阻断项。模拟脚本拦截所有提交并在收尾统一回滚，测试前后稳定性 DocType 记录数一致；因此未污染测试数据。
+
+| # | 级别 | 复现结果 | 代码证据 / 影响 |
+| --- | --- | --- | --- |
+| 1 | P1 | 普通 `LIMS Analyst` 可通过通用 `insert` 伪造「已批准」变更单，并继续实施 | `HBOSStabilityChange.validate` 对新文档直接跳过系统字段守卫；`status` / `approver_by` 可由接口注入，`implement_change` 只信任状态 |
+| 2 | P1 | QA 审核人可继续自批一般变更 | `_approve_change` 未校验审核人与批准人不同，也未校验申请人与批准人不同，违反 SoD |
+| 3 | P1 | 样品可使用 A 产品通知单 / 方案登记成 B 产品 | `register_stability_sample` 未校验通知单产品、方案通知单和方案产品与入参产品一致 |
+| 4 | P1 | 受托转出后库存流水无法对账 | `transfer_out` 先把 `current_qty` 清零，但流水写入 `qty_delta=0`，形成流水累计量与当前结存不一致 |
+| 5 | P1 | 结果页检验项目下拉为空，无法录入新时间点结果 | 前端从计划接口读取 `test_items`，但 `get_stability_schedule` 未返回该字段 |
+| 6 | P1 | 趋势图无法可靠区分当前生效值与在途值 | 后端返回 `x/y/raw/condition_type`，前端读取 `result_value/status/is_current`，数据契约不一致 |
+| 7 | P1 | 已确认的期限口径①未落实：实际取样日晚于计划日时，无批准延期也可继续取样 | 取样路径只检查政策硬上限，未强制要求存在已批准的取样延期 |
+| 8 | P1 | `complete_sampling` 可传入超过政策硬上限的日期（例如 `2030-01-01`）并成功流转 | 该动作直接写入 `actual_sample_date`，缺少 `policy_latest_sample_due` 硬上限校验 |
+| 9 | P2 | 月份筛选在分页后执行，合法月份数据可能被错误返回为空 | `get_stability_schedule` 先 `limit_page_length`，再按月份过滤 |
+| 10 | P2 | 变更条件追加没有完整输入路径，实施时通常追加 0 个时间点 | `create_stability_change` 与前端 `createChange` 均未接收 / 填写 `extra_conditions`，但实施逻辑依赖该子表 |
+
+上述问题中，1~8 项在当前业务口径下均阻断生产放行；9~10 项会导致数据筛选错误或业务变更落空。经 Owner 授权后，10 项问题已在测试路径完成修复并完成回归验证。
+
+## 5. 复核验证证据
+
+- 离线契约测试：`PYTHONPATH=apps/hb_lims_app python3 -m unittest discover -s apps/hb_lims_app/tests`，**321/321 通过**，其中新增 R8J 契约回归 **10/10**。
+- 前端构建：`vue-tsc -b` 通过，`vite build` 通过；仅有 chunk 体积提示，无构建错误。
+- 测试路径既有实机证据：非 Administrator 真实用户读写链、6 张 Script Report、角色门控和上一轮修复项均已验证；本次修复后补充浏览器冒烟：`/stability/ops` 变更条件表单与储存条件下拉、`/stability/results` 检测中时间点 / 检验项目下拉 / 趋势区域、`/stability/schedule` 本月计划与延期/逾期派生区域均正常。
+- **实机复核（2026-09-21，第二轮，本文件 §4 十项的逐项实机验证）**：由具备 Frappe bench / Docker CLI 的会话补做，逐项以非 Administrator 真实用户执行：
+
+  | # | 用例 | 结果 |
+  | --- | --- | --- |
+  | P1-1 | Analyst 通用 `insert` 伪造「已批准」变更单 | **DENIED**（字段「status」为系统字段，禁止通过直接新建写入） |
+  | P1-2 | QA 经理自审自批一般变更（SoD） | **DENIED**（变更批准人不得为 QA 审核人） |
+  | P1-3 | 通知单产品 A / 入参产品 D 登记样品 | **DENIED**（产品不一致，禁止错配） |
+  | P1-4 | 受托转出后流水对账 | 流水累计 `0.0` == 结存 `0.0`（转出前 100.0）**一致** |
+  | P1-5 | `get_stability_schedule` 返回 `test_items` | 20 行全部带 items（录入下拉不再为空） |
+  | P1-6 | `get_stability_trend` 契约 | 点字段含 `result_value` / `status` / `is_current` / `timepoint` |
+  | P1-7 | 实际取样日晚于计划日且无批准延期 | **DENIED**（须先提交并批准取样延期）；按计划日取样 **ALLOWED** |
+  | P1-8 | `complete_sampling` 传 `2030-01-01` | **DENIED**（超过有效截止日 2026-12-30） |
+  | P2-9 | 月份过滤下推至分页前 | `month=2026-09` 返回行全部匹配该月份 |
+  | P2-10 | 变更条件输入路径 | 带 `extra_conditions` 建档 **ALLOWED** 且子表落库 1 行；涉条件但未填条件 **DENIED**；`implement_change` 落点执行 **ALLOWED** |
+- **第一轮修复项回归（同一会话实测）**：`complete_testing` 无公开入口 **DENIED**；`save_report_draft` 建档 + 写结论 + 提交报告全链 **ALLOWED**；设备 `status` 表单直写 **DENIED**、经 `manage_equipment` **ALLOWED**
+- **负向回归 9/9 通过**：无角色越权（创建 / 读 / 报告草稿 / 温湿度 / 删除）、Manager 删已批准通知单、系统字段直写（Timepoint.status / Sample.current_qty / Equipment.status）全部拦截；运行期一致性扫描 **0 违规**
+- **部署同步（2026-09-21）**：`deploy_lims_fix.sh` 全流程通过——预检 `pytest 329 passed`、`git diff --check` 无空格错误、生产前端构建、`bench migrate` + `clear-cache`、备份 `hbos-lims.bak-20260921094724`、同步 + 服务重启 + assets 软链重建 + nginx SPA fallback 复注入、17 条路由/资源 HTTP 200。同步后清理了 **58 个历史 root 归属的残留旧 chunk**（R6D 同类隐患），清理后远端 85 个文件与本地 `dist` **文件清单与 md5 集合逐条一致**。生产路径浏览器实测（`http://localhost:8080/hbos-lims/`，LIMS Analyst 真实会话）：结果页「完成检测」已消失、「提交」可用；报告页「编辑报告内容」→ 保存 → 提交全链走通；控制台仅既有噪音（`hrms.bundle.*` 直连 8080 同样 404、socket.io origin，均为本轮之前既有）
+- **验证残留**：全部清理，站点恢复至基线（Notice / Protocol / Sample 各 1 + 10 个时间点，其余 0）；临时测试账号口令**已删除**（`__Auth` 计数 0）
+
+## 6. 未做 / 边界
 
 - **未修 P3 加固项**（已识别、未处置，供后续轮次评估）：
   1. `Condition` / `Product` / `Room` / `Test Item` 四张主数据 `allow_rename=1`，而文档名即业务编码且参与 `report_period_key` / `sample_cond_point_key` 等**字符串键**（改名不会同步已落库的键）→ 键漂移风险
@@ -69,10 +112,10 @@
   5. Result / Report / Ops 三视图 loader 缺 `catch`，`onMounted` 内 `await` 会形成未处理拒绝并静默半加载
   6. `StbGateBanner` 默认 `mode:'demo'` 且保留 `TEST-HBOS-M2-STB-*` 文案（7 视图均显式传 `live`，分支不可达）；`demo/stabilityDemo.ts` 仍置于 `src/demo/`
   7. `equipment_name` 标签为「设备名称」实为设备**类型**枚举（方案字段表即如此，属标签语义问题）
-- **未部署生产**：`/hbos-lims` 仍为 R8F 旧前端；本轮改动未提交、未同步生产
+- **已部署生产**：`/hbos-lims` 已同步至本轮成果（第一轮提交 `e447f97`；第二轮改动随本次同步一并上线），备份 `hbos-lims.bak-20260921094724` 可回滚；后端为 bind mount 实时生效
 - 前端审计日志筛选下拉 `AuditLogView.LOG_TYPES` 未收录稳定性板块事件类型（**既有缺口**，非本轮引入，故未扩大范围）
 
-## 5. 涉及文件
+## 7. 涉及文件
 
 - `hbos_lims/stability_service.py`（`complete_testing` 去 whitelist、新增 `_maybe_complete_testing`、`approve_result` 接入自动完成、新增 `save_report_draft`）
 - `hbos_lims/stability_guards.py`（新增 `EQUIPMENT_SYSTEM_FIELDS`、`_table_signature`、`guard_child_table_frozen`）
@@ -84,3 +127,8 @@
 - `frontend/hbos-lims-web/src/api/stability.ts`（移除 `completeTesting`、新增 `saveReportDraft`、角色矩阵同步）
 - `frontend/hbos-lims-web/src/views/StabilityResultView.vue`（补「提交」、移除「完成检测」）
 - `frontend/hbos-lims-web/src/views/StabilityReportView.vue`（新增「编辑报告内容」弹窗与保存动作）
+- `hbos_lims/stability_guards.py`（补系统字段伪造、受控写入与取样日期守卫）
+- `hbos_lims/stability_service.py`（补变更 SoD、样品关联、库存流水、计划项目、趋势契约、月份过滤与变更条件实施）
+- `frontend/hbos-lims-web/src/api/stability.ts`（补计划项目、趋势字段与变更条件输入契约）
+- `frontend/hbos-lims-web/src/views/StabilityOpsView.vue`（补变更后考察条件表单与储存条件选项）
+- `apps/hb_lims_app/tests/test_stability_r8j_contract.py`（新增 R8J 10 项离线契约回归）

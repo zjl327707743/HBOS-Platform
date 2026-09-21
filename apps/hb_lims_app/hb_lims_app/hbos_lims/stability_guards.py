@@ -42,7 +42,20 @@ def _privileged():
 def guard_system_fields(doc, fields):
 	"""系统字段守卫：非特权用户且未经服务授权时，系统字段不得变化。"""
 	before = doc.get_doc_before_save()
-	if not before or _privileged() or doc.flags.get("allow_system_fields"):
+	if _privileged() or doc.flags.get("allow_system_fields"):
+		return
+	if not before:
+		# 新建时没有 before 文档，仍须禁止通过通用 insert 伪造审批/状态。
+		# 仅允许 DocType 自身声明的默认值（通常是“草稿”/0/1）进入初始文档。
+		meta = frappe.get_meta(doc.doctype)
+		for field in fields:
+			value = doc.get(field)
+			df = meta.get_field(field)
+			default = df.default if df else None
+			if str(value or "") != str(default or ""):
+				frappe.throw(
+					"字段「{}」为系统字段，只能通过业务操作（服务方法）设置，禁止通过直接新建写入。".format(field)
+				)
 		return
 	for field in fields:
 		if str(before.get(field) or "") != str(doc.get(field) or ""):

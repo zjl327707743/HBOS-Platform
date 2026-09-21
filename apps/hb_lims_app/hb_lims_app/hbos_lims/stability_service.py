@@ -155,6 +155,7 @@ def create_stability_notice(stability_product, study_reason, study_conditions=No
 			"vd_months_snapshot": product.vd_months,
 			"status": stb.NOTICE_DRAFT,
 		})
+		doc.flags.allow_system_fields = True
 		doc.insert(ignore_permissions=True)
 		_audit_on("HBOS Stability Notice", "创建", doc.name,
 				  action_text="创建考察通知单草稿",
@@ -407,6 +408,7 @@ def create_stability_protocol(notice, purpose=None, scope=None, batches=None,
 			"vd_months_snapshot": product.vd_months,
 			"status": stb.PROTOCOL_DRAFT,
 		})
+		doc.flags.allow_system_fields = True
 		doc.insert(ignore_permissions=True)
 		_audit_on("HBOS Stability Protocol", "创建", doc.name,
 				  action_text="创建稳定性方案草稿", new_value="notice={}".format(notice))
@@ -977,6 +979,28 @@ def _effective_sample_due(tp):
 	return stb.effective_due_date(_delay_dicts(tp), "取样延期", policy), policy
 
 
+def _validate_actual_sample_date(tp, actual_sample_date=None):
+	"""统一校验实际取样日期：延期须批准，且不得超过政策硬上限。"""
+	actual = stb._as_date(actual_sample_date) or _today()
+	if not actual:
+		frappe.throw("实际取样日期必填。")
+	effective, policy = _effective_sample_due(tp)
+	ok, err = stb.check_sampling_not_late(actual, effective, policy)
+	if not ok:
+		frappe.throw(err)
+
+	planned = stb._as_date(tp.plan_sample_date)
+	if planned and actual > planned:
+		approved = [d for d in (tp.delays or [])
+					if d.delay_type == "取样延期" and d.status == stb.DELAY_APPROVED]
+		if not any(stb._as_date(d.approved_due_date) and
+				   stb._as_date(d.approved_due_date) >= actual for d in approved):
+			frappe.throw(
+				"实际取样日期（{}）晚于计划日期（{}），必须先提交并批准取样延期。".format(
+					actual, planned))
+	return actual
+
+
 def _product_of_sample(sample):
 	if not sample.stability_product:
 		return None
@@ -1060,15 +1084,23 @@ def register_stability_sample(notice, stability_product, batch_no, in_date,
 			frappe.throw("该稳定性产品已停用，不再登记样品。")
 
 		notice_doc = frappe.get_doc("HBOS Stability Notice", notice)
+		if notice_doc.stability_product != stability_product:
+			frappe.throw("通知单关联产品与入参稳定性产品不一致，禁止错配样品。")
 		yearly = stb.check_year_long_study_no_protocol(product.category)
 		if yearly and protocol:
 			frappe.throw("年度持续稳定性考察类不建方案单，样品只挂通知单（方案 4.2.5）。")
 		if not yearly:
 			if not protocol:
 				frappe.throw("非年度持续稳定性考察类必须关联已批准的稳定性方案。")
-			pstatus = frappe.db.get_value("HBOS Stability Protocol", protocol, "status")
-			if pstatus != stb.PROTOCOL_APPROVED:
-				frappe.throw("关联方案须为「已批准」方可登记样品（当前：{}）。".format(pstatus))
+			protocol_doc = frappe.get_doc("HBOS Stability Protocol", protocol)
+			if protocol_doc.notice != notice:
+				frappe.throw("稳定性方案未关联该通知单，禁止错配样品。")
+			protocol_product = frappe.db.get_value(
+				"HBOS Stability Notice", protocol_doc.notice, "stability_product")
+			if protocol_product != stability_product:
+				frappe.throw("稳定性方案对应产品与入参稳定性产品不一致，禁止错配样品。")
+			if protocol_doc.status != stb.PROTOCOL_APPROVED:
+				frappe.throw("关联方案须为「已批准」方可登记样品（当前：{}）。".format(protocol_doc.status))
 		if notice_doc.status != stb.NOTICE_APPROVED:
 			frappe.throw("关联通知单须为「已批准」方可登记样品（当前：{}）。".format(notice_doc.status))
 
@@ -1201,10 +1233,7 @@ def record_sampling(sample_name, timepoint=None, qty=None, sampling_reason=None,
 			tp = _load(TIMEPOINT_DOCTYPE, timepoint)   # 锁顺序：Sample 已锁，再取 Timepoint
 			if tp.stability_sample != sample.name:
 				frappe.throw("时间点「{}」不属于样品「{}」。".format(timepoint, sample.name))
-			effective, policy = _effective_sample_due(tp)
-			ok, err = stb.check_sampling_not_late(actual, effective, policy)
-			if not ok:
-				frappe.throw(err)
+			actual = _validate_actual_sample_date(tp, actual)
 
 		new_qty = float(sample.current_qty or 0) - float(qty)
 		if new_qty < 0:
@@ -1393,7 +1422,7 @@ def transfer_out(sample_name, remarks=""):
 					"非法状态：{} 调用 transfer_out".format(sample.status))
 		_set_sample_status(sample, stb.SAMPLE_TRANSFERRED)
 		remaining = float(sample.current_qty or 0)
-		_append_sample_log(sample, "受托转出", qty_delta=0, remaining_qty=remaining,
+		_append_sample_log(sample, "受托转出", qty_delta=-remaining, remaining_qty=0,
 						   remarks=remarks or "受托转出")
 		sample.current_qty = 0
 		sample.save(ignore_permissions=True)
@@ -1526,7 +1555,8 @@ def complete_sampling(timepoint_name, actual_sample_date=None):
 					"仅「待取样」可完成取样（当前：{}）。".format(tp.status),
 					"非法状态：{} 调用 complete_sampling".format(tp.status))
 		tp.flags.allow_system_fields = True
-		tp.actual_sample_date = actual_sample_date or tp.actual_sample_date or _today()
+		tp.actual_sample_date = _validate_actual_sample_date(
+			tp, actual_sample_date or tp.actual_sample_date or _today())
 		_set_status(tp, stb.FLOW_STB_TIMEPOINT, stb.TP_WAIT_TEST)
 		tp.save(ignore_permissions=True)
 		_audit_on(TIMEPOINT_DOCTYPE, "取样完成", tp.name,
@@ -2038,6 +2068,10 @@ def get_stability_schedule(month=None, condition=None, exec_status=None, keyword
 	filters = {}
 	if condition:
 		filters["condition_type"] = condition
+	month_key = str(month or "").strip()
+	if month_key:
+		# 月份过滤必须在分页前下推，否则前一页数据不足会漏项。
+		filters["plan_sample_date"] = ["like", month_key[:7] + "%"]
 	or_filters = None
 	kw = (keyword or "").strip()
 	if kw:
@@ -2053,8 +2087,22 @@ def get_stability_schedule(month=None, condition=None, exec_status=None, keyword
 		order_by="plan_sample_date asc, time_point_value asc",
 		limit_page_length=int(limit))
 	rows = _enrich_schedule(rows)
-	if month:
-		rows = [r for r in rows if str(r.get("plan_sample_date") or "").startswith(str(month))]
+	# 结果录入页需要从计划直接拿到检验项目，避免详情接口之外出现空下拉。
+	item_map = {}
+	tp_names = [r["name"] for r in rows]
+	if tp_names:
+		for item in frappe.get_all(
+				"HBOS Stability Timepoint Item",
+				filters={"parent": ["in", tp_names], "parenttype": TIMEPOINT_DOCTYPE},
+				fields=["parent", "stability_test_item", "is_full_test", "is_required"],
+				order_by="idx asc", limit_page_length=0):
+			item_map.setdefault(item.parent, []).append({
+				"stability_test_item": item.stability_test_item,
+				"is_full_test": item.is_full_test,
+				"is_required": item.is_required,
+			})
+	for row in rows:
+		row["test_items"] = item_map.get(row["name"], [])
 	if exec_status:
 		rows = [r for r in rows if r.get("exec_state") == exec_status or r.get("status") == exec_status]
 	return {"rows": rows, "summary": _schedule_summary(rows)}
@@ -3532,9 +3580,13 @@ def get_stability_trend(stability_product, stability_test_item, condition_type=N
 				continue
 			series.append({
 				"name": r.name,
+				"timepoint": r.timepoint,
 				"x": int(t.time_point_value or 0),
 				"label": "{}月".format(int(t.time_point_value or 0)),
 				"y": _to_float(r.result_value),
+				"result_value": _to_float(r.result_value),
+				"status": r.status,
+				"is_current": r.is_current,
 				"raw": r.result_value,
 				"unit": r.unit,
 				"condition_type": t.condition_type,
@@ -3691,16 +3743,19 @@ FAULT_DOCTYPE = "HBOS Stability Fault Ticket"
 
 @frappe.whitelist()
 def create_stability_change(change_scope, change_level, change_content, change_reason,
-							impact_assessment, notice=None, protocol=None,
-							stability_sample=None, supersedes=None,
-							applicant_dept=None, effective_date=None,
-							support_docs=None):
+								impact_assessment, notice=None, protocol=None,
+								stability_sample=None, supersedes=None,
+								applicant_dept=None, effective_date=None,
+								support_docs=None, extra_conditions=None):
 	"""变更申请（草稿）。变更对象至少一项；落点与对象匹配由控制器校验（方案 5.5.1 / 7.9）。"""
 	_check_action("create_change", CHANGE_DOCTYPE, "-")
 	if change_scope not in stb.CHANGE_SCOPES:
 		frappe.throw("变更落点「{}」不在受控枚举内。".format(change_scope))
 	if change_level not in stb.CHANGE_LEVELS:
 		frappe.throw("变更级别「{}」不在受控枚举内。".format(change_level))
+	normalized_conditions = _normalize_change_conditions(extra_conditions)
+	if change_scope == "涉条件与时间点" and not normalized_conditions:
+		frappe.throw("涉条件与时间点的变更必须至少填写一条变更后条件。")
 	try:
 		doc = frappe.get_doc({
 			"doctype": CHANGE_DOCTYPE,
@@ -3716,10 +3771,12 @@ def create_stability_change(change_scope, change_level, change_content, change_r
 			"applicant_dept": applicant_dept or None,
 			"effective_date": effective_date or None,
 			"support_docs": support_docs or None,
+			"extra_conditions": normalized_conditions,
 			"applicant": _user(),
 			"apply_date": _today(),
 			"status": stb.CHANGE_DRAFT,
 		})
+		doc.flags.allow_system_fields = True
 		doc.insert(ignore_permissions=True)
 		_audit_on(CHANGE_DOCTYPE, "变更申请", doc.name,
 				  action_text="变更申请", new_value="{} / {}".format(change_scope, change_level))
@@ -3728,6 +3785,39 @@ def create_stability_change(change_scope, change_level, change_content, change_r
 	except Exception:
 		_rollback()
 		raise
+
+
+def _normalize_change_conditions(extra_conditions):
+	"""把 API/表单传入的追加条件统一为共享子表可接受的字段。"""
+	if not extra_conditions:
+		return []
+	if isinstance(extra_conditions, str):
+		try:
+			extra_conditions = frappe.parse_json(extra_conditions)
+		except Exception:
+			frappe.throw("变更后条件格式不正确。")
+	if not isinstance(extra_conditions, (list, tuple)):
+		frappe.throw("变更后条件必须是列表。")
+	out = []
+	for row in extra_conditions:
+		if not isinstance(row, dict):
+			frappe.throw("变更后条件行格式不正确。")
+		condition_type = row.get("condition_type")
+		storage_cond = row.get("storage_cond") or row.get("condition_code")
+		if condition_type not in stb.CONDITION_TYPES:
+			frappe.throw("变更后条件类型不在受控枚举内。")
+		if not storage_cond:
+			frappe.throw("变更后条件必须指定储存条件。")
+		if not frappe.db.exists("HBOS Stability Condition", storage_cond):
+			frappe.throw("变更后条件的储存条件不存在：{}。".format(storage_cond))
+		out.append({
+			"condition_type": condition_type,
+			"storage_cond": storage_cond,
+			"exposure_days": row.get("exposure_days"),
+			"is_required": row.get("is_required", 1),
+			"remark": row.get("remark"),
+		})
+	return out
 
 
 @frappe.whitelist()
@@ -3760,6 +3850,11 @@ def review_change(change_name):
 			_reject(CHANGE_DOCTYPE, change_name,
 					"仅「待QA审核」可审核（当前：{}）。".format(doc.status),
 					"非法状态：{} 调用 review_change".format(doc.status))
+		if doc.applicant and doc.applicant == _user():
+			_audit_commit(CHANGE_DOCTYPE, "SoD 拦截", doc.name,
+						  action_text="变更审核违反职责分离",
+						  reason="申请人同为 {}".format(doc.applicant))
+			frappe.throw("变更 QA 审核人不得为申请人（SoD，方案 6.4）。")
 		target = stb.CHANGE_WAIT_QP if doc.change_level == "重大" else stb.CHANGE_WAIT_QAM
 		doc.flags.allow_system_fields = True
 		doc.qa_review_by = _user()
@@ -3795,8 +3890,19 @@ def _approve_change(change_name, expected_status, event):
 		_reject(CHANGE_DOCTYPE, change_name,
 				"仅「{}」可批准（当前：{}）。".format(expected_status, doc.status),
 				"非法状态：{} 调用 {} ".format(doc.status, event))
+	me = _user()
+	if doc.applicant and doc.applicant == me:
+		_audit_commit(CHANGE_DOCTYPE, "SoD 拦截", doc.name,
+					  action_text="变更批准违反职责分离",
+					  reason="申请人同为 {}".format(me))
+		frappe.throw("变更批准人不得为申请人（SoD，方案 6.4）。")
+	if doc.qa_review_by and doc.qa_review_by == me:
+		_audit_commit(CHANGE_DOCTYPE, "SoD 拦截", doc.name,
+					  action_text="变更批准违反职责分离",
+					  reason="QA 审核人同为 {}".format(me))
+		frappe.throw("变更批准人不得为 QA 审核人（SoD，方案 6.4）。")
 	doc.flags.allow_system_fields = True
-	doc.approver_by = _user()
+	doc.approver_by = me
 	doc.approve_date = _today()
 	_set_status(doc, stb.FLOW_STB_CHANGE, stb.CHANGE_APPROVED)
 	doc.save(ignore_permissions=True)
@@ -3967,6 +4073,15 @@ def _implement_protocol_new_version(change):
 	old.flags.allow_system_fields = True
 	_set_status(old, stb.FLOW_STB_PROTOCOL, stb.PROTOCOL_VOIDED)
 	old.save(ignore_permissions=True)
+	study_conditions = [r.as_dict() for r in (old.study_conditions or [])]
+	for row in (change.get("extra_conditions") or []):
+		study_conditions.append({
+			"condition_type": row.get("condition_type"),
+			"storage_cond": row.get("storage_cond"),
+			"exposure_days": row.get("exposure_days"),
+			"is_required": row.get("is_required", 1),
+			"remark": row.get("remark"),
+		})
 	new = frappe.get_doc({
 		"doctype": "HBOS Stability Protocol",
 		"notice": old.notice,
@@ -3983,7 +4098,7 @@ def _implement_protocol_new_version(change):
 		"test_method_ref": old.test_method_ref,
 		"method_version": old.method_version,
 		"batches": [r.as_dict() for r in (old.batches or [])],
-		"study_conditions": [r.as_dict() for r in (old.study_conditions or [])],
+		"study_conditions": study_conditions,
 		"items": [r.as_dict() for r in (old.items or [])],
 		"status": stb.PROTOCOL_DRAFT,
 	})
@@ -4062,6 +4177,7 @@ def log_room_env(room, log_date, period, temperature, humidity,
 			"capa_ref": capa_ref or None,
 			"status": "正常",
 		})
+		doc.flags.allow_system_fields = True
 		doc.insert(ignore_permissions=True)   # 控制器判 within_spec、生成业务键
 		_audit_on(ROOM_LOG_DOCTYPE, "温湿度记录" if doc.within_spec else "温湿度超标",
 				  doc.name, action_text="温湿度记录（{}）".format(period),
@@ -4114,6 +4230,7 @@ def manage_equipment(equipment_name=None, room=None, location=None, storage_cond
 				"alarm_test_date": alarm_test_date or None,
 				"status": status,
 			})
+			doc.flags.allow_system_fields = True
 			doc.insert(ignore_permissions=True)
 			_audit_on(EQUIPMENT_DOCTYPE, "设备台账变更", doc.name, action_text="设备建档")
 		_commit()
@@ -4148,6 +4265,7 @@ def open_fault_ticket(equipment, description, fault_start, fault_end=None,
 				"impact_desc": row.get("impact_desc") or None,
 				"is_transferred": _truthy(row.get("is_transferred")),
 			})
+		doc.flags.allow_system_fields = True
 		doc.insert(ignore_permissions=True)
 		frappe.db.set_value(EQUIPMENT_DOCTYPE, equipment, "last_fault_date",
 							str(fault_start)[:10], update_modified=False)
