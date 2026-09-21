@@ -26,6 +26,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from . import config
 from .backends import registry
+from .backends.c2_ocr import parse_backend_spec
 from .contract import (
     ALL_BACKENDS,
     RecognizeRequest,
@@ -133,7 +134,8 @@ async def recognize(
         return cached
 
     backend_name = backend or config.DEFAULT_BACKEND
-    if backend_name not in ALL_BACKENDS:
+    # 支持带模型档位的写法（如 ``c2_ocr:small``）——先剥掉档位再校验后端名
+    if parse_backend_spec(backend_name)[0] not in ALL_BACKENDS:
         raise HTTPException(status_code=400, detail=f"未知后端：{backend_name}")
 
     started = time.time()
@@ -177,7 +179,7 @@ async def recognize(
     finally:
         del image_bytes
 
-    report = validate_fields(result.fields, source_type=source_type)
+    report = validate_fields(result.fields, source_type=source_type, raw_text=result.raw_text)
 
     elapsed_ms = int((time.time() - started) * 1000)
     payload = RecognizeResponse(
