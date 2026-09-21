@@ -94,8 +94,21 @@ _NAME_NOISE = (
     "省", "市", "区", "街", "路", "号", "坊", "开发区", "工业", "园区",
 )
 
-# 「品名：xxx」/「名：xxx」——冒号后即答案
-_NAME_LABEL = re.compile(r"(?:品名|名)\s*[:：]\s*(.+)$")
+# 「品名：xxx」/「名：xxx」——冒号后即答案。
+#
+# 值的部分**允许为空**。OCR 会把标签与值切成两个框（实测有
+# 「品」/「名：」/「美罗培南」三行），要求 `.+` 会让这种标签
+# **根本不被识别成标签**，值就永远取不到，只能退化到频次法抓噪声。
+_NAME_LABEL = re.compile(r"(?:品名|名)\s*[:：]\s*(.*)$")
+
+# 标签后为空时，最多往后看几行找值。
+_NAME_LOOKAHEAD = 3
+
+# 频次法的**汉字长度下限**。没有它时，只要标签上没读到品名，
+# 频次法就会从残渣里挑一个 2~3 字的碎片交差（实测抓到过
+# 「存新件」「合证」「避免硫碰。」），把「没读到」谎报成「读到了」。
+# 本厂品名（美罗培南 / 美罗培南混粉）都在 4 个汉字以上。
+_NAME_MIN_FALLBACK_HAN = 4
 
 # 生产日期与有效期之间允许的最大间隔（天）。
 # 本厂标签效期 2~3 年，给到 5 年留足余量；超过这个跨度还"更早"的日期，
@@ -167,32 +180,65 @@ def extract_batch_no(lines: list[str]) -> str | None:
     return max(order, key=lambda v: (counts[v], -order.index(v)))
 
 
+def _is_name_like(s: str) -> bool:
+    """像不像一个产品名。
+
+    **不能沿用「含 ASCII 就丢弃」的判据**：实测有效品名「美罗培南（B）」
+    含字母 B，按那条判据会被整条扔掉，于是退化到频次法抓回一串噪声。
+    改成看**汉字占比**，容忍「（B）」这类少量 ASCII。
+
+    含冒号的一律不算——那是字段标签（如「生产批号：」）。
+    回看时若不挡住，会把下一个字段名当成品名（实测抓到过
+    把「生产批号：」当品名）。
+    """
+    s = (s or "").strip()
+    if not s or "：" in s or ":" in s:
+        return False
+    if not re.search(r"[一-鿿]{2,}", s):
+        return False
+    return len(re.findall(r"[一-鿿]", s)) / len(s) >= 0.5
+
+
 def extract_product_name(lines: list[str]) -> str | None:
     """产品名称。
 
-    两条路，按可靠性排序：
+    三条路，按可靠性排序：
 
     1. **贴着字段名取**——标签上有「品名：某原料药甲」「名：某原料药乙」这类行，
        冒号后面的就是答案。实测这比任何统计都准。
-    2. 退化到**频次法**：排除公司名/地址/包装语等固定噪声后，取出现次数最多的中文串。
+    2. **标签与值被切成两行时往后回看**——OCR 会把「品名：」和它的值分成
+       两个框（实测：「品」「名：」「美罗培南」三行）。此时标签后为空，
+       往后看最多 ``_NAME_LOOKAHEAD`` 行，取第一个像品名的；
+       **撞上任何带冒号的行就停**，免得把下一个字段名当成品名。
+    3. 退化到**频次法**：排除公司名/地址/包装语等固定噪声后，取出现次数最多的中文串。
+       这条**必须有长度下限**（``_NAME_MIN_FALLBACK_HAN``）：没有下限时，
+       只要标签上没读到品名，它就会从残渣里抓一个碎片交差，
+       把「没读到」谎报成「读到了」。**宁可返回 None 让人照标签填。**
 
     不能简单取"最长的中文行"——那通常是公司名或生产地址。
     """
-    # 1) 贴着「品名：」/「名：」取
+    # 1) + 2) 贴着「品名：」/「名：」取，必要时回看
     anchored: list[str] = []
-    for line in lines:
+    for i, line in enumerate(lines):
         m = _NAME_LABEL.search(line)
         if not m:
             continue
         val = m.group(1).strip()
-        if not val or re.search(r"[\x00-\x7F]", val):
-            continue
-        if re.search(r"[一-鿿]{2,}", val):
+        if _is_name_like(val):
             anchored.append(val)
+            continue
+        if val:
+            continue  # 有值但不像品名 → 不回看（回看是给「值为空」准备的）
+        for nxt in lines[i + 1 : i + 1 + _NAME_LOOKAHEAD]:
+            if "：" in nxt or ":" in nxt:
+                break  # 撞上下一个字段标签，停
+            if _is_name_like(nxt):
+                anchored.append(nxt.strip())
+                break
     if anchored:
         return max(anchored, key=len)
 
-    # 2) 频次法
+    # 3) 频次法
     counts: dict[str, int] = {}
     order: list[str] = []
     for line in lines:
@@ -212,7 +258,11 @@ def extract_product_name(lines: list[str]) -> str | None:
     if not counts:
         return None
     # 先比出现次数，再比长度
-    return max(order, key=lambda v: (counts[v], len(v), -order.index(v)))
+    best = max(order, key=lambda v: (counts[v], len(v), -order.index(v)))
+    # 长度下限：理由见 docstring 第 3 条
+    if len(re.findall(r"[一-鿿]", best)) < _NAME_MIN_FALLBACK_HAN:
+        return None
+    return best
 
 
 def extract_dates(lines: list[str]) -> list[tuple[str, tuple[int, int, int | None]]]:

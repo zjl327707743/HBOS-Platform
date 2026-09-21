@@ -133,6 +133,42 @@ def test_name_none_when_nothing_usable():
     assert extract_product_name(["1234567890", "ABC-DEF"]) is None
 
 
+def test_name_label_split_across_lines():
+    """标签与值被 OCR 切成两行时，往后回看取值。
+
+    实测标签上「品」「名：」「美罗培南」是三个独立的框。旧规则要求
+    冒号后至少一个字符（`.+`），这种标签**根本不被识别成标签**，
+    于是值永远取不到，只能退化到频次法抓噪声。
+    """
+    assert extract_product_name(["品", "名：", "测试原料甲"]) == "测试原料甲"
+
+
+def test_name_lookahead_does_not_take_field_label():
+    """回看撞上带冒号的行就停，不能把「生产批号：」当成品名。"""
+    assert extract_product_name(["品名：", "生产批号："]) is None
+
+
+def test_name_allows_ascii_in_parentheses():
+    """品名里的少量 ASCII（如「（B）」）不能把整条判掉。
+
+    实测真实品名「美罗培南（B）」含字母 B；按「含 ASCII 就丢弃」的
+    旧判据会被整条扔掉，再退化到频次法抓回一串噪声。
+    """
+    assert extract_product_name(["名：测试原料甲（B）"]) == "测试原料甲（B）"
+
+
+def test_name_fallback_rejects_short_fragments():
+    """频次法有长度下限：宁可不给，也不能从残渣里抓碎片交差。
+
+    实测只要标签上没读到品名，旧的频次法就会交出「存新件」「合证」
+    「避免硫碰。」这类 2~5 字残渣，把「没读到」谎报成「读到了」。
+    """
+    assert extract_product_name(["存新件"]) is None
+    assert extract_product_name(["合证", "紧明"]) is None
+    # 够长的仍要认出来，不能因为加了下限就把真品名一起挡掉
+    assert extract_product_name(["存新件", "测试原料甲混粉"]) == "测试原料甲混粉"
+
+
 # --- 日期 -------------------------------------------------------------------
 
 
