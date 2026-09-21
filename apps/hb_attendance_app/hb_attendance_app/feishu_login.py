@@ -80,6 +80,102 @@ def _get_app_access_token():
     return data["app_access_token"]
 
 
+def _get_tenant_access_token():
+    """获取 tenant_access_token（contact 等通讯录接口需要）。"""
+    app_id, app_secret = _credentials()
+    resp = requests.post(
+        f"{FEISHU_BASE}/open-apis/auth/v3/tenant_access_token/internal",
+        json={"app_id": app_id, "app_secret": app_secret},
+        timeout=10,
+    )
+    data = resp.json()
+    if data.get("code") != 0:
+        frappe.log_error(
+            f"tenant_access_token 获取失败: code={data.get('code')} msg={data.get('msg')}",
+            "feishu_login",
+        )
+        return None
+    return data["tenant_access_token"]
+
+
+def _diagnose_feishu_fields(info):
+    """诊断：记录飞书 OAuth 实际返回的字段，并尝试用 contact 接口取手机号/工号/部门。
+
+    只记录「字段名 + 是否有值」，不记录具体内容（避免泄露隐私）。
+    """
+    # 1. OAuth (oidc) 直接返回的字段
+    oidc_keys = sorted([k for k, v in info.items() if v])
+    frappe.log_error("feishu_login", f"oidc 字段: {oidc_keys}")
+
+    # 2. 用 contact 接口尝试取更完整的用户字段（手机号/邮箱/工号/部门）
+    open_id = info.get("open_id")
+    user_id = info.get("user_id")
+    tenant_token = _get_tenant_access_token()
+    if not tenant_token or (not open_id and not user_id):
+        return
+
+    # 优先用 user_id，否则用 open_id
+    id_value = user_id or open_id
+    id_type = "user_id" if user_id else "open_id"
+
+    # 新版 directory 接口（directory:* 权限体系）
+    try:
+        resp = requests.get(
+            f"{FEISHU_BASE}/open-apis/directory/v1/users/{id_value}",
+            headers={"Authorization": f"Bearer {tenant_token}"},
+            params={"user_id_type": id_type, "department_id_type": "open_department_id"},
+            timeout=10,
+        )
+        data = resp.json()
+        if data.get("code") == 0:
+            user = data.get("data", {}).get("user", {})
+            dkeys = sorted([k for k, v in user.items() if v])
+            frappe.log_error("feishu_login", f"directory 字段: {dkeys}")
+            frappe.log_error(
+                "feishu_login",
+                "directory 关键字段: "
+                f"department_ids={bool(user.get('department_ids'))}, "
+                f"employee_no={bool(user.get('employee_no') or user.get('employee_id'))}, "
+                f"mobile={bool(user.get('mobile'))}",
+            )
+        else:
+            frappe.log_error(
+                "feishu_login",
+                f"directory 接口返回: code={data.get('code')} msg={data.get('msg')}",
+            )
+    except Exception as e:
+        frappe.log_error("feishu_login", f"directory 诊断失败: {e}")
+
+    # 旧版 contact 接口（contact:* 权限体系）
+    try:
+        resp = requests.get(
+            f"{FEISHU_BASE}/open-apis/contact/v3/users/{id_value}",
+            headers={"Authorization": f"Bearer {tenant_token}"},
+            params={"user_id_type": id_type},
+            timeout=10,
+        )
+        data = resp.json()
+        if data.get("code") != 0:
+            frappe.log_error(
+                "feishu_login",
+                f"contact 接口返回: code={data.get('code')} msg={data.get('msg')}",
+            )
+            return
+        user = data.get("data", {}).get("user", {})
+        contact_keys = sorted([k for k, v in user.items() if v])
+        frappe.log_error("feishu_login", f"contact 字段: {contact_keys}")
+        frappe.log_error(
+            "feishu_login",
+            "contact 关键字段: "
+            f"mobile={bool(user.get('mobile'))}, "
+            f"email={bool(user.get('email'))}, "
+            f"employee_no={bool(user.get('employee_no') or user.get('employee_id'))}, "
+            f"department_ids={bool(user.get('department_ids'))}",
+        )
+    except Exception as e:
+        frappe.log_error("feishu_login", f"contact 诊断失败: {e}")
+
+
 def _get_user_info(code):
     app_token = _get_app_access_token()
     resp = requests.post(
@@ -183,15 +279,8 @@ def callback(code=None, state=None):
 
     info = _get_user_info(code)
 
-    # 诊断日志：只记录各身份字段「有无」，不记录内容（避免泄露隐私）。
-    frappe.log_error(
-        "feishu_login fields: "
-        f"email={bool(info.get('email') or info.get('enterprise_email'))}, "
-        f"union_id={bool(info.get('union_id'))}, "
-        f"open_id={bool(info.get('open_id'))}, "
-        f"name={bool(info.get('name'))}",
-        "feishu_login",
-    )
+    # 诊断日志：记录飞书实际返回的字段（脱敏，只记字段名+有无）
+    _diagnose_feishu_fields(info)
 
     feishu_id = info.get("union_id") or info.get("open_id")
     if not feishu_id:
