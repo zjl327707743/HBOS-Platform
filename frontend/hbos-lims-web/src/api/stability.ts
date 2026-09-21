@@ -1,10 +1,9 @@
 // ============================================================
 // 稳定性板块真实后端 API 适配层
-// 对接 hb_lims_app.hbos_lims.stability_service whitelist（M2-R8A 后端）
+// 对接 hb_lims_app.hbos_lims.stability_service whitelist
 //
-// 覆盖范围：R8A 已交付的「稳定性工作台」与「考察申请与方案」两视图所需接口
-//（主数据 4 + 通知单 + 方案）。样品/时间点/结果/报告/变更等属 R8B~R8D，
-// 对应视图在本轮仍为演示数据，不在此模块内。
+// 覆盖范围：R8A~R8D 后端全量（主数据 4 + 通知单 + 方案 + 样品/时间点 +
+// 结果/报告 + 变更/稳定性室/设备），稳定性 7 视图全部接入本模块，无演示数据。
 // ============================================================
 import { callMethod } from './client'
 
@@ -16,6 +15,12 @@ export interface StabilityKpi {
   protocol_pending: number
   protocol_approved: number
   product_count: number
+  sample_count: number
+  timepoint_count: number
+  result_count: number
+  timepoint_by_status: {
+    wait_sample: number; wait_test: number; testing: number; done: number; cancelled: number
+  }
   master: { condition: number; room: number; test_item: number }
   scope: string
 }

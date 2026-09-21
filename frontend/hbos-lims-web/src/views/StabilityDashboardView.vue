@@ -133,34 +133,17 @@
         <div class="panel">
           <div class="panel-head">
             <div>
-              <div class="panel-title">待 R8B~R8D 接入</div>
-              <div class="panel-sub">以下能力后端尚未交付，本页不展示占位数字</div>
+              <div class="panel-title">时间点执行结构</div>
+              <div class="panel-sub">全部稳定性时间点的执行状态分布</div>
             </div>
+            <router-link to="/stability/schedule"><a-button size="small">查看计划</a-button></router-link>
           </div>
           <div class="panel-body">
-            <div class="stb-timeline">
-              <div class="stb-timeline-item">
-                <div class="stb-timeline-date">R8B</div>
-                <div>
-                  <div class="stb-timeline-title">样品入箱与时间点</div>
-                  <div class="stb-timeline-sub">时间点执行趋势、近期取样计划、执行结构</div>
-                </div>
-              </div>
-              <div class="stb-timeline-item">
-                <div class="stb-timeline-date">R8C</div>
-                <div>
-                  <div class="stb-timeline-title">结果与趋势</div>
-                  <div class="stb-timeline-sub">显著变化判定、趋势图、结果待录入</div>
-                </div>
-              </div>
-              <div class="stb-timeline-item">
-                <div class="stb-timeline-date">R8D</div>
-                <div>
-                  <div class="stb-timeline-title">报告、变更与稳定性室</div>
-                  <div class="stb-timeline-sub">有效期外推、变更审批、温湿度与设备故障</div>
-                </div>
-              </div>
-            </div>
+            <div class="stb-legend-row"><span class="stb-legend-dot" style="background: #3a86c8"></span>待取样<b>{{ kpi?.timepoint_by_status.wait_sample ?? '—' }}</b></div>
+            <div class="stb-legend-row"><span class="stb-legend-dot" style="background: #d1871d"></span>待检测<b>{{ kpi?.timepoint_by_status.wait_test ?? '—' }}</b></div>
+            <div class="stb-legend-row"><span class="stb-legend-dot" style="background: #0c7c6a"></span>检测中<b>{{ kpi?.timepoint_by_status.testing ?? '—' }}</b></div>
+            <div class="stb-legend-row"><span class="stb-legend-dot" style="background: #2f855a"></span>已完成<b>{{ kpi?.timepoint_by_status.done ?? '—' }}</b></div>
+            <div class="stb-legend-row"><span class="stb-legend-dot" style="background: #94a3b8"></span>已取消<b>{{ kpi?.timepoint_by_status.cancelled ?? '—' }}</b></div>
           </div>
         </div>
       </div>
@@ -175,7 +158,8 @@ import { computed, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import { Empty, message } from 'ant-design-vue'
 import {
-  AlertOutlined, CheckCircleOutlined, FileTextOutlined, PlusOutlined, SafetyCertificateOutlined,
+  AlertOutlined, CalendarOutlined, CheckCircleOutlined, ExperimentOutlined,
+  FileTextOutlined, LineChartOutlined, PlusOutlined, SafetyCertificateOutlined,
 } from '@ant-design/icons-vue'
 import StbGateBanner from '@/components/stability/StbGateBanner.vue'
 import StbNoticeDrawer from '@/components/stability/StbNoticeDrawer.vue'
@@ -259,8 +243,16 @@ const kpis = computed<KpiCard[]>(() => {
       hintClass: '', iconClass: 'teal', icon: SafetyCertificateOutlined,
     },
     {
-      label: '样品 / 时间点 / 结果', value: '待 R8B~R8D', hint: '后端尚未交付，不展示占位数字',
-      hintClass: '', iconClass: 'amber', icon: AlertOutlined,
+      label: '稳定性样品', value: k ? k.sample_count : '—', hint: '已登记样品（含已转出/销毁）',
+      hintClass: '', iconClass: 'teal', icon: ExperimentOutlined,
+    },
+    {
+      label: '时间点', value: k ? k.timepoint_count : '—', hint: '按方案 / 通知单逐条件生成',
+      hintClass: '', iconClass: 'blue', icon: CalendarOutlined,
+    },
+    {
+      label: '检测结果', value: k ? k.result_count : '—', hint: '含在途与历史修订版本',
+      hintClass: '', iconClass: 'green', icon: LineChartOutlined,
     },
   ]
 })

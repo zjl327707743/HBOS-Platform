@@ -577,10 +577,10 @@ def _guard_sod(doc, doctype, prev_signer, role_label):
 
 @frappe.whitelist()
 def get_stability_dashboard():
-	"""稳定性工作台 KPI（R8A 可计算部分）。
+	"""稳定性工作台 KPI（R8A~R8D 全量：主数据 + 通知单 + 方案 + 样品/时间点/结果）。
 
-	R8B~R8D 的时间点/结果/报告类 KPI 待对应子轮落地后并入，此处不返回占位值，
-	前端对缺失项显示「待 R8B/C 落地」而不是伪造数字。
+	R8B~R8D 落地后，样品 / 时间点 / 结果三类计数与时间点执行结构已并入本接口
+	（此前前端以「待 R8B~R8D」占位）。
 	"""
 	_check_action("get_stability_dashboard", "HBOS Stability Notice", "-")
 	notice_pending = frappe.db.count("HBOS Stability Notice", {
@@ -594,12 +594,22 @@ def get_stability_dashboard():
 		"protocol_pending": protocol_pending,
 		"protocol_approved": protocol_approved,
 		"product_count": frappe.db.count("HBOS Stability Product", {"is_active": 1}),
+		"sample_count": frappe.db.count("HBOS Stability Sample"),
+		"timepoint_count": frappe.db.count("HBOS Stability Timepoint"),
+		"result_count": frappe.db.count("HBOS Stability Result"),
+		"timepoint_by_status": {
+			"wait_sample": frappe.db.count("HBOS Stability Timepoint", {"status": stb.TP_WAIT_SAMPLE}),
+			"wait_test": frappe.db.count("HBOS Stability Timepoint", {"status": stb.TP_WAIT_TEST}),
+			"testing": frappe.db.count("HBOS Stability Timepoint", {"status": stb.TP_TESTING}),
+			"done": frappe.db.count("HBOS Stability Timepoint", {"status": stb.TP_DONE}),
+			"cancelled": frappe.db.count("HBOS Stability Timepoint", {"status": stb.TP_CANCELLED}),
+		},
 		"master": {
 			"condition": frappe.db.count("HBOS Stability Condition", {"is_active": 1}),
 			"room": frappe.db.count("HBOS Stability Room", {"is_active": 1}),
 			"test_item": frappe.db.count("HBOS Stability Test Item", {"is_active": 1}),
 		},
-		"scope": "R8A：主数据 + 通知单 + 方案（时间点/结果/报告类 KPI 待 R8B~R8D）",
+		"scope": "R8A~R8D：主数据 + 通知单 + 方案 + 样品/时间点/结果",
 	}
 
 

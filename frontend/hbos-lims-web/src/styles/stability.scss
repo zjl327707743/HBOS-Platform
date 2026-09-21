@@ -129,13 +129,6 @@
 }
 .stb-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
 
-// ---- 时间线（本周动作）----
-.stb-timeline { display: flex; flex-direction: column; gap: 14px; }
-.stb-timeline-item { display: grid; grid-template-columns: 62px 1fr; gap: 10px; }
-.stb-timeline-date { font-family: var(--mono); font-size: 11px; color: var(--primary); font-weight: 700; }
-.stb-timeline-title { font-size: 12px; font-weight: 700; color: var(--ink); }
-.stb-timeline-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
-
 // ---- 通知单列表（考察申请与方案）----
 .stb-split {
   display: grid;
