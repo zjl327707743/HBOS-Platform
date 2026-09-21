@@ -1,17 +1,23 @@
-"""飞书「调休」表 → HBOS Rest Leave Record（只读登记，不改考勤判定）。
+"""飞书「调休」表 → HBOS Rest Leave Record。
 
-对齐 api.sync_overtime_from_bitable 的写法：取 token → 分页拉全量 → 只取「已通过」
-→ 以 feishu_approval_id 为唯一键 upsert。Owner 2026-09-11：本轮只做记录界面。
+与请假同步（api.sync_from_bitable）同模板：取 token → 分页拉全量 → 状态映射
+→ 以 feishu_approval_id 为唯一键 upsert。另有取舍不同：
+  * 日期区间按天展开后由判定侧处理，本文件只落 start/end 原始区间；
+  * 失败记 Error Log 并写进返回摘要，**不在调度任务里 throw**；
+  * 匹配不到员工的记录计入 unmatched，不再静默丢弃。
+加班日的解析与核实分别见 parse_pending_rest_leaves / verify_pending_rest_leaves。
 """
 import frappe
 
-from hb_attendance_app.hbos_attendance.api import _get_token, _fetch_all_records_custom
-from hb_attendance_app.hbos_attendance.swap_mapping import (
-    rest_leave_fields, REST_LEAVE_APP_TOKEN, REST_LEAVE_TABLE_ID,
+from hb_attendance_app.hbos_attendance.api import (
+    STATUS_MAP, _fetch_all_records_custom, _get_token,
+)
+from hb_attendance_app.hbos_attendance.rest_leave import (
+    ID_PREFIX, PARSE_PENDING, REST_LEAVE_APP_TOKEN, REST_LEAVE_TABLE_ID,
+    VERIFY_PARSE_FAIL, VERIFY_PENDING, rest_leave_fields,
 )
 
 DOCTYPE = "HBOS Rest Leave Record"
-ID_PREFIX = "feishu-bitable-restleave-"
 
 
 def _match_employee(num, name):
@@ -27,30 +33,37 @@ def _match_employee(num, name):
 
 @frappe.whitelist()
 def sync_rest_leave_from_bitable():
+    """同步飞书调休表。任何失败都记日志并返回摘要，不抛异常。"""
+    summary = {"total": 0, "created": 0, "updated": 0,
+               "skipped": 0, "unmatched": 0, "error": ""}
     try:
         token = _get_token()
-        records = _fetch_all_records_custom(token, REST_LEAVE_APP_TOKEN, REST_LEAVE_TABLE_ID)
+        records = _fetch_all_records_custom(
+            token, REST_LEAVE_APP_TOKEN, REST_LEAVE_TABLE_ID)
     except Exception as e:
         frappe.log_error(str(e), "飞书调休同步")
-        frappe.throw(f"读取飞书调休表格失败: {e}")
+        summary["error"] = str(e)
+        return summary
 
-    created = updated = skipped = 0
+    summary["total"] = len(records)
     for record in records:
         fields = record.get("fields", {}) or {}
-        if fields.get("申请状态") != "已通过":
-            skipped += 1
-            continue
         rid = record.get("id", "")
         if not rid:
-            skipped += 1
+            summary["skipped"] += 1
             continue
         mapped = rest_leave_fields(fields)
         if not mapped:
-            skipped += 1
+            summary["skipped"] += 1
             continue
         emp = _match_employee(mapped["employee_number"], mapped["employee_name"])
         if not emp:
-            skipped += 1
+            # 不静默丢弃：匹配不到必须可见，否则调休会无声消失
+            summary["unmatched"] += 1
+            frappe.log_error(
+                "调休记录匹配不到员工: %s / %s"
+                % (mapped["employee_number"], mapped["employee_name"]),
+                "飞书调休同步")
             continue
 
         aid = ID_PREFIX + rid
@@ -63,18 +76,24 @@ def sync_rest_leave_from_bitable():
             "end_date": mapped["end_date"],
             "rest_days": mapped["rest_days"],
             "remarks": mapped["remarks"],
-            "approval_status": "已通过",
+            "approval_status": STATUS_MAP.get(fields.get("申请状态", ""), "审批中"),
             "feishu_sync_time": frappe.utils.now_datetime(),
         })
+        if not exists:
+            # 新记录等待 LLM 解析加班日
+            doc.verify_status = PARSE_PENDING
+        elif doc.remarks != mapped["remarks"]:
+            # 说明被改过 → 加班日需重新解析
+            doc.verify_status = PARSE_PENDING
         try:
             doc.save(ignore_permissions=True)
             frappe.db.commit()
             if exists:
-                updated += 1
+                summary["updated"] += 1
             else:
-                created += 1
+                summary["created"] += 1
         except Exception as e:
             frappe.log_error(str(e), "飞书调休写入失败")
-            skipped += 1
+            summary["skipped"] += 1
 
-    return {"created": created, "updated": updated, "skipped": skipped}
+    return summary
