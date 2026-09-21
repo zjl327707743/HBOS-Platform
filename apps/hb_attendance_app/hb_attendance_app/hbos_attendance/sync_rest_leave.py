@@ -18,8 +18,9 @@ from hb_attendance_app.hbos_attendance.api import (
 )
 from hb_attendance_app.hbos_attendance.rest_leave import (
     ID_PREFIX, PARSE_PENDING, REST_LEAVE_APP_TOKEN, REST_LEAVE_TABLE_ID,
-    VERIFY_PARSE_FAIL, VERIFY_PENDING,
+    VERIFY_OK, VERIFY_PARSE_FAIL, VERIFY_PENDING,
     build_overtime_prompt, parse_overtime_dates, rest_leave_fields,
+    verify_status_for,
 )
 
 DOCTYPE = "HBOS Rest Leave Record"
@@ -221,4 +222,123 @@ def parse_pending_rest_leaves(limit=200):
 
     summary["remaining"] = frappe.db.count(
         DOCTYPE, {"verify_status": PARSE_PENDING})
+    return summary
+
+
+def _present_dates(employee, dates):
+    """该员工在这些日期里，哪些天有完整上下班配对。
+
+    判据复用系统**已经算好并落库**的配对结果，不在这里另写一套「什么算配对」：
+    pairing.py 只对真正配对成功的班次写 working_hours（非豁免的 Present 必带
+    真实配对间隔），所以「status='Present' 且 working_hours >= 2」就是在读它
+    的结论。两处判据同源，才不会各自漂移。
+
+    参数化：员工走 %s 占位符；日期的占位符**个数**由日期条数决定，值仍走绑定
+    参数——不把日期字符串拼进 SQL（拼串既怕引号，也会让缓存失效）。空 dates
+    在入口就短路，故占位符串恒非空，不会出现 `IN ()` 这种语法错。
+    """
+    if not dates or not employee:
+        return set()
+    placeholders = ",".join(["%s"] * len(dates))
+    rows = frappe.db.sql(
+        """
+        SELECT attendance_date FROM `tabAttendance`
+        WHERE employee = %s
+          AND attendance_date IN ({ph})
+          AND status = 'Present'
+          AND working_hours >= 2
+        """.format(ph=placeholders),
+        tuple([employee] + list(dates)),
+        as_dict=True,
+    )
+    return {str(r["attendance_date"]) for r in rows}
+
+
+def verify_pending_rest_leaves(limit=500):
+    """对 verify_status=待核实 的记录核实加班日，回写结论。
+
+    **本阶段只写结论**：不开豁免、不重算考勤、不打断调度（不 throw）。豁免接入
+    是下一阶段的事。核实判据见 _present_dates——加班日当天该员工在系统已生成的
+    考勤里有完整配对，才算这一天真的发生过。
+
+    摘要键集合在所有返回路径上完全一致，调用方可以无条件读取任何一个键：
+      verified 本轮核实通过、状态转「已核实」的条数
+      failed 本轮核实不通过、或处理失败的条数
+      skipped 没法核的条数（缺员工 / 缺加班日），保持待核实留人工看
+      remaining 本轮结束后仍处于待核实的条数（积压可见）
+      error 起始阶段（读待核列表 / 统计积压）的失败原因，非空即表示本轮有异常
+    """
+    summary = {"verified": 0, "failed": 0, "skipped": 0,
+               "remaining": 0, "error": ""}
+    try:
+        pending = frappe.db.get_all(
+            DOCTYPE,
+            filters={"verify_status": VERIFY_PENDING},
+            fields=["name", "employee", "overtime_dates"],
+            limit_page_length=limit,
+            order_by="creation asc",
+        )
+    except Exception as e:
+        # 先落摘要再写日志：摘要是给调度器读的契约，不能被 log_error 自身的
+        # 异常（写 Error Log 也可能失败）挡住。
+        summary["error"] = str(e)
+        frappe.log_error(str(e), "调休加班核实取待核列表失败")
+        return summary
+
+    # 逐条处理整体兜底：切日期、查考勤、get_doc、写状态、save 全在同一个 try
+    # 之内。读 DocType 是会抛的（比如这条记录在 get_all 之后被删掉），异常一旦
+    # 冒出函数，本批已落库的计数与本轮积压数全部丢失，还会打断调度链
+    # （与 Task 3/Task 4 是同一种失效模式，故形状保持一致）。
+    for row in pending:
+        try:
+            dates = [
+                d.strip() for d in str(row.overtime_dates or "").split(",")
+                if d.strip()
+            ]
+            if not dates:
+                # 没有加班日 = 没法核，不等于核实不通过；保持待核实留人工
+                summary["skipped"] += 1
+                frappe.log_error(
+                    "%s: 无加班日，无法核实" % row.name, "调休加班核实缺加班日")
+                continue
+            if not row.employee:
+                # 缺员工 = 「压根没核」而不是「核了，没通过」。状态字段没有
+                # 「无法核实」这一档，写「核实不通过」等于断言一个我们从未做过
+                # 的判断；此路保持待核实（仍在待核队列里可见）并单独留痕，
+                # 绝不产生假「已核实」。
+                summary["skipped"] += 1
+                frappe.log_error(
+                    "%s: 记录缺员工，无法核实" % row.name, "调休加班核实缺员工")
+                continue
+
+            paired = _present_dates(row.employee, dates)
+            doc = frappe.get_doc(DOCTYPE, row.name)
+            doc.verify_status = verify_status_for(dates, paired)
+            doc.verify_time = frappe.utils.now_datetime()
+            try:
+                doc.save(ignore_permissions=True)
+                frappe.db.commit()
+                if doc.verify_status == VERIFY_OK:
+                    summary["verified"] += 1
+                else:
+                    summary["failed"] += 1
+            except Exception as e:
+                frappe.log_error(
+                    "%s: %s" % (row.name, e), "调休加班核实写入失败")
+                summary["failed"] += 1
+        except Exception as e:
+            # 带上记录名：N 条失败时才分得清是哪条。标题取中立说法——这个 try
+            # 覆盖切日期到 save 的整条处理，写成「写入失败」会掩盖真实失败阶段。
+            frappe.log_error(
+                "%s: %s" % (row.name, e), "调休加班核实单条处理失败")
+            summary["failed"] += 1
+            continue
+
+    try:
+        summary["remaining"] = frappe.db.count(
+            DOCTYPE, {"verify_status": VERIFY_PENDING})
+    except Exception as e:
+        # 同上：摘要先行。积压统计失败不影响本轮已落库的计数，故不提前返回。
+        summary["error"] = str(e)
+        frappe.log_error(str(e), "调休加班核实积压统计失败")
     return summary
