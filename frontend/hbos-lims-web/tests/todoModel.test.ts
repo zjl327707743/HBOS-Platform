@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   buildTodoQuery,
+  buildTodoRoute,
   emptySummary,
   normalizeTodoItem,
   readScalarQuery,
@@ -71,4 +72,31 @@ test('sorts overdue items before ordinary items', () => {
   const overdue = { ...baseItem, todo_key: 'overdue', due_at: '2026-09-21', is_overdue: true }
 
   assert.deepEqual(sortTodoItems([ordinary, overdue]).map((item) => item.todo_key), ['overdue', 'ordinary'])
+})
+
+test('builds the six supported todo deep links', () => {
+  assert.deepEqual(buildTodoRoute('/tasks', { scope: 'mine', task: 'TASK-1' }), {
+    path: '/tasks',
+    query: { scope: 'mine', task: 'TASK-1' },
+  })
+  assert.deepEqual(buildTodoRoute('/stability/schedule', { timepoint: 'TP-1' }), {
+    path: '/stability/schedule',
+    query: { timepoint: 'TP-1' },
+  })
+  assert.deepEqual(buildTodoRoute('/stability/results', { timepoint: 'TP-1', result: 'RES-1' }), {
+    path: '/stability/results',
+    query: { timepoint: 'TP-1', result: 'RES-1' },
+  })
+  assert.deepEqual(buildTodoRoute('/retention/observations', { sample: 'RET-1', observation: 'OBS-1' }), {
+    path: '/retention/observations',
+    query: { sample: 'RET-1', observation: 'OBS-1' },
+  })
+  assert.deepEqual(buildTodoRoute('/retention/usage', { usage: 'USE-1' }), {
+    path: '/retention/usage',
+    query: { usage: 'USE-1' },
+  })
+  assert.deepEqual(buildTodoRoute('/retention/disposal', { disposal: 'DSP-1', focus: 'DSP-1' }), {
+    path: '/retention/disposal',
+    query: { disposal: 'DSP-1', focus: 'DSP-1' },
+  })
 })

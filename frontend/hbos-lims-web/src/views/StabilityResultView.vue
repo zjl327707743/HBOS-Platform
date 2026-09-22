@@ -15,6 +15,13 @@
         </a-button>
       </div>
     </div>
+    <a-alert
+      v-if="targetTimepoint"
+      :type="targetTimepointMissing || targetResultMissing ? 'warning' : 'info'"
+      show-icon
+      :message="targetTimepointMissing ? `来源时间点 ${targetTimepoint} 未找到` : (targetResultMissing ? `时间点 ${targetTimepoint} 已打开，但结果 ${targetResult} 未找到` : `已定位时间点 ${targetTimepoint}${targetResult ? ` · 结果 ${targetResult}` : ''}`)"
+      style="margin-bottom: 12px"
+    />
 
     <div class="stb-result-layout">
       <!-- 左：检测中时间点 -->
@@ -87,7 +94,7 @@
             </div>
             <div class="panel-body no-pad">
               <a-table :columns="resultColumns" :data-source="currentResults" size="small"
-                       row-key="name" :pagination="false" :scroll="{ x: 560 }">
+                       row-key="name" :pagination="false" :scroll="{ x: 560 }" :row-class-name="resultRowClassName">
                 <template #bodyCell="{ column, record }">
                   <template v-if="column.key === 'item'">{{ record.stability_test_item }}</template>
                   <template v-else-if="column.key === 'value'">
@@ -173,6 +180,7 @@ import { SafetyCertificateOutlined } from '@ant-design/icons-vue'
 import * as echarts from 'echarts'
 import StbGateBanner from '@/components/stability/StbGateBanner.vue'
 import StbAuditDrawer from '@/components/stability/StbAuditDrawer.vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
   approveResult, canAction, products, results,
@@ -181,8 +189,10 @@ import {
 } from '@/api/stability'
 import { toneClass } from '@/demo/stabilityDemo'
 import { callMethod } from '@/api/client'
+import { readScalarQuery } from '@/features/todos/todoModel'
 
 const auth = useAuthStore()
+const route = useRoute()
 const can = (action: string): boolean => canAction(auth.user?.roles, action)
 
 const auditRef = ref<InstanceType<typeof StbAuditDrawer> | null>(null)
@@ -191,6 +201,10 @@ const tps = ref<Record<string, unknown>[]>([])
 const current = ref<Record<string, any> | null>(null)
 const currentResults = ref<ResultRow[]>([])
 const productRows = ref<ProductRow[]>([])
+const targetTimepoint = ref('')
+const targetResult = ref('')
+const targetTimepointMissing = ref(false)
+const targetResultMissing = ref(false)
 
 const form = reactive({ item: '' as string, value: '', testDate: '', source: '自检', remark: '' })
 const sourceOptions = ['自检', '出厂全检', '委外'].map((v) => ({ value: v, label: v }))
@@ -219,13 +233,31 @@ const trendNote = ref('趋势线为最小二乘拟合；不展示统计控制限
 const advice = ref<Record<string, any>>({})
 
 async function load() {
+  targetTimepoint.value = readScalarQuery(route.query.timepoint) || ''
+  targetResult.value = readScalarQuery(route.query.result) || ''
   tpLoading.value = true
   try {
+    const scheduleParams = targetTimepoint.value
+      ? { keyword: targetTimepoint.value, limit: 100 }
+      : { exec_status: '检测中', limit: 100 }
     const res = await callMethod<{ rows: Record<string, unknown>[] }>(
       'hb_lims_app.hbos_lims.stability_service.get_stability_schedule',
-      { exec_status: '检测中', limit: 100 })
+      scheduleParams)
     tps.value = res.rows
-    if (!current.value && tps.value.length) void openTimepoint(tps.value[0] as Record<string, any>)
+    targetTimepointMissing.value = false
+    targetResultMissing.value = false
+    const target = targetTimepoint.value
+      ? tps.value.find((row) => row.name === targetTimepoint.value)
+      : undefined
+    if (targetTimepoint.value && !target) {
+      targetTimepointMissing.value = true
+      current.value = null
+      currentResults.value = []
+    } else if (target) {
+      await openTimepoint(target as Record<string, any>)
+    } else if (!current.value && tps.value.length) {
+      void openTimepoint(tps.value[0] as Record<string, any>)
+    }
   } finally {
     tpLoading.value = false
   }
@@ -254,10 +286,15 @@ async function openTimepoint(t: Record<string, any>) {
   current.value = t
   const res = await results({ timepoint: t.name, limit: 100 })
   currentResults.value = res.rows
+  targetResultMissing.value = Boolean(targetResult.value && !res.rows.some((row) => row.name === targetResult.value))
   if (!form.item) {
     const first = res.rows[0] || (t.test_items as { stability_test_item: string }[] | undefined)?.[0]
     if (first) form.item = (first as { stability_test_item?: string }).stability_test_item || first.stability_test_item
   }
+}
+
+function resultRowClassName(record: ResultRow): string {
+  return targetResult.value && record.name === targetResult.value ? 'todo-target-row' : ''
 }
 
 function resultTone(r: ResultRow): 'pass' | 'muted' | 'warn' {
@@ -409,3 +446,7 @@ onUnmounted(() => {
   trendChart = null
 })
 </script>
+
+<style scoped>
+:deep(.todo-target-row) > td { background: var(--primary-soft); }
+</style>

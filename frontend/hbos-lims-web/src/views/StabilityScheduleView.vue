@@ -27,6 +27,13 @@
       <button :class="{ active: tab === 'ledger' }" @click="switchTab('ledger')">计划台账</button>
       <button :class="{ active: tab === 'delay' }" @click="switchTab('delay')">延期审批</button>
     </div>
+    <a-alert
+      v-if="targetTimepoint"
+      :type="targetTimepointMissing ? 'warning' : 'info'"
+      show-icon
+      :message="targetTimepointMissing ? `来源时间点 ${targetTimepoint} 未找到` : `已定位时间点 ${targetTimepoint}`"
+      style="margin-bottom: 12px"
+    />
 
     <!-- 月度看板 -->
     <template v-if="tab === 'board'">
@@ -301,14 +308,17 @@ import { Empty, message } from 'ant-design-vue'
 import { ArrowLeftOutlined, ArrowRightOutlined, CalendarOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import StbGateBanner from '@/components/stability/StbGateBanner.vue'
 import StbDelayDrawer from '@/components/stability/StbDelayDrawer.vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
   approveDelay, canAction, cancelTimepoint, completeSampling, delays, generateTimepoints,
   rejectDelay, samples, schedule, startTesting, timepointDetail,
   type DelayRow, type SampleRow, type ScheduleRow, type TimepointDetail,
 } from '@/api/stability'
+import { readScalarQuery } from '@/features/todos/todoModel'
 
 const auth = useAuthStore()
+const route = useRoute()
 const can = (action: string): boolean => canAction(auth.user?.roles, action)
 
 const delayRef = ref<InstanceType<typeof StbDelayDrawer> | null>(null)
@@ -317,6 +327,8 @@ const loading = ref(false)
 const rows = ref<ScheduleRow[]>([])
 const conditionFilter = ref('全部条件')
 const stateFilter = ref('全部执行状态')
+const targetTimepoint = ref('')
+const targetTimepointMissing = ref(false)
 
 const conditionOptions = ['全部条件', '长期', '加速', '中间', '影响因素-高温', '影响因素-高湿', '影响因素-强光']
   .map((v) => ({ value: v, label: v }))
@@ -622,6 +634,14 @@ async function load() {
   try {
     const res = await schedule({ limit: 1000 })
     rows.value = res.rows
+    targetTimepoint.value = readScalarQuery(route.query.timepoint) || ''
+    targetTimepointMissing.value = false
+    if (targetTimepoint.value) {
+      const target = rows.value.find((row) => row.name === targetTimepoint.value)
+      targetTimepointMissing.value = !target
+      if (target) await selectTimepoint(target.name)
+      else tpDetail.value = null
+    }
   } catch {
     if (!auth.user) message.warning('未登录（Guest）：计划数据不可用，请先在 Frappe Desk 登录后刷新。')
     else if (!auth.user?.roles?.length) message.warning('当前会话尚未取到角色，列表加载可能受限。')

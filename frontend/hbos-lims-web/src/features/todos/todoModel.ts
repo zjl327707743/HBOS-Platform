@@ -61,6 +61,17 @@ export function readScalarQuery(value: unknown): string | undefined {
   return undefined
 }
 
+/**
+ * Builds a stable route location for a todo source page. Keeping this as a
+ * plain object makes deep-link behavior testable without mounting Vue Router.
+ */
+export function buildTodoRoute(path: string, params: Record<string, string | undefined> = {}) {
+  const query = Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== ''),
+  )
+  return { path, query }
+}
+
 const PRIORITY_RANK: Record<string, number> = {
   特急: 4,
   紧急: 4,

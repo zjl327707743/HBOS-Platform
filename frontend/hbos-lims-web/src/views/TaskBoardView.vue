@@ -19,6 +19,13 @@
       <a-input v-model:value="filters.search" placeholder="搜索样品 / 任务编号" allow-clear style="width:240px" />
       <span class="pill muted total-pill">{{ tasks.length }} 项任务</span>
     </div>
+    <a-alert
+      v-if="targetTaskName"
+      :type="targetTaskMissing ? 'warning' : 'info'"
+      show-icon
+      :message="targetTaskMissing ? `来源任务 ${targetTaskName} 当前不在我的待办范围内` : `已定位来源任务 ${targetTaskName}`"
+      style="margin-bottom: 12px"
+    />
 
     <div class="panel board-panel">
       <a-tabs v-model:activeKey="activeTab" type="card" size="small" class="task-tabs">
@@ -37,7 +44,7 @@
           </template>
 
           <div class="tab-body">
-            <div v-for="task in colTasks(col.key)" :key="task.task_name" class="task-card">
+            <div v-for="task in colTasks(col.key)" :key="task.task_name" class="task-card" :class="{ 'todo-target': targetTaskName === task.task_name }">
               <div class="task-head">
                 <span class="no mono">{{ task.task_name }}</span>
                 <span class="pill" :class="priorityClass(task.priority)">{{ task.priority }}</span>
@@ -102,7 +109,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { Empty } from 'ant-design-vue'
 import { useTaskStore, type TaskRow } from '@/stores/task'
@@ -111,8 +118,10 @@ import {
   assignTask as apiAssign, startTask as apiStart, generateTasks,
   reviewResult, approveResult, listDoctype,
 } from '@/api/lims'
+import { readScalarQuery } from '@/features/todos/todoModel'
 
 const router = useRouter()
+const route = useRoute()
 const taskStore = useTaskStore()
 const sampleStore = useSampleStore()
 const tasks = computed(() => taskStore.tasks)
@@ -126,6 +135,8 @@ const analystUsers = ['Administrator', 'test-hbos-m2-analyst@test.local']
 
 const emptyImage = Empty.PRESENTED_IMAGE_SIMPLE
 const activeTab = ref('pending')
+const targetTaskName = ref('')
+const targetTaskMissing = ref(false)
 
 const columns = [
   { key: 'pending', title: '待分配', status: '待分配', color: '#9aa8a3' },
@@ -255,7 +266,17 @@ async function approveTask(task: TaskRow) {
 }
 
 async function loadBoard() {
-  await taskStore.fetchBoard()
+  targetTaskName.value = readScalarQuery(route.query.task) || ''
+  targetTaskMissing.value = false
+  await taskStore.fetchBoard(route.query.scope === 'mine' ? { scope: 'mine' } : {})
+  if (targetTaskName.value) {
+    const target = tasks.value.find((task) => task.task_name === targetTaskName.value)
+    targetTaskMissing.value = !target
+    if (target) {
+      const targetColumn = columns.find((column) => column.status === target.status)
+      if (targetColumn) activeTab.value = targetColumn.key
+    }
+  }
   const taskNames = tasks.value.map((t) => t.task_name)
   if (taskNames.length > 0) {
     try {
@@ -335,6 +356,7 @@ onMounted(async () => {
   transition: box-shadow 0.12s ease, border-color 0.12s ease;
 }
 .task-card:hover { box-shadow: 0 2px 8px rgba(13, 43, 40, 0.08); border-color: #b8c6c0; }
+.task-card.todo-target { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(43, 138, 115, 0.14); }
 
 .task-head { display: flex; align-items: center; gap: 8px; }
 .task-head .no { font-size: 11px; color: var(--muted); flex: 1; }

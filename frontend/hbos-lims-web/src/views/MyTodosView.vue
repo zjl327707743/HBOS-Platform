@@ -103,13 +103,18 @@
                 <a-tag :color="priorityColor(record.priority)">{{ record.priority || '常规' }}</a-tag>
               </template>
               <template v-else-if="column.key === 'action'">
-                <span class="action-label">{{ record.action_label }}</span>
+                <div class="action-cell">
+                  <span class="action-label">{{ record.action_label }}</span>
+                  <a-button type="link" size="small" :loading="actionLoadingKey === record.todo_key" @click.stop="handleAction(record)">
+                    {{ record.execute_mode === 'direct' ? '立即处理' : '打开处理页' }}
+                  </a-button>
+                </div>
               </template>
             </template>
           </a-table>
 
           <div class="mobile-list">
-            <button v-for="record in todoStore.items" :key="record.todo_key" type="button" class="todo-card" @click="openTodo(record)">
+            <div v-for="record in todoStore.items" :key="record.todo_key" class="todo-card" role="button" tabindex="0" @click="openTodo(record)">
               <div class="todo-card-top">
                 <span class="context-tag module-tag">{{ record.module_label }}</span>
                 <span class="context-tag" :class="record.owner_type === 'user' ? 'user-tag' : 'role-tag'">{{ record.owner_label }}</span>
@@ -120,7 +125,10 @@
                 <span>{{ record.priority || '常规' }}</span>
                 <span :class="{ overdue: record.is_overdue }">{{ record.due_at || '无截止日' }}</span>
               </div>
-            </button>
+              <a-button size="small" :loading="actionLoadingKey === record.todo_key" @click.stop="handleAction(record)">
+                {{ record.execute_mode === 'direct' ? '立即处理' : '打开处理页' }}
+              </a-button>
+            </div>
           </div>
         </div>
       </a-spin>
@@ -130,16 +138,20 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { message } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todo'
 import type { TodoItem, TodoModule, TodoOwnerType } from '@/api/todo'
+import { buildTodoRoute } from '@/features/todos/todoModel'
+import { runTodoAction } from '@/features/todos/todoActions'
 
 const POLL_INTERVAL_MS = 60_000
 const router = useRouter()
 const auth = useAuthStore()
 const todoStore = useTodoStore()
 const keyword = ref('')
+const actionLoadingKey = ref<string | null>(null)
 let timer: number | undefined
 
 const moduleOptions: { value: TodoModule; label: string }[] = [
@@ -204,7 +216,21 @@ function onTableChange(page: { current?: number; pageSize?: number }) {
 }
 
 function openTodo(item: TodoItem) {
-  void router.push({ path: item.route || '/tasks', query: item.route_params })
+  void router.push(buildTodoRoute(item.route || '/tasks', item.route_params))
+}
+
+async function handleAction(item: TodoItem) {
+  actionLoadingKey.value = item.todo_key
+  try {
+    await runTodoAction(item, {
+      navigate: openTodo,
+      refresh: () => todoStore.refreshAll(),
+      notifySuccess: (text) => message.success(text),
+      notifyError: (text) => message.error(text),
+    })
+  } finally {
+    actionLoadingKey.value = null
+  }
 }
 
 function priorityColor(priority: string | null) {
@@ -266,6 +292,7 @@ h1 { margin: 5px 0 4px; color: var(--text-strong); font-size: 28px; }
 .user-tag { color: #2459a6; background: #e8f0ff; }
 .role-tag { color: #7041a1; background: #f2eafe; }
 .action-label { color: var(--text-strong); }
+.action-cell { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
 .overdue { color: #d4380d; font-weight: 700; }
 .empty-state { padding: 76px 20px; text-align: center; }
 .empty-icon { width: 42px; height: 42px; margin: 0 auto 12px; border-radius: 50%; color: #168b70; background: #e4f6f1; font-size: 24px; line-height: 42px; }

@@ -16,6 +16,13 @@
         </a-button>
       </div>
     </div>
+    <a-alert
+      v-if="targetUsageName"
+      :type="targetUsageMissing ? 'warning' : 'info'"
+      show-icon
+      :message="targetUsageMissing ? `来源使用申请 ${targetUsageName} 未找到` : `已定位使用申请 ${targetUsageName}`"
+      style="margin-bottom: 12px"
+    />
 
     <a-alert type="info" show-icon :message="realNote" style="margin-bottom: 14px" />
 
@@ -260,6 +267,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { message, Empty } from 'ant-design-vue'
 import type { TableColumnsType } from 'ant-design-vue'
 import { CloseCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
   usageList, createUsageApply, submitUsageApply, confirmUsageStock,
@@ -267,8 +275,10 @@ import {
   retentionCandidates, canAction, SOD_NOTE,
   type UsageRow, type RetentionCandidate,
 } from '@/api/retention'
+import { readScalarQuery } from '@/features/todos/todoModel'
 
 const auth = useAuthStore()
+const route = useRoute()
 const realNote = '已接入真实后端（R7C）· 使用申请数据与流转均来自后端业务方法；提交、审批、驳回、取消等操作受会话角色与后端 SoD 约束。'
 
 function can(key: string): boolean {
@@ -280,6 +290,8 @@ const rows = ref<UsageRow[]>([])
 const loading = ref(false)
 const selected = ref<UsageRow | null>(null)
 const layoutRef = ref<HTMLElement | null>(null)
+const targetUsageName = ref('')
+const targetUsageMissing = ref(false)
 
 const STATUS_ACTION: Record<string, string> = {
   草稿: 'create_usage_apply',
@@ -341,7 +353,14 @@ async function load() {
   try {
     const res = await usageList()
     rows.value = res.rows
+    targetUsageName.value = readScalarQuery(route.query.usage) || ''
+    targetUsageMissing.value = false
     keepSelection()
+    if (targetUsageName.value) {
+      const target = rows.value.find((row) => row.name === targetUsageName.value)
+      targetUsageMissing.value = !target
+      if (target) selected.value = target
+    }
   } catch {
     if (!auth.user) message.warning('未登录（Guest）：使用申请只读亦不可用，请先在 Frappe Desk 登录后刷新。')
     else if (!auth.user?.roles?.length) message.warning('当前会话尚未取到角色，列表加载可能受限。')

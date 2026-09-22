@@ -23,6 +23,13 @@
         </a-button>
       </div>
     </div>
+    <a-alert
+      v-if="targetDisposalName"
+      :type="targetDisposalMissing ? 'warning' : 'info'"
+      show-icon
+      :message="targetDisposalMissing ? `来源处理申请 ${targetDisposalName} 未找到` : `已定位处理申请 ${targetDisposalName}`"
+      style="margin-bottom: 12px"
+    />
 
     <!-- 季度到期处理清单（非完结处理单投影） -->
     <div class="panel">
@@ -474,6 +481,7 @@ import {
 } from '@ant-design/icons-vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { readScalarQuery } from '@/features/todos/todoModel'
 import {
   disposalList,
   createDisposalApply,
@@ -521,6 +529,8 @@ const loading = ref(false)
 const rows = ref<DisposalRow[]>([])
 const selected = ref<DisposalRow | null>(null)
 const filter = ref<'all' | 'mine' | 'overdue'>('all')
+const targetDisposalName = ref('')
+const targetDisposalMissing = ref(false)
 
 type FilterKey = 'all' | 'mine' | 'overdue'
 const TERMINAL = ['已完成', '已驳回', '已取消']
@@ -976,8 +986,14 @@ async function reload(preferName?: string) {
 
 async function initialLoad() {
   await reload()
+  targetDisposalName.value = readScalarQuery(route.query.disposal) || ''
+  targetDisposalMissing.value = false
   const focusName = typeof route.query.focus === 'string' ? route.query.focus : ''
-  const focusRow = focusName ? rows.value.find((r) => r.name === focusName) : undefined
+  const targetRow = targetDisposalName.value
+    ? rows.value.find((r) => r.name === targetDisposalName.value)
+    : undefined
+  targetDisposalMissing.value = Boolean(targetDisposalName.value && !targetRow)
+  const focusRow = (focusName ? rows.value.find((r) => r.name === focusName) : undefined) || targetRow
   selected.value = focusRow ?? mineRows.value[0] ?? rows.value[0] ?? null
   if (focusName && selected.value) {
     nextTick(() => layoutRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))

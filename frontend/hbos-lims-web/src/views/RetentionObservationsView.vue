@@ -30,6 +30,13 @@
         </a-button>
       </div>
     </div>
+    <a-alert
+      v-if="targetSampleName"
+      :type="targetSampleMissing || targetObservationMissing ? 'warning' : 'info'"
+      show-icon
+      :message="targetSampleMissing ? `来源留样 ${targetSampleName} 未找到` : (targetObservationMissing ? `留样 ${targetSampleName} 已打开，但观察记录 ${targetObservationName} 未找到` : `已定位留样 ${targetSampleName}${targetObservationName ? ` · 观察 ${targetObservationName}` : ''}`)"
+      style="margin-bottom: 12px"
+    />
 
     <!-- 真实后端说明条 -->
     <a-alert
@@ -424,12 +431,14 @@ import { computed, reactive, ref } from 'vue'
 import { Empty, message } from 'ant-design-vue'
 import { CalendarOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { useRoute } from 'vue-router'
 import {
   obsPlan, selectObsBatch, cancelObsBatch, recordObservation, reviewObservation,
   canAction, SOD_NOTE,
   type ObsBoardRow, type ObsCompleteness,
 } from '@/api/retention'
 import { listDoctype, getDoc } from '@/api/lims'
+import { readScalarQuery } from '@/features/todos/todoModel'
 
 // ---------- 类型 ----------
 type ObsFilter = 'all' | 'todo' | 'done'
@@ -468,6 +477,7 @@ function todayStr(): string {
 
 // ---------- 会话角色 ----------
 const auth = useAuthStore()
+const route = useRoute()
 const canKey = (action: string): boolean => canAction(auth.user?.roles, action)
 const canSelect = computed(() => canKey('select_obs_batch'))
 const canCancel = computed(() => canKey('cancel_obs_batch'))
@@ -484,6 +494,10 @@ const completeness = ref<ObsCompleteness[]>([])
 const loading = ref(false)
 const filter = ref<ObsFilter>('all')
 const selected = ref<ObsBoardRow | null>(null)
+const targetSampleName = ref('')
+const targetObservationName = ref('')
+const targetSampleMissing = ref(false)
+const targetObservationMissing = ref(false)
 const rightPanel = ref<HTMLElement | null>(null)
 const history = ref<ObsRecord[]>([])
 const historyLoading = ref(false)
@@ -572,10 +586,20 @@ async function loadBoard(prefer?: string | null) {
     const plan = await obsPlan()
     rows.value = plan.rows
     completeness.value = plan.completeness
-    const keepName = prefer !== undefined ? prefer : selected.value?.name ?? null
+    targetSampleName.value = readScalarQuery(route.query.sample) || ''
+    targetObservationName.value = readScalarQuery(route.query.observation) || ''
+    targetSampleMissing.value = false
+    targetObservationMissing.value = false
+    const keepName = prefer !== undefined ? prefer : (targetSampleName.value || selected.value?.name || null)
     const next = keepName ? rows.value.find((x) => x.name === keepName) ?? null : null
     selected.value = next
-    if (next) await loadHistory(next)
+    targetSampleMissing.value = Boolean(targetSampleName.value && !next)
+    if (next) {
+      await loadHistory(next)
+      targetObservationMissing.value = Boolean(
+        targetObservationName.value && !history.value.some((record) => record.name === targetObservationName.value),
+      )
+    }
     else history.value = []
   } catch {
     // 后端错误 / 未登录提示由 axios 拦截器统一弹出

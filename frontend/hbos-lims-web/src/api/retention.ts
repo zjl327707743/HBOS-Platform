@@ -115,6 +115,9 @@ export function recordObservation(params: {
 export function reviewObservation(retention_name: string, obs_month: number) {
   return callMethod('hb_lims_app.hbos_lims.retention_service.review_observation', { retention_name, obs_month })
 }
+export function reviewObservationByName(observation_name: string) {
+  return callMethod('hb_lims_app.hbos_lims.retention_service.review_observation', { observation_name })
+}
 
 // ---- 使用申请 ----
 export function createUsageApply(params: { retention_name: string; apply_qty: number; reason_type: string; reason_detail?: string; apply_dept?: string }) {
