@@ -71,8 +71,16 @@ def sync_rest_leave_from_bitable():
         records = _fetch_all_records_custom(
             token, REST_LEAVE_APP_TOKEN, REST_LEAVE_TABLE_ID)
     except Exception as e:
-        frappe.log_error(str(e), "飞书调休同步")
+        # 摘要先行：error 是调度器区分「跑了没做事」与「崩了」的唯一依据，
+        # 必须在 return 之前就位。真正保证它不被日志异常挡住的是下面的裸防护层
+        # ——log_error 自身会抛（理由见本文件首处说明），异常若在这里冒出，
+        # 调用方拿到的是抛错而不是带 error 的摘要。
         summary["error"] = str(e)
+        try:
+            frappe.log_error(str(e), "飞书调休同步")
+        except Exception:
+            # 静默：日志失败不能让异常冒出，否则 error 摘要有值也回不去。
+            pass
         return summary
 
     summary["total"] = len(records)
@@ -92,11 +100,18 @@ def sync_rest_leave_from_bitable():
             emp = _match_employee(mapped["employee_number"], mapped["employee_name"])
             if not emp:
                 # 不静默丢弃：匹配不到必须可见，否则调休会无声消失
+                # 计数先加、且在防护层之外无条件执行：日志写不成也不改本条归属
+                # ——否则异常冒到外层 handler，同一条会再记一次 failed，
+                # 一条记录同时落进 unmatched 与 failed（与核实段 skipped 同形）。
                 summary["unmatched"] += 1
-                frappe.log_error(
-                    "调休记录匹配不到员工: %s / %s"
-                    % (mapped["employee_number"], mapped["employee_name"]),
-                    "飞书调休同步")
+                try:
+                    frappe.log_error(
+                        "调休记录匹配不到员工: %s / %s"
+                        % (mapped["employee_number"], mapped["employee_name"]),
+                        "飞书调休同步")
+                except Exception:
+                    # 静默：本条已计入 unmatched，日志丢了不影响本条归属。
+                    pass
                 continue
 
             aid = ID_PREFIX + rid
@@ -143,6 +158,10 @@ def sync_rest_leave_from_bitable():
             # 故静默吞掉。
             # 注意：防护层刻意写成不带 as e 的裸形式——测试靠回退查找
             # 带 as e 的 except 行来定位处理体，带 as e 会让它认错位置。
+            # 更一般地：本文件的注释与字符串里不得出现结构锚点原文，且生产代码
+            # 的**形状**被 tests/ 的字符串检索式断言约束（见 test_rest_leave_parse
+            # / test_rest_leave_verify 里的 _nested_guard、_except_block）；
+            # 改动此处的措辞、缩进或语句顺序前，先读那些助手。
             try:
                 frappe.log_error(
                     "%s: %s" % (rid, e), "飞书调休单条处理失败")
@@ -175,8 +194,14 @@ def parse_pending_rest_leaves(limit=200):
     try:
         cfg = env_config()
     except Exception as e:
-        frappe.log_error(str(e), "调休加班日解析")
+        # 摘要先行（理由同 sync_rest_leave_from_bitable 的拉表失败分支）：
+        # error 必须在 return 之前就位；兜住「日志抛不得外泄」的是裸防护层。
         summary["error"] = str(e)
+        try:
+            frappe.log_error(str(e), "调休加班日解析")
+        except Exception:
+            # 静默：日志失败不能让异常冒出，否则 error 摘要有值也回不去。
+            pass
         return summary
     if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
         summary["error"] = "未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）"

@@ -4,6 +4,11 @@ from pathlib import Path
 SRC = (Path(__file__).parents[1]
        / "hb_attendance_app/hbos_attendance/sync_rest_leave.py")
 
+# log_error 自身会抛，所以它的调用必须再裹一层。防护层刻意写成不带 as e 的
+# 裸形式：定位助手靠回退查找「带 as e 的 except 行」找处理体，带 as e 会让它
+# 认错位置。同理，生产代码的注释与字符串里不得出现结构锚点原文。
+BARE_GUARD = "except Exception:"
+
 
 class SyncRestLeaveContractTest(unittest.TestCase):
     def setUp(self):
@@ -85,32 +90,98 @@ class SyncRestLeaveContractTest(unittest.TestCase):
             self.assertIn('"%s"' % key, init, "初始化摘要缺键: %s" % key)
         self.assertIn('summary["failed"] += 1', self.src)
 
-    def test_handler_log_call_is_shielded_by_nested_guard(self):
-        """Review 回修：log_error 自身会抛，处理体里的 log_error 必须再裹一层。
+    # 每个 log_error 调用点：(用于定位的锚点, 人读的说明)。
+    # 锚点必须唯一定位到**那一次**调用：_nested_guard 用 find 取首次出现，
+    # 所以同标题出现多次时（`飞书调休同步` 既是拉表失败、也是匹配不到员工）
+    # 必须用调用里独有的消息片段当锚点，否则只覆盖到第一处。
+    GUARDED_LOG_SITES = (
+        ("飞书调休同步", "拉表失败（起始阶段）"),
+        ("调休记录匹配不到员工", "匹配不到员工（诊断日志，非错误路径）"),
+        ("飞书调休单条处理失败", "逐条整体兜底"),
+    )
+
+    def _nested_guard(self, anchor):
+        """取出包住该 log_error 调用的裸防护体；没有防护则返回 ""。
+
+        判别点三层，任一层不满足即返回 ""（这样修前这些位置必失败）：
+        1. log_error 之前紧邻一个 try:，两者之间除了缩进只剩下被调对象的
+           前缀「frappe.」（即该 try 体的第一条语句就是这个日志调用）；
+        2. 该 try 对应的 except 是不带 as e 的裸形式（BARE_GUARD）；
+        3. 裸 except 体内以 pass 收尾（真吞掉，不是换个方式往上抛）。
+        """
+        at = self.src.find(anchor)
+        if at < 0:
+            return ""
+        log_at = self.src.rfind("log_error(", 0, at)
+        if log_at < 0:
+            return ""
+        before = self.src[:log_at]
+        try_at = before.rfind("try:")
+        if try_at < 0:
+            return ""
+        tail = before[try_at + len("try:"):].strip()
+        if tail and tail != "frappe.":
+            return ""
+        after = self.src[at:]
+        guard_at = after.find(BARE_GUARD)
+        if guard_at < 0:
+            return ""
+        # guard_at 必须是**本处**那个 except：若这里写的是带 as e 的 except，
+        # 上面的 find 会一路跳到文件后面某个无关的裸 except 上，把别人的防护体
+        # 当成本处的（“最近的 except 就是这一个”才成立）。变异验证过：没有这行
+        # 时，把本处写成 `except Exception as e:` 的错实现可以蒙混过去。
+        if after.find("except") != guard_at:
+            return ""
+        # pass 必须落在这段防护体的近旁：否则「防护体没吞异常」会被文件后面
+        # 某个无关的 pass 蒙混过去。
+        pass_at = after.find("pass", guard_at)
+        if pass_at < 0 or pass_at - guard_at > 200:
+            return ""
+        return after[guard_at:pass_at + len("pass")]
+
+    def test_every_handler_log_call_is_shielded_by_nested_guard(self):
+        """Review 回修：log_error 自身会抛，本文件每处 log_error 都必须再裹一层。
 
         理由：frappe.log_error 内部是 get_doc(Error Log) + insert，自己没有兜底。
         最可能的失败场景恰是数据库故障——那条 INSERT 走同一条坏连接再抛一次，
         异常从这里冒出去，逐条兜底就白写了：本批计数、摘要、调度链全丢。
-        判别法：定位单条处理失败的日志标题，要求它前面紧邻一个 try:（中间只剩
-        缩进和被调对象前缀 frappe.），对应的 except 是不带 as e 的裸形式且以
-        pass 收尾。修前该处没有紧邻的 try:，取不到防护体，断言必失败。
+        两处尤其要紧：拉表失败分支里 `summary["error"]` 是调度器区分「跑了没做事」
+        与「崩了」的唯一依据；而「匹配不到员工」这条的计数若被日志异常顶到外层
+        handler，同一条记录会同时落进 unmatched 与 failed——正是回修要关掉的
+        重复计数。判别法见 _nested_guard：修前这几处都没有紧邻的 try:，取不到
+        防护体，断言必失败。
         """
-        title = "飞书调休单条处理失败"
-        at = self.src.find(title)
-        self.assertIn(title, self.src)
+        for anchor, what in self.GUARDED_LOG_SITES:
+            with self.subTest(anchor=anchor):
+                guard = self._nested_guard(anchor)
+                self.assertTrue(
+                    guard, "%s（%s）的 log_error 没有被裸 try 兜住" % (anchor, what))
+                self.assertIn("pass", guard)
+
+    def test_unmatched_count_sits_outside_the_guard(self):
+        """重复计数的直接判别器：unmatched 的 +1 不得落进防护层体内。
+
+        计数的归属必须只由业务分支决定。它一旦落在防护层里，日志失败就会
+        重复计数：落 `try` 体 → 异常冒到循环体外层 handler，同条再记一次
+        `failed`（一条同时进 unmatched 与 failed）；落裸 `except` 体 → 直接
+        加两次。断言取防护层整段（`try:` 到 `pass`），只禁止计数在**里面**——
+        在防护层之前或之后都合规，因为两者都保证「日志抛了也不改本条归属」。
+        """
+        anchor = "调休记录匹配不到员工"
+        guard = self._nested_guard(anchor)
+        self.assertTrue(guard, "缺少裸防护层，无法判断计数位置")
+        count_stmt = 'summary["unmatched"] += 1'
+        self.assertEqual(
+            self.src.count(count_stmt), 1,
+            "unmatched 的计数语句应当只有一处，否则本断言无从判断位置")
+        at = self.src.find(anchor)
         log_at = self.src.rfind("log_error(", 0, at)
-        self.assertGreaterEqual(log_at, 0)
-        before = self.src[:log_at]
-        try_at = before.rfind("try:")
-        self.assertGreaterEqual(try_at, 0, "log_error 之前没有紧邻的 try:")
-        tail = before[try_at + len("try:"):].strip()
-        self.assertIn(
-            tail, ("", "frappe."),
-            "该 try 体的第一条语句必须就是这个日志调用")
-        after = self.src[at:]
-        guard_at = after.find("except Exception:")
-        self.assertGreaterEqual(guard_at, 0, "裸防护层缺失（带 as e 或根本没有）")
-        self.assertIn("pass", after[guard_at:guard_at + 200], "防护层要真吞掉异常")
+        try_at = self.src.rindex("try:", 0, log_at)
+        guard_at = self.src.find(BARE_GUARD, at)
+        guard_end = guard_at + len(guard)      # pass 之后
+        self.assertNotIn(
+            count_stmt, self.src[try_at:guard_end],
+            "计数不得落进防护层体内：日志一抛就会把同一条记录重复计数")
 
 
 if __name__ == "__main__":
