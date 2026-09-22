@@ -26,8 +26,10 @@ scheduler_events = {
         "*/30 * * * *": [
             "hb_attendance_app.hbos_attendance.api.sync_from_bitable",
             "hb_attendance_app.hbos_attendance.api.sync_overtime_from_bitable",
+            # 调休三段：同步 → LLM 解析加班日 → 核实（顺序固定，解析依赖同步刚落的记录）
             "hb_attendance_app.hbos_attendance.sync_rest_leave.sync_rest_leave_from_bitable",
-            "hb_attendance_app.hbos_attendance.sync_shift_swap.sync_shift_swap_from_bitable",
+            "hb_attendance_app.hbos_attendance.sync_rest_leave.parse_pending_rest_leaves",
+            "hb_attendance_app.hbos_attendance.sync_rest_leave.verify_pending_rest_leaves",
         ],
     }
 }

@@ -85,16 +85,6 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 0,
-   "label": "飞书换班记录",
-   "link_count": 0,
-   "link_to": "HBOS Shift Swap Record",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
    "is_query_report": 1,
    "label": "月度汇总 / 对账暂存",
    "link_count": 0,
@@ -188,7 +178,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-10 00:00:00.000000",
+ "modified": "2026-09-22 09:37:32.740801",
  "modified_by": "Administrator",
  "module": "HBOS Attendance",
  "name": "海滨考勤工作台",
