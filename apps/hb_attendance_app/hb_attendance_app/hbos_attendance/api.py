@@ -11,6 +11,7 @@ from datetime import timedelta as _timedelta
 DELICLOUD_TZ = _tz(_timedelta(hours=8))
 
 from hb_attendance_app.hbos_attendance.pairing import pair_employee_checkins, FOUR_SHIFT_NUMS, safety_shift_from_gap
+from hb_attendance_app.hbos_attendance.rest_leave_apply import verified_rest_dates
 from hb_attendance_app.hbos_attendance.rule_lists import (
     ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS, LATE_EXEMPT_NUMS,
 )
@@ -374,6 +375,13 @@ def regenerate_attendance(range_start, range_end):
             fields=["employee", "schedule_date"]):
         emp_rest_dates[s.employee].add(str(s.schedule_date))
 
+    # 已核实的调休日：并入请假豁免集合（pairing 只看它抑制缺勤），
+    # 同时另存一份用于区分「调休」与「请假」的记录标记。
+    # 口径（已通过 + 已核实）由 rest_leave_apply 独占，此处不自建查询。
+    emp_rest_leave_dates = verified_rest_dates()
+    for _eid, _days in emp_rest_leave_dates.items():
+        emp_leave_dates[_eid].update(_days)
+
     # 清空生成范围内已有用 HBOS 逻辑生成的 Attendance(保留 HRMS 生成的)
     # 同时清掉 range_end 之后的残留(当天数据不完整的假缺勤, 由早期版本生成)
     frappe.db.sql(
@@ -634,7 +642,9 @@ def regenerate_attendance(range_start, range_end):
             if ds in emp_leave_dates.get(eid, set()):
                 emp_streak[eid] = 0
                 if in_range:
-                    leave_absent.append(("HBOS-ATT-" + eid + "-" + ds, eid, ds, "On Leave", "", 0, ds + " 00:00:00", 0, 0))
+                    # 调休日标「调休」，请假仍留空班次——两者在报表里需可区分
+                    shift = "调休" if ds in emp_rest_leave_dates.get(eid, set()) else ""
+                    leave_absent.append(("HBOS-ATT-" + eid + "-" + ds, eid, ds, "On Leave", shift, 0, ds + " 00:00:00", 0, 0))
                     seen[key] = leave_absent[-1]
                 continue
             # 豁免名单: 不计入异常考勤
