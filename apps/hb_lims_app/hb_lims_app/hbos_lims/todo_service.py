@@ -151,13 +151,24 @@ def _is_overdue(value) -> bool:
 	return bool(due and today and due < today)
 
 
-def _route_params(rule: TodoRule, source_name: str, *, task_name: str | None = None):
+def _route_params(
+	rule: TodoRule,
+	source_name: str,
+	*,
+	task_name: str | None = None,
+	context: dict | None = None,
+):
 	params = {}
+	context = context or {}
 	for field in rule.route_param_fields:
 		if field == "scope":
 			params[field] = "mine"
+		elif field in context:
+			params[field] = context[field]
 		elif field in ("task", "result", "sample", "usage", "disposal"):
 			params[field] = task_name or source_name
+		elif field == "timepoint":
+			params[field] = source_name
 	return params
 
 
@@ -175,11 +186,19 @@ def _make_item(
 	modified_at=None,
 	task_name: str | None = None,
 	description: str | None = None,
+	route_context: dict | None = None,
 ):
 	source_name = _row_value(row, "name")
+	module = rule.module
+	if module.startswith("testing"):
+		module = "testing"
+	elif module.startswith("stability"):
+		module = "stability"
+	elif module.startswith("retention"):
+		module = "retention"
 	return {
 		"todo_key": make_todo_key(rule.source_doctype, source_name, rule.action),
-		"module": "testing" if rule.module.startswith("testing") else rule.module,
+		"module": module,
 		"source_doctype": rule.source_doctype,
 		"source_name": source_name,
 		"title": title,
@@ -195,7 +214,9 @@ def _make_item(
 		"due_at": due_at,
 		"is_overdue": _is_overdue(due_at),
 		"route": rule.route,
-		"route_params": _route_params(rule, source_name, task_name=task_name),
+		"route_params": _route_params(
+			rule, source_name, task_name=task_name, context=route_context,
+		),
 		"modified_at": modified_at,
 		"execute_mode": rule.execute_mode,
 	}
@@ -358,7 +379,7 @@ def _collect_testing_todos(identity: Identity) -> list[dict]:
 		rule = find_rule("testing_result", _row_value(result, "result_status"))
 		if not rule:
 			continue
-		owner_type, roles = _owner_for(rule, identity, result)
+		owner_type, roles = _result_owner_for(rule, identity, result)
 		if not owner_type:
 			continue
 		items.append(
@@ -379,8 +400,152 @@ def _collect_testing_todos(identity: Identity) -> list[dict]:
 	return items
 
 
-def _collect_stability_todos(_identity: Identity) -> list[dict]:
-	return []
+def _result_owner_for(rule: TodoRule, identity: Identity, row: dict):
+	owner_type, roles = _owner_for(rule, identity, row)
+	if owner_type != "role":
+		return owner_type, roles
+	if rule.action == "review_result" and _row_value(row, "analyst") == identity.user:
+		return None, ()
+	previous_reviewer = _row_value(row, "reviewed_by") or _row_value(row, "reviewer")
+	if rule.action == "approve_result" and previous_reviewer == identity.user:
+		return None, ()
+	return owner_type, roles
+
+
+def _enrich_stability_schedule(rows: list[dict]) -> list[dict]:
+	"""批量计算稳定性有效截止日；effective_* 不是数据库列。"""
+	from hb_lims_app.hbos_lims.stability_service import _enrich_schedule
+
+	return list(_enrich_schedule(rows) or ())
+
+
+def _stability_timepoint_items(timepoint_names: list[str]) -> dict[str, list[dict]]:
+	if not timepoint_names:
+		return {}
+	rows = _get_list(
+		"HBOS Stability Timepoint Item",
+		{"parent": ["in", timepoint_names]},
+		["parent", "stability_test_item", "is_required"],
+	)
+	items: dict[str, list[dict]] = {}
+	for row in rows:
+		items.setdefault(_row_value(row, "parent"), []).append(row)
+	return items
+
+
+def _manual_result_items(result_rows: list[dict]) -> dict[str, set[str]]:
+	items: dict[str, set[str]] = {}
+	for row in result_rows:
+		if _row_value(row, "source_test_result"):
+			continue
+		items.setdefault(_row_value(row, "timepoint"), set()).add(
+			_row_value(row, "stability_test_item")
+		)
+	return items
+
+
+def _collect_stability_todos(identity: Identity) -> list[dict]:
+	timepoints = _get_list(
+		"HBOS Stability Timepoint",
+		{"status": ["in", ["待取样", "待检测", "检测中", "已完成"]]},
+		[
+			"name", "status", "sample_by", "test_by", "evaluator",
+			"trend_conclusion", "modified", "stability_sample",
+			"plan_sample_date", "plan_test_date",
+		],
+	)
+	if not timepoints:
+		return []
+	enriched = _enrich_stability_schedule(timepoints)
+	timepoint_names = [_row_value(row, "name") for row in enriched]
+	items_by_timepoint = _stability_timepoint_items(timepoint_names)
+	result_rows = _get_list(
+		"HBOS Stability Result",
+		{"status": ["in", list(ACTIONABLE_RESULT_STATUSES)]},
+		[
+			"name", "timepoint", "stability_test_item", "item_snapshot", "status",
+			"analyst", "submitted_by", "reviewed_by", "approved_by",
+			"source_test_result", "modified",
+		],
+	)
+	manual_items = _manual_result_items(result_rows)
+
+	items: list[dict] = []
+	for row in enriched:
+		status = _row_value(row, "status")
+		condition = None
+		if status == "检测中":
+			required = {
+				_row_value(item, "stability_test_item")
+				for item in items_by_timepoint.get(_row_value(row, "name"), ())
+				if _row_value(item, "is_required", 1)
+			}
+			if required - manual_items.get(_row_value(row, "name"), set()):
+				condition = "missing_manual_result"
+		elif status == "已完成" and not _row_value(row, "trend_conclusion"):
+			condition = "missing_trend_conclusion"
+		rule = find_rule("stability_timepoint", status, condition=condition)
+		if not rule:
+			continue
+		owner_type, roles = _owner_for(rule, identity, row)
+		if not owner_type:
+			continue
+		if rule.action == "complete_sampling":
+			due_at = _row_value(row, "effective_sample_due")
+			overdue = bool(_row_value(row, "sample_overdue"))
+		elif rule.action in ("start_testing", "record_result"):
+			due_at = _row_value(row, "effective_test_due")
+			overdue = bool(_row_value(row, "test_overdue"))
+		else:
+			due_at, overdue = None, False
+		item = _make_item(
+			rule, row, identity, owner_type, roles,
+			title="稳定性时间点：{}".format(_row_value(row, "name")),
+			status=status,
+			due_at=due_at,
+			modified_at=_row_value(row, "modified"),
+			route_context={"timepoint": _row_value(row, "name")},
+			description=rule.label,
+		)
+		item["is_overdue"] = overdue
+		items.append(item)
+	return items
+
+
+def _collect_stability_result_todos(identity: Identity) -> list[dict]:
+	result_rows = _get_list(
+		"HBOS Stability Result",
+		{"status": ["in", list(ACTIONABLE_RESULT_STATUSES)]},
+		[
+			"name", "timepoint", "stability_test_item", "item_snapshot", "status",
+			"analyst", "submitted_by", "reviewed_by", "approved_by",
+			"source_test_result", "modified",
+		],
+	)
+	items: list[dict] = []
+	for row in result_rows:
+		if _row_value(row, "source_test_result"):
+			continue
+		rule = find_rule("stability_result", _row_value(row, "status"))
+		if not rule:
+			continue
+		owner_type, roles = _result_owner_for(rule, identity, row)
+		if not owner_type:
+			continue
+		items.append(
+			_make_item(
+				rule, row, identity, owner_type, roles,
+				title="稳定性结果：{}".format(
+					_row_value(row, "item_snapshot") or _row_value(row, "stability_test_item")
+				),
+				status=_row_value(row, "status"),
+				due_at=None,
+				modified_at=_row_value(row, "modified"),
+				route_context={"timepoint": _row_value(row, "timepoint")},
+				description=rule.label,
+			)
+		)
+	return items
 
 
 def _collect_retention_todos(_identity: Identity) -> list[dict]:
@@ -391,6 +556,7 @@ def _collect_all(identity: Identity) -> list[dict]:
 	items = []
 	items.extend(_collect_testing_todos(identity))
 	items.extend(_collect_stability_todos(identity))
+	items.extend(_collect_stability_result_todos(identity))
 	items.extend(_collect_retention_todos(identity))
 	return [_serialize_todo(item) for item in sort_todos(deduplicate_todos(items))]
 

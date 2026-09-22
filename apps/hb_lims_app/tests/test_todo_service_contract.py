@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """个人待办聚合服务的可执行边界测试。"""
 
+import ast
 import importlib
 import sys
 import types
@@ -244,6 +245,109 @@ def _seed_testing_rows(fake):
     fake.readable_names["HBOS Sample"] = {"SAMPLE-1", "SAMPLE-STB"}
 
 
+def _seed_stability_rows(fake):
+    fake.rows["HBOS Stability Timepoint"] = [
+        {
+            "name": "TP-SAMPLE",
+            "status": "待取样",
+            "sample_by": None,
+            "test_by": None,
+            "evaluator": None,
+            "trend_conclusion": None,
+            "modified": "2026-09-20T08:00:00+08:00",
+        },
+        {
+            "name": "TP-TEST",
+            "status": "待检测",
+            "sample_by": "bob@example.com",
+            "test_by": None,
+            "evaluator": None,
+            "trend_conclusion": None,
+            "modified": "2026-09-20T09:00:00+08:00",
+        },
+        {
+            "name": "TP-RESULT",
+            "status": "检测中",
+            "sample_by": "bob@example.com",
+            "test_by": "bob@example.com",
+            "evaluator": None,
+            "trend_conclusion": None,
+            "modified": "2026-09-20T10:00:00+08:00",
+        },
+    ]
+    fake.rows["HBOS Stability Timepoint Item"] = [
+        {"name": "TPI-RESULT", "parent": "TP-RESULT", "stability_test_item": "STB-ASSAY", "is_required": 1},
+    ]
+    fake.rows["HBOS Stability Result"] = [
+        {
+            "name": "STB-SYNCED",
+            "timepoint": "TP-RESULT",
+            "stability_test_item": "STB-ASSAY",
+            "status": "草稿",
+            "analyst": "alice@example.com",
+            "reviewed_by": None,
+            "approved_by": None,
+            "source_test_result": "HBOS-TR-0001",
+            "modified": "2026-09-20T11:00:00+08:00",
+        },
+        {
+            "name": "STB-MANUAL-DRAFT",
+            "timepoint": "TP-RESULT",
+            "stability_test_item": "STB-WATER",
+            "status": "草稿",
+            "analyst": "alice@example.com",
+            "reviewed_by": None,
+            "approved_by": None,
+            "source_test_result": None,
+            "modified": "2026-09-20T11:10:00+08:00",
+        },
+        {
+            "name": "STB-REVIEW-OWN",
+            "timepoint": "TP-RESULT",
+            "stability_test_item": "STB-WATER",
+            "status": "已提交",
+            "analyst": "alice@example.com",
+            "reviewed_by": None,
+            "approved_by": None,
+            "source_test_result": None,
+            "modified": "2026-09-20T11:20:00+08:00",
+        },
+        {
+            "name": "STB-REVIEW-OTHER",
+            "timepoint": "TP-RESULT",
+            "stability_test_item": "STB-WATER",
+            "status": "已提交",
+            "analyst": "bob@example.com",
+            "reviewed_by": None,
+            "approved_by": None,
+            "source_test_result": None,
+            "modified": "2026-09-20T11:30:00+08:00",
+        },
+        {
+            "name": "STB-APPROVE-OWN",
+            "timepoint": "TP-RESULT",
+            "stability_test_item": "STB-WATER",
+            "status": "已复核",
+            "analyst": "bob@example.com",
+            "reviewed_by": "alice@example.com",
+            "approved_by": None,
+            "source_test_result": None,
+            "modified": "2026-09-20T11:40:00+08:00",
+        },
+        {
+            "name": "STB-APPROVE-OTHER",
+            "timepoint": "TP-RESULT",
+            "stability_test_item": "STB-WATER",
+            "status": "已复核",
+            "analyst": "bob@example.com",
+            "reviewed_by": "bob@example.com",
+            "approved_by": None,
+            "source_test_result": None,
+            "modified": "2026-09-20T11:50:00+08:00",
+        },
+    ]
+
+
 def test_public_apis_reject_identity_override_and_use_session_identity(service):
     todo_service, fake = service
     fake.session.user = "alice@example.com"
@@ -397,3 +501,95 @@ def test_response_contract_has_labels_paging_and_no_unified_write_api(service):
     assert response["limit"] == 7
     assert response["offset"] == 3
     assert response["items"] == []
+
+
+def _enrich_stability_rows(rows):
+    enriched = []
+    for row in rows:
+        copy = dict(row)
+        if row["name"] == "TP-SAMPLE":
+            copy.update(effective_sample_due="2026-09-20", sample_overdue=1)
+        if row["name"] == "TP-TEST":
+            copy.update(effective_test_due="2026-09-21", test_overdue=1)
+        if row["name"] == "TP-RESULT":
+            copy.update(effective_test_due="2026-09-25", test_overdue=0)
+        enriched.append(copy)
+    return enriched
+
+
+def test_synced_result_is_excluded_from_all_manual_actions(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst", "LIMS Reviewer"]
+    _seed_stability_rows(fake)
+    monkeypatch.setattr(todo_service, "_enrich_stability_schedule", _enrich_stability_rows)
+
+    items = todo_service.get_my_todos(module="stability", limit=100)["items"]
+
+    assert "STB-SYNCED" not in {item["source_name"] for item in items}
+
+
+def test_manual_result_actions_respect_analyst_reviewer_separation(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst", "LIMS Reviewer", "LIMS QA"]
+    _seed_stability_rows(fake)
+    monkeypatch.setattr(todo_service, "_enrich_stability_schedule", _enrich_stability_rows)
+
+    items = todo_service.get_my_todos(module="stability", limit=100)["items"]
+    names = {item["source_name"] for item in items}
+
+    assert "STB-MANUAL-DRAFT" in names
+    assert "STB-REVIEW-OWN" not in names
+    assert "STB-REVIEW-OTHER" in names
+    assert "STB-APPROVE-OWN" not in names
+    assert "STB-APPROVE-OTHER" in names
+
+
+def test_result_todo_has_no_due_date_or_overdue_flag(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst", "LIMS Reviewer"]
+    _seed_stability_rows(fake)
+    monkeypatch.setattr(todo_service, "_enrich_stability_schedule", _enrich_stability_rows)
+
+    result_items = [
+        item for item in todo_service.get_my_todos(module="stability", limit=100)["items"]
+        if item["source_doctype"] == "HBOS Stability Result"
+    ]
+
+    assert result_items
+    assert all(item["due_at"] is None and item["is_overdue"] is False for item in result_items)
+
+
+def test_sampling_and_testing_use_effective_due_values(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst"]
+    _seed_stability_rows(fake)
+    monkeypatch.setattr(todo_service, "_enrich_stability_schedule", _enrich_stability_rows)
+
+    items = todo_service.get_my_todos(module="stability", limit=100)["items"]
+    by_name = {item["source_name"]: item for item in items}
+
+    assert by_name["TP-SAMPLE"]["due_at"] == "2026-09-20"
+    assert by_name["TP-SAMPLE"]["is_overdue"] is True
+    assert by_name["TP-TEST"]["due_at"] == "2026-09-21"
+    assert by_name["TP-TEST"]["is_overdue"] is True
+
+
+def test_service_never_queries_effective_due_as_database_column():
+    service_path = Path(__file__).resolve().parents[1] / "hb_lims_app" / "hbos_lims" / "todo_service.py"
+    tree = ast.parse(service_path.read_text(encoding="utf-8"))
+    for call in [node for node in ast.walk(tree) if isinstance(node, ast.Call)]:
+        if not (isinstance(call.func, ast.Name) and call.func.id == "_get_list"):
+            continue
+        fields_keyword = next((kw for kw in call.keywords if kw.arg == "fields"), None)
+        if fields_keyword is None:
+            continue
+        field_names = [
+            node.value for node in ast.walk(fields_keyword.value)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        ]
+        assert "effective_sample_due" not in field_names
+        assert "effective_test_due" not in field_names
