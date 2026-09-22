@@ -1,12 +1,16 @@
 # M2-R8J 稳定性板块前后端审查与缺陷修复
 
-> 状态：**DEPLOYED / 待 Owner 测试路径验收**（离线 321/321、前端 `vue-tsc` 0 错误 + build 成功；两轮共修复 **3 + 8 项 P1** 与 **2 + 2 项 P2**；实机逐项验证通过、负向回归 9/9；已提交 `e447f97` + `66691d6` + `b61f83d` + `6e06155` 并同步生产 `/hbos-lims`；上线后 Owner 验收发现的工作台「待 R8B~R8D」占位文案与侧边栏硬编码角标已修复，见 §8）
+> 状态：**DEPLOYED / 待 Owner 生产路径验收**（本轮联动、审查缺陷修复及趋势摘要下拉控件宽度修复已按 Owner 授权同步生产；生产发布脚本 pytest **342/342**、生产前端 `build:prod` 通过，生产路径 17 个页面/资源冒烟均返回 200；备份 `hbos-lims.bak-20260921180830`；结果页已完成生产浏览器复测）
+
+> 追加状态（2026-09-22）：Owner 已确认并授权侧栏「最近访问」关闭交互同步生产；提交 `934e36a`，完整 pytest **342/342**、前端 `build:prod` 和 `/hbos-lims` 关键路由/主资源 HTTP 200 冒烟通过；备份 `hbos-lims.bak-20260922103245`。本次为纯前端资产同步，不涉及后端迁移。
 >
 > 轮次：M2-R8J（R8 板块整体交付后的独立审查与修复轮），工作分支 `m2-r8`
 >
 > 上游：M2-R8A~R8D（后端）、R8G/R8H/R8I（前端 7 视图接入真实 API）
 >
 > 边界：**只做审查与缺陷修复**——不新增功能、不改方案口径。审查对象为稳定性板块全部后端（`stability_service.py` 4306 行 / 22 DocType / 8 状态机 / 6 报表）与前端（7 视图 + `api/stability.ts`）
+
+> 追加状态（2026-09-21）：Owner 确认将“稳定性取样样品未与业务检验结果及稳定性趋势贯通”作为本轮既有业务链缺陷闭环处理；联动实现及后续审查修复已完成生产同步，见 §9、§10。
 
 ---
 
@@ -173,3 +177,45 @@
 **同步**：提交 `6e06155`，经 `deploy_lims_fix.sh` 同步生产（备份 `hbos-lims.bak-20260921141722`），清理 3 个残留 chunk 后远端 **86 文件与本地 `dist` md5 逐条一致**，`/hbos-lims/` 引用新 bundle `index-B0BcaDgw.js`。
 
 **未处置（非本次缺陷）**：同文件 `const pendingCount = 0`（「待检任务看板」角标）亦为未接数据的桩，但 `v-if="pendingCount > 0"` 恒为假、不显示任何内容，不会误导；属既有的未完成项，按「不扩大范围」未改。
+
+## 9. 本轮追加：业务检验结果与稳定性结果/趋势联动（2026-09-21）
+
+Owner 已确认“样品登记选择稳定性取样即为稳定性检测样品”的联动方案，本轮在 R8J 已部署基线上完成实现，并于 Owner 授权后同步生产。
+
+| 链路 | 实现口径 |
+| --- | --- |
+| 样品登记 | `HBOS Sample.stability_timepoint` 显式关联 `HBOS Stability Timepoint`；来源为“稳定性/稳定性取样”时服务端强制绑定，并校验时间点状态、稳定性产品编码、批号、来源标准、重复绑定与已有结果。 |
+| 结果唯一来源 | 业务操作 `HBOS Test Result` 仍是唯一录入入口；提交、复核、批准、修订均调用 `sync_standard_test_result`，稳定性侧只保存带 `source_test_result` 的受控投影。 |
+| 状态与趋势 | 投影状态镜像业务结果；批准时切换稳定性 `is_current=1` 与时间点项目指针，既有趋势接口的“已批准 + 当前生效”取数规则继续生效。 |
+| 防重复 | 已绑定业务样品的时间点禁止在稳定性页面再次录入、提交、复核、批准、修订或作废；投影以业务结果 Link 幂等。 |
+| 前端路径 | 样品登记选择“稳定性取样”后必须选择时间点；选项来自真实稳定性计划接口，并展示产品、批号、条件、时间点和单号。 |
+
+基础联动实现阶段验证证据：离线契约 **326/326 通过**（含新增联动契约）；`npm run build`（含 `vue-tsc -b`）通过；`git diff --check` 通过。未做生产部署、未做真实站点数据写入，待 Owner 按“样品登记 → 生成任务 → 业务结果提交/复核/批准 → 稳定性结果与趋势”路径验收；本轮审查修复后的最终证据见 §10。
+
+本轮追加涉及：`HBOS Sample` / `HBOS Stability Result` DocType 字段、`lims_service.py`、`stability_service.py`、`stability_contract.py`、`stability_guards.py`、样品控制器、`frontend/hbos-lims-web/src/views/SampleView.vue`、两份 API 契约和 R8J 离线测试。
+
+## 10. 本轮审查反馈修复（2026-09-21）
+
+本轮针对 Owner/Reviewer 提出的 2 项 P0、2 项 P1 及 2 项 P2 风险完成代码修复，并补齐 P0-5 的映射维护入口。Owner 已确认后按既有 `deploy_lims_fix.sh` 流程完成生产同步、`bench migrate`、缓存清理、服务重载和生产冒烟。
+
+| 编号 | 修复方案 | 落地结果 |
+| --- | --- | --- |
+| P0-1 跨模块越权 | 业务结果在提交/复核/批准/修订前先执行稳定性同步预检；目标为“已批准”时，按 `HBOS Stability Result` 作用域校验审批角色，Reviewer-only 不得借业务侧批准稳定性结果。 | 预检失败发生在业务源记录变更前，拒绝并保留越权审计，不再出现“业务侧批准导致稳定性生效”。 |
+| P0-4 修订批准崩溃 | `mark_superseded` 重新保存旧投影后，按名称重新加载旧记录，再写 `is_current=0`。 | 消除 Frappe `TimestampMismatchError`，旧版取代、新版批准和当前指针切换可继续完成。 |
+| P1-2 SoD | 同步批准路径要求复核人存在且 `reviewer != approver`，同时复用稳定性批准角色作用域校验。 | 业务侧连续由同一人复核、批准时，稳定性投影不会被批准。 |
+| P1-3 已取消时间点 | 同步预检锁定时间点并只允许“待检测 / 检测中 / 已完成”；已取消、已关闭等状态直接拒绝并独立审计。 | 源业务结果不会写入已取消时间点；预检审计与源事务分离，避免错误记录被回滚。 |
+| P0-5 映射不可维护 | 新增 Manager/System Manager 服务方法、API 和稳定性主数据页面维护入口；提供业务检验项目真实主数据选择、重复映射校验、结果存在后冻结和审计。 | 首次同步前可由 LIMS Manager 配置 `base_test_item`；本轮不替业务方虚构 4 个实际映射。 |
+| P2-6 整点锁死 | 稳定性页面人工录入改为按检验项目阻断：仅已被绑定业务样品覆盖的项目禁止重复录入，其余必检项目仍可人工录入。 | 业务样品与稳定性人工补录可在同一时间点按项目并存，避免时间点永久卡死。 |
+| P2-7 并发重复绑定 | 登记服务在检查重复绑定前锁定 `HBOS Stability Timepoint` 行；事务内再次复核既有业务样品和稳定性结果。 | 并发登记同一时间点时串行化，后到请求收到重复绑定拒绝。未对可为空的 `stability_timepoint` 建裸唯一索引，避免所有非稳定性样品共用空值时互相冲突。 |
+
+### 验证证据
+
+- 后端本地全量契约回归：**334/334 通过**；生产发布脚本完整 pytest：**342/342 通过**。
+- 前端：`vue-tsc -b && npm run build` 及生产 `VITE_BASE=/hbos-lims/ ... vite build` 均通过；构建仅保留既有大 chunk 提示，无编译错误；趋势摘要下拉控件宽度回归契约已覆盖。
+- Python AST：`lims_service.py`、`stability_service.py`、R8J 契约测试文件全部解析通过。
+- `git diff --check`：通过。
+- 生产同步：Frappe `bench --site frontend migrate`、`clear-cache`、后端/前端/队列/调度器/WebSocket 重启及 nginx 配置重载均成功；生产备份为 `hbos-lims.bak-20260921180830`。
+- 生产 HTTP 冒烟：`/hbos-lims` 稳定性及既有业务路径共 17 个页面/资源全部返回 **200**。
+- 生产浏览器复测：结果录入与趋势页产品、检验项目下拉框及展开菜单均保持在趋势摘要卡片边界内，长文本按宽度省略显示。
+
+本轮追加涉及：`lims_service.py`、`stability_service.py`、`frontend/hbos-lims-web/src/api/stability.ts`、`frontend/hbos-lims-web/src/views/StabilityStudyView.vue`、`frontend/hbos-lims-web/src/styles/stability.scss`、`test_stability_r8j_contract.py`，以及本轮状态台账文件。
