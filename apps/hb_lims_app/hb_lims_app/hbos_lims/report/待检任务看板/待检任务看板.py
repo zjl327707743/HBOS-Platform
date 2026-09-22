@@ -45,6 +45,11 @@ def _columns():
 
 
 def _fetch(filters):
+	filters = dict(filters or {})
+	if filters.get("scope") == "mine":
+		from hb_lims_app.hbos_lims.todo_service import get_my_testing_task_names
+		filters["task_names"] = get_my_testing_task_names()
+		filters.pop("assignee", None)
 	conditions = ["1=1"]
 	params = {}
 
@@ -57,6 +62,10 @@ def _fetch(filters):
 	if filters.get("assignee"):
 		conditions.append("t.assignee = %(assignee)s")
 		params["assignee"] = filters["assignee"]
+	if filters.get("task_names") is not None:
+		task_names = tuple(filters["task_names"] or ("__NO_CURRENT_TODO__",))
+		conditions.append("t.name IN %(task_names)s")
+		params["task_names"] = task_names
 	if filters.get("priority"):
 		conditions.append("t.priority = %(priority)s")
 		params["priority"] = filters["priority"]

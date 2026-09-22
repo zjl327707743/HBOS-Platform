@@ -32,6 +32,12 @@ def _today():
 
 def _commit():
 	frappe.db.commit()
+	try:
+		from hb_lims_app.hbos_lims.todo_service import invalidate_my_todo_summary_cache
+		invalidate_my_todo_summary_cache()
+	except Exception as exc:
+		if hasattr(frappe, "log_error"):
+			frappe.log_error(str(exc), "HBOS 我的待办摘要缓存失效失败")
 
 
 def _truthy(value):

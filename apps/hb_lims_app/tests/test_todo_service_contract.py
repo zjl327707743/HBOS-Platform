@@ -28,6 +28,13 @@ class FakeFrappe(types.ModuleType):
         self.rows = defaultdict(list)
         self.readable_names = {}
         self.query_count = defaultdict(int)
+        self.cache_backend = FakeCache()
+
+    def cache(self):
+        return self.cache_backend
+
+    def log_error(self, *_args, **_kwargs):
+        return None
 
     @staticmethod
     def whitelist(*_args, **_kwargs):
@@ -72,6 +79,26 @@ class FakeFrappe(types.ModuleType):
             elif actual != expected:
                 return False
         return True
+
+
+class FakeCache:
+    def __init__(self):
+        self.values = {}
+        self.get_calls = []
+        self.set_calls = []
+        self.delete_calls = []
+
+    def get_value(self, key):
+        self.get_calls.append(key)
+        return self.values.get(key)
+
+    def set_value(self, key, value, expires_in_sec=None):
+        self.set_calls.append((key, value, expires_in_sec))
+        self.values[key] = value
+
+    def delete_value(self, key):
+        self.delete_calls.append(key)
+        self.values.pop(key, None)
 
 
 @pytest.fixture
@@ -348,6 +375,76 @@ def _seed_stability_rows(fake):
     ]
 
 
+def _seed_retention_rows(fake):
+    fake.rows["HBOS Retention Sample"] = [
+        {
+            "name": "RET-OBS",
+            "sample_name": "留样-观察",
+            "batch_no": "R01",
+            "observed_flag": 1,
+            "next_obs_month": 12,
+            "next_obs_due_date": "2026-09-20",
+            "status": "在库",
+            "modified": "2026-09-20T08:00:00+08:00",
+        },
+        {
+            "name": "RET-PENDING",
+            "sample_name": "留样-待审",
+            "batch_no": "R02",
+            "observed_flag": 1,
+            "next_obs_month": 12,
+            "next_obs_due_date": "2026-09-25",
+            "status": "在库",
+            "modified": "2026-09-20T08:10:00+08:00",
+        },
+        {
+            "name": "RET-DONE",
+            "sample_name": "留样-已完成",
+            "batch_no": "R03",
+            "observed_flag": 1,
+            "next_obs_month": 12,
+            "next_obs_due_date": "2026-09-25",
+            "status": "在库",
+            "modified": "2026-09-20T08:20:00+08:00",
+        },
+    ]
+    fake.rows["HBOS Retention Observation"] = [
+        {
+            "name": "OBS-PENDING",
+            "retention_sample": "RET-PENDING",
+            "obs_month": 12,
+            "observer": "bob@example.com",
+            "reviewed_by": None,
+            "modified": "2026-09-20T09:00:00+08:00",
+        },
+        {
+            "name": "OBS-DONE",
+            "retention_sample": "RET-DONE",
+            "obs_month": 12,
+            "observer": "bob@example.com",
+            "reviewed_by": "carol@example.com",
+            "modified": "2026-09-20T09:10:00+08:00",
+        },
+    ]
+    fake.rows["HBOS Retention Usage Apply"] = [
+        {"name": "USE-DRAFT", "status": "草稿", "applicant": "alice@example.com", "modified": "2026-09-20T10:00:00+08:00"},
+        {"name": "USE-STOCK", "status": "待库存确认", "applicant": "bob@example.com", "modified": "2026-09-20T10:10:00+08:00"},
+        {"name": "USE-QC", "status": "待QC批准", "applicant": "bob@example.com", "modified": "2026-09-20T10:20:00+08:00"},
+        {"name": "USE-QA", "status": "待QA批准", "applicant": "bob@example.com", "modified": "2026-09-20T10:30:00+08:00"},
+        {"name": "USE-QM", "status": "待QM批准", "applicant": "bob@example.com", "modified": "2026-09-20T10:40:00+08:00"},
+        {"name": "USE-EXEC", "status": "已批准", "applicant": "bob@example.com", "modified": "2026-09-20T10:50:00+08:00"},
+    ]
+    fake.rows["HBOS Retention Disposal Apply"] = [
+        {"name": "DSP-DRAFT", "status": "草稿", "disposal_type": "留样期满销毁", "applicant": "alice@example.com", "deadline": None, "disposal_by": None, "monitor_by": None, "modified": "2026-09-20T11:00:00+08:00"},
+        {"name": "DSP-QC", "status": "待QC主管审核", "disposal_type": "留样期满销毁", "applicant": "bob@example.com", "deadline": None, "disposal_by": None, "monitor_by": None, "modified": "2026-09-20T11:10:00+08:00"},
+        {"name": "DSP-QA", "status": "待QA审核", "disposal_type": "留样期满销毁", "applicant": "bob@example.com", "deadline": None, "disposal_by": None, "monitor_by": None, "modified": "2026-09-20T11:20:00+08:00"},
+        {"name": "DSP-CONTINUE", "status": "已批准", "disposal_type": "留样期满继续留样", "applicant": "bob@example.com", "deadline": None, "disposal_by": None, "monitor_by": None, "modified": "2026-09-20T11:30:00+08:00"},
+        {"name": "DSP-EXEC", "status": "待执行", "disposal_type": "留样期满销毁", "applicant": "bob@example.com", "deadline": "2026-09-21", "disposal_by": None, "monitor_by": None, "modified": "2026-09-20T11:40:00+08:00"},
+        {"name": "DSP-MONITOR", "status": "待执行", "disposal_type": "留样期满销毁", "applicant": "bob@example.com", "deadline": "2026-09-24", "disposal_by": "bob@example.com", "monitor_by": None, "modified": "2026-09-20T11:50:00+08:00"},
+        {"name": "DSP-DONE-SIGNS", "status": "待执行", "disposal_type": "留样期满销毁", "applicant": "bob@example.com", "deadline": "2026-09-24", "disposal_by": "bob@example.com", "monitor_by": "carol@example.com", "modified": "2026-09-20T12:00:00+08:00"},
+    ]
+
+
 def test_public_apis_reject_identity_override_and_use_session_identity(service):
     todo_service, fake = service
     fake.session.user = "alice@example.com"
@@ -593,3 +690,123 @@ def test_service_never_queries_effective_due_as_database_column():
         ]
         assert "effective_sample_due" not in field_names
         assert "effective_test_due" not in field_names
+
+
+def test_retention_provider_emits_one_current_action_per_source(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = [
+        "LIMS Analyst", "LIMS Reviewer", "LIMS QA", "LIMS Manager",
+    ]
+    _seed_retention_rows(fake)
+    monkeypatch.setattr(todo_service, "_today", lambda: "2026-09-22")
+
+    items = todo_service.get_my_todos(module="retention", limit=100)["items"]
+    by_name = {}
+    for item in items:
+        by_name.setdefault(item["source_name"], []).append(item)
+
+    assert by_name["RET-OBS"][0]["action"] == "record_observation"
+    assert "RET-PENDING" not in by_name
+    assert "RET-DONE" not in by_name
+    assert by_name["OBS-PENDING"][0]["action"] == "review_observation"
+    assert by_name["USE-DRAFT"][0]["owner_type"] == "user"
+    assert by_name["USE-DRAFT"][0]["action"] == "submit_usage_apply"
+    assert by_name["USE-STOCK"][0]["action"] == "confirm_stock"
+    assert by_name["USE-QC"][0]["action"] == "approve_usage"
+    assert by_name["USE-QA"][0]["action"] == "approve_usage"
+    assert by_name["USE-QM"][0]["action"] == "approve_usage"
+    assert by_name["USE-EXEC"][0]["action"] == "execute_usage"
+    assert by_name["DSP-DRAFT"][0]["owner_type"] == "user"
+    assert by_name["DSP-DRAFT"][0]["action"] == "submit_disposal_apply"
+    assert by_name["DSP-QC"][0]["action"] == "approve_disposal"
+    assert by_name["DSP-QA"][0]["action"] == "approve_disposal"
+    assert by_name["DSP-CONTINUE"][0]["action"] == "continue_retention"
+    assert by_name["DSP-EXEC"][0]["action"] == "dispose_handle"
+    assert by_name["DSP-MONITOR"][0]["action"] == "dispose_monitor"
+    assert "DSP-DONE-SIGNS" not in by_name
+    assert by_name["DSP-EXEC"][0]["is_overdue"] is True
+
+
+def test_retention_due_fields_map_only_to_actions_that_have_deadlines(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst", "LIMS Reviewer", "LIMS QA", "LIMS Manager"]
+    _seed_retention_rows(fake)
+    monkeypatch.setattr(todo_service, "_today", lambda: "2026-09-22")
+
+    items = todo_service.get_my_todos(module="retention", limit=100)["items"]
+    by_name = {item["source_name"]: item for item in items}
+
+    assert by_name["RET-OBS"]["due_at"] == "2026-09-20"
+    assert by_name["DSP-EXEC"]["due_at"] == "2026-09-21"
+    assert by_name["USE-QC"]["due_at"] is None
+    assert by_name["DSP-QC"]["due_at"] is None
+
+
+def test_summary_cache_key_contains_user_and_roles_hash(service):
+    todo_service, fake = service
+
+    key = todo_service._summary_cache_key("alice@example.com", ("LIMS Analyst", "LIMS Reviewer"))
+
+    assert "alice@example.com" in key
+    assert todo_service._roles_hash(("LIMS Analyst", "LIMS Reviewer")) in key
+    assert key != todo_service._summary_cache_key("bob@example.com", ("LIMS Analyst", "LIMS Reviewer"))
+
+
+def test_summary_cache_ttl_is_30_seconds(service):
+    todo_service, _fake = service
+
+    assert todo_service.SUMMARY_CACHE_TTL_SECONDS == 30
+
+
+def test_list_query_does_not_use_summary_cache(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst"]
+    monkeypatch.setattr(todo_service, "_summary_cache_get", lambda _key: (_ for _ in ()).throw(AssertionError("list read cache")))
+
+    todo_service.get_my_todos(limit=1)
+
+
+def test_my_testing_task_names_include_result_linked_tasks(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst", "LIMS Reviewer"]
+    _seed_testing_rows(fake)
+    monkeypatch.setattr(todo_service, "_business_stability_items_for_timepoint", lambda _name: {"STB-ASSAY"})
+
+    assert set(todo_service.get_my_testing_task_names()) == {
+        "TASK-ME", "TASK-ROLE", "TASK-STB-UNMAPPED",
+        "TASK-RESULT-DRAFT", "TASK-RESULT-REVIEW",
+    }
+
+
+def test_failed_summary_refresh_does_not_return_another_users_value(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst"]
+    key = todo_service._summary_cache_key("bob@example.com", ("LIMS Analyst",))
+    fake.cache_backend.values[key] = {"summary": {"total": 999}}
+    monkeypatch.setattr(todo_service, "_collect_all", lambda _identity: (_ for _ in ()).throw(RuntimeError("db down")))
+
+    with pytest.raises(RuntimeError):
+        todo_service.get_my_todo_summary()
+
+
+def test_commit_hooks_invalidate_current_users_summary():
+    app_root = Path(__file__).resolve().parents[1] / "hb_lims_app" / "hbos_lims"
+    service_paths = [
+        app_root / "lims_service.py",
+        app_root / "stability_service.py",
+        app_root / "retention_service.py",
+    ]
+    for path in service_paths:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        commit = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_commit"
+        )
+        source = ast.get_source_segment(path.read_text(encoding="utf-8"), commit) or ""
+        assert "frappe.db.commit()" in source
+        assert "invalidate_my_todo_summary_cache" in source

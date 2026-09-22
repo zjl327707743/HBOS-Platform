@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+import hashlib
 from typing import Any, Iterable
 
 import frappe
@@ -17,6 +18,7 @@ import frappe
 from hb_lims_app.hbos_lims import workflow_contract as wf
 from hb_lims_app.hbos_lims.todo_contract import (
 	TodoRule,
+	TODO_RULES,
 	business_roles_for_user,
 	deduplicate_todos,
 	find_rule,
@@ -32,6 +34,7 @@ TODO_DOCTYPES = (
 )
 ACTIVE_TASK_STATUSES = ("已分配", "检验中", "已提交", "已复核")
 ACTIONABLE_RESULT_STATUSES = ("草稿", "已提交", "已复核")
+SUMMARY_CACHE_TTL_SECONDS = 30
 MODULE_LABELS = {
 	"testing": "检验业务",
 	"stability": "稳定性",
@@ -67,6 +70,52 @@ def _today() -> str:
 
 def _generated_at() -> str:
 	return datetime.now(timezone.utc).astimezone().isoformat()
+
+
+def _roles_hash(roles: tuple[str, ...]) -> str:
+	payload = "|".join(roles or ())
+	return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def _summary_cache_key(user: str, business_roles: tuple[str, ...]) -> str:
+	return "hbos:my-todo-summary:{}:{}".format(user, _roles_hash(business_roles))
+
+
+def _cache_backend():
+	cache = getattr(frappe, "cache", None)
+	return cache() if callable(cache) else cache
+
+
+def _summary_cache_get(key: str):
+	cache = _cache_backend()
+	return cache.get_value(key) if cache is not None else None
+
+
+def _summary_cache_set(key: str, value: dict):
+	cache = _cache_backend()
+	if cache is not None:
+		cache.set_value(key, value, expires_in_sec=SUMMARY_CACHE_TTL_SECONDS)
+
+
+def _summary_cache_delete(key: str):
+	cache = _cache_backend()
+	if cache is not None:
+		cache.delete_value(key)
+
+
+def invalidate_my_todo_summary_cache(user: str | None = None) -> None:
+	"""失效当前会话的摘要；缓存异常不得反向影响已成功业务动作。"""
+	try:
+		identity = _current_identity()
+		if user and user != identity.user:
+			roles = tuple(frappe.get_roles(user) or ())
+			business_roles = business_roles_for_user(user, roles)
+		else:
+			business_roles = identity.business_roles
+		_summary_cache_delete(_summary_cache_key(user or identity.user, business_roles))
+	except Exception as exc:
+		if hasattr(frappe, "log_error"):
+			frappe.log_error(str(exc), "HBOS 我的待办摘要缓存失效失败")
 
 
 def _row_value(row: Any, field: str, default=None):
@@ -548,8 +597,174 @@ def _collect_stability_result_todos(identity: Identity) -> list[dict]:
 	return items
 
 
-def _collect_retention_todos(_identity: Identity) -> list[dict]:
-	return []
+def _retention_sample_todos(identity: Identity) -> list[dict]:
+	samples = _get_list(
+		"HBOS Retention Sample",
+		{"observed_flag": 1},
+		[
+			"name", "sample_name", "batch_no", "status", "next_obs_month",
+			"next_obs_due_date", "modified",
+		],
+	)
+	if not samples:
+		return []
+	observations = _get_list(
+		"HBOS Retention Observation",
+		{"retention_sample": ["in", [_row_value(row, "name") for row in samples]]},
+		["name", "retention_sample", "obs_month", "observer", "reviewed_by", "modified"],
+	)
+	observed_keys = {
+		(_row_value(row, "retention_sample"), _row_value(row, "obs_month"))
+		for row in observations
+	}
+	items = []
+	for sample in samples:
+		month = _row_value(sample, "next_obs_month")
+		if month is None or (_row_value(sample, "name"), month) in observed_keys:
+			continue
+		due_at = _row_value(sample, "next_obs_due_date")
+		status = "已逾期" if _is_overdue(due_at) else "应观察"
+		rule = find_rule("retention_sample", status)
+		if not rule:
+			continue
+		owner_type, roles = _owner_for(rule, identity, sample)
+		if not owner_type:
+			continue
+		items.append(
+			_make_item(
+				rule, sample, identity, owner_type, roles,
+				title="留样观察：{}".format(
+					_row_value(sample, "sample_name") or _row_value(sample, "name")
+				),
+				status=status,
+				due_at=due_at,
+				modified_at=_row_value(sample, "modified"),
+				route_context={"sample": _row_value(sample, "name")},
+				description=rule.label,
+			)
+		)
+	return items
+
+
+def _retention_observation_todos(identity: Identity) -> list[dict]:
+	rows = _get_list(
+		"HBOS Retention Observation",
+		{"reviewed_by": ["is", "not set"]},
+		[
+			"name", "retention_sample", "obs_month", "observer", "reviewed_by", "modified",
+		],
+	)
+	rule = find_rule("retention_observation", "待审核")
+	if not rule:
+		return []
+	items = []
+	for row in rows:
+		owner_type, roles = _owner_for(rule, identity, row)
+		if not owner_type:
+			continue
+		items.append(
+			_make_item(
+				rule, row, identity, owner_type, roles,
+				title="留样观察待审核：{}".format(_row_value(row, "retention_sample")),
+				status="待审核",
+				modified_at=_row_value(row, "modified"),
+				route_context={
+					"sample": _row_value(row, "retention_sample"),
+					"observation": _row_value(row, "name"),
+				},
+				description=rule.label,
+			)
+		)
+	return items
+
+
+def _retention_usage_todos(identity: Identity) -> list[dict]:
+	statuses = [rule.status for rule in TODO_RULES if rule.module == "retention_usage"]
+	rows = _get_list(
+		"HBOS Retention Usage Apply",
+		{"status": ["in", statuses]},
+		[
+			"name", "status", "applicant", "stock_confirm_by", "qc_approval",
+			"qa_approval", "qm_approval", "executed_by", "modified",
+		],
+	)
+	items = []
+	for row in rows:
+		rule = find_rule("retention_usage", _row_value(row, "status"))
+		if not rule:
+			continue
+		owner_type, roles = _owner_for(rule, identity, row)
+		if not owner_type:
+			continue
+		items.append(
+			_make_item(
+				rule, row, identity, owner_type, roles,
+				title="留样使用申请：{}".format(_row_value(row, "name")),
+				status=_row_value(row, "status"),
+				modified_at=_row_value(row, "modified"),
+				route_context={"usage": _row_value(row, "name")},
+				description=rule.label,
+			)
+		)
+	return items
+
+
+def _retention_disposal_todos(identity: Identity) -> list[dict]:
+	statuses = [rule.status for rule in TODO_RULES if rule.module == "retention_disposal"]
+	rows = _get_list(
+		"HBOS Retention Disposal Apply",
+		{"status": ["in", sorted(set(statuses))]},
+		[
+			"name", "status", "disposal_type", "applicant", "deadline",
+			"qc_supervisor_sign", "qc_manager_sign", "qa_review_sign",
+			"qa_manager_sign", "qm_sign", "disposal_by", "monitor_by", "modified",
+		],
+	)
+	items = []
+	for row in rows:
+		status = _row_value(row, "status")
+		condition = None
+		if status == "已批准":
+			condition = (
+				"continue_retention"
+				if _row_value(row, "disposal_type") == "留样期满继续留样"
+				else "not_applicable"
+			)
+		elif status == "待执行":
+			if not _row_value(row, "disposal_by"):
+				condition = "handler_missing"
+			elif not _row_value(row, "monitor_by"):
+				condition = "monitor_missing"
+			else:
+				continue
+		rule = find_rule("retention_disposal", status, condition=condition)
+		if not rule:
+			continue
+		owner_type, roles = _owner_for(rule, identity, row)
+		if not owner_type:
+			continue
+		due_at = _row_value(row, "deadline") if rule.due_extractor == "deadline" else None
+		items.append(
+			_make_item(
+				rule, row, identity, owner_type, roles,
+				title="留样处理申请：{}".format(_row_value(row, "name")),
+				status=status,
+				due_at=due_at,
+				modified_at=_row_value(row, "modified"),
+				route_context={"disposal": _row_value(row, "name")},
+				description=rule.label,
+			)
+		)
+	return items
+
+
+def _collect_retention_todos(identity: Identity) -> list[dict]:
+	items = []
+	items.extend(_retention_sample_todos(identity))
+	items.extend(_retention_observation_todos(identity))
+	items.extend(_retention_usage_todos(identity))
+	items.extend(_retention_disposal_todos(identity))
+	return items
 
 
 def _collect_all(identity: Identity) -> list[dict]:
@@ -654,9 +869,33 @@ def get_my_todos(
 @frappe.whitelist()
 def get_my_todo_summary():
 	identity = _current_identity()
+	cache_key = _summary_cache_key(identity.user, identity.business_roles)
+	cached = _summary_cache_get(cache_key)
+	if cached is not None:
+		return cached
 	items = _collect_all(identity)
-	return {
+	response = {
 		"summary": _summary(items),
 		"user": {"name": identity.user, "full_name": identity.full_name},
 		"generated_at": _generated_at(),
 	}
+	try:
+		_summary_cache_set(cache_key, response)
+	except Exception as exc:
+		if hasattr(frappe, "log_error"):
+			frappe.log_error(str(exc), "HBOS 我的待办摘要缓存写入失败")
+	return response
+
+
+def get_my_testing_task_names() -> list[str]:
+	"""供待检任务看板 scope=mine 使用的当前会话任务名投影。"""
+	identity = _current_identity()
+	names = set()
+	for item in _collect_testing_todos(identity):
+		if item.get("source_doctype") == "HBOS Sample Task":
+			names.add(item["source_name"])
+		elif item.get("source_doctype") == "HBOS Test Result":
+			task_name = (item.get("route_params") or {}).get("task")
+			if task_name:
+				names.add(task_name)
+	return sorted(names)
