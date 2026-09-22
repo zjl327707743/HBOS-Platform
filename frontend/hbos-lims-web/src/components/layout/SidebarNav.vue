@@ -10,123 +10,112 @@
       </div>
     </div>
 
-    <nav class="nav">
-      <div class="nav-group">
-        <div v-if="!collapsed" class="nav-group-title">总览</div>
-        <router-link to="/dashboard" class="nav-item" :class="{ active: isActive('/dashboard') }" :title="collapsed ? '工作台总览' : ''">
+    <nav class="nav" aria-label="LIMS 主导航">
+      <section class="work-section" aria-labelledby="work-section-label">
+        <div v-if="!collapsed" id="work-section-label" class="section-label">我的工作</div>
+        <router-link
+          to="/dashboard"
+          class="nav-item work-item"
+          :class="{ active: isSidebarItemActive(route.path, '/dashboard') }"
+          :title="collapsed ? '工作台总览' : ''"
+        >
           <DashboardOutlined />
           <span v-if="!collapsed">工作台总览</span>
         </router-link>
-      </div>
-
-      <div class="nav-group">
-        <div v-if="!collapsed" class="nav-group-title">业务操作</div>
-        <router-link to="/samples" class="nav-item" :class="{ active: isActive('/samples') }" :title="collapsed ? '样品登记与台账' : ''">
-          <FileAddOutlined />
-          <span v-if="!collapsed">样品登记与台账</span>
-        </router-link>
-        <router-link to="/tasks" class="nav-item" :class="{ active: isActive('/tasks') }" :title="collapsed ? '待检任务看板' : ''">
+        <router-link
+          to="/tasks"
+          class="nav-item work-item"
+          :class="{ active: isSidebarItemActive(route.path, '/tasks') }"
+          :title="collapsed ? '待检任务看板' : ''"
+        >
           <CarryOutOutlined />
           <span v-if="!collapsed">待检任务看板</span>
-          <span v-if="!collapsed && pendingCount > 0" class="nav-badge amber">{{ pendingCount }}</span>
+          <span v-if="!collapsed && pendingCount > 0" class="nav-badge danger">{{ pendingCount }}</span>
         </router-link>
-        <router-link to="/results" class="nav-item" :class="{ active: isActive('/results') && !route.path.includes('/results/ledger') }" :title="collapsed ? '检验结果录入' : ''">
-          <FormOutlined />
-          <span v-if="!collapsed">检验结果录入</span>
-        </router-link>
-        <router-link to="/results/ledger" class="nav-item" :class="{ active: isActive('/results/ledger') }" :title="collapsed ? '检验结果台账' : ''">
-          <FileTextOutlined />
-          <span v-if="!collapsed">检验结果台账</span>
-        </router-link>
+        <button type="button" class="nav-item work-item shortcut-button" title="我的待办" @click="goToTasks">
+          <UnorderedListOutlined />
+          <span v-if="!collapsed">我的待办</span>
+          <span v-if="!collapsed && totalAttentionCount > 0" class="nav-badge danger">{{ totalAttentionCount }}</span>
+        </button>
+      </section>
+
+      <div v-if="!collapsed" class="module-heading">
+        <span class="section-label">全部模块</span>
+        <span class="module-heading-actions">
+          <button type="button" @click="expandAll">全部展开</button>
+          <span aria-hidden="true">|</span>
+          <button type="button" @click="collapseAll">全部收起</button>
+        </span>
       </div>
 
-      <div class="nav-group">
-        <div v-if="!collapsed" class="nav-group-title">报告与标准</div>
-        <router-link to="/coas" class="nav-item" :class="{ active: isActive('/coas') }" :title="collapsed ? 'COA 报告管理' : ''">
-          <FileTextOutlined />
-          <span v-if="!collapsed">COA 报告管理</span>
-        </router-link>
-        <router-link to="/specs" class="nav-item" :class="{ active: isActive('/specs') }" :title="collapsed ? '质量标准库' : ''">
-          <ReadOutlined />
-          <span v-if="!collapsed">质量标准库</span>
-        </router-link>
-      </div>
+      <section v-for="group in sidebarGroups" :key="group.key" class="nav-group">
+        <button
+          type="button"
+          class="nav-group-toggle"
+          :class="{ 'active-group': isGroupCurrent(group.key) }"
+          :title="collapsed ? group.label : ''"
+          :aria-expanded="!collapsed && isGroupExpanded(group.key)"
+          @click="toggleGroup(group.key)"
+        >
+          <component :is="groupIcons[group.key]" />
+          <span v-if="!collapsed" class="nav-group-label">{{ group.label }}</span>
+          <span v-if="!collapsed" class="nav-count">{{ group.children.length }}</span>
+          <span v-if="!collapsed && groupBadge(group.key) > 0" class="nav-badge module-badge">
+            {{ groupBadge(group.key) }}
+          </span>
+          <DownOutlined v-if="!collapsed && isGroupExpanded(group.key)" class="group-chevron" />
+          <RightOutlined v-else-if="!collapsed" class="group-chevron" />
+        </button>
 
-      <div class="nav-group">
-        <div v-if="!collapsed" class="nav-group-title">留样管理</div>
-        <router-link to="/retention" class="nav-item" :class="{ active: isRetentionActive('dashboard') }" :title="collapsed ? '留样工作台' : ''">
-          <FundProjectionScreenOutlined />
-          <span v-if="!collapsed">留样工作台</span>
-        </router-link>
-        <router-link to="/retention/samples" class="nav-item" :class="{ active: isRetentionActive('samples') }" :title="collapsed ? '留样登记与台账' : ''">
-          <DatabaseOutlined />
-          <span v-if="!collapsed">留样登记与台账</span>
-        </router-link>
-        <router-link to="/retention/products" class="nav-item" :class="{ active: isRetentionActive('products') }" :title="collapsed ? '留样产品' : ''">
-          <TagsOutlined />
-          <span v-if="!collapsed">留样产品</span>
-        </router-link>
-        <router-link to="/retention/observations" class="nav-item" :class="{ active: isRetentionActive('observations') }" :title="collapsed ? '观察任务' : ''">
-          <EyeOutlined />
-          <span v-if="!collapsed">观察任务</span>
-        </router-link>
-        <router-link to="/retention/usage" class="nav-item" :class="{ active: isRetentionActive('usage') }" :title="collapsed ? '使用申请' : ''">
-          <ExportOutlined />
-          <span v-if="!collapsed">使用申请</span>
-        </router-link>
-        <router-link to="/retention/disposal" class="nav-item" :class="{ active: isRetentionActive('disposal') }" :title="collapsed ? '处理申请' : ''">
-          <HistoryOutlined />
-          <span v-if="!collapsed">处理申请</span>
-        </router-link>
-      </div>
+        <div v-if="!collapsed" v-show="isGroupExpanded(group.key)" class="subnav">
+          <router-link
+            v-for="item in group.children"
+            :key="item.key"
+            :to="item.path"
+            class="nav-item child-item"
+            :class="{ active: isSidebarItemActive(route.path, item.path) }"
+          >
+            <component :is="itemIcons[item.key]" />
+            <span>{{ item.label }}</span>
+            <span v-if="itemBadge(item) !== null" class="nav-badge amber">{{ itemBadge(item) }}</span>
+          </router-link>
+        </div>
+      </section>
 
-      <div class="nav-group">
-        <div v-if="!collapsed" class="nav-group-title">稳定性管理</div>
-        <router-link to="/stability" class="nav-item" :class="{ active: isStabilityActive('dashboard') }" :title="collapsed ? '稳定性工作台' : ''">
-          <ExperimentOutlined />
-          <span v-if="!collapsed">稳定性工作台</span>
-        </router-link>
-        <router-link to="/stability/study" class="nav-item" :class="{ active: isStabilityActive('study') }" :title="collapsed ? '考察申请与方案' : ''">
-          <ProfileOutlined />
-          <span v-if="!collapsed">考察申请与方案</span>
-        </router-link>
-        <router-link to="/stability/samples" class="nav-item" :class="{ active: isStabilityActive('samples') }" :title="collapsed ? '样品入箱与台账' : ''">
-          <InboxOutlined />
-          <span v-if="!collapsed">样品入箱与台账</span>
-        </router-link>
-        <router-link to="/stability/schedule" class="nav-item" :class="{ active: isStabilityActive('schedule') }" :title="collapsed ? '取样与检测计划' : ''">
-          <CalendarOutlined />
-          <span v-if="!collapsed">取样与检测计划</span>
-          <span v-if="!collapsed && stabilityCounts.schedule > 0" class="nav-badge amber"
-                :title="`待执行时间点（待取样 + 待检测）：${stabilityCounts.schedule}`">{{ stabilityCounts.schedule }}</span>
-        </router-link>
-        <router-link to="/stability/results" class="nav-item" :class="{ active: isStabilityActive('results') }" :title="collapsed ? '结果录入与趋势' : ''">
-          <LineChartOutlined />
-          <span v-if="!collapsed">结果录入与趋势</span>
-          <span v-if="!collapsed && stabilityCounts.results > 0" class="nav-badge amber"
-                :title="`检测中时间点（待录入结果）：${stabilityCounts.results}`">{{ stabilityCounts.results }}</span>
-        </router-link>
-        <router-link to="/stability/reports" class="nav-item" :class="{ active: isStabilityActive('reports') }" :title="collapsed ? '报告与有效期' : ''">
-          <FileProtectOutlined />
-          <span v-if="!collapsed">报告与有效期</span>
-        </router-link>
-        <router-link to="/stability/ops" class="nav-item" :class="{ active: isStabilityActive('ops') }" :title="collapsed ? '变更 / 稳定性室 / 设备' : ''">
-          <ToolOutlined />
-          <span v-if="!collapsed">变更 / 稳定性室 / 设备</span>
-        </router-link>
-      </div>
-
-      <div class="nav-group">
-        <div v-if="!collapsed" class="nav-group-title">合规</div>
-        <router-link to="/audit" class="nav-item" :class="{ active: isActive('/audit') && !route.path.includes('/audit-log') }" :title="collapsed ? '审计追踪查询' : ''">
-          <SearchOutlined />
-          <span v-if="!collapsed">审计追踪查询</span>
-        </router-link>
-        <router-link to="/audit-log" class="nav-item" :class="{ active: isActive('/audit-log') }" :title="collapsed ? '合规审计日志' : ''">
-          <AuditOutlined />
-          <span v-if="!collapsed">合规审计日志</span>
-        </router-link>
-      </div>
+      <section v-if="!collapsed" class="recent-nav" aria-labelledby="recent-nav-label">
+        <div class="recent-heading">
+          <div id="recent-nav-label" class="section-label">最近访问</div>
+          <button
+            v-if="visibleRecentNavItems.length === 0"
+            type="button"
+            class="recent-restore"
+            title="恢复最近访问"
+            @click="restoreRecentItems"
+          >
+            恢复
+          </button>
+        </div>
+        <template v-if="visibleRecentNavItems.length > 0">
+          <div v-for="item in visibleRecentNavItems" :key="item.key" class="recent-item">
+            <router-link :to="item.path" class="recent-link">
+              <ClockCircleOutlined v-if="item.icon === 'clock'" />
+              <HistoryOutlined v-else />
+              <span>{{ item.label }}</span>
+              <small>{{ item.timeLabel }}</small>
+            </router-link>
+            <button
+              type="button"
+              class="recent-dismiss"
+              :aria-label="`关闭${item.label}`"
+              title="关闭"
+              @click="dismissRecentItem(item.key)"
+            >
+              <CloseOutlined />
+            </button>
+          </div>
+        </template>
+        <div v-else class="recent-empty">暂无最近访问</div>
+      </section>
     </nav>
 
     <div class="sidebar-foot">
@@ -144,60 +133,210 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref, watch, type Component } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  DashboardOutlined, FileAddOutlined,
-  CarryOutOutlined, FormOutlined, FileTextOutlined, ReadOutlined, SearchOutlined,
-  MenuFoldOutlined, MenuUnfoldOutlined, AuditOutlined,
-  DatabaseOutlined, TagsOutlined, FundProjectionScreenOutlined, EyeOutlined, ExportOutlined, HistoryOutlined,
-  ExperimentOutlined, ProfileOutlined, InboxOutlined, CalendarOutlined,
-  LineChartOutlined, FileProtectOutlined, ToolOutlined,
+  AuditOutlined,
+  CalendarOutlined,
+  CarryOutOutlined,
+  ClockCircleOutlined,
+  CloseOutlined,
+  DashboardOutlined,
+  DatabaseOutlined,
+  DownOutlined,
+  ExperimentOutlined,
+  ExportOutlined,
+  EyeOutlined,
+  FileAddOutlined,
+  FileProtectOutlined,
+  FileTextOutlined,
+  FormOutlined,
+  FundProjectionScreenOutlined,
+  HistoryOutlined,
+  InboxOutlined,
+  LineChartOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  ProfileOutlined,
+  ReadOutlined,
+  RightOutlined,
+  SearchOutlined,
+  TagsOutlined,
+  ToolOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons-vue'
 import { dashboard as stabilityDashboard } from '@/api/stability'
 import { useAuthStore } from '@/stores/auth'
+import {
+  getGroupForPath,
+  getInitialExpandedGroup,
+  defaultRecentNavItems,
+  getVisibleRecentNavItems,
+  isSidebarItemActive,
+  sidebarGroups,
+  type SidebarGroupKey,
+  type SidebarNavItem,
+} from './sidebarNavigation'
 
-defineProps<{ collapsed: boolean }>()
+const props = defineProps<{ collapsed: boolean }>()
 defineEmits<{ toggle: [] }>()
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 
-function isActive(path: string): boolean {
-  return route.path === path || (path !== '/dashboard' && route.path.startsWith(path))
+const groupIcons: Record<SidebarGroupKey, Component> = {
+  testing: CarryOutOutlined,
+  quality: FileProtectOutlined,
+  retention: FundProjectionScreenOutlined,
+  stability: ExperimentOutlined,
+  compliance: AuditOutlined,
 }
 
-const RETENTION_KEYS = ['dashboard', 'samples', 'products', 'observations', 'usage', 'disposal'] as const
-function isRetentionActive(key: (typeof RETENTION_KEYS)[number]): boolean {
-  if (key === 'dashboard') return route.path === '/retention'
-  return route.path === `/retention/${key}`
+const itemIcons: Record<string, Component> = {
+  samples: FileAddOutlined,
+  tasks: CarryOutOutlined,
+  results: FormOutlined,
+  'result-ledger': FileTextOutlined,
+  coas: FileTextOutlined,
+  specs: ReadOutlined,
+  'retention-dashboard': FundProjectionScreenOutlined,
+  'retention-samples': DatabaseOutlined,
+  'retention-products': TagsOutlined,
+  'retention-observations': EyeOutlined,
+  'retention-usage': ExportOutlined,
+  'retention-disposal': HistoryOutlined,
+  'stability-dashboard': ExperimentOutlined,
+  'stability-study': ProfileOutlined,
+  'stability-samples': InboxOutlined,
+  'stability-schedule': CalendarOutlined,
+  'stability-results': LineChartOutlined,
+  'stability-reports': FileProtectOutlined,
+  'stability-ops': ToolOutlined,
+  audit: SearchOutlined,
+  'audit-log': AuditOutlined,
 }
 
-const STABILITY_KEYS = ['dashboard', 'study', 'samples', 'schedule', 'results', 'reports', 'ops'] as const
-function isStabilityActive(key: (typeof STABILITY_KEYS)[number]): boolean {
-  if (key === 'dashboard') return route.path === '/stability'
-  return route.path === `/stability/${key}`
+const GROUP_STATE_KEY = 'hbos_lims_sidebar_expanded_groups'
+const RECENT_NAV_HIDDEN_KEY = 'hbos_lims_sidebar_hidden_recent'
+
+function readHiddenRecentKeys(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(RECENT_NAV_HIDDEN_KEY) || '[]') as unknown
+    return Array.isArray(saved) ? saved.filter((key): key is string => typeof key === 'string') : []
+  } catch {
+    return []
+  }
 }
 
-// TODO: 联调后从 API 读取待办角标数
+function readExpandedGroups(path: string): Set<SidebarGroupKey> {
+  const expanded = new Set<SidebarGroupKey>()
+  const activeGroup = getInitialExpandedGroup(path)
+  if (activeGroup) expanded.add(activeGroup)
+
+  if (typeof window === 'undefined') return expanded
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(GROUP_STATE_KEY) || '[]') as unknown
+    if (Array.isArray(saved)) {
+      for (const key of saved) {
+        if (sidebarGroups.some((group) => group.key === key)) expanded.add(key as SidebarGroupKey)
+      }
+    }
+  } catch {
+    // localStorage 不可用时退回当前路由自动展开。
+  }
+  return expanded
+}
+
+const expandedGroups = ref<Set<SidebarGroupKey>>(readExpandedGroups(route.path))
+const hiddenRecentKeys = ref<string[]>(readHiddenRecentKeys())
+const visibleRecentNavItems = computed(() => getVisibleRecentNavItems(defaultRecentNavItems, hiddenRecentKeys.value))
+
+// TODO: 联调后从待检任务 API 读取待办角标数。
 const pendingCount = 0
 
 // 稳定性角标：取自真实时间点执行状态，无权限/未登录时不显示。
-// 「取样与检测计划」= 待取样 + 待检测（待执行工作量）；「结果录入与趋势」= 检测中（待录入结果）。
 const stabilityCounts = ref({ schedule: 0, results: 0 })
+
+const totalAttentionCount = computed(() => pendingCount + stabilityCounts.value.schedule + stabilityCounts.value.results)
+
+function persistExpandedGroups() {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(GROUP_STATE_KEY, JSON.stringify([...expandedGroups.value]))
+}
+
+function dismissRecentItem(key: string) {
+  if (hiddenRecentKeys.value.includes(key)) return
+  hiddenRecentKeys.value = [...hiddenRecentKeys.value, key]
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(RECENT_NAV_HIDDEN_KEY, JSON.stringify(hiddenRecentKeys.value))
+  }
+}
+
+function restoreRecentItems() {
+  hiddenRecentKeys.value = []
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(RECENT_NAV_HIDDEN_KEY)
+  }
+}
+
+function isGroupExpanded(key: SidebarGroupKey): boolean {
+  return expandedGroups.value.has(key)
+}
+
+function isGroupCurrent(key: SidebarGroupKey): boolean {
+  return getGroupForPath(route.path) === key
+}
+
+function toggleGroup(key: SidebarGroupKey) {
+  if (props.collapsed) return
+  const next = new Set(expandedGroups.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  expandedGroups.value = next
+  persistExpandedGroups()
+}
+
+function expandAll() {
+  expandedGroups.value = new Set(sidebarGroups.map((group) => group.key))
+  persistExpandedGroups()
+}
+
+function collapseAll() {
+  expandedGroups.value = new Set()
+  persistExpandedGroups()
+}
+
+function groupBadge(key: SidebarGroupKey): number {
+  if (key === 'testing') return pendingCount
+  if (key === 'stability') return stabilityCounts.value.schedule + stabilityCounts.value.results
+  return 0
+}
+
+function itemBadge(item: SidebarNavItem): number | null {
+  if (item.badge === 'pending') return pendingCount > 0 ? pendingCount : null
+  if (item.badge === 'schedule') return stabilityCounts.value.schedule > 0 ? stabilityCounts.value.schedule : null
+  if (item.badge === 'results') return stabilityCounts.value.results > 0 ? stabilityCounts.value.results : null
+  return null
+}
+
+function goToTasks() {
+  void router.push('/tasks')
+}
 
 function hasLimsRole(): boolean {
   const roles = auth.user?.roles || []
-  return roles.some((r) => r.startsWith('LIMS ') || r === 'System Manager')
+  return roles.some((role) => role.startsWith('LIMS ') || role === 'System Manager')
 }
 
 async function loadStabilityBadges() {
   if (!hasLimsRole()) return
   try {
-    const k = await stabilityDashboard()
+    const counts = await stabilityDashboard()
     stabilityCounts.value = {
-      schedule: k.timepoint_by_status.wait_sample + k.timepoint_by_status.wait_test,
-      results: k.timepoint_by_status.testing,
+      schedule: counts.timepoint_by_status.wait_sample + counts.timepoint_by_status.wait_test,
+      results: counts.timepoint_by_status.testing,
     }
   } catch {
     stabilityCounts.value = { schedule: 0, results: 0 }
@@ -205,9 +344,17 @@ async function loadStabilityBadges() {
 }
 
 onMounted(() => { void auth.checkSession() })
-// 角色就绪后取一次；进入稳定性板块时刷新，避免动作后角标滞后
+
 watch(() => auth.user?.roles?.length ?? 0, () => { void loadStabilityBadges() }, { immediate: true })
-watch(() => route.path, (p) => { if (p.startsWith('/stability')) void loadStabilityBadges() })
+
+watch(() => route.path, (path) => {
+  const activeGroup = getGroupForPath(path)
+  if (activeGroup && !expandedGroups.value.has(activeGroup)) {
+    expandedGroups.value = new Set([...expandedGroups.value, activeGroup])
+    persistExpandedGroups()
+  }
+  if (path.startsWith('/stability')) void loadStabilityBadges()
+})
 </script>
 
 <style scoped>
@@ -225,10 +372,7 @@ watch(() => route.path, (p) => { if (p.startsWith('/stability')) void loadStabil
   overflow: hidden;
 }
 
-.sidebar.collapsed {
-  width: 64px;
-  flex: 0 0 64px;
-}
+.sidebar.collapsed { width: 64px; flex: 0 0 64px; }
 
 .brand {
   display: flex;
@@ -238,10 +382,7 @@ watch(() => route.path, (p) => { if (p.startsWith('/stability')) void loadStabil
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.sidebar.collapsed .brand {
-  justify-content: center;
-  padding: 18px 0 16px;
-}
+.sidebar.collapsed .brand { justify-content: center; padding: 18px 0 16px; }
 
 .brand-mark {
   width: 40px;
@@ -255,88 +396,195 @@ watch(() => route.path, (p) => { if (p.startsWith('/stability')) void loadStabil
   overflow: hidden;
 }
 
-.brand-logo {
-  width: 30px;
-  height: 30px;
-  object-fit: contain;
-  display: block;
-}
-
+.brand-logo { width: 30px; height: 30px; object-fit: contain; display: block; }
 .brand-name { font-size: 15px; font-weight: 700; color: #fff; white-space: nowrap; }
 .brand-sub { font-size: 10px; color: #8eab9f; margin-top: 2px; white-space: nowrap; }
 
-.nav {
-  padding: 12px 10px;
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
+.nav { padding: 12px 10px; flex: 1; overflow-y: auto; overflow-x: hidden; }
+.sidebar.collapsed .nav { padding: 12px 8px; }
+.work-section { margin-bottom: 14px; }
 
-.sidebar.collapsed .nav {
-  padding: 12px 8px;
-}
-
-.nav-group { margin-bottom: 16px; }
-
-.nav-group-title {
+.section-label {
   font-size: 10px;
   color: #71968b;
-  padding: 6px 10px 4px;
-  text-transform: uppercase;
+  padding: 6px 10px 5px;
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
-.nav-item {
+.nav-item,
+.nav-group-toggle,
+.recent-item,
+.recent-link {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
+  width: 100%;
+  border: 0;
+  text-decoration: none;
   color: var(--sidebar-text);
   cursor: pointer;
-  font-size: 13px;
-  margin-bottom: 2px;
-  transition: background 0.12s ease;
-  text-decoration: none;
-  width: 100%;
   white-space: nowrap;
 }
 
-.sidebar.collapsed .nav-item {
-  justify-content: center;
-  padding: 10px 0;
+.nav-item {
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 2px;
+  background: transparent;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .nav-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
 .nav-item.active { background: var(--primary); color: #fff; font-weight: 600; }
-.nav-item :deep(.anticon) { flex: 0 0 16px; opacity: 0.85; font-size: 15px; }
+.nav-item :deep(.anticon),
+.nav-group-toggle :deep(.anticon),
+.recent-item :deep(.anticon) { flex: 0 0 16px; opacity: 0.85; font-size: 15px; }
+
+.work-item { min-height: 34px; }
+.shortcut-button { font-family: inherit; text-align: left; }
+
+.module-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 6px 0 4px;
+}
+
+.module-heading .section-label { padding-right: 0; }
+
+.module-heading-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #71968b;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.module-heading-actions button {
+  padding: 0;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.module-heading-actions button:hover { color: #d6eee7; }
+.nav-group { margin-bottom: 3px; }
+
+.nav-group-toggle {
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: var(--sidebar-text);
+  background: transparent;
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.nav-group-toggle:hover,
+.nav-group-toggle.active-group { background: rgba(255, 255, 255, 0.075); color: #fff; }
+.nav-group-toggle.active-group :deep(.anticon:first-child) { color: #6ee8db; }
+.nav-group-label { overflow: hidden; text-overflow: ellipsis; }
+
+.nav-count { min-width: 18px; margin-left: auto; color: #91b1a5; font-size: 10px; text-align: center; }
+.group-chevron { flex: 0 0 12px !important; font-size: 11px !important; color: #8eab9f; }
+
+.subnav {
+  position: relative;
+  margin: 2px 0 5px 13px;
+  padding: 1px 0 1px 9px;
+  border-left: 1px solid rgba(188, 226, 214, 0.2);
+}
+
+.child-item { gap: 9px; min-height: 32px; padding: 7px 9px; font-size: 12px; border-radius: 5px; }
+.child-item :deep(.anticon) { font-size: 13px; }
+.child-item.active { box-shadow: inset 2px 0 0 #80e9dd; }
 
 .nav-badge {
-  margin-left: auto;
-  background: var(--danger);
-  color: #fff;
-  font-size: 10px;
+  flex: 0 0 auto;
   min-width: 18px;
   height: 18px;
+  margin-left: auto;
+  padding: 0 5px;
   border-radius: 9px;
   display: grid;
   place-items: center;
-  padding: 0 5px;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
 }
 
-.nav-badge.amber { background: var(--warn); }
+.nav-badge.amber,
+.nav-badge.module-badge { background: var(--warn); }
+.nav-badge.danger { background: var(--danger); }
+
+.recent-nav { margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.09); }
+.recent-heading { display: flex; align-items: center; justify-content: space-between; }
+.recent-heading .section-label { flex: 1; }
+.recent-restore {
+  margin-right: 10px;
+  padding: 0;
+  border: 0;
+  color: #8ec9bb;
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.recent-restore:hover { color: #fff; }
+.recent-empty { padding: 3px 10px 6px; color: #71968b; font-size: 10px; }
+
+.recent-item {
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.recent-link { gap: 9px; min-width: 0; flex: 1 1 auto; }
+.recent-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.recent-link span { overflow: hidden; text-overflow: ellipsis; }
+.recent-item small { margin-left: auto; color: #71968b; font-size: 9px; }
+
+.recent-dismiss {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: #71968b;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.recent-item:hover .recent-dismiss,
+.recent-dismiss:focus-visible { opacity: 1; }
+.recent-dismiss:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
+.recent-dismiss :deep(.anticon) { font-size: 12px; }
 
 .sidebar-foot {
-  padding: 14px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 10px;
-  color: #73998c;
-  line-height: 1.6;
-  white-space: nowrap;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #73998c;
+  font-size: 10px;
+  line-height: 1.6;
+  white-space: nowrap;
 }
 
 .collapse-btn {
@@ -344,33 +592,41 @@ watch(() => route.path, (p) => { if (p.startsWith('/stability')) void loadStabil
   align-items: center;
   gap: 8px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   color: var(--sidebar-text);
+  background: rgba(255, 255, 255, 0.06);
   font-size: 12px;
-  padding: 8px 10px;
   cursor: pointer;
   transition: background 0.12s ease;
 }
 
 .collapse-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
-
-.sidebar.collapsed .collapse-btn {
-  justify-content: center;
-  padding: 9px 0;
-}
-
 .collapse-btn .anticon { font-size: 15px; }
-
+.sidebar.collapsed .collapse-btn { justify-content: center; padding: 9px 0; }
 .sidebar.collapsed .foot-meta { display: none; }
 
 @media (max-width: 768px) {
-  .sidebar { width: 60px; flex: 0 0 60px; }
+  .sidebar,
   .sidebar.collapsed { width: 60px; flex: 0 0 60px; }
-  .brand { padding: 14px 0; justify-content: center; }
-  .brand-name, .brand-sub, .nav-group-title, .nav-item span { display: none; }
-  .nav-item { justify-content: center; padding: 10px 0; }
+
+  .brand { justify-content: center; padding: 14px 0; }
+  .brand-name,
+  .brand-sub,
+  .section-label,
+  .module-heading,
+  .nav-group-label,
+  .nav-count,
+  .group-chevron,
+  .nav-item span,
+  .recent-nav,
+  .foot-meta { display: none; }
+
+  .nav { padding: 12px 8px; }
+  .nav-item,
+  .nav-group-toggle { justify-content: center; padding: 10px 0; }
+  .subnav { display: none !important; }
   .nav-badge { margin-left: -12px; margin-top: -14px; }
 }
 </style>
