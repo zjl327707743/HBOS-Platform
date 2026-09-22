@@ -4,6 +4,8 @@
 
 ## 当前状态
 
+- 当前子轮：M2-R8K（我的待办身份绑定）**REVIEWING / 待 Owner 测试路径验收，未同步生产**。已完成基于 `frappe.session.user` 的检验 / 稳定性 / 留样跨模块聚合、角色待处理与指派归属区分、Administrator 特判、稳定性项目粒度收敛、六类深链定位、原业务 API 动作调度、个人摘要缓存与前台轮询控制；前端单测 7 项、待办契约 6 项、后端全量 pytest 385 项、生产构建通过。提交 `1c55a14` + `3fe0e05`。主文档 `docs/milestones/M2_R8K_我的待办身份绑定.md`。
+
 > 状态校正（2026-09-21 本轮追加）：上方 M2-R8J 的 DEPLOYED 现包含本轮已授权发布的“业务检验结果 → 稳定性结果与趋势”联动、审查缺陷修复及趋势摘要下拉控件宽度修复；生产发布脚本 pytest **342/342**、生产前端 `build:prod` 通过，生产路径 17 个页面/资源冒烟均返回 200，备份为 `hbos-lims.bak-20260921180830`，结果页产品/检验项目下拉已完成生产浏览器复测。
 
 > 状态校正（2026-09-22）：Owner 已确认并授权侧栏「最近访问」关闭交互同步生产；提交 `934e36a`，前端构建与完整 pytest **342/342** 通过，`/hbos-lims/`、`/retention`、`/specs`、`/tasks` 及新构建主资源 HTTP 冒烟均返回 **200**，生产备份为 `hbos-lims.bak-20260922103245`。本次为纯前端资产同步，不涉及后端迁移。
@@ -38,6 +40,7 @@
 - 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。M2-LIMS MVP 全量交付：M2-R1 骨架、M2-R2 主数据与判定引擎、M2-R3 检验流程闭环、M2-R4 COA 与报表、M2-R5 验证收口（全量演练 19/19 + 11 项验收 + 离线测试 109/109 + Workspace 全链接入口），M2-R5 为 REVIEWING 等待审查。
 - M2-R6 Vue 前端原型与开发流程已交付（交互式 HTML 原型 + 开发流程文档），REVIEWING 等待 Owner 审查；未创建 Vue 工程、未接真实 API。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
+- 下一步路线：优先进行 M2-R8K「我的待办身份绑定」Owner 测试路径验收；确认后再单独决定是否生产发布。此前 M2-R8J 稳定性审查修复已上线，M2-R8K 当前代码仅在测试端完成验证，未同步生产。
 - 下一步路线：**M2-R8F 稳定性板块前端 Vue 复刻已 DEPLOYED**（生产 `/hbos-lims`，Owner 2026-09-16 已确认测试路径并授权同步生产）：7 视图 + 路由 + 侧栏稳定性管理分组 + 演示数据层，全部为 `TEST-HBOS-M2-STB-*` 演示数据、零 API 调用；生产验证 84 个文件与本地逐字节一致、全路由与 7 个 chunk 均 200、既有模块无回归，备份 `hbos-lims.bak-20260916120644` 可回滚；`deploy_lims_fix.sh` 冒烟清单已补 `/stability*` 路由。**M2-R8H 稳定性样品与计划前端已接入真实 API**（DONE / 待 Owner 审查）：稳定性 7 视图中 4 个已接真实后端（工作台 / 考察申请与方案 / 样品入箱与台账 / 取样与检测计划）。**M2-R8C 稳定性结果与报告后端已完成**（DONE / 待 Owner 审查）：R8B 的前向守卫（`complete_testing` 等）已自动打通，`HBOS Stability Result` / `HBOS Stability Report` 全链可用。**M2-R8D 变更、稳定性室与设备后端已完成**（DONE / 待 Owner 审查）：方案 8 条状态机全部落地。**M2-R8I 剩余 3 视图前端接入已完成**（DONE / 待 Owner 审查）：稳定性板块 7 视图全部接入真实后端、6 张报表全部物化。**未部署生产**——测试端链接 `http://localhost:5173/stability`。**M2-R8J 当前结论为两轮修复完成并已上线**：第一轮修复报告链断裂 / 结果页缺「提交」/ `complete_testing` 越权 / 设备 status 无守卫 / 故障流水子表可改；第二轮修复 2026-09-21 回滚模拟复现的 8 项 P1 + 2 项 P2；离线契约 321/321、`pytest 329 passed`、前端类型检查与构建通过，**第二轮 10 项已补做实机逐项验证并负向回归 9/9 通过**；已提交 `e447f97` + `b61f83d` 并同步生产 `/hbos-lims`（备份 `hbos-lims.bak-20260921094724`）。下一步：Owner 测试路径验收。留样板块前端 6 视图已 DEPLOYED（生产 /hbos-lims，Owner 2026-09-08 已确认），R7B（观察管理）/R7C（使用与处理审批）后端已实现并真实验证，前端已真实接入（演示数据源已移除）；M2-R5（验证收口）REVIEWING 等待 Owner 和 Claude 审查 closeout（离线测试 109/109、全量演练 19/19 已过，见本文件 M2-LIMS 状态节）；M2-LIMS 其余扩展模块（仪器集成、环测、微生物、试剂、OOS 调查等）另行规划——留样板块（M2-R7）与稳定性板块（M2-R8）均已 Owner 授权；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权，不自动启动。
 
 ## 状态更新制度

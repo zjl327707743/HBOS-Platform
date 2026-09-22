@@ -216,7 +216,11 @@ function onTableChange(page: { current?: number; pageSize?: number }) {
 }
 
 function openTodo(item: TodoItem) {
-  void router.push(buildTodoRoute(item.route || '/tasks', item.route_params))
+  const params = { ...item.route_params }
+  if (item.route === '/retention/disposal' && params.disposal && !params.focus) {
+    params.focus = params.disposal
+  }
+  void router.push(buildTodoRoute(item.route || '/tasks', params))
 }
 
 async function handleAction(item: TodoItem) {

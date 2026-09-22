@@ -49,6 +49,7 @@
 - `docs/frontend/M2_R6D_合规审计日志原型.html`：M2-R6D 合规审计日志原型（全量事件类型 + 下钻含数据完整性与指纹）。
 - `docs/milestones/M2_R7_留样管理板块开发方案.md`：M2-R7 留样管理板块开发方案（规程数字化定案 + 5 主 1 子 DocType + 三状态机 + R7A~D 四子轮拆分，REVIEWING rev6 口径已定稿；R7A 与 R7D 已落地，R7B/C 后端已实现并真实验证）。
 - `docs/milestones/M2_R7D_留样板块前端设计.md`：M2-R7D 留样板块前端设计（原型三件套 → Vue 6 视图复刻 → 生产部署 `/hbos-lims`，DEPLOYED，Owner 2026-09-08 已确认测试路径）。
+- `docs/milestones/M2_R8K_我的待办身份绑定.md`：M2-R8K 我的待办身份绑定（当前会话身份聚合、角色/指派区分、六类深链与原业务动作调度；REVIEWING，未同步生产）。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -127,6 +128,8 @@
 | M2-R8I | 稳定性剩余三视图前端接入 + 5 张 Script Report 物化（稳定性台账 / 检测进度跟踪 / 年度覆盖清单 / 温湿度记录查询 / 设备与校准到期清单；`api/stability.ts` +64 函数与 6.3.5~6.3.8 动作角色；结果三栏 + 报告三栏 + Ops 三标签全部接真实后端；横幅改 live、演示层退役 356→21 行；处置 2 项：effective_*_due 改服务层派生、417 为 gunicorn 旧缓存；`vue-tsc` 0 错误、build 成功、浏览器读写全链与角色显隐、375px 三页无溢出；未部署生产） | DONE / 待 Owner 审查 |
 | M2-R8B | 稳定性样品、时间点与取样检测计划后端（5 DocType：Sample+Log / Timepoint+Timepoint Item+Timepoint Delay；3 条状态机；21 动作 + 4 只读 + scheduler；标签 Print Format + 「取样与检测计划看板」报表；四步锁与固定锁顺序、时间点生成幂等、延期日期链全段校验、逾期纯派生；Result 依赖处前向兼容守卫；离线 244/244、实机 40/40、补充 10/10；未部署生产） | DONE / 待 Owner 审查 |
 | M2-R8J | 稳定性板块前后端审查与缺陷修复（独立审查：后端写路径 4306 行 + 22 DocType 权限 + 守卫层，前端 7 视图 + 接口层；结论——核心设计成立，零裸 SQL / 无 `v-html`、91 个 whitelist 方法全部经 `_check_action`、锁顺序无冲突、负向拦截全部留痕）；修 **3 P1 + 2 P2**：①报告 `conclusion` 无写入路径致报告链断裂（Report 对 LIMS 角色只读而 `submit_report` 硬校验其非空）→ 新增 `save_report_draft` + 前端「编辑报告内容」弹窗；②结果页缺「提交」致工作流 UI 走不通 → 操作列补「提交」；③`complete_testing` 公开 + `system=True` 豁免角色校验致越权（实测无角色用户可强制完成检测）→ 移 whitelist 改由 `approve_result` 自动调用；④`Equipment.status` 无守卫 → 补 `EQUIPMENT_SYSTEM_FIELDS` + `validate` + `read_only`；⑤故障流水子表行可被 LIMS 角色增删改 → 新增 `guard_child_table_frozen`；另补审计枚举 `报告起草`；离线 311/311、`vue-tsc` 0 错误 + build 成功、实机修复验证 15/16 → 补测 5/5、负向回归 11/11、浏览器读写全链；**第二轮** 经 93 项回滚模拟复现的 8 P1 + 2 P2 亦已修复（① 通用 `insert` 伪造「已批准」变更单由 `guard_system_fields` 首次插入守卫封堵 ② 变更审批 SoD ③ 样品错配产品 ④ 受托转出流水对账 ⑤ 计划接口补 `test_items` ⑥ 趋势契约补 `result_value/status/is_current` ⑦ 取样日期政策与延期前置 ⑧ `complete_sampling` 政策硬上限 ⑨ 月份过滤下推分页前 ⑩ 变更条件输入路径与实施落点）；离线 **321/321**、`pytest 329 passed`、`vue-tsc` 0 错误 + build 成功、**第二轮 10 项已补做实机逐项验证 + 负向回归 9/9**；已提交 `e447f97` 并同步生产 `/hbos-lims`（备份 `hbos-lims.bak-20260921094724`；清 58 个历史残留 chunk 后远端 85 文件与本地 dist md5 逐条一致）；上线后 Owner 验收发现的稳定性工作台「待 R8B~R8D」占位文案已修复（提交 `b61f83d`，远端 86 文件与本地 dist md5 逐条一致）；侧边栏「取样与检测计划 / 结果录入与趋势」原型遗留硬编码角标（4/3，恒显红）已改接真实数据并改 amber（提交 `6e06155`）；P3 加固项 7 条未处置） | DEPLOYED / 待 Owner 测试路径验收 |
+
+| M2-R8K | 我的待办身份绑定（基于当前会话身份聚合检验 / 稳定性 / 留样待办，明确「指派给我」与「我的角色待处理」，补齐 Administrator 特判、六类深链、原业务 API 动作调度、摘要缓存与前台轮询；前端单测 7 项、待办契约 6 项、后端全量 pytest 385 项、构建通过；未同步生产） | REVIEWING / 待 Owner 测试路径验收 |
 
 ## 下一步路线
 
