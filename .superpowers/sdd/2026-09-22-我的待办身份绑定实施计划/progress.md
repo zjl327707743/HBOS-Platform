@@ -24,4 +24,4 @@ Pre-flight Ruling: `removeResolved` is never called before the source API succee
 
 Task 1 Ruling: rule identity is `(module, status, condition)` rather than only `(module, status)` — stability `检测中/已完成` and disposal `待执行` select mutually exclusive actions from record context; the spec requires one action per record, not one action per status string — cost if wrong: providers could select an incorrect branch, covered by explicit condition tests.
 Task 1: complete (commits f757dd5..73b3631, tests: bash -lc 'cd apps/hb_lims_app && python3 -m pytest tests -q' → 357 passed in 0.26s)
-Task 2: complete (commit pending, tests: `python3 -m pytest tests/test_todo_contract.py tests/test_todo_service_contract.py -q` → 20 passed; `python3 -m pytest -q` → 362 passed in 0.24s)
+Task 2: complete (commits 963bb35 + follow-up, tests: `python3 -m pytest tests/test_todo_service_contract.py -q` → 6 passed; `python3 -m pytest -q` → 363 passed in 0.24s)

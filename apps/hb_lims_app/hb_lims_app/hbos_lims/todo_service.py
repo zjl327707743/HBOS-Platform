@@ -32,6 +32,13 @@ TODO_DOCTYPES = (
 )
 ACTIVE_TASK_STATUSES = ("已分配", "检验中", "已提交", "已复核")
 ACTIONABLE_RESULT_STATUSES = ("草稿", "已提交", "已复核")
+MODULE_LABELS = {
+	"testing": "检验业务",
+	"stability": "稳定性",
+	"retention": "留样",
+	"quality": "质量",
+	"compliance": "合规",
+}
 
 
 @dataclass(frozen=True)
@@ -81,14 +88,19 @@ def _get_list(doctype: str, filters: dict | None, fields: list[str]) -> list[dic
 
 
 def _allowed_by_action(rule: TodoRule, identity: Identity) -> bool:
-	return any(
-		wf.action_allowed(
-			rule.permission_action,
-			role,
-			scope=rule.permission_scope,
-		)
-		for role in identity.session_roles
+	return _action_allowed(
+		rule.permission_action,
+		identity.session_roles,
+		scope=rule.permission_scope,
 	)
+
+
+def _action_allowed(
+	action: str,
+	business_roles: tuple[str, ...],
+	scope: str | None = None,
+) -> bool:
+	return any(wf.action_allowed(action, role, scope=scope) for role in business_roles)
 
 
 def _matching_business_roles(rule: TodoRule, identity: Identity) -> tuple[str, ...]:
@@ -187,6 +199,17 @@ def _make_item(
 		"modified_at": modified_at,
 		"execute_mode": rule.execute_mode,
 	}
+
+
+def _serialize_todo(candidate: dict) -> dict:
+	"""补齐稳定的展示字段，provider 不重复实现序列化口径。"""
+	item = dict(candidate)
+	item["module_label"] = MODULE_LABELS.get(item.get("module"), item.get("module"))
+	item["status_label"] = item.get("status")
+	item["owner_label"] = (
+		"指派给我" if item.get("owner_type") == "user" else "角色待处理"
+	)
+	return item
 
 
 def _business_stability_items_for_timepoint(timepoint_name: str) -> set[str]:
@@ -369,7 +392,7 @@ def _collect_all(identity: Identity) -> list[dict]:
 	items.extend(_collect_testing_todos(identity))
 	items.extend(_collect_stability_todos(identity))
 	items.extend(_collect_retention_todos(identity))
-	return sort_todos(deduplicate_todos(items))
+	return [_serialize_todo(item) for item in sort_todos(deduplicate_todos(items))]
 
 
 def _as_bool(value) -> bool:
@@ -454,6 +477,8 @@ def get_my_todos(
 	return {
 		"items": filtered[offset:offset + limit],
 		"total": len(filtered),
+		"limit": limit,
+		"offset": offset,
 		"filtered_summary": _summary(filtered),
 		"user": {"name": identity.user, "full_name": identity.full_name},
 		"generated_at": _generated_at(),

@@ -383,3 +383,17 @@ def test_summary_uses_unfiltered_session_scope(service, monkeypatch):
         "compliance": 0,
     }
     assert response["generated_at"]
+
+
+def test_response_contract_has_labels_paging_and_no_unified_write_api(service):
+    todo_service, _fake = service
+
+    assert callable(todo_service._action_allowed)
+    assert callable(todo_service._serialize_todo)
+    assert not hasattr(todo_service, "execute_todo")
+
+    response = todo_service.get_my_todos(limit=7, offset=3)
+
+    assert response["limit"] == 7
+    assert response["offset"] == 3
+    assert response["items"] == []
