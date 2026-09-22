@@ -330,10 +330,19 @@
   span { color: var(--muted); }
   b { font-weight: 700; text-align: right; color: var(--ink); }
 }
-.stb-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stb-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
 .stb-form-field {
+  min-width: 0;
   label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
   &.full { grid-column: 1 / -1; }
+}
+.stb-result-col.trend .ant-select {
+  min-width: 0;
+  max-width: 100%;
 }
 .stb-trend-note {
   margin: 0 14px 14px;
@@ -498,7 +507,7 @@
 @media (max-width: 980px) {
   .stb-result-layout { grid-template-columns: 1fr; }
   .stb-kv-grid { grid-template-columns: 1fr 1fr; }
-  .stb-form-grid { grid-template-columns: 1fr; }
+  .stb-form-grid { grid-template-columns: minmax(0, 1fr); }
   .stb-form-field.full { grid-column: auto; }
 }
 @media (max-width: 640px) {

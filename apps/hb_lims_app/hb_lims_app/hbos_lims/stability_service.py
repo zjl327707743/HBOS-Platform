@@ -665,8 +665,12 @@ STABILITY_MASTER_QUERY = {
 		["room_code", "room_name"],
 	),
 	"HBOS Stability Test Item": (
-		["name", "item_code", "item_name", "item_category", "result_type", "is_full_test_only",
-		 "is_key_item", "significant_change_rule", "change_threshold", "is_active"],
+		["name", "item_code", "item_name", "base_test_item", "item_category", "result_type",
+		 "is_full_test_only", "is_key_item", "significant_change_rule", "change_threshold", "is_active"],
+		["item_code", "item_name"],
+	),
+	"HBOS Test Item": (
+		["name", "item_code", "item_name", "item_category", "test_unit", "limits_type"],
 		["item_code", "item_name"],
 	),
 }
@@ -682,7 +686,7 @@ def get_stability_master(doctype, keyword=None, include_inactive=0):
 				"不支持的主数据类型：{}".format(doctype), "非法主数据类型请求")
 	fields, searchable = conf
 	filters = {}
-	if not _truthy(include_inactive):
+	if not _truthy(include_inactive) and "is_active" in fields:
 		filters["is_active"] = 1
 	or_filters = None
 	kw = (keyword or "").strip()
@@ -691,6 +695,44 @@ def get_stability_master(doctype, keyword=None, include_inactive=0):
 	return {"rows": frappe.get_all(
 		doctype, filters=filters, or_filters=or_filters, fields=fields,
 		order_by="name asc", limit_page_length=0)}
+
+
+@frappe.whitelist()
+def update_stability_test_item_mapping(stability_test_item, base_test_item=None):
+	"""LIMS Manager 维护稳定性项目与业务检验项目的一对一映射。"""
+	_check_action("manage_stability_master", "HBOS Stability Test Item", stability_test_item)
+	try:
+		base_test_item = base_test_item or None
+		if base_test_item:
+			if not frappe.db.exists("HBOS Test Item", base_test_item):
+				frappe.throw("业务检验项目「{}」不存在。".format(base_test_item))
+			frappe.db.get_value("HBOS Test Item", base_test_item, "name", for_update=True)
+		item = _lock_row("HBOS Stability Test Item", stability_test_item)
+		if not item.is_active:
+			frappe.throw("稳定性检验项目「{}」已停用，不能维护映射。".format(stability_test_item))
+		if frappe.db.exists(RESULT_DOCTYPE, {"stability_test_item": stability_test_item}):
+			frappe.throw("稳定性检验项目「{}」已有结果，禁止修改映射。".format(stability_test_item))
+
+		if base_test_item:
+			conflict = frappe.db.get_value(
+				"HBOS Stability Test Item",
+				{"base_test_item": base_test_item, "name": ["!=", stability_test_item]},
+				"name")
+			if conflict:
+				frappe.throw("业务检验项目「{}」已映射到稳定性项目「{}」。"
+						 .format(base_test_item, conflict))
+
+		old_value = item.base_test_item or ""
+		item.base_test_item = base_test_item
+		item.save(ignore_permissions=True)
+		_audit_on("HBOS Stability Test Item", "修改", item.name,
+				  action_text="维护业务检验项目映射",
+				  old_value=old_value, new_value=base_test_item or "未配置")
+		_commit()
+		return {"name": item.name, "base_test_item": item.base_test_item}
+	except Exception:
+		_rollback()
+		raise
 
 
 @frappe.whitelist()
@@ -2532,6 +2574,7 @@ def _to_days_of(timepoint_row):
 
 RESULT_DOCTYPE = "HBOS Stability Result"
 REPORT_DOCTYPE = "HBOS Stability Report"
+_SYNCABLE_TIMEPOINT_STATES = (stb.TP_WAIT_TEST, stb.TP_TESTING, stb.TP_DONE)
 
 
 # ---- 来源链与快照 ---------------------------------------------------------
@@ -2694,7 +2737,281 @@ def _clear_current_pointer(tp, item_code):
 	_write_current_pointer(tp, item_code, None)
 
 
+def _stability_test_item_for_standard_result(result, tp):
+	"""按 HBOS Test Item 映射稳定性检验项目，并确认该项目属于时间点。"""
+	rows = frappe.get_all(
+		"HBOS Stability Test Item",
+		filters={"base_test_item": result.test_item, "is_active": 1},
+		fields=["name"], limit_page_length=0,
+	)
+	if not rows:
+		frappe.throw("业务检验项目「{}」未配置稳定性检验项目映射，无法同步结果。"
+					 .format(result.test_item))
+	if len(rows) > 1:
+		frappe.throw("业务检验项目「{}」存在多个稳定性项目映射，请先完成唯一映射。"
+					 .format(result.test_item))
+	stability_item = rows[0].name
+	if not any(row.stability_test_item == stability_item for row in (tp.test_items or [])):
+		frappe.throw("稳定性时间点「{}」未配置项目「{}」，无法同步业务结果。"
+					 .format(tp.name, stability_item))
+	return stability_item
+
+
+def _standard_result_value(result):
+	"""把业务检验结果转换为稳定性结果的 Data 值，保留原始文本优先级。"""
+	if result.result_value is not None and result.result_value != "":
+		return result.result_value
+	return result.result_text or result.raw_value or ""
+
+
+def _standard_result_date(result):
+	"""稳定性结果的检测日期取业务结果提交时间的日期部分。"""
+	stamp = result.submitted_at or _now()
+	return frappe.utils.getdate(stamp)
+
+
+def _ensure_manual_stability_result_allowed(res):
+	"""业务结果投影只能由业务操作流转，阻止在稳定性页面重复录入/审批。"""
+	if res.source_test_result:
+		frappe.throw("该结果由业务检验结果 {} 自动同步，请在业务操作中录入、复核和批准。"
+					 .format(res.source_test_result))
+
+
+def _validate_stability_approval(standard, approver=None):
+	"""稳定性投影批准必须走稳定性 QA 线，并满足职责分离。"""
+	approver = approver or standard.approver or _user()
+	roles = frappe.get_roles(approver)
+	if not any(wf.action_allowed("approve_result", role, scope=RESULT_DOCTYPE)
+			   for role in roles):
+		frappe.throw("业务结果批准人「{}」不具备稳定性结果批准权限。".format(approver))
+	if not standard.reviewer:
+		frappe.throw("稳定性结果批准前必须记录复核人。")
+	if standard.reviewer == approver:
+		frappe.throw("稳定性结果批准人不得与复核人相同（SoD）。")
+
+
+def _assert_independent_approver_exists(reviewer):
+	"""复核后必须仍存在「他人」可批准，否则记录会永久停在「已复核」。
+
+	业务 `approve_result` 与稳定性 `approve_result` 的**角色交集**（排除 System Manager）
+	是本流程唯一可用的批准线；若复核人已占满该角色，复核后角色交集内再无他人可批，
+	且业务状态机不允许 `已复核 -> 已提交`，修订逃生口同样走不通 —— 记录彻底卡死。
+	"""
+	business_roles = wf.ACTION_ROLES.get("approve_result", set())
+	stability_roles = wf.SCOPED_ACTION_ROLES.get((RESULT_DOCTYPE, "approve_result"), set())
+	eligible = set()
+	for role in (business_roles & stability_roles) - {wf.ROLE_SYSTEM}:
+		eligible.update(frappe.get_all(
+			"Has Role", filters={"role": role, "parenttype": "User"},
+			pluck="parent", limit_page_length=0))
+	if [u for u in eligible if u != reviewer and frappe.db.get_value("User", u, "enabled")]:
+		return
+	frappe.throw(
+		"稳定性取样样品的结果必须由他人批准：复核人「{}」是当前唯一具备批准权限的用户，"
+		"复核后将无人可批准，且无法修订回退。请改由 Reviewer 复核。".format(reviewer))
+
+
+def _validate_sync_timepoint(tp, audit=True):
+	"""同步只允许非终止时间点；审计提交必须发生在业务源结果写入前。"""
+	if tp.status in _SYNCABLE_TIMEPOINT_STATES:
+		return
+	message = "稳定性时间点「{}」当前为「{}」，禁止同步业务检验结果。".format(
+		tp.name, tp.status)
+	if audit:
+		_audit_violation(TIMEPOINT_DOCTYPE, tp.name,
+						 "业务结果同步被拒绝",
+						 "{}（包括已取消时间点）".format(message))
+	frappe.throw(message)
+
+
+def _prepare_standard_sync_context(result_name, target_status=None, approver=None,
+								   reviewer=None,
+							   audit=True):
+	"""同步前置校验，返回源结果、样品、锁定时间点和稳定性项目。"""
+	standard = frappe.get_doc("HBOS Test Result", result_name)
+	sample = frappe.get_doc("HBOS Sample", standard.sample)
+	if not stb.is_stability_sample_source(sample.sample_source):
+		return None
+	if not sample.stability_timepoint:
+		frappe.throw("稳定性样品 {} 未绑定稳定性时间点，无法同步结果。".format(sample.name))
+	tp = _lock_row(TIMEPOINT_DOCTYPE, sample.stability_timepoint)
+	_validate_sync_timepoint(tp, audit=audit)
+	stability_item = _stability_test_item_for_standard_result(standard, tp)
+	target = target_status or standard.result_status
+	if target == stb.RESULT_REVIEWED:
+		# 前置校验时 reviewer 尚未落库，取本次调用者（即将成为复核人）
+		_assert_independent_approver_exists(reviewer or standard.reviewer or _user())
+	if target == stb.RESULT_APPROVED:
+		_validate_stability_approval(standard, approver=approver)
+	return standard, sample, tp, stability_item
+
+
+def validate_standard_test_result_sync(result_name, target_status=None, approver=None,
+									   reviewer=None):
+	"""业务结果写入前调用的同步准入校验，不创建稳定性投影。"""
+	return _prepare_standard_sync_context(
+		result_name, target_status=target_status, approver=approver,
+		reviewer=reviewer, audit=True)
+
+
+def sync_standard_test_result(result_name, target_status=None, supersedes_result_name=None):
+	"""将业务 HBOS Test Result 幂等投影到稳定性结果与趋势数据。
+
+	只有样品来源为稳定性且已绑定时间点时才执行；稳定性结果保存 source_test_result
+	作为唯一幂等键，状态与版本随业务结果流转，趋势接口继续读取批准且当前的投影。
+	"""
+	context = _prepare_standard_sync_context(
+		result_name, target_status=target_status, audit=False)
+	if context is None:
+		return None
+	standard, sample, tp, stability_item = context
+	if tp.status == stb.TP_DONE:
+		_maybe_reopen_timepoint(tp)
+		tp = _load(TIMEPOINT_DOCTYPE, tp.name)
+	if tp.status == stb.TP_WAIT_TEST:
+		_set_status(tp, stb.FLOW_STB_TIMEPOINT, stb.TP_TESTING)
+		_audit_on(TIMEPOINT_DOCTYPE, "检测开始", tp.name,
+				  action_text="业务检验结果同步触发检测开始")
+	if tp.status == stb.TP_TESTING:
+		tp.flags.allow_system_fields = True
+		if not tp.test_by:
+			tp.test_by = standard.analyst or _user()
+		tp.save(ignore_permissions=True)
+	stable_sample = frappe.get_doc(SAMPLE_DOCTYPE, tp.stability_sample)
+	item = frappe.get_doc("HBOS Stability Test Item", stability_item)
+
+	projection_name = frappe.db.get_value(RESULT_DOCTYPE,
+		{"source_test_result": standard.name}, "name")
+	if projection_name:
+		res = _load(RESULT_DOCTYPE, projection_name)
+	else:
+		existing = _results_of_item(tp.name, stability_item)
+		if supersedes_result_name:
+			previous_name = frappe.db.get_value(RESULT_DOCTYPE,
+				{"source_test_result": supersedes_result_name}, "name")
+			if previous_name:
+				previous = _load(RESULT_DOCTYPE, previous_name)
+				if previous.status in stb.RESULT_INFLIGHT_STATES:
+					previous.status = stb.RESULT_VOIDED
+					previous.void_reason = "业务检验结果修订，旧投影作废"
+					previous.save(ignore_permissions=True)
+					_audit_on(RESULT_DOCTYPE, "结果作废", previous.name,
+							  action_text="业务检验结果修订，旧稳定性投影退出在途")
+			existing = _results_of_item(tp.name, stability_item)
+		# 已批准结果是版本链中的历史/当前版本，允许业务修订生成新投影；
+		# 仅未完成的在途结果阻止新的业务来源占用同一时间点项目。
+		occupied = [row for row in existing if row.status in stb.RESULT_INFLIGHT_STATES]
+		if occupied:
+			frappe.throw("稳定性时间点「{}」项目「{}」已有结果（{}），业务结果不能覆盖。"
+					 .format(tp.name, stability_item, occupied[0].name))
+		revision_no = _next_revision_no(tp.name, stability_item)
+		res = frappe.get_doc({
+			"doctype": RESULT_DOCTYPE,
+			"timepoint": tp.name,
+			"stability_sample": stable_sample.name,
+			"stability_test_item": stability_item,
+			"source_test_result": standard.name,
+			"result_value": _standard_result_value(standard),
+			"unit": standard.unit or frappe.db.get_value(
+				"HBOS Stability Product", stable_sample.stability_product, "default_uom"),
+			"source": "自检",
+			"is_zero_month": 1 if tp.is_zero_month else 0,
+			"revision_no": revision_no,
+			"result_version_key": stb.make_result_version_key(tp.name, stability_item, revision_no),
+			"is_current": 0,
+			"status": stb.RESULT_DRAFT,
+			"analyst": standard.analyst or _user(),
+			"test_date": _standard_result_date(standard),
+		})
+		res.flags.allow_system_fields = True
+		_spec_ref, spec_version, method_version, test_method, spec_row = \
+			_spec_context_for(stable_sample, stability_item)
+		res.spec_version = spec_version
+		res.method_version = method_version
+		res.test_method = test_method
+		res.item_snapshot = item.item_name
+		if spec_row is not None:
+			res.spec_limit = _limit_text_of(spec_row)
+		baseline = _pick_baseline(stable_sample.name, stability_item, tp.condition_type)
+		if baseline:
+			res.result_baseline = baseline["value"]
+			res.baseline_ref = baseline["ref"]
+			res.baseline_doctype = baseline["doctype"]
+			res.baseline_name = baseline["name"]
+		_apply_judgement(res, item, spec_row, baseline, standard)
+		res.insert(ignore_permissions=True)
+		_audit_on(RESULT_DOCTYPE, "结果录入", res.name,
+				  action_text="业务检验结果同步至稳定性结果",
+				  new_value="source_test_result={} status={}".format(standard.name, standard.result_status))
+
+	target = target_status or standard.result_status
+	res.flags.allow_system_fields = True
+	res.analyst = standard.analyst or res.analyst
+	if target in (stb.RESULT_SUBMITTED, stb.RESULT_REVIEWED, stb.RESULT_APPROVED):
+		res.test_date = _standard_result_date(standard)
+		tp.flags.allow_system_fields = True
+		tp.actual_test_date = res.test_date
+		tp.save(ignore_permissions=True)
+	if target == stb.RESULT_SUBMITTED:
+		res.status = stb.RESULT_SUBMITTED
+		res.submitted_by = standard.analyst or _user()
+		res.submitted_at = standard.submitted_at or _now()
+	elif target == stb.RESULT_REVIEWED:
+		res.status = stb.RESULT_REVIEWED
+		res.submitted_by = standard.analyst or res.submitted_by
+		res.submitted_at = standard.submitted_at or res.submitted_at or _now()
+		res.reviewed_by = standard.reviewer or _user()
+		res.reviewed_at = standard.reviewed_at or _now()
+	elif target == stb.RESULT_APPROVED:
+		old_name = _current_result_of(tp.name, stability_item, exclude=res.name)
+		if old_name:
+			old = _load(RESULT_DOCTYPE, old_name)
+			if old.status == stb.RESULT_APPROVED:
+				mark_superseded(old.name)
+				old = _load(RESULT_DOCTYPE, old.name)
+			old.is_current = 0
+			old.save(ignore_permissions=True)
+		res.status = stb.RESULT_APPROVED
+		res.is_current = 1
+		res.submitted_by = standard.analyst or res.submitted_by
+		res.submitted_at = standard.submitted_at or res.submitted_at or _now()
+		res.reviewed_by = standard.reviewer or res.reviewed_by
+		res.reviewed_at = standard.reviewed_at or res.reviewed_at or _now()
+		res.approved_by = standard.approver or _user()
+		res.approved_at = standard.approved_at or _now()
+		res.save(ignore_permissions=True)
+		_write_current_pointer(tp, stability_item, res.name)
+		_audit_on(RESULT_DOCTYPE, "结果批准", res.name,
+				  action_text="业务检验结果批准同步并切换稳定性生效指针",
+				  new_value="source_test_result={}".format(standard.name))
+		_maybe_complete_testing(tp)
+		return {"name": res.name, "status": res.status, "is_current": 1}
+	else:
+		res.status = stb.RESULT_DRAFT
+	res.save(ignore_permissions=True)
+	return {"name": res.name, "status": res.status, "is_current": res.is_current}
+
+
 # ---- 结果动作（方案 6.3.5） -----------------------------------------------
+
+def _business_stability_items_for_timepoint(timepoint_name):
+	"""返回已绑定业务样品覆盖的稳定性项目，仅用于项目粒度录入守卫。"""
+	sample_names = frappe.get_all(
+		"HBOS Sample", filters={"stability_timepoint": timepoint_name},
+		pluck="name", limit_page_length=0)
+	if not sample_names:
+		return set()
+	base_items = set()
+	for sample_name in sample_names:
+		sample = frappe.get_doc("HBOS Sample", sample_name)
+		base_items.update(row.test_item for row in (sample.items or []) if row.test_item)
+	if not base_items:
+		return set()
+	mappings = frappe.get_all(
+		"HBOS Stability Test Item",
+		filters={"base_test_item": ["in", sorted(base_items)]},
+		fields=["name"], limit_page_length=0)
+	return {row.name for row in mappings}
 
 @frappe.whitelist()
 def record_result(timepoint_name, stability_test_item, result_value, test_date=None,
@@ -2707,10 +3024,18 @@ def record_result(timepoint_name, stability_test_item, result_value, test_date=N
 		tp = _lock_row(TIMEPOINT_DOCTYPE, timepoint_name)
 		if tp.status != stb.TP_TESTING:
 			_reject(TIMEPOINT_DOCTYPE, timepoint_name,
-					"仅「检测中」的时间点可录入结果（当前：{}）。".format(tp.status),
-					"非法状态：{} 调用 record_result".format(tp.status))
+				"仅「检测中」的时间点可录入结果（当前：{}）。".format(tp.status),
+				"非法状态：{} 调用 record_result".format(tp.status))
 		if not frappe.db.exists("HBOS Stability Test Item", stability_test_item):
 			frappe.throw("检验项目「{}」不存在。".format(stability_test_item))
+		if not any(row.stability_test_item == stability_test_item
+				   for row in (tp.test_items or [])):
+			frappe.throw("检验项目「{}」不属于时间点「{}」。"
+					 .format(stability_test_item, timepoint_name))
+		covered_items = _business_stability_items_for_timepoint(timepoint_name)
+		if stability_test_item in covered_items:
+			frappe.throw("该时间点的业务检验样品已覆盖项目「{}」，请在业务操作中录入检验结果。"
+					 .format(stability_test_item))
 		inflight = [r for r in _results_of_item(tp.name, stability_test_item)
 					if r.status in stb.RESULT_INFLIGHT_STATES]
 		if inflight:
@@ -2776,6 +3101,7 @@ def submit_result(result_name, test_date=None):
 	_check_action("submit_result", RESULT_DOCTYPE, result_name)
 	try:
 		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		_ensure_manual_stability_result_allowed(res0)
 		tp = _lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)
 		res = _load(RESULT_DOCTYPE, result_name)
 		if res.status != stb.RESULT_DRAFT:
@@ -2829,6 +3155,7 @@ def review_result(result_name):
 	_check_action("review_result", RESULT_DOCTYPE, result_name)
 	try:
 		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		_ensure_manual_stability_result_allowed(res0)
 		_lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)
 		res = _load(RESULT_DOCTYPE, result_name)
 		if res.status != stb.RESULT_SUBMITTED:
@@ -2860,6 +3187,7 @@ def return_result(result_name, reason):
 		frappe.throw("退回原因必填。")
 	try:
 		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		_ensure_manual_stability_result_allowed(res0)
 		_lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)
 		res = _load(RESULT_DOCTYPE, result_name)
 		if res.status == stb.RESULT_SUBMITTED:
@@ -2896,6 +3224,7 @@ def approve_result(result_name):
 	_check_action("approve_result", RESULT_DOCTYPE, result_name)
 	try:
 		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		_ensure_manual_stability_result_allowed(res0)
 		tp = _lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)     # 锁 Timepoint（方案 7.8）
 		res = _load(RESULT_DOCTYPE, result_name)               # 锁内重读
 		if res.status != stb.RESULT_REVIEWED:
@@ -2961,6 +3290,7 @@ def revise_result(result_name):
 	_check_action("revise_result", RESULT_DOCTYPE, result_name)
 	try:
 		old0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		_ensure_manual_stability_result_allowed(old0)
 		tp = _lock_row(TIMEPOINT_DOCTYPE, old0.timepoint)
 		old = frappe.get_doc(RESULT_DOCTYPE, result_name)
 		if old.status not in (stb.RESULT_APPROVED, stb.RESULT_VOIDED):
@@ -3028,6 +3358,7 @@ def void_result(result_name, reason):
 		frappe.throw("作废原因必填。")
 	try:
 		res0 = frappe.get_doc(RESULT_DOCTYPE, result_name)
+		_ensure_manual_stability_result_allowed(res0)
 		tp = _lock_row(TIMEPOINT_DOCTYPE, res0.timepoint)
 		res = _load(RESULT_DOCTYPE, result_name)
 		if res.status not in (stb.RESULT_DRAFT, stb.RESULT_SUBMITTED,
@@ -3488,6 +3819,7 @@ def get_stability_results(timepoint=None, stability_sample=None, stability_test_
 				"result_value", "unit", "is_qualified", "is_significant_change",
 				"significant_change_basis", "result_baseline", "baseline_ref",
 				"baseline_doctype", "baseline_name", "is_zero_month", "source",
+				"source_test_result",
 				"revision_no", "is_current", "status", "analyst", "test_date",
 				"submitted_by", "submitted_at", "reviewed_by", "reviewed_at",
 				"approved_by", "approved_at", "return_reason", "void_reason",
@@ -3525,6 +3857,7 @@ def get_stability_result_detail(result_name):
 		"baseline_name": doc.baseline_name,
 		"is_zero_month": doc.is_zero_month,
 		"source": doc.source,
+		"source_test_result": doc.source_test_result,
 		"revision_no": doc.revision_no,
 		"is_current": doc.is_current,
 		"status": doc.status,

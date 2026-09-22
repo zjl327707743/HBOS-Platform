@@ -207,6 +207,7 @@ Owner 已确认“样品登记选择稳定性取样即为稳定性检测样品�
 | P0-5 映射不可维护 | 新增 Manager/System Manager 服务方法、API 和稳定性主数据页面维护入口；提供业务检验项目真实主数据选择、重复映射校验、结果存在后冻结和审计。 | 首次同步前可由 LIMS Manager 配置 `base_test_item`；本轮不替业务方虚构 4 个实际映射。 |
 | P2-6 整点锁死 | 稳定性页面人工录入改为按检验项目阻断：仅已被绑定业务样品覆盖的项目禁止重复录入，其余必检项目仍可人工录入。 | 业务样品与稳定性人工补录可在同一时间点按项目并存，避免时间点永久卡死。 |
 | P2-7 并发重复绑定 | 登记服务在检查重复绑定前锁定 `HBOS Stability Timepoint` 行；事务内再次复核既有业务样品和稳定性结果。 | 并发登记同一时间点时串行化，后到请求收到重复绑定拒绝。未对可为空的 `stability_timepoint` 建裸唯一索引，避免所有非稳定性样品共用空值时互相冲突。 |
+| P1-8 复核准入死锁 | 新增 `_assert_independent_approver_exists(reviewer)`：复核准入前按**业务与稳定性 `approve_result` 角色矩阵的交集**（排除 System Manager，不写死角色名单）查启用用户，除本次复核人外为空则拒绝复核。业务侧 `review_result` 显式传入 `reviewer=_user()`（前置校验早于 `result.reviewer` 赋值）。 | 消除永久卡死：业务 `approve_result` ∈ {Reviewer, Manager}、稳定性 `approve_result` ∈ {QA, QA Manager, Manager}，交集仅 Manager，叠加「批准人 ≠ 复核人」后**唯一可行组合是 Reviewer 复核 + Manager 批准**。此前 Manager 一旦复核，该记录既无人可批准（角色交集内无他人），也无法用 `revise_result` 回退（业务状态机不允许 `已复核 → 已提交`）。现改为一句话前置拒绝并给出可执行提示，且随角色矩阵变化自动放宽。 |
 
 ### 验证证据
 
@@ -217,5 +218,6 @@ Owner 已确认“样品登记选择稳定性取样即为稳定性检测样品�
 - 生产同步：Frappe `bench --site frontend migrate`、`clear-cache`、后端/前端/队列/调度器/WebSocket 重启及 nginx 配置重载均成功；生产备份为 `hbos-lims.bak-20260921180830`。
 - 生产 HTTP 冒烟：`/hbos-lims` 稳定性及既有业务路径共 17 个页面/资源全部返回 **200**。
 - 生产浏览器复测：结果录入与趋势页产品、检验项目下拉框及展开菜单均保持在趋势摘要卡片边界内，长文本按宽度省略显示。
+- **实机逐项复测**（`frontend` site，非 Administrator 真实用户；由具备 Frappe bench / Docker CLI 的会话执行）：P0-1 Reviewer 批准业务结果 → 拒绝且业务停在「已复核」；P0-4 修订件 提交 → 复核 → 批准 **成功**，六步切换正确（旧版 `已批准→已修订`、`is_current` 1→0；新版 `已复核→已批准`、0→1、指针切换）；P1-2 同一人复核 + 批准 → SoD 拒绝；P1-3 已取消时间点同步 → 拒绝，无稳定性结果写入且拒绝独立入审计；P0-5 映射维护 Analyst 拒 / Manager 允 / 重复映射拒 / 已有结果后拒；P2-6 被业务样品覆盖的项目拒、未覆盖项目允；P1-8 Manager 复核 → **前置拒绝**（原为永久卡死）、Reviewer 复核 + Manager 批准 → 通过。全部用例结束后运行期一致性扫描 **0 违规**，测试数据与映射已还原至基线。
 
 本轮追加涉及：`lims_service.py`、`stability_service.py`、`frontend/hbos-lims-web/src/api/stability.ts`、`frontend/hbos-lims-web/src/views/StabilityStudyView.vue`、`frontend/hbos-lims-web/src/styles/stability.scss`、`test_stability_r8j_contract.py`，以及本轮状态台账文件。

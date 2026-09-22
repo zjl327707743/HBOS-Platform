@@ -13,7 +13,8 @@ SAMPLE_STATUS_RELEASED = "已放行"
 SAMPLE_STATUS_REJECTED = "已拒绝"
 SAMPLE_STATUS_OOS = "OOS锁定"
 
-SAMPLE_ITEM_LOCKED_FIELDS = ("specification", "sample_type", "material_code", "material_name", "batch_no")
+SAMPLE_ITEM_LOCKED_FIELDS = ("specification", "sample_type", "material_code", "material_name", "batch_no",
+							"sample_source", "stability_timepoint")
 
 
 class HBOSSample(Document):

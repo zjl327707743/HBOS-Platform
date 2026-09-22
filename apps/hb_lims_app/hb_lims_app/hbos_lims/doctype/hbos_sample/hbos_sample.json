@@ -13,6 +13,7 @@
   "material_name",
   "batch_no",
   "sample_source",
+  "stability_timepoint",
   "specification",
   "spec_version",
   "priority",
@@ -71,6 +72,13 @@
    "label": "样品来源",
    "options": "生产取样\nQA取样\n客户送检\n稳定性\n留样\n清洁验证",
    "reqd": 1
+  },
+  {
+   "fieldname": "stability_timepoint",
+   "fieldtype": "Link",
+   "label": "稳定性时间点",
+   "options": "HBOS Stability Timepoint",
+   "description": "样品来源为稳定性取样时必填；业务检验结果将同步至该时间点。"
   },
   {
    "fieldname": "specification",

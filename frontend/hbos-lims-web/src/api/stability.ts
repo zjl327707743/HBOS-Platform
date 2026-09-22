@@ -194,6 +194,13 @@ export function products(keyword?: string, includeInactive = false): Promise<{ r
 export function master(doctype: string, keyword?: string): Promise<{ rows: MasterRow[] }> {
   return callMethod('hb_lims_app.hbos_lims.stability_service.get_stability_master', { doctype, keyword })
 }
+export function updateStabilityTestItemMapping(stabilityTestItem: string, baseTestItem?: string) {
+  return callMethod<{ name: string; base_test_item?: string }>(
+    'hb_lims_app.hbos_lims.stability_service.update_stability_test_item_mapping', {
+      stability_test_item: stabilityTestItem,
+      base_test_item: baseTestItem || undefined,
+    })
+}
 export function notices(params: { keyword?: string; status?: string; limit?: number; offset?: number } = {}) {
   return callMethod<{ rows: NoticeRow[] }>(
     'hb_lims_app.hbos_lims.stability_service.get_stability_notices', params)
@@ -632,6 +639,7 @@ export interface ResultRow {
   significant_change_basis?: string
   is_zero_month?: number
   source?: string
+  source_test_result?: string
   analyst?: string
   test_date?: string
   reviewed_by?: string
@@ -1040,6 +1048,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   approve_protocol: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
   reject_protocol: [ROLE.qa, ROLE.qaManager, ROLE.manager, ROLE.system],
   void_protocol: [ROLE.qp, ROLE.manager, ROLE.system],
+  manage_stability_master: [ROLE.manager, ROLE.system],
   // 6.3.3 FLOW_STB_SAMPLE
   register_stability_sample: [ROLE.analyst, ROLE.reviewer, ROLE.manager, ROLE.system],
   review_sample_storage: [ROLE.reviewer, ROLE.qa, ROLE.manager, ROLE.system],

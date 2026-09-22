@@ -125,7 +125,7 @@
                         v-model:value="form[f.key]"
                         :placeholder="f.placeholder || '请选择'"
                         style="width:100%"
-                        @change="f.key === 'specification' ? loadSpecItems(form[f.key]) : null"
+                        @change="onSelectChange(f.key)"
                       >
                         <a-select-option v-for="o in f.options" :key="o" :value="o">{{ o }}</a-select-option>
                       </a-select>
@@ -147,6 +147,25 @@
                         v-model:value="form[f.key]"
                         :placeholder="f.placeholder || ''"
                       />
+                    </a-form-item>
+                    <a-form-item v-if="isStabilitySource" label="稳定性时间点 *" class="full stability-binding-field">
+                      <a-select
+                        v-model:value="form.stability_timepoint"
+                        placeholder="选择对应的稳定性时间点"
+                        show-search
+                        option-filter-prop="label"
+                        style="width:100%"
+                      >
+                        <a-select-option
+                          v-for="tp in stabilityTimepointOptions"
+                          :key="tp.name"
+                          :value="tp.name"
+                          :label="formatStabilityTimepoint(tp)"
+                        >
+                          {{ formatStabilityTimepoint(tp) }}
+                        </a-select-option>
+                      </a-select>
+                      <div class="select-hint">该时间点的业务检验结果将自动同步到稳定性结果与趋势。</div>
                     </a-form-item>
                   </div>
                 </a-form>
@@ -249,6 +268,7 @@
           <div class="detail-row"><span class="k">批号</span><span class="v mono">{{ detailSample.batch_no }}</span></div>
           <div class="detail-row"><span class="k">样品类型</span><span class="v">{{ detailSample.sample_type }}</span></div>
           <div class="detail-row"><span class="k">样品来源</span><span class="v">{{ detailSample.sample_source }}</span></div>
+          <div v-if="detailSample.stability_timepoint" class="detail-row"><span class="k">稳定性时间点</span><span class="v mono">{{ detailSample.stability_timepoint }}</span></div>
           <div class="detail-row"><span class="k">质量标准</span><span class="v mono">{{ detailSample.specification }}</span></div>
           <div class="detail-row"><span class="k">状态</span><span class="v"><span class="pill" :class="statusClass(detailSample.status)">{{ detailSample.status }}</span></span></div>
           <div class="detail-row"><span class="k">请验人</span><span class="v mono">{{ detailSample.requestor }}</span></div>
@@ -322,6 +342,7 @@ import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { registerSample, listDoctype, getDoc, runReport } from '@/api/lims'
+import { schedule, type ScheduleRow } from '@/api/stability'
 
 const route = useRoute()
 const activeTab = ref(route.query.tab === 'ledger' ? 'ledger' : 'register')
@@ -344,6 +365,7 @@ const TYPE_FIELD_MAP: Record<string, { name: string; code?: string; batch?: stri
 const specifications = ref<{ name: string; status: string; version: string }[]>([])
 const specItems = ref<{ item: string; limits: string; unit: string }[]>([])
 const ledgerRows = ref<Record<string, unknown>[]>([])
+const stabilityTimepoints = ref<ScheduleRow[]>([])
 
 const ledgerSearch = ref('')
 const ledgerStatus = ref('')
@@ -356,6 +378,7 @@ const form = reactive<Record<string, any>>({
   material_name: '',
   batch_no: '',
   sample_source: '生产取样',
+  stability_timepoint: '',
   specification: '',
   test_due_date: '',
   remarks: '',
@@ -585,6 +608,8 @@ const activeFields = computed(() => (typeTemplates[form.sample_type] || typeTemp
 const formPanelTitle = computed(() => (typeTemplates[form.sample_type] || typeTemplates['成品']).title)
 const formPanelTag = computed(() => (typeTemplates[form.sample_type] || typeTemplates['成品']).tag)
 const contextTemplate = computed(() => form.sample_type + '检验')
+const isStabilitySource = computed(() => ['稳定性', '稳定性取样'].includes(form.sample_source))
+const stabilityTimepointOptions = computed(() => stabilityTimepoints.value.filter((row) => ['待检测', '检测中'].includes(row.status)))
 
 const matchedSpec = computed(() => specifications.value.find((s) => s.name === form.specification))
 
@@ -648,9 +673,22 @@ async function loadReferenceData() {
       form.specification = active.name
       await loadSpecItems(active.name)
     }
+    const scheduleData = await schedule({ limit: 500 })
+    stabilityTimepoints.value = scheduleData.rows || []
   } catch {
     message.warning('无法加载质量标准数据')
   }
+}
+
+function formatStabilityTimepoint(row: ScheduleRow) {
+  const product = row.product_name || row.stability_sample || '稳定性样品'
+  const batch = row.batch_no ? ` · 批号 ${row.batch_no}` : ''
+  return `${product}${batch} · ${row.condition_type} · ${row.time_point_label}（${row.name}）`
+}
+
+function onSelectChange(key: string) {
+  if (key === 'specification') loadSpecItems(form[key])
+  if (key === 'sample_source' && !isStabilitySource.value) form.stability_timepoint = ''
 }
 
 // 切换样品类型：整表替换，重置类型专属字段并联动质量标准
@@ -663,6 +701,7 @@ async function onTypeChange(_val: string) {
   form.sample_type = _val
   form.priority = keep.priority
   form.sample_source = '生产取样'
+  form.stability_timepoint = ''
   // 包装材料复验期默认 "/"（无则填 /）
   form.expiry_date = _val === '包装材料' ? '/' : ''
   // unit 字段默认单位（按类型）
@@ -769,6 +808,7 @@ function resetFields() {
     if (k !== 'sample_type' && k !== 'priority') form[k] = ''
   })
   form.sample_source = '生产取样'
+  form.stability_timepoint = ''
   specItems.value = []
 }
 
@@ -779,6 +819,7 @@ function resetForm() {
   form.sample_type = typeOptions[0] || '成品'
   form.priority = '常规'
   form.sample_source = '生产取样'
+  form.stability_timepoint = ''
   form.batch_qty_unit = 'g'
   form.sample_qty_unit = 'g'
   form.qty_unit = form.sample_type === '包装材料' ? '个' : '公斤'
@@ -797,6 +838,10 @@ async function submitSample() {
   const batchNo = form[fieldMap.batch || 'batch_no'] || form.batch_no
   if (!materialName || !batchNo || !form.sample_type || !form.specification) {
     message.warning('请填写样品类型、样品名称、批号和质量标准')
+    return
+  }
+  if (isStabilitySource.value && !form.stability_timepoint) {
+    message.warning('稳定性取样必须选择对应的稳定性时间点')
     return
   }
   for (const field of activeFields.value) {
@@ -838,6 +883,7 @@ async function submitSample() {
       material_name: materialName,
       batch_no: batchNo,
       sample_source: form.sample_source,
+      stability_timepoint: form.stability_timepoint || undefined,
       specification: form.specification,
       priority: form.priority,
       test_due_date: form.test_due_date,

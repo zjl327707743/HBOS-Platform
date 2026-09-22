@@ -29,6 +29,7 @@
   "significant_change_basis",
   "is_zero_month",
   "source",
+  "source_test_result",
   "section_version",
   "result_version_key",
   "revision_no",
@@ -211,6 +212,17 @@
    "fieldtype": "Select",
    "label": "结果来源",
    "options": "自检\n出厂全检\n委外"
+  },
+  {
+   "fieldname": "source_test_result",
+   "fieldtype": "Link",
+   "label": "业务检验结果",
+   "options": "HBOS Test Result",
+   "read_only": 1,
+   "no_copy": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "由业务操作中的 HBOS Test Result 自动同步，不允许在稳定性页面重复录入。"
   },
   {
    "fieldname": "section_version",

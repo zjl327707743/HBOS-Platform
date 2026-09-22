@@ -141,6 +141,7 @@ REPORT_DELETABLE_STATUSES = ("草稿",)
 RESULT_SYSTEM_FIELDS = (
 	"status", "is_current", "result_version_key", "revision_no", "supersedes",
 	"stability_sample", "item_snapshot", "method_version", "spec_limit", "spec_version",
+	"source_test_result",
 	"result_baseline", "baseline_ref", "baseline_doctype", "baseline_name",
 	"is_qualified", "is_significant_change", "significant_change_basis", "is_zero_month",
 	"oos_flag", "oot_flag",

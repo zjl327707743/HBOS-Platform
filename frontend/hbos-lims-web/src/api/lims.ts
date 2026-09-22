@@ -47,6 +47,7 @@ export function registerSample(params: {
   material_name?: string
   batch_no?: string
   sample_source?: string
+  stability_timepoint?: string
   specification?: string
   priority?: string
   test_due_date?: string

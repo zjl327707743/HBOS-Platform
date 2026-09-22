@@ -322,7 +322,7 @@
         <div class="panel-head">
           <div>
             <div class="panel-title">检验项目</div>
-            <div class="panel-sub">HBOS Stability Test Item（含显著变化判定规则）</div>
+            <div class="panel-sub">HBOS Stability Test Item（含显著变化判定规则与业务项目映射）</div>
           </div>
         </div>
         <div class="panel-body no-pad">
@@ -343,6 +343,22 @@
               <template v-else-if="column.key === 'rule'">
                 <span class="dim">{{ record.significant_change_rule }}</span>
               </template>
+              <template v-else-if="column.key === 'mapping'">
+                <span :class="record.base_test_item ? 'mono' : 'pill pill-warn'">
+                  {{ record.base_test_item || '未配置' }}
+                </span>
+              </template>
+              <template v-else-if="column.key === 'actions'">
+                <a-button
+                  v-if="can('manage_stability_master')"
+                  size="small"
+                  type="link"
+                  @click="openMapping(record)"
+                >
+                  维护映射
+                </a-button>
+                <span v-else class="dim">—</span>
+              </template>
             </template>
           </a-table>
         </div>
@@ -361,6 +377,28 @@
     >
       <a-textarea v-model:value="reasonText" :rows="3" placeholder="请填写原因（必填）" />
     </a-modal>
+
+    <a-modal
+      v-model:open="mappingOpen"
+      title="维护业务检验项目映射"
+      :confirm-loading="mappingSaving"
+      @ok="saveMapping"
+    >
+      <div v-if="mappingItem" class="stb-kv-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 14px">
+        <div class="stb-kv"><label>稳定性项目</label><b>{{ mappingItem.item_name || mappingItem.name }}</b></div>
+        <div class="stb-kv"><label>项目编码</label><b class="mono">{{ mappingItem.item_code || mappingItem.name }}</b></div>
+      </div>
+      <a-select
+        v-model:value="mappingBase"
+        :options="mappingOptions"
+        allow-clear
+        show-search
+        style="width: 100%"
+        placeholder="请选择业务检验项目"
+        option-filter-prop="label"
+      />
+      <div class="dim" style="margin-top: 8px">一个业务检验项目只能映射一个稳定性项目；已产生稳定性结果的项目不可修改映射。</div>
+    </a-modal>
   </div>
 </template>
 
@@ -378,6 +416,7 @@ import {
   confirmNoticeQc, master, noticeDetail as fetchNoticeDetail, notices,
   products, protocols, registerReview,
   rejectNotice, rejectProtocol, reviewProtocol, submitNotice, submitProtocol, voidProtocol,
+  updateStabilityTestItemMapping,
   type MasterRow, type NoticeDetail, type NoticeRow, type ProductRow, type ProtocolRow,
 } from '@/api/stability'
 
@@ -410,7 +449,16 @@ const loadingProducts = ref(false)
 
 const conditionRows = ref<MasterRow[]>([])
 const itemRows = ref<MasterRow[]>([])
+const baseItemRows = ref<MasterRow[]>([])
 const loadingMaster = ref(false)
+const mappingOpen = ref(false)
+const mappingSaving = ref(false)
+const mappingItem = ref<MasterRow | null>(null)
+const mappingBase = ref<string | undefined>(undefined)
+const mappingOptions = computed(() => baseItemRows.value.map((row) => ({
+  value: row.name,
+  label: `${String(row.item_name || row.name)} · ${String(row.item_code || row.name)}`,
+})))
 
 // ---- 状态语义 ----
 function statusTone(status: string): 'pass' | 'warn' | 'danger' | 'info' | 'muted' {
@@ -456,7 +504,9 @@ const itemMasterColumns = [
   { title: '编码', dataIndex: 'item_code', key: 'code', width: 140 },
   { title: '名称', dataIndex: 'item_name', key: 'name', width: 120 },
   { title: '等级', key: 'key', width: 80 },
-  { title: '显著变化规则', key: 'rule' },
+  { title: '显著变化规则', key: 'rule', width: 180 },
+  { title: '关联业务项目', key: 'mapping', width: 180 },
+  { title: '操作', key: 'actions', width: 100 },
 ]
 
 // ---- 通知单状态机步骤 ----
@@ -668,16 +718,39 @@ async function loadProducts() {
 async function loadMaster() {
   loadingMaster.value = true
   try {
-    const [c, i] = await Promise.all([
+    const [c, i, b] = await Promise.all([
       master('HBOS Stability Condition'),
       master('HBOS Stability Test Item'),
+      master('HBOS Test Item'),
     ])
     conditionRows.value = c.rows
     itemRows.value = i.rows
+    baseItemRows.value = b.rows
   } catch {
     // 具体错误已由 client 拦截层弹出
   } finally {
     loadingMaster.value = false
+  }
+}
+
+function openMapping(row: MasterRow) {
+  mappingItem.value = row
+  mappingBase.value = typeof row.base_test_item === 'string' ? row.base_test_item : undefined
+  mappingOpen.value = true
+}
+
+async function saveMapping() {
+  if (!mappingItem.value) return
+  mappingSaving.value = true
+  try {
+    await updateStabilityTestItemMapping(mappingItem.value.name, mappingBase.value)
+    mappingOpen.value = false
+    message.success('业务检验项目映射已保存')
+    await loadMaster()
+  } catch {
+    // 具体错误已由 client 拦截层弹出
+  } finally {
+    mappingSaving.value = false
   }
 }
 

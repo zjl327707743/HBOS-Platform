@@ -126,6 +126,32 @@ OUTSOURCE_CATEGORY_EXEMPT = True
 # 多条件复核触发阈值（方案 4.1）：条件 > 2 个时 extra_condition_reason 必填 + register_review 强制
 MULTI_CONDITION_THRESHOLD = 2
 
+# 业务样品来源别名。前端使用“稳定性取样”提升可读性，DocType 数据层保留既有
+# 受控枚举“稳定性”；两者在登记入口统一归一，避免同一业务出现两种来源值。
+STABILITY_SAMPLE_SOURCE = "稳定性"
+STABILITY_SAMPLE_SOURCE_ALIASES = {STABILITY_SAMPLE_SOURCE, "稳定性取样"}
+
+
+def normalize_sample_source(value):
+	"""归一化业务样品来源，返回稳定性板块使用的受控枚举值。"""
+	source = str(value or "").strip()
+	return STABILITY_SAMPLE_SOURCE if source in STABILITY_SAMPLE_SOURCE_ALIASES else source
+
+
+def is_stability_sample_source(value):
+	"""判断样品来源是否代表稳定性检测样品。"""
+	return normalize_sample_source(value) == STABILITY_SAMPLE_SOURCE
+
+
+def validate_stability_binding(sample_source, stability_timepoint):
+	"""校验样品来源与稳定性时间点的一致性，返回 (ok, error_message)。"""
+	is_stability = is_stability_sample_source(sample_source)
+	if is_stability and not str(stability_timepoint or "").strip():
+		return False, "样品来源为稳定性取样时，必须绑定稳定性时间点。"
+	if not is_stability and str(stability_timepoint or "").strip():
+		return False, "仅稳定性取样样品可以绑定稳定性时间点。"
+	return True, None
+
 
 def check_product_code(product_code):
 	"""产品编码校验（方案 5.1.1 P2 rev14）：必填、≤40、禁含 `#`。

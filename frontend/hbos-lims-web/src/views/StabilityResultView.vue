@@ -96,15 +96,20 @@
                   <template v-else-if="column.key === 'status'">
                     <span :class="toneClass(resultTone(record))">{{ resultStatusLabel(record) }}</span>
                   </template>
+                  <template v-else-if="column.key === 'source'">
+                    <span :class="record.source_test_result ? 'source-linked' : ''">
+                      {{ record.source_test_result ? '业务检验同步' : '稳定性直接录入' }}
+                    </span>
+                  </template>
                   <template v-else-if="column.key === 'action'">
                     <a-space size="small">
-                      <a-button v-if="can('submit_result') && record.status === '草稿'" type="link" size="small"
+                      <a-button v-if="can('submit_result') && !record.source_test_result && record.status === '草稿'" type="link" size="small"
                                 @click="runAction('提交结果', () => submitResult(record.name))">提交</a-button>
-                      <a-button v-if="can('review_result') && record.status === '已提交'" type="link" size="small"
+                      <a-button v-if="can('review_result') && !record.source_test_result && record.status === '已提交'" type="link" size="small"
                                 @click="runAction('复核结果', () => reviewResult(record.name))">复核</a-button>
-                      <a-button v-if="can('approve_result') && record.status === '已复核'" type="link" size="small"
+                      <a-button v-if="can('approve_result') && !record.source_test_result && record.status === '已复核'" type="link" size="small"
                                 @click="runAction('批准结果', () => approveResult(record.name))">批准</a-button>
-                      <a-button v-if="can('void_result') && record.status !== '已作废' && record.status !== '已修订'" type="link" size="small" danger
+                      <a-button v-if="can('void_result') && !record.source_test_result && record.status !== '已作废' && record.status !== '已修订'" type="link" size="small" danger
                                 @click="askReason('作废结果', 'void', record)">作废</a-button>
                     </a-space>
                   </template>
@@ -195,6 +200,7 @@ const resultColumns = [
   { title: '结果', key: 'value', width: 110 },
   { title: '版本', dataIndex: 'revision_no', key: 'rev', width: 60 },
   { title: '状态', key: 'status', width: 100 },
+  { title: '来源', key: 'source', width: 110 },
   { title: '显著变化', key: 'sig', dataIndex: 'is_significant_change', width: 70 },
   { title: '操作', key: 'action', width: 215 },
 ]

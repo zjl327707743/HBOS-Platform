@@ -15,6 +15,7 @@ from pathlib import Path
 import frappe
 
 from hb_lims_app.hbos_lims import result_contract as rc
+from hb_lims_app.hbos_lims import stability_contract as stb
 from hb_lims_app.hbos_lims import workflow_contract as wf
 
 # 签名含义（开发方案：检验人 / 复核人 / 批准人 电子签名）
@@ -187,13 +188,65 @@ def get_user_roles(username=None):
 
 # ---------------------------------------------------------------------------
 
+def _validate_stability_sample_binding(sample_source, stability_timepoint,
+									material_code, batch_no, specification):
+	"""登记稳定性业务样品时校验产品、批号、标准与时间点的一致性。"""
+	ok, error = stb.validate_stability_binding(sample_source, stability_timepoint)
+	if not ok:
+		frappe.throw(error)
+	if not stb.is_stability_sample_source(sample_source):
+		return None
+
+	if not frappe.db.exists("HBOS Stability Timepoint", stability_timepoint):
+		frappe.throw("稳定性时间点「{}」不存在。".format(stability_timepoint))
+	# 绑定唯一性必须在时间点行锁内复核；否则两个并发登记请求可同时通过 exists 检查。
+	frappe.db.get_value("HBOS Stability Timepoint", stability_timepoint, "name",
+					   for_update=True)
+	tp = frappe.get_doc("HBOS Stability Timepoint", stability_timepoint)
+	if tp.status not in (stb.TP_WAIT_TEST, stb.TP_TESTING):
+		frappe.throw("稳定性时间点「{}」当前状态为「{}」，仅待检测或检测中可登记业务样品。"
+					 .format(stability_timepoint, tp.status))
+	if not tp.stability_sample:
+		frappe.throw("稳定性时间点「{}」未关联稳定性样品。".format(stability_timepoint))
+
+	stable_sample = frappe.get_doc("HBOS Stability Sample", tp.stability_sample)
+	product = frappe.get_doc("HBOS Stability Product", stable_sample.stability_product)
+	if str(product.product_code or "") != str(material_code or ""):
+		frappe.throw("样品物料编码（{}）与稳定性产品编码（{}）不一致。"
+					 .format(material_code or "未填", product.product_code or "未填"))
+	if str(stable_sample.batch_no or "") != str(batch_no or ""):
+		frappe.throw("样品批号（{}）与稳定性样品批号（{}）不一致。"
+					 .format(batch_no or "未填", stable_sample.batch_no or "未填"))
+
+	source_doc = None
+	if stable_sample.protocol:
+		source_doc = frappe.get_doc("HBOS Stability Protocol", stable_sample.protocol)
+	elif stable_sample.notice:
+		source_doc = frappe.get_doc("HBOS Stability Notice", stable_sample.notice)
+	source_spec = getattr(source_doc, "spec_ref", None) if source_doc else None
+	if source_spec and str(source_spec) != str(specification or ""):
+		frappe.throw("样品质量标准（{}）与稳定性来源标准（{}）不一致。"
+					 .format(specification or "未填", source_spec))
+	if frappe.db.exists("HBOS Sample", {"stability_timepoint": stability_timepoint}):
+		frappe.throw("稳定性时间点「{}」已登记业务检验样品，不可重复绑定。"
+					 .format(stability_timepoint))
+	if frappe.db.exists("HBOS Stability Result", {"timepoint": stability_timepoint}):
+		frappe.throw("稳定性时间点「{}」已有结果，不可再登记业务检验样品。"
+					 .format(stability_timepoint))
+	return tp
+
+
 @frappe.whitelist()
 def register_sample(sample_type=None, material_code=None, material_name=None,
 					batch_no=None, sample_source="生产取样", specification=None,
-					priority="常规", test_due_date=None, remarks=None):
+					priority="常规", test_due_date=None, remarks=None,
+					stability_timepoint=None):
 	"""样品登记：校验规格已生效，从规格复制检验项目快照，状态 草稿 -> 已登记。"""
 	_check_action("register_sample")
 	try:
+		sample_source = stb.normalize_sample_source(sample_source)
+		_validate_stability_sample_binding(sample_source, stability_timepoint,
+										material_code, batch_no, specification)
 		spec = frappe.get_doc("HBOS Specification", specification)
 		if spec.status != "已生效":
 			frappe.throw(f"质量标准 {specification} 未生效，样品登记只能引用已生效标准。")
@@ -205,6 +258,7 @@ def register_sample(sample_type=None, material_code=None, material_name=None,
 			"material_name": material_name,
 			"batch_no": batch_no,
 			"sample_source": sample_source,
+			"stability_timepoint": stability_timepoint,
 			"specification": specification,
 			"spec_version": spec.version,
 			"priority": priority,
@@ -341,6 +395,8 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 		result = frappe.get_doc("HBOS Test Result", result_name)
 		if result.result_status != "草稿":
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅草稿可提交。")
+		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
+		validate_standard_test_result_sync(result.name, target_status="已提交")
 
 		# 公式计算（含量 % 等）：提供公式输入参数时自动计算 result_value
 		if calculation_used:
@@ -396,6 +452,8 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 			if task.status != "已提交":
 				_set_status(task, wf.FLOW_TASK, task.status, "已提交")
 			task.save(ignore_permissions=True)
+		from hb_lims_app.hbos_lims.stability_service import sync_standard_test_result
+		sync_standard_test_result(result.name, target_status="已提交")
 		_commit()
 		return {"result": result.name, "verdict": result.verdict, "is_oos_candidate": result.is_oos_candidate}
 	except Exception:
@@ -447,6 +505,8 @@ def review_result(result_name):
 		result = frappe.get_doc("HBOS Test Result", result_name)
 		if result.result_status != "已提交":
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅已提交可复核。")
+		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
+		validate_standard_test_result_sync(result.name, target_status="已复核", reviewer=_user())
 		result.result_status = "已复核"
 		result.reviewer = _user()
 		result.reviewed_signature = _signature(SIGN_REVIEWER)
@@ -456,6 +516,8 @@ def review_result(result_name):
 		task = frappe.get_doc("HBOS Sample Task", result.task)
 		_set_status(task, wf.FLOW_TASK, task.status, "已复核")
 		task.save(ignore_permissions=True)
+		from hb_lims_app.hbos_lims.stability_service import sync_standard_test_result
+		sync_standard_test_result(result.name, target_status="已复核")
 		audit_log("复核", result.doctype, result.name,
 				  action_text="结果复核（第二人独立）",
 				  field_changed="result_status", old_value="已提交", new_value="已复核",
@@ -477,6 +539,8 @@ def approve_result(result_name):
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅已复核可批准。")
 		if result.is_oos_candidate:
 			frappe.throw("OOS 候选结果不允许批准放行，需先完成 OOS 处理。")
+		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
+		validate_standard_test_result_sync(result.name, target_status="已批准", approver=_user())
 		result.result_status = "已批准"
 		result.approver = _user()
 		result.approved_signature = _signature(SIGN_APPROVER)
@@ -488,6 +552,8 @@ def approve_result(result_name):
 		_set_status(task, wf.FLOW_TASK, task.status, "已批准")
 		task.save(ignore_permissions=True)
 		_advance_sample_after_task(task.sample)
+		from hb_lims_app.hbos_lims.stability_service import sync_standard_test_result
+		sync_standard_test_result(result.name, target_status="已批准")
 		audit_log("批准", result.doctype, result.name,
 				  action_text="结果批准",
 				  field_changed="result_status", old_value="已复核", new_value="已批准",
@@ -527,6 +593,8 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 		old = frappe.get_doc("HBOS Test Result", result_name)
 		if old.result_status not in ("已提交", "已复核", "已批准"):
 			frappe.throw(f"检测记录 {result_name} 状态为 {old.result_status}，当前状态不可修订。")
+		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
+		validate_standard_test_result_sync(old.name, target_status="草稿")
 
 		old_value = str(old.get(field) or "")
 		if not old_value:
@@ -574,6 +642,9 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 		if task.status != "已提交":
 			_set_status(task, wf.FLOW_TASK, task.status, "已提交")
 		task.save(ignore_permissions=True)
+		from hb_lims_app.hbos_lims.stability_service import sync_standard_test_result
+		sync_standard_test_result(new_doc.name, target_status="草稿",
+							  supersedes_result_name=old.name)
 		audit_log("修订", old.doctype, old.name,
 				  action_text="结果修订 · 生成新版本",
 				  field_changed=field, old_value=old_value, new_value=str(new_value),
