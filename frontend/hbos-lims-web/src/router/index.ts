@@ -26,6 +26,12 @@ const routes = [
         meta: { title: '待检任务看板' },
       },
       {
+        path: 'my-todos',
+        name: 'my-todos',
+        component: () => import('@/views/MyTodosView.vue'),
+        meta: { title: '我的待办' },
+      },
+      {
         path: 'results',
         name: 'results-list',
         component: () => import('@/views/ResultListView.vue'),

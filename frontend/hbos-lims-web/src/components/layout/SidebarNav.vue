@@ -30,12 +30,11 @@
         >
           <CarryOutOutlined />
           <span v-if="!collapsed">待检任务看板</span>
-          <span v-if="!collapsed && pendingCount > 0" class="nav-badge danger">{{ pendingCount }}</span>
         </router-link>
         <button type="button" class="nav-item work-item shortcut-button" title="我的待办" @click="goToTasks">
           <UnorderedListOutlined />
           <span v-if="!collapsed">我的待办</span>
-          <span v-if="!collapsed && totalAttentionCount > 0" class="nav-badge danger">{{ totalAttentionCount }}</span>
+          <span v-if="!collapsed && todoStore.summary.total > 0" class="nav-badge danger">{{ todoStore.summary.total }}</span>
         </button>
       </section>
 
@@ -60,8 +59,8 @@
           <component :is="groupIcons[group.key]" />
           <span v-if="!collapsed" class="nav-group-label">{{ group.label }}</span>
           <span v-if="!collapsed" class="nav-count">{{ group.children.length }}</span>
-          <span v-if="!collapsed && groupBadge(group.key) > 0" class="nav-badge module-badge">
-            {{ groupBadge(group.key) }}
+          <span v-if="!collapsed && groupBadge() > 0" class="nav-badge module-badge">
+            {{ groupBadge() }}
           </span>
           <DownOutlined v-if="!collapsed && isGroupExpanded(group.key)" class="group-chevron" />
           <RightOutlined v-else-if="!collapsed" class="group-chevron" />
@@ -133,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, type Component } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   AuditOutlined,
@@ -167,6 +166,7 @@ import {
 } from '@ant-design/icons-vue'
 import { dashboard as stabilityDashboard } from '@/api/stability'
 import { useAuthStore } from '@/stores/auth'
+import { useTodoStore } from '@/stores/todo'
 import {
   getGroupForPath,
   getInitialExpandedGroup,
@@ -184,6 +184,7 @@ defineEmits<{ toggle: [] }>()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const todoStore = useTodoStore()
 
 const groupIcons: Record<SidebarGroupKey, Component> = {
   testing: CarryOutOutlined,
@@ -253,13 +254,8 @@ const expandedGroups = ref<Set<SidebarGroupKey>>(readExpandedGroups(route.path))
 const hiddenRecentKeys = ref<string[]>(readHiddenRecentKeys())
 const visibleRecentNavItems = computed(() => getVisibleRecentNavItems(defaultRecentNavItems, hiddenRecentKeys.value))
 
-// TODO: 联调后从待检任务 API 读取待办角标数。
-const pendingCount = 0
-
 // 稳定性角标：取自真实时间点执行状态，无权限/未登录时不显示。
 const stabilityCounts = ref({ schedule: 0, results: 0 })
-
-const totalAttentionCount = computed(() => pendingCount + stabilityCounts.value.schedule + stabilityCounts.value.results)
 
 function persistExpandedGroups() {
   if (typeof window === 'undefined') return
@@ -308,21 +304,19 @@ function collapseAll() {
   persistExpandedGroups()
 }
 
-function groupBadge(key: SidebarGroupKey): number {
-  if (key === 'testing') return pendingCount
-  if (key === 'stability') return stabilityCounts.value.schedule + stabilityCounts.value.results
+function groupBadge(): number {
+  // 个人待办和模块全局工作量语义不同，分组不显示汇总角标。
   return 0
 }
 
 function itemBadge(item: SidebarNavItem): number | null {
-  if (item.badge === 'pending') return pendingCount > 0 ? pendingCount : null
   if (item.badge === 'schedule') return stabilityCounts.value.schedule > 0 ? stabilityCounts.value.schedule : null
   if (item.badge === 'results') return stabilityCounts.value.results > 0 ? stabilityCounts.value.results : null
   return null
 }
 
 function goToTasks() {
-  void router.push('/tasks')
+  void router.push('/my-todos')
 }
 
 function hasLimsRole(): boolean {
@@ -343,7 +337,22 @@ async function loadStabilityBadges() {
   }
 }
 
-onMounted(() => { void auth.checkSession() })
+async function refreshTodoSummary() {
+  if (await auth.checkSession()) await todoStore.fetchSummary()
+}
+
+function handleWindowFocus() {
+  void refreshTodoSummary()
+}
+
+onMounted(() => {
+  void refreshTodoSummary()
+  window.addEventListener('focus', handleWindowFocus)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', handleWindowFocus)
+})
 
 watch(() => auth.user?.roles?.length ?? 0, () => { void loadStabilityBadges() }, { immediate: true })
 
@@ -354,6 +363,7 @@ watch(() => route.path, (path) => {
     persistExpandedGroups()
   }
   if (path.startsWith('/stability')) void loadStabilityBadges()
+  if (auth.user) void todoStore.fetchSummary()
 })
 </script>
 

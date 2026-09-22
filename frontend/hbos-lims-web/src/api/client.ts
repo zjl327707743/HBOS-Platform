@@ -56,6 +56,7 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status
     if (status === 401) {
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('hbos:auth-expired'))
       message.warning('登录已失效，请重新登录')
     } else {
       // 提取 Frappe 错误消息

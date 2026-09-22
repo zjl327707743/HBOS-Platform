@@ -4,13 +4,21 @@ export interface SidebarNavItem {
   key: string
   label: string
   path: string
-  badge?: 'pending' | 'schedule' | 'results'
+  badge?: 'pending' | 'schedule' | 'results' | 'todo-total'
 }
 
 export interface SidebarNavGroup {
   key: SidebarGroupKey
   label: string
   children: SidebarNavItem[]
+  badge?: number
+}
+
+export const myTodoNavItem = {
+  key: 'my-todos',
+  label: '我的待办',
+  path: '/my-todos',
+  badge: 'todo-total' as const,
 }
 
 export interface RecentNavItem {

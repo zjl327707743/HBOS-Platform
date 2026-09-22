@@ -28,3 +28,4 @@ Task 2: complete (commits 963bb35 + follow-up, tests: `python3 -m pytest tests/t
 Task 3: complete (commit pending, tests: `python3 -m pytest tests/test_todo_contract.py tests/test_todo_service_contract.py tests/test_stability_r8b_contract.py tests/test_stability_r8c_contract.py tests/test_stability_r8j_contract.py -q` → 134 passed; `python3 -m pytest -q` → 368 passed in 0.27s)
 Task 4: complete (commit pending, tests: `python3 -m pytest tests/test_todo_service_contract.py tests/test_todo_report_scope_contract.py -q` → 22 passed; `python3 -m pytest -q` → 379 passed in 0.35s)
 Task 5: complete (commit pending, tests: `npm run test:unit` → 6 passed; `npm run build` → passed with existing large-chunk warning)
+Task 6: complete (commit pending, tests: frontend `npm run test:unit` → 6 passed; `npm run build` → passed with existing large-chunk warning; backend frontend-contract → 4 passed)

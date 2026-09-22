@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '@/api/client'
+import { useTodoStore } from '@/stores/todo'
 
 export interface FrappeUser {
   name: string
@@ -11,9 +12,20 @@ export interface FrappeUser {
 }
 
 export const useAuthStore = defineStore('auth', () => {
+  const todoStore = useTodoStore()
   const user = ref<FrappeUser | null>(null)
   const loading = ref(false)
   const initialized = ref(false)
+
+  function clearSessionState() {
+    user.value = null
+    initialized.value = false
+    todoStore.clearForLogout()
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('hbos:auth-expired', clearSessionState)
+  }
 
   const isLoggedIn = computed(() => !!user.value)
 
@@ -113,8 +125,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await api.post('logout')
     } finally {
-      user.value = null
-      initialized.value = false
+      clearSessionState()
     }
   }
 
