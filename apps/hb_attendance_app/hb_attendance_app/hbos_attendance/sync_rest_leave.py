@@ -156,8 +156,11 @@ def sync_rest_leave_from_bitable():
             # 出去，上面这层逐条兜底就白写了：本批计数、摘要、调度链全丢，
             # 正是兜底注释声称要防的事。日志丢了不影响计数（已计入 failed），
             # 故静默吞掉。
-            # 注意：防护层刻意写成不带 as e 的裸形式——测试靠回退查找
-            # 带 as e 的 except 行来定位处理体，带 as e 会让它认错位置。
+            # 注意形状（勿改）：防护层刻意写成不带 as e 的裸形式。测试的定位
+            # 助手 _nested_guard 从这次日志**前向**查找裸 except，并要求最近的
+            # 那个 except 就是本处这一条——若本处改成带 as e 的形式，前向查找会
+            # 一路跳到文件后面某个无关的裸 except 上，把别人的防护体当成本处的
+            # （强化后的助手则直接判定本处没有防护）。两种情形测试都会失败。
             # 更一般地：本文件的注释与字符串里不得出现结构锚点原文，且生产代码
             # 的**形状**被 tests/ 的字符串检索式断言约束（见 test_rest_leave_parse
             # / test_rest_leave_verify 里的 _nested_guard、_except_block）；
@@ -207,13 +210,25 @@ def parse_pending_rest_leaves(limit=200):
         summary["error"] = "未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）"
         return summary
 
-    pending = frappe.db.get_all(
-        DOCTYPE,
-        filters={"verify_status": PARSE_PENDING},
-        fields=["name", "employee_name", "employee_number", "remarks", "start_date"],
-        limit_page_length=limit,
-        order_by="creation asc",
-    )
+    # 取待解析列表本身也会抛（DB 故障 / 权限 / 连接断），先前只想过 get_doc 会抛，
+    # 漏了这里。它与核实段 verify_pending_rest_leaves 的取待核列表同形兜住：
+    # 读不到列表就没有任何可处理的对象，error 先行、日志再裹一层、原样返回摘要。
+    try:
+        pending = frappe.db.get_all(
+            DOCTYPE,
+            filters={"verify_status": PARSE_PENDING},
+            fields=["name", "employee_name", "employee_number", "remarks", "start_date"],
+            limit_page_length=limit,
+            order_by="creation asc",
+        )
+    except Exception as e:
+        summary["error"] = str(e)
+        try:
+            frappe.log_error(str(e), "调休加班日取待解析列表失败")
+        except Exception:
+            # 静默：日志失败不能让异常冒出，否则 error 摘要有值也回不去。
+            pass
+        return summary
     batch_deadline = _time.monotonic() + PARSE_BATCH_SECONDS
     for row in pending:
         # 时间预算：超预算停止发起新调用，剩余记录保持待解析，下次运行继续。
@@ -278,8 +293,20 @@ def parse_pending_rest_leaves(limit=200):
             summary["failed"] += 1
             continue
 
-    summary["remaining"] = frappe.db.count(
-        DOCTYPE, {"verify_status": PARSE_PENDING})
+    # 积压统计同样会抛（DB 故障 / 权限 / 连接断），先前只兜了逐条处理，
+    # 漏了收尾这一步。核实段 verify_pending_rest_leaves 对同名调用同形兜住：
+    # 此处**不提前返回**——循环已跑完、本批计数已就绪，统计失败只影响
+    # remaining 这一个键，不能连已落库的结论一起丢（与核实段收尾一致）。
+    try:
+        summary["remaining"] = frappe.db.count(
+            DOCTYPE, {"verify_status": PARSE_PENDING})
+    except Exception as e:
+        summary["error"] = str(e)
+        try:
+            frappe.log_error(str(e), "调休加班日解析积压统计失败")
+        except Exception:
+            # 静默：日志失败不能让异常冒出，否则本批计数随函数一起丢。
+            pass
     return summary
 
 

@@ -98,11 +98,13 @@ class VerifyStageContractTest(unittest.TestCase):
     def _nested_guard(self, title):
         """取出包住该 log_error 调用的裸防护体；没有防护则返回 ""。
 
-        判别点三层，任一层不满足即返回 ""（这样修前必失败）：
+        判别点四层，任一层不满足即返回 ""（这样修前必失败）：
         1. log_error 之前紧邻一个 try:，两者之间除了缩进只剩下被调对象的
            前缀「frappe.」（即该 try 体的第一条语句就是这个日志调用）；
         2. 该 try 对应的 except 是不带 as e 的裸形式（`except Exception:`）；
-        3. 裸 except 体内以 pass 收尾（真吞掉，不是换个方式往上抛）。
+        3. 裸 except 体内以 pass 收尾（真吞掉，不是换个方式往上抛）；
+        4. 该裸 except 必须是**本处**那一条（最近的 except 就是它），
+           否则前向查找会跳到文件后面某个无关的裸 except 上。
         """
         at = self.src.find(title)
         if at < 0:
@@ -121,8 +123,16 @@ class VerifyStageContractTest(unittest.TestCase):
         guard_at = after.find(BARE_GUARD)
         if guard_at < 0:
             return ""
+        # guard_at 必须是**本处**那个 except：若这里写的是带 as e 的 except，
+        # 上面的 find 会一路跳到文件后面某个无关的裸 except 上，把别人的防护体
+        # 当成本处的（“最近的 except 就是这一个”才成立）。变异验证过：没有这行
+        # 时，把本处写成 `except Exception as e:` 的错实现可以蒙混过去。
+        if after.find("except") != guard_at:
+            return ""
+        # pass 必须落在这段防护体的近旁：否则「防护体没吞异常」会被文件后面
+        # 某个无关的 pass 蒙混过去。
         pass_at = after.find("pass", guard_at)
-        if pass_at < 0:
+        if pass_at < 0 or pass_at - guard_at > 200:
             return ""
         return after[guard_at:pass_at + len("pass")]
 

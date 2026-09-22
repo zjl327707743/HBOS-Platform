@@ -270,11 +270,13 @@ class ParseStageContractTest(unittest.TestCase):
     def _nested_guard(self, title):
         """取出包住该 log_error 调用的裸防护体；没有防护则返回 ""。
 
-        判别点三层，任一层不满足即返回 ""（这样修前这些位置必失败）：
+        判别点四层，任一层不满足即返回 ""（这样修前这些位置必失败）：
         1. log_error 之前紧邻一个 try:，两者之间除了缩进只剩下被调对象的
            前缀「frappe.」（即该 try 体的第一条语句就是这个日志调用）；
         2. 该 try 对应的 except 是不带 as e 的裸形式（`except Exception:`）；
-        3. 裸 except 体内以 pass 收尾（真吞掉，不是换个方式往上抛）。
+        3. 裸 except 体内以 pass 收尾（真吞掉，不是换个方式往上抛）；
+        4. 该裸 except 必须是**本处**那一条（最近的 except 就是它），
+           否则前向查找会跳到文件后面某个无关的裸 except 上。
         """
         at = self.src.find(title)
         if at < 0:
@@ -293,10 +295,99 @@ class ParseStageContractTest(unittest.TestCase):
         guard_at = after.find(BARE_GUARD)
         if guard_at < 0:
             return ""
+        # guard_at 必须是**本处**那个 except：若这里写的是带 as e 的 except，
+        # 上面的 find 会一路跳到文件后面某个无关的裸 except 上，把别人的防护体
+        # 当成本处的（“最近的 except 就是这一个”才成立）。变异验证过：没有这行
+        # 时，把本处写成 `except Exception as e:` 的错实现可以蒙混过去。
+        if after.find("except") != guard_at:
+            return ""
+        # pass 必须落在这段防护体的近旁：否则「防护体没吞异常」会被文件后面
+        # 某个无关的 pass 蒙混过去。
         pass_at = after.find("pass", guard_at)
-        if pass_at < 0:
+        if pass_at < 0 or pass_at - guard_at > 200:
             return ""
         return after[guard_at:pass_at + len("pass")]
+
+    def _guard_span(self, marker):
+        """取出包住 marker 处调用的整段防护层（行首 try: 到 except 体结束）。
+
+        判别法（结构，不是 grep）：先按缩进确认这次调用落在某个 try **体**里
+        ——调用所在行的缩进必须比最近那个 try 行的缩进更深，且两行之间不得
+        出现缩进回到 try 同级的语句（那样说明已经走出 try 体）；再向后取同级
+        except 的整段体（止于下一个缩进 <= try 的非空行）。修前这两处调用与
+        try 平齐、直接写在函数体顶层，返回 ""，断言必失败——这是「对错误的
+        实现失败」，不是「源码里有没有 try: 字样」。
+        """
+        at = self.src.index(marker)
+        line_start = self.src.rindex("\n", 0, at) + 1
+        indent = len(self.src[line_start:at]) - len(
+            self.src[line_start:at].lstrip(" "))
+        try_at = self.src.rindex("try:", 0, at)
+        tline = self.src[self.src.rindex("\n", 0, try_at) + 1:]
+        try_indent = len(tline) - len(tline.lstrip(" "))
+        if try_indent >= indent:
+            return ""
+        head = self.src[self.src.index("\n", try_at) + 1:line_start]
+        for line in head.splitlines():
+            if line.strip() and len(line) - len(line.lstrip(" ")) <= try_indent:
+                return ""
+        pos = self.src.index("\n", try_at)
+        while True:                       # 同级 except 行
+            nxt = self.src.index("\n", pos + 1)
+            line = self.src[pos + 1:nxt]
+            if (line.strip()
+                    and len(line) - len(line.lstrip(" ")) == try_indent
+                    and line.lstrip().startswith("except")):
+                except_at = pos + 1
+                break
+            pos = nxt
+        pos = self.src.index("\n", except_at)
+        while True:                       # except 体结束
+            nxt = self.src.index("\n", pos + 1)
+            line = self.src[pos + 1:nxt]
+            if line.strip() and len(line) - len(line.lstrip(" ")) <= try_indent:
+                end_at = pos + 1
+                break
+            pos = nxt
+        return self.src[try_at:end_at]
+
+    def test_pending_list_fetch_and_backlog_count_are_guarded(self):
+        """F1：取待解析列表与收尾积压统计都必须在防护层内，失败记 error 不抛。
+
+        回归场景：DB 故障 / 权限 / 连接断。修前这两次调用裸写在
+        parse_pending_rest_leaves 的函数体顶层，任一抛异常都直接冒出函数——
+        本批已落库的计数与本轮积压数一起丢，调度链也断；而核实段
+        verify_pending_rest_leaves 里同形的两处调用都兜住了，形状不一致。
+        判别法见 _guard_span（比缩进层级与语句位置）与 _nested_guard
+        （日志自身还得再裹一层裸 try）。
+        """
+        cases = (
+            # marker, 日志标题, 是否必须提前返回（读不到列表就无可处理对象）
+            ("frappe.db.get_all(", "调休加班日取待解析列表失败", True),
+            ("frappe.db.count(", "调休加班日解析积压统计失败", False),
+        )
+        for marker, title, early in cases:
+            with self.subTest(marker=marker):
+                span = self._guard_span(marker)
+                self.assertTrue(
+                    span,
+                    "%s 没有落在防护层内：DB 一抛就冒出函数，本批计数与调度链一起丢"
+                    % marker)
+                self.assertIn(
+                    'summary["error"] = str(e)', span,
+                    "防护层必须写下 error 摘要（调度器区分「跑了没做事」的唯一依据）")
+                self.assertTrue(
+                    self._nested_guard(title),
+                    "%s 的 log_error 自身没有裸兜底（日志写失败会二次抛出）" % title)
+                if early:
+                    self.assertIn(
+                        "return summary", span,
+                        "取列表失败时无可处理对象，必须原样返回摘要")
+                else:
+                    self.assertNotIn(
+                        "return summary", span,
+                        "积压统计失败时不得提前返回——循环已跑完、本批计数"
+                        "已就绪，只该记 error 后照常返回摘要（与核实段收尾一致）")
 
     def test_every_handler_log_call_is_shielded_by_nested_guard(self):
         """Review 回修：log_error 自身会抛，Task 3/Task 4 处理体里的每个
