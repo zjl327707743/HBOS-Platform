@@ -19,13 +19,15 @@
 
 ## 当前上下文
 
-当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成。M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；当前 M1-FIX-B5 已进入 REVIEWING，用于核查导入数据链路并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径。
+当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成。M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；当前 **M1-FIX-F（调休模块第一阶段）为 REVIEWING / 运行态未上线**。
 
-当前目标：M1-FIX-B5 为 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 不 closeout。M1 产品交付仍未完成，M1-FIX-C/D/E 未启动。M2 未启动 / 待 Owner 授权。
+当前目标：M1-FIX-F 代码完成、审查通过，等待 Owner 授权执行 `migrate` 与验收。M1-FIX-B3 / B4 / B5 不 closeout。M1 产品交付仍未完成，M1-FIX-C/D/E 未启动。M2 未启动 / 待 Owner 授权。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
 M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已新增 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED，已通过 Codex 审查并收口。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED（已通过 Codex 审查并 closeout）。M1-R7 为 COMPLETED（已通过 Codex 审查并 closeout）。M1 历史 closeout 已完成，但 Owner UI 验收发现产品功能缺口，因此当前 M1 产品交付仍处于 M1-FIX IN_PROGRESS。M1-FIX-B 已创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐页面导入与中文体验；M1-FIX-B4 已收敛运行态入口主线；M1-FIX-B5 已核查真实 Employee / Employee Checkin / Attendance / 月度暂存数据链路，新增月度汇总暂存报表并增强 HBOS 报表过滤；2026-08-21 后续修正：四车间 10 人行政班误判迟到修复（ADMIN_NUMS 补回 + 名单短路规则表 + admin_shift_from_gap）、质量控制部四班次人员「满 8 小时算正常」口径收敛、配对上限 13h→14h（李明 8/19 无菌班 13.17h 案例）、分机孤立卡误判缺勤修复（陈雨欣 8/19 案例：方向不同的相邻卡不合并 + 当天已有完整上下班结构时孤立卡不判缺勤）、跨天夜班下班误刷上班机修复（吕玉升/庞冠军 8/16 案例）；2026-08-27 后续修正：配对上限 14h→16h、有卡就不判缺勤、连续无打卡 1-2 天不判缺勤 3 天起判（8/15-26 缺勤 489→134）、月度考勤汇总新增「导出异常考勤」按钮、2026 年度离职名单批量处理；2026-09-02 追加：班次管理页「规则看板」Tab 与班次人员维护表导出；2026-09-03 追加：月度考勤汇总「AI复核」（enable_ai 逐人 LLM 复核异常，随导出透传）；2026-09-08 追加：工作台「部门看板」（实时出勤快照 + 历史回顾；排班优先+规则推断、通用倒班计入应出勤、保守迟到判定、回顾不判缺勤、60s 轮询 + 手动同步 120s 节流、+8 时区、接口角色门禁）——设计与计划、代码与测试（全量 144 通过）已入库，运行态 migrate 注册待 Owner 授权；2026-09-11 追加：考勤提醒改发飞书卡片（只列异常部门+人名，正常部门汇总一行；渲染失败自动降级纯文本；判定口径与调度不变）。真实 Excel、真实员工清单和导入产物不提交 Git。M2 未启动。当前不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
+
+**M1-FIX-F 调休模块第一阶段（2026-09-22）**：调休按「模板同请假、判定独立」实现——调休日取飞书日期字段区间；加班日由 LLM 从「说明」自由文本提取；核实加班日当天是否有完整上下班配对，全部通过才「已核实」。交付 `hbos_attendance/rest_leave.py`（纯标准库模块）、DocType `HBOS Rest Leave Record` 的 4 个新字段、`sync_rest_leave.py` 三段（同步 → LLM 解析 → 核实，同一 `*/30` 有序列表），并退休从未 migrate 的换班全部产物。分支 `m1-fix-c-rest-leave`（15 提交），全量测试 311 → **396 通过**。**关键约束：LLM 结果落库，判定热路径永不调用 LLM**（考勤每 10 分钟重算）。**本阶段只出核实结论供人工复核，不改变任何考勤结果**；接入判定是第二阶段，且必须先处理审批状态过滤、重新解析失效键含 employee、终态可重核、调度频率四项前提。运行态实测：调休表 0、DocType 记录 0、调度任务 0（未 migrate），故同步未执行、115 条数据未入库。主文档 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。命名说明：原拟用 `M1-FIX-C`，因该编号已属「异常说明三级流程」，改用 `M1-FIX-F`，待 Owner 确认。
 
 ## AI 默认读取规则
 
@@ -84,7 +86,7 @@ Skill 路由规范文件为：
 后续路线只记录，不代表已启动：
 
 1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
-2. M1 历史 closeout 已完成，但产品交付仍在 M1-FIX 中，尚未完成。M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING。M2 未启动 / 待 Owner 授权。
+2. M1 历史 closeout 已完成，但产品交付仍在 M1-FIX 中，尚未完成。M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；**M1-FIX-F 为 REVIEWING / 运行态未上线**。M2 未启动 / 待 Owner 授权。
 
 ## 前端实施流程规范
 

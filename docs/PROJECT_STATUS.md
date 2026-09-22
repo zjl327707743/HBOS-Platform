@@ -5,12 +5,33 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）
+- 当前轮次：M1-FIX-F（REVIEWING，代码完成、审查通过，**运行态未上线**）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。
-- 本批最新交付：2026-09-08 在 M1-FIX-B5 追加「部门实时出勤看板」（工作台 Desk 页面：当日实时出勤快照 + 历史回顾；实时增强 60s 轮询 + 手动同步；通用倒班计入应出勤；+8 时区；接口角色门禁）——设计与计划、代码与测试（全量 144 通过）均已入库，运行态 `migrate` 注册与浏览器验证待 Owner 授权。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块第一阶段，代码与测试已入库，运行态 migrate 未执行）；M1-FIX-C/D/E 未启动。
+- 本批最新交付：2026-09-22 完成 **M1-FIX-F 调休模块第一阶段**——飞书调休审批进入系统并按海滨口径完成「加班日提取 → 打卡核实」，产出可人工复核的结论清单。分支 `m1-fix-c-rest-leave`（15 提交），全量测试 311 → **396 通过**。**本阶段只出结论、不改变任何考勤结果**。运行态实测：调休表 0、DocType 记录 0、调度任务 0（未 migrate），故同步未执行、LLM 未调用、115 条数据未入库。详见 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M2 未启动。
+- 下一步路线：M1-FIX-F 待 Owner 授权执行运行态上线与验收（`migrate` + 逐条人工核对 104 条 LLM 解析结果）；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。M2 未启动。
+
+## M1-FIX-F 状态
+
+状态：**REVIEWING**（代码完成、审查通过、运行态未上线）。
+
+轮次定位：调休模块**第一阶段**——同步 + LLM 解析加班日 + 打卡核实 + 落库。**不接判定**。
+
+业务规则（Owner 2026-09-21 确认）：调休日 = 飞书日期字段区间；加班日 = LLM 从「说明」自由文本提取；核实 = 加班日当天有完整上下班配对，全部通过才「已核实」，否则「核实不通过」转人工。
+
+- 命名说明：原拟沿用 `M1-FIX-C`，但台账中该编号已定义为「异常说明三级流程」，故改用 `M1-FIX-F`；若 Owner 另有口径可重命名。
+- 与请假的差异：模板一样，但判定逻辑不同——请假审批通过即豁免；调休须先核实加班日。两条通道分开成表。
+- 交付：`rest_leave.py` 纯逻辑模块、DocType 4 个新字段、`sync_rest_leave.py` 三段（同步 → LLM 解析 → 核实，同一 `*/30` 有序列表）、换班（`HBOS Shift Swap Record`）全部产物退休。
+- 关键约束：**LLM 结果落库，判定热路径永不调用 LLM**（考勤每 10 分钟重算，热路径调 LLM 成本、延迟、确定性都不可接受）。
+- 核实判据：复用系统已算出的考勤结果（`status='Present'` 且 `working_hours >= 2`），不另写一套配对定义。
+- 实测依据：飞书调休表 115 条（已通过 104）；96 条同日、8 条跨天；16 条天数与日期跨度不符；**65 条说明只用「号」不用「日」**（初版解析器只认「日」会让 63% 数据落解析失败，已在修复轮补上）；36 条为多行批量说明（列他人加班），故非 LLM 不可。
+- 旧模块「代码在、运行态为零」的根因：DocType 从未 migrate，且原测试是静态断言（检查源码字符串，永远为真）。
+- 本阶段刻意不接判定；接入点为 `regenerate_attendance`（把已核实的调休日并入传给 `pair_employee_checkins()` 的豁免集合，`pairing.py` 可零改动），但**必须先处理第二阶段硬性前提 F2/F3/F4/F5**。
+- 第二阶段硬性前提（本阶段无害）：① 豁免查询必须过滤 `approval_status='已通过'`（新同步写入全部 115 行，含已撤回/已拒绝）；② 重新解析失效键需含 `employee`（现只有 `remarks`）；③ `已核实`/`核实不通过` 是终态，需加重新核实机制；④ 复看三段调度频率（设计定 `*/10`，实际 `*/30`）。
+- 运行态未上线：`tabHBOS Rest Leave Record` 表 0、`tabDocType` 0、调度任务 0；代码已在容器内（工作副本挂载）。
+- 上线步骤（待 Owner 授权）：`bench --site frontend migrate` + `docker compose restart backend scheduler`；随后逐条人工核对 104 条解析结果、定点核查 2026-07-28/29/30 判据敞口、确认考勤结果分布逐值无变化。
+- 主文档：`docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`
 
 ## 状态更新制度
 
@@ -583,6 +604,7 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
+| M1-FIX-F | 调休模块第一阶段（同步 + LLM 解析 + 核实 + 落库） | P1 | REVIEWING / 运行态未上线 |
 
 状态口径：
 - M1 = IN_PROGRESS（产品交付仍在 M1-FIX 中）
@@ -594,6 +616,8 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1-FIX-B3 = REVIEWING / Owner UI 验收未通过
 - M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题
 - M1-FIX-B5 = REVIEWING
+- M1-FIX-F = REVIEWING / 运行态未上线
+- M1-FIX-C/D/E = PLANNED
 - M2 = NOT STARTED / WAITING OWNER AUTHORIZATION
 
 M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不启动 M2，不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
