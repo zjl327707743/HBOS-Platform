@@ -5,16 +5,16 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-F（REVIEWING，代码完成、审查通过，**运行态未上线**）
+- 当前轮次：M1-FIX-F（REVIEWING，**已上线并通过验收**，等待 Owner 复核结论）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块第一阶段，代码与测试已入库，运行态 migrate 未执行）；M1-FIX-C/D/E 未启动。
-- 本批最新交付：2026-09-22 完成 **M1-FIX-F 调休模块第一阶段**——飞书调休审批进入系统并按海滨口径完成「加班日提取 → 打卡核实」，产出可人工复核的结论清单。分支 `m1-fix-c-rest-leave`（15 提交），全量测试 311 → **396 通过**。**本阶段只出结论、不改变任何考勤结果**。运行态实测：调休表 0、DocType 记录 0、调度任务 0（未 migrate），故同步未执行、LLM 未调用、115 条数据未入库。详见 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块第一阶段已上线：119 条入库、103 条解析、40 已核实 / 53 核实不通过；考勤结果零变化）；M1-FIX-C/D/E 未启动。
+- 本批最新交付：2026-09-22 完成 **M1-FIX-F 调休模块第一阶段**——飞书调休审批进入系统并按海滨口径完成「加班日提取 → 打卡核实」，产出可人工复核的结论清单。分支 `m1-fix-c-rest-leave`（16 提交），全量测试 311 → **396 通过**。**本阶段只出结论、不改变任何考勤结果**。2026-09-22 已上线：119 条入库、103 条解析出加班日、核实结论 40 已核实 / 53 核实不通过 / 14 解析失败；**考勤结果与上线前逐值一致（零副作用）**。上线中发现并修复三项阻断（模型下线、HBOS_AI_* 未注入队列容器、nginx 需 reload），详见落地记录 §8。详见 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-FIX-F 待 Owner 授权执行运行态上线与验收（`migrate` + 逐条人工核对 104 条 LLM 解析结果）；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。M2 未启动。
+- 下一步路线：M1-FIX-F 已上线，待 Owner 判读核实结果（62% 不通过的含义、10 天引擎缺口）并决定是否进入第二阶段；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。M2 未启动。
 
 ## M1-FIX-F 状态
 
-状态：**REVIEWING**（代码完成、审查通过、运行态未上线）。
+状态：**REVIEWING**（**已上线并通过验收**，等待 Owner 复核结论）。
 
 轮次定位：调休模块**第一阶段**——同步 + LLM 解析加班日 + 打卡核实 + 落库。**不接判定**。
 
@@ -25,12 +25,13 @@
 - 交付：`rest_leave.py` 纯逻辑模块、DocType 4 个新字段、`sync_rest_leave.py` 三段（同步 → LLM 解析 → 核实，同一 `*/30` 有序列表）、换班（`HBOS Shift Swap Record`）全部产物退休。
 - 关键约束：**LLM 结果落库，判定热路径永不调用 LLM**（考勤每 10 分钟重算，热路径调 LLM 成本、延迟、确定性都不可接受）。
 - 核实判据：复用系统已算出的考勤结果（`status='Present'` 且 `working_hours >= 2`），不另写一套配对定义。
-- 实测依据：飞书调休表 115 条（已通过 104）；96 条同日、8 条跨天；16 条天数与日期跨度不符；**65 条说明只用「号」不用「日」**（初版解析器只认「日」会让 63% 数据落解析失败，已在修复轮补上）；36 条为多行批量说明（列他人加班），故非 LLM 不可。
+- 实测依据：飞书调休表 119 条（已通过 107）；96 条同日、8 条跨天；16 条天数与日期跨度不符；**65 条说明只用「号」不用「日」**（初版解析器只认「日」会让 63% 数据落解析失败，已在修复轮补上）；36 条为多行批量说明（列他人加班），故非 LLM 不可。
 - 旧模块「代码在、运行态为零」的根因：DocType 从未 migrate，且原测试是静态断言（检查源码字符串，永远为真）。
 - 本阶段刻意不接判定；接入点为 `regenerate_attendance`（把已核实的调休日并入传给 `pair_employee_checkins()` 的豁免集合，`pairing.py` 可零改动），但**必须先处理第二阶段硬性前提 F2/F3/F4/F5**。
-- 第二阶段硬性前提（本阶段无害）：① 豁免查询必须过滤 `approval_status='已通过'`（新同步写入全部 115 行，含已撤回/已拒绝）；② 重新解析失效键需含 `employee`（现只有 `remarks`）；③ `已核实`/`核实不通过` 是终态，需加重新核实机制；④ 复看三段调度频率（设计定 `*/10`，实际 `*/30`）。
-- 运行态未上线：`tabHBOS Rest Leave Record` 表 0、`tabDocType` 0、调度任务 0；代码已在容器内（工作副本挂载）。
-- 上线步骤（待 Owner 授权）：`bench --site frontend migrate` + `docker compose restart backend scheduler`；随后逐条人工核对 104 条解析结果、定点核查 2026-07-28/29/30 判据敞口、确认考勤结果分布逐值无变化。
+- 第二阶段硬性前提（本阶段无害）：① 豁免查询必须过滤 `approval_status='已通过'`（新同步写入全部行，含已撤回/已拒绝）；② 重新解析失效键需含 `employee`（现只有 `remarks`）；③ `已核实`/`核实不通过` 是终态，需加重新核实机制；④ 复看三段调度频率（设计定 `*/10`，实际 `*/30`）。
+- **2026-09-22 已上线**：119 条入库 → 103 条解析出加班日 → 核实结论 **40 已核实 / 53 核实不通过 / 14 解析失败**（仅「已通过」107 条）。**考勤结果与上线前逐值一致（零副作用）**；判据敞口（7/28-30）实测为零；自洽性对账违规 0 条。
+- 上线中发现并修复三项阻断：① `deepseek-v4-flash` 上游下线 → 实测 4 候选后改 `deepseek-flash`；② **`HBOS_AI_*` 只注入 backend，scheduler 与两个 queue 全缺** → 定时任务 0.35 秒「成功」实则走「未配置 AI」分支，且 `bench execute` 手动跑正常、永远测不出；③ **nginx 502 的正解是 `nginx -s reload` 而非 `restart`**（已更正 `docs/HBOS考勤判定规则.md` §13.9 的错误结论）。
+- 待 Owner 判读：62%（53/107）不通过的含义；10 天「有打卡却无考勤记录」的引擎缺口（非本轮引入）。
 - 主文档：`docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`
 
 ## 状态更新制度
@@ -604,7 +605,7 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
-| M1-FIX-F | 调休模块第一阶段（同步 + LLM 解析 + 核实 + 落库） | P1 | REVIEWING / 运行态未上线 |
+| M1-FIX-F | 调休模块第一阶段（同步 + LLM 解析 + 核实 + 落库） | P1 | REVIEWING / 已上线并通过验收 |
 
 状态口径：
 - M1 = IN_PROGRESS（产品交付仍在 M1-FIX 中）
@@ -616,7 +617,7 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1-FIX-B3 = REVIEWING / Owner UI 验收未通过
 - M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题
 - M1-FIX-B5 = REVIEWING
-- M1-FIX-F = REVIEWING / 运行态未上线
+- M1-FIX-F = REVIEWING / 已上线并通过验收
 - M1-FIX-C/D/E = PLANNED
 - M2 = NOT STARTED / WAITING OWNER AUTHORIZATION
 

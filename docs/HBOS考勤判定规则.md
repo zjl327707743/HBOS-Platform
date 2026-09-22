@@ -416,7 +416,14 @@ Attendance（考勤结果）
 | 最小卡片通路验证 | ✅ 顶层 `card` 键渲染成功（`code: 0`）；`content` 被拒（`code: 19002`）。见 §13.2 |
 | 干跑核对（`force=True`） | ✅ 卡片正文与 `/api` 看板数据同源逐项一致：应出勤 500 / 已到岗 232 / 未打卡 8 / 迟到 0；恒等式 `500 = 232+8+170+82+8+0` 成立；25 个应出勤部门中 7 个异常（质量控制部 2 人未打卡、其余 6 部门各 1 人），其余 18 个部门汇总为一行 |
 | 实发完整卡片 | ✅ `{"sent": true, "detail": "HTTP 200"}`，群内收到卡片 |
-| 调度加载新代码 | ✅ `docker compose restart backend scheduler`（用 `restart` 保持容器 IP，避免 nginx 连旧 IP 致 502）。`Scheduled Job Type` 仍为 `cron="0 9 * * *"`、`stopped=0`、上次执行 2026-09-15 09:00:13 |
+| 调度加载新代码 | ✅ `docker compose restart backend scheduler`。`Scheduled Job Type` 仍为 `cron="0 9 * * *"`、`stopped=0`、上次执行 2026-09-15 09:00:13 |
+
+> **⚠️ 更正（2026-09-22）**：本节原写「用 `restart` 保持容器 IP，避免 nginx 连旧 IP 致 502」——**这句话是错的**。
+> `restart` 并不保证容器 IP 不变；2026-09-22 实测两次重建都导致 backend IP 变化，登录页 502。
+> 当时那次未出问题纯属巧合（IP 恰好未变），不是方法正确。
+> **正解**：`/etc/nginx/conf.d/*.conf` 里写的是主机名 `server backend:8000`，nginx 启动时解析一次并缓存。
+> 因此**任何**导致 backend 重建/IP 变化的操作之后，都要执行
+> `docker compose exec frontend nginx -s reload` 让 nginx 重新解析，502 随即消失。
 
 > 注：本次实发时点为 11:19 北京（非 9 点窗口），`force=True` 绕过「北京时间小时==9」守卫，
 > 故卡片上的数字是 11:19 的快照而非 9 点快照——「仅下班卡 170 / 班次未定 82」明显高于 9 点，

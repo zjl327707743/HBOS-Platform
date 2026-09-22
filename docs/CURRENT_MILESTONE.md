@@ -18,7 +18,7 @@ M1-FIX-B5：导入数据链路核查与报表口径收敛。当前状态：REVIE
 
 M1-FIX-B-FIX：Excel 导入与中文体验修复。历史轮次；当前后续修复由 M1-FIX-B2、M1-FIX-B3、M1-FIX-B4、M1-FIX-B5 管理。
 
-M1-FIX-F：调休模块**第一阶段**（同步 + LLM 解析加班日 + 打卡核实 + 落库）。当前状态：**REVIEWING / 运行态未上线**。本阶段**只产出核实结论供人工复核，不改变任何考勤结果**；接入判定是第二阶段。业务规则（Owner 2026-09-21）：调休日 = 飞书日期字段区间；加班日 = LLM 从「说明」自由文本提取；核实 = 加班日当天有完整上下班配对，全部通过才「已核实」。交付 `rest_leave.py` 纯逻辑模块、DocType 4 个新字段、`sync_rest_leave.py` 三段（`*/30` 同一有序列表），并退休从未 migrate 的换班（`HBOS Shift Swap Record`）全部产物。分支 `m1-fix-c-rest-leave`（15 提交），全量测试 311 → **396 通过**。关键约束：**LLM 结果落库，判定热路径永不调用 LLM**。运行态实测：调休表 0、DocType 记录 0、调度任务 0，故同步未执行、115 条数据未入库。命名说明：原拟用 `M1-FIX-C`，因该编号已属「异常说明三级流程」，改用 `M1-FIX-F`，待 Owner 确认。主文档 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
+M1-FIX-F：调休模块**第一阶段**（同步 + LLM 解析加班日 + 打卡核实 + 落库）。当前状态：**REVIEWING / 已上线并通过验收**。本阶段**只产出核实结论供人工复核，不改变任何考勤结果**；接入判定是第二阶段。业务规则（Owner 2026-09-21）：调休日 = 飞书日期字段区间；加班日 = LLM 从「说明」自由文本提取；核实 = 加班日当天有完整上下班配对，全部通过才「已核实」。交付 `rest_leave.py` 纯逻辑模块、DocType 4 个新字段、`sync_rest_leave.py` 三段（`*/30` 同一有序列表），并退休从未 migrate 的换班（`HBOS Shift Swap Record`）全部产物。分支 `m1-fix-c-rest-leave`（16 提交），全量测试 311 → **396 通过**。关键约束：**LLM 结果落库，判定热路径永不调用 LLM**。2026-09-22 已上线：119 条入库、103 条解析、核实 40 已核实/53 不通过/14 解析失败；考勤结果零变化。上线中修复三项阻断（模型下线、HBOS_AI_* 未注入队列、nginx 需 reload）。命名说明：原拟用 `M1-FIX-C`，因该编号已属「异常说明三级流程」，改用 `M1-FIX-F`，待 Owner 确认。主文档 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
 
 M1-FIX 后续规划轮次（仅规划，不自动启动）：
 
@@ -31,7 +31,7 @@ M1-FIX 后续规划轮次（仅规划，不自动启动）：
 | M1-FIX-B3 | 考勤工作台入口、App 命名与 HRMS 数据一致性修复 | P0 | REVIEWING / Owner UI 验收未通过 |
 | M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | P0 | REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题 |
 | M1-FIX-B5 | 导入数据链路核查与报表口径收敛 | P0 | REVIEWING |
-| M1-FIX-F | 调休模块第一阶段（同步 + LLM 解析 + 核实 + 落库） | P1 | REVIEWING / 运行态未上线 |
+| M1-FIX-F | 调休模块第一阶段（同步 + LLM 解析 + 核实 + 落库） | P1 | REVIEWING / 已上线并通过验收 |
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
@@ -126,10 +126,10 @@ M1-FIX-B2 = COMPLETED
 M1-FIX-B3 = REVIEWING / Owner UI 验收未通过
 M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题
 M1-FIX-B5 = REVIEWING
-M1-FIX-F = REVIEWING / 运行态未上线
+M1-FIX-F = REVIEWING / 已上线并通过验收
 M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
 ## 下一轮预告
 
-M1-FIX-F 代码完成、审查通过，**运行态未上线**，等待 Owner 授权执行 `migrate` 与验收。M1-FIX-B3 / B4 / B5 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。
+M1-FIX-F 已上线并通过验收（119 条入库、40 已核实 / 53 核实不通过 / 14 解析失败，考勤结果零变化），等待 Owner 判读结论。M1-FIX-B3 / B4 / B5 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。

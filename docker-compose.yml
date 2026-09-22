@@ -196,6 +196,12 @@ services:
       DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
       HBOS_NOTIFY_WEBHOOK_URL: ${HBOS_NOTIFY_WEBHOOK_URL}
       HBOS_NOTIFY_DRY_RUN: ${HBOS_NOTIFY_DRY_RUN}
+      # AI 配置：Frappe 把 scheduled method enqueue 到 RQ worker 执行，
+      # 故 scheduler 与两个 queue 都必须有；否则定时解析会静默走
+      # 「未配置 AI」分支，表现为任务 0.x 秒「成功」但一条都没解析。
+      HBOS_AI_BASE_URL: ${HBOS_AI_BASE_URL}
+      HBOS_AI_API_KEY: ${HBOS_AI_API_KEY}
+      HBOS_AI_MODEL: ${HBOS_AI_MODEL}
 
   queue-short:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -226,6 +232,12 @@ services:
       DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
       HBOS_NOTIFY_WEBHOOK_URL: ${HBOS_NOTIFY_WEBHOOK_URL}
       HBOS_NOTIFY_DRY_RUN: ${HBOS_NOTIFY_DRY_RUN}
+      # AI 配置：Frappe 把 scheduled method enqueue 到 RQ worker 执行，
+      # 故 scheduler 与两个 queue 都必须有；否则定时解析会静默走
+      # 「未配置 AI」分支，表现为任务 0.x 秒「成功」但一条都没解析。
+      HBOS_AI_BASE_URL: ${HBOS_AI_BASE_URL}
+      HBOS_AI_API_KEY: ${HBOS_AI_API_KEY}
+      HBOS_AI_MODEL: ${HBOS_AI_MODEL}
 
   redis-queue:
     image: redis:6.2-alpine
@@ -257,6 +269,12 @@ services:
       DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
       HBOS_NOTIFY_WEBHOOK_URL: ${HBOS_NOTIFY_WEBHOOK_URL}
       HBOS_NOTIFY_DRY_RUN: ${HBOS_NOTIFY_DRY_RUN}
+      # AI 配置：Frappe 把 scheduled method enqueue 到 RQ worker 执行，
+      # 故 scheduler 与两个 queue 都必须有；否则定时解析会静默走
+      # 「未配置 AI」分支，表现为任务 0.x 秒「成功」但一条都没解析。
+      HBOS_AI_BASE_URL: ${HBOS_AI_BASE_URL}
+      HBOS_AI_API_KEY: ${HBOS_AI_API_KEY}
+      HBOS_AI_MODEL: ${HBOS_AI_MODEL}
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app

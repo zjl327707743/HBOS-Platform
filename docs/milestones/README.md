@@ -90,7 +90,7 @@
 | M1-FIX-B3 | 考勤工作台入口、App 命名与 HRMS 数据一致性修复 | REVIEWING / Owner UI 验收未通过 |
 | M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题 |
 | M1-FIX-B5 | 导入数据链路核查与报表口径收敛 | REVIEWING |
-| M1-FIX-F | 调休模块第一阶段（同步 + LLM 解析 + 核实 + 落库） | REVIEWING / 运行态未上线 |
+| M1-FIX-F | 调休模块第一阶段（同步 + LLM 解析 + 核实 + 落库） | REVIEWING / 已上线并通过验收 |
 | M2 | 飞书集成 | NOT STARTED |
 
 ## 下一步路线
@@ -100,7 +100,7 @@
 3. M1 已 closeout 为 COMPLETED，但 Owner 验收发现功能缺口。
 4. M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。
 5. M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。
-6. M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，不能 closeout；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，不能 closeout；M1-FIX-B5 为 REVIEWING。当前 **M1-FIX-F 为 REVIEWING / 运行态未上线**——调休模块第一阶段代码与测试已入库（全量 396 通过），待 Owner 授权执行 `migrate` 与验收。M1 产品交付未完成；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权。
+6. M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，不能 closeout；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，不能 closeout；M1-FIX-B5 为 REVIEWING。当前 **M1-FIX-F 为 REVIEWING / 已上线并通过验收**——调休模块第一阶段已上线运行（119 条入库、40 已核实 / 53 核实不通过 / 14 解析失败，全量 396 通过），考勤结果零变化。M1 产品交付未完成；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权。
 
 M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1 历史 closeout 已完成，但 Owner UI 验收发现功能缺口，当前产品交付仍在 M1-FIX 中。M1-R6C = COMPLETED。M1-R7 = COMPLETED。M1-FIX-A = REVIEWING。M1-FIX-B = REVIEWING。M1-FIX-B-FIX = REVIEWING。M1-FIX-B2 = COMPLETED。M1-FIX-B3 = REVIEWING / Owner UI 验收未通过。M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。M1-FIX-B5 = REVIEWING。M2 为 NOT STARTED / 未启动 / 待 Owner 授权。
 

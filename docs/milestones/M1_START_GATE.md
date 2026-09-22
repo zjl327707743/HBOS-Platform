@@ -4,7 +4,7 @@
 
 ## 文件定位
 
-本文件记录 M1 启动前必须满足的门禁条件。M1 规划轮次已历史收口，但产品交付仍在 M1-FIX 中；M1-FIX-B2 已 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块第一阶段）为 REVIEWING / 运行态未上线**。M1-FIX-C/D/E 和 M2 未启动。
+本文件记录 M1 启动前必须满足的门禁条件。M1 规划轮次已历史收口，但产品交付仍在 M1-FIX 中；M1-FIX-B2 已 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块第一阶段）为 REVIEWING / 已上线并通过验收**。M1-FIX-C/D/E 和 M2 未启动。
 
 ## 必须满足的前置条件
 
@@ -70,7 +70,7 @@ M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计�
 
 M1 总收口历史 closeout 已完成；Owner UI 验收发现功能缺口后，当前 M1 产品交付仍在 M1-FIX 中，尚未完成。
 
-M1 规划收口已完成，但产品交付仍在 M1-FIX 中，尚未完成；M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块第一阶段）为 REVIEWING / 运行态未上线**。M1-FIX-C/D/E 与 M2 未启动。
+M1 规划收口已完成，但产品交付仍在 M1-FIX 中，尚未完成；M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块第一阶段）为 REVIEWING / 已上线并通过验收**。M1-FIX-C/D/E 与 M2 未启动。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界

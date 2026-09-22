@@ -89,7 +89,7 @@ M0 历史任务曾允许读取：
 2. M1 已 closeout 为 COMPLETED，但 Owner 验收发现功能缺口。
 3. M1-FIX 功能补漏阶段已启动，M1-FIX-A 为 REVIEWING。
 4. M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。
-5. M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；当前 **M1-FIX-F（调休模块第一阶段）为 REVIEWING / 运行态未上线**——调休按「模板同请假、判定独立」实现，同步 + LLM 解析加班日 + 打卡核实已入代码库（全量 396 通过），待 Owner 授权 `migrate` 与验收；本阶段只出核实结论、不改变考勤结果。M1 产品交付未完成，M1-FIX-C/D/E 未启动。
+5. M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；当前 **M1-FIX-F（调休模块第一阶段）为 REVIEWING / 已上线并通过验收**——调休按「模板同请假、判定独立」实现，同步 + LLM 解析加班日 + 打卡核实已上线运行（119 条入库、40 已核实/53 不通过/14 解析失败，全量 396 通过）；本阶段只出核实结论、不改变考勤结果。M1 产品交付未完成，M1-FIX-C/D/E 未启动。
 
 后续涉及 HRMS 环境治理、前端资源复核、能力盘点或 M1 考勤一期边界时，可读取 M0-R3C 安装验证记录、M0-R3C-FIX 修复记录、M0-R3D 设计记录、M0-R3E 环境可复现性收口记录、官方 Frappe HR、`frappe/hrms`、`frappe/frappe_docker`、ERPNext / Frappe v16 资料。
 
