@@ -204,3 +204,28 @@ def verify_status_for(overtime_dates, paired_dates):
         return VERIFY_PARSE_FAIL
     paired = paired_dates or set()
     return VERIFY_OK if all(d in paired for d in overtime_dates) else VERIFY_FAIL
+
+
+def expand_verified_records(rows):
+    """把「已核实的调休记录」展开成 {employee: {日期}}。
+
+    与 `expand_dates` 职责不同：`expand_dates` 只展开一段区间，本函数负责
+    遍历多行记录、按人合并、并跳过脏数据。两条路径共用同一套「区间按天展开」
+    语义，故内部直接调用 `expand_dates`，不另写一份。
+
+    任一字段缺失或日期不可解析的记录**整行跳过**（不抛异常）——上游是飞书
+    同步来的数据，脏值不得让考勤重算中断（第一阶段已因同类问题吃过亏）。
+    """
+    out = {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        emp = (row.get("employee") or "").strip()
+        start = row.get("start_date")
+        if not emp or not start:
+            continue
+        days = expand_dates(start, row.get("end_date"))
+        if not days:
+            continue
+        out.setdefault(emp, set()).update(days)
+    return out
