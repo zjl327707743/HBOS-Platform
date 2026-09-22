@@ -13,9 +13,11 @@ CI 无 Frappe 站点、无网络，所以这里证明的是两类东西：
 日期类型）。这里只能钉住「两个判据都在 SQL 里」。真库行为属于 Task 7 的活站验证。
 """
 import importlib
+import re
 import sys
 import types
 import unittest
+import warnings
 from pathlib import Path
 from unittest import mock
 
@@ -33,6 +35,13 @@ LIST_FAIL_TITLE = "调休加班核实取待核列表失败"
 COUNT_FAIL_TITLE = "调休加班核实积压统计失败"
 NO_EMPLOYEE_TITLE = "调休加班核实缺员工"
 NO_DATES_TITLE = "调休加班核实缺加班日"
+# 负面结论的判据日志：写明缺哪几天（Minor 3）
+MISSING_PAIR_TITLE = "调休加班核实缺少配对"
+
+# log_error 自身会抛，所以它的调用必须再裹一层。防护层刻意写成不带 as e 的
+# 裸形式：测试的定位助手靠回退查找「带 as e 的 except 行」找处理体，带 as e
+# 会让它认错位置。
+BARE_GUARD = "except Exception:"
 
 SUMMARY_KEYS = {"verified", "failed", "skipped", "remaining", "error"}
 
@@ -85,6 +94,49 @@ class VerifyStageContractTest(unittest.TestCase):
         if start < 0:
             return ""
         return self.src[start:at + len(title)]
+
+    def _nested_guard(self, title):
+        """取出包住该 log_error 调用的裸防护体；没有防护则返回 ""。
+
+        判别点三层，任一层不满足即返回 ""（这样修前必失败）：
+        1. log_error 之前紧邻一个 try:，两者之间除了缩进只剩下被调对象的
+           前缀「frappe.」（即该 try 体的第一条语句就是这个日志调用）；
+        2. 该 try 对应的 except 是不带 as e 的裸形式（`except Exception:`）；
+        3. 裸 except 体内以 pass 收尾（真吞掉，不是换个方式往上抛）。
+        """
+        at = self.src.find(title)
+        if at < 0:
+            return ""
+        log_at = self.src.rfind("log_error(", 0, at)
+        if log_at < 0:
+            return ""
+        before = self.src[:log_at]
+        try_at = before.rfind("try:")
+        if try_at < 0:
+            return ""
+        tail = before[try_at + len("try:"):].strip()
+        if tail and tail != "frappe.":
+            return ""
+        after = self.src[at:]
+        guard_at = after.find(BARE_GUARD)
+        if guard_at < 0:
+            return ""
+        pass_at = after.find("pass", guard_at)
+        if pass_at < 0:
+            return ""
+        return after[guard_at:pass_at + len("pass")]
+
+    def _log_title_in(self, chunk):
+        """从一段源码里取出 log_error 的标题实参（调用里最后一个字符串字面量）。
+
+        读的是**源码里实际写下的字面量**，不是本文件的常量——对常量断言只有在
+        有人改测试时才可能失败，等于没测。
+        正则用 `"([^"]*)"?`：_except_block 的切片止于标题的收尾引号之前，
+        模式必须容忍最后一个字面量没有右引号。
+        """
+        at = chunk.index("log_error(")
+        quoted = re.findall(r'"([^"]*)"?', chunk[at:])
+        return quoted[-1] if quoted else ""
 
     # ---------- 存在性与判据复用 ----------
 
@@ -155,6 +207,10 @@ class VerifyStageContractTest(unittest.TestCase):
         func = self._func()
         self.assertNotIn(".parsed_at", func)
         self.assertNotIn(".overtime_dates =", func)
+        # remarks 存着飞书原说明：Task 4 的重新解析靠比较它来发现说明被改过，
+        # 从核实阶段覆写会静默毁掉那条路径。负面结论的判据写进日志，不写这里。
+        # （此断言是前向护栏：修前源码同样满足，它不构成 RED 判别。）
+        self.assertNotIn(".remarks", func)
 
     # ---------- 不接豁免、不打断调度 ----------
 
@@ -233,12 +289,40 @@ class VerifyStageContractTest(unittest.TestCase):
     # ---------- 日志（DELTA 3） ----------
 
     def test_row_fallback_log_title_is_neutral_and_identifies_record(self):
-        """整条兜底的标题要中立：它覆盖的是「整条处理」，不只是写入。"""
-        self.assertNotIn("写入", ROW_BODY_TITLE)
+        """整条兜底的标题要中立：它覆盖的是「整条处理」，不只是写入。
+
+        断言读的是**源码里实际写下的标题实参**（不是本文件自己的常量）：
+        对常量断言只有在有人改测试时才可能失败，等于没测。
+        """
         chunk = self._except_block(ROW_BODY_TITLE)
         self.assertTrue(chunk, "找不到 %s 对应的 except 处理体" % ROW_BODY_TITLE)
         self.assertIn("%s: %s", chunk)
         self.assertIn("row.name", chunk)
+        actual = self._log_title_in(chunk)
+        self.assertTrue(actual, "处理体里找不到 log_error 的标题实参")
+        self.assertNotIn("写入", actual, "整条兜底的标题不得写成「写入失败」")
+        self.assertNotEqual(
+            actual, self._log_title_in(self._except_block(SAVE_FAIL_TITLE)),
+            "整条兜底与写入失败必须是两条分得开的日志标题")
+
+    def test_every_handler_log_call_is_shielded_by_nested_guard(self):
+        """log_error 自身会抛，处理体里的每个 log_error 都必须再裹一层裸 try。
+
+        理由：frappe.log_error 内部是 get_doc(Error Log) + insert，自己没有兜底。
+        最可能的失败场景恰是数据库故障——那条 INSERT 走同一条坏连接再抛一次，
+        异常从 except 里冒出去，逐条兜底、本批计数、调度链一起丢。
+        判别法见 _nested_guard：要求 log_error 之前紧邻一个 try:，对应的 except
+        是不带 as e 的裸形式、体内以 pass 收尾。修前这些位置都没有紧邻的 try:，
+        每个标题都取不到防护体，断言必失败。
+        """
+        for title in (ROW_BODY_TITLE, SAVE_FAIL_TITLE, LIST_FAIL_TITLE,
+                      COUNT_FAIL_TITLE, NO_EMPLOYEE_TITLE, NO_DATES_TITLE,
+                      MISSING_PAIR_TITLE):
+            with self.subTest(title=title):
+                guard = self._nested_guard(title)
+                self.assertTrue(
+                    guard, "%s 的 log_error 没有被裸 try 兜住" % title)
+                self.assertIn("pass", guard)
 
     def test_save_failure_log_identifies_record(self):
         chunk = self._except_block(SAVE_FAIL_TITLE)
@@ -288,7 +372,14 @@ def setUpModule():
     )
     with mock.patch.dict(sys.modules, {"frappe": _STUB}):
         sys.modules.pop(MODULE_NAME, None)
-        _MOD = importlib.import_module(MODULE_NAME)
+        # 被测模块的 import 链会拉进 api.py 的 `import requests` → urllib3 v2，
+        # 后者在导入时就对 macOS 系统 Python 的 LibreSSL 发 NotOpenSSLWarning。
+        # 那是环境噪声、与本任务无关，但会污染测试输出（契约要求输出干净），
+        # 所以在**只包住这次导入**的局部范围里按消息前缀静音，不外溢到全局。
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message="urllib3 v2 only supports OpenSSL")
+            _MOD = importlib.import_module(MODULE_NAME)
 
 
 def _row(name, employee="EMP-1", overtime_dates="2026-08-01"):
@@ -418,6 +509,13 @@ class VerifyBehaviourTest(_BehaviourBase):
         self.assertEqual(summary["failed"], 1)
         self.assertEqual(self.docs["RL-1"].verify_status, "核实不通过")
         self.assertEqual(self.docs["RL-1"].verify_time, NOW)
+        # 负面结论要留下判据：写清缺的是哪一天、是哪条记录，人工才查得下去
+        # （DELTA 3 的延伸；证据走日志，绝不覆写 remarks 里的飞书原说明）
+        self.assertIn(MISSING_PAIR_TITLE, self._titles())
+        evidence = str(self.logs[0][0])
+        self.assertIn("RL-1", evidence)
+        self.assertIn("2026-08-02", evidence, "要点名缺配对的那一天")
+        self.assertNotIn("2026-08-01", evidence, "已配对的那天不该被列进来")
 
     def test_selects_only_verify_pending(self):
         db = _FakeDB(remaining=4)
@@ -547,6 +645,63 @@ class VerifyBehaviourTest(_BehaviourBase):
         self.assertEqual(summary["verified"], 1, "已落库的计数不能丢")
         self.assertNotEqual(summary["error"], "")
         self.assertIn(COUNT_FAIL_TITLE, self._titles())
+
+    def test_log_failure_does_not_escape_or_double_count(self):
+        """写日志失败（多半是 DB 故障）不得冒泡、不得把同一条重复计数。
+
+        修前：skipped 分支先在摘要上加计数、再写日志；log_error 一抛，异常被
+        外层 per-row 兜底接住，同一条于是同时进了 skipped 和 failed，日志标题
+        也认错了归属。更糟的是这条异常正是「逐条兜底声称要防的事」本身，
+        它能把这批已落库的计数、摘要和调度链一起带走。
+        这里让每次 log_error 都抛，断言：函数照常返回完整摘要、每条记录恰好
+        计数一次、后续记录照常处理。
+        """
+        db = _FakeDB(
+            pending=[_row("RL-1", overtime_dates="  "),        # 缺加班日 → skipped
+                     _row("RL-2", overtime_dates="2026-08-05"),  # 正常 → verified
+                     _row("RL-3", employee=None)],               # 缺员工 → skipped
+            present_dates=["2026-08-05"], remaining=3)
+        self._install(db)
+
+        def _boom(*a, **k):
+            raise RuntimeError("Error Log 表写不进去")
+
+        _STUB.log_error = _boom
+
+        summary = self.run_verify()
+
+        self.assertEqual(set(summary), SUMMARY_KEYS)
+        self.assertEqual(summary["skipped"], 2, "两条没法核的各计一次，不多不少")
+        self.assertEqual(summary["failed"], 0, "日志失败不得被误记成 failed")
+        self.assertEqual(summary["verified"], 1, "日志失败不得吃掉正常记录")
+        self.assertEqual(self.docs["RL-2"].verify_status, "已核实")
+        self.assertEqual(summary["remaining"], 3)
+
+    def test_missing_pair_evidence_log_failure_still_counts_once(self):
+        """负面结论的判据日志：先尝试留痕，失败也仍只计一次 failed。
+
+        修前根本没有这条判据日志（徒有「核实不通过」，人工得自己重算缺哪天），
+        故 `attempts` 为空、断言必失败——本用例同时是 Minor 3 的判别。
+        """
+        db = _FakeDB(
+            pending=[_row("RL-1", overtime_dates="2026-08-01")],
+            present_dates=[], remaining=1)
+        self._install(db)
+        attempts = []
+
+        def _boom(msg=None, title=None):
+            attempts.append(title)
+            raise RuntimeError("Error Log 表写不进去")
+
+        _STUB.log_error = _boom
+
+        summary = self.run_verify()
+
+        self.assertIn(MISSING_PAIR_TITLE, attempts, "必须尝试留下缺配对的判据日志")
+        self.assertEqual(set(summary), SUMMARY_KEYS)
+        self.assertEqual(summary["failed"], 1, "日志失败不得让本条重复计数")
+        self.assertEqual(summary["verified"], 0)
+        self.assertEqual(self.docs["RL-1"].verify_status, "核实不通过")
 
 
 if __name__ == "__main__":

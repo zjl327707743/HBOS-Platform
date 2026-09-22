@@ -134,8 +134,23 @@ def sync_rest_leave_from_bitable():
             # record 未必是 mapping（上游可能给畸形行），取值前先做类型守卫：
             # 在 except 里二次抛错会直接冒泡出函数，等于毁掉逐条兜底本身。
             rid = record.get("id") if isinstance(record, dict) else ""
-            frappe.log_error(
-                "%s: %s" % (rid, e), "飞书调休单条处理失败")
+            # 日志调用本身再裹一层：写 Error Log 也会失败，且它内部没有兜底。
+            # 见 frappe/utils/error.py：log_error 是 get_doc(Error Log) +
+            # insert(ignore_permissions=True)。最可能的失败场景恰恰是数据库
+            # 故障——那条 INSERT 走同一条坏连接，会再抛一次。异常若从这里冒
+            # 出去，上面这层逐条兜底就白写了：本批计数、摘要、调度链全丢，
+            # 正是兜底注释声称要防的事。日志丢了不影响计数（已计入 failed），
+            # 故静默吞掉。
+            # 注意：防护层刻意写成不带 as e 的裸形式——测试靠回退查找
+            # 带 as e 的 except 行来定位处理体，带 as e 会让它认错位置。
+            try:
+                frappe.log_error(
+                    "%s: %s" % (rid, e), "飞书调休单条处理失败")
+            except Exception:
+                # 写 Error Log 失败（多半是 DB 故障）：不能让日志异常外泄，
+                # 否则上面那层逐条兜底等于没兜。日志丢掉不影响计数——本条的
+                # 计数在防护层之外无条件执行，不依赖日志是否写成。
+                pass
             summary["failed"] += 1
 
     return summary
@@ -195,8 +210,14 @@ def parse_pending_rest_leaves(limit=200):
             except Exception as e:
                 # 调用失败不写 parsed_at、不改状态：下次同步/解析可重试
                 # （与「解析不出日期 → 转人工、不重试」区分开）
-                frappe.log_error(
-                    "%s: %s" % (row.name, e), "调休加班日 LLM 调用失败")
+                # 日志调用再裹一层：log_error 自身会抛（理由见本文件首处说明），
+                # 异常若从这里冒出，逐条兜底失效、本批计数与调度链一起丢。
+                try:
+                    frappe.log_error(
+                        "%s: %s" % (row.name, e), "调休加班日 LLM 调用失败")
+                except Exception:
+                    # 日志失败静默吞掉：调用失败的事实已计入 failed。
+                    pass
                 summary["failed"] += 1
                 continue
 
@@ -211,12 +232,24 @@ def parse_pending_rest_leaves(limit=200):
                 frappe.db.commit()
                 summary["parsed" if dates else "failed"] += 1
             except Exception as e:
-                frappe.log_error(
-                    "%s: %s" % (row.name, e), "调休加班日写入失败")
+                # 日志再裹一层（理由见本文件首处说明）：log_error 内部没有兜底，
+                # 写 Error Log 失败会二次抛出，把逐条兜底和摘要一起带走。
+                try:
+                    frappe.log_error(
+                        "%s: %s" % (row.name, e), "调休加班日写入失败")
+                except Exception:
+                    # 静默：写入失败的事实已计入 failed，日志丢了不影响计数。
+                    pass
                 summary["failed"] += 1
         except Exception as e:
-            frappe.log_error(
-                "%s: %s" % (row.name, e), "调休加班日单条处理失败")
+            # 日志再裹一层（理由见本文件首处说明）：log_error 内部没有兜底，
+            # 写 Error Log 失败会二次抛出，把逐条兜底和摘要一起带走。
+            try:
+                frappe.log_error(
+                    "%s: %s" % (row.name, e), "调休加班日单条处理失败")
+            except Exception:
+                # 静默：本条已计入 failed，日志丢了不影响计数。
+                pass
             summary["failed"] += 1
             continue
 
@@ -279,10 +312,15 @@ def verify_pending_rest_leaves(limit=500):
             order_by="creation asc",
         )
     except Exception as e:
-        # 先落摘要再写日志：摘要是给调度器读的契约，不能被 log_error 自身的
-        # 异常（写 Error Log 也可能失败）挡住。
+        # 顺序不变（断言切片依赖它），但先前注释里「先落摘要就不怕日志抛」的
+        # 理由是错的：日志若抛，异常在 return 之前就冒出去，两种顺序下调用方
+        # 都拿不到摘要。真正兜住这一点的是下面的裸防护层。
         summary["error"] = str(e)
-        frappe.log_error(str(e), "调休加班核实取待核列表失败")
+        try:
+            frappe.log_error(str(e), "调休加班核实取待核列表失败")
+        except Exception:
+            # 静默：日志失败不能让异常冒出，否则 error 摘要有值也回不去。
+            pass
         return summary
 
     # 逐条处理整体兜底：切日期、查考勤、get_doc、写状态、save 全在同一个 try
@@ -298,8 +336,14 @@ def verify_pending_rest_leaves(limit=500):
             if not dates:
                 # 没有加班日 = 没法核，不等于核实不通过；保持待核实留人工
                 summary["skipped"] += 1
-                frappe.log_error(
-                    "%s: 无加班日，无法核实" % row.name, "调休加班核实缺加班日")
+                # 计数已在上一行加过；日志再抛也不会把本条改记成 failed。
+                try:
+                    frappe.log_error(
+                        "%s: 无加班日，无法核实" % row.name,
+                        "调休加班核实缺加班日")
+                except Exception:
+                    # 静默：本条已计入 skipped，日志丢了不影响本条归属。
+                    pass
                 continue
             if not row.employee:
                 # 缺员工 = 「压根没核」而不是「核了，没通过」。状态字段没有
@@ -307,8 +351,14 @@ def verify_pending_rest_leaves(limit=500):
                 # 的判断；此路保持待核实（仍在待核队列里可见）并单独留痕，
                 # 绝不产生假「已核实」。
                 summary["skipped"] += 1
-                frappe.log_error(
-                    "%s: 记录缺员工，无法核实" % row.name, "调休加班核实缺员工")
+                # 同上：计数先加、日志后写，日志抛也不会把本条改记成 failed。
+                try:
+                    frappe.log_error(
+                        "%s: 记录缺员工，无法核实" % row.name,
+                        "调休加班核实缺员工")
+                except Exception:
+                    # 静默：本条已计入 skipped，日志丢了不影响本条归属。
+                    pass
                 continue
 
             paired = _present_dates(row.employee, dates)
@@ -321,16 +371,41 @@ def verify_pending_rest_leaves(limit=500):
                 if doc.verify_status == VERIFY_OK:
                     summary["verified"] += 1
                 else:
+                    # 负面结论光有「核实不通过」不够：人工拿到的只是 claim 的
+                    # 加班日，还得自己重算哪一天缺配对。写清缺的是哪几天，
+                    # 人工才查得下去。
+                    # 绝不写 remarks：那里存着飞书原说明，Task 4 的重新解析
+                    # 靠比较它来发现说明被改过，覆写会静默毁掉重新解析。
+                    missing = [d for d in dates if d not in paired]
                     summary["failed"] += 1
+                    try:
+                        frappe.log_error(
+                            "%s: 缺配对的加班日 %s"
+                            % (row.name, ",".join(missing)),
+                            "调休加班核实缺少配对")
+                    except Exception:
+                        # 静默：结论已落库、计数已加，不能让日志异常外泄。
+                        pass
             except Exception as e:
-                frappe.log_error(
-                    "%s: %s" % (row.name, e), "调休加班核实写入失败")
+                # 日志再裹一层（理由见本文件首处说明）：log_error 内部没有兜底。
+                try:
+                    frappe.log_error(
+                        "%s: %s" % (row.name, e), "调休加班核实写入失败")
+                except Exception:
+                    # 静默：本条已计入 failed，日志丢了不影响计数。
+                    pass
                 summary["failed"] += 1
         except Exception as e:
             # 带上记录名：N 条失败时才分得清是哪条。标题取中立说法——这个 try
             # 覆盖切日期到 save 的整条处理，写成「写入失败」会掩盖真实失败阶段。
-            frappe.log_error(
-                "%s: %s" % (row.name, e), "调休加班核实单条处理失败")
+            # 日志再裹一层（理由见本文件首处说明）：log_error 内部没有兜底，
+            # 写 Error Log 失败会二次抛出，把逐条兜底和摘要一起带走。
+            try:
+                frappe.log_error(
+                    "%s: %s" % (row.name, e), "调休加班核实单条处理失败")
+            except Exception:
+                # 静默：本条已计入 failed，日志丢了不影响计数。
+                pass
             summary["failed"] += 1
             continue
 
@@ -338,7 +413,13 @@ def verify_pending_rest_leaves(limit=500):
         summary["remaining"] = frappe.db.count(
             DOCTYPE, {"verify_status": VERIFY_PENDING})
     except Exception as e:
-        # 同上：摘要先行。积压统计失败不影响本轮已落库的计数，故不提前返回。
+        # 积压统计失败不影响本轮已落库的计数，故不提前返回。顺序不变（断言
+        # 切片依赖它），但「先落摘要」并不构成对日志异常的保护——真正的保护
+        # 是下面的裸防护层。
         summary["error"] = str(e)
-        frappe.log_error(str(e), "调休加班核实积压统计失败")
+        try:
+            frappe.log_error(str(e), "调休加班核实积压统计失败")
+        except Exception:
+            # 静默：日志失败不能让异常冒出，否则本批计数随函数一起丢。
+            pass
     return summary

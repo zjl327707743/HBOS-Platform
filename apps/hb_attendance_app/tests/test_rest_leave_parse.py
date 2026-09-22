@@ -27,6 +27,12 @@ PARSED_AT_ASSIGN = re.compile(r"\.parsed_at\s*=")
 NEUTRAL_SYNC_TITLE = "飞书调休单条处理失败"   # Delta 2：Task 3 处理器中立标题
 CALL_FAIL_TITLE = "调休加班日 LLM 调用失败"    # Delta 2：Task 4 调用失败标题
 ROW_BODY_TITLE = "调休加班日单条处理失败"      # Important 1：逐条整体兜底标题
+SAVE_FAIL_TITLE = "调休加班日写入失败"         # Review 回修：写入失败独立标题
+
+# log_error 自身会抛，所以它的调用必须再裹一层。防护层刻意写成不带 as e 的
+# 裸形式：定位助手靠回退查找「带 as e 的 except 行」找处理体，带 as e 会让它
+# 认错位置。
+BARE_GUARD = "except Exception:"
 
 
 class ParseStageContractTest(unittest.TestCase):
@@ -260,6 +266,55 @@ class ParseStageContractTest(unittest.TestCase):
         if start < 0:
             return ""
         return self.src[start:at + len(title)]
+
+    def _nested_guard(self, title):
+        """取出包住该 log_error 调用的裸防护体；没有防护则返回 ""。
+
+        判别点三层，任一层不满足即返回 ""（这样修前这些位置必失败）：
+        1. log_error 之前紧邻一个 try:，两者之间除了缩进只剩下被调对象的
+           前缀「frappe.」（即该 try 体的第一条语句就是这个日志调用）；
+        2. 该 try 对应的 except 是不带 as e 的裸形式（`except Exception:`）；
+        3. 裸 except 体内以 pass 收尾（真吞掉，不是换个方式往上抛）。
+        """
+        at = self.src.find(title)
+        if at < 0:
+            return ""
+        log_at = self.src.rfind("log_error(", 0, at)
+        if log_at < 0:
+            return ""
+        before = self.src[:log_at]
+        try_at = before.rfind("try:")
+        if try_at < 0:
+            return ""
+        tail = before[try_at + len("try:"):].strip()
+        if tail and tail != "frappe.":
+            return ""
+        after = self.src[at:]
+        guard_at = after.find(BARE_GUARD)
+        if guard_at < 0:
+            return ""
+        pass_at = after.find("pass", guard_at)
+        if pass_at < 0:
+            return ""
+        return after[guard_at:pass_at + len("pass")]
+
+    def test_every_handler_log_call_is_shielded_by_nested_guard(self):
+        """Review 回修：log_error 自身会抛，Task 3/Task 4 处理体里的每个
+        log_error 都必须再裹一层裸 try。
+
+        理由：frappe.log_error 内部是 get_doc(Error Log) + insert，自己没有兜底。
+        最可能的失败场景恰是数据库故障——那条 INSERT 走同一条坏连接再抛一次，
+        异常从 except 里冒出去，逐条兜底、本批计数、调度链一起丢。
+        修前这些位置都只有一个 try:（Task 3 的整条兜底 / Task 4 的逐条兜底），
+        它离 log_error 很远，`_nested_guard` 取不到防护体，断言必失败。
+        """
+        for title in (NEUTRAL_SYNC_TITLE, CALL_FAIL_TITLE,
+                      SAVE_FAIL_TITLE, ROW_BODY_TITLE):
+            with self.subTest(title=title):
+                guard = self._nested_guard(title)
+                self.assertTrue(
+                    guard, "%s 的 log_error 没有被裸 try 兜住" % title)
+                self.assertIn("pass", guard)
 
     def test_sync_handler_log_identifies_record(self):
         """Task 3 处理器：N 条失败必须能分辨是哪条。"""

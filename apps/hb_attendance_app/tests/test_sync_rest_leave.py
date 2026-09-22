@@ -85,6 +85,33 @@ class SyncRestLeaveContractTest(unittest.TestCase):
             self.assertIn('"%s"' % key, init, "初始化摘要缺键: %s" % key)
         self.assertIn('summary["failed"] += 1', self.src)
 
+    def test_handler_log_call_is_shielded_by_nested_guard(self):
+        """Review 回修：log_error 自身会抛，处理体里的 log_error 必须再裹一层。
+
+        理由：frappe.log_error 内部是 get_doc(Error Log) + insert，自己没有兜底。
+        最可能的失败场景恰是数据库故障——那条 INSERT 走同一条坏连接再抛一次，
+        异常从这里冒出去，逐条兜底就白写了：本批计数、摘要、调度链全丢。
+        判别法：定位单条处理失败的日志标题，要求它前面紧邻一个 try:（中间只剩
+        缩进和被调对象前缀 frappe.），对应的 except 是不带 as e 的裸形式且以
+        pass 收尾。修前该处没有紧邻的 try:，取不到防护体，断言必失败。
+        """
+        title = "飞书调休单条处理失败"
+        at = self.src.find(title)
+        self.assertIn(title, self.src)
+        log_at = self.src.rfind("log_error(", 0, at)
+        self.assertGreaterEqual(log_at, 0)
+        before = self.src[:log_at]
+        try_at = before.rfind("try:")
+        self.assertGreaterEqual(try_at, 0, "log_error 之前没有紧邻的 try:")
+        tail = before[try_at + len("try:"):].strip()
+        self.assertIn(
+            tail, ("", "frappe."),
+            "该 try 体的第一条语句必须就是这个日志调用")
+        after = self.src[at:]
+        guard_at = after.find("except Exception:")
+        self.assertGreaterEqual(guard_at, 0, "裸防护层缺失（带 as e 或根本没有）")
+        self.assertIn("pass", after[guard_at:guard_at + 200], "防护层要真吞掉异常")
+
 
 if __name__ == "__main__":
     unittest.main()
