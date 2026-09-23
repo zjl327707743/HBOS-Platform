@@ -356,9 +356,7 @@ watch(() => route.path, (path) => {
 }
 
 .nav-item,
-.nav-group-toggle,
-.recent-item,
-.recent-link {
+.nav-group-toggle {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -383,8 +381,7 @@ watch(() => route.path, (path) => {
 .nav-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
 .nav-item.active { background: var(--primary); color: #fff; font-weight: 600; }
 .nav-item :deep(.anticon),
-.nav-group-toggle :deep(.anticon),
-.recent-item :deep(.anticon) { flex: 0 0 16px; opacity: 0.85; font-size: 15px; }
+.nav-group-toggle :deep(.anticon) { flex: 0 0 16px; opacity: 0.85; font-size: 15px; }
 
 .work-item { min-height: 34px; }
 .shortcut-button { font-family: inherit; text-align: left; }
