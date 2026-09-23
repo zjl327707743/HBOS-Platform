@@ -36,6 +36,8 @@ Frappe 打印框架会给每个 Print Format 注入这段：
 from __future__ import annotations
 
 import io
+import re
+import unicodedata
 
 import frappe
 from frappe import _
@@ -137,6 +139,144 @@ def _card_format_for(batch_name: str) -> str:
     return FMT_CARD_OUTSOURCED if source == SOURCE_OUTSOURCED else FMT_CARD_SELF
 
 
+# ---------------------------------------------------------------------------
+# ToUnicode 修补：wkhtmltopdf 会把一批汉字的码位写成「康熙部首」
+# ---------------------------------------------------------------------------
+#
+# Qt（wkhtmltopdf 的渲染内核）生成 PDF 的 ToUnicode CMap 时，对这些字形
+# **挑了康熙部首块的码位**（U+2E80–U+2FDF）而不是正常汉字（U+4E00–U+9FFF）——
+# 因为这些字形在字体里同时挂在这两个码位上。
+#
+# 后果分两种，都真实存在：
+#
+# - **页面上看着是对的**（渲染按字形走，字形本身没错），所以肉眼容易放过；
+# - **复制/搜索拿到的是部首字符**，而且**按 Unicode 回查字体的阅读器**
+#   （部分手机端、部分网页预览、PDF 无障碍朗读）会去取「部首字形」——
+#   那是为部首区单独设计的小号/错位字形，**看起来就是乱字**。
+#
+# 实测受影响的是这几个常用字：人 入 手 日 月 生 自 行
+# （正好是「操作人/日期」「入库」「经手人」「生产单位」「自产」「放行」用到的）。
+#
+# 修法：把 CMap 里落在部首区的**目标**码位换回对应汉字。康熙部首在 Unicode
+# 里有兼容分解，NFKC 一下正好得到那个字，不用自己维护映射表。
+
+_KANGXI_LO, _KANGXI_HI = 0x2E80, 0x2FDF
+_BFCHAR_RE = re.compile(r"beginbfchar(.*?)endbfchar", re.S)
+_BFRANGE_RE = re.compile(r"beginbfrange(.*?)endbfrange", re.S)
+_HEX4 = r"<[0-9A-Fa-f]{4}>"
+
+# 「CJK 部首补充」里那批**简体部首**（U+2E80–U+2EF3）没有 Unicode 兼容分解，
+# NFKC 救不了，只能列出来。它们本身就是独立的字，只是长得和简体字一样，
+# Qt 又挑了部首那个码位。实测我们的模板会碰到 `⻋`（生产车间）和 `⻚`（第（ ）页）。
+_RADICAL_SUPPLEMENT = {
+    0x2EB0: "纟",  # ⺰ → 纟
+    0x2EC5: "见",  # ⻅ → 见
+    0x2EC8: "言",  # ⻈ → 言
+    0x2ECB: "车",  # ⻋ → 车
+    0x2ED0: "金",  # ⻐ → 金
+    0x2ED3: "长",  # ⻓ → 长
+    0x2ED4: "门",  # ⻔ → 门
+    0x2EDA: "页",  # ⻚ → 页
+    0x2EDB: "风",  # ⻛ → 风
+    0x2EDC: "飞",  # ⻜ → 飞
+    0x2EE0: "食",  # ⻠ → 食
+    0x2EE2: "马",  # ⻢ → 马
+    0x2EE5: "鱼",  # ⻥ → 鱼
+    0x2EE6: "鸟",  # ⻦ → 鸟
+    0x2EF0: "龙",  # ⻰ → 龙
+    0x2EF3: "龟",  # ⻳ → 龟
+}
+
+
+def _kangxi_to_han(hex4: str) -> str:
+    """`<XXXX>` 形式的码位：是部首就换成对应汉字，否则原样返回（含尖括号）。"""
+    cp = int(hex4.strip("<>"), 16)
+    if _KANGXI_LO <= cp <= _KANGXI_HI:
+        han = _RADICAL_SUPPLEMENT.get(cp) or unicodedata.normalize("NFKC", chr(cp))
+        if han != chr(cp):
+            return "<" + han.encode("utf-16-be").hex().upper() + ">"
+    return hex4
+
+
+def _fix_tounicode_cmap(text: str) -> str:
+    """改一份 ToUnicode CMap 文本。
+
+    **只动目标码位**，不碰源码位——源是 CID，也可能正好长得像 `2Fxx`，
+    一起改就全错位了。
+
+    目标有两种写法（Qt 两种都用）：
+
+        beginbfchar
+        <0003> <2F08>                       ← 单值：改第 2 个
+        endbfchar
+
+        beginbfrange
+        <0000> <0000> <0000>                ← 单值：改第 3 个
+        <0001> <0020> [<5F85> <2F47> ...]   ← 数组：改方括号里的**每一个**
+        endbfrange
+
+    数组那种最容易漏——它是「一个 CID 区间对应一串目标字」，位置即语义，
+    所以只能在原位置逐个换值，不能增删。
+    """
+
+    def fix_hex(m):
+        return _kangxi_to_han(m.group(0))
+
+    def fix_char(m):
+        def one_line(line):
+            # 多单元目标 <AABB CCDD>、及罕见的数组写法，统一在行内替换
+            return re.sub(_HEX4, fix_hex, line) if line.count("<") > 2 else _fix_pair(line)
+
+        def _fix_pair(line):
+            parts = re.findall(_HEX4, line)
+            if len(parts) != 2:
+                return line
+            return f"{parts[0]} {_kangxi_to_han(parts[1])}"
+
+        body = "".join(one_line(l) for l in m.group(1).splitlines(keepends=True))
+        return "beginbfchar" + body + "endbfchar"
+
+    def fix_range(m):
+        def one_line(line):
+            if "[" in line:
+                return re.sub(
+                    r"\[(.*?)\]",
+                    lambda mm: "[" + re.sub(_HEX4, fix_hex, mm.group(1), flags=re.S) + "]",
+                    line,
+                    flags=re.S,
+                )
+            parts = re.findall(_HEX4, line)
+            if len(parts) != 3:
+                return line
+            return f"{parts[0]} {parts[1]} {_kangxi_to_han(parts[2])}"
+
+        body = "".join(one_line(l) for l in m.group(1).splitlines(keepends=True))
+        return "beginbfrange" + body + "endbfrange"
+
+    return _BFRANGE_RE.sub(fix_range, _BFCHAR_RE.sub(fix_char, text))
+
+
+def _fix_pdf_tounicode(writer) -> int:
+    """就地修 `PdfWriter` 里所有字体的 ToUnicode，返回改动的流数。
+
+    在 `writer.write()` **之前**调用。详见上方长注释。
+    """
+    changed = 0
+    for page in writer.pages:
+        fonts = (page.get("/Resources") or {}).get("/Font") or {}
+        for ref in fonts.values():
+            font = ref.get_object()
+            stream = font.get("/ToUnicode")
+            if stream is None:
+                continue
+            raw = stream.get_data().decode("latin-1")
+            fixed = _fix_tounicode_cmap(raw)
+            if fixed != raw:
+                stream.set_data(fixed.encode("latin-1"))
+                changed += 1
+    return changed
+
+
 def generate_for_batch(batch_name: str) -> dict:
     """为一个批次生成「待检证 + 货位卡」合并 PDF 并挂到该批次上。
 
@@ -155,6 +295,9 @@ def generate_for_batch(batch_name: str) -> dict:
     writer.append(io.BytesIO(label))
     card = _render("Batch", batch_name, card_fmt, PDF_OPT_A4)
     writer.append(io.BytesIO(card))
+
+    # 必须在 write() 之前：见 _fix_pdf_tounicode 上方长注释
+    _fix_pdf_tounicode(writer)
 
     buf = io.BytesIO()
     writer.write(buf)
