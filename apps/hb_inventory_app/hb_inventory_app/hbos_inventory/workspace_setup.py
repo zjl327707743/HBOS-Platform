@@ -1,4 +1,4 @@
-"""仓储库存工作台入口同步（幂等）
+"""仓库工作台入口同步（幂等）
 
 补 M3-R2 遗漏的「入口」交付项：让仓库人员能直接从 Desk 触达
 入库登记、批次、货位与各报表，而无需记忆 DocType 名称。
@@ -12,29 +12,26 @@ import json
 import frappe
 
 MODULE = "HBOS Inventory"
-WORKSPACE_TITLE = "仓储库存工作台"
 
-# 桌面图标的 label **必须等于某个已存在的 `Workspace Sidebar` 名**。
-# Frappe 的 `get_desktop_icons()` 会拿 `label.lower()` 去
-# `bootinfo.workspace_sidebar_item` 里查，**查不到就直接丢弃这个图标**——
-# 不报错、不提示，图标就是不出现。
-#
-# 曾用 `仓储库存` 当 label（短名好看），但本 App 的侧边栏叫 `仓储库存工作台`，
-# 于是查不到、图标始终不显示 —— Owner 反馈「桌面上没有入口、回不来」即此。
-# 工作台、侧边栏、桌面图标三者用**同一个名字**，与 ERPNext 原生 Stock 的做法一致。
+# ⚠ 三者同名不是审美选择，是**硬约束**：`Workspace` / `Workspace Sidebar` /
+# `Desktop Icon` 的 `name` 都等于标题，而 Frappe 的 `get_desktop_icons()`
+# 会拿图标 label 去侧边栏映射里查，**查不到就静默丢弃**（不报错、不提示）。
+# 详见 `DESKTOP_ICON` 下方与 `_sync_desktop_icon()` 的注释。
+WORKSPACE_TITLE = "仓库工作台"
 DESKTOP_LABEL = WORKSPACE_TITLE
 
-# 不能用 "stock"——那是 ERPNext 原生 Stock 模块的图标，桌面上两个一模一样的
+# 图标不用 "stock"——那是 ERPNext 原生 Stock 模块的图标，桌面上两个一模一样的
 # 图形并排，点错就进了原生库存模块，而那边没有本 App 的侧边栏，回不来。
-# 换成语义贴切的 warehouse，与原生 Stock 一眼可分。
-DESKTOP_ICON = "warehouse"
+# 也不用 "warehouse"（曾用过）：`boxes` 语义更贴「仓库」，且与两者都不撞。
+DESKTOP_ICON = "boxes"
 
-# 本 App 早期留下的、不指向任何 `Workspace Sidebar` 的桌面图标名。
-# 这类图标会被 Frappe 静默丢弃（见 DESKTOP_LABEL 处说明），需要清掉。
-STALE_DESKTOP_LABELS = ("仓储库存",)
+# 本 App 用过的历史标题。改名后**必须把旧对象删掉**——三者的 name 都等于标题，
+# 换标题等于换主键，旧记录不会自动消失；留着会被 Frappe 当成
+# 「label 查不到侧边栏」的僵尸图标，而**挂在它下面的图标会跟着一起消失**。
+LEGACY_TITLES = ("仓储库存工作台", "仓储库存")
 
 SIDEBAR_ITEMS = [
-	{"label": "仓储库存工作台", "link_type": "Workspace", "link_to": WORKSPACE_TITLE, "type": "Link", "icon": "home"},
+	{"label": WORKSPACE_TITLE, "link_type": "Workspace", "link_to": WORKSPACE_TITLE, "type": "Link", "icon": "home"},
 	# 入库拍照识别：本 App 的 Desk 页面（拍照 → 识别 → 校对 → 生成草稿）
 	{"label": "入库拍照识别", "link_type": "Page", "link_to": "hbos-photo-intake", "type": "Link", "icon": "camera"},
 	# 入库登记：走原生 Stock Entry（Material Receipt）表单
@@ -54,7 +51,7 @@ SIDEBAR_ITEMS = [
 ]
 
 WORKSPACE_CONTENT = """[
- {"id":"hdr","type":"header","data":{"text":"<span class=\\"h4\\"><b>仓储库存</b></span>","col":12}},
+ {"id":"hdr","type":"header","data":{"text":"<span class=\\"h4\\"><b>仓库工作台</b></span>","col":12}},
  {"id":"sb1","type":"paragraph","data":{"text":"入库可走「入库拍照识别」（拍照 → 识别 → 人工校对 → 生成草稿）；出库核销与货位变更使用 ERPNext 原生库存单据；出库须先取得 QA 放行与合格证。","col":12}},
  {"id":"sc_photo","type":"shortcut","data":{"shortcut_name":"入库拍照识别","col":3}},
  {"id":"sc_in","type":"shortcut","data":{"shortcut_name":"入库登记（原生）","col":3}},
@@ -97,6 +94,10 @@ def _parse_content(payload):
 def sync_inventory_workspace():
 	"同步 Workspace、入口快捷方式、侧边栏与桌面图标（幂等）。"
 
+	# **必须最先做**：标题即主键，改过名就要先把旧对象清掉，
+	# 否则旧 Desktop Icon 会变成「查不到侧边栏」的僵尸，连累后续图标。
+	_cleanup_legacy_objects()
+
 	workspace = (
 		frappe.get_doc("Workspace", WORKSPACE_TITLE)
 		if frappe.db.exists("Workspace", WORKSPACE_TITLE)
@@ -126,7 +127,6 @@ def sync_inventory_workspace():
 
 	_sync_sidebar()
 	_sync_desktop_icon()
-	_cleanup_stale_desktop_icons()
 
 
 def _sync_sidebar():
@@ -172,20 +172,26 @@ def _sync_desktop_icon():
 	icon.save(ignore_permissions=True)
 
 
-def _cleanup_stale_desktop_icons():
-	"""删掉本 App 早期留下、且**不指向任何侧边栏**的桌面图标。
+def _cleanup_legacy_objects():
+	"""删掉本 App 历史标题下的 Workspace / Sidebar / Desktop Icon。
 
-	为什么必须清：这类图标 label 在 `workspace_sidebar_item` 里查不到，
-	会被 `get_desktop_icons()` 静默丢弃 —— 屏幕上不显示，但记录还在，
-	而且**挂在它下面的图标会跟着一起消失**（父图标不在 permitted 集合里，
-	子图标被同一条规则过滤）。留着它只会继续误导后来的人以为「配过了」。
+	**为什么必须清**：这三者的 `name` 都等于标题，改标题等于换主键——
+	旧记录不会自动消失。而残留的旧 Desktop Icon 会被
+	`get_desktop_icons()` 静默丢弃（label 在侧边栏映射里查不到），
+	屏幕上不显示、记录却还在，**挂在它下面的图标还会跟着一起消失**。
 
-	只删**本模块留下的已知陈旧名**，不做泛化清理，避免误伤其他 App。
+	删子图标要排在删父图标之前：`Desktop Icon` 有 `parent_icon` 自关联，
+	父被删而子还指着它，会留下悬空引用。这里先把指向旧标题的图标清空
+	`parent_icon`，再按 图标 → 侧边栏 → 工作台 的顺序删。
+
+	只删 `LEGACY_TITLES` 里登记过的名字，不做泛化清理，避免误伤其他 App。
 	"""
-	for stale in STALE_DESKTOP_LABELS:
-		if not frappe.db.exists("Desktop Icon", stale):
-			continue
-		frappe.delete_doc("Desktop Icon", stale, ignore_permissions=True, force=True)
-		frappe.logger("hbos_inventory").info(
-			f"Desktop Icon 清理陈旧：{stale}（不指向任何侧边栏，被 Frappe 静默丢弃）"
+	for legacy in LEGACY_TITLES:
+		frappe.db.set_value(
+			"Desktop Icon", {"parent_icon": legacy}, "parent_icon", "", update_modified=False
 		)
+		for doctype in ("Desktop Icon", "Workspace Sidebar", "Workspace"):
+			if not frappe.db.exists(doctype, legacy):
+				continue
+			frappe.delete_doc(doctype, legacy, ignore_permissions=True, force=True)
+			frappe.logger("hbos_inventory").info(f"清理历史对象：{doctype} / {legacy}")

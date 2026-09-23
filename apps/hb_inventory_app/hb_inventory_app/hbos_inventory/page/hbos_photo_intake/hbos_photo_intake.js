@@ -53,13 +53,13 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 		<div class="hbos-pi">
 			<div class="hbos-pi-head">
 				<div>
-					<div class="text-muted small">仓储库存工作台 / 入库拍照识别</div>
+					<div class="text-muted small">仓库工作台 / 入库拍照识别</div>
 					<p class="text-muted">
 						拍摄产品标签，系统自动识别关键字段；<b>识别结果须人工核对后</b>才生成草稿入库单。
 						照片仅在内网处理，不出内网。
 					</p>
 				</div>
-				<button class="btn btn-default" data-route="Workspaces/仓储库存工作台">返回仓储库存工作台</button>
+				<button class="btn btn-default" data-route="Workspaces/仓库工作台">返回仓库工作台</button>
 			</div>
 
 			<div class="hbos-pi-status" data-region="status"></div>
