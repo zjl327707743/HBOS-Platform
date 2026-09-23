@@ -23,8 +23,13 @@ doc_events = {
     },
 }
 
-# 批次表单上的「重新生成货位卡 / 待检证」按钮（自动生成失败或数据变更后补生成）
-doctype_js = {"Batch": "public/js/batch.js"}
+# 表单上的自定义行为：
+# - Batch：「重新生成货位卡 / 待检证」按钮（自动生成失败或数据变更后补生成）
+# - Stock Entry：拍照识别建的草稿，提交后给一个「下一步去哪」的落点
+doctype_js = {
+    "Batch": "public/js/batch.js",
+    "Stock Entry": "public/js/stock_entry.js",
+}
 
 # Print Format 用的 Jinja 全局方法（打印辅助 + 货位二维码）。
 # 注册机制会收集所列模块内的所有函数，故这些模块只 `import frappe`，

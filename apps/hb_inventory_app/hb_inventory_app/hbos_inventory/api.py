@@ -403,6 +403,9 @@ def create_intake_draft(
 			"company": company,
 			"to_warehouse": warehouse,
 			"remarks": _("由「入库拍照识别」创建草稿，请复核后提交。"),
+			# 来源标记。提交后前端据此提示「去批次取货位卡/待检证」，
+			# 而不是靠 remarks 的中文文案（改一句话就失效）。
+			"hbos_intake_batch": batch_no,
 		}
 	)
 	entry.append(

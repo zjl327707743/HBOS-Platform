@@ -235,6 +235,21 @@ def sync_custom_fields():
                     ),
                 },
             ],
+            "Stock Entry": [
+                {
+                    "fieldname": "hbos_intake_batch",
+                    "label": "HBOS 识别入库批次",
+                    "fieldtype": "Link",
+                    "options": "Batch",
+                    "insert_after": "remarks",
+                    "read_only": 1,
+                    "description": (
+                        "由「入库拍照识别」建的草稿会写入此字段，指向本批的批次。"
+                        "**非空即代表来源是拍照识别**——提交后据此提示去批次取货位卡 / 待检证。"
+                        "用专用字段而不是靠 remarks 的中文文案匹配，避免改一句话就失效。"
+                    ),
+                },
+            ],
         }
     )
     _log("Custom Field", "同步完成")
