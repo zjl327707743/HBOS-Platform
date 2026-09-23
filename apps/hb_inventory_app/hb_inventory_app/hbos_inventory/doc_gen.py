@@ -370,12 +370,40 @@ def _distinct_batches(doc) -> list[str]:
 
     同一批次可能拆成多行（不同货位），但**一个批号只对应一张货位卡**（M3-R0 确认），
     所以这里必须去重，否则会生成重复的卡。
+
+    **取法同 `release_gate._batch_nos_from_row`**：优先明细行的 `batch_no`，
+    取不到再回落到 `serial_and_batch_bundle` 的子表。
+
+    为什么要有回落（2026-09-23 补）：v16 里明细行的批号有**两条录入路径**——
+
+    - 勾了「启用明细行批号与序列号字段」→ 批号写在 `item.batch_no`（我们默认这条路，
+      `Stock Settings.use_serial_batch_fields = 1`）；
+    - 没勾 → 走「序列号与批号」选择框，批号落在 `serial_and_batch_bundle` 里，
+      **`item.batch_no` 是空的**。
+
+    原实现只读 `batch_no`，走第二条路时这里返回空 → **入库单提交后不出货位卡**，
+    而且不报错、只能事后发现附件不见了。`release_gate.py` 一直是有回落的，
+    这里此前没有，属两处不一致。
     """
     seen: list[str] = []
     for item in doc.get("items") or []:
+        nos = []
         batch = (item.get("batch_no") or "").strip()
-        if batch and batch not in seen and frappe.db.exists("Batch", batch):
-            seen.append(batch)
+        if batch:
+            nos.append(batch)
+        elif item.get("serial_and_batch_bundle"):
+            nos.extend(
+                frappe.db.sql(
+                    """select distinct batch_no from `tabSerial and Batch Entry`
+                       where parent = %s and ifnull(batch_no, '') != ''""",
+                    item.serial_and_batch_bundle,
+                    pluck=True,
+                )
+            )
+        for no in nos:
+            no = (no or "").strip()
+            if no and no not in seen and frappe.db.exists("Batch", no):
+                seen.append(no)
     return seen
 
 
