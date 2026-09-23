@@ -838,7 +838,7 @@ M3-R5 未做：免登录扫码、二维码批量打印（当前在 `Warehouse` �
 **最近一次修复（2026-09-23，Owner 指示「重启，并把该修的都修了」）**：
 ① **常驻识别服务跑的是旧代码**（进程 9/21 08:54 启动，启动命令无 `--reload`）→ `c2_ocr:small` 档位写法被 400 拒（文档却写着可用）、当天修好的品名抽取规则未生效；**已重启**，复测 `c2_ocr:small` 返回 200、品名恢复正确（`美罗培南` / 空 / 空）。
 ② **页面版本戳未推**：改名批改了拍照识别页 `.js` 但没推 `.json` 的 `modified`，浏览器 `localStorage` 缓存永不失效 → 页面返回按钮仍指向旧路由；已推版本戳 + `migrate`。详见主文档**第九批**。
-③ **打印件汉字全丢**（Owner 报「打开全是乱码」）：后端容器**没有任何中文字体**（`fc-list :lang=zh` 为 0），wkhtmltopdf 渲染时**静默丢弃全部汉字、只留 ASCII 与数字**，四个打印格式全部中招。已由 Owner 授权改 `docker-compose.yml`，给 backend / queue-long / queue-short / scheduler 挂载 `./runtime/fonts`（中文字体，`runtime/` 已 gitignore、不入仓库），重建这四个容器（命名 volume 全保留）。复验四个格式均恢复中文、页型无回归。**已生成的历史 PDF 仍是坏的，需在批次上点「重新生成」**。详见主文档**第九之十一节**。
+③ **打印件汉字全丢**（Owner 报「打开全是乱码」）：后端容器**没有任何中文字体**（`fc-list :lang=zh` 为 0），wkhtmltopdf 渲染时**静默丢弃全部汉字、只留 ASCII 与数字**，四个打印格式全部中招。已由 Owner 授权改 `docker-compose.yml`，给 backend / queue-long / queue-short / scheduler 挂载 `./runtime/fonts`（中文字体，`runtime/` 已 gitignore、不入仓库），重建这四个容器（命名 volume 全保留）。复验四个格式均恢复中文、页型无回归。**已生成的 6 个 PDF 也已全部重出**（附件仍是 6 个，未堆积、未动手工附件；体积 34 KB → 约 73 KB，内嵌字体所致）。详见主文档**第九之十一节**。
 
 方案要点：
 
