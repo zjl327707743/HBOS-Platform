@@ -21,14 +21,6 @@ export const myTodoNavItem = {
   badge: 'todo-total' as const,
 }
 
-export interface RecentNavItem {
-  key: string
-  label: string
-  path: string
-  timeLabel: string
-  icon: 'clock' | 'history'
-}
-
 export const sidebarGroups: SidebarNavGroup[] = [
   {
     key: 'testing',
@@ -82,16 +74,6 @@ export const sidebarGroups: SidebarNavGroup[] = [
     ],
   },
 ]
-
-export const defaultRecentNavItems: RecentNavItem[] = [
-  { key: 'tasks', label: '检验任务列表', path: '/tasks', timeLabel: '2 小时前', icon: 'clock' },
-  { key: 'stability-study', label: '稳定性项目管理', path: '/stability/study', timeLabel: '昨天', icon: 'history' },
-]
-
-export function getVisibleRecentNavItems(items: RecentNavItem[], hiddenKeys: string[]): RecentNavItem[] {
-  const hidden = new Set(hiddenKeys)
-  return items.filter((item) => !hidden.has(item.key))
-}
 
 function pathMatches(path: string, target: string): boolean {
   if (target === '/results') {

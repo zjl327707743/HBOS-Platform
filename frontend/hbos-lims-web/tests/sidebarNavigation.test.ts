@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict'
 import {
-  defaultRecentNavItems,
   getGroupForPath,
   getInitialExpandedGroup,
-  getVisibleRecentNavItems,
   isSidebarItemActive,
   myTodoNavItem,
   sidebarGroups,
@@ -16,10 +14,6 @@ assert.equal(getInitialExpandedGroup('/dashboard'), null)
 assert.equal(sidebarGroups.find((group) => group.key === 'stability')?.children.length, 7)
 assert.equal(isSidebarItemActive('/stability/schedule', '/stability'), false)
 assert.equal(isSidebarItemActive('/stability', '/stability'), true)
-assert.deepEqual(
-  getVisibleRecentNavItems(defaultRecentNavItems, ['tasks']).map((item) => item.key),
-  ['stability-study'],
-)
 assert.equal(myTodoNavItem.path, '/my-todos')
 assert.equal(myTodoNavItem.badge, 'todo-total')
 assert.equal(sidebarGroups.find((group) => group.key === 'stability')?.badge, undefined)

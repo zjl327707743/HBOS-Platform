@@ -80,41 +80,6 @@
           </router-link>
         </div>
       </section>
-
-      <section v-if="!collapsed" class="recent-nav" aria-labelledby="recent-nav-label">
-        <div class="recent-heading">
-          <div id="recent-nav-label" class="section-label">最近访问</div>
-          <button
-            v-if="visibleRecentNavItems.length === 0"
-            type="button"
-            class="recent-restore"
-            title="恢复最近访问"
-            @click="restoreRecentItems"
-          >
-            恢复
-          </button>
-        </div>
-        <template v-if="visibleRecentNavItems.length > 0">
-          <div v-for="item in visibleRecentNavItems" :key="item.key" class="recent-item">
-            <router-link :to="item.path" class="recent-link">
-              <ClockCircleOutlined v-if="item.icon === 'clock'" />
-              <HistoryOutlined v-else />
-              <span>{{ item.label }}</span>
-              <small>{{ item.timeLabel }}</small>
-            </router-link>
-            <button
-              type="button"
-              class="recent-dismiss"
-              :aria-label="`关闭${item.label}`"
-              title="关闭"
-              @click="dismissRecentItem(item.key)"
-            >
-              <CloseOutlined />
-            </button>
-          </div>
-        </template>
-        <div v-else class="recent-empty">暂无最近访问</div>
-      </section>
     </nav>
 
     <div class="sidebar-foot">
@@ -132,14 +97,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   AuditOutlined,
   CalendarOutlined,
   CarryOutOutlined,
-  ClockCircleOutlined,
-  CloseOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   DownOutlined,
@@ -170,8 +133,6 @@ import { useTodoStore } from '@/stores/todo'
 import {
   getGroupForPath,
   getInitialExpandedGroup,
-  defaultRecentNavItems,
-  getVisibleRecentNavItems,
   isSidebarItemActive,
   sidebarGroups,
   type SidebarGroupKey,
@@ -219,17 +180,6 @@ const itemIcons: Record<string, Component> = {
 }
 
 const GROUP_STATE_KEY = 'hbos_lims_sidebar_expanded_groups'
-const RECENT_NAV_HIDDEN_KEY = 'hbos_lims_sidebar_hidden_recent'
-
-function readHiddenRecentKeys(): string[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const saved = JSON.parse(window.localStorage.getItem(RECENT_NAV_HIDDEN_KEY) || '[]') as unknown
-    return Array.isArray(saved) ? saved.filter((key): key is string => typeof key === 'string') : []
-  } catch {
-    return []
-  }
-}
 
 function readExpandedGroups(path: string): Set<SidebarGroupKey> {
   const expanded = new Set<SidebarGroupKey>()
@@ -251,8 +201,6 @@ function readExpandedGroups(path: string): Set<SidebarGroupKey> {
 }
 
 const expandedGroups = ref<Set<SidebarGroupKey>>(readExpandedGroups(route.path))
-const hiddenRecentKeys = ref<string[]>(readHiddenRecentKeys())
-const visibleRecentNavItems = computed(() => getVisibleRecentNavItems(defaultRecentNavItems, hiddenRecentKeys.value))
 
 // 稳定性角标：取自真实时间点执行状态，无权限/未登录时不显示。
 const stabilityCounts = ref({ schedule: 0, results: 0 })
@@ -260,21 +208,6 @@ const stabilityCounts = ref({ schedule: 0, results: 0 })
 function persistExpandedGroups() {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(GROUP_STATE_KEY, JSON.stringify([...expandedGroups.value]))
-}
-
-function dismissRecentItem(key: string) {
-  if (hiddenRecentKeys.value.includes(key)) return
-  hiddenRecentKeys.value = [...hiddenRecentKeys.value, key]
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(RECENT_NAV_HIDDEN_KEY, JSON.stringify(hiddenRecentKeys.value))
-  }
-}
-
-function restoreRecentItems() {
-  hiddenRecentKeys.value = []
-  if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(RECENT_NAV_HIDDEN_KEY)
-  }
 }
 
 function isGroupExpanded(key: SidebarGroupKey): boolean {
@@ -535,56 +468,6 @@ watch(() => route.path, (path) => {
 .nav-badge.module-badge { background: var(--warn); }
 .nav-badge.danger { background: var(--danger); }
 
-.recent-nav { margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.09); }
-.recent-heading { display: flex; align-items: center; justify-content: space-between; }
-.recent-heading .section-label { flex: 1; }
-.recent-restore {
-  margin-right: 10px;
-  padding: 0;
-  border: 0;
-  color: #8ec9bb;
-  background: transparent;
-  font: inherit;
-  font-size: 10px;
-  cursor: pointer;
-}
-.recent-restore:hover { color: #fff; }
-.recent-empty { padding: 3px 10px 6px; color: #71968b; font-size: 10px; }
-
-.recent-item {
-  gap: 9px;
-  padding: 7px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.recent-link { gap: 9px; min-width: 0; flex: 1 1 auto; }
-.recent-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
-.recent-link span { overflow: hidden; text-overflow: ellipsis; }
-.recent-item small { margin-left: auto; color: #71968b; font-size: 9px; }
-
-.recent-dismiss {
-  flex: 0 0 20px;
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  color: #71968b;
-  background: transparent;
-  cursor: pointer;
-  opacity: 0.65;
-  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
-}
-
-.recent-item:hover .recent-dismiss,
-.recent-dismiss:focus-visible { opacity: 1; }
-.recent-dismiss:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
-.recent-dismiss :deep(.anticon) { font-size: 12px; }
-
 .sidebar-foot {
   display: flex;
   flex-direction: column;
@@ -630,7 +513,6 @@ watch(() => route.path, (path) => {
   .nav-count,
   .group-chevron,
   .nav-item span,
-  .recent-nav,
   .foot-meta { display: none; }
 
   .nav { padding: 12px 8px; }
