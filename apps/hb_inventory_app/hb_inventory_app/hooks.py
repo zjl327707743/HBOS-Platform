@@ -24,12 +24,23 @@ doc_events = {
 }
 
 # 表单上的自定义行为：
-# - Batch：「重新生成货位卡 / 待检证」按钮（自动生成失败或数据变更后补生成）
-# - Stock Entry：拍照识别建的草稿，提交后给一个「下一步去哪」的落点
+# - Batch：「重新生成货位卡 / 待检证」按钮 + 「返回仓库工作台」出口
+# - Stock Entry：提交后给落点 + 「返回仓库工作台」出口
 doctype_js = {
     "Batch": "public/js/batch.js",
     "Stock Entry": "public/js/stock_entry.js",
 }
+
+# 全局脚本：把仓库常用单据的面包屑指到仓库工作台。
+#
+# 挂 app_include_js 而不是 doctype_js——它要在 **Desk 启动时**就把表填好，
+# 而不是等某个表单打开。本 app 排在 frappe / erpnext 之后，届时
+# `frappe.breadcrumbs.preferred` 已存在。详见该文件头部注释。
+#
+# ⚠ 路径**必须写成 `/assets/<app>/...` 的绝对形式**：非 bundle 文件在
+# `bundled_asset()` 里查不到映射，会原样交给 `abs_url()`；给相对路径
+# 它只会在前面补一个 `/`（`public/js/x.js` → `/public/js/x.js`），那是 404。
+app_include_js = "/assets/hb_inventory_app/js/desk_context.js"
 
 # Print Format 用的 Jinja 全局方法（打印辅助 + 货位二维码）。
 # 注册机制会收集所列模块内的所有函数，故这些模块只 `import frappe`，

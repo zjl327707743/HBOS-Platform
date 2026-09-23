@@ -35,6 +35,8 @@ WORKSPACE_SETUP = INV / "workspace_setup.py"
 PHOTO_INTAKE = INV / "page/hbos_photo_intake/hbos_photo_intake.js"
 STOCK_ENTRY_JS = Path(__file__).parents[1] / "hb_inventory_app/public/js/stock_entry.js"
 BATCH_JS = Path(__file__).parents[1] / "hb_inventory_app/public/js/batch.js"
+DESK_CONTEXT_JS = Path(__file__).parents[1] / "hb_inventory_app/public/js/desk_context.js"
+HOOKS = Path(__file__).parents[1] / "hb_inventory_app/hooks.py"
 
 # ERPNext 原生 Stock 模块用的图标。顶层入口**绝不能**用这一个，
 # 否则两个图标在桌面上无法区分，点错即进入原生模块且回不来。
@@ -261,6 +263,37 @@ class WorkspaceContractTest(unittest.TestCase):
 		content = WORKSPACE_SETUP.read_text()
 		for report in ("按批号查货位", "货位明细表", "效期预警", "库级盘点三对账"):
 			self.assertIn(f'"link_to": "{report}"', content)
+
+	def test_global_script_patches_breadcrumb_preferred(self):
+		"""面包屑归属靠一个**全局脚本**补，挂在 `app_include_js` 上。
+
+		为什么不能只靠 `Workspace Shortcut`（本文件另一条测试管的那个）：
+		那只决定 `__workspaces`，而 `breadcrumbs.js` 的 `set_workspace()` 里，
+		**从工作台点进来**那条支路要求 doctype 的 module 能映射到该工作台——
+		`Stock Entry` 的 module 是 `Stock`、仓库工作台属于 `HBOS Inventory`，
+		永远匹配不上。实测 Owner 走的就是这条，所以数据对了但**不显示**。
+
+		`breadcrumbs.preferred` 是框架本来就留的口子（按单据指定模块）。
+		"""
+		hooks = HOOKS.read_text()
+		module = _assign("MODULE")  # 与 workspace_setup.py 同源，防拼写漂移
+
+		self.assertIn("app_include_js", hooks, "必须有全局脚本挂载点")
+		# ⚠ 路径必须是 /assets/ 绝对形式：非 bundle 文件在 bundled_asset() 里
+		# 查不到映射，会原样交给 abs_url()，相对路径只会被补一个 "/" → 404
+		self.assertIn(
+			'"/assets/hb_inventory_app/js/desk_context.js"',
+			hooks,
+			"app_include_js 必须用 /assets/<app>/... 绝对路径，否则 404",
+		)
+
+		js = DESK_CONTEXT_JS.read_text()
+		self.assertIn("frappe.breadcrumbs.preferred", js, "要覆盖 preferred 表")
+		for doctype in ("Stock Entry", "Batch", "Item", "Warehouse"):
+			self.assertIn(f'"{doctype}": "{module}"' if " " in doctype else f"{doctype}: \"{module}\"", js,
+			              f"desk_context.js 缺 {doctype} 的归属设置")
+		# 加载顺序兜底：desk.bundle.js 没就绪时不能直接抛错
+		self.assertIn("if (!apply())", js, "缺少 breadcrumbs 未就绪时的兜底")
 
 	def test_native_forms_have_a_way_back(self):
 		"""会用到的两个原生表单都要有「返回仓库工作台」的出口。
