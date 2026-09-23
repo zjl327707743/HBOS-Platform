@@ -44,12 +44,6 @@ function actionKey(item: TodoItem): string {
   return `${item.module}:${item.action}`
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message
-  if (typeof error === 'string' && error) return error
-  return '待办动作执行失败，请刷新后重试'
-}
-
 /**
  * Routes remain page navigation; direct actions call the same business API as
  * the source page and refresh only after that API has succeeded or failed.
@@ -75,7 +69,6 @@ export async function runTodoAction(item: TodoItem, context: TodoActionContext):
     await context.refresh()
     return true
   } catch (error) {
-    context.notifyError(errorMessage(error))
     await context.refresh()
     return false
   }

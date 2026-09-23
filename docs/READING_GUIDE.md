@@ -2,7 +2,7 @@
 
 本指南用于限制 AI 在新乡海滨智能运营管理平台中的默认阅读范围，避免上下文膨胀和误读旧资料。
 
-当前状态提示：M2-R8J 已部署基线之上的业务检验结果同步、审查缺陷修复及趋势摘要下拉控件宽度修复均已同步生产；生产发布脚本 pytest 为 **342/342**，生产路径 17 个页面/资源冒烟均返回 200，结果页已完成浏览器复测，具体以 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 和 R8J 主文档发布记录为准。
+当前状态提示（2026-09-23）：M2-R8K「我的待办身份绑定」仍为 REVIEWING，真实 Frappe 冒烟已通过，待 Owner 测试路径验收；生产页面已可访问该功能，既有发布来源待核。本次仅将侧栏「最近访问」移除补丁 `fbb1aee` 同步生产，未执行后端迁移或重启。具体以 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 和 R8K 主文档为准。
 
 ## 默认读取文件
 
@@ -96,7 +96,7 @@ M0 历史任务曾允许读取：
 后续涉及 HRMS 环境治理、前端资源复核、能力盘点或 M1 考勤一期边界时，可读取 M0-R3C 安装验证记录、M0-R3C-FIX 修复记录、M0-R3D 设计记录、M0-R3E 环境可复现性收口记录、官方 Frappe HR、`frappe/hrms`、`frappe/frappe_docker`、ERPNext / Frappe v16 资料。
 
 不得因 HRMS 已安装而擅自创建新的海滨自定义 Frappe App；`hb_attendance_app` 仅限 M1-FIX-B 已授权的轻量导入能力，不得扩大范围；不得接飞书真实写入；不得在原型审查通过前实现前端驾驶舱；不得提交真实 `.env` 或真实密钥。
-M2-LIMS 当前进入 M2-R6：Vue 前端原型与开发流程 REVIEWING，待 Owner 审查；审查通过前不创建 Vue 工程、不接真实 API。
+M2-LIMS 当前为 M2-R8K「我的待办身份绑定」REVIEWING：审查修复及真实 Frappe 冒烟已完成，待 Owner 测试路径验收；生产页面已可访问，既有发布来源待核。
 M2-R6A（样品登记动态表单设计）随 M2-R6 并行 REVIEWING；样品登记动态表单方案见 `docs/frontend/M2_R6A_样品登记动态表单设计.md`。
 M2-R6B（检验结果台账双模式设计）REVIEWING，Owner 已确认原型与交互；双模式（明细台账 + 样品表每样品种类一表）方案见 `docs/frontend/M2_R6B_检验结果台账设计方案.md`。
 M2-R6C（检验结果台账 Vue 复刻与生产部署）DEPLOYED：双模式已复刻进 Vue 上线生产；M2-R6D（合规审计日志）DEPLOYED：合规审计日志 DocType/全量捕获/前端页已上线，并修复生产部署 hash 错配致个别页面 404。

@@ -6,6 +6,7 @@ import importlib
 import sys
 import types
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -29,6 +30,10 @@ class FakeFrappe(types.ModuleType):
         self.readable_names = {}
         self.query_count = defaultdict(int)
         self.cache_backend = FakeCache()
+        self.utils = types.SimpleNamespace(
+            get_fullname=lambda user: self.full_names.get(user, user),
+            today=lambda: "2026-09-22",
+        )
 
     def cache(self):
         return self.cache_backend
@@ -56,6 +61,19 @@ class FakeFrappe(types.ModuleType):
         allowed = self.readable_names.get(doctype)
         if allowed is not None:
             records = [row for row in records if row.get("name") in allowed]
+        if filters:
+            records = [row for row in records if self._matches(row, filters)]
+        if fields:
+            records = [{field: row.get(field) for field in fields} for row in records]
+        return records
+
+    def has_permission(self, doctype, ptype="read", doc=None):
+        allowed = self.readable_names.get(doctype)
+        return allowed is None or doc in allowed
+
+    def get_all(self, doctype, filters=None, fields=None, **_kwargs):
+        self.query_count[doctype] += 1
+        records = list(self.rows.get(doctype, ()))
         if filters:
             records = [row for row in records if self._matches(row, filters)]
         if fields:
@@ -460,6 +478,149 @@ def test_public_apis_reject_identity_override_and_use_session_identity(service):
         todo_service.get_my_todos(user="bob@example.com")
     with pytest.raises(TypeError):
         todo_service.get_my_todo_summary(roles=["LIMS Manager"])
+
+
+def test_identity_and_today_use_supported_frappe_utils(service):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst"]
+    fake.get_fullname = None
+    fake.utils = types.SimpleNamespace(
+        get_fullname=lambda user: "Alice Utils",
+        today=lambda: "2026-09-22",
+    )
+
+    identity = todo_service._current_identity()
+
+    assert identity.full_name == "Alice Utils"
+    assert todo_service._today() == "2026-09-22"
+
+
+def test_inaccessible_source_doctype_is_skipped_instead_of_crashing(service):
+    todo_service, fake = service
+    original_get_list = fake.get_list
+
+    def deny_sample_tasks(doctype, *args, **kwargs):
+        if doctype == "HBOS Sample Task":
+            raise PermissionError("Not permitted")
+        return original_get_list(doctype, *args, **kwargs)
+
+    fake.get_list = deny_sample_tasks
+
+    assert todo_service._get_list("HBOS Sample Task", {}, ["name"]) == []
+
+
+def test_child_table_reads_check_parent_permission_before_get_all(service):
+    todo_service, fake = service
+    permission_checks = []
+    fake.has_permission = lambda doctype, ptype="read", doc=None: permission_checks.append(
+        (doctype, ptype, doc)
+    ) or doc == "TP-001"
+    fake.get_all = lambda doctype, filters=None, fields=None, **_kwargs: [
+        {field: row.get(field) for field in fields}
+        for row in fake.rows[doctype]
+        if row.get("parent") in (filters or {}).get("parent", ["in", []])[1]
+    ]
+    original_get_list = fake.get_list
+
+    def deny_child_list(doctype, *args, **kwargs):
+        if doctype == "HBOS Stability Timepoint Item":
+            raise PermissionError("Child table has no permission rows")
+        return original_get_list(doctype, *args, **kwargs)
+
+    fake.get_list = deny_child_list
+    fake.rows["HBOS Stability Timepoint Item"] = [
+        {"parent": "TP-001", "stability_test_item": "STB-ASSAY", "is_required": 1},
+    ]
+
+    assert todo_service._stability_timepoint_items(["TP-001"]) == {
+        "TP-001": [{"parent": "TP-001", "stability_test_item": "STB-ASSAY", "is_required": 1}]
+    }
+    assert permission_checks == [("HBOS Stability Timepoint", "read", "TP-001")]
+
+
+def test_synced_business_coverage_suppresses_only_mapped_stability_record_todo(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Analyst"]
+    _seed_stability_rows(fake)
+    fake.rows["HBOS Sample"] = [{
+        "name": "STABILITY-SAMPLE-1",
+        "sample_source": "稳定性",
+        "stability_timepoint": "TP-RESULT",
+    }]
+    fake.rows["HBOS Sample Task"] = [{
+        "name": "BUSINESS-TASK-ASSAY",
+        "sample": "STABILITY-SAMPLE-1",
+        "test_item": "ITEM-ASSAY",
+    }]
+    fake.rows["HBOS Stability Test Item"] = [{
+        "name": "STB-ASSAY",
+        "base_test_item": "ITEM-ASSAY",
+    }]
+    monkeypatch.setattr(todo_service, "_enrich_stability_schedule", _enrich_stability_rows)
+    monkeypatch.setattr(todo_service, "_business_stability_items_for_timepoint", lambda _name: {"STB-ASSAY"})
+
+    items = todo_service._collect_stability_todos(todo_service._current_identity())
+
+    assert not any(item["action"] == "record_result" for item in items)
+
+
+def test_testing_approve_sod_reads_reviewer_field(service, monkeypatch):
+    todo_service, fake = service
+    fake.session.user = "alice@example.com"
+    fake.roles["alice@example.com"] = ["LIMS Reviewer"]
+    _seed_testing_rows(fake)
+    fake.rows["HBOS Sample Task"].append({
+        "name": "TASK-APPROVE-OWN",
+        "sample": "SAMPLE-1",
+        "test_item": "ITEM-APPROVE",
+        "item_name": "含量",
+        "assignee": "bob@example.com",
+        "status": "已复核",
+        "priority": "常规",
+        "due_date": "2026-09-25",
+        "modified": "2026-09-20T16:00:00+08:00",
+    })
+    fake.rows["HBOS Test Result"].append({
+        "name": "RESULT-APPROVE-OWN",
+        "task": "TASK-APPROVE-OWN",
+        "sample": "SAMPLE-1",
+        "test_item": "ITEM-APPROVE",
+        "item_name": "含量",
+        "result_status": "已复核",
+        "analyst": "bob@example.com",
+        "reviewer": "alice@example.com",
+        "modified": "2026-09-20T16:10:00+08:00",
+    })
+    fake.readable_names["HBOS Sample Task"].add("TASK-APPROVE-OWN")
+    fake.readable_names.setdefault("HBOS Test Result", set()).update({
+        "RESULT-DRAFT", "RESULT-REVIEW", "RESULT-APPROVE-OWN",
+    })
+    monkeypatch.setattr(todo_service, "_business_stability_items_for_timepoint", lambda _name: {"STB-ASSAY"})
+
+    items = todo_service.get_my_todos(module="testing", limit=100)["items"]
+
+    assert "RESULT-APPROVE-OWN" not in {item["source_name"] for item in items}
+
+
+def test_due_at_is_serialized_as_iso_string(service):
+    todo_service, _fake = service
+    rule = todo_service.find_rule("testing_task", "已分配")
+    identity = todo_service.Identity("alice@example.com", "Alice", (), ())
+
+    item = todo_service._make_item(
+        rule,
+        {"name": "TASK-1"},
+        identity,
+        "user",
+        (),
+        title="任务",
+        status="已分配",
+        due_at=date(2026, 9, 22),
+    )
+
+    assert item["due_at"] == "2026-09-22"
 
 
 def test_testing_provider_combines_direct_and_role_work_without_leaking(service, monkeypatch):

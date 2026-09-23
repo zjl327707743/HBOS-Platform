@@ -15,7 +15,7 @@
     </div>
 
     <a-alert v-if="todoStore.error" type="warning" show-icon class="state-alert">
-      <template #message>待办刷新失败，已保留上次成功数据</template>
+      <template #message>{{ todoStore.listLoaded ? '待办刷新失败，已保留上次成功数据' : '待办加载失败' }}</template>
       <template #description>{{ todoStore.error }}</template>
     </a-alert>
 
@@ -32,7 +32,7 @@
           :value="todoStore.filters.module"
           allow-clear
           placeholder="全部模块"
-          @change="(value: TodoModule | undefined) => todoStore.setFilters({ module: value, offset: 0 })"
+          @change="onModuleChange"
         >
           <a-select-option v-for="option in moduleOptions" :key="option.value" :value="option.value">
             {{ option.label }}
@@ -42,10 +42,30 @@
           :value="todoStore.filters.owner_type"
           allow-clear
           placeholder="全部归属"
-          @change="(value: TodoOwnerType | undefined) => todoStore.setFilters({ owner_type: value, offset: 0 })"
+          @change="onOwnerChange"
         >
           <a-select-option value="user">指派给我</a-select-option>
           <a-select-option value="role">我的角色待处理</a-select-option>
+        </a-select>
+        <a-select
+          :value="todoStore.filters.status"
+          allow-clear
+          placeholder="全部状态"
+          @change="onStatusChange"
+        >
+          <a-select-option v-for="status in statusOptions" :key="status" :value="status">
+            {{ status }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          :value="todoStore.filters.priority"
+          allow-clear
+          placeholder="全部优先级"
+          @change="onPriorityChange"
+        >
+          <a-select-option v-for="priority in priorityOptions" :key="priority" :value="priority">
+            {{ priority }}
+          </a-select-option>
         </a-select>
         <a-input
           v-model:value="keyword"
@@ -69,9 +89,16 @@
 
       <a-spin :spinning="todoStore.loading && todoStore.items.length === 0">
         <div v-if="todoStore.items.length === 0" class="empty-state">
-          <div class="empty-icon">✓</div>
-          <div class="empty-title">当前没有匹配的待办</div>
-          <div class="muted">新的任务会根据你的指派和业务角色自动出现在这里</div>
+          <template v-if="todoStore.error && !todoStore.listLoaded">
+            <div class="empty-icon error-icon">!</div>
+            <div class="empty-title">待办加载失败，请刷新重试</div>
+            <div class="muted">{{ todoStore.error }}</div>
+          </template>
+          <template v-else>
+            <div class="empty-icon">✓</div>
+            <div class="empty-title">当前没有匹配的待办</div>
+            <div class="muted">新的任务会根据你的指派和业务角色自动出现在这里</div>
+          </template>
         </div>
 
         <div v-else class="table-wrap">
@@ -95,6 +122,12 @@
                     {{ record.owner_label }}
                   </span>
                 </div>
+                <div v-if="record.owner_type === 'role' && record.candidate_roles?.length" class="owner-detail">
+                  候选：{{ record.candidate_roles.join('、') }}
+                </div>
+              </template>
+              <template v-else-if="column.key === 'status'">
+                <a-tag>{{ record.status_label || record.status }}</a-tag>
               </template>
               <template v-else-if="column.key === 'due_at'">
                 <span :class="{ overdue: record.is_overdue }">{{ record.due_at || '—' }}</span>
@@ -123,6 +156,7 @@
               <div class="source-name">{{ record.source_name }} · {{ record.action_label }}</div>
               <div class="todo-card-meta">
                 <span>{{ record.priority || '常规' }}</span>
+                <span>{{ record.status_label || record.status }}</span>
                 <span :class="{ overdue: record.is_overdue }">{{ record.due_at || '无截止日' }}</span>
               </div>
               <a-button size="small" :loading="actionLoadingKey === record.todo_key" @click.stop="handleAction(record)">
@@ -158,9 +192,14 @@ const moduleOptions: { value: TodoModule; label: string }[] = [
   { value: 'testing', label: '检验业务' },
   { value: 'stability', label: '稳定性' },
   { value: 'retention', label: '留样' },
-  { value: 'quality', label: '质量' },
-  { value: 'compliance', label: '合规' },
 ]
+
+const statusOptions = [
+  '已分配', '草稿', '已提交', '已复核', '待取样', '待检测', '检测中', '已完成',
+  '应观察', '已逾期', '待审核', '待库存确认', '待QC批准', '待QA批准', '待QM批准',
+  '已批准', '待QC主管审核', '待QC负责人审核', '待QA审核', '待QA负责人审核', '待执行',
+]
+const priorityOptions = ['特急', '紧急', '加急', '高', '中', '常规', '普通', '低']
 
 const summaryCards = computed(() => [
   { key: 'total', label: '全部待办', value: todoStore.summary.total, tone: 'tone-blue' },
@@ -172,6 +211,7 @@ const summaryCards = computed(() => [
 const columns = [
   { title: '待办事项', key: 'title', width: 280 },
   { title: '模块 / 归属', key: 'context', width: 180 },
+  { title: '状态', key: 'status', width: 100 },
   { title: '当前动作', key: 'action', width: 120 },
   { title: '优先级', key: 'priority', width: 90 },
   { title: '截止时间', key: 'due_at', width: 130 },
@@ -192,6 +232,26 @@ function refreshWhenVisible() {
 
 function applyFilters() {
   todoStore.setFilters({ keyword: keyword.value.trim() || undefined, offset: 0 })
+  void todoStore.fetchList()
+}
+
+function onModuleChange(value: TodoModule | undefined) {
+  todoStore.setFilters({ module: value, offset: 0 })
+  void todoStore.fetchList()
+}
+
+function onOwnerChange(value: TodoOwnerType | undefined) {
+  todoStore.setFilters({ owner_type: value, offset: 0 })
+  void todoStore.fetchList()
+}
+
+function onStatusChange(value: string | undefined) {
+  todoStore.setFilters({ status: value, offset: 0 })
+  void todoStore.fetchList()
+}
+
+function onPriorityChange(value: string | undefined) {
+  todoStore.setFilters({ priority: value, offset: 0 })
   void todoStore.fetchList()
 }
 
@@ -280,7 +340,7 @@ h1 { margin: 5px 0 4px; color: var(--text-strong); font-size: 28px; }
 .tone-purple { border-top: 3px solid #8b5cf6; }
 .tone-red { border-top: 3px solid #dc2626; }
 .filter-card { margin-bottom: 16px; }
-.filter-grid { display: grid; grid-template-columns: 170px 170px minmax(220px, 1fr) auto auto auto; align-items: center; gap: 10px; }
+.filter-grid { display: grid; grid-template-columns: 170px 170px 150px 120px minmax(220px, 1fr) auto auto auto; align-items: center; gap: 10px; }
 .list-card { overflow: hidden; }
 .list-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--line); }
 .list-title { color: var(--text-strong); font-weight: 700; }
@@ -291,6 +351,7 @@ h1 { margin: 5px 0 4px; color: var(--text-strong); font-size: 28px; }
 .title-button:hover { text-decoration: underline; }
 .source-name { margin-top: 4px; color: var(--text-muted); font-size: 11px; }
 .tag-row, .todo-card-top { display: flex; flex-wrap: wrap; gap: 6px; }
+.owner-detail { margin-top: 5px; color: var(--text-muted); font-size: 11px; line-height: 1.4; }
 .context-tag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 7px; border-radius: 4px; font-size: 11px; }
 .module-tag { color: #176b64; background: #e4f6f1; }
 .user-tag { color: #2459a6; background: #e8f0ff; }
@@ -300,6 +361,7 @@ h1 { margin: 5px 0 4px; color: var(--text-strong); font-size: 28px; }
 .overdue { color: #d4380d; font-weight: 700; }
 .empty-state { padding: 76px 20px; text-align: center; }
 .empty-icon { width: 42px; height: 42px; margin: 0 auto 12px; border-radius: 50%; color: #168b70; background: #e4f6f1; font-size: 24px; line-height: 42px; }
+.error-icon { color: #d4380d; background: #fff1f0; }
 .empty-title { margin-bottom: 6px; color: var(--text-strong); font-weight: 600; }
 .mobile-list { display: none; }
 

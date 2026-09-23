@@ -58,14 +58,14 @@ def _current_identity() -> Identity:
 	roles = tuple(frappe.get_roles(user) or ())
 	return Identity(
 		user=user,
-		full_name=frappe.get_fullname(user) or user,
+		full_name=frappe.utils.get_fullname(user) or user,
 		session_roles=roles,
 		business_roles=business_roles_for_user(user, roles),
 	)
 
 
 def _today() -> str:
-	return date.today().isoformat()
+	return str(frappe.utils.today())
 
 
 def _generated_at() -> str:
@@ -124,16 +124,97 @@ def _row_value(row: Any, field: str, default=None):
 	return getattr(row, field, default)
 
 
+def _permission_error_types():
+	types = [PermissionError]
+	for owner in (frappe, getattr(frappe, "exceptions", None)):
+		error_type = getattr(owner, "PermissionError", None)
+		if isinstance(error_type, type) and error_type not in types:
+			types.append(error_type)
+	return tuple(types)
+
+
 def _get_list(doctype: str, filters: dict | None, fields: list[str]) -> list[dict]:
-	"""统一走 permission-aware get_list，不使用 get_all 或 SQL 绕过权限。"""
-	return list(
-		frappe.get_list(
-			doctype,
-			filters=filters or {},
-			fields=fields,
-			limit_page_length=0,
+	"""统一走 permission-aware get_list；无读权限按不可见处理而不是让聚合接口崩溃。"""
+	try:
+		return list(
+			frappe.get_list(
+				doctype,
+				filters=filters or {},
+				fields=fields,
+				limit_page_length=0,
+			)
 		)
-	)
+	except Exception as exc:
+		if isinstance(exc, _permission_error_types()):
+			return []
+		raise
+
+
+def _parent_names_from_filter(filters: dict | None) -> list[str]:
+	parent_filter = (filters or {}).get("parent")
+	if isinstance(parent_filter, (list, tuple)) and len(parent_filter) == 2:
+		operator, values = parent_filter
+		if operator == "in":
+			return [str(value) for value in (values or ()) if value]
+	if parent_filter:
+		return [str(parent_filter)]
+	return []
+
+
+def _readable_parent_names(parent_doctype: str, parent_names: list[str]) -> list[str]:
+	if not parent_names:
+		return []
+	has_permission = getattr(frappe, "has_permission", None)
+	if callable(has_permission):
+		readable = []
+		for name in parent_names:
+			try:
+				if has_permission(parent_doctype, ptype="read", doc=name):
+					readable.append(name)
+			except Exception as exc:
+				if not isinstance(exc, _permission_error_types()):
+					raise
+		return readable
+	return [
+		_row_value(row, "name")
+		for row in _get_list(
+			parent_doctype,
+			{"name": ["in", parent_names]},
+			["name"],
+		)
+	]
+
+
+def _get_child_list(
+	doctype: str,
+	filters: dict | None,
+	fields: list[str],
+	*,
+	parent_doctype: str,
+) -> list[dict]:
+	"""读取子表前按父单逐条校验读权限，再用 get_all 取已授权父单的行。"""
+	parent_names = _parent_names_from_filter(filters)
+	readable_parents = _readable_parent_names(parent_doctype, parent_names)
+	if not readable_parents:
+		return []
+	get_all = getattr(frappe, "get_all", None)
+	if not callable(get_all):
+		return []
+	child_filters = dict(filters or {})
+	child_filters["parent"] = ["in", readable_parents]
+	try:
+		return list(
+			get_all(
+				doctype,
+				filters=child_filters,
+				fields=fields,
+				limit_page_length=0,
+			)
+		)
+	except Exception as exc:
+		if isinstance(exc, _permission_error_types()):
+			return []
+		raise
 
 
 def _allowed_by_action(rule: TodoRule, identity: Identity) -> bool:
@@ -238,6 +319,7 @@ def _make_item(
 	route_context: dict | None = None,
 ):
 	source_name = _row_value(row, "name")
+	serialized_due_at = due_at.isoformat() if isinstance(due_at, (date, datetime)) else due_at
 	module = rule.module
 	if module.startswith("testing"):
 		module = "testing"
@@ -260,7 +342,7 @@ def _make_item(
 		"assignee": identity.user if owner_type == "user" else None,
 		"candidate_roles": list(roles),
 		"priority": priority or "常规",
-		"due_at": due_at,
+		"due_at": serialized_due_at,
 		"is_overdue": _is_overdue(due_at),
 		"route": rule.route,
 		"route_params": _route_params(
@@ -308,14 +390,13 @@ def _stability_coverage(
 	for sample in stable_samples.values():
 		timepoint = _row_value(sample, "stability_timepoint")
 		by_timepoint.setdefault(timepoint, set())
-		if timepoint not in by_timepoint:
-			by_timepoint[timepoint] = set()
 
 	timepoint_names = sorted(by_timepoint)
-	items = _get_list(
+	items = _get_child_list(
 		"HBOS Stability Timepoint Item",
 		{"parent": ["in", timepoint_names]},
 		["parent", "stability_test_item"],
+		parent_doctype="HBOS Stability Timepoint",
 	)
 	items_by_timepoint: dict[str, set[str]] = {}
 	for item in items:
@@ -417,7 +498,7 @@ def _collect_testing_todos(identity: Identity) -> list[dict]:
 		{"result_status": ["in", list(ACTIONABLE_RESULT_STATUSES)]},
 		[
 			"name", "task", "sample", "test_item", "item_name", "result_status",
-			"analyst", "modified",
+			"analyst", "reviewer", "modified",
 		],
 	)
 	for result in result_rows:
@@ -471,15 +552,83 @@ def _enrich_stability_schedule(rows: list[dict]) -> list[dict]:
 def _stability_timepoint_items(timepoint_names: list[str]) -> dict[str, list[dict]]:
 	if not timepoint_names:
 		return {}
-	rows = _get_list(
+	rows = _get_child_list(
 		"HBOS Stability Timepoint Item",
 		{"parent": ["in", timepoint_names]},
 		["parent", "stability_test_item", "is_required"],
+		parent_doctype="HBOS Stability Timepoint",
 	)
 	items: dict[str, list[dict]] = {}
 	for row in rows:
 		items.setdefault(_row_value(row, "parent"), []).append(row)
 	return items
+
+
+def _business_stability_coverage(timepoint_names: list[str]) -> dict[str, set[str]]:
+	"""按业务任务对应的基础项目返回各时间点已覆盖的稳定性项目。"""
+	if not timepoint_names:
+		return {}
+	samples = _get_list(
+		"HBOS Sample",
+		{
+			"sample_source": "稳定性",
+			"stability_timepoint": ["in", timepoint_names],
+		},
+		["name", "sample_source", "stability_timepoint"],
+	)
+	sample_names = sorted({
+		_row_value(sample, "name")
+		for sample in samples
+		if _row_value(sample, "name")
+	})
+	if not sample_names:
+		return {}
+	task_rows = _get_list(
+		"HBOS Sample Task",
+		{"sample": ["in", sample_names]},
+		["sample", "test_item"],
+	)
+	base_items = {
+		_row_value(task, "test_item")
+		for task in task_rows
+		if _row_value(task, "test_item")
+	}
+	mapping_rows = _get_list(
+		"HBOS Stability Test Item",
+		{"base_test_item": ["in", sorted(base_items)]},
+		["name", "base_test_item"],
+	)
+	mapping = {
+		_row_value(row, "base_test_item"): _row_value(row, "name")
+		for row in mapping_rows
+	}
+	items = _get_child_list(
+		"HBOS Stability Timepoint Item",
+		{"parent": ["in", timepoint_names]},
+		["parent", "stability_test_item"],
+		parent_doctype="HBOS Stability Timepoint",
+	)
+	items_by_timepoint: dict[str, set[str]] = {}
+	for item in items:
+		items_by_timepoint.setdefault(_row_value(item, "parent"), set()).add(
+			_row_value(item, "stability_test_item")
+		)
+
+	sample_by_name = {
+		_row_value(sample, "name"): sample
+		for sample in samples
+	}
+	result: dict[str, set[str]] = {}
+	for timepoint in timepoint_names:
+		allowed_items = items_by_timepoint.get(timepoint, set()) & _business_stability_items_for_timepoint(timepoint)
+		result[timepoint] = {
+			mapping.get(_row_value(task, "test_item"))
+			for task in task_rows
+			if _row_value(sample_by_name.get(_row_value(task, "sample")), "stability_timepoint") == timepoint
+			and mapping.get(_row_value(task, "test_item")) in allowed_items
+			and mapping.get(_row_value(task, "test_item"))
+		}
+	return result
 
 
 def _manual_result_items(result_rows: list[dict]) -> dict[str, set[str]]:
@@ -508,6 +657,7 @@ def _collect_stability_todos(identity: Identity) -> list[dict]:
 	enriched = _enrich_stability_schedule(timepoints)
 	timepoint_names = [_row_value(row, "name") for row in enriched]
 	items_by_timepoint = _stability_timepoint_items(timepoint_names)
+	business_coverage = _business_stability_coverage(timepoint_names)
 	result_rows = _get_list(
 		"HBOS Stability Result",
 		{"status": ["in", list(ACTIONABLE_RESULT_STATUSES)]},
@@ -529,7 +679,8 @@ def _collect_stability_todos(identity: Identity) -> list[dict]:
 				for item in items_by_timepoint.get(_row_value(row, "name"), ())
 				if _row_value(item, "is_required", 1)
 			}
-			if required - manual_items.get(_row_value(row, "name"), set()):
+			covered_by_business = business_coverage.get(_row_value(row, "name"), set())
+			if required - manual_items.get(_row_value(row, "name"), set()) - covered_by_business:
 				condition = "missing_manual_result"
 		elif status == "已完成" and not _row_value(row, "trend_conclusion"):
 			condition = "missing_trend_conclusion"

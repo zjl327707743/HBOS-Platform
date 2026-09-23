@@ -72,6 +72,18 @@ else:
 PY
 "$DOCKER" exec "$FRONTEND_ID" sh -c 'nginx -t && nginx -s reload'
 
+log "7d/8 Container-side runtime smoke (my-todos aggregate over a real Frappe session)"
+# 离线契约用 FakeFrappe 桩，抓不到「不存在的 Frappe API」「子表 get_list 权限」这类
+# 纯运行期问题；因此这里在容器内真连 Frappe 跑一次待办聚合的只读冒烟。
+BACKEND_ID="$("$DOCKER" compose ps -q backend)"
+[ -n "$BACKEND_ID" ] || fail "backend container is not running"
+if ! "$DOCKER" exec "$BACKEND_ID" test -x /home/frappe/frappe-bench/env/bin/pytest; then
+  fail "backend venv 缺少 pytest。请先执行：docker compose exec backend /home/frappe/frappe-bench/env/bin/pip install pytest"
+fi
+"$DOCKER" exec -e HBOS_FRAPPE_SMOKE=1 -e FRAPPE_SITE=frontend "$BACKEND_ID" bash -c \
+  'cd /home/frappe/frappe-bench/sites && /home/frappe/frappe-bench/env/bin/python -m pytest \
+     /home/frappe/frappe-bench/apps/hb_lims_app/tests/test_todo_runtime_smoke.py -q'
+
 log "8/8 HTTP smoke checks"
 sleep 8
 for path in /hbos-lims/ /hbos-lims/dashboard /hbos-lims/samples /hbos-lims/audit /hbos-lims/audit-log \

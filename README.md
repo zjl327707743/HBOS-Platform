@@ -8,7 +8,9 @@
 
 > 状态校正（2026-09-21 本轮追加）：R8J 已上线基线之外，本轮新增稳定性取样绑定、业务检验结果同步及审查缺陷修复已按 Owner 授权同步生产；完整 pytest **341/341**、生产前端构建通过，生产路径 17 个页面/资源冒烟均返回 200，备份为 `hbos-lims.bak-20260921173948`。
 
-当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；M1-FIX-B5 为 REVIEWING（等待 Owner 和 Claude 审查），M1-FIX-B3 / B4 不 closeout，M1-FIX-C/D/E 未启动。M2-LIMS（实验室信息管理系统板块）已按 Owner 授权启动：M2-R1 至 M2-R4（环境与骨架、主数据与判定引擎、检验流程闭环、COA 与报表）已 COMPLETED，M2-R5（验证收口）为 REVIEWING；M2-R6（Vue 前端原型与开发流程）已交付交互式 HTML 原型与开发流程文档，进入 REVIEWING，未创建 Vue 工程。M1-FIX 为并行未决事项，不阻塞 M2-LIMS。
+> 当前状态（2026-09-23）：M2-R8K「我的待办身份绑定」仍为 REVIEWING，真实 Frappe 冒烟已通过，待 Owner 测试路径验收。生产页面已可访问该功能，但其既有发布来源未在本次核定；本次仅将侧栏「最近访问」移除补丁 `fbb1aee` 同步生产，备份 `hbos-lims.bak-20260923193453`。详见 `docs/milestones/M2_R8K_我的待办身份绑定.md`。
+
+历史阶段摘要：M0 已完成并封板，M1 产品交付仍在 M1-FIX 功能补漏中，M2-R1 至 M2-R4 已 COMPLETED；本项目当前工作状态以本节新增的 M2-R8K 条目及 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 为准。
 M2-R6A（样品登记动态表单设计）已交付下拉决策条 + 9 类样品类型完整表单切换方案，进入 REVIEWING，等待 Owner 审查。
 M2-R6B（检验结果台账双模式设计）已交付明细台账 + 样品表（每样品种类一表）双模式方案，Owner 已确认原型与交互，进入 REVIEWING，设计文档待审查。
 M2-R6C（检验结果台账 Vue 复刻与生产部署）已将双模式复刻进 Vue 并上线生产，Owner 已确认测试路径。

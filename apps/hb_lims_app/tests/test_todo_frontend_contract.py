@@ -84,6 +84,44 @@ def test_todo_actions_delegate_to_original_apis_and_refresh_after_failure():
         assert action in actions
     assert "reviewObservationByName" in retention_api
     assert "await context.refresh()" in actions
+    assert "context.notifyError(errorMessage(error))" not in actions
     assert "removeResolved" not in actions
     assert "runTodoAction" in page
     assert "actionLoadingKey" in page
+
+
+def test_todo_page_refreshes_select_filters_and_exposes_supported_modules_only():
+    page = _read("src/views/MyTodosView.vue")
+
+    assert "function onModuleChange" in page
+    assert "function onOwnerChange" in page
+    assert "void todoStore.fetchList()" in page
+    assert "value: 'quality'" not in page
+    assert "value: 'compliance'" not in page
+    assert "statusOptions" in page
+    assert "priorityOptions" in page
+
+
+def test_todo_page_distinguishes_initial_error_from_successful_empty_state():
+    page = _read("src/views/MyTodosView.vue")
+    store = _read("src/stores/todo.ts")
+
+    assert "listLoaded" in store
+    assert "todoStore.error && !todoStore.listLoaded" in page
+    assert "待办加载失败，请刷新重试" in page
+
+
+def test_task_board_does_not_ship_test_user_or_test_department_defaults():
+    page = _read("src/views/TaskBoardView.vue")
+
+    assert "test-hbos-m2-analyst@test.local" not in page
+    assert "Administrator'" not in page
+    assert "TEST-HBOS-M2-DEP-PH" not in page
+    assert "listDoctype" in page
+
+
+def test_recent_shortcuts_do_not_claim_fake_visit_times():
+    navigation = _read("src/components/layout/sidebarNavigation.ts")
+
+    assert "2 小时前" not in navigation
+    assert "昨天" not in navigation

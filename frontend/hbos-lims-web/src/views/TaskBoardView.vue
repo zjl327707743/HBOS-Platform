@@ -78,7 +78,9 @@
         </a-form-item>
         <a-form-item label="检验员">
           <a-select v-model:value="assignForm.assignee" style="width:100%" show-search placeholder="选择检验员">
-            <a-select-option v-for="u in analystUsers" :key="u" :value="u">{{ u }}</a-select-option>
+            <a-select-option v-for="u in analystUsers" :key="u.name" :value="u.name">
+              {{ u.full_name || u.name }}（{{ u.name }}）
+            </a-select-option>
           </a-select>
         </a-form-item>
         <div class="modal-footer">
@@ -96,7 +98,7 @@
           </a-select>
         </a-form-item>
         <a-form-item label="检验组">
-          <a-input v-model:value="generateForm.department" placeholder="TEST-HBOS-M2-DEP-PH" />
+          <a-input v-model:value="generateForm.department" placeholder="请输入检验组" />
         </a-form-item>
         <div class="modal-footer">
           <a-button @click="showGenerate = false">取消</a-button>
@@ -129,9 +131,9 @@ const tasks = computed(() => taskStore.tasks)
 const actionLoading = ref(false)
 const showGenerate = ref(false)
 const showAssign = ref(false)
-const generateForm = reactive({ sample: '', department: 'TEST-HBOS-M2-DEP-PH' })
+const generateForm = reactive({ sample: '', department: '' })
 const assignForm = reactive({ task: '', assignee: '' })
-const analystUsers = ['Administrator', 'test-hbos-m2-analyst@test.local']
+const analystUsers = ref<Array<{ name: string; full_name?: string }>>([])
 
 const emptyImage = Empty.PRESENTED_IMAGE_SIMPLE
 const activeTab = ref('pending')
@@ -317,8 +319,23 @@ async function doGenerate() {
   }
 }
 
+async function loadAnalystUsers() {
+  try {
+    const users = await listDoctype<{ name: string; full_name?: string }>(
+      'User',
+      ['name', 'full_name'],
+      { enabled: 1, user_type: 'System' },
+      200,
+      'full_name asc',
+    )
+    analystUsers.value = users.filter((user) => user.name && user.name !== 'Guest')
+  } catch {
+    analystUsers.value = []
+  }
+}
+
 onMounted(async () => {
-  await Promise.all([sampleStore.fetchAll()])
+  await Promise.all([sampleStore.fetchAll(), loadAnalystUsers()])
   await loadBoard()
 })
 </script>

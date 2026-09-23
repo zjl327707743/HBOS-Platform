@@ -17,6 +17,7 @@ export const useTodoStore = defineStore('todo', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const generatedAt = ref<string | null>(null)
+  const listLoaded = ref(false)
 
   function errorMessage(reason: unknown): string {
     return reason instanceof Error ? reason.message : '待办数据加载失败'
@@ -47,6 +48,7 @@ export const useTodoStore = defineStore('todo', () => {
       items.value = sortTodoItems(response.items.map(normalizeTodoItem))
       filteredSummary.value = response.filtered_summary
       generatedAt.value = response.generated_at
+      listLoaded.value = true
       error.value = null
       return response
     } catch (reason) {
@@ -79,6 +81,7 @@ export const useTodoStore = defineStore('todo', () => {
     items.value = []
     resetFilters()
     generatedAt.value = null
+    listLoaded.value = false
     error.value = null
     loading.value = false
   }
@@ -91,6 +94,7 @@ export const useTodoStore = defineStore('todo', () => {
     loading,
     error,
     generatedAt,
+    listLoaded,
     fetchSummary,
     fetchList,
     refreshAll,
