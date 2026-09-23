@@ -10,6 +10,9 @@ services:
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      # 中文字体。wkhtmltopdf 靠系统字体渲染 PDF，镜像里只有 DejaVu（无汉字），
+      # 缺了它打印格式里的汉字会被**静默丢弃**（ASCII 正常、汉字消失）。
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
     environment:
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
@@ -176,6 +179,7 @@ services:
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
     environment:
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
@@ -197,6 +201,7 @@ services:
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
     environment:
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
@@ -236,6 +241,7 @@ services:
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
 
   websocket:
     image: frappe/erpnext:${ERPNEXT_VERSION}
