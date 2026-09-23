@@ -174,19 +174,11 @@ class WorkspaceContractTest(unittest.TestCase):
 		content = WORKSPACE_SETUP.read_text()
 		self.assertIn('"parent_icon": legacy', content)
 
-	def test_sidebar_only_lists_what_is_unique_to_this_app(self):
-		"""侧边栏**只放本 App 独有的**：1 个页面 + 4 个报表。
+	def test_sidebar_lists_the_unique_entries(self):
+		"""本 App 独有的入口必须在：1 个页面 + 4 个报表。
 
-		Owner 在 2026-09-23 提出「为什么要单独做仓库工作台、不能集成在原生库存里」，
-		结论是**保留工作台但瘦身**——把与 ERPNext 原生库存重复的条目撤掉，
-		让这个工作台只回答「海滨特有的东西在哪」。
-
-		撤掉的理由（别再有人加回去）：那些目标本来就是原生库存模块的内容；
-		而且三个 Stock Entry 条目**指向同一个地方**（原生 Stock Entry 列表），
-		只是标签不同，等于在许诺一件没做的事。
-
-		**按解析出的常量断言，不按源码文本**——注释里会提到这些名字
-		（说明「为什么撤掉」），按文本查会误报。
+		**按解析出的常量断言，不按源码文本**——注释里会提到被撤掉的历史名字
+		（说明当时为什么错），按文本查会误报。
 		"""
 		labels = {i["label"] for i in _assign("SIDEBAR_ITEMS")}
 		for label in (
@@ -198,24 +190,72 @@ class WorkspaceContractTest(unittest.TestCase):
 		):
 			self.assertIn(label, labels, f"侧边栏缺入口：{label}")
 
+		# 这几个是当年的「假分类」：三条都指向同一个原生 Stock Entry 列表，
+		# 标签不同但点下去不会按用途过滤。撤掉后就别再回来。
 		for label in ("入库登记（原生）", "出库核销", "货位变更", "货位二维码（在货位上打印）"):
-			self.assertNotIn(label, labels, f"「{label}」与原生库存重复，不应再列")
+			self.assertNotIn(label, labels, f"「{label}」是假分类或重复项，不应再列")
 
-	def test_sidebar_has_no_doctype_links_at_all(self):
-		"""侧边栏不再指向任何原生 DocType——那些入口归原生库存模块管。
+	def test_sidebar_keeps_links_to_native_doctypes(self):
+		"""⚠ 侧边栏**必须**保留指向原生单据的条目——它们不是重复导航。
 
-		这条比逐条列举更耐用：以后想加「规格」「BOM」之类，会先撞到这里，
-		逼着人重新想一遍「这到底是不是海滨特有的」。
+		2026-09-23 我把这几条当成「与原生库存重复」撤掉了，结果 Owner 立刻报
+		「点进单据就跳到原生库存、回不来，侧边栏整条都换了」。查框架源码后确认
+		它们在承担一件看不见的事：
+
+		    `sidebar.js` 的 `resolve_sidebar()` 第 1 条规则是
+		    「当前侧边栏若已链接到该单据，就保持不变」，
+		    而 `get_workspace_sidebars()` 拿 bootinfo 里**所有**侧边栏去匹配。
+
+		我们的侧边栏一旦不含该单据，就不再是候选 → 掉回原生
+		（实测 `Batch` 只被原生 `Stock` 侧边栏链接，必然切走）。
+
+		所以这条测试是**防止同一个错误犯第二次**：删掉它们就红。
 		"""
 		items = _assign("SIDEBAR_ITEMS")
-		bad = [i["label"] for i in items if i.get("link_type") == "DocType"]
-		self.assertEqual(bad, [], f"侧边栏不应再列原生 DocType 入口，却发现了：{bad}")
+		linked = {i["link_to"] for i in items if i.get("link_type") == "DocType"}
+		for doctype in ("Stock Entry", "Batch", "Item", "Warehouse"):
+			self.assertIn(
+				doctype,
+				linked,
+				f"侧边栏缺少指向 {doctype} 的条目——进去之后侧边栏会掉回原生库存模块",
+			)
 
-	def test_shortcuts_are_not_repeated_in_sidebar_links(self):
-		"""快捷方式与「链接卡片」是两套，不该列同一批东西。"""
+	def test_stock_entry_is_listed_exactly_once(self):
+		"""`Stock Entry` 只该有一条：原生那一个列表本来就同时管入库/出库/移库。
+
+		原来拆成的三条（入库登记 / 出库核销 / 货位变更）指向的是同一个列表，
+		点下去并不会按用途过滤——那是**假分类**，比只有一条更误导。
+		"""
+		items = _assign("SIDEBAR_ITEMS")
+		hits = [i["label"] for i in items if i.get("link_to") == "Stock Entry"]
+		self.assertEqual(len(hits), 1, f"Stock Entry 只该列一条，却有：{hits}")
+
+	def test_shortcuts_cover_breadcrumb_but_skip_item(self):
+		"""快捷方式决定**面包屑**归属；`Item` 必须跳过。
+
+		`FormMeta.load_workspaces()` 先查 `Workspace Shortcut`（type=DocType），
+		查到就用它、查不到才回落到 `Workspace Link`。所以给某单据加一条快捷方式，
+		就能把它的归属工作台从原生改到我们这边。
+
+		**但不能给 `Item` 加**：原生 `Home` 工作台已有一条 Item 快捷方式，
+		而 `load_workspaces()` 取的是 `shortcut[0][0]`、查询里**没有 order_by**，
+		再加一条会让结果不确定（有时 Home、有时我们）。
+		"""
 		shortcuts = _set_call_list("shortcuts")
-		labels = {s["label"] for s in shortcuts}
-		self.assertEqual(labels, {"入库拍照识别"}, f"快捷方式应只留拍照识别，实际：{labels}")
+		by_link = {s["link_to"]: s["type"] for s in shortcuts}
+
+		self.assertEqual(by_link.get("hbos-photo-intake"), "Page", "拍照识别入口不能丢")
+		for doctype in ("Stock Entry", "Batch", "Warehouse"):
+			self.assertEqual(
+				by_link.get(doctype),
+				"DocType",
+				f"快捷方式缺 {doctype}——它的面包屑会指回原生工作台",
+			)
+		self.assertNotIn(
+			"Item",
+			by_link,
+			"Item 不能加快捷方式：原生 Home 已有一条，而查询没有 order_by，结果会不确定",
+		)
 
 	def test_workspace_links_expose_the_four_reports(self):
 		content = WORKSPACE_SETUP.read_text()

@@ -1,12 +1,20 @@
 """仓库工作台入口同步（幂等）
 
-**本工作台只放「海滨特有」的东西**——入库拍照识别页 + 四个报表。
-库存单据（入库 / 出库 / 移库）、批次、物料、货位**一律不在这里重复列**：
-它们本来就是 ERPNext 原生「库存」模块的内容，再列一遍只是多一个入口，
-既没多出信息，又让「这里和原生到底哪个才算数」变得含糊（2026-09-23 Owner 提出）。
+**这个工作台要同时解决两件事**：
 
-原生单据照旧用 ERPNext 的表单（不重写——那等于改核心源码），
-只是在那两个常用表单上补了「返回仓库工作台」的出口（见 `public/js/*.js`）。
+1. 给海滨特有的东西一个入口——入库拍照识别页 + 四个报表（原生没有）；
+2. **让在这里做的操作不要跳到原生库存模块去**。
+
+第 2 点曾被误判。2026-09-23 Owner 问「为什么要单独做仓库工作台、不能集成在
+原生库存里」，我一度把侧边栏里指向原生单据（Stock Entry / Batch / Item /
+Warehouse）的条目当成「重复导航」撤掉，结果 Owner 报「点进单据就跳到原生
+库存、回不来，侧边栏整条都换了」。
+
+查框架源码后确认：**那些条目在做一件看不见的事**——`sidebar.js` 的
+`resolve_sidebar()` 第 1 条规则是「当前侧边栏若已链接到该单据，就保持不变」，
+`get_workspace_sidebars()` 拿 bootinfo 里所有侧边栏去匹配；我们的侧边栏一旦
+不含该单据，就不再是候选，于是掉回原生。详见 `SIDEBAR_ITEMS` 与
+`WORKSPACE_SHORTCUTS` 上方的注释（两层机制是分开的）。
 
 以代码方式同步 Workspace + Workspace Sidebar + Desktop Icon，
 沿用 `hb_attendance_app` 的既有做法（`after_migrate` 钩子调用，幂等）。
@@ -35,30 +43,61 @@ DESKTOP_ICON = "boxes"
 # 「label 查不到侧边栏」的僵尸图标，而**挂在它下面的图标会跟着一起消失**。
 LEGACY_TITLES = ("仓储库存工作台", "仓储库存")
 
-# 侧边栏条目。**只列本 App 独有的**：1 个页面 + 4 个报表。
+# 侧边栏条目。分两类，**第二类是必需的、不是重复导航**（见下方长注释）。
 #
-# 曾经列过 Stock Entry ×3（入库登记 / 出库核销 / 货位变更）、Batch、Item、
-# Warehouse、货位二维码——**已全部撤掉**，原因有两条：
-#   ① 它们的目标本来就是 ERPNext 原生「库存」模块的内容，重复一遍没多信息；
-#   ② 那三个 Stock Entry 条目**指向同一个地方**（原生 Stock Entry 列表），
-#      只是标签不同——点下去并不会按「出库」「移库」过滤，标签等于在许诺
-#      一件没做的事，反而更误导。
+# 一、本 App 独有的：1 个页面 + 4 个报表。
+# 二、原生库存单据 / 主数据的入口（Stock Entry / Batch / Item / Warehouse）。
 #
-# 改由原生库存模块承担这些入口；本工作台只回答「海滨特有的东西在哪」。
+# ⚠ **第二类别删**。2026-09-23 我一度以为它们只是「与原生库存重复的导航」而撤掉，
+# 结果 Owner 报「点进单据就跳到原生库存、回不来，侧边栏整条都换了」。
+# 查了框架源码才知道它们在做一件看不见的事：
+#
+#   `sidebar.js` 的 `resolve_sidebar()` 第 1 条规则是——
+#   **当前侧边栏若已链接到该单据（sidebar item 的 link_to 命中），就保持不变。**
+#   `get_workspace_sidebars()` 是拿 bootinfo 里**所有**侧边栏去匹配的；
+#   我们的侧边栏一旦不含该单据，就不再是候选，于是掉回原生。
+#   （实测：`Batch` 只被原生 `Stock` 侧边栏链接 → 唯一候选 → 必然切走。）
+#
+# 所以这几个条目的收益是「侧边栏不换、上下文不断」，顺带也给了入口。
+# **但只保留一条 Stock Entry**：原来那三条（入库登记 / 出库核销 / 货位变更）
+# 指向的是同一个原生列表，只是标签不同、点下去不会按用途过滤，
+# 那是假分类，反而误导。原生这一个列表本来就同时管入库、出库、移库。
 SIDEBAR_ITEMS = [
 	{"label": WORKSPACE_TITLE, "link_type": "Workspace", "link_to": WORKSPACE_TITLE, "type": "Link", "icon": "home"},
 	# 入库拍照识别：本 App 的 Desk 页面（拍照 → 识别 → 校对 → 生成草稿）
 	{"label": "入库拍照识别", "link_type": "Page", "link_to": "hbos-photo-intake", "type": "Link", "icon": "camera"},
+	# ↓ 第二类：原生入口，承担「侧边栏不换」的职责，**不要删**
+	{"label": "库存单据（入库/出库/移库）", "link_type": "DocType", "link_to": "Stock Entry", "type": "Link", "icon": "stock-entry"},
+	{"label": "批次", "link_type": "DocType", "link_to": "Batch", "type": "Link", "icon": "file"},
+	{"label": "物料", "link_type": "DocType", "link_to": "Item", "type": "Link", "icon": "stock"},
+	{"label": "货位", "link_type": "DocType", "link_to": "Warehouse", "type": "Link", "icon": "organization"},
 	{"label": "按批号查货位", "link_type": "Report", "link_to": "按批号查货位", "type": "Link", "icon": "search"},
 	{"label": "货位明细表", "link_type": "Report", "link_to": "货位明细表", "type": "Link", "icon": "list"},
 	{"label": "效期预警", "link_type": "Report", "link_to": "效期预警", "type": "Link", "icon": "milestone"},
 	{"label": "库级盘点三对账", "link_type": "Report", "link_to": "库级盘点三对账", "type": "Link", "icon": "clipboard-list"},
 ]
 
+# 工作台快捷方式。除了拍照识别入口，**这里还决定面包屑**：
+# `FormMeta.load_workspaces()` 先查 `Workspace Shortcut`（type=DocType），
+# **查到就用它**，查不到才回落到 `Workspace Link`。所以给某个单据加一条
+# 快捷方式，就能把它的归属工作台从原生改到我们这边（面包屑随之改变）。
+#
+# ⚠ **不要给 `Item` 加快捷方式**：原生 `Home` 工作台已经有一条 Item 快捷方式，
+# 而 `load_workspaces()` 取的是 `shortcut[0][0]`、**查询里没有 order_by** ——
+# 再加一条会让结果不确定（有时 Home、有时我们）。Item 的面包屑就留给原生。
+WORKSPACE_SHORTCUTS = [
+	{"label": "入库拍照识别", "type": "Page", "link_to": "hbos-photo-intake", "color": "Blue", "doc_view": ""},
+	{"label": "库存单据（入库/出库/移库）", "type": "DocType", "link_to": "Stock Entry", "color": "Gray", "doc_view": ""},
+	{"label": "批次", "type": "DocType", "link_to": "Batch", "color": "Gray", "doc_view": ""},
+	{"label": "货位", "type": "DocType", "link_to": "Warehouse", "color": "Gray", "doc_view": ""},
+]
+
 WORKSPACE_CONTENT = """[
  {"id":"hdr","type":"header","data":{"text":"<span class=\\"h4\\"><b>仓库工作台</b></span>","col":12}},
- {"id":"sb1","type":"paragraph","data":{"text":"这里只放**海滨特有**的东西：入库拍照识别与四个报表。入库 / 出库 / 移库等库存单据、批次、物料、货位请走左侧「库存」模块（ERPNext 原生表单）。","col":12}},
+ {"id":"sb1","type":"paragraph","data":{"text":"本工作台集中仓库日常：左侧可直接进入入库拍照识别、库存单据（入库 / 出库 / 移库）、批次与四个报表；进去之后**不会跳去原生库存模块**。","col":12}},
  {"id":"sc_photo","type":"shortcut","data":{"shortcut_name":"入库拍照识别","col":3}},
+ {"id":"sc_in","type":"shortcut","data":{"shortcut_name":"库存单据（入库/出库/移库）","col":3}},
+ {"id":"sc_bt","type":"shortcut","data":{"shortcut_name":"批次","col":3}},
  {"id":"sp1","type":"spacer","data":{"col":12}},
  {"id":"cd_q","type":"card","data":{"card_name":"查询与台账","col":12}},
  {"id":"r1","type":"paragraph","data":{"text":"按批号查货位、货位明细表——批次与货位的双向查询。","col":12}},
@@ -107,9 +146,7 @@ def sync_inventory_workspace():
 	workspace.type = "Workspace"
 	workspace.content = json.dumps(_parse_content(WORKSPACE_CONTENT))
 
-	workspace.set("shortcuts", [
-		{"label": "入库拍照识别", "type": "Page", "link_to": "hbos-photo-intake", "color": "Blue", "doc_view": ""},
-	])
+	workspace.set("shortcuts", WORKSPACE_SHORTCUTS)
 	workspace.set("links", WORKSPACE_LINKS)
 	workspace.set("roles", [{"role": "System Manager"}, {"role": "Stock Manager"}, {"role": "Stock User"}])
 	workspace.save(ignore_permissions=True)
