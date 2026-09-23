@@ -13,11 +13,25 @@ import frappe
 
 MODULE = "HBOS Inventory"
 WORKSPACE_TITLE = "仓储库存工作台"
-DESKTOP_LABEL = "仓储库存"
+
+# 桌面图标的 label **必须等于某个已存在的 `Workspace Sidebar` 名**。
+# Frappe 的 `get_desktop_icons()` 会拿 `label.lower()` 去
+# `bootinfo.workspace_sidebar_item` 里查，**查不到就直接丢弃这个图标**——
+# 不报错、不提示，图标就是不出现。
+#
+# 曾用 `仓储库存` 当 label（短名好看），但本 App 的侧边栏叫 `仓储库存工作台`，
+# 于是查不到、图标始终不显示 —— Owner 反馈「桌面上没有入口、回不来」即此。
+# 工作台、侧边栏、桌面图标三者用**同一个名字**，与 ERPNext 原生 Stock 的做法一致。
+DESKTOP_LABEL = WORKSPACE_TITLE
+
 # 不能用 "stock"——那是 ERPNext 原生 Stock 模块的图标，桌面上两个一模一样的
 # 图形并排，点错就进了原生库存模块，而那边没有本 App 的侧边栏，回不来。
 # 换成语义贴切的 warehouse，与原生 Stock 一眼可分。
 DESKTOP_ICON = "warehouse"
+
+# 本 App 早期留下的、不指向任何 `Workspace Sidebar` 的桌面图标名。
+# 这类图标会被 Frappe 静默丢弃（见 DESKTOP_LABEL 处说明），需要清掉。
+STALE_DESKTOP_LABELS = ("仓储库存",)
 
 SIDEBAR_ITEMS = [
 	{"label": "仓储库存工作台", "link_type": "Workspace", "link_to": WORKSPACE_TITLE, "type": "Link", "icon": "home"},
@@ -112,7 +126,7 @@ def sync_inventory_workspace():
 
 	_sync_sidebar()
 	_sync_desktop_icon()
-	_sync_workspace_desktop_icon()
+	_cleanup_stale_desktop_icons()
 
 
 def _sync_sidebar():
@@ -133,6 +147,9 @@ def _sync_sidebar():
 def _sync_desktop_icon():
 	# 桌面图标的 link_to / sidebar 必须指向已存在的 Workspace Sidebar，
 	# 否则抛 LinkValidationError（此处指向与 _sync_sidebar 同名的工作台）。
+	#
+	# label 也必须等于该侧边栏名，否则 `get_desktop_icons()` 会静默丢弃
+	# 这个图标（见 DESKTOP_LABEL 处的说明）。这里三者同源，天然满足。
 	icon = (
 		frappe.get_doc("Desktop Icon", DESKTOP_LABEL)
 		if frappe.db.exists("Desktop Icon", DESKTOP_LABEL)
@@ -144,6 +161,10 @@ def _sync_desktop_icon():
 	icon.link_to = WORKSPACE_TITLE
 	icon.sidebar = WORKSPACE_TITLE
 	icon.icon = DESKTOP_ICON
+	# **必须显式清空**：`parent_icon` 若残留指向一个已被删掉/不显示的父图标，
+	# Frappe 会把本图标一起过滤掉（父不在 permitted 集合里 → 子也出不来）。
+	# 早期版本把它挂在 `仓储库存` 下，那个父图标已被清理，残留值必须抹掉。
+	icon.parent_icon = ""
 	icon.bg_color = "blue"
 	icon.hidden = 0
 	icon.idx = 1
@@ -151,33 +172,20 @@ def _sync_desktop_icon():
 	icon.save(ignore_permissions=True)
 
 
-def _sync_workspace_desktop_icon():
-	"""给**工作台本身**一个桌面条目，挂在「仓储库存」入口下面。
+def _cleanup_stale_desktop_icons():
+	"""删掉本 App 早期留下、且**不指向任何侧边栏**的桌面图标。
 
-	为什么需要：`仓储库存` 是入口，点开进工作台；但桌面按工作台的名字
-	（`仓储库存工作台`）**搜不到任何东西**。对照 `hb_attendance_app`——
-	那边 `海滨考勤` 与 `海滨考勤工作台` 是两个条目，后者挂在入口下。
-	缺了它，用户只能靠记住「仓储库存」这个名字才能找到工作台。
+	为什么必须清：这类图标 label 在 `workspace_sidebar_item` 里查不到，
+	会被 `get_desktop_icons()` 静默丢弃 —— 屏幕上不显示，但记录还在，
+	而且**挂在它下面的图标会跟着一起消失**（父图标不在 permitted 集合里，
+	子图标被同一条规则过滤）。留着它只会继续误导后来的人以为「配过了」。
 
-	注意：Frappe 在本 App 用代码创建 Workspace 时**不会**自动生成该图标
-	（考勤那边是 `bench migrate` 从 workspace JSON 夹具导入时生成的），
-	所以这里显式建一次；已存在则只纠偏，保持幂等。
+	只删**本模块留下的已知陈旧名**，不做泛化清理，避免误伤其他 App。
 	"""
-	if not frappe.db.exists("Desktop Icon", WORKSPACE_TITLE):
-		frappe.get_doc(
-			{
-				"doctype": "Desktop Icon",
-				"label": WORKSPACE_TITLE,
-				"icon_type": "Link",
-				"link_type": "Workspace Sidebar",
-				"link_to": WORKSPACE_TITLE,
-				"sidebar": WORKSPACE_TITLE,
-			}
-		).insert(ignore_permissions=True)
-
-	icon = frappe.get_doc("Desktop Icon", WORKSPACE_TITLE)
-	icon.parent_icon = DESKTOP_LABEL
-	icon.icon = DESKTOP_ICON
-	icon.hidden = 0
-	icon.idx = 0
-	icon.save(ignore_permissions=True)
+	for stale in STALE_DESKTOP_LABELS:
+		if not frappe.db.exists("Desktop Icon", stale):
+			continue
+		frappe.delete_doc("Desktop Icon", stale, ignore_permissions=True, force=True)
+		frappe.logger("hbos_inventory").info(
+			f"Desktop Icon 清理陈旧：{stale}（不指向任何侧边栏，被 Frappe 静默丢弃）"
+		)

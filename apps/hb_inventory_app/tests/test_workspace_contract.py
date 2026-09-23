@@ -45,22 +45,52 @@ class WorkspaceContractTest(unittest.TestCase):
 		self.assertTrue(icon, "顶层入口必须显式指定图标")
 
 	def test_workspace_has_its_own_desktop_entry_nested_under_entry_tile(self):
-		"""工作台本身要有桌面条目，并挂在入口图标下。
+		"""桌面图标的 label 必须等于侧边栏名，且不得留 `parent_icon`。
 
-		对照 `hb_attendance_app`：那边有 `海滨考勤`（入口）与
-		`海滨考勤工作台`（挂在入口下）两个条目。缺了后者，桌面按工作台
-		的名字搜不到东西。
+		Frappe 的 `get_desktop_icons()` 拿 `label.lower()` 去
+		`bootinfo.workspace_sidebar_item` 里查，**查不到就静默丢弃这个图标**
+		（不报错、不提示）。而且父图标若不在放行集合里，**挂在它下面的图标
+		会跟着一起消失**。
+
+		历史上就栽在这两条上：label 用了 `仓储库存`（侧边栏叫
+		`仓储库存工作台`）→ 查不到；parent_icon 又残留指向那个不可见的父图标
+		→ 连工作台条目也一起被过滤，桌面上**一个入口都没有**。
 		"""
 		content = WORKSPACE_SETUP.read_text()
-		self.assertIn("def _sync_workspace_desktop_icon", content)
-		self.assertIn("_sync_workspace_desktop_icon()", content)
-		self.assertIn("icon.parent_icon = DESKTOP_LABEL", content)
-		self.assertIn('frappe.db.exists("Desktop Icon", WORKSPACE_TITLE)', content)
+		self.assertIn("DESKTOP_LABEL = WORKSPACE_TITLE", content)
+		self.assertNotIn('DESKTOP_LABEL = "仓储库存"', content)
+		# parent_icon 必须被显式清空，不能靠「没赋值」蒙混过去——
+		# 已存在的文档会带着旧值，不覆盖就残留。
+		self.assertIn('icon.parent_icon = ""', content)
+
+	def test_desktop_icon_label_matches_the_sidebar_it_points_at(self):
+		"""图标 label、`link_to`、`sidebar` 三者同源，指向同一个侧边栏。
+
+		`_sync_sidebar()` 用 `WORKSPACE_TITLE` 建侧边栏，
+		`_sync_desktop_icon()` 也必须用同一个常量，否则又会出现
+		「label 查不到侧边栏 → 图标被丢弃」。
+		"""
+		content = WORKSPACE_SETUP.read_text()
+		self.assertIn("sidebar.title = WORKSPACE_TITLE", content)
+		self.assertIn("icon.label = DESKTOP_LABEL", content)
+		self.assertIn("icon.link_to = WORKSPACE_TITLE", content)
+		self.assertIn("icon.sidebar = WORKSPACE_TITLE", content)
+
+	def test_stale_desktop_icons_are_cleaned_up(self):
+		"""早期留下的、不指向任何侧边栏的图标必须被清掉。
+
+		这类图标不会被渲染，但记录还在；而挂在它下面的图标会跟着一起消失。
+		留着只会让后来的人以为「已经配过了」。
+		"""
+		content = WORKSPACE_SETUP.read_text()
+		self.assertIn("STALE_DESKTOP_LABELS", content)
+		self.assertIn("def _cleanup_stale_desktop_icons", content)
+		self.assertIn("_cleanup_stale_desktop_icons()", content)
+		self.assertIn('"仓储库存"', content)
 
 	def test_desktop_and_sidebar_point_at_the_workspace_sidebar(self):
 		content = WORKSPACE_SETUP.read_text()
 		self.assertIn('WORKSPACE_TITLE = "仓储库存工作台"', content)
-		self.assertIn('DESKTOP_LABEL = "仓储库存"', content)
 		self.assertIn('icon.link_type = "Workspace Sidebar"', content)
 		self.assertIn("icon.link_to = WORKSPACE_TITLE", content)
 		self.assertIn("sidebar.title = WORKSPACE_TITLE", content)
