@@ -14,7 +14,10 @@ import frappe
 MODULE = "HBOS Inventory"
 WORKSPACE_TITLE = "仓储库存工作台"
 DESKTOP_LABEL = "仓储库存"
-DESKTOP_ICON = "stock"
+# 不能用 "stock"——那是 ERPNext 原生 Stock 模块的图标，桌面上两个一模一样的
+# 图形并排，点错就进了原生库存模块，而那边没有本 App 的侧边栏，回不来。
+# 换成语义贴切的 warehouse，与原生 Stock 一眼可分。
+DESKTOP_ICON = "warehouse"
 
 SIDEBAR_ITEMS = [
 	{"label": "仓储库存工作台", "link_type": "Workspace", "link_to": WORKSPACE_TITLE, "type": "Link", "icon": "home"},
@@ -109,6 +112,7 @@ def sync_inventory_workspace():
 
 	_sync_sidebar()
 	_sync_desktop_icon()
+	_sync_workspace_desktop_icon()
 
 
 def _sync_sidebar():
@@ -144,4 +148,36 @@ def _sync_desktop_icon():
 	icon.hidden = 0
 	icon.idx = 1
 	icon.restrict_removal = 1
+	icon.save(ignore_permissions=True)
+
+
+def _sync_workspace_desktop_icon():
+	"""给**工作台本身**一个桌面条目，挂在「仓储库存」入口下面。
+
+	为什么需要：`仓储库存` 是入口，点开进工作台；但桌面按工作台的名字
+	（`仓储库存工作台`）**搜不到任何东西**。对照 `hb_attendance_app`——
+	那边 `海滨考勤` 与 `海滨考勤工作台` 是两个条目，后者挂在入口下。
+	缺了它，用户只能靠记住「仓储库存」这个名字才能找到工作台。
+
+	注意：Frappe 在本 App 用代码创建 Workspace 时**不会**自动生成该图标
+	（考勤那边是 `bench migrate` 从 workspace JSON 夹具导入时生成的），
+	所以这里显式建一次；已存在则只纠偏，保持幂等。
+	"""
+	if not frappe.db.exists("Desktop Icon", WORKSPACE_TITLE):
+		frappe.get_doc(
+			{
+				"doctype": "Desktop Icon",
+				"label": WORKSPACE_TITLE,
+				"icon_type": "Link",
+				"link_type": "Workspace Sidebar",
+				"link_to": WORKSPACE_TITLE,
+				"sidebar": WORKSPACE_TITLE,
+			}
+		).insert(ignore_permissions=True)
+
+	icon = frappe.get_doc("Desktop Icon", WORKSPACE_TITLE)
+	icon.parent_icon = DESKTOP_LABEL
+	icon.icon = DESKTOP_ICON
+	icon.hidden = 0
+	icon.idx = 0
 	icon.save(ignore_permissions=True)

@@ -160,7 +160,7 @@ M3-R2 已执行完毕（REVIEWING）。Owner 授权后：新建 `hb_inventory_ap
 
 **修复既有缺陷**：`hb_attendance_app` 的 `hbos_monthly_upload.json` 缺 `doctype` 等必需字段，导致 `bench migrate` 全站失败（`KeyError: 'doctype'`）；已按同目录标准结构补齐，migrate 恢复正常。此前任何依赖 migrate 的操作（含 `after_migrate` 钩子）均不生效。
 
-M3-R3 已执行完毕（REVIEWING）：新增出库放行门禁（`before_submit`，限 `Delivery Note` 与 `Stock Entry` Material Issue；待检批次出库被拦截、已放行批次通过、入库与移库不受影响）；货位变更复用原生 Material Transfer 并复验通过；新增 `效期预警` 与 `库级盘点三对账` 两个报表；补建 `仓储库存工作台` 入口（补 M3-R2 遗漏）。前置口径：出库批次选取原生即 FIFO；负库存采用 ERPNext 默认「不允许」。
+M3-R3 已执行完毕（REVIEWING）：新增出库放行门禁（`before_submit`，限 `Delivery Note` 与 `Stock Entry` Material Issue；待检批次出库被拦截、已放行批次通过、入库与移库不受影响）；货位变更复用原生 Material Transfer 并复验通过；新增 `效期预警` 与 `库级盘点三对账` 两个报表；补建 `仓储库存工作台` 入口（补 M3-R2 遗漏；**该入口有三处缺陷已于 2026-09-23 修复**——顶层图标曾误用与 ERPNext 原生 `Stock` 相同的 `stock` 导致点错进原生库存模块且回不来、工作台本身无桌面条目、入口名与工作台名不一致，详见其主文档 6.2 节）。前置口径：出库批次选取原生即 FIFO；负库存采用 ERPNext 默认「不允许」。
 
 M3-R4 已执行完毕（REVIEWING）：新增三个 Print Format（`HBOS 待检证` 75×110mm 小标签、`HBOS 自产货位卡`、`HBOS 外购货位卡`，后两者 A4），挂在 `Batch` 上按批次数据自动生成；新增打印辅助方法与 `Batch.hbos_source_type` 字段；定案「多货位在货位号单元格内逐行列出」；件数按容器类型汇总；流水表按单据净减少判断（库内移库不计入发出）。三个模板渲染与 PDF 生成均验证通过。**注意**：当时**只验了「能不能出 PDF」，没验纸型与页数**——后续实测发现三者「手动点打印」全都按 A4 出、且待检证会溢出成 2 页，已于 M3-R6 第五批一并修复（详见该批记录）。
 
