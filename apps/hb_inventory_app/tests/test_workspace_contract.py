@@ -264,6 +264,29 @@ class WorkspaceContractTest(unittest.TestCase):
 		for report in ("按批号查货位", "货位明细表", "效期预警", "库级盘点三对账"):
 			self.assertIn(f'"link_to": "{report}"', content)
 
+	def test_workspace_link_counts_match_actual_links(self):
+		"""每组的 `link_count` 必须等于该组里 Link 的实际条数。
+
+		Frappe 用 `link_count` 渲染分组；对不上时**不报错**，只是那一组少显示或
+		错位——又一个「数据对了但看不出来」的坑。分组就是 `Card Break`，
+		它到下一个 `Card Break`（或列表末尾）之间的 Link 都算它名下。
+		"""
+		links = _assign("WORKSPACE_LINKS")
+
+		groups = []  # [(label, declared, actual)]
+		for row in links:
+			if row["type"] == "Card Break":
+				groups.append([row["label"], row.get("link_count", 0), 0])
+			elif row["type"] == "Link":
+				self.assertTrue(groups, f"链接「{row['label']}」出现在任何分组之前")
+				groups[-1][2] += 1
+
+		self.assertTrue(groups, "至少要有一个分组")
+		for label, declared, actual in groups:
+			self.assertEqual(
+				declared, actual, f"分组「{label}」声明 link_count={declared}，实际有 {actual} 条"
+			)
+
 	def test_global_script_patches_breadcrumb_preferred(self):
 		"""面包屑归属靠一个**全局脚本**补，挂在 `app_include_js` 上。
 

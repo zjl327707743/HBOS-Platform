@@ -46,7 +46,7 @@ LEGACY_TITLES = ("仓储库存工作台", "仓储库存")
 # 侧边栏条目。分两类，**第二类是必需的、不是重复导航**（见下方长注释）。
 #
 # 一、本 App 独有的：1 个页面 + 4 个报表。
-# 二、原生库存单据 / 主数据的入口（Stock Entry / Batch / Item / Warehouse）。
+# 二、原生库存单据 / 报表 / 主数据的入口。
 #
 # ⚠ **第二类别删**。2026-09-23 我一度以为它们只是「与原生库存重复的导航」而撤掉，
 # 结果 Owner 报「点进单据就跳到原生库存、回不来，侧边栏整条都换了」。
@@ -58,23 +58,50 @@ LEGACY_TITLES = ("仓储库存工作台", "仓储库存")
 #   我们的侧边栏一旦不含该单据，就不再是候选，于是掉回原生。
 #   （实测：`Batch` 只被原生 `Stock` 侧边栏链接 → 唯一候选 → 必然切走。）
 #
-# 所以这几个条目的收益是「侧边栏不换、上下文不断」，顺带也给了入口。
-# **但只保留一条 Stock Entry**：原来那三条（入库登记 / 出库核销 / 货位变更）
+# 所以这些条目的收益是「侧边栏不换、上下文不断」，顺带也给了入口。
+#
+# 第二类的范围（Owner 2026-09-23 定的口径：**仓库日常用得到的都放进来**）：
+# 单据 5 个、盘点与质检 2 个、原生库存报表 7 个、海滨专有报表 4 个、主数据 4 个。
+# **有意没收**：序列号（Serial No，本厂不用批次以外的追踪）、分包（Subcontracting）、
+# 定价与关税（Price List / Customs Tariff Number）、安装单与保修（Installation Note /
+# Serial No Warranty Expiry）等 —— 原生 Stock 工作台那 72 条里有一大半与仓库日常无关，
+# 照单全收只会把侧边栏淹掉。
+#
+# **`Stock Entry` 只留一条**：原来那三条（入库登记 / 出库核销 / 货位变更）
 # 指向的是同一个原生列表，只是标签不同、点下去不会按用途过滤，
 # 那是假分类，反而误导。原生这一个列表本来就同时管入库、出库、移库。
+# （「销售出库」是另一回事——它指向 `Delivery Note`，是**不同的**单据。）
 SIDEBAR_ITEMS = [
 	{"label": WORKSPACE_TITLE, "link_type": "Workspace", "link_to": WORKSPACE_TITLE, "type": "Link", "icon": "home"},
 	# 入库拍照识别：本 App 的 Desk 页面（拍照 → 识别 → 校对 → 生成草稿）
 	{"label": "入库拍照识别", "link_type": "Page", "link_to": "hbos-photo-intake", "type": "Link", "icon": "camera"},
-	# ↓ 第二类：原生入口，承担「侧边栏不换」的职责，**不要删**
+	# ---- 单据（原生）—— 归属我们这边，见上方长注释 ----
 	{"label": "库存单据（入库/出库/移库）", "link_type": "DocType", "link_to": "Stock Entry", "type": "Link", "icon": "stock-entry"},
-	{"label": "批次", "link_type": "DocType", "link_to": "Batch", "type": "Link", "icon": "file"},
-	{"label": "物料", "link_type": "DocType", "link_to": "Item", "type": "Link", "icon": "stock"},
-	{"label": "货位", "link_type": "DocType", "link_to": "Warehouse", "type": "Link", "icon": "organization"},
+	{"label": "采购入库", "link_type": "DocType", "link_to": "Purchase Receipt", "type": "Link", "icon": "stock-entry"},
+	{"label": "销售出库", "link_type": "DocType", "link_to": "Delivery Note", "type": "Link", "icon": "sell"},
+	{"label": "物料需求", "link_type": "DocType", "link_to": "Material Request", "type": "Link", "icon": "file"},
+	{"label": "拣货单", "link_type": "DocType", "link_to": "Pick List", "type": "Link", "icon": "list"},
+	# ---- 盘点与质检 ----
+	{"label": "库存对账", "link_type": "DocType", "link_to": "Stock Reconciliation", "type": "Link", "icon": "clipboard-list"},
+	{"label": "质检单", "link_type": "DocType", "link_to": "Quality Inspection", "type": "Link", "icon": "quality"},
+	# ---- 库存报表（原生）----
+	{"label": "库存流水", "link_type": "Report", "link_to": "Stock Ledger", "type": "Link", "icon": "list"},
+	{"label": "库存余额", "link_type": "Report", "link_to": "Stock Balance", "type": "Link", "icon": "table_2"},
+	{"label": "库龄", "link_type": "Report", "link_to": "Stock Ageing", "type": "Link", "icon": "milestone"},
+	{"label": "批量余额历史", "link_type": "Report", "link_to": "Batch-Wise Balance History", "type": "Link", "icon": "list"},
+	{"label": "批次到期状态", "link_type": "Report", "link_to": "Batch Item Expiry Status", "type": "Link", "icon": "milestone"},
+	{"label": "按仓库库存余额", "link_type": "Report", "link_to": "Warehouse Wise Stock Balance", "type": "Link", "icon": "organization"},
+	{"label": "预计库存量", "link_type": "Report", "link_to": "Stock Projected Qty", "type": "Link", "icon": "search"},
+	# ---- 海滨专有报表 ----
 	{"label": "按批号查货位", "link_type": "Report", "link_to": "按批号查货位", "type": "Link", "icon": "search"},
 	{"label": "货位明细表", "link_type": "Report", "link_to": "货位明细表", "type": "Link", "icon": "list"},
 	{"label": "效期预警", "link_type": "Report", "link_to": "效期预警", "type": "Link", "icon": "milestone"},
 	{"label": "库级盘点三对账", "link_type": "Report", "link_to": "库级盘点三对账", "type": "Link", "icon": "clipboard-list"},
+	# ---- 基础数据 ----
+	{"label": "物料", "link_type": "DocType", "link_to": "Item", "type": "Link", "icon": "stock"},
+	{"label": "批次", "link_type": "DocType", "link_to": "Batch", "type": "Link", "icon": "file"},
+	{"label": "货位", "link_type": "DocType", "link_to": "Warehouse", "type": "Link", "icon": "organization"},
+	{"label": "计量单位", "link_type": "DocType", "link_to": "UOM", "type": "Link", "icon": "list"},
 ]
 
 # 工作台快捷方式。除了拍照识别入口，**这里还决定面包屑**：
@@ -94,25 +121,54 @@ WORKSPACE_SHORTCUTS = [
 
 WORKSPACE_CONTENT = """[
  {"id":"hdr","type":"header","data":{"text":"<span class=\\"h4\\"><b>仓库工作台</b></span>","col":12}},
- {"id":"sb1","type":"paragraph","data":{"text":"本工作台集中仓库日常：左侧可直接进入入库拍照识别、库存单据（入库 / 出库 / 移库）、批次与四个报表；进去之后**不会跳去原生库存模块**。","col":12}},
+ {"id":"sb1","type":"paragraph","data":{"text":"仓库日常都在这里完成：左侧可进入入库拍照识别、库存单据（入库 / 出库 / 移库）、采购入库、销售出库、盘点质检、各类库存报表与主数据；**进去之后不会跳去原生库存模块**。","col":12}},
  {"id":"sc_photo","type":"shortcut","data":{"shortcut_name":"入库拍照识别","col":3}},
  {"id":"sc_in","type":"shortcut","data":{"shortcut_name":"库存单据（入库/出库/移库）","col":3}},
  {"id":"sc_bt","type":"shortcut","data":{"shortcut_name":"批次","col":3}},
  {"id":"sp1","type":"spacer","data":{"col":12}},
- {"id":"cd_q","type":"card","data":{"card_name":"查询与台账","col":12}},
- {"id":"r1","type":"paragraph","data":{"text":"按批号查货位、货位明细表——批次与货位的双向查询。","col":12}},
+ {"id":"cd_d","type":"card","data":{"card_name":"单据","col":12}},
+ {"id":"r1","type":"paragraph","data":{"text":"库存单据（出入库与移库）、采购入库、销售出库、物料需求、拣货单——**全部走 ERPNext 原生表单**，不另造入口。出库须先取得 QA 放行与合格证（门禁已挂上）。","col":12}},
  {"id":"sp2","type":"spacer","data":{"col":12}},
- {"id":"cd_m","type":"card","data":{"card_name":"效期与盘点","col":12}},
- {"id":"r2","type":"paragraph","data":{"text":"效期预警按产品质量标准的到期日提前预警；库级盘点三对账用于导出后现场盘点。","col":12}}
+ {"id":"cd_c","type":"card","data":{"card_name":"盘点与质检","col":12}},
+ {"id":"r2","type":"paragraph","data":{"text":"库存对账用于按实际盘点数调整系统账；质检单记录到货检验结论。库级盘点三对账（海滨专有）用于导出后现场盘点。","col":12}},
+ {"id":"sp3","type":"spacer","data":{"col":12}},
+ {"id":"cd_r","type":"card","data":{"card_name":"库存报表","col":12}},
+ {"id":"r3","type":"paragraph","data":{"text":"库存流水 / 库存余额 / 库龄 / 批量余额历史 / 批次到期状态 / 按仓库库存余额 / 预计库存量——均为 ERPNext 原生报表；另有海滨专有的按批号查货位、货位明细表、效期预警。","col":12}},
+ {"id":"sp4","type":"spacer","data":{"col":12}},
+ {"id":"cd_m","type":"card","data":{"card_name":"基础数据","col":12}},
+ {"id":"r4","type":"paragraph","data":{"text":"物料、批次、货位、计量单位。批次的表单上可打印待检证与货位卡（自产 / 外购两种版式），货位可打印二维码贴于货架。","col":12}}
 ]"""
 
+# 工作台页面上的链接卡片。分五组，与侧边栏同源（都来自原生 + 本 App 的报表）。
+# `link_count` 必须等于该组里的 Link 条数（Frappe 用它渲染分组）。
 WORKSPACE_LINKS = [
-	{"label": "查询与台账", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 2},
+	{"label": "单据", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 5},
+	{"label": "库存单据（入库/出库/移库）", "type": "Link", "link_type": "DocType", "link_to": "Stock Entry", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "采购入库", "type": "Link", "link_type": "DocType", "link_to": "Purchase Receipt", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "销售出库", "type": "Link", "link_type": "DocType", "link_to": "Delivery Note", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "物料需求", "type": "Link", "link_type": "DocType", "link_to": "Material Request", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "拣货单", "type": "Link", "link_type": "DocType", "link_to": "Pick List", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "盘点与质检", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 2},
+	{"label": "库存对账", "type": "Link", "link_type": "DocType", "link_to": "Stock Reconciliation", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "质检单", "type": "Link", "link_type": "DocType", "link_to": "Quality Inspection", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "库存报表", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 7},
+	{"label": "库存流水", "type": "Link", "link_type": "Report", "link_to": "Stock Ledger", "hidden": 0, "is_query_report": 1, "link_count": 0},
+	{"label": "库存余额", "type": "Link", "link_type": "Report", "link_to": "Stock Balance", "hidden": 0, "is_query_report": 1, "link_count": 0},
+	{"label": "库龄", "type": "Link", "link_type": "Report", "link_to": "Stock Ageing", "hidden": 0, "is_query_report": 1, "link_count": 0},
+	{"label": "批量余额历史", "type": "Link", "link_type": "Report", "link_to": "Batch-Wise Balance History", "hidden": 0, "is_query_report": 1, "link_count": 0},
+	{"label": "批次到期状态", "type": "Link", "link_type": "Report", "link_to": "Batch Item Expiry Status", "hidden": 0, "is_query_report": 1, "link_count": 0},
+	{"label": "按仓库库存余额", "type": "Link", "link_type": "Report", "link_to": "Warehouse Wise Stock Balance", "hidden": 0, "is_query_report": 1, "link_count": 0},
+	{"label": "预计库存量", "type": "Link", "link_type": "Report", "link_to": "Stock Projected Qty", "hidden": 0, "is_query_report": 1, "link_count": 0},
+	{"label": "货位与批次（海滨专有）", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 4},
 	{"label": "按批号查货位", "type": "Link", "link_type": "Report", "link_to": "按批号查货位", "hidden": 0, "is_query_report": 1, "link_count": 0},
 	{"label": "货位明细表", "type": "Link", "link_type": "Report", "link_to": "货位明细表", "hidden": 0, "is_query_report": 1, "link_count": 0},
-	{"label": "效期与盘点", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 2},
 	{"label": "效期预警", "type": "Link", "link_type": "Report", "link_to": "效期预警", "hidden": 0, "is_query_report": 1, "link_count": 0},
 	{"label": "库级盘点三对账", "type": "Link", "link_type": "Report", "link_to": "库级盘点三对账", "hidden": 0, "is_query_report": 1, "link_count": 0},
+	{"label": "基础数据", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 4},
+	{"label": "物料", "type": "Link", "link_type": "DocType", "link_to": "Item", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "批次", "type": "Link", "link_type": "DocType", "link_to": "Batch", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "货位", "type": "Link", "link_type": "DocType", "link_to": "Warehouse", "hidden": 0, "is_query_report": 0, "link_count": 0},
+	{"label": "计量单位", "type": "Link", "link_type": "DocType", "link_to": "UOM", "hidden": 0, "is_query_report": 0, "link_count": 0},
 ]
 
 

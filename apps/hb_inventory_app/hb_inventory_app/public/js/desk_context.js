@@ -47,11 +47,21 @@
 	// 免得将来顺序变化后**静默失效**（这类"不报错但不生效"的坑本分支已踩过多次）。
 	const apply = () => {
 		if (!window.frappe || !frappe.breadcrumbs || !frappe.breadcrumbs.preferred) return false;
+		// 仓库日常会用到的原生单据 —— 归属「仓库工作台」。
+		// 范围与 `workspace_setup.py` 的 SIDEBAR_ITEMS 第二类保持一致。
+		// 报表不在此列：query-report 的面包屑只显示报表标题，不走工作台前缀。
 		$.extend(frappe.breadcrumbs.preferred, {
 			"Stock Entry": "HBOS Inventory",
+			"Purchase Receipt": "HBOS Inventory",
+			"Delivery Note": "HBOS Inventory",
+			"Material Request": "HBOS Inventory",
+			"Pick List": "HBOS Inventory",
+			"Stock Reconciliation": "HBOS Inventory",
+			"Quality Inspection": "HBOS Inventory",
 			Batch: "HBOS Inventory",
 			Item: "HBOS Inventory",
 			Warehouse: "HBOS Inventory",
+			UOM: "HBOS Inventory",
 		});
 		return true;
 	};
