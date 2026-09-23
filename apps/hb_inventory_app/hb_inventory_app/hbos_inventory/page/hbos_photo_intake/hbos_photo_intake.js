@@ -800,7 +800,7 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 						</div>
 						${filledHtml}
 						<div class="mt-2">
-							<a class="btn btn-xs btn-default" href="${esc(r.message.route)}">打开草稿</a>
+							<button class="btn btn-xs btn-default" data-open-draft="${esc(r.message.name)}">打开草稿</button>
 						</div>
 					</div>`
 				);
@@ -810,5 +810,17 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 				$createMsg.html('<div class="hbos-pi-alert warn">生成失败，见上方提示。</div>');
 			},
 		});
+	});
+
+	// 「打开草稿」走 **SPA 跳转**，不用 `<a href>`。
+	//
+	// 用 `href` 是**整页刷新**：浏览器重新加载 Desk，那时「当前侧边栏」为空，
+	// `sidebar.js` 的 `resolve_sidebar()` 规则 1（当前侧边栏已链接该单据 → 保持不变）
+	// 失效，会掉回原生「库存」——Owner 报的「点打开草稿就跳到库存下了」即此。
+	// `frappe.set_route` 是 SPA 内跳转，当前侧边栏还在，规则 1 直接命中。
+	//
+	// 事件委托挂在容器上：这段 HTML 是生成后才插进 DOM 的，直接绑会绑不到。
+	$(page.body).on("click", "[data-open-draft]", function () {
+		frappe.set_route("Form", "Stock Entry", $(this).attr("data-open-draft"));
 	});
 };

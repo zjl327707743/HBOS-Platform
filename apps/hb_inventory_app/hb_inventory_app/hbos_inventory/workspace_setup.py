@@ -26,6 +26,9 @@ import frappe
 
 MODULE = "HBOS Inventory"
 
+# 本 app 的名字。用于 `Workspace Sidebar.app` —— **不能留空**，见 `_sync_sidebar`。
+APP_NAME = "hb_inventory_app"
+
 # ⚠ 三者同名不是审美选择，是**硬约束**：`Workspace` / `Workspace Sidebar` /
 # `Desktop Icon` 的 `name` 都等于标题，而 Frappe 的 `get_desktop_icons()`
 # 会拿图标 label 去侧边栏映射里查，**查不到就静默丢弃**（不报错、不提示）。
@@ -194,7 +197,7 @@ def sync_inventory_workspace():
 	workspace.title = WORKSPACE_TITLE
 	workspace.label = WORKSPACE_TITLE
 	workspace.module = MODULE
-	workspace.app = "hb_inventory_app"
+	workspace.app = APP_NAME
 	workspace.icon = DESKTOP_ICON
 	workspace.public = 1
 	workspace.is_hidden = 0
@@ -221,7 +224,18 @@ def _sync_sidebar():
 	sidebar.header_icon = DESKTOP_ICON
 	sidebar.module = MODULE
 	sidebar.standard = 0
-	sidebar.app = ""
+	# ⚠ `app` **必须写本 app 的名字**，不能留空。
+	#
+	# `sidebar.js` 的 `resolve_sidebar()` 在「当前侧边栏不适用」时会做一步
+	# `filter_sidebars_from_app(candidates, frappe.boot.module_app[module])` ——
+	# 那是**严格相等**比较（`config.app === app`）。留空 = 任何 app 都匹配不上
+	# → 我们这条被过滤掉 → 掉回原生。
+	#
+	# 后果：**整页刷新（也就是任何 `<a href>` 跳转、或直接粘 URL）时侧边栏会
+	# 切回原生「库存」**。SPA 内跳转看不出来（那时 `resolve_sidebar` 的规则 1
+	# 「当前侧边栏已链接该单据 → 保持不变」先生效），所以一直没暴露——
+	# 直到 Owner 报「点『打开草稿』就跳到库存下了」，而那正是个 `<a href>`。
+	sidebar.app = APP_NAME
 	sidebar.set("items", SIDEBAR_ITEMS)
 	sidebar.save(ignore_permissions=True)
 

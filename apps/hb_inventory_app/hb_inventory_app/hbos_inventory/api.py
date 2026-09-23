@@ -427,7 +427,6 @@ def create_intake_draft(
 		"name": entry.name,
 		"docstatus": entry.docstatus,
 		"batch": batch_no,
-		"route": f"/app/stock-entry/{entry.name}",
 		# 本次真正补进物料主数据的字段，供界面如实回显
 		"filled": filled,
 	}

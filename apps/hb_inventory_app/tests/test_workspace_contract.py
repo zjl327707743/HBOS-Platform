@@ -287,6 +287,33 @@ class WorkspaceContractTest(unittest.TestCase):
 				declared, actual, f"分组「{label}」声明 link_count={declared}，实际有 {actual} 条"
 			)
 
+	def test_photo_intake_opens_draft_as_spa_navigation(self):
+		"""「打开草稿」必须是 SPA 跳转，**不能是 `<a href>`**。
+
+		`href` 是**整页刷新**：Desk 重新加载时「当前侧边栏」为空，
+		`sidebar.js` 的 `resolve_sidebar()` 规则 1（当前侧边栏已链接该单据 →
+		保持不变）失效，落到规则 4 按 module 过滤 —— `Stock Entry` 的 module 是
+		`Stock`，候选只剩 erpnext 那几条 → **掉回原生「库存」**。
+		Owner 报的「点打开草稿就跳到库存下了」就是这个。
+		"""
+		js = PHOTO_INTAKE.read_text()
+		self.assertIn("frappe.set_route(\"Form\", \"Stock Entry\"", js,
+		              "打开草稿必须用 frappe.set_route 做 SPA 跳转")
+		self.assertNotIn("href=\"${esc(r.message.route)}\"", js,
+		                 "打开草稿不能用 <a href> —— 那会整页刷新并掉回原生侧边栏")
+
+	def test_global_script_seeds_sidebar_item_map(self):
+		"""侧边栏归属靠种 `localStorage["sidebar_item_map"]`。
+
+		`resolve_sidebar()` 规则 2 读的就是它（规则 1 在整页刷新时失效）。
+		种子要按**单据名**写——那是 `entity_from_route()` 取的键；
+		框架自己的写入方用的是**条目 label**（`data-id`），两个键空间不冲突。
+		"""
+		js = DESK_CONTEXT_JS.read_text()
+		self.assertIn("sidebar_item_map", js, "要种 sidebar_item_map 供整页刷新用")
+		# 单据名与面包屑那份名单同源，不能各写一套
+		self.assertIn("const DOCTYPES = [", js, "单据名单应只定义一次、两处复用")
+
 	def test_global_script_patches_breadcrumb_preferred(self):
 		"""面包屑归属靠一个**全局脚本**补，挂在 `app_include_js` 上。
 
@@ -299,7 +326,6 @@ class WorkspaceContractTest(unittest.TestCase):
 		`breadcrumbs.preferred` 是框架本来就留的口子（按单据指定模块）。
 		"""
 		hooks = HOOKS.read_text()
-		module = _assign("MODULE")  # 与 workspace_setup.py 同源，防拼写漂移
 
 		self.assertIn("app_include_js", hooks, "必须有全局脚本挂载点")
 		# ⚠ 路径必须是 /assets/ 绝对形式：非 bundle 文件在 bundled_asset() 里
@@ -312,11 +338,23 @@ class WorkspaceContractTest(unittest.TestCase):
 
 		js = DESK_CONTEXT_JS.read_text()
 		self.assertIn("frappe.breadcrumbs.preferred", js, "要覆盖 preferred 表")
-		for doctype in ("Stock Entry", "Batch", "Item", "Warehouse"):
-			self.assertIn(f'"{doctype}": "{module}"' if " " in doctype else f"{doctype}: \"{module}\"", js,
-			              f"desk_context.js 缺 {doctype} 的归属设置")
+		for doctype in ("Stock Entry", "Purchase Receipt", "Delivery Note", "Material Request"):
+			self.assertIn(f'"{doctype}"', js, f"desk_context.js 缺 {doctype}")
 		# 加载顺序兜底：desk.bundle.js 没就绪时不能直接抛错
 		self.assertIn("if (!apply())", js, "缺少 breadcrumbs 未就绪时的兜底")
+
+	def test_sidebar_app_is_set_to_this_app(self):
+		"""`Workspace Sidebar.app` **不能留空**，否则整页刷新会掉回原生侧边栏。
+
+		`resolve_sidebar()` 过滤候选时用的是 `module_app[module]` 与 `sidebar.app`
+		**严格相等**比较。留空 = 谁都匹配不上 → 我们这条被滤掉 → 掉回原生。
+		SPA 内跳转看不出来（规则 1 先生效），只有硬加载才暴露。
+		"""
+		app = _assign("APP_NAME")
+		content = WORKSPACE_SETUP.read_text()
+		self.assertIn("sidebar.app = APP_NAME", content)
+		self.assertIn('APP_NAME = "hb_inventory_app"', content)
+		self.assertNotIn('sidebar.app = ""', content, "留空会让整页刷新掉回原生侧边栏")
 
 	def test_native_forms_have_a_way_back(self):
 		"""会用到的两个原生表单都要有「返回仓库工作台」的出口。
