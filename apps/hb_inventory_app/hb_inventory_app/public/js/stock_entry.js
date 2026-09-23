@@ -23,9 +23,22 @@
  *
  * 挂在 `on_submit`（表单事件，Frappe 在提交成功后触发，见 form.js 的 savesubmit）。
  * **不能挂 `refresh`**——那样每次打开已提交的单子都会弹一次。
+ *
+ * ## 另外：这个表单不是死胡同
+ *
+ * ERPNext 原生库存模块里**没有本 App 的侧边栏**，从拍照识别过来的操作员
+ * 落在这里会找不到回去的路。所以给一个「返回仓库工作台」的出口。
  */
 
 frappe.ui.form.on("Stock Entry", {
+	refresh(frm) {
+		// 与 hbos_inventory/workspace_setup.py 的 WORKSPACE_TITLE 必须一致；
+		// 改名时两处都要改（tests/test_workspace_contract.py 会红）。
+		frm.add_custom_button(__("返回仓库工作台"), () => {
+			frappe.set_route("Workspaces", "仓库工作台");
+		});
+	},
+
 	on_submit(frm) {
 		const batch = frm.doc.hbos_intake_batch;
 

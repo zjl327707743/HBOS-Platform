@@ -1,7 +1,12 @@
 """仓库工作台入口同步（幂等）
 
-补 M3-R2 遗漏的「入口」交付项：让仓库人员能直接从 Desk 触达
-入库登记、批次、货位与各报表，而无需记忆 DocType 名称。
+**本工作台只放「海滨特有」的东西**——入库拍照识别页 + 四个报表。
+库存单据（入库 / 出库 / 移库）、批次、物料、货位**一律不在这里重复列**：
+它们本来就是 ERPNext 原生「库存」模块的内容，再列一遍只是多一个入口，
+既没多出信息，又让「这里和原生到底哪个才算数」变得含糊（2026-09-23 Owner 提出）。
+
+原生单据照旧用 ERPNext 的表单（不重写——那等于改核心源码），
+只是在那两个常用表单上补了「返回仓库工作台」的出口（见 `public/js/*.js`）。
 
 以代码方式同步 Workspace + Workspace Sidebar + Desktop Icon，
 沿用 `hb_attendance_app` 的既有做法（`after_migrate` 钩子调用，幂等）。
@@ -30,57 +35,45 @@ DESKTOP_ICON = "boxes"
 # 「label 查不到侧边栏」的僵尸图标，而**挂在它下面的图标会跟着一起消失**。
 LEGACY_TITLES = ("仓储库存工作台", "仓储库存")
 
+# 侧边栏条目。**只列本 App 独有的**：1 个页面 + 4 个报表。
+#
+# 曾经列过 Stock Entry ×3（入库登记 / 出库核销 / 货位变更）、Batch、Item、
+# Warehouse、货位二维码——**已全部撤掉**，原因有两条：
+#   ① 它们的目标本来就是 ERPNext 原生「库存」模块的内容，重复一遍没多信息；
+#   ② 那三个 Stock Entry 条目**指向同一个地方**（原生 Stock Entry 列表），
+#      只是标签不同——点下去并不会按「出库」「移库」过滤，标签等于在许诺
+#      一件没做的事，反而更误导。
+#
+# 改由原生库存模块承担这些入口；本工作台只回答「海滨特有的东西在哪」。
 SIDEBAR_ITEMS = [
 	{"label": WORKSPACE_TITLE, "link_type": "Workspace", "link_to": WORKSPACE_TITLE, "type": "Link", "icon": "home"},
 	# 入库拍照识别：本 App 的 Desk 页面（拍照 → 识别 → 校对 → 生成草稿）
 	{"label": "入库拍照识别", "link_type": "Page", "link_to": "hbos-photo-intake", "type": "Link", "icon": "camera"},
-	# 入库登记：走原生 Stock Entry（Material Receipt）表单
-	{"label": "入库登记（原生）", "link_type": "DocType", "link_to": "Stock Entry", "type": "Link", "icon": "stock-entry"},
-	# 出库核销：走原生 Stock Entry（Material Issue）表单，受 QA 放行门禁约束
-	{"label": "出库核销", "link_type": "DocType", "link_to": "Stock Entry", "type": "Link", "icon": "stock-entry"},
-	# 货位变更：走原生 Stock Entry（Material Transfer）表单
-	{"label": "货位变更", "link_type": "DocType", "link_to": "Stock Entry", "type": "Link", "icon": "stock-entry"},
-	{"label": "批次", "link_type": "DocType", "link_to": "Batch", "type": "Link", "icon": "file"},
-	{"label": "物料", "link_type": "DocType", "link_to": "Item", "type": "Link", "icon": "stock"},
-	{"label": "货位", "link_type": "DocType", "link_to": "Warehouse", "type": "Link", "icon": "organization"},
 	{"label": "按批号查货位", "link_type": "Report", "link_to": "按批号查货位", "type": "Link", "icon": "search"},
 	{"label": "货位明细表", "link_type": "Report", "link_to": "货位明细表", "type": "Link", "icon": "list"},
 	{"label": "效期预警", "link_type": "Report", "link_to": "效期预警", "type": "Link", "icon": "milestone"},
 	{"label": "库级盘点三对账", "link_type": "Report", "link_to": "库级盘点三对账", "type": "Link", "icon": "clipboard-list"},
-	{"label": "货位二维码（在货位上打印）", "link_type": "DocType", "link_to": "Warehouse", "type": "Link", "icon": "qr-code"},
 ]
 
 WORKSPACE_CONTENT = """[
  {"id":"hdr","type":"header","data":{"text":"<span class=\\"h4\\"><b>仓库工作台</b></span>","col":12}},
- {"id":"sb1","type":"paragraph","data":{"text":"入库可走「入库拍照识别」（拍照 → 识别 → 人工校对 → 生成草稿）；出库核销与货位变更使用 ERPNext 原生库存单据；出库须先取得 QA 放行与合格证。","col":12}},
+ {"id":"sb1","type":"paragraph","data":{"text":"这里只放**海滨特有**的东西：入库拍照识别与四个报表。入库 / 出库 / 移库等库存单据、批次、物料、货位请走左侧「库存」模块（ERPNext 原生表单）。","col":12}},
  {"id":"sc_photo","type":"shortcut","data":{"shortcut_name":"入库拍照识别","col":3}},
- {"id":"sc_in","type":"shortcut","data":{"shortcut_name":"入库登记（原生）","col":3}},
- {"id":"sc_out","type":"shortcut","data":{"shortcut_name":"出库核销","col":3}},
- {"id":"sc_mv","type":"shortcut","data":{"shortcut_name":"货位变更","col":3}},
- {"id":"sc_bt","type":"shortcut","data":{"shortcut_name":"批次","col":3}},
  {"id":"sp1","type":"spacer","data":{"col":12}},
  {"id":"cd_q","type":"card","data":{"card_name":"查询与台账","col":12}},
  {"id":"r1","type":"paragraph","data":{"text":"按批号查货位、货位明细表——批次与货位的双向查询。","col":12}},
  {"id":"sp2","type":"spacer","data":{"col":12}},
  {"id":"cd_m","type":"card","data":{"card_name":"效期与盘点","col":12}},
- {"id":"r2","type":"paragraph","data":{"text":"效期预警按产品质量标准的到期日提前预警；库级盘点三对账用于导出后现场盘点。","col":12}},
- {"id":"cd_p","type":"card","data":{"card_name":"打印与二维码","col":12}},
- {"id":"r3","type":"paragraph","data":{"text":"批次上可打印待检证与货位卡（自产 / 外购两种版式）；货位上可打印货位二维码，贴于货架，手机扫码即可查看该货位在库明细（需登录）。","col":12}}
+ {"id":"r2","type":"paragraph","data":{"text":"效期预警按产品质量标准的到期日提前预警；库级盘点三对账用于导出后现场盘点。","col":12}}
 ]"""
 
 WORKSPACE_LINKS = [
-	{"label": "入库", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 1},
-	{"label": "入库拍照识别", "type": "Link", "link_type": "Page", "link_to": "hbos-photo-intake", "hidden": 0, "is_query_report": 0, "link_count": 0},
 	{"label": "查询与台账", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 2},
 	{"label": "按批号查货位", "type": "Link", "link_type": "Report", "link_to": "按批号查货位", "hidden": 0, "is_query_report": 1, "link_count": 0},
 	{"label": "货位明细表", "type": "Link", "link_type": "Report", "link_to": "货位明细表", "hidden": 0, "is_query_report": 1, "link_count": 0},
 	{"label": "效期与盘点", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 2},
 	{"label": "效期预警", "type": "Link", "link_type": "Report", "link_to": "效期预警", "hidden": 0, "is_query_report": 1, "link_count": 0},
 	{"label": "库级盘点三对账", "type": "Link", "link_type": "Report", "link_to": "库级盘点三对账", "hidden": 0, "is_query_report": 1, "link_count": 0},
-	{"label": "基础数据", "type": "Card Break", "hidden": 0, "is_query_report": 0, "link_count": 3},
-	{"label": "批次", "type": "Link", "link_type": "DocType", "link_to": "Batch", "hidden": 0, "is_query_report": 0, "link_count": 0},
-	{"label": "物料", "type": "Link", "link_type": "DocType", "link_to": "Item", "hidden": 0, "is_query_report": 0, "link_count": 0},
-	{"label": "货位", "type": "Link", "link_type": "DocType", "link_to": "Warehouse", "hidden": 0, "is_query_report": 0, "link_count": 0},
 ]
 
 
@@ -116,10 +109,6 @@ def sync_inventory_workspace():
 
 	workspace.set("shortcuts", [
 		{"label": "入库拍照识别", "type": "Page", "link_to": "hbos-photo-intake", "color": "Blue", "doc_view": ""},
-		{"label": "入库登记（原生）", "type": "DocType", "link_to": "Stock Entry", "color": "Gray", "doc_view": ""},
-		{"label": "出库核销", "type": "DocType", "link_to": "Stock Entry", "color": "Blue", "doc_view": ""},
-		{"label": "货位变更", "type": "DocType", "link_to": "Stock Entry", "color": "Gray", "doc_view": ""},
-		{"label": "批次", "type": "DocType", "link_to": "Batch", "color": "Gray", "doc_view": ""},
 	])
 	workspace.set("links", WORKSPACE_LINKS)
 	workspace.set("roles", [{"role": "System Manager"}, {"role": "Stock Manager"}, {"role": "Stock User"}])
