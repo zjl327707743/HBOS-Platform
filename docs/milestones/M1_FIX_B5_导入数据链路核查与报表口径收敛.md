@@ -67,6 +67,13 @@ M1-FIX-B5 不 closeout B3 / B4，不进入 M1-FIX-C / D / E，不实现异常三
 | 浏览器验证 | Playwright 登录真实 Desk 后验证 `/app/海滨考勤工作台` 与 `/app/hbos-attendance-import`；工作台、导入页、返回路径、HBOS 报表按钮和月度暂存按钮均可见 |
 | HRMS 月度表口径复核 | `健康元新乡海滨 (Demo)` 在 2026-07 Attendance 为 0；正确公司 `健康元新乡海滨` 在 2026-07 submitted Attendance 为 4518 |
 
+> **后续补修（2026-09-23）**：本轮改了导入页 `.js`（报表按钮改走 `data-report` 并带
+> `import_log` 过滤、月度暂存口径文案），**但没推该页 `.json` 的 `modified`**（仍停在 07-09）。
+> 本轮上表里的浏览器验证用的是**全新 Playwright 会话**，无缓存所以看到了新版；
+> 而**真实操作员的浏览器会一直用 localStorage 里的旧页**——`pageview.js` 只要缓存存在
+> 就不发请求，失效条件只看 `Page.modified`。已把版本戳推到 `2026-07-10 17:34` 并 migrate。
+> 同类教训详见 `M3_R6_入库拍照识别服务方案.md` 第九批。
+
 ## 用户主入口口径
 
 ```text
