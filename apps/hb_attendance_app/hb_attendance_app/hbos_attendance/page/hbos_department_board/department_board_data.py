@@ -19,6 +19,7 @@ from hb_attendance_app.hbos_attendance.pairing import (
     FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS,
 )
 from hb_attendance_app.hbos_attendance.board_stats import summarize_rows, dept_summary
+from hb_attendance_app.hbos_attendance.rest_leave_apply import verified_rest_dates
 
 # 与 api.py DELICLOUD_TZ 同基准：打卡时间已按 +8 转 naive 存储，今天/now 同用 +8 对齐
 TZ_PLUS8 = timezone(timedelta(hours=8))
@@ -85,6 +86,12 @@ def _load_schedule(date_str, emp_names):
 
 
 def _load_leave_records(date_str, emp_names):
+    """返回 {employee: 类型}。含飞书请假与**已核实的调休**两个来源。
+
+    调休单列一个来源而非并入请假，是为了让看板标签能显示「调休」——
+    Owner 明确要求两者在报表里可区分（调休是调休，请假是请假）。
+    口径由 rest_leave_apply 独占，此处不自建查询。
+    """
     if not emp_names:
         return {}
     out = {}
@@ -97,6 +104,11 @@ def _load_leave_records(date_str, emp_names):
     )
     for r in rows:
         out.setdefault(r.employee, r.leave_type)
+    # 已核实的调休：仅覆盖当日、且属于本次查询人员的
+    wanted = set(emp_names)
+    for emp, days in verified_rest_dates().items():
+        if emp in wanted and date_str in days:
+            out.setdefault(emp, "调休")
     return out
 
 
