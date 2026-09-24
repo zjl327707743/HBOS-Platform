@@ -23,6 +23,8 @@ services:
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
       DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
+      HBOS_OCR_URL: ${HBOS_OCR_URL:-http://host.docker.internal:8100}
+      HBOS_OCR_SHARED_TOKEN: ${HBOS_OCR_SHARED_TOKEN}
 
   configurator:
     image: frappe/erpnext:${ERPNEXT_VERSION}
