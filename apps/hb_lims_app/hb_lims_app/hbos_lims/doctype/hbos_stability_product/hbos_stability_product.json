@@ -80,7 +80,7 @@
    "label": "默认计量单位",
    "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他",
    "reqd": 1,
-   "description": "本板块 UOM 权威来源"
+   "description": "登记时 UOM 快照；当前权威来源为 ERPNext Item.stock_uom"
   },
   {
    "fieldname": "qty_factor",
