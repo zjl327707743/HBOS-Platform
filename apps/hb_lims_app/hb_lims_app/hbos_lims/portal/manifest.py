@@ -15,7 +15,6 @@ def get_manifest() -> dict[str, object]:
         "order": 30,
         "migration_mode": "native",
         "route": "/hbos/lims",
-        # P3-LIMS-4 enables the permission-aware todo summary projection.
-        # Search remains behind its own later gate.
-        "capabilities": ["summary", "tasks"],
+        # P3-LIMS-5 enables permission-aware result search.
+        "capabilities": ["summary", "tasks", "search"],
     }

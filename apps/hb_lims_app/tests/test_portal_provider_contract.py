@@ -12,6 +12,7 @@ from hb_lims_app.hbos_lims.portal.access import (
 )
 from hb_lims_app.hbos_lims.portal.manifest import get_manifest
 from hb_lims_app.hbos_lims.portal.provider import get_provider
+from hb_lims_app.hbos_lims.portal.search import project_result_row
 from hb_lims_app.hbos_lims.portal.summary import project_todo_summary
 from hb_lims_app.hbos_lims.portal.routes import build_stable_deep_link, resolve_stable_route
 from hb_lims_app.hbos_lims.todo_contract import TODO_RULES
@@ -34,7 +35,7 @@ class PortalManifestContractTest(unittest.TestCase):
         self.assertEqual("native", manifest["migration_mode"])
         self.assertEqual("ExperimentOutlined", manifest["icon"])
         self.assertEqual("lims", manifest["accent"])
-        self.assertEqual(["summary", "tasks"], manifest["capabilities"])
+        self.assertEqual(["summary", "tasks", "search"], manifest["capabilities"])
 
 
 class PortalRouteContractTest(unittest.TestCase):
@@ -139,6 +140,34 @@ class PortalAccessContractTest(unittest.TestCase):
         self.assertNotIn(wf.ROLE_ANALYST, str(access))
 
 
+class PortalSearchProjectionContractTest(unittest.TestCase):
+    def test_projects_result_to_stable_search_contract(self):
+        projected = project_result_row(
+            {
+                "name": "RESULT 001/2",
+                "sample": "SAMPLE-001",
+                "item_name": "含量",
+                "verdict": "合格",
+                "result_status": "已批准",
+            }
+        )
+
+        self.assertEqual("lims", projected["app_id"])
+        self.assertEqual("test_result", projected["entity_type"])
+        self.assertEqual("RESULT 001/2", projected["entity_id"])
+        self.assertEqual("含量 · RESULT 001/2", projected["title"])
+        self.assertEqual("SAMPLE-001 · 合格", projected["subtitle"])
+        self.assertEqual("已批准", projected["status"])
+        self.assertEqual(
+            "/hbos/lims/results/RESULT%20001%2F2",
+            projected["deep_link"],
+        )
+
+    def test_search_projection_rejects_missing_identity(self):
+        with self.assertRaises(ValueError):
+            project_result_row({"item_name": "含量"})
+
+
 class PortalSummaryProjectionContractTest(unittest.TestCase):
     def test_projects_permission_aware_todo_summary(self):
         projected = project_todo_summary(
@@ -194,6 +223,7 @@ class PortalProviderRuntimeBoundaryTest(unittest.TestCase):
         provider = get_provider()
         self.assertTrue(callable(provider.summary))
         self.assertTrue(callable(provider.my_tasks))
+        self.assertTrue(callable(provider.search))
 
     def test_provider_derives_identity_from_frappe_session(self):
         fake_frappe = types.SimpleNamespace(

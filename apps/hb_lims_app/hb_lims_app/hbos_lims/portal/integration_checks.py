@@ -47,6 +47,13 @@ def run() -> dict[str, object]:
     if any(metric.get("deep_link") != "/hbos/lims/tasks?scope=mine" for metric in metrics):
         raise AssertionError("LIMS Portal summary must expose stable HBOS deep links")
 
+    search_payload = get_provider().search(
+        query="HBOS-NO-MATCH",
+        limit=5,
+    )
+    if not isinstance(search_payload.get("results"), list):
+        raise AssertionError("LIMS Portal search provider returned invalid results payload")
+
     return {
         "stable_link": stable_link,
         "resolved_path": resolved,
@@ -54,4 +61,5 @@ def run() -> dict[str, object]:
         "next_cursor": task_payload["next_cursor"],
         "summary_status": summary_payload["status"],
         "summary_metrics": len(metrics),
+        "search_results": len(search_payload["results"]),
     }

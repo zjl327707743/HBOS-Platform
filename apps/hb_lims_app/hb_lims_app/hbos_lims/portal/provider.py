@@ -3,6 +3,7 @@ from __future__ import annotations
 from hb_lims_app.hbos_lims.portal.access import build_access_context
 from hb_lims_app.hbos_lims.portal.manifest import get_manifest
 from hb_lims_app.hbos_lims.portal.routes import resolve_stable_route
+from hb_lims_app.hbos_lims.portal.search import search_results
 from hb_lims_app.hbos_lims.portal.summary import get_summary_projection
 from hb_lims_app.hbos_lims.portal.tasks import get_task_projection
 
@@ -22,6 +23,14 @@ class LimsPortalProvider:
 
     def summary(self) -> dict[str, object]:
         return get_summary_projection()
+
+    def search(
+        self,
+        *,
+        query: str,
+        limit: int = 20,
+    ) -> dict[str, object]:
+        return search_results(query=query, limit=limit)
 
     def my_tasks(
         self,
