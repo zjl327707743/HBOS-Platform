@@ -659,24 +659,28 @@ def get_rules_board():
     try:
         rules = [_fmt_rule(r) for r in frappe.db.get_all(
             "HBOS Shift Rule",
-            fields=["name", "rule_name", "department", "shift_type",
+            fields=["name", "rule_code", "rule_name", "department", "shift_type",
                     "start_time", "end_time", "late_after", "min_hours",
-                    "effective_from", "status"],
-            order_by="department, start_time",
+                    "effective_from", "supersedes", "status"],
+            order_by="department, rule_code, effective_from",
         )]
         count_map = {}
         for r in frappe.db.sql(
-            "SELECT shift_rule, COUNT(*) c FROM `tabHBOS Employee Shift` GROUP BY shift_rule",
+            """SELECT rule_code, COUNT(*) c
+               FROM `tabHBOS Employee Shift`
+               WHERE IFNULL(rule_code, '') != ''
+               GROUP BY rule_code""",
             as_dict=True,
         ):
-            count_map[r.shift_rule] = r.c
+            count_map[r.rule_code] = r.c
         for e in frappe.db.get_all(
-            "Employee", fields=["hbos_fixed_shift"],
-            filters={"hbos_fixed_shift": ["is", "set"]},
+            "Employee", fields=["hbos_fixed_shift_code"],
+            filters={"hbos_fixed_shift_code": ["is", "set"]},
         ):
-            count_map[e.hbos_fixed_shift] = count_map.get(e.hbos_fixed_shift, 0) + 1
+            count_map[e.hbos_fixed_shift_code] = count_map.get(e.hbos_fixed_shift_code, 0) + 1
         for r in rules:
-            r["assigned_count"] = count_map.get(r["name"], 0)
+            code = r.get("rule_code") or r.get("rule_name") or r.get("name")
+            r["assigned_count"] = count_map.get(code, 0)
         out["rules"] = rules
     except Exception as e:
         errors["rules"] = str(e)
