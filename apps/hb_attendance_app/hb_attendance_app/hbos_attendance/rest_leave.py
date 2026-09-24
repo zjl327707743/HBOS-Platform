@@ -12,7 +12,8 @@ from datetime import datetime, timedelta, timezone
 # 避免容器为 UTC 时把「当日」算成前一天（与 api.py DELICLOUD_TZ 同基准）。
 _TZ = timezone(timedelta(hours=8))
 
-REST_LEAVE_APP_TOKEN = os.environ.get("HBOS_FEISHU_REST_LEAVE_APP_TOKEN", "")\nREST_LEAVE_TABLE_ID = os.environ.get("HBOS_FEISHU_REST_LEAVE_TABLE_ID", "")
+REST_LEAVE_APP_TOKEN = os.environ.get("HBOS_FEISHU_REST_LEAVE_APP_TOKEN", "")
+REST_LEAVE_TABLE_ID = os.environ.get("HBOS_FEISHU_REST_LEAVE_TABLE_ID", "")
 ID_PREFIX = "feishu-bitable-restleave-"
 
 # 状态机：待解析 → 待核实 → 已核实 / 核实不通过；解析不出加班日 → 解析失败
