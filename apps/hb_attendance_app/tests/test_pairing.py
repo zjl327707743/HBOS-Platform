@@ -81,16 +81,16 @@ class SpecialShiftTest(unittest.TestCase):
 
     def test_pairing_sterile_day(self):
         # 8:30 → 20:31 的 12h 班: 无菌早
-        cks = [{"time": datetime(2026, 8, 10, 8, 30), "employee_name": "秦瑀", "department": "无菌车间"},
-               {"time": datetime(2026, 8, 10, 20, 31), "employee_name": "秦瑀", "department": "无菌车间"}]
+        cks = [{"time": datetime(2026, 8, 10, 8, 30), "employee_name": "TEST-SPECIAL", "department": "无菌车间"},
+               {"time": datetime(2026, 8, 10, 20, 31), "employee_name": "TEST-SPECIAL", "department": "无菌车间"}]
         atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, special_shift=True)
         self.assertIn(("2026-08-10", "Present", "无菌早", 0, 12.02), statuses(atts))
 
     def test_pairing_sterile_night_cross_day(self):
         # 20:30 → 次日 8:31 的 12h 班: 无菌晚
-        cks = [{"time": datetime(2026, 8, 10, 20, 30), "employee_name": "秦瑀", "department": "无菌车间"},
-               {"time": datetime(2026, 8, 11, 8, 31), "employee_name": "秦瑀", "department": "无菌车间"}]
-        atts = pair_employee_checkins(cks, "E1", "11008015", fake_shift_fn)
+        cks = [{"time": datetime(2026, 8, 10, 20, 30), "employee_name": "TEST-SPECIAL", "department": "无菌车间"},
+               {"time": datetime(2026, 8, 11, 8, 31), "employee_name": "TEST-SPECIAL", "department": "无菌车间"}]
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, special_shift=True)
         self.assertIn(("2026-08-10", "Present", "无菌晚", 0, 12.02), statuses(atts))
 
 
@@ -195,11 +195,11 @@ class SterileOvertimePairTest(unittest.TestCase):
 
     def _ck(self, day, hour, minute, second, sn):
         return {"time": datetime(2026, 8, day, hour, minute, second),
-                "employee_name": "李明", "department": "无菌车间",
+                "employee_name": "TEST-SPECIAL", "department": "无菌车间",
                 "hbos_terminal_sn": sn}
 
     def test_sterile_13h_overtime_pairs(self):
-        # 李明 8/19: 08:17:56 上班机 → 21:28:17 下班机 = 13.17h
+        # 合成案例：08:17:56 上班机 → 21:28:17 下班机 = 13.17h
         cks = [self._ck(19, 8, 17, 56, "13750CS_D7C69C16EC0B2447"),
                self._ck(19, 21, 28, 17, "13750CS_9FB66A86CF3487D7")]
         atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, terminal_aware=True, special_shift=True)
@@ -209,23 +209,23 @@ class SterileOvertimePairTest(unittest.TestCase):
 
     def test_over_16h_still_not_pairs(self):
         # 超过16小时: 漏下班卡导致的假超长班仍不配对
-        # (冯慧杰 8/15 15.69h 属真实加班, 16h 上限下正常配对; 16h 以上仍拦截)
+        # 16h 内真实长班允许配对；超过上限仍拦截
         cks = [self._ck(15, 8, 0, 0, "13750CS_D7C69C16EC0B2447"),
                self._ck(16, 1, 0, 0, "13750CS_9FB66A86CF3487D7")]
-        atts = pair_employee_checkins(cks, "E1", "11008018", fake_shift_fn, terminal_aware=True)
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, terminal_aware=True, special_shift=True)
         s = statuses(atts)
         self.assertNotIn(("2026-08-15", "Present", "无菌早", 0, 17.0), s)
 
     def test_under_16h_pairs(self):
-        # 15.7h(冯慧杰 8/15 案例): 16h 上限下正常配对成 Present
+        # 合成 15.7h 案例：16h 上限下正常配对成 Present
         cks = [self._ck(15, 8, 19, 0, "13750CS_D7C69C16EC0B2447"),
                self._ck(16, 0, 0, 0, "13750CS_9FB66A86CF3487D7")]
-        atts = pair_employee_checkins(cks, "E1", "11008018", fake_shift_fn, terminal_aware=True)
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, terminal_aware=True, special_shift=True)
         s = statuses(atts)
         self.assertIn(("2026-08-15", "Present", "无菌早", 0, 15.68), s)
 
     def test_sterile_night_early_start_not_late(self):
-        # 张志兴 8/19: 19:56 上班 13.16h → 无菌晚(20:30标准)提前到岗, 不判迟到
+        # 合成案例：19:56 上班 13.16h → 无菌晚(20:30标准)提前到岗，不判迟到
         self.assertEqual(special_shift_from_gap(datetime(2026, 8, 19, 19, 56), 13.16), ("无菌晚", False))
 
     def test_sterile_night_after_2031_late(self):
