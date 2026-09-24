@@ -136,6 +136,6 @@ Owner 已于 2026-09-24 正式授权启动 HBOS Workspace / Portal 产品线。
 - 实施计划：`docs/plans/HBOS_PORTAL_IMPLEMENTATION_PLAN.md`
 - 前端目标：`frontend/hbos-portal-web/`
 - 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios
-- 当前 Gate：EA-5.4 DESIGN ENGINEERING BASELINE；下一步 EA-5.5
+- 当前 Gate：EA-5.4 DESIGN ENGINEERING BASELINE；EA-5.5 Interaction QA / Responsive / Accessibility 已启动
 
 Portal 是 M1-FIX 之外的并行产品工作流，不代表 M2 已启动，也不替代 Attendance / Inventory / LIMS 的领域治理。

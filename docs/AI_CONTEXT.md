@@ -127,3 +127,18 @@ Portal 技术栈已固定为 Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios
 Portal 不拥有 Attendance / Inventory / LIMS 业务事实；所有真实数据经 Application Provider / DTO 进入。
 
 原“不得做大型 Vue/React 前端”的 M1-FIX 默认禁令继续适用于未授权范围；HBOS Portal 仅在本 Owner 明确授权的并行工作流内例外放行。
+
+
+### Portal EA-5.5 implementation context
+
+Portal Vue Skeleton 已通过 GitHub Actions frontend build Gate。
+
+EA-5.5 当前已启动，范围只包含：
+
+- interaction QA；
+- responsive；
+- accessibility；
+- LIMS V1 operational page；
+- Drawer / Page / Modal 验证。
+
+仍未创建 `apps/hbos_portal`，仍未接真实业务 Provider。

@@ -35,7 +35,7 @@ export const heroMetrics: SummaryMetricDTO[] = [
 ]
 
 export const tasks: UnifiedTaskDTO[] = [
-  { taskId: 'lims:review:RESULT-001', appId: 'lims', appTitle: 'LIMS', title: '复核阿莫西林含量结果', description: 'SAMPLE-001 · RESULT-001', priority: 'critical', dueLabel: '今天 16:00', dueGroup: 'today', status: 'open', overdue: true, deepLink: '/hbos/lims' },
+  { taskId: 'lims:review:RESULT-001', appId: 'lims', appTitle: 'LIMS', title: '复核阿莫西林含量结果', description: 'SAMPLE-001 · RESULT-001', priority: 'critical', dueLabel: '今天 16:00', dueGroup: 'today', status: 'open', overdue: true, deepLink: '/hbos/lims/results/RESULT-001/review' },
   { taskId: 'attendance:exception:001', appId: 'attendance', appTitle: 'Attendance', title: '处理考勤异常申请', description: '生产二部 · 今日异常', priority: 'high', dueLabel: '今天 17:00', dueGroup: 'today', status: 'open', deepLink: '/hbos/work' },
   { taskId: 'inventory:inbound:PO-2024-0092', appId: 'inventory', appTitle: 'Inventory', title: '审核入库单 PO-2024-0092', description: '六车间中间库', priority: 'normal', dueLabel: '今天 18:00', dueGroup: 'today', status: 'open', deepLink: '/hbos/apps' },
   { taskId: 'equipment:inspection:M607B', appId: 'equipment', appTitle: 'Equipment', title: 'M607B 设备点检确认', description: '三合一设备', priority: 'normal', dueLabel: '明天 09:00', dueGroup: 'week', status: 'open', deepLink: '/hbos/work' },

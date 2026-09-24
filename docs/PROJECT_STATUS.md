@@ -1073,3 +1073,29 @@ frontend/hbos-portal-web/
 - `npm run build`：因此本轮不宣称 PASS，必须在依赖可用的 CI / 本地环境补做。
 
 未创建 `apps/hbos_portal`，未接真实 Provider / Frappe API。
+
+
+### Portal EA-5.5 Update — 2026-09-24
+
+状态：**IN_PROGRESS**。
+
+EA-5.5 已进入真实 Vue 工程验证。
+
+新增范围：
+
+- HBOS Ant Design Vue global theme mapping；
+- Portal mobile bottom navigation；
+- LIMS mobile local navigation + drawer；
+- Skip Link / focus path；
+- Command Palette keyboard selection；
+- LIMS V1 result-review operational page；
+- Drawer / Full Page / Modal interaction validation。
+
+上一 Portal commit 的 GitHub Actions 结果：
+
+```text
+HBOS Quality Gate = PASS
+HBOS Portal Frontend Gate = PASS
+```
+
+EA-5.5 新提交必须重新通过两项 Gate。

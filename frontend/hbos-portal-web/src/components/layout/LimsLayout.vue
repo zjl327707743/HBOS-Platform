@@ -1,5 +1,6 @@
 <template>
   <div class="portal-page">
+    <a class="skip-link" href="#lims-main-content">跳到 LIMS 主要内容</a>
     <PointerAtmosphere />
     <div class="aurora aurora-a lims-aurora"></div>
     <div class="aurora aurora-b"></div>
@@ -14,11 +15,13 @@
 
       <div class="app-layout-grid">
         <AppLocalSidebar />
-        <main class="app-route-content">
+        <main id="lims-main-content" class="app-route-content" tabindex="-1">
           <RouterView />
         </main>
       </div>
     </div>
+
+    <MobileAppNav />
 
     <CommandPalette :open="commandOpen" @close="commandOpen = false" />
   </div>
@@ -30,6 +33,7 @@ import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import AppLocalSidebar from '@/components/layout/AppLocalSidebar.vue'
+import MobileAppNav from '@/components/layout/MobileAppNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
 
 const portal = usePortalStore()

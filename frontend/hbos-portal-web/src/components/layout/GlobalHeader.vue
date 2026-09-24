@@ -30,7 +30,7 @@
       </a-tooltip>
 
       <a-dropdown>
-        <a-avatar class="user-avatar" role="button" aria-label="打开个人菜单">{{ avatarText }}</a-avatar>
+        <button type="button" class="avatar-button" aria-label="打开个人菜单"><a-avatar class="user-avatar">{{ avatarText }}</a-avatar></button>
         <template #overlay>
           <a-menu>
             <a-menu-item @click="$router.push('/hbos/profile')">个人与设置</a-menu-item>

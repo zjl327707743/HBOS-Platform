@@ -32,7 +32,7 @@ Portal 通过独立 Experience Architecture / Product Gate 管理。
 
 - EA-5.3 Interaction Review
 - EA-5.4 Component & Interaction Specification
-- EA-5.5 Interaction QA / Responsive / Accessibility
+- EA-5.5 Interaction QA / Responsive / Accessibility — IN_PROGRESS
 
 输出：
 - 设计冻结文档
@@ -179,3 +179,20 @@ Portal 可进入 `integration/hbos-platform-v1` 的最低条件：
 - Reduced Motion
 
 当前环境 `npm install` 因 npm registry 网络超时未完成，因此 build Gate 仍为 PENDING。不得将本轮状态描述为 production-ready 或 build-pass。
+
+
+## 8. EA-5.5 Implementation
+
+已进入交互与工程 QA：
+
+- mobile Portal navigation；
+- mobile LIMS navigation；
+- keyboard Command Palette；
+- skip links / focus；
+- reduced motion；
+- AntD theme mapping；
+- LIMS V1 Result Review page；
+- contextual Drawer；
+- confirmation Modal。
+
+EA-5.5 仍使用 Mock Provider，不连接真实业务 API。

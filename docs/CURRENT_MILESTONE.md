@@ -160,3 +160,16 @@ EA-5.5 Interaction QA + Responsive + Accessibility
 ```
 
 在 build Gate 和 EA-5.5 通过前，不创建 `apps/hbos_portal`。
+
+
+### EA-5.5 已启动
+
+Portal 并行工作流当前更新为：
+
+```text
+EA-5.4 = DESIGN ENGINEERING BASELINE
+Vue Portal Skeleton = BUILD PASS
+EA-5.5 = IN_PROGRESS
+```
+
+EA-5.5 当前只做交互、响应式、可访问性和 LIMS V1 Operational Page 验证，不进入真实 API 功能接入。
