@@ -130,10 +130,11 @@ def _insert_release_fixture(batch_name):
     frappe.db.sql(
         """INSERT INTO `tabHBOS Sample`
            (name, naming_series, sample_type, item_ref, material_code, material_name,
-            batch_ref, batch_no, specification, spec_version, status, oos_locked,
+            batch_ref, batch_no, sample_source, specification, spec_version,
+            priority, status, oos_locked,
             owner, modified_by, creation, modified, docstatus)
            VALUES (%s,'HBOS-SMP-.YYYY.-',%s,%s,%s,%s,%s,%s,
-                   %s,'1.0','检验完成',0,
+                   '生产取样',%s,'1.0','常规','检验完成',0,
                    'Administrator','Administrator',%s,%s,0)""",
         (
             SAMPLE,
