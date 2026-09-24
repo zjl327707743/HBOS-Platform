@@ -27,6 +27,9 @@ from hb_inventory_app.hbos_inventory import ocr_client
 
 # 允许使用本页面的角色
 ALLOWED_ROLES = {"System Manager", "Stock Manager", "Stock User"}
+MASTER_DATA_WRITE_ROLES = {"System Manager", "Stock Manager", "Item Manager"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 # 可选后端。与识别服务 `services/hbos_ocr/app/contract.py` 中的常量保持一致；
 # Frappe 侧与识别服务是**两个独立部署**，不共享代码，故此处独立声明。
@@ -90,7 +93,7 @@ def _leaf_warehouses() -> list[dict]:
 
 	只列叶子——分组节点（库位 / 层）本身不能存货（M3-R0 方案 A1）。
 	"""
-	rows = frappe.get_all(
+	rows = frappe.get_list(
 		"Warehouse",
 		filters={"is_group": 0, "disabled": 0},
 		fields=["name", "warehouse_name", "parent_warehouse"],
@@ -273,6 +276,12 @@ def _read_file(file_url: str) -> bytes:
 		frappe.throw(_("找不到照片文件：{0}").format(file_url))
 
 	doc = frappe.get_doc("File", name)
+	doc.check_permission("read")
+	ext = "." + (str(doc.file_name or "").rsplit(".", 1)[-1].lower() if "." in str(doc.file_name or "") else "")
+	if ext not in IMAGE_EXTENSIONS:
+		frappe.throw(_("只允许 JPG / PNG / WEBP 标签照片。"))
+	if cint(doc.file_size or 0) > MAX_UPLOAD_BYTES:
+		frappe.throw(_("照片超过 5 MB 上限。"))
 	try:
 		# 走 File.get_content()，自动处理 public / private 两种存储
 		content = doc.get_content()
@@ -371,7 +380,14 @@ def create_intake_draft(
 	if not company:
 		frappe.throw(_("无法确定公司，请先设置默认公司。"))
 
-	# 物料级：写回主数据，仅补空
+	warehouse_obj = frappe.get_doc("Warehouse", warehouse)
+	warehouse_obj.check_permission("read")
+	if not frappe.has_permission("Company", "read", doc=company):
+		frappe.throw(_("你无权访问该货位所属公司。"), frappe.PermissionError)
+	if not frappe.has_permission("Stock Entry", "create"):
+		frappe.throw(_("你无权创建库存入库草稿。"), frappe.PermissionError)
+
+	# 物料级：只有受权主数据角色可以补空；普通 Stock User 不得治理 Item 技术/质量主数据。
 	filled = _fill_item_master_gaps(
 		item_code,
 		{
@@ -418,7 +434,6 @@ def create_intake_draft(
 			"batch_no": batch_no,
 		},
 	)
-	entry.flags.ignore_permissions = True
 	entry.insert()
 
 	_attach_photo(file_url, "Stock Entry", entry.name, file_name=file_name)
@@ -506,6 +521,13 @@ def _fill_item_master_gaps(item_code: str, values: dict) -> list[dict]:
 	filled: list[dict] = []
 	if not item_code or not values:
 		return filled
+
+	requested = {k: (values.get(k) or "").strip() for k in ITEM_GAP_FIELDS if (values.get(k) or "").strip()}
+	if requested and not (set(frappe.get_roles()) & MASTER_DATA_WRITE_ROLES):
+		frappe.throw(
+			_("储存条件、生产车间和效期类型属于 Item 主数据；请由 Stock Manager / Item Manager 审核维护后再继续。"),
+			frappe.PermissionError,
+		)
 
 	meta = frappe.get_meta("Item")
 	for fieldname in ITEM_GAP_FIELDS:  # 白名单，字段名不来自调用方
@@ -642,6 +664,7 @@ def _ensure_batch(
 			"Batch",
 			batch_no,
 			[
+				"item",
 				"hbos_source_type",
 				"manufacturing_date",
 				"expiry_date",
@@ -652,6 +675,12 @@ def _ensure_batch(
 			],
 			as_dict=True,
 		)
+		if (existing.item or "").strip() != item_code:
+			frappe.throw(
+				_("批次 {0} 已属于物料 {1}，不能用于物料 {2}。").format(
+					batch_no, existing.item or _("未设置"), item_code
+				)
+			)
 		if source_type and not (existing.hbos_source_type or "").strip():
 			patch["hbos_source_type"] = source_type
 		if manufacturing_date and not existing.manufacturing_date:
@@ -756,11 +785,26 @@ def _attach_photo(
 	if source is None:
 		return
 
-	# 已经是挂在该单据上的就不重复挂
+	source.check_permission("read")
+	target = frappe.get_doc(doctype, docname)
+	target.check_permission("read")
+
+	# 已经是挂在该单据上的就不重复挂。
 	if source.attached_to_doctype == doctype and source.attached_to_name == docname:
 		return
 
-	source.attached_to_doctype = doctype
-	source.attached_to_name = docname
-	source.flags.ignore_permissions = True
-	source.save()
+	# 永不把既有附件从其他业务对象“改挂走”。复制一份私有 File 作为入库凭证。
+	content = source.get_content()
+	if isinstance(content, str):
+		content = content.encode()
+	copy_doc = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": source.file_name or file_name or "label.jpg",
+			"is_private": 1,
+			"content": content,
+			"attached_to_doctype": doctype,
+			"attached_to_name": docname,
+		}
+	)
+	copy_doc.insert(ignore_permissions=True)
