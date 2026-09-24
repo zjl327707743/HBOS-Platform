@@ -18,11 +18,12 @@ from __future__ import annotations
 
 import json
 import logging
+import secrets
 import time
 import uuid
 from collections import OrderedDict
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 
 from . import config
 from .backends import registry
@@ -91,6 +92,16 @@ def _idem_put(request_id: str | None, payload: dict) -> None:
         _IDEMPOTENCY.popitem(last=False)
 
 
+def _require_internal_auth(authorization: str | None) -> None:
+    token = config.SHARED_TOKEN
+    if not token:
+        raise HTTPException(status_code=503, detail="OCR 内部认证未配置")
+    prefix = "Bearer "
+    supplied = authorization[len(prefix):].strip() if authorization and authorization.startswith(prefix) else ""
+    if not supplied or not secrets.compare_digest(supplied, token):
+        raise HTTPException(status_code=401, detail="OCR 内部认证失败")
+
+
 # ---------------------------------------------------------------------------
 # 路由
 # ---------------------------------------------------------------------------
@@ -112,6 +123,7 @@ def health() -> dict:
 @app.post("/api/v1/recognize", response_model=None)
 async def recognize(
     image: UploadFile = File(..., description="标签照片"),
+    authorization: str | None = Header(default=None),
     backend: str | None = Form(default=None, description="指定后端，缺省用配置的默认后端"),
     source_type: str | None = Form(default=None, description="自产 / 外购（帮助校验）"),
     request_id: str | None = Form(default=None, description="幂等键"),
@@ -126,6 +138,8 @@ async def recognize(
     响应中的 ``hints`` 是按字段的提示，供 Frappe 侧高亮需要人工复核的字段。
     **本接口不写入任何业务数据**——落库由 Frappe 侧在人工确认后执行。
     """
+    _require_internal_auth(authorization)
+
     rid = request_id or uuid.uuid4().hex
 
     cached = _idem_get(request_id)
