@@ -8,6 +8,7 @@ from hbos_portal.services.access import evaluate_access
 from hbos_portal.services.bootstrap import build_bootstrap
 from hbos_portal.services.registry import build_registry
 from hbos_portal.services.routes import resolve_stable_route
+from hb_lims_app.hbos_lims.portal.routes import build_stable_deep_link
 
 
 def _require_ci_authority() -> None:
@@ -55,11 +56,15 @@ def run() -> dict[str, object]:
     if not access.can_enter:
         raise AssertionError("Administrator must receive LIMS break-glass entry access")
 
-    route_result = resolve_stable_route(
-        "lims",
-        "/hbos/lims/tasks?scope=mine",
+    stable_todo_link = build_stable_deep_link(
+        "/tasks",
+        {"scope": "mine", "task": "TASK-001"},
     )
-    if route_result["resolved_path"] != "/hbos-lims/tasks?scope=mine":
+    if stable_todo_link != "/hbos/lims/tasks?scope=mine&task=TASK-001":
+        raise AssertionError("LIMS Todo stable deep-link projection mismatch")
+
+    route_result = resolve_stable_route("lims", stable_todo_link)
+    if route_result["resolved_path"] != "/hbos-lims/tasks?scope=mine&task=TASK-001":
         raise AssertionError("LIMS stable route adapter mismatch")
 
     bootstrap = build_bootstrap()
@@ -76,6 +81,7 @@ def run() -> dict[str, object]:
         "lims_route": manifest["route"],
         "lims_manifest_capabilities": manifest["capabilities"],
         "lims_access": access.can_enter,
+        "lims_stable_todo_link": stable_todo_link,
         "lims_resolved_route": route_result["resolved_path"],
         "bootstrap_apps": app_ids,
         "user": bootstrap["user"]["id"],

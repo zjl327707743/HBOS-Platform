@@ -12,7 +12,7 @@ from hb_lims_app.hbos_lims.portal.access import (
 )
 from hb_lims_app.hbos_lims.portal.manifest import get_manifest
 from hb_lims_app.hbos_lims.portal.provider import get_provider
-from hb_lims_app.hbos_lims.portal.routes import resolve_stable_route
+from hb_lims_app.hbos_lims.portal.routes import build_stable_deep_link, resolve_stable_route
 from hb_lims_app.hbos_lims.todo_contract import TODO_RULES
 
 
@@ -37,6 +37,38 @@ class PortalManifestContractTest(unittest.TestCase):
 
 
 class PortalRouteContractTest(unittest.TestCase):
+    def test_todo_internal_routes_build_stable_links(self):
+        routes = sorted({rule.route for rule in TODO_RULES})
+        self.assertTrue(routes)
+        for route in routes:
+            with self.subTest(route=route):
+                stable = build_stable_deep_link(route, {"scope": "mine"})
+                self.assertTrue(stable.startswith("/hbos/lims"))
+                self.assertEqual(
+                    f"/hbos-lims{route}?scope=mine",
+                    resolve_stable_route(stable),
+                )
+
+    def test_stable_builder_encodes_route_params(self):
+        self.assertEqual(
+            "/hbos/lims/tasks?scope=mine&task=TASK+001%2F2",
+            build_stable_deep_link(
+                "/tasks",
+                {"scope": "mine", "task": "TASK 001/2"},
+            ),
+        )
+
+    def test_stable_builder_rejects_unsafe_internal_routes(self):
+        for route in (
+            "tasks",
+            "//evil.example/tasks",
+            "https://evil.example/tasks",
+            "/%2e%2e/admin",
+        ):
+            with self.subTest(route=route):
+                with self.assertRaises(ValueError):
+                    build_stable_deep_link(route)
+
     def test_root_maps_to_current_lims_dashboard(self):
         self.assertEqual(
             "/hbos-lims/dashboard",
