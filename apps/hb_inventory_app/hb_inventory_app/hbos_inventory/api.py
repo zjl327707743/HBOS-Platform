@@ -793,13 +793,14 @@ def _attach_photo(
 	if source is None:
 		return
 
+	# 已经是挂在该单据上的就不重复挂。
+	if source.attached_to_doctype == doctype and source.attached_to_name == docname:
+		source.check_permission("read")
+		return
+
 	_validate_intake_file(source)
 	target = frappe.get_doc(doctype, docname)
 	target.check_permission("write")
-
-	# 已经是挂在该单据上的就不重复挂。
-	if source.attached_to_doctype == doctype and source.attached_to_name == docname:
-		return
 
 	# 永不把既有附件从其他业务对象“改挂走”。复制一份私有 File 作为入库凭证。
 	content = source.get_content()
