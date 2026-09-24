@@ -17,8 +17,21 @@ class HBOSShiftRule(Document):
             self.rule_code = make_rule_code(self.department, self.rule_name, self.shift_type)
 
         before = None if self.is_new() else self.get_doc_before_save()
-        if before and before.rule_code and self.rule_code != before.rule_code:
-            frappe.throw("规则族编码是稳定身份，创建后不可修改。")
+        if before:
+            immutable = (
+                "rule_code", "rule_name", "department", "shift_type",
+                "start_time", "end_time", "late_after", "min_hours",
+                "effective_from", "supersedes", "status",
+            )
+            changed = [
+                field for field in immutable
+                if str(before.get(field) or "") != str(self.get(field) or "")
+            ]
+            if changed:
+                frappe.throw(
+                    "已保存的班次规则是历史版本，不允许原地修改：{}。"
+                    "请通过班次管理创建新版本。".format("、".join(changed))
+                )
 
         # One family can have many versions, but never two versions for the same effective date.
         duplicate = frappe.db.get_value(
