@@ -185,3 +185,15 @@ Owner Product Review = PENDING
 ```
 
 在 Owner Review 前，EA-5.5 不标记 COMPLETE，不进入真实 Provider / backend implementation。
+
+
+### Portal Gate Update — 2026-09-25
+
+EA-5.5 已通过 Owner 验收并收口。
+
+下一允许范围：
+
+- P1 `hbos_portal` Platform App Architecture；
+- App Registry / Bootstrap / Session / Access / Provider Discovery 设计；
+- 不改变 Attendance / Inventory / LIMS 领域 Authority；
+- P1 架构收口前不引入业务事实副本。

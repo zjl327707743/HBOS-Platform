@@ -1,7 +1,7 @@
 # HBOS Experience Architecture
 ## EA-5.5 — Interaction QA + Responsive + Accessibility
 
-**状态：OWNER REVIEW FIX-1 IMPLEMENTED / RECHECK PENDING**  
+**状态：COMPLETE / OWNER APPROVED**  
 **分支：** `feature/hbos-portal-product`  
 **技术基线：** Vue 3 + Ant Design Vue + Vue Router + Pinia
 
@@ -392,3 +392,31 @@ Hero 52px 保留为 Portal V3 展示型唯一例外。
 ```
 
 同时 Ant Design Vue ThemeConfig 写入官方 fontSize / heading / lineHeight / fontWeightStrong Token，避免 Ant 组件与 HBOS CSS 使用不同字体体系。
+
+
+## 16. EA-5.5 Owner Closeout — 2026-09-25
+
+Owner 已确认 Ant Design Typography v2.0 版本可以保留并继续推进。
+
+最终冻结：
+
+- Portal Visual Baseline：APPROVED；
+- Typography Contract v2.0：APPROVED；
+- Portal / Business App Boundary：APPROVED；
+- Digital Twin placement：APPROVED；
+- App Switcher / Notification / Command Palette：APPROVED for frontend reproduction；
+- LIMS standalone App Shell：APPROVED；
+- EA-5.5：COMPLETE；
+- Frontend Reproduction Gate：PASS。
+
+收口清理：
+
+- 删除 Owner Review Fix-1 / Fix-2 中历史字号覆盖；
+- Typography 的唯一 Authority 保留为 `tokens.css + typography.css + antdTheme.ts`；
+- `global.css` 仅保留布局、玻璃、动效、响应式和必要视觉规则。
+
+下一阶段：
+
+```text
+P1 — hbos_portal Frappe Platform App Architecture
+```

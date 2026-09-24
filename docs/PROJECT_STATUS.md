@@ -1114,3 +1114,18 @@ EA-5.5 = IMPLEMENTATION PASS / OWNER REVIEW PENDING
 本轮已真实验证 npm install、vue-tsc、Vite build 和 dist 产物。
 
 尚未进入真实业务 API / `apps/hbos_portal`。
+
+
+### HBOS Portal EA-5.5 Closeout — 2026-09-25
+
+Owner 已通过 Portal 前端体验验收，Typography Contract v2.0 采用 Ant Design 官方尺度并冻结。
+
+当前：
+
+```text
+EA-5.5 = COMPLETE
+Frontend Reproduction Gate = PASS
+P1 hbos_portal Platform Architecture = IN_PROGRESS
+```
+
+本状态不改变 M1-FIX 主里程碑。

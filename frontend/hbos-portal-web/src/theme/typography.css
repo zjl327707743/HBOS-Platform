@@ -197,3 +197,18 @@ select {
     line-height: 28px;
   }
 }
+
+
+/* Navigation labels that previously carried local prototype sizes */
+.mobile-nav-item,
+.mobile-app-nav-item {
+  font-size: var(--hbos-font-meta);
+  line-height: var(--hbos-line-small);
+  font-weight: var(--hbos-weight-medium);
+}
+
+.mobile-nav-item b {
+  font-size: var(--hbos-font-meta);
+  line-height: 1;
+  font-weight: var(--hbos-weight-strong);
+}
