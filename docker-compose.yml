@@ -8,21 +8,40 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
-      # 中文字体。wkhtmltopdf 靠系统字体渲染 PDF，镜像里只有 DejaVu（无汉字），
-      # 缺了它打印格式里的汉字会被**静默丢弃**（ASCII 正常、汉字消失）。
       - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
+      - assets-data:/home/frappe/frappe-bench/assets
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app"
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
+      HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
+      HBOS_FEISHU_LEAVE_APP_TOKEN: ${HBOS_FEISHU_LEAVE_APP_TOKEN}
+      HBOS_FEISHU_LEAVE_TABLE_ID: ${HBOS_FEISHU_LEAVE_TABLE_ID}
+      HBOS_FEISHU_OVERTIME_APP_TOKEN: ${HBOS_FEISHU_OVERTIME_APP_TOKEN}
+      HBOS_FEISHU_OVERTIME_TABLE_ID: ${HBOS_FEISHU_OVERTIME_TABLE_ID}
+      HBOS_FEISHU_REST_LEAVE_APP_TOKEN: ${HBOS_FEISHU_REST_LEAVE_APP_TOKEN}
+      HBOS_FEISHU_REST_LEAVE_TABLE_ID: ${HBOS_FEISHU_REST_LEAVE_TABLE_ID}
+      HBOS_FEISHU_EXCEPTION_APP_TOKEN: ${HBOS_FEISHU_EXCEPTION_APP_TOKEN}
+      HBOS_FEISHU_EXCEPTION_TABLE_ID: ${HBOS_FEISHU_EXCEPTION_TABLE_ID}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
       DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
+      HBOS_NOTIFY_WEBHOOK_URL: ${HBOS_NOTIFY_WEBHOOK_URL}
+      HBOS_NOTIFY_DRY_RUN: ${HBOS_NOTIFY_DRY_RUN}
+      HBOS_AI_ENABLED: ${HBOS_AI_ENABLED:-0}
+      HBOS_AI_ALLOW_PII: ${HBOS_AI_ALLOW_PII:-0}
+      HBOS_AI_BASE_URL: ${HBOS_AI_BASE_URL}
+      HBOS_AI_API_KEY: ${HBOS_AI_API_KEY}
+      HBOS_AI_MODEL: ${HBOS_AI_MODEL}
+      HBOS_AI_TIMEOUT: ${HBOS_AI_TIMEOUT:-60}
       HBOS_OCR_URL: ${HBOS_OCR_URL:-http://host.docker.internal:8100}
       HBOS_OCR_SHARED_TOKEN: ${HBOS_OCR_SHARED_TOKEN}
 
@@ -44,16 +63,18 @@ services:
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port $$SOCKETIO_PORT;
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app"
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       REDIS_CACHE: ${REDIS_CACHE}
       REDIS_QUEUE: ${REDIS_QUEUE}
       SOCKETIO_PORT: "${SOCKETIO_PORT}"
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
@@ -71,6 +92,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     entrypoint:
@@ -101,16 +124,18 @@ services:
           --db-root-password=$DB_ROOT_PASSWORD \
           --install-app erpnext \
           --set-default;
+        bench --site $SITE_NAME install-app hrms;
+        bench --site $SITE_NAME install-app hb_attendance_app;
         bench --site $SITE_NAME install-app hb_inventory_app;
         bench --site $SITE_NAME migrate;
         bench --site $SITE_NAME list-apps;
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app"
       SITE_NAME: ${SITE_NAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
 
   db:
     image: mariadb:11.8
@@ -144,8 +169,6 @@ services:
       - bash
       - -c
       - |
-        # 挂载进入的 hb_inventory_app 不在镜像 bake 的 assets 目录里，
-        # 需在启动时补建符号链接，否则 /assets/hb_inventory_app 404（图标、页面脚本缺失）。
         ln -sfn /home/frappe/frappe-bench/apps/hb_inventory_app/hb_inventory_app/public /home/frappe/frappe-bench/assets/hb_inventory_app
         nginx-entrypoint.sh
     environment:
@@ -161,8 +184,11 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - assets-data:/home/frappe/frappe-bench/assets
     ports:
       - "${HTTP_PORT}:8080"
 
@@ -180,13 +206,41 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
       - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app"
+      TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
+      HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
+      FEISHU_APP_ID: ${FEISHU_APP_ID}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
+      HBOS_FEISHU_LEAVE_APP_TOKEN: ${HBOS_FEISHU_LEAVE_APP_TOKEN}
+      HBOS_FEISHU_LEAVE_TABLE_ID: ${HBOS_FEISHU_LEAVE_TABLE_ID}
+      HBOS_FEISHU_OVERTIME_APP_TOKEN: ${HBOS_FEISHU_OVERTIME_APP_TOKEN}
+      HBOS_FEISHU_OVERTIME_TABLE_ID: ${HBOS_FEISHU_OVERTIME_TABLE_ID}
+      HBOS_FEISHU_REST_LEAVE_APP_TOKEN: ${HBOS_FEISHU_REST_LEAVE_APP_TOKEN}
+      HBOS_FEISHU_REST_LEAVE_TABLE_ID: ${HBOS_FEISHU_REST_LEAVE_TABLE_ID}
+      HBOS_FEISHU_EXCEPTION_APP_TOKEN: ${HBOS_FEISHU_EXCEPTION_APP_TOKEN}
+      HBOS_FEISHU_EXCEPTION_TABLE_ID: ${HBOS_FEISHU_EXCEPTION_TABLE_ID}
+      DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
+      DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
+      HBOS_NOTIFY_WEBHOOK_URL: ${HBOS_NOTIFY_WEBHOOK_URL}
+      HBOS_NOTIFY_DRY_RUN: ${HBOS_NOTIFY_DRY_RUN}
+      # AI 配置：Frappe 把 scheduled method enqueue 到 RQ worker 执行，
+      # 故 scheduler 与两个 queue 都必须有；否则定时解析会静默走
+      # 「未配置 AI」分支，表现为任务 0.x 秒「成功」但一条都没解析。
+      HBOS_AI_ENABLED: ${HBOS_AI_ENABLED:-0}
+      HBOS_AI_ALLOW_PII: ${HBOS_AI_ALLOW_PII:-0}
+      HBOS_AI_BASE_URL: ${HBOS_AI_BASE_URL}
+      HBOS_AI_API_KEY: ${HBOS_AI_API_KEY}
+      HBOS_AI_MODEL: ${HBOS_AI_MODEL}
+      HBOS_AI_TIMEOUT: ${HBOS_AI_TIMEOUT:-60}
 
   queue-short:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -202,13 +256,41 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
       - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app"
+      TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
+      HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
+      FEISHU_APP_ID: ${FEISHU_APP_ID}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
+      HBOS_FEISHU_LEAVE_APP_TOKEN: ${HBOS_FEISHU_LEAVE_APP_TOKEN}
+      HBOS_FEISHU_LEAVE_TABLE_ID: ${HBOS_FEISHU_LEAVE_TABLE_ID}
+      HBOS_FEISHU_OVERTIME_APP_TOKEN: ${HBOS_FEISHU_OVERTIME_APP_TOKEN}
+      HBOS_FEISHU_OVERTIME_TABLE_ID: ${HBOS_FEISHU_OVERTIME_TABLE_ID}
+      HBOS_FEISHU_REST_LEAVE_APP_TOKEN: ${HBOS_FEISHU_REST_LEAVE_APP_TOKEN}
+      HBOS_FEISHU_REST_LEAVE_TABLE_ID: ${HBOS_FEISHU_REST_LEAVE_TABLE_ID}
+      HBOS_FEISHU_EXCEPTION_APP_TOKEN: ${HBOS_FEISHU_EXCEPTION_APP_TOKEN}
+      HBOS_FEISHU_EXCEPTION_TABLE_ID: ${HBOS_FEISHU_EXCEPTION_TABLE_ID}
+      DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
+      DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
+      HBOS_NOTIFY_WEBHOOK_URL: ${HBOS_NOTIFY_WEBHOOK_URL}
+      HBOS_NOTIFY_DRY_RUN: ${HBOS_NOTIFY_DRY_RUN}
+      # AI 配置：Frappe 把 scheduled method enqueue 到 RQ worker 执行，
+      # 故 scheduler 与两个 queue 都必须有；否则定时解析会静默走
+      # 「未配置 AI」分支，表现为任务 0.x 秒「成功」但一条都没解析。
+      HBOS_AI_ENABLED: ${HBOS_AI_ENABLED:-0}
+      HBOS_AI_ALLOW_PII: ${HBOS_AI_ALLOW_PII:-0}
+      HBOS_AI_BASE_URL: ${HBOS_AI_BASE_URL}
+      HBOS_AI_API_KEY: ${HBOS_AI_API_KEY}
+      HBOS_AI_MODEL: ${HBOS_AI_MODEL}
+      HBOS_AI_TIMEOUT: ${HBOS_AI_TIMEOUT:-60}
 
   redis-queue:
     image: redis:6.2-alpine
@@ -233,15 +315,38 @@ services:
       - bench
       - schedule
     environment:
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app"
+      HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
+      HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
+      HBOS_FEISHU_LEAVE_APP_TOKEN: ${HBOS_FEISHU_LEAVE_APP_TOKEN}
+      HBOS_FEISHU_LEAVE_TABLE_ID: ${HBOS_FEISHU_LEAVE_TABLE_ID}
+      HBOS_FEISHU_OVERTIME_APP_TOKEN: ${HBOS_FEISHU_OVERTIME_APP_TOKEN}
+      HBOS_FEISHU_OVERTIME_TABLE_ID: ${HBOS_FEISHU_OVERTIME_TABLE_ID}
+      HBOS_FEISHU_REST_LEAVE_APP_TOKEN: ${HBOS_FEISHU_REST_LEAVE_APP_TOKEN}
+      HBOS_FEISHU_REST_LEAVE_TABLE_ID: ${HBOS_FEISHU_REST_LEAVE_TABLE_ID}
+      HBOS_FEISHU_EXCEPTION_APP_TOKEN: ${HBOS_FEISHU_EXCEPTION_APP_TOKEN}
+      HBOS_FEISHU_EXCEPTION_TABLE_ID: ${HBOS_FEISHU_EXCEPTION_TABLE_ID}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
       DELICLOUD_APP_SECRET: ${DELICLOUD_APP_SECRET}
+      HBOS_NOTIFY_WEBHOOK_URL: ${HBOS_NOTIFY_WEBHOOK_URL}
+      HBOS_NOTIFY_DRY_RUN: ${HBOS_NOTIFY_DRY_RUN}
+      # AI 配置：Frappe 把 scheduled method enqueue 到 RQ worker 执行，
+      # 故 scheduler 与两个 queue 都必须有；否则定时解析会静默走
+      # 「未配置 AI」分支，表现为任务 0.x 秒「成功」但一条都没解析。
+      HBOS_AI_ENABLED: ${HBOS_AI_ENABLED:-0}
+      HBOS_AI_ALLOW_PII: ${HBOS_AI_ALLOW_PII:-0}
+      HBOS_AI_BASE_URL: ${HBOS_AI_BASE_URL}
+      HBOS_AI_API_KEY: ${HBOS_AI_API_KEY}
+      HBOS_AI_MODEL: ${HBOS_AI_MODEL}
+      HBOS_AI_TIMEOUT: ${HBOS_AI_TIMEOUT:-60}
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
       - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
@@ -261,6 +366,8 @@ services:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+      - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
@@ -269,6 +376,12 @@ volumes:
   redis-queue-data:
   sites:
   logs:
+  assets-data:
+  # 编译产物共享卷：apps/frappe 与 apps/erpnext 未做宿主挂载，各容器各有独立副本，
+  # 因此在 A 容器 bench build 的产物 B 容器（含 nginx）看不到，且容器重建即丢失。
+  # 把这两个 app 的 dist 目录挂成同一个命名卷，让「构建」与「对外提供」看到同一份文件。
+  frappe-dist:
+  erpnext-dist:
 
 networks:
   frappe_network:
