@@ -1,0 +1,2479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HBOS LIMS Vue 前端原型设计</title>
+<style>
+  :root {
+    --bg: #edf1ef;
+    --surface: #ffffff;
+    --surface-2: #f7f9f8;
+    --sidebar: #0d2b28;
+    --sidebar-2: #12352f;
+    --sidebar-text: #cfe0da;
+    --ink: #162623;
+    --muted: #5f726d;
+    --line: #d8e2dd;
+    --primary: #0c7c6a;
+    --primary-strong: #0a6456;
+    --primary-soft: #e3f2ee;
+    --pass: #1d8a5b;
+    --pass-soft: #e4f4ec;
+    --warn: #d1871d;
+    --warn-soft: #fdf2dd;
+    --danger: #c24d3f;
+    --danger-soft: #fbe9e6;
+    --info: #2b6cb0;
+    --info-soft: #e7f0fa;
+    --oos: #a93a2d;
+    --radius: 8px;
+    --font: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 232px;
+    flex: 0 0 232px;
+    background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-2) 100%);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 16px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--primary);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    flex: 0 0 34px;
+  }
+
+  .brand-name { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 0; }
+  .brand-sub { font-size: 10px; color: #8eab9f; margin-top: 2px; }
+
+  .nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+  .nav-group { margin-bottom: 16px; }
+  .nav-group-title {
+    font-size: 10px;
+    color: #71968b;
+    padding: 6px 10px 4px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--sidebar-text);
+    cursor: pointer;
+    font-size: 13px;
+    margin-bottom: 2px;
+    transition: background .12s ease;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .nav-item.active { background: var(--primary); color: #fff; font-weight: 600; }
+  .nav-item svg { width: 16px; height: 16px; flex: 0 0 16px; opacity: .85; }
+  .nav-badge {
+    margin-left: auto;
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    padding: 0 5px;
+  }
+  .nav-badge.amber { background: var(--warn); }
+
+  .sidebar-foot {
+    padding: 14px 16px;
+    border-top: 1px solid rgba(255,255,255,.08);
+    font-size: 10px;
+    color: #73998c;
+  }
+
+  /* Main */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .topbar {
+    height: 58px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 22px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .crumb { font-size: 13px; color: var(--muted); }
+  .crumb b { color: var(--ink); font-weight: 600; }
+
+  .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  .search {
+    width: 240px;
+    height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .search svg { width: 15px; height: 15px; }
+
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .icon-btn:hover { color: var(--primary); border-color: var(--primary); }
+
+  .user-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 12px;
+    border-left: 1px solid var(--line);
+  }
+  .avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--primary-soft);
+    color: var(--primary-strong);
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .user-meta { line-height: 1.2; }
+  .user-meta .n { font-weight: 600; font-size: 12px; }
+  .user-meta .r { font-size: 10px; color: var(--muted); }
+
+  /* Content */
+  .content { padding: 22px; max-width: 1500px; width: 100%; }
+
+  .view { display: none; animation: fade .18s ease; }
+  .view.active { display: block; }
+
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .page-head h1 { font-size: 22px; font-weight: 700; letter-spacing: 0; }
+  .page-head p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .page-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .12s ease;
+    white-space: nowrap;
+  }
+  .btn svg { width: 15px; height: 15px; }
+  .btn:hover { border-color: var(--primary); color: var(--primary); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: var(--primary-strong); }
+  .btn.soft { background: var(--primary-soft); border-color: transparent; color: var(--primary-strong); }
+  .btn.soft:hover { background: #d4e9e2; }
+  .btn.danger { color: var(--danger); }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .kpi .label { color: var(--muted); font-size: 12px; }
+  .kpi .value { font-size: 28px; font-weight: 700; line-height: 1.2; margin-top: 6px; letter-spacing: 0; }
+  .kpi .value small { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .kpi .trend { font-size: 11px; margin-top: 4px; }
+  .kpi .trend.up { color: var(--danger); }
+  .kpi .trend.down { color: var(--pass); }
+  .kpi .icon { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; }
+  .kpi .icon svg { width: 18px; height: 18px; }
+  .icon.teal { background: var(--primary-soft); color: var(--primary); }
+  .icon.amber { background: var(--warn-soft); color: var(--warn); }
+  .icon.green { background: var(--pass-soft); color: var(--pass); }
+  .icon.red { background: var(--danger-soft); color: var(--danger); }
+
+  .grid-2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1.4fr .9fr .9fr; gap: 14px; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-head h3 { font-size: 14px; font-weight: 600; }
+  .panel-head .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .panel-body { padding: 14px 16px; }
+
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .tbl th {
+    text-align: left;
+    padding: 9px 12px;
+    color: var(--muted);
+    font-weight: 500;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+    font-size: 11px;
+  }
+  .tbl td { padding: 10px 12px; border-bottom: 1px solid #e7ede9; vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl tr:hover td { background: #fbfcfb; }
+  .tbl .num { font-family: var(--mono); }
+  .tbl .center { text-align: center; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 11px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .pill.pass { background: var(--pass-soft); color: var(--pass); }
+  .pill.danger { background: var(--danger-soft); color: var(--danger); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.info { background: var(--info-soft); color: var(--info); }
+  .pill.neutral { background: #edf1ef; color: var(--muted); }
+  .pill.teal { background: var(--primary-soft); color: var(--primary); }
+
+  .alert-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--warn-soft);
+    border: 1px solid #f0d9a8;
+    color: #8a5a14;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  .alert-strip svg { width: 16px; height: 16px; flex: 0 0 16px; }
+  .alert-strip a { color: var(--primary-strong); font-weight: 600; cursor: pointer; margin-left: auto; }
+
+  /* Bar chart */
+  .bars { display: flex; align-items: flex-end; gap: 18px; height: 128px; padding-top: 8px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; max-width: 46px; border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, var(--primary) 0%, #17a18a 100%); position: relative; }
+  .bar.dim { background: #c8dcd4; }
+  .bar .v { position: absolute; top: -20px; left: 0; right: 0; text-align: center; font-size: 11px; font-weight: 700; color: var(--ink); }
+  .bar-label { font-size: 10px; color: var(--muted); text-align: center; }
+
+  /* Donut */
+  .donut-row { display: flex; align-items: center; gap: 18px; }
+  .donut {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: conic-gradient(var(--pass) 0 46%, var(--warn) 46% 72%, var(--danger) 72% 84%, #dbe5e1 84% 100%);
+    display: grid;
+    place-items: center;
+    flex: 0 0 92px;
+  }
+  .donut-inner { width: 58px; height: 58px; border-radius: 50%; background: #fff; display: grid; place-items: center; text-align: center; }
+  .donut-inner b { font-size: 18px; display: block; }
+  .donut-inner span { font-size: 9px; color: var(--muted); }
+  .legend { display: grid; gap: 7px; }
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-row .sw { width: 8px; height: 8px; border-radius: 2px; }
+  .legend-row .cnt { margin-left: auto; font-family: var(--mono); font-weight: 600; }
+
+  /* Forms */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .field label .req { color: var(--danger); }
+  .field .hint { font-size: 10px; color: var(--muted); margin-top: 5px; }
+  .input, select.input, textarea.input {
+    width: 100%;
+    height: 36px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 11px;
+    font-size: 13px;
+    color: var(--ink);
+    background: #fff;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  textarea.input { height: auto; padding: 9px 11px; resize: vertical; }
+  .input:focus, select.input:focus, textarea.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(12,124,106,.12); }
+  .input[readonly] { background: var(--surface-2); color: var(--muted); }
+
+  .form-section { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .form-section-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .form-section-title .tag { font-size: 10px; color: var(--muted); font-weight: 500; }
+
+  .spec-match {
+    background: var(--primary-soft);
+    border: 1px solid #cbe4dc;
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .spec-match .k { font-size: 11px; color: var(--primary-strong); font-weight: 600; }
+  .spec-match .v { font-size: 14px; font-weight: 700; margin-top: 3px; }
+  .spec-match .meta { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+  /* Dynamic sample registration */
+  .sample-layout { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; align-items: start; }
+  .sample-main, .sample-side { display: grid; gap: 14px; min-width: 0; }
+  .form-context {
+    position: sticky; top: 72px; z-index: 12;
+    background: linear-gradient(180deg, #ffffff 0%, #f6faf8 100%);
+    border: 1px solid var(--line); border-left: 3px solid var(--primary);
+    border-radius: var(--radius); padding: 14px 16px 15px;
+    box-shadow: 0 8px 22px rgba(13,43,40,.08);
+  }
+  .context-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .context-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .context-title .pin { font-size: 10px; font-weight: 600; color: var(--primary-strong); background: var(--primary-soft); padding: 2px 8px; border-radius: 10px; }
+  .context-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .context-state { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .context-state .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pass); }
+  .context-controls { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: end; }
+  .context-field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 7px; }
+  .context-field .select { width: 100%; min-width: 230px; }
+  .context-field .select-hint { font-size: 11px; color: var(--muted); margin-top: 5px; }
+  .sample-form-enter { animation: fade .18s ease; }
+  .dynamic-note { background: var(--surface-2); border: 1px dashed var(--line); border-radius: var(--radius); padding: 12px 14px; font-size: 11px; color: var(--muted); }
+  .dynamic-note .note-title { font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+  .dynamic-note ul { padding-left: 16px; display: grid; gap: 5px; }
+  .sample-side .tbl td:first-child { text-align: left; }
+
+  /* Kanban */
+  .kanban { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; overflow-x: auto; padding-bottom: 10px; }
+  .kb-col { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); min-width: 158px; }
+  .kb-head { padding: 10px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+  .kb-head .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .kb-head b { font-size: 12px; }
+  .kb-head .count { margin-left: auto; background: #fff; border: 1px solid var(--line); border-radius: 10px; font-size: 10px; padding: 1px 7px; color: var(--muted); font-family: var(--mono); }
+  .kb-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .task-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px;
+    cursor: grab;
+    transition: box-shadow .12s ease, transform .12s ease;
+  }
+  .task-card:hover { box-shadow: 0 3px 10px rgba(22,38,35,.09); transform: translateY(-1px); }
+  .task-card .no { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .task-card .name { font-weight: 600; font-size: 12px; margin-top: 3px; }
+  .task-card .meta { font-size: 10px; color: var(--muted); margin-top: 7px; display: grid; gap: 3px; }
+  .task-card .foot { display: flex; align-items: center; justify-content: space-between; margin-top: 9px; }
+  .task-card .due { font-size: 10px; font-family: var(--mono); }
+  .due.late { color: var(--danger); font-weight: 600; }
+  .due.soon { color: var(--warn); font-weight: 600; }
+
+  .filter-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-bar .input { width: auto; height: 32px; }
+
+  /* Result entry */
+  .result-layout { display: grid; grid-template-columns: 290px 1fr; gap: 14px; align-items: start; }
+  .context-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .context-row { padding: 11px 14px; border-bottom: 1px solid #edf1ef; display: flex; justify-content: space-between; gap: 10px; }
+  .context-row:last-child { border-bottom: 0; }
+  .context-row .k { color: var(--muted); font-size: 11px; }
+  .context-row .v { font-weight: 600; font-size: 12px; text-align: right; font-family: var(--mono); }
+  .context-row .v.zh { font-family: var(--font); }
+
+  .limit-box {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface-2);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .limit-box .lbl { font-size: 11px; color: var(--muted); }
+  .limit-box .val { font-size: 16px; font-weight: 700; font-family: var(--mono); }
+
+  .judge-preview {
+    border-radius: 6px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--line);
+  }
+  .judge-preview.pass { background: var(--pass-soft); border-color: #bfe4cf; }
+  .judge-preview .big { font-size: 17px; font-weight: 700; }
+
+  .sig-strip { display: flex; gap: 14px; flex-wrap: wrap; }
+  .sig-box { flex: 1; min-width: 150px; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .sig-box .t { font-size: 10px; color: var(--muted); }
+  .sig-box .who { font-weight: 600; margin-top: 3px; font-size: 12px; }
+  .sig-box .when { font-size: 10px; font-family: var(--mono); color: var(--muted); margin-top: 2px; }
+  .sig-box.filled { background: var(--pass-soft); border-color: #bfe4cf; }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 18px; }
+  .timeline::before { content: ""; position: absolute; left: 5px; top: 4px; bottom: 4px; width: 2px; background: var(--line); }
+  .tl-item { position: relative; padding: 0 0 16px 12px; }
+  .tl-item::before { content: ""; position: absolute; left: -16px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid var(--primary); }
+  .tl-item.alt::before { border-color: var(--warn); }
+  .tl-item .t { font-size: 10px; font-family: var(--mono); color: var(--muted); }
+  .tl-item .d { font-size: 12px; margin-top: 3px; }
+  .tl-item .s { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* COA preview */
+  .coa-preview {
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 30px 34px;
+    font-size: 12px;
+  }
+  .coa-head { display: flex; justify-content: space-between; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+  .coa-title { font-size: 18px; font-weight: 700; }
+  .coa-meta { text-align: right; font-size: 11px; color: var(--muted); }
+  .coa-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 18px 0; }
+  .coa-info .c .k { color: var(--muted); font-size: 10px; }
+  .coa-info .c .v { font-weight: 600; margin-top: 2px; }
+  .coa-sig { display: flex; justify-content: space-between; margin-top: 26px; }
+  .coa-sig .box { text-align: center; flex: 1; }
+  .coa-sig .box .line { border-top: 1px solid #a7b6b1; margin: 0 12px; padding-top: 6px; font-size: 10px; color: var(--muted); }
+
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .tab { padding: 9px 14px; cursor: pointer; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: var(--primary); font-weight: 600; border-color: var(--primary); }
+
+  .split { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; }
+  .master-list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .master-item { padding: 12px 14px; border-bottom: 1px solid #edf1ef; cursor: pointer; }
+  .master-item.active { background: var(--primary-soft); border-left: 3px solid var(--primary); }
+  .master-item .name { font-weight: 600; font-size: 12px; }
+  .master-item .meta { font-size: 10px; color: var(--muted); margin-top: 3px; display: flex; gap: 8px; }
+
+  .empty-hint { color: var(--muted); font-size: 11px; text-align: center; padding: 18px 0; }
+
+  .footer-note {
+    margin-top: 22px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  @media (max-width: 1180px) {
+    .sidebar { width: 68px; flex: 0 0 68px; }
+    .brand-name, .brand-sub, .nav-group-title, .nav-item span, .sidebar-foot span { display: none; }
+    .nav-item { justify-content: center; padding: 10px 0; }
+    .nav-badge { margin-left: -12px; margin-top: -14px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2, .grid-3, .result-layout, .split { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .sample-layout { grid-template-columns: 1fr; }
+    .context-controls { grid-template-columns: 1fr; }
+    .form-context { position: static; }
+    .kanban { grid-auto-columns: minmax(170px, 1fr); grid-template-columns: none; }
+  }
+
+  @media (max-width: 640px) {
+    .content { padding: 14px; }
+    .topbar { padding: 0 12px; }
+    .search { display: none; }
+    .kpi-grid { grid-template-columns: 1fr; }
+    .page-head { flex-direction: column; align-items: flex-start; }
+    .coa-preview { padding: 18px; }
+    .coa-info { grid-template-columns: 1fr 1fr; }
+    .context-head { flex-direction: column; }
+    .context-state { white-space: normal; }
+  }
+
+  /* ============ 检验结果台账（双模式） ============ */
+  .ledger-mode-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 5px;
+    width: fit-content;
+  }
+  .ledger-tab {
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 7px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ledger-tab .tag { font-size: 10px; color: var(--muted); background: #edf1ef; border-radius: 4px; padding: 1px 6px; }
+  .ledger-tab.active { background: var(--primary); color: #fff; font-weight: 600; }
+  .ledger-tab.active .tag { background: rgba(255,255,255,.18); color: #fff; }
+  .ledger-mode-pane[hidden] { display: none; }
+
+  .ledger-detail-layout { display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: start; }
+  .ledger-master .filter-bar { margin-bottom: 10px; }
+  .ledger-item { padding: 11px 14px; border-bottom: 1px solid #edf1ef; cursor: pointer; background: var(--surface); }
+  .ledger-item:hover { background: var(--surface-2); }
+  .ledger-item.active { background: var(--primary-soft); border-left: 3px solid var(--primary); }
+  .ledger-item .li-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ledger-item .name { font-weight: 600; font-size: 12px; }
+  .ledger-item .li-meta { font-size: 10px; color: var(--muted); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .ledger-item .li-foot { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+  .ledger-item .li-foot .verdict-line { margin-left: auto; }
+
+  .ledger-sample-card .card-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid #edf1ef;
+  }
+  .ledger-sample-card .card-head h2 { font-size: 15px; }
+  .ledger-sample-card .card-head .sub { font-size: 11px; color: var(--muted); margin-top: 3px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .ledger-reg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px 16px; padding: 14px 16px; }
+  .ledger-reg-grid .rg { display: flex; flex-direction: column; gap: 2px; }
+  .ledger-reg-grid .rg .k { font-size: 10px; color: var(--muted); }
+  .ledger-reg-grid .rg .v { font-size: 12px; font-weight: 500; }
+  .ledger-reg-grid .rg .v.mono { font-family: var(--mono); font-size: 11px; }
+  .ledger-section-title { font-size: 12px; font-weight: 700; padding: 10px 16px; background: var(--surface-2); border-top: 1px solid #edf1ef; border-bottom: 1px solid #edf1ef; display: flex; align-items: center; gap: 8px; }
+  .ledger-section-title .tag { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .ledger-section-title .count { margin-left: auto; font-weight: 500; color: var(--muted); font-size: 11px; }
+
+  .ledger-item-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .ledger-item-table th { text-align: left; padding: 9px 16px; font-size: 11px; color: var(--muted); font-weight: 600; background: var(--surface-2); border-bottom: 1px solid #edf1ef; white-space: nowrap; }
+  .ledger-item-table td { padding: 10px 16px; border-bottom: 1px solid #f0f4f1; vertical-align: middle; }
+  .ledger-item-table tr:last-child td { border-bottom: 0; }
+  .ledger-item-table tr.item-row { cursor: pointer; }
+  .ledger-item-table tr.item-row:hover td { background: #f7faf8; }
+  .ledger-item-table td .i-name { font-weight: 600; }
+  .ledger-item-table td .i-sop { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .limit-text { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .limit-text b { color: var(--ink); font-weight: 500; }
+  .res-value { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .res-value.oos { color: var(--danger); }
+  .res-unit { color: var(--muted); font-size: 11px; margin-left: 3px; }
+  .res-desc { font-size: 11px; color: var(--muted); }
+  .verdict-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .verdict-badge.ok { background: var(--pass-soft); color: var(--pass); }
+  .verdict-badge.bad { background: var(--danger-soft); color: var(--danger); }
+  .verdict-badge.na { background: #edf1ef; color: var(--muted); }
+  .verdict-badge.oos { background: #f7e9e6; color: var(--oos); }
+  .status-pill { font-size: 12px; padding: 1px 8px; border-radius: 9px; background: var(--info-soft); color: var(--info); white-space: nowrap; }
+  .status-pill.done { background: var(--pass-soft); color: var(--pass); }
+  .status-pill.draft { background: #edf1ef; color: var(--muted); }
+  .row-more { color: var(--muted); font-size: 11px; }
+  .row-more b { color: var(--primary); cursor: pointer; }
+  .row-more b:hover { text-decoration: underline; }
+  .row-more .hist-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); margin-right: 3px; }
+
+  .ledger-empty { text-align: center; color: var(--muted); font-size: 12px; padding: 40px 0; }
+
+  .ledger-drawer-mask { position: fixed; inset: 0; background: rgba(13,43,40,.38); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  .ledger-drawer-mask.open { opacity: 1; pointer-events: auto; }
+  .ledger-drawer {
+    position: fixed; top: 0; right: 0; height: 100vh; width: 430px; max-width: 92vw;
+    background: var(--surface); z-index: 41; box-shadow: -12px 0 32px rgba(13,43,40,.18);
+    transform: translateX(100%); transition: transform .24s ease;
+    display: flex; flex-direction: column;
+  }
+  .ledger-drawer.open { transform: translateX(0); }
+  .ledger-drawer .drawer-head { padding: 16px 18px; border-bottom: 1px solid #edf1ef; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .ledger-drawer .drawer-head h3 { font-size: 14px; }
+  .ledger-drawer .drawer-head .sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .ledger-drawer .drawer-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+  .drawer-sec { margin-bottom: 18px; }
+  .drawer-sec .ds-title { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .drawer-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px dashed #e7ede9; font-size: 12px; }
+  .drawer-row:last-child { border-bottom: 0; }
+  .drawer-row .k { color: var(--muted); flex: 0 0 84px; }
+  .drawer-row .v { text-align: right; font-family: var(--mono); font-size: 11px; }
+  .drawer-row .v.zh { font-family: inherit; font-size: 12px; }
+  .sig-card { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
+  .sig-card .sig-top { display: flex; align-items: center; justify-content: space-between; }
+  .sig-card .sig-role { font-size: 11px; font-weight: 600; }
+  .sig-card .sig-who { font-size: 13px; font-weight: 600; margin-top: 3px; }
+  .sig-card .sig-when { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+  .sig-card .sig-sign { font-size: 14px; font-family: "Kaiti SC", "KaiTi", cursive; color: var(--primary); }
+  .sig-card.pending { background: var(--surface-2); }
+  .sig-card.pending .sig-who { color: var(--muted); font-weight: 500; }
+  .rev-chain { border-left: 2px solid #e7ede9; margin-left: 6px; padding-left: 14px; }
+  .rev-item { padding: 8px 0; border-bottom: 1px dashed #e7ede9; font-size: 12px; }
+  .rev-item:last-child { border-bottom: 0; }
+  .rev-item .rev-no { font-family: var(--mono); font-size: 11px; color: var(--warn); font-weight: 600; }
+  .rev-item .rev-change { margin-top: 3px; }
+  .rev-item .rev-change .old { color: var(--danger); text-decoration: line-through; }
+  .rev-item .rev-change .new { color: var(--pass); font-weight: 600; }
+  .rev-item .rev-reason { color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .rev-item .rev-when { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 2px; }
+  .drawer-close { border: 0; background: var(--surface-2); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1; }
+  .drawer-close:hover { background: var(--danger-soft); color: var(--danger); }
+
+  .ledger-gmp-note {
+    display: flex; gap: 10px; align-items: flex-start; margin-top: 14px;
+    background: var(--primary-soft); border: 1px solid #cfe6df; border-radius: var(--radius);
+    padding: 10px 14px; font-size: 11px; color: var(--primary-strong);
+  }
+  .ledger-gmp-note svg { width: 16px; height: 16px; flex: 0 0 16px; margin-top: 1px; }
+
+  .ledger-bitable { display: grid; grid-template-columns: 264px 1fr; gap: 14px; align-items: start; }
+  .bitable-sidebar { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .bitable-sidebar-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px; border-bottom: 1px solid #edf1ef; font-weight: 700; font-size: 12px;
+  }
+  .bitable-sidebar-head .bi-count { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .bitable-group-list { max-height: 66vh; overflow-y: auto; }
+  .bitable-group { border-bottom: 1px solid #f0f4f1; }
+  .bitable-group-title {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 9px 14px; border: 0; background: var(--surface-2); cursor: pointer;
+    font-family: inherit; font-size: 11px; font-weight: 700; color: var(--muted); text-align: left;
+  }
+  .bitable-group-title .arrow {
+    width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid var(--muted); transition: transform .15s ease; margin-left: auto;
+  }
+  .bitable-group.collapsed .bitable-group-title .arrow { transform: rotate(-90deg); }
+  .bitable-group.collapsed .bitable-items { display: none; }
+  .bitable-item {
+    display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 14px;
+    border: 0; background: transparent; cursor: pointer; font-family: inherit; text-align: left;
+    border-left: 3px solid transparent; transition: background .12s ease;
+  }
+  .bitable-item:hover { background: var(--surface-2); }
+  .bitable-item.active { background: var(--primary-soft); border-left-color: var(--primary); }
+  .bitable-item .bi-icon {
+    width: 26px; height: 26px; flex: 0 0 26px; border-radius: 6px;
+    background: #eef3f0; color: var(--primary); display: grid; place-items: center; font-size: 12px;
+  }
+  .bitable-item.active .bi-icon { background: var(--primary); color: #fff; }
+  .bitable-item .bi-text { min-width: 0; }
+  .bitable-item .bi-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bitable-item .bi-meta { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bitable-item .bi-status { margin-left: auto; flex: 0 0 auto; }
+
+  .bitable-main { min-width: 0; }
+  .bitable-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 13px 16px; margin-bottom: 12px;
+  }
+  .bitable-head h2 { font-size: 15px; }
+  .bitable-head .sub { font-size: 11px; color: var(--muted); margin-top: 3px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .bitable-head .sum-badge { flex: 0 0 auto; }
+
+  .bitable-table-wrap { overflow-x: auto; }
+  .bitable-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 780px; }
+  .bitable-table th {
+    background: var(--surface-2); text-align: center; padding: 10px 14px;
+    border-bottom: 1px solid #edf1ef; font-size: 12px; color: var(--ink); font-weight: 600; white-space: nowrap;
+  }
+  .bitable-table th.reg-th { color: var(--ink); font-weight: 600; background: var(--surface-2); }
+  .bitable-table td { padding: 9px 14px; border-bottom: 1px solid #f0f4f1; text-align: center; vertical-align: middle; white-space: nowrap; }
+  .bitable-table tr:last-child td { border-bottom: 0; }
+  .bitable-table tbody tr:hover td { background: #f7faf8; }
+  .bitable-table td.row-num { color: var(--muted); font-family: var(--mono); line-height: 1.3; }
+  .bitable-table td.p-name { text-align: left; font-weight: 600; }
+  .bitable-table td.p-batch { font-family: var(--mono); font-size: 12px; }
+  .bitable-table .th-name { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+  .bitable-table .th-name b { color: var(--ink); font-size: 12px; font-weight: 600; }
+  .bitable-table .th-name span { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .bitable-table .oos-bg { background: #fdf1ef; }
+  .bitable-empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 12px; }
+
+  @media (max-width: 1180px) {
+    .ledger-detail-layout { grid-template-columns: 1fr; }
+    .ledger-bitable { grid-template-columns: 1fr; }
+    .bitable-group-list { max-height: 30vh; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L5.5 18a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9.5V3"/><path d="M8 13h8"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">海滨 LIMS</div>
+        <div class="brand-sub">HBOS Laboratory Information System</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-group">
+        <div class="nav-group-title">工作台</div>
+        <button class="nav-item active" data-view="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          <span>工作台总览</span>
+        </button>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">检验业务</div>
+        <button class="nav-item" data-view="sample">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L5.5 18a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9.5V3"/><path d="M8 13h8"/></svg>
+          <span>样品登记</span>
+        </button>
+        <button class="nav-item" data-view="tasks">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5M8 17h3"/></svg>
+          <span>待检任务看板</span>
+          <span class="nav-badge">7</span>
+        </button>
+        <button class="nav-item" data-view="result">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>
+          <span>结果录入</span>
+        </button>
+        <button class="nav-item" data-view="ledger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/><path d="m15.5 14 .8.8 1.7-2"/></svg>
+          <span>检验结果台账</span>
+        </button>
+        <button class="nav-item" data-view="coa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+          <span>COA 报告</span>
+          <span class="nav-badge amber">2</span>
+        </button>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">质量主数据</div>
+        <button class="nav-item" data-view="spec">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>质量标准</span>
+        </button>
+        <button class="nav-item" data-view="spec">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <span>检验项目</span>
+        </button>
+        <button class="nav-item" data-view="spec">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L5.5 18a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9.5V3"/><path d="M8 13h8"/></svg>
+          <span>计算公式</span>
+        </button>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-title">合规</div>
+        <button class="nav-item" data-view="audit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          <span>审计追踪</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="sidebar-foot">
+      <span>HBOS LIMS · MVP 原型 v0.1</span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb"><b>HBOS LIMS</b> / <span id="crumb-current">工作台总览</span></div>
+      <div class="topbar-actions">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          搜索样品 / 任务 / 报告
+        </div>
+        <button class="icon-btn" title="通知">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </button>
+        <div class="user-chip">
+          <div class="avatar">林</div>
+          <div class="user-meta">
+            <div class="n">林质检</div>
+            <div class="r">LIMS Manager</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ============ Dashboard ============ -->
+      <section id="view-dashboard" class="view active">
+        <div class="page-head">
+          <div>
+            <h1>工作台总览</h1>
+            <p>2026-08-10 周一 · 实验室检验运行态势与待办</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn" data-goto="sample">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              新建样品登记
+            </button>
+            <button class="btn primary" data-goto="tasks">
+              查看待检任务
+            </button>
+          </div>
+        </div>
+
+        <div class="alert-strip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <span>2 个检验任务即将超时，1 个结果处于 OOS 候选待调查。</span>
+          <a data-goto="tasks">立即处理</a>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div>
+              <div class="label">待检任务</div>
+              <div class="value">18 <small>项</small></div>
+              <div class="trend up">3 项今日到期</div>
+            </div>
+            <div class="icon teal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5M8 17h3"/></svg>
+            </div>
+          </div>
+          <div class="kpi">
+            <div>
+              <div class="label">检验中</div>
+              <div class="value">6 <small>项</small></div>
+              <div class="trend down">较昨日 +1</div>
+            </div>
+            <div class="icon amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            </div>
+          </div>
+          <div class="kpi">
+            <div>
+              <div class="label">待复核</div>
+              <div class="value">4 <small>项</small></div>
+              <div class="trend down">2 项等待批准</div>
+            </div>
+            <div class="icon green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+          </div>
+          <div class="kpi">
+            <div>
+              <div class="label">待发布 COA</div>
+              <div class="value">2 <small>份</small></div>
+              <div class="trend up">1 份已审核</div>
+            </div>
+            <div class="icon red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>今日检验节奏</h3>
+                <div class="sub">按检验组统计的已提交结果数量（演示数据）</div>
+              </div>
+              <span class="pill neutral">最近 7 日</span>
+            </div>
+            <div class="panel-body">
+              <div class="bars">
+                <div class="bar-col"><div class="bar dim" style="height:34%"><span class="v">3</span></div><span class="bar-label">理化组</span></div>
+                <div class="bar-col"><div class="bar" style="height:78%"><span class="v">7</span></div><span class="bar-label">仪器组</span></div>
+                <div class="bar-col"><div class="bar" style="height:52%"><span class="v">5</span></div><span class="bar-label">微生物组</span></div>
+                <div class="bar-col"><div class="bar" style="height:24%"><span class="v">2</span></div><span class="bar-label">包材组</span></div>
+                <div class="bar-col"><div class="bar dim" style="height:41%"><span class="v">4</span></div><span class="bar-label">环测组</span></div>
+                <div class="bar-col"><div class="bar" style="height:63%"><span class="v">6</span></div><span class="bar-label">留样组</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>任务状态分布</h3>
+                <div class="sub">18 项待检任务当前分布</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="donut-row">
+                <div class="donut">
+                  <div class="donut-inner"><b>18</b><span>待检任务</span></div>
+                </div>
+                <div class="legend">
+                  <div class="legend-row"><span class="sw" style="background:var(--pass)"></span>已批准 <span class="cnt">8</span></div>
+                  <div class="legend-row"><span class="sw" style="background:var(--warn)"></span>检验中 <span class="cnt">6</span></div>
+                  <div class="legend-row"><span class="sw" style="background:var(--danger)"></span>OOS 候选 <span class="cnt">2</span></div>
+                  <div class="legend-row"><span class="sw" style="background:#dbe5e1"></span>待分配 <span class="cnt">2</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>最近样品</h3>
+                <div class="sub">最新登记 5 条（演示数据）</div>
+              </div>
+              <button class="btn sm soft" data-goto="sample">登记</button>
+            </div>
+            <div class="panel-body" style="padding:0">
+              <table class="tbl">
+                <thead><tr><th>样品编号</th><th>类型</th><th>状态</th><th>优先级</th></tr></thead>
+                <tbody>
+                  <tr><td class="num">HBOS-SMP-2026-0106</td><td>成品</td><td><span class="pill teal">检验中</span></td><td><span class="pill warn">高</span></td></tr>
+                  <tr><td class="num">HBOS-SMP-2026-0105</td><td>原料</td><td><span class="pill neutral">待接收</span></td><td><span class="pill neutral">常规</span></td></tr>
+                  <tr><td class="num">HBOS-SMP-2026-0104</td><td>中间体</td><td><span class="pill pass">检验完成</span></td><td><span class="pill neutral">常规</span></td></tr>
+                  <tr><td class="num">HBOS-SMP-2026-0103</td><td>包材</td><td><span class="pill danger">OOS锁定</span></td><td><span class="pill warn">高</span></td></tr>
+                  <tr><td class="num">HBOS-SMP-2026-0102</td><td>工艺用水</td><td><span class="pill pass">已放行</span></td><td><span class="pill neutral">常规</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div><h3>需要关注</h3></div>
+            </div>
+            <div class="panel-body">
+              <div class="timeline">
+                <div class="tl-item">
+                  <div class="t">08:42</div>
+                  <div class="d">HBOS-SMP-2026-0103 触发 OOS 候选</div>
+                  <div class="s">含量测定 99.2%，限度 100.0-105.0%</div>
+                </div>
+                <div class="tl-item alt">
+                  <div class="t">09:15</div>
+                  <div class="d">2 个任务距检验时限不足 24h</div>
+                  <div class="s">HBOS-TSK-00231 · HBOS-TSK-00228</div>
+                </div>
+                <div class="tl-item">
+                  <div class="t">10:02</div>
+                  <div class="d">HBOS-COA-2026-0042 待审核</div>
+                  <div class="s">QA 审核后即可发布 PDF</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>合规状态</h3>
+                <div class="sub">ALCOA+ 关键控制点</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="legend" style="grid-gap:12px">
+                <div class="legend-row"><span class="sw" style="background:var(--pass)"></span>原始数据可追溯 <span class="cnt">OK</span></div>
+                <div class="legend-row"><span class="sw" style="background:var(--pass)"></span>电子签名完整 <span class="cnt">OK</span></div>
+                <div class="legend-row"><span class="sw" style="background:var(--pass)"></span>修改留痕启用 <span class="cnt">OK</span></div>
+                <div class="legend-row"><span class="sw" style="background:var(--warn)"></span>OOS 调查 <span class="cnt">1</span></div>
+                <div class="legend-row"><span class="sw" style="background:var(--pass)"></span>COA PDF 归档 <span class="cnt">OK</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          <span>原型数据均为 TEST-HBOS-M2-* 虚构演示数据，不承载真实业务。</span>
+          <span>对齐 hb_lims_app 现有 13 个 DocType 与 5 个报表。</span>
+        </div>
+      </section>
+
+      <!-- ============ Sample Registration ============ -->
+      <section id="view-sample" class="view">
+        <div class="page-head">
+          <div>
+            <h1>样品登记</h1>
+            <p>固定样品类型与检验优先级，按类型自动切换专属表单与检验模板</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn">保存草稿</button>
+            <button class="btn primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              登记样品
+            </button>
+          </div>
+        </div>
+
+        <div class="grid-2" style="grid-template-columns: 1.5fr 1fr">
+          <div class="panel">
+            <div class="panel-head">
+              <div><h3>样品基础信息</h3><div class="sub">带 * 为必填项</div></div>
+            </div>
+            <div class="panel-body">
+              <div class="form-grid">
+                <div class="field">
+                  <label>样品类型 <span class="req">*</span></label>
+                  <select class="input">
+                    <option>原料</option><option>中间体</option><option>成品</option><option>包装材料</option><option>工艺用水</option><option>水</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>检验优先级 <span class="req">*</span></label>
+                  <select class="input"><option>常规</option><option>高</option><option>紧急</option></select>
+                </div>
+                <div class="field">
+                  <label>物料编码 <span class="req">*</span></label>
+                  <input class="input" value="TEST-HBOS-M2-RM-001" readonly>
+                </div>
+                <div class="field">
+                  <label>物料名称 <span class="req">*</span></label>
+                  <input class="input" value="TEST-HBOS-M2-原料A-01">
+                </div>
+                <div class="field">
+                  <label>批号 <span class="req">*</span></label>
+                  <input class="input" value="TEST-HBOS-M2-B240801">
+                </div>
+                <div class="field">
+                  <label>样品来源 <span class="req">*</span></label>
+                  <select class="input"><option>生产取样</option><option>来样送检</option><option>稳定性取样</option><option>环境监测</option></select>
+                </div>
+                <div class="field">
+                  <label>质量标准 <span class="req">*</span></label>
+                  <select class="input">
+                    <option selected>TEST-HBOS-M2-SPEC-RM001-V2</option>
+                    <option>TEST-HBOS-M2-SPEC-RM001-V1</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>检验时限</label>
+                  <input class="input" value="2026-08-14">
+                </div>
+                <div class="field full">
+                  <label>备注</label>
+                  <textarea class="input" rows="3" placeholder="登记备注（可选）"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="spec-match">
+              <div class="k">已匹配质量标准</div>
+              <div class="v">TEST-HBOS-M2-SPEC-RM001-V2</div>
+              <div class="meta">版本 V2 · 生效日期 2026-07-01 · 状态 已生效</div>
+              <div class="meta" style="margin-top:8px">物料：TEST-HBOS-M2-原料A-01 · 5 个检验项目</div>
+            </div>
+
+            <div class="panel" style="margin-top:14px">
+              <div class="panel-head"><div><h3>检验项目快照</h3><div class="sub">登记后冻结标准与限度</div></div></div>
+              <div class="panel-body" style="padding:0">
+                <table class="tbl">
+                  <thead><tr><th>项目</th><th>限度</th><th>单位</th></tr></thead>
+                  <tbody>
+                    <tr><td>性状</td><td>记录型</td><td>—</td></tr>
+                    <tr><td>含量测定</td><td>100.0 - 105.0</td><td>%</td></tr>
+                    <tr><td>有关物质</td><td>≤ 0.5</td><td>%</td></tr>
+                    <tr><td>水分</td><td>≤ 1.0</td><td>%</td></tr>
+                    <tr><td>炽灼残渣</td><td>≤ 0.2</td><td>%</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          <span>样品编号将按 HBOS-SMP-.YYYY.-##### 系列自动生成。</span>
+          <span>登记后关键字段锁定，修改需走修订流程。</span>
+        </div>
+      </section>
+
+      <!-- ============ Task Board ============ -->
+      <section id="view-tasks" class="view">
+        <div class="page-head">
+          <div>
+            <h1>待检任务看板</h1>
+            <p>按检验任务状态流转，支持超时预警与 OOS 候选标记</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn" data-goto="sample">生成检验任务</button>
+            <button class="btn primary">分配任务</button>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <select class="input"><option>全部检验组</option><option>理化组</option><option>仪器组</option><option>微生物组</option></select>
+          <select class="input"><option>全部优先级</option><option>紧急</option><option>高</option><option>常规</option></select>
+          <select class="input"><option>全部状态</option></select>
+          <input class="input" placeholder="搜索样品 / 任务编号" style="flex:1; min-width:180px">
+          <span class="pill neutral" style="margin-left:auto">18 项任务</span>
+        </div>
+
+        <div class="kanban">
+          <div class="kb-col">
+            <div class="kb-head"><span class="dot" style="background:#9aa8a3"></span><b>待分配</b><span class="count">5</span></div>
+            <div class="kb-body">
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00235</div>
+                <div class="name">含量测定</div>
+                <div class="meta"><span>HBOS-SMP-2026-0106</span><span>仪器组 · 成品</span></div>
+                <div class="foot"><span class="pill warn">高</span><span class="due soon">明日到期</span></div>
+              </div>
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00236</div>
+                <div class="name">有关物质</div>
+                <div class="meta"><span>HBOS-SMP-2026-0106</span><span>仪器组 · 成品</span></div>
+                <div class="foot"><span class="pill warn">高</span><span class="due">08-14</span></div>
+              </div>
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00237</div>
+                <div class="name">水分测定</div>
+                <div class="meta"><span>HBOS-SMP-2026-0105</span><span>理化组 · 原料</span></div>
+                <div class="foot"><span class="pill neutral">常规</span><span class="due">08-15</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kb-col">
+            <div class="kb-head"><span class="dot" style="background:#5f8d80"></span><b>已分配</b><span class="count">4</span></div>
+            <div class="kb-body">
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00231</div>
+                <div class="name">含量测定</div>
+                <div class="meta"><span>HBOS-SMP-2026-0104</span><span>仪器组 · 中间体</span><span>林质检</span></div>
+                <div class="foot"><span class="pill neutral">常规</span><span class="due late">已超时</span></div>
+              </div>
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00232</div>
+                <div class="name">细菌内毒素</div>
+                <div class="meta"><span>HBOS-SMP-2026-0104</span><span>微生物组 · 中间体</span><span>王微检</span></div>
+                <div class="foot"><span class="pill neutral">常规</span><span class="due soon">明日到期</span></div>
+              </div>
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00233</div>
+                <div class="name">性状</div>
+                <div class="meta"><span>HBOS-SMP-2026-0102</span><span>理化组 · 工艺用水</span><span>赵理化</span></div>
+                <div class="foot"><span class="pill neutral">常规</span><span class="due">08-13</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kb-col">
+            <div class="kb-head"><span class="dot" style="background:#2b8a73"></span><b>检验中</b><span class="count">3</span></div>
+            <div class="kb-body">
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00228</div>
+                <div class="name">含量测定</div>
+                <div class="meta"><span>HBOS-SMP-2026-0103</span><span>仪器组 · 包材</span><span>林质检</span></div>
+                <div class="foot"><span class="pill warn">高</span><span class="due late">已超时</span></div>
+              </div>
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00229</div>
+                <div class="name">微生物限度</div>
+                <div class="meta"><span>HBOS-SMP-2026-0106</span><span>微生物组 · 成品</span><span>王微检</span></div>
+                <div class="foot"><span class="pill warn">高</span><span class="due soon">今日到期</span></div>
+              </div>
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00230</div>
+                <div class="name">水分测定</div>
+                <div class="meta"><span>HBOS-SMP-2026-0103</span><span>理化组 · 包材</span><span>赵理化</span></div>
+                <div class="foot"><span class="pill neutral">常规</span><span class="due">08-12</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kb-col">
+            <div class="kb-head"><span class="dot" style="background:#d1871d"></span><b>已提交</b><span class="count">2</span></div>
+            <div class="kb-body">
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00226</div>
+                <div class="name">含量测定</div>
+                <div class="meta"><span>HBOS-SMP-2026-0101</span><span>仪器组 · 成品</span><span>林质检</span></div>
+                <div class="foot"><span class="pill pass">合格</span><span class="due">08-11</span></div>
+              </div>
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00227</div>
+                <div class="name">有关物质</div>
+                <div class="meta"><span>HBOS-SMP-2026-0101</span><span>仪器组 · 成品</span><span>林质检</span></div>
+                <div class="foot"><span class="pill pass">合格</span><span class="due">08-11</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kb-col">
+            <div class="kb-head"><span class="dot" style="background:#2b6cb0"></span><b>已复核</b><span class="count">1</span></div>
+            <div class="kb-body">
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00224</div>
+                <div class="name">性状</div>
+                <div class="meta"><span>HBOS-SMP-2026-0101</span><span>理化组 · 成品</span><span>赵理化</span></div>
+                <div class="foot"><span class="pill pass">合格</span><span class="due">08-10</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kb-col">
+            <div class="kb-head"><span class="dot" style="background:#1d8a5b"></span><b>已批准</b><span class="count">3</span></div>
+            <div class="kb-body">
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00220</div>
+                <div class="name">含量测定</div>
+                <div class="meta"><span>HBOS-SMP-2026-0099</span><span>仪器组 · 成品</span><span>复核 陈 QA</span></div>
+                <div class="foot"><span class="pill pass">合格</span><span class="due">08-08</span></div>
+              </div>
+              <div class="task-card">
+                <div class="no">HBOS-TSK-00221</div>
+                <div class="name">水分测定</div>
+                <div class="meta"><span>HBOS-SMP-2026-0099</span><span>理化组 · 成品</span><span>复核 陈 QA</span></div>
+                <div class="foot"><span class="pill pass">合格</span><span class="due">08-08</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Result Entry ============ -->
+      <section id="view-result" class="view">
+        <div class="page-head">
+          <div>
+            <h1>检验结果录入</h1>
+            <p>HBOS-TR-2026-0098 · 含量测定 · 提交后自动判定并生成电子签名</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn">保存草稿</button>
+            <button class="btn primary">提交结果</button>
+          </div>
+        </div>
+
+        <div class="result-layout">
+          <div>
+            <div class="context-card">
+              <div class="context-row"><span class="k">检验任务</span><span class="v">HBOS-TSK-00231</span></div>
+              <div class="context-row"><span class="k">样品编号</span><span class="v">HBOS-SMP-2026-0104</span></div>
+              <div class="context-row"><span class="k">检验项目</span><span class="v zh">含量测定</span></div>
+              <div class="context-row"><span class="k">质量标准</span><span class="v">SPEC-RM001-V2</span></div>
+              <div class="context-row"><span class="k">检验组</span><span class="v zh">仪器组</span></div>
+              <div class="context-row"><span class="k">检验人</span><span class="v zh">林质检</span></div>
+              <div class="context-row"><span class="k">记录状态</span><span class="v"><span class="pill info">草稿</span></span></div>
+            </div>
+
+            <div class="context-card" style="margin-top:14px">
+              <div class="panel-head" style="border-bottom:1px solid #edf1ef"><h3>标准限度（冻结快照）</h3></div>
+              <div style="padding:12px 14px; display:grid; gap:10px">
+                <div class="limit-box"><span class="lbl">限度模式</span><span class="val">区间</span></div>
+                <div class="limit-box"><span class="lbl">限度范围</span><span class="val">100.0 - 105.0 %</span></div>
+                <div class="limit-box"><span class="lbl">有效位数</span><span class="val">2</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="panel">
+              <div class="panel-head">
+                <div><h3>结果数据</h3><div class="sub">计算公式与修约规则内嵌</div></div>
+              </div>
+              <div class="panel-body">
+                <div class="form-grid">
+                  <div class="field">
+                    <label>结果原始值</label>
+                    <input class="input" value="998.6">
+                  </div>
+                  <div class="field">
+                    <label>结果值（含量 %）</label>
+                    <input class="input" value="99.86">
+                  </div>
+                  <div class="field">
+                    <label>使用公式</label>
+                    <select class="input"><option selected>含量 %（HPLC 内标法）</option><option>含量 %（UV 外标法）</option></select>
+                  </div>
+                  <div class="field">
+                    <label>检验仪器（预留）</label>
+                    <input class="input" value="TEST-HBOS-M2-HPLC-01" placeholder="仪器编号">
+                  </div>
+                  <div class="field full">
+                    <label>结果描述（记录型项目）</label>
+                    <input class="input" placeholder="如：符合规定">
+                  </div>
+                  <div class="field full">
+                    <label>公式输入参数</label>
+                    <textarea class="input" rows="4">{"A_sample": 998.6, "A_ref": 1000.2, "C_ref": 0.100, "W_sample": 0.1002, "dilution": 1.0}</textarea>
+                  </div>
+                </div>
+
+                <div class="form-section">
+                  <div class="form-section-title">自动判定预览 <span class="tag">判定引擎 result_contract</span></div>
+                  <div class="judge-preview danger" id="judge-preview">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                    <div>
+                      <div class="big">OOS 候选</div>
+                      <div>结果 99.86% 超出限度下限 100.0%，提交后样品自动锁定。</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-section">
+                  <div class="form-section-title">电子签名</div>
+                  <div class="sig-strip">
+                    <div class="sig-box filled">
+                      <div class="t">检验人</div>
+                      <div class="who">林质检</div>
+                      <div class="when">提交时生成</div>
+                    </div>
+                    <div class="sig-box">
+                      <div class="t">复核人</div>
+                      <div class="who">待复核</div>
+                      <div class="when">第二人独立审核</div>
+                    </div>
+                    <div class="sig-box">
+                      <div class="t">批准人</div>
+                      <div class="who">待批准</div>
+                      <div class="when">批准后放行</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div><h3>修订记录</h3><div class="sub">ALCOA：修改原因必填，原记录不可覆盖</div></div>
+                <span class="pill neutral">1 条</span>
+              </div>
+              <div class="panel-body" style="padding:0">
+                <table class="tbl">
+                  <thead><tr><th>修订号</th><th>字段</th><th>修改前</th><th>修改后</th><th>原因</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td class="num">HBOS-REV-2026-0011</td>
+                      <td>result_value</td>
+                      <td class="num">99.12</td>
+                      <td class="num">99.86</td>
+                      <td>核对原始图谱后修正峰面积计算值</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Result Ledger（检验结果台账 · 双模式） ============ -->
+      <section id="view-ledger" class="view">
+        <div class="page-head">
+          <div>
+            <h1>检验结果台账</h1>
+            <p>检验项目、限度、结果、判定均为受控记录，随录入与任务流转更新，可下钻签名与修订链</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              导出
+            </button>
+            <button class="btn primary" data-goto="result">结果录入</button>
+          </div>
+        </div>
+
+        <div class="ledger-mode-tabs" role="tablist">
+          <button class="ledger-tab active" data-ledger-mode="detail">明细台账 <span class="tag">受控记录</span></button>
+          <button class="ledger-tab" data-ledger-mode="pivot">样品表 <span class="tag">每样品一表</span></button>
+        </div>
+
+        <!-- ===== 明细台账（GMP 视角） ===== -->
+        <div class="ledger-mode-pane" data-ledger-pane="detail">
+          <div class="ledger-detail-layout">
+            <div class="ledger-master">
+              <div class="filter-bar">
+                <input class="input" id="ledger-search" placeholder="搜索名称 / 批号 / 检验编号">
+                <select class="input" id="ledger-type-filter" aria-label="样品类型筛选">
+                  <option value="">全部类型</option>
+                  <option>成品</option><option>原料</option><option>包装材料</option><option>工艺用水</option>
+                </select>
+              </div>
+              <div class="master-list" id="ledger-sample-list"></div>
+            </div>
+
+            <div class="ledger-detail-pane">
+              <div class="panel ledger-sample-card" id="ledger-sample-detail"></div>
+              <div class="ledger-gmp-note">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                <div>本台账为只读受控视图：限度为规格冻结快照，判定由引擎计算，修改结果必须走「提交 → 复核 → 批准 → 修订」流程，原记录不可覆盖（ALCOA+）。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== 样品表浏览（每个样品一张表，左侧按类型分组可收缩） ===== -->
+        <div class="ledger-mode-pane" data-ledger-pane="pivot" hidden>
+          <div class="ledger-bitable">
+            <div class="bitable-sidebar">
+              <div class="bitable-sidebar-head">
+                <span>检验台账</span>
+                <span class="bi-count" id="bitable-count"></span>
+              </div>
+              <div class="bitable-group-list" id="bitable-group-list"></div>
+            </div>
+            <div class="bitable-main">
+              <div class="bitable-head" id="bitable-head"></div>
+              <div class="panel">
+                <div class="panel-body bitable-table-wrap" id="bitable-table-wrap" style="padding:0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下钻抽屉 -->
+        <div class="ledger-drawer-mask" id="ledger-drawer-mask"></div>
+        <aside class="ledger-drawer" id="ledger-drawer" aria-label="检验记录详情"></aside>
+      </section>
+
+      <!-- ============ COA ============ -->
+      <section id="view-coa" class="view">
+        <div class="page-head">
+          <div>
+            <h1>COA 报告管理</h1>
+            <p>从已批准结果自动提取，QA 审核后发布 PDF 归档</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn primary">生成 COA</button>
+            <button class="btn">导出台账</button>
+          </div>
+        </div>
+
+        <div class="split">
+          <div>
+            <div class="filter-bar" style="margin-bottom:10px">
+              <select class="input"><option>全部状态</option><option>草稿</option><option>已审核</option><option>已发布</option></select>
+              <input class="input" placeholder="搜索 COA / 样品" style="flex:1">
+            </div>
+            <div class="master-list">
+              <div class="master-item active">
+                <div class="name num">HBOS-COA-2026-0042</div>
+                <div class="meta"><span>HBOS-SMP-2026-0101</span><span>成品</span></div>
+                <div style="margin-top:6px"><span class="pill warn">已审核</span></div>
+              </div>
+              <div class="master-item">
+                <div class="name num">HBOS-COA-2026-0041</div>
+                <div class="meta"><span>HBOS-SMP-2026-0099</span><span>成品</span></div>
+                <div style="margin-top:6px"><span class="pill pass">已发布</span></div>
+              </div>
+              <div class="master-item">
+                <div class="name num">HBOS-COA-2026-0040</div>
+                <div class="meta"><span>HBOS-SMP-2026-0098</span><span>中间体</span></div>
+                <div style="margin-top:6px"><span class="pill teal">草稿</span></div>
+              </div>
+              <div class="master-item">
+                <div class="name num">HBOS-COA-2026-0039</div>
+                <div class="meta"><span>HBOS-SMP-2026-0096</span><span>工艺用水</span></div>
+                <div style="margin-top:6px"><span class="pill pass">已发布</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div><h3>报告预览</h3><div class="sub">HBOS-COA-2026-0042 · 草稿快照</div></div>
+              <div class="page-actions">
+                <button class="btn sm soft">QA 审核</button>
+                <button class="btn sm primary">发布 PDF</button>
+              </div>
+            </div>
+            <div class="panel-body" style="background:var(--surface-2)">
+              <div class="coa-preview">
+                <div class="coa-head">
+                  <div>
+                    <div class="coa-title">检验报告书（COA）</div>
+                    <div style="margin-top:4px">Certificate of Analysis</div>
+                  </div>
+                  <div class="coa-meta">
+                    <div>报告编号：HBOS-COA-2026-0042</div>
+                    <div>签发日期：2026-08-10</div>
+                    <div>规格：TEST-HBOS-M2-SPEC-RM001-V2</div>
+                  </div>
+                </div>
+                <div class="coa-info">
+                  <div class="c"><div class="k">样品编号</div><div class="v">HBOS-SMP-2026-0101</div></div>
+                  <div class="c"><div class="k">物料名称</div><div class="v">TEST-HBOS-M2-原料A-01</div></div>
+                  <div class="c"><div class="k">批号</div><div class="v">TEST-HBOS-M2-B240801</div></div>
+                  <div class="c"><div class="k">样品类型</div><div class="v">成品</div></div>
+                </div>
+                <table class="tbl" style="border:1px solid var(--line)">
+                  <thead><tr><th>检验项目</th><th>方法 SOP</th><th>标准限度</th><th>检验结果</th><th>判定</th></tr></thead>
+                  <tbody>
+                    <tr><td>性状</td><td>TEST-SOP-0101</td><td>符合规定</td><td>符合规定</td><td><span class="pill pass">合格</span></td></tr>
+                    <tr><td>含量测定</td><td>TEST-SOP-0105</td><td>100.0-105.0%</td><td>102.3%</td><td><span class="pill pass">合格</span></td></tr>
+                    <tr><td>有关物质</td><td>TEST-SOP-0108</td><td>≤0.5%</td><td>0.12%</td><td><span class="pill pass">合格</span></td></tr>
+                    <tr><td>水分</td><td>TEST-SOP-0110</td><td>≤1.0%</td><td>0.42%</td><td><span class="pill pass">合格</span></td></tr>
+                    <tr><td>炽灼残渣</td><td>TEST-SOP-0112</td><td>≤0.2%</td><td>0.08%</td><td><span class="pill pass">合格</span></td></tr>
+                  </tbody>
+                </table>
+                <div class="coa-sig">
+                  <div class="box"><div class="line">检验人</div></div>
+                  <div class="box"><div class="line">复核人</div></div>
+                  <div class="box"><div class="line">批准人</div></div>
+                </div>
+                <div style="margin-top:18px; font-size:10px; color:var(--muted)">本报告仅对来样负责。电子签名与审计追踪由 HBOS LIMS 系统保障。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Spec ============ -->
+      <section id="view-spec" class="view">
+        <div class="page-head">
+          <div>
+            <h1>质量标准库</h1>
+            <p>按版本管理检验项目、限度、单位与有效位数，生效后用于样品登记</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn primary">新建质量标准</button>
+            <button class="btn">复制为新版本</button>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active">质量标准</div>
+          <div class="tab">检验项目</div>
+          <div class="tab">计算公式</div>
+          <div class="tab">样品类型</div>
+          <div class="tab">检验组</div>
+        </div>
+
+        <div class="split">
+          <div>
+            <div class="master-list">
+              <div class="master-item active">
+                <div class="name num">TEST-HBOS-M2-SPEC-RM001-V2</div>
+                <div class="meta"><span>原料A</span><span>V2</span><span>已生效</span></div>
+              </div>
+              <div class="master-item">
+                <div class="name num">TEST-HBOS-M2-SPEC-RM001-V1</div>
+                <div class="meta"><span>原料A</span><span>V1</span><span>已停用</span></div>
+              </div>
+              <div class="master-item">
+                <div class="name num">TEST-HBOS-M2-SPEC-FG001-V1</div>
+                <div class="meta"><span>成品B</span><span>V1</span><span>已生效</span></div>
+              </div>
+              <div class="master-item">
+                <div class="name num">TEST-HBOS-M2-SPEC-WF001-V3</div>
+                <div class="meta"><span>工艺用水</span><span>V3</span><span>已生效</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="panel">
+              <div class="panel-head">
+                <div><h3>TEST-HBOS-M2-SPEC-RM001-V2</h3><div class="sub">原料A 质量标准 · 生效日期 2026-07-01</div></div>
+                <span class="pill pass">已生效</span>
+              </div>
+              <div class="panel-body" style="padding:0">
+                <table class="tbl">
+                  <thead><tr><th>检验项目</th><th>方法 SOP</th><th>限度模式</th><th>下限</th><th>上限</th><th>单位</th><th>有效位数</th></tr></thead>
+                  <tbody>
+                    <tr><td>性状</td><td>TEST-SOP-0101</td><td>记录型</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                    <tr><td>含量测定</td><td>TEST-SOP-0105</td><td>区间</td><td class="num">100.0</td><td class="num">105.0</td><td>%</td><td class="num">2</td></tr>
+                    <tr><td>有关物质</td><td>TEST-SOP-0108</td><td>上限</td><td>—</td><td class="num">0.5</td><td>%</td><td class="num">2</td></tr>
+                    <tr><td>水分</td><td>TEST-SOP-0110</td><td>上限</td><td>—</td><td class="num">1.0</td><td>%</td><td class="num">2</td></tr>
+                    <tr><td>炽灼残渣</td><td>TEST-SOP-0112</td><td>上限</td><td>—</td><td class="num">0.2</td><td>%</td><td class="num">2</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div><h3>版本历史</h3><div class="sub">V1 已停用，V2 为当前生效版本</div></div>
+              </div>
+              <div class="panel-body">
+                <div class="timeline">
+                  <div class="tl-item">
+                    <div class="t">V2 · 2026-07-01 生效</div>
+                    <div class="d">含量测定上限由 104.0% 调整为 105.0%</div>
+                  </div>
+                  <div class="tl-item alt">
+                    <div class="t">V1 · 2025-11-20 生效</div>
+                    <div class="d">初始版本，依据《中国药典》建立</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Audit ============ -->
+      <section id="view-audit" class="view">
+        <div class="page-head">
+          <div>
+            <h1>审计追踪查询</h1>
+            <p>记录不可删除、不可修改；按用户 / 时间 / 模块 / 操作类型筛选</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn">导出 CSV</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h3>查询条件</h3></div>
+            <button class="btn sm primary">查询</button>
+          </div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>时间范围</label><input class="input" value="2026-08-01 至 2026-08-10"></div>
+              <div class="field"><label>用户</label><input class="input" placeholder="全部用户"></div>
+              <div class="field"><label>模块</label><select class="input"><option>全部模块</option><option>样品管理</option><option>检验流程</option><option>COA 报告</option></select></div>
+              <div class="field"><label>操作类型</label><select class="input"><option>全部操作</option><option>登记</option><option>提交</option><option>复核</option><option>批准</option><option>修订</option><option>发布</option></select></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h3>审计记录</h3><div class="sub">共 26 条 · 演示数据</div></div>
+            <span class="pill neutral">只读</span>
+          </div>
+          <div class="panel-body" style="padding:0">
+            <table class="tbl">
+              <thead><tr><th>时间</th><th>用户</th><th>角色</th><th>对象</th><th>操作</th><th>变更摘要</th><th>原因</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="num">08-10 10:02</td><td>陈 QA</td><td>LIMS Reviewer</td>
+                  <td class="num">HBOS-COA-2026-0042</td>
+                  <td><span class="pill info">审核</span></td>
+                  <td>草稿 → 已审核</td><td>—</td>
+                </tr>
+                <tr>
+                  <td class="num">08-10 09:41</td><td>林质检</td><td>LIMS Analyst</td>
+                  <td class="num">HBOS-TR-2026-0098</td>
+                  <td><span class="pill warn">修订</span></td>
+                  <td>result_value 99.12 → 99.86</td><td>核对原始图谱后修正峰面积计算值</td>
+                </tr>
+                <tr>
+                  <td class="num">08-10 09:17</td><td>林质检</td><td>LIMS Analyst</td>
+                  <td class="num">HBOS-TR-2026-0098</td>
+                  <td><span class="pill teal">提交</span></td>
+                  <td>草稿 → 已提交</td><td>—</td>
+                </tr>
+                <tr>
+                  <td class="num">08-10 09:05</td><td>林质检</td><td>LIMS Analyst</td>
+                  <td class="num">HBOS-SMP-2026-0106</td>
+                  <td><span class="pill teal">登记</span></td>
+                  <td>草稿 → 已登记</td><td>—</td>
+                </tr>
+                <tr>
+                  <td class="num">08-09 16:20</td><td>王微检</td><td>LIMS Analyst</td>
+                  <td class="num">HBOS-TR-2026-0094</td>
+                  <td><span class="pill pass">批准</span></td>
+                  <td>已复核 → 已批准</td><td>—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<template id="sample-dynamic-template">
+        <div class="page-head">
+          <div>
+            <h1>样品登记</h1>
+            <p>固定样品类型与检验优先级，按类型自动切换专属表单与检验模板</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn">保存草稿</button>
+            <button class="btn primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              登记样品
+            </button>
+          </div>
+        </div>
+
+        <div class="sample-layout">
+          <div class="sample-main">
+            <div class="form-context">
+              <div class="context-head">
+                <div>
+                  <div class="context-title">样品决策条 <span class="pin">固定显示</span></div>
+                  <div class="context-sub">切换样品类型后，表单字段、质量标准与检验项目自动联动</div>
+                </div>
+                <div class="context-state"><span class="dot"></span>当前模板 <b id="context-template">成品检验</b></div>
+              </div>
+              <div class="context-controls">
+                <div class="context-field">
+                  <label>样品类型 <span class="req">*</span></label>
+                  <select class="input select" id="sample-type-select" aria-label="样品类型">
+                    <option value="成品">成品</option>
+                    <option value="原料">原料</option>
+                    <option value="中间体">中间体</option>
+                    <option value="包装材料">包装材料</option>
+                    <option value="工艺用水">工艺用水</option>
+                    <option value="水">水</option>
+                    <option value="环境样品">环境样品</option>
+                    <option value="稳定性样品">稳定性样品</option>
+                    <option value="清洁验证样品">清洁验证样品</option>
+                  </select>
+                  <div class="select-hint">选择类型后，整张表单切换为该类型专属表单</div>
+                </div>
+                <div class="context-field priority-field">
+                  <label>检验优先级 <span class="req">*</span></label>
+                  <select class="input select" id="priority-select" aria-label="检验优先级">
+                    <option value="常规">常规</option>
+                    <option value="加急">加急</option>
+                    <option value="特急">特急</option>
+                  </select>
+                  <div class="select-hint">只影响排程与检验时限，不改变表单字段</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel type-panel">
+              <div class="panel-head">
+                <div><h3 id="form-panel-title">成品检验表单</h3><div class="sub" id="form-panel-sub">整张表单随样品类型切换，登记后关键字段冻结</div></div>
+                <span class="pill primary" id="form-panel-tag">表单 · 成品</span>
+              </div>
+              <div class="panel-body">
+                <div class="form-grid" id="sample-form-fields"></div>
+              </div>
+            </div>
+
+            <div class="sample-side">
+              <div class="spec-match">
+              <div class="k">已匹配质量标准</div>
+              <div class="v" id="spec-match-name">TEST-HBOS-M2-SPEC-FG001-V1</div>
+              <div class="meta" id="spec-match-meta">版本 V1 · 生效日期 2026-07-01 · 状态 已生效</div>
+              <div class="meta" id="spec-match-type">样品类型：成品 · 5 个检验项目</div>
+            </div>
+
+            <div class="panel spec-items">
+              <div class="panel-head"><div><h3>检验项目快照</h3><div class="sub" id="snapshot-sub">登记后冻结标准与限度 · 5 项</div></div></div>
+              <div class="panel-body" style="padding:0">
+                <table class="tbl">
+                  <thead><tr><th>项目</th><th>限度</th><th>单位</th></tr></thead>
+                  <tbody id="snapshot-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="dynamic-note">
+              <div class="note-title">联动规则</div>
+              <ul>
+                <li>样品类型下拉切换后，整张表单替换为该类型专属表单</li>
+                <li>检验优先级下拉只影响排程与时限，不改变表单字段</li>
+                <li>登记后关键字段锁定，修改走修订流程</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          <span>样品编号将按 HBOS-SMP-.YYYY.-##### 系列自动生成。</span>
+          <span>原型仅演示字段联动，后端模板配置需按样品类型落地。</span>
+        </div>
+</template>
+<script>
+  const views = document.querySelectorAll('.view');
+  const navItems = document.querySelectorAll('.nav-item');
+  const crumb = document.getElementById('crumb-current');
+  const titleMap = {
+    dashboard: '工作台总览',
+    sample: '样品登记',
+    tasks: '待检任务看板',
+    result: '结果录入',
+    ledger: '检验结果台账',
+    coa: 'COA 报告',
+    spec: '质量标准',
+    audit: '审计追踪'
+  };
+
+  function showView(name) {
+    views.forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+    navItems.forEach(n => n.classList.toggle('active', n.dataset.view === name));
+    crumb.textContent = titleMap[name] || name;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  navItems.forEach(item => item.addEventListener('click', () => showView(item.dataset.view)));
+  document.querySelectorAll('[data-goto]').forEach(btn => btn.addEventListener('click', () => showView(btn.dataset.goto)));
+
+  // 样品登记动态表单原型：模板替换 + 类型联动
+  const sampleView = document.getElementById('view-sample');
+  const sampleTemplate = document.getElementById('sample-dynamic-template');
+  if (sampleView && sampleTemplate) {
+    sampleView.innerHTML = sampleTemplate.innerHTML;
+
+    const typeTemplates = {
+      成品: { title: '成品检验表单', sub: '整张表单为成品样品专用，登记后关键字段冻结', tag: '表单 · 成品', spec: { name: 'TEST-HBOS-M2-SPEC-FG001-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 5 }, retain: '36 天', storage: '常温、避光、密封保存', items: [{ name: '性状', limits: '记录型', unit: '—' }, { name: '含量测定', limits: '100.0 - 105.0', unit: '%' }, { name: '有关物质', limits: '≤ 0.5', unit: '%' }, { name: '水分', limits: '≤ 1.0', unit: '%' }, { name: '炽灼残渣', limits: '≤ 0.2', unit: '%' }], fields: [
+        { label: '物料编码', value: 'TEST-HBOS-M2-FG-001', required: true, readonly: true },
+        { label: '物料名称', value: 'TEST-HBOS-M2-成品片剂A-01', required: true },
+        { label: '批号', value: 'TEST-HBOS-M2-B240801', required: true },
+        { label: '规格型号', value: '0.25g × 24片/盒', required: true },
+        { label: '包装规格', value: '铝塑包装', required: true },
+        { label: '生产日期', value: '2026-07-28', required: true },
+        { label: '有效期至', value: '2029-07-27', required: true },
+        { label: '留样数量', value: '12 盒', required: true },
+        { label: '样品来源', value: '生产取样', select: ['生产取样', '来样送检', '稳定性取样', '环境监测'], required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-FG001-V1', select: ['TEST-HBOS-M2-SPEC-FG001-V1'], required: true },
+        { label: '检验时限', value: '2026-08-14' },
+        { label: '储存条件', value: '常温、避光、密封保存' },
+        { label: '默认留样天数', value: '36 天' },
+        { label: '样品说明', value: '成品片剂A 常规入库检验', full: true }
+      ] },
+      原料: { title: '原料检验表单', sub: '整张表单为原料样品专用，供应商与到货信息必填', tag: '表单 · 原料', spec: { name: 'TEST-HBOS-M2-SPEC-RM001-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 5 }, retain: '30 天', storage: '阴凉、干燥处密封保存', items: [{ name: '性状', limits: '记录型', unit: '—' }, { name: '鉴别', limits: '应符合规定', unit: '—' }, { name: '含量测定', limits: '98.0 - 102.0', unit: '%' }, { name: '干燥失重', limits: '≤ 5.0', unit: '%' }, { name: '有关物质', limits: '≤ 1.0', unit: '%' }], fields: [
+        { label: '物料编码', value: 'TEST-HBOS-M2-RM-001', required: true, readonly: true },
+        { label: '物料名称', value: 'TEST-HBOS-M2-原料A-01', required: true },
+        { label: '供应商', value: 'TEST-HBOS-M2-供应商-鲁南化工', required: true },
+        { label: '供应商批号', value: 'TEST-HBOS-M2-SB-20260712', required: true },
+        { label: '批号', value: 'TEST-HBOS-M2-RM-B2607', required: true },
+        { label: '到货日期', value: '2026-07-30', required: true },
+        { label: '留样数量', value: '2 袋', required: true },
+        { label: '样品来源', value: '来样送检', select: ['生产取样', '来样送检', '供应商来样'], required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-RM001-V1', select: ['TEST-HBOS-M2-SPEC-RM001-V1'], required: true },
+        { label: '检验时限', value: '2026-08-06' },
+        { label: '储存条件', value: '阴凉、干燥处密封保存' },
+        { label: '默认留样天数', value: '30 天' },
+        { label: '样品说明', value: '原料入库检验', full: true }
+      ] },
+      中间体: { title: '中间体检验表单', sub: '整张表单为中间体样品专用，工序信息必填', tag: '表单 · 中间体', spec: { name: 'TEST-HBOS-M2-SPEC-INT001-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 5 }, retain: '30 天', storage: '常温、密封保存', items: [{ name: '性状', limits: '记录型', unit: '—' }, { name: '鉴别', limits: '应符合规定', unit: '—' }, { name: '含量', limits: '95.0 - 105.0', unit: '%' }, { name: '干燥失重', limits: '≤ 3.0', unit: '%' }, { name: '有关物质', limits: '≤ 0.8', unit: '%' }], fields: [
+        { label: '物料编码', value: 'TEST-HBOS-M2-INT-001', required: true, readonly: true },
+        { label: '物料名称', value: 'TEST-HBOS-M2-中间体A-01', required: true },
+        { label: '工序名称', value: '制粒', required: true },
+        { label: '中间体批号', value: 'TEST-HBOS-M2-INT-0728', required: true },
+        { label: '生产日期', value: '2026-07-28', required: true },
+        { label: '留样数量', value: '2 袋', required: true },
+        { label: '样品来源', value: '生产取样', select: ['生产取样', '中间站取样'], required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-INT001-V1', select: ['TEST-HBOS-M2-SPEC-INT001-V1'], required: true },
+        { label: '检验时限', value: '2026-08-08' },
+        { label: '储存条件', value: '常温、密封保存' },
+        { label: '默认留样天数', value: '30 天' },
+        { label: '样品说明', value: '工序中间体检验', full: true }
+      ] },
+      包装材料: { title: '包装材料检验表单', sub: '整张表单为包装材料样品专用，供应商与材质规格必填', tag: '表单 · 包装材料', spec: { name: 'TEST-HBOS-M2-SPEC-PK001-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 4 }, retain: '24 天', storage: '干燥、清洁、避光', items: [{ name: '外观', limits: '记录型', unit: '—' }, { name: '尺寸', limits: '应符合规定', unit: 'mm' }, { name: '印刷质量', limits: '应符合规定', unit: '—' }, { name: '微生物限度', limits: '≤ 100', unit: 'CFU/g' }], fields: [
+        { label: '物料编码', value: 'TEST-HBOS-M2-PK-001', required: true, readonly: true },
+        { label: '物料名称', value: 'TEST-HBOS-M2-铝箔内包材-01', required: true },
+        { label: '供应商', value: 'TEST-HBOS-M2-供应商-华强包装', required: true },
+        { label: '材质/规格', value: '铝箔 / PET', required: true },
+        { label: '供应商批号', value: 'TEST-HBOS-M2-PK-0612', required: true },
+        { label: '抽样数量', value: '50 只', required: true },
+        { label: '样品来源', value: '来样送检', select: ['来样送检', '生产取样'], required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-PK001-V1', select: ['TEST-HBOS-M2-SPEC-PK001-V1'], required: true },
+        { label: '检验时限', value: '2026-08-05' },
+        { label: '储存条件', value: '干燥、清洁、避光' },
+        { label: '默认留样天数', value: '24 天' },
+        { label: '样品说明', value: '包装材料入厂检验', full: true }
+      ] },
+      工艺用水: { title: '工艺用水检验表单', sub: '整张表单为工艺用水样品专用，取样信息必填', tag: '表单 · 工艺用水', spec: { name: 'TEST-HBOS-M2-SPEC-WT001-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 4 }, retain: '7 天', storage: '2-25℃、密闭', items: [{ name: '性状', limits: '记录型', unit: '—' }, { name: '酸碱度', limits: '应符合规定', unit: '—' }, { name: '电导率', limits: '≤ 5.1', unit: 'μS/cm' }, { name: '微生物限度', limits: '≤ 100', unit: 'CFU/mL' }], fields: [
+        { label: '水系统名称', value: '纯化水制备系统', required: true },
+        { label: '取样点', value: '纯化水制备系统出口', required: true },
+        { label: '取样时间', value: '2026-08-01 08:30', required: true },
+        { label: '取样人', value: '王微检', required: true },
+        { label: '监测项目组', value: '纯化水', required: true },
+        { label: '样品来源', value: '生产取样', select: ['生产取样', '在线取样'], required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-WT001-V1', select: ['TEST-HBOS-M2-SPEC-WT001-V1'], required: true },
+        { label: '检验时限', value: '2026-08-01 16:30' },
+        { label: '储存条件', value: '2-25℃、密闭' },
+        { label: '默认留样天数', value: '7 天' },
+        { label: '样品说明', value: '工艺用水日常监测', full: true }
+      ] },
+      水: { title: '水系统检验表单', sub: '整张表单为水系统样品专用，取样点与系统信息必填', tag: '表单 · 水', spec: { name: 'TEST-HBOS-M2-SPEC-WT002-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 4 }, retain: '7 天', storage: '密闭、及时检验', items: [{ name: '性状', limits: '记录型', unit: '—' }, { name: '酸碱度', limits: '应符合规定', unit: '—' }, { name: '电导率', limits: '≤ 5.1', unit: 'μS/cm' }, { name: '微生物限度', limits: '≤ 100', unit: 'CFU/mL' }], fields: [
+        { label: '水系统名称', value: '纯化水分配系统', required: true },
+        { label: '取样点', value: '总送水口', required: true },
+        { label: '取样时间', value: '2026-08-01 10:00', required: true },
+        { label: '取样人', value: '王微检', required: true },
+        { label: '样品来源', value: '在线取样', select: ['在线取样', '生产取样'], required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-WT002-V1', select: ['TEST-HBOS-M2-SPEC-WT002-V1'], required: true },
+        { label: '检验时限', value: '2026-08-01 18:00' },
+        { label: '储存条件', value: '密闭、及时检验' },
+        { label: '默认留样天数', value: '7 天' },
+        { label: '样品说明', value: '水系统定期监测', full: true }
+      ] },
+      环境样品: { title: '环境监测表单', sub: '整张表单为环境样品专用，区域与频次必填', tag: '表单 · 环境样品', spec: { name: 'TEST-HBOS-M2-SPEC-ENV001-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 3 }, retain: '14 天', storage: '常温运输、及时检验', items: [{ name: '浮游菌', limits: '≤ 200', unit: 'CFU/m³' }, { name: '沉降菌', limits: '≤ 100', unit: 'CFU/皿' }, { name: '悬浮粒子', limits: '符合静态标准', unit: '—' }], fields: [
+        { label: '环境区域', value: 'D级洁净区', required: true },
+        { label: '取样点', value: 'D级洁净走廊-01', required: true },
+        { label: '取样时间', value: '2026-08-01 10:15', required: true },
+        { label: '取样人', value: '王微检', required: true },
+        { label: '监测频次', value: '每月', select: ['每日', '每周', '每月', '每季度'], required: true },
+        { label: '样品来源', value: '环境监测', select: ['环境监测', '生产取样'], required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-ENV001-V1', select: ['TEST-HBOS-M2-SPEC-ENV001-V1'], required: true },
+        { label: '检验时限', value: '2026-08-02' },
+        { label: '储存条件', value: '常温运输、及时检验' },
+        { label: '默认留样天数', value: '14 天' },
+        { label: '样品说明', value: '洁净区环境监测', full: true }
+      ] },
+      稳定性样品: { title: '稳定性考察表单', sub: '整张表单为稳定性样品专用，考察计划必填', tag: '表单 · 稳定性样品', spec: { name: 'TEST-HBOS-M2-SPEC-STB001-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 4 }, retain: '按考察计划', storage: '按考察条件存放', items: [{ name: '性状', limits: '记录型', unit: '—' }, { name: '含量测定', limits: '100.0 - 105.0', unit: '%' }, { name: '有关物质', limits: '≤ 0.5', unit: '%' }, { name: '水分', limits: '≤ 1.0', unit: '%' }], fields: [
+        { label: '物料编码', value: 'TEST-HBOS-M2-FG-001', required: true, readonly: true },
+        { label: '物料名称', value: 'TEST-HBOS-M2-成品片剂A-01', required: true },
+        { label: '批号', value: 'TEST-HBOS-M2-B240801', required: true },
+        { label: '考察条件', value: '40℃ / 75% RH', required: true },
+        { label: '考察阶段', value: '长期 24 个月', required: true },
+        { label: '考察时间点', value: '第 6 个月', required: true },
+        { label: '考察开始日期', value: '2026-08-01', required: true },
+        { label: '下一时间点', value: '2027-02-01', required: true },
+        { label: '留样数量', value: '18 盒', required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-STB001-V1', select: ['TEST-HBOS-M2-SPEC-STB001-V1'], required: true },
+        { label: '检验时限', value: '2027-02-01' },
+        { label: '储存条件', value: '按考察条件存放' },
+        { label: '默认留样天数', value: '按考察计划' },
+        { label: '样品说明', value: '稳定性考察第 6 个月', full: true }
+      ] },
+      清洁验证样品: { title: '清洁验证表单', sub: '整张表单为清洁验证样品专用，验证批次与取样点必填', tag: '表单 · 清洁验证样品', spec: { name: 'TEST-HBOS-M2-SPEC-CV001-V1', meta: '版本 V1 · 生效日期 2026-07-01 · 状态 已生效', count: 3 }, retain: '按验证方案', storage: '按验证方案', items: [{ name: '外观', limits: '记录型', unit: '—' }, { name: '残留限度', limits: '≤ 10', unit: 'ppm' }, { name: '微生物限度', limits: '≤ 25', unit: 'CFU/25cm²' }], fields: [
+        { label: '清洁设备', value: '制粒机-01', required: true },
+        { label: '验证批次', value: 'TEST-HBOS-M2-CV-008', required: true },
+        { label: '取样点', value: '设备内壁-搅拌桨', required: true },
+        { label: '取样人', value: '陈 QA', required: true },
+        { label: '取样时间', value: '2026-08-01 15:20', required: true },
+        { label: '清洁剂', value: '纯化水 + 1% NaOH', required: true },
+        { label: '验证阶段', value: '最差条件验证', select: ['最差条件验证', '目视检查', '残留检测'], required: true },
+        { label: '样品来源', value: '清洁验证', select: ['清洁验证', '生产取样'], required: true },
+        { label: '质量标准', value: 'TEST-HBOS-M2-SPEC-CV001-V1', select: ['TEST-HBOS-M2-SPEC-CV001-V1'], required: true },
+        { label: '检验时限', value: '2026-08-03' },
+        { label: '储存条件', value: '按验证方案' },
+        { label: '默认留样天数', value: '按验证方案' },
+        { label: '样品说明', value: '清洁验证取样', full: true }
+      ] }
+    };
+
+    function fieldHtml(f) {
+      const req = f.required ? ' <span class="req">*</span>' : '';
+      const cls = f.full ? 'field full' : 'field';
+      const ro = f.readonly ? ' readonly' : '';
+      let control = '<input class="input" value="' + f.value + '"' + ro + '>';
+      if (f.select) {
+        control = '<select class="input">' + f.select.map(function (o) { return '<option' + (o === f.value ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select>';
+      }
+      if (f.full) {
+        control = '<textarea class="input" rows="2">' + f.value + '</textarea>';
+      }
+      return '<div class="' + cls + '"><label>' + f.label + req + '</label>' + control + '</div>';
+    }
+
+    function renderSampleForm(type) {
+      const t = typeTemplates[type] || typeTemplates['成品'];
+      document.getElementById('form-panel-title').textContent = t.title;
+      document.getElementById('form-panel-sub').textContent = t.sub;
+      document.getElementById('form-panel-tag').textContent = t.tag;
+      document.getElementById('sample-form-fields').innerHTML = t.fields.map(fieldHtml).join('');
+      document.getElementById('context-template').textContent = t.tag.replace('表单 · ', '') + '检验';
+      document.getElementById('spec-match-name').textContent = t.spec.name;
+      document.getElementById('spec-match-meta').textContent = t.spec.meta;
+      document.getElementById('spec-match-type').textContent = '样品类型：' + type + ' · ' + t.spec.count + ' 个检验项目';
+      document.getElementById('snapshot-sub').textContent = '登记后冻结标准与限度 · ' + t.spec.count + ' 项';
+      document.getElementById('snapshot-body').innerHTML = t.items.map(function (i) { return '<tr><td>' + i.name + '</td><td>' + i.limits + '</td><td>' + i.unit + '</td></tr>'; }).join('');
+      const wrap = document.getElementById('sample-form-fields');
+      wrap.classList.remove('sample-form-enter');
+      void wrap.offsetWidth;
+      wrap.classList.add('sample-form-enter');
+    }
+
+    document.getElementById('sample-type-select').addEventListener('change', function () {
+      renderSampleForm(this.value);
+    });
+
+    renderSampleForm('成品');
+  }
+
+
+  function showViewFromHash() {
+    const name = location.hash.replace('#', '');
+    if (titleMap[name]) showView(name);
+  }
+  window.addEventListener('hashchange', showViewFromHash);
+  showViewFromHash();
+
+  // ================= 检验结果台账 · 双模式原型 =================
+  // 数据模型对齐 HBOS Test Result 受控字段：限度冻结快照 / 判定引擎 / 电子签名 / 修订链
+  const LEDGER = {
+    samples: [
+      {
+        no: 'HBOS-SMP-2026-0101', type: '成品', material: '成品片剂A', batch: 'B240801', status: 'OOS锁定', spec: 'TEST-HBOS-M2-SPEC-FG001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-FG-001'],['批数量','12000 片'],['生产日期','2026-07-28'],['有效期至','2029-07-27'],['请验日期','2026-07-30'],['检验时限','2026-08-06'],['报告日期','—'],['留样','12 盒']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-01 10:12', rv2:'陈 QA', rat:'2026-08-01 14:30', ap:'孙 QA', aat:'2026-08-02 09:05' },
+          { name:'含量测定', sop:'SOP-QC-021', lm:['区间','100.0','105.0','%'], rv:'98.6', vu:'%', verdict:'不合格', oos:1, st:'已批准', an:'林质检', at:'2026-08-01 15:40', rv2:'陈 QA', rat:'2026-08-02 10:00', ap:'孙 QA', aat:'2026-08-02 15:20',
+            revs:[{ no:'HBOS-REV-2026-0011', field:'result_value', old:'99.1', val:'98.6', reason:'核对原始图谱后修正峰面积计算值', by:'林质检', when:'2026-08-02 09:11' }],
+            audit:[['result_value','99.1','98.6','林质检','2026-08-02 09:11'],['verdict','—','不合格','判定引擎','2026-08-02 09:11']] },
+          { name:'水分', sop:'SOP-QC-013', lm:['上限','','1.0','%'], rv:'0.3', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 11:05', rv2:'陈 QA', rat:'2026-08-01 16:20', ap:'孙 QA', aat:'2026-08-02 09:05' },
+          { name:'干燥失重', sop:'SOP-QC-014', lm:['上限','','0.5','%'], rv:'0.2', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 11:20', rv2:'陈 QA', rat:'2026-08-01 16:25', ap:'孙 QA', aat:'2026-08-02 09:06' },
+          { name:'有关物质', sop:'SOP-QC-022', lm:['上限','','0.5','%'], rv:'0.21', vu:'%', verdict:'合格', st:'已复核', an:'林质检', at:'2026-08-02 09:30', rv2:'陈 QA', rat:'2026-08-02 11:10' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0102', type: '成品', material: '成品片剂A', batch: 'B240802', status: '已放行', spec: 'TEST-HBOS-M2-SPEC-FG001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-FG-001'],['批数量','12000 片'],['生产日期','2026-07-30'],['有效期至','2029-07-29'],['请验日期','2026-08-01'],['检验时限','2026-08-07'],['报告日期','2026-08-06'],['留样','12 盒']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-02 09:20', rv2:'陈 QA', rat:'2026-08-02 15:10', ap:'孙 QA', aat:'2026-08-03 10:30' },
+          { name:'含量测定', sop:'SOP-QC-021', lm:['区间','100.0','105.0','%'], rv:'102.4', vu:'%', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-02 11:30', rv2:'陈 QA', rat:'2026-08-02 16:40', ap:'孙 QA', aat:'2026-08-03 10:31' },
+          { name:'水分', sop:'SOP-QC-013', lm:['上限','','1.0','%'], rv:'0.4', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-02 10:10', rv2:'陈 QA', rat:'2026-08-02 16:45', ap:'孙 QA', aat:'2026-08-03 10:32' },
+          { name:'干燥失重', sop:'SOP-QC-014', lm:['上限','','0.5','%'], rv:'0.3', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-02 10:25', rv2:'陈 QA', rat:'2026-08-02 16:50', ap:'孙 QA', aat:'2026-08-03 10:33' },
+          { name:'有关物质', sop:'SOP-QC-022', lm:['上限','','0.5','%'], rv:'0.18', vu:'%', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-02 11:50', rv2:'陈 QA', rat:'2026-08-02 17:00', ap:'孙 QA', aat:'2026-08-03 10:34' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0103', type: '成品', material: '成品片剂B', batch: 'B240803', status: '检验中', spec: 'TEST-HBOS-M2-SPEC-FG002-V1',
+        reg: [['物料编码','TEST-HBOS-M2-FG-002'],['批数量','8000 片'],['生产日期','2026-08-02'],['有效期至','2029-08-01'],['请验日期','2026-08-03'],['检验时限','2026-08-09'],['报告日期','—'],['留样','8 盒']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已提交', an:'林质检', at:'2026-08-04 09:15' },
+          { name:'含量测定', sop:'SOP-QC-021', lm:['区间','95.0','105.0','%'], rv:'', vu:'%', verdict:'', st:'草稿', an:'林质检' },
+          { name:'水分', sop:'SOP-QC-013', lm:['上限','','2.0','%'], rv:'', vu:'%', verdict:'', st:'草稿', an:'赵理化' },
+          { name:'有关物质', sop:'SOP-QC-022', lm:['上限','','1.0','%'], rv:'', vu:'%', verdict:'', st:'草稿', an:'林质检' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0111', type: '原料', material: '原料A', batch: 'RM-B2607', status: '已放行', spec: 'TEST-HBOS-M2-SPEC-RM001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-RM-001'],['供应商','鲁南化工'],['到货日期','2026-07-30'],['请验日期','2026-07-30'],['检验时限','2026-08-06'],['报告日期','2026-08-05'],['留样','2 袋']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 10:00', rv2:'陈 QA', rat:'2026-08-01 15:00', ap:'孙 QA', aat:'2026-08-02 09:10' },
+          { name:'鉴别', sop:'SOP-QC-032', lm:['记录型','','',''], rv:'呈正反应', vu:'', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 10:20', rv2:'陈 QA', rat:'2026-08-01 15:10', ap:'孙 QA', aat:'2026-08-02 09:11' },
+          { name:'含量测定', sop:'SOP-QC-031', lm:['区间','98.0','102.0','%'], rv:'100.3', vu:'%', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-01 14:00', rv2:'陈 QA', rat:'2026-08-02 09:30', ap:'孙 QA', aat:'2026-08-02 15:00' },
+          { name:'干燥失重', sop:'SOP-QC-014', lm:['上限','','5.0','%'], rv:'2.1', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-01 11:00', rv2:'陈 QA', rat:'2026-08-02 09:40', ap:'孙 QA', aat:'2026-08-02 15:01' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0112', type: '原料', material: '原料A', batch: 'RM-B2608', status: '检验完成', spec: 'TEST-HBOS-M2-SPEC-RM001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-RM-001'],['供应商','鲁南化工'],['到货日期','2026-08-01'],['请验日期','2026-08-02'],['检验时限','2026-08-08'],['报告日期','—'],['留样','2 袋']],
+        items: [
+          { name:'性状', sop:'SOP-QC-011', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-03 09:00', rv2:'陈 QA', rat:'2026-08-03 15:00', ap:'孙 QA', aat:'2026-08-04 09:10' },
+          { name:'鉴别', sop:'SOP-QC-032', lm:['记录型','','',''], rv:'呈正反应', vu:'', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-03 09:15', rv2:'陈 QA', rat:'2026-08-03 15:05', ap:'孙 QA', aat:'2026-08-04 09:11' },
+          { name:'含量测定', sop:'SOP-QC-031', lm:['区间','98.0','102.0','%'], rv:'99.5', vu:'%', verdict:'合格', st:'已批准', an:'林质检', at:'2026-08-03 13:00', rv2:'陈 QA', rat:'2026-08-04 09:20', ap:'孙 QA', aat:'2026-08-04 11:00' },
+          { name:'干燥失重', sop:'SOP-QC-014', lm:['上限','','5.0','%'], rv:'3.0', vu:'%', verdict:'合格', st:'已批准', an:'赵理化', at:'2026-08-03 10:30', rv2:'陈 QA', rat:'2026-08-04 09:30', ap:'孙 QA', aat:'2026-08-04 11:01' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0121', type: '工艺用水', material: '纯化水', batch: 'PW-20260801', status: '已放行', spec: 'TEST-HBOS-M2-SPEC-WT001-V1',
+        reg: [['水系统','纯化水制备系统'],['取样点','制备系统出口'],['取样时间','2026-08-01 08:30'],['取样人','王微检'],['请验日期','2026-08-01'],['检验时限','2026-08-01 16:30'],['报告日期','2026-08-01'],['留样','—']],
+        items: [
+          { name:'性状', sop:'SOP-QC-041', lm:['记录型','','',''], rv:'无色澄清', vu:'', verdict:'合格', st:'已批准', an:'王微检', at:'2026-08-01 09:10', rv2:'陈 QA', rat:'2026-08-01 14:00', ap:'孙 QA', aat:'2026-08-01 16:00' },
+          { name:'酸碱度', sop:'SOP-QC-042', lm:['记录型','','',''], rv:'符合规定', vu:'', verdict:'合格', st:'已批准', an:'王微检', at:'2026-08-01 09:20', rv2:'陈 QA', rat:'2026-08-01 14:05', ap:'孙 QA', aat:'2026-08-01 16:01' },
+          { name:'电导率', sop:'SOP-QC-043', lm:['上限','','5.1','μS/cm'], rv:'2.8', vu:'μS/cm', verdict:'合格', st:'已批准', an:'王微检', at:'2026-08-01 10:00', rv2:'陈 QA', rat:'2026-08-01 14:10', ap:'孙 QA', aat:'2026-08-01 16:02' },
+          { name:'微生物限度', sop:'SOP-QC-044', lm:['上限','','100','CFU/mL'], rv:'12', vu:'CFU/mL', verdict:'合格', st:'已批准', an:'王微检', at:'2026-08-01 11:00', rv2:'陈 QA', rat:'2026-08-01 14:20', ap:'孙 QA', aat:'2026-08-01 16:03' }
+        ]
+      },
+      {
+        no: 'HBOS-SMP-2026-0131', type: '包装材料', material: '铝箔内包材', batch: 'PK-0612', status: '已登记', spec: 'TEST-HBOS-M2-SPEC-PK001-V1',
+        reg: [['物料编码','TEST-HBOS-M2-PK-001'],['供应商','华强包装'],['材质/规格','铝箔 / PET'],['抽样数量','50 只'],['请验日期','2026-08-02'],['检验时限','2026-08-05'],['报告日期','—'],['留样','—']],
+        items: [
+          { name:'外观', sop:'SOP-QC-051', lm:['记录型','','',''], rv:'', vu:'', verdict:'', st:'草稿', an:'' },
+          { name:'尺寸', sop:'SOP-QC-052', lm:['记录型','','',''], rv:'', vu:'', verdict:'', st:'草稿', an:'' },
+          { name:'印刷质量', sop:'SOP-QC-053', lm:['记录型','','',''], rv:'', vu:'', verdict:'', st:'草稿', an:'' },
+          { name:'微生物限度', sop:'SOP-QC-054', lm:['上限','','100','CFU/g'], rv:'', vu:'CFU/g', verdict:'', st:'草稿', an:'' }
+        ]
+      }
+    ]
+  };
+
+  // 样品表模式数据：一个样品种类 = 一张表，表内每行 = 一个批次的检验记录（按检测顺序）
+  const BGROUPS = [
+    {
+      type: '成品', material: '成品片剂A', spec: 'TEST-HBOS-M2-SPEC-FG001-V1',
+      regLabels: ['物料编码', '批数量', '生产日期', '有效期至', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '性状', sop: 'SOP-QC-011', lm: ['记录型', '', '', ''] },
+        { name: '含量测定', sop: 'SOP-QC-021', lm: ['区间', '100.0', '105.0', '%'] },
+        { name: '水分', sop: 'SOP-QC-013', lm: ['上限', '', '1.0', '%'] },
+        { name: '干燥失重', sop: 'SOP-QC-014', lm: ['上限', '', '0.5', '%'] },
+        { name: '有关物质', sop: 'SOP-QC-022', lm: ['上限', '', '0.5', '%'] }
+      ],
+      rows: [
+        { batch: 'B240801', reg: ['TEST-HBOS-M2-FG-001', '12000 片', '2026-07-28', '2029-07-27', '2026-07-30', '2026-08-06', '—', '12 盒'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '含量测定': { rv: '98.6', vu: '%', oos: 1, verdict: '不合格' }, '水分': { rv: '0.3', vu: '%', verdict: '合格' }, '干燥失重': { rv: '0.2', vu: '%', verdict: '合格' }, '有关物质': { rv: '0.21', vu: '%', verdict: '合格' } },
+          verdict: '不合格', status: 'OOS锁定' },
+        { batch: 'B240802', reg: ['TEST-HBOS-M2-FG-001', '12000 片', '2026-07-30', '2029-07-29', '2026-08-01', '2026-08-07', '2026-08-06', '12 盒'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '含量测定': { rv: '102.4', vu: '%', verdict: '合格' }, '水分': { rv: '0.4', vu: '%', verdict: '合格' }, '干燥失重': { rv: '0.3', vu: '%', verdict: '合格' }, '有关物质': { rv: '0.18', vu: '%', verdict: '合格' } },
+          verdict: '合格', status: '已放行' }
+      ]
+    },
+    {
+      type: '成品', material: '成品片剂B', spec: 'TEST-HBOS-M2-SPEC-FG002-V1',
+      regLabels: ['物料编码', '批数量', '生产日期', '有效期至', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '性状', sop: 'SOP-QC-011', lm: ['记录型', '', '', ''] },
+        { name: '含量测定', sop: 'SOP-QC-021', lm: ['区间', '95.0', '105.0', '%'] },
+        { name: '水分', sop: 'SOP-QC-013', lm: ['上限', '', '2.0', '%'] },
+        { name: '有关物质', sop: 'SOP-QC-022', lm: ['上限', '', '1.0', '%'] }
+      ],
+      rows: [
+        { batch: 'B240803', reg: ['TEST-HBOS-M2-FG-002', '8000 片', '2026-08-02', '2029-08-01', '2026-08-03', '2026-08-09', '—', '8 盒'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '含量测定': { rv: '', verdict: '' }, '水分': { rv: '', verdict: '' }, '有关物质': { rv: '', verdict: '' } },
+          verdict: '待判定', status: '检验中' }
+      ]
+    },
+    {
+      type: '原料', material: '原料A', spec: 'TEST-HBOS-M2-SPEC-RM001-V1',
+      regLabels: ['物料编码', '供应商', '到货日期', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '性状', sop: 'SOP-QC-011', lm: ['记录型', '', '', ''] },
+        { name: '鉴别', sop: 'SOP-QC-032', lm: ['记录型', '', '', ''] },
+        { name: '含量测定', sop: 'SOP-QC-031', lm: ['区间', '98.0', '102.0', '%'] },
+        { name: '干燥失重', sop: 'SOP-QC-014', lm: ['上限', '', '5.0', '%'] }
+      ],
+      rows: [
+        { batch: 'RM-B2607', reg: ['TEST-HBOS-M2-RM-001', '鲁南化工', '2026-07-30', '2026-07-30', '2026-08-06', '2026-08-05', '2 袋'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '鉴别': { rv: '呈正反应', verdict: '合格' }, '含量测定': { rv: '100.3', vu: '%', verdict: '合格' }, '干燥失重': { rv: '2.1', vu: '%', verdict: '合格' } },
+          verdict: '合格', status: '已放行' },
+        { batch: 'RM-B2608', reg: ['TEST-HBOS-M2-RM-001', '鲁南化工', '2026-08-01', '2026-08-02', '2026-08-08', '—', '2 袋'],
+          items: { '性状': { rv: '符合规定', verdict: '合格' }, '鉴别': { rv: '呈正反应', verdict: '合格' }, '含量测定': { rv: '99.5', vu: '%', verdict: '合格' }, '干燥失重': { rv: '3.0', vu: '%', verdict: '合格' } },
+          verdict: '合格', status: '检验完成' }
+      ]
+    },
+    {
+      type: '工艺用水', material: '纯化水', spec: 'TEST-HBOS-M2-SPEC-WT001-V1',
+      regLabels: ['水系统', '取样点', '取样时间', '取样人', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '性状', sop: 'SOP-QC-041', lm: ['记录型', '', '', ''] },
+        { name: '酸碱度', sop: 'SOP-QC-042', lm: ['记录型', '', '', ''] },
+        { name: '电导率', sop: 'SOP-QC-043', lm: ['上限', '', '5.1', 'μS/cm'] },
+        { name: '微生物限度', sop: 'SOP-QC-044', lm: ['上限', '', '100', 'CFU/mL'] }
+      ],
+      rows: [
+        { batch: 'PW-20260801', reg: ['纯化水制备系统', '制备系统出口', '2026-08-01 08:30', '王微检', '2026-08-01', '2026-08-01 16:30', '2026-08-01', '—'],
+          items: { '性状': { rv: '无色澄清', verdict: '合格' }, '酸碱度': { rv: '符合规定', verdict: '合格' }, '电导率': { rv: '2.8', vu: 'μS/cm', verdict: '合格' }, '微生物限度': { rv: '12', vu: 'CFU/mL', verdict: '合格' } },
+          verdict: '合格', status: '已放行' }
+      ]
+    },
+    {
+      type: '包装材料', material: '铝箔内包材', spec: 'TEST-HBOS-M2-SPEC-PK001-V1',
+      regLabels: ['物料编码', '供应商', '材质/规格', '抽样数量', '请验日期', '检验时限', '报告日期', '留样'],
+      proj: [
+        { name: '外观', sop: 'SOP-QC-051', lm: ['记录型', '', '', ''] },
+        { name: '尺寸', sop: 'SOP-QC-052', lm: ['记录型', '', '', ''] },
+        { name: '印刷质量', sop: 'SOP-QC-053', lm: ['记录型', '', '', ''] },
+        { name: '微生物限度', sop: 'SOP-QC-054', lm: ['上限', '', '100', 'CFU/g'] }
+      ],
+      rows: [
+        { batch: 'PK-0612', reg: ['TEST-HBOS-M2-PK-001', '华强包装', '铝箔 / PET', '50 只', '2026-08-02', '2026-08-05', '—', '—'],
+          items: { '外观': { rv: '', verdict: '' }, '尺寸': { rv: '', verdict: '' }, '印刷质量': { rv: '', verdict: '' }, '微生物限度': { rv: '', verdict: '' } },
+          verdict: '待判定', status: '已登记' }
+      ]
+    }
+  ];
+
+  function ledgerLimitText(l) {
+    if (l[0] === '记录型') return '<span class="res-desc">记录型 · 应符合规定</span>';
+    if (l[0] === '区间') return 'X ∈ [' + l[1] + ' , ' + l[2] + '] ' + l[3];
+    if (l[0] === '上限') return '≤ ' + l[2] + ' ' + l[3];
+    return '≥ ' + l[1] + ' ' + l[3];
+  }
+  function ledgerLimitHtml(l) {
+    return '<span class="limit-text">' + ledgerLimitText(l) + '</span>';
+  }
+  function ledgerVerdict(v, oos) {
+    if (oos) return '<span class="verdict-badge oos">⛔ OOS候选</span>';
+    if (v === '合格') return '<span class="verdict-badge ok">✓ 合格</span>';
+    if (v === '不合格') return '<span class="verdict-badge bad">✗ 不合格</span>';
+    if (v === '不适用') return '<span class="verdict-badge na">— 不适用</span>';
+    return '<span class="res-desc">待判定</span>';
+  }
+  function ledgerStatusPill(st, s) {
+    if (s === 'OOS锁定') return '<span class="status-pill" style="background:#f7e9e6;color:var(--oos)">OOS锁定</span>';
+    var cls = st === '已批准' || st === '已放行' ? 'done' : (st === '草稿' ? 'draft' : '');
+    return '<span class="status-pill ' + cls + '">' + st + '</span>';
+  }
+  function ledgerResultCell(it) {
+    if (!it.rv && !it.vu) return '<span class="res-desc">待录入</span>';
+    var oosCls = it.oos ? ' oos' : '';
+    return '<span class="res-value' + oosCls + '">' + it.rv + (it.vu ? '<span class="res-unit">' + it.vu + '</span>' : '') + '</span>';
+  }
+  function ledgerSummaryVerdict(items) {
+    var bad = items.filter(function (i) { return i.verdict === '不合格'; });
+    var ok = items.filter(function (i) { return i.verdict === '合格'; });
+    if (bad.length) return { label: '不合格', cls: 'bad', icon: '✗' };
+    if (ok.length === items.length && ok.length) return { label: '合格', cls: 'ok', icon: '✓' };
+    if (ok.length) return { label: '部分合格', cls: 'na', icon: '·' };
+    return { label: '待判定', cls: 'na', icon: '·' };
+  }
+  function ledgerSampleStatusPill(s) {
+    var map = { '已放行': 'pill pass', 'OOS锁定': 'pill danger', '检验中': 'pill info', '检验完成': 'pill teal', '已登记': 'pill neutral' };
+    var cls = map[s.status] || 'pill neutral';
+    return '<span class="pill ' + cls + '">' + s.status + '</span>';
+  }
+
+  var $ledgerList = document.getElementById('ledger-sample-list');
+  var $ledgerDetail = document.getElementById('ledger-sample-detail');
+  var $ledgerSearch = document.getElementById('ledger-search');
+  var $ledgerTypeFilter = document.getElementById('ledger-type-filter');
+  var $ledgerDrawer = document.getElementById('ledger-drawer');
+  var $ledgerMask = document.getElementById('ledger-drawer-mask');
+  var $bitableCount = document.getElementById('bitable-count');
+  var $bitableGroupList = document.getElementById('bitable-group-list');
+  var $bitableHead = document.getElementById('bitable-head');
+  var $bitableTableWrap = document.getElementById('bitable-table-wrap');
+  var ledgerSelectedNo = LEDGER.samples[0].no;
+  var bitableSelectedMaterial = BGROUPS[0].material;
+  var bitableCollapsed = {};
+
+  function ledgerFilteredSamples() {
+    var kw = ($ledgerSearch.value || '').trim();
+    var t = $ledgerTypeFilter.value;
+    return LEDGER.samples.filter(function (s) {
+      var hitKw = !kw || (s.material + s.batch + s.no).indexOf(kw) !== -1;
+      var hitType = !t || s.type === t;
+      return hitKw && hitType;
+    });
+  }
+  function renderLedgerList() {
+    var list = ledgerFilteredSamples();
+    $ledgerList.innerHTML = list.map(function (s) {
+      var sum = ledgerSummaryVerdict(s.items);
+      return '<div class="ledger-item' + (s.no === ledgerSelectedNo ? ' active' : '') + '" data-no="' + s.no + '">' +
+        '<div class="li-top"><span class="name">' + s.material + '</span>' + ledgerSampleStatusPill(s) + '</div>' +
+        '<div class="li-meta"><span>' + s.no + '</span><span>批号 ' + s.batch + '</span><span>' + s.type + '</span></div>' +
+        '<div class="li-foot"><span class="status-pill">' + s.type + '</span>' +
+        '<span class="verdict-line"><span class="verdict-badge ' + sum.cls + '">' + sum.icon + ' 汇总 ' + sum.label + '</span></span></div>' +
+        '</div>';
+    }).join('') || '<div class="ledger-empty">无匹配样品</div>';
+    $ledgerList.querySelectorAll('.ledger-item').forEach(function (el) {
+      el.addEventListener('click', function () {
+        ledgerSelectedNo = el.dataset.no;
+        renderLedgerList();
+        renderLedgerDetail(ledgerSelectedNo);
+      });
+    });
+  }
+  function renderLedgerDetail(no) {
+    var s = LEDGER.samples.filter(function (x) { return x.no === no; })[0];
+    if (!s) return;
+    var sum = ledgerSummaryVerdict(s.items);
+    $ledgerDetail.innerHTML =
+      '<div class="card-head">' +
+        '<div><h2>' + s.material + ' ' + ledgerSampleStatusPill(s) + '</h2>' +
+        '<div class="sub"><span>' + s.no + '</span><span>批号 ' + s.batch + '</span><span>' + s.type + '</span><span>质量标准 ' + s.spec + '</span></div></div>' +
+        '<div><span class="verdict-badge ' + sum.cls + '">' + sum.icon + ' 汇总判定：' + sum.label + '</span></div>' +
+      '</div>' +
+      '<div class="ledger-reg-grid">' + s.reg.map(function (r) { return '<div class="rg"><span class="k">' + r[0] + '</span><span class="v mono">' + r[1] + '</span></div>'; }).join('') + '</div>' +
+      '<div class="ledger-section-title">检验项目 <span class="tag">限度冻结快照 · 判定引擎计算</span><span class="count">' + s.items.length + ' 项 · 点击行查看受控记录</span></div>' +
+      '<table class="ledger-item-table"><thead><tr><th>检验项目</th><th>限度要求</th><th>结果</th><th>判定</th><th>检验人</th><th>记录状态</th><th></th></tr></thead><tbody>' +
+      s.items.map(function (it, idx) {
+        var hist = it.revs ? ' <span class="hist-dot" title="有修订记录"></span>' : '';
+        var more = it.revs ? '<b data-open="' + no + '" data-idx="' + idx + '">修订 ' + it.revs.length + '</b>' : '';
+        return '<tr class="item-row" data-open="' + no + '" data-idx="' + idx + '">' +
+          '<td><div class="i-name">' + it.name + hist + '</div><div class="i-sop">' + it.sop + '</div></td>' +
+          '<td>' + ledgerLimitHtml(it.lm) + '</td>' +
+          '<td>' + ledgerResultCell(it) + '</td>' +
+          '<td>' + ledgerVerdict(it.verdict, it.oos) + '</td>' +
+          '<td>' + (it.an || '—') + '</td>' +
+          '<td>' + ledgerStatusPill(it.st, s.status) + '</td>' +
+          '<td class="row-more">' + more + '</td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+    $ledgerDetail.querySelectorAll('[data-open]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openLedgerDrawer(el.dataset.open, parseInt(el.dataset.idx, 10));
+      });
+    });
+  }
+  function openLedgerDrawer(no, idx) {
+    var s = LEDGER.samples.filter(function (x) { return x.no === no; })[0];
+    var it = s.items[idx];
+    var revsHtml = (it.revs || []).map(function (r) {
+      return '<div class="rev-item"><div class="rev-no">' + r.no + ' · 修订' + r.field + '</div>' +
+        '<div class="rev-change"><span class="old">' + r.old + '</span> → <span class="new">' + r.val + (it.vu ? ' ' + it.vu : '') + '</span></div>' +
+        '<div class="rev-reason">原因：' + r.reason + '</div><div class="rev-when">' + r.by + ' · ' + r.when + '</div></div>';
+    }).join('');
+    var auditHtml = (it.audit || []).map(function (a) {
+      return '<div class="drawer-row"><span class="k">' + a[0] + '</span><span class="v">' + a[1] + ' → ' + a[2] + ' · ' + a[3] + ' · ' + a[4] + '</span></div>';
+    }).join('');
+    var sigHtml =
+      '<div class="sig-card' + (it.at ? '' : ' pending') + '"><div class="sig-top"><span class="sig-role">检验人</span><span class="sig-sign">' + (it.at ? it.an : '待检验') + '</span></div>' +
+      '<div class="sig-who">' + (it.an || '—') + '</div><div class="sig-when">' + (it.at || '提交时生成') + '</div></div>' +
+      '<div class="sig-card' + (it.rat ? '' : ' pending') + '"><div class="sig-top"><span class="sig-role">复核人</span><span class="sig-sign">' + (it.rat ? it.rv2 : '待复核') + '</span></div>' +
+      '<div class="sig-who">' + (it.rv2 || '—') + '</div><div class="sig-when">' + (it.rat || '第二人独立审核') + '</div></div>' +
+      '<div class="sig-card' + (it.aat ? '' : ' pending') + '"><div class="sig-top"><span class="sig-role">批准人</span><span class="sig-sign">' + (it.aat ? it.ap : '待批准') + '</span></div>' +
+      '<div class="sig-who">' + (it.ap || '—') + '</div><div class="sig-when">' + (it.aat || '批准后放行') + '</div></div>';
+    $ledgerDrawer.innerHTML =
+      '<div class="drawer-head"><div><h3>' + it.name + ' · ' + (it.sop || '') + '</h3><div class="sub">' + s.no + ' · ' + s.material + ' · ' + s.batch + '</div></div>' +
+      '<button class="drawer-close" id="ledger-drawer-close">×</button></div>' +
+      '<div class="drawer-body">' +
+        '<div class="drawer-sec"><div class="ds-title">标准限度（冻结快照）</div>' +
+          '<div class="drawer-row"><span class="k">限度模式</span><span class="v zh">' + (it.lm[0] === '记录型' ? '记录型' : (it.lm[0] === '区间' ? '区间' : it.lm[0])) + '</span></div>' +
+          '<div class="drawer-row"><span class="k">限度要求</span><span class="v zh">' + ledgerLimitText(it.lm) + '</span></div>' +
+        '</div>' +
+        '<div class="drawer-sec"><div class="ds-title">结果与判定</div>' +
+          '<div class="drawer-row"><span class="k">检验结果</span><span class="v">' + (it.rv || '—') + (it.vu ? ' ' + it.vu : '') + '</span></div>' +
+          '<div class="drawer-row"><span class="k">判定</span><span class="v zh">' + (it.verdict || '待判定') + (it.oos ? '（OOS 候选，样品锁定）' : '') + '</span></div>' +
+          '<div class="drawer-row"><span class="k">记录状态</span><span class="v zh">' + it.st + '</span></div>' +
+        '</div>' +
+        '<div class="drawer-sec"><div class="ds-title">电子签名</div>' + sigHtml + '</div>' +
+        (revsHtml ? '<div class="drawer-sec"><div class="ds-title">修订记录</div><div class="rev-chain">' + revsHtml + '</div></div>' : '') +
+        (auditHtml ? '<div class="drawer-sec"><div class="ds-title">审计摘要</div>' + auditHtml + '</div>' : '') +
+      '</div>';
+    $ledgerDrawer.classList.add('open');
+    $ledgerMask.classList.add('open');
+    document.getElementById('ledger-drawer-close').addEventListener('click', closeLedgerDrawer);
+  }
+  function closeLedgerDrawer() {
+    $ledgerDrawer.classList.remove('open');
+    $ledgerMask.classList.remove('open');
+  }
+
+  // ---- 样品表浏览：左侧按类型分组可收缩，一个样品种类 = 一张表 ----
+  function bitableTypeIcon(t) {
+    var map = { '成品': '成', '原料': '原', '包装材料': '包', '工艺用水': '水', '水': '水', '中间体': '中', '环境样品': '环', '稳定性样品': '稳', '清洁验证样品': '清' };
+    return map[t] || t.slice(0, 1);
+  }
+  function renderBitableSidebar() {
+    var types = [];
+    BGROUPS.forEach(function (g) { if (types.indexOf(g.type) === -1) types.push(g.type); });
+    $bitableCount.textContent = BGROUPS.length + ' 个样品';
+    $bitableGroupList.innerHTML = types.map(function (t) {
+      var group = BGROUPS.filter(function (g) { return g.type === t; });
+      var collapsed = bitableCollapsed[t] ? ' collapsed' : '';
+      var items = group.map(function (g) {
+        return '<button class="bitable-item' + (g.material === bitableSelectedMaterial ? ' active' : '') + '" data-material="' + g.material + '">' +
+          '<span class="bi-icon">' + bitableTypeIcon(t) + '</span>' +
+          '<span class="bi-text"><span class="bi-name">' + g.material + '</span><span class="bi-meta">' + g.rows.length + ' 批检验记录</span></span>' +
+          '</button>';
+      }).join('');
+      return '<div class="bitable-group' + collapsed + '">' +
+        '<button class="bitable-group-title" data-type="' + t + '"><span>' + t + '</span><span class="bi-count">' + group.length + '</span><span class="arrow"></span></button>' +
+        '<div class="bitable-items">' + items + '</div>' +
+        '</div>';
+    }).join('');
+    $bitableGroupList.querySelectorAll('.bitable-group-title').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var t = el.dataset.type;
+        bitableCollapsed[t] = !bitableCollapsed[t];
+        el.closest('.bitable-group').classList.toggle('collapsed', !!bitableCollapsed[t]);
+      });
+    });
+    $bitableGroupList.querySelectorAll('.bitable-item').forEach(function (el) {
+      el.addEventListener('click', function () {
+        bitableSelectedMaterial = el.dataset.material;
+        renderBitableSidebar();
+        renderBitableTable(bitableSelectedMaterial);
+      });
+    });
+  }
+
+  function renderBitableTable(material) {
+    var g = BGROUPS.filter(function (x) { return x.material === material; })[0];
+    if (!g) return;
+    $bitableHead.innerHTML =
+      '<div><h2>' + g.material + '</h2>' +
+      '<div class="sub"><span>' + g.type + '</span><span>质量标准 ' + g.spec + '</span><span>检验批次 ' + g.rows.length + ' 批</span></div></div>';
+    var head = '<tr><th>序号</th><th class="reg-th">样品批号</th>' +
+      g.regLabels.map(function (l) { return '<th class="reg-th">' + l + '</th>'; }).join('') +
+      g.proj.map(function (p) { return '<th><div class="th-name"><b>' + p.name + '</b></div></th>'; }).join('') +
+      '<th>判定</th><th>记录状态</th></tr>';
+    var body = g.rows.map(function (r, idx) {
+      var regCells = r.reg.map(function (v) { return '<td>' + v + '</td>'; }).join('');
+      var projCells = g.proj.map(function (p) {
+        var it = r.items[p.name];
+        if (!it) return '<td>—</td>';
+        var oosCls = it.oos ? ' oos-bg' : '';
+        var val = it.rv
+          ? '<span class="res-value' + (it.oos ? ' oos' : '') + '">' + it.rv + '</span>' + (it.vu ? '<span class="res-unit">' + it.vu + '</span>' : '')
+          : '<span class="res-desc">待录入</span>';
+        return '<td class="' + oosCls + '" title="' + p.name + ' · 限度 ' + ledgerLimitText(p.lm) + '">' + val + '</td>';
+      }).join('');
+      var icon = r.verdict === '不合格' ? '✗' : (r.verdict === '合格' ? '✓' : '·');
+      var vcls = r.verdict === '不合格' ? 'bad' : (r.verdict === '合格' ? 'ok' : 'na');
+      return '<tr><td class="row-num">' + (idx + 1) + '</td><td class="p-batch">' + r.batch + '</td>' +
+        regCells + projCells +
+        '<td><span class="verdict-badge ' + vcls + '">' + icon + ' ' + r.verdict + '</span></td>' +
+        '<td>' + ledgerStatusPill(r.status, r.status) + '</td></tr>';
+    }).join('');
+    $bitableTableWrap.innerHTML = '<table class="bitable-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+  }
+
+  function initLedger() {
+    renderLedgerList();
+    renderLedgerDetail(ledgerSelectedNo);
+    renderBitableSidebar();
+    renderBitableTable(bitableSelectedMaterial);
+    $ledgerSearch.addEventListener('input', renderLedgerList);
+    $ledgerTypeFilter.addEventListener('change', renderLedgerList);
+    $ledgerMask.addEventListener('click', closeLedgerDrawer);
+    document.querySelectorAll('.ledger-tab').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.ledger-tab').forEach(function (b) { b.classList.toggle('active', b === btn); });
+        document.querySelectorAll('.ledger-mode-pane').forEach(function (p) {
+          p.hidden = p.dataset.ledgerPane !== btn.dataset.ledgerMode;
+        });
+      });
+    });
+  }
+  initLedger();
+</script>
+</body>
+</html>

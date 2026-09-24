@@ -20,7 +20,8 @@
   "feishu_approval_id",
   "approval_status",
   "feishu_sync_time",
-  "remarks"
+  "remarks",
+  "feishu_source_id"
  ],
  "fields": [
   {
@@ -28,7 +29,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "\u5458\u5de5",
+   "label": "员工",
    "options": "Employee",
    "reqd": 1
   },
@@ -37,7 +38,7 @@
    "fieldname": "employee_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "\u59d3\u540d",
+   "label": "姓名",
    "read_only": 1
   },
   {
@@ -45,7 +46,7 @@
    "fieldname": "department",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "\u90e8\u95e8",
+   "label": "部门",
    "options": "Department",
    "read_only": 1
   },
@@ -58,62 +59,68 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "\u8bf7\u5047\u7c7b\u578b",
-   "options": "\u5e74\u5047\n\u4e8b\u5047\n\u75c5\u5047\n\u5a5a\u5047\n\u4ea7\u5047\n\u4e27\u5047\n\u8c03\u4f11\n\u5176\u4ed6",
+   "label": "请假类型",
+   "options": "年假\n事假\n病假\n婚假\n产假\n丧假\n调休\n其他",
    "reqd": 1
   },
   {
    "fieldname": "start_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "\u5f00\u59cb\u65e5\u671f",
+   "label": "开始日期",
    "reqd": 1
   },
   {
    "fieldname": "end_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "\u7ed3\u675f\u65e5\u671f",
+   "label": "结束日期",
    "reqd": 1
   },
   {
    "fieldname": "leave_days",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "\u8bf7\u5047\u5929\u6570"
+   "label": "请假天数"
   },
   {
    "fieldname": "section_break_6",
    "fieldtype": "Section Break",
-   "label": "\u98de\u4e66\u540c\u6b65\u4fe1\u606f"
+   "label": "飞书同步信息"
   },
   {
    "fieldname": "feishu_approval_id",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "\u98de\u4e66\u5ba1\u6279\u5355\u53f7",
+   "label": "飞书审批单号",
    "reqd": 1,
    "unique": 1
   },
   {
-   "default": "\u5df2\u901a\u8fc7",
+   "default": "已通过",
    "fieldname": "approval_status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "\u5ba1\u6279\u72b6\u6001",
-   "options": "\u5df2\u901a\u8fc7\n\u5df2\u9a73\u56de\n\u5df2\u64a4\u9500\n\u5ba1\u6279\u4e2d"
+   "label": "审批状态",
+   "options": "已通过\n已驳回\n已撤销\n审批中"
   },
   {
    "fieldname": "feishu_sync_time",
    "fieldtype": "Datetime",
-   "label": "\u540c\u6b65\u65f6\u95f4",
+   "label": "同步时间",
    "read_only": 1
   },
   {
    "fieldname": "remarks",
    "fieldtype": "Small Text",
-   "label": "\u5907\u6ce8"
+   "label": "备注"
+  },
+  {
+   "fieldname": "feishu_source_id",
+   "fieldtype": "Small Text",
+   "label": "飞书审批实例ID(原始)",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

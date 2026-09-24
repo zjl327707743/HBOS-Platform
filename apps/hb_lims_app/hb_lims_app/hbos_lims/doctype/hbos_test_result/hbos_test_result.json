@@ -1,0 +1,322 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-08-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "task",
+  "sample",
+  "test_item",
+  "item_name",
+  "result_status",
+  "verdict",
+  "verdict_reason",
+  "is_oos_candidate",
+  "spec_section",
+  "limits_type",
+  "lower_limit",
+  "upper_limit",
+  "unit",
+  "significant_digits",
+  "result_section",
+  "raw_value",
+  "result_value",
+  "result_text",
+  "calculation_used",
+  "calc_input_json",
+  "instrument_used",
+  "signature_section",
+  "analyst",
+  "submitted_at",
+  "submitted_signature",
+  "reviewer",
+  "reviewed_at",
+  "reviewed_signature",
+  "approver",
+  "approved_at",
+  "approved_signature",
+  "superseded_by",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "default": "HBOS-TR-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-TR-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "task",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "检验任务",
+   "options": "HBOS Sample Task",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "task.sample",
+   "fieldname": "sample",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "样品",
+   "options": "HBOS Sample",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "task.test_item",
+   "fieldname": "test_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "检验项目",
+   "options": "HBOS Test Item",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "task.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "项目名称",
+   "read_only": 1
+  },
+  {
+   "default": "草稿",
+   "fieldname": "result_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "记录状态",
+   "options": "草稿\n已提交\n已复核\n已批准\n已修订",
+   "reqd": 1
+  },
+  {
+   "fieldname": "verdict",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "判定",
+   "options": "合格\n不合格\nOOS候选\n不适用\n无法判定",
+   "read_only": 1
+  },
+  {
+   "fieldname": "verdict_reason",
+   "fieldtype": "Data",
+   "label": "判定说明",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_oos_candidate",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "OOS候选",
+   "read_only": 1
+  },
+  {
+   "fieldname": "spec_section",
+   "fieldtype": "Section Break",
+   "label": "标准限度（冻结快照）"
+  },
+  {
+   "fieldname": "limits_type",
+   "fieldtype": "Select",
+   "label": "限度模式",
+   "options": "上限\n下限\n区间\n记录型",
+   "read_only": 1
+  },
+  {
+   "fieldname": "lower_limit",
+   "fieldtype": "Float",
+   "label": "限度下限",
+   "read_only": 1
+  },
+  {
+   "fieldname": "upper_limit",
+   "fieldtype": "Float",
+   "label": "限度上限",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Data",
+   "label": "单位",
+   "read_only": 1
+  },
+  {
+   "fieldname": "significant_digits",
+   "fieldtype": "Int",
+   "label": "有效位数（小数位）",
+   "read_only": 1
+  },
+  {
+   "fieldname": "result_section",
+   "fieldtype": "Section Break",
+   "label": "检验结果"
+  },
+  {
+   "fieldname": "raw_value",
+   "fieldtype": "Data",
+   "label": "结果原始值"
+  },
+  {
+   "fieldname": "result_value",
+   "fieldtype": "Float",
+   "label": "结果值"
+  },
+  {
+   "fieldname": "result_text",
+   "fieldtype": "Data",
+   "label": "结果描述",
+   "description": "记录型项目填写，如：符合规定"
+  },
+  {
+   "fieldname": "calculation_used",
+   "fieldtype": "Link",
+   "label": "使用公式",
+   "options": "HBOS Calculation"
+  },
+  {
+   "fieldname": "calc_input_json",
+   "fieldtype": "Long Text",
+   "label": "公式输入参数（JSON）"
+  },
+  {
+   "fieldname": "instrument_used",
+   "fieldtype": "Data",
+   "label": "检验仪器（预留）"
+  },
+  {
+   "fieldname": "signature_section",
+   "fieldtype": "Section Break",
+   "label": "用户签署记录"
+  },
+  {
+   "fieldname": "analyst",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "检验人",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "提交时间"
+  },
+  {
+   "fieldname": "submitted_signature",
+   "fieldtype": "Data",
+   "label": "检验人签署记录",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewer",
+   "fieldtype": "Link",
+   "label": "复核人",
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewed_at",
+   "fieldtype": "Datetime",
+   "label": "复核时间"
+  },
+  {
+   "fieldname": "reviewed_signature",
+   "fieldtype": "Data",
+   "label": "复核人签署记录",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approver",
+   "fieldtype": "Link",
+   "label": "批准人",
+   "options": "User"
+  },
+  {
+   "fieldname": "approved_at",
+   "fieldtype": "Datetime",
+   "label": "批准时间"
+  },
+  {
+   "fieldname": "approved_signature",
+   "fieldtype": "Data",
+   "label": "批准人签署记录",
+   "read_only": 1
+  },
+  {
+   "fieldname": "superseded_by",
+   "fieldtype": "Link",
+   "label": "被修订版本",
+   "options": "HBOS Test Result",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "icon": "flask",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Test Result",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

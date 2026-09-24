@@ -1,0 +1,243 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-08-04 00:00:00.000000",
+ "default_view": "Report",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "sample_type",
+  "item_ref",
+  "material_code",
+  "material_name",
+  "batch_ref",
+  "batch_no",
+  "sample_source",
+  "stability_timepoint",
+  "specification",
+  "spec_version",
+  "priority",
+  "test_due_date",
+  "status",
+  "requestor",
+  "received_by",
+  "received_date",
+  "oos_locked",
+  "items_section",
+  "items",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "default": "HBOS-SMP-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-SMP-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sample_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "样品类型",
+   "options": "HBOS Sample Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_ref",
+   "fieldtype": "Link",
+   "label": "ERP 物料",
+   "options": "Item",
+   "in_list_view": 1,
+   "description": "当前 ERPNext Item 主数据引用；material_* 为登记时快照"
+  },
+  {
+   "fieldname": "material_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "物料编码",
+   "reqd": 1
+  },
+  {
+   "fieldname": "material_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "物料名称",
+   "reqd": 1
+  },
+  {
+   "fieldname": "batch_ref",
+   "fieldtype": "Link",
+   "label": "ERP 批次",
+   "options": "Batch",
+   "in_list_view": 1,
+   "description": "当前 ERPNext Batch 主数据引用；batch_no 为登记时快照"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "批号",
+   "reqd": 1
+  },
+  {
+   "default": "生产取样",
+   "fieldname": "sample_source",
+   "fieldtype": "Select",
+   "label": "样品来源",
+   "options": "生产取样\nQA取样\n客户送检\n稳定性\n留样\n清洁验证",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stability_timepoint",
+   "fieldtype": "Link",
+   "label": "稳定性时间点",
+   "options": "HBOS Stability Timepoint",
+   "description": "样品来源为稳定性取样时必填；业务检验结果将同步至该时间点。"
+  },
+  {
+   "fieldname": "specification",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "质量标准",
+   "options": "HBOS Specification",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "specification.version",
+   "fieldname": "spec_version",
+   "fieldtype": "Data",
+   "label": "标准版本快照",
+   "read_only": 1
+  },
+  {
+   "default": "常规",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "优先级",
+   "options": "常规\n加急\n特急",
+   "reqd": 1
+  },
+  {
+   "fieldname": "test_due_date",
+   "fieldtype": "Date",
+   "label": "检验时限截止"
+  },
+  {
+   "default": "草稿",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "状态",
+   "options": "草稿\n已登记\n检验中\n检验完成\n已放行\n已拒绝\nOOS锁定",
+   "reqd": 1
+  },
+  {
+   "fieldname": "requestor",
+   "fieldtype": "Link",
+   "label": "请验人",
+   "options": "User"
+  },
+  {
+   "fieldname": "received_by",
+   "fieldtype": "Link",
+   "label": "接收人",
+   "options": "User"
+  },
+  {
+   "fieldname": "received_date",
+   "fieldtype": "Datetime",
+   "label": "接收日期"
+  },
+  {
+   "default": "0",
+   "fieldname": "oos_locked",
+   "fieldtype": "Check",
+   "label": "OOS锁定",
+   "read_only": 1
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "待检项目"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "in_list_view": 1,
+   "label": "待检项目快照",
+   "options": "HBOS Sample Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "icon": "box",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Sample",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

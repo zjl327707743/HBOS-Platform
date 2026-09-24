@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M2-R7 留样板块前端原型 · HBOS LIMS</title>
+<style>
+:root {
+  --bg:#edf1ef; --surface:#ffffff; --surface-2:#f7f9f8;
+  --sidebar:#0d2b28; --sidebar-2:#12352f; --sidebar-text:#cfe0da;
+  --ink:#162623; --muted:#5f726d; --line:#d8e2dd;
+  --primary:#0c7c6a; --primary-strong:#0a6456; --primary-soft:#e3f2ee;
+  --pass:#1d8a5b; --pass-soft:#e4f4ec; --warn:#d1871d; --warn-soft:#fdf2dd;
+  --danger:#c24d3f; --danger-soft:#fbe9e6; --info:#2b6cb0; --info-soft:#e7f0fa;
+  --radius:8px; --mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:13px;line-height:1.5}
+button{font:inherit;cursor:pointer}
+.app{display:flex;min-height:100vh}
+.sidebar{width:234px;flex:0 0 234px;background:linear-gradient(180deg,var(--sidebar),var(--sidebar-2));color:var(--sidebar-text);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden}
+.brand{display:flex;align-items:center;gap:10px;padding:16px 16px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand-mark{width:38px;height:38px;border-radius:8px;background:#fff;display:grid;place-items:center;color:var(--primary);font-weight:800;flex:0 0 38px}
+.brand-name{font-size:15px;font-weight:700;color:#fff}
+.brand-sub{font-size:10px;color:#8eab9f;margin-top:2px}
+.nav{padding:12px 10px;flex:1;overflow-y:auto}
+.nav-group{margin-bottom:16px}
+.nav-group-title{font-size:10px;color:#71968b;padding:6px 10px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;color:var(--sidebar-text);font-size:13px;margin-bottom:2px;text-decoration:none;white-space:nowrap;background:none;border:0;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item.active{background:var(--primary);color:#fff;font-weight:600}
+.nav-item .nav-ic{width:16px;height:16px;flex:0 0 16px;opacity:.9}
+.sidebar-foot{padding:14px 16px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#73998c;line-height:1.7}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:58px;flex:0 0 58px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 22px;position:sticky;top:0;z-index:20}
+.crumb{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.crumb strong{color:var(--ink);font-weight:600}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.icon-btn{width:32px;height:32px;border:1px solid var(--line);border-radius:6px;background:#fff;display:grid;place-items:center;color:var(--muted)}
+.icon-btn:hover{color:var(--primary);border-color:var(--primary)}
+.user{display:flex;align-items:center;gap:9px;padding:5px 6px;border-radius:8px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700}
+.user-meta{line-height:1.25}
+.user-name{font-size:12px;font-weight:600;color:var(--ink)}
+.user-role{font-size:11px;color:var(--muted)}
+.content{flex:1;padding:22px;overflow:auto}
+.view{display:none}
+.view.active{display:block}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.page-title h1{font-size:20px;font-weight:700}
+.page-title p{font-size:12px;color:var(--muted);margin-top:3px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-size:12px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+.btn-primary:hover{background:var(--primary-strong);color:#fff}
+.btn-danger{color:var(--danger);border-color:#ecc7c1}
+.btn-link{color:var(--primary);border:0;background:none;padding:0 4px;height:auto;font-size:12px}
+.btn-link:hover{text-decoration:underline}
+.btn-ic{width:16px;height:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:14px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panel-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.panel-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.panel-body{padding:12px 16px}
+.panel-body.no-pad{padding:0}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+.kpi-card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:13px 14px;min-width:0}
+.kpi-label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.kpi-num{font-size:26px;font-weight:700;margin-top:5px;line-height:1.1}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:5px;min-height:14px}
+.kpi-num.warn{color:var(--warn)} .kpi-num.danger{color:var(--danger)} .kpi-num.good{color:var(--pass)} .kpi-num.info{color:var(--info)}
+.alert-strip{display:flex;align-items:center;gap:9px;background:var(--warn-soft);border:1px solid #ecd9b4;border-radius:8px;padding:10px 14px;font-size:12px;color:var(--warn);margin-bottom:14px}
+.alert-strip.danger{background:var(--danger-soft);border-color:#edcbc6;color:var(--danger)}
+.alert-strip a{margin-left:auto;color:inherit;font-weight:600;text-decoration:underline;white-space:nowrap}
+.alert-strip .ic{width:16px;height:16px;flex:0 0 16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 392px;gap:14px;align-items:start}
+.table{width:100%;border-collapse:collapse;font-size:12px}
+.table th{background:var(--surface-2);color:#455a54;text-align:left;padding:8px 10px;font-weight:600;border-bottom:1px solid var(--line);white-space:nowrap}
+.table td{padding:8px 10px;border-bottom:1px solid #edf2ef;vertical-align:middle;white-space:nowrap}
+.table td.wrap{white-space:normal;min-width:160px}
+.table tbody tr:hover{background:#fafcfb}
+.table tbody tr:last-child td{border-bottom:0}
+.mono{font-family:var(--mono);font-size:11px}
+.muted{color:var(--muted)}
+.dim{color:#9aa9a3;font-size:11px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;line-height:1;padding:4px 8px;border-radius:999px;white-space:nowrap}
+.pill-green{background:var(--pass-soft);color:var(--pass)}
+.pill-amber{background:var(--warn-soft);color:var(--warn)}
+.pill-red{background:var(--danger-soft);color:var(--danger)}
+.pill-gray{background:var(--surface-2);color:#667a74;border:1px solid var(--line)}
+.pill-blue{background:var(--info-soft);color:var(--info)}
+.pill-primary{background:var(--primary-soft);color:var(--primary)}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.stat-card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.stat-label{font-size:11px;color:var(--muted)}
+.stat-value{font-size:22px;font-weight:700;margin-top:3px}
+.stat-value.warn{color:var(--warn)} .stat-value.danger{color:var(--danger)} .stat-value.good{color:var(--pass)}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.select,.input{height:30px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font-size:12px;color:var(--ink);background:#fff;min-width:0}
+.select{width:124px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,#84958f 50%),linear-gradient(135deg,#84958f 50%,transparent 50%);background-position:calc(100% - 14px) 13px,calc(100% - 10px) 13px;background-size:4px 4px;background-repeat:no-repeat;padding-right:24px}
+.input{width:170px}
+.filter-btn{height:30px;padding:0 12px;border-radius:6px;border:1px solid var(--line);background:#fff;font-size:12px;display:inline-flex;align-items:center;gap:5px;color:var(--ink)}
+.filter-btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 10px;font-size:11px}
+.chip .bar{width:58px;height:5px;background:#e7eeea;border-radius:3px;overflow:hidden}
+.chip .bar i{display:block;height:100%;border-radius:3px}
+.chip .bar i.w70{width:70%;background:var(--warn)} .chip .bar i.w100{width:100%;background:var(--pass)} .chip .bar i.w50{width:50%;background:var(--danger)}
+.mini-list{display:flex;flex-direction:column}
+.mini-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #edf2ef;font-size:12px}
+.mini-row:last-child{border-bottom:0}
+.mini-main{min-width:0;flex:1}
+.mini-title{font-weight:600;display:flex;align-items:center;gap:7px}
+.mini-sub{color:var(--muted);font-size:11px;margin-top:2px}
+.mini-note{font-size:11px;color:var(--muted);white-space:nowrap}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:2px 6px}
+.chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px}
+.step{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:11px;min-width:0}
+.step .dot{width:18px;height:18px;border-radius:50%;background:#dbe5e1;color:#7a8d86;display:grid;place-items:center;font-size:10px;font-weight:700;flex:0 0 18px}
+.step.done{background:var(--pass-soft);border-color:#b7dfca;color:#126546}
+.step.done .dot{background:var(--pass);color:#fff}
+.step.active{background:var(--warn-soft);border-color:#e8cda1;color:#9a6210}
+.step.active .dot{background:var(--warn);color:#fff}
+.step.skipped{background:#f1f4f2;border-style:dashed;color:#7b8c86}
+.chain-arrow{color:#a8b7b1;font-weight:700}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:#425a53;margin-bottom:5px}
+.field .input,.field .select,.field textarea{width:100%;border-radius:6px;border:1px solid var(--line);font-size:12px;background:#fff;padding:8px 10px;font-family:inherit;color:var(--ink)}
+.field textarea{resize:vertical;min-height:64px}
+.field .static{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px}
+.radio-row{display:flex;gap:16px}
+.radio-row label{display:flex;align-items:center;gap:6px;font-weight:400;font-size:12px;margin:0}
+.soe{background:var(--warn-soft);border:1px solid #ecd9b4;border-radius:6px;padding:8px 10px;font-size:11px;color:#8f6010;margin:12px 0}
+.soe.red{background:var(--danger-soft);border-color:#edcbc6;color:#9b3529}
+.divider{height:1px;background:#edf2ef;margin:12px 0}
+.section-label{font-size:11px;color:var(--muted);font-weight:600;margin:14px 0 8px}
+.expiry-cell{display:flex;align-items:center;gap:8px}
+.progress-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #edf2ef}
+.progress-row:last-child{border-bottom:0}
+.progress-main{flex:1;min-width:0}
+.progress-top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;gap:8px}
+.progress-track{height:6px;background:#e7eeea;border-radius:3px;overflow:hidden}
+.progress-track i{display:block;height:100%;border-radius:3px}
+.progress-track i.amber{background:var(--warn)} .progress-track i.green{background:var(--pass)} .progress-track i.red{background:var(--danger)}
+.proto-flag{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:99;background:rgba(13,43,40,.88);color:#d9e9e3;font-size:11px;border-radius:999px;padding:4px 12px;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+h4.small{font-size:12px;margin-bottom:8px}
+.empty-note{color:var(--muted);font-size:11px;text-align:center;padding:24px 0}
+@media (max-width:1280px){
+  .kpi-grid{grid-template-columns:repeat(3,1fr)}
+  .detail-layout{grid-template-columns:1fr}
+}
+@media (max-width:980px){
+  .grid-2{grid-template-columns:1fr}
+  .stat-row{grid-template-columns:repeat(2,1fr)}
+  .sidebar{display:none}
+  .content{padding:14px}
+  .topbar{padding:0 14px}
+}
+@media (max-width:640px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .stat-row{grid-template-columns:1fr}
+  .page-head{flex-direction:column}
+  .actions{width:100%}
+  .actions .btn{flex:1;justify-content:center}
+  .user-meta{display:none}
+}
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6.2L4.8 18a2 2 0 0 0 1.8 3h10.8a2 2 0 0 0 1.8-3L14 9.2V3"/><path d="M7.5 14h9"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12 2H2v10l9.3 9.3a2 2 0 0 0 2.8 0l7.2-7.2a2 2 0 0 0 0-2.8z"/><circle cx="7" cy="7" r="1.5"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">H</div>
+      <div>
+        <div class="brand-name">海滨LIMS</div>
+        <div class="brand-sub">Retention Board</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-group">
+        <div class="nav-group-title">总览</div>
+        <button class="nav-item" data-view="dashboard"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-grid"/></svg><span>工作台总览</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">留样管理</div>
+        <button class="nav-item" data-view="dashboard"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-dot"/></svg><span>留样工作台</span></button>
+        <button class="nav-item active" data-view="samples"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-flask"/></svg><span>留样登记与台账</span></button>
+        <button class="nav-item" data-view="products"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-tag"/></svg><span>留样产品</span></button>
+        <button class="nav-item" data-view="observations"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-eye"/></svg><span>观察任务</span></button>
+        <button class="nav-item" data-view="usage"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-box"/></svg><span>使用申请</span></button>
+        <button class="nav-item" data-view="disposal"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-history"/></svg><span>处理申请</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">业务操作</div>
+        <button class="nav-item"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-file"/></svg><span>样品登记与台账</span></button>
+        <button class="nav-item"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-list"/></svg><span>待检任务看板</span></button>
+        <button class="nav-item"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-check"/></svg><span>检验结果台账</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">合规</div>
+        <button class="nav-item"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-eye"/></svg><span>合规审计日志</span></button>
+      </div>
+    </nav>
+    <div class="sidebar-foot">
+      <div>HBOS · 海滨药业</div>
+      <div>M2-R7D 原型 0.1</div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb"><span>HBOS LIMS</span><span>/</span><span>留样管理</span><span>/</span><strong id="crumb-current">留样登记与台账</strong></div>
+      <div class="topbar-right">
+        <button class="icon-btn" title="刷新"><svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use href="#i-refresh"/></svg></button>
+        <div class="user">
+          <div class="avatar">李</div>
+          <div class="user-meta">
+            <div class="user-name">李静</div>
+            <div class="user-role">LIMS Reviewer</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- ===== Dashboard ===== -->
+      <section class="view" data-view="dashboard">
+        <div class="page-head">
+          <div class="page-title">
+            <h1>留样工作台总览</h1>
+            <p>留样生命周期待办与到期态势 · 演示数据 TEST-HBOS-M2-RET-*</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-download"/></svg>导出</button>
+            <button class="btn"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-plus"/></svg>留样登记</button>
+          </div>
+        </div>
+        <div class="alert-strip">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-alert"/></svg>
+          <span>2 条留样进入 30 天临期，4 条观察计划应观察未完成，1 份销毁申请已超期。</span>
+          <a>去处理</a>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-label">在库留样</div><div class="kpi-num good">42</div><div class="kpi-sub">含部分使用 9 批</div></div>
+          <div class="kpi-card"><div class="kpi-label">待处理</div><div class="kpi-num warn">3</div><div class="kpi-sub">等待处理申请批复</div></div>
+          <div class="kpi-card"><div class="kpi-label">临期 30 天内</div><div class="kpi-num danger">2</div><div class="kpi-sub">90 天内共 7 批</div></div>
+          <div class="kpi-card"><div class="kpi-label">应观察未观察</div><div class="kpi-num info">4</div><div class="kpi-sub">本月计划 11 项</div></div>
+          <div class="kpi-card"><div class="kpi-label">待审批</div><div class="kpi-num warn">5</div><div class="kpi-sub">使用 2 · 处理 3</div></div>
+          <div class="kpi-card"><div class="kpi-label">销毁超期</div><div class="kpi-num danger">1</div><div class="kpi-sub">deadline 已过 18 天</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div><div class="panel-title">观察计划完整性</div><div class="panel-sub">2026 年各产品已选观察批 N/3</div></div>
+              <button class="btn-link">观察任务 →</button>
+            </div>
+            <div class="panel-body">
+              <div class="progress-row">
+                <div class="progress-main">
+                  <div class="progress-top"><span><strong>TEST 成品片剂A</strong> <span class="dim">· 年度观察批</span></span><span class="mono">2/3</span></div>
+                  <div class="progress-track"><i class="amber" style="width:66%"></i></div>
+                </div>
+                <span class="pill amber">可补选 1 批</span>
+              </div>
+              <div class="progress-row">
+                <div class="progress-main">
+                  <div class="progress-top"><span><strong>TEST 原料A</strong> <span class="dim">· 年度观察批</span></span><span class="mono">3/3</span></div>
+                  <div class="progress-track"><i class="green" style="width:100%"></i></div>
+                </div>
+                <span class="pill green">完整</span>
+              </div>
+              <div class="progress-row">
+                <div class="progress-main">
+                  <div class="progress-top"><span><strong>TEST 外售产品B</strong> <span class="dim">· 每批观察</span></span><span class="mono">4/4</span></div>
+                  <div class="progress-track"><i class="green" style="width:100%"></i></div>
+                </div>
+                <span class="pill green">完整</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div><div class="panel-title">审批待办</div><div class="panel-sub">按当前 Reviewer 角色可办事项</div></div>
+              <button class="btn-link">查看全部 →</button>
+            </div>
+            <div class="panel-body no-pad">
+              <div class="mini-list" style="padding:0 16px">
+                <div class="mini-row">
+                  <div class="mini-main">
+                    <div class="mini-title"><span class="mono">HBOS-RET-USE-2026-00012</span><span class="pill amber">待QC批准</span></div>
+                    <div class="mini-sub">TEST 成品片剂A · T260901 · 使用 12 g · 检验结果分析</div>
+                  </div>
+                  <button class="btn" style="height:26px;padding:0 10px">去审批</button>
+                </div>
+                <div class="mini-row">
+                  <div class="mini-main">
+                    <div class="mini-title"><span class="mono">HBOS-RET-DSP-2026-00008</span><span class="pill amber">待QC负责人审核</span></div>
+                    <div class="mini-sub">TEST 原料A · T260802 · 期满销毁</div>
+                  </div>
+                  <button class="btn" style="height:26px;padding:0 10px">去审批</button>
+                </div>
+                <div class="mini-row">
+                  <div class="mini-main">
+                    <div class="mini-title"><span class="mono">HBOS-RET-DSP-2026-00009</span><span class="pill amber">待QM批准</span></div>
+                    <div class="mini-sub">TEST 外售产品B · T260715 · 期满销毁</div>
+                  </div>
+                  <span class="pill gray">Manager</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div><div class="panel-title">季度到期处理清单</div><div class="panel-sub">Q3 2026 · 留样期至 ≤ 2026-09-30 且未完成</div></div>
+            <div class="actions"><span class="chip">临期 2</span><span class="chip">已批准待执行 1</span><span class="chip">销毁超期 1</span></div>
+          </div>
+          <div class="panel-body no-pad">
+            <table class="table">
+              <thead><tr><th>留样编号</th><th>样品 / 批号</th><th>类别</th><th>留样期至</th><th>剩余时间</th><th>处理状态</th><th>建议</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">TEST-HBOS-M2-RET-2024-00007</td><td class="wrap">TEST 成品片剂A <span class="dim">/ T240901</span></td><td>成品（原料药）</td><td class="mono">2027-08-31</td><td>359 天</td><td><span class="pill green">在库</span></td><td class="dim">下季度到期处理</td></tr>
+                <tr><td class="mono">TEST-HBOS-M2-RET-2023-00003</td><td class="wrap">TEST 原料A <span class="dim">/ T230612</span></td><td>关键物料</td><td class="mono">2026-09-18</td><td class="dim">11 天</td><td><span class="pill amber">临期</span></td><td><button class="btn-link">发起处理</button></td></tr>
+                <tr><td class="mono">TEST-HBOS-M2-RET-2023-00001</td><td class="wrap">TEST 原料A <span class="dim">/ T230415</span></td><td>关键物料</td><td class="mono">2026-09-05</td><td class="dim danger">已到期</td><td><span class="pill amber">已批准待执行</span></td><td class="dim">销毁双签后完成</td></tr>
+                <tr><td class="mono">TEST-HBOS-M2-RET-2022-00011</td><td class="wrap">TEST 外售产品B <span class="dim">/ T220528</span></td><td>外售产品</td><td class="mono">2026-08-13</td><td class="dim danger">超期 18 天</td><td><span class="pill red">销毁超期</span></td><td><button class="btn-link">查看处理单</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Samples ===== -->
+      <section class="view active" data-view="samples">
+        <div class="page-head">
+          <div class="page-title">
+            <h1>留样登记与台账</h1>
+            <p>批次留样全生命周期：登记入库、库存结存、预占与留样期至</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-link"/></svg>从检验样品创建</button>
+            <button class="btn"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-download"/></svg>导出</button>
+            <button class="btn-primary"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><use href="#i-plus"/></svg>新增留样登记</button>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-label">在库留样</div><div class="stat-value good">28</div></div>
+          <div class="stat-card"><div class="stat-label">部分使用</div><div class="stat-value">9</div></div>
+          <div class="stat-card"><div class="stat-label">待处理</div><div class="stat-value warn">3</div></div>
+          <div class="stat-card"><div class="stat-label">临期 90 天内</div><div class="stat-value danger">7</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">台账列表</div>
+            <div class="toolbar" style="margin-bottom:0">
+              <select class="select"><option>类别：全部</option><option>关键物料</option><option>成品（原料药）</option><option>外售产品</option></select>
+              <select class="select"><option>状态：全部</option><option>在库</option><option>部分使用</option><option>待处理</option></select>
+              <select class="select"><option>临期范围：全部</option><option>30 天内</option><option>90 天内</option><option>已超期</option></select>
+              <input class="input" placeholder="批号搜索">
+              <button class="filter-btn primary"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-search"/></svg>查询</button>
+            </div>
+          </div>
+          <div class="panel-body no-pad">
+            <table class="table">
+              <thead><tr><th>留样编号</th><th>样品名称</th><th>批号</th><th>容器</th><th>类别</th><th>留样日期</th><th>留样量</th><th>结存（预占）</th><th>可用量</th><th>留样期至</th><th>观察</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="mono">TEST-HBOS-M2-RET-2026-00001</td><td class="wrap">TEST 成品片剂A</td><td class="mono">T260901</td><td>01</td><td>成品（原料药）</td><td class="mono">2026-09-01</td><td class="mono">400 g</td><td class="mono">380 g <span class="dim">预占 0</span></td><td class="mono good">380 g</td><td class="mono">2029-09-01</td><td><span class="pill blue">观察</span></td><td><span class="pill green">在库</span></td>
+                  <td><button class="btn-link">明细</button><button class="btn-link">标签</button></td>
+                </tr>
+                <tr>
+                  <td class="mono">TEST-HBOS-M2-RET-2026-00002</td><td class="wrap">TEST 原料A</td><td class="mono">T260802</td><td>01</td><td>关键物料</td><td class="mono">2026-08-02</td><td class="mono">200 g</td><td class="mono">120 g <span class="dim warn">预占 30 g</span></td><td class="mono warn">90 g</td><td class="mono">2029-08-02</td><td><span class="pill gray">否</span></td><td><span class="pill green">部分使用</span></td>
+                  <td><button class="btn-link">明细</button><button class="btn-link">标签</button></td>
+                </tr>
+                <tr>
+                  <td class="mono">TEST-HBOS-M2-RET-2026-00003</td><td class="wrap">TEST 外售产品B</td><td class="mono">T260715</td><td>01</td><td>外售产品</td><td class="mono">2026-07-15</td><td class="mono">6 瓶</td><td class="mono">2 瓶 <span class="dim warn">预占 2 瓶</span></td><td class="mono danger">0 瓶</td><td class="mono">2029-07-15</td><td><span class="pill blue">观察</span></td><td><span class="pill amber">待处理</span></td>
+                  <td><button class="btn-link">明细</button><button class="btn-link">处理单</button></td>
+                </tr>
+                <tr>
+                  <td class="mono">TEST-HBOS-M2-RET-2025-00018</td><td class="wrap">TEST 原料A</td><td class="mono">T251106</td><td>01</td><td>关键物料</td><td class="mono">2025-11-06</td><td class="mono">300 g</td><td class="mono">300 g <span class="dim">预占 0</span></td><td class="mono good">300 g</td><td class="mono">2028-11-06</td><td><span class="pill gray">否</span></td><td><span class="pill green">在库</span></td>
+                  <td><button class="btn-link">明细</button><button class="btn-link">标签</button></td>
+                </tr>
+                <tr>
+                  <td class="mono">TEST-HBOS-M2-RET-2024-00008</td><td class="wrap">TEST 外售产品B</td><td class="mono">T240528</td><td>01</td><td>外售产品</td><td class="mono">2024-05-28</td><td class="mono">6 瓶</td><td class="mono">0 瓶</td><td class="mono muted">—</td><td class="mono">2027-05-28</td><td><span class="pill blue">观察</span></td><td><span class="pill gray">已用尽</span></td>
+                  <td><button class="btn-link">明细</button></td>
+                </tr>
+                <tr>
+                  <td class="mono">TEST-HBOS-M2-RET-2026-00009</td><td class="wrap">TEST 受托原料C</td><td class="mono">T260701</td><td>01</td><td>关键物料</td><td class="mono">2026-07-01</td><td class="mono">250 g</td><td class="mono muted">受托方留样</td><td class="mono muted">—</td><td class="mono">2029-07-01</td><td><span class="pill gray">否</span></td><td><span class="pill blue">已转出</span></td>
+                  <td><button class="btn-link">明细</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Products ===== -->
+      <section class="view" data-view="products">
+        <div class="page-head">
+          <div class="page-title">
+            <h1>留样产品</h1>
+            <p>留样主数据电子化：类别、留样量规则、UOM 与观察规则</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-download"/></svg>导出</button>
+            <button class="btn-primary"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><use href="#i-plus"/></svg>新增留样产品</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="toolbar" style="margin-bottom:0">
+              <select class="select"><option>类别：全部</option><option>关键物料</option><option>成品（原料药）</option><option>外售产品</option></select>
+              <input class="input" placeholder="编码 / 名称搜索">
+              <button class="filter-btn primary">查询</button>
+            </div>
+            <span class="chip">启用 8 · 停用 2</span>
+          </div>
+          <div class="panel-body no-pad">
+            <table class="table">
+              <thead><tr><th>产品编码</th><th>产品名称</th><th>类别</th><th>留样数量规则</th><th>全检量</th><th>默认单位</th><th>观察规则</th><th>标记</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">TEST-RET-RAW-001</td><td class="wrap">TEST 原料A</td><td>关键物料</td><td>全检量 2 倍</td><td class="mono">200 g</td><td class="mono">g</td><td>不观察</td><td><span class="pill gray">—</span></td><td><span class="pill green">启用</span></td><td><button class="btn-link">编辑</button></td></tr>
+                <tr><td class="mono">TEST-RET-FG-001</td><td class="wrap">TEST 成品片剂A</td><td>成品（原料药）</td><td>全检量 2 倍</td><td class="mono">200 g</td><td class="mono">g</td><td>每年选 3 批</td><td><span class="pill gray">—</span></td><td><span class="pill green">启用</span></td><td><button class="btn-link">编辑</button></td></tr>
+                <tr><td class="mono">TEST-RET-SALE-001</td><td class="wrap">TEST 外售产品B</td><td>外售产品</td><td>按客户要求</td><td class="mono">6 瓶</td><td class="mono">瓶</td><td>每批观察</td><td><span class="pill gray">—</span></td><td><span class="pill green">启用</span></td><td><button class="btn-link">编辑</button></td></tr>
+                <tr><td class="mono">TEST-RET-RAW-002</td><td class="wrap">TEST 受托原料C</td><td>关键物料</td><td>按实际</td><td class="mono">250 g</td><td class="mono">g</td><td>不观察</td><td><span class="pill blue">受托方留样</span></td><td><span class="pill green">启用</span></td><td><button class="btn-link">编辑</button></td></tr>
+                <tr><td class="mono">TEST-RET-RAW-003</td><td class="wrap">TEST 液体原料D</td><td>关键物料</td><td>不适用</td><td class="mono">—</td><td class="mono">mL</td><td>不观察</td><td><span class="pill red">液体·不留样</span></td><td><span class="pill gray">停用</span></td><td><button class="btn-link">编辑</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">UOM 受控提示</div></div>
+            <div class="panel-body">
+              <div class="mini-row"><div class="mini-main"><div class="mini-title">default_uom 是全板块唯一权威来源</div><div class="mini-sub">留样登记、申请单单位全部只读带出，不做自动换算。</div></div><span class="pill primary">受控枚举</span></div>
+              <div class="mini-row"><div class="mini-main"><div class="mini-title">全检量单位不一致</div><div class="mini-sub">full_test_qty_uom ≠ default_uom 时禁算 2 倍，提示人工填写。</div></div><span class="pill amber">一致性闸</span></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">观察规则联动</div></div>
+            <div class="panel-body">
+              <div class="mini-row"><div class="mini-main"><div class="mini-title">外售产品</div><div class="mini-sub">每批观察，不受 3 批上限约束。</div></div><span class="pill blue">每批</span></div>
+              <div class="mini-row"><div class="mini-main"><div class="mini-title">成品（原料药）</div><div class="mini-sub">每年最多选 3 批，不足 3 批允许并看板提示。</div></div><span class="pill green">N/3</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Observations ===== -->
+      <section class="view" data-view="observations">
+        <div class="page-head">
+          <div class="page-title">
+            <h1>观察任务</h1>
+            <p>0 月基线 + 年度外观性状观察 · 应观察清单与完整性提示</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-calendar"/></svg>观察批选取</button>
+            <button class="btn-primary"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><use href="#i-plus"/></svg>新增观察记录</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <span class="chip"><span>TEST 成品片剂A · 2026</span><span class="bar"><i class="w70"></i></span><span class="mono">2/3</span><span class="pill amber">可补选 1 批</span></span>
+          <span class="chip"><span>TEST 原料A · 2026</span><span class="bar"><i class="w100"></i></span><span class="mono">3/3</span><span class="pill green">完整</span></span>
+          <span class="chip"><span>TEST 外售产品B · 2026</span><span class="bar"><i class="w100"></i></span><span class="mono">每批</span><span class="pill green">完整</span></span>
+        </div>
+        <div class="detail-layout">
+          <div class="panel">
+            <div class="panel-head">
+              <div><div class="panel-title">计划看板</div><div class="panel-sub">应观察未完成优先置顶，异常结论标红</div></div>
+              <div class="actions"><button class="btn" style="height:26px;padding:0 10px">全部</button><button class="btn" style="height:26px;padding:0 10px">应观察</button><button class="btn" style="height:26px;padding:0 10px">已观察</button></div>
+            </div>
+            <div class="panel-body no-pad">
+              <table class="table">
+                <thead><tr><th>留样编号</th><th>产品 / 批号</th><th>偏移月</th><th>计划日期</th><th>应观察状态</th><th>结果</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">TEST-HBOS-M2-RET-2026-00001</td><td class="wrap">TEST 成品片剂A <span class="dim">/ T260901</span></td><td class="mono">0</td><td class="mono">2026-09-01</td><td><span class="pill red">已逾期 6 天</span></td><td><span class="pill amber">待观察</span></td><td><button class="btn-link">录入</button></td></tr>
+                  <tr><td class="mono">TEST-HBOS-M2-RET-2026-00002</td><td class="wrap">TEST 原料A <span class="dim">/ T260802</span></td><td class="mono">0</td><td class="mono">2026-08-02</td><td><span class="pill green">已完成</span></td><td><span class="pill green">正常</span></td><td><button class="btn-link">查看</button></td></tr>
+                  <tr><td class="mono">TEST-HBOS-M2-RET-2025-00018</td><td class="wrap">TEST 原料A <span class="dim">/ T251106</span></td><td class="mono">12</td><td class="mono">2026-11-06</td><td><span class="pill amber">应观察</span></td><td><span class="pill gray">—</span></td><td><button class="btn-link">录入</button></td></tr>
+                  <tr><td class="mono">TEST-HBOS-M2-RET-2025-00003</td><td class="wrap">TEST 成品片剂A <span class="dim">/ T250310</span></td><td class="mono">24</td><td class="mono">2026-09-03</td><td><span class="pill amber">应观察</span></td><td><span class="pill gray">—</span></td><td><button class="btn-link">录入</button></td></tr>
+                  <tr><td class="mono">TEST-HBOS-M2-RET-2024-00008</td><td class="wrap">TEST 外售产品B <span class="dim">/ T240528</span></td><td class="mono">24</td><td class="mono">2026-05-28</td><td><span class="pill green">已完成</span></td><td><span class="pill red">异常</span></td><td><button class="btn-link">查看</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div><div class="panel-title">观察记录</div><div class="panel-sub">TEST-HBOS-M2-RET-2026-00001 · T260901</div></div>
+              <span class="pill amber">obs_month 0</span>
+            </div>
+            <div class="panel-body">
+              <div class="mini-row" style="padding:0 0 9px"><div class="mini-main"><div class="mini-title">观察时间窗</div><div class="mini-sub">计划日期 2026-09-01 · 观察期至 2029-09-01</div></div></div>
+              <div class="field"><label>实际观察日期</label><input class="input" value="2026-09-07"></div>
+              <div class="field"><label>外观性状</label><input class="input" placeholder="如 白色至类白色片剂，外观完整" value="白色至类白色片剂，外观完整"></div>
+              <div class="field"><label>结果</label><div class="radio-row"><label><input type="radio" name="obs" checked>正常</label><label><input type="radio" name="obs">异常</label></div></div>
+              <div class="field"><label>异常描述 <span class="dim">（异常时必填）</span></label><textarea placeholder="填写异常表现与报告对象"></textarea></div>
+              <div class="grid-2" style="gap:10px;margin-bottom:0">
+                <div class="field" style="margin-bottom:0"><label>观察人</label><div class="static">李静</div></div>
+                <div class="field" style="margin-bottom:0"><label>审核人</label><div class="static">待审核</div></div>
+              </div>
+              <div class="soe">异常结论必须填写异常描述，审核通过后回写下一观察月。</div>
+              <div class="actions"><button class="btn">保存草稿</button><button class="btn-primary">提交观察</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Usage ===== -->
+      <section class="view" data-view="usage">
+        <div class="page-head">
+          <div class="page-title">
+            <h1>使用申请</h1>
+            <p>库存确认即预占 · QC / QA / QM 三级批准 · 取样执行原子扣减</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-refresh"/></svg>刷新</button>
+            <button class="btn-primary"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><use href="#i-plus"/></svg>发起使用申请</button>
+          </div>
+        </div>
+        <div class="alert-strip">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-alert"/></svg>
+          <span>1 份申请已批准但 15 天未执行，Manager 可取消释放预占。</span>
+          <a>查看取消逃生口</a>
+        </div>
+        <div class="detail-layout">
+          <div class="panel">
+            <div class="panel-head">
+              <div><div class="panel-title">申请列表</div><div class="panel-sub">当前 Reviewer 可见待 QC 审批 1 份</div></div>
+              <div class="actions"><button class="btn" style="height:26px;padding:0 10px">全部</button><button class="btn-primary" style="height:26px;padding:0 10px">待我处理</button><button class="btn" style="height:26px;padding:0 10px">已执行</button></div>
+            </div>
+            <div class="panel-body no-pad">
+              <table class="table">
+                <thead><tr><th>申请单号</th><th>留样 / 批号</th><th>申请量</th><th>触发场景</th><th>当前状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">HBOS-RET-USE-2026-00012</td><td class="wrap">TEST 成品片剂A <span class="dim">/ T260901</span></td><td class="mono">12 g</td><td>检验结果分析</td><td><span class="pill amber">待QC批准</span></td><td><button class="btn-link">审批</button></td></tr>
+                  <tr><td class="mono">HBOS-RET-USE-2026-00011</td><td class="wrap">TEST 外售产品B <span class="dim">/ T260715</span></td><td class="mono">2 瓶</td><td>用户投诉</td><td><span class="pill amber">已批准待执行</span></td><td><button class="btn-link">取样执行</button></td></tr>
+                  <tr><td class="mono">HBOS-RET-USE-2026-00010</td><td class="wrap">TEST 原料A <span class="dim">/ T260802</span></td><td class="mono">30 g</td><td>生产异常</td><td><span class="pill amber">待QA批准</span></td><td><button class="btn-link">查看</button></td></tr>
+                  <tr><td class="mono">HBOS-RET-USE-2026-00009</td><td class="wrap">TEST 成品片剂A <span class="dim">/ T251001</span></td><td class="mono">8 g</td><td>上市前研发</td><td><span class="pill green">已执行</span></td><td><button class="btn-link">查看</button></td></tr>
+                  <tr><td class="mono">HBOS-RET-USE-2026-00007</td><td class="wrap">TEST 原料A <span class="dim">/ T250418</span></td><td class="mono">15 g</td><td>其他</td><td><span class="pill gray">已取消</span></td><td><button class="btn-link">查看</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div><div class="panel-title">申请详情</div><div class="panel-sub">HBOS-RET-USE-2026-00012</div></div>
+              <span class="pill amber">待QC批准</span>
+            </div>
+            <div class="panel-body">
+              <div class="mini-row" style="padding-top:0"><div class="mini-main"><div class="mini-title">TEST 成品片剂A · T260901</div><div class="mini-sub">留样编号 TEST-HBOS-M2-RET-2026-00001</div></div></div>
+              <div class="divider"></div>
+              <div class="stat-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:6px">
+                <div class="stat-card" style="padding:8px"><div class="stat-label">结存</div><div class="mono" style="font-size:15px;font-weight:700">380 g</div></div>
+                <div class="stat-card" style="padding:8px"><div class="stat-label">预占</div><div class="mono warn" style="font-size:15px;font-weight:700">12 g</div></div>
+                <div class="stat-card" style="padding:8px"><div class="stat-label">可用量</div><div class="mono good" style="font-size:15px;font-weight:700">368 g</div></div>
+              </div>
+              <div class="section-label">申请信息</div>
+              <div class="field"><label>申请量</label><div class="static">12 g（g 为产品默认单位）</div></div>
+              <div class="field"><label>触发场景 / 原因</label><div class="static">检验结果分析 · 复检异常结果核查需要</div></div>
+              <div class="field"><label>申请部门 / 申请人</label><div class="static">QC 检验室 · 王敏（2026-09-05）</div></div>
+              <div class="section-label">审批链</div>
+              <div class="chain">
+                <div class="step done"><span class="dot">✓</span><div>申请人<br><span class="dim">王敏</span></div></div><span class="chain-arrow">→</span>
+                <div class="step done"><span class="dot">✓</span><div>库存确认<br><span class="dim">赵磊 · 预占 12 g</span></div></div><span class="chain-arrow">→</span>
+                <div class="step active"><span class="dot">2</span><div>QC 批准<br><span class="dim">李静（当前用户）</span></div></div><span class="chain-arrow">→</span>
+                <div class="step"><span class="dot">3</span><div>QA 批准<br><span class="dim">待审批</span></div></div><span class="chain-arrow">→</span>
+                <div class="step"><span class="dot">4</span><div>QM 批准<br><span class="dim">待审批</span></div></div>
+              </div>
+              <div class="soe red">职责分离：同一用户不得连续两级签署，申请人不得担任审批人。</div>
+              <div class="actions"><button class="btn btn-danger">驳回</button><button class="btn-primary">QC 批准</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Disposal ===== -->
+      <section class="view" data-view="disposal">
+        <div class="page-head">
+          <div class="page-title">
+            <h1>处理申请</h1>
+            <p>季度到期清单 · QC/QA/QM 审批链 · 销毁双签与续留改期</p>
+          </div>
+          <div class="actions">
+            <button class="btn"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-calendar"/></svg>季度清单</button>
+            <button class="btn-primary"><svg class="btn-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><use href="#i-plus"/></svg>新建处理申请</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div><div class="panel-title">季度到期清单 · Q3 2026</div><div class="panel-sub">留样期至 ≤ 2026-09-30 且未完成</div></div>
+            <div class="actions"><span class="chip">临期 2</span><span class="chip">已批准待执行 1</span><span class="chip danger">销毁超期 1</span></div>
+          </div>
+          <div class="panel-body no-pad">
+            <table class="table">
+              <thead><tr><th>留样编号</th><th>样品 / 批号</th><th>类别</th><th>留样期至</th><th>处理类型</th><th>审批层级</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">TEST-HBOS-M2-RET-2023-00003</td><td class="wrap">TEST 原料A <span class="dim">/ T230612</span></td><td>关键物料</td><td class="mono">2026-09-18</td><td>期满销毁</td><td>5 级</td><td><span class="pill amber">待QC主管审核</span></td><td><button class="btn-link">审批</button></td></tr>
+                <tr><td class="mono">TEST-HBOS-M2-RET-2023-00001</td><td class="wrap">TEST 原料A <span class="dim">/ T230415</span></td><td>关键物料</td><td class="mono">2026-09-05</td><td>期满销毁</td><td>4 级（跳过 QA 负责人）</td><td><span class="pill amber">已批准待执行</span></td><td><button class="btn-link">双签执行</button></td></tr>
+                <tr><td class="mono">TEST-HBOS-M2-RET-2022-00011</td><td class="wrap">TEST 外售产品B <span class="dim">/ T220528</span></td><td>外售产品</td><td class="mono">2026-08-13</td><td>期满销毁</td><td>5 级</td><td><span class="pill red">销毁超期 18 天</span></td><td><button class="btn-link">Manager 决策</button></td></tr>
+                <tr><td class="mono">TEST-HBOS-M2-RET-2023-00009</td><td class="wrap">TEST 成品片剂A <span class="dim">/ T230901</span></td><td>成品（原料药）</td><td class="mono">2026-09-01</td><td>期满继续留样</td><td>5 级</td><td><span class="pill green">已完成续留</span></td><td><button class="btn-link">查看</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="detail-layout">
+          <div class="panel">
+            <div class="panel-head">
+              <div><div class="panel-title">处理申请列表</div><div class="panel-sub">草稿 / 审批中 / 待执行 / 已完成</div></div>
+              <div class="actions"><button class="btn" style="height:26px;padding:0 10px">全部</button><button class="btn" style="height:26px;padding:0 10px">待我审批</button><button class="btn" style="height:26px;padding:0 10px">超期</button></div>
+            </div>
+            <div class="panel-body no-pad">
+              <table class="table">
+                <thead><tr><th>处理单号</th><th>留样 / 批号</th><th>类型</th><th>层级</th><th>deadline</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">HBOS-RET-DSP-2026-00010</td><td class="wrap">TEST 原料A <span class="dim">/ T230612</span></td><td>期满销毁</td><td>5 级</td><td class="mono muted">—</td><td><span class="pill amber">待QC主管审核</span></td><td><button class="btn-link">审批</button></td></tr>
+                  <tr><td class="mono">HBOS-RET-DSP-2026-00009</td><td class="wrap">TEST 外售产品B <span class="dim">/ T220528</span></td><td>期满销毁</td><td>5 级</td><td class="mono">2025-11-13</td><td><span class="pill red">销毁超期</span></td><td><button class="btn-link">决策</button></td></tr>
+                  <tr><td class="mono">HBOS-RET-DSP-2026-00008</td><td class="wrap">TEST 原料A <span class="dim">/ T230415</span></td><td>期满销毁</td><td>4 级</td><td class="mono">2026-10-01</td><td><span class="pill amber">待执行</span></td><td><button class="btn-link">双签</button></td></tr>
+                  <tr><td class="mono">HBOS-RET-DSP-2026-00006</td><td class="wrap">TEST 成品片剂A <span class="dim">/ T230901</span></td><td>期满续留</td><td>5 级</td><td class="mono muted">—</td><td><span class="pill green">已完成</span></td><td><button class="btn-link">查看</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div><div class="panel-title">审批详情</div><div class="panel-sub">HBOS-RET-DSP-2026-00008</div></div>
+              <span class="pill amber">待执行</span>
+            </div>
+            <div class="panel-body">
+              <div class="mini-row" style="padding-top:0"><div class="mini-main"><div class="mini-title">TEST 原料A · T230415</div><div class="mini-sub">销毁量 = 当前结存 120 g · 预占 0</div></div></div>
+              <div class="divider"></div>
+              <div class="section-label">处理要求</div>
+              <div class="field"><label>方式 / 地点</label><div class="static">高温焚烧 · 危废暂存间（QA 现场监督）</div></div>
+              <div class="field"><label>销毁时限</label><div class="static">QM 批准 2026-07-01 + 3 个月 → 2026-10-01</div></div>
+              <div class="section-label">审批链（4 级 · QA 负责人跳过）</div>
+              <div class="chain">
+                <div class="step done"><span class="dot">✓</span><div>QC 主管<br><span class="dim">孙晓</span></div></div><span class="chain-arrow">→</span>
+                <div class="step done"><span class="dot">✓</span><div>QC 负责人<br><span class="dim">赵磊</span></div></div><span class="chain-arrow">→</span>
+                <div class="step done"><span class="dot">✓</span><div>QA 审核<br><span class="dim">李静</span></div></div><span class="chain-arrow">→</span>
+                <div class="step skipped"><span class="dot">—</span><div>QA 负责人<br><span class="dim">审批层跳过</span></div></div><span class="chain-arrow">→</span>
+                <div class="step done"><span class="dot">✓</span><div>QM 批准<br><span class="dim">张总</span></div></div>
+              </div>
+              <div class="section-label">执行双签</div>
+              <div class="grid-2" style="gap:10px">
+                <div class="field" style="margin-bottom:0"><label>处理人</label><div class="static">李静</div></div>
+                <div class="field" style="margin-bottom:0"><label>监督人（QA）</label><div class="static">待签名</div></div>
+              </div>
+              <div class="soe">双签完成写入销毁出库流水；取消仅 Manager 可操作且需原因。</div>
+              <div class="actions"><button class="btn btn-danger">Manager 取消</button><button class="btn-primary">完成销毁双签</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="proto-flag">M2-R7D 前端设计稿 · 演示数据 TEST-HBOS-M2-RET-*</div>
+
+<script>
+const titles = {
+  dashboard: '留样工作台总览', samples: '留样登记与台账', products: '留样产品',
+  observations: '观察任务', usage: '使用申请', disposal: '处理申请',
+}
+function currentView() {
+  const hash = (location.hash || '#samples').replace('#', '')
+  return titles[hash] ? hash : 'samples'
+}
+function showView(view) {
+  document.querySelectorAll('.view').forEach(el => el.classList.toggle('active', el.dataset.view === view))
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view))
+  document.querySelectorAll('.sidebar .nav-item[data-view]').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view)
+  })
+  const crumb = document.getElementById('crumb-current')
+  if (crumb) crumb.textContent = titles[view]
+}
+document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (history.pushState) history.pushState(null, '', '#' + btn.dataset.view)
+    else location.hash = btn.dataset.view
+    showView(btn.dataset.view)
+  })
+})
+window.addEventListener('hashchange', () => showView(currentView()))
+showView(currentView())
+</script>
+</body>
+</html>

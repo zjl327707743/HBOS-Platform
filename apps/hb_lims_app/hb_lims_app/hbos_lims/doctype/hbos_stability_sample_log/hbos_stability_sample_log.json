@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "creation": "2026-09-18 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "transaction_date",
+  "transaction_type",
+  "column_break_log",
+  "source_timepoint",
+  "sampling_reason",
+  "sample_no_out",
+  "return_sample_no",
+  "remaining_sample_no",
+  "column_break_log2",
+  "qty_delta",
+  "qty_uom",
+  "remaining_qty",
+  "operator",
+  "reviewer",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "transaction_date",
+   "fieldtype": "Date",
+   "label": "日期",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "label": "业务类型",
+   "reqd": 1,
+   "in_list_view": 1,
+   "options": "入库\n取样出库\n返还\n销毁\n受托转出\n手动调整"
+  },
+  {
+   "fieldname": "column_break_log",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "source_timepoint",
+   "fieldtype": "Link",
+   "label": "来源时间点",
+   "options": "HBOS Stability Timepoint"
+  },
+  {
+   "fieldname": "sampling_reason",
+   "fieldtype": "Data",
+   "label": "取样原因"
+  },
+  {
+   "fieldname": "sample_no_out",
+   "fieldtype": "Data",
+   "label": "取样号码"
+  },
+  {
+   "fieldname": "return_sample_no",
+   "fieldtype": "Data",
+   "label": "返回样品号码"
+  },
+  {
+   "fieldname": "remaining_sample_no",
+   "fieldtype": "Data",
+   "label": "剩余样品号码"
+  },
+  {
+   "fieldname": "column_break_log2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "qty_delta",
+   "fieldtype": "Float",
+   "label": "变动量",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "qty_uom",
+   "fieldtype": "Select",
+   "label": "单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他"
+  },
+  {
+   "fieldname": "remaining_qty",
+   "fieldtype": "Float",
+   "label": "变动后结存",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "label": "操作人",
+   "options": "User",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reviewer",
+   "fieldtype": "Link",
+   "label": "复核人（兼销毁监督人）",
+   "options": "User"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注（手动调整必填原因）"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-18 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Sample Log",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "hash",
+ "istable": 1,
+ "permissions": []
+}

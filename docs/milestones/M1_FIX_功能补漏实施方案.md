@@ -728,7 +728,8 @@ M1-FIX 大部分缺口可以通过 HRMS/Frappe 原生能力（Data Import、Quer
 M1     = COMPLETED（但 Owner 验收发现功能缺口）
 M1-FIX = IN_PROGRESS
 M1-FIX-A = REVIEWING
-M2     = PLANNED / NOT STARTED / WAITING OWNER AUTHORIZATION
+M2-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 m2-stock-r1）
+M2 其余轮次 = PLANNED / NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 
 ### 9.2 状态文件更新计划

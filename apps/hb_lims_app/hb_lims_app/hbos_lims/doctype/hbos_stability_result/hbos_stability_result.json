@@ -1,0 +1,462 @@
+{
+ "actions": [],
+ "creation": "2026-09-18 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "timepoint",
+  "stability_sample",
+  "stability_test_item",
+  "item_snapshot",
+  "column_break_head",
+  "test_method",
+  "method_version",
+  "spec_limit",
+  "spec_version",
+  "section_result",
+  "result_value",
+  "unit",
+  "is_qualified",
+  "oos_flag",
+  "oot_flag",
+  "column_break_result",
+  "result_baseline",
+  "baseline_ref",
+  "baseline_doctype",
+  "baseline_name",
+  "is_significant_change",
+  "significant_change_basis",
+  "is_zero_month",
+  "source",
+  "source_test_result",
+  "section_version",
+  "result_version_key",
+  "revision_no",
+  "supersedes",
+  "is_current",
+  "column_break_version",
+  "status",
+  "return_reason",
+  "void_reason",
+  "section_signoff",
+  "analyst",
+  "test_date",
+  "submitted_by",
+  "submitted_at",
+  "column_break_signoff",
+  "reviewed_by",
+  "reviewed_at",
+  "approved_by",
+  "approved_at",
+  "remark"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-RES-.YYYY.-",
+   "default": "HBOS-STB-RES-.YYYY.-",
+   "reqd": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "timepoint",
+   "fieldtype": "Link",
+   "label": "时间点",
+   "options": "HBOS Stability Timepoint",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "stability_sample",
+   "fieldtype": "Link",
+   "label": "稳定性样品",
+   "options": "HBOS Stability Sample",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stability_test_item",
+   "fieldtype": "Link",
+   "label": "检验项目",
+   "options": "HBOS Stability Test Item",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item_snapshot",
+   "fieldtype": "Data",
+   "label": "项目名快照",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "test_method",
+   "fieldtype": "Data",
+   "label": "检验方法"
+  },
+  {
+   "fieldname": "method_version",
+   "fieldtype": "Data",
+   "label": "方法版本快照",
+   "read_only": 1
+  },
+  {
+   "fieldname": "spec_limit",
+   "fieldtype": "Data",
+   "label": "限度快照",
+   "read_only": 1
+  },
+  {
+   "fieldname": "spec_version",
+   "fieldtype": "Data",
+   "label": "标准版本快照",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_result",
+   "fieldtype": "Section Break",
+   "label": "结果",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "result_value",
+   "fieldtype": "Data",
+   "label": "结果",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Data",
+   "label": "单位"
+  },
+  {
+   "fieldname": "is_qualified",
+   "fieldtype": "Check",
+   "label": "符合性判定",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "oos_flag",
+   "fieldtype": "Check",
+   "label": "OOS 标记",
+   "read_only": 1
+  },
+  {
+   "fieldname": "oot_flag",
+   "fieldtype": "Check",
+   "label": "OOT 标记",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_result",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "result_baseline",
+   "fieldtype": "Data",
+   "label": "基线值",
+   "read_only": 1
+  },
+  {
+   "fieldname": "baseline_ref",
+   "fieldtype": "Select",
+   "label": "基线来源类别",
+   "options": "\n0月\n出厂全检\n首点",
+   "read_only": 1
+  },
+  {
+   "fieldname": "baseline_doctype",
+   "fieldtype": "Select",
+   "label": "基线来源单据类型",
+   "read_only": 1,
+   "options": "\nHBOS Test Result\nHBOS COA\nHBOS Stability Result"
+  },
+  {
+   "fieldname": "baseline_name",
+   "fieldtype": "Dynamic Link",
+   "label": "基线来源单据编号",
+   "options": "baseline_doctype",
+   "read_only": 1
+  },
+  {
+   "fieldname": "is_significant_change",
+   "fieldtype": "Check",
+   "label": "显著变化",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "significant_change_basis",
+   "fieldtype": "Small Text",
+   "label": "显著变化依据",
+   "read_only": 1
+  },
+  {
+   "fieldname": "is_zero_month",
+   "fieldtype": "Check",
+   "label": "0 月点",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "结果来源",
+   "options": "自检\n出厂全检\n委外"
+  },
+  {
+   "fieldname": "source_test_result",
+   "fieldtype": "Link",
+   "label": "业务检验结果",
+   "options": "HBOS Test Result",
+   "read_only": 1,
+   "no_copy": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "由业务操作中的 HBOS Test Result 自动同步，不允许在稳定性页面重复录入。"
+  },
+  {
+   "fieldname": "section_version",
+   "fieldtype": "Section Break",
+   "label": "版本链（系统维护）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "result_version_key",
+   "fieldtype": "Data",
+   "label": "版本键",
+   "unique": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "hidden": 1,
+   "description": "timepoint#item_code#revision_no（唯一）"
+  },
+  {
+   "fieldname": "revision_no",
+   "fieldtype": "Int",
+   "label": "修订序号",
+   "read_only": 1,
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "supersedes",
+   "fieldtype": "Link",
+   "label": "被替代的上一版",
+   "options": "HBOS Stability Result",
+   "read_only": 1
+  },
+  {
+   "fieldname": "is_current",
+   "fieldtype": "Check",
+   "label": "当前生效版本",
+   "read_only": 1,
+   "no_copy": 1,
+   "in_list_view": 1,
+   "description": "同一 (时间点, 项目) 仅一条为 1；仅新版批准时同事务切换"
+  },
+  {
+   "fieldname": "column_break_version",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "草稿\n已提交\n已复核\n已批准\n已修订\n已作废",
+   "default": "草稿",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "return_reason",
+   "fieldtype": "Data",
+   "label": "退回原因",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "void_reason",
+   "fieldtype": "Data",
+   "label": "作废原因",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_signoff",
+   "fieldtype": "Section Break",
+   "label": "签署",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "analyst",
+   "fieldtype": "Link",
+   "label": "检测人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "test_date",
+   "fieldtype": "Date",
+   "label": "检测日期"
+  },
+  {
+   "fieldname": "submitted_by",
+   "fieldtype": "Link",
+   "label": "提交人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "提交时间",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_signoff",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "复核人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_at",
+   "fieldtype": "Datetime",
+   "label": "复核时间",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "批准人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_at",
+   "fieldtype": "Datetime",
+   "label": "批准时间",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-18 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Result",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "LIMS Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Analyst",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Reviewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QP",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  }
+ ]
+}

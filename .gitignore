@@ -27,3 +27,6 @@ apps/hb_attendance_app/hb_attendance_app/hbos_attendance/批量改部门_执行�
 anomaly_list.json
 feishu_records.json
 .claude/launch.json
+
+# 例外：App 翻译文件属于源码，必须提交
+!apps/hb_attendance_app/hb_attendance_app/translations/*.csv

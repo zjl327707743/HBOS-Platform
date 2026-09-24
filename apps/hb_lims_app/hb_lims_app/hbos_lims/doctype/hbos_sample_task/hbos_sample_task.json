@@ -1,0 +1,172 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-08-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "sample",
+  "test_item",
+  "item_name",
+  "lab_department",
+  "assignee",
+  "assigned_by",
+  "assigned_date",
+  "due_date",
+  "priority",
+  "status",
+  "result"
+ ],
+ "fields": [
+  {
+   "default": "HBOS-TSK-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-TSK-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sample",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "样品",
+   "options": "HBOS Sample",
+   "reqd": 1
+  },
+  {
+   "fieldname": "test_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "检验项目",
+   "options": "HBOS Test Item",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "test_item.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "项目名称",
+   "read_only": 1
+  },
+  {
+   "fieldname": "lab_department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "检验组",
+   "options": "HBOS Lab Department",
+   "reqd": 1
+  },
+  {
+   "fieldname": "assignee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "检验员",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "assigned_by",
+   "fieldtype": "Link",
+   "label": "分配人",
+   "options": "User"
+  },
+  {
+   "fieldname": "assigned_date",
+   "fieldtype": "Datetime",
+   "label": "分配时间"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "应完成日期"
+  },
+  {
+   "default": "常规",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "优先级",
+   "options": "常规\n加急\n特急",
+   "reqd": 1
+  },
+  {
+   "default": "待分配",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "任务状态",
+   "options": "待分配\n已分配\n检验中\n已提交\n已复核\n已批准\nOOS候选\nOOS锁定",
+   "reqd": 1
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Link",
+   "label": "检测记录",
+   "options": "HBOS Test Result"
+  }
+ ],
+ "icon": "check-square",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Sample Task",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
