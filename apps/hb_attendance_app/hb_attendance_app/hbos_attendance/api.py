@@ -333,21 +333,44 @@ def sync_delicloud_checkin():
         frappe.log_error(str(e), "得力云同步"); frappe.throw(f"得力云同步失败: {e}")
 
 
-def regenerate_attendance(range_start, range_end):
-    """按 HBOS 配对算法重新生成 Attendance。
+def _validate_regeneration_range(range_start, range_end):
+    """Validate and normalize a regeneration date range before any DB side effect."""
+    from datetime import date as _date
 
-    参数:
-        range_start: 生成范围的起始日期 (YYYY-MM-DD)
-        range_end: 生成范围的结束日期 (YYYY-MM-DD)，含当天
+    try:
+        start = _date.fromisoformat(str(range_start))
+        end = _date.fromisoformat(str(range_end))
+    except (TypeError, ValueError):
+        frappe.throw("考勤重算日期格式必须为 YYYY-MM-DD。")
+    if start > end:
+        frappe.throw("考勤重算起始日期不能晚于结束日期。")
+    return start.isoformat(), end.isoformat()
+
+
+def regenerate_attendance(range_start, range_end):
+    """Atomically rebuild HBOS Attendance inside one explicit savepoint."""
+    _require_hr_write()
+    range_start, range_end = _validate_regeneration_range(range_start, range_end)
+    save_point = "hbos_attendance_regeneration"
+    frappe.db.savepoint(save_point)
+    try:
+        result = _regenerate_attendance_impl(range_start, range_end)
+        frappe.db.commit()
+        return result
+    except Exception:
+        frappe.db.rollback(save_point=save_point)
+        raise
+
+
+def _regenerate_attendance_impl(range_start, range_end):
+    """按 HBOS 配对算法重新生成 Attendance；事务边界由 regenerate_attendance 管理。
 
     流程:
         1. 删除该范围内所有 HBOS-ATT-* 记录（保留 HRMS 原生记录）
-        2. 对打卡流水做 2 小时去重（同机重复刷卡合并为最早卡）+ 贪心配对（凌晨打卡向前跨天配对）
-        3. 计算工作时长写入 working_hours
-        4. 零打卡缺勤生成 Absent
+        2. 对打卡流水做去重与配对
+        3. 计算工作时长
+        4. 生成请假/零打卡缺勤结果
     """
-    _require_feishu_enabled()
-    _require_hr_write()
     from collections import defaultdict
     from datetime import datetime as _dt, timedelta as _td
     from datetime import date as _date, timedelta as _tdelta
@@ -379,7 +402,7 @@ def regenerate_attendance(range_start, range_end):
 
     # GPS 打卡日期集合(Owner 2026-08-27 确认): 当天存在任意 GPS/外勤打卡时,
     # 视为已打卡出勤(外勤/居家/手机打卡), 不判缺勤。GPS/外勤打卡无考勤机 SN,
-    # 方向未知, 直接参与配对会误判缺勤(姚娜 8/26 案例: 08:20 gps + 17:33 gps 被判 Absent)。
+    # 方向未知，直接参与配对会把真实外勤日误判为缺勤。
     gps_ck_set = set()
     for eid, cks in by_emp.items():
         for c in cks:
@@ -555,7 +578,7 @@ def regenerate_attendance(range_start, range_end):
         return False
     # 配对上限(小时): 正常班次最长 12 小时, 上限给加班与偶发超时留缓冲。
     # Owner 2026-09-10 统一放宽到 18h(原为 16h, 环保部/质量控制部已 18h):
-    # 范乃刚 9/9 07:58→次日 00:01 = 16.05h 属真实超长班, 原上限把它挡在配对之外 →
+    # 现场存在 16h+ 的真实超长班；过低上限会把合法下班卡挡在配对之外 →
     # 上班卡成孤立卡 → 误判缺勤。
     MAX_GAP_HOURS = 18
 
@@ -719,8 +742,6 @@ def regenerate_attendance(range_start, range_end):
             for name, emp, date, status, shift, late, ck, wh, miss_out in chunk
         )
         frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out) VALUES " + values)
-    frappe.db.commit()
-
     # 注意: 原「孤卡补缺」逻辑已删除（Owner 2026-08-17 确认）——
     # 员工当天打卡全部被前一夜班配对消耗时（下夜班休息日，如早晨 8 点的下班卡
     # 配给前晚夜班），当天视为休息日，不再补判缺勤。
