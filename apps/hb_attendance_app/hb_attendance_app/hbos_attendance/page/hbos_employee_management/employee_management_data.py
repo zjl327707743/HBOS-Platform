@@ -1,5 +1,22 @@
 import frappe
 
+READ_ROLES = {"HR User", "HR Manager", "System Manager"}
+WRITE_ROLES = {"HR Manager", "System Manager"}
+
+
+def _require_roles(allowed):
+    if not (set(frappe.get_roles()) & set(allowed)):
+        frappe.throw("你无权访问考勤人员管理。", frappe.PermissionError)
+
+
+def _require_hr_read():
+    _require_roles(READ_ROLES)
+
+
+def _require_hr_write():
+    _require_roles(WRITE_ROLES)
+
+
 
 @frappe.whitelist()
 def get_employees(department=None, search=None, fixed_shift=None):
@@ -7,6 +24,7 @@ def get_employees(department=None, search=None, fixed_shift=None):
 
     filters: department(可选), search(姓名/工号模糊), fixed_shift(可选)
     """
+    _require_hr_read()
     conditions = ["e.status = 'Active'"]
     values = {}
     if department:
@@ -34,6 +52,7 @@ def get_employees(department=None, search=None, fixed_shift=None):
 @frappe.whitelist()
 def get_departments():
     """部门列表(带人数), 用于筛选下拉。"""
+    _require_hr_read()
     rows = frappe.db.sql("""
         SELECT department, COUNT(*) cnt FROM tabEmployee
         WHERE status = 'Active' GROUP BY department ORDER BY department
@@ -44,6 +63,7 @@ def get_departments():
 @frappe.whitelist()
 def get_shift_options():
     """生效中的班次规则(用于绑定下拉)。"""
+    _require_hr_read()
     return frappe.db.get_all(
         "HBOS Shift Rule",
         filters={"status": "生效"},
@@ -55,6 +75,7 @@ def get_shift_options():
 @frappe.whitelist()
 def bind_shift(employee, shift_rule):
     """绑定/解绑固定班次。shift_rule 传空字符串 = 解绑。"""
+    _require_hr_write()
     if shift_rule:
         frappe.db.set_value("Employee", employee, "hbos_fixed_shift", shift_rule,
                             update_modified=False)
@@ -68,6 +89,7 @@ def bind_shift(employee, shift_rule):
 @frappe.whitelist()
 def bulk_bind_shift(employees, shift_rule):
     """批量绑定固定班次。employees: 逗号分隔的员工名列表。"""
+    _require_hr_write()
     names = [e.strip() for e in (employees or "").split(",") if e.strip()]
     bound = 0
     for emp in names:
