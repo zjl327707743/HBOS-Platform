@@ -72,7 +72,7 @@ docker compose -p "$PROJECT" up -d backend
 echo "[PLATFORM] verify installed apps"
 APPS="$(docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" list-apps)"
 printf '%s\n' "$APPS"
-for app in frappe erpnext hrms hb_attendance_app hb_inventory_app hb_lims_app; do
+for app in frappe erpnext hrms hb_attendance_app hb_inventory_app hb_lims_app hbos_portal; do
   printf '%s\n' "$APPS" | awk '{print $1}' | grep -qx "$app" || {
     echo "::error:: platform clean site missing app: $app"
     exit 1
@@ -82,6 +82,11 @@ done
 echo "[PLATFORM] double migrate"
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
+
+echo "[PLATFORM] Portal Registry + LIMS provider"
+docker compose -p "$PROJECT" exec -T \
+  -e HBOS_PORTAL_INTEGRATION_CHECKS=1 \
+  backend bench --site "$SITE_NAME" execute hbos_portal.integration_checks.run
 
 echo "[PLATFORM] verify Chinese font inside backend"
 docker compose -p "$PROJECT" exec -T backend bash -lc \
