@@ -1,0 +1,13 @@
+# Web 层
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+python-multipart>=0.0.9        # FastAPI 处理 multipart 上传所必需
+pydantic>=2.5,<3.0
+
+# 说明：
+#   识别后端所需的**重型 ML 依赖不在本文件**，按需单独安装：
+#     C1（本地量化大模型，走 MLX/Metal）：pip install mlx-vlm
+#     C2（本地 OCR）：                    pip install paddleocr paddlepaddle
+#   这样 Web 骨架可以在**不装任何 ML 依赖**的情况下直接跑起来做链路冒烟测试
+#   （用 stub 后端），符合 M3-R6 方案第九节的时序结论：
+#   「除准确率测量外，其余工作都不被真实样本阻塞」。

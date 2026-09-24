@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HBOS LIMS · 合规审计日志原型</title>
+<style>
+  :root {
+    --bg: #edf1ef;
+    --surface: #ffffff;
+    --surface-2: #f7f9f8;
+    --sidebar: #0d2b28;
+    --sidebar-2: #12352f;
+    --sidebar-text: #cfe0da;
+    --ink: #162623;
+    --muted: #5f726d;
+    --line: #d8e2dd;
+    --primary: #0c7c6a;
+    --primary-strong: #0a6456;
+    --primary-soft: #e3f2ee;
+    --pass: #1d8a5b;
+    --pass-soft: #e4f4ec;
+    --warn: #d1871d;
+    --warn-soft: #fdf2dd;
+    --danger: #c24d3f;
+    --danger-soft: #fbe9e6;
+    --info: #2b6cb0;
+    --info-soft: #e7f0fa;
+    --oos: #a93a2d;
+    --radius: 8px;
+    --font: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--ink); font-size: 13px; line-height: 1.5; min-height: 100vh; }
+  .app { display: flex; min-height: 100vh; }
+
+  .sidebar { width: 232px; flex: 0 0 232px; background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-2) 100%); color: var(--sidebar-text); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px 16px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .brand-mark { width: 34px; height: 34px; border-radius: 8px; background: var(--primary); display: grid; place-items: center; color: #fff; flex: 0 0 34px; }
+  .brand-name { font-size: 15px; font-weight: 700; color: #fff; }
+  .brand-sub { font-size: 10px; color: #8eab9f; margin-top: 2px; }
+  .nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+  .nav-group { margin-bottom: 16px; }
+  .nav-group-title { font-size: 10px; color: #71968b; padding: 6px 10px 4px; text-transform: uppercase; letter-spacing: .08em; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: var(--sidebar-text); cursor: pointer; font-size: 13px; margin-bottom: 2px; transition: background .12s; border: 0; background: transparent; width: 100%; text-align: left; font-family: inherit; }
+  .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .nav-item.active { background: var(--primary); color: #fff; font-weight: 600; }
+  .nav-item svg { width: 16px; height: 16px; flex: 0 0 16px; opacity: .85; }
+  .sidebar-foot { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,.08); font-size: 10px; color: #73998c; }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar { height: 58px; background: var(--surface); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; padding: 0 22px; position: sticky; top: 0; z-index: 20; }
+  .crumb { font-size: 13px; color: var(--muted); } .crumb b { color: var(--ink); }
+  .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .user-chip { display: flex; align-items: center; gap: 8px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; font-size: 13px; }
+  .user-meta .n { font-size: 12px; font-weight: 600; } .user-meta .r { font-size: 10px; color: var(--muted); }
+
+  .content { padding: 22px; flex: 1; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .page-head h1 { font-size: 22px; font-weight: 700; }
+  .page-head p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .input { height: 34px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 0 10px; font-size: 12px; font-family: inherit; color: var(--ink); }
+  .input.ghost { color: var(--muted); }
+  .input.ghost::placeholder { color: var(--muted); }
+  select.input { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 14px, calc(100% - 10px) 14px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 26px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 2px 9px; border-radius: 10px; background: #edf1ef; color: var(--muted); white-space: nowrap; }
+  .pill.muted { background: #edf1ef; color: var(--muted); }
+  .total-pill { margin-left: auto; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .panel-body { padding: 0; }
+
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .tbl th { text-align: left; padding: 10px 14px; font-size: 11px; color: var(--muted); font-weight: 600; background: var(--surface-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .tbl td { padding: 10px 14px; border-bottom: 1px solid #edf1ef; vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl tr.hover:hover td { background: var(--surface-2); }
+  .mono { font-family: var(--mono); }
+  .tbl .num { font-family: var(--mono); }
+
+  .evt { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .evt.cy { background: var(--info-soft); color: var(--info); }        /* 创建 */
+  .evt.md { background: var(--warn-soft); color: var(--warn); }        /* 修改 */
+  .evt.dl { background: var(--danger-soft); color: var(--danger); }     /* 删除 */
+  .evt.sub { background: var(--info-soft); color: var(--info); }       /* 提交 */
+  .evt.rev { background: var(--pass-soft); color: var(--pass); }       /* 复核/批准 */
+  .evt.app { background: var(--pass-soft); color: var(--pass); }
+  .evt.edt { background: var(--danger-soft); color: var(--danger); }   /* 修订 */
+  .evt.oos { background: #f7e9e6; color: var(--oos); }                 /* OOS */
+  .evt.inst { background: var(--primary-soft); color: var(--primary-strong); } /* 仪器使用 */
+  .evt.approve { background: var(--pass-soft); color: var(--pass); }   /* 放行/批准 */
+  .evt.spec { background: var(--info-soft); color: var(--info); }
+  .link { color: var(--primary); cursor: pointer; } .link:hover { text-decoration: underline; }
+  .old { font-family: var(--mono); color: var(--danger); text-decoration: line-through; font-size: 12px; }
+  .arrow { color: var(--muted); margin: 0 4px; }
+  .new { font-family: var(--mono); color: var(--pass); font-weight: 600; font-size: 12px; }
+  .dc { color: var(--muted); font-size: 11px; }
+  .empty-note { text-align: center; color: var(--muted); font-size: 12px; padding: 30px 0; }
+
+  /* 下钻抽屉 */
+  .drawer-mask { position: fixed; inset: 0; background: rgba(13,43,40,.38); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .drawer-mask.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 430px; max-width: 92vw; background: var(--surface); z-index: 41; box-shadow: -12px 0 32px rgba(13,43,40,.18); transform: translateX(100%); transition: transform .24s; display: flex; flex-direction: column; }
+  .drawer.open { transform: translateX(0); }
+  .drawer-head { padding: 16px 18px; border-bottom: 1px solid var(--surface-2); display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .drawer-head h3 { font-size: 15px; } .drawer-head .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .close-btn { border: 0; background: var(--surface-2); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 15px; }
+  .drawer-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+  .sec { margin-bottom: 16px; } .sec-title { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px dashed var(--surface-2); font-size: 12px; }
+  .row:last-child { border-bottom: 0; } .row .k { color: var(--muted); flex: 0 0 88px; } .row .v { font-family: var(--mono); font-size: 11px; text-align: right; word-break: break-all; }
+  .diff-box { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+  .checksum { font-size: 10px; color: var(--muted); font-family: var(--mono); word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L5.5 18a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9.5V3"/><path d="M8 13h8"/></svg></div>
+      <div><div class="brand-name">海滨 LIMS</div><div class="brand-sub">HBOS Laboratory Information System</div></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-group">
+        <div class="nav-group-title">总览</div>
+        <button class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>工作台总览</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">业务操作</div>
+        <button class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L5.5 18a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9.5V3"/><path d="M8 13h8"/></svg><span>样品登记与台账</span></button>
+        <button class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5M8 17h3"/></svg><span>待检任务看板</span></button>
+        <button class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg><span>检验结果录入</span></button>
+        <button class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/><path d="m15.5 14 .8.8 1.7-2"/></svg><span>检验结果台账</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">报告与标准</div>
+        <button class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg><span>COA 报告</span></button>
+        <button class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span>质量标准库</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">合规</div>
+        <button class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>审计追踪查询</span></button>
+        <button class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6M9 16h6M9 8h6"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg><span>合规审计日志</span></button>
+      </div>
+    </nav>
+    <div class="sidebar-foot"><span>HBOS LIMS · MVP</span></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb"><b>HBOS LIMS</b> / <span>合规审计日志</span></div>
+      <div class="topbar-actions">
+        <div class="user-chip"><div class="avatar">林</div><div class="user-meta"><div class="n">林质检</div><div class="r">LIMS Reviewer</div></div></div>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>合规审计日志</h1>
+          <p>全量自动记录登记、修改、仪器使用等数据完整性与法规要求可追溯事件（只读 · 防篡改）</p>
+        </div>
+        <div class="pill muted">114 条事件</div>
+      </div>
+
+      <div class="filter-bar">
+        <input class="input ghost" placeholder="搜索对象 / 摘要 / 字段">
+        <select class="input" style="width:150px"><option>全部事件类型</option><option>创建</option><option>修改</option><option>提交</option><option>复核</option><option>批准</option><option>修订</option><option>放行</option><option>拒绝</option><option>OOS</option><option>仪器使用</option><option>规格生效/废止</option><option>删除</option></select>
+        <select class="input" style="width:150px"><option>全部对象</option><option>HBOS Sample</option><option>HBOS Test Result</option><option>HBOS COA</option><option>HBOS Specification</option><option>HBOS Sample Task</option><option>Instrument</option></select>
+        <select class="input" style="width:150px"><option>全部操作人</option><option>林质检</option><option>陈 QA</option><option>孙 QA</option><option>王微检</option><option>赵理化</option></select>
+        <input class="input ghost" placeholder="开始日期">
+        <input class="input ghost" placeholder="结束日期">
+      </div>
+
+      <div class="panel">
+        <div class="panel-body">
+          <table class="tbl">
+            <thead>
+              <tr><th>时间</th><th>操作人</th><th>事件类型</th><th>对象</th><th>动作摘要</th><th>变更内容（改前 → 改后）</th><th>原因</th></tr>
+            </thead>
+            <tbody>
+              <tr class="hover">
+                <td class="num">2026-08-01 10:12</td><td>林质检</td><td><span class="evt inst">仪器使用</span></td>
+                <td class="mono">HPLC-01</td>
+                <td>含量测定 使用仪器</td><td class="dc">样品 TEST-HBOS-M2-S-001 · 项目 含量测定</td><td class="dc">—</td>
+              </tr>
+              <tr class="hover">
+                <td class="num">2026-08-01 10:15</td><td>林质检</td><td><span class="evt sub">提交</span></td>
+                <td class="mono">HBOS-TR-2026-00001</td>
+                <td>结果提交 · 自动判定 <span class="evt approve">合格</span></td>
+                <td><span class="old">草稿</span><span class="arrow">→</span><span class="new">已提交</span></td><td class="dc">—</td>
+              </tr>
+              <tr class="hover" onclick="openDrawer(this)">
+                <td class="num">2026-08-01 10:30</td><td>陈 QA</td><td><span class="evt rev">复核</span></td>
+                <td class="mono">HBOS-TR-2026-00001</td>
+                <td>结果复核（第二人独立）</td>
+                <td><span class="old">已提交</span><span class="arrow">→</span><span class="new">已复核</span></td><td class="dc">—</td>
+              </tr>
+              <tr class="hover">
+                <td class="num">2026-08-01 11:02</td><td>孙 QA</td><td><span class="evt app">批准</span></td>
+                <td class="mono">HBOS-TR-2026-00001</td>
+                <td>结果批准</td>
+                <td><span class="old">已复核</span><span class="arrow">→</span><span class="new">已批准</span></td><td class="dc">—</td>
+              </tr>
+              <tr class="hover" onclick="openDrawer(this)">
+                <td class="num">2026-08-01 11:20</td><td>赵理化</td><td><span class="evt md">修改</span></td>
+                <td class="mono">HBOS-SMP-2026-0098</td>
+                <td>修改样品登记信息</td>
+                <td><span class="old">93.5 mg</span><span class="arrow">→</span><span class="new">94.2 mg</span> <span class="dc">(批数量)</span></td><td class="dc">—</td>
+              </tr>
+              <tr class="hover">
+                <td class="num">2026-08-01 13:05</td><td>王微检</td><td><span class="evt cy">创建</span></td>
+                <td class="mono">HBOS-SMP-2026-0104</td>
+                <td>样品登记（成品）</td><td class="dc">成品片剂A · 批次 B240804</td><td class="dc">—</td>
+              </tr>
+              <tr class="hover" onclick="openDrawer(this)">
+                <td class="num">2026-08-01 13:40</td><td>陈 QA</td><td><span class="evt oos">OOS</span></td>
+                <td class="mono">HBOS-TR-2026-00009</td>
+                <td>检出 OOS 候选 · 样品锁定</td>
+                <td><span class="old">草稿</span><span class="arrow">→</span><span class="new">OOS锁定</span></td><td class="dc">结果 86.2% 低于限度 90.0%</td>
+              </tr>
+              <tr class="hover">
+                <td class="num">2026-08-01 14:10</td><td>林质检</td><td><span class="evt edt">修订</span></td>
+                <td class="mono">HBOS-TR-2026-00009</td>
+                <td>结果修订 · 生成新版本</td>
+                <td><span class="old">86.2%</span><span class="arrow">→</span><span class="new">90.5%</span></td><td class="dc">核对原始数据后修正</td>
+              </tr>
+              <tr class="hover">
+                <td class="num">2026-08-01 15:00</td><td>孙 QA</td><td><span class="evt spec">规格生效</span></td>
+                <td class="mono">SPEC-RM001-V2</td>
+                <td>质量标准生效</td>
+                <td><span class="old">草稿</span><span class="arrow">→</span><span class="new">已生效</span></td><td class="dc">—</td>
+              </tr>
+              <tr class="hover">
+                <td class="num">2026-08-01 16:20</td><td>陈 QA</td><td><span class="evt approve">放行</span></td>
+                <td class="mono">HBOS-SMP-2026-0099</td>
+                <td>样品放行</td>
+                <td><span class="old">检验完成</span><span class="arrow">→</span><span class="new">已放行</span></td><td class="dc">—</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty-note" style="display:none">暂无匹配的审计事件</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 下钻抽屉 -->
+<div class="drawer-mask" id="mask" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div><h3 id="d-title">结果复核</h3><div class="sub" id="d-sub">HBOS-TR-2026-00001 · 含量测定</div></div>
+    <button class="close-btn" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body">
+    <div class="sec">
+      <div class="sec-title">事件信息</div>
+      <div class="row"><span class="k">时间</span><span class="v">2026-08-01 10:30:12</span></div>
+      <div class="row"><span class="k">操作人</span><span class="v">陈 QA</span></div>
+      <div class="row"><span class="k">对象</span><span class="v">HBOS-TR-2026-00001</span></div>
+      <div class="row"><span class="k">类型</span><span class="v" id="d-type">复核</span></div>
+    </div>
+    <div class="sec">
+      <div class="sec-title">变更内容</div>
+      <div class="diff-box"><span class="old">已提交</span><span class="arrow">→</span><span class="new">已复核</span></div>
+    </div>
+    <div class="sec">
+      <div class="sec-title">数据完整性</div>
+      <div class="row"><span class="k">记录指纹</span><span class="v checksum">sha1: 3c9f2a7d…e4b81c</span></div>
+      <div class="row"><span class="k">签名</span><span class="v">复核人: 陈 QA @ 2026-08-01 10:30:12</span></div>
+    </div>
+  </div>
+</aside>
+
+<script>
+  const samples = [
+    { t: '结果复核', sub: 'HBOS-TR-2026-00001 · 含量测定', type: '复核' },
+    { t: '修改样品登记信息', sub: 'HBOS-SMP-2026-0098 · 成品片剂A', type: '修改' },
+    { t: '检出 OOS 候选', sub: 'HBOS-TR-2026-00009 · 含量测定', type: 'OOS' },
+  ];
+  let si = 0;
+  function openDrawer() {
+    const s = samples[si % samples.length]; si++;
+    document.getElementById('d-title').textContent = s.t;
+    document.getElementById('d-sub').textContent = s.sub;
+    document.getElementById('d-type').textContent = s.type;
+    document.getElementById('mask').classList.add('open');
+    document.getElementById('drawer').classList.add('open');
+  }
+  function closeDrawer() {
+    document.getElementById('mask').classList.remove('open');
+    document.getElementById('drawer').classList.remove('open');
+  }
+</script>
+</body>
+</html>

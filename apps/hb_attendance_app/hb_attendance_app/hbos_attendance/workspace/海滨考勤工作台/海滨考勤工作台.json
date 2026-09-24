@@ -16,8 +16,40 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "月度考勤汇总",
+   "link_count": 0,
+   "link_to": "月度考勤汇总",
+   "link_type": "Report",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "基础设置",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "label": "班次管理",
+   "link_to": "hbos-shift-management",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "label": "人员管理",
+   "link_to": "hbos-employee-management",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "导入与数据",
-   "link_count": 3,
+   "link_count": 5,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -39,6 +71,16 @@
    "link_to": "HBOS Attendance Import Log",
    "link_type": "DocType",
    "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "飞书调休记录",
+   "link_count": 0,
+   "link_to": "HBOS Rest Leave Record",
+   "link_type": "DocType",
+   "onboard": 0,
    "type": "Link"
   },
   {
@@ -83,7 +125,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "仪表盘",
-   "link_count": 1,
+   "link_count": 2,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -93,6 +135,16 @@
    "label": "考勤异常仪表盘",
    "link_count": 0,
    "link_to": "hbos-attendance-dashboard",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "部门看板",
+   "link_count": 0,
+   "link_to": "hbos-department-board",
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
@@ -126,7 +178,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-10 00:00:00.000000",
+ "modified": "2026-09-22 09:37:32.740801",
  "modified_by": "Administrator",
  "module": "HBOS Attendance",
  "name": "海滨考勤工作台",
@@ -197,6 +249,12 @@
    "color": "Red",
    "label": "考勤异常仪表盘",
    "link_to": "hbos-attendance-dashboard",
+   "type": "Page"
+  },
+  {
+   "color": "Teal",
+   "label": "部门看板",
+   "link_to": "hbos-department-board",
    "type": "Page"
   }
  ],

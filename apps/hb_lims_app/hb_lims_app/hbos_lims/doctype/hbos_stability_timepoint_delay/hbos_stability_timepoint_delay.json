@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "creation": "2026-09-18 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "delay_type",
+  "planned_due_date",
+  "policy_latest_due_date",
+  "column_break_delay",
+  "requested_due_date",
+  "reason",
+  "apply_by",
+  "apply_date",
+  "column_break_delay2",
+  "status",
+  "approver_by",
+  "approve_at",
+  "approved_due_date",
+  "reject_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "delay_type",
+   "fieldtype": "Select",
+   "label": "延期类型",
+   "reqd": 1,
+   "in_list_view": 1,
+   "options": "取样延期\n检测延期"
+  },
+  {
+   "fieldname": "planned_due_date",
+   "fieldtype": "Date",
+   "label": "计划日期",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "policy_latest_due_date",
+   "fieldtype": "Date",
+   "label": "政策最新截止日（硬上限）",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_delay",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "requested_due_date",
+   "fieldtype": "Date",
+   "label": "申请顺延至",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "延期原因",
+   "reqd": 1
+  },
+  {
+   "fieldname": "apply_by",
+   "fieldtype": "Link",
+   "label": "申请人",
+   "options": "User",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "apply_date",
+   "fieldtype": "Date",
+   "label": "申请日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_delay2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "审批状态",
+   "options": "待批准\n已批准\n已驳回",
+   "default": "待批准",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "approver_by",
+   "fieldtype": "Link",
+   "label": "批准人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approve_at",
+   "fieldtype": "Datetime",
+   "label": "批准时间",
+   "read_only": 1,
+   "description": "Datetime 而非 Date：同日多次批准也需唯一顺序（方案 P2-3）"
+  },
+  {
+   "fieldname": "approved_due_date",
+   "fieldtype": "Date",
+   "label": "批准允许日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reject_reason",
+   "fieldtype": "Data",
+   "label": "驳回原因",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-18 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Timepoint Delay",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "hash",
+ "istable": 1,
+ "permissions": []
+}

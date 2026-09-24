@@ -1,0 +1,18 @@
+source,target
+HBOS Sample,样品登记
+HBOS Sample Item,样品待检项目
+HBOS Sample Task,检验任务
+HBOS Test Result,检测记录
+HBOS Result Revision,结果修订记录
+HBOS COA,检验报告书
+HBOS COA Item,报告项目
+HBOS Specification,质量标准
+HBOS Specification Item,标准检验项目
+HBOS Test Item,检验项目
+HBOS Calculation,计算公式
+HBOS Sample Type,样品类型
+HBOS Lab Department,检验组
+HBOS LIMS,海滨LIMS
+HBOS Retention Product,留样产品
+HBOS Retention Sample,留样登记
+HBOS Retention Stock Log,留样库存流水

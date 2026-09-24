@@ -1,0 +1,40 @@
+name: HBOS Attendance Integration Gate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/hb_attendance_app/**"
+      - "docker-compose.yml"
+      - "scripts/ci/attendance_clean_site_smoke.sh"
+      - ".github/workflows/attendance-integration-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  clean-site:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'integration/pr9-attendance-clean'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare HRMS v16 source
+        run: |
+          mkdir -p runtime/apps
+          git clone --depth 1 --branch version-16 https://github.com/frappe/hrms.git runtime/apps/hrms
+
+      - name: Shell syntax
+        run: bash -n scripts/ci/attendance_clean_site_smoke.sh
+
+      - name: Clean-site install + migrate smoke
+        env:
+          HBOS_SMOKE_PROJECT: hbos-attendance-${{ github.run_id }}
+        run: bash scripts/ci/attendance_clean_site_smoke.sh

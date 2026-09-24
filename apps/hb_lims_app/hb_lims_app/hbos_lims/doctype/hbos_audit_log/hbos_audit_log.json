@@ -1,0 +1,144 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-08-27 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "log_type",
+  "doctype_target",
+  "doc_name",
+  "action_text",
+  "field_changed",
+  "old_value",
+  "new_value",
+  "reason",
+  "user",
+  "created_at",
+  "checksum"
+ ],
+ "fields": [
+  {
+   "default": "HBOS-AUDIT-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-AUDIT-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "log_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "事件类型",
+   "options": "创建\n修改\n删除\n提交\n复核\n批准\n修订\n放行\n拒绝\nOOS\n仪器使用\n规格生效\n规格废止\n登记入库\n预占\n释放预占\n使用出库\n销毁出库\n受托转出\n手动调整\n续留改期\n观察完成\n观察异常\n审批签署\n审批层跳过\n驳回\n越权拦截\nSoD 拦截\n删除拦截\n多条件复核\n通知单提出\n通知单确认\n通知单批准\n通知单取消\n通知单关闭\n方案起草提交\n方案批准\n方案作废\n入箱登记\n超期进箱评估\n储存复核\n样品进入待处置\n待处置取消（回库）\n取样出库\n取样完成\n返还\n时间点生成\n时间点生成失败\n0 月数据豁免校验\n追加条件/时间点\n检测开始\n检测完成\n时间点取消\n时间点重开\n超方案取样批准\n取样延期申请\n取样延期批准\n取样延期驳回\n检测延期申请\n检测延期批准\n检测延期驳回\n结果录入\n结果提交\n结果复核\n结果退回\n结果批准\n结果修订\n结果作废\n结果被取代\n生效结果作废\n显著变化判定\n趋势评估\n报告起草\n报告起草提交\n报告审核\n报告批准\n报告作废\n有效期判定\n变更申请\n变更QA审核\n一般变更批准\n重大变更批准\n变更取消\n变更实施回写\n变更后评估\n变更重启\n温湿度记录\n温湿度超标\n设备台账变更\n设备故障\n故障处理中\n故障待评估\n退回处理\n故障关闭\n一致性异常",
+   "reqd": 1
+  },
+  {
+   "fieldname": "doctype_target",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "对象类型",
+   "reqd": 1
+  },
+  {
+   "fieldname": "doc_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "对象名称",
+   "reqd": 1
+  },
+  {
+   "fieldname": "action_text",
+   "fieldtype": "Data",
+   "label": "动作摘要"
+  },
+  {
+   "fieldname": "field_changed",
+   "fieldtype": "Data",
+   "label": "变更字段"
+  },
+  {
+   "fieldname": "old_value",
+   "fieldtype": "Long Text",
+   "label": "修改前值"
+  },
+  {
+   "fieldname": "new_value",
+   "fieldtype": "Long Text",
+   "label": "修改后值"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "原因"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "操作人",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "操作时间",
+   "reqd": 1
+  },
+  {
+   "fieldname": "checksum",
+   "fieldtype": "Data",
+   "label": "记录指纹",
+   "read_only": 1
+  }
+ ],
+ "icon": "file-search",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Audit Log",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

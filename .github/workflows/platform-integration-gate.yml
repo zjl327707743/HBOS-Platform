@@ -1,0 +1,65 @@
+name: HBOS Platform Integration Gate
+
+on:
+  push:
+    branches:
+      - integration/hbos-platform-v1
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/hb_attendance_app/**"
+      - "apps/hb_inventory_app/**"
+      - "apps/hb_lims_app/**"
+      - "services/hbos_ocr/**"
+      - "frontend/hbos-lims-web/**"
+      - "docker-compose.yml"
+      - ".env.example"
+      - "scripts/setup_fonts.sh"
+      - "scripts/ci/platform_clean_site_smoke.sh"
+      - ".github/workflows/platform-integration-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  platform-clean-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare HRMS v16 source
+        run: |
+          mkdir -p runtime/apps
+          git clone --depth 1 --branch version-16 https://github.com/frappe/hrms.git runtime/apps/hrms
+
+      - name: Validate shell
+        run: |
+          bash -n scripts/setup_fonts.sh
+          bash -n scripts/ci/platform_clean_site_smoke.sh
+
+      - name: Three-app clean-site integration
+        env:
+          HBOS_SMOKE_PROJECT: hbos-platform-${{ github.run_id }}
+        run: bash scripts/ci/platform_clean_site_smoke.sh
+
+  lims-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/hbos-lims-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/hbos-lims-web/package-lock.json
+      - run: npm ci
+      - run: npm run test:unit
+      - run: npm run build:prod
+      - name: Verify production artifact
+        run: test -f dist/index.html

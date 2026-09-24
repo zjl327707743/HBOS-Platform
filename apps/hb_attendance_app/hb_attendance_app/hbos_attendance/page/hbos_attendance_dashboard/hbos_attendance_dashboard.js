@@ -1,4 +1,7 @@
 frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
+	function escHtml(value) {
+		return frappe.utils.escape_html(String(value == null ? "" : value));
+	}
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
 		title: __("考勤异常仪表盘"),
@@ -93,7 +96,7 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 		for (var i = 0; i < rows.length; i++) {
 			var r = rows[i];
 			var total = (r.late_count || 0) + (r.early_count || 0) + (r.absent_count || 0);
-			h += '<tr><td>' + (i + 1) + '</td><td>' + (r.num || "-") + '</td><td>' + (r.name || "-") + '</td><td>' + (r.dept || "-") + '</td>';
+			h += '<tr><td>' + (i + 1) + '</td><td>' + escHtml(r.num || "-") + '</td><td>' + escHtml(r.name || "-") + '</td><td>' + escHtml(r.dept || "-") + '</td>';
 			h += '<td>' + ((r.late_count || 0) > 0 ? '<span class="badge-red">' + r.late_count + '</span>' : "0") + '</td>';
 			h += '<td>' + ((r.early_count || 0) > 0 ? '<span class="badge-orange">' + r.early_count + '</span>' : "0") + '</td>';
 			h += '<td>' + ((r.absent_count || 0) > 0 ? '<span class="badge-orange" style="background:#f3e8ff;color:#7c3aed;">' + r.absent_count + '</span>' : "0") + '</td>';
