@@ -246,3 +246,48 @@ P3-LIMS-2 Stable Deep-link Adapter = NEXT
 Runtime clean-site 已真实验证 Frappe Hook → Portal Registry → LIMS Access → Bootstrap，且没有开启业务数据 capability。
 
 同轮 Attendance G1 与 LIMS → Inventory release integration 继续 PASS。
+
+
+### Portal P3-LIMS-2 / P3-LIMS-3 Closeout — 2026-09-25
+
+Portal 分支已先同步最新 `main`（含已合并 PR #20 的 LIMS production-entry 修复），同步后保持：
+
+- LIMS `/hbos-lims/*` 正式入口与持久静态资源能力；
+- `hbos_portal_provider` 动态 Provider discovery；
+- `hbos_portal` Runtime mount / Registry；
+- 三业务 App 原有联合门禁。
+
+P3 当前状态：
+
+```text
+P3 Business App Registration = IN_PROGRESS
+P3-LIMS-1 Manifest / Access / Registration = COMPLETE
+P3-LIMS-2 Stable Deep-link Adapter = COMPLETE / RUNTIME PASS
+P3-LIMS-3 My Work Projection = COMPLETE / RUNTIME PASS
+P3-LIMS-4 Summary Projection = NEXT
+P3-LIMS-5 Search Provider = PLANNED
+```
+
+LIMS manifest 当前只开放：
+
+```json
+["tasks"]
+```
+
+Summary / Search 仍未开放。
+
+P3-LIMS-2 已建立 LIMS internal route → stable `/hbos/lims/...` → current `/hbos-lims/...` 的双向适配，并保持 `hbos_portal` 不静态 import LIMS。
+
+P3-LIMS-3 已复用现有 `todo_service.get_my_todos()` 输出 Unified Task DTO，Portal 不创建第二套 Todo，不持有业务状态，不执行 LIMS 业务动作。
+
+最终 Runtime：
+
+```text
+Portal Backend Gate = PASS
+Portal Frontend Gate = PASS
+HBOS Quality Gate = PASS
+Platform Integration Gate run 36042393976 = SUCCESS
+HBOS PLATFORM clean-site integration = PASS
+```
+
+clean-site 已验证 `lims_manifest_capabilities=["tasks"]`、Stable Route、LIMS task provider 调用、LIMS + Inventory release chain 与 LIMS production entry 共存。

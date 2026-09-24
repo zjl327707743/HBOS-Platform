@@ -1,29 +1,30 @@
-# HBOS Portal P3-LIMS-1 — First Real Provider Registration
+# HBOS Portal P3 — LIMS Provider Registration
 
-**状态：COMPLETE / RUNTIME GATE PASS**  
+**状态：P3-LIMS-1 / P3-LIMS-2 / P3-LIMS-3 COMPLETE / RUNTIME GATE PASS**  
 **日期：** 2026-09-25  
 **分支：** `feature/hbos-portal-product`
 
-## 1. 目标
+## 1. 当前阶段
 
-P3-LIMS-1 只验证首个真实 Business App 能否通过 HBOS Application Contract 注册进 Portal。
+LIMS 已成为 HBOS Portal 第一个真实 Business App Provider。
 
-本轮仅实现：
+当前完成链路：
 
 ```text
-Manifest
-Access Context
-Stable App Entry
+P3-LIMS-1  Manifest / Access / Registration      COMPLETE
+P3-LIMS-2  Stable Deep-link Adapter              COMPLETE
+P3-LIMS-3  My Work Task Projection               COMPLETE
+P3-LIMS-4  Summary Projection                    NEXT
+P3-LIMS-5  Search Provider                       PLANNED
 ```
 
-明确不实现：
+当前 LIMS manifest capability：
 
-- Summary；
-- My Work / Tasks；
-- Search；
-- LIMS 业务写操作；
-- 第二套权限；
-- Portal 对 LIMS DocType 的直接查询。
+```json
+["tasks"]
+```
+
+`summary` 与 `search` 仍未开放。
 
 ## 2. Provider Registration
 
@@ -46,11 +47,12 @@ frappe.get_hooks("hbos_portal_provider")
 - `hbos_portal` 没有静态 import LIMS；
 - LIMS 自己拥有 Provider adapter；
 - App 安装 / 卸载决定 Provider 是否存在；
-- 一个业务 App 不存在时 Portal 仍可启动。
+- 一个业务 App 不存在时 Portal 仍可启动；
+- Portal 只依赖 Application Contract，不依赖 LIMS DocType / workflow 实现。
 
-## 3. Manifest
+## 3. P3-LIMS-1 — Manifest / Access / Registration
 
-当前 LIMS manifest：
+LIMS 稳定 manifest：
 
 ```json
 {
@@ -64,23 +66,19 @@ frappe.get_hooks("hbos_portal_provider")
   "order": 30,
   "migration_mode": "native",
   "route": "/hbos/lims",
-  "capabilities": []
+  "capabilities": ["tasks"]
 }
 ```
 
-`capabilities=[]` 是有意设计。
+说明：
 
-P3-LIMS-1 尚未放行：
+- P3-LIMS-1 首次注册时 `capabilities=[]`；
+- P3-LIMS-3 通过 Gate 后只开放 `tasks`；
+- `summary` / `search` 必须分别通过后续 Gate 才能加入 manifest。
 
-- summary；
-- tasks；
-- search。
+### Access Context
 
-这些能力必须分别通过后续 Gate 才加入 manifest。
-
-## 4. Access Context
-
-LIMS Provider 从：
+Provider 从：
 
 ```text
 frappe.session.user
@@ -91,101 +89,23 @@ frappe.get_roles(user)
 
 Portal 不传 user / roles，也不解释 LIMS Role 名称。
 
-LIMS Access Adapter 复用现有 LIMS Authority：
+LIMS Access Adapter 继续复用现有 LIMS Authority：
 
 - `LIMS_BUSINESS_ROLES`；
 - `workflow_contract.ROLE_SYSTEM`；
 - Frappe built-in `Administrator` break-glass identity。
 
-对 Portal 输出只包含语义信息：
+输出为语义 Access DTO，不把原始 LIMS role names 暴露给 Portal 授权逻辑。
 
-```json
-{
-  "app_id": "lims",
-  "can_enter": true,
-  "capabilities": ["lims.read"],
-  "scopes": {}
-}
-```
+### P3-LIMS-1 Runtime
 
-不会把：
+GitHub Actions Run：
 
 ```text
-LIMS Analyst
-LIMS Reviewer
-LIMS QA
-...
+36036356941 = SUCCESS
 ```
 
-暴露给 Portal 作为授权逻辑。
-
-## 5. Contract Gate
-
-`HBOS Portal Backend Gate` 新增 LIMS Provider Contract Test，验证：
-
-- Hook factory path；
-- Manifest stable id / route / mode；
-- 本阶段 capabilities 必须为空；
-- Guest 不可进入；
-- LIMS business role 可进入；
-- System Manager 可获得 read entry；
-- unrelated role 不可进入；
-- Administrator break-glass entry；
-- Access DTO 不暴露 raw LIMS role names；
-- Provider identity 来自 Frappe session。
-
-结果：
-
-```text
-Portal Backend Gate = PASS
-HBOS Quality Gate   = PASS
-Portal Frontend Gate = PASS
-```
-
-## 6. Clean-site Packaging Defect Found and Fixed
-
-第一次 P3 runtime clean-site 暴露：
-
-```text
-ModuleNotFoundError:
-No module named 'hbos_portal.hbos_portal'
-```
-
-原因：
-
-`hbos_portal/modules.txt` 声明 `HBOS Portal`，
-Frappe clean-site sync 需要对应 Python module package：
-
-```text
-hbos_portal/hbos_portal/
-```
-
-修复：
-
-```text
-apps/hbos_portal/hbos_portal/hbos_portal/__init__.py
-```
-
-并增加自动契约测试，保证每个 `modules.txt` 声明都存在对应 Python package。
-
-该问题说明：
-
-- P2.2 existing-site smoke 通过不等同于 clean-site 可复现；
-- clean-site Gate 必须继续保留。
-
-## 7. Real Frappe Runtime Gate
-
-Platform clean-site Gate：
-
-```text
-GitHub Actions Run:
-36036356941
-
-Conclusion:
-SUCCESS
-```
-
-真实 runtime 输出：
+首次真实 runtime：
 
 ```json
 {
@@ -199,63 +119,262 @@ SUCCESS
 }
 ```
 
-同时同一 clean-site 中：
+## 4. Main / PR #20 同步
+
+在 P3 继续开发前，Portal 分支已吸收最新 `main`，包含已合并 PR #20 的 LIMS production-entry 修复。
+
+合并时显式保护三处交叉文件：
+
+- `apps/hb_lims_app/hb_lims_app/hooks.py`
+- `docker-compose.yml`
+- `scripts/ci/platform_clean_site_smoke.sh`
+
+最终同时保留：
+
+- `/hbos-lims/*` production history-mode entry；
+- LIMS Vite manifest / persistent assets；
+- `hbos_portal_provider` Hook；
+- `hbos_portal` Compose mount / PYTHONPATH；
+- Portal Registry runtime checks；
+- LIMS production-entry runtime checks。
+
+同步 merge commit：
 
 ```text
-Attendance G1 DB checks = PASS
-LIMS + Inventory release chain = PASS
-LIMS frontend = PASS
+411d550d6a61cb7b24c28004526d8fb5bc902e3a
 ```
 
-说明首个 Portal Provider 没有破坏既有三业务 App 集成。
+对应 Platform Integration Gate 已 PASS。
+
+## 5. P3-LIMS-2 — Stable Deep-link Adapter
+
+Portal 的产品 URL 必须稳定：
+
+```text
+/hbos/lims/...
+```
+
+而当前 LIMS production implementation 仍部署在：
+
+```text
+/hbos-lims/...
+```
+
+因此建立 LIMS-owned 双向适配：
+
+```text
+LIMS Todo internal route + route_params
+        ↓
+build_stable_deep_link()
+        ↓
+/hbos/lims/...
+        ↓
+Portal Route Resolver
+        ↓
+LIMS resolve_stable_route()
+        ↓
+/hbos-lims/...
+```
+
+实现保证：
+
+- 拒绝 scheme / netloc / fragment；
+- 拒绝 `..` traversal；
+- 拒绝 backslash；
+- Stable URL 必须留在 `/hbos/lims` namespace；
+- query params 统一编码；
+- 当前所有 `TODO_RULES` route 有契约测试。
+
+Runtime authority 保持正确依赖方向：
+
+- LIMS 自己验证 internal → stable；
+- Portal 只通过 Provider Contract 验证 stable → implementation；
+- `hbos_portal` 不静态 import `hb_lims_app`。
+
+P3-LIMS-2 Runtime Gate：
+
+```text
+HBOS Portal Backend Gate      = PASS
+HBOS Portal Frontend Gate     = PASS
+HBOS Quality Gate             = PASS
+HBOS Platform Integration Gate run 36041405419 = PASS
+```
+
+## 6. P3-LIMS-3 — My Work Projection
+
+P3-LIMS-3 不创建第二套 Todo。
+
+数据链：
+
+```text
+LIMS authoritative business state
+        ↓
+existing todo_service.get_my_todos()
+        ↓
+LIMS Portal Task Adapter
+        ↓
+Unified Task DTO
+        ↓
+hbos_portal tasks dispatcher
+        ↓
+Portal /hbos/work
+```
+
+新增的 LIMS adapter 只做：
+
+- semantic priority 映射；
+- opaque global `task_id`；
+- `assignment_type` 语义化；
+- stable deep-link 生成；
+- cursor / pagination adapter；
+- 删除 Portal 不应依赖的 raw role / DocType 内部字段。
+
+不会：
+
+- 创建 Portal Todo DocType；
+- 复制 LIMS workflow state；
+- 在 Portal 中直接审批；
+- 绕过 LIMS SoD / workflow / audit；
+- 让 Portal 查询 LIMS DocType。
+
+### Unified Task DTO
+
+典型输出：
+
+```json
+{
+  "task_id": "lims:<opaque-local-key>",
+  "app_id": "lims",
+  "category": "testing",
+  "title": "检验任务",
+  "description": "复核结果",
+  "action": "review_result",
+  "action_label": "复核结果",
+  "priority": "high",
+  "due_at": "2026-09-25",
+  "overdue": false,
+  "assignment_type": "role_pool",
+  "deep_link": "/hbos/lims/tasks?scope=mine&task=TASK-001",
+  "modified_at": "..."
+}
+```
+
+Portal v1 点击任务后：
+
+```text
+stable deep_link
+  ↓
+hbos_portal.api.routes.resolve_route
+  ↓
+current implementation path
+  ↓
+business app executes protected action
+```
+
+业务动作继续由 LIMS 自己重新校验权限、状态、SoD 与审计。
+
+### Frontend integration
+
+真实 Frappe mode：
+
+- Bootstrap 先渲染 Shell；
+- 对声明 `tasks` capability 的 App 异步加载 Tasks；
+- Provider failure 使用 `Promise.allSettled` 隔离；
+- My Work / 首页待办数量随后更新；
+- App Center / App Switcher / My Work 使用同一 Stable Route Resolver；
+- Mock mode 继续保留原型本地路由。
+
+## 7. P3-LIMS-3 Runtime Gate
+
+最终代码 Head：
+
+```text
+67bee0fb44bd103fc6e3216aeb099957f6f4f71b
+```
+
+GitHub Actions：
+
+```text
+HBOS Portal Backend Gate  = PASS
+HBOS Portal Frontend Gate = PASS
+HBOS Quality Gate         = PASS
+HBOS Platform Integration Gate
+  run 36042393976         = SUCCESS
+```
+
+clean-site runtime 关键输出：
+
+```json
+{
+  "registry_entries": ["lims"],
+  "registry_failures": 0,
+  "lims_route": "/hbos/lims",
+  "lims_manifest_capabilities": ["tasks"],
+  "lims_access": true,
+  "lims_resolved_route": "/hbos-lims/tasks?scope=mine&task=TASK-001",
+  "bootstrap_apps": ["lims"],
+  "user": "Administrator"
+}
+```
+
+LIMS-owned deep-link / tasks runtime：
+
+```json
+{
+  "stable_link": "/hbos/lims/tasks?scope=mine&task=TASK-001",
+  "resolved_path": "/hbos-lims/tasks?scope=mine&task=TASK-001",
+  "task_count": 0,
+  "next_cursor": null
+}
+```
+
+`task_count=0` 是 clean-site Administrator 无当前 LIMS 业务待办的预期结果；本 Gate 验证真实 Provider 调用、序列化和路由链不会报错。非空 Task DTO 由契约测试覆盖。
+
+同一 clean-site 继续通过：
+
+```text
+Attendance G1 DB checks
+LIMS + Inventory release chain
+LIMS frontend unit/build
+LIMS production entry
+frontend recreation asset persistence
+```
+
+最终：
+
+```text
+HBOS PLATFORM clean-site integration PASS
+```
 
 ## 8. Definition of Done
 
 ```text
-P3-LIMS-1 Manifest             = PASS
-P3-LIMS-1 Access Context       = PASS
-P3-LIMS-1 Frappe Hook Discovery = PASS
-P3-LIMS-1 Registry             = PASS
-P3-LIMS-1 Bootstrap Visibility = PASS
-P3-LIMS-1 Stable App Route     = /hbos/lims
-P3-LIMS-1 Business Data Writes = NONE
-P3-LIMS-1                      = COMPLETE
+P3-LIMS-1 Manifest / Access / Hook / Bootstrap = PASS
+P3-LIMS-2 Stable Deep-link Adapter             = PASS
+P3-LIMS-2 Dependency Direction                 = PASS
+P3-LIMS-3 Existing LIMS Todo Reuse             = PASS
+P3-LIMS-3 Unified Task DTO                      = PASS
+P3-LIMS-3 Stable My Work Link                   = PASS
+P3-LIMS-3 Portal Frontend Consumption           = PASS
+P3-LIMS-3 Business Data Writes                  = NONE
+P3-LIMS-3 New Portal Todo State                 = NONE
+P3-LIMS-1 / 2 / 3                               = COMPLETE
 ```
 
-## 9. 下一步
+## 9. 下一阶段
 
-下一步不是立刻打开 Tasks。
-
-先进入：
+下一阶段：
 
 ```text
-P3-LIMS-2 — Stable Deep-link Adapter
+P3-LIMS-4 — Summary Projection
 ```
 
-原因：
+目标是让 Portal Home 从“可进入 LIMS + 有真实 My Work”继续升级到“有真实 LIMS 业务摘要”。
 
-LIMS 现有 Todo projection 已经非常成熟，但它返回的是 App 内部 route / route_params。
+仍保持：
 
-Portal My Work 需要稳定：
-
-```text
-/hbos/lims/<resource>/<id>/<action?>
-```
-
-因此必须先建立：
-
-```text
-LIMS internal route
-        ↓
-LIMS-owned Portal deep-link adapter
-        ↓
-stable /hbos/lims/... URL
-```
-
-再进入：
-
-```text
-P3-LIMS-3 — My Work Projection
-```
-
-Portal 不得直接暴露 LIMS 内部 Vue route 或 Frappe DocType route。
+- 只读 projection；
+- LIMS 自己计算业务语义；
+- Portal 不查 DocType；
+- 不复制业务事实；
+- `search` 继续保持关闭，待 P3-LIMS-5 单独 Gate。

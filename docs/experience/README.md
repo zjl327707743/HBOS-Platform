@@ -6,7 +6,7 @@
 >
 > Status: **BASELINE**
 >
-> Last updated: 2026-09-24
+> Last updated: 2026-09-25
 
 ## Purpose
 
@@ -33,7 +33,7 @@ All three surfaces normally operate against the same Frappe site, business servi
 | EA-2 | [User Journey & Information Architecture](./EA-2_USER_JOURNEY_IA.md) | Personas, navigation, product map, migration journeys | BASELINE |
 | EA-3 | [Application Contract & Access Model](./EA-3_APPLICATION_CONTRACT_ACCESS.md) | Provider contract, access, summary, tasks, search, deep links | BASELINE |
 | EA-4 | [Design System v1](./EA-4_DESIGN_SYSTEM_V1.md) | HBOS visual language, visual intensity, layout, motion, tokens | BASELINE |
-| EA-5 | [Portal Product Prototype](./EA-5_PORTAL_PRODUCT_PROTOTYPE.md) | High-fidelity prototype and interaction validation | IN_PROGRESS / OWNER VISUAL GATE APPROVED |
+| EA-5 | [Portal Product Prototype](./EA-5_PORTAL_PRODUCT_PROTOTYPE.md) | High-fidelity prototype and interaction validation | COMPLETE / OWNER APPROVED |
 | EA-5.3 | [Product Interaction Review](./EA-5.3_PRODUCT_INTERACTION_REVIEW.md) | Portal / App boundary, My Work, Digital Twin, Chinese UX | BASELINE |
 | EA-5.4 | [Component & Interaction Specification](./EA-5.4_COMPONENT_INTERACTION_SPEC.md) | Component geometry, glass, motion, typography, interaction | BASELINE |
 | EA-5.5 | [Interaction QA / Responsive / Accessibility](./EA-5.5_INTERACTION_QA_RESPONSIVE_ACCESSIBILITY.md) | Frontend reproduction, interaction, responsive and accessibility validation | COMPLETE / OWNER APPROVED |
@@ -112,7 +112,7 @@ Current design authority:
 - EA-5.4 component / interaction specification;
 - `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`.
 
-EA-5.5 and P2.2 runtime validation have passed. The next workstream is **P3 — Business App Registration**.
+EA-5.5 and P2.2 runtime validation have passed. **P3 — Business App Registration** is now in progress; LIMS is the first real Provider.
 
 
 ### Frontend reproduction status
@@ -123,11 +123,11 @@ The approved Portal visual baseline has now been initialized as source code unde
 frontend/hbos-portal-web/
 ```
 
-Status: **SOURCE INITIALIZED / BUILD VERIFICATION PENDING**.
+Status: **BUILD PASS / REAL FRAPPE ADAPTER ACTIVE**.
 
 The source includes Global Header, App Switcher, Notification Center, Command Palette, Portal routes, standalone LIMS shell, Digital Twin overview, EA-5.4 tokens, pointer atmosphere, responsive CSS, and reduced-motion fallback.
 
-Real Frappe / business API integration has not started.
+Real Frappe integration has started through the versioned Application Provider contract; direct business DocType access from Portal remains forbidden.
 
 
 ### EA-5.5 implementation started
@@ -152,7 +152,10 @@ P1 = ARCHITECTURE BASELINE
 P2 = SKELETON IMPLEMENTED / BACKEND GATE PASS
 P2.1 = FRONTEND BOOTSTRAP ADAPTER PASS
 P2.2 = RUNTIME SMOKE TEST PASS
-P3 = BUSINESS APP REGISTRATION NEXT
+P3 = BUSINESS APP REGISTRATION IN PROGRESS
+P3-LIMS-1 = COMPLETE
+P3-LIMS-2 = COMPLETE / RUNTIME PASS
+P3-LIMS-3 = COMPLETE / RUNTIME PASS
 ```
 
 
@@ -186,10 +189,34 @@ Status:
 
 ```text
 P3-LIMS-1 Manifest / Access / Registration = COMPLETE
+P3-LIMS-2 Stable Deep-link Adapter = COMPLETE / RUNTIME PASS
+P3-LIMS-3 My Work Projection = COMPLETE / RUNTIME PASS
 Frappe Registry = ["lims"]
 Bootstrap visible apps = ["lims"]
-Summary / Tasks / Search = NOT ENABLED
-P3-LIMS-2 Stable Deep-link Adapter = NEXT
+Tasks = ENABLED
+Summary / Search = NOT ENABLED
+P3-LIMS-4 Summary Projection = NEXT
 ```
 
 Authority: [P3_LIMS_PROVIDER_REGISTRATION.md](./P3_LIMS_PROVIDER_REGISTRATION.md).
+
+
+### P3 LIMS runtime closeout
+
+Latest verified code authority before this documentation-only closeout:
+
+```text
+67bee0fb44bd103fc6e3216aeb099957f6f4f71b
+```
+
+Platform Integration Gate run `36042393976` passed the clean-site runtime with:
+
+- LIMS Provider Registry / Access / Bootstrap;
+- `tasks` capability only;
+- stable `/hbos/lims/...` deep-link projection and current `/hbos-lims/...` resolution;
+- real LIMS task provider invocation;
+- Attendance G1 checks;
+- LIMS → Inventory release chain;
+- LIMS production frontend and persistent assets.
+
+Next: **P3-LIMS-4 — Summary Projection**.

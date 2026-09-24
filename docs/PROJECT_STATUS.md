@@ -1201,3 +1201,55 @@ GitHub Actions Run：`36036356941` = SUCCESS。
 P3-LIMS-1 仅注册 Manifest / Access / Stable App Entry，没有开启 Summary / Tasks / Search，也没有修改 LIMS 业务状态。
 
 下一步：P3-LIMS-2 Stable Deep-link Adapter。
+
+
+### HBOS Portal P3-LIMS-2 / P3-LIMS-3 Closeout — 2026-09-25
+
+状态：**P3 IN_PROGRESS；LIMS Provider 第一阶段真实数据接入已完成。**
+
+当前：
+
+```text
+EA-5.5 = COMPLETE / OWNER APPROVED
+P1 = COMPLETE
+P2 / P2.1 / P2.2 = COMPLETE / PASS
+P3-LIMS-1 = COMPLETE
+P3-LIMS-2 = COMPLETE / RUNTIME PASS
+P3-LIMS-3 = COMPLETE / RUNTIME PASS
+P3-LIMS-4 Summary Projection = NEXT
+```
+
+本轮已：
+
+- 将已合并 PR #20 的最新 `main` 安全同步到 Portal 分支；
+- 保留 LIMS production-entry、Vite manifest、persistent assets 与 frontend recreation 修复；
+- 完成 LIMS Stable Deep-link 双向 adapter；
+- 复用现有 LIMS Todo service 投影 Portal Unified Task DTO；
+- 在真实 Frappe mode 中异步加载声明 tasks capability 的 Provider；
+- 让 App Center / App Switcher / My Work 统一通过 Stable Route Resolver；
+- 保持 Portal 与 LIMS 依赖方向为 Provider Contract，不出现 Portal → LIMS 静态 import；
+- 未创建 Portal Todo DocType；
+- 未复制 LIMS workflow state；
+- 未增加业务写 API；
+- 未改变 Attendance / Inventory / LIMS 业务 Authority。
+
+最终代码 Gate：
+
+```text
+Head = 67bee0fb44bd103fc6e3216aeb099957f6f4f71b
+HBOS Portal Backend Gate = PASS
+HBOS Portal Frontend Gate = PASS
+HBOS Quality Gate = PASS
+HBOS Platform Integration Gate run 36042393976 = SUCCESS
+```
+
+clean-site runtime 已输出：
+
+```text
+registry_entries = ["lims"]
+registry_failures = 0
+lims_manifest_capabilities = ["tasks"]
+stable_link = /hbos/lims/tasks?scope=mine&task=TASK-001
+resolved_path = /hbos-lims/tasks?scope=mine&task=TASK-001
+HBOS PLATFORM clean-site integration PASS
+```
