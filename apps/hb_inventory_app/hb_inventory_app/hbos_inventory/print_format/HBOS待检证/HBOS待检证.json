@@ -1,0 +1,22 @@
+{
+ "align_labels_right": 0,
+ "creation": "2026-09-14 00:00:00.000000",
+ "custom_format": 1,
+ "disabled": 0,
+ "doc_type": "Batch",
+ "docstatus": 0,
+ "doctype": "Print Format",
+ "font_size": 10,
+ "html": "<style>\n/* 待检证 75×110mm 小标签。版式对齐官方受控表单（APP-SOP-QA -1-A-003-13/4.0）：\n   实测官方模板 sectPr = 4253×6237 twips（= 75.0×110.0mm），表宽 3652 twips（64.3mm），\n   四列 948/560/280/1864 twips；**无竖线、无外框**，只在各行的「值」单元格下画一条横线，\n   末行（操作人/日期）的值下方也有一条。正文字号 12pt（模板 sz=24），\n   储存条件一行官方用 10pt（sz=20），因其内容较长。\n   详见 docs/milestones/M3_R6_入库拍照识别服务方案.md 第九之十二节。 */\n@page { size: 75mm 110mm; margin: 4mm 5mm; }\n.hbos-qc { font-family: \"Times New Roman\", SimSun, \"宋体\", serif;\n           font-size: 12pt; color: #000; line-height: 1.2; }\n.hbos-qc table { width: 100%; border-collapse: collapse; table-layout: fixed; }\n.hbos-qc tr { height: 8.2mm; }\n.hbos-qc tr.tall { height: 14mm; }\n.hbos-qc td { border: 0; padding: 0 1mm; vertical-align: middle; overflow-wrap: break-word; }\n/* 不用 word-break: break-all——它会把 `13/4.0` 断成 `13/4` + `.0`。\n   只对超长不可断的值兜底换行（overflow-wrap）。 */\n/* 唯一出现的线：值单元格的底边线 */\n/* 线的粗细：0.5pt 在 wkhtmltopdf 里会被渲染成极浅的灰（实测最深 195），\n   1px（=0.75pt）才是实打实的黑线，且与官方 0.5pt 的观感一致。 */\n.hbos-qc td.rule { border-bottom: 1px solid #000; }\n.hbos-qc .title { text-align: center; font-weight: bold; }\n.hbos-qc .lbl { font-weight: bold; white-space: nowrap; }\n.hbos-qc .val { text-align: center; }\n.hbos-qc .val-l { text-align: left; }\n.hbos-qc .small { font-size: 10pt; }\n\n/* 纸型 + 压掉 Frappe 打印框架的 A4 假设。\n   1) 纸型必须写在这里——wkhtmltopdf **不认 CSS 的 @page size**，\n      但 Frappe 会读 `.print-format` 上的 page-width/height/margin 传给 wkhtmltopdf\n      （见 frappe/utils/pdf.py 的 read_options_from_html）。\n   2) 框架还注入 `.print-format { min-height: 11.69in }`（=297mm A4 高）\n      与 `.print-format td { padding: 6px !important }`，放在小标签上必然溢出成多页。\n      注意 margin 要用长写法，简写不会被 read_options_from_html 取到；\n      padding 覆盖必须带 !important 且选择器权重要高于框架那条。 */\n.print-format {\n    page-width: 75mm;\n    page-height: 110mm;\n    margin-top: 4mm;\n    margin-bottom: 4mm;\n    margin-left: 5mm;\n    margin-right: 5mm;\n    min-height: 0 !important;\n    max-height: none !important;\n    max-width: none !important;\n    padding: 0 !important;\n}\n.print-format .hbos-qc td, .print-format .hbos-qc th { padding: 0 1mm !important; }\n</style>\n<div class=\"hbos-qc\">\n  <table>\n    <colgroup>\n      <col style=\"width:16.8mm\"><col style=\"width:9.9mm\"><col style=\"width:4.8mm\"><col style=\"width:33.5mm\">\n    </colgroup>\n    <tr class=\"tall\"><td colspan=\"4\" class=\"title\">待检证（Quarantine）编码：APP-SOP-QA<br>-1-A-003-13/4.0</td></tr>\n    <tr><td class=\"lbl\">品名：</td><td colspan=\"3\" class=\"val rule\">{{ doc.item_name or doc.item or \"\" }}</td></tr>\n    <tr><td colspan=\"2\" class=\"lbl\">物料代码：</td><td colspan=\"2\" class=\"val rule\">{{ doc.item or \"\" }}</td></tr>\n    <tr><td colspan=\"2\" class=\"lbl\">供货单位：</td><td colspan=\"2\" class=\"val rule\">{{ hbos_supplier_name(doc.name) }}</td></tr>\n    <tr><td colspan=\"2\" class=\"lbl\">生产单位：</td><td colspan=\"2\" class=\"val rule\">{{ hbos_production_unit(doc.name) }}</td></tr>\n    <tr><td class=\"lbl\">批号：</td><td colspan=\"3\" class=\"val rule\">{{ doc.batch_id or \"\" }}</td></tr>\n    <tr><td class=\"lbl\">数量：</td><td colspan=\"3\" class=\"val rule\">{{ hbos_qty_with_count(doc.name) }}</td></tr>\n    <tr><td colspan=\"2\" class=\"lbl\">储存条件：</td><td colspan=\"2\" class=\"val-l rule small\">{{ hbos_storage_condition(doc.item) }}</td></tr>\n    <tr><td colspan=\"4\" class=\"rule\"></td></tr>\n    <tr><td colspan=\"3\" class=\"lbl\">操作人/日期：</td><td class=\"val rule\">{{ hbos_operator(doc.name) }} <span style=\"white-space:nowrap\">{{ hbos_datetime_cn(hbos_batch_in_date(doc.name)) }}</span></td></tr>\n  </table>\n</div>",
+ "idx": 0,
+ "line_breaks": 0,
+ "modified": "2026-09-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Inventory",
+ "name": "HBOS 待检证",
+ "owner": "Administrator",
+ "print_format_builder": 0,
+ "print_format_type": "Jinja",
+ "show_section_headings": 0,
+ "standard": "Yes"
+}
