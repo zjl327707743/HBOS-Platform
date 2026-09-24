@@ -85,6 +85,12 @@ docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
 
 echo "[PLATFORM] verify Chinese font inside backend"
 docker compose -p "$PROJECT" exec -T backend bash -lc \
+  'test -r /usr/share/fonts/truetype/hbos/NotoSerifSC-Regular.otf && test -r /usr/share/fonts/truetype/hbos/NotoSerifSC-Bold.otf' || {
+  echo "::error:: Noto font files are not readable inside backend"
+  docker compose -p "$PROJECT" exec -T backend bash -lc 'ls -la /usr/share/fonts/truetype/hbos || true'
+  exit 1
+}
+docker compose -p "$PROJECT" exec -T backend bash -lc \
   'fc-cache -f /usr/share/fonts/truetype/hbos >/dev/null 2>&1 || fc-cache -f >/dev/null 2>&1'
 docker compose -p "$PROJECT" exec -T backend bash -lc \
   'fc-list :lang=zh 2>/dev/null | grep -qiE "NotoSerifSC|Noto Serif SC"' || {
