@@ -1,7 +1,6 @@
 """月度考勤汇总 AI 复核：事实包/prompt/返回解析（纯函数，无顶层 frappe 依赖可离线测试）。
 
-LLM 走 OpenAI 兼容协议，配置走 env（HBOS_AI_BASE_URL / HBOS_AI_API_KEY /
-HBOS_AI_MODEL / HBOS_AI_TIMEOUT），不入 git 不入库。
+LLM 走 OpenAI 兼容协议。新环境默认关闭（HBOS_AI_ENABLED=0）；仅显式启用后调用。\n身份信息默认不允许出站，含 PII 的调用还需 HBOS_AI_ALLOW_PII=1。
 AI 只生成复核意见文本，不改写考勤结果、不落库。
 结论枚举：属实 / 存疑 / 非异常。
 """
@@ -19,13 +18,19 @@ AI_BATCH = 20
 AI_BATCH_SECONDS = 100
 
 
+def _env_flag(name, default="0"):
+    return str(os.environ.get(name, default)).strip().lower() in {"1", "true", "yes", "on"}
+
+
 def env_config():
-    """读取 AI 配置。缺失项为空字符串，由调用方判断并 throw。"""
+    """读取 AI 配置；默认关闭，PII 出站需要单独显式授权。"""
     try:
         timeout = int(os.environ.get("HBOS_AI_TIMEOUT", "60"))
     except ValueError:
         timeout = 60
     return {
+        "enabled": _env_flag("HBOS_AI_ENABLED"),
+        "allow_pii": _env_flag("HBOS_AI_ALLOW_PII"),
         "base_url": (os.environ.get("HBOS_AI_BASE_URL") or "").rstrip("/"),
         "api_key": os.environ.get("HBOS_AI_API_KEY") or "",
         "model": os.environ.get("HBOS_AI_MODEL") or "",
@@ -46,7 +51,7 @@ def build_prompt(emp, anomaly_items, checkin_lines, rule_line):
         "结论取值仅限：属实 / 存疑 / 非异常（非异常=系统误判，须给出依据）。",
         "类型取值：迟到 / 早退 / 缺勤。",
         "",
-        f"【员工】{emp.get('name','')} 工号{emp.get('num','')} 部门{emp.get('dept','')}",
+        "【人员】当前待复核记录（姓名、工号、部门未发送）",
         f"【班次规则】{rule_line}",
         f"【打卡流水】\n{checkin_lines}",
         "",
@@ -86,9 +91,17 @@ def parse_review(text, anomaly_keys):
     return out
 
 
-def call_llm(cfg, prompt):
-    """调用 OpenAI 兼容接口，返回模型文本。失败抛中文异常。"""
+def call_llm(cfg, prompt, contains_pii=False):
+    """调用 OpenAI 兼容接口。
+
+    默认完全关闭；若 payload 含姓名/工号/原始说明等身份信息，还必须单独开启
+    HBOS_AI_ALLOW_PII。AI 只返回辅助复核文本，不直接写正式考勤结论。
+    """
     import frappe
+    if not cfg.get("enabled"):
+        frappe.throw("AI 功能未启用（HBOS_AI_ENABLED=0）")
+    if contains_pii and not cfg.get("allow_pii"):
+        frappe.throw("本次 AI 请求包含身份信息，未开启 HBOS_AI_ALLOW_PII")
     if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
         frappe.throw("未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）")
     import requests
