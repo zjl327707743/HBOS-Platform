@@ -48,8 +48,23 @@ def get_base_url() -> str:
     ).rstrip("/")
 
 
-def _request(method: str, path: str, timeout: int, **kwargs) -> dict:
+def get_shared_token() -> str:
+    return (
+        frappe.conf.get("hbos_ocr_shared_token")
+        or os.environ.get("HBOS_OCR_SHARED_TOKEN")
+        or ""
+    ).strip()
+
+
+def _request(method: str, path: str, timeout: int, require_auth: bool = False, **kwargs) -> dict:
     url = f"{get_base_url()}{path}"
+    if require_auth:
+        token = get_shared_token()
+        if not token:
+            raise OcrUnavailable("识别服务认证未配置（HBOS_OCR_SHARED_TOKEN）")
+        headers = dict(kwargs.pop("headers", {}) or {})
+        headers["Authorization"] = f"Bearer {token}"
+        kwargs["headers"] = headers
     try:
         resp = requests.request(method, url, timeout=timeout, **kwargs)
     except requests.exceptions.RequestException as exc:
@@ -114,4 +129,5 @@ def recognize(
         DEFAULT_TIMEOUT,
         files=files,
         data=data,
+        require_auth=True,
     )
