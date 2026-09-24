@@ -202,15 +202,22 @@ def update_shift_rule(rule_name, updates=None, field=None, value=None):
 
 @frappe.whitelist()
 def get_department_shifts(department):
-    """某部门的全部班次(生效+停用, 按生效日期倒序)。"""
+    """All versions for one department, with latest-version marker per stable family."""
     _require_hr_read()
     rules = frappe.db.get_all(
         "HBOS Shift Rule",
         filters={"department": department},
-        fields=["name", "rule_name", "shift_type", "start_time", "end_time",
-                "late_after", "min_hours", "effective_from", "status"],
-        order_by="effective_from desc",
+        fields=["name", "rule_code", "rule_name", "shift_type", "start_time", "end_time",
+                "late_after", "min_hours", "effective_from", "supersedes", "status"],
+        order_by="rule_code, effective_from desc, creation desc",
     )
+    latest = {}
+    for row in rules:
+        code = row.rule_code or row.rule_name or row.name
+        latest.setdefault(code, row.name)
+    for row in rules:
+        code = row.rule_code or row.rule_name or row.name
+        row["is_latest"] = 1 if latest.get(code) == row.name else 0
     return [_fmt_rule(r) for r in rules]
 
 
@@ -259,20 +266,22 @@ def get_department_employees(department):
 def create_shift_rule(rule_name, department, shift_type,
                       start_time, end_time, late_after=None, min_hours=8,
                       effective_from=None):
-    """新建班次规则(状态=生效)。effective_from 缺省时为次日。"""
+    """Create the first version of a new stable shift-rule family."""
     _require_hr_write()
+    from hb_attendance_app.hbos_attendance.doctype.hbos_shift_rule.hbos_shift_rule import make_rule_code
+
     if not effective_from:
         effective_from = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 
     def _norm_time(t):
-        """规范化时间格式为 HH:MM:SS(前端可能传 HH:MM 或错误拼接成 HH:MM:SS:SS)。"""
         if not t:
             return None
         parts = str(t).split(":")
+        while len(parts) < 3:
+            parts.append("00")
         return f"{parts[0].zfill(2)}:{parts[1].zfill(2)}:{parts[2].zfill(2)}"
 
     def _add_one_minute(t):
-        """时间 +1 分钟(迟到起算默认=上班时间+1分钟)。"""
         parts = str(t).split(":")
         h, m = int(parts[0]), int(parts[1])
         m += 1
@@ -284,8 +293,13 @@ def create_shift_rule(rule_name, department, shift_type,
         return f"{h:02d}:{m:02d}:00"
 
     norm_start = _norm_time(start_time)
+    code = make_rule_code(department, rule_name, shift_type)
+    if frappe.db.exists("HBOS Shift Rule", {"rule_code": code}):
+        frappe.throw("同名班次规则族已存在；请使用“保存新版本”，不要重复新建。")
+
     doc = frappe.get_doc({
         "doctype": "HBOS Shift Rule",
+        "rule_code": code,
         "rule_name": rule_name,
         "department": department,
         "shift_type": shift_type,
@@ -298,73 +312,139 @@ def create_shift_rule(rule_name, department, shift_type,
     })
     doc.insert(ignore_permissions=True)
     frappe.db.commit()
-    return {"name": doc.name, "rule_name": doc.rule_name, "effective_from": effective_from}
+    return {
+        "name": doc.name,
+        "rule_code": doc.rule_code,
+        "rule_name": doc.rule_name,
+        "effective_from": effective_from,
+    }
 
 
 @frappe.whitelist()
 def bind_employee_shifts(employee, shift_rules):
-    """多班次绑定: 替换员工的全部班次绑定。
-
-    shift_rules: JSON 数组字符串, 如 '["HBOS-SHIFT-0001","HBOS-SHIFT-0002"]'
-    """
+    """Replace employee bindings using stable rule codes, not version docnames."""
     _require_hr_write()
     import json as _json
     try:
-        rules = _json.loads(shift_rules or "[]")
+        codes = [str(x).strip() for x in _json.loads(shift_rules or "[]") if str(x).strip()]
     except Exception:
         frappe.throw("班次列表格式错误")
-    # 清空旧绑定
+
+    # Preserve order while removing duplicates.
+    codes = list(dict.fromkeys(codes))
+    representative = {}
+    for code in codes:
+        versions = frappe.db.get_all(
+            "HBOS Shift Rule",
+            filters={"rule_code": code},
+            fields=["name", "status", "effective_from"],
+            order_by="effective_from desc, creation desc",
+        )
+        if not versions:
+            frappe.throw(f"规则族不存在：{code}")
+        usable = [r for r in versions if r.status != "草稿"]
+        if not usable:
+            frappe.throw(f"规则族 {code} 只有草稿版本，不能绑定员工。")
+        representative[code] = usable[0].name
+
     frappe.db.delete("HBOS Employee Shift", {"employee": employee})
-    for r in rules:
+    for index, code in enumerate(codes):
         frappe.get_doc({
             "doctype": "HBOS Employee Shift",
             "employee": employee,
-            "shift_rule": r,
+            "rule_code": code,
+            "shift_rule": representative[code],
+            "is_primary": 1 if index == 0 else 0,
         }).insert(ignore_permissions=True)
+
+    # Maintain legacy single-binding fields only as compatibility mirrors.
+    primary = codes[0] if codes else None
+    frappe.db.set_value(
+        "Employee",
+        employee,
+        {
+            "hbos_fixed_shift_code": primary,
+            "hbos_fixed_shift": representative.get(primary) if primary else None,
+        },
+        update_modified=False,
+    )
     frappe.db.commit()
-    return {"employee": employee, "shift_rules": rules}
+    return {"employee": employee, "shift_rules": codes}
 
 
 @frappe.whitelist()
 def get_employee_bound_shifts(employee):
-    """员工的全部班次绑定(规则名列表)。"""
+    """Return stable rule codes bound to the employee."""
     _require_hr_read()
-    return [r.shift_rule for r in frappe.db.get_all(
+    rows = frappe.db.get_all(
         "HBOS Employee Shift",
         filters={"employee": employee},
-        fields=["shift_rule"],
-        order_by="shift_rule")]
+        fields=["rule_code", "shift_rule", "is_primary"],
+        order_by="is_primary desc, creation asc",
+    )
+    out = []
+    for row in rows:
+        code = row.rule_code
+        if not code and row.shift_rule:
+            code = frappe.db.get_value("HBOS Shift Rule", row.shift_rule, "rule_code")
+        if code and code not in out:
+            out.append(code)
+    return out
 
 
 @frappe.whitelist()
 def set_rule_status(rule_name, status):
-    """调整规则状态: 生效/停用/草稿。"""
+    """Versioned status change. Historical versions are never mutated in place."""
     _require_hr_write()
-    allowed = {"生效", "停用", "草稿"}
-    if status not in allowed:
-        frappe.throw(f"不允许的状态: {status}")
-    if not frappe.db.exists("HBOS Shift Rule", rule_name):
-        frappe.throw("规则不存在")
-    frappe.db.set_value("HBOS Shift Rule", rule_name, "status", status, update_modified=False)
+    if status not in {"生效", "停用"}:
+        frappe.throw("状态变更只支持「生效 / 停用」；草稿不允许覆盖已生效历史。")
+
+    old = frappe.get_doc("HBOS Shift Rule", rule_name)
+    latest = frappe.db.get_all(
+        "HBOS Shift Rule",
+        filters={"rule_code": old.rule_code},
+        fields=["name"],
+        order_by="effective_from desc, creation desc",
+        limit_page_length=1,
+    )
+    if latest and latest[0].name != old.name:
+        frappe.throw("只能调整规则族最新版本的状态，请刷新页面。")
+    if old.status == status:
+        return {"rule": old.name, "status": old.status, "versioned": False}
+
+    effective_from = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    new_doc = frappe.copy_doc(old)
+    new_doc.rule_code = old.rule_code
+    new_doc.supersedes = old.name
+    new_doc.status = status
+    new_doc.effective_from = effective_from
+    new_doc.insert(ignore_permissions=True)
     frappe.db.commit()
-    return {"rule": rule_name, "status": status}
+    return {
+        "rule": new_doc.name,
+        "rule_code": new_doc.rule_code,
+        "status": status,
+        "effective_from": effective_from,
+        "versioned": True,
+    }
 
 
 @frappe.whitelist()
 def delete_shift_rule(rule_name):
-    """删除班次规则。已绑定员工的规则先解绑。"""
+    """Only an unreferenced draft version may be physically deleted."""
     _require_hr_write()
     if not frappe.db.exists("HBOS Shift Rule", rule_name):
         frappe.throw("规则不存在")
-    # 解绑所有绑定此规则的员工
-    bound = frappe.db.count("HBOS Employee Shift", {"shift_rule": rule_name})
-    frappe.db.delete("HBOS Employee Shift", {"shift_rule": rule_name})
-    # 清除单字段绑定
-    for e in frappe.db.get_all("Employee", filters={"hbos_fixed_shift": rule_name}, pluck="name"):
-        frappe.db.set_value("Employee", e, "hbos_fixed_shift", None, update_modified=False)
-    frappe.db.delete("HBOS Shift Rule", rule_name)
+    doc = frappe.get_doc("HBOS Shift Rule", rule_name)
+    if doc.status != "草稿":
+        frappe.throw("已进入历史链的规则版本不可物理删除；请创建「停用」版本。")
+    if frappe.db.exists("HBOS Shift Rule", {"supersedes": doc.name}):
+        frappe.throw("该规则版本已有后继版本，不可删除。")
+    if frappe.db.exists("HBOS Employee Shift", {"rule_code": doc.rule_code}):
+        frappe.throw("该规则族已有员工绑定，不可删除。")
+    frappe.delete_doc("HBOS Shift Rule", doc.name, ignore_permissions=True)
     frappe.db.commit()
-    return {"deleted": rule_name, "unbound": bound}
+    return {"deleted": doc.name}
 
 
 @frappe.whitelist()
