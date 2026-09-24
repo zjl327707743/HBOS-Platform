@@ -58,11 +58,15 @@ jobs:
 
       - name: 禁止 Excel 和真实数据 CSV
         run: |
-          if cat /tmp/hbos_changed_files | grep -qiE '\.(xlsx|xls|csv)$'; then
-            echo "::error:: 禁止提交 Excel 或 CSV 文件（可能含真实数据）"
+          # 仅允许版本化程序翻译资源 CSV；其他 CSV/XLS/XLSX 一律阻断。
+          grep -viE '^apps/hb_attendance_app/hb_attendance_app/translations/zh\.csv$' /tmp/hbos_changed_files \
+            > /tmp/hbos_changed_files_without_allowed_translation || true
+          if cat /tmp/hbos_changed_files_without_allowed_translation | grep -qiE '\.(xlsx|xls|csv)$'; then
+            echo "::error:: 禁止提交 Excel 或真实数据 CSV 文件"
+            cat /tmp/hbos_changed_files_without_allowed_translation | grep -iE '\.(xlsx|xls|csv)$' || true
             exit 1
           fi
-          echo " 无 Excel / CSV 文件"
+          echo " 无 Excel / 真实数据 CSV 文件"
 
       - name: 禁止私钥和证书
         run: |
