@@ -28,7 +28,7 @@ jobs:
         run: |
           set -e
           git rev-parse --verify origin/main
-          cat /tmp/hbos_changed_files > /tmp/hbos_changed_files
+          git diff --name-only origin/main...HEAD > /tmp/hbos_changed_files
           test -s /tmp/hbos_changed_files || echo "本 PR 没有文件差异"
 
       - name: 设置 Python
@@ -39,7 +39,295 @@ jobs:
       # ─── 检查 1：禁止提交敏感文件 ──────────────────────────
       - name: 禁止 .env 文件
         run: |
-          if cat /tmp/hbos_changed_files | grep -qE '(^|/)\.env; then
+          if cat /tmp/hbos_changed_files | grep -qE '(^|/)\.env
+            echo "::error:: 禁止提交 .env 文件（含敏感配置）"
+            exit 1
+          fi
+          echo " 无 .env 文件提交"
+
+      - name: 禁止数据库 dump 和备份文件
+        run: |
+          if cat /tmp/hbos_changed_files | grep -qE '\.sql(\.gz)?$'; then
+            echo "::error:: 禁止提交数据库 dump 或备份文件"
+            exit 1
+          fi
+          echo " 无数据库 dump 文件"
+
+      - name: 禁止 Excel 和真实数据 CSV
+        run: |
+          if cat /tmp/hbos_changed_files | grep -qiE '\.(xlsx|xls|csv)$'; then
+            echo "::error:: 禁止提交 Excel 或 CSV 文件（可能含真实数据）"
+            exit 1
+          fi
+          echo " 无 Excel / CSV 文件"
+
+      - name: 禁止私钥和证书
+        run: |
+          if cat /tmp/hbos_changed_files | grep -qiE '\.(pem|key|crt|cer|p12|pfx)$'; then
+            echo "::error:: 禁止提交私钥或证书文件"
+            exit 1
+          fi
+          echo " 无私钥或证书"
+
+      - name: 禁止日志和 Site 配置
+        run: |
+          if cat /tmp/hbos_changed_files | grep -qiE '(\.log$|site_config\.json|sites/.*/site_config\.json)'; then
+            echo "::error:: 禁止提交日志或 Site 配置文件"
+            exit 1
+          fi
+          echo " 无日志或 Site 配置"
+
+      # ─── 检查 2：Python 语法编译 ────────────────────────────
+      - name: Python 语法编译检查
+        run: |
+          echo "检查 Python 文件语法..."
+          python -m compileall -q apps/ 2>&1 || {
+            echo "::error:: Python 语法编译失败"
+            exit 1
+          }
+          echo " Python 语法编译通过"
+
+      # ─── 检查 3：脱敏离线回归测试 ───────────────────────────
+      - name: 运行 hb_attendance_app 回归测试
+        run: |
+          echo "运行脱敏离线回归测试..."
+          # Frappe app 目录结构为 apps/<app>/<app>/，需将 apps/hb_attendance_app 加入路径
+          export PYTHONPATH="$PWD/apps/hb_attendance_app:$PYTHONPATH"
+          python -m unittest discover -s apps/hb_attendance_app/tests -v 2>&1
+          echo " 回归测试全部通过"
+
+      # ─── 检查 3b：hb_inventory_app 契约测试 ─────────────────
+      #
+      # 纯静态断言（读源码与 JSON 做检查），不需要 site、不需要数据库、
+      # 不依赖任何第三方包。锁的是「仓库工作台入口可达」这条契约——
+      # 历史上它被破坏过三次（图标被静默丢弃、点单据跳走、面包屑不显示），
+      # 每次都是 Owner 在浏览器里发现的。放进 CI 就是为了不再靠人眼兜底。
+      - name: 运行 hb_inventory_app 契约测试
+        run: |
+          echo "运行 hb_inventory_app 契约测试..."
+          python -m unittest discover -s apps/hb_inventory_app/tests -v 2>&1
+          echo " 契约测试全部通过"
+
+      # ─── 检查 3c：OCR 服务单元测试 ──────────────────────────
+      #
+      # 约束校验层 + C2 抽取规则。同样零依赖（只用标准库）、不联网、
+      # 不启动服务、不读真实样本。
+      - name: 运行 OCR 服务单元测试
+        run: |
+          echo "运行 OCR 服务单元测试..."
+          python services/hbos_ocr/tests/test_validate.py 2>&1
+          python services/hbos_ocr/tests/test_c2_extract.py 2>&1
+          echo " OCR 单元测试全部通过"
+
+      # ─── 检查 3d：中文字体可重建性 ──────────────────────────
+      #
+      # PDF 里的汉字靠**系统字体**渲染，而字体不进仓库（体积 + 授权）。
+      # 缺字体时 wkhtmltopdf 会**静默丢字**（ASCII 正常、汉字消失、不报错），出过事。
+      # 这里真的跑一遍获取脚本，证明"新环境能重建出同样的渲染结果"。
+      #
+      # --install 不能省：脚本默认只把字体放进仓库内的 runtime/fonts/，
+      # 那是给 docker-compose 挂载用的；而 **fontconfig 只扫系统目录**，
+      # 不放进去 fc-list 就是 0。容器里靠挂载生效，CI runner 没有挂载，必须显式装。
+      - name: 中文字体可重建性检查
+        run: |
+          echo "检查中文字体能否重建..."
+          command -v fc-list >/dev/null 2>&1 || {
+            sudo apt-get update -qq && sudo apt-get install -y -qq fontconfig
+          }
+          bash -n scripts/setup_fonts.sh
+          scripts/setup_fonts.sh --install
+          echo " 中文字体可重建"
+
+      # ─── 检查 4：CI 工作流自身语法 ──────────────────────────
+      - name: 检查 CI 工作流 YAML 语法
+        run: |
+          echo "检查工作流文件语法..."
+          pip install -q pyyaml 2>&1
+          for f in .github/workflows/*.yml; do
+            python -c "import yaml; yaml.safe_load(open('$f')); print(f'  $f: OK')"
+          done
+          echo " 工作流语法检查通过"
+
+      # ─── 检查 5：关键 Markdown 文件存在 ─────────────────────
+      - name: 关键 Markdown 文件存在性检查
+        run: |
+          echo "检查关键文档..."
+          required=(
+            "README.md"
+            "CLAUDE.md"
+            "AGENTS.md"
+            "CONTRIBUTING.md"
+          )
+          for f in "${required[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error:: 缺少关键文件: $f"
+              exit 1
+            fi
+            echo "  $f: 存在"
+          done
+          echo " 关键文档检查通过"
+
+      # ─── 检查 6：治理脚本语法（如存在）─────────────────────
+      - name: 治理脚本语法检查
+        run: |
+          if [ -f scripts/ci/verify_repo_policy.sh ]; then
+            echo "检查治理脚本语法..."
+            bash -n scripts/ci/verify_repo_policy.sh && echo "  verify_repo_policy.sh 语法正确"
+          else
+            echo " 未找到治理脚本，跳过"
+          fi
+
+      # ─── 汇总 ───────────────────────────────────────────────
+      - name: 质量门禁通过
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════"
+          echo "  HBOS 质量门禁全部通过"
+          echo "═══════════════════════════════════════════"; then
+            echo "::error:: 禁止提交 .env 文件（含敏感配置）"
+            exit 1
+          fi
+          echo " 无 .env 文件提交"
+
+      - name: 禁止数据库 dump 和备份文件
+        run: |
+          if cat /tmp/hbos_changed_files | grep -qE '\.sql(\.gz)?$'; then
+            echo "::error:: 禁止提交数据库 dump 或备份文件"
+            exit 1
+          fi
+          echo " 无数据库 dump 文件"
+
+      - name: 禁止 Excel 和真实数据 CSV
+        run: |
+          if cat /tmp/hbos_changed_files | grep -qiE '\.(xlsx|xls|csv)$'; then
+            echo "::error:: 禁止提交 Excel 或 CSV 文件（可能含真实数据）"
+            exit 1
+          fi
+          echo " 无 Excel / CSV 文件"
+
+      - name: 禁止私钥和证书
+        run: |
+          if cat /tmp/hbos_changed_files | grep -qiE '\.(pem|key|crt|cer|p12|pfx)$'; then
+            echo "::error:: 禁止提交私钥或证书文件"
+            exit 1
+          fi
+          echo " 无私钥或证书"
+
+      - name: 禁止日志和 Site 配置
+        run: |
+          if cat /tmp/hbos_changed_files | grep -qiE '(\.log$|site_config\.json|sites/.*/site_config\.json)'; then
+            echo "::error:: 禁止提交日志或 Site 配置文件"
+            exit 1
+          fi
+          echo " 无日志或 Site 配置"
+
+      # ─── 检查 2：Python 语法编译 ────────────────────────────
+      - name: Python 语法编译检查
+        run: |
+          echo "检查 Python 文件语法..."
+          python -m compileall -q apps/ 2>&1 || {
+            echo "::error:: Python 语法编译失败"
+            exit 1
+          }
+          echo " Python 语法编译通过"
+
+      # ─── 检查 3：脱敏离线回归测试 ───────────────────────────
+      - name: 运行 hb_attendance_app 回归测试
+        run: |
+          echo "运行脱敏离线回归测试..."
+          # Frappe app 目录结构为 apps/<app>/<app>/，需将 apps/hb_attendance_app 加入路径
+          export PYTHONPATH="$PWD/apps/hb_attendance_app:$PYTHONPATH"
+          python -m unittest discover -s apps/hb_attendance_app/tests -v 2>&1
+          echo " 回归测试全部通过"
+
+      # ─── 检查 3b：hb_inventory_app 契约测试 ─────────────────
+      #
+      # 纯静态断言（读源码与 JSON 做检查），不需要 site、不需要数据库、
+      # 不依赖任何第三方包。锁的是「仓库工作台入口可达」这条契约——
+      # 历史上它被破坏过三次（图标被静默丢弃、点单据跳走、面包屑不显示），
+      # 每次都是 Owner 在浏览器里发现的。放进 CI 就是为了不再靠人眼兜底。
+      - name: 运行 hb_inventory_app 契约测试
+        run: |
+          echo "运行 hb_inventory_app 契约测试..."
+          python -m unittest discover -s apps/hb_inventory_app/tests -v 2>&1
+          echo " 契约测试全部通过"
+
+      # ─── 检查 3c：OCR 服务单元测试 ──────────────────────────
+      #
+      # 约束校验层 + C2 抽取规则。同样零依赖（只用标准库）、不联网、
+      # 不启动服务、不读真实样本。
+      - name: 运行 OCR 服务单元测试
+        run: |
+          echo "运行 OCR 服务单元测试..."
+          python services/hbos_ocr/tests/test_validate.py 2>&1
+          python services/hbos_ocr/tests/test_c2_extract.py 2>&1
+          echo " OCR 单元测试全部通过"
+
+      # ─── 检查 3d：中文字体可重建性 ──────────────────────────
+      #
+      # PDF 里的汉字靠**系统字体**渲染，而字体不进仓库（体积 + 授权）。
+      # 缺字体时 wkhtmltopdf 会**静默丢字**（ASCII 正常、汉字消失、不报错），出过事。
+      # 这里真的跑一遍获取脚本，证明"新环境能重建出同样的渲染结果"。
+      #
+      # --install 不能省：脚本默认只把字体放进仓库内的 runtime/fonts/，
+      # 那是给 docker-compose 挂载用的；而 **fontconfig 只扫系统目录**，
+      # 不放进去 fc-list 就是 0。容器里靠挂载生效，CI runner 没有挂载，必须显式装。
+      - name: 中文字体可重建性检查
+        run: |
+          echo "检查中文字体能否重建..."
+          command -v fc-list >/dev/null 2>&1 || {
+            sudo apt-get update -qq && sudo apt-get install -y -qq fontconfig
+          }
+          bash -n scripts/setup_fonts.sh
+          scripts/setup_fonts.sh --install
+          echo " 中文字体可重建"
+
+      # ─── 检查 4：CI 工作流自身语法 ──────────────────────────
+      - name: 检查 CI 工作流 YAML 语法
+        run: |
+          echo "检查工作流文件语法..."
+          pip install -q pyyaml 2>&1
+          for f in .github/workflows/*.yml; do
+            python -c "import yaml; yaml.safe_load(open('$f')); print(f'  $f: OK')"
+          done
+          echo " 工作流语法检查通过"
+
+      # ─── 检查 5：关键 Markdown 文件存在 ─────────────────────
+      - name: 关键 Markdown 文件存在性检查
+        run: |
+          echo "检查关键文档..."
+          required=(
+            "README.md"
+            "CLAUDE.md"
+            "AGENTS.md"
+            "CONTRIBUTING.md"
+          )
+          for f in "${required[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error:: 缺少关键文件: $f"
+              exit 1
+            fi
+            echo "  $f: 存在"
+          done
+          echo " 关键文档检查通过"
+
+      # ─── 检查 6：治理脚本语法（如存在）─────────────────────
+      - name: 治理脚本语法检查
+        run: |
+          if [ -f scripts/ci/verify_repo_policy.sh ]; then
+            echo "检查治理脚本语法..."
+            bash -n scripts/ci/verify_repo_policy.sh && echo "  verify_repo_policy.sh 语法正确"
+          else
+            echo " 未找到治理脚本，跳过"
+          fi
+
+      # ─── 汇总 ───────────────────────────────────────────────
+      - name: 质量门禁通过
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════"
+          echo "  HBOS 质量门禁全部通过"
+          echo "═══════════════════════════════════════════"; then
             echo "::error:: 禁止提交 .env 文件（含敏感配置）"
             exit 1
           fi
