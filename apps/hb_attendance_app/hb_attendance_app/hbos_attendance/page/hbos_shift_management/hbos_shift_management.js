@@ -7,6 +7,11 @@ frappe.pages["hbos-shift-management"].on_page_load = function (wrapper) {
 	renderPage(wrapper);
 };
 
+function escHtml(value) {
+	return frappe.utils.escape_html(String(value == null ? "" : value));
+}
+
+
 function renderPage(wrapper) {
 	const $main = $(wrapper).find(".layout-main-section").empty();
 	$main.append(`
@@ -412,19 +417,19 @@ function loadDeptEmployees(dept) {
 
 function renderDeptEmployees(dept, employees) {
 	const $emp = $("#dept-employees").empty();
-	let html = `<div class="card"><div class="card-header">${dept} - 人员班次设置（${(employees || []).length}人）</div>
+	let html = `<div class="card"><div class="card-header">${escHtml(dept)} - 人员班次设置（${(employees || []).length}人）</div>
 		<table class="table table-bordered table-sm">
 		<thead><tr><th>工号</th><th>姓名</th><th>已绑定班次</th><th>设置班次（勾选绑定）</th></tr></thead><tbody>`;
 	(employees || []).forEach(e => {
 		// 手动绑定优先, 否则显示系统名单班次
 		const current = e.fixed_shift_name
-			? `${e.fixed_shift_name}（${e.fixed_shift_type}）`
-			: `<span class="text-primary">${e.system_shift || "通用倒班(按时间判定)"}</span>`;
+			? `${escHtml(e.fixed_shift_name)}（${escHtml(e.fixed_shift_type)}）`
+			: `<span class="text-primary">${escHtml(e.system_shift || "通用倒班(按时间判定)")}</span>`;
 		html += `<tr>
-			<td>${e.employee_number || ""}</td>
-			<td>${e.employee_name || ""}</td>
-			<td class="bound-display" data-emp="${e.name}">${current}</td>
-			<td class="shift-checkbox-cell" data-emp="${e.name}"></td>
+			<td>${escHtml(e.employee_number || "")}</td>
+			<td>${escHtml(e.employee_name || "")}</td>
+			<td class="bound-display" data-emp="${escHtml(e.name)}">${current}</td>
+			<td class="shift-checkbox-cell" data-emp="${escHtml(e.name)}"></td>
 		</tr>`;
 	});
 	html += `</tbody></table>
@@ -435,7 +440,7 @@ function renderDeptEmployees(dept, employees) {
 	frappe.call({
 		method: "hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data.get_shift_overview",
 		callback(r) {
-			const rules = (r.message.rules || []).filter(x => x.status === "生效");
+			const rules = (r.message.bindable_rules || []);
 			$emp.find(".shift-checkbox-cell").each(function () {
 				const $cell = $(this);
 				const emp = $cell.attr("data-emp");
@@ -443,8 +448,8 @@ function renderDeptEmployees(dept, employees) {
 				let cbHtml = "";
 				rules.forEach(s => {
 					cbHtml += `<label class="mr-2 mb-1" style="display:inline-block; white-space:nowrap;">
-						<input type="checkbox" class="emp-shift-cb" value="${s.name}">
-						${s.rule_name}
+						<input type="checkbox" class="emp-shift-cb" value="${escHtml(s.rule_code)}">
+						${escHtml(s.rule_name)}
 					</label>`;
 				});
 				$cell.html(cbHtml);
@@ -483,9 +488,9 @@ function updateBoundDisplay(emp, boundRules, allRules) {
 	}
 	let html = "";
 	boundRules.forEach(r => {
-		const rule = allRules.find(x => x.name === r);
-		const label = rule ? `${rule.rule_name}` : r;
-		html += `<span class="badge badge-primary mr-1">${label}</span>`;
+		const rule = allRules.find(x => x.rule_code === r);
+		const label = rule ? rule.rule_name : r;
+		html += `<span class="badge badge-primary mr-1">${escHtml(label)}</span>`;
 	});
 	html += `<span class="text-muted" style="font-size:11px;">（${boundRules.length} 个）</span>`;
 	$cell.html(html);
@@ -519,20 +524,15 @@ function saveShiftRow($btn) {
 	const name = $btn.attr("data-name");
 	const updates = {};
 	row.find(".shift-edit").each(function () {
-		updates[$(this).attr("data-field")] = $(this).val();
+		updates[$(this).attr("data-field")] = normTime($(this).val());
 	});
-	let chain = Promise.resolve();
-	Object.keys(updates).forEach(field => {
-		chain = chain.then(() =>
-			frappe.call({
-				method: "hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data.update_shift_rule",
-				args: { rule_name: name, field: field, value: normTime(updates[field]) },
-			})
-		);
-	});
-	chain.then(() => {
-		frappe.show_alert({ message: __("已保存，次日生效"), indicator: "green" });
-		loadOverview();
+	frappe.call({
+		method: "hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data.update_shift_rule",
+		args: { rule_name: name, updates: JSON.stringify(updates) },
+		callback() {
+			frappe.show_alert({ message: __("已保存为一个新版本，次日生效"), indicator: "green" });
+			loadOverview();
+		},
 	});
 }
 
