@@ -109,13 +109,17 @@ services:
           fi;
         done;
         echo "sites/common_site_config.json found";
-        bench new-site $$SITE_NAME \
+        bench new-site $SITE_NAME \
           --mariadb-user-host-login-scope='%' \
-          --admin-password=$$ADMIN_PASSWORD \
+          --admin-password=$ADMIN_PASSWORD \
           --db-root-username=root \
-          --db-root-password=$$DB_ROOT_PASSWORD \
+          --db-root-password=$DB_ROOT_PASSWORD \
           --install-app erpnext \
           --set-default;
+        bench --site $SITE_NAME install-app hrms;
+        bench --site $SITE_NAME install-app hb_attendance_app;
+        bench --site $SITE_NAME migrate;
+        bench --site $SITE_NAME list-apps;
     environment:
       SITE_NAME: ${SITE_NAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
