@@ -10,6 +10,8 @@
       <GlobalHeader
         :avatar-text="portal.user?.avatarText || 'HB'"
         :avatar-url="portal.user?.avatarUrl"
+        :company-logo-url="portal.branding?.logoUrl"
+        :context-label="portal.branding?.workspaceName"
         :apps="portal.apps"
         @open-command="ui.commandOpen = true"
       />
@@ -17,7 +19,14 @@
       <div class="portal-layout-grid">
         <PortalSidebar :work-count="actionableCount" />
         <main id="main-content" class="portal-route-content" tabindex="-1">
-          <RouterView />
+          <a-alert
+            v-if="portal.bootstrapError"
+            type="error"
+            show-icon
+            class="portal-bootstrap-error"
+            :message="portal.bootstrapError"
+          />
+          <RouterView v-else />
         </main>
       </div>
     </div>
@@ -50,7 +59,13 @@ function onShortcut(event: KeyboardEvent) {
 }
 
 onMounted(async () => {
-  if (!portal.user) await portal.bootstrap()
+  if (!portal.user) {
+    try {
+      await portal.bootstrap()
+    } catch {
+      // Error state is rendered in the shell. No raw exception reaches the UI.
+    }
+  }
   window.addEventListener('keydown', onShortcut)
 })
 onBeforeUnmount(() => window.removeEventListener('keydown', onShortcut))

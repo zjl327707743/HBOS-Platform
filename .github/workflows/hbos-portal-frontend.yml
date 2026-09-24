@@ -1,6 +1,12 @@
 name: HBOS Portal Frontend Gate
 
 on:
+  push:
+    branches:
+      - feature/hbos-portal-product
+    paths:
+      - 'frontend/hbos-portal-web/**'
+      - '.github/workflows/hbos-portal-frontend.yml'
   pull_request:
     branches:
       - main

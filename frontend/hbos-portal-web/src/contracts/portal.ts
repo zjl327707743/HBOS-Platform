@@ -1,5 +1,13 @@
 export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'critical'
 export type AppMigrationMode = 'legacy' | 'hybrid' | 'native'
+export type PortalDataSource = 'mock' | 'frappe'
+
+export interface PortalBranding {
+  productName: string
+  companyName: string
+  logoUrl?: string | null
+  workspaceName: string
+}
 
 export interface PortalUser {
   id: string

@@ -9,6 +9,7 @@
       <GlobalHeader
         :avatar-text="portal.user?.avatarText || 'HB'"
         :avatar-url="portal.user?.avatarUrl"
+        :company-logo-url="portal.branding?.logoUrl"
         :apps="portal.apps"
         context-label="LIMS"
         @open-command="commandOpen = true"
@@ -47,8 +48,15 @@ function shortcut(event: KeyboardEvent) {
   }
   if (event.key === 'Escape') commandOpen.value = false
 }
+
 onMounted(async () => {
-  if (!portal.user) await portal.bootstrap()
+  if (!portal.user) {
+    try {
+      await portal.bootstrap()
+    } catch {
+      // Portal shell owns the sanitized bootstrap error state.
+    }
+  }
   window.addEventListener('keydown', shortcut)
 })
 onBeforeUnmount(() => window.removeEventListener('keydown', shortcut))
