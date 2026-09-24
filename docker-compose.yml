@@ -7,19 +7,24 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
       - assets-data:/home/frappe/frappe-bench/assets
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
       HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
+      HBOS_OCR_URL: ${HBOS_OCR_URL:-http://host.docker.internal:8100}
+      HBOS_OCR_SHARED_TOKEN: ${HBOS_OCR_SHARED_TOKEN:-}
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       HBOS_FEISHU_LEAVE_APP_TOKEN: ${HBOS_FEISHU_LEAVE_APP_TOKEN}
@@ -59,7 +64,7 @@ services:
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port $$SOCKETIO_PORT;
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       REDIS_CACHE: ${REDIS_CACHE}
@@ -68,6 +73,8 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
@@ -86,6 +93,8 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
@@ -120,10 +129,12 @@ services:
           --set-default;
         bench --site $SITE_NAME install-app hrms;
         bench --site $SITE_NAME install-app hb_attendance_app;
+        bench --site $SITE_NAME install-app hb_inventory_app;
+        bench --site $SITE_NAME install-app hb_lims_app;
         bench --site $SITE_NAME migrate;
         bench --site $SITE_NAME list-apps;
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
       SITE_NAME: ${SITE_NAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DB_HOST: ${MARIADB_HOST}
@@ -172,6 +183,8 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
@@ -193,17 +206,22 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
       TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
       HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
       HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
+      HBOS_OCR_URL: ${HBOS_OCR_URL:-http://host.docker.internal:8100}
+      HBOS_OCR_SHARED_TOKEN: ${HBOS_OCR_SHARED_TOKEN:-}
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       HBOS_FEISHU_LEAVE_APP_TOKEN: ${HBOS_FEISHU_LEAVE_APP_TOKEN}
@@ -241,17 +259,22 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
       TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
       HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
       HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
+      HBOS_OCR_URL: ${HBOS_OCR_URL:-http://host.docker.internal:8100}
+      HBOS_OCR_SHARED_TOKEN: ${HBOS_OCR_SHARED_TOKEN:-}
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       HBOS_FEISHU_LEAVE_APP_TOKEN: ${HBOS_FEISHU_LEAVE_APP_TOKEN}
@@ -299,9 +322,11 @@ services:
       - bench
       - schedule
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
       HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
       HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
+      HBOS_OCR_URL: ${HBOS_OCR_URL:-http://host.docker.internal:8100}
+      HBOS_OCR_SHARED_TOKEN: ${HBOS_OCR_SHARED_TOKEN:-}
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       HBOS_FEISHU_LEAVE_APP_TOKEN: ${HBOS_FEISHU_LEAVE_APP_TOKEN}
@@ -328,6 +353,9 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
@@ -347,6 +375,8 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
