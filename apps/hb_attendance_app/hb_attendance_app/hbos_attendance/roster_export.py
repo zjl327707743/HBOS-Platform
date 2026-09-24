@@ -72,30 +72,29 @@ def _fmt(t):
 
 
 def _rule_time_for(shift_type, department, rules_by_dept):
-    """取某部门+班次类型最匹配的生效规则时间；无则全局；再否则内置默认。
-
-    全局规则与运行时一致：先「全部部门 - HD」，再兜底「全部部门」。
-    返回 (时间描述, 迟到起算)。
-    """
+    """Resolve the effective version for display without treating superseded history as current."""
     today = frappe.utils.today()
     pools = [rules_by_dept.get(department, [])]
     pools.extend(rules_by_dept.get(g, []) for g in ("全部部门 - HD", "全部部门"))
-    candidates = []
     for pool in pools:
-        candidates = [
-            r for r in pool
-            if r.shift_type == shift_type and r.status == "生效" and str(r.effective_from) <= today
-        ]
-        if candidates:
-            break
-    if candidates:
-        r = max(candidates, key=lambda x: str(x.effective_from))
-        return (f"{_fmt(r.start_time)}-{_fmt(r.end_time)}", _fmt(r.late_after))
+        by_code = {}
+        for rule in pool:
+            if rule.shift_type != shift_type or str(rule.effective_from or "") > today:
+                continue
+            code = rule.rule_code or rule.rule_name or rule.name
+            by_code.setdefault(code, []).append(rule)
+        current = []
+        for versions in by_code.values():
+            chosen = max(versions, key=lambda x: (str(x.effective_from or ""), str(x.name)))
+            if chosen.status == "生效":
+                current.append(chosen)
+        if current:
+            rule = sorted(current, key=lambda x: (str(x.rule_name or ""), str(x.name)))[0]
+            return (f"{_fmt(rule.start_time)}-{_fmt(rule.end_time)}", _fmt(rule.late_after))
     if shift_type in BUILTIN_SHIFTS:
         b = BUILTIN_SHIFTS[shift_type]
         return (f"{_fmt(b[0])}-{_fmt(b[1])}", _fmt(b[2]))
     return (SYSTEM_DESC.get(shift_type, shift_type), FALLBACK_LATE.get(shift_type, ""))
-
 
 @frappe.whitelist()
 def export_shift_roster():
@@ -111,32 +110,59 @@ def export_shift_roster():
 
     # ---- 数据收集 ----
     emps = frappe.db.get_all(
-        "Employee", filters={"status": "Active"},
-        fields=["name", "employee_number", "employee_name", "department", "hbos_fixed_shift"],
+        "Employee",
+        filters={"status": "Active"},
+        fields=["name", "employee_number", "employee_name", "department",
+                "hbos_fixed_shift", "hbos_fixed_shift_code"],
     )
     if not emps:
         frappe.throw("没有在职员工可导出")
 
-    # 绑定规则 → shift_type（HBOS Employee Shift，is_primary 优先，否则 hbos_fixed_shift）
-    bound_map = {}  # employee -> shift_type
-    binds = frappe.db.get_all(
-        "HBOS Employee Shift", fields=["employee", "shift_rule", "is_primary"])
-    rule_type = {r.name: r.shift_type for r in frappe.db.get_all(
-        "HBOS Shift Rule", fields=["name", "shift_type"])}
-    for b in sorted(binds, key=lambda x: not x.is_primary):  # primary 优先
-        bound_map.setdefault(b.employee, rule_type.get(b.shift_rule, ""))
-    # 无 HBOS Employee Shift 绑定但有单绑字段 → 回退 hbos_fixed_shift（Rule name → shift_type）
-    for e in emps:
-        if e.name not in bound_map and e.hbos_fixed_shift:
-            bound_map[e.name] = rule_type.get(e.hbos_fixed_shift, "")
-
-    # 生效规则表（部门/班次类型/状态/时间）
-    rules_by_dept = {}
-    for r in frappe.db.get_all(
+    all_rules = frappe.db.get_all(
         "HBOS Shift Rule",
-        fields=["department", "shift_type", "status", "start_time", "end_time", "late_after", "effective_from"],
-    ):
-        rules_by_dept.setdefault(r.department, []).append(r)
+        fields=["name", "rule_code", "rule_name", "department", "shift_type",
+                "status", "start_time", "end_time", "late_after", "effective_from"],
+        order_by="rule_code, effective_from, creation",
+    )
+    by_code = {}
+    code_by_version = {}
+    for rule in all_rules:
+        code = rule.rule_code or rule.rule_name or rule.name
+        code_by_version[rule.name] = code
+        by_code.setdefault(code, []).append(rule)
+
+    def current_rule(code):
+        versions = [
+            r for r in by_code.get(code, [])
+            if r.status != "草稿" and str(r.effective_from or "") <= today
+        ]
+        if not versions:
+            return None
+        chosen = max(versions, key=lambda r: (str(r.effective_from or ""), str(r.name)))
+        return chosen if chosen.status == "生效" else None
+
+    bound_map = {}
+    binds = frappe.db.get_all(
+        "HBOS Employee Shift",
+        fields=["employee", "rule_code", "shift_rule", "is_primary"],
+    )
+    for binding in sorted(binds, key=lambda x: not x.is_primary):
+        code = binding.rule_code or code_by_version.get(binding.shift_rule)
+        rule = current_rule(code) if code else None
+        if rule:
+            bound_map.setdefault(binding.employee, rule.shift_type)
+
+    for emp in emps:
+        if emp.name in bound_map:
+            continue
+        code = emp.hbos_fixed_shift_code or code_by_version.get(emp.hbos_fixed_shift)
+        rule = current_rule(code) if code else None
+        if rule:
+            bound_map[emp.name] = rule.shift_type
+
+    rules_by_dept = {}
+    for rule in all_rules:
+        rules_by_dept.setdefault(rule.department, []).append(rule)
 
     # ---- 主表行聚合 ----
     rows = {}  # (department, label) -> {"people": [(num, name, origin)], }
@@ -281,7 +307,7 @@ def export_shift_roster():
         f"HBOS 班次人员维护表 —— 生成时间 {datetime.now().strftime('%Y-%m-%d %H:%M')}，数据日期 {today}",
         "",
         "【主表 部门-班次-人员】行 = 仅实际有人的「部门 × 班次体系」组合（部门取员工 HRMS 真实部门）。",
-        "人员归行优先级：豁免名单不进主表；已绑定班次规则的人按规则班次归行（多绑定取主班次，无则第一条，再否则 hbos_fixed_shift）；",
+        "人员归行优先级：豁免名单不进主表；已绑定班次规则的人按规则班次归行（多绑定取主班次，无则第一条，再否则稳定规则族兼容镜像）；",
         "  其余按名单归入 无菌倒班/四班次倒班/行政班/安全倒班/食堂；都不命中者归入 通用倒班。",
         "备注列来源：绑定 = 绑定规则；名单 = 系统名单；通用 = 未绑定且不在名单。",
         "",
