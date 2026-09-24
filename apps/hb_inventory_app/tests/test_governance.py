@@ -29,7 +29,11 @@ class InventoryGovernanceTest(unittest.TestCase):
     def test_file_read_and_attachment_are_permission_aware(self):
         src = API.read_text()
         self.assertIn('doc.check_permission("read")', src)
-        self.assertIn('source.check_permission("read")', src)
+        self.assertIn("def _validate_intake_file", src)
+        self.assertIn('doc.check_permission("read")', src)
+        self.assertIn("doc.owner != frappe.session.user", src)
+        self.assertIn("doc.attached_to_doctype or doc.attached_to_name", src)
+        self.assertIn("_validate_intake_file(source)", src)
         self.assertIn('"is_private": 1', src)
         self.assertNotIn("source.attached_to_doctype = doctype", src)
         self.assertIn("IMAGE_EXTENSIONS", src)
