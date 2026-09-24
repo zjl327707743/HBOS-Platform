@@ -1287,3 +1287,41 @@ Platform Integration run 36045590049 = SUCCESS
 ```
 
 下一阶段：`P3-ATT-1 Attendance Manifest / Access / Stable Entry`。
+
+
+### HBOS Portal Three-App Registry Baseline — 2026-09-25
+
+状态：**P3 IN_PROGRESS / THREE-APP REGISTRY BASELINE PASS**。
+
+Portal Registry 已真实包含：
+
+```json
+["attendance", "inventory", "lims"]
+```
+
+当前能力：
+
+```text
+LIMS       = entry + tasks + summary + search
+Attendance = entry + HR summary
+Inventory  = entry only
+```
+
+所有入口均由业务 App 自己计算 Access Context 和当前 implementation route；Portal 没有静态 import 三业务 App，也没有业务事实副本。
+
+Real-data hardening 已完成：真实 Frappe mode 不再用原型假数据填首页。
+
+最新 code authority：
+
+```text
+f6267baf44813c5b89f83adfe744d8f0192d03bb
+```
+
+最新 Gate：
+
+```text
+Portal Backend = PASS
+Portal Frontend = PASS
+HBOS Quality = PASS
+Platform Integration run 36048726221 = SUCCESS
+```

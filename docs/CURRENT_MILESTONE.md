@@ -324,3 +324,55 @@ Portal 当前下一 Gate：
 ```text
 P3-ATT-1 — Attendance Manifest / Access / Stable Entry
 ```
+
+
+### Portal P3 — Three-App Registry Baseline — 2026-09-25
+
+三大业务 APP 已同时进入 Portal Registry：
+
+```text
+LIMS
+  Manifest / Access / Stable Route = COMPLETE
+  Tasks = COMPLETE
+  Summary = COMPLETE
+  Search = COMPLETE
+
+Attendance
+  Manifest / Access / Stable Route = COMPLETE
+  HR Summary = COMPLETE
+  Tasks / Search = GATED
+  Ordinary Employee Portal Access = GATED
+
+Inventory
+  Manifest / Access / Stable Route = COMPLETE
+  Summary / Tasks / Search = GATED
+```
+
+三 APP clean-site Registry authority：
+
+```text
+registry_entries = ["attendance", "inventory", "lims"]
+registry_failures = 0
+bootstrap_apps = ["attendance", "inventory", "lims"]
+```
+
+Inventory registration Gate：
+
+```text
+run 36048253825 = SUCCESS
+```
+
+最新真实数据硬化 HEAD：
+
+```text
+f6267baf44813c5b89f83adfe744d8f0192d03bb
+```
+
+该版本：
+- Frappe mode 不再展示原型期 12/12、7 apps、SAMPLE-001、Digital Twin LIVE 等演示数据；
+- 没有 Provider 的模块直接隐藏；
+- 多 APP Summary 采用 round-robin 选择，避免一个 APP 独占 Hero 四个指标。
+
+最新 Platform Integration Gate `36048726221` = SUCCESS。
+
+P3 下一阶段从“注册 APP”转为“逐 App 数据能力深化”。

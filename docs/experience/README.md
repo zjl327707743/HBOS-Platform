@@ -236,3 +236,30 @@ Latest verified LIMS experience authority:
 Platform Integration Gate `36045590049` passed with `summary + tasks + search` enabled together and with the existing Attendance / Inventory / LIMS domain integration and LIMS production entry still green.
 
 Next: **P3-ATT-1 — Attendance Manifest / Access / Stable Entry**.
+
+
+## P3 — Three-App Registry Baseline
+
+As of 2026-09-25, all three existing business apps are registered through the HBOS Application Provider contract:
+
+```text
+Attendance  → /hbos/attendance  → current Desk HR surface
+Inventory   → /hbos/inventory   → current controlled Desk intake surface
+LIMS        → /hbos/lims        → current native LIMS surface
+```
+
+Capabilities:
+
+```text
+LIMS        summary / tasks / search
+Attendance  summary
+Inventory   none yet
+```
+
+The latest real-data hardened Portal does not render prototype-only operational data in Frappe mode when no real Provider exists.
+
+Authority documents:
+
+- [P3 LIMS Provider](./P3_LIMS_PROVIDER_REGISTRATION.md)
+- [P3 Attendance Provider](./P3_ATTENDANCE_PROVIDER_REGISTRATION.md)
+- [P3 Inventory Provider](./P3_INVENTORY_PROVIDER_REGISTRATION.md)
