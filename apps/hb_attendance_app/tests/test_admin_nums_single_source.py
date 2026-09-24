@@ -83,5 +83,34 @@ class DeprecatedLegacyMarkerTest(unittest.TestCase):
                               "旧引擎残留，无标记会让改动名单的人误判来源" % name)
 
 
+class SterileListSingleSourceTest(unittest.TestCase):
+    """无菌名单也只能有一份。
+
+    事故背景：WUJUN_NUMS 曾有两份——api.py 空集、daily_feishu_sync.py 48 人；
+    而 pairing.py 的 SPECIAL_SHIFT_NUMS（59 人）才是现行体系。三份并存且不一致，
+    48 人那份还混入 3 名设备动力部人员、漏掉 14 名无菌车间人员。
+    Owner 2026-09-24 裁定：以 SPECIAL_SHIFT_NUMS 为准。
+    """
+
+    def setUp(self):
+        self.sync_src = SYNC.read_text()
+
+    def test_sync_does_not_define_its_own_sterile_list(self):
+        local = _module_level_names(self.sync_src, "WUJUN_NUMS")
+        self.assertIsNone(
+            local,
+            "daily_feishu_sync.py 不得自定义 WUJUN_NUMS（发现 %s 人）；"
+            "应引用 pairing.SPECIAL_SHIFT_NUMS，否则无菌名单会再次分叉"
+            % (len(local) if local else "?"),
+        )
+
+    def test_sync_imports_sterile_list_from_pairing(self):
+        self.assertRegex(
+            self.sync_src,
+            r"from hb_attendance_app\.hbos_attendance\.pairing import [^\n]*SPECIAL_SHIFT_NUMS",
+            "daily_feishu_sync.py 必须从 pairing 导入 SPECIAL_SHIFT_NUMS",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
