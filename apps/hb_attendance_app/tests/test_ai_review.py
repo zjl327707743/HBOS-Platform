@@ -5,22 +5,22 @@ from hb_attendance_app.hbos_attendance import ai_review
 
 
 class AiBuildPromptTest(unittest.TestCase):
-    def test_prompt_contains_employee_rules_anomalies_and_format(self):
-        emp = {"name": "张三", "num": "11008018", "dept": "无菌车间"}
+    def test_prompt_minimizes_identity_but_keeps_review_facts(self):
+        emp = {"name": "PERSON-X", "num": "EMP-001", "dept": "DEPT-X"}
         items = [("2026-07-15", "迟到"), ("2026-07-16", "缺勤")]
         checkins = "7/15 08:41 上班机；7/15 20:44 下班机\n7/16 无打卡"
         rule = "行政班 08:30-17:30，08:31 起算迟到；豁免：否"
         p = ai_review.build_prompt(emp, items, checkins, rule)
-        for s in ("张三", "11008018", "无菌车间", "行政班", "2026-07-15", "2026-07-16",
-                  "属实", "存疑", "非异常", "日期|类型|结论|理由", "迟到", "缺勤"):
-            self.assertIn(s, p)
+        for sensitive in ("PERSON-X", "EMP-001", "DEPT-X"):
+            self.assertNotIn(sensitive, p)
+        for expected in ("行政班", "2026-07-15", "2026-07-16",
+                         "属实", "存疑", "非异常", "日期|类型|结论|理由", "迟到", "缺勤"):
+            self.assertIn(expected, p)
 
-    def test_env_config_returns_keys(self):
+    def test_env_config_returns_safety_and_connection_keys(self):
         cfg = ai_review.env_config()
-        self.assertIn("base_url", cfg)
-        self.assertIn("api_key", cfg)
-        self.assertIn("model", cfg)
-        self.assertIn("timeout", cfg)
+        for key in ("enabled", "allow_pii", "base_url", "api_key", "model", "timeout"):
+            self.assertIn(key, cfg)
 
 
 class AiParseReviewTest(unittest.TestCase):
