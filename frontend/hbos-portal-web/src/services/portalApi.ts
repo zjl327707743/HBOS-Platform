@@ -388,7 +388,7 @@ export async function searchFrappePortal(
   return data.results.map((item) => ({
     id: `${item.app_id}:${item.entity_type || 'result'}:${item.entity_id || item.title}`,
     appId: item.app_id,
-    appTitle: item.app_id,
+    appTitle: item.app_id.toUpperCase(),
     title: item.title,
     subtitle: [item.subtitle, item.status].filter(Boolean).join(' · '),
     typeLabel: item.entity_type || '结果',

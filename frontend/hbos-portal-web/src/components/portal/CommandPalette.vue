@@ -31,7 +31,7 @@
       :class="{ selected: selectedIndex === index }"
       type="button"
       @mouseenter="selectedIndex = index"
-      @click="go(result.deepLink)"
+      @click="openResult(result)"
     >
       <div class="command-result-icon" :class="result.appId"><component :is="appIcon(result.appId)" /></div>
       <div>
@@ -69,6 +69,7 @@ import {
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import { searchPortal } from '@/services/portalProvider'
+import { openBusinessRoute } from '@/services/businessNavigation'
 import type { SearchResultDTO } from '@/contracts/portal'
 
 const props = defineProps<{ open: boolean }>()
@@ -103,10 +104,15 @@ function move(delta: number) {
 function activateSelected() {
   if (selectedIndex.value < results.value.length) {
     const result = results.value[selectedIndex.value]
-    if (result) go(result.deepLink)
+    if (result) openResult(result)
     return
   }
   go('/hbos/work')
+}
+
+function openResult(result: SearchResultDTO) {
+  emit('close')
+  void openBusinessRoute(router, result.appId, result.deepLink)
 }
 
 function go(path: string) {
