@@ -311,7 +311,7 @@ def _attach_ai_review(data, filters, emp_leave_dates):
         AI_BATCH, AI_BATCH_SECONDS, build_prompt, call_llm, env_config, parse_review,
     )
     cfg = env_config()
-    if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
+    if not cfg.get("enabled"):\n        for r in data:\n            if _row_anomaly(r):\n                r["ai_review"] = "AI复核未启用（HBOS_AI_ENABLED=0）"\n        return\n    if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
         for r in data:
             if _row_anomaly(r):
                 r["ai_review"] = "AI复核失败：未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）"
