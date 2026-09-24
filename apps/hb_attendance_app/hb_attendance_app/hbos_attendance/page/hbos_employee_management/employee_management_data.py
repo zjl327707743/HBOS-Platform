@@ -72,30 +72,44 @@ def get_shift_options():
     )
 
 
+def _stable_rule_code(value):
+    """Accept a stable rule_code or a legacy concrete Shift Rule docname."""
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    if frappe.db.exists("HBOS Shift Rule", {"rule_code": value}):
+        return value
+    if frappe.db.exists("HBOS Shift Rule", value):
+        return frappe.db.get_value("HBOS Shift Rule", value, "rule_code") or ""
+    frappe.throw(f"班次规则不存在：{value}")
+
+
 @frappe.whitelist()
 def bind_shift(employee, shift_rule):
-    """绑定/解绑固定班次。shift_rule 传空字符串 = 解绑。"""
+    """兼容入口：单班次绑定也统一写稳定 rule_code。"""
     _require_hr_write()
-    if shift_rule:
-        frappe.db.set_value("Employee", employee, "hbos_fixed_shift", shift_rule,
-                            update_modified=False)
-    else:
-        frappe.db.set_value("Employee", employee, "hbos_fixed_shift", None,
-                            update_modified=False)
-    frappe.db.commit()
-    return {"employee": employee, "shift_rule": shift_rule or None}
+    import json
+    from hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data import (
+        bind_employee_shifts,
+    )
+    code = _stable_rule_code(shift_rule)
+    return bind_employee_shifts(employee, json.dumps([code] if code else []))
 
 
 @frappe.whitelist()
 def bulk_bind_shift(employees, shift_rule):
-    """批量绑定固定班次。employees: 逗号分隔的员工名列表。"""
+    """兼容入口：批量绑定稳定 rule_code。"""
     _require_hr_write()
+    import json
+    from hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data import (
+        bind_employee_shifts,
+    )
+    code = _stable_rule_code(shift_rule)
     names = [e.strip() for e in (employees or "").split(",") if e.strip()]
     bound = 0
     for emp in names:
         if frappe.db.exists("Employee", emp):
-            frappe.db.set_value("Employee", emp, "hbos_fixed_shift", shift_rule,
-                                update_modified=False)
+            bind_employee_shifts(emp, json.dumps([code] if code else []))
             bound += 1
-    frappe.db.commit()
-    return {"bound": bound, "shift_rule": shift_rule}
+    return {"bound": bound, "shift_rule": code or None}
+
