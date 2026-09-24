@@ -195,7 +195,7 @@ def sync_custom_fields():
                     "fieldtype": "Attach",
                     "insert_after": "hbos_certificate_no",
                     "read_only": 1,
-                },,
+                },
                 {
                     "fieldname": "hbos_lims_reference",
                     "label": "HBOS LIMS 放行引用",
@@ -211,7 +211,7 @@ def sync_custom_fields():
                     "insert_after": "hbos_lims_reference",
                     "read_only": 1,
                     "description": "质量放行投影来源；正式放行固定为 LIMS",
-                }
+                },
                 {
                     "fieldname": "hbos_supplier_batch_no",
                     "label": "HBOS 原厂批号",
