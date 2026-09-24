@@ -69,7 +69,7 @@ echo "[G1] verify required apps"
 APPS="$(docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" list-apps)"
 printf '%s\n' "$APPS"
 for app in frappe erpnext hrms hb_attendance_app; do
-  printf '%s\n' "$APPS" | grep -qx "$app" || {
+  printf '%s\n' "$APPS" | awk '{print $1}' | grep -qx "$app" || {
     echo "::error:: clean site 缺少 app: $app"
     exit 1
   }
