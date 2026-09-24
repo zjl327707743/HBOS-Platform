@@ -75,21 +75,9 @@ done
 "${DC[@]}" exec -T backend bench --site "$SITE_NAME" migrate
 "${DC[@]}" exec -T backend bench --site "$SITE_NAME" migrate
 
-check_column() {
-  local doctype="$1" field="$2"
-  local out
-  out="$("${DC[@]}" exec -T backend bench --site "$SITE_NAME" execute frappe.db.has_column --args "[\"$doctype\",\"$field\"]")"
-  printf '%s\n' "$out" | grep -q "True" || {
-    echo "::error:: missing column $doctype.$field"
-    exit 1
-  }
-}
-check_column "HBOS Sample" "item_ref"
-check_column "HBOS Sample" "batch_ref"
-check_column "HBOS Test Result" "approved_signature"
-check_column "Batch" "hbos_lims_reference"
-check_column "Batch" "hbos_release_source"
-
-"${DC[@]}" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend   bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.run
+echo "[G3] verify physical DB schema"
+"${DC[@]}" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend \
+  bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.verify_schema
+${DC[@]}" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend   bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.run
 
 echo "HBOS LIMS clean-site integration PASS"
