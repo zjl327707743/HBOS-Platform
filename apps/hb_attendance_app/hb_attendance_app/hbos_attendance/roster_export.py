@@ -1,6 +1,6 @@
 """导出「HBOS 班次人员维护表」xlsx（规则看板入口）。
 
-只读：不触发考勤生成，不改数据库。数据来源：在职 Employee + 名单常量 +
+只读：不触发考勤生成，不改数据库。数据来源：在职 Employee + 策略业务数据 +
 班次绑定(HBOS Employee Shift / hbos_fixed_shift) + HBOS Shift Rule + 内置默认班次。
 """
 import os
@@ -25,16 +25,6 @@ from hb_attendance_app.hbos_attendance.rule_lists import (
     ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS,
 )
 from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
-
-# 豁免名单中的已注释特殊原因（其余默认"管理层 / 不计异常考勤"）
-EXEMPT_REASONS = {
-    "11008036": "产假（陈玉姣/王梅林 2026-08-21）",
-    "11008053": "产假（陈玉姣/王梅林 2026-08-21）",
-    "10008020": "产假（曹凯莉 2026-08-27）",
-    "11003033": "长期病假（刘凤岭 2026-08-27）",
-    "11003016": "长期病假（马照辉 2026-08-27）",
-    "10007006": "豁免人员（刘玉仓 2026-08-27）",
-}
 
 # 特殊班次 sheet 的小类定义（顺序固定）
 SPECIAL_SECTIONS = (
@@ -167,6 +157,23 @@ def export_shift_roster():
     # ---- 主表行聚合 ----
     rows = {}  # (department, label) -> {"people": [(num, name, origin)], }
     emp_num_to_name_dept = {}
+    emp_num_by_id = {e.name: (e.employee_number or "") for e in emps}
+    exempt_reason_by_num = {}
+    today_str = str(today)
+    for p in frappe.db.get_all(
+        "HBOS Attendance Policy Assignment",
+        filters={"policy_type": "EXEMPT", "enabled": 1},
+        fields=["employee", "remarks", "effective_from", "effective_to"],
+    ):
+        start = str(p.effective_from or "")[:10]
+        end = str(p.effective_to or "")[:10]
+        if start and start > today_str:
+            continue
+        if end and end < today_str:
+            continue
+        num = emp_num_by_id.get(p.employee, "")
+        if num:
+            exempt_reason_by_num[num] = p.remarks or "不计异常考勤"
 
     def fmt_person(num, name):
         return f"{name}({num})" if name else num
@@ -191,7 +198,7 @@ def export_shift_roster():
         name, dept = emp_num_to_name_dept.get(num, ("", ""))
         if not name:
             continue
-        exempt_rows.append((num, name, dept, EXEMPT_REASONS.get(num, "管理层 / 不计异常考勤")))
+        exempt_rows.append((num, name, dept, exempt_reason_by_num.get(num, "不计异常考勤")))
     exempt_rows.sort(key=lambda x: (x[2], x[1]))
     admin_rows = []
     for num in sorted(ADMIN_NUMS):
