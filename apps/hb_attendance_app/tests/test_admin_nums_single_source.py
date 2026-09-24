@@ -19,6 +19,35 @@ def _module_level_names(src, var):
     return None
 
 
+def _local_bindings(src, var):
+    """模块内对该名字的**任何**本地绑定或原地修改，返回 [(行号, 形式), ...]。
+
+    不能用 `_module_level_names(...) is None` 来判「没有自建副本」：该助手在
+    「名字不存在」与「名字存在但取值不是字面量」两种情形下都返回 None，于是
+    `ADMIN_NUMS = set(EXEMPT_NUMS) | {...}` / `dict(...)` / 放在 `if`、`try`
+    或函数体内 这些形态会让断言**假通过**，名单照旧分叉（本项目正是被
+    「永远为真的静态断言」坑过一次）。这里不解析取值、只看 AST 里有没有写。
+    """
+    hits = []
+    for n in ast.walk(ast.parse(src)):
+        if isinstance(n, ast.Assign):
+            if any(isinstance(t, ast.Name) and t.id == var for t in n.targets):
+                hits.append((n.lineno, "赋值"))
+        elif isinstance(n, ast.AnnAssign):
+            if isinstance(n.target, ast.Name) and n.target.id == var:
+                hits.append((n.lineno, "注解赋值"))
+        elif isinstance(n, ast.AugAssign):
+            if isinstance(n.target, ast.Name) and n.target.id == var:
+                hits.append((n.lineno, "增量赋值"))
+        elif isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute):
+            base = n.func.value
+            if isinstance(base, ast.Name) and base.id == var:
+                # ADMIN_NUMS.update(...) / .add(...) 会改到导入来的那一份，
+                # 等于绕过「只引用不自建」，把分叉写进全局唯一来源里
+                hits.append((n.lineno, "原地修改 .%s()" % n.func.attr))
+    return hits
+
+
 class SingleSourceOfTruthTest(unittest.TestCase):
     """行政班名单只能有一份。
 
@@ -37,12 +66,12 @@ class SingleSourceOfTruthTest(unittest.TestCase):
         self.sync_src = SYNC.read_text()
 
     def test_sync_does_not_define_its_own_admin_list(self):
-        """飞书同步不得再自建 ADMIN_NUMS 字面量。"""
-        local = _module_level_names(self.sync_src, "ADMIN_NUMS")
-        self.assertIsNone(
-            local,
-            "daily_feishu_sync.py 不得自定义 ADMIN_NUMS（发现 %s 个工号）；"
-            "应从唯一来源导入，否则名单会再次分叉" % (len(local) if local else "?"),
+        """飞书同步不得以任何形式在本地写 ADMIN_NUMS（含非字面量形态）。"""
+        local = _local_bindings(self.sync_src, "ADMIN_NUMS")
+        self.assertEqual(
+            local, [],
+            "daily_feishu_sync.py 对 ADMIN_NUMS 存在本地绑定/修改 %s；"
+            "应从唯一来源导入，否则名单会再次分叉" % (local,),
         )
 
     def test_sync_imports_admin_list_from_single_source(self):
@@ -96,12 +125,11 @@ class SterileListSingleSourceTest(unittest.TestCase):
         self.sync_src = SYNC.read_text()
 
     def test_sync_does_not_define_its_own_sterile_list(self):
-        local = _module_level_names(self.sync_src, "WUJUN_NUMS")
-        self.assertIsNone(
-            local,
-            "daily_feishu_sync.py 不得自定义 WUJUN_NUMS（发现 %s 人）；"
-            "应引用 pairing.SPECIAL_SHIFT_NUMS，否则无菌名单会再次分叉"
-            % (len(local) if local else "?"),
+        local = _local_bindings(self.sync_src, "WUJUN_NUMS")
+        self.assertEqual(
+            local, [],
+            "daily_feishu_sync.py 对 WUJUN_NUMS 存在本地绑定/修改 %s；"
+            "应引用 pairing.SPECIAL_SHIFT_NUMS，否则无菌名单会再次分叉" % (local,),
         )
 
     def test_sync_imports_sterile_list_from_pairing(self):

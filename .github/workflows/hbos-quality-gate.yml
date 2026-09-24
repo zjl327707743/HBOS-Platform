@@ -30,7 +30,9 @@ jobs:
       # ─── 检查 1：禁止提交敏感文件 ──────────────────────────
       - name: 禁止 .env 文件
         run: |
-          if git diff --name-only origin/main...HEAD | grep -qE '(^|/)\.env'; then
+          # 必须锚定 $：不加锚点时 `.env.example`（占位符模板，本应可提交且必须随
+          # 配置变更更新）会被一并判为违规。其余各项均已带 $ 锚点，此项是遗漏。
+          if git diff --name-only origin/main...HEAD | grep -qE '(^|/)\.env$'; then
             echo "::error:: 禁止提交 .env 文件（含敏感配置）"
             exit 1
           fi

@@ -498,3 +498,35 @@ Owner 选择保留现状，等专门轮次处理。本节记录待办，避免�
 
 - **F4 终态重新核实**：`已核实` / `核实不通过` 仍是终态。若事后考勤数据变化导致旧结论失效，只能人工处理。Owner 决定先观察。
 - **`reset` 手段**：把 `verify_status` 置回 `待核实` 即可重跑核实，置回 `待解析` 可重跑 LLM 解析。这是目前唯一的人工干预方式。
+
+## A9. 2026-09-24 名单单一来源收敛与 PR 审查修复（非本模块，但同分支交付）
+
+本文件为 M1-FIX-F 主文档；以下变更与调休模块无功能耦合，但因落在同一分支、同一轮次收尾，一并记录，避免状态漂移。
+
+### A9.1 名单单一来源收敛（Owner 2026-09-24 裁定）
+
+| 名单 | 原状态 | 处置 | 实测行为变化 |
+| --- | --- | --- | --- |
+| `ADMIN_NUMS`（行政班） | 三处各一份且严重分叉：`rule_lists.py` 178 / `daily_feishu_sync.py` 221 / `pair_checkins.py` 139 | 裁定以 `rule_lists.py` 为准；飞书侧删本地副本改为引用 | 消除飞书与判定之间 **71 个工号**的分叉（57 只在飞书、14 只在判定）——此前同一人同一天会出现「判定判缺勤、飞书不算缺勤」 |
+| `WUJUN_NUMS`（无菌） | 两份：`api.py` 空集 / `daily_feishu_sync.py` 48 人；现行体系是 `pairing.SPECIAL_SHIFT_NUMS` 59 人 | 裁定以 `SPECIAL_SHIFT_NUMS` 为准；飞书侧删 48 人副本改为引用 | 1 人（耿献磊，无菌车间）失去周末双休豁免；3 名设备动力部人员获得豁免 |
+| `EXCLUDE_NUMS` | 82 人豁免名单 + 20 人手写项，构成未标注 | **未改行为**，只补注释：20 人中有 7 人已属无菌体系、7 人已属 `FOOD_NUMS`，另 6 人横跨 5 部门来源不明 | 无。「无菌是否应整批排除」口径未定，**留待 Owner 裁定** |
+| 旧引擎三件套 | `pair_checkins.py` / `shift_matcher.py` / `generate_attendance.py` 全仓库无引用，但各自含第 3 份名单或旧班次逻辑 | 补「已废弃·请勿使用」docstring，**未删文件**（清理另开一轮） | 无 |
+
+`tests/test_admin_nums_single_source.py` 守住「一份名单」这条。该守卫**已加固**：原断言 `assertIsNone(_module_level_names(...))` 存在假通过——该助手在「名字不存在」与「存在但非字面量」两种情形下都返回 None，故 `ADMIN_NUMS = set(EXEMPT_NUMS) | {...}`、放进 `if`/`try`/函数体、或 `ADMIN_NUMS.update({...})` 都能让断言通过（与本项目此前「永远为真的静态断言」同一失效模式）。现改为 AST 扫描任何本地绑定或原地修改，并已用上述形态做过变异验证。
+
+### A9.2 PR 审查修复（5 项实际缺陷）
+
+| # | 缺陷 | 后果 | 修法 |
+| --- | --- | --- | --- |
+| 1 | `dedup_checkins` 窗口 120min 与配对下限 `2 <= gap`（120min）在闭区间下严丝合缝对撞 | **恰好相隔 2h** 的上下班卡先被去重成一张、再配不上 → 孤卡误判缺勤。仅影响方向未知的卡（8/15 前、GPS 卡、未登记设备） | 合并判据改严格小于，边界让给配对；补 2 条回归测试并变异验证 |
+| 2 | `.env.example` 未收录 compose 引用的 9 个变量（`FEISHU_*`、`DELICLOUD_*`、`HBOS_AI_*`、`HBOS_NOTIFY_*`） | compose 的 `${VAR}` 缺项时展开为空串、不报错 → 新环境照模板建 `.env` 会让 AI 复核与 9 点考勤卡片**静默失效**（与 `HBOS_AI_*` 只注入 backend 同类） | 补齐占位符与说明 |
+| 3 | CI「禁止 `.env`」用 `(^|/)\.env` 而无 `$` 锚点（其余各检查均有） | 占位符模板 `.env.example` 被一并判违规，CI 误伤合规改动 | 补 `$` 锚点 |
+| 4 | 部门看板 JS 把部门名（来自 `tabEmployee.department`，用户可写）与服务端错误文案直接拼进 HTML | XSS：同文件其余 8 处均已 `escape_html`，仅新增的这两处遗漏 | 补齐 `frappe.utils.escape_html` |
+| 5 | 月报 AI 复核用 `target.index((r, dates))` 定位 | O(n²)；且 `==` 命中相同内容元组时定位到错误下标，标记未复核的起点偏前/偏后 | 改用 `enumerate` |
+
+验证：`python -m compileall -q apps/` 通过；`python -m unittest discover -s apps/hb_attendance_app/tests` **445 通过**（443 → 445，新增 2 条边界回归）。缺陷 1 与守卫加固均做过变异验证（注入回归后测试如期失败）。
+
+### A9.3 审核发现但本轮未处理的项
+
+- **本地 `origin` 地址明文内嵌 GitHub PAT**：`git remote -v` 与 `git config` 均可见。需在 GitHub 吊销该 token 并改用 SSH / 凭据助手。属运维动作，未在本轮执行。
+- 看板 JS 的 XSS 修复**未做浏览器实测**：该页面 JS 由 Frappe 资源构建产出，验证需在生产容器内 rebuild 并 reload，属高风险动作，故只做了静态核对（`frappe.utils.escape_html` 在同文件另有 8 处已在生产工作）。

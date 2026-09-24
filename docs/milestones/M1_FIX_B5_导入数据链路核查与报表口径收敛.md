@@ -242,7 +242,7 @@ Owner 数据链路验收后续，修复多处班次误判（不改变 B5 主结�
 - M1-FIX-B5 = REVIEWING。
 - M1 整体仍未完成。
 - M1-FIX-C / D / E = PLANNED / 待授权。
-- M2 = NOT STARTED / WAITING OWNER AUTHORIZATION。
+- M2-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m2-stock-r1`）；M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION。
 
 ## 2026-09-08 追加交付：部门实时出勤看板
 

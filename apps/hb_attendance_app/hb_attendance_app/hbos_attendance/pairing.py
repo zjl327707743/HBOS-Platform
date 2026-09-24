@@ -19,8 +19,10 @@
 - 下班打卡机 SN：
   - 13750CS_9FB66A86CF3487D7（办公楼内考勤机）
   - 13750CS_93C9390B9995FE8C（宿舍二楼东考勤机）
-- 分机自 2026-08-14 起实施，此日期前所有机器均为普通考勤机（不分方向）
-- 8/14 及之后：打卡方向优先按设备 SN 判定；8/14 前：回退配对算法推断
+- 分机自 SPLIT_MACHINE_START_DATE（2026-08-15，见下方常量）起实施，
+  此日期前所有机器均为普通考勤机（不分方向）
+- 该常量及之后：打卡方向优先按设备 SN 判定；常量之前：回退配对算法推断
+  （此处曾误写 2026-08-14，与常量不符，见 role_from_terminal 的说明）
 """
 from datetime import datetime, timedelta
 
@@ -229,6 +231,7 @@ def dedup_checkins(cks, min_gap_min=120, terminal_aware=False):
     去重窗口由 10 分钟放宽到 2 小时(120min) (Owner 2026-09-08 确认):
     下班不止打一次卡(同机重复刷卡, 间隔常达几十分钟)被 2h 合并为最早卡,
     消除「多余下班卡落孤立 → 误判缺勤」(黄法普/于洋 9/7 案例)。
+    **间隔恰好 2h 的卡不合并**——那是配对下限本身，理由见 dedup_checkins_with_mapping。
 
     terminal_aware=True 时: 上下班机方向不同的相邻卡不合并
     (陈雨欣 8/19 案例: 17:33 上班机卡与 17:34 下班机卡相隔 84 秒,
@@ -258,6 +261,8 @@ def dedup_checkins_with_mapping(cks, min_gap_min=120, terminal_aware=False):
     被合并的重复卡映射到保留它的卡（同一张卡的角色一致）。
     去重窗口默认 2 小时(120min) (Owner 2026-09-08 确认): 同机重复刷卡
     (下班二次打卡, 间隔几分钟~1 小时多)合并为最早卡, 避免多余卡落孤立误判缺勤。
+    合并判据是**严格小于** min_gap_min，恰好等于的卡不合并（让给配对下限，
+    见函数内注释）。
     terminal_aware=True 时: 上下班机方向不同的相邻卡不合并
     (陈雨欣 8/19 案例: 17:33 上班机卡与 17:34 下班机卡相隔 84 秒,
      合并会吞掉唯一的下班机卡, 导致误判缺勤)。
@@ -279,7 +284,12 @@ def dedup_checkins_with_mapping(cks, min_gap_min=120, terminal_aware=False):
     skip_until = None
     last_kept = None
     for idx, ck in enumerate(cks):
-        if skip_until and ck["time"] <= skip_until:
+        # 判据用严格小于：间隔恰好 = min_gap_min 的卡不合并。
+        # 窗口 120min 与配对下限（pair_employee_checkins 的 `2 <= gap`，即 120min）
+        # 若是闭区间就会严丝合缝对撞——恰好相隔 2h 的上下班卡先被去重成一张，
+        # 配对侧再怎么放宽也配不上，只剩孤卡判缺勤。左闭右开（合并 < 120）把
+        # 边界让给配对，两张卡都留得住。
+        if skip_until and ck["time"] < skip_until:
             if role_of(ck) and role_of(ck) != role_of(cks[last_kept]):
                 # 方向不同的卡不合并, 重新作为独立卡保留
                 last_kept = len(out)
@@ -329,7 +339,8 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
         emp_leave_dates: {"YYYY-MM-DD"}，请假日期不判缺勤
         track_roles: True 时返回 (atts, roles)，roles 与去重后的 cks 对齐，
             每张卡为 "in"（上班打卡）或 "out"（下班打卡）；未配对的卡按设备方向标记
-        terminal_aware: True 时按设备 SN 区分上下班机(分机规则 2026-08-14 起)：
+        terminal_aware: True 时按设备 SN 区分上下班机（分机规则自
+            SPLIT_MACHINE_START_DATE 起，见文件顶部常量）：
             上班机卡只能当下班机卡的「上班」，下班机卡只能当「下班」，
             避免纯时间贪心把跨班次卡配错(曹云山 8/19 案例)
 
@@ -340,7 +351,8 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
         return ([], []) if track_roles else []
     orig_cks = sorted(cks, key=lambda x: x["time"])
 
-    # 设备方向(分机规则 2026-08-14 起): 上班机卡="in", 下班机卡="out", 分机实施前/未知设备 None
+    # 设备方向(分机规则自 SPLIT_MACHINE_START_DATE 起, 见文件顶部常量): 上班机卡="in",
+    # 下班机卡="out", 分机实施前/未知设备 None
     def terminal_role(ck):
         if not terminal_aware:
             return None

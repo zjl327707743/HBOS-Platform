@@ -351,11 +351,13 @@ def _attach_ai_review(data, filters, emp_leave_dates):
 
     import time as _time
     batch_deadline = _time.monotonic() + AI_BATCH_SECONDS
-    for r, dates in target:
+    # 用 enumerate 取当前位置：target 里是行字典，用 target.index((r, dates)) 既
+    # O(n²) 又会因 == 命中前面相同内容的元组而定位到错误下标（两行数据相同时），
+    # 于是标记未复核的起点偏前/偏后，与「从本行起全部标记」的意图不符。
+    for i, (r, dates) in enumerate(target):
         # 累计时间预算：超预算停止新调用（请求须在代理超时内返回），剩余标记未复核
         if _time.monotonic() > batch_deadline:
-            idx = target.index((r, dates))
-            for rr, _ in target[idx:]:
+            for rr, _ in target[i:]:
                 if rr.get("ai_review") is None:
                     rr["ai_review"] = f"未复核：单批时间预算 {AI_BATCH_SECONDS}s 已到，请缩小范围或分批复核"
             break

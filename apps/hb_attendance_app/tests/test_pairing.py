@@ -397,6 +397,31 @@ class DedupTest(unittest.TestCase):
         ], terminal_aware=True)
         self.assertEqual(len(out), 2)
 
+    def test_exactly_2h_not_merged(self):
+        # 去重窗口与配对下限同为 2h：若判据用闭区间（<=），恰好相隔 2h 的上下班卡
+        # 会先被合并成一张，配对侧再也配不上 → 孤卡误判缺勤。边界必须让给配对。
+        out = dedup_checkins([ck(3, 8, 0, 0), ck(3, 10, 0, 0)])
+        self.assertEqual(len(out), 2)
+
+
+class DedupPairingBoundaryTest(unittest.TestCase):
+    """恰好相隔 2h 的上下班卡必须配成 Present，而不是被去重成孤卡判缺勤。
+
+    用分机实施前（< SPLIT_MACHINE_START_DATE）的日期，让设备方向判定返回 None，
+    从而覆盖「方向未知 → 相邻卡可合并」这条最容易踩坑的路径。
+    """
+
+    def test_exactly_2h_pair_survives_dedup(self):
+        cks = [ck(10, 8, 0, 0), ck(10, 10, 0, 0)]
+        atts = pair_employee_checkins(cks, "E1", "99999999", fake_shift_fn,
+                                      terminal_aware=True)
+        s = statuses(atts)
+        self.assertNotIn(("2026-08-10", "Absent", "", 0, 0), s)
+        self.assertTrue(
+            any(d == "2026-08-10" and st == "Present" for d, st, *_ in s),
+            "恰好 2h 的一对上下班卡应配成 Present，实际: %s" % (s,),
+        )
+
 
 class FixedMorningGroupTest(unittest.TestCase):
     """固定早班群体（行政/安全/食堂/豁免）跳过向前配对与零点夜班配对。"""

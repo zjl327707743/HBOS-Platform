@@ -97,7 +97,9 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	function populateDepts(depts) {
 		var sel = $("#db-dept");
 		(depts || []).forEach(function (d) {
-			if (d.name) sel.append('<option value="' + d.name + '">' + d.name + " (" + d.count + ")");
+			// 部门名来自 tabEmployee.department，是用户可写数据；与下方各渲染处一致做转义
+			var nm = frappe.utils.escape_html(d.name || "");
+			if (nm) sel.append('<option value="' + nm + '">' + nm + " (" + d.count + ")");
 		});
 	}
 
@@ -331,7 +333,11 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			error: function (r) {
 				state.inFlight = false;
 				$("#db-updating").removeClass("on");
-				var msg = (r && r.message) ? __(r.message) : __("加载失败，请重试");
+				// r.message 是服务端回传的错误文本（可能含 frappe.throw 里带的用户输入），
+				// 拼进 HTML 前先转义，避免把异常信息变成注入面
+				var msg = (r && r.message)
+					? frappe.utils.escape_html(String(r.message))
+					: __("加载失败，请重试");
 				if (!silent) $("#db-content").html('<div class="db-empty" style="color:#b3261e;">' + msg + "</div>");
 			}
 		});
