@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
   getPortalData,
+  getPortalTasks,
   portalDataSource,
 } from '@/services/portalProvider'
 import type {
@@ -25,6 +26,7 @@ export const usePortalStore = defineStore('portal', () => {
   const twinStatuses = ref<TwinStatusDTO[]>([])
   const limsQueue = ref<LimsQueueItemDTO[]>([])
   const loading = ref(false)
+  const tasksLoading = ref(false)
   const bootstrapError = ref<string | null>(null)
   const dataSource = ref(portalDataSource)
 
@@ -45,12 +47,35 @@ export const usePortalStore = defineStore('portal', () => {
       businessPulse.value = data.businessPulse
       twinStatuses.value = data.twinStatuses
       limsQueue.value = data.limsQueue
+      if (dataSource.value === 'frappe') {
+        void refreshTasks()
+      }
     } catch (error) {
       bootstrapError.value =
         error instanceof Error ? error.message : 'HBOS 初始化失败'
       throw error
     } finally {
       loading.value = false
+    }
+  }
+
+
+  async function refreshTasks() {
+    if (dataSource.value !== 'frappe') return
+    tasksLoading.value = true
+    try {
+      const loaded = await getPortalTasks(apps.value)
+      tasks.value = loaded
+      const counts = loaded.reduce<Record<string, number>>((acc, task) => {
+        acc[task.appId] = (acc[task.appId] || 0) + 1
+        return acc
+      }, {})
+      apps.value = apps.value.map((app) => ({
+        ...app,
+        pendingCount: app.capabilityTasks ? (counts[app.id] || 0) : app.pendingCount,
+      }))
+    } finally {
+      tasksLoading.value = false
     }
   }
 
@@ -64,9 +89,11 @@ export const usePortalStore = defineStore('portal', () => {
     twinStatuses,
     limsQueue,
     loading,
+    tasksLoading,
     bootstrapError,
     dataSource,
     totalActions,
     bootstrap,
+    refreshTasks,
   }
 })

@@ -10,7 +10,7 @@
     </div>
 
     <div class="app-grid refined-app-grid">
-      <button v-for="app in primaryApps" :key="app.id" class="app-tile" type="button" @click="open(app.route)">
+      <button v-for="app in primaryApps" :key="app.id" class="app-tile" type="button" @click="open(app)">
         <div class="app-icon" :class="app.accent">
           <component :is="iconMap[app.icon]" />
         </div>
@@ -56,6 +56,7 @@ import {
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { AppManifestDTO, AppMigrationMode } from '@/contracts/portal'
+import { openBusinessRoute } from '@/services/businessNavigation'
 
 const props = defineProps<{ apps: AppManifestDTO[] }>()
 const router = useRouter()
@@ -73,8 +74,7 @@ const primaryApps = computed(() =>
 function migrationLabel(mode: AppMigrationMode) {
   return { legacy: 'Legacy', hybrid: 'Hybrid', native: 'Native' }[mode]
 }
-function open(route: string) {
-  if (route === '/hbos/lims') void router.push(route)
-  else void router.push('/hbos/apps')
+function open(app: AppManifestDTO) {
+  void openBusinessRoute(router, app.id, app.route)
 }
 </script>

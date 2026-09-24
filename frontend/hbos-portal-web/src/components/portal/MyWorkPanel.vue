@@ -14,7 +14,7 @@
         :key="task.taskId"
         type="button"
         class="task-row task-row-button"
-        @click="$router.push(task.deepLink)"
+        @click="openTask(task)"
       >
         <div class="task-icon" :class="task.appId"><component :is="appIcon(task.appId)" /></div>
         <div class="task-copy">
@@ -32,6 +32,7 @@
 
 <script setup lang="ts">
 import { type Component } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   ClockCircleOutlined,
   ExperimentOutlined,
@@ -40,8 +41,14 @@ import {
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
+import { openBusinessRoute } from '@/services/businessNavigation'
 
 defineProps<{ tasks: UnifiedTaskDTO[] }>()
+const router = useRouter()
+
+function openTask(task: UnifiedTaskDTO) {
+  void openBusinessRoute(router, task.appId, task.deepLink)
+}
 
 const icons: Record<string, Component> = {
   lims: ExperimentOutlined,

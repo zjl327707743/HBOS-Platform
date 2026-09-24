@@ -68,6 +68,7 @@ import {
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { AppManifestDTO } from '@/contracts/portal'
+import { openBusinessRoute } from '@/services/businessNavigation'
 
 const props = defineProps<{ apps: AppManifestDTO[] }>()
 const router = useRouter()
@@ -88,10 +89,6 @@ function go(path: string) {
 }
 
 function openApp(app: AppManifestDTO) {
-  if (app.route === '/hbos/lims') {
-    go(app.route)
-    return
-  }
-  go('/hbos/apps')
+  void openBusinessRoute(router, app.id, app.route)
 }
 </script>

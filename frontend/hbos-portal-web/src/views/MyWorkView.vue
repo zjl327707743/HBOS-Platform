@@ -7,7 +7,7 @@
         <p>这里只聚合“可执行动作”。等待别人、已完成和仅供参考的信息不混在主待办中。</p>
       </div>
       <a-space>
-        <a-button><ReloadOutlined /> 刷新</a-button>
+        <a-button :loading="portal.tasksLoading" @click="portal.refreshTasks"><ReloadOutlined /> 刷新</a-button>
         <a-button type="primary"><SettingOutlined /> 工作偏好</a-button>
       </a-space>
     </div>
@@ -42,7 +42,7 @@
           :key="task.taskId"
           class="work-list-row"
           type="button"
-          @click="$router.push(task.deepLink)"
+          @click="openTask(task)"
         >
           <div class="task-icon" :class="task.appId"><component :is="appIcon(task.appId)" /></div>
           <div class="work-list-copy">
@@ -67,6 +67,7 @@
 
 <script setup lang="ts">
 import { computed, ref, type Component } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   ClockCircleOutlined,
   ExperimentOutlined,
@@ -79,8 +80,10 @@ import {
 } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
+import { openBusinessRoute } from '@/services/businessNavigation'
 
 const portal = usePortalStore()
+const router = useRouter()
 const scope = ref('需要我处理')
 const appFilter = ref('all')
 const keyword = ref('')
@@ -109,6 +112,10 @@ const icons: Record<string, Component> = {
   inventory: InboxOutlined,
   equipment: ToolOutlined,
 }
+function openTask(task: UnifiedTaskDTO) {
+  void openBusinessRoute(router, task.appId, task.deepLink)
+}
+
 function appIcon(appId: string) { return icons[appId] || InboxOutlined }
 function chineseApp(appId: string) {
   return ({ lims: 'LIMS', attendance: '考勤', inventory: '仓储', equipment: '设备' } as Record<string,string>)[appId] || appId

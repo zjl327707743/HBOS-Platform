@@ -17,7 +17,7 @@
         <div><h2>常用应用</h2><p>优先展示与你当前角色最相关的应用</p></div>
       </div>
       <div class="featured-apps">
-        <button v-for="app in featured" :key="app.id" class="featured-app glass-surface" type="button" @click="go(app.route)">
+        <button v-for="app in featured" :key="app.id" class="featured-app glass-surface" type="button" @click="go(app)">
           <div class="featured-icon app-icon" :class="app.accent"><component :is="iconMap[app.icon]" /></div>
           <div class="featured-copy">
             <div class="featured-title"><strong>{{ app.shortTitle }}</strong><span>{{ app.title }}</span></div>
@@ -38,7 +38,7 @@
         <div><h2>全部应用</h2><p>未来新增第 4、第 10 个 APP 时无需重写 Portal 主导航</p></div>
       </div>
       <div class="app-directory">
-        <button v-for="app in visibleApps" :key="app.id" class="directory-app glass-surface" type="button" @click="go(app.route)">
+        <button v-for="app in visibleApps" :key="app.id" class="directory-app glass-surface" type="button" @click="go(app)">
           <div class="app-icon" :class="app.accent"><component :is="iconMap[app.icon]" /></div>
           <strong>{{ app.shortTitle }}</strong>
           <span>{{ app.description }}</span>
@@ -64,7 +64,8 @@ import {
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
-import type { AppMigrationMode } from '@/contracts/portal'
+import type { AppManifestDTO, AppMigrationMode } from '@/contracts/portal'
+import { openBusinessRoute } from '@/services/businessNavigation'
 
 const portal = usePortalStore()
 const router = useRouter()
@@ -81,7 +82,7 @@ const visibleApps = computed(() => portal.apps.filter((app) =>
 function migrationLabel(mode: AppMigrationMode) {
   return { legacy: 'Legacy · Desk', hybrid: 'Hybrid', native: 'Native' }[mode]
 }
-function go(route: string) {
-  if (route === '/hbos/lims') void router.push(route)
+function go(app: AppManifestDTO) {
+  void openBusinessRoute(router, app.id, app.route)
 }
 </script>

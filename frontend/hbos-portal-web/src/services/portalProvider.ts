@@ -10,9 +10,11 @@ import {
 } from '@/data/mockPortal'
 import {
   getFrappePortalData,
+  getFrappeTasksForApps,
+  resolveFrappeRoute,
   searchFrappePortal,
 } from '@/services/portalApi'
-import type { PortalBranding, PortalDataSource } from '@/contracts/portal'
+import type { AppManifestDTO, PortalBranding, PortalDataSource } from '@/contracts/portal'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -47,6 +49,21 @@ export async function getPortalData() {
     return getFrappePortalData()
   }
   return getMockPortalData()
+}
+
+
+export async function getPortalTasks(apps: AppManifestDTO[]) {
+  if (portalDataSource === 'frappe') {
+    return getFrappeTasksForApps(apps)
+  }
+  return tasks
+}
+
+export async function resolveBusinessRoute(appId: string, stablePath: string) {
+  if (portalDataSource === 'frappe') {
+    return resolveFrappeRoute(appId, stablePath)
+  }
+  return stablePath
 }
 
 export async function searchPortal(query: string) {
