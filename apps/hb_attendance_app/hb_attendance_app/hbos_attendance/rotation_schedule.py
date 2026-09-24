@@ -1,187 +1,119 @@
-"""HBOS 12 小时倒班自动轮转排班（设备动力部 + 生产部）。
+"""HBOS three-day rotation schedule generator.
 
-Owner 2026-08-26 确认: 两批人员均 12 小时倒班, 循环「早班 → 夜班 → 休息」三天一轮,
-相位错开保证每天 2 人上班(1 早班 + 1 夜班)、1 人休息。
-
-班次映射(系统类型):
-  用户「早班」= 8:00-20:00  → 系统「早班」(迟到 08:01)
-  用户「夜班」= 20:00-8:00  → 系统「晚班」(迟到 20:01)
-  「休息」                   → 「休息」
-
-相位分段(段起点当天各成员班次; 某天的班次取「起点 <= 该天」的最后一段):
-  设备动力部:
-    段1 2026-08-15: 付全喜 晚班 / 李双胜 休息 / 贾正利 早班
-  生产部:
-    段1 2026-08-15: 吕玉升 晚班 / 王飞 休息 / 袁式梅 早班
-    段2 2026-08-30: 吕玉升 早班 / 王飞 晚班 / 袁式梅 休息
-
-  说明 1: 生产部段1 原按 8/26 快照记录(吕玉升早/王飞晚/袁式梅休), 与 8/15 起算等价
-  (8/26-8/15=11, ≡2 mod 3), Owner 2026-09-10 明确锚点为 8/15, 故统一改记 8/15。
-  说明 2 (Owner 2026-09-10 确认): 生产部自 2026-08-30 起实际轮转整体前移一天,
-  8/15-8/29 与段1 吻合, 8/30 起与段2 吻合(两人实际打卡各 12/12 吻合), 故按段2 重排。
+The algorithm is code; employee membership and phase anchors are business data in
+HBOS Attendance Policy Assignment (policy_type=ROTATION_3DAY). No production
+employee identities are stored in this module.
 """
+
 from datetime import date, timedelta
 
-# 循环顺序: 早班 → 晚班(用户称夜班) → 休息
+from hb_attendance_app.hbos_attendance.policy_registry import get_rotation_assignments
+
 ROTATION_CYCLE = ["早班", "晚班", "休息"]
-
-# 轮转分组: 每组由若干「相位段」组成, 每段一个起点日期 + 该日各成员的班次。
-# 某天的班次取「起点 <= 该天」的最后一段 —— 支持现场调整相位(如生产部 8/30 起前移一天)。
-ROTATION_GROUPS = [
-    {
-        "name": "设备动力部",
-        "segments": [
-            {
-                "anchor_date": date(2026, 8, 15),
-                "members": {
-                    "10009025": "晚班",  # 付全喜
-                    "10009027": "休息",  # 李双胜
-                    "10009028": "早班",  # 贾正利
-                },
-            },
-        ],
-    },
-    {
-        "name": "生产部",
-        "segments": [
-            {
-                "anchor_date": date(2026, 8, 15),
-                "members": {
-                    "10010011": "晚班",  # 吕玉升
-                    "10010010": "休息",  # 王飞
-                    "10010013": "早班",  # 袁式梅
-                },
-            },
-            {
-                # Owner 2026-09-10: 现场自 8/30 起相位整体前移一天
-                "anchor_date": date(2026, 8, 30),
-                "members": {
-                    "10010011": "早班",  # 吕玉升
-                    "10010010": "晚班",  # 王飞
-                    "10010013": "休息",  # 袁式梅
-                },
-            },
-        ],
-    },
-]
-
-# 兼容旧称: 每组第一个段的锚点/成员
-GROUP_ANCHOR_KEY = "anchor_date"
-GROUP_MEMBERS_KEY = "members"
-
-
-def group_start_date(group):
-    """组的起始日 = 最早一段的起点(覆盖式删除从这里开始)。"""
-    return min(seg["anchor_date"] for seg in group["segments"])
-
-
-def group_member_nums(group):
-    """组内全部工号（跨所有段去重，保序）。"""
-    seen = []
-    for seg in group["segments"]:
-        for num in seg["members"]:
-            if num not in seen:
-                seen.append(num)
-    return seen
-
-
-def group_shift_for(group, num, target_date):
-    """取「起点 <= target_date」的最后一段, 算该员工当天班次; 无适用段返回 None。"""
-    chosen = None
-    for seg in group["segments"]:
-        if seg["anchor_date"] <= target_date:
-            chosen = seg
-    if chosen is None or num not in chosen["members"]:
-        return None
-    return rotation_shift_for(chosen["members"][num], chosen["anchor_date"], target_date)
 
 
 def rotation_shift_for(anchor_shift, anchor_date, target_date):
-    """按锚点班次 + 锚点日期计算目标日期的班次（纯函数，可离线测试）。
-
-    循环「早班 → 晚班 → 休息」，跨周期取模。
-    """
+    """Resolve target shift from an anchor shift/date using the 3-day cycle."""
+    if isinstance(anchor_date, str):
+        anchor_date = date.fromisoformat(anchor_date[:10])
+    if isinstance(target_date, str):
+        target_date = date.fromisoformat(target_date[:10])
     days = (target_date - anchor_date).days
     base = ROTATION_CYCLE.index(anchor_shift)
     return ROTATION_CYCLE[(base + days) % len(ROTATION_CYCLE)]
 
 
-def generate_rotation_schedule(end_date):
-    """Generate owned ROTATION schedules without overwriting human/imported decisions.
+def _versions_by_employee(rows):
+    out = {}
+    for row in rows or []:
+        if not row.employee or not row.effective_from or row.anchor_shift not in ROTATION_CYCLE:
+            continue
+        out.setdefault(row.employee, []).append(row)
+    for employee in out:
+        out[employee].sort(key=lambda r: (str(r.effective_from), str(r.name)))
+    return out
 
-    Ownership rules:
-    - only ROTATION rows in the requested window may be replaced;
-    - LEGACY / IMPORT / MANUAL / SWAP rows are protected and win;
-    - this helper never commits. The caller owns the transaction.
+
+def _assignment_for_day(versions, target_date):
+    chosen = None
+    ds = target_date.isoformat()
+    for row in versions:
+        start = str(row.effective_from or "")[:10]
+        end = str(row.effective_to or "")[:10]
+        if start and start <= ds and (not end or ds <= end):
+            chosen = row
+    return chosen
+
+
+def generate_rotation_schedule(end_date):
+    """Generate ROTATION-owned schedules without overwriting human decisions.
+
+    Rules:
+    - assignment membership/phase comes from HBOS Attendance Policy Assignment;
+    - only rows with source_type=ROTATION are replaced;
+    - LEGACY / IMPORT / MANUAL / SWAP rows always win;
+    - no commit here: the caller owns the transaction.
     """
     import frappe
 
     if isinstance(end_date, str):
-        end_date = date.fromisoformat(end_date)
+        end_date = date.fromisoformat(end_date[:10])
 
-    all_nums = [n for g in ROTATION_GROUPS for n in group_member_nums(g)]
-    emps = frappe.db.get_all(
-        "Employee",
-        filters={"employee_number": ["in", all_nums]},
-        fields=["name", "employee_number"],
-    )
-    emp_by_num = {e.employee_number: e.name for e in emps}
+    rows = get_rotation_assignments(end_date)
+    by_employee = _versions_by_employee(rows)
 
     created = 0
     protected = 0
-    for group in ROTATION_GROUPS:
-        start_date = group_start_date(group)
-        if end_date < start_date:
+    for employee, versions in by_employee.items():
+        start_date = min(
+            date.fromisoformat(str(r.effective_from)[:10])
+            for r in versions
+            if r.effective_from
+        )
+        if start_date > end_date:
             continue
 
-        # Replace only rows this generator owns, and only inside the requested window.
-        for num in group_member_nums(group):
-            emp = emp_by_num.get(num)
-            if emp:
-                frappe.db.delete(
-                    "HBOS Employee Schedule",
-                    {
-                        "employee": emp,
-                        "schedule_date": [
-                            "between",
-                            [start_date.isoformat(), end_date.isoformat()],
-                        ],
-                        "source_type": "ROTATION",
-                    },
-                )
+        frappe.db.delete(
+            "HBOS Employee Schedule",
+            {
+                "employee": employee,
+                "schedule_date": ["between", [start_date.isoformat(), end_date.isoformat()]],
+                "source_type": "ROTATION",
+            },
+        )
 
         d = start_date
         while d <= end_date:
-            ds = d.isoformat()
-            for num in group_member_nums(group):
-                emp = emp_by_num.get(num)
-                if not emp:
-                    continue
+            assignment = _assignment_for_day(versions, d)
+            if not assignment:
+                d += timedelta(days=1)
+                continue
 
-                # Any non-rotation authoritative row wins over automatic rotation.
-                existing = frappe.db.get_value(
-                    "HBOS Employee Schedule",
-                    {"employee": emp, "schedule_date": ds},
-                    ["name", "source_type"],
-                    as_dict=True,
-                )
-                if existing:
-                    protected += 1
-                    continue
+            existing = frappe.db.get_value(
+                "HBOS Employee Schedule",
+                {"employee": employee, "schedule_date": d.isoformat()},
+                ["name", "source_type"],
+                as_dict=True,
+            )
+            if existing:
+                protected += 1
+                d += timedelta(days=1)
+                continue
 
-                shift = group_shift_for(group, num, d)
-                if not shift:
-                    continue
-                frappe.get_doc({
+            anchor = date.fromisoformat(str(assignment.effective_from)[:10])
+            shift = rotation_shift_for(assignment.anchor_shift, anchor, d)
+            frappe.get_doc(
+                {
                     "doctype": "HBOS Employee Schedule",
-                    "employee": emp,
-                    "schedule_date": ds,
+                    "employee": employee,
+                    "schedule_date": d.isoformat(),
                     "shift_type": shift,
                     "leave_type": "",
                     "source_type": "ROTATION",
-                    "source_ref": group["name"],
-                }).insert(ignore_permissions=True)
-                created += 1
+                    "source_ref": assignment.name,
+                }
+            ).insert(ignore_permissions=True)
+            created += 1
             d += timedelta(days=1)
 
     return {
