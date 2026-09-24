@@ -18,7 +18,7 @@ frappe.query_reports["月度考勤汇总"] = {
 			var bg = colors[column.fieldname] || "#666";
 			var html = '<div style="display:flex;flex-wrap:wrap;gap:2px;max-width:500px">';
 			for (var i = 0; i < parts.length; i++) {
-				html += '<span style="white-space:nowrap;font-size:11px;background:'+bg+';color:#fff;padding:1px 5px;border-radius:3px;margin:1px">' + parts[i] + '</span>';
+				html += '<span style="white-space:nowrap;font-size:11px;background:'+bg+';color:#fff;padding:1px 5px;border-radius:3px;margin:1px">' + frappe.utils.escape_html(parts[i]) + '</span>';
 			}
 			html += '</div>';
 			return html;
