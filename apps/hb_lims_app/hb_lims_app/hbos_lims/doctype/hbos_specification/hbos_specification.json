@@ -1,0 +1,167 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:{spec_code}-V{version}",
+ "creation": "2026-08-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "spec_code",
+  "spec_name",
+  "material_code",
+  "material_name",
+  "version",
+  "effective_date",
+  "status",
+  "standard_source",
+  "storage_condition",
+  "retain_sample_qty",
+  "items_section",
+  "items",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "spec_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "规格ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "spec_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "规格名称",
+   "reqd": 1
+  },
+  {
+   "fieldname": "material_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "物料编码",
+   "reqd": 1
+  },
+  {
+   "fieldname": "material_name",
+   "fieldtype": "Data",
+   "label": "物料名称",
+   "reqd": 1
+  },
+  {
+   "default": "1.0",
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "版本号",
+   "reqd": 1
+  },
+  {
+   "fieldname": "effective_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "生效日期",
+   "reqd": 1
+  },
+  {
+   "default": "草稿",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "状态",
+   "options": "草稿\n已生效\n已废止",
+   "reqd": 1
+  },
+  {
+   "fieldname": "standard_source",
+   "fieldtype": "Select",
+   "label": "标准依据",
+   "options": "中国药典\nEP\nUSP\n客户标准\n企业内控"
+  },
+  {
+   "fieldname": "storage_condition",
+   "fieldtype": "Data",
+   "label": "储存条件"
+  },
+  {
+   "fieldname": "retain_sample_qty",
+   "fieldtype": "Data",
+   "label": "留样量"
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "检验项目明细"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "检验项目明细",
+   "options": "HBOS Specification Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "icon": "book",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Specification",
+ "naming_rule": "Expression (autoname)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -7,14 +7,16 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      TZ: Asia/Shanghai
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_lims_app
 
   configurator:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -34,15 +36,17 @@ services:
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port $$SOCKETIO_PORT;
     environment:
+      TZ: Asia/Shanghai
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       REDIS_CACHE: ${REDIS_CACHE}
       REDIS_QUEUE: ${REDIS_QUEUE}
       SOCKETIO_PORT: "${SOCKETIO_PORT}"
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_lims_app
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
@@ -59,6 +63,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     entrypoint:
@@ -90,12 +95,13 @@ services:
           --install-app erpnext \
           --set-default;
     environment:
+      TZ: Asia/Shanghai
       SITE_NAME: ${SITE_NAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_lims_app
 
   db:
     image: mariadb:11.8
@@ -128,6 +134,7 @@ services:
     command:
       - nginx-entrypoint.sh
     environment:
+      TZ: Asia/Shanghai
       BACKEND: backend:8000
       FRAPPE_SITE_NAME_HEADER: ${FRAPPE_SITE_NAME_HEADER}
       SOCKETIO: websocket:9000
@@ -139,6 +146,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     ports:
@@ -157,12 +165,14 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_lims_app
 
   queue-short:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -177,12 +187,14 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_lims_app
 
   redis-queue:
     image: redis:6.2-alpine
@@ -207,10 +219,12 @@ services:
       - bench
       - schedule
     environment:
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      TZ: Asia/Shanghai
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_lims_app
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
@@ -223,11 +237,13 @@ services:
       - node
       - /home/frappe/frappe-bench/apps/frappe/socketio.js
     environment:
+      TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 

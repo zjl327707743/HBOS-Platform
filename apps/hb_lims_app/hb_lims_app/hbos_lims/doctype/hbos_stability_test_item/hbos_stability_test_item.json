@@ -1,0 +1,219 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "item_name",
+  "base_test_item",
+  "item_category",
+  "column_break_flags",
+  "result_type",
+  "is_full_test_only",
+  "is_key_item",
+  "is_active",
+  "section_rule",
+  "significant_change_rule",
+  "change_threshold",
+  "section_forms",
+  "dosage_forms"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Data",
+   "label": "项目编码",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "项目名称",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "base_test_item",
+   "fieldtype": "Link",
+   "label": "关联检验项目",
+   "options": "HBOS Test Item",
+   "description": "可空"
+  },
+  {
+   "fieldname": "item_category",
+   "fieldtype": "Select",
+   "label": "项目分类",
+   "options": "性状\n含量\n有关物质\n水分\n熔点\n吸湿性\npH\n溶出度\n释放度\n崩解时限\n可见异物\n不溶性微粒\n无菌\n沉降体积比\n再分散性\n其他",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_flags",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "result_type",
+   "fieldtype": "Select",
+   "label": "结果类型",
+   "options": "数值型\n定性型\n文本型",
+   "reqd": 1,
+   "description": "决定显著变化判定分支"
+  },
+  {
+   "fieldname": "is_full_test_only",
+   "fieldtype": "Check",
+   "label": "仅首末全检",
+   "default": "0",
+   "description": "贮存中不变项目"
+  },
+  {
+   "fieldname": "is_key_item",
+   "fieldtype": "Check",
+   "label": "重点考察项目",
+   "default": "0"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "启用",
+   "default": "1"
+  },
+  {
+   "fieldname": "section_rule",
+   "fieldtype": "Section Break",
+   "label": "显著变化判定规则",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "significant_change_rule",
+   "fieldtype": "Select",
+   "label": "判定规则",
+   "options": "相对变化超阈值\n超规格限度\n定性不符标准\n不参与判定",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "change_threshold",
+   "fieldtype": "Float",
+   "label": "相对变化阈值（%）",
+   "default": "5",
+   "description": "仅「相对变化超阈值」规则使用"
+  },
+  {
+   "fieldname": "section_forms",
+   "fieldtype": "Section Break",
+   "label": "适用剂型",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "dosage_forms",
+   "fieldtype": "Table",
+   "label": "适用剂型明细",
+   "options": "HBOS Stability Test Item Form"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Test Item",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QP",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "allow_rename": 1,
+ "autoname": "field:item_code",
+ "naming_rule": "By fieldname",
+ "title_field": "item_name"
+}

@@ -1,0 +1,424 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "stability_product",
+  "version",
+  "supersedes",
+  "column_break_head",
+  "status",
+  "study_reason",
+  "section_conditions",
+  "study_conditions",
+  "conditions_count",
+  "extra_condition_reason",
+  "column_break_review",
+  "register_review_by",
+  "register_review_date",
+  "section_batches",
+  "batches",
+  "is_inverted_required",
+  "column_break_qty",
+  "qty",
+  "qty_uom",
+  "pack_desc",
+  "test_cycle",
+  "test_method",
+  "section_snapshot",
+  "spec_ref",
+  "spec_version",
+  "method_version",
+  "limits_snapshot",
+  "vd_months_snapshot",
+  "snapshot_frozen",
+  "section_signoff",
+  "qa_applicant",
+  "apply_date",
+  "qc_manager_confirm_by",
+  "qc_manager_confirm_date",
+  "approver_by",
+  "approve_date",
+  "column_break_signoff2",
+  "reject_reason",
+  "reject_by",
+  "reject_date",
+  "cancel_reason",
+  "cancel_by",
+  "cancel_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-NOT-.YYYY.-",
+   "default": "HBOS-STB-NOT-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stability_product",
+   "fieldtype": "Link",
+   "label": "稳定性产品",
+   "options": "HBOS Stability Product",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "通知单版本",
+   "default": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "supersedes",
+   "fieldtype": "Link",
+   "label": "被替代的通知单",
+   "options": "HBOS Stability Notice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "草稿\n待QC经理确认\n待批准\n已批准\n已驳回\n已关闭\n已取消",
+   "default": "草稿",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "study_reason",
+   "fieldtype": "Long Text",
+   "label": "考察原因",
+   "reqd": 1,
+   "description": "必填，须细化到具体缘由"
+  },
+  {
+   "fieldname": "section_conditions",
+   "fieldtype": "Section Break",
+   "label": "试验条件",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "study_conditions",
+   "fieldtype": "Table",
+   "label": "试验类型与条件",
+   "options": "HBOS Stability Study Condition"
+  },
+  {
+   "fieldname": "conditions_count",
+   "fieldtype": "Int",
+   "label": "条件数量",
+   "read_only": 1
+  },
+  {
+   "fieldname": "extra_condition_reason",
+   "fieldtype": "Long Text",
+   "label": "多条件补充原因",
+   "description": "条件超过 2 个时必填"
+  },
+  {
+   "fieldname": "column_break_review",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "register_review_by",
+   "fieldtype": "Link",
+   "label": "注册人员复核人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "register_review_date",
+   "fieldtype": "Date",
+   "label": "注册人员复核日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_batches",
+   "fieldtype": "Section Break",
+   "label": "考察批次",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "batches",
+   "fieldtype": "Table",
+   "label": "批次明细",
+   "options": "HBOS Stability Batch"
+  },
+  {
+   "fieldname": "is_inverted_required",
+   "fieldtype": "Check",
+   "label": "需正置+倒置",
+   "default": "0"
+  },
+  {
+   "fieldname": "column_break_qty",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "label": "考察用量"
+  },
+  {
+   "fieldname": "qty_uom",
+   "fieldtype": "Select",
+   "label": "用量单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他"
+  },
+  {
+   "fieldname": "pack_desc",
+   "fieldtype": "Data",
+   "label": "包装描述"
+  },
+  {
+   "fieldname": "test_cycle",
+   "fieldtype": "Data",
+   "label": "检测周期"
+  },
+  {
+   "fieldname": "test_method",
+   "fieldtype": "Small Text",
+   "label": "检测方法"
+  },
+  {
+   "fieldname": "section_snapshot",
+   "fieldtype": "Section Break",
+   "label": "标准与方法快照（批准后冻结）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "spec_ref",
+   "fieldtype": "Link",
+   "label": "质量标准",
+   "options": "HBOS Specification"
+  },
+  {
+   "fieldname": "spec_version",
+   "fieldtype": "Data",
+   "label": "标准版本快照"
+  },
+  {
+   "fieldname": "method_version",
+   "fieldtype": "Data",
+   "label": "方法版本快照"
+  },
+  {
+   "fieldname": "limits_snapshot",
+   "fieldtype": "Small Text",
+   "label": "重点考察项目限度快照"
+  },
+  {
+   "fieldname": "vd_months_snapshot",
+   "fieldtype": "Int",
+   "label": "有效期快照（月）"
+  },
+  {
+   "fieldname": "snapshot_frozen",
+   "fieldtype": "Check",
+   "label": "快照已冻结",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_signoff",
+   "fieldtype": "Section Break",
+   "label": "签署",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "qa_applicant",
+   "fieldtype": "Link",
+   "label": "QA 申请人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "apply_date",
+   "fieldtype": "Date",
+   "label": "申请日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qc_manager_confirm_by",
+   "fieldtype": "Link",
+   "label": "QC 经理确认人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qc_manager_confirm_date",
+   "fieldtype": "Date",
+   "label": "QC 经理确认日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approver_by",
+   "fieldtype": "Link",
+   "label": "批准人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approve_date",
+   "fieldtype": "Date",
+   "label": "批准日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_signoff2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "reject_reason",
+   "fieldtype": "Long Text",
+   "label": "驳回原因",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reject_by",
+   "fieldtype": "Link",
+   "label": "驳回人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reject_date",
+   "fieldtype": "Date",
+   "label": "驳回日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancel_reason",
+   "fieldtype": "Long Text",
+   "label": "取消原因",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancel_by",
+   "fieldtype": "Link",
+   "label": "取消人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancel_date",
+   "fieldtype": "Date",
+   "label": "取消日期",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Notice",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QP",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "title_field": "stability_product"
+}

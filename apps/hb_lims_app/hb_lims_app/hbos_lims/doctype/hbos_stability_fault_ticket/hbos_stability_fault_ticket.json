@@ -1,0 +1,228 @@
+{
+ "actions": [],
+ "creation": "2026-09-20 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Fault Ticket",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "istable": 0,
+ "field_order": [
+  "naming_series",
+  "equipment",
+  "fault_start",
+  "fault_end",
+  "status",
+  "sec_desc",
+  "description",
+  "affected_samples",
+  "sec_handle",
+  "emergency_action",
+  "transfer_path",
+  "risk_assessment",
+  "column_break_handle",
+  "deviation_ref",
+  "capa_ref",
+  "handler",
+  "handle_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-FLT-.YYYY.-",
+   "default": "HBOS-STB-FLT-.YYYY.-",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "equipment",
+   "fieldtype": "Link",
+   "label": "设备",
+   "options": "HBOS Stability Equipment",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "fault_start",
+   "fieldtype": "Datetime",
+   "label": "故障开始",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fault_end",
+   "fieldtype": "Datetime",
+   "label": "故障结束"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "\n待处理\n处理中\n待评估\n已关闭",
+   "reqd": 1,
+   "read_only": 1,
+   "default": "待处理",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "sec_desc",
+   "fieldtype": "Section Break",
+   "label": "故障描述"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "故障描述",
+   "reqd": 1
+  },
+  {
+   "fieldname": "affected_samples",
+   "fieldtype": "Table",
+   "label": "受影响样品",
+   "options": "HBOS Stability Fault Sample"
+  },
+  {
+   "fieldname": "sec_handle",
+   "fieldtype": "Section Break",
+   "label": "处置"
+  },
+  {
+   "fieldname": "emergency_action",
+   "fieldtype": "Long Text",
+   "label": "紧急措施"
+  },
+  {
+   "fieldname": "transfer_path",
+   "fieldtype": "Data",
+   "label": "降级转移路径"
+  },
+  {
+   "fieldname": "risk_assessment",
+   "fieldtype": "Long Text",
+   "label": "风险评估"
+  },
+  {
+   "fieldname": "column_break_handle",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "deviation_ref",
+   "fieldtype": "Data",
+   "label": "偏差引用"
+  },
+  {
+   "fieldname": "capa_ref",
+   "fieldtype": "Data",
+   "label": "CAPA 引用"
+  },
+  {
+   "fieldname": "handler",
+   "fieldtype": "Link",
+   "label": "处理人",
+   "options": "User"
+  },
+  {
+   "fieldname": "handle_date",
+   "fieldtype": "Date",
+   "label": "处理日期"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "LIMS Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Analyst",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Reviewer",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QP",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  }
+ ]
+}

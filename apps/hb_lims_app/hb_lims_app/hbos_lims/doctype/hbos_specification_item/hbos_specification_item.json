@@ -1,0 +1,140 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-08-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "item",
+  "item_name",
+  "method_sop",
+  "limits_type",
+  "lower_limit",
+  "upper_limit",
+  "unit",
+  "significant_digits",
+  "remark"
+ ],
+ "fields": [
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "检验项目",
+   "options": "HBOS Test Item",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "item.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "项目名称",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "item.method_sop",
+   "fieldname": "method_sop",
+   "fieldtype": "Data",
+   "label": "方法SOP号",
+   "read_only": 1
+  },
+  {
+   "fieldname": "limits_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "限度模式",
+   "options": "上限\n下限\n区间\n记录型",
+   "reqd": 1
+  },
+  {
+   "fieldname": "lower_limit",
+   "fieldtype": "Float",
+   "label": "限度下限"
+  },
+  {
+   "fieldname": "upper_limit",
+   "fieldtype": "Float",
+   "label": "限度上限"
+  },
+  {
+   "fetch_from": "item.test_unit",
+   "fieldname": "unit",
+   "fieldtype": "Data",
+   "label": "单位",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "item.significant_digits",
+   "fieldname": "significant_digits",
+   "fieldtype": "Int",
+   "label": "有效位数（小数位）",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "icon": "list",
+ "idx": 0,
+ "in_create": 0,
+ "istable": 1,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Specification Item",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

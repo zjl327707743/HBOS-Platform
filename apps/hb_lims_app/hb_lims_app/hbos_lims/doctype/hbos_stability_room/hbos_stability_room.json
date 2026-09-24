@@ -1,0 +1,183 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "room_code",
+  "room_name",
+  "location",
+  "column_break_temp",
+  "temp_min",
+  "temp_max",
+  "humidity_min",
+  "humidity_max",
+  "column_break_flags",
+  "is_locked_managed",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "room_code",
+   "fieldtype": "Data",
+   "label": "房间编码",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "room_name",
+   "fieldtype": "Data",
+   "label": "房间名称",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "位置"
+  },
+  {
+   "fieldname": "column_break_temp",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "temp_min",
+   "fieldtype": "Float",
+   "label": "温度下限（℃）"
+  },
+  {
+   "fieldname": "temp_max",
+   "fieldtype": "Float",
+   "label": "温度上限（℃）"
+  },
+  {
+   "fieldname": "humidity_min",
+   "fieldtype": "Float",
+   "label": "湿度下限（%RH）"
+  },
+  {
+   "fieldname": "humidity_max",
+   "fieldtype": "Float",
+   "label": "湿度上限（%RH）"
+  },
+  {
+   "fieldname": "column_break_flags",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "is_locked_managed",
+   "fieldtype": "Check",
+   "label": "上锁专人管理",
+   "default": "0"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "启用",
+   "default": "1"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Room",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QP",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "allow_rename": 1,
+ "autoname": "field:room_code",
+ "naming_rule": "By fieldname",
+ "title_field": "room_name"
+}

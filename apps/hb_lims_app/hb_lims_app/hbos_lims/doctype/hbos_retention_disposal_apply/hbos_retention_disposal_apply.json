@@ -1,0 +1,307 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-09-08 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "retention_sample",
+  "sample_name",
+  "batch_no",
+  "status",
+  "section_apply",
+  "disposal_type",
+  "qty",
+  "qty_uom",
+  "qa_manager_required",
+  "reason",
+  "disposal_method",
+  "disposal_location",
+  "applicant",
+  "apply_date",
+  "section_approve",
+  "qc_supervisor_sign",
+  "qc_manager_sign",
+  "qa_review_sign",
+  "qa_manager_sign",
+  "qm_sign",
+  "qm_approved_at",
+  "deadline",
+  "new_retention_due_date",
+  "disposal_by",
+  "disposal_date",
+  "monitor_by",
+  "monitor_date",
+  "sample_prev_status",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-RET-DSP-.YYYY.-",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "retention_sample",
+   "fieldtype": "Link",
+   "label": "关联留样",
+   "options": "HBOS Retention Sample",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sample_name",
+   "fieldtype": "Data",
+   "label": "样品名称",
+   "fetch_from": "retention_sample.sample_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "批号",
+   "fetch_from": "retention_sample.batch_no",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "草稿\n待QC主管审核\n待QC负责人审核\n待QA审核\n待QA负责人审核\n待QM批准\n已批准\n待执行\n已完成\n已驳回\n已取消",
+   "default": "草稿",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_apply",
+   "fieldtype": "Section Break",
+   "label": "处理信息"
+  },
+  {
+   "fieldname": "disposal_type",
+   "fieldtype": "Select",
+   "label": "处理类型",
+   "options": "留样期满销毁\n留样期满继续留样\n其他",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "label": "处理数量",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty_uom",
+   "fieldtype": "Select",
+   "label": "单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他",
+   "fetch_from": "retention_sample.qty_uom",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_manager_required",
+   "fieldtype": "Check",
+   "label": "5 级审批（勾选=5 级，含 QA 负责人）",
+   "default": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "原因"
+  },
+  {
+   "fieldname": "disposal_method",
+   "fieldtype": "Data",
+   "label": "处理方式"
+  },
+  {
+   "fieldname": "disposal_location",
+   "fieldtype": "Data",
+   "label": "处理地点"
+  },
+  {
+   "fieldname": "applicant",
+   "fieldtype": "Link",
+   "label": "申请人",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "apply_date",
+   "fieldtype": "Date",
+   "label": "申请日期",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_approve",
+   "fieldtype": "Section Break",
+   "label": "审批链与执行"
+  },
+  {
+   "fieldname": "qc_supervisor_sign",
+   "fieldtype": "Data",
+   "label": "QC 主管签名",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qc_manager_sign",
+   "fieldtype": "Data",
+   "label": "QC 负责人签名",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_review_sign",
+   "fieldtype": "Data",
+   "label": "QA 审核签名",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_manager_sign",
+   "fieldtype": "Data",
+   "label": "QA 负责人签名",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qm_sign",
+   "fieldtype": "Data",
+   "label": "QM 批准签名",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qm_approved_at",
+   "fieldtype": "Datetime",
+   "label": "QM 批准时间",
+   "read_only": 1
+  },
+  {
+   "fieldname": "deadline",
+   "fieldtype": "Date",
+   "label": "销毁时限（QM 批准+3 月）",
+   "read_only": 1
+  },
+  {
+   "fieldname": "new_retention_due_date",
+   "fieldtype": "Date",
+   "label": "续留新留样期至"
+  },
+  {
+   "fieldname": "disposal_by",
+   "fieldtype": "Link",
+   "label": "处理人",
+   "options": "User"
+  },
+  {
+   "fieldname": "disposal_date",
+   "fieldtype": "Date",
+   "label": "处理日期"
+  },
+  {
+   "fieldname": "monitor_by",
+   "fieldtype": "Link",
+   "label": "监督人（QA）",
+   "options": "User"
+  },
+  {
+   "fieldname": "monitor_date",
+   "fieldtype": "Date",
+   "label": "监督日期"
+  },
+  {
+   "fieldname": "sample_prev_status",
+   "fieldtype": "Data",
+   "label": "留样进入待处理前状态快照",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 0,
+ "links": [],
+ "module": "HBOS LIMS",
+ "name": "HBOS Retention Disposal Apply",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "submit": 0,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Manager"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Analyst"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Reviewer"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS QA"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "retention_sample",
+ "track_changes": 1
+}

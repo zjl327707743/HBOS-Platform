@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout 代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 设置 Python
         uses: actions/setup-python@v5
@@ -46,11 +48,13 @@ jobs:
 
       - name: 禁止 Excel 和真实数据 CSV
         run: |
-          if git diff --name-only origin/main...HEAD | grep -qiE '\.(xlsx|xls|csv)$'; then
+          if git diff --name-only origin/main...HEAD |
+             grep -vxF 'apps/hb_lims_app/hb_lims_app/translations/zh.csv' |
+             grep -qiE '\.(xlsx|xls|csv)$'; then
             echo "::error:: 禁止提交 Excel 或 CSV 文件（可能含真实数据）"
             exit 1
           fi
-          echo " 无 Excel / CSV 文件"
+          echo " 无禁止的 Excel / CSV 文件；仅豁免已审查的 LIMS 界面翻译"
 
       - name: 禁止私钥和证书
         run: |

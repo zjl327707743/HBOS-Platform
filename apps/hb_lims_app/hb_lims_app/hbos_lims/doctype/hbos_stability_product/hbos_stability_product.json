@@ -1,0 +1,242 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "product_code",
+  "product_name",
+  "dosage_form",
+  "category",
+  "column_break_main",
+  "vd_months",
+  "default_uom",
+  "qty_factor",
+  "pack_desc",
+  "column_break_flags",
+  "is_outsource",
+  "outsourced_test_window_days",
+  "need_inverted",
+  "is_active",
+  "section_conditions",
+  "storage_cond_long",
+  "storage_cond_acc",
+  "storage_cond_inter"
+ ],
+ "fields": [
+  {
+   "fieldname": "product_code",
+   "fieldtype": "Data",
+   "label": "产品编码",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "label": "产品名称",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "dosage_form",
+   "fieldtype": "Select",
+   "label": "剂型",
+   "options": "原料药\n片剂\n胶囊剂\n注射剂\n吸入粉雾剂\n口服混悬剂\n中间体\n其它"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "考察分类",
+   "options": "新产品/工艺验证类\n变更类\n年度持续稳定性考察类\n其它类",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "vd_months",
+   "fieldtype": "Int",
+   "label": "有效期（月）",
+   "description": "年度持续稳定性考察类分档依据"
+  },
+  {
+   "fieldname": "default_uom",
+   "fieldtype": "Select",
+   "label": "默认计量单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他",
+   "reqd": 1,
+   "description": "本板块 UOM 权威来源"
+  },
+  {
+   "fieldname": "qty_factor",
+   "fieldtype": "Float",
+   "label": "默认用量倍数",
+   "default": "1.5"
+  },
+  {
+   "fieldname": "pack_desc",
+   "fieldtype": "Data",
+   "label": "包装描述"
+  },
+  {
+   "fieldname": "column_break_flags",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "is_outsource",
+   "fieldtype": "Check",
+   "label": "委托生产产品",
+   "default": "0"
+  },
+  {
+   "fieldname": "outsourced_test_window_days",
+   "fieldtype": "Int",
+   "label": "委外检测窗口（天）",
+   "description": "仅委托生产产品适用；留空 = 不限制（Owner 2026-09-16 决定，方案 7.3）"
+  },
+  {
+   "fieldname": "need_inverted",
+   "fieldtype": "Check",
+   "label": "需正置+倒置存放",
+   "default": "0",
+   "description": "变更涉胶塞厂家变化的强制要求"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "启用",
+   "default": "1"
+  },
+  {
+   "fieldname": "section_conditions",
+   "fieldtype": "Section Break",
+   "label": "默认储存条件",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "storage_cond_long",
+   "fieldtype": "Link",
+   "label": "长期条件",
+   "options": "HBOS Stability Condition"
+  },
+  {
+   "fieldname": "storage_cond_acc",
+   "fieldtype": "Link",
+   "label": "加速条件",
+   "options": "HBOS Stability Condition"
+  },
+  {
+   "fieldname": "storage_cond_inter",
+   "fieldtype": "Link",
+   "label": "中间条件",
+   "options": "HBOS Stability Condition"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Product",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QP",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "allow_rename": 1,
+ "autoname": "field:product_code",
+ "naming_rule": "By fieldname",
+ "title_field": "product_name"
+}

@@ -1,0 +1,235 @@
+{
+ "actions": [],
+ "creation": "2026-09-20 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Equipment",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "istable": 0,
+ "field_order": [
+  "naming_series",
+  "equipment_name",
+  "room",
+  "location",
+  "storage_cond",
+  "sec_qual",
+  "qualification_status",
+  "qualification_due",
+  "calibration_due",
+  "maintenance_due",
+  "sec_flags",
+  "is_monitored",
+  "has_ups",
+  "has_alarm",
+  "alarm_test_date",
+  "column_break_flags",
+  "last_fault_date",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-EQP-",
+   "default": "HBOS-STB-EQP-",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "equipment_name",
+   "fieldtype": "Select",
+   "label": "设备名称",
+   "options": "\n恒温恒湿箱\n医用冷藏箱\n强光照射试验箱\n其它",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "room",
+   "fieldtype": "Link",
+   "label": "所属房间",
+   "options": "HBOS Stability Room",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "位置"
+  },
+  {
+   "fieldname": "storage_cond",
+   "fieldtype": "Link",
+   "label": "对应条件",
+   "options": "HBOS Stability Condition"
+  },
+  {
+   "fieldname": "sec_qual",
+   "fieldtype": "Section Break",
+   "label": "确认与校准"
+  },
+  {
+   "fieldname": "qualification_status",
+   "fieldtype": "Select",
+   "label": "确认状态",
+   "options": "\n已确认\n待确认\n过期",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "qualification_due",
+   "fieldtype": "Date",
+   "label": "确认到期"
+  },
+  {
+   "fieldname": "calibration_due",
+   "fieldtype": "Date",
+   "label": "校准到期"
+  },
+  {
+   "fieldname": "maintenance_due",
+   "fieldtype": "Date",
+   "label": "维护到期"
+  },
+  {
+   "fieldname": "sec_flags",
+   "fieldtype": "Section Break",
+   "label": "设施"
+  },
+  {
+   "fieldname": "is_monitored",
+   "fieldtype": "Check",
+   "label": "温湿度监控"
+  },
+  {
+   "fieldname": "has_ups",
+   "fieldtype": "Check",
+   "label": "不间断电源"
+  },
+  {
+   "fieldname": "has_alarm",
+   "fieldtype": "Check",
+   "label": "报警"
+  },
+  {
+   "fieldname": "alarm_test_date",
+   "fieldtype": "Date",
+   "label": "报警测试日期"
+  },
+  {
+   "fieldname": "column_break_flags",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "last_fault_date",
+   "fieldtype": "Date",
+   "label": "最近故障",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "在用\n停用\n维修中",
+   "reqd": 1,
+   "default": "在用",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "LIMS Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Analyst",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Reviewer",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QP",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  }
+ ]
+}
