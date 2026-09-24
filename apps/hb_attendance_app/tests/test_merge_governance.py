@@ -119,7 +119,7 @@ class MergeGovernanceTest(unittest.TestCase):
     def test_dashboard_uses_authoritative_attendance_and_has_rbac(self):
         src = DASHBOARD_DATA.read_text()
         self.assertIn('frappe.only_for(["HR Manager", "HR User", "System Manager"])', src)
-        self.assertIn('"Attendance"', src)
+        self.assertIn("FROM tabAttendance", src)
         self.assertNotIn("Zero-checkin absent detection", src)
         self.assertNotIn("daily_present", src)
 
