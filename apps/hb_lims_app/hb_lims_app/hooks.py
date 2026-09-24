@@ -19,6 +19,14 @@ app_include_js = [
 # 在 boot 阶段按用户预置该缓存，恢复原生权限语义（不修改 Frappe 核心源码）。
 boot_session = "hb_lims_app.hbos_lims.setup.sync_user_perm_can_read_cache"
 
+# HBOS LIMS 独立 Vue 前端的正式同源入口。
+# 根路由由 www/hbos-lims.html 提供；history-mode 深链接统一回写到同一壳页，
+# 再由 Vue Router 在浏览器端接管。Frappe v16 的 website_route_rules 支持
+# <path:...> 捕获多段路径，因此 /hbos-lims/tasks、/hbos-lims/stability/... 均可硬刷新。
+website_route_rules = [
+	{"from_route": "/hbos-lims/<path:app_path>", "to_route": "hbos-lims"},
+]
+
 # 合规审计日志：全量 doc_events 捕获（创建/修改/删除），write-once
 doc_events = {
 	"HBOS Sample": {

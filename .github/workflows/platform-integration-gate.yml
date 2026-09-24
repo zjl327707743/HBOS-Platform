@@ -39,6 +39,7 @@ jobs:
       - name: Validate shell
         run: |
           bash -n scripts/setup_fonts.sh
+          bash -n scripts/prepare_hbos_web.sh
           bash -n scripts/ci/platform_clean_site_smoke.sh
 
       - name: Three-app clean-site integration

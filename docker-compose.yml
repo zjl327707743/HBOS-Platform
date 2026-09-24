@@ -1,4 +1,41 @@
 services:
+  hbos-web-prepare:
+    image: node:22-alpine
+    networks:
+      - frappe_network
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        rm -rf /work
+        mkdir -p /work
+        tar -C /src --exclude='./node_modules' --exclude='./dist' -cf - . | tar -C /work -xf -
+        cd /work
+        npm ci --no-audit --no-fund
+        npm run build:prod
+        test -f dist/.vite/manifest.json
+        find /dist -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+        cp -a dist/. /dist/
+
+        test -d /home/frappe/frappe-bench/apps/hb_attendance_app/hb_attendance_app/public
+        test -d /home/frappe/frappe-bench/apps/hb_inventory_app/hb_inventory_app/public
+        test -d /home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public
+
+        rm -rf /assets/hb_attendance_app /assets/hb_inventory_app /assets/hb_lims_app
+        ln -s /home/frappe/frappe-bench/apps/hb_attendance_app/hb_attendance_app/public /assets/hb_attendance_app
+        ln -s /home/frappe/frappe-bench/apps/hb_inventory_app/hb_inventory_app/public /assets/hb_inventory_app
+        ln -s /home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public /assets/hb_lims_app
+    volumes:
+      - ./frontend/hbos-lims-web:/src:ro
+      - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app:ro
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app:ro
+      - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app:ro
+      - hbos-lims-dist:/dist
+      - hbos-lims-npm-cache:/root/.npm
+      - assets-data:/assets
+
   backend:
     image: frappe/erpnext:${ERPNEXT_VERSION}
     networks:
@@ -167,7 +204,10 @@ services:
     networks:
       - frappe_network
     depends_on:
-      - websocket
+      websocket:
+        condition: service_started
+      hbos-web-prepare:
+        condition: service_completed_successfully
     restart: on-failure
     command:
       - nginx-entrypoint.sh
@@ -185,6 +225,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - hbos-lims-dist:/home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public/hbos-lims:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
@@ -393,6 +434,10 @@ volumes:
   # 把这两个 app 的 dist 目录挂成同一个命名卷，让「构建」与「对外提供」看到同一份文件。
   frappe-dist:
   erpnext-dist:
+  # HBOS LIMS Vue production bundle. Kept outside container writable layers so
+  # frontend recreation does not erase /hbos-lims static assets.
+  hbos-lims-dist:
+  hbos-lims-npm-cache:
 
 networks:
   frappe_network:
