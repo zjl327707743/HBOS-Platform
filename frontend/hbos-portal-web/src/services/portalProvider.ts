@@ -75,12 +75,15 @@ export async function resolveBusinessRoute(appId: string, stablePath: string) {
 }
 
 export async function searchPortal(query: string) {
+  const normalizedQuery = query.trim()
+
   if (portalDataSource === 'frappe') {
-    return searchFrappePortal(query)
+    if (!normalizedQuery) return []
+    return searchFrappePortal(normalizedQuery)
   }
 
   await sleep(90)
-  const q = query.trim().toLowerCase()
+  const q = normalizedQuery.toLowerCase()
   if (!q) return searchResults
   return searchResults.filter((item) =>
     `${item.title} ${item.subtitle} ${item.appTitle} ${item.typeLabel}`.toLowerCase().includes(q),
