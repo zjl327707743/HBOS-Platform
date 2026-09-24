@@ -49,6 +49,7 @@ import { useRoute } from 'vue-router'
 import { ReloadOutlined, DesktopOutlined, LogoutOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useAuthStore } from '@/stores/auth'
+import { getRoleLabel } from '@/features/auth/roleLabel'
 
 defineEmits<{ refresh: [] }>()
 
@@ -60,13 +61,7 @@ const avatarText = computed(() => {
   const name = userDisplayName.value
   return name && name !== '未登录' ? name.substring(0, 1) : '海'
 })
-const roleLabel = computed(() => {
-  const roles = auth.user?.roles || []
-  if (roles.includes('HBOS LIMS Manager')) return 'LIMS 经理'
-  if (roles.includes('HBOS LIMS Reviewer')) return 'LIMS 复核人'
-  if (roles.includes('HBOS LIMS Analyst')) return 'LIMS 检验员'
-  return '未认证'
-})
+const roleLabel = computed(() => getRoleLabel(auth.user?.roles || [], auth.isLoggedIn))
 
 // 返回 Frappe Desk 桌面
 function goDesktop() {

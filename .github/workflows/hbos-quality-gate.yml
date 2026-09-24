@@ -81,6 +81,12 @@ jobs:
           export PYTHONPATH="$PWD/apps/hb_attendance_app:$PYTHONPATH"
           python -m unittest discover -s apps/hb_attendance_app/tests -v
 
+      - name: 运行 hb_lims_app 契约测试
+        run: |
+          pip install -q pytest
+          export PYTHONPATH="$PWD/apps/hb_lims_app:$PYTHONPATH"
+          python -m pytest -q -p no:cacheprovider apps/hb_lims_app/tests
+
       - name: 检查 CI 工作流 YAML 语法
         run: |
           pip install -q pyyaml
