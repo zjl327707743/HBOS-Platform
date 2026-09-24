@@ -1,0 +1,22 @@
+{
+ "actions": [],
+ "creation": "2026-08-20 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "setting",
+ "idx": 0,
+ "module": "HBOS Attendance",
+ "name": "hbos-shift-management",
+ "owner": "Administrator",
+ "page_name": "hbos-shift-management",
+ "roles": [
+  {"role": "System Manager"},
+  {"role": "HR Manager"},
+  {"role": "HR User"}
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "班次管理"
+}

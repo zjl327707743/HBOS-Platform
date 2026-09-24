@@ -21,6 +21,16 @@ jobs:
     steps:
       - name: Checkout 代码
         uses: actions/checkout@v4
+        with:
+          # 治理扫描依赖 origin/main...HEAD；浅克隆会让 diff 命令不存在基线却假绿。
+          fetch-depth: 0
+
+      - name: 固化 PR 变更文件清单
+        run: |
+          set -e
+          git rev-parse --verify origin/main
+          git diff --name-only origin/main...HEAD > /tmp/hbos_changed_files
+          test -s /tmp/hbos_changed_files || echo "本 PR 没有文件差异"
 
       - name: 设置 Python
         uses: actions/setup-python@v5
@@ -30,7 +40,9 @@ jobs:
       # ─── 检查 1：禁止提交敏感文件 ──────────────────────────
       - name: 禁止 .env 文件
         run: |
-          if git diff --name-only origin/main...HEAD | grep -qE '(^|/)\.env'; then
+          # 必须锚定 $：不加锚点时 `.env.example`（占位符模板，本应可提交且必须随
+          # 配置变更更新）会被一并判为违规。其余各项均已带 $ 锚点，此项是遗漏。
+          if cat /tmp/hbos_changed_files | grep -qE '(^|/)\.env$'; then
             echo "::error:: 禁止提交 .env 文件（含敏感配置）"
             exit 1
           fi
@@ -38,7 +50,7 @@ jobs:
 
       - name: 禁止数据库 dump 和备份文件
         run: |
-          if git diff --name-only origin/main...HEAD | grep -qE '\.sql(\.gz)?$'; then
+          if cat /tmp/hbos_changed_files | grep -qE '\.sql(\.gz)?$'; then
             echo "::error:: 禁止提交数据库 dump 或备份文件"
             exit 1
           fi
@@ -46,15 +58,19 @@ jobs:
 
       - name: 禁止 Excel 和真实数据 CSV
         run: |
-          if git diff --name-only origin/main...HEAD | grep -qiE '\.(xlsx|xls|csv)$'; then
-            echo "::error:: 禁止提交 Excel 或 CSV 文件（可能含真实数据）"
+          # 仅允许版本化程序翻译资源 CSV；其他 CSV/XLS/XLSX 一律阻断。
+          grep -viE '^apps/hb_attendance_app/hb_attendance_app/translations/zh\.csv$' /tmp/hbos_changed_files \
+            > /tmp/hbos_changed_files_without_allowed_translation || true
+          if cat /tmp/hbos_changed_files_without_allowed_translation | grep -qiE '\.(xlsx|xls|csv)$'; then
+            echo "::error:: 禁止提交 Excel 或真实数据 CSV 文件"
+            cat /tmp/hbos_changed_files_without_allowed_translation | grep -iE '\.(xlsx|xls|csv)$' || true
             exit 1
           fi
-          echo " 无 Excel / CSV 文件"
+          echo " 无 Excel / 真实数据 CSV 文件"
 
       - name: 禁止私钥和证书
         run: |
-          if git diff --name-only origin/main...HEAD | grep -qiE '\.(pem|key|crt|cer|p12|pfx)$'; then
+          if cat /tmp/hbos_changed_files | grep -qiE '\.(pem|key|crt|cer|p12|pfx)$'; then
             echo "::error:: 禁止提交私钥或证书文件"
             exit 1
           fi
@@ -62,7 +78,7 @@ jobs:
 
       - name: 禁止日志和 Site 配置
         run: |
-          if git diff --name-only origin/main...HEAD | grep -qiE '(\.log$|site_config\.json|sites/.*/site_config\.json)'; then
+          if cat /tmp/hbos_changed_files | grep -qiE '(\.log$|site_config\.json|sites/.*/site_config\.json)'; then
             echo "::error:: 禁止提交日志或 Site 配置文件"
             exit 1
           fi
@@ -81,8 +97,9 @@ jobs:
       # ─── 检查 3：脱敏离线回归测试 ───────────────────────────
       - name: 运行 hb_attendance_app 回归测试
         run: |
+          echo "安装 openpyxl..."
+          pip install -q openpyxl
           echo "运行脱敏离线回归测试..."
-          # Frappe app 目录结构为 apps/<app>/<app>/，需将 apps/hb_attendance_app 加入路径
           export PYTHONPATH="$PWD/apps/hb_attendance_app:$PYTHONPATH"
           python -m unittest discover -s apps/hb_attendance_app/tests -v 2>&1
           echo " 回归测试全部通过"

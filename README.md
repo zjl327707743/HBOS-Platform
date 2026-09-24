@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 M1-FIX-B5（REVIEWING）：正在核查导入数据链路并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-C/D/E 和 M2 未启动。
+当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 **M1-FIX-F（REVIEWING / 两阶段均已上线）**：调休模块——一阶段把飞书调休审批接入并按「加班日提取 → 打卡核实」产出结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败）；二阶段把已核实调休日**接入考勤判定豁免与看板**（不再判缺勤、看板显示「请假（调休）」）。2026-09-24 追加完成名单单一来源收敛（行政班、无菌各收敛为一份）与 PR 审查 5 项修复。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`，主文档 `docs/milestones/M2_STOCK_R1_库存模块隔离实施记录.md`；M2 其余轮次未启动。
 
 当前真实进度以以下文件为准：
 
@@ -45,7 +45,7 @@
 - M1-R6A Excel 导入与异常流程落地方案 / Gate 判定已通过 Codex 审查并收口为 COMPLETED
 - M1-R6B 脱敏打卡流水导入最小实现已通过 Codex 审查并收口为 COMPLETED；本轮未提交 Excel / CSV，未创建 App / DocType，未启动 R6C/R7
 - M1-R6C 异常识别与异常说明流程最小实现当前为 COMPLETED；已通过 Codex 审查并 closeout
-- M1-FIX-B 已按 Owner 授权创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐 `导入考勤机导出表` 浏览器入口、中文 `打卡流水` / `考勤结果` 报表、重复导入可读日志和默认白班/行政班 08:30-17:30；M1-FIX-B4 已收敛桌面入口、Workspace Sidebar、导入页归属和 HBOS / HRMS 入口口径；M1-FIX-B5 已核查真实 Employee / Checkin / Attendance / 月度暂存链路，并收敛 HBOS 报表和 HRMS 技术核查入口；真实 Excel、真实员工清单和导入产物不提交 Git
+- M1-FIX-B 已按 Owner 授权创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐 `导入考勤机导出表` 浏览器入口、中文 `打卡流水` / `考勤结果` 报表、重复导入可读日志和默认白班/行政班 08:30-17:30；M1-FIX-B4 已收敛桌面入口、Workspace Sidebar、导入页归属和 HBOS / HRMS 入口口径；M1-FIX-B5 已核查真实 Employee / Checkin / Attendance / 月度暂存链路，并收敛 HBOS 报表和 HRMS 技术核查入口；2026-08-21 后续修正：四车间 10 人行政班误判迟到修复、质量控制部四班次人员「满 8 小时算正常」口径收敛、配对上限 13h→14h（李明 8/19 无菌班 13.17h 案例）、分机孤立卡误判缺勤修复（陈雨欣 8/19 案例：方向不同的相邻卡不合并 + 当天已有完整上下班结构时孤立卡不判缺勤）、跨天夜班下班误刷上班机修复（吕玉升/庞冠军 8/16 案例）；2026-08-27 后续修正：配对上限 14h→16h、有卡就不判缺勤、连续无打卡 1-2 天不判缺勤 3 天起判（8/15-26 缺勤 489→134 误判率大幅下降）、月度考勤汇总新增「导出异常考勤」按钮、2026 年度离职名单批量处理；真实 Excel、真实员工清单和导入产物不提交 Git
 
 M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计、HRMS 环境可复现性收口、GitHub Private remote 首次同步、M1-R0 规划诊断收口、M1-R1 对象模型验证记录、M1-R2 配置试运行方案设计、M1-R3 局部试运行记录、M1-R3A 阻断诊断方案、M1-R3B 运行态最小修复方案、M1-R3B-FIX 运行态最小修复执行记录、M1-R3C 原生考勤最小试运行复测记录、M1-R3D 异常口径与 Gap 诊断、M1-R3E 配置复核与业务口径确认表、M1-R3F 业务口径确认包、M1 需求设计四份文档、M1-R4 Demo 技术方案与实施路线拆分、M1-R5 HRMS 配置基线、考勤工作台与月度汇总 Demo、M1-R6A Gate 判定和 M1-R6B 脱敏打卡流水导入最小验证；M1 仍未进入完整考勤业务开发。
 

@@ -85,4 +85,4 @@ M1-FIX-B4 不新增异常三级流程、不做飞书 OAuth、不做领导 Demo�
 - M1-FIX-B4 = REVIEWING。
 - M1 整体仍未完成。
 - M1-FIX-C / D / E = PLANNED / 待授权。
-- M2 = NOT STARTED / WAITING OWNER AUTHORIZATION。
+- M2-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m2-stock-r1`）；M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION。

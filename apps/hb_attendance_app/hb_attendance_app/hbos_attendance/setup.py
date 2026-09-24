@@ -7,14 +7,18 @@ WORKSPACE_TITLE = "海滨考勤工作台"
 DESKTOP_LABEL = "海滨考勤"
 DESKTOP_LOGO_URL = "/assets/hb_attendance_app/hbos-attendance-logo.svg"
 PRIMARY_SIDEBAR_ITEMS = [
+	{"label": "月度考勤汇总", "link_type": "Report", "link_to": "月度考勤汇总", "type": "Link", "icon": "milestone"},
+	{"label": "班次管理", "link_type": "Page", "link_to": "hbos-shift-management", "type": "Link", "icon": "setting"},
+	{"label": "人员管理", "link_type": "Page", "link_to": "hbos-employee-management", "type": "Link", "icon": "users"},
 	{"label": "导入考勤机导出表", "link_type": "Page", "link_to": "hbos-attendance-import", "type": "Link", "icon": "upload"},
+	{"label": "部门看板", "link_type": "Page", "link_to": "hbos-department-board", "type": "Link", "icon": "users"},
 	{"label": "考勤异常仪表盘", "link_type": "Page", "link_to": "hbos-attendance-dashboard", "type": "Link", "icon": "dashboard"},
 	{"label": "考勤导入日志", "link_type": "DocType", "link_to": "HBOS Attendance Import Log", "type": "Link", "icon": "list"},
 	{"label": "飞书请假记录", "link_type": "DocType", "link_to": "HBOS Leave Record", "type": "Link", "icon": "leave"},
 	{"label": "飞书加班记录", "link_type": "DocType", "link_to": "HBOS Overtime Record", "type": "Link", "icon": "clock"},
+	{"label": "飞书调休记录", "link_type": "DocType", "link_to": "HBOS Rest Leave Record", "type": "Link", "icon": "leave"},
 	{"label": "HBOS 打卡流水", "link_type": "Report", "link_to": "打卡流水", "type": "Link", "icon": "clock"},
 	{"label": "HBOS 考勤结果", "link_type": "Report", "link_to": "考勤结果", "type": "Link", "icon": "calendar-check"},
-	{"label": "月度考勤汇总", "link_type": "Report", "link_to": "月度考勤汇总", "type": "Link", "icon": "milestone"},
 	{"label": "月度汇总 / 对账暂存", "link_type": "Report", "link_to": "HBOS 月度汇总暂存（对账）", "type": "Link", "icon": "clipboard-list"},
 ]
 
@@ -23,7 +27,18 @@ def after_migrate():
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
     create_custom_fields({
+        "Employee": [
+            {"fieldname": "hbos_fixed_shift", "label": "HBOS 固定班次（兼容版本）", "fieldtype": "Link",
+             "options": "HBOS Shift Rule", "insert_after": "shift_request_approver", "read_only": 1},
+            {"fieldname": "hbos_fixed_shift_code", "label": "HBOS 固定班次规则族", "fieldtype": "Data",
+             "insert_after": "hbos_fixed_shift", "read_only": 1},
+        ],
         "Employee Checkin": [
+            {"fieldname": "hbos_terminal_sn", "label": "HBOS 终端序列号", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_delicloud_id", "label": "HBOS 得力云记录ID", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_employee_num", "label": "HBOS 源工号", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_dept_name", "label": "HBOS 源部门", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_check_type", "label": "HBOS 打卡类型", "fieldtype": "Data", "read_only": 1},
             {"fieldname": "hbos_source_type", "label": "HBOS 来源类型", "fieldtype": "Select",
              "options": "HBOS raw checkin import\nHBOS monthly adapter\nHRMS native / existing", "read_only": 1},
             {"fieldname": "hbos_import_log", "label": "HBOS 导入批次", "fieldtype": "Link",
@@ -41,7 +56,59 @@ def after_migrate():
             {"fieldname": "hbos_missing_out", "label": "HBOS 缺下班卡", "fieldtype": "Check", "read_only": 1},
         ]
     })
+    _backfill_shift_rule_identity()
+    _backfill_schedule_sources()
     sync_attendance_workspace()
+
+
+def _backfill_shift_rule_identity():
+    """Migrate legacy version-bound shift data to stable rule-family identities."""
+    from hb_attendance_app.hbos_attendance.doctype.hbos_shift_rule.hbos_shift_rule import make_rule_code
+
+    rules = frappe.db.get_all(
+        "HBOS Shift Rule",
+        fields=["name", "rule_code", "rule_name", "department", "shift_type"],
+        order_by="creation asc",
+    )
+    code_by_version = {}
+    for row in rules:
+        code = row.rule_code or make_rule_code(row.department, row.rule_name, row.shift_type)
+        code_by_version[row.name] = code
+        if not row.rule_code:
+            frappe.db.set_value("HBOS Shift Rule", row.name, "rule_code", code, update_modified=False)
+
+    for binding in frappe.db.get_all(
+        "HBOS Employee Shift", fields=["name", "rule_code", "shift_rule"]
+    ):
+        if binding.rule_code:
+            continue
+        code = code_by_version.get(binding.shift_rule)
+        if code:
+            frappe.db.set_value(
+                "HBOS Employee Shift", binding.name, "rule_code", code, update_modified=False
+            )
+
+    for emp in frappe.db.get_all(
+        "Employee",
+        fields=["name", "hbos_fixed_shift", "hbos_fixed_shift_code"],
+        filters={"hbos_fixed_shift": ["is", "set"]},
+    ):
+        if emp.hbos_fixed_shift_code:
+            continue
+        code = code_by_version.get(emp.hbos_fixed_shift)
+        if code:
+            frappe.db.set_value(
+                "Employee", emp.name, "hbos_fixed_shift_code", code, update_modified=False
+            )
+
+
+def _backfill_schedule_sources():
+    """Existing schedules predate source ownership; preserve them as protected LEGACY rows."""
+    frappe.db.sql(
+        """UPDATE `tabHBOS Employee Schedule`
+           SET source_type = 'LEGACY'
+           WHERE IFNULL(source_type, '') = ''"""
+    )
 
 
 def sync_attendance_workspace():

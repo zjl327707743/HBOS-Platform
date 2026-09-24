@@ -1,0 +1,555 @@
+import unittest
+from datetime import datetime, date
+
+from hb_attendance_app.hbos_attendance.pairing import (
+    dedup_checkins,
+    pair_employee_checkins,
+    role_from_terminal,
+    special_shift_from_gap,
+)
+
+
+class NightOutRestDayTest(unittest.TestCase):
+    """夜班下班日次日休息: 下班卡在早4-10点的那天+次日无打卡=休息, 之后连续无打卡算缺勤。"""
+
+    def test_night_out_days_extraction(self):
+        from hb_attendance_app.hbos_attendance.pairing import night_out_days_from_roles
+        cks = [
+            {"time": datetime(2026, 8, 6, 23, 51)},
+            {"time": datetime(2026, 8, 7, 8, 10)},
+            {"time": datetime(2026, 8, 7, 23, 52)},
+            {"time": datetime(2026, 8, 8, 8, 23)},
+        ]
+        roles = ["in", "out", "in", "out"]
+        days = night_out_days_from_roles(cks, roles)
+        self.assertEqual(days, {date(2026, 8, 7), date(2026, 8, 8)})
+
+    def test_midnight_out_card_not_night_out_day(self):
+        # 凌晨0-4点的下班卡不算「夜班下班日」(那是中班跨天)
+        from hb_attendance_app.hbos_attendance.pairing import night_out_days_from_roles
+        cks = [{"time": datetime(2026, 8, 3, 0, 30)}]
+        roles = ["out"]
+        self.assertEqual(night_out_days_from_roles(cks, roles), set())
+
+    def test_early_out_card_before_8am_not_night_out_day(self):
+        # 8点前打卡算早退, 不算正常夜班下班日(Owner 2026-08-20 确认)
+        from hb_attendance_app.hbos_attendance.pairing import night_out_days_from_roles
+        cks = [{"time": datetime(2026, 8, 3, 7, 50)}]
+        roles = ["out"]
+        self.assertEqual(night_out_days_from_roles(cks, roles), set())
+
+    def test_out_card_8_to_10_is_night_out_day(self):
+        from hb_attendance_app.hbos_attendance.pairing import night_out_days_from_roles
+        cks = [{"time": datetime(2026, 8, 3, 8, 0)}, {"time": datetime(2026, 8, 3, 9, 59)}]
+        roles = ["out", "out"]
+        self.assertEqual(night_out_days_from_roles(cks, roles), {date(2026, 8, 3)})
+
+    def test_day_shift_out_card_not_night_out_day(self):
+        # 16点的下班卡不算
+        from hb_attendance_app.hbos_attendance.pairing import night_out_days_from_roles
+        cks = [{"time": datetime(2026, 8, 3, 16, 30)}]
+        roles = ["out"]
+        self.assertEqual(night_out_days_from_roles(cks, roles), set())
+
+
+class SpecialShiftTest(unittest.TestCase):
+    """无菌/三班独立班次体系: 无菌早/晚(12h) + 早/中/夜班(8h)。"""
+
+    def test_sterile_day_shift_on_time(self):
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 10, 8, 30), 12), ("无菌早", False))
+
+    def test_sterile_day_shift_late(self):
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 10, 8, 31), 12), ("无菌早", True))
+
+    def test_sterile_night_shift_on_time(self):
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 10, 20, 30), 12), ("无菌晚", False))
+
+    def test_sterile_night_shift_late(self):
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 10, 20, 31), 12), ("无菌晚", True))
+
+    def test_day_shift_8h(self):
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 10, 8, 30), 8), ("早班", False))
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 10, 8, 31), 8), ("早班", True))
+
+    def test_middle_shift_8h(self):
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 10, 16, 30), 8), ("中班", False))
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 10, 16, 31), 8), ("中班", True))
+
+    def test_night_shift_8h(self):
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 11, 0, 30), 8), ("夜班", False))
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 11, 0, 31), 8), ("夜班", True))
+
+    def test_pairing_sterile_day(self):
+        # 8:30 → 20:31 的 12h 班: 无菌早
+        cks = [{"time": datetime(2026, 8, 10, 8, 30), "employee_name": "TEST-SPECIAL", "department": "无菌车间"},
+               {"time": datetime(2026, 8, 10, 20, 31), "employee_name": "TEST-SPECIAL", "department": "无菌车间"}]
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, special_shift=True)
+        self.assertIn(("2026-08-10", "Present", "无菌早", 0, 12.02), statuses(atts))
+
+    def test_pairing_sterile_night_cross_day(self):
+        # 20:30 → 次日 8:31 的 12h 班: 无菌晚
+        cks = [{"time": datetime(2026, 8, 10, 20, 30), "employee_name": "TEST-SPECIAL", "department": "无菌车间"},
+               {"time": datetime(2026, 8, 11, 8, 31), "employee_name": "TEST-SPECIAL", "department": "无菌车间"}]
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, special_shift=True)
+        self.assertIn(("2026-08-10", "Present", "无菌晚", 0, 12.02), statuses(atts))
+
+
+class MultiCardFallbackTest(unittest.TestCase):
+    """多次卡兜底: 当天已有完整上下班结构(首末间隔2-18h), 孤立卡视为重复卡不判缺勤。"""
+
+    def _ck(self, day, hour, minute, sn=None):
+        d = {"time": datetime(2026, 8, day, hour, minute),
+             "employee_name": "测试", "department": "四车间"}
+        if sn:
+            d["hbos_terminal_sn"] = sn
+        return d
+
+    def test_duplicate_after_complete_span_not_absent(self):
+        # 7:40 上班机 + 16:10 下班机 = 完整班次 Present
+        # 8:00 多余上班机卡 → 当天已有完整上下班结构, 视为重复卡不判缺勤
+        # (Owner 2026-08-21 确认, 陈雨欣 8/19 案例同规则)
+        cks = [self._ck(16, 7, 40, "13750CS_D7C69C16EC0B2447"),
+               self._ck(16, 8, 0, "13750CS_D7C69C16EC0B2447"),
+               self._ck(16, 16, 10, "13750CS_9FB66A86CF3487D7")]
+        atts = pair_employee_checkins(cks, "E1", "11004051", fake_shift_fn, terminal_aware=True)
+        s = statuses(atts)
+        # 完整班次仍正常配对
+        self.assertIn(("2026-08-16", "Present", "早班", 0, 8.5), s)
+        # 多余的上班机卡不再判缺勤
+        self.assertNotIn(("2026-08-16", "Absent", "", 0, 0), s)
+
+    def test_single_card_still_absent(self):
+        # 只有一张上班卡无下班卡 → 仍判缺勤
+        cks = [self._ck(16, 7, 40, "13750CS_D7C69C16EC0B2447")]
+        atts = pair_employee_checkins(cks, "E1", "11004051", fake_shift_fn, terminal_aware=True)
+        self.assertIn(("2026-08-16", "Absent", "", 0, 0), statuses(atts))
+
+    def test_span_over_18h_not_fallback(self):
+        # 间隔超过18h不配对: 8/16 上班卡向后找不到下班卡(8/17 的下班卡间隔>18h) → 缺勤
+        # 8/17 的上班卡与 8/17 下班卡正常配对
+        cks = [self._ck(16, 7, 40, "13750CS_D7C69C16EC0B2447"),
+               self._ck(17, 7, 40, "13750CS_D7C69C16EC0B2447"),
+               self._ck(17, 16, 10, "13750CS_9FB66A86CF3487D7")]
+        atts = pair_employee_checkins(cks, "E1", "11004051", fake_shift_fn, terminal_aware=True)
+        s = statuses(atts)
+        self.assertIn(("2026-08-17", "Present", "早班", 0, 8.5), s)
+        self.assertIn(("2026-08-16", "Absent", "", 0, 0), s)
+
+    def test_night_double_out_card_not_absent(self):
+        # 黄法普/于洋 9/7 型(2h 去重回归): 9/6 23:44 晚班上班机 → 9/7 08:09 下班机已配对,
+        # 9/7 08:27 同下班机二次刷卡(间隔18min) 被 2h 去重合并, 不再落孤立下班卡判缺勤
+        def dck(day, hm, sn):
+            return {"time": datetime(2026, 9, day, *hm), "employee_name": "测试",
+                    "department": "生产部", "hbos_terminal_sn": sn}
+        IN = "13750CS_D7C69C16EC0B2447"
+        OUT = "13750CS_93C9390B9995FE8C"
+        cks = [dck(6, (23, 44), IN),
+               dck(7, (8, 9), OUT),
+               dck(7, (8, 27), OUT)]
+        atts = pair_employee_checkins(cks, "E1", "11002029", fake_shift_fn, terminal_aware=True)
+        s = statuses(atts)
+        self.assertIn(("2026-09-06", "Present", "晚班", 0, 8.42), s)
+        self.assertNotIn(("2026-09-07", "Absent", "", 0, 0), s)
+
+
+class NightOutMispunchTest(unittest.TestCase):
+    """跨天夜班下班误刷上班机(Owner 2026-08-21, 吕玉升/庞冠军 8/16 案例)。"""
+
+    def _ck(self, day, hour, minute, second, sn):
+        return {"time": datetime(2026, 8, day, hour, minute, second),
+                "employee_name": "测试", "department": "生产部", "hbos_terminal_sn": sn}
+
+    def test_night_out_mispunch_not_absent(self):
+        # 8/15 20:24 晚班上班 → 8/16 08:36 下班误刷上班机 + 08:37 正常下班
+        cks = [self._ck(15, 20, 24, 31, "13750CS_D7C69C16EC0B2447"),
+               self._ck(16, 8, 36, 37, "13750CS_D7C69C16EC0B2447"),
+               self._ck(16, 8, 37, 10, "13750CS_9FB66A86CF3487D7")]
+        atts = pair_employee_checkins(cks, "E1", "10010011", fake_shift_fn, terminal_aware=True)
+        s = statuses(atts)
+        self.assertIn(("2026-08-15", "Present", "晚班", 0, 12.21), s)
+        self.assertNotIn(("2026-08-16", "Absent", "", 0, 0), s)
+
+    def test_night_out_early_start_not_absent(self):
+        # 庞冠军: 8/15 19:39 晚班提前到岗 → 8/16 08:06 误刷 + 08:07 正常下班
+        cks = [self._ck(15, 19, 39, 27, "13750CS_D7C69C16EC0B2447"),
+               self._ck(16, 8, 6, 15, "13750CS_D7C69C16EC0B2447"),
+               self._ck(16, 8, 7, 36, "13750CS_9FB66A86CF3487D7")]
+        atts = pair_employee_checkins(cks, "E1", "11003028", fake_shift_fn, terminal_aware=True)
+        s = statuses(atts)
+        self.assertIn(("2026-08-15", "Present", "晚班", 0, 12.47), s)
+        self.assertNotIn(("2026-08-16", "Absent", "", 0, 0), s)
+
+    def test_lone_in_card_no_night_before_still_absent(self):
+        # 真正缺勤: 早上孤立上班卡, 前一日无夜班卡 → 仍判缺勤
+        cks = [self._ck(16, 8, 30, 0, "13750CS_D7C69C16EC0B2447")]
+        atts = pair_employee_checkins(cks, "E1", "10010011", fake_shift_fn, terminal_aware=True)
+        self.assertIn(("2026-08-16", "Absent", "", 0, 0), statuses(atts))
+
+
+class SterileOvertimePairTest(unittest.TestCase):
+    """无菌倒班加班超 13 小时配对（李明 8/19 案例: 08:17-21:28 = 13.17h）。
+
+    Owner 2026-08-21 确认: 配对上限放宽到 14 小时, 12 小时班 + 加班缓冲;
+    冯慧杰 8/15 15.69h 假超长班仍被拦截(>14h)。
+    """
+
+    def _ck(self, day, hour, minute, second, sn):
+        return {"time": datetime(2026, 8, day, hour, minute, second),
+                "employee_name": "TEST-SPECIAL", "department": "无菌车间",
+                "hbos_terminal_sn": sn}
+
+    def test_sterile_13h_overtime_pairs(self):
+        # 合成案例：08:17:56 上班机 → 21:28:17 下班机 = 13.17h
+        cks = [self._ck(19, 8, 17, 56, "13750CS_D7C69C16EC0B2447"),
+               self._ck(19, 21, 28, 17, "13750CS_9FB66A86CF3487D7")]
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, terminal_aware=True, special_shift=True)
+        s = statuses(atts)
+        self.assertIn(("2026-08-19", "Present", "无菌早", 0, 13.17), s)
+        self.assertNotIn(("2026-08-19", "Absent", "", 0, 0), s)
+
+    def test_over_16h_still_not_pairs(self):
+        # 超过16小时: 漏下班卡导致的假超长班仍不配对
+        # 16h 内真实长班允许配对；超过上限仍拦截
+        cks = [self._ck(15, 8, 0, 0, "13750CS_D7C69C16EC0B2447"),
+               self._ck(16, 1, 0, 0, "13750CS_9FB66A86CF3487D7")]
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, terminal_aware=True, special_shift=True)
+        s = statuses(atts)
+        self.assertNotIn(("2026-08-15", "Present", "无菌早", 0, 17.0), s)
+
+    def test_under_16h_pairs(self):
+        # 合成 15.7h 案例：16h 上限下正常配对成 Present
+        cks = [self._ck(15, 8, 19, 0, "13750CS_D7C69C16EC0B2447"),
+               self._ck(16, 0, 0, 0, "13750CS_9FB66A86CF3487D7")]
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, terminal_aware=True, special_shift=True)
+        s = statuses(atts)
+        self.assertIn(("2026-08-15", "Present", "无菌早", 0, 15.68), s)
+
+    def test_sterile_night_early_start_not_late(self):
+        # 合成案例：19:56 上班 13.16h → 无菌晚(20:30标准)提前到岗，不判迟到
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 19, 19, 56), 13.16), ("无菌晚", False))
+
+    def test_sterile_night_after_2031_late(self):
+        # 20:31 起算迟到仍生效
+        self.assertEqual(special_shift_from_gap(datetime(2026, 8, 19, 20, 31), 12), ("无菌晚", True))
+
+
+class TerminalRoleTest(unittest.TestCase):
+    def test_in_terminal_sn_maps_to_in(self):
+        self.assertEqual(role_from_terminal("13750CS_D7C69C16EC0B2447"), "in")
+
+    def test_out_terminal_sn_maps_to_out(self):
+        self.assertEqual(role_from_terminal("13750CS_9FB66A86CF3487D7"), "out")
+
+    def test_unknown_terminal_falls_back_to_none(self):
+        self.assertIsNone(role_from_terminal("13750CS_9999999999999999"))
+        self.assertIsNone(role_from_terminal(""))
+        self.assertIsNone(role_from_terminal(None))
+
+    def test_split_machine_rule_active_from_0815(self):
+        # 8/15 及之后: 设备 SN 生效
+        self.assertEqual(role_from_terminal("13750CS_D7C69C16EC0B2447", datetime(2026, 8, 15, 8, 0)), "in")
+        self.assertEqual(role_from_terminal("13750CS_02281E713F33A9A8", datetime(2026, 8, 18, 16, 0)), "in")
+        self.assertEqual(role_from_terminal("13750CS_9FB66A86CF3487D7", datetime(2026, 8, 18, 17, 0)), "out")
+        self.assertEqual(role_from_terminal("13750CS_93C9390B9995FE8C", datetime(2026, 8, 18, 8, 0)), "out")
+
+    def test_split_machine_rule_inactive_before_0815(self):
+        # 8/15 前: 分机未实施, 设备 SN 不判方向, 回退配对推断
+        self.assertIsNone(role_from_terminal("13750CS_D7C69C16EC0B2447", datetime(2026, 8, 14, 23, 59)))
+        self.assertIsNone(role_from_terminal("13750CS_9FB66A86CF3487D7", datetime(2026, 8, 14, 17, 0)))
+
+
+def fake_shift_fn(ck_dt, emp_num, cross_day=False):
+    """测试用班次判定：复制 api._get_shift_and_late 的通用倒班分支（不含特殊名单）。"""
+    h = ck_dt.hour
+    m = ck_dt.minute
+    ts = ck_dt.strftime("%H:%M:%S")
+    if h >= 20 or h < 4:
+        return ("晚班", h < 4 and ts > "00:00:00")
+    if 4 <= h < 8:
+        return ("早班", False)
+    if h == 8:
+        return ("早班", m > 0)
+    if 9 <= h < 12:
+        return ("行政班早班", True)
+    if 12 <= h < 16:
+        return ("中班", False)
+    if 16 <= h < 20:
+        if cross_day:
+            return ("晚班", False) if h >= 19 else ("中班", False)
+        return ("中班", ts > "16:00:00")
+    return ("晚班", False)
+
+
+def ck(day, hour, minute, second=0):
+    return {"time": datetime(2026, 8, day, hour, minute, second),
+            "employee_name": "刘兴军", "department": "五车间"}
+
+
+def statuses(atts):
+    """返回 {(date_str, status, shift, late, hours)}"""
+    return {(a[2], a[3], a[4], a[5], a[7]) for a in atts}
+
+
+class LiuXingJunCaseTest(unittest.TestCase):
+    """刘兴军真实数据回归：零点夜班不再误判缺勤。"""
+
+    def setUp(self):
+        # 8/1 23:51 → 8/2 08:00 夜班；8/3 00:47 → 08:00 零点夜班；8/5 早班
+        self.cks = [
+            ck(1, 23, 51, 2), ck(2, 8, 0, 9),
+            ck(3, 0, 47, 7), ck(3, 8, 0, 43),
+            ck(5, 7, 54, 28), ck(5, 16, 1, 14),
+        ]
+
+    def test_8_3_is_present_night_shift_not_absent(self):
+        atts = pair_employee_checkins(self.cks, "HR-EMP-00329", "11005042", fake_shift_fn)
+        s = statuses(atts)
+        # 8/3: Present 晚班、迟到 1、7.23h（00:47:07 → 08:00:43 = 7.2266h 四舍五入）
+        self.assertIn(("2026-08-03", "Present", "晚班", 1, 7.23), s)
+        self.assertNotIn(("2026-08-03", "Absent", "", 0, 0), s)
+
+    def test_8_1_night_shift_pairing_unchanged(self):
+        atts = pair_employee_checkins(self.cks, "HR-EMP-00329", "11005042", fake_shift_fn)
+        s = statuses(atts)
+        # 8/1 23:51 → 8/2 08:00 夜班 8.15h 仍正确
+        self.assertIn(("2026-08-01", "Present", "晚班", 0, 8.15), s)
+
+    def test_8_5_day_shift_unchanged(self):
+        atts = pair_employee_checkins(self.cks, "HR-EMP-00329", "11005042", fake_shift_fn)
+        s = statuses(atts)
+        self.assertIn(("2026-08-05", "Present", "早班", 0, 8.11), s)
+
+
+class ZeroShiftBoundaryTest(unittest.TestCase):
+    def test_zero_shift_on_time(self):
+        atts = pair_employee_checkins([ck(3, 0, 0, 0), ck(3, 8, 0, 0)],
+                                      "E1", "10001", fake_shift_fn)
+        self.assertIn(("2026-08-03", "Present", "晚班", 0, 8.0), statuses(atts))
+
+    def test_zero_shift_late(self):
+        atts = pair_employee_checkins([ck(3, 0, 47, 7), ck(3, 8, 0, 43)],
+                                      "E1", "10001", fake_shift_fn)
+        self.assertIn(("2026-08-03", "Present", "晚班", 1, 7.23), statuses(atts))
+
+    def test_zero_shift_too_short_is_absent(self):
+        # 0:30 → 1:30 不足 2 小时，不配成零点班 → 凌晨孤卡缺勤
+        atts = pair_employee_checkins([ck(3, 0, 30), ck(3, 1, 30)],
+                                      "E1", "10001", fake_shift_fn)
+        self.assertIn(("2026-08-03", "Absent", "", 0, 0), statuses(atts))
+
+    def test_zero_shift_out_after_10am_not_paired(self):
+        # 10:00 及之后的卡不算零点班下班卡 → 凌晨孤卡缺勤
+        atts = pair_employee_checkins([ck(3, 0, 30), ck(3, 10, 30)],
+                                      "E1", "10001", fake_shift_fn)
+        self.assertIn(("2026-08-03", "Absent", "", 0, 0), statuses(atts))
+
+
+class RestDayAfterNightShiftTest(unittest.TestCase):
+    """下夜班休息日：当天卡被前一夜班配对消耗，不再补缺勤。"""
+
+    def test_rest_day_after_night_shift_has_no_absent(self):
+        # 8/1 23:51 → 8/2 08:00 夜班；8/2 白天休息（无其他卡）
+        atts = pair_employee_checkins([ck(1, 23, 51), ck(2, 8, 0)],
+                                      "E1", "10001", fake_shift_fn)
+        self.assertIn(("2026-08-01", "Present", "晚班", 0, 8.15), statuses(atts))
+        # 8/2 不得出现 Absent（休息日）
+        self.assertNotIn(("2026-08-02", "Absent", "", 0, 0), statuses(atts))
+
+    def test_night_shift_out_next_morning_then_new_shift(self):
+        # 韩百泉真实模式：8/2 15:44 中班上班 → 8/3 00:15 下班；
+        # 8/2 08:00 不是中班上班卡，主循环 15:44→00:15 间隔 8.5h 应为中班
+        atts = pair_employee_checkins([ck(2, 15, 44), ck(3, 0, 15)],
+                                      "E1", "10001", fake_shift_fn)
+        s = statuses(atts)
+        self.assertIn(("2026-08-02", "Present", "中班", 0, 8.52), s)
+        self.assertNotIn(("2026-08-03", "Absent", "", 0, 0), s)
+
+
+class DedupTest(unittest.TestCase):
+    """去重窗口 10min → 2h(120min) (Owner 2026-09-08 确认)。
+
+    背景: 下班不止打一次卡(同机间隔几分钟~1小时多)产生孤立下班卡误判缺勤
+    (黄法普/于洋 9/7: 次日 08:09 + 08:27 同下班机两次刷卡, 08:27 落孤立 → Absent)。
+    2h 去重把同机重复合并为最早卡, 消除该误判; 方向不同/未知的卡保留(防吞真实班次)。
+    """
+    def test_adjacent_under_2h_merged(self):
+        out = dedup_checkins([ck(3, 8, 0, 0), ck(3, 8, 5, 0), ck(3, 9, 30, 0)])
+        self.assertEqual(len(out), 1)
+
+    def test_adjacent_over_2h_kept(self):
+        out = dedup_checkins([ck(3, 8, 0, 0), ck(3, 10, 1, 0)])
+        self.assertEqual(len(out), 2)
+
+    def test_same_machine_duplicate_out_merged(self):
+        # 黄法普 9/7 型: 同下班机 08:09 + 08:27(间隔18min<2h) 去重为一张
+        out = dedup_checkins([
+            {"time": datetime(2026, 9, 7, 8, 9, 52), "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"},
+            {"time": datetime(2026, 9, 7, 8, 27, 11), "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"},
+        ])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["time"], datetime(2026, 9, 7, 8, 9, 52))
+
+    def test_diff_direction_adjacent_not_merged(self):
+        # 陈雨欣 8/19: 上班机 17:33 + 下班机 17:34(隔84s) 方向不同不合并
+        out = dedup_checkins([
+            {"time": datetime(2026, 8, 19, 17, 33, 0), "hbos_terminal_sn": "13750CS_D7C69C16EC0B2447"},
+            {"time": datetime(2026, 8, 19, 17, 34, 0), "hbos_terminal_sn": "13750CS_9FB66A86CF3487D7"},
+        ], terminal_aware=True)
+        self.assertEqual(len(out), 2)
+
+    def test_exactly_2h_not_merged(self):
+        # 去重窗口与配对下限同为 2h：若判据用闭区间（<=），恰好相隔 2h 的上下班卡
+        # 会先被合并成一张，配对侧再也配不上 → 孤卡误判缺勤。边界必须让给配对。
+        out = dedup_checkins([ck(3, 8, 0, 0), ck(3, 10, 0, 0)])
+        self.assertEqual(len(out), 2)
+
+
+class DedupPairingBoundaryTest(unittest.TestCase):
+    """恰好相隔 2h 的上下班卡必须配成 Present，而不是被去重成孤卡判缺勤。
+
+    用分机实施前（< SPLIT_MACHINE_START_DATE）的日期，让设备方向判定返回 None，
+    从而覆盖「方向未知 → 相邻卡可合并」这条最容易踩坑的路径。
+    """
+
+    def test_exactly_2h_pair_survives_dedup(self):
+        cks = [ck(10, 8, 0, 0), ck(10, 10, 0, 0)]
+        atts = pair_employee_checkins(cks, "E1", "99999999", fake_shift_fn,
+                                      terminal_aware=True)
+        s = statuses(atts)
+        self.assertNotIn(("2026-08-10", "Absent", "", 0, 0), s)
+        self.assertTrue(
+            any(d == "2026-08-10" and st == "Present" for d, st, *_ in s),
+            "恰好 2h 的一对上下班卡应配成 Present，实际: %s" % (s,),
+        )
+
+
+class FixedMorningGroupTest(unittest.TestCase):
+    """固定早班群体（行政/安全/食堂/豁免）跳过向前配对与零点夜班配对。"""
+
+    def test_zero_shift_not_applied_for_admin_group(self):
+        # 行政班名单成员凌晨卡不按零点班配对 → 凌晨孤卡缺勤
+        atts = pair_employee_checkins([ck(3, 0, 47), ck(3, 8, 0)],
+                                      "E1", "10006001", fake_shift_fn,
+                                      is_admin=True, skip_forward=True, skip_night_lock=True)
+        self.assertIn(("2026-08-03", "Absent", "", 0, 0), statuses(atts))
+
+    def test_exempt_member_never_absent(self):
+        atts = pair_employee_checkins([ck(3, 0, 47)],
+                                      "E1", "10006001", fake_shift_fn,
+                                      is_exempt=True, skip_forward=True, skip_night_lock=True)
+        self.assertNotIn(("2026-08-03", "Absent", "", 0, 0), statuses(atts))
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class LateExemptTest(unittest.TestCase):
+    """暂不记迟到名单（LATE_EXEMPT_NUMS）: 只清迟到, 到岗与缺勤判定照常。"""
+
+    def _in(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "厂外QA", "hbos_terminal_sn": "13750CS_02281E713F33A9A8"}
+
+    def _out(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "厂外QA", "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"}
+
+    def test_late_cleared_but_present_kept(self):
+        # 09:30 到岗（fake_shift_fn 对 9-12 点判「行政班早班 + 迟到」）→
+        # late_exempt 时迟到清零, 但仍记为出勤
+        cks = [self._in(10, 9, 30), self._out(10, 18, 0)]
+        base = pair_employee_checkins(cks, "E1", "10014018", fake_shift_fn,
+                                      is_admin=True, terminal_aware=True)
+        exempt = pair_employee_checkins(cks, "E1", "10014018", fake_shift_fn,
+                                        is_admin=True, terminal_aware=True, is_late_exempt=True)
+        self.assertTrue(any(a[3] == "Present" and a[5] == 1 for a in base), "基准应判迟到")
+        self.assertTrue(any(a[3] == "Present" for a in exempt))
+        self.assertFalse(any(a[5] == 1 for a in exempt), "豁免后不应有迟到")
+
+    def test_absence_still_judged(self):
+        # 只有一张上班卡 → 仍判缺勤（迟到豁免不等于异常全免）
+        cks = [self._in(10, 8, 40)]
+        atts = pair_employee_checkins(cks, "E1", "10014018", fake_shift_fn,
+                                      is_admin=True, terminal_aware=True, is_late_exempt=True)
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+
+class ShiftUnfinishedTest(unittest.TestCase):
+    """班次可能尚未结束时不判缺勤（Owner 2026-09-11）。
+
+    场景：凌晨重算「昨天」时，当晚 18 点后上班的夜班还没下班（次日 8 点才打下班卡），
+    孤立上班卡是必然的，若直接判缺勤会一次误报上百人（实测 9/10 有 99 人如此）。
+    """
+
+    def _in(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "一车间", "hbos_terminal_sn": "13750CS_D7C69C16EC0B2447"}
+
+    def _out(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "一车间", "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"}
+
+    def test_helper_boundary(self):
+        from hb_attendance_app.hbos_attendance.pairing import shift_may_be_unfinished
+        ck = datetime(2026, 9, 10, 23, 41)
+        # 23:41 上班 + 18h = 9/11 17:41；此刻 03:57 → 未结束
+        self.assertTrue(shift_may_be_unfinished(ck, datetime(2026, 9, 11, 3, 57), 18))
+        # 已过 17:41 → 结束
+        self.assertFalse(shift_may_be_unfinished(ck, datetime(2026, 9, 11, 18, 0), 18))
+        # 未传 now（历史离线调用）→ 维持旧行为，不豁免
+        self.assertFalse(shift_may_be_unfinished(ck, None, 18))
+
+    def test_night_in_card_not_absent_when_shift_unfinished(self):
+        # 9/10 23:41 上班卡孤立；此刻 9/11 凌晨 → 不判缺勤
+        cks = [self._in(10, 23, 41)]
+        atts = pair_employee_checkins(cks, "E1", "11001012", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 3, 57))
+        self.assertNotIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+    def test_same_card_absent_after_shift_window_passed(self):
+        # 同一张卡，第二天傍晚再看：理论下班时刻已过 → 仍判缺勤
+        cks = [self._in(10, 23, 41)]
+        atts = pair_employee_checkins(cks, "E1", "11001012", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 18, 0))
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+    def test_daytime_lone_in_card_still_absent(self):
+        # 白班 08:14 上班卡孤立：+18h 已过 → 照常判缺勤（不掩盖真缺卡）
+        cks = [self._in(10, 8, 14)]
+        atts = pair_employee_checkins(cks, "E1", "10009023", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 3, 57))
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+    def test_no_now_dt_keeps_legacy_behavior(self):
+        # 不传 now_dt（离线/历史调用）→ 维持旧行为
+        cks = [self._in(10, 23, 41)]
+        atts = pair_employee_checkins(cks, "E1", "11001012", fake_shift_fn, terminal_aware=True)
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+
+class NightOutDupTest(unittest.TestCase):
+    """前一夜班的下班卡不再另立缺勤（韩百泉 9/10 08:17 案例）。"""
+
+    def _in(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "五车间", "hbos_terminal_sn": "13750CS_D7C69C16EC0B2447"}
+
+    def _out(self, day, h, m=0):
+        return {"time": datetime(2026, 9, day, h, m), "employee_name": "测试",
+                "department": "五车间", "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"}
+
+    def test_morning_out_after_prev_night_in_not_absent(self):
+        # 9/9 20:00 上班(前夜班) → 9/10 08:17 下班卡孤立在当日
+        cks = [self._in(9, 20, 0), self._out(10, 8, 17)]
+        atts = pair_employee_checkins(cks, "E1", "11005002", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 4, 0))
+        s = statuses(atts)
+        self.assertNotIn(("2026-09-10", "Absent", "", 0, 0), s)
+
+    def test_lone_morning_out_without_prev_night_in_still_absent(self):
+        # 无前一夜班上班卡 → 仍判缺勤（不掩盖真漏卡）
+        cks = [self._out(10, 8, 17)]
+        atts = pair_employee_checkins(cks, "E1", "11005002", fake_shift_fn,
+                                      terminal_aware=True, now_dt=datetime(2026, 9, 11, 4, 0))
+        self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))

@@ -237,3 +237,55 @@ M0-FINAL 后的启动顺序为：先 M0-REMOTE，再 M1-R0；M1-R1 才验证 HRM
 状态：COMPLETED。
 
 M0-R3E 已完成 HRMS 环境可复现性风险识别、策略比较、M1 环境保护规则和恢复手册草案，并已通过 Codex 审查。当前推荐继续保护已跑通的运行态环境，M1 初期不重构镜像，不删除 volume，不重建 site，不提前进入业务开发。
+
+## 追加：编译产物不持久导致的桌面端 CSS 全量 404（2026-09-20 实测）
+
+本节记录一次实际发生的故障及其根因，作为本文件「可复现性风险」的实证补充。该故障在同一栈中已发生两次（M0-R3C-FIX 一次、M2-STOCK-R1 期间一次），说明它不是偶发问题。
+
+### 现象
+
+Frappe Desk 登录页与桌面端**全部 CSS bundle 返回 404**，页面无样式（JS 正常）。实测 `assets.json` 共 48 条，其中 **11 条 CSS 全部 404**，37 条 JS 全部 200。页面 HTML 直接引用这些 CSS 路径，例如 `/assets/frappe/dist/css/desk.bundle.<hash>.css`。
+
+### 根因（两条相互独立、叠加生效）
+
+1. **跨容器不可见**。`apps/frappe` 与 `apps/erpnext` **未做宿主挂载**（本栈只挂载了 `apps/hrms`、`apps/hb_attendance_app`、`apps/hb_stock_app`），因此每个容器各自持有这两个 app 的**独立副本**。`bench build` 把编译产物写进「执行构建的那个容器」，而对外提供 `/assets` 的是 **nginx 所在的 `frontend` 容器**——两者文件系统不同，nginx 永远看不到 backend 里构建出来的文件。
+2. **容器可写层不持久**。即便在同一个容器内，构建产物落在容器可写层，容器一重建（`docker compose up -d` 因配置变更、改环境变量、换镜像等触发）即丢失，回退到镜像自带的旧版本。
+
+而 `assets.json` 位于 **`sites` 卷**（经 `sites/assets` → `/home/frappe/frappe-bench/assets` 符号链接），是**持久且全容器共享**的。于是长期出现「**元数据持久、产物不持久**」的错配：`assets.json` 指向新哈希，磁盘上却是镜像的旧哈希，全部 CSS 404。
+
+叠加触发点：`docker compose up -d` 重建容器（本次由 M2-STOCK-R1 给 compose 增加 `hb_stock_app` 挂载与 PYTHONPATH 引发，重建时间 `2026-09-16T06:53:58` / `06:54:09`）。
+
+### 为什么 `assets.json` 会指向不存在的文件
+
+`apps/frappe/esbuild/esbuild.js` 的执行顺序是：先 esbuild 编译并 `write_assets_json()` 写入 `assets.json`（共享卷），**随后**才执行各 app 的构建命令。因此即使构建在后续步骤失败，`assets.json` 也已经被改写为「新哈希」，而新哈希对应的文件只存在于构建容器的可写层。
+
+### 已采取的修复（本轮）
+
+在 `docker-compose.yml` 中为这两个 app 的编译产物增加**共享命名卷**，挂到全部 frappe 服务：
+
+```yaml
+- frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
+- erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
+```
+
+并新增 `volumes: frappe-dist:` / `erpnext-dist:` 声明。效果：无论从哪个容器执行 `bench build`，产物都写入同一卷，nginx 立即可见，且**容器重建不再丢失**。
+
+注意：`bench build` 的链接步骤（`frappe/build.py` 的 `link_assets_dir()`）管理的是 `assets/<app>` 这个卷内条目，**不会**触碰 app 自身的 `public/dist`，因此与共享卷不冲突。反之，若把共享卷挂在 `assets/<app>` 上会被该步骤 `shutil.rmtree()` 清掉，**不可行**。
+
+### 验证（2026-09-20）
+
+- 重建前后 `assets.json` 48 条全部 200；
+- 登录页实际引用的 60 个 `/assets/**` 资源全部 200；
+- **耐久性验证**：`docker compose up -d --force-recreate --no-deps frontend`（即复现原故障的触发条件）之后，48 条仍全部 200；
+- `hrms` 条目与 `/assets/hrms/frontend/index.html`（Roster）均 200，无回归；
+- 两站点健康：`frontend` list-apps 仍为 frappe/erpnext/hrms/hb_attendance_app，`stock` 为 frappe/erpnext/hb_stock_app，`default_site` 仍为 `frontend`。
+
+### 遗留（未修，需另开环境治理轮次）
+
+1. **`bench build` 目前必然非零退出**。`hrms` 的构建链 `cd frontend && yarn build` → `vite build` 报 `vite: Permission denied`（exit 126）。实测 `apps/hrms/frontend/node_modules/.bin/vite` 在宿主上是 **0 字节、权限 `-rw-------`** 的坏文件（容器内为 `----------`），因此该 app 的前端**根本无法重建**。因 esbuild 与 `assets.json` 写入发生在此步之前，产物仍能生成，故本次故障不受阻塞；但每次构建都会报错退出，容易掩盖真正的失败。
+2. `./assets/hrms/node_modules` 链接失败（`[Errno 20] Not a directory`），非致命。
+3. **共享卷方案仍需人工纪律**：每次 `bench build` 之后，`assets.json` 与产物都会更新，但由于第 1 条，构建以非零码结束，容易被误判为「失败、什么都没改」。若要彻底消除这一类问题，仍应回到本文件策略 C——**构建包含全部 App 与编译产物的自定义镜像**。
+
+### 结论
+
+「编译产物随容器走、元数据随卷走」是本栈的根本性错配，也是 M0-R3C-FIX 只能靠「运行时解引用拷贝」临时缓解的原因。共享卷是当前不改镜像前提下的最小可行持久化修复；自定义镜像才是终局方案。

@@ -2,6 +2,21 @@
  "title": "月度考勤表上传",
  "icon": "upload",
  "route": "hbos-monthly-upload",
- "standard": 1,
- "roles": [{"role": "System Manager"}, {"role": "HR Manager"}, {"role": "HR User"}]
+ "standard": "Yes",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "HR Manager"
+  },
+  {
+   "role": "HR User"
+  }
+ ],
+ "doctype": "Page",
+ "page_name": "hbos-monthly-upload",
+ "name": "hbos-monthly-upload",
+ "module": "HBOS Attendance",
+ "system_page": 0
 }
