@@ -110,3 +110,18 @@ Current design authority:
 - `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`.
 
 The next product gate is **EA-5.5 Interaction QA + Responsive + Accessibility**.
+
+
+### Frontend reproduction status
+
+The approved Portal visual baseline has now been initialized as source code under:
+
+```text
+frontend/hbos-portal-web/
+```
+
+Status: **SOURCE INITIALIZED / BUILD VERIFICATION PENDING**.
+
+The source includes Global Header, App Switcher, Notification Center, Command Palette, Portal routes, standalone LIMS shell, Digital Twin overview, EA-5.4 tokens, pointer atmosphere, responsive CSS, and reduced-motion fallback.
+
+Real Frappe / business API integration has not started.

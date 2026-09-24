@@ -140,3 +140,23 @@ EA-5.5 = NEXT
 - EA-5.5 响应式 / 可访问性 / 交互 QA。
 
 在后续 Gate 前暂不创建 `apps/hbos_portal`，不接真实业务 Provider。
+
+
+### Portal Phase B 更新
+
+```text
+Phase B — Vue Portal Skeleton
+= SOURCE INITIALIZED / BUILD VERIFICATION PENDING
+```
+
+已在 `frontend/hbos-portal-web/` 初始化经 Owner 批准视觉母版的 Vue 3 + Ant Design Vue 工程骨架。
+
+本轮仍属于“前端复刻”，没有进入“真实功能接入”。
+
+下一 Gate 保持：
+
+```text
+EA-5.5 Interaction QA + Responsive + Accessibility
+```
+
+在 build Gate 和 EA-5.5 通过前，不创建 `apps/hbos_portal`。

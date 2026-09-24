@@ -1034,3 +1034,42 @@ EA-5.5 = NEXT
 - 接真实 Provider；
 - 接真实业务 API；
 - 改变 M1-FIX 当前主里程碑。
+
+
+### Portal Frontend Reproduction Update — 2026-09-24
+
+状态：**SOURCE INITIALIZED / BUILD VERIFICATION PENDING**。
+
+已创建：
+
+```text
+frontend/hbos-portal-web/
+```
+
+当前前端骨架已包含：
+
+- Vue 3 + TypeScript + Vite；
+- Ant Design Vue；
+- Vue Router；
+- Pinia；
+- Axios 依赖预留（当前未接真实 API）；
+- Home / My Work / App Center / Profile / 403 / 404；
+- LIMS 独立 App Shell；
+- Global Header；
+- App Switcher；
+- Notification Center；
+- Command Palette；
+- Digital Twin Portal Overview；
+- EA-5.4 Design Tokens；
+- Pointer Aurora / low-opacity particle trail / Reduced Motion。
+
+数据仍为 Mock Provider / DTO，不代表真实业务接入。
+
+验证状态：
+
+- 源码结构检查：完成；
+- TypeScript 静态语法检查：除未安装依赖造成的模块不可解析外，未发现额外代码级错误；
+- `npm install`：当前执行环境访问 npm registry 超时；
+- `npm run build`：因此本轮不宣称 PASS，必须在依赖可用的 CI / 本地环境补做。
+
+未创建 `apps/hbos_portal`，未接真实 Provider / Frappe API。

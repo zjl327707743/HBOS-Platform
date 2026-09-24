@@ -40,7 +40,7 @@ Portal 通过独立 Experience Architecture / Product Gate 管理。
 - Design Tokens
 - Component Contract
 
-### Phase B — Vue Portal Skeleton
+### Phase B — Vue Portal Skeleton — SOURCE INITIALIZED / BUILD VERIFICATION PENDING
 
 创建：
 
@@ -153,3 +153,29 @@ Portal 可进入 `integration/hbos-platform-v1` 的最低条件：
 - Provider 错误可以单 APP 隔离；
 - 基础 403 / 404 / Loading / Empty / Error 可用；
 - 至少一项真实 Business App registration 通过测试。
+
+
+## 7. Phase B Current Result — 2026-09-24
+
+`frontend/hbos-portal-web/` 已正式初始化。
+
+当前仍只使用 Mock Provider / DTO。
+
+已包含平台级体验组件：
+
+- Global Header
+- App Switcher
+- Notification Center
+- Command Palette
+- Portal Sidebar
+- Home
+- My Work
+- App Center
+- Profile / Settings
+- 403 / 404
+- LIMS App Shell
+- Digital Twin Overview
+- Pointer Atmosphere
+- Reduced Motion
+
+当前环境 `npm install` 因 npm registry 网络超时未完成，因此 build Gate 仍为 PENDING。不得将本轮状态描述为 production-ready 或 build-pass。
