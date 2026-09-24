@@ -41,6 +41,8 @@
 
 ### 2.2 飞书 / Lark Skill 说明
 
+当前安装状态（M3-R0 记录）：`lark-cli` 1.0.95 已安装在本机（`~/.local/bin/lark-cli`），28 个 `lark-*` skill 已装入 `~/.claude/skills`，并已用为读取需求文档新建的**专用飞书应用**完成 OAuth 登录；该应用与 M2-R0 飞书登录所用应用相互独立。配置位于 `~/.lark-cli/config.json`，不提交 Git。
+
 飞书官方 CLI 工具：
 
 - `lark-cli`：飞书官方 CLI 工具（`https://github.com/larksuite/cli`），不是统一总 skill。它提供命令行入口，底层由 `lark-*` 领域 skills 承载具体能力。
@@ -50,6 +52,8 @@
 - `lark-shared`：飞书官方共享基础 skill，负责应用配置、认证登录、身份切换、权限管理、安全规则。由其他 `lark-*` skill 自动加载，无需手动调用。
 
 所有飞书 skill 均来自飞书官方仓库：`https://github.com/larksuite/cli/tree/main/skills`。
+
+注意：`lark-cli auth login --domain <域>` 会连带授予该域下的写入类 scope，实际权限宽于"只读"所需。读取需求文档时必须自我约束为只读，不得因 skill 已授权就执行飞书写入。
 
 ### 2.3 HBOS 第一阶段常用飞书 Skills
 

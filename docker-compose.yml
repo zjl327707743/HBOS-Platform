@@ -7,14 +7,18 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      # 中文字体。wkhtmltopdf 靠系统字体渲染 PDF，镜像里只有 DejaVu（无汉字），
+      # 缺了它打印格式里的汉字会被**静默丢弃**（ASCII 正常、汉字消失）。
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
     environment:
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
@@ -43,10 +47,11 @@ services:
       REDIS_CACHE: ${REDIS_CACHE}
       REDIS_QUEUE: ${REDIS_QUEUE}
       SOCKETIO_PORT: "${SOCKETIO_PORT}"
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
@@ -63,6 +68,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     entrypoint:
@@ -99,7 +105,7 @@ services:
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
 
   db:
     image: mariadb:11.8
@@ -130,7 +136,13 @@ services:
       - websocket
     restart: on-failure
     command:
-      - nginx-entrypoint.sh
+      - bash
+      - -c
+      - |
+        # 挂载进入的 hb_inventory_app 不在镜像 bake 的 assets 目录里，
+        # 需在启动时补建符号链接，否则 /assets/hb_inventory_app 404（图标、页面脚本缺失）。
+        ln -sfn /home/frappe/frappe-bench/apps/hb_inventory_app/hb_inventory_app/public /home/frappe/frappe-bench/assets/hb_inventory_app
+        nginx-entrypoint.sh
     environment:
       BACKEND: backend:8000
       FRAPPE_SITE_NAME_HEADER: ${FRAPPE_SITE_NAME_HEADER}
@@ -143,6 +155,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     ports:
@@ -161,12 +174,14 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
     environment:
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
 
   queue-short:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -181,12 +196,14 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
     environment:
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
 
   redis-queue:
     image: redis:6.2-alpine
@@ -211,7 +228,7 @@ services:
       - bench
       - schedule
     environment:
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
@@ -219,8 +236,10 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+      - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
 
   websocket:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -236,6 +255,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
