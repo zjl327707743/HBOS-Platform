@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """M2-R6D 合规审计日志契约测试（源码即文档，离线断言约定存在）。"""
 
+import ast
 import json
 import unittest
 from pathlib import Path
@@ -48,9 +49,18 @@ class TestAuditLogService(unittest.TestCase):
         self.assertIn("HBOS Audit Log", source)
         self.assertIn("_checksum", source, "缺少数据指纹函数")
         self.assertIn("hashlib.sha256", source, "完整性指纹必须使用 SHA-256")
-        audit_start = source.index("def audit_log")
-        audit_end = source.index("\n\n# ---- doc_events", audit_start)
-        self.assertNotIn("frappe.db.commit()", source[audit_start:audit_end])
+        tree = ast.parse(source)
+        audit_fn = next(
+            n for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name == "audit_log"
+        )
+        commit_calls = [
+            n for n in ast.walk(audit_fn)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and n.func.attr == "commit"
+        ]
+        self.assertEqual(commit_calls, [], "audit_log 不得提交当前业务事务")
 
     def test_audit_query_whitelist(self):
         source = SERVICE.read_text(encoding="utf-8")
