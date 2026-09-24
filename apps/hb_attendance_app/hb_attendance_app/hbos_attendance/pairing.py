@@ -204,8 +204,10 @@ def role_from_terminal(terminal_sn, checkin_time=None):
 
     参数:
         terminal_sn: 打卡设备 SN
-        checkin_time: 打卡时间（datetime 或 date）。分机自 2026-08-14 起实施，
-            此前打卡不按设备判方向，返回 None 回退配对推断。
+        checkin_time: 打卡时间（datetime 或 date）。分机自 SPLIT_MACHINE_START_DATE
+            （2026-08-15，见文件顶部常量）起实施，此前打卡不按设备判方向，返回 None
+            回退配对推断。**注意常量是判定依据，勿按此注释记忆**——本注释曾误写
+            8/14，与常量不一致，导致以为「重算 8/14 安全」而生成整日误判缺勤。
 
     返回 "in"（上班打卡）/ "out"（下班打卡）；未指定设备或分机实施前返回 None。
     """

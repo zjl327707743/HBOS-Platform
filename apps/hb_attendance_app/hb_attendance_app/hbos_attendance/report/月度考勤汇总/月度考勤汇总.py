@@ -142,7 +142,11 @@ def execute(filters=None):
             day_label = date_str[8:]
 
             # Check if this date is a leave day
-            is_leave = date_str in emp_leave_dates.get(emp, set())
+            # 「调休」在 HBOS Rest Leave Record 里，不在上面的请假集合中；其 Attendance
+            # 行 status 为 On Leave、班次列为「调休」。只认集合会把调休日漏进 else 分支
+            # 算成「正常出勤」——调休在月报里凭空变成正常上班，故 status 也要认。
+            is_leave = (date_str in emp_leave_dates.get(emp, set())
+                        or a["status"] == "On Leave")
 
             if is_leave:
                 s["leave_list"].append(day_label)
