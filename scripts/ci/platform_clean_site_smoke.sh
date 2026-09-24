@@ -84,7 +84,10 @@ docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
 
 echo "[PLATFORM] verify Chinese font inside backend"
-docker compose -p "$PROJECT" exec -T backend bash -lc   'fc-list :lang=zh 2>/dev/null | grep -qi "Noto Serif SC\|NotoSerifSC"' || {
+docker compose -p "$PROJECT" exec -T backend bash -lc \
+  'fc-cache -f /usr/share/fonts/truetype/hbos >/dev/null 2>&1 || fc-cache -f >/dev/null 2>&1'
+docker compose -p "$PROJECT" exec -T backend bash -lc \
+  'fc-list :lang=zh 2>/dev/null | grep -qiE "NotoSerifSC|Noto Serif SC"' || {
   echo "::error:: backend cannot see Noto Serif SC"
   exit 1
 }
