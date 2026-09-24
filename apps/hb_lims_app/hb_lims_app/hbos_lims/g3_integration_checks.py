@@ -230,6 +230,56 @@ def _check_lims_release_unlocks_warehouse_gate():
         )
 
 
+
+def verify_schema():
+    """Verify G3 physical schema on an isolated clean site.
+
+    This is intentionally narrow: it checks the cross-domain columns required by
+    the LIMS → ERP Batch → Inventory release contract plus the new Item/Batch
+    references that prevent LIMS from becoming a second master-data system.
+    """
+    _guard()
+    required_columns = {
+        "HBOS Sample": (
+            "item_ref",
+            "batch_ref",
+            "material_code",
+            "material_name",
+            "batch_no",
+        ),
+        "HBOS Specification": (
+            "item_ref",
+            "material_code",
+            "material_name",
+        ),
+        "Batch": (
+            "hbos_release_status",
+            "hbos_release_date",
+            "hbos_certificate_no",
+            "hbos_certificate_file",
+            "hbos_lims_reference",
+            "hbos_release_source",
+        ),
+    }
+
+    missing = []
+    for doctype, fields in required_columns.items():
+        if not frappe.db.table_exists(doctype):
+            missing.append(f"{doctype}::<table>")
+            continue
+        for fieldname in fields:
+            if not frappe.db.has_column(doctype, fieldname):
+                missing.append(f"{doctype}.{fieldname}")
+
+    if missing:
+        raise AssertionError("G3 clean-site schema missing: " + ", ".join(missing))
+
+    return {
+        "ok": True,
+        "checked_doctypes": sorted(required_columns),
+        "checked_columns": sum(len(v) for v in required_columns.values()),
+    }
+
 def run():
     _guard()
     frappe.set_user("Administrator")
