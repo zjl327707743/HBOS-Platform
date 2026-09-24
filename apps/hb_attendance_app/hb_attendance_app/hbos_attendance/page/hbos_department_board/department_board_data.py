@@ -194,17 +194,18 @@ def _load_events(date_str, emp_names):
 
 
 def _load_attendance(date_str, emp_names):
+    """读 Attendance。shift 列用于区分「调休」与「请假」（回顾模式标签口径）。"""
     if not emp_names:
         return {}
     out = {}
     rows = frappe.db.get_all(
         "Attendance", filters={"attendance_date": date_str, "employee": ["in", emp_names],
                                "docstatus": ["<", 2]},
-        fields=["employee", "status", "late_entry", "early_exit"],
+        fields=["employee", "status", "late_entry", "early_exit", "shift"],
     )
     for r in rows:
         out[r.employee] = {"status": r.status, "late_entry": r.late_entry,
-                           "early_exit": r.early_exit}
+                           "early_exit": r.early_exit, "shift": r.shift or ""}
     return out
 
 

@@ -333,7 +333,11 @@ def _day_review_inner(expected, profile, events, now, attendance=None, out_event
             return {"state": "absent_day", "label": "缺勤", "first_hm": None,
                     "card_count": len(events), "tags": [], "note": "以 HRMS 考勤结果为准"}
         if status in ("On Leave", "Half Day"):
-            return {"state": "leave", "label": "请假", "first_hm": first_hm,
+            # 调休日由考勤引擎在班次列写入「调休」；请假班次为空。
+            # 口径与实时模式一致，避免同一件事在过去/今天显示不同。
+            lt = (a.get("shift") or "").strip()
+            return {"state": "leave", "label": f"请假（{lt}）" if lt else "请假",
+                    "first_hm": first_hm,
                     "card_count": len(events), "tags": [], "note": "以 HRMS 考勤结果为准"}
         # 其他状态（None/未生成等）回落下方逻辑
 
