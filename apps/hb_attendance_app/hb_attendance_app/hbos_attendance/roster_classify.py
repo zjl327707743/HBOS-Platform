@@ -1,6 +1,6 @@
-"""HBOS 班次人员归类纯函数（无 Frappe 依赖，可离线测试）。
+"""HBOS 班次人员归类纯函数。
 
-归行优先级（班次人员维护表导出设计文档 §三）：豁免 > 绑定班次 > 名单 > 通用倒班。
+人员名单来自数据库-backed PolicySet；代码只定义分类优先级。
 """
 from hb_attendance_app.hbos_attendance.pairing import (
     FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS,
@@ -9,7 +9,6 @@ from hb_attendance_app.hbos_attendance.rule_lists import (
     ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS,
 )
 
-# 名单 → 主表班次体系（按优先级 2-6 排序）
 LIST_SYSTEMS = (
     (SPECIAL_SHIFT_NUMS, "无菌倒班"),
     (FOUR_SHIFT_NUMS, "四班次倒班"),
@@ -19,17 +18,24 @@ LIST_SYSTEMS = (
 )
 
 
-def classify(emp_num, bound_shift_type=""):
-    """返回员工在主表中的班次体系；豁免返回 ""（不进主表）。
+def classify(emp_num, bound_shift_type="", policies=None):
+    """返回员工在主表中的班次体系；豁免返回空字符串。
 
-    优先级: 豁免 > 绑定班次(bound_shift_type) > 名单 > 通用倒班。
-    bound_shift_type 由调用方从绑定规则解析（如 早班/行政班/8:30班/晚班）。
+    policies 仅用于纯单测/离线规则验证；运行态默认读取数据库 PolicySet。
     """
-    if emp_num in EXEMPT_NUMS:
+    exempt = EXEMPT_NUMS if policies is None else policies.get("EXEMPT", set())
+    systems = LIST_SYSTEMS if policies is None else (
+        (policies.get("SPECIAL_SHIFT", set()), "无菌倒班"),
+        (policies.get("FOUR_SHIFT", set()), "四班次倒班"),
+        (policies.get("ADMIN", set()), "行政班"),
+        (policies.get("SAFETY", set()), "安全倒班"),
+        (policies.get("FOOD", set()), "食堂"),
+    )
+    if emp_num in exempt:
         return ""
     if bound_shift_type:
         return bound_shift_type
-    for nums, label in LIST_SYSTEMS:
+    for nums, label in systems:
         if emp_num in nums:
             return label
     return "通用倒班"
