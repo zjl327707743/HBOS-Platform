@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 **M1-FIX-F（REVIEWING / 已上线）**：调休模块第一阶段——飞书调休审批进入系统，按「加班日提取 → 打卡核实」产出可人工复核的结论清单（119 条入库、40 已核实 / 53 核实不通过 / 14 解析失败），**本阶段不改变任何考勤结果**。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 和 M2 未启动。
+当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 **M1-FIX-F（REVIEWING / 两阶段均已上线）**：调休模块——一阶段把飞书调休审批接入并按「加班日提取 → 打卡核实」产出结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败）；二阶段把已核实调休日**接入考勤判定豁免与看板**（不再判缺勤、看板显示「请假（调休）」）。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 和 M2 未启动。
 
 当前真实进度以以下文件为准：
 
