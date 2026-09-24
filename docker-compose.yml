@@ -19,13 +19,14 @@ services:
         find /dist -mindepth 1 -maxdepth 1 -exec rm -rf {} +
         cp -a dist/. /dist/
 
-        for app in hb_attendance_app hb_inventory_app hb_lims_app; do
-          src="/home/frappe/frappe-bench/apps/$app/$app/public"
-          dst="/assets/$app"
-          test -d "$src"
-          rm -rf "$dst"
-          ln -s "$src" "$dst"
-        done
+        test -d /home/frappe/frappe-bench/apps/hb_attendance_app/hb_attendance_app/public
+        test -d /home/frappe/frappe-bench/apps/hb_inventory_app/hb_inventory_app/public
+        test -d /home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public
+
+        rm -rf /assets/hb_attendance_app /assets/hb_inventory_app /assets/hb_lims_app
+        ln -s /home/frappe/frappe-bench/apps/hb_attendance_app/hb_attendance_app/public /assets/hb_attendance_app
+        ln -s /home/frappe/frappe-bench/apps/hb_inventory_app/hb_inventory_app/public /assets/hb_inventory_app
+        ln -s /home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public /assets/hb_lims_app
     volumes:
       - ./frontend/hbos-lims-web:/src:ro
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app:ro

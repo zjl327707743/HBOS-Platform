@@ -105,8 +105,11 @@ echo "[PLATFORM] LIMS + Inventory release chain"
 docker compose -p "$PROJECT" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend   bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.verify_schema
 docker compose -p "$PROJECT" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend   bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.run
 
+echo "[PLATFORM] prepare HBOS web assets + LIMS production bundle"
+scripts/prepare_hbos_web.sh
+
 echo "[PLATFORM] verify HBOS web assets + LIMS production entry"
-docker compose -p "$PROJECT" up -d websocket frontend
+docker compose -p "$PROJECT" up -d --no-deps websocket frontend
 
 wait_http() {
   local path="$1"
