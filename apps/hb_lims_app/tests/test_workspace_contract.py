@@ -10,6 +10,8 @@ SETUP = APP_ROOT / "hb_lims_app" / "hbos_lims" / "setup.py"
 HOOKS = APP_ROOT / "hb_lims_app" / "hooks.py"
 DESKTOP = APP_ROOT / "hb_lims_app" / "config" / "desktop.py"
 WORKSPACE = APP_ROOT / "hb_lims_app" / "hbos_lims" / "workspace" / "海滨LIMS工作台" / "海滨LIMS工作台.json"
+SPA_SHELL = APP_ROOT / "hb_lims_app" / "www" / "hbos-lims.html"
+SPA_LOADER = APP_ROOT / "hb_lims_app" / "public" / "js" / "lims_spa_loader.js"
 
 
 class TestSkeletonContracts(unittest.TestCase):
@@ -41,6 +43,25 @@ class TestSkeletonContracts(unittest.TestCase):
         self.assertIn('after_migrate = "hb_lims_app.hbos_lims.setup.after_migrate"', source)
         self.assertIn("hbos-lims-logo.svg", source)
         self.assertIn('app_include_css = "/assets/hb_lims_app/css/lims_report.css', source)
+
+    def test_production_spa_route_contract(self):
+        hooks = HOOKS.read_text(encoding="utf-8")
+        self.assertIn('"/hbos-lims/<path:app_path>"', hooks)
+        self.assertIn('"to_route": "hbos-lims"', hooks)
+
+        self.assertTrue(SPA_SHELL.exists())
+        shell = SPA_SHELL.read_text(encoding="utf-8")
+        self.assertIn('/assets/hb_lims_app/js/lims_spa_loader.js', shell)
+
+        self.assertTrue(SPA_LOADER.exists())
+        loader = SPA_LOADER.read_text(encoding="utf-8")
+        self.assertIn('/assets/hb_lims_app/hbos-lims/', loader)
+        self.assertIn('.vite/manifest.json', loader)
+
+    def test_desktop_icon_targets_production_spa(self):
+        source = SETUP.read_text(encoding="utf-8")
+        self.assertIn('icon.link_type = "External"', source)
+        self.assertIn('icon.link = "/hbos-lims/dashboard"', source)
 
     def test_report_scroll_css_exists(self):
         css = APP_ROOT / "hb_lims_app" / "public" / "css" / "lims_report.css"

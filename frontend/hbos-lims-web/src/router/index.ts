@@ -156,8 +156,10 @@ const routes = [
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
 ]
 
+const routerBase = import.meta.env.VITE_ROUTER_BASE || import.meta.env.BASE_URL
+
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory(routerBase),
   routes,
 })
 

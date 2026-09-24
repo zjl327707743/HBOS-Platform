@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "build:prod": "VITE_BASE=/hbos-lims/ vue-tsc -b && VITE_BASE=/hbos-lims/ vite build",
+    "build:prod": "vue-tsc -b && VITE_BASE=/assets/hb_lims_app/hbos-lims/ VITE_ROUTER_BASE=/hbos-lims/ vite build",
     "preview": "vite preview",
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts"
   },

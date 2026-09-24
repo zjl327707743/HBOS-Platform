@@ -2,7 +2,7 @@
   <aside class="sidebar" :class="{ collapsed }">
     <div class="brand">
       <div class="brand-mark">
-        <img src="/joincare-mark.png" alt="健康元" class="brand-logo" />
+        <img :src="brandLogoUrl" alt="健康元" class="brand-logo" />
       </div>
       <div v-if="!collapsed">
         <div class="brand-name">海滨LIMS</div>
@@ -146,6 +146,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const todoStore = useTodoStore()
+const brandLogoUrl = `${import.meta.env.BASE_URL}joincare-mark.png`
 
 const groupIcons: Record<SidebarGroupKey, Component> = {
   testing: CarryOutOutlined,
