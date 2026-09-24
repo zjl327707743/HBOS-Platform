@@ -12,6 +12,7 @@
   "employee_name",
   "department",
   "column_break_1",
+  "rule_code",
   "shift_rule",
   "is_primary"
  ],
@@ -47,12 +48,22 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "rule_code",
+   "fieldtype": "Data",
+   "label": "规则族编码",
+   "in_list_view": 1,
+   "read_only": 1,
+   "description": "稳定绑定键；不随班次规则升版变化"
+  },
+  {
    "fieldname": "shift_rule",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "班次规则",
+   "label": "规则版本（兼容）",
    "options": "HBOS Shift Rule",
-   "reqd": 1
+   "reqd": 0,
+   "read_only": 1,
+   "description": "兼容旧数据的版本指针；考勤判定以规则族编码为准"
   },
   {
    "default": "0",
