@@ -1146,7 +1146,36 @@ P2 仍禁止接 Attendance / Inventory / LIMS 真实 Provider，也不实现飞�
 ```text
 P2 hbos_portal Skeleton = IMPLEMENTED / BACKEND GATE PASS
 P2.1 Frontend Bootstrap Adapter = IMPLEMENTED / FRONTEND GATE PASS
-P2.2 Runtime Smoke Test = NEXT
+P2.2 Runtime Smoke Test = PASS
+P3 Business App Registration = NEXT
 ```
 
 当前仍未接 Attendance / Inventory / LIMS 真实 Provider；Registry 在真实 site 初始允许为空。
+
+
+### HBOS Portal P2.2 Runtime Closeout — 2026-09-25
+
+Owner 本地 Worktree-safe Runtime Smoke 已真实完成：
+
+```text
+P2.2 = PASS
+hbos_portal temporary install / uninstall = PASS
+Python import = PASS
+Registry = 0 entries / 0 failures
+Guest Bootstrap = HTTP 403
+Authenticated Bootstrap = HTTP 200 / ok=true
+Frappe identity = PASS
+Avatar = null / expected
+Branding = PASS
+Apps = [] / expected
+Attendance workspace = PRESERVED
+Docker volumes = UNCHANGED
+frontend site = PRESERVED
+Business data = UNCHANGED
+```
+
+测试后 site app list 与 baseline 完全一致。
+
+Attendance hook import warning 记录为非阻断观察项，不在 Portal P2.2 中修改 Attendance。
+
+Portal 下一阶段为 P3 Business App Registration；PR #15 继续保持 Draft。

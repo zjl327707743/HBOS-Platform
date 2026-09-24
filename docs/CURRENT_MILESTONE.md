@@ -213,3 +213,23 @@ EA-5.5 已通过 Owner 验收并收口。
 - Vue Frappe Bootstrap Adapter = PASS；
 - 下一 Gate = P2.2 Runtime Smoke Test；
 - 尚未接三业务 APP Provider。
+
+
+### Portal P2.2 Runtime Gate — 2026-09-25
+
+```text
+P2.2 Runtime Smoke Test = PASS
+P3 Business App Registration = NEXT
+```
+
+Runtime 使用独立 Portal worktree + 临时 Compose override，正式 `main` Attendance 工作区未 switch / stash / reset / clean。
+
+验证完成后：
+
+- `hbos_portal` 已安全卸载；
+- site app list 恢复 baseline；
+- 28 个 Docker volume 名称保持一致；
+- Attendance bind mount 恢复正式工作区；
+- 业务数据未改变。
+
+Attendance hook import warning 为非阻断观察项，留在 Attendance Authority 下后续处理。

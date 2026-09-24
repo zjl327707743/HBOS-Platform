@@ -242,4 +242,42 @@ VITE_PORTAL_DATA_MODE=frappe → /api/method/hbos_portal.api.bootstrap.get_boots
 
 Frontend Gate 已真实通过 Node 22 / npm install / vue-tsc / Vite build / dist check。
 
-下一步：P2.2 Runtime Smoke Test，在真实 Frappe site 安装并验证 `hbos_portal`。
+P2.2 Runtime Smoke Test 已在真实 Frappe `frontend` site 通过。
+
+
+## 12. P2.2 Runtime Smoke Result — 2026-09-25
+
+真实本地 Worktree-safe Runtime Smoke 已完成：
+
+```text
+P2.2 = PASS
+Guest Bootstrap = HTTP 403 / PASS
+Authenticated Bootstrap = HTTP 200 / ok=true
+Registry entries = 0
+Registry failures = 0
+Avatar = null / expected
+Branding = PASS
+Apps = [] / expected
+Formal Attendance workspace = PRESERVED
+Docker volumes = UNCHANGED
+frontend site = PRESERVED
+Business data = UNCHANGED
+```
+
+测试中临时安装 `hbos_portal`，验证结束后成功卸载并恢复原始 site app list。
+
+Runtime Source HEAD：
+
+```text
+af8ca537bd77cffb714c4fbe2517c7108241d80b
+```
+
+已记录一个非阻断 Attendance hook import warning；P2.2 不越界修改 Attendance。
+
+下一阶段：
+
+```text
+P3 — Business App Registration
+```
+
+PR #15 在至少一个真实 Business App Provider 完成注册和验证前保持 Draft。

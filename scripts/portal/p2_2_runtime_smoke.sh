@@ -51,15 +51,25 @@ fi
 
 info "6/8 验证 site app 清单与 Python import"
 docker compose exec -T backend bash -lc "bench --site \"$SITE_NAME\" list-apps"
-docker compose exec -T backend bash -lc "python - <<'PY'
+docker compose exec -T backend bash -lc "SITE_NAME='$SITE_NAME' python - <<'PY'
+import os
+import frappe
 import hbos_portal
 from hbos_portal.services.registry import build_registry
-print('hbos_portal version:', hbos_portal.__version__)
-snapshot = build_registry([])
-print('empty registry entries:', len(snapshot.entries))
-print('empty registry failures:', len(snapshot.failures))
-assert len(snapshot.entries) == 0
-assert len(snapshot.failures) == 0
+
+site = os.environ['SITE_NAME']
+frappe.init(site=site)
+frappe.connect()
+
+try:
+    print('hbos_portal version:', hbos_portal.__version__)
+    snapshot = build_registry([])
+    print('empty registry entries:', len(snapshot.entries))
+    print('empty registry failures:', len(snapshot.failures))
+    assert len(snapshot.entries) == 0
+    assert len(snapshot.failures) == 0
+finally:
+    frappe.destroy()
 PY"
 
 info "7/8 验证 Guest 不能直接读取 Bootstrap"

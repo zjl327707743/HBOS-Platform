@@ -33,7 +33,10 @@ All three surfaces normally operate against the same Frappe site, business servi
 | EA-2 | [User Journey & Information Architecture](./EA-2_USER_JOURNEY_IA.md) | Personas, navigation, product map, migration journeys | BASELINE |
 | EA-3 | [Application Contract & Access Model](./EA-3_APPLICATION_CONTRACT_ACCESS.md) | Provider contract, access, summary, tasks, search, deep links | BASELINE |
 | EA-4 | [Design System v1](./EA-4_DESIGN_SYSTEM_V1.md) | HBOS visual language, visual intensity, layout, motion, tokens | BASELINE |
-| EA-5 | [Portal Product Prototype](./EA-5_PORTAL_PRODUCT_PROTOTYPE.md) | High-fidelity prototype and interaction validation | IN_PROGRESS / OWNER VISUAL GATE APPROVED |\n| EA-5.3 | [Product Interaction Review](./EA-5.3_PRODUCT_INTERACTION_REVIEW.md) | Portal / App boundary, My Work, Digital Twin, Chinese UX | BASELINE |\n| EA-5.4 | [Component & Interaction Specification](./EA-5.4_COMPONENT_INTERACTION_SPEC.md) | Component geometry, glass, motion, typography, interaction | BASELINE |\n| EA-5.5 | [Interaction QA / Responsive / Accessibility](./EA-5.5_INTERACTION_QA_RESPONSIVE_ACCESSIBILITY.md) | Frontend reproduction, interaction, responsive and accessibility validation | COMPLETE / OWNER APPROVED |
+| EA-5 | [Portal Product Prototype](./EA-5_PORTAL_PRODUCT_PROTOTYPE.md) | High-fidelity prototype and interaction validation | IN_PROGRESS / OWNER VISUAL GATE APPROVED |
+| EA-5.3 | [Product Interaction Review](./EA-5.3_PRODUCT_INTERACTION_REVIEW.md) | Portal / App boundary, My Work, Digital Twin, Chinese UX | BASELINE |
+| EA-5.4 | [Component & Interaction Specification](./EA-5.4_COMPONENT_INTERACTION_SPEC.md) | Component geometry, glass, motion, typography, interaction | BASELINE |
+| EA-5.5 | [Interaction QA / Responsive / Accessibility](./EA-5.5_INTERACTION_QA_RESPONSIVE_ACCESSIBILITY.md) | Frontend reproduction, interaction, responsive and accessibility validation | COMPLETE / OWNER APPROVED |
 
 ## Relationship to other governance
 
@@ -109,7 +112,7 @@ Current design authority:
 - EA-5.4 component / interaction specification;
 - `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`.
 
-EA-5.5 has passed Owner review. The next workstream is **P1 — hbos_portal Frappe Platform App Architecture**.
+EA-5.5 and P2.2 runtime validation have passed. The next workstream is **P3 — Business App Registration**.
 
 
 ### Frontend reproduction status
@@ -148,5 +151,28 @@ Status: **ARCHITECTURE BASELINE / P2 READY**.
 P1 = ARCHITECTURE BASELINE
 P2 = SKELETON IMPLEMENTED / BACKEND GATE PASS
 P2.1 = FRONTEND BOOTSTRAP ADAPTER PASS
-P2.2 = RUNTIME SMOKE TEST NEXT
+P2.2 = RUNTIME SMOKE TEST PASS
+P3 = BUSINESS APP REGISTRATION NEXT
 ```
+
+
+## P2.2 Runtime Verification
+
+The real Frappe `frontend` site has passed the worktree-safe P2.2 runtime smoke test.
+
+Validated:
+
+- Frappe Session authentication boundary;
+- real authenticated bootstrap;
+- Frappe user identity projection;
+- avatar null fallback;
+- HBOS branding;
+- empty business-app Registry;
+- temporary install / uninstall restoration;
+- no Docker volume deletion;
+- no Attendance workspace mutation;
+- no business-data mutation.
+
+Status: **PASS**.
+
+Next: **P3 — register one real Business App Provider at a time**.
