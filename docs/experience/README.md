@@ -133,3 +133,10 @@ EA-5.5 implementation now includes mobile navigation, skip links, keyboard Comma
 
 
 EA-5.5 frontend implementation has passed both repository quality and Portal frontend build gates. Owner product review remains the final EA-5.5 closeout gate.
+
+
+## P1 Platform Architecture
+
+P1 authority: [`P1_HBOS_Portal平台App架构.md`](./P1_HBOS_Portal平台App架构.md).
+
+Status: **ARCHITECTURE BASELINE / P2 READY**.

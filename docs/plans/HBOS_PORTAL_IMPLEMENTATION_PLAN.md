@@ -32,7 +32,7 @@ Portal 通过独立 Experience Architecture / Product Gate 管理。
 
 - EA-5.3 Interaction Review
 - EA-5.4 Component & Interaction Specification
-- EA-5.5 Interaction QA / Responsive / Accessibility — IN_PROGRESS
+- EA-5.5 Interaction QA / Responsive / Accessibility — COMPLETE / OWNER APPROVED
 
 输出：
 - 设计冻结文档
@@ -40,7 +40,7 @@ Portal 通过独立 Experience Architecture / Product Gate 管理。
 - Design Tokens
 - Component Contract
 
-### Phase B — Vue Portal Skeleton — SOURCE INITIALIZED / BUILD VERIFICATION PENDING
+### Phase B — Vue Portal Skeleton — COMPLETE / OWNER APPROVED
 
 创建：
 
@@ -61,7 +61,7 @@ frontend/hbos-portal-web/
 
 ### Phase C — Portal Platform App
 
-EA-5.5 / 前端复刻 Gate 通过后再创建：
+P1 Platform App Architecture 已形成基线，P2 可开始创建：
 
 ```text
 apps/hbos_portal/
@@ -208,3 +208,20 @@ EA-5.5 Owner Gate: PENDING
 ```
 
 Backend Phase C remains blocked until Owner closes EA-5.5.
+
+
+## 10. P1 Platform Architecture Result — 2026-09-25
+
+P1 架构基线已形成：
+
+- `docs/experience/P1_HBOS_Portal平台App架构.md`
+
+当前：
+
+```text
+EA-5.5 = COMPLETE / OWNER APPROVED
+P1 = ARCHITECTURE BASELINE
+P2 = READY TO IMPLEMENT
+```
+
+P2 只创建薄 `apps/hbos_portal` skeleton，不接 Attendance / Inventory / LIMS Provider。

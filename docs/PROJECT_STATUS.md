@@ -1125,7 +1125,17 @@ Owner 已通过 Portal 前端体验验收，Typography Contract v2.0 采用 Ant 
 ```text
 EA-5.5 = COMPLETE
 Frontend Reproduction Gate = PASS
-P1 hbos_portal Platform Architecture = IN_PROGRESS
+P1 hbos_portal Platform Architecture = ARCHITECTURE BASELINE
+P2 hbos_portal Skeleton = READY TO IMPLEMENT
 ```
 
 本状态不改变 M1-FIX 主里程碑。
+
+
+### HBOS Portal P1 Architecture Closeout — 2026-09-25
+
+P1 已完成 `hbos_portal` 薄平台 App 架构基线。
+
+当前允许进入 P2：创建 Frappe App skeleton、Registry、Bootstrap、Access Guard、Error Contract 和 fake-provider tests。
+
+P2 仍禁止接 Attendance / Inventory / LIMS 真实 Provider，也不实现飞书 OAuth。

@@ -197,3 +197,10 @@ EA-5.5 已通过 Owner 验收并收口。
 - App Registry / Bootstrap / Session / Access / Provider Discovery 设计；
 - 不改变 Attendance / Inventory / LIMS 领域 Authority；
 - P1 架构收口前不引入业务事实副本。
+
+
+### Portal P1 Architecture Gate — 2026-09-25
+
+`docs/experience/P1_HBOS_Portal平台App架构.md` 已形成架构基线。
+
+下一允许范围：P2 `apps/hbos_portal` skeleton；不接三业务 APP Provider，不创建业务事实 DocType。
