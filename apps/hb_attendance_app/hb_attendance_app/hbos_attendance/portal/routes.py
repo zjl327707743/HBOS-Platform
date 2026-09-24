@@ -16,7 +16,7 @@ def resolve_stable_route(stable_path: str) -> str:
         raise ValueError("Attendance Portal route must be a local path without fragment")
 
     decoded_path = unquote(parsed.path)
-    if "\" in decoded_path:
+    if "\\" in decoded_path:
         raise ValueError("Attendance Portal route must not contain backslashes")
 
     segments = [segment for segment in decoded_path.split("/") if segment]
