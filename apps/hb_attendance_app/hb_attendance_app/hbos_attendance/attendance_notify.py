@@ -86,6 +86,13 @@ def feishu_result(status_code, body_text):
     return False, "HTTP %s code=%s: %s" % (status_code, code, (body_text or "")[:200])
 
 
+def feishu_write_enabled():
+    """真实飞书出站总开关；新环境默认关闭。"""
+    return str(os.environ.get("HBOS_FEISHU_SYNC_ENABLED", "0")).strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+
+
 def should_send_now(now_bj):
     """仅北京时间 09:00-09:59 触发发送（cron 时刻不可信, 以守卫为准）。"""
     return now_bj.hour == 9
@@ -312,10 +319,8 @@ def send_daily_report(force=False):
         now = _bj_now()
         date_str = now.strftime("%Y-%m-%d")
         dry = os.environ.get("HBOS_NOTIFY_DRY_RUN", "") == "1"
-        if not dry:
-            from hb_attendance_app.hbos_attendance.api import feishu_sync_enabled
-            if not feishu_sync_enabled():
-                return {"skipped": "feishu_sync_disabled"}
+        if not dry and not feishu_write_enabled():
+            return {"skipped": "feishu_sync_disabled"}
         if not force and not should_send_now(now):
             return {"skipped": "not_9am_bj"}
         if not force and already_sent(date_str):
