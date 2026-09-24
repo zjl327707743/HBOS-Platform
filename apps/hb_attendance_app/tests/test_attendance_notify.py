@@ -307,6 +307,7 @@ class SendDailyReportDispatchTest(unittest.TestCase):
             return True, "HTTP 200"
 
         with mock.patch.dict(os.environ, {
+                "HBOS_FEISHU_SYNC_ENABLED": "1",
                 "HBOS_NOTIFY_DRY_RUN": "",
                 "HBOS_NOTIFY_WEBHOOK_URL": "https://example.invalid/hook"}, clear=False), \
                 mock.patch.object(attendance_notify, "render_card",
