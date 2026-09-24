@@ -648,11 +648,16 @@ def _regenerate_attendance_impl(range_start, range_end):
 
     for i in range(0, len(deduped), 500):
         chunk = deduped[i:i+500]
-        values = ",".join(
-            "('%s','%s','%s','%s','%s',%s,%s,'%s',%s,%s)" % (name, emp, date, status, shift, str(late), str(early), ck, str(wh), str(miss_out))
-            for name, emp, date, status, shift, late, ck, wh, miss_out, early in chunk
+        placeholders = ",".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(chunk))
+        params = []
+        for name, emp, day, status, shift, late, ck, wh, miss_out, early in chunk:
+            params.extend([name, emp, day, status, shift, late, early, ck, wh, miss_out])
+        frappe.db.sql(
+            "INSERT IGNORE INTO tabAttendance "
+            "(name, employee, attendance_date, status, shift, late_entry, early_exit, creation, working_hours, hbos_missing_out) "
+            "VALUES " + placeholders,
+            tuple(params),
         )
-        frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, early_exit, creation, working_hours, hbos_missing_out) VALUES " + values)
 
     # ===== 零打卡缺勤: 在职员工当天完全无打卡 =====
     # 豁免顺序(Owner 2026-08-19/20 确认):
@@ -725,23 +730,23 @@ def _regenerate_attendance_impl(range_start, range_end):
                 seen[key] = zero_absent[-1]
         d += _tdelta(days=1)
 
-    # 批量插入请假记录
-    for i in range(0, len(leave_absent), 500):
-        chunk = leave_absent[i:i+500]
-        values = ",".join(
-            "('%s','%s','%s','%s','%s',%s,'%s',%s,%s)" % (name, emp, date, status, shift, str(late), ck, str(wh), str(miss_out))
-            for name, emp, date, status, shift, late, ck, wh, miss_out in chunk
-        )
-        frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out) VALUES " + values)
+    def _insert_attendance_rows_without_early(rows):
+        for i in range(0, len(rows), 500):
+            chunk = rows[i:i+500]
+            placeholders = ",".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(chunk))
+            params = []
+            for name, emp, day, status, shift, late, ck, wh, miss_out in chunk:
+                params.extend([name, emp, day, status, shift, late, ck, wh, miss_out])
+            frappe.db.sql(
+                "INSERT IGNORE INTO tabAttendance "
+                "(name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out) "
+                "VALUES " + placeholders,
+                tuple(params),
+            )
 
-    # 批量插入零打卡缺勤
-    for i in range(0, len(zero_absent), 500):
-        chunk = zero_absent[i:i+500]
-        values = ",".join(
-            "('%s','%s','%s','%s','%s',%s,'%s',%s,%s)" % (name, emp, date, status, shift, str(late), ck, str(wh), str(miss_out))
-            for name, emp, date, status, shift, late, ck, wh, miss_out in chunk
-        )
-        frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out) VALUES " + values)
+    # 批量插入请假/零打卡缺勤，全部使用参数绑定。
+    _insert_attendance_rows_without_early(leave_absent)
+    _insert_attendance_rows_without_early(zero_absent)
     # 注意: 原「孤卡补缺」逻辑已删除（Owner 2026-08-17 确认）——
     # 员工当天打卡全部被前一夜班配对消耗时（下夜班休息日，如早晨 8 点的下班卡
     # 配给前晚夜班），当天视为休息日，不再补判缺勤。
