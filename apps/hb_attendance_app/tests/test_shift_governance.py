@@ -68,7 +68,7 @@ class ScheduleOwnershipContractTest(unittest.TestCase):
     def test_rotation_only_replaces_owned_rows_and_never_commits(self):
         src = ROTATION.read_text()
         self.assertIn('"source_type": "ROTATION"', src)
-        self.assertIn('"source_ref": group["name"]', src)
+        self.assertIn('"source_ref": assignment.name', src)
         self.assertIn('"source_type": "ROTATION"', src)
         self.assertNotIn("frappe.db.commit()", src)
 
