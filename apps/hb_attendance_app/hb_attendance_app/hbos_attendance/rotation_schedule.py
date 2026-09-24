@@ -107,10 +107,12 @@ def rotation_shift_for(anchor_shift, anchor_date, target_date):
 
 
 def generate_rotation_schedule(end_date):
-    """生成全部轮转分组排班到 HBOS Employee Schedule（覆盖式，从各组起始日到 end_date）。
+    """Generate owned ROTATION schedules without overwriting human/imported decisions.
 
-    覆盖式: 先删各组员工从该组起始日（最早段）起的旧排班, 再按各段相位重写,
-    避免重复累计。休息日写「休息」, 缺勤判定已有的「排班休息日无打卡=休息」逻辑会自动豁免。
+    Ownership rules:
+    - only ROTATION rows in the requested window may be replaced;
+    - LEGACY / IMPORT / MANUAL / SWAP rows are protected and win;
+    - this helper never commits. The caller owns the transaction.
     """
     import frappe
 
@@ -126,37 +128,64 @@ def generate_rotation_schedule(end_date):
     emp_by_num = {e.employee_number: e.name for e in emps}
 
     created = 0
+    protected = 0
     for group in ROTATION_GROUPS:
         start_date = group_start_date(group)
         if end_date < start_date:
             continue
-        # 覆盖式删除: 本组员工从本组起始日期的旧排班
+
+        # Replace only rows this generator owns, and only inside the requested window.
         for num in group_member_nums(group):
             emp = emp_by_num.get(num)
             if emp:
                 frappe.db.delete(
                     "HBOS Employee Schedule",
-                    {"employee": emp, "schedule_date": [">=", start_date.isoformat()]},
+                    {
+                        "employee": emp,
+                        "schedule_date": [
+                            "between",
+                            [start_date.isoformat(), end_date.isoformat()],
+                        ],
+                        "source_type": "ROTATION",
+                    },
                 )
-        # 生成: 逐日取「起点 <= 当日」的最后一段相位
+
         d = start_date
         while d <= end_date:
+            ds = d.isoformat()
             for num in group_member_nums(group):
                 emp = emp_by_num.get(num)
                 if not emp:
                     continue
+
+                # Any non-rotation authoritative row wins over automatic rotation.
+                existing = frappe.db.get_value(
+                    "HBOS Employee Schedule",
+                    {"employee": emp, "schedule_date": ds},
+                    ["name", "source_type"],
+                    as_dict=True,
+                )
+                if existing:
+                    protected += 1
+                    continue
+
                 shift = group_shift_for(group, num, d)
                 if not shift:
                     continue
                 frappe.get_doc({
                     "doctype": "HBOS Employee Schedule",
                     "employee": emp,
-                    "schedule_date": d.isoformat(),
+                    "schedule_date": ds,
                     "shift_type": shift,
                     "leave_type": "",
+                    "source_type": "ROTATION",
+                    "source_ref": group["name"],
                 }).insert(ignore_permissions=True)
                 created += 1
             d += timedelta(days=1)
 
-    frappe.db.commit()
-    return {"generated": created, "until": end_date.isoformat()}
+    return {
+        "generated": created,
+        "protected": protected,
+        "until": end_date.isoformat(),
+    }
