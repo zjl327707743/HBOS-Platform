@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - main
+      - integration/hbos-platform-v1
     paths:
       - "apps/hb_inventory_app/**"
       - "services/hbos_ocr/**"
