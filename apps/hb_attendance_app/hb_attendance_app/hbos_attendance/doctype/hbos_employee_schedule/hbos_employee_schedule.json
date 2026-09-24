@@ -84,7 +84,6 @@
    "fieldtype": "Select",
    "label": "来源类型",
    "options": "LEGACY\nROTATION\nIMPORT\nMANUAL\nSWAP",
-   "default": "MANUAL",
    "in_list_view": 1,
    "description": "排班来源；自动任务只能覆盖自己拥有的来源记录"
   },
