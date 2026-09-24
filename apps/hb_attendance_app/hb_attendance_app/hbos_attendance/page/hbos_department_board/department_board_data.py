@@ -127,46 +127,68 @@ def _fmt_hm(v):
         return None
 
 
-def _load_bindings(emp_names):
-    """employee -> [{shift_type, start_hm, late_hm}, ...]（主班优先）。
-
-    一名员工可绑定多条规则（倒班：如环保部 早班 + 13:00 中班），
-    必须全部返回，由调用方按当天打卡时间挑最接近的班次
-    （原来只取第一条，倒班人员会被套用错误的班次→误判迟到）。
-    """
+def _load_bindings(emp_names, date_str):
+    """employee -> effective stable-family shift definitions for the requested date."""
     if not emp_names:
         return {}
-    binds = frappe.db.get_all(
-        "HBOS Employee Shift", fields=["employee", "shift_rule", "is_primary"])
-    rules = {r.name: r for r in frappe.db.get_all(
-        "HBOS Shift Rule", fields=["name", "shift_type", "start_time", "late_after", "status"])}
+
+    all_rules = frappe.db.get_all(
+        "HBOS Shift Rule",
+        fields=["name", "rule_code", "rule_name", "shift_type", "start_time",
+                "late_after", "effective_from", "status"],
+        order_by="rule_code, effective_from, creation",
+    )
+    by_code = {}
+    code_by_version = {}
+    for rule in all_rules:
+        code = rule.rule_code or rule.rule_name or rule.name
+        code_by_version[rule.name] = code
+        by_code.setdefault(code, []).append(rule)
+
+    def current(code):
+        candidates = [
+            r for r in by_code.get(code, [])
+            if r.status != "草稿" and str(r.effective_from or "") <= str(date_str)
+        ]
+        if not candidates:
+            return None
+        chosen = max(candidates, key=lambda r: (str(r.effective_from or ""), str(r.name)))
+        return chosen if chosen.status == "生效" else None
+
     out = {}
-    for b in sorted(binds, key=lambda x: not x.is_primary):
-        if b.employee not in emp_names:
+    binds = frappe.db.get_all(
+        "HBOS Employee Shift",
+        fields=["employee", "rule_code", "shift_rule", "is_primary"],
+    )
+    for binding in sorted(binds, key=lambda x: not x.is_primary):
+        if binding.employee not in emp_names:
             continue
-        r = rules.get(b.shift_rule)
-        if not r or r.status != "生效":
+        code = binding.rule_code or code_by_version.get(binding.shift_rule)
+        rule = current(code) if code else None
+        if not rule:
             continue
-        out.setdefault(b.employee, []).append({
-            "shift_type": r.shift_type,
-            "start_hm": _fmt_hm(r.start_time),
-            "late_hm": _fmt_hm(r.late_after),
+        out.setdefault(binding.employee, []).append({
+            "shift_type": rule.shift_type,
+            "start_hm": _fmt_hm(rule.start_time),
+            "late_hm": _fmt_hm(rule.late_after),
         })
-    # hbos_fixed_shift 兜底（单绑定字段）
-    for e in frappe.db.get_all(
-            "Employee", filters={"name": ["in", emp_names], "hbos_fixed_shift": ["is", "set"]},
-            fields=["name", "hbos_fixed_shift"]):
-        if e.name in out:
+
+    for emp in frappe.db.get_all(
+        "Employee",
+        filters={"name": ["in", emp_names]},
+        fields=["name", "hbos_fixed_shift_code", "hbos_fixed_shift"],
+    ):
+        if emp.name in out:
             continue
-        r = rules.get(e.hbos_fixed_shift)
-        if r and r.status == "生效":
-            out[e.name] = [{
-                "shift_type": r.shift_type,
-                "start_hm": _fmt_hm(r.start_time),
-                "late_hm": _fmt_hm(r.late_after),
+        code = emp.hbos_fixed_shift_code or code_by_version.get(emp.hbos_fixed_shift)
+        rule = current(code) if code else None
+        if rule:
+            out[emp.name] = [{
+                "shift_type": rule.shift_type,
+                "start_hm": _fmt_hm(rule.start_time),
+                "late_hm": _fmt_hm(rule.late_after),
             }]
     return out
-
 
 def _load_events(date_str, emp_names):
     """返回 (events, out_events)。
@@ -249,7 +271,7 @@ def get_data(department=None, date_str=None):
     emp_names = [e.name for e in emps]
     schedule = _load_schedule(date_str, emp_names)
     leave_recs = _load_leave_records(date_str, emp_names)
-    bindings = _load_bindings(emp_names)
+    bindings = _load_bindings(emp_names, date_str)
     events, out_events = _load_events(date_str, emp_names)
     attendance = _load_attendance(date_str, emp_names)
 
