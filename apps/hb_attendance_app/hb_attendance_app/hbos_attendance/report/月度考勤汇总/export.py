@@ -1,4 +1,12 @@
 import frappe
+
+EXPORT_ROLES = {"HR User", "HR Manager", "System Manager"}
+
+
+def _require_export_permission():
+    if not (set(frappe.get_roles()) & EXPORT_ROLES):
+        frappe.throw("你无权导出考勤数据。", frappe.PermissionError)
+
 import tempfile
 import os
 from datetime import datetime
@@ -8,6 +16,7 @@ from datetime import datetime
 def export_xlsx(month=None, year=None, from_date=None, to_date=None, employee=None, department=None,
                 enable_ai=None):
     """Export the 月度考勤汇总 report as an XLSX file."""
+    _require_export_permission()
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -112,7 +121,7 @@ def export_xlsx(month=None, year=None, from_date=None, to_date=None, employee=No
         "doctype": "File",
         "file_name": file_name,
         "content": file_content,
-        "is_private": 0,
+        "is_private": 1,
         "attached_to_doctype": "Report",
         "attached_to_name": "月度考勤汇总",
     })
@@ -130,6 +139,7 @@ def export_exceptions(month=None, year=None, from_date=None, to_date=None, emplo
     格式对齐 Owner 提供的「HBOS异常考勤报表」参考文件。
     enable_ai 由前端统一透传；本导出为独立异常口径（非 AI 列导出），仅接收不消费。
     """
+    _require_export_permission()
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -413,7 +423,7 @@ def export_exceptions(month=None, year=None, from_date=None, to_date=None, emplo
         "doctype": "File",
         "file_name": file_name,
         "content": file_content,
-        "is_private": 0,
+        "is_private": 1,
         "attached_to_doctype": "Report",
         "attached_to_name": "月度考勤汇总",
     })
