@@ -13,6 +13,7 @@ services:
       - logs:/home/frappe/frappe-bench/logs
       - assets-data:/home/frappe/frappe-bench/assets
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -58,6 +59,7 @@ services:
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port $$SOCKETIO_PORT;
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       REDIS_CACHE: ${REDIS_CACHE}
@@ -121,6 +123,7 @@ services:
         bench --site $SITE_NAME migrate;
         bench --site $SITE_NAME list-apps;
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
       SITE_NAME: ${SITE_NAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DB_HOST: ${MARIADB_HOST}
@@ -195,6 +198,7 @@ services:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
       TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
@@ -242,6 +246,7 @@ services:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
       TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
@@ -294,6 +299,7 @@ services:
       - bench
       - schedule
     environment:
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app"
       HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
       HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
       FEISHU_APP_ID: ${FEISHU_APP_ID}
