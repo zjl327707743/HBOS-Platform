@@ -1,0 +1,174 @@
+/*
+ * HBOS Typography Contract v1.1
+ *
+ * This file is the authority for product type scale.
+ * Components must reference semantic tokens instead of inventing local font sizes.
+ */
+
+body,
+button,
+input,
+textarea,
+select {
+  font-size: var(--hbos-font-body);
+}
+
+/* Brand */
+.brand-name {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.brand-caption {
+  font-size: var(--hbos-font-meta);
+  line-height: 1.4;
+}
+
+/* Display */
+.hero-main h1 {
+  font-size: var(--hbos-font-hero);
+  line-height: 1.04;
+  letter-spacing: -1.8px;
+}
+
+/* Page title */
+.page-heading h1,
+.apps-hero h1,
+.lims-app-hero h1,
+.review-title-row h1,
+.system-state-page h1 {
+  font-size: var(--hbos-font-page-title);
+  line-height: 1.2;
+  letter-spacing: -.5px;
+}
+
+/* Section title */
+.section-head h2,
+.workhead h2,
+.operation-card-head h2 {
+  font-size: var(--hbos-font-section-title);
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+/* Card title / navigation / controls */
+.portal-nav-item,
+.local-nav,
+.global-search span,
+.app-text strong,
+.app-tile > strong,
+.directory-app strong,
+.featured-title strong,
+.task-copy strong,
+.work-list-copy strong,
+.operation-card-head h3,
+.context-card h3,
+.recent-grid strong,
+.status-title,
+.ant-btn {
+  font-size: var(--hbos-font-card-title);
+}
+
+/* Body */
+.hero-main > p,
+.page-heading p,
+.apps-hero p,
+.lims-app-hero p,
+.section-body,
+.setting-row,
+.profile-card,
+.operation-card,
+.context-card {
+  font-size: var(--hbos-font-body);
+  line-height: 1.65;
+}
+
+/* KPI / metric */
+.metric-glass strong,
+.pulse-card > strong,
+.work-stat strong,
+.lims-stat strong,
+.lab-pulse-grid strong {
+  font-size: var(--hbos-font-kpi);
+  line-height: 1.05;
+}
+
+/* Meta */
+.metric-glass span,
+.metric-glass small,
+.section-head p,
+.app-text small,
+.app-tile > small,
+.directory-app > span,
+.featured-copy p,
+.featured-meta,
+.task-copy span,
+.work-list-copy > span,
+.task-meta b,
+.work-list-due b,
+.pulse-card > span,
+.pulse-card > small,
+.status-row,
+.status-row b,
+.status-card span,
+.status-card small,
+.twin-head span,
+.recent-grid span,
+.app-switcher-head span,
+.app-switcher-item span,
+.notification-copy p,
+.portal-side-note {
+  font-size: var(--hbos-font-meta);
+  line-height: 1.55;
+}
+
+/* Micro labels */
+.eyebrow,
+.page-kicker,
+.section-kicker,
+.nav-section-label,
+.migration,
+.task-meta small,
+.work-list-due small,
+.notification-group-title,
+.notification-title-row span,
+.notification-copy small {
+  font-size: var(--hbos-font-micro);
+  line-height: 1.45;
+}
+
+/* Intentional special text that remains within the contract */
+.hello {
+  font-size: 20px;
+  line-height: 1.35;
+  font-weight: 760;
+}
+
+/* Responsive: preserve hierarchy, do not invent intermediate font sizes. */
+@media (max-width: 1199px) {
+  .hero-main h1 {
+    font-size: 48px;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero-main h1 {
+    font-size: 40px;
+    line-height: 1.08;
+  }
+
+  .page-heading h1,
+  .apps-hero h1,
+  .lims-app-hero h1,
+  .review-title-row h1,
+  .system-state-page h1 {
+    font-size: 28px;
+  }
+
+  .section-head h2,
+  .workhead h2,
+  .operation-card-head h2 {
+    font-size: 18px;
+  }
+}

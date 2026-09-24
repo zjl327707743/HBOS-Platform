@@ -1256,3 +1256,54 @@ Digital Twin 是一级空间化能力。
 Management Console 是后台。
 
 这四者共享 HBOS 品牌，但承担不同的用户任务。
+
+---
+
+# 41. Typography Contract v1.1 — Exact Scale
+
+本节为 EA-5.4 Typography 的**强制精确规范**，优先级高于前文中所有“范围建议”。
+
+从本版本开始，HBOS Native UI 不允许组件自行发明字号。
+
+| Semantic Role | Desktop | 用途 |
+|---|---:|---|
+| Display | **52px** | Portal Hero 主标题 |
+| Page Title | **32px** | 页面 H1 |
+| Section Title | **20px** | 应用中心 / 我的工作 / 业务脉搏 / 数字孪生等 H2 |
+| Card / Nav | **14px** | 卡片标题、Sidebar、按钮、重要 Label |
+| Body | **14px** | 中文正文 |
+| Meta | **12px** | 说明、时间、App 描述、次级信息 |
+| Micro | **11px** | Kicker、技术标签、Migration |
+| KPI | **30px** | 指标数字 |
+
+### 特例
+
+只允许以下经过设计系统批准的特例：
+
+- Greeting：20px；
+- Tablet Hero：48px；
+- Mobile Hero：40px；
+- Mobile Page Title：28px；
+- Mobile Section Title：18px。
+
+### 禁止
+
+禁止出现：
+
+- 10.5 / 11.5 / 12.5 / 13.5 / 14.5 / 15.5 等半像素字号；
+- 组件为了“看起来差不多”自行新增字号；
+- 同一级 Section Title 在不同页面使用不同字号；
+- 同一级 App Card Title 在不同应用使用不同字号。
+
+### 工程 Authority
+
+正式实现以：
+
+```text
+frontend/hbos-portal-web/src/theme/tokens.css
+frontend/hbos-portal-web/src/theme/typography.css
+```
+
+为准。
+
+`typography.css` 必须在通用 `global.css` 之后加载，使语义字体合同覆盖旧原型样式。

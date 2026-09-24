@@ -283,3 +283,34 @@ Fix-2 不再修改 Hero 结构，而是统一中文 Typography Rhythm：
 - Tablet / Mobile 保留响应式降级，避免移动端过密。
 
 本轮目标是提高中文信息层级的连续性，不继续放大 Hero，也不改变布局结构。
+
+
+## 12. Owner Review Round 3 — Typography Governance
+
+Owner 指出当前页面存在字号不统一问题。
+
+代码审计确认旧样式中同时存在大量 8–40px、半像素字号和多组 clamp，说明此前视觉迭代产生了过多组件级字号特例。
+
+本轮不再进行逐块目测修字，而是建立 **Typography Contract v1.1**：
+
+```text
+Display     52
+Page Title  32
+Section     20
+Card/Nav    14
+Body        14
+Meta        12
+Micro       11
+KPI         30
+```
+
+并新增独立 `src/theme/typography.css` 作为最终语义覆盖层。
+
+原则：
+
+- 同语义 = 同字号；
+- 不再使用半像素字号；
+- 组件不得自行创建字号；
+- Responsive 只允许规范中明确列出的降级值。
+
+后续若需要修改字号，应修改 Token / Typography Contract，而不是修改单个页面。
