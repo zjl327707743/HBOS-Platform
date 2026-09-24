@@ -1,6 +1,6 @@
 # HBOS Portal P3 — LIMS Provider Registration
 
-**状态：P3-LIMS-1 / P3-LIMS-2 / P3-LIMS-3 COMPLETE / RUNTIME GATE PASS**  
+**状态：P3-LIMS-1 ~ P3-LIMS-5 COMPLETE / RUNTIME GATE PASS**  
 **日期：** 2026-09-25  
 **分支：** `feature/hbos-portal-product`
 
@@ -14,17 +14,17 @@ LIMS 已成为 HBOS Portal 第一个真实 Business App Provider。
 P3-LIMS-1  Manifest / Access / Registration      COMPLETE
 P3-LIMS-2  Stable Deep-link Adapter              COMPLETE
 P3-LIMS-3  My Work Task Projection               COMPLETE
-P3-LIMS-4  Summary Projection                    NEXT
-P3-LIMS-5  Search Provider                       PLANNED
+P3-LIMS-4  Summary Projection                    COMPLETE
+P3-LIMS-5  Search Provider                       COMPLETE
 ```
 
 当前 LIMS manifest capability：
 
 ```json
-["tasks"]
+["summary", "tasks", "search"]
 ```
 
-`summary` 与 `search` 仍未开放。
+`summary`、`tasks`、`search` 三项 experience capability 均已通过独立 Gate。
 
 ## 2. Provider Registration
 
@@ -378,3 +378,113 @@ P3-LIMS-4 — Summary Projection
 - Portal 不查 DocType；
 - 不复制业务事实；
 - `search` 继续保持关闭，待 P3-LIMS-5 单独 Gate。
+
+
+## 10. P3-LIMS-4 — Summary Projection
+
+Summary 没有复制 LIMS Dashboard 的全局统计逻辑，而是复用现有权限感知：
+
+```text
+todo_service.get_my_todo_summary()
+```
+
+由 LIMS 自己转换成 Portal semantic Summary DTO：
+
+- 我的 LIMS 待办；
+- LIMS 超期；
+- 检验待办；
+- 稳定性待办。
+
+所有指标均针对当前 Frappe Session 用户，不让 Portal 重算业务事实，也不默认暴露全实验室范围数据。
+
+Portal 真实模式按 manifest `summary` capability 异步加载；Provider failure 单卡隔离。
+
+Runtime authority：
+
+```text
+Head 86496e5eeb8d2d585d5288a9fd6327308c2593de
+Platform Integration Gate run 36044803594 = SUCCESS
+```
+
+clean-site 输出：
+
+```text
+lims_manifest_capabilities = ["summary", "tasks"]
+summary_status = normal
+summary_metrics = 4
+HBOS PLATFORM clean-site integration PASS
+```
+
+## 11. P3-LIMS-5 — Search Provider
+
+Search v1 只开放一个有明确业务落点的实体：
+
+```text
+HBOS Test Result
+```
+
+实现原则：
+
+- 使用 permission-aware `frappe.get_list`；
+- 不使用 unrestricted `frappe.get_all`；
+- 当前支持按结果编号 / 样品编号 / 检验项目匹配；
+- 返回 Stable Deep Link：`/hbos/lims/results/<id>`；
+- Command Palette 点击后仍通过 Portal Route Resolver 进入当前 `/hbos-lims/results/<id>`；
+- 空查询在前端不发请求；
+- 样品 / COA 等没有稳定单记录 route 的对象本阶段不伪造 deep link。
+
+最终 Runtime：
+
+```text
+Head 7cc1804e4d484feef221ba8b513ec07f036af281
+HBOS Portal Backend Gate = PASS
+HBOS Portal Frontend Gate = PASS
+HBOS Quality Gate = PASS
+HBOS Platform Integration Gate run 36045590049 = SUCCESS
+```
+
+clean-site 关键输出：
+
+```json
+{
+  "registry_entries": ["lims"],
+  "registry_failures": 0,
+  "lims_manifest_capabilities": ["summary", "tasks", "search"],
+  "bootstrap_apps": ["lims"]
+}
+```
+
+LIMS-owned runtime：
+
+```json
+{
+  "task_count": 0,
+  "summary_status": "normal",
+  "summary_metrics": 4,
+  "search_results": 0
+}
+```
+
+clean-site 无业务数据时 0 条 task/search 是预期；非空 DTO 映射由 contract tests 覆盖。
+
+## 12. LIMS Provider Phase Complete
+
+```text
+Manifest / Access       PASS
+Stable Entry            PASS
+Stable Deep Link        PASS
+My Work / Tasks         PASS
+Summary                 PASS
+Search                  PASS
+Business Writes         NONE
+Portal Todo State       NONE
+Portal → LIMS Static Import NONE
+```
+
+LIMS 作为首个完整 HBOS Application Provider 的基础 experience contract 已收口。
+
+下一步转入：
+
+```text
+P3-ATT-1 — Attendance Manifest / Access / Stable Entry
+```

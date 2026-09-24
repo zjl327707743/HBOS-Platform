@@ -156,6 +156,8 @@ P3 = BUSINESS APP REGISTRATION IN PROGRESS
 P3-LIMS-1 = COMPLETE
 P3-LIMS-2 = COMPLETE / RUNTIME PASS
 P3-LIMS-3 = COMPLETE / RUNTIME PASS
+P3-LIMS-4 = COMPLETE / RUNTIME PASS
+P3-LIMS-5 = COMPLETE / RUNTIME PASS
 ```
 
 
@@ -191,11 +193,12 @@ Status:
 P3-LIMS-1 Manifest / Access / Registration = COMPLETE
 P3-LIMS-2 Stable Deep-link Adapter = COMPLETE / RUNTIME PASS
 P3-LIMS-3 My Work Projection = COMPLETE / RUNTIME PASS
+P3-LIMS-4 Summary Projection = COMPLETE / RUNTIME PASS
+P3-LIMS-5 Search Provider = COMPLETE / RUNTIME PASS
 Frappe Registry = ["lims"]
 Bootstrap visible apps = ["lims"]
-Tasks = ENABLED
-Summary / Search = NOT ENABLED
-P3-LIMS-4 Summary Projection = NEXT
+Summary / Tasks / Search = ENABLED
+Next = P3-ATT-1 Attendance Provider Registration
 ```
 
 Authority: [P3_LIMS_PROVIDER_REGISTRATION.md](./P3_LIMS_PROVIDER_REGISTRATION.md).
@@ -220,3 +223,16 @@ Platform Integration Gate run `36042393976` passed the clean-site runtime with:
 - LIMS production frontend and persistent assets.
 
 Next: **P3-LIMS-4 — Summary Projection**.
+
+
+### LIMS Provider complete
+
+Latest verified LIMS experience authority:
+
+```text
+7cc1804e4d484feef221ba8b513ec07f036af281
+```
+
+Platform Integration Gate `36045590049` passed with `summary + tasks + search` enabled together and with the existing Attendance / Inventory / LIMS domain integration and LIMS production entry still green.
+
+Next: **P3-ATT-1 — Attendance Manifest / Access / Stable Entry**.

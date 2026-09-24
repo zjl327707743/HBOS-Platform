@@ -1253,3 +1253,37 @@ stable_link = /hbos/lims/tasks?scope=mine&task=TASK-001
 resolved_path = /hbos-lims/tasks?scope=mine&task=TASK-001
 HBOS PLATFORM clean-site integration PASS
 ```
+
+
+### HBOS Portal LIMS Provider Full Experience Closeout — 2026-09-25
+
+状态：**LIMS Provider baseline COMPLETE；P3 继续进入 Attendance。**
+
+已完成 LIMS：
+
+- Provider Registry / Access；
+- Stable App Entry；
+- Stable Deep Link；
+- My Work Task Projection；
+- permission-aware Summary Projection；
+- permission-aware Search Provider；
+- Portal frontend capability-driven async consumption；
+- App Center / App Switcher / My Work / Command Palette 统一 Stable Route Resolver。
+
+最终 manifest capabilities：
+
+```json
+["summary", "tasks", "search"]
+```
+
+最终 Gate：
+
+```text
+Head = 7cc1804e4d484feef221ba8b513ec07f036af281
+Portal Backend = PASS
+Portal Frontend = PASS
+HBOS Quality = PASS
+Platform Integration run 36045590049 = SUCCESS
+```
+
+下一阶段：`P3-ATT-1 Attendance Manifest / Access / Stable Entry`。

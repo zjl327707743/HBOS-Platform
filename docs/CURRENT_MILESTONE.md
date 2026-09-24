@@ -291,3 +291,36 @@ HBOS PLATFORM clean-site integration = PASS
 ```
 
 clean-site 已验证 `lims_manifest_capabilities=["tasks"]`、Stable Route、LIMS task provider 调用、LIMS + Inventory release chain 与 LIMS production entry 共存。
+
+
+### Portal P3-LIMS-4 / P3-LIMS-5 Closeout — 2026-09-25
+
+LIMS 首个完整 Application Provider experience contract 已完成：
+
+```text
+P3-LIMS-1 Manifest / Access / Registration = COMPLETE
+P3-LIMS-2 Stable Deep-link Adapter = COMPLETE / RUNTIME PASS
+P3-LIMS-3 My Work Projection = COMPLETE / RUNTIME PASS
+P3-LIMS-4 Summary Projection = COMPLETE / RUNTIME PASS
+P3-LIMS-5 Search Provider = COMPLETE / RUNTIME PASS
+```
+
+最终 LIMS manifest：
+
+```json
+["summary", "tasks", "search"]
+```
+
+最新 clean-site authority：
+
+```text
+Head = 7cc1804e4d484feef221ba8b513ec07f036af281
+Platform Integration Gate run 36045590049 = SUCCESS
+HBOS PLATFORM clean-site integration = PASS
+```
+
+Portal 当前下一 Gate：
+
+```text
+P3-ATT-1 — Attendance Manifest / Access / Stable Entry
+```
