@@ -13,6 +13,8 @@ export const portalUser: PortalUser = {
   id: 'carlo@example.com',
   displayName: 'Carlo',
   avatarText: 'CZ',
+  avatarUrl: null,
+  identityProvider: 'frappe',
   roleLabel: 'HBOS User',
   department: '新乡海滨',
 }

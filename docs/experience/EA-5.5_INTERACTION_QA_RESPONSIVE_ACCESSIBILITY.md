@@ -1,7 +1,7 @@
 # HBOS Experience Architecture
 ## EA-5.5 — Interaction QA + Responsive + Accessibility
 
-**状态：IMPLEMENTATION PASS / OWNER REVIEW PENDING**  
+**状态：OWNER REVIEW FIX-1 IMPLEMENTED / RECHECK PENDING**  
 **分支：** `feature/hbos-portal-product`  
 **技术基线：** Vue 3 + Ant Design Vue + Vue Router + Pinia
 
@@ -235,3 +235,27 @@ Portal Frontend Gate 已验证：
 3. Ant Design Vue Table theme token type incompatibility。
 
 因此 EA-5.5 工程实现 Gate 已通过；最终 COMPLETE 仍等待 Owner 产品体验验收。
+
+
+## 10. Owner Review Round 1 — 2026-09-24
+
+Owner 已在真实浏览器运行环境完成第一轮产品验收并给出以下反馈：
+
+1. 总体前端方向认可；
+2. Hero “今天有 5 项工作需要你处理”字号过大；
+3. 其他导航、卡片、说明文字相对偏小，需要重新平衡中文字体层级；
+4. Portal 工作台 Sidebar 未跟随页面滚动；
+5. Header 后续需要支持企业 Logo；
+6. 飞书登录完成后，用户头像应支持展示飞书头像。
+
+本轮 Fix-1 处理：
+
+- Hero Display 上限从 64px 收敛至 56px，并调整 line-height / tracking；
+- Sidebar / Section / Card / Meta 字号整体做中文可读性提升；
+- 修复 `.portal-page overflow: hidden` 对 sticky 的破坏，改为横向 clip + 纵向 visible；
+- 强化 Portal / App Sidebar 的 sticky / align-self；
+- Global Header 增加可选 `companyLogoUrl` 品牌位；
+- `PortalUser` 增加 `avatarUrl` 与 `identityProvider`；
+- Header Avatar 支持远程头像 URL，缺失时继续使用文字头像回退。
+
+当前原型仍不伪造企业 Logo 或飞书头像。正式图片来源将在后续 Frappe / 飞书身份接入阶段由 bootstrap / identity mapping 提供。

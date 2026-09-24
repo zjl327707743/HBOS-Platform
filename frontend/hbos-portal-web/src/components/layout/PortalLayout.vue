@@ -9,6 +9,7 @@
     <div class="portal-shell">
       <GlobalHeader
         :avatar-text="portal.user?.avatarText || 'HB'"
+        :avatar-url="portal.user?.avatarUrl"
         :apps="portal.apps"
         @open-command="ui.commandOpen = true"
       />

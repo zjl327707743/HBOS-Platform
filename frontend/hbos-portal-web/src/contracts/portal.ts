@@ -5,6 +5,8 @@ export interface PortalUser {
   id: string
   displayName: string
   avatarText: string
+  avatarUrl?: string | null
+  identityProvider?: 'frappe' | 'feishu' | 'other'
   roleLabel: string
   department: string
 }

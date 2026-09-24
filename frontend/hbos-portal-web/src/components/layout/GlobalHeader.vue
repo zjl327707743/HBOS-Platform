@@ -1,7 +1,10 @@
 <template>
   <header class="hbos-header glass-surface">
     <button class="brand-wrap" type="button" aria-label="返回 HBOS 首页" @click="$router.push('/hbos')">
-      <div class="brand-mark">H</div>
+      <div class="brand-mark" :class="{ 'brand-mark-image': companyLogoUrl }">
+        <img v-if="companyLogoUrl" :src="companyLogoUrl" alt="" class="company-logo-image" />
+        <span v-else>H</span>
+      </div>
       <div class="brand-copy">
         <div class="brand-name">HBOS</div>
         <div class="brand-caption">{{ contextLabel || '海滨智能运营工作台' }}</div>
@@ -30,7 +33,11 @@
       </a-tooltip>
 
       <a-dropdown>
-        <button type="button" class="avatar-button" aria-label="打开个人菜单"><a-avatar class="user-avatar">{{ avatarText }}</a-avatar></button>
+        <button type="button" class="avatar-button" aria-label="打开个人菜单">
+          <a-avatar class="user-avatar" :src="avatarUrl || undefined">
+            <template v-if="!avatarUrl">{{ avatarText }}</template>
+          </a-avatar>
+        </button>
         <template #overlay>
           <a-menu>
             <a-menu-item @click="$router.push('/hbos/profile')">个人与设置</a-menu-item>
@@ -51,6 +58,8 @@ import type { AppManifestDTO } from '@/contracts/portal'
 
 defineProps<{
   avatarText: string
+  avatarUrl?: string | null
+  companyLogoUrl?: string | null
   apps: AppManifestDTO[]
   contextLabel?: string
 }>()
