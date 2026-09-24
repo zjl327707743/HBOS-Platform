@@ -12,6 +12,9 @@ on:
       - 'apps/hb_attendance_app/hb_attendance_app/hooks.py'
       - 'apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/**'
       - 'apps/hb_attendance_app/tests/test_portal_provider_contract.py'
+      - 'apps/hb_inventory_app/hb_inventory_app/hooks.py'
+      - 'apps/hb_inventory_app/hb_inventory_app/hbos_inventory/portal/**'
+      - 'apps/hb_inventory_app/tests/test_portal_provider_contract.py'
       - '.github/workflows/hbos-portal-backend.yml'
   pull_request:
     branches:
@@ -47,6 +50,7 @@ jobs:
           python -m compileall -q apps/hbos_portal
           python -m compileall -q apps/hb_lims_app/hb_lims_app/hbos_lims/portal
           python -m compileall -q apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal
+          python -m compileall -q apps/hb_inventory_app/hb_inventory_app/hbos_inventory/portal
 
       - name: 运行首个 LIMS Provider Contract
         run: |
@@ -61,6 +65,14 @@ jobs:
           export PYTHONPATH="$PWD/apps/hb_attendance_app:$PYTHONPATH"
           python -m unittest discover \
             -s apps/hb_attendance_app/tests \
+            -p 'test_portal_provider_contract.py' \
+            -v
+
+      - name: 运行 Inventory Provider Contract
+        run: |
+          export PYTHONPATH="$PWD/apps/hb_inventory_app:$PYTHONPATH"
+          python -m unittest discover \
+            -s apps/hb_inventory_app/tests \
             -p 'test_portal_provider_contract.py' \
             -v
 
