@@ -390,6 +390,7 @@ def _attach_ai_review(data, filters, emp_leave_dates):
 def ai_review_preview(month=None, year=None, employee=None, department=None,
                       from_date=None, to_date=None):
     """AI复核确认弹窗：统计当前范围有异常员工数与异常条数（已剔豁免名单）。"""
+    frappe.only_for(["HR Manager", "HR User", "System Manager"])
     filters = {"enable_ai": 0}
     if month is not None:
         filters["month"] = month
