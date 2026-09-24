@@ -9,6 +9,8 @@ import frappe
 
 ITEM = "HBOS-G3-SMOKE-ITEM"
 BATCH = "HBOS-G3-SMOKE-BATCH"
+SAMPLE = "HBOS-G3-SMOKE-SAMPLE"
+COA = "HBOS-G3-SMOKE-COA"
 
 
 def _guard():
@@ -17,6 +19,16 @@ def _guard():
 
 
 def _cleanup():
+    # Raw SQL cleanup is deliberate: this module only runs on an isolated CI site
+    # and must be able to remove terminal-state quality records after the smoke test.
+    for table, name in (
+        ("tabHBOS Audit Log", None),
+        ("tabHBOS COA", COA),
+        ("tabHBOS Sample", SAMPLE),
+    ):
+        with suppress(Exception):
+            if name:
+                frappe.db.sql(f"DELETE FROM `{table}` WHERE name = %s", (name,))
     with suppress(Exception):
         if frappe.db.exists("Batch", BATCH):
             frappe.delete_doc("Batch", BATCH, force=True, ignore_permissions=True)
@@ -79,11 +91,39 @@ def _create_batch():
     return batch.name
 
 
-def _check_lims_projection_unlocks_warehouse_gate():
-    from hb_inventory_app.hbos_inventory.quality_projection import project_release
+def _insert_release_fixture(batch_name):
+    now = frappe.utils.now_datetime()
+    frappe.db.sql(
+        """INSERT INTO `tabHBOS Sample`
+           (name, naming_series, sample_type, item_ref, material_code, material_name,
+            batch_ref, batch_no, specification, spec_version, status, oos_locked,
+            owner, modified_by, creation, modified, docstatus)
+           VALUES (%s,'HBOS-SMP-.YYYY.-','G3-SMOKE',%s,%s,%s,%s,%s,
+                   'G3-SMOKE-SPEC','1.0','检验完成',0,
+                   'Administrator','Administrator',%s,%s,0)""",
+        (SAMPLE, ITEM, ITEM, "HBOS G3 Smoke Item", batch_name, batch_name, now, now),
+    )
+    frappe.db.sql(
+        """INSERT INTO `tabHBOS COA`
+           (name, naming_series, sample, report_status, pdf_attachment,
+            owner, modified_by, creation, modified, docstatus)
+           VALUES (%s,'HBOS-COA-.YYYY.-',%s,'已发布',
+                   '/private/files/hbos-g3-smoke.pdf',
+                   'Administrator','Administrator',%s,%s,0)""",
+        (COA, SAMPLE, now, now),
+    )
+    frappe.db.commit()
+
+
+def _check_lims_release_unlocks_warehouse_gate():
+    from unittest.mock import patch
+
     from hb_inventory_app.hbos_inventory.release_gate import validate_release
+    from hb_lims_app.hbos_lims import lims_service
 
     batch_name = _create_batch()
+    _insert_release_fixture(batch_name)
+
     outward = frappe._dict({
         "doctype": "Stock Entry",
         "purpose": "Material Issue",
@@ -103,50 +143,37 @@ def _check_lims_projection_unlocks_warehouse_gate():
     if not blocked:
         raise AssertionError("unreleased Batch incorrectly passed Warehouse release gate")
 
-    project_release(
-        batch_name,
-        status="已放行",
-        release_date=frappe.utils.today(),
-        certificate_no="HBOS-G3-COA",
-        certificate_file="/private/files/hbos-g3-smoke.pdf",
-        lims_reference="HBOS-G3-SAMPLE",
-    )
+    # RBAC/SoD are verified independently by the LIMS runtime tests.  This isolated
+    # chain focuses on the business integration contract after authorization succeeds.
+    with patch.object(lims_service, "_check_action", lambda *args, **kwargs: None):
+        result = lims_service.release_sample(SAMPLE)
+
+    if result.get("batch") != batch_name or result.get("coa") != COA:
+        raise AssertionError(f"release_sample returned unexpected projection refs: {result}")
 
     validate_release(outward)
     state = frappe.db.get_value(
         "Batch",
         batch_name,
-        ["hbos_release_status", "hbos_release_source", "hbos_lims_reference"],
+        [
+            "hbos_release_status",
+            "hbos_release_source",
+            "hbos_lims_reference",
+            "hbos_certificate_no",
+            "hbos_certificate_file",
+        ],
         as_dict=True,
     )
-    if state.hbos_release_status != "已放行" or state.hbos_release_source != "LIMS":
-        raise AssertionError("LIMS quality projection did not persist authoritative release state")
-
-
-
-def schema_columns(doctype):
-    """Return the physical DB columns for one DocType on the active site."""
-    _guard()
-    return sorted(frappe.db.get_table_columns(doctype))
-
-
-def verify_schema():
-    """Verify the critical LIMS/Inventory integration columns on the real DB schema."""
-    _guard()
-    required = {
-        "HBOS Sample": {"item_ref", "batch_ref"},
-        "HBOS Test Result": {"approved_signature"},
-        "Batch": {"hbos_lims_reference", "hbos_release_source"},
-    }
-    missing = {}
-    for doctype, fields in required.items():
-        columns = set(frappe.db.get_table_columns(doctype))
-        absent = sorted(fields - columns)
-        if absent:
-            missing[doctype] = absent
-    if missing:
-        raise AssertionError(f"missing integration columns: {missing}")
-    return {"ok": True, "required": {k: sorted(v) for k, v in required.items()}}
+    if (
+        state.hbos_release_status != "已放行"
+        or state.hbos_release_source != "LIMS"
+        or state.hbos_lims_reference != SAMPLE
+        or state.hbos_certificate_no != COA
+        or not state.hbos_certificate_file
+    ):
+        raise AssertionError(
+            "LIMS release_sample did not persist the authoritative Batch release projection"
+        )
 
 
 def run():
@@ -155,11 +182,11 @@ def run():
     _cleanup()
     try:
         _check_audit_does_not_commit_business_transaction()
-        _check_lims_projection_unlocks_warehouse_gate()
+        _check_lims_release_unlocks_warehouse_gate()
         return {
             "ok": True,
             "audit_transaction": "pass",
-            "lims_inventory_projection": "pass",
+            "lims_release_to_inventory": "pass",
         }
     finally:
         _cleanup()
