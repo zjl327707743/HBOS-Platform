@@ -226,8 +226,8 @@ function renderDeptPanel(data) {
 	let html = `<div class="card"><div class="card-header">部门列表</div><ul class="list-group list-group-flush">`;
 	(data.departments || []).forEach(dept => {
 		const cnt = data.dept_employee_count[dept] || 0;
-		html += `<li class="list-group-item dept-item" data-dept="${dept}" style="cursor:pointer;">
-			${dept} <span class="badge badge-secondary">${cnt}人</span></li>`;
+		html += `<li class="list-group-item dept-item" data-dept="${escHtml(dept)}" style="cursor:pointer;">
+			${escHtml(dept)} <span class="badge badge-secondary">${cnt}人</span></li>`;
 	});
 	html += `</ul></div>`;
 	$dept.html(html);
@@ -242,15 +242,15 @@ function renderDeptPanel(data) {
 function renderActiveShifts(data) {
 	const $shift = $("#shift-panel").empty();
 	let html = `<div class="card mb-3">
-		<div class="card-header">正在进行的班次（当前 ${data.now}）</div>
+		<div class="card-header">正在进行的班次（当前 ${escHtml(data.now)}）</div>
 		<ul class="list-group list-group-flush">`;
 	if ((data.active_shifts || []).length === 0) {
 		html += `<li class="list-group-item text-muted">当前没有进行中的班次</li>`;
 	}
 	data.active_shifts.forEach(s => {
 		html += `<li class="list-group-item">
-			<b>${s.rule_name}</b>（${s.shift_type}）
-			<span class="text-muted">${fmtTime(s.start_time)} - ${fmtTime(s.end_time)}</span>
+			<b>${escHtml(s.rule_name)}</b>（${escHtml(s.shift_type)}）
+			<span class="text-muted">${escHtml(fmtTime(s.start_time))} - ${escHtml(fmtTime(s.end_time))}</span>
 			<span class="badge badge-success">进行中</span></li>`;
 	});
 	html += `</ul></div>
@@ -272,30 +272,33 @@ function loadDeptShifts(dept) {
 
 function renderDeptShifts(dept, shifts) {
 	const $shift = $("#shift-panel").empty();
-	let html = `<div class="card mb-3"><div class="card-header">${dept} - 班次规则</div>
+	let html = `<div class="card mb-3"><div class="card-header">${escHtml(dept)} - 班次规则</div>
 		<table class="table table-bordered table-sm">
 		<thead><tr><th>规则</th><th>班次</th><th>上班</th><th>下班</th><th>迟到起算</th><th>生效日期</th><th>状态</th><th>操作</th></tr></thead><tbody>`;
 	if (!shifts || shifts.length === 0) {
 		html += `<tr><td colspan="8" class="text-muted">该部门暂无专属班次规则（使用「全部部门」的全局规则）</td></tr>`;
 	}
 	(shifts || []).forEach(s => {
+		const latest = !!s.is_latest;
+		const editable = latest && s.status === "生效";
+		const disabled = editable ? "" : "disabled";
+		const statusControl = latest
+			? `<select class="form-control form-control-sm rule-status" data-name="${s.name}">
+				 <option value="生效" ${s.status === "生效" ? "selected" : ""}>生效</option>
+				 <option value="停用" ${s.status === "停用" ? "selected" : ""}>停用</option>
+			   </select>`
+			: `${statusBadge(s.status)} <span class="text-muted">历史版本</span>`;
 		html += `<tr>
-			<td>${s.rule_name}</td>
-			<td>${s.shift_type}</td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="start_time" value="${fmtTime(s.start_time)}" ${s.status === "草稿" ? "disabled" : ""}></td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="end_time" value="${fmtTime(s.end_time)}" ${s.status === "草稿" ? "disabled" : ""}></td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="late_after" value="${fmtTime(s.late_after)}" ${s.status === "草稿" ? "disabled" : ""}></td>
-			<td>${s.effective_from}</td>
+			<td>${escHtml(s.rule_name)}</td>
+			<td>${escHtml(s.shift_type)}</td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="start_time" value="${escHtml(fmtTime(s.start_time))}" ${disabled}></td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="end_time" value="${escHtml(fmtTime(s.end_time))}" ${disabled}></td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="late_after" value="${escHtml(fmtTime(s.late_after))}" ${disabled}></td>
+			<td>${escHtml(s.effective_from)}</td>
+			<td>${statusControl}</td>
 			<td>
-				<select class="form-control form-control-sm rule-status" data-name="${s.name}">
-					<option value="生效" ${s.status === "生效" ? "selected" : ""}>生效</option>
-					<option value="停用" ${s.status === "停用" ? "selected" : ""}>停用</option>
-					<option value="草稿" ${s.status === "草稿" ? "selected" : ""}>草稿</option>
-				</select>
-			</td>
-			<td>
-				${s.status === "生效" ? `<button class="btn btn-xs btn-primary save-shift" data-name="${s.name}">保存</button>` : ""}
-				<button class="btn btn-xs btn-danger delete-shift" data-name="${s.name}">删除</button>
+				${editable ? `<button class="btn btn-xs btn-primary save-shift" data-name="${s.name}">保存新版本</button>` : ""}
+				${latest && s.status === "草稿" ? `<button class="btn btn-xs btn-danger delete-shift" data-name="${s.name}">删除草稿</button>` : ""}
 			</td>
 		</tr>`;
 	});
