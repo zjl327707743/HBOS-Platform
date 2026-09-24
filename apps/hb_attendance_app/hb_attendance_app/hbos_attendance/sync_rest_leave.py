@@ -478,3 +478,20 @@ def verify_pending_rest_leaves(limit=500):
             # 静默：日志失败不能让异常冒出，否则本批计数随函数一起丢。
             pass
     return summary
+
+
+def sync_rest_leave_pipeline():
+    """调休定时任务编排入口：同步 → 解析 → 核实，顺序由业务代码显式保证。"""
+    summary = {}
+    sync_result = sync_rest_leave_from_bitable()
+    summary["sync"] = sync_result
+    # 同步阶段无法拉取源数据时，本轮不继续解析/核实，避免把旧积压误当成本轮新结果。
+    if sync_result.get("error"):
+        return summary
+
+    parse_result = parse_pending_rest_leaves()
+    summary["parse"] = parse_result
+
+    verify_result = verify_pending_rest_leaves()
+    summary["verify"] = verify_result
+    return summary
