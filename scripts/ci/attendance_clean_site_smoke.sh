@@ -86,7 +86,17 @@ check_column() {
   local out
   out="$(docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute frappe.db.has_column --args "[\"$doctype\",\"$field\"]")"
   printf '%s\n' "$out"
-  printf '%s\n' "$out" | grep -q "True" || {
+  printf '%s\n' "$out" | grep -qiE '^true$|^True    echo "::error:: missing custom field: $doctype.$field"
+    exit 1
+  }
+}
+check_column "Employee" "hbos_fixed_shift_code"
+check_column "Employee Checkin" "hbos_terminal_sn"
+check_column "Employee Checkin" "hbos_check_type"
+check_column "Attendance" "hbos_missing_out"
+
+echo "[G1] clean-site smoke PASS"
+ || {
     echo "::error:: missing custom field: $doctype.$field"
     exit 1
   }
