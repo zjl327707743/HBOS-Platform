@@ -113,11 +113,12 @@ jobs:
       # ─── 检查 3d：中文字体可重建性 ──────────────────────────
       #
       # PDF 里的汉字靠**系统字体**渲染，而字体不进仓库（体积 + 授权）。
-      # 缺字体时 wkhtmltopdf 会**静默丢字**（ASCII 正常、汉字消失、不报错），
-      # 出过事。这里真的跑一遍获取脚本，证明"新环境能重建出同样的渲染结果"。
+      # 缺字体时 wkhtmltopdf 会**静默丢字**（ASCII 正常、汉字消失、不报错），出过事。
+      # 这里真的跑一遍获取脚本，证明"新环境能重建出同样的渲染结果"。
       #
-      # 校验的是两件事：① 脚本能下到字体并通过 sha256 校验；
-      #              ② fontconfig 确实能识别出中文字体（这才是渲染的前提）。
+      # --install 不能省：脚本默认只把字体放进仓库内的 runtime/fonts/，
+      # 那是给 docker-compose 挂载用的；而 **fontconfig 只扫系统目录**，
+      # 不放进去 fc-list 就是 0。容器里靠挂载生效，CI runner 没有挂载，必须显式装。
       - name: 中文字体可重建性检查
         run: |
           echo "检查中文字体能否重建..."
@@ -125,13 +126,7 @@ jobs:
             sudo apt-get update -qq && sudo apt-get install -y -qq fontconfig
           }
           bash -n scripts/setup_fonts.sh
-          scripts/setup_fonts.sh
-          n=$(fc-list :lang=zh | wc -l)
-          echo "  fontconfig 识别到中文字体：$n 个"
-          if [ "$n" -eq 0 ]; then
-            echo "::error:: 字体已下载但 fontconfig 识别不到中文字体，PDF 汉字仍会丢"
-            exit 1
-          fi
+          scripts/setup_fonts.sh --install
           echo " 中文字体可重建"
 
       # ─── 检查 4：CI 工作流自身语法 ──────────────────────────

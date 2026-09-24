@@ -21,12 +21,26 @@
 #
 # ## 用法
 #
-#     scripts/setup_fonts.sh              # 下载 / 校验，写入 runtime/fonts/
-#     scripts/setup_fonts.sh --check      # 只校验现有状态，不下载（部署后冒烟用）
-#     scripts/setup_fonts.sh --dir /path  # 换目标目录
+#     scripts/setup_fonts.sh                    # 下载 / 校验，写入 runtime/fonts/
+#     scripts/setup_fonts.sh --install          # 再装进系统字体目录并刷新缓存
+#     scripts/setup_fonts.sh --install-dir DIR  # 同上，自定安装目录
+#     scripts/setup_fonts.sh --check            # 只校验现有状态，不下载（部署后冒烟）
+#     scripts/setup_fonts.sh --dir DIR          # 换"仓库内"的目标目录
 #
-# 默认目录 `runtime/fonts/`，与 docker-compose.yml 的挂载点对应：
-#     ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
+# **两种目录，别混淆**：
+#
+# | 选项 | 目录 | 用途 |
+# | --- | --- | --- |
+# | `--dir`（默认 `runtime/fonts/`） | 仓库内 | 给 docker-compose 挂载用 |
+# | `--install`（默认 `~/.local/share/fonts`） | 用户字体目录 | **让 fontconfig 真的认得**（CI / 裸机用） |
+#
+# 只把文件放进 `runtime/fonts/` **不会**让 `fc-list` 认得——fontconfig 只扫系统目录。
+# 在容器里它是靠 compose 挂到 `/usr/share/fonts/truetype/hbos` 才生效的；
+# 没有挂载的环境（如 CI runner）必须显式 `--install`。
+#
+# 安装目录默认选**用户级**（`~/.local/share/fonts`，fontconfig 默认就扫它），
+# 因此**不需要 root / sudo**。要装成全局的（如服务跑在别的账号下）就传
+# `--install-dir /usr/share/fonts/truetype/hbos`，此时才可能需要 sudo。
 #
 # ## 容器侧验证（脚本会在最后自动尝试）
 #
@@ -39,6 +53,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 FONT_DIR="${REPO_ROOT}/runtime/fonts"
 CHECK_ONLY=0
+INSTALL=0
+# 默认装到**用户级**字体目录：fontconfig 默认就扫它，且不需要 root。
+INSTALL_DIR="${HOME}/.local/share/fonts"
 
 # 字体清单：`文件名|sha256|候选地址(空格分隔)`
 #
@@ -54,13 +71,16 @@ NotoSerifSC-Bold.otf|24693d48bdb9152f0a06b02af625638a1097abd6de4010ebba027f6e827
 log() { printf '  %s\n' "$*"; }
 err() { printf '::error:: %s\n' "$*" >&2; }
 
-case "${1:-}" in
-	--check | -c) CHECK_ONLY=1 ;;
-	--dir) FONT_DIR="${2:?--dir 需要一个路径}" ;;
-	--help | -h) sed -n '3,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-	"") ;;
-	*) err "未知参数：$1（用 --help 看用法）"; exit 2 ;;
-esac
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		--check | -c) CHECK_ONLY=1; shift ;;
+		--install | -i) INSTALL=1; shift ;;
+		--install-dir) INSTALL=1; INSTALL_DIR="${2:?--install-dir 需要一个路径}"; shift 2 ;;
+		--dir) FONT_DIR="${2:?--dir 需要一个路径}"; shift 2 ;;
+		--help | -h) sed -n '3,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+		*) err "未知参数：$1（用 --help 看用法）"; exit 2 ;;
+	esac
+done
 
 sha256_of() {
 	if command -v sha256sum >/dev/null 2>&1; then
@@ -129,10 +149,57 @@ fi
 echo "字体已就绪$([[ "${CHECK_ONLY}" == "1" ]] && echo "（--check 模式，未下载）")"
 
 # ── 2. 挡住不可再分发的字体 ──────────────────────────────────────
-if [[ -d "${FONT_DIR}" ]] && ls "${FONT_DIR}" 2>/dev/null | grep -qiE 'songti|stsong|pingfang|hiragino'; then
+#
+# 用 here-string 而不是管道：`set -o pipefail` 下，`grep -q` 一命中就退出，
+# 上游 `ls` 收到 SIGPIPE 会以非零退出，整条管道因此判失败——**明明匹配上了却走 else**。
+# （这个坑本脚本撞过一次：fc-list 那条断言就是这么"假失败"的。）
+FONT_LIST="$(ls "${FONT_DIR}" 2>/dev/null || true)"
+if grep -qiE 'songti|stsong|pingfang|hiragino' <<< "${FONT_LIST}"; then
 	err "字体目录里出现 Apple 授权字体（Songti / STSong / PingFang / Hiragino）。"
 	err "这些字体**不可再分发**，打进镜像会违反授权。请删除后改用 Noto Serif SC。"
 	exit 1
+fi
+
+# ── 3. 装进系统字体目录（--install）────────────────────────────────
+#
+# 只把文件放进 runtime/fonts/ 是不够的：fontconfig **只扫系统目录**。
+# 容器里靠 compose 挂载生效；没有挂载的环境（CI runner / 裸机）要显式装。
+if [[ "${INSTALL}" == "1" ]]; then
+	echo "装进系统字体目录：${INSTALL_DIR}"
+	# 先试直接写；写不了（比如装到 /usr/share 而当前不是 root）再上 sudo。
+	SUDO=""
+	if ! mkdir -p "${INSTALL_DIR}" 2>/dev/null; then
+		if command -v sudo >/dev/null 2>&1; then
+			SUDO="sudo"
+			${SUDO} mkdir -p "${INSTALL_DIR}"
+		else
+			err "无法创建 ${INSTALL_DIR}，且本机没有 sudo。"
+			err "换个可写目录：scripts/setup_fonts.sh --install-dir <可写路径>"
+			exit 1
+		fi
+	fi
+	while IFS='|' read -r file _want _urls; do
+		[[ -n "${file}" ]] || continue
+		${SUDO} cp -f "${FONT_DIR}/${file}" "${INSTALL_DIR}/${file}" || {
+			err "复制 ${file} 到 ${INSTALL_DIR} 失败"
+			exit 1
+		}
+	done <<< "${FONTS}"
+	${SUDO} fc-cache -f "${INSTALL_DIR}" >/dev/null 2>&1 || fc-cache -f >/dev/null 2>&1 || true
+	# ⚠ 断言必须**指名到我们的字体**，不能只数 `:lang=zh` 的条数。
+	# 只数条数的话，在已经装了别的中文字体的机器上（比如 macOS 自带 100 个 CJK 字体）
+	# 即使这次安装完全没生效，也会"通过"——那就成了假绿。
+	#
+	# 同样用 here-string 而非管道，理由见上面第 2 节（pipefail + grep -q 会假失败）。
+	ZH_FONTS="$(fc-list :lang=zh 2>/dev/null || true)"
+	if grep -qi 'NotoSerifSC' <<< "${ZH_FONTS}"; then
+		log "✓ fontconfig 已识别 NotoSerifSC"
+	else
+		err "装到 ${INSTALL_DIR} 后，fontconfig 仍找不到 NotoSerifSC"
+		err "该目录没被 fontconfig 扫描？用户级用 ~/.local/share/fonts，"
+		err "全局级用 /usr/share/fonts/truetype/<任意名>。"
+		exit 1
+	fi
 fi
 
 # ── 3. 容器侧冒烟（发现容器就验；失败即报错，因为那说明挂载没生效）──
