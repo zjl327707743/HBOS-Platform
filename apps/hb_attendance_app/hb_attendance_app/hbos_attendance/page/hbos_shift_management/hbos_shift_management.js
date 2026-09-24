@@ -122,17 +122,17 @@ function renderRulesBoardSections($c, data) {
 	// 1. 判定优先级链
 	h += '<div class="rb-sec"><h5>考勤判定优先级链</h5><div class="rb-chain">';
 	(data.priority_chain || []).forEach(s => {
-		h += '<div class="rb-step"><span class="n">' + s.step + '. ' + s.name + '</span><div class="d">' + (s.desc || '') + '</div></div>';
+		h += '<div class="rb-step"><span class="n">' + escHtml(s.step) + '. ' + escHtml(s.name) + '</span><div class="d">' + escHtml(s.desc || '') + '</div></div>';
 	});
 	h += '</div></div>';
 
 	// 2. 班次规则记录（按部门分区：全局规则排前，各部门独立表格，停用历史可展开）
 	const rules = data.rules || [];
 	const tableHead = '<thead><tr><th>规则名称</th><th>班次类型</th><th>上班</th><th>下班</th><th>迟到起算</th><th>最小工时</th><th>生效日期</th><th>状态</th><th>绑定人数</th></tr></thead>';
-	const ruleRow = r => '<tr><td>' + r.rule_name + '</td><td>' + r.shift_type + '</td>'
-		+ '<td>' + fmtTime(r.start_time) + '</td><td>' + fmtTime(r.end_time) + '</td><td>' + fmtTime(r.late_after) + '</td>'
-		+ '<td>' + (r.min_hours != null ? r.min_hours : "") + '</td><td>' + r.effective_from + '</td>'
-		+ '<td>' + statusBadge(r.status) + '</td><td>' + (r.assigned_count || 0) + '</td></tr>';
+	const ruleRow = r => '<tr><td>' + escHtml(r.rule_name) + '</td><td>' + escHtml(r.shift_type) + '</td>'
+		+ '<td>' + escHtml(fmtTime(r.start_time)) + '</td><td>' + escHtml(fmtTime(r.end_time)) + '</td><td>' + escHtml(fmtTime(r.late_after)) + '</td>'
+		+ '<td>' + escHtml(r.min_hours != null ? r.min_hours : "") + '</td><td>' + escHtml(r.effective_from) + '</td>'
+		+ '<td>' + statusBadge(r.status) + '</td><td>' + Number(r.assigned_count || 0) + '</td></tr>';
 	// 按部门分组；部门名含「全部部门」判定为全局规则
 	const byDept = {};
 	(rules || []).forEach(r => { (byDept[r.department] = byDept[r.department] || []).push(r); });
@@ -151,7 +151,7 @@ function renderRulesBoardSections($c, data) {
 		const shown = dActive.length ? dActive : dRules;
 		const cardTitle = isGlobalDept(dept) ? '全局规则（' + dept + '）' : dept;
 		h += '<div class="rb-dept-card" style="border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;margin-bottom:12px;">';
-		h += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">' + cardTitle
+		h += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">' + escHtml(cardTitle)
 			+ ' <span class="text-muted" style="font-weight:400;font-size:12px;">' + dRules.length + ' 条规则</span></div>';
 		h += '<table style="width:100%;font-size:13px;border-collapse:collapse;"><thead>' + tableHead + '</thead><tbody>';
 		shown.forEach(r => { h += ruleRow(r); });
@@ -169,8 +169,8 @@ function renderRulesBoardSections($c, data) {
 	// 3. 内置默认班次
 	h += '<div class="rb-sec"><h5>内置默认班次（未配置专属规则时按此判定）</h5><table><thead><tr><th>班次</th><th>上班</th><th>下班</th><th>迟到起算</th><th>最小工时(小时)</th></tr></thead><tbody>';
 	(data.builtin_shifts || []).forEach(b => {
-		h += '<tr><td>' + b.shift_type + '</td><td>' + fmtTime(b.start_time) + '</td><td>' + fmtTime(b.end_time) + '</td>'
-			+ '<td>' + fmtTime(b.late_after) + '</td><td>' + b.min_hours + '</td></tr>';
+		h += '<tr><td>' + escHtml(b.shift_type) + '</td><td>' + escHtml(fmtTime(b.start_time)) + '</td><td>' + escHtml(fmtTime(b.end_time)) + '</td>'
+			+ '<td>' + escHtml(fmtTime(b.late_after)) + '</td><td>' + escHtml(b.min_hours) + '</td></tr>';
 	});
 	h += '</tbody></table></div>';
 
@@ -178,10 +178,10 @@ function renderRulesBoardSections($c, data) {
 	h += '<div class="rb-sec"><h5>名单规则（点击卡片展开姓名）</h5><div class="rb-grid">';
 	(data.lists || []).forEach(g => {
 		const items = (g.names || g.nums || []);
-		h += '<div class="rb-card" data-key="' + g.key + '">'
-			+ '<span class="t">' + g.title + '</span><span class="c">' + g.count + ' 个</span>'
-			+ '<div class="d">' + (g.desc || '') + '</div>'
-			+ '<div class="rb-nums">' + items.join(' ') + '</div>'
+		h += '<div class="rb-card" data-key="' + escHtml(g.key) + '">'
+			+ '<span class="t">' + escHtml(g.title) + '</span><span class="c">' + Number(g.count || 0) + ' 个</span>'
+			+ '<div class="d">' + escHtml(g.desc || '') + '</div>'
+			+ '<div class="rb-nums">' + items.map(escHtml).join(' ') + '</div>'
 			+ '</div>';
 	});
 	h += '</div></div>';
@@ -189,7 +189,7 @@ function renderRulesBoardSections($c, data) {
 	// 5. 配对算法参数
 	h += '<div class="rb-sec"><h5>配对算法参数</h5><table><thead><tr><th>参数</th><th>值</th><th>说明</th></tr></thead><tbody>';
 	(data.pairing_params || []).forEach(p => {
-		h += '<tr><td>' + p.name + '</td><td>' + p.value + '</td><td>' + (p.desc || '') + '</td></tr>';
+		h += '<tr><td>' + escHtml(p.name) + '</td><td>' + escHtml(p.value) + '</td><td>' + escHtml(p.desc || '') + '</td></tr>';
 	});
 	h += '</tbody></table></div>';
 
@@ -283,7 +283,7 @@ function renderDeptShifts(dept, shifts) {
 		const editable = latest && s.status === "生效";
 		const disabled = editable ? "" : "disabled";
 		const statusControl = latest
-			? `<select class="form-control form-control-sm rule-status" data-name="${s.name}">
+			? `<select class="form-control form-control-sm rule-status" data-name="${escHtml(s.name)}">
 				 <option value="生效" ${s.status === "生效" ? "selected" : ""}>生效</option>
 				 <option value="停用" ${s.status === "停用" ? "selected" : ""}>停用</option>
 			   </select>`
@@ -291,14 +291,14 @@ function renderDeptShifts(dept, shifts) {
 		html += `<tr>
 			<td>${escHtml(s.rule_name)}</td>
 			<td>${escHtml(s.shift_type)}</td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="start_time" value="${escHtml(fmtTime(s.start_time))}" ${disabled}></td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="end_time" value="${escHtml(fmtTime(s.end_time))}" ${disabled}></td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="late_after" value="${escHtml(fmtTime(s.late_after))}" ${disabled}></td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${escHtml(s.name)}" data-field="start_time" value="${escHtml(fmtTime(s.start_time))}" ${disabled}></td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${escHtml(s.name)}" data-field="end_time" value="${escHtml(fmtTime(s.end_time))}" ${disabled}></td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${escHtml(s.name)}" data-field="late_after" value="${escHtml(fmtTime(s.late_after))}" ${disabled}></td>
 			<td>${escHtml(s.effective_from)}</td>
 			<td>${statusControl}</td>
 			<td>
-				${editable ? `<button class="btn btn-xs btn-primary save-shift" data-name="${s.name}">保存新版本</button>` : ""}
-				${latest && s.status === "草稿" ? `<button class="btn btn-xs btn-danger delete-shift" data-name="${s.name}">删除草稿</button>` : ""}
+				${editable ? `<button class="btn btn-xs btn-primary save-shift" data-name="${escHtml(s.name)}">保存新版本</button>` : ""}
+				${latest && s.status === "草稿" ? `<button class="btn btn-xs btn-danger delete-shift" data-name="${escHtml(s.name)}">删除草稿</button>` : ""}
 			</td>
 		</tr>`;
 	});
@@ -762,5 +762,5 @@ function fmtTime(t) {
 function statusBadge(s) {
 	if (s === "生效") return `<span class="badge badge-success">生效</span>`;
 	if (s === "停用") return `<span class="badge badge-secondary">停用</span>`;
-	return `<span class="badge badge-warning">${s}</span>`;
+	return `<span class="badge badge-warning">${escHtml(s)}</span>`;
 }
