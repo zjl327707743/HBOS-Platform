@@ -380,12 +380,19 @@ def setUpModule():
         log_error=lambda *a, **k: None,
         get_doc=lambda *a, **k: None,
     )
-    with mock.patch.dict(sys.modules, {"frappe": _STUB}):
+    # 被测模块的 import 链会拉进 `api.py` 的 `import requests`。CI 只装了 openpyxl
+    # （见 .github/workflows/hbos-quality-gate.yml），requests 不存在 → 本模块
+    # setUpModule 抛 ModuleNotFoundError，整个模块的 31 条用例一条都不跑，CI 报
+    # `ERROR: setUpModule (test_rest_leave_verify)` + 测试总数从 445 掉到 414。
+    # 与 frappe 同理打桩：本文件全是离线断言，一条都不发 HTTP，requests 只是
+    # 导入链上的偶然依赖，不该成为 CI 的前置条件。
+    _REQ_STUB = types.ModuleType("requests")
+    with mock.patch.dict(sys.modules, {"frappe": _STUB, "requests": _REQ_STUB}):
         sys.modules.pop(MODULE_NAME, None)
-        # 被测模块的 import 链会拉进 api.py 的 `import requests` → urllib3 v2，
-        # 后者在导入时就对 macOS 系统 Python 的 LibreSSL 发 NotOpenSSLWarning。
-        # 那是环境噪声、与本任务无关，但会污染测试输出（契约要求输出干净），
-        # 所以在**只包住这次导入**的局部范围里按消息前缀静音，不外溢到全局。
+        # 真 requests 在场时它会拉进 urllib3 v2，后者在导入时对 macOS 系统 Python
+        # 的 LibreSSL 发 NotOpenSSLWarning。那是环境噪声、与本任务无关，但会污染
+        # 测试输出（契约要求输出干净），所以在**只包住这次导入**的局部范围里按
+        # 消息前缀静音，不外溢到全局。
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore", message="urllib3 v2 only supports OpenSSL")
