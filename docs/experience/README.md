@@ -176,3 +176,20 @@ Validated:
 Status: **PASS**.
 
 Next: **P3 — register one real Business App Provider at a time**.
+
+
+## P3 — First Real Business App Provider
+
+LIMS is now the first real HBOS Portal Provider.
+
+Status:
+
+```text
+P3-LIMS-1 Manifest / Access / Registration = COMPLETE
+Frappe Registry = ["lims"]
+Bootstrap visible apps = ["lims"]
+Summary / Tasks / Search = NOT ENABLED
+P3-LIMS-2 Stable Deep-link Adapter = NEXT
+```
+
+Authority: [P3_LIMS_PROVIDER_REGISTRATION.md](./P3_LIMS_PROVIDER_REGISTRATION.md).

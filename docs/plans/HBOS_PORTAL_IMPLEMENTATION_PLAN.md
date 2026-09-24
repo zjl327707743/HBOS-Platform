@@ -281,3 +281,37 @@ P3 — Business App Registration
 ```
 
 PR #15 在至少一个真实 Business App Provider 完成注册和验证前保持 Draft。
+
+
+## 13. P3-LIMS-1 First Real Provider — 2026-09-25
+
+首个真实 Business App Provider 已完成：
+
+```text
+LIMS Manifest = PASS
+LIMS Access Context = PASS
+Frappe Hook Discovery = PASS
+Portal Registry = ["lims"]
+Registry failures = 0
+Authenticated Bootstrap apps = ["lims"]
+Stable App Entry = /hbos/lims
+Provider data capabilities = []
+Platform clean-site = PASS
+```
+
+Runtime authority：
+
+- GitHub Actions Run `36036356941`
+- `docs/experience/P3_LIMS_PROVIDER_REGISTRATION.md`
+
+期间 clean-site 发现并修复 `hbos_portal` 缺 Frappe module package 的可复现性问题。
+
+当前：
+
+```text
+P3 Business App Registration = IN_PROGRESS
+P3-LIMS-1 = COMPLETE
+P3-LIMS-2 Stable Deep-link Adapter = NEXT
+```
+
+本阶段仍不接 Summary / Tasks / Search。

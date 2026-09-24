@@ -233,3 +233,16 @@ Runtime 使用独立 Portal worktree + 临时 Compose override，正式 `main` A
 - 业务数据未改变。
 
 Attendance hook import warning 为非阻断观察项，留在 Attendance Authority 下后续处理。
+
+
+### Portal P3-LIMS-1 Gate — 2026-09-25
+
+```text
+P3 Business App Registration = IN_PROGRESS
+P3-LIMS-1 First Real Provider = COMPLETE
+P3-LIMS-2 Stable Deep-link Adapter = NEXT
+```
+
+Runtime clean-site 已真实验证 Frappe Hook → Portal Registry → LIMS Access → Bootstrap，且没有开启业务数据 capability。
+
+同轮 Attendance G1 与 LIMS → Inventory release integration 继续 PASS。

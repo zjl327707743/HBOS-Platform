@@ -1147,7 +1147,9 @@ P2 仍禁止接 Attendance / Inventory / LIMS 真实 Provider，也不实现飞�
 P2 hbos_portal Skeleton = IMPLEMENTED / BACKEND GATE PASS
 P2.1 Frontend Bootstrap Adapter = IMPLEMENTED / FRONTEND GATE PASS
 P2.2 Runtime Smoke Test = PASS
-P3 Business App Registration = NEXT
+P3 Business App Registration = IN_PROGRESS
+P3-LIMS-1 First Real Provider = COMPLETE
+P3-LIMS-2 Stable Deep-link Adapter = NEXT
 ```
 
 当前仍未接 Attendance / Inventory / LIMS 真实 Provider；Registry 在真实 site 初始允许为空。
@@ -1179,3 +1181,23 @@ Business data = UNCHANGED
 Attendance hook import warning 记录为非阻断观察项，不在 Portal P2.2 中修改 Attendance。
 
 Portal 下一阶段为 P3 Business App Registration；PR #15 继续保持 Draft。
+
+
+### HBOS Portal P3-LIMS-1 Closeout — 2026-09-25
+
+首个真实 Provider 已通过 Frappe clean-site runtime Gate：
+
+```text
+registry_entries = ["lims"]
+registry_failures = 0
+lims_route = /hbos/lims
+lims_access = true
+bootstrap_apps = ["lims"]
+manifest capabilities = []
+```
+
+GitHub Actions Run：`36036356941` = SUCCESS。
+
+P3-LIMS-1 仅注册 Manifest / Access / Stable App Entry，没有开启 Summary / Tasks / Search，也没有修改 LIMS 业务状态。
+
+下一步：P3-LIMS-2 Stable Deep-link Adapter。
