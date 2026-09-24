@@ -78,6 +78,7 @@ done
 echo "[G3] verify physical DB schema"
 "${DC[@]}" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend \
   bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.verify_schema
-${DC[@]}" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend   bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.run
+"${DC[@]}" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend \
+  bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.run
 
 echo "HBOS LIMS clean-site integration PASS"
