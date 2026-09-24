@@ -15,6 +15,8 @@ PAIRING = APP / "pairing.py"
 ROTATION = APP / "rotation_schedule.py"
 REST_LEAVE = APP / "rest_leave.py"
 AI_REVIEW = APP / "ai_review.py"
+DASHBOARD_DATA = APP / "page" / "hbos_attendance_dashboard" / "dashboard_data.py"
+DASHBOARD_JS = APP / "page" / "hbos_attendance_dashboard" / "hbos_attendance_dashboard.js"
 REPO = Path(__file__).parents[3]
 ENV_EXAMPLE = REPO / ".env.example"
 
@@ -112,6 +114,20 @@ class MergeGovernanceTest(unittest.TestCase):
         src = API.read_text()
         self.assertIn("if all_recs and write_failed == 0:", src)
         self.assertIn('"cursor_advanced": cursor_advanced', src)
+
+    def test_dashboard_uses_authoritative_attendance_and_has_rbac(self):
+        src = DASHBOARD_DATA.read_text()
+        self.assertIn('frappe.only_for(["HR Manager", "HR User", "System Manager"])', src)
+        self.assertIn('"Attendance"', src)
+        self.assertNotIn("Zero-checkin absent detection", src)
+        self.assertNotIn("daily_present", src)
+
+    def test_dashboard_escapes_identity_fields_before_html(self):
+        src = DASHBOARD_JS.read_text()
+        self.assertIn("function escHtml(", src)
+        self.assertIn("escHtml(r.num", src)
+        self.assertIn("escHtml(r.name", src)
+        self.assertIn("escHtml(r.dept", src)
 
     def test_clean_site_declares_runtime_custom_fields(self):
         src = SETUP.read_text()
