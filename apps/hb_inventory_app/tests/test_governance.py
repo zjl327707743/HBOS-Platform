@@ -14,7 +14,7 @@ OCR_CLIENT = APP / "ocr_client.py"
 REPO = Path(__file__).parents[3]
 OCR_MAIN = REPO / "services" / "hbos_ocr" / "app" / "main.py"
 OCR_CONFIG = REPO / "services" / "hbos_ocr" / "app" / "config.py"
-ENV_EXAMPLE = REPO / ".env.example"
+INVENTORY_SMOKE_COMPOSE = REPO / "scripts" / "ci" / "docker-compose.inventory-smoke.yml"
 
 
 class InventoryGovernanceTest(unittest.TestCase):
@@ -94,13 +94,13 @@ class InventoryGovernanceTest(unittest.TestCase):
         main = OCR_MAIN.read_text()
         cfg = OCR_CONFIG.read_text()
         client = OCR_CLIENT.read_text()
-        env = ENV_EXAMPLE.read_text()
+        smoke = INVENTORY_SMOKE_COMPOSE.read_text()
         self.assertIn("def _require_internal_auth", main)
         self.assertIn("Header(default=None)", main)
         self.assertIn("secrets.compare_digest", main)
         self.assertIn("SHARED_TOKEN", cfg)
         self.assertIn('headers["Authorization"] = f"Bearer {token}"', client)
-        self.assertIn("HBOS_OCR_SHARED_TOKEN", env)
+        self.assertIn("HBOS_OCR_SHARED_TOKEN", smoke)
 
 
 if __name__ == "__main__":
