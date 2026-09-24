@@ -259,3 +259,27 @@ Owner 已在真实浏览器运行环境完成第一轮产品验收并给出以�
 - Header Avatar 支持远程头像 URL，缺失时继续使用文字头像回退。
 
 当前原型仍不伪造企业 Logo 或飞书头像。正式图片来源将在后续 Frappe / 飞书身份接入阶段由 bootstrap / identity mapping 提供。
+
+
+## 11. Owner Review Round 2 — 2026-09-24
+
+Owner 复核 Fix-1 后确认：
+
+- Hero 主标题当前大小基本可接受；
+- 页面整体仍存在“主标题合适，但第二 / 第三层文字偏小”的不协调感。
+
+Fix-2 不再修改 Hero 结构，而是统一中文 Typography Rhythm：
+
+- Body baseline：14px → 15px；
+- Dense body：13px → 13.5px；
+- Metadata：12px → 12.5px；
+- Micro label：11px → 11.5px；
+- Sidebar / Local Nav：统一约 14px；
+- Section description：13px；
+- App title：14.5px；
+- Task title：14px；
+- Status / business metric supporting text：12–12.5px；
+- Header brand caption / search text同步放大；
+- Tablet / Mobile 保留响应式降级，避免移动端过密。
+
+本轮目标是提高中文信息层级的连续性，不继续放大 Hero，也不改变布局结构。
