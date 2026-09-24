@@ -107,6 +107,8 @@ download_file() { # 依次试候选地址；下载成功且校验和正确才算
 			[[ "$(sha256_of "${tmp}")" == "${want}" ]]; then
 			mkdir -p "${FONT_DIR}"
 			mv "${tmp}" "${FONT_DIR}/${file}"
+			# mktemp 通常创建 0600；bind mount 后容器内 frappe 用户需要读取字体。
+			chmod 0644 "${FONT_DIR}/${file}"
 			log "已下载并校验：${file}"
 			return 0
 		fi
@@ -127,6 +129,7 @@ missing=0
 while IFS='|' read -r file want urls; do
 	[[ -n "${file}" ]] || continue
 	if verify_file "${file}" "${want}"; then
+		chmod 0644 "${FONT_DIR}/${file}" 2>/dev/null || true
 		log "✓ ${file}"
 		continue
 	fi
