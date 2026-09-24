@@ -34,10 +34,5 @@ export const hbosAntdTheme: ThemeConfig = {
     Modal: {
       borderRadiusLG: 24,
     },
-    Table: {
-      cellPaddingBlock: 13,
-      cellPaddingInline: 12,
-      headerBg: 'rgba(246,249,253,.88)',
-    },
   },
 }
