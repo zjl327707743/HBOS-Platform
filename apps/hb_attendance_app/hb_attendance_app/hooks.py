@@ -17,9 +17,6 @@ scheduler_events = {
         "0 9 * * *": [
             "hb_attendance_app.hbos_attendance.attendance_notify.send_daily_report"
         ],
-        "0 10 * * *": [
-            "hb_attendance_app.hbos_attendance.daily_feishu_sync.daily_sync_to_feishu"
-        ],
         "*/10 * * * *": [
             "hb_attendance_app.hbos_attendance.api.sync_delicloud_checkin"
         ],
