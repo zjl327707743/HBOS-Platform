@@ -204,16 +204,20 @@ def _check_lims_release_unlocks_warehouse_gate():
     batch_name = _create_batch()
     _insert_release_fixture(batch_name)
 
-    outward = frappe._dict({
-        "doctype": "Stock Entry",
-        "purpose": "Material Issue",
-        "items": [
-            frappe._dict({
-                "batch_no": batch_name,
-                "s_warehouse": "CI-SMOKE",
-            })
-        ],
-    })
+    # Inventory release_gate expects a Frappe Document-like object whose
+    # `.items` attribute is the child-row list.  frappe._dict cannot be used here:
+    # its inherited dict.items method shadows an "items" key.
+    class _OutwardFixture:
+        doctype = "Stock Entry"
+        purpose = "Material Issue"
+
+    outward = _OutwardFixture()
+    outward.items = [
+        frappe._dict({
+            "batch_no": batch_name,
+            "s_warehouse": "CI-SMOKE",
+        })
+    ]
 
     blocked = False
     try:
