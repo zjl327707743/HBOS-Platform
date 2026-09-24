@@ -28,8 +28,10 @@ def after_migrate():
 
     create_custom_fields({
         "Employee": [
-            {"fieldname": "hbos_fixed_shift", "label": "HBOS 固定班次", "fieldtype": "Link",
-             "options": "HBOS Shift Rule", "insert_after": "shift_request_approver"},
+            {"fieldname": "hbos_fixed_shift", "label": "HBOS 固定班次（兼容版本）", "fieldtype": "Link",
+             "options": "HBOS Shift Rule", "insert_after": "shift_request_approver", "read_only": 1},
+            {"fieldname": "hbos_fixed_shift_code", "label": "HBOS 固定班次规则族", "fieldtype": "Data",
+             "insert_after": "hbos_fixed_shift", "read_only": 1},
         ],
         "Employee Checkin": [
             {"fieldname": "hbos_terminal_sn", "label": "HBOS 终端序列号", "fieldtype": "Data", "read_only": 1},
@@ -54,7 +56,59 @@ def after_migrate():
             {"fieldname": "hbos_missing_out", "label": "HBOS 缺下班卡", "fieldtype": "Check", "read_only": 1},
         ]
     })
+    _backfill_shift_rule_identity()
+    _backfill_schedule_sources()
     sync_attendance_workspace()
+
+
+def _backfill_shift_rule_identity():
+    """Migrate legacy version-bound shift data to stable rule-family identities."""
+    from hb_attendance_app.hbos_attendance.doctype.hbos_shift_rule.hbos_shift_rule import make_rule_code
+
+    rules = frappe.db.get_all(
+        "HBOS Shift Rule",
+        fields=["name", "rule_code", "rule_name", "department", "shift_type"],
+        order_by="creation asc",
+    )
+    code_by_version = {}
+    for row in rules:
+        code = row.rule_code or make_rule_code(row.department, row.rule_name, row.shift_type)
+        code_by_version[row.name] = code
+        if not row.rule_code:
+            frappe.db.set_value("HBOS Shift Rule", row.name, "rule_code", code, update_modified=False)
+
+    for binding in frappe.db.get_all(
+        "HBOS Employee Shift", fields=["name", "rule_code", "shift_rule"]
+    ):
+        if binding.rule_code:
+            continue
+        code = code_by_version.get(binding.shift_rule)
+        if code:
+            frappe.db.set_value(
+                "HBOS Employee Shift", binding.name, "rule_code", code, update_modified=False
+            )
+
+    for emp in frappe.db.get_all(
+        "Employee",
+        fields=["name", "hbos_fixed_shift", "hbos_fixed_shift_code"],
+        filters={"hbos_fixed_shift": ["is", "set"]},
+    ):
+        if emp.hbos_fixed_shift_code:
+            continue
+        code = code_by_version.get(emp.hbos_fixed_shift)
+        if code:
+            frappe.db.set_value(
+                "Employee", emp.name, "hbos_fixed_shift_code", code, update_modified=False
+            )
+
+
+def _backfill_schedule_sources():
+    """Existing schedules predate source ownership; preserve them as protected LEGACY rows."""
+    frappe.db.sql(
+        """UPDATE `tabHBOS Employee Schedule`
+           SET source_type = 'LEGACY'
+           WHERE IFNULL(source_type, '') = ''"""
+    )
 
 
 def sync_attendance_workspace():
