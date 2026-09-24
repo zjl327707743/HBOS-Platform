@@ -37,7 +37,7 @@ class TestSkeletonContracts(unittest.TestCase):
         source = HOOKS.read_text(encoding="utf-8")
         self.assertIn('app_name = "hb_lims_app"', source)
         self.assertIn('app_title = "HBOS LIMS"', source)
-        self.assertIn('required_apps = ["frappe"]', source)
+        self.assertIn('required_apps = ["frappe", "erpnext"]', source)
         self.assertIn('after_migrate = "hb_lims_app.hbos_lims.setup.after_migrate"', source)
         self.assertIn("hbos-lims-logo.svg", source)
         self.assertIn('app_include_css = "/assets/hb_lims_app/css/lims_report.css', source)
@@ -78,11 +78,11 @@ class TestSkeletonContracts(unittest.TestCase):
         self.assertIn("LIMS Reviewer", roles)
         self.assertIn("System Manager", roles)
 
-    def test_pyproject_frappe_only_dependency(self):
+    def test_pyproject_declares_frappe_and_erpnext_dependencies(self):
         pyproject = (APP_ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn("[tool.bench.frappe-dependencies]", pyproject)
         self.assertIn('frappe = ">=16.0.0,<17.0.0"', pyproject)
-        self.assertNotIn("erpnext", pyproject)
+        self.assertIn('erpnext = ">=16.0.0,<17.0.0"', pyproject)
         self.assertNotIn("hrms", pyproject)
 
     def test_logo_exists(self):
