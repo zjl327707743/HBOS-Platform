@@ -11,6 +11,10 @@ ITEM = "HBOS-G3-SMOKE-ITEM"
 BATCH = "HBOS-G3-SMOKE-BATCH"
 SAMPLE = "HBOS-G3-SMOKE-SAMPLE"
 COA = "HBOS-G3-SMOKE-COA"
+SAMPLE_TYPE = "G3-SMOKE-TYPE"
+TEST_ITEM = "G3-SMOKE-TEST"
+SPEC = "G3-SMOKE-SPEC"
+SAMPLE_ITEM = "G3-SMOKE-SAMPLE-ITEM"
 
 
 def _guard():
@@ -22,13 +26,15 @@ def _cleanup():
     # Raw SQL cleanup is deliberate: this module only runs on an isolated CI site
     # and must be able to remove terminal-state quality records after the smoke test.
     for table, name in (
-        ("tabHBOS Audit Log", None),
         ("tabHBOS COA", COA),
+        ("tabHBOS Sample Item", SAMPLE_ITEM),
         ("tabHBOS Sample", SAMPLE),
+        ("tabHBOS Specification", SPEC),
+        ("tabHBOS Test Item", TEST_ITEM),
+        ("tabHBOS Sample Type", SAMPLE_TYPE),
     ):
         with suppress(Exception):
-            if name:
-                frappe.db.sql(f"DELETE FROM `{table}` WHERE name = %s", (name,))
+            frappe.db.sql(f"DELETE FROM `{table}` WHERE name = %s", (name,))
     with suppress(Exception):
         if frappe.db.exists("Batch", BATCH):
             frappe.delete_doc("Batch", BATCH, force=True, ignore_permissions=True)
@@ -93,15 +99,62 @@ def _create_batch():
 
 def _insert_release_fixture(batch_name):
     now = frappe.utils.now_datetime()
+    today = frappe.utils.today()
+
+    frappe.db.sql(
+        """INSERT INTO `tabHBOS Sample Type`
+           (name, sample_type_code, sample_type_name,
+            owner, modified_by, creation, modified, docstatus)
+           VALUES (%s,%s,'G3 Smoke Type',
+                   'Administrator','Administrator',%s,%s,0)""",
+        (SAMPLE_TYPE, SAMPLE_TYPE, now, now),
+    )
+    frappe.db.sql(
+        """INSERT INTO `tabHBOS Test Item`
+           (name, item_code, item_name, item_category, significant_digits, limits_type,
+            owner, modified_by, creation, modified, docstatus)
+           VALUES (%s,%s,'G3 Smoke Test','记录型',2,'记录型',
+                   'Administrator','Administrator',%s,%s,0)""",
+        (TEST_ITEM, TEST_ITEM, now, now),
+    )
+    frappe.db.sql(
+        """INSERT INTO `tabHBOS Specification`
+           (name, spec_code, spec_name, item_ref, material_code, material_name,
+            version, effective_date, status,
+            owner, modified_by, creation, modified, docstatus)
+           VALUES (%s,%s,'G3 Smoke Spec',%s,%s,'HBOS G3 Smoke Item',
+                   '1.0',%s,'已生效',
+                   'Administrator','Administrator',%s,%s,0)""",
+        (SPEC, SPEC, ITEM, ITEM, today, now, now),
+    )
     frappe.db.sql(
         """INSERT INTO `tabHBOS Sample`
            (name, naming_series, sample_type, item_ref, material_code, material_name,
             batch_ref, batch_no, specification, spec_version, status, oos_locked,
             owner, modified_by, creation, modified, docstatus)
-           VALUES (%s,'HBOS-SMP-.YYYY.-','G3-SMOKE',%s,%s,%s,%s,%s,
-                   'G3-SMOKE-SPEC','1.0','检验完成',0,
+           VALUES (%s,'HBOS-SMP-.YYYY.-',%s,%s,%s,%s,%s,%s,
+                   %s,'1.0','检验完成',0,
                    'Administrator','Administrator',%s,%s,0)""",
-        (SAMPLE, ITEM, ITEM, "HBOS G3 Smoke Item", batch_name, batch_name, now, now),
+        (
+            SAMPLE,
+            SAMPLE_TYPE,
+            ITEM,
+            ITEM,
+            "HBOS G3 Smoke Item",
+            batch_name,
+            batch_name,
+            SPEC,
+            now,
+            now,
+        ),
+    )
+    frappe.db.sql(
+        """INSERT INTO `tabHBOS Sample Item`
+           (name, parent, parenttype, parentfield, idx, test_item, item_name, limits_type,
+            owner, modified_by, creation, modified, docstatus)
+           VALUES (%s,%s,'HBOS Sample','items',1,%s,'G3 Smoke Test','记录型',
+                   'Administrator','Administrator',%s,%s,0)""",
+        (SAMPLE_ITEM, SAMPLE, TEST_ITEM, now, now),
     )
     frappe.db.sql(
         """INSERT INTO `tabHBOS COA`
