@@ -9,7 +9,7 @@ on:
     paths:
       - "apps/hb_inventory_app/**"
       - "services/hbos_ocr/**"
-      - "docker-compose.yml"
+      - "scripts/ci/docker-compose.inventory-smoke.yml"
       - "scripts/ci/inventory_clean_site_smoke.sh"
       - ".github/workflows/inventory-integration-gate.yml"
 
@@ -33,8 +33,20 @@ jobs:
           mkdir -p runtime/apps
           git clone --depth 1 --branch version-16 https://github.com/frappe/hrms.git runtime/apps/hrms
 
+      - name: Inventory and OCR unit tests
+        run: |
+          python -m unittest discover -s apps/hb_inventory_app/tests -v
+          python services/hbos_ocr/tests/test_validate.py
+          python services/hbos_ocr/tests/test_c2_extract.py
+
       - name: Shell syntax
-        run: bash -n scripts/ci/inventory_clean_site_smoke.sh
+        run: |
+          bash -n scripts/ci/inventory_clean_site_smoke.sh
+          python - <<'PY'
+          import yaml
+          yaml.safe_load(open("scripts/ci/docker-compose.inventory-smoke.yml"))
+          print("inventory smoke compose: OK")
+          PY
 
       - name: Clean-site install + migrate smoke
         env:
