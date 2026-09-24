@@ -25,6 +25,12 @@ from hb_attendance_app.hbos_attendance.rest_leave import (
 
 DOCTYPE = "HBOS Rest Leave Record"
 
+
+def _require_hr_write():
+    roles = set(frappe.get_roles())
+    if not roles.intersection({"HR Manager", "System Manager"}):
+        frappe.throw("你无权触发调休外部同步。", frappe.PermissionError)
+
 # 单批解析的时间预算（秒）。ai_review.AI_BATCH_SECONDS=100 是为「单次 HTTP 请求
 # 须在代理 120s 内返回」而设；本函数跑在 30 分钟一次的调度任务里，没有代理超时，
 # 但必须给同一调度周期内的其他任务留出余地（Frappe 调度串行执行）。取 1200s
@@ -64,6 +70,7 @@ def sync_rest_leave_from_bitable():
       failed 落库失败（save/commit 抛异常）
       error 拉表阶段的失败原因，非空即表示本次未处理任何记录
     """
+    _require_hr_write()
     summary = {"total": 0, "created": 0, "updated": 0,
                "skipped": 0, "unmatched": 0, "failed": 0, "error": ""}
     try:
