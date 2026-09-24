@@ -124,7 +124,7 @@ class ParseStageContractTest(unittest.TestCase):
         loop_at = self.src.index("for row in pending:")
         deadline_at = self.src.index(
             "if _time.monotonic() > batch_deadline:", loop_at)
-        call_at = self.src.index("call_llm(cfg, prompt)", loop_at)
+        call_at = self.src.index("call_llm(cfg, prompt, contains_pii=True)", loop_at)
         self.assertLess(
             deadline_at, call_at,
             "deadline 判定必须在 call_llm 之前")
@@ -137,7 +137,7 @@ class ParseStageContractTest(unittest.TestCase):
         计入 failed 会让运维误判为 LLM 故障，且掩盖真实积压（remaining）。
         """
         deadline_at = self.src.index("if _time.monotonic() > batch_deadline:")
-        call_at = self.src.index("call_llm(cfg, prompt)", deadline_at)
+        call_at = self.src.index("call_llm(cfg, prompt, contains_pii=True)", deadline_at)
         chunk = self.src[deadline_at:call_at]
         self.assertNotIn(
             'summary["failed"]', chunk,
@@ -152,7 +152,7 @@ class ParseStageContractTest(unittest.TestCase):
         这是「调用失败（下轮重试）」与「解析出空（转人工，不重试）」的分界。
         """
         loop_at = self.src.index("for row in pending:")
-        call_at = self.src.index("call_llm(cfg, prompt)", loop_at)
+        call_at = self.src.index("call_llm(cfg, prompt, contains_pii=True)", loop_at)
         except_at = self.src.index("except Exception as e:", call_at)
         cont_at = self.src.index("continue", except_at)
         chunk = self.src[except_at:cont_at]
@@ -184,7 +184,7 @@ class ParseStageContractTest(unittest.TestCase):
     def test_budget_skipped_rows_are_left_pending(self):
         """超预算跳过 = 保持待解析（下轮继续），不写状态、不写 parsed_at。"""
         deadline_at = self.src.index("if _time.monotonic() > batch_deadline:")
-        call_at = self.src.index("call_llm(cfg, prompt)", deadline_at)
+        call_at = self.src.index("call_llm(cfg, prompt, contains_pii=True)", deadline_at)
         chunk = self.src[deadline_at:call_at]
         self.assertNotIn("parsed_at", chunk)
         self.assertNotIn("verify_status", chunk)
