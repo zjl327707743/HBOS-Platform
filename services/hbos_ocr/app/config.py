@@ -32,3 +32,6 @@ C1_MODEL = os.environ.get("HBOS_OCR_C1_MODEL", "")
 
 #: 日志级别。日志**绝不记录照片内容、批号或产品名**（M3-R6 方案第六节）。
 LOG_LEVEL = os.environ.get("HBOS_OCR_LOG_LEVEL", "INFO")
+
+#: Frappe -> OCR internal authentication. Empty means recognize is disabled.
+SHARED_TOKEN = os.environ.get("HBOS_OCR_SHARED_TOKEN", "").strip()
