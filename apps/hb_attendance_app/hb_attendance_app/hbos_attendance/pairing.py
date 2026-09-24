@@ -250,7 +250,8 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                            skip_forward=False, skip_night_lock=False,
                            emp_leave_dates=None, track_roles=False,
                            terminal_aware=False, max_gap_hours=16,
-                           is_late_exempt=False, now_dt=None):
+                           is_late_exempt=False, now_dt=None,
+                           special_shift=None, four_shift=None):
     """对单个员工按时间升序的打卡做 HBOS 配对。
 
     参数:
@@ -376,9 +377,12 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
         return False
 
     # 班次解析: SPECIAL_SHIFT_NUMS 人员走独立班次体系(按时长区分12h/8h), 其他人走原 shift_fn
-    special_shift = emp_num in SPECIAL_SHIFT_NUMS
-    # 四班次人员: 班次按打卡时段判定, 上够8小时算正常
-    four_shift = emp_num in FOUR_SHIFT_NUMS
+    # 运行态默认从数据库策略成员关系判断；纯函数测试可显式注入，
+    # 避免为了单测把真实员工身份重新硬编码回源码。
+    if special_shift is None:
+        special_shift = emp_num in SPECIAL_SHIFT_NUMS
+    if four_shift is None:
+        four_shift = emp_num in FOUR_SHIFT_NUMS
 
     def resolve_shift(ck_dt, cross_day, gap_h):
         if special_shift:
