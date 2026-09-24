@@ -10,6 +10,7 @@ import {
 } from '@/data/mockPortal'
 import {
   getFrappePortalData,
+  getFrappeSummariesForApps,
   getFrappeTasksForApps,
   resolveFrappeRoute,
   searchFrappePortal,
@@ -51,6 +52,13 @@ export async function getPortalData() {
   return getMockPortalData()
 }
 
+
+export async function getPortalSummaries(apps: AppManifestDTO[]) {
+  if (portalDataSource === 'frappe') {
+    return getFrappeSummariesForApps(apps)
+  }
+  return heroMetrics
+}
 
 export async function getPortalTasks(apps: AppManifestDTO[]) {
   if (portalDataSource === 'frappe') {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
   getPortalData,
+  getPortalSummaries,
   getPortalTasks,
   portalDataSource,
 } from '@/services/portalProvider'
@@ -26,6 +27,7 @@ export const usePortalStore = defineStore('portal', () => {
   const twinStatuses = ref<TwinStatusDTO[]>([])
   const limsQueue = ref<LimsQueueItemDTO[]>([])
   const loading = ref(false)
+  const summariesLoading = ref(false)
   const tasksLoading = ref(false)
   const bootstrapError = ref<string | null>(null)
   const dataSource = ref(portalDataSource)
@@ -49,6 +51,7 @@ export const usePortalStore = defineStore('portal', () => {
       limsQueue.value = data.limsQueue
       if (dataSource.value === 'frappe') {
         void refreshTasks()
+        void refreshSummaries()
       }
     } catch (error) {
       bootstrapError.value =
@@ -59,6 +62,18 @@ export const usePortalStore = defineStore('portal', () => {
     }
   }
 
+
+
+  async function refreshSummaries() {
+    if (dataSource.value !== 'frappe') return
+    summariesLoading.value = true
+    try {
+      const loaded = await getPortalSummaries(apps.value)
+      heroMetrics.value = loaded.slice(0, 4)
+    } finally {
+      summariesLoading.value = false
+    }
+  }
 
   async function refreshTasks() {
     if (dataSource.value !== 'frappe') return
@@ -89,11 +104,13 @@ export const usePortalStore = defineStore('portal', () => {
     twinStatuses,
     limsQueue,
     loading,
+    summariesLoading,
     tasksLoading,
     bootstrapError,
     dataSource,
     totalActions,
     bootstrap,
+    refreshSummaries,
     refreshTasks,
   }
 })

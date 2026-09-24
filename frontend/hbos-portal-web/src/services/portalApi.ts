@@ -3,6 +3,7 @@ import type {
   PortalBranding,
   PortalUser,
   SearchResultDTO,
+  SummaryMetricDTO,
   UnifiedTaskDTO,
 } from '@/contracts/portal'
 import { callFrappeMethod } from '@/services/frappeClient'
@@ -67,6 +68,22 @@ interface BackendBootstrap {
   }
 }
 
+
+
+interface BackendSummaryMetric {
+  id: string
+  label: string
+  value: string | number
+  tone: string
+  deep_link?: string | null
+}
+
+interface BackendSummaryPayload {
+  app_id: string
+  generated_at: string
+  status?: string
+  metrics: BackendSummaryMetric[]
+}
 
 interface BackendTask {
   task_id: string
@@ -209,6 +226,19 @@ function mapApp(value: BackendApp): AppManifestDTO {
 }
 
 
+
+function normalizeTone(value: string): SummaryMetricDTO['tone'] {
+  if (
+    value === 'info' ||
+    value === 'success' ||
+    value === 'warning' ||
+    value === 'critical'
+  ) {
+    return value
+  }
+  return 'neutral'
+}
+
 function normalizeTaskPriority(value: string): UnifiedTaskDTO['priority'] {
   if (value === 'critical' || value === 'high' || value === 'low') return value
   return 'normal'
@@ -275,6 +305,35 @@ export async function getFrappePortalData() {
   }
 }
 
+
+export async function getFrappeSummariesForApps(
+  apps: AppManifestDTO[],
+): Promise<SummaryMetricDTO[]> {
+  const summaryApps = apps.filter((app) => app.capabilitySummary)
+  const batches = await Promise.allSettled(
+    summaryApps.map(async (app) => {
+      const envelope = await callFrappeMethod<
+        PortalEnvelope<BackendDispatch<BackendSummaryPayload>>
+      >('hbos_portal.api.summary.get_summary', {
+        app_id: app.id,
+      })
+      const dispatch = unwrap(envelope)
+      return (dispatch.data.metrics || []).map((metric) => ({
+        id: `${app.id}:${metric.id}`,
+        label: metric.label,
+        value: metric.value,
+        appId: app.id,
+        tone: normalizeTone(metric.tone),
+        meta: app.shortTitle,
+        deepLink: metric.deep_link || undefined,
+      }))
+    }),
+  )
+
+  return batches.flatMap((result) =>
+    result.status === 'fulfilled' ? result.value : [],
+  )
+}
 
 export async function getFrappeTasksForApps(
   apps: AppManifestDTO[],

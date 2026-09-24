@@ -52,7 +52,7 @@ import MyWorkPanel from '@/components/portal/MyWorkPanel.vue'
 const portal = usePortalStore()
 
 // EA-5.3: professional / manager homepage can be denser; ordinary employee can be simpler.
-const showProfessionalHome = computed(() => true)
+const showProfessionalHome = computed(() => portal.businessPulse.length > 0)
 const actionableTasks = computed(() => portal.tasks.filter((task) => task.status === 'open').slice(0, 4))
 const actionCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
 </script>
