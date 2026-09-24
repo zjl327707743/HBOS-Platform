@@ -279,6 +279,7 @@ def register_sample(sample_type=None, material_code=None, material_name=None,
 			],
 			"remarks": remarks,
 		})
+		sample.flags.allow_system_fields = True
 		sample.insert(ignore_permissions=True)
 		_set_status(sample, wf.FLOW_SAMPLE, "草稿", "已登记")
 		sample.save(ignore_permissions=True)
@@ -313,6 +314,7 @@ def generate_tasks(sample_name, lab_department=None):
 				"due_date": sample.test_due_date,
 				"status": "待分配",
 			})
+			task.flags.allow_system_fields = True
 			task.insert(ignore_permissions=True)
 			row.task = task.name
 			created.append(task.name)
@@ -334,6 +336,7 @@ def assign_task(task_name, assignee=None):
 		task.assignee = assignee or task.assignee
 		task.assigned_by = _user()
 		task.assigned_date = _now()
+		task.flags.allow_system_fields = True
 		task.save(ignore_permissions=True)
 		_commit()
 		return task.name
@@ -356,11 +359,13 @@ def start_task(task_name):
 		if not task.result:
 			result = _create_result_for_task(task)
 			task.result = result.name
+		task.flags.allow_system_fields = True
 		task.save(ignore_permissions=True)
 
 		sample = frappe.get_doc("HBOS Sample", task.sample)
 		if sample.status == "已登记":
 			_set_status(sample, wf.FLOW_SAMPLE, sample.status, "检验中")
+			sample.flags.allow_system_fields = True
 			sample.save(ignore_permissions=True)
 		_commit()
 		return {"task": task.name, "result": task.result}
@@ -384,6 +389,7 @@ def _create_result_for_task(task):
 		"analyst": _user(),
 		"result_status": "草稿",
 	})
+	result.flags.allow_system_fields = True
 	result.insert(ignore_permissions=True)
 	return result
 
@@ -430,6 +436,7 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 		result.result_status = "已提交"
 		result.submitted_signature = _signature(SIGN_ANALYST)
 		result.submitted_at = _now()
+		result.flags.allow_system_fields = True
 		result.save(ignore_permissions=True)
 
 		# 合规审计：仪器使用（提交携带仪器时记一笔）
@@ -448,6 +455,7 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 		if result.is_oos_candidate:
 			if task.status != "OOS候选":
 				_set_status(task, wf.FLOW_TASK, task.status, "OOS候选")
+			task.flags.allow_system_fields = True
 			task.save(ignore_permissions=True)
 			_lock_sample_oos(result.sample)
 			audit_log("OOS", result.doctype, result.name,
@@ -457,6 +465,7 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 		else:
 			if task.status != "已提交":
 				_set_status(task, wf.FLOW_TASK, task.status, "已提交")
+			task.flags.allow_system_fields = True
 			task.save(ignore_permissions=True)
 		from hb_lims_app.hbos_lims.stability_service import sync_standard_test_result
 		sync_standard_test_result(result.name, target_status="已提交")
@@ -496,6 +505,7 @@ def _lock_sample_oos(sample_name):
 	sample = frappe.get_doc("HBOS Sample", sample_name)
 	sample.oos_locked = 1
 	_set_status(sample, wf.FLOW_SAMPLE, sample.status, "OOS锁定")
+	sample.flags.allow_system_fields = True
 	sample.save(ignore_permissions=True)
 
 
@@ -517,10 +527,12 @@ def review_result(result_name):
 		result.reviewer = _user()
 		result.reviewed_signature = _signature(SIGN_REVIEWER)
 		result.reviewed_at = _now()
+		result.flags.allow_system_fields = True
 		result.save(ignore_permissions=True)
 
 		task = frappe.get_doc("HBOS Sample Task", result.task)
 		_set_status(task, wf.FLOW_TASK, task.status, "已复核")
+		task.flags.allow_system_fields = True
 		task.save(ignore_permissions=True)
 		from hb_lims_app.hbos_lims.stability_service import sync_standard_test_result
 		sync_standard_test_result(result.name, target_status="已复核")
@@ -551,11 +563,13 @@ def approve_result(result_name):
 		result.approver = _user()
 		result.approved_signature = _signature(SIGN_APPROVER)
 		result.approved_at = _now()
+		result.flags.allow_system_fields = True
 		result.save(ignore_permissions=True)
 
 		task = frappe.get_doc("HBOS Sample Task", result.task)
 		task.result = result.name
 		_set_status(task, wf.FLOW_TASK, task.status, "已批准")
+		task.flags.allow_system_fields = True
 		task.save(ignore_permissions=True)
 		_advance_sample_after_task(task.sample)
 		from hb_lims_app.hbos_lims.stability_service import sync_standard_test_result
@@ -582,6 +596,7 @@ def _advance_sample_after_task(sample_name):
 		return
 	if all(t.status in ("已批准",) and t.result for t in tasks) and sample.status == "检验中":
 		_set_status(sample, wf.FLOW_SAMPLE, sample.status, "检验完成")
+		sample.flags.allow_system_fields = True
 		sample.save(ignore_permissions=True)
 
 
@@ -636,10 +651,12 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 		new_doc.approved_signature = ""
 		new_doc.approved_at = None
 		new_doc.remarks = f"修订自 {old.name}（原因：{reason}）"
+		new_doc.flags.allow_system_fields = True
 		new_doc.insert(ignore_permissions=True)
 
 		old.superseded_by = new_doc.name
 		old.result_status = "已修订"
+		old.flags.allow_system_fields = True
 		old.save(ignore_permissions=True)
 
 		# 任务结果指针指向新版本，任务回到已提交（待重新复核批准；已提交状态则保持不变）
@@ -647,6 +664,7 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 		task.result = new_doc.name
 		if task.status != "已提交":
 			_set_status(task, wf.FLOW_TASK, task.status, "已提交")
+		task.flags.allow_system_fields = True
 		task.save(ignore_permissions=True)
 		from hb_lims_app.hbos_lims.stability_service import sync_standard_test_result
 		sync_standard_test_result(new_doc.name, target_status="草稿",
@@ -699,6 +717,7 @@ def create_coa(sample_name):
 			"report_status": "草稿",
 			"items": [_coa_item_from_result(r["name"]) for r in results],
 		})
+		coa.flags.allow_system_fields = True
 		coa.insert(ignore_permissions=True)
 		_commit()
 		return coa.name
@@ -747,6 +766,7 @@ def review_coa(coa_name):
 		coa.report_status = "已审核"
 		coa.qa_reviewer = _user()
 		coa.qa_reviewed_at = _now()
+		coa.flags.allow_system_fields = True
 		coa.save(ignore_permissions=True)
 		_commit()
 		return coa.name
@@ -784,6 +804,7 @@ def publish_coa(coa_name):
 		coa.report_status = "已发布"
 		coa.published_by = _user()
 		coa.published_at = _now()
+		coa.flags.allow_system_fields = True
 		coa.save(ignore_permissions=True)
 		_commit()
 		return {"coa": coa.name, "pdf": file_doc.file_url}
@@ -801,6 +822,7 @@ def release_sample(sample_name):
 		if sample.oos_locked:
 			frappe.throw(f"样品 {sample_name} 处于 OOS 锁定，不可放行。")
 		_set_status(sample, wf.FLOW_SAMPLE, sample.status, "已放行")
+		sample.flags.allow_system_fields = True
 		sample.save(ignore_permissions=True)
 		audit_log("放行", sample.doctype, sample.name,
 				  action_text="样品放行",
@@ -822,6 +844,7 @@ def reject_sample(sample_name, reason=None):
 		_set_status(sample, wf.FLOW_SAMPLE, sample.status, "已拒绝")
 		if reason:
 			sample.remarks = (sample.remarks or "") + f" | 拒绝原因：{reason}"
+		sample.flags.allow_system_fields = True
 		sample.save(ignore_permissions=True)
 		audit_log("拒绝", sample.doctype, sample.name,
 				  action_text="样品拒绝",
@@ -871,6 +894,7 @@ def create_specification(spec_code, spec_name, material_code=None, material_name
 			"retain_sample_qty": retain_sample_qty,
 			"items": _normalize_spec_items(items),
 		})
+		spec.flags.allow_system_fields = True
 		spec.insert(ignore_permissions=True)
 		_commit()
 		return spec.name
@@ -909,6 +933,7 @@ def update_specification(spec_name, spec_code=None, spec_name_label=None, materi
 			spec.retain_sample_qty = retain_sample_qty
 		if items is not None:
 			spec.items = _normalize_spec_items(items)
+		spec.flags.allow_system_fields = True
 		spec.save(ignore_permissions=True)
 		_commit()
 		return spec.name
@@ -926,6 +951,7 @@ def activate_specification(spec_name):
 		if spec.status != SPEC_DRAFT:
 			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅草稿可生效。")
 		spec.status = SPEC_ACTIVE
+		spec.flags.allow_system_fields = True
 		spec.save(ignore_permissions=True)
 		audit_log("规格生效", spec.doctype, spec.name,
 				  action_text="质量标准生效",
@@ -947,6 +973,7 @@ def obsolete_specification(spec_name):
 		if spec.status != SPEC_ACTIVE:
 			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅已生效可废止。")
 		spec.status = SPEC_OBSOLETE
+		spec.flags.allow_system_fields = True
 		spec.save(ignore_permissions=True)
 		audit_log("规格废止", spec.doctype, spec.name,
 				  action_text="质量标准废止",

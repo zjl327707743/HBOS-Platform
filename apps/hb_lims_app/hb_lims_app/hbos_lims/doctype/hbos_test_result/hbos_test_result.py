@@ -5,6 +5,9 @@
 import frappe
 from frappe.model.document import Document
 
+from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.guards import guard_system_fields
+
 RESULT_STATUS_DRAFT = "草稿"
 RESULT_STATUS_SUBMITTED = "已提交"
 RESULT_STATUS_REVIEWED = "已复核"
@@ -19,6 +22,7 @@ RESULT_LOCKED_FIELDS = ("raw_value", "result_value", "result_text", "calc_input_
 
 class HBOSTestResult(Document):
 	def validate(self):
+		guard_system_fields(self, wf.HBOS_TEST_RESULT_SYSTEM_FIELDS)
 		self._validate_locked_after_submit()
 
 	def _validate_locked_after_submit(self):

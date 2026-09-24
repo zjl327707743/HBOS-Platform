@@ -44,6 +44,29 @@ RESULT_REVIEWED = "已复核"
 RESULT_APPROVED = "已批准"
 RESULT_REVISED = "已修订"
 
+# 系统字段（状态 / 签署 / 版本链）：只能由业务服务（lims_service 中带
+# `doc.flags.allow_system_fields = True` 的保存）或 System Manager / Administrator 修改；
+# 表单直改、frappe.client.set_value 等低层写入由控制器守卫拦截
+# （实现见 guards.guard_system_fields）。命名带 DocType 前缀，避免与稳定性板块
+# stability_guards 中的同名常量混淆。
+HBOS_SAMPLE_SYSTEM_FIELDS = ("status", "oos_locked")
+
+HBOS_SAMPLE_TASK_SYSTEM_FIELDS = ("status", "assignee", "assigned_by", "assigned_date", "result")
+
+HBOS_TEST_RESULT_SYSTEM_FIELDS = (
+	"result_status", "is_oos_candidate", "superseded_by",
+	"submitted_signature", "submitted_at",
+	"reviewer", "reviewed_signature", "reviewed_at",
+	"approver", "approved_signature", "approved_at",
+)
+
+HBOS_COA_SYSTEM_FIELDS = (
+	"report_status", "qa_reviewer", "qa_reviewed_at",
+	"published_by", "published_at", "pdf_attachment",
+)
+
+HBOS_SPECIFICATION_SYSTEM_FIELDS = ("status", "effective_date")
+
 # 留样状态（M2-R7，方案 6.1 rev6）
 RET_IN_STOCK = "在库"
 RET_PARTIAL_USED = "部分使用"

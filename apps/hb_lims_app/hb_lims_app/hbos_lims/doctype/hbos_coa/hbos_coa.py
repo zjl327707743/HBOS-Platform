@@ -5,6 +5,9 @@
 import frappe
 from frappe.model.document import Document
 
+from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.guards import guard_system_fields
+
 COA_STATUS_DRAFT = "草稿"
 COA_STATUS_REVIEWED = "已审核"
 COA_STATUS_PUBLISHED = "已发布"
@@ -15,6 +18,7 @@ COA_LOCKED_FIELDS = ("sample", "batch_no", "material_code", "material_name", "sp
 
 class HBOSCOA(Document):
 	def validate(self):
+		guard_system_fields(self, wf.HBOS_COA_SYSTEM_FIELDS)
 		self._validate_locked_after_review()
 
 	def _validate_locked_after_review(self):

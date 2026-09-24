@@ -5,6 +5,9 @@
 import frappe
 from frappe.model.document import Document
 
+from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.guards import guard_system_fields
+
 SAMPLE_STATUS_DRAFT = "草稿"
 SAMPLE_STATUS_REGISTERED = "已登记"
 SAMPLE_STATUS_TESTING = "检验中"
@@ -19,6 +22,7 @@ SAMPLE_ITEM_LOCKED_FIELDS = ("specification", "sample_type", "material_code", "m
 
 class HBOSSample(Document):
 	def validate(self):
+		guard_system_fields(self, wf.HBOS_SAMPLE_SYSTEM_FIELDS)
 		self._validate_spec_active()
 		self._validate_locked_after_register()
 

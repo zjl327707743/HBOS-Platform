@@ -5,6 +5,9 @@
 import frappe
 from frappe.model.document import Document
 
+from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.guards import guard_system_fields
+
 SPEC_STATUS_DRAFT = "草稿"
 SPEC_STATUS_ACTIVE = "已生效"
 SPEC_STATUS_OBSOLETE = "已废止"
@@ -28,6 +31,7 @@ def get_active_specifications():
 
 class HBOSSpecification(Document):
 	def validate(self):
+		guard_system_fields(self, wf.HBOS_SPECIFICATION_SYSTEM_FIELDS)
 		self._validate_unique_version()
 		self._validate_limits()
 
