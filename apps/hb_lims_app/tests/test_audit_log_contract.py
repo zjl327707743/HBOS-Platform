@@ -47,7 +47,10 @@ class TestAuditLogService(unittest.TestCase):
         self.assertNotIn("@frappe.whitelist()", prefix, "audit_log 不应暴露为 HTTP whitelist")
         self.assertIn("HBOS Audit Log", source)
         self.assertIn("_checksum", source, "缺少数据指纹函数")
-        self.assertIn("hashlib.sha256", source, "完整性指纹必须使用 SHA-256")\n        self.assertNotIn("frappe.db.commit()\n\t# 审计", source)
+        self.assertIn("hashlib.sha256", source, "完整性指纹必须使用 SHA-256")
+        audit_start = source.index("def audit_log")
+        audit_end = source.index("\n\n# ---- doc_events", audit_start)
+        self.assertNotIn("frappe.db.commit()", source[audit_start:audit_end])
 
     def test_audit_query_whitelist(self):
         source = SERVICE.read_text(encoding="utf-8")
