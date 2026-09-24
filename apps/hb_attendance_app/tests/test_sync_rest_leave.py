@@ -32,9 +32,21 @@ class SyncRestLeaveContractTest(unittest.TestCase):
         self.assertIn("@frappe.whitelist()", self.src)
         self.assertIn("def sync_rest_leave_from_bitable(", self.src)
 
-    def test_no_throw_in_scheduler_path(self):
-        """调度任务里抛异常会打断调度链；失败必须记日志并返回摘要。"""
-        self.assertNotIn("frappe.throw(", self.src)
+    def test_scheduler_pipeline_does_not_throw_business_errors(self):
+        """调度编排必须返回摘要，不得因人工 API 的 RBAC 门禁而中断。"""
+        start = self.src.index("def sync_rest_leave_pipeline(")
+        body = self.src[start:]
+        self.assertNotIn("frappe.throw(", body)
+        self.assertIn('summary["sync"]', body)
+        self.assertIn('summary["parse"]', body)
+        self.assertIn('summary["verify"]', body)
+
+    def test_manual_sync_entry_has_server_side_rbac(self):
+        """人工触发白名单入口必须执行服务器端权限校验。"""
+        start = self.src.index("def sync_rest_leave_from_bitable(")
+        end = self.src.index("def parse_pending_rest_leaves(", start)
+        body = self.src[start:end]
+        self.assertIn("_require_hr_write()", body)
 
     def test_reports_unmatched_instead_of_silent_skip(self):
         self.assertIn("unmatched", self.src)
