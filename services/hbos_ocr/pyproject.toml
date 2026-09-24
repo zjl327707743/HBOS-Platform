@@ -1,0 +1,20 @@
+[project]
+name = "hbos-ocr"
+version = "0.1.0"
+description = "HBOS 入库拍照识别服务（本地部署，照片不出内网）"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110,<1.0",
+    "uvicorn[standard]>=0.27,<1.0",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.5,<3.0",
+]
+
+[project.optional-dependencies]
+# 识别后端所需的**重型依赖**单独分组，避免装 Web 骨架时被拖累
+c1 = ["mlx-vlm"]
+c2 = ["paddleocr", "paddlepaddle"]
+
+[tool.uv]
+# 见 README：本服务原生跑在宿主机上（不是 Frappe 容器），
+# 因为容器拿不到 Metal 加速。
