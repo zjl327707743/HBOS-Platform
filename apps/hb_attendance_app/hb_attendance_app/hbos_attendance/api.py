@@ -17,16 +17,28 @@ from hb_attendance_app.hbos_attendance.rule_lists import (
 )
 
 
-# 飞书多维表格固定配置
-# 请假表（Owner 2026-08-19 确认以此表为准）:
-# https://j0eukrlohu.feishu.cn/base/PwSXbltzha1uG1sr38hcQzMrnwb?table=tblmcJzOXsi6zfy3
-BITABLE_APP_TOKEN = "PwSXbltzha1uG1sr38hcQzMrnwb"
-BITABLE_TABLE_ID = "tblmcJzOXsi6zfy3"
-OVERTIME_BITABLE_APP_TOKEN = "Tb0YwuXY6iglUXkzpcWc5EADnxe"
-OVERTIME_BITABLE_TABLE_ID = "tblIQlEJk7TcxItX"
-EXCEPTION_BITABLE_APP_TOKEN = "TnDnbgjbPa5erasF407crN7Yn47"
-EXCEPTION_BITABLE_TABLE_ID = "tblP3tzAoO7NGBc6"
+# 外部资源 ID 不进入源码；新环境默认关闭真实同步。
+BITABLE_APP_TOKEN = os.environ.get("HBOS_FEISHU_LEAVE_APP_TOKEN", "")
+BITABLE_TABLE_ID = os.environ.get("HBOS_FEISHU_LEAVE_TABLE_ID", "")
+OVERTIME_BITABLE_APP_TOKEN = os.environ.get("HBOS_FEISHU_OVERTIME_APP_TOKEN", "")
+OVERTIME_BITABLE_TABLE_ID = os.environ.get("HBOS_FEISHU_OVERTIME_TABLE_ID", "")
+EXCEPTION_BITABLE_APP_TOKEN = os.environ.get("HBOS_FEISHU_EXCEPTION_APP_TOKEN", "")
+EXCEPTION_BITABLE_TABLE_ID = os.environ.get("HBOS_FEISHU_EXCEPTION_TABLE_ID", "")
 DELICLOUD_PATH = "/v2.0/cloudappapi"
+
+
+def _env_flag(name):
+    return str(os.environ.get(name, "0")).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _require_feishu_enabled():
+    if not _env_flag("HBOS_FEISHU_SYNC_ENABLED"):
+        frappe.throw("飞书真实同步未启用（HBOS_FEISHU_SYNC_ENABLED=0）")
+
+
+def _require_delicloud_enabled():
+    if not _env_flag("HBOS_DELICLOUD_SYNC_ENABLED"):
+        frappe.throw("得力云真实同步未启用（HBOS_DELICLOUD_SYNC_ENABLED=0）")
 
 # 旧无菌倒班名单已废弃(2026-08-20): 无菌人员统一走 pairing.py 的 SPECIAL_SHIFT_NUMS,
 # 原 WUJUN_NUMS 中 3 名设备动力部人员(11008005/11008011/11008012)误加, 回归通用判定
@@ -99,6 +111,7 @@ def sync_from_bitable():
     字段: 请假人员_姓名/工号/开始时间/结束时间/请假天数 + SourceID(审批实例ID) + 申请状态
     去重键: feishu-bitable-<SourceID>
     """
+    _require_feishu_enabled()
     _require_hr_write()
     try: token = _get_token(); records = _fetch_all_records(token)
     except Exception as e: frappe.log_error(str(e), "飞书同步"); frappe.throw(f"读取飞书表格失败: {e}")
@@ -187,6 +200,7 @@ def _delicloud_call(cmd, body=None):
 
 @frappe.whitelist()
 def sync_delicloud_checkin():
+    _require_delicloud_enabled()
     try:
         from datetime import datetime as dt_mod
         init_r = _delicloud_call("checkin_query_init")
@@ -315,6 +329,7 @@ def regenerate_attendance(range_start, range_end):
         3. 计算工作时长写入 working_hours
         4. 零打卡缺勤生成 Absent
     """
+    _require_feishu_enabled()
     _require_hr_write()
     from collections import defaultdict
     from datetime import datetime as _dt, timedelta as _td
@@ -708,6 +723,7 @@ def regenerate_attendance(range_start, range_end):
 @frappe.whitelist()
 def sync_attendance_exceptions_to_bitable():
     """将迟到/早退记录同步到飞书多维表格「考勤异常汇总」"""
+    _require_feishu_enabled()
     _require_hr_write()
     import hashlib
     from datetime import datetime as dt_mod
