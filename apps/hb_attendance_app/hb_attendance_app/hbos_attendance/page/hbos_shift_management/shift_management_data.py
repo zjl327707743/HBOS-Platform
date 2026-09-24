@@ -41,30 +41,64 @@ def _fmt_rule(r):
     return r
 
 
+def _rule_sort_key(rule):
+    return (str(rule.effective_from or ""), str(rule.name or ""))
+
+
+def _effective_family_version(versions, day):
+    """Pick the last version effective on day; a latest 停用 marker disables the family."""
+    candidates = [
+        r for r in versions
+        if r.status != "草稿" and str(r.effective_from or "") <= str(day)
+    ]
+    if not candidates:
+        return None
+    chosen = max(candidates, key=_rule_sort_key)
+    return None if chosen.status == "停用" else chosen
+
+
+def _group_rule_versions(rules):
+    families = {}
+    for rule in rules:
+        code = rule.rule_code or rule.rule_name or rule.name
+        families.setdefault(code, []).append(rule)
+    return families
+
+
+def _bindable_family_rows(rules, day):
+    """One row per stable family for employee binding."""
+    rows = []
+    for code, versions in _group_rule_versions(rules).items():
+        chosen = _effective_family_version(versions, day)
+        if chosen is None:
+            future_active = [
+                r for r in versions
+                if r.status == "生效" and str(r.effective_from or "") > str(day)
+            ]
+            if future_active:
+                chosen = min(future_active, key=_rule_sort_key)
+        if chosen is None:
+            continue
+        row = frappe._dict(chosen)
+        row["rule_code"] = code
+        rows.append(_fmt_rule(row))
+    return sorted(rows, key=lambda r: (str(r.department or ""), str(r.rule_name or "")))
+
+
 @frappe.whitelist()
 def get_shift_overview():
-    """班次管理页数据: 部门→班次→人员三层 + 进行中班次。
-
-    返回:
-    {
-      "departments": [{name, employee_count, shifts: [...]}],
-      "active_shifts": [{rule, department, ...}],
-      "all_rules": [...]
-    }
-    """
+    """班次管理总览：版本记录 + 当前有效版本 + 可绑定的稳定规则族。"""
     _require_hr_read()
     from collections import defaultdict
 
-    # 全部生效规则(含未到生效日期的, 前端标记"待生效")
     rules = [_fmt_rule(r) for r in frappe.db.get_all(
         "HBOS Shift Rule",
-        fields=["name", "rule_name", "department", "shift_type",
+        fields=["name", "rule_code", "rule_name", "department", "shift_type",
                 "start_time", "end_time", "late_after", "min_hours",
-                "effective_from", "status"],
-        order_by="department, start_time",
+                "effective_from", "supersedes", "status"],
+        order_by="department, rule_code, effective_from, creation",
     )]
 
-    # 部门员工数
     dept_counts = frappe.db.get_all(
         "Employee",
         filters={"status": "Active"},
@@ -74,76 +108,95 @@ def get_shift_overview():
     for d in dept_counts:
         dept_emp[d.department] += 1
 
-    # 进行中的班次: 当前时间落在 start_time~end_time 的规则
     now = frappe.utils.nowtime()
     now_secs = _to_secs(now)
-    # 显示用: HH:MM 格式(截掉秒和微秒)
     now_display = now.split(".")[0][:5]
+    today = frappe.utils.today()
+
     active_shifts = []
-    for r in rules:
-        if r.status != "生效" or str(r.effective_from) > frappe.utils.today():
+    for _, versions in _group_rule_versions(rules).items():
+        r = _effective_family_version(versions, today)
+        if not r:
             continue
         st = _to_secs(str(r.start_time))
         et = _to_secs(str(r.end_time))
         if st == 0 and et == 0:
             continue
-        if et > st:  # 当日班次
-            if st <= now_secs <= et:
-                active_shifts.append(r)
-        else:  # 跨零点班次(如夜班 0-8)
-            if now_secs >= st or now_secs <= et:
-                active_shifts.append(r)
+        running = (st <= now_secs <= et) if et > st else (now_secs >= st or now_secs <= et)
+        if running:
+            active_shifts.append(_fmt_rule(frappe._dict(r)))
 
     return {
         "departments": sorted(dept_emp.keys()),
         "dept_employee_count": dict(dept_emp),
         "rules": rules,
+        "bindable_rules": _bindable_family_rows(rules, today),
         "active_shifts": active_shifts,
         "now": now_display,
     }
 
 
 @frappe.whitelist()
-def update_shift_rule(rule_name, field, value):
-    """在线修改班次规则(次日生效)。
+def update_shift_rule(rule_name, updates=None, field=None, value=None):
+    """Create exactly one new version for a stable rule family.
 
-    field: start_time / end_time / late_after / min_hours
-    生效方式: 次日生效(Owner 2026-08-20 确认)。修改后:
-      - 原规则 status 改为 停用
-      - 新规则克隆原规则, 生效日期=明天, status=生效
-    返回新规则信息。
+    Legacy one-field calls are rejected deliberately: the old UI emitted three HTTP
+    calls and therefore created three versions for one Save action.
     """
     _require_hr_write()
-    from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
+    import json as _json
 
-    ALLOWED = {"start_time", "end_time", "late_after", "min_hours"}
-    if field not in ALLOWED:
-        frappe.throw(f"不允许修改字段: {field}")
+    if field is not None or value is not None:
+        frappe.throw("旧版逐字段保存接口已停用，请刷新页面后一次提交完整班次变更。")
+
+    try:
+        changes = _json.loads(updates) if isinstance(updates, str) else dict(updates or {})
+    except Exception:
+        frappe.throw("班次更新参数格式错误。")
+
+    allowed = {"start_time", "end_time", "late_after", "min_hours"}
+    unknown = set(changes) - allowed
+    if unknown:
+        frappe.throw("不允许修改字段: {}".format(", ".join(sorted(unknown))))
+    if not changes:
+        frappe.throw("没有需要保存的班次变更。")
 
     old = frappe.get_doc("HBOS Shift Rule", rule_name)
-    if old.status != "生效":
-        frappe.throw("只能修改生效中的规则")
+    if old.status == "草稿":
+        frappe.throw("草稿规则请先完成配置后再生效，不通过升版接口修改。")
 
-    tomorrow = (frappe.utils.today_datetime() + timedelta(days=1)).strftime("%Y-%m-%d") if hasattr(frappe.utils, "today_datetime") else (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    latest = frappe.db.get_all(
+        "HBOS Shift Rule",
+        filters={"rule_code": old.rule_code},
+        fields=["name", "effective_from"],
+        order_by="effective_from desc, creation desc",
+        limit_page_length=1,
+    )
+    if latest and latest[0].name != old.name:
+        frappe.throw("只能从规则族的最新版本创建新版本，请刷新页面。")
 
-    # 克隆新规则(次日生效)
+    tomorrow = (
+        frappe.utils.today_datetime() + timedelta(days=1)
+    ).strftime("%Y-%m-%d") if hasattr(frappe.utils, "today_datetime") else (
+        datetime.now() + timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
     new_doc = frappe.copy_doc(old)
-    new_doc.rule_name = old.rule_name  # 保留同名
+    new_doc.rule_code = old.rule_code
+    new_doc.supersedes = old.name
     new_doc.status = "生效"
     new_doc.effective_from = tomorrow
-    new_doc.set(field, value)
+    for key, val in changes.items():
+        new_doc.set(key, val)
     new_doc.insert(ignore_permissions=True)
-
-    # 原规则停用
-    frappe.db.set_value("HBOS Shift Rule", old.name, "status", "停用", update_modified=False)
     frappe.db.commit()
 
     return {
         "old": old.name,
         "new": new_doc.name,
+        "rule_code": new_doc.rule_code,
         "effective_from": tomorrow,
-        "field": field,
-        "value": str(value),
+        "updates": changes,
     }
 
 
