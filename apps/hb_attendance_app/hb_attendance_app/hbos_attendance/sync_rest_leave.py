@@ -220,7 +220,15 @@ def parse_pending_rest_leaves(limit=200):
             # 静默：日志失败不能让异常冒出，否则 error 摘要有值也回不去。
             pass
         return summary
-    if not cfg.get("enabled"):\n        summary["error"] = "AI 功能未启用（HBOS_AI_ENABLED=0）"\n        return summary\n    if not cfg.get("allow_pii"):\n        summary["error"] = "调休说明可能包含身份信息，未开启 HBOS_AI_ALLOW_PII"\n        return summary\n    if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):\n        summary["error"] = "未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）"\n        return summary
+    if not cfg.get("enabled"):
+        summary["error"] = "AI 功能未启用（HBOS_AI_ENABLED=0）"
+        return summary
+    if not cfg.get("allow_pii"):
+        summary["error"] = "调休说明可能包含身份信息，未开启 HBOS_AI_ALLOW_PII"
+        return summary
+    if not (cfg["base_url"] and cfg["api_key"] and cfg["model"]):
+        summary["error"] = "未配置 AI（HBOS_AI_BASE_URL / HBOS_AI_API_KEY / HBOS_AI_MODEL）"
+        return summary
 
     # 取待解析列表本身也会抛（DB 故障 / 权限 / 连接断），先前只想过 get_doc 会抛，
     # 漏了这里。它与核实段 verify_pending_rest_leaves 的取待核列表同形兜住：
