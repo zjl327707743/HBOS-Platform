@@ -36,16 +36,16 @@ export HBOS_OCR_URL=http://host.docker.internal:8100
 export HBOS_OCR_SHARED_TOKEN=inventory-smoke-only-token
 
 cleanup() {
-  docker compose -p "$PROJECT" down -v --remove-orphans >/dev/null 2>&1 || true
+  docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" down -v --remove-orphans >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-docker compose -p "$PROJECT" up -d db redis-cache redis-queue
-docker compose -p "$PROJECT" run --rm configurator
-docker compose -p "$PROJECT" run --rm create-site
-docker compose -p "$PROJECT" up -d backend
+docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" up -d db redis-cache redis-queue
+docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" run --rm configurator
+docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" run --rm create-site
+docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" up -d backend
 
-APPS="$(docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" list-apps)"
+APPS="$(docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" list-apps)"
 printf '%s\n' "$APPS"
 for app in frappe erpnext hb_inventory_app; do
   printf '%s\n' "$APPS" | awk '{print $1}' | grep -qx "$app" || {
@@ -55,14 +55,14 @@ for app in frappe erpnext hb_inventory_app; do
 done
 
 echo "[Inventory] migrate twice"
-docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
-docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
+docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
+docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
 
 check_column() {
   local doctype="$1"
   local field="$2"
   local out
-  out="$(docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute frappe.db.has_column --args "[\"$doctype\",\"$field\"]")"
+  out="$(docker compose --project-directory "$ROOT" -f scripts/ci/docker-compose.inventory-smoke.yml -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute frappe.db.has_column --args "[\"$doctype\",\"$field\"]")"
   printf '%s\n' "$out"
   printf '%s\n' "$out" | grep -qiE '^true$' || {
     echo "::error:: missing custom field: $doctype.$field"
