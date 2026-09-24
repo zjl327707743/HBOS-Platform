@@ -27,7 +27,16 @@ def after_migrate():
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
     create_custom_fields({
+        "Employee": [
+            {"fieldname": "hbos_fixed_shift", "label": "HBOS 固定班次", "fieldtype": "Link",
+             "options": "HBOS Shift Rule", "insert_after": "shift_request_approver"},
+        ],
         "Employee Checkin": [
+            {"fieldname": "hbos_terminal_sn", "label": "HBOS 终端序列号", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_delicloud_id", "label": "HBOS 得力云记录ID", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_employee_num", "label": "HBOS 源工号", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_dept_name", "label": "HBOS 源部门", "fieldtype": "Data", "read_only": 1},
+            {"fieldname": "hbos_check_type", "label": "HBOS 打卡类型", "fieldtype": "Data", "read_only": 1},
             {"fieldname": "hbos_source_type", "label": "HBOS 来源类型", "fieldtype": "Select",
              "options": "HBOS raw checkin import\nHBOS monthly adapter\nHRMS native / existing", "read_only": 1},
             {"fieldname": "hbos_import_log", "label": "HBOS 导入批次", "fieldtype": "Link",
