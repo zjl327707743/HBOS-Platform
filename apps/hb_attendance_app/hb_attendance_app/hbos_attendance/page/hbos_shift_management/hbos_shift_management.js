@@ -484,7 +484,7 @@ function renderDeptEmployees(dept, employees) {
 
 // 更新「已绑定班次」列的徽章显示
 function updateBoundDisplay(emp, boundRules, allRules) {
-	const $cell = $(`.bound-display[data-emp="${emp}"]`);
+	const $cell = $(".bound-display").filter(function () { return $(this).attr("data-emp") === String(emp); }).first();
 	if (!boundRules || boundRules.length === 0) {
 		$cell.html('<span class="text-muted">未绑定</span>');
 		return;
