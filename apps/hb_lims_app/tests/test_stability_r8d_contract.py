@@ -188,7 +188,7 @@ class TestChangeStateMachine(unittest.TestCase):
 			self.assertFalse(wf.action_allowed("approve_change_general", role),
 							 role)
 		self.assertTrue(wf.action_allowed("approve_change_general", wf.ROLE_LIMS_QA_MANAGER))
-		self.assertTrue(wf.action_allowed("approve_change_general", wf.ROLE_SYSTEM))
+		self.assertFalse(wf.action_allowed("approve_change_general", wf.ROLE_SYSTEM))
 		for role in (wf.ROLE_ANALYST, wf.ROLE_REVIEWER, wf.ROLE_LIMS_QA,
 					 wf.ROLE_LIMS_QA_MANAGER, wf.ROLE_MANAGER):
 			self.assertFalse(wf.action_allowed("approve_change_major", role), role)
