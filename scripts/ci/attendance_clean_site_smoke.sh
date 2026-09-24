@@ -95,6 +95,15 @@ check_column "Employee Checkin" "hbos_terminal_sn"
 check_column "Employee Checkin" "hbos_check_type"
 check_column "Attendance" "hbos_missing_out"
 
+echo "[G1] run DB rollback/idempotency + policy seed rehearsal"
+CHECKS="$(docker compose -p "$PROJECT" exec -T -e HBOS_G1_INTEGRATION_CHECKS=1 backend \
+  bench --site "$SITE_NAME" execute hb_attendance_app.hbos_attendance.g1_integration_checks.run)"
+printf '%s\n' "$CHECKS"
+printf '%s\n' "$CHECKS" | grep -q "'ok': True" || {
+  echo "::error:: G1 DB integration checks did not report success"
+  exit 1
+}
+
 echo "[G1] clean-site smoke PASS"
  || {
     echo "::error:: missing custom field: $doctype.$field"
