@@ -37,7 +37,7 @@ function loadFilters() {
 		callback(r) {
 			const $sel = $("#dept-filter");
 			(r.message || []).forEach(d => {
-				$sel.append(`<option value="${d.department}">${d.department}（${d.cnt}人）</option>`);
+				const dept = escHtml(d.department);\n\t\t\t\t$sel.append(`<option value="${dept}">${dept}（${Number(d.cnt || 0)}人）</option>`);
 			});
 			$sel.on("change", () => loadEmps());
 		},
@@ -63,14 +63,14 @@ function renderEmpTable(emps) {
 			<th>照片</th><th>工号</th><th>姓名</th><th>部门</th><th>联系方式</th><th>入职日期</th>
 		</tr></thead><tbody>`;
 	(emps || []).forEach(e => {
-		const img = e.image ? `<img src="${e.image}" style="width:36px;height:36px;border-radius:50%;">` : `<span class="text-muted">无</span>`;
+		const img = e.image ? `<img src="${escHtml(e.image)}" style="width:36px;height:36px;border-radius:50%;">` : `<span class="text-muted">无</span>`;
 		html += `<tr>
 			<td>${img}</td>
-			<td>${e.employee_number || ""}</td>
-			<td>${e.employee_name || ""}</td>
-			<td>${e.department || ""}</td>
-			<td>${e.cell_number || ""}</td>
-			<td>${e.date_of_joining ? e.date_of_joining : ""}</td>
+			<td>${escHtml(e.employee_number)}</td>
+			<td>${escHtml(e.employee_name)}</td>
+			<td>${escHtml(e.department)}</td>
+			<td>${escHtml(e.cell_number)}</td>
+			<td>${escHtml(e.date_of_joining)}</td>
 		</tr>`;
 	});
 	html += `</tbody></table>`;
@@ -78,4 +78,9 @@ function renderEmpTable(emps) {
 		html = `<div class="alert alert-info">暂无员工数据</div>`;
 	}
 	$t.html(html);
+}
+
+
+function escHtml(value) {
+	return frappe.utils.escape_html(String(value == null ? "" : value));
 }
