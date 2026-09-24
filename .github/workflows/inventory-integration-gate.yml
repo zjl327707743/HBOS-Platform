@@ -1,0 +1,41 @@
+name: HBOS Inventory Integration Gate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/hb_inventory_app/**"
+      - "services/hbos_ocr/**"
+      - "docker-compose.yml"
+      - "scripts/ci/inventory_clean_site_smoke.sh"
+      - ".github/workflows/inventory-integration-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  clean-site:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'integration/pr8-inventory-clean'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare HRMS mount expected by current compose
+        run: |
+          mkdir -p runtime/apps
+          git clone --depth 1 --branch version-16 https://github.com/frappe/hrms.git runtime/apps/hrms
+
+      - name: Shell syntax
+        run: bash -n scripts/ci/inventory_clean_site_smoke.sh
+
+      - name: Clean-site install + migrate smoke
+        env:
+          HBOS_SMOKE_PROJECT: hbos-inventory-${{ github.run_id }}
+        run: bash scripts/ci/inventory_clean_site_smoke.sh
