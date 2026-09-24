@@ -48,6 +48,40 @@ fi
 "$DOCKER" exec "$FRONTEND_ID" mkdir -p "$REMOTE_DIR"
 "$DOCKER" cp "$DIST_DIR/." "$FRONTEND_ID:$REMOTE_DIR/"
 
+log "6b/8 Prune production files not present in this build"
+# 旧哈希 chunk 会逐版累积：`docker cp` 只覆盖不删除，M2-R6D 曾因新旧哈希混放
+# 致个别页面 404。逐版清掉目标目录中不存在于本次构建的文件；备份已在 6/8 生成。
+# 关键：两份清单只含相对路径、且两端都强制 LC_ALL=C 同序，comm 求差集才可靠
+# （若一边带哈希前缀排序、另一边按路径排序，差集结果会错乱并误删有效文件）。
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+( cd "$DIST_DIR" && find . -type f | sed 's|^\./||' | LC_ALL=C sort ) > "$TMP_DIR/dist.list"
+"$DOCKER" exec "$FRONTEND_ID" sh -c \
+  "cd '$REMOTE_DIR' && find . -type f | sed 's|^\./||' | LC_ALL=C sort" > "$TMP_DIR/remote.list"
+PRUNED=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  case "$f" in
+    *[!A-Za-z0-9._/-]*) printf 'Skip (name needs review): %s\n' "$f"; continue ;;
+  esac
+  "$DOCKER" exec -u root "$FRONTEND_ID" rm -f "$REMOTE_DIR/$f"
+  printf 'Pruned: %s\n' "$f"
+  PRUNED=$((PRUNED + 1))
+done < <(comm -13 "$TMP_DIR/dist.list" "$TMP_DIR/remote.list")
+printf 'Pruned %s stale file(s)\n' "$PRUNED"
+
+log "6c/8 Verify production assets match this build"
+"$DOCKER" exec "$FRONTEND_ID" sh -c \
+  "cd '$REMOTE_DIR' && find . -type f | sed 's|^\./||' | LC_ALL=C sort" > "$TMP_DIR/remote.list"
+if ! diff -q "$TMP_DIR/dist.list" "$TMP_DIR/remote.list" >/dev/null; then
+  printf 'build: %s file(s) / production: %s file(s)\n' \
+    "$(wc -l < "$TMP_DIR/dist.list" | tr -d ' ')" \
+    "$(wc -l < "$TMP_DIR/remote.list" | tr -d ' ')"
+  diff "$TMP_DIR/dist.list" "$TMP_DIR/remote.list" || true
+  fail "production asset list differs from build output（见上方 diff）"
+fi
+printf 'Match: %s file(s), 0 stale, 0 missing\n' "$(wc -l < "$TMP_DIR/dist.list" | tr -d ' ')"
+
 log "7/8 Restart application services"
 "$DOCKER" compose restart backend frontend scheduler queue-short queue-long websocket
 
