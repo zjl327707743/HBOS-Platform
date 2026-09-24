@@ -12,6 +12,8 @@ from hb_lims_app.hbos_lims.portal.access import (
 )
 from hb_lims_app.hbos_lims.portal.manifest import get_manifest
 from hb_lims_app.hbos_lims.portal.provider import get_provider
+from hb_lims_app.hbos_lims.portal.routes import resolve_stable_route
+from hb_lims_app.hbos_lims.todo_contract import TODO_RULES
 
 
 class PortalManifestContractTest(unittest.TestCase):
@@ -32,6 +34,43 @@ class PortalManifestContractTest(unittest.TestCase):
         self.assertEqual("ExperimentOutlined", manifest["icon"])
         self.assertEqual("lims", manifest["accent"])
         self.assertEqual([], manifest["capabilities"])
+
+
+class PortalRouteContractTest(unittest.TestCase):
+    def test_root_maps_to_current_lims_dashboard(self):
+        self.assertEqual(
+            "/hbos-lims/dashboard",
+            resolve_stable_route("/hbos/lims"),
+        )
+
+    def test_all_current_todo_routes_have_stable_mapping(self):
+        routes = sorted({rule.route for rule in TODO_RULES})
+        self.assertTrue(routes)
+        for route in routes:
+            with self.subTest(route=route):
+                self.assertEqual(
+                    f"/hbos-lims{route}",
+                    resolve_stable_route(f"/hbos/lims{route}"),
+                )
+
+    def test_query_string_is_preserved(self):
+        self.assertEqual(
+            "/hbos-lims/tasks?scope=mine&status=open",
+            resolve_stable_route(
+                "/hbos/lims/tasks?scope=mine&status=open"
+            ),
+        )
+
+    def test_rejects_paths_outside_lims_namespace(self):
+        for path in (
+            "/hbos/inventory/tasks",
+            "/hbos/limsx/tasks",
+            "https://evil.example/hbos/lims",
+            "/hbos/lims/%2e%2e/admin",
+        ):
+            with self.subTest(path=path):
+                with self.assertRaises(ValueError):
+                    resolve_stable_route(path)
 
 
 class PortalAccessContractTest(unittest.TestCase):

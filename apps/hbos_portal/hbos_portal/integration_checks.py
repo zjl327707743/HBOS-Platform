@@ -7,6 +7,7 @@ import frappe
 from hbos_portal.services.access import evaluate_access
 from hbos_portal.services.bootstrap import build_bootstrap
 from hbos_portal.services.registry import build_registry
+from hbos_portal.services.routes import resolve_stable_route
 
 
 def _require_ci_authority() -> None:
@@ -54,6 +55,13 @@ def run() -> dict[str, object]:
     if not access.can_enter:
         raise AssertionError("Administrator must receive LIMS break-glass entry access")
 
+    route_result = resolve_stable_route(
+        "lims",
+        "/hbos/lims/tasks?scope=mine",
+    )
+    if route_result["resolved_path"] != "/hbos-lims/tasks?scope=mine":
+        raise AssertionError("LIMS stable route adapter mismatch")
+
     bootstrap = build_bootstrap()
     app_ids = [
         app["manifest"]["id"]
@@ -68,6 +76,7 @@ def run() -> dict[str, object]:
         "lims_route": manifest["route"],
         "lims_manifest_capabilities": manifest["capabilities"],
         "lims_access": access.can_enter,
+        "lims_resolved_route": route_result["resolved_path"],
         "bootstrap_apps": app_ids,
         "user": bootstrap["user"]["id"],
     }

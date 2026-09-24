@@ -12,7 +12,13 @@ class PortalProvider(Protocol):
     def access_context(self) -> Mapping[str, Any]:
         ...
 
-    # Optional methods are invoked only when declared by the manifest.
+    # Optional implementation-route adapter. This is not a data capability.
+    # Portal stable URLs remain /hbos/<app>/... even when the current
+    # implementation is mounted elsewhere.
+    def resolve_route(self, stable_path: str) -> str:
+        ...
+
+    # Optional data methods are invoked only when declared by the manifest.
     def summary(self) -> Mapping[str, Any]:
         ...
 
