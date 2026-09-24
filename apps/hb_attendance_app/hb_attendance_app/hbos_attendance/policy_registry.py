@@ -86,8 +86,8 @@ def get_policy_numbers(policy_type, day=None):
         rows = frappe.db.sql(
             """
             SELECT emp.employee_number
-            FROM \`tabHBOS Attendance Policy Assignment\` p
-            JOIN \`tabEmployee\` emp ON emp.name = p.employee
+            FROM `tabHBOS Attendance Policy Assignment` p
+            JOIN `tabEmployee` emp ON emp.name = p.employee
             WHERE p.enabled = 1
               AND p.policy_type = %s
               AND (p.effective_from IS NULL OR p.effective_from = '' OR p.effective_from <= %s)
