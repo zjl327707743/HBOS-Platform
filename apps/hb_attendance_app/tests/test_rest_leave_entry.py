@@ -15,16 +15,30 @@ class EntryContractTest(unittest.TestCase):
         self.ws = json.loads(
             (MOD / "workspace/海滨考勤工作台/海滨考勤工作台.json").read_text())
 
-    def test_hooks_registers_rest_leave_stages(self):
-        self.assertIn("sync_rest_leave.sync_rest_leave_from_bitable", self.hooks)
-        self.assertIn("sync_rest_leave.parse_pending_rest_leaves", self.hooks)
-        self.assertIn("sync_rest_leave.verify_pending_rest_leaves", self.hooks)
+    def test_hooks_registers_one_rest_leave_pipeline(self):
+        """Scheduler 只注册单一编排入口，不依赖多个后台 job 的调度顺序。"""
+        self.assertIn("sync_rest_leave.sync_rest_leave_pipeline", self.hooks)
+        self.assertNotIn(
+            '"hb_attendance_app.hbos_attendance.sync_rest_leave.sync_rest_leave_from_bitable"',
+            self.hooks,
+        )
+        self.assertNotIn(
+            '"hb_attendance_app.hbos_attendance.sync_rest_leave.parse_pending_rest_leaves"',
+            self.hooks,
+        )
+        self.assertNotIn(
+            '"hb_attendance_app.hbos_attendance.sync_rest_leave.verify_pending_rest_leaves"',
+            self.hooks,
+        )
 
-    def test_hooks_registers_rest_leave_stages_in_order(self):
-        # 顺序固定：同步 → 解析 → 核实（解析依赖同步刚落的记录）
-        sync = self.hooks.index("sync_rest_leave.sync_rest_leave_from_bitable")
-        parse = self.hooks.index("sync_rest_leave.parse_pending_rest_leaves")
-        verify = self.hooks.index("sync_rest_leave.verify_pending_rest_leaves")
+    def test_rest_leave_pipeline_orders_sync_parse_verify(self):
+        """业务顺序由 pipeline 函数本身保证：同步 → 解析 → 核实。"""
+        src = (MOD / "sync_rest_leave.py").read_text()
+        at = src.index("def sync_rest_leave_pipeline(")
+        body = src[at:]
+        sync = body.index("sync_rest_leave_from_bitable()")
+        parse = body.index("parse_pending_rest_leaves()")
+        verify = body.index("verify_pending_rest_leaves()")
         self.assertLess(sync, parse)
         self.assertLess(parse, verify)
 
