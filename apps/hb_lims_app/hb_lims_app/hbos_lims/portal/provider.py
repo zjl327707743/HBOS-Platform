@@ -3,6 +3,7 @@ from __future__ import annotations
 from hb_lims_app.hbos_lims.portal.access import build_access_context
 from hb_lims_app.hbos_lims.portal.manifest import get_manifest
 from hb_lims_app.hbos_lims.portal.routes import resolve_stable_route
+from hb_lims_app.hbos_lims.portal.summary import get_summary_projection
 from hb_lims_app.hbos_lims.portal.tasks import get_task_projection
 
 
@@ -18,6 +19,9 @@ class LimsPortalProvider:
         user = frappe.session.user
         roles = frappe.get_roles(user) if user and user != "Guest" else []
         return build_access_context(user, roles)
+
+    def summary(self) -> dict[str, object]:
+        return get_summary_projection()
 
     def my_tasks(
         self,

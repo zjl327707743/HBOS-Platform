@@ -16,7 +16,7 @@ def _require_ci_authority() -> None:
         )
 
 
-def run() -> dict[str, str]:
+def run() -> dict[str, object]:
     """Verify the LIMS-owned internal-route -> stable-link -> runtime-route chain."""
 
     _require_ci_authority()
@@ -38,9 +38,20 @@ def run() -> dict[str, str]:
     if "next_cursor" not in task_payload:
         raise AssertionError("LIMS Portal tasks provider omitted next_cursor")
 
+    summary_payload = get_provider().summary()
+    metrics = list(summary_payload.get("metrics") or [])
+    if summary_payload.get("app_id") != "lims":
+        raise AssertionError("LIMS Portal summary app_id mismatch")
+    if len(metrics) != 4:
+        raise AssertionError("LIMS Portal summary must expose four semantic metrics")
+    if any(metric.get("deep_link") != "/hbos/lims/tasks?scope=mine" for metric in metrics):
+        raise AssertionError("LIMS Portal summary must expose stable HBOS deep links")
+
     return {
         "stable_link": stable_link,
         "resolved_path": resolved,
         "task_count": len(task_payload["tasks"]),
         "next_cursor": task_payload["next_cursor"],
+        "summary_status": summary_payload["status"],
+        "summary_metrics": len(metrics),
     }

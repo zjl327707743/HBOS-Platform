@@ -12,6 +12,7 @@ from hb_lims_app.hbos_lims.portal.access import (
 )
 from hb_lims_app.hbos_lims.portal.manifest import get_manifest
 from hb_lims_app.hbos_lims.portal.provider import get_provider
+from hb_lims_app.hbos_lims.portal.summary import project_todo_summary
 from hb_lims_app.hbos_lims.portal.routes import build_stable_deep_link, resolve_stable_route
 from hb_lims_app.hbos_lims.todo_contract import TODO_RULES
 
@@ -33,7 +34,7 @@ class PortalManifestContractTest(unittest.TestCase):
         self.assertEqual("native", manifest["migration_mode"])
         self.assertEqual("ExperimentOutlined", manifest["icon"])
         self.assertEqual("lims", manifest["accent"])
-        self.assertEqual(["tasks"], manifest["capabilities"])
+        self.assertEqual(["summary", "tasks"], manifest["capabilities"])
 
 
 class PortalRouteContractTest(unittest.TestCase):
@@ -138,12 +139,60 @@ class PortalAccessContractTest(unittest.TestCase):
         self.assertNotIn(wf.ROLE_ANALYST, str(access))
 
 
+class PortalSummaryProjectionContractTest(unittest.TestCase):
+    def test_projects_permission_aware_todo_summary(self):
+        projected = project_todo_summary(
+            {
+                "summary": {
+                    "total": 7,
+                    "overdue": 2,
+                    "assigned_to_me": 3,
+                    "role_pending": 4,
+                    "by_module": {
+                        "testing": 4,
+                        "stability": 2,
+                        "retention": 1,
+                    },
+                },
+                "generated_at": "2026-09-25T02:00:00+08:00",
+            }
+        )
+
+        self.assertEqual("lims", projected["app_id"])
+        self.assertEqual("attention", projected["status"])
+        self.assertEqual(4, len(projected["metrics"]))
+        values = {item["id"]: item["value"] for item in projected["metrics"]}
+        self.assertEqual(7, values["my_lims_work"])
+        self.assertEqual(2, values["my_lims_overdue"])
+        self.assertEqual(4, values["my_lims_testing"])
+        self.assertEqual(2, values["my_lims_stability"])
+        self.assertTrue(
+            all(
+                item["deep_link"] == "/hbos/lims/tasks?scope=mine"
+                for item in projected["metrics"]
+            )
+        )
+
+    def test_zero_summary_uses_non_alarm_tones(self):
+        projected = project_todo_summary(
+            {
+                "summary": {"total": 0, "overdue": 0, "by_module": {}},
+                "generated_at": "",
+            }
+        )
+        by_id = {item["id"]: item for item in projected["metrics"]}
+        self.assertEqual("normal", projected["status"])
+        self.assertEqual("success", by_id["my_lims_overdue"]["tone"])
+        self.assertEqual("neutral", by_id["my_lims_work"]["tone"])
+
+
 class PortalProviderRuntimeBoundaryTest(unittest.TestCase):
     def tearDown(self):
         sys.modules.pop("frappe", None)
 
-    def test_provider_exposes_tasks_capability_method(self):
+    def test_provider_exposes_declared_capability_methods(self):
         provider = get_provider()
+        self.assertTrue(callable(provider.summary))
         self.assertTrue(callable(provider.my_tasks))
 
     def test_provider_derives_identity_from_frappe_session(self):

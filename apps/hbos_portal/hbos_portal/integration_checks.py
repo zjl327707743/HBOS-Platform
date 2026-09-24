@@ -46,9 +46,9 @@ def run() -> dict[str, object]:
 
     if manifest["route"] != "/hbos/lims":
         raise AssertionError("LIMS stable route mismatch")
-    if manifest["capabilities"] != ["tasks"]:
+    if manifest["capabilities"] != ["summary", "tasks"]:
         raise AssertionError(
-            "P3-LIMS-3 must enable only tasks; summary/search remain gated"
+            "P3-LIMS-4 must enable summary/tasks only; search remains gated"
         )
 
     access = evaluate_access(entry)
