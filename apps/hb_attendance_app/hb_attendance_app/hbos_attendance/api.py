@@ -403,122 +403,121 @@ def regenerate_attendance(range_start, range_end):
     # 规则: 先去重(相邻10min内合并), 凌晨卡先向前配对, 再零点夜班配对, 最后向后配对
     # 同时记录每个员工的「夜班下班日」集合(8-10点的下班卡日期), 用于零打卡休息豁免
     from hb_attendance_app.hbos_attendance.pairing import dedup_checkins_with_mapping, night_out_days_from_roles
-    # 班次规则表预加载 + 按日期版本化(历史稳定: 某天用当天生效的规则版本)
-    # 结构: {(department, shift_type): [(effective_from, rule), ...]} 按 effective_from 升序
-    # 注意: 状态包含「生效」和「停用」——停用的规则是旧版本, 对生效日期之前的历史仍有效
+    # 班次规则按稳定 rule_code 版本化：员工绑定规则族，不绑定某一个版本 DocName。
+    # 每个业务日期取 effective_from <= 当日的最后一个版本；若最后版本是「停用」，
+    # 该日期起规则族不再生效。这样升版/停用不会污染历史重算。
     rules_versioned = {}
     for r in frappe.db.get_all(
         "HBOS Shift Rule",
-        filters={"status": ["in", ["生效", "停用"]], "effective_from": ["<=", range_end]},
-        fields=["name", "department", "shift_type", "start_time", "end_time", "late_after", "min_hours", "effective_from"],
-        order_by="department, shift_type, effective_from",
+        filters={"effective_from": ["<=", range_end]},
+        fields=["name", "rule_code", "rule_name", "department", "shift_type",
+                "start_time", "end_time", "late_after", "min_hours",
+                "effective_from", "status"],
+        order_by="rule_code, effective_from, creation",
     ):
-        key = (r.department, r.shift_type)
-        rules_versioned.setdefault(key, []).append(r)
+        code = r.rule_code or r.rule_name or r.name
+        rules_versioned.setdefault(code, []).append(r)
 
-    # 固定班次绑定: 员工 -> 绑定的规则名列表(多班次轮班支持)
-    # 数据源: HBOS Employee Shift(多绑定) + Employee.hbos_fixed_shift(单绑定兼容)
+    def _rule_for_day(rule_code, day):
+        versions = [
+            v for v in rules_versioned.get(rule_code, [])
+            if v.status != "草稿" and str(v.effective_from or "") <= str(day)
+        ]
+        if not versions:
+            return None
+        chosen = max(versions, key=lambda v: (str(v.effective_from or ""), str(v.name or "")))
+        return chosen if chosen.status == "生效" else None
+
+    # 固定班次绑定: employee -> stable rule_code list.
+    # Legacy version pointers are only fallback sources during migration.
     fixed_shift_map = {}
-    for b in frappe.db.get_all("HBOS Employee Shift",
-            fields=["employee", "shift_rule"]):
-        fixed_shift_map.setdefault(b.employee, []).append(b.shift_rule)
-    for e in frappe.db.get_all("Employee",
-            fields=["name", "hbos_fixed_shift"],
-            filters={"hbos_fixed_shift": ["is", "set"]}):
-        if e.name not in fixed_shift_map:
-            fixed_shift_map[e.name] = [e.hbos_fixed_shift]
+    for b in frappe.db.get_all(
+        "HBOS Employee Shift",
+        fields=["employee", "rule_code", "shift_rule"],
+    ):
+        code = b.rule_code
+        if not code and b.shift_rule:
+            code = frappe.db.get_value("HBOS Shift Rule", b.shift_rule, "rule_code")
+        if code:
+            fixed_shift_map.setdefault(b.employee, []).append(code)
 
-    # 排班表(员工排班): 排班优先于一切规则
+    for e in frappe.db.get_all(
+        "Employee",
+        fields=["name", "hbos_fixed_shift_code", "hbos_fixed_shift"],
+    ):
+        if e.name in fixed_shift_map:
+            continue
+        code = e.hbos_fixed_shift_code
+        if not code and e.hbos_fixed_shift:
+            code = frappe.db.get_value("HBOS Shift Rule", e.hbos_fixed_shift, "rule_code")
+        if code:
+            fixed_shift_map[e.name] = [code]
+
+    # 排班表是最高优先级；G1-C 保证同一 employee + date 只有一条权威记录。
     schedule_map = {}
-    for s in frappe.db.get_all("HBOS Employee Schedule",
-            fields=["employee", "schedule_date", "shift_type", "leave_type"]):
+    for s in frappe.db.get_all(
+        "HBOS Employee Schedule",
+        fields=["employee", "schedule_date", "shift_type", "leave_type", "source_type", "source_ref"],
+    ):
         schedule_map.setdefault(s.employee, {})[str(s.schedule_date)] = s
 
     def shift_fn_with_fixed(ck_dt, emp_num, cross_day=False):
-        """判定优先级: 排班表 > 固定班次绑定 > 行政班名单 > 硬编码。
-
-        规则表(HBOS Shift Rule)只在员工有明确绑定(第 2 步)时生效；
-        未绑定者走硬编码——按「最接近上班时间」把部门/全局规则套到所有人身上
-        会把普通员工匹配成特种班次(实测 703 天被当成无菌 12 小时班)，故不采用。
-
-        行政班名单(Owner 2026-08-21): 硬编码短路——四车间行政班 08:0x 打卡曾被
-        匹配为「早班 08:00 标准」误判迟到；名单人员统一 08:31 起算迟到，夜间/凌晨卡
-        按晚班不判迟到。
-
-        Owner 2026-09-11 修正: 名单短路**仅在其绑定里没有其它班次时生效**。
-        名单里但同时绑定中班/夜班的人（卞德志 11004006: 中班+行政班，上 15:4x→次日
-        00:0x），原实现被一律按行政班早班判定 → 15:4x 被判「行政班早班 + 迟到」。
-        显式绑定比名单启发式更具体，应优先；只绑行政班的人（焦德龙）行为不变。
-        """
+        """判定优先级: 排班表 > 稳定规则族绑定 > 行政班名单 > 硬编码。"""
         eid = emp_num_to_eid.get(emp_num, "") if emp_num else ""
         if emp_num in ADMIN_NUMS and not _admin_bound_other_shift(eid):
             return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
-        # 1. 排班表优先
+
         if eid:
             day = ck_dt.date().strftime("%Y-%m-%d")
             sched = schedule_map.get(eid, {}).get(day)
             if sched and sched.shift_type == "休息":
-                # 休息日来上班(Owner 2026-08-21 口径A): 正常出勤, 不判迟到不判异常
                 return ("休息日加班", False)
-            elif sched and sched.shift_type:
+            if sched and sched.shift_type:
                 stype = sched.shift_type
-                # 找该班次类型的默认时间, 用于迟到判定
                 from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
                 default = BUILTIN_SHIFTS.get(stype)
                 if default:
                     late_after = default[2]
                     ts = ck_dt.strftime("%H:%M:%S")
-                    # 夜班跨零点特殊处理
                     if stype == "夜班":
                         return (stype, ck_dt.hour < 4 and ts > late_after)
                     return (stype, ts > late_after)
                 return (stype, False)
-        # 2. 固定班次绑定
-        bound_rules = fixed_shift_map.get(eid) if eid else None
-        if bound_rules:
+
+        bound_codes = fixed_shift_map.get(eid) if eid else None
+        if bound_codes:
             day = ck_dt.date().strftime("%Y-%m-%d")
-            # 收集绑定的全部规则(按日期取最新版本), 用 match_rule_by_time 自动选最匹配的
             candidates = []
-            for rule_name in bound_rules:
-                versions = [
-                    v for key, versions in rules_versioned.items()
-                    for v in versions
-                    if v.name == rule_name and str(v.effective_from) <= day
-                ]
-                if versions:
-                    candidates.append(max(versions, key=lambda v: str(v.effective_from)))
+            for code in bound_codes:
+                version = _rule_for_day(code, day)
+                if version:
+                    candidates.append(version)
             if candidates:
                 from hb_attendance_app.hbos_attendance.shift_rules import match_rule_by_time
                 matched = match_rule_by_time(candidates, ck_dt, cross_day)
                 if matched:
                     return matched
-        # 3. 兜底硬编码；名单规则在 _get_shift_and_late_builtin 内部生效
-        #    （admin_shift_from_gap：08:31 起算迟到、夜间/凌晨卡按晚班）
+
         return _get_shift_and_late_builtin(ck_dt, emp_num, cross_day)
 
-    # 工号→员工ID 映射(固定班次匹配用)
     emp_num_to_eid = {
         e.employee_number: e.name
-        for e in frappe.db.get_all("Employee",
+        for e in frappe.db.get_all(
+            "Employee",
             fields=["name", "employee_number"],
-            filters={"employee_number": ["is", "set"]})
+            filters={"employee_number": ["is", "set"]},
+        )
     }
 
-    # 规则名 → 班次类型（判断行政班名单人员是否另绑了其它班次）
-    shift_type_by_rule = {
-        r.name: r.shift_type
-        for key, versions in rules_versioned.items()
-        for r in versions
-    }
+    # Identity attributes cannot vary across a rule family, so any version gives shift_type.
+    shift_type_by_code = {}
+    for code, versions in rules_versioned.items():
+        if versions:
+            shift_type_by_code[code] = versions[0].shift_type
 
     def _admin_bound_other_shift(eid):
-        """该行政班名单人员是否另绑了非「行政班」的班次（如中班/夜班）。
-
-        是 → 名单短路让位给绑定（Owner 2026-09-11，卞德志中班被误判迟到）；
-        否 → 维持名单短路（焦德龙等只绑/未绑行政班的人行为不变）。
-        """
-        for rule_name in (fixed_shift_map.get(eid) or []):
-            st = shift_type_by_rule.get(rule_name)
+        for code in (fixed_shift_map.get(eid) or []):
+            st = shift_type_by_code.get(code)
             if st and st != "行政班":
                 return True
         return False
