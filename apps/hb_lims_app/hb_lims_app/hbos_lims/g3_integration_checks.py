@@ -123,6 +123,32 @@ def _check_lims_projection_unlocks_warehouse_gate():
         raise AssertionError("LIMS quality projection did not persist authoritative release state")
 
 
+
+def schema_columns(doctype):
+    """Return the physical DB columns for one DocType on the active site."""
+    _guard()
+    return sorted(frappe.db.get_table_columns(doctype))
+
+
+def verify_schema():
+    """Verify the critical LIMS/Inventory integration columns on the real DB schema."""
+    _guard()
+    required = {
+        "HBOS Sample": {"item_ref", "batch_ref"},
+        "HBOS Test Result": {"approved_signature"},
+        "Batch": {"hbos_lims_reference", "hbos_release_source"},
+    }
+    missing = {}
+    for doctype, fields in required.items():
+        columns = set(frappe.db.get_table_columns(doctype))
+        absent = sorted(fields - columns)
+        if absent:
+            missing[doctype] = absent
+    if missing:
+        raise AssertionError(f"missing integration columns: {missing}")
+    return {"ok": True, "required": {k: sorted(v) for k, v in required.items()}}
+
+
 def run():
     _guard()
     frappe.set_user("Administrator")
