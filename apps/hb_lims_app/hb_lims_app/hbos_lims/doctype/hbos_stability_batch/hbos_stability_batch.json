@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "batch_no",
+  "batch_size",
+  "manufacture_date",
+  "finish_date",
+  "is_inverted",
+  "remark"
+ ],
+ "fields": [
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "批号",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "batch_size",
+   "fieldtype": "Data",
+   "label": "批量",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "manufacture_date",
+   "fieldtype": "Date",
+   "label": "生产日期"
+  },
+  {
+   "fieldname": "finish_date",
+   "fieldtype": "Date",
+   "label": "终结日期"
+  },
+  {
+   "fieldname": "is_inverted",
+   "fieldtype": "Check",
+   "label": "该批需倒置存放",
+   "default": "0"
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Batch",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1
+}

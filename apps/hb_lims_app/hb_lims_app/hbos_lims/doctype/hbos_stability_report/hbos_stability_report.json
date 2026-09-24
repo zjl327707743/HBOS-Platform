@@ -1,0 +1,444 @@
+{
+ "actions": [],
+ "creation": "2026-09-18 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "report_type",
+  "stability_product",
+  "year",
+  "report_period_key",
+  "column_break_head",
+  "source_doctype",
+  "source_name",
+  "study_scope",
+  "section_customer",
+  "customer",
+  "client",
+  "column_break_customer",
+  "client_code",
+  "seq",
+  "section_period",
+  "period_from",
+  "period_to",
+  "storage_conds",
+  "spec_ref",
+  "column_break_period",
+  "trend_analysis",
+  "impurity_profile",
+  "trend_chart_ref",
+  "conclusion",
+  "section_validity",
+  "proposed_validity_months",
+  "proposed_validity_date",
+  "proposed_validity_type",
+  "proposed_validity_basis",
+  "column_break_validity",
+  "final_validity_months",
+  "final_validity_date",
+  "final_validity_type",
+  "client_requirement",
+  "section_signoff",
+  "drafted_by",
+  "draft_date",
+  "qa_review_by",
+  "qa_review_date",
+  "column_break_signoff",
+  "qa_approve_by",
+  "approve_date",
+  "reject_reason",
+  "void_reason",
+  "section_status",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-RPT-.YYYY.-",
+   "default": "HBOS-STB-RPT-.YYYY.-",
+   "reqd": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "label": "报告类型",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "options": "年度趋势分析报告\n工艺验证稳定性报告\n专项（客户要求）\nAPQR 年度稳定性汇总"
+  },
+  {
+   "fieldname": "stability_product",
+   "fieldtype": "Link",
+   "label": "稳定性产品",
+   "options": "HBOS Stability Product",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "year",
+   "fieldtype": "Int",
+   "label": "年度"
+  },
+  {
+   "fieldname": "report_period_key",
+   "fieldtype": "Data",
+   "label": "防重键",
+   "unique": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Select",
+   "label": "来源单据类型",
+   "options": "\nHBOS Stability Protocol\nHBOS Stability Notice\nHBOS Stability Sample"
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Dynamic Link",
+   "label": "来源单据编号",
+   "options": "source_doctype"
+  },
+  {
+   "fieldname": "study_scope",
+   "fieldtype": "Long Text",
+   "label": "研究范围"
+  },
+  {
+   "fieldname": "section_customer",
+   "fieldtype": "Section Break",
+   "label": "客户与序号（仅专项报告）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "客户",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "client",
+   "fieldtype": "Data",
+   "label": "客户名称",
+   "read_only": 1,
+   "description": "由 customer 自动带出 customer.customer_name，只读派生"
+  },
+  {
+   "fieldname": "column_break_customer",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "client_code",
+   "fieldtype": "Data",
+   "label": "客户编码",
+   "read_only": 1,
+   "description": "由 customer 自动带出 Customer 文档名（受控编码），只读派生"
+  },
+  {
+   "fieldname": "seq",
+   "fieldtype": "Int",
+   "label": "序号",
+   "read_only": 1,
+   "description": "同产品同年度同客户自动 max+1"
+  },
+  {
+   "fieldname": "section_period",
+   "fieldtype": "Section Break",
+   "label": "期间与分析",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "period_from",
+   "fieldtype": "Date",
+   "label": "覆盖起始"
+  },
+  {
+   "fieldname": "period_to",
+   "fieldtype": "Date",
+   "label": "覆盖至"
+  },
+  {
+   "fieldname": "storage_conds",
+   "fieldtype": "Data",
+   "label": "储存条件说明"
+  },
+  {
+   "fieldname": "spec_ref",
+   "fieldtype": "Link",
+   "label": "质量标准",
+   "options": "HBOS Specification"
+  },
+  {
+   "fieldname": "column_break_period",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "trend_analysis",
+   "fieldtype": "Long Text",
+   "label": "趋势分析"
+  },
+  {
+   "fieldname": "impurity_profile",
+   "fieldtype": "Long Text",
+   "label": "杂质概况分析"
+  },
+  {
+   "fieldname": "trend_chart_ref",
+   "fieldtype": "Data",
+   "label": "趋势图引用"
+  },
+  {
+   "fieldname": "conclusion",
+   "fieldtype": "Long Text",
+   "label": "评价与结论"
+  },
+  {
+   "fieldname": "section_validity",
+   "fieldtype": "Section Break",
+   "label": "有效期外推（助手建议 + QA 判定）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "proposed_validity_months",
+   "fieldtype": "Int",
+   "label": "建议有效期（月）",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_validity_date",
+   "fieldtype": "Date",
+   "label": "建议至",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_validity_type",
+   "fieldtype": "Select",
+   "label": "建议类型",
+   "options": "有效期\n复检期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_validity_basis",
+   "fieldtype": "Long Text",
+   "label": "外推依据分支与所用数据点",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_validity",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "final_validity_months",
+   "fieldtype": "Int",
+   "label": "QA 判定有效期（月）"
+  },
+  {
+   "fieldname": "final_validity_date",
+   "fieldtype": "Date",
+   "label": "QA 判定至"
+  },
+  {
+   "fieldname": "final_validity_type",
+   "fieldtype": "Select",
+   "label": "QA 判定类型",
+   "options": "有效期\n复检期"
+  },
+  {
+   "fieldname": "client_requirement",
+   "fieldtype": "Long Text",
+   "label": "客户特殊要求"
+  },
+  {
+   "fieldname": "section_signoff",
+   "fieldtype": "Section Break",
+   "label": "签署",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "drafted_by",
+   "fieldtype": "Link",
+   "label": "起草人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "draft_date",
+   "fieldtype": "Date",
+   "label": "起草日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_review_by",
+   "fieldtype": "Link",
+   "label": "QA 审核人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_review_date",
+   "fieldtype": "Date",
+   "label": "QA 审核日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_signoff",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "qa_approve_by",
+   "fieldtype": "Link",
+   "label": "QA 批准人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approve_date",
+   "fieldtype": "Date",
+   "label": "批准日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reject_reason",
+   "fieldtype": "Long Text",
+   "label": "驳回原因",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "void_reason",
+   "fieldtype": "Long Text",
+   "label": "作废原因",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_status",
+   "fieldtype": "Section Break",
+   "label": "状态",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "草稿\n待QA审核\n已批准\n已驳回\n已作废",
+   "default": "草稿",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-18 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Report",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "LIMS Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Analyst",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Reviewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QP",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  }
+ ]
+}

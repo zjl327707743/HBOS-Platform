@@ -1,0 +1,276 @@
+{
+ "actions": [],
+ "creation": "2026-09-20 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Room Log",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "istable": 0,
+ "field_order": [
+  "naming_series",
+  "room",
+  "log_date",
+  "period",
+  "room_date_period_key",
+  "sec_measure",
+  "temperature",
+  "temp_min",
+  "temp_max",
+  "humidity",
+  "humidity_min",
+  "humidity_max",
+  "within_spec",
+  "sec_exc",
+  "exception_desc",
+  "action_taken",
+  "deviation_ref",
+  "capa_ref",
+  "sec_check",
+  "checker",
+  "check_date",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-RML-.YYYY.-",
+   "default": "HBOS-STB-RML-.YYYY.-",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "room",
+   "fieldtype": "Link",
+   "label": "稳定性房间",
+   "options": "HBOS Stability Room",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "log_date",
+   "fieldtype": "Date",
+   "label": "记录日期",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "period",
+   "fieldtype": "Select",
+   "label": "班次",
+   "options": "\n上午\n下午",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "room_date_period_key",
+   "fieldtype": "Data",
+   "label": "记录键",
+   "read_only": 1,
+   "unique": 1,
+   "description": "`{room}#{log_date}#{period}`（方案 5.5.2），validate 生成"
+  },
+  {
+   "fieldname": "sec_measure",
+   "fieldtype": "Section Break",
+   "label": "实测与上下限快照"
+  },
+  {
+   "fieldname": "temperature",
+   "fieldtype": "Float",
+   "label": "温度（℃）",
+   "reqd": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "temp_min",
+   "fieldtype": "Float",
+   "label": "温度下限",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "temp_max",
+   "fieldtype": "Float",
+   "label": "温度上限",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "humidity",
+   "fieldtype": "Float",
+   "label": "湿度（%RH）",
+   "reqd": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "humidity_min",
+   "fieldtype": "Float",
+   "label": "湿度下限",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "humidity_max",
+   "fieldtype": "Float",
+   "label": "湿度上限",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "within_spec",
+   "fieldtype": "Check",
+   "label": "在控",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sec_exc",
+   "fieldtype": "Section Break",
+   "label": "异常与引用"
+  },
+  {
+   "fieldname": "exception_desc",
+   "fieldtype": "Long Text",
+   "label": "异常描述"
+  },
+  {
+   "fieldname": "action_taken",
+   "fieldtype": "Long Text",
+   "label": "采取措施"
+  },
+  {
+   "fieldname": "deviation_ref",
+   "fieldtype": "Data",
+   "label": "偏差引用"
+  },
+  {
+   "fieldname": "capa_ref",
+   "fieldtype": "Data",
+   "label": "CAPA 引用"
+  },
+  {
+   "fieldname": "sec_check",
+   "fieldtype": "Section Break",
+   "label": "检查"
+  },
+  {
+   "fieldname": "checker",
+   "fieldtype": "Link",
+   "label": "检查人",
+   "options": "User"
+  },
+  {
+   "fieldname": "check_date",
+   "fieldtype": "Date",
+   "label": "检查日期"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "\n正常",
+   "default": "正常",
+   "reqd": 1,
+   "read_only": 1,
+   "description": "温湿度原始记录无状态机（方案 6.1 无 FLOW）；仅作受控标识"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "LIMS Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Analyst",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Reviewer",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QP",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  }
+ ]
+}

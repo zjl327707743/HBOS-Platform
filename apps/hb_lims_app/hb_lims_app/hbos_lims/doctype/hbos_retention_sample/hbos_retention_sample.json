@@ -1,0 +1,448 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-09-07 11:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "retention_product",
+  "sample_name",
+  "material_code",
+  "batch_no",
+  "column_break_id",
+  "container_no",
+  "product_batch_container_key",
+  "category",
+  "status",
+  "section_source",
+  "source",
+  "retention_date",
+  "expiry_type",
+  "expiry_date",
+  "retention_due_date",
+  "column_break_source",
+  "source_sample",
+  "retained_by",
+  "section_qty",
+  "retention_qty",
+  "qty_uom",
+  "package_count",
+  "package_spec",
+  "column_break_qty",
+  "current_qty",
+  "reserved_qty",
+  "section_obs",
+  "observed_flag",
+  "obs_year",
+  "column_break_obs",
+  "obs_selected_by",
+  "obs_selected_date",
+  "obs_selected_reason",
+  "next_obs_month",
+  "next_obs_due_date",
+  "section_location",
+  "storage_condition",
+  "storage_location",
+  "section_log",
+  "stock_logs",
+  "section_sign",
+  "reviewed_by",
+  "reviewed_date",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-RET-.YYYY.-",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "retention_product",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "留样产品",
+   "options": "HBOS Retention Product",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "retention_product.product_name",
+   "fieldname": "sample_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "样品名称",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "retention_product.product_code",
+   "fieldname": "material_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "物料编码",
+   "read_only": 1
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "批号",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_id",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "default": "1",
+   "description": "同批补登留样递增（分容器/补留样）",
+   "fieldname": "container_no",
+   "fieldtype": "Int",
+   "label": "容器序号"
+  },
+  {
+   "description": "系统生成，防同产品同批同容器重复登记",
+   "fieldname": "product_batch_container_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "业务键（产品#批号#容器）",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fetch_from": "retention_product.category",
+   "fieldname": "category",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "类别",
+   "read_only": 1
+  },
+  {
+   "default": "在库",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "状态",
+   "options": "在库\n部分使用\n已用尽\n待处理\n已销毁\n已转出",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "来源与期限"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "来源"
+  },
+  {
+   "fieldname": "retention_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "留样日期",
+   "reqd": 1
+  },
+  {
+   "default": "有效期至",
+   "fieldname": "expiry_type",
+   "fieldtype": "Select",
+   "label": "期限类型",
+   "options": "有效期至\n复验期至"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "label": "有效期/复验期"
+  },
+  {
+   "description": "自动 = 有效期/复验期 + 3 年，人工修正留审计痕",
+   "fieldname": "retention_due_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "留样期至"
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "description": "检验批次关联（检验完成批次一键创建），可空",
+   "fieldname": "source_sample",
+   "fieldtype": "Link",
+   "label": "关联检验样品",
+   "options": "HBOS Sample"
+  },
+  {
+   "fieldname": "retained_by",
+   "fieldtype": "Link",
+   "label": "留样人",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_qty",
+   "fieldtype": "Section Break",
+   "label": "数量与库存"
+  },
+  {
+   "description": "留样量（数值），2 倍计算受 UOM 一致性闸约束",
+   "fieldname": "retention_qty",
+   "fieldtype": "Float",
+   "label": "留样量",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "retention_product.default_uom",
+   "fieldname": "qty_uom",
+   "fieldtype": "Select",
+   "label": "计量单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "description": "最小包装件数（1 倍检验用量 = 1 个最小包装），独立记账不换算",
+   "fieldname": "package_count",
+   "fieldtype": "Int",
+   "label": "最小包装件数"
+  },
+  {
+   "fieldname": "package_spec",
+   "fieldtype": "Data",
+   "label": "包装规格"
+  },
+  {
+   "fieldname": "column_break_qty",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "default": "0",
+   "description": "当前结存，仅系统维护，手工编辑被拦截",
+   "fieldname": "current_qty",
+   "fieldtype": "Float",
+   "label": "当前结存",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "预占量，仅系统维护",
+   "fieldname": "reserved_qty",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "预占量",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_obs",
+   "fieldtype": "Section Break",
+   "label": "观察计划"
+  },
+  {
+   "default": "0",
+   "fieldname": "observed_flag",
+   "fieldtype": "Check",
+   "label": "观察样品"
+  },
+  {
+   "depends_on": "observed_flag",
+   "description": "该批被选为观察批的年份",
+   "fieldname": "obs_year",
+   "fieldtype": "Int",
+   "label": "观察年度"
+  },
+  {
+   "fieldname": "column_break_obs",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "depends_on": "observed_flag",
+   "fieldname": "obs_selected_by",
+   "fieldtype": "Link",
+   "label": "观察批选中人",
+   "options": "User"
+  },
+  {
+   "depends_on": "observed_flag",
+   "fieldname": "obs_selected_date",
+   "fieldtype": "Date",
+   "label": "观察批选中日期"
+  },
+  {
+   "depends_on": "observed_flag",
+   "fieldname": "obs_selected_reason",
+   "fieldtype": "Select",
+   "label": "选取原因",
+   "options": "年度观察批（每年 3 批）\n外售产品每批\n其他"
+  },
+  {
+   "depends_on": "observed_flag",
+   "description": "下次观察偏移月数（0/12/24/36…），代码维护",
+   "fieldname": "next_obs_month",
+   "fieldtype": "Int",
+   "label": "下次观察偏移（月）",
+   "read_only": 1
+  },
+  {
+   "depends_on": "observed_flag",
+   "description": "下次计划观察日期 = 留样日期 + 偏移月数",
+   "fieldname": "next_obs_due_date",
+   "fieldtype": "Date",
+   "label": "下次计划观察日期",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_location",
+   "fieldtype": "Section Break",
+   "label": "储存位置"
+  },
+  {
+   "fetch_from": "retention_product.storage_condition",
+   "fieldname": "storage_condition",
+   "fieldtype": "Data",
+   "label": "储存条件"
+  },
+  {
+   "fieldname": "storage_location",
+   "fieldtype": "Data",
+   "label": "储存位置编号"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_log",
+   "fieldtype": "Section Break",
+   "label": "库存操作流水"
+  },
+  {
+   "fieldname": "stock_logs",
+   "fieldtype": "Table",
+   "label": "库存操作流水",
+   "no_copy": 1,
+   "options": "HBOS Retention Stock Log",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_sign",
+   "fieldtype": "Section Break",
+   "label": "审核"
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "审核人",
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewed_date",
+   "fieldtype": "Date",
+   "label": "审核日期"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 0,
+ "links": [
+  {
+   "group": "关联",
+   "link_doctype": "HBOS Sample",
+   "link_fieldname": "source_sample"
+  }
+ ],
+ "modified": "2026-09-07 11:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Retention Sample",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "submit": 0,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Manager"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Analyst"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Reviewer"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS QA"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "sample_name"
+}
