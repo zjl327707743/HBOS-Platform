@@ -449,143 +449,178 @@ def delete_shift_rule(rule_name):
 
 @frappe.whitelist()
 def import_schedule_file(file_path=None, file_content=None, file_url=None):
-    """导入排班表(支持厂外QC矩阵式与四车间纵向式)。覆盖式重导。
+    """Import schedules while respecting source ownership.
 
-    参数优先使用 file_url（Frappe File）；兼容 file_content。
-    出于安全原因，白名单 API 不再接受任意服务器 file_path。
-    返回导入统计。
+    IMPORT may replace earlier IMPORT/ROTATION rows in the requested window.
+    LEGACY/MANUAL/SWAP rows are protected and never deleted by this import.
     """
     _require_hr_write()
     import base64
     import tempfile
     import os
+
     if file_path:
         frappe.throw("不允许通过 API 读取服务器任意文件路径；请使用已上传的 File。", frappe.PermissionError)
+
     from hb_attendance_app.hbos_attendance.schedule_import import (
         parse_xlsx_matrix, parse_xlsx_vertical,
     )
 
     tmp_path = None
+    source_ref = "inline-upload"
     if file_url:
-        # Attach 上传的文件: 从 File 记录读原始字节(不走 base64, 避免二进制被编码破坏)
         fdoc = frappe.get_doc("File", {"file_url": file_url})
+        if hasattr(fdoc, "check_permission"):
+            fdoc.check_permission("read")
         raw = fdoc.get_content(encodings=())
+        source_ref = fdoc.name
         if isinstance(raw, str):
             raw = raw.encode("latin-1")
         fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
-        with os.fdopen(fd, 'wb') as f:
-            f.write(raw)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(raw)
         file_path = tmp_path
     elif file_content:
-        raw = base64.b64decode(file_content)
+        try:
+            raw = base64.b64decode(file_content, validate=True)
+        except Exception:
+            frappe.throw("排班表 base64 内容无效。")
         fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
-        with os.fdopen(fd, 'wb') as f:
-            f.write(raw)
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(raw)
         file_path = tmp_path
+
     if not file_path or not os.path.exists(file_path):
         frappe.throw("排班表文件不存在")
 
-    # 尝试两种格式
-    rows = []
     try:
-        rows, _ = parse_xlsx_matrix(file_path)
-    except Exception:
         rows = []
-    if not rows:
         try:
-            rows, _ = parse_xlsx_vertical(file_path)
+            rows, _ = parse_xlsx_matrix(file_path)
         except Exception:
             rows = []
-    if not rows:
-        frappe.throw("未能解析排班表（支持的格式：厂外QC矩阵式 / 四车间纵向式）")
+        if not rows:
+            try:
+                rows, _ = parse_xlsx_vertical(file_path)
+            except Exception:
+                rows = []
+        if not rows:
+            frappe.throw("未能解析排班表（支持的格式：厂外QC矩阵式 / 四车间纵向式）")
 
-    # 员工匹配
-    emp_by_num = {e.employee_number: e.name for e in frappe.db.get_all(
-        "Employee", fields=["name", "employee_number"],
-        filters={"employee_number": ["is", "set"]})}
-    emp_by_name = {e.employee_name: e.name for e in frappe.db.get_all(
-        "Employee", fields=["name", "employee_name"])}
+        emp_by_num = {
+            e.employee_number: e.name
+            for e in frappe.db.get_all(
+                "Employee",
+                fields=["name", "employee_number"],
+                filters={"employee_number": ["is", "set"]},
+            )
+        }
+        emp_by_name = {
+            e.employee_name: e.name
+            for e in frappe.db.get_all("Employee", fields=["name", "employee_name"])
+        }
 
-    created = 0
-    skipped = 0
-    # 覆盖式重导: 按「排班表涉及的部门」清理旧记录(不同部门的排班互不影响)
-    depts_in_file = sorted({r['department'] for r in rows if r['department']})
-    matched_emps = set()
-    for r in rows:
-        emp = None
-        if r['employee_number'] and r['employee_number'] in emp_by_num:
-            emp = emp_by_num[r['employee_number']]
-        elif r['employee_name'] and r['employee_name'] in emp_by_name:
-            emp = emp_by_name[r['employee_name']]
-        if emp:
-            matched_emps.add(emp)
-    dates = sorted({r['date'] for r in rows})
-    if dates and matched_emps:
-        # 按员工+日期范围清理(只清本次文件覆盖到的员工)
-        emp_list = "','".join(matched_emps)
-        frappe.db.sql(
-            f"DELETE FROM `tabHBOS Employee Schedule` WHERE employee IN ('{emp_list}') AND schedule_date BETWEEN %s AND %s",
-            (dates[0], dates[-1]))
-    for r in rows:
-        emp = None
-        if r['employee_number'] and r['employee_number'] in emp_by_num:
-            emp = emp_by_num[r['employee_number']]
-        elif r['employee_name'] and r['employee_name'] in emp_by_name:
-            emp = emp_by_name[r['employee_name']]
-        if not emp:
-            skipped += 1
-            continue
-        doc = frappe.get_doc({
-            "doctype": "HBOS Employee Schedule",
-            "employee": emp,
-            "schedule_date": r['date'],
-            "shift_type": r['shift_type'] or '',
-            "leave_type": r['leave_type'] or '',
-        })
-        doc.insert(ignore_permissions=True)
-        created += 1
-    frappe.db.commit()
-    if tmp_path:
-        os.unlink(tmp_path)
-    return {"created": created, "skipped": skipped, "total": len(rows),
-            "date_range": [dates[0], dates[-1]] if dates else []}
+        resolved = []
+        skipped = 0
+        input_keys = set()
+        for row in rows:
+            emp = None
+            if row["employee_number"] and row["employee_number"] in emp_by_num:
+                emp = emp_by_num[row["employee_number"]]
+            elif row["employee_name"] and row["employee_name"] in emp_by_name:
+                emp = emp_by_name[row["employee_name"]]
+            if not emp:
+                skipped += 1
+                continue
+            key = (emp, str(row["date"]))
+            if key in input_keys:
+                frappe.throw(
+                    "导入文件中员工 {} 在 {} 出现重复排班，请先消除歧义。".format(*key)
+                )
+            input_keys.add(key)
+            resolved.append((emp, row))
+
+        dates = sorted({str(row["date"]) for _, row in resolved})
+        matched_emps = sorted({emp for emp, _ in resolved})
+
+        if dates and matched_emps:
+            for emp in matched_emps:
+                frappe.db.delete(
+                    "HBOS Employee Schedule",
+                    {
+                        "employee": emp,
+                        "schedule_date": ["between", [dates[0], dates[-1]]],
+                        "source_type": ["in", ["IMPORT", "ROTATION"]],
+                    },
+                )
+
+        created = 0
+        protected = 0
+        for emp, row in resolved:
+            ds = str(row["date"])
+            existing = frappe.db.get_value(
+                "HBOS Employee Schedule",
+                {"employee": emp, "schedule_date": ds},
+                ["name", "source_type"],
+                as_dict=True,
+            )
+            if existing:
+                protected += 1
+                continue
+            frappe.get_doc({
+                "doctype": "HBOS Employee Schedule",
+                "employee": emp,
+                "schedule_date": ds,
+                "shift_type": row["shift_type"] or "",
+                "leave_type": row["leave_type"] or "",
+                "source_type": "IMPORT",
+                "source_ref": source_ref,
+            }).insert(ignore_permissions=True)
+            created += 1
+
+        frappe.db.commit()
+        return {
+            "created": created,
+            "skipped": skipped,
+            "protected": protected,
+            "total": len(rows),
+            "date_range": [dates[0], dates[-1]] if dates else [],
+        }
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 @frappe.whitelist()
 def get_conflicts():
-    """班次冲突检测:
-    1. 同部门同班次类型存在多条生效规则(版本重叠)
-    2. 员工绑定的固定班次指向已停用规则
-    返回 {overlaps: [...], stale_bindings: [...]}
-    """
+    """Return identity/version collisions and bindings that cannot resolve a rule family."""
     _require_hr_read()
-    overlaps = []
-    rules = frappe.db.get_all(
-        "HBOS Shift Rule",
-        filters={"status": "生效"},
-        fields=["name", "rule_name", "department", "shift_type", "start_time", "effective_from"],
-        order_by="department, shift_type, effective_from",
-    )
-    seen = {}
-    for r in rules:
-        key = (r.department, r.shift_type)
-        if key in seen:
-            overlaps.append({
-                "department": r.department,
-                "shift_type": r.shift_type,
-                "rules": [seen[key], r],
-            })
-        else:
-            seen[key] = r
 
-    stale_bindings = frappe.db.sql("""
-        SELECT e.employee_name, e.employee_number, e.name employee,
-               e.hbos_fixed_shift, sr.status, sr.rule_name
-        FROM tabEmployee e
-        LEFT JOIN `tabHBOS Shift Rule` sr ON sr.name = e.hbos_fixed_shift
-        WHERE e.hbos_fixed_shift IS NOT NULL AND e.hbos_fixed_shift != ''
-          AND (sr.name IS NULL OR sr.status != '生效')
-    """, as_dict=True)
+    overlaps = frappe.db.sql(
+        """SELECT rule_code, effective_from, COUNT(*) AS c
+           FROM `tabHBOS Shift Rule`
+           WHERE IFNULL(rule_code, '') != ''
+           GROUP BY rule_code, effective_from
+           HAVING COUNT(*) > 1""",
+        as_dict=True,
+    )
+
+    stale_bindings = []
+    for binding in frappe.db.get_all(
+        "HBOS Employee Shift",
+        fields=["name", "employee", "employee_name", "rule_code", "shift_rule"],
+    ):
+        code = binding.rule_code
+        if not code and binding.shift_rule:
+            code = frappe.db.get_value("HBOS Shift Rule", binding.shift_rule, "rule_code")
+        if not code or not frappe.db.exists("HBOS Shift Rule", {"rule_code": code}):
+            stale_bindings.append({
+                "binding": binding.name,
+                "employee": binding.employee,
+                "employee_name": binding.employee_name,
+                "rule_code": code or "",
+                "shift_rule": binding.shift_rule or "",
+            })
 
     return {"overlaps": overlaps, "stale_bindings": stale_bindings}
 
