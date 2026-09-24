@@ -1372,3 +1372,87 @@ Desktop 精确字号升级为：
 - 所有字号必须来自 Typography Token；
 - 不允许组件局部新增中间字号；
 - 移动端继续按 Responsive Contract 降级。
+
+
+---
+
+# 44. Typography Contract v2.0 — Ant Design Official Scale
+
+Owner 明确要求 HBOS Typography 回归 Ant Design 官方字号体系。
+
+本版本**取代前述 v1.1 / v1.2 / v1.3 作为当前 Authority**。
+
+## Official Scale
+
+```text
+Ant Design Typography
+
+H1      38 / 46 / 600
+H2      30 / 38 / 600
+H3      24 / 32 / 600
+H4      20 / 28 / 600
+H5      16 / 24 / 600
+
+Body    14 / 22 / 400
+Large   16 / 24 / 400
+Small   12 / 20 / 400
+```
+
+字重只使用：
+
+```text
+400 Regular
+500 Medium
+600 Strong / Heading
+```
+
+## HBOS Portal Mapping
+
+普通工作台控制为 5 级：
+
+| HBOS Semantic | Ant Mapping | Size / Line Height |
+|---|---|---|
+| Page Title | H2 | **30 / 38** |
+| Section Title | H4 | **20 / 28** |
+| Important / Card / Nav | LG / H5 | **16 / 24** |
+| Body | Base | **14 / 22** |
+| Small / Meta | SM | **12 / 20** |
+
+KPI 复用 H2：
+
+```text
+30 / 38 / 600
+```
+
+不新增 KPI 专属字号。
+
+Portal Hero 为唯一展示型例外：
+
+```text
+52px
+```
+
+## Prohibited Sizes
+
+普通 HBOS 业务 UI 禁止自行使用：
+
+```text
+13 / 15 / 17 / 18 / 19 / 21 / 22 / 26 / 28 / 32
+以及任何半像素字号
+```
+
+若组件需要视觉差异，优先使用：
+
+- 400 / 500 / 600 weight；
+- text color；
+- spacing；
+- hierarchy；
+
+而不是新增字号。
+
+## Engineering Authority
+
+- `src/theme/antdTheme.ts` 同步官方 Ant Token；
+- `src/theme/tokens.css` 提供 HBOS semantic alias；
+- `src/theme/typography.css` 只做语义映射；
+- 组件禁止硬编码随机字号。

@@ -359,3 +359,36 @@ Greeting    24
 ```
 
 本轮仍只调整统一 Token 与 Typography Contract，不改变页面布局和信息结构。
+
+
+## 15. Owner Review Round 6 — Ant Design Typography Reset
+
+Owner 提供 Ant Design 官方 Typography Token 与官方行高规范，并要求按该体系重做。
+
+本轮废止此前持续放大的自定义 Typography v1.x，回归 Ant 官方尺度。
+
+普通 HBOS 页面统一使用：
+
+```text
+30 / 20 / 16 / 14 / 12
+```
+
+对应：
+
+- Page H1：30 / 38；
+- Section：20 / 28；
+- Important / Card / Nav：16 / 24；
+- Body：14 / 22；
+- Small / Meta：12 / 20。
+
+KPI 复用 30 / 38，不创建独立字号。
+
+Hero 52px 保留为 Portal V3 展示型唯一例外。
+
+字重收敛到：
+
+```text
+400 / 500 / 600
+```
+
+同时 Ant Design Vue ThemeConfig 写入官方 fontSize / heading / lineHeight / fontWeightStrong Token，避免 Ant 组件与 HBOS CSS 使用不同字体体系。

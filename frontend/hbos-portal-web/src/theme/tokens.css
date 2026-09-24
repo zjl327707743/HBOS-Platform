@@ -4,14 +4,26 @@
   --hbos-font-mono: "SFMono-Regular", "JetBrains Mono", Consolas, ui-monospace, monospace;
 
   --hbos-font-hero: 52px;
-  --hbos-font-page-title: 36px;
-  --hbos-font-section-title: 24px;
+  --hbos-font-page-title: 30px;
+  --hbos-font-section-title: 20px;
   --hbos-font-card-title: 16px;
-  --hbos-font-body: 16px;
-  --hbos-font-dense: 16px;
-  --hbos-font-meta: 14px;
-  --hbos-font-micro: 13px;
-  --hbos-font-kpi: 34px;
+  --hbos-font-body: 14px;
+  --hbos-font-dense: 14px;
+  --hbos-font-meta: 12px;
+  --hbos-font-micro: 12px;
+  --hbos-font-kpi: 30px;
+
+  /* Ant Design aligned line-height */
+  --hbos-line-page-title: 38px;
+  --hbos-line-section-title: 28px;
+  --hbos-line-important: 24px;
+  --hbos-line-body: 22px;
+  --hbos-line-small: 20px;
+
+  /* Ant Design aligned weights */
+  --hbos-weight-regular: 400;
+  --hbos-weight-medium: 500;
+  --hbos-weight-strong: 600;
 
   /* Spacing */
   --hbos-space-1: 4px;
