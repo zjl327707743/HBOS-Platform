@@ -15,6 +15,8 @@ SAMPLE_TYPE = "G3-SMOKE-TYPE"
 TEST_ITEM = "G3-SMOKE-TEST"
 SPEC = "G3-SMOKE-SPEC"
 SAMPLE_ITEM = "G3-SMOKE-SAMPLE-ITEM"
+SMOKE_UOM = "G3 Smoke UOM"
+SMOKE_ITEM_GROUP = "G3 Smoke Item Group"
 
 
 def _guard():
@@ -41,6 +43,12 @@ def _cleanup():
     with suppress(Exception):
         if frappe.db.exists("Item", ITEM):
             frappe.delete_doc("Item", ITEM, force=True, ignore_permissions=True)
+    with suppress(Exception):
+        if frappe.db.exists("Item Group", SMOKE_ITEM_GROUP):
+            frappe.delete_doc("Item Group", SMOKE_ITEM_GROUP, force=True, ignore_permissions=True)
+    with suppress(Exception):
+        if frappe.db.exists("UOM", SMOKE_UOM):
+            frappe.delete_doc("UOM", SMOKE_UOM, force=True, ignore_permissions=True)
     frappe.db.commit()
 
 
@@ -78,12 +86,30 @@ def _check_audit_does_not_commit_business_transaction():
 
 
 def _create_batch():
+    # A freshly installed ERPNext site has not run Setup Wizard and therefore may
+    # not contain business defaults such as "Nos" or "All Item Groups".  The G3
+    # integration fixture owns its minimal master data instead of assuming those
+    # environment-specific records exist.
+    if not frappe.db.exists("UOM", SMOKE_UOM):
+        frappe.get_doc({
+            "doctype": "UOM",
+            "uom_name": SMOKE_UOM,
+            "enabled": 1,
+        }).insert(ignore_permissions=True)
+
+    if not frappe.db.exists("Item Group", SMOKE_ITEM_GROUP):
+        frappe.get_doc({
+            "doctype": "Item Group",
+            "item_group_name": SMOKE_ITEM_GROUP,
+            "is_group": 0,
+        }).insert(ignore_permissions=True)
+
     item = frappe.get_doc({
         "doctype": "Item",
         "item_code": ITEM,
         "item_name": "HBOS G3 Smoke Item",
-        "item_group": "All Item Groups",
-        "stock_uom": "Nos",
+        "item_group": SMOKE_ITEM_GROUP,
+        "stock_uom": SMOKE_UOM,
         "is_stock_item": 1,
         "has_batch_no": 1,
     }).insert(ignore_permissions=True)
