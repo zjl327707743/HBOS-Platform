@@ -211,6 +211,9 @@ def _check_lims_release_unlocks_warehouse_gate():
         doctype = "Stock Entry"
         purpose = "Material Issue"
 
+        def get(self, key, default=None):
+            return getattr(self, key, default)
+
     outward = _OutwardFixture()
     outward.items = [
         frappe._dict({
