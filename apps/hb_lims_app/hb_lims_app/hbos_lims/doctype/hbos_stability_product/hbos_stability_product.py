@@ -15,6 +15,29 @@ class HBOSStabilityProduct(Document):
 		guards.guard_delete(self, "HBOS Stability Product", guards.MASTER_DELETABLE_STATUSES)
 
 	def validate(self):
+		# ERPNext Item is the current product/UOM master.  LIMS keeps a point-in-time
+		# snapshot for stability history; it does not own a second product master.
+		if self.item_ref:
+			item = frappe.db.get_value(
+				"Item", self.item_ref, ["name", "item_name", "stock_uom"], as_dict=True
+			)
+			if not item:
+				frappe.throw("ERP 物料不存在：{}".format(self.item_ref))
+			self.product_code = item.name
+			self.product_name = item.item_name or item.name
+			self.default_uom = item.stock_uom or self.default_uom
+		elif self.product_code and frappe.db.exists("Item", self.product_code):
+			# Backward-compatible inference for migrated records that already use the
+			# ERP item code but predate item_ref.
+			self.item_ref = self.product_code
+			item = frappe.db.get_value(
+				"Item", self.item_ref, ["item_name", "stock_uom"], as_dict=True
+			)
+			self.product_name = item.item_name or self.product_name
+			self.default_uom = item.stock_uom or self.default_uom
+		elif self.is_new():
+			frappe.throw("新建稳定性产品必须选择 ERP 物料；产品编码/名称/UOM 仅作为 LIMS 历史快照。")
+
 		ok, err = stb.check_product_code(self.product_code)
 		if not ok:
 			frappe.throw(err)
