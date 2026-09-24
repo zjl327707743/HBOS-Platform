@@ -93,6 +93,11 @@ docker compose -p "$PROJECT" exec -T \
   -e HBOS_PORTAL_INTEGRATION_CHECKS=1 \
   backend bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.portal.integration_checks.run
 
+echo "[PLATFORM] Attendance Portal provider"
+docker compose -p "$PROJECT" exec -T \
+  -e HBOS_PORTAL_INTEGRATION_CHECKS=1 \
+  backend bench --site "$SITE_NAME" execute hb_attendance_app.hbos_attendance.portal.integration_checks.run
+
 echo "[PLATFORM] verify Chinese font inside backend"
 docker compose -p "$PROJECT" exec -T backend bash -lc \
   'test -r /usr/share/fonts/truetype/hbos/NotoSerifSC-Regular.otf && test -r /usr/share/fonts/truetype/hbos/NotoSerifSC-Bold.otf' || {

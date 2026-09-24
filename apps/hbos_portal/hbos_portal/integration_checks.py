@@ -40,6 +40,8 @@ def run() -> dict[str, object]:
 
     if "lims" not in registry.entries:
         raise AssertionError("LIMS provider was not discovered by Frappe hooks")
+    if "attendance" not in registry.entries:
+        raise AssertionError("Attendance provider was not discovered by Frappe hooks")
 
     entry = registry.entries["lims"]
     manifest = entry.manifest.to_dict()
@@ -62,6 +64,13 @@ def run() -> dict[str, object]:
     if route_result["resolved_path"] != "/hbos-lims/tasks?scope=mine&task=TASK-001":
         raise AssertionError("LIMS stable route adapter mismatch")
 
+    attendance_route = resolve_stable_route(
+        "attendance",
+        "/hbos/attendance",
+    )
+    if attendance_route["resolved_path"] != "/app/hbos-attendance-dashboard":
+        raise AssertionError("Attendance stable route adapter mismatch")
+
     bootstrap = build_bootstrap()
     app_ids = [
         app["manifest"]["id"]
@@ -69,6 +78,8 @@ def run() -> dict[str, object]:
     ]
     if "lims" not in app_ids:
         raise AssertionError("Authenticated Portal bootstrap did not expose LIMS")
+    if "attendance" not in app_ids:
+        raise AssertionError("Authenticated Portal bootstrap did not expose Attendance")
 
     return {
         "registry_entries": sorted(registry.entries),
@@ -77,6 +88,7 @@ def run() -> dict[str, object]:
         "lims_manifest_capabilities": manifest["capabilities"],
         "lims_access": access.can_enter,
         "lims_resolved_route": route_result["resolved_path"],
+        "attendance_resolved_route": attendance_route["resolved_path"],
         "bootstrap_apps": app_ids,
         "user": bootstrap["user"]["id"],
     }

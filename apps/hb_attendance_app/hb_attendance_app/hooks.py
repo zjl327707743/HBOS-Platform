@@ -28,3 +28,10 @@ scheduler_events = {
         ],
     }
 }
+
+
+# HBOS Portal experience provider.
+# Attendance owns access and implementation routing; Portal only consumes the contract.
+hbos_portal_provider = [
+    "hb_attendance_app.hbos_attendance.portal.provider.get_provider",
+]
