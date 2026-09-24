@@ -1,4 +1,7 @@
-"""考勤生成：使用 shift_matcher 规则引擎 + 缺勤补全"""
+"""
+【已废弃 · 请勿使用】已被 `api.py` + `pairing.py` 取代，全仓库无引用，运行时不会执行。
+清理旧引擎（本文件、shift_matcher.py、generate_attendance.py）应作为单独一轮，不要顺手删除。
+考勤生成：使用 shift_matcher 规则引擎 + 缺勤补全"""
 import frappe
 from datetime import datetime, timedelta, date
 from hb_attendance_app.hbos_attendance.shift_matcher import match_shifts_v2, SHIFT_DEFS

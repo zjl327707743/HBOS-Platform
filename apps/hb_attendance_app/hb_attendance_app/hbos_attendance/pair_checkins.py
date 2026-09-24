@@ -1,3 +1,26 @@
+"""【已废弃 · 请勿使用 · 请勿修改本文件的名单】
+
+本文件是早期版本的考勤实现，**已被 `api.py` + `pairing.py` 完全取代**。
+全仓库无任何代码 import 或调用它（2026-09-24 实测复核），运行时不会执行。
+
+保留原因：仅作历史参考，未删除以便回溯旧实现思路。
+
+**修改前请务必注意两件事：**
+
+1. **本文件内的 `ADMIN_NUMS` 不是权威名单。**
+   权威名单在 `rule_lists.py`（`api.py` 从那里 import，判定实际使用的就是它）。
+   本文件这份只是历史残留——改它不会影响任何运行结果，却会让人误以为名单有多个来源。
+   若需调整行政班名单，**只改 `rule_lists.py`**。
+   该名单曾在本文件、`rule_lists.py`、`daily_feishu_sync.py` 三处各写一份且严重
+   分叉（2026-09-24 已把 `daily_feishu_sync.py` 收敛为引用唯一来源）。
+
+2. **末尾两个飞书表格 ID（`APP_TOKEN` / `TABLE_ID`）已无别处引用。**
+   它们指向的表格与当前在用的飞书配置（见 `api.py` 顶部的 `*_BITABLE_APP_TOKEN`）
+   不是同一组。删除本文件前，请先确认这两张历史表格确实已无人查看。
+
+清理本文件与同族旧引擎（`shift_matcher.py`、`generate_attendance.py`，后者会写入
+`DELI-ATT-*` 前缀的历史考勤记录）应作为**单独一轮**进行，不要顺手删除。
+"""
 import frappe, requests, os, json, time
 from datetime import datetime, timedelta
 from collections import defaultdict

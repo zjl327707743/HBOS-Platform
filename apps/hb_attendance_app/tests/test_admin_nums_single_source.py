@@ -64,5 +64,24 @@ class SingleSourceOfTruthTest(unittest.TestCase):
         self.assertIn("from hb_attendance_app.hbos_attendance.rule_lists import", api_src)
 
 
+class DeprecatedLegacyMarkerTest(unittest.TestCase):
+    """旧引擎文件必须带废弃标记。
+
+    它们内含第 3 份 ADMIN_NUMS / 旧班次逻辑，全仓库无引用，但文件本身还在。
+    没有标记时，改动名单的人会以为「有几处来源」，不知道改哪儿才是对的。
+    Owner 2026-09-24 决定：暂不删文件，但必须加标记。
+    """
+
+    LEGACY = ("pair_checkins.py", "shift_matcher.py", "generate_attendance.py")
+
+    def test_legacy_files_carry_deprecation_marker(self):
+        for name in self.LEGACY:
+            with self.subTest(file=name):
+                doc = ast.get_docstring(ast.parse((MOD / name).read_text())) or ""
+                self.assertIn("已废弃", doc,
+                              "%s 缺少「已废弃」docstring 标记——该文件是全仓库无引用的"
+                              "旧引擎残留，无标记会让改动名单的人误判来源" % name)
+
+
 if __name__ == "__main__":
     unittest.main()
