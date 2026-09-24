@@ -311,6 +311,11 @@ def send_daily_report(force=False):
     try:
         now = _bj_now()
         date_str = now.strftime("%Y-%m-%d")
+        dry = os.environ.get("HBOS_NOTIFY_DRY_RUN", "") == "1"
+        if not dry:
+            from hb_attendance_app.hbos_attendance.api import feishu_sync_enabled
+            if not feishu_sync_enabled():
+                return {"skipped": "feishu_sync_disabled"}
         if not force and not should_send_now(now):
             return {"skipped": "not_9am_bj"}
         if not force and already_sent(date_str):
@@ -322,7 +327,6 @@ def send_daily_report(force=False):
         text = render_report(date_str, hhmm, dept_stats)      # 纯文本：降级与留档用
         payload = _build_payload(data, date_str, hhmm, dept_stats, text)
 
-        dry = os.environ.get("HBOS_NOTIFY_DRY_RUN", "") == "1"
         url = os.environ.get("HBOS_NOTIFY_WEBHOOK_URL", "")
         if dry or not url:
             frappe.log_error(_dry_run_detail(payload, text),
