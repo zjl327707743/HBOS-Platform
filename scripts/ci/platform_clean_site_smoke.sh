@@ -105,4 +105,66 @@ echo "[PLATFORM] LIMS + Inventory release chain"
 docker compose -p "$PROJECT" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend   bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.verify_schema
 docker compose -p "$PROJECT" exec -T -e HBOS_G3_INTEGRATION_CHECKS=1 backend   bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.g3_integration_checks.run
 
+echo "[PLATFORM] verify HBOS web assets + LIMS production entry"
+docker compose -p "$PROJECT" up -d websocket frontend
+
+wait_http() {
+  local path="$1"
+  local output="$2"
+  for _ in $(seq 1 60); do
+    if curl -fsS -H "Host: $SITE_NAME" "http://127.0.0.1:$HTTP_PORT$path" > "$output"; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "::error:: timed out waiting for $path"
+  docker compose -p "$PROJECT" ps
+  docker compose -p "$PROJECT" logs --no-color --tail=120 frontend backend hbos-web-prepare || true
+  return 1
+}
+
+wait_http "/hbos-lims/dashboard" /tmp/hbos-lims-dashboard.html
+grep -q 'lims_spa_loader.js' /tmp/hbos-lims-dashboard.html || {
+  echo "::error:: /hbos-lims/dashboard did not render the HBOS LIMS SPA shell"
+  exit 1
+}
+wait_http "/hbos-lims/tasks" /tmp/hbos-lims-tasks.html
+grep -q 'lims_spa_loader.js' /tmp/hbos-lims-tasks.html || {
+  echo "::error:: /hbos-lims/tasks did not resolve to the SPA shell"
+  exit 1
+}
+wait_http "/hbos-lims/stability" /tmp/hbos-lims-stability.html
+grep -q 'lims_spa_loader.js' /tmp/hbos-lims-stability.html || {
+  echo "::error:: /hbos-lims/stability did not resolve to the SPA shell"
+  exit 1
+}
+
+curl -fsS -H "Host: $SITE_NAME"   "http://127.0.0.1:$HTTP_PORT/assets/hb_attendance_app/hbos-attendance-logo.svg" >/dev/null
+curl -fsS -H "Host: $SITE_NAME"   "http://127.0.0.1:$HTTP_PORT/assets/hb_lims_app/hbos-lims-logo.svg" >/dev/null
+curl -fsS -H "Host: $SITE_NAME"   "http://127.0.0.1:$HTTP_PORT/assets/hb_lims_app/hbos-lims/.vite/manifest.json"   > /tmp/hbos-lims-manifest.json
+
+ENTRY_FILE="$(python3 - <<'PY'
+import json
+with open("/tmp/hbos-lims-manifest.json", encoding="utf-8") as handle:
+    manifest = json.load(handle)
+entry = manifest.get("index.html") or next(
+    (item for item in manifest.values() if item.get("isEntry")),
+    None,
+)
+if not entry or not entry.get("file"):
+    raise SystemExit("LIMS Vite manifest has no entry")
+print(entry["file"])
+PY
+)"
+curl -fsS -H "Host: $SITE_NAME"   "http://127.0.0.1:$HTTP_PORT/assets/hb_lims_app/hbos-lims/$ENTRY_FILE" >/dev/null
+
+echo "[PLATFORM] frontend recreation must preserve LIMS production assets"
+docker compose -p "$PROJECT" up -d --force-recreate --no-deps frontend
+wait_http "/hbos-lims/dashboard" /tmp/hbos-lims-dashboard-after-recreate.html
+grep -q 'lims_spa_loader.js' /tmp/hbos-lims-dashboard-after-recreate.html || {
+  echo "::error:: LIMS SPA shell disappeared after frontend recreation"
+  exit 1
+}
+curl -fsS -H "Host: $SITE_NAME"   "http://127.0.0.1:$HTTP_PORT/assets/hb_lims_app/hbos-lims/$ENTRY_FILE" >/dev/null
+
 echo "HBOS PLATFORM clean-site integration PASS"
