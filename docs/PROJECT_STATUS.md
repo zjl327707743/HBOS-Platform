@@ -996,3 +996,41 @@ M1-R6B 未做：
 - 本轮未启动实际前端开发、不引入 npm 包、不创建 Vue/React 工程、不修改业务代码、不改变 M1 当前范围。
 
 ## M0 后续路线记录
+
+
+---
+
+## Parallel Workstream — HBOS Portal Product
+
+状态：**AUTHORIZED / IN_PROGRESS**。
+
+Owner 于 2026-09-24 明确授权正式启动 HBOS Workspace / Portal 产品线。
+
+该工作流与 M1-FIX 主业务治理线并行，不替代当前 M1-FIX 状态。
+
+当前工作分支：
+
+```text
+feature/hbos-portal-product
+```
+
+当前阶段：
+
+```text
+EA-5.4 = DESIGN ENGINEERING BASELINE
+EA-5.5 = NEXT
+```
+
+已确认：
+- Vue 3 + Ant Design Vue 为 Portal 前端技术栈；
+- EA-5.3 Bright Aurora / Layered Glass / Premium Motion 作为视觉母版；
+- LIMS / Inventory / Attendance 为独立业务 APP，不进入 Portal 固定 Sidebar；
+- Digital Twin 为一级空间化能力；
+- Portal 数据通过 Application Provider / DTO 获取，不直接读取业务 DocType；
+- 本并行工作流已满足原型先行与 Owner Visual Gate，可进入前端复刻准备。
+
+当前尚未：
+- 创建 `apps/hbos_portal`；
+- 接真实 Provider；
+- 接真实业务 API；
+- 改变 M1-FIX 当前主里程碑。

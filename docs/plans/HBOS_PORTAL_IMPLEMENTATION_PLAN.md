@@ -1,0 +1,155 @@
+# HBOS Portal Implementation Plan
+
+**状态：AUTHORIZED / PARALLEL WORKSTREAM**  
+**分支：** `feature/hbos-portal-product`  
+**目标：** 在不打断 M1-FIX 主业务治理线的前提下，正式启动 HBOS Workspace / Portal 产品线。
+
+## 1. Authority
+
+- GitHub repository：`zjl327707743/HBOS-Platform`
+- 正式源码与文档 Authority：GitHub
+- Owner：最终产品与阶段 Gate
+- Portal branch：`feature/hbos-portal-product`
+- 平台集成目标：`integration/hbos-platform-v1`
+- `main`：保护分支，不直接开发
+
+## 2. 与 M1-FIX 的关系
+
+Portal 是并行产品工作流，不替代：
+
+- M1-FIX Attendance 修复；
+- Inventory clean candidate；
+- LIMS clean candidate；
+- `integration/hbos-platform-v1` 的平台集成职责。
+
+当前主里程碑仍由 `docs/CURRENT_MILESTONE.md` 管理。
+
+Portal 通过独立 Experience Architecture / Product Gate 管理。
+
+## 3. 实施阶段
+
+### Phase A — Design Engineering
+
+- EA-5.3 Interaction Review
+- EA-5.4 Component & Interaction Specification
+- EA-5.5 Interaction QA / Responsive / Accessibility
+
+输出：
+- 设计冻结文档
+- Visual Baseline
+- Design Tokens
+- Component Contract
+
+### Phase B — Vue Portal Skeleton
+
+创建：
+
+```text
+frontend/hbos-portal-web/
+```
+
+技术栈固定：
+
+- Vue 3
+- Ant Design Vue
+- Vue Router
+- Pinia
+- Axios
+- ECharts（按需）
+
+本阶段仅复刻已批准原型，不接真实业务 API。
+
+### Phase C — Portal Platform App
+
+EA-5.5 / 前端复刻 Gate 通过后再创建：
+
+```text
+apps/hbos_portal/
+```
+
+职责仅限：
+
+- current-user bootstrap
+- app registry
+- feature / preference
+- provider discovery
+- stable route resolver
+- Portal access boundary
+
+不得成为 Attendance / Inventory / LIMS 业务逻辑层。
+
+### Phase D — App Registration
+
+先接三项现有业务应用：
+
+- Attendance
+- Inventory
+- LIMS
+
+初始允许：
+
+- legacy
+- hybrid
+- native
+
+稳定 HBOS 路由不随实现方式变化。
+
+### Phase E — Data Adaptation
+
+每个 APP 分别实现：
+
+```text
+access_context()
+summary()
+my_tasks()
+search()
+deep_link()
+```
+
+Portal 只消费 DTO。
+
+### Phase F — Native App Migration
+
+建议顺序：
+
+1. Attendance
+2. LIMS experience refactor
+3. Inventory hybrid evolution
+
+## 4. Commit Strategy
+
+Portal 分支至少分为：
+
+1. `docs: 正式启动 HBOS Portal 产品工作台并固化 EA-5 设计基线`
+2. `feat: 初始化 HBOS Portal Vue 3 前端工程骨架`
+3. `feat: 完成 EA-5.5 交互与响应式基线`
+4. `feat: 初始化 hbos_portal 平台 App`
+5. Provider / Registry / Integration 独立提交
+
+禁止把设计文档、前端工程、后端平台 App、三业务 APP 适配塞入一个巨型提交。
+
+## 5. 当前禁止事项
+
+在本计划当前状态下：
+
+- 不修改 Frappe / ERPNext / HRMS 核心源码；
+- 不让 Portal 直接读业务 DocType；
+- 不创建第二套 User / JWT / Role；
+- 不创建 Portal 业务事实副本；
+- 不用 iframe / micro-frontend 作为第一阶段架构；
+- 不把 LIMS Workspace 当企业 Portal；
+- 不把飞书 SSO 放入 Inventory；
+- 不直接在 `main` 开发。
+
+## 6. Ready for Platform Integration
+
+Portal 可进入 `integration/hbos-platform-v1` 的最低条件：
+
+- Vue Portal Skeleton 可构建；
+- EA-5.5 Gate 通过；
+- Portal / App boundary 无回退；
+- App Registry Contract 稳定；
+- Frappe Session 作为唯一运行时身份；
+- Provider 错误可以单 APP 隔离；
+- 基础 403 / 404 / Loading / Empty / Error 可用；
+- 至少一项真实 Business App registration 通过测试。

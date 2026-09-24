@@ -94,3 +94,17 @@ M0 历史任务曾允许读取：
 后续涉及 HRMS 环境治理、前端资源复核、能力盘点或 M1 考勤一期边界时，可读取 M0-R3C 安装验证记录、M0-R3C-FIX 修复记录、M0-R3D 设计记录、M0-R3E 环境可复现性收口记录、官方 Frappe HR、`frappe/hrms`、`frappe/frappe_docker`、ERPNext / Frappe v16 资料。
 
 不得因 HRMS 已安装而擅自创建新的海滨自定义 Frappe App；`hb_attendance_app` 仅限 M1-FIX-B 已授权的轻量导入能力，不得扩大范围；不得接飞书真实写入；不得做前端驾驶舱；不得提交真实 `.env` 或真实密钥。
+
+
+## HBOS Portal 并行工作流读取规则
+
+当任务明确涉及 HBOS Portal / Workspace / Experience Architecture 时，可在默认入口文件之外读取：
+
+- `docs/experience/README.md`
+- 当前 EA 文档；
+- `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`
+- `docs/plans/HBOS_PORTAL_IMPLEMENTATION_PLAN.md`
+
+不得因此递归读取整个 `docs/`。
+
+Portal 当前为 Owner 已授权并行产品工作流，分支为 `feature/hbos-portal-product`；它不改变 M1-FIX 主里程碑。

@@ -33,7 +33,7 @@ All three surfaces normally operate against the same Frappe site, business servi
 | EA-2 | [User Journey & Information Architecture](./EA-2_USER_JOURNEY_IA.md) | Personas, navigation, product map, migration journeys | BASELINE |
 | EA-3 | [Application Contract & Access Model](./EA-3_APPLICATION_CONTRACT_ACCESS.md) | Provider contract, access, summary, tasks, search, deep links | BASELINE |
 | EA-4 | [Design System v1](./EA-4_DESIGN_SYSTEM_V1.md) | HBOS visual language, visual intensity, layout, motion, tokens | BASELINE |
-| EA-5 | Portal Product Prototype | High-fidelity prototype and interaction validation | PENDING |
+| EA-5 | [Portal Product Prototype](./EA-5_PORTAL_PRODUCT_PROTOTYPE.md) | High-fidelity prototype and interaction validation | IN_PROGRESS / OWNER VISUAL GATE APPROVED |\n| EA-5.3 | [Product Interaction Review](./EA-5.3_PRODUCT_INTERACTION_REVIEW.md) | Portal / App boundary, My Work, Digital Twin, Chinese UX | BASELINE |\n| EA-5.4 | [Component & Interaction Specification](./EA-5.4_COMPONENT_INTERACTION_SPEC.md) | Component geometry, glass, motion, typography, interaction | DESIGN ENGINEERING BASELINE |
 
 ## Relationship to other governance
 
@@ -91,3 +91,22 @@ Attendance Inventory LIMS
 ```
 
 The long-term product identity is **HBOS**, while Frappe / ERPNext / HRMS remain foundational platform and management technologies.
+
+
+## Current EA-5 workstream
+
+The Owner has explicitly authorized the HBOS Portal product workstream.
+
+Current branch:
+
+```text
+feature/hbos-portal-product
+```
+
+Current design authority:
+
+- EA-5.3 visual baseline;
+- EA-5.4 component / interaction specification;
+- `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`.
+
+The next product gate is **EA-5.5 Interaction QA + Responsive + Accessibility**.

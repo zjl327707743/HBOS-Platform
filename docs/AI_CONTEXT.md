@@ -99,3 +99,31 @@ Skill 路由规范文件为：
 不直接修改 Frappe / ERPNext / HRMS 核心源码。优先使用原生配置、角色权限、DocType、报表、导入、API 和低代码定制。自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。`hb_attendance_app` 已在 M1-FIX-B 经 Owner 授权创建，后续不得擅自扩大为大而全 HR App。任何飞书真实写入必须由用户明确授权。
 
 任何海滨自定义 App 生成、业务模型实现、真实业务数据配置、飞书真实写入、前端驾驶舱、AI 视频服务实现，以及 Docker volume 删除、site 重建或环境重构，都属于后续轮次或后续明确授权范围。
+
+
+## HBOS Portal 并行工作流（Owner 已授权）
+
+2026-09-24，Owner 已明确授权正式启动 HBOS Workspace / Portal 产品线。
+
+该工作流与 M1-FIX 并行，不代表 M2 已启动，也不替代 Attendance / Inventory / LIMS 的治理线。
+
+Authority：
+
+- 分支：`feature/hbos-portal-product`
+- 设计文档：`docs/experience/`
+- 前端规范：`docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`
+- 未来前端：`frontend/hbos-portal-web/`
+
+当前设计状态：
+
+- EA-1～EA-4 = BASELINE
+- EA-5 Owner Visual Gate = APPROVED
+- EA-5.3 = Product Interaction BASELINE
+- EA-5.4 = DESIGN ENGINEERING BASELINE
+- EA-5.5 = NEXT
+
+Portal 技术栈已固定为 Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts 按需使用。
+
+Portal 不拥有 Attendance / Inventory / LIMS 业务事实；所有真实数据经 Application Provider / DTO 进入。
+
+原“不得做大型 Vue/React 前端”的 M1-FIX 默认禁令继续适用于未授权范围；HBOS Portal 仅在本 Owner 明确授权的并行工作流内例外放行。

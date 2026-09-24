@@ -125,3 +125,17 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 - 用户：负责最终验收、取舍确认与里程碑放行
 
 每轮任务开始前，AI 必须说明本轮读取了哪些文档。默认只读 `CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`，禁止默认递归读取整个 `docs/`。
+
+
+## 并行产品工作流：HBOS Portal
+
+Owner 已于 2026-09-24 正式授权启动 HBOS Workspace / Portal 产品线。
+
+- 分支：`feature/hbos-portal-product`
+- Experience Architecture：`docs/experience/`
+- 实施计划：`docs/plans/HBOS_PORTAL_IMPLEMENTATION_PLAN.md`
+- 前端目标：`frontend/hbos-portal-web/`
+- 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios
+- 当前 Gate：EA-5.4 DESIGN ENGINEERING BASELINE；下一步 EA-5.5
+
+Portal 是 M1-FIX 之外的并行产品工作流，不代表 M2 已启动，也不替代 Attendance / Inventory / LIMS 的领域治理。

@@ -113,3 +113,30 @@ M2     = NOT STARTED / WAITING OWNER AUTHORIZATION
 ## 下一轮预告
 
 M1-FIX-B5 已进入 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 与 M2 均未启动。
+
+
+## 并行产品工作流：HBOS Portal
+
+Owner 已于 2026-09-24 明确授权 HBOS Portal 独立并行启动。
+
+该授权不改变本文件顶部的 M1-FIX 主里程碑。
+
+Portal 当前状态：
+
+```text
+EA-1 ~ EA-4 = BASELINE
+EA-5 Owner Visual Gate = APPROVED
+EA-5.3 = BASELINE
+EA-5.4 = DESIGN ENGINEERING BASELINE
+EA-5.5 = NEXT
+```
+
+正式工作分支：`feature/hbos-portal-product`。
+
+允许范围：
+- Portal Experience Architecture 文档；
+- 已批准原型复刻；
+- Vue 3 + Ant Design Vue Portal Skeleton；
+- EA-5.5 响应式 / 可访问性 / 交互 QA。
+
+在后续 Gate 前暂不创建 `apps/hbos_portal`，不接真实业务 Provider。
