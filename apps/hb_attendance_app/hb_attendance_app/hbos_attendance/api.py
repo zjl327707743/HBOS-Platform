@@ -221,7 +221,7 @@ def sync_delicloud_checkin():
 
         if not all_recs: return {"total": 0, "created": 0, "skipped": 0}
 
-        created = skipped = 0
+        created = skipped = write_failed = 0
         for rec in all_recs:
             cd = rec.get("check_data", "{}")
             try: cd = json.loads(cd) if isinstance(cd, str) else cd
@@ -271,7 +271,7 @@ def sync_delicloud_checkin():
                             frappe.db.set_value("Employee Checkin", existing, fname, val,
                                                 update_modified=False)
                 except Exception:
-                    pass
+                    write_failed += 1
                 continue
             try:
                 doc = frappe.get_doc({
@@ -284,13 +284,20 @@ def sync_delicloud_checkin():
                     "hbos_dept_name": dept_name,
                     "hbos_check_type": check_type,
                 })
-                doc.insert(ignore_permissions=True); created += 1
-            except Exception: skipped += 1
+                doc.insert(ignore_permissions=True)
+                created += 1
+            except Exception:
+                write_failed += 1
 
         frappe.db.commit()
-        if all_recs:
+        cursor_advanced = False
+        if all_recs and write_failed == 0:
+            # 只有本批所有应落库记录均安全写入后才推进游标。
+            # 若部分写入失败，下次会重拉同一批；已成功记录由 employee+time 幂等去重，
+            # 失败记录得到重试机会，不会被永久跳过。
             lid = all_recs[-1].get("id", nid)
             frappe.cache.set_value("delicloud_next_id", lid)
+            cursor_advanced = True
 
         # Run auto attendance after sync (skip if fails)
         try:
@@ -310,8 +317,14 @@ def sync_delicloud_checkin():
         month_start = _dt.now().replace(day=1).strftime("%Y-%m-%d")
         gen_result = regenerate_attendance(month_start, yesterday)
 
-        return {"total": len(all_recs), "created": created, "skipped": skipped,
-                "attendance_generated": gen_result}
+        return {
+            "total": len(all_recs),
+            "created": created,
+            "skipped": skipped,
+            "write_failed": write_failed,
+            "cursor_advanced": cursor_advanced,
+            "attendance_generated": gen_result,
+        }
     except Exception as e:
         frappe.log_error(str(e), "得力云同步"); frappe.throw(f"得力云同步失败: {e}")
 
