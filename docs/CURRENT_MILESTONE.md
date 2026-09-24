@@ -173,3 +173,15 @@ EA-5.5 = IN_PROGRESS
 ```
 
 EA-5.5 当前只做交互、响应式、可访问性和 LIMS V1 Operational Page 验证，不进入真实 API 功能接入。
+
+
+### Portal EA-5.5 Gate
+
+```text
+EA-5.5 Implementation = PASS
+HBOS Quality Gate = PASS
+Portal Frontend Build Gate = PASS
+Owner Product Review = PENDING
+```
+
+在 Owner Review 前，EA-5.5 不标记 COMPLETE，不进入真实 Provider / backend implementation。

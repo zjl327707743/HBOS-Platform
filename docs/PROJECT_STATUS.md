@@ -1099,3 +1099,18 @@ HBOS Portal Frontend Gate = PASS
 ```
 
 EA-5.5 新提交必须重新通过两项 Gate。
+
+
+### Portal EA-5.5 CI Closeout
+
+当前 Head：`27478fbdddd6916c826f7fca400ab408b472c0b8`
+
+```text
+HBOS Quality Gate = PASS
+HBOS Portal Frontend Gate = PASS
+EA-5.5 = IMPLEMENTATION PASS / OWNER REVIEW PENDING
+```
+
+本轮已真实验证 npm install、vue-tsc、Vite build 和 dist 产物。
+
+尚未进入真实业务 API / `apps/hbos_portal`。
