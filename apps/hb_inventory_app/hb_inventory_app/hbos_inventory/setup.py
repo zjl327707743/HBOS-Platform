@@ -172,6 +172,7 @@ def sync_custom_fields():
                     "options": "待检\n已放行\n不放行",
                     "default": "待检",
                     "insert_after": "hbos_source_type",
+                    "read_only": 1,
                     "description": "出库门禁依据：须为「已放行」且有合格证",
                 },
                 {
@@ -179,19 +180,38 @@ def sync_custom_fields():
                     "label": "HBOS 放行日期",
                     "fieldtype": "Date",
                     "insert_after": "hbos_release_status",
+                    "read_only": 1,
                 },
                 {
                     "fieldname": "hbos_certificate_no",
                     "label": "HBOS 合格证编号",
                     "fieldtype": "Data",
                     "insert_after": "hbos_release_date",
+                    "read_only": 1,
                 },
                 {
                     "fieldname": "hbos_certificate_file",
                     "label": "HBOS 合格证附件",
                     "fieldtype": "Attach",
                     "insert_after": "hbos_certificate_no",
+                    "read_only": 1,
+                },,
+                {
+                    "fieldname": "hbos_lims_reference",
+                    "label": "HBOS LIMS 放行引用",
+                    "fieldtype": "Data",
+                    "insert_after": "hbos_certificate_file",
+                    "read_only": 1,
+                    "description": "LIMS 放行记录/样品/COA 的稳定引用；Warehouse 只读",
                 },
+                {
+                    "fieldname": "hbos_release_source",
+                    "label": "HBOS 放行来源",
+                    "fieldtype": "Data",
+                    "insert_after": "hbos_lims_reference",
+                    "read_only": 1,
+                    "description": "质量放行投影来源；正式放行固定为 LIMS",
+                }
                 {
                     "fieldname": "hbos_supplier_batch_no",
                     "label": "HBOS 原厂批号",
@@ -256,12 +276,14 @@ def sync_custom_fields():
 
 
 def after_migrate():
-    sync_uoms()
-    sync_warehouses()
-    sync_item_groups()
+    """Schema/UI migration only.
+
+    Company-specific UOM/Warehouse/Item Group data is intentionally excluded.
+    Use hbos_inventory.business_seed.apply_profile(...) explicitly for business seed.
+    """
     sync_custom_fields()
     from hb_inventory_app.hbos_inventory.workspace_setup import sync_inventory_workspace
 
     sync_inventory_workspace()
     frappe.db.commit()
-    _log("HBOS Inventory", "after_migrate 完成")
+    _log("HBOS Inventory", "after_migrate schema/UI 完成")
