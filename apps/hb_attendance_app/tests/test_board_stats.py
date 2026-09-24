@@ -178,14 +178,14 @@ class AnomalyHiddenFrontendTest(unittest.TestCase):
         self.assertIn("!r.anomaly_hidden && (isLate(r)", js)
 
 
-class AnomalyHiddenListTest(unittest.TestCase):
-    """名单定义：设备动力部 40 人在内；与其它名单语义区分。"""
+class AnomalyHiddenPolicyTest(unittest.TestCase):
+    """Anomaly-hidden membership is business data rather than a source literal."""
 
-    def test_list_contains_equipment_dept_members(self):
+    def test_list_is_database_backed_policy_set(self):
+        from hb_attendance_app.hbos_attendance.policy_registry import PolicySet
         from hb_attendance_app.hbos_attendance.rule_lists import (
-            ANOMALY_HIDDEN_NUMS, EXEMPT_NUMS, LATE_EXEMPT_NUMS)
-        self.assertEqual(len(ANOMALY_HIDDEN_NUMS), 40)
-        self.assertIn("10009025", ANOMALY_HIDDEN_NUMS)   # 付全喜（设备动力部）
-        self.assertIn("10009017", ANOMALY_HIDDEN_NUMS)   # 李振中（不在任何其它名单，验证取全部门）
-        # 不得与「暂不记迟到」混用；与豁免名单可以重叠（重叠者已被豁免隐藏，无副作用）
-        self.assertFalse(ANOMALY_HIDDEN_NUMS & LATE_EXEMPT_NUMS)
+            ANOMALY_HIDDEN_NUMS, LATE_EXEMPT_NUMS,
+        )
+        self.assertIsInstance(ANOMALY_HIDDEN_NUMS, PolicySet)
+        self.assertIsInstance(LATE_EXEMPT_NUMS, PolicySet)
+
