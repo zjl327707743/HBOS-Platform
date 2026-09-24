@@ -31,14 +31,12 @@ def _env_flag(name):
     return str(os.environ.get(name, "0")).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _require_feishu_enabled():
-    if not _env_flag("HBOS_FEISHU_SYNC_ENABLED"):
-        frappe.throw("飞书真实同步未启用（HBOS_FEISHU_SYNC_ENABLED=0）")
+def feishu_sync_enabled():
+    return _env_flag("HBOS_FEISHU_SYNC_ENABLED")
 
 
-def _require_delicloud_enabled():
-    if not _env_flag("HBOS_DELICLOUD_SYNC_ENABLED"):
-        frappe.throw("得力云真实同步未启用（HBOS_DELICLOUD_SYNC_ENABLED=0）")
+def delicloud_sync_enabled():
+    return _env_flag("HBOS_DELICLOUD_SYNC_ENABLED")
 
 # 旧无菌倒班名单已废弃(2026-08-20): 无菌人员统一走 pairing.py 的 SPECIAL_SHIFT_NUMS,
 # 原 WUJUN_NUMS 中 3 名设备动力部人员(11008005/11008011/11008012)误加, 回归通用判定
@@ -111,7 +109,8 @@ def sync_from_bitable():
     字段: 请假人员_姓名/工号/开始时间/结束时间/请假天数 + SourceID(审批实例ID) + 申请状态
     去重键: feishu-bitable-<SourceID>
     """
-    _require_feishu_enabled()
+    if not feishu_sync_enabled():
+        return {"skipped": "feishu_sync_disabled"}
     _require_hr_write()
     try: token = _get_token(); records = _fetch_all_records(token)
     except Exception as e: frappe.log_error(str(e), "飞书同步"); frappe.throw(f"读取飞书表格失败: {e}")
@@ -160,6 +159,9 @@ def sync_from_bitable():
 
 @frappe.whitelist()
 def sync_overtime_from_bitable():
+    if not feishu_sync_enabled():
+        return {"skipped": "feishu_sync_disabled"}
+    _require_hr_write()
     try: token = _get_token(); records = _fetch_all_records_custom(token, OVERTIME_BITABLE_APP_TOKEN, OVERTIME_BITABLE_TABLE_ID)
     except Exception as e: frappe.log_error(str(e), "飞书加班同步"); frappe.throw(f"读取飞书加班表格失败: {e}")
     created = updated = skipped = 0
@@ -200,7 +202,9 @@ def _delicloud_call(cmd, body=None):
 
 @frappe.whitelist()
 def sync_delicloud_checkin():
-    _require_delicloud_enabled()
+    if not delicloud_sync_enabled():
+        return {"skipped": "delicloud_sync_disabled"}
+    _require_hr_write()
     try:
         from datetime import datetime as dt_mod
         init_r = _delicloud_call("checkin_query_init")
@@ -736,7 +740,8 @@ def regenerate_attendance(range_start, range_end):
 @frappe.whitelist()
 def sync_attendance_exceptions_to_bitable():
     """将迟到/早退记录同步到飞书多维表格「考勤异常汇总」"""
-    _require_feishu_enabled()
+    if not feishu_sync_enabled():
+        return {"skipped": "feishu_sync_disabled"}
     _require_hr_write()
     import hashlib
     from datetime import datetime as dt_mod
