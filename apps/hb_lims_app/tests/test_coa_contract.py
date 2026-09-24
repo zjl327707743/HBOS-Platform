@@ -82,7 +82,8 @@ class TestCOADoctypeContracts(unittest.TestCase):
         source = (HBOS_LIMS / "doctype" / "hbos_coa" / "hbos_coa.py").read_text(encoding="utf-8")
         self.assertIn("def _validate_locked_after_review(self):", source)
         self.assertIn("COA_LOCKED_FIELDS", source)
-        self.assertIn("item_signature(self.items)", source)\n        self.assertIn("检验项目明细内容不可增删改", source)
+        self.assertIn("item_signature(self.items)", source)
+        self.assertIn("检验项目明细内容不可增删改", source)
 
 
 class TestPrintFormatContract(unittest.TestCase):
