@@ -15,7 +15,7 @@ def get_manifest() -> dict[str, object]:
         "order": 30,
         "migration_mode": "native",
         "route": "/hbos/lims",
-        # P3-LIMS-1 only registers entry/access.
-        # Summary / tasks / search are enabled in separate reviewed increments.
-        "capabilities": [],
+        # P3-LIMS-3 enables only the existing LIMS todo projection.
+        # Summary and search remain behind later gates.
+        "capabilities": ["tasks"],
     }

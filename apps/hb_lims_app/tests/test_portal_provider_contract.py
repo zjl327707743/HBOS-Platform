@@ -33,7 +33,7 @@ class PortalManifestContractTest(unittest.TestCase):
         self.assertEqual("native", manifest["migration_mode"])
         self.assertEqual("ExperimentOutlined", manifest["icon"])
         self.assertEqual("lims", manifest["accent"])
-        self.assertEqual([], manifest["capabilities"])
+        self.assertEqual(["tasks"], manifest["capabilities"])
 
 
 class PortalRouteContractTest(unittest.TestCase):
@@ -141,6 +141,10 @@ class PortalAccessContractTest(unittest.TestCase):
 class PortalProviderRuntimeBoundaryTest(unittest.TestCase):
     def tearDown(self):
         sys.modules.pop("frappe", None)
+
+    def test_provider_exposes_tasks_capability_method(self):
+        provider = get_provider()
+        self.assertTrue(callable(provider.my_tasks))
 
     def test_provider_derives_identity_from_frappe_session(self):
         fake_frappe = types.SimpleNamespace(
