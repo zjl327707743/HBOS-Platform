@@ -14,7 +14,7 @@ import frappe
 
 from hb_attendance_app.hbos_attendance.ai_review import call_llm, env_config
 from hb_attendance_app.hbos_attendance.api import (
-    STATUS_MAP, _fetch_all_records_custom, _get_token, _require_feishu_enabled,
+    STATUS_MAP, _fetch_all_records_custom, _get_token, feishu_sync_enabled,
 )
 from hb_attendance_app.hbos_attendance.rest_leave import (
     ID_PREFIX, PARSE_PENDING, REST_LEAVE_APP_TOKEN, REST_LEAVE_TABLE_ID,
@@ -73,7 +73,12 @@ def sync_rest_leave_from_bitable():
       failed 落库失败（save/commit 抛异常）
       error 拉表阶段的失败原因，非空即表示本次未处理任何记录
     """
-    _require_feishu_enabled()
+    if not feishu_sync_enabled():
+        return {
+            "total": 0, "created": 0, "updated": 0, "skipped": 0,
+            "unmatched": 0, "failed": 0, "error": "",
+            "skipped_reason": "feishu_sync_disabled",
+        }
     _require_hr_write()
     summary = {"total": 0, "created": 0, "updated": 0,
                "skipped": 0, "unmatched": 0, "failed": 0, "error": ""}
@@ -503,7 +508,7 @@ def sync_rest_leave_pipeline():
     sync_result = sync_rest_leave_from_bitable()
     summary["sync"] = sync_result
     # 同步阶段无法拉取源数据时，本轮不继续解析/核实，避免把旧积压误当成本轮新结果。
-    if sync_result.get("error"):
+    if sync_result.get("error") or sync_result.get("skipped_reason"):
         return summary
 
     parse_result = parse_pending_rest_leaves()
