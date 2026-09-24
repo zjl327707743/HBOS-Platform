@@ -4,6 +4,8 @@
       :user-name="portal.user.displayName"
       :total-actions="actionCount"
       :metrics="portal.heroMetrics"
+      :app-count="portal.apps.length"
+      :show-twin-preview="portal.dataSource === 'mock'"
     />
 
     <AppCenter :apps="portal.apps" />
@@ -15,9 +17,9 @@
 
     <MyWorkPanel v-else :tasks="actionableTasks.slice(0, 3)" />
 
-    <DigitalTwinPanel :statuses="portal.twinStatuses" />
+    <DigitalTwinPanel v-if="portal.twinStatuses.length" :statuses="portal.twinStatuses" />
 
-    <section class="section-panel glass-surface home-foot-section">
+    <section v-if="portal.dataSource === 'mock'" class="section-panel glass-surface home-foot-section">
       <div class="section-head">
         <div>
           <span class="section-kicker">最近与快捷操作</span>

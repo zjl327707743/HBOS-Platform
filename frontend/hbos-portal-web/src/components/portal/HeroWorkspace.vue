@@ -26,15 +26,15 @@
     <aside class="hero-aside">
       <div class="status-glass">
         <div class="status-title">
-          <span>系统运行态势</span>
-          <a-tag color="success">正常</a-tag>
+          <span>工作台状态</span>
+          <a-tag color="success">已连接</a-tag>
         </div>
-        <div class="status-row"><i class="green"></i><span>关键业务服务</span><b>12 / 12</b></div>
         <div class="status-row"><i class="blue"></i><span>统一身份与会话</span><b>已连接</b></div>
-        <div class="status-row"><i class="violet"></i><span>我的可用应用</span><b>7</b></div>
+        <div class="status-row"><i class="violet"></i><span>我的可用应用</span><b>{{ appCount }}</b></div>
+        <div class="status-row"><i class="green"></i><span>需要我处理</span><b>{{ totalActions }}</b></div>
       </div>
 
-      <div class="mini-twin-glass">
+      <div v-if="showTwinPreview" class="mini-twin-glass">
         <div class="status-title">
           <span>数字孪生概览</span>
           <a-tag color="processing">LIVE READY</a-tag>
@@ -67,5 +67,7 @@ defineProps<{
   userName: string
   totalActions: number
   metrics: SummaryMetricDTO[]
+  appCount: number
+  showTwinPreview: boolean
 }>()
 </script>

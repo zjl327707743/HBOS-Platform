@@ -69,7 +69,28 @@ export const usePortalStore = defineStore('portal', () => {
     summariesLoading.value = true
     try {
       const loaded = await getPortalSummaries(apps.value)
-      heroMetrics.value = loaded.slice(0, 4)
+      const byApp = new Map<string, SummaryMetricDTO[]>()
+      for (const metric of loaded) {
+        const bucket = byApp.get(metric.appId) || []
+        bucket.push(metric)
+        byApp.set(metric.appId, bucket)
+      }
+
+      const selected: SummaryMetricDTO[] = []
+      let index = 0
+      while (selected.length < 4) {
+        let added = false
+        for (const app of apps.value) {
+          const metric = byApp.get(app.id)?.[index]
+          if (!metric) continue
+          selected.push(metric)
+          added = true
+          if (selected.length >= 4) break
+        }
+        if (!added) break
+        index += 1
+      }
+      heroMetrics.value = selected
     } finally {
       summariesLoading.value = false
     }
