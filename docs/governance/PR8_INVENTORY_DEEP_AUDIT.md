@@ -7,6 +7,23 @@
 
 ---
 
+## 0. 增量复核（2026-09-24）
+
+原审计 HEAD 为 `d621f481...`。当前 PR #8 HEAD 已推进到 `7872afbb...`，新增 2 个提交，仅涉及：
+
+- `.github/workflows/hbos-quality-gate.yml`
+- `scripts/setup_fonts.sh`
+- M3-R6 方案文档
+- 新成员环境手册
+
+未发现 Inventory 业务主体代码变化，因此本审计其余 P0/P1 继续有效。
+
+增量结论：
+
+- **I8-P0-10 字体不可重建：部分关闭。** 已新增 Noto Serif SC 获取/sha256 校验/安装脚本，并在 CI 真实执行 fontconfig 验证。正式关闭条件调整为：Inventory Clean Candidate 的 Docker/clean-site smoke 中容器侧 `fc-list :lang=zh` 与 PDF 中文渲染均 PASS。
+- **I8-P0-11 CI 不覆盖 Inventory/OCR：部分关闭。** 当前 CI 已新增 `hb_inventory_app` 契约测试、OCR validate/c2_extract 单测和字体可重建检查。但仍缺 Warehouse/Company 权限、File 授权、Batch item mismatch、OCR 内部认证、clean-site migrate、LIMS→Batch→Warehouse 联合集成测试，因此仍为 Merge Blocker。
+
+
 ## 1. 建议保留的主体
 
 - `apps/hb_inventory_app/**`
