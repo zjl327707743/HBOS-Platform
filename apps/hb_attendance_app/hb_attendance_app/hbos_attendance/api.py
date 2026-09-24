@@ -1,6 +1,7 @@
 """飞书多维表格请假/加班数据同步 + 得力云考勤机同步"""
 import frappe
 import json
+import os
 import requests
 from datetime import datetime
 from datetime import timezone as _tz
