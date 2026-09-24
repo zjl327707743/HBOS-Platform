@@ -140,3 +140,13 @@ EA-5.5 frontend implementation has passed both repository quality and Portal fro
 P1 authority: [`P1_HBOS_Portal平台App架构.md`](./P1_HBOS_Portal平台App架构.md).
 
 Status: **ARCHITECTURE BASELINE / P2 READY**.
+
+
+## P2 Runtime Status
+
+```text
+P1 = ARCHITECTURE BASELINE
+P2 = SKELETON IMPLEMENTED / BACKEND GATE PASS
+P2.1 = FRONTEND BOOTSTRAP ADAPTER PASS
+P2.2 = RUNTIME SMOKE TEST NEXT
+```

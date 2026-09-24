@@ -204,3 +204,12 @@ EA-5.5 已通过 Owner 验收并收口。
 `docs/experience/P1_HBOS_Portal平台App架构.md` 已形成架构基线。
 
 下一允许范围：P2 `apps/hbos_portal` skeleton；不接三业务 APP Provider，不创建业务事实 DocType。
+
+
+### Portal P2 Gate Update — 2026-09-25
+
+- `apps/hbos_portal` skeleton 已创建；
+- Portal Backend Gate = PASS；
+- Vue Frappe Bootstrap Adapter = PASS；
+- 下一 Gate = P2.2 Runtime Smoke Test；
+- 尚未接三业务 APP Provider。

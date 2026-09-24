@@ -1139,3 +1139,14 @@ P1 已完成 `hbos_portal` 薄平台 App 架构基线。
 当前允许进入 P2：创建 Frappe App skeleton、Registry、Bootstrap、Access Guard、Error Contract 和 fake-provider tests。
 
 P2 仍禁止接 Attendance / Inventory / LIMS 真实 Provider，也不实现飞书 OAuth。
+
+
+### HBOS Portal P2 / P2.1 Update — 2026-09-25
+
+```text
+P2 hbos_portal Skeleton = IMPLEMENTED / BACKEND GATE PASS
+P2.1 Frontend Bootstrap Adapter = IMPLEMENTED / FRONTEND GATE PASS
+P2.2 Runtime Smoke Test = NEXT
+```
+
+当前仍未接 Attendance / Inventory / LIMS 真实 Provider；Registry 在真实 site 初始允许为空。

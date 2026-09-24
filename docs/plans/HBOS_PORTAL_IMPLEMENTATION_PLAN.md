@@ -225,3 +225,21 @@ P2 = READY TO IMPLEMENT
 ```
 
 P2 只创建薄 `apps/hbos_portal` skeleton，不接 Attendance / Inventory / LIMS Provider。
+
+
+## 11. P2 / P2.1 Implementation Result — 2026-09-25
+
+P2 已创建 `apps/hbos_portal` 薄平台 App skeleton，并通过独立 Backend Gate。
+
+Backend Gate PASS 项：Python compile、Contract/Registry unit tests、禁止业务 App 静态 import、禁止 Guest API、P2 禁止 DocType。
+
+P2.1 已完成 Vue → Frappe Bootstrap Adapter：
+
+```text
+VITE_PORTAL_DATA_MODE=mock   → UI / Experience 开发
+VITE_PORTAL_DATA_MODE=frappe → /api/method/hbos_portal.api.bootstrap.get_bootstrap
+```
+
+Frontend Gate 已真实通过 Node 22 / npm install / vue-tsc / Vite build / dist check。
+
+下一步：P2.2 Runtime Smoke Test，在真实 Frappe site 安装并验证 `hbos_portal`。
