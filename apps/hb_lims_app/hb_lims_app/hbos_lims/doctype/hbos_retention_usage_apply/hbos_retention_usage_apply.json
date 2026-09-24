@@ -1,0 +1,263 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-09-08 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "retention_sample",
+  "sample_name",
+  "batch_no",
+  "status",
+  "section_apply",
+  "apply_qty",
+  "qty_uom",
+  "reason_type",
+  "reason_detail",
+  "apply_dept",
+  "applicant",
+  "apply_date",
+  "section_approve",
+  "stock_confirm_by",
+  "stock_confirm_date",
+  "stock_qty",
+  "qc_approval",
+  "qa_approval",
+  "qm_approval",
+  "executed_by",
+  "executed_date",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-RET-USE-.YYYY.-",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "retention_sample",
+   "fieldtype": "Link",
+   "label": "关联留样",
+   "options": "HBOS Retention Sample",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sample_name",
+   "fieldtype": "Data",
+   "label": "样品名称",
+   "fetch_from": "retention_sample.sample_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "批号",
+   "fetch_from": "retention_sample.batch_no",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "草稿\n待库存确认\n待QC批准\n待QA批准\n待QM批准\n已批准\n已执行\n已驳回\n已取消",
+   "default": "草稿",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_apply",
+   "fieldtype": "Section Break",
+   "label": "申请信息"
+  },
+  {
+   "fieldname": "apply_qty",
+   "fieldtype": "Float",
+   "label": "申请量",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty_uom",
+   "fieldtype": "Select",
+   "label": "单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他",
+   "fetch_from": "retention_sample.qty_uom",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason_type",
+   "fieldtype": "Select",
+   "label": "触发场景",
+   "options": "用户投诉\n检验结果分析\n生产异常\n上市前研发\n其他",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reason_detail",
+   "fieldtype": "Data",
+   "label": "原因说明"
+  },
+  {
+   "fieldname": "apply_dept",
+   "fieldtype": "Data",
+   "label": "申请部门"
+  },
+  {
+   "fieldname": "applicant",
+   "fieldtype": "Link",
+   "label": "申请人",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "apply_date",
+   "fieldtype": "Date",
+   "label": "申请日期",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_approve",
+   "fieldtype": "Section Break",
+   "label": "审批链"
+  },
+  {
+   "fieldname": "stock_confirm_by",
+   "fieldtype": "Link",
+   "label": "库存确认人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_confirm_date",
+   "fieldtype": "Date",
+   "label": "库存确认日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_qty",
+   "fieldtype": "Float",
+   "label": "确认时可用量快照",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qc_approval",
+   "fieldtype": "Data",
+   "label": "QC 批准",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_approval",
+   "fieldtype": "Data",
+   "label": "QA 批准",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qm_approval",
+   "fieldtype": "Data",
+   "label": "QM 批准",
+   "read_only": 1
+  },
+  {
+   "fieldname": "executed_by",
+   "fieldtype": "Data",
+   "label": "取样执行人",
+   "read_only": 1
+  },
+  {
+   "fieldname": "executed_date",
+   "fieldtype": "Date",
+   "label": "取样执行日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 0,
+ "links": [],
+ "module": "HBOS LIMS",
+ "name": "HBOS Retention Usage Apply",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "submit": 0,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Manager"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Analyst"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Reviewer"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS QA"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "retention_sample",
+ "track_changes": 1
+}

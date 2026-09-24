@@ -1,0 +1,187 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-08-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "sample",
+  "batch_no",
+  "material_code",
+  "material_name",
+  "spec_version",
+  "report_status",
+  "qa_reviewer",
+  "qa_reviewed_at",
+  "published_by",
+  "published_at",
+  "pdf_attachment",
+  "items_section",
+  "items",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "default": "HBOS-COA-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-COA-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sample",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "样品",
+   "options": "HBOS Sample",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "sample.batch_no",
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "批号",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "sample.material_code",
+   "fieldname": "material_code",
+   "fieldtype": "Data",
+   "label": "物料编码",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "sample.material_name",
+   "fieldname": "material_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "物料名称",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "sample.spec_version",
+   "fieldname": "spec_version",
+   "fieldtype": "Data",
+   "label": "质量标准版本",
+   "read_only": 1
+  },
+  {
+   "default": "草稿",
+   "fieldname": "report_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "报告状态",
+   "options": "草稿\n已审核\n已发布",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qa_reviewer",
+   "fieldtype": "Link",
+   "label": "QA审核人",
+   "options": "User"
+  },
+  {
+   "fieldname": "qa_reviewed_at",
+   "fieldtype": "Datetime",
+   "label": "审核时间"
+  },
+  {
+   "fieldname": "published_by",
+   "fieldtype": "Link",
+   "label": "发布人",
+   "options": "User"
+  },
+  {
+   "fieldname": "published_at",
+   "fieldtype": "Datetime",
+   "label": "发布时间"
+  },
+  {
+   "fieldname": "pdf_attachment",
+   "fieldtype": "Attach",
+   "label": "PDF报告",
+   "read_only": 1
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "报告项目"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "in_list_view": 1,
+   "label": "报告项目明细",
+   "options": "HBOS COA Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "icon": "file-text",
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-08-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS COA",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

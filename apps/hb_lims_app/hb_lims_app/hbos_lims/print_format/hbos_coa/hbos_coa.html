@@ -1,0 +1,63 @@
+<!-- HBOS COA 检验报告书打印模板（中文） -->
+<div style="font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif; max-width: 720px; margin: 0 auto;">
+	<div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 16px;">
+		<h2 style="margin: 0;">新乡海滨智能运营管理平台</h2>
+		<h3 style="margin: 4px 0 0;">检验报告书（COA）</h3>
+	</div>
+
+	<table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px;">
+		<tr>
+			<td style="padding: 4px 8px; width: 50%;"><b>报告编号：</b>{{ doc.name }}</td>
+			<td style="padding: 4px 8px;"><b>样品编号：</b>{{ doc.sample }}</td>
+		</tr>
+		<tr>
+			<td style="padding: 4px 8px;"><b>物料名称：</b>{{ doc.material_name }}</td>
+			<td style="padding: 4px 8px;"><b>物料编码：</b>{{ doc.material_code }}</td>
+		</tr>
+		<tr>
+			<td style="padding: 4px 8px;"><b>批号：</b>{{ doc.batch_no }}</td>
+			<td style="padding: 4px 8px;"><b>质量标准版本：</b>{{ doc.spec_version }}</td>
+		</tr>
+		<tr>
+			<td style="padding: 4px 8px;"><b>报告状态：</b>{{ doc.report_status }}</td>
+			<td style="padding: 4px 8px;"><b>发布时间：</b>{{ doc.published_at or "" }}</td>
+		</tr>
+	</table>
+
+	<table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+		<thead>
+			<tr style="background: #f5f5f5;">
+				<th style="border: 1px solid #999; padding: 6px 8px; text-align: left;">检验项目</th>
+				<th style="border: 1px solid #999; padding: 6px 8px; text-align: left;">方法SOP号</th>
+				<th style="border: 1px solid #999; padding: 6px 8px; text-align: left;">标准限度</th>
+				<th style="border: 1px solid #999; padding: 6px 8px; text-align: left;">检验结果</th>
+				<th style="border: 1px solid #999; padding: 6px 8px; text-align: left;">判定</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for item in doc.items %}
+			<tr>
+				<td style="border: 1px solid #999; padding: 6px 8px;">{{ item.item_name }}</td>
+				<td style="border: 1px solid #999; padding: 6px 8px;">{{ item.method_sop }}</td>
+				<td style="border: 1px solid #999; padding: 6px 8px;">{{ item.standard }}</td>
+				<td style="border: 1px solid #999; padding: 6px 8px;">{{ item.result }}</td>
+				<td style="border: 1px solid #999; padding: 6px 8px;">{{ item.verdict }}</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+
+	<div style="margin-top: 24px; font-size: 13px;">
+		<table style="width: 100%;">
+			<tr style="text-align: center;">
+				<td style="padding: 8px;">检验人：<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></td>
+				<td style="padding: 8px;">复核人：<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></td>
+				<td style="padding: 8px;">QA批准人：{{ doc.qa_reviewer or "" }}</td>
+			</tr>
+		</table>
+	</div>
+
+	<p style="margin-top: 16px; font-size: 12px; color: #666;">
+		本报告仅对来样负责。电子签名与审计追踪由 HBOS LIMS 系统保障。
+	</p>
+</div>

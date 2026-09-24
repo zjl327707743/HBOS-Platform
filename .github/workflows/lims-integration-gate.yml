@@ -1,0 +1,79 @@
+name: HBOS LIMS Integration Gate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - integration/hbos-platform-v1
+    paths:
+      - "apps/hb_lims_app/**"
+      - "frontend/hbos-lims-web/**"
+      - "scripts/ci/lims_clean_site_smoke.sh"
+      - "scripts/ci/docker-compose.lims-ci.yml"
+      - ".github/workflows/lims-integration-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lims-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Python syntax
+        run: python -m compileall -q apps/hb_lims_app
+      - name: LIMS contracts
+        run: |
+          pip install -q pytest
+          export PYTHONPATH="$PWD/apps/hb_lims_app:$PYTHONPATH"
+          python -m pytest -q -p no:cacheprovider apps/hb_lims_app/tests
+
+  lims-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend/hbos-lims-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/hbos-lims-web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Production build
+        run: npm run build:prod
+      - name: Verify build artifact
+        run: |
+          test -f dist/index.html
+          test -n "$(find dist/assets -type f -maxdepth 1 -print -quit)"
+
+  clean-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare HRMS v16 source
+        run: |
+          mkdir -p runtime/apps
+          git clone --depth 1 --branch version-16 https://github.com/frappe/hrms.git runtime/apps/hrms
+      - name: Validate CI assets
+        run: |
+          bash -n scripts/ci/lims_clean_site_smoke.sh
+          docker compose -f docker-compose.yml -f scripts/ci/docker-compose.lims-ci.yml config >/dev/null
+      - name: Clean-site + DB + Inventory release integration
+        env:
+          HBOS_SMOKE_PROJECT: hbos-lims-${{ github.run_id }}
+        run: bash scripts/ci/lims_clean_site_smoke.sh

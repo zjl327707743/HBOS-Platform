@@ -1,0 +1,171 @@
+/* 海滨LIMS：报表表格纵向滚动修复
+   背景：Frappe datatable 仅定义 Firefox scrollbar-width:thin，WebKit（Chrome/Safari）
+   无 ::-webkit-scrollbar 样式，滚动条不显示且内容超高时无法滚动。
+   页面容器类名：id=#page-query-report（无 page-query-report 类），内容容器 .report-wrapper。
+   本样式：表格高度自适应（max-height 限高）+ 滚动条始终可见 + 页面区滚动兜底。 */
+
+#page-query-report .report-wrapper {
+	overflow: auto;
+	max-height: calc(100vh - 240px);
+}
+
+#page-query-report .datatable .dt-scrollable {
+	height: auto !important;
+	max-height: calc(100vh - 300px);
+	overflow-y: auto !important;
+	overflow-x: auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--gray-400) var(--gray-100);
+}
+
+#page-query-report .dt-scrollable::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+#page-query-report .dt-scrollable::-webkit-scrollbar-track {
+	background: var(--gray-100);
+	border-radius: 5px;
+}
+
+#page-query-report .dt-scrollable::-webkit-scrollbar-thumb {
+	background: var(--gray-400);
+	border-radius: 5px;
+}
+
+#page-query-report .dt-scrollable::-webkit-scrollbar-thumb:hover {
+	background: var(--gray-500);
+}
+
+/* 报表 DataTable 列宽拖拽：datatable 原生支持拖拽调列宽（最小 30px）与
+   双击表头手柄自适应列宽，但 resize-handle 默认 opacity:0 且无 hover 显示规则，
+   手柄不可见导致无法拖拽，fixed 布局下列宽不足时内容被 ellipsis 截断。
+   本样式：hover 表头单元格时显示拖拽手柄（含手柄自身 hover），并加宽命中区。 */
+#page-query-report .datatable .dt-row-header .dt-cell__resize-handle {
+	width: 9px;
+	right: -4px;
+	cursor: col-resize;
+	transition: opacity 0.15s;
+}
+
+#page-query-report .datatable .dt-row-header .dt-cell:hover .dt-cell__resize-handle,
+#page-query-report .datatable .dt-row-header .dt-cell__resize-handle:hover {
+	opacity: 1 !important;
+}
+
+/* 列表视图（DocType 列表页）列宽拖拽：v16 原生仅按内容自动计算列宽，无拖拽交互；
+   JS（lims_list_resize.js）为 LIMS 列表页表头列注入 .list-col-resize-handle 手柄，
+   本样式 hover 表头列时显示手柄并加宽命中区（拖拽改列宽、双击复位为自动宽度）。 */
+.list-view .list-row-head .list-row-col {
+	position: relative;
+}
+
+.list-view .list-row-head .list-row-col .list-col-resize-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: -3px;
+	width: 9px;
+	z-index: 1;
+	cursor: col-resize;
+	opacity: 0;
+	transition: opacity 0.15s;
+}
+
+.list-view .list-row-head .list-row-col:hover .list-col-resize-handle,
+.list-view .list-row-head .list-row-col .list-col-resize-handle:hover {
+	opacity: 1 !important;
+}
+
+/* 表单子表网格（form-grid）列宽拖拽：Frappe v16 子表列宽由 Bootstrap col-xs-N
+   栅格类固定，无拖拽交互；JS（lims_grid_resize.js）为 LIMS 表单子表表头列注入
+   .grid-col-resize-handle 手柄，本样式 hover 表头单元格时显示手柄并加宽命中区
+   （拖拽改列宽、双击复位为 col-xs-N 自动宽度）。 */
+.form-grid .grid-heading-row .grid-static-col {
+	position: relative;
+}
+
+.form-grid .grid-heading-row .grid-static-col .grid-col-resize-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: -3px;
+	width: 9px;
+	z-index: 1;
+	cursor: col-resize;
+	opacity: 0;
+	transition: opacity 0.15s;
+}
+
+.form-grid .grid-heading-row .grid-static-col:hover .grid-col-resize-handle,
+.form-grid .grid-heading-row .grid-static-col .grid-col-resize-handle:hover {
+	opacity: 1 !important;
+}
+
+/* 海滨LIMS：表格字段文字居中（用户需求：所有表格字段文字剧中）。
+   限定 HBOS LIMS 模块容器（JS 注入 .hbos-lims-list / .hbos-lims-grid 标记类、
+   #page-query-report.hbos-lims-report），不影响考勤等其他模块的列表/表单。覆盖三类表格：
+   ① Query Report 与 DocType 报表视图的 datatable（.dt-cell__content 表头+数据）；
+   ② 列表视图表头与全部行（.list-row-col）；
+   ③ 表单子表网格表头与全部行（.grid-static-col）。 */
+.hbos-lims-list .datatable .dt-cell__content,
+#page-query-report.hbos-lims-report .datatable .dt-cell__content,
+.hbos-lims-list .list-row-col,
+.hbos-lims-grid .grid-static-col {
+	text-align: center !important;
+}
+
+/* 列表视图表头列为 flex 布局（.list-subject.level），text-align 对 flex 容器不生效，
+   需 justify-content: center 让表头文字/元素真正居中；数据行列非 flex（继承 text-align）。 */
+.hbos-lims-list .list-row-head .list-row-col {
+	justify-content: center;
+}
+
+/* 列表视图表头第一列（编号/名称列）含全选框，flex 居中时 checkbox 占位使文字偏右；
+   将 checkbox 绝对定位到最左，让"编号"等文字真正居中（与数据行 checkbox 位置一致）。 */
+.hbos-lims-list .list-row-head .list-row-col.list-subject.level {
+	position: relative;
+}
+
+.hbos-lims-list .list-row-head .list-row-col.list-subject.level .select-like {
+	position: absolute;
+	left: 0;
+}
+
+.hbos-lims-list .list-row-head .list-row-col.list-subject.level [data-sort-by] {
+	margin-left: auto;
+	margin-right: auto;
+}
+
+/* 数据行第一列（.list-subject.level，flex 容器）与表头对齐：
+   原生 justify-content: start 使 checkbox+链接靠左，text-align: center 对 flex 无效，
+   与表头（checkbox 绝对定位最左 + 文字居中）不一致导致表头/数据错位。
+   同规则处理：checkbox 出流置最左，链接文字居中（内层 div 继承 text-align 居中）。
+   注意 .list-row-head 不匹配 .list-row，仅作用于数据行。 */
+.hbos-lims-list .list-row .list-subject.level {
+	position: relative;
+	justify-content: center;
+}
+
+.hbos-lims-list .list-row .list-subject.level .select-like {
+	position: absolute;
+	left: 0;
+}
+
+/* datatable 表头 .dt-cell__content 原生 padding 左右不对称（5px/16px）致文字偏左 5px；
+   补偿 padding-left 使左右对称，表头文字真正居中（仅表头，数据单元格保持原 padding）。 */
+.hbos-lims-list .datatable .dt-row-header .dt-cell__content,
+#page-query-report.hbos-lims-report .datatable .dt-row-header .dt-cell__content {
+	padding-left: 16px !important;
+}
+
+/* 列表视图行列高度修复（结果修订记录列表异常）：
+   Frappe 原生规则 .frappe-list .result { min-height: 200px } 不仅命中列表结果容器
+   .result，也会命中字段名恰为 result 的列表列（.list-row-col.result，Link 字段"结果记录"），
+   把该列撑高到 200px、整行拉高到 200px+，导致编号与后续列之间出现一条独立"HBOS-TR-2026-"
+   且行高异常。通用修复：LIMS 列表视图全部数据行列重置 min-height/height，避免任何字段名
+   与 Frappe 容器类（result/freeze/no-result 等）冲突时被原生规则误撑高。 */
+.hbos-lims-list .list-row .list-row-col {
+	min-height: auto !important;
+	height: auto !important;
+}

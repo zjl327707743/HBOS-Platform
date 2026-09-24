@@ -1,0 +1,31 @@
+{
+  "name": "hbos-lims-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "build:prod": "VITE_BASE=/hbos-lims/ vue-tsc -b && VITE_BASE=/hbos-lims/ vite build",
+    "preview": "vite preview",
+    "test:unit": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@ant-design/icons-vue": "^7.0.1",
+    "ant-design-vue": "^4.2.6",
+    "axios": "^1.19.0",
+    "echarts": "^6.1.0",
+    "pinia": "^4.0.2",
+    "sass": "^1.102.0",
+    "vue": "^3.5.40",
+    "vue-router": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vue-tsc": "^3.3.8"
+  }
+}

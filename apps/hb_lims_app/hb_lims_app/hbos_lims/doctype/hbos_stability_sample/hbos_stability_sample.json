@@ -1,0 +1,522 @@
+{
+ "actions": [],
+ "creation": "2026-09-18 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "notice",
+  "protocol",
+  "stability_product",
+  "column_break_head",
+  "sample_name",
+  "material_code",
+  "batch_no",
+  "batch_size",
+  "section_dates",
+  "manufacture_date",
+  "finish_date",
+  "send_date",
+  "full_test_sample_date",
+  "column_break_dates",
+  "in_date",
+  "start_date",
+  "section_storage",
+  "storage_cond",
+  "condition_snapshot",
+  "room",
+  "storage_location",
+  "column_break_storage",
+  "pack_desc",
+  "is_sterile_pack",
+  "package_count",
+  "package_spec",
+  "inverted_flag",
+  "section_qty",
+  "init_qty",
+  "current_qty",
+  "qty_uom",
+  "column_break_qty",
+  "source_sample",
+  "timepoint_gen_error",
+  "label_no",
+  "section_eval",
+  "need_evaluation",
+  "evaluation_conclusion",
+  "column_break_eval",
+  "evaluated_by",
+  "evaluation_date",
+  "section_signoff",
+  "stored_by",
+  "reviewed_by",
+  "reviewed_date",
+  "section_disposal",
+  "pre_disposal_status",
+  "disposal_mark_reason",
+  "column_break_disposal",
+  "disposal_marked_by",
+  "disposal_marked_date",
+  "disposal_cancel_reason",
+  "disposal_cancelled_by",
+  "disposal_cancelled_date",
+  "section_status",
+  "logs",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-SMP-.YYYY.-",
+   "default": "HBOS-STB-SMP-.YYYY.-",
+   "reqd": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "notice",
+   "fieldtype": "Link",
+   "label": "考察通知单",
+   "options": "HBOS Stability Notice",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "protocol",
+   "fieldtype": "Link",
+   "label": "稳定性方案",
+   "options": "HBOS Stability Protocol"
+  },
+  {
+   "fieldname": "stability_product",
+   "fieldtype": "Link",
+   "label": "稳定性产品",
+   "options": "HBOS Stability Product",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "sample_name",
+   "fieldtype": "Data",
+   "label": "品名",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "material_code",
+   "fieldtype": "Data",
+   "label": "物料编码"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "批号",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "batch_size",
+   "fieldtype": "Data",
+   "label": "批量"
+  },
+  {
+   "fieldname": "section_dates",
+   "fieldtype": "Section Break",
+   "label": "日期",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "manufacture_date",
+   "fieldtype": "Date",
+   "label": "生产日期"
+  },
+  {
+   "fieldname": "finish_date",
+   "fieldtype": "Date",
+   "label": "终结日期"
+  },
+  {
+   "fieldname": "send_date",
+   "fieldtype": "Date",
+   "label": "送样日期"
+  },
+  {
+   "fieldname": "full_test_sample_date",
+   "fieldtype": "Date",
+   "label": "全检样送样日期",
+   "description": "方案 4.1/6.3.3：送样日期距全检样送样日期不得超过 3 周"
+  },
+  {
+   "fieldname": "column_break_dates",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "in_date",
+   "fieldtype": "Date",
+   "label": "进箱日期",
+   "reqd": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "开始考察日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_storage",
+   "fieldtype": "Section Break",
+   "label": "储存",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "storage_cond",
+   "fieldtype": "Link",
+   "label": "储存条件",
+   "options": "HBOS Stability Condition"
+  },
+  {
+   "fieldname": "condition_snapshot",
+   "fieldtype": "Data",
+   "label": "条件文本快照",
+   "read_only": 1
+  },
+  {
+   "fieldname": "room",
+   "fieldtype": "Link",
+   "label": "稳定性室",
+   "options": "HBOS Stability Room"
+  },
+  {
+   "fieldname": "storage_location",
+   "fieldtype": "Data",
+   "label": "箱位"
+  },
+  {
+   "fieldname": "column_break_storage",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "pack_desc",
+   "fieldtype": "Data",
+   "label": "包装描述"
+  },
+  {
+   "fieldname": "is_sterile_pack",
+   "fieldtype": "Check",
+   "label": "无菌独立包装"
+  },
+  {
+   "fieldname": "package_count",
+   "fieldtype": "Int",
+   "label": "包装件数"
+  },
+  {
+   "fieldname": "package_spec",
+   "fieldtype": "Data",
+   "label": "包装规格"
+  },
+  {
+   "fieldname": "inverted_flag",
+   "fieldtype": "Select",
+   "label": "放置方向",
+   "options": "正置\n倒置"
+  },
+  {
+   "fieldname": "section_qty",
+   "fieldtype": "Section Break",
+   "label": "数量与关联",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "init_qty",
+   "fieldtype": "Float",
+   "label": "初始量"
+  },
+  {
+   "fieldname": "current_qty",
+   "fieldtype": "Float",
+   "label": "当前结存",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "qty_uom",
+   "fieldtype": "Select",
+   "label": "单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他"
+  },
+  {
+   "fieldname": "column_break_qty",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "source_sample",
+   "fieldtype": "Link",
+   "label": "检验批次关联",
+   "options": "HBOS Sample"
+  },
+  {
+   "fieldname": "label_no",
+   "fieldtype": "Data",
+   "label": "标签编号"
+  },
+  {
+   "fieldname": "timepoint_gen_error",
+   "fieldtype": "Small Text",
+   "label": "时间点生成告警",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "登记成功后自动生成时间点失败时置原因（方案 7.1 失败语义）；手动重跑成功后清空"
+  },
+  {
+   "fieldname": "section_eval",
+   "fieldtype": "Section Break",
+   "label": "进箱评估（进箱超生产 1 个月时强制）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "need_evaluation",
+   "fieldtype": "Check",
+   "label": "需强制评估",
+   "read_only": 1
+  },
+  {
+   "fieldname": "evaluation_conclusion",
+   "fieldtype": "Small Text",
+   "label": "评估结论"
+  },
+  {
+   "fieldname": "column_break_eval",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "evaluated_by",
+   "fieldtype": "Link",
+   "label": "评估人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "evaluation_date",
+   "fieldtype": "Date",
+   "label": "评估日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_signoff",
+   "fieldtype": "Section Break",
+   "label": "签署",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "stored_by",
+   "fieldtype": "Link",
+   "label": "储存人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "复核人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_date",
+   "fieldtype": "Date",
+   "label": "复核日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_disposal",
+   "fieldtype": "Section Break",
+   "label": "待处置快照（系统维护）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "pre_disposal_status",
+   "fieldtype": "Select",
+   "label": "进入待处置前状态",
+   "options": "在箱\n部分取样\n已取尽",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "disposal_mark_reason",
+   "fieldtype": "Data",
+   "label": "进入待处置原因",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_disposal",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "disposal_marked_by",
+   "fieldtype": "Link",
+   "label": "待处置操作人",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "disposal_marked_date",
+   "fieldtype": "Date",
+   "label": "待处置日期",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "disposal_cancel_reason",
+   "fieldtype": "Data",
+   "label": "取消待处置原因",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "disposal_cancelled_by",
+   "fieldtype": "Link",
+   "label": "取消待处置操作人",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "disposal_cancelled_date",
+   "fieldtype": "Date",
+   "label": "取消待处置日期",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_status",
+   "fieldtype": "Section Break",
+   "label": "状态",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "logs",
+   "fieldtype": "Table",
+   "label": "库存流水",
+   "options": "HBOS Stability Sample Log"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "在箱\n部分取样\n已取尽\n待处理\n已销毁\n已转出",
+   "default": "在箱",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-18 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Sample",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "LIMS Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Analyst",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS Reviewer",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QA Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  },
+  {
+   "role": "LIMS QP",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 0
+  }
+ ]
+}

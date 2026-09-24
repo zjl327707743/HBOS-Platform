@@ -1,0 +1,390 @@
+{
+ "actions": [],
+ "creation": "2026-09-16 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "notice",
+  "version",
+  "supersedes",
+  "column_break_head",
+  "status",
+  "purpose",
+  "scope",
+  "section_batches",
+  "batches",
+  "study_conditions",
+  "items",
+  "section_qty",
+  "qty",
+  "qty_uom",
+  "pack_desc",
+  "room_temp_recovery_days",
+  "section_snapshot",
+  "vd_months_snapshot",
+  "spec_ref",
+  "spec_version",
+  "test_method_ref",
+  "method_version",
+  "snapshot_frozen",
+  "section_signoff",
+  "drafted_by",
+  "draft_date",
+  "qa_review_by",
+  "qa_review_date",
+  "qa_approve_by",
+  "approve_date",
+  "effective_date",
+  "column_break_signoff2",
+  "reject_reason",
+  "reject_by",
+  "reject_date",
+  "void_reason",
+  "void_by",
+  "void_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-STB-PRO-.YYYY.-",
+   "default": "HBOS-STB-PRO-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "notice",
+   "fieldtype": "Link",
+   "label": "考察通知单",
+   "options": "HBOS Stability Notice",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "方案版本",
+   "default": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "supersedes",
+   "fieldtype": "Link",
+   "label": "被替代的上一版",
+   "options": "HBOS Stability Protocol",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "状态",
+   "options": "草稿\n待QA审核\n已批准\n已驳回\n已作废",
+   "default": "草稿",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Long Text",
+   "label": "研究目的"
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Long Text",
+   "label": "研究范围"
+  },
+  {
+   "fieldname": "section_batches",
+   "fieldtype": "Section Break",
+   "label": "批次与条件",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "batches",
+   "fieldtype": "Table",
+   "label": "考察批次",
+   "options": "HBOS Stability Batch"
+  },
+  {
+   "fieldname": "study_conditions",
+   "fieldtype": "Table",
+   "label": "贮存条件",
+   "options": "HBOS Stability Study Condition"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "考察项目",
+   "options": "HBOS Stability Protocol Item"
+  },
+  {
+   "fieldname": "section_qty",
+   "fieldtype": "Section Break",
+   "label": "用量与包装",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "label": "用量"
+  },
+  {
+   "fieldname": "qty_uom",
+   "fieldtype": "Select",
+   "label": "用量单位",
+   "options": "g\nkg\nmg\nmL\nL\n瓶\n支\n袋\n桶\n盒\n其他"
+  },
+  {
+   "fieldname": "pack_desc",
+   "fieldtype": "Data",
+   "label": "包装描述"
+  },
+  {
+   "fieldname": "room_temp_recovery_days",
+   "fieldtype": "Int",
+   "label": "取样后恢复室温天数",
+   "default": "0",
+   "description": "用于计算计划检测日期"
+  },
+  {
+   "fieldname": "section_snapshot",
+   "fieldtype": "Section Break",
+   "label": "标准与方法快照（批准后冻结）",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "vd_months_snapshot",
+   "fieldtype": "Int",
+   "label": "有效期快照（月）"
+  },
+  {
+   "fieldname": "spec_ref",
+   "fieldtype": "Link",
+   "label": "质量标准",
+   "options": "HBOS Specification"
+  },
+  {
+   "fieldname": "spec_version",
+   "fieldtype": "Data",
+   "label": "标准版本快照"
+  },
+  {
+   "fieldname": "test_method_ref",
+   "fieldtype": "Data",
+   "label": "检验标准操作规程"
+  },
+  {
+   "fieldname": "method_version",
+   "fieldtype": "Data",
+   "label": "方法版本快照"
+  },
+  {
+   "fieldname": "snapshot_frozen",
+   "fieldtype": "Check",
+   "label": "快照已冻结",
+   "read_only": 1,
+   "description": "批准时由业务服务置 1；此后快照字段只读（方案 7.7）"
+  },
+  {
+   "fieldname": "section_signoff",
+   "fieldtype": "Section Break",
+   "label": "签署",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "drafted_by",
+   "fieldtype": "Link",
+   "label": "起草人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "draft_date",
+   "fieldtype": "Date",
+   "label": "起草日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_review_by",
+   "fieldtype": "Link",
+   "label": "QA 审核人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_review_date",
+   "fieldtype": "Date",
+   "label": "QA 审核日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qa_approve_by",
+   "fieldtype": "Link",
+   "label": "QA 批准人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approve_date",
+   "fieldtype": "Date",
+   "label": "批准日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "effective_date",
+   "fieldtype": "Date",
+   "label": "生效日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_signoff2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "reject_reason",
+   "fieldtype": "Long Text",
+   "label": "驳回原因",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reject_by",
+   "fieldtype": "Link",
+   "label": "驳回人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reject_date",
+   "fieldtype": "Date",
+   "label": "驳回日期",
+   "read_only": 1
+  },
+  {
+   "fieldname": "void_reason",
+   "fieldtype": "Long Text",
+   "label": "作废原因",
+   "read_only": 1
+  },
+  {
+   "fieldname": "void_by",
+   "fieldtype": "Link",
+   "label": "作废人",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "void_date",
+   "fieldtype": "Date",
+   "label": "作废日期",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS LIMS",
+ "name": "HBOS Stability Protocol",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Analyst",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS Reviewer",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QA Manager",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LIMS QP",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "title_field": "notice"
+}

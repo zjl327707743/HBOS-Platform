@@ -1,0 +1,219 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-09-08 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "retention_sample",
+  "sample_name",
+  "batch_no",
+  "storage_condition",
+  "test_standard",
+  "column_break_obs",
+  "obs_month",
+  "sample_period_key",
+  "obs_date",
+  "appearance",
+  "result",
+  "abnormal_note",
+  "section_sign",
+  "observer",
+  "reviewed_by",
+  "reviewed_date",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "编号系列",
+   "options": "HBOS-RET-OBS-.YYYY.-",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "retention_sample",
+   "fieldtype": "Link",
+   "label": "关联留样",
+   "options": "HBOS Retention Sample",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sample_name",
+   "fieldtype": "Data",
+   "label": "样品名称",
+   "fetch_from": "retention_sample.sample_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "批号",
+   "fetch_from": "retention_sample.batch_no",
+   "read_only": 1
+  },
+  {
+   "fieldname": "storage_condition",
+   "fieldtype": "Data",
+   "label": "储存条件",
+   "fetch_from": "retention_sample.storage_condition",
+   "read_only": 1
+  },
+  {
+   "fieldname": "test_standard",
+   "fieldtype": "Data",
+   "label": "检验标准"
+  },
+  {
+   "fieldname": "column_break_obs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "obs_month",
+   "fieldtype": "Int",
+   "label": "观察偏移月数",
+   "reqd": 1,
+   "description": "0 = 0 月基线；年度观察为 12 的倍数"
+  },
+  {
+   "fieldname": "sample_period_key",
+   "fieldtype": "Data",
+   "label": "观察期业务键",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "obs_date",
+   "fieldtype": "Date",
+   "label": "实际观察日期"
+  },
+  {
+   "fieldname": "appearance",
+   "fieldtype": "Data",
+   "label": "外观性状结果"
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "label": "观察结果",
+   "options": "正常\n异常"
+  },
+  {
+   "fieldname": "abnormal_note",
+   "fieldtype": "Data",
+   "label": "异常描述（异常时必填）"
+  },
+  {
+   "fieldname": "section_sign",
+   "fieldtype": "Section Break",
+   "label": "签名与审核"
+  },
+  {
+   "fieldname": "observer",
+   "fieldtype": "Link",
+   "label": "观察人",
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "审核人",
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewed_date",
+   "fieldtype": "Date",
+   "label": "审核日期"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "备注"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 0,
+ "links": [],
+ "module": "HBOS LIMS",
+ "name": "HBOS Retention Observation",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "submit": 0,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Manager"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Analyst"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS Reviewer"
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "if_owner": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 0,
+   "submit": 0,
+   "write": 0,
+   "role": "LIMS QA"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "retention_sample",
+ "track_changes": 1
+}
