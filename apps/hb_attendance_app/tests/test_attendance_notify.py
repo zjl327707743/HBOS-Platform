@@ -237,12 +237,23 @@ class SendDailyReportDispatchTest(unittest.TestCase):
         # 幂等位已落 + 当前非 9 点：非 force 会被双守卫挡住，force 必须绕过并取数
         self.cache_store[attendance_notify._sent_key("2026-09-10")] = "1"
         with mock.patch.dict(os.environ, {
+                "HBOS_FEISHU_SYNC_ENABLED": "1",
                 "HBOS_NOTIFY_DRY_RUN": "", "HBOS_NOTIFY_WEBHOOK_URL": ""}, clear=False):
             blocked = attendance_notify.send_daily_report()
             forced = attendance_notify.send_daily_report(force=True)
         self.assertIn("skipped", blocked)
         self.assertNotIn("skipped", forced)
         self.assertTrue(self.get_data_calls)             # 确实走了取数流程
+
+    def test_real_write_switch_cannot_be_bypassed_by_force(self):
+        with mock.patch.dict(os.environ, {
+                "HBOS_FEISHU_SYNC_ENABLED": "0",
+                "HBOS_NOTIFY_DRY_RUN": "",
+                "HBOS_NOTIFY_WEBHOOK_URL": "https://example.invalid/hook"}, clear=False), \
+                mock.patch.object(attendance_notify, "post_to_webhook") as post:
+            result = attendance_notify.send_daily_report(force=True)
+        self.assertEqual(result["skipped"], "feishu_sync_disabled")
+        post.assert_not_called()
 
     def test_dry_run_skips_network_but_marks_sent(self):
         with mock.patch.dict(os.environ, {
@@ -260,6 +271,7 @@ class SendDailyReportDispatchTest(unittest.TestCase):
             raise RuntimeError("boom-from-get-data")
         self.get_data_impl = boom
         with mock.patch.dict(os.environ, {
+                "HBOS_FEISHU_SYNC_ENABLED": "1",
                 "HBOS_NOTIFY_DRY_RUN": "", "HBOS_NOTIFY_WEBHOOK_URL": ""}, clear=False):
             result = attendance_notify.send_daily_report(force=True)  # 不得抛
         self.assertFalse(result["sent"])
@@ -274,6 +286,7 @@ class SendDailyReportDispatchTest(unittest.TestCase):
             return True, "HTTP 200"
 
         with mock.patch.dict(os.environ, {
+                "HBOS_FEISHU_SYNC_ENABLED": "1",
                 "HBOS_NOTIFY_DRY_RUN": "",
                 "HBOS_NOTIFY_WEBHOOK_URL": "https://example.invalid/hook"}, clear=False), \
                 mock.patch.object(attendance_notify, "post_to_webhook", fake_post):
