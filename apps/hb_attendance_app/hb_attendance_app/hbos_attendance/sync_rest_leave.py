@@ -118,9 +118,12 @@ def sync_rest_leave_from_bitable():
             exists = frappe.db.exists(DOCTYPE, {"feishu_approval_id": aid})
             doc = (frappe.get_doc(DOCTYPE, {"feishu_approval_id": aid}) if exists
                    else frappe.get_doc({"doctype": DOCTYPE, "feishu_approval_id": aid}))
-            # 必须在校验前暂存旧说明：doc.update 会就地覆盖 doc.remarks，
-            # 之后再比较恒为假，「说明被改过 → 重新解析」将永远不触发。
+            # 必须在校验前暂存旧值：doc.update 会就地覆盖它们，之后再比较
+            # 恒为假，「被改过 → 重新解析」将永远不触发（第一阶段踩过此坑）。
+            # 同时覆盖 employee：飞书改了工号会换人，只比 remarks 会沿用
+            # 原那人的加班证据（接入豁免后即「用甲的加班给乙换休」）。
             old_remarks = doc.remarks if exists else None
+            old_employee = doc.employee if exists else None
             doc.update({
                 "employee": emp,
                 "start_date": mapped["start_date"],
@@ -133,8 +136,8 @@ def sync_rest_leave_from_bitable():
             if not exists:
                 # 新记录等待 LLM 解析加班日
                 doc.verify_status = PARSE_PENDING
-            elif old_remarks != mapped["remarks"]:
-                # 说明被改过 → 加班日需重新解析
+            elif old_remarks != mapped["remarks"] or old_employee != emp:
+                # 说明或员工被改过 → 加班日需重新解析
                 doc.verify_status = PARSE_PENDING
             doc.save(ignore_permissions=True)
             frappe.db.commit()
