@@ -83,6 +83,13 @@ STATUS_MAP = {
 }
 
 
+def _require_hr_write():
+    """服务端写权限门禁：外部同步/考勤生成只允许 HR 管理员或系统管理员触发。"""
+    roles = set(frappe.get_roles())
+    if not roles.intersection({"HR Manager", "System Manager"}):
+        frappe.throw("你无权执行考勤写入或外部同步操作。", frappe.PermissionError)
+
+
 # ==================== 飞书请假同步 ====================
 
 @frappe.whitelist()
@@ -92,6 +99,7 @@ def sync_from_bitable():
     字段: 请假人员_姓名/工号/开始时间/结束时间/请假天数 + SourceID(审批实例ID) + 申请状态
     去重键: feishu-bitable-<SourceID>
     """
+    _require_hr_write()
     try: token = _get_token(); records = _fetch_all_records(token)
     except Exception as e: frappe.log_error(str(e), "飞书同步"); frappe.throw(f"读取飞书表格失败: {e}")
     created = updated = skipped = 0
@@ -307,6 +315,7 @@ def regenerate_attendance(range_start, range_end):
         3. 计算工作时长写入 working_hours
         4. 零打卡缺勤生成 Absent
     """
+    _require_hr_write()
     from collections import defaultdict
     from datetime import datetime as _dt, timedelta as _td
     from datetime import date as _date, timedelta as _tdelta
@@ -382,17 +391,13 @@ def regenerate_attendance(range_start, range_end):
     for _eid, _days in emp_rest_leave_dates.items():
         emp_leave_dates[_eid].update(_days)
 
-    # 清空生成范围内已有用 HBOS 逻辑生成的 Attendance(保留 HRMS 生成的)
-    # 同时清掉 range_end 之后的残留(当天数据不完整的假缺勤, 由早期版本生成)
+    # 清空目标范围内由 HBOS 生成的 Attendance（保留 HRMS 原生记录）。
+    # 严格限制在 [range_start, range_end]：窄窗口重算绝不能删除范围之后的正式考勤。
+    # 此处不提前 commit；与后续重建写入处于同一事务，最终成功后统一提交。
     frappe.db.sql(
         "DELETE FROM tabAttendance WHERE name LIKE 'HBOS-ATT-%%' AND attendance_date BETWEEN %s AND %s",
         (range_start, range_end),
     )
-    frappe.db.sql(
-        "DELETE FROM tabAttendance WHERE name LIKE 'HBOS-ATT-%%' AND attendance_date > %s",
-        (range_end,),
-    )
-    frappe.db.commit()
 
     # 对每个员工做贪心配对（纯函数，见 pairing.py）
     # 规则: 先去重(相邻10min内合并), 凌晨卡先向前配对, 再零点夜班配对, 最后向后配对
@@ -594,7 +599,6 @@ def regenerate_attendance(range_start, range_end):
             for name, emp, date, status, shift, late, ck, wh, miss_out, early in chunk
         )
         frappe.db.sql("INSERT IGNORE INTO tabAttendance (name, employee, attendance_date, status, shift, late_entry, early_exit, creation, working_hours, hbos_missing_out) VALUES " + values)
-    frappe.db.commit()
 
     # ===== 零打卡缺勤: 在职员工当天完全无打卡 =====
     # 豁免顺序(Owner 2026-08-19/20 确认):
@@ -705,6 +709,7 @@ def regenerate_attendance(range_start, range_end):
 @frappe.whitelist()
 def sync_attendance_exceptions_to_bitable():
     """将迟到/早退记录同步到飞书多维表格「考勤异常汇总」"""
+    _require_hr_write()
     import hashlib
     from datetime import datetime as dt_mod
 
