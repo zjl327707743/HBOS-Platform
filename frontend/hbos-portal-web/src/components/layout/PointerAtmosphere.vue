@@ -47,7 +47,7 @@ function spawnParticle(px: number, py: number, speed: number) {
       vy: -0.08 - Math.random() * 0.25,
       r: 4 + Math.random() * 12,
       life: 1,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      color: colors[Math.floor(Math.random() * colors.length)] ?? '103,95,255',
     })
   }
   if (particles.length > 85) particles.splice(0, particles.length - 85)
@@ -75,6 +75,7 @@ function setupCanvas() {
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
     for (let i = particles.length - 1; i >= 0; i -= 1) {
       const p = particles[i]
+      if (!p) continue
       p.x += p.vx
       p.y += p.vy
       p.life -= 0.018
