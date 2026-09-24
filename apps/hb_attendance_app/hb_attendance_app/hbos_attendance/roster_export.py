@@ -9,6 +9,14 @@ from datetime import datetime
 
 import frappe
 
+EXPORT_ROLES = {"HR User", "HR Manager", "System Manager"}
+
+
+def _require_export_permission():
+    if not (set(frappe.get_roles()) & EXPORT_ROLES):
+        frappe.throw("你无权导出考勤数据。", frappe.PermissionError)
+
+
 from hb_attendance_app.hbos_attendance.pairing import (
     FOUR_SHIFT_NUMS, SPECIAL_SHIFT_NUMS,
 )
@@ -92,6 +100,7 @@ def _rule_time_for(shift_type, department, rules_by_dept):
 @frappe.whitelist()
 def export_shift_roster():
     """导出班次人员维护表（5-sheet xlsx），返回文件 URL。"""
+    _require_export_permission()
     try:
         import openpyxl
         from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -303,7 +312,7 @@ def export_shift_roster():
         "doctype": "File",
         "file_name": file_name,
         "content": file_content,
-        "is_private": 0,
+        "is_private": 1,
         "attached_to_doctype": "Page",
         "attached_to_name": "hbos-shift-management",
     })
