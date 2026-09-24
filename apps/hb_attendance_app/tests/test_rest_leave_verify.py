@@ -225,10 +225,14 @@ class VerifyStageContractTest(unittest.TestCase):
     # ---------- 不接豁免、不打断调度 ----------
 
     def test_does_not_hook_into_attendance_generation(self):
-        """本阶段只写结论：不得触发重算，也不得进入判定。"""
-        self.assertNotIn("regenerate_attendance", self.src)
-        self.assertNotIn("pair_employee_checkins", self.src)
-        self.assertNotIn("frappe.throw(", self.src)
+        """核实函数本身只写结论：不得触发重算、配对或主动 throw。
+
+        模块其它入口可以有权限门禁；本契约只约束 verify_pending_rest_leaves。
+        """
+        func = self._func()
+        self.assertNotIn("regenerate_attendance", func)
+        self.assertNotIn("pair_employee_checkins", func)
+        self.assertNotIn("frappe.throw(", func)
 
     # ---------- 逐条兜底（DELTA 1） ----------
 
