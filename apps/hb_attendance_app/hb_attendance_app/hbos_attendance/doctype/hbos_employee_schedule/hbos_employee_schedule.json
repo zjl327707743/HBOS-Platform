@@ -15,7 +15,9 @@
   "column_break_1",
   "schedule_date",
   "shift_type",
-  "leave_type"
+  "leave_type",
+  "source_type",
+  "source_ref"
  ],
  "fields": [
   {
@@ -76,6 +78,22 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "请假类型"
+  },
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "label": "来源类型",
+   "options": "LEGACY\nROTATION\nIMPORT\nMANUAL\nSWAP",
+   "default": "MANUAL",
+   "in_list_view": 1,
+   "description": "排班来源；自动任务只能覆盖自己拥有的来源记录"
+  },
+  {
+   "fieldname": "source_ref",
+   "fieldtype": "Data",
+   "label": "来源引用",
+   "read_only": 1,
+   "description": "轮转组、导入文件/批次或换班单等来源标识"
   }
  ],
  "index_web_pages_for_search": 0,
