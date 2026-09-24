@@ -144,5 +144,5 @@ def _hide_stale_workspace_desktop_icon():
 		stale_icon.icon = "flask"
 		stale_icon.logo_url = DESKTOP_LOGO_URL
 		stale_icon.icon_image = DESKTOP_LOGO_URL
-		stale_icon.bg_color = "green"
+		stale_icon.bg_color = "blue"
 		stale_icon.save(ignore_permissions=True)
