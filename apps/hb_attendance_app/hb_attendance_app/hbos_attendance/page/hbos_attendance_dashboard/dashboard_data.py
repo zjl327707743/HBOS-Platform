@@ -9,6 +9,7 @@ def get_data(start_str=None, end_str=None):
 
     Defaults to current week (Mon-Sun) if start_str is not provided.
     """
+    frappe.only_for(["HR Manager", "HR User", "System Manager"])
     # Default to current week
     today = date.today()
     if not start_str:
@@ -21,22 +22,6 @@ def get_data(start_str=None, end_str=None):
         end = date.fromisoformat(end_str)
     start_str = start.isoformat()
     end_str = end.isoformat()
-
-    # ---------- Leave record lookup ----------
-    leaves = frappe.db.get_all(
-        "HBOS Leave Record",
-        filters={"approval_status": "已通过"},
-        fields=["employee", "start_date", "end_date"],
-    )
-    emp_leave_dates = defaultdict(set)
-    for l in leaves:
-        if not l.start_date or not l.end_date:
-            continue
-        d = l.start_date if isinstance(l.start_date, date) else date.fromisoformat(str(l.start_date))
-        ed = l.end_date if isinstance(l.end_date, date) else date.fromisoformat(str(l.end_date))
-        while d <= ed:
-            emp_leave_dates[l.employee].add(d.isoformat())
-            d += timedelta(days=1)
 
     # ---------- Active employee snapshot ----------
     active_emps = frappe.db.get_all(
@@ -61,28 +46,6 @@ def get_data(start_str=None, end_str=None):
         {"start": start_str, "end": end_str},
         as_dict=True,
     )
-
-    # ---------- Employee Checkin daily presence ----------
-    cks = frappe.db.sql(
-        """
-        SELECT ec.employee, DATE(ec.time) as ck_date
-        FROM `tabEmployee Checkin` ec
-        WHERE DATE(ec.time) BETWEEN %(start)s AND %(end)s
-        """,
-        {"start": start_str, "end": end_str},
-        as_dict=True,
-    )
-    daily_present = defaultdict(set)
-    for c in cks:
-        daily_present[str(c.ck_date)].add(c.employee)
-
-    # ---------- Compute weekends in range ----------
-    weekends = set()
-    d = start
-    while d <= end:
-        if d.weekday() >= 5:
-            weekends.add(d.isoformat())
-        d += timedelta(days=1)
 
     # ---------- Aggregate per employee ----------
     from hb_attendance_app.hbos_attendance.api import _is_exempt
@@ -109,36 +72,7 @@ def get_data(start_str=None, end_str=None):
         if r.early_exit:
             emp_data[eid]["early_dates"].add(ds)
         if r.status == "Absent":
-            is_leave = ds in emp_leave_dates.get(eid, set())
-            if not is_leave:
-                emp_data[eid]["absent_dates"].add(ds)
-
-    # ---------- Zero-checkin absent detection (per day) ----------
-    from hb_attendance_app.hbos_attendance import api as hb_api
-
-    d = start
-    while d <= end:
-        ds = d.isoformat()
-        present_set = daily_present.get(ds, set())
-        for e in active_emps:
-            if e.name not in present_set and e.name not in emp_leave_dates:
-                # 已有考勤记录(含Absent)的日期跳过, 防止重复计数
-                if (e.name, ds) in seen_emp_date:
-                    continue
-                # 豁免名单: 不计入异常考勤(迟到/早退/缺勤均不统计)
-                if hb_api._is_exempt(e.employee_number or ""):
-                    continue
-                # 行政班周末双休: 周六/周日无打卡不算缺勤
-                if ds in weekends and hb_api._is_admin_shift_num(e.employee_number or ""):
-                    continue
-                emp_data[e.name]["absent_dates"].add(ds)
-                if not emp_data[e.name]["name"]:
-                    emp_data[e.name].update({
-                        "name": e.employee_name or "",
-                        "num": e.employee_number or "",
-                        "dept": e.department or "",
-                    })
-        d += timedelta(days=1)
+            emp_data[eid]["absent_dates"].add(ds)
 
     # ---------- Build row list ----------
     rows = []
