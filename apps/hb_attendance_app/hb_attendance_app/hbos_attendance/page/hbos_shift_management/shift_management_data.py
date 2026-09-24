@@ -1,6 +1,23 @@
 import frappe
 from datetime import datetime, timedelta
 
+READ_ROLES = {"HR User", "HR Manager", "System Manager"}
+WRITE_ROLES = {"HR Manager", "System Manager"}
+
+
+def _require_roles(allowed):
+    if not (set(frappe.get_roles()) & set(allowed)):
+        frappe.throw("你无权访问考勤班次管理。", frappe.PermissionError)
+
+
+def _require_hr_read():
+    _require_roles(READ_ROLES)
+
+
+def _require_hr_write():
+    _require_roles(WRITE_ROLES)
+
+
 
 def _fmt_time(t):
     """timedelta/时间对象 → HH:MM 字符串(前端 Time 输入框需要干净格式)。"""
@@ -35,6 +52,7 @@ def get_shift_overview():
       "all_rules": [...]
     }
     """
+    _require_hr_read()
     from collections import defaultdict
 
     # 全部生效规则(含未到生效日期的, 前端标记"待生效")
@@ -95,6 +113,7 @@ def update_shift_rule(rule_name, field, value):
       - 新规则克隆原规则, 生效日期=明天, status=生效
     返回新规则信息。
     """
+    _require_hr_write()
     from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
 
     ALLOWED = {"start_time", "end_time", "late_after", "min_hours"}
@@ -131,6 +150,7 @@ def update_shift_rule(rule_name, field, value):
 @frappe.whitelist()
 def get_department_shifts(department):
     """某部门的全部班次(生效+停用, 按生效日期倒序)。"""
+    _require_hr_read()
     rules = frappe.db.get_all(
         "HBOS Shift Rule",
         filters={"department": department},
@@ -144,6 +164,7 @@ def get_department_shifts(department):
 @frappe.whitelist()
 def get_department_employees(department):
     """部门人员列表(含固定班次绑定 + 系统名单班次)。"""
+    _require_hr_read()
     from hb_attendance_app.hbos_attendance.api import (
         ADMIN_NUMS, EXEMPT_NUMS, WUJUN_NUMS, SAFETY_NUMS, FOOD_NUMS,
     )
@@ -186,6 +207,7 @@ def create_shift_rule(rule_name, department, shift_type,
                       start_time, end_time, late_after=None, min_hours=8,
                       effective_from=None):
     """新建班次规则(状态=生效)。effective_from 缺省时为次日。"""
+    _require_hr_write()
     if not effective_from:
         effective_from = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -232,6 +254,7 @@ def bind_employee_shifts(employee, shift_rules):
 
     shift_rules: JSON 数组字符串, 如 '["HBOS-SHIFT-0001","HBOS-SHIFT-0002"]'
     """
+    _require_hr_write()
     import json as _json
     try:
         rules = _json.loads(shift_rules or "[]")
@@ -252,6 +275,7 @@ def bind_employee_shifts(employee, shift_rules):
 @frappe.whitelist()
 def get_employee_bound_shifts(employee):
     """员工的全部班次绑定(规则名列表)。"""
+    _require_hr_read()
     return [r.shift_rule for r in frappe.db.get_all(
         "HBOS Employee Shift",
         filters={"employee": employee},
@@ -262,6 +286,7 @@ def get_employee_bound_shifts(employee):
 @frappe.whitelist()
 def set_rule_status(rule_name, status):
     """调整规则状态: 生效/停用/草稿。"""
+    _require_hr_write()
     allowed = {"生效", "停用", "草稿"}
     if status not in allowed:
         frappe.throw(f"不允许的状态: {status}")
@@ -275,6 +300,7 @@ def set_rule_status(rule_name, status):
 @frappe.whitelist()
 def delete_shift_rule(rule_name):
     """删除班次规则。已绑定员工的规则先解绑。"""
+    _require_hr_write()
     if not frappe.db.exists("HBOS Shift Rule", rule_name):
         frappe.throw("规则不存在")
     # 解绑所有绑定此规则的员工
@@ -292,23 +318,18 @@ def delete_shift_rule(rule_name):
 def import_schedule_file(file_path=None, file_content=None, file_url=None):
     """导入排班表(支持厂外QC矩阵式与四车间纵向式)。覆盖式重导。
 
-    参数三选一:
-      file_url: 前端 Attach 字段上传的文件 URL（推荐, 从 File 记录读原始字节）
-      file_content: 前端上传的 base64 内容
-      file_path: 服务器上的文件路径
+    参数优先使用 file_url（Frappe File）；兼容 file_content。
+    出于安全原因，白名单 API 不再接受任意服务器 file_path。
     返回导入统计。
     """
+    _require_hr_write()
     import base64
     import tempfile
     import os
+    if file_path:
+        frappe.throw("不允许通过 API 读取服务器任意文件路径；请使用已上传的 File。", frappe.PermissionError)
     from hb_attendance_app.hbos_attendance.schedule_import import (
         parse_xlsx_matrix, parse_xlsx_vertical,
-    )
-
-    # 临时诊断日志: 定位前端传参问题, 定位后移除
-    frappe.log_error(
-        f"import_schedule_file 收到参数: file_url={file_url!r}, file_content={bool(file_content)}, file_path={file_path!r}",
-        "排班表导入诊断",
     )
 
     tmp_path = None
@@ -404,6 +425,7 @@ def get_conflicts():
     2. 员工绑定的固定班次指向已停用规则
     返回 {overlaps: [...], stale_bindings: [...]}
     """
+    _require_hr_read()
     overlaps = []
     rules = frappe.db.get_all(
         "HBOS Shift Rule",
@@ -453,6 +475,7 @@ def get_rules_board():
     只读端点，不触发考勤生成、不改数据库。各数据源独立 try/except，
     任一失败只空该分组并记录到 errors，不整体抛错。
     """
+    _require_hr_read()
     from hb_attendance_app.hbos_attendance import rules_board as rb
 
     out = {
