@@ -382,8 +382,7 @@ def create_intake_draft(
 
 	warehouse_obj = frappe.get_doc("Warehouse", warehouse)
 	warehouse_obj.check_permission("read")
-	if not frappe.has_permission("Company", "read", doc=company):
-		frappe.throw(_("你无权访问该货位所属公司。"), frappe.PermissionError)
+	frappe.get_doc("Company", company).check_permission("read")
 	if not frappe.has_permission("Stock Entry", "create"):
 		frappe.throw(_("你无权创建库存入库草稿。"), frappe.PermissionError)
 
