@@ -83,7 +83,7 @@ class SpecialShiftTest(unittest.TestCase):
         # 8:30 → 20:31 的 12h 班: 无菌早
         cks = [{"time": datetime(2026, 8, 10, 8, 30), "employee_name": "秦瑀", "department": "无菌车间"},
                {"time": datetime(2026, 8, 10, 20, 31), "employee_name": "秦瑀", "department": "无菌车间"}]
-        atts = pair_employee_checkins(cks, "E1", "11008015", fake_shift_fn)
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, special_shift=True)
         self.assertIn(("2026-08-10", "Present", "无菌早", 0, 12.02), statuses(atts))
 
     def test_pairing_sterile_night_cross_day(self):
@@ -202,7 +202,7 @@ class SterileOvertimePairTest(unittest.TestCase):
         # 李明 8/19: 08:17:56 上班机 → 21:28:17 下班机 = 13.17h
         cks = [self._ck(19, 8, 17, 56, "13750CS_D7C69C16EC0B2447"),
                self._ck(19, 21, 28, 17, "13750CS_9FB66A86CF3487D7")]
-        atts = pair_employee_checkins(cks, "E1", "11008018", fake_shift_fn, terminal_aware=True)
+        atts = pair_employee_checkins(cks, "E1", "EMP-SPECIAL", fake_shift_fn, terminal_aware=True, special_shift=True)
         s = statuses(atts)
         self.assertIn(("2026-08-19", "Present", "无菌早", 0, 13.17), s)
         self.assertNotIn(("2026-08-19", "Absent", "", 0, 0), s)
