@@ -207,12 +207,14 @@ if command -v docker >/dev/null 2>&1; then
 	container="$(docker ps --format '{{.Names}}' | grep -E 'backend' | head -1 || true)"
 	if [[ -n "${container}" ]]; then
 		echo "容器侧验证（${container}）…"
-		n="$(docker exec "${container}" bash -lc 'fc-list :lang=zh 2>/dev/null | wc -l' 2>/dev/null || echo 0)"
-		n="$(printf '%s' "${n}" | tr -d '[:space:]')"
-		if [[ "${n:-0}" -gt 0 ]]; then
-			log "✓ 容器内中文字体数：${n}"
+		# volume 挂载发生在镜像 fontconfig 缓存生成之后；显式刷新，保证 wkhtmltopdf/fc-list
+		# 与真实部署看到同一份字体集合。
+		docker exec "${container}" bash -lc 'fc-cache -f /usr/share/fonts/truetype/hbos >/dev/null 2>&1 || fc-cache -f >/dev/null 2>&1' || true
+		fonts="$(docker exec "${container}" bash -lc 'fc-list :lang=zh 2>/dev/null || true' 2>/dev/null || true)"
+		if grep -qiE 'NotoSerifSC|Noto Serif SC' <<< "${fonts}"; then
+			log "✓ 容器内已识别 Noto Serif SC"
 		else
-			err "容器内中文字体数为 0 —— 挂载未生效。"
+			err "容器内未识别 Noto Serif SC —— 挂载或 fontconfig 缓存未生效。"
 			err "确认 docker-compose.yml 挂了 ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro，"
 			err "且 backend 容器已重建：docker compose up -d backend"
 			exit 1
