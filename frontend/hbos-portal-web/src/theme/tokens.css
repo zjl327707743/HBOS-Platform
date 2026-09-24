@@ -4,14 +4,14 @@
   --hbos-font-mono: "SFMono-Regular", "JetBrains Mono", Consolas, ui-monospace, monospace;
 
   --hbos-font-hero: 52px;
-  --hbos-font-page-title: 34px;
-  --hbos-font-section-title: 22px;
-  --hbos-font-card-title: 15px;
-  --hbos-font-body: 15px;
-  --hbos-font-dense: 15px;
-  --hbos-font-meta: 13px;
-  --hbos-font-micro: 12px;
-  --hbos-font-kpi: 32px;
+  --hbos-font-page-title: 36px;
+  --hbos-font-section-title: 24px;
+  --hbos-font-card-title: 16px;
+  --hbos-font-body: 16px;
+  --hbos-font-dense: 16px;
+  --hbos-font-meta: 14px;
+  --hbos-font-micro: 13px;
+  --hbos-font-kpi: 34px;
 
   /* Spacing */
   --hbos-space-1: 4px;

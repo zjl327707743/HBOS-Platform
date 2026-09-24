@@ -15,7 +15,7 @@ select {
 
 /* Brand */
 .brand-name {
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   font-weight: 900;
 }
@@ -140,7 +140,7 @@ select {
 
 /* Intentional special text that remains within the contract */
 .hello {
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.35;
   font-weight: 760;
 }
@@ -163,12 +163,12 @@ select {
   .lims-app-hero h1,
   .review-title-row h1,
   .system-state-page h1 {
-    font-size: 30px;
+    font-size: 32px;
   }
 
   .section-head h2,
   .workhead h2,
   .operation-card-head h2 {
-    font-size: 20px;
+    font-size: 22px;
   }
-}
+}/

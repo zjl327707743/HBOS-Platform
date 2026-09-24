@@ -338,3 +338,24 @@ Greeting    22
 ```
 
 本轮只调整统一 Token，不改变页面结构、不重新引入组件级字号特例。
+
+
+## 14. Owner Review Round 5 — Large Workspace Typography
+
+Owner 确认 Hero 52px 保持不变，但要求其余文字整体继续放大。
+
+Typography Contract 升级为 v1.3：
+
+```text
+Display     52  (unchanged)
+Page Title  36
+Section     24
+Card/Nav    16
+Body        16
+Meta        14
+Micro       13
+KPI         34
+Greeting    24
+```
+
+本轮仍只调整统一 Token 与 Typography Contract，不改变页面布局和信息结构。

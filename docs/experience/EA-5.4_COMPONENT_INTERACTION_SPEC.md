@@ -1340,3 +1340,35 @@ Owner 在真实桌面浏览器验收中确认：
 - 所有 Sidebar / Card Title 使用同一 Card/Nav Token；
 - Meta / Micro 不允许组件自行降低；
 - 后续调整只能修改 Token Contract，不允许修改单页字号。
+
+
+---
+
+# 43. Typography Contract v1.3 — Large Workspace Scale
+
+Owner 在真实桌面验收中再次确认：
+
+- Hero Display 52px 当前合适，保持不变；
+- 其余信息层级需要进一步放大，以适配 HBOS 的大屏企业工作台使用场景。
+
+Desktop 精确字号升级为：
+
+| Semantic Role | Desktop |
+|---|---:|
+| Display | **52px** |
+| Page Title | **36px** |
+| Section Title | **24px** |
+| Card / Nav | **16px** |
+| Body | **16px** |
+| Meta | **14px** |
+| Micro | **13px** |
+| KPI | **34px** |
+| Greeting | **24px** |
+
+本版本继续坚持：
+
+- Hero 不再调整；
+- 同一级标题必须完全同字号；
+- 所有字号必须来自 Typography Token；
+- 不允许组件局部新增中间字号；
+- 移动端继续按 Responsive Contract 降级。
