@@ -19,6 +19,7 @@ DASHBOARD_DATA = APP / "page" / "hbos_attendance_dashboard" / "dashboard_data.py
 DASHBOARD_JS = APP / "page" / "hbos_attendance_dashboard" / "hbos_attendance_dashboard.js"
 REPO = Path(__file__).parents[3]
 ENV_EXAMPLE = REPO / ".env.example"
+COMPOSE = REPO / "docker-compose.yml"
 
 
 class MergeGovernanceTest(unittest.TestCase):
@@ -128,6 +129,13 @@ class MergeGovernanceTest(unittest.TestCase):
         self.assertIn("escHtml(r.num", src)
         self.assertIn("escHtml(r.name", src)
         self.assertIn("escHtml(r.dept", src)
+
+    def test_clean_site_installs_required_apps_explicitly(self):
+        src = COMPOSE.read_text()
+        self.assertIn("bench --site $SITE_NAME install-app hrms", src)
+        self.assertIn("bench --site $SITE_NAME install-app hb_attendance_app", src)
+        self.assertIn("bench --site $SITE_NAME migrate", src)
+        self.assertIn("bench --site $SITE_NAME list-apps", src)
 
     def test_clean_site_declares_runtime_custom_fields(self):
         src = SETUP.read_text()
