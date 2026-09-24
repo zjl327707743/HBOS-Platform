@@ -1,1 +1,0 @@
-# HBOS Stock module
