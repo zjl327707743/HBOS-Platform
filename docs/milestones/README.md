@@ -50,6 +50,7 @@
 - `docs/milestones/M2_R7_留样管理板块开发方案.md`：M2-R7 留样管理板块开发方案（规程数字化定案 + 5 主 1 子 DocType + 三状态机 + R7A~D 四子轮拆分，REVIEWING rev6 口径已定稿；R7A 与 R7D 已落地，R7B/C 后端已实现并真实验证）。
 - `docs/milestones/M2_R7D_留样板块前端设计.md`：M2-R7D 留样板块前端设计（原型三件套 → Vue 6 视图复刻 → 生产部署 `/hbos-lims`，DEPLOYED，Owner 2026-09-08 已确认测试路径）。
 - `docs/milestones/M2_R8K_我的待办身份绑定.md`：M2-R8K 我的待办身份绑定（当前会话身份聚合、角色/指派区分、六类深链与原业务动作调度；REVIEWING，未同步生产）。
+- `docs/milestones/M2_R3G_检验流程系统字段守卫.md`：M2-R3G 检验流程系统字段守卫（M2-R3/R6 五个 DocType 补齐 R7/R8 已有的系统字段守卫，堵住 `frappe.client.set_value` 直写状态/签署字段绕过服务层状态机与 SoD 的「伪造审批」缺口；提交 `c8dcfcb`，已部署）。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -130,6 +131,7 @@
 | M2-R8J | 稳定性板块前后端审查与缺陷修复（独立审查：后端写路径 4306 行 + 22 DocType 权限 + 守卫层，前端 7 视图 + 接口层；结论——核心设计成立，零裸 SQL / 无 `v-html`、91 个 whitelist 方法全部经 `_check_action`、锁顺序无冲突、负向拦截全部留痕）；修 **3 P1 + 2 P2**：①报告 `conclusion` 无写入路径致报告链断裂（Report 对 LIMS 角色只读而 `submit_report` 硬校验其非空）→ 新增 `save_report_draft` + 前端「编辑报告内容」弹窗；②结果页缺「提交」致工作流 UI 走不通 → 操作列补「提交」；③`complete_testing` 公开 + `system=True` 豁免角色校验致越权（实测无角色用户可强制完成检测）→ 移 whitelist 改由 `approve_result` 自动调用；④`Equipment.status` 无守卫 → 补 `EQUIPMENT_SYSTEM_FIELDS` + `validate` + `read_only`；⑤故障流水子表行可被 LIMS 角色增删改 → 新增 `guard_child_table_frozen`；另补审计枚举 `报告起草`；离线 311/311、`vue-tsc` 0 错误 + build 成功、实机修复验证 15/16 → 补测 5/5、负向回归 11/11、浏览器读写全链；**第二轮** 经 93 项回滚模拟复现的 8 P1 + 2 P2 亦已修复（① 通用 `insert` 伪造「已批准」变更单由 `guard_system_fields` 首次插入守卫封堵 ② 变更审批 SoD ③ 样品错配产品 ④ 受托转出流水对账 ⑤ 计划接口补 `test_items` ⑥ 趋势契约补 `result_value/status/is_current` ⑦ 取样日期政策与延期前置 ⑧ `complete_sampling` 政策硬上限 ⑨ 月份过滤下推分页前 ⑩ 变更条件输入路径与实施落点）；离线 **321/321**、`pytest 329 passed`、`vue-tsc` 0 错误 + build 成功、**第二轮 10 项已补做实机逐项验证 + 负向回归 9/9**；已提交 `e447f97` 并同步生产 `/hbos-lims`（备份 `hbos-lims.bak-20260921094724`；清 58 个历史残留 chunk 后远端 85 文件与本地 dist md5 逐条一致）；上线后 Owner 验收发现的稳定性工作台「待 R8B~R8D」占位文案已修复（提交 `b61f83d`，远端 86 文件与本地 dist md5 逐条一致）；侧边栏「取样与检测计划 / 结果录入与趋势」原型遗留硬编码角标（4/3，恒显红）已改接真实数据并改 amber（提交 `6e06155`）；P3 加固项 7 条未处置） | DEPLOYED / 待 Owner 测试路径验收 |
 
 | M2-R8K | 我的待办身份绑定（基于当前会话身份聚合检验 / 稳定性 / 留样待办，明确「指派给我」与「我的角色待处理」，补齐 Administrator 特判、六类深链、原业务 API 动作调度、摘要缓存与前台轮询；前端单测 7 项、待办契约 6 项、后端全量 pytest 385 项、构建通过；未同步生产） | REVIEWING / 待 Owner 测试路径验收 |
+| M2-R3G | 检验流程系统字段守卫（M2-R3/R6 五个 DocType 补齐 R7/R8 已有的系统字段守卫：`workflow_contract` +5 字段集共 26 字段、新增中性入口 `guards.py`、5 个控制器接线、`lims_service` 23 个保存点补 `allow_system_fields`；离线 404 passed、实机非特权用户 9 passed（正向全链多角色 + 负向 7 项 + 对照 1 项）、部署后 HTTP 端到端伪造写返回 417 被拦；提交 `c8dcfcb`，已重启 backend/scheduler/queue 生效；未纳入删除拦截与一致性扫描） | DEPLOYED / 待 Owner 验收 |
 
 ## 下一步路线
 
@@ -157,6 +159,8 @@ M2-R7 REVIEWING rev6（留样管理板块开发方案口径定稿，Owner 已确
 M2-R7D DEPLOYED（留样板块前端 Vue 复刻与生产部署，6 视图已同步 /hbos-lims，工作台/观察/使用/处理已切换真实后端接入，Owner 2026-09-08 确认）。
 M2-R8 REVIEWING rev15（稳定性管理板块开发方案（v9.0 **已正式生效**，Owner 2026-09-16 确认 11.3-1），以《稳定性管理》v9.0 为业务依据，14 主 + 8 子 DocType（= 22） + 8 状态机 + R8A~R8E 子轮，rev1 FAIL 后 rev2 修订 4 P0 + 6 P1，复审"有条件通过"后 rev3 修订 5 必修 + 3 补强、rev4 修订 3 P1 + 8 P2 + 9 P3，四轮复审 FAIL 后 rev5 修订 2 P0 + 8 P1，五轮复审"有条件通过"后 rev6 修订 4 P1 + 5 P2 + 10 P3，Owner 2026-09-15 授权并确认两项范围边界；**11.3 启动门禁 7/7 已闭环；稳定性板块整体交付完成——后端 R8A~R8D（8 条状态机全部落地、6 张报表全部物化）与前端 R8G/R8H/R8I（7 视图全部接入真实 API）均 DONE / 待 Owner 审查**）。
 M2-R8J DONE / 待 Owner 审查（稳定性板块前后端审查与缺陷修复：独立审查后端写路径 + 22 DocType 权限 + 守卫层与前端 7 视图 + 接口层，并以非 Administrator 真实用户跑端到端模拟与负向安全用例；结论——核心设计成立，无注入 / XSS / 越权读取面；修 3 P1 + 2 P2：报告 `conclusion` 无写入路径致报告链断裂、结果页缺「提交」致工作流 UI 走不通、`complete_testing` 公开 + `system=True` 豁免角色校验致越权、`Equipment.status` 无守卫、故障流水子表行可被 LIMS 角色增删改；离线 311/311、`vue-tsc` 0 错误 + build 成功、实机修复验证 15/16 → 补测 5/5、负向回归 11/11、浏览器读写全链；第二轮 93 项回滚模拟复现的 8 P1 + 2 P2 亦已修复并经实机逐项验证与负向回归 9/9；离线 321/321、`pytest 329 passed`、构建通过；已提交 `e447f97` 并同步生产 `/hbos-lims`（备份 `hbos-lims.bak-20260921094724`）；P3 加固项 7 条未处置）。主文档 `docs/milestones/M2_R8J_稳定性板块审查与修复.md`。
+
+M2-R3G DEPLOYED / 待 Owner 验收（检验流程系统字段守卫补漏轮，提交 `c8dcfcb`）：M2-R3/R6 交付的 5 个 DocType（`HBOS Sample` / `Sample Task` / `Test Result` / `COA` / `Specification`）按方案 8.6 保留 DocType 层 create/write，但缺 R7/R8 已有的系统字段守卫，导致状态与签署字段可经 `frappe.client.set_value` 与通用 `frappe.client.insert` 直写，绕过 `lims_service` 的状态机、SoD、锁协议与电子签名写入（伪造审批）。按 R8 既有机制补齐：`workflow_contract` +5 字段集（状态 + 签署 + 版本链，26 字段）、新增中性入口 `guards.py` 再导出 `stability_guards.guard_system_fields`（实现唯一，未改动 R8 文件与其契约测试）、5 个控制器在 `validate()` 接线、`lims_service` 23 个保存点补 `doc.flags.allow_system_fields = True`。验证：离线 **404 passed**（原 395 + 新增 9 项，含保存点放行标记的 AST 防回归扫描）；实机非特权用户 **9 passed**（正向全链多角色跑通 + 负向 7 项全拦 + 对照 1 项非系统字段仍可写）；**部署后经 nginx → gunicorn 以 LIMS Manager 真实发起伪造写，HTTP 417 被拦**（对照组 200），事后核对数据未篡改、验证痕迹已清理。已重启 `backend` / `scheduler` / `queue-short` / `queue-long` 生效（未动 `frontend` / `websocket`），部署后 HTTP 冒烟 17/18。**未纳入**两项相邻缺口（M2-R3 无删除拦截、无 8.6 运行期一致性扫描）。主文档 `docs/milestones/M2_R3G_检验流程系统字段守卫.md`。
 
 ## 更新规则
 

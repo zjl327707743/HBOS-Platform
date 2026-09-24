@@ -12,6 +12,8 @@ M2-LIMS 在 HBOS 平台（Frappe/ERPNext 底座）上新增实验室信息管理
 
 > 状态校正（2026-09-22）：Owner 已确认并授权侧栏「最近访问」关闭交互同步生产；提交 `934e36a`，完整 pytest **342/342**、前端 `build:prod` 和生产路由/主资源 HTTP 200 冒烟通过，备份为 `hbos-lims.bak-20260922103245`。本次为纯前端资产同步，不涉及后端迁移。
 
+> 状态校正（2026-09-24）：M2-R3G「检验流程系统字段守卫」DEPLOYED / 待 Owner 验收（M2-R3/R6 五个 DocType 补齐 R7/R8 已有的系统字段守卫，堵住 `frappe.client.set_value` 直写状态/签署字段绕过服务层状态机与 SoD 的「伪造审批」缺口）。提交 `c8dcfcb`；离线 **404 passed**、实机非特权用户 **9 passed**、部署后经 nginx → gunicorn 的伪造写 HTTP **417** 被拦；已重启 `backend` / `scheduler` / `queue-short` / `queue-long` 生效（未动 `frontend` / `websocket`，未执行迁移）。本轮为 M2-R3/R6 的补漏轮，**不改变**当前子轮 M2-R8K 与 M2-LIMS 里程碑口径；主文档 `docs/milestones/M2_R3G_检验流程系统字段守卫.md`。
+
 当前子轮：M2-R8K（我的待办身份绑定）**REVIEWING / 真实 Frappe 冒烟已通过，待 Owner 测试路径验收**。已完成基于 `frappe.session.user` 的检验 / 稳定性 / 留样跨模块聚合、角色待处理与指派归属区分、Administrator 特判、稳定性项目粒度收敛、六类深链定位、原业务 API 动作调度、个人摘要缓存与前台轮询控制；本轮补修 Frappe fullname / today API、父单权限读取、无读权限降级、稳定性业务覆盖误报、检验批准 SoD 字段、ISO 日期序列化、前端错误态 / 筛选 / 测试默认值与伪造时间。前端单测 7 项、LIMS 后端测试集 395 项、生产构建通过；真实 Frappe 冒烟 1 passed。生产页面已可访问「我的待办」，既有发布来源待核；本次仅同步侧栏资源。提交 `1c55a14` + `3fe0e05`（基线）。主文档 `docs/milestones/M2_R8K_我的待办身份绑定.md`。
 
 > 发布记录（2026-09-23）：侧栏「最近访问」整块移除，提交 `fbb1aee` 并同步生产前端；备份 `hbos-lims.bak-20260923193453`，构建文件 SHA-256 **87/87 一致**，生产浏览器已复核待办与留样入口，未执行后端迁移或重启。

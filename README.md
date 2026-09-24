@@ -10,6 +10,8 @@
 
 > 当前状态（2026-09-23）：M2-R8K「我的待办身份绑定」仍为 REVIEWING，真实 Frappe 冒烟已通过，待 Owner 测试路径验收。生产页面已可访问该功能，但其既有发布来源未在本次核定；本次仅将侧栏「最近访问」移除补丁 `fbb1aee` 同步生产，备份 `hbos-lims.bak-20260923193453`。详见 `docs/milestones/M2_R8K_我的待办身份绑定.md`。
 
+> 状态校正（2026-09-24）：M2-R3G「检验流程系统字段守卫」**已部署**（提交 `c8dcfcb`）。为 M2-R3/R6 检验流程的 5 个 DocType 补齐 R7/R8 已有的系统字段守卫，堵住「`frappe.client.set_value` 直写状态 / 签署字段、绕过服务层状态机与 SoD」的伪造审批缺口。验证：离线 404 passed、实机非特权用户 9 passed（正向全链多角色 + 负向 7 项 + 对照 1 项）、部署后经 nginx → gunicorn 的伪造写 HTTP **417** 被拦、HTTP 冒烟 17/18。本次为后端改动，未重建前端资产、未执行迁移。详见 `docs/milestones/M2_R3G_检验流程系统字段守卫.md`。M2-LIMS 当前子轮仍为 M2-R8K。
+
 历史阶段摘要：M0 已完成并封板，M1 产品交付仍在 M1-FIX 功能补漏中，M2-R1 至 M2-R4 已 COMPLETED；本项目当前工作状态以本节新增的 M2-R8K 条目及 `docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md` 为准。
 M2-R6A（样品登记动态表单设计）已交付下拉决策条 + 9 类样品类型完整表单切换方案，进入 REVIEWING，等待 Owner 审查。
 M2-R6B（检验结果台账双模式设计）已交付明细台账 + 样品表（每样品种类一表）双模式方案，Owner 已确认原型与交互，进入 REVIEWING，设计文档待审查。
