@@ -113,7 +113,7 @@ class AdminListDoesNotOverrideConfigTest(unittest.TestCase):
     def test_helper_exists_and_documented(self):
         src = API.read_text()
         self.assertIn("def _admin_bound_other_shift(", src)
-        self.assertIn("shift_type_by_rule", src)
+        self.assertIn("shift_type_by_code", src)
 
     def test_night_card_for_admin_only_binding_not_late(self):
         """只绑行政班的人，23:30 的夜班上班卡不得按 08:31 标准判迟到。"""
