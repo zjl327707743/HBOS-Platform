@@ -10,7 +10,6 @@ backups/
 node_modules/
 .venv/
 __pycache__/
-.pytest_cache/
 runtime/
 
 # Local attendance exports and validation data must not be committed.
@@ -29,15 +28,5 @@ anomaly_list.json
 feishu_records.json
 .claude/launch.json
 
-# M3 仓储：待检证 / 货位卡模板含真实物料名称、物料代码、批号、供货单位，禁止提交
-待检证/
-新版货位卡外购/
-自产/
-docs/**/*待检证*.docx
-docs/**/*货位卡*.docx
-*.doc
-~$*
-
-# M3 仓储：Owner 提供的「待检证生成器」参考工具。含 Windows 可执行文件
-# 与真实品名/批号/物料代码的产物，只作本地版式比对参考，禁止提交
-待检证生成器_单文件版/
+# 例外：App 翻译文件属于源码，必须提交
+!apps/hb_attendance_app/hb_attendance_app/translations/*.csv
