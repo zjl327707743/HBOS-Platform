@@ -1,119 +1,12 @@
-"""HBOS Inventory 主数据同步（幂等）
+"""HBOS Inventory schema/UI migration.
 
-由 hooks.after_migrate 调用，声明式创建：
-  1. 计量单位（盘存表实测 11 种中 KG 之外的 10 种）
-  2. 六车间 8 个库位 Warehouse
-  3. 海滨产品分类树（Item Group）
-  4. Item / Batch 自定义字段
-
-全部按"存在即跳过"处理，可重复执行。
+Company-specific UOM / Warehouse / Item Group data is business master data and is
+not mutated by bench migrate.  Apply an administrator-controlled profile explicitly
+through hbos_inventory.business_seed.apply_profile().
 """
 
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
-
-COMPANY = "hb"
-WAREHOUSE_ROOT = "All Warehouses - HB"
-
-# 盘存表实测单位：KG（原生已有）、个、套、瓶、支、双、卷、张、L、BT，
-# 另加「件」用于原料药 / 中间体的双单位计数。
-UOMS = ["个", "套", "瓶", "支", "双", "卷", "张", "L", "BT", "件"]
-
-# 六车间 8 个库位。3904 由 M3-R1 货位树改名而来（16号楼产品库 = 3904），
-# 此处只确保存在；其余 7 个新建。3904 含子节点故为 group，其余为叶子。
-WAREHOUSES = [
-    ("3902 六车间退货库", 0),
-    ("3903 六车间不合格品库", 0),
-    ("3904 六车间中间库", 1),
-    ("3906 六车间液体库", 0),
-    ("3907 六车间冷藏库", 0),
-    ("3908 六车间包材库", 0),
-    ("3914 六车间物料库", 0),
-    ("3915 六车间备品备库", 0),
-]
-
-# 海滨产品分类树。注意：SAP 代码前缀不等于业务分类
-# （对外发货的最终产品业务上是成品，但代码为 1300），故分类独立维护。
-#
-# `is_group = 0`（叶子）——物料要**直接**放进这 5 个节点。M3-R2 初建时误设为 1
-# （分组节点），导致物料无处可放：`sync_item_groups` 补了纠偏逻辑，见下。
-ITEM_GROUPS = [
-    ("原料药", 0),
-    ("包材", 0),
-    ("辅助用品", 0),
-    ("中间体", 0),
-    ("成品", 0),
-]
-
-
-def _log(tag, *args):
-    print(tag, *args)
-
-
-def sync_uoms():
-    created = []
-    for name in UOMS:
-        if not frappe.db.exists("UOM", name):
-            frappe.get_doc({"doctype": "UOM", "uom_name": name}).insert(ignore_permissions=True)
-            created.append(name)
-    _log("UOM", "新建", len(created), created)
-
-
-def sync_warehouses():
-    abbr = frappe.get_cached_value("Company", COMPANY, "abbr")
-    created = []
-    for short, is_group in WAREHOUSES:
-        name = f"{short} - {abbr}"
-        if frappe.db.exists("Warehouse", name):
-            continue
-        frappe.get_doc(
-            {
-                "doctype": "Warehouse",
-                "warehouse_name": short,
-                "company": COMPANY,
-                "parent_warehouse": WAREHOUSE_ROOT,
-                "is_group": is_group,
-            }
-        ).insert(ignore_permissions=True)
-        created.append(name)
-    _log("Warehouse", "新建", len(created), created)
-
-
-def sync_item_groups():
-    """建海滨分类树，并把已存在节点的 `is_group` **纠偏**。
-
-    纠偏是必需的：`sync_*` 一律「存在即跳过」，所以光改上面的 `ITEM_GROUPS`
-    对库里已有的节点无效——`bench migrate` 跑一百遍也不会把 M3-R2 误设的
-    `is_group = 1` 改回来。而只要它还是 1，物料就放不进去（分类树形同虚设）。
-
-    只对**没有子节点**的节点纠偏，避免把一个真正的分组节点改坏。
-    """
-    created, fixed = [], []
-    for short, is_group in ITEM_GROUPS:
-        if not frappe.db.exists("Item Group", short):
-            frappe.get_doc(
-                {
-                    "doctype": "Item Group",
-                    "item_group_name": short,
-                    "parent_item_group": "All Item Groups",
-                    "is_group": is_group,
-                }
-            ).insert(ignore_permissions=True)
-            created.append(short)
-            continue
-
-        cur = frappe.db.get_value("Item Group", short, "is_group")
-        if cur == is_group:
-            continue
-        has_children = frappe.db.exists("Item Group", {"parent_item_group": short})
-        if has_children:
-            continue
-        frappe.db.set_value("Item Group", short, "is_group", is_group, update_modified=False)
-        fixed.append(f"{short}:{cur}->{is_group}")
-
-    _log("Item Group", "新建", len(created), created)
-    if fixed:
-        _log("Item Group", "纠偏 is_group", len(fixed), fixed)
 
 
 def sync_custom_fields():
