@@ -4,6 +4,7 @@ from pathlib import Path
 from hb_attendance_app.hbos_attendance.rule_lists import (
     ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS,
 )
+from hb_attendance_app.hbos_attendance.policy_registry import PolicySet
 from hb_attendance_app.hbos_attendance import rules_board
 from hb_attendance_app.hbos_attendance.shift_rules import BUILTIN_SHIFTS
 from hb_attendance_app.hbos_attendance.pairing import (
@@ -17,22 +18,17 @@ JS = APP / "hbos_attendance/page/hbos_shift_management/hbos_shift_management.js"
 
 
 class RuleListsExtractionTest(unittest.TestCase):
-    """名单常量已从 api.py 抽到纯模块 rule_lists.py（api.py re-export 同名）。"""
+    """Runtime list names remain compatible but membership is database-backed."""
 
-    def test_rule_lists_module_exposes_constants(self):
-        self.assertGreater(len(ADMIN_NUMS), 100)
-        self.assertGreater(len(EXEMPT_NUMS), 50)
-        self.assertIn("11004014", ADMIN_NUMS)  # 侯宇晓（四车间行政班）
-        self.assertTrue(all(isinstance(x, str) for x in ADMIN_NUMS))
-        self.assertTrue(all(isinstance(x, str) for x in EXEMPT_NUMS))
+    def test_rule_lists_module_exposes_policy_sets(self):
+        for value in (ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS):
+            self.assertIsInstance(value, PolicySet)
 
     def test_api_reimports_rule_lists_constants(self):
         content = API.read_text()
-        # api.py 从 rule_lists 引入全部名单常量（含 LATE_EXEMPT_NUMS，允许换行书写）
         self.assertIn("from hb_attendance_app.hbos_attendance.rule_lists import", content)
         for name in ("ADMIN_NUMS", "EXEMPT_NUMS", "FOOD_NUMS", "SAFETY_NUMS", "LATE_EXEMPT_NUMS"):
             self.assertIn(name, content)
-        # 名单集合字面量不应再定义在 api.py 中
         self.assertNotIn("ADMIN_NUMS = {", content)
         self.assertNotIn("EXEMPT_NUMS = {", content)
         self.assertNotIn("LATE_EXEMPT_NUMS = {", content)
