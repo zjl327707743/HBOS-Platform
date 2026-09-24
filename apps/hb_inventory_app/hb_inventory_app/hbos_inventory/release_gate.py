@@ -83,7 +83,8 @@ def validate_release(doc, method=None):
 			info = frappe.db.get_value(
 				"Batch",
 				batch_no,
-				["hbos_release_status", "hbos_certificate_no"],
+				["hbos_release_status", "hbos_release_date", "hbos_certificate_no",
+				 "hbos_certificate_file", "hbos_lims_reference", "hbos_release_source"],
 				as_dict=True,
 			)
 			if not info:
@@ -92,19 +93,38 @@ def validate_release(doc, method=None):
 
 			status = (info.hbos_release_status or "").strip()
 			cert = (info.hbos_certificate_no or "").strip()
+			cert_file = (info.hbos_certificate_file or "").strip()
+			release_date = info.hbos_release_date
+			lims_ref = (info.hbos_lims_reference or "").strip()
+			source = (info.hbos_release_source or "").strip()
 
-			if status != RELEASED or not cert:
+			if (
+				status != RELEASED
+				or not release_date
+				or not cert
+				or not cert_file
+				or not lims_ref
+				or source != "LIMS"
+			):
 				missing = []
 				if status != RELEASED:
 					missing.append(_("放行状态为「{0}」").format(status or _("未设置")))
+				if not release_date:
+					missing.append(_("无放行日期"))
 				if not cert:
 					missing.append(_("无合格证编号"))
+				if not cert_file:
+					missing.append(_("无合格证附件"))
+				if not lims_ref:
+					missing.append(_("无 LIMS 放行引用"))
+				if source != "LIMS":
+					missing.append(_("放行来源不是 LIMS"))
 				blocked.append(f"{batch_no}（{'、'.join(missing)}）")
 
 	if blocked:
 		frappe.throw(
 			_("以下批次未取得 QA 放行手续或合格证，不可出库：<br>{0}<br><br>"
-			  "请先在批次上录入放行状态（已放行）、放行日期与合格证编号后再提交。").format(
+			  "请由 LIMS 完成检验、COA 发布与质量放行后再提交。").format(
 				"<br>".join(blocked)
 			),
 			title=_("出库放行校验未通过"),
