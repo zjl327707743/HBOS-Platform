@@ -13,6 +13,6 @@ def get_manifest() -> dict[str, object]:
         "order": 10,
         "migration_mode": "legacy",
         "route": "/hbos/attendance",
-        # P3-ATT-1 registers entry/access only.
-        "capabilities": [],
+        # P3-ATT-2 exposes the existing HR anomaly dashboard as a read projection.
+        "capabilities": ["summary"],
     }

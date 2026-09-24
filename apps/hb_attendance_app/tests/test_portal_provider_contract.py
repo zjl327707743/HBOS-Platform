@@ -13,6 +13,7 @@ from hb_attendance_app.hbos_attendance.portal.access import (
 from hb_attendance_app.hbos_attendance.portal.manifest import get_manifest
 from hb_attendance_app.hbos_attendance.portal.provider import get_provider
 from hb_attendance_app.hbos_attendance.portal.routes import resolve_stable_route
+from hb_attendance_app.hbos_attendance.portal.summary import project_dashboard_summary
 
 
 class AttendancePortalManifestTest(unittest.TestCase):
@@ -28,7 +29,7 @@ class AttendancePortalManifestTest(unittest.TestCase):
         self.assertEqual("attendance", manifest["id"])
         self.assertEqual("/hbos/attendance", manifest["route"])
         self.assertEqual("legacy", manifest["migration_mode"])
-        self.assertEqual([], manifest["capabilities"])
+        self.assertEqual(["summary"], manifest["capabilities"])
 
 
 class AttendancePortalAccessTest(unittest.TestCase):
@@ -84,6 +85,36 @@ class AttendancePortalRouteTest(unittest.TestCase):
                     resolve_stable_route(path)
 
 
+class AttendancePortalSummaryTest(unittest.TestCase):
+    def test_projects_existing_dashboard_facts(self):
+        projected = project_dashboard_summary(
+            {
+                "anomaly_people": 5,
+                "total_late": 8,
+                "total_early": 2,
+                "total_absent": 1,
+            }
+        )
+        self.assertEqual("attendance", projected["app_id"])
+        self.assertEqual("attention", projected["status"])
+        values = {metric["id"]: metric["value"] for metric in projected["metrics"]}
+        self.assertEqual(5, values["attendance_anomaly_people"])
+        self.assertEqual(8, values["attendance_late"])
+        self.assertEqual(2, values["attendance_early"])
+        self.assertEqual(1, values["attendance_absent"])
+        self.assertTrue(
+            all(
+                metric["deep_link"] == "/hbos/attendance/dashboard"
+                for metric in projected["metrics"]
+            )
+        )
+
+    def test_zero_dashboard_is_non_alarm(self):
+        projected = project_dashboard_summary({})
+        self.assertEqual("normal", projected["status"])
+        self.assertEqual(4, len(projected["metrics"]))
+
+
 class AttendancePortalProviderRuntimeBoundaryTest(unittest.TestCase):
     def tearDown(self):
         sys.modules.pop("frappe", None)
@@ -95,8 +126,10 @@ class AttendancePortalProviderRuntimeBoundaryTest(unittest.TestCase):
         )
         sys.modules["frappe"] = fake_frappe
 
-        access = get_provider().access_context()
+        provider = get_provider()
+        access = provider.access_context()
         self.assertTrue(access["can_enter"])
+        self.assertTrue(callable(provider.summary))
         self.assertEqual([READ_CAPABILITY], access["capabilities"])
 
 
