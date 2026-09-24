@@ -11,8 +11,8 @@ class RestLeaveExemptionContractTest(unittest.TestCase):
         self.src = API.read_text()
 
     def _fn(self):
-        """切出 regenerate_attendance 函数体，避免误判同文件其它函数。"""
-        i = self.src.index("def regenerate_attendance(")
+        """切出原子 wrapper 背后的重算实现，避免只检查薄包装函数。"""
+        i = self.src.index("def _regenerate_attendance_impl(")
         j = self.src.find("\ndef ", i + 10)
         return self.src[i:j if j > 0 else len(self.src)]
 
