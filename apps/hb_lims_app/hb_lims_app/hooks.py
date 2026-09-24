@@ -19,6 +19,12 @@ app_include_js = [
 # 在 boot 阶段按用户预置该缓存，恢复原生权限语义（不修改 Frappe 核心源码）。
 boot_session = "hb_lims_app.hbos_lims.setup.sync_user_perm_can_read_cache"
 
+# HBOS Portal experience provider.
+# Portal discovers this adapter dynamically; hbos_portal never imports LIMS internals.
+hbos_portal_provider = [
+	"hb_lims_app.hbos_lims.portal.provider.get_provider",
+]
+
 # 合规审计日志：全量 doc_events 捕获（创建/修改/删除），write-once
 doc_events = {
 	"HBOS Sample": {

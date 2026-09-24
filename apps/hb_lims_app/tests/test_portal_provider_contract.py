@@ -1,0 +1,88 @@
+from __future__ import annotations
+
+import sys
+import types
+import unittest
+
+from hb_lims_app import hooks
+from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.portal.access import (
+    READ_CAPABILITY,
+    build_access_context,
+)
+from hb_lims_app.hbos_lims.portal.manifest import get_manifest
+from hb_lims_app.hbos_lims.portal.provider import get_provider
+
+
+class PortalManifestContractTest(unittest.TestCase):
+    def test_hook_registers_provider_factory(self):
+        self.assertEqual(
+            [
+                "hb_lims_app.hbos_lims.portal.provider.get_provider",
+            ],
+            hooks.hbos_portal_provider,
+        )
+
+    def test_manifest_is_stable_minimal_registration(self):
+        manifest = get_manifest()
+        self.assertEqual(1, manifest["contract_version"])
+        self.assertEqual("lims", manifest["id"])
+        self.assertEqual("/hbos/lims", manifest["route"])
+        self.assertEqual("native", manifest["migration_mode"])
+        self.assertEqual("ExperimentOutlined", manifest["icon"])
+        self.assertEqual("lims", manifest["accent"])
+        self.assertEqual([], manifest["capabilities"])
+
+
+class PortalAccessContractTest(unittest.TestCase):
+    def test_guest_cannot_enter(self):
+        access = build_access_context("Guest", ["LIMS Analyst"])
+        self.assertFalse(access["can_enter"])
+        self.assertEqual([], access["capabilities"])
+
+    def test_lims_business_role_can_enter(self):
+        access = build_access_context("analyst@example.com", [wf.ROLE_ANALYST])
+        self.assertTrue(access["can_enter"])
+        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+    def test_system_manager_has_read_entry_only(self):
+        access = build_access_context("ops@example.com", [wf.ROLE_SYSTEM])
+        self.assertTrue(access["can_enter"])
+        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+    def test_unrelated_role_cannot_enter(self):
+        access = build_access_context("user@example.com", ["Employee"])
+        self.assertFalse(access["can_enter"])
+
+    def test_administrator_is_break_glass_entry(self):
+        access = build_access_context("Administrator", [])
+        self.assertTrue(access["can_enter"])
+
+    def test_access_contract_does_not_expose_role_names(self):
+        access = build_access_context("analyst@example.com", [wf.ROLE_ANALYST])
+        self.assertEqual(
+            {"app_id", "can_enter", "capabilities", "scopes"},
+            set(access),
+        )
+        self.assertNotIn(wf.ROLE_ANALYST, str(access))
+
+
+class PortalProviderRuntimeBoundaryTest(unittest.TestCase):
+    def tearDown(self):
+        sys.modules.pop("frappe", None)
+
+    def test_provider_derives_identity_from_frappe_session(self):
+        fake_frappe = types.SimpleNamespace(
+            session=types.SimpleNamespace(user="reviewer@example.com"),
+            get_roles=lambda user: [wf.ROLE_REVIEWER] if user == "reviewer@example.com" else [],
+        )
+        sys.modules["frappe"] = fake_frappe
+
+        access = get_provider().access_context()
+
+        self.assertTrue(access["can_enter"])
+        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+
+if __name__ == "__main__":
+    unittest.main()

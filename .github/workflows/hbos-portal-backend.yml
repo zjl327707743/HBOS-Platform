@@ -6,12 +6,18 @@ on:
       - feature/hbos-portal-product
     paths:
       - 'apps/hbos_portal/**'
+      - 'apps/hb_lims_app/hb_lims_app/hooks.py'
+      - 'apps/hb_lims_app/hb_lims_app/hbos_lims/portal/**'
+      - 'apps/hb_lims_app/tests/test_portal_provider_contract.py'
       - '.github/workflows/hbos-portal-backend.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'apps/hbos_portal/**'
+      - 'apps/hb_lims_app/hb_lims_app/hooks.py'
+      - 'apps/hb_lims_app/hb_lims_app/hbos_lims/portal/**'
+      - 'apps/hb_lims_app/tests/test_portal_provider_contract.py'
       - '.github/workflows/hbos-portal-backend.yml'
   workflow_dispatch:
 
@@ -34,7 +40,17 @@ jobs:
           python-version: '3.10'
 
       - name: Python 语法编译
-        run: python -m compileall -q apps/hbos_portal
+        run: |
+          python -m compileall -q apps/hbos_portal
+          python -m compileall -q apps/hb_lims_app/hb_lims_app/hbos_lims/portal
+
+      - name: 运行首个 LIMS Provider Contract
+        run: |
+          export PYTHONPATH="$PWD/apps/hb_lims_app:$PYTHONPATH"
+          python -m unittest discover \
+            -s apps/hb_lims_app/tests \
+            -p 'test_portal_provider_contract.py' \
+            -v
 
       - name: 运行 Portal Contract / Registry 单元测试
         working-directory: apps/hbos_portal
