@@ -314,3 +314,27 @@ KPI         30
 - Responsive 只允许规范中明确列出的降级值。
 
 后续若需要修改字号，应修改 Token / Typography Contract，而不是修改单个页面。
+
+
+## 13. Owner Review Round 4 — Global Type Scale Increase
+
+Owner 在 Typography Contract v1.1 真实运行后确认：
+
+- Hero 52px 已可接受；
+- 除 Hero 外，其余文字整体仍偏小。
+
+本轮升级为 Typography Contract v1.2：
+
+```text
+Display     52  (unchanged)
+Page Title  34
+Section     22
+Card/Nav    15
+Body        15
+Meta        13
+Micro       12
+KPI         32
+Greeting    22
+```
+
+本轮只调整统一 Token，不改变页面结构、不重新引入组件级字号特例。

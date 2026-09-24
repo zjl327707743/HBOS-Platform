@@ -1307,3 +1307,36 @@ frontend/hbos-portal-web/src/theme/typography.css
 为准。
 
 `typography.css` 必须在通用 `global.css` 之后加载，使语义字体合同覆盖旧原型样式。
+
+
+---
+
+# 42. Typography Contract v1.2 — Owner Scale Adjustment
+
+Owner 在真实桌面浏览器验收中确认：
+
+- Hero Display 当前 52px 可以保留；
+- 其余字体层级整体仍偏小，需要统一上调；
+- 不允许恢复为逐组件手工调字号。
+
+因此 Desktop 精确字号更新为：
+
+| Semantic Role | Desktop |
+|---|---:|
+| Display | **52px** |
+| Page Title | **34px** |
+| Section Title | **22px** |
+| Card / Nav | **15px** |
+| Body | **15px** |
+| Meta | **13px** |
+| Micro | **12px** |
+| KPI | **32px** |
+| Greeting | **22px** |
+
+原则不变：
+
+- Hero 不继续放大；
+- 所有同级 Section Title 必须一致；
+- 所有 Sidebar / Card Title 使用同一 Card/Nav Token；
+- Meta / Micro 不允许组件自行降低；
+- 后续调整只能修改 Token Contract，不允许修改单页字号。
