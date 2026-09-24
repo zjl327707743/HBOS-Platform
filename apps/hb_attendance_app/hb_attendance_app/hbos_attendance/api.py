@@ -39,8 +39,7 @@ def feishu_sync_enabled():
 def delicloud_sync_enabled():
     return _env_flag("HBOS_DELICLOUD_SYNC_ENABLED")
 
-# 旧无菌倒班名单已废弃(2026-08-20): 无菌人员统一走 pairing.py 的 SPECIAL_SHIFT_NUMS,
-# 原 WUJUN_NUMS 中 3 名设备动力部人员(11008005/11008011/11008012)误加, 回归通用判定
+# 旧无菌倒班名单名保留为空集合仅用于兼容历史引用；现行成员关系来自策略业务数据。
 WUJUN_NUMS = set()
 
 
