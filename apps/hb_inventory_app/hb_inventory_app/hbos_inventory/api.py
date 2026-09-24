@@ -266,6 +266,20 @@ def _within_one_edit(a: str, b: str) -> bool:
 	return False
 
 
+def _validate_intake_file(doc) -> None:
+	"""Only accept a current-user, unattached image uploaded for this intake."""
+	doc.check_permission("read")
+	if doc.owner != frappe.session.user and frappe.session.user != "Administrator":
+		frappe.throw(_("只能使用当前用户刚上传的标签照片。"), frappe.PermissionError)
+	if doc.attached_to_doctype or doc.attached_to_name:
+		frappe.throw(_("该照片已经属于其他业务单据，请重新上传本次入库照片。"), frappe.PermissionError)
+	ext = "." + (str(doc.file_name or "").rsplit(".", 1)[-1].lower() if "." in str(doc.file_name or "") else "")
+	if ext not in IMAGE_EXTENSIONS:
+		frappe.throw(_("只允许 JPG / PNG / WEBP 标签照片。"))
+	if cint(doc.file_size or 0) > MAX_UPLOAD_BYTES:
+		frappe.throw(_("照片超过 5 MB 上限。"))
+
+
 def _read_file(file_url: str) -> bytes:
 	"""按 file_url 读出文件内容。"""
 	if not file_url:
@@ -276,12 +290,7 @@ def _read_file(file_url: str) -> bytes:
 		frappe.throw(_("找不到照片文件：{0}").format(file_url))
 
 	doc = frappe.get_doc("File", name)
-	doc.check_permission("read")
-	ext = "." + (str(doc.file_name or "").rsplit(".", 1)[-1].lower() if "." in str(doc.file_name or "") else "")
-	if ext not in IMAGE_EXTENSIONS:
-		frappe.throw(_("只允许 JPG / PNG / WEBP 标签照片。"))
-	if cint(doc.file_size or 0) > MAX_UPLOAD_BYTES:
-		frappe.throw(_("照片超过 5 MB 上限。"))
+	_validate_intake_file(doc)
 	try:
 		# 走 File.get_content()，自动处理 public / private 两种存储
 		content = doc.get_content()
@@ -784,9 +793,9 @@ def _attach_photo(
 	if source is None:
 		return
 
-	source.check_permission("read")
+	_validate_intake_file(source)
 	target = frappe.get_doc(doctype, docname)
-	target.check_permission("read")
+	target.check_permission("write")
 
 	# 已经是挂在该单据上的就不重复挂。
 	if source.attached_to_doctype == doctype and source.attached_to_name == docname:
