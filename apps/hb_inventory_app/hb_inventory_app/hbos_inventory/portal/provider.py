@@ -3,6 +3,7 @@ from __future__ import annotations
 from hb_inventory_app.hbos_inventory.portal.access import build_access_context
 from hb_inventory_app.hbos_inventory.portal.manifest import get_manifest
 from hb_inventory_app.hbos_inventory.portal.routes import resolve_stable_route
+from hb_inventory_app.hbos_inventory.portal.summary import get_summary_projection
 
 
 class InventoryPortalProvider:
@@ -17,6 +18,9 @@ class InventoryPortalProvider:
         user = frappe.session.user
         roles = frappe.get_roles(user) if user and user != "Guest" else []
         return build_access_context(user, roles)
+
+    def summary(self) -> dict[str, object]:
+        return get_summary_projection()
 
     def resolve_route(self, stable_path: str) -> str:
         return resolve_stable_route(stable_path)
