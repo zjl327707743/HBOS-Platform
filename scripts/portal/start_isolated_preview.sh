@@ -20,6 +20,7 @@ FRAPPE_PORT="${HBOS_PREVIEW_FRAPPE_PORT:-18091}"
 PORTAL_PORT="${HBOS_PREVIEW_PORTAL_PORT:-5179}"
 STATE_DIR="${HBOS_PREVIEW_STATE_DIR:-${TMPDIR:-/tmp}/hbos-portal-preview-${USER:-local}}"
 ENV_FILE="$STATE_DIR/preview.env"
+PREVIEW_COMPOSE="$ROOT_DIR/scripts/portal/docker-compose.isolated-preview.yml"
 
 mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
@@ -37,6 +38,7 @@ docker volume ls --format '{{.Name}}' | sort >"$BASELINE_VOLUMES"
 [[ -d apps/hb_inventory_app ]] || fail "缺少 apps/hb_inventory_app"
 [[ -d apps/hb_lims_app ]] || fail "缺少 apps/hb_lims_app"
 [[ -d frontend/hbos-portal-web ]] || fail "缺少 frontend/hbos-portal-web"
+[[ -f "$PREVIEW_COMPOSE" ]] || fail "缺少 Preview Compose override: $PREVIEW_COMPOSE"
 command -v docker >/dev/null 2>&1 || fail "未找到 docker"
 docker compose version >/dev/null 2>&1 || fail "docker compose 不可用"
 command -v node >/dev/null 2>&1 || fail "未找到 Node.js"
@@ -122,11 +124,24 @@ FRAPPE_URL="http://127.0.0.1:$FRAPPE_PORT"
 PORTAL_URL="http://127.0.0.1:$PORTAL_PORT"
 
 dc() {
-  docker compose --env-file "$ENV_FILE" -p "$PROJECT" "$@"
+  docker compose \
+    --env-file "$ENV_FILE" \
+    -p "$PROJECT" \
+    -f docker-compose.yml \
+    -f "$PREVIEW_COMPOSE" \
+    "$@"
 }
 
 info "1/7 校验隔离 Compose"
 dc config --quiet
+
+ASSET_MOUNT_COUNT="$(
+  dc config |
+    grep -c '/home/frappe/frappe-bench/sites/assets' || true
+)"
+if [[ "$ASSET_MOUNT_COUNT" -lt 8 ]]; then
+  fail "Preview Compose 未对所有 Frappe 服务显式命名 sites/assets 卷（当前命中 $ASSET_MOUNT_COUNT）"
+fi
 
 if docker ps --format '{{.Names}}' | grep -q '^hbos-m0-r3a-'; then
   echo "检测到原项目容器正在运行；本预览将使用独立 project '$PROJECT'，不会停止它们。"
