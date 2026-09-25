@@ -345,7 +345,8 @@ Attendance
 
 Inventory
   Manifest / Access / Stable Route = COMPLETE
-  Summary / Tasks / Search = GATED
+  Permission-aware Summary = COMPLETE / RUNTIME PASS
+  Tasks / Search = GATED
 ```
 
 三 APP clean-site Registry authority：
@@ -376,3 +377,56 @@ f6267baf44813c5b89f83adfe744d8f0192d03bb
 最新 Platform Integration Gate `36048726221` = SUCCESS。
 
 P3 下一阶段从“注册 APP”转为“逐 App 数据能力深化”。
+
+
+### Portal P3-INV-2 — Inventory Permission-aware Summary — 2026-09-25
+
+状态：**COMPLETE / RUNTIME PASS**。
+
+```text
+Inventory manifest = ["summary"]
+Inventory Summary metrics = 4
+Stable Route = /hbos/inventory -> /app/hbos-photo-intake
+Raw-SQL report reuse = NONE
+Cross-UOM quantity aggregation = NONE
+```
+
+权限链：
+
+```text
+Frappe Session
+  -> permission-aware visible Warehouse
+  -> Bin explicitly scoped to visible Warehouse
+  -> Inventory semantic projection
+  -> Portal dispatcher
+```
+
+Runtime authority：
+
+```text
+Inventory real-site first pass:
+  Head 3c6f1d5f54a5795d4a7b1ed486c8ce32c64ea7e4
+  Platform run 36082817979 = SUCCESS
+
+Portal dispatcher / strict three-app code authority:
+  Head ea15676af42e14c2eb47bd65fa402481693b0cac
+  Platform run 36083304003
+  Three-app clean-site integration step = SUCCESS
+```
+
+本地运行工具已加入：
+
+```text
+scripts/portal/start_local_workspace.sh
+scripts/portal/p3_workspace_runtime_smoke.sh
+```
+
+下一 Gate：
+
+```text
+Owner local P3 workspace smoke
+    ->
+P4-F0 real runtime screenshot / journey baseline
+    ->
+three-app frontend strengthening audit / prototype
+```
