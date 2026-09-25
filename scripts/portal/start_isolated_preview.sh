@@ -245,4 +245,7 @@ echo "彻底删除预览 volumes：bash scripts/portal/stop_isolated_preview.sh 
 echo "=============================================================="
 echo
 
-VITE_PORTAL_DATA_MODE=frappe VITE_FRAPPE_PROXY_TARGET="$FRAPPE_URL" exec npm run dev -- --host 127.0.0.1 --port "$PORTAL_PORT" --strictPort
+VITE_PORTAL_DATA_MODE=frappe \
+VITE_FRAPPE_PROXY_TARGET="$FRAPPE_URL" \
+VITE_FRAPPE_APP_ORIGIN="$FRAPPE_URL" \
+exec npm run dev -- --host 127.0.0.1 --port "$PORTAL_PORT" --strictPort
