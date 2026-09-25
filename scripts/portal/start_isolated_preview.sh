@@ -24,6 +24,14 @@ ENV_FILE="$STATE_DIR/preview.env"
 mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
 
+BASELINE_CONTAINERS="$STATE_DIR/baseline-containers.txt"
+BASELINE_VOLUMES="$STATE_DIR/baseline-volumes.txt"
+AFTER_CONTAINERS="$STATE_DIR/after-containers.txt"
+AFTER_VOLUMES="$STATE_DIR/after-volumes.txt"
+
+docker ps -a --format '{{.Names}}' | sort >"$BASELINE_CONTAINERS"
+docker volume ls --format '{{.Name}}' | sort >"$BASELINE_VOLUMES"
+
 [[ -d apps/hbos_portal ]] || fail "缺少 apps/hbos_portal；请在 Portal worktree / branch 中运行"
 [[ -d apps/hb_attendance_app ]] || fail "缺少 apps/hb_attendance_app"
 [[ -d apps/hb_inventory_app ]] || fail "缺少 apps/hb_inventory_app"
@@ -161,6 +169,32 @@ info "验证三业务 Provider / Portal dispatcher"
 dc exec -T -e HBOS_PORTAL_INTEGRATION_CHECKS=1   backend bench --site "$SITE_NAME" execute hbos_portal.integration_checks.run
 dc exec -T -e HBOS_PORTAL_INTEGRATION_CHECKS=1   backend bench --site "$SITE_NAME" execute hb_inventory_app.hbos_inventory.portal.integration_checks.run
 
+info "验证隔离资源边界"
+docker ps -a --format '{{.Names}}' | sort >"$AFTER_CONTAINERS"
+docker volume ls --format '{{.Name}}' | sort >"$AFTER_VOLUMES"
+
+UNEXPECTED_CONTAINERS="$(
+  comm -13 "$BASELINE_CONTAINERS" "$AFTER_CONTAINERS" |
+    grep -Ev "^(${PROJECT}[-_])" || true
+)"
+UNEXPECTED_VOLUMES="$(
+  comm -13 "$BASELINE_VOLUMES" "$AFTER_VOLUMES" |
+    grep -Ev "^(${PROJECT}[-_])" || true
+)"
+
+if [[ -n "$UNEXPECTED_CONTAINERS" || -n "$UNEXPECTED_VOLUMES" ]]; then
+  echo "检测到预览启动期间出现非 '$PROJECT' 命名空间的新 Docker 资源：" >&2
+  [[ -z "$UNEXPECTED_CONTAINERS" ]] || {
+    echo "Containers:" >&2
+    printf '%s\n' "$UNEXPECTED_CONTAINERS" >&2
+  }
+  [[ -z "$UNEXPECTED_VOLUMES" ]] || {
+    echo "Volumes:" >&2
+    printf '%s\n' "$UNEXPECTED_VOLUMES" >&2
+  }
+  fail "隔离资源边界检查失败；请人工审查，不自动清理原项目资源"
+fi
+
 info "7/7 启动 Portal Vite（真实 preview Frappe 模式）"
 cd frontend/hbos-portal-web
 if [[ ! -d node_modules ]]; then
@@ -180,6 +214,7 @@ echo
 echo "Docker project: $PROJECT"
 echo "State file:     $ENV_FILE"
 echo
+echo "隔离检查：启动期间新增的 Docker container / volume 均受 '$PROJECT' 命名空间约束。"
 echo "原项目 8080 / frontend Site / 原 Docker volumes 未被停止或复用。"
 echo "按 Ctrl+C 只会停止 Vite；隔离 Docker 环境继续保留。"
 echo "完全停止预览：bash scripts/portal/stop_isolated_preview.sh"
