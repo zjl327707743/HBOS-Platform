@@ -163,6 +163,6 @@ bash scripts/portal/start_local_workspace.sh
 bash scripts/portal/p3_workspace_runtime_smoke.sh
 ```
 
-第一条用于持续启动真实 Frappe 模式 Portal；第二条用于验证三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Frappe Session 和 Vite API proxy。Owner 本机只有在实际执行 smoke 通过后，才记录为新的 Local Runtime PASS。
+第一条用于持续启动真实 Frappe 模式 Portal；第二条用于验证三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Frappe Session 和 Vite API proxy。Owner 本机 Isolated Preview 已于 2026-09-25 完成并通过；P3 Local Runtime = PASS，P4-F0 前端真实页面审计与设计已放行。
 
 Portal 是 Experience Shell，不替代 Attendance / Inventory / LIMS 的领域 Authority；运行时身份统一使用 Frappe User + Frappe Session。PR #15 继续保持 Draft，直到三 APP 工作台运行态、本地验收和下一阶段前端强化 Gate 达到可收口状态。
