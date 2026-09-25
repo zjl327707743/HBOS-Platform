@@ -430,3 +430,55 @@ P4-F0 real runtime screenshot / journey baseline
     ->
 three-app frontend strengthening audit / prototype
 ```
+
+
+### Portal P3 Local Isolated Preview Closeout — 2026-09-25
+
+状态：**PASS / P3 RUNTIME CLOSEOUT / P4-F0 READY**。
+
+Owner 本机隔离预览最终通过：
+
+```text
+Runtime authority = a6411fadaeccf644a47ffbf93595d00ce9e5b04b
+Docker project    = hbos-portal-preview
+Preview Site      = portal-preview.localhost
+Portal            = http://127.0.0.1:5179
+Frappe            = http://127.0.0.1:18091
+```
+
+验证完成：
+
+```text
+Portal Home                       PASS
+App Center                        PASS
+My Work                           PASS
+Attendance Portal Navigation      PASS
+Inventory Portal Navigation       PASS
+LIMS Portal Navigation            PASS
+Portal native /hbos routes        PASS
+Frappe Session across navigation  PASS
+Inventory Summary                 PASS
+Three-App Registry                PASS
+New anonymous volumes             0
+Formal workspace                  PRESERVED
+Formal Docker runtime             PRESERVED
+Formal volumes                    PRESERVED
+Formal frontend Site              PRESERVED
+```
+
+最终实际落地点：
+
+```text
+Attendance -> http://127.0.0.1:18091/desk/hbos-attendance-dashboard
+Inventory  -> http://127.0.0.1:18091/desk/hbos-photo-intake
+LIMS       -> http://127.0.0.1:18091/hbos-lims/dashboard
+```
+
+因此：
+
+```text
+P3 Three-App Workspace Integration = COMPLETE / LOCAL + REMOTE RUNTIME PASS
+P4-F0 Runtime Screenshot / Journey Baseline = READY
+```
+
+P4 开始后仍执行前端 Gate：真实页面审计 → 原型 / 视觉方案 → Owner 审查 → 单 App 实施，不允许三个 App 同时直接大规模改代码。
