@@ -67,6 +67,7 @@ jobs:
           bash -n scripts/portal/p3_workspace_runtime_smoke.sh
           bash -n scripts/portal/start_local_workspace.sh
           bash -n scripts/portal/start_isolated_preview.sh
+          bash -n scripts/portal/start_isolated_vite.sh
           bash -n scripts/portal/stop_isolated_preview.sh
 
           test -f scripts/portal/docker-compose.isolated-preview.yml
@@ -83,6 +84,8 @@ jobs:
           set -euo pipefail
           grep -q 'scripts/setup_fonts.sh --no-container-check' scripts/portal/start_isolated_preview.sh
           grep -q 'docker-compose.isolated-preview.yml' scripts/portal/start_isolated_preview.sh
+          grep -q 'VITE_FRAPPE_APP_ORIGIN="$FRAPPE_URL"' scripts/portal/start_isolated_preview.sh
+          grep -q 'VITE_FRAPPE_APP_ORIGIN="$FRAPPE_URL"' scripts/portal/start_isolated_vite.sh
 
           if grep -nE 'docker[[:space:]]+exec[[:space:]]+' scripts/portal/start_isolated_preview.sh; then
             echo "::error:: isolated preview 不得直接 docker exec 未命名空间容器"
