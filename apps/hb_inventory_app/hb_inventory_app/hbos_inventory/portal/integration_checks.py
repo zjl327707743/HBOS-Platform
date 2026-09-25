@@ -30,16 +30,33 @@ def run() -> dict[str, object]:
         raise AssertionError("Inventory stable route mismatch")
     if manifest["migration_mode"] != "legacy":
         raise AssertionError("Inventory must remain legacy until hybrid/native UX gate")
-    if manifest["capabilities"]:
-        raise AssertionError("P3-INV-1 must not enable data capabilities")
+    if manifest["capabilities"] != ["summary"]:
+        raise AssertionError("P3-INV-2 must expose only the summary capability")
 
     resolved = provider.resolve_route("/hbos/inventory")
     if resolved != "/app/hbos-photo-intake":
         raise AssertionError("Inventory current implementation route mismatch")
+
+    summary = provider.summary()
+    if summary.get("app_id") != "inventory":
+        raise AssertionError("Inventory summary app id mismatch")
+    metrics = list(summary.get("metrics") or [])
+    if len(metrics) != 4:
+        raise AssertionError("Inventory summary must expose four semantic metrics")
+    expected_metric_ids = {
+        "inventory_visible_warehouses",
+        "inventory_stocked_items",
+        "inventory_negative_bins",
+        "inventory_projected_shortage_bins",
+    }
+    if {str(metric.get("id")) for metric in metrics} != expected_metric_ids:
+        raise AssertionError("Inventory summary metric contract mismatch")
 
     return {
         "inventory_route": manifest["route"],
         "inventory_mode": manifest["migration_mode"],
         "inventory_capabilities": manifest["capabilities"],
         "inventory_resolved_route": resolved,
+        "inventory_summary_status": summary["status"],
+        "inventory_summary_metrics": len(metrics),
     }
