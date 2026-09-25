@@ -26,12 +26,13 @@ class InventoryPortalManifestTest(unittest.TestCase):
             hooks.hbos_portal_provider,
         )
 
-    def test_manifest_registers_stable_legacy_entry_with_summary(self):
+    def test_manifest_registers_hybrid_entry_with_summary(self):
         manifest = get_manifest()
         self.assertEqual(1, manifest["contract_version"])
         self.assertEqual("inventory", manifest["id"])
         self.assertEqual("/hbos/inventory", manifest["route"])
-        self.assertEqual("legacy", manifest["migration_mode"])
+        # 概览页已原生、拍照识别仍在 Desk，故为 hybrid
+        self.assertEqual("hybrid", manifest["migration_mode"])
         self.assertEqual(["summary"], manifest["capabilities"])
 
 
@@ -60,14 +61,65 @@ class InventoryPortalAccessTest(unittest.TestCase):
 
 
 class InventoryPortalRouteTest(unittest.TestCase):
-    def test_root_and_intake_map_to_current_page(self):
+    def test_root_stays_in_portal_spa(self):
+        # 概览页已原生，基础路由必须返回自身，前端才留在 SPA 内
         self.assertEqual(
-            "/app/hbos-photo-intake",
+            "/hbos/inventory",
             resolve_stable_route("/hbos/inventory"),
         )
         self.assertEqual(
-            "/app/hbos-photo-intake",
+            "/hbos/inventory",
+            resolve_stable_route("/hbos/inventory/"),
+        )
+
+    def test_intake_is_now_native_too(self):
+        """入库拍照识别于 2026-09-25 前端化，不再跳去 Desk。
+
+        前端化之前这条路由解析到 ``/app/hbos-photo-intake``；现在必须返回自身，
+        否则 Portal 会整页跳出 SPA（Owner 报过的现象）。
+        """
+        self.assertEqual(
+            "/hbos/inventory/intake",
             resolve_stable_route("/hbos/inventory/intake"),
+        )
+
+    def test_no_route_resolves_into_desk(self):
+        """本 App 已不再是「有入口指向 Desk」的状态，守住这条回归。"""
+        for path in (
+            "/hbos/inventory",
+            "/hbos/inventory/intake",
+            "/hbos/inventory/draft/MAT-STE-2026-00042",
+            "/hbos/inventory/batch/B2609503",
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(resolve_stable_route(path).startswith("/app/"))
+
+    def test_document_routes_keep_their_document_number(self):
+        """带单据号的路由必须**原样**返回，前端要靠后缀取单号。"""
+        self.assertEqual(
+            "/hbos/inventory/draft/MAT-STE-2026-00042",
+            resolve_stable_route("/hbos/inventory/draft/MAT-STE-2026-00042"),
+        )
+        self.assertEqual(
+            "/hbos/inventory/batch/B2609503",
+            resolve_stable_route("/hbos/inventory/batch/B2609503"),
+        )
+
+    def test_bare_document_prefix_is_rejected(self):
+        """`/draft/` 这种没有单号的半截路径不算已注册——否则前端会拿到空单号。"""
+        for path in ("/hbos/inventory/draft", "/hbos/inventory/draft/", "/hbos/inventory/batch"):
+            with self.subTest(path=path):
+                with self.assertRaises(ValueError):
+                    resolve_stable_route(path)
+
+    def test_query_string_is_preserved(self):
+        self.assertEqual(
+            "/hbos/inventory?tab=anomaly",
+            resolve_stable_route("/hbos/inventory?tab=anomaly"),
+        )
+        self.assertEqual(
+            "/hbos/inventory/draft/MAT-STE-2026-00042?print=1",
+            resolve_stable_route("/hbos/inventory/draft/MAT-STE-2026-00042?print=1"),
         )
 
     def test_unregistered_or_unsafe_paths_are_rejected(self):
@@ -76,6 +128,7 @@ class InventoryPortalRouteTest(unittest.TestCase):
             "/hbos/lims",
             "https://evil.example/hbos/inventory",
             "/hbos/inventory/%2e%2e/admin",
+            "/hbos/inventory/draft/%2e%2e/admin",
         ):
             with self.subTest(path=path):
                 with self.assertRaises(ValueError):

@@ -9,6 +9,12 @@ import ForbiddenView from '@/views/ForbiddenView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import LimsHomeView from '@/views/LimsHomeView.vue'
 import LimsResultReviewView from '@/views/LimsResultReviewView.vue'
+import InventoryLayout from '@/components/layout/InventoryLayout.vue'
+import InventoryOverviewView from '@/views/InventoryOverviewView.vue'
+import InventoryIntakeView from '@/views/InventoryIntakeView.vue'
+import InventoryDraftReviewView from '@/views/InventoryDraftReviewView.vue'
+import InventoryBatchView from '@/views/InventoryBatchView.vue'
+import InventoryUnavailableView from '@/views/InventoryUnavailableView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -31,6 +37,34 @@ const router = createRouter({
       children: [
         { path: '', name: 'lims-home', component: LimsHomeView, meta: { title: 'LIMS · 我的实验室' } },
         { path: 'results/:resultId/review', name: 'lims-result-review', component: LimsResultReviewView, meta: { title: 'LIMS · 结果复核' } },
+      ],
+    },
+    {
+      // 仓储库存已原生进 Portal SPA（后端 /hbos/inventory 解析回自身）。
+      // 入库拍照识别等尚未前端化的入口会离开 SPA 去 Desk，由后端路由决定。
+      path: '/hbos/inventory',
+      component: InventoryLayout,
+      children: [
+        { path: '', name: 'inventory-overview', component: InventoryOverviewView, meta: { title: '仓储库存' } },
+        { path: 'intake', name: 'inventory-intake', component: InventoryIntakeView, meta: { title: '入库拍照识别' } },
+        {
+          path: 'draft/:draftName',
+          name: 'inventory-draft',
+          component: InventoryDraftReviewView,
+          meta: { title: '草稿复核' },
+        },
+        {
+          path: 'batch/:batchName',
+          name: 'inventory-batch',
+          component: InventoryBatchView,
+          meta: { title: '批次' },
+        },
+        {
+          path: 'unavailable/:itemId',
+          name: 'inventory-unavailable',
+          component: InventoryUnavailableView,
+          meta: { title: '暂未实现' },
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: { title: '页面不存在' } },

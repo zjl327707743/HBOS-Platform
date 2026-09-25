@@ -19,8 +19,9 @@
       <div class="portal-layout-grid">
         <PortalSidebar :work-count="actionableCount" />
         <main id="main-content" class="portal-route-content" tabindex="-1">
+          <ForbiddenView v-if="portal.bootstrapErrorStatus === 403" />
           <a-alert
-            v-if="portal.bootstrapError"
+            v-else-if="portal.bootstrapError"
             type="error"
             show-icon
             class="portal-bootstrap-error"
@@ -45,6 +46,7 @@ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import PortalSidebar from '@/components/layout/PortalSidebar.vue'
 import MobilePortalNav from '@/components/layout/MobilePortalNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
+import ForbiddenView from '@/views/ForbiddenView.vue'
 
 const portal = usePortalStore()
 const ui = reactive({ commandOpen: false })

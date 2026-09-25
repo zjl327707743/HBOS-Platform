@@ -395,3 +395,69 @@ export async function searchFrappePortal(
     deepLink: item.deep_link,
   }))
 }
+
+/** 库存概览需要的四项指标 id —— 与 hbos_inventory/portal/summary.py 的投影一一对应 */
+const INVENTORY_METRIC_IDS = {
+  visibleWarehouses: 'inventory_visible_warehouses',
+  stockedItems: 'inventory_stocked_items',
+  negativeBins: 'inventory_negative_bins',
+  projectedShortageBins: 'inventory_projected_shortage_bins',
+} as const
+
+export interface InventoryOverviewState {
+  visibleWarehouses: number
+  stockedItems: number
+  negativeBins: number
+  projectedShortageBins: number
+}
+
+function metricNumber(
+  metrics: BackendSummaryMetric[],
+  id: string,
+): number | null {
+  const found = metrics.find((metric) => metric.id === id)
+  if (!found) return null
+  const value = Number(found.value)
+  return Number.isFinite(value) ? value : null
+}
+
+/**
+ * 取仓储库存概览。
+ *
+ * 四项指标**必须齐全**才返回；缺任意一项即返回 null，由调用方显示错误态。
+ * 理由：这一页是异常核对面板，半套数据会被读成「缺的那项是 0」——
+ * 宁可说「取不到」，也不给一个会被误读的答案（EA-5.4 §16 / §28）。
+ */
+export async function getFrappeInventoryOverview(): Promise<InventoryOverviewState | null> {
+  const envelope = await callFrappeMethod<
+    PortalEnvelope<BackendDispatch<BackendSummaryPayload>>
+  >('hbos_portal.api.summary.get_summary', {
+    app_id: 'inventory',
+  })
+  const dispatch = unwrap(envelope)
+  const metrics = dispatch.data.metrics || []
+
+  const visibleWarehouses = metricNumber(metrics, INVENTORY_METRIC_IDS.visibleWarehouses)
+  const stockedItems = metricNumber(metrics, INVENTORY_METRIC_IDS.stockedItems)
+  const negativeBins = metricNumber(metrics, INVENTORY_METRIC_IDS.negativeBins)
+  const projectedShortageBins = metricNumber(
+    metrics,
+    INVENTORY_METRIC_IDS.projectedShortageBins,
+  )
+
+  if (
+    visibleWarehouses === null ||
+    stockedItems === null ||
+    negativeBins === null ||
+    projectedShortageBins === null
+  ) {
+    return null
+  }
+
+  return {
+    visibleWarehouses,
+    stockedItems,
+    negativeBins,
+    projectedShortageBins,
+  }
+}

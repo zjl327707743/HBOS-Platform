@@ -63,6 +63,10 @@ def run() -> dict[str, object]:
     inventory_manifest = registry.entries["inventory"].manifest.to_dict()
     if inventory_manifest["capabilities"] != ["summary"]:
         raise AssertionError("Inventory must expose only permission-aware summary")
+    if inventory_manifest["migration_mode"] != "hybrid":
+        raise AssertionError(
+            "Inventory must be hybrid: native overview + Desk photo intake"
+        )
 
     route_result = resolve_stable_route(
         "lims",
@@ -82,8 +86,17 @@ def run() -> dict[str, object]:
         "inventory",
         "/hbos/inventory",
     )
-    if inventory_route["resolved_path"] != "/app/hbos-photo-intake":
-        raise AssertionError("Inventory stable route adapter mismatch")
+    if inventory_route["resolved_path"] != "/hbos/inventory":
+        raise AssertionError("Inventory overview route must stay inside the Portal SPA")
+
+    inventory_intake_route = resolve_stable_route(
+        "inventory",
+        "/hbos/inventory/intake",
+    )
+    if inventory_intake_route["resolved_path"] != "/hbos/inventory/intake":
+        raise AssertionError(
+            "Inventory photo intake is now native and must stay inside the Portal SPA"
+        )
 
     inventory_summary_dispatch = dispatch_provider("inventory", "summary")
     inventory_summary = inventory_summary_dispatch["data"]

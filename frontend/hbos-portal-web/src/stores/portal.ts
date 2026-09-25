@@ -1,11 +1,37 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { FrappeHttpError, hasFrappeSession } from '@/services/frappeClient'
 import {
   getPortalData,
   getPortalSummaries,
   getPortalTasks,
   portalDataSource,
 } from '@/services/portalProvider'
+
+/**
+ * 把底层 HTTP 异常翻成用户语义。
+ *
+ * 只有 frappe 数据源才会走到 401/403——mock 模式不发请求。
+ *
+ * Frappe 对「未登录访客」与「已登录但无权」都返回 403，**同码不同因**，
+ * 所以这里先用会话探针分辨成因，再把「无会话」归一化成 401：
+ * 会话失效要引导重新登录，会话有效而进不去才是真的无权限。两者给用户的
+ * 下一步动作完全不同，不能共用一句文案。
+ */
+async function describeBootstrapError(error: unknown): Promise<{ status: number; message: string }> {
+  if (portalDataSource !== 'frappe' || !(error instanceof FrappeHttpError)) {
+    return { status: 0, message: 'HBOS 初始化失败，请稍后重试。' }
+  }
+
+  if (error.status === 403 || error.status === 401) {
+    if (!(await hasFrappeSession())) {
+      return { status: 401, message: '当前会话已失效，请重新登录 HBOS 后再打开工作台。' }
+    }
+    return { status: 403, message: '你没有权限进入这个应用。若你认为这是配置错误，请联系业务管理员。' }
+  }
+
+  return { status: error.status, message: 'HBOS 服务暂时不可用，请稍后重试。' }
+}
 import type {
   AppManifestDTO,
   BusinessPulseDTO,
@@ -30,6 +56,7 @@ export const usePortalStore = defineStore('portal', () => {
   const summariesLoading = ref(false)
   const tasksLoading = ref(false)
   const bootstrapError = ref<string | null>(null)
+  const bootstrapErrorStatus = ref<number>(0)
   const dataSource = ref(portalDataSource)
 
   const totalActions = computed(() =>
@@ -39,6 +66,7 @@ export const usePortalStore = defineStore('portal', () => {
   async function bootstrap() {
     loading.value = true
     bootstrapError.value = null
+    bootstrapErrorStatus.value = 0
     try {
       const data = await getPortalData()
       user.value = data.user
@@ -54,8 +82,9 @@ export const usePortalStore = defineStore('portal', () => {
         void refreshSummaries()
       }
     } catch (error) {
-      bootstrapError.value =
-        error instanceof Error ? error.message : 'HBOS 初始化失败'
+      const described = await describeBootstrapError(error)
+      bootstrapErrorStatus.value = described.status
+      bootstrapError.value = described.message
       throw error
     } finally {
       loading.value = false
@@ -128,6 +157,7 @@ export const usePortalStore = defineStore('portal', () => {
     summariesLoading,
     tasksLoading,
     bootstrapError,
+    bootstrapErrorStatus,
     dataSource,
     totalActions,
     bootstrap,

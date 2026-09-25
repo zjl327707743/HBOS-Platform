@@ -3,11 +3,28 @@ from __future__ import annotations
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 STABLE_PREFIX = "/hbos/inventory"
-CURRENT_ENTRY = "/app/hbos-photo-intake"
+
+# 已前端化、留在 Portal SPA 内的**固定**路由（返回自身，前端据此不跳走）。
+NATIVE_PATHS = {
+    STABLE_PREFIX: STABLE_PREFIX,
+    STABLE_PREFIX + "/intake": STABLE_PREFIX + "/intake",
+}
+
+# 已前端化、带单据号后缀的**前缀**路由。
+# 形如 `/hbos/inventory/draft/MAT-STE-2026-00042`，前端据此读单据号。
+NATIVE_PREFIXES = (
+    STABLE_PREFIX + "/draft/",
+    STABLE_PREFIX + "/batch/",
+)
 
 
 def resolve_stable_route(stable_path: str) -> str:
-    """Map stable Inventory routes to the current controlled Desk entry."""
+    """Map stable Inventory routes to their current implementation.
+
+    这些路由都已原生；但 ``migration_mode`` 仍是 ``hybrid`` —— 概览页、拍照识别页、
+    草稿复核页、批次页在前端，而**通用 Stock Entry / 其他 ERPNext 单据**仍走原生表单。
+    所以不会是「全部原生」的 ``native`` 语义。
+    """
 
     value = str(stable_path or "").strip()
     parsed = urlsplit(value)
@@ -23,7 +40,16 @@ def resolve_stable_route(stable_path: str) -> str:
     if any(segment in {".", ".."} for segment in segments):
         raise ValueError("Inventory Portal route must not contain traversal segments")
 
-    if decoded_path not in {STABLE_PREFIX, STABLE_PREFIX + "/", STABLE_PREFIX + "/intake"}:
-        raise ValueError("Inventory stable route is not registered yet")
+    # 末尾斜杠与基础路由等价
+    if decoded_path == STABLE_PREFIX + "/":
+        decoded_path = STABLE_PREFIX
 
-    return urlunsplit(("", "", CURRENT_ENTRY, parsed.query, ""))
+    if decoded_path in NATIVE_PATHS:
+        return urlunsplit(("", "", NATIVE_PATHS[decoded_path], parsed.query, ""))
+
+    for prefix in NATIVE_PREFIXES:
+        # 前缀之后必须还有内容（单据号），否则是 `/draft/` 这种半截路径
+        if decoded_path.startswith(prefix) and len(decoded_path) > len(prefix):
+            return urlunsplit(("", "", decoded_path, parsed.query, ""))
+
+    raise ValueError("Inventory stable route is not registered yet")
