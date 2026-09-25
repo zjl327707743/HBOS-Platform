@@ -253,7 +253,7 @@ Capabilities:
 ```text
 LIMS        summary / tasks / search
 Attendance  summary
-Inventory   none yet
+Inventory   summary
 ```
 
 The latest real-data hardened Portal does not render prototype-only operational data in Frappe mode when no real Provider exists.
@@ -263,3 +263,22 @@ Authority documents:
 - [P3 LIMS Provider](./P3_LIMS_PROVIDER_REGISTRATION.md)
 - [P3 Attendance Provider](./P3_ATTENDANCE_PROVIDER_REGISTRATION.md)
 - [P3 Inventory Provider](./P3_INVENTORY_PROVIDER_REGISTRATION.md)
+
+
+## P4 — Three-App Frontend Strengthening
+
+After P3 three-app workspace runtime is stable and Owner local smoke passes, frontend work moves to an audit / design phase before any large implementation.
+
+Authority:
+
+- [P4 Three-App Frontend Strengthening Plan](./P4_THREE_APP_FRONTEND_STRENGTHENING_PLAN.md)
+
+Current migration intent:
+
+```text
+LIMS        native → shared HBOS shell / tokens
+Inventory   legacy → hybrid progressively; preserve Desk operations
+Attendance  legacy → permission / IA first, then hybrid/native selectively
+```
+
+No three-app “simultaneous reskin” is authorized.
