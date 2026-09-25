@@ -68,6 +68,14 @@ jobs:
           bash -n scripts/portal/start_isolated_preview.sh
           bash -n scripts/portal/stop_isolated_preview.sh
 
+      - name: 隔离 Preview 不得扫描全局 backend
+        run: |
+          grep -q 'scripts/setup_fonts.sh --no-container-check' scripts/portal/start_isolated_preview.sh
+          if grep -nE 'docker[[:space:]]+exec[[:space:]]+' scripts/portal/start_isolated_preview.sh; then
+            echo "::error:: isolated preview 不得直接 docker exec 未命名空间容器"
+            exit 1
+          fi
+
       - name: 运行首个 LIMS Provider Contract
         run: |
           export PYTHONPATH="$PWD/apps/hb_lims_app:$PYTHONPATH"
