@@ -1304,7 +1304,7 @@ Portal Registry 已真实包含：
 ```text
 LIMS       = entry + tasks + summary + search
 Attendance = entry + HR summary
-Inventory  = entry only
+Inventory  = entry + permission-aware summary
 ```
 
 所有入口均由业务 App 自己计算 Access Context 和当前 implementation route；Portal 没有静态 import 三业务 App，也没有业务事实副本。
@@ -1325,3 +1325,45 @@ Portal Frontend = PASS
 HBOS Quality = PASS
 Platform Integration run 36048726221 = SUCCESS
 ```
+
+
+### HBOS Portal P3 Capability Deepening — Inventory Summary — 2026-09-25
+
+状态：**P3-INV-2 COMPLETE / REMOTE RUNTIME PASS**。
+
+Inventory 不再是 entry-only Provider。当前能力：
+
+```text
+Inventory = entry + permission-aware summary
+Tasks     = GATED
+Search    = GATED
+```
+
+设计约束：
+
+- 不直接暴露现有 raw-SQL 库存报表；
+- 先取得当前 Frappe Session 可见 Warehouse；
+- Bin 显式限制到该范围；
+- 只投影可比较的计数语义；
+- 不跨不同 Stock UOM 汇总数量；
+- Portal 不直接依赖 Inventory 数据模型。
+
+Runtime authority：
+
+```text
+Platform run 36082817979 = SUCCESS
+Inventory provider summary metrics = 4
+
+Strict three-app code authority = ea15676af42e14c2eb47bd65fa402481693b0cac
+Platform run 36083304003
+Three-app clean-site integration step = SUCCESS
+```
+
+同时已增加：
+
+```text
+scripts/portal/start_local_workspace.sh
+scripts/portal/p3_workspace_runtime_smoke.sh
+```
+
+因此下一阶段首先是 Owner 本地三 APP 工作台 smoke，而不是立即大改前端。Local PASS 后按 `docs/experience/P4_THREE_APP_FRONTEND_STRENGTHENING_PLAN.md` 进入真实页面截图、旅程审计、原型与 Owner Visual Gate。
