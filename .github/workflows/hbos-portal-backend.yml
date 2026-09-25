@@ -67,10 +67,13 @@ jobs:
           bash -n scripts/portal/start_local_workspace.sh
           bash -n scripts/portal/start_isolated_preview.sh
           bash -n scripts/portal/stop_isolated_preview.sh
+          test -f scripts/portal/docker-compose.isolated-preview.yml
+          test "$(grep -c '/home/frappe/frappe-bench/sites/assets' scripts/portal/docker-compose.isolated-preview.yml)" -eq 8
 
       - name: 隔离 Preview 不得扫描全局 backend
         run: |
           grep -q 'scripts/setup_fonts.sh --no-container-check' scripts/portal/start_isolated_preview.sh
+          grep -q 'docker-compose.isolated-preview.yml' scripts/portal/start_isolated_preview.sh
           if grep -nE 'docker[[:space:]]+exec[[:space:]]+' scripts/portal/start_isolated_preview.sh; then
             echo "::error:: isolated preview 不得直接 docker exec 未命名空间容器"
             exit 1
