@@ -1,12 +1,12 @@
 # HBOS P4 — Three-App Frontend Strengthening Plan
 
-> Status: **PLAN / NO FRONTEND IMPLEMENTATION YET**
+> Status: **P4-F0 READY / FRONTEND AUDIT & DESIGN AUTHORIZED**
 >
 > Date: 2026-09-25
 >
 > Branch: `feature/hbos-portal-product`
 >
-> Entry condition: P3 three-app workspace runtime is stable, then Owner local smoke passes.
+> Entry condition: **SATISFIED** — P3 remote runtime and Owner local isolated preview both passed.
 
 ## 1. Purpose
 
@@ -265,3 +265,28 @@ Real runtime baseline captured
 ```
 
 Until then, work remains in audit / design, not frontend coding.
+
+
+## 10. P3 entry gate closeout
+
+The P4 entry condition is now satisfied.
+
+Owner local isolated preview authority:
+
+```text
+a6411fadaeccf644a47ffbf93595d00ce9e5b04b
+```
+
+Verified:
+
+- Portal Home / App Center / My Work;
+- Attendance / Inventory / LIMS navigation;
+- Frappe Session continuity;
+- Portal native route continuity;
+- Inventory Summary;
+- zero new anonymous volumes;
+- preserved formal workspace / Docker runtime / volumes / Site.
+
+Therefore P4-F0 may start immediately.
+
+This authorizes **audit and design work** for all three app teams. It does not waive the per-app Owner Visual Gate before substantial implementation.
