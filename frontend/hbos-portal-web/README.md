@@ -72,6 +72,41 @@ Inventory
 
 Inventory Summary 只基于当前会话用户可见的 Warehouse 范围读取 ERPNext Bin，并只投影计数型指标；不会直接复用现有 raw-SQL 库存报表，也不会跨不同 UOM 汇总数量。
 
+## 推荐：完全隔离临时预览
+
+如果目标只是让 Agent 临时启动、人工查看，而不影响原 `frontend` Site / 8080 / 原 Docker volumes，优先使用：
+
+```bash
+bash scripts/portal/start_isolated_preview.sh
+```
+
+默认隔离资源：
+
+```text
+Docker project = hbos-portal-preview
+Preview Site   = portal-preview.localhost
+Frappe         = http://127.0.0.1:18091
+Portal         = http://127.0.0.1:5179
+```
+
+该模式使用独立 Compose project、独立 database / Redis / sites / assets volumes 和独立端口；外部飞书、得力云、AI 同步全部禁用。启动脚本还会比较启动前后的 Docker container / volume 清单，若出现非 preview namespace 的新资源则停止并要求人工审查。
+
+停止但保留 preview volumes：
+
+```bash
+bash scripts/portal/stop_isolated_preview.sh
+```
+
+彻底清理 preview 环境：
+
+```bash
+bash scripts/portal/stop_isolated_preview.sh --purge
+```
+
+`--purge` 只对 `hbos-portal-preview` Compose project 执行，不对原项目执行 `down -v`。
+
+隔离 preview Site 是 clean site，因此不会包含原 `frontend` Site 的真实业务数据。这是临时 UI / integration review 的推荐模式。
+
 ## 本地运行
 
 推荐使用仓库根目录的一键启动脚本：
