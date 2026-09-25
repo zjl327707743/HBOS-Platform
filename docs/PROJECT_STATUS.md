@@ -1367,3 +1367,47 @@ scripts/portal/p3_workspace_runtime_smoke.sh
 ```
 
 因此下一阶段首先是 Owner 本地三 APP 工作台 smoke，而不是立即大改前端。Local PASS 后按 `docs/experience/P4_THREE_APP_FRONTEND_STRENGTHENING_PLAN.md` 进入真实页面截图、旅程审计、原型与 Owner Visual Gate。
+
+
+### HBOS Portal P3 Local Runtime Closeout — 2026-09-25
+
+状态：**P3 COMPLETE / P4-F0 READY**。
+
+Owner 本机最终 Isolated Preview：
+
+```text
+Runtime authority = a6411fadaeccf644a47ffbf93595d00ce9e5b04b
+Portal             = 127.0.0.1:5179
+Preview Frappe     = 127.0.0.1:18091
+Preview Site       = portal-preview.localhost
+```
+
+三业务 App 已经在同一 Portal 工作台形成可用闭环：
+
+```text
+LIMS        entry + summary + tasks + search
+Attendance  entry + HR summary
+Inventory   entry + permission-aware summary
+```
+
+本地真实运行验证：
+
+- Portal Home / App Center / My Work 正常；
+- Attendance / Inventory / LIMS 从 Portal 卡片跳转正常；
+- Frappe Session 跨 5179 → 18091 保持；
+- Portal native `/hbos` 路由仍由 Portal SPA 处理；
+- Inventory Summary 正常；
+- Preview 本轮新增匿名 volume = 0；
+- 正式 main 工作区、正式 Docker runtime、正式 volumes、正式 frontend Site 均保持不变。
+
+下一阶段：
+
+```text
+P4-F0 real runtime screenshot / journey baseline
+P4-F1 shared HBOS token + typography verification
+P4-F2~F4 per-app frontend proposal
+P4-F5 Owner visual / interaction gate
+P4-F6 implementation one app at a time
+```
+
+三 App 团队可以开始前端审计与设计工作；未经各自 Owner Visual Gate，不直接进入大规模前端重写。
