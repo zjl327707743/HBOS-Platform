@@ -28,6 +28,7 @@ VITE_PORTAL_DATA_MODE=mock
 ```bash
 VITE_PORTAL_DATA_MODE=frappe
 VITE_FRAPPE_PROXY_TARGET=http://127.0.0.1:8080
+VITE_FRAPPE_APP_ORIGIN=http://127.0.0.1:8080
 ```
 
 实际端口以项目根目录私有 `.env` 的 `HTTP_PORT` 为准。
@@ -35,6 +36,8 @@ VITE_FRAPPE_PROXY_TARGET=http://127.0.0.1:8080
 用途：
 
 - 调真实 `hbos_portal` API；
+- API 请求通过 Vite proxy 保持 Portal 开发同源；
+- Provider Resolver 返回的业务页面通过 `VITE_FRAPPE_APP_ORIGIN` 打开 Frappe origin，避免 `/app/...` 或 `/hbos-lims/...` 落到 Vite 404；
 - 使用现有 Frappe Session；
 - 不创建第二套登录；
 - 只渲染真实 Registry / Provider 暴露的能力。
@@ -153,6 +156,7 @@ npm install --no-audit --no-fund --package-lock=false
 
 VITE_PORTAL_DATA_MODE=frappe \
 VITE_FRAPPE_PROXY_TARGET=http://127.0.0.1:8080 \
+VITE_FRAPPE_APP_ORIGIN=http://127.0.0.1:8080 \
 npm run dev -- --host 127.0.0.1 --port 5178
 ```
 
