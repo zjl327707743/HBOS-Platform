@@ -8,6 +8,9 @@ function normalizeOrigin(value: string): string {
 export function businessNavigationTarget(target: string): string {
   if (portalDataSource !== 'frappe') return target
 
+  // Stable/native Portal routes belong to the Portal SPA itself.
+  if (target.startsWith('/hbos/')) return target
+
   const frappeOrigin = normalizeOrigin(
     import.meta.env.VITE_FRAPPE_APP_ORIGIN || '',
   )
@@ -25,14 +28,7 @@ export async function openBusinessRoute(
   const target = await resolveBusinessRoute(appId, stablePath)
   const navigationTarget = businessNavigationTarget(target)
 
-  // Mock mode and same-origin native Portal routes remain SPA navigation.
-  // In Frappe dev/preview mode, VITE_FRAPPE_APP_ORIGIN makes resolved
-  // implementation routes absolute so /app/... and /hbos-lims/... do not
-  // accidentally stay on the Vite origin.
-  if (
-    navigationTarget === target &&
-    target.startsWith('/hbos/')
-  ) {
+  if (navigationTarget === target && target.startsWith('/hbos/')) {
     await router.push(target)
     return
   }
