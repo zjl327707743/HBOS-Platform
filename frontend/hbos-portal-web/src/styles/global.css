@@ -2052,3 +2052,118 @@ body { font-size: 14px; }
   .draft-actionbar > .ant-btn { flex: 1; justify-content: center; }
   .draft-photo { max-height: 260px; }
 }
+
+/* ============================================================================
+   仓储库存 · 库存报表（四张共用，V1 Operational）
+   规格见 docs/frontend/P4_库存报表视觉方案与页面结构.md
+   本页视觉预算全给表格与筛选栏，不给装饰（EA-5.4 §21 Data Table / §22 Filter Bar）。
+   文本字号一律走 --hbos-font-* token（EA-5.4 §44 v2.0）。
+   ========================================================================== */
+.report-page { display: flex; flex-direction: column; gap: 20px; }
+
+.report-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.report-head h1 {
+  margin: 0 0 4px;
+  font-size: var(--hbos-font-page-title); line-height: var(--hbos-line-page-title);
+  font-weight: var(--hbos-weight-strong); letter-spacing: -.4px;
+}
+.report-head p { margin: 0; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); }
+.report-meta {
+  text-align: right; color: var(--hbos-text-muted);
+  font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small);
+}
+.report-meta b {
+  display: block;
+  font-size: var(--hbos-font-section-title); line-height: var(--hbos-line-section-title);
+  font-weight: var(--hbos-weight-strong); color: var(--hbos-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.report-verdict {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 16px; border-radius: var(--hbos-radius-card);
+  font-size: var(--hbos-font-body); line-height: var(--hbos-line-body);
+}
+.report-verdict .anticon { margin-top: 1px; flex: 0 0 auto; font-size: 20px; }
+.report-verdict.warn { background: rgba(244,165,35,.10); border: 1px solid rgba(244,165,35,.30); color: #8a5a0b; }
+.report-verdict.info { background: rgba(75,156,255,.08); border: 1px solid rgba(75,156,255,.26); color: #2b5fa8; }
+
+/* 筛选栏：高频铺开、低频进气泡（EA-5.4 §22） */
+.report-filterbar {
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  padding: 16px 20px; border-radius: var(--hbos-radius-card);
+  background: #fff; border: 1px solid var(--hbos-border-default);
+  box-shadow: var(--hbos-shadow-card);
+}
+.report-filter { display: flex; flex-direction: column; gap: 6px; }
+.report-filter > span { color: var(--hbos-text-secondary); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); font-weight: var(--hbos-weight-medium); }
+.report-filter-inline { justify-content: flex-end; }
+.report-filter-hint { color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: 1.5; max-width: 32ch; }
+.report-filterbar-spacer { flex: 1; min-width: 12px; }
+.report-filterbar-actions { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.report-more { display: flex; flex-direction: column; gap: 16px; padding: 4px; }
+
+/* 数据表（EA-5.4 §21）：粘住表头、密排、数字右对齐等宽 */
+.report-table-wrap {
+  max-height: calc(100vh - 400px);
+  min-height: 220px;
+  overflow: auto;
+}
+.report-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--hbos-font-meta); }
+.report-table th {
+  position: sticky; top: 0; z-index: 2;
+  text-align: left; padding: 12px; white-space: nowrap;
+  background: var(--hbos-bg-subtle, #f7f9fc);
+  border-bottom: 1px solid var(--hbos-border-default);
+  color: var(--hbos-text-muted); font-weight: var(--hbos-weight-medium);
+}
+.report-table th.num, .report-table td.num { text-align: right; }
+.report-table td {
+  padding: 12px; border-bottom: 1px solid var(--hbos-border-default);
+  color: var(--hbos-text-secondary); vertical-align: middle; white-space: nowrap;
+}
+.report-table tbody tr:hover td { background: #f7f9fc; }
+.report-table tbody tr:last-child td { border-bottom: 0; }
+
+.report-num, .report-mono { font-family: var(--hbos-font-mono); font-variant-numeric: tabular-nums; }
+.report-strong { color: var(--hbos-text-primary); font-weight: var(--hbos-weight-medium); }
+.report-dash { color: var(--hbos-text-muted); }
+
+/* 状态语义：色 + 文字并存（EA-5.4 §24） */
+.report-tag {
+  display: inline-flex; align-items: center;
+  padding: 0 8px; border-radius: var(--hbos-radius-pill);
+  border: 1px solid transparent;
+  font-size: var(--hbos-font-meta); line-height: 18px;
+  font-weight: var(--hbos-weight-medium); white-space: nowrap;
+}
+.report-tag.pending { background: rgba(75,156,255,.10); border-color: rgba(75,156,255,.30); color: #2b5fa8; }
+.report-tag.released { background: rgba(27,188,134,.10); border-color: rgba(27,188,134,.28); color: #0c6b4c; }
+.report-tag.blocked { background: rgba(237,90,114,.10); border-color: rgba(237,90,114,.30); color: #96334a; }
+.report-tag.critical { background: rgba(237,90,114,.12); border-color: rgba(237,90,114,.34); color: #96334a; }
+.report-tag.warning { background: rgba(244,165,35,.12); border-color: rgba(244,165,35,.34); color: #8a5a0b; }
+.report-tag.neutral { background: rgba(114,130,157,.10); border-color: var(--hbos-border-strong); color: var(--hbos-text-secondary); }
+
+.report-truncated {
+  padding: 12px 20px; border-top: 1px solid var(--hbos-border-default);
+  color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small);
+}
+
+.report-skel { border-radius: var(--hbos-radius-control); background: rgba(114,130,157,.11); animation: report-pulse 1.4s var(--hbos-ease-standard) infinite; }
+@keyframes report-pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.report-skel-row { height: 36px; margin-bottom: 8px; }
+
+@media (max-width: 1199px) {
+  .report-filterbar-spacer { display: none; }
+}
+@media (max-width: 767px) {
+  .report-head { flex-direction: column; }
+  .report-meta { text-align: left; }
+  .report-filterbar { padding: 16px; }
+  .report-filter { flex: 1 1 140px; }
+  .report-filterbar-actions { width: 100%; }
+  .report-filterbar-actions > .ant-btn { flex: 1; justify-content: center; }
+  /* 窄屏取消内层滚动：手机上表格嵌在可滚区域里很难用，改整页滚。
+     但**列不折行**——数字列折行后完全没法对。 */
+  .report-table-wrap { max-height: none; }
+}

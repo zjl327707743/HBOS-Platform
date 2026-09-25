@@ -46,6 +46,12 @@ def execute(filters=None):
 	values = {}
 
 	scope, _ = _warehouse_scope(filters)
+
+	# 与「货位明细表」同一处缺陷的同一份修法：指定了库位但没匹配到任何货位时，
+	# 直接返回空结果；继续往下拼 `in ()` 会得到无效 SQL，报表 500。
+	if scope is not None and not scope:
+		return _columns(), []
+
 	if scope is not None:
 		placeholders = ", ".join(f"%(wh_{i})s" for i in range(len(scope)))
 		conditions.append(f"sbe.warehouse in ({placeholders})")

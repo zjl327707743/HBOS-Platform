@@ -14,6 +14,7 @@ import InventoryOverviewView from '@/views/InventoryOverviewView.vue'
 import InventoryIntakeView from '@/views/InventoryIntakeView.vue'
 import InventoryDraftReviewView from '@/views/InventoryDraftReviewView.vue'
 import InventoryBatchView from '@/views/InventoryBatchView.vue'
+import InventoryReportView from '@/views/InventoryReportView.vue'
 import InventoryUnavailableView from '@/views/InventoryUnavailableView.vue'
 
 const router = createRouter({
@@ -58,6 +59,14 @@ const router = createRouter({
           name: 'inventory-batch',
           component: InventoryBatchView,
           meta: { title: '批次' },
+        },
+        {
+          // 四张报表共用一个视图组件，仅路由参数不同。
+          // 给四条路由而不是一个下拉：报表需要可分享、可后退的 Deep Link（EA-5.4 §37）。
+          path: 'report/:reportId',
+          name: 'inventory-report',
+          component: InventoryReportView,
+          meta: { title: '库存报表' },
         },
         {
           path: 'unavailable/:itemId',

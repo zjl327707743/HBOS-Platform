@@ -15,6 +15,9 @@ NATIVE_PATHS = {
 NATIVE_PREFIXES = (
     STABLE_PREFIX + "/draft/",
     STABLE_PREFIX + "/batch/",
+    # 四张报表：`/hbos/inventory/report/<report-id>`。
+    # 「一个视图 + 四条路由」—— Deep Link 归前端，路由本身不携带报表语义。
+    STABLE_PREFIX + "/report/",
 )
 
 

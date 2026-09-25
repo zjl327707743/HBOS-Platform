@@ -64,6 +64,9 @@ const route = useRoute()
 
 const groups = INVENTORY_NAV_GROUPS
 
+/** 摊平一次，供 activeId 反查用 */
+const ALL_NAV_ITEMS: InventoryNavItem[] = INVENTORY_NAV_GROUPS.flatMap((g) => g.items)
+
 const iconMap: Record<string, unknown> = {
   gauge: DashboardOutlined,
   camera: CameraOutlined,
@@ -82,11 +85,30 @@ const iconMap: Record<string, unknown> = {
   search: SearchOutlined,
 }
 
+/**
+ * 当前高亮哪一项。
+ *
+ * **按路径反查，不按路由名分支**——路由名一多就必然漏（报表四条路由共用一个组件，
+ * batch / draft 又各带单据号）。反查是数据驱动的：侧边栏项自己带 `stablePath`，
+ * 它就是 Authority。
+ */
 const activeId = computed(() => {
-  const itemId = route.params.itemId
-  if (route.name === 'inventory-unavailable' && typeof itemId === 'string') return itemId
-  if (route.name === 'inventory-overview') return 'overview'
-  if (route.name === 'inventory-intake') return 'photo-intake'
+  const path = route.path
+
+  // ① 精确匹配侧边栏项自己的 stablePath（概览 / 拍照识别 / 批次 / 四张报表）
+  const direct = ALL_NAV_ITEMS.find((item) => item.stablePath === path)
+  if (direct) return direct.id
+
+  // ② 带单据号的子路由，按前缀归到它的父入口
+  if (path.startsWith('/hbos/inventory/draft/')) return 'photo-intake'
+  if (path.startsWith('/hbos/inventory/batch/')) return 'batch'
+
+  // ③ 「尚未实现」提示页：高亮被点的那一项
+  if (route.name === 'inventory-unavailable') {
+    const itemId = route.params.itemId
+    return typeof itemId === 'string' ? itemId : ''
+  }
+
   return ''
 })
 
