@@ -24,6 +24,12 @@ on:
       - 'apps/hb_lims_app/hb_lims_app/hooks.py'
       - 'apps/hb_lims_app/hb_lims_app/hbos_lims/portal/**'
       - 'apps/hb_lims_app/tests/test_portal_provider_contract.py'
+      - 'apps/hb_attendance_app/hb_attendance_app/hooks.py'
+      - 'apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/**'
+      - 'apps/hb_attendance_app/tests/test_portal_provider_contract.py'
+      - 'apps/hb_inventory_app/hb_inventory_app/hooks.py'
+      - 'apps/hb_inventory_app/hb_inventory_app/hbos_inventory/portal/**'
+      - 'apps/hb_inventory_app/tests/test_portal_provider_contract.py'
       - '.github/workflows/hbos-portal-backend.yml'
   workflow_dispatch:
 
@@ -85,7 +91,8 @@ jobs:
       - name: 禁止 Portal 静态依赖业务 App
         run: |
           set -euo pipefail
-          if grep -R -nE '^[[:space:]]*(from|import)[[:space:]]+(hb_attendance_app|hb_inventory_app|hb_lims_app)'             apps/hbos_portal/hbos_portal --include='*.py'; then
+          if grep -R -nE '^[[:space:]]*(from|import)[[:space:]]+(hb_attendance_app|hb_inventory_app|hb_lims_app)' \
+            apps/hbos_portal/hbos_portal --include='*.py'; then
             echo "::error:: hbos_portal 不得静态 import Attendance / Inventory / LIMS"
             exit 1
           fi
@@ -93,7 +100,8 @@ jobs:
       - name: 禁止 Guest Portal API
         run: |
           set -euo pipefail
-          if grep -R -nE 'allow_guest[[:space:]]*=[[:space:]]*True'             apps/hbos_portal/hbos_portal/api --include='*.py'; then
+          if grep -R -nE 'allow_guest[[:space:]]*=[[:space:]]*True' \
+            apps/hbos_portal/hbos_portal/api --include='*.py'; then
             echo "::error:: Portal API 不得 allow_guest=True"
             exit 1
           fi
