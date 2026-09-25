@@ -77,4 +77,5 @@ echo
 
 VITE_PORTAL_DATA_MODE=frappe \
 VITE_FRAPPE_PROXY_TARGET="$BASE_URL" \
+VITE_FRAPPE_APP_ORIGIN="$BASE_URL" \
 exec npm run dev -- --host 127.0.0.1 --port "$PORTAL_DEV_PORT" --strictPort
