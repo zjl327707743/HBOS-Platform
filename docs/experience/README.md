@@ -282,3 +282,16 @@ Attendance  legacy → permission / IA first, then hybrid/native selectively
 ```
 
 No three-app “simultaneous reskin” is authorized.
+
+
+### P3 Local Runtime Closeout
+
+Owner isolated-preview runtime passed on 2026-09-25.
+
+```text
+Runtime authority = a6411fadaeccf644a47ffbf93595d00ce9e5b04b
+P3 Three-App Workspace Integration = COMPLETE
+P4-F0 = READY
+```
+
+All three app teams may now begin real-runtime UX audit and frontend proposal work under the P4 plan. Substantial implementation still requires the per-app Owner Visual / Interaction Gate.
