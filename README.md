@@ -144,11 +144,25 @@ Owner 已于 2026-09-24 正式授权 HBOS Workspace / Portal 产品线，作为�
 EA-5.5 = COMPLETE / OWNER APPROVED
 Typography Contract v2.0 = APPROVED
 P1 Platform Architecture = BASELINE
-P2 hbos_portal Skeleton = BACKEND GATE PASS
+P2 hbos_portal Skeleton = PASS
 P2.1 Frontend Bootstrap Adapter = PASS
 P2.2 Real Frappe Runtime Smoke = PASS
-P3 Business App Registration = NEXT
+P3 Three-App Registry = PASS
+
+LIMS       = entry + summary + tasks + search
+Attendance = entry + HR summary
+Inventory  = entry + permission-aware summary
 ```
 
-Portal 是 Experience Shell，不替代 Attendance / Inventory / LIMS 的领域 Authority；运行时身份统一使用 Frappe User + Frappe Session。PR #15 在至少一个真实 Business App Provider 通过注册验证前继续保持 Draft。
+Attendance 普通员工个人端、Attendance / Inventory Tasks 与 Search 仍保持 Gate，不为了首页展示扩大授权或复制领域逻辑。
 
+Portal 本地开发已提供：
+
+```bash
+bash scripts/portal/start_local_workspace.sh
+bash scripts/portal/p3_workspace_runtime_smoke.sh
+```
+
+第一条用于持续启动真实 Frappe 模式 Portal；第二条用于验证三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Frappe Session 和 Vite API proxy。Owner 本机只有在实际执行 smoke 通过后，才记录为新的 Local Runtime PASS。
+
+Portal 是 Experience Shell，不替代 Attendance / Inventory / LIMS 的领域 Authority；运行时身份统一使用 Frappe User + Frappe Session。PR #15 继续保持 Draft，直到三 APP 工作台运行态、本地验收和下一阶段前端强化 Gate 达到可收口状态。
