@@ -105,40 +105,54 @@ Skill 路由规范文件为：
 
 2026-09-24，Owner 已明确授权正式启动 HBOS Workspace / Portal 产品线。
 
-该工作流与 M1-FIX 并行，不代表 M2 已启动，也不替代 Attendance / Inventory / LIMS 的治理线。
+该工作流与既有 Attendance / Inventory / LIMS 治理线并行；Portal 是 Experience Shell，不替代业务 App 的领域 Authority。
 
 Authority：
 
 - 分支：`feature/hbos-portal-product`
+- Draft PR：#15
 - 设计文档：`docs/experience/`
 - 前端规范：`docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`
-- 未来前端：`frontend/hbos-portal-web/`
+- Portal 前端：`frontend/hbos-portal-web/`
+- Portal Platform App：`apps/hbos_portal/`
 
-当前设计状态：
+当前设计 / 实施状态：
 
-- EA-1～EA-4 = BASELINE
-- EA-5 Owner Visual Gate = APPROVED
-- EA-5.3 = Product Interaction BASELINE
-- EA-5.4 = DESIGN ENGINEERING BASELINE
-- EA-5.5 = NEXT
+```text
+EA-1～EA-4 = BASELINE
+EA-5 Owner Visual Gate = APPROVED
+EA-5.3 = BASELINE
+EA-5.4 = DESIGN ENGINEERING BASELINE
+EA-5.5 = COMPLETE / OWNER APPROVED
 
-Portal 技术栈已固定为 Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts 按需使用。
+P2 Portal Skeleton / Bootstrap / Runtime = PASS
+P3 Three-App Registry = PASS
 
-Portal 不拥有 Attendance / Inventory / LIMS 业务事实；所有真实数据经 Application Provider / DTO 进入。
+LIMS       = entry + summary + tasks + search
+Attendance = entry + HR summary
+Inventory  = entry + permission-aware summary
+```
 
-原“不得做大型 Vue/React 前端”的 M1-FIX 默认禁令继续适用于未授权范围；HBOS Portal 仅在本 Owner 明确授权的并行工作流内例外放行。
+Inventory Summary 不直接消费现有 raw-SQL 库存报表。Inventory App 先使用当前 Frappe Session 的 permission-aware Warehouse 可见范围，再显式限制 Bin 查询，并只向 Portal 投影计数型指标；不同 UOM 的库存数量不跨物料求和。
 
+Attendance 普通员工个人入口、Attendance / Inventory Tasks 与 Search 仍未开放。
 
-### Portal EA-5.5 implementation context
+真实 Frappe 模式禁止用 Mock 数据补齐缺失业务能力。Mock 仅用于 UI / Experience 开发。
 
-Portal Vue Skeleton 已通过 GitHub Actions frontend build Gate。
+本地工作台：
 
-EA-5.5 当前已启动，范围只包含：
+```bash
+bash scripts/portal/start_local_workspace.sh
+```
 
-- interaction QA；
-- responsive；
-- accessibility；
-- LIMS V1 operational page；
-- Drawer / Page / Modal 验证。
+完整本地运行态验收：
 
-仍未创建 `apps/hbos_portal`，仍未接真实业务 Provider。
+```bash
+bash scripts/portal/p3_workspace_runtime_smoke.sh
+```
+
+本地 smoke 会验证七个 Site App、三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Administrator Frappe Session 以及 Vite → Frappe API proxy；它不删除 volume、不重建 Site、不写三业务 App 的业务事实。
+
+下一阶段在本地工作台验收后进入三 APP 前端强化研究。必须继续遵守 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`：独立前端先做原型 / 视觉方案与 Owner Gate，再实施；Desk 后台页面不得为了“好看”被整体重写成独立前端。
+
+Portal 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts 按需使用。
