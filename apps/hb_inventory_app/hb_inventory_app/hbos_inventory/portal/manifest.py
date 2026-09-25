@@ -13,6 +13,6 @@ def get_manifest() -> dict[str, object]:
         "order": 20,
         "migration_mode": "legacy",
         "route": "/hbos/inventory",
-        # P3-INV-1 registers current entry/access only.
-        "capabilities": [],
+        # P3-INV-2 exposes only a permission-aware count projection.
+        "capabilities": ["summary"],
     }
