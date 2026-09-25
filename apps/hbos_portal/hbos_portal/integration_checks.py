@@ -6,6 +6,7 @@ import frappe
 
 from hbos_portal.services.access import evaluate_access
 from hbos_portal.services.bootstrap import build_bootstrap
+from hbos_portal.services.dispatcher import dispatch_provider
 from hbos_portal.services.registry import build_registry
 from hbos_portal.services.routes import resolve_stable_route
 
@@ -59,6 +60,10 @@ def run() -> dict[str, object]:
     if not access.can_enter:
         raise AssertionError("Administrator must receive LIMS break-glass entry access")
 
+    inventory_manifest = registry.entries["inventory"].manifest.to_dict()
+    if inventory_manifest["capabilities"] != ["summary"]:
+        raise AssertionError("Inventory must expose only permission-aware summary")
+
     route_result = resolve_stable_route(
         "lims",
         "/hbos/lims/tasks?scope=mine&task=TASK-001",
@@ -79,6 +84,14 @@ def run() -> dict[str, object]:
     )
     if inventory_route["resolved_path"] != "/app/hbos-photo-intake":
         raise AssertionError("Inventory stable route adapter mismatch")
+
+    inventory_summary_dispatch = dispatch_provider("inventory", "summary")
+    inventory_summary = inventory_summary_dispatch["data"]
+    inventory_metrics = list(inventory_summary.get("metrics") or [])
+    if len(inventory_metrics) != 4:
+        raise AssertionError(
+            "Portal dispatcher did not receive the four Inventory summary metrics"
+        )
 
     bootstrap = build_bootstrap()
     app_ids = [
@@ -101,6 +114,8 @@ def run() -> dict[str, object]:
         "lims_resolved_route": route_result["resolved_path"],
         "attendance_resolved_route": attendance_route["resolved_path"],
         "inventory_resolved_route": inventory_route["resolved_path"],
+        "inventory_manifest_capabilities": inventory_manifest["capabilities"],
+        "inventory_summary_metrics": len(inventory_metrics),
         "bootstrap_apps": app_ids,
         "user": bootstrap["user"]["id"],
     }
