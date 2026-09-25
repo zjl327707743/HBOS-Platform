@@ -1,0 +1,242 @@
+from __future__ import annotations
+
+import sys
+import types
+import unittest
+
+from hb_lims_app import hooks
+from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.portal.access import (
+    READ_CAPABILITY,
+    build_access_context,
+)
+from hb_lims_app.hbos_lims.portal.manifest import get_manifest
+from hb_lims_app.hbos_lims.portal.provider import get_provider
+from hb_lims_app.hbos_lims.portal.search import project_result_row
+from hb_lims_app.hbos_lims.portal.summary import project_todo_summary
+from hb_lims_app.hbos_lims.portal.routes import build_stable_deep_link, resolve_stable_route
+from hb_lims_app.hbos_lims.todo_contract import TODO_RULES
+
+
+class PortalManifestContractTest(unittest.TestCase):
+    def test_hook_registers_provider_factory(self):
+        self.assertEqual(
+            [
+                "hb_lims_app.hbos_lims.portal.provider.get_provider",
+            ],
+            hooks.hbos_portal_provider,
+        )
+
+    def test_manifest_is_stable_minimal_registration(self):
+        manifest = get_manifest()
+        self.assertEqual(1, manifest["contract_version"])
+        self.assertEqual("lims", manifest["id"])
+        self.assertEqual("/hbos/lims", manifest["route"])
+        self.assertEqual("native", manifest["migration_mode"])
+        self.assertEqual("ExperimentOutlined", manifest["icon"])
+        self.assertEqual("lims", manifest["accent"])
+        self.assertEqual(["summary", "tasks", "search"], manifest["capabilities"])
+
+
+class PortalRouteContractTest(unittest.TestCase):
+    def test_todo_internal_routes_build_stable_links(self):
+        routes = sorted({rule.route for rule in TODO_RULES})
+        self.assertTrue(routes)
+        for route in routes:
+            with self.subTest(route=route):
+                stable = build_stable_deep_link(route, {"scope": "mine"})
+                self.assertTrue(stable.startswith("/hbos/lims"))
+                self.assertEqual(
+                    f"/hbos-lims{route}?scope=mine",
+                    resolve_stable_route(stable),
+                )
+
+    def test_stable_builder_encodes_route_params(self):
+        self.assertEqual(
+            "/hbos/lims/tasks?scope=mine&task=TASK+001%2F2",
+            build_stable_deep_link(
+                "/tasks",
+                {"scope": "mine", "task": "TASK 001/2"},
+            ),
+        )
+
+    def test_stable_builder_rejects_unsafe_internal_routes(self):
+        for route in (
+            "tasks",
+            "//evil.example/tasks",
+            "https://evil.example/tasks",
+            "/%2e%2e/admin",
+        ):
+            with self.subTest(route=route):
+                with self.assertRaises(ValueError):
+                    build_stable_deep_link(route)
+
+    def test_root_maps_to_current_lims_dashboard(self):
+        self.assertEqual(
+            "/hbos-lims/dashboard",
+            resolve_stable_route("/hbos/lims"),
+        )
+
+    def test_all_current_todo_routes_have_stable_mapping(self):
+        routes = sorted({rule.route for rule in TODO_RULES})
+        self.assertTrue(routes)
+        for route in routes:
+            with self.subTest(route=route):
+                self.assertEqual(
+                    f"/hbos-lims{route}",
+                    resolve_stable_route(f"/hbos/lims{route}"),
+                )
+
+    def test_query_string_is_preserved(self):
+        self.assertEqual(
+            "/hbos-lims/tasks?scope=mine&status=open",
+            resolve_stable_route(
+                "/hbos/lims/tasks?scope=mine&status=open"
+            ),
+        )
+
+    def test_rejects_paths_outside_lims_namespace(self):
+        for path in (
+            "/hbos/inventory/tasks",
+            "/hbos/limsx/tasks",
+            "https://evil.example/hbos/lims",
+            "/hbos/lims/%2e%2e/admin",
+        ):
+            with self.subTest(path=path):
+                with self.assertRaises(ValueError):
+                    resolve_stable_route(path)
+
+
+class PortalAccessContractTest(unittest.TestCase):
+    def test_guest_cannot_enter(self):
+        access = build_access_context("Guest", ["LIMS Analyst"])
+        self.assertFalse(access["can_enter"])
+        self.assertEqual([], access["capabilities"])
+
+    def test_lims_business_role_can_enter(self):
+        access = build_access_context("analyst@example.com", [wf.ROLE_ANALYST])
+        self.assertTrue(access["can_enter"])
+        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+    def test_system_manager_has_read_entry_only(self):
+        access = build_access_context("ops@example.com", [wf.ROLE_SYSTEM])
+        self.assertTrue(access["can_enter"])
+        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+    def test_unrelated_role_cannot_enter(self):
+        access = build_access_context("user@example.com", ["Employee"])
+        self.assertFalse(access["can_enter"])
+
+    def test_administrator_is_break_glass_entry(self):
+        access = build_access_context("Administrator", [])
+        self.assertTrue(access["can_enter"])
+
+    def test_access_contract_does_not_expose_role_names(self):
+        access = build_access_context("analyst@example.com", [wf.ROLE_ANALYST])
+        self.assertEqual(
+            {"app_id", "can_enter", "capabilities", "scopes"},
+            set(access),
+        )
+        self.assertNotIn(wf.ROLE_ANALYST, str(access))
+
+
+class PortalSearchProjectionContractTest(unittest.TestCase):
+    def test_projects_result_to_stable_search_contract(self):
+        projected = project_result_row(
+            {
+                "name": "RESULT 001/2",
+                "sample": "SAMPLE-001",
+                "item_name": "含量",
+                "verdict": "合格",
+                "result_status": "已批准",
+            }
+        )
+
+        self.assertEqual("lims", projected["app_id"])
+        self.assertEqual("test_result", projected["entity_type"])
+        self.assertEqual("RESULT 001/2", projected["entity_id"])
+        self.assertEqual("含量 · RESULT 001/2", projected["title"])
+        self.assertEqual("SAMPLE-001 · 合格", projected["subtitle"])
+        self.assertEqual("已批准", projected["status"])
+        self.assertEqual(
+            "/hbos/lims/results/RESULT%20001%2F2",
+            projected["deep_link"],
+        )
+
+    def test_search_projection_rejects_missing_identity(self):
+        with self.assertRaises(ValueError):
+            project_result_row({"item_name": "含量"})
+
+
+class PortalSummaryProjectionContractTest(unittest.TestCase):
+    def test_projects_permission_aware_todo_summary(self):
+        projected = project_todo_summary(
+            {
+                "summary": {
+                    "total": 7,
+                    "overdue": 2,
+                    "assigned_to_me": 3,
+                    "role_pending": 4,
+                    "by_module": {
+                        "testing": 4,
+                        "stability": 2,
+                        "retention": 1,
+                    },
+                },
+                "generated_at": "2026-09-25T02:00:00+08:00",
+            }
+        )
+
+        self.assertEqual("lims", projected["app_id"])
+        self.assertEqual("attention", projected["status"])
+        self.assertEqual(4, len(projected["metrics"]))
+        values = {item["id"]: item["value"] for item in projected["metrics"]}
+        self.assertEqual(7, values["my_lims_work"])
+        self.assertEqual(2, values["my_lims_overdue"])
+        self.assertEqual(4, values["my_lims_testing"])
+        self.assertEqual(2, values["my_lims_stability"])
+        self.assertTrue(
+            all(
+                item["deep_link"] == "/hbos/lims/tasks?scope=mine"
+                for item in projected["metrics"]
+            )
+        )
+
+    def test_zero_summary_uses_non_alarm_tones(self):
+        projected = project_todo_summary(
+            {
+                "summary": {"total": 0, "overdue": 0, "by_module": {}},
+                "generated_at": "",
+            }
+        )
+        by_id = {item["id"]: item for item in projected["metrics"]}
+        self.assertEqual("normal", projected["status"])
+        self.assertEqual("success", by_id["my_lims_overdue"]["tone"])
+        self.assertEqual("neutral", by_id["my_lims_work"]["tone"])
+
+
+class PortalProviderRuntimeBoundaryTest(unittest.TestCase):
+    def tearDown(self):
+        sys.modules.pop("frappe", None)
+
+    def test_provider_exposes_declared_capability_methods(self):
+        provider = get_provider()
+        self.assertTrue(callable(provider.summary))
+        self.assertTrue(callable(provider.my_tasks))
+        self.assertTrue(callable(provider.search))
+
+    def test_provider_derives_identity_from_frappe_session(self):
+        fake_frappe = types.SimpleNamespace(
+            session=types.SimpleNamespace(user="reviewer@example.com"),
+            get_roles=lambda user: [wf.ROLE_REVIEWER] if user == "reviewer@example.com" else [],
+        )
+        sys.modules["frappe"] = fake_frappe
+
+        access = get_provider().access_context()
+
+        self.assertTrue(access["can_enter"])
+        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+
+if __name__ == "__main__":
+    unittest.main()

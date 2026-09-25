@@ -1,0 +1,54 @@
+name: HBOS Portal Frontend Gate
+
+on:
+  push:
+    branches:
+      - feature/hbos-portal-product
+    paths:
+      - 'frontend/hbos-portal-web/**'
+      - '.github/workflows/hbos-portal-frontend.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend/hbos-portal-web/**'
+      - '.github/workflows/hbos-portal-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portal-build:
+    name: Portal 前端构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend/hbos-portal-web
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 显示 Node / npm 版本
+        run: |
+          node --version
+          npm --version
+
+      - name: 安装前端依赖
+        run: npm install --no-audit --no-fund
+
+      - name: Vue / TypeScript / Vite 构建
+        run: npm run build
+
+      - name: 验证构建产物
+        run: |
+          test -f dist/index.html
+          echo "HBOS Portal frontend build: PASS"

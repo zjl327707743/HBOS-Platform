@@ -54,3 +54,10 @@ jinja = {
         "hb_inventory_app.hbos_inventory.qr_utils",
     ]
 }
+
+
+# HBOS Portal experience provider.
+# Inventory owns access and current Desk routing; Portal only consumes the contract.
+hbos_portal_provider = [
+    "hb_inventory_app.hbos_inventory.portal.provider.get_provider",
+]

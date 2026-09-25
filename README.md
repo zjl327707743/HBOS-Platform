@@ -125,3 +125,44 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 - 用户：负责最终验收、取舍确认与里程碑放行
 
 每轮任务开始前，AI 必须说明本轮读取了哪些文档。默认只读 `CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`，禁止默认递归读取整个 `docs/`。
+
+## 并行产品工作流：HBOS Portal
+
+Owner 已于 2026-09-24 正式授权 HBOS Workspace / Portal 产品线，作为主业务治理线之外的独立并行工作流。
+
+- 分支：`feature/hbos-portal-product`
+- Draft PR：#15
+- Experience Architecture：`docs/experience/`
+- 实施计划：`docs/plans/HBOS_PORTAL_IMPLEMENTATION_PLAN.md`
+- 前端：`frontend/hbos-portal-web/`
+- 薄平台 App：`apps/hbos_portal/`
+- 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios + Frappe
+
+当前 Portal Gate：
+
+```text
+EA-5.5 = COMPLETE / OWNER APPROVED
+Typography Contract v2.0 = APPROVED
+P1 Platform Architecture = BASELINE
+P2 hbos_portal Skeleton = PASS
+P2.1 Frontend Bootstrap Adapter = PASS
+P2.2 Real Frappe Runtime Smoke = PASS
+P3 Three-App Registry = PASS
+
+LIMS       = entry + summary + tasks + search
+Attendance = entry + HR summary
+Inventory  = entry + permission-aware summary
+```
+
+Attendance 普通员工个人端、Attendance / Inventory Tasks 与 Search 仍保持 Gate，不为了首页展示扩大授权或复制领域逻辑。
+
+Portal 本地开发已提供：
+
+```bash
+bash scripts/portal/start_local_workspace.sh
+bash scripts/portal/p3_workspace_runtime_smoke.sh
+```
+
+第一条用于持续启动真实 Frappe 模式 Portal；第二条用于验证三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Frappe Session 和 Vite API proxy。Owner 本机 Isolated Preview 已于 2026-09-25 完成并通过；P3 Local Runtime = PASS，P4-F0 前端真实页面审计与设计已放行。
+
+Portal 是 Experience Shell，不替代 Attendance / Inventory / LIMS 的领域 Authority；运行时身份统一使用 Frappe User + Frappe Session。PR #15 继续保持 Draft，直到三 APP 工作台运行态、本地验收和下一阶段前端强化 Gate 达到可收口状态。

@@ -5,69 +5,11 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-F（REVIEWING，**第一、二阶段均已上线；整支复查已完成并处置**）
+- 当前轮次：M1-FIX-B5（REVIEWING，等待 Owner 和 Claude 审查）
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块两阶段均已上线：119 条入库、103 条解析、41 已核实 / 53 核实不通过；已核实调休日已接入考勤豁免与看板；整支复查完成，1 项发现已修、1 项归因已更正）；M1-FIX-C/D/E 未启动。
-- 本批最新交付：2026-09-22 完成 **M1-FIX-F 调休模块第一阶段**——飞书调休审批进入系统并按海滨口径完成「加班日提取 → 打卡核实」，产出可人工复核的结论清单。分支 `m1-fix-c-rest-leave`（16 提交），全量测试 311 → **396 通过**。**本阶段只出结论、不改变任何考勤结果**。2026-09-22 已上线：119 条入库、103 条解析出加班日、核实结论 40 已核实 / 53 核实不通过 / 14 解析失败；**考勤结果与上线前逐值一致（零副作用）**。上线中发现并修复三项阻断（模型下线、HBOS_AI_* 未注入队列容器、nginx 需 reload），详见落地记录 §8。详见 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-FIX-F 两阶段均已上线；**建议下一轮优先处理「分机实施前数据修复」**（含 8/14 的 223 条错误缺勤与 `pairing.py` 设备方向判定的按天改造）与台账 #10「重算幂等改造」（本轮已实际踩中其地雷）；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`。
-
-## M1-FIX-F 状态
-
-状态：**REVIEWING**（**第一、二阶段均已上线；整支复查已完成并处置**）。
-
-轮次定位：调休模块（一阶段：同步 + LLM 解析加班日 + 打卡核实 + 落库；二阶段：接入考勤判定豁免）。
-
-业务规则（Owner 2026-09-21 确认）：调休日 = 飞书日期字段区间；加班日 = LLM 从「说明」自由文本提取；核实 = 加班日当天有完整上下班配对，全部通过才「已核实」，否则「核实不通过」转人工。
-
-- 命名说明：原拟沿用 `M1-FIX-C`，但台账中该编号已定义为「异常说明三级流程」，故改用 `M1-FIX-F`；若 Owner 另有口径可重命名。
-- 与请假的差异：模板一样，但判定逻辑不同——请假审批通过即豁免；调休须先核实加班日。两条通道分开成表。
-- 交付：`rest_leave.py` 纯逻辑模块、DocType 4 个新字段、`sync_rest_leave.py` 三段（同步 → LLM 解析 → 核实，同一 `*/30` 有序列表）、换班（`HBOS Shift Swap Record`）全部产物退休。
-- 关键约束：**LLM 结果落库，判定热路径永不调用 LLM**（考勤每 10 分钟重算，热路径调 LLM 成本、延迟、确定性都不可接受）。
-- 核实判据：复用系统已算出的考勤结果（`status='Present'` 且 `working_hours >= 2`），不另写一套配对定义。
-- 实测依据：飞书调休表 119 条（已通过 107）；96 条同日、8 条跨天；16 条天数与日期跨度不符；**65 条说明只用「号」不用「日」**（初版解析器只认「日」会让 63% 数据落解析失败，已在修复轮补上）；36 条为多行批量说明（列他人加班），故非 LLM 不可。
-- 旧模块「代码在、运行态为零」的根因：DocType 从未 migrate，且原测试是静态断言（检查源码字符串，永远为真）。
-- 本阶段刻意不接判定；接入点为 `regenerate_attendance`（把已核实的调休日并入传给 `pair_employee_checkins()` 的豁免集合，`pairing.py` 可零改动），但**必须先处理第二阶段硬性前提 F2/F3/F4/F5**。
-- 第二阶段硬性前提（本阶段无害）：① 豁免查询必须过滤 `approval_status='已通过'`（新同步写入全部行，含已撤回/已拒绝）；② 重新解析失效键需含 `employee`（现只有 `remarks`）；③ `已核实`/`核实不通过` 是终态，需加重新核实机制；④ 复看三段调度频率（设计定 `*/10`，实际 `*/30`）。
-- **2026-09-22 已上线**：119 条入库 → 103 条解析出加班日 → 核实结论 **40 已核实 / 53 核实不通过 / 14 解析失败**（仅「已通过」107 条）。**考勤结果与上线前逐值一致（零副作用）**；判据敞口（7/28-30）实测为零；自洽性对账违规 0 条。
-- 上线中发现并修复三项阻断：① `deepseek-v4-flash` 上游下线 → 实测 4 候选后改 `deepseek-flash`；② **`HBOS_AI_*` 只注入 backend，scheduler 与两个 queue 全缺** → 定时任务 0.35 秒「成功」实则走「未配置 AI」分支，且 `bench execute` 手动跑正常、永远测不出；③ **nginx 502 的正解是 `nginx -s reload` 而非 `restart`**（已更正 `docs/HBOS考勤判定规则.md` §13.9 的错误结论）。
-- 待 Owner 判读：62%（53/107）不通过的含义；10 天「有打卡却无考勤记录」的引擎缺口（非本轮引入）。
-- 主文档：`docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`
-
-### M1-FIX-F 第二阶段（接入考勤判定豁免）2026-09-22~24
-
-**已上线**。把「已核实」的调休日接入判定与看板，使其不再被判缺勤、不再被列为「未打卡」。
-
-- 交付：`rest_leave.expand_verified_records`（纯函数）、新建 `rest_leave_apply.verified_rest_dates()`（**「已通过 + 已核实」的唯一查询口径**，有测试防止第二份副本）、`api.py` 并入豁免集合并把记录班次标为 `调休`、看板**两条**标签路径（实时 + 回顾）均接入、`sync_rest_leave.py` 重解析失效键补入 `employee`。
-- 测试：396 → **437 全绿**。
-- 验收（2026-09-24 实测）：41 个已核实调休日 → 13 条 `On Leave`+`调休`、17 条孤卡豁免无记录、11 条 `Present`（其中 2 条实为跨天配对）。看板实测显示「请假（调休）」。幂等、非调休人员零影响。
-- **执行中造成并已修复的数据事故**：`regenerate_attendance` 的清理语句含第二条 DELETE，会删除 `attendance_date > range_end` 的全部记录，故窄窗口重算会静默摧毁后续数据。我按乱序执行窄窗口重算，一度删除 8/15–9/21 全部记录（总数 29146→8004）。已按**时间升序**逐段重建恢复，7/28–9/23 共 58 天无缺日。详见落地记录 §A4。
-- **整支复查结论**：功能正确；驳回并更正了我「8/14 属文档已记载遗留问题」的错误归因——8/14 的 223 条缺勤是**本轮重算生成、从未验证**的数据，机制为「取数窗口跨过 8/15 时触发配对严格分支，而 8/14 的卡方向全为 None 致全判孤立上班卡」（实测 58 人当天在两类机器都打过卡却判缺勤）。Owner 决定**暂不处理（选项 C）**，等专门轮次。
-- 复查另抓到并已修：**月报把调休算成「正常出勤」**（`is_leave` 只查请假表集合，调休日在建休表）。
-- 已更正 `pairing.py:209` 过期注释（写 8/14，常量是 08-15）——该矛盾是本次踩坑的直接诱因。
-- 遗留观察见落地记录 §A7（看板第四条消费路径、回顾模式对 17 天无记录者的标签、`PARSE_BATCH_SECONDS` 待校准）。
-
-### 2026-09-24 名单单一来源收敛与 PR 审查修复
-
-Owner 2026-09-24 裁定「一个业务含义只留一份名单」，随后对整支做 PR 审查并修复。
-
-**名单收敛**（行为口径已变，Owner 已知悉）：
-
-- **行政班**：`ADMIN_NUMS` 原在三处各一份且严重分叉——`rule_lists.py`（判定用，178 人）、`daily_feishu_sync.py`（221 人）、`pair_checkins.py`（139 人）。飞书与判定差 **71 个工号**（57 只在飞书、14 只在判定），同一人同一天在两套输出里一个判缺勤、一个不算缺勤。裁定以 `rule_lists.py` 为准，`daily_feishu_sync.py` 删除本地 221 人副本改为引用（不是「把数字抄一致」——那样下次仍会分叉）。
-- **无菌**：`WUJUN_NUMS` 原有两份（`api.py` 空集 / `daily_feishu_sync.py` 48 人），而现行体系是 `pairing.py` 的 `SPECIAL_SHIFT_NUMS`（59 人）。48 人那份混入 3 名设备动力部人员、漏掉 14 名无菌车间人员。裁定以 `SPECIAL_SHIFT_NUMS` 为准。**实测行为变化**：仅 1 人（耿献磊，无菌车间）失去周末双休豁免；3 名设备动力部人员获得豁免。
-- **`EXCLUDE_NUMS` 未改行为**，只补注释：20 人手工项中有 7 人已属无菌体系、7 人已属 `FOOD_NUMS`，另 6 人横跨 5 个部门来源不明。「无菌是否应整批排除」这一口径未定，属业务问题，**留待 Owner 裁定**。
-- **旧引擎加废弃标记**：`pair_checkins.py` / `shift_matcher.py` / `generate_attendance.py` 全仓库无引用但文件仍在，各自含第 3 份名单或旧班次逻辑，已补「已废弃·请勿使用」docstring（未删文件，清理另开一轮）。
-- 新增 `tests/test_admin_nums_single_source.py` 守住单一来源，并已加固：旧断言用 `assertIsNone(_module_level_names(...))`，而该助手在「名字不存在」与「存在但非字面量」两种情形下都返回 None，`ADMIN_NUMS = set(...) | {...}` / 放进 `if`、`try`、函数体 / `ADMIN_NUMS.update(...)` 都能让断言**假通过**；现改为 AST 扫描任何本地绑定或原地修改（已用上述形态做过变异验证，均能抓出）。
-
-**PR 审查修复**（5 项，均为实际缺陷）：
-
-- **去重窗口与配对下限对撞**：`dedup_checkins` 窗口 120min、配对下限 `2 <= gap` 即 120min，闭区间下**恰好相隔 2h** 的上下班卡先被去重成一张、再配不上 → 孤卡误判缺勤（仅影响方向未知的卡：8/15 前、GPS 卡、未登记设备）。改为严格小于，边界让给配对。已补 2 条回归测试并做变异验证（改回 `<=` 时测试失败）。
-- **`.env.example` 缺 9 个变量**：compose 引用的 `FEISHU_*`、`DELICLOUD_*`、`HBOS_AI_*`、`HBOS_NOTIFY_*` 一个都没收录。compose 的 `${VAR}` 缺项时展开为空串、不报错，故新环境照模板建 `.env` 会让 AI 复核与 9 点考勤卡片**静默失效**（与已记录的 `HBOS_AI_*` 只注入 backend 同类）。已补齐占位符与说明。
-- **CI 门禁误伤 `.env.example`**：`.github/workflows/hbos-quality-gate.yml` 的「禁止 `.env`」用了 `(^|/)\.env` 而无 `$` 锚点（其余各检查都有），会把占位符模板 `.env.example` 一并判违规。已补 `$` 锚点。
-- **部门看板 XSS**：`hbos_department_board.js` 的部门名（来自 `tabEmployee.department`，用户可写）与服务端错误文案直接拼进 HTML，同文件其余 8 处均已 `escape_html`。已补齐。
-- **月报 AI 复核定位用 `list.index`**：`target.index((r, dates))` 是 O(n²) 且 `==` 命中相同内容元组时会定位到错误下标，改 `enumerate`。
-
-**审核同时发现（未在本轮修，见下方风险）**：本地 `origin` 地址明文内嵌 GitHub PAT，需吊销并改凭据助手。
+- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M2 未启动。
 
 ## 状态更新制度
 
@@ -604,7 +546,7 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 25. M1-FIX-B3：REVIEWING / Owner UI 验收未通过，考勤工作台入口、App 命名与 HRMS 数据一致性修复不能 closeout。
 26. M1-FIX-B4：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；B4 不 closeout。
 27. M1-FIX-B5：REVIEWING，导入数据链路核查与报表口径收敛已交付，等待 Owner 和 Claude 审查。
-28. M2-STOCK-R1：IN_PROGRESS，库存模块隔离——新建独立 `stock` 站点（只装 frappe + erpnext）、新增 `hb_stock_app` 与「海滨库存」工作台，使库存数据与考勤站点 `frontend` 物理隔离。分支 `m2-stock-r1`，主文档 `docs/milestones/M2_STOCK_R1_库存模块隔离实施记录.md`。Task 3（建站 + frontend 备份）、Task 4（App 安装 + 工作台生成 + migrate 幂等）、Task 5（HAIBIN 公司 + 默认仓库）已交付 PASS，Task 7/8 待续。
+28. M2：未启动 / 待 Owner 授权。
 
 ## M1-FIX 状态
 
@@ -624,7 +566,7 @@ M1-FIX-B3：REVIEWING / Owner UI 验收未通过。本轮不 closeout B3，Owner
 
 M1-FIX-B4：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题。本轮按 Owner 确认的方案 A 收敛运行态入口：`after_migrate` 幂等同步 Workspace、Workspace Sidebar、Desktop Icon；桌面入口显示为 `海滨考勤` 并使用实际可见 SVG；导入页增加 `海滨考勤工作台 / 导入考勤机导出表` 说明和返回入口；HBOS 报表与 HRMS 原生入口显示口径已区分。主文档 `docs/milestones/M1_FIX_B4_考勤模块架构收敛与单一入口重整.md` 已交付，B4 本轮不 closeout。
 
-M1-FIX-B5：REVIEWING。本轮核查真实数据库中 Employee / Employee Checkin / Attendance / HBOS Attendance Import Log / 月度汇总暂存链路；确认 HRMS 原生月度考勤表空表主因是用户默认 Company 指向 Demo，正确 Company 下有 2026-07 Attendance；修复 HBOS 报表固定 500 行截断与缺少部门 / 批次过滤的问题；新增 `HBOS 月度汇总暂存（对账）` 报表；HRMS 原生入口降级为技术核查。2026-08-21 后续修正（本轮）：① 分机孤立卡误判缺勤修复——方向不同的相邻卡不合并（陈雨欣 8/19 案例）+ 当天已有完整上下班结构时孤立卡不判缺勤；② 配对上限 13h→14h 放宽（李明 8/19 无菌班 13.17h 案例），19 点后 12h 班按无菌晚不判迟到（张志兴 8/19）；③ 跨天夜班下班误刷上班机修复（吕玉升/庞冠军 8/16 案例）；重算 8/15-8/20 后总缺勤 382→321，迟到 30→28，早退 3→2；豁免名单双向核对 0 命中。2026-08-27 后续修正：⑨ 月度考勤汇总新增「异常考勤导出」按钮（格式对齐 HBOS 异常考勤报表参考文件：总览/缺勤汇总/迟到早退三表）；⑩ 考勤判定规则收敛——配对上限 14h→16h、有卡就不判缺勤、连续无打卡 1-2 天不判缺勤 3 天起判（缺勤 8/15-26 由 489 收敛至 134，误判率大幅下降）；⑪ 2026 年度离职名单批量处理（78 人名单，系统匹配 10 人，新增 5 人标记 Left）；⑫ 人员状态维护——曹凯莉产假豁免、曹祖军退休 Left、刘凤岭/马照辉长期病假豁免、王卫勋离职 Left、张习方数据修正（11004052 改名 + 11004009 停用），8/15-26 缺勤最终收敛至 71。主文档 `docs/milestones/M1_FIX_B5_导入数据链路核查与报表口径收敛.md` 已交付。**2026-08-21 后续修正**：四车间 10 人行政班误判迟到修复（补回 ADMIN_NUMS + 名单短路规则表 + `admin_shift_from_gap`）；质量控制部四班次人员按「工作满 8 小时算正常」口径收敛；配对上限 18h→13h；陈玉姣/王梅林产假加入豁免名单；新增 7 个测试用例，本地全量 58 用例通过。8/15 后数据已重算验证准确；7/28-8/14 分机前数据存在全量重算缺勤异常（根因未定位），为遗留问题。2026-09-02 追加：班次管理页新增「规则看板」Tab，三类班次判定规则可视化（规则记录含绑定人数 / 内置班次 / 名单与配对参数），判定逻辑零改动。2026-09-02 再追加：规则看板可导出班次人员维护表（5-sheet：部门-班次-人员主表 + 豁免/特殊班次/行政班名单/说明）。2026-09-03 追加：月度考勤汇总新增「AI复核」（enable_ai 隐藏临时列）——确认人次后逐人调 LLM 复核当月异常（迟到/早退/缺勤）生成 AI 列，随「导出 Excel」透传，重新筛选自动复位。2026-09-08 追加：工作台新增「部门看板」（Desk 页面实时出勤快照 + 历史回顾；排班优先+规则推断、通用倒班计入应出勤、保守迟到判定、回顾不判缺勤、60s 自动刷新 + 手动同步 120s 节流、+8 时区、接口角色门禁）——代码与测试已入库（全量 144 通过），设计 spec / 实施计划已提交，运行态 migrate 注册待 Owner 授权。2026-09-11 追加：考勤提醒改发飞书卡片（只列异常部门+人名，正常部门汇总一行；渲染失败自动降级纯文本；判定口径与调度不变）。2026-09-15 追加：卡片运行态验证完成（Owner 授权）——实测裁定 interactive 报文外壳字段名为顶层 `card`（`code:0`）；原稿写的 `content` 会被拒（`code:19002`）且按设计不补发纯文本，等于提醒每天静默消失；干跑数字与看板同源一致、恒等式成立；已实发卡片到群（`sent: true`）；backend/scheduler 已 `restart` 加载新代码，次日 09:00 起自动发卡片。2026-09-24 追加：名单单一来源收敛（行政班 221→178 单一来源、无菌 48→59 改用 `SPECIAL_SHIFT_NUMS`、`EXCLUDE_NUMS` 冗余标注、旧引擎补废弃标记）与 PR 审查 5 项修复（去重窗口与配对下限对撞、`.env.example` 缺 9 变量、CI `.env` 门禁误伤模板、部门看板 XSS、月报 AI 复核 `list.index`），详见上方「2026-09-24 名单单一来源收敛与 PR 审查修复」节。
+M1-FIX-B5：REVIEWING。本轮核查真实数据库中 Employee / Employee Checkin / Attendance / HBOS Attendance Import Log / 月度汇总暂存链路；确认 HRMS 原生月度考勤表空表主因是用户默认 Company 指向 Demo，正确 Company 下有 2026-07 Attendance；修复 HBOS 报表固定 500 行截断与缺少部门 / 批次过滤的问题；新增 `HBOS 月度汇总暂存（对账）` 报表；HRMS 原生入口降级为技术核查。主文档 `docs/milestones/M1_FIX_B5_导入数据链路核查与报表口径收敛.md` 已交付。
 
 M1-FIX 后续规划（仅规划，不自动启动）：
 
@@ -640,7 +582,6 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 | M1-FIX-C | 异常说明三级流程 | P1 | PLANNED |
 | M1-FIX-D | 考勤工作台 + 月报 + 领导 Demo | P1 | PLANNED |
 | M1-FIX-E | 飞书 OAuth 最小验证 + Owner 体验脚本 + 总审查 | P2 | PLANNED |
-| M1-FIX-F | 调休模块（一阶段：同步+解析+核实；二阶段：接入判定豁免） | P1 | REVIEWING / 两阶段均已上线 |
 
 状态口径：
 - M1 = IN_PROGRESS（产品交付仍在 M1-FIX 中）
@@ -652,12 +593,9 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1-FIX-B3 = REVIEWING / Owner UI 验收未通过
 - M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题
 - M1-FIX-B5 = REVIEWING
-- M1-FIX-F = REVIEWING / 两阶段均已上线，整支复查已处置
-- M1-FIX-C/D/E = PLANNED
-- M2-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m2-stock-r1`）
-- M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION
+- M2 = NOT STARTED / WAITING OWNER AUTHORIZATION
 
-M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不在 M1-FIX 轮次内做 M2 工作（M2-STOCK-R1 已在独立分支 `m2-stock-r1` 进行，不在本分支展开），不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
+M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不启动 M2，不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
 
 ## M0-REMOTE 状态
 
@@ -1058,3 +996,418 @@ M1-R6B 未做：
 - 本轮未启动实际前端开发、不引入 npm 包、不创建 Vue/React 工程、不修改业务代码、不改变 M1 当前范围。
 
 ## M0 后续路线记录
+
+
+---
+
+## Parallel Workstream — HBOS Portal Product
+
+状态：**AUTHORIZED / IN_PROGRESS**。
+
+Owner 于 2026-09-24 明确授权正式启动 HBOS Workspace / Portal 产品线。
+
+该工作流与 M1-FIX 主业务治理线并行，不替代当前 M1-FIX 状态。
+
+当前工作分支：
+
+```text
+feature/hbos-portal-product
+```
+
+当前阶段：
+
+```text
+EA-5.4 = DESIGN ENGINEERING BASELINE
+EA-5.5 = NEXT
+```
+
+已确认：
+- Vue 3 + Ant Design Vue 为 Portal 前端技术栈；
+- EA-5.3 Bright Aurora / Layered Glass / Premium Motion 作为视觉母版；
+- LIMS / Inventory / Attendance 为独立业务 APP，不进入 Portal 固定 Sidebar；
+- Digital Twin 为一级空间化能力；
+- Portal 数据通过 Application Provider / DTO 获取，不直接读取业务 DocType；
+- 本并行工作流已满足原型先行与 Owner Visual Gate，可进入前端复刻准备。
+
+当前尚未：
+- 创建 `apps/hbos_portal`；
+- 接真实 Provider；
+- 接真实业务 API；
+- 改变 M1-FIX 当前主里程碑。
+
+
+### Portal Frontend Reproduction Update — 2026-09-24
+
+状态：**SOURCE INITIALIZED / BUILD VERIFICATION PENDING**。
+
+已创建：
+
+```text
+frontend/hbos-portal-web/
+```
+
+当前前端骨架已包含：
+
+- Vue 3 + TypeScript + Vite；
+- Ant Design Vue；
+- Vue Router；
+- Pinia；
+- Axios 依赖预留（当前未接真实 API）；
+- Home / My Work / App Center / Profile / 403 / 404；
+- LIMS 独立 App Shell；
+- Global Header；
+- App Switcher；
+- Notification Center；
+- Command Palette；
+- Digital Twin Portal Overview；
+- EA-5.4 Design Tokens；
+- Pointer Aurora / low-opacity particle trail / Reduced Motion。
+
+数据仍为 Mock Provider / DTO，不代表真实业务接入。
+
+验证状态：
+
+- 源码结构检查：完成；
+- TypeScript 静态语法检查：除未安装依赖造成的模块不可解析外，未发现额外代码级错误；
+- `npm install`：当前执行环境访问 npm registry 超时；
+- `npm run build`：因此本轮不宣称 PASS，必须在依赖可用的 CI / 本地环境补做。
+
+未创建 `apps/hbos_portal`，未接真实 Provider / Frappe API。
+
+
+### Portal EA-5.5 Update — 2026-09-24
+
+状态：**IN_PROGRESS**。
+
+EA-5.5 已进入真实 Vue 工程验证。
+
+新增范围：
+
+- HBOS Ant Design Vue global theme mapping；
+- Portal mobile bottom navigation；
+- LIMS mobile local navigation + drawer；
+- Skip Link / focus path；
+- Command Palette keyboard selection；
+- LIMS V1 result-review operational page；
+- Drawer / Full Page / Modal interaction validation。
+
+上一 Portal commit 的 GitHub Actions 结果：
+
+```text
+HBOS Quality Gate = PASS
+HBOS Portal Frontend Gate = PASS
+```
+
+EA-5.5 新提交必须重新通过两项 Gate。
+
+
+### Portal EA-5.5 CI Closeout
+
+当前 Head：`27478fbdddd6916c826f7fca400ab408b472c0b8`
+
+```text
+HBOS Quality Gate = PASS
+HBOS Portal Frontend Gate = PASS
+EA-5.5 = IMPLEMENTATION PASS / OWNER REVIEW PENDING
+```
+
+本轮已真实验证 npm install、vue-tsc、Vite build 和 dist 产物。
+
+尚未进入真实业务 API / `apps/hbos_portal`。
+
+
+### HBOS Portal EA-5.5 Closeout — 2026-09-25
+
+Owner 已通过 Portal 前端体验验收，Typography Contract v2.0 采用 Ant Design 官方尺度并冻结。
+
+当前：
+
+```text
+EA-5.5 = COMPLETE
+Frontend Reproduction Gate = PASS
+P1 hbos_portal Platform Architecture = ARCHITECTURE BASELINE
+P2 hbos_portal Skeleton = READY TO IMPLEMENT
+```
+
+本状态不改变 M1-FIX 主里程碑。
+
+
+### HBOS Portal P1 Architecture Closeout — 2026-09-25
+
+P1 已完成 `hbos_portal` 薄平台 App 架构基线。
+
+当前允许进入 P2：创建 Frappe App skeleton、Registry、Bootstrap、Access Guard、Error Contract 和 fake-provider tests。
+
+P2 仍禁止接 Attendance / Inventory / LIMS 真实 Provider，也不实现飞书 OAuth。
+
+
+### HBOS Portal P2 / P2.1 Update — 2026-09-25
+
+```text
+P2 hbos_portal Skeleton = IMPLEMENTED / BACKEND GATE PASS
+P2.1 Frontend Bootstrap Adapter = IMPLEMENTED / FRONTEND GATE PASS
+P2.2 Runtime Smoke Test = PASS
+P3 Business App Registration = IN_PROGRESS
+P3-LIMS-1 First Real Provider = COMPLETE
+P3-LIMS-2 Stable Deep-link Adapter = NEXT
+```
+
+当前仍未接 Attendance / Inventory / LIMS 真实 Provider；Registry 在真实 site 初始允许为空。
+
+
+### HBOS Portal P2.2 Runtime Closeout — 2026-09-25
+
+Owner 本地 Worktree-safe Runtime Smoke 已真实完成：
+
+```text
+P2.2 = PASS
+hbos_portal temporary install / uninstall = PASS
+Python import = PASS
+Registry = 0 entries / 0 failures
+Guest Bootstrap = HTTP 403
+Authenticated Bootstrap = HTTP 200 / ok=true
+Frappe identity = PASS
+Avatar = null / expected
+Branding = PASS
+Apps = [] / expected
+Attendance workspace = PRESERVED
+Docker volumes = UNCHANGED
+frontend site = PRESERVED
+Business data = UNCHANGED
+```
+
+测试后 site app list 与 baseline 完全一致。
+
+Attendance hook import warning 记录为非阻断观察项，不在 Portal P2.2 中修改 Attendance。
+
+Portal 下一阶段为 P3 Business App Registration；PR #15 继续保持 Draft。
+
+
+### HBOS Portal P3-LIMS-1 Closeout — 2026-09-25
+
+首个真实 Provider 已通过 Frappe clean-site runtime Gate：
+
+```text
+registry_entries = ["lims"]
+registry_failures = 0
+lims_route = /hbos/lims
+lims_access = true
+bootstrap_apps = ["lims"]
+manifest capabilities = []
+```
+
+GitHub Actions Run：`36036356941` = SUCCESS。
+
+P3-LIMS-1 仅注册 Manifest / Access / Stable App Entry，没有开启 Summary / Tasks / Search，也没有修改 LIMS 业务状态。
+
+下一步：P3-LIMS-2 Stable Deep-link Adapter。
+
+
+### HBOS Portal P3-LIMS-2 / P3-LIMS-3 Closeout — 2026-09-25
+
+状态：**P3 IN_PROGRESS；LIMS Provider 第一阶段真实数据接入已完成。**
+
+当前：
+
+```text
+EA-5.5 = COMPLETE / OWNER APPROVED
+P1 = COMPLETE
+P2 / P2.1 / P2.2 = COMPLETE / PASS
+P3-LIMS-1 = COMPLETE
+P3-LIMS-2 = COMPLETE / RUNTIME PASS
+P3-LIMS-3 = COMPLETE / RUNTIME PASS
+P3-LIMS-4 Summary Projection = NEXT
+```
+
+本轮已：
+
+- 将已合并 PR #20 的最新 `main` 安全同步到 Portal 分支；
+- 保留 LIMS production-entry、Vite manifest、persistent assets 与 frontend recreation 修复；
+- 完成 LIMS Stable Deep-link 双向 adapter；
+- 复用现有 LIMS Todo service 投影 Portal Unified Task DTO；
+- 在真实 Frappe mode 中异步加载声明 tasks capability 的 Provider；
+- 让 App Center / App Switcher / My Work 统一通过 Stable Route Resolver；
+- 保持 Portal 与 LIMS 依赖方向为 Provider Contract，不出现 Portal → LIMS 静态 import；
+- 未创建 Portal Todo DocType；
+- 未复制 LIMS workflow state；
+- 未增加业务写 API；
+- 未改变 Attendance / Inventory / LIMS 业务 Authority。
+
+最终代码 Gate：
+
+```text
+Head = 67bee0fb44bd103fc6e3216aeb099957f6f4f71b
+HBOS Portal Backend Gate = PASS
+HBOS Portal Frontend Gate = PASS
+HBOS Quality Gate = PASS
+HBOS Platform Integration Gate run 36042393976 = SUCCESS
+```
+
+clean-site runtime 已输出：
+
+```text
+registry_entries = ["lims"]
+registry_failures = 0
+lims_manifest_capabilities = ["tasks"]
+stable_link = /hbos/lims/tasks?scope=mine&task=TASK-001
+resolved_path = /hbos-lims/tasks?scope=mine&task=TASK-001
+HBOS PLATFORM clean-site integration PASS
+```
+
+
+### HBOS Portal LIMS Provider Full Experience Closeout — 2026-09-25
+
+状态：**LIMS Provider baseline COMPLETE；P3 继续进入 Attendance。**
+
+已完成 LIMS：
+
+- Provider Registry / Access；
+- Stable App Entry；
+- Stable Deep Link；
+- My Work Task Projection；
+- permission-aware Summary Projection；
+- permission-aware Search Provider；
+- Portal frontend capability-driven async consumption；
+- App Center / App Switcher / My Work / Command Palette 统一 Stable Route Resolver。
+
+最终 manifest capabilities：
+
+```json
+["summary", "tasks", "search"]
+```
+
+最终 Gate：
+
+```text
+Head = 7cc1804e4d484feef221ba8b513ec07f036af281
+Portal Backend = PASS
+Portal Frontend = PASS
+HBOS Quality = PASS
+Platform Integration run 36045590049 = SUCCESS
+```
+
+下一阶段：`P3-ATT-1 Attendance Manifest / Access / Stable Entry`。
+
+
+### HBOS Portal Three-App Registry Baseline — 2026-09-25
+
+状态：**P3 IN_PROGRESS / THREE-APP REGISTRY BASELINE PASS**。
+
+Portal Registry 已真实包含：
+
+```json
+["attendance", "inventory", "lims"]
+```
+
+当前能力：
+
+```text
+LIMS       = entry + tasks + summary + search
+Attendance = entry + HR summary
+Inventory  = entry + permission-aware summary
+```
+
+所有入口均由业务 App 自己计算 Access Context 和当前 implementation route；Portal 没有静态 import 三业务 App，也没有业务事实副本。
+
+Real-data hardening 已完成：真实 Frappe mode 不再用原型假数据填首页。
+
+最新 code authority：
+
+```text
+f6267baf44813c5b89f83adfe744d8f0192d03bb
+```
+
+最新 Gate：
+
+```text
+Portal Backend = PASS
+Portal Frontend = PASS
+HBOS Quality = PASS
+Platform Integration run 36048726221 = SUCCESS
+```
+
+
+### HBOS Portal P3 Capability Deepening — Inventory Summary — 2026-09-25
+
+状态：**P3-INV-2 COMPLETE / REMOTE RUNTIME PASS**。
+
+Inventory 不再是 entry-only Provider。当前能力：
+
+```text
+Inventory = entry + permission-aware summary
+Tasks     = GATED
+Search    = GATED
+```
+
+设计约束：
+
+- 不直接暴露现有 raw-SQL 库存报表；
+- 先取得当前 Frappe Session 可见 Warehouse；
+- Bin 显式限制到该范围；
+- 只投影可比较的计数语义；
+- 不跨不同 Stock UOM 汇总数量；
+- Portal 不直接依赖 Inventory 数据模型。
+
+Runtime authority：
+
+```text
+Platform run 36082817979 = SUCCESS
+Inventory provider summary metrics = 4
+
+Strict three-app code authority = ea15676af42e14c2eb47bd65fa402481693b0cac
+Platform run 36083304003
+Three-app clean-site integration step = SUCCESS
+```
+
+同时已增加：
+
+```text
+scripts/portal/start_local_workspace.sh
+scripts/portal/p3_workspace_runtime_smoke.sh
+```
+
+因此下一阶段首先是 Owner 本地三 APP 工作台 smoke，而不是立即大改前端。Local PASS 后按 `docs/experience/P4_THREE_APP_FRONTEND_STRENGTHENING_PLAN.md` 进入真实页面截图、旅程审计、原型与 Owner Visual Gate。
+
+
+### HBOS Portal P3 Local Runtime Closeout — 2026-09-25
+
+状态：**P3 COMPLETE / P4-F0 READY**。
+
+Owner 本机最终 Isolated Preview：
+
+```text
+Runtime authority = a6411fadaeccf644a47ffbf93595d00ce9e5b04b
+Portal             = 127.0.0.1:5179
+Preview Frappe     = 127.0.0.1:18091
+Preview Site       = portal-preview.localhost
+```
+
+三业务 App 已经在同一 Portal 工作台形成可用闭环：
+
+```text
+LIMS        entry + summary + tasks + search
+Attendance  entry + HR summary
+Inventory   entry + permission-aware summary
+```
+
+本地真实运行验证：
+
+- Portal Home / App Center / My Work 正常；
+- Attendance / Inventory / LIMS 从 Portal 卡片跳转正常；
+- Frappe Session 跨 5179 → 18091 保持；
+- Portal native `/hbos` 路由仍由 Portal SPA 处理；
+- Inventory Summary 正常；
+- Preview 本轮新增匿名 volume = 0；
+- 正式 main 工作区、正式 Docker runtime、正式 volumes、正式 frontend Site 均保持不变。
+
+下一阶段：
+
+```text
+P4-F0 real runtime screenshot / journey baseline
+P4-F1 shared HBOS token + typography verification
+P4-F2~F4 per-app frontend proposal
+P4-F5 Owner visual / interaction gate
+P4-F6 implementation one app at a time
+```
+
+三 App 团队可以开始前端审计与设计工作；未经各自 Owner Visual Gate，不直接进入大规模前端重写。
