@@ -132,8 +132,8 @@ if docker ps --format '{{.Names}}' | grep -q '^hbos-m0-r3a-'; then
   echo "检测到原项目容器正在运行；本预览将使用独立 project '$PROJECT'，不会停止它们。"
 fi
 
-info "2/7 准备中文字体（仅当前 worktree runtime/）"
-scripts/setup_fonts.sh >/dev/null
+info "2/7 准备中文字体（仅当前 worktree runtime/；禁止扫描现有容器）"
+scripts/setup_fonts.sh --no-container-check >/dev/null
 
 info "3/7 启动隔离数据库 / Redis"
 dc up -d db redis-cache redis-queue
@@ -155,6 +155,14 @@ fi
 
 info "6/7 启动隔离 HBOS runtime"
 dc up -d backend queue-long queue-short scheduler websocket frontend
+
+info "仅在 Preview backend 内刷新 / 验证字体缓存"
+dc exec -T backend bash -lc \
+  'fc-cache -f /usr/share/fonts/truetype/hbos >/dev/null 2>&1 || fc-cache -f >/dev/null 2>&1'
+PREVIEW_ZH_FONTS="$(dc exec -T backend bash -lc 'fc-list :lang=zh 2>/dev/null || true')"
+if ! grep -qiE 'NotoSerifSC|Noto Serif SC' <<< "$PREVIEW_ZH_FONTS"; then
+  fail "Preview backend 未识别 Noto Serif SC；不会尝试修复或触碰其他容器"
+fi
 
 # Ensure the existing isolated site is aligned with the current worktree.
 dc exec -T backend bench --site "$SITE_NAME" migrate >/dev/null
