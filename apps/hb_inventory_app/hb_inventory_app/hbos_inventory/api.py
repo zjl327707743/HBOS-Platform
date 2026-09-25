@@ -33,6 +33,10 @@ ALLOWED_ROLES = {"System Manager", "Stock Manager", "Stock User"}
 ALL_BACKENDS = ("stub", "c1_local_vlm", "c2_ocr")
 BACKEND_STUB = "stub"
 
+# 单张照片大小上限。与识别服务的 `HBOS_OCR_MAX_IMAGE_BYTES` 同量级（那侧 5 MB），
+# 但挡在更前面——省得把大文件读进内存、再被服务端拒一次。
+MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
 # 识别到的产品种类取值（与 M3-R2 建立的分类树一致）
 SOURCE_SELF = "自产"
 SOURCE_OUTSOURCED = "外购"
@@ -46,6 +50,18 @@ ITEM_GAP_FIELDS = ("hbos_storage_condition", "hbos_workshop", "hbos_shelf_life_t
 def _require_permission() -> None:
 	if not (set(frappe.get_roles()) & ALLOWED_ROLES):
 		frappe.throw(_("你无权使用入库拍照识别。"), frappe.PermissionError)
+
+
+def _require_warehouse_write(warehouse: str) -> None:
+	"""确认当前用户对目标货位有写权限。
+
+	写成独立函数是为了**集中一处**、便于测试与被别的入口复用，
+	也让「本模块在哪儿做了权限校验」一眼可查。
+	"""
+	if not frappe.has_permission("Warehouse", "write", doc=warehouse):
+		frappe.throw(
+			_("你无权在货位「{0}」上建库存单据。").format(warehouse), frappe.PermissionError
+		)
 
 
 # ---------------------------------------------------------------------------
@@ -89,8 +105,18 @@ def _leaf_warehouses() -> list[dict]:
 	"""可存货的叶子货位（``is_group = 0``），用于货位下拉。
 
 	只列叶子——分组节点（库位 / 层）本身不能存货（M3-R0 方案 A1）。
+
+	## 为什么必须用 `get_list` 而不是 `get_all`
+
+	`get_all` 按定义**不检查权限**（见 `frappe/__init__.py` 的 docstring：
+	"Will **not** check for permissions"）。用它列货位，等于把**全公司所有公司的货位**
+	都端给任何一个能打开本页面的用户——用户下拉里会看到不属于自己的仓库，
+	然后照着往下走，直到 `create_intake_draft` 才（或许）被拦。
+
+	`get_list` 会带上调用者的 User Permission / 角色过滤，下拉里自然只剩他能用的。
+	这份清单本来就是"给他选"的，**权限感知查询才是正确的默认**。
 	"""
-	rows = frappe.get_all(
+	rows = frappe.get_list(
 		"Warehouse",
 		filters={"is_group": 0, "disabled": 0},
 		fields=["name", "warehouse_name", "parent_warehouse"],
@@ -116,6 +142,7 @@ def _leaf_warehouses() -> list[dict]:
 @frappe.whitelist()
 def recognize_label(
 	file_url: str,
+	file_name: str | None = None,
 	source_type: str | None = None,
 	backend: str | None = None,
 	request_id: str | None = None,
@@ -124,10 +151,14 @@ def recognize_label(
 
 	流程：先把照片用 Frappe 标准上传接口传到 `File`，再用 ``file_url`` 调本接口。
 	这样避免把图片塞进 JSON，也复用了 Frappe 的附件权限体系。
+
+	``file_name`` 是上传返回的 `File` docname，**建议传**：按 docname 定位是确定的，
+	按 url 定位在「两条记录共用一个 url」时会取到不确定的那条。它是可选的，
+	老调用方不传也能工作（那时回落到 url，并且只认调用者自己的文件）。
 	"""
 	_require_permission()
 
-	content = _read_file(file_url)
+	content = _read_file(file_url, file_name)
 
 	rid = request_id or uuid.uuid4().hex
 	try:
@@ -239,7 +270,9 @@ def _nearby_item_codes(code: str, max_results: int = 6) -> list[str]:
 	if not code:
 		return []
 	cands = []
-	for name in frappe.get_all("Item", pluck="name", limit_page_length=0):
+	# `get_list`（权限感知）而不是 `get_all`：这里只拿代码做"形近提示"，
+	# 但没权限的物料代码同样不该出现在提示里——那等于把主数据清单漏给无权的人。
+	for name in frappe.get_list("Item", pluck="name", limit_page_length=0):
 		if _within_one_edit(code, name):
 			cands.append(name)
 			if len(cands) >= max_results:
@@ -263,16 +296,50 @@ def _within_one_edit(a: str, b: str) -> bool:
 	return False
 
 
-def _read_file(file_url: str) -> bytes:
-	"""按 file_url 读出文件内容。"""
-	if not file_url:
+def _read_file(file_url: str, file_name: str | None = None) -> bytes:
+	"""按 ``file_name``（`File` 的 docname）优先、回落 ``file_url`` 读出文件内容。
+
+	## 为什么优先用 docname
+
+	两份内容相同的上传可能产生**两条 `File` 记录共用同一个 `file_url``**，
+	只按 url 取会拿到不确定的那一条。前端上传后已经拿到 `message.name`，
+	传下来即可精确定位（`_attach_photo` 出于同样原因也是这个取法）。
+
+	## 为什么必须 `check_permission("read")`
+
+	`frappe.get_doc` 与 `get_content()` **都不检查权限**——不加这一句，
+	任何能调本接口的人只要猜到一个**私有** `file_url`，就能让服务端
+	替他把那份文件读出来送去识别（文件名与批号会从识别结果里漏回来）。
+	这是**越权读取他人附件**的原语，必须堵。
+
+	`File.has_permission()` 的既有规则正好够用：非私有文件任何人都可读；
+	私有文件要求「本人 owner / 被 share / 能读它挂在的那张单据」。
+	"""
+	if not (file_url or file_name):
 		frappe.throw(_("缺少照片。"))
 
-	name = frappe.db.get_value("File", {"file_url": file_url}, "name")
-	if not name:
-		frappe.throw(_("找不到照片文件：{0}").format(file_url))
+	doc = None
+	if file_name and frappe.db.exists("File", file_name):
+		doc = frappe.get_doc("File", file_name)
+	else:
+		# 回落：只按 url 找，且**优先找当前用户自己的**
+		# （同一 url 多行时，取别人的那条没有意义，也更容易越权）
+		name = frappe.db.get_value(
+			"File",
+			{"file_url": file_url, "owner": frappe.session.user},
+			"name",
+			order_by="creation desc",
+		) or frappe.db.get_value(
+			"File", {"file_url": file_url}, "name", order_by="creation desc"
+		)
+		if name:
+			doc = frappe.get_doc("File", name)
 
-	doc = frappe.get_doc("File", name)
+	if doc is None:
+		frappe.throw(_("找不到照片文件：{0}").format(file_url or file_name))
+
+	doc.check_permission("read")
+
 	try:
 		# 走 File.get_content()，自动处理 public / private 两种存储
 		content = doc.get_content()
@@ -283,7 +350,39 @@ def _read_file(file_url: str) -> bytes:
 		content = content.encode()
 	if not content:
 		frappe.throw(_("照片内容为空。"))
+
+	_require_image(content, file_url or file_name)
 	return content
+
+
+# 受支持的图片魔数。**按内容判断，不信文件名**——
+# 扩展名与 Content-Type 都是客户端给的，拿它当校验等于没校验；
+# 而这份内容会被送去 OCR 服务解析，属不可信输入。
+_IMAGE_MAGIC = (
+	(b"\xff\xd8\xff", "jpeg"),
+	(b"\x89PNG\r\n\x1a\n", "png"),
+	(b"GIF87a", "gif"),
+	(b"GIF89a", "gif"),
+	(b"BM", "bmp"),
+	(b"II*\x00", "tiff"),
+	(b"MM\x00*", "tiff"),
+)
+
+
+def _require_image(content: bytes, label: str) -> None:
+	"""只接受受支持的图片，并限制大小。不是图片就拒绝。"""
+	if len(content) > MAX_PHOTO_BYTES:
+		frappe.throw(
+			_("照片超过大小上限（{0} MB）。").format(MAX_PHOTO_BYTES // (1024 * 1024))
+		)
+
+	if any(content.startswith(magic) for magic, _ in _IMAGE_MAGIC):
+		return
+	# WebP 是 RIFF 容器：前 4 字节 RIFF、第 8~12 字节 WEBP
+	if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+		return
+
+	frappe.throw(_("「{0}」不是受支持的图片格式（仅 jpg / png / gif / bmp / tiff / webp）。").format(label))
 
 
 # ---------------------------------------------------------------------------
@@ -359,7 +458,9 @@ def create_intake_draft(
 	# 先解析包装构成——格式不对就在建任何东西之前报错
 	packaging_rows = _parse_packaging(packaging)
 
-	warehouse_doc = frappe.db.get_value("Warehouse", warehouse, ["is_group", "company"], as_dict=True)
+	warehouse_doc = frappe.db.get_value(
+		"Warehouse", warehouse, ["is_group", "company"], as_dict=True
+	)
 	if not warehouse_doc:
 		frappe.throw(_("找不到货位：{0}").format(warehouse))
 	if cint(warehouse_doc.is_group):
@@ -367,9 +468,25 @@ def create_intake_draft(
 			_("「{0}」是库位 / 层等分组节点，不能直接存货。请选择具体货位。").format(warehouse)
 		)
 
+	# ⚠ 目标货位必须**当前用户有写权限**。
+	#
+	# 本函数随后会以 `ignore_permissions` 建草稿单——那是**为了不让"页面可用"
+	# 依赖于 ERPNext 的 Item / Stock Entry 写权限矩阵**（实测三个页面角色都没有），
+	# 而不是为了绕过货位权限。两者必须分开：**权限校验在这里显式做掉，
+	# `ignore_permissions` 只负责把写操作落地。**
+	#
+	# 少了这一步，任何能打开本页面的人都可以把草稿建到别人的仓库 / 别的公司去。
+	_require_warehouse_write(warehouse)
+
 	company = warehouse_doc.company or frappe.defaults.get_defaults().get("company")
 	if not company:
 		frappe.throw(_("无法确定公司，请先设置默认公司。"))
+
+	# 公司同样要校验：货位归属公司，但用户可能对公司整体没权限
+	if not frappe.has_permission("Company", "read", doc=company):
+		frappe.throw(
+			_("你无权在公司「{0}」下建库存单据。").format(company), frappe.PermissionError
+		)
 
 	# 物料级：写回主数据，仅补空
 	filled = _fill_item_master_gaps(
@@ -635,6 +752,9 @@ def _ensure_batch(
 	两个例外，都在下面的注释里说明：
 	- `supplier_name` / `manufacturer` / `supplier_batch_no` 同样只补空缺；
 	- `packaging` 是**替换式**——见 `_replace_packaging` 的注释。
+
+	**已存在的批次必须先校验所属物料**（见下方的 throw），否则传错 `item_code`
+	会把别的物料的入库记到这个批号上。
 	"""
 	if frappe.db.exists("Batch", batch_no):
 		patch = {}
@@ -642,6 +762,7 @@ def _ensure_batch(
 			"Batch",
 			batch_no,
 			[
+				"item",  # ← 用于下面的归属校验，不参与 patch
 				"hbos_source_type",
 				"manufacturing_date",
 				"expiry_date",
@@ -652,6 +773,25 @@ def _ensure_batch(
 			],
 			as_dict=True,
 		)
+
+		# ⚠ 批号归属校验。**不能只在新建时绑定 item**：
+		# `Batch.batch_id` 全局唯一，而这个唯一键的语义就是「批号」——
+		# 同一个批号不可能同时属于两个物料。少了这一步，操作员把物料代码
+		# 认错 / 打错时，系统会**默默把 B 物料的数量记到 A 物料的批号上**，
+		# 账实不符，而且后续要走反审核才能改回来。
+		# 这里直接拒绝，并说清是谁占了它，让人能一眼看出是代码填错了。
+		if (existing.item or "") != (item_code or ""):
+			frappe.throw(
+				_("批号 {0} 已存在，但它属于物料 {1}，与本次的 {2} 不一致。<br><br>"
+				  "同一个批号只能属于一个物料。请核对物料代码是否取错；"
+				  "若批号本身也错了，请改用正确的批号。").format(
+					frappe.bold(batch_no),
+					frappe.bold(existing.item or _("（未设置）")),
+					frappe.bold(item_code or _("（空）")),
+				),
+				title=_("批号归属不符"),
+			)
+
 		if source_type and not (existing.hbos_source_type or "").strip():
 			patch["hbos_source_type"] = source_type
 		if manufacturing_date and not existing.manufacturing_date:
@@ -739,6 +879,15 @@ def _attach_photo(
 	**两条 `File` 记录共用同一个 `file_url`**，此时按 `file_url` 取会拿到不确定的
 	那一条，可能把别人已挂的附件改挂走。前端上传后拿到 `message.name`，
 	一并传下来即可精确定位。
+
+	## 两条防越权规则
+
+	1. **只挂自己的文件**——`File` 归属他人时拒绝（除非有该 File 的写权限）。
+	2. **已挂在别的单据上的，不"抢"过来**——`attached_to_*` 是别人的原始凭证，
+	   改挂会让对方单据凭空少一张附件。需要复用同一份内容时**复制一条新 `File`**。
+
+	两者都是「改挂」这个动作能被滥用成**破坏/窃取他人附件**的入口，
+	所以不靠调用方自觉，在服务端拦。
 	"""
 	if not (file_name or file_url):
 		return
@@ -747,9 +896,15 @@ def _attach_photo(
 	if file_name and frappe.db.exists("File", file_name):
 		source = frappe.get_doc("File", file_name)
 	else:
-		# 兜底：按 file_url 取（取最早一条，行为确定）
-		rows = frappe.get_all(
-			"File", filters={"file_url": file_url}, fields=["name"], order_by="creation asc", limit=1
+		# 兜底：按 file_url 取，**只取当前用户自己的**（取最早一条，行为确定）。
+		# 这里已由 `owner=` 限死范围，`get_all` 与 `get_list` 等价；
+		# 仍用 `get_list` 保持"本模块不裸查"的一致性，便于审查时一眼扫过。
+		rows = frappe.get_list(
+			"File",
+			filters={"file_url": file_url, "owner": frappe.session.user},
+			fields=["name"],
+			order_by="creation asc",
+			limit_page_length=1,
 		)
 		if rows:
 			source = frappe.get_doc("File", rows[0].name)
@@ -760,7 +915,50 @@ def _attach_photo(
 	if source.attached_to_doctype == doctype and source.attached_to_name == docname:
 		return
 
+	owner = source.owner or ""
+	if owner != frappe.session.user:
+		# 不是自己的文件：必须有它的写权限才允许继续
+		source.check_permission("write")
+
+	if source.attached_to_doctype and source.attached_to_name:
+		# 已被别的单据占用 —— 复制一份新的，别动原来那条
+		_clone_file(source, doctype, docname, file_url)
+		return
+
 	source.attached_to_doctype = doctype
 	source.attached_to_name = docname
 	source.flags.ignore_permissions = True
 	source.save()
+
+
+def _clone_file(source, doctype: str, docname: str, file_url: str | None) -> None:
+	"""把 ``source`` 复制成一条新 `File` 并挂到目标单据上。
+
+	用于「源文件已被别的单据占用」的场合——**复制而不是改挂**，
+	这样原单据的凭证不受影响。
+	"""
+	try:
+		content = source.get_content()
+	except Exception:  # noqa: BLE001
+		# 读不出来（已丢失等）时不阻断入库——照片只是留档，不该让人入不了库
+		frappe.log_error(
+			f"复制附件失败，跳过：{source.name} → {doctype} {docname}",
+			"HBOS 入库照片挂载",
+		)
+		return
+
+	if isinstance(content, str):
+		content = content.encode()
+
+	frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": source.file_name
+			or (file_url or "").rsplit("/", 1)[-1]
+			or "label.jpg",
+			"is_private": source.is_private,
+			"attached_to_doctype": doctype,
+			"attached_to_name": docname,
+			"content": content,
+		}
+	).insert(ignore_permissions=True)

@@ -257,6 +257,10 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 			method: "hb_inventory_app.hbos_inventory.api.recognize_label",
 			args: {
 				file_url: state.fileUrl,
+				// File 的 docname：服务端按它精确定位——两份内容相同的上传可能
+				// 共用同一个 file_url，只按 url 取会拿到不确定的那条。
+				// 服务端另外只认调用者自己的文件，越权读取会被拒。
+				file_name: state.fileDocName,
 				source_type: $sourceType.val(),
 			},
 			callback(r) {
