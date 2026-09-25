@@ -15,6 +15,7 @@ on:
       - 'apps/hb_inventory_app/hb_inventory_app/hooks.py'
       - 'apps/hb_inventory_app/hb_inventory_app/hbos_inventory/portal/**'
       - 'apps/hb_inventory_app/tests/test_portal_provider_contract.py'
+      - 'scripts/portal/**'
       - '.github/workflows/hbos-portal-backend.yml'
   pull_request:
     branches:
@@ -30,6 +31,7 @@ on:
       - 'apps/hb_inventory_app/hb_inventory_app/hooks.py'
       - 'apps/hb_inventory_app/hb_inventory_app/hbos_inventory/portal/**'
       - 'apps/hb_inventory_app/tests/test_portal_provider_contract.py'
+      - 'scripts/portal/**'
       - '.github/workflows/hbos-portal-backend.yml'
   workflow_dispatch:
 
@@ -57,6 +59,12 @@ jobs:
           python -m compileall -q apps/hb_lims_app/hb_lims_app/hbos_lims/portal
           python -m compileall -q apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal
           python -m compileall -q apps/hb_inventory_app/hb_inventory_app/hbos_inventory/portal
+
+      - name: 校验 Portal 本地脚本语法
+        run: |
+          bash -n scripts/portal/p2_2_runtime_smoke.sh
+          bash -n scripts/portal/p3_workspace_runtime_smoke.sh
+          bash -n scripts/portal/start_local_workspace.sh
 
       - name: 运行首个 LIMS Provider Contract
         run: |
