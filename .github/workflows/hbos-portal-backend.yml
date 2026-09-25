@@ -65,6 +65,8 @@ jobs:
           bash -n scripts/portal/p2_2_runtime_smoke.sh
           bash -n scripts/portal/p3_workspace_runtime_smoke.sh
           bash -n scripts/portal/start_local_workspace.sh
+          bash -n scripts/portal/start_isolated_preview.sh
+          bash -n scripts/portal/stop_isolated_preview.sh
 
       - name: 运行首个 LIMS Provider Contract
         run: |
