@@ -18,6 +18,11 @@ NATIVE_PREFIXES = (
     # 四张报表：`/hbos/inventory/report/<report-id>`。
     # 「一个视图 + 四条路由」—— Deep Link 归前端，路由本身不携带报表语义。
     STABLE_PREFIX + "/report/",
+    # 主数据浏览（只读）：`/hbos/inventory/item/<物料代码>`、
+    # `/hbos/inventory/warehouse/<货位名>`。物料代码与货位名都可带空格 / 连字符，
+    # 由前端 encodeURIComponent 后拼入。
+    STABLE_PREFIX + "/item/",
+    STABLE_PREFIX + "/warehouse/",
 )
 
 

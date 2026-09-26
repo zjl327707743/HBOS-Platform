@@ -15,6 +15,8 @@ import InventoryIntakeView from '@/views/InventoryIntakeView.vue'
 import InventoryDraftReviewView from '@/views/InventoryDraftReviewView.vue'
 import InventoryBatchView from '@/views/InventoryBatchView.vue'
 import InventoryReportView from '@/views/InventoryReportView.vue'
+import InventoryItemView from '@/views/InventoryItemView.vue'
+import InventoryWarehouseView from '@/views/InventoryWarehouseView.vue'
 import InventoryUnavailableView from '@/views/InventoryUnavailableView.vue'
 
 const router = createRouter({
@@ -67,6 +69,20 @@ const router = createRouter({
           name: 'inventory-report',
           component: InventoryReportView,
           meta: { title: '库存报表' },
+        },
+        {
+          // 主数据浏览（只读）。列表与详情共用一条路由：
+          // 详情靠可选的 :itemCode / :warehouseName 落到选中态，刷新/分享都能还原。
+          path: 'item/:itemCode?',
+          name: 'inventory-item',
+          component: InventoryItemView,
+          meta: { title: '物料' },
+        },
+        {
+          path: 'warehouse/:warehouseName?',
+          name: 'inventory-warehouse',
+          component: InventoryWarehouseView,
+          meta: { title: '货位' },
         },
         {
           path: 'unavailable/:itemId',

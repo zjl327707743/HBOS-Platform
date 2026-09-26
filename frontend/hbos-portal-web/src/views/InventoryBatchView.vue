@@ -193,10 +193,18 @@
           <div class="inventory-dest glass-surface">
             <div class="intake-pane-head"><h2>库存</h2></div>
             <div class="intake-pane-body">
-              <dl v-if="stock.length" class="draft-kv">
+              <div v-if="stockState === 'error'" class="inventory-state err" style="padding: 0">
+                <StopOutlined class="inventory-state-icon" />
+                <h3>取不到这批判次的库存</h3>
+                <p>这次查询失败——<b>不代表这一批没有库存</b>。请重试。</p>
+              </div>
+              <dl v-else-if="stock.length" class="draft-kv">
                 <div v-for="row in stock" :key="row.warehouse">
                   <dt>{{ row.warehouseLabel }}</dt>
-                  <dd><span class="draft-mono">{{ row.actualQty.toFixed(3) }}</span></dd>
+                  <dd>
+                    <span class="draft-mono">{{ row.qty.toFixed(3) }}</span>
+                    <span v-if="row.uom" class="draft-muted"> {{ row.uom }}</span>
+                  </dd>
                 </div>
               </dl>
               <p v-else class="draft-note" style="margin: 0">
@@ -297,6 +305,8 @@ const state = ref<ViewState>('loading')
 
 const batch = ref<BatchDetail | null>(null)
 const stock = ref<BatchStockRow[]>([])
+// 'error' 与「空」必须分开：查不到 ≠ 没有
+const stockState = ref<'loading' | 'ready' | 'error'>('loading')
 const cardFile = ref<{ url: string; fileName: string; createdAt?: string; size?: number } | null>(null)
 const regenerating = ref(false)
 /** 该批次有没有已提交的拍照识别入库单——决定「卡片为何不在」的文案 */
@@ -403,7 +413,13 @@ onMounted(async () => {
       getAttachments('Batch', batchName.value),
       hasSubmittedIntakeEntry(batchName.value),
     ])
-    if (stockResult.status === 'fulfilled') stock.value = stockResult.value
+    if (stockResult.status === 'fulfilled') {
+      stock.value = stockResult.value
+      stockState.value = 'ready'
+    } else {
+      // **不把失败当空**：查不到这一批的库存，与「这一批没有库存」是两回事
+      stockState.value = 'error'
+    }
     if (filesResult.status === 'fulfilled') {
       cardFile.value =
         filesResult.value.find((f) => f.fileName.toLowerCase().endsWith('.pdf')) || null

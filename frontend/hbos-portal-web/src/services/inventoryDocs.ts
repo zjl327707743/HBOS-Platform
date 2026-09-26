@@ -1,4 +1,5 @@
 import { callFrappeMethod, frappeAssetUrl, postFrappeMethod } from '@/services/frappeClient'
+import { runReport } from '@/services/inventoryReports'
 
 /**
  * 仓储库存 —— 单据读写（草稿复核页 + 批次页）。
@@ -297,26 +298,46 @@ export async function getBatch(name: string): Promise<BatchDetail> {
 export interface BatchStockRow {
   warehouse: string
   warehouseLabel: string
-  actualQty: number
+  itemCode: string
+  itemName: string
+  qty: number
+  uom: string
 }
 
-/** 该批次当前在哪些货位、各有多少——来自 ERPNext 的 `Bin` */
+/**
+ * 该批次当前在哪些货位、各有多少。
+ *
+ * ## 为什么走报表，而不是直接查 Bin
+ *
+ * **`Bin` 上没有 `batch_no` 字段**。ERPNext v16 起批次级库存存在
+ * `Serial and Batch Entry`，拿 `Bin` 按 `batch_no` 过滤会直接 417
+ * （`DataError: 查询过滤条件字段无效…batch_no`）。
+ *
+ * 本 App 的「按批号查货位」报表已经用对了数据源，且与报表页口径天然一致，
+ * 所以直接复用，**不另写一套批次库存 SQL**。
+ *
+ * 报表的 `batch_no` 是 **LIKE 模糊匹配**，所以这里要再按精确批号筛一遍——
+ * 否则 `B2607` 会把 `B26071`、`B26072` 一起带出来。这一层筛在客户端做，
+ * 因为模糊匹配是报表给使用者的便利，而这里要的是这一批的准确事实。
+ *
+ * **失败必须抛出去**，不能 `catch` 成空数组：那会让界面显示「当前没有库存」，
+ * 而事实是「查不出来」——把故障读成空，与把空读成故障是同一类错误。
+ */
 export async function getBatchStock(batchName: string): Promise<BatchStockRow[]> {
-  const rows = await callFrappeMethod<
-    Array<{ warehouse?: string; actual_qty?: number }> | null
-  >('frappe.client.get_list', {
-    doctype: 'Bin',
-    filters: JSON.stringify({ batch_no: batchName }),
-    fields: JSON.stringify(['warehouse', 'actual_qty']),
-    order_by: 'warehouse asc',
-    limit_page_length: 0,
-  })
+  if (!batchName) return []
 
-  return (rows || []).map((row) => ({
-    warehouse: String(row.warehouse || ''),
-    warehouseLabel: warehouseShortLabel(row.warehouse),
-    actualQty: Number(row.actual_qty ?? 0),
-  }))
+  const result = await runReport('按批号查货位', { batch_no: batchName })
+
+  return result.rows
+    .filter((row) => String(row.batch_no || '') === batchName)
+    .map((row) => ({
+      warehouse: String(row.warehouse || ''),
+      warehouseLabel: warehouseShortLabel(String(row.warehouse || '')),
+      itemCode: String(row.item_code || ''),
+      itemName: String(row.item_name || ''),
+      qty: Number(row.qty ?? 0),
+      uom: String(row.uom || ''),
+    }))
 }
 
 /**

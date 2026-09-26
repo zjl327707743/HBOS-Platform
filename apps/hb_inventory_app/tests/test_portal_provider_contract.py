@@ -90,6 +90,9 @@ class InventoryPortalRouteTest(unittest.TestCase):
             "/hbos/inventory/intake",
             "/hbos/inventory/draft/MAT-STE-2026-00042",
             "/hbos/inventory/batch/B2609503",
+            "/hbos/inventory/report/location-detail",
+            "/hbos/inventory/item/13000900",
+            "/hbos/inventory/warehouse/16-03-205%20-%20HB",
         ):
             with self.subTest(path=path):
                 self.assertFalse(resolve_stable_route(path).startswith("/app/"))
@@ -106,11 +109,35 @@ class InventoryPortalRouteTest(unittest.TestCase):
         )
 
     def test_bare_document_prefix_is_rejected(self):
-        """`/draft/` 这种没有单号的半截路径不算已注册——否则前端会拿到空单号。"""
-        for path in ("/hbos/inventory/draft", "/hbos/inventory/draft/", "/hbos/inventory/batch"):
+        """`/draft/` 这种没有单号的半截路径不算已注册——否则前端会拿到空单号。
+
+        报表的 `/report/<id>`、主数据的 `/item/<code>`、`/warehouse/<name>` 同理。
+        """
+        for path in (
+            "/hbos/inventory/draft",
+            "/hbos/inventory/draft/",
+            "/hbos/inventory/batch",
+            "/hbos/inventory/report",
+            "/hbos/inventory/report/",
+            "/hbos/inventory/item",
+            "/hbos/inventory/item/",
+            "/hbos/inventory/warehouse",
+            "/hbos/inventory/warehouse/",
+        ):
             with self.subTest(path=path):
                 with self.assertRaises(ValueError):
                     resolve_stable_route(path)
+
+    def test_url_encoded_warehouse_name_is_unquoted_safely(self):
+        """货位名带空格与连字符，前端会编码后拼进来；解码后必须校验**解码后的**
+        路径段，而不是拿编码串去判——否则 `%2e%2e` 这类会被当合法字符放过去。
+        """
+        self.assertEqual(
+            "/hbos/inventory/warehouse/16-03-205 - HB",
+            resolve_stable_route("/hbos/inventory/warehouse/16-03-205%20-%20HB"),
+        )
+        with self.assertRaises(ValueError):
+            resolve_stable_route("/hbos/inventory/warehouse/%2e%2e%2fadmin")
 
     def test_query_string_is_preserved(self):
         self.assertEqual(
