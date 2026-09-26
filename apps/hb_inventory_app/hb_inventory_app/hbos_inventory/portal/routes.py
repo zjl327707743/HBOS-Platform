@@ -8,6 +8,8 @@ STABLE_PREFIX = "/hbos/inventory"
 NATIVE_PATHS = {
     STABLE_PREFIX: STABLE_PREFIX,
     STABLE_PREFIX + "/intake": STABLE_PREFIX + "/intake",
+    # 待检批次（只读工作台）。放行由 LIMS 投影写入，本 App 无权改。
+    STABLE_PREFIX + "/pending": STABLE_PREFIX + "/pending",
 }
 
 # 已前端化、带单据号后缀的**前缀**路由。

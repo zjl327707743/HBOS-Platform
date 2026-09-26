@@ -49,6 +49,31 @@ REPORTS = {
 }
 
 
+#: ERPNext 自带报表的 .js 位置（在容器内的 bench 里；CI 里有挂载）
+ERPNEXT_REPORT_JS = {
+    "stock-balance": "stock/report/stock_balance/stock_balance.js",
+}
+
+
+def _external_report_js_fieldnames(portal_id: str) -> set[str]:
+    """读 ERPNext 标准报表的 `.js` 里的筛选字段。
+
+    找不到文件就返回空集 —— 由调用方断言「测试失效」，而不是静默放过。
+    """
+    rel = ERPNEXT_REPORT_JS.get(portal_id)
+    if not rel:
+        return set()
+    for base in (
+        Path("/home/frappe/frappe-bench/apps/erpnext/erpnext"),
+        Path(__file__).parents[3] / "runtime" / "apps" / "erpnext" / "erpnext",
+    ):
+        path = base / rel
+        if path.exists():
+            source = path.read_text(encoding="utf-8")
+            return set(re.findall(r"fieldname:\s*['\"]([^'\"]+)['\"]", source))
+    return set()
+
+
 def _js_fieldnames(report_name: str) -> set[str]:
     """从报表的 `<报表>.js` 里取 `fieldname:` 的值。"""
     path = REPORT_DIR / report_name / f"{report_name}.js"
@@ -56,19 +81,33 @@ def _js_fieldnames(report_name: str) -> set[str]:
     return set(re.findall(r"fieldname:\s*['\"]([^'\"]+)['\"]", source))
 
 
-def _ts_fieldnames(report_id: str) -> set[str]:
-    """从 `inventoryReports.ts` 里取该报表的 `fieldname:` 值。
+def _ts_blocks() -> dict[str, str]:
+    """把 `inventoryReports.ts` 按 `id: '<kebab-case>'` 切成块。
 
-    按 `id: '<report_id>'` 切段，避免把别的报表的筛选算进来。
+    **通用切块**，不认识具体的 id —— 旧写法只认 `REPORTS` 里那几个 id，
+    于是数组字面量之外后来追加的报表（`stock-balance`）会被算进前一块的尾巴，
+    报出「库级盘点三对账多出 from_date / to_date」这种假差异。
+
+    只认形如 `id: 'kebab-case'` 的行；`reportName` 等其它键不会误命中。
     """
     source = PORTAL_DATA.read_text(encoding="utf-8")
-    marker = f"id: '{report_id}'"
-    start = source.index(marker)
-    # 到下一个报表的 id 为止（或文件结束）
-    nexts = [source.find(f"id: '{other}'", start + len(marker)) for other in REPORTS.values()]
-    nexts = [n for n in nexts if n > 0]
-    end = min(nexts) if nexts else len(source)
-    return set(re.findall(r"fieldname:\s*'([^']+)'", source[start:end]))
+    marks = [
+        (m.start(), m.group(1))
+        for m in re.finditer(r"^\s*id:\s*'([a-z0-9]+(?:-[a-z0-9]+)*)'", source, re.M)
+    ]
+    blocks: dict[str, str] = {}
+    for i, (pos, report_id) in enumerate(marks):
+        end = marks[i + 1][0] if i + 1 < len(marks) else len(source)
+        blocks[report_id] = source[pos:end]
+    return blocks
+
+
+def _ts_fieldnames(report_id: str) -> set[str]:
+    """从 `inventoryReports.ts` 里取该报表的 `fieldname:` 值。"""
+    block = _ts_blocks().get(report_id)
+    if block is None:
+        return set()
+    return set(re.findall(r"fieldname:\s*'([^']+)'", block))
 
 
 class InventoryReportFilterContractTest(unittest.TestCase):
@@ -97,6 +136,72 @@ class InventoryReportFilterContractTest(unittest.TestCase):
                     f"报表多出 {sorted(js_fields - ts_fields)}，"
                     f"Portal 多出 {sorted(ts_fields - js_fields)}",
                 )
+
+    #: Portal 为「库存余额」声明的筛选项，**冻结于此**。
+    #:
+    #: 来源：2026-09-25 从 ERPNext `stock/report/stock_balance/stock_balance.js`
+    #: （v16）**人工转录**，只取了仓管真会用的子集。
+    #:
+    #: 为什么不直接去读上游那份 `.js`：**ERPNext 源码在镜像里，本机与 CI 的
+    #: 宿主机上都读不到**（`runtime/apps` 只挂了 hrms）。读不到就没法在 CI 里
+    #: 守护这条路 —— 所以改成冻结一份期望值。
+    #:
+    #: **升级 ERPNext 时必须回来核对这份清单**（文件名、字段名都可能变）。
+    #: 这条测试挡不住「上游改了而这份没跟上」，但它挡得住「Portal 侧被人改坏」，
+    #: 并把「该人工核对」这件事记在了代码里而不是某个人的脑子里。
+    STOCK_BALANCE_FILTERS = frozenset({
+        "from_date",
+        "to_date",
+        "warehouse",
+        "item_code",
+        "item_group",
+        "include_zero_stock_items",
+    })
+
+    def test_stock_balance_keeps_the_frozen_filter_subset(self):
+        """「库存余额」的筛选项必须正好是冻结的那 6 个。
+
+        **为什么是「正好相等」而不是「只要够用」**：
+        多一个 = 有人加了个上游不认（或仓管用不上）的字段，会静默失效；
+        少一个 = 有人删了必填的 `from_date` / `to_date`，报表会因缺参报错。
+        两个方向都是真问题。
+
+        上游若有变，先跑一次：
+
+        ```bash
+        docker compose exec backend cat \\
+          /home/frappe/frappe-bench/apps/erpnext/erpnext/stock/report/stock_balance/stock_balance.js
+        ```
+
+        核对后再改这里的冻结清单。
+        """
+        ts_fields = _ts_fieldnames("stock-balance")
+        self.assertEqual(
+            set(self.STOCK_BALANCE_FILTERS),
+            ts_fields,
+            "库存余额的 Portal 筛选项与冻结清单不一致。"
+            "若是有意改动，请先核对 ERPNext 上游并同步更新 "
+            "STOCK_BALANCE_FILTERS 的注释（含核对日期）。",
+        )
+
+    def test_upstream_report_js_is_checked_when_reachable(self):
+        """宿主机能读到 ERPNext 源码时（例如挂了 runtime 挂载），顺带核一次上游。
+
+        读不到就 **skip**，并说明原因——**不假装验过**。
+        """
+        js_fields = _external_report_js_fieldnames("stock-balance")
+        if not js_fields:
+            self.skipTest(
+                "ERPNext 源码不在宿主机上（在容器镜像里），无法核对上游；"
+                "改由 test_stock_balance_keeps_the_frozen_filter_subset 守 Portal 侧"
+            )
+
+        invented = _ts_fieldnames("stock-balance") - js_fields
+        self.assertEqual(
+            set(),
+            invented,
+            f"Portal 声明了 Stock Balance 不认的筛选字段：{sorted(invented)}",
+        )
 
     def test_portal_report_ids_are_url_safe(self):
         """id 会进 URL 路径段，必须是 kebab-case 且不含特殊字符。"""

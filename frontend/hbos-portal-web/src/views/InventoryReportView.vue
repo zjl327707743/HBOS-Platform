@@ -22,7 +22,7 @@
     <div class="report-filterbar">
       <label v-for="f in meta.primaryFilters" :key="f.fieldname" class="report-filter"
              :class="{ 'report-filter-inline': f.kind === 'check' }">
-        <span v-if="f.kind !== 'check'">{{ f.label }}</span>
+        <span v-if="f.kind !== 'check'">{{ f.label }}<em v-if="f.required"> *</em></span>
         <a-checkbox
           v-if="f.kind === 'check'"
           :checked="Boolean(filters[f.fieldname])"
@@ -34,6 +34,14 @@
           :min="1"
           style="width: 170px"
           @change="(v: any) => setFilter(f.fieldname, v)"
+        />
+        <a-date-picker
+          v-else-if="f.kind === 'date'"
+          :value="dateValue(f.fieldname)"
+          value-format="YYYY-MM-DD"
+          :allow-clear="!f.required"
+          style="width: 170px"
+          @change="(v: any) => setFilter(f.fieldname, v || '')"
         />
         <a-input
           v-else
@@ -65,6 +73,14 @@
                     {{ o === '' ? '全部' : o }}
                   </a-select-option>
                 </a-select>
+                <a-date-picker
+                  v-else-if="f.kind === 'date'"
+                  :value="dateValue(f.fieldname)"
+                  value-format="YYYY-MM-DD"
+                  :allow-clear="!f.required"
+                  style="width: 200px"
+                  @change="(v: any) => setFilter(f.fieldname, v || '')"
+                />
                 <a-input
                   v-else
                   :value="filters[f.fieldname] as string"
@@ -85,7 +101,7 @@
           <ReloadOutlined /> 查询
         </a-button>
         <a-button :loading="exporting" @click="doExport">
-          <DownloadOutlined /> 导出 Excel
+          <DownloadOutlined /> {{ exportLabel }}
         </a-button>
       </div>
     </div>
@@ -170,7 +186,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Modal } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import {
   DownloadOutlined,
   FilterOutlined,
@@ -184,10 +200,12 @@ import {
 import {
   ALWAYS_HIDDEN_WHEN_EMPTY,
   findReport,
+  isoMonthsAgo,
   type ReportFilter,
 } from '@/data/inventoryReports'
 import {
   exportReport,
+  exportRowsAsCsv,
   runReport,
   type ReportColumn,
 } from '@/services/inventoryReports'
@@ -224,7 +242,10 @@ function initialFilters(): Record<string, unknown> {
     // URL 没带就取默认值
     if (f.kind === 'check') out[f.fieldname] = Boolean(f.defaultChecked)
     else if (f.kind === 'number' && f.defaultValue !== undefined) out[f.fieldname] = f.defaultValue
-    else out[f.fieldname] = ''
+    // date 的默认是**相对今天算**的（如「前 1 个月到今天」），不能写死在元数据里
+    else if (f.kind === 'date' && f.defaultMonthsAgo !== undefined) {
+      out[f.fieldname] = isoMonthsAgo(f.defaultMonthsAgo)
+    } else out[f.fieldname] = ''
   }
   // 报表自己声明的字段之外的 query 参数不理会——避免把任意参数透传给服务端
   return out
@@ -236,7 +257,13 @@ function parseFilterValue(f: ReportFilter, raw: string): unknown {
     const n = Number(raw)
     return Number.isFinite(n) ? n : undefined
   }
+  // date 与 text / select 一样按字符串传（`YYYY-MM-DD`）
   return raw
+}
+
+/** 日期控件要 `dayjs` 或 `YYYY-MM-DD` 字符串；配合 `value-format` 用后者即可 */
+function dateValue(fieldname: string): string {
+  return String(filters.value[fieldname] || '')
 }
 
 /** 筛选写回 URL：刷新不丢、可分享、可后退 */
@@ -256,7 +283,12 @@ function setFilter(fieldname: string, value: unknown) {
 function clearFilters() {
   const cleared: Record<string, unknown> = {}
   for (const f of [...meta.value.primaryFilters, ...meta.value.extraFilters]) {
-    cleared[f.fieldname] = f.kind === 'check' ? false : ''
+    if (f.kind === 'check') cleared[f.fieldname] = false
+    else if (f.kind === 'number') cleared[f.fieldname] = f.defaultValue ?? ''
+    // 必填的日期不能清空，回到默认值；否则「清空」会立刻撞上必填校验
+    else if (f.kind === 'date') {
+      cleared[f.fieldname] = f.defaultMonthsAgo !== undefined ? isoMonthsAgo(f.defaultMonthsAgo) : ''
+    } else cleared[f.fieldname] = ''
   }
   filters.value = cleared
   void run()
@@ -374,13 +406,26 @@ function filtersForServer(): Record<string, unknown> {
 }
 
 async function run() {
+  // 必填先在前端拦一次：省掉一次必然失败的请求，也让提示更即时
+  const missing = [...meta.value.primaryFilters, ...meta.value.extraFilters].filter(
+    (f) => f.required && !String(filters.value[f.fieldname] ?? '').trim(),
+  )
+  if (missing.length) {
+    message.warning(`请填写：${missing.map((f) => f.label).join('、')}`)
+    return
+  }
+
   syncUrl()
   state.value = 'loading'
   errorText.value = ''
   truncatedNote.value = ''
 
   try {
-    const result = await runReport(meta.value.reportName, filtersForServer())
+    const result = await runReport(
+      meta.value.reportName,
+      filtersForServer(),
+      meta.value.params,
+    )
     columns.value = result.columns
     rows.value = result.rows
     queriedAt.value = timeLabel()
@@ -413,10 +458,24 @@ function timeLabel(): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/**
+ * 「库存余额」等服务端导不了的报表走客户端 CSV。
+ *
+ * 判据是**这张报表有没有附加参数**（目前只有库存余额带 `ignore_prepared_report`）——
+ * 有就说明它是预处理报表，`export_query` 那条路必失败（见 service 里的注释）。
+ */
+const exportIsClientSide = computed(() => Object.keys(meta.value.params || {}).length > 0)
+
+const exportLabel = computed(() => (exportIsClientSide.value ? '导出 CSV' : '导出 Excel'))
+
 async function doExport() {
   exporting.value = true
   try {
-    await exportReport(meta.value.reportName, filtersForServer())
+    if (exportIsClientSide.value) {
+      exportRowsAsCsv(`${meta.value.title}.csv`, visibleColumns.value, rows.value)
+      return
+    }
+    await exportReport(meta.value.reportName, filtersForServer(), meta.value.params)
   } catch (error) {
     Modal.error({
       title: '导出失败',

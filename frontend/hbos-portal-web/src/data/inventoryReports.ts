@@ -20,7 +20,7 @@
  * 这里只放**服务端给不出的东西**：路由、筛选 UI 形态、空态文案、值→语义映射。
  */
 
-export type FilterKind = 'text' | 'number' | 'check' | 'select'
+export type FilterKind = 'text' | 'number' | 'check' | 'select' | 'date'
 
 export interface ReportFilter {
   fieldname: string
@@ -32,6 +32,10 @@ export interface ReportFilter {
   /** check 型的默认勾选状态 / number 型的默认值 */
   defaultChecked?: boolean
   defaultValue?: number
+  /** date 型的默认值：相对今天往前推的月数（`0` = 今天） */
+  defaultMonthsAgo?: number
+  /** 服务端要求必填时，前端先做一次检查，避免白跑一次请求再报错 */
+  required?: boolean
   options?: string[]
 }
 
@@ -51,6 +55,16 @@ export interface ReportMeta {
   emptyBody: string
   /** 可选：报表特定的说明条 */
   notice?: { tone: 'warn' | 'info'; html: string }
+  /** 透传给 `query_report.run` 的附加参数（如绕过预处理报表） */
+  params?: Record<string, string>
+}
+
+/** `YYYY-MM-DD`，往前推 N 个月。用于报表的日期型默认值。 */
+function isoMonthsAgo(months: number): string {
+  const d = new Date()
+  d.setMonth(d.getMonth() - months)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 /** 放行状态的可选值 —— 与 Batch 上 Select 的 options 一致 */
@@ -179,3 +193,65 @@ export const REPORT_PATH_PREFIX = '/hbos/inventory/report'
 export function reportPath(id: string): string {
   return `${REPORT_PATH_PREFIX}/${id}`
 }
+
+/**
+ * 库存余额 —— **ERPNext 标准报表**（`Stock Balance`），不是本 App 的。
+ *
+ * ## 它默认「不给数据」
+ *
+ * 它是**预处理报表**（`Report.prepared_report = 1`）：直接调 `query_report.run`
+ * 只会返回 `{prepared_report: true, doc: null}`，要你先建一个预处理报表文档、
+ * 由后台任务生成快照。
+ *
+ * 绕过办法是 `ignore_prepared_report=1`（已实测即时返回完整数据）。**代价**：
+ * 放弃「期末快照」语义、改成实时查询，流水量大时会变慢。Owner 已确认接受，
+ * 页面上以说明条如实标注。
+ *
+ * ## 筛选**刻意只取子集**
+ *
+ * 原报表有 15+ 个筛选，其中多数是 ERPNext 管理向的旋钮（估值字段类型、
+ * 变体属性、维度库存、替代 UOM 余额…）。仓管不需要它们，硬搬过来等于把
+ * ERPNext 的 JS 抄一份，还会跟着上游版本漂。**只留仓管真会用的 6 个**，
+ * 其余一律不暴露——不暴露比「暴露了但没人懂」干净。
+ */
+const STOCK_BALANCE: ReportMeta = {
+  id: 'stock-balance',
+  reportName: 'Stock Balance',
+  title: '库存余额',
+  sub: '按货位与物料列出期末数量与金额',
+  notice: {
+    tone: 'info',
+    html:
+      '本页是 <b>实时查询</b>，不是期末快照——数字反映的是<b>此刻</b>的余额。' +
+      'ERPNext 默认走「预处理报表」（先生成快照再查看），本页刻意绕过它以便即查即得；' +
+      '若数据量增长后变慢，需要改回快照模式。',
+  },
+  // 绕过预处理报表；不传这个会拿到 {prepared_report: true} 而没有数据
+  params: { ignore_prepared_report: '1' },
+  primaryFilters: [
+    { fieldname: 'from_date', label: '起始日期', kind: 'date', defaultMonthsAgo: 1, required: true },
+    { fieldname: 'to_date', label: '截止日期', kind: 'date', defaultMonthsAgo: 0, required: true },
+    { fieldname: 'warehouse', label: '货位', kind: 'text', placeholder: '全部货位' },
+  ],
+  extraFilters: [
+    { fieldname: 'item_code', label: '物料', kind: 'text', placeholder: '物料代码' },
+    { fieldname: 'item_group', label: '物料组', kind: 'text', placeholder: '全部物料组' },
+    {
+      fieldname: 'include_zero_stock_items',
+      label: '含零库存物料',
+      kind: 'check',
+      defaultChecked: false,
+    },
+  ],
+  emptyTitle: '这个范围内没有库存',
+  emptyBody: '所选日期范围与货位下没有余额记录。可以放宽日期或去掉货位限制再查。',
+}
+
+INVENTORY_REPORTS.push(STOCK_BALANCE)
+
+/** 该报表是否要绕过「预处理报表」。用于决定调用参数。 */
+export function reportExtraParams(id: string): Record<string, string> {
+  return findReport(id)?.params || {}
+}
+
+export { isoMonthsAgo }

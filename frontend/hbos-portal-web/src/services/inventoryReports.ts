@@ -44,15 +44,21 @@ interface RawReportPayload {
  *
  * `are_default_filters=false`：我们传了 `filters` 就按它来，不要服务端再套一层默认值，
  * 否则界面上「清空筛选」会清不干净。
+ *
+ * `extraParams` 用于报表级开关——目前只有「库存余额」用它传
+ * `ignore_prepared_report=1`（它是预处理报表，不传这个只会返回
+ * `{prepared_report: true}` 而没有数据）。
  */
 export async function runReport(
   reportName: string,
   filters: Record<string, unknown>,
+  extraParams: Record<string, string> = {},
 ): Promise<ReportResult> {
   const payload = await callFrappeMethod<RawReportPayload>('frappe.desk.query_report.run', {
     report_name: reportName,
     filters: JSON.stringify(cleanFilters(filters)),
     are_default_filters: false,
+    ...extraParams,
   })
 
   const raw = Array.isArray(payload?.result) ? payload.result : []
@@ -92,6 +98,18 @@ function cleanFilters(filters: Record<string, unknown>): Record<string, unknown>
  *
  * 用 `fetch` 而不是 axios：响应体是二进制，需要 `blob()` 与 `createObjectURL`。
  *
+ * ## 对「预处理报表」这条路是走不通的（实测结论）
+ *
+ * `export_query` 内部会 `run(report_name, form_params.filters, are_default_filters=False)`
+ * —— 它 **不读** `ignore_prepared_report`（那个参数只被 `run()` 的 whitelisted 包装读）。
+ * 所以对「库存余额」这类预处理报表，它会拿到 `{prepared_report: true}`、
+ * `data.columns` 为空，然后渲染一个 HTML 错误页 **「没有要导出的数据」**。
+ *
+ * 实测：带上 `ignore_prepared_report=1` 也一样——响应仍是 `text/html`、9.2KB、
+ * 首字节 `<!DO`。**透传参数解决不了**（我一度以为可以）。
+ *
+ * 所以此类报表走 `exportRowsAsCsv()`（客户端导出，见下）。
+ *
  * **文件名自己拼，不读 `Content-Disposition`。** 服务端下发的是
  * `attachment; filename="货位明细表.xlsx"`（curl 验证过，中文正确），但
  * **浏览器读 header 时会把非 ASCII 按 ISO-8859-1 解码**，JS 拿到手的是
@@ -105,6 +123,7 @@ function cleanFilters(filters: Record<string, unknown>): Record<string, unknown>
 export async function exportReport(
   reportName: string,
   filters: Record<string, unknown>,
+  extraParams: Record<string, string> = {},
 ): Promise<void> {
   const form = new URLSearchParams({
     report_name: reportName,
@@ -112,6 +131,7 @@ export async function exportReport(
     filters: JSON.stringify(cleanFilters(filters)),
     include_filters: '1',
     ignore_visible_idx: '1',
+    ...extraParams,
   })
 
   // 复用共享的 CSRF 机制（跨源时逐请求取 token）
@@ -149,5 +169,42 @@ export async function exportReport(
   link.click()
   link.remove()
   // 立刻撤销会让部分浏览器来不及开始下载，给一帧
+  setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+/**
+ * 客户端导出 CSV —— 给「服务端导不了」的报表用（目前只有库存余额）。
+ *
+ * 数据本来就在手里（`runReport` 已取回全部行，报表没有分页），所以不必再打一次服务端。
+ * 带 UTF-8 BOM，Excel 打开中文不乱码。
+ *
+ * **导的是屏幕上看到的那些列**（调用方传 `visibleColumns`）—— 与界面一致，
+ * 不会出现「文件里有列、页面上没有」的意外。
+ */
+export function exportRowsAsCsv(
+  filename: string,
+  columns: ReportColumn[],
+  rows: Array<Record<string, unknown>>,
+): void {
+  const escape = (raw: unknown): string => {
+    const text = raw === null || raw === undefined ? '' : String(raw)
+    // 含分隔符 / 引号 / 换行时必须加引号，内部引号翻倍（RFC 4180）
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  }
+
+  const lines = [
+    columns.map((c) => escape(c.label)).join(','),
+    ...rows.map((row) => columns.map((c) => escape(row[c.fieldname])).join(',')),
+  ]
+
+  // BOM 在前，Excel 才会按 UTF-8 解析中文
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
   setTimeout(() => URL.revokeObjectURL(url), 0)
 }

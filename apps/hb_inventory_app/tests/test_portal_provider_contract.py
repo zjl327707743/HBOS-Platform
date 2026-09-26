@@ -91,6 +91,8 @@ class InventoryPortalRouteTest(unittest.TestCase):
             "/hbos/inventory/draft/MAT-STE-2026-00042",
             "/hbos/inventory/batch/B2609503",
             "/hbos/inventory/report/location-detail",
+            "/hbos/inventory/report/stock-balance",
+            "/hbos/inventory/pending",
             "/hbos/inventory/item/13000900",
             "/hbos/inventory/warehouse/16-03-205%20-%20HB",
         ):
@@ -119,6 +121,7 @@ class InventoryPortalRouteTest(unittest.TestCase):
             "/hbos/inventory/batch",
             "/hbos/inventory/report",
             "/hbos/inventory/report/",
+            "/hbos/inventory/pending/x",
             "/hbos/inventory/item",
             "/hbos/inventory/item/",
             "/hbos/inventory/warehouse",

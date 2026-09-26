@@ -378,3 +378,127 @@ export async function regenerateBatchCards(batchName: string): Promise<{ file?: 
     { batch_name: batchName },
   )
 }
+
+// ---------------------------------------------------------------------------
+// 待检批次工作台（只读）
+// ---------------------------------------------------------------------------
+
+export interface PendingBatchRow {
+  batchNo: string
+  itemCode: string
+  itemName: string
+  expiryDate?: string | null
+  sourceType?: string | null
+  releaseStatus?: string | null
+
+  /** 有库存时才由报表补得出；无库存时为 null —— **「没有」与「不知道」要分得开** */
+  daysLeft: number | null
+  urgency: string | null
+  warehouse: string | null
+  qty: number | null
+  uom: string | null
+}
+
+export interface PendingBatchList {
+  rows: PendingBatchRow[]
+  /** `Batch` 里标「待检」的**全部**批次 —— 权威数字 */
+  total: number
+  /** 其中当前**有库存**的批次 —— 由效能报表补得出的那些 */
+  withStock: number
+}
+
+/**
+ * 待检批次工作台的数据。
+ *
+ * ## 为什么两个来源合起来用（本页最关键的一处设计）
+ *
+ * 两个数**对不上**，而且必须两个都取：
+ *
+ * | 来源 | 实测结果 | 含义 |
+ * |---|---|---|
+ * | `Batch.hbos_release_status = 待检` | **15** | 系统里标着待检的**全部**批次 |
+ * | 「效期预警」报表 + `release_status=待检` | **4** | **当前有库存**的待检批次 |
+ *
+ * 差 11 个的原因是：效期预警 join `Serial and Batch Entry` 且要求
+ * `sum(qty) != 0` —— **没有库存的批次它一条都不给**。
+ *
+ * 只取报表（4）会**静默丢掉 11 个**：页面写「4 批待检」而系统里是 15 批，
+ * 用户对不上却查不出为什么。只取 Batch（15）又拿不到「剩余天数 / 紧急度」
+ * 这些报表已经算好的字段。
+ *
+ * 所以：**以 `Batch` 为权威清单，用报表数据补充有库存的那些**，
+ * 并把两个数字都显示出来。**差异是可见的，不是被藏掉的。**
+ */
+export async function getPendingReleaseBatches(): Promise<PendingBatchList> {
+  const batches =
+    (await callFrappeMethod<
+      Array<{
+        name: string
+        item?: string
+        item_name?: string
+        expiry_date?: string | null
+        hbos_source_type?: string | null
+        hbos_release_status?: string | null
+      }> | null
+    >('frappe.client.get_list', {
+      doctype: 'Batch',
+      filters: JSON.stringify({ hbos_release_status: '待检' }),
+      fields: JSON.stringify([
+        'name',
+        'item',
+        'item_name',
+        'expiry_date',
+        'hbos_source_type',
+        'hbos_release_status',
+      ]),
+      order_by: 'expiry_date asc, name asc',
+      limit_page_length: 0,
+    })) || []
+
+  // 补充信息：报表只给「有库存」的，所以窗口开到 10 年，别让远期到期的被窗口切掉
+  const enrichment = new Map<
+    string,
+    { daysLeft: number; urgency: string; warehouse: string; qty: number; uom: string }
+  >()
+  const report = await runReport('效期预警', {
+    within_days: 3650,
+    include_expired: 1,
+    release_status: '待检',
+  })
+  for (const row of report.rows) {
+    const batchNo = String(row.batch_no || '')
+    if (!batchNo) continue
+    enrichment.set(batchNo, {
+      daysLeft: Number(row.days_left ?? 0),
+      urgency: String(row.urgency || ''),
+      warehouse: String(row.warehouse || ''),
+      qty: Number(row.qty ?? 0),
+      uom: String(row.uom || ''),
+    })
+  }
+
+  const rows: PendingBatchRow[] = batches.map((b) => {
+    const extra = enrichment.get(b.name)
+    return {
+      batchNo: b.name,
+      itemCode: String(b.item || ''),
+      itemName: String(b.item_name || ''),
+      expiryDate: b.expiry_date,
+      sourceType: b.hbos_source_type,
+      releaseStatus: b.hbos_release_status,
+      daysLeft: extra ? extra.daysLeft : null,
+      urgency: extra ? extra.urgency : null,
+      warehouse: extra ? extra.warehouse : null,
+      qty: extra ? extra.qty : null,
+      uom: extra ? extra.uom : null,
+    }
+  })
+
+  // 有库存的排前面（那才是真要去处理的），同组内按剩余天数升序
+  rows.sort((a, b) => {
+    if ((a.qty !== null) !== (b.qty !== null)) return a.qty !== null ? -1 : 1
+    return (a.daysLeft ?? Number.MAX_SAFE_INTEGER) - (b.daysLeft ?? Number.MAX_SAFE_INTEGER)
+  })
+
+  return { rows, total: rows.length, withStock: rows.filter((r) => r.qty !== null).length }
+}

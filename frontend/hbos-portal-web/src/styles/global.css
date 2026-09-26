@@ -2348,3 +2348,94 @@ body { font-size: 14px; }
   .master-qr { flex-direction: column; }
   .master-qr-img { flex: none; }
 }
+
+/* ============================================================================
+   仓储库存 · 待检批次（只读工作台，V1）
+   放行由 LIMS 投影写入，本页不能改——见 quality_projection.py。
+   文本字号一律走 --hbos-font-* token（EA-5.4 §44 v2.0）。
+   ========================================================================== */
+.pending-page { display: flex; flex-direction: column; gap: 20px; }
+
+.pending-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pending-head h1 {
+  margin: 0 0 4px;
+  font-size: var(--hbos-font-page-title); line-height: var(--hbos-line-page-title);
+  font-weight: var(--hbos-weight-strong); letter-spacing: -.4px;
+}
+.pending-head p { margin: 0; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); }
+.pending-count { color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); white-space: nowrap; }
+.pending-count b { font-family: var(--hbos-font-mono); color: var(--hbos-text-secondary); font-weight: var(--hbos-weight-strong); }
+.pending-count-sub { color: var(--hbos-text-muted); }
+.pending-mono { font-family: var(--hbos-font-mono); font-variant-numeric: tabular-nums; }
+.pending-muted { color: var(--hbos-text-muted); }
+
+.pending-note {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 16px; border-radius: var(--hbos-radius-card);
+  font-size: var(--hbos-font-body); line-height: var(--hbos-line-body);
+}
+.pending-note .anticon { margin-top: 1px; flex: 0 0 auto; font-size: 20px; }
+.pending-note.info { background: rgba(75,156,255,.08); border: 1px solid rgba(75,156,255,.26); color: #2b5fa8; }
+.pending-note.warn { background: rgba(244,165,35,.10); border: 1px solid rgba(244,165,35,.30); color: #8a5a0b; }
+
+.pending-filterbar {
+  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  padding: 16px 20px; border-radius: var(--hbos-radius-card);
+  background: #fff; border: 1px solid var(--hbos-border-default);
+  box-shadow: var(--hbos-shadow-card);
+}
+.pending-filter { display: flex; flex-direction: column; gap: 6px; }
+.pending-filter > span { color: var(--hbos-text-secondary); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); font-weight: var(--hbos-weight-medium); }
+.pending-filter-inline { display: inline-flex; align-items: center; height: 42px; }
+.pending-filterbar-spacer { flex: 1; min-width: 12px; }
+.pending-hint { color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); white-space: nowrap; }
+
+.pending-table-wrap { max-height: calc(100vh - 430px); min-height: 220px; overflow: auto; }
+.pending-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--hbos-font-meta); }
+.pending-table th {
+  position: sticky; top: 0; z-index: 2;
+  text-align: left; padding: 12px; white-space: nowrap;
+  background: #f7f9fc; border-bottom: 1px solid var(--hbos-border-default);
+  color: var(--hbos-text-muted); font-weight: var(--hbos-weight-medium);
+}
+.pending-table th.num, .pending-table td.num { text-align: right; }
+.pending-table td {
+  padding: 12px; border-bottom: 1px solid var(--hbos-border-default);
+  color: var(--hbos-text-secondary); vertical-align: middle; white-space: nowrap;
+}
+.pending-table tbody tr:hover td { background: #f7f9fc; }
+.pending-table tbody tr:last-child td { border-bottom: 0; }
+/* 无库存的行压暗：它们排在后半段，是「暂时不用管」的那批 */
+.pending-table tbody tr.no-stock td { opacity: .62; }
+
+.pending-link {
+  color: var(--hbos-status-info); font-family: var(--hbos-font-mono);
+  font-size: var(--hbos-font-meta); text-decoration: underline;
+}
+.pending-link:hover { opacity: .8; }
+.pending-strong { color: var(--hbos-text-primary); font-weight: var(--hbos-weight-medium); }
+
+/* 状态语义：色 + 文字并存（EA-5.4 §24） */
+.pending-tag {
+  display: inline-flex; align-items: center;
+  padding: 0 8px; border-radius: var(--hbos-radius-pill); border: 1px solid transparent;
+  font-size: var(--hbos-font-meta); line-height: 18px;
+  font-weight: var(--hbos-weight-medium); white-space: nowrap;
+}
+.pending-tag.pending { background: rgba(75,156,255,.10); border-color: rgba(75,156,255,.30); color: #2b5fa8; }
+.pending-tag.released { background: rgba(27,188,134,.10); border-color: rgba(27,188,134,.28); color: #0c6b4c; }
+.pending-tag.blocked { background: rgba(237,90,114,.10); border-color: rgba(237,90,114,.30); color: #96334a; }
+.pending-tag.critical { background: rgba(237,90,114,.12); border-color: rgba(237,90,114,.34); color: #96334a; }
+.pending-tag.warning { background: rgba(244,165,35,.12); border-color: rgba(244,165,35,.34); color: #8a5a0b; }
+.pending-tag.neutral { background: rgba(114,130,157,.10); border-color: var(--hbos-border-strong); color: var(--hbos-text-secondary); }
+
+.pending-skel { border-radius: var(--hbos-radius-control); background: rgba(114,130,157,.11); animation: pending-pulse 1.4s var(--hbos-ease-standard) infinite; }
+@keyframes pending-pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.pending-skel-row { height: 36px; margin-bottom: 8px; }
+
+@media (max-width: 767px) {
+  .pending-head { flex-direction: column; }
+  .pending-count { text-align: left; }
+  .pending-filterbar { padding: 16px; }
+  .pending-table-wrap { max-height: none; }
+}

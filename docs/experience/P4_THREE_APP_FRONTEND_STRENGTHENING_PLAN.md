@@ -244,6 +244,7 @@ P4-F3  Inventory 概览页方案 + 实现                  = DONE
 P4-F4  Attendance 方案                              = NOT STARTED（他人负责）
 P4-F5  Owner 视觉门                                 = PASS（2026-09-25，三份方案均已过审）
 P4-F6  Inventory 概览 / 拍照识别 / 草稿复核 / 批次   = DONE（入库流程整条前端化）
+P4-F6.5 Inventory 只读面收口（报表/主数据/待检）    = DONE
 P4-F7  跨应用回归                                   = 待三应用前端齐备后再做
 ```
 

@@ -82,10 +82,12 @@ export const INVENTORY_NAV_GROUPS: InventoryNavGroup[] = [
       },
       {
         id: 'qa-release',
-        label: '待检与放行',
+        // 不叫「待检与放行」——放行由 LIMS 完成，本页放不了（Owner 已定改名）
+        label: '待检批次',
         icon: 'release',
-        implemented: false,
-        hint: '到货检验结论与 QA 放行',
+        implemented: true,
+        stablePath: '/hbos/inventory/pending',
+        hint: '还没取得 QA 放行的批次',
       },
     ],
   },
