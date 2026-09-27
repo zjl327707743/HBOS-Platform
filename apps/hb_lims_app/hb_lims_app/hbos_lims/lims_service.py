@@ -808,8 +808,10 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 
 @frappe.whitelist()
 def create_coa(sample_name):
-	"""生成 COA：仅样品检验完成且全部结果已批准时，提取已批准结果生成报告快照。"""
-	_check_action("release_sample")
+	"""生成 COA：仅样品检验完成且全部结果已批准时，提取已批准结果生成报告快照。
+
+	动作 `create_coa`（L10-P0-11 起独立登记，不再借用 `release_sample`）。"""
+	_check_action("create_coa")
 	try:
 		sample = frappe.get_doc("HBOS Sample", sample_name)
 		if sample.oos_locked or sample.status != "检验完成":
@@ -898,8 +900,10 @@ def _coa_content_fingerprint(coa):
 
 @frappe.whitelist()
 def review_coa(coa_name):
-	"""QA 审核（Reviewer / Manager）：草稿 -> 已审核。"""
-	_check_action("review_result")
+	"""报告书复核（Reviewer / LIMS QA / Manager）：草稿 -> 已审核。
+
+	动作 `review_coa`（L10-P0-11 起独立登记，不再借用 `review_result`）。"""
+	_check_action("review_coa")
 	try:
 		coa = frappe.get_doc("HBOS COA", coa_name)
 		if coa.report_status != "草稿":
@@ -918,12 +922,22 @@ def review_coa(coa_name):
 
 @frappe.whitelist()
 def publish_coa(coa_name):
-	"""发布 COA：生成 PDF 附件归档，状态 已审核 -> 已发布（发布后不可修改）。"""
-	_check_action("review_result")
+	"""发布 COA（LIMS QA 线 / Manager）：生成 PDF 附件归档，状态 已审核 -> 已发布。
+
+	动作 `publish_coa`（L10-P0-11 起独立登记，不再借用 `review_result`）：报告书是对外
+	质量凭证，发布归 QA 线；并按质量流程要求 **发布人不得为审核人**（SoD）。发布后整份
+	快照冻结（L10-P0-05），内容指纹在发布时固化。
+	"""
+	_check_action("publish_coa")
 	try:
 		coa = frappe.get_doc("HBOS COA", coa_name)
 		if coa.report_status != "已审核":
 			frappe.throw(f"COA {coa_name} 状态为 {coa.report_status}，仅已审核可发布。")
+		if coa.qa_reviewer and coa.qa_reviewer == _user():
+			_sod_reject(coa.doctype, coa.name,
+						"COA 发布人不得为审核人（SoD）。",
+						action_text="COA 发布违反职责分离",
+						reason="审核人同为 {}".format(coa.qa_reviewer))
 
 		# 生成 PDF（直接渲染 Print Format 模板，绕开 website 渲染管线；中文支持）
 		html = _coa_print_html(coa)

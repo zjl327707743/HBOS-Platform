@@ -47,6 +47,7 @@ _APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MGR = "r7c-mgr@test.local"                     # LIMS Manager
 REVIEWER = "test-hbos-m2-reviewer@test.local"  # LIMS Reviewer（结果复核）
 REVIEWER2 = "r7c-qc2@test.local"               # LIMS Reviewer（换人批准，P0-03 SoD）
+QA1 = "r7c-qa1@test.local"                      # LIMS QA（COA 发布归 QA 线，L10-P0-11）
 
 STAMP = "TEST-HBOS-P005"
 SPEC_CODE = f"{STAMP}-SPEC"
@@ -90,7 +91,7 @@ class TestCoaSnapshotRuntime(unittest.TestCase):
 
 		cls.svc = svc
 		cls.artifacts = {}
-		for user in (MGR, REVIEWER, REVIEWER2):
+		for user in (MGR, REVIEWER, REVIEWER2, QA1):
 			if not frappe.db.exists("User", user):
 				raise AssertionError("缺少非特权测试用户 {}".format(user))
 			if "System Manager" in set(frappe.get_roles(user)):
@@ -197,10 +198,16 @@ class TestCoaSnapshotRuntime(unittest.TestCase):
 
 		frappe.set_user(MGR)
 		coa = svc.create_coa(sample)
+		# 审核由 QA1 完成（L10-P0-11：复核属 Reviewer/QA 线；发布归 QA 线且不得自审自发，
+		# 故留出"审核人 ≠ 后续发布人"的余地）
+		frappe.set_user(QA1)
 		svc.review_coa(coa)
+		frappe.set_user("Administrator")
 		cls.artifacts["coa"] = coa
 		if frappe.db.get_value("HBOS COA", coa, "report_status") != "已审核":
 			raise AssertionError("夹具异常：COA 未进入已审核")
+		if frappe.db.get_value("HBOS COA", coa, "qa_reviewer") != QA1:
+			raise AssertionError("夹具异常：COA 审核人不是 QA1")
 		item_rows = frappe.get_all("HBOS COA Item", filters={"parent": coa},
 								   pluck="name", limit_page_length=0)
 		if len(item_rows) != len(results):
@@ -295,10 +302,35 @@ class TestCoaSnapshotRuntime(unittest.TestCase):
 		self.assertNotIn("篡改", str(doc.items[0].result or ""))
 
 	# ------------------------------------------------------------------
+	# 用例 02：COA 独立动作矩阵（发布归 QA 线）与「审核人 ≠ 发布人」
+	# ------------------------------------------------------------------
+
+	def test_02_coa_action_matrix_and_publish_sod(self):
+		"""发布权已从 Reviewer 收归 QA 线；且审核人不得自审自发（L10-P0-11）。"""
+		coa = self._coa()
+		before_sod = frappe.db.count("HBOS Audit Log",
+									 {"log_type": "SoD 拦截", "doc_name": coa})
+
+		# 1) Reviewer 不在发布线 —— 旧实现借 `review_result` 而拥有发布权，现已纠正
+		self._assert_blocked("没有执行「publish_coa」的权限",
+							 lambda: self.svc.publish_coa(coa), as_user=REVIEWER)
+
+		# 2) QA 线可发布，但不得由审核人自发（夹具的审核人是 QA1）
+		self._assert_blocked("发布人不得为审核人", lambda: self.svc.publish_coa(coa),
+							 as_user=QA1)
+		frappe.set_user("Administrator")
+		self.assertEqual(before_sod + 1,
+						 frappe.db.count("HBOS Audit Log",
+										 {"log_type": "SoD 拦截", "doc_name": coa}),
+						 "自审自发必须留痕")
+		self.assertEqual("已审核", frappe.db.get_value("HBOS COA", coa, "report_status"),
+						 "两次拦截都不得改变状态")
+
+	# ------------------------------------------------------------------
 	# 用例 02：发布后同样冻结 + 内容指纹可主动校验
 	# ------------------------------------------------------------------
 
-	def test_02_publish_freezes_snapshot_and_records_fingerprint(self):
+	def test_03_publish_freezes_snapshot_and_records_fingerprint(self):
 		"""发布：整份快照仍冻结、PDF 附件不可换、内容指纹可校验且能检出低层直写。"""
 		coa = self._coa()
 		frappe.set_user(MGR)

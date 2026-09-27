@@ -67,6 +67,7 @@ MGR = "r7c-mgr@test.local"					# LIMS Manager
 ANALYST = "test-hbos-m2-analyst@test.local"  # LIMS Analyst
 REVIEWER = "test-hbos-m2-reviewer@test.local"  # LIMS Reviewer
 REVIEWER2 = "r7c-qc2@test.local"  # LIMS Reviewer（批准须换人，L10-P0-03 SoD）
+QA1 = "r7c-qa1@test.local"  # LIMS QA（COA 发布归 QA 线，L10-P0-11）
 
 STAMP = "TEST-HBOS-M2-R3G"
 SPEC_CODE = f"{STAMP}-SPEC"
@@ -185,14 +186,16 @@ class TestSystemFieldGuardsRuntime(unittest.TestCase):
 		if status != "检验完成":
 			raise AssertionError(f"全部结果批准后样品应为「检验完成」，实际 {status}")
 
-		# 6) COA 生成 → QA 审核 → 发布（Reviewer）
+		# 6) COA 生成 → 复核（Reviewer）→ 发布（LIMS QA，L10-P0-11 起发布归 QA 线且不得自审自发）
 		coa = svc.create_coa(sample)
 		cls.artifacts["coa"] = coa
 		svc.review_coa(coa)
+		frappe.set_user(QA1)
 		published = svc.publish_coa(coa)
 		cls.artifacts["coa_pdf"] = published["pdf"]
 
 		# 7) 样品放行（Reviewer）—— 放行必须在生成 COA 之后（COA 要求「检验完成」）
+		frappe.set_user(REVIEWER)
 		svc.release_sample(sample)
 
 	# ------------------------------------------------------------------

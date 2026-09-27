@@ -209,6 +209,12 @@ ACTION_ROLES = {
 	"delete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
 	"activate_specification": {ROLE_MANAGER, ROLE_SYSTEM},
 	"obsolete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
+	# COA 报告书（L10-P0-11：独立动作，不再借用 Sample / Result 的动作名；
+	# 角色口径对齐稳定性「报告」——复核可由 Reviewer，**发布归 QA 线**）
+	"create_coa": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	"review_coa": {ROLE_REVIEWER, ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER,
+				   ROLE_MANAGER, ROLE_SYSTEM},
+	"publish_coa": {ROLE_LIMS_QA, ROLE_LIMS_QA_MANAGER, ROLE_MANAGER, ROLE_SYSTEM},
 	# 检验结果台账聚合查询（只读，所有 LIMS 角色 + System）
 	"get_result_ledger": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	# COA 内容完整性校验（只读，L10-P0-05）
