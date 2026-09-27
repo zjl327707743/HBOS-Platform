@@ -75,13 +75,16 @@ class TestFieldSetContract(unittest.TestCase):
 
 	def test_composition_is_state_plus_signature_plus_version_chain(self):
 		"""字段集组成固定：状态 + 签署 + 版本链；业务判定数据（verdict/result_value 等）
-		不在其中——那类字段由 RESULT_LOCKED_FIELDS 在提交后锁定，属另一机制。"""
+		不在其中——那类字段由 RESULT_LOCKED_FIELDS 在提交后锁定，属另一机制。
+
+		`analyst` 属签署归属（检验人），与 `reviewer` / `approver` 同类，且稳定性
+		结果字段集早已守卫（L10-P0-03 对齐：否则草稿态可直改检验人绕过 SoD）。"""
 		self.assertEqual(wf.HBOS_SAMPLE_SYSTEM_FIELDS, ("status", "oos_locked"))
 		self.assertEqual(wf.HBOS_SAMPLE_TASK_SYSTEM_FIELDS,
 						 ("status", "assignee", "assigned_by", "assigned_date", "result"))
 		self.assertEqual(wf.HBOS_TEST_RESULT_SYSTEM_FIELDS, (
 			"result_status", "is_oos_candidate", "superseded_by",
-			"submitted_signature", "submitted_at",
+			"analyst", "submitted_signature", "submitted_at",
 			"reviewer", "reviewed_signature", "reviewed_at",
 			"approver", "approved_signature", "approved_at",
 		))

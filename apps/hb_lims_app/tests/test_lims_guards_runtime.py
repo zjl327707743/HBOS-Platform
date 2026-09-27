@@ -66,6 +66,7 @@ def _ensure_app_on_path():
 MGR = "r7c-mgr@test.local"					# LIMS Manager
 ANALYST = "test-hbos-m2-analyst@test.local"  # LIMS Analyst
 REVIEWER = "test-hbos-m2-reviewer@test.local"  # LIMS Reviewer
+REVIEWER2 = "r7c-qc2@test.local"  # LIMS Reviewer（批准须换人，L10-P0-03 SoD）
 
 STAMP = "TEST-HBOS-M2-R3G"
 SPEC_CODE = f"{STAMP}-SPEC"
@@ -172,10 +173,13 @@ class TestSystemFieldGuardsRuntime(unittest.TestCase):
 			svc.submit_result(out["result"], raw_value=measured, result_value=measured)
 		cls.artifacts["results"] = results
 
-		# 5) 复核 + 批准（Reviewer）→ 全部批准后样品自动 检验完成
+		# 5) 复核（REVIEWER）+ 批准（REVIEWER2）→ 全部批准后样品自动 检验完成
+		# L10-P0-03 起复核人不得自批（SoD），复核与批准必须由两个不同账号完成
 		frappe.set_user(REVIEWER)
 		for r in results:
 			svc.review_result(r)
+		frappe.set_user(REVIEWER2)
+		for r in results:
 			svc.approve_result(r)
 		status = frappe.db.get_value("HBOS Sample", sample, "status")
 		if status != "检验完成":

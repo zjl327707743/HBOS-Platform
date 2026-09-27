@@ -77,6 +77,8 @@ export function submitResult(params: {
   calc_input_json?: string
   calculation_used?: string
   instrument_used?: string
+  /** L10-P0-03：提交人非该记录检验人时必填（Manager 代提交），写入合规审计 */
+  proxy_reason?: string
 }) {
   return callMethod('hb_lims_app.hbos_lims.lims_service.submit_result', params)
 }

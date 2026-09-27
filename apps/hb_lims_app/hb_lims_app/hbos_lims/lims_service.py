@@ -48,6 +48,49 @@ def _set_status(doc, flow, current, target):
 	doc.status = target
 
 
+def _user_has_any(roles_required):
+	roles = frappe.get_roles(_user())
+	return any(role in roles for role in roles_required)
+
+
+def _sod_reject(doctype, doc_name, message, action_text, reason=""):
+	"""职责分离拦截：先留痕（业务全弃 + 审计留存）再抛错（L10-P0-03）。
+
+	与稳定性结果链同一处置口径（stability_service._reject）：审计写入本身失败
+	不得掩盖职责分离拒绝，降级为错误日志。
+	"""
+	try:
+		audit_violation("SoD 拦截", doctype, doc_name,
+						action_text=action_text, reason=reason or message)
+	except Exception as exc:
+		if hasattr(frappe, "log_error"):
+			frappe.log_error("SoD 拦截审计写入失败：{}".format(exc), "HBOS LIMS SoD 审计")
+	frappe.throw(message)
+
+
+def _guard_result_submitter(result, proxy_reason):
+	"""提交归属校验（L10-P0-03）：本人草稿，或 Manager 代提交且显式说明理由。
+
+	返回代提交理由（本人提交时返回空串），由调用方写入提交审计的 reason，
+	使「谁在替谁提交、为什么」可追溯。
+	"""
+	me = _user()
+	analyst = result.analyst
+	if not analyst or analyst == me:
+		return ""
+	if not _user_has_any([wf.ROLE_MANAGER, wf.ROLE_SYSTEM]):
+		_sod_reject(
+			result.doctype, result.name,
+			"只能提交本人的检验记录（检验人 {}）；他人代提交仅限 LIMS Manager。".format(analyst),
+			action_text="非检验人提交结果",
+			reason="检验人 {} 与提交人 {} 不同".format(analyst, me))
+	reason = (proxy_reason or "").strip()
+	if not reason:
+		frappe.throw("代检验人「{}」提交必须填写代提交理由（ALCOA：代操作须记录原因）。"
+					 .format(analyst))
+	return reason
+
+
 def _commit():
 	frappe.db.commit()
 	try:
@@ -424,13 +467,19 @@ def _create_result_for_task(task):
 
 @frappe.whitelist()
 def submit_result(result_name, raw_value=None, result_value=None, result_text=None,
-				  calc_input_json=None, calculation_used=None, instrument_used=None):
-	"""检验员提交结果：自动判定（含公式计算）、电子签名、OOS 候选锁定。"""
+				  calc_input_json=None, calculation_used=None, instrument_used=None,
+				  proxy_reason=None):
+	"""检验员提交结果：自动判定（含公式计算）、电子签名、OOS 候选锁定。
+
+	`proxy_reason`：仅当提交人不是该记录的检验人（Manager 代提交）时必填，
+	理由写入提交审计的 reason 字段（L10-P0-03）。
+	"""
 	_check_action("submit_result")
 	try:
 		result = frappe.get_doc("HBOS Test Result", result_name)
 		if result.result_status != "草稿":
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅草稿可提交。")
+		proxy_reason = _guard_result_submitter(result, proxy_reason)
 		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
 		validate_standard_test_result_sync(result.name, target_status="已提交")
 
@@ -468,11 +517,12 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 			audit_log("仪器使用", "Instrument", instrument_used,
 					  action_text=f"{result.item_name or result.test_item or ''} 使用仪器",
 					  user=result.analyst, commit=False)
-		# 合规审计：结果提交 + 自动判定
+		# 合规审计：结果提交 + 自动判定（代提交记明理由与真实操作人）
 		audit_log("提交", result.doctype, result.name,
-				  action_text=f"结果提交 · 自动判定 {result.verdict}",
+				  action_text=(f"Manager 代提交 · 自动判定 {result.verdict}" if proxy_reason
+							   else f"结果提交 · 自动判定 {result.verdict}"),
 				  field_changed="result_status", old_value="草稿", new_value="已提交",
-				  user=result.analyst, commit=False)
+				  reason=proxy_reason, user=_user(), commit=False)
 
 		# 联动任务与样品（修订后的新版本提交时任务可能已在目标状态，避免自转移）
 		task = frappe.get_doc("HBOS Sample Task", result.task)
@@ -545,6 +595,11 @@ def review_result(result_name):
 		result = frappe.get_doc("HBOS Test Result", result_name)
 		if result.result_status != "已提交":
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅已提交可复核。")
+		if result.analyst and result.analyst == _user():
+			_sod_reject(result.doctype, result.name,
+						"复核人不得为检验人（SoD，方案 6.4）。",
+						action_text="结果复核违反职责分离",
+						reason="检验人同为 {}".format(result.analyst))
 		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
 		validate_standard_test_result_sync(result.name, target_status="已复核", reviewer=_user())
 		result.result_status = "已复核"
@@ -581,6 +636,11 @@ def approve_result(result_name):
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅已复核可批准。")
 		if result.is_oos_candidate:
 			frappe.throw("OOS 候选结果不允许批准放行，需先完成 OOS 处理。")
+		if result.reviewer and result.reviewer == _user():
+			_sod_reject(result.doctype, result.name,
+						"批准人不得为复核人（SoD，方案 6.4）。",
+						action_text="结果批准违反职责分离",
+						reason="复核人同为 {}".format(result.reviewer))
 		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
 		validate_standard_test_result_sync(result.name, target_status="已批准", approver=_user())
 		result.result_status = "已批准"

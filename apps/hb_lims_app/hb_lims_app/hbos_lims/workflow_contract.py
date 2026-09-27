@@ -53,9 +53,12 @@ HBOS_SAMPLE_SYSTEM_FIELDS = ("status", "oos_locked")
 
 HBOS_SAMPLE_TASK_SYSTEM_FIELDS = ("status", "assignee", "assigned_by", "assigned_date", "result")
 
+# `analyst` 同为签署归属字段：检验人只能由业务服务在创建检测记录时写入
+# （原实现未列入守卫，草稿态可被直改，令 SoD（复核人≠检验人）形同虚设；
+# 稳定性结果字段集早已守卫其 analyst，此处对齐 —— L10-P0-03）。
 HBOS_TEST_RESULT_SYSTEM_FIELDS = (
 	"result_status", "is_oos_candidate", "superseded_by",
-	"submitted_signature", "submitted_at",
+	"analyst", "submitted_signature", "submitted_at",
 	"reviewer", "reviewed_signature", "reviewed_at",
 	"approver", "approved_signature", "approved_at",
 )
