@@ -68,7 +68,7 @@ HBOS_COA_SYSTEM_FIELDS = (
 	"published_by", "published_at", "pdf_attachment",
 )
 
-HBOS_SPECIFICATION_SYSTEM_FIELDS = ("status", "effective_date")
+HBOS_SPECIFICATION_SYSTEM_FIELDS = ("status", "effective_date", "supersedes")
 
 # 留样状态（M2-R7，方案 6.1 rev6）
 RET_IN_STOCK = "在库"

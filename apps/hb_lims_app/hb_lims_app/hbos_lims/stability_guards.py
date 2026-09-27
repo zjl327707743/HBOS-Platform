@@ -78,6 +78,37 @@ def guard_snapshot_frozen(doc, fields, flag_field="snapshot_frozen"):
 			)
 
 
+def guard_content_frozen(doc, fields, statuses, table_fields=(), status_field="status"):
+	"""受控状态内容冻结守卫：状态进入受控取值后，内容字段与子表整体只读。
+
+	与 `guard_snapshot_frozen` 同一语义，区别是触发条件为「状态字段取值」而非布尔
+	冻结标志（如质量标准 `status ∈ {已生效, 已废止}`），用于堵住「已生效内容被原地
+	改而版本号不变」——即同一版本号代表两份内容（L10-P0-04）。
+
+	**不设特权旁路**：与 `guard_snapshot_frozen` 一致，只有带 `allow_system_fields`
+	的业务服务写入可改，Administrator 亦不例外 —— 受控文件生效后任何改动都须走
+	升版生成新版本。子表按行内容比较（`_table_signature`），行序变化不算改动。
+	"""
+	before = doc.get_doc_before_save()
+	if not before or doc.flags.get("allow_system_fields"):
+		return
+	current = str(before.get(status_field) or "")
+	if current not in statuses:
+		return
+	for field in fields:
+		if str(before.get(field) or "") != str(doc.get(field) or ""):
+			frappe.throw(
+				"字段「{}」在状态「{}」下不可修改；如需变更请升版生成新版本（L10-P0-04）。".format(
+					doc.meta.get_label(field), current))
+	for table_field in table_fields:
+		child_doctype = frappe.get_meta(doc.doctype).get_field(table_field).options
+		if _table_signature(before.get(table_field), child_doctype) != \
+				_table_signature(doc.get(table_field), child_doctype):
+			frappe.throw(
+				"子表「{}」在状态「{}」下不可增删改；如需变更请升版生成新版本（L10-P0-04）。".format(
+					doc.meta.get_label(table_field), current))
+
+
 def _table_signature(rows, child_doctype):
 	"""子表内容指纹：按行内容排序拼接，用于判断「行是否被增删改」（行序变化不算）。"""
 	if not rows:

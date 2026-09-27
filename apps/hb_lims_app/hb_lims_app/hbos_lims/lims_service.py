@@ -954,15 +954,61 @@ def _spec_doc(spec_name):
 	return frappe.get_doc("HBOS Specification", spec_name)
 
 
+def _validate_supersede_target(spec_code, supersedes):
+	"""升版关系校验：被替代版本必须存在且属同一规格 ID（L10-P0-04）。"""
+	if not frappe.db.exists("HBOS Specification", supersedes):
+		frappe.throw(f"「被替代的版本」{supersedes} 不存在。")
+	target = frappe.db.get_value("HBOS Specification", supersedes,
+								 ["spec_code", "version"], as_dict=True)
+	if str(target.spec_code or "") != str(spec_code or ""):
+		frappe.throw(
+			f"「被替代的版本」{supersedes} 属规格 {target.spec_code or '未填'}，"
+			f"与本次规格 {spec_code or '未填'} 不一致，不能构成升版关系。"
+		)
+
+
+def _guard_single_active_version(spec):
+	"""同一规格 ID 只允许一个已生效版本，且升版必须留下版本链（L10-P0-04）。
+
+	- 已有其它「已生效」版本 → 拒绝：须先废止现行版本，再激活新版本；
+	- 存在其它历史版本但本版未声明 supersedes → 拒绝：升版必须保留版本链。
+	"""
+	others = frappe.get_all(
+		"HBOS Specification",
+		filters={"spec_code": spec.spec_code, "name": ["!=", spec.name]},
+		fields=["name", "version", "status"], limit_page_length=0)
+	active = [row for row in others if row.status == SPEC_ACTIVE]
+	if active:
+		frappe.throw(
+			f"规格 {spec.spec_code} 已有生效版本 {active[0].name}"
+			f"（V{active[0].version}）；请先废止该版本再激活本版本（同一规格不允许并行生效）。"
+		)
+	if others and not spec.supersedes:
+		frappe.throw(
+			f"规格 {spec.spec_code} 已有历史版本（{others[0].name}），"
+			"升版必须声明「被替代的版本」以保留版本链。"
+		)
+	if spec.supersedes and not any(row.name == spec.supersedes for row in others):
+		frappe.throw(
+			f"「被替代的版本」{spec.supersedes} 不属于规格 {spec.spec_code}，不能构成升版关系。"
+		)
+
+
 @frappe.whitelist()
 def create_specification(spec_code, spec_name, material_code=None, material_name=None,
 						 standard_source=None, effective_date=None, version=None, items=None,
-						 remarks=None, storage_condition=None, retain_sample_qty=None):
+						 remarks=None, storage_condition=None, retain_sample_qty=None,
+						 supersedes=None):
 	"""新增质量标准（Manager）：创建为草稿，检验项目明细从 items 传入。
+
 	version 用于升版场景（基于当前版本 +0.1 复制为新版本）；缺省默认 1.0。
+	supersedes 声明被替代的上一版本（须为同一 spec_code 的既有版本）：升版必须
+	声明，否则同一规格的多版本之间没有版本链，也无法回答"当时生效的是哪一版"。
 	storage_condition / retain_sample_qty 供样品登记时自动匹配。"""
 	_check_action("create_specification")
 	try:
+		if supersedes:
+			_validate_supersede_target(spec_code, supersedes)
 		spec = frappe.get_doc({
 			"doctype": "HBOS Specification",
 			"spec_code": spec_code,
@@ -972,6 +1018,7 @@ def create_specification(spec_code, spec_name, material_code=None, material_name
 			"standard_source": standard_source,
 			"effective_date": effective_date,
 			"version": version or "1.0",
+			"supersedes": supersedes or None,
 			"status": SPEC_DRAFT,
 			"remarks": remarks,
 			"storage_condition": storage_condition,
@@ -991,12 +1038,15 @@ def create_specification(spec_code, spec_name, material_code=None, material_name
 def update_specification(spec_name, spec_code=None, spec_name_label=None, material_code=None,
 						 material_name=None, standard_source=None, effective_date=None,
 						 items=None, remarks=None, storage_condition=None, retain_sample_qty=None):
-	"""修订质量标准（Manager）：编辑内容不改版本号；已废止不可再改。"""
+	"""修订质量标准（Manager）：仅草稿可原地修订；已生效/已废止须走升版（L10-P0-04）。"""
 	_check_action("update_specification")
 	try:
 		spec = _spec_doc(spec_name)
-		if spec.status == SPEC_OBSOLETE:
-			frappe.throw(f"质量标准 {spec_name} 已废止，不可再修订。")
+		if spec.status != SPEC_DRAFT:
+			frappe.throw(
+				f"质量标准 {spec_name} 状态为 {spec.status}，已生效/已废止标准不可原地修订"
+				"（否则同一版本号会代表两份内容）；如需变更请使用升版生成新版本。"
+			)
 		if spec_code:
 			spec.spec_code = spec_code
 		if spec_name_label:
@@ -1034,6 +1084,7 @@ def activate_specification(spec_name):
 		spec = _spec_doc(spec_name)
 		if spec.status != SPEC_DRAFT:
 			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅草稿可生效。")
+		_guard_single_active_version(spec)
 		spec.status = SPEC_ACTIVE
 		spec.flags.allow_system_fields = True
 		spec.save(ignore_permissions=True)

@@ -136,6 +136,8 @@ export function createSpecification(params: {
   version?: string
   items?: SpecItemInput[]
   remarks?: string
+  /** L10-P0-04：升版时声明被替代的上一版本（须为同一 spec_code 的既有版本） */
+  supersedes?: string
 }) {
   return callMethod<string>('hb_lims_app.hbos_lims.lims_service.create_specification', params)
 }

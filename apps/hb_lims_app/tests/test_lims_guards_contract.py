@@ -92,7 +92,8 @@ class TestFieldSetContract(unittest.TestCase):
 			"report_status", "qa_reviewer", "qa_reviewed_at",
 			"published_by", "published_at", "pdf_attachment",
 		))
-		self.assertEqual(wf.HBOS_SPECIFICATION_SYSTEM_FIELDS, ("status", "effective_date"))
+		self.assertEqual(wf.HBOS_SPECIFICATION_SYSTEM_FIELDS,
+						 ("status", "effective_date", "supersedes"))
 
 	def test_no_collision_with_stability_field_sets(self):
 		"""稳定性板块 stability_guards 持有自己的同名业务对象字段集，
@@ -132,6 +133,42 @@ class TestControllerWiring(unittest.TestCase):
 		self.assertIn("from hb_lims_app.hbos_lims.stability_guards import guard_system_fields", src)
 		self.assertNotIn("def guard_system_fields", src)
 		self.assertIn("def guard_system_fields", _source(STABILITY_GUARDS))
+		# 受控状态内容冻结（L10-P0-04）：同样只再导出，实现唯一
+		self.assertIn("from hb_lims_app.hbos_lims.stability_guards import guard_content_frozen", src)
+		self.assertNotIn("def guard_content_frozen", src)
+		self.assertIn("def guard_content_frozen", _source(STABILITY_GUARDS))
+
+
+class TestSpecificationContentFreeze(unittest.TestCase):
+	"""质量标准内容冻结接线（L10-P0-04）：已生效/已废止后内容与子表整体只读。"""
+
+	SPEC_CONTROLLER = DOCTYPES / "hbos_specification" / "hbos_specification.py"
+
+	def test_controller_wires_content_freeze(self):
+		src = _source(self.SPEC_CONTROLLER)
+		self.assertIn("guard_content_frozen(self, SPEC_CONTENT_FIELDS,"
+					  " SPEC_CONTENT_FROZEN_STATUSES", src)
+		self.assertIn("table_fields=SPEC_CONTENT_TABLE_FIELDS", src)
+
+	def test_frozen_statuses_are_active_and_obsolete(self):
+		src = _source(self.SPEC_CONTROLLER)
+		self.assertIn('SPEC_CONTENT_FROZEN_STATUSES = (SPEC_STATUS_ACTIVE, SPEC_STATUS_OBSOLETE)', src)
+
+	def test_frozen_fields_cover_all_business_content(self):
+		"""内容字段须覆盖规格标识、物料、版本、标准来源与备注；子表 items 单列。"""
+		tree = ast.parse(_source(self.SPEC_CONTROLLER), filename=str(self.SPEC_CONTROLLER))
+		value = next(
+			node.value for node in ast.walk(tree)
+			if isinstance(node, ast.Assign)
+			and any(getattr(t, "id", None) == "SPEC_CONTENT_FIELDS" for t in node.targets))
+		fields = {e.value for e in value.elts}
+		self.assertEqual(fields, {
+			"spec_code", "spec_name", "material_code", "material_name", "version",
+			"standard_source", "storage_condition", "retain_sample_qty", "remarks",
+		})
+		# 状态/生效日期/版本链属系统字段守卫，不重复列入内容字段
+		for system_field in ("status", "effective_date", "supersedes"):
+			self.assertNotIn(system_field, fields)
 
 
 class TestServiceAuthorizationFlags(unittest.TestCase):

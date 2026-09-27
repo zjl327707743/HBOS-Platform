@@ -6,11 +6,21 @@ import frappe
 from frappe.model.document import Document
 
 from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.guards import guard_content_frozen
 from hb_lims_app.hbos_lims.guards import guard_system_fields
 
 SPEC_STATUS_DRAFT = "草稿"
 SPEC_STATUS_ACTIVE = "已生效"
 SPEC_STATUS_OBSOLETE = "已废止"
+
+# 受控状态：进入后内容整体冻结，改动必须升版（L10-P0-04）
+SPEC_CONTENT_FROZEN_STATUSES = (SPEC_STATUS_ACTIVE, SPEC_STATUS_OBSOLETE)
+# 冻结的内容字段；`status` / `effective_date` / `supersedes` 由系统字段守卫负责
+SPEC_CONTENT_FIELDS = (
+	"spec_code", "spec_name", "material_code", "material_name", "version",
+	"standard_source", "storage_condition", "retain_sample_qty", "remarks",
+)
+SPEC_CONTENT_TABLE_FIELDS = ("items",)
 
 
 def is_spec_active(spec_name):
@@ -32,6 +42,9 @@ def get_active_specifications():
 class HBOSSpecification(Document):
 	def validate(self):
 		guard_system_fields(self, wf.HBOS_SPECIFICATION_SYSTEM_FIELDS)
+		# 已生效/已废止后内容整体冻结：堵住「原地改内容、版本号不变」
+		guard_content_frozen(self, SPEC_CONTENT_FIELDS, SPEC_CONTENT_FROZEN_STATUSES,
+							 table_fields=SPEC_CONTENT_TABLE_FIELDS)
 		self._validate_unique_version()
 		self._validate_limits()
 
