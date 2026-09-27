@@ -187,11 +187,15 @@ EQUIPMENT_SYSTEM_FIELDS = ("status", "last_fault_date")
 
 
 def _audit_delete_block(doctype, doc_name, action_text, reason):
-	"""删除拦截审计独立提交（方案 8.7）：不随 frappe.throw 的回滚丢失。"""
-	from hb_lims_app.hbos_lims.lims_service import audit_log
+	"""删除拦截审计（方案 8.7）：先回滚未提交业务写入，再独立提交留痕（L10-P0-01）。
+
+	本函数在 `on_trash` 钩子内执行，同一事务中可能已有上层待写内容；直接
+	`frappe.db.commit()` 会把它们一并提交，故改由 `audit_violation()` 先回滚。
+	"""
+	from hb_lims_app.hbos_lims.lims_service import audit_violation
 	try:
-		audit_log("删除拦截", doctype, doc_name, action_text=action_text,
-				  reason=reason, commit=True)
+		audit_violation("删除拦截", doctype, doc_name, action_text=action_text,
+						reason=reason)
 	except Exception as exc:
 		frappe.log_error("删除拦截审计写入失败：{}".format(exc), "HBOS Stability 删除审计")
 

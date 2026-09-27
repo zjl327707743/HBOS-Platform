@@ -44,6 +44,16 @@ _APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _ensure_app_on_path():
+	"""把 `hb_lims_app` 解析到真正的 App 包（`apps/hb_lims_app/hb_lims_app`）。
+
+	幂等：同一进程内多个测试文件都会调用本函数，而反复清除并重导入
+	`hb_lims_app.*` 会让 DocType 控制器类出现「同一路径、不同对象」的两个副本，
+	后续 `frappe.get_cached_doc` 写 Redis 文档缓存时 pickle 直接失败
+	（PicklingError: not the same object）。故只要已按正确根路径导入过就不再动。
+	"""
+	loaded = sys.modules.get("hb_lims_app.hbos_lims.lims_service")
+	if loaded and getattr(loaded, "__file__", "").startswith(_APP_DIR):
+		return
 	for name in [n for n in list(sys.modules)
 				 if n == "hb_lims_app" or n.startswith("hb_lims_app.")]:
 		sys.modules.pop(name, None)
@@ -81,6 +91,8 @@ class TestSystemFieldGuardsRuntime(unittest.TestCase):
 		cls.svc = svc
 		cls.artifacts = {}
 
+		frappe.set_user("Administrator")
+		cls._drop_stale_spec()
 		frappe.set_user(MGR)
 		cls._run_positive_chain()
 		frappe.set_user("Administrator")
@@ -91,6 +103,22 @@ class TestSystemFieldGuardsRuntime(unittest.TestCase):
 		cls._cleanup()
 		if cls.initialized_here:
 			frappe.destroy()
+
+	@classmethod
+	def _drop_stale_spec(cls):
+		"""删除上一次异常中断残留的本轮质量标准，使套件可重复运行。
+
+		本轮质量标准命名固定（`SPEC_CODE` + 版本后缀），而清理是尽力而为、不抛错；
+		一旦残留，后续每次运行都会在 `create_specification` 撞重复主键，整套用例
+		一并报错（而非仅失败一条）。其余夹具用命名系列，不会撞名。
+		"""
+		stale = frappe.get_all("HBOS Specification",
+							   filters={"name": ["like", f"{SPEC_CODE}%"]},
+							   pluck="name", limit_page_length=0)
+		for name in stale:
+			_force_delete("HBOS Specification", name)
+		if stale:
+			frappe.db.commit()
 
 	# ------------------------------------------------------------------
 	# 正向全链（多角色真实切换）

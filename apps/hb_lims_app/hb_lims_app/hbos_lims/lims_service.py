@@ -75,8 +75,15 @@ def _checksum(payload):
 
 def audit_log(log_type, doctype_target, doc_name, action_text="", field_changed="",
 			  old_value="", new_value="", reason="", user=None, created_at=None,
-			  commit=True):
+			  commit=False):
 	"""写入一条合规审计事件（供系统钩子与业务方法内部调用）。
+
+	默认 **不提交**（commit=False）：审计写入与业务事务同成败，由调用方在业务
+	收尾处统一 `_commit()`。禁止在业务事务内部用裸 `frappe.db.commit()` 冒充
+	「独立提交」——它提交的是当前请求的整个事务，会把拦截前的部分业务写入一并
+	落库，使随后的 `frappe.throw()` 失去回滚意义（L10-P0-01）。
+
+	确需「即使业务回滚也必须留存」的拦截/违规审计，请改用 audit_violation()。
 	只允许 System Manager 手动调用；常规路径由 doc_events 与业务方法注入。"""
 	if user is None:
 		user = frappe.session.user
@@ -103,6 +110,23 @@ def audit_log(log_type, doctype_target, doc_name, action_text="", field_changed=
 	if commit:
 		frappe.db.commit()
 	return doc.name
+
+
+def audit_violation(log_type, doctype_target, doc_name, action_text="", field_changed="",
+					old_value="", new_value="", reason="", user=None):
+	"""拦截/违规审计：先丢弃当前事务未提交的业务写入，再独立落库（L10-P0-01）。
+
+	调用方必须在本函数返回后立即 `frappe.throw()`。语义是：这笔业务操作整体不
+	成立（业务对象保持原值），但违规尝试必须留痕。因此先 `rollback()` 丢弃业务
+	半成品，再以干净事务写入审计并提交，最后才由调用方抛错。
+
+	注：这是单连接上的「先回滚、再独立提交」，不是第二条数据库连接；对「业务
+	全弃 + 审计留存」这一目标等价，且避免双连接互相等锁。
+	"""
+	frappe.db.rollback()
+	return audit_log(log_type, doctype_target, doc_name, action_text=action_text,
+					 field_changed=field_changed, old_value=old_value,
+					 new_value=new_value, reason=reason, user=user, commit=True)
 
 
 # ---- doc_events 全量捕获（创建 / 修改 / 删除） ----
