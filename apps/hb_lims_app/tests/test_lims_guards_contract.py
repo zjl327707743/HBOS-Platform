@@ -90,7 +90,7 @@ class TestFieldSetContract(unittest.TestCase):
 		))
 		self.assertEqual(wf.HBOS_COA_SYSTEM_FIELDS, (
 			"report_status", "qa_reviewer", "qa_reviewed_at",
-			"published_by", "published_at", "pdf_attachment",
+			"published_by", "published_at", "pdf_attachment", "content_fingerprint",
 		))
 		self.assertEqual(wf.HBOS_SPECIFICATION_SYSTEM_FIELDS,
 						 ("status", "effective_date", "supersedes"))

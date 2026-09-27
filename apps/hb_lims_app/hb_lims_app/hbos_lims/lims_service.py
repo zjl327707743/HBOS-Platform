@@ -839,6 +839,29 @@ def _coa_item_from_result(result_name):
 	}
 
 
+# 内容指纹覆盖的字段：改动此处须同步 `HBOSCOA._validate_locked_after_review` 的冻结集
+COA_FINGERPRINT_FIELDS = ("sample", "batch_no", "material_code", "material_name",
+						  "spec_version", "remarks")
+COA_FINGERPRINT_ITEM_FIELDS = ("test_item", "item_name", "method_sop", "standard",
+							   "result", "verdict", "remark")
+
+
+def _coa_content_fingerprint(coa):
+	"""COA 快照内容指纹（sha256）：报告头 + 按行序的项目明细（L10-P0-05）。
+
+	用途是「结构化内容与发布 PDF 属同一版本」的**完整性校验**：指纹在发布时固化，
+	事后重算，能检出绕过 `validate()` 的低层直写（`frappe.db.set_value` / 裸 SQL）。
+
+	**不是防篡改证据**：指纹与内容同库同行，有 DB 直写权限者可以同时改写两者。
+	性质与 L10-P0-02 对 checksum 的口径一致，不得据此宣称强防篡改。
+	"""
+	parts = ["hbos-coa-v1"]
+	parts.extend(str(coa.get(field) or "") for field in COA_FINGERPRINT_FIELDS)
+	for row in coa.items:
+		parts.extend(str(row.get(field) or "") for field in COA_FINGERPRINT_ITEM_FIELDS)
+	return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
 @frappe.whitelist()
 def review_coa(coa_name):
 	"""QA 审核（Reviewer / Manager）：草稿 -> 已审核。"""
@@ -884,6 +907,7 @@ def publish_coa(coa_name):
 		})
 		file_doc.insert(ignore_permissions=True)
 
+		coa.content_fingerprint = _coa_content_fingerprint(coa)
 		coa.pdf_attachment = file_doc.file_url
 		coa.report_status = "已发布"
 		coa.published_by = _user()
@@ -895,6 +919,28 @@ def publish_coa(coa_name):
 	except Exception:
 		_rollback()
 		raise
+
+
+@frappe.whitelist()
+def verify_coa_content(coa_name):
+	"""校验 COA 结构化内容与发布时固化的内容指纹是否一致（只读，L10-P0-05）。
+
+	发布 PDF 由发布时的内容渲染归档，内容又在审核后冻结，因此 `ok=True` 即表示
+	「归档 PDF 与当前结构化内容同属一个版本」。未记录指纹的 COA（本机制启用前
+	发布）返回 `ok=False` 并据实说明无法校验，不伪装成通过。
+
+	返回 {"ok": bool, "stored": str, "actual": str, "reason": str}。
+	"""
+	_check_action("verify_coa_content")
+	coa = frappe.get_doc("HBOS COA", coa_name)
+	actual = _coa_content_fingerprint(coa)
+	stored = (coa.content_fingerprint or "").strip()
+	if not stored:
+		return {"ok": False, "stored": "", "actual": actual,
+				"reason": "该 COA 发布时尚未记录内容指纹（完整性校验启用前），无法校验。"}
+	ok = stored == actual
+	return {"ok": ok, "stored": stored, "actual": actual,
+			"reason": "" if ok else "结构化内容与发布时固化的内容指纹不一致。"}
 
 
 @frappe.whitelist()

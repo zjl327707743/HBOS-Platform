@@ -65,7 +65,7 @@ HBOS_TEST_RESULT_SYSTEM_FIELDS = (
 
 HBOS_COA_SYSTEM_FIELDS = (
 	"report_status", "qa_reviewer", "qa_reviewed_at",
-	"published_by", "published_at", "pdf_attachment",
+	"published_by", "published_at", "pdf_attachment", "content_fingerprint",
 )
 
 HBOS_SPECIFICATION_SYSTEM_FIELDS = ("status", "effective_date", "supersedes")
@@ -211,6 +211,8 @@ ACTION_ROLES = {
 	"obsolete_specification": {ROLE_MANAGER, ROLE_SYSTEM},
 	# 检验结果台账聚合查询（只读，所有 LIMS 角色 + System）
 	"get_result_ledger": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	# COA 内容完整性校验（只读，L10-P0-05）
+	"verify_coa_content": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	# 留样板块 R7A（方案 6.3 动作矩阵，角色方案 B）
 	"register_retention": {ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
 	"adjust_stock": {ROLE_MANAGER, ROLE_SYSTEM},

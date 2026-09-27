@@ -78,16 +78,22 @@ def guard_snapshot_frozen(doc, fields, flag_field="snapshot_frozen"):
 			)
 
 
-def guard_content_frozen(doc, fields, statuses, table_fields=(), status_field="status"):
+def guard_content_frozen(doc, fields, statuses, table_fields=(), status_field="status",
+						 ordered_table_fields=(), remedy=""):
 	"""受控状态内容冻结守卫：状态进入受控取值后，内容字段与子表整体只读。
 
 	与 `guard_snapshot_frozen` 同一语义，区别是触发条件为「状态字段取值」而非布尔
-	冻结标志（如质量标准 `status ∈ {已生效, 已废止}`），用于堵住「已生效内容被原地
-	改而版本号不变」——即同一版本号代表两份内容（L10-P0-04）。
+	冻结标志（如质量标准 `status ∈ {已生效, 已废止}`、COA `report_status ∈
+	{已审核, 已发布}`），用于堵住「受控快照被原地改而版本号/状态不变」——同一版本
+	标识代表两份内容（L10-P0-04 / L10-P0-05）。
 
 	**不设特权旁路**：与 `guard_snapshot_frozen` 一致，只有带 `allow_system_fields`
 	的业务服务写入可改，Administrator 亦不例外 —— 受控文件生效后任何改动都须走
-	升版生成新版本。子表按行内容比较（`_table_signature`），行序变化不算改动。
+	受控流程生成新版本。
+
+	`table_fields` 的行序变化不算改动；`ordered_table_fields` 连行序一并比对
+	（顺序本身有语义时用，如 COA 报告书的项目排列）。`remedy` 用于在报错里指明
+	正确的变更途径（升版 / 作废重出）。
 	"""
 	before = doc.get_doc_before_save()
 	if not before or doc.flags.get("allow_system_fields"):
@@ -95,22 +101,33 @@ def guard_content_frozen(doc, fields, statuses, table_fields=(), status_field="s
 	current = str(before.get(status_field) or "")
 	if current not in statuses:
 		return
+	suffix = "；如需变更请{}".format(remedy) if remedy else ""
 	for field in fields:
 		if str(before.get(field) or "") != str(doc.get(field) or ""):
 			frappe.throw(
-				"字段「{}」在状态「{}」下不可修改；如需变更请升版生成新版本（L10-P0-04）。".format(
-					doc.meta.get_label(field), current))
+				"字段「{}」在状态「{}」下不可修改{}。".format(
+					doc.meta.get_label(field), current, suffix))
 	for table_field in table_fields:
-		child_doctype = frappe.get_meta(doc.doctype).get_field(table_field).options
-		if _table_signature(before.get(table_field), child_doctype) != \
-				_table_signature(doc.get(table_field), child_doctype):
-			frappe.throw(
-				"子表「{}」在状态「{}」下不可增删改；如需变更请升版生成新版本（L10-P0-04）。".format(
-					doc.meta.get_label(table_field), current))
+		_assert_table_frozen(doc, before, table_field, current, suffix, sort=True)
+	for table_field in ordered_table_fields:
+		_assert_table_frozen(doc, before, table_field, current, suffix, sort=False)
 
 
-def _table_signature(rows, child_doctype):
-	"""子表内容指纹：按行内容排序拼接，用于判断「行是否被增删改」（行序变化不算）。"""
+def _assert_table_frozen(doc, before, table_field, current, suffix, sort):
+	child_doctype = frappe.get_meta(doc.doctype).get_field(table_field).options
+	if _table_signature(before.get(table_field), child_doctype, sort=sort) != \
+			_table_signature(doc.get(table_field), child_doctype, sort=sort):
+		what = "不可增删改" if sort else "不可增删改（含顺序）"
+		frappe.throw("子表「{}」在状态「{}」下{}{}。".format(
+			doc.meta.get_label(table_field), current, what, suffix))
+
+
+def _table_signature(rows, child_doctype, sort=True):
+	"""子表内容指纹：按行内容拼接，用于判断「行是否被增删改」。
+
+	`sort=True`（默认）忽略行序，只比行的集合；`sort=False` 连行序一并比
+	（顺序本身有语义时用，如 COA 报告书的项目排列）。
+	"""
 	if not rows:
 		return ""
 	fieldnames = [f.fieldname for f in frappe.get_meta(child_doctype).fields
@@ -118,7 +135,7 @@ def _table_signature(rows, child_doctype):
 	lines = []
 	for row in rows:
 		lines.append("|".join(str(row.get(f) or "") for f in fieldnames))
-	return "\n".join(sorted(lines))
+	return "\n".join(sorted(lines) if sort else lines)
 
 
 def guard_child_table_frozen(doc, table_field):

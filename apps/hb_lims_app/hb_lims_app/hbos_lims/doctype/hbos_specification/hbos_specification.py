@@ -44,7 +44,8 @@ class HBOSSpecification(Document):
 		guard_system_fields(self, wf.HBOS_SPECIFICATION_SYSTEM_FIELDS)
 		# 已生效/已废止后内容整体冻结：堵住「原地改内容、版本号不变」
 		guard_content_frozen(self, SPEC_CONTENT_FIELDS, SPEC_CONTENT_FROZEN_STATUSES,
-							 table_fields=SPEC_CONTENT_TABLE_FIELDS)
+							 table_fields=SPEC_CONTENT_TABLE_FIELDS,
+							 remedy="升版生成新版本（L10-P0-04）")
 		self._validate_unique_version()
 		self._validate_limits()
 

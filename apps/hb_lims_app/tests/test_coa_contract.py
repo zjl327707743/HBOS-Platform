@@ -2,13 +2,18 @@
 """M2-R4 COA 与报表契约测试：COA DocType / Print Format / 4 个报表 / COA 服务方法（源码即文档）。"""
 
 import json
+import sys
 import unittest
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(APP_ROOT))
+
 HBOS_LIMS = APP_ROOT / "hb_lims_app" / "hbos_lims"
 SERVICE = HBOS_LIMS / "lims_service.py"
 REPORT_DIR = HBOS_LIMS / "report"
+
+from hb_lims_app.hbos_lims import workflow_contract as wf
 
 
 class TestCOAServiceContract(unittest.TestCase):
@@ -78,11 +83,42 @@ class TestCOADoctypeContracts(unittest.TestCase):
         self.assertEqual(fields["pdf_attachment"]["fieldtype"], "Attach")
         self.assertEqual(fields["pdf_attachment"]["read_only"], 1)
 
+    def test_coa_content_fingerprint_field(self):
+        """内容指纹：只读，由服务在发布时固化（L10-P0-05）。"""
+        fields = self._fields(self.coa)
+        self.assertEqual(fields["content_fingerprint"]["fieldtype"], "Data")
+        self.assertEqual(fields["content_fingerprint"]["read_only"], 1)
+
     def test_coa_validate_locks_snapshot(self):
+        """审核/发布后整份快照冻结：头字段 + 备注 + items 每行内容与行序（L10-P0-05）。"""
         source = (HBOS_LIMS / "doctype" / "hbos_coa" / "hbos_coa.py").read_text(encoding="utf-8")
         self.assertIn("def _validate_locked_after_review(self):", source)
         self.assertIn("COA_LOCKED_FIELDS", source)
-        self.assertIn("检验项目明细不可增删", source)
+        self.assertIn("guard_content_frozen(self, COA_LOCKED_FIELDS, COA_FROZEN_STATUSES", source)
+        self.assertIn("ordered_table_fields=COA_ITEM_TABLE_FIELDS", source)
+        # 受控状态须同时覆盖审核与发布两个终态
+        self.assertIn("COA_FROZEN_STATUSES = (COA_STATUS_REVIEWED, COA_STATUS_PUBLISHED)", source)
+
+    def test_coa_snapshot_covers_all_business_content(self):
+        """冻结集覆盖报告头与备注；判据为保存前状态（原实现判当前状态，状态回退即可绕过）。"""
+        source = (HBOS_LIMS / "doctype" / "hbos_coa" / "hbos_coa.py").read_text(encoding="utf-8")
+        self.assertIn('"sample", "batch_no", "material_code", "material_name"', source)
+        self.assertIn('"spec_version", "remarks"', source)
+        self.assertIn('status_field="report_status"', source)
+
+    def test_coa_content_fingerprint_recorded_and_verifiable(self):
+        """发布时固化内容指纹，并提供只读校验接口（L10-P0-05）。"""
+        source = SERVICE.read_text(encoding="utf-8")
+        self.assertIn("def _coa_content_fingerprint(coa):", source)
+        self.assertIn("hashlib.sha256", source)
+        self.assertIn("coa.content_fingerprint = _coa_content_fingerprint(coa)", source)
+        self.assertIn("def verify_coa_content(coa_name):", source)
+        idx = source.index("def verify_coa_content")
+        self.assertIn("@frappe.whitelist()", source[max(0, idx - 200):idx])
+        self.assertIn('_check_action("verify_coa_content")', source)
+        # 指纹字段属系统字段：只能由服务写入，不随内容一起被改
+        self.assertIn("content_fingerprint", wf.HBOS_COA_SYSTEM_FIELDS)
+        self.assertIn("verify_coa_content", wf.ACTION_ROLES)
 
 
 class TestPrintFormatContract(unittest.TestCase):
