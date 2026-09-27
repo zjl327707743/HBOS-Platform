@@ -34,19 +34,16 @@ PROTOCOL_SYSTEM_FIELDS = (
 )
 
 
-def _privileged():
-	"""Only the built-in Administrator is a technical break-glass principal.
-
-	System Manager is an operations role, not a quality approver, and must not bypass
-	LIMS state/signature guards merely because it can administer the site.
-	"""
-	return frappe.session.user == "Administrator"
-
-
 def guard_system_fields(doc, fields):
-	"""系统字段守卫：非特权用户且未经服务授权时，系统字段不得变化。"""
+	"""系统字段守卫：系统字段只能由业务服务写入。
+
+	**无角色旁路**（L10-P0-06）：技术管理员（System Manager / Administrator）不是质量
+	批准人，不得凭身份直接改状态 / 签署 / 版本链。唯一的合法写入途径是带
+	`allow_system_fields` 的业务服务；确需技术干预时走
+	`lims_service.break_glass_update()`（显式、必填理由、全程留痕）。
+	"""
 	before = doc.get_doc_before_save()
-	if _privileged() or doc.flags.get("allow_system_fields"):
+	if doc.flags.get("allow_system_fields"):
 		return
 	if not before:
 		# 新建时没有 before 文档，仍须禁止通过通用 insert 伪造审批/状态。
@@ -82,8 +79,56 @@ def guard_snapshot_frozen(doc, fields, flag_field="snapshot_frozen"):
 			)
 
 
-def _table_signature(rows, child_doctype):
-	"""子表内容指纹：按行内容排序拼接，用于判断「行是否被增删改」（行序变化不算）。"""
+def guard_content_frozen(doc, fields, statuses, table_fields=(), status_field="status",
+						 ordered_table_fields=(), remedy=""):
+	"""受控状态内容冻结守卫：状态进入受控取值后，内容字段与子表整体只读。
+
+	与 `guard_snapshot_frozen` 同一语义，区别是触发条件为「状态字段取值」而非布尔
+	冻结标志（如质量标准 `status ∈ {已生效, 已废止}`、COA `report_status ∈
+	{已审核, 已发布}`），用于堵住「受控快照被原地改而版本号/状态不变」——同一版本
+	标识代表两份内容（L10-P0-04 / L10-P0-05）。
+
+	**不设特权旁路**：与 `guard_snapshot_frozen` 一致，只有带 `allow_system_fields`
+	的业务服务写入可改，Administrator 亦不例外 —— 受控文件生效后任何改动都须走
+	受控流程生成新版本。
+
+	`table_fields` 的行序变化不算改动；`ordered_table_fields` 连行序一并比对
+	（顺序本身有语义时用，如 COA 报告书的项目排列）。`remedy` 用于在报错里指明
+	正确的变更途径（升版 / 作废重出）。
+	"""
+	before = doc.get_doc_before_save()
+	if not before or doc.flags.get("allow_system_fields"):
+		return
+	current = str(before.get(status_field) or "")
+	if current not in statuses:
+		return
+	suffix = "；如需变更请{}".format(remedy) if remedy else ""
+	for field in fields:
+		if str(before.get(field) or "") != str(doc.get(field) or ""):
+			frappe.throw(
+				"字段「{}」在状态「{}」下不可修改{}。".format(
+					doc.meta.get_label(field), current, suffix))
+	for table_field in table_fields:
+		_assert_table_frozen(doc, before, table_field, current, suffix, sort=True)
+	for table_field in ordered_table_fields:
+		_assert_table_frozen(doc, before, table_field, current, suffix, sort=False)
+
+
+def _assert_table_frozen(doc, before, table_field, current, suffix, sort):
+	child_doctype = frappe.get_meta(doc.doctype).get_field(table_field).options
+	if _table_signature(before.get(table_field), child_doctype, sort=sort) != \
+			_table_signature(doc.get(table_field), child_doctype, sort=sort):
+		what = "不可增删改" if sort else "不可增删改（含顺序）"
+		frappe.throw("子表「{}」在状态「{}」下{}{}。".format(
+			doc.meta.get_label(table_field), current, what, suffix))
+
+
+def _table_signature(rows, child_doctype, sort=True):
+	"""子表内容指纹：按行内容拼接，用于判断「行是否被增删改」。
+
+	`sort=True`（默认）忽略行序，只比行的集合；`sort=False` 连行序一并比
+	（顺序本身有语义时用，如 COA 报告书的项目排列）。
+	"""
 	if not rows:
 		return ""
 	fieldnames = [f.fieldname for f in frappe.get_meta(child_doctype).fields
@@ -91,7 +136,7 @@ def _table_signature(rows, child_doctype):
 	lines = []
 	for row in rows:
 		lines.append("|".join(str(row.get(f) or "") for f in fieldnames))
-	return "\n".join(sorted(lines))
+	return "\n".join(sorted(lines) if sort else lines)
 
 
 def guard_child_table_frozen(doc, table_field):
@@ -100,7 +145,7 @@ def guard_child_table_frozen(doc, table_field):
 	仅在文档已有前值（非首次插入）时生效；业务服务写入前须置 `allow_system_fields`。
 	"""
 	before = doc.get_doc_before_save()
-	if not before or _privileged() or doc.flags.get("allow_system_fields"):
+	if not before or doc.flags.get("allow_system_fields"):
 		return
 	child_doctype = frappe.get_meta(doc.doctype).get_field(table_field).options
 	if _table_signature(before.get(table_field), child_doctype) != \
@@ -191,11 +236,15 @@ EQUIPMENT_SYSTEM_FIELDS = ("status", "last_fault_date")
 
 
 def _audit_delete_block(doctype, doc_name, action_text, reason):
-	"""删除拦截审计事务内记录（方案 8.7）：不随 frappe.throw 的回滚丢失。"""
-	from hb_lims_app.hbos_lims.lims_service import audit_log
+	"""删除拦截审计（方案 8.7）：先回滚未提交业务写入，再独立提交留痕（L10-P0-01）。
+
+	本函数在 `on_trash` 钩子内执行，同一事务中可能已有上层待写内容；直接
+	`frappe.db.commit()` 会把它们一并提交，故改由 `audit_violation()` 先回滚。
+	"""
+	from hb_lims_app.hbos_lims.lims_service import audit_violation
 	try:
-		audit_log("删除拦截", doctype, doc_name, action_text=action_text,
-				  reason=reason, commit=False)
+		audit_violation("删除拦截", doctype, doc_name, action_text=action_text,
+						reason=reason)
 	except Exception as exc:
 		frappe.log_error("删除拦截审计写入失败：{}".format(exc), "HBOS Stability 删除审计")
 

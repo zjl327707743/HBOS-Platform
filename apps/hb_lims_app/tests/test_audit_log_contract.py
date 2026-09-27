@@ -109,5 +109,69 @@ class TestAuditLogService(unittest.TestCase):
         self.assertIn('["checksum", "like", kw]', source)
 
 
+def _tuple_literal(source, name):
+    """取源码里某个 `X = (…)` 的字符串字面量集合（离线、不导入模块）。"""
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Assign) and any(
+                getattr(target, "id", None) == name for target in node.targets):
+            return {element.value for element in node.value.elts}
+    raise AssertionError("未找到常量 " + name)
+
+
+class TestAuditIntegrityContract(unittest.TestCase):
+    """L10-P0-02：指纹语义与版本、锚定接线、以及不得再宣称「防篡改」。"""
+
+    def test_v2_checksum_covers_the_fields_v1_missed(self):
+        """v2 必须覆盖 action_text / field_changed / reason —— v1 正是漏了这三个。"""
+        source = SERVICE.read_text(encoding="utf-8")
+        self.assertIn("hashlib.sha256", source)
+        v2 = _tuple_literal(source, "CHECKSUM_V2_FIELDS")
+        v1 = _tuple_literal(source, "CHECKSUM_V1_FIELDS")
+        for field in ("action_text", "field_changed", "reason"):
+            self.assertIn(field, v2, f"v2 必须覆盖 {field}")
+            self.assertNotIn(field, v1, f"v1 是历史算法，不应改动（{field}）")
+        # v1 的原覆盖字段须保留，历史行才仍可按旧算法校验
+        for field in ("doctype_target", "doc_name", "log_type", "user", "created_at",
+                      "old_value", "new_value"):
+            self.assertIn(field, v1)
+
+    def test_rows_record_checksum_version(self):
+        source = SERVICE.read_text(encoding="utf-8")
+        self.assertIn('CHECKSUM_VERSION_CURRENT = "2"', source)
+        self.assertIn('payload["checksum_version"] = CHECKSUM_VERSION_CURRENT', source)
+        self.assertIn("def verify_audit_integrity(name=None, limit=200):", source)
+
+    def test_no_tamper_proof_claim_in_code(self):
+        source = SERVICE.read_text(encoding="utf-8")
+        self.assertNotIn("防篡改标记", source)
+        self.assertIn("不是防篡改证据", source)
+
+    def test_no_tamper_proof_claim_in_entry_docs_and_ui(self):
+        """公共入口与用户可见文案不得再把审计机制说成防篡改（逐条点名，避免再漂）。"""
+        repo = APP_ROOT.parents[1]
+        targets = [(repo / rel) for rel in (
+            "README.md", "docs/AI_CONTEXT.md", "docs/CURRENT_MILESTONE.md",
+            "docs/milestones/README.md", "frontend/hbos-lims-web/src/views/AuditLogView.vue")]
+        if not all(path.exists() for path in targets):
+            self.skipTest("仓库根未挂载（容器内只挂 apps/），该检查仅在宿主机生效")
+        for path in targets:
+            self.assertNotIn("防篡改", path.read_text(encoding="utf-8"),
+                             f"{path.relative_to(repo)} 仍宣称防篡改")
+
+    def test_anchor_module_wired_and_disclaims(self):
+        anchor = APP_ROOT / "hb_lims_app" / "hbos_lims" / "audit_anchor_service.py"
+        self.assertTrue(anchor.exists(), "缺少审计锚定模块")
+        src = anchor.read_text(encoding="utf-8")
+        self.assertIn("def verify_anchor_at(", src)
+        self.assertIn("不得据此宣称强防篡改", src)
+        self.assertIn("hb_lims_app.hbos_lims.audit_anchor_service.scheduler_scan",
+                      HOOKS.read_text(encoding="utf-8"))
+
+    def test_verify_actions_registered(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn('"verify_audit_integrity"', workflow)
+        self.assertIn('"verify_audit_anchor"', workflow)
+
+
 if __name__ == "__main__":
     unittest.main()

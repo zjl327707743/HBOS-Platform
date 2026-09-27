@@ -53,19 +53,22 @@ HBOS_SAMPLE_SYSTEM_FIELDS = ("status", "oos_locked")
 
 HBOS_SAMPLE_TASK_SYSTEM_FIELDS = ("status", "assignee", "assigned_by", "assigned_date", "result")
 
+# `analyst` 同为签署归属字段：检验人只能由业务服务在创建检测记录时写入
+# （原实现未列入守卫，草稿态可被直改，令 SoD（复核人≠检验人）形同虚设；
+# 稳定性结果字段集早已守卫其 analyst，此处对齐 —— L10-P0-03）。
 HBOS_TEST_RESULT_SYSTEM_FIELDS = (
 	"result_status", "is_oos_candidate", "superseded_by",
-	"submitted_signature", "submitted_at",
+	"analyst", "submitted_signature", "submitted_at",
 	"reviewer", "reviewed_signature", "reviewed_at",
 	"approver", "approved_signature", "approved_at",
 )
 
 HBOS_COA_SYSTEM_FIELDS = (
 	"report_status", "qa_reviewer", "qa_reviewed_at",
-	"published_by", "published_at", "pdf_attachment",
+	"published_by", "published_at", "pdf_attachment", "content_fingerprint",
 )
 
-HBOS_SPECIFICATION_SYSTEM_FIELDS = ("status", "effective_date")
+HBOS_SPECIFICATION_SYSTEM_FIELDS = ("status", "effective_date", "supersedes")
 
 # 留样状态（M2-R7，方案 6.1 rev6）
 RET_IN_STOCK = "在库"
@@ -211,6 +214,13 @@ ACTION_ROLES = {
 	"obsolete_specification": {ROLE_MANAGER},
 	# 检验结果台账聚合查询（只读，所有 LIMS 角色 + System）
 	"get_result_ledger": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	# COA 内容完整性校验（只读，L10-P0-05）
+	"verify_coa_content": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	# 应急处置（break-glass）：仅技术管理员，非质量批准权限（L10-P0-06）
+	"break_glass_update": {ROLE_SYSTEM},
+	# 审计完整性校验与锚定对账（只读，L10-P0-02）
+	"verify_audit_integrity": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	"verify_audit_anchor": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	# 留样板块 R7A（方案 6.3 动作矩阵，角色方案 B）
 	"register_retention": {ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
 	"adjust_stock": {ROLE_MANAGER, ROLE_SYSTEM},
@@ -427,7 +437,9 @@ def action_allowed(action, actor_role, scope=None):
 	真正的技术 break-glass 仅保留给内建 Administrator，并由字段守卫/审计单独处理。
 	"""
 	if actor_role == ROLE_SYSTEM and not str(action or "").startswith("get_"):
-		return False
+		# 例外：`break_glass_update` 不是质量业务动作，而是技术运维的**受审计**逃生口
+		# （L10-P0-06：系统字段守卫不设角色旁路，技术干预只能走它；必填理由、逐字段留痕）。
+		return action == "break_glass_update"
 	if scope:
 		scoped = SCOPED_ACTION_ROLES.get((scope, action))
 		if scoped is not None:

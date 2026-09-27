@@ -18,6 +18,7 @@
   "published_by",
   "published_at",
   "pdf_attachment",
+  "content_fingerprint",
   "items_section",
   "items",
   "remarks"
@@ -104,6 +105,12 @@
    "fieldname": "pdf_attachment",
    "fieldtype": "Attach",
    "label": "PDF报告",
+   "read_only": 1
+  },
+  {
+   "fieldname": "content_fingerprint",
+   "fieldtype": "Data",
+   "label": "内容指纹",
    "read_only": 1
   },
   {

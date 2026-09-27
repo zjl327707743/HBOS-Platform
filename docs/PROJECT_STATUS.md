@@ -12,6 +12,57 @@
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
 - 下一步路线：M1-FIX-F 两阶段均已上线；**建议下一轮优先处理「分机实施前数据修复」**（含 8/14 的 223 条错误缺勤与 `pairing.py` 设备方向判定的按天改造）与台账 #10「重算幂等改造」（本轮已实际踩中其地雷）；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`。
 
+## PR #10 审计整改（LIMS，集成分支 `integration/pr10-lims-clean`）
+
+状态：**已完成 8 条并实机验证；与 `main` 的平台集成已完成对账**。本地分支，尚未推送。
+
+背景：GitHub 合并审核 `docs/governance/PR10_LIMS_DEEP_AUDIT.md`（审计对象 PR #10 =
+`codex/m2-r8-public-pr` @ `59f7abe`，为压缩快照）给出 15 条 P0 + 5 条 P1。审计针对该快照；而
+`main` 其后长出平台集成（自 `f07fc8c` 起：Attendance / Inventory / LIMS 三 App + `services/hbos_ocr`
++ `scripts/ci/*` clean-site 冒烟 + 5 条 CI 工作流），**已独立解决其中多条**，故剩余清单比 20 条小得多。
+
+本轮在 `m2-r8` 上完成 8 条（各含实机用例与「修复前失败 / 修复后通过」反向验证）：
+**P0-01** 违规拦截审计改为「先回滚未提交业务写入、再独立提交留痕」（`21b4017`）；**P0-03** 普通
+检验结果链补 SoD + 代提交受控理由（`bfcb4c5`）；**P0-04** 质量标准生效后内容冻结 + 升版须留
+`supersedes` 血缘（`acd03b6`）；**P0-05** COA 审核/发布后整份快照冻结（含行序）+ 发布固化内容
+指纹 + 只读校验（`81c61b0`）；**P0-06** 取消系统字段守卫的全部角色旁路 + 受审计
+`break_glass_update`（`481c31a`）；**P0-02** 审计指纹升 sha256 全字段 + 逐行版本 + 数据库之外的
+外部锚定 `audit_anchor_service`（`7d5bb1d`）；**P0-07** 签署能力收窄命名 + 能力边界声明
+（`f60a95b`）；**P0-11** COA 独立动作矩阵 + 发布 SoD（`517f0ba`）。
+
+**与 main 的对账（本次集成的核心发现）**：main 已独立解决 **P0-08**（`HBOS Sample.item_ref` /
+`batch_ref` Link 字段）、**P0-09**（`g3_integration_checks`）、**P0-10**（`release_sample` 前置
+「必须存在已发布 COA 且含归档 PDF」）、**P0-12**（`required_apps = ["frappe", "erpnext"]`）、
+**P0-13**（compose 安装 erpnext + hrms + attendance + inventory + lims 五 App）、**P0-14**
+（Compose `hbos-web-prepare` 构建 SPA 到命名卷、frontend 只读挂载，不再是运行时 `docker cp`）、
+**P0-15**（5 条 CI 工作流，`lims-integration-gate` 跑 LIMS pytest、`platform-integration-gate`
+跑 `npm test:unit` 与 `build:prod`），以及 **P1-01**（判定与公式全程 `Decimal`）；并对
+P0-01/02/04/05/06/11 各有部分实现（违规审计改为不提交、sha256 全字段但无版本标记、COA 子表内容
+比对、标准生效后不可改、移除 System Manager 旁路但保留内建 Administrator、COA 独立动作）。
+
+**集成处置**：新建 `integration/pr10-lims-clean`（沿用审计 §5 命名）以 `origin/main` 为基底，
+套用 `m2-r8` 的 60 文件改动，手工处置 **17 个重叠文件 / 38 处冲突**，取舍口径：
+- 保留我方更完整者：`audit_violation`（业务全弃 + 审计留存，满足 DoD；main 的「不提交」使违规
+  记录随回滚丢失）、指纹版本分发（main 改了算法却无版本标记，会让站点 8106 行历史指纹失配）、
+  共享 `guard_content_frozen`（含行序；main 的同名方法漏了子表 `remark`，其死代码已删除）、
+  `break_glass_update`、COA 独立动作矩阵与发布 SoD。
+- 采纳 main 更严或更贴合平台者：`action_allowed` 的「System Manager 只能执行 `get_*`」规则
+  （**并为其加 `break_glass_update` 例外**，否则逃生口不可用）、批准 SoD 收紧为「批准人同时区别
+  于检验人和复核人」、规格动作去掉 `ROLE_SYSTEM`、COA 动作角色集、CI 工作流与文档主体。
+- 消除并存：合并后一度存在**两套 SoD 机制**（main 的 `_reject_sod` 走 `log_error` +
+  `PermissionError`；我方走 `HBOS Audit Log`）——统一为我方（审计要求「SoD 拦截必须测试并审计」，
+  只有写入审计表才可查），删除 main 的助手；`audit_log` 保留 main 的「不自行提交」，把独立提交的
+  责任收归 `audit_violation`。
+
+**验证（集成后）**：主机离线 **429 passed / 33 skipped**；容器内全套（排除容器未挂载 `frontend/`
+与仓库根而无法运行的两个前端契约文件、两个仓库根文案检查）**427 passed + 2 skipped +
+10 subtests**；前端单测 **10 passed**、`vue-tsc` 与构建通过。
+
+**仍未处理**：**P1-02**（独立前端路由未登录仍进 Shell）、**P1-03**（projection API 用
+`frappe.get_all` 绕 DocType 权限）、**P1-04**（Frappe sidebar workaround 未版本化）、**P1-05**
+（删除策略未统一）—— 四处两边都未动。**待办**：COA 作废/重出出口（P0-05 时按决定另立一轮；
+站点上 `HBOS-SMP-2026-00003` 名下已有 4 份「已发布」COA 无法区分失效）。
+
 ## M1-FIX-F 状态
 
 状态：**REVIEWING**（**第一、二阶段均已上线；整支复查已完成并处置**）。

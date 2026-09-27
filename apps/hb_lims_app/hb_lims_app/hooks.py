@@ -178,6 +178,7 @@ scheduler_events = {
 		"30 0 * * *": [
 			"hb_lims_app.hbos_lims.retention_service.scheduler_scan",
 			"hb_lims_app.hbos_lims.stability_service.scheduler_scan",
+			"hb_lims_app.hbos_lims.audit_anchor_service.scheduler_scan",
 		],
 	},
 }

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""LIMS 检验流程业务服务（Frappe 层）：状态流转 + 自动判定 + 用户签署记录 + 修订留痕。
+"""LIMS 检验流程业务服务（Frappe 层）：状态流转 + 自动判定 + 操作签署 + 修订留痕。
 
 约定：
 - 所有公开方法为 @frappe.whitelist 模块级函数，入口先校验角色（only_for）。
@@ -17,8 +17,9 @@ import frappe
 from hb_lims_app.hbos_lims import result_contract as rc
 from hb_lims_app.hbos_lims import stability_contract as stb
 from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.guards import system_fields_for
 
-# 用户签署记录含义（当前为会话用户 + 时间归属，不宣称完整电子签名合规）
+# 签署含义（检验人 / 复核人 / 批准人）
 SIGN_ANALYST = "检验人"
 SIGN_REVIEWER = "复核人"
 SIGN_APPROVER = "批准人"
@@ -32,7 +33,20 @@ def _now():
 	return frappe.utils.now_datetime()
 
 
+# 操作签署（记录可归属）——**能力边界**（Owner 2026-09-15 决策路线 ①；与稳定性方案 §8.2 同一口径）：
+# 本模块写入的是「含义串 + 用户 + 时间」的**展示型签署记录**，把操作归属到具体的人，配合
+# 审计追踪（HBOS Audit Log）形成「记录可归属、可追溯」。它**不等同** 21 CFR Part 11 /
+# EU GMP Annex 11 规定的合规电子签名：无签署时重新认证、未与记录做密码学绑定、无不可抵赖
+# 证据，故不构成合规生产放行依据 —— 用于放行的报告仍需按现行纸质签批流程补签（COA 打印模板
+# 的检验人 / 复核人签字栏即为此保留）。
+# 之所以仍保留这一形状：各签署点已按「含义串 + 用户 + 时间」结构化，平台后续统一专项实施
+# 路线 ②（重新认证 + 密码学绑定 / PKI / 国密 SM2 / 签名验证报告 / CSV）时，只需替换本函数
+# 一处实现，业务逻辑无需重构。
 def _signature(meaning):
+	"""生成一条操作签署串（含义 + 操作人 + 时间）。
+
+	**不是 GMP 合规电子签名**，属操作归属记录；见上方能力边界说明。
+	"""
 	return f"{meaning}: {_user()} @ {_now():%Y-%m-%d %H:%M:%S}"
 
 
@@ -46,6 +60,49 @@ def _set_status(doc, flow, current, target):
 	if not wf.can_transition(flow, current, target):
 		frappe.throw(f"非法状态流转：{current} -> {target}（{flow}）")
 	doc.status = target
+
+
+def _user_has_any(roles_required):
+	roles = frappe.get_roles(_user())
+	return any(role in roles for role in roles_required)
+
+
+def _sod_reject(doctype, doc_name, message, action_text, reason=""):
+	"""职责分离拦截：先留痕（业务全弃 + 审计留存）再抛错（L10-P0-03）。
+
+	与稳定性结果链同一处置口径（stability_service._reject）：审计写入本身失败
+	不得掩盖职责分离拒绝，降级为错误日志。
+	"""
+	try:
+		audit_violation("SoD 拦截", doctype, doc_name,
+						action_text=action_text, reason=reason or message)
+	except Exception as exc:
+		if hasattr(frappe, "log_error"):
+			frappe.log_error("SoD 拦截审计写入失败：{}".format(exc), "HBOS LIMS SoD 审计")
+	frappe.throw(message)
+
+
+def _guard_result_submitter(result, proxy_reason):
+	"""提交归属校验（L10-P0-03）：本人草稿，或 Manager 代提交且显式说明理由。
+
+	返回代提交理由（本人提交时返回空串），由调用方写入提交审计的 reason，
+	使「谁在替谁提交、为什么」可追溯。
+	"""
+	me = _user()
+	analyst = result.analyst
+	if not analyst or analyst == me:
+		return ""
+	if not _user_has_any([wf.ROLE_MANAGER, wf.ROLE_SYSTEM]):
+		_sod_reject(
+			result.doctype, result.name,
+			"只能提交本人的检验记录（检验人 {}）；他人代提交仅限 LIMS Manager。".format(analyst),
+			action_text="非检验人提交结果",
+			reason="检验人 {} 与提交人 {} 不同".format(analyst, me))
+	reason = (proxy_reason or "").strip()
+	if not reason:
+		frappe.throw("代检验人「{}」提交必须填写代提交理由（ALCOA：代操作须记录原因）。"
+					 .format(analyst))
+	return reason
 
 
 def _commit():
@@ -64,31 +121,46 @@ def _commit():
 
 AUDIT_EXCLUDE_DOCTYPES = {"HBOS Audit Log"}  # 审计日志自身不入日志（避免递归）
 
+# 指纹算法版本：v1 为历史行（sha1 / 7 字段），v2 为当前行（sha256 / 全字段）。
+# 逐行记版本，使历史行仍可按其原算法校验，而不是笼统标成"不可校验"。
+CHECKSUM_VERSION_CURRENT = "2"
+CHECKSUM_V1_FIELDS = ("doctype_target", "doc_name", "log_type", "user", "created_at",
+					  "old_value", "new_value")
+CHECKSUM_V2_FIELDS = ("log_type", "doctype_target", "doc_name", "action_text",
+					  "field_changed", "old_value", "new_value", "reason",
+					  "user", "created_at")
 
-def _checksum(payload):
-	"""应用级完整性指纹（SHA-256），不是独立的防篡改证明。
 
-	覆盖审计记录全部业务字段，用于发现应用层误修改。由于内容与指纹仍保存在
-	同一数据库中，数据库管理员仍可同时改写两者；正式不可抵赖证据需另行接入
-	append-only / HMAC / 外部锚定机制。
+def _checksum(payload, version=CHECKSUM_VERSION_CURRENT):
+	"""审计记录指纹（按版本分发）。
+
+	- **v2（当前，新行一律用）**：sha256，覆盖**全部**载荷字段（含 `action_text` /
+	  `field_changed` / `reason`）。v1 漏了这三个字段，改它们检不出来（L10-P0-02）。
+	- **v1（历史行，只读保留）**：sha1，仅覆盖 7 个字段。站点上已按此算法落库的
+	  8106 行仍用它校验；旧行仍可验，但覆盖范围有限，校验接口会单独统计 legacy。
+
+	性质是**完整性校验**，不是防篡改证据：指纹与内容同库同行，具备 DB 直写权限者
+	可以同时改写两者。跨库的删除 / 改写历史由 `audit_anchor_service` 的外部锚定检出。
 	"""
-	keys = (
-		"doctype_target", "doc_name", "log_type", "action_text", "field_changed",
-		"old_value", "new_value", "reason", "user", "created_at",
-	)
-	raw = "|".join(str(payload.get(k) or "") for k in keys)
-	return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+	if str(version) == "1":
+		raw = "|".join(str(payload.get(k) or "") for k in CHECKSUM_V1_FIELDS)
+		return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+	raw = "|".join(str(payload.get(k) or "") for k in CHECKSUM_V2_FIELDS)
+	return hashlib.sha256(("hbos-audit-v2|" + raw).encode("utf-8")).hexdigest()
 
 
 def audit_log(log_type, doctype_target, doc_name, action_text="", field_changed="",
 			  old_value="", new_value="", reason="", user=None, created_at=None,
 			  commit=False):
-	"""写入业务事务内审计事件。
+	"""写入一条合规审计事件（供系统钩子与业务方法内部调用）。
 
-	审计行与成功业务变更同一事务提交/回滚。commit 仅保留兼容旧调用，
-	不会在此执行 frappe.db.commit()，避免拒绝/SoD 路径意外提交当前请求里
-	尚未完成的业务修改。失败尝试若要求跨回滚留存，应走独立日志/Outbox。
-	"""
+	默认 **不提交**（commit=False）：审计写入与业务事务同成败，由调用方在业务
+	收尾处统一 `_commit()`。禁止在业务事务内部用裸 `frappe.db.commit()` 冒充
+	「独立提交」——它提交的是当前请求的整个事务，会把拦截前的部分业务写入一并
+	落库，使随后的 `frappe.throw()` 失去回滚意义（L10-P0-01）。
+
+	`commit` 参数为历史兼容 no-op（本函数不提交业务事务，与平台既有口径一致）；确需「即使业务回滚也必须留存」的拦截/违规审计，请改用 audit_violation()。
+	只允许 System Manager 手动调用；常规路径由 doc_events 与业务方法注入。"""
 	if user is None:
 		user = frappe.session.user
 	if not created_at:
@@ -107,12 +179,34 @@ def audit_log(log_type, doctype_target, doc_name, action_text="", field_changed=
 		"user": user,
 		"created_at": created_at,
 	}
-	payload["checksum"] = _checksum(payload)
+	payload["checksum"] = _checksum(payload, CHECKSUM_VERSION_CURRENT)
+	payload["checksum_version"] = CHECKSUM_VERSION_CURRENT
 	doc = frappe.get_doc(payload)
 	doc.flags.audit_immutable = True
 	doc.insert(ignore_permissions=True)
 	# 审计 helper 不得擅自提交当前业务事务；commit 参数为历史兼容 no-op。
 	return doc.name
+
+
+def audit_violation(log_type, doctype_target, doc_name, action_text="", field_changed="",
+					old_value="", new_value="", reason="", user=None):
+	"""拦截/违规审计：先丢弃当前事务未提交的业务写入，再独立落库（L10-P0-01）。
+
+	调用方必须在本函数返回后立即 `frappe.throw()`。语义是：这笔业务操作整体不
+	成立（业务对象保持原值），但违规尝试必须留痕。因此先 `rollback()` 丢弃业务
+	半成品，再以干净事务写入审计并提交，最后才由调用方抛错。
+
+	注：这是单连接上的「先回滚、再独立提交」，不是第二条数据库连接；对「业务
+	全弃 + 审计留存」这一目标等价，且避免双连接互相等锁。
+	"""
+	frappe.db.rollback()
+	name = audit_log(log_type, doctype_target, doc_name, action_text=action_text,
+					 field_changed=field_changed, old_value=old_value,
+					 new_value=new_value, reason=reason, user=user)
+	# 独立提交由本函数负责：`audit_log` 自身不提交（避免普通路径擅自提交业务事务），
+	# 而在违规路径上「业务已 rollback + 审计必须留存」正需要一次干净提交（L10-P0-01）。
+	frappe.db.commit()
+	return name
 
 
 # ---- doc_events 全量捕获（创建 / 修改 / 删除） ----
@@ -165,18 +259,6 @@ AUDIT_WATCHED_FIELDS = [
 
 def _rollback():
 	frappe.db.rollback()
-
-
-def _reject_sod(message, *, doctype="", doc_name=""):
-	"""Record a rejected separation-of-duties attempt without committing business data."""
-	try:
-		frappe.log_error(
-			title="HBOS LIMS SoD 拦截",
-			message=f"{doctype} {doc_name} · user={_user()} · {message}",
-		)
-	except Exception:
-		pass
-	frappe.throw(message, frappe.PermissionError)
 
 
 def _result_display_value(result):
@@ -448,15 +530,19 @@ def _create_result_for_task(task):
 
 @frappe.whitelist()
 def submit_result(result_name, raw_value=None, result_value=None, result_text=None,
-				  calc_input_json=None, calculation_used=None, instrument_used=None):
-	"""检验员提交结果：自动判定（含公式计算）、用户签署记录、OOS 候选锁定。"""
+				  calc_input_json=None, calculation_used=None, instrument_used=None,
+				  proxy_reason=None):
+	"""检验员提交结果：自动判定（含公式计算）、操作签署、OOS 候选锁定。
+
+	`proxy_reason`：仅当提交人不是该记录的检验人（Manager 代提交）时必填，
+	理由写入提交审计的 reason 字段（L10-P0-03）。
+	"""
 	_check_action("submit_result")
 	try:
 		result = frappe.get_doc("HBOS Test Result", result_name)
-		if result.analyst and result.analyst != _user() and "LIMS Manager" not in frappe.get_roles():
-			_reject_sod("普通检验员只能提交本人负责的检验结果。", doctype=result.doctype, doc_name=result.name)
 		if result.result_status != "草稿":
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅草稿可提交。")
+		proxy_reason = _guard_result_submitter(result, proxy_reason)
 		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
 		validate_standard_test_result_sync(result.name, target_status="已提交")
 
@@ -482,7 +568,7 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 		if verdict_en == rc.VERDICT_FAIL:
 			result.is_oos_candidate = 1
 
-		# 用户签署记录
+		# 操作签署（把操作归属到具体的人；非 GMP 合规电子签名，见模块顶部能力边界）
 		result.result_status = "已提交"
 		result.submitted_signature = _signature(SIGN_ANALYST)
 		result.submitted_at = _now()
@@ -494,11 +580,12 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 			audit_log("仪器使用", "Instrument", instrument_used,
 					  action_text=f"{result.item_name or result.test_item or ''} 使用仪器",
 					  user=result.analyst, commit=False)
-		# 合规审计：结果提交 + 自动判定
+		# 合规审计：结果提交 + 自动判定（代提交记明理由与真实操作人）
 		audit_log("提交", result.doctype, result.name,
-				  action_text=f"结果提交 · 自动判定 {result.verdict}",
+				  action_text=(f"Manager 代提交 · 自动判定 {result.verdict}" if proxy_reason
+							   else f"结果提交 · 自动判定 {result.verdict}"),
 				  field_changed="result_status", old_value="草稿", new_value="已提交",
-				  user=result.analyst, commit=False)
+				  reason=proxy_reason, user=_user(), commit=False)
 
 		# 联动任务与样品（修订后的新版本提交时任务可能已在目标状态，避免自转移）
 		task = frappe.get_doc("HBOS Sample Task", result.task)
@@ -569,10 +656,13 @@ def review_result(result_name):
 	_check_action("review_result")
 	try:
 		result = frappe.get_doc("HBOS Test Result", result_name)
-		if result.analyst and result.analyst == _user():
-			_reject_sod("复核人与检验人必须为不同账号。", doctype=result.doctype, doc_name=result.name)
 		if result.result_status != "已提交":
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅已提交可复核。")
+		if result.analyst and result.analyst == _user():
+			_sod_reject(result.doctype, result.name,
+						"复核人不得为检验人（SoD，方案 6.4）。",
+						action_text="结果复核违反职责分离",
+						reason="检验人同为 {}".format(result.analyst))
 		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
 		validate_standard_test_result_sync(result.name, target_status="已复核", reviewer=_user())
 		result.result_status = "已复核"
@@ -605,12 +695,16 @@ def approve_result(result_name):
 	_check_action("approve_result")
 	try:
 		result = frappe.get_doc("HBOS Test Result", result_name)
-		if _user() in {result.analyst, result.reviewer}:
-			_reject_sod("批准人必须同时区别于检验人和复核人。", doctype=result.doctype, doc_name=result.name)
 		if result.result_status != "已复核":
 			frappe.throw(f"检测记录 {result_name} 状态为 {result.result_status}，仅已复核可批准。")
 		if result.is_oos_candidate:
 			frappe.throw("OOS 候选结果不允许批准放行，需先完成 OOS 处理。")
+		if _user() in {result.analyst, result.reviewer}:
+			_sod_reject(result.doctype, result.name,
+						"批准人必须同时区别于检验人和复核人（SoD，方案 6.4）。",
+						action_text="结果批准违反职责分离",
+						reason="检验人 {} / 复核人 {} 不得兼任批准人".format(
+							result.analyst or "未填", result.reviewer or "未填"))
 		from hb_lims_app.hbos_lims.stability_service import validate_standard_test_result_sync
 		validate_standard_test_result_sync(result.name, target_status="已批准", approver=_user())
 		result.result_status = "已批准"
@@ -744,7 +838,9 @@ def revise_result(result_name, new_value, reason, field="result_value"):
 
 @frappe.whitelist()
 def create_coa(sample_name):
-	"""生成 COA：仅样品检验完成且全部结果已批准时，提取已批准结果生成报告快照。"""
+	"""生成 COA：仅样品检验完成且全部结果已批准时，提取已批准结果生成报告快照。
+
+	动作 `create_coa`（L10-P0-11 起独立登记，不再借用 `release_sample`）。"""
 	_check_action("create_coa")
 	try:
 		sample = frappe.get_doc("HBOS Sample", sample_name)
@@ -809,9 +905,34 @@ def _coa_item_from_result(result_name):
 	}
 
 
+# 内容指纹覆盖的字段：改动此处须同步 `HBOSCOA._validate_locked_after_review` 的冻结集
+COA_FINGERPRINT_FIELDS = ("sample", "batch_no", "material_code", "material_name",
+						  "spec_version", "remarks")
+COA_FINGERPRINT_ITEM_FIELDS = ("test_item", "item_name", "method_sop", "standard",
+							   "result", "verdict", "remark")
+
+
+def _coa_content_fingerprint(coa):
+	"""COA 快照内容指纹（sha256）：报告头 + 按行序的项目明细（L10-P0-05）。
+
+	用途是「结构化内容与发布 PDF 属同一版本」的**完整性校验**：指纹在发布时固化，
+	事后重算，能检出绕过 `validate()` 的低层直写（`frappe.db.set_value` / 裸 SQL）。
+
+	**不是防篡改证据**：指纹与内容同库同行，有 DB 直写权限者可以同时改写两者。
+	性质与 L10-P0-02 对 checksum 的口径一致，不得据此宣称强防篡改。
+	"""
+	parts = ["hbos-coa-v1"]
+	parts.extend(str(coa.get(field) or "") for field in COA_FINGERPRINT_FIELDS)
+	for row in coa.items:
+		parts.extend(str(row.get(field) or "") for field in COA_FINGERPRINT_ITEM_FIELDS)
+	return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
 @frappe.whitelist()
 def review_coa(coa_name):
-	"""QA 审核：草稿 -> 已审核。"""
+	"""报告书复核（Reviewer / LIMS QA / Manager）：草稿 -> 已审核。
+
+	动作 `review_coa`（L10-P0-11 起独立登记，不再借用 `review_result`）。"""
 	_check_action("review_coa")
 	try:
 		coa = frappe.get_doc("HBOS COA", coa_name)
@@ -831,14 +952,22 @@ def review_coa(coa_name):
 
 @frappe.whitelist()
 def publish_coa(coa_name):
-	"""发布 COA：生成 PDF 附件归档，状态 已审核 -> 已发布（发布后不可修改）。"""
+	"""发布 COA（LIMS QA 线 / Manager）：生成 PDF 附件归档，状态 已审核 -> 已发布。
+
+	动作 `publish_coa`（L10-P0-11 起独立登记，不再借用 `review_result`）：报告书是对外
+	质量凭证，发布归 QA 线；并按质量流程要求 **发布人不得为审核人**（SoD）。发布后整份
+	快照冻结（L10-P0-05），内容指纹在发布时固化。
+	"""
 	_check_action("publish_coa")
 	try:
 		coa = frappe.get_doc("HBOS COA", coa_name)
-		if coa.qa_reviewer and coa.qa_reviewer == _user():
-			_reject_sod("COA 发布人与审核人必须为不同账号。", doctype=coa.doctype, doc_name=coa.name)
 		if coa.report_status != "已审核":
 			frappe.throw(f"COA {coa_name} 状态为 {coa.report_status}，仅已审核可发布。")
+		if coa.qa_reviewer and coa.qa_reviewer == _user():
+			_sod_reject(coa.doctype, coa.name,
+						"COA 发布人不得为审核人（SoD）。",
+						action_text="COA 发布违反职责分离",
+						reason="审核人同为 {}".format(coa.qa_reviewer))
 
 		# 生成 PDF（直接渲染 Print Format 模板，绕开 website 渲染管线；中文支持）
 		html = _coa_print_html(coa)
@@ -856,6 +985,7 @@ def publish_coa(coa_name):
 		})
 		file_doc.insert(ignore_permissions=True)
 
+		coa.content_fingerprint = _coa_content_fingerprint(coa)
 		coa.pdf_attachment = file_doc.file_url
 		coa.report_status = "已发布"
 		coa.published_by = _user()
@@ -867,6 +997,28 @@ def publish_coa(coa_name):
 	except Exception:
 		_rollback()
 		raise
+
+
+@frappe.whitelist()
+def verify_coa_content(coa_name):
+	"""校验 COA 结构化内容与发布时固化的内容指纹是否一致（只读，L10-P0-05）。
+
+	发布 PDF 由发布时的内容渲染归档，内容又在审核后冻结，因此 `ok=True` 即表示
+	「归档 PDF 与当前结构化内容同属一个版本」。未记录指纹的 COA（本机制启用前
+	发布）返回 `ok=False` 并据实说明无法校验，不伪装成通过。
+
+	返回 {"ok": bool, "stored": str, "actual": str, "reason": str}。
+	"""
+	_check_action("verify_coa_content")
+	coa = frappe.get_doc("HBOS COA", coa_name)
+	actual = _coa_content_fingerprint(coa)
+	stored = (coa.content_fingerprint or "").strip()
+	if not stored:
+		return {"ok": False, "stored": "", "actual": actual,
+				"reason": "该 COA 发布时尚未记录内容指纹（完整性校验启用前），无法校验。"}
+	ok = stored == actual
+	return {"ok": ok, "stored": stored, "actual": actual,
+			"reason": "" if ok else "结构化内容与发布时固化的内容指纹不一致。"}
 
 
 @frappe.whitelist()
@@ -952,15 +1104,61 @@ def _spec_doc(spec_name):
 	return frappe.get_doc("HBOS Specification", spec_name)
 
 
+def _validate_supersede_target(spec_code, supersedes):
+	"""升版关系校验：被替代版本必须存在且属同一规格 ID（L10-P0-04）。"""
+	if not frappe.db.exists("HBOS Specification", supersedes):
+		frappe.throw(f"「被替代的版本」{supersedes} 不存在。")
+	target = frappe.db.get_value("HBOS Specification", supersedes,
+								 ["spec_code", "version"], as_dict=True)
+	if str(target.spec_code or "") != str(spec_code or ""):
+		frappe.throw(
+			f"「被替代的版本」{supersedes} 属规格 {target.spec_code or '未填'}，"
+			f"与本次规格 {spec_code or '未填'} 不一致，不能构成升版关系。"
+		)
+
+
+def _guard_single_active_version(spec):
+	"""同一规格 ID 只允许一个已生效版本，且升版必须留下版本链（L10-P0-04）。
+
+	- 已有其它「已生效」版本 → 拒绝：须先废止现行版本，再激活新版本；
+	- 存在其它历史版本但本版未声明 supersedes → 拒绝：升版必须保留版本链。
+	"""
+	others = frappe.get_all(
+		"HBOS Specification",
+		filters={"spec_code": spec.spec_code, "name": ["!=", spec.name]},
+		fields=["name", "version", "status"], limit_page_length=0)
+	active = [row for row in others if row.status == SPEC_ACTIVE]
+	if active:
+		frappe.throw(
+			f"规格 {spec.spec_code} 已有生效版本 {active[0].name}"
+			f"（V{active[0].version}）；请先废止该版本再激活本版本（同一规格不允许并行生效）。"
+		)
+	if others and not spec.supersedes:
+		frappe.throw(
+			f"规格 {spec.spec_code} 已有历史版本（{others[0].name}），"
+			"升版必须声明「被替代的版本」以保留版本链。"
+		)
+	if spec.supersedes and not any(row.name == spec.supersedes for row in others):
+		frappe.throw(
+			f"「被替代的版本」{spec.supersedes} 不属于规格 {spec.spec_code}，不能构成升版关系。"
+		)
+
+
 @frappe.whitelist()
 def create_specification(spec_code, spec_name, material_code=None, material_name=None,
 						 standard_source=None, effective_date=None, version=None, items=None,
-						 remarks=None, storage_condition=None, retain_sample_qty=None):
+						 remarks=None, storage_condition=None, retain_sample_qty=None,
+						 supersedes=None):
 	"""新增质量标准（Manager）：创建为草稿，检验项目明细从 items 传入。
+
 	version 用于升版场景（基于当前版本 +0.1 复制为新版本）；缺省默认 1.0。
+	supersedes 声明被替代的上一版本（须为同一 spec_code 的既有版本）：升版必须
+	声明，否则同一规格的多版本之间没有版本链，也无法回答"当时生效的是哪一版"。
 	storage_condition / retain_sample_qty 供样品登记时自动匹配。"""
 	_check_action("create_specification")
 	try:
+		if supersedes:
+			_validate_supersede_target(spec_code, supersedes)
 		spec = frappe.get_doc({
 			"doctype": "HBOS Specification",
 			"spec_code": spec_code,
@@ -970,6 +1168,7 @@ def create_specification(spec_code, spec_name, material_code=None, material_name
 			"standard_source": standard_source,
 			"effective_date": effective_date,
 			"version": version or "1.0",
+			"supersedes": supersedes or None,
 			"status": SPEC_DRAFT,
 			"remarks": remarks,
 			"storage_condition": storage_condition,
@@ -989,12 +1188,15 @@ def create_specification(spec_code, spec_name, material_code=None, material_name
 def update_specification(spec_name, spec_code=None, spec_name_label=None, material_code=None,
 						 material_name=None, standard_source=None, effective_date=None,
 						 items=None, remarks=None, storage_condition=None, retain_sample_qty=None):
-	"""修订质量标准（Manager）：编辑内容不改版本号；已废止不可再改。"""
+	"""修订质量标准（Manager）：仅草稿可原地修订；已生效/已废止须走升版（L10-P0-04）。"""
 	_check_action("update_specification")
 	try:
 		spec = _spec_doc(spec_name)
 		if spec.status != SPEC_DRAFT:
-			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，已生效/已废止版本不可原地修订；请复制生成新版本。")
+			frappe.throw(
+				f"质量标准 {spec_name} 状态为 {spec.status}，已生效/已废止标准不可原地修订"
+				"（否则同一版本号会代表两份内容）；如需变更请使用升版生成新版本。"
+			)
 		if spec_code:
 			spec.spec_code = spec_code
 		if spec_name_label:
@@ -1032,6 +1234,7 @@ def activate_specification(spec_name):
 		spec = _spec_doc(spec_name)
 		if spec.status != SPEC_DRAFT:
 			frappe.throw(f"质量标准 {spec_name} 状态为 {spec.status}，仅草稿可生效。")
+		_guard_single_active_version(spec)
 		spec.status = SPEC_ACTIVE
 		spec.flags.allow_system_fields = True
 		spec.save(ignore_permissions=True)
@@ -1305,3 +1508,95 @@ def get_audit_targets():
 		" WHERE doctype_target IS NOT NULL AND doctype_target <> ''"
 		" ORDER BY doctype_target", as_list=True)
 	return [r[0] for r in rows]
+
+
+@frappe.whitelist()
+def verify_audit_integrity(name=None, limit=200):
+	"""校验审计日志指纹（只读，L10-P0-02）。
+
+	`name` 给定则校验单条；否则按时间倒序校验最近 `limit` 条。逐条按该行记录的
+	`checksum_version` 重算指纹并与落库值比对，返回
+	`{checked, mismatched, legacy}`（legacy = 仍属 v1 算法的历史行数，覆盖字段较少）。
+
+	性质是**应用级误改 / 直写检测**，不是防篡改证明：有 DB 直写权限者可同时改写内容
+	与指纹。跨库的删除 / 改写历史由 `audit_anchor_service.verify_audit_anchor()` 检出。
+	"""
+	_check_action("verify_audit_integrity")
+	fields = ["name", "checksum", "checksum_version", "log_type", "doctype_target",
+			  "doc_name", "action_text", "field_changed", "old_value", "new_value",
+			  "reason", "user", "created_at"]
+	if name:
+		row = frappe.db.get_value("HBOS Audit Log", name, fields, as_dict=True)
+		rows = [row] if row else []
+	else:
+		rows = frappe.get_all("HBOS Audit Log", fields=fields,
+							  order_by="created_at desc, name desc",
+							  limit_page_length=int(limit or 200))
+	mismatched = []
+	legacy = 0
+	for row in rows:
+		version = str(row.get("checksum_version") or "1")
+		if version == "1":
+			legacy += 1
+		if _checksum(row, version) != (row.get("checksum") or ""):
+			mismatched.append(row.get("name"))
+	return {"checked": len(rows), "mismatched": mismatched, "legacy": legacy}
+
+
+@frappe.whitelist()
+def break_glass_update(doctype, doc_name, values, reason):
+	"""应急处置（break-glass）：技术运维在正常业务服务之外修改系统字段的唯一入口（L10-P0-06）。
+
+	技术管理员（System Manager / Administrator）不是质量批准人，不得凭身份直接改状态 /
+	签署 / 版本链 —— 系统字段守卫已取消一切角色旁路。确需技术干预时走本接口：
+
+	- 仅 System Manager（含 Administrator）可调用；
+	- 理由必填（ALCOA：非常规操作必须记录原因）；
+	- 仅允许改该 DocType **已登记的系统字段**（`guards.SYSTEM_FIELD_SETS`）；未登记的
+	  DocType 或字段一律拒绝，避免逃生口变成绕过内容冻结（L10-P0-04 / P0-05）的后门；
+	- 全程留痕：成功逐字段写「应急处置」审计（前后值 + 理由 + 操作人）；越界尝试按
+	  「越权拦截」留痕后拒绝。
+
+	注意：本接口**只改字段，不触发业务副作用**（任务 / 样品 / 稳定性投影联动、状态机
+	推进等都不会发生）—— 正因如此它只应是最后手段，且必须填写可追溯的理由。
+	"""
+	_check_action("break_glass_update")
+	if not (reason or "").strip():
+		frappe.throw("应急处置必须填写理由（ALCOA：非常规操作须记录原因）。")
+	try:
+		payload = json.loads(values) if isinstance(values, str) else dict(values or {})
+	except ValueError:
+		frappe.throw("values 必须是 JSON 对象（字段名 → 新值）。")
+	if not isinstance(payload, dict) or not payload:
+		frappe.throw("values 必须是非空 JSON 对象（字段名 → 新值）。")
+
+	allowed = system_fields_for(doctype)
+	illegal = sorted(set(payload) - set(allowed))
+	if illegal:
+		try:
+			audit_violation("越权拦截", doctype, doc_name,
+							action_text="应急处置试图修改未登记字段",
+							reason="{} | 越界字段：{}".format(reason, "、".join(illegal)))
+		except Exception as exc:
+			if hasattr(frappe, "log_error"):
+				frappe.log_error("应急处置越界审计写入失败：{}".format(exc), "HBOS break-glass 审计")
+		frappe.throw("字段「{}」未登记为系统字段，应急处置不得修改；请走对应业务操作。"
+					 .format("」「".join(illegal)))
+
+	try:
+		doc = frappe.get_doc(doctype, doc_name)
+		before = {field: doc.get(field) for field in payload}
+		for field, value in payload.items():
+			doc.set(field, value)
+		doc.flags.allow_system_fields = True
+		doc.save(ignore_permissions=True)
+		for field, value in payload.items():
+			audit_log("应急处置", doctype, doc_name,
+					  action_text="break-glass 修改系统字段",
+					  field_changed=field, old_value=before[field], new_value=value,
+					  reason=reason, user=_user(), commit=False)
+		_commit()
+		return {"name": doc.name, "changed": sorted(payload)}
+	except Exception:
+		_rollback()
+		raise
