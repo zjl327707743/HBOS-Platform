@@ -5,7 +5,7 @@
         <div class="page-head">
           <div>
             <h1>检验结果录入</h1>
-            <p>{{ result.name }} · {{ result.item_name }} · 提交后自动判定并生成电子签名</p>
+            <p>{{ result.name }} · {{ result.item_name }} · 提交后自动判定并记录操作签署</p>
           </div>
           <div class="page-actions">
             <a-button v-if="result.result_status === '草稿'" type="primary" :loading="submitting" @click="onSubmitClick">
@@ -73,7 +73,7 @@
                 </div>
 
                 <div class="form-section">
-                  <div class="form-section-title">电子签名</div>
+                  <div class="form-section-title">操作签署</div>
                   <div class="signature-strip">
                     <div class="sig-item"><div class="sig-label">检验人</div><div class="sig-name">{{ result.submitted_signature || '待提交' }}</div></div>
                     <div class="sig-arrow">→</div>

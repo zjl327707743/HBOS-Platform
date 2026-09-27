@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""LIMS 检验流程业务服务（Frappe 层）：状态流转 + 自动判定 + 电子签名 + 修订留痕。
+"""LIMS 检验流程业务服务（Frappe 层）：状态流转 + 自动判定 + 操作签署 + 修订留痕。
 
 约定：
 - 所有公开方法为 @frappe.whitelist 模块级函数，入口先校验角色（only_for）。
@@ -19,7 +19,7 @@ from hb_lims_app.hbos_lims import stability_contract as stb
 from hb_lims_app.hbos_lims import workflow_contract as wf
 from hb_lims_app.hbos_lims.guards import system_fields_for
 
-# 签名含义（开发方案：检验人 / 复核人 / 批准人 电子签名）
+# 签署含义（检验人 / 复核人 / 批准人）
 SIGN_ANALYST = "检验人"
 SIGN_REVIEWER = "复核人"
 SIGN_APPROVER = "批准人"
@@ -33,7 +33,20 @@ def _now():
 	return frappe.utils.now_datetime()
 
 
+# 操作签署（记录可归属）——**能力边界**（Owner 2026-09-15 决策路线 ①；与稳定性方案 §8.2 同一口径）：
+# 本模块写入的是「含义串 + 用户 + 时间」的**展示型签署记录**，把操作归属到具体的人，配合
+# 审计追踪（HBOS Audit Log）形成「记录可归属、可追溯」。它**不等同** 21 CFR Part 11 /
+# EU GMP Annex 11 规定的合规电子签名：无签署时重新认证、未与记录做密码学绑定、无不可抵赖
+# 证据，故不构成合规生产放行依据 —— 用于放行的报告仍需按现行纸质签批流程补签（COA 打印模板
+# 的检验人 / 复核人签字栏即为此保留）。
+# 之所以仍保留这一形状：各签署点已按「含义串 + 用户 + 时间」结构化，平台后续统一专项实施
+# 路线 ②（重新认证 + 密码学绑定 / PKI / 国密 SM2 / 签名验证报告 / CSV）时，只需替换本函数
+# 一处实现，业务逻辑无需重构。
 def _signature(meaning):
+	"""生成一条操作签署串（含义 + 操作人 + 时间）。
+
+	**不是 GMP 合规电子签名**，属操作归属记录；见上方能力边界说明。
+	"""
 	return f"{meaning}: {_user()} @ {_now():%Y-%m-%d %H:%M:%S}"
 
 
@@ -490,7 +503,7 @@ def _create_result_for_task(task):
 def submit_result(result_name, raw_value=None, result_value=None, result_text=None,
 				  calc_input_json=None, calculation_used=None, instrument_used=None,
 				  proxy_reason=None):
-	"""检验员提交结果：自动判定（含公式计算）、电子签名、OOS 候选锁定。
+	"""检验员提交结果：自动判定（含公式计算）、操作签署、OOS 候选锁定。
 
 	`proxy_reason`：仅当提交人不是该记录的检验人（Manager 代提交）时必填，
 	理由写入提交审计的 reason 字段（L10-P0-03）。
@@ -526,7 +539,7 @@ def submit_result(result_name, raw_value=None, result_value=None, result_text=No
 		if verdict_en == rc.VERDICT_FAIL:
 			result.is_oos_candidate = 1
 
-		# 电子签名
+		# 操作签署（把操作归属到具体的人；非 GMP 合规电子签名，见模块顶部能力边界）
 		result.result_status = "已提交"
 		result.submitted_signature = _signature(SIGN_ANALYST)
 		result.submitted_at = _now()
