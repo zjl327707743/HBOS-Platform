@@ -33,16 +33,16 @@ PROTOCOL_SYSTEM_FIELDS = (
 )
 
 
-def _privileged():
-	if frappe.session.user == "Administrator":
-		return True
-	return "System Manager" in frappe.get_roles()
-
-
 def guard_system_fields(doc, fields):
-	"""系统字段守卫：非特权用户且未经服务授权时，系统字段不得变化。"""
+	"""系统字段守卫：系统字段只能由业务服务写入。
+
+	**无角色旁路**（L10-P0-06）：技术管理员（System Manager / Administrator）不是质量
+	批准人，不得凭身份直接改状态 / 签署 / 版本链。唯一的合法写入途径是带
+	`allow_system_fields` 的业务服务；确需技术干预时走
+	`lims_service.break_glass_update()`（显式、必填理由、全程留痕）。
+	"""
 	before = doc.get_doc_before_save()
-	if _privileged() or doc.flags.get("allow_system_fields"):
+	if doc.flags.get("allow_system_fields"):
 		return
 	if not before:
 		# 新建时没有 before 文档，仍须禁止通过通用 insert 伪造审批/状态。
@@ -144,7 +144,7 @@ def guard_child_table_frozen(doc, table_field):
 	仅在文档已有前值（非首次插入）时生效；业务服务写入前须置 `allow_system_fields`。
 	"""
 	before = doc.get_doc_before_save()
-	if not before or _privileged() or doc.flags.get("allow_system_fields"):
+	if not before or doc.flags.get("allow_system_fields"):
 		return
 	child_doctype = frappe.get_meta(doc.doctype).get_field(table_field).options
 	if _table_signature(before.get(table_field), child_doctype) != \

@@ -17,6 +17,8 @@ SoD 与电子签名写入（即「伪造审批」）。本轮按 R8 既有机制
 """
 
 import ast
+import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -137,6 +139,91 @@ class TestControllerWiring(unittest.TestCase):
 		self.assertIn("from hb_lims_app.hbos_lims.stability_guards import guard_content_frozen", src)
 		self.assertNotIn("def guard_content_frozen", src)
 		self.assertIn("def guard_content_frozen", _source(STABILITY_GUARDS))
+
+
+def _registry_source_map():
+	"""从 guards.py 源码解析 SYSTEM_FIELD_SETS 映射（不导入该模块）。
+
+	guards 依赖 frappe，离线测试无法导入，故用 AST 读取字面量：返回
+	{Doctype 名: 字段集引用表达式}，如 {"HBOS Sample": "wf.HBOS_SAMPLE_SYSTEM_FIELDS"}。
+	"""
+	tree = ast.parse(_source(GUARDS))
+	for node in ast.walk(tree):
+		if isinstance(node, ast.Assign) and any(
+				getattr(target, "id", None) == "SYSTEM_FIELD_SETS" for target in node.targets):
+			return {key.value: ast.unparse(value)
+					for key, value in zip(node.value.keys, node.value.values)}
+	raise AssertionError("guards.py 未找到 SYSTEM_FIELD_SETS 字面量")
+
+
+def _controller_guard_calls():
+	"""扫描各控制器源码：DocType 名 -> `guard_system_fields(self, <表达式>)` 的表达式。"""
+	calls = {}
+	for path in sorted(DOCTYPES.rglob("*.py")):
+		match = re.search(r"guard_system_fields\(self,\s*([A-Za-z_.]+)\)", _source(path))
+		if not match:
+			continue
+		doctype = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["name"]
+		calls[doctype] = match.group(1)
+	return calls
+
+
+class TestNoPrivilegedBypass(unittest.TestCase):
+	"""L10-P0-06：系统字段守卫不得保留任何角色旁路（技术管理员 ≠ 质量批准人）。
+
+	技术干预只能走 `lims_service.break_glass_update()`（显式、必填理由、逐字段留痕）。
+	"""
+
+	def test_shared_guards_have_no_role_bypass(self):
+		src = _source(STABILITY_GUARDS)
+		self.assertNotIn("_privileged", src, "守卫不得再按身份放行")
+		self.assertNotIn('frappe.session.user == "Administrator"', src)
+		self.assertNotIn('"System Manager" in frappe.get_roles()', src)
+
+	def test_retention_guard_has_no_role_bypass(self):
+		"""留样样品自带的字段守卫是同一缺陷的第三处，同样不得按身份放行。"""
+		src = _source(DOCTYPES / "hbos_retention_sample" / "hbos_retention_sample.py")
+		self.assertIn("def _guard_system_fields(self):", src)
+		# 断言的是放行代码本身，而非文档里出现的角色名（文档会说明"已取消旁路"）
+		self.assertNotIn('frappe.session.user == "Administrator"', src)
+		self.assertNotIn('"System Manager" in roles', src)
+		self.assertNotIn("roles = frappe.get_roles()", src)
+
+	def test_break_glass_is_technical_role_only(self):
+		"""逃生口只给技术管理员，不自动含质量角色（Reviewer/Manager/QA 均不在内）。"""
+		self.assertEqual(wf.ACTION_ROLES["break_glass_update"], {wf.ROLE_SYSTEM})
+
+
+def _normalize_ref(expr):
+	"""统一字段集引用的写法。
+
+	稳定性控制器 `import stability_guards as guards`，故源码里写作 `guards.X`；而
+	guards.py 内引用同一模块写作 `stability_guards.X`。两者同指一个常量，比对前归一。
+	"""
+	return re.sub(r"^guards\.", "stability_guards.", expr)
+
+
+class TestSystemFieldRegistry(unittest.TestCase):
+	"""break-glass 的字段白名单须与各控制器实际守卫的字段集同源（防漂移）。
+
+	登记表若与控制器不一致：要么逃生口放行了本不该放行的字段（削弱 P0-04/P0-05 的
+	内容冻结），要么对合法运维动作误报拒绝。故用「引用表达式」逐条比对，而不是把
+	元组重抄一遍（重抄本身就会漂）。
+	"""
+
+	def test_registry_matches_controller_guard_calls(self):
+		registry = {dt: _normalize_ref(ref) for dt, ref in _registry_source_map().items()}
+		controllers = {dt: _normalize_ref(ref)
+					   for dt, ref in _controller_guard_calls().items()}
+		self.assertEqual(registry, controllers,
+						 "guards.SYSTEM_FIELD_SETS 与控制器实际守卫的字段集不一致")
+
+	def test_registry_covers_both_boards(self):
+		"""两块板块都要在册：检验流程（wf.*）与稳定性（stability_guards.*）。"""
+		registry = _registry_source_map()
+		self.assertTrue(any(expr.startswith("wf.") for expr in registry.values()))
+		self.assertTrue(any(expr.startswith("stability_guards.") for expr in registry.values()))
+		self.assertGreaterEqual(len(registry), 15)
 
 
 class TestSpecificationContentFreeze(unittest.TestCase):

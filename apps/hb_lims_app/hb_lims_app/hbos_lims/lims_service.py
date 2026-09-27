@@ -17,6 +17,7 @@ import frappe
 from hb_lims_app.hbos_lims import result_contract as rc
 from hb_lims_app.hbos_lims import stability_contract as stb
 from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.guards import system_fields_for
 
 # 签名含义（开发方案：检验人 / 复核人 / 批准人 电子签名）
 SIGN_ANALYST = "检验人"
@@ -1404,3 +1405,62 @@ def get_audit_targets():
 		" WHERE doctype_target IS NOT NULL AND doctype_target <> ''"
 		" ORDER BY doctype_target", as_list=True)
 	return [r[0] for r in rows]
+
+
+@frappe.whitelist()
+def break_glass_update(doctype, doc_name, values, reason):
+	"""应急处置（break-glass）：技术运维在正常业务服务之外修改系统字段的唯一入口（L10-P0-06）。
+
+	技术管理员（System Manager / Administrator）不是质量批准人，不得凭身份直接改状态 /
+	签署 / 版本链 —— 系统字段守卫已取消一切角色旁路。确需技术干预时走本接口：
+
+	- 仅 System Manager（含 Administrator）可调用；
+	- 理由必填（ALCOA：非常规操作必须记录原因）；
+	- 仅允许改该 DocType **已登记的系统字段**（`guards.SYSTEM_FIELD_SETS`）；未登记的
+	  DocType 或字段一律拒绝，避免逃生口变成绕过内容冻结（L10-P0-04 / P0-05）的后门；
+	- 全程留痕：成功逐字段写「应急处置」审计（前后值 + 理由 + 操作人）；越界尝试按
+	  「越权拦截」留痕后拒绝。
+
+	注意：本接口**只改字段，不触发业务副作用**（任务 / 样品 / 稳定性投影联动、状态机
+	推进等都不会发生）—— 正因如此它只应是最后手段，且必须填写可追溯的理由。
+	"""
+	_check_action("break_glass_update")
+	if not (reason or "").strip():
+		frappe.throw("应急处置必须填写理由（ALCOA：非常规操作须记录原因）。")
+	try:
+		payload = json.loads(values) if isinstance(values, str) else dict(values or {})
+	except ValueError:
+		frappe.throw("values 必须是 JSON 对象（字段名 → 新值）。")
+	if not isinstance(payload, dict) or not payload:
+		frappe.throw("values 必须是非空 JSON 对象（字段名 → 新值）。")
+
+	allowed = system_fields_for(doctype)
+	illegal = sorted(set(payload) - set(allowed))
+	if illegal:
+		try:
+			audit_violation("越权拦截", doctype, doc_name,
+							action_text="应急处置试图修改未登记字段",
+							reason="{} | 越界字段：{}".format(reason, "、".join(illegal)))
+		except Exception as exc:
+			if hasattr(frappe, "log_error"):
+				frappe.log_error("应急处置越界审计写入失败：{}".format(exc), "HBOS break-glass 审计")
+		frappe.throw("字段「{}」未登记为系统字段，应急处置不得修改；请走对应业务操作。"
+					 .format("」「".join(illegal)))
+
+	try:
+		doc = frappe.get_doc(doctype, doc_name)
+		before = {field: doc.get(field) for field in payload}
+		for field, value in payload.items():
+			doc.set(field, value)
+		doc.flags.allow_system_fields = True
+		doc.save(ignore_permissions=True)
+		for field, value in payload.items():
+			audit_log("应急处置", doctype, doc_name,
+					  action_text="break-glass 修改系统字段",
+					  field_changed=field, old_value=before[field], new_value=value,
+					  reason=reason, user=_user(), commit=False)
+		_commit()
+		return {"name": doc.name, "changed": sorted(payload)}
+	except Exception:
+		_rollback()
+		raise

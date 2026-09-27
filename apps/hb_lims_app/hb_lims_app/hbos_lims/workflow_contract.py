@@ -213,6 +213,8 @@ ACTION_ROLES = {
 	"get_result_ledger": {ROLE_ANALYST, ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	# COA 内容完整性校验（只读，L10-P0-05）
 	"verify_coa_content": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	# 应急处置（break-glass）：仅技术管理员，非质量批准权限（L10-P0-06）
+	"break_glass_update": {ROLE_SYSTEM},
 	# 留样板块 R7A（方案 6.3 动作矩阵，角色方案 B）
 	"register_retention": {ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
 	"adjust_stock": {ROLE_MANAGER, ROLE_SYSTEM},
