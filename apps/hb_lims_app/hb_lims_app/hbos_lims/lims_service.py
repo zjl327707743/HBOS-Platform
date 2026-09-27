@@ -108,13 +108,32 @@ def _commit():
 
 AUDIT_EXCLUDE_DOCTYPES = {"HBOS Audit Log"}  # 审计日志自身不入日志（避免递归）
 
+# 指纹算法版本：v1 为历史行（sha1 / 7 字段），v2 为当前行（sha256 / 全字段）。
+# 逐行记版本，使历史行仍可按其原算法校验，而不是笼统标成"不可校验"。
+CHECKSUM_VERSION_CURRENT = "2"
+CHECKSUM_V1_FIELDS = ("doctype_target", "doc_name", "log_type", "user", "created_at",
+					  "old_value", "new_value")
+CHECKSUM_V2_FIELDS = ("log_type", "doctype_target", "doc_name", "action_text",
+					  "field_changed", "old_value", "new_value", "reason",
+					  "user", "created_at")
 
-def _checksum(payload):
-	"""记录指纹 sha1，防篡改标记。"""
-	raw = "|".join(str(payload.get(k) or "") for k in
-				   ("doctype_target", "doc_name", "log_type", "user", "created_at",
-					"old_value", "new_value"))
-	return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+def _checksum(payload, version=CHECKSUM_VERSION_CURRENT):
+	"""审计记录指纹（按版本分发）。
+
+	- **v2（当前，新行一律用）**：sha256，覆盖**全部**载荷字段（含 `action_text` /
+	  `field_changed` / `reason`）。v1 漏了这三个字段，改它们检不出来（L10-P0-02）。
+	- **v1（历史行，只读保留）**：sha1，仅覆盖 7 个字段。站点上已按此算法落库的
+	  8106 行仍用它校验；旧行仍可验，但覆盖范围有限，校验接口会单独统计 legacy。
+
+	性质是**完整性校验**，不是防篡改证据：指纹与内容同库同行，具备 DB 直写权限者
+	可以同时改写两者。跨库的删除 / 改写历史由 `audit_anchor_service` 的外部锚定检出。
+	"""
+	if str(version) == "1":
+		raw = "|".join(str(payload.get(k) or "") for k in CHECKSUM_V1_FIELDS)
+		return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+	raw = "|".join(str(payload.get(k) or "") for k in CHECKSUM_V2_FIELDS)
+	return hashlib.sha256(("hbos-audit-v2|" + raw).encode("utf-8")).hexdigest()
 
 
 def audit_log(log_type, doctype_target, doc_name, action_text="", field_changed="",
@@ -147,7 +166,8 @@ def audit_log(log_type, doctype_target, doc_name, action_text="", field_changed=
 		"user": user,
 		"created_at": created_at,
 	}
-	payload["checksum"] = _checksum(payload)
+	payload["checksum"] = _checksum(payload, CHECKSUM_VERSION_CURRENT)
+	payload["checksum_version"] = CHECKSUM_VERSION_CURRENT
 	doc = frappe.get_doc(payload)
 	doc.flags.audit_immutable = True
 	doc.insert(ignore_permissions=True)
@@ -1405,6 +1425,39 @@ def get_audit_targets():
 		" WHERE doctype_target IS NOT NULL AND doctype_target <> ''"
 		" ORDER BY doctype_target", as_list=True)
 	return [r[0] for r in rows]
+
+
+@frappe.whitelist()
+def verify_audit_integrity(name=None, limit=200):
+	"""校验审计日志指纹（只读，L10-P0-02）。
+
+	`name` 给定则校验单条；否则按时间倒序校验最近 `limit` 条。逐条按该行记录的
+	`checksum_version` 重算指纹并与落库值比对，返回
+	`{checked, mismatched, legacy}`（legacy = 仍属 v1 算法的历史行数，覆盖字段较少）。
+
+	性质是**应用级误改 / 直写检测**，不是防篡改证明：有 DB 直写权限者可同时改写内容
+	与指纹。跨库的删除 / 改写历史由 `audit_anchor_service.verify_audit_anchor()` 检出。
+	"""
+	_check_action("verify_audit_integrity")
+	fields = ["name", "checksum", "checksum_version", "log_type", "doctype_target",
+			  "doc_name", "action_text", "field_changed", "old_value", "new_value",
+			  "reason", "user", "created_at"]
+	if name:
+		row = frappe.db.get_value("HBOS Audit Log", name, fields, as_dict=True)
+		rows = [row] if row else []
+	else:
+		rows = frappe.get_all("HBOS Audit Log", fields=fields,
+							  order_by="created_at desc, name desc",
+							  limit_page_length=int(limit or 200))
+	mismatched = []
+	legacy = 0
+	for row in rows:
+		version = str(row.get("checksum_version") or "1")
+		if version == "1":
+			legacy += 1
+		if _checksum(row, version) != (row.get("checksum") or ""):
+			mismatched.append(row.get("name"))
+	return {"checked": len(rows), "mismatched": mismatched, "legacy": legacy}
 
 
 @frappe.whitelist()

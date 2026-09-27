@@ -215,6 +215,9 @@ ACTION_ROLES = {
 	"verify_coa_content": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	# 应急处置（break-glass）：仅技术管理员，非质量批准权限（L10-P0-06）
 	"break_glass_update": {ROLE_SYSTEM},
+	# 审计完整性校验与锚定对账（只读，L10-P0-02）
+	"verify_audit_integrity": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
+	"verify_audit_anchor": {ROLE_REVIEWER, ROLE_MANAGER, ROLE_SYSTEM},
 	# 留样板块 R7A（方案 6.3 动作矩阵，角色方案 B）
 	"register_retention": {ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
 	"adjust_stock": {ROLE_MANAGER, ROLE_SYSTEM},

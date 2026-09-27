@@ -17,7 +17,8 @@
   "reason",
   "user",
   "created_at",
-  "checksum"
+  "checksum",
+  "checksum_version"
  ],
  "fields": [
   {
@@ -94,6 +95,12 @@
    "fieldname": "checksum",
    "fieldtype": "Data",
    "label": "记录指纹",
+   "read_only": 1
+  },
+  {
+   "fieldname": "checksum_version",
+   "fieldtype": "Data",
+   "label": "指纹算法版本",
    "read_only": 1
   }
  ],
