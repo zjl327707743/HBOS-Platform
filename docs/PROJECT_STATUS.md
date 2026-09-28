@@ -5,21 +5,21 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-F（REVIEWING，**第一、二阶段均已上线；整支复查已完成并处置**）；另有 **HBOS 门户工作台集成（REVIEWING，分支 `feature/hbos-portal-workbench`，R1–R3 已交付、R4 未启动）**
+- 当前轮次：M1-FIX-F（REVIEWING，**第一、二阶段均已上线；整支复查已完成并处置**）；另有 **M3-PORTAL-R1（HBOS 门户工作台集成，REVIEWING，分支 `feature/hbos-portal-workbench`，R1–R3 已交付、R4 未启动）**
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
-- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块两阶段均已上线：119 条入库、103 条解析、41 已核实 / 53 核实不通过；已核实调休日已接入考勤豁免与看板；整支复查完成，1 项发现已修、1 项归因已更正）；M1-FIX-C/D/E 未启动；HBOS 门户工作台集成 R1–R3 已交付（REVIEWING），R4 未启动。
+- 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块两阶段均已上线：119 条入库、103 条解析、41 已核实 / 53 核实不通过；已核实调休日已接入考勤豁免与看板；整支复查完成，1 项发现已修、1 项归因已更正）；M1-FIX-C/D/E 未启动；M3-PORTAL-R1（HBOS 门户工作台集成）R1–R3 已交付（REVIEWING），R4 未启动。
 - 本批最新交付：2026-09-22 完成 **M1-FIX-F 调休模块第一阶段**——飞书调休审批进入系统并按海滨口径完成「加班日提取 → 打卡核实」，产出可人工复核的结论清单。分支 `m1-fix-c-rest-leave`（16 提交），全量测试 311 → **396 通过**。**本阶段只出结论、不改变任何考勤结果**。2026-09-22 已上线：119 条入库、103 条解析出加班日、核实结论 40 已核实 / 53 核实不通过 / 14 解析失败；**考勤结果与上线前逐值一致（零副作用）**。上线中发现并修复三项阻断（模型下线、HBOS_AI_* 未注入队列容器、nginx 需 reload），详见落地记录 §8。详见 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
-- 另：2026-09-28 交付 **HBOS 门户工作台集成 R1–R3**（分支 `feature/hbos-portal-workbench`，基于 `m1-fix-c-rest-leave` HEAD `93ae18a`，19 提交）——选择性移植（非 merge）门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层，Vite 5178 代理 12 条 Frappe 前缀实现同域，并以同域 iframe 在内嵌内容区承载真实 Frappe 考勤页面；考勤测试 458 通过（基线 445）、判定核心三文件逐字节不变、装 + migrate 零副作用、frappe 模式四指标与后端逐值一致。**R4 生产形态未启动，需 Owner 另行授权。** 详见 `docs/milestones/HBOS门户工作台集成实施记录.md` 与下方「HBOS 门户工作台集成 状态」节。
+- 另：2026-09-28 交付 **M3-PORTAL-R1（HBOS 门户工作台集成）R1–R3**（分支 `feature/hbos-portal-workbench`，基于 `m1-fix-c-rest-leave` HEAD `93ae18a`，19 提交）——选择性移植（非 merge）门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层，Vite 5178 代理 12 条 Frappe 前缀实现同域，并以同域 iframe 在内嵌内容区承载真实 Frappe 考勤页面；考勤测试 458 通过（基线 445）、判定核心三文件逐字节不变、装 + migrate 零副作用、frappe 模式四指标与后端逐值一致。**R4 生产形态未启动，需 Owner 另行授权。** 详见 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md` 与下方「M3-PORTAL-R1 HBOS 门户工作台集成 状态」节。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-FIX-F 两阶段均已上线；**建议下一轮优先处理「分机实施前数据修复」**（含 8/14 的 223 条错误缺勤与 `pairing.py` 设备方向判定的按天改造）与台账 #10「重算幂等改造」（本轮已实际踩中其地雷）；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`。**HBOS 门户工作台集成 R1–R3 已交付、R4 未启动**，R4（nginx 分发门户产物 + `VITE_BASE=/hbos/`）**必须 Owner 明确授权后才能开始**。
+- 下一步路线：M1-FIX-F 两阶段均已上线；**建议下一轮优先处理「分机实施前数据修复」**（含 8/14 的 223 条错误缺勤与 `pairing.py` 设备方向判定的按天改造）与台账 #10「重算幂等改造」（本轮已实际踩中其地雷）；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`。**M3-PORTAL-R1（HBOS 门户工作台集成）R1–R3 已交付、R4 未启动**，R4（nginx 分发门户产物 + `VITE_BASE=/hbos/`）**必须 Owner 明确授权后才能开始**。
 
-## HBOS 门户工作台集成 状态（分支 `feature/hbos-portal-workbench`）
+## M3-PORTAL-R1 HBOS 门户工作台集成 状态（分支 `feature/hbos-portal-workbench`）
 
 状态：**REVIEWING**（R1–R3 已交付；**R4 未启动**，需 Owner 另行授权）。
 
 轮次定位：以长期分支 `origin/feature/hbos-portal-product` 为基准**选择性移植**（**非 merge**）门户工作台——在本分支新增 Vue 3 门户 SPA + `hbos_portal` 薄平台 App + 考勤 portal 适配层，并以**同域 iframe** 在门户内容区承载现有 Frappe 考勤页面，实现「导航不出门户」。
 
-- **命名说明（编号待 Owner 裁定）**：本轮**不套用 `Mx_Ry` 编号**。`M1-FIX-C/D/E` 含义已定（异常三级流程 / 考勤工作台月报 / 飞书 OAuth 验证），本工作线不是考勤功能补漏轮次；`M2` 前缀又存在未裁定的冲突——`docs/milestones/README.md` 的当前里程碑表既把 `M2` 定义为「飞书集成（长期轮次）」，又让 `M2-STOCK-R1` 用 `M2` 前缀承载「库存模块隔离」。故本文件与里程碑索引暂用描述性中文名「HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`）」，**编号口径待 Owner 裁定**。
+- **命名说明（编号已裁定）**：本工作线编号为 **M3-PORTAL-R1**（Owner 2026-09-28 裁定）。它不套用 `Mx_Ry` 中的 `M1-FIX-*`——`M1-FIX-C/D/E` 含义已定（异常三级流程 / 考勤工作台月报 / 飞书 OAuth 验证），本工作线不是考勤功能补漏轮次。原 `M2` 前缀冲突已一并裁定：`M2` 归「飞书集成」，库存隔离由 `M2-STOCK-R1` 改号 `M4-STOCK-R1`，本工作线取 `M3`。里程碑文档为 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`。
 - **分支与基线**：`feature/hbos-portal-workbench`，基于 `m1-fix-c-rest-leave` 的 HEAD `93ae18a`；本轮 19 提交。
 - **不 merge 的原因（实测）**：两分支自 `2675411`（2026-08-14）后分别推进 100 / 164 提交，且两边都改过 `pairing.py` / `api.py` / `rule_lists.py`（承载 178 人行政班名单、调休豁免与配对判定）；`apps/hb_attendance_app` 以 bind-mount 进入承载真实数据的运行中容器，合并失误会直接污染真实考勤。
 - **R1 移植**（Task 1–3，不触碰运行态）：从 portal 分支选择性取入——Vue 3 门户 SPA `frontend/hbos-portal-web`（46 文件）、薄平台 App `apps/hbos_portal`（37 文件，含 registry / bootstrap / provider dispatch / route resolver，**从不 import 业务 App**）、考勤 portal 适配层 `apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/`（7 文件），另加 `hooks.py` 末尾一行 `hbos_portal_provider` 注册与 12 用例契约测试。
@@ -66,7 +66,7 @@
 - 普通员工入口**按设计未开放**（非缺陷）。
 - **R4 前置项**：`VITE_PORTAL_DATA_MODE` 默认 `mock`；任何生产构建前必须设 `VITE_BASE=/hbos/`。两者列入 R4 门禁清单。
 
-主文档：`docs/milestones/HBOS门户工作台集成实施记录.md`；设计 / 计划：`docs/superpowers/specs/2026-09-28-HBOS门户工作台集成设计.md`、`docs/superpowers/plans/2026-09-28-HBOS门户工作台集成.md`。
+主文档：`docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`；设计 / 计划：`docs/superpowers/specs/2026-09-28-HBOS门户工作台集成设计.md`、`docs/superpowers/plans/2026-09-28-HBOS门户工作台集成.md`。
 
 ## M1-FIX-F 状态
 
@@ -660,8 +660,8 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 25. M1-FIX-B3：REVIEWING / Owner UI 验收未通过，考勤工作台入口、App 命名与 HRMS 数据一致性修复不能 closeout。
 26. M1-FIX-B4：REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；B4 不 closeout。
 27. M1-FIX-B5：REVIEWING，导入数据链路核查与报表口径收敛已交付，等待 Owner 和 Claude 审查。
-28. M2-STOCK-R1：IN_PROGRESS，库存模块隔离——新建独立 `stock` 站点（只装 frappe + erpnext）、新增 `hb_stock_app` 与「海滨库存」工作台，使库存数据与考勤站点 `frontend` 物理隔离。分支 `m2-stock-r1`，主文档 `docs/milestones/M2_STOCK_R1_库存模块隔离实施记录.md`。Task 3（建站 + frontend 备份）、Task 4（App 安装 + 工作台生成 + migrate 幂等）、Task 5（HAIBIN 公司 + 默认仓库）已交付 PASS，Task 7/8 待续。
-29. HBOS 门户工作台集成：REVIEWING（R1–R3 已交付；R4 未启动）。分支 `feature/hbos-portal-workbench`（基于 `93ae18a`，19 提交）——选择性移植门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层，以同域 iframe 承载真实 Frappe 考勤页面。主文档 `docs/milestones/HBOS门户工作台集成实施记录.md`。**编号待 Owner 裁定**（`M2` 前缀存在未裁定冲突），R4 需另行授权。详见上方「HBOS 门户工作台集成 状态」节。
+28. M4-STOCK-R1：IN_PROGRESS，库存模块隔离——新建独立 `stock` 站点（只装 frappe + erpnext）、新增 `hb_stock_app` 与「海滨库存」工作台，使库存数据与考勤站点 `frontend` 物理隔离。分支 `m4-stock-r1`，主文档 `docs/milestones/M4_STOCK_R1_库存模块隔离实施记录.md`。Task 3（建站 + frontend 备份）、Task 4（App 安装 + 工作台生成 + migrate 幂等）、Task 5（HAIBIN 公司 + 默认仓库）已交付 PASS，Task 7/8 待续。
+29. M3-PORTAL-R1（HBOS 门户工作台集成）：REVIEWING（R1–R3 已交付；R4 未启动）。分支 `feature/hbos-portal-workbench`（基于 `93ae18a`，19 提交）——选择性移植门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层，以同域 iframe 承载真实 Frappe 考勤页面。主文档 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`。编号已裁定为 **M3-PORTAL-R1**，R4 需另行授权。详见上方「M3-PORTAL-R1 HBOS 门户工作台集成 状态」节。
 
 ## M1-FIX 状态
 
@@ -711,11 +711,11 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1-FIX-B5 = REVIEWING
 - M1-FIX-F = REVIEWING / 两阶段均已上线，整支复查已处置
 - M1-FIX-C/D/E = PLANNED
-- M2-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m2-stock-r1`）
+- M4-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m4-stock-r1`）
 - M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION
-- HBOS 门户工作台集成 = REVIEWING（分支 `feature/hbos-portal-workbench`，R1–R3 已交付；R4 未启动 / 待 Owner 授权；编号待裁定）
+- M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R3 已交付；R4 未启动 / 待 Owner 授权）
 
-M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不在 M1-FIX 轮次内做 M2 工作（M2-STOCK-R1 已在独立分支 `m2-stock-r1` 进行，不在本分支展开），不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
+M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不在 M1-FIX 轮次内做 M2 工作（M4-STOCK-R1 已在独立分支 `m4-stock-r1` 进行，不在本分支展开），不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
 
 ## M0-REMOTE 状态
 

@@ -457,12 +457,12 @@ M1 closeout 本质是「方案收口」完成，不是「功能收口」完成�
 | 需求来源 | M1 验收标准 #12 |
 | M1 承诺 | 技术方案说明未来如何接真实考勤机 |
 | 当前实际可体验状态 | M1 技术设计中已固化通用适配层设计：`考勤机/门禁/Excel/API → 原始打卡记录 Raw Checkin → 清洗映射 → Employee Checkin → Attendance`。✅ **方案已满足**。 |
-| 差距判断 | **无缺口**：方案已明确，属于未来 M3+ 实施内容 |
+| 差距判断 | **无缺口**：方案已明确，属于未来后续专门轮次实施内容 |
 | 优先级 | 无需补漏（方案已完整） |
-| 推荐实现方式 | 接口契约已固化，M3+ 实施 |
+| 推荐实现方式 | 接口契约已固化，后续专门轮次实施 |
 | 是否需要自定义 App | 否（M1 范围内不需要） |
 | 是否需要自定义 DocType | 否（M1 范围内不需要） |
-| 风险 | 不同品牌考勤机数据格式差异大，需 M3+ 逐型号适配 |
+| 风险 | 不同品牌考勤机数据格式差异大，需后续轮次逐型号适配 |
 | 验收方式 | M1 范围内无需验收，方案已作为 M1 交付物 |
 
 ---
@@ -728,7 +728,7 @@ M1-FIX 大部分缺口可以通过 HRMS/Frappe 原生能力（Data Import、Quer
 M1     = COMPLETED（但 Owner 验收发现功能缺口）
 M1-FIX = IN_PROGRESS
 M1-FIX-A = REVIEWING
-M2-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 m2-stock-r1）
+M4-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 m4-stock-r1）
 M2 其余轮次 = PLANNED / NOT STARTED / WAITING OWNER AUTHORIZATION
 ```
 

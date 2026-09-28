@@ -180,7 +180,7 @@ M1 全部执行轮次（R0 → R7，含 R3 子轮次）共 **19 轮**。其中 1
 | 9 | **人事能最终归档** | 部分完成 | R6C | 三级流程字段设计完成（hr_processed + hr_comment）；运行时未验证 | 依赖 #7 + #8 完成后验证 |
 | 10 | **能导出 Excel 月报** | 已完成 | R5 | 4 种导出路径已固化（Report Export / List Export / Data Export / Script Report）；Frappe 原生 Excel 导出可用 | M2 在数据库中创建 Query Report 并验证 Excel 导出 |
 | 11 | **领导能看到汇总 Demo** | 部分完成 | R7 | 4 项核心指标定义已固化；Query Report SQL + Dashboard Chart 设计完成；Demo 数据规模小（3 员工 2 天）限制实际展示效果 | 扩展数据集后创建 Dashboard |
-| 12 | **未来如何接真实考勤机** | 已完成 | M1 技术设计 | 通用适配层设计已明确：Raw Checkin → 清洗映射 → Employee Checkin → Attendance；接口契约已固化 | M3+ 实施 |
+| 12 | **未来如何接真实考勤机** | 已完成 | M1 技术设计 | 通用适配层设计已明确：Raw Checkin → 清洗映射 → Employee Checkin → Attendance；接口契约已固化 | 后续专门轮次实施 |
 
 **汇总**：
 

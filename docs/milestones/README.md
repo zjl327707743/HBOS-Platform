@@ -36,7 +36,7 @@
 - `docs/milestones/M1_FIX_B3_考勤工作台入口与数据一致性修复.md`：M1-FIX-B3 考勤工作台入口、App 命名与 HRMS 数据一致性修复。
 - `docs/milestones/M1_FIX_B4_考勤模块架构收敛与单一入口重整.md`：M1-FIX-B4 考勤模块架构收敛与单一入口重整。
 - `docs/milestones/M1_FIX_B5_导入数据链路核查与报表口径收敛.md`：M1-FIX-B5 导入数据链路核查与报表口径收敛。
-- `docs/milestones/HBOS门户工作台集成实施记录.md`：HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`）R1–R3 实施记录；**编号待 Owner 裁定**（描述性名称，不套用 `Mx_Ry` 编号）。
+- `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`：M3-PORTAL-R1 HBOS 门户工作台集成 R1–R3 实施记录。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
@@ -92,11 +92,16 @@
 | M1-FIX-B4 | 考勤模块架构收敛与单一入口重整 | REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题 |
 | M1-FIX-B5 | 导入数据链路核查与报表口径收敛 | REVIEWING |
 | M1-FIX-F | 调休模块（一阶段：同步+解析+核实；二阶段：接入判定豁免） | REVIEWING / 两阶段均已上线 |
-| HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`，编号待 Owner 裁定） | 门户工作台选择性移植 + 同域 iframe 承载 Frappe 页面 | REVIEWING（R1–R3 已交付；R4 未启动） |
-| M2-STOCK-R1 | 库存模块隔离（独立 stock 站点 + hb_stock_app + 海滨库存工作台） | IN_PROGRESS（分支 `m2-stock-r1`） |
 | M2 | 飞书集成（长期轮次） | NOT STARTED |
+| M4-STOCK-R1 | 库存模块隔离（独立 stock 站点 + hb_stock_app + 海滨库存工作台） | IN_PROGRESS（分支 `m4-stock-r1`） |
+| M3-PORTAL-R1 | HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`）——选择性移植门户前端 + `hbos_portal` 薄平台 App + 同域 iframe 承载 Frappe 页面 | REVIEWING（R1–R3 已交付；R4 未启动） |
 
-**编号口径待 Owner 裁定**：上表中 `M2` 既被定义为「飞书集成（长期轮次）」，`M2-STOCK-R1` 又用 `M2` 前缀承载「库存模块隔离」，两者口径尚未裁定。故本轮「HBOS 门户工作台集成」**不套用 `Mx_Ry` 编号**，暂以描述性中文名记录，待 Owner 裁定后再归档编号（同时裁定 `M2` 的冲突口径）。
+**编号口径已裁定（Owner，2026-09-28）**：
+
+- **`M2` = 飞书集成**，回到最初定义，未被占用。
+- **库存模块隔离由 `M2-STOCK-R1` 改号为 `M4-STOCK-R1`**。原 `M2-STOCK-R1` 是在 `M2` 已被定义为飞书集成之后、以 `M2` 前缀承载库存隔离，构成编号冲突；本次改号消除该冲突。随改号一并更新：里程碑文档改名为 `M4_STOCK_R1_库存模块隔离实施记录.md`，分支由 `m2-stock-r1` 改名为 `m4-stock-r1`，全仓库引用同步更新。
+- **门户工作台定为 `M3-PORTAL-R1`**（分支 `feature/hbos-portal-workbench`）。该工作线是独立的门户 / 平台外壳工作流（Vue 3 门户 SPA + `hbos_portal` 薄平台 App：current-user bootstrap / app registry / provider discovery / 稳定路由解析），与 `M2` 飞书集成、`M4` 库存隔离平行，故独立占用 `M3`。
+- **「真实考勤机接入」不再借用 `M3`**：`M1_FIX_功能补漏实施方案.md` 与 `M1_CLOSEOUT_考勤一期总收口准备.md` 中原写的「M3+ 实施」已改写为「后续专门轮次实施」，待该轮立项时再定编号。
 
 ## 下一步路线
 
@@ -105,8 +110,8 @@
 3. M1 已 closeout 为 COMPLETED，但 Owner 验收发现功能缺口。
 4. M1-FIX-A 差距盘点与补漏实施方案已交付并进入 REVIEWING。
 5. M1-FIX-B Excel 导入与真实本地数据闭环已实现并进入 REVIEWING。
-6. M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，不能 closeout；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，不能 closeout；M1-FIX-B5 为 REVIEWING。当前 **M1-FIX-F 为 REVIEWING / 两阶段均已上线**——一阶段产出核实结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败），二阶段把已核实调休日接入考勤豁免与看板（显示「请假（调休）」），全量 437 通过。整支复查已完成并处置。M1 产品交付未完成；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`，主文档 `M2_STOCK_R1_库存模块隔离实施记录.md`；M2 飞书集成等其余轮次未启动 / 待 Owner 授权。
-7. **HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`）为 REVIEWING**——R1–R3 已交付（选择性移植门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层；Vite 5178 代理 12 条 Frappe 前缀；同域 iframe 承载真实 Frappe 考勤页面），考勤测试 458 通过、判定核心三文件逐字节不变、装 + migrate 零副作用、frappe 模式四指标与后端逐值一致。**R4 生产形态（nginx 分发 + `VITE_BASE=/hbos/`）未启动，必须 Owner 明确授权才能开始。** 主文档 `HBOS门户工作台集成实施记录.md`；**编号待 Owner 裁定**。
+6. M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，不能 closeout；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，不能 closeout；M1-FIX-B5 为 REVIEWING。当前 **M1-FIX-F 为 REVIEWING / 两阶段均已上线**——一阶段产出核实结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败），二阶段把已核实调休日接入考勤豁免与看板（显示「请假（调休）」），全量 437 通过。整支复查已完成并处置。M1 产品交付未完成；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`，主文档 `M4_STOCK_R1_库存模块隔离实施记录.md`；M2 飞书集成等其余轮次未启动 / 待 Owner 授权。
+7. **M3-PORTAL-R1（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）为 REVIEWING**——R1–R3 已交付（选择性移植门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层；Vite 5178 代理 12 条 Frappe 前缀；同域 iframe 承载真实 Frappe 考勤页面），考勤测试 458 通过、判定核心三文件逐字节不变、装 + migrate 零副作用、frappe 模式四指标与后端逐值一致。**R4 生产形态（nginx 分发 + `VITE_BASE=/hbos/`）未启动，必须 Owner 明确授权才能开始。** 主文档 `M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`。
 
 M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为 COMPLETED，M1-R2 已通过 Codex 独立审查并收口为 COMPLETED。M1-R3 已执行并通过 Codex 审查，但实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED。M1-R5 已通过 Codex 审查并收口为 COMPLETED。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 已通过 Codex 审查并收口为 COMPLETED。M1 历史 closeout 已完成，但 Owner UI 验收发现功能缺口，当前产品交付仍在 M1-FIX 中。M1-R6C = COMPLETED。M1-R7 = COMPLETED。M1-FIX-A = REVIEWING。M1-FIX-B = REVIEWING。M1-FIX-B-FIX = REVIEWING。M1-FIX-B2 = COMPLETED。M1-FIX-B3 = REVIEWING / Owner UI 验收未通过。M1-FIX-B4 = REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。M1-FIX-B5 = REVIEWING。M2 为 NOT STARTED / 未启动 / 待 Owner 授权。
 

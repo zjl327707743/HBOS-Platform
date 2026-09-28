@@ -352,7 +352,7 @@ bench --site frontend execute hb_attendance_app.hbos_attendance.sync_rest_leave.
 - **曾有 3 个与本轮无关的未提交改动**（`daily_feishu_sync.py`、`pair_checkins.py`、`rule_lists.py`，各 1 行，均为给 `ADMIN_NUMS` 追加同一工号 `10014023`）。**已于 2026-09-24 经 Owner 指示提交**（`cdd372a`），仅纳入版本控制、未改动名单内容。工作区此后为 clean。
   - 该改动由他人于 2026-09-21 16:45 落盘，因工作副本挂载进容器而**已在生效**却长期未入库——属于本轮反复出现的「提交即上线、但改动可能不入库」风险的又一实例。
   - 已核实该工号为真实在职员工（部门厂外QA，近期打卡正常，已被判为行政班早班），补入名单与其现状一致。
-- 另有一个 `git stash@{0}`，属 M2-STOCK-R1 的未提交改动（`init_site.py` + 实施记录），待 M2 续作时 pop。
+- 另有一个 `git stash@{0}`，属 M4-STOCK-R1 的未提交改动（`init_site.py` + 实施记录），待 M2 续作时 pop。
 
 ## 12. 状态与下一步
 

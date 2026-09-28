@@ -1,8 +1,8 @@
-# M2-STOCK-R1 库存模块隔离实施记录
+# M4-STOCK-R1 库存模块隔离实施记录
 
 项目名称：新乡海滨智能运营管理平台。
 
-轮次：M2-STOCK-R1（库存模块隔离）。
+轮次：M4-STOCK-R1（库存模块隔离）。
 状态：IN_PROGRESS。Task 3 已交付（`stock` 站点建成）；**Task 4 已交付（PASS）**——首个回合因 fixture 顶层缺 `doctype` 字段导致 `install-app hb_stock_app` KeyError 失败（BLOCKED），该缺陷已由 Task 1 在 `014dc24` 修复；修复后重跑全部 Step 通过：App 安装成功、「海滨库存」工作台生成（72 / 1 / 3 / 8）、原生 `Stock` 工作台未被搬空（硬判据已在运行态重做）、`migrate` 幂等（连续两次退出码 0）、`frontend` 零回归 A / B / C 全 PASS。详见下方「Task 4」节。**Task 5 已交付（PASS）**——首个回合因原计划误设「`install-app erpnext` 会带来 ERPNext 建站主数据」而 `LinkValidationError: Could not find Warehouse Type: Transit` 失败（BLOCKED）；经裁定采用方案 A（建公司前先用 ERPNext 原生 `install_fixtures.install("China")` 补齐建站主数据）后，`stock` 建成 `Company HAIBIN`（abbr `H` / China / CNY）与 5 个默认仓库（逐字对齐 `frontend`）及 95 条科目 / 2 个成本中心，幂等复跑 `created=False`，`frontend` 零回归 A / B / C 全 PASS。详见下方「Task 5」节。Task 7 / 8 继续追加。
 
 ## 目标与边界
@@ -20,7 +20,7 @@
 ## 基线环境
 
 - 工作目录：`/Users/xinxianghaibinzongheguanlizhongxin/Vibe Coding`。
-- 分支：`m2-stock-r1`。
+- 分支：`m4-stock-r1`。
 - 基线 HEAD：`4564164`（`chore: compose 挂载 hb_stock_app 卷与 PYTHONPATH（不改动现有站点）`）。
 - 容器命名前缀：`hbos-m0-r3a-`（`backend-1`、`frontend-1`、`db-1`、`scheduler-1`、`queue-long-1`、`queue-short-1`、`websocket-1`、`redis-cache-1`、`redis-queue-1`）。
 - 容器内 bench 路径：`/home/frappe/frappe-bench`；站点目录：`/home/frappe/frappe-bench/sites/`。
@@ -72,7 +72,7 @@ Backup for Site frontend has been successfully completed with files
 额外的宿主机副本（仓库外、非 git 跟踪，仅作双保险，可随时删除）：
 
 ```
-/Users/xinxianghaibinzongheguanlizhongxin/hbos-backups/m2-stock-r1/
+/Users/xinxianghaibinzongheguanlizhongxin/hbos-backups/m4-stock-r1/
 ```
 
 宿主机副本 4 个文件的 sha256 与容器内**逐一致**，已核对。

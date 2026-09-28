@@ -240,7 +240,7 @@ M0-R3E 已完成 HRMS 环境可复现性风险识别、策略比较、M1 环境�
 
 ## 追加：编译产物不持久导致的桌面端 CSS 全量 404（2026-09-20 实测）
 
-本节记录一次实际发生的故障及其根因，作为本文件「可复现性风险」的实证补充。该故障在同一栈中已发生两次（M0-R3C-FIX 一次、M2-STOCK-R1 期间一次），说明它不是偶发问题。
+本节记录一次实际发生的故障及其根因，作为本文件「可复现性风险」的实证补充。该故障在同一栈中已发生两次（M0-R3C-FIX 一次、M4-STOCK-R1 期间一次），说明它不是偶发问题。
 
 ### 现象
 
@@ -253,7 +253,7 @@ Frappe Desk 登录页与桌面端**全部 CSS bundle 返回 404**，页面无样
 
 而 `assets.json` 位于 **`sites` 卷**（经 `sites/assets` → `/home/frappe/frappe-bench/assets` 符号链接），是**持久且全容器共享**的。于是长期出现「**元数据持久、产物不持久**」的错配：`assets.json` 指向新哈希，磁盘上却是镜像的旧哈希，全部 CSS 404。
 
-叠加触发点：`docker compose up -d` 重建容器（本次由 M2-STOCK-R1 给 compose 增加 `hb_stock_app` 挂载与 PYTHONPATH 引发，重建时间 `2026-09-16T06:53:58` / `06:54:09`）。
+叠加触发点：`docker compose up -d` 重建容器（本次由 M4-STOCK-R1 给 compose 增加 `hb_stock_app` 挂载与 PYTHONPATH 引发，重建时间 `2026-09-16T06:53:58` / `06:54:09`）。
 
 ### 为什么 `assets.json` 会指向不存在的文件
 

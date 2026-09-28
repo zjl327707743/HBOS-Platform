@@ -2,18 +2,19 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-轮次：HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`）。**编号待 Owner 裁定**——本文件暂用描述性名称，不套用 `Mx_Ry` 编号。
+轮次：**M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）。
 
 状态：**REVIEWING**（R1–R3 已交付；**R4 未启动**，需 Owner 另行授权）。
 
-## 编号说明（待 Owner 裁定）
+## 编号说明
 
-本轮不套用 `M1-FIX-*` 也不套用 `M2-*`：
+本工作线编号为 **M3-PORTAL-R1**（Owner 2026-09-28 裁定）。它不套用 `M1-FIX-*`——在性质上它是独立的门户 / 平台外壳工作流（新增 Vue 3 门户 SPA + `hbos_portal` 薄平台 App），不是 M1-FIX 考勤功能补漏轮次（`M1-FIX-C/D/E` 的既定含义仍为异常三级流程 / 考勤工作台月报 / 飞书 OAuth 验证）。
 
-- 本工作线是独立的门户 / 平台外壳工作流（新增 Vue 3 门户 SPA + `hbos_portal` 薄平台 App），不是 M1-FIX 考勤功能补漏轮次（M1-FIX-C/D/E 的既定含义仍为异常三级流程 / 考勤工作台月报 / 飞书 OAuth 验证）。
-- `M2` 前缀存在**尚未裁定的编号冲突**：`docs/milestones/README.md` 的当前里程碑表既把 `M2` 定义为「飞书集成（长期轮次）」，又让 `M2-STOCK-R1` 使用 `M2` 前缀承载「库存模块隔离」。在 Owner 裁定该口径前，本轮不宜占用 `M2-*` 编号。
+同一裁定一并消除了 `M2` 前缀冲突：
 
-故本文件与台账均以描述性中文名「HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`）」记录，**编号口径待 Owner 裁定**。
+- **`M2` 归「飞书集成」**（回到最初定义）。
+- **库存模块隔离由 `M2-STOCK-R1` 改号 `M4-STOCK-R1`**（文档改名 `M4_STOCK_R1_库存模块隔离实施记录.md`，分支改名 `m4-stock-r1`）。
+- 本工作线取留出的 **`M3`**，与 `M2` 飞书集成、`M4` 库存隔离平行。
 
 ## 分支与基线
 
@@ -121,6 +122,6 @@ nginx 分发门户构建产物、生产构建须设 `VITE_BASE=/hbos/`（否则 
 
 ## 主文档与关联文档
 
-- 主文档（本轮交付记录）：本文件 `docs/milestones/HBOS门户工作台集成实施记录.md`。
+- 主文档（本轮交付记录）：本文件 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`。
 - 设计文档：`docs/superpowers/specs/2026-09-28-HBOS门户工作台集成设计.md`。
 - 实施计划：`docs/superpowers/plans/2026-09-28-HBOS门户工作台集成.md`。

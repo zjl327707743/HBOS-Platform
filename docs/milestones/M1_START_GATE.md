@@ -4,7 +4,7 @@
 
 ## 文件定位
 
-本文件记录 M1 启动前必须满足的门禁条件。M1 规划轮次已历史收口，但产品交付仍在 M1-FIX 中；M1-FIX-B2 已 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块）为 REVIEWING / 两阶段均已上线**。M1-FIX-C/D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`；M2 其余轮次未启动。**HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`）为 REVIEWING**（R1–R3 已交付，R4 未启动 / 待 Owner 授权；本工作线为独立门户工作流，编号待 Owner 裁定）。
+本文件记录 M1 启动前必须满足的门禁条件。M1 规划轮次已历史收口，但产品交付仍在 M1-FIX 中；M1-FIX-B2 已 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块）为 REVIEWING / 两阶段均已上线**。M1-FIX-C/D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`；M2 其余轮次未启动。**M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）为 REVIEWING**（R1–R3 已交付，R4 未启动 / 待 Owner 授权；本工作线为独立门户工作流，编号 **M3-PORTAL-R1**）。
 
 ## 必须满足的前置条件
 
@@ -70,7 +70,7 @@ M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计�
 
 M1 总收口历史 closeout 已完成；Owner UI 验收发现功能缺口后，当前 M1 产品交付仍在 M1-FIX 中，尚未完成。
 
-M1 规划收口已完成，但产品交付仍在 M1-FIX 中，尚未完成；M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块）为 REVIEWING / 两阶段均已上线**。M1-FIX-C/D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`；M2 其余轮次未启动。
+M1 规划收口已完成，但产品交付仍在 M1-FIX 中，尚未完成；M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块）为 REVIEWING / 两阶段均已上线**。M1-FIX-C/D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`；M2 其余轮次未启动。
 M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
 
 ## 中文化与核心源码边界
@@ -147,7 +147,7 @@ M1 初期不创建 `hb_attendance_app`。M1-FIX-B 已经 Owner 明确授权创�
 26. M1-FIX-B4：考勤模块架构收敛与单一入口重整，当前为 REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。
 27. M1-FIX-B5：导入数据链路核查与报表口径收敛，当前为 REVIEWING（2026-09-02 已追加：规则看板 Tab 三类规则可视化 + 班次人员维护表导出 5-sheet；2026-09-03 再追加：月度考勤汇总 AI复核 enable_ai 临时列）。
 28. M1-FIX-C/D/E：后续补漏轮次，当前为 PLANNED。
-29. M2：飞书集成（长期轮次）。M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS，分支 `m2-stock-r1`；飞书集成等其余 M2 轮次为 NOT STARTED / 待 Owner 授权。
-30. HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`）：REVIEWING（R1–R3 已交付；R4 未启动 / 待 Owner 授权）。独立门户工作流，选择性移植（非 merge）门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层，以同域 iframe 承载真实 Frappe 考勤页面；主文档 `docs/milestones/HBOS门户工作台集成实施记录.md`；**编号待 Owner 裁定**。R4（nginx 分发 + `VITE_BASE=/hbos/`）前不得表述为「生产可用」。
+29. M2：飞书集成（长期轮次）。M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS，分支 `m4-stock-r1`；飞书集成等其余 M2 轮次为 NOT STARTED / 待 Owner 授权。
+30. **M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）：REVIEWING（R1–R3 已交付；R4 未启动 / 待 Owner 授权）。独立门户工作流，选择性移植（非 merge）门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层，以同域 iframe 承载真实 Frappe 考勤页面；主文档 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`（编号 **M3-PORTAL-R1**，Owner 2026-09-28 裁定）。R4（nginx 分发 + `VITE_BASE=/hbos/`）前不得表述为「生产可用」。
 
 M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 COMPLETED。M1 总收口历史 closeout 已完成；当前产品交付仍在 M1-FIX 中。M1-R8 为 PLANNED（可选缓冲轮）。

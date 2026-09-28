@@ -39,7 +39,7 @@
 
 - 状态台账必须检查：`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`、`docs/milestones/` 中的对应里程碑文件。
 - 公共入口文件必须检查：`README.md`、`CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/READING_GUIDE.md`。
-- 当前阶段门禁文档必须检查：M1 阶段为 `docs/milestones/M1_START_GATE.md`，未来 M2/M3 阶段分别为 `docs/milestones/M2_START_GATE.md`、`docs/milestones/M3_START_GATE.md`。
+- 当前阶段门禁文档必须检查：M1 阶段为 `docs/milestones/M1_START_GATE.md`；其余里程碑的门禁文档按里程碑编号命名（`M2_START_GATE.md` / `M3_START_GATE.md` / `M4_START_GATE.md`），在对应里程碑启动前创建。当前编号口径：`M2` = 飞书集成、`M3` = 门户工作台（M3-PORTAL-R1）、`M4` = 库存隔离（M4-STOCK-R1）。
 - 当前轮次主文档必须检查：指本轮实际交付的 `docs/milestones/Mx_Ry_*.md` 文档，例如 `docs/milestones/M1_R3F_业务口径确认包.md`。
 - 如本轮改变项目状态，必须更新 `docs/PROJECT_STATUS.md`。
 - 如本轮改变当前里程碑或轮次，必须更新 `docs/CURRENT_MILESTONE.md`。
