@@ -40,23 +40,10 @@ if ! docker compose exec -T backend bash -lc "bench --site \"$SITE_NAME\" list-a
 fi
 
 echo "==> 验证三业务 Provider 已注册"
-docker compose exec -T backend bash -lc "SITE_NAME='$SITE_NAME' python - <<'PY'
-import os
-import frappe
-from hbos_portal.services.registry import build_registry
-
-site = os.environ['SITE_NAME']
-frappe.init(site=site)
-frappe.connect()
-try:
-    frappe.set_user('Administrator')
-    registry = build_registry()
-    assert not registry.failures, registry.failures
-    assert sorted(registry.entries) == ['attendance', 'inventory', 'lims']
-    print('Portal Registry:', sorted(registry.entries))
-finally:
-    frappe.destroy()
-PY"
+# 复用 hbos_portal 自带的集成校验（与隔离预览 / CI 同一入口），断言 registry 含
+# attendance/inventory/lims 三个 Provider 且无注册失败。
+docker compose exec -T -e HBOS_PORTAL_INTEGRATION_CHECKS=1 \
+  backend bench --site "$SITE_NAME" execute hbos_portal.integration_checks.run
 
 command -v node >/dev/null 2>&1 || fail "本机缺少 Node.js"
 command -v npm >/dev/null 2>&1 || fail "本机缺少 npm"
