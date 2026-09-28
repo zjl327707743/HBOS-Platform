@@ -360,6 +360,8 @@ services:
     networks:
       - frappe_network
     restart: on-failure
+    volumes:
+      - redis-cache-data:/data
 
   scheduler:
     image: frappe/erpnext:${ERPNEXT_VERSION}
@@ -435,6 +437,10 @@ services:
 volumes:
   db-data:
   redis-queue-data:
+  # redis:6.2-alpine 镜像声明了 VOLUME /data。redis-queue 已挂命名卷，redis-cache
+  # 原先未挂，导致每次新建容器都在项目命名空间之外生成一个匿名卷（预览隔离闸门
+  # 「隔离资源边界检查」会因此失败）。补齐，与 redis-queue 一致。
+  redis-cache-data:
   sites:
   logs:
   assets-data:
