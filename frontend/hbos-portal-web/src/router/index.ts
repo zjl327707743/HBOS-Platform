@@ -18,6 +18,7 @@ import InventoryReportView from '@/views/InventoryReportView.vue'
 import InventoryItemView from '@/views/InventoryItemView.vue'
 import InventoryWarehouseView from '@/views/InventoryWarehouseView.vue'
 import InventoryPendingView from '@/views/InventoryPendingView.vue'
+import InventoryEntryView from '@/views/InventoryEntryView.vue'
 import InventoryUnavailableView from '@/views/InventoryUnavailableView.vue'
 
 const router = createRouter({
@@ -84,6 +85,14 @@ const router = createRouter({
           name: 'inventory-warehouse',
           component: InventoryWarehouseView,
           meta: { title: '货位' },
+        },
+        {
+          // 库存单据：新建（无参）与编辑（带单号）共用一条路由。
+          // 可写页 —— 建/改/提交/删除，放行门禁由 release_gate.py 兜底。
+          path: 'entry/:entryName?',
+          name: 'inventory-entry',
+          component: InventoryEntryView,
+          meta: { title: '库存单据' },
         },
         {
           // 只读工作台：放行由 LIMS 投影写入，仓库侧无权改（见 quality_projection.py）

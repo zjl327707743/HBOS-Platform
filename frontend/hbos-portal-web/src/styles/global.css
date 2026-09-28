@@ -2439,3 +2439,152 @@ body { font-size: 14px; }
   .pending-filterbar { padding: 16px; }
   .pending-table-wrap { max-height: none; }
 }
+
+/* ============================================================================
+   仓储库存 · 库存单据（Stock Entry 通用表单，V1，可写）
+   规格见 docs/frontend/P4_库存单据通用表单视觉方案与页面结构.md
+   文本字号一律走 --hbos-font-* token（EA-5.4 §44 v2.0）。
+   ========================================================================== */
+.entry-page { display: flex; flex-direction: column; gap: 20px; }
+
+.entry-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.entry-head h1 {
+  margin: 0 0 4px;
+  font-size: var(--hbos-font-page-title); line-height: var(--hbos-line-page-title);
+  font-weight: var(--hbos-weight-strong); letter-spacing: -.4px;
+}
+.entry-head p { margin: 0; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); }
+.entry-head-meta { text-align: right; }
+.entry-docno {
+  font-family: var(--hbos-font-mono);
+  font-size: var(--hbos-font-section-title); line-height: var(--hbos-line-section-title);
+  font-weight: var(--hbos-weight-strong); color: var(--hbos-text-secondary);
+}
+.entry-pane-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 16px 20px; border-bottom: 1px solid var(--hbos-border-default);
+}
+.entry-pane-head h2 { margin: 0; font-size: var(--hbos-font-section-title); line-height: var(--hbos-line-section-title); font-weight: var(--hbos-weight-strong); }
+.entry-pane-body { padding: 20px; }
+.entry-sub { color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); }
+.entry-note { margin: 12px 0 0; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: 1.6; }
+.entry-mt { margin-top: 12px; }
+.entry-mono { font-family: var(--hbos-font-mono); font-variant-numeric: tabular-nums; }
+.entry-muted { color: var(--hbos-text-muted); }
+
+/* 单据类型：它决定表单形态 */
+.entry-typebar {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  padding: 16px 20px; border-bottom: 1px solid var(--hbos-border-default);
+  background: #f7f9fc;
+}
+.entry-typebtn {
+  min-height: 42px; padding: 0 20px;
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--hbos-border-strong); border-radius: var(--hbos-radius-control);
+  background: #fff; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body);
+}
+.entry-typebtn:hover:not(:disabled) { border-color: var(--hbos-status-info); }
+.entry-typebtn[aria-pressed="true"] {
+  background: rgba(245,168,33,.14); border-color: #f5a821; color: #8f5e0c;
+  font-weight: var(--hbos-weight-medium);
+}
+.entry-typebtn:disabled { opacity: .6; cursor: not-allowed; }
+.entry-typebtn .anticon { font-size: 18px; }
+
+/* 明细表 */
+.entry-items-wrap { overflow-x: auto; }
+.entry-items { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--hbos-font-meta); min-width: 760px; }
+.entry-items th {
+  text-align: left; padding: 12px; white-space: nowrap;
+  background: #f7f9fc; border-bottom: 1px solid var(--hbos-border-default);
+  color: var(--hbos-text-muted); font-weight: var(--hbos-weight-medium);
+}
+.entry-items th.num, .entry-items td.num { text-align: right; }
+.entry-items td { padding: 8px 12px; border-bottom: 1px solid var(--hbos-border-default); vertical-align: middle; }
+.entry-items tbody tr:last-child td { border-bottom: 0; }
+
+/* 最近单据列表 */
+.entry-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--hbos-font-meta); }
+.entry-table th {
+  text-align: left; padding: 12px; white-space: nowrap;
+  background: #f7f9fc; border-bottom: 1px solid var(--hbos-border-default);
+  color: var(--hbos-text-muted); font-weight: var(--hbos-weight-medium);
+}
+.entry-table td { padding: 12px; border-bottom: 1px solid var(--hbos-border-default); color: var(--hbos-text-secondary); white-space: nowrap; }
+.entry-table tbody tr:hover td { background: #f7f9fc; }
+.entry-table tbody tr:last-child td { border-bottom: 0; }
+.entry-link { color: var(--hbos-status-info); font-family: var(--hbos-font-mono); font-size: var(--hbos-font-meta); text-decoration: underline; }
+.entry-link:hover { opacity: .8; }
+
+/* 状态 */
+.entry-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 0 8px; border-radius: var(--hbos-radius-pill); border: 1px solid transparent;
+  font-size: var(--hbos-font-meta); line-height: 18px; font-weight: var(--hbos-weight-medium); white-space: nowrap;
+}
+.entry-tag.draft { background: rgba(244,165,35,.12); border-color: rgba(244,165,35,.34); color: #8a5a0b; }
+.entry-tag.submitted { background: rgba(27,188,134,.10); border-color: rgba(27,188,134,.28); color: #0c6b4c; }
+
+.entry-verdict {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 16px; border-radius: var(--hbos-radius-card);
+  font-size: var(--hbos-font-body); line-height: var(--hbos-line-body);
+}
+.entry-verdict .anticon { margin-top: 1px; flex: 0 0 auto; font-size: 20px; }
+.entry-verdict.err { background: rgba(237,90,114,.08); border: 1px solid rgba(237,90,114,.26); color: #96334a; }
+.entry-verdict.info { background: rgba(75,156,255,.08); border: 1px solid rgba(75,156,255,.26); color: #2b5fa8; }
+
+/* 放行预检 */
+.entry-gate {
+  border-radius: var(--hbos-radius-card);
+  border: 1px solid rgba(244,165,35,.34); background: rgba(244,165,35,.09);
+  padding: 16px;
+}
+.entry-gate.ok { border-color: rgba(27,188,134,.3); background: rgba(27,188,134,.07); }
+.entry-gate-idle { border-color: var(--hbos-border-default); background: #f7f9fc; }
+.entry-gate-head { display: flex; align-items: flex-start; gap: 12px; font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); color: #8a5a0b; }
+.entry-gate.ok .entry-gate-head { color: #0c6b4c; }
+.entry-gate-idle .entry-gate-head { color: var(--hbos-text-secondary); }
+.entry-gate-head .anticon { margin-top: 1px; flex: 0 0 auto; font-size: 20px; }
+.entry-gate-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.entry-gate-item {
+  display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: baseline;
+  padding: 8px 0; border-top: 1px solid rgba(138,90,11,.16);
+  font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); color: #8a5a0b;
+}
+.entry-gate-item:first-child { border-top: 0; }
+.entry-gate-item b { font-family: var(--hbos-font-mono); font-weight: var(--hbos-weight-medium); }
+.entry-gate-item .miss { color: var(--hbos-status-critical); font-weight: var(--hbos-weight-medium); }
+.entry-gate-item .ok { color: #0c6b4c; }
+
+.entry-head-fields { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
+.entry-field { display: flex; flex-direction: column; gap: 8px; }
+.entry-field > span { color: var(--hbos-text-secondary); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); font-weight: var(--hbos-weight-medium); }
+
+.entry-skel { border-radius: var(--hbos-radius-control); background: rgba(114,130,157,.11); animation: entry-pulse 1.4s var(--hbos-ease-standard) infinite; }
+@keyframes entry-pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.entry-skel-row { height: 36px; margin-bottom: 8px; }
+
+.entry-actionbar {
+  position: sticky; bottom: 0; z-index: 10;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 16px 20px;
+  border-radius: var(--hbos-radius-card) var(--hbos-radius-card) 0 0;
+  background: #fff; border: 1px solid var(--hbos-border-default); border-bottom: 0;
+  box-shadow: 0 -8px 24px rgba(47,72,117,.07);
+}
+.entry-actionbar-note { flex: 1; min-width: 220px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); }
+
+@media (max-width: 1199px) {
+  .entry-head-fields { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 767px) {
+  .entry-head { flex-direction: column; }
+  .entry-head-meta { text-align: left; }
+  .entry-pane-body { padding: 16px; }
+  .entry-head-fields { grid-template-columns: minmax(0,1fr); }
+  .entry-field[style*="span 2"] { grid-column: auto !important; }
+  .entry-actionbar { padding: 12px 16px; }
+  .entry-actionbar > .ant-btn { flex: 1; justify-content: center; }
+}

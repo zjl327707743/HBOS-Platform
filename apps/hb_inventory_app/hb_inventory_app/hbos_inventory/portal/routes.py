@@ -10,6 +10,8 @@ NATIVE_PATHS = {
     STABLE_PREFIX + "/intake": STABLE_PREFIX + "/intake",
     # 待检批次（只读工作台）。放行由 LIMS 投影写入，本 App 无权改。
     STABLE_PREFIX + "/pending": STABLE_PREFIX + "/pending",
+    # 库存单据列表（新建入口）。单据详情走 `/entry/<单号>` 前缀路由。
+    STABLE_PREFIX + "/entry": STABLE_PREFIX + "/entry",
 }
 
 # 已前端化、带单据号后缀的**前缀**路由。
@@ -20,6 +22,8 @@ NATIVE_PREFIXES = (
     # 四张报表：`/hbos/inventory/report/<report-id>`。
     # 「一个视图 + 四条路由」—— Deep Link 归前端，路由本身不携带报表语义。
     STABLE_PREFIX + "/report/",
+    # 库存单据详情：`/hbos/inventory/entry/<单号>`（列表是固定路径，见上）
+    STABLE_PREFIX + "/entry/",
     # 主数据浏览（只读）：`/hbos/inventory/item/<物料代码>`、
     # `/hbos/inventory/warehouse/<货位名>`。物料代码与货位名都可带空格 / 连字符，
     # 由前端 encodeURIComponent 后拼入。

@@ -70,8 +70,9 @@ export const INVENTORY_NAV_GROUPS: InventoryNavGroup[] = [
         id: 'stock-entry',
         label: '库存单据',
         icon: 'document',
-        implemented: false,
-        hint: '入库 / 出库 / 移库',
+        implemented: true,
+        stablePath: '/hbos/inventory/entry',
+        hint: '入库 / 领用出库 / 移库',
       },
       {
         id: 'purchase-receipt',
