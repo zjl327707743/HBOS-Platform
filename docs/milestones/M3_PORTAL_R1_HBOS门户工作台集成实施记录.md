@@ -76,15 +76,15 @@ nginx 分发门户构建产物、生产构建须设 `VITE_BASE=/hbos/`（否则 
 
 ## 必须记录的三项
 
-### (a) 对另一工作线的活副作用（必须记录在案）
+### (a) 曾发生并已修复的 migrate 副作用（已恢复）
+
+> **当前状态：已恢复，不再是未决问题。** 保留本节是因为该机制（`remove_orphan_doctypes()` 删除取自其他工作线的 DocType 记录）在本分支上具有一般性，值得留档。
 
 本分支执行 `migrate` 时，Frappe 的 `remove_orphan_doctypes()`（`frappe/migrate.py:188`）**移除了 DocType `HBOS Attendance Policy Assignment` 的元数据记录**。
 
 - **数据完好**：表 `tabHBOS Attendance Policy Assignment` 与其 **422 行业务数据**（含 `employee` / `employee_number` / `employee_name` / `policy_type`）无损；仅 `tabDocType` 记录消失，导致这 422 行**经 app 暂不可达**。
 - **根因**：本分支不含该 DocType 的源文件（源只存在于 `main`，3 个文件，`creation` 2026-09-24），而 `main` **不是**本分支基线的祖先。`remove_orphan_doctypes()` 以 `get_controller(doctype)` 是否抛 `ImportError` 判定孤儿，故被判为孤儿。
-- **可复现**：**只要在本分支再跑一次 `bench migrate`，该记录会被再次移除。**
-- **恢复方式**：从 `main` 取回那 3 个文件 → `migrate` → 记录重建并指向现有表 → 422 行恢复可达。
-- **Owner 裁定（2026-09-28）**：**暂不处理**。数据完好、可恢复，预期随两条工作线合并自然回归。
+- **已修复**（2026-09-28，提交 `3897c59`）：从 `main` 取回 **4 个文件**——DocType 3 文件 **加上 `policy_registry.py`**（必需：controller 首行即 import 它，只取 3 文件仍会判孤儿、migrate 仍会再删）。`migrate` 后 `tabDocType` 记录重回 1、422 行仍在、`frappe.client.get_count` 与 ORM 实取均可达。**再次 `migrate` 后记录仍在，持久性已验证。** 判定核心仍零改动。
 
 ### (b) 四项门禁破例（均经 Owner 明确授权）
 

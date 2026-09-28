@@ -35,15 +35,17 @@
 - **frappe 模式浏览器实测**：点「考勤」在门户内容区加载**真实** Frappe 考勤仪表盘；iframe 来源为 **5178**（同源）；门户四项摘要与后端 `dashboard_data.get_data()` **逐值一致**——异常人员 **388**、本周迟到 **0**、本周早退 **0**、本周缺勤 **2234**。
 - 普通员工门户准入**按设计不开放**（仅 HR User / HR Manager / System Manager / Administrator），源自 portal 分支 P3-ATT-1，**不是缺陷**。
 
-### (a) 对另一工作线的活副作用（必须记录，供下次 `migrate` 前查看）
+### (a) 曾发生并已修复的 migrate 副作用（已恢复，留档备查）
 
-本分支执行 `migrate` 时，Frappe 的 `remove_orphan_doctypes()`（`frappe/migrate.py:188`）**移除了 DocType `HBOS Attendance Policy Assignment` 的元数据记录**。
+> **当前状态：已恢复，不再是未决问题。** 保留本节是因为该机制（`remove_orphan_doctypes()` 删除取自其他工作线的 DocType 记录）在本分支上具有一般性，值得留档。
 
-- **数据完好**：表 `tabHBOS Attendance Policy Assignment` 与其 **422 行业务数据**（含 `employee` / `employee_number` / `employee_name` / `policy_type`）无损；仅 `tabDocType` 记录消失，故这 422 行**经 app 暂不可达**。
-- **根因**：本分支不含该 DocType 的源文件（源只存在于 `main`，3 个文件，`creation` 2026-09-24），而 `main` **不是**本分支基线的祖先；`remove_orphan_doctypes()` 以 `get_controller(doctype)` 是否抛 `ImportError` 判定孤儿，故被判为孤儿。
-- **可复现**：**只要在本分支再跑一次 `bench migrate`，该记录会被再次移除。**
-- **恢复方式**：从 `main` 取回那 3 个文件 → `migrate` → 记录重建并指向现有表 → 422 行恢复可达。
-- **Owner 裁定（2026-09-28）**：**暂不处理**（数据完好、可恢复，预期随两条工作线合并自然回归）。
+本分支早前执行 `migrate` 时，Frappe 的 `remove_orphan_doctypes()`（`frappe/migrate.py:188`）**移除了 DocType `HBOS Attendance Policy Assignment` 的元数据记录**。
+
+- **数据始终完好**：表 `tabHBOS Attendance Policy Assignment` 与其 **422 行业务数据**（含 `employee` / `employee_number` / `employee_name` / `policy_type`）全程无损；当时仅 `tabDocType` 记录消失，导致这 422 行**经 app 暂不可达**。
+- **根因**：本分支当时不含该 DocType 的源文件（源只存在于 `main`），而 `main` **不是**本分支基线的祖先；`remove_orphan_doctypes()` 以 `get_controller(doctype)` 是否抛 `ImportError` 判定孤儿，故被判为孤儿。
+- **修复（2026-09-28，提交 `3897c59`）**：从 `main` 取回 **4 个文件**——DocType 3 文件 **加上 `policy_registry.py`**。后者是必需的：controller 首行即 `from hb_attendance_app.hbos_attendance.policy_registry import (...)`，**只取 3 个文件仍会 ImportError、仍会被判孤儿、migrate 仍会再删一次**。取入的 4 文件与 `main` 逐字节一致；判定核心 `pairing.py` / `api.py` / `rule_lists.py` 仍相对 `93ae18a` 零改动（本分支这三个文件不 import `policy_registry`，故加入该模块是惰性的）。
+- **验证**：`tabDocType` 记录重回 **1**；422 行仍在；`frappe.client.get_count` = 422 且 ORM 实取一行成功（**真正可达**，非仅 SQL 可查）；考勤全量 **458 OK**；装 + migrate 零副作用（`tabAttendance` 31541→31541、`tabEmployee` 711→711、`policy_rows` 422→422、调度任务 104→104；`checkin` 58976→58990 属活表同步）。
+- **持久性已验证**：**再次**执行 `migrate` 后记录**仍为 1**，即孤儿不会被再删。这才是本项的验收标准。
 
 ### (b) 本轮四项门禁破例（均经 Owner 明确授权）
 
