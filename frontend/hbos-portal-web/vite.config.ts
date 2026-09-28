@@ -26,7 +26,15 @@ export default defineConfig(({ mode }) => {
   const proxy = Object.fromEntries(
     FRAPPE_PATHS.map((path) => [
       path,
-      { target: proxyTarget, changeOrigin: true },
+      {
+        target: proxyTarget,
+        changeOrigin: true,
+        // 仅 socket.io 需要转发 WebSocket 升级。Vite 只在 opts.ws 为真
+        // （或 target 以 ws:// / wss:// 开头）时才安装 upgrade 处理器
+        // （vite/dist/node/chunks/config.js 实测），否则该条目只管
+        // HTTP 长轮询、不发升级请求——即「看着支持实时、实际不发」。
+        ...(path === '/socket.io' ? { ws: true } : {}),
+      },
     ]),
   )
 
