@@ -184,7 +184,13 @@ class InventoryPortalRouteTest(unittest.TestCase):
     def test_bare_document_prefix_is_rejected(self):
         """`/draft/` 这种没有单号的半截路径不算已注册——否则前端会拿到空单号。
 
-        报表的 `/report/<id>`、主数据的 `/item/<code>`、`/warehouse/<name>` 同理。
+        报表的 `/report/<id>` 同理。
+
+        注意 `/hbos/inventory/item` 与 `/hbos/inventory/warehouse`（**无参**）是
+        合法的**主从页入口**，与 `/batch` 同构——进来先给列表/树，选中后才带代码。
+        它们曾被误列为「半截路径」而拒绝，导致这两页的入口在走
+        `openBusinessRoute` 时全部 `CONTRACT_MISMATCH`。见
+        `test_every_nav_entry_resolves_to_itself`。
         """
         for path in (
             "/hbos/inventory/draft",
@@ -195,14 +201,104 @@ class InventoryPortalRouteTest(unittest.TestCase):
             "/hbos/inventory/entry/",
             "/hbos/inventory/pick/",
             "/hbos/inventory/reconcile/",
-            "/hbos/inventory/item",
             "/hbos/inventory/item/",
-            "/hbos/inventory/warehouse",
             "/hbos/inventory/warehouse/",
         ):
             with self.subTest(path=path):
                 with self.assertRaises(ValueError):
                     resolve_stable_route(path)
+
+    def test_master_landing_paths_resolve_to_themselves(self):
+        """主数据三页的**无参入口**必须解析到自身（留在 SPA），与 `/batch` 一致。"""
+        for path in (
+            "/hbos/inventory/batch",
+            "/hbos/inventory/item",
+            "/hbos/inventory/warehouse",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(path, resolve_stable_route(path))
+
+    def test_every_nav_entry_resolves_to_itself(self):
+        """**导航里 `implemented: true` 的每个入口，后端都必须放行。**
+
+        从 `inventoryNav.ts` 读（那是真正生成链接的地方），不手写路径——
+        手写的话「导航改了而测试没改」会假通过。
+
+        这条挡的正是 2026-09-28 实测到的那类缺陷：侧边栏点得动（直接跳 SPA
+        路由，不经后端），但凡是走 `openBusinessRoute` 的入口
+        （Portal 首页 / 应用中心 / 命令面板 / 我的工作 / 概览页）都会被后端拒。
+        「页面在、入口被挡」——同一类问题在本项目已出现过两次。
+        """
+        nav_file = (
+            ROOT.parents[1]
+            / "frontend"
+            / "hbos-portal-web"
+            / "src"
+            / "data"
+            / "inventoryNav.ts"
+        )
+        self.assertTrue(nav_file.exists(), f"找不到 {nav_file}")
+        source = nav_file.read_text(encoding="utf-8")
+
+        # 换算常量引用（两个都在同文件里定义）
+        master = dict(
+            re.findall(
+                r"(\w+):\s*'([^']*)'",
+                re.search(
+                    r"export const INVENTORY_MASTER_PATHS\s*=\s*\{([^}]*)\}", source
+                ).group(1),
+            )
+        )
+        source = re.sub(
+            r"INVENTORY_MASTER_PATHS\.(\w+)",
+            lambda m: f"'{master[m.group(1)]}'",
+            source,
+        )
+        for const_name, pattern in (
+            ("INVENTORY_OVERVIEW_PATH", r"export const INVENTORY_OVERVIEW_PATH\s*=\s*'([^']*)'"),
+        ):
+            found = re.search(pattern, source)
+            if found:
+                source = source.replace(const_name, f"'{found.group(1)}'")
+
+        # 逐对象取 (implemented, stablePath)
+        entries = []
+        entry = None
+        for line in source.splitlines():
+            stripped = line.strip()
+            if re.match(r"id:\s*'[^']+',", stripped):
+                if entry and entry.get("implemented") is not None:
+                    entries.append(entry)
+                entry = {"implemented": None, "path": ""}
+                continue
+            if entry is None:
+                continue
+            matched_impl = re.match(r"implemented:\s*(true|false),", stripped)
+            if matched_impl:
+                entry["implemented"] = matched_impl.group(1) == "true"
+            matched_path = re.match(r"stablePath:\s*(.+?),?\s*$", stripped)
+            if matched_path and not entry["path"]:
+                entry["path"] = (
+                    matched_path.group(1).strip().rstrip(",").strip().strip("'").strip('"')
+                )
+        if entry and entry.get("implemented") is not None:
+            entries.append(entry)
+
+        self.assertGreater(len(entries), 5, "没解析出导航条目，测试失效")
+
+        checked = 0
+        for item in entries:
+            if not item["implemented"] or not item["path"]:
+                continue
+            with self.subTest(path=item["path"]):
+                self.assertEqual(
+                    item["path"],
+                    resolve_stable_route(item["path"]),
+                    f"导航里已实现的入口 {item['path']} 后端不放行——"
+                    "侧边栏点得动，但走 openBusinessRoute 的入口会被拒",
+                )
+                checked += 1
+        self.assertGreater(checked, 5, "已实现的入口扫得太少，测试失效")
 
     def test_url_encoded_warehouse_name_is_unquoted_safely(self):
         """货位名带空格与连字符，前端会编码后拼进来；解码后必须校验**解码后的**

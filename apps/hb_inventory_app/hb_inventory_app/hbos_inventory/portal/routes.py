@@ -17,6 +17,17 @@ NATIVE_PATHS = {
     STABLE_PREFIX + "/reconcile": STABLE_PREFIX + "/reconcile",
     # 批次选择器（`/batch/<批号>` 是详情，见下）
     STABLE_PREFIX + "/batch": STABLE_PREFIX + "/batch",
+    # 货位 / 物料的**主从页本身**（无参入口）：与批次选择器同构——进来先给
+    # 列表或树，选中后地址才带上代码。详情走 `/item/<代码>`、`/warehouse/<货位>`
+    # 前缀路由（见下）。
+    #
+    # 2026-09-28 补：此前**漏了这两条**，而 `inventoryNav.ts` 正是把「货位」「物料」
+    # 的 stablePath 指到这里。后果是侧边栏能点（它直接跳 SPA 路由），但凡是走
+    # `openBusinessRoute`（Portal 首页 / 应用中心 / 命令面板 / 我的工作 / 概览页）
+    # 的入口一律 `CONTRACT_MISMATCH` 失败——**同一类「页面在、入口被挡」的缺陷**。
+    # `/batch` 当时补了，这两条漏了。
+    STABLE_PREFIX + "/item": STABLE_PREFIX + "/item",
+    STABLE_PREFIX + "/warehouse": STABLE_PREFIX + "/warehouse",
 }
 
 # 已前端化、带单据号后缀的**前缀**路由。
