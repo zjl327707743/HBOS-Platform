@@ -6,6 +6,7 @@ import {
   getPortalTasks,
   portalDataSource,
 } from '@/services/portalProvider'
+import { isAuthError, login } from '@/services/frappeClient'
 import type {
   AppManifestDTO,
   BusinessPulseDTO,
@@ -31,6 +32,8 @@ export const usePortalStore = defineStore('portal', () => {
   const tasksLoading = ref(false)
   const bootstrapError = ref<string | null>(null)
   const dataSource = ref(portalDataSource)
+  const authenticated = ref(false)
+  const sessionChecked = ref(false)
 
   const totalActions = computed(() =>
     tasks.value.filter((task) => task.status === 'open').length,
@@ -54,15 +57,60 @@ export const usePortalStore = defineStore('portal', () => {
         void refreshSummaries()
       }
     } catch (error) {
-      bootstrapError.value =
-        error instanceof Error ? error.message : 'HBOS 初始化失败'
+      bootstrapError.value = isAuthError(error)
+        ? '登录状态已失效，请重新登录。'
+        : 'HBOS 初始化失败，请稍后重试。'
       throw error
     } finally {
       loading.value = false
     }
   }
 
+  /**
+   * 判断当前会话是否已登录。
+   *
+   * Portal API 不允许 allow_guest（CI 门禁），因此没有独立的探测端点：
+   * 直接复用 bootstrap 的 403 语义 —— Guest 必然 403。
+   */
+  async function ensureSession(): Promise<boolean> {
+    if (dataSource.value !== 'frappe') {
+      sessionChecked.value = true
+      authenticated.value = true
+      return true
+    }
+    if (sessionChecked.value) return authenticated.value
 
+    try {
+      await bootstrap()
+      authenticated.value = true
+    } catch (error) {
+      if (!isAuthError(error)) {
+        // 非鉴权错误（500 / 网络等）不该把用户弹去登录页：
+        // 保持已认证，让 Shell 自己渲染错误横幅。
+        sessionChecked.value = true
+        authenticated.value = true
+        return true
+      }
+      authenticated.value = false
+    }
+
+    sessionChecked.value = true
+    return authenticated.value
+  }
+
+  async function signIn(usr: string, pwd: string) {
+    await login(usr, pwd)
+    sessionChecked.value = false
+    authenticated.value = false
+    const ok = await ensureSession()
+    if (!ok) throw new Error('登录后仍未取得 HBOS 会话。')
+  }
+
+  function markSignedOut() {
+    authenticated.value = false
+    sessionChecked.value = true
+    user.value = null
+  }
 
   async function refreshSummaries() {
     if (dataSource.value !== 'frappe') return
@@ -129,8 +177,13 @@ export const usePortalStore = defineStore('portal', () => {
     tasksLoading,
     bootstrapError,
     dataSource,
+    authenticated,
+    sessionChecked,
     totalActions,
     bootstrap,
+    ensureSession,
+    signIn,
+    markSignedOut,
     refreshSummaries,
     refreshTasks,
   }

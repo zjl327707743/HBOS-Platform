@@ -7,16 +7,20 @@ import AppCenterView from '@/views/AppCenterView.vue'
 import ProfileSettingsView from '@/views/ProfileSettingsView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
+import PortalLoginView from '@/views/PortalLoginView.vue'
 import LimsHomeView from '@/views/LimsHomeView.vue'
 import LimsResultReviewView from '@/views/LimsResultReviewView.vue'
+import { usePortalStore } from '@/stores/portal'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', redirect: '/hbos' },
+    { path: '/login', name: 'login', component: PortalLoginView, meta: { title: '登录' } },
     {
       path: '/hbos',
       component: PortalLayout,
+      meta: { requiresAuth: true },
       children: [
         { path: '', name: 'portal-home', component: PortalHome, meta: { title: 'HBOS 首页' } },
         { path: 'work', name: 'my-work', component: MyWorkView, meta: { title: '我的工作' } },
@@ -28,6 +32,7 @@ const router = createRouter({
     {
       path: '/hbos/lims',
       component: LimsLayout,
+      meta: { requiresAuth: true },
       children: [
         { path: '', name: 'lims-home', component: LimsHomeView, meta: { title: 'LIMS · 我的实验室' } },
         { path: 'results/:resultId/review', name: 'lims-result-review', component: LimsResultReviewView, meta: { title: 'LIMS · 结果复核' } },
@@ -36,6 +41,13 @@ const router = createRouter({
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: { title: '页面不存在' } },
   ],
   scrollBehavior: () => ({ top: 0 }),
+})
+
+router.beforeEach(async (to) => {
+  if (!to.meta.requiresAuth) return true
+  const portal = usePortalStore()
+  if (await portal.ensureSession()) return true
+  return { name: 'login', query: { redirect: to.fullPath } }
 })
 
 router.afterEach((to) => {
