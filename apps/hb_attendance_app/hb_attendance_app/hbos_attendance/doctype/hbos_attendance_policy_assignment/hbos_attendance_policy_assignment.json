@@ -1,0 +1,153 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 0,
+ "autoname": "HBOS-POLICY-.#####",
+ "creation": "2026-09-24 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_number",
+  "employee_name",
+  "policy_type",
+  "column_break_1",
+  "enabled",
+  "effective_from",
+  "effective_to",
+  "section_break_rotation",
+  "group_name",
+  "anchor_shift",
+  "source_type",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "员工",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee.employee_number",
+   "fieldname": "employee_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "工号",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "姓名",
+   "read_only": 1
+  },
+  {
+   "fieldname": "policy_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "策略类型",
+   "options": "ADMIN\nFOOD\nSAFETY\nEXEMPT\nLATE_EXEMPT\nANOMALY_HIDDEN\nSPECIAL_SHIFT\nFOUR_SHIFT\nROTATION_3DAY",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "启用"
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "生效日期"
+  },
+  {
+   "fieldname": "effective_to",
+   "fieldtype": "Date",
+   "label": "失效日期"
+  },
+  {
+   "fieldname": "section_break_rotation",
+   "fieldtype": "Section Break",
+   "label": "轮转策略参数"
+  },
+  {
+   "fieldname": "group_name",
+   "fieldtype": "Data",
+   "label": "轮转组"
+  },
+  {
+   "fieldname": "anchor_shift",
+   "fieldtype": "Select",
+   "label": "锚点班次",
+   "options": "早班\n晚班\n休息"
+  },
+  {
+   "default": "MANUAL",
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "label": "来源",
+   "options": "MANUAL\nIMPORT\nMIGRATED\nSYSTEM"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "备注"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-09-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Attendance",
+ "name": "HBOS Attendance Policy Assignment",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "HR User"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
