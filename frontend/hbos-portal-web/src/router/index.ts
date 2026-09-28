@@ -19,6 +19,8 @@ import InventoryItemView from '@/views/InventoryItemView.vue'
 import InventoryWarehouseView from '@/views/InventoryWarehouseView.vue'
 import InventoryPendingView from '@/views/InventoryPendingView.vue'
 import InventoryEntryView from '@/views/InventoryEntryView.vue'
+import InventoryPickView from '@/views/InventoryPickView.vue'
+import InventoryReconcileView from '@/views/InventoryReconcileView.vue'
 import InventoryUnavailableView from '@/views/InventoryUnavailableView.vue'
 
 const router = createRouter({
@@ -93,6 +95,21 @@ const router = createRouter({
           name: 'inventory-entry',
           component: InventoryEntryView,
           meta: { title: '库存单据' },
+        },
+        {
+          // 拣货单：列表（新建）与详情共用一条路由。
+          // 前一步是「先保存」——定位货位要求单据已存在（见 inventoryPick 的注释）。
+          path: 'pick/:pickName?',
+          name: 'inventory-pick',
+          component: InventoryPickView,
+          meta: { title: '拣货单' },
+        },
+        {
+          // 库存对账：列表（新建）与详情共用一条路由。**会调账**。
+          path: 'reconcile/:reconcileName?',
+          name: 'inventory-reconcile',
+          component: InventoryReconcileView,
+          meta: { title: '库存对账' },
         },
         {
           // 只读工作台：放行由 LIMS 投影写入，仓库侧无权改（见 quality_projection.py）

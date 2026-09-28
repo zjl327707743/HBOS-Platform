@@ -97,8 +97,16 @@ export async function csrfHeaders(): Promise<Record<string, string>> {
 // 提交单据
 // ---------------------------------------------------------------------------
 
-/** 一份文档的可提交内容。`frappe.client.get` 返回的完整对象即可直接传进来。 */
-export type FrappeDocPayload = Record<string, unknown> & { doctype: string; name: string }
+/**
+ * `getDocument` 对返回类型的最低要求：得能拿到单据号。
+ *
+ * **只要求 `name`**，不要求 `doctype` —— `frappe.client.get` 的返回里**没有**
+ * `doctype` 字段（它的名字就是参数，不再回显）。要求它就等于逼调用方去补一个
+ * 服务端根本没给的字段。
+ */
+export interface FrappeDocPayload {
+  name: string
+}
 
 /**
  * 读一份文档的**当前完整内容**，用于「改」与「提交」。
@@ -125,6 +133,7 @@ export async function getDocument<T extends FrappeDocPayload = FrappeDocPayload>
   return doc
 }
 
+
 /**
  * 提交一份单据。
  *
@@ -150,6 +159,31 @@ export async function saveDocument(
   const doc = await getDocument(doctype, name)
   await postFrappeMethod('frappe.client.save', {
     doc: JSON.stringify({ ...doc, ...changes }),
+  })
+}
+
+/**
+ * 调一个单据的**控制器方法**（ERPNext 里那些挂在表单上的按钮）。
+ *
+ * 走 `run_doc_method`——它要求方法带 `@frappe.whitelist()`，且**单据必须已存在**
+ * （它按 `dt` + `dn` 去库里加载，与 `frappe.client.submit` 的语义相反）。
+ *
+ * 用途：拣货单的「定位货位」就是 ERPNext 自己的 `PickList.set_item_locations`。
+ * 复用它能保证与本页无关的规则（预留、批次、优先货位）一条都不重写。
+ *
+ * 返回值是 `{docs: [...]}`——把服务端处理后的文档原样带回来，调用方据此刷新界面。
+ */
+export async function runDocMethod<T = unknown>(
+  doctype: string,
+  name: string,
+  method: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
+  return postFrappeMethod<T>('run_doc_method', {
+    dt: doctype,
+    dn: name,
+    method,
+    args: JSON.stringify(args),
   })
 }
 

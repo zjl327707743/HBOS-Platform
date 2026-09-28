@@ -12,6 +12,9 @@ NATIVE_PATHS = {
     STABLE_PREFIX + "/pending": STABLE_PREFIX + "/pending",
     # 库存单据列表（新建入口）。单据详情走 `/entry/<单号>` 前缀路由。
     STABLE_PREFIX + "/entry": STABLE_PREFIX + "/entry",
+    # 拣货单 / 库存对账的列表（新建入口），详情各走自己的前缀路由。
+    STABLE_PREFIX + "/pick": STABLE_PREFIX + "/pick",
+    STABLE_PREFIX + "/reconcile": STABLE_PREFIX + "/reconcile",
 }
 
 # 已前端化、带单据号后缀的**前缀**路由。
@@ -24,6 +27,9 @@ NATIVE_PREFIXES = (
     STABLE_PREFIX + "/report/",
     # 库存单据详情：`/hbos/inventory/entry/<单号>`（列表是固定路径，见上）
     STABLE_PREFIX + "/entry/",
+    # 拣货单 / 库存对账的详情（列表是固定路径，见上）
+    STABLE_PREFIX + "/pick/",
+    STABLE_PREFIX + "/reconcile/",
     # 主数据浏览（只读）：`/hbos/inventory/item/<物料代码>`、
     # `/hbos/inventory/warehouse/<货位名>`。物料代码与货位名都可带空格 / 连字符，
     # 由前端 encodeURIComponent 后拼入。

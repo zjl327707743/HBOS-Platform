@@ -2588,3 +2588,23 @@ body { font-size: 14px; }
   .entry-actionbar { padding: 12px 16px; }
   .entry-actionbar > .ant-btn { flex: 1; justify-content: center; }
 }
+
+/* ============================================================================
+   仓储库存 · 拣货单 / 库存对账（V1，可写）
+   复用 .entry-* 那一套（表单骨架同构），这里只补两处专属样式。
+   文本字号一律走 --hbos-font-* token（EA-5.4 §44 v2.0）。
+   ========================================================================== */
+
+/* 库存对账的差异列：正绿、负红、0 灰。
+   与库存概览页「值为 0 就安静下来」同一条口径——没有差异不该显眼。 */
+.entry-diff {
+  font-family: var(--hbos-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--hbos-weight-medium);
+}
+.entry-diff.plus { color: #0c6b4c; }
+.entry-diff.minus { color: var(--hbos-status-critical); }
+.entry-diff.zero { color: var(--hbos-text-muted); font-weight: var(--hbos-weight-regular); }
+
+/* 拣货单的「待定位」提示：货位列在定位前是空的，给个不太抢眼的占位 */
+.entry-items .ant-select-selection-placeholder { color: var(--hbos-text-muted); }
