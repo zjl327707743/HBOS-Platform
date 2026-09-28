@@ -13,8 +13,13 @@
       </div>
     </div>
 
-    <!-- 列表（新建时显示）：仓库自建单据的入口 -->
-    <div v-if="!isExisting" class="inventory-dest glass-surface">
+    <!--
+      列表（只在从侧边栏「库存单据」进来时显示）。
+      **点下一级的「物料入库 / 领用出库 / 移库」时不显示**——那三种是直接来开单的，
+      三十来行的列表横在前面会把「① 单据类型」和明细挤到屏幕外，要拉到最下边才
+      看得到按钮（实测反馈）。判据见 script 里的 `showDocList`。
+    -->
+    <div v-if="showDocList" class="inventory-dest glass-surface">
       <div class="entry-pane-head">
         <h2>最近单据</h2>
         <span class="entry-sub">草稿排前面——那是还需要处理的</span>
@@ -430,6 +435,24 @@ const iconMap: Record<string, unknown> = {
 // --- 参数 ---
 const name = computed(() => String(route.params.entryName || ''))
 const isExisting = computed(() => Boolean(name.value))
+
+/**
+ * 是否显示「最近单据」列表。
+ *
+ * 三种进入方式对应三种意图，只有第一种要看列表：
+ *
+ * | 进来方式 | `?type=` | 列表 |
+ * |---|---|---|
+ * | 侧边栏「库存单据」 | 无 | **显示**（它就是列表页，看完再选类型开新单） |
+ * | 侧边栏下一级「物料入库 / 领用出库 / 移库」 | 有 | 不显示（直接来开这一种单） |
+ * | 已建单据（`/entry/<单号>`） | — | 不显示 |
+ *
+ * 判据用「**有没有带 `type`**」而不是「当前类型是什么」——后者会把侧边栏那句
+ * 「库存单据」也一起藏掉（它默认就是物料入库），而那个入口正是需要列表的地方。
+ */
+const showDocList = computed(
+  () => !isExisting.value && !String(route.query.type || ''),
+)
 
 // --- 状态 ---
 const type = ref<EntryType>(ENTRY_TYPES[0]!)
