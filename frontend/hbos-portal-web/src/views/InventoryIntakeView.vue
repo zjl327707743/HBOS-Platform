@@ -330,45 +330,77 @@
                 <UndoOutlined /> 恢复识别原文
               </a-button>
             </section>
+
+            <!--
+              ④ 生成草稿 —— 2026-09-28 从**视口底部 sticky 的一条**改到校对区里。
+
+              改的直接原因是 Owner 反馈：这两个字段钉在屏幕最下沿，「太靠下了，
+              不容易被看到」，而它们是必填、每次都要填。放回文档流后在校对区末尾，
+              顺着读下来就到。
+
+              另一个疑点（**未验证**）：sticky 条距视口底只有 ~60px，装不下两百多
+              像素的下拉面板；Owner 还报过「下拉框跑到上边、脱离选择框」。本机量不到
+              真实弹层坐标（Browser 面板视口高度为 0），无法证实也无法排除。
+              详见 global.css 里 `.intake-final` 的注释。
+            -->
+            <section class="intake-group intake-final">
+              <div class="intake-group-head">
+                <h3>④ 生成草稿</h3>
+                <span class="intake-note">
+                  填了货位与数量才能生成。生成的是<b>草稿</b>，不直接入账。
+                </span>
+              </div>
+              <div class="intake-final-fields">
+                <label class="intake-field">
+                  <span class="intake-label">货位 <em>*</em></span>
+                  <a-select
+                    v-model:value="warehouse"
+                    show-search
+                    :filter-option="filterWarehouse"
+                    placeholder="请选择货位"
+                    style="width: 100%"
+                  >
+                    <a-select-option
+                      v-for="w in context?.warehouses || []"
+                      :key="w.value"
+                      :value="w.value"
+                    >
+                      {{ w.label }}{{ w.parent ? `（${w.parent.split(' - ')[0]}）` : '' }}
+                    </a-select-option>
+                  </a-select>
+                </label>
+                <label class="intake-field">
+                  <span class="intake-label">数量（kg）</span>
+                  <a-input-number
+                    v-model:value="qty"
+                    :min="0"
+                    :step="0.001"
+                    placeholder="0.000"
+                    style="width: 100%"
+                  />
+                </label>
+              </div>
+              <a-alert
+                v-if="createError"
+                type="error"
+                show-icon
+                class="intake-mt"
+                :message="createError"
+              />
+              <a-button
+                type="primary"
+                size="large"
+                class="intake-mt"
+                :loading="creating"
+                :disabled="!warehouse || !qty"
+                @click="createDraft"
+              >
+                {{ creating ? '生成中…' : '生成草稿（不直接入账）' }}
+              </a-button>
+            </section>
           </template>
         </div>
       </div>
-    </div>
-
-    <!-- ============ 底部动作条：全页唯一 Primary ============ -->
-    <div v-if="result && !created && !recognizing" class="intake-actionbar">
-      <label class="intake-field">
-        <span class="intake-label">货位 <em>*</em></span>
-        <a-select v-model:value="warehouse" show-search :filter-option="filterWarehouse" placeholder="请选择货位">
-          <a-select-option
-            v-for="w in context?.warehouses || []"
-            :key="w.value"
-            :value="w.value"
-          >
-            {{ w.label }}{{ w.parent ? `（${w.parent.split(' - ')[0]}）` : '' }}
-          </a-select-option>
-        </a-select>
-      </label>
-      <label class="intake-field">
-        <span class="intake-label">数量（kg）</span>
-        <a-input-number v-model:value="qty" :min="0" :step="0.001" placeholder="0.000" style="width: 100%" />
-      </label>
-      <a-button
-        type="primary"
-        size="large"
-        :loading="creating"
-        :disabled="!warehouse || !qty"
-        @click="createDraft"
-      >
-        {{ creating ? '生成中…' : '生成草稿（不直接入账）' }}
-      </a-button>
-      <a-alert
-        v-if="createError"
-        type="error"
-        show-icon
-        class="intake-actionbar-error"
-        :message="createError"
-      />
     </div>
 
     <!-- 放大查看：小字标签必须读得清，所以放大是功能而非装饰 -->

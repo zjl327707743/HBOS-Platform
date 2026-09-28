@@ -1895,30 +1895,41 @@ body { font-size: 14px; }
 .intake-skel-label { height: 16px; width: 38%; margin-bottom: 8px; }
 .intake-skel-input { height: 40px; }
 
-/* 底部动作条：全页唯一 Primary，常驻视口底部 */
-.intake-actionbar {
-  position: sticky; bottom: 0; z-index: 10;
-  display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,.7fr) auto;
-  gap: 16px; align-items: end;
-  padding: 16px 20px; border-radius: var(--hbos-radius-card) var(--hbos-radius-card) 0 0;
-  background: #fff; border: 1px solid var(--hbos-border-default); border-bottom: 0;
-  box-shadow: 0 -8px 24px rgba(47,72,117,.07);
+/*
+ * ④ 生成草稿（2026-09-28 从「视口底部 sticky 一条」改成校对区里正常的一段）
+ *
+ * **改的直接原因**：Owner 反馈这两个字段（货位 / 数量）钉在屏幕最下沿，
+ * 「太靠下了，不容易被看到」。而它们是「必填 + 每次都要填」，不该藏在边缘。
+ * 放回校对区末尾后，顺着读下来就到，也不用为了改货位反复滚动。
+ *
+ * **另一个已知隐患**：sticky 条钉在视口底沿时，货位下拉距底只剩 ~60px，
+ * 装不下一个两百多像素的下拉面板。Owner 还报过「下拉框跑到上边、脱离选择框」，
+ * 与「弹层挂在视口底部的定位元素里」是同一类症状。
+ * **但这一条我没有验证成功** —— 本机 Browser 面板给出的视口高度为 0，
+ * 量不到真实的弹层坐标，无法复现也无法排除。等 Owner 在真实浏览器里复核：
+ * 若移动后弹层位置正常，说明与 sticky 有关；若仍异常，要另找原因。
+ */
+.intake-final { border-top: 1px solid var(--hbos-border-default); }
+.intake-final-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, .7fr);
+  gap: 16px;
+  align-items: end;
 }
-.intake-actionbar .intake-field { margin-bottom: 0; }
-.intake-actionbar-error { grid-column: 1 / -1; }
+.intake-final-fields .intake-field { margin-bottom: 0; }
+@media (max-width: 767px) {
+  .intake-final-fields { grid-template-columns: minmax(0, 1fr); }
+}
 
 @media (max-width: 1199px) {
   /* 窄屏一栏流：照片栏不再粘住，否则会挡住校对区 */
   .intake-work { grid-template-columns: minmax(0,1fr); }
   .intake-photo-col { position: static; }
-  .intake-actionbar { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
-  .intake-actionbar > .ant-btn { grid-column: 1 / -1; }
 }
 @media (max-width: 767px) {
   .intake-pane-body { padding: 16px; }
   .intake-pane-head { padding: 12px 16px; }
   .intake-pkg-row { grid-template-columns: 76px minmax(0,1fr) 76px 40px; }
-  .intake-actionbar { grid-template-columns: minmax(0,1fr); border-radius: var(--hbos-radius-card); }
   .intake-thumb { max-height: 280px; }
 }
 
