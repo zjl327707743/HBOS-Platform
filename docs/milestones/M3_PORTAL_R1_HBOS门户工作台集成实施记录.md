@@ -4,7 +4,7 @@
 
 轮次：**M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）。
 
-状态：**REVIEWING**（R1–R3 已交付；**R4 未启动**，需 Owner 另行授权）。
+状态：**REVIEWING**（**R1–R4 均已交付**）。
 
 ## 编号说明
 
@@ -31,7 +31,7 @@
 | **R1 移植** | 取入门户前端工程、`hbos_portal` 薄平台 App、考勤 portal 适配层与契约测试 | 否 | 已交付 |
 | **R2 同域通路** | Vite dev 代理扩展、mock 业务路由映射、同域 iframe 承载视图、浏览器实测 | 否 | 已交付 |
 | **R3 接真实数据** | compose 挂载 + PYTHONPATH、重建 5 个 app 容器、`install-app` + `migrate` | 是（已授权） | 已交付 |
-| **R4 生产形态** | 门户构建产物交 nginx 分发、`VITE_BASE=/hbos/` | 需另授权 | **未启动** |
+| **R4 生产形态** | 独立门户容器 + 生产构建参数固化 | 已授权 | **已交付** |
 
 ### R1 移植（Task 1–3，不触碰运行态）
 
@@ -56,9 +56,25 @@
 - 重建 **5 个 app 容器**：`backend` / `scheduler` / `queue-long` / `queue-short` / `websocket`。**未重建 `frontend`(nginx)、未动 `db`。**
 - `hbos_portal` 安装进运行中的 `frontend` site，并跑了 `migrate`；`list-apps` 由 4 App 变为 5 App（新增 `hbos_portal 0.1.0`）。
 
-### R4 生产形态（未启动）
+### R4 生产形态（已交付，Owner 2026-09-28 授权）
 
-nginx 分发门户构建产物、生产构建须设 `VITE_BASE=/hbos/`（否则 Vite 的 `dist/assets/` 与 Frappe 的 `/assets/` 撞路径）。**本任务会改动 nginx 容器与 site 入口，必须取得 Owner 明确授权后才能开始；R4 未授权前，R1–R3 结论不得表述为「生产可用」。**
+**未走原设计的「改生产 nginx」路径。** 侦察发现不可行：`/etc/nginx/conf.d/frappe.conf` 由 `nginx-entrypoint.sh:50` 在每次容器启动时从 `/templates/nginx/frappe.conf.template` 重新生成，故 `docker cp` 不持久；而往 `conf.d/` / `sites-enabled/` 另放文件无法向既有 server 块注入 `location`（同端口再起 server 块会因 `server_name` 不匹配而永远命不中）；要持久改只能接管上游 113 行模板，且改它需重建 `frontend` 容器＝**8080 短暂停机**，而该端口承载约 700 人在跑的真实考勤。
+
+Owner 裁定改用**独立门户容器**：
+
+- 新增 compose 服务 `portal`，端口 `${PORTAL_PORT:-8081}`；复用 `frappe/erpnext` 镜像（Docker Hub 不通，无法拉 nginx 镜像），**绕过其 entrypoint**（该 entrypoint 会 `rm -rf` 并重建 `sites/assets`，对本用途是有害写入）；并以 `tmpfs` 接管镜像声明的 `sites` / `logs` 两个 VOLUME，避免生成游离于项目命名空间外的匿名卷。
+- 门户容器**不挂载 `sites` / `assets` 卷，也不挂载任何 Frappe App 目录**。
+- `frontend/hbos-portal-web/deploy/portal.nginx.conf`：`/hbos/` 服务产物 + SPA 回退到 `index.html`；其余路径反代 `frontend:8080`；socket.io 单独一条转发 WebSocket 升级。
+- 生产构建参数固化于 `frontend/hbos-portal-web/.env.production`（Vite 于 production 模式自动加载，故 `npm run build` 即生产构建）：`VITE_BASE=/hbos/` **与** `VITE_PORTAL_DATA_MODE=frappe`，**缺一不可**（只设前者会让生产走 mock 模式显示假数据）。
+
+**生产形态暴露并修复的两个缺陷**（dev 下都看不到）：
+
+1. **URL 被拼两次（首页变 `/hbos/hbos`）**：路由用 `createWebHistory(import.meta.env.BASE_URL)`，而路由表已写死 `/hbos` 前缀；dev 下 `BASE_URL='/'` 恰好正确，生产 `VITE_BASE='/hbos/'` 即叠加。已固定为 `createWebHistory('/')`——`VITE_BASE` 只负责资源路径，不兼任 history base。
+2. **静态标题仍为 `HBOS Portal Prototype`**：已改为 `HBOS · 海滨智能运营工作台`。
+
+**R4 验收（均已实测）**：产物前缀 `/hbos/assets/` 且裸 `/assets/` 引用为 0；数据模式固化为 `frappe` 字面量；8081 与 8080 **逐路径 11 条全部一致**（`/desk` 的 `Server: nginx/1.22.1` 证明穿透到 Frappe），重定向均为相对路径，`X-Frame-Options: SAMEORIGIN` 透传，socket.io 升级 101；**浏览器实测** URL 为 `/hbos/`、身份为真实 `Administrator`（非 mock `Carlo`）、点考勤后 iframe 来源同源且 `contentDocument` 可访问、frame 为真实仪表盘；**四指标逐值对账** 388/388、0/0、0/0、2210/2210（另出勤率 47.1%/47.1、总人数 696/696）；**生产栈未受影响**（`frontend` Up 8 days、`db` / redis 未动、`tabAttendance` 31541、`tabEmployee` 711 不变）。
+
+**R4 遗留**：(i) 门户与 Frappe 分属 **8081 / 8080 两个端口**——同容器内是单一来源，但对外仍是第二个入口；收敛为 8080 单端口需接管上游 nginx 模板并接受一次 `frontend` 重建（8080 短暂停机）。(ii) 首次创建 portal 容器产生 **2 个匿名卷**，现以 tmpfs 接管、重建不再新增；那 2 个孤儿卷按「不删除 Docker volume」硬约束**未清理**，待 Owner 决定。
 
 ## 验证结果（均已独立复现）
 
@@ -105,11 +121,10 @@ nginx 分发门户构建产物、生产构建须设 `VITE_BASE=/hbos/`（否则 
 - **既有资源陈旧问题（非本轮引入）**：内嵌页面引用的 3 个 CSS bundle（`desk.bundle.VALCFTBN.css`、`erpnext.bundle.WTSCA2XE.css`、`report.bundle.CO7WV5RO.css`）在 5178 与 **8080 直连时同样 404**——页面引用了过期的构建哈希，与已记录的 hrms 前端无法重建问题**同根**。四条均不阻断仪表盘渲染。
 - frappe 模式下 `resolve_route` 每次导航被调用两次（**刻意为之**：保持 iframe `src` 由后端解析而非 URL 派生）。
 - 普通员工入口**按设计未开放**（见上，非缺陷）。
-- **R4 前置项**：`VITE_PORTAL_DATA_MODE` 默认 `mock`；任何生产构建前必须设 `VITE_BASE=/hbos/`。两者列入 R4 门禁清单。
+- **R4 门禁项已落实**：`VITE_PORTAL_DATA_MODE` 与 `VITE_BASE` 均已固化于 `.env.production`，`npm run build` 即生产构建。
 
 ## 未做
 
-- **R4 未启动**（nginx 分发 + `VITE_BASE=/hbos/` 需 Owner 另行授权）。
 - 未 merge `origin/feature/hbos-portal-product`。
 - 未修改 `pairing.py` / `api.py` / `rule_lists.py` 及任何考勤判定核心。
 - 未新增 Inventory / LIMS 业务前端，未引入 `services/hbos_ocr`。

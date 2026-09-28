@@ -19,9 +19,9 @@
 
 ## 当前上下文
 
-当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成。M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；当前 **M1-FIX-F（调休模块）为 REVIEWING / 两阶段均已上线**；另有 **M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）为 REVIEWING**（R1–R3 已交付，R4 未启动 / 待 Owner 授权）。
+当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成。M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；当前 **M1-FIX-F（调休模块）为 REVIEWING / 两阶段均已上线**；另有 **M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）为 REVIEWING**（R1–R4 均已交付）。
 
-当前目标：M1-FIX-F 两阶段均已上线，整支复查已完成并处置；2026-09-24 已完成名单单一来源收敛与 PR 审查 5 项修复（全量测试 445 全绿）。**建议下一轮优先处理「分机实施前数据修复」**（8/14 的 223 条错误缺勤 + `pairing.py` 设备方向判定按天改造）与台账 #10「重算幂等改造」。M1-FIX-B3 / B4 / B5 不 closeout。M1 产品交付仍未完成，M1-FIX-C/D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`；M2 其余轮次未启动 / 待 Owner 授权。**M3-PORTAL-R1（HBOS 门户工作台集成）R1–R3 已交付、R4 未启动**，R4（nginx 分发门户产物 + `VITE_BASE=/hbos/`）需 Owner 明确授权，R4 前不得表述为「生产可用」；本工作线编号 **M3-PORTAL-R1**。
+当前目标：M1-FIX-F 两阶段均已上线，整支复查已完成并处置；2026-09-24 已完成名单单一来源收敛与 PR 审查 5 项修复（全量测试 445 全绿）。**建议下一轮优先处理「分机实施前数据修复」**（8/14 的 223 条错误缺勤 + `pairing.py` 设备方向判定按天改造）与台账 #10「重算幂等改造」。M1-FIX-B3 / B4 / B5 不 closeout。M1 产品交付仍未完成，M1-FIX-C/D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`；M2 其余轮次未启动 / 待 Owner 授权。**M3-PORTAL-R1（HBOS 门户工作台集成）R1–R4 均已交付**，R4（nginx 分发门户产物 + `VITE_BASE=/hbos/`）需 Owner 明确授权，R4 前不得表述为「生产可用」；本工作线编号 **M3-PORTAL-R1**。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
@@ -96,7 +96,7 @@ Skill 路由规范文件为：
 
 1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
 2. M1 历史 closeout 已完成，但产品交付仍在 M1-FIX 中，尚未完成。M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；**M1-FIX-F 为 REVIEWING / 两阶段均已上线**。M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS（分支 `m4-stock-r1`）；M2 其余轮次未启动 / 待 Owner 授权。
-3. **M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）为 REVIEWING**：R1–R3 已交付（选择性移植门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层；Vite 5178 同域代理 12 条 Frappe 前缀；同域 iframe 承载真实 Frappe 考勤页面；考勤测试 458 通过、判定核心三文件逐字节不变、装 + migrate 零副作用、frappe 模式四指标与后端逐值一致）。**R4 生产形态（nginx 分发 + `VITE_BASE=/hbos/`）未启动，需 Owner 明确授权**；主文档 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`（编号 **M3-PORTAL-R1**）。
+3. **M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）为 REVIEWING**：R1–R4 均已交付（选择性移植门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层；Vite 5178 同域代理 12 条 Frappe 前缀；同域 iframe 承载真实 Frappe 考勤页面；考勤测试 458 通过、判定核心三文件逐字节不变、装 + migrate 零副作用、frappe 模式四指标与后端逐值一致；**R4 生产形态**：独立门户容器 8081 + `.env.production` 固化生产参数，浏览器实测同源 iframe 与四指标对账通过）；主文档 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`（编号 **M3-PORTAL-R1**）。
 
 ## 前端实施流程规范
 

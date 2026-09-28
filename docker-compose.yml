@@ -171,6 +171,38 @@ services:
     ports:
       - "${HTTP_PORT}:8080"
 
+  # HBOS 门户（生产形态）：与 Frappe 同源的独立入口。
+  # /hbos/* 服务门户构建产物，其余反代到 frontend，使浏览器只见单一来源。
+  # 复用 frontend 同一镜像（本机无法拉取 nginx 镜像），但绕过其 entrypoint：
+  # 该 entrypoint 会 rm -rf 并重建 sites/assets，对本用途是多余且有害的写入。
+  # 本服务**不挂载 sites / assets 卷，也不挂载任何 Frappe App 目录**。
+  portal:
+    image: frappe/erpnext:${ERPNEXT_VERSION}
+    networks:
+      - frappe_network
+    depends_on:
+      - frontend
+    restart: on-failure
+    entrypoint:
+      - /usr/sbin/nginx
+    command:
+      - -g
+      - daemon off;
+      - -c
+      - /etc/nginx/nginx.conf
+    volumes:
+      - ./frontend/hbos-portal-web/dist:/usr/share/nginx/html/hbos:ro
+      - ./frontend/hbos-portal-web/deploy/portal.nginx.conf:/etc/nginx/conf.d/portal.conf:ro
+    # frappe/erpnext 镜像声明了 sites / logs 两个 VOLUME，即便本服务用不到，
+    # 不显式接管就会生成匿名卷、游离在项目命名空间之外（上游 portal 分支的
+    # isolated-preview.yml 记录过同一问题）。本容器这两个路径均不使用——
+    # nginx 日志走 /var/log/nginx/（已链到 stdout/stderr），sites 完全不需要。
+    tmpfs:
+      - /home/frappe/frappe-bench/sites
+      - /home/frappe/frappe-bench/logs
+    ports:
+      - "${PORTAL_PORT:-8081}:8080"
+
   queue-long:
     image: frappe/erpnext:${ERPNEXT_VERSION}
     networks:

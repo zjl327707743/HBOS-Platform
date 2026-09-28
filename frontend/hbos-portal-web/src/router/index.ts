@@ -12,7 +12,11 @@ import LimsHomeView from '@/views/LimsHomeView.vue'
 import LimsResultReviewView from '@/views/LimsResultReviewView.vue'
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  // 路由表本身已写死 `/hbos` 前缀，故 history base 固定为 `/`。
+  // 不能用 import.meta.env.BASE_URL：生产构建的 VITE_BASE=/hbos/ 只用于让资源
+  // 落在 /hbos/assets/（避开 Frappe 的 /assets），若把它同时当作 base，
+  // 路径会被拼两次，首页变成 /hbos/hbos。
+  history: createWebHistory('/'),
   routes: [
     { path: '/', redirect: '/hbos' },
     {
