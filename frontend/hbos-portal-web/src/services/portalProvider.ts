@@ -8,6 +8,7 @@ import {
   tasks,
   twinStatuses,
 } from '@/data/mockPortal'
+import { mockBusinessRoutes } from '@/services/businessRoutes'
 import {
   getFrappePortalData,
   getFrappeSummariesForApps,
@@ -71,7 +72,7 @@ export async function resolveBusinessRoute(appId: string, stablePath: string) {
   if (portalDataSource === 'frappe') {
     return resolveFrappeRoute(appId, stablePath)
   }
-  return stablePath
+  return mockBusinessRoutes[appId] ?? stablePath
 }
 
 export async function searchPortal(query: string) {
