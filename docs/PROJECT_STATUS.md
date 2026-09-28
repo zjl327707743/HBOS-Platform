@@ -58,10 +58,27 @@ P0-01/02/04/05/06/11 各有部分实现（违规审计改为不提交、sha256 �
 与仓库根而无法运行的两个前端契约文件、两个仓库根文案检查）**427 passed + 2 skipped +
 10 subtests**；前端单测 **10 passed**、`vue-tsc` 与构建通过。
 
-**仍未处理**：**P1-02**（独立前端路由未登录仍进 Shell）、**P1-03**（projection API 用
-`frappe.get_all` 绕 DocType 权限）、**P1-04**（Frappe sidebar workaround 未版本化）、**P1-05**
-（删除策略未统一）—— 四处两边都未动。**待办**：COA 作废/重出出口（P0-05 时按决定另立一轮；
-站点上 `HBOS-SMP-2026-00003` 名下已有 4 份「已发布」COA 无法区分失效）。
+**仍未处理**：**P1-03**（projection API 用 `frappe.get_all` 绕 DocType 权限）、**P1-04**
+（Frappe sidebar workaround 未版本化）、**P1-05**（删除策略未统一）—— 三处两边都未动。
+**待办**：COA 作废/重出出口（P0-05 时按决定另立一轮；站点上 `HBOS-SMP-2026-00003` 名下已有
+4 份「已发布」COA 无法区分失效）。
+
+### P1-02 Closeout — 2026-09-28
+
+状态：**已关闭**（`797b80d`，5 files / +215 −7）。原描述「独立前端路由未登录仍进 Shell」：
+Portal 前端此前没有登录入口，只靠浏览器已有的 Frappe `sid` cookie 认证，无 cookie 时后端按
+Guest 返回 403，前端直接把 axios 英文原文当业务错误显示，Shell 照常渲染。
+
+- 未登录不再进入 Shell：`/hbos`、`/hbos/lims` 打 `requiresAuth`，新增 `beforeEach` 守卫
+- 登录由 Portal 自身完成：Frappe `redirect-to` 跨端口回跳在本地不可用
+  （nginx `proxy_set_header Host $host` 丢端口 → `sanitize_redirect` 改写为 `/desk`）
+- 会话中途失效回登录页并带 `redirect`；`redirect` 参数只收站内绝对路径
+- 后端零改动：Portal API 禁 `allow_guest`（CI 门禁），复用 bootstrap 的 403 语义
+
+验证：无 cookie → `/login`（Shell 未渲染）、直接访问 `/hbos` 被弹回；mock 数据模式未被误拦；
+会话到期 → `/login?redirect=/hbos`；登录表单错误路径；开放重定向三种输入；`npm run build` 通过。
+
+遗留：真实密码登录链路由 Owner 手工确认。
 
 ## M1-FIX-F 状态
 
