@@ -42,10 +42,13 @@ onMounted(async () => {
     // mock 模式会原样返回 URL 提供的 path；只接受同源绝对路径，
     // 否则第三方页面会被嵌进门户外壳。非字符串（如 __proto__ 命中
     // Object.prototype）同样在此拦下。
+    // 反斜杠一并拒绝：浏览器对特殊 scheme 会把 \ 当作路径分隔符，
+    // /\evil.com 这类值能绕过上面的前缀判断跳到站外。
     if (
       typeof resolved !== 'string'
       || !resolved.startsWith('/')
       || resolved.startsWith('//')
+      || resolved.includes('\\')
     ) {
       error.value = '业务页面地址无效'
       return
