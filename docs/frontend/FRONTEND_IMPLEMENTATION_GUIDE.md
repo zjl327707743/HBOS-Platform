@@ -144,3 +144,15 @@ HBOS 采用双层前端架构（参见 `docs/adr/0003-use-dual-layer-frontend.md
 - 当前适用于 M1-R6B 之后的全部前端开发活动
 - 组件库选型可在后续里程碑中根据实际技术栈确定而更新
 - 修订必须经过 Owner 审查，并在 `docs/PROJECT_STATUS.md` 中记录
+
+## 7. 例外记录（经 Owner 授权）
+
+本节的例外**不修改**第 2 节（独立前端启动 Gate）的任何规则，仅记录发生过的、已授权偏离，供后续审查识别。
+
+### 7.1 HBOS 门户工作台集成（分支 `feature/hbos-portal-workbench`，2026-09-28）
+
+- **偏离内容**：本轮**未在本仓库重新走「原型 / 视觉方案 → Owner 审查」阶段**，而是以**选择性移植（非 merge）**方式取入长期分支 `origin/feature/hbos-portal-product` 中**已设计、已经 Owner 审查**的门户产物（Vue 3 门户 SPA + `hbos_portal` 薄平台 App + 考勤 portal 适配层）。
+- **授权**：经 Owner 明确授权；同时授权四项门禁破例（写 Docker Compose、做前端驾驶舱、启动大型 Vue/React 前端、选用同域 iframe）。
+- **适用范围**：例外**仅覆盖该分支该轮**「移植既有前端产物」这一路径。
+- **不变之处**：本指南第 2 节的 Gate 对**任何新的**独立前端页面 / 模块开发活动**仍然强制生效**；不得以本轮为先例跳过原型与 Owner 审查。
+- **记录位置**：`docs/PROJECT_STATUS.md`「HBOS 门户工作台集成 状态」节；主文档 `docs/milestones/HBOS门户工作台集成实施记录.md`；设计 / 计划见 `docs/superpowers/specs/2026-09-28-HBOS门户工作台集成设计.md`、`docs/superpowers/plans/2026-09-28-HBOS门户工作台集成.md`。
