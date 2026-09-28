@@ -30,3 +30,8 @@ feishu_records.json
 
 # 例外：App 翻译文件属于源码，必须提交
 !apps/hb_attendance_app/hb_attendance_app/translations/*.csv
+
+# 前端构建产物不进仓库（`npm run build` 的产物，交给部署流程生成）
+frontend/hbos-portal-web/dist/
+*.tsbuildinfo
+frontend/hbos-portal-web/vite.config.js
