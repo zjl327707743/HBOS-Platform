@@ -9,6 +9,11 @@ volumes/
 backups/
 node_modules/
 frontend/*/dist/
+
+# HBOS 门户前端构建副产物安全网:vite.config.js 会遮蔽 vite.config.ts(解析顺序 .js 优先于 .ts),
+# *.tsbuildinfo 同理属于副产物,即使未来工具链回退也不允许提交
+frontend/hbos-portal-web/vite.config.js
+frontend/hbos-portal-web/*.tsbuildinfo
 .venv/
 __pycache__/
 runtime/
