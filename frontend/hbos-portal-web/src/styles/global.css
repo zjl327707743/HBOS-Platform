@@ -2289,6 +2289,8 @@ body { font-size: 14px; }
   font-family: var(--hbos-font-mono); font-size: var(--hbos-font-meta);
 }
 .master-node-mark { margin-left: auto; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); white-space: nowrap; }
+/* 停用货位：仍列在树里（可查历史库存与二维码），但要一眼看出不能再选 */
+.master-node-off { margin-left: auto; margin-right: 8px; color: #8a5a0b; font-weight: var(--hbos-weight-strong); }
 
 /* 详情 */
 .master-detail { min-width: 0; }

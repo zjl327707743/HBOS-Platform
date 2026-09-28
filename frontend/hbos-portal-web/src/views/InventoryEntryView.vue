@@ -419,7 +419,7 @@ import {
   type EntryType,
   type ReleaseCheck,
 } from '@/services/inventoryEntry'
-import { getWarehouseSnapshot } from '@/services/inventoryMaster'
+import { getWarehouseSnapshot, selectableWarehouses } from '@/services/inventoryMaster'
 import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
 import { FrappeHttpError } from '@/services/frappeClient'
 
@@ -640,9 +640,11 @@ watch(batchNos, scheduleReleaseCheck)
 async function loadWarehouses() {
   try {
     const snap = await getWarehouseSnapshot()
-    warehouseOptions.value = snap.all
-      .filter((w) => Number(w.is_group) !== 1) // 分组节点不能存货（api.py 的既有规则）
-      .map((w) => ({ value: w.name, label: warehouseShortLabel(w.name) }))
+    // 能选的货位 = 非分组 + 未停用（规则见 inventoryMaster.isSelectableWarehouse）
+    warehouseOptions.value = selectableWarehouses(snap).map((w) => ({
+      value: w.name,
+      label: warehouseShortLabel(w.name),
+    }))
   } catch {
     warehouseOptions.value = []
   }

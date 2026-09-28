@@ -400,6 +400,100 @@ class InventoryNavEntryTypeContractTest(unittest.TestCase):
                 self.assertEqual(base, resolve_stable_route(base))
 
 
+class WarehouseSelectabilityContractTest(unittest.TestCase):
+    """可选货位的规则：**非分组 + 未停用**，且只允许有一份实现。
+
+    ## 为什么有这份测试
+
+    这条规则此前写在三个页面里，三份各不相同：
+
+    | 页面 | 分组 | 停用 |
+    |---|---|---|
+    | `InventoryEntryView` | 排掉 | **漏了** |
+    | `InventoryReconcileView` | 排掉 | **漏了** |
+    | `InventoryPickView` | **没排**（只加了个「（库位）」后缀，仍可选） | **漏了** |
+
+    后果是实测出来的：ERPNext 建公司时自带的 `Stores / Work In Progress /
+    Finished Goods / Goods In Transit` 四个占位仓被停用后，**仍然排在入库页
+    货位下拉的最前面**；而 ERPNext 对停用货位是硬拦的
+    （`erpnext/stock/utils.py` 的 `validate_disabled_warehouse()` 直接 throw），
+    所以用户选中就必然提交失败。
+
+    分组节点同理——选了服务端会拒（本 App `api.py` 的既有规则）。
+
+    修法是把规则收进 `inventoryMaster.isSelectableWarehouse()` 一处，
+    三个页面都调 `selectableWarehouses()`。这份测试钉住两件事：
+    **规则本身两条都在**，以及**页面不许再各写一份**。
+    """
+
+    SRC = ROOT.parents[1] / "frontend" / "hbos-portal-web" / "src"
+    MASTER = SRC / "services" / "inventoryMaster.ts"
+    #: 会构造货位下拉的页面（当前三个；将来新加页面也应遵守同一条规则）
+    PICKER_VIEWS = (
+        SRC / "views" / "InventoryEntryView.vue",
+        SRC / "views" / "InventoryPickView.vue",
+        SRC / "views" / "InventoryReconcileView.vue",
+    )
+
+    def test_rule_checks_both_group_and_disabled(self):
+        text = self.MASTER.read_text(encoding="utf-8")
+        self.assertIn("export function isSelectableWarehouse(", text)
+        body = re.search(r"export function isSelectableWarehouse\(.*?\n\}", text, re.S)
+        self.assertIsNotNone(body, "找不到 isSelectableWarehouse 函数体")
+        body = body.group(0)
+        self.assertIn("is_group", body, "规则必须排掉分组节点")
+        self.assertIn("disabled", body, "规则必须排掉已停用货位")
+
+    def test_shared_helper_filters_snapshot_all(self):
+        text = self.MASTER.read_text(encoding="utf-8")
+        body = re.search(r"export function selectableWarehouses\(.*?\n\}", text, re.S)
+        self.assertIsNotNone(body, "找不到 selectableWarehouses 函数体")
+        self.assertIn("snapshot.all", body.group(0))
+        self.assertIn("isSelectableWarehouse", body.group(0))
+
+    def test_picker_views_use_the_shared_helper(self):
+        for view in self.PICKER_VIEWS:
+            text = view.read_text(encoding="utf-8")
+            with self.subTest(view=view.name):
+                self.assertIn(
+                    "selectableWarehouses",
+                    text,
+                    f"{view.name} 没走共用的可选货位规则",
+                )
+
+    def test_picker_views_do_not_roll_their_own_filter(self):
+        """页面里不许再出现「直接铺 `snap.all`」或「自己写一遍分组过滤」。
+
+        前者就是 `PickView` 原来的写法（分组都能选），后者是另外两个页面漏掉
+        `disabled` 的写法。两种都在这里挡掉。
+        """
+        banned = (
+            re.compile(r"snap\.all\s*\.map\(", re.S),
+            re.compile(r"snap\.all\s*\n?\s*\.filter\(", re.S),
+        )
+        for view in self.PICKER_VIEWS:
+            text = view.read_text(encoding="utf-8")
+            for pattern in banned:
+                with self.subTest(view=view.name, pattern=pattern.pattern):
+                    self.assertIsNone(
+                        pattern.search(text),
+                        f"{view.name} 又自己写了一遍货位过滤——"
+                        "可选货位的规则只允许在 inventoryMaster 里有一份",
+                    )
+
+    def test_browse_view_still_lists_disabled_warehouses(self):
+        """货位页是**查档**的地方：停用的货位仍要列出来（可查历史库存与二维码），
+        只是要标出来。别顺手把它也过滤掉。
+        """
+        browse = (self.SRC / "views" / "InventoryWarehouseView.vue").read_text(encoding="utf-8")
+        self.assertNotIn(
+            "selectableWarehouses",
+            browse,
+            "货位页是浏览页，不该套用「可选」过滤——停用货位要能看到",
+        )
+        self.assertIn("已停用", browse, "货位页应标出已停用的货位")
+
+
 class InventoryPortalSummaryTest(unittest.TestCase):
     def tearDown(self):
         sys.modules.pop("frappe", None)

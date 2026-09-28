@@ -70,6 +70,10 @@
                 <FolderOutlined v-if="node.isGroup" class="master-node-ic" />
                 <FileOutlined v-else class="master-node-ic" />
                 <span class="master-node-name">{{ shortLabel(node.name) }}</span>
+                <span
+                  v-if="Number(node.disabled) === 1"
+                  class="master-node-mark master-node-off"
+                >已停用</span>
                 <span class="master-node-mark">{{ node.isGroup ? '分组' : '货位' }}</span>
               </button>
             </template>
@@ -102,9 +106,15 @@
           <div class="inventory-dest glass-surface">
             <div class="master-pane-head">
               <h2>{{ shortLabel(current.name) }}</h2>
-              <span class="master-tag" :class="current.isGroup ? 'warn' : 'ok'">
-                <component :is="current.isGroup ? WarningOutlined : CheckCircleOutlined" />
-                {{ current.isGroup ? '此节点不能存货' : '可存货' }}
+              <span class="master-tag" :class="current.isGroup ? 'warn' : (Number(current.disabled) === 1 ? 'warn' : 'ok')">
+                <component :is="current.isGroup || Number(current.disabled) === 1 ? WarningOutlined : CheckCircleOutlined" />
+                {{
+                  current.isGroup
+                    ? '此节点不能存货'
+                    : Number(current.disabled) === 1
+                      ? '已停用 · 不能存货'
+                      : '可存货'
+                }}
               </span>
             </div>
             <div class="master-pane-body">
@@ -114,6 +124,19 @@
                 <div>
                   这是<b>库位 / 层等分组节点</b>，本身不能存货。入库时必须选到具体的货位。
                   下面的库存是它<b>所有下级货位</b>的汇总。
+                </div>
+              </div>
+
+              <!-- 停用货位：ERPNext 对它是硬拦（validate_disabled_warehouse），必须显式告知 -->
+              <div
+                v-else-if="Number(current.disabled) === 1"
+                class="master-note warn"
+                style="margin-bottom: 20px"
+              >
+                <WarningOutlined />
+                <div>
+                  这个货位<b>已停用</b>，不能用于任何出入库单据——选了会被 ERPNext 拒。
+                  它<b>仍列在这里</b>是为了能查到历史库存与二维码；新建单据时不会再出现在货位下拉里。
                 </div>
               </div>
 

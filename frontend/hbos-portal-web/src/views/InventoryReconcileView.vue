@@ -311,7 +311,7 @@ import {
   type ReconcileListRow,
   type ReconcileRowMeta,
 } from '@/services/inventoryReconcile'
-import { getWarehouseSnapshot } from '@/services/inventoryMaster'
+import { getWarehouseSnapshot, selectableWarehouses } from '@/services/inventoryMaster'
 import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
 import { FrappeHttpError } from '@/services/frappeClient'
 
@@ -447,9 +447,11 @@ async function lookupUom(itemCode: string): Promise<string> {
 async function loadWarehouses() {
   try {
     const snap = await getWarehouseSnapshot()
-    warehouseOptions.value = snap.all
-      .filter((w) => Number(w.is_group) !== 1) // 分组节点不能存货
-      .map((w) => ({ value: w.name, label: warehouseShortLabel(w.name) }))
+    // 能选的货位 = 非分组 + 未停用（规则见 inventoryMaster.isSelectableWarehouse）
+    warehouseOptions.value = selectableWarehouses(snap).map((w) => ({
+      value: w.name,
+      label: warehouseShortLabel(w.name),
+    }))
   } catch {
     warehouseOptions.value = []
   }

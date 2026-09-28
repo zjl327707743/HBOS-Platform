@@ -324,7 +324,7 @@ import {
   type PickLocation,
   type PickShortage,
 } from '@/services/inventoryPick'
-import { getWarehouseSnapshot } from '@/services/inventoryMaster'
+import { getWarehouseSnapshot, selectableWarehouses } from '@/services/inventoryMaster'
 import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
 import { FrappeHttpError } from '@/services/frappeClient'
 
@@ -434,9 +434,11 @@ async function onItemChange(row: (typeof rows.value)[number]) {
 async function loadWarehouses() {
   try {
     const snap = await getWarehouseSnapshot()
-    warehouseOptions.value = snap.all.map((w) => ({
+    // 能选的货位 = 非分组 + 未停用（规则见 inventoryMaster.isSelectableWarehouse）。
+    // 早先这里直接 `.map()` 铺全部，**分组节点也能被选进拣货单**——选了服务端会拒。
+    warehouseOptions.value = selectableWarehouses(snap).map((w) => ({
       value: w.name,
-      label: `${shortLabel(w.name)}${Number(w.is_group) === 1 ? '（库位）' : ''}`,
+      label: shortLabel(w.name),
     }))
   } catch {
     warehouseOptions.value = []

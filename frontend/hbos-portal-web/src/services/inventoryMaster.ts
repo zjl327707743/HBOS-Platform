@@ -240,6 +240,33 @@ function assignDepth(nodes: WarehouseTreeNode[], depth: number) {
 }
 
 /**
+ * 一个货位**能不能被选来存货**。
+ *
+ * 两条都要满足，缺一不可：
+ *
+ * 1. **不是分组节点**。分组（`is_group`）只是层级里的目录，没有货架，
+ *    选了它单据会被服务端拒（本 App `api.py` 的既有规则）。
+ * 2. **没有停用**。ERPNext 对停用货位是**硬拦**的——
+ *    `erpnext/stock/utils.py` 的 `validate_disabled_warehouse()` 直接
+ *    `frappe.throw("Disabled Warehouse ... cannot be used for this transaction.")`。
+ *    所以停用的货位留在下拉里，用户选中就必然提交失败。
+ *
+ * **这条规则必须只有一份**。此前它写在三个页面里，三份各不相同：
+ * `EntryView` / `ReconcileView` 只过滤了分组（漏了停用），
+ * `PickView` **两条都没过滤**（连分组都能选，只加了个「（库位）」后缀）。
+ * 2026-09-28 实测：ERPNext 建公司时自带的 `Stores - HB` 等四个占位仓
+ * 被停用后，仍然出现在入库页的货位下拉最前面。
+ */
+export function isSelectableWarehouse(row: WarehouseRow): boolean {
+  return Number(row.is_group) !== 1 && Number(row.disabled) !== 1
+}
+
+/** 可选货位（非分组 + 未停用），保持 snapshot 的 `lft` 顺序 */
+export function selectableWarehouses(snapshot: WarehouseSnapshot): WarehouseRow[] {
+  return snapshot.all.filter(isSelectableWarehouse)
+}
+
+/**
  * 分组节点的**整棵子树**（含自身）。
  *
  * 用 `lft` / `rgt` 判断包含关系，与报表 `_warehouse_scope` 同一套口径——
