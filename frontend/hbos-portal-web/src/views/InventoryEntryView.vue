@@ -680,16 +680,44 @@ async function loadEntry() {
   }
 }
 
+/**
+ * 把页面恢复到「新建」状态。
+ *
+ * **必须在换单号时显式重置**：`onMounted` 一页只跑一次，而从已建单据点
+ * 「再建一张 / 新建一张」只是 push 到 `/entry`——**同一条路由记录、只有参数变了**，
+ * Vue 不会重挂载组件。于是 `docstatus` 还是旧单据的（已取消的会继续显示「已取消」
+ * 块）、`rows` 还是旧明细、`type` 还是旧类型，刷新一次才干净（Owner 实测报的）。
+ * 修复不是让「新建」去强制重挂载，而是**离开那张单据时就该把状态清掉**。
+ */
+function resetToNew() {
+  docstatus.value = 0
+  fromIntake.value = false
+  blockedError.value = null
+  checks.value = []
+  checkState.value = 'idle'
+  remarks.value = ''
+  postingDate.value = todayIso()
+  rows.value = [emptyRow()]
+  type.value = findEntryTypeByKey(String(route.query.type || '')) || ENTRY_TYPES[0]!
+}
+
 onMounted(async () => {
   await loadWarehouses()
   if (isExisting.value) {
     await loadEntry()
   } else {
-    // 侧边栏的下一级菜单按 `?type=receipt|issue|transfer` 进来预选类型。
-    // 认不出来的值**不猜**——静默用第一个类型（物料入库），与「刚进来」一致。
-    const preset = findEntryTypeByKey(String(route.query.type || ''))
-    if (preset) type.value = preset
-    rows.value = [emptyRow()]
+    resetToNew()
+    await loadList()
+  }
+})
+
+// 从「已建单据」回到「新建」时组件不重挂载（同一条路由记录），所以要自己重置。
+// 判据是**单号的有无**，与 `isExisting` 同源。
+watch(isExisting, async (nowExisting) => {
+  if (nowExisting) {
+    await loadEntry()
+  } else {
+    resetToNew()
     await loadList()
   }
 })

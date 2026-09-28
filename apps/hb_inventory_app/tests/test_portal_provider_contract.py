@@ -586,3 +586,67 @@ class InventoryPortalProviderRuntimeBoundaryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EntryViewStateResetContractTest(unittest.TestCase):
+    """写入页的状态重置：**组件不重挂载时（换单号）必须自己重置**。
+
+    ## 为什么有这份测试
+
+    「最近单据」页与「单据详情」**共用一条路由记录**（`entry/:entryName?`、
+    `pick/:pickName?`、`reconcile/:reconcileName?`）。从一张已提交/已取消的单据点
+    「再建一张」，只是把单号从 URL 里去掉——**同一条路由记录、只有参数变了，
+    Vue 不会重挂载组件**，`onMounted` 不再跑。
+
+    于是页面上会留着**上一张单据的状态**：`docstatus` 还是 2（继续显示「已取消」
+    整块）、`rows` 还是旧明细（还带 disabled 的输入框）、`type` 还是旧类型。
+    Owner 实测报的：「在已取消单据上点『新建一张』后，行数据有残留（旧明细仍显示
+    且 disabled），刷新后才干净。」
+
+    修法：把「恢复到新建态」抽成 `resetToNew()`，`onMounted` 与
+    `watch(isExisting)` 都调它。
+
+    这里钉住：三个写入页都要有 `resetToNew`，且**必须有 watch 盯着 `isExisting`**。
+    只靠 `onMounted` 的写法一定会重现这个缺陷。
+    """
+
+    SRC = ROOT.parents[1] / "frontend" / "hbos-portal-web" / "src"
+    WRITE_VIEWS = (
+        SRC / "views" / "InventoryEntryView.vue",
+        SRC / "views" / "InventoryPickView.vue",
+        SRC / "views" / "InventoryReconcileView.vue",
+    )
+
+    def test_each_write_view_has_reset_to_new(self):
+        for view in self.WRITE_VIEWS:
+            text = view.read_text(encoding="utf-8")
+            with self.subTest(view=view.name):
+                self.assertIn(
+                    "function resetToNew(",
+                    text,
+                    f"{view.name} 缺 resetToNew——换单号时状态不会重置",
+                )
+
+    def test_each_write_view_watches_is_existing(self):
+        for view in self.WRITE_VIEWS:
+            text = view.read_text(encoding="utf-8")
+            with self.subTest(view=view.name):
+                self.assertRegex(
+                    text,
+                    r"watch\(\s*isExisting,",
+                    f"{view.name} 缺 `watch(isExisting, ...)`——"
+                    "从单据详情回到新建时组件不重挂载，state 会留成上一张单据的",
+                )
+
+    def test_reset_to_new_clears_docstatus_and_rows(self):
+        """重置至少要清掉这两样——它们正是残留的观感来源。"""
+        import re as _re
+
+        for view in self.WRITE_VIEWS:
+            text = view.read_text(encoding="utf-8")
+            body = _re.search(r"function resetToNew\(.*?\n\}", text, _re.S)
+            self.assertIsNotNone(body, f"{view.name} 的 resetToNew 没解析出来")
+            body = body.group(0)
+            with self.subTest(view=view.name):
+                self.assertIn("docstatus.value = 0", body, "没把状态退回草稿")
+                self.assertIn("rows.value = [emptyRow()]", body, "没把明细清空")

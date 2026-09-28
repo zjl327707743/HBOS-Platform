@@ -281,7 +281,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Modal } from 'ant-design-vue'
 import {
@@ -588,12 +588,38 @@ function startNew() {
   void router.push('/hbos/inventory/reconcile')
 }
 
+/**
+ * 把页面恢复到「新建」状态。
+ *
+ * **必须在换单号时显式重置**：「再建一张 / 新建一张」只是 push 到 `/reconcile`——
+ * 同一条路由记录、只有参数变了，Vue 不会重挂载组件，`onMounted` 不再跑。
+ * 不重置的话 `docstatus` 还是旧单据的（已取消的会继续显示「已取消」块）、
+ * `rows` 还是旧明细，刷新一次才干净（Owner 实测报的）。
+ */
+function resetToNew() {
+  docstatus.value = 0
+  blockedError.value = ''
+  setWarehouse.value = undefined
+  postingDate.value = todayIso()
+  rows.value = [emptyRow()]
+}
+
 onMounted(async () => {
   await loadWarehouses()
   if (isExisting.value) {
     await loadDoc()
   } else {
-    rows.value = [emptyRow()]
+    resetToNew()
+    await loadList()
+  }
+})
+
+// 从「已建单据」回到「新建」时组件不重挂载（同一条路由记录），所以要自己重置。
+watch(isExisting, async (nowExisting) => {
+  if (nowExisting) {
+    await loadDoc()
+  } else {
+    resetToNew()
     await loadList()
   }
 })

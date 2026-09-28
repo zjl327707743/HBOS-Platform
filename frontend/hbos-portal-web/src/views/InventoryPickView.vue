@@ -98,7 +98,7 @@
     <div class="inventory-dest glass-surface">
       <div class="entry-pane-head">
         <h2>② 要拣什么</h2>
-        <span class="entry-sub">先只填物料与数量，货位可留空待定位</span>
+        <span class="entry-sub">货位要么自己填，要么点「定位货位」让系统找</span>
       </div>
       <div class="entry-pane-body" style="padding: 0 0 20px">
         <div class="entry-items-wrap">
@@ -139,7 +139,7 @@
                     v-model:value="row.warehouse"
                     show-search
                     :filter-option="filterWarehouse"
-                    placeholder="（待定位）"
+                    placeholder="选货位（或先填一个再定位）"
                     allow-clear
                     style="width: 100%"
                     :disabled="readonly"
@@ -174,10 +174,19 @@
             <AimOutlined /> 定位货位
           </a-button>
 
-          <!-- 这个前提是 ERPNext 的硬约束，必须写在按钮旁边而不是等点了才报错 -->
+          <!--
+            「定位货位」的两个前提，必须写在按钮旁边而不是等点了才报错。
+            **这里刻意不提「货位可留空」**——实测：ERPNext v16 的
+            `Pick List.before_save` 只要 locations 非空就会跑 `validate_warehouses`，
+            空货位行 `insert` 必报 `Row 1: Warehouse is required`（与 pick_manually
+            无关，见 pick_list.py 的 before_save）。所以「先存空行、再定位」走不通，
+            定位前必须先把这张单存下来，而存下来就得有货位。
+          -->
           <p class="entry-note">
             <template v-if="!isExisting">
-              <b>先保存，再定位。</b>「定位货位」是 ERPNext 的单据方法，需要单据已存在（有单号）才能算。
+              <b>先填货位，再保存。</b>空货位行存不进去（服务端会报「Warehouse is
+              required」）。「定位货位」是 ERPNext 的单据方法，需要单据已有单号——
+              所以先填一个货位存下来，再用定位改。
             </template>
             <template v-else-if="!parentWarehouse">
               <b>先选「查找范围」，再定位。</b>不选范围，系统不知道去哪找——它靠
@@ -294,7 +303,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Modal } from 'ant-design-vue'
 import {
@@ -508,6 +517,13 @@ function validate(): string | null {
   if (!rows.value.some((r) => r.itemCode && (r.qty ?? 0) > 0)) {
     return '至少填一行（物料代码 + 数量大于 0）才能保存。'
   }
+  // 货位必填：ERPNext 的 `before_save` 只要有明细行就会跑 `validate_warehouses`
+  // （`pick_list.py`，与 `pick_manually` 无关），空货位行 insert 必报
+  // 「Row N: Warehouse is required」。所以在这里先拦一道，给中文提示，
+  // 别让用户填完一整张单才吃到一个英文行号报错。
+  if (rows.value.some((r) => r.itemCode && (r.qty ?? 0) > 0 && !String(r.warehouse || '').trim())) {
+    return '每一行都要选货位。想让它自己找，先填一个货位存下来，再点「定位货位」重算。'
+  }
   return null
 }
 
@@ -668,12 +684,42 @@ function startNew() {
   void router.push('/hbos/inventory/pick')
 }
 
+/**
+ * 把页面恢复到「新建」状态。
+ *
+ * **必须在换单号时显式重置**：「再建一张」只是 push 到 `/pick`——同一条路由记录、
+ * 只有参数变了，Vue 不会重挂载组件，`onMounted` 不再跑。不重置的话 `docstatus`
+ * 还是旧单据的（已取消的会继续显示「已取消」块）、`rows` 还是旧明细，
+ * 刷新一次才干净（Owner 实测报的）。
+ */
+function resetToNew() {
+  docstatus.value = 0
+  status.value = ''
+  parentWarehouse.value = undefined
+  locations.value = []
+  shortages.value = []
+  blockedError.value = ''
+  locateEmptyReason.value = ''
+  required.value = {}
+  rows.value = [emptyRow()]
+}
+
 onMounted(async () => {
   await loadWarehouses()
   if (isExisting.value) {
     await loadDoc()
   } else {
-    rows.value = [emptyRow()]
+    resetToNew()
+    await loadList()
+  }
+})
+
+// 从「已建单据」回到「新建」时组件不重挂载（同一条路由记录），所以要自己重置。
+watch(isExisting, async (nowExisting) => {
+  if (nowExisting) {
+    await loadDoc()
+  } else {
+    resetToNew()
     await loadList()
   }
 })
