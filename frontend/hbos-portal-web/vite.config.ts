@@ -49,7 +49,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      host: '0.0.0.0',
+      // 默认只绑本机：代理已无条件挂载，绑 0.0.0.0 会让同网段可直接经 5178
+      // 访问真实 Frappe 栈。确需局域网访问时显式设 VITE_DEV_HOST。
+      host: env.VITE_DEV_HOST || '127.0.0.1',
       port: 5178,
       proxy,
     },

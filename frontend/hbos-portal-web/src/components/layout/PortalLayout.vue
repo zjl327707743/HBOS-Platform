@@ -26,7 +26,7 @@
             class="portal-bootstrap-error"
             :message="portal.bootstrapError"
           />
-          <RouterView v-else />
+          <RouterView v-else :key="$route.fullPath" />
         </main>
       </div>
     </div>

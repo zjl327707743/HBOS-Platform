@@ -2,7 +2,7 @@
 
 HBOS Workspace / Portal 的 Vue 3 + Ant Design Vue 前端。
 
-当前阶段：**EA-5.5 COMPLETE / P3 THREE-APP WORKSPACE INTEGRATION**。
+当前阶段：**HBOS 门户工作台分支 —— 仅注册 Attendance 单个 App（`legacy` 模式 / `summary` 能力），业务页面经同源 iframe 内嵌**。Inventory / LIMS 不在本分支范围内。
 
 ## 数据模式
 

@@ -8,15 +8,21 @@ export async function openBusinessRoute(
   appId: string,
   stablePath: string,
 ) {
-  const resolved = await resolveBusinessRoute(appId, stablePath)
+  try {
+    const resolved = await resolveBusinessRoute(appId, stablePath)
 
-  if (resolved.startsWith('/hbos/')) {
-    await router.push(resolved)
-    return
+    if (resolved.startsWith('/hbos/')) {
+      await router.push(resolved)
+      return
+    }
+
+    await router.push({
+      name: 'business-embed',
+      query: { app: appId, path: stablePath },
+    })
+  } catch (error) {
+    // 解析失败不能表现成「点了没反应」：跳转到无权限视图并留下诊断。
+    console.error('[hbos] 业务路由解析失败', error)
+    await router.push({ name: 'forbidden' })
   }
-
-  await router.push({
-    name: 'business-embed',
-    query: { app: appId, path: stablePath },
-  })
 }
