@@ -31,6 +31,19 @@ export interface InventoryNavItem {
   stablePath?: string
   /** 入口区的一行说明；侧边栏不用 */
   hint?: string
+  /**
+   * 下一级菜单。用于「一个入口里还有几种形态」的情况——
+   * 目前只有库存单据：它下面同时管入库 / 领用出库 / 移库三件事。
+   *
+   * 子项**不各占一个页面**，而是同一个页面的不同预选形态，所以它们的
+   * `stablePath` 带查询串（`?type=receipt`）区分，路径本身与父项相同。
+   */
+  children?: InventoryNavItem[]
+  /**
+   * 子项预选的单据类型。值必须与 `inventoryEntry.ts` 的 `ENTRY_TYPES[].key` 一致，
+   * 否则页面认不出来、会静默回落到第一个类型。有契约测试钉住。
+   */
+  entryType?: string
 }
 
 export interface InventoryNavGroup {
@@ -90,6 +103,34 @@ export const INVENTORY_NAV_GROUPS: InventoryNavGroup[] = [
         implemented: true,
         stablePath: '/hbos/inventory/entry',
         hint: '入库 / 领用出库 / 移库',
+        // 这一项下面同时管三件事，所以给它一条下一级菜单——否则「出库」
+        // 在侧边栏里没有名字，只能先进来再选类型。
+        children: [
+          {
+            id: 'stock-entry-receipt',
+            label: '物料入库',
+            icon: 'in',
+            implemented: true,
+            stablePath: '/hbos/inventory/entry?type=receipt',
+            entryType: 'receipt',
+          },
+          {
+            id: 'stock-entry-issue',
+            label: '领用出库',
+            icon: 'out',
+            implemented: true,
+            stablePath: '/hbos/inventory/entry?type=issue',
+            entryType: 'issue',
+          },
+          {
+            id: 'stock-entry-transfer',
+            label: '移库',
+            icon: 'swap',
+            implemented: true,
+            stablePath: '/hbos/inventory/entry?type=transfer',
+            entryType: 'transfer',
+          },
+        ],
       },
       {
         id: 'qa-release',

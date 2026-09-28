@@ -84,6 +84,17 @@ export function findEntryType(erpType?: string | null): EntryType | undefined {
   return ENTRY_TYPES.find((t) => t.erpType === erpType)
 }
 
+/**
+ * 按前端自己的键（`receipt` / `issue` / `transfer`）找类型。
+ *
+ * 用于「侧边栏的下一级菜单 → 页面预选类型」：外部传进来的只有这个键
+ * （`/hbos/inventory/entry?type=receipt`），拿不到 `erpType`。
+ * 认不出来就返回 undefined，由调用方决定回落到什么——**不猜**。
+ */
+export function findEntryTypeByKey(key?: string | null): EntryType | undefined {
+  return ENTRY_TYPES.find((t) => t.key === key)
+}
+
 // ---------------------------------------------------------------------------
 // 单据读写
 // ---------------------------------------------------------------------------

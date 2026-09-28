@@ -404,6 +404,7 @@ import {
   createStockEntry,
   discardStockEntry,
   findEntryType,
+  findEntryTypeByKey,
   getStockEntry,
   listStockEntries,
   submitStockEntry,
@@ -659,10 +660,25 @@ onMounted(async () => {
   if (isExisting.value) {
     await loadEntry()
   } else {
+    // 侧边栏的下一级菜单按 `?type=receipt|issue|transfer` 进来预选类型。
+    // 认不出来的值**不猜**——静默用第一个类型（物料入库），与「刚进来」一致。
+    const preset = findEntryTypeByKey(String(route.query.type || ''))
+    if (preset) type.value = preset
     rows.value = [emptyRow()]
     await loadList()
   }
 })
+
+// 侧边栏的下一级菜单能在**同一个页面上**切换类型（组件不会重挂载，`onMounted`
+// 只跑一次），所以要盯着查询串。已建单据不能改类型——与类型按钮同一条规则。
+watch(
+  () => route.query.type,
+  (value) => {
+    if (isExisting.value) return
+    const preset = findEntryTypeByKey(String(value || ''))
+    if (preset) pickType(preset)
+  },
+)
 
 // 从「再建一张」切回新建
 function startNew() {

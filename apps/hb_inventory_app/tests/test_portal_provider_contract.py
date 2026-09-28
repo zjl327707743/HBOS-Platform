@@ -334,6 +334,72 @@ class InventoryPortalRouteTest(unittest.TestCase):
                     resolve_stable_route(path)
 
 
+class InventoryNavEntryTypeContractTest(unittest.TestCase):
+    """侧边栏的下一级菜单（库存单据 → 物料入库 / 领用出库 / 移库）。
+
+    这一层有两个**重复的事实**，必然漂移，所以要拿测试钉住：
+
+    1. `inventoryNav.ts` 的 `children[].entryType` 写的是前端自己的类型键
+       （`receipt` / `issue` / `transfer`）；
+    2. `inventoryEntry.ts` 的 `ENTRY_TYPES[].key` 才是页面真正认的值。
+
+    键写错**不会报错**——页面查不到就静默回落到第一个类型（物料入库）。
+    于是点「移库」跳过去、停在「物料入库」，看起来只是「没生效」，很难查。
+    2026-09-28 实测点过三种，键值全部对上。
+    """
+
+    NAV = (
+        ROOT.parents[1] / "frontend" / "hbos-portal-web" / "src" / "data" / "inventoryNav.ts"
+    )
+    ENTRY = (
+        ROOT.parents[1]
+        / "frontend"
+        / "hbos-portal-web"
+        / "src"
+        / "services"
+        / "inventoryEntry.ts"
+    )
+
+    def test_child_entry_types_exist_in_entry_types(self):
+        nav = self.NAV.read_text(encoding="utf-8")
+        entry = self.ENTRY.read_text(encoding="utf-8")
+
+        declared = set(re.findall(r"^\s*key:\s*'([^']+)',", entry, re.M))
+        self.assertGreaterEqual(len(declared), 3, "没解析出 ENTRY_TYPES 的 key，测试失效")
+
+        used = re.findall(r"entryType:\s*'([^']+)'", nav)
+        self.assertEqual(
+            ["receipt", "issue", "transfer"],
+            used,
+            "侧边栏下一级应恰好是入库 / 领用出库 / 移库三种",
+        )
+        for key in used:
+            with self.subTest(entryType=key):
+                self.assertIn(
+                    key,
+                    declared,
+                    f"导航里的 entryType={key!r} 在 ENTRY_TYPES 里不存在——"
+                    "页面会静默回落到第一个类型",
+                )
+
+    def test_child_paths_carry_the_type_query(self):
+        """子项的 stablePath 必须与父项**同路径**、只靠 `?type=` 区分。
+
+        否则就不是「同一个页面的几种形态」，而是另一条路由——那需要单独的后端放行，
+        且当前没有对应的页面组件。
+        """
+        nav = self.NAV.read_text(encoding="utf-8")
+        pairs = re.findall(r"stablePath:\s*'([^']*\?type=[^']+)'", nav)
+        self.assertEqual(3, len(pairs), "应有三个带 ?type= 的子项路径")
+        for path in pairs:
+            with self.subTest(path=path):
+                base, _, query = path.partition("?")
+                self.assertEqual("/hbos/inventory/entry", base)
+                self.assertRegex(query, r"^type=(receipt|issue|transfer)$")
+                # 查询串不参与后端路由解析——解析的是 base，必须仍然放行
+                self.assertEqual(base, resolve_stable_route(base))
+
+
 class InventoryPortalSummaryTest(unittest.TestCase):
     def tearDown(self):
         sys.modules.pop("frappe", None)

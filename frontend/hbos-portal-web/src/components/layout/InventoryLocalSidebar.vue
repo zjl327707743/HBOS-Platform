@@ -15,17 +15,33 @@
     <nav>
       <template v-for="(group, index) in groups" :key="group.label">
         <div class="nav-section-label" :class="{ spaced: index > 0 }">{{ group.label }}</div>
-        <button
-          v-for="item in group.items"
-          :key="item.id"
-          type="button"
-          class="local-nav"
-          :class="{ active: item.id === activeId }"
-          :title="item.label"
-          @click="open(item)"
-        >
-          <component :is="iconMap[item.icon]" /><span>{{ item.label }}</span>
-        </button>
+        <template v-for="item in group.items" :key="item.id">
+          <button
+            type="button"
+            class="local-nav"
+            :class="{ active: item.id === activeId }"
+            :title="item.label"
+            @click="open(item)"
+          >
+            <component :is="iconMap[item.icon]" /><span>{{ item.label }}</span>
+          </button>
+          <!--
+            下一级：同一个页面的几种形态。
+            库存单据那一项下面同时管入库 / 领用出库 / 移库——不展开的话，
+            「出库」在侧边栏里没有名字，只能先进去再选类型。
+          -->
+          <button
+            v-for="child in item.children || []"
+            :key="child.id"
+            type="button"
+            class="local-nav local-nav-child"
+            :class="{ active: child.id === activeId }"
+            :title="child.label"
+            @click="open(child)"
+          >
+            <component :is="iconMap[child.icon]" /><span>{{ child.label }}</span>
+          </button>
+        </template>
       </template>
     </nav>
   </aside>
@@ -41,6 +57,9 @@ import {
   ClockCircleOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  PlusOutlined,
+  SendOutlined,
+  SwapOutlined,
   FileTextOutlined,
   InboxOutlined,
   LineChartOutlined,
@@ -62,8 +81,10 @@ const route = useRoute()
 
 const groups = INVENTORY_NAV_GROUPS
 
-/** 摊平一次，供 activeId 反查用 */
-const ALL_NAV_ITEMS: InventoryNavItem[] = INVENTORY_NAV_GROUPS.flatMap((g) => g.items)
+/** 摊平一次（含下一级），供 activeId 反查用 */
+const ALL_NAV_ITEMS: InventoryNavItem[] = INVENTORY_NAV_GROUPS.flatMap((g) =>
+  g.items.flatMap((item) => [item, ...(item.children || [])]),
+)
 
 const iconMap: Record<string, unknown> = {
   gauge: DashboardOutlined,
@@ -79,6 +100,10 @@ const iconMap: Record<string, unknown> = {
   table: TableOutlined,
   clock: ClockCircleOutlined,
   search: SearchOutlined,
+  // 库存单据的下一级：三种单据形态（与 InventoryEntryView 的 iconMap 同款）
+  in: PlusOutlined,
+  out: SendOutlined,
+  swap: SwapOutlined,
 }
 
 /**
@@ -92,7 +117,11 @@ const activeId = computed(() => {
   const path = route.path
 
   // ① 精确匹配侧边栏项自己的 stablePath（概览 / 拍照识别 / 批次 / 四张报表）
-  const direct = ALL_NAV_ITEMS.find((item) => item.stablePath === path)
+  //    先比 fullPath —— 库存单据的下一级靠 `?type=` 区分，只比 path 会三条都亮。
+  //    再退回 path —— 报表页会带上自己的筛选查询串，不该因此丢失高亮。
+  const direct =
+    ALL_NAV_ITEMS.find((item) => item.stablePath === route.fullPath) ??
+    ALL_NAV_ITEMS.find((item) => item.stablePath === path)
   if (direct) return direct.id
 
   // ② 带单据号的子路由，按前缀归到它的父入口
