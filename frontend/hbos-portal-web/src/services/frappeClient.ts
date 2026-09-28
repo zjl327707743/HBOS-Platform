@@ -94,6 +94,66 @@ export async function csrfHeaders(): Promise<Record<string, string>> {
 }
 
 // ---------------------------------------------------------------------------
+// 提交单据
+// ---------------------------------------------------------------------------
+
+/** 一份文档的可提交内容。`frappe.client.get` 返回的完整对象即可直接传进来。 */
+export type FrappeDocPayload = Record<string, unknown> & { doctype: string; name: string }
+
+/**
+ * 读一份文档的**当前完整内容**，用于「改」与「提交」。
+ *
+ * ## 为什么必须读全文，而不是只传 `{doctype, name}`
+ *
+ * `frappe.client.submit(doc)` 内部是 `frappe.get_doc(dict)` —— 它**不是按名字去库里
+ * 加载**，而是**拿传进来的 dict 当这份文档**。所以只传 `{doctype, name}` 会：
+ *
+ * 1. 文档没有 `modified` → `check_if_latest()` 判定「你打开后别人改过」→
+ *    抛 `TimestampMismatchError`（实测）；
+ * 2. 就算过了那关，文档也没有 `purpose` 等字段 → 校验会报「目的必须是一个…」（实测）。
+ *
+ * 实测：先 `get` 取全文、再提交那个 dict → `docstatus = 1` ✅。
+ *
+ * `frappe.client.save` 同理（走同一个 `get_doc(dict)`）——**改和提交都要走这里**。
+ */
+export async function getDocument<T extends FrappeDocPayload = FrappeDocPayload>(
+  doctype: string,
+  name: string,
+): Promise<T> {
+  const doc = await callFrappeMethod<T | null>('frappe.client.get', { doctype, name })
+  if (!doc || !doc.name) throw new FrappeHttpError(404, '找不到这份单据。')
+  return doc
+}
+
+/**
+ * 提交一份单据。
+ *
+ * **先读全文再提交**——理由见 `getDocument`。不要退回成
+ * `submit({doctype, name})`，那是实测会失败的写法。
+ */
+export async function submitDocument(doctype: string, name: string): Promise<void> {
+  const doc = await getDocument(doctype, name)
+  await postFrappeMethod('frappe.client.submit', { doc: JSON.stringify(doc) })
+}
+
+/**
+ * 保存一份单据。
+ *
+ * 也要**先读全文再改**：`frappe.client.save` 走 `frappe.get_doc(dict)`，
+ * 只传部分字段会把没传的字段清掉。调用方在这份全文上覆盖要改的字段即可。
+ */
+export async function saveDocument(
+  doctype: string,
+  name: string,
+  changes: Record<string, unknown>,
+): Promise<void> {
+  const doc = await getDocument(doctype, name)
+  await postFrappeMethod('frappe.client.save', {
+    doc: JSON.stringify({ ...doc, ...changes }),
+  })
+}
+
+// ---------------------------------------------------------------------------
 // 地址与主机名
 // ---------------------------------------------------------------------------
 

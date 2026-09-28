@@ -1,4 +1,9 @@
-import { callFrappeMethod, frappeAssetUrl, postFrappeMethod } from '@/services/frappeClient'
+import {
+  callFrappeMethod,
+  frappeAssetUrl,
+  postFrappeMethod,
+  submitDocument,
+} from '@/services/frappeClient'
 import { runReport } from '@/services/inventoryReports'
 
 /**
@@ -160,18 +165,18 @@ export async function getIntakeDraft(name: string): Promise<IntakeDraft> {
 /**
  * 提交草稿。
  *
- * 只传 `{doctype, name}` —— `frappe.client.submit` 内部走
- * `frappe.get_doc(dict)`，带 name 时**按名字重新加载**，不会用前端手里的副本
- * 覆盖服务端。所以不存在「拿着过期数据提交」的风险。
+ * **先读全文再提交**（`submitDocument` 内部会做）——早先这里只传
+ * `{doctype, name}`，那是**错的**：`frappe.client.submit` 走
+ * `frappe.get_doc(dict)`，把传进去的 dict 当文档用，不会按名字去库里加载，
+ * 于是既缺 `modified`（报 TimestampMismatch）又缺 `purpose`（报校验失败）。
+ * 实测两种写法的差别见 `frappeClient.getDocument` 的注释。
  *
  * 提交会**立刻入账**，并由 `doc_gen.generate_for_stock_entry`（挂在
  * `Stock Entry.on_submit`）自动生成货位卡 / 待检证。放行门禁
  * (`release_gate.py`) **不拦 Material Receipt**——待检物料本就该能入库。
  */
 export async function submitIntakeDraft(name: string): Promise<void> {
-  await postFrappeMethod('frappe.client.submit', {
-    doc: JSON.stringify({ doctype: 'Stock Entry', name }),
-  })
+  await submitDocument('Stock Entry', name)
 }
 
 /**

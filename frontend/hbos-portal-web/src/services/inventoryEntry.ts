@@ -1,4 +1,9 @@
-import { callFrappeMethod, postFrappeMethod } from '@/services/frappeClient'
+import {
+  callFrappeMethod,
+  postFrappeMethod,
+  saveDocument,
+  submitDocument,
+} from '@/services/frappeClient'
 
 /**
  * 仓储库存 —— 库存单据（ERPNext `Stock Entry`）。**本页可以写**。
@@ -260,38 +265,32 @@ export async function createStockEntry(payload: EntryPayload): Promise<{ name: s
 /**
  * 改已有草稿。
  *
- * **整份传回**而不是只传改动：`frappe.client.save` 走 `frappe.get_doc(dict)`，
- * 它会用传进去的对象覆盖同名单据——只传部分字段会把其它字段清掉。
- * 我们的 payload 覆盖了这张单在 Portal 里可编辑的全部字段，所以是完整的。
+ * **在服务端的全文上覆盖要改的字段**（`saveDocument` 内部先 `get` 再 `save`）——
+ * 不能只传这几个字段：`frappe.client.save` 走 `frappe.get_doc(dict)`，
+ * 会把没传的字段清空。
  */
 export async function updateStockEntry(
   name: string,
   payload: EntryPayload,
 ): Promise<void> {
   const type: EntryType = findEntryType(payload.stockEntryType) ?? ENTRY_TYPES[0]!
-  await postFrappeMethod('frappe.client.save', {
-    doc: JSON.stringify({
-      doctype: 'Stock Entry',
-      name,
-      stock_entry_type: payload.stockEntryType,
-      posting_date: payload.postingDate,
-      remarks: payload.remarks,
-      items: toWireItems(payload.items, type),
-    }),
+  await saveDocument('Stock Entry', name, {
+    stock_entry_type: payload.stockEntryType,
+    posting_date: payload.postingDate,
+    remarks: payload.remarks,
+    items: toWireItems(payload.items, type),
   })
 }
 
 /**
  * 提交。与 `inventoryDocs.submitIntakeDraft` 同一条路——
- * 只传 `{doctype, name}`，服务端按名字重新加载，不会用前端副本覆盖。
+ * **先读全文再提交**（见 `frappeClient.submitDocument`）。
  *
  * 出库（`Material Issue`）会被 `release_gate.validate_release` 校验，
  * 缺放行手续时抛错；调用方要把这条错误原样呈现给用户。
  */
 export async function submitStockEntry(name: string): Promise<void> {
-  await postFrappeMethod('frappe.client.submit', {
-    doc: JSON.stringify({ doctype: 'Stock Entry', name }),
-  })
+  await submitDocument('Stock Entry', name)
 }
 
 /** 放弃草稿。已提交的会被服务端拒（`check_permission_and_not_submitted`）。 */
