@@ -1,5 +1,6 @@
 import {
   callFrappeMethod,
+  cancelDocument,
   frappeAssetUrl,
   postFrappeMethod,
   submitDocument,
@@ -72,23 +73,77 @@ export async function getAttachments(
   }))
 }
 
-async function getItemName(itemCode: string): Promise<string> {
-  if (!itemCode) return ''
+interface ItemMasterInfo {
+  itemName: string
+  storageCondition: string
+  workshop: string
+  shelfLifeType: string
+}
+
+const EMPTY_ITEM_MASTER: ItemMasterInfo = {
+  itemName: '',
+  storageCondition: '',
+  workshop: '',
+  shelfLifeType: '',
+}
+
+/**
+ * 「储存条件 / 生产车间 / 效期类型」是**物料主数据**字段 —— `setup.py` 把它们
+ * 建在 `Item` 上，**`Batch` 上没有这三个字段**。从批次上读只会得到 undefined，
+ * 「本批信息」永远空白；而打印件（`print_utils` 也是从 `Item` 取）却有值 ——
+ * 同一份事实两处不一致。
+ *
+ * 所以回查 `Item`。**一次取回四个字段**，不拆成四趟请求。
+ */
+async function getItemMasterInfo(itemCode: string): Promise<ItemMasterInfo> {
+  if (!itemCode) return EMPTY_ITEM_MASTER
   try {
-    const row = await callFrappeMethod<{ item_name?: string } | null>('frappe.client.get_value', {
+    const row = await callFrappeMethod<{
+      item_name?: string
+      hbos_storage_condition?: string | null
+      hbos_workshop?: string | null
+      hbos_shelf_life_type?: string | null
+    } | null>('frappe.client.get_value', {
       doctype: 'Item',
       filters: JSON.stringify({ name: itemCode }),
-      fieldname: JSON.stringify(['item_name']),
+      fieldname: JSON.stringify([
+        'item_name',
+        'hbos_storage_condition',
+        'hbos_workshop',
+        'hbos_shelf_life_type',
+      ]),
     })
-    return String(row?.item_name || '')
+    return {
+      itemName: String(row?.item_name || ''),
+      storageCondition: String(row?.hbos_storage_condition || ''),
+      workshop: String(row?.hbos_workshop || ''),
+      shelfLifeType: String(row?.hbos_shelf_life_type || ''),
+    }
   } catch {
-    return ''
+    return EMPTY_ITEM_MASTER
   }
 }
 
 /** 货位名是 `16-03-211 - HB` 这种，界面只显示短码，与货位卡 / 扫码页口径一致 */
 export function warehouseShortLabel(name?: string | null): string {
   return String(name || '').split(' - ')[0] || ''
+}
+
+/** 单据的三态。**不能只判「是不是 1」**：已取消（2）既不是草稿也不是已提交。 */
+export type DocState = 'draft' | 'submitted' | 'cancelled'
+
+/**
+ * `docstatus` → 三态。
+ *
+ * 用 `docstatus === 1 ? '已提交' : '草稿'` 这种二元判断，会把**已取消**的单据
+ * 显示成「草稿」、并当成可编辑——已取消的单据既不该显示成草稿，也不该能改
+ * （改了服务端会拒，界面白让用户点）。
+ */
+export function docState(docstatus: number | null | undefined): DocState {
+  const value = Number(docstatus ?? 0)
+  if (value === 1) return 'submitted'
+  if (value === 2) return 'cancelled'
+  return 'draft'
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +196,7 @@ export async function getIntakeDraft(name: string): Promise<IntakeDraft> {
   // 首行即全部：拍照识别建的草稿固定单物料（见 api.create_intake_draft）
   const row = (doc.items || [])[0] || {}
   const itemCode = String(row.item_code || '')
-  const itemName = await getItemName(itemCode)
+  const master = await getItemMasterInfo(itemCode)
 
   return {
     name: doc.name,
@@ -153,7 +208,7 @@ export async function getIntakeDraft(name: string): Promise<IntakeDraft> {
     isIntakeDraft: Boolean(doc.hbos_intake_batch),
     item: {
       itemCode,
-      itemName,
+      itemName: master.itemName,
       qty: Number(row.qty ?? 0),
       uom: String(row.uom || row.stock_uom || ''),
       batchNo: String(row.batch_no || doc.hbos_intake_batch || ''),
@@ -177,6 +232,20 @@ export async function getIntakeDraft(name: string): Promise<IntakeDraft> {
  */
 export async function submitIntakeDraft(name: string): Promise<void> {
   await submitDocument('Stock Entry', name)
+}
+
+/**
+ * 取消**已提交**的拍照识别入库单。
+ *
+ * 与入库单（`inventoryEntry.cancelStockEntry`）是同一条 `Stock Entry` 的取消路径，
+ * 只是入口不同（这张是从拍照识别页提交的）。
+ *
+ * **取消不会删掉批次上已生成的货位卡 / 待检证**：`doc_gen.generate_for_stock_entry`
+ * 挂在 `on_submit` 上，没有对应的 `on_cancel` 清理。所以界面必须提示用户
+ * 「卡片还在，要重新生成去批次页」，而不是让它悄悄留着。
+ */
+export async function cancelIntakeDraft(name: string): Promise<void> {
+  await cancelDocument('Stock Entry', name)
 }
 
 /**
@@ -250,9 +319,7 @@ interface RawBatch {
   hbos_supplier_name?: string | null
   hbos_manufacturer?: string | null
   hbos_supplier_batch_no?: string | null
-  hbos_storage_condition?: string | null
-  hbos_workshop?: string | null
-  hbos_shelf_life_type?: string | null
+  // 储存条件 / 生产车间 / 效期类型**不在 Batch 上**，是 Item 的字段（见 getItemMasterInfo）
   hbos_label_text?: string | null
   hbos_packaging?: Array<{
     container_type?: string
@@ -270,7 +337,8 @@ export async function getBatch(name: string): Promise<BatchDetail> {
 
   const itemCode = String(doc.item || '')
   // Batch 上通常已带 item_name；没有才回查主数据
-  const itemName = String(doc.item_name || '') || (await getItemName(itemCode))
+  const master = await getItemMasterInfo(itemCode)
+  const itemName = String(doc.item_name || '') || master.itemName
 
   return {
     name: doc.name,
@@ -288,9 +356,10 @@ export async function getBatch(name: string): Promise<BatchDetail> {
     supplierName: doc.hbos_supplier_name,
     manufacturer: doc.hbos_manufacturer,
     supplierBatchNo: doc.hbos_supplier_batch_no,
-    storageCondition: doc.hbos_storage_condition,
-    workshop: doc.hbos_workshop,
-    shelfLifeType: doc.hbos_shelf_life_type,
+    // 三项取自**物料主数据**，不是批次（见 getItemMasterInfo）
+    storageCondition: master.storageCondition,
+    workshop: master.workshop,
+    shelfLifeType: master.shelfLifeType,
     packaging: (doc.hbos_packaging || []).map((row) => ({
       containerType: String(row.container_type || ''),
       unitWeight: Number(row.unit_weight ?? 0),

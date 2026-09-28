@@ -1,5 +1,6 @@
 import {
   callFrappeMethod,
+  cancelDocument,
   getDocument,
   postFrappeMethod,
   runDocMethod,
@@ -27,7 +28,8 @@ export interface PickListRow {
   name: string
   status: string
   docstatus: number
-  postingDate?: string
+  /** Pick List 没有 `posting_date`，用标准字段 `creation` 当日期 */
+  createdAt?: string
   parentWarehouse?: string | null
   modified?: string
 }
@@ -58,7 +60,7 @@ interface RawPickList {
   status?: string
   purpose?: string
   parent_warehouse?: string | null
-  posting_date?: string
+  // 没有 posting_date —— 见 listPickLists 注释
   modified?: string
   locations?: Array<{
     item_code?: string
@@ -100,6 +102,13 @@ export async function getPickList(name: string): Promise<PickListDoc> {
   return mapDoc(doc)
 }
 
+/**
+ * 最近拣货单。
+ *
+ * Pick List **没有任何 Date/Datetime 字段**（只有标准的 `creation` / `modified`），
+ * 照 Stock Entry 写 `posting_date` 会 417 `DataError: 查询过滤条件字段无效…posting_date`，
+ * 列表整页打不开。别因为兄弟单据有某个字段就假设它也有。
+ */
 export async function listPickLists(limit = 30): Promise<PickListRow[]> {
   const rows =
     (await callFrappeMethod<
@@ -107,7 +116,7 @@ export async function listPickLists(limit = 30): Promise<PickListRow[]> {
         name: string
         status?: string
         docstatus?: number
-        posting_date?: string
+        creation?: string
         parent_warehouse?: string | null
         modified?: string
       }> | null
@@ -117,7 +126,7 @@ export async function listPickLists(limit = 30): Promise<PickListRow[]> {
         'name',
         'status',
         'docstatus',
-        'posting_date',
+        'creation',
         'parent_warehouse',
         'modified',
       ]),
@@ -129,7 +138,7 @@ export async function listPickLists(limit = 30): Promise<PickListRow[]> {
     name: r.name,
     status: String(r.status || ''),
     docstatus: Number(r.docstatus ?? 0),
-    postingDate: r.posting_date,
+    createdAt: r.creation,
     parentWarehouse: r.parent_warehouse,
     modified: r.modified,
   }))
@@ -146,16 +155,36 @@ export interface PickPayload {
  * `pick_manually: 1` 是**必需的**：不设它时，ERPNext 的 `before_save` 会调用
  * `set_item_locations()`，把用户手填的货位**整个重算**掉。set 上它，
  * 手填的货位才留得住；要重算由用户显式点「定位货位」触发。
+ *
+ * ## 为什么还要显式带 `uom` 与 `stock_qty`（实测，两个都会出问题）
+ *
+ * ERPNext 的 Desk 表单会在选物料时把这两个也落库，服务端**不会**替你补：
+ *
+ * - **`uom`**：界面「单位」列读的就是它。不带 → 存进去是 NULL → 保存后重开，
+ *   单位变空（用户明明看到过）。
+ * - **`stock_qty`**：`set_item_locations` 用它（**不是 `qty`**）算「还剩多少要拣」——
+ *   `get_items_with_location_and_quantity` 里
+ *   `remaining_stock_qty = item_doc.stock_qty`（草稿分支），为 0 时 while 循环
+ *   一次都不进。于是「定位货位」**把未拣的行全删掉、一行也不填**。
+ *   实测：qty=4 的单据点一下就变成 0 行，货位静默丢失。
+ *
+ * 本页的 UOM 取自物料 `stock_uom`，换算系数为 1，故 `stock_qty === qty`。
  */
 function toWireLocations(locations: PickLocation[]) {
   return locations
     .filter((row) => row.itemCode && (row.qty ?? 0) > 0)
-    .map((row) => ({
-      item_code: row.itemCode,
-      qty: Number(row.qty ?? 0),
-      ...(row.warehouse ? { warehouse: row.warehouse } : {}),
-      ...(row.batchNo ? { batch_no: row.batchNo, use_serial_batch_fields: 1 } : {}),
-    }))
+    .map((row) => {
+      const qty = Number(row.qty ?? 0)
+      return {
+        item_code: row.itemCode,
+        qty,
+        // 单位与 stock_qty 都要落库：前者是「单位」列，后者是「定位货位」的重算基准
+        ...(row.uom ? { uom: row.uom } : {}),
+        stock_qty: qty,
+        ...(row.warehouse ? { warehouse: row.warehouse } : {}),
+        ...(row.batchNo ? { batch_no: row.batchNo, use_serial_batch_fields: 1 } : {}),
+      }
+    })
 }
 
 export interface CreatedPick {
@@ -227,6 +256,17 @@ export function explainEmptyLocate(parentWarehouse: string): string | null {
 
 export async function submitPickList(name: string): Promise<void> {
   await submitDocument('Pick List', name)
+}
+
+/**
+ * 取消一张已提交的拣货单。
+ *
+ * **不动账面**——拣货单本身只是锁定「去哪几个货位拣多少」，不产生库存流水。
+ * 取消的效果是解锁：解除对货位的锁定、把状态置为 `Cancelled`，之后可以重新建一张。
+ * 已经把货挪走要靠**移库单**，那是另一张单据的事。
+ */
+export async function cancelPickList(name: string): Promise<void> {
+  await cancelDocument('Pick List', name)
 }
 
 /** 放弃草稿。已提交的会被服务端拒——要先取消。 */

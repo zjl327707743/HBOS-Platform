@@ -7,8 +7,8 @@
       </div>
       <div v-if="isExisting" class="entry-head-meta">
         <div class="entry-docno">{{ name }}</div>
-        <span class="entry-tag" :class="docstatus === 1 ? 'submitted' : 'draft'">
-          {{ docstatus === 1 ? '已提交 · 已入账' : '草稿 · 未入账' }}
+        <span class="entry-tag" :class="stateTag">
+          {{ stateLabel }}
         </span>
       </div>
     </div>
@@ -60,8 +60,8 @@
               <td><span class="entry-mono">{{ row.postingDate || '—' }}</span></td>
               <td><span class="entry-mono entry-muted">{{ routeLabel(row) }}</span></td>
               <td>
-                <span class="entry-tag" :class="row.docstatus === 1 ? 'submitted' : 'draft'">
-                  {{ row.docstatus === 1 ? '已提交' : '草稿' }}
+                <span class="entry-tag" :class="rowState(row).tag">
+                  {{ rowState(row).label }}
                 </span>
               </td>
             </tr>
@@ -312,7 +312,7 @@
     </div>
 
     <!-- 已提交 -->
-    <div v-if="docstatus === 1" class="inventory-dest glass-surface">
+    <div v-if="docState === 'submitted'" class="inventory-dest glass-surface">
       <div class="inventory-state ok" style="padding: 28px 20px">
         <CheckCircleOutlined class="inventory-state-icon" />
         <h3>已提交</h3>
@@ -322,6 +322,34 @@
             看库存余额
           </a-button>
           <a-button @click="startNew">再建一张</a-button>
+          <a-button danger :loading="cancelling" @click="confirmCancel">
+            <RollbackOutlined /> 取消这张单据
+          </a-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已取消 -->
+    <div v-else-if="docState === 'cancelled'" class="inventory-dest glass-surface">
+      <div class="inventory-state" style="padding: 28px 20px">
+        <StopOutlined class="inventory-state-icon" />
+        <h3>这张单据已取消</h3>
+        <p>
+          账面已冲销。已取消的单据改不了，需要重做请新建一张。
+          <template v-if="cancelledBatch">
+            <br /><b>批次上的货位卡 / 待检证不会自动删除</b>——去批次页重新生成即可覆盖。
+          </template>
+        </p>
+        <div class="inventory-state-actions">
+          <a-button
+            v-if="cancelledBatch"
+            type="primary"
+            @click="$router.push(`/hbos/inventory/batch/${encodeURIComponent(cancelledBatch)}`)"
+          >
+            去批次页重新生成卡片
+          </a-button>
+          <a-button @click="startNew">新建一张</a-button>
+          <a-button @click="$router.push('/hbos/inventory/entry')">回单据列表</a-button>
         </div>
       </div>
     </div>
@@ -362,6 +390,7 @@ import {
   InboxOutlined,
   LockOutlined,
   PlusOutlined,
+  RollbackOutlined,
   SaveOutlined,
   SendOutlined,
   StopOutlined,
@@ -370,6 +399,7 @@ import {
 } from '@ant-design/icons-vue'
 import {
   ENTRY_TYPES,
+  cancelStockEntry,
   checkReleaseForBatches,
   createStockEntry,
   discardStockEntry,
@@ -384,7 +414,7 @@ import {
   type ReleaseCheck,
 } from '@/services/inventoryEntry'
 import { getWarehouseSnapshot } from '@/services/inventoryMaster'
-import { warehouseShortLabel } from '@/services/inventoryDocs'
+import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
 import { FrappeHttpError } from '@/services/frappeClient'
 
 const route = useRoute()
@@ -403,6 +433,40 @@ const isExisting = computed(() => Boolean(name.value))
 // --- 状态 ---
 const type = ref<EntryType>(ENTRY_TYPES[0]!)
 const docstatus = ref(0)
+const docState = computed(() => docStateOf(docstatus.value))
+/** 已取消的单据既不是草稿也不可编辑——别把它显示成「草稿 · 未入账」 */
+const stateTag = computed(
+  () => ({ draft: 'draft', submitted: 'submitted', cancelled: 'cancelled' })[docState.value],
+)
+const stateLabel = computed(
+  () =>
+    ({
+      draft: '草稿 · 未入账',
+      submitted: '已提交 · 已入账',
+      cancelled: '已取消 · 已冲销',
+    })[docState.value],
+)
+/** 列表行的状态标签：`docstatus` 是 2 的要显示「已取消」，不能落进「草稿」 */
+function rowState(row: EntryRow): { tag: string; label: string } {
+  const state = docStateOf(row.docstatus)
+  return {
+    tag: { draft: 'draft', submitted: 'submitted', cancelled: 'cancelled' }[state],
+    label: { draft: '草稿', submitted: '已提交', cancelled: '已取消' }[state],
+  }
+}
+/**
+ * 提交过的单据里那把批号（去重）。只有**入库**且**恰好一个批号**时，
+ * 「已取消」块才给「去批次页重新生成卡片」的按钮 —— 多批号时不知道该去哪个，
+ * 就只留文字提示。
+ */
+const docBatchNos = computed(() =>
+  [...new Set(rows.value.map((r) => r.batchNo.trim()).filter(Boolean))].sort(),
+)
+const cancelledBatch = computed(() =>
+  type.value.erpType === 'Material Receipt' && docBatchNos.value.length === 1
+    ? docBatchNos.value[0]!
+    : '',
+)
 const fromIntake = ref(false)
 const postingDate = ref(todayIso())
 const remarks = ref('')
@@ -412,6 +476,7 @@ const loading = ref(false)
 const saving = ref(false)
 const submitting = ref(false)
 const discarding = ref(false)
+const cancelling = ref(false)
 const blockedError = ref<{ title: string; detail: string } | null>(null)
 
 const entries = ref<EntryRow[]>([])
@@ -421,7 +486,7 @@ const checks = ref<ReleaseCheck[]>([])
 const checkState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 const warehouseOptions = ref<Array<{ value: string; label: string }>>([])
 
-const readonly = computed(() => docstatus.value === 1)
+const readonly = computed(() => docState.value !== 'draft')
 
 function todayIso(): string {
   const d = new Date()
@@ -665,7 +730,7 @@ function confirmSubmit() {
       '提交后立刻入账。' +
       (type.value.erpType === 'Material Receipt'
         ? '系统还会自动生成货位卡与待检证，挂在对应批次的附件里。'
-        : '提交后如需撤销，要走红字冲销。'),
+        : '提交后如需撤销，可在本页取消（会反向过账）。'),
     okText: '确认提交',
     cancelText: '再核对一下',
     onOk: async () => {
@@ -723,6 +788,52 @@ function confirmDiscard() {
         })
       } finally {
         discarding.value = false
+      }
+    },
+  })
+}
+
+// --- 取消已提交的单据 ---
+/**
+ * 取消会**反向过账**，三种类型动的方向不同，文案必须分开说——
+ * 都用一句「确定取消吗」的话，用户按下去之前不知道货会往哪走。
+ */
+const CANCEL_EFFECT: Record<string, string> = {
+  'Material Receipt': '这批货会从目标货位扣回，账面等于没入过。',
+  'Material Issue': '这批货会退回原货位，账面等于没领出过。',
+  'Material Transfer': '这批货会从目标货位挪回源货位。',
+}
+
+function cancelContent(): string {
+  const effect = CANCEL_EFFECT[type.value.erpType] || '账面会反向过账，回到提交前的数字。'
+  const cards =
+    type.value.erpType === 'Material Receipt'
+      ? '注意：批次上已生成的「货位卡 / 待检证」不会跟着删除——若这批货要重做，去批次页重新生成一次即可覆盖。'
+      : ''
+  return `${effect}${cards}取消后这张单据改不了，也不能删（它是审计留痕）。`
+}
+
+function confirmCancel() {
+  Modal.confirm({
+    title: '取消这张单据？',
+    content: cancelContent(),
+    okText: '确认取消',
+    okType: 'danger',
+    cancelText: '再想想',
+    onOk: async () => {
+      cancelling.value = true
+      try {
+        await cancelStockEntry(name.value)
+        // 就地切到「已取消」块——不跳走，用户刚按完就该看到结果
+        docstatus.value = 2
+      } catch (error) {
+        // 权限、依赖、状态不对都由服务端拒；把它的中文提示原样呈现
+        Modal.error({
+          title: '取消失败',
+          content: error instanceof FrappeHttpError ? error.message : '操作未成功，请重试。',
+        })
+      } finally {
+        cancelling.value = false
       }
     },
   })

@@ -2525,6 +2525,8 @@ body { font-size: 14px; }
 }
 .entry-tag.draft { background: rgba(244,165,35,.12); border-color: rgba(244,165,35,.34); color: #8a5a0b; }
 .entry-tag.submitted { background: rgba(27,188,134,.10); border-color: rgba(27,188,134,.28); color: #0c6b4c; }
+/* 已取消（docstatus=2）：灰调。它既不是草稿也不是已提交，别让它看起来可编辑 */
+.entry-tag.cancelled { background: rgba(114,130,157,.10); border-color: var(--hbos-border-strong); color: var(--hbos-text-secondary); }
 
 .entry-verdict {
   display: flex; gap: 12px; align-items: flex-start;

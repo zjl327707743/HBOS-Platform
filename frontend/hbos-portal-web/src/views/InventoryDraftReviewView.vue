@@ -73,6 +73,31 @@
           <div class="inventory-state-actions">
             <a-button type="primary" @click="goBatch">去批次打印货位卡 / 待检证</a-button>
             <a-button @click="$router.push('/hbos/inventory/intake')">再收一张</a-button>
+            <a-button danger :loading="cancelling" @click="confirmCancel">
+              <RollbackOutlined /> 取消这张入库单
+            </a-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已取消 -->
+    <div v-else-if="state === 'cancelled'" class="inventory-dest glass-surface">
+      <div class="intake-pane-body">
+        <div class="inventory-state">
+          <StopOutlined class="inventory-state-icon" />
+          <h3>这张入库单已取消</h3>
+          <p>
+            货已从目标货位扣回，账面等于没入过。已取消的单据改不了，需要重做请重新收一张。
+            <template v-if="draft?.batch">
+              <br /><b>批次上的货位卡 / 待检证不会自动删除</b>——去批次页重新生成即可覆盖。
+            </template>
+          </p>
+          <div class="inventory-state-actions">
+            <a-button v-if="draft?.batch" type="primary" @click="goBatch">
+              去批次页重新生成卡片
+            </a-button>
+            <a-button @click="$router.push('/hbos/inventory/intake')">重新收一张</a-button>
           </div>
         </div>
       </div>
@@ -265,12 +290,14 @@ import {
   CheckCircleOutlined,
   DeleteOutlined,
   InfoCircleOutlined,
+  RollbackOutlined,
   SendOutlined,
   StopOutlined,
   WarningOutlined,
   ZoomInOutlined,
 } from '@ant-design/icons-vue'
 import {
+  cancelIntakeDraft,
   discardIntakeDraft,
   getAttachments,
   getBatch,
@@ -285,7 +312,7 @@ import { FrappeHttpError } from '@/services/frappeClient'
 const route = useRoute()
 const router = useRouter()
 
-type ViewState = 'loading' | 'ready' | 'missing' | 'notIntake' | 'submitted'
+type ViewState = 'loading' | 'ready' | 'missing' | 'notIntake' | 'submitted' | 'cancelled'
 
 const state = ref<ViewState>('loading')
 const draft = ref<IntakeDraft | null>(null)
@@ -294,6 +321,7 @@ const photo = ref<{ url: string; fileName: string } | null>(null)
 
 const submitting = ref(false)
 const discarding = ref(false)
+const cancelling = ref(false)
 const zoomOpen = ref(false)
 
 const draftName = computed(() => String(route.params.draftName || ''))
@@ -343,10 +371,15 @@ onMounted(async () => {
       state.value = 'notIntake'
       return
     }
-    // 提交过的单子没有草稿可复核——直接给「已提交」落点
+    // 提交过 / 已取消的单子都没有草稿可复核——直接给对应落点，**别掉进可编辑表单**
     if (loaded.docstatus === 1) {
       draft.value = loaded
       state.value = 'submitted'
+      return
+    }
+    if (loaded.docstatus === 2) {
+      draft.value = loaded
+      state.value = 'cancelled'
       return
     }
 
@@ -381,7 +414,7 @@ function confirmSubmit() {
     title: '提交这张入库单？',
     content: `提交后 ${qtyText.value} ${draft.value.item.uom} ${
       draft.value.item.itemName || draft.value.item.itemCode
-    } 会立刻入账，并生成货位卡与待检证。提交后如需撤销，要走红字冲销。`,
+    } 会立刻入账，并生成货位卡与待检证。提交后如需撤销，可在本页取消（会反向过账）。`,
     okText: '确认提交',
     cancelText: '再核对一下',
     onOk: async () => {
@@ -404,6 +437,41 @@ async function doSubmit() {
   } finally {
     submitting.value = false
   }
+}
+
+/**
+ * 取消已提交的入库单。
+ *
+ * 批次上那份「待检证 + 货位卡」是 `on_submit` 钩子生成的，**没有对应的
+ * `on_cancel` 清理**——所以取消后卡片会留在批次附件里。文案必须说出来，
+ * 否则用户以为单据取消了卡片就没了。
+ */
+function confirmCancel() {
+  if (!draft.value) return
+  Modal.confirm({
+    title: '取消这张入库单？',
+    content:
+      '货会从目标货位扣回，账面等于没入过。' +
+      '注意：批次上已生成的「货位卡 / 待检证」不会跟着删除——若这批货要重做，去批次页重新生成一次即可覆盖。',
+    okText: '确认取消',
+    okType: 'danger',
+    cancelText: '再想想',
+    onOk: async () => {
+      if (!draft.value) return
+      cancelling.value = true
+      try {
+        await cancelIntakeDraft(draft.value.name)
+        state.value = 'cancelled'
+      } catch (error) {
+        Modal.error({
+          title: '取消失败',
+          content: error instanceof FrappeHttpError ? error.message : '操作未成功，请重试。',
+        })
+      } finally {
+        cancelling.value = false
+      }
+    },
+  })
 }
 
 function confirmDiscard() {

@@ -1,5 +1,6 @@
 import {
   callFrappeMethod,
+  cancelDocument,
   postFrappeMethod,
   saveDocument,
   submitDocument,
@@ -291,6 +292,20 @@ export async function updateStockEntry(
  */
 export async function submitStockEntry(name: string): Promise<void> {
   await submitDocument('Stock Entry', name)
+}
+
+/**
+ * 取消一张**已提交**的库存单据（入库 / 领用出库 / 移库）。账面反向过账。
+ *
+ * 三种类型取消后各自会发生什么，界面必须说清（本文件不重复写文案，由调用方给）：
+ * 入库把货从目标货位扣回、出库把货退回原货位、移库把货从目标挪回源货位。
+ *
+ * **没有 `before_cancel` 守卫**：`release_gate.validate_release` 只挂 `before_submit`，
+ * 所以取消不受放行门禁阻拦。这是现状，不是遗漏——若将来要求「取消出库也要有放行
+ * 手续」，那是新规则。
+ */
+export async function cancelStockEntry(name: string): Promise<void> {
+  await cancelDocument('Stock Entry', name)
 }
 
 /** 放弃草稿。已提交的会被服务端拒（`check_permission_and_not_submitted`）。 */

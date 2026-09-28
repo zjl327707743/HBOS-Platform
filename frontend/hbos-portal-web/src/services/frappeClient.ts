@@ -146,6 +146,25 @@ export async function submitDocument(doctype: string, name: string): Promise<voi
 }
 
 /**
+ * 取消一份已提交的单据（`docstatus` 1 → 2）。账面会反向过账。
+ *
+ * **这里只传 `doctype + name`，不要照抄 `submitDocument` 的先读全文**：
+ * `frappe.client.cancel` 内部是 `frappe.get_doc(doctype, name)`——它按名字去库里
+ * 加载全文；而 `submit` 走 `frappe.get_doc(dict)`，把传进去的 dict **当文档用**，
+ * 所以那边必须先读。两者语义相反，别互相抄。
+ *
+ * **权限不在前端判**：服务端按 `cancel` 权限拒（`Stock User` 在 `Stock Entry` /
+ * `Pick List` 上有，`Stock Reconciliation` 只有 `Stock Manager`）。拒绝了就把它的
+ * 中文提示原样呈现给用户。
+ *
+ * 取消后**删不掉**这张单（`frappe.client.delete` 会报 `LinkExistsError`，库存流水
+ * 还引用着它）——已取消的单据是审计留痕，这是刻意的。
+ */
+export async function cancelDocument(doctype: string, name: string): Promise<void> {
+  await postFrappeMethod('frappe.client.cancel', { doctype, name })
+}
+
+/**
  * 保存一份单据。
  *
  * 也要**先读全文再改**：`frappe.client.save` 走 `frappe.get_doc(dict)`，

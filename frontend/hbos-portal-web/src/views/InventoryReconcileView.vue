@@ -7,8 +7,8 @@
       </div>
       <div v-if="isExisting" class="entry-head-meta">
         <div class="entry-docno">{{ name }}</div>
-        <span class="entry-tag" :class="docstatus === 1 ? 'submitted' : 'draft'">
-          {{ docstatus === 1 ? '已调账' : '草稿 · 未调账' }}
+        <span class="entry-tag" :class="stateTag">
+          {{ stateLabel }}
         </span>
       </div>
     </div>
@@ -46,8 +46,8 @@
                 </RouterLink>
               </td>
               <td>
-                <span class="entry-tag" :class="row.docstatus === 1 ? 'submitted' : 'draft'">
-                  {{ row.docstatus === 1 ? '已调账' : '草稿' }}
+                <span class="entry-tag" :class="rowState(row).tag">
+                  {{ rowState(row).label }}
                 </span>
               </td>
               <td><span class="entry-mono">{{ row.postingDate || '—' }}</span></td>
@@ -238,7 +238,7 @@
       <div><b>提交未成功。</b><br />{{ blockedError }}</div>
     </div>
 
-    <div v-if="docstatus === 1" class="inventory-dest glass-surface">
+    <div v-if="docState === 'submitted'" class="inventory-dest glass-surface">
       <div class="inventory-state ok" style="padding: 28px 20px">
         <CheckCircleOutlined class="inventory-state-icon" />
         <h3>已调账</h3>
@@ -248,6 +248,19 @@
             看库存余额
           </a-button>
           <a-button @click="startNew">再建一张</a-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已取消 -->
+    <div v-else-if="docState === 'cancelled'" class="inventory-dest glass-surface">
+      <div class="inventory-state" style="padding: 28px 20px">
+        <StopOutlined class="inventory-state-icon" />
+        <h3>这张对账单已取消</h3>
+        <p>调整已冲销，账面回到调账前的数字。已取消的单据改不了，需要重做请新建一张。</p>
+        <div class="inventory-state-actions">
+          <a-button type="primary" @click="startNew">新建一张</a-button>
+          <a-button @click="$router.push('/hbos/inventory/reconcile')">回对账单列表</a-button>
         </div>
       </div>
     </div>
@@ -299,7 +312,7 @@ import {
   type ReconcileRowMeta,
 } from '@/services/inventoryReconcile'
 import { getWarehouseSnapshot } from '@/services/inventoryMaster'
-import { warehouseShortLabel } from '@/services/inventoryDocs'
+import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
 import { FrappeHttpError } from '@/services/frappeClient'
 
 const route = useRoute()
@@ -322,7 +335,24 @@ const discarding = ref(false)
 const blockedError = ref('')
 const warehouseOptions = ref<Array<{ value: string; label: string }>>([])
 
-const readonly = computed(() => docstatus.value === 1)
+const readonly = computed(() => docStateOf(docstatus.value) !== 'draft')
+const docState = computed(() => docStateOf(docstatus.value))
+/** 已取消的对账单也要灰调，别落进「草稿」的琥珀色 */
+const stateTag = computed(
+  () => ({ draft: 'draft', submitted: 'submitted', cancelled: 'cancelled' })[docState.value],
+)
+const stateLabel = computed(
+  () =>
+    ({ draft: '草稿 · 未调账', submitted: '已调账', cancelled: '已取消 · 已冲销' })[docState.value],
+)
+/** 列表行的状态标签：docstatus=2 要显示「已取消」，不能落进「草稿」 */
+function rowState(row: { docstatus: number }): { tag: string; label: string } {
+  const state = docStateOf(row.docstatus)
+  return {
+    tag: { draft: 'draft', submitted: 'submitted', cancelled: 'cancelled' }[state],
+    label: { draft: '草稿', submitted: '已调账', cancelled: '已取消' }[state],
+  }
+}
 const summary = computed(() => summarizeVariance(rows.value))
 const totals = computed(() => varianceTotals(rows.value))
 const canSubmit = computed(() =>

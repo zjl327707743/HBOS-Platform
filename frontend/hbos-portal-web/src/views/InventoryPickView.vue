@@ -7,8 +7,8 @@
       </div>
       <div v-if="isExisting" class="entry-head-meta">
         <div class="entry-docno">{{ name }}</div>
-        <span class="entry-tag" :class="docstatus === 1 ? 'submitted' : 'draft'">
-          {{ docstatus === 1 ? statusLabel : '草稿 · 未拣' }}
+        <span class="entry-tag" :class="stateTag">
+          {{ stateLabel }}
         </span>
       </div>
     </div>
@@ -51,12 +51,12 @@
                 </RouterLink>
               </td>
               <td>
-                <span class="entry-tag" :class="row.docstatus === 1 ? 'submitted' : 'draft'">
+                <span class="entry-tag" :class="rowTag(row.docstatus)">
                   {{ pickStatusLabel(row.status) }}
                 </span>
               </td>
               <td><span class="entry-mono entry-muted">{{ shortLabel(row.parentWarehouse) || '全部货位' }}</span></td>
-              <td><span class="entry-mono">{{ row.postingDate || '—' }}</span></td>
+              <td><span class="entry-mono">{{ (row.createdAt || '').slice(0, 10) || '—' }}</span></td>
             </tr>
           </tbody>
         </table>
@@ -248,7 +248,7 @@
     </div>
 
     <!-- 已提交 -->
-    <div v-if="docstatus === 1" class="inventory-dest glass-surface">
+    <div v-if="docState === 'submitted'" class="inventory-dest glass-surface">
       <div class="inventory-state ok" style="padding: 28px 20px">
         <CheckCircleOutlined class="inventory-state-icon" />
         <h3>已提交拣货单</h3>
@@ -256,6 +256,22 @@
         <div class="inventory-state-actions">
           <a-button type="primary" @click="$router.push('/hbos/inventory/entry')">去建移库单</a-button>
           <a-button @click="startNew">再建一张</a-button>
+          <a-button danger :loading="cancelling" @click="confirmCancel">
+            <RollbackOutlined /> 取消这张拣货单
+          </a-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已取消 -->
+    <div v-else-if="docState === 'cancelled'" class="inventory-dest glass-surface">
+      <div class="inventory-state" style="padding: 28px 20px">
+        <StopOutlined class="inventory-state-icon" />
+        <h3>这张拣货单已取消</h3>
+        <p>已取消的拣货单改不了，需要重做请新建一张。</p>
+        <div class="inventory-state-actions">
+          <a-button type="primary" @click="startNew">新建一张</a-button>
+          <a-button @click="$router.push('/hbos/inventory/pick')">回拣货单列表</a-button>
         </div>
       </div>
     </div>
@@ -288,12 +304,14 @@ import {
   DeleteOutlined,
   InboxOutlined,
   PlusOutlined,
+  RollbackOutlined,
   SaveOutlined,
   SendOutlined,
   StopOutlined,
   WarningOutlined,
 } from '@ant-design/icons-vue'
 import {
+  cancelPickList,
   createPickList,
   discardPickList,
   findShortages,
@@ -307,7 +325,7 @@ import {
   type PickShortage,
 } from '@/services/inventoryPick'
 import { getWarehouseSnapshot } from '@/services/inventoryMaster'
-import { warehouseShortLabel } from '@/services/inventoryDocs'
+import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
 import { FrappeHttpError } from '@/services/frappeClient'
 
 const route = useRoute()
@@ -331,11 +349,26 @@ const entries = ref<PickListRow[]>([])
 const saving = ref(false)
 const submitting = ref(false)
 const discarding = ref(false)
+const cancelling = ref(false)
 const locating = ref(false)
 const blockedError = ref('')
 const warehouseOptions = ref<Array<{ value: string; label: string }>>([])
 
-const readonly = computed(() => docstatus.value === 1)
+const docState = computed(() => docStateOf(docstatus.value))
+/** 列表行的标签配色：docstatus=2 要灰调（已取消），不能落进「草稿」的琥珀色 */
+function rowTag(docstatusValue: number): string {
+  return { draft: 'draft', submitted: 'submitted', cancelled: 'cancelled' }[
+    docStateOf(docstatusValue)
+  ] as string
+}
+/** 已取消的拣货单也要灰调，别落进「草稿」的琥珀色 */
+const stateTag = computed(
+  () => ({ draft: 'draft', submitted: 'submitted', cancelled: 'cancelled' })[docState.value],
+)
+const stateLabel = computed(() =>
+  docState.value === 'draft' ? '草稿 · 未拣' : pickStatusLabel(status.value),
+)
+const readonly = computed(() => docStateOf(docstatus.value) !== 'draft')
 /**
  * 「定位货位」的两个前提：
  * 1. 单据已存在 —— `set_item_locations` 是单据方法，按 dt+dn 从库里加载；
@@ -374,8 +407,6 @@ function pickStatusLabel(v?: string | null): string {
   }
   return map[String(v || '')] || String(v || '草稿')
 }
-
-const statusLabel = computed(() => pickStatusLabel(status.value))
 
 function filterWarehouse(input: string, option?: { label?: string }) {
   return String(option?.label || '').toLowerCase().includes(input.toLowerCase())
@@ -593,6 +624,39 @@ function confirmDiscard() {
         })
       } finally {
         discarding.value = false
+      }
+    },
+  })
+}
+
+/**
+ * 取消已提交的拣货单。
+ *
+ * 文案要讲清一件事：**它不动账面**。否则用户会以为「取消 = 把货挪回去」，
+ * 而挪货是移库单的事。
+ */
+function confirmCancel() {
+  Modal.confirm({
+    title: '取消这张拣货单？',
+    content:
+      '拣货单本身不动账面，取消只是解开它对货位的锁定，之后可以重新建一张。' +
+      '取消后这张单据改不了，也不能删（它是审计留痕）。',
+    okText: '确认取消',
+    okType: 'danger',
+    cancelText: '再想想',
+    onOk: async () => {
+      cancelling.value = true
+      try {
+        await cancelPickList(name.value)
+        docstatus.value = 2
+      } catch (error) {
+        // 权限、依赖、状态不对都由服务端拒；把它的中文提示原样呈现
+        Modal.error({
+          title: '取消失败',
+          content: error instanceof FrappeHttpError ? error.message : '操作未成功，请重试。',
+        })
+      } finally {
+        cancelling.value = false
       }
     },
   })
