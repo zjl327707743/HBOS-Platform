@@ -10,6 +10,11 @@
  * `implemented` 标记的是**前端页是否已经做出来**。没做出来的入口在界面上照常
  * 列出（反映目标形态），点击落到统一的「尚未实现」提示页，而不是死链接。
  * 前端页做出来后，把 `implemented` 改真、补上 `stablePath` 即可。
+ *
+ * **不在清单里的，是明确不属于本前端的**（2026-09-28 与仓库确认）：
+ * 采购入库（Purchase Receipt）与销售出库（Delivery Note）由采购/销售侧开，
+ * 仓管只做入库 / 领用出库 / 移库，所以**不放占位入口**——占位会被读成「还没做」，
+ * 而事实是「不做」，那是两种不同的意思。
  */
 
 export interface InventoryNavItem {
@@ -87,13 +92,6 @@ export const INVENTORY_NAV_GROUPS: InventoryNavGroup[] = [
         hint: '入库 / 领用出库 / 移库',
       },
       {
-        id: 'purchase-receipt',
-        label: '采购入库',
-        icon: 'import',
-        implemented: false,
-        hint: '采购收货',
-      },
-      {
         id: 'qa-release',
         // 不叫「待检与放行」——放行由 LIMS 完成，本页放不了（Owner 已定改名）
         label: '待检批次',
@@ -107,13 +105,6 @@ export const INVENTORY_NAV_GROUPS: InventoryNavGroup[] = [
   {
     label: '出库作业',
     items: [
-      {
-        id: 'delivery-note',
-        label: '销售出库',
-        icon: 'export',
-        implemented: false,
-        hint: '须先取得 QA 放行',
-      },
       {
         id: 'pick-list',
         label: '拣货单',

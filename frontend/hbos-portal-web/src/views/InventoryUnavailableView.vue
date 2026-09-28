@@ -63,7 +63,7 @@ const item = computed(() => {
 })
 
 /** 入库作业类入口未实现时，指向已经可用的拍照识别页，给一条真实的下一步 */
-const INTAKE_RELATED = new Set(['photo-intake', 'stock-entry', 'purchase-receipt', 'qa-release'])
+const INTAKE_RELATED = new Set(['photo-intake', 'stock-entry', 'qa-release'])
 
 const fallback = computed(() =>
   item.value && INTAKE_RELATED.has(item.value.id)

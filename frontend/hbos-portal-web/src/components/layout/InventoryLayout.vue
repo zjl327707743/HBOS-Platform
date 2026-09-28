@@ -43,7 +43,7 @@
       app-path="/hbos/inventory"
       quick-label="入库"
       :quick-icon="CameraOutlined"
-      quick-target="/hbos/inventory/unavailable/stock-entry"
+      :quick-target="intakePath"
       :groups="mobileGroups"
     />
     <CommandPalette :open="commandOpen" @close="commandOpen = false" />
@@ -69,6 +69,19 @@ import { businessNavigationTarget } from '@/services/businessNavigation'
 
 const portal = usePortalStore()
 const commandOpen = ref(false)
+
+/**
+ * 移动端「入库」快捷动作的目标。
+ *
+ * 从导航数据里取，不写死路径——写死的话导航改了这个快捷方式会**静默指向旧地址**
+ * （此前它硬编码 `/hbos/inventory/unavailable/stock-entry`，于是入库快捷动作
+ * 落到「这个功能的前端页还没有做出来」，而那张页早就做好了）。
+ */
+const intakePath = computed(
+  () =>
+    INVENTORY_NAV_GROUPS.flatMap((g) => g.items).find((i) => i.id === 'photo-intake')
+      ?.stablePath || INVENTORY_OVERVIEW_PATH,
+)
 
 // 移动端菜单与桌面侧边栏同源，避免两处清单漂移
 const mobileGroups = computed<MobileNavGroup[]>(() =>
