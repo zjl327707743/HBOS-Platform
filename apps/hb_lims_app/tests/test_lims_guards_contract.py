@@ -17,6 +17,8 @@ SoD 与电子签名写入（即「伪造审批」）。本轮按 R8 既有机制
 """
 
 import ast
+import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -75,21 +77,25 @@ class TestFieldSetContract(unittest.TestCase):
 
 	def test_composition_is_state_plus_signature_plus_version_chain(self):
 		"""字段集组成固定：状态 + 签署 + 版本链；业务判定数据（verdict/result_value 等）
-		不在其中——那类字段由 RESULT_LOCKED_FIELDS 在提交后锁定，属另一机制。"""
+		不在其中——那类字段由 RESULT_LOCKED_FIELDS 在提交后锁定，属另一机制。
+
+		`analyst` 属签署归属（检验人），与 `reviewer` / `approver` 同类，且稳定性
+		结果字段集早已守卫（L10-P0-03 对齐：否则草稿态可直改检验人绕过 SoD）。"""
 		self.assertEqual(wf.HBOS_SAMPLE_SYSTEM_FIELDS, ("status", "oos_locked"))
 		self.assertEqual(wf.HBOS_SAMPLE_TASK_SYSTEM_FIELDS,
 						 ("status", "assignee", "assigned_by", "assigned_date", "result"))
 		self.assertEqual(wf.HBOS_TEST_RESULT_SYSTEM_FIELDS, (
 			"result_status", "is_oos_candidate", "superseded_by",
-			"submitted_signature", "submitted_at",
+			"analyst", "submitted_signature", "submitted_at",
 			"reviewer", "reviewed_signature", "reviewed_at",
 			"approver", "approved_signature", "approved_at",
 		))
 		self.assertEqual(wf.HBOS_COA_SYSTEM_FIELDS, (
 			"report_status", "qa_reviewer", "qa_reviewed_at",
-			"published_by", "published_at", "pdf_attachment",
+			"published_by", "published_at", "pdf_attachment", "content_fingerprint",
 		))
-		self.assertEqual(wf.HBOS_SPECIFICATION_SYSTEM_FIELDS, ("status", "effective_date"))
+		self.assertEqual(wf.HBOS_SPECIFICATION_SYSTEM_FIELDS,
+						 ("status", "effective_date", "supersedes"))
 
 	def test_no_collision_with_stability_field_sets(self):
 		"""稳定性板块 stability_guards 持有自己的同名业务对象字段集，
@@ -129,6 +135,127 @@ class TestControllerWiring(unittest.TestCase):
 		self.assertIn("from hb_lims_app.hbos_lims.stability_guards import guard_system_fields", src)
 		self.assertNotIn("def guard_system_fields", src)
 		self.assertIn("def guard_system_fields", _source(STABILITY_GUARDS))
+		# 受控状态内容冻结（L10-P0-04）：同样只再导出，实现唯一
+		self.assertIn("from hb_lims_app.hbos_lims.stability_guards import guard_content_frozen", src)
+		self.assertNotIn("def guard_content_frozen", src)
+		self.assertIn("def guard_content_frozen", _source(STABILITY_GUARDS))
+
+
+def _registry_source_map():
+	"""从 guards.py 源码解析 SYSTEM_FIELD_SETS 映射（不导入该模块）。
+
+	guards 依赖 frappe，离线测试无法导入，故用 AST 读取字面量：返回
+	{Doctype 名: 字段集引用表达式}，如 {"HBOS Sample": "wf.HBOS_SAMPLE_SYSTEM_FIELDS"}。
+	"""
+	tree = ast.parse(_source(GUARDS))
+	for node in ast.walk(tree):
+		if isinstance(node, ast.Assign) and any(
+				getattr(target, "id", None) == "SYSTEM_FIELD_SETS" for target in node.targets):
+			return {key.value: ast.unparse(value)
+					for key, value in zip(node.value.keys, node.value.values)}
+	raise AssertionError("guards.py 未找到 SYSTEM_FIELD_SETS 字面量")
+
+
+def _controller_guard_calls():
+	"""扫描各控制器源码：DocType 名 -> `guard_system_fields(self, <表达式>)` 的表达式。"""
+	calls = {}
+	for path in sorted(DOCTYPES.rglob("*.py")):
+		match = re.search(r"guard_system_fields\(self,\s*([A-Za-z_.]+)\)", _source(path))
+		if not match:
+			continue
+		doctype = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["name"]
+		calls[doctype] = match.group(1)
+	return calls
+
+
+class TestNoPrivilegedBypass(unittest.TestCase):
+	"""L10-P0-06：系统字段守卫不得保留任何角色旁路（技术管理员 ≠ 质量批准人）。
+
+	技术干预只能走 `lims_service.break_glass_update()`（显式、必填理由、逐字段留痕）。
+	"""
+
+	def test_shared_guards_have_no_role_bypass(self):
+		src = _source(STABILITY_GUARDS)
+		self.assertNotIn("_privileged", src, "守卫不得再按身份放行")
+		self.assertNotIn('frappe.session.user == "Administrator"', src)
+		self.assertNotIn('"System Manager" in frappe.get_roles()', src)
+
+	def test_retention_guard_has_no_role_bypass(self):
+		"""留样样品自带的字段守卫是同一缺陷的第三处，同样不得按身份放行。"""
+		src = _source(DOCTYPES / "hbos_retention_sample" / "hbos_retention_sample.py")
+		self.assertIn("def _guard_system_fields(self):", src)
+		# 断言的是放行代码本身，而非文档里出现的角色名（文档会说明"已取消旁路"）
+		self.assertNotIn('frappe.session.user == "Administrator"', src)
+		self.assertNotIn('"System Manager" in roles', src)
+		self.assertNotIn("roles = frappe.get_roles()", src)
+
+	def test_break_glass_is_technical_role_only(self):
+		"""逃生口只给技术管理员，不自动含质量角色（Reviewer/Manager/QA 均不在内）。"""
+		self.assertEqual(wf.ACTION_ROLES["break_glass_update"], {wf.ROLE_SYSTEM})
+
+
+def _normalize_ref(expr):
+	"""统一字段集引用的写法。
+
+	稳定性控制器 `import stability_guards as guards`，故源码里写作 `guards.X`；而
+	guards.py 内引用同一模块写作 `stability_guards.X`。两者同指一个常量，比对前归一。
+	"""
+	return re.sub(r"^guards\.", "stability_guards.", expr)
+
+
+class TestSystemFieldRegistry(unittest.TestCase):
+	"""break-glass 的字段白名单须与各控制器实际守卫的字段集同源（防漂移）。
+
+	登记表若与控制器不一致：要么逃生口放行了本不该放行的字段（削弱 P0-04/P0-05 的
+	内容冻结），要么对合法运维动作误报拒绝。故用「引用表达式」逐条比对，而不是把
+	元组重抄一遍（重抄本身就会漂）。
+	"""
+
+	def test_registry_matches_controller_guard_calls(self):
+		registry = {dt: _normalize_ref(ref) for dt, ref in _registry_source_map().items()}
+		controllers = {dt: _normalize_ref(ref)
+					   for dt, ref in _controller_guard_calls().items()}
+		self.assertEqual(registry, controllers,
+						 "guards.SYSTEM_FIELD_SETS 与控制器实际守卫的字段集不一致")
+
+	def test_registry_covers_both_boards(self):
+		"""两块板块都要在册：检验流程（wf.*）与稳定性（stability_guards.*）。"""
+		registry = _registry_source_map()
+		self.assertTrue(any(expr.startswith("wf.") for expr in registry.values()))
+		self.assertTrue(any(expr.startswith("stability_guards.") for expr in registry.values()))
+		self.assertGreaterEqual(len(registry), 15)
+
+
+class TestSpecificationContentFreeze(unittest.TestCase):
+	"""质量标准内容冻结接线（L10-P0-04）：已生效/已废止后内容与子表整体只读。"""
+
+	SPEC_CONTROLLER = DOCTYPES / "hbos_specification" / "hbos_specification.py"
+
+	def test_controller_wires_content_freeze(self):
+		src = _source(self.SPEC_CONTROLLER)
+		self.assertIn("guard_content_frozen(self, SPEC_CONTENT_FIELDS,"
+					  " SPEC_CONTENT_FROZEN_STATUSES", src)
+		self.assertIn("table_fields=SPEC_CONTENT_TABLE_FIELDS", src)
+
+	def test_frozen_statuses_are_active_and_obsolete(self):
+		src = _source(self.SPEC_CONTROLLER)
+		self.assertIn('SPEC_CONTENT_FROZEN_STATUSES = (SPEC_STATUS_ACTIVE, SPEC_STATUS_OBSOLETE)', src)
+
+	def test_frozen_fields_cover_all_business_content(self):
+		"""内容字段须覆盖规格标识、物料、版本、标准来源与备注；子表 items 单列。"""
+		tree = ast.parse(_source(self.SPEC_CONTROLLER), filename=str(self.SPEC_CONTROLLER))
+		value = next(
+			node.value for node in ast.walk(tree)
+			if isinstance(node, ast.Assign)
+			and any(getattr(t, "id", None) == "SPEC_CONTENT_FIELDS" for t in node.targets))
+		fields = {e.value for e in value.elts}
+		self.assertEqual(fields, {
+			"spec_code", "spec_name", "material_code", "material_name", "version",
+			"standard_source", "storage_condition", "retain_sample_qty", "remarks",
+		})
+		# 状态/生效日期/版本链属系统字段守卫，不重复列入内容字段
+		for system_field in ("status", "effective_date", "supersedes"):
+			self.assertNotIn(system_field, fields)
 
 
 class TestServiceAuthorizationFlags(unittest.TestCase):

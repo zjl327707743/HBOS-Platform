@@ -3,7 +3,7 @@
     <div class="page-head">
       <div>
         <h1>合规审计日志</h1>
-        <p>全量自动记录登记、修改、仪器使用等数据完整性与法规要求可追溯事件（只读 · 防篡改）</p>
+        <p>全量自动记录登记、修改、仪器使用等数据完整性与法规要求可追溯事件（只读 · 完整性可校验）</p>
       </div>
       <span class="pill muted total-pill">{{ total }} 条事件</span>
     </div>

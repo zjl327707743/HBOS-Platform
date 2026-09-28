@@ -9,7 +9,115 @@
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
 - 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 已核查导入数据链路，并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径，当前 REVIEWING；M1-FIX-C/D/E 未启动。
 - 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
-- 下一步路线：M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；不自动启动 M1-FIX-C/D/E。M2 未启动。
+- 下一步路线：M1-FIX-F 两阶段均已上线；**建议下一轮优先处理「分机实施前数据修复」**（含 8/14 的 223 条错误缺勤与 `pairing.py` 设备方向判定的按天改造）与台账 #10「重算幂等改造」（本轮已实际踩中其地雷）；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`。
+
+## PR #10 审计整改（LIMS，集成分支 `integration/pr10-lims-clean`）
+
+状态：**已完成 8 条并实机验证；与 `main` 的平台集成已完成对账**。本地分支，尚未推送。
+
+背景：GitHub 合并审核 `docs/governance/PR10_LIMS_DEEP_AUDIT.md`（审计对象 PR #10 =
+`codex/m2-r8-public-pr` @ `59f7abe`，为压缩快照）给出 15 条 P0 + 5 条 P1。审计针对该快照；而
+`main` 其后长出平台集成（自 `f07fc8c` 起：Attendance / Inventory / LIMS 三 App + `services/hbos_ocr`
++ `scripts/ci/*` clean-site 冒烟 + 5 条 CI 工作流），**已独立解决其中多条**，故剩余清单比 20 条小得多。
+
+本轮在 `m2-r8` 上完成 8 条（各含实机用例与「修复前失败 / 修复后通过」反向验证）：
+**P0-01** 违规拦截审计改为「先回滚未提交业务写入、再独立提交留痕」（`21b4017`）；**P0-03** 普通
+检验结果链补 SoD + 代提交受控理由（`bfcb4c5`）；**P0-04** 质量标准生效后内容冻结 + 升版须留
+`supersedes` 血缘（`acd03b6`）；**P0-05** COA 审核/发布后整份快照冻结（含行序）+ 发布固化内容
+指纹 + 只读校验（`81c61b0`）；**P0-06** 取消系统字段守卫的全部角色旁路 + 受审计
+`break_glass_update`（`481c31a`）；**P0-02** 审计指纹升 sha256 全字段 + 逐行版本 + 数据库之外的
+外部锚定 `audit_anchor_service`（`7d5bb1d`）；**P0-07** 签署能力收窄命名 + 能力边界声明
+（`f60a95b`）；**P0-11** COA 独立动作矩阵 + 发布 SoD（`517f0ba`）。
+
+**与 main 的对账（本次集成的核心发现）**：main 已独立解决 **P0-08**（`HBOS Sample.item_ref` /
+`batch_ref` Link 字段）、**P0-09**（`g3_integration_checks`）、**P0-10**（`release_sample` 前置
+「必须存在已发布 COA 且含归档 PDF」）、**P0-12**（`required_apps = ["frappe", "erpnext"]`）、
+**P0-13**（compose 安装 erpnext + hrms + attendance + inventory + lims 五 App）、**P0-14**
+（Compose `hbos-web-prepare` 构建 SPA 到命名卷、frontend 只读挂载，不再是运行时 `docker cp`）、
+**P0-15**（5 条 CI 工作流，`lims-integration-gate` 跑 LIMS pytest、`platform-integration-gate`
+跑 `npm test:unit` 与 `build:prod`），以及 **P1-01**（判定与公式全程 `Decimal`）；并对
+P0-01/02/04/05/06/11 各有部分实现（违规审计改为不提交、sha256 全字段但无版本标记、COA 子表内容
+比对、标准生效后不可改、移除 System Manager 旁路但保留内建 Administrator、COA 独立动作）。
+
+**集成处置**：新建 `integration/pr10-lims-clean`（沿用审计 §5 命名）以 `origin/main` 为基底，
+套用 `m2-r8` 的 60 文件改动，手工处置 **17 个重叠文件 / 38 处冲突**，取舍口径：
+- 保留我方更完整者：`audit_violation`（业务全弃 + 审计留存，满足 DoD；main 的「不提交」使违规
+  记录随回滚丢失）、指纹版本分发（main 改了算法却无版本标记，会让站点 8106 行历史指纹失配）、
+  共享 `guard_content_frozen`（含行序；main 的同名方法漏了子表 `remark`，其死代码已删除）、
+  `break_glass_update`、COA 独立动作矩阵与发布 SoD。
+- 采纳 main 更严或更贴合平台者：`action_allowed` 的「System Manager 只能执行 `get_*`」规则
+  （**并为其加 `break_glass_update` 例外**，否则逃生口不可用）、批准 SoD 收紧为「批准人同时区别
+  于检验人和复核人」、规格动作去掉 `ROLE_SYSTEM`、COA 动作角色集、CI 工作流与文档主体。
+- 消除并存：合并后一度存在**两套 SoD 机制**（main 的 `_reject_sod` 走 `log_error` +
+  `PermissionError`；我方走 `HBOS Audit Log`）——统一为我方（审计要求「SoD 拦截必须测试并审计」，
+  只有写入审计表才可查），删除 main 的助手；`audit_log` 保留 main 的「不自行提交」，把独立提交的
+  责任收归 `audit_violation`。
+
+**验证（集成后）**：主机离线 **429 passed / 33 skipped**；容器内全套（排除容器未挂载 `frontend/`
+与仓库根而无法运行的两个前端契约文件、两个仓库根文案检查）**427 passed + 2 skipped +
+10 subtests**；前端单测 **10 passed**、`vue-tsc` 与构建通过。
+
+**仍未处理**：**P1-02**（独立前端路由未登录仍进 Shell）、**P1-03**（projection API 用
+`frappe.get_all` 绕 DocType 权限）、**P1-04**（Frappe sidebar workaround 未版本化）、**P1-05**
+（删除策略未统一）—— 四处两边都未动。**待办**：COA 作废/重出出口（P0-05 时按决定另立一轮；
+站点上 `HBOS-SMP-2026-00003` 名下已有 4 份「已发布」COA 无法区分失效）。
+
+## M1-FIX-F 状态
+
+状态：**REVIEWING**（**第一、二阶段均已上线；整支复查已完成并处置**）。
+
+轮次定位：调休模块（一阶段：同步 + LLM 解析加班日 + 打卡核实 + 落库；二阶段：接入考勤判定豁免）。
+
+业务规则（Owner 2026-09-21 确认）：调休日 = 飞书日期字段区间；加班日 = LLM 从「说明」自由文本提取；核实 = 加班日当天有完整上下班配对，全部通过才「已核实」，否则「核实不通过」转人工。
+
+- 命名说明：原拟沿用 `M1-FIX-C`，但台账中该编号已定义为「异常说明三级流程」，故改用 `M1-FIX-F`；若 Owner 另有口径可重命名。
+- 与请假的差异：模板一样，但判定逻辑不同——请假审批通过即豁免；调休须先核实加班日。两条通道分开成表。
+- 交付：`rest_leave.py` 纯逻辑模块、DocType 4 个新字段、`sync_rest_leave.py` 三段（同步 → LLM 解析 → 核实，同一 `*/30` 有序列表）、换班（`HBOS Shift Swap Record`）全部产物退休。
+- 关键约束：**LLM 结果落库，判定热路径永不调用 LLM**（考勤每 10 分钟重算，热路径调 LLM 成本、延迟、确定性都不可接受）。
+- 核实判据：复用系统已算出的考勤结果（`status='Present'` 且 `working_hours >= 2`），不另写一套配对定义。
+- 实测依据：飞书调休表 119 条（已通过 107）；96 条同日、8 条跨天；16 条天数与日期跨度不符；**65 条说明只用「号」不用「日」**（初版解析器只认「日」会让 63% 数据落解析失败，已在修复轮补上）；36 条为多行批量说明（列他人加班），故非 LLM 不可。
+- 旧模块「代码在、运行态为零」的根因：DocType 从未 migrate，且原测试是静态断言（检查源码字符串，永远为真）。
+- 本阶段刻意不接判定；接入点为 `regenerate_attendance`（把已核实的调休日并入传给 `pair_employee_checkins()` 的豁免集合，`pairing.py` 可零改动），但**必须先处理第二阶段硬性前提 F2/F3/F4/F5**。
+- 第二阶段硬性前提（本阶段无害）：① 豁免查询必须过滤 `approval_status='已通过'`（新同步写入全部行，含已撤回/已拒绝）；② 重新解析失效键需含 `employee`（现只有 `remarks`）；③ `已核实`/`核实不通过` 是终态，需加重新核实机制；④ 复看三段调度频率（设计定 `*/10`，实际 `*/30`）。
+- **2026-09-22 已上线**：119 条入库 → 103 条解析出加班日 → 核实结论 **40 已核实 / 53 核实不通过 / 14 解析失败**（仅「已通过」107 条）。**考勤结果与上线前逐值一致（零副作用）**；判据敞口（7/28-30）实测为零；自洽性对账违规 0 条。
+- 上线中发现并修复三项阻断：① `deepseek-v4-flash` 上游下线 → 实测 4 候选后改 `deepseek-flash`；② **`HBOS_AI_*` 只注入 backend，scheduler 与两个 queue 全缺** → 定时任务 0.35 秒「成功」实则走「未配置 AI」分支，且 `bench execute` 手动跑正常、永远测不出；③ **nginx 502 的正解是 `nginx -s reload` 而非 `restart`**（已更正 `docs/HBOS考勤判定规则.md` §13.9 的错误结论）。
+- 待 Owner 判读：62%（53/107）不通过的含义；10 天「有打卡却无考勤记录」的引擎缺口（非本轮引入）。
+- 主文档：`docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`
+
+### M1-FIX-F 第二阶段（接入考勤判定豁免）2026-09-22~24
+
+**已上线**。把「已核实」的调休日接入判定与看板，使其不再被判缺勤、不再被列为「未打卡」。
+
+- 交付：`rest_leave.expand_verified_records`（纯函数）、新建 `rest_leave_apply.verified_rest_dates()`（**「已通过 + 已核实」的唯一查询口径**，有测试防止第二份副本）、`api.py` 并入豁免集合并把记录班次标为 `调休`、看板**两条**标签路径（实时 + 回顾）均接入、`sync_rest_leave.py` 重解析失效键补入 `employee`。
+- 测试：396 → **437 全绿**。
+- 验收（2026-09-24 实测）：41 个已核实调休日 → 13 条 `On Leave`+`调休`、17 条孤卡豁免无记录、11 条 `Present`（其中 2 条实为跨天配对）。看板实测显示「请假（调休）」。幂等、非调休人员零影响。
+- **执行中造成并已修复的数据事故**：`regenerate_attendance` 的清理语句含第二条 DELETE，会删除 `attendance_date > range_end` 的全部记录，故窄窗口重算会静默摧毁后续数据。我按乱序执行窄窗口重算，一度删除 8/15–9/21 全部记录（总数 29146→8004）。已按**时间升序**逐段重建恢复，7/28–9/23 共 58 天无缺日。详见落地记录 §A4。
+- **整支复查结论**：功能正确；驳回并更正了我「8/14 属文档已记载遗留问题」的错误归因——8/14 的 223 条缺勤是**本轮重算生成、从未验证**的数据，机制为「取数窗口跨过 8/15 时触发配对严格分支，而 8/14 的卡方向全为 None 致全判孤立上班卡」（实测 58 人当天在两类机器都打过卡却判缺勤）。Owner 决定**暂不处理（选项 C）**，等专门轮次。
+- 复查另抓到并已修：**月报把调休算成「正常出勤」**（`is_leave` 只查请假表集合，调休日在建休表）。
+- 已更正 `pairing.py:209` 过期注释（写 8/14，常量是 08-15）——该矛盾是本次踩坑的直接诱因。
+- 遗留观察见落地记录 §A7（看板第四条消费路径、回顾模式对 17 天无记录者的标签、`PARSE_BATCH_SECONDS` 待校准）。
+
+### 2026-09-24 名单单一来源收敛与 PR 审查修复
+
+Owner 2026-09-24 裁定「一个业务含义只留一份名单」，随后对整支做 PR 审查并修复。
+
+**名单收敛**（行为口径已变，Owner 已知悉）：
+
+- **行政班**：`ADMIN_NUMS` 原在三处各一份且严重分叉——`rule_lists.py`（判定用，178 人）、`daily_feishu_sync.py`（221 人）、`pair_checkins.py`（139 人）。飞书与判定差 **71 个工号**（57 只在飞书、14 只在判定），同一人同一天在两套输出里一个判缺勤、一个不算缺勤。裁定以 `rule_lists.py` 为准，`daily_feishu_sync.py` 删除本地 221 人副本改为引用（不是「把数字抄一致」——那样下次仍会分叉）。
+- **无菌**：`WUJUN_NUMS` 原有两份（`api.py` 空集 / `daily_feishu_sync.py` 48 人），而现行体系是 `pairing.py` 的 `SPECIAL_SHIFT_NUMS`（59 人）。48 人那份混入 3 名设备动力部人员、漏掉 14 名无菌车间人员。裁定以 `SPECIAL_SHIFT_NUMS` 为准。**实测行为变化**：仅 1 人（耿献磊，无菌车间）失去周末双休豁免；3 名设备动力部人员获得豁免。
+- **`EXCLUDE_NUMS` 未改行为**，只补注释：20 人手工项中有 7 人已属无菌体系、7 人已属 `FOOD_NUMS`，另 6 人横跨 5 个部门来源不明。「无菌是否应整批排除」这一口径未定，属业务问题，**留待 Owner 裁定**。
+- **旧引擎加废弃标记**：`pair_checkins.py` / `shift_matcher.py` / `generate_attendance.py` 全仓库无引用但文件仍在，各自含第 3 份名单或旧班次逻辑，已补「已废弃·请勿使用」docstring（未删文件，清理另开一轮）。
+- 新增 `tests/test_admin_nums_single_source.py` 守住单一来源，并已加固：旧断言用 `assertIsNone(_module_level_names(...))`，而该助手在「名字不存在」与「存在但非字面量」两种情形下都返回 None，`ADMIN_NUMS = set(...) | {...}` / 放进 `if`、`try`、函数体 / `ADMIN_NUMS.update(...)` 都能让断言**假通过**；现改为 AST 扫描任何本地绑定或原地修改（已用上述形态做过变异验证，均能抓出）。
+
+**PR 审查修复**（5 项，均为实际缺陷）：
+
+- **去重窗口与配对下限对撞**：`dedup_checkins` 窗口 120min、配对下限 `2 <= gap` 即 120min，闭区间下**恰好相隔 2h** 的上下班卡先被去重成一张、再配不上 → 孤卡误判缺勤（仅影响方向未知的卡：8/15 前、GPS 卡、未登记设备）。改为严格小于，边界让给配对。已补 2 条回归测试并做变异验证（改回 `<=` 时测试失败）。
+- **`.env.example` 缺 9 个变量**：compose 引用的 `FEISHU_*`、`DELICLOUD_*`、`HBOS_AI_*`、`HBOS_NOTIFY_*` 一个都没收录。compose 的 `${VAR}` 缺项时展开为空串、不报错，故新环境照模板建 `.env` 会让 AI 复核与 9 点考勤卡片**静默失效**（与已记录的 `HBOS_AI_*` 只注入 backend 同类）。已补齐占位符与说明。
+- **CI 门禁误伤 `.env.example`**：`.github/workflows/hbos-quality-gate.yml` 的「禁止 `.env`」用了 `(^|/)\.env` 而无 `$` 锚点（其余各检查都有），会把占位符模板 `.env.example` 一并判违规。已补 `$` 锚点。
+- **部门看板 XSS**：`hbos_department_board.js` 的部门名（来自 `tabEmployee.department`，用户可写）与服务端错误文案直接拼进 HTML，同文件其余 8 处均已 `escape_html`。已补齐。
+- **月报 AI 复核定位用 `list.index`**：`target.index((r, dates))` 是 O(n²) 且 `==` 命中相同内容元组时会定位到错误下标，改 `enumerate`。
+
+**审核同时发现（未在本轮修，见下方风险）**：本地 `origin` 地址明文内嵌 GitHub PAT，需吊销并改凭据助手。
 
 ## 状态更新制度
 

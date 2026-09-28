@@ -1,8 +1,8 @@
 # M2-R8J 稳定性板块前后端审查与缺陷修复
 
-> 状态：**DEPLOYED / 待 Owner 生产路径验收**（本轮联动、审查缺陷修复及趋势摘要下拉控件宽度修复已按 Owner 授权同步生产；生产发布脚本 pytest **342/342**、生产前端 `build:prod` 通过，生产路径 17 个页面/资源冒烟均返回 200；备份 `【内部备份标识已省略】`；结果页已完成生产浏览器复测）
+> 状态：**DEPLOYED / 待 Owner 生产路径验收**（本轮联动、审查缺陷修复及趋势摘要下拉控件宽度修复已按 Owner 授权同步生产；生产发布脚本 pytest **342/342**、生产前端 `build:prod` 通过，生产路径 17 个页面/资源冒烟均返回 200；备份 `hbos-lims.bak-20260921180830`；结果页已完成生产浏览器复测）
 
-> 追加状态（2026-09-22）：Owner 已确认并授权侧栏「最近访问」关闭交互同步生产；提交 `934e36a`，完整 pytest **342/342**、前端 `build:prod` 和 `/hbos-lims` 关键路由/主资源 HTTP 200 冒烟通过；备份 `【内部备份标识已省略】`。本次为纯前端资产同步，不涉及后端迁移。
+> 追加状态（2026-09-22）：Owner 已确认并授权侧栏「最近访问」关闭交互同步生产；提交 `934e36a`，完整 pytest **342/342**、前端 `build:prod` 和 `/hbos-lims` 关键路由/主资源 HTTP 200 冒烟通过；备份 `hbos-lims.bak-20260922103245`。本次为纯前端资产同步，不涉及后端迁移。
 >
 > 轮次：M2-R8J（R8 板块整体交付后的独立审查与修复轮），工作分支 `m2-r8`
 >
@@ -103,7 +103,7 @@
   | P2-10 | 变更条件输入路径 | 带 `extra_conditions` 建档 **ALLOWED** 且子表落库 1 行；涉条件但未填条件 **DENIED**；`implement_change` 落点执行 **ALLOWED** |
 - **第一轮修复项回归（同一会话实测）**：`complete_testing` 无公开入口 **DENIED**；`save_report_draft` 建档 + 写结论 + 提交报告全链 **ALLOWED**；设备 `status` 表单直写 **DENIED**、经 `manage_equipment` **ALLOWED**
 - **负向回归 9/9 通过**：无角色越权（创建 / 读 / 报告草稿 / 温湿度 / 删除）、Manager 删已批准通知单、系统字段直写（Timepoint.status / Sample.current_qty / Equipment.status）全部拦截；运行期一致性扫描 **0 违规**
-- **部署同步（2026-09-21）**：`deploy_lims_fix.sh` 全流程通过——预检 `pytest 329 passed`、`git diff --check` 无空格错误、生产前端构建、`bench migrate` + `clear-cache`、备份 `【内部备份标识已省略】`、同步 + 服务重启 + assets 软链重建 + nginx SPA fallback 复注入、17 条路由/资源 HTTP 200。同步后清理了 **58 个历史 root 归属的残留旧 chunk**（R6D 同类隐患），清理后远端 85 个文件与本地 `dist` **文件清单与 md5 集合逐条一致**。生产路径浏览器实测（`http://localhost:8080/hbos-lims/`，LIMS Analyst 真实会话）：结果页「完成检测」已消失、「提交」可用；报告页「编辑报告内容」→ 保存 → 提交全链走通；控制台仅既有噪音（`hrms.bundle.*` 直连 8080 同样 404、socket.io origin，均为本轮之前既有）
+- **部署同步（2026-09-21）**：`deploy_lims_fix.sh` 全流程通过——预检 `pytest 329 passed`、`git diff --check` 无空格错误、生产前端构建、`bench migrate` + `clear-cache`、备份 `hbos-lims.bak-20260921094724`、同步 + 服务重启 + assets 软链重建 + nginx SPA fallback 复注入、17 条路由/资源 HTTP 200。同步后清理了 **58 个历史 root 归属的残留旧 chunk**（R6D 同类隐患），清理后远端 85 个文件与本地 `dist` **文件清单与 md5 集合逐条一致**。生产路径浏览器实测（`http://localhost:8080/hbos-lims/`，LIMS Analyst 真实会话）：结果页「完成检测」已消失、「提交」可用；报告页「编辑报告内容」→ 保存 → 提交全链走通；控制台仅既有噪音（`hrms.bundle.*` 直连 8080 同样 404、socket.io origin，均为本轮之前既有）
 - **验证残留**：全部清理，站点恢复至基线（Notice / Protocol / Sample 各 1 + 10 个时间点，其余 0）；临时测试账号口令**已删除**（`__Auth` 计数 0）
 
 ## 6. 未做 / 边界
@@ -116,7 +116,7 @@
   5. Result / Report / Ops 三视图 loader 缺 `catch`，`onMounted` 内 `await` 会形成未处理拒绝并静默半加载
   6. `StbGateBanner` 默认 `mode:'demo'` 且保留 `TEST-HBOS-M2-STB-*` 文案（7 视图均显式传 `live`，分支不可达）；`demo/stabilityDemo.ts` 仍置于 `src/demo/`
   7. `equipment_name` 标签为「设备名称」实为设备**类型**枚举（方案字段表即如此，属标签语义问题）
-- **已部署生产**：`/hbos-lims` 已同步至本轮成果（第一轮提交 `e447f97`；第二轮改动随本次同步一并上线），备份 `【内部备份标识已省略】` 可回滚；后端为 bind mount 实时生效
+- **已部署生产**：`/hbos-lims` 已同步至本轮成果（第一轮提交 `e447f97`；第二轮改动随本次同步一并上线），备份 `hbos-lims.bak-20260921094724` 可回滚；后端为 bind mount 实时生效
 - 前端审计日志筛选下拉 `AuditLogView.LOG_TYPES` 未收录稳定性板块事件类型（**既有缺口**，非本轮引入，故未扩大范围）
 
 ## 7. 涉及文件
@@ -155,7 +155,7 @@
 
 **验证**：生产路径浏览器实测（`http://localhost:8080/hbos-lims/stability`，LIMS Analyst 真实会话）——KPI 8 张均为真实计数（通知单待批 0 / 已批准 1 / 方案待审 0 / 已批准 1 / 产品 3 / 样品 1 / 时间点 10 / 结果 0）；执行结构 待取样 8 / 待检测 0 / 检测中 2 / 已完成 0 / 已取消 0；页面正文**已无**任何「待 R8B / 尚未交付」文案；控制台仅既有噪音（`hrms.bundle.*` 直连 8080 亦 404、socket.io origin），无新增错误；窄屏 2 列 / 宽屏 4 列自适应、无横向溢出。离线契约 **321/321**。源码全库 grep 确认该类文案已清除。
 
-**同步**：提交 `b61f83d`，经 `deploy_lims_fix.sh` 同步生产（备份 `【内部备份标识已省略】`），清理 5 个历史残留 chunk 后远端 **86 文件与本地 `dist` md5 逐条一致**，`/hbos-lims/` 引用新 bundle `index-BRnnDybL.js`。
+**同步**：提交 `b61f83d`，经 `deploy_lims_fix.sh` 同步生产（备份 `hbos-lims.bak-20260921115904`），清理 5 个历史残留 chunk 后远端 **86 文件与本地 `dist` md5 逐条一致**，`/hbos-lims/` 引用新 bundle `index-BRnnDybL.js`。
 
 ### 8.2 侧边栏稳定性角标为原型遗留的硬编码数字
 
@@ -174,7 +174,7 @@
 
 **验证**：生产路径浏览器实测——侧栏角标 `8` / `2`（amber），与工作台「时间点执行结构」的 待取样 8 / 待检测 0 / 检测中 2 **完全一致**；`title` 分别为「待执行时间点（待取样 + 待检测）：8」「检测中时间点（待录入结果）：2」；控制台无新增错误；源码已无裸 `class="nav-badge"` 硬编码；离线契约 **321/321**。
 
-**同步**：提交 `6e06155`，经 `deploy_lims_fix.sh` 同步生产（备份 `【内部备份标识已省略】`），清理 3 个残留 chunk 后远端 **86 文件与本地 `dist` md5 逐条一致**，`/hbos-lims/` 引用新 bundle `index-B0BcaDgw.js`。
+**同步**：提交 `6e06155`，经 `deploy_lims_fix.sh` 同步生产（备份 `hbos-lims.bak-20260921141722`），清理 3 个残留 chunk 后远端 **86 文件与本地 `dist` md5 逐条一致**，`/hbos-lims/` 引用新 bundle `index-B0BcaDgw.js`。
 
 **未处置（非本次缺陷）**：同文件 `const pendingCount = 0`（「待检任务看板」角标）亦为未接数据的桩，但 `v-if="pendingCount > 0"` 恒为假、不显示任何内容，不会误导；属既有的未完成项，按「不扩大范围」未改。
 
@@ -215,7 +215,7 @@ Owner 已确认“样品登记选择稳定性取样即为稳定性检测样品�
 - 前端：`vue-tsc -b && npm run build` 及生产 `VITE_BASE=/hbos-lims/ ... vite build` 均通过；构建仅保留既有大 chunk 提示，无编译错误；趋势摘要下拉控件宽度回归契约已覆盖。
 - Python AST：`lims_service.py`、`stability_service.py`、R8J 契约测试文件全部解析通过。
 - `git diff --check`：通过。
-- 生产同步：Frappe `bench --site frontend migrate`、`clear-cache`、后端/前端/队列/调度器/WebSocket 重启及 nginx 配置重载均成功；生产备份为 `【内部备份标识已省略】`。
+- 生产同步：Frappe `bench --site frontend migrate`、`clear-cache`、后端/前端/队列/调度器/WebSocket 重启及 nginx 配置重载均成功；生产备份为 `hbos-lims.bak-20260921180830`。
 - 生产 HTTP 冒烟：`/hbos-lims` 稳定性及既有业务路径共 17 个页面/资源全部返回 **200**。
 - 生产浏览器复测：结果录入与趋势页产品、检验项目下拉框及展开菜单均保持在趋势摘要卡片边界内，长文本按宽度省略显示。
 - **实机逐项复测**（`frontend` site，非 Administrator 真实用户；由具备 Frappe bench / Docker CLI 的会话执行）：P0-1 Reviewer 批准业务结果 → 拒绝且业务停在「已复核」；P0-4 修订件 提交 → 复核 → 批准 **成功**，六步切换正确（旧版 `已批准→已修订`、`is_current` 1→0；新版 `已复核→已批准`、0→1、指针切换）；P1-2 同一人复核 + 批准 → SoD 拒绝；P1-3 已取消时间点同步 → 拒绝，无稳定性结果写入且拒绝独立入审计；P0-5 映射维护 Analyst 拒 / Manager 允 / 重复映射拒 / 已有结果后拒；P2-6 被业务样品覆盖的项目拒、未覆盖项目允；P1-8 Manager 复核 → **前置拒绝**（原为永久卡死）、Reviewer 复核 + Manager 批准 → 通过。全部用例结束后运行期一致性扫描 **0 违规**，测试数据与映射已还原至基线。
