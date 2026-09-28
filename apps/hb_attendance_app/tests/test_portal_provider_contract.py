@@ -38,11 +38,20 @@ class AttendancePortalAccessTest(unittest.TestCase):
         self.assertFalse(build_access_context("emp@example.com", ["Employee"])["can_enter"])
 
     def test_current_hr_roles_can_enter(self):
+        # 字面量钉死角色集合：若直接遍历 ATTENDANCE_PORTAL_ROLES，期望值
+        # 就来自被测对象，后续悄悄放宽角色（如加入 All）也测不出来。
+        self.assertEqual(
+            {"HR User", "HR Manager", "System Manager"},
+            set(ATTENDANCE_PORTAL_ROLES),
+        )
         for role in sorted(ATTENDANCE_PORTAL_ROLES):
             with self.subTest(role=role):
                 access = build_access_context("hr@example.com", [role])
                 self.assertTrue(access["can_enter"])
                 self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+    def test_broad_non_hr_role_cannot_enter(self):
+        self.assertFalse(build_access_context("user@example.com", ["All"])["can_enter"])
 
     def test_administrator_break_glass_entry(self):
         self.assertTrue(build_access_context("Administrator", [])["can_enter"])
@@ -123,13 +132,21 @@ class AttendancePortalProviderRuntimeBoundaryTest(unittest.TestCase):
         fake_frappe = types.SimpleNamespace(
             session=types.SimpleNamespace(user="hr@example.com"),
             get_roles=lambda user: ["HR User"] if user == "hr@example.com" else [],
+            # summary 会落到 dashboard_data.get_data()：给出空 db 存根，
+            # 让真实投影路径跑通，而不是只断言 bound method 可调用。
+            db=types.SimpleNamespace(
+                get_all=lambda *args, **kwargs: [],
+                sql=lambda *args, **kwargs: [],
+            ),
+            whitelist=lambda *args, **kwargs: (lambda fn: fn),
         )
         sys.modules["frappe"] = fake_frappe
 
         provider = get_provider()
         access = provider.access_context()
         self.assertTrue(access["can_enter"])
-        self.assertTrue(callable(provider.summary))
+        self.assertEqual("attendance", provider.summary()["app_id"])
+        self.assertEqual(4, len(provider.summary()["metrics"]))
         self.assertEqual([READ_CAPABILITY], access["capabilities"])
 
 
