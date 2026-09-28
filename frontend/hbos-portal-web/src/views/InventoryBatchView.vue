@@ -74,7 +74,7 @@
                   </p>
                   <div class="draft-attach-actions">
                     <a-button type="primary" @click="printCard">打印</a-button>
-                    <a-button :href="cardFile.url" target="_blank" download>下载</a-button>
+                    <a-button :href="cardUrl" target="_blank" download>下载</a-button>
                     <a-button :loading="regenerating" @click="confirmRegenerate">
                       <ReloadOutlined /> 重新生成
                     </a-button>
@@ -359,10 +359,27 @@ function formatSize(bytes?: number) {
 }
 
 function printCard() {
-  if (!cardFile.value) return
+  if (!cardUrl.value) return
   // 打印由浏览器负责；多开一个页签让用户自己按 Ctrl/⌘+P——比在 SPA 内嵌 PDF 渲染器稳
-  window.open(cardFile.value.url, '_blank', 'noopener')
+  window.open(cardUrl.value, '_blank', 'noopener')
 }
+
+/**
+ * 卡片的下载 / 打印地址，带**随 `createdAt` 变化的防缓存参数**。
+ *
+ * 路径是固定的（`HBOS-<批号>-待检证+货位卡.pdf`，见后端 `doc_gen.FILENAME_TPL`），
+ * 所以「重新生成」后 URL **一字不变**。浏览器（以及任何中间缓存）就会认定
+ * 「还是那个文件」，继续给旧的——Owner 实测报的「重新生成货位卡没有变化」正是这个。
+ *
+ * 这里用 `createdAt` 当版本号：附件被替换后 `creation` 会变，URL 随之变，
+ * 缓存自然失效。不用 `Date.now()`——那会让每次渲染都变成新 URL，等于关掉缓存。
+ */
+const cardUrl = computed(() => {
+  const f = cardFile.value
+  if (!f?.url) return ''
+  const v = f.createdAt || f.size || ''
+  return v ? `${f.url}${f.url.includes('?') ? '&' : '?'}v=${encodeURIComponent(String(v))}` : f.url
+})
 
 function confirmRegenerate() {
   Modal.confirm({
