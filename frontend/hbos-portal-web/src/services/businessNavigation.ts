@@ -1,37 +1,22 @@
 import type { Router } from 'vue-router'
-import { portalDataSource, resolveBusinessRoute } from '@/services/portalProvider'
+import { resolveBusinessRoute } from '@/services/portalProvider'
 
-function normalizeOrigin(value: string): string {
-  return value.trim().replace(/\/+$/, '')
-}
-
-export function businessNavigationTarget(target: string): string {
-  if (portalDataSource !== 'frappe') return target
-
-  // Stable/native Portal routes belong to the Portal SPA itself.
-  if (target.startsWith('/hbos/')) return target
-
-  const frappeOrigin = normalizeOrigin(
-    import.meta.env.VITE_FRAPPE_APP_ORIGIN || '',
-  )
-
-  if (!frappeOrigin || !target.startsWith('/')) return target
-
-  return `${frappeOrigin}${target}`
-}
-
+// 稳定 /hbos/... 路由属于 Portal SPA 自己；解析到其他路径说明该 App 当前
+// 由 Frappe 实现，交给门户内的 iframe 承载，而不是整页跳出门户。
 export async function openBusinessRoute(
   router: Router,
   appId: string,
   stablePath: string,
 ) {
-  const target = await resolveBusinessRoute(appId, stablePath)
-  const navigationTarget = businessNavigationTarget(target)
+  const resolved = await resolveBusinessRoute(appId, stablePath)
 
-  if (navigationTarget === target && target.startsWith('/hbos/')) {
-    await router.push(target)
+  if (resolved.startsWith('/hbos/')) {
+    await router.push(resolved)
     return
   }
 
-  window.location.assign(navigationTarget)
+  await router.push({
+    name: 'business-embed',
+    query: { app: appId, path: stablePath },
+  })
 }

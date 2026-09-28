@@ -5,6 +5,7 @@ import PortalHome from '@/views/PortalHome.vue'
 import MyWorkView from '@/views/MyWorkView.vue'
 import AppCenterView from '@/views/AppCenterView.vue'
 import ProfileSettingsView from '@/views/ProfileSettingsView.vue'
+import BusinessEmbedView from '@/views/BusinessEmbedView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import LimsHomeView from '@/views/LimsHomeView.vue'
@@ -22,6 +23,7 @@ const router = createRouter({
         { path: 'work', name: 'my-work', component: MyWorkView, meta: { title: '我的工作' } },
         { path: 'apps', name: 'apps', component: AppCenterView, meta: { title: '应用中心' } },
         { path: 'profile', name: 'profile', component: ProfileSettingsView, meta: { title: '我的与设置' } },
+        { path: 'embed', name: 'business-embed', component: BusinessEmbedView, meta: { title: '业务应用' } },
         { path: '403', name: 'forbidden', component: ForbiddenView, meta: { title: '无权限' } },
       ],
     },
