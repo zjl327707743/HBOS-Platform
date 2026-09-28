@@ -7,6 +7,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -18,7 +19,7 @@ services:
       DB_PORT: "${DB_PORT}"
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app:/home/frappe/frappe-bench/apps/hbos_portal
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
@@ -52,10 +53,11 @@ services:
       REDIS_CACHE: ${REDIS_CACHE}
       REDIS_QUEUE: ${REDIS_QUEUE}
       SOCKETIO_PORT: "${SOCKETIO_PORT}"
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app:/home/frappe/frappe-bench/apps/hbos_portal
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -75,6 +77,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -114,7 +117,7 @@ services:
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app:/home/frappe/frappe-bench/apps/hbos_portal
 
   db:
     image: mariadb:11.8
@@ -158,6 +161,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -180,6 +184,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -189,7 +194,7 @@ services:
       TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app:/home/frappe/frappe-bench/apps/hbos_portal
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
@@ -216,6 +221,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -225,7 +231,7 @@ services:
       TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app:/home/frappe/frappe-bench/apps/hbos_portal
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
@@ -262,7 +268,7 @@ services:
       - bench
       - schedule
     environment:
-      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app
+      PYTHONPATH: /home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_stock_app:/home/frappe/frappe-bench/apps/hbos_portal
       FEISHU_APP_ID: ${FEISHU_APP_ID}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET}
       DELICLOUD_APP_KEY: ${DELICLOUD_APP_KEY}
@@ -278,6 +284,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -298,6 +305,7 @@ services:
     volumes:
       - ./runtime/apps/hrms:/home/frappe/frappe-bench/apps/hrms
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./apps/hb_stock_app:/home/frappe/frappe-bench/apps/hb_stock_app
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
