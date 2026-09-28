@@ -15,6 +15,8 @@ NATIVE_PATHS = {
     # 拣货单 / 库存对账的列表（新建入口），详情各走自己的前缀路由。
     STABLE_PREFIX + "/pick": STABLE_PREFIX + "/pick",
     STABLE_PREFIX + "/reconcile": STABLE_PREFIX + "/reconcile",
+    # 批次选择器（`/batch/<批号>` 是详情，见下）
+    STABLE_PREFIX + "/batch": STABLE_PREFIX + "/batch",
 }
 
 # 已前端化、带单据号后缀的**前缀**路由。

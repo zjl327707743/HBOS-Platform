@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import re
 import sys
 import types
 import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
 
 from hb_inventory_app import hooks
 from hb_inventory_app.hbos_inventory.portal.access import (
@@ -96,6 +100,7 @@ class InventoryPortalRouteTest(unittest.TestCase):
             "/hbos/inventory/entry",
             "/hbos/inventory/pick",
             "/hbos/inventory/reconcile",
+            "/hbos/inventory/batch",
             "/hbos/inventory/entry/MAT-STE-2026-00026",
             "/hbos/inventory/item/13000900",
             "/hbos/inventory/warehouse/16-03-205%20-%20HB",
@@ -114,6 +119,68 @@ class InventoryPortalRouteTest(unittest.TestCase):
             resolve_stable_route("/hbos/inventory/batch/B2609503"),
         )
 
+    def test_every_registered_native_route_has_a_portal_page(self):
+        """**凡后端放行、留在 SPA 内的路由，前端必须真有对应的页面。**
+
+        ## 这条测试要挡的是什么
+
+        2026-09-25 发现「批次」与「库存余额」两页**早就做好了**，但
+        `inventoryNav.ts` 里仍写着 `implemented: false`——**页面在，入口被
+        「尚未实现」页挡住**。用户点不到已经做完的功能。
+
+        根因是**同一件事写在两处、改一处忘了另一处**（后端路由 + 前端导航）。
+        这里把「两边必须对得上」变成断言。
+
+        ## 为什么从 router 文件读、不手写路径
+
+        手写路径列表的话，「路由改了而测试没改」会**假通过**——测试绿着，
+        实际已经漂了。从 `router/index.ts` 读，它才是前端路由的 Authority。
+
+        ## 覆盖不到的
+
+        只做**结构性**检查（路由存在）。导航项是否把 `implemented` 写对、
+        `stablePath` 是否指向这些路由，属于 `inventoryNav.ts` 自身的一致性，
+        由前端类型与运行时暴露——这里不假装覆盖。
+        """
+        router_file = (
+            ROOT.parents[1]
+            / "frontend"
+            / "hbos-portal-web"
+            / "src"
+            / "router"
+            / "index.ts"
+        )
+        self.assertTrue(router_file.exists(), f"找不到 {router_file}")
+
+        source = router_file.read_text(encoding="utf-8")
+        # 抠出 `path: 'xxx'`（只取库存那一段之后的，避免把 Portal/LIMS 的算进来）
+        inv_start = source.index("path: '/hbos/inventory'")
+        inv_part = source[inv_start:]
+        rel_paths = re.findall(r"path:\s*'([^']*)'", inv_part)
+
+        # 拼成绝对路径：'' → /hbos/inventory；'batch' → /hbos/inventory/batch
+        absolute = set()
+        for rel in rel_paths:
+            if rel.startswith("/"):
+                absolute.add(rel)
+                continue
+            absolute.add("/hbos/inventory" + ("/" + rel if rel else ""))
+
+        # 每个静态段（去掉 :param）都该能被后端放行
+        checked = 0
+        for path in sorted(absolute):
+            static = re.sub(r"/:[^/]+", "", path)
+            if ":" in path or not static:
+                continue  # 带参数的由已有的用例覆盖；根路径也已有用例
+            with self.subTest(path=static):
+                resolved = resolve_stable_route(static)
+                self.assertFalse(
+                    resolved.startswith("/app/"),
+                    f"路由 {static} 在前端已注册，但后端把它解析去了 Desk（{resolved}）",
+                )
+                checked += 1
+        self.assertGreater(checked, 0, "没扫到任何静态路由，测试失效")
+
     def test_bare_document_prefix_is_rejected(self):
         """`/draft/` 这种没有单号的半截路径不算已注册——否则前端会拿到空单号。
 
@@ -122,7 +189,6 @@ class InventoryPortalRouteTest(unittest.TestCase):
         for path in (
             "/hbos/inventory/draft",
             "/hbos/inventory/draft/",
-            "/hbos/inventory/batch",
             "/hbos/inventory/report",
             "/hbos/inventory/report/",
             "/hbos/inventory/pending/x",

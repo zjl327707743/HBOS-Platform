@@ -507,3 +507,82 @@ export async function getPendingReleaseBatches(): Promise<PendingBatchList> {
 
   return { rows, total: rows.length, withStock: rows.filter((r) => r.qty !== null).length }
 }
+
+// ---------------------------------------------------------------------------
+// 批次列表（选择器用）
+// ---------------------------------------------------------------------------
+
+export interface BatchListRow {
+  name: string
+  itemCode: string
+  itemName: string
+  expiryDate?: string | null
+  sourceType?: string | null
+  releaseStatus?: string | null
+}
+
+export interface BatchListResult {
+  rows: BatchListRow[]
+  total: number
+}
+
+export const BATCH_LIST_LIMIT = 200
+
+/**
+ * 搜批次。空关键词回最近的 N 个。
+ *
+ * 与物料页同一口径：代码与名称都能搜，用 `or_filters`。
+ * 排序按 `modified desc`——刚建的批次最可能就是要找的那个
+ * （批次的建立刚刚发生在入库时）。
+ */
+export async function searchBatches(keyword: string): Promise<BatchListResult> {
+  const q = keyword.trim()
+  const base: Record<string, unknown> = {
+    doctype: 'Batch',
+    fields: JSON.stringify([
+      'name',
+      'item',
+      'item_name',
+      'expiry_date',
+      'hbos_source_type',
+      'hbos_release_status',
+    ]),
+    order_by: 'modified desc',
+    limit_page_length: BATCH_LIST_LIMIT,
+  }
+
+  const params = q
+    ? {
+        ...base,
+        or_filters: JSON.stringify([
+          ['name', 'like', `%${q}%`],
+          ['item', 'like', `%${q}%`],
+          ['item_name', 'like', `%${q}%`],
+        ]),
+      }
+    : base
+
+  const raw =
+    (await callFrappeMethod<
+      Array<{
+        name: string
+        item?: string
+        item_name?: string
+        expiry_date?: string | null
+        hbos_source_type?: string | null
+        hbos_release_status?: string | null
+      }> | null
+    >('frappe.client.get_list', params)) || []
+
+  return {
+    rows: raw.map((r) => ({
+      name: r.name,
+      itemCode: String(r.item || ''),
+      itemName: String(r.item_name || ''),
+      expiryDate: r.expiry_date,
+      sourceType: r.hbos_source_type,
+      releaseStatus: r.hbos_release_status,
+    })),
+    total: raw.length,
+  }
+}

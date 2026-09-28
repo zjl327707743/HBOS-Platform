@@ -33,6 +33,18 @@ export interface InventoryNavGroup {
   items: InventoryNavItem[]
 }
 
+/**
+ * 没有列表页的实体（批次 / 货位 / 物料）的入口。
+ *
+ * 它们都是**主从页**：进来先给一个选择器，选中后地址变成 `/<实体>/<键>`（可分享、
+ * 可刷新）。所以固定入口就指主从页本身，不必造一个独立的列表页。
+ */
+export const INVENTORY_MASTER_PATHS = {
+  batch: '/hbos/inventory/batch',
+  item: '/hbos/inventory/item',
+  warehouse: '/hbos/inventory/warehouse',
+} as const
+
 /** 概览页自身的路由 —— 侧边栏第一项，也是返回路径 */
 export const INVENTORY_OVERVIEW_PATH = '/hbos/inventory'
 
@@ -140,7 +152,13 @@ export const INVENTORY_NAV_GROUPS: InventoryNavGroup[] = [
         id: 'batch',
         label: '批次',
         icon: 'batch',
-        implemented: false,
+        // 页面早就做好了（InventoryBatchView，含货位卡打印与重新生成）——
+        // 早先这里漏改 implemented，导致入口被「尚未实现」页挡住。
+        implemented: true,
+        // 批次的固定入口是**选择器**（与货位/物料同构）：进来先给一个批次列表，
+        // 选中后地址变成 /batch/<批号>。详情页本身靠别处带单号进
+        // （入库提交后、或按批号查货位点批号）。
+        stablePath: INVENTORY_MASTER_PATHS.batch,
         hint: '可打印待检证与货位卡',
       },
       {
@@ -168,7 +186,9 @@ export const INVENTORY_NAV_GROUPS: InventoryNavGroup[] = [
         id: 'stock-balance',
         label: '库存余额',
         icon: 'table',
-        implemented: false,
+        // 它是第 5 张报表（走 InventoryReportView）——早先漏改 implemented
+        implemented: true,
+        stablePath: '/hbos/inventory/report/stock-balance',
         hint: '按货位与物料',
       },
       {

@@ -16,6 +16,7 @@ import InventoryDraftReviewView from '@/views/InventoryDraftReviewView.vue'
 import InventoryBatchView from '@/views/InventoryBatchView.vue'
 import InventoryReportView from '@/views/InventoryReportView.vue'
 import InventoryItemView from '@/views/InventoryItemView.vue'
+import InventoryBatchPickerView from '@/views/InventoryBatchPickerView.vue'
 import InventoryWarehouseView from '@/views/InventoryWarehouseView.vue'
 import InventoryPendingView from '@/views/InventoryPendingView.vue'
 import InventoryEntryView from '@/views/InventoryEntryView.vue'
@@ -59,6 +60,17 @@ const router = createRouter({
           name: 'inventory-draft',
           component: InventoryDraftReviewView,
           meta: { title: '草稿复核' },
+        },
+        {
+          // 批次有两个入口：
+          //   1. 带单号进来（入库提交后、按批号查货位点批号）→ 详情；
+          //   2. 不带单号（侧边栏「批次」）→ 选择器，与物料/货位同构。
+          // 两条路由分开而不是一条带可选参数——详情页依赖 :batchName，
+          // 可选参数会让它在缺失时渲染出空壳。
+          path: 'batch',
+          name: 'inventory-batch-picker',
+          component: InventoryBatchPickerView,
+          meta: { title: '批次' },
         },
         {
           path: 'batch/:batchName',
