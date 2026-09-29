@@ -494,6 +494,66 @@ class WarehouseSelectabilityContractTest(unittest.TestCase):
         self.assertIn("已停用", browse, "货位页应标出已停用的货位")
 
 
+class WarehouseTreeOrderContractTest(unittest.TestCase):
+    """停用货位要**沉到同级末尾**（而不是隐藏，也不是照旧排在最前）。
+
+    ## 为什么有这份测试
+
+    货位页是**查档**的地方：停用的货位还挂着历史库存与二维码，藏起来就查不到，
+    所以不能过滤掉（见上一条测试）。但 ERPNext 建公司时自带的
+    `Stores / Work In Progress / Finished Goods / Goods In Transit` 正好是
+    `All Warehouses` 里 `lft` 最小的四个，**天天排在真实货位前面**，
+    容易被误读成可用货位（用户 2026-09-29 就是这么注意到它们的）。
+
+    折中是：**留着、标「已停用」、挪到同级最后。**
+
+    ## 这个测试真正防的是什么
+
+    防「排了个空」。第一版 `demoteDisabled` 只对**根数组**排序——
+    而那四个挂在 `All Warehouses`（一个根节点）底下，**根本不在根数组里**，
+    排序什么都没做、也不报错、类型也对。只有拿真实层级走一遍才发现。
+
+    所以这里钉死两条：**排序要按 `disabled`**，且**必须递归到子节点**。
+    """
+
+    SRC = ROOT.parents[1] / "frontend" / "hbos-portal-web" / "src"
+    MASTER = SRC / "services" / "inventoryMaster.ts"
+
+    def setUp(self):
+        self.src = self.MASTER.read_text(encoding="utf-8")
+        body = re.search(r"\nfunction demoteDisabled\(.*?\n\}", self.src, re.S)
+        self.assertIsNotNone(body, "找不到 demoteDisabled")
+        self.body = body.group(0)
+
+    def test_sorts_by_disabled(self):
+        self.assertRegex(
+            self.body,
+            r"\.sort\(",
+            "demoteDisabled 应对同级排序",
+        )
+        self.assertIn("disabled", self.body, "排序键必须是 disabled")
+
+    def test_recurses_into_children(self):
+        """**关键的一条**：只排根数组等于没排——那四个是二级节点。"""
+        self.assertRegex(
+            self.body,
+            r"demoteDisabled\(\s*\w+\.children\s*\)",
+            "必须递归进 children，否则排不到挂在根节点下面的停用货位",
+        )
+
+    def test_called_before_depth_is_assigned(self):
+        """`demoteDisabled` 要在建完树之后、算 depth 之前调用。
+
+        顺序错了不会报错（depth 与顺序无关），但一旦有人把建树挪位置，
+        容易顺手漏掉这次调用——这里钉一下它确实被调了。
+        """
+        self.assertRegex(
+            self.src,
+            r"demoteDisabled\(\s*tree\s*\)",
+            "getWarehouseSnapshot 里要调用 demoteDisabled(tree)",
+        )
+
+
 class InventoryPortalSummaryTest(unittest.TestCase):
     def tearDown(self):
         sys.modules.pop("frappe", None)

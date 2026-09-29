@@ -221,6 +221,7 @@ export async function getWarehouseSnapshot(): Promise<WarehouseSnapshot> {
     else tree.push(node)
   }
 
+  demoteDisabled(tree)
   assignDepth(tree, 0)
 
   return {
@@ -237,6 +238,34 @@ function assignDepth(nodes: WarehouseTreeNode[], depth: number) {
     node.depth = depth
     assignDepth(node.children, depth + 1)
   }
+}
+
+/**
+ * 把**已停用的货位沉到同级末尾**（对每一层都做）。
+ *
+ * ## 为什么是「沉底」而不是「隐藏」
+ *
+ * 货位页是**查档**的地方：停用的货位还挂着历史库存与二维码，藏起来就查不到了。
+ * 但它们又确实用不上（ERPNext 对停用货位是硬拦的，见 `isSelectableWarehouse`），
+ * 排在前面会天天挡路——更糟的是会被**误读成可用货位**。
+ *
+ * 所以：**留着、标出来、挪到最后**。
+ * 用户 2026-09-29 先问「能不能不显示」，得到的答复是「不能就移到最后」。
+ *
+ * ## 为什么要递归**每一层**，而不是只排根数组
+ *
+ * 要沉的那四个（`Stores / Work In Progress / Finished Goods / Goods In Transit`）
+ * 挂在 `All Warehouses` 底下——而 `All Warehouses` 本身是个**根节点**。
+ * 所以只对根数组排序**什么都排不到**，得逐层排它自己的 `children`。
+ *
+ * （第一版就写成了只排根数组，靠核对真实层级才发现——这种「排了个空」的写法
+ * 不会报错、类型也对，只有拿真数据走一遍才看得出来。）
+ *
+ * 稳定排序：`Array#sort` 本身稳定，同组内保持原有的 `lft` 顺序。
+ */
+function demoteDisabled(nodes: WarehouseTreeNode[]) {
+  nodes.sort((a, b) => Number(a.disabled === 1) - Number(b.disabled === 1))
+  for (const node of nodes) demoteDisabled(node.children)
 }
 
 /**
