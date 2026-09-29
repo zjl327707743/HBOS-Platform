@@ -23,12 +23,12 @@ class AttendancePortalManifestTest(unittest.TestCase):
             hooks.hbos_portal_provider,
         )
 
-    def test_manifest_registers_legacy_stable_entry_only(self):
+    def test_manifest_registers_native_stable_entry_only(self):
         manifest = get_manifest()
         self.assertEqual(1, manifest["contract_version"])
         self.assertEqual("attendance", manifest["id"])
         self.assertEqual("/hbos/attendance", manifest["route"])
-        self.assertEqual("legacy", manifest["migration_mode"])
+        self.assertEqual("native", manifest["migration_mode"])
         self.assertEqual(["summary"], manifest["capabilities"])
 
 
@@ -66,25 +66,36 @@ class AttendancePortalAccessTest(unittest.TestCase):
 
 
 class AttendancePortalRouteTest(unittest.TestCase):
-    def test_root_and_dashboard_map_to_current_desk_page(self):
+    def test_registered_routes_map_to_themselves(self):
         self.assertEqual(
-            "/app/hbos-attendance-dashboard",
+            "/hbos/attendance",
             resolve_stable_route("/hbos/attendance"),
         )
         self.assertEqual(
-            "/app/hbos-attendance-dashboard",
+            "/hbos/attendance/dashboard",
             resolve_stable_route("/hbos/attendance/dashboard"),
+        )
+
+    def test_employees_subroute_is_registered(self):
+        self.assertEqual(
+            "/hbos/attendance/employees",
+            resolve_stable_route("/hbos/attendance/employees"),
+        )
+
+    def test_board_subroute_is_registered(self):
+        self.assertEqual(
+            "/hbos/attendance/board",
+            resolve_stable_route("/hbos/attendance/board"),
         )
 
     def test_query_is_preserved(self):
         self.assertEqual(
-            "/app/hbos-attendance-dashboard?range=week",
+            "/hbos/attendance?range=week",
             resolve_stable_route("/hbos/attendance?range=week"),
         )
 
     def test_unregistered_or_unsafe_paths_are_rejected(self):
         for path in (
-            "/hbos/attendance/employees",
             "/hbos/inventory",
             "https://evil.example/hbos/attendance",
             "/hbos/attendance/%2e%2e/admin",

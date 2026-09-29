@@ -8,6 +8,11 @@ app_license = "MIT"
 required_apps = ["frappe", "erpnext", "hrms"]
 after_migrate = "hb_attendance_app.hbos_attendance.setup.after_migrate"
 
+# HBOS 业务页面共享样式层。所有规则限定在 `.hbos-surface` 下，只影响显式加了该
+# class 的容器；Desk 的侧边栏、顶栏与原生控件不受影响（EA-4 §38 要求 Management
+# Console 保留自身身份）。样式只此一份——6 个页面各抄一遍色值必然漂移。
+app_include_css = "hbos_attendance.bundle.css"
+
 scheduler_events = {
     "cron": {
         # 考勤通知：北京时间 09:00（Frappe 系统时区为 Asia/Shanghai，cron 按本地时区判定，

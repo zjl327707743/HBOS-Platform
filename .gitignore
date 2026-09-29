@@ -10,6 +10,11 @@ backups/
 node_modules/
 frontend/*/dist/
 
+# Frappe app 的 bench build 产物（文件名带内容哈希）。不入库：产物名随 CSS 内容变化，
+# 提交它等于每次改样式都多一对改名文件；而且 assets.json 落在 sites/assets/（本就不入库），
+# 新检出无论如何都要先跑一次 bench build 才取得到资源，提交 dist 并不能省掉这一步。
+apps/*/*/public/dist/
+
 # HBOS 门户前端构建副产物安全网:vite.config.js 会遮蔽 vite.config.ts(解析顺序 .js 优先于 .ts),
 # *.tsbuildinfo 同理属于副产物,即使未来工具链回退也不允许提交
 frontend/hbos-portal-web/vite.config.js

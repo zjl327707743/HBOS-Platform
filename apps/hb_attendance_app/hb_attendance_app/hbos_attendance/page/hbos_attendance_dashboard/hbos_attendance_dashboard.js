@@ -4,30 +4,89 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 		title: __("考勤异常仪表盘"),
 		single_column: true,
 	});
+	// HBOS 共享样式层的挂载点：只影响本容器内部，Desk 框架不受影响。
+	$(wrapper).addClass("hbos-surface");
 
-	// Inject CSS
+
+	// Inject CSS —— 对齐 HBOS 设计系统的 V2 仪表盘 / V1 操作面。
+	//
+	// 依据：docs/experience/EA-4_DESIGN_SYSTEM_V1.md（token）、
+	// EA-5.4_COMPONENT_INTERACTION_SPEC.md（字号契约 v2.0）、
+	// P4_THREE_APP_FRONTEND_STRENGTHENING_PLAN.md（考勤定位 = V2 dashboard + V1 操作）。
+	//
+	// 字面量而非 var(...)：本页跑在 Frappe Desk 里，portal 的 tokens.css 不在
+	// 这个文档中，引用它的自定义属性会静默落空。故把值抄在这里，值本身与
+	// frontend/hbos-portal-web/src/theme/tokens.css 保持一致；两处若漂移，
+	// 以 tokens.css 为准。
+	//
+	// 范围：只做「自定义 Desk 页面内部」的对齐（P4 计划对 Inventory 的同一做法）。
+	// 不碰 Frappe Desk 外壳（EA-4 §38 要求 Desk 保留自身身份）。
+	// 强度分档：KPI/图表 = V2（中等玻璃、域色、轻动效）；筛选/表格 = V1
+	//（实色、无模糊无动效、密集行、表头吸顶，效率优先）。
+	//
+	// 字号只取契约允许的 30 / 20 / 16 / 14 / 12。原稿的 28 / 15 / 13 均被
+	// v2.0 明文禁止（EA-5.4 §44）。
+	var H = {
+		canvas: "#f4f8fd", surface: "#ffffff", subtle: "#f7f9fc",
+		border: "rgba(65,91,138,.10)", borderStrong: "rgba(65,91,138,.16)",
+		textPrimary: "#17253c", textSecondary: "#425675", textMuted: "#72829d",
+		warning: "#f4a523", critical: "#ed5a72", success: "#1bbc86",
+		accentFrom: "#6b60ff", accentTo: "#8c61ff",
+		radiusControl: "12px", radiusCard: "18px", radiusPill: "999px",
+		shadowCard: "0 18px 56px rgba(47,72,117,.09)",
+		shadowHover: "0 24px 72px rgba(47,72,117,.14)",
+		font: 'Inter, "SF Pro Display", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif',
+		ease: "cubic-bezier(.2,0,0,1)",
+		motionFast: "160ms",
+	};
+	// badge 只为「有值」的行生成；0 值直接渲染成灰色正文，不再用彩色徽章。
+	// 状态一律「色 + 文字/数字」，不靠颜色单独承载语义（EA-4 §530）。
 	$("<style>").text(
-		".dash-stats{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px;}" +
-		".dash-stat{flex:1;min-width:130px;background:#fff;border-radius:8px;padding:16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.07);}" +
-		".dash-stat .num{font-size:28px;font-weight:700;}" +
-		".dash-stat .lbl{font-size:12px;color:#888;margin-top:2px;}" +
-		".dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}" +
+		".hbos-dash{font-family:" + H.font + ";color:" + H.textPrimary + ";}" +
+
+		// ---- 顶部筛选：V1 操作面，实色、无动效 ----
+		".dash-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;background:" + H.surface + ";border:1px solid " + H.border + ";border-radius:" + H.radiusControl + ";margin-bottom:16px;}" +
+		".dash-toolbar label{font-size:12px;color:" + H.textSecondary + ";margin:0;}" +
+
+		// ---- KPI：V2 仪表盘面，域色、轻动效 ----
+		".dash-stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;}" +
+		".dash-stat{flex:1;min-width:140px;background:" + H.surface + ";border:1px solid " + H.border + ";border-radius:" + H.radiusCard + ";padding:20px 16px;text-align:center;box-shadow:" + H.shadowCard + ";transition:transform " + H.motionFast + " " + H.ease + ",box-shadow " + H.motionFast + " " + H.ease + ";}" +
+		".dash-stat:hover{transform:translateY(-2px);box-shadow:" + H.shadowHover + ";}" +
+		".dash-stat .num{font-size:30px;line-height:38px;font-weight:600;font-variant-numeric:tabular-nums;}" +
+		".dash-stat .lbl{font-size:12px;line-height:20px;color:" + H.textMuted + ";margin-top:4px;}" +
+		// 顶部一道 3px 域色条，是这组卡片唯一的「V2 装饰」，不动数据本身
+		".dash-stat .rule{height:3px;border-radius:" + H.radiusPill + ";margin:0 auto 12px;width:32px;background:linear-gradient(135deg," + H.accentFrom + "," + H.accentTo + ");}" +
+
+		// ---- 图表卡：V2 ----
+		".dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}" +
 		".dash-grid .full{grid-column:1/-1;}" +
-		".chart-card{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}" +
-		".chart-card h5{font-size:15px;margin:0 0 10px 0;color:#333;}" +
+		".chart-card{background:" + H.surface + ";border:1px solid " + H.border + ";border-radius:" + H.radiusCard + ";padding:20px;box-shadow:" + H.shadowCard + ";}" +
+		".chart-card h5{font-size:16px;line-height:24px;font-weight:600;margin:0 0 12px 0;color:" + H.textPrimary + ";}" +
 		".cwrap{width:100%;height:380px;}" +
 		".cwrap.tall{height:460px;}" +
-		".table-card{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-top:18px;}" +
-		".table-card h5{font-size:15px;margin:0 0 10px 0;color:#333;}" +
-		".table-card table{width:100%;font-size:13px;border-collapse:collapse;}" +
-		".table-card th{background:#f7f8fa;text-align:left;padding:8px;border-bottom:2px solid #e0e0e0;position:sticky;top:0;}" +
-		".table-card td{padding:7px 8px;border-bottom:1px solid #f0f0f0;}" +
-		".table-card tr:hover td{background:#fafbfc;}" +
+
+		// ---- 明细表：V1 操作面，密集行、表头吸顶 ----
+		".table-card{background:" + H.surface + ";border:1px solid " + H.border + ";border-radius:" + H.radiusCard + ";padding:20px;box-shadow:" + H.shadowCard + ";margin-top:16px;}" +
+		".table-card h5{font-size:16px;line-height:24px;font-weight:600;margin:0 0 12px 0;color:" + H.textPrimary + ";}" +
+		".table-card table{width:100%;font-size:14px;line-height:22px;border-collapse:collapse;}" +
+		".table-card th{background:" + H.subtle + ";color:" + H.textSecondary + ";font-weight:500;text-align:left;padding:10px 12px;border-bottom:1px solid " + H.borderStrong + ";position:sticky;top:0;}" +
+		".table-card td{padding:9px 12px;border-bottom:1px solid " + H.border + ";color:" + H.textPrimary + ";font-variant-numeric:tabular-nums;}" +
+		".table-card tr:hover td{background:" + H.subtle + ";}" +
+		".table-card .muted{color:" + H.textMuted + ";}" +
 		".table-scroll{max-height:500px;overflow-y:auto;}" +
-		".badge-red{display:inline-block;padding:2px 8px;border-radius:10px;background:#fde8e8;color:#c0392b;font-size:12px;}" +
-		".badge-orange{display:inline-block;padding:2px 8px;border-radius:10px;background:#fef3e4;color:#e67e22;font-size:12px;}" +
-		".dash-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;background:#fff;border-bottom:1px solid #e0e0e0;margin-bottom:16px;}"
+
+		// ---- 状态徽章：只用 token 里的 status 色，且带数字（色 + 文字） ----
+		".hbos-badge{display:inline-block;min-width:24px;padding:2px 8px;border-radius:" + H.radiusPill + ";font-size:12px;line-height:18px;font-weight:500;text-align:center;}" +
+		".badge-critical{background:rgba(237,90,114,.12);color:" + H.critical + ";}" +
+		".badge-warning{background:rgba(244,165,35,.14);color:#b8770a;}" +
+		".badge-success{background:rgba(27,188,134,.12);color:" + H.success + ";}"
 	).appendTo("head");
+	// 旧名保留为别名，避免遗漏调用点造成样式丢失
+	$("<style>").text(
+		".badge-red{display:inline-block;min-width:24px;padding:2px 8px;border-radius:" + H.radiusPill + ";font-size:12px;line-height:18px;font-weight:500;text-align:center;background:rgba(237,90,114,.12);color:" + H.critical + ";}" +
+		".badge-orange{display:inline-block;min-width:24px;padding:2px 8px;border-radius:" + H.radiusPill + ";font-size:12px;line-height:18px;font-weight:500;text-align:center;background:rgba(244,165,35,.14);color:#b8770a;}"
+	).appendTo("head");
+
 
 	// ---- Date helpers ----
 	var today = new Date();
@@ -45,9 +104,9 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 
 	// ---- Build toolbar ----
 	var toolbarHtml = '<div class="dash-toolbar">';
-	toolbarHtml += '<label style="font-size:13px;font-weight:600;">' + __("开始日期") + '</label> ';
+	toolbarHtml += '<label>' + __("开始日期") + '</label> ';
 	toolbarHtml += '<input type="date" id="dash-start" class="form-control" style="width:150px;display:inline-block;" value="' + startStr + '"> ';
-	toolbarHtml += '<label style="font-size:13px;font-weight:600;">' + __("结束日期") + '</label> ';
+	toolbarHtml += '<label>' + __("结束日期") + '</label> ';
 	toolbarHtml += '<input type="date" id="dash-end" class="form-control" style="width:150px;display:inline-block;" value="' + endStr + '"> ';
 	toolbarHtml += '<button class="btn btn-primary btn-sm" id="dash-go">' + __("查询") + '</button>';
 	toolbarHtml += '</div>';
@@ -70,13 +129,16 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 		var container = $("#dash-content");
 		if (!container.length) return;
 
-		var h = '<div class="dash-stats">';
-		h += '<div class="dash-stat"><div class="num" style="color:#e74c3c;">' + (data.total_late || 0) + '</div><div class="lbl">' + __("迟到") + '</div></div>';
-		h += '<div class="dash-stat"><div class="num" style="color:#f39c12;">' + (data.total_early || 0) + '</div><div class="lbl">' + __("早退") + '</div></div>';
-		h += '<div class="dash-stat"><div class="num" style="color:#8e44ad;">' + (data.total_absent || 0) + '</div><div class="lbl">' + __("缺勤") + '</div></div>';
-		h += '<div class="dash-stat"><div class="num" style="color:#3498db;">' + (data.anomaly_people || 0) + '</div><div class="lbl">' + __("异常人员") + '</div></div>';
-		h += '<div class="dash-stat"><div class="num" style="color:#27ae60;">' + (data.attendance_rate || 0) + '%</div><div class="lbl">' + __("出勤率") + '</div></div>';
-		h += '<div class="dash-stat"><div class="num" style="color:#2c3e50;">' + (data.total_employees || 0) + '</div><div class="lbl">' + __("总人数") + '</div></div>';
+		var h = '<div class="hbos-dash">';
+		h += '<div class="dash-stats">';
+		// 每个 KPI 顶一道域色短条（V2 的唯一装饰）；数字用 status/中性色，
+		// 不逐卡换色——EA-4 §39 明文反对「每个指标一个随机颜色」。
+		h += '<div class="dash-stat"><div class="rule"></div><div class="num" style="color:' + H.warning + ';">' + (data.total_late || 0) + '</div><div class="lbl">' + __("迟到") + '</div></div>';
+		h += '<div class="dash-stat"><div class="rule"></div><div class="num" style="color:' + H.textPrimary + ';">' + (data.total_early || 0) + '</div><div class="lbl">' + __("早退") + '</div></div>';
+		h += '<div class="dash-stat"><div class="rule"></div><div class="num" style="color:' + H.critical + ';">' + (data.total_absent || 0) + '</div><div class="lbl">' + __("缺勤") + '</div></div>';
+		h += '<div class="dash-stat"><div class="rule"></div><div class="num" style="color:' + H.textPrimary + ';">' + (data.anomaly_people || 0) + '</div><div class="lbl">' + __("异常人员") + '</div></div>';
+		h += '<div class="dash-stat"><div class="rule"></div><div class="num" style="color:' + H.success + ';">' + (data.attendance_rate || 0) + '%</div><div class="lbl">' + __("出勤率") + '</div></div>';
+		h += '<div class="dash-stat"><div class="rule"></div><div class="num" style="color:' + H.textPrimary + ';">' + (data.total_employees || 0) + '</div><div class="lbl">' + __("总人数") + '</div></div>';
 		h += '</div>';
 		h += '<div class="dash-grid">';
 		h += '<div class="chart-card"><h5>' + __("迟到 Top 15") + '</h5><div class="cwrap" id="d-c1"></div></div>';
@@ -93,10 +155,14 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 		for (var i = 0; i < rows.length; i++) {
 			var r = rows[i];
 			var total = (r.late_count || 0) + (r.early_count || 0) + (r.absent_count || 0);
+			// 0 值渲染成灰色正文而非彩色徽章：徽章表达「有异常」，0 不是异常。
+			var cell = function (n, cls) {
+				return (n || 0) > 0 ? '<span class="hbos-badge ' + cls + '">' + n + '</span>' : '<span class="muted">0</span>';
+			};
 			h += '<tr><td>' + (i + 1) + '</td><td>' + (r.num || "-") + '</td><td>' + (r.name || "-") + '</td><td>' + (r.dept || "-") + '</td>';
-			h += '<td>' + ((r.late_count || 0) > 0 ? '<span class="badge-red">' + r.late_count + '</span>' : "0") + '</td>';
-			h += '<td>' + ((r.early_count || 0) > 0 ? '<span class="badge-orange">' + r.early_count + '</span>' : "0") + '</td>';
-			h += '<td>' + ((r.absent_count || 0) > 0 ? '<span class="badge-orange" style="background:#f3e8ff;color:#7c3aed;">' + r.absent_count + '</span>' : "0") + '</td>';
+			h += '<td>' + cell(r.late_count, 'badge-warning') + '</td>';
+			h += '<td>' + cell(r.early_count, 'badge-warning') + '</td>';
+			h += '<td>' + cell(r.absent_count, 'badge-critical') + '</td>';
 			h += '<td><b>' + total + '</b></td></tr>';
 		}
 		h += '</tbody></table></div></div>';
@@ -115,7 +181,7 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 				xAxis: { type: "value", name: __("迟到次数") },
 				yAxis: { type: "category", inverse: true, data: (data.top_late_names || []).slice(0, 15), axisLabel: { fontSize: 12, width: 140, overflow: "truncate" } },
 				series: [{ type: "bar", data: (data.top_late_counts || []).slice(0, 15), label: { show: true, position: "right", fontSize: 12 },
-					itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: "#e74c3c" }, { offset: 1, color: "#f39c12" }]) } }]
+					itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: H.warning }, { offset: 1, color: H.critical }]) } }]
 			});
 		}
 		if (charts["d-c2"]) {
@@ -125,7 +191,7 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 				xAxis: { type: "value", name: __("缺勤天数") },
 				yAxis: { type: "category", inverse: true, data: (data.top_absent_names || []).slice(0, 15), axisLabel: { fontSize: 12, width: 140, overflow: "truncate" } },
 				series: [{ type: "bar", data: (data.top_absent_counts || []).slice(0, 15), label: { show: true, position: "right", fontSize: 12 },
-					itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: "#8e44ad" }, { offset: 1, color: "#d35400" }]) } }]
+					itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: H.critical }, { offset: 1, color: H.accentTo }]) } }]
 			});
 		}
 		if (charts["d-c3"]) {
@@ -136,9 +202,9 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 				xAxis: { type: "category", data: data.trend_labels || [], axisLabel: { fontSize: 11 } },
 				yAxis: { type: "value", name: __("人次") },
 				series: [
-					{ name: __("迟到"), type: "line", data: data.trend_late || [], smooth: true, symbol: "circle", symbolSize: 6, itemStyle: { color: "#e74c3c" }, lineStyle: { width: 2 } },
-					{ name: __("早退"), type: "line", data: data.trend_early || [], smooth: true, symbol: "diamond", symbolSize: 6, itemStyle: { color: "#f39c12" }, lineStyle: { width: 2 } },
-					{ name: __("缺勤"), type: "line", data: data.trend_absent || [], smooth: true, symbol: "triangle", symbolSize: 7, itemStyle: { color: "#8e44ad" }, lineStyle: { width: 2 } }
+					{ name: __("迟到"), type: "line", data: data.trend_late || [], smooth: true, symbol: "circle", symbolSize: 6, itemStyle: { color: H.warning }, lineStyle: { width: 2 } },
+					{ name: __("早退"), type: "line", data: data.trend_early || [], smooth: true, symbol: "diamond", symbolSize: 6, itemStyle: { color: H.accentTo }, lineStyle: { width: 2 } },
+					{ name: __("缺勤"), type: "line", data: data.trend_absent || [], smooth: true, symbol: "triangle", symbolSize: 7, itemStyle: { color: H.critical }, lineStyle: { width: 2 } }
 				]
 			});
 		}
@@ -150,9 +216,9 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 				xAxis: { type: "category", data: data.dept_names || [], axisLabel: { fontSize: 11, rotate: 30 } },
 				yAxis: { type: "value", name: __("人次") },
 				series: [
-					{ name: __("迟到"), type: "bar", stack: "total", data: data.dept_late || [], itemStyle: { color: "#e74c3c" }, label: { show: true, fontSize: 10 } },
-					{ name: __("早退"), type: "bar", stack: "total", data: data.dept_early || [], itemStyle: { color: "#f39c12" }, label: { show: true, fontSize: 10 } },
-					{ name: __("缺勤"), type: "bar", stack: "total", data: data.dept_absent || [], itemStyle: { color: "#8e44ad" }, label: { show: true, fontSize: 10 } }
+					{ name: __("迟到"), type: "bar", stack: "total", data: data.dept_late || [], itemStyle: { color: H.warning }, label: { show: true, fontSize: 10 } },
+					{ name: __("早退"), type: "bar", stack: "total", data: data.dept_early || [], itemStyle: { color: H.accentTo }, label: { show: true, fontSize: 10 } },
+					{ name: __("缺勤"), type: "bar", stack: "total", data: data.dept_absent || [], itemStyle: { color: H.critical }, label: { show: true, fontSize: 10 } }
 				]
 			});
 		}

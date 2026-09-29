@@ -4,6 +4,9 @@ frappe.pages["hbos-monthly-upload"].on_page_load = function (wrapper) {
 		title: __("上传月度考勤表"),
 		single_column: true,
 	});
+	// HBOS 共享样式层的挂载点：只影响本容器内部，Desk 框架不受影响。
+	$(wrapper).addClass("hbos-surface");
+
 
 	page.set_title(__("上传月度考勤表"));
 

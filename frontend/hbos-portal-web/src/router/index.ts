@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import PortalLayout from '@/components/layout/PortalLayout.vue'
 import LimsLayout from '@/components/layout/LimsLayout.vue'
+import AttendanceDashboardView from '@/views/AttendanceDashboardView.vue'
+import AttendanceEmployeesView from '@/views/AttendanceEmployeesView.vue'
+import AttendanceBoardView from '@/views/AttendanceBoardView.vue'
 import PortalHome from '@/views/PortalHome.vue'
 import MyWorkView from '@/views/MyWorkView.vue'
 import AppCenterView from '@/views/AppCenterView.vue'
@@ -30,6 +33,24 @@ const router = createRouter({
         { path: 'embed', name: 'business-embed', component: BusinessEmbedView, meta: { title: '业务应用' } },
         { path: '403', name: 'forbidden', component: ForbiddenView, meta: { title: '无权限' } },
       ],
+    },
+    {
+      // 考勤仪表盘已原生进 Portal SPA（migration_mode: native）。
+      // 后端 resolve_stable_route 把 /hbos/attendance 解析回自身，
+      // 故前端走「以 /hbos/ 开头即 SPA 路由」分支，不再进 iframe。
+      path: '/hbos/attendance',
+      component: AttendanceDashboardView,
+      meta: { title: '考勤管理' },
+    },
+    {
+      path: '/hbos/attendance/employees',
+      component: AttendanceEmployeesView,
+      meta: { title: '人员管理' },
+    },
+    {
+      path: '/hbos/attendance/board',
+      component: AttendanceBoardView,
+      meta: { title: '部门看板' },
     },
     {
       path: '/hbos/lims',

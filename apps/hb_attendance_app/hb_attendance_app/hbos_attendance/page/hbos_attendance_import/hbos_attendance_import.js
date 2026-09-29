@@ -4,6 +4,9 @@ frappe.pages["hbos-attendance-import"].on_page_load = function (wrapper) {
 		title: "导入考勤机导出表",
 		single_column: true,
 	});
+	// HBOS 共享样式层的挂载点：只影响本容器内部，Desk 框架不受影响。
+	$(wrapper).addClass("hbos-surface");
+
 
 	const state = {
 		sourceFile: null,

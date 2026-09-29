@@ -4,6 +4,9 @@ frappe.pages["hbos-employee-management"].on_page_load = function (wrapper) {
 		title: __("人员管理"),
 		single_column: true,
 	});
+	// HBOS 共享样式层的挂载点：只影响本容器内部，Desk 框架不受影响。
+	$(wrapper).addClass("hbos-surface");
+
 	renderPage(wrapper);
 };
 

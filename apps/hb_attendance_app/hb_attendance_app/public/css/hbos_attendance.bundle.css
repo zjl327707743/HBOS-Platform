@@ -1,0 +1,219 @@
+/* HBOS 业务页面共享样式层（Desk 内）。
+ *
+ * 依据：docs/experience/EA-4_DESIGN_SYSTEM_V1.md（token）、
+ *      EA-5.4_COMPONENT_INTERACTION_SPEC.md（字号契约 v2.0）、
+ *      P4_THREE_APP_FRONTEND_STRENGTHENING_PLAN.md（各 App 的视觉分档）。
+ *
+ * 值本身与 frontend/hbos-portal-web/src/theme/tokens.css 一致；两处若漂移，
+ * 以 tokens.css 为准（EA-4 §36 把实现版定为权威）。
+ *
+ * 为什么写在这里而不是每页各抄一份：
+ *   6 个页面各抄一遍必然漂移——本项目为「一个业务含义只留一份名单」专门
+ *   收敛过行政班名单并加了防副本测试，同一道理适用于色值。
+ *
+ * 作用域：**全部限定在 `.hbos-surface` 下**，只有显式加了该 class 的容器
+ * 才会被影响。Desk 的侧边栏、顶栏、表单控件一律不动
+ * （EA-4 §38：Management Console 保留自身身份，不要求与 Portal 逐像素一致）。
+ *
+ * 分档（EA-4 §4）：
+ *   .hbos-surface            V1/V2 通用底座（字体、配色、圆角、卡片、表格）
+ *   .hbos-surface--card     卡片与面板
+ *   .hbos-surface--kpi      KPI 数字（V2 仪表盘用）
+ *   .hbos-surface--table    密集表格（V1 操作面）
+ */
+
+.hbos-surface {
+  /* ── 仅在本作用域内定义，避免污染 Desk 全局 ── */
+  --h-canvas: #f4f8fd;
+  --h-surface: rgba(255, 255, 255, .68);
+  --h-surface-solid: #ffffff;
+  /* 玻璃卡的白边与模糊，取自门户 global.css 的 .glass-surface */
+  --h-glass-border: rgba(255, 255, 255, .72);
+  --h-glass-blur: blur(24px);
+  --h-subtle: #f7f9fc;
+  --h-border: rgba(65, 91, 138, .10);
+  --h-border-strong: rgba(65, 91, 138, .16);
+  --h-text: #17253c;
+  --h-text-2: #425675;
+  --h-muted: #72829d;
+  --h-neutral: #72829d;
+  --h-info: #4b9cff;
+  --h-processing: #675fff;
+  --h-success: #1bbc86;
+  --h-warning: #f4a523;
+  --h-critical: #ed5a72;
+  --h-brand: #675fff;
+  --h-brand-2: #49a8ff;
+  --h-accent: linear-gradient(135deg, #6b60ff, #8c61ff);
+  --h-radius-control: 12px;
+  --h-radius-card: 18px;
+  --h-radius-panel: 24px;
+  --h-radius-pill: 999px;
+  --h-shadow: 0 18px 56px rgba(47, 72, 117, .09);
+  --h-shadow-hover: 0 24px 72px rgba(47, 72, 117, .14);
+  --h-ease: cubic-bezier(.2, 0, 0, 1);
+  --h-motion: 160ms;
+  --h-font: Inter, "SF Pro Display", "PingFang SC", "Noto Sans SC",
+    "Microsoft YaHei", system-ui, sans-serif;
+
+  font-family: var(--h-font);
+  color: var(--h-text);
+
+  /* ── 画布：复刻门户的两层观感 ──
+   * 门户 global.css 里 `.portal-page` 的底是**两层叠加**：
+   *   ① 三个很淡的径向渐变（opacity .13/.13/.10）
+   *   ② 三个 `filter: blur(75px)` 的实心圆（.aurora，.34/.28/.20）—— 观感主要来自这层
+   * 只做 ① 会显得很平，所以 ② 用伪元素补上（见下面的 ::before）。
+   */
+  position: relative;
+  padding: 16px 20px 48px;
+  min-height: calc(100vh - 60px);
+  background-color: #f4f8fd;
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(circle at 8% 8%, rgba(108, 99, 255, .13), transparent 25%),
+    radial-gradient(circle at 90% 12%, rgba(69, 166, 255, .13), transparent 24%),
+    radial-gradient(circle at 70% 84%, rgba(84, 224, 192, .10), transparent 22%),
+    linear-gradient(180deg, #f7faff 0%, #f4f8fd 44%, #eef5fc 100%);
+}
+
+/* ② 极光层：复刻门户 .aurora-a/b/c —— 三个 fixed 的实心血斑。
+ * 关键在**色心保持实心**：门户那三个是纯色圆（#8177ff 等）再 blur(75px)，
+ * 圆心接近满色。若用渐隐的径向渐变（0% 实→100% 透明），平均亮度远低于它，
+ * 整层就会淡到看不见。故渐变前段 hold 住实色，只留后 40% 过渡。
+ * 尺寸与位置对齐门户：a 380@(-120,40)、b 440@(右-120,120)、c 380@(43%,底-140)。
+ */
+.hbos-surface::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(75px);
+  background:
+    radial-gradient(circle 190px at 70px 230px,
+      rgba(129, 119, 255, .34) 0%, rgba(129, 119, 255, .34) 60%, transparent 100%),
+    radial-gradient(circle 220px at 96% 340px,
+      rgba(100, 188, 255, .28) 0%, rgba(100, 188, 255, .28) 60%, transparent 100%),
+    radial-gradient(circle 190px at 52% 93%,
+      rgba(121, 234, 210, .20) 0%, rgba(121, 234, 210, .20) 60%, transparent 100%);
+}
+
+/* 画布之上的内容统一抬高一层，保证玻璃卡的 backdrop-filter 采样到的是色斑而非白底 */
+.hbos-surface > * { position: relative; z-index: 1; }
+
+/* Desk 的 page-head 在本容器之上，让它随画布走色，避免出现白色断层 */
+.hbos-surface .page-head { background: transparent; }
+
+/* ── 标题层级（契约 v2.0：30 / 20 / 16 / 14 / 12，其余一律禁止）── */
+.hbos-surface h1, .hbos-surface .h1 { font-size: 30px; line-height: 38px; font-weight: 600; color: var(--h-text); }
+.hbos-surface h2, .hbos-surface .h2 { font-size: 20px; line-height: 28px; font-weight: 600; color: var(--h-text); }
+.hbos-surface h3, .hbos-surface h4, .hbos-surface h5,
+.hbos-surface .h3, .hbos-surface .h4, .hbos-surface .h5 {
+  font-size: 16px; line-height: 24px; font-weight: 600; color: var(--h-text);
+}
+.hbos-surface p, .hbos-surface li, .hbos-surface label { font-size: 14px; line-height: 22px; }
+.hbos-surface .text-muted, .hbos-surface .h-muted { color: var(--h-muted); font-size: 12px; line-height: 20px; }
+
+/* ── 玻璃卡：与门户 .glass-surface 同一做法 ──
+ * 半透明白底 + 白边 + 背景模糊。Desk 里 backdrop-filter 会受层叠上下文影响，
+ * 故同时给一个足够白的底色兜底——模糊若失效，仍是干净的浅色卡而非透明。
+ */
+.hbos-surface .h-card,
+.hbos-surface .h-kpi-item {
+  background: var(--h-surface);
+  border: 1px solid var(--h-glass-border);
+  border-radius: var(--h-radius-card);
+  box-shadow: var(--h-shadow);
+  backdrop-filter: var(--h-glass-blur);
+  -webkit-backdrop-filter: var(--h-glass-blur);
+}
+
+.hbos-surface .h-card,
+.hbos-surface .card { padding: 20px; border-radius: var(--h-radius-card); }
+.hbos-surface .h-card--accent { border-top: 3px solid transparent; border-image: var(--h-accent) 1; }
+
+/* ── KPI（V2 仪表盘）── */
+.hbos-surface .h-kpi { display: flex; gap: 16px; flex-wrap: wrap; }
+.hbos-surface .h-kpi-item {
+  flex: 1; min-width: 140px;
+  padding: 20px 16px;
+  text-align: center;
+  transition: transform var(--h-motion) var(--h-ease), box-shadow var(--h-motion) var(--h-ease), background var(--h-motion) var(--h-ease);
+}
+.hbos-surface .h-kpi-item:hover { transform: translateY(-5px); background: rgba(255,255,255,.91); box-shadow: var(--h-shadow-hover); }
+.hbos-surface .h-kpi-rule {
+  height: 3px; width: 32px; margin: 0 auto 12px;
+  border-radius: var(--h-radius-pill); background: var(--h-accent);
+}
+.hbos-surface .h-kpi-num {
+  font-size: 30px; line-height: 38px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--h-text);
+}
+.hbos-surface .h-kpi-lbl { font-size: 12px; line-height: 20px; color: var(--h-muted); margin-top: 4px; }
+
+/* ── 工具条（V1 操作面：实色、无动效）── */
+.hbos-surface .h-toolbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 16px;
+  background: var(--h-surface);
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-control);
+}
+.hbos-surface .h-toolbar label { font-size: 12px; line-height: 20px; color: var(--h-text-2); margin: 0; }
+
+/* ── 表格（V1：密集行、表头吸顶、数字等宽）── */
+.hbos-surface .h-table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 22px; }
+.hbos-surface .h-table th {
+  background: var(--h-subtle); color: var(--h-text-2); font-weight: 500;
+  text-align: left; padding: 10px 12px;
+  border-bottom: 1px solid var(--h-border-strong);
+  position: sticky; top: 0; z-index: 1;
+}
+.hbos-surface .h-table td {
+  padding: 9px 12px; border-bottom: 1px solid var(--h-border);
+  color: var(--h-text); font-variant-numeric: tabular-nums;
+}
+.hbos-surface .h-table tr:hover td { background: var(--h-subtle); }
+.hbos-surface .h-table-scroll { max-height: 500px; overflow-y: auto; }
+
+/* ── 状态徽章（色 + 数字；EA-4 §530 禁止只用颜色承载语义）── */
+.hbos-surface .h-badge {
+  display: inline-block; min-width: 24px; padding: 2px 8px;
+  border-radius: var(--h-radius-pill);
+  font-size: 12px; line-height: 18px; font-weight: 500; text-align: center;
+}
+.hbos-surface .h-badge--neutral  { background: rgba(114,130,157,.12); color: var(--h-neutral); }
+.hbos-surface .h-badge--info     { background: rgba(75,156,255,.12);  color: var(--h-info); }
+.hbos-surface .h-badge--success  { background: rgba(27,188,134,.12);  color: var(--h-success); }
+.hbos-surface .h-badge--warning  { background: rgba(244,165,35,.14);  color: #b8770a; }
+.hbos-surface .h-badge--critical { background: rgba(237,90,114,.12);  color: var(--h-critical); }
+
+/* ── 页内标签页（nav-pills）：只重着色，不改结构 ── */
+.hbos-surface .nav-pills .nav-link {
+  font-size: 14px; line-height: 22px; color: var(--h-text-2);
+  border-radius: var(--h-radius-control);
+}
+.hbos-surface .nav-pills .nav-link.active {
+  background: var(--h-accent); color: #fff; font-weight: 500;
+}
+
+/* ── 主按钮：全局只允许一个主动作（EA-5.4 §21）── */
+.hbos-surface .btn-primary {
+  background: var(--h-accent); border-color: transparent;
+  border-radius: var(--h-radius-control); font-weight: 500;
+}
+.hbos-surface .btn-primary:hover,
+.hbos-surface .btn-primary:focus { filter: brightness(1.06); }
+
+/* ── 面包屑 ── */
+.hbos-surface .hbos-breadcrumb,
+.hbos-surface .breadcrumb { font-size: 12px; line-height: 20px; color: var(--h-muted); }
+
+/* ── 空 / 加载 / 错误态（契约要求三态齐备）── */
+.hbos-surface .h-empty, .hbos-surface .h-loading, .hbos-surface .h-error {
+  padding: 32px 16px; text-align: center; font-size: 14px; line-height: 22px;
+}
+.hbos-surface .h-empty { color: var(--h-muted); }
+.hbos-surface .h-error { color: var(--h-critical); }
+.hbos-surface .h-loading { color: var(--h-text-2); }
