@@ -157,13 +157,11 @@ export interface WarehouseTreeNode extends WarehouseRow {
 }
 
 export interface WarehouseSnapshot {
-  /** 全部可见货位（含分组），已按 lft 排序 */
+  /** 全部可见货位（含分组、含停用），已按 lft 排序 —— 取数用，不是显示用 */
   all: WarehouseRow[]
-  /** 树根（父节点不可见或没有父节点的视为根） */
+  /** 树根（父节点不可见或没有父节点的视为根）；含停用，显示前请过 `visibleWarehouseTree` */
   tree: WarehouseTreeNode[]
   byName: Map<string, WarehouseRow>
-  leafCount: number
-  groupCount: number
 }
 
 /**
@@ -221,15 +219,12 @@ export async function getWarehouseSnapshot(): Promise<WarehouseSnapshot> {
     else tree.push(node)
   }
 
-  demoteDisabled(tree)
   assignDepth(tree, 0)
 
   return {
     all: rows,
     tree,
     byName,
-    leafCount: rows.filter((r) => Number(r.is_group) !== 1).length,
-    groupCount: rows.filter((r) => Number(r.is_group) === 1).length,
   }
 }
 
@@ -238,34 +233,6 @@ function assignDepth(nodes: WarehouseTreeNode[], depth: number) {
     node.depth = depth
     assignDepth(node.children, depth + 1)
   }
-}
-
-/**
- * 把**已停用的货位沉到同级末尾**（对每一层都做）。
- *
- * ## 为什么是「沉底」而不是「隐藏」
- *
- * 货位页是**查档**的地方：停用的货位还挂着历史库存与二维码，藏起来就查不到了。
- * 但它们又确实用不上（ERPNext 对停用货位是硬拦的，见 `isSelectableWarehouse`），
- * 排在前面会天天挡路——更糟的是会被**误读成可用货位**。
- *
- * 所以：**留着、标出来、挪到最后**。
- * 用户 2026-09-29 先问「能不能不显示」，得到的答复是「不能就移到最后」。
- *
- * ## 为什么要递归**每一层**，而不是只排根数组
- *
- * 要沉的那四个（`Stores / Work In Progress / Finished Goods / Goods In Transit`）
- * 挂在 `All Warehouses` 底下——而 `All Warehouses` 本身是个**根节点**。
- * 所以只对根数组排序**什么都排不到**，得逐层排它自己的 `children`。
- *
- * （第一版就写成了只排根数组，靠核对真实层级才发现——这种「排了个空」的写法
- * 不会报错、类型也对，只有拿真数据走一遍才看得出来。）
- *
- * 稳定排序：`Array#sort` 本身稳定，同组内保持原有的 `lft` 顺序。
- */
-function demoteDisabled(nodes: WarehouseTreeNode[]) {
-  nodes.sort((a, b) => Number(a.disabled === 1) - Number(b.disabled === 1))
-  for (const node of nodes) demoteDisabled(node.children)
 }
 
 /**
@@ -293,6 +260,45 @@ export function isSelectableWarehouse(row: WarehouseRow): boolean {
 /** 可选货位（非分组 + 未停用），保持 snapshot 的 `lft` 顺序 */
 export function selectableWarehouses(snapshot: WarehouseSnapshot): WarehouseRow[] {
   return snapshot.all.filter(isSelectableWarehouse)
+}
+
+/**
+ * 货位页的**显示树**：去掉已停用的货位。
+ *
+ * ## 为什么显示层要过滤，而取数层不过滤
+ *
+ * `getWarehouseSnapshot` 的 `all` / `tree` **照旧包含停用货位**——它们是真实存在的
+ * 主数据，别处（报表、历史库存、单据）还要按名字查到它们。过滤只发生在**显示**这一层。
+ *
+ * ## 为什么是「不显示」而不是「沉到末尾」
+ *
+ * 2026-09-29 先做的是「沉到同级末尾」，Owner 追问后定的是**直接不显示**：
+ * ERPNext 建公司时自带的 `Stores / Work In Progress / Finished Goods /
+ * Goods In Transit` 对仓库没有用，留在列表里（哪怕在末尾）看着别扭。
+ *
+ * 这与 `selectableWarehouses`（下拉里排除停用）是同一条口径的两种表达：
+ * **不能用、也不该看到**。区别只在后者还要额外排掉分组节点。
+ *
+ * ## 只删节点，不动被过滤者的子树
+ *
+ * 停用的**分组**节点如果还有下级，整棵子树会**接上来当根**，而不是跟着消失——
+ * 让真实存在的货位因为一个停用的父目录而从界面上蒸发，比显示一个停用节点更糟。
+ * 实测当前库里那四个停用项都是**叶子、没有子节点**，所以这条是防御性的。
+ */
+export function visibleWarehouseTree(snapshot: WarehouseSnapshot): WarehouseTreeNode[] {
+  const pruned = (nodes: WarehouseTreeNode[]): WarehouseTreeNode[] => {
+    const out: WarehouseTreeNode[] = []
+    for (const node of nodes) {
+      const children = pruned(node.children)
+      if (Number(node.disabled) === 1) {
+        out.push(...children) // 自己隐掉，但把下级接上来
+        continue
+      }
+      out.push({ ...node, children })
+    }
+    return out
+  }
+  return pruned(snapshot.tree)
 }
 
 /**

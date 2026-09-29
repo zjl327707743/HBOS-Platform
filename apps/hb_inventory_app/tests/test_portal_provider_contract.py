@@ -481,76 +481,68 @@ class WarehouseSelectabilityContractTest(unittest.TestCase):
                         "可选货位的规则只允许在 inventoryMaster 里有一份",
                     )
 
-    def test_browse_view_still_lists_disabled_warehouses(self):
-        """货位页是**查档**的地方：停用的货位仍要列出来（可查历史库存与二维码），
-        只是要标出来。别顺手把它也过滤掉。
+    def test_browse_view_hides_disabled_but_data_layer_keeps_them(self):
+        """停用货位：**显示层不显示，取数层照旧带着**。
+
+        ## 口径变过，这里记一下
+
+        2026-09-29 前一版做的是「留显示、标『已停用』、沉到同级末尾」。
+        Owner 追问「这四个对我来说根本没用，前端显示着很别扭」之后定为
+        **直接不显示**——ERPNext 建公司时自带的
+        `Stores / Work In Progress / Finished Goods / Goods In Transit`
+        对仓库没用，留在列表里（哪怕在末尾）只是碍眼。
+
+        但**不能连取数一起过滤**：它们仍是真实主数据，详情页、报表、历史单据
+        都还要按名字查到。所以过滤只发生在显示这一层。
+
+        这里钉住三件事：货位页用了显示树过滤；过滤**没有**粗暴套用
+        `selectableWarehouses`（那个还会把分组节点也排掉，而分组是要显示的）；
+        取数层（`getWarehouseSnapshot`）没有被改。
         """
         browse = (self.SRC / "views" / "InventoryWarehouseView.vue").read_text(encoding="utf-8")
+        master = self.MASTER.read_text(encoding="utf-8")
+
+        # ① 显示层要过滤
+        self.assertIn(
+            "visibleWarehouseTree",
+            browse,
+            "货位页应通过 visibleWarehouseTree 隐藏停用货位",
+        )
+        # ② 不能套用「可选」过滤——那会连分组节点一起排掉，而分组必须显示
         self.assertNotIn(
             "selectableWarehouses",
             browse,
-            "货位页是浏览页，不该套用「可选」过滤——停用货位要能看到",
+            "货位页不能用「可选货位」过滤：它会把分组节点也排掉，而货位树要显示分组",
         )
-        self.assertIn("已停用", browse, "货位页应标出已停用的货位")
-
-
-class WarehouseTreeOrderContractTest(unittest.TestCase):
-    """停用货位要**沉到同级末尾**（而不是隐藏，也不是照旧排在最前）。
-
-    ## 为什么有这份测试
-
-    货位页是**查档**的地方：停用的货位还挂着历史库存与二维码，藏起来就查不到，
-    所以不能过滤掉（见上一条测试）。但 ERPNext 建公司时自带的
-    `Stores / Work In Progress / Finished Goods / Goods In Transit` 正好是
-    `All Warehouses` 里 `lft` 最小的四个，**天天排在真实货位前面**，
-    容易被误读成可用货位（用户 2026-09-29 就是这么注意到它们的）。
-
-    折中是：**留着、标「已停用」、挪到同级最后。**
-
-    ## 这个测试真正防的是什么
-
-    防「排了个空」。第一版 `demoteDisabled` 只对**根数组**排序——
-    而那四个挂在 `All Warehouses`（一个根节点）底下，**根本不在根数组里**，
-    排序什么都没做、也不报错、类型也对。只有拿真实层级走一遍才发现。
-
-    所以这里钉死两条：**排序要按 `disabled`**，且**必须递归到子节点**。
-    """
-
-    SRC = ROOT.parents[1] / "frontend" / "hbos-portal-web" / "src"
-    MASTER = SRC / "services" / "inventoryMaster.ts"
-
-    def setUp(self):
-        self.src = self.MASTER.read_text(encoding="utf-8")
-        body = re.search(r"\nfunction demoteDisabled\(.*?\n\}", self.src, re.S)
-        self.assertIsNotNone(body, "找不到 demoteDisabled")
-        self.body = body.group(0)
-
-    def test_sorts_by_disabled(self):
+        # ③ 取数层不过滤：停用的仍在 snapshot 里，详情页才查得到
         self.assertRegex(
-            self.body,
-            r"\.sort\(",
-            "demoteDisabled 应对同级排序",
+            master,
+            r"export function visibleWarehouseTree",
+            "过滤逻辑应放在显示树的 helper 里",
         )
-        self.assertIn("disabled", self.body, "排序键必须是 disabled")
-
-    def test_recurses_into_children(self):
-        """**关键的一条**：只排根数组等于没排——那四个是二级节点。"""
+        # helper 里**真的按 disabled 判断**。只断言「它被调用了」不够——
+        # 把判断体删掉、只剩函数壳，测试照样绿（实测踩过）。
+        helper = re.search(
+            r"export function visibleWarehouseTree\(.*?\n\}", master, re.S
+        ).group(0)
         self.assertRegex(
-            self.body,
-            r"demoteDisabled\(\s*\w+\.children\s*\)",
-            "必须递归进 children，否则排不到挂在根节点下面的停用货位",
+            helper,
+            r"Number\(\s*\w+\.disabled\s*\)\s*===\s*1",
+            "visibleWarehouseTree 必须真的按 disabled 判断并跳过该节点",
         )
-
-    def test_called_before_depth_is_assigned(self):
-        """`demoteDisabled` 要在建完树之后、算 depth 之前调用。
-
-        顺序错了不会报错（depth 与顺序无关），但一旦有人把建树挪位置，
-        容易顺手漏掉这次调用——这里钉一下它确实被调了。
-        """
-        self.assertRegex(
-            self.src,
-            r"demoteDisabled\(\s*tree\s*\)",
-            "getWarehouseSnapshot 里要调用 demoteDisabled(tree)",
+        snapshot_body = re.search(
+            r"export async function getWarehouseSnapshot\(.*?\n\}", master, re.S
+        ).group(0)
+        # `disabled` 出现在 **fields 列表**里是必须的（显示层要靠它判断）；
+        # 不能出现的是「按 disabled 过滤」这种调用。
+        self.assertIsNone(
+            re.search(r"\.filter\([^)]*disabled", snapshot_body),
+            "getWarehouseSnapshot 是取数层，不该在这里按 disabled 过滤掉货位",
+        )
+        self.assertNotIn(
+            "isSelectableWarehouse",
+            snapshot_body,
+            "取数层不该套用「可选货位」的口径",
         )
 
 

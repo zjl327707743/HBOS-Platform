@@ -6,8 +6,8 @@
         <p>按层级查货位；只有最末一级的货位能存货</p>
       </div>
       <div v-if="state === 'ready' && snapshot" class="master-count">
-        叶子货位 <b class="master-mono">{{ snapshot.leafCount }}</b> 个 ·
-        分组节点 <b class="master-mono">{{ snapshot.groupCount }}</b> 个
+        叶子货位 <b class="master-mono">{{ leafCount }}</b> 个 ·
+        分组节点 <b class="master-mono">{{ groupCount }}</b> 个
       </div>
     </div>
 
@@ -70,10 +70,6 @@
                 <FolderOutlined v-if="node.isGroup" class="master-node-ic" />
                 <FileOutlined v-else class="master-node-ic" />
                 <span class="master-node-name">{{ shortLabel(node.name) }}</span>
-                <span
-                  v-if="Number(node.disabled) === 1"
-                  class="master-node-mark master-node-off"
-                >已停用</span>
                 <span class="master-node-mark">{{ node.isGroup ? '分组' : '货位' }}</span>
               </button>
             </template>
@@ -136,7 +132,8 @@
                 <WarningOutlined />
                 <div>
                   这个货位<b>已停用</b>，不能用于任何出入库单据——选了会被 ERPNext 拒。
-                  它<b>仍列在这里</b>是为了能查到历史库存与二维码；新建单据时不会再出现在货位下拉里。
+                  它<b>不出现在货位树里</b>，也不会出现在新建单据的货位下拉里；
+                  从旧链接直接打开仍能看到它的历史库存与二维码。
                 </div>
               </div>
 
@@ -283,6 +280,7 @@ import {
   getWarehouseSnapshot,
   getWarehouseStock,
   subtreeOf,
+  visibleWarehouseTree,
   warehouseChain,
   warehouseQrUrl,
   type StockRow,
@@ -315,6 +313,39 @@ const chain = computed<WarehouseRow[]>(() =>
   snapshot.value && selectedName.value ? warehouseChain(snapshot.value, selectedName.value) : [],
 )
 
+/**
+ * 页面上真正要显示的树：**已停用的货位不显示**。
+ *
+ * 过滤只发生在这一层——snapshot 本身照旧带着停用货位（别处按名字查得到）。
+ * 理由与口径见 `visibleWarehouseTree` 的说明。
+ */
+const displayTree = computed(() =>
+  snapshot.value ? visibleWarehouseTree(snapshot.value) : [],
+)
+
+function countLeaves(nodes: WarehouseTreeNode[]): number {
+  let n = 0
+  for (const node of nodes) {
+    if (node.isGroup) n += countLeaves(node.children)
+    else n += 1
+  }
+  return n
+}
+
+/** 计数也按**显示树**算，否则会出现「显示 212 个、头上写着 216 个」 */
+const leafCount = computed(() => countLeaves(displayTree.value))
+const groupCount = computed(() => {
+  let n = 0
+  const walk = (nodes: WarehouseTreeNode[]) => {
+    for (const node of nodes) {
+      if (node.isGroup) n += 1
+      walk(node.children)
+    }
+  }
+  walk(displayTree.value)
+  return n
+})
+
 /** 按展开状态摊平成可见行 —— 比递归渲染模板好读，也便于按 depth 缩进 */
 const flatTree = computed<WarehouseTreeNode[]>(() => {
   const out: WarehouseTreeNode[] = []
@@ -324,7 +355,7 @@ const flatTree = computed<WarehouseTreeNode[]>(() => {
       if (expanded.value.has(node.name) && node.children.length) walk(node.children)
     }
   }
-  walk(snapshot.value?.tree || [])
+  walk(displayTree.value)
   return out
 })
 
@@ -360,8 +391,8 @@ async function load() {
     const data = await getWarehouseSnapshot()
     snapshot.value = data
     // 默认展开顶层，否则树是空的、要用户自己一级级点开
-    expanded.value = new Set(data.tree.map((n) => n.name))
-    state.value = data.all.length ? 'ready' : 'empty'
+    expanded.value = new Set(visibleWarehouseTree(data).map((n) => n.name))
+    state.value = visibleWarehouseTree(data).length ? 'ready' : 'empty'
   } catch {
     state.value = 'error'
   }
