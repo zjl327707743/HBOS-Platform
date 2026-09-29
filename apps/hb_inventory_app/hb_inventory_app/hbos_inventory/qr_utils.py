@@ -51,10 +51,18 @@ def hbos_bin_qr_svg(warehouse, size_mm=20):
 	`width`/`height` 覆盖**。于是那个 138mm 的块会把 60×40mm 的标签撑爆。
 	改成把尺寸写进 SVG 属性后，wkhtmltopdf 就认了。
 
-	⚠ **默认值 20mm 是与「HBOS 货位二维码」模板配套实测出来的**：
-	该标签纸型 60×40mm，减去 3mm 四周页边距后可用高约 34mm。
-	实测在这个尺寸下，「二维码 + 货位号(13pt) + 提示行(7pt)」刚好一页；
-	调到 22mm 就会溢出成两页。**改这个默认值前请先跑一遍打印验证。**
+	## 改 width/height 的同时**必须补 `viewBox`**（2026-09-29 修）
+
+	pyqrcode 出的 SVG **不带 `viewBox`**，内容按自己的坐标画（边长 =
+	`(模块数+8) × scale`，实测量到 520 或 328）。SVG 的规则是：**没有 `viewBox`
+	就只换视口、不缩放内容** —— 于是 520 单位的内容被裁进 20mm（≈75px）的框里，
+	**只看得见左上角一小块**，二维码是残的、扫不出来。
+
+	Owner 2026-09-29 报了这条（导出的货位二维码只有一小块）。
+	补上 `viewBox="0 0 N N"` 后内容会等比缩放到 20mm。
+
+	注意：上一版只测了「一页装得下」，没有核对二维码**是否完整**——
+	`trHeight` 那类「样式写错但不报错」的坑，这里又踩了一次。
 
 	无货位或生成失败时返回空串，模板需自行兜底。
 	"""
@@ -75,15 +83,22 @@ def hbos_bin_qr_svg(warehouse, size_mm=20):
 		stream.close()
 
 	# 去掉 XML 声明——内联进 HTML 时才合法
-	svg = re.sub(r"^\s*<\?xml[^>]*\?>\s*", "", svg)
+	sv = re.sub(r"^\s*<\?xml[^>]*\?>\s*", "", svg)
 
-	# 把自带的像素尺寸换掉。注意 pyqrcode 的 520 是随 QR 版本变的，不能写死，
+	# 从原始 width 里取出内容边长（= 模块数 × scale），用作 viewBox。
+	# 按属性读而不是自己算 `(len(qr.code)+8)*scale`——静区是 pyqrcode 的实现细节，
+	# 写死会随它的版本漂移。
+	m = re.search(r"<svg[^>]*\swidth=\"(\d+)\"", sv)
+	side = m.group(1) if m else ""
+
+	# 换掉自带的像素尺寸，并补 viewBox。注意 pyqrcode 的 520 随 QR 版本变，不能写死，
 	# 故按属性名替换而不是按数值匹配。
-	def _resize(m):
-		attrs = re.sub(r'\s(?:width|height)="[^"]*"', "", m.group(1))
-		return f'<svg{attrs} width="{size_mm}mm" height="{size_mm}mm"'
+	def _resize(match):
+		attrs = re.sub(r'\s(?:width|height)="[^"]*"', "", match.group(1))
+		view_box = f' viewBox="0 0 {side} {side}"' if side else ""
+		return f'<svg{attrs}{view_box} width="{size_mm}mm" height="{size_mm}mm"'
 
-	return re.sub(r"<svg([^>]*)", _resize, svg, count=1)
+	return re.sub(r"<svg([^>]*)", _resize, sv, count=1)
 
 
 def hbos_bin_qr_data_uri(warehouse, size_mm=26):
