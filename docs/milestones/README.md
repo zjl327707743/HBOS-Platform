@@ -37,6 +37,7 @@
 - `docs/milestones/M1_FIX_B4_考勤模块架构收敛与单一入口重整.md`：M1-FIX-B4 考勤模块架构收敛与单一入口重整。
 - `docs/milestones/M1_FIX_B5_导入数据链路核查与报表口径收敛.md`：M1-FIX-B5 导入数据链路核查与报表口径收敛。
 - `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`：M3-PORTAL-R1 HBOS 门户工作台集成 R1–R4 实施记录。
+- `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`：M3-PORTAL-R1 后续（2026-09-29）——考勤三页由同域 iframe 改为门户原生页 + Desk 共享视觉层 + 班次管理写接口服务端 RBAC。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则

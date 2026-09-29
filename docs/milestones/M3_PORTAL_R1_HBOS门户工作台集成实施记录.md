@@ -6,6 +6,8 @@
 
 状态：**REVIEWING**（**R1–R4 均已交付**）。
 
+> **后续交付**：2026-09-29 在本轮基础上追加「考勤页原生化 + Desk 共享视觉层」——把考勤仪表盘 / 人员管理 / 部门看板三页从本文件所述的同域 iframe 内嵌改为**门户 SPA 原生页**（`migration_mode` 由 `legacy` 改 `native`），并给 Desk 侧 6 个考勤页接入共享视觉层。该交付**未认领新里程碑编号**，记录见 `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`。本文件所述 R1–R4 的内容与结论不变；iframe 通路（`BusinessEmbedView.vue`、Vite 12 条代理前缀、`businessRoutes.ts` 白名单）**保留未删**，其他 App 仍可能使用。
+
 ## 编号说明
 
 本工作线编号为 **M3-PORTAL-R1**（Owner 2026-09-28 裁定）。它不套用 `M1-FIX-*`——在性质上它是独立的门户 / 平台外壳工作流（新增 Vue 3 门户 SPA + `hbos_portal` 薄平台 App），不是 M1-FIX 考勤功能补漏轮次（`M1-FIX-C/D/E` 的既定含义仍为异常三级流程 / 考勤工作台月报 / 飞书 OAuth 验证）。

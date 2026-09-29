@@ -37,6 +37,16 @@ M1-FIX-F：调休模块（**两个阶段均已上线**）。当前状态：**REV
 - 副作用与缺口（migrate 移除 `HBOS Attendance Policy Assignment` 元数据记录、422 行数据完好但暂不可达、Vite 代理覆盖缺口、3 个 CSS bundle 既有 404 等）详见 `docs/PROJECT_STATUS.md`「M3-PORTAL-R1 HBOS 门户工作台集成 状态」节与主文档 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`。
 - 命名说明：编号 **M3-PORTAL-R1**（Owner 2026-09-28 裁定）。本工作线不是 M1-FIX 考勤功能补漏轮次，故不套用 `M1-FIX-*`；原 `M2` 前缀冲突（`docs/milestones/README.md` 既把 `M2` 定义为「飞书集成」、又让库存隔离用 `M2` 前缀）已一并裁定——`M2` 归飞书集成、库存改号 `M4-STOCK-R1`，本工作线取 `M3`。
 
+**M3-PORTAL-R1 后续（2026-09-29，REVIEWING）**：考勤仪表盘 / 人员管理 / 部门看板三页由**同域 iframe 内嵌改为门户 SPA 原生页**，Desk 侧 6 个考勤页接入**共享视觉层**，并顺带修复班次管理写接口缺失的服务端角色门禁。
+
+- 门户侧：新增 3 个视图 + 3 个 service（复用既有 `frappeClient`）；`migration_mode` 由 `legacy` 改 `native`；`resolve_stable_route` 改为**解析回自身**并新增稳定路由白名单（**未注册路径在解析阶段即落 403，不悄悄透传**）；契约测试 13 → 15。
+- Desk 侧：新增 `hbos_attendance.bundle.css` + `app_include_css`，6 页挂 `.hbos-surface`；**全部规则限定该 class 内**（实测 `:root` 无 `--h*`、Desk 侧边栏字体不受影响）。
+- 验收：考勤 **458 → 460 通过**；`npm run build` 通过；浏览器实测**门户页 / Desk 页 / 后端接口三方逐值一致**（仪表盘 3/0/1931/404/53.8%/696；部门看板 42.2%/505/213/0/20/0/3/53）；判定核心三文件零改动；未重建容器、未 `migrate`。
+- 顺带修复（与前端无关，独立提交）：`shift_management_data.py` 13 个裸 `@frappe.whitelist()` 补读/写角色门禁。**只修了这半**——另有 9 处无守卫写接口未处理（含同等级爆炸半径的 `bind_shift` / `bulk_bind_shift`）。
+- 遗留：两个原生子页**无导航入口**（属新前端开发活动，按 Gate 需先出原型，本轮不加）；`docs/experience/` 在本分支不存在但被代码引用（Owner 裁定保留引用、不移植）；`M3_START_GATE.md` 缺失（既有治理缺口）。
+- 主文档 `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`。**本轮未认领新里程碑编号**（`R1`~`R4` 已被 M3-PORTAL-R1 用作内部阶段号），编号是否重排待 Owner 裁定。
+
+
 M1-FIX 后续规划轮次（仅规划，不自动启动）：
 
 | 轮次 | 名称 | 优先级 | 状态 |
@@ -148,9 +158,9 @@ M1-FIX-B5 = REVIEWING
 M1-FIX-F = REVIEWING / 两阶段均已上线
 M4-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m4-stock-r1`）
 M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION
-M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付）
+M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29 后续交付「考勤页原生化 + Desk 共享视觉层」同为 REVIEWING）
 ```
 
 ## 下一轮预告
 
-M1-FIX-F 两阶段均已上线：一阶段产出核实结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败），二阶段已把已核实调休日接入考勤豁免与看板（看板显示「请假（调休）」），全量测试 437 全绿。整支复查已完成并处置。2026-09-24 追加：完成名单单一来源收敛（行政班 221→178、无菌 48→59 改用 `SPECIAL_SHIFT_NUMS`）与 PR 审查 5 项修复，全量测试 445 全绿。M1-FIX-B3 / B4 / B5 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`，主文档 `docs/milestones/M4_STOCK_R1_库存模块隔离实施记录.md`；M2 其余轮次未启动。**M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）R1–R4 均已交付**——R4（nginx 分发门户产物 + `VITE_BASE=/hbos/`）**必须 Owner 明确授权后才能开始**，R4 前不得表述为「生产可用」；本工作线编号已裁定为 **M3-PORTAL-R1**。
+M1-FIX-F 两阶段均已上线：一阶段产出核实结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败），二阶段已把已核实调休日接入考勤豁免与看板（看板显示「请假（调休）」），全量测试 437 全绿。整支复查已完成并处置。2026-09-24 追加：完成名单单一来源收敛（行政班 221→178、无菌 48→59 改用 `SPECIAL_SHIFT_NUMS`）与 PR 审查 5 项修复，全量测试 445 全绿。M1-FIX-B3 / B4 / B5 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`，主文档 `docs/milestones/M4_STOCK_R1_库存模块隔离实施记录.md`；M2 其余轮次未启动。**M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）R1–R4 均已交付**——R4（nginx 分发门户产物 + `VITE_BASE=/hbos/`）**必须 Owner 明确授权后才能开始**，R4 前不得表述为「生产可用」；本工作线编号已裁定为 **M3-PORTAL-R1**。**2026-09-29 后续交付**：考勤三页原生化（`migration_mode` `legacy`→`native`）+ Desk 共享视觉层，已交付 REVIEWING，主文档 `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`；该交付**未认领新编号**，编号是否重排待 Owner 裁定。
