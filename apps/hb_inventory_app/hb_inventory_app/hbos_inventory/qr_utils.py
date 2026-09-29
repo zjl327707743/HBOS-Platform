@@ -41,6 +41,67 @@ def hbos_bin_url(warehouse):
 	return f"{frappe.utils.get_url()}/{BIN_PAGE_ROUTE}?bin={quote(code)}"
 
 
+#: 标签可用宽（60mm 纸 − 左右各 3mm 页边 = 54mm）。取 150pt 而不是满算的 153pt，
+#: 留一点余量——估宽是近似的，宁可字号小半号，也不要压边。
+_BIN_LABEL_USABLE_PT = 150.0
+
+#: 标题字号阶梯（pt）。从大到小取第一个装得下的。
+_BIN_CODE_SIZES = (13, 12, 11, 10, 9)
+
+
+def hbos_bin_code_font_pt(warehouse):
+	"""标题（货位短码）该用多大字号，保证**一行装得下**。
+
+	## 为什么需要它（2026-09-29 修）
+
+	标签上标题一旦折成两行，整块内容就比 40mm 高，**打印会分成两页**——
+	第二页只有一行提示文字。实测 `3903 六车间不合格品库` 就是这种
+	（名字 13 个字，是当时最长的一个），而其余货位都是一页。
+
+	**光靠 `nowrap` 不够**：它只保证不折行，名字再长一点就会顶出标签边缘、
+	印出来缺字。所以两头都要做——`nowrap` 保证「不折行」（不折就不会多出一行、
+	就不会多一页），这个函数保证「装得下」。
+
+	实测校准：`3903 六车间不合格品库`（4 数字 + 1 空格 + 8 汉字）在 13pt 下
+	实际渲染宽 141.7pt，下面这套估宽给 146.6pt —— 偏保守，方向正确。
+
+	## 估宽为什么可以「估」
+
+	标题只有「四位编号 + 仓库名」这一种形状，字符集很窄（ASCII 数字/字母 + 空格 +
+	全角汉字）。按下表估，实测偏差约 6%，再乘 1.1 吸收字距与字体差异：
+
+	- 全角（汉字、全角标点）≈ 1 em；
+	- ASCII 字母/数字 ≈ 0.5 em；
+	- 空格 ≈ 0.25 em。
+
+	**宁可估宽**：估宽了只是字号小半号；估窄了标题会顶出标签边缘。
+
+	> 估宽函数写成 `hbos_bin_code_font_pt` 的**内层函数**是刻意的：
+	> 本模块经 `hooks.jinja.methods` 注册，Frappe 用
+	> `inspect.getmembers(module, isfunction)` 收集**模块级**函数——
+	> 内层函数不会被注册成 Jinja 全局，也就不会污染模板命名空间
+	> （与文件头「所有函数以 `hbos_` 前缀命名」是同一条约束）。
+	"""
+
+	def _width_pt(text, pt):
+		em = 0.0
+		for ch in text:
+			if ch == " ":
+				em += 0.25
+			elif ord(ch) < 128:
+				em += 0.5
+			else:
+				em += 1.0
+		return em * pt * 1.1
+
+	code = hbos_bin_code(warehouse)
+	for pt in _BIN_CODE_SIZES:
+		if _width_pt(code, pt) <= _BIN_LABEL_USABLE_PT:
+			return pt
+	# 阶梯全装不下（名字极长）：用最小的那个，配合 `nowrap` 至少不折行
+	return _BIN_CODE_SIZES[-1]
+
+
 def hbos_bin_qr_svg(warehouse, size_mm=20):
 	"""货位二维码，返回内联 SVG 字符串（适合打印贴标签）。
 

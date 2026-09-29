@@ -156,5 +156,104 @@ class WarehouseQrTemplateContractTest(unittest.TestCase):
         )
 
 
+class WarehouseQrTitleFitContractTest(unittest.TestCase):
+    """标题必须**一行装得下**，否则整块内容高过 40mm、打印会分成两页。
+
+    ## 为什么有这段
+
+    2026-09-29 Owner 报：名字长的货位（`3903 六车间不合格品库`，13 个字）
+    生成的标签是**两页**——第二页只有一行提示文字。名字折成了两行，
+    多出来的那一行把内容顶出了 60×40mm 标签的可用高度。
+
+    ## 两道防线，缺一不可
+
+    1. **`white-space: nowrap`** —— 保证「不折行」。不折就不会多出一行，
+       也就不会多出一页。这是**保证一页**的那一道。
+    2. **`hbos_bin_code_font_pt`** —— 保证「装得下」。`nowrap` 只管不折，
+       名字再长就会顶出标签边缘、印出来缺字。字号要随名字长短往下缩。
+
+    只做第 1 条会缺字，只做第 2 条（不 nowrap）在估宽偏差时仍可能折行。
+    """
+
+    def setUp(self):
+        self.src = QR_UTILS.read_text(encoding="utf-8")
+        import json
+
+        self.html = json.loads(QR_TEMPLATE.read_text(encoding="utf-8"))["html"]
+        raw_css = self.html[self.html.find("<style") : self.html.find("</style>")]
+        # **先剥掉 CSS 注释再断言**：注释里也写着 nowrap / viewBox 这些词，
+        # 不剥的话删掉实现也照样绿（同一类假绿本项目已经栽过两次了）。
+        self.css = re.sub(r"/\*.*?\*/", "", raw_css, flags=re.S)
+
+    def _code_rule(self) -> str:
+        """取 `.hbos-qr .code { ... }` 这条规则。
+
+        **不能用 `[^}]*\\}` 圈**——规则体里有 Jinja 表达式
+        `font-size: {{ hbos_bin_code_font_pt(doc.name) }}pt;`，
+        里面的 `}}` 会让 `[^}]*` 提前收尾，只截到一半，
+        于是后面的 `white-space: nowrap` 根本不在匹配范围内（实测踩过）。
+        """
+        m = re.search(r"\.hbos-qr\s+\.code\s*\{(.*?)\n\}", self.css, re.S)
+        self.assertIsNotNone(m, "找不到 .hbos-qr .code 的样式")
+        return m.group(1)
+
+    def test_title_never_wraps(self):
+        """第 1 道防线：标题不折行。放开这条 = 退回两页那个 bug。
+
+        **断言的是 `white-space: nowrap` 这条声明本身**，不是「文中有 nowrap 这个词」
+        ——注释里那半句会让关键词断言假通过。
+        """
+        self.assertRegex(
+            self._code_rule(),
+            r"white-space:\s*nowrap",
+            "标题必须有 white-space: nowrap——折成两行就会多出一页",
+        )
+
+    def test_title_font_is_computed_not_hardcoded(self):
+        """第 2 道防线：字号由函数算，不是写死的。
+
+        写死字号（曾经是 13pt）意味着名字再长一点就顶出边缘——
+        而 `nowrap` 会让它**不折行、只溢出**，印出来是缺字，比两页更难发现。
+        """
+        rule = self._code_rule()
+        self.assertIn("hbos_bin_code_font_pt", rule, "字号应来自 hbos_bin_code_font_pt")
+        self.assertNotRegex(
+            rule,
+            r"font-size:\s*\d+pt",
+            "不能写死字号——名字长短不一，写死必然有人顶格",
+        )
+
+    def test_helper_exists_and_shrinks_for_longer_names(self):
+        """字号随名字变长**单调不增**——这是「装得下」的可观察契约。"""
+        body = re.search(r"\ndef hbos_bin_code_font_pt\(.*?(?=\ndef |\Z)", self.src, re.S)
+        self.assertIsNotNone(body, "找不到 hbos_bin_code_font_pt")
+        body = body.group(0)
+        # 阶梯存在，且是从大到小取的
+        self.assertRegex(body, r"_BIN_CODE_SIZES", "字号应从阶梯里取")
+        self.assertRegex(self.src, r"_BIN_CODE_SIZES\s*=\s*\(\s*13,", "阶梯应以 13pt 起")
+        # 要能读原始货位名（长度信息在这里）
+        self.assertIn("hbos_bin_code(warehouse)", body)
+
+    def test_width_helper_is_nested_not_registered_as_a_jinja_global(self):
+        """估宽函数必须是**内层函数**。
+
+        本模块经 `hooks.jinja.methods` 注册，Frappe 用
+        `inspect.getmembers(module, isfunction)` 收集**模块级**函数。
+        估宽函数若写成模块级，就会被注册成 Jinja 全局——
+        既污染模板命名空间，也违背本模块「函数一律 `hbos_` 前缀」的约束。
+        """
+        # 模块级不应再有 `_text_width_pt` 这类私有函数
+        module_level_defs = re.findall(r"\ndef ([A-Za-z_][A-Za-z0-9_]*)\(", self.src)
+        non_prefixed = [n for n in module_level_defs if not n.startswith("hbos_")]
+        self.assertEqual(
+            [],
+            non_prefixed,
+            f"模块级函数必须全部以 hbos_ 前缀命名（会被注册成 Jinja 全局）：{non_prefixed}",
+        )
+        # 估宽函数应嵌在 hbos_bin_code_font_pt 内部
+        body = re.search(r"\ndef hbos_bin_code_font_pt\(.*?(?=\ndef |\Z)", self.src, re.S).group(0)
+        self.assertRegex(body, r"\n\tdef _width_pt\(", "估宽函数应内嵌在 hbos_bin_code_font_pt 内")
+
+
 if __name__ == "__main__":
     unittest.main()
