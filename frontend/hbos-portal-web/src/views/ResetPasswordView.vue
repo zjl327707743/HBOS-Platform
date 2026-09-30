@@ -43,17 +43,23 @@
   </section></main>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getRecoveryChannels, guestAccountPost, type MfaResult, type RecoveryChannels, type RecoveryValidation } from '@/services/accountApi'
 import { clearFrappeCsrfToken } from '@/services/frappeClient'
 const route = useRoute(), router = useRouter()
 const fragmentKey = new URLSearchParams(route.hash.replace(/^#/, '')).get('key')
 const key = ref(fragmentKey || (typeof route.query.key === 'string' ? route.query.key : ''))
-const administrator = route.query.administrator === '1'
+const administrator = computed(() => route.query.administrator === '1')
 const channels = ref<RecoveryChannels | null>(null), validation = ref<RecoveryValidation | null>(null)
 const username = ref(''), password = ref(''), confirmation = ref(''), otp = ref(''), tmpId = ref('')
 const busy = ref(false), notice = ref(''), error = ref('')
+// A link opened while this route is already mounted changes only the fragment.
+// Start a fresh document for that link so no earlier target/context is reused.
+watch(() => route.fullPath, () => {
+  const incoming = new URLSearchParams(route.hash.replace(/^#/, '')).get('key') || route.query.key
+  if (incoming) window.location.reload()
+})
 async function request() { busy.value = true; error.value = ''; try { const result = await guestAccountPost<{message: string}>('request_reset', { user: username.value }); notice.value = result.message } catch { error.value = '恢复请求未完成，请稍后重试或联系管理员。' } finally { busy.value = false } }
 function recoverWithFeishu() { window.location.assign('/api/method/hbos_portal.auth.feishu.start?redirect_to=%2Fhbos%2Fprofile') }
 async function reset() { if (!validation.value) return; busy.value = true; error.value = ''; try {
