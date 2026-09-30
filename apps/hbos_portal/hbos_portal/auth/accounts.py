@@ -232,14 +232,16 @@ def create_pending(identity: dict, *, intent: str, redirect_to: str, user: str |
 def pending(*, write: bool = False) -> tuple[str, dict]:
     nonce = unquote(str(frappe.local.request.cookies.get(PENDING_COOKIE) or ""))
     record = frappe.cache.get_value(_pending_key(nonce)) if nonce and len(nonce) < 128 else None
+    # Invalid operation tickets do not invalidate an authenticated account.
+    # Frappe clears login cookies for AuthenticationError.
     if not record or record["created_at"] + PENDING_TTL < time.time():
-        frappe.throw("待绑定身份已过期，请重新发起飞书授权。", frappe.AuthenticationError)
+        frappe.throw("待绑定身份已过期，请重新发起飞书授权。", frappe.ValidationError)
     if record.get("user"):
         require_user(record["user"])
         if record["epoch"] != epoch(record["user"]) or record["session_digest"] != session_digest() or (record["intent"] == "link" and record["user"] != frappe.session.user):
-            frappe.throw("绑定会话已变化，请重新验证。", frappe.AuthenticationError)
+            frappe.throw("绑定会话已变化，请重新验证。", frappe.ValidationError)
         if record["intent"] == "link" and record["verified_at"] + PROOF_TTL < time.time():
-            frappe.throw("本人身份验证已过期。", frappe.AuthenticationError)
+            frappe.throw("本人身份验证已过期。", frappe.ValidationError)
     if write:
         require_post()
         token = frappe.local.request.headers.get("X-HBOS-Pending-CSRF") or ""
@@ -251,7 +253,7 @@ def pending(*, write: bool = False) -> tuple[str, dict]:
 def consume_pending(nonce: str) -> None:
     claim = f"hbos:account:pending-claim:{digest(nonce)}"
     if not frappe.cache.set(frappe.cache.make_key(claim), "1", ex=PENDING_TTL, nx=True):
-        frappe.throw("请求已使用，请重新授权。", frappe.AuthenticationError)
+        frappe.throw("请求已使用，请重新授权。", frappe.ValidationError)
     frappe.cache.delete_value(_pending_key(nonce))
     frappe.local.cookie_manager.delete_cookie(PENDING_COOKIE)
 
@@ -624,7 +626,7 @@ def _recovery_record(key: str):
     if record and record.last_reset_password_key_generated_on:
         age = (now_datetime() - get_datetime(record.last_reset_password_key_generated_on)).total_seconds()
     if not record or not record.enabled or record.name in {"Guest", "Administrator"} or age is None or not 0 <= age < RECOVERY_TTL:
-        frappe.throw("恢复链接无效、已使用或已过期。", frappe.AuthenticationError)
+        frappe.throw("恢复链接无效、已使用或已过期。", frappe.ValidationError)
     require_user(record.name)
     return record, max(1, int(RECOVERY_TTL - age))
 
@@ -652,7 +654,7 @@ def _require_recovery_context(context: str, key: str, user: str) -> None:
     record = frappe.cache.get_value("hbos:account:recovery:" + digest(str(context))) if context else None
     browser = unquote(str(frappe.local.request.cookies.get(RECOVERY_COOKIE) or ""))
     if not record or record.get("user") != user or record.get("epoch") != epoch(user) or record.get("session") != session_digest() or not secrets.compare_digest(record.get("key_hash", ""), digest(key)) or not browser or not secrets.compare_digest(record.get("browser_hash", ""), digest(browser)):
-        frappe.throw("恢复验证已失效，请重新打开恢复链接。", frappe.AuthenticationError)
+        frappe.throw("恢复验证已失效，请重新打开恢复链接。", frappe.ValidationError)
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])

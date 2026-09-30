@@ -39,13 +39,13 @@ class RecoverySecurityTest(unittest.TestCase):
             self.record(last_reset_password_key_generated_on=self.now + dt.timedelta(seconds=1))]
         with patch.dict(sys.modules, {"frappe.utils": utility}):
             for record in invalid:
-                fake = types.SimpleNamespace(db=types.SimpleNamespace(get_value=lambda *a, **kw: record), throw=reject, AuthenticationError=Rejected)
+                fake = types.SimpleNamespace(db=types.SimpleNamespace(get_value=lambda *a, **kw: record), throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
                 with self.subTest(record=record), patch.object(accounts, "frappe", fake), patch.object(accounts, "require_user", Mock()) as check:
                     with self.assertRaises(Rejected):
                         accounts._recovery_record(self.key)
                     check.assert_not_called()
             valid = self.record(last_reset_password_key_generated_on=self.now - dt.timedelta(seconds=10))
-            fake = types.SimpleNamespace(db=types.SimpleNamespace(get_value=lambda *a, **kw: valid), throw=reject, AuthenticationError=Rejected)
+            fake = types.SimpleNamespace(db=types.SimpleNamespace(get_value=lambda *a, **kw: valid), throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
             with patch.object(accounts, "frappe", fake), patch.object(accounts, "require_user", lambda user: user):
                 record, remaining = accounts._recovery_record(self.key)
                 self.assertEqual(self.user, record.name)
@@ -56,7 +56,7 @@ class RecoverySecurityTest(unittest.TestCase):
             "browser_hash": accounts.digest("synthetic-browser"), "session": "session-A", "epoch": 2}
         fake = types.SimpleNamespace(cache=types.SimpleNamespace(get_value=lambda key: context),
             local=types.SimpleNamespace(request=types.SimpleNamespace(cookies={accounts.RECOVERY_COOKIE: "synthetic-browser"})),
-            throw=reject, AuthenticationError=Rejected)
+            throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
         with patch.object(accounts, "frappe", fake), patch.object(accounts, "epoch", return_value=2), patch.object(accounts, "session_digest", return_value="session-A"):
             accounts._require_recovery_context("context-A", self.key, self.user)
             for field, value in [("user", "other@example.test"), ("key_hash", "wrong"),
@@ -68,7 +68,7 @@ class RecoverySecurityTest(unittest.TestCase):
                 accounts._require_recovery_context("", self.key, self.user)
 
     def test_native_mfa_and_context_failure_cannot_write_password(self):
-        fake = types.SimpleNamespace(throw=reject, AuthenticationError=Rejected)
+        fake = types.SimpleNamespace(throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
         with patch.object(accounts, "frappe", fake), patch.object(accounts, "require_post"), patch.object(accounts, "_recovery_record", return_value=(self.record(), 900)), patch.object(accounts, "_write_password") as write:
             with patch.object(accounts, "_require_recovery_context", side_effect=Rejected("wrong browser")):
                 with self.assertRaises(Rejected):
@@ -80,7 +80,7 @@ class RecoverySecurityTest(unittest.TestCase):
             write.assert_not_called()
 
     def test_recovery_link_uses_fragment_and_preserves_exact_key(self):
-        fake = types.SimpleNamespace(conf={"hbos_portal_origin": "https://hbos.example.test"}, throw=reject, AuthenticationError=Rejected)
+        fake = types.SimpleNamespace(conf={"hbos_portal_origin": "https://hbos.example.test"}, throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
         from urllib.parse import parse_qs, urlsplit
         with patch.object(accounts, "frappe", fake):
             url = accounts.recovery_url("/update-password?key=" + self.key)
@@ -100,14 +100,14 @@ class RecoverySecurityTest(unittest.TestCase):
             self.assertFalse(accounts.verified_recovery_email(self.user))
 
     def test_admin_recovery_issuance_requires_password_proof(self):
-        fake = types.SimpleNamespace(throw=reject, AuthenticationError=Rejected, get_doc=Mock())
+        fake = types.SimpleNamespace(throw=reject, AuthenticationError=Rejected, ValidationError=Rejected, get_doc=Mock())
         with patch.object(accounts, "frappe", fake), patch.object(accounts, "require_post"), patch.object(accounts, "require_user", return_value="Administrator"), patch.object(accounts, "require_proof", return_value={"method": "feishu_inbox"}):
             with self.assertRaises(Rejected):
                 accounts.admin_issue_recovery(self.user, "synthetic identity verification reason")
             fake.get_doc.assert_not_called()
 
     def test_admin_link_requires_password_proof(self):
-        fake = types.SimpleNamespace(throw=reject, AuthenticationError=Rejected)
+        fake = types.SimpleNamespace(throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
         with patch.object(feishu, "frappe", fake), patch.object(accounts, "require_post"), patch.object(accounts, "require_user", return_value="Administrator"), patch.object(accounts, "require_proof", return_value={"method": "feishu_inbox"}), patch.object(feishu, "load_settings") as settings:
             with self.assertRaises(Rejected):
                 feishu.start_link()

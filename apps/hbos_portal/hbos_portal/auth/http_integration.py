@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlsplit
 import requests
@@ -98,6 +99,23 @@ def run(transport: str = '') -> dict:
         actual=client.get(destination+'/api/method/frappe.auth.get_logged_user',headers=headers,timeout=10)
         assert actual.status_code==200 and actual.json()['message']==user
         checks.append('real_http_pinyin_style_username_json_login_issues_native_session')
+        ticket_checks=[
+            ('accounts.get_pending',{},False),
+            ('accounts.validate_recovery',{'key':'synthetic-invalid-recovery-token'},True),
+            ('operations.get_participant',{},False),
+            ('operations.get_operation',{'operation':'synthetic-missing-operation'},False),
+        ]
+        for method,params,writing in ticket_checks:
+            expired=post(method.removeprefix('accounts.'),params) if writing else client.get(destination+'/api/method/hbos_portal.auth.'+method,params=params,headers=headers,timeout=10)
+            assert expired.status_code!=200
+            # Check every browser-directed cookie header, including empty
+            # deletion cookies. Status or response body alone misses this effect.
+            for header in expired.raw.headers.getlist('Set-Cookie'):
+                cookies=SimpleCookie(); cookies.load(header)
+                assert 'sid' not in cookies or cookies['sid'].value not in {'','Guest'}, 'An unavailable ticket must not clear the native login cookie: '+method
+            actual=client.get(destination+'/api/method/frappe.auth.get_logged_user',headers=headers,timeout=10)
+            assert actual.status_code==200 and actual.json()['message']==user
+            checks.append('real_http_unavailable_'+method.replace('.','_')+'_preserves_native_login_cookie')
         response=post('reauthenticate',{'password':password},{'X-Frappe-CSRF-Token':'synthetic-wrong'})
         assert response.status_code in (400,403,417)
         checks.append('real_http_authenticated_post_checks_native_csrf')

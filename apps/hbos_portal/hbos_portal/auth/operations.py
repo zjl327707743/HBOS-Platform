@@ -67,15 +67,15 @@ def _event(doc, event: str, **details):
 
 def _load(operation: str, *, lock=False):
     if not isinstance(operation, str) or not 8 <= len(operation) <= 64 or not frappe.db.exists('HBOS Account Operation', operation):
-        frappe.throw('账号变更不可用或已过期。', frappe.AuthenticationError)
+        frappe.throw('账号变更不可用或已过期。', frappe.ValidationError)
     if lock:
         frappe.db.sql('SELECT name FROM `tabHBOS Account Operation` WHERE name=%s FOR UPDATE', (operation,))
     doc = frappe.get_doc('HBOS Account Operation', operation, for_update=lock)
     if doc.state in FINAL or frappe.utils.get_datetime(doc.expires_at) <= frappe.utils.now_datetime():
-        frappe.throw('账号变更已完成、取消或过期，请重新发起。', frappe.AuthenticationError)
+        frappe.throw('账号变更已完成、取消或过期，请重新发起。', frappe.ValidationError)
     settings = _settings()
     if settings.app_id != doc.app_id or settings.tenant_key != doc.tenant_key:
-        frappe.throw('应用或已批准企业配置已变化，当前申请失效。', frappe.AuthenticationError)
+        frappe.throw('应用或已批准企业配置已变化，当前申请失效。', frappe.ValidationError)
     return doc
 
 
@@ -95,10 +95,10 @@ def _participant(*, lock=False):
     nonce = unquote(str(frappe.local.request.cookies.get(PARTICIPANT_COOKIE) or ''))
     ref = frappe.cache.get_value('hbos:change:participant:' + accounts.digest(nonce)) if nonce and len(nonce) < 128 else None
     if not ref:
-        frappe.throw('邀请验证会话已过期，请由发起人重新邀请。', frappe.AuthenticationError)
+        frappe.throw('邀请验证会话已过期，请由发起人重新邀请。', frappe.ValidationError)
     doc = _load(ref['operation'], lock=lock)
     if not secrets.compare_digest(str(doc.participant_nonce_hash or ''), accounts.digest(nonce)):
-        frappe.throw('邀请验证浏览器不匹配。', frappe.AuthenticationError)
+        frappe.throw('邀请验证浏览器不匹配。', frappe.ValidationError)
     return doc
 
 
@@ -249,7 +249,7 @@ def redeem_invitation(operation: str, invitation: str) -> dict:
     if doc.kind in {'roles', 'custody'} and accounts.session_digest() == doc.initiator_session:
         frappe.throw('请由接任者在自己的独立浏览器打开邀请，不共享交出人的 Session。', frappe.PermissionError)
     if doc.invite_redeemed or len(str(invitation)) > 128 or not secrets.compare_digest(str(doc.invite_hash), accounts.digest(str(invitation))):
-        frappe.throw('邀请已使用、无效或过期。', frappe.AuthenticationError)
+        frappe.throw('邀请已使用、无效或过期。', frappe.ValidationError)
     nonce = secrets.token_urlsafe(32)
     doc.invite_redeemed, doc.invite_hash, doc.participant_nonce_hash = 1, None, accounts.digest(nonce)
     _save(doc)
