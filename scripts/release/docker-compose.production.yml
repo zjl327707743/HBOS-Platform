@@ -1,0 +1,64 @@
+# Overlay the existing project's Compose, retaining its named DB/sites volumes.
+# Use immutable, reviewed release source, not a developer directory.
+x-pythonpath: &pythonpath "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app:/home/frappe/frappe-bench/apps/hbos_portal:/home/frappe/frappe-bench/apps/hb_knowledge_app:/home/frappe/frappe-bench/apps/hb_twin_app"
+x-code: &code
+  - &hb_attendance_app "${HBOS_RELEASE_ROOT:?required}/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app:ro"
+  - &hb_inventory_app "${HBOS_RELEASE_ROOT:?required}/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app:ro"
+  - &hb_lims_app "${HBOS_RELEASE_ROOT:?required}/apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app:ro"
+  - &hbos_portal "${HBOS_RELEASE_ROOT:?required}/apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal:ro"
+  - &hb_knowledge_app "${HBOS_RELEASE_ROOT:?required}/apps/hb_knowledge_app:/home/frappe/frappe-bench/apps/hb_knowledge_app:ro"
+  - &hb_twin_app "${HBOS_RELEASE_ROOT:?required}/apps/hb_twin_app:/home/frappe/frappe-bench/apps/hb_twin_app:ro"
+services:
+  backend:
+    environment:
+      PYTHONPATH: *pythonpath
+    volumes:
+      - *hb_attendance_app
+      - *hb_inventory_app
+      - *hb_lims_app
+      - *hbos_portal
+      - *hb_knowledge_app
+      - *hb_twin_app
+      - "${HBOS_RELEASE_ROOT:?required}:/opt/hbos-release:ro"
+      - "${HBOS_PRIVATE_GATEWAY_ROOT:?approved private files required}:/run/hbos-private:ro"
+      - "${HBOS_PRIVATE_MODEL_ROOT:?approved model directory required}:/run/hbos-models:ro"
+      - "${HBOS_PRIVATE_AUDIT_ROOT:?protected audit directory required}:/run/hbos-audit"
+  frontend:
+    environment:
+      FRAPPE_SITE_NAME_HEADER: ${HBOS_SITE:?exact existing Site required}
+    volumes: *code
+  queue-long:
+    environment:
+      PYTHONPATH: *pythonpath
+    volumes: *code
+  queue-short:
+    environment:
+      PYTHONPATH: *pythonpath
+    volumes: *code
+  scheduler:
+    environment:
+      PYTHONPATH: *pythonpath
+    volumes: *code
+  websocket:
+    volumes: *code
+  configurator:
+    environment:
+      PYTHONPATH: *pythonpath
+    volumes: *code
+  gateway:
+    user: "${HBOS_GATEWAY_UID:-1000}:${HBOS_GATEWAY_GID:-1000}"
+    build:
+      context: ${HBOS_GATEWAY_BUILD_CONTEXT:?reviewed checkout required}
+      dockerfile: services/hbos_gateway/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      HBOS_GATEWAY_TOKEN_FILE: /run/hbos-private/gateway_token
+      HBOS_GATEWAY_POLICY_PATH: /run/hbos-private/gateway_policy.json
+      HBOS_GATEWAY_LOCAL_INDEX_PATH: /run/hbos-private/index.jsonl
+      HBOS_GATEWAY_CLIENT_ID: ${HBOS_GATEWAY_CLIENT_ID:-hbos-frappe}
+    volumes:
+      - "${HBOS_PRIVATE_GATEWAY_ROOT:?approved private files required}:/run/hbos-private:ro"
+    networks: [frappe_network]
+    # Deliberately no public port. Frappe uses http://gateway:8080.

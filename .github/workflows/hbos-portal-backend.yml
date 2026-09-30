@@ -20,6 +20,7 @@ on:
   pull_request:
     branches:
       - main
+      - feature/hbos-portal-product
     paths:
       - 'apps/hbos_portal/**'
       - 'apps/hb_lims_app/hb_lims_app/hooks.py'
@@ -129,12 +130,11 @@ jobs:
             exit 1
           fi
 
-      - name: P2 禁止创建 DocType
+      - name: 认证 DocType 范围
         run: |
           set -euo pipefail
-          if find apps/hbos_portal -type f -path '*/doctype/*/*.json' | grep -q .; then
-            echo "::error:: P2 hbos_portal skeleton 不允许创建 DocType"
-            find apps/hbos_portal -type f -path '*/doctype/*/*.json'
+          if find apps/hbos_portal -type f -path '*/doctype/*/*.json' ! -name hbos_external_identity.json | grep -q .; then
+            echo "::error:: Portal 仅允许已授权的外部身份映射 DocType"
             exit 1
           fi
 

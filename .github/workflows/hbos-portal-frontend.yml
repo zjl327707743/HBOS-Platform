@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - main
+      - feature/hbos-portal-product
     paths:
       - 'frontend/hbos-portal-web/**'
       - '.github/workflows/hbos-portal-frontend.yml'
@@ -43,7 +44,7 @@ jobs:
           npm --version
 
       - name: 安装前端依赖
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Vue / TypeScript / Vite 构建
         run: npm run build

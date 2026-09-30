@@ -5,10 +5,14 @@
         <h2>业务脉搏</h2>
         <p>根据当前用户可见能力动态出现</p>
       </div>
-      <a-segmented v-model:value="range" :options="['本周', '本月']" size="small" />
+      <a-tag v-if="live" color="success">真实汇总</a-tag>
+      <a-segmented v-else v-model:value="range" :options="['本周', '本月']" size="small" />
     </div>
 
-    <div class="pulse-grid">
+    <div v-if="loading" class="pulse-grid pulse-loading" aria-label="正在读取业务汇总">
+      <article v-for="index in 4" :key="index" class="pulse-card"><a-skeleton active :paragraph="false" /></article>
+    </div>
+    <div v-else-if="items.length" class="pulse-grid">
       <article v-for="item in items" :key="item.id" class="pulse-card">
         <span>{{ item.label }}</span>
         <strong>{{ item.value }}</strong>
@@ -24,14 +28,27 @@
         </svg>
       </article>
     </div>
+    <div v-else class="home-panel-empty">
+      <BarChartOutlined />
+      <strong>当前没有可展示的业务汇总</strong>
+      <span>有业务数据且当前账号获准查看时，会显示相应汇总。</span>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { BarChartOutlined } from '@ant-design/icons-vue'
 import type { BusinessPulseDTO } from '@/contracts/portal'
 
-defineProps<{ items: BusinessPulseDTO[] }>()
+withDefaults(defineProps<{
+  items: BusinessPulseDTO[]
+  loading?: boolean
+  live?: boolean
+}>(), {
+  loading: false,
+  live: false,
+})
 const range = ref('本周')
 
 function points(values: number[]) {

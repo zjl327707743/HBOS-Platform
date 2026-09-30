@@ -1,5 +1,11 @@
 # Current Milestone
 
+## Portal 本轮独立授权
+
+本轮 Portal：统一账号与正式发布 v3，状态 REVIEWING / OWNER_TARGET_REQUIRED / LIVE_AUTH_REQUIRED / NOT_RELEASED。已接续既有 Knowledge/Twin 与五应用集成，实现账号双方验证、安全页面和 production 部署工具；尚未确认原账号正式 Site、正式 HTTPS 目标及本人飞书/原账号现场验收，不能标记正式交付完成。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。安全检查后允许功能分支 push 和真实 PR，PR base 明确为 `feature/hbos-portal-product`，不直接推 main、不强推、不自动合并。
+
+下述考勤历史轮次的范围不约束已明确授权的 Portal v3；Portal 不替其他业务轮次 closeout。
+
 ## M1-FIX：M1 考勤一期功能补漏阶段
 
 项目名称：新乡海滨智能运营管理平台。

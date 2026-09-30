@@ -18,7 +18,14 @@
       <div class="app-layout-grid">
         <AppLocalSidebar />
         <main id="lims-main-content" class="app-route-content" tabindex="-1">
-          <RouterView />
+          <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
+          <a-alert
+            v-else-if="sessionError"
+            type="error"
+            show-icon
+            :message="sessionError"
+          />
+          <RouterView v-else />
         </main>
       </div>
     </div>
@@ -37,9 +44,11 @@ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import AppLocalSidebar from '@/components/layout/AppLocalSidebar.vue'
 import MobileAppNav from '@/components/layout/MobileAppNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
+import { usePortalSession } from '@/composables/usePortalSession'
 
 const portal = usePortalStore()
 const commandOpen = ref(false)
+const { sessionPending, sessionError } = usePortalSession()
 
 function shortcut(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -49,15 +58,6 @@ function shortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') commandOpen.value = false
 }
 
-onMounted(async () => {
-  if (!portal.user) {
-    try {
-      await portal.bootstrap()
-    } catch {
-      // Portal shell owns the sanitized bootstrap error state.
-    }
-  }
-  window.addEventListener('keydown', shortcut)
-})
+onMounted(() => window.addEventListener('keydown', shortcut))
 onBeforeUnmount(() => window.removeEventListener('keydown', shortcut))
 </script>

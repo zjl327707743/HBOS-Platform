@@ -190,4 +190,9 @@ grep -q 'lims_spa_loader.js' /tmp/hbos-lims-dashboard-after-recreate.html || {
 }
 curl -fsS -H "Host: $SITE_NAME"   "http://127.0.0.1:$HTTP_PORT/assets/hb_lims_app/hbos-lims/$ENTRY_FILE" >/dev/null
 
+echo "[PLATFORM] Unified account synthetic lifecycle"
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_account_test_site 1
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute hbos_portal.auth.account_integration.run
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_portal_origin "http://$SITE_NAME:$HTTP_PORT"
+python3 scripts/ci/portal_account_http_checks.py --container "$(docker compose -p "$PROJECT" ps -q backend)" --site "$SITE_NAME" --origin "http://$SITE_NAME:$HTTP_PORT" --transport "http://127.0.0.1:$HTTP_PORT"
 echo "HBOS PLATFORM clean-site integration PASS"

@@ -112,3 +112,6 @@ M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为
 - `docs/PROJECT_STATUS.md`
 - `docs/CURRENT_MILESTONE.md`
 - 对应的 `docs/milestones/*.md`
+
+
+- `M1_RP3_统一账号飞书绑定与正式发布.md`：Portal v3，REVIEWING / OWNER_TARGET_REQUIRED / LIVE_AUTH_REQUIRED / NOT_RELEASED。

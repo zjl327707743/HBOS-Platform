@@ -8,9 +8,15 @@ sites/
 volumes/
 backups/
 node_modules/
+dist/
+*.tsbuildinfo
+frontend/*/vite.config.js
+reports/P1/screenshots/
 .venv/
 __pycache__/
 runtime/
+.release/
+apps/hbos_portal/hbos_portal/public/portal/
 
 # Local attendance exports and validation data must not be committed.
 docs/data/*.xlsx

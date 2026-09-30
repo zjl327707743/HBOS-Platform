@@ -5,8 +5,7 @@
       <div class="hello">晚上好，{{ userName }}</div>
       <h1>今天有 <span>{{ totalActions }} 项工作</span><br />需要你处理</h1>
       <p>
-        清晰、明亮的信息层级为主体，叠加动态玻璃、沉浸式渐变和适度的空间感；
-        第一眼先看到“我的事情”，而不是 ERP 对象。
+        查看本人待办、业务汇总与可用应用，从当前工作继续。
       </p>
 
       <div class="hero-actions">
@@ -34,10 +33,15 @@
         <div class="status-row"><i class="green"></i><span>需要我处理</span><b>{{ totalActions }}</b></div>
       </div>
 
-      <div v-if="showTwinPreview" class="mini-twin-glass">
+      <button
+        v-if="showTwinPreview"
+        class="mini-twin-glass mini-twin-button"
+        type="button"
+        @click="$router.push('/hbos/twin')"
+      >
         <div class="status-title">
           <span>数字孪生概览</span>
-          <a-tag color="processing">LIVE READY</a-tag>
+          <a-tag :color="twinReady ? 'success' : 'processing'">{{ twinStateLabel }}</a-tag>
         </div>
         <svg viewBox="0 0 420 160" fill="none" aria-label="数字孪生概览示意">
           <defs>
@@ -55,12 +59,14 @@
           <rect x="220" y="100" width="52" height="57" rx="8" class="twin-box blue"/>
           <rect x="317" y="56" width="48" height="52" rx="8" class="twin-box green"/>
         </svg>
-      </div>
+        <span class="mini-twin-link">进入设备与工艺空间 <ArrowRightOutlined /></span>
+      </button>
     </aside>
   </section>
 </template>
 
 <script setup lang="ts">
+import { ArrowRightOutlined } from '@ant-design/icons-vue'
 import type { SummaryMetricDTO } from '@/contracts/portal'
 
 defineProps<{
@@ -69,5 +75,7 @@ defineProps<{
   metrics: SummaryMetricDTO[]
   appCount: number
   showTwinPreview: boolean
+  twinReady: boolean
+  twinStateLabel: string
 }>()
 </script>

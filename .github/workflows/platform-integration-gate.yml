@@ -7,10 +7,12 @@ on:
   pull_request:
     branches:
       - main
+      - feature/hbos-portal-product
     paths:
       - "apps/hb_attendance_app/**"
       - "apps/hb_inventory_app/**"
       - "apps/hb_lims_app/**"
+      - "apps/hbos_portal/**"
       - "services/hbos_ocr/**"
       - "frontend/hbos-lims-web/**"
       - "docker-compose.yml"
@@ -34,7 +36,10 @@ jobs:
       - name: Prepare HRMS v16 source
         run: |
           mkdir -p runtime/apps
-          git clone --depth 1 --branch version-16 https://github.com/frappe/hrms.git runtime/apps/hrms
+          git init runtime/apps/hrms
+          git -C runtime/apps/hrms remote add origin https://github.com/frappe/hrms.git
+          git -C runtime/apps/hrms fetch --depth 1 origin c0a04b80eeb721417b75cea758e831464d0da041
+          git -C runtime/apps/hrms checkout --detach FETCH_HEAD
 
       - name: Validate shell
         run: |

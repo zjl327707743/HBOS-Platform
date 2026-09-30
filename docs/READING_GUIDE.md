@@ -108,3 +108,8 @@ M0 历史任务曾允许读取：
 不得因此递归读取整个 `docs/`。
 
 Portal 当前为 Owner 已授权并行产品工作流，分支为 `feature/hbos-portal-product`；它不改变 M1-FIX 主里程碑。
+
+
+## Portal 统一账号与正式发布
+
+当前任务定向读取 `docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`、`docs/deployment/统一账号与Portal正式部署说明.md`、`docs/frontend/统一账号发布与前端完整性矩阵.md`。旧预览/试点记录是历史背景，不能替代原账号或正式 Site 验收。真实目标清单、备份与内部报告私下保存。
