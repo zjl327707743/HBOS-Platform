@@ -19,6 +19,7 @@ import type {
 } from '@/contracts/portal'
 
 export const usePortalStore = defineStore('portal', () => {
+  let sessionGeneration = 0
   const user = ref<PortalUser | null>(null)
   const branding = ref<PortalBranding | null>(null)
   const apps = ref<AppManifestDTO[]>([])
@@ -41,6 +42,7 @@ export const usePortalStore = defineStore('portal', () => {
   )
 
   function clearSession() {
+    sessionGeneration++; loading.value = false; summariesLoading.value = false; tasksLoading.value = false
     user.value = null
     branding.value = null
     apps.value = []
@@ -56,10 +58,15 @@ export const usePortalStore = defineStore('portal', () => {
   }
 
   async function bootstrap() {
+    let generation = ++sessionGeneration
     loading.value = true
     bootstrapError.value = null
     try {
       const data = await getPortalData()
+      if (generation !== sessionGeneration) return
+      if (user.value?.id && user.value.id !== data.user.id) {
+        clearSession(); generation = sessionGeneration
+      }
       user.value = data.user
       branding.value = data.branding
       apps.value = data.apps
@@ -74,11 +81,12 @@ export const usePortalStore = defineStore('portal', () => {
         void refreshTwinOverview().catch(() => undefined)
       }
     } catch (error) {
+      if (generation !== sessionGeneration) return
       bootstrapError.value =
         error instanceof Error ? error.message : 'HBOS 初始化失败'
       throw error
     } finally {
-      loading.value = false
+      if (generation === sessionGeneration) loading.value = false
     }
   }
 
@@ -86,9 +94,11 @@ export const usePortalStore = defineStore('portal', () => {
 
   async function refreshSummaries() {
     if (dataSource.value !== 'frappe') return
+    const generation = sessionGeneration
     summariesLoading.value = true
     try {
       const loaded = await getPortalSummaries(apps.value)
+      if (generation !== sessionGeneration) return
       const byApp = new Map<string, SummaryMetricDTO[]>()
       for (const metric of loaded) {
         const bucket = byApp.get(metric.appId) || []
@@ -119,7 +129,7 @@ export const usePortalStore = defineStore('portal', () => {
         tone: metric.tone,
       }))
     } finally {
-      summariesLoading.value = false
+      if (generation === sessionGeneration) summariesLoading.value = false
     }
   }
 
@@ -127,10 +137,12 @@ export const usePortalStore = defineStore('portal', () => {
     if (dataSource.value !== 'frappe') return
     if (!apps.value.some((app) => app.id === 'twin' || app.id === 'equipment')) return
 
+    const generation = sessionGeneration
     twinOverviewLoading.value = true
     twinOverviewError.value = null
     try {
       const status = await getTwinStatus()
+      if (generation !== sessionGeneration) return
       if (!status.can_enter) throw new Error('当前账号没有设备与数字孪生访问权限。')
 
       twinEquipmentIds.value = status.equipment_ids
@@ -140,6 +152,7 @@ export const usePortalStore = defineStore('portal', () => {
       const manifest = status.asset_root_configured && primaryEquipment
         ? await getTwinManifest(primaryEquipment)
         : null
+      if (generation !== sessionGeneration) return
       const knowledgeAvailable = apps.value.some((app) => app.id === 'knowledge')
       const liveConnected = Boolean(
         manifest?.connection_state && manifest.connection_state !== 'not_connected',
@@ -182,21 +195,24 @@ export const usePortalStore = defineStore('portal', () => {
         },
       ]
     } catch (error) {
+      if (generation !== sessionGeneration) return
       twinStatuses.value = []
       twinEquipmentIds.value = []
       twinOverviewError.value = error instanceof Error
         ? error.message
         : '数字孪生概览暂时不可用。'
     } finally {
-      twinOverviewLoading.value = false
+      if (generation === sessionGeneration) twinOverviewLoading.value = false
     }
   }
 
   async function refreshTasks() {
     if (dataSource.value !== 'frappe') return
+    const generation = sessionGeneration
     tasksLoading.value = true
     try {
       const loaded = await getPortalTasks(apps.value)
+      if (generation !== sessionGeneration) return
       tasks.value = loaded
       const counts = loaded.reduce<Record<string, number>>((acc, task) => {
         acc[task.appId] = (acc[task.appId] || 0) + 1
@@ -207,7 +223,7 @@ export const usePortalStore = defineStore('portal', () => {
         pendingCount: app.capabilityTasks ? (counts[app.id] || 0) : app.pendingCount,
       }))
     } finally {
-      tasksLoading.value = false
+      if (generation === sessionGeneration) tasksLoading.value = false
     }
   }
 

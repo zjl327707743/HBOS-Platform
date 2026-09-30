@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import secrets
 import time
+from uuid import uuid4
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -87,7 +88,20 @@ def run() -> dict:
             for index in range(105):
                 frappe.db.sql("INSERT INTO `tabSessions` (user,sid,sessiondata,ipaddress,lastupdate,status) VALUES (%s,%s,%s,%s,NOW(),%s)", (user, "owned-synthetic-" + suffix + "-" + str(index), "{}", "127.0.0.1", "Active"))
             accounts.save_proof(user, "password")
-            accounts.set_password(new_password=credentials[1])
+            proof_before = accounts.proof_status(user)
+            assert proof_before['valid'] and 0 < proof_before['expires_in'] <= accounts.PROOF_TTL
+            assert accounts.require_proof(user)
+            with patch.object(accounts.time, 'time', return_value=time.time() + accounts.PROOF_TTL + 1):
+                assert accounts.proof_status(user) == {'valid': False, 'expires_in': 0, 'method': None}
+            checks.append('proof_status_uses_server_ttl_without_consumption_or_extension')
+            request_id = str(uuid4())
+            accounts.set_password(new_password=credentials[1], request_id=request_id)
+            assert not accounts.proof_status(user)['valid']
+            assert accounts.get_security(request_id=request_id)['write_result'] == {'completed': True, 'action': 'password'}
+            assert accounts._write_receipt(users[1], request_id, '') is None
+            replay = accounts.set_password(new_password=credentials[0], request_id=request_id)
+            assert replay['replayed']; check_password(user, credentials[1])
+            checks.append('committed_password_receipt_same_user_query_and_replay_never_repeat_write')
             assert frappe.db.count("Sessions", {"user": user}) == 0
             checks.append("password_rotation_revokes_over_one_hundred_native_sessions")
             check_password(user, credentials[1])
@@ -128,6 +142,9 @@ def run() -> dict:
             expect_error(lambda: accounts.pending(write=True), "link_cannot_switch_target_session")
             session(users[0], nonce=nonce, csrf="wrong")
             expect_error(lambda: accounts.pending(write=True), "pending_requires_browser_bound_csrf")
+            session(users[0], nonce=nonce, csrf=record['csrf'])
+            assert accounts.complete_pending.__wrapped__(action='cancel')['cancelled']
+            expect_error(lambda: accounts.pending(write=True), 'cancelled_pending_requires_new_browser_bound_authorization')
             session(users[0])
             accounts.save_proof(users[0], "password")
             doc = frappe.get_doc("User", users[0]); doc.enabled = 0; doc.save(ignore_permissions=True)
@@ -166,6 +183,18 @@ def run() -> dict:
             indexes = frappe.db.sql("SHOW INDEX FROM `tabHBOS External Identity`", as_dict=True)
             assert {row.Column_name for row in indexes if not row.Non_unique} >= {"identity_key", "active_user_key"}
             checks.append("database_enforces_identity_and_active_user_unique_constraints")
+            session('Administrator')
+            accounts.save_proof('Administrator', 'password')
+            recovery_id = str(uuid4())
+            issued = accounts.admin_issue_recovery(users[1], '隔离测试中已核验员工本人及账号归属', request_id=recovery_id)
+            assert issued['recovery_url'] and issued['target']['user'] == users[1]
+            saved_key = frappe.db.get_value('User', users[1], 'reset_password_key')
+            replay = accounts.admin_issue_recovery(users[1], '隔离测试中已核验员工本人及账号归属', request_id=recovery_id)
+            assert replay['already_issued'] and not replay['recovery_url']
+            assert frappe.db.get_value('User', users[1], 'reset_password_key') == saved_key
+            assert accounts.get_security(recovery_id)['write_result']['action'] == 'recovery_issue'
+            checks.append('recovery_issue_receipt_queries_committed_result_without_secret_or_repeat_issue')
+
             # Standard framework TOTP, including single-use native tmp_id.
             import pyotp
             from frappe.twofactor import get_otpsecret_for_, set_default

@@ -23,6 +23,8 @@ export type FrappeRequestErrorCode =
   | 'FORBIDDEN'
   | 'NETWORK_ERROR'
   | 'SERVICE_ERROR'
+  | 'VALIDATION_ERROR'
+  | 'RATE_LIMITED'
 
 export class FrappeRequestError extends Error {
   code: FrappeRequestErrorCode
@@ -48,7 +50,7 @@ function responseText(data: unknown): string {
   ].filter(Boolean).join(' ')
 }
 
-function normalizeFrappeError(error: unknown, method?: string): FrappeRequestError {
+export function normalizeFrappeError(error: unknown, method?: string): FrappeRequestError {
   if (error instanceof FrappeRequestError) return error
   if (!axios.isAxiosError(error)) {
     return new FrappeRequestError('SERVICE_ERROR', 'HBOS 服务暂时不可用，请稍后重试。')
@@ -61,6 +63,16 @@ function normalizeFrappeError(error: unknown, method?: string): FrappeRequestErr
   const detail = responseText(error.response.data)
   const isBootstrap = method === 'hbos_portal.api.bootstrap.get_bootstrap'
   const isGuestPermission = /\bGuest\b|not permitted to access this method|login to access/i.test(detail)
+  if (status === 429 || /RateLimitExceededError/.test(detail)) return new FrappeRequestError('RATE_LIMITED', '请求较频繁，请稍后再试。', status)
+  const accountMethod = method?.startsWith('hbos_portal.auth.') && !method.endsWith('password_login')
+  if (accountMethod && /ValidationError|AuthenticationError|PermissionError/.test(String((error.response.data as Record<string, unknown>)?.exc_type))) {
+    try {
+      const data = error.response.data as Record<string, unknown>
+      const messages = JSON.parse(String(data._server_messages || '[]'))
+      const first = JSON.parse(messages[0] || '{}')
+      if (typeof first.message === 'string') return new FrappeRequestError('VALIDATION_ERROR', first.message.replace(/<[^>]*>/g, '').slice(0, 500), status)
+    } catch { /* Never show framework exceptions or request metadata. */ }
+  }
   if (/AuthenticationError|invalid login|incorrect password/i.test(detail)) {
     return new FrappeRequestError('INVALID_CREDENTIALS', '账号或密码不正确。', status)
   }

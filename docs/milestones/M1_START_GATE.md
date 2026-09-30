@@ -2,11 +2,11 @@
 
 项目名称：新乡海滨智能运营管理平台。
 
-## Portal v3 独立授权门禁 — 2026-09-30
+## Portal 账号审修独立授权门禁 — 2026-10-01
 
-本轮 Portal 接续固定 Mac 环境，修复真实飞书成员拒绝，交付首次自动开户、拼音登录名及受控换绑/交接。状态 LOCAL_RUNNING / ACCOUNT_CHANGE_UPDATED / LIVE_MEMBER_PERMISSION_PENDING；Secret 与程序企业确认已完成，成员受雇信息权限已提交待审批。真人 OAuth、开户、查收验证码、恢复和交接独立验收。复用 P1 Site、Compose project、原卷、已批准知识/设备及 PR #21 最新代码；不重建、不清库、不重做模块。Owner 已批准当前 Site 的 Administrator 自助绑定许可与本人主动请求的收件验证码，仍须密码、已有 MFA、真实授权及明确确认。公司服务器与正式 HTTPS 继续留后续。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`；常用说明：`docs/deployment/Mac本地运行与团队同步.md`。PR #21 的 base 为 `feature/hbos-portal-product`，head 为 `codex/portal-unified-account-release`；不强推、不合并、不推 main/base。
+本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 head `codex/portal-unified-account-release`、base `feature/hbos-portal-product`；不强推、不自动合并、不推 main/base。
 
-本机验收顺序：已确定 P1 的保护备份 → 同库更新且保留账号/权限/关联 → 本人 Administrator 密码/MFA 与飞书授权确认 → 退出后飞书进入原 User → 第二位获准企业身份首次开户及重复登录 → 可选本人验证码设密、恢复与拒绝边界。真实验收不能由 configured、许可标记或测试替身代替。公司服务器首次部署、固定 IP 和 HTTPS 为后续独立工作，不能阻塞本轮 Mac、PR 或制品。其他考勤/库存里程碑不由此 closeout。
+本机验收顺序：已确定 P1 的保护备份 → 同库更新且保留账号/权限/关联 → 保留已成功的 Administrator 本人飞书路径 → 新版本正常登录复核 → 第二位获准企业身份首次开户及重复登录 → 可选本人验证码设密、恢复与拒绝边界。真实验收不能由 configured、许可标记或测试替身代替。公司服务器首次部署、固定 IP 和 HTTPS 为后续独立工作，不能阻塞本轮 Mac、PR 或制品。其他考勤/库存里程碑不由此 closeout。
 
 团队通用交付已发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并），本轮复用 P1，不以原库/服务器/HTTPS 为前置条件；本人授权与公司生产分开验收。
 

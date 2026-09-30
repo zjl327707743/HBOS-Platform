@@ -145,7 +145,7 @@ def _effects(doc):
             '主机、数据库和其他运维权限须单独交接；共享飞书 App Secret 不轮换。']
     if doc.kind == 'identity_restore':
         return ['仅将已撤销身份明确归属到本人普通账号，不继承原账号或 Administrator 的权限、密码或业务资料。']
-    effects = ['旧飞书绑定失效，原 HBOS User、密码、角色、业务资料保留。', '旧会话和待恢复凭据失效，须重新登录。']
+    effects = ['旧飞书绑定失效，原 HBOS 账号、密码、角色、业务资料保留。', '旧会话和待恢复凭据失效，须重新登录。']
     if doc.source_user and doc.source_user != doc.target_user:
         effects.append('新身份从来源账号迁出；来源账号保留数据和角色，已验证的可用密码入口保留。不会交换两个账号。')
     return effects
@@ -174,9 +174,22 @@ def actions() -> dict:
 
 
 @frappe.whitelist(methods=['POST'])
-def begin(kind: str, reason: str, allow_source_migration: int = 0, roles=None, target_user: str = '', new_personal_account: int = 0) -> dict:
+def begin(kind: str, reason: str, allow_source_migration: int = 0, roles=None, target_user: str = '', new_personal_account: int = 0, request_id: str = '') -> dict:
     accounts.require_post()
     actor = accounts.require_user()
+    operation_name = secrets.token_hex(16)
+    if request_id:
+        from uuid import UUID
+        try:
+            UUID(request_id)
+        except (ValueError, TypeError, AttributeError):
+            frappe.throw('提交编号无效，请重新发起。')
+        operation_name = accounts.digest(actor + ':' + accounts.session_digest() + ':' + request_id)[:32]
+        if frappe.db.exists('HBOS Account Operation', operation_name):
+            existing = _owner(operation_name)
+            if existing.kind != kind:
+                frappe.throw('此提交编号已用于另一项账号变更。', frappe.PermissionError)
+            return {'operation': existing.name, 'invitation_url': '', 'replayed': True}
     if kind not in KINDS or not 12 <= len(str(reason).strip()) <= 500:
         frappe.throw('请选择操作，并说明本人或组织核验依据（12–500 字）。')
     if frappe.utils.cint(allow_source_migration):
@@ -212,7 +225,7 @@ def begin(kind: str, reason: str, allow_source_migration: int = 0, roles=None, t
         frappe.throw('此操作不转移角色。', frappe.PermissionError)
     version = security.ensure(target).security_version if target else 0
     security.ensure(actor)
-    doc = frappe.get_doc({'doctype': 'HBOS Account Operation', 'name': secrets.token_hex(16),
+    doc = frappe.get_doc({'doctype': 'HBOS Account Operation', 'name': operation_name,
         'kind': kind, 'state': 'Invited', 'initiator': actor, 'initiator_session': accounts.session_digest(),
         'initiator_epoch': accounts.epoch(actor), 'target_user': target or None, 'target_version': version,
         'tenant_key': settings.tenant_key, 'app_id': settings.app_id, 'old_identity': old_identity.name if old_identity else None,
@@ -297,8 +310,22 @@ def authorized_callback(state, identity: dict) -> None:
 
 
 @frappe.whitelist(methods=['GET'])
-def get_operation(operation: str) -> dict:
+def get_operation(operation: str = '', request_id: str = '') -> dict:
     accounts.no_store()
+    user = accounts.require_user()
+    if request_id:
+        from uuid import UUID
+        try:
+            UUID(request_id)
+        except (ValueError, TypeError, AttributeError):
+            frappe.throw('提交编号无效，请重新发起。')
+        operation = accounts.digest(user + ':' + accounts.session_digest() + ':' + request_id)[:32]
+    if isinstance(operation, str) and 8 <= len(operation) <= 64 and frappe.db.exists('HBOS Account Operation', operation):
+        doc = frappe.get_doc('HBOS Account Operation', operation)
+        # A new normal login may query the final outcome of its own operation.
+        # No actor can resume a write or see another user's target from here.
+        if doc.initiator == user and (doc.state in FINAL or frappe.utils.get_datetime(doc.expires_at) <= frappe.utils.now_datetime()):
+            return {'operation': doc.name, 'kind': doc.kind, 'state': doc.state if doc.state in FINAL else 'Expired', 'ready': False, 'expires_in': 0}
     return _view(_owner(operation))
 
 

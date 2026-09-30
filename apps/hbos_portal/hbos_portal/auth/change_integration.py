@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import secrets
 import time
+from uuid import uuid4
 from inspect import unwrap
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -27,7 +28,7 @@ def synthetic_settings():
 
 
 def run() -> dict:
-    if not frappe.conf.get('hbos_account_test_site') or not frappe.conf.get('hbos_custody_test_site') or not str(frappe.local.site).startswith(('account-regression.', 'platform-smoke.')):
+    if not frappe.conf.get('hbos_account_test_site') or not frappe.conf.get('hbos_custody_test_site') or not str(frappe.local.site).startswith(('account-regression.', 'account-ui-regression.', 'platform-smoke.')):
         raise RuntimeError('Destructive custody checks require a freshly created designated isolated Site')
     suffix = secrets.token_hex(6)
     users, mappings, operation_ids, checks = [], [], [], []
@@ -96,8 +97,14 @@ def run() -> dict:
     def begin(user,password,kind='rebind',**kw):
         prove(user,password)
         sid = frappe.session.sid
-        result = operations.begin(kind=kind,reason='隔离测试中双方明确核验本人归属及影响',**kw)
+        request_id = str(uuid4())
+        result = operations.begin(kind=kind,reason='隔离测试中双方明确核验本人归属及影响',request_id=request_id,**kw)
         operation_ids.append(result['operation']); frappe.db.commit()
+        replay = operations.begin(kind=kind,reason='隔离测试中双方明确核验本人归属及影响',request_id=request_id,**kw)
+        assert replay['operation'] == result['operation'] and replay['replayed'] and not replay['invitation_url']
+        assert operations.get_operation(request_id=request_id)['operation'] == result['operation']
+        if 'begin_response_loss_same_request_query_and_retry_without_second_operation' not in checks:
+            checks.append('begin_response_loss_same_request_query_and_retry_without_second_operation')
         invitation = parse_qs(urlsplit(result['invitation_url']).fragment)['invitation'][0]
         return result['operation'],invitation,sid
 

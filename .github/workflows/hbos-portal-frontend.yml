@@ -46,6 +46,9 @@ jobs:
       - name: 安装前端依赖
         run: npm ci --no-audit --no-fund
 
+      - name: 账号与会话回归
+        run: npm test
+
       - name: Vue / TypeScript / Vite 构建
         run: npm run build
 

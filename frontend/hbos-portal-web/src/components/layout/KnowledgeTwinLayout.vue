@@ -26,7 +26,7 @@
             :message="sessionError"
             class="kt-bootstrap-error"
           />
-          <RouterView v-else />
+          <RouterView v-else :key="portal.user?.id" />
         </main>
       </div>
     </div>

@@ -74,7 +74,7 @@ def run(transport: str = '') -> dict:
     destination=transport or origin
     if urlsplit(destination).hostname not in {'127.0.0.1','localhost',frappe.local.site}:
         raise RuntimeError('HTTP auth tests may target only the explicit isolated Site or loopback')
-    suffix=secrets.token_hex(6);user='http-change-'+suffix+'@example.test';alias='http'+suffix;password=secrets.token_urlsafe(40)
+    suffix=secrets.token_hex(6);user='http-change-'+suffix+'@example.test';alias='http'+suffix;password=' '+secrets.token_urlsafe(40)+' 合法 &$<> '
     from frappe.utils.password import update_password
     frappe.set_user('Administrator')
     frappe.get_doc({'doctype':'User','email':user,'username':alias,'first_name':'合成 HTTP 账号','enabled':1,'user_type':'Website User','send_welcome_email':0}).insert(ignore_permissions=True)

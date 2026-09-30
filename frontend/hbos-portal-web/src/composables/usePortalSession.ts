@@ -1,12 +1,11 @@
-import { onMounted, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { isUnauthenticatedError } from '@/services/frappeClient'
 import { usePortalStore } from '@/stores/portal'
+import { accountRedirect } from '@/services/accountNavigation'
 
 function safeRedirectTarget(fullPath: string): string {
-  return fullPath.startsWith('/hbos') && !fullPath.startsWith('/hbos/login')
-    ? fullPath
-    : '/hbos'
+  return accountRedirect(fullPath)
 }
 
 export function usePortalSession() {
@@ -16,10 +15,15 @@ export function usePortalSession() {
   const sessionPending = ref(true)
   const sessionError = ref<string | null>(null)
 
-  onMounted(async () => {
+  let disposed = false, checking = false
+  const resume = () => { if (document.visibilityState !== 'hidden') void synchronize() }
+  async function synchronize() {
+    if (disposed || checking) return
+    checking = true; sessionError.value = null
     try {
       await portal.bootstrap()
     } catch (error) {
+      if (disposed) return
       if (isUnauthenticatedError(error)) {
         const redirectTo = safeRedirectTarget(route.fullPath)
         portal.clearSession()
@@ -33,8 +37,21 @@ export function usePortalSession() {
         ? error.message
         : 'HBOS 初始化失败，请稍后重试。'
     } finally {
-      sessionPending.value = false
+      if (!disposed) sessionPending.value = false
+      checking = false
     }
+  }
+  onMounted(() => {
+    void synchronize()
+    window.addEventListener('focus', resume)
+    window.addEventListener('pageshow', resume)
+    document.addEventListener('visibilitychange', resume)
+  })
+  onBeforeUnmount(() => {
+    disposed = true
+    window.removeEventListener('focus', resume)
+    window.removeEventListener('pageshow', resume)
+    document.removeEventListener('visibilitychange', resume)
   })
 
   return { sessionPending, sessionError }

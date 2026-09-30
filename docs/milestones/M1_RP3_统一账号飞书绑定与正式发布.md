@@ -2,9 +2,30 @@
 
 轮次代号 RP3 表示 Owner 授权的 Portal 执行任务书 v3，并非考勤历史 M1-R3。
 
-状态：**LOCAL_RUNNING / ACCOUNT_CHANGE_UPDATED / REMOTE_PR_TRACKED / LIVE_MEMBER_PERMISSION_PENDING**。
+状态：**LOCAL_RUNNING / ACCOUNT_UI_REPAIRED / REMOTE_PR_TRACKED / OWNER_CONFIRMED_SUCCESS**。
 
-## 最新执行：真实飞书与恢复体验（2026-09-30）
+## 最新执行：账号 UI 规范回归与全功能审修（2026-10-01）
+
+Owner 已亲自验证 Administrator 本人飞书登录成功；这是必须保留的成功基线。以下 2026-09-30 拒绝、成员权限待审批和本人登录未成功记录均为历史，不再作为要求重配 Secret、企业或回调的依据。本轮不解绑真实身份，不重置真实密码，不关闭 MFA，不撤销真实账号访问。
+
+接续实际最新 HEAD `9ecc6d0e20f0a1e9aa1968f857cea89cc453d234`，修复前先建立失败回归。已复现：嵌套 form；证明期限/消费状态仍显示有效；账号状态失败的永久骨架；条件渲染隐藏 actions 错误；同路由切换仍使用旧 operation；写入成功后的刷新失败误报提交失败；MFA 切换账号保留旧 challenge；退出后旧异步请求回填上一用户状态。它们是经复现的 UI/状态缺陷，不据此宣称已经发生越权或账号接管。
+
+登录、授权确认、恢复和换绑/交接共享品牌与 AccountLayout，个人安全复用已有 Portal 布局。字体沿用 30/20/16/14/12，表单稳定不倾斜；个人安全先显示状态和常用动作，管理员低频操作按实际权限展开。保持既有 Ant Design Vue 主版本和唯一 ConfigProvider。验证组件使用独立 section / button 提交边界，处理 Enter 与中文 composition。服务端证明状态沿用原 TTL、epoch 和单次消费，前端在到期、焦点/可见性变化及消费后同步。写成功与后续 GET 分离；未知结果先查服务端回执/操作，阻止重复写。可选 UUID 不是授权凭据，查询/重试仍受原用户、会话、权限和安全版本约束，未新增匿名 API。后台/reduced-motion 停止装饰 RAF；旧请求按会话代次丢弃。
+
+| 验证层 | 结果与实际范围 |
+| --- | --- |
+| Vue / Ant Design 挂载回归 | 27 项 PASS；包含修复前失败证据、过期/跨窗口同步、键盘/IME、路由竞态、响应丢失、会话旧结果隔离与用户切换时路由局部证据重建 |
+| Python 契约 | Portal 49、Knowledge 18、Twin 9、Gateway 5、本地边界 5 项 PASS |
+| 原生 SQL / Redis / 多进程 | 合成账号生命周期 29、换绑/交接/并发 38、真实 WSGI HTTP 6 项 PASS；Owner 身份未参与破坏性测试 |
+| 编译资产浏览器 | 正常密码登录、个人安全渐进表单/取消与焦点、服务端期限投影、失败结束骨架及 actions 错误/重试已实测；与后端原生测试和受控故障替身分开记录 |
+| 配置与数据保护 | 现有配置、原 SQL/文件/受保护集成配置已备份并在隔离数据库验证恢复；没有结构变更，无需 migrate |
+| 真人外部条件 | Owner 原成功基线保留；新版本真人飞书、本人实际收到验证码/邮件、第二位真人与移动软键盘未执行则 NOT_RUN，不由合成 PASS 替代 |
+
+完整 A01–F08 矩阵、同视口前后截图、运行版本、保留指纹、最新 CI/制品证据在本机本轮交付报告保存，不上传账号、运行配置、私有知识/模型、截图或备份。最终发布须在 clean 提交构建、保留当前 Site/Compose/卷、核对 source_commit/build_id 与 PR 实际 HEAD 一致；公司服务器 NOT_DEPLOYED。CI/部署结果以最终制品和本轮报告为准，历史 CI 不替代本轮。
+
+## 前序执行记录（不覆盖上述当前事实）
+
+## 真实飞书与恢复体验（2026-09-30，历史）
 
 接续 PR #21 实际最新 HEAD、现有 Mac/Site/运行工具。Owner 仅为当前 P1 Site 批准 Administrator 自助绑定许可；密码应急入口保留，绑定仍须管理员密码/原 MFA、本人真实 OAuth 和明确确认，不直接写映射。
 
@@ -69,8 +90,8 @@ Portal 与 LIMS 使用 clean 提交生成的编译资产，同源连接 Frappe�
 | Mac 固定本地环境 | LOCAL_RUNNING：固定 loopback 5188，原 Site/项目/卷保留，编译 Portal/LIMS 与真实 Gateway 已运行 |
 | 功能验证 | FUNCTION_VERIFIED：上述五入口、普通角色、知识/模型与返回已验证；不代表未操作业务交易已验收 |
 | GitHub 同步 | REMOTE_PR_TRACKED：[PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 为团队发布入口；最终 SHA、最新 CI 和制品以该 PR 当前记录为准 |
-| 飞书 | LIVE_OWNER_PENDING：精确本机回调、基础身份/机器人发送权限已现场核对，企业查询权限已审批并发布；当前 Secret/企业确认已完成；成员 status 缺失已脱敏定位，contact:user.employee:readonly 已提交待审批发布生效。许可标记不代替真实 OAuth，不阻塞现有密码/知识/模型 |
-| Owner 本人验收 | LIVE_OWNER_PENDING：本人新授权已执行但尚未成功进入原 Administrator；原密码保留，未知密码由本人在当前 Site 专用工具中隐藏输入确认 |
+| 飞书（历史，已由 2026-10-01 成功基线更新） | HISTORICAL：精确本机回调、基础身份/机器人发送权限已现场核对，企业查询权限已审批并发布；当前 Secret/企业确认已完成；成员 status 缺失已脱敏定位，contact:user.employee:readonly 已提交待审批发布生效。许可标记不代替真实 OAuth，不阻塞现有密码/知识/模型 |
+| Owner 本人验收（历史） | HISTORICAL：本人新授权已执行但尚未成功进入原 Administrator；原密码保留，未知密码由本人在当前 Site 专用工具中隐藏输入确认 |
 | 公司服务器 | NOT_DEPLOYED：固定 IP 与正式 HTTPS 后续，不作为本轮 Mac 门禁 |
 
 CI 必须核对 PR **最新** HEAD 的本次结果；历史通过记录不替代本次检查。运行制品 `source_commit`、`build_id`、前端 build-info 与远端 HEAD 必须一致；后续任何新提交重新构建并验证。
