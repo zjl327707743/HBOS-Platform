@@ -19,7 +19,7 @@
 
 ## 当前上下文
 
-本轮 Portal：统一账号与正式发布 v3，状态 REVIEWING / OWNER_TARGET_REQUIRED / LIVE_AUTH_REQUIRED / NOT_RELEASED。已接续既有 Knowledge/Twin 与五应用集成，实现账号双方验证、安全页面和 production 部署工具；尚未确认原账号正式 Site、正式 HTTPS 目标及本人飞书/原账号现场验收，不能标记正式交付完成。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。安全检查后允许功能分支 push 和真实 PR，PR base 明确为 `feature/hbos-portal-product`，不直接推 main、不强推、不自动合并。
+本轮 Portal：Mac 本地完整运行与 GitHub 最新功能同步，状态 LOCAL_RUNNING / FUNCTION_VERIFIED / REMOTE_PR_TRACKED / LIVE_OWNER_PENDING。Owner 已明确选择复用 P1 Site、Compose project、原卷和已批准知识/设备；不再寻找历史正式库。公司服务器、固定 IP 和正式 HTTPS 是后续工作，不是本轮门禁。沿用已实现统一账号和五应用，不重做 P0。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`；运行说明：`docs/deployment/Mac本地运行与团队同步.md`。继续更新 PR #21，base `feature/hbos-portal-product`，head `codex/portal-unified-account-release`；不推 main/base、不强推、不自动合并。
 
 其他业务里程碑以各自已登记主文档为准，本轮不扩大考勤/库存范围。新增代码通过独立净化发布分支交付；私有运行报告、账号、知识和模型不进入新可达对象。
 

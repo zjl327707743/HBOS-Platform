@@ -8,6 +8,7 @@ on:
       - 'apps/hb_twin_app/**'
       - 'services/hbos_gateway/**'
       - 'scripts/release/**'
+      - 'scripts/local/**'
       - 'frontend/hbos-portal-web/**'
       - '.github/workflows/portal-unified-account-release.yml'
   workflow_dispatch:
@@ -30,8 +31,9 @@ jobs:
           PYTHONPATH=apps/hb_knowledge_app:. python -m unittest discover -s services/hbos_gateway/tests -v
       - name: Release script syntax and source compilation
         run: |
-          bash -n scripts/release/build_bundle.sh scripts/release/apply_existing_site.sh
-          python -m compileall -q apps/hbos_portal apps/hb_knowledge_app apps/hb_twin_app services/hbos_gateway scripts/release
+          bash -n scripts/release/build_bundle.sh scripts/release/apply_existing_site.sh scripts/local/hbos.sh
+          python -m compileall -q apps/hbos_portal apps/hb_knowledge_app apps/hb_twin_app services/hbos_gateway scripts/release scripts/local
+          python -m unittest discover -s scripts/local/tests -v
   production-bundle:
     runs-on: ubuntu-latest
     steps:

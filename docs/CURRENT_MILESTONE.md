@@ -2,11 +2,11 @@
 
 ## Portal 本轮独立授权
 
-本轮 Portal：统一账号与正式发布 v3，状态 REVIEWING / OWNER_TARGET_REQUIRED / LIVE_AUTH_REQUIRED / NOT_RELEASED。已接续既有 Knowledge/Twin 与五应用集成，实现账号双方验证、安全页面和 production 部署工具；尚未确认原账号正式 Site、正式 HTTPS 目标及本人飞书/原账号现场验收，不能标记正式交付完成。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。安全检查后允许功能分支 push 和真实 PR，PR base 明确为 `feature/hbos-portal-product`，不直接推 main、不强推、不自动合并。
+本轮 Portal：Mac 本地完整运行与 GitHub 最新功能同步，状态 LOCAL_RUNNING / FUNCTION_VERIFIED / REMOTE_PR_TRACKED / LIVE_OWNER_PENDING。Owner 已明确选择复用 P1 Site、Compose project、原卷和已批准知识/设备；不再寻找历史正式库。公司服务器、固定 IP 和正式 HTTPS 是后续工作，不是本轮门禁。沿用已实现统一账号和五应用，不重做 P0。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`；运行说明：`docs/deployment/Mac本地运行与团队同步.md`。继续更新 PR #21，base `feature/hbos-portal-product`，head `codex/portal-unified-account-release`；不推 main/base、不强推、不自动合并。
 
 下述考勤历史轮次的范围不约束已明确授权的 Portal v3；Portal 不替其他业务轮次 closeout。
 
-团队代码已通过安全扫描发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)；保持 Draft、未合并。正式账号 Site 与真实本人验收未放行。
+团队代码已通过安全扫描发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)；保持 Draft、未合并。P1 已获本轮本地运行授权；真实本人登录尚需现场执行。
 
 ## M1-FIX：M1 考勤一期功能补漏阶段
 

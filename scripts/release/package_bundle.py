@@ -17,7 +17,7 @@ dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=root,
 import os
 if dirty and os.environ.get("HBOS_ALLOW_DIRTY_TEST_BUNDLE") != "1":
     raise SystemExit("正式制品必须从已审查提交的 clean 工作树构建；受控测试须显式标记")
-allowed = ["apps/hb_attendance_app", "apps/hb_inventory_app", "apps/hb_lims_app", "apps/hbos_portal", "apps/hb_knowledge_app", "apps/hb_twin_app", "services/hbos_gateway", "scripts/release"]
+allowed = ["apps/hb_attendance_app", "apps/hb_inventory_app", "apps/hb_lims_app", "apps/hbos_portal", "apps/hb_knowledge_app", "apps/hb_twin_app", "services/hbos_gateway", "scripts/release", "scripts/local"]
 for directory in allowed:
     shutil.copytree(root / directory, stage / directory, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".env", "*.local", "node_modules", "dist", "runtime", ".pytest_cache", "._*", ".DS_Store"))
 target = stage / "apps/hbos_portal/hbos_portal/public/portal"

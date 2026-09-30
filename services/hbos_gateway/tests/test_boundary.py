@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import unittest
+import os
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi import HTTPException
-from services.hbos_gateway.app import Search, search_local
+from services.hbos_gateway.app import Search, health, search, search_local
 
 
 class BoundaryTests(unittest.TestCase):
@@ -34,3 +36,14 @@ class BoundaryTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as caught:
             search_local(Search(**self.payload), self.policy, self.index)
         self.assertEqual(502, caught.exception.status_code)
+
+    def test_missing_private_assets_has_explicit_unconfigured_state(self):
+        with patch.dict(os.environ, {}, clear=True):
+            status = health()
+            self.assertEqual("healthy", status["status"])
+            self.assertFalse(status["configured"])
+            self.assertEqual("unconfigured", status["retrieval_mode"])
+            with self.assertRaises(HTTPException) as caught:
+                search(Search(**self.payload), authorization="")
+            self.assertEqual(503, caught.exception.status_code)
+            self.assertEqual("CONFIG_REQUIRED", caught.exception.detail["code"])

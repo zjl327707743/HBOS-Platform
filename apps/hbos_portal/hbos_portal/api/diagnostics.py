@@ -8,6 +8,7 @@ import frappe
 from hbos_portal.auth.accounts import require_user, no_store
 from hbos_portal.services.registry import build_registry
 from hbos_portal.services.access import evaluate_access
+from hbos_portal.services.diagnostic_context import diagnostic_user_context
 
 
 @frappe.whitelist(methods=["GET"])
@@ -19,8 +20,7 @@ def get_diagnostics(user: str | None = None) -> dict:
     subject = user or administrator
     require_user(subject)
     rows = []
-    try:
-        frappe.set_user(subject)
+    with diagnostic_user_context(subject):
         registry = build_registry()
         for entry in registry.ordered_entries():
             try:
@@ -32,8 +32,6 @@ def get_diagnostics(user: str | None = None) -> dict:
             except Exception:
                 rows.append({"app_id": entry.manifest.id, "provider": "access_failed", "visible": False, "reason": "provider_failed"})
         failures = [{"code": failure.code} for failure in registry.failures]
-    finally:
-        frappe.set_user(administrator)
     path = Path(frappe.get_app_path("hbos_portal", "public", "portal", "build-info.json"))
     build = json.loads(path.read_text()) if path.is_file() else {"status": "production_bundle_missing"}
     return {"subject": subject, "apps": rows, "installed_apps": frappe.get_installed_apps(), "failures": failures, "build": build}

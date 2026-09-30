@@ -4,12 +4,13 @@ Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服�
 
 ## 当前交付
 
-本轮 Portal：统一账号与正式发布 v3，状态 REVIEWING / OWNER_TARGET_REQUIRED / LIVE_AUTH_REQUIRED / NOT_RELEASED。已接续既有 Knowledge/Twin 与五应用集成，实现账号双方验证、安全页面和 production 部署工具；尚未确认原账号正式 Site、正式 HTTPS 目标及本人飞书/原账号现场验收，不能标记正式交付完成。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。安全检查后允许功能分支 push 和真实 PR，PR base 明确为 `feature/hbos-portal-product`，不直接推 main、不强推、不自动合并。
+本轮 Portal：Mac 本地完整运行与 GitHub 最新功能同步，状态 LOCAL_RUNNING / FUNCTION_VERIFIED / REMOTE_PR_TRACKED / LIVE_OWNER_PENDING。Owner 已明确选择复用 P1 Site、Compose project、原卷和已批准知识/设备；不再寻找历史正式库。公司服务器、固定 IP 和正式 HTTPS 是后续工作，不是本轮门禁。沿用已实现统一账号和五应用，不重做 P0。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`；运行说明：`docs/deployment/Mac本地运行与团队同步.md`。继续更新 PR #21，base `feature/hbos-portal-product`，head `codex/portal-unified-account-release`；不推 main/base、不强推、不自动合并。
 
 平台已包含考勤、仓储库存、LIMS、Portal、知识助理与设备/数字孪生自定义 App。密码和飞书使用同一 Frappe User；原有业务权限仍由原 App 约束。通知、生成式知识回答、现场遥测、工艺动画及偏好同步尚未实现，具体状态见前端完整性矩阵。
 
 - [项目状态](docs/PROJECT_STATUS.md)
 - [当前里程碑](docs/CURRENT_MILESTONE.md)
+- [Mac 常用启动与团队同步](docs/deployment/Mac本地运行与团队同步.md)
 - [团队部署、备份与回退](docs/deployment/统一账号与Portal正式部署说明.md)
 - [前端完整性矩阵](docs/frontend/统一账号发布与前端完整性矩阵.md)
 
@@ -23,4 +24,4 @@ Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服�
 
 `AGENTS.md`、`CLAUDE.md` 为规则入口；进度以状态台账与对应里程碑为准。Portal 本轮不改变其他考勤/库存里程碑的 Owner 验收状态。禁止创建未知替代库、覆盖未知数据库、重置原密码/角色、发布凭据或私有资料。
 
-团队取得代码与部署制品：[PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)。正式发布 Gate 尚未关闭，详情见本轮主记录。
+团队取得代码与部署制品：[PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)。Mac 本地运行与本人验收分开记录；公司生产尚未部署，详情见本轮主记录。

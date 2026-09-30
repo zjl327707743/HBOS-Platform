@@ -1,6 +1,6 @@
 # 统一账号与 Portal 正式部署说明
 
-适用状态：代码与可部署制品供审查。正式 Site、域名、本人 OAuth 和 Owner 表单验收通过前，不标记生产发布完成。
+适用范围：后续公司服务器模式的部署与安全要求。当前 Mac 本轮已明确复用 P1 Site，无需寻找历史正式库；本地运行与 GitHub 同步按 `Mac本地运行与团队同步.md` 执行，不等待服务器、域名或本人 OAuth。公司生产上线仍须独立完成服务器 HTTPS 和本人验收。
 
 ## 版本与团队取得方式
 
@@ -16,7 +16,7 @@
 
 运维从现有 Compose project、站点配置、数据库和 accounts preservation manifest 定位原账号数据源。Site 名不等于域名；公开域名应通过 `FRAPPE_SITE_NAME_HEADER` 指向确切的既有 Site。新建或改名测试库不能替代原账号。
 
-Owner 集中确认原数据库与正式服务器/HTTPS 域名后，记录数据库指纹、原镜像及 source revision、已有 volumes 和 mounts。真实账号名、密码验证记录、业务数据、Site config、encryption key 和数据库备份仅进入权限 0700/0600 的服务器审计目录。先验证恢复，再升级同一库；绝不运行 `new-site`、`create-site` 或对未知库 `restore`。
+后续迁到公司服务器时，明确该服务器目标数据库与 HTTPS 域名，记录数据库指纹、原镜像及 source revision、已有 volumes 和 mounts。真实账号名、密码验证记录、业务数据、Site config、encryption key 和数据库备份仅进入权限 0700/0600 的服务器审计目录。先验证恢复，再升级同一库；绝不运行 `new-site`、`create-site` 或对未知库 `restore`。
 
 ## 备份、恢复验证与切换
 
