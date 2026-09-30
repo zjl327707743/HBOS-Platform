@@ -198,5 +198,7 @@ echo "[PLATFORM] Unified account synthetic lifecycle"
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_account_test_site 1
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute hbos_portal.auth.account_integration.run
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_portal_origin "http://$SITE_NAME:$HTTP_PORT"
+docker compose -p "$PROJECT" restart backend
+wait_http "/hbos/login" /tmp/hbos-account-login.html
 python3 scripts/ci/portal_account_http_checks.py --container "$(docker compose -p "$PROJECT" ps -q backend)" --site "$SITE_NAME" --origin "http://$SITE_NAME:$HTTP_PORT" --transport "http://127.0.0.1:$HTTP_PORT"
 echo "HBOS PLATFORM clean-site integration PASS"

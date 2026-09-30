@@ -77,6 +77,15 @@ try:
     def call(client, method, payload=None):
         return client.post(args.transport + "/api/method/" + method, json=payload or {}, timeout=20)
 
+    def require_success(response, label):
+        if response.status_code != 200:
+            try:
+                kind = response.json().get("exc_type", "unknown")
+            except (ValueError, AttributeError):
+                kind = "non_json_response"
+            # Never emit response bodies, passwords, cookies or reset keys.
+            raise AssertionError(f"{label}: HTTP {response.status_code}, {kind}")
+
     first = login(fixture["password"])
     other = login(fixture["password"])
     prefix = "hbos_portal.auth.accounts."
@@ -95,9 +104,9 @@ try:
     assert call(first, prefix + "reauthenticate", {"password": fixture["password"]}).status_code != 200
     first.headers.update(alien)
     checks.append("foreign_origin_rejected")
-    assert call(first, prefix + "reauthenticate", {"password": fixture["password"]}).status_code == 200
+    require_success(call(first, prefix + "reauthenticate", {"password": fixture["password"]}), "Native reauthentication")
     new_password = secrets.token_urlsafe(40)
-    assert call(first, prefix + "set_password", {"new_password": new_password}).status_code == 200
+    require_success(call(first, prefix + "set_password", {"new_password": new_password}), "Same User password rotation")
     assert other.get(args.transport + "/api/method/" + prefix + "get_security").status_code != 200
     checks.append("password_rotation_invalidates_other_real_session")
     login(new_password)
