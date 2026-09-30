@@ -4,9 +4,9 @@
 
 ## Portal v3 独立授权门禁 — 2026-09-30
 
-本轮 Portal：Mac 本地完整运行与 GitHub 最新功能同步，状态 LOCAL_RUNNING / FUNCTION_VERIFIED / REMOTE_PR_TRACKED / LIVE_OWNER_PENDING。Owner 已明确选择复用 P1 Site、Compose project、原卷和已批准知识/设备；不再寻找历史正式库。公司服务器、固定 IP 和正式 HTTPS 是后续工作，不是本轮门禁。沿用已实现统一账号和五应用，不重做 P0。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`；运行说明：`docs/deployment/Mac本地运行与团队同步.md`。继续更新 PR #21，base `feature/hbos-portal-product`，head `codex/portal-unified-account-release`；不推 main/base、不强推、不自动合并。
+本轮 Portal 接续固定 Mac 环境，执行飞书真实接通与账号恢复体验收口。状态 LOCAL_RUNNING / RECOVERY_UPDATED / LIVE_OWNER_PENDING，真人 OAuth、开户、查收验证码与恢复单独验收。复用 P1 Site、Compose project、原卷、已批准知识/设备及 PR #21 最新代码；不重建、不清库、不重做模块。Owner 已批准当前 Site 的 Administrator 自助绑定许可与本人主动请求的收件验证码，仍须密码、已有 MFA、真实授权及明确确认。公司服务器与正式 HTTPS 继续留后续。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`；常用说明：`docs/deployment/Mac本地运行与团队同步.md`。PR #21 的 base 为 `feature/hbos-portal-product`，head 为 `codex/portal-unified-account-release`；不强推、不合并、不推 main/base。
 
-放行顺序：原数据源确认 → 完整备份与隔离恢复 → 同库部署与原用户权限/关联保留 → 原 Administrator 与业务用户表单/五应用 → 本人飞书绑定、新用户强验证设密与恢复/停用 → 固定 HTTPS 入口。代码 PR 和制品可先交付；最终 Gate 不能由 configured、样例数据或测试站替代。本轮不改考勤主线状态，不自动合并或开始其他里程碑。
+本机验收顺序：已确定 P1 的保护备份 → 同库更新且保留账号/权限/关联 → 本人 Administrator 密码/MFA 与飞书授权确认 → 退出后飞书进入原 User → 第二位获准企业身份首次开户及重复登录 → 可选本人验证码设密、恢复与拒绝边界。真实验收不能由 configured、许可标记或测试替身代替。公司服务器首次部署、固定 IP 和 HTTPS 为后续独立工作，不能阻塞本轮 Mac、PR 或制品。其他考勤/库存里程碑不由此 closeout。
 
 团队通用交付已发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并），本轮复用 P1，不以原库/服务器/HTTPS 为前置条件；本人授权与公司生产分开验收。
 

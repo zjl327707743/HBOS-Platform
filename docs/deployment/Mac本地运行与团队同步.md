@@ -64,7 +64,21 @@ docker exec "$HBOS_BACKEND" /home/frappe/frappe-bench/env/bin/python \
 
 回调必须精确登记为当前 origin 加 `/api/method/hbos_portal.auth.feishu.callback`。服务端已有有效 Secret 时复用；当前 Site 缺失时本人执行 `"$HBOS_LOCAL" feishu-config`，在本机 TTY 隐藏输入已有应用 Secret。工具自动请求企业信息，不要求搬运 Token、tenant_key 或 open_id。本人在控制台核对回调、内部发布范围与成员读取权限后，输入程序发现的企业全称确认。
 
-该动作不启用收件验证码。只有应用机器人/发消息权限被批准且本人主动触发时才能启用；未启用时无密码用户的飞书收件设密/恢复不可用，已有密码登录和知识/设备不受影响。`configured=true` 不等于 OAuth 成功；须本人完成授权、绑定、再次登录及退出。控制台若拒绝本机回调，应保留实际错误和下一步，不能绕过验证。
+默认动作不启用收件验证码。普通 OAuth、Administrator 绑定许可、本人收件验证码分别核对。`configured=true` 不等于 OAuth 成功；须本人完成授权、确认绑定、退出后再次飞书登录及验证码实际查收。控制台若拒绝本机回调，记录实际错误，不绕过校验。
+
+基础身份 scope 仅使用 `contact:user.base:readonly`；后端另以应用身份核验当前范围内的在职成员，不为登录申请受雇信息或聊天读取。部分成员可用范围下，第二位开户验收身份也必须在原批准范围内。无密码新用户可直接使用飞书工作，密码是可选项。
+
+机器人和最小发送权限 `im:message:send_as_bot` 已批准并发布后，同一启动器执行 `"$HBOS_LOCAL" feishu-config --enable-inbox-stepup`。工具复用 Secret、核验机器人，让本人确认发送权限。只向持久绑定本人、且由本人主动请求的收件箱发送验证码；取得飞书 message acknowledgement 才显示发送成功，失败不保存新验证码。状态检查不发消息，不读聊天、不群发。未启用时无密码设密/恢复不可用，已有密码和知识/设备不受影响。
+
+Administrator 许可 `hbos_feishu_allow_administrator_link` 只在 Owner 指定 Site 开启；仍须管理员密码及已有 MFA，再授权本人飞书并明确确认。冲突不删除、不转移。忘记管理员密码执行上述 `admin-password`，不用普通员工恢复凭据。
+
+## 普通员工恢复
+
+恢复页只展示实际配置渠道：飞书恢复、已验证邮箱及管理员协助。Frappe User 的邮箱字段不等于邮箱所有权已验证；SMTP 可用且运维完成核验后，保护 Site config 的 `hbos_account_verified_recovery_emails` 才登记 User 到同一真实地址的映射。私有映射、邮箱和核验记录不进 Git；虚拟 User 标识永远不能成为恢复邮箱。未配置则隐藏邮箱，所有请求保持统一存在性提示。
+
+管理员须重新验证密码/MFA、填写身份核验依据并审计，再签发 15 分钟单次、绑定指定普通 User 的链接。key 使用 URL fragment，不进入 HTTP URL；只在浏览器组件内存保留。服务端验证后显示目标姓名、登录名和 User 标识，绑定浏览器、会话与安全 epoch；保存仍须原 MFA，锁定 User 后重核有效期/启用状态，成功撤销 key、旧会话与安全票据。管理员只复制并私下交付链接，不设置或知道最终密码。Administrator/Guest 不接受匿名恢复 key。
+
+本机两层 Nginx 不记录认证访问 URL，Frappe 保留不含凭据的认证审计。
 
 ## 团队获取同一版本
 

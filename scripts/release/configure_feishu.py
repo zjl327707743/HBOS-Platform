@@ -8,7 +8,7 @@ from pathlib import Path
 
 import frappe
 
-from hbos_portal.auth.feishu import discover_enterprise, load_settings, _site_private_path, _store_protected_text, SECRET_FILENAME, TENANT_FILENAME, _validate_redirect_uri
+from hbos_portal.auth.feishu import discover_enterprise, load_settings, probe_inbox_bot, _site_private_path, _store_protected_text, SECRET_FILENAME, TENANT_FILENAME, _validate_redirect_uri
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--site", required=True)
@@ -24,7 +24,7 @@ frappe.init(site=args.site); frappe.connect()
 try:
     callback = args.origin.rstrip("/") + "/api/method/hbos_portal.auth.feishu.callback"
     if not _validate_redirect_uri(callback):
-        raise RuntimeError("正式入口必须为 HTTPS（隔离测试允许 loopback）")
+        raise RuntimeError("服务器入口必须为 HTTPS；本机仅允许 loopback HTTP")
     from frappe.installer import update_site_config
     update_site_config("hbos_feishu_app_id", args.app_id)
     frappe.conf.hbos_feishu_app_id = args.app_id
@@ -39,13 +39,19 @@ try:
     print("程序从当前应用核验的企业：", company["name"])
     print("请确认控制台已添加精确回调：", callback)
     print("请确认发布范围仅为本企业内部成员，登录及成员核验权限已批准。")
-    if input("输入企业全称确认以上配置：").strip() != company["name"]:
+    already_confirmed = settings.configured and settings.tenant_key == company["tenant_key"] and settings.redirect_uri == callback
+    if not already_confirmed and input("输入企业全称确认以上配置：").strip() != company["name"]:
         raise RuntimeError("未确认企业，登录入口仍保持关闭")
     _store_protected_text(_site_private_path(TENANT_FILENAME), company["tenant_key"])
-    fields = {"hbos_portal_origin": args.origin.rstrip("/"), "hbos_feishu_redirect_uri": callback, "hbos_feishu_authorize_id_parameter": "client_id", "hbos_feishu_oauth_scopes": "contact:user.base:readonly contact:user.employee:readonly", "hbos_feishu_app_published": 1, "hbos_feishu_redirect_registered": 1, "hbos_feishu_auto_provision_internal": 1}
+    fields = {"hbos_portal_origin": args.origin.rstrip("/"), "hbos_feishu_redirect_uri": callback, "hbos_feishu_authorize_id_parameter": "client_id", "hbos_feishu_oauth_scopes": "contact:user.base:readonly", "hbos_feishu_app_published": 1, "hbos_feishu_redirect_registered": 1, "hbos_feishu_auto_provision_internal": 1}
     for key, value in fields.items():
         update_site_config(key, value)
     if args.enable_inbox_stepup:
+        if not probe_inbox_bot(load_settings()):
+            raise RuntimeError("机器人未就绪；未启用收件验证码")
+        print("仅启用本人主动请求的安全验证码；不读聊天、不群发。")
+        if input("确认 im:message:send_as_bot 已开通并发布，输入 ENABLE SELF INBOX：").strip() != "ENABLE SELF INBOX":
+            raise RuntimeError("发送权限未确认；未启用收件验证码")
         update_site_config("hbos_feishu_inbox_recovery_enabled", 1)
     if args.enable_disable_sync:
         update_site_config("hbos_feishu_disable_sync_enabled", 1)

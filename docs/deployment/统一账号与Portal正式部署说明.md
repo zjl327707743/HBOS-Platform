@@ -47,7 +47,7 @@ bash /opt/hbos-release/scripts/release/apply_existing_site.sh \
 
 复用 Owner 已有应用，不创建新应用。程序生成应用/租户 token、读取用户、核验内部在职成员及精确外部身份；不让 Owner 搬运 Token、tenant_key 或 open_id。
 
-控制台实际需要：有效 Secret、该固定域名的精确 callback、企业内部可用范围发布、用户基础及在职信息读取权限、企业信息查询权限。无密码新用户设密需启用应用机器人及向本人发消息权限，用本人收件验证码做强验证；网络不通或权限缺失时不能把 OAuth code 当作重新认证。
+控制台实际需要：有效 Secret、精确 callback、企业内部可用范围发布、基础身份 `contact:user.base:readonly` 与企业查询权限。后端以应用身份核验在职成员，不为登录申请受雇信息或聊天读取。可选设密需机器人及 `im:message:send_as_bot`，仅本人主动请求时向持久绑定本人发送；飞书须确认消息发送，不能把 OAuth code 当作重新认证。
 
 运维在 target bench 执行：
 
@@ -66,7 +66,9 @@ bash /opt/hbos-release/scripts/release/apply_existing_site.sh \
 
 中央 User 停用立即拒绝密码、SSO、旧会话与恢复，撤销绑定/票据并保留 tombstone。启用飞书停用同步后每五分钟检查明确 frozen/resigned/unjoin/exited 状态，停用同一普通 User；不自动重新启用，Administrator 不自动停用。范围撤销/API 权限缺失/网络失败不构成可靠离职证明：记录失败，拒绝新 SSO，管理员须核实并中央停用，不能承诺这种情况下本地密码自动被停用。调度队列积压会延迟五分钟目标，运维必须监控失败及调度时效。
 
-邮件恢复依赖正式 SMTP 和已验证可投递邮箱。飞书创建的虚拟 User 标识不可当邮件地址投递；没有有效邮箱时使用本人飞书验证码或管理员受控恢复。
+邮件恢复依赖 SMTP 和完成所有权核验的真实邮箱；私有 Site config 的 `hbos_account_verified_recovery_emails` 登记 User 到同一核验地址，不把仅可投递或 OAuth profile email 当验证。未登记则隐藏邮件渠道。虚拟 User 标识不可当邮箱。
+
+管理员密码/MFA 重新认证、填写核验依据并审计后，仅为普通目标 User 签发 15 分钟单次链接。key 位于 URL fragment，服务器先验证目标/期限，再绑定浏览器、会话和安全 epoch；员工核对目标后自行设置最终密码，保留 MFA。匿名恢复始终拒绝 Administrator/Guest；Mac Administrator 忘记密码使用隐藏输入的 `admin-password`。Administrator 飞书绑定许可即使已启用，也仍须管理员密码/MFA；没有强制转移身份或管理员代设员工密码。
 
 ## 知识与模型的私下部署
 

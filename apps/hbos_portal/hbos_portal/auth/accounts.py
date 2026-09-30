@@ -11,7 +11,7 @@ import json
 import secrets
 import time
 from contextlib import contextmanager
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 
 import frappe
 from frappe.rate_limiter import rate_limit
@@ -19,6 +19,8 @@ from frappe.rate_limiter import rate_limit
 PROOF_TTL = 300
 PENDING_COOKIE = "hbos_account_pending"
 PENDING_TTL = 480
+RECOVERY_TTL = 900
+RECOVERY_COOKIE = "hbos_account_recovery"
 
 
 def digest(value: str) -> str:
@@ -55,6 +57,10 @@ def require_user(user: str | None = None, *, external: bool = False) -> str:
 
 def require_post() -> None:
     frappe.flags.disable_traceback = True
+    # Python arguments have already been bound by Frappe's dispatcher. Remove
+    # credential values from the request metadata before any diagnostic error.
+    for field in ("password", "new_password", "old_password", "key", "code", "otp", "recovery_context"):
+        frappe.local.form_dict.pop(field, None)
     request = frappe.local.request
     if request.method != "POST":
         frappe.throw("请使用安全的 POST 请求。", frappe.PermissionError)
@@ -281,7 +287,7 @@ def get_security() -> dict:
         "feishu_stepup_available": bool(bound and settings.configured and frappe.conf.get("hbos_feishu_inbox_recovery_enabled")),
         "desk_access": account.user_type == "System User", "administrator": user == "Administrator",
         "administrator_link_enabled": bool(frappe.conf.get("hbos_feishu_allow_administrator_link")),
-        "mail_recovery_available": mail_ready() and deliverable_email(user),
+        "mail_recovery_available": verified_recovery_email(user),
         "feishu_disable_sync": "enabled_5_minutes" if frappe.conf.get("hbos_feishu_disable_sync_enabled") else "not_configured", "can_admin_recover": user == "Administrator" or "System Manager" in frappe.get_roles(user)}
 
 
@@ -291,7 +297,9 @@ def admin_issue_recovery(user: str, reason: str) -> dict:
     administrator = require_user()
     if administrator != "Administrator" and "System Manager" not in frappe.get_roles(administrator):
         frappe.throw("仅管理员可执行受控恢复。", frappe.PermissionError)
-    require_proof(administrator, consume=True)
+    proof = require_proof(administrator, consume=True)
+    if proof["method"] != "password":
+        frappe.throw("签发恢复链接须重新验证管理员密码及原有二次认证。", frappe.AuthenticationError)
     require_user(user)
     if user == "Administrator" or len(str(reason).strip()) < 12:
         frappe.throw("Administrator 保留原生应急恢复；其他账号恢复须填写身份核验依据。")
@@ -300,7 +308,7 @@ def admin_issue_recovery(user: str, reason: str) -> dict:
     audit("administrator_recovery_issued", user)
     frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": "User", "reference_name": user, "content": "管理员受控恢复：" + frappe.utils.escape_html(reason[:1000])}).insert(ignore_permissions=True)
     no_store()
-    return {"recovery_key": link.split("key=", 1)[1].split("&", 1)[0], "expires_in": 900, "delivery": "仅交付给已核验的账号本人"}
+    return {"recovery_url": recovery_url(link), "target": recovery_target(doc), "expires_in": RECOVERY_TTL, "delivery": "仅私下交付给已核验的账号本人；管理员不设置员工密码"}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -328,7 +336,7 @@ def get_pending() -> dict:
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 @rate_limit(limit=8, seconds=300)
 def complete_pending(action: str, username: str = "", password: str = "", otp: str = "", tmp_id: str = "") -> dict:
-    from hbos_portal.auth.feishu import load_settings, provisioned_user_id
+    from hbos_portal.auth.feishu import FeishuLoginError, load_settings, provisioned_user_id
 
     nonce, record = pending(write=True)
     settings = load_settings()
@@ -373,10 +381,14 @@ def complete_pending(action: str, username: str = "", password: str = "", otp: s
         frappe.db.commit()
         if record["intent"] != "link":
             frappe.local.login_manager.login_as(user)
-        return {"completed": True, "user": user, "redirect_to": record["redirect_to"]}
+        return {"completed": True, "user": user, "login_name": frappe.db.get_value("User", user, "username") or user,
+            "password_optional": not has_password(user), "created": action == "create_new", "redirect_to": record["redirect_to"]}
     except (frappe.UniqueValidationError, frappe.DuplicateEntryError):
         frappe.db.rollback()
         frappe.throw("绑定发生并发冲突，请重新登录后核对。", frappe.AuthenticationError)
+    except FeishuLoginError as exc:
+        frappe.db.rollback()
+        return {"completed": False, "error": {"code": exc.code, "message": exc.public_message}}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -392,7 +404,14 @@ def request_feishu_code() -> dict:
         frappe.throw("飞书安全验证码尚未启用，请使用已验证邮箱或管理员恢复。", frappe.PermissionError)
     code = f"{secrets.randbelow(1000000):06d}"
     salt = secrets.token_urlsafe(32)
-    send_inbox_code(settings, row.external_id, code)
+    try:
+        send_inbox_code(settings, row.external_id, code)
+    except Exception as exc:
+        audit("inbox_delivery_failed", user, status="Failed")
+        # No code is stored or a successful-delivery response returned when the
+        # provider cannot acknowledge delivery. Provider payload stays private.
+        from hbos_portal.auth.feishu import FeishuLoginError
+        return {"sent": False, "error": exc.public_message if isinstance(exc, FeishuLoginError) else "飞书未确认投递；请核对机器人、发送权限及本人是否在应用可用范围内。"}
     frappe.cache.set_value(f"hbos:account:inbox:{digest(user)}:{session_digest()}", {
         "salt": salt, "hash": digest(salt + code), "epoch": epoch(user), "binding": row.name,
     }, expires_in_sec=PROOF_TTL)
@@ -486,41 +505,125 @@ def deliverable_email(user: str) -> bool:
     return bool(domain and domain != load_settings().account_domain and not domain.endswith((".internal", ".test", ".invalid", ".localhost")) and domain != "localhost")
 
 
+def verified_recovery_email(user: str) -> bool:
+    # Frappe User has no built-in email-ownership verification field. Only
+    # addresses explicitly verified by the site's operator are eligible. Never
+    # trust an OAuth profile email or the generated internal account identifier.
+    verified = frappe.conf.get("hbos_account_verified_recovery_emails") or {}
+    return bool(isinstance(verified, dict) and user not in {"Administrator", "Guest"}
+        and mail_ready() and deliverable_email(user)
+        and str(verified.get(user) or "").strip().lower() == user.lower())
+
+
+@frappe.whitelist(allow_guest=True, methods=["GET"])
+def get_recovery_channels() -> dict:
+    no_store()
+    from hbos_portal.auth.feishu import load_settings
+
+    settings = load_settings()
+    verified = frappe.conf.get("hbos_account_verified_recovery_emails") or {}
+    return {"site": frappe.local.site, "feishu_login": settings.configured,
+        "feishu_password_recovery": bool(settings.configured and frappe.conf.get("hbos_feishu_inbox_recovery_enabled")),
+        "verified_email": bool(mail_ready() and isinstance(verified, dict) and any(verified_recovery_email(user) for user in verified)),
+        "administrator_assistance": True}
+
+
+def recovery_url(native_link: str) -> str:
+    key = parse_qs(urlsplit(native_link).query).get("key", [""])[0]
+    if not key or len(key) > 512:
+        frappe.throw("无法签发恢复链接。", frappe.AuthenticationError)
+    # A fragment never enters HTTP request URLs or proxy access logs.
+    origin = str(frappe.conf.get("hbos_portal_origin") or "").rstrip("/")
+    return origin + "/hbos/reset-password#" + urlencode({"key": key})
+
+
+def recovery_target(doc) -> dict:
+    return {"user": doc.name, "login_name": doc.username or doc.name, "display_name": doc.full_name or doc.first_name or doc.name}
+
+
+def _recovery_record(key: str):
+    from frappe.utils import get_datetime, now_datetime
+
+    record = None
+    if isinstance(key, str) and 16 <= len(key) <= 512 and not any(c.isspace() for c in key):
+        record = frappe.db.get_value("User", {"reset_password_key": digest(key)},
+            ["name", "last_reset_password_key_generated_on", "enabled"], as_dict=True)
+    age = None
+    if record and record.last_reset_password_key_generated_on:
+        age = (now_datetime() - get_datetime(record.last_reset_password_key_generated_on)).total_seconds()
+    if not record or not record.enabled or record.name in {"Guest", "Administrator"} or age is None or not 0 <= age < RECOVERY_TTL:
+        frappe.throw("恢复链接无效、已使用或已过期。", frappe.AuthenticationError)
+    require_user(record.name)
+    return record, max(1, int(RECOVERY_TTL - age))
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+@rate_limit(limit=8, seconds=300)
+def validate_recovery(key: str) -> dict:
+    require_post()
+    no_store()
+    try:
+        record, remaining = _recovery_record(key)
+        context = secrets.token_urlsafe(32)
+        browser = secrets.token_urlsafe(32)
+        frappe.cache.set_value("hbos:account:recovery:" + digest(context), {
+            "user": record.name, "key_hash": digest(key), "browser_hash": digest(browser),
+            "session": session_digest(), "epoch": epoch(record.name),
+        }, expires_in_sec=remaining)
+        frappe.local.cookie_manager.set_cookie(RECOVERY_COOKIE, browser, httponly=True, samesite="Lax", max_age=remaining)
+        return {"target": recovery_target(frappe.get_doc("User", record.name)), "recovery_context": context, "expires_in": remaining}
+    finally:
+        frappe.local.form_dict.pop("key", None)
+
+
+def _require_recovery_context(context: str, key: str, user: str) -> None:
+    record = frappe.cache.get_value("hbos:account:recovery:" + digest(str(context))) if context else None
+    browser = unquote(str(frappe.local.request.cookies.get(RECOVERY_COOKIE) or ""))
+    if not record or record.get("user") != user or record.get("epoch") != epoch(user) or record.get("session") != session_digest() or not secrets.compare_digest(record.get("key_hash", ""), digest(key)) or not browser or not secrets.compare_digest(record.get("browser_hash", ""), digest(browser)):
+        frappe.throw("恢复验证已失效，请重新打开恢复链接。", frappe.AuthenticationError)
+
+
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 @rate_limit(limit=3, seconds=3600)
 def request_reset(user: str) -> dict:
     require_post()
     from frappe.core.doctype.user.user import User
 
-    found = User.find_by_credentials(user, "", validate_password=False)
-    if found and found.enabled and found.name not in {"Administrator", "Guest"} and mail_ready() and deliverable_email(found.name):
-        doc = frappe.get_doc("User", found.name)
-        doc.validate_reset_password()
-        link = doc._reset_password(send_email=False)
-        doc.password_reset_mail(frappe.utils.get_url() + link.replace("/update-password?", "/hbos/reset-password?", 1))
-        audit("email_recovery_requested", found.name)
+    try:
+        found = User.find_by_credentials(user, "", validate_password=False)
+        if found and found.enabled and verified_recovery_email(found.name):
+            doc = frappe.get_doc("User", found.name)
+            doc.validate_reset_password()
+            doc.password_reset_mail(recovery_url(doc._reset_password(send_email=False)))
+            audit("email_recovery_requested", found.name)
+    except Exception:
+        # Missing accounts, provider failures and throttled accounts share the
+        # same response. No account-existence or mailbox error is disclosed.
+        frappe.db.rollback()
     return {"message": "如账号存在且有可用恢复邮箱，系统已发送恢复说明。也可使用已绑定飞书登录后进行安全验证。"}
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 @rate_limit(limit=8, seconds=300)
-def update_password(new_password: str, logout_all_sessions: int = 1, key: str | None = None, old_password: str | None = None, otp: str = "", tmp_id: str = ""):
+def update_password(new_password: str, logout_all_sessions: int = 1, key: str | None = None, old_password: str | None = None, otp: str = "", tmp_id: str = "", recovery_context: str = ""):
     """Secure the framework's historical public password-update path as well."""
     require_post()
     if key:
-        from frappe.utils import get_datetime, now_datetime
-
-        record = frappe.db.get_value("User", {"reset_password_key": digest(key)}, ["name", "last_reset_password_key_generated_on", "enabled"], as_dict=True)
-        if not record or not record.enabled or record.name in {"Guest", "Administrator"} or not record.last_reset_password_key_generated_on or (now_datetime() - get_datetime(record.last_reset_password_key_generated_on)).total_seconds() > 900:
-            frappe.throw("恢复链接无效、已使用或已过期。", frappe.AuthenticationError)
-        require_user(record.name)
+        record, _ = _recovery_record(key)
+        _require_recovery_context(recovery_context, key, record.name)
         challenge = verify_mfa(record.name, otp=otp, tmp_id=tmp_id)
         if challenge:
             return challenge
         frappe.db.sql("SELECT name FROM `tabUser` WHERE name=%s AND reset_password_key=%s FOR UPDATE", (record.name, digest(key)))
         if frappe.db.get_value("User", record.name, "reset_password_key", cache=False) != digest(key):
             frappe.throw("恢复链接已使用。", frappe.AuthenticationError)
+        # Re-check expiry, enabled account and the target under the User lock.
+        locked, _ = _recovery_record(key)
+        if locked.name != record.name:
+            frappe.throw("恢复验证已失效。", frappe.AuthenticationError)
         _write_password(record.name, new_password)
+        frappe.cache.delete_value("hbos:account:recovery:" + digest(recovery_context))
+        frappe.local.cookie_manager.delete_cookie(RECOVERY_COOKIE)
     else:
         user = require_user()
         if old_password:

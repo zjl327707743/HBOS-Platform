@@ -297,7 +297,8 @@ def _unwrap_feishu_payload(response: Any) -> Mapping[str, Any]:
         raise FeishuLoginError("exchange_failed", "飞书身份服务返回无效响应。")
     code = value.get("code")
     if code not in (None, 0, "0"):
-        raise FeishuLoginError("exchange_failed", "飞书身份验证失败。")
+        safe_code = str(code) if str(code).isdigit() and len(str(code)) <= 12 else "unknown"
+        raise FeishuLoginError("exchange_failed", f"飞书调用未成功（错误码 {safe_code}），请核对应用能力、权限和可用范围。")
     data = value.get("data")
     return data if isinstance(data, Mapping) else value
 
@@ -413,7 +414,11 @@ def _resolve_or_provision_user(settings: FeishuSettings, identity: Mapping[str, 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
 def get_status() -> dict[str, object]:
     frappe.local.response_headers["Cache-Control"] = "private, no-store, max-age=0"
-    return load_settings().public_status()
+    settings = load_settings()
+    return {**settings.public_status(), "callback": settings.redirect_uri,
+        "administrator_link": {"enabled": _truthy(frappe.conf.get("hbos_feishu_allow_administrator_link")), "requires_password_and_existing_mfa": True},
+        "inbox_stepup": {"enabled": _truthy(frappe.conf.get("hbos_feishu_inbox_recovery_enabled")), "recipient_policy": "verified_bound_self_on_request", "actual_delivery": "requires_self_request"},
+        "live_oauth": "requires_owner_browser_acceptance"}
 
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
@@ -451,6 +456,8 @@ def start_link() -> dict:
     require_post()
     user = require_user(external=True)
     proof = require_proof(user, consume=True)
+    if user == "Administrator" and proof["method"] != "password":
+        frappe.throw("Administrator 绑定须验证管理员密码及原有二次认证。", frappe.AuthenticationError)
     settings = load_settings()
     if not settings.configured:
         frappe.throw("飞书配置尚未完成。", frappe.AuthenticationError)
@@ -587,10 +594,24 @@ def verify_internal_member(settings: FeishuSettings, open_id: str, *, post=None,
         raise FeishuLoginError("tenant_rejected", "无法验证当前应用范围内的在职内部成员。")
 
 
+def probe_inbox_bot(settings: FeishuSettings, *, post=None, get=None) -> bool:
+    if get is None:
+        import requests
+        get = requests.get
+    token = _tenant_token(settings, post=post)
+    data = _unwrap_feishu_payload(get("https://open.feishu.cn/open-apis/bot/v3/info", headers={"Authorization": f"Bearer {token}"}, timeout=10))
+    bot = data.get("bot") or {}
+    if not bot.get("open_id") or not bot.get("app_name"):
+        raise FeishuLoginError("config_required", "当前应用的机器人能力不可验证。")
+    return True
+
+
 def send_inbox_code(settings: FeishuSettings, open_id: str, code: str) -> None:
     import requests
     import json
     token = _tenant_token(settings)
     # The receive_id is read from the persistent verified binding, never supplied
     # by a caller. A website request sends only to that account's own inbox.
-    _unwrap_feishu_payload(requests.post("https://open.feishu.cn/open-apis/im/v1/messages", params={"receive_id_type": "open_id"}, headers={"Authorization": f"Bearer {token}"}, json={"receive_id": open_id, "msg_type": "text", "content": json.dumps({"text": f"HBOS 账号安全验证码：{code}，5 分钟内有效。仅在本人操作时输入，请勿转发。"}, ensure_ascii=False), "uuid": secrets.token_hex(16)}, timeout=10))
+    data = _unwrap_feishu_payload(requests.post("https://open.feishu.cn/open-apis/im/v1/messages", params={"receive_id_type": "open_id"}, headers={"Authorization": f"Bearer {token}"}, json={"receive_id": open_id, "msg_type": "text", "content": json.dumps({"text": f"HBOS 账号安全验证码：{code}，5 分钟内有效。仅在本人操作时输入，请勿转发。"}, ensure_ascii=False), "uuid": secrets.token_hex(16)}, timeout=10))
+    if not data.get("message_id"):
+        raise FeishuLoginError("exchange_failed", "飞书没有确认消息发送；没有签发验证码。")

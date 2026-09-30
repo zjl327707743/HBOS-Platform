@@ -14,6 +14,7 @@
       </a-descriptions>
       <a-alert v-if="!status.feishu_configured" message="飞书尚未完成企业配置，现有密码登录可继续使用。" type="info" show-icon />
       <a-alert v-if="status.administrator && !status.administrator_link_enabled" message="Administrator 飞书绑定需 Owner 专门启用，原密码应急入口保留。" type="info" show-icon />
+      <a-alert v-if="status.administrator && status.administrator_link_enabled && !status.feishu_bound" message="绑定 Administrator 须先验证管理员密码及原有 MFA，再授权本人飞书并明确确认。" type="info" show-icon />
       <form class="security-form" @submit.prevent="verify">
         <div v-if="status.has_password && status.feishu_bound" class="security-actions">
           <a-button :type="passwordMode ? 'primary' : 'default'" :disabled="busy" @click="chooseVerification(false)">使用原密码验证</a-button>
@@ -23,16 +24,16 @@
         <a-input-password v-if="passwordMode" id="security-current-password" v-model:value="password" autocomplete="current-password" />
         <template v-else>
           <a-button :disabled="!status.feishu_stepup_available || busy" @click="sendCode">发送验证码到本人飞书</a-button>
-          <a-input id="security-feishu-code" v-model:value="code" inputmode="numeric" autocomplete="one-time-code" placeholder="6 位安全验证码" />
+          <a-input-password id="security-feishu-code" v-model:value="code" inputmode="numeric" autocomplete="one-time-code" placeholder="6 位安全验证码" />
           <p v-if="!status.feishu_stepup_available">飞书收件验证码尚不可用，请使用已验证恢复邮箱或管理员受控恢复。</p>
         </template>
-        <template v-if="tmpId"><label for="security-otp">账号原有二次认证</label><a-input id="security-otp" v-model:value="otp" autocomplete="one-time-code" /></template>
+        <template v-if="tmpId"><label for="security-otp">账号原有二次认证</label><a-input-password id="security-otp" v-model:value="otp" autocomplete="one-time-code" /></template>
         <a-button html-type="submit" :loading="busy" :disabled="passwordMode ? !password : !code">{{ verified ? '重新验证本人身份' : '验证本人身份' }}</a-button>
       </form>
       <div class="security-actions">
-        <a-button v-if="!status.feishu_bound" :disabled="!verified || !status.feishu_configured || (status.administrator && !status.administrator_link_enabled)" @click="bind">绑定本人飞书</a-button>
+        <a-button v-if="!status.feishu_bound" :disabled="!verified || !status.feishu_configured || (status.administrator && (!status.administrator_link_enabled || !verifiedWithPassword))" @click="bind">绑定本人飞书</a-button>
         <a-button v-else danger :disabled="!verified || !status.has_password || !verifiedWithPassword" @click="unlink">解绑飞书（须原密码验证）</a-button>
-        <a-button type="link" @click="router.push('/hbos/reset-password')">找回密码与恢复</a-button>
+        <a-button type="link" @click="router.push(status.administrator ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password')">找回密码与恢复</a-button>
       </div>
       <p v-if="status.feishu_bound && !status.has_password">请先设置密码，才能解绑最后一个登录方式。</p>
       <form class="security-form" @submit.prevent="changePassword">
@@ -44,11 +45,11 @@
       </form>
       <a-collapse v-if="status.can_admin_recover" class="admin-recovery">
         <a-collapse-panel key="recovery" header="管理员受控恢复">
-          <p>核对本人身份与账号所有权后签发 15 分钟有效的一次性凭据。不会直接改密；Administrator 保留原生应急恢复。</p>
+          <p>重新验证管理员密码及原有 MFA，核对员工本人身份与账号所有权，再签发 15 分钟有效的单次重置链接。由员工本人设置最终密码。Administrator 使用本机应急设密。</p>
           <a-input v-model:value="recoveryUser" placeholder="目标 HBOS User 标识" autocomplete="off" />
           <a-textarea v-model:value="recoveryReason" placeholder="身份核验依据（至少 12 个字符，记录审计）" />
-          <a-button :disabled="!verified || !recoveryUser || recoveryReason.length < 12" @click="issueRecovery">签发恢复凭据</a-button>
-          <p v-if="recoveryKey">一次性凭据：<code>{{ recoveryKey }}</code>。仅私下交付已核验本人，在恢复页输入。</p>
+          <a-button :disabled="!verified || !verifiedWithPassword || busy || !recoveryUser || recoveryReason.length < 12" @click="issueRecovery">签发一次性重置链接</a-button>
+          <template v-if="recoveryLink"><p>已签发给 <strong>{{ recoveryLink.target.display_name }}</strong>（登录名 {{ recoveryLink.target.login_name }}），{{ Math.ceil(recoveryLink.expires_in / 60) }} 分钟有效。请私下交付已核验本人，不截图或公开转发。</p><a-button @click="copyRecoveryLink">复制一次性链接</a-button><p v-if="linkCopied">链接已复制。仅交付以上账号本人。</p></template>
         </a-collapse-panel>
       </a-collapse>
     </template>
@@ -57,23 +58,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getSecurity, reauthenticate, requestFeishuCode, verifyFeishuCode, startLink, setPassword, unlinkFeishu, adminIssueRecovery, type SecurityStatus } from '@/services/accountApi'
+import { getSecurity, reauthenticate, requestFeishuCode, verifyFeishuCode, startLink, setPassword, unlinkFeishu, adminIssueRecovery, type SecurityStatus, type RecoveryLink } from '@/services/accountApi'
 import { clearFrappeCsrfToken } from '@/services/frappeClient'
 const router = useRouter()
 const status = ref<SecurityStatus | null>(null)
 const password = ref(''), newPassword = ref(''), confirmation = ref(''), code = ref(''), otp = ref(''), tmpId = ref('')
-const recoveryUser = ref(''), recoveryReason = ref(''), recoveryKey = ref('')
+const recoveryUser = ref(''), recoveryReason = ref(''), recoveryLink = ref<RecoveryLink | null>(null), linkCopied = ref(false)
 const verified = ref(false), busy = ref(false), error = ref(''), notice = ref('')
 const useFeishu = ref(false), verifiedWithPassword = ref(false)
 const passwordMode = computed(() => Boolean(status.value?.has_password && !useFeishu.value))
 function chooseVerification(feishu: boolean) { useFeishu.value = feishu; verified.value = false; verifiedWithPassword.value = false; password.value = ''; code.value = ''; otp.value = ''; tmpId.value = '' }
 async function run(fn: () => Promise<void>) { busy.value = true; error.value = ''; notice.value = ''; try { await fn() } catch { verified.value = false; error.value = '操作未完成：请检查本人验证、密码策略、绑定冲突或企业配置，并重新验证后再试。' } finally { busy.value = false } }
 async function verify() { await run(async () => { const result = passwordMode.value ? await reauthenticate(password.value, otp.value, tmpId.value) : await verifyFeishuCode(code.value, otp.value, tmpId.value); if (result.mfa_required) { tmpId.value = result.tmp_id || ''; notice.value = '请完成原有二次认证。'; return }; verified.value = true; verifiedWithPassword.value = passwordMode.value; password.value = ''; code.value = ''; otp.value = ''; tmpId.value = ''; notice.value = '本人验证完成，5 分钟内可执行一次安全操作。' }) }
-async function sendCode() { await run(async () => { await requestFeishuCode(); notice.value = '验证码已发送到当前账号绑定的本人飞书。' }) }
+async function sendCode() { await run(async () => { const result = await requestFeishuCode(); if (!result.sent) { error.value = result.error || '飞书未确认投递，请联系管理员核对发送能力。'; return }; notice.value = '飞书已确认发送到本人收件箱。请在本人飞书查收，5 分钟内输入验证码。' }) }
 async function bind() { await run(async () => { const result = await startLink(); verified.value = false; window.location.assign(result.authorize_url) }) }
 async function changePassword() { await run(async () => { if (newPassword.value !== confirmation.value) return; try { const result = await setPassword(newPassword.value); verified.value = false; clearFrappeCsrfToken(); status.value = await getSecurity(); notice.value = `密码已保存，登录名：${result.login_name}。其他旧会话已失效。` } finally { newPassword.value = ''; confirmation.value = '' } }) }
 async function unlink() { await run(async () => { await unlinkFeishu(); verified.value = false; status.value = await getSecurity(); notice.value = '飞书已解绑，原账号和业务资料保留。' }) }
-async function issueRecovery() { await run(async () => { const result = await adminIssueRecovery(recoveryUser.value, recoveryReason.value); verified.value = false; recoveryKey.value = result.recovery_key }) }
+async function issueRecovery() { recoveryLink.value = null; linkCopied.value = false; await run(async () => { recoveryLink.value = await adminIssueRecovery(recoveryUser.value, recoveryReason.value); verified.value = false }) }
+async function copyRecoveryLink() { if (!recoveryLink.value) return; try { await navigator.clipboard.writeText(recoveryLink.value.recovery_url); linkCopied.value = true } catch { error.value = '浏览器无法复制链接，请允许此本机页面使用剪贴板后重试。' } }
 onMounted(() => run(async () => { status.value = await getSecurity() }))
 </script>
 <style scoped>

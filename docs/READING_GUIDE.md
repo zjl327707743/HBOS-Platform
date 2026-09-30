@@ -114,6 +114,6 @@ Portal 产品基线与 PR 目标为 `feature/hbos-portal-product`；当前净化
 
 当前任务定向读取 `docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`、`docs/deployment/统一账号与Portal正式部署说明.md`、`docs/frontend/统一账号发布与前端完整性矩阵.md`。旧预览/试点记录是历史背景，不能替代原账号或正式 Site 验收。真实目标清单、备份与内部报告私下保存。
 
-团队通用交付已发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并），原账号 Site/HTTPS/本人授权验收仍为未放行。
+团队通用交付继续通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并）。本轮接续 P1 真实飞书与恢复体验：Administrator 密码/MFA 及授权确认、第二位企业用户开户、本人收件可选设密与恢复分别记录；未执行真人步骤保持待验，公司服务器/HTTPS 后续。
 
 当前 Portal 本轮门禁以 RP3 主记录和 `deployment/Mac本地运行与团队同步.md` 为准；原库选择、公司服务器和 HTTPS 不阻塞已授权 Mac 运行。

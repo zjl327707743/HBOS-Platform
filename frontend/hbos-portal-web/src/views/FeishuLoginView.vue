@@ -37,7 +37,7 @@
           placeholder="请输入密码"
           :disabled="submitting"
         />
-        <template v-if="tmpId"><label for="login-otp">原有二次认证验证码</label><a-input id="login-otp" v-model:value="otp" autocomplete="one-time-code" /></template>
+        <template v-if="tmpId"><label for="login-otp">原有二次认证验证码</label><a-input-password id="login-otp" v-model:value="otp" autocomplete="one-time-code" /></template>
         <a-button
           type="primary"
           size="large"
@@ -47,7 +47,7 @@
           :disabled="!canSubmit"
         >进入工作台</a-button>
       </form>
-      <RouterLink to="/hbos/reset-password">忘记密码或账号恢复</RouterLink>
+      <RouterLink :to="username.trim().toLowerCase() === 'administrator' ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password'">忘记密码或账号恢复</RouterLink>
 
       <div class="login-divider"><span>或</span></div>
       <a-skeleton v-if="loading" active :paragraph="{ rows: 1 }" />

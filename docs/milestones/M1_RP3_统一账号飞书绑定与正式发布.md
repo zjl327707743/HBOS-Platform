@@ -2,7 +2,27 @@
 
 轮次代号 RP3 表示 Owner 授权的 Portal 执行任务书 v3，并非考勤历史 M1-R3。
 
-状态：**LOCAL_RUNNING / FUNCTION_VERIFIED / REMOTE_PR_TRACKED / LIVE_OWNER_PENDING**。
+状态：**LOCAL_RUNNING / RECOVERY_UPDATED / REMOTE_PR_TRACKED / LIVE_OWNER_PENDING**。
+
+## 最新执行：真实飞书与恢复体验（2026-09-30）
+
+接续 PR #21 实际最新 HEAD、现有 Mac/Site/运行工具。Owner 仅为当前 P1 Site 批准 Administrator 自助绑定许可；密码应急入口保留，绑定仍须管理员密码/原 MFA、本人真实 OAuth 和明确确认，不直接写映射。
+
+现场控制台已只读核对既有应用启用/发布、精确本机回调、基础成员权限、机器人与最小发送权限。自动企业发现需要的 `tenant:tenant:readonly` 已由本人申请并获企业管理员审批，控制台新版本显示已发布；不申请企业域名、席位或聊天读取权限。部分成员范围继续保留，第二位验收身份须在原批准范围内。当前 Site 的有效 Secret/自动企业发现仍等待本人本机隐藏输入；不要求手工搬运 Token、tenant_key、open_id。不把控制台状态或 configured 当真人成功。
+
+本次恢复页按实际渠道呈现，不再默认展示原始恢复 key 输入框；短时链接经后端验证，显示目标，并绑定浏览器/会话/安全 epoch。管理员签发须密码/MFA 和身份核验审计；员工自行设置最终密码。匿名恢复拒绝 Administrator，改用本机 admin-password。真实邮箱须明确核验登记；虚拟 User 地址不可投递。
+
+首次普通开户后显示可用登录名，账号永久且密码可选；重复飞书登录复用绑定。发送仅本人主动请求及持久绑定收件人，飞书须确认 message_id；失败不存新码、不显示投递成功。基础 OAuth 去除不必要受雇信息 scope；两层本机代理不记录认证 URL。新增恢复/目标/浏览器/原 MFA/管理员 proof/投递失败契约通过，前端类型检查通过。
+
+| 真人验收项 | 当前记录 |
+| --- | --- |
+| 本人飞书进入原 Administrator | 待 Secret、本机密码/MFA、授权确认及退出后重新登录 |
+| 第二位企业身份首次开户/再次登录 | 待指定另一位原应用范围内身份；不解绑 Administrator 模拟 |
+| 无密码 User 收件验证后设密、两种登录同一 User | 待本人实际查收/输入及双入口登录 |
+| 已绑定 User 忘记密码实际恢复 | 待本人执行；不以测试替身冒充 |
+| 错误/过期/重复、外部企业、停用、冲突 | 安全契约拒绝边界已检查；真实企业异常场景未执行的继续待验 |
+
+本机、代码/构建/CI、飞书真人验收及公司服务器分别记录。代码修复与团队同步可先完成，不因 Secret/本人输入待执行而将本机或仓库整体标为 BLOCKED；真人目标未完成时不宣称本轮已成功收口。
 
 本轮最新决策（2026-09-30）：复用现有 P1 为固定 Mac 使用环境；无需寻找历史正式库。保留既有数据库/用户/文件/卷及批准知识和模型，部署六 App 与 Portal/LIMS 编译资产，验证五入口并推送 PR #21。公司服务器、固定 IP、正式 HTTPS 留到后续。本人密码/飞书验收独立记录，不以自动化测试替代。
 
@@ -49,7 +69,7 @@ Portal 与 LIMS 使用 clean 提交生成的编译资产，同源连接 Frappe�
 | Mac 固定本地环境 | LOCAL_RUNNING：固定 loopback 5188，原 Site/项目/卷保留，编译 Portal/LIMS 与真实 Gateway 已运行 |
 | 功能验证 | FUNCTION_VERIFIED：上述五入口、普通角色、知识/模型与返回已验证；不代表未操作业务交易已验收 |
 | GitHub 同步 | REMOTE_PR_TRACKED：[PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 为团队发布入口；最终 SHA、最新 CI 和制品以该 PR 当前记录为准 |
-| 飞书 | NOT_CONFIGURED：当前 Site 无有效 Secret/企业发现；服务端尚无回调登记及内部发布确认，控制台状态须本人核对。本人 OAuth 未执行，不阻塞密码/知识/模型 |
+| 飞书 | LIVE_OWNER_PENDING：精确本机回调、基础身份/机器人发送权限已现场核对，企业查询权限已审批并发布；当前 Site 的 Secret 与自动企业发现待本人隐藏输入。许可标记不代替真实 OAuth，不阻塞现有密码/知识/模型 |
 | Owner 本人验收 | LIVE_OWNER_PENDING：本人尚未登录；原密码保留，未知密码由本人在当前 Site 专用工具中隐藏输入确认 |
 | 公司服务器 | NOT_DEPLOYED：固定 IP 与正式 HTTPS 后续，不作为本轮 Mac 门禁 |
 

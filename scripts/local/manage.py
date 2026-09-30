@@ -158,6 +158,7 @@ def write_runtime(c):
             volumes.append(mount(root, "/opt/hbos-release"))
         services[name] = {"volumes": volumes, "restart": "unless-stopped", "environment": {"PYTHONPATH": py}}
     services["frontend"]["environment"]["FRAPPE_SITE_NAME_HEADER"] = c["site"]
+    services["frontend"]["volumes"].append(mount(root / "scripts/local/nginx-frontend.conf", "/etc/nginx/nginx.conf"))
     for name in ["db", "redis-cache", "redis-queue"]:
         services[name] = {"restart": "unless-stopped"}
     services["local-gateway"] = {
@@ -253,6 +254,8 @@ def status(c):
     try:
         feishu = get_json(origin + "/api/method/hbos_portal.auth.feishu.get_status")["message"]
         print("Feishu:", "configured / 本人 OAuth 尚需单独验收" if feishu.get("configured") else "FEISHU_NOT_CONFIGURED: " + ", ".join(feishu.get("missing", [])))
+        print("Feishu Administrator link:", "enabled / 仍须本人密码与原 MFA" if feishu.get("administrator_link", {}).get("enabled") else "disabled")
+        print("Feishu self inbox:", "enabled / 须本人主动请求并核验接收" if feishu.get("inbox_stepup", {}).get("enabled") else "not configured / 无密码设密与恢复需先完成发送能力")
     except urllib.error.HTTPError as e:
         print("Feishu: CONFIG_CHECK_FAILED HTTP", e.code)
     print("Model:", "private root connected / 交互需登录验证" if c.get("model_root") else "MODEL_NOT_CONFIGURED: 未接入私有模型")
@@ -326,7 +329,7 @@ print("当前 Site 的 Administrator 密码已更新；旧会话已撤销，密�
     print(result.stdout.strip())
 
 
-def feishu_config(c):
+def feishu_config(c, enable_inbox=False):
     require_site(c)
     if not sys.stdin.isatty():
         raise ValueError("INTERACTIVE_TERMINAL_REQUIRED")
@@ -336,8 +339,11 @@ def feishu_config(c):
         raise ValueError("FEISHU_APP_ID_MISSING: 请先登记已有飞书应用的公开 App ID")
     # The bench helper reuses an existing Secret; otherwise getpass is on the
     # user's local TTY. Enterprise identity is discovered by the official API.
-    run(["docker", "exec", "-it", backend(c), f"{BENCH}/env/bin/python", "/opt/hbos-release/scripts/release/configure_feishu.py", "--site", c["site"], "--bench", BENCH, "--app-id", app_id, "--origin", c["origin"]])
-    print("配置后请重载本 project，并由本人完成真实授权、绑定、再次登录与退出；未启用收件验证码。")
+    args = ["docker", "exec", "-it", backend(c), f"{BENCH}/env/bin/python", "/opt/hbos-release/scripts/release/configure_feishu.py", "--site", c["site"], "--bench", BENCH, "--app-id", app_id, "--origin", c["origin"]]
+    if enable_inbox:
+        args.append("--enable-inbox-stepup")
+    run(args)
+    print("请由本人完成真实授权、绑定、再次登录与退出；收件验证码须本人主动请求并核验实际接收。")
 
 
 def main():
@@ -345,6 +351,7 @@ def main():
     p.add_argument("action", choices=["start", "status", "stop", "open", "admin-password", "feishu-config", "install-launcher"])
     p.add_argument("--config", default=os.environ.get("HBOS_LOCAL_CONFIG", str(Path.home() / "Library/Application Support/HBOS/local/config.json")))
     p.add_argument("--no-open", action="store_true")
+    p.add_argument("--enable-inbox-stepup", action="store_true", help="feishu-config：已批准并发布机器人发送权限后启用本人验证码")
     args = p.parse_args()
     os.umask(0o077)
     c = config(args.config)
@@ -362,7 +369,7 @@ def main():
     elif args.action == "admin-password":
         administrator_password(c)
     elif args.action == "feishu-config":
-        feishu_config(c)
+        feishu_config(c, args.enable_inbox_stepup)
     else:
         ids = [i for service in SERVICES for i in containers(c, service, False)]
         if ids:
