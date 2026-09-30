@@ -67,6 +67,9 @@ export function normalizeFrappeError(error: unknown, method?: string): FrappeReq
   if (/SecurityException/.test(detail) && /account has been locked|账号.*锁定/i.test(detail)) {
     return new FrappeRequestError('RATE_LIMITED', '验证尝试较多，当前暂不可用。请稍后重试。', status)
   }
+  if (method === 'login_mfa' && /AuthenticationError|ExpiredLoginException/.test(detail)) {
+    return new FrappeRequestError('INVALID_CREDENTIALS', '二次认证未通过或已过期。请重新登录并输入当前验证码。', status)
+  }
   const accountMethod = method?.startsWith('hbos_portal.auth.') && !method.endsWith('password_login')
   if (accountMethod && /ValidationError|AuthenticationError|PermissionError/.test(String((error.response.data as Record<string, unknown>)?.exc_type))) {
     try {
@@ -174,7 +177,7 @@ export async function loginWithPassword(username: string, password: string, otp 
     csrfToken = null
     return result.data.message
   } catch (error) {
-    throw normalizeFrappeError(error, 'login')
+    throw normalizeFrappeError(error, tmpId ? 'login_mfa' : 'login')
   }
 }
 

@@ -17,3 +17,17 @@ it('E06: an unrelated server exception keeps the service failure result', () => 
   } } }, 'login')
   expect(error.code).toBe('SERVICE_ERROR')
 })
+
+it.each(['AuthenticationError', 'ExpiredLoginException'])('A04: a native MFA %s explains the current verification step', exc_type => {
+  const error = normalizeFrappeError({ isAxiosError: true, response: { status: 401, data: {
+    exc_type, message: 'Incorrect Verification code',
+  } } }, 'login_mfa')
+  expect(error.message).toBe('二次认证未通过或已过期。请重新登录并输入当前验证码。')
+})
+
+it('A02: primary password failures still use the uniform credential message', () => {
+  const error = normalizeFrappeError({ isAxiosError: true, response: { status: 401, data: {
+    exc_type: 'AuthenticationError', message: 'Invalid login credentials',
+  } } }, 'login')
+  expect(error.message).toBe('账号或密码不正确。')
+})
