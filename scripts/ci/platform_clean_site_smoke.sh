@@ -10,8 +10,12 @@ test -d runtime/apps/hrms || {
 }
 
 PROJECT="${HBOS_SMOKE_PROJECT:-hbos-platform-smoke-${GITHUB_RUN_ID:-local}}"
+[[ "$PROJECT" =~ ^hbos-platform-[A-Za-z0-9_-]+$ ]] || {
+  echo 'CI 只能使用 hbos-platform- 命名空间的独立测试项目' >&2
+  exit 1
+}
 export COMPOSE_PROJECT_NAME="$PROJECT"
-export ERPNEXT_VERSION="${ERPNEXT_VERSION:-v16.26.2}"
+export ERPNEXT_VERSION="${ERPNEXT_VERSION:-v16.26.2@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583}"
 export SITE_NAME="${SITE_NAME:-platform-smoke.localhost}"
 export FRAPPE_SITE_NAME_HEADER="$SITE_NAME"
 export HTTP_PORT="${HTTP_PORT:-18090}"

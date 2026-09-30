@@ -22,3 +22,5 @@ Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服�
 ## 协作与边界
 
 `AGENTS.md`、`CLAUDE.md` 为规则入口；进度以状态台账与对应里程碑为准。Portal 本轮不改变其他考勤/库存里程碑的 Owner 验收状态。禁止创建未知替代库、覆盖未知数据库、重置原密码/角色、发布凭据或私有资料。
+
+团队取得代码与部署制品：[PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)。正式发布 Gate 尚未关闭，详情见本轮主记录。

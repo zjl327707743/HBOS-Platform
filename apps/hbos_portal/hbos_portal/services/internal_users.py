@@ -46,8 +46,8 @@ def classify_internal_user(
 ) -> InternalUserDecision:
     """Classify a Frappe account for basic internal Portal access.
 
-    This does not grant roles. The dedicated P1 Site treats enabled ordinary
-    accounts as internal while retaining explicit denials for visitors,
+    This does not grant roles. Enabled ordinary accounts can access the basic
+    Portal while retaining explicit denials for visitors,
     service accounts, privileged accounts and locally configured exceptions.
     """
 

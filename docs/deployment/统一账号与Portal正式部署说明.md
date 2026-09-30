@@ -4,7 +4,7 @@
 
 ## 版本与团队取得方式
 
-PR 目标为 `feature/hbos-portal-product`；本轮发布分支为 `codex/portal-unified-account-release`。接续已有 Portal/Knowledge/Twin 源码，以独立净化提交提供必要代码，不发布个人开发分支中的内部运行报告。团队使用 PR 的实际 HEAD SHA，禁止引用个人绝对路径。
+实际交付为 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并）。PR 目标为 `feature/hbos-portal-product`；本轮发布分支为 `codex/portal-unified-account-release`。接续已有 Portal/Knowledge/Twin 源码，以独立净化提交提供必要代码，不发布个人开发分支中的内部运行报告。团队使用 PR 的实际 HEAD SHA，禁止引用个人绝对路径。
 
 `bash scripts/release/build_bundle.sh` 在 clean checkout 执行 `npm ci`、类型检查及 production build，生成 `.release/hbos-portal-release.tar.gz`。包内包含六个自定义 App、Gateway 通用源码、部署工具、前端编译资产、`release.json` 和资产 `build-info.json`。构建强制使用 Frappe 数据模式及同源 API。检查 `source_dirty=false`、commit、文件 SHA256 和 build ID；仅 `.release` 内的显式测试制品可以带 dirty 标记，不准用于正式发布。GitHub Actions 会上传同一构建流程的制品，保留 14 天。
 

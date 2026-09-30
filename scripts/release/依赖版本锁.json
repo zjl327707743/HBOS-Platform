@@ -15,5 +15,6 @@
   "portable_gateway_lock": "services/hbos_gateway/requirements.txt",
   "portable_gateway_base_image": "python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f",
   "approved_index_import_lock": "services/hbos_gateway/requirements-index.txt",
-  "lims_frontend_lock": "frontend/hbos-lims-web/package-lock.json"
+  "lims_frontend_lock": "frontend/hbos-lims-web/package-lock.json",
+  "restore_check_image": "mariadb:11.8@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4"
 }

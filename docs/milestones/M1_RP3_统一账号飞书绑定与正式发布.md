@@ -17,7 +17,9 @@
 
 ## 已验证与证据范围
 
-受控测试 Site 上：真实 Frappe ORM/SQL 唯一约束、原生密码、TOTP、一次性票据、冲突和停用；标准 HTTP 登录、CSRF/Origin、无强验证设密拒绝、旧接口旁路拒绝、真实多会话撤销及停用后拒绝；Vue typecheck/production build。隔离恢复工具已验证完整 SQL 导入、归档可读及密钥存在，强化的逐项账号指纹对比继续用于最终目标备份。
+受控测试 Site 上：真实 Frappe ORM/SQL 唯一约束、原生密码、TOTP、一次性票据、冲突和停用；标准 HTTP 登录、CSRF/Origin、无强验证设密拒绝、旧接口旁路拒绝、真实多会话撤销及停用后拒绝；Vue typecheck/production build。隔离恢复完成全部 SQL 导入，User、密码验证记录、角色、User Permissions、业务关联及外部身份指纹逐项一致，归档可读、密钥存在、源库未修改；该测试不能代替原账号目标库的部署前恢复 Gate。
+
+网页通过原生表单登录合成普通 User，展示按权限过滤的两个知识/设备入口，完成本人原密码重新认证、真实知识检索与现有模型渲染，并核对帮助、通知未接入及偏好禁用状态。通用 Gateway 以只读方式复用既有批准索引返回真实结果，索引未变化，未替换私有 Gateway。真实原业务用户与 Administrator 表单验收仍待目标确认。
 
 测试身份均为合成；没有把原用户迁到测试库，没有重置原账号或 Administrator 的密码、角色。Browser 曾展示测试 Site 的 Administrator 五应用及诊断，后续会话失效已识别；这不是正式目标的本人表单登录/五入口完整验收。Owner 的数据库候选明细、备份、账号与运行报告留在私下，不放入 Git。
 
@@ -31,7 +33,7 @@
 | 飞书真实企业 OAuth/本人收件验证码 | 目标 Secret、回调、应用权限/内部范围发布未完成实测；不以 configured 代替 |
 | 原 Administrator 表单与五应用验收 | 待已确认正式目标及本人登录 |
 | 原业务用户权限/关联不回归 | 保留校验和诊断已实现；原账号现场验收未执行 |
-| GitHub 团队同步 | 独立净化发布分支，PR 状态由真实 GitHub 结果同步 |
+| GitHub 团队同步 | [真实 PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)，Draft、未合并；base `feature/hbos-portal-product`，head `codex/portal-unified-account-release` |
 | 正式发布 | 未放行，不标记 COMPLETED |
 
 ## 配套文档

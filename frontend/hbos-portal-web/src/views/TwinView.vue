@@ -45,7 +45,7 @@
         <div v-else class="selection-empty">
           <div class="selection-icon"><SelectOutlined /></div>
           <h3>{{ viewerReady ? '选择一个部件' : '模型载入后可选择部件' }}</h3>
-          <p>点击三维模型中的区域，使用 GLB 内稳定 `asset_id` 查询服务器映射。</p>
+          <p>点击三维模型中的部件，查看已确认的设备信息与相关资料。</p>
         </div>
 
         <div class="twin-side-bottom">
@@ -69,7 +69,7 @@
     <section class="journey-strip hbos-glass-g1">
       <div><b>01</b><span><strong>浏览与定位</strong><small>让真实设备模型成为理解起点</small></span></div>
       <RightOutlined />
-      <div><b>02</b><span><strong>选择一个部件</strong><small>用稳定 asset_id 核验上下文</small></span></div>
+      <div><b>02</b><span><strong>选择一个部件</strong><small>查看已核验的部件信息</small></span></div>
       <RightOutlined />
       <div><b>03</b><span><strong>展开相关知识</strong><small>由知识 App 再次授权资料</small></span></div>
     </section>

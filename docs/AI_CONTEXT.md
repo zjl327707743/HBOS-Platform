@@ -152,3 +152,5 @@ bash scripts/portal/p3_workspace_runtime_smoke.sh
 下一阶段在本地工作台验收后进入三 APP 前端强化研究。必须继续遵守 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`：独立前端先做原型 / 视觉方案与 Owner Gate，再实施；Desk 后台页面不得为了“好看”被整体重写成独立前端。
 
 Portal 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts 按需使用。
+
+团队通用交付已发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并），原账号 Site/HTTPS/本人授权验收仍为未放行。

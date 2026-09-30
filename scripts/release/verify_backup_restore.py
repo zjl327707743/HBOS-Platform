@@ -24,7 +24,7 @@ parser.add_argument("--public-files", required=True)
 parser.add_argument("--private-files", required=True)
 parser.add_argument("--before", required=True, help="准备备份时的受保护 before.json")
 parser.add_argument("--auth-files", required=True, help="原生文件备份之外的集成凭据归档")
-parser.add_argument("--image", default="mariadb:11.8")
+parser.add_argument("--image", default="mariadb:11.8@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4")
 args = parser.parse_args()
 config = json.loads(Path(args.site_config).read_text())
 if not config.get("encryption_key"):
@@ -51,8 +51,12 @@ with tempfile.TemporaryDirectory(prefix="hbos-restore-check-") as temporary:
         subprocess.run(["docker", "run", "-d", "--rm", "--name", name, "--network", "none", "--mount", f"type=bind,src={directory},dst=/run/hbos-check,readonly", "-e", "MARIADB_ROOT_PASSWORD_FILE=/run/hbos-check/root-password", args.image], check=True, stdout=subprocess.DEVNULL)
         started = True
         for attempt in range(60):
-            ready = subprocess.run(["docker", "exec", name, "mariadb-admin", "--defaults-extra-file=/run/hbos-check/client.cnf", "ping", "--silent"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if ready.returncode == 0:
+            # mysqladmin ping can return success even when authentication
+            # fails. Wait for the final PID 1 database process and an actual
+            # authenticated SQL query, not the entrypoint's temporary server.
+            process_name = subprocess.run(["docker", "exec", name, "cat", "/proc/1/comm"], capture_output=True, text=True)
+            ready = subprocess.run(["docker", "exec", name, "mariadb", "--defaults-extra-file=/run/hbos-check/client.cnf", "--batch", "--skip-column-names", "-e", "SELECT 1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if process_name.stdout.strip() in {"mariadbd", "mysqld"} and ready.returncode == 0:
                 break
             time.sleep(1)
         else:

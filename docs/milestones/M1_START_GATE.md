@@ -157,3 +157,5 @@ M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审
 本轮 Portal：统一账号与正式发布 v3，状态 REVIEWING / OWNER_TARGET_REQUIRED / LIVE_AUTH_REQUIRED / NOT_RELEASED。已接续既有 Knowledge/Twin 与五应用集成，实现账号双方验证、安全页面和 production 部署工具；尚未确认原账号正式 Site、正式 HTTPS 目标及本人飞书/原账号现场验收，不能标记正式交付完成。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。安全检查后允许功能分支 push 和真实 PR，PR base 明确为 `feature/hbos-portal-product`，不直接推 main、不强推、不自动合并。
 
 放行顺序：原数据源确认 → 完整备份与隔离恢复 → 同库部署与原用户权限/关联保留 → 原 Administrator 与业务用户表单/五应用 → 本人飞书绑定、新用户强验证设密与恢复/停用 → 固定 HTTPS 入口。代码 PR 和制品可先交付；最终 Gate 不能由 configured、样例数据或测试站替代。本轮不改考勤主线状态，不自动合并或开始其他里程碑。
+
+团队通用交付已发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并），原账号 Site/HTTPS/本人授权验收仍为未放行。

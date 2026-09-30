@@ -33,7 +33,7 @@
         </a-button>
       </a-tooltip>
 
-      <a-dropdown>
+      <a-dropdown :trigger="['click']">
         <button type="button" class="avatar-button" aria-label="打开个人菜单">
           <a-avatar class="user-avatar" :src="avatarUrl || undefined">
             <template v-if="!avatarUrl">{{ avatarText }}</template>

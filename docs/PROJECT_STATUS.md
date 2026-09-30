@@ -12,7 +12,7 @@
 | 五应用与已批准前端 | 既有成果继续使用；缺项与真实权限见完整性矩阵 |
 | 备份恢复/保留校验/production 制品 | 工具与 clean 构建流程已交付；原数据库未升级 |
 | 通用 Gateway/团队依赖 | 版本化通用代码、Dockerfile、完整 lock 已提供；私有资料不进 Git |
-| 真实 PR/CI | 由真实 GitHub 返回结果同步；未合并 |
+| 真实 PR/CI | [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)，Draft，base 为 Portal 产品分支；CI 以该 PR 的实际 Checks 为准；未合并 |
 | 正式入口/原业务用户/Administrator 最终验收 | 待目标确认与本人登录；NOT_RELEASED |
 
 ## 其他既有里程碑

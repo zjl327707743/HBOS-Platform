@@ -33,6 +33,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build the reviewed same-site Portal bundle
+        run: |
+          bash scripts/release/build_bundle.sh
+          tar -xzf .release/hbos-portal-release.tar.gz ./apps/hbos_portal/hbos_portal/public/portal
+
       - name: Prepare HRMS v16 source
         run: |
           mkdir -p runtime/apps

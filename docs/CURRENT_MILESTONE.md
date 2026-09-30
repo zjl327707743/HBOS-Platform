@@ -6,6 +6,8 @@
 
 下述考勤历史轮次的范围不约束已明确授权的 Portal v3；Portal 不替其他业务轮次 closeout。
 
+团队代码已通过安全扫描发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)；保持 Draft、未合并。正式账号 Site 与真实本人验收未放行。
+
 ## M1-FIX：M1 考勤一期功能补漏阶段
 
 项目名称：新乡海滨智能运营管理平台。
