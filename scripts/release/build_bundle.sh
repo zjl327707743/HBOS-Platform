@@ -13,8 +13,8 @@ cd "$ROOT/frontend/hbos-lims-web"
 npm ci --no-audit --no-fund
 npm run build:prod
 cd "$ROOT"
-python3 scripts/release/package_bundle.py "$STAGE"
-tar -czf "$OUTPUT/hbos-portal-release.tar.gz" -C "$STAGE" .
+python3 scripts/release/package_bundle.py "$STAGE" "$OUTPUT/hbos-portal-release.tar.gz"
+python3 scripts/release/validate_bundle.py "$OUTPUT/hbos-portal-release.tar.gz" --source-commit "$(git rev-parse HEAD)"
 python3 - "$OUTPUT/hbos-portal-release.tar.gz" <<'PY'
 import hashlib,sys
 from pathlib import Path

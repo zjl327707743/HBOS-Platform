@@ -1,6 +1,7 @@
 .env
 *.local
 .DS_Store
+._*
 logs/
 tmp/
 .frappe/
@@ -17,6 +18,7 @@ __pycache__/
 runtime/
 .release/
 apps/hbos_portal/hbos_portal/public/portal/
+apps/hb_lims_app/hb_lims_app/public/hbos-lims/
 
 # Local attendance exports and validation data must not be committed.
 docs/data/*.xlsx

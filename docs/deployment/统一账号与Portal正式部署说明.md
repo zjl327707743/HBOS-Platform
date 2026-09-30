@@ -6,7 +6,7 @@
 
 实际交付为 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并）。PR 目标为 `feature/hbos-portal-product`；本轮发布分支为 `codex/portal-unified-account-release`。接续已有 Portal/Knowledge/Twin 源码，以独立净化提交提供必要代码，不发布个人开发分支中的内部运行报告。团队使用 PR 的实际 HEAD SHA，禁止引用个人绝对路径。
 
-`bash scripts/release/build_bundle.sh` 在 clean checkout 执行 `npm ci`、类型检查及 production build，生成 `.release/hbos-portal-release.tar.gz`。包内包含六个自定义 App、Gateway 通用源码、部署工具、前端编译资产、`release.json` 和资产 `build-info.json`。构建强制使用 Frappe 数据模式及同源 API。检查 `source_dirty=false`、commit、文件 SHA256 和 build ID；仅 `.release` 内的显式测试制品可以带 dirty 标记，不准用于正式发布。GitHub Actions 从真实 PR head SHA 上传同一构建流程的制品，保留 14 天；制品来源不能以短期合并预演 SHA 代替已审查 head。
+`bash scripts/release/build_bundle.sh` 在 clean checkout 执行 `npm ci`、类型检查及 production build，生成 `.release/hbos-portal-release.tar.gz`。包内包含六个自定义 App、Gateway 通用源码、部署工具、前端编译资产、`release.json` 和资产 `build-info.json`。构建强制使用 Frappe 数据模式及同源 API。检查 `source_dirty=false`、commit、文件 SHA256 和 build ID；仅 `.release` 内的显式测试制品可以带 dirty 标记，不准用于正式发布。GitHub Actions 从真实 PR head SHA 上传同一构建流程的制品，保留 14 天；制品来源不能以短期合并预演 SHA 代替已审查 head。 打包统一规范时间/所有者并排除 macOS 资源分叉；构建自动校验归档安全路径、全量文件 SHA、来源提交及 Portal/LIMS 编译入口，避免本机元数据进入交付包。
 
 兼容实测基线见 `scripts/release/依赖版本锁.json`。前端 npm lock 与 Gateway 完整 Python lock 已版本化；HRMS 使用官方仓库固定 commit。既有目标的 ERPNext/Frappe/HRMS 版本先核对，禁止为了匹配基线降级原站；不一致时在目标备份的隔离恢复环境验证兼容性。
 
@@ -62,7 +62,7 @@ bash /opt/hbos-release/scripts/release/apply_existing_site.sh \
 
 旧用户：原密码登录 → 我的 → 账号与安全 → 验证原密码/原 MFA → 绑定本人飞书 → 授权后明确确认当前账号。首次飞书用户：先授权 → 选择验证已有账号，或明确新建普通永久账号。新 User 无管理员角色及默认密码；用本人飞书收件验证码（及已有 MFA）验证后在网页设密，仍是同一 User。
 
-改密后清除所有旧会话与恢复票据并颁发标准新会话。解绑须验证可用本地密码，最后一种登录方式不能解绑。冲突不转移、不按姓名/邮箱合并；恢复使用验证邮箱短时单次 key 或管理员重新认证后填写核验依据并签发恢复凭据。Administrator 保留原密码应急入口，外部绑定默认关闭，须 Owner 单独启用；绝不自动授予新飞书用户 Administrator。
+改密后清除所有旧会话与恢复票据并颁发标准新会话。已有密码的绑定用户忘记密码时，可在网页切换本人飞书消息验证码验证，再更新同一 User 的密码；收件能力未启用时明确提示，不能仅凭现有 SSO 会话改密。解绑须验证可用本地密码，最后一种登录方式不能解绑。冲突不转移、不按姓名/邮箱合并；恢复使用验证邮箱短时单次 key 或管理员重新认证后填写核验依据并签发恢复凭据。Administrator 保留原密码应急入口，外部绑定默认关闭，须 Owner 单独启用；绝不自动授予新飞书用户 Administrator。
 
 中央 User 停用立即拒绝密码、SSO、旧会话与恢复，撤销绑定/票据并保留 tombstone。启用飞书停用同步后每五分钟检查明确 frozen/resigned/unjoin/exited 状态，停用同一普通 User；不自动重新启用，Administrator 不自动停用。范围撤销/API 权限缺失/网络失败不构成可靠离职证明：记录失败，拒绝新 SSO，管理员须核实并中央停用，不能承诺这种情况下本地密码自动被停用。调度队列积压会延迟五分钟目标，运维必须监控失败及调度时效。
 
