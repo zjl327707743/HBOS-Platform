@@ -64,6 +64,9 @@ export function normalizeFrappeError(error: unknown, method?: string): FrappeReq
   const isBootstrap = method === 'hbos_portal.api.bootstrap.get_bootstrap'
   const isGuestPermission = /\bGuest\b|not permitted to access this method|login to access/i.test(detail)
   if (status === 429 || /RateLimitExceededError/.test(detail)) return new FrappeRequestError('RATE_LIMITED', '请求较频繁，请稍后再试。', status)
+  if (/SecurityException/.test(detail) && /account has been locked|账号.*锁定/i.test(detail)) {
+    return new FrappeRequestError('RATE_LIMITED', '验证尝试较多，当前暂不可用。请稍后重试。', status)
+  }
   const accountMethod = method?.startsWith('hbos_portal.auth.') && !method.endsWith('password_login')
   if (accountMethod && /ValidationError|AuthenticationError|PermissionError/.test(String((error.response.data as Record<string, unknown>)?.exc_type))) {
     try {
