@@ -79,7 +79,7 @@ M0 历史任务曾允许读取：
 
 - `docs/adr/`
 
-## 当前里程碑提醒
+## 既有里程碑背景（不覆盖当前 RP3）
 
 当前 M0 已完成并封板，M0-REMOTE 已完成，M1-R0 已完成并通过 Codex 独立审查，M1-R1 已完成 HRMS 原生考勤对象模型验证记录并收口为 COMPLETED，M1-R2 已完成 HRMS 原生考勤配置试运行方案并通过 Codex 独立审查收口为 COMPLETED。M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED：部分 TEST 数据已落库，14 个打卡场景未完成闭环验证。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；该轮只执行 `docker compose up -d redis-cache redis-queue`。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED，主文档 `docs/milestones/M1_R4_Demo技术方案与实施路线拆分.md` 已交付。M1-R5 已通过 Codex 审查并收口为 COMPLETED，主文档 `docs/milestones/M1_R5_HRMS配置基线工作台月报Demo.md` 已交付。M1-R6A 已通过 Codex 审查并收口为 COMPLETED，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付。M1-R6B 已通过 Codex 审查并收口为 COMPLETED，主文档 `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md` 已交付。M1-R6C = COMPLETED，异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout。M1-R7 = COMPLETED，飞书登录、领导 Demo 与 M1 收口准备已通过 Codex 审查并 closeout。M1 历史 closeout 已完成，但 Owner UI 验收发现功能缺口，当前 M1 产品交付仍在 M1-FIX 中，尚未完成。M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地，M0-R3C 已完成 Frappe HR / HRMS 安装验证，M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复，M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计，M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查。
 
@@ -107,7 +107,7 @@ M0 历史任务曾允许读取：
 
 不得因此递归读取整个 `docs/`。
 
-Portal 当前为 Owner 已授权并行产品工作流，分支为 `feature/hbos-portal-product`；它不改变 M1-FIX 主里程碑。
+Portal 产品基线与 PR 目标为 `feature/hbos-portal-product`；当前净化发布分支为 `codex/portal-unified-account-release`，原 `codex/portal-knowledge-twin` 成果保留。
 
 
 ## Portal 统一账号与正式发布
