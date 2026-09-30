@@ -40,6 +40,8 @@ def require_user(user: str | None = None, *, external: bool = False) -> str:
     user = user or frappe.session.user
     if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled"):
         frappe.throw("账号不可用，请重新登录。", frappe.AuthenticationError)
+    from hbos_portal.auth.security import assert_available
+    assert_available(user)
     if external:
         from hbos_portal.services.internal_users import load_internal_user_decision
 
@@ -59,7 +61,7 @@ def require_post() -> None:
     frappe.flags.disable_traceback = True
     # Python arguments have already been bound by Frappe's dispatcher. Remove
     # credential values from the request metadata before any diagnostic error.
-    for field in ("password", "new_password", "old_password", "key", "code", "otp", "recovery_context"):
+    for field in ("password", "pwd", "new_password", "old_password", "confirmation", "invitation", "key", "code", "otp", "tmp_id", "recovery_context"):
         frappe.local.form_dict.pop(field, None)
     request = frappe.local.request
     if request.method != "POST":
@@ -114,8 +116,11 @@ def _proof_key(user: str) -> str:
 
 
 def save_proof(user: str, method: str) -> None:
+    from hbos_portal.auth.security import record
+    row = record(user)
+    version = row.security_version if row and row.custody_mode and frappe.flags.get('hbos_custody_mfa_verified') == (user, row.security_version) else None
     frappe.cache.set_value(_proof_key(user), {
-        "user": user, "method": method, "epoch": epoch(user), "verified_at": int(time.time()), "nonce": secrets.token_hex(16)
+        "user": user, "method": method, "epoch": epoch(user), "verified_at": int(time.time()), "nonce": secrets.token_hex(16), 'custody_version': version,
     }, expires_in_sec=PROOF_TTL)
 
 
@@ -123,6 +128,12 @@ def require_proof(user: str, *, consume: bool = False) -> dict:
     proof = frappe.cache.get_value(_proof_key(user))
     if not proof or proof.get("user") != user or proof.get("epoch") != epoch(user) or int(proof.get("verified_at", 0)) + PROOF_TTL < time.time():
         frappe.throw("请先重新验证本人身份。", frappe.AuthenticationError)
+    from hbos_portal.auth.security import record
+    row = record(user)
+    if row and row.custody_mode:
+        if proof.get('custody_version') != row.security_version:
+            frappe.throw('请重新完成保管人二次认证。', frappe.AuthenticationError)
+        frappe.flags.hbos_custody_mfa_verified = (user, row.security_version)
     if consume:
         # Use the same atomic browser-bound store primitive for consumption.
         claim = f"hbos:account:proof-claim:{digest(_proof_key(user))}:{proof['nonce']}"
@@ -156,6 +167,10 @@ def _manager():
 def verify_mfa(user: str, *, otp: str = "", tmp_id: str = "", password: str = "") -> dict | None:
     from frappe.twofactor import authenticate_for_2factor, confirm_otp_token, should_run_2fa
 
+    from hbos_portal.auth.security import record, verify_custody_mfa, administrator_native_mfa
+    row = record(user)
+    if row and row.custody_mode or administrator_native_mfa(user):
+        return verify_custody_mfa(user, otp=otp, tmp_id=tmp_id)
     if not should_run_2fa(user):
         return None
     manager = _manager()
@@ -223,11 +238,11 @@ def consume_pending(nonce: str) -> None:
     frappe.local.cookie_manager.delete_cookie(PENDING_COOKIE)
 
 
-def identity_row(settings, identity: dict):
+def identity_row(settings, identity: dict, *, lock: bool = False):
     from hbos_portal.auth.feishu import identity_key
 
     key = identity_key(provider="feishu", tenant_key=identity["tenant_key"], app_id=settings.app_id, id_type="open_id", external_id=identity["open_id"])
-    return frappe.db.get_value("HBOS External Identity", {"identity_key": key}, ["name", "user", "enabled"], as_dict=True)
+    return frappe.db.get_value("HBOS External Identity", {"identity_key": key}, ["name", "user", "enabled"], as_dict=True, **({'for_update': True} if lock else {}))
 
 
 def bind_identity(settings, identity: dict, user: str) -> str:
@@ -242,6 +257,8 @@ def bind_identity(settings, identity: dict, user: str) -> str:
     row = identity_row(settings, identity)
     if row and row.user != user:
         raise FeishuLoginError("identity_conflict", "飞书身份已绑定其他账号，不能转移。")
+    if row and not row.enabled and frappe.db.get_value('HBOS External Identity', row.name, 'retired_reason') in {'replaced', 'custody'}:
+        raise FeishuLoginError('identity_revoked', '已替换身份须通过新的受控换绑或普通账号归属流程，不能直接恢复旧关系。')
     existing = frappe.get_all("HBOS External Identity", filters={"provider": "feishu", "tenant_key": settings.tenant_key, "app_id": settings.app_id, "user": user, "enabled": 1}, fields=["name"], limit=2)
     if any(item.name != (row.name if row else None) for item in existing):
         raise FeishuLoginError("identity_conflict", "当前账号已经绑定另一飞书身份。")
@@ -263,14 +280,14 @@ def bind_identity(settings, identity: dict, user: str) -> str:
     return user
 
 
-def _bound_identity(user: str):
+def _bound_identity(user: str, *, lock: bool = False):
     from hbos_portal.auth.feishu import load_settings
 
     settings = load_settings()
     return frappe.db.get_value("HBOS External Identity", {
         "provider": "feishu", "tenant_key": settings.tenant_key, "app_id": settings.app_id,
         "user": user, "enabled": 1,
-    }, ["name", "external_id"], as_dict=True)
+    }, ["name", "external_id"], as_dict=True, **({'for_update': True} if lock else {}))
 
 
 @frappe.whitelist(methods=["GET"])
@@ -336,7 +353,7 @@ def get_pending() -> dict:
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 @rate_limit(limit=8, seconds=300)
 def complete_pending(action: str, username: str = "", password: str = "", otp: str = "", tmp_id: str = "") -> dict:
-    from hbos_portal.auth.feishu import FeishuLoginError, load_settings, provisioned_user_id
+    from hbos_portal.auth.feishu import FeishuLoginError, load_settings
 
     nonce, record = pending(write=True)
     settings = load_settings()
@@ -362,27 +379,22 @@ def complete_pending(action: str, username: str = "", password: str = "", otp: s
             return challenge
         require_user(user, external=True)
     elif action == "create_new":
-        # A revoked binding is a tombstone, never a new-account opportunity.
-        if identity_row(settings, record["identity"]):
-            frappe.throw("身份已有账号，请验证原账号或联系管理员恢复。", frappe.AuthenticationError)
-        user = provisioned_user_id(settings, record["identity"])
-        if frappe.db.exists("User", user):
-            frappe.throw("账号存在冲突，请验证已有账号。", frappe.AuthenticationError)
-        alias = "hb" + digest(user)[:12]
-        frappe.get_doc({"doctype": "User", "email": user, "username": alias,
-            "first_name": record["identity"].get("display_name") or "企业成员", "user_type": "Website User",
-            "enabled": 1, "send_welcome_email": 0}).insert(ignore_permissions=True)
+        # Compatibility for an already issued pre-upgrade pending cookie.
+        # The same service handles current automatic onboarding, tombstones,
+        # concurrency and permanent ordinary Users; there is no second path.
+        from hbos_portal.auth.onboarding import resolve_verified_login
+        user, created = resolve_verified_login(settings, record["identity"])
     else:
         frappe.throw("请明确选择绑定已有账号或新开户。", frappe.PermissionError)
     try:
-        if record["intent"] != "login_mfa":
+        if record["intent"] != "login_mfa" and action != "create_new":
             bind_identity(settings, record["identity"], user)
         consume_pending(nonce)
         frappe.db.commit()
         if record["intent"] != "link":
             frappe.local.login_manager.login_as(user)
         return {"completed": True, "user": user, "login_name": frappe.db.get_value("User", user, "username") or user,
-            "password_optional": not has_password(user), "created": action == "create_new", "redirect_to": record["redirect_to"]}
+            "password_optional": not has_password(user), "created": created if action == "create_new" else False, "redirect_to": record["redirect_to"]}
     except (frappe.UniqueValidationError, frappe.DuplicateEntryError):
         frappe.db.rollback()
         frappe.throw("绑定发生并发冲突，请重新登录后核对。", frappe.AuthenticationError)
@@ -679,11 +691,28 @@ def user_updated(doc, method=None) -> None:
 def check_login(login_manager=None) -> None:
     if login_manager and login_manager.user != "Guest":
         require_user(login_manager.user)
+        from hbos_portal.auth.security import require_custody_mfa_for_login
+        require_custody_mfa_for_login(login_manager.user)
 
 
 def check_request() -> None:
     if frappe.session.user != "Guest":
         require_user()
+        from hbos_portal.auth.security import check_request as check_version
+        check_version()
+
+
+@frappe.whitelist(allow_guest=True, methods=['POST'])
+@rate_limit(limit=8, seconds=300)
+def password_login(username: str, password: str, otp: str = '', tmp_id: str = '') -> dict:
+    require_post()
+    if frappe.get_system_settings('disable_user_pass_login'):
+        frappe.throw('站点已禁用密码登录。', frappe.AuthenticationError)
+    user, challenge = verify_credentials(username, password, otp=otp, tmp_id=tmp_id)
+    if challenge:
+        return challenge
+    frappe.local.login_manager.login_as(user)
+    return {'logged_in': True, 'message': 'Logged In'}
 
 
 def on_logout(login_manager=None) -> None:

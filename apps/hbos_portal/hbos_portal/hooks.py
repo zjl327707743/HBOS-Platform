@@ -8,6 +8,8 @@ app_license = "MIT"
 after_migrate = ["hbos_portal.auth.migration.migrate_identity_constraints"]
 after_install = "hbos_portal.auth.migration.migrate_identity_constraints"
 on_login = ["hbos_portal.auth.accounts.check_login"]
+on_session_creation = ['hbos_portal.auth.security.on_session_creation']
+auth_hooks = ['hbos_portal.auth.accounts.check_request']
 before_request = ["hbos_portal.auth.accounts.check_request"]
 on_logout = ["hbos_portal.auth.accounts.on_logout"]
 doc_events = {
@@ -19,7 +21,7 @@ override_whitelisted_methods = {
     "frappe.core.doctype.user.user.reset_password": "hbos_portal.auth.accounts.request_reset",
 }
 website_route_rules = [{"from_route": "/hbos/<path:app_path>", "to_route": "hbos"}]
-scheduler_events = {"cron": {"*/5 * * * *": ["hbos_portal.auth.lifecycle.sync_disabled_members"]}}
+scheduler_events = {"cron": {"*/5 * * * *": ["hbos_portal.auth.lifecycle.sync_disabled_members", 'hbos_portal.auth.operations.expire_operations']}}
 
 # Business applications register their adapters through this custom hook:
 #

@@ -8,7 +8,7 @@
       <div class="login-icon"><SafetyCertificateOutlined /></div>
       <p class="eyebrow">企业内部使用</p>
       <h1>登录 HBOS</h1>
-      <p class="login-copy">使用原账号密码或已绑定的飞书登录，进入同一工作台与业务资料。</p>
+      <p class="login-copy">企业成员可直接用飞书进入。已有 HBOS 账号请先用密码登录，再绑定本人飞书。</p>
 
       <a-alert
         v-if="callbackMessage"
@@ -59,14 +59,15 @@
           :disabled="!status?.configured"
           @click="beginFeishuLogin"
         ><MessageOutlined /> 使用飞书登录</a-button>
-        <div v-if="status?.configured" class="login-status ready"><CheckCircleOutlined /> 飞书登录已配置</div>
+        <div v-if="status?.configured" class="login-status ready"><CheckCircleOutlined /> 飞书授权入口已配置 · 登录时核验企业与成员</div>
         <div v-else class="login-status waiting"><ClockCircleOutlined /> 飞书企业成员登录尚未完成配置</div>
       </template>
 
       <div class="trust-chain">
         <span>企业身份</span><ArrowRightOutlined /><span>Frappe Session</span><ArrowRightOutlined /><span>应用授权</span><ArrowRightOutlined /><span>资料与设备范围</span>
       </div>
-      <footer><SafetyCertificateOutlined /> 首次飞书登录可绑定已有账号；新开户仅获得普通门户权限。</footer>
+      <RouterLink to="/hbos/login?existing=1" @click="focusExistingAccount">已有账号：密码登录后绑定飞书</RouterLink>
+      <footer><SafetyCertificateOutlined /> 无已有绑定的获准成员首次进入会开通普通账号，无默认密码；设密可在账号与安全中按需完成。</footer>
     </section>
   </main>
 </template>
@@ -103,16 +104,41 @@ const statusMessages: Record<string, string> = {
   config_required: '飞书登录尚未完成真实联调配置。',
   invalid_state: '登录状态已过期、已使用或与当前浏览器不匹配，请重新发起。',
   identity_unmapped: '企业成员自动开通尚未启用。',
+  existing_account_requires_link: '当前浏览器已有 HBOS 账号。请在“我的与设置 → 账号与安全”验证密码及 MFA 后绑定本人飞书；没有自动创建另一账号。',
   identity_conflict: '该企业身份或自动账号存在冲突，请联系管理员核对。',
+  identity_revoked: '此身份的旧绑定已撤销或更换。请验证原账号或联系管理员，通过受控账号归属流程恢复。',
+  account_busy: '账号正在完成另一项操作，请重新发起授权。',
+  same_identity: '新旧飞书身份相同，没有更改绑定。',
+  personal_account_required: '接任者须先使用自己的永久个人账号；此回调不会开户或签发管理员会话。',
+  operation_invalid: '账号变更验证会话无效，请重新发起。',
+  account_changed: '账号登录方式已更换，旧会话已失效，请重新登录。',
+  onboarding_dependency_missing: '登录名组件尚未部署，请管理员更新 Portal 依赖。',
+  member_scope_denied: '此成员不在当前应用已批准的通讯录数据范围内。',
   account_disabled: '对应 HBOS 账号已停用或不允许从此入口登录。',
   tenant_rejected: '当前企业租户未获准访问 HBOS。',
+  tenant_evidence_missing: '授权响应缺少企业标识，无法核验企业归属。',
+  application_tenant_mismatch: '应用所属企业与当前 Site 保存企业不一致，请由管理员核对。',
+  member_identity_mismatch: '授权人员标识与内部成员接口不一致，未建立会话。',
+  member_status_missing: '成员状态证据缺失：请管理员开通应用身份“获取用户受雇信息 contact:user.employee:readonly”并发布生效。',
+  member_status_invalid: '内部成员状态字段类型无法验证，未建立会话。',
+  member_inactive: '飞书成员尚未激活。',
+  member_disabled: '飞书成员已冻结或停用。',
+  member_departed: '飞书成员已离职或退出，不能进入 HBOS。',
+  member_department_missing: '成员部门证据缺失，请管理员核对实际准入政策。',
+  member_api_failed: '内部成员接口未通过，请核对已发布的成员权限和应用数据范围。',
+  external_member_rejected: '当前身份为外部成员，不能进入 HBOS。',
   exchange_failed: '飞书身份核验失败，未建立 HBOS 会话。',
   session_required: '请先登录后继续访问原页面。',
   signed_out: '已安全退出当前账号。',
 }
-const callbackMessage = computed(() => error.value || statusMessages[String(route.query.status || '')] || null)
+const callbackMessage = computed(() => {
+  const message = error.value || statusMessages[String(route.query.status || '')] || null
+  const trace = typeof route.query.trace === 'string' && /^[a-f0-9]{16}$/.test(route.query.trace) ? route.query.trace : ''
+  return message && trace ? `${message} 诊断编号：${trace}` : message
+})
 const callbackTone = computed(() => ['cancelled', 'signed_out'].includes(String(route.query.status || '')) ? 'info' : 'warning')
 const canSubmit = computed(() => Boolean(username.value.trim() && password.value && !submitting.value))
+function focusExistingAccount() { document.getElementById('hbos-username')?.focus() }
 
 function safeRedirectTarget(): string {
   const value = typeof route.query.redirect_to === 'string' ? route.query.redirect_to : '/hbos'
@@ -136,7 +162,7 @@ async function submitAccountLogin() {
       ? caught.message
       : '登录验证失败，请稍后重试。'
   } finally {
-    password.value = ''
+    if (!tmpId.value || error.value) password.value = ''
     submitting.value = false
   }
 }

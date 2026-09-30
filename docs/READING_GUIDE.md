@@ -117,3 +117,5 @@ Portal 产品基线与 PR 目标为 `feature/hbos-portal-product`；当前净化
 团队通用交付继续通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并）。本轮接续 P1 真实飞书与恢复体验：Administrator 密码/MFA 及授权确认、第二位企业用户开户、本人收件可选设密与恢复分别记录；未执行真人步骤保持待验，公司服务器/HTTPS 后续。
 
 当前 Portal 本轮门禁以 RP3 主记录和 `deployment/Mac本地运行与团队同步.md` 为准；原库选择、公司服务器和 HTTPS 不阻塞已授权 Mac 运行。
+
+当前飞书成员拒绝、自动开户/拼音登录名与受控换绑/交接，定向阅读 `docs/deployment/飞书自动开户与受控账号变更.md`。Secret/企业确认已完成；成员权限审批及真人操作单独记录，不恢复旧的原库/服务器/HTTPS门禁。

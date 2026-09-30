@@ -151,13 +151,13 @@ export async function callFrappePostMethod<T>(
 
 export interface PasswordLoginResult { tmp_id?: string; verification?: unknown; message?: string }
 export async function loginWithPassword(username: string, password: string, otp = '', tmpId = ''): Promise<PasswordLoginResult> {
-  const form = new URLSearchParams({ usr: username, pwd: password, ...(otp ? { otp, tmp_id: tmpId } : {}) })
   try {
-    const result = await http.post<PasswordLoginResult>('/api/method/login', form, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    const security = await http.get<{message: {csrf_token?: string}}>('/api/method/hbos_portal.auth.accounts.get_request_security')
+    const result = await http.post<{message: PasswordLoginResult}>('/api/method/hbos_portal.auth.accounts.password_login', { username, password, otp, tmp_id: tmpId }, {
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(security.data.message.csrf_token ? {'X-Frappe-CSRF-Token': security.data.message.csrf_token} : {}) },
     })
     csrfToken = null
-    return result.data
+    return result.data.message
   } catch (error) {
     throw normalizeFrappeError(error, 'login')
   }

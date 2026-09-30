@@ -66,7 +66,7 @@ docker exec "$HBOS_BACKEND" /home/frappe/frappe-bench/env/bin/python \
 
 默认动作不启用收件验证码。普通 OAuth、Administrator 绑定许可、本人收件验证码分别核对。`configured=true` 不等于 OAuth 成功；须本人完成授权、确认绑定、退出后再次飞书登录及验证码实际查收。控制台若拒绝本机回调，记录实际错误，不绕过校验。
 
-基础身份 scope 仅使用 `contact:user.base:readonly`；后端另以应用身份核验当前范围内的在职成员，不为登录申请受雇信息或聊天读取。部分成员可用范围下，第二位开户验收身份也必须在原批准范围内。无密码新用户可直接使用飞书工作，密码是可选项。
+基础身份 scope 仅使用 `contact:user.base:readonly`；后端另以应用身份核验当前范围内在职成员；必要状态需要 contact:user.employee:readonly，已由本人申请待审批生效。无需增加用户 OAuth 受雇 scope、部门或聊天读取权限。部分成员可用范围下，第二位开户验收身份也必须在原批准范围内。无密码新用户可直接使用飞书工作，密码是可选项。
 
 机器人和最小发送权限 `im:message:send_as_bot` 已批准并发布后，同一启动器执行 `"$HBOS_LOCAL" feishu-config --enable-inbox-stepup`。工具复用 Secret、核验机器人，让本人确认发送权限。只向持久绑定本人、且由本人主动请求的收件箱发送验证码；取得飞书 message acknowledgement 才显示发送成功，失败不保存新验证码。状态检查不发消息，不读聊天、不群发。未启用时无密码设密/恢复不可用，已有密码和知识/设备不受影响。
 
@@ -105,3 +105,5 @@ git -C "$HBOS_CODE_DIR" merge --ff-only origin/codex/portal-unified-account-rele
 运行 SHA 和 build ID 以 `/assets/hbos_portal/portal/build-info.json`、制品 `release.json` 与 PR HEAD 三者一致为准。新提交必须重新构建、部署并验证。每次 CI 必须核对最新提交的本次结果及制品，历史 PASS 不代表本次 PASS。
 
 上传仅包含通用 App、Gateway、运行工具、配置模板、锁文件及编译资产。数据库备份、用户、密码散列、Secret/Token、个人映射、知识原文/索引、私有模型/图纸/照片、证书私钥与本机报告保留在本机。截图和本人验收报告单独交付，不放入公共 Git。
+
+账号自动开户、拼音登录名和受控换绑/管理员交接，见 [飞书自动开户与受控账号变更](飞书自动开户与受控账号变更.md)。当前 Secret/企业确认已完成，不再按缺少 Secret 处理。真实 Site 不执行保管人交接；普通登录不增加交接门禁。

@@ -86,6 +86,19 @@ def settings(**overrides):
 
 
 class OAuthStateContractTest(unittest.TestCase):
+    def test_operation_intent_survives_single_use_and_never_defaults_to_login(self):
+        store = RedisOAuthStateStore(FakeRedis())
+        for intent in ('rebind', 'handover'):
+            state, browser = store.create(redirect_to='/hbos/account-change', intent=intent,
+                operation_id='synthetic-operation', participant_digest='synthetic-participant-digest')
+            record = store.consume(state=state, browser_nonce=browser)
+            self.assertEqual(intent, record.intent)
+            self.assertEqual('synthetic-operation', record.operation_id)
+            self.assertEqual('synthetic-participant-digest', record.participant_digest)
+        for intent in ('admin-claim', 'rebind', 'handover'):
+            with self.assertRaises(OAuthStateError):
+                store.create(redirect_to='/hbos', intent=intent)
+
     def test_state_is_browser_bound_and_single_use(self):
         store = RedisOAuthStateStore(FakeRedis())
         state, browser_nonce = store.create(
@@ -165,6 +178,8 @@ class FeishuFlowContractTest(unittest.TestCase):
 
         def get(url, **kwargs):
             calls.append(("get", url, kwargs))
+            if "/tenant/v2/tenant/query" in url:
+                return FakeResponse({"code": 0, "data": {"tenant": {"tenant_key": "tenant-approved"}}})
             if "/contact/v3/users/" in url:
                 return FakeResponse({"code": 0, "data": {"user": {"open_id": "ou_test_member_123", "department_ids": ["department-synthetic"], "status": {"is_activated": True, "is_frozen": False, "is_resigned": False, "is_unjoin": False, "is_exited": False}}}})
             return FakeResponse(
@@ -264,17 +279,7 @@ class FeishuFlowContractTest(unittest.TestCase):
         self.assertNotIn("existing", first)
 
     def test_exact_identity_mapping_is_reused_before_provisioning(self):
-        fake_frappe = types.SimpleNamespace(
-            get_all=lambda *args, **kwargs: [
-                {"name": "mapping-1", "user": "member@example.test"}
-            ],
-            get_doc=lambda *args, **kwargs: self.fail("must not provision a mapped user"),
-            db=types.SimpleNamespace(exists=lambda *args, **kwargs: False),
-        )
-        with patch("hbos_portal.auth.feishu.frappe", fake_frappe), patch(
-            "hbos_portal.auth.feishu._validate_login_account",
-            side_effect=lambda user: user,
-        ):
+        with patch("hbos_portal.auth.onboarding.resolve_verified_login", return_value=("member@example.test", False)) as shared:
             user = _resolve_or_provision_user(
                 settings(),
                 {
@@ -284,43 +289,33 @@ class FeishuFlowContractTest(unittest.TestCase):
                 },
             )
         self.assertEqual("member@example.test", user)
+        shared.assert_called_once()
 
-    def test_unmapped_verified_member_must_choose_before_creating_account(self):
-        inserted = []
-
-        class FakeDocument:
-            def __init__(self, value):
-                self.value = value
-
-            def insert(self, **kwargs):
-                inserted.append((self.value, kwargs))
-                return self
-
-        fake_frappe = types.SimpleNamespace(
-            get_all=lambda *args, **kwargs: [],
-            get_doc=lambda value: FakeDocument(value),
-            db=types.SimpleNamespace(exists=lambda *args, **kwargs: False),
-        )
+    def test_unmapped_verified_member_uses_the_same_automatic_service(self):
         identity = {
             "open_id": "ou_test_member_123",
             "tenant_key": "tenant-approved",
             "display_name": "内部成员",
             "email": "must-not-be-used@example.test",
         }
-        with patch("hbos_portal.auth.feishu.frappe", fake_frappe), patch(
-            "hbos_portal.auth.feishu._validate_login_account",
-            side_effect=lambda user: user,
-        ):
-            with self.assertRaises(FeishuLoginError) as caught:
-                _resolve_or_provision_user(settings(), identity)
-        self.assertEqual("identity_unmapped", caught.exception.code)
-        self.assertEqual([], inserted)
+        with patch("hbos_portal.auth.onboarding.resolve_verified_login", return_value=("permanent@example.test", True)) as shared:
+            self.assertEqual("permanent@example.test", _resolve_or_provision_user(settings(), identity))
+        shared.assert_called_once_with(unittest.mock.ANY, identity)
 
     def test_internal_membership_denies_unverifiable_frozen_and_departed_users(self):
         from hbos_portal.auth.feishu import verify_internal_member
-        for bad_status in ({}, {"is_activated": True}, {"is_activated": True, "is_frozen": True, "is_resigned": False, "is_unjoin": False, "is_exited": False}):
+        for bad_status in ({}, {"is_activated": True}, {"is_activated": True, "is_frozen": True, "is_resigned": False}, {"is_activated": True, "is_frozen": False, "is_resigned": True}, {"is_activated": True, "is_frozen": False, "is_resigned": False, "is_exited": True}):
             with self.subTest(status=bad_status), self.assertRaises(FeishuLoginError):
-                verify_internal_member(settings(), "ou_test_member_123", post=lambda *a, **kw: FakeResponse({"code": 0, "tenant_access_token": "synthetic-token"}), get=lambda *a, **kw: FakeResponse({"code": 0, "data": {"user": {"open_id": "ou_test_member_123", "department_ids": ["synthetic"], "status": bad_status}}}))
+                verify_internal_member(settings(), "ou_test_member_123", post=lambda *a, **kw: FakeResponse({"code": 0, "tenant_access_token": "synthetic-token"}), get=lambda url, **kw: FakeResponse({"code": 0, "data": {"tenant": {"tenant_key": "tenant-approved"}}}) if '/tenant/v2/' in url else FakeResponse({"code": 0, "data": {"user": {"open_id": "ou_test_member_123", "status": bad_status}}}))
+
+    def test_active_internal_contact_does_not_need_department_field_permission(self):
+        from hbos_portal.auth.feishu import verify_internal_member
+        trace = {'calls': [], 'facts': {}}
+        verify_internal_member(settings(), "ou_test_member_123", trace=trace,
+            post=lambda *a, **kw: FakeResponse({'code': 0, 'tenant_access_token': 'synthetic-token'}),
+            get=lambda url, **kw: FakeResponse({'code': 0, 'data': {'tenant': {'tenant_key': 'tenant-approved'}}}) if '/tenant/v2/' in url else FakeResponse({'code': 0, 'data': {'user': {'open_id': 'ou_test_member_123', 'status': {'is_activated': True, 'is_frozen': False, 'is_resigned': False}}}}))
+        self.assertFalse(trace['facts']['department_present'])
+        self.assertEqual('unknown', trace['facts']['status_fields']['is_exited']['judgement'])
 
 
 if __name__ == "__main__":

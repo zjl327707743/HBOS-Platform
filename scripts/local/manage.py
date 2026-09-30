@@ -148,6 +148,9 @@ def write_runtime(c):
     model = c.get("model_root") or str(empty)
     py = ":".join([f"{BENCH}/apps/hrms"] + [f"{BENCH}/apps/{app}" for app in APPS])
     services = {}
+    base_image = c.get('frappe_image') or json.loads((root / 'scripts/release/依赖版本锁.json').read_text())['erpnext_image']
+    dependency_id = hashlib.sha256(base_image.encode() + (root / 'apps/hbos_portal/requirements.txt').read_bytes()).hexdigest()[:16]
+    portal_image = 'hbos-local-frappe:' + dependency_id
     for name in ["backend", "queue-long", "queue-short", "scheduler", "websocket", "frontend"]:
         volumes = list(code)
         if name != "websocket":
@@ -157,6 +160,10 @@ def write_runtime(c):
             volumes.append(mount(model, "/opt/hbos-p1/private-assets/twin"))
             volumes.append(mount(root, "/opt/hbos-release"))
         services[name] = {"volumes": volumes, "restart": "unless-stopped", "environment": {"PYTHONPATH": py}}
+        if name in {'backend', 'queue-long', 'queue-short', 'scheduler'}:
+            services[name]['image'] = portal_image
+        if name == 'backend':
+            services[name]['build'] = {'context': str(root), 'dockerfile': 'scripts/release/Dockerfile.portal', 'args': {'FRAPPE_IMAGE': base_image}}
     services["frontend"]["environment"]["FRAPPE_SITE_NAME_HEADER"] = c["site"]
     services["frontend"]["volumes"].append(mount(root / "scripts/local/nginx-frontend.conf", "/etc/nginx/nginx.conf"))
     for name in ["db", "redis-cache", "redis-queue"]:
@@ -243,6 +250,12 @@ def status(c):
     actual = get_json(origin + "/assets/hbos_portal/portal/build-info.json")
     if actual["source_commit"] != info["source_commit"] or actual["build_id"] != info["build_id"]:
         raise ValueError("RUNNING_BUILD_MISMATCH")
+    try:
+        dependency = capture(['docker', 'exec', backend(c), f'{BENCH}/env/bin/python', '-c', 'from importlib.metadata import version;print(version("pypinyin"))']).strip()
+    except subprocess.CalledProcessError:
+        raise ValueError('PORTAL_DEPENDENCY_NOT_DEPLOYED: 登录名组件缺失，请构建锁定的 Portal runtime 镜像') from None
+    if dependency != '0.55.0':
+        raise ValueError('PORTAL_DEPENDENCY_VERSION_MISMATCH: 请使用 Portal lock 构建运行镜像')
     installed = capture(["docker", "exec", backend(c), "bench", "--site", c["site"], "list-apps"])
     missing = [app for app in APPS if app not in installed]
     if missing:
@@ -280,6 +293,11 @@ def start(c, open_page=True):
                 raise ValueError(f"PORT_CONFLICT: {c['port']} 被现有进程占用；核对归属后再迁移，不自动终止进程")
     write_runtime(c)
     compose(c, "config", "--quiet")
+    overlay = json.loads((Path(c['runtime_root']) / 'compose.local.json').read_text())
+    portal_image = overlay['services']['backend']['image']
+    present = subprocess.run(['docker', 'image', 'inspect', portal_image], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if present.returncode:
+        compose(c, 'build', 'backend')
     image_name = "hbos-local-gateway:" + info["source_commit"][:12]
     present = subprocess.run(["docker", "image", "inspect", image_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if present.returncode:

@@ -2,7 +2,7 @@
 
 ## Portal 本轮独立授权
 
-本轮 Portal 接续固定 Mac 环境，执行飞书真实接通与账号恢复体验收口。状态 LOCAL_RUNNING / RECOVERY_UPDATED / LIVE_OWNER_PENDING，真人 OAuth、开户、查收验证码与恢复单独验收。复用 P1 Site、Compose project、原卷、已批准知识/设备及 PR #21 最新代码；不重建、不清库、不重做模块。Owner 已批准当前 Site 的 Administrator 自助绑定许可与本人主动请求的收件验证码，仍须密码、已有 MFA、真实授权及明确确认。公司服务器与正式 HTTPS 继续留后续。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`；常用说明：`docs/deployment/Mac本地运行与团队同步.md`。PR #21 的 base 为 `feature/hbos-portal-product`，head 为 `codex/portal-unified-account-release`；不强推、不合并、不推 main/base。
+本轮 Portal 接续固定 Mac 环境，修复真实飞书成员拒绝，交付首次自动开户、拼音登录名及受控换绑/交接。状态 LOCAL_RUNNING / ACCOUNT_CHANGE_UPDATED / LIVE_MEMBER_PERMISSION_PENDING；Secret 与程序企业确认已完成，成员受雇信息权限已提交待审批。真人 OAuth、开户、查收验证码、恢复和交接独立验收。复用 P1 Site、Compose project、原卷、已批准知识/设备及 PR #21 最新代码；不重建、不清库、不重做模块。Owner 已批准当前 Site 的 Administrator 自助绑定许可与本人主动请求的收件验证码，仍须密码、已有 MFA、真实授权及明确确认。公司服务器与正式 HTTPS 继续留后续。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`；常用说明：`docs/deployment/Mac本地运行与团队同步.md`。PR #21 的 base 为 `feature/hbos-portal-product`，head 为 `codex/portal-unified-account-release`；不强推、不合并、不推 main/base。
 
 下述考勤历史轮次的范围不约束已明确授权的 Portal v3；Portal 不替其他业务轮次 closeout。
 

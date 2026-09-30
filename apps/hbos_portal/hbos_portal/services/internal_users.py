@@ -99,6 +99,15 @@ def load_internal_user_decision(user: str | None = None) -> InternalUserDecision
         as_dict=True,
     )
     roles = set(frappe.get_roles(subject)) if account else set()
+    if account and 'System Manager' in roles and frappe.db.exists('DocType', 'HBOS Account Security'):
+        operation = frappe.db.get_value('HBOS Account Security', subject, 'management_operation')
+        if operation and frappe.db.exists('HBOS Account Operation', {
+            'name': operation, 'kind': 'roles', 'state': 'Completed', 'source_user': subject}):
+            # Only this named, explicitly approved recipient is eligible.
+            # Other service/external/account denials remain authoritative.
+            decision = classify_internal_user(subject, account=account, roles=roles - {'System Manager'}, config=frappe.conf)
+            if decision.allowed:
+                return InternalUserDecision(subject, True, 'explicit_management_handover', decision.user_type)
     return classify_internal_user(
         subject,
         account=account,

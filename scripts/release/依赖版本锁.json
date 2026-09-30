@@ -10,6 +10,8 @@
     "role": "verified compatibility baseline; preserve an existing target version until separately reviewed"
   },
   "node_major": 22,
+  "portal_python_lock": "apps/hbos_portal/requirements.txt",
+  "portal_runtime_dockerfile": "scripts/release/Dockerfile.portal",
   "frontend_lock": "frontend/hbos-portal-web/package-lock.json",
   "portable_gateway_version": "1.2.0",
   "portable_gateway_lock": "services/hbos_gateway/requirements.txt",

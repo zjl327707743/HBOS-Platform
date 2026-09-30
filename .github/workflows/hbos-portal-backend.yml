@@ -61,6 +61,9 @@ jobs:
           python -m compileall -q apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal
           python -m compileall -q apps/hb_inventory_app/hb_inventory_app/hbos_inventory/portal
 
+      - name: 安装锁定的 Portal 登录名依赖
+        run: pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
+
       - name: 校验 Portal 本地脚本与 Preview Compose
         run: |
           set -euo pipefail
@@ -133,8 +136,8 @@ jobs:
       - name: 认证 DocType 范围
         run: |
           set -euo pipefail
-          if find apps/hbos_portal -type f -path '*/doctype/*/*.json' ! -name hbos_external_identity.json | grep -q .; then
-            echo "::error:: Portal 仅允许已授权的外部身份映射 DocType"
+          if find apps/hbos_portal -type f -path '*/doctype/*/*.json' ! -name hbos_external_identity.json ! -name hbos_account_operation.json ! -name hbos_account_change_event.json ! -name hbos_account_security.json | grep -q .; then
+            echo "::error:: Portal 仅允许已授权的账号与身份安全 DocType"
             exit 1
           fi
 

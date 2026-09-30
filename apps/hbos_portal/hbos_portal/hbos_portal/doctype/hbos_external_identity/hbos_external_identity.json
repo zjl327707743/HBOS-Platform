@@ -15,7 +15,9 @@
   "active_user_key",
   "user",
   "enabled",
-  "last_verified_at"
+  "last_verified_at",
+  "retired_reason",
+  "retired_operation"
  ],
  "fields": [
   {"default": "feishu", "fieldname": "provider", "fieldtype": "Select", "label": "Provider", "options": "feishu", "reqd": 1},
@@ -27,7 +29,9 @@
   {"fieldname": "active_user_key", "fieldtype": "Data", "hidden": 1, "label": "Active User Key", "read_only": 1, "unique": 1},
   {"fieldname": "user", "fieldtype": "Link", "label": "Existing Frappe User", "options": "User", "reqd": 1},
   {"default": "1", "fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"},
-  {"fieldname": "last_verified_at", "fieldtype": "Datetime", "label": "Last Verified At", "read_only": 1}
+  {"fieldname": "last_verified_at", "fieldtype": "Datetime", "label": "Last Verified At", "read_only": 1},
+  {"fieldname": "retired_reason", "fieldtype": "Data", "label": "Retired Reason", "read_only": 1},
+  {"fieldname": "retired_operation", "fieldtype": "Link", "label": "Retired Operation", "options": "HBOS Account Operation", "read_only": 1}
  ],
  "index_web_pages_for_search": 0,
  "links": [],

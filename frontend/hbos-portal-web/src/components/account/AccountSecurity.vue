@@ -52,6 +52,7 @@
           <template v-if="recoveryLink"><p>已签发给 <strong>{{ recoveryLink.target.display_name }}</strong>（登录名 {{ recoveryLink.target.login_name }}），{{ Math.ceil(recoveryLink.expires_in / 60) }} 分钟有效。请私下交付已核验本人，不截图或公开转发。</p><a-button @click="copyRecoveryLink">复制一次性链接</a-button><p v-if="linkCopied">链接已复制。仅交付以上账号本人。</p></template>
         </a-collapse-panel>
       </a-collapse>
+      <AccountChangeActions />
     </template>
   </section>
 </template>
@@ -60,6 +61,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getSecurity, reauthenticate, requestFeishuCode, verifyFeishuCode, startLink, setPassword, unlinkFeishu, adminIssueRecovery, type SecurityStatus, type RecoveryLink } from '@/services/accountApi'
 import { clearFrappeCsrfToken } from '@/services/frappeClient'
+import AccountChangeActions from './AccountChangeActions.vue'
 const router = useRouter()
 const status = ref<SecurityStatus | null>(null)
 const password = ref(''), newPassword = ref(''), confirmation = ref(''), code = ref(''), otp = ref(''), tmpId = ref('')

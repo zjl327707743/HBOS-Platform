@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlsplit, urlunsplit
 
 STATE_TTL_SECONDS = 8 * 60
 STATE_PREFIX = "hbos:p1:feishu:oauth-state:"
+INTENTS = {'login', 'link', 'rebind', 'handover'}
 
 
 class OAuthStateError(ValueError):
@@ -69,6 +70,8 @@ class OAuthStateRecord:
     session_digest: str | None = None
     security_epoch: int = 0
     verified_at: int = 0
+    operation_id: str | None = None
+    participant_digest: str | None = None
 
 
 class RedisOAuthStateStore:
@@ -99,7 +102,11 @@ return value
         session_digest: str | None = None,
         security_epoch: int = 0,
         verified_at: int = 0,
+        operation_id: str | None = None,
+        participant_digest: str | None = None,
     ) -> tuple[str, str]:
+        if intent not in INTENTS or (intent in {'rebind', 'handover'} and not (operation_id and participant_digest)):
+            raise OAuthStateError('unknown or incomplete authorization intent')
         state = secrets.token_urlsafe(32)
         browser_nonce = secrets.token_urlsafe(32)
         record = OAuthStateRecord(
@@ -111,6 +118,8 @@ return value
             session_digest=session_digest,
             security_epoch=security_epoch,
             verified_at=verified_at,
+            operation_id=operation_id,
+            participant_digest=participant_digest,
         )
         value = f"{_nonce_digest(browser_nonce)}.{_encode_record(asdict(record))}"
         created = self.redis.set(
@@ -149,7 +158,11 @@ return value
             session_digest=raw.get("session_digest"),
             security_epoch=int(raw.get("security_epoch") or 0),
             verified_at=int(raw.get("verified_at") or 0),
+            operation_id=raw.get('operation_id'),
+            participant_digest=raw.get('participant_digest'),
         )
         if record.created_at + self.ttl_seconds < int(time.time()):
             raise OAuthStateError("OAuth state expired")
+        if record.intent not in INTENTS or (record.intent in {'rebind', 'handover'} and not (record.operation_id and record.participant_digest)):
+            raise OAuthStateError('unknown or incomplete authorization intent')
         return record

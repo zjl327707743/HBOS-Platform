@@ -245,7 +245,7 @@ def _redirect(location: str) -> None:
     frappe.local.response["location"] = location
 
 
-def _error_redirect(code: str) -> None:
+def _error_redirect(code: str, trace: str = "") -> None:
     allowed = {
         "cancelled",
         "config_required",
@@ -254,10 +254,17 @@ def _error_redirect(code: str) -> None:
         "identity_conflict",
         "account_disabled",
         "tenant_rejected",
+        "tenant_evidence_missing", "application_tenant_mismatch",
+        "member_identity_mismatch", "member_status_missing", "member_status_invalid",
+        "member_inactive", "member_disabled", "member_departed", "member_department_missing", 'existing_account_requires_link',
+        "member_api_failed", "external_member_rejected",
         "exchange_failed",
+        "identity_revoked", "account_busy", "onboarding_dependency_missing", "member_scope_denied",
+        "same_identity", "personal_account_required", "operation_invalid",
     }
     status = code if code in allowed else "exchange_failed"
-    _redirect(f"/hbos/login?status={quote(status)}")
+    suffix = '&trace=' + trace if re.fullmatch(r'[a-f0-9]{16}', trace) else ''
+    _redirect(f"/hbos/login?status={quote(status)}" + suffix)
 
 
 def _pkce_pair() -> tuple[str, str]:
@@ -310,6 +317,7 @@ def exchange_identity(
     code_verifier: str | None,
     post: Any = None,
     get: Any = None,
+    trace: dict | None = None,
 ) -> dict[str, str]:
     if not settings.configured:
         raise FeishuLoginError("config_required", "飞书登录尚未完成安全配置。")
@@ -335,16 +343,17 @@ def exchange_identity(
         token_body["code_verifier"] = code_verifier
 
     try:
-        token_data = _unwrap_feishu_payload(post(TOKEN_URL, json=token_body, timeout=10))
+        from hbos_portal.auth.diagnostics import safe_http
+        token_data = _unwrap_feishu_payload(safe_http(post(TOKEN_URL, json=token_body, timeout=10), 'user_token', trace))
         access_token = str(token_data.get("access_token") or "").strip()
         if not access_token:
             raise FeishuLoginError("exchange_failed", "飞书用户凭证不可用。")
         user_data = _unwrap_feishu_payload(
-            get(
+            safe_http(get(
                 USER_INFO_URL,
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=10,
-            )
+            ), 'user_info', trace)
         )
     except FeishuLoginError:
         raise
@@ -355,12 +364,18 @@ def exchange_identity(
     # identity fields required for mapping leave this function.
     open_id = str(user_data.get("open_id") or "").strip()
     tenant_key = str(user_data.get("tenant_key") or token_data.get("tenant_key") or "").strip()
+    if trace is not None:
+        trace['facts'].update(site_tenant_present=bool(settings.tenant_key), user_tenant_present=bool(tenant_key),
+            userinfo_tenant_present=bool(user_data.get('tenant_key')), token_tenant_present=bool(token_data.get('tenant_key')),
+            user_tenant_matches_site=bool(tenant_key and secrets.compare_digest(tenant_key, settings.tenant_key)), person_id_present=bool(open_id))
     if not OPEN_ID_PATTERN.fullmatch(open_id):
         raise FeishuLoginError("exchange_failed", "飞书身份缺少 open_id。")
-    if not tenant_key or not secrets.compare_digest(tenant_key, settings.tenant_key):
+    if not tenant_key:
+        raise FeishuLoginError("tenant_evidence_missing", "授权响应缺少企业标识，无法核验企业归属。")
+    if not secrets.compare_digest(tenant_key, settings.tenant_key):
         raise FeishuLoginError("tenant_rejected", "当前企业租户未获准访问 HBOS。")
     display_name = " ".join(str(user_data.get("name") or "").split())[:120]
-    verify_internal_member(settings, open_id, post=post, get=get)
+    verify_internal_member(settings, open_id, post=post, get=get, trace=trace)
     return {
         "open_id": open_id,
         "tenant_key": tenant_key,
@@ -403,12 +418,8 @@ def _validate_login_account(user: str) -> str:
 
 
 def _resolve_or_provision_user(settings: FeishuSettings, identity: Mapping[str, str]) -> str:
-    # Kept for callers of the previous API; provisioning now requires an
-    # explicit owner choice through the cookie-bound account connection flow.
-    rows = frappe.get_all("HBOS External Identity", filters={"identity_key": identity_key(provider="feishu", tenant_key=identity["tenant_key"], app_id=settings.app_id, id_type="open_id", external_id=identity["open_id"]), "enabled": 1}, fields=["user"], limit=2)
-    if len(rows) != 1:
-        raise FeishuLoginError("identity_unmapped", "请选择绑定已有账号或新开户。")
-    return _validate_login_account(rows[0]["user"])
+    from hbos_portal.auth.onboarding import resolve_verified_login
+    return resolve_verified_login(settings, dict(identity))[0]
 
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
@@ -478,6 +489,10 @@ def callback(
     state: str | None = None,
     error: str | None = None,
 ) -> None:
+    from hbos_portal.auth.diagnostics import new_trace, persist
+    trace = new_trace()
+    frappe.flags.disable_traceback = True
+    frappe.local.form_dict.pop('code', None)
     settings = load_settings()
     if error:
         frappe.local.cookie_manager.delete_cookie(BROWSER_COOKIE)
@@ -498,9 +513,15 @@ def callback(
             settings,
             code=str(code or ""),
             code_verifier=state_record.code_verifier,
+            trace=trace,
         )
         from hbos_portal.auth.accounts import create_pending, identity_row, require_user, session_digest, epoch, PROOF_TTL
         import time
+        if state_record.intent in {'rebind', 'handover'}:
+            from hbos_portal.auth.operations import authorized_callback
+            authorized_callback(state_record, identity)
+            _redirect('/hbos/account-change')
+            return None
         if state_record.intent == "link":
             if state_record.user != frappe.session.user or state_record.session_digest != session_digest() or state_record.security_epoch != epoch(state_record.user) or state_record.verified_at + PROOF_TTL < time.time():
                 raise OAuthStateError("link session or ownership proof changed")
@@ -513,16 +534,16 @@ def callback(
             return None
         if state_record.intent != "login":
             raise OAuthStateError("unknown OAuth intent")
+        # An existing password session never authorizes an implicit bind, and
+        # must not accidentally create another ordinary account for its owner.
+        if frappe.session.user != 'Guest' and not identity_row(settings, identity):
+            raise FeishuLoginError('existing_account_requires_link', '当前浏览器已有 HBOS 账号，请在账号与安全验证密码及 MFA 后绑定本人飞书；没有自动创建另一账号。')
+        from hbos_portal.auth.onboarding import resolve_verified_login
+        user, created = resolve_verified_login(settings, identity)
         row = identity_row(settings, identity)
-        if row and not frappe.db.get_value("User", row.user, "enabled"):
-            raise FeishuLoginError("account_disabled", "对应账号已停用。")
-        if not row or not row.enabled:
-            create_pending(identity, intent="choose", redirect_to=state_record.redirect_to)
-            _redirect("/hbos/account-connect")
-            return None
-        user = _validate_login_account(row.user)
-        from frappe.twofactor import should_run_2fa
-        if should_run_2fa(user):
+        trace['facts']['ordinary_account_created'] = created
+        from hbos_portal.auth.security import requires_mfa
+        if requires_mfa(user):
             create_pending(identity, intent="login_mfa", user=user, redirect_to=state_record.redirect_to)
             _redirect("/hbos/account-connect")
             return None
@@ -538,12 +559,15 @@ def callback(
         frappe.local.login_manager.login_as(user)
         _redirect(state_record.redirect_to)
     except OAuthStateError:
+        trace['result'] = 'invalid_state'
         frappe.db.rollback()
-        _error_redirect("invalid_state")
+        _error_redirect("invalid_state", trace['id'])
     except FeishuLoginError as exc:
+        trace['result'] = exc.code
         frappe.db.rollback()
-        _error_redirect(exc.code)
+        _error_redirect(exc.code, trace['id'])
     except Exception:
+        trace['result'] = 'exchange_failed'
         frappe.db.rollback()
         request_id = secrets.token_hex(8)
         frappe.log_error(
@@ -554,16 +578,20 @@ def callback(
         )
         _error_redirect("exchange_failed")
     finally:
+        if trace['result'] == 'pending':
+            trace['result'] = 'identity_verified'
+        persist(trace)
         frappe.local.cookie_manager.delete_cookie(BROWSER_COOKIE)
         frappe.local.form_dict.pop("code", None)
     return None
 
 
-def _tenant_token(settings: FeishuSettings, *, post=None) -> str:
+def _tenant_token(settings: FeishuSettings, *, post=None, trace=None) -> str:
     if post is None:
         import requests
         post = requests.post
-    data = _unwrap_feishu_payload(post(TENANT_TOKEN_URL, json={"app_id": settings.app_id, "app_secret": settings.app_secret}, timeout=10))
+    from hbos_portal.auth.diagnostics import safe_http
+    data = _unwrap_feishu_payload(safe_http(post(TENANT_TOKEN_URL, json={"app_id": settings.app_id, "app_secret": settings.app_secret}, timeout=10), 'application_token', trace))
     token = str(data.get("tenant_access_token") or "")
     if not token:
         raise FeishuLoginError("exchange_failed", "飞书应用身份不可用。")
@@ -582,16 +610,58 @@ def discover_enterprise(settings: FeishuSettings) -> dict:
     return {"name": str(tenant["name"]), "tenant_key": key}
 
 
-def verify_internal_member(settings: FeishuSettings, open_id: str, *, post=None, get=None) -> None:
+def verify_internal_member(settings: FeishuSettings, open_id: str, *, post=None, get=None, trace=None) -> None:
     if get is None:
         import requests
         get = requests.get
-    token = _tenant_token(settings, post=post)
-    data = _unwrap_feishu_payload(get(CONTACT_USER_URL + quote(open_id, safe=""), params={"user_id_type": "open_id"}, headers={"Authorization": f"Bearer {token}"}, timeout=10))
+    from hbos_portal.auth.diagnostics import safe_http, shape
+    token = _tenant_token(settings, post=post, trace=trace)
+    try:
+        enterprise = _unwrap_feishu_payload(safe_http(get(TENANT_INFO_URL,
+            headers={"Authorization": f"Bearer {token}"}, timeout=10), 'application_tenant', trace))
+        tenant = enterprise.get('tenant') or {}
+        app_tenant = str(tenant.get('tenant_key') or '') if isinstance(tenant, Mapping) else ''
+        if trace is not None:
+            trace['facts'].update(application_tenant_present=bool(app_tenant),
+                application_tenant_matches_site=bool(app_tenant and secrets.compare_digest(app_tenant, settings.tenant_key)))
+        if not app_tenant:
+            raise FeishuLoginError('tenant_evidence_missing', '应用企业标识缺失，无法核对当前 Site 的企业配置。')
+        if not secrets.compare_digest(app_tenant, settings.tenant_key):
+            raise FeishuLoginError('application_tenant_mismatch', '应用所属企业与当前 Site 已批准企业不一致；请管理员核对配置。')
+    except FeishuLoginError:
+        raise
+    try:
+        data = _unwrap_feishu_payload(safe_http(get(CONTACT_USER_URL + quote(open_id, safe=""), params={"user_id_type": "open_id"}, headers={"Authorization": f"Bearer {token}"}, timeout=10), 'internal_member', trace))
+    except FeishuLoginError as exc:
+        raise FeishuLoginError('member_api_failed', '内部成员接口未通过，请核对已发布的成员权限和应用数据范围。') from exc
     member = data.get("user") or {}
     status = member.get("status") or {}
-    if member.get("open_id") != open_id or status.get("is_activated") is not True or any(status.get(k) is not False for k in ["is_frozen", "is_resigned", "is_unjoin", "is_exited"]) or not member.get("department_ids"):
-        raise FeishuLoginError("tenant_rejected", "无法验证当前应用范围内的在职内部成员。")
+    keys = ('is_activated', 'is_frozen', 'is_resigned', 'is_unjoin', 'is_exited')
+    if trace is not None:
+        trace['facts'].update(member_id_present=bool(member.get('open_id')), member_id_matches=member.get('open_id') == open_id,
+            status_present=isinstance(member.get('status'), Mapping), status_type=type(member.get('status')).__name__,
+            status_fields={k: shape(status.get(k)) for k in keys} if isinstance(status, Mapping) else {},
+            department_present=bool(member.get('department_ids')), department_type=type(member.get('department_ids')).__name__)
+    if member.get('open_id') != open_id:
+        raise FeishuLoginError('member_identity_mismatch', '授权人员标识与内部成员接口不一致。')
+    required = ('is_activated', 'is_frozen', 'is_resigned')
+    if trace is not None:
+        trace['facts']['required_status_missing'] = [k for k in required if k not in status] if isinstance(status, Mapping) else list(required)
+    if not isinstance(status, Mapping) or any(k not in status for k in required):
+        raise FeishuLoginError('member_status_missing', '内部成员状态证据缺失：请开通应用身份 contact:user.employee:readonly 并发布生效。')
+    if any(k in status and type(status[k]) is not bool for k in keys):
+        raise FeishuLoginError('member_status_invalid', '内部成员状态字段类型无法验证。')
+    if status['is_activated'] is not True:
+        raise FeishuLoginError('member_inactive', '飞书成员尚未激活。')
+    if status['is_frozen']:
+        raise FeishuLoginError('member_disabled', '飞书成员已冻结或停用。')
+    if any(status.get(k) is True for k in ('is_resigned', 'is_unjoin', 'is_exited')):
+        raise FeishuLoginError('member_departed', '飞书成员已离职或不再属于内部成员。')
+    # The approved application's contact data scope enforces which internal
+    # members this app may read. A successful current member record + matching
+    # ID and explicit active/not-frozen/not-resigned flags are the positive
+    # evidence. Department field visibility is a separate optional permission,
+    # never an invented global login gate; unknown optional flags stay unknown.
 
 
 def probe_inbox_bot(settings: FeishuSettings, *, post=None, get=None) -> bool:
@@ -607,11 +677,15 @@ def probe_inbox_bot(settings: FeishuSettings, *, post=None, get=None) -> bool:
 
 
 def send_inbox_code(settings: FeishuSettings, open_id: str, code: str) -> None:
+    send_inbox_notice(settings, open_id, f"HBOS 账号安全验证码：{code}，5 分钟内有效。仅在本人操作时输入，请勿转发。")
+
+
+def send_inbox_notice(settings: FeishuSettings, open_id: str, text: str, *, message_uuid: str = '') -> None:
     import requests
     import json
     token = _tenant_token(settings)
     # The receive_id is read from the persistent verified binding, never supplied
     # by a caller. A website request sends only to that account's own inbox.
-    data = _unwrap_feishu_payload(requests.post("https://open.feishu.cn/open-apis/im/v1/messages", params={"receive_id_type": "open_id"}, headers={"Authorization": f"Bearer {token}"}, json={"receive_id": open_id, "msg_type": "text", "content": json.dumps({"text": f"HBOS 账号安全验证码：{code}，5 分钟内有效。仅在本人操作时输入，请勿转发。"}, ensure_ascii=False), "uuid": secrets.token_hex(16)}, timeout=10))
+    data = _unwrap_feishu_payload(requests.post("https://open.feishu.cn/open-apis/im/v1/messages", params={"receive_id_type": "open_id"}, headers={"Authorization": f"Bearer {token}"}, json={"receive_id": open_id, "msg_type": "text", "content": json.dumps({"text": text}, ensure_ascii=False), "uuid": message_uuid or secrets.token_hex(16)}, timeout=10))
     if not data.get("message_id"):
         raise FeishuLoginError("exchange_failed", "飞书没有确认消息发送；没有签发验证码。")

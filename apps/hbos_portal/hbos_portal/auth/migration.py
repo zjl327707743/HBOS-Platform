@@ -11,6 +11,8 @@ def active_user_key(provider: str, tenant: str, app: str, user: str) -> str:
 
 def migrate_identity_constraints() -> None:
     validate_auth_paths()
+    if not frappe.db.exists('Role', 'HBOS Account Handover Manager'):
+        frappe.get_doc({'doctype': 'Role', 'role_name': 'HBOS Account Handover Manager', 'desk_access': 1}).insert(ignore_permissions=True)
     rows = frappe.get_all("HBOS External Identity", fields=["name", "provider", "tenant_key", "app_id", "user", "enabled"], limit_page_length=0)
     seen = set()
     for row in rows:

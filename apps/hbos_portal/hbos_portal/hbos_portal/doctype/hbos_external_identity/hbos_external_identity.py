@@ -31,3 +31,7 @@ class HBOSExternalIdentity(Document):
             id_type=self.id_type,
             external_id=self.external_id,
         )
+
+    def on_trash(self):
+        if not (frappe.conf.get('hbos_account_test_site') and frappe.flags.get('hbos_owned_test_cleanup')):
+            frappe.throw('飞书绑定历史不得删除；请使用受控变更流程。', frappe.PermissionError)

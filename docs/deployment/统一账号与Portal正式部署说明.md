@@ -10,6 +10,8 @@
 
 兼容实测基线见 `scripts/release/依赖版本锁.json`。前端 npm lock 与 Gateway 完整 Python lock 已版本化；HRMS 使用官方仓库固定 commit。既有目标的 ERPNext/Frappe/HRMS 版本先核对，禁止为了匹配基线降级原站；不一致时在目标备份的隔离恢复环境验证兼容性。
 
+拼音登录名使用 Portal 自己的哈希锁 `apps/hbos_portal/requirements.txt`。部署 overlay 为 backend、worker 和 scheduler 复用薄镜像 `scripts/release/Dockerfile.portal`；在切换前使用已核对的目标原镜像作为 `HBOS_FRAPPE_BASE_IMAGE`，通过同一 Compose overlay 执行 `build backend`，再更新服务。它只添加锁定依赖，不重新安装 Frappe/ERPNext/HRMS，也不降级未知目标。Mac 启动器按基础镜像与锁文件识别依赖镜像，缺少时构建一次，状态检查验证实际依赖版本。
+
 团队 HRMS 依赖来自官方仓库固定 commit，不能依赖个人工作目录。已有服务器保留正在使用的 HRMS 源码与资产；若迁到新服务器，按目标备份记录的真实版本准备不可变依赖目录及编译资产。实测基线源码可用 `git init runtime/apps/hrms`、`git -C runtime/apps/hrms remote add origin https://github.com/frappe/hrms.git`、`git -C runtime/apps/hrms fetch --depth 1 origin c0a04b80eeb721417b75cea758e831464d0da041`、`git -C runtime/apps/hrms checkout --detach FETCH_HEAD` 取得，仅用于新目录，不能覆盖既有未核验依赖。源版本不同时，以原目标版本和隔离恢复验证为准。
 
 ## 先确认既有 Site
@@ -47,7 +49,7 @@ bash /opt/hbos-release/scripts/release/apply_existing_site.sh \
 
 复用 Owner 已有应用，不创建新应用。程序生成应用/租户 token、读取用户、核验内部在职成员及精确外部身份；不让 Owner 搬运 Token、tenant_key 或 open_id。
 
-控制台实际需要：有效 Secret、精确 callback、企业内部可用范围发布、基础身份 `contact:user.base:readonly` 与企业查询权限。后端以应用身份核验在职成员，不为登录申请受雇信息或聊天读取。可选设密需机器人及 `im:message:send_as_bot`，仅本人主动请求时向持久绑定本人发送；飞书须确认消息发送，不能把 OAuth code 当作重新认证。
+控制台实际需要：有效 Secret、精确 callback、企业内部可用范围发布、用户基础身份 `contact:user.base:readonly`、应用企业查询与必要成员状态 `contact:user.employee:readonly`。状态字段缺失保持拒绝；部门字段不是额外准入门禁。无需增加用户 OAuth 受雇 scope 或聊天读取。可选设密需机器人及 `im:message:send_as_bot`，仅本人主动请求时向持久绑定本人发送；飞书须确认消息发送，不能把 OAuth code 当作重新认证。
 
 运维在 target bench 执行：
 
@@ -60,7 +62,7 @@ bash /opt/hbos-release/scripts/release/apply_existing_site.sh \
 
 缺 Secret 时只通过 `getpass` 隐藏输入至 Site/private 0600 文件。已有有效 Secret 复用；仅实际失效或需处置泄露时使用 `--replace-secret`。企业信息由应用服务端凭据取得，Owner 只核对企业名称及控制台配置。首次真实授权、机器人收件验证码、二次认证和成员权限须在网页实测。未通过时保持入口关闭并报告实际缺项，不关闭 CSRF、state 或 tenant 校验。
 
-旧用户：原密码登录 → 我的 → 账号与安全 → 验证原密码/原 MFA → 绑定本人飞书 → 授权后明确确认当前账号。首次飞书用户：先授权 → 选择验证已有账号，或明确新建普通永久账号。新 User 无管理员角色及默认密码；用本人飞书收件验证码（及已有 MFA）验证后在网页设密，仍是同一 User。
+旧用户：原密码登录 → 我的 → 账号与安全 → 验证原密码/原 MFA → 绑定本人飞书 → 授权后明确确认当前账号。无绑定记录的获准普通成员首次授权自动开通并绑定永久 User，直接进入工作台；已停用或撤销记录不绕过。新 User 无 Desk/管理员/审批角色及默认密码，拼音唯一登录名使用 Frappe 原生用户名；可仅用飞书工作，按需通过本人收件验证（及已有 MFA）设密，仍是同一 User。换绑与三类交接见 `飞书自动开户与受控账号变更.md`；真实交接必须另有人员、目标及双方页面确认。
 
 改密后清除所有旧会话与恢复票据并颁发标准新会话。已有密码的绑定用户忘记密码时，可在网页切换本人飞书消息验证码验证，再更新同一 User 的密码；收件能力未启用时明确提示，不能仅凭现有 SSO 会话改密。解绑须验证可用本地密码，最后一种登录方式不能解绑。冲突不转移、不按姓名/邮箱合并；恢复使用验证邮箱短时单次 key 或管理员重新认证后填写核验依据并签发恢复凭据。Administrator 保留原密码应急入口，外部绑定默认关闭，须 Owner 单独启用；绝不自动授予新飞书用户 Administrator。
 

@@ -8,8 +8,16 @@ x-code: &code
   - &hbos_portal "${HBOS_RELEASE_ROOT:?required}/apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal:ro"
   - &hb_knowledge_app "${HBOS_RELEASE_ROOT:?required}/apps/hb_knowledge_app:/home/frappe/frappe-bench/apps/hb_knowledge_app:ro"
   - &hb_twin_app "${HBOS_RELEASE_ROOT:?required}/apps/hb_twin_app:/home/frappe/frappe-bench/apps/hb_twin_app:ro"
+x-portal-runtime: &portal-runtime
+  image: ${HBOS_PORTAL_FRAPPE_IMAGE:-hbos-portal-frappe:v16.26.2-pypinyin0.55.0}
+  build:
+    context: ${HBOS_RELEASE_ROOT:?required}
+    dockerfile: scripts/release/Dockerfile.portal
+    args:
+      FRAPPE_IMAGE: ${HBOS_FRAPPE_BASE_IMAGE:-frappe/erpnext:v16.26.2@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583}
 services:
   backend:
+    <<: *portal-runtime
     environment:
       PYTHONPATH: *pythonpath
     volumes:
@@ -28,14 +36,17 @@ services:
       FRAPPE_SITE_NAME_HEADER: ${HBOS_SITE:?exact existing Site required}
     volumes: *code
   queue-long:
+    <<: *portal-runtime
     environment:
       PYTHONPATH: *pythonpath
     volumes: *code
   queue-short:
+    <<: *portal-runtime
     environment:
       PYTHONPATH: *pythonpath
     volumes: *code
   scheduler:
+    <<: *portal-runtime
     environment:
       PYTHONPATH: *pythonpath
     volumes: *code

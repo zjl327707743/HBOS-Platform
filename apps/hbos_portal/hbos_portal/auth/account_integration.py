@@ -135,9 +135,9 @@ def run() -> dict:
             expect_error(lambda: accounts.require_user(users[0]), "disabled_account_rejected")
             assert not accounts.identity_row(settings, identity).enabled
             checks.append("disable_revokes_external_binding_and_password_reset_key")
-            # First OAuth authorization creates no User until an explicit
-            # choice. Exercise the actual complete_pending handler, not a
-            # separate provisioning helper.
+            # Compatibility for a choose ticket issued by the previous release.
+            # New ordinary callbacks auto-onboard through the shared service;
+            # change_integration exercises that current path and concurrency.
             new_identity = dict(identity, open_id="ou_synthetic_new_" + suffix)
             new_user = feishu.provisioned_user_id(settings, new_identity)
             users.append(new_user)
@@ -153,7 +153,7 @@ def run() -> dict:
             assert frappe.db.get_value("User", new_user, "username") and not accounts.has_password(new_user)
             assert not set(frappe.get_roles(new_user)) & {"System Manager", "HR Manager", "Stock Manager", "HBOS LIMS Manager"}
             expect_error(lambda: accounts.pending(write=True), "new_account_choice_cannot_replay")
-            checks.append("explicit_first_login_creates_permanent_user_with_alias_without_password")
+            checks.append("legacy_pending_ticket_uses_same_permanent_account_service")
             session("Guest")
             accounts.create_pending(second, intent="choose", redirect_to="/hbos")
             nonce = frappe.local.cookie_manager.cookies[accounts.PENDING_COOKIE]["value"]
@@ -196,12 +196,14 @@ def run() -> dict:
         return {"status": "PASS", "checks": checks, "scope": "synthetic_test_site_only", "live_owner_login": "NOT_TESTED"}
     finally:
         frappe.set_user("Administrator")
+        frappe.flags.hbos_owned_test_cleanup = True
         for name in frappe.get_all("HBOS External Identity", filters={"app_id": "cli_synthetic", "external_id": ["like", "%" + suffix]}, pluck="name"):
             frappe.delete_doc("HBOS External Identity", name, force=True, ignore_permissions=True)
         for user in users:
             if frappe.db.exists("User", user):
                 frappe.delete_doc("User", user, force=True, ignore_permissions=True)
         frappe.db.commit()
+        frappe.flags.hbos_owned_test_cleanup = False
         for key, value in original.items():
             setattr(frappe.local, key, value)
         frappe.conf["hbos_portal_origin"] = original_origin

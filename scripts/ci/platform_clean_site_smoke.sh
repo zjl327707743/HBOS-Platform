@@ -72,6 +72,7 @@ docker compose -p "$PROJECT" up -d db redis-cache redis-queue
 docker compose -p "$PROJECT" run --rm configurator
 docker compose -p "$PROJECT" run --rm create-site
 docker compose -p "$PROJECT" up -d backend
+docker compose -p "$PROJECT" exec -T backend /home/frappe/frappe-bench/env/bin/pip install --only-binary=:all: --require-hashes -r /home/frappe/frappe-bench/apps/hbos_portal/requirements.txt
 
 echo "[PLATFORM] verify installed apps"
 APPS="$(docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" list-apps)"
@@ -197,8 +198,11 @@ curl -fsS -H "Host: $SITE_NAME"   "http://127.0.0.1:$HTTP_PORT/assets/hb_lims_ap
 echo "[PLATFORM] Unified account synthetic lifecycle"
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_account_test_site 1
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute hbos_portal.auth.account_integration.run
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_custody_test_site 1
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute hbos_portal.auth.change_integration.run
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_portal_origin "http://$SITE_NAME:$HTTP_PORT"
 docker compose -p "$PROJECT" restart backend
 wait_http "/hbos/login" /tmp/hbos-account-login.html
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute hbos_portal.auth.http_integration.run --kwargs '{"transport":"http://127.0.0.1:8000"}'
 python3 scripts/ci/portal_account_http_checks.py --container "$(docker compose -p "$PROJECT" ps -q backend)" --site "$SITE_NAME" --origin "http://$SITE_NAME:$HTTP_PORT" --transport "http://127.0.0.1:$HTTP_PORT"
 echo "HBOS PLATFORM clean-site integration PASS"
