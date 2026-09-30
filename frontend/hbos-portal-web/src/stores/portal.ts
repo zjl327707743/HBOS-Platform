@@ -23,6 +23,7 @@ export const usePortalStore = defineStore('portal', () => {
   const branding = ref<PortalBranding | null>(null)
   const apps = ref<AppManifestDTO[]>([])
   const heroMetrics = ref<SummaryMetricDTO[]>([])
+  const summaryMetrics = ref<SummaryMetricDTO[]>([])
   const tasks = ref<UnifiedTaskDTO[]>([])
   const businessPulse = ref<BusinessPulseDTO[]>([])
   const twinStatuses = ref<TwinStatusDTO[]>([])
@@ -48,6 +49,7 @@ export const usePortalStore = defineStore('portal', () => {
       branding.value = data.branding
       apps.value = data.apps
       heroMetrics.value = data.heroMetrics
+      summaryMetrics.value = data.heroMetrics
       tasks.value = data.tasks
       businessPulse.value = data.businessPulse
       twinStatuses.value = data.twinStatuses
@@ -117,6 +119,7 @@ export const usePortalStore = defineStore('portal', () => {
     summariesLoading.value = true
     try {
       const loaded = await getPortalSummaries(apps.value)
+      summaryMetrics.value = loaded
       const byApp = new Map<string, SummaryMetricDTO[]>()
       for (const metric of loaded) {
         const bucket = byApp.get(metric.appId) || []
@@ -168,6 +171,7 @@ export const usePortalStore = defineStore('portal', () => {
     branding,
     apps,
     heroMetrics,
+    summaryMetrics,
     tasks,
     businessPulse,
     twinStatuses,

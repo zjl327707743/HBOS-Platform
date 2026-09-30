@@ -9,7 +9,8 @@
       <GlobalHeader
         :avatar-text="portal.user?.avatarText || 'HB'"
         :avatar-url="portal.user?.avatarUrl"
-        :company-logo-url="portal.branding?.logoUrl"
+        :company-logo-url="portal.branding?.logoUrl || LIMS_BRANDING.companyLogoUrl"
+        :group-logo-url="LIMS_BRANDING.groupLogoUrl"
         :apps="portal.apps"
         context-label="LIMS"
         @open-command="commandOpen = true"
@@ -18,6 +19,13 @@
       <div class="app-layout-grid">
         <AppLocalSidebar />
         <main id="lims-main-content" class="app-route-content" tabindex="-1">
+          <a-alert
+            v-if="portal.bootstrapError"
+            type="error"
+            show-icon
+            class="portal-bootstrap-error"
+            :message="portal.bootstrapError"
+          />
           <RouterView />
         </main>
       </div>
@@ -37,6 +45,7 @@ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import AppLocalSidebar from '@/components/layout/AppLocalSidebar.vue'
 import MobileAppNav from '@/components/layout/MobileAppNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
+import { LIMS_BRANDING } from '@/data/limsBranding'
 
 const portal = usePortalStore()
 const commandOpen = ref(false)

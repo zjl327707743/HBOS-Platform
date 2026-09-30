@@ -20,7 +20,7 @@ export const portalUser: PortalUser = {
 }
 
 export const appManifests: AppManifestDTO[] = [
-  { id: 'lims', title: '实验室质量管理', shortTitle: 'LIMS', description: '检验、质量、留样与稳定性管理', icon: 'ExperimentOutlined', accent: 'lims', route: '/hbos/lims', migrationMode: 'native', capabilitySummary: true, capabilityTasks: true, capabilitySearch: true, pendingCount: 5, meta: '5 个待处理', featured: true },
+  { id: 'lims', title: '实验室质量管理', shortTitle: 'LIMS', description: '检验、质量、留样与稳定性管理', icon: 'ExperimentOutlined', accent: 'lims', route: '/hbos/lims', migrationMode: 'native', capabilitySummary: true, capabilityTasks: true, capabilitySearch: true, capabilities: ['summary', 'tasks', 'search', 'results', 'ledger', 'coa', 'specifications', 'retains', 'stability', 'audit'], accessCapabilities: ['lims.read', 'lims.audit.read'], pendingCount: 5, meta: '5 个待处理', featured: true },
   { id: 'inventory', title: '仓储库存', shortTitle: 'Inventory', description: '入库、出库、批次、货位与盘点', icon: 'InboxOutlined', accent: 'inventory', route: '/hbos/inventory', migrationMode: 'hybrid', capabilitySummary: true, capabilityTasks: true, capabilitySearch: true, pendingCount: 3, meta: '3 个待处理', featured: true },
   { id: 'attendance', title: '考勤管理', shortTitle: 'Attendance', description: '个人、团队、异常与排班', icon: 'ClockCircleOutlined', accent: 'attendance', route: '/hbos/attendance', migrationMode: 'legacy', capabilitySummary: true, capabilityTasks: true, capabilitySearch: true, pendingCount: 3, meta: '3 个异常', featured: true },
   { id: 'equipment', title: '设备管理', shortTitle: 'Equipment', description: '设备、点检、健康与数字孪生', icon: 'ToolOutlined', accent: 'equipment', route: '/hbos/equipment', migrationMode: 'native', capabilitySummary: true, capabilityTasks: false, capabilitySearch: true, meta: '98.5% 在线', featured: true },
@@ -37,13 +37,13 @@ export const heroMetrics: SummaryMetricDTO[] = [
 ]
 
 export const tasks: UnifiedTaskDTO[] = [
-  { taskId: 'lims:review:RESULT-001', appId: 'lims', appTitle: 'LIMS', title: '复核阿莫西林含量结果', description: 'SAMPLE-001 · RESULT-001', priority: 'critical', dueLabel: '今天 16:00', dueGroup: 'today', status: 'open', overdue: true, deepLink: '/hbos/lims/results/RESULT-001/review' },
+  { taskId: 'lims:review:RESULT-001', appId: 'lims', appTitle: 'LIMS', title: '复核阿莫西林含量结果', description: 'SAMPLE-001 · RESULT-001', priority: 'critical', dueLabel: '今天 16:00', dueGroup: 'today', status: 'open', domainStatus: '已提交', action: 'review_result', actionLabel: '复核结果', overdue: true, deepLink: '/hbos/lims/results/RESULT-001/review' },
   { taskId: 'attendance:exception:001', appId: 'attendance', appTitle: 'Attendance', title: '处理考勤异常申请', description: '生产二部 · 今日异常', priority: 'high', dueLabel: '今天 17:00', dueGroup: 'today', status: 'open', deepLink: '/hbos/work' },
   { taskId: 'inventory:inbound:PO-2024-0092', appId: 'inventory', appTitle: 'Inventory', title: '审核入库单 PO-2024-0092', description: '六车间中间库', priority: 'normal', dueLabel: '今天 18:00', dueGroup: 'today', status: 'open', deepLink: '/hbos/apps' },
   { taskId: 'equipment:inspection:M607B', appId: 'equipment', appTitle: 'Equipment', title: 'M607B 设备点检确认', description: '三合一设备', priority: 'normal', dueLabel: '明天 09:00', dueGroup: 'week', status: 'open', deepLink: '/hbos/work' },
-  { taskId: 'lims:stability:TP-026', appId: 'lims', appTitle: 'LIMS', title: '稳定性时间点取样', description: 'STB-2026-023 · 6M', priority: 'high', dueLabel: '周五 14:00', dueGroup: 'week', status: 'open', deepLink: '/hbos/lims' },
+  { taskId: 'lims:stability:TP-026', appId: 'lims', appTitle: 'LIMS', title: '稳定性时间点取样', description: 'STB-2026-023 · 6M', priority: 'high', dueLabel: '周五 14:00', dueGroup: 'week', status: 'open', domainStatus: '已分配', action: 'complete_sampling', actionLabel: '完成取样', deepLink: '/hbos/lims' },
   { taskId: 'inventory:count:3904', appId: 'inventory', appTitle: 'Inventory', title: '六车间中间库盘点', description: '3904 · 203 个货位', priority: 'normal', dueLabel: '周五 18:00', dueGroup: 'week', status: 'waiting', deepLink: '/hbos/apps' },
-  { taskId: 'lims:done:RESULT-098', appId: 'lims', appTitle: 'LIMS', title: '复核头孢样品结果', description: 'RESULT-098', priority: 'normal', dueLabel: '昨天', dueGroup: 'later', status: 'done', deepLink: '/hbos/lims' },
+  { taskId: 'lims:done:RESULT-098', appId: 'lims', appTitle: 'LIMS', title: '复核头孢样品结果', description: 'RESULT-098', priority: 'normal', dueLabel: '昨天', dueGroup: 'later', status: 'done', domainStatus: '已批准', action: 'approve_result', actionLabel: '查看批准结果', deepLink: '/hbos/lims' },
 ]
 
 export const businessPulse: BusinessPulseDTO[] = [

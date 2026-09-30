@@ -2,7 +2,7 @@
 
 HBOS Workspace / Portal 的 Vue 3 + Ant Design Vue 前端。
 
-当前阶段：**EA-5.5 COMPLETE / P3 THREE-APP WORKSPACE INTEGRATION**。
+当前阶段：**EA-5.5 COMPLETE / P4-F6-5 LIMS READ-ONLY WORKBENCH IMPLEMENTED / AUDIT REMEDIATION VERIFIED / MANAGEMENT V0 GATE CLOSED / REAL RUNTIME EVIDENCE PENDING**。
 
 ## 数据模式
 
@@ -37,7 +37,7 @@ VITE_FRAPPE_APP_ORIGIN=http://127.0.0.1:8080
 
 - 调真实 `hbos_portal` API；
 - API 请求通过 Vite proxy 保持 Portal 开发同源；
-- Provider Resolver 返回的业务页面通过 `VITE_FRAPPE_APP_ORIGIN` 打开 Frappe origin，避免 `/app/...` 或 `/hbos-lims/...` 落到 Vite 404；
+- Attendance / Inventory 的业务页面按 Provider Resolver 返回路径通过 `VITE_FRAPPE_APP_ORIGIN` 打开 Frappe origin；LIMS `/hbos/lims/*` 保持在 Portal 同源前台，Dashboard、Task Board、Result List / Result Entry、受控结果台账与审计追踪已接入，其他业务页按实现进度逐项开放；
 - 使用现有 Frappe Session；
 - 不创建第二套登录；
 - 只渲染真实 Registry / Provider 暴露的能力。
@@ -48,6 +48,13 @@ VITE_FRAPPE_APP_ORIGIN=http://127.0.0.1:8080
 /api/method/hbos_portal.api.bootstrap.get_bootstrap
 /api/method/hbos_portal.api.summary.get_summary
 /api/method/hbos_portal.api.tasks.get_tasks
+/api/method/hbos_portal.api.results.get_results
+/api/method/hbos_portal.api.ledger.get_ledger
+/api/method/hbos_portal.api.audit.get_audit
+/api/method/hbos_portal.api.coa.get_coas
+/api/method/hbos_portal.api.specifications.get_specifications
+/api/method/hbos_portal.api.retention.get_retention
+/api/method/hbos_portal.api.stability.get_stability
 /api/method/hbos_portal.api.search.search
 /api/method/hbos_portal.api.routes.resolve_route
 ```
@@ -57,7 +64,8 @@ VITE_FRAPPE_APP_ORIGIN=http://127.0.0.1:8080
 ```text
 LIMS
   Entry / Access / Stable Route = enabled
-  Summary / Tasks / Search = enabled
+  Provider Summary / Tasks / Search = enabled
+  LIMS Shell 页面目标 = dashboard / Task Board / Result List / Result Entry / Ledger / Audit / COA / Quality Standards / Retention / Stability Workbench 已接入；样品列表与登记暂保持同源 pending，等待独立 Provider 读取 / 登记契约门禁；审计入口按 `lims.audit.read` 访问能力门控，COA、质量标准、留样和稳定性工作台为只读；稳定性工作台已完成 Mock 运行态预览，管理后台页头入口保持关闭
 
 Attendance
   Entry / Access / Stable Route = enabled

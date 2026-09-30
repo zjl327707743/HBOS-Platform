@@ -31,6 +31,10 @@ export interface AppManifestDTO {
   capabilitySummary: boolean
   capabilityTasks: boolean
   capabilitySearch: boolean
+  /** Raw Provider capability keys; the LIMS shell projects these separately. */
+  capabilities?: string[]
+  /** Semantic capabilities returned by the owning app access context. */
+  accessCapabilities?: string[]
   pendingCount?: number
   meta?: string
   featured?: boolean
@@ -44,6 +48,9 @@ export interface SummaryMetricDTO {
   tone: Tone
   meta?: string
   deepLink?: string
+  scopeLabel?: string
+  generatedAt?: string
+  summaryStatus?: string
 }
 
 export interface UnifiedTaskDTO {
@@ -56,8 +63,23 @@ export interface UnifiedTaskDTO {
   dueLabel: string
   dueGroup: 'today' | 'week' | 'later'
   status: 'open' | 'waiting' | 'done'
+  /** Domain status projected by the owning business Provider. */
+  domainStatus?: string
+  action?: string
+  actionLabel?: string
+  assignmentType?: string
+  category?: string
   overdue?: boolean
   deepLink: string
+}
+
+export type LimsTaskView = 'my-testing' | 'my-review' | 'my-approval'
+
+export interface LimsTaskQuery {
+  view?: LimsTaskView
+  status?: string
+  priority?: UnifiedTaskDTO['priority']
+  keyword?: string
 }
 
 export interface BusinessPulseDTO {

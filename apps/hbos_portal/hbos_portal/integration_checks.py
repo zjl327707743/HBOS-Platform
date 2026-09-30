@@ -51,14 +51,28 @@ def run() -> dict[str, object]:
 
     if manifest["route"] != "/hbos/lims":
         raise AssertionError("LIMS stable route mismatch")
-    if manifest["capabilities"] != ["summary", "tasks", "search"]:
+    if manifest["capabilities"] != [
+        "summary", "tasks", "search", "results", "ledger", "audit",
+        "coa", "specifications", "retains", "stability",
+    ]:
         raise AssertionError(
-            "P3-LIMS-5 must expose summary/tasks/search and no unreviewed capability"
+            "LIMS Portal must expose the reviewed summary/tasks/search/results/ledger/audit/coa/specifications/retains capabilities"
         )
 
     access = evaluate_access(entry)
     if not access.can_enter:
         raise AssertionError("Administrator must receive LIMS break-glass entry access")
+    if "lims.audit.read" not in access.capabilities:
+        raise AssertionError("Administrator must receive the semantic LIMS audit read capability")
+    for capability in (
+        "lims.results.read",
+        "lims.ledger.read",
+        "lims.retention.read",
+    ):
+        if capability not in access.capabilities:
+            raise AssertionError(
+                f"Administrator must receive the semantic LIMS capability: {capability}"
+            )
 
     inventory_manifest = registry.entries["inventory"].manifest.to_dict()
     if inventory_manifest["capabilities"] != ["summary"]:
@@ -66,9 +80,9 @@ def run() -> dict[str, object]:
 
     route_result = resolve_stable_route(
         "lims",
-        "/hbos/lims/tasks?scope=mine&task=TASK-001",
+        "/hbos/lims/tasks?view=my-testing&task=TASK-001",
     )
-    if route_result["resolved_path"] != "/hbos-lims/tasks?scope=mine&task=TASK-001":
+    if route_result["resolved_path"] != "/hbos-lims/tasks?view=my-testing&task=TASK-001":
         raise AssertionError("LIMS stable route adapter mismatch")
 
     attendance_route = resolve_stable_route(

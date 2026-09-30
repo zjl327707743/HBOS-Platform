@@ -482,3 +482,43 @@ P4-F0 Runtime Screenshot / Journey Baseline = READY
 ```
 
 P4 开始后仍执行前端 Gate：真实页面审计 → 原型 / 视觉方案 → Owner 审查 → 单 App 实施，不允许三个 App 同时直接大规模改代码。
+
+
+### Portal LIMS 当前入口过渡 — 2026-09-28
+
+上方 2026-09-25 的 18091 落地点是 P3 隔离预览的历史验收记录。按 Owner 最新要求，本机 5178 Portal 点击 LIMS 后使用同源 `/hbos/lims/*` 前台路由，不再从 Portal 直接跳转到 8080 的 LIMS 页面。真实 Frappe 模式暂显示「前台页面待设计」，不展示 Mock 业务数据；点击时由后端路由解析校验访问权限，直接打开 URL 时由权限过滤后的 Bootstrap App 清单校验。Owner 已提供 LIMS 前端规范，P4-F0 审计已完成，完整实现仍等待 P4-F2 原型和 Owner Gate。
+
+### Portal LIMS P4-F0 审计收口 — 2026-09-28
+
+状态：**P4-F0 COMPLETE / AUDIT DELIVERED / P4-F2 NEXT**。
+
+已完成 LIMS P4-F0 真实运行截图和关键旅程审计，覆盖 Portal 同源入口、Native LIMS Dashboard、任务板、结果清单、结果录入/复核、结果台账、样品登记、空态与权限错误态。审计报告为 `docs/experience/LIMS_P4-F0_RUNTIME_AUDIT.md`。本轮保持只读，不改 LIMS 业务流程、权限或页面实现。
+
+截图已在 Codex 浏览器工具中逐张采集并检查；当前工具不能将截图字节落盘，1440/1280/768/390 的持久化截图证据需在 Owner Review 前补存。下一步进入 P4-F2：LIMS Shell 与 Dashboard / Operational 页面原型及视觉方案；Owner Gate 通过后才可实现。
+
+### Portal LIMS P4-F2 设计方案 — 2026-09-29
+
+状态：**P4-F6-5 READ-ONLY WORKBENCH IMPLEMENTED / AUDIT REMEDIATION VERIFIED / MANAGEMENT V0 GATE CLOSED / REAL RUNTIME EVIDENCE PENDING**。
+
+已按 Owner 确认的方案 A 完成 LIMS 前台设计规格与文字原型：
+
+- Portal Global Header + LIMS Local Navigation 的 Shell 边界；
+- Dashboard V2 的四项 KPI、超期 / OOS 风险、最近样品和图表文本摘要；
+- Task Board、Result List / Entry、Sample Registration、Result Ledger 的 V1 页面结构；
+- 1440 / 1280 / 768 / 390 响应式规则；
+- loading、empty、error、permission、session expired 和提交中状态；
+- HBOS token、LIMS emerald / cyan 领域色、组件和数据权限边界。
+
+方案文档为 `docs/experience/LIMS_P4-F2_SHELL_DASHBOARD_设计方案.md`。本轮补齐了 R1–R11 条件，并完成 R1 / R2 / R6 的入口安全修复：真实模式切换到 `LimsLayout`、Sidebar 与移动导航改为稳定链接、假数字移除、入口按已实现页面目标门控；LIMS Provider 将 `/hbos/lims/ledger` 映射到当前 `/hbos-lims/results/ledger`，并补齐 Native deep link 回投稳定路径的别名，任务导航使用 `view` 查询语义。契约回归脚本为 `scripts/portal/lims_shell_contract.sh`，Provider 路由契约测试已通过。Owner 已通过 IA / Interaction Review，并于 2026-09-29 验收通过第二版 Visual Gate；第一版静态视觉交付已按要求退回，第二版中文优先、双品牌、完整领域与检验员工作流原型已交付至 `docs/experience/prototypes/lims-p4-f2-v2/`，说明和清单在 `docs/experience/LIMS_P4-F2_STATIC_VISUAL_GATE.md`。P4-F6 实施计划已交付至 `docs/experience/LIMS_P4-F6_实施计划.md`，P4-F6-0 第二轮确认与 Provider 适配记录见 `docs/experience/LIMS_P4-F6-0_PROVIDER_ROUTE_核验记录.md`：领域状态、KPI 语义、任务视图方向、结果写入和审计读取边界已由现有工作流、服务和 158 项通过、1 项跳过的测试确认，Provider summary / tasks / results / ledger / audit / coa / specifications / retains / stability 适配已完成；P4-F6-1 已接入双品牌、Shell 错误态和路由守卫，P4-F6-2 已接入四项 KPI、任务卡、流程条和加载 / 空 / 错误态，P4-F6-3 已接入三种任务视图、筛选、URL 上下文和键盘导航，P4-F6-4 已接入结果列表、结果录入、复核深链和领域写入动作，P4-F6-5 已接入受控结果台账、审计追踪、检验报告、质量标准、留样和稳定性工作台只读视图；管理后台 V0 因缺少明确 Provider 目标保持关闭，不注册前台管理路由、不跳转 Frappe Desk 或 8080；留样与稳定性操作仍保持领域服务边界，真实 Frappe 集成证据和 Dashboard 专用字段仍待补齐。
+
+### Portal LIMS P4-F6-5 稳定性运行态预览 — 2026-09-30
+
+状态：**RUNTIME PREVIEW VERIFIED / OWNER REVIEW NEXT**。稳定性工作台、计划、样品入箱台账、稳定性结果和趋势分析已在 Mock Vite 运行态逐页核验，1440 / 1280 / 768 / 390 四档响应式、结果详情只读抽屉和 18 条已实现同源路由均已验证，记录见 [`LIMS_P4-F6-5_STABILITY运行态验收记录.md`](./experience/LIMS_P4-F6-5_STABILITY运行态验收记录.md)。本轮移除了 Global Header 中未受 capability 约束的管理后台菜单，修复窄屏搜索提示竖向换行，并在 Portal 根配置统一中文 locale；契约脚本、Portal build 和全部 48 项 LIMS Portal Provider / 投影测试通过。样品列表与登记仍保持同源 pending，Provider 契约门禁见 [`LIMS_P4-F6-6_样品_PROVIDER契约门禁.md`](./experience/LIMS_P4-F6-6_样品_PROVIDER契约门禁.md)。真实 Frappe Session 与四档持久化截图仍待 Owner Review 前补齐，管理后台 V0 继续关闭。
+
+### Portal LIMS P4-F6-5 前端审核整改 — 2026-09-30
+
+状态：**P0/P1 AUDIT REMEDIATION VERIFIED / REAL Frappe RUNTIME EVIDENCE PENDING**。两份前端审核报告已逐条复核并完成整改：稳定性上限与错误封装、真实模式 Mock 汇总泄漏、`ok:false` 传播、401/403 会话语义、LIMS 语义能力门控、投影查询上限、孤儿页面和管理后台死入口均已处理；结果页桌面 `8:4`、任务 URL `view` 筛选、1280/768/390 响应式和路由 code-splitting 已对齐。48 项 LIMS 契约测试、19 项 Portal API 契约测试、`lims_shell_contract.sh`、`npm run test:contract`、Portal 构建和 `git diff --check` 均通过；语义能力还已加入真实 Frappe integration check。`npm run test:contract` 属于源码级正则防回归检查，不等同于运行时行为测试。详细记录见 [`LIMS_P4-F6-5_前端审核整改记录.md`](./experience/LIMS_P4-F6-5_前端审核整改记录.md)。本轮未启动 Frappe 工作台，不宣称真实 Session 运行态已通过。
+
+### Portal LIMS P4-F6-6 样品 Provider 契约门禁 — 2026-09-30
+
+状态：**CONTRACT GATE / BLOCKED ON PROVIDER CONTRACT**。`/hbos/lims/samples` 与 `/hbos/lims/samples/new` 继续由同源 `LimsPendingView` 承接，不显示固定样品事实、不新增前端直连 DocType、不跳转 8080。现有 `get_result_ledger` 与 `register_sample` 仅作为受后端保护的领域服务，尚未形成可独立审查的样品读取 / 登记 Provider 能力。本轮新增 `test_portal_samples_gate.py`，与管理后台门禁、Provider 路由测试合计 28 项通过，并在门禁文档中补充了 Provider 契约草案和 Owner 逐项签署清单。下一步先由 Provider Owner 确认列表、详情、登记 DTO、`lims.samples.read` / `lims.samples.register` 能力拆分、权限 SoD、审计签署和稳定路由投影，再决定开放只读列表与登记写操作。门禁记录见 [`LIMS_P4-F6-6_样品_PROVIDER契约门禁.md`](./experience/LIMS_P4-F6-6_样品_PROVIDER契约门禁.md)。

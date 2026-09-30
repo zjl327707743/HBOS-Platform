@@ -16,5 +16,9 @@ def get_manifest() -> dict[str, object]:
         "migration_mode": "native",
         "route": "/hbos/lims",
         # P3-LIMS-5 enables permission-aware result search.
-        "capabilities": ["summary", "tasks", "search"],
+        "capabilities": [
+            "summary", "tasks", "search", "results", "ledger", "audit",
+            "coa", "specifications",
+            "retains", "stability",
+        ],
     }
