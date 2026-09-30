@@ -1587,3 +1587,19 @@ Owner 退回第一版视觉交付，要求中文优先、完整体现 LIMS 功�
 ### HBOS Portal LIMS P4-F6-6 样品 Provider 契约门禁 — 2026-09-30
 
 状态：**CONTRACT GATE / BLOCKED ON PROVIDER CONTRACT**。样品列表与登记路由已保留在 Portal 同源 `/hbos/lims/*`，但当前继续由 pending 页面承接。已有 LIMS 领域查询 / 登记函数仍由后端角色检查保护，尚未形成独立的样品读取与登记 Provider capability，因此本轮不新增前端样品事实、表单、DocType 直连或 8080 跳转；新增的 `test_portal_samples_gate.py` 已确认 manifest 与 Provider 不发布未审查的 `samples` 适配器，门禁文档已补充契约草案和 Owner 逐项签署清单。下一步是确认样品列表 / 详情 / 登记 DTO、能力拆分、权限 SoD、审计签署和路由投影，再进入样品只读页面实现；门禁记录见 `docs/experience/LIMS_P4-F6-6_样品_PROVIDER契约门禁.md`。
+
+### HBOS Portal LIMS P4-F6-2 浏览器运行态整改 — 2026-09-30
+
+状态：**MOCK PREVIEW VERIFIED / DASHBOARD V2 VISUAL PARITY IMPROVED / REAL FRAPPE EVIDENCE PENDING**。
+
+本轮定位并修复了 Owner 浏览器截图与当前源码不一致的原因：5178 仍运行旧的 Frappe 模式进程，旧后端 Bootstrap 方法未同步当前源码，能力清单为空；当前 Dashboard 实现也缺少已通过 Visual Gate 的实验室主视觉、样品进度、日程和常用操作。已用当前源码重启 5178 Mock 预览，并将 Dashboard V2 视觉与交互补齐。Mock 专用指标和任务队列只用于视觉评审，真实 Frappe 分支不使用 Mock 数据补齐业务能力。
+
+验证：
+
+    http://127.0.0.1:5178/hbos/lims  浏览器可见双品牌、完整 LIMS Shell、实验室 Hero、四项指标、流程条、任务、样品进度、日程和常用操作
+    npm run build                         PASS
+    npm run test:contract                 PASS
+    bash scripts/portal/lims_shell_contract.sh  PASS
+    git diff --check                     PASS
+
+真实 Frappe Session、Provider 真实字段和正式数据仍待 Docker/Frappe 工作台恢复，不宣称生产运行态已通过。

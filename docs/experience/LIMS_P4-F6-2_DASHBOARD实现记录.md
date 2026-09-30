@@ -45,3 +45,23 @@ Provider / LIMS contract tests
 ## 4. 下一步
 
 恢复真实运行环境后，执行 Provider 集成检查，核对四项 KPI、scopeLabel、任务深链和超大任务集分页；随后接入 Dashboard 专用风险、近期样品和分布字段，再进入 Task Board V1。
+
+## 5. 2026-09-30 浏览器运行态整改
+
+Owner 提供的浏览器截图显示 5178 仍使用旧的 Frappe 模式预览进程，旧后端对当前 Bootstrap API 返回未授权，导致真实能力清单为空；同时旧版 Dashboard 只保留 KPI、流程条和任务列表，未复刻已通过 Visual Gate 的实验室工作台视觉层。
+
+本轮已完成：
+
+- 停止遗留 5178 Vite/Frappe 预览进程，按当前源码以 'VITE_PORTAL_DATA_MODE=mock' 重新启动 5178；
+- Dashboard V2 接入实验室插画、中文优先的检验员 Hero、样品条码与进度、实验室日程、检验态势、常用操作和能力门控入口；
+- Mock 预览补齐四项仅用于视觉评审的 LIMS 工作指标与任务队列；真实 Frappe 分支继续只使用 Provider 返回数据，不用 Mock 回退；
+- 窄屏侧栏改为图标模式，避免 1280px 以下导航文字挤压。
+
+浏览器核验：'http://127.0.0.1:5178/hbos/lims' 已显示双品牌 Header、LIMS Local Shell、实验室主视觉、四项指标、检验流程、任务队列、样品进度、日程和常用操作。真实 Frappe Session、Provider 字段和正式数据仍待 Docker/Frappe 工作台恢复后验证。
+
+本轮门禁：
+
+    npm run build                         PASS
+    npm run test:contract                 LIMS FRONTEND CONTRACT PASS
+    bash scripts/portal/lims_shell_contract.sh  PASS
+    git diff --check                     PASS

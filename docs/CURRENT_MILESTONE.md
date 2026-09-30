@@ -522,3 +522,9 @@ P4 开始后仍执行前端 Gate：真实页面审计 → 原型 / 视觉方案 
 ### Portal LIMS P4-F6-6 样品 Provider 契约门禁 — 2026-09-30
 
 状态：**CONTRACT GATE / BLOCKED ON PROVIDER CONTRACT**。`/hbos/lims/samples` 与 `/hbos/lims/samples/new` 继续由同源 `LimsPendingView` 承接，不显示固定样品事实、不新增前端直连 DocType、不跳转 8080。现有 `get_result_ledger` 与 `register_sample` 仅作为受后端保护的领域服务，尚未形成可独立审查的样品读取 / 登记 Provider 能力。本轮新增 `test_portal_samples_gate.py`，与管理后台门禁、Provider 路由测试合计 28 项通过，并在门禁文档中补充了 Provider 契约草案和 Owner 逐项签署清单。下一步先由 Provider Owner 确认列表、详情、登记 DTO、`lims.samples.read` / `lims.samples.register` 能力拆分、权限 SoD、审计签署和稳定路由投影，再决定开放只读列表与登记写操作。门禁记录见 [`LIMS_P4-F6-6_样品_PROVIDER契约门禁.md`](./experience/LIMS_P4-F6-6_样品_PROVIDER契约门禁.md)。
+
+### Portal LIMS P4-F6-2 浏览器运行态整改 — 2026-09-30
+
+状态：**MOCK PREVIEW VERIFIED / DASHBOARD V2 VISUAL PARITY IMPROVED / REAL FRAPPE EVIDENCE PENDING**。
+
+已停止 5178 上的旧 Frappe/Vite 预览进程，并以当前源码启动 Mock 预览；Dashboard V2 已补齐实验室主视觉、中文检验员 Hero、四项 Mock 评审指标、检验流程、任务队列、样品条码与进度、实验室日程和按 capability 显示的常用操作。真实模式仍只消费 Provider 数据，未把 Mock 数据补入真实页面。Portal 构建、前端契约、Shell 契约和 diff 检查均通过；真实 Frappe Session 与正式数据仍待 Docker/Frappe 工作台恢复。

@@ -159,3 +159,5 @@ P4-F0 已完成 LIMS 真实运行审计，报告为 `docs/experience/LIMS_P4-F0_
  Portal 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts 按需使用。
 
 管理后台 V0 门禁：当前没有明确的 LIMS Provider 管理目标、管理 API 或只读投影，因此不发布 `management` capability，不注册前台管理路由，也不跳转 Frappe Desk / 8080。记录见 `docs/experience/LIMS_P4-F6-5_MANAGEMENT_V0门禁记录.md`。
+
+2026-09-30 浏览器运行态整改：Owner 截图对应的 5178 仍是旧 Frappe 模式进程，旧 Bootstrap 与当前源码不一致，导致能力菜单为空；已停止旧进程并以当前源码启动 Mock 预览。LIMS Dashboard V2 现补齐实验室主视觉、中文 Hero、样品条码 / 检验进度、实验室日程、任务态势和按 capability 显示的常用操作。Mock 评审数据只在 Mock 分支存在，真实 Frappe 分支继续不使用 Mock 回退。npm run build、npm run test:contract、lims_shell_contract.sh 和 git diff --check 已通过；真实 Frappe Session 运行证据仍待 Docker/Frappe 工作台恢复。
