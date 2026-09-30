@@ -62,7 +62,8 @@ jobs:
           python -m compileall -q apps/hb_inventory_app/hb_inventory_app/hbos_inventory/portal
 
       - name: 安装锁定的 Portal 登录名依赖
-        run: pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
+        run: |
+          pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
 
       - name: 校验 Portal 本地脚本与 Preview Compose
         run: |

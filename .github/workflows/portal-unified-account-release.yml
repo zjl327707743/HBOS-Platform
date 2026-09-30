@@ -23,7 +23,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r services/hbos_gateway/requirements.txt
-      - run: pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
+      - run: |
+          pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
       - name: Portal and domain contracts
         run: |
           PYTHONPATH=apps/hbos_portal python -m unittest discover -s apps/hbos_portal/tests -t apps/hbos_portal -q
