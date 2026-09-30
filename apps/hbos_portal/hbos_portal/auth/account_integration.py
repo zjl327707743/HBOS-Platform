@@ -82,8 +82,14 @@ def run() -> dict:
             expect_error(lambda: accounts.bind_identity(settings, identity, users[1]), "bound_identity_cannot_transfer")
             second = dict(identity, open_id="ou_synthetic_other_" + suffix)
             expect_error(lambda: accounts.bind_identity(settings, second, user), "one_active_identity_per_user")
+            # Exercise the native framework's 100-row clearing limit against
+            # real Sessions SQL, without issuing usable browser credentials.
+            for index in range(105):
+                frappe.db.sql("INSERT INTO `tabSessions` (user,sid,sessiondata,ipaddress,lastupdate,status) VALUES (%s,%s,%s,%s,NOW(),%s)", (user, "owned-synthetic-" + suffix + "-" + str(index), "{}", "127.0.0.1", "Active"))
             accounts.save_proof(user, "password")
             accounts.set_password(new_password=credentials[1])
+            assert frappe.db.count("Sessions", {"user": user}) == 0
+            checks.append("password_rotation_revokes_over_one_hundred_native_sessions")
             check_password(user, credentials[1])
             assert login_calls[-1] == user
             expect_error(lambda: accounts.set_password(new_password=credentials[0]), "consumed_proof_cannot_replay")

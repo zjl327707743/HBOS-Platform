@@ -6,9 +6,11 @@
 
 实际交付为 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并）。PR 目标为 `feature/hbos-portal-product`；本轮发布分支为 `codex/portal-unified-account-release`。接续已有 Portal/Knowledge/Twin 源码，以独立净化提交提供必要代码，不发布个人开发分支中的内部运行报告。团队使用 PR 的实际 HEAD SHA，禁止引用个人绝对路径。
 
-`bash scripts/release/build_bundle.sh` 在 clean checkout 执行 `npm ci`、类型检查及 production build，生成 `.release/hbos-portal-release.tar.gz`。包内包含六个自定义 App、Gateway 通用源码、部署工具、前端编译资产、`release.json` 和资产 `build-info.json`。构建强制使用 Frappe 数据模式及同源 API。检查 `source_dirty=false`、commit、文件 SHA256 和 build ID；仅 `.release` 内的显式测试制品可以带 dirty 标记，不准用于正式发布。GitHub Actions 会上传同一构建流程的制品，保留 14 天。
+`bash scripts/release/build_bundle.sh` 在 clean checkout 执行 `npm ci`、类型检查及 production build，生成 `.release/hbos-portal-release.tar.gz`。包内包含六个自定义 App、Gateway 通用源码、部署工具、前端编译资产、`release.json` 和资产 `build-info.json`。构建强制使用 Frappe 数据模式及同源 API。检查 `source_dirty=false`、commit、文件 SHA256 和 build ID；仅 `.release` 内的显式测试制品可以带 dirty 标记，不准用于正式发布。GitHub Actions 从真实 PR head SHA 上传同一构建流程的制品，保留 14 天；制品来源不能以短期合并预演 SHA 代替已审查 head。
 
 兼容实测基线见 `scripts/release/依赖版本锁.json`。前端 npm lock 与 Gateway 完整 Python lock 已版本化；HRMS 使用官方仓库固定 commit。既有目标的 ERPNext/Frappe/HRMS 版本先核对，禁止为了匹配基线降级原站；不一致时在目标备份的隔离恢复环境验证兼容性。
+
+团队 HRMS 依赖来自官方仓库固定 commit，不能依赖个人工作目录。已有服务器保留正在使用的 HRMS 源码与资产；若迁到新服务器，按目标备份记录的真实版本准备不可变依赖目录及编译资产。实测基线源码可用 `git init runtime/apps/hrms`、`git -C runtime/apps/hrms remote add origin https://github.com/frappe/hrms.git`、`git -C runtime/apps/hrms fetch --depth 1 origin c0a04b80eeb721417b75cea758e831464d0da041`、`git -C runtime/apps/hrms checkout --detach FETCH_HEAD` 取得，仅用于新目录，不能覆盖既有未核验依赖。源版本不同时，以原目标版本和隔离恢复验证为准。
 
 ## 先确认既有 Site
 
