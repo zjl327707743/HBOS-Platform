@@ -59,6 +59,8 @@
 
 本轮未启动本地 Frappe 工作台，因此没有把本地 Mock 预览结果表述为真实 Session 集成通过；真实 Provider 数据、Dashboard 专用风险字段和样品 Provider 仍需在环境恢复后做运行态验收。
 
+本轮已切换到 `feature/hbos-portal-product` 并提交 `627c3db`。随后执行 `scripts/portal/p3_workspace_runtime_smoke.sh`，因本机没有 `docker` 命令，在 Compose 启动前退出；因此真实 Frappe Session、401/403 运行态和 stability / retention 真实数据仍未验证。
+
 ## 4. 后续不阻断项
 
 - Portal 与 Native LIMS 的分页字段仍需后续统一 contract，当前不改变业务 Authority。

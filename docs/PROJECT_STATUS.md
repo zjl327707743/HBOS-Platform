@@ -1582,7 +1582,7 @@ Owner 退回第一版视觉交付，要求中文优先、完整体现 LIMS 功�
 
 状态：**P0/P1 AUDIT REMEDIATION VERIFIED / REAL Frappe RUNTIME EVIDENCE PENDING**。
 
-两份前端审核报告已逐条复核并完成整改：稳定性上限与错误封装、真实模式 Mock 汇总泄漏、`ok:false` 传播、401/403 会话语义、LIMS 语义能力门控、投影查询上限、孤儿页面和管理后台死入口均已处理；结果页桌面 `8:4`、任务 URL `view` 筛选、1280/768/390 响应式和路由 code-splitting 已对齐。48 项 LIMS 契约测试、19 项 Portal API 契约测试、`scripts/portal/lims_shell_contract.sh`、`npm run test:contract`、Portal 构建和 `git diff --check` 均通过；语义能力还已加入真实 Frappe integration check。`npm run test:contract` 属于源码级正则防回归检查，不等同于运行时行为测试。详细记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。本轮未启动 Frappe 工作台，不宣称真实 Session 运行态已通过。
+两份前端审核报告已逐条复核并完成整改：稳定性上限与错误封装、真实模式 Mock 汇总泄漏、`ok:false` 传播、401/403 会话语义、LIMS 语义能力门控、投影查询上限、孤儿页面和管理后台死入口均已处理；结果页桌面 `8:4`、任务 URL `view` 筛选、1280/768/390 响应式和路由 code-splitting 已对齐。48 项 LIMS 契约测试、19 项 Portal API 契约测试、`scripts/portal/lims_shell_contract.sh`、`npm run test:contract`、Portal 构建和 `git diff --check` 均通过；语义能力还已加入真实 Frappe integration check。`npm run test:contract` 属于源码级正则防回归检查，不等同于运行时行为测试。交付已提交至 `feature/hbos-portal-product`（`627c3db`）。已尝试执行 `scripts/portal/p3_workspace_runtime_smoke.sh`，但本机缺少 `docker` 命令，在启动 Compose 前退出；真实 Session 运行态仍待具备 Docker/Frappe 工作台的环境验证。详细记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。
 
 ### HBOS Portal LIMS P4-F6-6 样品 Provider 契约门禁 — 2026-09-30
 
