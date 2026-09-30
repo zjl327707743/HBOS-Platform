@@ -24,7 +24,7 @@ import { accountErrorMessage } from '@/services/accountErrors'
 const props = defineProps<{ passwordOnly?: boolean }>(), emit = defineEmits<{ verified: [proof: ProofStatus]; invalidated: [] }>()
 const fieldId = useId(), status = ref<SecurityStatus | null>(null), useInbox = ref(false)
 const password = ref(''), code = ref(''), otp = ref(''), tmpId = ref(''), error = ref(''), notice = ref(''), busy = ref(false), loading = ref(true), expired = ref(false)
-const proof = useAccountProof(() => { expired.value = true; emit('invalidated') })
+const proof = useAccountProof(() => { clearSecrets(); expired.value = true; emit('invalidated') })
 const passwordMode = computed(() => props.passwordOnly || Boolean(status.value?.has_password && !useInbox.value))
 let generation = 0, disposed = false
 function clearSecrets() { password.value = ''; code.value = ''; otp.value = ''; tmpId.value = '' }

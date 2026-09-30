@@ -39,7 +39,7 @@ import AccountChangeActions from './AccountChangeActions.vue'
 const router = useRouter(), status = ref<SecurityStatus | null>(null), panel = ref<'password'|'feishu'|'admin'|null>(null)
 const newPassword = ref(''), confirmation = ref(''), recoveryUser = ref(''), recoveryReason = ref(''), recoveryLink = ref<RecoveryLink|null>(null), linkCopied = ref(false)
 const loading = ref(true), busy = ref(false), error = ref(''), notice = ref(''), stale = ref(false), uncertain = ref(false), proofKey = ref(0), passwordError = ref(''), unlinkConfirmed = ref(false)
-const proof = useAccountProof(), mismatch = computed(() => Boolean(confirmation.value && newPassword.value !== confirmation.value))
+const proof = useAccountProof(clearSecrets), mismatch = computed(() => Boolean(confirmation.value && newPassword.value !== confirmation.value))
 const panelTitle = computed(() => panel.value === 'password' ? (status.value?.has_password ? '修改密码' : '设置密码') : panel.value === 'admin' ? '协助员工恢复' : '本人飞书绑定')
 let disposed = false, trigger: HTMLElement|null = null, requestId = '', pendingKind = ''
 function invalidateProof() { proof.invalidate(); proofKey.value++ }

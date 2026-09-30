@@ -80,9 +80,12 @@ describe('confirmed account UI regressions', () => {
     const { wrapper } = await render(OwnAccountVerification)
     await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic password')
     await clickText(wrapper,'验证本人身份')
+    // A user may start re-verifying while the existing proof is still valid.
+    await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic password being re-entered')
     api.getSecurity.mockResolvedValue(structuredClone(security))
     window.dispatchEvent(new Event('focus')); await flushPromises()
     expect(wrapper.text()).toMatch(/已过期、已使用或会话已变化/)
+    expect(wrapper.find('input[autocomplete="current-password"]').element).toHaveProperty('value', '')
   })
   it('FLOW-01: an earlier operation response cannot replace a new target', async () => {
     let resolve!: (value: unknown) => void
@@ -91,6 +94,20 @@ describe('confirmed account UI regressions', () => {
     await router.push('/hbos/account-change?operation=new-target'); await flushPromises()
     resolve({operation:'old-target',kind:'custody',state:'Invited',expires_in:600}); await flushPromises()
     expect(wrapper.text()).not.toContain('custody'); expect(wrapper.text()).not.toContain('old-target')
+  })
+  it('C01/A08: proof invalidation clears password drafts in the containing security form', async () => {
+    api.reauthenticate.mockResolvedValue({verified:true, expires_in:300})
+    const { wrapper } = await render(AccountSecurity)
+    await clickText(wrapper,'修改密码')
+    await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic current password')
+    await clickText(wrapper,'验证本人身份')
+    for (const field of wrapper.findAll('input[autocomplete="new-password"]')) {
+      await field.setValue('synthetic unsubmitted password draft')
+    }
+    api.getSecurity.mockResolvedValue(structuredClone(security))
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    expect(wrapper.findAll('input[type="password"]').every(field => (field.element as HTMLInputElement).value === '')).toBe(true)
+    expect(api.setPassword).not.toHaveBeenCalled()
   })
   it('C10: an uncertain write prevents duplicates and can query its receipt', async () => {
     api.setPassword.mockRejectedValue(new Error('response lost'))
