@@ -20,8 +20,15 @@ export function usePortalSession() {
   async function synchronize() {
     if (disposed || checking) return
     checking = true; sessionError.value = null
+    if (/^\/hbos\/(lims|knowledge|twin)(?:\/|$)/.test(route.path)) sessionPending.value = true
     try {
       await portal.bootstrap()
+      if (disposed) return
+      const app = route.path.match(/^\/hbos\/(lims|knowledge|twin)(?:\/|$)/)?.[1]
+      if (app && !portal.apps.some(candidate => candidate.id === app)) {
+        await router.replace({ path: '/hbos/403', query: { app } })
+        return
+      }
     } catch (error) {
       if (disposed) return
       if (isUnauthenticatedError(error)) {

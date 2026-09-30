@@ -25,7 +25,7 @@
             show-icon
             :message="sessionError"
           />
-          <RouterView v-else />
+          <RouterView v-else :key="portal.user?.id" />
         </main>
       </div>
     </div>
