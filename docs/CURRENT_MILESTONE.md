@@ -128,18 +128,14 @@ EA-1 ~ EA-4 = BASELINE
 EA-5 Owner Visual Gate = APPROVED
 EA-5.3 = BASELINE
 EA-5.4 = DESIGN ENGINEERING BASELINE
-EA-5.5 = NEXT
+EA-5.5 = COMPLETE / OWNER APPROVED
+P4-F6-5 = REVIEWING / 2026-10-01 LOCAL FIX VERIFICATION PASS
+REAL Frappe RUNTIME / OWNER ACCEPTANCE = PENDING
 ```
 
 正式工作分支：`feature/hbos-portal-product`。
 
-允许范围：
-- Portal Experience Architecture 文档；
-- 已批准原型复刻；
-- Vue 3 + Ant Design Vue Portal Skeleton；
-- EA-5.5 响应式 / 可访问性 / 交互 QA。
-
-在后续 Gate 前暂不创建 `apps/hbos_portal`，不接真实业务 Provider。
+当前允许范围为已批准的 Portal/LIMS 前端审核修复和验证。`apps/hbos_portal` 与三业务 Provider 已存在；本轮不创建 App、不改业务 Authority、不进入新的能力门禁。下文按日期记录历史 Gate 推进，当前状态以最新记录为准。
 
 
 ### Portal Phase B 更新
@@ -528,3 +524,7 @@ P4 开始后仍执行前端 Gate：真实页面审计 → 原型 / 视觉方案 
 状态：**MOCK PREVIEW VERIFIED / DASHBOARD V2 VISUAL PARITY IMPROVED / REAL FRAPPE EVIDENCE PENDING**。
 
 已停止 5178 上的旧 Frappe/Vite 预览进程，并以当前源码启动 Mock 预览；Dashboard V2 已补齐实验室主视觉、中文检验员 Hero、四项 Mock 评审指标、检验流程、任务队列、样品条码与进度、实验室日程和按 capability 显示的常用操作。真实模式仍只消费 Provider 数据，未把 Mock 数据补入真实页面。Portal 构建、前端契约、Shell 契约和 diff 检查均通过；真实 Frappe Session 与正式数据仍待 Docker/Frappe 工作台恢复。
+
+### Portal P4-F6-5 审核修复复核 — 2026-10-01
+
+2026-10-01 Portal 审核修复为 **REVIEWING / 本地验证通过，待 Owner 验收及真实 Frappe 运行态证据**：已处理 CSS token、错误态守卫、防抖与过期响应、刷新异常、强类型工作台、共享映射与六页查询逻辑、真实模式原型入口、回跳校验、环境变量与趋势图文档；Ant gzip 442.13 → 255.57 kB。14 项前端回归、构建和两套契约检查通过；临时 Mock 浏览器确认留样/稳定性实际颜色生效。修复分支 `codex/portal-review-fixes`，详细记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。本轮不部署，不关闭样品/管理后台或真实运行态门禁。

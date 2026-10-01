@@ -89,19 +89,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { useLimsQueryPage } from '@/composables/useLimsQueryPage'
+import { statusColor, verdictColor } from '@/views/limsStatus'
+import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { ArrowRightOutlined, InboxOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-vue'
-import { usePortalStore } from '@/stores/portal'
 import { listLimsResults, type LimsResultRow } from '@/services/limsResults'
 
-const route = useRoute()
-const router = useRouter()
-const portal = usePortalStore()
 const results = ref<LimsResultRow[]>([])
 const total = ref(0)
-const loading = ref(true)
-const errorMessage = ref('')
+
 const searchInput = ref('')
 const statusFilter = ref('')
 const verdictFilter = ref('')
@@ -115,61 +112,34 @@ const columns = [
   { title: '操作', key: 'actions', width: 120 },
 ]
 
-function stringQuery(value: unknown) {
-  return typeof value === 'string' ? value : ''
-}
-
-function readRouteState() {
-  searchInput.value = stringQuery(route.query.keyword)
-  statusFilter.value = stringQuery(route.query.status)
-  verdictFilter.value = stringQuery(route.query.verdict)
-}
-
-function routeQuery() {
-  const query: Record<string, string> = {}
-  if (searchInput.value.trim()) query.keyword = searchInput.value.trim()
-  if (statusFilter.value) query.status = statusFilter.value
-  if (verdictFilter.value) query.verdict = verdictFilter.value
-  return query
-}
-
-async function updateRoute() {
-  await router.replace({ path: '/hbos/lims/results', query: routeQuery() })
-}
+const { loading, errorMessage, updateRoute, runLoad } = useLimsQueryPage({
+  path: '/hbos/lims/results',
+  fields: { keyword: { state: searchInput }, status: { state: statusFilter }, verdict: { state: verdictFilter } },
+  load: loadResults,
+  failureMessage: '检验结果暂时无法加载，请稍后重试。',
+})
 
 async function loadResults() {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    if (!portal.user) await portal.bootstrap()
-    const response = await listLimsResults({
+  await runLoad(
+    () => listLimsResults({
       keyword: searchInput.value.trim() || undefined,
       status: statusFilter.value || undefined,
       verdict: verdictFilter.value || undefined,
-    })
-    results.value = response.results
-    total.value = response.total
-  } catch {
-    results.value = []
-    total.value = 0
-    errorMessage.value = '检验结果暂时无法加载，请稍后重试。'
-  } finally {
-    loading.value = false
-  }
+    }),
+    (response) => {
+      results.value = response.results
+      total.value = response.total
+    },
+    false,
+    () => {
+      results.value = []
+      total.value = 0
+    },
+  )
 }
 
 function applySearch(value: string) { searchInput.value = value; void updateRoute() }
 function setStatus(value: string) { statusFilter.value = value; void updateRoute() }
 function setVerdict(value: string) { verdictFilter.value = value; void updateRoute() }
 
-function statusColor(status: string) {
-  return { 草稿: 'default', 已提交: 'processing', 已复核: 'warning', 已批准: 'success', 已修订: 'error' }[status] || 'default'
-}
-
-function verdictColor(verdict: string) {
-  return { 合格: 'success', 不合格: 'error', OOS候选: 'error', 不适用: 'default' }[verdict] || 'default'
-}
-
-watch(() => route.fullPath, async () => { readRouteState(); await loadResults() })
-onMounted(async () => { readRouteState(); await loadResults() })
 </script>

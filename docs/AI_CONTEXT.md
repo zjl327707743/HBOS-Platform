@@ -21,11 +21,11 @@
 
 当前阶段：M0 工程启动与上下文治理已完成并封板；M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成。M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；当前 M1-FIX-B5 已进入 REVIEWING，用于核查导入数据链路并收敛 HBOS 报表、月度汇总暂存和 HRMS 原生技术核查口径。
 
-当前目标：M1-FIX-B5 为 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 不 closeout。M1 产品交付仍未完成，M1-FIX-C/D/E 未启动。M2 未启动 / 待 Owner 授权。
+当前目标：M1-FIX-B5 为 REVIEWING，等待 Owner 和 Claude 审查。M1-FIX-B3 / B4 不 closeout。M1 产品交付仍未完成，M1-FIX-C/D/E 未启动。LIMS（M2）、仓储（M3）与 Portal 为已授权并行工作线，进度见对应门禁。
 
 当前已在用户授权范围内安装 HRMS，并完成 Frappe HR 图标、基础 HR 模块和 Roster 页面的前端资源修复验证。M0-R3E HRMS 环境可复现性收口已完成并通过 Codex 审查，M0 整体状态为 COMPLETED。
 
-M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已新增 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED，已通过 Codex 审查并收口。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED（已通过 Codex 审查并 closeout）。M1-R7 为 COMPLETED（已通过 Codex 审查并 closeout）。M1 历史 closeout 已完成，但 Owner UI 验收发现产品功能缺口，因此当前 M1 产品交付仍处于 M1-FIX IN_PROGRESS。M1-FIX-B 已创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐页面导入与中文体验；M1-FIX-B4 已收敛运行态入口主线；M1-FIX-B5 已核查真实 Employee / Employee Checkin / Attendance / 月度暂存数据链路，新增月度汇总暂存报表并增强 HBOS 报表过滤；真实 Excel、真实员工清单和导入产物不提交 Git。M2 未启动。当前不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
+M0-REMOTE 已完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。M1-R0 已完成方案和诊断并通过 Codex 独立审查；M1-R1 已完成只读对象模型验证记录，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R2 已完成配置试运行方案设计，并已通过 Codex 独立审查，状态为 COMPLETED。M1-R3 已创建部分 `TEST-HBOS-M1R3-` 虚构测试数据；Codex 审查 PASS 后，M1-R3 最终状态收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED。M1-R3C 已新增 `TEST-HBOS-M1R3C-*` 虚构 TEST 数据；M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED，已通过 Codex 审查并收口。M1-R6A 已通过 Codex 审查并收口为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED（已通过 Codex 审查并 closeout）。M1-R7 为 COMPLETED（已通过 Codex 审查并 closeout）。M1 历史 closeout 已完成，但 Owner UI 验收发现产品功能缺口，因此当前 M1 产品交付仍处于 M1-FIX IN_PROGRESS。M1-FIX-B 已创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐页面导入与中文体验；M1-FIX-B4 已收敛运行态入口主线；M1-FIX-B5 已核查真实 Employee / Employee Checkin / Attendance / 月度暂存数据链路，新增月度汇总暂存报表并增强 HBOS 报表过滤；真实 Excel、真实员工清单和导入产物不提交 Git。LIMS（M2）、仓储（M3）与 Portal 为已授权并行工作线，进度见对应门禁。当前不接飞书真实写入，不实现 SSO，不做前端驾驶舱，除非用户明确授权对应轮次。
 
 ## AI 默认读取规则
 
@@ -84,7 +84,7 @@ Skill 路由规范文件为：
 后续路线只记录，不代表已启动：
 
 1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
-2. M1 历史 closeout 已完成，但产品交付仍在 M1-FIX 中，尚未完成。M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING。M2 未启动 / 待 Owner 授权。
+2. M1 历史 closeout 已完成，但产品交付仍在 M1-FIX 中，尚未完成。M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING。LIMS（M2）、仓储（M3）与 Portal 为已授权并行工作线，进度见对应门禁。
 
 ## 前端实施流程规范
 
@@ -156,8 +156,12 @@ bash scripts/portal/p3_workspace_runtime_smoke.sh
 
 P4-F0 已完成 LIMS 真实运行审计，报告为 `docs/experience/LIMS_P4-F0_RUNTIME_AUDIT.md`；P4-F2 第一版视觉交付已按 Owner 要求退回，第二版中文优先、双品牌、完整领域和检验员工作流原型位于 `docs/experience/prototypes/lims-p4-f2-v2/`，交付说明为 `docs/experience/LIMS_P4-F2_STATIC_VISUAL_GATE.md`。Owner 已于 2026-09-29 验收通过 Visual Gate，P4-F6 实施计划已交付至 `docs/experience/LIMS_P4-F6_实施计划.md`，P4-F6-0 第二轮确认与适配记录为 `docs/experience/LIMS_P4-F6-0_PROVIDER_ROUTE_核验记录.md`，当前已完成 P4-F6-1 Shell、P4-F6-2 Dashboard V2、P4-F6-3 Task Board V1、P4-F6-4 Result List / Result Entry V1 和 P4-F6-5 Ledger / Audit / COA / Quality Standards / Retention / Stability Read-only V1，稳定性工作台已完成 Mock 运行态预览。两份前端审核报告中的 P0/P1 已完成代码整改，整改记录为 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`；交付已提交至 `feature/hbos-portal-product`（`627c3db`），已尝试真实工作台 smoke 但本机缺少 `docker` 命令，真实 Frappe 运行证据仍待环境恢复。真实模式 `/hbos/lims/*` 使用 `LimsLayout`，Sidebar / 移动导航使用稳定链接，假数字移除，统一 `limsCapabilities` 按页面目标和语义能力门控；Dashboard 的专用风险 / 样品 / 分布字段继续保持安全空态，待真实 Provider 契约补齐。样品列表与登记暂不开放，等待独立 Provider 读取 / 登记契约门禁；Desk 后台页面不得为了“好看”被整体重写成独立前端。
 
- Portal 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts 按需使用。
+Portal 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；当前稳定性趋势图使用 SVG，没有 ECharts 依赖。
 
 管理后台 V0 门禁：当前没有明确的 LIMS Provider 管理目标、管理 API 或只读投影，因此不发布 `management` capability，不注册前台管理路由，也不跳转 Frappe Desk / 8080。记录见 `docs/experience/LIMS_P4-F6-5_MANAGEMENT_V0门禁记录.md`。
 
 2026-09-30 浏览器运行态整改：Owner 截图对应的 5178 仍是旧 Frappe 模式进程，旧 Bootstrap 与当前源码不一致，导致能力菜单为空；已停止旧进程并以当前源码启动 Mock 预览。LIMS Dashboard V2 现补齐实验室主视觉、中文 Hero、样品条码 / 检验进度、实验室日程、任务态势和按 capability 显示的常用操作。Mock 评审数据只在 Mock 分支存在，真实 Frappe 分支继续不使用 Mock 回退。npm run build、npm run test:contract、lims_shell_contract.sh 和 git diff --check 已通过；真实 Frappe Session 运行证据仍待 Docker/Frappe 工作台恢复。
+
+### Portal 当前审核修复状态 — 2026-10-01
+
+2026-10-01 Portal 审核修复为 **REVIEWING / 本地验证通过，待 Owner 验收及真实 Frappe 运行态证据**：已处理 CSS token、错误态守卫、防抖与过期响应、刷新异常、强类型工作台、共享映射与六页查询逻辑、真实模式原型入口、回跳校验、环境变量与趋势图文档；Ant gzip 442.13 → 255.57 kB。14 项前端回归、构建和两套契约检查通过；临时 Mock 浏览器确认留样/稳定性实际颜色生效。修复分支 `codex/portal-review-fixes`，详细记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。本轮不部署，不关闭样品/管理后台或真实运行态门禁。

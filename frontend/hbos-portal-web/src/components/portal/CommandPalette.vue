@@ -41,63 +41,35 @@
       <ArrowRightOutlined class="result-arrow" />
     </button>
 
-    <div class="command-section-title">快速操作</div>
-    <button
-      class="command-result"
-      :class="{ selected: selectedIndex === results.length }"
-      type="button"
-      @mouseenter="selectedIndex = results.length"
-      @click="go('/hbos/work')"
-    >
-      <div class="command-result-icon inventory"><ScanOutlined /></div>
-      <div><strong>扫码入库</strong><span>仓储 · 快捷操作</span></div>
-      <ArrowRightOutlined class="result-arrow" />
-    </button>
+    <a-alert v-if="errorMessage" type="error" show-icon :message="errorMessage" />
+    <a-empty v-else-if="!loading && !results.length" :description="query ? '未找到匹配结果' : '输入关键词开始搜索'" />
   </a-modal>
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch, type Component } from 'vue'
+import { nextTick, ref, toRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowRightOutlined,
-  ClockCircleOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
-  ScanOutlined,
   SearchOutlined,
-  ToolOutlined,
 } from '@ant-design/icons-vue'
 import { searchPortal } from '@/services/portalProvider'
 import { openBusinessRoute } from '@/services/businessNavigation'
+import { appIcon } from '@/components/appIcons'
+import { useDebouncedSearch } from '@/composables/useDebouncedSearch'
 import type { SearchResultDTO } from '@/contracts/portal'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 const router = useRouter()
 const query = ref('')
-const results = ref<SearchResultDTO[]>([])
+const { results, errorMessage, loading } = useDebouncedSearch(query, toRef(props, 'open'), searchPortal)
 const selectedIndex = ref(0)
 const inputRef = ref()
 
-const iconMap: Record<string, Component> = {
-  lims: ExperimentOutlined,
-  inventory: InboxOutlined,
-  attendance: ClockCircleOutlined,
-  equipment: ToolOutlined,
-}
-
-function appIcon(appId: string) {
-  return iconMap[appId] || InboxOutlined
-}
-
-async function refresh() {
-  results.value = await searchPortal(query.value)
-  selectedIndex.value = 0
-}
-
 function move(delta: number) {
-  const total = results.value.length + 1
+  const total = results.value.length
+  if (!total) return
   selectedIndex.value = (selectedIndex.value + delta + total) % total
 }
 
@@ -107,7 +79,6 @@ function activateSelected() {
     if (result) openResult(result)
     return
   }
-  go('/hbos/work')
 }
 
 function openResult(result: SearchResultDTO) {
@@ -115,17 +86,11 @@ function openResult(result: SearchResultDTO) {
   void openBusinessRoute(router, result.appId, result.deepLink)
 }
 
-function go(path: string) {
-  emit('close')
-  void router.push(path)
-}
-
 watch(() => props.open, async (value) => {
   if (value) {
-    await refresh()
     await nextTick()
     inputRef.value?.focus?.()
   }
 })
-watch(query, refresh)
+watch(results, () => { selectedIndex.value = 0 })
 </script>

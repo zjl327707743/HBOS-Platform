@@ -74,15 +74,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, type Component } from 'vue'
+import { iconMap } from '@/components/appIcons'
+import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   BellOutlined,
-  ClockCircleOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
   SyncOutlined,
-  ToolOutlined,
 } from '@ant-design/icons-vue'
 
 interface PrototypeNotification {
@@ -117,14 +114,6 @@ const items = reactive<PrototypeNotification[]>([
     title: '应用状态同步完成', description: 'Portal Prototype Provider 已刷新', time: '13:58',
   },
 ])
-
-const iconMap: Record<string, Component> = {
-  lims: ExperimentOutlined,
-  attendance: ClockCircleOutlined,
-  inventory: InboxOutlined,
-  equipment: ToolOutlined,
-  system: SyncOutlined,
-}
 
 const unreadCount = computed(() => items.filter((item) => !item.read).length)
 const importantItems = computed(() => items.filter((item) => item.kind !== 'system'))

@@ -17,7 +17,7 @@
 
     <MyWorkPanel v-else :tasks="actionableTasks.slice(0, 3)" />
 
-    <DigitalTwinPanel v-if="portal.twinStatuses.length" :statuses="portal.twinStatuses" />
+    <DigitalTwinPanel v-if="portal.dataSource === 'mock' && portal.twinStatuses.length" :statuses="portal.twinStatuses" />
 
     <section v-if="portal.dataSource === 'mock'" class="section-panel glass-surface home-foot-section">
       <div class="section-head">

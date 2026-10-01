@@ -35,6 +35,7 @@
 </template>
 
 <script setup lang="ts">
+import { isSafeInternalPath } from '@/services/internalPath'
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { LockOutlined } from '@ant-design/icons-vue'
@@ -51,7 +52,7 @@ const error = ref<string | null>(null)
 /** 只接受站内绝对路径，避免 redirect 参数造成开放重定向。 */
 function safeRedirect(value: unknown): string {
   if (typeof value !== 'string') return '/hbos'
-  if (!value.startsWith('/') || value.startsWith('//')) return '/hbos'
+  if (!isSafeInternalPath(value)) return '/hbos'
   return value
 }
 

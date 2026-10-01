@@ -2,11 +2,10 @@
   <section class="hero-workspace glass-hero">
     <div class="hero-main">
       <div class="eyebrow">HBOS · 企业运营工作空间</div>
-      <div class="hello">晚上好，{{ userName }}</div>
+      <div class="hello">你好，{{ userName }}</div>
       <h1>今天有 <span>{{ totalActions }} 项工作</span><br />需要你处理</h1>
       <p>
-        清晰、明亮的信息层级为主体，叠加动态玻璃、沉浸式渐变和适度的空间感；
-        第一眼先看到“我的事情”，而不是 ERP 对象。
+        从待办开始，查看今天需要处理的事项，或进入应用继续工作。
       </p>
 
       <div class="hero-actions">

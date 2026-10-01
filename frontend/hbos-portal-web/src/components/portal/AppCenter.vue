@@ -44,16 +44,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { iconMap, PRIMARY_APP_IDS } from '@/components/appIcons'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   AppstoreAddOutlined,
-  ClockCircleOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
   NodeIndexOutlined,
   RightOutlined,
-  ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { AppManifestDTO, AppMigrationMode } from '@/contracts/portal'
 import { openBusinessRoute } from '@/services/businessNavigation'
@@ -61,14 +58,8 @@ import { openBusinessRoute } from '@/services/businessNavigation'
 const props = defineProps<{ apps: AppManifestDTO[] }>()
 const router = useRouter()
 
-const iconMap: Record<string, Component> = {
-  ExperimentOutlined,
-  InboxOutlined,
-  ClockCircleOutlined,
-  ToolOutlined,
-}
 const primaryApps = computed(() =>
-  props.apps.filter((app) => ['lims', 'inventory', 'attendance', 'equipment'].includes(app.id)),
+  props.apps.filter((app) => PRIMARY_APP_IDS.includes(app.id)),
 )
 
 function migrationLabel(mode: AppMigrationMode) {

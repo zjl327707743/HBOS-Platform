@@ -7,8 +7,8 @@
         <p>把设备、工艺与现场状态作为 HBOS 的空间化业务入口；有真实 Provider 时才展示实时数据。</p>
       </div>
       <a-space>
-        <a-tag color="processing">LIVE READY</a-tag>
-        <a-button type="primary">进入 3D 空间 <ArrowRightOutlined /></a-button>
+        <a-tag color="processing">原型预览</a-tag>
+        <a-button disabled>3D 空间 · 即将开放</a-button>
       </a-space>
     </div>
 
@@ -20,9 +20,9 @@
         </div>
 
         <div class="twin-mode-switch">
-          <button class="active">运行态势</button>
-          <button>工艺流程</button>
-          <button>设备健康</button>
+          <button class="active" disabled>运行态势</button>
+          <button disabled>工艺流程</button>
+          <button disabled>设备健康</button>
         </div>
 
         <svg viewBox="0 0 760 330" aria-label="数字孪生示意">

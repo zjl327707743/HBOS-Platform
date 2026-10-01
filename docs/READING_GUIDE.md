@@ -108,3 +108,7 @@ M0 历史任务曾允许读取：
 不得因此递归读取整个 `docs/`。
 
 Portal 当前为 Owner 已授权并行产品工作流，分支为 `feature/hbos-portal-product`；它不改变 M1-FIX 主里程碑。
+
+### Portal 当前审核修复状态 — 2026-10-01
+
+2026-10-01 Portal 审核修复为 **REVIEWING / 本地验证通过，待 Owner 验收及真实 Frappe 运行态证据**：已处理 CSS token、错误态守卫、防抖与过期响应、刷新异常、强类型工作台、共享映射与六页查询逻辑、真实模式原型入口、回跳校验、环境变量与趋势图文档；Ant gzip 442.13 → 255.57 kB。14 项前端回归、构建和两套契约检查通过；临时 Mock 浏览器确认留样/稳定性实际颜色生效。修复分支 `codex/portal-review-fixes`，详细记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。本轮不部署，不关闭样品/管理后台或真实运行态门禁。

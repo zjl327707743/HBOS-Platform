@@ -50,18 +50,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Component, ref } from 'vue'
+import { iconMap } from '@/components/appIcons'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowRightOutlined,
-  ClockCircleOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
-  ReadOutlined,
-  SafetyOutlined,
   SearchOutlined,
-  ThunderboltOutlined,
-  ToolOutlined,
 } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
 import type { AppManifestDTO, AppMigrationMode } from '@/contracts/portal'
@@ -71,10 +65,6 @@ const portal = usePortalStore()
 const router = useRouter()
 const query = ref('')
 
-const iconMap: Record<string, Component> = {
-  ExperimentOutlined, InboxOutlined, ClockCircleOutlined, ReadOutlined,
-  SafetyOutlined, ThunderboltOutlined, ToolOutlined,
-}
 const featured = computed(() => portal.apps.filter((app) => app.featured))
 const visibleApps = computed(() => portal.apps.filter((app) =>
   !query.value || `${app.shortTitle} ${app.title} ${app.description}`.toLowerCase().includes(query.value.toLowerCase()),

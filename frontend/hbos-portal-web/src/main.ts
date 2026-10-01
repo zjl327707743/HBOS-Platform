@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import Antd from 'ant-design-vue'
+import { antdComponents } from './components/antdComponents'
 import 'ant-design-vue/dist/reset.css'
 import './theme/tokens.css'
 import './styles/global.css'
@@ -15,7 +15,7 @@ const pinia = createPinia()
 
 app.use(pinia)
 app.use(router)
-app.use(Antd)
+for (const component of antdComponents) app.use(component)
 
 // 会话中途失效（cookie 过期等）：同步 store 状态并回到登录页，带上原目标地址。
 setUnauthorizedHandler(() => {

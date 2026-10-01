@@ -32,6 +32,8 @@ export const usePortalStore = defineStore('portal', () => {
   const summariesLoading = ref(false)
   const tasksLoading = ref(false)
   const bootstrapError = ref<string | null>(null)
+  const summariesError = ref<string | null>(null)
+  const tasksError = ref<string | null>(null)
   const dataSource = ref(portalDataSource)
   const authenticated = ref(false)
   const sessionChecked = ref(false)
@@ -117,6 +119,7 @@ export const usePortalStore = defineStore('portal', () => {
   async function refreshSummaries() {
     if (dataSource.value !== 'frappe') return
     summariesLoading.value = true
+    summariesError.value = null
     try {
       const loaded = await getPortalSummaries(apps.value)
       summaryMetrics.value = loaded
@@ -142,6 +145,8 @@ export const usePortalStore = defineStore('portal', () => {
         index += 1
       }
       heroMetrics.value = selected
+    } catch {
+      summariesError.value = '业务概览暂时无法刷新，请稍后重试。'
     } finally {
       summariesLoading.value = false
     }
@@ -150,6 +155,7 @@ export const usePortalStore = defineStore('portal', () => {
   async function refreshTasks() {
     if (dataSource.value !== 'frappe') return
     tasksLoading.value = true
+    tasksError.value = null
     try {
       const loaded = await getPortalTasks(apps.value)
       tasks.value = loaded
@@ -161,6 +167,8 @@ export const usePortalStore = defineStore('portal', () => {
         ...app,
         pendingCount: app.capabilityTasks ? (counts[app.id] || 0) : app.pendingCount,
       }))
+    } catch {
+      tasksError.value = '工作事项暂时无法刷新，请稍后重试。'
     } finally {
       tasksLoading.value = false
     }
@@ -180,6 +188,8 @@ export const usePortalStore = defineStore('portal', () => {
     summariesLoading,
     tasksLoading,
     bootstrapError,
+    summariesError,
+    tasksError,
     dataSource,
     authenticated,
     sessionChecked,

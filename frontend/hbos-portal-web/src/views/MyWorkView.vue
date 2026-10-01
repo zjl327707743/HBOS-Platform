@@ -8,12 +8,12 @@
       </div>
       <a-space>
         <a-button :loading="portal.tasksLoading" @click="portal.refreshTasks"><ReloadOutlined /> 刷新</a-button>
-        <a-button type="primary"><SettingOutlined /> 工作偏好</a-button>
+        <a-button @click="router.push('/hbos/profile')"><SettingOutlined /> 工作偏好</a-button>
       </a-space>
     </div>
 
     <div class="work-overview">
-      <article class="work-stat glass-surface"><span>需要我处理</span><strong>{{ actionableCount }}</strong><small>来自 4 个业务应用</small></article>
+      <article class="work-stat glass-surface"><span>需要我处理</span><strong>{{ actionableCount }}</strong><small>来自 {{ taskApps.length }} 个业务应用</small></article>
       <article class="work-stat glass-surface critical-card"><span>已超期</span><strong>{{ overdueCount }}</strong><small>优先处理</small></article>
       <article class="work-stat glass-surface"><span>今天截止</span><strong>{{ todayCount }}</strong><small>按截止时间排序</small></article>
       <article class="work-stat glass-surface"><span>等待别人</span><strong>{{ waitingCount }}</strong><small>不计入“需要我处理”</small></article>
@@ -25,10 +25,7 @@
         <div class="toolbar-right">
           <a-select v-model:value="appFilter" style="width: 156px">
             <a-select-option value="all">全部应用</a-select-option>
-            <a-select-option value="lims">LIMS</a-select-option>
-            <a-select-option value="attendance">考勤</a-select-option>
-            <a-select-option value="inventory">仓储</a-select-option>
-            <a-select-option value="equipment">设备</a-select-option>
+            <a-select-option v-for="app in taskApps" :key="app.id" :value="app.id">{{ app.shortTitle }}</a-select-option>
           </a-select>
           <a-input v-model:value="keyword" allow-clear placeholder="搜索工作事项" style="width: 220px">
             <template #prefix><SearchOutlined /></template>
@@ -66,17 +63,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, type Component } from 'vue'
+import { appIcon, chineseApp } from '@/components/appIcons'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  ClockCircleOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
   ReloadOutlined,
   RightOutlined,
   SearchOutlined,
   SettingOutlined,
-  ToolOutlined,
 } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
@@ -84,6 +78,7 @@ import { openBusinessRoute } from '@/services/businessNavigation'
 
 const portal = usePortalStore()
 const router = useRouter()
+const taskApps = computed(() => portal.apps.filter((app) => portal.dataSource === 'mock' || app.capabilityTasks))
 const scope = ref('需要我处理')
 const appFilter = ref('all')
 const keyword = ref('')
@@ -106,20 +101,10 @@ const filtered = computed(() => portal.tasks.filter((task) => {
   return true
 }))
 
-const icons: Record<string, Component> = {
-  lims: ExperimentOutlined,
-  attendance: ClockCircleOutlined,
-  inventory: InboxOutlined,
-  equipment: ToolOutlined,
-}
 function openTask(task: UnifiedTaskDTO) {
   void openBusinessRoute(router, task.appId, task.deepLink)
 }
 
-function appIcon(appId: string) { return icons[appId] || InboxOutlined }
-function chineseApp(appId: string) {
-  return ({ lims: 'LIMS', attendance: '考勤', inventory: '仓储', equipment: '设备' } as Record<string,string>)[appId] || appId
-}
 function label(task: UnifiedTaskDTO) {
   if (task.overdue) return '已超期'
   if (task.priority === 'high') return '高优先级'
