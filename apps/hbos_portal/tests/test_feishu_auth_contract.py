@@ -130,6 +130,28 @@ class OAuthStateContractTest(unittest.TestCase):
 
 
 class FeishuFlowContractTest(unittest.TestCase):
+    def test_operation_callback_persists_verified_participation_before_redirect(self):
+        from hbos_portal.auth import feishu, operations
+        from unittest.mock import Mock
+        # Model a GET request transaction: staged participation is visible to
+        # the next request only after a commit. The native browser regression
+        # also checks this with separate real MariaDB requests.
+        staged, persisted = {}, {}
+        local = types.SimpleNamespace(site='synthetic.example.test', form_dict={}, request=types.SimpleNamespace(cookies={}),
+            cookie_manager=Mock(), response={})
+        database = types.SimpleNamespace(commit=lambda: persisted.update(staged))
+        state = types.SimpleNamespace(intent='rebind', code_verifier='synthetic-pkce')
+        identity = {'open_id':'ou_synthetic_new', 'tenant_key':'tenant-approved', 'display_name':'合成参与者'}
+        with patch.object(feishu.frappe, 'local', local, create=True), patch.object(feishu.frappe, 'flags', types.SimpleNamespace(), create=True), \
+             patch.object(feishu.frappe, 'db', database, create=True), patch.object(feishu.frappe, 'cache', FakeRedis(), create=True), \
+             patch.object(feishu, 'load_settings', return_value=settings()), patch.object(feishu, 'exchange_identity', return_value=identity), \
+             patch('hbos_portal.auth.diagnostics.persist'), \
+             patch.object(RedisOAuthStateStore, 'consume', return_value=state), \
+             patch.object(operations, 'authorized_callback', side_effect=lambda *a: staged.update(state='Identity Verified')):
+            feishu.callback(code='synthetic', state='synthetic-state')
+        self.assertEqual('Identity Verified', persisted.get('state'))
+        self.assertEqual('/hbos/account-change', local.response['location'])
+
     def test_site_private_secret_requires_regular_owner_only_file(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "secret"

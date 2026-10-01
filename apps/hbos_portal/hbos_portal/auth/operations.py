@@ -334,7 +334,10 @@ def get_participant() -> dict:
     accounts.no_store()
     doc = _participant()
     if not doc.new_identity_sealed:
-        return {'operation': doc.name, 'kind': doc.kind, 'requires_feishu_verification': True}
+        # Keep account/target data hidden until provider verification, while
+        # returning the real remaining time for this already-redeemed ceremony.
+        remaining = max(0, int((frappe.utils.get_datetime(doc.expires_at) - frappe.utils.now_datetime()).total_seconds()))
+        return {'operation': doc.name, 'kind': doc.kind, 'requires_feishu_verification': True, 'expires_in': remaining}
     return _view(doc, participant=True)
 
 

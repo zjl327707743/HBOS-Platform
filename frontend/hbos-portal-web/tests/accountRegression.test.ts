@@ -45,6 +45,14 @@ beforeEach(() => {
 afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; document.body.innerHTML = ''; vi.useRealTimers() })
 
 describe('confirmed account UI regressions', () => {
+  it('F03: a minimal participant response without TTL is not treated as expired', async () => {
+    vi.useFakeTimers()
+    changes.getParticipant.mockResolvedValue({operation:'synthetic-invited',kind:'rebind',requires_feishu_verification:true})
+    const {wrapper} = await render(AccountChangeView, '/hbos/account-change')
+    await vi.advanceTimersByTimeAsync(1100); await flushPromises()
+    expect(wrapper.text()).toContain('授权验证新飞书身份')
+    expect(wrapper.text()).not.toContain('本次申请已结束')
+  })
   it('C09: a successful recovery issue keeps its copy action after consuming proof', async () => {
     api.getSecurity.mockResolvedValue({...security, can_admin_recover:true})
     api.reauthenticate.mockResolvedValue({verified:true, expires_in:300})

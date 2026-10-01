@@ -523,6 +523,9 @@ def callback(
         if state_record.intent in {'rebind', 'handover'}:
             from hbos_portal.auth.operations import authorized_callback
             authorized_callback(state_record, identity)
+            # This OAuth callback is a GET request; Frappe does not auto-commit
+            # its staged participation record before the redirected read.
+            frappe.db.commit()
             _redirect('/hbos/account-change')
             return None
         if state_record.intent == "link":
