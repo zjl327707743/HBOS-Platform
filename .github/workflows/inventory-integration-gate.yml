@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - integration/hbos-platform-v1
+      - feature/hbos-portal-product
     paths:
       - "apps/hb_inventory_app/**"
       - "services/hbos_ocr/**"
@@ -18,7 +19,8 @@ permissions:
 
 jobs:
   clean-site:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'integration/pr8-inventory-clean'
+    # Run for every matching PR in the declared target branches and for manual dispatch.
+    # The previous PR8-only head_ref guard caused Portal product PRs to be skipped.
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
