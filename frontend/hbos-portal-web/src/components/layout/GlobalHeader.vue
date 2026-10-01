@@ -36,12 +36,12 @@
       <a-dropdown :trigger="['click']">
         <button type="button" class="avatar-button" aria-label="打开个人菜单">
           <a-avatar class="user-avatar" :src="avatarUrl || undefined">
-            <template v-if="!avatarUrl">{{ avatarText }}</template>
+            {{ avatarText }}
           </a-avatar>
         </button>
         <template #overlay>
           <a-menu>
-            <a-menu-item @click="$router.push('/hbos/profile')">个人与设置</a-menu-item>
+            <a-menu-item @click="$router.push('/hbos/profile')">我的与设置</a-menu-item>
             <a-menu-divider />
             <a-menu-item :disabled="signingOut" @click="handleLogout">退出登录</a-menu-item>
           </a-menu>

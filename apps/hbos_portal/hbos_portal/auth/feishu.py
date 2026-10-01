@@ -376,7 +376,10 @@ def exchange_identity(
         raise FeishuLoginError("tenant_rejected", "当前企业租户未获准访问 HBOS。")
     display_name = " ".join(str(user_data.get("name") or "").split())[:120]
     verify_internal_member(settings, open_id, post=post, get=get, trace=trace)
+    from hbos_portal.auth.profile import normalized_avatar_url
+    avatar_url = normalized_avatar_url(user_data.get("avatar_big") or user_data.get("avatar_url"))
     return {
+        **({"avatar_url": avatar_url} if avatar_url else {}),
         "open_id": open_id,
         "tenant_key": tenant_key,
         "display_name": display_name or "飞书企业成员",
@@ -547,6 +550,8 @@ def callback(
             create_pending(identity, intent="login_mfa", user=user, redirect_to=state_record.redirect_to)
             _redirect("/hbos/account-connect")
             return None
+        from hbos_portal.auth.profile import sync_verified_avatar
+        sync_verified_avatar(user, identity)
         frappe.db.set_value("HBOS External Identity", row.name, "last_verified_at", frappe.utils.now_datetime(), update_modified=False)
         frappe.db.commit()
 

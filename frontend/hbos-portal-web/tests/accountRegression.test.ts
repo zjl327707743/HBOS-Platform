@@ -45,6 +45,22 @@ beforeEach(() => {
 afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; document.body.innerHTML = ''; vi.useRealTimers() })
 
 describe('confirmed account UI regressions', () => {
+  it('C09: a successful recovery issue keeps its copy action after consuming proof', async () => {
+    api.getSecurity.mockResolvedValue({...security, can_admin_recover:true})
+    api.reauthenticate.mockResolvedValue({verified:true, expires_in:300})
+    api.adminIssueRecovery.mockResolvedValue({recovery_url:'https://owned.example.test/hbos/reset-password#key=synthetic',target:{display_name:'合成员工',login_name:'synthetic'},expires_in:900})
+    const {wrapper} = await render(AccountSecurity)
+    await wrapper.find('.ant-collapse-header').trigger('click'); await flushPromises()
+    await clickText(wrapper,'协助员工恢复账号')
+    await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic existing manager password')
+    await clickText(wrapper,'验证本人身份')
+    await wrapper.find('#recovery-user').setValue('synthetic')
+    await wrapper.find('#recovery-reason').setValue('合成环境已核验员工本人和原账号归属')
+    await wrapper.find('form').trigger('submit'); await flushPromises()
+    expect(api.adminIssueRecovery).toHaveBeenCalledWith('synthetic',expect.any(String),expect.any(String))
+    expect(wrapper.text()).toContain('复制一次性链接')
+    expect(wrapper.text()).toContain('合成员工')
+  })
   it('A02: the password form preserves spaces and special characters', async () => {
     const {wrapper} = await render(LoginView,'/hbos/login')
     await wrapper.find('input[autocomplete="username"]').setValue('synthetic')
@@ -136,6 +152,7 @@ describe('confirmed account UI regressions', () => {
     const { wrapper } = await render(AccountSecurity)
     expect(wrapper.find('.ant-skeleton').exists()).toBe(false)
     expect(wrapper.text()).toMatch(/重试/)
+    expect(wrapper.emitted('statusChange')?.at(-1)).toEqual([null])
   })
   it('ERROR-02: actions read failure stays visible instead of disappearing', async () => {
     changes.changeActions.mockRejectedValue(new Error('network unavailable'))

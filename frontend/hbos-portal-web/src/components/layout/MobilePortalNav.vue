@@ -22,6 +22,6 @@ const items = [
   { path: '/hbos', label: '首页', icon: HomeOutlined },
   { path: '/hbos/work', label: '工作', icon: UnorderedListOutlined },
   { path: '/hbos/apps', label: '应用', icon: AppstoreOutlined },
-  { path: '/hbos/profile', label: '我的', icon: UserOutlined },
+  { path: '/hbos/profile', label: '我的与设置', icon: UserOutlined },
 ]
 </script>

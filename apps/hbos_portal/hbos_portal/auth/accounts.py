@@ -345,6 +345,7 @@ def get_security(request_id: str = "") -> dict:
     account = frappe.get_doc("User", user)
     bound = _bound_identity(user)
     return {"user": user, "login_name": account.username or user, "has_password": has_password(user),
+        "password_login_available": has_password(user) and not bool(frappe.get_system_settings("disable_user_pass_login")),
         "proof": proof_status(user),
         "write_result": _write_receipt(user, request_id, ""),
         "feishu_bound": bool(bound), "feishu_configured": settings.configured,
@@ -366,7 +367,16 @@ def admin_issue_recovery(user: str, reason: str, request_id: str = '') -> dict:
     proof = require_proof(administrator, consume=True)
     if proof["method"] != "password":
         frappe.throw("签发恢复链接须重新验证管理员密码及原有二次认证。", frappe.AuthenticationError)
-    require_user(user)
+    # The form accepts the employee's login alias as well as canonical User ID.
+    # A bad target is a workflow validation error, not the issuer's login error.
+    user = str(user or '').strip()
+    user = user if frappe.db.exists('User', user) else frappe.db.get_value('User', {'username': user}, 'name')
+    if not user:
+        frappe.throw('未找到该员工账号，请核对登录名或账号。', frappe.ValidationError)
+    try:
+        require_user(user)
+    except (frappe.AuthenticationError, frappe.PermissionError):
+        frappe.throw('该员工账号当前不可恢复，请核对启用状态和归属。', frappe.ValidationError)
     if user == "Administrator" or len(str(reason).strip()) < 12:
         frappe.throw("Administrator 保留原生应急恢复；其他账号恢复须填写身份核验依据。")
     doc = frappe.get_doc("User", user)
@@ -444,6 +454,8 @@ def complete_pending(action: str, username: str = "", password: str = "", otp: s
     try:
         if record["intent"] != "login_mfa" and action != "create_new":
             bind_identity(settings, record["identity"], user)
+        from hbos_portal.auth.profile import sync_verified_avatar
+        sync_verified_avatar(user, record["identity"])
         consume_pending(nonce)
         frappe.db.commit()
         if record["intent"] != "link":

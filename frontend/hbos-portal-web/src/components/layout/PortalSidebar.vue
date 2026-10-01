@@ -9,11 +9,8 @@
 
     <div class="nav-divider"></div>
     <div class="nav-section-label">个人</div>
-    <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="我的">
-      <UserOutlined /><span>我的</span>
-    </RouterLink>
-    <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="设置">
-      <SettingOutlined /><span>设置</span>
+    <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="我的与设置">
+      <UserOutlined /><span>我的与设置</span>
     </RouterLink>
 
     <div class="sidebar-spacer"></div>
@@ -27,7 +24,6 @@
 import {
   AppstoreOutlined,
   HomeOutlined,
-  SettingOutlined,
   UnorderedListOutlined,
   UserOutlined,
 } from '@ant-design/icons-vue'
