@@ -1,5 +1,15 @@
 # M1-RP3：统一账号、飞书绑定与正式发布
 
+## 最终审查与条件合并 — 2026-10-01
+
+状态：FINAL_REVIEW_BLOCKED；等待 Browser final-submit 3/3 和 Owner 最新版本无破坏验收。仅上述两项实际完成且新 HEAD 四项 CI、代码/测试/构建/私有数据 Gate 全部通过后，才允许 squash #21 到 Portal 产品分支；不放行 main、#15、#22 或 IAM-1。下方前序记录作为历史保留。
+
+- P1：`accounts.save_proof/require_proof` 只处理 custody mode，丢弃已启用原生 MFA 的 Administrator 的已验证版本；改密提交 SQL 后新 Session 被原 MFA guard 拒绝。独立合成 Site 真实 HTTP 复现 401、密码已改变、无新会话。
+- 最小修复：同时处理既有原生 MFA，只有服务端已验证标记且安全版本一致才保存/恢复证明；缺标记或旧版本在写入前拒绝。五项专用回归先 3 FAIL 后 5 PASS，原生 HTTP 修复后 200、密码写入并签发新 Session；合成管理员原测试凭据和 MFA 恢复。真实 Owner 未参与凭据变更。
+- 本轮 clean checkout 后端契约为 Portal/auth/account 58、Knowledge 18、Twin 9、Gateway 5、本地边界 5、LIMS 21、Attendance 12、Inventory 12；前端 52。最终 CI/制品/本机版本以本修复后的实际 HEAD 再核对，不沿用前序 SHA 的 PASS。
+- 团队浏览器脚本将 password input 改为 label 定位；受工具新凭据人工接手限制，三项最终提交仍 NOT_RUN，不以原生 API PASS 替代。Owner 只做正常飞书登录、Administrator/头像、五应用打开返回、账号安全及退出，不重配、不换绑、不改密。
+- #22 原 HEAD `cfafa73abd4de40162d09bd8d9e6ed00b4dc7715` 与 11 文件/612 行 IAM 增量已冻结；合并后优先从新 squash 创建承接分支，只重放原 IAM 提交。原 PR 在承接确认前不关闭、不强推。
+
 ## 小范围收尾与补测 — 2026-10-01
 
 状态：REVIEWING；同一 PR 的最终提交、CI、制品与本机运行版本以 HEAD / release manifest / build-info 核对，Owner 新版正常登录复验单列。

@@ -1,5 +1,13 @@
 # 项目状态
 
+## PR #21 最终审查与条件合并 — 2026-10-01
+
+状态：FINAL_REVIEW_BLOCKED；Browser final-submit 三项尚未实际完成，Owner 最新版本正常复验为 WAITING_OWNER_ACCEPTANCE。当前轮次覆盖下方前序收尾记录；只有最新 HEAD 的全部 Gate 通过后才允许 squash 合入 `feature/hbos-portal-product`，不合并 main/#15/#22。
+
+完整 base→HEAD 只读审查确认原生 MFA Administrator 的本人证明遗漏安全版本，导致改密 SQL 已提交后新会话返回 401。最小修复将既有原生 MFA 纳入同一服务端证明校验，拒绝缺少已验证标记或版本变化的证明；不重置密码/MFA/绑定。五项回归修复前 3 FAIL、修复后 5 PASS，独立合成 Site 的真实 HTTP/SQL/Redis 改密从 401/无新会话变为 200/新会话。原 48 项矩阵历史保留，测试替身不代表真人结果。
+
+PR #22 的 `cfafa73abd4de40162d09bd8d9e6ed00b4dc7715`、11 文件增量、补丁和描述已冻结；#21 合并后只从新 squash 提交承接该 IAM 增量，不强推原分支。PR #21 仍 Draft/未合并，CI、制品和本机运行以最新实际 HEAD 校验。
+
 ## 账号小范围收尾 — 2026-10-01
 
 本轮接续交付基线 `eee1c5e22c57be3436244e77c65e189bd7eee242` 与 PR #21，仅做资料登录渠道、唯一个人导航、折叠偏好说明、飞书头像同步及 C03/C07/C09/F03 缺项补测；不重新全量审计、重画页面或新增账号功能。真实 Administrator 已成功飞书登录为 USER_CONFIRMED_SUCCESS，绑定、密码、MFA、Secret、企业与回调保留。本机沿用既有 P1 Site/Compose/入口，发布分支不合并、不强推、不推 main/base。 补测确认并修复参与页期限遗漏与 GET 回调未提交记录，原矩阵历史保持；最终浏览器新凭据步骤由工具要求人工接手，团队脚本与未执行状态单列。

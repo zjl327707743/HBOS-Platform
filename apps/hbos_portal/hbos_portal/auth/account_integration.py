@@ -15,7 +15,51 @@ import frappe
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
-from hbos_portal.auth import accounts, feishu
+from hbos_portal.auth import accounts, feishu, security
+
+
+def legacy_administrator_mfa_proof() -> None:
+    """Exercise real native enrollment, Redis proof and the later login guard.
+
+    Never runs on a deployment Site; the original synthetic enrollment is
+    restored. Password rotation is separately covered by real HTTP checks.
+    """
+    site = str(frappe.local.site)
+    if not frappe.conf.get('hbos_account_test_site') or not (site == 'account-closeout.localhost' or site.startswith(('account-regression.', 'account-ui-regression.', 'platform-smoke.'))):
+        raise RuntimeError('Native Administrator MFA checks require an isolated synthetic Site')
+    import pyotp
+    from frappe.twofactor import clear_default, get_default, get_otpsecret_for_, set_default
+    keys = ('Administrator_otplogin', 'Administrator_otpsecret')
+    defaults = {key: get_default(key) for key in keys}
+    row = security.record('Administrator')
+    if row and row.custody_mode:
+        raise RuntimeError('Requires pre-custody synthetic Administrator')
+    previous_counter = row.mfa_counter if row else 0
+    request = frappe.local.request
+    old_flag = frappe.flags.get('hbos_custody_mfa_verified')
+    try:
+        set_default(keys[0], 1)
+        secret = get_otpsecret_for_('Administrator')
+        challenge = accounts.verify_mfa('Administrator')
+        nonce = frappe.local.cookie_manager.cookies[security.MFA_COOKIE]['value']
+        frappe.local.request = Request(EnvironBuilder(method='POST', base_url='https://hbos.example.test', json={}, headers={'Cookie':security.MFA_COOKIE + '=' + nonce}).get_environ())
+        assert accounts.verify_mfa('Administrator', otp=pyotp.TOTP(secret).now(), tmp_id=challenge['tmp_id']) is None
+        accounts.save_proof('Administrator', 'password')
+        frappe.flags.hbos_custody_mfa_verified = None  # A new request context.
+        accounts.require_proof('Administrator', consume=True)
+        security.require_custody_mfa_for_login('Administrator')
+    finally:
+        frappe.local.request = request
+        frappe.flags.hbos_custody_mfa_verified = old_flag
+        for key, value in defaults.items():
+            if value is None:
+                clear_default(key)
+            else:
+                set_default(key, value)
+        row = security.record('Administrator')
+        if row:
+            frappe.db.set_value('HBOS Account Security', row.name, 'mfa_counter', previous_counter, update_modified=False)
+        frappe.db.commit()
 
 
 def run() -> dict:
@@ -194,6 +238,9 @@ def run() -> dict:
             assert frappe.db.get_value('User', users[1], 'reset_password_key') == saved_key
             assert accounts.get_security(recovery_id)['write_result']['action'] == 'recovery_issue'
             checks.append('recovery_issue_receipt_queries_committed_result_without_secret_or_repeat_issue')
+
+            legacy_administrator_mfa_proof()
+            checks.append('native_administrator_mfa_proof_survives_request_boundary_before_session_rotation')
 
             # Standard framework TOTP, including single-use native tmp_id.
             import pyotp

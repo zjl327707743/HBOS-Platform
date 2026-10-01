@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 # identity. Live Owner/employee acceptance is recorded separately.
 sys.modules.setdefault("frappe", types.SimpleNamespace(whitelist=lambda **kw: lambda fn: fn))
 sys.modules.setdefault("frappe.rate_limiter", types.SimpleNamespace(rate_limit=lambda **kw: lambda fn: fn))
-from hbos_portal.auth import accounts, feishu
+from hbos_portal.auth import accounts, feishu, security
 
 
 class Rejected(Exception):
@@ -19,6 +19,73 @@ class Rejected(Exception):
 
 def reject(message, error=Rejected):
     raise Rejected(message)
+
+
+class Flags(dict):
+    __getattr__ = dict.get
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+
+class MFAProofTest(unittest.TestCase):
+    def setUp(self):
+        self.user = "Administrator"
+        self.row = types.SimpleNamespace(security_version=7, custody_mode=0)
+        self.values = {}
+        self.flags = Flags()
+        self.fake = types.SimpleNamespace(
+            flags=self.flags, session=types.SimpleNamespace(sid="synthetic-proof-session"),
+            cache=types.SimpleNamespace(set_value=lambda key, value, **kw: self.values.__setitem__(key, value), get_value=self.values.get),
+            throw=reject, AuthenticationError=Rejected,
+        )
+        for context in [patch.object(accounts, "frappe", self.fake), patch.object(security, "frappe", self.fake),
+                patch.object(accounts, "epoch", return_value=3), patch.object(security, "record", return_value=self.row),
+                patch.object(security, "administrator_native_mfa", side_effect=lambda user: user == "Administrator")]:
+            context.start()
+            self.addCleanup(context.stop)
+
+    def test_existing_administrator_mfa_survives_proof_request_boundary(self):
+        self.flags.hbos_custody_mfa_verified = (self.user, 7)
+        accounts.save_proof(self.user, "password")
+        self.flags.clear()  # The subsequent password write is a new request.
+        proof = accounts.require_proof(self.user)
+        self.assertEqual(7, proof["custody_version"])
+        self.assertEqual((self.user, 7), self.flags.get("hbos_custody_mfa_verified"))
+        security.require_custody_mfa_for_login(self.user)
+
+    def test_existing_administrator_mfa_requires_server_verified_flag(self):
+        accounts.save_proof(self.user, "password")
+        with self.assertRaises(Rejected):
+            accounts.require_proof(self.user)
+        self.assertIsNone(self.flags.get("hbos_custody_mfa_verified"))
+
+    def test_existing_administrator_mfa_rejects_changed_security_version(self):
+        self.flags.hbos_custody_mfa_verified = (self.user, 7)
+        accounts.save_proof(self.user, "password")
+        self.flags.clear()
+        self.row.security_version = 8
+        with self.assertRaises(Rejected):
+            accounts.require_proof(self.user)
+        self.assertIsNone(self.flags.get("hbos_custody_mfa_verified"))
+
+    def test_custody_mfa_still_requires_same_verified_version(self):
+        self.user = "custodian@example.test"
+        self.row.custody_mode = 1
+        self.flags.hbos_custody_mfa_verified = (self.user, 7)
+        accounts.save_proof(self.user, "password")
+        self.flags.clear()
+        accounts.require_proof(self.user)
+        security.require_custody_mfa_for_login(self.user)
+        self.row.security_version = 8
+        with self.assertRaises(Rejected):
+            accounts.require_proof(self.user)
+
+    def test_ordinary_user_proof_cannot_restore_an_mfa_flag(self):
+        self.user = "employee@example.test"
+        accounts.save_proof(self.user, "password")
+        self.assertIsNone(accounts.require_proof(self.user)["custody_version"])
+        self.assertIsNone(self.flags.get("hbos_custody_mfa_verified"))
 
 
 class RecoverySecurityTest(unittest.TestCase):

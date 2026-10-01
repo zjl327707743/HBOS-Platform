@@ -116,9 +116,11 @@ def _proof_key(user: str) -> str:
 
 
 def save_proof(user: str, method: str) -> None:
-    from hbos_portal.auth.security import record
+    from hbos_portal.auth.security import administrator_native_mfa, record
     row = record(user)
-    version = row.security_version if row and row.custody_mode and frappe.flags.get('hbos_custody_mfa_verified') == (user, row.security_version) else None
+    current_version = row.security_version if row else 0
+    requires_verified_mfa = bool(row and row.custody_mode) or administrator_native_mfa(user)
+    version = current_version if requires_verified_mfa and frappe.flags.get('hbos_custody_mfa_verified') == (user, current_version) else None
     frappe.cache.set_value(_proof_key(user), {
         "user": user, "method": method, "epoch": epoch(user), "verified_at": int(time.time()), "nonce": secrets.token_hex(16), 'custody_version': version,
     }, expires_in_sec=PROOF_TTL)
@@ -128,12 +130,13 @@ def require_proof(user: str, *, consume: bool = False) -> dict:
     proof = frappe.cache.get_value(_proof_key(user))
     if not proof or proof.get("user") != user or proof.get("epoch") != epoch(user) or int(proof.get("verified_at", 0)) + PROOF_TTL < time.time():
         frappe.throw("请先重新验证本人身份。", frappe.AuthenticationError)
-    from hbos_portal.auth.security import record
+    from hbos_portal.auth.security import administrator_native_mfa, record
     row = record(user)
-    if row and row.custody_mode:
-        if proof.get('custody_version') != row.security_version:
+    if bool(row and row.custody_mode) or administrator_native_mfa(user):
+        version = row.security_version if row else 0
+        if proof.get('custody_version') != version:
             frappe.throw('请重新完成保管人二次认证。', frappe.AuthenticationError)
-        frappe.flags.hbos_custody_mfa_verified = (user, row.security_version)
+        frappe.flags.hbos_custody_mfa_verified = (user, version)
     if consume:
         # Use the same atomic browser-bound store primitive for consumption.
         claim = f"hbos:account:proof-claim:{digest(_proof_key(user))}:{proof['nonce']}"

@@ -1,5 +1,7 @@
 # 新乡海滨智能运营管理平台
 
+最新轮次：PR #21 最终审查及条件 squash 合并。已最小修复原生 MFA Administrator 本人证明跨请求丢失，真实 Owner 凭据与绑定保留。当前 FINAL_REVIEW_BLOCKED，等待团队 3/3 浏览器最终提交与 Owner 最新版正常验收；四项 CI、制品与本机版本以修复后实际 HEAD 校验。[当前 Gate](docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 覆盖下方前序轮次说明。#22 冻结待安全承接，#15/main 不放行。
+
 Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
 
 ## 当前交付

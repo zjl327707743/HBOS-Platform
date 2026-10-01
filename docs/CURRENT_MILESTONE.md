@@ -1,5 +1,11 @@
 # Current Milestone
 
+## PR #21 最终审查 Gate — 2026-10-01
+
+当前：FINAL_REVIEW_BLOCKED / WAITING_BROWSER_FINAL_SUBMIT / WAITING_OWNER_ACCEPTANCE。最新授权是最终完整代码审查及条件 squash 合并，覆盖下方前序“小范围收尾”的不合并约束；只允许修复 blocker，不增加功能。既有原生 MFA Administrator 的跨请求本人证明已最小修复并在独立合成 Site 复现前后行为；真实 Owner 绑定、密码、MFA 与配置保留。新 HEAD 必须重新通过四项 CI、clean checkout 测试/构建/manifest、全部待发布历史私有数据扫描、3/3 浏览器最终提交及 Owner 一轮正常验收。
+
+#22 已冻结，合并后从产品分支的新 squash 提交精确承接其 11 文件 IAM 增量。#15/main 与 IAM-1 不放行；缺少任何必需 Gate 都保持未合并。
+
 ## 账号小范围收尾 — 2026-10-01
 
 本轮接续交付基线 `eee1c5e22c57be3436244e77c65e189bd7eee242` 与 PR #21，仅做资料登录渠道、唯一个人导航、折叠偏好说明、飞书头像同步及 C03/C07/C09/F03 缺项补测；不重新全量审计、重画页面或新增账号功能。真实 Administrator 已成功飞书登录为 USER_CONFIRMED_SUCCESS，绑定、密码、MFA、Secret、企业与回调保留。本机沿用既有 P1 Site/Compose/入口，发布分支不合并、不强推、不推 main/base。 补测确认并修复参与页期限遗漏与 GET 回调未提交记录，原矩阵历史保持；最终浏览器新凭据步骤由工具要求人工接手，团队脚本与未执行状态单列。

@@ -1,5 +1,7 @@
 # AI Context
 
+最新 Owner 指令是 PR #21 最终完整审查及条件合并，覆盖前序收尾约束。原生 MFA Administrator 跨请求本人证明 blocker 已最小修复；当前 FINAL_REVIEW_BLOCKED / WAITING_BROWSER_FINAL_SUBMIT / WAITING_OWNER_ACCEPTANCE。新 HEAD 重跑全部最终 Gate；仅全 PASS 才 squash 到 `feature/hbos-portal-product`。#22 已冻结，后续只承接原 11 文件 IAM 增量，不放行 #15/main/IAM-1。真实 Owner 凭据、绑定、MFA 与 P1 原卷保留。
+
 ## 账号小范围收尾 — 2026-10-01
 
 本轮接续交付基线 `eee1c5e22c57be3436244e77c65e189bd7eee242` 与 PR #21，仅做资料登录渠道、唯一个人导航、折叠偏好说明、飞书头像同步及 C03/C07/C09/F03 缺项补测；不重新全量审计、重画页面或新增账号功能。真实 Administrator 已成功飞书登录为 USER_CONFIRMED_SUCCESS，绑定、密码、MFA、Secret、企业与回调保留。本机沿用既有 P1 Site/Compose/入口，发布分支不合并、不强推、不推 main/base。 补测确认并修复参与页期限遗漏与 GET 回调未提交记录，原矩阵历史保持；最终浏览器新凭据步骤由工具要求人工接手，团队脚本与未执行状态单列。

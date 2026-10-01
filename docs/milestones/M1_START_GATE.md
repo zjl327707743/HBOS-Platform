@@ -1,5 +1,9 @@
 # M1 启动门禁
 
+## PR #21 最终 Gate — 2026-10-01
+
+FINAL_REVIEW_BLOCKED：既有原生 MFA 跨请求证明 blocker 已最小修复；新 HEAD 的全部 CI/构建/历史扫描仍须最终核对。Browser final-submit 三项尚未实际完成，Owner 最新无破坏验收为 WAITING_OWNER_ACCEPTANCE。只有两项实际 PASS 且其余 Gate 全通过才 squash #21 到产品分支；#22 已冻结待安全承接，#15/main 不合并。真人验证码/新员工开户/高风险交接/实体手机软键盘未执行仍 NOT_RUN，按本轮授权不统一阻塞产品分支合入。
+
 ## 账号小范围收尾 — 2026-10-01
 
 本轮接续交付基线 `eee1c5e22c57be3436244e77c65e189bd7eee242` 与 PR #21，仅做资料登录渠道、唯一个人导航、折叠偏好说明、飞书头像同步及 C03/C07/C09/F03 缺项补测；不重新全量审计、重画页面或新增账号功能。真实 Administrator 已成功飞书登录为 USER_CONFIRMED_SUCCESS，绑定、密码、MFA、Secret、企业与回调保留。本机沿用既有 P1 Site/Compose/入口，发布分支不合并、不强推、不推 main/base。 补测确认并修复参与页期限遗漏与 GET 回调未提交记录，原矩阵历史保持；最终浏览器新凭据步骤由工具要求人工接手，团队脚本与未执行状态单列。
