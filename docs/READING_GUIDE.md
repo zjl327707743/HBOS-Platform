@@ -1,6 +1,6 @@
 # Reading Guide
 
-PR #21 最新最终审查、必需 Browser/Owner Gate、原生 MFA 最小修复及 #22 冻结承接，以 [本轮主记录](milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 顶部为准。前序小范围收尾及测试记录保留为历史；当前 FINAL_REVIEW_BLOCKED，未合并 #21/#15/#22，main 未放行。
+PR #21 已完成 FINAL_REVIEW_PASS 并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Browser final-submit 3/3 与 Owner 最新无破坏验收均已 PASS；旧 #22 已关闭，IAM-0 由 clean Draft PR #23 承接。PR #15 仍 Draft，main 未放行。以 [本轮主记录](milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 顶部的合并后收口状态为准；下方 BLOCKED/WAITING 文字均为历史。
 
 本指南用于限制 AI 在新乡海滨智能运营管理平台中的默认阅读范围，避免上下文膨胀和误读旧资料。
 
@@ -109,14 +109,14 @@ M0 历史任务曾允许读取：
 
 不得因此递归读取整个 `docs/`。
 
-Portal 产品基线与 PR 目标为 `feature/hbos-portal-product`；当前净化发布分支为 `codex/portal-unified-account-release`，原 `codex/portal-knowledge-twin` 成果保留。
+Portal 产品 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；原 `codex/portal-unified-account-release` 仅保留为已合并 PR #21 的历史来源。
 
 
 ## Portal 统一账号与正式发布
 
 当前任务定向读取 `docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`、`docs/deployment/统一账号与Portal正式部署说明.md`、`docs/frontend/统一账号发布与前端完整性矩阵.md`。旧预览/试点记录是历史背景，不能替代原账号或正式 Site 验收。真实目标清单、备份与内部报告私下保存。
 
-团队通用交付继续通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并）。本轮接续 P1 真实飞书与恢复体验：Administrator 密码/MFA 及授权确认、第二位企业用户开户、本人收件可选设密与恢复分别记录；未执行真人步骤保持待验，公司服务器/HTTPS 后续。
+团队通用交付已经通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 进入产品分支。当前后续代码以 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea` 为准；公司服务器/HTTPS 和尚未执行的真人高风险场景仍按独立后续 Gate 管理。
 
 当前 Portal 本轮门禁以 RP3 主记录和 `deployment/Mac本地运行与团队同步.md` 为准；原库选择、公司服务器和 HTTPS 不阻塞已授权 Mac 运行。
 

@@ -1,6 +1,21 @@
 # M1-RP3：统一账号、飞书绑定与正式发布
 
-## 最终审查与条件合并 — 2026-10-01
+## 合并后最终状态 — 2026-10-01
+
+状态：**FINAL_REVIEW_PASS / MERGED_TO_PORTAL_PRODUCT**。
+
+- PR #21 已以 `expected_head_sha=2d138f86a14883214f4963f5809550770a2bc3df` squash 合入 `feature/hbos-portal-product`。
+- 产品分支 HEAD：`e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；squash tree 与 Owner 已验收 HEAD 等价。
+- Browser final-submit：首次设密、改密、恢复 **3/3 PASS**；新密码登录与旧密码/旧 Session/恢复票据失效均已验证。
+- Owner 最新无破坏验收 PASS；无需重复真人 OAuth。
+- 新 squash Backend / Frontend / Platform Integration / Release 四项 CI SUCCESS。
+- 旧 #22 已关闭未合并；IAM-0 由 clean Draft PR #23 精确承接原 11 文件增量。
+- PR #15 仍 Open Draft，main 未变化。
+- 下方 “FINAL_REVIEW_BLOCKED / WAITING” 内容仅保留为合并前历史证据，不再代表当前 Gate。
+
+团队后续 Portal Authority：`feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。
+
+## 合并前最终审查历史 — 2026-10-01
 
 状态：FINAL_REVIEW_BLOCKED；等待 Browser final-submit 3/3 和 Owner 最新版本无破坏验收。仅上述两项实际完成且新 HEAD 四项 CI、代码/测试/构建/私有数据 Gate 全部通过后，才允许 squash #21 到 Portal 产品分支；不放行 main、#15、#22 或 IAM-1。下方前序记录作为历史保留。
 

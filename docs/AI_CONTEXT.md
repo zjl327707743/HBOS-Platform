@@ -1,6 +1,6 @@
 # AI Context
 
-最新 Owner 指令是 PR #21 最终完整审查及条件合并，覆盖前序收尾约束。原生 MFA Administrator 跨请求本人证明 blocker 已最小修复；当前 FINAL_REVIEW_BLOCKED / WAITING_BROWSER_FINAL_SUBMIT / WAITING_OWNER_ACCEPTANCE。新 HEAD 重跑全部最终 Gate；仅全 PASS 才 squash 到 `feature/hbos-portal-product`。#22 已冻结，后续只承接原 11 文件 IAM 增量，不放行 #15/main/IAM-1。真实 Owner 凭据、绑定、MFA 与 P1 原卷保留。
+最新事实：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
 
 ## 账号小范围收尾 — 2026-10-01
 
@@ -26,7 +26,7 @@
 
 ## 当前上下文
 
-本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 head `codex/portal-unified-account-release`、base `feature/hbos-portal-product`；不强推、不自动合并、不推 main/base。
+本轮账号 UI、统一账号、飞书、Knowledge/Twin 与发布收口已经通过 PR #21 完成并进入产品分支。当前产品 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 真人飞书基线和浏览器密码生命周期 3/3 均已通过，未执行的真人高风险交接/实体设备项目继续按历史记录保留。公司服务器仍 NOT_DEPLOYED。
 
 其他业务里程碑以各自已登记主文档为准，本轮不扩大考勤/库存范围。新增代码通过独立净化发布分支交付；私有运行报告、账号、知识和模型不进入新可达对象。
 
@@ -160,4 +160,4 @@ bash scripts/portal/p3_workspace_runtime_smoke.sh
 
 Portal 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts 按需使用。
 
-团队通用交付已发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并），原账号 Site/HTTPS/本人授权验收仍为未放行。
+团队通用交付已通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 合入产品分支；后续团队基线为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。PR #15/main 仍需独立 Gate。

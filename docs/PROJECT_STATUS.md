@@ -1,12 +1,12 @@
 # 项目状态
 
-## PR #21 最终审查与条件合并 — 2026-10-01
+## PR #21 合并后收口 — 2026-10-01
 
-状态：FINAL_REVIEW_BLOCKED；Browser final-submit 三项尚未实际完成，Owner 最新版本正常复验为 WAITING_OWNER_ACCEPTANCE。当前轮次覆盖下方前序收尾记录；只有最新 HEAD 的全部 Gate 通过后才允许 squash 合入 `feature/hbos-portal-product`，不合并 main/#15/#22。
+状态：**FINAL_REVIEW_PASS / MERGED_TO_PORTAL_PRODUCT**。PR #21 已使用 expected-head squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 仅承接原 11 文件增量；PR #15 仍 Open Draft，main 未变化。
 
-完整 base→HEAD 只读审查确认原生 MFA Administrator 的本人证明遗漏安全版本，导致改密 SQL 已提交后新会话返回 401。最小修复将既有原生 MFA 纳入同一服务端证明校验，拒绝缺少已验证标记或版本变化的证明；不重置密码/MFA/绑定。五项回归修复前 3 FAIL、修复后 5 PASS，独立合成 Site 的真实 HTTP/SQL/Redis 改密从 401/无新会话变为 200/新会话。原 48 项矩阵历史保留，测试替身不代表真人结果。
+合并前发现并修复的原生 MFA Administrator proof P1 已完成回归；本次收口未修改 Owner 密码、MFA、飞书绑定、Secret、业务数据或 P1 卷。合并前 BLOCKED/WAITING 状态继续作为历史证据保留，但不再作为当前项目状态。
 
-PR #22 的 `cfafa73abd4de40162d09bd8d9e6ed00b4dc7715`、11 文件增量、补丁和描述已冻结；#21 合并后只从新 squash 提交承接该 IAM 增量，不强推原分支。PR #21 仍 Draft/未合并，CI、制品和本机运行以最新实际 HEAD 校验。
+团队后续 Portal Authority：`feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。
 
 ## 账号小范围收尾 — 2026-10-01
 
@@ -25,7 +25,7 @@ PR #22 的 `cfafa73abd4de40162d09bd8d9e6ed00b4dc7715`、11 文件增量、补丁
 | 五应用与已批准前端 | Administrator 五入口实际打开；普通用户按原角色仅开放知识/设备；未实现项明确标注 |
 | 备份恢复/保留校验/production 制品 | 当前 P1 原卷已备份并迁移，账号/密码/角色/权限/业务/身份指纹保留；Portal 与 LIMS 编译资产已部署 |
 | 通用 Gateway/团队依赖 | 版本化通用代码、Dockerfile、完整 lock 已提供；私有资料不进 Git |
-| 真实 PR/CI | [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)，Draft，base 为 Portal 产品分支；CI 以该 PR 的实际 Checks 为准；未合并 |
+| 真实 PR/CI | [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 已合并到 Portal 产品分支；当前 CI/制品以产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea` 为准 |
 | 固定 Mac 入口 | P1 的 loopback 同源入口 5188 已运行；本机隐藏设密工具已提供，未自动修改密码 |
 | Owner 本人验收 | Owner 已确认 Administrator 本人飞书成功登录；第二位员工开户、本人验证码与交接另行记录，合成测试不替代真人 |
 | 公司服务器 | 未部署，固定 IP / 正式 HTTPS 后续；不影响已交付 Mac 状态 |

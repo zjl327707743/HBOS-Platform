@@ -1,10 +1,10 @@
 # Current Milestone
 
-## PR #21 最终审查 Gate — 2026-10-01
+## Portal 产品分支合并后 Gate — 2026-10-01
 
-当前：FINAL_REVIEW_BLOCKED / WAITING_BROWSER_FINAL_SUBMIT / WAITING_OWNER_ACCEPTANCE。最新授权是最终完整代码审查及条件 squash 合并，覆盖下方前序“小范围收尾”的不合并约束；只允许修复 blocker，不增加功能。既有原生 MFA Administrator 的跨请求本人证明已最小修复并在独立合成 Site 复现前后行为；真实 Owner 绑定、密码、MFA 与配置保留。新 HEAD 必须重新通过四项 CI、clean checkout 测试/构建/manifest、全部待发布历史私有数据扫描、3/3 浏览器最终提交及 Owner 一轮正常验收。
+当前：**PR21_FINAL_REVIEW_PASS / PRODUCT_BRANCH_ACTIVE**。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收与 Browser final-submit 3/3 已通过，新 squash 四项 CI SUCCESS。旧 #22 已关闭且未合并，IAM-0 由 clean Draft PR #23 单独承接；#15 仍 Open Draft，main 未变化。
 
-#22 已冻结，合并后从产品分支的新 squash 提交精确承接其 11 文件 IAM 增量。#15/main 与 IAM-1 不放行；缺少任何必需 Gate 都保持未合并。
+下一阶段不再重复 PR #21 的 Owner OAuth、设密/改密/恢复验收。Portal 进入 main 仍需单独 Gate；IAM-0/后续 IAM 实施不因 #21 合并自动完成。
 
 ## 账号小范围收尾 — 2026-10-01
 
@@ -17,7 +17,7 @@
 
 下述考勤历史轮次的范围不约束已明确授权的 Portal v3；Portal 不替其他业务轮次 closeout。
 
-团队代码已通过安全扫描发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)；保持 Draft、未合并。P1 已获本轮本地运行授权；Owner 已确认真实飞书登录成功；本轮新 UI 的正常复核与未执行真人项目单列。
+团队代码已通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。P1 继续作为固定本地运行环境；PR #15/main 仍按后续独立 Gate 管理。
 
 ## M1-FIX：M1 考勤一期功能补漏阶段
 
