@@ -37,6 +37,7 @@ jobs:
 
       - name: Inventory and OCR unit tests
         run: |
+          export PYTHONPATH="$PWD/apps/hb_inventory_app:$PWD:$PYTHONPATH"
           python -m unittest discover -s apps/hb_inventory_app/tests -v
           python services/hbos_ocr/tests/test_validate.py
           python services/hbos_ocr/tests/test_c2_extract.py
