@@ -4,7 +4,7 @@
       <div>
         <span class="page-kicker">APPLICATIONS</span>
         <h1>应用中心</h1>
-        <p>应用通过 HBOS App Registry 注册。Portal 只负责发现、权限过滤和统一入口，不拥有业务逻辑。</p>
+        <p>搜索并进入当前账号可使用的业务应用。</p>
       </div>
       <div class="apps-search">
         <SearchOutlined />
@@ -35,7 +35,7 @@
 
     <section class="app-section">
       <div class="section-head simple">
-        <div><h2>全部应用</h2><p>未来新增第 4、第 10 个 APP 时无需重写 Portal 主导航</p></div>
+        <div><h2>全部应用</h2><p>{{ visibleApps.length }} 个当前可用应用</p></div>
       </div>
       <div class="app-directory">
         <button v-for="app in visibleApps" :key="app.id" class="directory-app glass-surface" type="button" @click="go(app)">
@@ -54,7 +54,9 @@ import { computed, type Component, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowRightOutlined,
+  BulbOutlined,
   ClockCircleOutlined,
+  DeploymentUnitOutlined,
   ExperimentOutlined,
   InboxOutlined,
   ReadOutlined,
@@ -74,6 +76,7 @@ const query = ref('')
 const iconMap: Record<string, Component> = {
   ExperimentOutlined, InboxOutlined, ClockCircleOutlined, ReadOutlined,
   SafetyOutlined, ThunderboltOutlined, ToolOutlined,
+  DeploymentUnitOutlined, BulbOutlined,
 }
 const featured = computed(() => portal.apps.filter((app) => app.featured))
 const visibleApps = computed(() => portal.apps.filter((app) =>

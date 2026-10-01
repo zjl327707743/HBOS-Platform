@@ -16,6 +16,8 @@ let raf = 0
 let renderRaf = 0
 let lastSpawn = 0
 let resizeHandler: (() => void) | null = null
+let motion: MediaQueryList | null = null
+let running = false
 let pointerHandler: ((event: PointerEvent) => void) | null = null
 
 type Particle = {
@@ -97,12 +99,18 @@ function setupCanvas() {
   render()
 }
 
-onMounted(() => {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
+function stop() {
+  cancelAnimationFrame(raf); cancelAnimationFrame(renderRaf)
+  if (resizeHandler) window.removeEventListener('resize', resizeHandler)
+  if (pointerHandler) window.removeEventListener('pointermove', pointerHandler)
+  particles.length = 0; running = false
+}
+function synchronizeMotion() {
+  if (document.visibilityState === 'hidden' || motion?.matches) { stop(); return }
+  if (running) return
+  running = true
   pointerHandler = (event: PointerEvent) => {
-    tx = event.clientX
-    ty = event.clientY
+    tx = event.clientX; ty = event.clientY
     const now = performance.now()
     if (now - lastSpawn > 35) {
       spawnParticle(event.clientX, event.clientY, Math.hypot(event.movementX || 0, event.movementY || 0))
@@ -110,14 +118,17 @@ onMounted(() => {
     }
   }
   window.addEventListener('pointermove', pointerHandler, { passive: true })
-  animatePointer()
-  setupCanvas()
+  animatePointer(); setupCanvas()
+}
+onMounted(() => {
+  motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  motion.addEventListener('change', synchronizeMotion)
+  document.addEventListener('visibilitychange', synchronizeMotion)
+  synchronizeMotion()
 })
-
 onBeforeUnmount(() => {
-  cancelAnimationFrame(raf)
-  cancelAnimationFrame(renderRaf)
-  if (resizeHandler) window.removeEventListener('resize', resizeHandler)
-  if (pointerHandler) window.removeEventListener('pointermove', pointerHandler)
+  stop()
+  motion?.removeEventListener('change', synchronizeMotion)
+  document.removeEventListener('visibilitychange', synchronizeMotion)
 })
 </script>

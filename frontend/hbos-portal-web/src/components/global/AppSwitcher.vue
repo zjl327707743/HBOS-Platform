@@ -62,9 +62,11 @@ import { useRouter } from 'vue-router'
 import {
   AppstoreOutlined,
   ClockCircleOutlined,
+  DeploymentUnitOutlined,
   ExperimentOutlined,
   InboxOutlined,
   NodeIndexOutlined,
+  ReadOutlined,
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { AppManifestDTO } from '@/contracts/portal'
@@ -78,10 +80,12 @@ const iconMap: Record<string, Component> = {
   InboxOutlined,
   ClockCircleOutlined,
   ToolOutlined,
+  ReadOutlined,
+  DeploymentUnitOutlined,
 }
 
 const visibleApps = computed(() =>
-  props.apps.filter((app) => ['lims', 'inventory', 'attendance', 'equipment'].includes(app.id)),
+  props.apps.filter((app) => ['knowledge', 'twin', 'lims', 'inventory', 'attendance', 'equipment'].includes(app.id)),
 )
 
 function go(path: string) {

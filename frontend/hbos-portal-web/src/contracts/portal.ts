@@ -75,6 +75,7 @@ export interface TwinStatusDTO {
   value: string
   progress?: number
   tone?: Tone
+  meta?: string
 }
 
 export interface SearchResultDTO {
