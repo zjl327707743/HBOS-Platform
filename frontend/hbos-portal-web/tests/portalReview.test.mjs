@@ -50,7 +50,7 @@ after(async () => {
 })
 
 function freshPortal() {
-  fixture = { data: async () => emptyData(), summaries: async () => [], tasks: async () => [] }
+  fixture = { data: async () => emptyData(), summaries: async () => ({ items: [], errors: [] }), tasks: async () => ({ items: [], errors: [] }) }
   globalThis.__portalReviewFixture = fixture
   setActivePinia(createPinia())
   return usePortalStore()
@@ -65,7 +65,8 @@ for (const error of [rejection(500), new Error('network unavailable')]) {
     assert.equal(await checkPortalAccess(limsRoute, portal, 'frappe'), true)
     assert.ok(portal.bootstrapError)
     assert.deepEqual(portal.apps, [])
-    assert.equal(portal.authenticated, true)
+    assert.equal(portal.authenticated, false)
+    assert.equal(portal.sessionChecked, false)
   })
 }
 for (const error of [rejection(401), rejection(403, { code: 'UNAUTHENTICATED' })]) {
@@ -105,7 +106,7 @@ test('detached background refresh failures are caught and retain last successful
   assert.ok(portal.summariesError)
   assert.equal(portal.tasksLoading, false)
   assert.equal(portal.summariesLoading, false)
-  fixture.tasks = fixture.summaries = async () => []
+  fixture.tasks = fixture.summaries = async () => ({ items: [], errors: [] })
   await Promise.all([portal.refreshTasks(), portal.refreshSummaries()])
   assert.equal(portal.tasksError, null)
   assert.equal(portal.summariesError, null)
@@ -236,4 +237,98 @@ test('degraded LIMS shell renders its retry banner and hides the business route'
   assert.match(html, /HBOS 初始化失败/)
   assert.match(html, /重试/)
   assert.doesNotMatch(html, /BUSINESS_CONTENT_MARKER/)
+})
+
+
+test('concurrent bootstrap callers share one request, sign-out prevents stale identity restoration', async () => {
+  const portal = freshPortal()
+  const request = deferred()
+  let calls = 0
+  fixture.data = () => { calls++; return request.promise }
+  const first = portal.ensureSession(), second = portal.bootstrap()
+  assert.equal(calls, 1)
+  portal.markSignedOut()
+  request.resolve(emptyData())
+  await Promise.all([first, second])
+  assert.equal(portal.user, null)
+  assert.equal(portal.authenticated, false)
+  assert.equal(portal.sessionChecked, false)
+  fixture.data = async () => emptyData()
+  assert.equal(await portal.ensureSession(), true)
+  assert.equal(portal.authenticated, true)
+})
+
+test('expired session rechecks, removes all business data and permits recovery', async () => {
+  const portal = freshPortal()
+  portal.apps = [{ id: 'lims' }]
+  portal.tasks = [{ taskId: 'private-task' }]
+  portal.markSignedOut()
+  assert.deepEqual(portal.apps, [])
+  assert.deepEqual(portal.tasks, [])
+  fixture.data = async () => { throw rejection(401) }
+  assert.equal(await portal.ensureSession(), false)
+  assert.equal(portal.sessionChecked, false)
+  fixture.data = async () => emptyData()
+  assert.equal(await portal.ensureSession(), true)
+})
+
+test('late task refresh cannot restore data after sign-out; counts exclude waiting/done', async () => {
+  const portal = freshPortal()
+  const request = deferred()
+  fixture.tasks = () => request.promise
+  const refresh = portal.refreshTasks()
+  portal.markSignedOut()
+  request.resolve({ items: [{ taskId: 'private-task', status: 'open' }], errors: [] })
+  await refresh
+  assert.deepEqual(portal.tasks, [])
+  portal.apps = [{ id: 'lims', capabilityTasks: true }]
+  fixture.tasks = async () => ({ items: ['open', 'waiting', 'done'].map((status, i) => ({ taskId: String(i), appId: 'lims', status })), errors: [] })
+  await portal.refreshTasks()
+  assert.equal(portal.totalActions, 1)
+  assert.equal(portal.apps[0].pendingCount, 1)
+})
+
+test('partial provider failures remain visible and preserve their trace id', async () => {
+  const portal = freshPortal()
+  fixture.tasks = async () => ({ items: [{ taskId: 'ok', status: 'open', appId: 'lims' }], errors: [{ appId: 'other', appTitle: '其他应用', message: '加载失败（关联编号：TRACE-123）' }] })
+  await portal.refreshTasks()
+  assert.equal(portal.tasks.length, 1)
+  assert.match(portal.tasksError, /TRACE-123/)
+})
+
+test('newer refresh wins over an older response without leaving a busy state', async () => {
+  const portal = freshPortal(), old = deferred(), newer = deferred()
+  let calls = 0
+  fixture.tasks = () => ++calls === 1 ? old.promise : newer.promise
+  const first = portal.refreshTasks(), second = portal.refreshTasks()
+  newer.resolve({ items: [{ taskId: 'new', status: 'open' }], errors: [] })
+  await second
+  old.resolve({ items: [{ taskId: 'old', status: 'open' }], errors: [] })
+  await first
+  assert.equal(portal.tasks[0].taskId, 'new')
+  assert.equal(portal.tasksLoading, false)
+})
+
+
+test('verified sessions reuse only a short-lived check and revalidate after expiry', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 100000 })
+  const portal = freshPortal()
+  let calls = 0
+  fixture.data = async () => { calls++; return emptyData() }
+  assert.equal(await portal.ensureSession(), true)
+  assert.equal(await portal.ensureSession(), true)
+  assert.equal(calls, 1)
+  t.mock.timers.tick(60001)
+  assert.equal(await portal.ensureSession(), true)
+  assert.equal(calls, 2)
+})
+
+test('a failed old bootstrap cannot approve navigation after sign-out', async () => {
+  const portal = freshPortal(), request = deferred()
+  fixture.data = () => request.promise
+  const checking = portal.ensureSession()
+  portal.markSignedOut()
+  request.reject(new Error('old network failure'))
+  assert.equal(await checking, false)
+  assert.equal(portal.authenticated, false)
 })

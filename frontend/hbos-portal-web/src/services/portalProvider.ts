@@ -1,96 +1,67 @@
+import { resolvePortalDataMode } from '@/contracts/dataMode'
 import {
-  appManifests,
-  businessPulse,
-  heroMetrics,
-  limsQueue,
-  portalUser,
-  searchResults,
-  tasks,
-  twinStatuses,
-} from '@/data/mockPortal'
-import {
-  getFrappePortalData,
-  getFrappeSummariesForApps,
-  getFrappeTasksForApps,
-  resolveFrappeRoute,
-  searchFrappePortal,
+  getFrappePortalData, getFrappeSummariesForApps, getFrappeTasksForApps,
+  getFrappeTaskPage, resolveFrappeRoute, searchFrappePortal,
 } from '@/services/portalApi'
-import type {
-  AppManifestDTO,
-  LimsTaskQuery,
-  PortalBranding,
-  PortalDataSource,
-} from '@/contracts/portal'
+import type { AppManifestDTO, LimsTaskQuery, PortalBranding, TaskPage } from '@/contracts/portal'
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-const mode = (import.meta.env.VITE_PORTAL_DATA_MODE || 'mock').toLowerCase()
-
-export const portalDataSource: PortalDataSource =
-  mode === 'frappe' ? 'frappe' : 'mock'
-
+export const portalDataSource = resolvePortalDataMode(import.meta.env.VITE_PORTAL_DATA_MODE)
+const mockData = () => import('@/data/mockPortal')
 const mockBranding: PortalBranding = {
-  productName: 'HBOS',
-  companyName: '海滨',
-  logoUrl: null,
-  workspaceName: '海滨智能运营工作台',
-}
-
-async function getMockPortalData() {
-  await sleep(180)
-  return {
-    user: portalUser,
-    branding: mockBranding,
-    apps: appManifests,
-    heroMetrics,
-    tasks,
-    businessPulse,
-    twinStatuses,
-    limsQueue,
-  }
+  productName: 'HBOS', companyName: '海滨', logoUrl: null, workspaceName: '海滨智能运营工作台',
 }
 
 export async function getPortalData() {
-  if (portalDataSource === 'frappe') {
-    return getFrappePortalData()
+  if (portalDataSource === 'frappe') return getFrappePortalData()
+  const data = await mockData()
+  return {
+    user: data.portalUser, branding: mockBranding, apps: data.appManifests,
+    heroMetrics: data.heroMetrics, tasks: data.tasks, businessPulse: data.businessPulse,
+    twinStatuses: data.twinStatuses, limsQueue: data.limsQueue,
   }
-  return getMockPortalData()
 }
 
-
 export async function getPortalSummaries(apps: AppManifestDTO[]) {
-  if (portalDataSource === 'frappe') {
-    return getFrappeSummariesForApps(apps)
-  }
-  return heroMetrics
+  if (portalDataSource === 'frappe') return getFrappeSummariesForApps(apps)
+  return { items: (await mockData()).heroMetrics, errors: [] }
 }
 
 export async function getPortalTasks(apps: AppManifestDTO[], query: LimsTaskQuery = {}) {
-  if (portalDataSource === 'frappe') {
-    return getFrappeTasksForApps(apps, query)
+  if (portalDataSource === 'frappe') return getFrappeTasksForApps(apps, query)
+  return { items: (await mockData()).tasks, errors: [] }
+}
+
+export async function getPortalTaskPage(app: AppManifestDTO, query: LimsTaskQuery = {}): Promise<TaskPage> {
+  if (portalDataSource === 'frappe') return getFrappeTaskPage(app, query)
+  const actions = {
+    'my-testing': ['start_task', 'submit_result', 'start_testing', 'record_result', 'complete_sampling'],
+    'my-review': ['review_result', 'review_observation', 'eval_trend'],
+    'my-approval': ['approve_result', 'publish_coa', 'confirm_stock'],
   }
-  return tasks
+  const items = (await mockData()).tasks.filter(task => task.appId === app.id)
+    .filter(task => !query.view || !task.action || actions[query.view].includes(task.action))
+    .filter(task => !query.status || task.domainStatus === query.status)
+    .filter(task => !query.priority || task.priority === query.priority)
+    .filter(task => !query.keyword || `${task.title} ${task.description}`.includes(query.keyword))
+  const offset = Number(query.cursor || 0)
+  const limit = query.limit || 20
+  return { items: items.slice(offset, offset + limit), total: items.length,
+    nextCursor: offset + limit < items.length ? String(offset + limit) : null }
 }
 
 export async function resolveBusinessRoute(appId: string, stablePath: string) {
-  if (portalDataSource === 'frappe') {
-    return resolveFrappeRoute(appId, stablePath)
-  }
+  if (portalDataSource === 'frappe') return resolveFrappeRoute(appId, stablePath)
   return stablePath
 }
 
 export async function searchPortal(query: string) {
   const normalizedQuery = query.trim()
-
   if (portalDataSource === 'frappe') {
     if (!normalizedQuery) return []
     return searchFrappePortal(normalizedQuery)
   }
-
-  await sleep(90)
+  const { searchResults } = await mockData()
   const q = normalizedQuery.toLowerCase()
-  if (!q) return searchResults
-  return searchResults.filter((item) =>
-    `${item.title} ${item.subtitle} ${item.appTitle} ${item.typeLabel}`.toLowerCase().includes(q),
-  )
+  return q ? searchResults.filter(item =>
+    `${item.title} ${item.subtitle} ${item.appTitle} ${item.typeLabel}`.toLowerCase().includes(q)) : searchResults
 }

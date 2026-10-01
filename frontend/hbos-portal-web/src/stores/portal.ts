@@ -6,7 +6,8 @@ import {
   getPortalTasks,
   portalDataSource,
 } from '@/services/portalProvider'
-import { isAuthError, login } from '@/services/frappeClient'
+import { portalErrorMessage, providerFailureMessage } from '@/services/portalErrors'
+import { isAuthError, login, logout, clearCachedCsrfToken } from '@/services/frappeClient'
 import type {
   AppManifestDTO,
   BusinessPulseDTO,
@@ -42,89 +43,119 @@ export const usePortalStore = defineStore('portal', () => {
     tasks.value.filter((task) => task.status === 'open').length,
   )
 
+  let generation = 0
+  let checkedAt = 0
+  let tasksRequest = 0
+  let summariesRequest = 0
+  let bootstrapRequest: Promise<void> | null = null
+
+  function markSignedOut() {
+    generation += 1
+    bootstrapRequest = null
+    checkedAt = 0
+    authenticated.value = false
+    sessionChecked.value = false
+    clearCachedCsrfToken()
+    user.value = null
+    branding.value = null
+    apps.value = []
+    heroMetrics.value = []
+    summaryMetrics.value = []
+    tasks.value = []
+    businessPulse.value = []
+    twinStatuses.value = []
+    limsQueue.value = []
+    bootstrapError.value = summariesError.value = tasksError.value = null
+    loading.value = summariesLoading.value = tasksLoading.value = false
+  }
+
   async function bootstrap() {
+    if (bootstrapRequest) return bootstrapRequest
+    const current = generation
     loading.value = true
     bootstrapError.value = null
-    try {
-      const data = await getPortalData()
-      user.value = data.user
-      branding.value = data.branding
-      apps.value = data.apps
-      heroMetrics.value = data.heroMetrics
-      summaryMetrics.value = data.heroMetrics
-      tasks.value = data.tasks
-      businessPulse.value = data.businessPulse
-      twinStatuses.value = data.twinStatuses
-      limsQueue.value = data.limsQueue
-      if (dataSource.value === 'frappe') {
-        void refreshTasks()
-        void refreshSummaries()
+    const request = (async () => {
+      try {
+        const data = await getPortalData()
+        if (current !== generation) return
+        user.value = data.user
+        branding.value = data.branding
+        apps.value = data.apps
+        heroMetrics.value = data.heroMetrics
+        summaryMetrics.value = data.heroMetrics
+        tasks.value = data.tasks
+        businessPulse.value = data.businessPulse
+        twinStatuses.value = data.twinStatuses
+        limsQueue.value = data.limsQueue
+        authenticated.value = true
+        sessionChecked.value = true
+        checkedAt = Date.now()
+        if (dataSource.value === 'frappe') {
+          void refreshTasks()
+          void refreshSummaries()
+        }
+      } catch (error) {
+        if (current === generation) {
+          if (isAuthError(error)) markSignedOut()
+          else {
+            authenticated.value = false
+            sessionChecked.value = false
+            bootstrapError.value = portalErrorMessage(error, 'HBOS 初始化失败，请稍后重试。')
+          }
+        }
+        throw error
+      } finally {
+        if (current === generation) loading.value = false
       }
-    } catch (error) {
-      bootstrapError.value = isAuthError(error)
-        ? '登录状态已失效，请重新登录。'
-        : 'HBOS 初始化失败，请稍后重试。'
-      throw error
-    } finally {
-      loading.value = false
+    })()
+    bootstrapRequest = request
+    try { await request } finally {
+      if (bootstrapRequest === request) bootstrapRequest = null
     }
   }
 
-  /**
-   * 判断当前会话是否已登录。
-   *
-   * Portal API 不允许 allow_guest（CI 门禁），因此没有独立的探测端点：
-   * 直接复用 bootstrap 的 403 语义 —— Guest 必然 403。
-   */
+  /** 缓存短期有效验证；失效和网络失败均允许下一次重新探测。 */
   async function ensureSession(): Promise<boolean> {
     if (dataSource.value !== 'frappe') {
-      sessionChecked.value = true
-      authenticated.value = true
+      sessionChecked.value = authenticated.value = true
       return true
     }
-    if (sessionChecked.value) return authenticated.value
-
+    if (sessionChecked.value && authenticated.value && Date.now() - checkedAt < 60000) return true
+    const current = generation
     try {
       await bootstrap()
-      authenticated.value = true
+      return authenticated.value
     } catch (error) {
-      if (!isAuthError(error)) {
-        // 非鉴权错误（500 / 网络等）不该把用户弹去登录页：
-        // 保持已认证，让 Shell 自己渲染错误横幅。
-        sessionChecked.value = true
-        authenticated.value = true
-        return true
-      }
-      authenticated.value = false
+      // 服务不可用时允许进入错误壳，但不能把未知会话标记成已认证。
+      return current === generation && Boolean(bootstrapError.value) && !isAuthError(error)
     }
-
-    sessionChecked.value = true
-    return authenticated.value
   }
 
   async function signIn(usr: string, pwd: string) {
     await login(usr, pwd)
-    sessionChecked.value = false
-    authenticated.value = false
-    const ok = await ensureSession()
-    if (!ok) throw new Error('登录后仍未取得 HBOS 会话。')
+    markSignedOut()
+    await bootstrap()
+    if (!authenticated.value) throw new Error('登录后仍未取得 HBOS 会话。')
   }
 
-  function markSignedOut() {
-    authenticated.value = false
-    sessionChecked.value = true
-    user.value = null
+  async function signOut() {
+    await logout()
+    markSignedOut()
   }
 
   async function refreshSummaries() {
     if (dataSource.value !== 'frappe') return
+    const current = generation
+    const currentRequest = ++summariesRequest
     summariesLoading.value = true
     summariesError.value = null
     try {
       const loaded = await getPortalSummaries(apps.value)
-      summaryMetrics.value = loaded
+      if (current !== generation || currentRequest !== summariesRequest) return
+      summariesError.value = providerFailureMessage(loaded.errors)
+      summaryMetrics.value = loaded.items
       const byApp = new Map<string, SummaryMetricDTO[]>()
-      for (const metric of loaded) {
+      for (const metric of loaded.items) {
         const bucket = byApp.get(metric.appId) || []
         bucket.push(metric)
         byApp.set(metric.appId, bucket)
@@ -145,32 +176,41 @@ export const usePortalStore = defineStore('portal', () => {
         index += 1
       }
       heroMetrics.value = selected
-    } catch {
-      summariesError.value = '业务概览暂时无法刷新，请稍后重试。'
+    } catch (error) {
+      if (current !== generation || currentRequest !== summariesRequest) return
+      if (isAuthError(error)) markSignedOut()
+      else summariesError.value = portalErrorMessage(error, '业务概览暂时无法刷新，请稍后重试。')
     } finally {
-      summariesLoading.value = false
+      if (current === generation && currentRequest === summariesRequest) summariesLoading.value = false
     }
   }
 
   async function refreshTasks() {
     if (dataSource.value !== 'frappe') return
+    const current = generation
+    const currentRequest = ++tasksRequest
     tasksLoading.value = true
     tasksError.value = null
     try {
       const loaded = await getPortalTasks(apps.value)
-      tasks.value = loaded
-      const counts = loaded.reduce<Record<string, number>>((acc, task) => {
+      if (current !== generation || currentRequest !== tasksRequest) return
+      tasksError.value = providerFailureMessage(loaded.errors)
+      tasks.value = loaded.items
+      const failed = new Set(loaded.errors.map(error => error.appId))
+      const counts = loaded.items.filter(task => task.status === 'open').reduce<Record<string, number>>((acc, task) => {
         acc[task.appId] = (acc[task.appId] || 0) + 1
         return acc
       }, {})
       apps.value = apps.value.map((app) => ({
         ...app,
-        pendingCount: app.capabilityTasks ? (counts[app.id] || 0) : app.pendingCount,
+        pendingCount: app.capabilityTasks && !failed.has(app.id) ? (counts[app.id] || 0) : app.pendingCount,
       }))
-    } catch {
-      tasksError.value = '工作事项暂时无法刷新，请稍后重试。'
+    } catch (error) {
+      if (current !== generation || currentRequest !== tasksRequest) return
+      if (isAuthError(error)) markSignedOut()
+      else tasksError.value = portalErrorMessage(error, '工作事项暂时无法刷新，请稍后重试。')
     } finally {
-      tasksLoading.value = false
+      if (current === generation && currentRequest === tasksRequest) tasksLoading.value = false
     }
   }
 
@@ -197,6 +237,7 @@ export const usePortalStore = defineStore('portal', () => {
     bootstrap,
     ensureSession,
     signIn,
+    signOut,
     markSignedOut,
     refreshSummaries,
     refreshTasks,

@@ -12,7 +12,7 @@ Portal 前端明确支持两种模式。
 
 ### 1. Mock 模式
 
-默认：
+必须显式选择（未配置或拼写错误会停止启动）：
 
 ```bash
 VITE_PORTAL_DATA_MODE=mock
@@ -22,7 +22,7 @@ VITE_PORTAL_DATA_MODE=mock
 
 - UI / Experience 原型开发；
 - 不要求 Frappe 运行；
-- 使用 `src/data/mockPortal.ts`；
+- 动态加载 `src/data/mockPortal.ts`，全站显示「演示数据」标识；
 - 不作为真实运行态验收依据。
 
 ### 2. Frappe 模式
@@ -164,7 +164,7 @@ Smoke 结束时会自动关闭本次临时 Vite 进程，不删除 Docker volume
 
 ```bash
 cd frontend/hbos-portal-web
-npm install --no-audit --no-fund --package-lock=false
+npm ci --no-audit --no-fund
 
 VITE_PORTAL_DATA_MODE=frappe \
 VITE_FRAPPE_PROXY_TARGET=http://127.0.0.1:8080 \
@@ -177,17 +177,31 @@ npm run dev -- --host 127.0.0.1 --port 5178
 ## 回归验证
 
 ```bash
+npm run lint
 npm run test:unit
 npm run test:contract
+npm run test:mock-gate
+bash ../../scripts/portal/lims_shell_contract.sh
 ```
 
 单元回归使用隔离 Provider 夹具和真实 Vue/Store/守卫逻辑，不需要运行 Frappe；源码契约检查用于保护关键接线。真实 Session 联调仍是独立验收项。
 
 ## 构建
 
+生产构建必须明确使用 Frappe 数据源，禁止回退演示数据：
+
 ```bash
-npm run build
+VITE_PORTAL_DATA_MODE=frappe npm run build
 ```
+
+演示开发与演示构建使用独立命令，不能作为真实运行态证据：
+
+```bash
+npm run dev:mock
+npm run build:mock
+```
+
+CI 在 `m2-r10` 上使用 `npm ci`，执行 ESLint、单元/组件回归、前端契约、Shell 契约、Mock 内容门控和真实模式生产构建。
 
 ## 技术栈
 

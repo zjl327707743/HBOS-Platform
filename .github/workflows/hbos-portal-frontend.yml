@@ -4,15 +4,18 @@ on:
   push:
     branches:
       - feature/hbos-portal-product
+      - m2-r10
     paths:
       - 'frontend/hbos-portal-web/**'
       - '.github/workflows/hbos-portal-frontend.yml'
+      - 'scripts/portal/**'
   pull_request:
     branches:
       - main
     paths:
       - 'frontend/hbos-portal-web/**'
       - '.github/workflows/hbos-portal-frontend.yml'
+      - 'scripts/portal/**'
   workflow_dispatch:
 
 permissions:
@@ -23,6 +26,8 @@ jobs:
     name: Portal 前端构建
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      VITE_PORTAL_DATA_MODE: frappe
 
     defaults:
       run:
@@ -36,6 +41,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/hbos-portal-web/package-lock.json
 
       - name: 显示 Node / npm 版本
         run: |
@@ -43,7 +50,21 @@ jobs:
           npm --version
 
       - name: 安装前端依赖
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: 前端单元与组件回归
+        run: npm run test:unit
+
+      - name: 前端契约及 Mock 内容门控
+        run: |
+          npm run test:contract
+          npm run test:mock-gate
+
+      - name: LIMS Shell 契约
+        run: bash ../../scripts/portal/lims_shell_contract.sh
 
       - name: Vue / TypeScript / Vite 构建
         run: npm run build

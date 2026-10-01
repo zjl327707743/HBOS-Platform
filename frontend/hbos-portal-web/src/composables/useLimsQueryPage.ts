@@ -1,5 +1,6 @@
 import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { portalErrorMessage } from '@/services/portalErrors'
 import { usePortalStore } from '@/stores/portal'
 
 interface QueryField {
@@ -61,10 +62,10 @@ export function useLimsQueryPage(options: QueryPageOptions) {
       if (!portal.user) await portal.bootstrap()
       const response = await request()
       if (current === generation) commit(response)
-    } catch {
+    } catch (error) {
       if (current === generation) {
         if (!append) clearOnError?.()
-        errorMessage.value = options.failureMessage
+        errorMessage.value = portalErrorMessage(error, options.failureMessage)
       }
     } finally {
       if (current === generation) {

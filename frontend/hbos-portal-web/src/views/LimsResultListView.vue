@@ -6,7 +6,7 @@
         <h1>检验结果清单</h1>
         <p>从样品、批次和检验项目进入结果上下文；提交、复核和批准由 LIMS 服务校验。</p>
       </div>
-      <a-button :loading="loading" @click="loadResults"><ReloadOutlined /> 刷新清单</a-button>
+      <a-button :loading="loading" @click="loadResults()"><ReloadOutlined /> 刷新清单</a-button>
     </div>
 
     <a-alert v-if="errorMessage" class="lims-result-alert" type="error" show-icon closable :message="errorMessage" @close="errorMessage = ''" />
@@ -84,6 +84,10 @@
       <div v-if="!loading && !results.length" class="lims-result-empty">
         <InboxOutlined /><h3>当前筛选下没有结果记录</h3><p>可以调整关键词或状态筛选，或等待 LIMS 返回新的记录。</p>
       </div>
+      <div class="lims-pagination" aria-live="polite">
+        <span>已加载 {{ results.length }} / {{ total }} 条</span>
+        <a-button v-if="nextCursor" :loading="loadingMore" :disabled="loading" @click="loadResults(true)">加载更多</a-button>
+      </div>
     </section>
   </section>
 </template>
@@ -98,6 +102,7 @@ import { listLimsResults, type LimsResultRow } from '@/services/limsResults'
 
 const results = ref<LimsResultRow[]>([])
 const total = ref(0)
+const nextCursor = ref<string | null>(null)
 
 const searchInput = ref('')
 const statusFilter = ref('')
@@ -112,26 +117,30 @@ const columns = [
   { title: '操作', key: 'actions', width: 120 },
 ]
 
-const { loading, errorMessage, updateRoute, runLoad } = useLimsQueryPage({
+const { loading, loadingMore, errorMessage, updateRoute, runLoad } = useLimsQueryPage({
   path: '/hbos/lims/results',
   fields: { keyword: { state: searchInput }, status: { state: statusFilter }, verdict: { state: verdictFilter } },
   load: loadResults,
   failureMessage: '检验结果暂时无法加载，请稍后重试。',
 })
 
-async function loadResults() {
+async function loadResults(append = false) {
+  if (append && !nextCursor.value) return
   await runLoad(
     () => listLimsResults({
+      cursor: append ? nextCursor.value || undefined : undefined,
       keyword: searchInput.value.trim() || undefined,
       status: statusFilter.value || undefined,
       verdict: verdictFilter.value || undefined,
     }),
     (response) => {
-      results.value = response.results
+      results.value = append ? [...new Map([...results.value, ...response.results].map(row => [row.result_name, row])).values()] : response.results
+      nextCursor.value = response.next_cursor || null
       total.value = response.total
     },
-    false,
+    append,
     () => {
+      nextCursor.value = null
       results.value = []
       total.value = 0
     },

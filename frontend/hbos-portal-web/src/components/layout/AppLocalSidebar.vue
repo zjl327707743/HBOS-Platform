@@ -12,7 +12,7 @@
       <ArrowLeftOutlined /><span>返回 HBOS 工作台</span>
     </button>
 
-    <nav>
+    <nav class="app-local-nav" tabindex="0" aria-label="LIMS 功能菜单">
       <div class="nav-section-label">我的工作</div>
       <RouterLink v-if="limsCapabilities.has('dashboard')" class="local-nav" to="/hbos/lims" exact-active-class="active" title="工作台"><DashboardOutlined /><span>工作台</span></RouterLink>
       <template v-if="limsCapabilities.has('tasks')">
@@ -22,7 +22,6 @@
       </template>
 
       <div class="nav-section-label spaced">专业业务</div>
-      <RouterLink v-if="limsCapabilities.has('samples')" class="local-nav" to="/hbos/lims/samples" exact-active-class="active" title="样品与检验"><DatabaseOutlined /><span>样品与检验</span></RouterLink>
       <RouterLink v-if="limsCapabilities.has('results')" class="local-nav" to="/hbos/lims/results" exact-active-class="active" title="质量与报告"><FileProtectOutlined /><span>质量与报告</span></RouterLink>
       <RouterLink v-if="limsCapabilities.has('ledger')" class="local-nav" to="/hbos/lims/ledger" exact-active-class="active" title="检验结果台账"><FileProtectOutlined /><span>检验结果台账</span></RouterLink>
       <RouterLink v-if="limsCapabilities.has('coa')" class="local-nav" to="/hbos/lims/coa" exact-active-class="active" title="检验报告"><FileTextOutlined /><span>检验报告</span></RouterLink>
@@ -44,7 +43,6 @@
       <RouterLink v-if="limsCapabilities.has('audit')" class="local-nav" to="/hbos/lims/audit" exact-active-class="active" title="合规审计"><AuditOutlined /><span>合规审计</span></RouterLink>
     </nav>
 
-    <div class="sidebar-spacer"></div>
   </aside>
 </template>
 

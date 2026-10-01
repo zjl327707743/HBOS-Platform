@@ -26,14 +26,14 @@
       <div class="status-glass">
         <div class="status-title">
           <span>工作台状态</span>
-          <a-tag color="success">已连接</a-tag>
+          <a-tag :color="portal.authenticated ? 'success' : 'default'">{{ sessionLabel }}</a-tag>
         </div>
-        <div class="status-row"><i class="blue"></i><span>统一身份与会话</span><b>已连接</b></div>
+        <div class="status-row"><i class="blue"></i><span>统一身份与会话</span><b>{{ sessionLabel }}</b></div>
         <div class="status-row"><i class="violet"></i><span>我的可用应用</span><b>{{ appCount }}</b></div>
         <div class="status-row"><i class="green"></i><span>需要我处理</span><b>{{ totalActions }}</b></div>
       </div>
 
-      <div v-if="showTwinPreview" class="mini-twin-glass">
+      <div v-if="showTwinPreview && portal.dataSource === 'mock'" class="mini-twin-glass">
         <div class="status-title">
           <span>数字孪生概览</span>
           <a-tag color="processing">LIVE READY</a-tag>
@@ -60,6 +60,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { usePortalStore } from '@/stores/portal'
+const portal = usePortalStore()
+const sessionLabel = computed(() => portal.dataSource === 'mock' ? '演示会话' : portal.authenticated ? '会话已验证' : '会话待验证')
 import type { SummaryMetricDTO } from '@/contracts/portal'
 
 defineProps<{

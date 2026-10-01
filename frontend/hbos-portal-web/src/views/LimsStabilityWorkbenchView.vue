@@ -126,7 +126,7 @@
             <EnvironmentOutlined class="section-icon" />
           </div>
           <div class="room-card">
-            <strong>稳定性室 {{ envelope.dashboard.master.room ? 'A / B' : '—' }}</strong>
+            <strong>启用房间 {{ envelope.dashboard.master.room }} 间</strong>
             <span>启用房间 {{ envelope.dashboard.master.room || 0 }} 个</span>
             <small>温湿度记录与设备状态由稳定性业务服务维护</small>
           </div>

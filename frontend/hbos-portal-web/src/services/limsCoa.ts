@@ -91,7 +91,7 @@ export async function listLimsCoas(params: {
 } = {}): Promise<LimsCoaEnvelope> {
   if (portalDataSource === 'mock') {
     const rows = filterMock(params)
-    return { coas: rows.map(({ items, ...row }) => ({ ...row, items: [] })), total: rows.length, next_cursor: null }
+    return { coas: rows.map(row => ({ ...row, items: [] })), total: rows.length, next_cursor: null }
   }
   const response = await callFrappeMethod<PortalCoaResponse>('hbos_portal.api.coa.get_coas', {
     app_id: 'lims', limit: params.limit || 50, cursor: params.cursor,

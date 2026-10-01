@@ -1,10 +1,11 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import { validatePortalBuildMode } from './src/contracts/dataMode'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const dataMode = (env.VITE_PORTAL_DATA_MODE || 'mock').toLowerCase()
+  const dataMode = validatePortalBuildMode(env.VITE_PORTAL_DATA_MODE, command, mode)
   const proxyTarget =
     env.VITE_FRAPPE_PROXY_TARGET ||
     (dataMode === 'frappe' ? 'http://127.0.0.1:8081' : '')

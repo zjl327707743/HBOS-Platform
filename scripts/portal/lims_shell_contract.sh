@@ -77,7 +77,7 @@ grep -Fq "'my-testing'" "$TASK_BOARD" || fail "Task Board 未声明待检视图�
 grep -Fq "statusFilter" "$TASK_BOARD" || fail "Task Board 未实现状态筛选"
 grep -Fq "priorityFilter" "$TASK_BOARD" || fail "Task Board 未实现优先级筛选"
 grep -Fq "handleRowKeydown" "$TASK_BOARD" || fail "Task Board 未实现键盘任务导航"
-grep -Fq "getPortalTasks" "$TASK_BOARD" || fail "Task Board 未消费 Provider 任务"
+grep -Fq "getPortalTaskPage" "$TASK_BOARD" || fail "Task Board 未消费 Provider 任务"
 grep -Fq "LimsResultListView" "$ROUTER" || fail "真实 LIMS 路由未注册 Result List V1"
 grep -Fq "LimsResultEntryView" "$ROUTER" || fail "真实 LIMS 路由未注册 Result Entry V1"
 grep -Fq "LimsLedgerView" "$ROUTER" || fail "真实 LIMS 路由未注册 Result Ledger V1"

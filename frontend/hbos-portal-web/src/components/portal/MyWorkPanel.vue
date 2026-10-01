@@ -32,7 +32,6 @@
 
 <script setup lang="ts">
 import { appIcon, chineseApp } from '@/components/appIcons'
-import { type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   RightOutlined,

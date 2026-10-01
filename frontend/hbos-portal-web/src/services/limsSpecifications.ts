@@ -91,7 +91,7 @@ export async function listLimsSpecifications(params: {
 } = {}): Promise<LimsSpecificationEnvelope> {
   if (portalDataSource === 'mock') {
     const rows = filterMock(params)
-    return { specifications: rows.map(({ items, ...row }) => ({ ...row, items: [] })), total: rows.length, next_cursor: null }
+    return { specifications: rows.map(row => ({ ...row, items: [] })), total: rows.length, next_cursor: null }
   }
   const response = await callFrappeMethod<PortalSpecificationResponse>('hbos_portal.api.specifications.get_specifications', {
     app_id: 'lims', limit: params.limit || 50, cursor: params.cursor,

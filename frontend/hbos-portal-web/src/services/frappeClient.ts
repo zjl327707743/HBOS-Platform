@@ -40,6 +40,7 @@ export function unwrapPortalMethod<T>(envelope: PortalMethodEnvelope<T>): T {
 const http = axios.create({
   baseURL: import.meta.env.VITE_FRAPPE_BASE_URL || '',
   withCredentials: true,
+  timeout: 15000,
   headers: {
     'X-Requested-With': 'XMLHttpRequest',
   },
@@ -64,7 +65,7 @@ async function ensureCsrfToken(): Promise<string | null> {
   try {
     const response = await axios.get(
       '/api/method/hb_lims_app.hbos_lims.lims_service.get_csrf_token',
-      { withCredentials: true, timeout: 15000 },
+      { baseURL: import.meta.env.VITE_FRAPPE_BASE_URL || '', withCredentials: true, timeout: 15000 },
     )
     cachedCsrf = response.data?.message || null
     return cachedCsrf
@@ -85,6 +86,7 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 
 /** Frappe 对 Guest 访问受保护方法返回 403，会话过期可能返回 401。 */
 export function isAuthError(error: unknown): boolean {
+  if (error && typeof error === 'object' && 'code' in error && error.code === 'UNAUTHENTICATED') return true
   if (!axios.isAxiosError(error)) return false
   const status = error.response?.status
   if (status === 401) return true
@@ -150,4 +152,10 @@ export async function callFrappeAction<T>(
 export async function login(usr: string, pwd: string): Promise<void> {
   const body = new URLSearchParams({ usr, pwd })
   await http.post('/api/method/login', body)
+}
+
+/** Frappe 标准登出：服务端结束会话成功后才清除本地会话。 */
+export async function logout(): Promise<void> {
+  await http.post('/api/method/logout')
+  clearCachedCsrfToken()
 }

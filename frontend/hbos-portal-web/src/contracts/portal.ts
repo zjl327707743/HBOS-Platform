@@ -80,6 +80,19 @@ export interface LimsTaskQuery {
   status?: string
   priority?: UnifiedTaskDTO['priority']
   keyword?: string
+  cursor?: string
+  limit?: number
+}
+
+export interface ProviderBatch<T> {
+  items: T[]
+  errors: Array<{ appId: string; appTitle: string; message: string }>
+}
+
+export interface TaskPage {
+  items: UnifiedTaskDTO[]
+  nextCursor: string | null
+  total: number
 }
 
 export interface BusinessPulseDTO {

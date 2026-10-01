@@ -6,7 +6,7 @@
         <h1>{{ viewLabel }}</h1>
         <p>按检验角色查看待处理任务，状态由 LIMS 服务返回。</p>
       </div>
-      <a-button :loading="loading" @click="loadTasks">
+      <a-button :loading="loading" @click="loadTasks()">
         <ReloadOutlined /> 刷新任务
       </a-button>
     </div>
@@ -140,6 +140,10 @@
         <p>{{ hasActiveFilters ? '可以清除筛选条件，或换一个关键词。' : 'LIMS 服务没有返回当前权限范围内的任务。' }}</p>
         <a-button v-if="hasActiveFilters" @click="clearFilters">清除筛选</a-button>
       </div>
+      <div class="lims-pagination" aria-live="polite">
+        <span>已加载 {{ tasks.length }} / {{ total }} 项 · 截止筛选与状态统计仅计已加载任务</span>
+        <a-button v-if="nextCursor" :loading="loadingMore" :disabled="loading" @click="loadTasks(true)">加载更多</a-button>
+      </div>
     </section>
   </section>
 </template>
@@ -160,7 +164,7 @@ import {
 } from '@ant-design/icons-vue'
 import type { Component, ComponentPublicInstance } from 'vue'
 import type { LimsTaskQuery, LimsTaskView, UnifiedTaskDTO } from '@/contracts/portal'
-import { getPortalTasks, portalDataSource } from '@/services/portalProvider'
+import { getPortalTaskPage } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 
 const portal = usePortalStore()
@@ -171,17 +175,14 @@ const viewOptions: Array<{ value: LimsTaskView; label: string; icon: Component }
   { value: 'my-approval', label: '我的审批', icon: SafetyCertificateOutlined },
 ]
 const statusOptions = ['待分配', '已分配', '检验中', '已提交', '已复核', '已批准', 'OOS 候选']
-const viewActions: Record<LimsTaskView, string[]> = {
-  'my-testing': ['start_task', 'submit_result', 'start_testing', 'record_result', 'complete_sampling'],
-  'my-review': ['review_result', 'review_observation', 'eval_trend'],
-  'my-approval': ['approve_result', 'publish_coa', 'confirm_stock'],
-}
 const activeView = ref<LimsTaskView>('my-testing')
 const statusFilter = ref('')
 const priorityFilter = ref<UnifiedTaskDTO['priority'] | ''>('')
 const dueFilter = ref('')
 const searchInput = ref('')
 const tasks = ref<UnifiedTaskDTO[]>([])
+const total = ref(0)
+const nextCursor = ref<string | null>(null)
 
 const rowRefs = ref<HTMLElement[]>([])
 
@@ -201,7 +202,7 @@ const visibleTasks = computed(() => tasks.value.filter((task) => {
 }))
 const hasActiveFilters = computed(() => Boolean(statusFilter.value || priorityFilter.value || dueFilter.value || searchInput.value.trim()))
 
-const { loading, errorMessage, updateRoute, runLoad } = useLimsQueryPage({
+const { loading, loadingMore, errorMessage, updateRoute, runLoad } = useLimsQueryPage({
   path: '/hbos/lims/tasks',
   fields: {
     view: {
@@ -228,21 +229,22 @@ function currentQuery(): LimsTaskQuery {
     keyword: searchInput.value.trim() || undefined,
   }
 }
-async function loadTasks() {
+async function loadTasks(append = false) {
+  if (append && !nextCursor.value) return
   rowRefs.value = []
-  const query = currentQuery()
+  const query = { ...currentQuery(), cursor: append ? nextCursor.value || undefined : undefined }
   await runLoad(
     async () => {
       const limsApp = portal.apps.find((app) => app.id === 'lims')
-      return limsApp ? getPortalTasks([limsApp], query) : []
+      return limsApp ? getPortalTaskPage(limsApp, query) : { items: [], total: 0, nextCursor: null }
     },
     (loaded) => {
-      tasks.value = loaded.filter((task) => task.appId === 'lims')
-        .filter((task) => portalDataSource === 'frappe' || !task.action || viewActions[activeView.value].includes(task.action))
-        .filter((task) => !task.domainStatus || statusOptions.includes(task.domainStatus) || portalDataSource === 'frappe')
+      tasks.value = append ? [...new Map([...tasks.value, ...loaded.items].map(task => [task.taskId, task])).values()] : loaded.items
+      nextCursor.value = loaded.nextCursor
+      total.value = loaded.total
     },
-    false,
-    () => { tasks.value = [] },
+    append,
+    () => { tasks.value = []; nextCursor.value = null; total.value = 0 },
   )
 }
 

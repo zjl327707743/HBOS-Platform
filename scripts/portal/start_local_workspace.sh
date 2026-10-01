@@ -51,7 +51,7 @@ command -v npm >/dev/null 2>&1 || fail "本机缺少 npm"
 cd frontend/hbos-portal-web
 if [[ ! -d node_modules ]]; then
   echo "==> 安装 Portal 前端依赖（不生成 package-lock）"
-  npm install --no-audit --no-fund --package-lock=false
+  npm ci --no-audit --no-fund
 fi
 
 echo

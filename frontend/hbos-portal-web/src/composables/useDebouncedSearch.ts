@@ -1,9 +1,11 @@
+import type { ProviderBatch } from '@/contracts/portal'
+import { portalErrorMessage, providerFailureMessage } from '@/services/portalErrors'
 import { onBeforeUnmount, ref, watch, type Ref } from 'vue'
 
 export function useDebouncedSearch<T>(
   query: Ref<string>,
   open: Readonly<Ref<boolean>>,
-  search: (query: string) => Promise<T[]>,
+  search: (query: string) => Promise<T[] | ProviderBatch<T>>,
   delay = 280,
 ) {
   const results = ref<T[]>([]) as Ref<T[]>
@@ -24,11 +26,14 @@ export function useDebouncedSearch<T>(
     errorMessage.value = ''
     try {
       const loaded = await search(query.value)
-      if (current === generation && open.value) results.value = loaded
-    } catch {
+      if (current === generation && open.value) {
+        results.value = Array.isArray(loaded) ? loaded : loaded.items
+        errorMessage.value = Array.isArray(loaded) ? '' : providerFailureMessage(loaded.errors) || ''
+      }
+    } catch (error) {
       if (current === generation && open.value) {
         results.value = []
-        errorMessage.value = '搜索暂时不可用，请稍后重试。'
+        errorMessage.value = portalErrorMessage(error, '搜索暂时不可用，请稍后重试。')
       }
     } finally {
       if (current === generation) loading.value = false

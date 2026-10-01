@@ -1121,7 +1121,7 @@ button, input { font: inherit; }
   .app-local-sidebar .local-nav { min-height: 42px; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
   .portal-layout-grid,
   .app-layout-grid { display: block; }
   .portal-sidebar,
@@ -1608,7 +1608,7 @@ body { font-size: 14px; }
 .notification-copy p { margin: 5px 0 0; color: var(--hbos-text-secondary); font-size: 11px; line-height: 1.45; }
 .notification-copy small { display: block; margin-top: 6px; color: var(--hbos-text-muted); font-size: 10px; }
 
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
   .app-switcher-panel { width: min(360px, calc(100vw - 36px)); }
   .app-switcher-grid { grid-template-columns: 1fr; }
 }
@@ -1699,7 +1699,7 @@ body { font-size: 14px; }
   .review-context-stack .context-card:last-child { grid-column: 1 / -1; }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
   body { padding-bottom: 78px; }
   .mobile-portal-nav,
   .mobile-app-nav {
@@ -1761,7 +1761,7 @@ body { font-size: 14px; }
   background: transparent;
   text-align: left;
 }
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
   .hbos-notification-drawer .ant-drawer-content-wrapper { width: 100% !important; }
 }
 
@@ -1772,6 +1772,36 @@ body { font-size: 14px; }
   top: 104px;
   align-self: start;
 }
+
+.app-local-sidebar {
+  height: calc(100vh - 128px);
+  height: calc(100dvh - 128px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-local-sidebar > .app-local-brand,
+.app-local-sidebar > .back-workspace {
+  flex-shrink: 0;
+}
+
+.app-local-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(111,133,166,.55) transparent;
+}
+
+.app-local-nav::-webkit-scrollbar { width: 6px; }
+.app-local-nav::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+  background: rgba(111,133,166,.55);
+}
+.app-local-nav::-webkit-scrollbar-thumb:hover { background: rgba(111,133,166,.8); }
 
 .brand-mark-image {
   overflow: hidden;
@@ -1847,3 +1877,12 @@ body { font-size: 14px; }
   .lims-ledger-samples, .lims-ledger-detail, .lims-audit-panel { padding: 14px; }
   .lims-ledger-context { display: grid; gap: 7px; }
 }
+
+/* 演示标识占据独立空间，长侧栏高度包含标识偏移。 */
+.portal-demo-mode { --portal-demo-offset: 32px; }
+.portal-demo-banner { position: sticky; top: 0; z-index: 100; min-height: 32px; padding: 6px 12px; background: #fff3cc; color: #725400; text-align: center; font-size: 12px; }
+.portal-demo-mode .hbos-header { top: 42px; }
+.portal-demo-mode .portal-sidebar,
+.portal-demo-mode .app-local-sidebar { top: 136px; }
+.portal-demo-mode .app-local-sidebar { height: calc(100vh - 160px); height: calc(100dvh - 160px); }
+.lims-pagination { display: flex; gap: 16px; justify-content: center; align-items: center; padding: 18px; color: var(--hbos-text-secondary); }

@@ -107,3 +107,33 @@
 按 Owner 指令，将源工作区尚未提交的 50 个文件整改提交为 `f23ba17`（`fix: 完成 Portal 前端审查整改与状态同步`），再将 `codex/portal-review-fixes` 合入 `m2-r10`。后续开发工作分支为 `m2-r10`。
 
 合并前重新执行 14 项前端单元回归、前端契约、Shell 契约、TypeScript 检查与生产构建，全部通过。合并无冲突；本轮只整合既有整改及同步分支记录，P4-F6-5 继续为 REVIEWING，Owner 验收与真实 Frappe 运行态证据仍待补齐。主工作区既有未跟踪的 `LIMS_P4-F6-7_前端代码审核报告.md` 保留，不纳入合并提交。
+
+## 7. 2026-10-01 LIMS 侧栏溢出与滚动修复
+
+状态：**SOURCE FIX COMPLETE / UNIT + CONTRACT + BUILD PASS / BROWSER RECHECK PENDING**。工作分支为 Owner 指定的 `m2-r10`，未创建新分支。
+
+Owner 截图显示菜单越过侧栏卡片底部，且没有侧栏滚动条。源码确认：侧栏固定高度且设置 `min-height: 540px`，长菜单未设置滚动容器，也未允许 Flex 子项缩小；矮窗口中最小高度还会覆盖可用视口高度。
+
+修复仅涉及 `AppLocalSidebar.vue` 与 `global.css`：LIMS 侧栏取消最小高度下限，使用 `100vh` / `100dvh` 减去顶部和底部预留高度；标题与返回按钮不缩小，菜单采用 `flex: 1`、`min-height: 0` 和 `overflow-y: auto`，并补齐细滚动条、稳定滚动条间距及滚动边界；移除多余的 Flex 占位元素，为菜单保留可聚焦的键盘滚动入口。导航内容、稳定路由和 capability 门控未改动。
+
+验证：14 项既有前端回归、`test:contract`、`lims_shell_contract.sh`、TypeScript 检查、生产构建与 `git diff --check` 均通过。这些检查不验证浏览器中的滚动几何。浏览器打开本机 5178 预览时，自动审批因网络中断未完成，动作未执行；本轮没有浏览器复测或截图证据。待复核长菜单滚动到底部、矮窗口边界、键盘滚动，以及移动端导航。P4-F6-5 继续 REVIEWING，Owner 与真实 Frappe 运行态门禁保持待办。
+
+## 8. 2026-10-01 当前基线全面复核与缺陷修补
+
+2026-10-01 在 Owner 指定的 `m2-r10` 完成 Portal 当前基线复核与缺陷修补：显式数据模式/生产构建门禁与演示标识、真实文案、侧栏滚动/768px 导航、登出与会话收敛、动作语义任务计数、结果/任务游标分页、Provider 部分失败与 trace_id、锁文件/npm ci/ESLint/测试与 Mock AST 门禁；34 项回归及 lint、两套契约、Mock 门控、两种显式构建通过。浏览器已确认 1280×720 菜单滚动和 768/767px 导航切换；矮窗口补测被自动审批网络断开阻断，真实 Frappe 联调与 Owner 验收仍待完成。P4-F6-5 保持 REVIEWING，不新建分支、不部署、不推送；巨型视图拆分保留重构项。原 P4-F6-7 报告已保留评审痕迹并标注误报、旧基线和本轮处置。
+
+### 证据与实施范围
+
+复核基线：`m2-r10` 的 `553bc53`，保留此前未提交的侧栏滚动和分支审批规则。原报告零单测、命令面板扫码入口和后台刷新无 catch 的陈述不符合 `f23ba17` 后代码，已在原报告显著位置标注，没有用旧行号重复整改。
+
+真实任务投影是待处理动作集合：稳定性时间点「已完成」但待趋势评价、留样申请「已批准」但待执行，仍归 open。后端未提供的等待/完成历史不由前端补造。结果动作继续由现有领域 API 校验，前端仅按能力与状态展示；OOS 禁止批准且允许独立复核。
+
+- `npm ci`：使用新锁文件安装成功；第一次连接重置后有限重试成功。
+- `npm run lint`、`npm run test:unit`：34 项通过，覆盖实际 Vue 结果页/任务页加载更多、游标重置、会话 TTL/失效/并发/退出后旧请求、分页多页、部分失败、关联编号、模式门禁、只读文案与真实组件渲染。
+- `npm run test:contract`、`npm run test:mock-gate`、`bash scripts/portal/lims_shell_contract.sh`：通过。Mock 门控为模板 AST 检查加组件运行回归；不声称已自动证明任意动态内容都不会污染。
+- `VITE_PORTAL_DATA_MODE=frappe npm run build`：类型检查与构建通过；生产构建拒绝 `frape` 与 `mock` 已实测；`npm run build:mock -- --outDir /private/tmp/hbos-portal-review-mock` 通过，未覆盖真实模式 dist。
+- Mock 浏览器：1280×720 侧栏 bottom=708，菜单 368/838px，End 后 scrollTop=470，末项在菜单内；768×1024 保留侧栏，767×720 显示底栏和 78px 避让。矮窗口后续动作被自动审批拒绝，原因是审核网络传输断开；未绕过审批，也未获得真实 Frappe Session/业务数据证据。
+
+已同步 PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、P4-F6 实施计划及本主记录；公共入口 README、AI_CONTEXT、READING_GUIDE 追加当前复核状态，CLAUDE/AGENTS 记录 Owner 分支审批规则。没有改架构、业务事实或其他里程碑状态。原稿其他 P1/P2 改进项和巨型视图拆分不作为本轮已全部解决的内容。
+
+公共入口检查 WARN（既有、非 Portal 范围）：README 主线记为 M1-FIX-F，而 AI_CONTEXT / CURRENT_MILESTONE 仍有 M1-FIX-B5 的主线描述；本轮只同步已授权 Portal 进度，没有据此自行更改其他工作线的里程碑事实。

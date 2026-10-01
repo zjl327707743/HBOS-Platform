@@ -46,7 +46,10 @@
         <template #overlay>
           <a-menu>
             <a-menu-item @click="$router.push('/hbos/profile')">个人与设置</a-menu-item>
-            <a-menu-divider />
+            <template v-if="portalDataSource === 'frappe'">
+              <a-menu-divider />
+              <a-menu-item :disabled="signingOut" @click="signOut">{{ signingOut ? '正在退出…' : '退出登录' }}</a-menu-item>
+            </template>
           </a-menu>
         </template>
       </a-dropdown>
@@ -55,11 +58,30 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
+import { usePortalStore } from '@/stores/portal'
+import { portalErrorMessage } from '@/services/portalErrors'
 import { QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import AppSwitcher from '@/components/global/AppSwitcher.vue'
 import NotificationCenter from '@/components/global/NotificationCenter.vue'
 import type { AppManifestDTO } from '@/contracts/portal'
 import { portalDataSource } from '@/services/portalProvider'
+
+const portal = usePortalStore()
+const router = useRouter()
+const signingOut = ref(false)
+async function signOut() {
+  if (signingOut.value) return
+  signingOut.value = true
+  try {
+    await portal.signOut()
+    await router.replace({ name: 'login' })
+  } catch (error) {
+    message.error(portalErrorMessage(error, '退出登录未完成，请重试。'))
+  } finally { signingOut.value = false }
+}
 
 defineProps<{
   avatarText: string

@@ -13,7 +13,7 @@
           <p>{{ detail.result.result_name }} · {{ detail.result.sample }} · {{ detail.result.batch_no || '未填批号' }}</p>
         </div>
         <div class="lims-result-entry-actions">
-          <span v-if="!canWrite" class="lims-readonly-badge">演示模式只读</span>
+          <span v-if="!canWrite" class="lims-readonly-badge">{{ access.readonlyReason }}</span>
           <a-button v-if="canSubmit" type="primary" :loading="submitting" @click="onSubmitClick">提交结果</a-button>
           <a-button v-if="canReview" :loading="submitting" @click="review">复核结果</a-button>
           <a-button v-if="canApprove" type="primary" :loading="submitting" @click="approve">批准结果</a-button>
@@ -93,12 +93,14 @@
 
 <script setup lang="ts">
 import { statusColor, verdictColor } from '@/views/limsStatus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, watch, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { InboxOutlined } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
 import { getLimsResult, submitLimsResult, reviewLimsResult, approveLimsResult, type LimsResultDetail } from '@/services/limsResults'
+import { resultAccess } from '@/services/limsResultAccess'
+import { portalErrorMessage } from '@/services/portalErrors'
 import { portalDataSource } from '@/services/portalProvider'
 
 const route = useRoute()
@@ -113,11 +115,13 @@ const proxyReason = ref('')
 const form = reactive({ raw_value: '', result_value: '', result_text: '', instrument_used: '' })
 
 const limsAccessCapabilities = computed(() => portal.apps.find((app) => app.id === 'lims')?.accessCapabilities || [])
-const canSubmit = computed(() => portalDataSource === 'frappe' && limsAccessCapabilities.value.includes('lims.results.submit'))
-const canReview = computed(() => portalDataSource === 'frappe' && limsAccessCapabilities.value.includes('lims.results.review') && detail.value?.result.result_status === '已提交')
-const canApprove = computed(() => portalDataSource === 'frappe' && limsAccessCapabilities.value.includes('lims.results.approve') && detail.value?.result.result_status === '已复核')
+const access = computed(() => resultAccess(portalDataSource, limsAccessCapabilities.value, detail.value?.result.result_status, detail.value?.result.verdict, Boolean(detail.value?.sample.oos_locked)))
+const canSubmit = computed(() => access.value.submit)
+const canReview = computed(() => access.value.review)
+const canApprove = computed(() => access.value.approve)
 const canWrite = computed(() => canSubmit.value || canReview.value || canApprove.value)
-const canEdit = computed(() => canSubmit.value && detail.value?.result.result_status === '草稿')
+const canEdit = computed(() => access.value.edit)
+let generation = 0
 
 function syncForm() {
   const result = detail.value?.result
@@ -129,17 +133,24 @@ function syncForm() {
 }
 
 async function loadResult() {
+  const current = ++generation
+  const resultId = String(route.params.resultId || '')
+  detail.value = null
+  showProxySubmit.value = false
   loading.value = true
   errorMessage.value = ''
   try {
     if (!portal.user) await portal.bootstrap()
-    detail.value = await getLimsResult(String(route.params.resultId || ''))
+    const loaded = await getLimsResult(resultId)
+    if (current !== generation) return
+    detail.value = loaded
     syncForm()
-  } catch {
+  } catch (error) {
+    if (current !== generation) return
     detail.value = null
-    errorMessage.value = '结果详情暂时无法加载，请稍后重试。'
+    errorMessage.value = portalErrorMessage(error, '结果详情暂时无法加载，请稍后重试。')
   } finally {
-    loading.value = false
+    if (current === generation) loading.value = false
   }
 }
 
@@ -154,7 +165,7 @@ function onSubmitClick() {
 }
 
 async function submit() {
-  if (!detail.value) return
+  if (!detail.value || !canSubmit.value || submitting.value) return
   if (showProxySubmit.value && !proxyReason.value.trim()) {
     message.warning('代提交必须填写理由')
     return
@@ -165,24 +176,25 @@ async function submit() {
     message.success('结果已提交，判定由 LIMS 服务完成')
     showProxySubmit.value = false
     await loadResult()
-  } catch {
-    errorMessage.value = '结果提交未完成，已保留当前输入，请检查后重试。'
+  } catch (error) {
+    errorMessage.value = portalErrorMessage(error, '结果提交未完成，已保留当前输入，请检查后重试。')
   } finally {
     submitting.value = false
   }
 }
 
 async function review() {
-  if (!detail.value) return
+  if (!detail.value || !canReview.value || submitting.value) return
   submitting.value = true
-  try { await reviewLimsResult(detail.value.result.result_name); message.success('结果已提交复核'); await loadResult() } catch { errorMessage.value = '复核未完成，请稍后重试。' } finally { submitting.value = false }
+  try { await reviewLimsResult(detail.value.result.result_name); message.success('结果已提交复核'); await loadResult() } catch (error) { errorMessage.value = portalErrorMessage(error, '复核未完成，请稍后重试。') } finally { submitting.value = false }
 }
 
 async function approve() {
-  if (!detail.value) return
+  if (!detail.value || !canApprove.value || submitting.value) return
   submitting.value = true
-  try { await approveLimsResult(detail.value.result.result_name); message.success('结果已批准'); await loadResult() } catch { errorMessage.value = '批准未完成，请确认职责分离和结果状态。' } finally { submitting.value = false }
+  try { await approveLimsResult(detail.value.result.result_name); message.success('结果已批准'); await loadResult() } catch (error) { errorMessage.value = portalErrorMessage(error, '批准未完成，请确认职责分离和结果状态。') } finally { submitting.value = false }
 }
 
-onMounted(() => { void loadResult() })
+watch(() => route.params.resultId, () => { void loadResult() }, { immediate: true })
+onBeforeUnmount(() => { generation += 1 })
 </script>
