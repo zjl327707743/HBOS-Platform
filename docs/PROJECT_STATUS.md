@@ -1,5 +1,9 @@
 # 项目状态
 
+## 并行权限治理 IAM-0 — 2026-10-01
+
+Owner 已批准进入统一身份与权限治理。当前仅交付设计、角色—动作—范围矩阵、只读源码盘点工具与本机任务书；实际 Site 盘点和隔离验收仍为 NOT_RUN，不修改账号、角色或业务数据，不替代原账号收尾。入口：[IAM-0 治理资料](governance/iam/README.md)。
+
 ## PR #21 最终审查与条件合并 — 2026-10-01
 
 状态：FINAL_REVIEW_BLOCKED；Browser final-submit 三项尚未实际完成，Owner 最新版本正常复验为 WAITING_OWNER_ACCEPTANCE。当前轮次覆盖下方前序收尾记录；只有最新 HEAD 的全部 Gate 通过后才允许 squash 合入 `feature/hbos-portal-product`，不合并 main/#15/#22。
