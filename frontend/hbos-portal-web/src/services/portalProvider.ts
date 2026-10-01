@@ -15,7 +15,12 @@ import {
   resolveFrappeRoute,
   searchFrappePortal,
 } from '@/services/portalApi'
-import type { AppManifestDTO, PortalBranding, PortalDataSource } from '@/contracts/portal'
+import type {
+  AppManifestDTO,
+  LimsTaskQuery,
+  PortalBranding,
+  PortalDataSource,
+} from '@/contracts/portal'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -60,9 +65,9 @@ export async function getPortalSummaries(apps: AppManifestDTO[]) {
   return heroMetrics
 }
 
-export async function getPortalTasks(apps: AppManifestDTO[]) {
+export async function getPortalTasks(apps: AppManifestDTO[], query: LimsTaskQuery = {}) {
   if (portalDataSource === 'frappe') {
-    return getFrappeTasksForApps(apps)
+    return getFrappeTasksForApps(apps, query)
   }
   return tasks
 }

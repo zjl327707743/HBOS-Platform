@@ -1,6 +1,6 @@
 # HBOS P4 — Three-App Frontend Strengthening Plan
 
-> Status: **P4-F0 READY / FRONTEND AUDIT & DESIGN AUTHORIZED**
+> Status: **P4-F6-5 READ-ONLY WORKBENCH IMPLEMENTED / AUDIT REMEDIATION VERIFIED / REAL Frappe RUNTIME EVIDENCE PENDING**
 >
 > Date: 2026-09-25
 >
@@ -290,3 +290,30 @@ Verified:
 Therefore P4-F0 may start immediately.
 
 This authorizes **audit and design work** for all three app teams. It does not waive the per-app Owner Visual Gate before substantial implementation.
+
+## 11. LIMS Portal entry transition — 2026-09-28
+
+The Owner directed the local Portal at 5178 to keep LIMS navigation on the Portal origin instead of opening the current LIMS implementation at 8080. Portal routes `/hbos/lims/*` now stay in the Vue Router. App, task, and search clicks still call the Frappe route resolver for access; direct URLs are checked against the provider-filtered Bootstrap app list. In real Frappe mode, these routes show a pending frontend state without prototype metrics, notifications, or inactive operations. The existing LIMS visual prototype remains available in Mock mode.
+
+This interim entry change does not alter the LIMS provider's backend route contract or approve a new frontend implementation. The P4 prototype, Owner visual review, and implementation gates above still apply; the Owner-provided development standard is now recorded by the P4-F0 audit below.
+
+## 12. LIMS P4-F0 runtime audit — 2026-09-28
+
+P4-F0 has been completed for LIMS. The audit inspected the Portal App Center and same-origin `/hbos/lims` transition on the isolated 5179 preview, then followed the authenticated Native Vue LIMS journeys on 8080:
+
+- dashboard KPI / chart / recent sample orientation;
+- task board status tabs, counts, filters, cards and actions;
+- result list dense table, search, status/verdict filters and pagination;
+- draft result entry and approved result review states;
+- controlled result ledger and sample registration form;
+- filtered empty state and unauthenticated permission error state.
+
+The evidence and findings are recorded in [`LIMS_P4-F0_RUNTIME_AUDIT.md`](./LIMS_P4-F0_RUNTIME_AUDIT.md). The main P1 items are the Portal-to-Native experience gap during the transition and the raw, repeated Frappe permission error shown to unauthenticated users. P2 items cover accessible names for filters/actions, chart text alternatives, page-level loading, empty-state wording and mobile degradation of dense tables / split panes.
+
+P4-F2 is now the active LIMS design deliverable: the shared HBOS Shell, Dashboard V2, operational V1 page IA, responsive behavior and token/component mapping are recorded in the design specification below. No LIMS business page or domain implementation was started in P4-F0 or P4-F2; only the minimal Portal Shell safety fix is allowed before the two Owner gates, and the Owner visual / interaction gate remains required before business-page implementation.
+
+## 13. LIMS P4-F2 design specification — 2026-09-28
+
+P4-F2 design work has started after Owner confirmation of **方案 A：Portal Shell 统一承载 + LIMS 内容区分层**. The design specification and text prototype are recorded in [`LIMS_P4-F2_SHELL_DASHBOARD_设计方案.md`](./LIMS_P4-F2_SHELL_DASHBOARD_设计方案.md).
+
+The document now closes the R1–R11 review conditions: real-mode Shell sequencing, mock Sidebar count safety, `/samples` + `/samples/new` and `/ledger` route contracts, read-only scope semantics, mobile status control, component mapping, keyboard interaction, signable review checklist, and the split IA / Interaction versus static Visual gates. This turn also applies the minimal Portal Shell safety fix: real-mode LIMS routes use `LimsLayout`, Sidebar / mobile navigation use stable links, hardcoded badges are removed, future entries share a `limsCapabilities` projection, mobile activation is exact, task navigation uses `view`, and the LIMS Provider maps `/hbos/lims/ledger` to the current native `/hbos-lims/results/ledger` route in both directions. Owner has approved the IA / Interaction gate and, on 2026-09-29, accepted the revised Chinese-first, full-domain visual prototype delivered in `docs/experience/prototypes/lims-p4-f2-v2/` and documented in `LIMS_P4-F2_STATIC_VISUAL_GATE.md`. The implementation plan is now delivered at `docs/experience/LIMS_P4-F6_实施计划.md`; P4-F6-0 domain semantics and the Provider KPI / task / result / ledger / audit / coa / specifications adapters are confirmed by the workflow, permission, status, SoD, signature, and 47 passing LIMS Portal tests; P4-F6-1 Shell, P4-F6-2 Dashboard V2, P4-F6-3 Task Board V1, P4-F6-4 Result List / Result Entry V1, and P4-F6-5 Ledger / Audit / COA / Quality Standards / Retention / Stability Read-only V1 are implemented with dual branding, sanitized states, page-target and semantic capability gating, Provider projections, role views, URL filters, keyboard navigation, result detail / signature context, controlled ledger drill-down, audit event details, domain-backed write actions, and route guards. The two frontend audit reports' P0/P1 findings are recorded and remediated in `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`; real Frappe runtime evidence and Dashboard-specific fields remain. Status is **P4-F6-5 READ-ONLY WORKBENCH IMPLEMENTED / AUDIT REMEDIATION VERIFIED / REAL Frappe RUNTIME EVIDENCE PENDING**.

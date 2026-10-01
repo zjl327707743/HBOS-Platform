@@ -2,7 +2,7 @@
   <section class="product-page">
     <div class="page-heading">
       <div>
-        <span class="page-kicker">PROFILE & SETTINGS</span>
+        <span class="page-kicker">个人设置</span>
         <h1>我的与设置</h1>
         <p>个人偏好属于 Portal Experience State，不复制任何业务事实。</p>
       </div>
@@ -22,7 +22,7 @@
         <a-divider />
         <a-descriptions :column="1" size="small">
           <a-descriptions-item label="默认入口">HBOS Workspace</a-descriptions-item>
-          <a-descriptions-item label="登录方式">Frappe Session · Feishu-ready</a-descriptions-item>
+          <a-descriptions-item label="登录方式">Frappe Session · 飞书接入预留</a-descriptions-item>
           <a-descriptions-item label="可用应用">{{ portal.apps.length }}</a-descriptions-item>
         </a-descriptions>
         <a-button block>管理个人资料</a-button>
@@ -37,17 +37,12 @@
         </div>
 
         <div class="setting-card glass-surface">
-          <div class="setting-head"><div><h3>工作偏好</h3><p>控制 My Work 和首页内容的呈现方式</p></div><SlidersOutlined /></div>
+          <div class="setting-head"><div><h3>工作偏好</h3><p>控制“我的工作”和首页内容的呈现方式</p></div><SlidersOutlined /></div>
           <div class="setting-row"><span>优先显示超期事项</span><a-switch checked /></div>
           <div class="setting-row"><span>显示业务脉搏</span><a-switch checked /></div>
           <div class="setting-row"><span>显示数字孪生入口</span><a-switch checked /></div>
         </div>
 
-        <div class="setting-card glass-surface management-entry">
-          <div class="setting-head"><div><h3>Management Console</h3><p>仅管理员 / 实施人员 / 高级业务管理员可进入</p></div><SafetyCertificateOutlined /></div>
-          <a-alert message="进入后将切换到 Frappe Desk 管理后台界面。" type="info" show-icon />
-          <a-button style="margin-top: 14px">进入管理后台 <ArrowRightOutlined /></a-button>
-        </div>
       </section>
     </div>
   </section>
@@ -56,9 +51,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import {
-  ArrowRightOutlined,
   BgColorsOutlined,
-  SafetyCertificateOutlined,
   SlidersOutlined,
 } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'

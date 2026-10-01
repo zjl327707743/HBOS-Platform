@@ -148,8 +148,10 @@ P2 hbos_portal Skeleton = PASS
 P2.1 Frontend Bootstrap Adapter = PASS
 P2.2 Real Frappe Runtime Smoke = PASS
 P3 Three-App Registry = PASS
+P4-F2 LIMS Visual Gate = APPROVED
+P4-F6-5 LIMS Read-only Workbench = IMPLEMENTED / AUDIT REMEDIATION VERIFIED / MANAGEMENT V0 GATE CLOSED / REAL RUNTIME EVIDENCE PENDING
 
-LIMS       = entry + summary + tasks + search
+LIMS       = entry + summary + tasks + search + results + ledger + audit + COA + quality standards + retention + stability read-only workbenches
 Attendance = entry + HR summary
 Inventory  = entry + permission-aware summary
 ```
@@ -163,6 +165,12 @@ bash scripts/portal/start_local_workspace.sh
 bash scripts/portal/p3_workspace_runtime_smoke.sh
 ```
 
-第一条用于持续启动真实 Frappe 模式 Portal；第二条用于验证三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Frappe Session 和 Vite API proxy。Owner 本机 Isolated Preview 已于 2026-09-25 完成并通过；P3 Local Runtime = PASS，P4-F0 前端真实页面审计与设计已放行。
+第一条用于持续启动真实 Frappe 模式 Portal；第二条用于验证三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Frappe Session 和 Vite API proxy。Owner 本机 Isolated Preview 已于 2026-09-25 完成并通过；P3 Local Runtime = PASS。LIMS P4-F0 真实运行审计已于 2026-09-28 完成，P4-F2 第二版视觉原型已按 Owner 要求交付并于 2026-09-29 通过 Owner Visual Gate，P4-F6 实施计划已交付，当前完成 P4-F6-1 Shell、P4-F6-2 Dashboard V2、P4-F6-3 Task Board V1、P4-F6-4 Result List / Result Entry V1 与 P4-F6-5 Ledger / Audit / COA / Quality Standards / Retention / Stability Read-only V1；P4-F6-0 Provider 适配已完成。两份前端审核报告指出的 P0/P1 已完成代码整改并通过 48 项 LIMS、19 项 Portal 契约测试和构建门禁，交付已提交至 `feature/hbos-portal-product`（`627c3db`）；已尝试真实工作台 smoke，但本机缺少 `docker` 命令，真实 Frappe 运行证据仍待环境恢复，整改记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。
 
-Portal 是 Experience Shell，不替代 Attendance / Inventory / LIMS 的领域 Authority；运行时身份统一使用 Frappe User + Frappe Session。PR #15 继续保持 Draft，直到三 APP 工作台运行态、本地验收和下一阶段前端强化 Gate 达到可收口状态。
+2026-09-28 起，本机 5178 Portal 的 LIMS 入口保留在 `/hbos/lims/*` 同源前台路由。真实 Frappe 模式现在使用 LIMS Local Shell，不展示 Mock 业务数据；Sidebar / 移动导航已改为稳定链接并移除假数字，Provider 已补齐 `/ledger` 到当前 native 台账路径的别名。P4-F6-1 已接入双品牌页头、错误态、页面目标能力门控和路由守卫；P4-F6-2 已接入真实 Provider KPI、任务卡、流程条和加载 / 空 / 错误态；P4-F6-3 已接入三种角色任务视图、筛选、URL 上下文和只读键盘导航；P4-F6-4 已接入结果列表、结果录入、冻结限度、签署链和领域写入动作；P4-F6-5 已接入受控结果台账、审计追踪、检验报告、质量标准、留样工作台和稳定性工作台，稳定性覆盖计划、样品、结果、趋势和实验室环境提示，所有新增领域页先保持只读并由 capability 门控。稳定性工作台已完成 Mock 运行态预览；样品列表与登记仍保持同源 pending，等待独立 Provider 读取 / 登记契约门禁通过；本轮同时移除页头管理后台静态入口并修复窄屏搜索提示换行，运行态记录见 `docs/experience/LIMS_P4-F6-5_STABILITY运行态验收记录.md`，样品门禁见 `docs/experience/LIMS_P4-F6-6_样品_PROVIDER契约门禁.md`。设计文档为 `docs/experience/LIMS_P4-F2_SHELL_DASHBOARD_设计方案.md`，第二版原型入口为 `docs/experience/LIMS_P4-F2_STATIC_VISUAL_GATE.md`，审计基线见 `docs/experience/LIMS_P4-F0_RUNTIME_AUDIT.md`，实施计划为 `docs/experience/LIMS_P4-F6_实施计划.md`。
+
+Portal 是 Experience Shell，不替代 Attendance / Inventory / LIMS 的领域 Authority；运行时身份统一使用 Frappe User + Frappe Session。LIMS 管理后台 V0 目前没有明确 Provider 目标，继续保持关闭，不注册前台管理路由或跳转 Frappe Desk / 8080。PR #15 继续保持 Draft，直到三 APP 工作台运行态、本地验收和下一阶段前端强化 Gate 达到可收口状态。
+
+### 2026-09-30 LIMS 5178 浏览器预览整改
+
+已定位 Owner 截图异常：5178 之前运行的是旧的 Frappe 模式预览进程，Bootstrap 与当前源码不一致；当前 Dashboard 也未完整复刻已验收的 LIMS V2 视觉。现已用当前源码重启 5178 Mock 预览，并补齐实验室主视觉、中文检验员 Hero、四项评审指标、检验流程、任务队列、样品条码与进度、实验室日程及常用操作。真实 Frappe 分支仍不使用 Mock 数据补齐业务，正式 Session / Provider 数据待运行环境恢复后验证。构建、前端契约、Shell 契约和 diff 检查已通过。

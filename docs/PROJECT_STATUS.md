@@ -1537,3 +1537,69 @@ P4-F6 implementation one app at a time
 ```
 
 三 App 团队可以开始前端审计与设计工作；未经各自 Owner Visual Gate，不直接进入大规模前端重写。
+
+### HBOS Portal LIMS 前台入口调整 — 2026-09-28
+
+Owner 要求本机 Portal（5178）中的 LIMS 入口不再跳到 Frappe（8080）的 `/hbos-lims/dashboard`。Portal 前端现将 LIMS 的稳定路径 `/hbos/lims/*` 保留在同源 Vue Router；卡片、任务和搜索点击仍先调用业务 App 路由解析接口校验访问权限，直接打开前台 URL 则由已做 Provider 权限过滤的 Bootstrap App 清单把关。真实模式显示「前台页面待设计」状态，且隐藏原型通知，避免展示固定指标与未接线操作；Mock 模式的原型保留供后续设计使用。Attendance、Inventory 的现有跳转不变。
+
+该轮仅调整导航过渡行为，不改变 LIMS Provider 的后端路由契约，不接业务 API；代码级导航回归检查与 Portal build 已通过。随后 Owner 已提供 LIMS 前端规范，本轮已在下方完成 P4-F0 真实运行审计。
+
+### HBOS Portal LIMS P4-F0 真实运行审计 — 2026-09-28
+
+状态：**P4-F0 COMPLETE / AUDIT DELIVERED / OWNER REVIEW NEXT**。
+
+本轮按 Owner 提供的 LIMS 前端规范完成真实运行审计：5179 隔离预览验证 Portal App Center → `/hbos/lims` 同源过渡；8080 当前 Native Vue LIMS 验证 Dashboard、待检任务看板、结果清单、草稿结果录入、已批准结果详情、结果台账、样品登记、筛选空状态和未登录错误状态。未提交业务表单、未改变业务状态、未修改 LIMS 页面代码。
+
+审计报告：`docs/experience/LIMS_P4-F0_RUNTIME_AUDIT.md`。
+
+主要发现：Portal 入口与当前 Native 页面仍存在前台体验断层；未登录错误会重复暴露 Frappe 方法名；结果列表的筛选器和重复操作按钮缺少稳定可访问名称；Dashboard 图表缺少完整文本摘要；任务板页面级 loading、筛选空态和密集表格的 768/390 响应式证据需要在原型阶段补齐。
+
+P4-F2 进入下一步，先交付 LIMS Shell / Dashboard / Task / Result / Ledger 的信息架构、V2/V1 视觉方案、共享 token 与响应式规则，再等待 Owner Visual / Interaction Gate；P4-F0 未启动页面实现。
+
+### HBOS Portal LIMS P4-F2 设计规格 — 2026-09-28
+
+状态：**P4-F2 DESIGN REVISION / IA-INTERACTION APPROVED / STATIC VISUAL GATE OWNER REVIEW NEXT**。
+
+已按 Owner 确认的方案 A 更新 `docs/experience/LIMS_P4-F2_SHELL_DASHBOARD_设计方案.md`。本版确认并闭合 R1–R11：真实模式必须先落 LIMS App Shell；Sidebar 假数字和静态入口不得进入真实模式；samples / ledger 路由拆分；范围为只读标签；390px 状态选择控件；现有代码组件映射；键盘交互；可签署审查清单；IA / Interaction 与静态 Visual Gate 分段。
+
+本轮没有修改 LIMS 业务页面、业务 API、权限、SoD、电子签名或业务流程，也没有把设计中的指标当作真实数据；仅完成 Portal LIMS Shell 的入口安全修复（真实模式使用 `LimsLayout`、Sidebar / 移动导航稳定链接、假数字移除、统一 `limsCapabilities` 门控、移动精确激活态）以及 LIMS Provider 的双向路由别名，并新增 `scripts/portal/lims_shell_contract.sh` 与 Provider 路由契约测试。任务导航筛选已改用 `view`，`scopeLabel` 继续作为只读权限范围。Owner 已通过 IA / Interaction Review，四档静态视觉原型已交付，当前等待 Visual Gate；Visual Gate 通过前不进入 implementation plan 或 Vue 页面实现。
+
+### HBOS Portal LIMS P4-F2 / P4-F6 前台实现 — 2026-09-30
+
+状态：**P4-F6-5 READ-ONLY WORKBENCH IMPLEMENTED / AUDIT REMEDIATION VERIFIED / MANAGEMENT V0 GATE CLOSED / REAL RUNTIME EVIDENCE PENDING**。
+
+Owner 退回第一版视觉交付，要求中文优先、完整体现 LIMS 功能、突出检验流程与状态、简化检验员操作，并合理使用健康元集团与海滨公司标识。本轮完成第二版静态原型 `docs/experience/prototypes/lims-p4-f2-v2/`：覆盖检验任务、样品、结果、报告、质量标准、留样、稳定性、受控台账和审计；加入检验流程条、冻结限度、结果录入、签署链、条码标签、色谱图和稳定性趋势等实验室工作元素；加入检验员 / 复核员 / 质量人员视角切换及数据、无数据、加载、错误状态。
+
+本轮已接入 LIMS 受控结果台账、合规审计、检验报告（COA）、质量标准、留样和稳定性工作台只读视图；真实模式不跳转 Frappe Desk，结果提交、复核和批准通过既有领域服务执行，权限、SoD、状态和审计仍由后端负责。审计入口额外受 `lims.audit.read` 语义能力门控，COA、质量标准、留样和稳定性工作台不开放前台高风险写操作。管理后台 V0 已完成门禁核查：当前没有明确 Provider 目标、管理 API 或只读投影，因此不发布 `management` capability，不注册管理路由，也不跳转 8080；门禁记录见 `docs/experience/LIMS_P4-F6-5_MANAGEMENT_V0门禁记录.md`。第一版 HTML 已改为兼容跳转入口，避免继续把过时视觉稿作为审核对象。第二版说明、覆盖矩阵和 Owner 清单见 `docs/experience/LIMS_P4-F2_STATIC_VISUAL_GATE.md`；Owner 已于 2026-09-29 验收通过 Visual Gate。本轮已交付 `docs/experience/LIMS_P4-F6_实施计划.md`，完成 P4-F6-0 Provider 适配、P4-F6-1 Shell、P4-F6-2 Dashboard V2、P4-F6-3 Task Board V1、P4-F6-4 Result List / Result Entry V1 和 P4-F6-5 Ledger / Audit / COA / Quality Standards / Retention / Stability Read-only V1，记录见 `docs/experience/LIMS_P4-F6-0_PROVIDER_ROUTE_核验记录.md`、`docs/experience/LIMS_P4-F6-1_SHELL实现记录.md`、`docs/experience/LIMS_P4-F6-2_DASHBOARD实现记录.md`、`docs/experience/LIMS_P4-F6-3_TASK_BOARD实现记录.md`、`docs/experience/LIMS_P4-F6-4_RESULT_LIST_ENTRY实现记录.md`、`docs/experience/LIMS_P4-F6-5_LEDGER_AUDIT实现记录.md`、`docs/experience/LIMS_P4-F6-5_COA_SPEC实现记录.md`、`docs/experience/LIMS_P4-F6-5_RETENTION实现记录.md`、`docs/experience/LIMS_P4-F6-5_STABILITY实现记录.md` 与 `docs/experience/LIMS_P4-F6-5_MANAGEMENT_V0门禁记录.md`。领域状态、KPI 语义、任务视图方向、结果写入和审计读取边界已由现有工作流、服务和 158 项通过、1 项跳过的契约测试确认；Dashboard、Task Board、Result List / Entry、Ledger / Audit、COA、Quality Standards、Retention、Stability Workbench 已接入共享 Shell，真实 Frappe 集成证据及风险 / 样品 / 分布字段仍待补齐。
+
+### HBOS Portal LIMS P4-F6-5 稳定性运行态预览 — 2026-09-30
+
+状态：**RUNTIME PREVIEW VERIFIED / OWNER REVIEW NEXT**。
+
+稳定性工作台、取样与检测计划、样品入箱台账、稳定性结果和趋势分析已在 Mock Vite 运行态完成逐页核验，1440 / 1280 / 768 / 390 四档响应式、结果详情只读抽屉和 18 条已实现同源路由均已验证，运行态记录见 `docs/experience/LIMS_P4-F6-5_STABILITY运行态验收记录.md`。本轮同时移除 Global Header 中未受 capability 约束的“进入管理后台”静态菜单，修复窄屏搜索提示竖向换行，并在 Portal 根配置统一中文 locale；`scripts/portal/lims_shell_contract.sh`、Portal build、全部 48 项 LIMS Portal Provider / 投影测试和 `git diff --check` 均通过。样品列表与登记路径继续由同源 pending 页面承接，Provider 读取 / 登记契约门禁见 `docs/experience/LIMS_P4-F6-6_样品_PROVIDER契约门禁.md`，未新增假数据或前端写入。5178 真实 Frappe 会话和四档持久化截图仍待 Owner Review 前补齐，管理后台 V0 继续保持关闭。
+
+### HBOS Portal LIMS P4-F6-5 前端审核整改 — 2026-09-30
+
+状态：**P0/P1 AUDIT REMEDIATION VERIFIED / REAL Frappe RUNTIME EVIDENCE PENDING**。
+
+两份前端审核报告已逐条复核并完成整改：稳定性上限与错误封装、真实模式 Mock 汇总泄漏、`ok:false` 传播、401/403 会话语义、LIMS 语义能力门控、投影查询上限、孤儿页面和管理后台死入口均已处理；结果页桌面 `8:4`、任务 URL `view` 筛选、1280/768/390 响应式和路由 code-splitting 已对齐。48 项 LIMS 契约测试、19 项 Portal API 契约测试、`scripts/portal/lims_shell_contract.sh`、`npm run test:contract`、Portal 构建和 `git diff --check` 均通过；语义能力还已加入真实 Frappe integration check。`npm run test:contract` 属于源码级正则防回归检查，不等同于运行时行为测试。交付已提交至 `feature/hbos-portal-product`（`627c3db`）。已尝试执行 `scripts/portal/p3_workspace_runtime_smoke.sh`，但本机缺少 `docker` 命令，在启动 Compose 前退出；真实 Session 运行态仍待具备 Docker/Frappe 工作台的环境验证。详细记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。
+
+### HBOS Portal LIMS P4-F6-6 样品 Provider 契约门禁 — 2026-09-30
+
+状态：**CONTRACT GATE / BLOCKED ON PROVIDER CONTRACT**。样品列表与登记路由已保留在 Portal 同源 `/hbos/lims/*`，但当前继续由 pending 页面承接。已有 LIMS 领域查询 / 登记函数仍由后端角色检查保护，尚未形成独立的样品读取与登记 Provider capability，因此本轮不新增前端样品事实、表单、DocType 直连或 8080 跳转；新增的 `test_portal_samples_gate.py` 已确认 manifest 与 Provider 不发布未审查的 `samples` 适配器，门禁文档已补充契约草案和 Owner 逐项签署清单。下一步是确认样品列表 / 详情 / 登记 DTO、能力拆分、权限 SoD、审计签署和路由投影，再进入样品只读页面实现；门禁记录见 `docs/experience/LIMS_P4-F6-6_样品_PROVIDER契约门禁.md`。
+
+### HBOS Portal LIMS P4-F6-2 浏览器运行态整改 — 2026-09-30
+
+状态：**MOCK PREVIEW VERIFIED / DASHBOARD V2 VISUAL PARITY IMPROVED / REAL FRAPPE EVIDENCE PENDING**。
+
+本轮定位并修复了 Owner 浏览器截图与当前源码不一致的原因：5178 仍运行旧的 Frappe 模式进程，旧后端 Bootstrap 方法未同步当前源码，能力清单为空；当前 Dashboard 实现也缺少已通过 Visual Gate 的实验室主视觉、样品进度、日程和常用操作。已用当前源码重启 5178 Mock 预览，并将 Dashboard V2 视觉与交互补齐。Mock 专用指标和任务队列只用于视觉评审，真实 Frappe 分支不使用 Mock 数据补齐业务能力。
+
+验证：
+
+    http://127.0.0.1:5178/hbos/lims  浏览器可见双品牌、完整 LIMS Shell、实验室 Hero、四项指标、流程条、任务、样品进度、日程和常用操作
+    npm run build                         PASS
+    npm run test:contract                 PASS
+    bash scripts/portal/lims_shell_contract.sh  PASS
+    git diff --check                     PASS
+
+真实 Frappe Session、Provider 真实字段和正式数据仍待 Docker/Frappe 工作台恢复，不宣称生产运行态已通过。

@@ -7,7 +7,7 @@ import './styles/global.css'
 import './theme/typography.css'
 import App from './App.vue'
 import router from './router'
-import { setUnauthorizedHandler } from './services/frappeClient'
+import { clearCachedCsrfToken, setUnauthorizedHandler } from './services/frappeClient'
 import { usePortalStore } from './stores/portal'
 
 const app = createApp(App)
@@ -20,6 +20,7 @@ app.use(Antd)
 // 会话中途失效（cookie 过期等）：同步 store 状态并回到登录页，带上原目标地址。
 setUnauthorizedHandler(() => {
   const portal = usePortalStore(pinia)
+  clearCachedCsrfToken()
   portal.markSignedOut()
 
   const current = router.currentRoute.value

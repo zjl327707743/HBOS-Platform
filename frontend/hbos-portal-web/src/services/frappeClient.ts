@@ -4,6 +4,39 @@ interface FrappeMethodResponse<T> {
   message: T
 }
 
+export interface PortalMethodErrorPayload {
+  code?: string
+  message?: string
+  retryable?: boolean
+  trace_id?: string | null
+}
+
+export interface PortalMethodEnvelope<T> {
+  ok: boolean
+  data?: T
+  error?: PortalMethodErrorPayload
+}
+
+export class PortalMethodError extends Error {
+  code: string
+  retryable: boolean
+  traceId?: string | null
+
+  constructor(error: PortalMethodErrorPayload | undefined, fallback = 'LIMS 数据暂时无法加载。') {
+    super(error?.message || fallback)
+    this.name = 'PortalMethodError'
+    this.code = error?.code || 'PROVIDER_ERROR'
+    this.retryable = Boolean(error?.retryable)
+    this.traceId = error?.trace_id
+  }
+}
+
+export function unwrapPortalMethod<T>(envelope: PortalMethodEnvelope<T>): T {
+  if (!envelope?.ok) throw new PortalMethodError(envelope?.error)
+  if (envelope.data === undefined) throw new PortalMethodError({ code: 'INVALID_RESPONSE', message: 'LIMS 服务返回了无效响应。' })
+  return envelope.data
+}
+
 const http = axios.create({
   baseURL: import.meta.env.VITE_FRAPPE_BASE_URL || '',
   withCredentials: true,
@@ -11,6 +44,34 @@ const http = axios.create({
     'X-Requested-With': 'XMLHttpRequest',
   },
 })
+
+let cachedCsrf: string | null = null
+
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'))
+  return match?.[2] ? decodeURIComponent(match[2]) : null
+}
+
+/**
+ * 独立 Portal 不一定由 Frappe Desk 注入 csrf_token，写操作前主动取一次。
+ * 使用原始 axios 请求，避免获取 token 的 GET 再次进入本拦截器。
+ */
+async function ensureCsrfToken(): Promise<string | null> {
+  const fromCookie = readCookie('csrftoken')
+  if (fromCookie) return fromCookie
+  if (cachedCsrf) return cachedCsrf
+  try {
+    const response = await axios.get(
+      '/api/method/hb_lims_app.hbos_lims.lims_service.get_csrf_token',
+      { withCredentials: true, timeout: 15000 },
+    )
+    cachedCsrf = response.data?.message || null
+    return cachedCsrf
+  } catch {
+    return null
+  }
+}
 
 let unauthorizedHandler: (() => void) | null = null
 
@@ -26,8 +87,26 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 export function isAuthError(error: unknown): boolean {
   if (!axios.isAxiosError(error)) return false
   const status = error.response?.status
-  return status === 401 || status === 403
+  if (status === 401) return true
+  if (status !== 403) return false
+  const payload = error.response?.data as { code?: string; error?: { code?: string }; exc_type?: string } | undefined
+  return payload?.code === 'UNAUTHENTICATED'
+    || payload?.error?.code === 'UNAUTHENTICATED'
+    || payload?.exc_type === 'AuthenticationError'
 }
+
+export function clearCachedCsrfToken() {
+  cachedCsrf = null
+}
+
+http.interceptors.request.use(async (config) => {
+  if (config.method?.toLowerCase() === 'get') return config
+  const csrf = await ensureCsrfToken()
+  if (csrf) {
+    config.headers['X-Frappe-CSRF-Token'] = csrf
+  }
+  return config
+})
 
 http.interceptors.response.use(
   (response) => response,
@@ -48,6 +127,18 @@ export async function callFrappeMethod<T>(
   const response = await http.get<FrappeMethodResponse<T>>(
     `/api/method/${method}`,
     { params },
+  )
+  return response.data.message
+}
+
+/** 调用 LIMS 领域写操作；CSRF 与会话由同一 Portal 客户端统一处理。 */
+export async function callFrappeAction<T>(
+  method: string,
+  params?: Record<string, unknown>,
+): Promise<T> {
+  const response = await http.post<FrappeMethodResponse<T>>(
+    `/api/method/${method}`,
+    params,
   )
   return response.data.message
 }

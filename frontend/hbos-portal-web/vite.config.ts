@@ -31,5 +31,16 @@ export default defineConfig(({ mode }) => {
           }
         : {}),
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vue: ['vue', 'vue-router', 'pinia'],
+            ant: ['ant-design-vue', '@ant-design/icons-vue'],
+            http: ['axios'],
+          },
+        },
+      },
+    },
   }
 })

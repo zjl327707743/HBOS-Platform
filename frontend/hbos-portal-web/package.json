@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:contract": "node ../../scripts/portal/lims_frontend_contract.mjs"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",

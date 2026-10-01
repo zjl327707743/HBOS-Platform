@@ -37,3 +37,28 @@
 ## Final result
 
 passed
+
+# LIMS Dashboard V2 视觉验收记录
+
+日期：2026-09-30
+页面：http://127.0.0.1:5178/hbos/lims
+目标：复核 Owner 已验收的 LIMS P4-F2 V2 原型在 Portal Vue 实现中的首屏落地。
+
+## 验收证据
+
+- 运行进程：当前源码启动的 Vite Mock 预览，已替换旧的 Frappe 模式 5178 进程。
+- 浏览器可见：双品牌 Header、LIMS Local Shell、实验室主视觉、中文检验员 Hero、四项工作指标、检验流程条、任务队列、样品条码与进度、实验室日程、常用操作。
+- 响应式：窄屏下切换为移动底部导航；1280px 以下 Local Sidebar 切换为图标模式，避免导航文字挤压。
+- 数据边界：Mock 指标、样品和日程只在 Mock 分支使用；真实 Frappe 分支只渲染 Provider 返回数据或安全空态。
+
+## 结果
+
+- 视觉目标：PASS
+- 中文优先与品牌使用：PASS
+- LIMS 模块入口与能力门控：PASS
+- 真实模式不补 Mock 业务数据：PASS
+- 构建与契约门禁：PASS
+
+真实 Frappe Session 和正式 Provider 字段仍需 Docker/Frappe 工作台恢复后单独验证。
+
+**Final result: passed**

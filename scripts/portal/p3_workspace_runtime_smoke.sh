@@ -103,7 +103,10 @@ try:
     expected_caps = {
         'attendance': ['summary'],
         'inventory': ['summary'],
-        'lims': ['summary', 'tasks', 'search'],
+        'lims': [
+            'summary', 'tasks', 'search', 'results', 'ledger', 'audit',
+            'coa', 'specifications', 'retains', 'stability',
+        ],
     }
     for app_id, caps in expected_caps.items():
         assert registry.entries[app_id].manifest.to_dict()['capabilities'] == caps

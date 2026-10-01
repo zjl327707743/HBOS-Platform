@@ -6,8 +6,8 @@
         <span v-else>H</span>
       </div>
       <div class="brand-copy">
-        <div class="brand-name">HBOS</div>
-        <div class="brand-caption">{{ contextLabel || '海滨智能运营工作台' }}</div>
+        <div class="brand-name">{{ contextLabel === 'LIMS' ? '海滨实验室' : 'HBOS' }}</div>
+        <div class="brand-caption">{{ contextLabel === 'LIMS' ? 'HBOS / LIMS' : (contextLabel || '海滨智能运营工作台') }}</div>
       </div>
     </button>
 
@@ -19,7 +19,12 @@
 
     <div class="header-actions">
       <AppSwitcher :apps="apps" />
-      <NotificationCenter />
+      <NotificationCenter v-if="portalDataSource === 'mock'" />
+
+      <div v-if="groupLogoUrl" class="group-brand" aria-label="健康元集团标识">
+        <span class="header-divider" aria-hidden="true"></span>
+        <img :src="groupLogoUrl" alt="健康元集团标识" class="group-logo-image" />
+      </div>
 
       <a-tooltip title="帮助">
         <a-button
@@ -42,7 +47,6 @@
           <a-menu>
             <a-menu-item @click="$router.push('/hbos/profile')">个人与设置</a-menu-item>
             <a-menu-divider />
-            <a-menu-item>进入 Management Console</a-menu-item>
           </a-menu>
         </template>
       </a-dropdown>
@@ -55,11 +59,13 @@ import { QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import AppSwitcher from '@/components/global/AppSwitcher.vue'
 import NotificationCenter from '@/components/global/NotificationCenter.vue'
 import type { AppManifestDTO } from '@/contracts/portal'
+import { portalDataSource } from '@/services/portalProvider'
 
 defineProps<{
   avatarText: string
   avatarUrl?: string | null
   companyLogoUrl?: string | null
+  groupLogoUrl?: string | null
   apps: AppManifestDTO[]
   contextLabel?: string
 }>()

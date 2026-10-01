@@ -4,6 +4,7 @@ import type {
   PortalUser,
   SearchResultDTO,
   SummaryMetricDTO,
+  LimsTaskQuery,
   UnifiedTaskDTO,
 } from '@/contracts/portal'
 import { callFrappeMethod } from '@/services/frappeClient'
@@ -53,6 +54,8 @@ interface BackendApp {
   manifest: BackendManifest
   access: {
     can_enter: boolean
+    capabilities?: string[]
+    scopes?: Record<string, string[]>
   }
 }
 
@@ -81,6 +84,7 @@ interface BackendSummaryMetric {
 interface BackendSummaryPayload {
   app_id: string
   generated_at: string
+  scope_label?: string
   status?: string
   metrics: BackendSummaryMetric[]
 }
@@ -93,6 +97,7 @@ interface BackendTask {
   description: string
   action: string
   action_label: string
+  status?: string
   priority: string
   due_at?: string | null
   overdue?: boolean
@@ -222,6 +227,8 @@ function mapApp(value: BackendApp): AppManifestDTO {
     capabilitySummary: capabilities.has('summary'),
     capabilityTasks: capabilities.has('tasks'),
     capabilitySearch: capabilities.has('search'),
+    capabilities: [...capabilities],
+    accessCapabilities: [...(value.access.capabilities || [])],
   }
 }
 
@@ -280,6 +287,11 @@ function mapTask(task: BackendTask, appTitle: string): UnifiedTaskDTO {
     priority: normalizeTaskPriority(task.priority),
     ...taskDuePresentation(task.due_at),
     status: 'open',
+    domainStatus: task.status || undefined,
+    action: task.action || undefined,
+    actionLabel: task.action_label || undefined,
+    assignmentType: task.assignment_type || undefined,
+    category: task.category || undefined,
     overdue: Boolean(task.overdue),
     deepLink: task.deep_link,
   }
@@ -326,6 +338,9 @@ export async function getFrappeSummariesForApps(
         tone: normalizeTone(metric.tone),
         meta: app.shortTitle,
         deepLink: metric.deep_link || undefined,
+        scopeLabel: dispatch.data.scope_label || undefined,
+        generatedAt: dispatch.data.generated_at || undefined,
+        summaryStatus: dispatch.data.status || undefined,
       }))
     }),
   )
@@ -337,6 +352,7 @@ export async function getFrappeSummariesForApps(
 
 export async function getFrappeTasksForApps(
   apps: AppManifestDTO[],
+  query: LimsTaskQuery = {},
 ): Promise<UnifiedTaskDTO[]> {
   const taskApps = apps.filter((app) => app.capabilityTasks)
   const batches = await Promise.allSettled(
@@ -346,6 +362,12 @@ export async function getFrappeTasksForApps(
       >('hbos_portal.api.tasks.get_tasks', {
         app_id: app.id,
         limit: 20,
+        ...(app.id === 'lims' ? {
+          view: query.view,
+          status: query.status,
+          priority: query.priority,
+          keyword: query.keyword,
+        } : {}),
       })
       const dispatch = unwrap(envelope)
       return (dispatch.data.tasks || []).map((task) =>
