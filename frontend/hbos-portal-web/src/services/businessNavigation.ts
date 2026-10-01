@@ -1,3 +1,4 @@
+import { isSafeInternalPath } from '@/services/internalPath'
 import type { Router } from 'vue-router'
 import { portalDataSource, resolveBusinessRoute } from '@/services/portalProvider'
 
@@ -19,21 +20,6 @@ export function businessNavigationTarget(target: string): string | null {
   if (!frappeOrigin) return target
 
   return `${frappeOrigin}${target}`
-}
-
-function isSafeInternalPath(target: string): boolean {
-  if (!target.startsWith('/')
-    || target.startsWith('//')
-    || target.startsWith('/\\')
-    || target.includes('\\')
-    || /%(?:2f|2e|5c)/i.test(target)) return false
-  try {
-    const decoded = decodeURIComponent(target)
-    const segments = decoded.split('/')
-    return !segments.includes('.') && !segments.includes('..')
-  } catch {
-    return false
-  }
 }
 
 export async function openBusinessRoute(

@@ -780,7 +780,6 @@ button, input { font: inherit; }
 .professional-grid strong { display: block; margin-top: 20px; font-size: 12px; }
 .professional-grid article > span:last-child { display: block; margin-top: 5px; color: var(--hbos-text-muted); font-size: 10px; line-height: 1.45; }
 
-.lims-dashboard-v2 { --lims-ink: #174a45; --lims-green: #20aa83; }
 .lims-dashboard-heading { min-height: 126px; padding: 8px 4px 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .lims-dashboard-heading h1 { margin: 8px 0 7px; color: var(--lims-ink); font-size: clamp(30px, 4vw, 44px); line-height: 1.05; letter-spacing: -1.5px; }
 .lims-dashboard-heading p { margin: 0; color: var(--hbos-text-secondary); font-size: 13px; }
@@ -914,7 +913,6 @@ button, input { font: inherit; }
 .quick-icon.teal { color: #198b91; background: #e2f6f5; }
 
 /* LIMS Task Board V1: read-only task triage with stable URL filters. */
-.lims-task-board { --lims-ink: #174a45; --lims-green: #20aa83; }
 .lims-task-board-heading { min-height: 126px; padding: 8px 4px 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .lims-task-board-heading h1 { margin: 8px 0 7px; color: var(--lims-ink); font-size: clamp(30px, 4vw, 44px); line-height: 1.05; letter-spacing: -1.5px; }
 .lims-task-board-heading p { margin: 0; color: var(--hbos-text-secondary); font-size: 13px; }
@@ -985,7 +983,6 @@ button, input { font: inherit; }
 }
 
 /* LIMS Result List / Entry V1: result context first, action state second. */
-.lims-result-list, .lims-result-entry { --lims-ink: #174a45; --lims-green: #20aa83; }
 .lims-result-list-heading, .lims-result-entry-heading { min-height: 126px; padding: 8px 4px 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .lims-result-list-heading h1, .lims-result-entry-heading h1 { margin: 8px 0 7px; color: var(--lims-ink); font-size: clamp(30px, 4vw, 44px); line-height: 1.05; letter-spacing: -1.5px; }
 .lims-result-list-heading p, .lims-result-entry-heading p { margin: 0; color: var(--hbos-text-secondary); font-size: 13px; }
@@ -1794,7 +1791,6 @@ body { font-size: 14px; }
 }
 
 /* P4-F6-5 controlled ledger / audit views ------------------------------- */
-.lims-ledger-page, .lims-audit-page { --lims-ink: #174a45; --lims-green: #20aa83; }
 .lims-ledger-heading, .lims-audit-heading { min-height: 126px; padding: 8px 4px 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .lims-ledger-heading h1, .lims-audit-heading h1 { margin: 8px 0 7px; color: var(--lims-ink); font-size: clamp(30px, 4vw, 44px); line-height: 1.05; letter-spacing: -1.5px; }
 .lims-ledger-heading p, .lims-audit-heading p { margin: 0; color: var(--hbos-text-secondary); font-size: 13px; }

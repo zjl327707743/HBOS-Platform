@@ -3,8 +3,7 @@ import PortalLayout from '@/components/layout/PortalLayout.vue'
 import LimsLayout from '@/components/layout/LimsLayout.vue'
 import { portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
-import { resolveLimsShellCapabilities } from '@/services/limsCapabilities'
-import type { LimsShellCapability } from '@/services/limsCapabilities'
+import { checkPortalAccess } from '@/router/portalGuard'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -62,39 +61,7 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.beforeEach(async (to) => {
-  if (!to.meta.requiresAuth) return true
-  const portal = usePortalStore()
-  if (!(await portal.ensureSession())) {
-    return { name: 'login', query: { redirect: to.fullPath } }
-  }
-
-  // Bootstrap only includes apps whose provider grants access. Apply that
-  // check to copied URLs as well as clicks from the App Center.
-  if (
-    portalDataSource === 'frappe' &&
-    to.meta.appId === 'lims' &&
-    !portal.apps.some((app) => app.id === 'lims')
-  ) {
-    return { name: 'forbidden' }
-  }
-
-  if (
-    portalDataSource === 'frappe' &&
-    to.meta.appId === 'lims' &&
-    typeof to.meta.limsCapability === 'string'
-  ) {
-    const limsApp = portal.apps.find((app) => app.id === 'lims')
-    const capabilities = resolveLimsShellCapabilities(limsApp, portalDataSource)
-    if (!capabilities.has(to.meta.limsCapability as LimsShellCapability)) {
-      // A declared Provider capability without the user's semantic access is
-      // a permission result; an undeclared capability is still pending design.
-      return limsApp?.capabilities?.includes(to.meta.limsCapability) ? { name: 'forbidden' } : { name: 'lims-pending' }
-    }
-  }
-
-  return true
-})
+router.beforeEach((to) => checkPortalAccess(to, usePortalStore(), portalDataSource))
 
 router.afterEach((to) => {
   const title = typeof to.meta.title === 'string' ? to.meta.title : 'HBOS'

@@ -92,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import { statusColor, verdictColor } from '@/views/limsStatus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
@@ -182,9 +183,6 @@ async function approve() {
   submitting.value = true
   try { await approveLimsResult(detail.value.result.result_name); message.success('结果已批准'); await loadResult() } catch { errorMessage.value = '批准未完成，请确认职责分离和结果状态。' } finally { submitting.value = false }
 }
-
-function statusColor(status: string) { return { 草稿: 'default', 已提交: 'processing', 已复核: 'warning', 已批准: 'success', 已修订: 'error' }[status] || 'default' }
-function verdictColor(verdict: string) { return { 合格: 'success', 不合格: 'error', OOS候选: 'error' }[verdict] || 'default' }
 
 onMounted(() => { void loadResult() })
 </script>

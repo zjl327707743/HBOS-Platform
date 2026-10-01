@@ -1,8 +1,8 @@
 # LIMS P4-F6 前台实施计划
 
-状态：**P4-F6-5 READ-ONLY WORKBENCH IMPLEMENTED / AUDIT REMEDIATION VERIFIED / MANAGEMENT V0 GATE CLOSED / REAL Frappe RUNTIME EVIDENCE PENDING**
-日期：2026-09-30
-适用分支：`feature/hbos-portal-product`
+状态：**P4-F6-5 REVIEWING / 2026-10-01 FRONTEND FIX VERIFICATION PASS / OWNER ACCEPTANCE AND REAL Frappe RUNTIME EVIDENCE PENDING / MANAGEMENT V0 GATE CLOSED**
+日期：2026-10-01
+适用分支：`m2-r10`
 适用前端：`frontend/hbos-portal-web`
 首个实现目标：LIMS Dashboard V2 + Task Board V1 + Result List / Result Entry V1 + Ledger / Audit / COA / Quality Standards Read-only V1
 
@@ -231,3 +231,7 @@ P4-F6-0 必须由 LIMS 领域 Owner / Provider Owner 确认：
 ## 7. 当前下一步
 
 P4-F6-0 第二轮确认记录见 [`LIMS_P4-F6-0_PROVIDER_ROUTE_核验记录.md`](./LIMS_P4-F6-0_PROVIDER_ROUTE_核验记录.md)。业务状态、KPI 语义、任务视图、领域状态、结果写入和审计读取边界已从现有工作流与服务确认；Provider summary / tasks / results / ledger / audit / coa / specifications / retains / stability 适配已完成，真实 Frappe 集成证据和 Dashboard 专用只读字段仍待补齐。本轮已完成 P4-F6-1 Shell、P4-F6-2 Dashboard V2、P4-F6-3 Task Board V1、P4-F6-4 Result List / Result Entry V1，以及 P4-F6-5 Ledger / Audit / COA / Quality Standards / Retention / Stability Read-only V1：双品牌、错误态、页面目标与语义能力门控、稳定路由守卫、四项 KPI、任务卡、流程条、数据状态、三种任务视图、结果列表、结果录入、受控台账、审计追踪、检验报告、质量标准、留样和稳定性工作台只读明细已落地。两份前端审核报告中的 P0/P1 已逐条整改，记录见 [`LIMS_P4-F6-5_前端审核整改记录.md`](./LIMS_P4-F6-5_前端审核整改记录.md)；样品路径仍由同源 pending 页面承接，Provider 尚未声明可独立审查的样品读取 / 登记能力，契约门禁见 [`LIMS_P4-F6-6_样品_PROVIDER契约门禁.md`](./LIMS_P4-F6-6_样品_PROVIDER契约门禁.md)。详细记录见各 P4-F6 实现记录。真实集成通过前仅开放后端领域服务明确允许的结果写操作；稳定性工作台已完成 Mock 运行态预览，下一步进入真实 Frappe Session 复核、四档截图留证和 Owner Review，管理后台 V0 继续保持关闭。
+
+## 2026-10-01 审核修复状态
+
+2026-10-01 Portal 审核修复为 **REVIEWING / 本地验证通过，待 Owner 验收及真实 Frappe 运行态证据**：已处理 CSS token、错误态守卫、防抖与过期响应、刷新异常、强类型工作台、共享映射与六页查询逻辑、真实模式原型入口、回跳校验、环境变量与趋势图文档；Ant gzip 442.13 → 255.57 kB。14 项前端回归、构建和两套契约检查通过；临时 Mock 浏览器确认留样/稳定性实际颜色生效。修复提交 `f23ba17` 已从 `codex/portal-review-fixes` 合入 `m2-r10`；后续开发在 `m2-r10` 继续。详细记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。本轮不部署，不关闭样品/管理后台或真实运行态门禁。

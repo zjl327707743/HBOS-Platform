@@ -25,7 +25,8 @@ assert.match(router, /component: LimsLayout/)
 assert.match(router, /import\('@\/views\/LimsResultEntryView\.vue'\)/)
 
 const navigation = read('services/businessNavigation.ts')
-assert.match(navigation, /decodeURIComponent/)
+assert.match(navigation, /isSafeInternalPath/)
+assert.match(read('services/internalPath.ts'), /decodeURIComponent/)
 assert.match(navigation, /name: 'forbidden'/)
 
 const styles = read('styles/global.css')

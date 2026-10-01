@@ -25,8 +25,11 @@
             show-icon
             class="portal-bootstrap-error"
             :message="portal.bootstrapError"
-          />
-          <RouterView />
+          >
+            <template #action><a-button :loading="portal.loading" @click="retryBootstrap">重试</a-button></template>
+          </a-alert>
+          <a-alert v-if="!portal.bootstrapError && (portal.tasksError || portal.summariesError)" type="warning" show-icon class="portal-bootstrap-error" :message="[portal.tasksError, portal.summariesError].filter(Boolean).join(' ')" />
+          <RouterView v-if="!portal.bootstrapError" />
         </main>
       </div>
     </div>
@@ -38,6 +41,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
@@ -48,6 +52,17 @@ import CommandPalette from '@/components/portal/CommandPalette.vue'
 import { LIMS_BRANDING } from '@/data/limsBranding'
 
 const portal = usePortalStore()
+const route = useRoute()
+const router = useRouter()
+
+async function retryBootstrap() {
+  try {
+    await portal.bootstrap()
+    await router.replace({ path: route.path, query: route.query, hash: route.hash, force: true })
+  } catch {
+    // The shell keeps the sanitized bootstrap error and retry control.
+  }
+}
 const commandOpen = ref(false)
 
 function shortcut(event: KeyboardEvent) {
@@ -59,7 +74,7 @@ function shortcut(event: KeyboardEvent) {
 }
 
 onMounted(async () => {
-  if (!portal.user) {
+  if (!portal.user && !portal.bootstrapError) {
     try {
       await portal.bootstrap()
     } catch {

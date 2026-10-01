@@ -78,23 +78,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { useLimsQueryPage } from '@/composables/useLimsQueryPage'
+import { statusColor, verdictColor } from '@/views/limsStatus'
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { InboxOutlined } from '@ant-design/icons-vue'
-import { usePortalStore } from '@/stores/portal'
 import { listLimsLedger, type LimsLedgerResult, type LimsLedgerSample } from '@/services/limsLedger'
 
-const route = useRoute()
-const router = useRouter()
-const portal = usePortalStore()
 const samples = ref<LimsLedgerSample[]>([])
 const results = ref<LimsLedgerResult[]>([])
 const selectedSampleId = ref('')
 const totalSamples = ref(0)
 const nextCursor = ref<string | null>(null)
-const loading = ref(true)
-const loadingMore = ref(false)
-const errorMessage = ref('')
+
 const searchInput = ref('')
 const statusFilter = ref('')
 const verdictFilter = ref('')
@@ -111,58 +107,47 @@ const columns = [
 const selectedSample = computed(() => samples.value.find((sample) => sample.name === selectedSampleId.value) || null)
 const selectedResults = computed(() => results.value.filter((result) => result.sample === selectedSampleId.value))
 
-function readRouteState() {
-  searchInput.value = typeof route.query.keyword === 'string' ? route.query.keyword : ''
-  statusFilter.value = typeof route.query.status === 'string' ? route.query.status : ''
-  verdictFilter.value = typeof route.query.verdict === 'string' ? route.query.verdict : ''
-}
-
-function queryState() {
-  const query: Record<string, string> = {}
-  if (searchInput.value.trim()) query.keyword = searchInput.value.trim()
-  if (statusFilter.value) query.status = statusFilter.value
-  if (verdictFilter.value) query.verdict = verdictFilter.value
-  return query
-}
-
-async function syncRoute() { await router.replace({ path: '/hbos/lims/ledger', query: queryState() }) }
+const { loading, loadingMore, errorMessage, updateRoute, runLoad } = useLimsQueryPage({
+  path: '/hbos/lims/ledger',
+  fields: { keyword: { state: searchInput }, status: { state: statusFilter }, verdict: { state: verdictFilter } },
+  load: loadLedger,
+  failureMessage: '受控台账暂时无法加载，请稍后重试。',
+})
 
 async function fetchLedger(append = false) {
-  if (append) loadingMore.value = true
-  else loading.value = true
-  errorMessage.value = ''
-  try {
-    if (!portal.user) await portal.bootstrap()
-    const response = await listLimsLedger({
+  await runLoad(
+    () => listLimsLedger({
       keyword: searchInput.value.trim() || undefined,
       status: statusFilter.value || undefined,
       verdict: verdictFilter.value || undefined,
       cursor: append ? nextCursor.value || undefined : undefined,
-    })
-    samples.value = append ? [...samples.value, ...response.samples] : response.samples
-    results.value = append ? [...results.value, ...response.results] : response.results
-    totalSamples.value = response.total_samples
-    nextCursor.value = response.next_cursor || null
-    if (!selectedSampleId.value || !samples.value.some((sample) => sample.name === selectedSampleId.value)) {
-      selectedSampleId.value = samples.value[0]?.name || ''
-    }
-  } catch {
-    if (!append) { samples.value = []; results.value = []; totalSamples.value = 0; selectedSampleId.value = '' }
-    errorMessage.value = '受控台账暂时无法加载，请稍后重试。'
-  } finally {
-    loading.value = false
-    loadingMore.value = false
-  }
+    }),
+    (response) => {
+      samples.value = append ? [...samples.value, ...response.samples] : response.samples
+      results.value = append ? [...results.value, ...response.results] : response.results
+      totalSamples.value = response.total_samples
+      nextCursor.value = response.next_cursor || null
+      if (!selectedSampleId.value || !samples.value.some((sample) => sample.name === selectedSampleId.value)) selectedSampleId.value = samples.value[0]?.name || ''
+    },
+    append,
+    () => {
+      samples.value = []
+      results.value = []
+      totalSamples.value = 0
+      selectedSampleId.value = ''
+      nextCursor.value = null
+    },
+  )
 }
 
-async function loadLedger() { await fetchLedger() }
-async function loadMore() { await fetchLedger(true) }
-function applySearch(value: string) { searchInput.value = value; void syncRoute() }
-function setStatus(value: string) { statusFilter.value = value; void syncRoute() }
-function setVerdict(value: string) { verdictFilter.value = value; void syncRoute() }
-function statusColor(value: string) { return { 草稿: 'default', 已登记: 'blue', 检验中: 'processing', 检验完成: 'success', 已放行: 'success', OOS锁定: 'error', 已提交: 'processing', 已复核: 'warning', 已批准: 'success' }[value] || 'default' }
-function verdictColor(value: string) { return { 合格: 'success', 不合格: 'error', OOS候选: 'error' }[value] || 'default' }
+async function loadLedger() {
+  await fetchLedger()
+}
+async function loadMore() {
+  await fetchLedger(true)
+}
+function applySearch(value: string) { searchInput.value = value; void updateRoute() }
+function setStatus(value: string) { statusFilter.value = value; void updateRoute() }
+function setVerdict(value: string) { verdictFilter.value = value; void updateRoute() }
 
-watch(() => route.fullPath, async () => { readRouteState(); await fetchLedger() })
-onMounted(async () => { readRouteState(); await fetchLedger() })
 </script>

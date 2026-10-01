@@ -55,22 +55,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useLimsQueryPage } from '@/composables/useLimsQueryPage'
+import { ref } from 'vue'
 import { AuditOutlined } from '@ant-design/icons-vue'
-import { usePortalStore } from '@/stores/portal'
 import { listLimsAudit, type LimsAuditEvent } from '@/services/limsAudit'
 
-const route = useRoute()
-const router = useRouter()
-const portal = usePortalStore()
 const events = ref<LimsAuditEvent[]>([])
 const targets = ref<string[]>([])
 const total = ref(0)
 const nextCursor = ref<string | null>(null)
-const loading = ref(true)
-const loadingMore = ref(false)
-const errorMessage = ref('')
+
 const keyword = ref('')
 const logType = ref('')
 const target = ref('')
@@ -87,46 +81,47 @@ const columns = [
   { title: '记录指纹', key: 'checksum', width: 130 },
 ]
 
-function readRouteState() {
-  keyword.value = typeof route.query.keyword === 'string' ? route.query.keyword : ''
-  logType.value = typeof route.query.log_type === 'string' ? route.query.log_type : ''
-  target.value = typeof route.query.target === 'string' ? route.query.target : ''
-}
-function queryState() {
-  const query: Record<string, string> = {}
-  if (keyword.value.trim()) query.keyword = keyword.value.trim()
-  if (logType.value) query.log_type = logType.value
-  if (target.value) query.target = target.value
-  return query
-}
-async function syncRoute() { await router.replace({ path: '/hbos/lims/audit', query: queryState() }) }
+const { loading, loadingMore, errorMessage, updateRoute, runLoad } = useLimsQueryPage({
+  path: '/hbos/lims/audit',
+  fields: { keyword: { state: keyword }, log_type: { state: logType }, target: { state: target } },
+  load: loadAudit,
+  failureMessage: '审计事件暂时无法加载，可能是当前账号没有查看权限。',
+})
+
 async function fetchAudit(append = false) {
-  if (append) loadingMore.value = true
-  else loading.value = true
-  errorMessage.value = ''
-  try {
-    if (!portal.user) await portal.bootstrap()
-    const response = await listLimsAudit({ keyword: keyword.value.trim() || undefined, log_type: logType.value || undefined, doctype_target: target.value || undefined, cursor: append ? nextCursor.value || undefined : undefined })
-    events.value = append ? [...events.value, ...response.events] : response.events
-    targets.value = response.targets
-    total.value = response.total
-    nextCursor.value = response.next_cursor || null
-  } catch {
-    if (!append) { events.value = []; total.value = 0; nextCursor.value = null }
-    errorMessage.value = '审计事件暂时无法加载，可能是当前账号没有查看权限。'
-  } finally {
-    loading.value = false
-    loadingMore.value = false
-  }
+  await runLoad(
+    () => listLimsAudit({
+      keyword: keyword.value.trim() || undefined,
+      log_type: logType.value || undefined,
+      doctype_target: target.value || undefined,
+      cursor: append ? nextCursor.value || undefined : undefined,
+    }),
+    (response) => {
+      events.value = append ? [...events.value, ...response.events] : response.events
+      targets.value = response.targets
+      total.value = response.total
+      nextCursor.value = response.next_cursor || null
+    },
+    append,
+    () => {
+      events.value = []
+      total.value = 0
+      nextCursor.value = null
+    },
+  )
 }
-async function loadAudit() { await fetchAudit() }
-async function loadMore() { await fetchAudit(true) }
-function applyFilters() { void syncRoute() }
+
+async function loadAudit() {
+  await fetchAudit()
+}
+async function loadMore() {
+  await fetchAudit(true)
+}
+function applyFilters() { void updateRoute() }
 function openEvent(event: LimsAuditEvent) { selectedEvent.value = event; drawerOpen.value = true }
 function shorten(value: string) { return value && value.length > 14 ? `${value.slice(0, 6)}…${value.slice(-6)}` : value || '—' }
 function targetLabel(value: string) { return ({ 'HBOS Sample': '样品登记', 'HBOS Sample Task': '检验任务', 'HBOS Test Result': '检测记录', 'HBOS Result Revision': '结果修订', 'HBOS COA': 'COA 报告', 'HBOS Specification': '质量标准' } as Record<string, string>)[value] || value }
 function fieldLabel(value: string) { return ({ result_status: '记录状态', result_value: '结果值', result_text: '结果描述', verdict: '判定', status: '状态', approver: '批准人', reviewer: '复核人' } as Record<string, string>)[value] || value }
 function eventColor(value: string) { return { 提交: 'processing', 复核: 'warning', 批准: 'success', OOS: 'error', 删除: 'error', 'SoD 拦截': 'error', '越权拦截': 'error' }[value] || 'default' }
-watch(() => route.fullPath, async () => { readRouteState(); await fetchAudit() })
-onMounted(async () => { readRouteState(); await fetchAudit() })
+
 </script>

@@ -2,7 +2,9 @@
 
 HBOS Workspace / Portal 的 Vue 3 + Ant Design Vue 前端。
 
-当前阶段：**EA-5.5 COMPLETE / P4-F6-5 LIMS READ-ONLY WORKBENCH IMPLEMENTED / AUDIT REMEDIATION VERIFIED / MANAGEMENT V0 GATE CLOSED / REAL RUNTIME EVIDENCE PENDING**。
+当前阶段：**P4-F6-5 REVIEWING / 2026-10-01 前端审核修复本地验证通过 / Owner 验收及真实 Frappe 运行态证据待补齐**。
+
+当前开发分支：`m2-r10`。2026-10-01 已合入 `codex/portal-review-fixes` 的审查整改，后续开发在本分支继续。
 
 ## 数据模式
 
@@ -32,6 +34,8 @@ VITE_FRAPPE_APP_ORIGIN=http://127.0.0.1:8080
 ```
 
 实际端口以项目根目录私有 `.env` 的 `HTTP_PORT` 为准。
+
+其他环境变量：`VITE_BASE` 默认为 `/`，同时用于静态资源和前端路由基路径；`VITE_FRAPPE_BASE_URL` 默认为空，API 使用当前 origin 的 `/api`（开发时由 Vite 代理）。通常保持该值为空；如指向独立 API origin，须由部署环境配置携带凭证的 CORS 和 Session Cookie。变量示例见 `.env.example`。
 
 用途：
 
@@ -170,6 +174,15 @@ npm run dev -- --host 127.0.0.1 --port 5178
 
 若 `HTTP_PORT` 不是 8080，请替换 proxy target。
 
+## 回归验证
+
+```bash
+npm run test:unit
+npm run test:contract
+```
+
+单元回归使用隔离 Provider 夹具和真实 Vue/Store/守卫逻辑，不需要运行 Frappe；源码契约检查用于保护关键接线。真实 Session 联调仍是独立验收项。
+
 ## 构建
 
 ```bash
@@ -185,7 +198,7 @@ npm run build
 - Axios
 - Vite
 - TypeScript
-- ECharts（按需）
+- SVG 稳定性趋势图（当前没有 ECharts 依赖）
 
 ## 设计与架构 Authority
 

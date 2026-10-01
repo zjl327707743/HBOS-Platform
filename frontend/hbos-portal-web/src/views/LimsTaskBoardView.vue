@@ -127,7 +127,7 @@
               <small>{{ task.description || 'LIMS 检验任务' }}</small>
             </span>
           </span>
-          <span><a-tag :color="statusTagColor(task.domainStatus)">{{ task.domainStatus || '待处理' }}</a-tag></span>
+          <span><a-tag :color="statusColor(task.domainStatus)">{{ task.domainStatus || '待处理' }}</a-tag></span>
           <span><a-tag :color="priorityTagColor(task.priority)">{{ priorityLabel(task.priority) }}</a-tag></span>
           <span :class="{ overdue: task.overdue }">{{ task.dueLabel }}</span>
           <span class="lims-task-board-action">{{ task.actionLabel || '查看任务' }} <ArrowRightOutlined /></span>
@@ -145,8 +145,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { useLimsQueryPage } from '@/composables/useLimsQueryPage'
+import { statusColor } from '@/views/limsStatus'
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import {
   ArrowRightOutlined,
   CheckCircleOutlined,
@@ -161,8 +163,6 @@ import type { LimsTaskQuery, LimsTaskView, UnifiedTaskDTO } from '@/contracts/po
 import { getPortalTasks, portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 
-const route = useRoute()
-const router = useRouter()
 const portal = usePortalStore()
 
 const viewOptions: Array<{ value: LimsTaskView; label: string; icon: Component }> = [
@@ -182,8 +182,7 @@ const priorityFilter = ref<UnifiedTaskDTO['priority'] | ''>('')
 const dueFilter = ref('')
 const searchInput = ref('')
 const tasks = ref<UnifiedTaskDTO[]>([])
-const loading = ref(true)
-const errorMessage = ref('')
+
 const rowRefs = ref<HTMLElement[]>([])
 
 const viewLabel = computed(() => viewOptions.find((item) => item.value === activeView.value)?.label || '任务看板')
@@ -202,19 +201,24 @@ const visibleTasks = computed(() => tasks.value.filter((task) => {
 }))
 const hasActiveFilters = computed(() => Boolean(statusFilter.value || priorityFilter.value || dueFilter.value || searchInput.value.trim()))
 
-function stringQuery(value: unknown) {
-  return typeof value === 'string' ? value : ''
-}
-
-function readRouteState() {
-  const routeView = stringQuery(route.query.view) as LimsTaskView
-  activeView.value = viewOptions.some((item) => item.value === routeView) ? routeView : 'my-testing'
-  statusFilter.value = stringQuery(route.query.status)
-  const priority = stringQuery(route.query.priority) as UnifiedTaskDTO['priority']
-  priorityFilter.value = ['critical', 'high', 'normal', 'low'].includes(priority) ? priority : ''
-  dueFilter.value = stringQuery(route.query.due)
-  searchInput.value = stringQuery(route.query.keyword)
-}
+const { loading, errorMessage, updateRoute, runLoad } = useLimsQueryPage({
+  path: '/hbos/lims/tasks',
+  fields: {
+    view: {
+      state: activeView,
+      normalize: (value) => viewOptions.some((item) => item.value === value) ? value : 'my-testing',
+    },
+    status: { state: statusFilter },
+    priority: {
+      state: priorityFilter,
+      normalize: (value) => ['critical', 'high', 'normal', 'low'].includes(value) ? value : '',
+    },
+    due: { state: dueFilter },
+    keyword: { state: searchInput },
+  },
+  load: loadTasks,
+  failureMessage: '任务暂时无法加载，请稍后重试。',
+})
 
 function currentQuery(): LimsTaskQuery {
   return {
@@ -224,42 +228,22 @@ function currentQuery(): LimsTaskQuery {
     keyword: searchInput.value.trim() || undefined,
   }
 }
-
-function queryForRoute() {
-  const query: Record<string, string> = { view: activeView.value }
-  if (statusFilter.value) query.status = statusFilter.value
-  if (priorityFilter.value) query.priority = priorityFilter.value
-  if (dueFilter.value) query.due = dueFilter.value
-  if (searchInput.value.trim()) query.keyword = searchInput.value.trim()
-  return query
-}
-
-async function updateRoute() {
-  await router.replace({ path: '/hbos/lims/tasks', query: queryForRoute() })
-}
-
 async function loadTasks() {
-  loading.value = true
-  errorMessage.value = ''
   rowRefs.value = []
-  try {
-    if (!portal.user) await portal.bootstrap()
-    const limsApp = portal.apps.find((app) => app.id === 'lims')
-    if (!limsApp) {
-      tasks.value = []
-      return
-    }
-    const loaded = await getPortalTasks([limsApp], currentQuery())
-    tasks.value = loaded
-      .filter((task) => task.appId === 'lims')
-      .filter((task) => portalDataSource === 'frappe' || !task.action || viewActions[activeView.value].includes(task.action))
-      .filter((task) => !task.domainStatus || statusOptions.includes(task.domainStatus) || portalDataSource === 'frappe')
-  } catch {
-    tasks.value = []
-    errorMessage.value = '任务暂时无法加载，请稍后重试。'
-  } finally {
-    loading.value = false
-  }
+  const query = currentQuery()
+  await runLoad(
+    async () => {
+      const limsApp = portal.apps.find((app) => app.id === 'lims')
+      return limsApp ? getPortalTasks([limsApp], query) : []
+    },
+    (loaded) => {
+      tasks.value = loaded.filter((task) => task.appId === 'lims')
+        .filter((task) => portalDataSource === 'frappe' || !task.action || viewActions[activeView.value].includes(task.action))
+        .filter((task) => !task.domainStatus || statusOptions.includes(task.domainStatus) || portalDataSource === 'frappe')
+    },
+    false,
+    () => { tasks.value = [] },
+  )
 }
 
 function setView(value: LimsTaskView) {
@@ -302,13 +286,6 @@ function statusTone(status: string) {
   return 'neutral'
 }
 
-function statusTagColor(status?: string) {
-  if (status === 'OOS 候选') return 'error'
-  if (status === '已批准') return 'success'
-  if (status === '已提交' || status === '已复核') return 'processing'
-  return 'default'
-}
-
 function priorityLabel(priority: UnifiedTaskDTO['priority']) {
   return { critical: '紧急', high: '高', normal: '普通', low: '低' }[priority]
 }
@@ -329,13 +306,4 @@ function handleRowKeydown(event: KeyboardEvent, index: number) {
   rowRefs.value[next]?.focus()
 }
 
-watch(() => route.fullPath, async () => {
-  readRouteState()
-  await loadTasks()
-})
-
-onMounted(async () => {
-  readRouteState()
-  await loadTasks()
-})
 </script>

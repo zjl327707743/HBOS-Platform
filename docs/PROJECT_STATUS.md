@@ -1137,14 +1137,15 @@ Owner 于 2026-09-24 明确授权正式启动 HBOS Workspace / Portal 产品线�
 当前工作分支：
 
 ```text
-feature/hbos-portal-product
+m2-r10
 ```
 
 当前阶段：
 
 ```text
-EA-5.4 = DESIGN ENGINEERING BASELINE
-EA-5.5 = NEXT
+EA-5.5 = COMPLETE / OWNER APPROVED
+P4-F6-5 = REVIEWING / 2026-10-01 LOCAL FIX VERIFICATION PASS
+REAL Frappe RUNTIME / OWNER ACCEPTANCE = PENDING
 ```
 
 已确认：
@@ -1153,13 +1154,9 @@ EA-5.5 = NEXT
 - LIMS / Inventory / Attendance 为独立业务 APP，不进入 Portal 固定 Sidebar；
 - Digital Twin 为一级空间化能力；
 - Portal 数据通过 Application Provider / DTO 获取，不直接读取业务 DocType；
-- 本并行工作流已满足原型先行与 Owner Visual Gate，可进入前端复刻准备。
+- 本并行工作流已通过 Owner Visual Gate，并完成已授权前端复刻与 Provider 接入；当前只做现有页面审核修复。
 
-当前尚未：
-- 创建 `apps/hbos_portal`；
-- 接真实 Provider；
-- 接真实业务 API；
-- 改变 M1-FIX 当前主里程碑。
+当前已包含 `apps/hbos_portal`、三业务 Provider 和 LIMS 前端 API；本轮只修复现有前端。后文按日期保留历史推进记录，当前状态以最新记录为准。M1-FIX 主业务治理状态不因 Portal 工作线改变。
 
 
 ### Portal Frontend Reproduction Update — 2026-09-24
@@ -1603,3 +1600,7 @@ Owner 退回第一版视觉交付，要求中文优先、完整体现 LIMS 功�
     git diff --check                     PASS
 
 真实 Frappe Session、Provider 真实字段和正式数据仍待 Docker/Frappe 工作台恢复，不宣称生产运行态已通过。
+
+### HBOS Portal P4-F6-5 审核修复复核 — 2026-10-01
+
+2026-10-01 Portal 审核修复为 **REVIEWING / 本地验证通过，待 Owner 验收及真实 Frappe 运行态证据**：已处理 CSS token、错误态守卫、防抖与过期响应、刷新异常、强类型工作台、共享映射与六页查询逻辑、真实模式原型入口、回跳校验、环境变量与趋势图文档；Ant gzip 442.13 → 255.57 kB。14 项前端回归、构建和两套契约检查通过；临时 Mock 浏览器确认留样/稳定性实际颜色生效。修复提交 `f23ba17` 已从 `codex/portal-review-fixes` 合入 `m2-r10`；后续开发在 `m2-r10` 继续。详细记录见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md`。本轮不部署，不关闭样品/管理后台或真实运行态门禁。
