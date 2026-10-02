@@ -643,3 +643,37 @@ EA-3 implementation should eventually verify:
 - forged user / role parameters cannot override `frappe.session.user`;
 - unsupported contract versions fail at the app boundary;
 - Portal does not directly query protected domain DocTypes.
+
+
+## 31. First Production Contract Implementation — LIMS
+
+P3-LIMS-1 is the first real implementation of this baseline.
+
+Validated on a clean Frappe site:
+
+```text
+LIMS hooks.py
+  ↓ hbos_portal_provider
+Portal Registry
+  ↓
+LIMS manifest / access_context
+  ↓
+Portal Bootstrap
+```
+
+Runtime evidence:
+
+```json
+{
+  "registry_entries": ["lims"],
+  "registry_failures": 0,
+  "lims_route": "/hbos/lims",
+  "lims_manifest_capabilities": [],
+  "lims_access": true,
+  "bootstrap_apps": ["lims"]
+}
+```
+
+The initial manifest intentionally advertises no optional data capabilities.
+
+This proves provider discovery and application access before enabling Summary / Tasks / Search.
