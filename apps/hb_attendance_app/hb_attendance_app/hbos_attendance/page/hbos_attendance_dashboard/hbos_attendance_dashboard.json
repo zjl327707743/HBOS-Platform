@@ -6,6 +6,7 @@
  "icon": "dashboard",
  "idx": 0,
  "module": "HBOS Attendance",
+ "modified": "2026-09-30 15:30:00.000000",
  "name": "hbos-attendance-dashboard",
  "owner": "Administrator",
  "page_name": "hbos-attendance-dashboard",

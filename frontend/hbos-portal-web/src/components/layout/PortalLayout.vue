@@ -19,17 +19,15 @@
       <div class="portal-layout-grid">
         <PortalSidebar :work-count="actionableCount" />
         <main id="main-content" class="portal-route-content" tabindex="-1">
+          <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
           <a-alert
-            v-if="portal.bootstrapError"
+            v-else-if="sessionError"
             type="error"
             show-icon
             class="portal-bootstrap-error"
-            :message="portal.bootstrapError"
-          >
-            <template #action><a-button :loading="portal.loading" @click="retryBootstrap">重试</a-button></template>
-          </a-alert>
-          <a-alert v-if="!portal.bootstrapError && (portal.tasksError || portal.summariesError)" type="warning" show-icon class="portal-bootstrap-error" :message="[portal.tasksError, portal.summariesError].filter(Boolean).join(' ')" />
-          <RouterView v-if="!portal.bootstrapError" />
+            :message="sessionError"
+          />
+          <RouterView v-else :key="portal.user?.id" />
         </main>
       </div>
     </div>
@@ -41,7 +39,6 @@
 </template>
 
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router'
 import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
@@ -49,21 +46,12 @@ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import PortalSidebar from '@/components/layout/PortalSidebar.vue'
 import MobilePortalNav from '@/components/layout/MobilePortalNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
+import { usePortalSession } from '@/composables/usePortalSession'
 
 const portal = usePortalStore()
-const route = useRoute()
-const router = useRouter()
-
-async function retryBootstrap() {
-  try {
-    await portal.bootstrap()
-    await router.replace({ path: route.path, query: route.query, hash: route.hash, force: true })
-  } catch {
-    // The shell keeps the sanitized bootstrap error and retry control.
-  }
-}
 const ui = reactive({ commandOpen: false })
 const actionableCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
+const { sessionPending, sessionError } = usePortalSession()
 
 function onShortcut(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -73,15 +61,6 @@ function onShortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') ui.commandOpen = false
 }
 
-onMounted(async () => {
-  if (!portal.user && !portal.bootstrapError) {
-    try {
-      await portal.bootstrap()
-    } catch {
-      // Error state is rendered in the shell. No raw exception reaches the UI.
-    }
-  }
-  window.addEventListener('keydown', onShortcut)
-})
+onMounted(() => window.addEventListener('keydown', onShortcut))
 onBeforeUnmount(() => window.removeEventListener('keydown', onShortcut))
 </script>

@@ -8,12 +8,12 @@
       </div>
       <a-space>
         <a-button :loading="portal.tasksLoading" @click="portal.refreshTasks"><ReloadOutlined /> 刷新</a-button>
-        <a-button @click="router.push('/hbos/profile')"><SettingOutlined /> 工作偏好</a-button>
+        <a-button type="primary" @click="router.push('/hbos/profile')"><SettingOutlined /> 工作偏好</a-button>
       </a-space>
     </div>
 
     <div class="work-overview">
-      <article class="work-stat glass-surface"><span>需要我处理</span><strong>{{ actionableCount }}</strong><small>来自 {{ taskApps.length }} 个业务应用</small></article>
+      <article class="work-stat glass-surface"><span>需要我处理</span><strong>{{ actionableCount }}</strong><small>来自 {{ taskApps.length }} 个支持待办的应用</small></article>
       <article class="work-stat glass-surface critical-card"><span>已超期</span><strong>{{ overdueCount }}</strong><small>优先处理</small></article>
       <article class="work-stat glass-surface"><span>今天截止</span><strong>{{ todayCount }}</strong><small>按截止时间排序</small></article>
       <article class="work-stat glass-surface"><span>等待别人</span><strong>{{ waitingCount }}</strong><small>不计入“需要我处理”</small></article>

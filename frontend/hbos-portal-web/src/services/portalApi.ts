@@ -233,6 +233,7 @@ function mapApp(value: BackendApp): AppManifestDTO {
     capabilitySearch: capabilities.has('search'),
     capabilities: [...capabilities],
     accessCapabilities: [...(value.access.capabilities || [])],
+    featured: ['knowledge', 'twin', 'lims', 'inventory', 'attendance'].includes(manifest.id),
   }
 }
 

@@ -12,6 +12,7 @@ on:
   pull_request:
     branches:
       - main
+      - feature/hbos-portal-product
     paths:
       - 'frontend/hbos-portal-web/**'
       - '.github/workflows/hbos-portal-frontend.yml'
@@ -57,6 +58,9 @@ jobs:
 
       - name: 前端单元与组件回归
         run: npm run test:unit
+
+      - name: 账号与会话回归
+        run: npm test
 
       - name: 前端契约及 Mock 内容门控
         run: |

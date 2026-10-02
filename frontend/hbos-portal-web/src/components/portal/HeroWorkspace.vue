@@ -5,7 +5,7 @@
       <div class="hello">你好，{{ userName }}</div>
       <h1>今天有 <span>{{ totalActions }} 项工作</span><br />需要你处理</h1>
       <p>
-        从待办开始，查看今天需要处理的事项，或进入应用继续工作。
+        查看本人待办、业务汇总与可用应用，从当前工作继续。
       </p>
 
       <div class="hero-actions">
@@ -33,10 +33,15 @@
         <div class="status-row"><i class="green"></i><span>需要我处理</span><b>{{ totalActions }}</b></div>
       </div>
 
-      <div v-if="showTwinPreview && portal.dataSource === 'mock'" class="mini-twin-glass">
+      <button
+        v-if="showTwinPreview"
+        class="mini-twin-glass mini-twin-button"
+        type="button"
+        @click="$router.push('/hbos/twin')"
+      >
         <div class="status-title">
           <span>数字孪生概览</span>
-          <a-tag color="processing">LIVE READY</a-tag>
+          <a-tag :color="twinReady ? 'success' : 'processing'">{{ twinStateLabel }}</a-tag>
         </div>
         <svg viewBox="0 0 420 160" fill="none" aria-label="数字孪生概览示意">
           <defs>
@@ -54,17 +59,20 @@
           <rect x="220" y="100" width="52" height="57" rx="8" class="twin-box blue"/>
           <rect x="317" y="56" width="48" height="52" rx="8" class="twin-box green"/>
         </svg>
-      </div>
+        <span class="mini-twin-link">进入设备与工艺空间 <ArrowRightOutlined /></span>
+      </button>
     </aside>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ArrowRightOutlined } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
+import type { SummaryMetricDTO } from '@/contracts/portal'
+
 const portal = usePortalStore()
 const sessionLabel = computed(() => portal.dataSource === 'mock' ? '演示会话' : portal.authenticated ? '会话已验证' : '会话待验证')
-import type { SummaryMetricDTO } from '@/contracts/portal'
 
 defineProps<{
   userName: string
@@ -72,5 +80,7 @@ defineProps<{
   metrics: SummaryMetricDTO[]
   appCount: number
   showTwinPreview: boolean
+  twinReady: boolean
+  twinStateLabel: string
 }>()
 </script>

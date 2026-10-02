@@ -8,7 +8,10 @@
       <a-button type="link" @click="$router.push('/hbos/work')">查看全部 <RightOutlined /></a-button>
     </div>
 
-    <div class="task-list">
+    <div v-if="loading" class="task-list" aria-label="正在读取待办">
+      <div v-for="index in 3" :key="index" class="task-row"><a-skeleton active :paragraph="false" /></div>
+    </div>
+    <div v-else-if="tasks.length" class="task-list">
       <button
         v-for="task in tasks"
         :key="task.taskId"
@@ -27,6 +30,11 @@
         </div>
       </button>
     </div>
+    <div v-else class="home-panel-empty">
+      <CheckCircleOutlined />
+      <strong>当前没有需要你处理的事项</strong>
+      <span>当前可用应用的待办会汇总到这里。</span>
+    </div>
   </section>
 </template>
 
@@ -34,12 +42,15 @@
 import { appIcon, chineseApp } from '@/components/appIcons'
 import { useRouter } from 'vue-router'
 import {
+  CheckCircleOutlined,
   RightOutlined,
 } from '@ant-design/icons-vue'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
 import { openBusinessRoute } from '@/services/businessNavigation'
 
-defineProps<{ tasks: UnifiedTaskDTO[] }>()
+withDefaults(defineProps<{ tasks: UnifiedTaskDTO[]; loading?: boolean }>(), {
+  loading: false,
+})
 const router = useRouter()
 
 function openTask(task: UnifiedTaskDTO) {

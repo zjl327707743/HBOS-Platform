@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('../../frontend/hbos-portal-web/', import.meta.url))
 const require = createRequire(`${root}package.json`)
 const { parse } = require('@vue/compiler-sfc')
-const { baseParse, NodeTypes } = require('@vue/compiler-dom')
+const { parse: parseTemplate, NodeTypes } = require('@vue/compiler-dom')
 const demoText = /扫码入库|Inventory Quick Action|LIVE READY|演示模式只读|演示数据|A \/ B/
 
 export function checkMockTemplate(template) {
@@ -20,7 +20,7 @@ export function checkMockTemplate(template) {
     }
     for (const child of node.children || []) visit(child, gated)
   }
-  visit(baseParse(template))
+  visit(parseTemplate(template))
   return errors
 }
 

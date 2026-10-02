@@ -1,0 +1,14 @@
+{
+  "project": "hbos-p1-knowledge-twin",
+  "site": "p1-knowledge-twin.localhost",
+  "expected_database": "sha256-of-confirmed-existing-database-name",
+  "origin": "http://p1-knowledge-twin.localhost:5188",
+  "base_compose": "/path/to/existing-checkout/docker-compose.yml",
+  "env_file": "/path/to/protected/compose.env",
+  "runtime_root": "/path/to/protected/local-runtime",
+  "release_root": "/path/to/verified/extracted-release",
+  "model_root": "",
+  "gateway_config_root": "",
+  "knowledge_index": "",
+  "gateway_client_id": "hbos-frappe"
+}

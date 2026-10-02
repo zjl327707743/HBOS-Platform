@@ -13,7 +13,7 @@
         ref="inputRef"
         v-model:value="query"
         bordered="false"
-        placeholder="搜索应用、批次、样品、员工或输入命令…"
+        placeholder="搜索应用与业务事项…"
         aria-label="全局搜索"
         @keydown.down.prevent="move(1)"
         @keydown.up.prevent="move(-1)"

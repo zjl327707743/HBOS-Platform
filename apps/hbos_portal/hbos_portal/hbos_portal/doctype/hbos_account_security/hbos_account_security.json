@@ -1,0 +1,80 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Account Security",
+ "module": "HBOS Portal",
+ "autoname": "field:user",
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "security_version",
+  "blocked",
+  "custody_mode",
+  "mfa_secret",
+  "mfa_counter",
+  "management_operation"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "security_version",
+   "fieldtype": "Int",
+   "label": "Security Version",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "blocked",
+   "fieldtype": "Check",
+   "label": "Blocked",
+   "read_only": 1
+  },
+  {
+   "fieldname": "custody_mode",
+   "fieldtype": "Check",
+   "label": "Custody Mode",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mfa_secret",
+   "fieldtype": "Password",
+   "label": "Mfa Secret",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "mfa_counter",
+   "fieldtype": "Int",
+   "label": "Mfa Counter",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "management_operation",
+   "fieldtype": "Link",
+   "options": "HBOS Account Operation",
+   "label": "Explicit Management Access Operation",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "HBOS Account Handover Manager",
+   "read": 1
+  }
+ ],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "creation": "2026-09-30 00:00:00.000000",
+ "modified": "2026-09-30 00:00:00.000000",
+ "owner": "Administrator",
+ "modified_by": "Administrator"
+}

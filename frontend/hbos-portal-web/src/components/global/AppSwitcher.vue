@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { iconMap, PRIMARY_APP_IDS } from '@/components/appIcons'
+import { iconMap } from '@/components/appIcons'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -71,7 +71,7 @@ const props = defineProps<{ apps: AppManifestDTO[] }>()
 const router = useRouter()
 
 const visibleApps = computed(() =>
-  props.apps.filter((app) => PRIMARY_APP_IDS.includes(app.id)),
+  props.apps.filter((app) => ['knowledge', 'twin', 'lims', 'inventory', 'attendance', 'equipment'].includes(app.id)),
 )
 
 function go(path: string) {

@@ -5,11 +5,20 @@ import { portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 import { checkPortalAccess } from '@/router/portalGuard'
 
+const KnowledgeTwinLayout = () => import('@/components/layout/KnowledgeTwinLayout.vue')
+const KnowledgeView = () => import('@/views/KnowledgeView.vue')
+const TwinView = () => import('@/views/TwinView.vue')
+const FeishuLoginView = () => import('@/views/FeishuLoginView.vue')
+
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory('/'),
   routes: [
     { path: '/', redirect: '/hbos' },
     { path: '/login', name: 'login', component: () => import('@/views/PortalLoginView.vue'), meta: { title: '登录' } },
+    { path: '/hbos/login', name: 'feishu-login', component: FeishuLoginView, meta: { title: '企业身份登录' } },
+    { path: '/hbos/account-connect', component: () => import('@/views/AccountConnectView.vue'), meta: { title: '账号归属与绑定' } },
+    { path: '/hbos/account-change', component: () => import('@/views/AccountChangeView.vue'), meta: { title: '绑定与职责交接' } },
+    { path: '/hbos/reset-password', component: () => import('@/views/ResetPasswordView.vue'), meta: { title: '账号恢复' } },
     {
       path: '/hbos',
       component: PortalLayout,
@@ -54,6 +63,20 @@ const router = createRouter({
         { path: 'results/:resultId/review', name: 'lims-result-review', component: () => import('@/views/LimsResultEntryView.vue'), meta: { title: 'LIMS · 结果复核', limsCapability: 'results' } },
         { path: 'results/:resultId', name: 'lims-result-entry', component: () => import('@/views/LimsResultEntryView.vue'), meta: { title: 'LIMS · 结果录入', limsCapability: 'results' } },
         { path: ':pathMatch(.*)*', name: 'lims-pending', component: () => import('@/views/LimsPendingView.vue'), meta: { title: 'LIMS · 页面待设计' } },
+      ],
+    },
+    {
+      path: '/hbos/knowledge',
+      component: KnowledgeTwinLayout,
+      children: [
+        { path: '', name: 'knowledge', component: KnowledgeView, meta: { title: '知识助理' } },
+      ],
+    },
+    {
+      path: '/hbos/twin',
+      component: KnowledgeTwinLayout,
+      children: [
+        { path: '', name: 'twin', component: TwinView, meta: { title: '设备与工艺' } },
       ],
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue'), meta: { title: '页面不存在' } },

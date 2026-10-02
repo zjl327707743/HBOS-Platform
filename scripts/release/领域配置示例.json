@@ -1,0 +1,14 @@
+{
+  "hbos_knowledge_gateway_url": "http://gateway:8080",
+  "hbos_knowledge_gateway_client_id": "hbos-frappe",
+  "gateway_token_file": "/run/hbos-private/gateway_token",
+  "hbos_twin_asset_root": "/run/hbos-models",
+  "hbos_knowledge_policy": {
+    "default_internal": {"enabled": false, "capabilities": [], "dataset_ids": [], "document_ids": [], "policy_revision": "approval-required"},
+    "subjects": {}
+  },
+  "hbos_twin_policy": {
+    "default_internal": {"enabled": false, "capabilities": [], "equipment_ids": [], "policy_revision": "approval-required"},
+    "subjects": {}
+  }
+}

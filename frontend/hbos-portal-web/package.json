@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
+    "test": "VITE_PORTAL_DATA_MODE=frappe vitest run",
     "test:contract": "node ../../scripts/portal/lims_frontend_contract.mjs",
     "test:unit": "VITE_PORTAL_DATA_MODE=frappe node --test tests/*.test.mjs",
     "dev:frappe": "VITE_PORTAL_DATA_MODE=frappe vite --port 5178 --strictPort",
@@ -20,20 +22,25 @@
     "ant-design-vue": "^4.2.6",
     "axios": "^1.12.2",
     "pinia": "^3.0.3",
+    "three": "^0.186.0",
     "vue": "^3.5.21",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.5.2",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/test-utils": "2.4.6",
     "@vue/tsconfig": "^0.8.1",
     "eslint": "^10.11.0",
     "eslint-plugin-vue": "^10.11.1",
     "globals": "^16.5.0",
+    "jsdom": "26.1.0",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.71.0",
     "vite": "^7.1.5",
+    "vitest": "3.2.4",
     "vue-tsc": "^3.0.6"
   }
 }

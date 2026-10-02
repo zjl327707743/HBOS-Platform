@@ -7,6 +7,7 @@ description = "HBOS workspace and portal platform shell"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
+dependencies = ["pypinyin==0.55.0"]
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]

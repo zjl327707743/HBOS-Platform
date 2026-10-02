@@ -20,16 +20,16 @@
         <AppLocalSidebar />
         <main id="lims-main-content" class="app-route-content" tabindex="-1">
           <a-alert
-            v-if="portal.bootstrapError"
+            v-if="shellError"
             type="error"
             show-icon
             class="portal-bootstrap-error"
-            :message="portal.bootstrapError"
+            :message="shellError"
           >
             <template #action><a-button :loading="portal.loading" @click="retryBootstrap">重试</a-button></template>
           </a-alert>
-          <a-alert v-if="!portal.bootstrapError && (portal.tasksError || portal.summariesError)" type="warning" show-icon class="portal-bootstrap-error" :message="[portal.tasksError, portal.summariesError].filter(Boolean).join(' ')" />
-          <RouterView v-if="!portal.bootstrapError" />
+          <a-skeleton v-else-if="sessionPending" active :paragraph="{ rows: 6 }" />
+          <RouterView v-else :key="portal.user?.id" />
         </main>
       </div>
     </div>
@@ -41,8 +41,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
@@ -50,20 +50,25 @@ import AppLocalSidebar from '@/components/layout/AppLocalSidebar.vue'
 import MobileAppNav from '@/components/layout/MobileAppNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
 import { LIMS_BRANDING } from '@/data/limsBranding'
+import { usePortalSession } from '@/composables/usePortalSession'
 
 const portal = usePortalStore()
 const route = useRoute()
 const router = useRouter()
+const commandOpen = ref(false)
+const { sessionPending, sessionError } = usePortalSession()
+
+// 会话探测或 bootstrap 失败时统一显示错误壳，并保留重试入口。
+const shellError = computed(() => sessionError.value || portal.bootstrapError)
 
 async function retryBootstrap() {
   try {
     await portal.bootstrap()
     await router.replace({ path: route.path, query: route.query, hash: route.hash, force: true })
   } catch {
-    // The shell keeps the sanitized bootstrap error and retry control.
+    // 保持当前错误态，由 store 呈现清洗后的信息。
   }
 }
-const commandOpen = ref(false)
 
 function shortcut(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -73,15 +78,6 @@ function shortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') commandOpen.value = false
 }
 
-onMounted(async () => {
-  if (!portal.user && !portal.bootstrapError) {
-    try {
-      await portal.bootstrap()
-    } catch {
-      // Portal shell owns the sanitized bootstrap error state.
-    }
-  }
-  window.addEventListener('keydown', shortcut)
-})
+onMounted(() => window.addEventListener('keydown', shortcut))
 onBeforeUnmount(() => window.removeEventListener('keydown', shortcut))
 </script>

@@ -1,6 +1,8 @@
 import type { Component } from 'vue'
 import {
+  BulbOutlined,
   ClockCircleOutlined,
+  DeploymentUnitOutlined,
   ExperimentOutlined,
   InboxOutlined,
   ReadOutlined,
@@ -13,11 +15,14 @@ import {
 export const iconMap: Record<string, Component> = {
   ExperimentOutlined, InboxOutlined, ClockCircleOutlined, ToolOutlined,
   ReadOutlined, SafetyOutlined, ThunderboltOutlined,
+  BulbOutlined, DeploymentUnitOutlined,
   lims: ExperimentOutlined,
   inventory: InboxOutlined,
   attendance: ClockCircleOutlined,
   equipment: ToolOutlined,
   system: SyncOutlined,
+  knowledge: BulbOutlined,
+  twin: DeploymentUnitOutlined,
 }
 
 const appTitles: Record<string, string> = {

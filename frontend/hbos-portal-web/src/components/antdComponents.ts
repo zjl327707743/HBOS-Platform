@@ -1,11 +1,5 @@
-import {
-  Alert, Avatar, Badge, Button, ConfigProvider, Descriptions, Divider, Drawer,
-  Dropdown, Empty, Form, Input, Menu, Modal, Popover, Progress, Segmented,
-  Select, Skeleton, Space, Spin, Switch, Table, Tag, Tooltip,
-} from 'ant-design-vue'
+import Antd from 'ant-design-vue'
 
-export const antdComponents = [
-  Alert, Avatar, Badge, Button, ConfigProvider, Descriptions, Divider, Drawer,
-  Dropdown, Empty, Form, Input, Menu, Modal, Popover, Progress, Segmented,
-  Select, Skeleton, Space, Spin, Switch, Table, Tag, Tooltip,
-]
+// 注册完整 Ant Design Vue 插件。原先的按需组件清单在 Portal 与 LIMS 视图
+// 同时存在后无法保证覆盖所有 `a-*` 标签，改为一次性注册整套组件。
+export const antdComponents = [Antd]
