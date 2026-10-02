@@ -8,7 +8,7 @@ export default defineConfig(({ mode, command }) => {
   const dataMode = validatePortalBuildMode(env.VITE_PORTAL_DATA_MODE, command, mode)
   const proxyTarget =
     env.VITE_FRAPPE_PROXY_TARGET ||
-    (dataMode === 'frappe' ? 'http://127.0.0.1:8081' : '')
+    (dataMode === 'frappe' ? 'http://127.0.0.1:8080' : '')
 
   return {
     base: env.VITE_BASE || '/',
@@ -20,7 +20,8 @@ export default defineConfig(({ mode, command }) => {
     },
     server: {
       host: '0.0.0.0',
-      port: 5178,
+      port: dataMode === 'frappe' ? 5178 : 5193,
+      strictPort: true,
       ...(proxyTarget
         ? {
             proxy: {

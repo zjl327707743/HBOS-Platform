@@ -137,3 +137,45 @@ Owner 截图显示菜单越过侧栏卡片底部，且没有侧栏滚动条。�
 已同步 PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、P4-F6 实施计划及本主记录；公共入口 README、AI_CONTEXT、READING_GUIDE 追加当前复核状态，CLAUDE/AGENTS 记录 Owner 分支审批规则。没有改架构、业务事实或其他里程碑状态。原稿其他 P1/P2 改进项和巨型视图拆分不作为本轮已全部解决的内容。
 
 公共入口检查 WARN（既有、非 Portal 范围）：README 主线记为 M1-FIX-F，而 AI_CONTEXT / CURRENT_MILESTONE 仍有 M1-FIX-B5 的主线描述；本轮只同步已授权 Portal 进度，没有据此自行更改其他工作线的里程碑事实。
+
+## 9. 2026-10-01 Owner 选定侧栏滚动条方案 B
+
+状态：**IMPLEMENTED / LOCAL CHECKS + MOCK BROWSER PASS / REVIEWING**。Owner 在三种案例图中选择方案 B，作为本轮视觉方向批准；在指定的 `m2-r10` 实现，没有创建新分支。
+
+实现仅涉及 `AppLocalSidebar.vue` 和 `global.css`：菜单内容溢出时才显示浅灰蓝圆角滑块，全部可见时无滑块，滑轨透明，悬停、滚动或菜单内键盘聚焦时滑块加深，停止滚动 800ms 后退出滚动态；若仍悬停或聚焦则保留增强色。WebKit 滚动条为固定 6px，其他引擎保留原生 thin 滚动条，稳定 gutter 避免文字位移。菜单保留原生滚轮、拖动和键盘行为，补充键盘焦点轮廓及系统强制颜色适配；卸载时清理滚动计时器。标题和返回按钮继续固定，仅菜单滚动。
+
+验证结果：
+
+- `npm run lint`、34 项 `test:unit`、`test:contract`、`test:mock-gate`、`lims_shell_contract.sh`、`VITE_PORTAL_DATA_MODE=frappe npm run build` 均通过；既有 Ant vendor 大包警告仍在。
+- 本机 5193 独立 Mock 浏览器：1280×720 默认滑块为 `rgba(111, 133, 166, 0.34)`，交互加深，退出悬停/聚焦且计时结束后恢复浅色；菜单宽度 58px、clientWidth 52px，状态切换前后不变，滚动条宽度 6px。滚动事件实际设置增强状态，结束后解除。
+- 键盘 Home / End 可以滚动菜单；End 动画结束后 scrollTop=470/max=470，末项 bottom=679，小于菜单 bottom=681。键盘聚焦有可见轮廓。
+- 1440×540 矮窗口：初始侧栏 bottom=528，菜单高度 233px/content 868px；End 后 scrollTop=635/max=635，末项 bottom=499，小于菜单 bottom=501，标题和返回按钮保留在菜单外。此前矮窗口补测缺口已由本轮 Mock 浏览器证据补齐。
+- 768×1024：侧栏 flex、移动导航 none；767×720：侧栏 none、移动导航 grid。1440×900 保存默认及交互实际截图，菜单宽度 218px/clientWidth 212px，状态切换前后不变。
+
+已同步 PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、实施计划及本记录；公共入口文件已检查，本轮无阶段变更，无需追加重复状态描述，§8 所列其他工作线 WARN 保留。本环境指定的 `frontend-design` / `superpowers` 不可用，按项目规则人工实现与复核。P4-F6-5 保持 REVIEWING；视觉方向批准不等于最终交付验收，真实 Frappe 运行态证据仍待补齐。
+
+Owner 后续要求「将滑轨隐藏」：仅修改 CSS，将轨道设为透明并移除交互时的轨道加深，保留滑块和稳定 gutter。本次重新执行真实模式生产构建与 `git diff --check`，均通过；1440×900 Mock 浏览器确认默认、悬停/聚焦及滚动状态的轨道均为 `rgba(0, 0, 0, 0)`，滑块可见且宽度仍为 6px，菜单宽度 218px/clientWidth 212px 不变，滚动到 scrollTop=275/max=275 时末项 bottom=871 小于菜单 bottom=873。已保存隐藏滑轨实际截图。本次没有新增测试或重复执行前述 34 项回归；前述结果属于方案 B 实现验证。
+
+Owner 进一步确认滑块仅在菜单溢出时显示。本轮只做运行态确认，既有 overflow-y: auto 已满足要求，无需更改源码。1440×1200 Mock 预览中，菜单 clientHeight/scrollHeight 均为 893px，最大 scrollTop=0；全部菜单可见，悬停和聚焦时也没有滑块。缩小至 1440×900 后，菜单为 593/868px，滑块出现并可滚至 scrollTop=275/max=275；再放大至 1200px 高后自动恢复无滑块且 scrollTop=0。全过程菜单宽度 218px/clientWidth 212px 不变，滑轨透明。两种实际截图已保存，显示规则已同步至状态记录、M2 门禁和实施计划；本轮没有代码变更或重复执行构建/单测，既有其他工作线 WARN 与真实 Frappe 门禁保持原状态。
+
+Owner 反馈 5178 无法连接服务器：本机检查确认 5178 没有监听进程；同项目已有 Node 服务监听 127.0.0.1:5179。此前侧栏检查使用临时 5193 实例，验证后已关闭。现已在 m2-r10 以 npm run dev:mock -- --host 127.0.0.1 --port 5178 --strictPort 恢复当前源码预览，lsof 确认监听，浏览器确认 5178/hbos/lims 正常显示 LIMS 与 Mock 标识；服务保留供 Owner 继续验收。本轮未修改源码，PROJECT_STATUS 与 M2 门禁已同步；里程碑和轮次未改变，CURRENT_MILESTONE 无需新增记录；公共入口已检查，本次运行入口恢复无需修改入口描述，既有其他工作线 WARN 保留。
+
+## 10. 2026-10-02 恢复 5178 真实开发模式与专业菜单
+
+状态：**REAL FRAPPE MENU + READ-ONLY HTTP RECHECK PASS / REVIEWING**。全程在 Owner 指定的 `m2-r10`，未创建分支。§9 中将 Mock 临时放在 5178 的做法已纠正；当前 5178 为 Vite development + `frappe` 数据源，5179 留给隔离 Frappe 预览，Mock 默认使用 5193。`dev` 是运行方式，`frappe` / `mock` 是数据来源；共享 Vue / CSS 改动适用于两种数据源，此前 Mock 视觉检查未替代真实联调。
+
+### 根因与处理
+
+- Owner 截图的真实 Bootstrap 仍返回旧版 LIMS `summary / tasks / search`，且缺少语义访问能力，前端因此按现有门控隐藏专业业务入口。经认证的 HTTP 连续三次确认旧能力；同一后端容器中，新启动的 `bench execute` 能读取当前全部 10 项能力。源码挂载指向本工作区，确认是常驻 Web 进程加载旧代码。
+- 已清理现有 `frontend` Site 的 Frappe 缓存、重启 `hbos-m0-r3a-backend-1`。重启后 Nginx 仍连接旧容器地址，日志为 `No route to host` / 502；已重载现有 `hbos-m0-r3a-frontend-1` 的 Nginx，恢复真实 API。未安装软件、创建 Site/App、执行迁移或改写业务记录。
+- `dev:frappe` 固定默认端口 5178，`dev:mock` 固定默认端口 5193；Vite 默认端口随显式数据源选择，并启用 `strictPort`，占用时失败而非自动递增。真实 API 代理默认值由 8081 对齐现有本机 8080，环境变量可覆盖。隔离脚本既有 5179 → 18091 配置保持有效。更新前端 README，解释模式、端口与旧进程排查方法。
+
+### 真实证据与检查
+
+- `hbos_portal.integration_checks.run` 在现有 Site、新进程中通过：三 Provider 注册无失败，LIMS manifest 与语义权限检查通过。此项与后续 HTTP 分别记录，避免用新进程检查替代 Web 运行态。
+- 代理恢复后，通过 5178 正常登录；Bootstrap 连续三次均返回 `summary / tasks / search / results / ledger / audit / coa / specifications / retains / stability`，并返回 `lims.read / lims.results.read / lims.ledger.read / lims.retention.read / lims.results.submit / lims.results.review / lims.results.approve / lims.audit.read`。summary、tasks、results、ledger、audit、coa、specifications、retention、stability 九类只读 HTTP 均 `ok: true`。
+- 浏览器通过现有 Administrator 账号正常登录，真实首页显示 Provider KPI 与完整专业菜单，无「演示数据」横幅；结果台账读取现有 Site 的 16 个样品、34 条结果，稳定性工作台读取现有样品、时间点和房间数量。现有测试记录来自该 Site 数据库，不是前端 Mock，也不据此宣称正式业务数据验收完成。
+- 1440×900 真实浏览器：菜单 clientHeight/scrollHeight 为 625/868px，End 后 scrollTop=243/max=243，末项 bottom=859px 小于菜单 bottom=861px；滑轨为透明。1440×1200：菜单为 925/925px，最大滚动量为 0，内容全部可见时无滑块。方案 B 已在真实长菜单中验证。
+- `npm run lint`、34 项 `test:unit`、`test:contract`、`test:mock-gate`、`lims_shell_contract.sh`、真实模式类型检查/生产构建与 `git diff --check` 通过。Vite 配置解析确认两种数据源均为 development，端口分别 5178/5193，strictPort 为 true；真实代理指向 8080。既有 Ant vendor 大包警告保留。
+
+已同步 PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、实施计划与公共 Portal 入口说明；CLAUDE/AGENTS 无过期 Portal 阶段描述，不需修改。没有改变里程碑/轮次，P4-F6-5 保持 REVIEWING：真实菜单、只读接口与侧栏证据已补齐，完整角色/签署写流程、四档真实截图及 Owner 最终验收继续待办。未提交、未推送；§8 所列其他工作线 WARN 保留。指定的 superpowers / frontend-design 不可用，本轮按项目规则人工执行与复核。

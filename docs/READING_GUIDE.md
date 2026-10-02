@@ -118,3 +118,5 @@ Portal 当前为 Owner 已授权并行产品工作流，当前开发分支为 `m
 2026-10-01 在 Owner 指定的 `m2-r10` 完成 Portal 当前基线复核与缺陷修补：显式数据模式/生产构建门禁与演示标识、真实文案、侧栏滚动/768px 导航、登出与会话收敛、动作语义任务计数、结果/任务游标分页、Provider 部分失败与 trace_id、锁文件/npm ci/ESLint/测试与 Mock AST 门禁；34 项回归及 lint、两套契约、Mock 门控、两种显式构建通过。浏览器已确认 1280×720 菜单滚动和 768/767px 导航切换；矮窗口补测被自动审批网络断开阻断，真实 Frappe 联调与 Owner 验收仍待完成。P4-F6-5 保持 REVIEWING，不新建分支、不部署、不推送；巨型视图拆分保留重构项。原 P4-F6-7 报告已保留评审痕迹并标注误报、旧基线和本轮处置。
 
 详细记录：`docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §8；重新基线：`docs/experience/LIMS_P4-F6-7_前端代码审核报告.md` 顶部复核节。
+
+Portal 当前运行依据（2026-10-02）：开发分支 `m2-r10`，5178 连接真实 Frappe，5179 隔离预览，5193 Mock。真实菜单、只读接口和侧栏已补证，完整真实流程与 Owner 验收尚待完成；最新排查与证据见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §10，启动说明见 `frontend/hbos-portal-web/README.md`。

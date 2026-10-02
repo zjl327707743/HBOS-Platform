@@ -9,11 +9,11 @@
     "preview": "vite preview",
     "test:contract": "node ../../scripts/portal/lims_frontend_contract.mjs",
     "test:unit": "VITE_PORTAL_DATA_MODE=frappe node --test tests/*.test.mjs",
-    "dev:frappe": "VITE_PORTAL_DATA_MODE=frappe vite",
+    "dev:frappe": "VITE_PORTAL_DATA_MODE=frappe vite --port 5178 --strictPort",
     "build:mock": "VITE_PORTAL_DATA_MODE=mock vue-tsc -b && VITE_PORTAL_DATA_MODE=mock vite build --mode mock",
     "lint": "eslint src vite.config.ts",
     "test:mock-gate": "node ../../scripts/portal/mock_content_gate.mjs",
-    "dev:mock": "VITE_PORTAL_DATA_MODE=mock vite"
+    "dev:mock": "VITE_PORTAL_DATA_MODE=mock vite --port 5193 --strictPort"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",

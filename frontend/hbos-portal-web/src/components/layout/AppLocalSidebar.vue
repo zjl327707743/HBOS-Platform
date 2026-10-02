@@ -12,7 +12,13 @@
       <ArrowLeftOutlined /><span>返回 HBOS 工作台</span>
     </button>
 
-    <nav class="app-local-nav" tabindex="0" aria-label="LIMS 功能菜单">
+    <nav
+      class="app-local-nav"
+      :class="{ 'is-scrolling': isMenuScrolling }"
+      tabindex="0"
+      aria-label="LIMS 功能菜单"
+      @scroll.passive="onMenuScroll"
+    >
       <div class="nav-section-label">我的工作</div>
       <RouterLink v-if="limsCapabilities.has('dashboard')" class="local-nav" to="/hbos/lims" exact-active-class="active" title="工作台"><DashboardOutlined /><span>工作台</span></RouterLink>
       <template v-if="limsCapabilities.has('tasks')">
@@ -62,7 +68,7 @@ import {
   LineChartOutlined,
   SafetyCertificateOutlined,
 } from '@ant-design/icons-vue'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePortalStore } from '@/stores/portal'
 import { resolveLimsShellCapabilities } from '@/services/limsCapabilities'
@@ -70,6 +76,20 @@ import { portalDataSource } from '@/services/portalProvider'
 
 const portal = usePortalStore()
 const route = useRoute()
+const isMenuScrolling = ref(false)
+let scrollIdleTimer: ReturnType<typeof setTimeout> | undefined
+
+function onMenuScroll() {
+  isMenuScrolling.value = true
+  clearTimeout(scrollIdleTimer)
+  scrollIdleTimer = setTimeout(() => {
+    isMenuScrolling.value = false
+    scrollIdleTimer = undefined
+  }, 800)
+}
+
+onBeforeUnmount(() => clearTimeout(scrollIdleTimer))
+
 const limsCapabilities = computed(() =>
   resolveLimsShellCapabilities(
     portal.apps.find((app) => app.id === 'lims'),

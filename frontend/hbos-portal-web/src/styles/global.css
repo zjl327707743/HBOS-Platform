@@ -1786,6 +1786,7 @@ body { font-size: 14px; }
 }
 
 .app-local-nav {
+  --menu-scroll-thumb: rgba(111,133,166,.34);
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
@@ -1793,15 +1794,54 @@ body { font-size: 14px; }
   overscroll-behavior-y: contain;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: rgba(111,133,166,.55) transparent;
+  scrollbar-color: var(--menu-scroll-thumb) transparent;
+}
+
+.app-local-nav:focus-within,
+.app-local-nav.is-scrolling {
+  --menu-scroll-thumb: rgba(111,133,166,.72);
+}
+
+@media (hover: hover) {
+  .app-local-nav:hover {
+    --menu-scroll-thumb: rgba(111,133,166,.72);
+  }
+}
+
+.app-local-nav:focus-visible {
+  outline: 2px solid rgba(70,101,197,.65);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+/* WebKit uses an explicit 6px width; other engines keep their native thin bar. */
+@supports selector(::-webkit-scrollbar) {
+  .app-local-nav { scrollbar-width: auto; scrollbar-color: auto; }
 }
 
 .app-local-nav::-webkit-scrollbar { width: 6px; }
+.app-local-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
 .app-local-nav::-webkit-scrollbar-thumb {
   border-radius: 6px;
-  background: rgba(111,133,166,.55);
+  background: var(--menu-scroll-thumb);
 }
-.app-local-nav::-webkit-scrollbar-thumb:hover { background: rgba(111,133,166,.8); }
+.app-local-nav::-webkit-scrollbar-thumb:hover,
+.app-local-nav::-webkit-scrollbar-thumb:active { background: rgba(111,133,166,.9); }
+
+@media (forced-colors: active) {
+  .app-local-nav,
+  .app-local-nav:hover,
+  .app-local-nav:focus-within,
+  .app-local-nav.is-scrolling {
+    --menu-scroll-thumb: CanvasText;
+    scrollbar-color: auto;
+  }
+  .app-local-nav:focus-visible { outline-color: Highlight; }
+  .app-local-nav::-webkit-scrollbar-thumb:hover,
+  .app-local-nav::-webkit-scrollbar-thumb:active { background: Highlight; }
+}
 
 .brand-mark-image {
   overflow: hidden;

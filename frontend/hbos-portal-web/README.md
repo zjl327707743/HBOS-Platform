@@ -2,7 +2,7 @@
 
 HBOS Workspace / Portal 的 Vue 3 + Ant Design Vue 前端。
 
-当前阶段：**P4-F6-5 REVIEWING / 2026-10-01 前端审核修复本地验证通过 / Owner 验收及真实 Frappe 运行态证据待补齐**。
+当前阶段：**P4-F6-5 REVIEWING / 2026-10-02 本地检查、5178 真实菜单与只读接口复测通过 / 完整真实流程与 Owner 验收待完成**。
 
 当前开发分支：`m2-r10`。2026-10-01 已合入 `codex/portal-review-fixes` 的审查整改，后续开发在本分支继续。
 
@@ -173,6 +173,28 @@ npm run dev -- --host 127.0.0.1 --port 5178
 ```
 
 若 `HTTP_PORT` 不是 8080，请替换 proxy target。
+
+`dev` 是 Vite 的开发运行方式，`frappe` / `mock` 是数据来源，两者不是同一维度。`npm run dev` 未显式设置 `VITE_PORTAL_DATA_MODE` 时会直接失败；常用简写与默认端口如下：
+
+| 用途 | 端口 | 数据来源 |
+|---|---|---|
+| 本机开发工作台 | `5178` | `frappe`，默认 API 代理到 `8080`，可由环境变量覆盖 |
+| 隔离 Frappe 预览 | `5179` | `frappe`，由隔离脚本代理到 `18091` |
+| 临时 UI 演示 | `5193` | `mock`，不连接真实后端 |
+
+开发服务启用 `strictPort`，端口占用时直接失败，避免自动切换到另一工作线的端口。
+
+```bash
+# 真实后端（frappe 模式，/api 代理到 Frappe）
+VITE_FRAPPE_PROXY_TARGET=http://127.0.0.1:8080 \
+VITE_FRAPPE_APP_ORIGIN=http://127.0.0.1:8080 \
+npm run dev:frappe -- --host 127.0.0.1
+
+# 仅 UI 演示（mock 模式，不连后端，禁止作为真实运行态证据）
+npm run dev:mock -- --host 127.0.0.1
+```
+
+侧栏与业务页面使用同一套源码，Mock 验证不能替代真实运行态验收。若源码中的 Provider 能力已更新，但真实 Bootstrap 仍返回旧能力，应核对后端源码挂载、刷新 Frappe 缓存并重启对应开发后端 Web 服务，再重新加载 Portal。若重启后出现 502，应检查现有 Nginx 是否仍缓存旧容器地址，确认后重载代理；不要为显示菜单而绕过 capability 门控。2026-10-02 已按此流程恢复本机 5178 的完整 LIMS 专业菜单，详细证据见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §10。
 
 ## 回归验证
 
