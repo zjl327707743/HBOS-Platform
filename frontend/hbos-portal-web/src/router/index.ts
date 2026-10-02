@@ -14,7 +14,7 @@ const router = createRouter({
   history: createWebHistory('/'),
   routes: [
     { path: '/', redirect: '/hbos' },
-    { path: '/login', name: 'login', component: () => import('@/views/PortalLoginView.vue'), meta: { title: '登录' } },
+    { path: '/login', redirect: (to) => ({ path: '/hbos/login', query: to.query.redirect ? { redirect_to: to.query.redirect } : {} }) },
     { path: '/hbos/login', name: 'feishu-login', component: FeishuLoginView, meta: { title: '企业身份登录' } },
     { path: '/hbos/account-connect', component: () => import('@/views/AccountConnectView.vue'), meta: { title: '账号归属与绑定' } },
     { path: '/hbos/account-change', component: () => import('@/views/AccountChangeView.vue'), meta: { title: '绑定与职责交接' } },

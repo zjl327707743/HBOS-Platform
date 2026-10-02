@@ -1,5 +1,11 @@
 # Current Milestone
 
+## m2-r11 合并后修复 Gate — 2026-10-02
+
+当前工作分支：`m2-r11`（合并基线 `f13be09`）。Owner 本轮授权合并检查、漏洞检查、测试及问题修复；未新建分支或开启新里程碑。P4-F6-5 保持 **REVIEWING / 本地修复验证通过**：CSRF 缓存与旧请求竞态、LIMS 重试与权限复核、依赖安全修复和 CI 分支入口已完成；Portal 94 项、网关 10 项回归及前端工程门禁通过，已复查的两套依赖为 0 项已知漏洞。
+
+未提交、推送或部署。完整真实角色 / 签署流程、Owner 验收、Frappe 运行态跳过项和 LIMS 独立前端在线依赖审查待办。主记录：`docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §11；阶段门禁：`docs/milestones/M2_START_GATE.md`。下方 PR #21 / 产品分支 PASS 为此前发布基线，不代替本轮运行态验收。
+
 ## Portal 产品分支合并后 Gate — 2026-10-01
 
 当前：**PR21_FINAL_REVIEW_PASS / PRODUCT_BRANCH_ACTIVE**。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收与 Browser final-submit 3/3 已通过，新 squash 四项 CI SUCCESS。旧 #22 已关闭且未合并，IAM-0 由 clean Draft PR #23 单独承接；#15 仍 Open Draft，main 未变化。
@@ -148,11 +154,11 @@ EA-5 Owner Visual Gate = APPROVED
 EA-5.3 = BASELINE
 EA-5.4 = DESIGN ENGINEERING BASELINE
 EA-5.5 = COMPLETE / OWNER APPROVED
-P4-F6-5 = REVIEWING / 2026-10-01 LOCAL FIX VERIFICATION PASS
+P4-F6-5 = REVIEWING / 2026-10-02 MERGED BRANCH LOCAL FIX VERIFICATION PASS
 REAL Frappe RUNTIME / OWNER ACCEPTANCE = PENDING
 ```
 
-正式工作分支：`m2-r10`。Owner 于 2026-10-01 指定将 `codex/portal-review-fixes` 合入本分支，并在本分支继续开发；该分支调整不启动新的业务轮次。
+正式工作分支：`m2-r11`。Owner 本轮在合并后的当前分支授权检查与修复；2026-10-01 的 `m2-r10` 合并记录作为历史保留，该分支调整不启动新的业务轮次。
 
 当前允许范围为已批准的 Portal/LIMS 前端审核修复和验证。`apps/hbos_portal` 与三业务 Provider 已存在；本轮不创建 App、不改业务 Authority、不进入新的能力门禁。下文按日期记录历史 Gate 推进，当前状态以最新记录为准。
 

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/hbos-portal-product
+      - m2-r11
     paths:
       - 'apps/hbos_portal/**'
       - 'apps/hb_lims_app/hb_lims_app/hooks.py'

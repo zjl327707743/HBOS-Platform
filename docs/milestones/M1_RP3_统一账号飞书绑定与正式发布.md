@@ -1,5 +1,11 @@
 # M1-RP3：统一账号、飞书绑定与正式发布
 
+## 本地合并分支账号边界修复 — 2026-10-02
+
+状态：**m2-r11 LOCAL FIX VERIFIED / P4-F6-5 REVIEWING**。Owner 本轮授权在当前合并分支修复问题，合并基线 `f13be09`。统一 Portal / LIMS 写请求 CSRF 缓存，登录使用新取得的安全令牌；会话切换时未完成的旧令牌请求只拒绝旧操作，不误触发新会话退出。保留工作区已有 `/hbos/login` 统一入口及安全回跳调整，旧 `/login` 转向统一入口。Portal 94 项回归及前端工程门禁通过，网关升级依赖后的 10 项回归通过，两套已复查依赖为 0 项已知漏洞。
+
+本轮未操作真实凭据、绑定或 MFA，未提交、推送或部署，未重复宣称真实 OAuth / final-submit PASS。PR #21 下列 **FINAL_REVIEW_PASS / MERGED_TO_PORTAL_PRODUCT** 是此前发布基线的收口事实，保留其历史状态；本轮新改动仍待真实运行态与 Owner 验收。细节见 `../experience/LIMS_P4-F6-5_前端审核整改记录.md` §11。
+
 ## 合并后最终状态 — 2026-10-01
 
 状态：**FINAL_REVIEW_PASS / MERGED_TO_PORTAL_PRODUCT**。

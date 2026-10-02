@@ -5,6 +5,7 @@ on:
     branches:
       - feature/hbos-portal-product
       - m2-r10
+      - m2-r11
     paths:
       - 'frontend/hbos-portal-web/**'
       - '.github/workflows/hbos-portal-frontend.yml'

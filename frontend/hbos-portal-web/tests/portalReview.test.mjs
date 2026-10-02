@@ -73,7 +73,7 @@ for (const error of [rejection(401), rejection(403, { code: 'UNAUTHENTICATED' })
   test(`bootstrap ${error.response.status} unauthenticated redirects to login`, async () => {
     const portal = freshPortal()
     fixture.data = async () => { throw error }
-    assert.deepEqual(await checkPortalAccess(limsRoute, portal, 'frappe'), { name: 'login', query: { redirect: limsRoute.fullPath } })
+    assert.deepEqual(await checkPortalAccess(limsRoute, portal, 'frappe'), { path: '/hbos/login', query: { redirect_to: limsRoute.fullPath } })
   })
 }
 test('successful bootstrap still denies missing app and missing semantic capability', async () => {

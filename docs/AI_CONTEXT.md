@@ -1,6 +1,8 @@
 # AI Context
 
-最新事实：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
+当前本地任务（2026-10-02）：在 `m2-r11@f13be09` 合并基线上按 Owner 要求修复问题，未创建或切换分支。CSRF 统一缓存、旧请求竞态、会话重试与权限复核、Portal / 网关依赖修复及本地验证已完成；工作区已有统一登录入口与资料页修改已保留。P4-F6-5 为 **REVIEWING / 本地修复验证通过**，完整真实角色 / 签署流程及 Owner 验收待办。未提交、推送、部署或操作真实账号；主证据见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §11。下方 PR #21 的 PASS 是此前产品发布事实。
+
+2026-10-01 产品发布事实：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
 
 ## 账号小范围收尾 — 2026-10-01
 
@@ -118,7 +120,7 @@ Skill 路由规范文件为：
 
 Authority：
 
-- 当前开发分支：`m2-r10`（已整合 Portal 产品线与 `codex/portal-review-fixes`）
+- 当前开发分支：`m2-r11`（Owner 合并后的本地工作分支；此前 `m2-r10` 记录作为历史保留）
 - Draft PR：#15
 - 设计文档：`docs/experience/`
 - 前端规范：`docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`

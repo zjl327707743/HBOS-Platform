@@ -23,7 +23,9 @@ const app = { id: 'lims', shortTitle: 'LIMS', capabilityTasks: true, capabilityS
 before(async () => {
   axios.defaults.adapter = async config => {
     calls.push(config)
-    const message = config.url.includes('get_csrf_token') ? 'test-csrf' : await handler(config)
+    const message = config.url.endsWith('hbos_portal.api.csrf.get_token')
+      ? { ok: true, data: { csrf_token: 'test-csrf' } }
+      : await handler(config)
     return { data: { message }, status: 200, statusText: 'OK', headers: {}, config }
   }
   server = await createServer({ root, configFile: `${root}/vite.config.ts`,

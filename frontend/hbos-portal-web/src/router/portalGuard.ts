@@ -12,7 +12,7 @@ export async function checkPortalAccess(
 ) {
   if (!to.meta.requiresAuth) return true
   if (!(await portal.ensureSession())) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+    return { path: '/hbos/login', query: { redirect_to: to.fullPath } }
   }
 
   // An unavailable bootstrap is not an access denial. Keep the requested

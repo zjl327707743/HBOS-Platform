@@ -155,8 +155,12 @@ export const usePortalStore = defineStore('portal', () => {
   }
 
   async function signOut() {
-    await logout()
-    markSignedOut()
+    try {
+      await logout()
+    } finally {
+      // 服务端登出失败也必须清本地会话，避免半死会话滞留。
+      markSignedOut()
+    }
   }
 
   async function refreshSummaries() {

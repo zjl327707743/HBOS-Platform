@@ -15,8 +15,8 @@
           <div>
             <h2>{{ portal.user?.displayName }}</h2>
             <p>{{ portal.user?.id }}</p>
-            <a-tag color="blue">{{ portal.user?.roleLabel }}</a-tag>
-            <a-tag>{{ portal.user?.department }}</a-tag>
+            <a-tag color="blue">{{ roleTag }}</a-tag>
+            <a-tag v-if="portal.user?.department">{{ portal.user?.department }}</a-tag>
           </div>
         </div>
         <a-divider />
@@ -61,6 +61,11 @@ import { usePortalStore } from '@/stores/portal'
 
 const portal = usePortalStore()
 const security = ref<SecurityStatus | null>(null)
+// 角色标签须反映真实权限：Administrator / System Manager 显示「管理员」。
+const roleTag = computed(() => {
+  if (security.value?.administrator || security.value?.can_admin_recover) return '管理员'
+  return portal.user?.roleLabel || 'HBOS User'
+})
 const loginMethods = computed(() => describeLoginMethods(security.value))
 const deskAccess = ref(false)
 const canDiagnose = ref(false)

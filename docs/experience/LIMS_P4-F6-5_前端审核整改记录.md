@@ -1,7 +1,7 @@
 # LIMS P4-F6-5 前端审核整改记录
 
-状态：**REVIEWING / 2026-10-01 Portal 审核修复与本地验证完成 / 待 Owner 验收及真实 Frappe 运行态证据**
-日期：2026-09-30；更新：2026-10-01
+状态：**REVIEWING / 2026-10-02 m2-r11 合并后问题修复与本地验证完成 / 待完整真实流程及 Owner 验收**
+日期：2026-09-30；更新：2026-10-02
 
 ## 1. 审核结论确认
 
@@ -179,3 +179,30 @@ Owner 反馈 5178 无法连接服务器：本机检查确认 5178 没有监听�
 - `npm run lint`、34 项 `test:unit`、`test:contract`、`test:mock-gate`、`lims_shell_contract.sh`、真实模式类型检查/生产构建与 `git diff --check` 通过。Vite 配置解析确认两种数据源均为 development，端口分别 5178/5193，strictPort 为 true；真实代理指向 8080。既有 Ant vendor 大包警告保留。
 
 已同步 PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、实施计划与公共 Portal 入口说明；CLAUDE/AGENTS 无过期 Portal 阶段描述，不需修改。没有改变里程碑/轮次，P4-F6-5 保持 REVIEWING：真实菜单、只读接口与侧栏证据已补齐，完整角色/签署写流程、四档真实截图及 Owner 最终验收继续待办。未提交、未推送；§8 所列其他工作线 WARN 保留。指定的 superpowers / frontend-design 不可用，本轮按项目规则人工执行与复核。
+
+
+## 11. 2026-10-02 m2-r11 合并后检查与问题修复
+
+状态：**REVIEWING / MERGED BRANCH LOCAL FIX VERIFICATION PASS**。当前分支 `m2-r11`，合并基线 `f13be09795b13e321d3cbcb582f7d976e937a296`，父提交为 `4d9486d` 与 `114a0cb`。Owner 先要求合并冲突 / 漏洞检查及测试，随后授权问题修复。没有未解决的 Git 索引冲突、合并进行中状态或源码冲突标记。
+
+本轮读取 CLAUDE、AGENTS、AI_CONTEXT、PROJECT_STATUS、CURRENT_MILESTONE，按测试 / Skill 路由要求读取 `docs/AI技能路由规范.md`，并定向读取本整改记录、RP3 主文档、M2_START_GATE 与公共入口；未递归读取 docs，也未默认读取 archive / research / legacy。指定的 superpowers 在当前环境不可用，按项目规则人工执行复现、回归、整改与复核。
+
+### 问题与修复
+
+- **CSRF 缓存分叉**：旧 LIMS 拦截器缓存会覆盖 Portal 请求或登录刚取得的安全令牌。`frappeClient.ts` 改为一个缓存与共享的令牌请求，保留调用方显式提供的令牌，LIMS 写入复用 Portal POST 客户端；登录 / 登出、CSRF 拒绝及会话清理后不再使用旧 HTML 注入令牌。错误后不自动重放业务写操作，下一次明确重试取得新令牌。
+- **旧请求竞态**：会话切换后，旧令牌请求的结果不能覆盖新缓存；旧操作返回 CSRF_MISMATCH，不误判为 UNAUTHENTICATED 而清空新会话。并发写请求共享一次令牌读取。
+- **LIMS 重试仍显示旧错误**：布局重试改为调用同一个 `usePortalSession.synchronize()`，成功后清除错误并重新校验 App 访问资格，再重新进入受路由守卫保护的页面；失去 LIMS 资格转入 403。
+- **统一登录入口**：开始修复前工作区已有 `main.ts`、路由、守卫和对应测试修改，失效会话与旧 `/login` 转到 `/hbos/login`，保留安全 `redirect_to`；该已有修改经回归验证并保留。修复期间出现的资料页管理员身份 / 部门展示修改同样保留，未覆盖其他工作线。
+- **依赖漏洞**：Portal 的 Vitest `3.2.4 → 4.1.11`，兼容的 js-beautify 间接 glob 固定为 `10.5.0`，同步 package-lock；网关 FastAPI `0.128.8 → 0.142.2`、Starlette `0.49.3 → 1.7.0`，固定新增传递依赖 opentelemetry-api `1.45.0`。新增 `requirements-test.txt` 固定 HTTP 测试依赖 httpx `0.28.1`，发布 CI 安装该文件，生产 Docker 仍只安装 requirements.txt。
+- **合并分支治理**：前端 CI push 入口加入 `m2-r11`，当前分支说明与状态台账同步；旧分支 / PR 发布证据按日期保留，不批量替换历史记录。
+
+### 验证与审查边界
+
+- 合并检查阶段的全仓离线基线：**1275 passed / 33 skipped**，覆盖 Portal、独立 LIMS 前端、LIMS / 考勤 / 库存 / Portal / 知识 / 孪生后端、网关、本机脚本与 OCR。33 项跳过需要真实 Frappe 运行态；不作为 PASS。
+- 修复前新增用例先出现 **5 failed / 2 passed**，修复后通过；追加旧令牌请求竞态用例先 FAIL 后 PASS。最终新增 **8 项前端**回归（CSRF 6、会话重试 2）及 **5 项网关 HTTP**边界回归（正确 JSON、缺失 / 错误认证、身份 / 范围限制、旧政策 / 无效输入、健康响应不泄漏配置）。采用合成令牌与数据，未操作真实账号或业务记录。
+- 更新后的锁文件经 `npm ci --ignore-scripts --no-audit --no-fund` 重新安装验证；Portal Node **34/34**、Vitest **60/60**、网关 Python **10/10**通过。ESLint、TypeScript、前端契约、Mock AST 门禁、Shell 契约、真实数据模式生产构建及 `git diff --check` 通过。网关依赖安装和 HTTP 测试使用隔离的 Python 3.12 临时目录，没有更新运行中服务或安装 Frappe。
+- 官方 npm Portal 锁文件在线审查：**388 个依赖 / 0 项已知漏洞**；网关固定的 **14 个 Python 包 / 0 项已知漏洞**。OCR 锁文件 **109 个包**与 Portal pypinyin 的合并检查结果为 0 项已知漏洞，本轮未改变其版本。不据此宣称项目没有业务逻辑漏洞。Starlette 已知风险包括特定 URL、表单、静态文件及端点条件；当前项目可利用性未由审查证明。
+- **LIMS 独立前端在线依赖审查未完成**：自动审批拒绝向官方 npm 发送该子项目依赖元数据，原因是缺少明确授权；已提出授权请求，尚无答复。未绕过审批。既有离线测试 / 构建通过不替代在线漏洞审查。
+- 本轮未执行真实 Frappe / Docker 联调、角色与签署写流程、OAuth / final-submit 或新部署后的 Owner 验收；§10 的旧分支真实只读证据作为历史保留。既有 Ant vendor 构建体积提示保留。
+
+已同步 PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、RP3 账号边界主记录及 README / AI_CONTEXT / READING_GUIDE；CLAUDE / AGENTS 已检查，无过期阶段描述，无需改动。本轮未新增业务轮次，P4-F6-5 保持 REVIEWING。未新建或切换分支、提交、推送、部署或改写真实账号数据；后续先补真实运行态与 Owner 验收，再进行放行。

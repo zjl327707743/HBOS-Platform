@@ -1,5 +1,7 @@
 # Reading Guide
 
+当前本地任务（2026-10-02）在 `m2-r11` 完成合并检查与问题修复，P4-F6-5 为 **REVIEWING / 本地验证通过**。优先读 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §11 和 `docs/milestones/M2_START_GATE.md`；当前状态以 PROJECT_STATUS / CURRENT_MILESTONE 顶部记录为准。下方 PR #21 PASS 是此前产品发布事实，不代替本轮完整真实流程和 Owner 验收。
+
 PR #21 已完成 FINAL_REVIEW_PASS 并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Browser final-submit 3/3 与 Owner 最新无破坏验收均已 PASS；旧 #22 已关闭，IAM-0 由 clean Draft PR #23 承接。PR #15 仍 Draft，main 未放行。以 [本轮主记录](milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 顶部的合并后收口状态为准；下方 BLOCKED/WAITING 文字均为历史。
 
 本指南用于限制 AI 在新乡海滨智能运营管理平台中的默认阅读范围，避免上下文膨胀和误读旧资料。
@@ -109,7 +111,7 @@ M0 历史任务曾允许读取：
 
 不得因此递归读取整个 `docs/`。
 
-Portal 当前为 Owner 已授权并行产品工作流，当前开发分支为 `m2-r10`；它不改变 M1-FIX 主里程碑。
+Portal 当前为 Owner 已授权并行产品工作流，当前开发分支为 `m2-r11`；它不改变 M1-FIX 主里程碑。
 
 ### Portal 当前审核修复状态 — 2026-10-01
 
@@ -121,7 +123,7 @@ Portal 当前为 Owner 已授权并行产品工作流，当前开发分支为 `m
 
 详细记录：`docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §8；重新基线：`docs/experience/LIMS_P4-F6-7_前端代码审核报告.md` 顶部复核节。
 
-Portal 当前运行依据（2026-10-02）：开发分支 `m2-r10`，5178 连接真实 Frappe，5179 隔离预览，5193 Mock。真实菜单、只读接口和侧栏已补证，完整真实流程与 Owner 验收尚待完成；最新排查与证据见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §10，启动说明见 `frontend/hbos-portal-web/README.md`。
+Portal 开发启动约定（2026-10-02）：当前分支 `m2-r11`，5178 连接真实 Frappe，5179 隔离预览，5193 Mock。此前 `m2-r10` 的真实菜单、只读接口和侧栏证据见整改记录 §10，本轮合并分支修复与本地验证见 §11；本轮未重新验证真实运行态，完整真实流程与 Owner 验收尚待完成。启动说明见 `frontend/hbos-portal-web/README.md`。
 Portal 产品 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；原 `codex/portal-unified-account-release` 仅保留为已合并 PR #21 的历史来源。
 
 

@@ -1,13 +1,15 @@
 # 新乡海滨智能运营管理平台
 
-最新产品基线：PR #21 已在 FINAL_REVIEW_PASS 后 squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS、浏览器设密/改密/恢复 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。IAM-0 已由 clean Draft PR #23 承接，旧 #22 已关闭且未合并；PR #15 仍为 Draft，main 未变化。[当前 Gate](docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 记录本轮收口事实。
+当前本地工作分支（2026-10-02）：`m2-r11`。合并冲突检查通过，已修复 CSRF 缓存、旧请求竞态及 LIMS 会话重试问题，升级 Portal / 网关存在已知漏洞的依赖，并补齐回归和 CI 入口。P4-F6-5 保持 **REVIEWING**，本轮未提交、推送或部署；完整真实角色 / 签署流程与 Owner 验收待办。详见[合并后整改记录](docs/experience/LIMS_P4-F6-5_前端审核整改记录.md#11-2026-10-02-m2-r11-合并后检查与问题修复)。下方 PR #21 的 PASS 属于此前产品发布基线，不代替本轮运行态验收。
+
+2026-10-01 产品发布基线：PR #21 已在 FINAL_REVIEW_PASS 后 squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS、浏览器设密/改密/恢复 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。IAM-0 已由 clean Draft PR #23 承接，旧 #22 已关闭且未合并；PR #15 仍为 Draft，main 未变化。[当前 Gate](docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 记录本轮收口事实。
 
 Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
 
 ## 当前交付
 
 当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 **M1-FIX-F（REVIEWING / 两阶段均已上线）**：调休模块——一阶段把飞书调休审批接入并按「加班日提取 → 打卡核实」产出结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败）；二阶段把已核实调休日**接入考勤判定豁免与看板**（不再判缺勤、看板显示「请假（调休）」）。2026-09-24 追加完成名单单一来源收敛（行政班、无菌各收敛为一份）与 PR 审查 5 项修复。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`，主文档 `docs/milestones/M2_STOCK_R1_库存模块隔离实施记录.md`；LIMS（M2）、仓储（M3）与 Portal 为已授权并行工作线，进度见各阶段门禁及并行记录。
-本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；团队后续 Portal 代码以产品分支为准。PR #15 仍 Draft，不推 main；IAM 由 Draft PR #23 单独承接。
+本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；该轮产品发布以产品分支为基线；本轮本地工作分支已更新为 `m2-r11`。PR #15 仍 Draft，不推 main；IAM 由 Draft PR #23 单独承接。
 
 平台已包含考勤、仓储库存、LIMS、Portal、知识助理与设备/数字孪生自定义 App。密码和飞书使用同一 Frappe User；原有业务权限仍由原 App 约束。业务通知、生成式知识回答、现场遥测、工艺动画及偏好同步尚未实现，具体状态见前端完整性矩阵。安全变更通知单独记录真实发送状态，不能等同业务通知能力完成。
 
@@ -105,7 +107,7 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 
 Owner 已于 2026-09-24 正式授权 HBOS Workspace / Portal 产品线，作为主业务治理线之外的独立并行工作流。
 
-- 当前开发分支：`m2-r10`（已整合 Portal 产品线与 `codex/portal-review-fixes`）
+- 当前开发分支：`m2-r11`（Owner 合并后的本地工作分支；此前 `m2-r10` 记录作为历史保留）
 - Draft PR：#15
 - Experience Architecture：`docs/experience/`
 - 实施计划：`docs/plans/HBOS_PORTAL_IMPLEMENTATION_PLAN.md`

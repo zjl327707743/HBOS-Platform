@@ -84,11 +84,12 @@ async function handleLogout() {
   signingOut.value = true
   try {
     if (portal.dataSource === 'frappe') await logoutFrappeSession()
-    portal.clearSession()
-    await router.replace({ path: '/hbos/login', query: { status: 'signed_out' } })
   } catch (error) {
+    // 服务端会话可能已半死导致登出失败；仍要清本地会话并离开受保护页面。
     message.error(error instanceof Error ? error.message : '退出失败，请稍后重试。')
   } finally {
+    portal.clearSession()
+    await router.replace({ path: '/hbos/login', query: { status: 'signed_out' } })
     signingOut.value = false
   }
 }

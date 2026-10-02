@@ -56,18 +56,15 @@ const portal = usePortalStore()
 const route = useRoute()
 const router = useRouter()
 const commandOpen = ref(false)
-const { sessionPending, sessionError } = usePortalSession()
+const { sessionPending, sessionError, synchronize } = usePortalSession()
 
 // 会话探测或 bootstrap 失败时统一显示错误壳，并保留重试入口。
 const shellError = computed(() => sessionError.value || portal.bootstrapError)
 
 async function retryBootstrap() {
-  try {
-    await portal.bootstrap()
-    await router.replace({ path: route.path, query: route.query, hash: route.hash, force: true })
-  } catch {
-    // 保持当前错误态，由 store 呈现清洗后的信息。
-  }
+  const ok = await synchronize().catch(() => false)
+  // 检查成功后强制重挂载，避免后台已恢复但子视图仍停在错误壳。
+  if (ok) await router.replace({ path: route.path, query: route.query, hash: route.hash, force: true })
 }
 
 function shortcut(event: KeyboardEvent) {

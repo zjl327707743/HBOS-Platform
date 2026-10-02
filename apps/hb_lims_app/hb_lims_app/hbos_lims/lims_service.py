@@ -280,6 +280,7 @@ def _result_display_value(result):
 @frappe.whitelist()
 def get_csrf_token():
 	"""返回当前会话的 CSRF token（供独立前端 POST 请求使用）。"""
+	frappe.local.response_headers["Cache-Control"] = "private, no-store, max-age=0"
 	from frappe.sessions import get_csrf_token
 	return get_csrf_token()
 

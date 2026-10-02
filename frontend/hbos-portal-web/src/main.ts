@@ -38,8 +38,8 @@ if (
     portal.markSignedOut()
 
     const current = router.currentRoute.value
-    if (current.name === 'login' || current.name === 'feishu-login') return
-    void router.replace({ name: 'login', query: { redirect: current.fullPath } })
+    if (current.name === 'feishu-login') return
+    void router.replace({ path: '/hbos/login', query: { redirect_to: current.fullPath } })
   })
 
   app.mount('#app')

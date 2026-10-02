@@ -115,7 +115,7 @@ export function normalizeFrappeError(error: unknown, method?: string): FrappeReq
     return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
   }
   if (/CSRFTokenError|csrf token/i.test(detail)) {
-    csrfToken = null
+    clearCachedCsrfToken()
     return new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请刷新页面后重试。', status)
   }
   if (status === 403 || status === 417) {
@@ -141,22 +141,23 @@ const http = axios.create({
   },
 })
 
-let cachedCsrf: string | null = null
 let csrfToken: string | null = null
+let csrfRequest: Promise<string> | null = null
+let csrfGeneration = 0
+let allowInjectedCsrf = true
 
 export function clearCachedCsrfToken() {
-  cachedCsrf = null
+  csrfGeneration += 1
+  csrfToken = null
+  csrfRequest = null
+  // The HTML belongs to the previous session after login, logout or rotation.
+  allowInjectedCsrf = false
 }
 
-export function clearFrappeCsrfToken() { csrfToken = null }
-
-function readCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'))
-  return match?.[2] ? decodeURIComponent(match[2]) : null
-}
+export const clearFrappeCsrfToken = clearCachedCsrfToken
 
 function bootstrapCsrfToken(): string | null {
+  if (typeof window === 'undefined') return null
   const runtime = window as Window & {
     csrf_token?: string
     frappe?: { csrf_token?: string }
@@ -165,43 +166,40 @@ function bootstrapCsrfToken(): string | null {
   return runtime.frappe?.csrf_token || runtime.csrf_token || meta || null
 }
 
-/**
- * 独立 Portal 不一定由 Frappe Desk 注入 csrf_token，写操作前主动取一次。
- * 使用原始 axios 请求，避免获取 token 的 GET 再次进入本拦截器。
- */
-async function ensureCsrfToken(): Promise<string | null> {
-  const fromCookie = readCookie('csrftoken')
-  if (fromCookie) return fromCookie
-  if (cachedCsrf) return cachedCsrf
-  try {
-    const response = await axios.get(
-      '/api/method/hb_lims_app.hbos_lims.lims_service.get_csrf_token',
-      { baseURL: import.meta.env.VITE_FRAPPE_BASE_URL || '', withCredentials: true, timeout: 15000 },
-    )
-    cachedCsrf = response.data?.message || null
-    return cachedCsrf
-  } catch {
-    return null
-  }
-}
-
 async function getCsrfToken(): Promise<string> {
-  csrfToken ||= bootstrapCsrfToken()
+  if (allowInjectedCsrf) {
+    allowInjectedCsrf = false
+    csrfToken ||= bootstrapCsrfToken()
+  }
   if (csrfToken) return csrfToken
+  if (csrfRequest) return csrfRequest
 
-  try {
-    const response = await http.get<FrappeMethodResponse<{
-      ok: boolean
-      data?: { csrf_token: string }
-    }>>('/api/method/hbos_portal.api.csrf.get_token')
-    const payload = response.data.message
-    if (!payload.ok || !payload.data?.csrf_token) {
-      throw new FrappeRequestError('UNAUTHENTICATED', '当前会话无法建立安全请求，请重新登录。')
+  const generation = csrfGeneration
+  const request = (async () => {
+    try {
+      const response = await http.get<FrappeMethodResponse<{
+        ok: boolean
+        data?: { csrf_token: string }
+      }>>('/api/method/hbos_portal.api.csrf.get_token')
+      const payload = response.data.message
+      if (generation !== csrfGeneration) {
+        // Reject the old write without invalidating a newer authenticated session.
+        throw new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请重试。')
+      }
+      if (!payload.ok || !payload.data?.csrf_token) {
+        throw new FrappeRequestError('UNAUTHENTICATED', '当前会话无法建立安全请求，请重新登录。')
+      }
+      csrfToken = payload.data.csrf_token
+      return csrfToken
+    } catch (error) {
+      throw normalizeFrappeError(error, 'hbos_portal.api.csrf.get_token')
     }
-    csrfToken = payload.data.csrf_token
-    return csrfToken
-  } catch (error) {
-    throw normalizeFrappeError(error, 'hbos_portal.api.csrf.get_token')
+  })()
+  csrfRequest = request
+  try {
+    return await request
+  } finally {
+    if (csrfRequest === request) csrfRequest = null
   }
 }
 
@@ -230,16 +228,20 @@ export function isAuthError(error: unknown): boolean {
 
 http.interceptors.request.use(async (config) => {
   if (config.method?.toLowerCase() === 'get') return config
-  const csrf = await ensureCsrfToken()
-  if (csrf) {
-    config.headers['X-Frappe-CSRF-Token'] = csrf
-  }
+  // A fresh login/security token must never be replaced by an older cache.
+  if (config.headers.has('X-Frappe-CSRF-Token')) return config
+  const url = String(config.url || '')
+  if (url === '/api/method/login' || url === '/api/method/hbos_portal.auth.accounts.password_login') return config
+  config.headers['X-Frappe-CSRF-Token'] = await getCsrfToken()
   return config
 })
 
 http.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (axios.isAxiosError(error) && /CSRFTokenError|csrf token/i.test(responseText(error.response?.data))) {
+      clearCachedCsrfToken()
+    }
     const url = String(error?.config?.url || '')
     // 登录请求自身的 401 由登录页就近提示，不触发跳转。
     if (isAuthError(error) && !url.includes('/api/method/login')) {
@@ -269,11 +271,7 @@ export async function callFrappeAction<T>(
   method: string,
   params?: Record<string, unknown>,
 ): Promise<T> {
-  const response = await http.post<FrappeMethodResponse<T>>(
-    `/api/method/${method}`,
-    params,
-  )
-  return response.data.message
+  return callFrappePostMethod<T>(method, params)
 }
 
 export async function callFrappePostMethod<T>(
@@ -307,7 +305,7 @@ export async function loginWithPassword(username: string, password: string, otp 
     const result = await http.post<{ message: PasswordLoginResult }>('/api/method/hbos_portal.auth.accounts.password_login', { username, password, otp, tmp_id: tmpId }, {
       headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(security.data.message.csrf_token ? { 'X-Frappe-CSRF-Token': security.data.message.csrf_token } : {}) },
     })
-    csrfToken = null
+    clearCachedCsrfToken()
     return result.data.message
   } catch (error) {
     throw normalizeFrappeError(error, tmpId ? 'login_mfa' : 'login')
@@ -321,6 +319,7 @@ export async function loginWithPassword(username: string, password: string, otp 
 export async function login(usr: string, pwd: string): Promise<void> {
   const body = new URLSearchParams({ usr, pwd })
   await http.post('/api/method/login', body)
+  clearCachedCsrfToken()
 }
 
 /** Frappe 标准登出：服务端结束会话成功后才清除本地会话。 */
@@ -338,7 +337,7 @@ export async function logoutFrappeSession(): Promise<void> {
         'Content-Type': 'application/json',
       },
     })
-    csrfToken = null
+    clearCachedCsrfToken()
   } catch (error) {
     throw normalizeFrappeError(error, 'logout')
   }

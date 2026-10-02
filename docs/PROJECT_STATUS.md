@@ -1,5 +1,11 @@
 # 项目状态
 
+## m2-r11 合并后问题修复 — 2026-10-02
+
+状态：**P4-F6-5 REVIEWING / LOCAL FIX VERIFICATION PASS**。当前分支 `m2-r11`，合并基线 `f13be09` 已完成合并，没有未解决的 Git 冲突或冲突标记。按 Owner 本轮授权修复 CSRF 缓存分叉、旧请求误判新会话失效、LIMS 重试错误态与权限复核；保留工作区已有统一登录与资料页修改。升级 Portal Vitest / glob 及网关 FastAPI / Starlette，更新锁文件、测试依赖与 `m2-r11` 前端 CI 入口。修复后 Portal 94 项、网关 10 项回归及前端工程门禁通过；已复查的 Portal / 网关依赖均为 0 项已知漏洞。证据见 `docs/experience/LIMS_P4-F6-5_前端审核整改记录.md` §11。
+
+未提交、推送或部署。真实只读证据按 §10 保留，完整真实角色 / 签署流程及 Owner 验收待办；合并基线 33 项 Frappe 运行态测试跳过，LIMS 独立前端在线依赖审查未完成，不以局部审查推断全项目零漏洞。此前 PR #21 产品发布事实及各业务子轮状态保持其历史口径。
+
 ## PR #21 合并后收口 — 2026-10-01
 
 状态：**FINAL_REVIEW_PASS / MERGED_TO_PORTAL_PRODUCT**。PR #21 已使用 expected-head squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 仅承接原 11 文件增量；PR #15 仍 Open Draft，main 未变化。
@@ -1141,14 +1147,14 @@ Owner 于 2026-09-24 明确授权正式启动 HBOS Workspace / Portal 产品线�
 当前工作分支：
 
 ```text
-m2-r10
+m2-r11
 ```
 
 当前阶段：
 
 ```text
 EA-5.5 = COMPLETE / OWNER APPROVED
-P4-F6-5 = REVIEWING / 2026-10-01 LOCAL FIX VERIFICATION PASS
+P4-F6-5 = REVIEWING / 2026-10-02 MERGED BRANCH LOCAL FIX VERIFICATION PASS
 REAL Frappe RUNTIME / OWNER ACCEPTANCE = PENDING
 ```
 
