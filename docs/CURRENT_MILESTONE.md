@@ -1,8 +1,14 @@
 # Current Milestone
 
-## 产品版本治理 — 2026-10-06
+## 产品基线快照（核验日 2026-10-06）
 
-当前：**PRODUCT_BRANCH_ACTIVE / IAM-1 PAUSED / OWNER_ACCEPTANCE_WAITING_OWNER**。产品分支 `feature/hbos-portal-product` HEAD 为 `72e5b1728981b7ef102a2c9ee033ce0452c400e7`；#24–#28 均已合并，其中 #26/#27/#28 为安全修复（考勤月度上传授权、LIMS 留样审批系统字段写保护、ESS 敏感导出策略）。本机 P1 运行版本仍为 `2d138f86a14883214f4963f5809550770a2bc3df`（build ID `dcfcba32096a320a9981`），**未升级**，因此本轮只做旧版本功能走查与 Owner 验收准备，不执行迁移、制品切换、账号/角色/权限变更。PR #15 仍 Open Draft，main 未变化。
+状态：**PRODUCT_BRANCH_ACTIVE / IAM-1 PAUSED / OWNER_ACCEPTANCE_WAITING_OWNER**。本节的 SHA 是**核验日 2026-10-06** 的快照，不随分支自动更新；后续轮次须当日重新核验。
+
+产品分支 `feature/hbos-portal-product` 核验日 HEAD = `72e5b1728981b7ef102a2c9ee033ce0452c400e7`；#24–#28 均已合并，其中 #26/#27/#28 为安全修复（考勤月度上传授权、LIMS 留样审批系统字段写保护、ESS 敏感导出策略）。本机 P1 运行版本仍为 `2d138f86a14883214f4963f5809550770a2bc3df`（build ID `dcfcba32096a320a9981`），**未升级**，因此本轮只做旧版本功能走查与 Owner 验收准备，不执行迁移、制品切换、账号/角色/权限变更。
+
+旧部署与产品分支的历史不直接相连，**主要原因是 PR #21 采用 squash 合并**（两条历史不共享父提交）；运行版本独有的提交内容已随 PR #21 进入产品分支，逐文件内容差仅 26 个文件。这不代表旧账号/飞书功能遗漏，**不需要重新合并旧分支**。
+
+PR #15 仍 Open Draft，main 未变化。
 
 以下 2026-10-01 各节为历史记录。
 
