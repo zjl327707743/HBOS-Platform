@@ -1,6 +1,12 @@
 # Current Milestone
 
-## Portal 产品分支合并后 Gate — 2026-10-01
+## 产品版本治理 — 2026-10-06
+
+当前：**PRODUCT_BRANCH_ACTIVE / IAM-1 PAUSED / OWNER_ACCEPTANCE_WAITING_OWNER**。产品分支 `feature/hbos-portal-product` HEAD 为 `72e5b1728981b7ef102a2c9ee033ce0452c400e7`；#24–#28 均已合并，其中 #26/#27/#28 为安全修复（考勤月度上传授权、LIMS 留样审批系统字段写保护、ESS 敏感导出策略）。本机 P1 运行版本仍为 `2d138f86a14883214f4963f5809550770a2bc3df`（build ID `dcfcba32096a320a9981`），**未升级**，因此本轮只做旧版本功能走查与 Owner 验收准备，不执行迁移、制品切换、账号/角色/权限变更。PR #15 仍 Open Draft，main 未变化。
+
+以下 2026-10-01 各节为历史记录。
+
+## Portal 产品分支合并后 Gate — 2026-10-01（历史）
 
 当前：**PR21_FINAL_REVIEW_PASS / PRODUCT_BRANCH_ACTIVE**。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收与 Browser final-submit 3/3 已通过，新 squash 四项 CI SUCCESS。旧 #22 已关闭且未合并，IAM-0 由 clean Draft PR #23 单独承接；#15 仍 Open Draft，main 未变化。
 

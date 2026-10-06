@@ -1,6 +1,8 @@
 # AI Context
 
-最新事实：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
+最新事实（2026-10-06）：产品分支 `feature/hbos-portal-product` 当前 HEAD 为 `72e5b1728981b7ef102a2c9ee033ce0452c400e7`；#24–#28 已合并，其中 #26/#27/#28 为安全修复。本机 P1 运行版本仍为 `2d138f86a14883214f4963f5809550770a2bc3df`（build ID `dcfcba32096a320a9981`），安全补丁**未部署**，当前为旧版本功能走查。IAM-1 = PAUSED；Owner 人工验收 = WAITING_OWNER；PR #15 仍 Draft，main 未变化。团队获取产品代码只使用 `feature/hbos-portal-product`，原 `codex/portal-unified-account-release` 已在 GitHub 删除，仅作历史。
+
+历史事实（2026-10-01）：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
 
 ## 账号小范围收尾 — 2026-10-01
 

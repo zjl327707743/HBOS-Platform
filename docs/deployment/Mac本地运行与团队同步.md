@@ -82,11 +82,13 @@ Administrator 许可 `hbos_feishu_allow_administrator_link` 只在 Owner 指定 
 
 ## 团队获取同一版本
 
+产品代码 Authority 是 `feature/hbos-portal-product`。原 `codex/portal-unified-account-release` 已作为 PR #21 的历史来源在 GitHub 删除，不再用于获取代码。
+
 首次获取：
 
 ```bash
 export HBOS_CODE_DIR="$PWD/HBOS-Platform"
-git clone --branch codex/portal-unified-account-release --single-branch https://github.com/zjl327707743/HBOS-Platform.git "$HBOS_CODE_DIR"
+git clone --branch feature/hbos-portal-product --single-branch https://github.com/zjl327707743/HBOS-Platform.git "$HBOS_CODE_DIR"
 git -C "$HBOS_CODE_DIR" rev-parse HEAD
 ```
 
@@ -94,11 +96,11 @@ git -C "$HBOS_CODE_DIR" rev-parse HEAD
 
 ```bash
 git -C "$HBOS_CODE_DIR" status --short --branch
-git -C "$HBOS_CODE_DIR" fetch origin codex/portal-unified-account-release
-git -C "$HBOS_CODE_DIR" merge --ff-only origin/codex/portal-unified-account-release
+git -C "$HBOS_CODE_DIR" fetch origin feature/hbos-portal-product
+git -C "$HBOS_CODE_DIR" merge --ff-only origin/feature/hbos-portal-product
 ```
 
-后两条仅在当前工作区就是该发布分支、且工作区干净时执行；存在分歧时停止并审查整合。PR #21 保持团队入口，不推 main/base、不强推、不自动合并。
+后两条仅在当前工作区就是 `feature/hbos-portal-product`、且工作区干净、且该目录没有同时作为正在运行服务的可变源码挂载时执行；存在分歧时停止并审查整合。PR #21 保留为已合并的审查证据，PR #15 仍为 Draft（base `main`），不用于获取团队代码、不推 main/base、不强推、不自动合并。产品分支 HEAD 与安全修复合并状态以 [项目状态](../PROJECT_STATUS.md) 顶部为准；源码已合并不等于本机已部署。
 
 两份旧考勤同步脚本已改为读取部署环境变量 `HBOS_FEISHU_LEAVE_APP_TOKEN` / `HBOS_FEISHU_LEAVE_TABLE_ID`、`HBOS_FEISHU_EXCEPTION_APP_TOKEN` / `HBOS_FEISHU_EXCEPTION_TABLE_ID`。它们是其他业务同步的资源标识，与 Portal OAuth Secret 分开配置；未接入时不启动同步，不使用仓库中的真实表格标识。
 

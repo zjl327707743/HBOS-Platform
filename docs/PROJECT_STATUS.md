@@ -1,6 +1,17 @@
 # 项目状态
 
-## 并行权限治理 IAM-0 — 2026-10-01
+## 产品版本现状 — 2026-10-06（阶段启动验收与版本治理）
+
+- 产品分支 `feature/hbos-portal-product` 当前 HEAD：`72e5b1728981b7ef102a2c9ee033ce0452c400e7`。本机产品源码目录已 fast-forward 到该提交，工作区干净，与远端一致。
+- 合入顺序：`e4b16ee`（PR #21）→ `114a0cb`（#24 Portal 合并状态收口与库存 CI 门禁）→ `4d8e962`（#25 IAM-0 治理基线与只读盘点工具）→ `29220f4`（#26 考勤月度上传未授权写入）→ `0fc5c3a`（#27 LIMS 原生写绕过留样审批系统字段）→ `72e5b17`（#28 ESS 敏感数据批量导出与权限再生）。PR #26/#27/#28 均已 MERGED 到产品分支。
+- **安全修复 #26/#27/#28 = 已合入源码、未部署**。本机 P1 运行版本仍为 `2d138f86a14883214f4963f5809550770a2bc3df`（`release.json` build ID `dcfcba32096a320a9981`，与本机 portal `build-info.json` 一致）。该版本与产品分支历史分叉（独有 23 commit / 缺少 6 commit），因此 P1 当前是旧版本功能走查，不是新安全版本验收。
+- X02 预期新增件 `apps/hbos_portal/hbos_portal/auth/export_policy.py`（含 `tests/test_export_policy.py`）在当前 P1 制品中**不存在**；#26/#27 对应文件的当前 P1 制品内容与安全修复版本不一致。升级计划单独保存于 Git 之外，本轮不执行任何迁移或制品切换。
+- PR #15：仍 Open Draft（base `main`，head 产品分支）；描述停留在三应用 registry 阶段，未反映五应用、contract v1 与 #24–#28，属历史漂移，不作为当前功能状态依据。main 未变化。
+- IAM-1 = PAUSED（本轮不设计、不实施权限变更，也不做 Site 盘点或隔离验收）。Owner 人工验收 = WAITING_OWNER。
+
+以下 2026-10-01 各节为历史记录，保留原文。
+
+## 并行权限治理 IAM-0 — 2026-10-01（历史）
 
 Owner 已批准进入统一身份与权限治理。当前仅交付设计、角色—动作—范围矩阵、只读源码盘点工具与本机任务书；实际 Site 盘点和隔离验收仍为 NOT_RUN，不修改账号、角色或业务数据，不替代原账号收尾。入口：[IAM-0 治理资料](governance/iam/README.md)。
 
@@ -10,7 +21,7 @@ Owner 已批准进入统一身份与权限治理。当前仅交付设计、角�
 
 合并前发现并修复的原生 MFA Administrator proof P1 已完成回归；本次收口未修改 Owner 密码、MFA、飞书绑定、Secret、业务数据或 P1 卷。合并前 BLOCKED/WAITING 状态继续作为历史证据保留，但不再作为当前项目状态。
 
-团队后续 Portal Authority：`feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。
+历史团队 Portal Authority（2026-10-01 收口点）：`feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。本轮起以本文件顶部“产品版本现状”的 HEAD 为准。
 
 ## 账号小范围收尾 — 2026-10-01
 
