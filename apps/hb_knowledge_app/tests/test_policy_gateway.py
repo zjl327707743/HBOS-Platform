@@ -7,7 +7,17 @@ from pathlib import Path
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
 # This module retains the original P1 transport assertions unchanged.
 # The new candidate requires tickets and is covered by test_gateway_boundary and K1C2 replay.
-from .legacy_p1.gateway import GatewayClient, filter_authorized_results
+import importlib.util
+import sys
+
+_baseline_spec = importlib.util.spec_from_file_location(
+    '_hbos_fixed_p1_gateway', Path(__file__).parent / 'legacy_p1' / 'gateway.py',
+)
+_baseline_gateway = importlib.util.module_from_spec(_baseline_spec)
+sys.modules[_baseline_spec.name] = _baseline_gateway
+_baseline_spec.loader.exec_module(_baseline_gateway)
+GatewayClient = _baseline_gateway.GatewayClient
+filter_authorized_results = _baseline_gateway.filter_authorized_results
 from hb_knowledge_app.hb_knowledge.import_manifest import ManifestError, build_manifest, main
 from hb_knowledge_app.hb_knowledge.policy import policy_for_subject
 from hb_knowledge_app.hb_knowledge.portal.manifest import get_manifest
