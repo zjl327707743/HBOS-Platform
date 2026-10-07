@@ -1,7 +1,7 @@
 <template>
   <a-drawer
     :open="open"
-    :width="520"
+    width="min(520px, 100vw)"
     placement="right"
     root-class-name="evidence-drawer-root"
     @close="$emit('close')"

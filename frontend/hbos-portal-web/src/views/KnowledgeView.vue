@@ -11,6 +11,7 @@
         <p>让知识更好地服务每一次工作。</p>
       </div>
       <div class="heading-actions">
+        <a-tag v-if="status?.environment === 'synthetic'" color="orange">隔离合成测试</a-tag>
         <a-tag v-if="equipmentId" color="geekblue">设备上下文 {{ equipmentId }}</a-tag>
         <a-button @click="$router.push('/hbos/twin')"><DeploymentUnitOutlined /> 设备与工艺</a-button>
       </div>
@@ -42,6 +43,15 @@
             <span :class="['state-dot', statusTone]"></span>
             {{ statusLabel }}
             <span v-if="status?.policy_revision" class="revision">策略 {{ status.policy_revision }}</span>
+          </div>
+          <div v-if="spaces.length" class="knowledge-space-filter">
+            <label for="knowledge-space">检索空间</label>
+            <select id="knowledge-space" v-model="selectedSpace" :disabled="searching">
+              <option value="">全部授权空间</option>
+              <option v-for="space in spaces" :key="space.space_id" :value="space.space_id">
+                {{ space.title }} · {{ space.document_count }} 份资料
+              </option>
+            </select>
           </div>
         </section>
 
@@ -135,13 +145,15 @@ import {
   SafetyCertificateOutlined,
   SearchOutlined,
 } from '@ant-design/icons-vue'
-import type { KnowledgeEvidence, KnowledgeStatus } from '@/contracts/p1'
-import { DomainApiError, getKnowledgeStatus, searchKnowledge } from '@/services/p1Api'
+import type { KnowledgeEvidence, KnowledgeStatus, KnowledgeSpace } from '@/contracts/p1'
+import { DomainApiError, getKnowledgeStatus, getKnowledgeSpaces, searchKnowledge } from '@/services/p1Api'
 import EvidenceDrawer from '@/components/knowledge/EvidenceDrawer.vue'
 import { useEvidenceResolution } from '@/composables/useEvidenceResolution'
 import { usePortalStore } from '@/stores/portal'
 
 const status = ref<KnowledgeStatus | null>(null)
+const spaces = ref<KnowledgeSpace[]>([])
+const selectedSpace = ref('')
 const route = useRoute()
 const equipmentId = computed(() => typeof route.query.equipment_id === 'string' ? route.query.equipment_id : '')
 const assetId = computed(() => typeof route.query.asset_id === 'string' ? route.query.asset_id : '')
@@ -161,8 +173,13 @@ let searchGeneration = 0
 watch(subjectKey, () => {
   subjectGeneration++; searchGeneration++; drawer.close()
   status.value = null; results.value = []; query.value = ''; searching.value = false
+  spaces.value = []; selectedSpace.value = ''
   pageError.value = null; pageErrorCode.value = null; hasSearched.value = false
   if (subjectKey.value) void refreshStatus()
+}, { flush: 'sync' })
+watch(selectedSpace, () => {
+  searchGeneration++; drawer.close(); results.value = []; hasSearched.value = false
+  searching.value = false; pageError.value = null; pageErrorCode.value = null
 }, { flush: 'sync' })
 onBeforeUnmount(() => { subjectGeneration++; searchGeneration++; drawer.close() })
 
@@ -171,7 +188,7 @@ const statusLabel = computed(() => {
   if (!status.value.can_enter) return '当前账号没有知识助理访问权限'
   if (!status.value.can_search) return '当前没有已发布且可检索的资料范围'
   if (!status.value.gateway_configured) return 'Gateway 尚未完成本地安全配置'
-  return '真实检索链路已配置'
+  return status.value.environment === 'synthetic' ? '隔离合成环境 · 检索链路已配置' : '真实检索链路已配置'
 })
 const statusTone = computed(() => status.value?.can_search && status.value?.gateway_configured ? 'ready' : 'waiting')
 const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_search && status.value?.gateway_configured))
@@ -198,7 +215,7 @@ async function submitSearch() {
       equipment_id: equipmentId.value || undefined,
       asset_id: assetId.value || undefined,
       component_id: componentId.value || undefined,
-    })
+    }, selectedSpace.value ? [selectedSpace.value] : undefined)
     if (generation === searchGeneration && subject === subjectKey.value) results.value = response.results
   } catch (error) {
     if (generation === searchGeneration && subject === subjectKey.value) applyError(error)
@@ -214,9 +231,10 @@ async function openEvidence(item: KnowledgeEvidence) {
 async function refreshStatus() {
   const generation = subjectGeneration
   try {
-    const current = await getKnowledgeStatus()
+    const [current, currentSpaces] = await Promise.all([getKnowledgeStatus(), getKnowledgeSpaces()])
     if (generation !== subjectGeneration || !subjectKey.value) return
     status.value = current
+    spaces.value = currentSpaces
     if (route.query.auto === '1' && query.value.trim() && canSubmit.value) await submitSearch()
   } catch (error) {
     if (generation === subjectGeneration) applyError(error)
@@ -252,6 +270,8 @@ onMounted(refreshStatus)
 .knowledge-search input { min-width: 0; border: 0; outline: 0; background: transparent; color: var(--hbos-text-primary); font-size: var(--hbos-font-body); }
 .knowledge-search .ant-btn { height: 40px; border: 0; border-radius: 12px; background: linear-gradient(135deg,#5b63ff,#46a1ff); }
 .knowledge-state-line { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; margin-top: 14px; color: #657896; font-size: var(--hbos-font-meta); }
+.knowledge-space-filter { position: relative; z-index: 1; display: flex; align-items: center; flex-wrap: wrap; gap: var(--hbos-space-2); margin-top: var(--hbos-space-3); color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); }
+.knowledge-space-filter select { max-width: 100%; padding: var(--hbos-space-2); border: 1px solid var(--hbos-border-strong); border-radius: var(--hbos-radius-sm); color: var(--hbos-text-primary); background: var(--hbos-bg-surface); font: inherit; }
 .state-dot { width: 7px; height: 7px; border-radius: 50%; background: #e5a42c; box-shadow: 0 0 0 4px rgba(229,164,44,.11); }
 .state-dot.ready { background: #1bbc86; box-shadow: 0 0 0 4px rgba(27,188,134,.11); }
 .revision { margin-left: auto; font-family: var(--hbos-font-mono); font-size: var(--hbos-font-meta); }

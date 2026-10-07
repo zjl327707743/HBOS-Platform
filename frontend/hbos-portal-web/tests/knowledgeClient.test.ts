@@ -1,11 +1,35 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { searchKnowledge, resolveKnowledgeEvidence, DomainApiError } from '@/services/p1Api'
+import { searchKnowledge, getKnowledgeSpaces, resolveKnowledgeEvidence, DomainApiError } from '@/services/p1Api'
 
 const transport=vi.hoisted(() => ({post:vi.fn(),get:vi.fn()}))
 vi.mock('@/services/frappeClient',() => ({callFrappePostMethod:transport.post,callFrappeMethod:transport.get}))
 const card={document_id:'DOC_QA_DEMO',title:null,version:null,status_note:null,section:null,page_number:null,
   excerpt:'SYNTHETIC_EXCERPT_DEMO',evidence_id:'EV_QA_DEMO',space_id:'SPACE_QA_DEMO',source_type:'SYNTHETIC_TEST'}
 beforeEach(() => {vi.clearAllMocks()})
+describe('authorized space contract', () => {
+  it('space selection narrows the search without exposing backend ids', async () => {
+    transport.get.mockResolvedValue({ok:true,data:{spaces:[{space_id:'SPACE_QA_DEMO',title:'合成质检',document_count:1}]}})
+    expect(await getKnowledgeSpaces()).toEqual([{space_id:'SPACE_QA_DEMO',title:'合成质检',document_count:1}])
+    transport.post.mockResolvedValue({ok:true,data:{request_id:'REQ_DEMO',mode:'retrieval',results:[]}})
+    await searchKnowledge('SYNTHETIC',{},['SPACE_QA_DEMO'])
+    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.search',{query:'SYNTHETIC',limit:5,space_ids:['SPACE_QA_DEMO']})
+  })
+  it('empty requested scope never falls back to all spaces', async () => {
+    await expect(searchKnowledge('SYNTHETIC',{},[])).rejects.toBeInstanceOf(DomainApiError)
+    expect(transport.post).not.toHaveBeenCalled()
+  })
+  it('rejects physical metadata channels in a space response', async () => {
+    transport.get.mockResolvedValue({ok:true,data:{spaces:[{space_id:'SPACE_QA_DEMO',title:'合成质检',document_count:1,dataset_id:'PHYSICAL_DS'}]}})
+    await expect(getKnowledgeSpaces()).rejects.toBeInstanceOf(DomainApiError)
+  })
+  it('rejects duplicate ids and unsafe titles', async () => {
+    const space={space_id:'SPACE_QA_DEMO',title:'合成质检',document_count:1}
+    transport.get.mockResolvedValueOnce({ok:true,data:{spaces:[space,space]}})
+    await expect(getKnowledgeSpaces()).rejects.toBeInstanceOf(DomainApiError)
+    transport.get.mockResolvedValueOnce({ok:true,data:{spaces:[{...space,title:'private /source/file.pdf'}]}})
+    await expect(getKnowledgeSpaces()).rejects.toBeInstanceOf(DomainApiError)
+  })
+})
 describe('C01/C04 actual knowledge client; Frappe transport stub is not Session/CSRF proof',() => {
   it('preserves search/resolve methods and legacy flat device context',async () => {
     transport.post.mockResolvedValueOnce({ok:true,data:{request_id:'REQ_DEMO',mode:'retrieval',results:[card],context:{equipment_id:'EQ_DEMO'}}})

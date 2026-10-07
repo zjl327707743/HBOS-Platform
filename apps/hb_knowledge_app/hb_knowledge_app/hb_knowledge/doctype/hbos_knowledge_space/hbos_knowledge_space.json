@@ -6,6 +6,7 @@
   "autoname": "field:space_id",
   "field_order": [
     "space_id",
+    "title",
     "required_role",
     "enabled"
   ],
@@ -16,6 +17,11 @@
       "label": "Space Id",
       "reqd": 1,
       "unique": 1
+    },
+    {
+      "fieldname": "title",
+      "fieldtype": "Data",
+      "label": "Space Title"
     },
     {
       "fieldname": "required_role",

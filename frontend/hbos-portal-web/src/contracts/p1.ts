@@ -18,6 +18,7 @@ export interface KnowledgeStatus {
   gateway_configured: boolean
   ask_enabled: boolean
   mode: 'retrieval'
+  environment?: 'synthetic' | 'production'
 }
 
 export interface KnowledgeEvidence {
@@ -85,4 +86,9 @@ export interface FeishuLoginStatus {
   audience?: 'enterprise_internal_members'
   auto_provision_internal?: boolean
   missing: string[]
+}
+export interface KnowledgeSpace {
+  space_id: string
+  title: string
+  document_count: number
 }

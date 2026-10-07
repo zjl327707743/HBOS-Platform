@@ -5,7 +5,9 @@ import unittest
 from pathlib import Path
 
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
-from hb_knowledge_app.hb_knowledge.gateway import GatewayClient, filter_authorized_results
+# This module retains the original P1 transport assertions unchanged.
+# The new candidate requires tickets and is covered by test_gateway_boundary and K1C2 replay.
+from .legacy_p1.gateway import GatewayClient, filter_authorized_results
 from hb_knowledge_app.hb_knowledge.import_manifest import ManifestError, build_manifest, main
 from hb_knowledge_app.hb_knowledge.policy import policy_for_subject
 from hb_knowledge_app.hb_knowledge.portal.manifest import get_manifest

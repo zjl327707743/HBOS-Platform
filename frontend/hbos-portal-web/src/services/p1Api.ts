@@ -5,6 +5,7 @@ import type {
   KnowledgeSearchContext,
   KnowledgeSearchResult,
   KnowledgeStatus,
+  KnowledgeSpace,
   TwinComponentMapping,
   TwinManifest,
   TwinStatus,
@@ -128,12 +129,35 @@ export async function getKnowledgeStatus(): Promise<KnowledgeStatus> {
 export async function searchKnowledge(
   query: string,
   context: KnowledgeSearchContext = {},
+  spaceIds?: string[],
 ): Promise<KnowledgeSearchResult> {
   validateKnowledgeContext(context)
+  if (spaceIds !== undefined) {
+    if (!Array.isArray(spaceIds) || spaceIds.length < 1 || spaceIds.length > 20 || new Set(spaceIds).size !== spaceIds.length) {
+      throw new DomainApiError('INVALID_REQUEST', '检索空间无效。')
+    }
+    for (const id of spaceIds) { safeKnowledgeString(id, 120); if (!id.trim() || id !== id.trim()) throw new DomainApiError('INVALID_REQUEST', '检索空间无效。') }
+  }
   return validateKnowledgeSearch(unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<KnowledgeSearchResult>>(
     'hb_knowledge_app.hb_knowledge.api.search',
-    { query, limit: 5, ...context },
+    { query, limit: 5, ...context, ...(spaceIds ? { space_ids: [...spaceIds] } : {}) },
   )))
+}
+
+export async function getKnowledgeSpaces(): Promise<KnowledgeSpace[]> {
+  const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{ spaces: KnowledgeSpace[] }>>(
+    'hb_knowledge_app.hb_knowledge.api.get_spaces',
+  ))
+  const invalid = () => new DomainApiError('SERVICE_ERROR', '知识服务返回了无效响应。')
+  if (!data || Object.keys(data).length !== 1 || !Array.isArray(data.spaces) || data.spaces.length > 100) throw invalid()
+  const seen = new Set<string>()
+  return data.spaces.map(space => {
+    if (!space || Object.keys(space).length !== 3 || Object.keys(space).some(key => !['space_id','title','document_count'].includes(key))) throw invalid()
+    safeKnowledgeString(space.space_id, 120); safeKnowledgeString(space.title, 120)
+    if (!space.space_id.trim() || !space.title.trim() || seen.has(space.space_id) || !Number.isSafeInteger(space.document_count) || space.document_count < 0) throw invalid()
+    seen.add(space.space_id)
+    return { space_id: space.space_id, title: space.title, document_count: space.document_count }
+  })
 }
 
 export async function resolveKnowledgeEvidence(evidenceId: string, signal?: AbortSignal): Promise<KnowledgeEvidence> {

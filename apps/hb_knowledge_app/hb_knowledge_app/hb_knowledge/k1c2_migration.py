@@ -51,7 +51,8 @@ def seed():
               'user_type':'Website User','send_welcome_email':0,'new_password':row['password'],
               'roles':[{'role':r} for r in row['roles']]}).insert(ignore_permissions=True)
     for space,role in [('SPACE_QA_SYNTHETIC','K1C2 QA'),('SPACE_PROD_SYNTHETIC','K1C2 Production'),('SPACE_SHARED_SYNTHETIC','K1C2 Shared')]:
-        frappe.get_doc({'doctype':'HBOS Knowledge Space','space_id':space,'required_role':role,'enabled':1}).insert(ignore_permissions=True)
+        title={'SPACE_QA_SYNTHETIC':'合成质检空间','SPACE_PROD_SYNTHETIC':'合成生产空间','SPACE_SHARED_SYNTHETIC':'合成共享空间'}[space]
+        frappe.get_doc({'doctype':'HBOS Knowledge Space','space_id':space,'title':title,'required_role':role,'enabled':1}).insert(ignore_permissions=True)
     for doc in ['DOC_SYNTHETIC_SHARED','DOC_SYNTHETIC_PROD']:
         frappe.get_doc({'doctype':'HBOS Knowledge Document','document_id':doc,'source_hash':hashlib.sha256(doc.encode()).hexdigest(),
             'ingestion_status':'published','withdrawn':0}).insert(ignore_permissions=True)

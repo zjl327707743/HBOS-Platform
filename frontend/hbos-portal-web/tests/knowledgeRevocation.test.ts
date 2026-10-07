@@ -6,10 +6,11 @@ import EvidenceDrawer from '@/components/knowledge/EvidenceDrawer.vue'
 import type { KnowledgeEvidence } from '@/contracts/p1'
 import { DomainApiError } from '@/services/p1Api'
 
-const api = vi.hoisted(() => ({ status:vi.fn(), search:vi.fn(), resolve:vi.fn() }))
+const api = vi.hoisted(() => ({ status:vi.fn(), spaces:vi.fn(), search:vi.fn(), resolve:vi.fn() }))
 vi.mock('@/services/p1Api', async importOriginal => ({
   ...(await importOriginal<typeof import('@/services/p1Api')>()),
   getKnowledgeStatus: api.status,
+  getKnowledgeSpaces: api.spaces,
   searchKnowledge: api.search,
   resolveKnowledgeEvidence: api.resolve,
 }))
@@ -48,6 +49,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   subject.user = {id:'USER_QA_DEMO'}
   api.status.mockResolvedValue({can_enter:true,can_search:true,gateway_configured:true,ask_enabled:false,mode:'retrieval'})
+  api.spaces.mockResolvedValue([{space_id:'SPACE_QA_DEMO',title:'SYNTHETIC QA',document_count:1}])
   api.resolve.mockResolvedValue(card())
 })
 afterEach(() => {wrappers.splice(0).forEach(wrapper => wrapper.unmount())})

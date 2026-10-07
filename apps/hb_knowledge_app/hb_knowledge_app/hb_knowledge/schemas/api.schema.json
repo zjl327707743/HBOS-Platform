@@ -665,25 +665,41 @@
     },
     "SpacesData": {
       "type": "object",
-      "properties": {
-        "request_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "spaces": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/SpaceCard"
-          },
-          "maxItems": 20
-        }
-      },
+      "additionalProperties": false,
       "required": [
-        "request_id",
         "spaces"
       ],
-      "additionalProperties": false
+      "properties": {
+        "spaces": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "space_id",
+              "title",
+              "document_count"
+            ],
+            "properties": {
+              "space_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "document_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
     },
     "Error": {
       "type": "object",

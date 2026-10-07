@@ -118,7 +118,7 @@ class FrappePairedAuthority:
         if not policy.can_search: raise KnowledgeError('SCOPE_REJECTED')
         clients=(Client('K1C2_PORTAL'),Client('K1C2_INTERNAL'))
         with committed_view() as cur:
-            spaces=rows(cur,'SELECT name,required_role FROM `tabHBOS Knowledge Space` WHERE enabled=1')
+            spaces=rows(cur,'SELECT name,required_role,title FROM `tabHBOS Knowledge Space` WHERE enabled=1')
             active=tuple(s['name'] for s in spaces)
             grants=tuple(GrantPair(s['required_role'],s['name'],a,'PAIR_'+s['name']+'_'+a.split('.')[-1])
                        for s in spaces for a in ('knowledge.search','knowledge.evidence','knowledge.spaces'))
@@ -145,7 +145,7 @@ class FrappePairedAuthority:
         bindings=tuple(b for b in bindings if b.dataset_alias in policy.dataset_ids and b.canonical_document_id in policy.document_ids)
         return AuthoritySnapshot(state,clients,grants,active,bindings,tuple(b.dataset_id for b in bindings),(),
                'k1c2-policy-fixed','k1c2-corpus-fixed',ProviderStamp('HBOS_LEGACY_READONLY','k1c2-bridge-fixed',self.config['lease_until']),
-               'SYNTHETIC_NO_EMBEDDING',True)
+               'SYNTHETIC_NO_EMBEDDING',True,tuple((s['name'],s['title'] or '知识空间') for s in spaces))
     def client_for(self,actor):
         raw=self.proofs.state.get('private-proof:'+actor.session_ref)
         if not raw: raise KnowledgeError('AUTHENTICATION_REQUIRED')

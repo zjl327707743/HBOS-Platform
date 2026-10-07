@@ -66,7 +66,7 @@ def get_status():
         actor=runtime.actor()
         return {"can_enter":bool(actor.enabled),"can_search":_can_search(runtime,actor),
                 "policy_revision":None,"gateway_configured":runtime.gateway.configured,
-                "ask_enabled":False,"mode":"retrieval"}
+                "ask_enabled":False,"mode":"retrieval","environment":runtime.profile}
     return _run(current)
 
 @frappe.whitelist(methods=["POST"])
@@ -102,6 +102,16 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
         validate_structure("SearchData",data)
         runtime.audit.record(actor.user_ref,"search","SUCCESS",len(output))
         return data
+    return _run(current)
+
+@frappe.whitelist(methods=["GET"])
+def get_spaces(**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields, 'get_spaces'):
+            raise KnowledgeError('INVALID_REQUEST')
+        from .spaces import list_spaces
+        runtime=load_runtime()
+        return list_spaces(runtime, runtime.actor())
     return _run(current)
 
 @frappe.whitelist(methods=["POST"])

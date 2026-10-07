@@ -24,6 +24,7 @@ class AuthoritySnapshot:
     provider: ProviderStamp
     model_policy_ref: str
     query_embedding_admitted: bool
+    space_titles: tuple[tuple[str, str], ...] = ()
 
 class AuthorityRepository(Protocol):
     test_only: bool
