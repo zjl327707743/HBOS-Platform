@@ -1,183 +1,138 @@
 from __future__ import annotations
-
-import hashlib
-import re
 import secrets
-from dataclasses import asdict
-from typing import Callable
-
 import frappe
+from .errors import KnowledgeError, error_payload
+from .r1_contract import normalize_search, normalize_evidence, validate_structure
+from .runtime import load_runtime
+from .gateway import load_gateway_client
+from .execution_plan import ServicePrincipal
+from .evidence import issue_evidence, resolve_evidence as resolve_cached_evidence
 
-from hb_knowledge_app.hb_knowledge.errors import KnowledgeError, error_payload
-from hb_knowledge_app.hb_knowledge.evidence import (
-    consume_excerpt_budget,
-    consume_request_budget,
-    issue_evidence,
-    resolve_evidence as resolve_cached_evidence,
-)
-from hb_knowledge_app.hb_knowledge.gateway import load_gateway_client
-from hb_knowledge_app.hb_knowledge.policy import MAX_RESULTS_HARD_LIMIT, load_current_policy
+_UNSET=object()
 
+def _private_no_store():
+    frappe.local.response_headers["Cache-Control"]="private, no-store, max-age=0"
+    frappe.local.response_headers["Pragma"]="no-cache"
 
-EQUIPMENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-
-
-def _private_no_store() -> None:
-    frappe.local.response_headers["Cache-Control"] = "private, no-store, max-age=0"
-    frappe.local.response_headers["Pragma"] = "no-cache"
-
-
-def _subject_fingerprint(subject: str) -> str:
-    """Return a stable audit key without writing the account identifier to logs."""
-    return hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16]
-
-
-def _run(action: Callable[[], dict[str, object]]) -> dict[str, object]:
+def _run(action):
     _private_no_store()
+    request_id=secrets.token_urlsafe(18)
     try:
-        return {"ok": True, "data": action()}
-    except KnowledgeError as exc:
-        return error_payload(exc)
+        request=getattr(frappe.local,"request",None)
+        retry=request.headers.get("X-HBOS-Request-ID") if request else None
+        if retry is not None:
+            if not isinstance(retry,str) or not 8<=len(retry)<=128:
+                raise KnowledgeError("INVALID_REQUEST")
+            request_id=retry
+        data=action(request_id)
+        runtime=getattr(frappe.local,"hbos_knowledge_runtime",None)
+        publication=getattr(runtime,"publication",None)
+        if publication: publication.finish()
+        return {"ok":True,"data":data}
+    except KnowledgeError as error:
+        _abort_publication()
+        return error_payload(error,request_id)
     except Exception:
-        request_id = secrets.token_hex(8)
-        frappe.log_error(
-            title=f"HBOS Knowledge API error [{request_id}]",
-            message=frappe.get_traceback(),
-        )
-        return error_payload(
-            KnowledgeError(
-                "SERVICE_ERROR",
-                "知识服务暂时不可用。",
-                retryable=True,
-            )
-        )
+        _abort_publication()
+        # Do not log traceback/arguments/remote exception. The safe audit port has no text channel.
+        return error_payload(KnowledgeError("SERVICE_ERROR"),request_id)
 
+def _abort_publication():
+    publication=getattr(getattr(frappe.local,"hbos_knowledge_runtime",None),"publication",None)
+    if publication: publication.abort()
+
+def _framework_business(fields, method):
+    fields=dict(fields)
+    cmd=fields.pop("cmd",None)
+    if cmd is not None and cmd!="hb_knowledge_app.hb_knowledge.api."+method:
+        raise KnowledgeError("INVALID_REQUEST")
+    # Frappe validates Session/CSRF BEFORE invoking a whitelisted method. This is
+    # its reserved form field, not an identity/business field. Header flow unchanged.
+    fields.pop("csrf_token",None)
+    return fields
+
+def _can_search(runtime,actor):
+    try:
+        runtime.provider.evaluate(actor,runtime.client,"knowledge.search",normalize_search({"query":"STATUS_LOOKUP"}),"STATUS_LOOKUP")
+        return runtime.gateway.configured
+    except KnowledgeError as error:
+        if error.code in {"EMPTY_SCOPE","SCOPE_REJECTED"}: return False
+        raise
 
 @frappe.whitelist(methods=["GET"])
-def get_status() -> dict[str, object]:
-    def _load() -> dict[str, object]:
-        policy = load_current_policy()
-        client = load_gateway_client()
-        return {
-            "can_enter": policy.can_enter,
-            "can_search": policy.can_search,
-            "policy_revision": policy.policy_revision if policy.can_enter else None,
-            "gateway_configured": client.configured,
-            "ask_enabled": False,
-            "mode": "retrieval",
-        }
-
-    return _run(_load)
-
-
-def _search_context(
-    equipment_id: str | None,
-    asset_id: str | None,
-    component_id: str | None,
-) -> dict[str, str]:
-    equipment = str(equipment_id or "").strip()
-    asset = str(asset_id or "").strip()
-    component = str(component_id or "").strip()
-    if not equipment:
-        if asset or component:
-            raise KnowledgeError("INVALID_REQUEST", "部件检索必须包含设备标识。")
-        return {}
-    if not EQUIPMENT_ID_PATTERN.fullmatch(equipment):
-        raise KnowledgeError("INVALID_REQUEST", "设备标识无效。")
-    if len(asset) > 200 or len(component) > 200:
-        raise KnowledgeError("INVALID_REQUEST", "部件检索上下文无效。")
-    context = {"equipment_id": equipment}
-    if asset:
-        context["asset_id"] = asset
-    if component:
-        context["component_id"] = component
-    return context
-
+def get_status():
+    def current(request_id):
+        runtime=load_runtime()
+        actor=runtime.actor()
+        return {"can_enter":bool(actor.enabled),"can_search":_can_search(runtime,actor),
+                "policy_revision":None,"gateway_configured":runtime.gateway.configured,
+                "ask_enabled":False,"mode":"retrieval"}
+    return _run(current)
 
 @frappe.whitelist(methods=["POST"])
-def search(
-    query: str,
-    limit: int | str | None = None,
-    equipment_id: str | None = None,
-    asset_id: str | None = None,
-    component_id: str | None = None,
-) -> dict[str, object]:
-    def _search() -> dict[str, object]:
-        policy = load_current_policy()
-        policy.require_search()
-        normalized_query = str(query or "").strip()
-        if not normalized_query or len(normalized_query) > 500:
-            raise KnowledgeError("INVALID_REQUEST", "请输入 1–500 字的检索内容。")
-        try:
-            requested_limit = int(limit or policy.max_results)
-        except (TypeError, ValueError) as exc:
-            raise KnowledgeError("INVALID_REQUEST", "检索数量配置无效。") from exc
-        normalized_limit = min(MAX_RESULTS_HARD_LIMIT, policy.max_results, max(1, requested_limit))
-        context = _search_context(equipment_id, asset_id, component_id)
-
-        consume_request_budget(frappe.cache, policy)
-        request_id = secrets.token_hex(12)
-        records = load_gateway_client().search(
-            query=normalized_query,
-            policy=policy,
-            limit=normalized_limit,
-            request_id=request_id,
-            context=context,
-        )
-        consume_excerpt_budget(
-            frappe.cache,
-            policy,
-            sum(len(record.excerpt) for record in records),
-        )
-
-        results = []
+def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, component_id=_UNSET,
+           context=_UNSET, space_ids=_UNSET, **business_fields):
+    def current(request_id):
+        raw=_framework_business(business_fields,"search")
+        raw["query"]=query
+        if limit is not _UNSET: raw["limit"]=limit
+        for key,value in (("equipment_id",equipment_id),("asset_id",asset_id),("component_id",component_id),
+                          ("context",context),("space_ids",space_ids)):
+            if value is not _UNSET: raw[key]=value
+        request=normalize_search(raw,legacy=True)
+        runtime=load_runtime(); actor=runtime.actor()
+        ticket=runtime.decisions.issue(actor,runtime.client,"knowledge.search",request,request_id)
+        if getattr(runtime,"publication",None): runtime.publication.plan=ticket.plan
+        records=load_gateway_client().search(ticket=ticket)
+        runtime.checkpoint("before_evidence_issue")
+        if records:
+            runtime.gateway.authorize_evidence(ticket,records,phase="pre_issue")
+        runtime.provider.revalidate(ticket.plan)
+        output=[]
+        # Entire response quota reserved by HBOS once; Gateway never double charges.
+        runtime.quota.reserve_output(actor.user_ref,sum(len(r.excerpt) for r in records))
+        from knowledge_service.hbos_gateway.response_projection import public_evidence
         for record in records:
-            evidence_id = issue_evidence(frappe.cache, policy, record)
-            results.append(
-                {
-                    "document_id": record.document_id,
-                    "title": record.title,
-                    "version": record.version,
-                    "status_note": record.status_note,
-                    "section": record.section,
-                    "page_number": record.page_number,
-                    "excerpt": record.excerpt,
-                    "evidence_id": evidence_id,
-                }
-            )
-
-        frappe.logger("hbos_knowledge").info(
-            {
-                "request_id": request_id,
-                "subject_key": _subject_fingerprint(policy.subject),
-                "operation": "search",
-                "policy_revision": policy.policy_revision,
-                "result_count": len(results),
-                "equipment_id": context.get("equipment_id"),
-                # Query and excerpts are intentionally excluded.
-            }
-        )
-        return {
-            "request_id": request_id,
-            "mode": "retrieval",
-            "context": context,
-            "results": results,
-        }
-
-    return _run(_search)
-
+            evidence_id=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
+            output.append(public_evidence(record,evidence_id,environment=runtime.profile))
+        runtime.checkpoint("before_search_publication")
+        runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call("revalidate","final_publish"))
+        data={"request_id":request_id,"mode":"retrieval","results":output}
+        if request.context: data["context"]=dict(request.context)
+        validate_structure("SearchData",data)
+        runtime.audit.record(actor.user_ref,"search","SUCCESS",len(output))
+        return data
+    return _run(current)
 
 @frappe.whitelist(methods=["POST"])
-def resolve_evidence(evidence_id: str) -> dict[str, object]:
-    def _resolve() -> dict[str, object]:
-        policy = load_current_policy()
-        policy.require_search()
-        record = resolve_cached_evidence(frappe.cache, policy, str(evidence_id or ""))
-        consume_excerpt_budget(frappe.cache, policy, len(record.excerpt))
-        data = asdict(record)
-        data.pop("chunk_id", None)
-        data.pop("dataset_id", None)
-        data["evidence_id"] = evidence_id
+def resolve_evidence(evidence_id=None, **business_fields):
+    def current(request_id):
+        raw=_framework_business(business_fields,"resolve_evidence")
+        raw["evidence_id"]=evidence_id
+        value=normalize_evidence(raw)
+        runtime=load_runtime(); actor=runtime.actor()
+        record,ticket=resolve_cached_evidence(runtime.cache,actor,runtime.client,value,
+                                             runtime=runtime,request_id=request_id)
+        if getattr(runtime,"publication",None): runtime.publication.plan=ticket.plan
+        from knowledge_service.hbos_gateway.response_projection import public_evidence
+        data=public_evidence(record,value,environment=runtime.profile)
+        runtime.quota.reserve_output(actor.user_ref,len(record.excerpt))
+        # Actual consumer final check, after projection/quota and before return.
+        runtime.checkpoint("before_resolve_return")
+        runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call("revalidate","final_publish"))
+        runtime.audit.record(actor.user_ref,"evidence","SUCCESS",1)
         return data
+    return _run(current)
 
-    return _run(_resolve)
+@frappe.whitelist(methods=["POST"])
+def ask(**business_fields):
+    def current(request_id):
+        raw=_framework_business(business_fields,"ask")
+        validate_structure("AskRequest",raw)
+        runtime=load_runtime(); actor=runtime.actor()
+        runtime.provider._current(actor,runtime.client)
+        return _disabled()
+    return _run(current)
+
+def _disabled():
+    raise KnowledgeError("MODEL_NOT_APPROVED")

@@ -1,5 +1,11 @@
 # Current Milestone
 
+## 知识候选连续执行 R1 — 2026-10-08
+
+状态：IN_PROGRESS，专用分支 `codex/knowledge-autonomous-r1`，固定产品基线 `72e5b1728981b7ef102a2c9ee033ce0452c400e7`。已核验 K1C2 归档与独立评审，并恢复已审候选到独立源码副本；补齐 Binding 列/JSON/关联身份校验及写入守卫，修复搜索标签网格布局与知识页局部字号。核心/进程内 HTTP 重放 207 项、新元数据行回归 28 项和前端 79 项通过，Vue typecheck/正式数据模式构建通过。
+
+真实新 Site/数据库/浏览器复测正在执行。RAGFlow、模型、正式员工 MCP、旧库恢复与发布均未计为通过。现行 P1、个人 MCP、旧知识数据及真实权限保持原运行状态；不合并 main/product，不切换部署。知识执行事实见 `docs/milestones/M1_KB_AUTO_R1_知识候选连续执行.md`；以下旧轮次条目保留为历史与其他业务范围。
+
 ## Portal 产品分支合并后 Gate — 2026-10-01
 
 当前：**PR21_FINAL_REVIEW_PASS / PRODUCT_BRANCH_ACTIVE**。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收与 Browser final-submit 3/3 已通过，新 squash 四项 CI SUCCESS。旧 #22 已关闭且未合并，IAM-0 由 clean Draft PR #23 单独承接；#15 仍 Open Draft，main 未变化。

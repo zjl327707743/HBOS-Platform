@@ -24,7 +24,7 @@
           <h2 v-else>找到相关内容，<span>也看清它的依据。</span></h2>
           <p v-if="!hasSearched">描述你的工作场景；没有依据时，系统会明确告诉你。</p>
           <form class="knowledge-search" @submit.prevent="submitSearch">
-            <SearchOutlined />
+            <SearchOutlined aria-hidden="true" />
             <label class="sr-only" for="knowledge-query">描述工作中的问题</label>
             <input
               id="knowledge-query"
@@ -34,11 +34,11 @@
               placeholder="描述问题，或输入设备、工艺、制度关键词…"
               :disabled="searching || !canSubmit"
             />
-            <a-button type="primary" html-type="submit" :loading="searching" :disabled="!canSubmit">
+            <a-button type="primary" html-type="submit" :loading="searching" :disabled="!canSubmit || !query.trim()">
               检索知识 <ArrowRightOutlined />
             </a-button>
           </form>
-          <div class="knowledge-state-line">
+          <div class="knowledge-state-line" role="status" aria-live="polite">
             <span :class="['state-dot', statusTone]"></span>
             {{ statusLabel }}
             <span v-if="status?.policy_revision" class="revision">策略 {{ status.policy_revision }}</span>
@@ -118,13 +118,13 @@
       :loading="drawerLoading"
       :evidence="drawerEvidence"
       :error="drawerError"
-      @close="drawerOpen = false"
+      @close="drawer.close"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   ApartmentOutlined,
@@ -136,8 +136,10 @@ import {
   SearchOutlined,
 } from '@ant-design/icons-vue'
 import type { KnowledgeEvidence, KnowledgeStatus } from '@/contracts/p1'
-import { DomainApiError, getKnowledgeStatus, resolveKnowledgeEvidence, searchKnowledge } from '@/services/p1Api'
+import { DomainApiError, getKnowledgeStatus, searchKnowledge } from '@/services/p1Api'
 import EvidenceDrawer from '@/components/knowledge/EvidenceDrawer.vue'
+import { useEvidenceResolution } from '@/composables/useEvidenceResolution'
+import { usePortalStore } from '@/stores/portal'
 
 const status = ref<KnowledgeStatus | null>(null)
 const route = useRoute()
@@ -150,10 +152,19 @@ const searching = ref(false)
 const hasSearched = ref(false)
 const pageError = ref<string | null>(null)
 const pageErrorCode = ref<string | null>(null)
-const drawerOpen = ref(false)
-const drawerLoading = ref(false)
-const drawerEvidence = ref<KnowledgeEvidence | null>(null)
-const drawerError = ref<string | null>(null)
+const portal = usePortalStore()
+const subjectKey = computed(() => portal.user?.id || null)
+const drawer = useEvidenceResolution(() => subjectKey.value, () => { results.value = [] })
+const { open: drawerOpen, loading: drawerLoading, evidence: drawerEvidence, error: drawerError } = drawer
+let subjectGeneration = 0
+let searchGeneration = 0
+watch(subjectKey, () => {
+  subjectGeneration++; searchGeneration++; drawer.close()
+  status.value = null; results.value = []; query.value = ''; searching.value = false
+  pageError.value = null; pageErrorCode.value = null; hasSearched.value = false
+  if (subjectKey.value) void refreshStatus()
+}, { flush: 'sync' })
+onBeforeUnmount(() => { subjectGeneration++; searchGeneration++; drawer.close() })
 
 const statusLabel = computed(() => {
   if (!status.value) return '正在核验服务与资料权限…'
@@ -163,17 +174,20 @@ const statusLabel = computed(() => {
   return '真实检索链路已配置'
 })
 const statusTone = computed(() => status.value?.can_search && status.value?.gateway_configured ? 'ready' : 'waiting')
-const canSubmit = computed(() => Boolean(status.value?.can_search && status.value?.gateway_configured))
+const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_search && status.value?.gateway_configured))
 
 function applyError(error: unknown) {
   const apiError = error instanceof DomainApiError ? error : null
   pageErrorCode.value = apiError?.code || 'SERVICE_ERROR'
-  pageError.value = apiError?.message || (error instanceof Error ? error.message : '知识服务暂时不可用。')
+  pageError.value = apiError?.message || '知识服务暂时不可用。'
 }
 
 async function submitSearch() {
   const normalized = query.value.trim()
-  if (!normalized || searching.value) return
+  if (!normalized || searching.value || !subjectKey.value) return
+  const generation = ++searchGeneration
+  const subject = subjectKey.value
+  drawer.close()
   searching.value = true
   hasSearched.value = true
   pageError.value = null
@@ -185,47 +199,42 @@ async function submitSearch() {
       asset_id: assetId.value || undefined,
       component_id: componentId.value || undefined,
     })
-    results.value = response.results
+    if (generation === searchGeneration && subject === subjectKey.value) results.value = response.results
   } catch (error) {
-    applyError(error)
+    if (generation === searchGeneration && subject === subjectKey.value) applyError(error)
   } finally {
-    searching.value = false
+    if (generation === searchGeneration) searching.value = false
   }
 }
 
 async function openEvidence(item: KnowledgeEvidence) {
-  drawerOpen.value = true
-  drawerLoading.value = true
-  drawerError.value = null
-  drawerEvidence.value = null
-  try {
-    drawerEvidence.value = await resolveKnowledgeEvidence(item.evidence_id)
-  } catch (error) {
-    drawerError.value = error instanceof Error ? error.message : '依据已失效，请重新检索。'
-  } finally {
-    drawerLoading.value = false
-  }
+  await drawer.show(item.evidence_id)
 }
 
-onMounted(async () => {
+async function refreshStatus() {
+  const generation = subjectGeneration
   try {
-    status.value = await getKnowledgeStatus()
-    if (route.query.auto === '1' && query.value.trim() && canSubmit.value) {
-      await submitSearch()
-    }
+    const current = await getKnowledgeStatus()
+    if (generation !== subjectGeneration || !subjectKey.value) return
+    status.value = current
+    if (route.query.auto === '1' && query.value.trim() && canSubmit.value) await submitSearch()
   } catch (error) {
-    applyError(error)
+    if (generation === subjectGeneration) applyError(error)
   }
-})
+}
+onMounted(refreshStatus)
+
 </script>
 
 <style scoped>
 .knowledge-page { display: grid; gap: 18px; }
-.kt-breadcrumb { display: flex; align-items: center; gap: 7px; color: var(--hbos-text-muted); font-size: 11px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.knowledge-search:focus-within { outline: 2px solid var(--hbos-brand-violet); outline-offset: 3px; }
+.kt-breadcrumb { display: flex; align-items: center; gap: 7px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }
 .kt-breadcrumb a { color: inherit; }
 .kt-breadcrumb span { color: #3f557a; font-weight: 700; }
 .kt-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
-.kt-page-heading h1 { margin: 0; color: #193661; font-size: 31px; letter-spacing: -.8px; }
+.kt-page-heading h1 { margin: 0; color: #193661; font-size: var(--hbos-font-page-title); letter-spacing: -.8px; }
 .kt-page-heading p { margin: 6px 0 0; color: var(--hbos-text-muted); }
 .heading-actions { display:flex;align-items:center;gap:10px; }
 .knowledge-grid { display: grid; grid-template-columns: minmax(0,1fr) 290px; gap: 18px; }
@@ -233,53 +242,54 @@ onMounted(async () => {
 .knowledge-hero { position: relative; overflow: hidden; min-height: 332px; padding: 36px; border-radius: 28px; box-shadow: var(--hbos-shadow-hero); }
 .knowledge-hero::after { content:""; position:absolute; width:330px; height:330px; right:-80px; top:-100px; border-radius:50%; background:radial-gradient(circle,rgba(83,173,255,.23),transparent 68%); pointer-events:none; }
 .knowledge-hero.compact { min-height: 245px; }
-.knowledge-eyebrow { color: #6476a6; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
-.knowledge-hero h2 { position: relative; z-index: 1; margin: 18px 0 10px; color: #183661; font-size: clamp(34px,4vw,52px); line-height: 1.06; letter-spacing: -2px; }
+.knowledge-hero.compact h2 { font-size: var(--hbos-font-page-title); line-height: var(--hbos-line-page-title); letter-spacing: -.5px; }
+.knowledge-eyebrow { color: #6476a6; font-size: var(--hbos-font-meta); font-weight: 800; letter-spacing: .08em; }
+.knowledge-hero h2 { position: relative; z-index: 1; margin: 18px 0 10px; color: #183661; font-size: var(--hbos-font-hero); line-height: 1.06; letter-spacing: -2px; }
 .knowledge-hero h2 span { background:linear-gradient(90deg,#6762ff,#4aa7ff,#42c8b8); background-clip:text; color:transparent; }
 .knowledge-hero > p { margin: 0 0 22px; color: var(--hbos-text-secondary); }
 .knowledge-search { position: relative; z-index: 1; display: grid; grid-template-columns: auto 1fr auto; gap: 11px; align-items: center; padding: 8px 9px 8px 15px; border: 1px solid rgba(70,95,140,.14); border-radius: 17px; background: rgba(255,255,255,.83); box-shadow: 0 14px 38px rgba(54,78,124,.10); }
 .knowledge-search > :first-child { color: #687da4; }
-.knowledge-search input { min-width: 0; border: 0; outline: 0; background: transparent; color: var(--hbos-text-primary); font-size: 13px; }
+.knowledge-search input { min-width: 0; border: 0; outline: 0; background: transparent; color: var(--hbos-text-primary); font-size: var(--hbos-font-body); }
 .knowledge-search .ant-btn { height: 40px; border: 0; border-radius: 12px; background: linear-gradient(135deg,#5b63ff,#46a1ff); }
-.knowledge-state-line { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; margin-top: 14px; color: #657896; font-size: 11px; }
+.knowledge-state-line { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; margin-top: 14px; color: #657896; font-size: var(--hbos-font-meta); }
 .state-dot { width: 7px; height: 7px; border-radius: 50%; background: #e5a42c; box-shadow: 0 0 0 4px rgba(229,164,44,.11); }
 .state-dot.ready { background: #1bbc86; box-shadow: 0 0 0 4px rgba(27,188,134,.11); }
-.revision { margin-left: auto; font-family: var(--hbos-font-mono); font-size: 9px; }
+.revision { margin-left: auto; font-family: var(--hbos-font-mono); font-size: var(--hbos-font-meta); }
 .knowledge-alert,.knowledge-start,.knowledge-results { border-radius: 23px; }
 .knowledge-start,.knowledge-results { padding: 22px; }
 .section-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.section-title h2 { margin: 0; color: #203b66; font-size: 18px; }
-.section-title p { margin: 4px 0 0; color: var(--hbos-text-muted); font-size: 11px; }
+.section-title h2 { margin: 0; color: #203b66; font-size: var(--hbos-font-section-title); }
+.section-title p { margin: 4px 0 0; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }
 .topic-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 .topic-grid article { padding: 17px; border: 1px solid rgba(65,91,138,.09); border-radius: 18px; background: rgba(255,255,255,.62); }
-.topic-grid article > :first-child { color: #626bf6; font-size: 22px; }
-.topic-grid h3 { margin: 12px 0 7px; font-size: 13px; }
-.topic-grid p { margin: 0; color: var(--hbos-text-muted); font-size: 11px; line-height: 1.6; }
+.topic-grid article > :first-child { color: #626bf6; font-size: var(--hbos-font-section-title); }
+.topic-grid h3 { margin: 12px 0 7px; font-size: var(--hbos-font-body); }
+.topic-grid p { margin: 0; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: 1.6; }
 .knowledge-bridge { display: grid; grid-template-columns: auto 1fr auto; gap: 13px; align-items: center; margin-top: 14px; padding: 15px; border-radius: 17px; background: linear-gradient(100deg,rgba(103,95,255,.09),rgba(72,205,188,.07)); }
-.knowledge-bridge > :first-child { color: #5d66f5; font-size: 25px; }
+.knowledge-bridge > :first-child { color: #5d66f5; font-size: var(--hbos-font-section-title); }
 .knowledge-bridge strong,.knowledge-bridge span { display:block; }
-.knowledge-bridge strong { font-size: 12px; }.knowledge-bridge span { margin-top:3px;color:var(--hbos-text-muted);font-size:10px; }
+.knowledge-bridge strong { font-size: var(--hbos-font-meta); }.knowledge-bridge span { margin-top:3px;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta); }
 .result-list { display: grid; gap: 11px; }
 .result-card { padding: 18px; border: 1px solid rgba(65,91,138,.09); border-radius: 18px; background: rgba(255,255,255,.67); transition: transform .16s ease, box-shadow .16s ease; }
 .result-card:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(50,72,113,.08); }
-.result-meta { display:flex;align-items:center;gap:8px;color:var(--hbos-text-muted);font-size:10px; }
-.result-card h3 { margin: 12px 0 3px; color:#243e66;font-size:14px;word-break:break-all; }
-.section-label { margin:0;color:var(--hbos-text-muted);font-size:10px; }
-.status-note { margin:8px 0 0;color:#9a6b24;font-size:10px; }
-.excerpt-preview { display:-webkit-box;overflow:hidden;margin:12px 0;color:var(--hbos-text-secondary);font-size:12px;line-height:1.7;-webkit-box-orient:vertical;-webkit-line-clamp:3; }
-.result-card button { display:flex;align-items:center;gap:6px;padding:0;border:0;background:transparent;color:#5365e9;font-size:11px;font-weight:750;cursor:pointer; }
-.knowledge-footer { display:flex;justify-content:space-between;gap:12px;color:var(--hbos-text-muted);font-size:10px; }
+.result-meta { display:flex;align-items:center;gap:8px;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta); }
+.result-card h3 { margin: 12px 0 3px; color:#243e66;font-size: var(--hbos-font-body);word-break:break-all; }
+.section-label { margin:0;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta); }
+.status-note { margin:8px 0 0;color:#9a6b24;font-size: var(--hbos-font-meta); }
+.excerpt-preview { display:-webkit-box;overflow:hidden;margin:12px 0;color:var(--hbos-text-secondary);font-size: var(--hbos-font-meta);line-height:1.7;-webkit-box-orient:vertical;-webkit-line-clamp:3; }
+.result-card button { display:flex;align-items:center;gap:6px;padding:0;border:0;background:transparent;color:#5365e9;font-size: var(--hbos-font-meta);font-weight:750;cursor:pointer; }
+.knowledge-footer { display:flex;justify-content:space-between;gap:12px;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta); }
 .knowledge-secondary { display:grid;align-content:start;gap:14px; }
 .knowledge-side-card { padding:20px;border-radius:22px; }
 .side-icon { display:grid;width:42px;height:42px;place-items:center;border-radius:14px;color:#fff;background:linear-gradient(135deg,#6c63ff,#4aa8ff); }
-.knowledge-side-card h3 { margin:15px 0 8px;color:#223e68;font-size:15px; }
-.knowledge-side-card > p { margin:0;color:var(--hbos-text-muted);font-size:11px;line-height:1.65; }
-.connection { display:flex;align-items:center;gap:7px;margin-top:15px;padding:10px;border-radius:12px;background:rgba(72,91,126,.05);color:#6d7e99;font-size:10px; }
+.knowledge-side-card h3 { margin:15px 0 8px;color:#223e68;font-size: var(--hbos-font-card-title); }
+.knowledge-side-card > p { margin:0;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta);line-height:1.65; }
+.connection { display:flex;align-items:center;gap:7px;margin-top:15px;padding:10px;border-radius:12px;background:rgba(72,91,126,.05);color:#6d7e99;font-size: var(--hbos-font-meta); }
 .connection span { width:7px;height:7px;border-radius:50%;background:#e5a42c; }
-.knowledge-side-card > small { color:#6577a2;font-size:10px;font-weight:800;letter-spacing:.08em; }
+.knowledge-side-card > small { color:#6577a2;font-size: var(--hbos-font-meta);font-weight:800;letter-spacing:.08em; }
 ol { display:grid;gap:17px;margin:17px 0 0;padding:0;list-style:none; }
 li { display:grid;grid-template-columns:30px 1fr;gap:10px; }
-li b { color:#626bf6;font-size:11px; } li span { color:var(--hbos-text-muted);font-size:10px;line-height:1.55; } li strong { display:block;margin-bottom:3px;color:#304868;font-size:11px; }
+li b { color:#626bf6;font-size: var(--hbos-font-meta); } li span { color:var(--hbos-text-muted);font-size: var(--hbos-font-meta);line-height:1.55; } li strong { display:block;margin-bottom:3px;color:#304868;font-size: var(--hbos-font-meta); }
 @media (max-width: 1180px) { .knowledge-grid { grid-template-columns:1fr; }.knowledge-secondary{grid-template-columns:1fr 1fr;} }
-@media (max-width: 700px) { .knowledge-hero{padding:24px 18px;}.knowledge-search{grid-template-columns:auto 1fr;}.knowledge-search .ant-btn{grid-column:1/-1}.topic-grid,.knowledge-secondary{grid-template-columns:1fr}.knowledge-footer{flex-direction:column}.kt-page-heading{align-items:flex-start;flex-direction:column}.heading-actions{width:100%;justify-content:space-between}.knowledge-bridge{grid-template-columns:auto 1fr}.knowledge-bridge .ant-btn{grid-column:1/-1} }
+@media (max-width: 700px) { .knowledge-hero h2 { font-size: var(--hbos-font-page-title); line-height: var(--hbos-line-page-title); letter-spacing: -.5px; } .knowledge-hero{padding:24px 18px;}.knowledge-search{grid-template-columns:auto 1fr;}.knowledge-search .ant-btn{grid-column:1/-1}.topic-grid,.knowledge-secondary{grid-template-columns:1fr}.knowledge-footer{flex-direction:column}.kt-page-heading{align-items:flex-start;flex-direction:column}.heading-actions{width:100%;justify-content:space-between}.knowledge-bridge{grid-template-columns:auto 1fr}.knowledge-bridge .ant-btn{grid-column:1/-1} }
 </style>

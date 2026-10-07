@@ -1,0 +1,534 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "k1c1-r1.1"
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "subject": {
+      "type": "object",
+      "properties": {
+        "user_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 320
+        },
+        "session_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "session_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "enabled": {
+          "const": true
+        }
+      },
+      "required": [
+        "user_ref",
+        "session_ref",
+        "session_revision",
+        "enabled"
+      ],
+      "additionalProperties": false
+    },
+    "client": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "audience": {
+          "const": "knowledge-gateway"
+        },
+        "channel": {
+          "enum": [
+            "PORTAL",
+            "MCP",
+            "BACKGROUND"
+          ]
+        }
+      },
+      "required": [
+        "client_id",
+        "audience",
+        "channel"
+      ],
+      "additionalProperties": false
+    },
+    "action": {
+      "enum": [
+        "knowledge.search",
+        "knowledge.ask",
+        "knowledge.evidence",
+        "knowledge.spaces"
+      ]
+    },
+    "environment": {
+      "enum": [
+        "production",
+        "synthetic"
+      ]
+    },
+    "space_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true
+    },
+    "grant_pairs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "space_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "action": {
+            "enum": [
+              "knowledge.search",
+              "knowledge.ask",
+              "knowledge.evidence",
+              "knowledge.spaces"
+            ]
+          },
+          "grant_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "role_ref",
+          "space_id",
+          "action",
+          "grant_ref"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "canonical_document_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "version_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "business_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80
+          },
+          "backend": {
+            "enum": [
+              "ragflow",
+              "local_index"
+            ]
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "document_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "binding_revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "publication_state": {
+            "const": "published"
+          },
+          "withdrawn": {
+            "const": false
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "source_type": {
+            "enum": [
+              "COMPANY_CONTROLLED",
+              "EXTERNAL_REFERENCE",
+              "ORDINARY_INTERNAL_KNOWLEDGE",
+              "SYNTHETIC_TEST"
+            ]
+          },
+          "authority_status": {
+            "enum": [
+              "CONTROLLED_APPROVED",
+              "EXTERNAL_REFERENCE_REVIEWED",
+              "INTERNAL_REFERENCE_REVIEWED",
+              "SYNTHETIC_ONLY"
+            ]
+          },
+          "dataset_alias": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "binding_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 240
+          },
+          "section": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 240
+          },
+          "equipment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 240
+          },
+          "asset_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 240
+          },
+          "component_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 240
+          },
+          "mapping_ready": {
+            "const": true
+          }
+        },
+        "required": [
+          "space_id",
+          "canonical_document_id",
+          "version_id",
+          "business_version",
+          "backend",
+          "dataset_id",
+          "document_id",
+          "binding_revision",
+          "publication_state",
+          "withdrawn",
+          "valid_from",
+          "valid_until",
+          "source_type",
+          "authority_status",
+          "dataset_alias",
+          "binding_ref",
+          "title",
+          "section",
+          "equipment_id",
+          "asset_id",
+          "component_id",
+          "mapping_ready"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source_type": {
+                  "const": "COMPANY_CONTROLLED"
+                }
+              },
+              "required": [
+                "source_type"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority_status": {
+                  "const": "CONTROLLED_APPROVED"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_type": {
+                  "const": "EXTERNAL_REFERENCE"
+                }
+              },
+              "required": [
+                "source_type"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority_status": {
+                  "const": "EXTERNAL_REFERENCE_REVIEWED"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_type": {
+                  "const": "ORDINARY_INTERNAL_KNOWLEDGE"
+                }
+              },
+              "required": [
+                "source_type"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority_status": {
+                  "const": "INTERNAL_REFERENCE_REVIEWED"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_type": {
+                  "const": "SYNTHETIC_TEST"
+                }
+              },
+              "required": [
+                "source_type"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority_status": {
+                  "const": "SYNTHETIC_ONLY"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 200
+    },
+    "policy_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "corpus_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "provider": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "IAM_ROLE_SCOPE",
+            "HBOS_LEGACY_READONLY"
+          ]
+        },
+        "authority_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "compatibility_expires_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "kind",
+        "authority_revision",
+        "compatibility_expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "max_excerpt_codepoints": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "max_answer_codepoints": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "requests_per_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "external_codepoints_per_minute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        }
+      },
+      "required": [
+        "max_results",
+        "max_excerpt_codepoints",
+        "max_answer_codepoints",
+        "requests_per_minute",
+        "external_codepoints_per_minute"
+      ],
+      "additionalProperties": false
+    },
+    "model_policy_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "schema_version",
+    "plan_id",
+    "subject",
+    "client",
+    "action",
+    "environment",
+    "space_ids",
+    "grant_pairs",
+    "bindings",
+    "policy_revision",
+    "corpus_revision",
+    "provider",
+    "request_id",
+    "issued_at",
+    "expires_at",
+    "limits",
+    "model_policy_ref"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hbos:k1c1:plan:r1.1",
+  "title": "PROPOSED internal authorized plan; never public employee output",
+  "x-status": "PROPOSED_NOT_IMPLEMENTED",
+  "x-semantic-rules": [
+    "online verify enabled User/session and exact client/audience/action/request",
+    "expires_at must be after issued_at and no more than 120 seconds later; server clock only",
+    "every binding must match a current granted Space and immutable canonical Version; no Cartesian grants or Dataset-Doc pairing",
+    "same revision never bypasses live withdraw/deny/Space/version checks",
+    "null business_version means unknown business document revision, not an invented effective version",
+    "version_id is a server immutable technical Version reference created by an approved metadata workflow, not a claimed business revision",
+    "Provider unavailable/empty/unsupported filter means fail closed before any upstream call",
+    "prototype/synthetic fixture is allowed only in a synthetic environment and never production formal Space",
+    "compatibility dataset_ids project binding.dataset_alias; compatibility document_ids project canonical_document_id; adapter uses paired physical dataset_id/document_id only"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "environment": {
+            "const": "production"
+          }
+        },
+        "required": [
+          "environment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "bindings": {
+            "items": {
+              "properties": {
+                "source_type": {
+                  "not": {
+                    "const": "SYNTHETIC_TEST"
+                  }
+                },
+                "authority_status": {
+                  "not": {
+                    "const": "SYNTHETIC_ONLY"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

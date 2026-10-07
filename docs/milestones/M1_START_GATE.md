@@ -1,5 +1,11 @@
 # M1 启动门禁
 
+## 知识候选连续执行 R1 — 2026-10-08
+
+状态：IN_PROGRESS，专用分支 `codex/knowledge-autonomous-r1`，固定产品基线 `72e5b1728981b7ef102a2c9ee033ce0452c400e7`。已核验 K1C2 归档与独立评审，并恢复已审候选到独立源码副本；补齐 Binding 列/JSON/关联身份校验及写入守卫，修复搜索标签网格布局与知识页局部字号。核心/进程内 HTTP 重放 207 项、新元数据行回归 28 项和前端 79 项通过，Vue typecheck/正式数据模式构建通过。
+
+真实新 Site/数据库/浏览器复测正在执行。RAGFlow、模型、正式员工 MCP、旧库恢复与发布均未计为通过。现行 P1、个人 MCP、旧知识数据及真实权限保持原运行状态；不合并 main/product，不切换部署。知识执行事实见 `docs/milestones/M1_KB_AUTO_R1_知识候选连续执行.md`；以下旧轮次条目保留为历史与其他业务范围。
+
 ## PR #21 最终 Gate — 2026-10-01
 
 FINAL_REVIEW_BLOCKED：既有原生 MFA 跨请求证明 blocker 已最小修复；新 HEAD 的全部 CI/构建/历史扫描仍须最终核对。Browser final-submit 三项尚未实际完成，Owner 最新无破坏验收为 WAITING_OWNER_ACCEPTANCE。只有两项实际 PASS 且其余 Gate 全通过才 squash #21 到产品分支；#22 已冻结待安全承接，#15/main 不合并。真人验证码/新员工开户/高风险交接/实体手机软键盘未执行仍 NOT_RUN，按本轮授权不统一阻塞产品分支合入。

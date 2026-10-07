@@ -1,0 +1,51 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Space",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "field:space_id",
+  "field_order": [
+    "space_id",
+    "required_role",
+    "enabled"
+  ],
+  "fields": [
+    {
+      "fieldname": "space_id",
+      "fieldtype": "Data",
+      "label": "Space Id",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "required_role",
+      "fieldtype": "Link",
+      "label": "Required Role",
+      "options": "Role",
+      "reqd": 1
+    },
+    {
+      "fieldname": "enabled",
+      "fieldtype": "Check",
+      "label": "Enabled",
+      "default": "1"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0,
+      "export": 0,
+      "print": 0,
+      "report": 0,
+      "share": 0,
+      "email": 0
+    }
+  ],
+  "allow_rename": 0,
+  "index_web_pages_for_search": 0,
+  "track_changes": 0
+}

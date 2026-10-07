@@ -2,6 +2,7 @@ export interface DomainErrorPayload {
   code: string
   message: string
   retryable: boolean
+  request_id?: string
 }
 
 export interface DomainEnvelope<T> {
@@ -28,6 +29,8 @@ export interface KnowledgeEvidence {
   page_number?: number | null
   excerpt: string
   evidence_id: string
+  space_id?: string
+  source_type?: 'COMPANY_CONTROLLED' | 'EXTERNAL_REFERENCE' | 'ORDINARY_INTERNAL_KNOWLEDGE' | 'SYNTHETIC_TEST'
 }
 
 export interface KnowledgeSearchResult {
