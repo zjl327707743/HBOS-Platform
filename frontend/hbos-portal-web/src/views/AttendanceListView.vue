@@ -161,8 +161,18 @@ function statusColor(value: unknown): string {
   return 'blue'
 }
 
-function rowKey(record: Record<string, unknown>): string {
-  return String(record.name ?? JSON.stringify(record))
+/**
+ * 行唯一键。
+ *
+ * 优先用 `name`——那是 DocType 的稳定主键，也是唯一可靠的去重依据。
+ * 四个列表的 spec 现在都显式带上了 `name` 字段（见 list_data.LIST_SPECS），
+ * 所以正常情况下走的都是第一个分支。
+ *
+ * 兜底到整行 JSON：仅在字段缺失时用到，且它**不能保证唯一**——
+ * 两行显示值完全相同就会撞键。故这是安全网，不是常态。
+ */
+function rowKey(record: Record<string, unknown>, index: number): string {
+  return String(record.name ?? `${index}:${JSON.stringify(record)}`)
 }
 
 async function loadOptions() {

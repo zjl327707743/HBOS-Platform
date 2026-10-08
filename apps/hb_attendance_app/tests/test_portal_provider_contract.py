@@ -95,32 +95,16 @@ class AttendancePortalRouteTest(unittest.TestCase):
         )
 
     def test_embedded_routes_map_to_their_desk_paths(self):
-        # 逐条钉死映射目标：只断言「不等于自身」测不出映射写错到别的页面。
+        # 2026-10-08 起，报表 / 列表 / 上传页改为门户原生渲染，不再登记为内嵌路由；
+        # 只剩班次管理一项（Owner 裁定保留 Desk 实现）。逐条钉死映射目标——
+        # 只断言「不等于自身」测不出映射写错到别的页面。
         expected = {
-            "/hbos/attendance/report/monthly": "/app/query-report/月度考勤汇总",
-            "/hbos/attendance/report/checkins": "/app/query-report/打卡流水",
-            "/hbos/attendance/report/results": "/app/query-report/考勤结果",
-            "/hbos/attendance/report/staging": "/app/query-report/HBOS 月度汇总暂存（对账）",
-            "/hbos/attendance/import": "/app/hbos-attendance-import",
-            "/hbos/attendance/import-log": "/app/hbos-attendance-import-log",
-            "/hbos/attendance/monthly-upload": "/app/hbos-monthly-upload",
             "/hbos/attendance/shifts": "/app/hbos-shift-management",
-            "/hbos/attendance/feishu/leave": "/app/hbos-leave-record",
-            "/hbos/attendance/feishu/overtime": "/app/hbos-overtime-record",
-            "/hbos/attendance/feishu/rest-leave": "/app/hbos-rest-leave-record",
         }
         self.assertEqual(expected, dict(EMBEDDED_ROUTES))
         for stable_path, desk_path in expected.items():
             with self.subTest(stable=stable_path):
                 self.assertEqual(desk_path, resolve_stable_route(stable_path))
-
-    def test_embedded_query_is_preserved(self):
-        self.assertEqual(
-            "/app/query-report/月度考勤汇总?from_date=2026-09-01",
-            resolve_stable_route(
-                "/hbos/attendance/report/monthly?from_date=2026-09-01"
-            ),
-        )
 
     def test_embedded_targets_stay_inside_the_desk_namespace(self):
         # 结构不变量：所有内嵌目标必须落在 /app/ 下。若将来有人把它改成
@@ -155,6 +139,9 @@ class AttendancePortalRouteTest(unittest.TestCase):
             "/hbos/attendance/report",
             "/hbos/attendance/feishu",
             "/hbos/attendance/reports/monthly",
+            # 曾登记、现已改原生的旧内嵌路由（不应再被解析）
+            "/hbos/attendance/report/monthly",
+            "/hbos/attendance/feishu/leave",
         ):
             with self.subTest(path=path):
                 with self.assertRaises(ValueError):

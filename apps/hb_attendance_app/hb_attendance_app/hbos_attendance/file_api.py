@@ -20,14 +20,17 @@ from __future__ import annotations
 
 import frappe
 
-UPLOAD_ROLES = ("System Manager", "HR Manager", "HR User")
-
 
 @frappe.whitelist()
 def get_csrf_token():
     """返回当前会话的 CSRF token，供门户发起 POST（如文件上传）。
 
     必须已登录：未登录会话没有 token 可言，也不该拿到。
+
+    **为什么不做角色限制**：这个 token 是**调用者自己会话**的，Desk 侧对每个
+    登录用户本来就通过 `desk.html` 下发同一个值——限制它不构成任何边界。
+    真正的权限边界在上传端点自己（`upload_file` / `process_excel` 各自校验），
+    在那里拦才有意义。
     """
     if frappe.session.user in (None, "", "Guest"):
         frappe.throw("请先登录", frappe.AuthenticationError)

@@ -22,7 +22,10 @@ export interface ReportPayload {
   report: string
   columns: ReportColumn[]
   data: Record<string, unknown>[]
-  row_count: number
+  /** 过滤后的总行数（后端给），用于分页 */
+  total: number
+  limit: number
+  start: number
 }
 
 export type FilterKind = 'month' | 'year' | 'date-range' | 'department'
@@ -108,9 +111,20 @@ export function findReport(slug: string): ReportSpec | undefined {
   return attendanceReports.find((report) => report.slug === slug)
 }
 
+/**
+ * 取一页报表数据。
+ *
+ * 报表的 execute() 在后端是**全量算出**的（Frappe 脚本报表没有分页接口），
+ * 故后端「算全量、只回一段」；这里传 start 让后端截不同的段。
+ * 不传 limit：由后端按自己的上限（MAX_ROWS=500）封顶。
+ */
 export async function fetchReport(
   spec: ReportSpec,
   filters: Record<string, string>,
+  start = 0,
 ): Promise<ReportPayload> {
-  return callFrappeMethod<ReportPayload>(spec.method, { filters: JSON.stringify(filters) })
+  return callFrappeMethod<ReportPayload>(spec.method, {
+    filters: JSON.stringify(filters),
+    start,
+  })
 }

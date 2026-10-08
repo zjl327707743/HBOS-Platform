@@ -13,9 +13,13 @@
       type="error"
       show-icon
       :message="error"
-      description="该入口由后台页面承载。若持续失败，请改用右下角「管理后台」直接打开。"
+      description="该入口由后台页面承载。可重试一次；若仍失败，请改用侧栏底部的「管理后台」直接打开。"
       class="att-embed-alert"
-    />
+    >
+      <template #action>
+        <a-button size="small" @click="load(slug)">重试</a-button>
+      </template>
+    </a-alert>
 
     <div v-else class="att-embed-frame-wrap glass-surface">
       <div v-if="loading" class="att-embed-loading">
@@ -25,10 +29,10 @@
       <iframe
         v-show="src && !loading"
         ref="frameRef"
-        :src="src"
+        :src="src || 'about:blank'"
         :title="item?.label || '考勤业务页面'"
         class="att-embed-frame"
-        @load="loading = false"
+        @load="onFrameLoad"
       ></iframe>
     </div>
   </section>
@@ -57,18 +61,20 @@ async function load(targetSlug: string) {
   const target = findNavBySlug(targetSlug)
   src.value = ''
   error.value = ''
+  loading.value = true
 
   if (!target) {
     error.value = '未知的考勤入口'
+    loading.value = false
     return
   }
   if (target.kind !== 'embed') {
     // 原生入口不该走到这里；与其白屏，不如给一句能行动的话
     error.value = '该入口不走内嵌'
+    loading.value = false
     return
   }
 
-  loading.value = true
   try {
     // 后端是映射的权威：稳定路径 → Desk 实现路径，并在此过程中被
     // hbos_portal 的 validate_resolved_path 校验一次（拒 scheme / netloc /
@@ -81,14 +87,28 @@ async function load(targetSlug: string) {
       || resolved.includes('\\')
     ) {
       error.value = '后台返回的页面地址无效'
+      loading.value = false
       return
     }
     src.value = resolved
+    // 真正的 loading 结束时机在 iframe 的 load 事件里——不在这里。
+    // 若 URL 有缓存命中、load 已错过，onFrameLoad 也会兜底关掉。
   } catch (cause) {
     error.value = (cause instanceof Error && cause.message) || '业务页面加载失败'
-  } finally {
     loading.value = false
   }
+}
+
+/**
+ * iframe 加载完成才收起 loading。
+ *
+ * 之前直接写 `@load="loading = false"` 有两个问题：① `src=''` 时浏览器把空串
+ * 解析成**当前文档 URL**，iframe 会先把门户自己加载一遍并触发 load，遮罩
+ * 提前消失；② 请求还没发出就关掉了 loading。现在 src 用 `about:blank` 兜底，
+ * 且只在真有 src 时才认定加载完成。
+ */
+function onFrameLoad() {
+  if (src.value) loading.value = false
 }
 
 watch(slug, (value) => { if (value) load(value) }, { immediate: true })

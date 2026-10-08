@@ -83,7 +83,7 @@ import { useRouter } from 'vue-router'
 import { CloudUploadOutlined } from '@ant-design/icons-vue'
 import type { UploadFile } from 'ant-design-vue'
 import { callFrappeMethod } from '@/services/frappeClient'
-import { forgetCsrfToken, uploadToFrappe } from '@/services/frappeUpload'
+import { forgetCsrfToken } from '@/services/frappeUpload'
 
 const router = useRouter()
 
@@ -154,7 +154,9 @@ async function submit() {
         credentials: 'same-origin',
       })
 
-    // token 经由同一套后端端点取得（与 uploadToFrappe 共用缓存逻辑）
+    // 注意：这条路径**不走** frappeUpload.uploadToFrappe——本端点接收的是原始
+    // 文件字节，而那个封装是先 upload_file 拿 file_url。故 token 在这里独立取，
+    // forgetCsrfToken() 只是把它的模块级缓存一并作废，避免两处缓存不一致。
     let token = await getToken()
     let response = await send(token)
     if (response.status === 403) {

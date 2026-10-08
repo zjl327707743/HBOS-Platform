@@ -16,25 +16,19 @@ NATIVE_PATHS = frozenset({
     STABLE_PREFIX + "/board",
 })
 
-# ── 后台面（进 iframe）──
-# 报表 / 列表 / 配置页按项目规范不重写成原生前端
-# （docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md §1.2），而是解析到 Desk 路径，
-# 由门户内的同域 iframe 承载。
+# ── 仍由同域 iframe 承载的后台面 ──
 #
-# 稳定路径一律**纯 ASCII**：中文只出现在映射目标里。稳定路径会经 axios 查询参数
-# 与 urlsplit/urlunsplit 往返，保持 ASCII 可以完全绕开编码歧义。
+# 2026-10-08 起，报表（4）、列表（4）与两个上传页已改为**门户原生渲染**，
+# 走 `report_data.py` / `list_data.py` / 既有上传端点，**不再经过这里**。
+# 保留在表内会让下一个人以为它们还走 iframe，故只留实际在用的那一条。
+#
+# 班次管理仍是例外：它是编辑器型页面、13 个写接口中两个会改判定口径、
+# 低频，Owner 2026-10-08 裁定保留 Desk 实现（见 M3_考勤面板全面化与分组导航.md §7）。
+#
+# 稳定路径保持**纯 ASCII**：中文只出现在映射目标里（会经 axios 查询参数与
+# urlsplit/urlunsplit 往返，ASCII 可完全绕开编码歧义）。
 EMBEDDED_ROUTES = {
-    STABLE_PREFIX + "/report/monthly": "/app/query-report/月度考勤汇总",
-    STABLE_PREFIX + "/report/checkins": "/app/query-report/打卡流水",
-    STABLE_PREFIX + "/report/results": "/app/query-report/考勤结果",
-    STABLE_PREFIX + "/report/staging": "/app/query-report/HBOS 月度汇总暂存（对账）",
-    STABLE_PREFIX + "/import": "/app/hbos-attendance-import",
-    STABLE_PREFIX + "/import-log": "/app/hbos-attendance-import-log",
-    STABLE_PREFIX + "/monthly-upload": "/app/hbos-monthly-upload",
     STABLE_PREFIX + "/shifts": "/app/hbos-shift-management",
-    STABLE_PREFIX + "/feishu/leave": "/app/hbos-leave-record",
-    STABLE_PREFIX + "/feishu/overtime": "/app/hbos-overtime-record",
-    STABLE_PREFIX + "/feishu/rest-leave": "/app/hbos-rest-leave-record",
 }
 
 # 已注册的稳定路由白名单（原生 + 内嵌）。

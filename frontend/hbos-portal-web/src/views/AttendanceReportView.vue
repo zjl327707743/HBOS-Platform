@@ -7,7 +7,7 @@
         <p>{{ spec?.hint }}</p>
       </div>
       <span class="rep-count" v-if="!loading && !error">
-        共 <b>{{ payload?.row_count ?? 0 }}</b> 行
+        共 <b>{{ payload?.total ?? 0 }}</b> 行
       </span>
     </header>
 
@@ -19,7 +19,7 @@
       <template v-if="spec?.filters.includes('year')">
         <a-select v-model:value="filters.year" :options="yearOptions" style="width: 104px" />
       </template>
-      <template v-if="spec?.filters.includes('date-range')">
+      <template v-if="spec?.filters.includes('date-range') && !spec?.filters.includes('month')">
         <a-range-picker v-model:value="range" :allow-clear="true" />
       </template>
       <template v-if="spec?.filters.includes('department')">
@@ -55,6 +55,7 @@
         :scroll="{ x: scrollWidth }"
         :row-key="rowKey"
         size="middle"
+        @change="onTableChange"
       >
         <template #bodyCell="{ column, record, index }">
           <template v-if="column.key === '__idx'">{{ rowIndex(index) }}</template>
@@ -95,6 +96,7 @@ const route = useRoute()
 const payload = ref<ReportPayload | null>(null)
 const loading = ref(false)
 const error = ref('')
+const page = ref(1)
 
 const slug = computed(() => String(route.params.slug ?? ''))
 const spec = computed(() => findReport(slug.value))
@@ -179,14 +181,25 @@ const scrollWidth = computed(() =>
 )
 
 const pagination = computed(() => ({
+  current: page.value,
   pageSize: spec.value?.pageSize ?? 50,
+  total: payload.value?.total ?? 0,
   size: 'small' as const,
   showSizeChanger: false,
   showTotal: (total: number) => `共 ${total} 行`,
 }))
 
+// 行号要跨页连续。AntD 传给 #bodyCell 的 index 是**页内下标**，
+// 直接用会让第 2 页又从 1 开始。列表页用的是 globalIndex，这里与之对齐。
 function rowIndex(index: number) {
-  return index + 1
+  return (page.value - 1) * (spec.value?.pageSize ?? 50) + index + 1
+}
+
+function onTableChange(pag: { current?: number }) {
+  const next = pag.current ?? 1
+  if (next === page.value) return
+  page.value = next
+  load()
 }
 
 /**
@@ -247,7 +260,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    payload.value = await fetchReport(target, buildFilters())
+    payload.value = await fetchReport(target, buildFilters(), (page.value - 1) * pageSize())
   } catch (cause) {
     payload.value = null
     error.value = (cause instanceof Error && cause.message) || '报表加载失败'
@@ -256,11 +269,16 @@ async function load() {
   }
 }
 
+function pageSize() {
+  return spec.value?.pageSize ?? 50
+}
+
 function reset() {
   filters.value.month = String(today.month() + 1)
   filters.value.year = String(today.year())
   filters.value.department = ''
   range.value = initialRange()
+  page.value = 1
   load()
 }
 
@@ -269,14 +287,24 @@ onMounted(() => {
   load()
 })
 
-// 从侧栏切到另一张报表时：日期窗口按新报表重算，再取数。
-// （组件被复用不会重新 mount，不 watch 会沿用上一张表的窗口。）
+// 从侧栏切到另一张报表时：把**所有**与上一张表相关的状态清掉，再取数。
+// （组件被复用不会重新 mount。）
+//
+// 为什么必须清 filters：`department` 四张表都有，若不清，在月度汇总选了
+// 「生产部」再切到打卡流水，新表会**带着旧部门条件**——看起来像数据缺失，
+// 而用户以为自己什么都没选。页码同理，否则会停在上一次的页上。
 watch(slug, (value) => {
-  if (value && findReport(value)) {
-    payload.value = null
-    range.value = initialRange()
-    load()
+  if (!value || !findReport(value)) return
+  payload.value = null
+  error.value = ''
+  page.value = 1
+  filters.value = {
+    month: String(today.month() + 1),
+    year: String(today.year()),
+    department: '',
   }
+  range.value = initialRange()
+  load()
 })
 </script>
 

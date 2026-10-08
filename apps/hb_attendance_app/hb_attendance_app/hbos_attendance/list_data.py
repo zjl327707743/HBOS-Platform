@@ -54,6 +54,9 @@ LIST_SPECS = {
         "hint": "自飞书审批同步的请假单。请假审批通过即豁免考勤判定。",
         "order_by": "start_date desc",
         "columns": [
+            # name 是 DocType 的稳定主键，前端 row-key 用它；缺了会退化成整行 JSON，
+            # 而「两行显示值完全相同」时那个兜底不保证唯一（实测当前三张表无重复，属预防）。
+            {"fieldname": "name", "label": "记录号", "width": 150},
             {"fieldname": "employee_name", "label": "姓名", "width": 110},
             {"fieldname": "employee", "label": "员工", "width": 150},
             {"fieldname": "department", "label": "部门", "width": 140},
@@ -72,6 +75,9 @@ LIST_SPECS = {
         "hint": "自飞书审批同步的加班单，用于与调休的加班日核实对账。",
         "order_by": "start_time desc",
         "columns": [
+            # name 是 DocType 的稳定主键，前端 row-key 用它；缺了会退化成整行 JSON，
+            # 而「两行显示值完全相同」时那个兜底不保证唯一（实测当前三张表无重复，属预防）。
+            {"fieldname": "name", "label": "记录号", "width": 150},
             {"fieldname": "employee_name", "label": "姓名", "width": 110},
             {"fieldname": "employee", "label": "员工", "width": 150},
             {"fieldname": "department", "label": "部门", "width": 140},
@@ -90,6 +96,9 @@ LIST_SPECS = {
         "hint": "调休单。与请假不同：调休须先核实加班日，核实通过的才豁免考勤。",
         "order_by": "start_date desc",
         "columns": [
+            # name 是 DocType 的稳定主键，前端 row-key 用它；缺了会退化成整行 JSON，
+            # 而「两行显示值完全相同」时那个兜底不保证唯一（实测当前三张表无重复，属预防）。
+            {"fieldname": "name", "label": "记录号", "width": 150},
             {"fieldname": "employee_name", "label": "姓名", "width": 110},
             {"fieldname": "employee_number", "label": "工号", "width": 110},
             {"fieldname": "department", "label": "部门", "width": 140},
@@ -156,7 +165,19 @@ def get_list(key: str, filters=None, limit: int = 200, start: int = 0):
         limit_page_length=limit,
         limit_start=start,
     )
-    total = frappe.db.count(spec["doctype"], filters=clean or None)
+
+    # total 必须与 rows 同口径。原实现用 frappe.db.count——那是**不看权限**的裸计数，
+    # 一旦配了行级权限（如按部门的 User Permission），就会出现「显示共 500 条、
+    # 翻到第 6 页却是空的」。用 get_list 且不取字段，让 Frappe 把同样的条件再算一次。
+    #
+    # limit_page_length=0 在 Frappe 里表示「不限制」，正好用于取全量计数。
+    counted = frappe.get_list(
+        spec["doctype"],
+        filters=clean,
+        fields=["name"],
+        limit_page_length=0,
+    )
+    total = len(counted)
 
     return {
         "key": key,
@@ -179,14 +200,21 @@ def get_filter_options(key: str, fieldname: str):
     """某筛选字段的可选值（去重后的现有取值）。
 
     不新造字典表：选项从真实数据里归纳，避免「选项里有、数据里没有」的假选择。
+
+    **必须走 frappe.get_list 而非 db.get_all**：后者不看用户权限，会把调用者
+    无权读取的记录里的取值也枚举出来（如某 HR 只被授权一个部门，却能看到
+    全局出现过的所有审批状态）。本模块开头就写了这条区别，早前的实现却在此
+    自相矛盾——现已统一。
     """
     _require_read()
     spec = _spec(key)
     if fieldname not in set(spec.get("filters", [])):
         frappe.throw(f"字段不可筛选：{fieldname}", frappe.ValidationError)
 
-    values = frappe.db.get_all(
-        spec["doctype"], fields=[fieldname], distinct=True, limit_page_length=200
+    values = frappe.get_list(
+        spec["doctype"],
+        fields=[fieldname],
+        limit_page_length=0,  # 0 = 不限制，取全量后在 Python 侧去重
     )
     out = sorted({str(v.get(fieldname)) for v in values if v.get(fieldname)})
-    return [{"value": v, "label": v} for v in out]
+    return [{"value": v, "label": v} for v in out][:200]

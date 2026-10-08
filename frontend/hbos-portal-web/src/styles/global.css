@@ -720,7 +720,13 @@ button, input { font: inherit; }
 }
 .app-local-brand .app-icon { width: 42px; height: 42px; margin: 0; border-radius: 14px; }
 .app-local-brand strong { display: block; font-size: 14px; }
-.app-local-brand span { display: block; margin-top: 3px; color: var(--hbos-text-muted); font-size: 9px; }
+/* 只针对品牌下的**文字**副标题。
+   不能写成 `.app-local-brand span`：AntD 图标渲染成 `<span class="anticon">`，
+   也在 `.app-local-brand` 里，会被这条规则一起命中——颜色压成 muted
+   （特异性 0,1,1 高于 `.app-icon{color:white}` 的 0,1,0，把白图标改成灰的）、
+   再被 `margin-top:3px` 推下去 3px，于是紫色方块里的图标看似「消失」。
+   LIMS 侧栏是同样的结构，同样受益于这个修正。 */
+.app-local-brand span:not(.anticon) { display: block; margin-top: 3px; color: var(--hbos-text-muted); font-size: 9px; }
 .nav-section-label.spaced { margin-top: 10px; }
 .local-nav { cursor: pointer; }
 .local-nav.management { border-top: 1px solid var(--hbos-border-default); border-radius: 0; margin-top: 8px; padding-top: 10px; }
