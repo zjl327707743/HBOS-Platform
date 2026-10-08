@@ -9,6 +9,7 @@ on:
       - 'services/hbos_gateway/**'
       - 'scripts/release/**'
       - 'scripts/local/**'
+      - 'scripts/knowledge/**'
       - 'frontend/hbos-portal-web/**'
       - '.github/workflows/portal-unified-account-release.yml'
   workflow_dispatch:
@@ -25,10 +26,11 @@ jobs:
       - run: pip install -r services/hbos_gateway/requirements.txt
       - run: |
           pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
+          pip install --only-binary=:all: --require-hashes -r apps/hb_knowledge_app/requirements-test.lock
       - name: Portal and domain contracts
         run: |
           PYTHONPATH=apps/hbos_portal python -m unittest discover -s apps/hbos_portal/tests -t apps/hbos_portal -q
-          PYTHONPATH=apps/hb_knowledge_app python -m unittest discover -s apps/hb_knowledge_app/tests -q
+          PYTHONDONTWRITEBYTECODE=1 python scripts/knowledge/run_domain_contracts.py
           PYTHONPATH=apps/hb_twin_app python -m unittest discover -s apps/hb_twin_app/tests -q
           PYTHONPATH=apps/hb_knowledge_app:. python -m unittest discover -s services/hbos_gateway/tests -v
       - name: Release script syntax and source compilation
