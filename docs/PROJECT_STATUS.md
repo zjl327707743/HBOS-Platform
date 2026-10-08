@@ -1,5 +1,11 @@
 # 项目状态
 
+## HBOS Knowledge R2.1 — 2026-10-08
+
+状态：IN_PROGRESS / NOT_RELEASED。承接 Draft PR #30 与现有 R2 候选。已加入事务性发布前进约束、独立 replace/restore 意图与不可变操作收据；原生数据库合成反例覆盖重放、下架、新版本、外部核验失败、提交失败和并发只允许一个匹配前版本的发布者成功。
+
+本轮追加冻结批次、稳定文档身份、确切部门 Dataset 映射、有界多部门检索与目录筛选分页。真实资料、问题、截图、ID 映射及凭据只保留 Owner 私有层。原 R2 数据和用户活动保留；复杂部门 ACL、P1 切换与自动合并不在本轮范围。执行与实际门禁见 `docs/milestones/M1_KB_R2_1_增量入库与多部门验收.md`。以下 R2/R1 为历史记录。
+
 ## HBOS Knowledge R2 — 2026-10-08
 
 状态：REAL_CORPUS_SEARCH_AND_REFERENCE_ASK_CANDIDATE_PASS / NOT_RELEASED。承接 Draft PR #30 的 `codex/knowledge-autonomous-r1`，按最新 Owner 共享范围实现部门分类，无复杂部门 ACL。12 份已批准资料在固定本机 RAGFlow v0.27.0 完成解析，原始哈希、部门映射与实际解析证据仅保留 Owner 本机。
