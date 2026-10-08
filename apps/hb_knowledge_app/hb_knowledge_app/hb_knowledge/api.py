@@ -155,7 +155,22 @@ def ask(**business_fields):
             _,mapping=activity_current(runtime)
             _,previous=owned(raw['conversation_id'],actor,kinds=('History',))
             bindings_for(previous,mapping)
-            question='前一问题：'+previous['query'][-180:]+'\n追问：'+question
+            from .followup import followup_query, UNRESOLVED_FOLLOWUP
+            followup=followup_query(previous['query'],question)
+            if followup is None:
+                # We do not persist answer structure or copy old answer text as facts.
+                # Ownership and current versions above are still mandatory.
+                request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context')}})
+                ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
+                runtime.publication.plan=ticket.plan
+                runtime.quota.reserve_output(actor.user_ref,len(UNRESOLVED_FOLLOWUP))
+                turn=write('History',question,request.space_ids,[],runtime,conversation_id=raw['conversation_id'])
+                activity_current(runtime)
+                runtime.audit.record(actor.user_ref,'ask','INSUFFICIENT_EVIDENCE',0)
+                return {'request_id':request_id,'turn_id':turn,'conversation_id':turn,'mode':'authorized_generation',
+                        'answer_status':'INSUFFICIENT_EVIDENCE','answerable':False,
+                        'answer':UNRESOLVED_FOLLOWUP,'citations':[]}
+            question=followup
         request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context')}})
         ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
         runtime.publication.plan=ticket.plan
