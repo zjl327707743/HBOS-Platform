@@ -4,8 +4,8 @@
       <h2>带来源问答</h2><p>根据已收录资料解释；请核对现行规程与适用版本。</p>
       <form @submit.prevent="ask">
         <label for="knowledge-question">{{ conversation ? '继续追问' : '你的问题' }}</label>
-        <textarea id="knowledge-question" v-model="question" maxlength="280" :disabled="busy" placeholder="例如：混粉操作记录需要确认哪些项目？" />
-        <div class="tool-actions"><a-button type="primary" html-type="submit" :disabled="!question.trim()" :loading="busy">{{ conversation ? '追问' : '提交问题' }}</a-button><a-button v-if="conversation" :disabled="busy" @click="newConversation">新问题</a-button></div>
+        <textarea id="knowledge-question" v-model="question" maxlength="280" :disabled="busy || retrievalBlocked" placeholder="例如：混粉操作记录需要确认哪些项目？" />
+        <div class="tool-actions"><a-button type="primary" html-type="submit" :disabled="!question.trim() || retrievalBlocked" :loading="busy">{{ conversation ? '追问' : '提交问题' }}</a-button><a-button v-if="conversation" :disabled="busy" @click="newConversation">新问题</a-button></div>
       </form>
       <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
         <a-tag :color="turn.answerable ? 'blue' : 'orange'">{{ turn.answerable ? '内部参考回答' : '依据不足' }}</a-tag>
@@ -40,7 +40,7 @@
 import {computed,onMounted,onBeforeUnmount,ref,watch} from 'vue'
 import type {KnowledgeActivity,KnowledgeAnswer,KnowledgeEvidence} from '@/contracts/p1'
 import {askKnowledgeReference,getKnowledgeActivity,openKnowledgeSaved,removeKnowledgeSaved,saveKnowledgeBookmark,sendKnowledgeFeedback,DomainApiError} from '@/services/p1Api'
-const props=defineProps<{subject:string;query:string;selectedSpace:string;askEnabled:boolean}>()
+const props=defineProps<{subject:string;query:string;selectedSpace:string;askEnabled:boolean;retrievalBlocked?:boolean}>()
 const emit=defineEmits<{replay:[query:string,spaces:string[]];evidence:[id:string]}>()
 const tabs=[{kind:'History' as const,label:'最近查阅'},{kind:'Bookmark' as const,label:'我的收藏'}]
 const kind=ref<'History'|'Bookmark'>('History');const history=ref<KnowledgeActivity[]>([]);const bookmarks=ref<KnowledgeActivity[]>([])
@@ -59,7 +59,7 @@ async function sendFeedback(){const g=generation;await action(async()=>{await se
 async function reopen(id:string){const g=generation;await action(async()=>{const data=await openKnowledgeSaved(id);if(g===generation)emit('replay',data.query,data.space_ids)})}
 async function remove(id:string){const g=generation;await action(async()=>{await removeKnowledgeSaved(id);if(g===generation)await refresh()})}
 function newConversation(){conversation.value='';turns.value=[];question.value='';error.value=''}
-async function ask(){const g=generation;await action(async()=>{const data=await askKnowledgeReference(question.value,props.selectedSpace,conversation.value||undefined);if(g===generation){turns.value.push(data);conversation.value=data.turn_id;question.value='';await refresh()}})}
+async function ask(){if(props.retrievalBlocked){error.value='检索服务暂不可用，目录与个人记录仍可查看。';return}const g=generation;await action(async()=>{const data=await askKnowledgeReference(question.value,props.selectedSpace,conversation.value||undefined);if(g===generation){turns.value.push(data);conversation.value=data.turn_id;question.value='';await refresh()}})}
 defineExpose({refresh,bookmark,feedback});onMounted(refresh)
 </script>
 <style scoped>

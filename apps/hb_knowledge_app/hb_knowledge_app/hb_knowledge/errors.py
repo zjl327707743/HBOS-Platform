@@ -12,7 +12,7 @@ ERRORS = {
     "EVIDENCE_UNAVAILABLE": (404, "该证据不可用或已失效。", False),
     "POLICY_UNAVAILABLE": (503, "授权服务暂时不可用。", True),
     "SCOPE_FILTER_UNSUPPORTED": (503, "授权过滤暂时不可用。", True),
-    "UPSTREAM_UNAVAILABLE": (503, "知识服务暂时不可用。", True),
+    "UPSTREAM_UNAVAILABLE": (503, "检索服务暂不可用，目录与个人记录仍可查看。", True),
     "UPSTREAM_SCOPE_VIOLATION": (502, "知识服务权限校验失败。", False),
     "UPSTREAM_INVALID_RESULT": (502, "知识服务返回无效。", False),
     "MODEL_NOT_APPROVED": (503, "回答能力尚未获准。", False),

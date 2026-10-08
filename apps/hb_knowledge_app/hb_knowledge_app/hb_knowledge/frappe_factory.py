@@ -41,7 +41,11 @@ class HttpGateway:
     configured=True
     def __init__(self,cfg):
         self.profile=cfg['environment']
+        self.client_id=cfg.get('portal_client_id','K1C2_PORTAL')
         self.http=SignedHttp(cfg['gateway_url'],cfg['bff_key'],'hbos-bff')
+    def availability(self,*,diagnostics=False):
+        return self.http.post('/v1/knowledge/availability',
+            {'client_id':self.client_id,'diagnostics':diagnostics},self.client_id)
     def search(self,*,ticket):
         raw=self.http.post('/v1/knowledge/search',search_body(ticket),ticket.plan.client.client_id)
         if not isinstance(raw,dict) or set(raw)!={'status','results'} or raw['status']!='SUCCESS' or not isinstance(raw['results'],list) or len(raw['results'])>5:

@@ -59,6 +59,20 @@ def _can_search(runtime,actor):
         if error.code in {"EMPTY_SCOPE","SCOPE_REJECTED"}: return False
         raise
 
+def _availability(runtime,*,diagnostics=False):
+    from knowledge_service.hbos_gateway.availability import unknown, PUBLIC_FIELDS
+    fallback=unknown(runtime.gateway.configured)
+    read=getattr(runtime.gateway,'availability',None)
+    if not callable(read):return fallback
+    try:
+        value=read(diagnostics=diagnostics)
+        if not isinstance(value,dict) or not PUBLIC_FIELDS.issubset(value):return fallback
+        if value['status'] not in {'AVAILABLE','UNKNOWN','OBSERVED_ERROR','NOT_CONFIGURED'}:return fallback
+        if value['observed_error'] not in {None,'UPSTREAM_UNAVAILABLE'}:return fallback
+        # The signed service is trusted for the fixed projection, never raw errors.
+        return value if diagnostics else {k:value[k] for k in PUBLIC_FIELDS}
+    except KnowledgeError:return fallback
+
 @frappe.whitelist(methods=["GET"])
 def get_status():
     def current(request_id):
@@ -66,7 +80,18 @@ def get_status():
         actor=runtime.actor()
         return {"can_enter":bool(actor.enabled),"can_search":_can_search(runtime,actor),
                 "policy_revision":None,"gateway_configured":runtime.gateway.configured,
-                "ask_enabled":_ask_enabled(runtime),"mode":"retrieval","environment":runtime.profile}
+                "ask_enabled":_ask_enabled(runtime),"mode":"retrieval","environment":runtime.profile,
+                "retrieval_availability":_availability(runtime)}
+    return _run(current)
+
+@frappe.whitelist(methods=['GET'])
+def get_retrieval_diagnostics(**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'get_retrieval_diagnostics'):raise KnowledgeError('INVALID_REQUEST')
+        runtime=load_runtime();actor=runtime.actor()
+        if not actor.enabled or 'System Manager' not in frappe.get_roles(actor.user_ref):
+            raise KnowledgeError('SCOPE_REJECTED')
+        return _availability(runtime,diagnostics=True)
     return _run(current)
 
 @frappe.whitelist(methods=["POST"])

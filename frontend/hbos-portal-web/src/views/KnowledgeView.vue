@@ -18,6 +18,10 @@
       </div>
     </header>
 
+    <a-alert v-if="retrievalBlocked" type="warning" show-icon role="status"
+      message="检索服务暂不可用，目录与个人记录仍可查看。"
+      description="恢复后可重新提交检索。当前提示依据最近真实调用结果，刷新页面不会试调用模型。" />
+
     <div class="knowledge-grid">
       <div class="knowledge-primary">
         <section class="knowledge-hero hbos-glass-g3" :class="{ compact: hasSearched }">
@@ -44,6 +48,7 @@
             <span :class="['state-dot', statusTone]"></span>
             {{ statusLabel }}
             <span v-if="status?.policy_revision" class="revision">策略 {{ status.policy_revision }}</span>
+            <a-button size="small" :disabled="searching" @click="refreshStatus">刷新状态</a-button>
           </div>
           <div v-if="spaces.length" class="knowledge-space-filter">
             <label for="knowledge-space">部门分类</label>
@@ -97,7 +102,7 @@
           </div>
         </section>
 
-        <KnowledgeTools v-if="status?.environment === 'production' && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :ask-enabled="Boolean(status?.ask_enabled)" @replay="replaySaved" @evidence="drawer.show" />
+        <KnowledgeTools v-if="status?.environment === 'production' && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :ask-enabled="Boolean(status?.ask_enabled)" :retrieval-blocked="retrievalBlocked" @replay="replaySaved" @evidence="drawer.show" />
 
         <section v-if="catalog.length" class="knowledge-start hbos-glass-g2">
           <div class="section-title"><div><h2>资料目录</h2><p>内部参考／有效性待核</p></div><a-tag>{{ filteredCatalog.length }} 份</a-tag></div>
@@ -122,7 +127,7 @@
           <div class="side-icon"><BulbOutlined /></div>
           <h3>有依据，才继续</h3>
           <p>先查看来源与适用版本。资料未经现行性核验时，请向文控或资料维护人确认。</p>
-          <div class="connection"><span></span>{{ status?.ask_enabled ? '回答能力已获准' : '回答能力未配置' }}</div>
+          <div class="connection"><span></span>{{ retrievalBlocked ? '检索待恢复' : status?.ask_enabled ? '回答能力已获准 · 可用性需实际核验' : '回答能力未配置' }}</div>
         </section>
         <section class="knowledge-side-card hbos-glass-g2">
           <small>让每次查阅更有把握</small>
@@ -215,10 +220,13 @@ const statusLabel = computed(() => {
   if (!status.value.can_enter) return '当前账号没有知识助理访问权限'
   if (!status.value.can_search) return '当前没有已发布且可检索的资料范围'
   if (!status.value.gateway_configured) return 'Gateway 尚未完成本地安全配置'
-  return status.value.environment === 'synthetic' ? '隔离合成环境 · 检索链路已配置' : '内部共享参考库 · 检索服务已连接'
+  if (retrievalBlocked.value) return '检索服务暂不可用，目录与个人记录仍可查看。'
+  if (status.value.retrieval_availability?.status === 'AVAILABLE') return '最近检索成功 · 当前资料权限已核验'
+  return status.value.environment === 'synthetic' ? '隔离合成环境 · 检索链路已配置' : '检索链路已配置 · 当前可用性待实际检索确认'
 })
-const statusTone = computed(() => status.value?.can_search && status.value?.gateway_configured ? 'ready' : 'waiting')
-const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_search && status.value?.gateway_configured))
+const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked || status.value?.retrieval_availability?.status === 'OBSERVED_ERROR'))
+const statusTone = computed(() => status.value?.retrieval_availability?.status === 'AVAILABLE' && !retrievalBlocked.value ? 'ready' : 'waiting')
+const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value))
 
 function applyError(error: unknown) {
   const apiError = error instanceof DomainApiError ? error : null
@@ -229,6 +237,11 @@ function applyError(error: unknown) {
 async function submitSearch() {
   const normalized = query.value.trim()
   if (!normalized || searching.value || !subjectKey.value) return
+  if (!canSubmit.value) {
+    pageErrorCode.value = 'UPSTREAM_UNAVAILABLE'
+    pageError.value = '检索服务暂不可用，目录与个人记录仍可查看。'
+    return
+  }
   const generation = ++searchGeneration
   const subject = subjectKey.value
   drawer.close()
@@ -245,7 +258,10 @@ async function submitSearch() {
     }, selectedSpace.value ? [selectedSpace.value] : undefined)
     if (generation === searchGeneration && subject === subjectKey.value) { results.value = response.results; void tools.value?.refresh() }
   } catch (error) {
-    if (generation === searchGeneration && subject === subjectKey.value) applyError(error)
+    if (generation === searchGeneration && subject === subjectKey.value) {
+      applyError(error)
+      if (pageErrorCode.value === 'UPSTREAM_UNAVAILABLE') void refreshStatus()
+    }
   } finally {
     if (generation === searchGeneration) searching.value = false
   }
@@ -268,7 +284,7 @@ async function refreshStatus() {
       const docs = await getKnowledgeDocuments()
       if (generation === subjectGeneration && subjectKey.value) catalog.value = docs
     }
-    if (route.query.auto === '1' && query.value.trim() && canSubmit.value) await submitSearch()
+    // Deep links prefill the question; page loads never spend model tokens.
   } catch (error) {
     if (generation === subjectGeneration) applyError(error)
   }

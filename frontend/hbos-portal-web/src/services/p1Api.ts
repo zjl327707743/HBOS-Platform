@@ -47,7 +47,7 @@ const KNOWLEDGE_MESSAGES: Record<string, string> = {
   EVIDENCE_REVOKED: '该证据不可用或已失效。',
   EVIDENCE_UNAVAILABLE: '该证据不可用或已失效。',
   POLICY_UNAVAILABLE: '授权服务暂时不可用。',
-  UPSTREAM_UNAVAILABLE: '知识服务暂时不可用。',
+  UPSTREAM_UNAVAILABLE: '检索服务暂不可用，目录与个人记录仍可查看。',
   RATE_LIMITED: '请求较频繁，请稍后重试。',
   EXTRACTION_LIMITED: '本时段可展示的摘录已达上限。',
 }

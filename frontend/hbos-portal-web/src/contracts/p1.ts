@@ -19,6 +19,16 @@ export interface KnowledgeStatus {
   ask_enabled: boolean
   mode: 'retrieval'
   environment?: 'synthetic' | 'production'
+  retrieval_availability?: {
+    configured: boolean
+    status: 'AVAILABLE' | 'OBSERVED_ERROR' | 'UNKNOWN' | 'NOT_CONFIGURED'
+    last_success_at: string | null
+    observed_at: string | null
+    observed_error: 'UPSTREAM_UNAVAILABLE' | null
+    blocked: boolean
+    expires_at: string | null
+    manual_recheck_required: boolean
+  }
 }
 
 export interface KnowledgeEvidence {
