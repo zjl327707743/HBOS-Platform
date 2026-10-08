@@ -1,8 +1,24 @@
 import unittest
-from hb_knowledge_app.hb_knowledge.publication import PublicationConflict,decide,receipt_id,verify_frozen_target,FROZEN_PUBLICATION_FIELDS
+from hb_knowledge_app.hb_knowledge.publication import PublicationConflict,decide,receipt_id,verify_frozen_target,FROZEN_PUBLICATION_FIELDS,select_publication_items
 
 
 class PublicationTests(unittest.TestCase):
+    def test_subset_preserves_original_frozen_order_and_does_not_modify_state(self):
+        import copy
+        state={'items':[{'canonical_document_id':'A','status':'parsed/indexed'},
+                        {'canonical_document_id':'B','status':'parse_failed'},
+                        {'canonical_document_id':'C','status':'parsed/indexed'}]}
+        before=copy.deepcopy(state)
+        self.assertEqual([i['canonical_document_id'] for i in select_publication_items(state,['C'])],['C'])
+        self.assertEqual(state,before)
+        for selected in [[],['B'],['UNKNOWN'],['C','C']]:
+            with self.subTest(selected=selected),self.assertRaises(PublicationConflict):select_publication_items(state,selected)
+
+    def test_subset_does_not_select_a_duplicate_alias_as_another_publication(self):
+        state={'items':[{'canonical_document_id':'A','status':'parsed/indexed'},
+                        {'canonical_document_id':'A','status':'parsed/indexed','disposition':'ALIAS'}]}
+        self.assertEqual(len(select_publication_items(state,['A'])),1)
+
     def frozen(self):
         item={k:'synthetic' for k in FROZEN_PUBLICATION_FIELDS}
         item.update(department_key='DEMO',business_version=None,document_number=None,

@@ -5,7 +5,7 @@ from pathlib import Path
 from .execution_plan import Binding, iso, validate_admission
 from .metadata_integrity import physical_pair_key, IDENTITY_FIELDS
 from .service_http import canonical
-from .publication import PublicationConflict, decide, receipt_id, verify_frozen_target
+from .publication import PublicationConflict, decide, receipt_id, verify_frozen_target, select_publication_items
 
 def _require(condition, message):
     if not condition:
@@ -45,7 +45,8 @@ def _verify_backend(cfg, item):
         _require(sha.hexdigest() == item['upload_sha256'], 'Backend source hash mismatch')
 
 
-def publish(manifest_path, operation='publish', expected_current_version=None, reason=None, approval_ref=None):
+def publish(manifest_path, operation='publish', expected_current_version=None, reason=None, approval_ref=None,
+            selected_document_ids=None):
     import frappe
     from .shared_reference import configuration
     cfg=configuration();frappe.only_for('System Manager')
@@ -55,6 +56,15 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
     space_id='DEPT_'+state['department_key'].upper()
     _require(space_id in cfg['approved_space_ids'], 'Space is not approved')
     allowed_items = cfg.get('approved_publication_items', {}).get(state['batch_sha256'])
+    items=select_publication_items(state,selected_document_ids)
+    selection_hash=hashlib.sha256(canonical(sorted(i['canonical_document_id'] for i in items)).encode()).hexdigest()
+    if selected_document_ids is not None:
+        approved=cfg.get('approved_publication_subsets',{}).get(selection_hash)
+        _require(isinstance(approved,dict) and approved.get('batch_sha256')==state['batch_sha256']
+                 and approved.get('canonical_document_ids')==sorted(selected_document_ids)
+                 and approved.get('approval_ref')
+                 and re.fullmatch(r'[0-9a-f]{64}',approved.get('quality_evidence_sha256','')),
+                 'Exact quality-verified publication subset approval is required')
     results=[]
     try:
         # Lock the space to serialize first publication and guard a batch atomically.
@@ -65,8 +75,7 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
                              (space_id,),as_dict=True)
         _require(len(spaces)==1 and spaces[0]['enabled'] and spaces[0]['required_role']==cfg['reader_role'], 'Space changed')
         seen=set()
-        for item in state['items']:
-            if item['status']!='parsed/indexed' or item.get('disposition') in {'SAME_CONTENT_SKIP','ALIAS'}:continue
+        for item in items:
             doc,version=item['canonical_document_id'],item['version_id']
             _require(doc not in seen, 'Duplicate canonical item in publication');seen.add(doc)
             _require(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed'), 'Item is not approved')
@@ -144,7 +153,8 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
             raise PublicationConflict('CONFLICT: concurrent publisher changed state') from None
         raise
     return {'published_documents':sum(r['outcome'] in {'PUBLISHED','REPLACED','RESTORED'} for r in results),
-            'batch_sha256':state['batch_sha256'],'results':results}
+            'batch_sha256':state['batch_sha256'],'selection_sha256':selection_hash,
+            'selected_documents':len(items),'frozen_items':len(state['items']),'results':results}
 
 def get_catalog(runtime,actor):
     from .public_strings import safe_string

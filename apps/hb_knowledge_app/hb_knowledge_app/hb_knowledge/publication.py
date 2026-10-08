@@ -15,6 +15,19 @@ FROZEN_PUBLICATION_FIELDS = (
 )
 
 
+def select_publication_items(state, selected_document_ids=None):
+    eligible=[item for item in state['items'] if item['status']=='parsed/indexed'
+              and item.get('disposition') not in {'SAME_CONTENT_SKIP','ALIAS'}]
+    if selected_document_ids is None:return eligible
+    if (not isinstance(selected_document_ids,list) or not 1<=len(selected_document_ids)<=512
+            or any(not isinstance(v,str) or not v for v in selected_document_ids)
+            or len(set(selected_document_ids))!=len(selected_document_ids)):
+        raise PublicationConflict('Publication subset must contain distinct explicit document identities')
+    if set(selected_document_ids)-{item['canonical_document_id'] for item in eligible}:
+        raise PublicationConflict('Publication subset includes an unverified or unknown item')
+    return [item for item in eligible if item['canonical_document_id'] in selected_document_ids]
+
+
 def verify_frozen_target(item, approved, department):
     if not isinstance(approved, dict) or any(k not in approved for k in FROZEN_PUBLICATION_FIELDS):
         raise PublicationConflict("Complete frozen publication target is required")
