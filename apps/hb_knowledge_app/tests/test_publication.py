@@ -1,8 +1,43 @@
 import unittest
-from hb_knowledge_app.hb_knowledge.publication import PublicationConflict,decide,receipt_id
+from hb_knowledge_app.hb_knowledge.publication import PublicationConflict,decide,receipt_id,verify_frozen_target,FROZEN_PUBLICATION_FIELDS
 
 
 class PublicationTests(unittest.TestCase):
+    def frozen(self):
+        item={k:'synthetic' for k in FROZEN_PUBLICATION_FIELDS}
+        item.update(department_key='DEMO',business_version=None,document_number=None,
+                    owner_inclusion_confirmed=True,internal_sharing_confirmed=True)
+        return item
+
+    def test_complete_frozen_target_is_accepted(self):
+        item=self.frozen();verify_frozen_target(item,dict(item),'DEMO')
+
+    def test_hash_only_approval_is_rejected(self):
+        item=self.frozen()
+        with self.assertRaises(PublicationConflict):verify_frozen_target(item,{'sha256':item['sha256']},'DEMO')
+
+    def test_source_classification_cannot_be_upgraded_in_execution_state(self):
+        item=self.frozen()
+        for field in ['source_type','authority_status']:
+            with self.subTest(field=field),self.assertRaises(PublicationConflict):
+                verify_frozen_target({**item,field:'unapproved-controlled'},item,'DEMO')
+
+    def test_owner_approval_fields_cannot_drift(self):
+        item=self.frozen()
+        for field in ['owner_inclusion_confirmed','internal_sharing_confirmed','approval_ref']:
+            with self.subTest(field=field),self.assertRaises(PublicationConflict):
+                verify_frozen_target({**item,field:False},item,'DEMO')
+
+    def test_title_number_and_business_version_are_frozen(self):
+        item=self.frozen()
+        for field in ['title','document_number','business_version']:
+            with self.subTest(field=field),self.assertRaises(PublicationConflict):
+                verify_frozen_target({**item,field:'unapproved-metadata'},item,'DEMO')
+
+    def test_frozen_department_cannot_publish_into_another_space(self):
+        item=self.frozen()
+        with self.assertRaises(PublicationConflict):verify_frozen_target(item,item,'OTHER')
+
     def current(self,version='OLD',withdrawn=0,status='published'):
         return {'current_version':version,'withdrawn':withdrawn,'ingestion_status':status}
 

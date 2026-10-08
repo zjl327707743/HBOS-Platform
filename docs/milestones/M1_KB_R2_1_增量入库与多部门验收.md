@@ -2,7 +2,7 @@
 
 状态：PARTIAL / BLOCKED_EMBEDDING_QUOTA / NOT_RELEASED。
 
-本轮承接 R2 和 Draft PR #30。发布以当前数据库状态决定：普通重放幂等；下架保留；当前版本不同即冲突；replace 和 restore 需要精确目标、前版本、独立批准与原因。事务内核对来源、不可变版本和物理绑定，失败回滚整个发布批次。消耗过的 restore 意图不能在后续下架后再次恢复文档。新增不可变 Publication 收据表，仅同步此 DocType，没有重建 Site 或升级核心。
+本轮承接 R2 和 Draft PR #30。发布以当前数据库状态决定：普通重放幂等；下架保留；当前版本不同即冲突；replace 和 restore 需要精确目标、前版本、独立批准与原因。事务内核对来源、不可变版本和物理绑定，失败回滚整个发布批次。首次发布的服务器批准项还须完整冻结 16 个字段，包括标题、业务编号/版本、来源分类、部门和 Owner 批准；只给 hash 或修改执行 state 的分类/批准字段均拒绝。消耗过的 restore 意图不能在后续下架后再次恢复文档。新增不可变 Publication 收据表，仅同步此 DocType，没有重建 Site 或升级核心。
 
 增量 CLI 将冻结内容/批准与执行状态分开，任何副作用前逐项复核，默认计划不伪造批准。同部门同内容改名关联原 canonical/version；同路径改内容先列 UPDATE_CANDIDATE，显式关系批准后才沿用 canonical 并创建新版本；跨部门重复列 CONFLICT。精确 ID 映射在新 Dataset 创建后立即保存，多页查询拒绝重复页、总数漂移与越界。普通 resume 跳过已成功与已失败终态；失败重试默认 dry-run，须指明冻结批次、额度恢复指令及 1..32 项上限，不重新上传或提交成功项。
 
@@ -18,7 +18,7 @@ PDF 和 DOCX 代表样本通过原始上传 hash、非空 chunks、metadata、�
 | 领域 | 68 PASS；重放、撤回、新版、意图消费、追问不足与既有边界 |
 | 独立服务 | 39 PASS；身份、state 注入、冻结、新旧分页、失败重试上限 |
 | 前端 | 85 PASS；typecheck 与 frappe 模式生产构建通过 |
-| 原生 Frappe/MariaDB | 8 个合成记录场景通过；外部校验器是合成端口，不冒称真实 RAGFlow |
+| 原生 Frappe/MariaDB | 9 个合成记录场景通过；外部校验器是合成端口，不冒称真实 RAGFlow |
 | 真实旧批次 | 12 NOOP、0 发布写入；实际 RAGFlow metadata 和上传文件 hash 验证 |
 | 保留及用户归属 | 原 12 文档/版本/绑定不变，原 49 活动记录与 7 账号指纹保留；双用户历史/收藏隔离、越权打开/删除拒绝、自有收藏重新核验通过 |
 | 真实追问 | 两条指代不明追问明确不足、无引用、无 embedding/generation；伪造部门拒绝 |

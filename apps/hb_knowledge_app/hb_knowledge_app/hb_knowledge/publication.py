@@ -7,6 +7,23 @@ class PublicationConflict(ValueError):
     pass
 
 
+FROZEN_PUBLICATION_FIELDS = (
+    "canonical_document_id", "version_id", "sha256", "upload_sha256",
+    "binding_revision", "dataset_id", "ragflow_document_id", "department_key",
+    "title", "document_number", "business_version", "source_type", "authority_status",
+    "owner_inclusion_confirmed", "internal_sharing_confirmed", "approval_ref",
+)
+
+
+def verify_frozen_target(item, approved, department):
+    if not isinstance(approved, dict) or any(k not in approved for k in FROZEN_PUBLICATION_FIELDS):
+        raise PublicationConflict("Complete frozen publication target is required")
+    if any(item.get(k) != approved[k] for k in FROZEN_PUBLICATION_FIELDS):
+        raise PublicationConflict("Item differs from approved frozen target")
+    if item.get("department_key") != department:
+        raise PublicationConflict("Frozen department differs from publication space")
+
+
 def decide(current, target, operation="publish", expected=None):
     if operation not in {"publish", "replace", "restore"}:
         raise PublicationConflict("Unknown publication operation")

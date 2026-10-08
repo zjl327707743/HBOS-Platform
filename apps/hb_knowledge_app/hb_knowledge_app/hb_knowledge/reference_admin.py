@@ -5,7 +5,7 @@ from pathlib import Path
 from .execution_plan import Binding, iso, validate_admission
 from .metadata_integrity import physical_pair_key, IDENTITY_FIELDS
 from .service_http import canonical
-from .publication import PublicationConflict, decide, receipt_id
+from .publication import PublicationConflict, decide, receipt_id, verify_frozen_target
 
 def _require(condition, message):
     if not condition:
@@ -75,7 +75,7 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
             _require(all(re.fullmatch(r'[0-9a-f]{32}',item.get(k,'')) for k in ('dataset_id','ragflow_document_id')), 'Invalid physical identity')
             if allowed_items is not None:
                 frozen=allowed_items.get(doc)
-                _require(frozen and all(frozen.get(k)==item.get(k) for k in frozen), 'Item differs from approved frozen target')
+                verify_frozen_target(item, frozen, state['department_key'])
             else:
                 # Old approved R2 batches may replay, but cannot introduce new identities.
                 _require(frappe.db.exists('HBOS Knowledge Version',version), 'Frozen approved publication target is required')
