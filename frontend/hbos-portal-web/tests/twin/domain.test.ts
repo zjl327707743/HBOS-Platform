@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as T from 'three'
-import { DisplayState, disposeTree, effectiveVisible } from '@/components/twin/resources'
+import { applySourcePresentation, DisplayState, disposeTree, effectiveVisible } from '@/components/twin/resources'
 import { createProduction } from '@/components/twin/process/runtime'
 import { createScheduler } from '@/composables/twin/scheduler'
 import { contextKey, knowledgeQuery, makeSession, seek } from '@/composables/twin/session'
@@ -44,6 +44,17 @@ it('owns one frame loop, sleeps when idle and cancels it on exit',()=>{
 })
 
 describe('Twin display resource ownership',()=>{
+  it('honors frozen mutual-exclusion metadata before capturing the reset baseline',()=>{
+    const root=new T.Group(),material=new T.MeshStandardMaterial({opacity:0,transparent:true,depthWrite:false}),geometry=new T.BoxGeometry()
+    material.userData={mutually_exclusive_source:true,restore_opacity:1}
+    const source=new T.Mesh(geometry,material),replacement=new T.Mesh(geometry,material)
+    source.userData.replaced_by_site_group='A';replacement.userData.site_revision_group='A';root.add(source,replacement)
+    applySourcePresentation(root);const state=new DisplayState(root)
+    expect(source.visible).toBe(false);expect(replacement.visible).toBe(true);expect(material.opacity).toBe(1);expect(material.transparent).toBe(false)
+    state.setSelection([source]);state.isolated=true;state.wireframe=true;state.apply();state.reset()
+    expect(effectiveVisible(source)).toBe(false);expect(replacement.material).toBe(material);expect(replacement.visible).toBe(true)
+    state.dispose();disposeTree(root)
+  })
   it('restores source visibility and materials after isolate, hide and wireframe',()=>{
     const root=new T.Group(),group=new T.Group(),material=new T.MeshStandardMaterial(),geometry=new T.BoxGeometry()
     const visible=new T.Mesh(geometry,material),hidden=new T.Mesh(geometry,material),sibling=new T.Mesh(geometry,material)

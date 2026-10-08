@@ -29,7 +29,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { DemoSession, ProcessBundle, TwinManifest, ViewerMetrics } from '@/types/twin'
 import type { TwinScheduler } from '@/composables/twin/scheduler'
-import { DisplayState, disposeTree, effectiveVisible } from './resources'
+import { applySourcePresentation, DisplayState, disposeTree, effectiveVisible } from './resources'
 import { createProduction, type ProductionRuntime } from './process/runtime'
 
 const props = defineProps<{ manifest:TwinManifest; process:ProcessBundle | null; session:DemoSession; scheduler:TwinScheduler }>()
@@ -129,7 +129,7 @@ async function loadModel(){
     if(hash!==props.manifest.model_sha256||data.byteLength!==props.manifest.model_size_bytes){fatal.value=true;throw new Error('模型完整性校验失败，已停止展示。')}
     const parsing=performance.now(),gltf=await new GLTFLoader().parseAsync(data,'');parseMs=performance.now()-parsing
     if(disposed||token!==generation||!scene){disposeTree(gltf.scene);return}
-    root=gltf.scene;scene.add(root);display=new DisplayState(root)
+    root=gltf.scene;applySourcePresentation(root);scene.add(root);display=new DisplayState(root)
     root.traverse(n=>{if(typeof n.userData.asset_id==='string')nodes.set(n.userData.asset_id,n)})
     userCamera=false;frameObject(root)
     if(camera&&controls){original.position.copy(camera.position);original.target.copy(controls.target);original.near=camera.near;original.far=camera.far;original.fov=camera.fov}

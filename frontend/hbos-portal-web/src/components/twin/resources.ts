@@ -1,5 +1,20 @@
 import * as T from 'three'
 
+/** Frozen presentation defaults: A/B/C photo-fit layers replace their source
+ * counterparts. Visibility never reduces the package's required asset scope. */
+export function applySourcePresentation(root:T.Object3D) {
+  const layers=new Set(['A','B','C']),restored=new Set<T.Material>()
+  root.traverse(node=>{
+    if(!(node instanceof T.Mesh))return
+    const added=node.userData.site_revision_group,replaced=node.userData.replaced_by_site_group
+    node.visible=node.visible&&(!added||layers.has(added))&&(!replaced||!layers.has(replaced))
+    for(const material of Array.isArray(node.material)?node.material:[node.material]){
+      if(restored.has(material)||!material.userData.mutually_exclusive_source)continue
+      restored.add(material);material.opacity=material.userData.restore_opacity??1;material.transparent=false;material.depthWrite=true
+    }
+  })
+}
+
 /** Dispose only this tree's resources, once per identity, including instancing. */
 export function disposeTree(root: T.Object3D) {
   const geometries = new Set<T.BufferGeometry>(), materials = new Set<T.Material>(), textures = new Set<T.Texture>()
