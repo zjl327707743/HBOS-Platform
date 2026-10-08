@@ -27,4 +27,4 @@ CI 工作流修复已在同一功能分支提交，并获两条 PR workflow 成�
 
 源码回归执行 `scripts/knowledge/run_domain_contracts.py` 和 Portal 的 `npm test`、真实 Frappe 模式构建。独立 service 测试必须在匹配 HBOS 领域包已安装的联合环境运行；Owner 本机真实验收脚本包含可逆故障测试，只允许操作已登记 R2 候选，不能移植到现行 P1 执行。
 
-最终定位核对：RAGFlow v0.27 Word chunks 的 positions 为片段序号，不能作为原件页码。服务 0.3.1 将本参考语料未经核验的页码保持 null，界面显示未标注；必要摘录和精确文档/版本绑定继续有效。新增专项回归并重新执行真实闭环。
+最终定位核对：RAGFlow v0.27 Word chunks 的 positions 为片段序号，不能作为原件页码。服务 0.3.1 将本参考语料未经核验的页码保持 null，界面显示定位未核；必要摘录和精确文档/版本绑定继续有效。新增专项回归并重新执行真实闭环。
