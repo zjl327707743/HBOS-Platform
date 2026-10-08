@@ -46,6 +46,23 @@ M1-FIX-F：调休模块（**两个阶段均已上线**）。当前状态：**REV
 - 遗留：两个原生子页**无导航入口**（属新前端开发活动，按 Gate 需先出原型，本轮不加）；`docs/experience/` 在本分支不存在但被代码引用（Owner 裁定保留引用、不移植）；`M3_START_GATE.md` 缺失（既有治理缺口）。
 - 主文档 `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`。**本轮未认领新里程碑编号**（`R1`~`R4` 已被 M3-PORTAL-R1 用作内部阶段号），编号是否重排待 Owner 裁定。
 
+**M3-PORTAL-R1 后续（2026-10-02，REVIEWING）**：Desk 四页视觉改造 + 门户考勤应用内导航。
+
+- **Desk 四页**（补齐上一批只挂 class 未改版的部分）：人员管理 / 导入考勤机导出表 / 月度考勤上传 / 班次管理全部按 **V1 操作面**改版（实色面板、密集行、表头吸顶、无动效；玻璃只留工具条外壳）。硬编码色值与字号全部换成 `var(--h-*)` 与契约允许的 12/14/16/20/30 档；顺带补上部门名 / 姓名 / 规则名的 **XSS 转义**。
+- **关键发现：Desk 页面缓存不会自愈**。Frappe 把标准 `Page` 脚本缓存进浏览器 localStorage，失效判据是 **`Page` 文档的 `modified`**，而改磁盘 `.js` 不动该字段 → 所有看过该页的浏览器**永远跑旧版本**；**F5 / Cmd+Shift+R 无效**，只有 Frappe 的 `Ctrl+Shift+R`（**Control** 键）才清。修复：一次性顶 6 个 `modified` + 长期工具 `bump_page_cache.py` + 写入前端规范 §1.1.1。**顶时间戳时发现仪表盘与部门看板的 `modified` 同样陈旧**（JS 改于 9-28 23:15/23:31，时间戳停在 16:29）。
+- **我引入并修复的缺陷（留档）**：修「两页抢顶层 `renderPage`」时把函数收进 IIFE，**但 `on_page_load` 赋值留在闭包外** → `ReferenceError`、页面**整个空白**；症状从「旧界面」变「白页」一度误导排查，靠控制台报错才确认。已修 + 对六页做 IIFE 边界自检。
+- **门户考勤导航**（按 Gate 先出原型，Owner 从三案选定 **B 顶部页签**）：新增 `AttendanceLayout.vue`（对齐 `LimsLayout`：GlobalHeader + aurora + 移动导航）；三条路由改为其**子路由**（原为并列顶层路由、**不带门户外壳**，玻璃卡浮在白底上）；页签精确匹配高亮；右侧「管理后台」链 `/app/海滨考勤工作台`（Workspace）**新开页签**。Owner 同时裁定**班次管理 / 导入 / 月度上传暂不搬进门户**（另开一轮）。
+- **验收**：考勤 **467 通过**；`npm run build` 通过；浏览器实测 Desk 四页新结构齐备、**旧结构计数为 0**；门户三页签切换与高亮正确、管理后台 200→302→Desk、门户外壳 `.aurora` 计数 2（此前缺失）。
+- **运行态影响**：动过数据库一次（6 个 `Page.modified`）；4 个页面 JS 经 bind-mount 即时生效；未重建容器、未 `migrate`、未 `bench build`。
+- 主文档 `docs/milestones/M3_考勤Desk页视觉改造与门户导航.md`；原型 `docs/frontend/prototypes/2026-10-02-考勤应用内导航方案.html`。**未认领新里程碑编号**。
+
+
+
+- **来源**：改动来自 2026-10-01 另一个中断的会话，本轮为**接管收口**（核对、实测、记录、提交）。落点由 Owner 2026-10-02 裁定为**另开分支承载**，以保住门户分支「判定核心零改动」的约束。
+- **⚠ 运行态尚未生效**：bind-mount 目录已含新代码，但常驻进程内存里是旧代码、新起进程是新代码（已记录的「同一数据两个答案」模式）——**重启前不要用 `bench execute` 核对页面数字**。生效需重启容器 + 按**升序**定向重算（定时窗口覆盖不到 9 月），均待授权。
+- 审查发现（记录不修）：`打卡流水` 报表是配对函数第二调用点、未传 `long_duty`（当前无可见影响，方向优先取设备 SN）；`audit_misjudgments.py` 会误报本修复**故意**产出的 24h Present（该脚本全仓库无引用）。
+
+
 
 M1-FIX 后续规划轮次（仅规划，不自动启动）：
 
@@ -158,9 +175,9 @@ M1-FIX-B5 = REVIEWING
 M1-FIX-F = REVIEWING / 两阶段均已上线
 M4-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m4-stock-r1`）
 M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION
-M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29 后续交付「考勤页原生化 + Desk 共享视觉层」同为 REVIEWING）
+M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29「考勤页原生化 + Desk 共享视觉层」、2026-10-02「Desk 四页视觉改造 + 门户应用内导航」两批后续交付同为 REVIEWING）
 ```
 
 ## 下一轮预告
 
-M1-FIX-F 两阶段均已上线：一阶段产出核实结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败），二阶段已把已核实调休日接入考勤豁免与看板（看板显示「请假（调休）」），全量测试 437 全绿。整支复查已完成并处置。2026-09-24 追加：完成名单单一来源收敛（行政班 221→178、无菌 48→59 改用 `SPECIAL_SHIFT_NUMS`）与 PR 审查 5 项修复，全量测试 445 全绿。M1-FIX-B3 / B4 / B5 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`，主文档 `docs/milestones/M4_STOCK_R1_库存模块隔离实施记录.md`；M2 其余轮次未启动。**M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）R1–R4 均已交付**——R4（nginx 分发门户产物 + `VITE_BASE=/hbos/`）**必须 Owner 明确授权后才能开始**，R4 前不得表述为「生产可用」；本工作线编号已裁定为 **M3-PORTAL-R1**。**2026-09-29 后续交付**：考勤三页原生化（`migration_mode` `legacy`→`native`）+ Desk 共享视觉层，已交付 REVIEWING，主文档 `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`；该交付**未认领新编号**，编号是否重排待 Owner 裁定。
+M1-FIX-F 两阶段均已上线：一阶段产出核实结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败），二阶段已把已核实调休日接入考勤豁免与看板（看板显示「请假（调休）」），全量测试 437 全绿。整支复查已完成并处置。2026-09-24 追加：完成名单单一来源收敛（行政班 221→178、无菌 48→59 改用 `SPECIAL_SHIFT_NUMS`）与 PR 审查 5 项修复，全量测试 445 全绿。M1-FIX-B3 / B4 / B5 不 closeout。M1-FIX-C（异常说明三级流程）为 PLANNED / 待 Owner 授权。M1-FIX-D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`，主文档 `docs/milestones/M4_STOCK_R1_库存模块隔离实施记录.md`；M2 其余轮次未启动。**M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）R1–R4 均已交付**——R4（nginx 分发门户产物 + `VITE_BASE=/hbos/`）**必须 Owner 明确授权后才能开始**，R4 前不得表述为「生产可用」；本工作线编号已裁定为 **M3-PORTAL-R1**。**2026-09-29 后续交付**：考勤三页原生化（`migration_mode` `legacy`→`native`）+ Desk 共享视觉层。**2026-10-02 后续交付**：Desk 四页视觉改造 + 页面缓存失效机制 + 门户考勤应用内导航（`AttendanceLayout.vue`，页签 + 管理后台入口）。两批均为 REVIEWING，主文档分别为 `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`、`docs/milestones/M3_考勤Desk页视觉改造与门户导航.md`；**均未认领新编号**，是否重排待 Owner 裁定。

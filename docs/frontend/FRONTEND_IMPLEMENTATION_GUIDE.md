@@ -20,6 +20,40 @@ HBOS 采用双层前端架构（参见 `docs/adr/0003-use-dual-layer-frontend.md
 - 不得为了"好看"强行重做成独立前端
 - 不得绕过 Frappe 权限、API 和数据边界
 
+#### 1.1.1 改完页面 JS 必须让浏览器缓存失效（2026-10-02 实测踩到）
+
+Frappe 把标准 `Page` 的脚本缓存在**浏览器 localStorage**（`_page:<页面名>`），
+下次打开直接读缓存、**不再问服务端**（`frappe/public/js/frappe/views/pageview.js`
+的 `with_page`）。失效判据是同文件 `desk.js` 的 `sync_pages`：
+
+```js
+if (!page_info[name] || page_info[name].modified != p.modified)
+    delete localStorage["_page:" + name];
+```
+
+即比对 **`Page` 文档的 `modified` 时间戳**。而修改磁盘上的 `<page>.js`
+**不会**动 `Page` 文档——所以：
+
+- 改完页面 JS，服务端确实在发新代码（可用 `bench execute
+  frappe.desk.desk_page.get` 验证返回的 `script` 字段），但**所有看过该页的
+  浏览器会一直跑旧版本，且永远不会自愈**；
+- 普通刷新（F5 / Cmd+Shift+R）**没用**——刷新不会清 localStorage；
+  Frappe 的 `Ctrl+Shift+R`（**Control**，不是 Mac 的 Command）会清，但它清的是
+  整个 localStorage，代价比必要的大。
+
+**正确做法**：改完考勤页面 JS 后跑一次
+
+```
+docker exec hbos-m0-r3a-backend-1 sh -c 'cd /home/frappe/frappe-bench && bench --site frontend execute hb_attendance_app.hbos_attendance.bump_page_cache.run'
+```
+
+之后用户**普通刷新** Desk 即可（boot 时 `sync_pages` 判定不一致、自动清掉旧缓存）。
+脚本只写 `modified`，不碰其它字段，可反复执行；新加页面后无需改它
+（按 `hbos-%` 前缀匹配）。
+
+注：本页面的 `modified` 与 `.js` 文件的修改时间无关，唯一权威是 `tabPage.modified`。
+改了页面却「看不到变化」时，先怀疑这里，再怀疑代码。
+
 ### 1.2 Vue / React 独立前端（展示与交互层）
 
 用于：

@@ -1,3 +1,7 @@
+// 全部函数收在本页闭包里。此前它们是顶层 function，而 hbos_employee_management.js
+// 同样定义了顶层 renderPage —— 两个页面脚本都在 Desk 里常驻求值，后求值的那个
+// 会覆盖前者，导致其中一页渲染出另一页的内容。收进 IIFE 后同名不再冲突。
+(function () {
 frappe.pages["hbos-shift-management"].on_page_load = function (wrapper) {
 	frappe.ui.make_app_page({
 		parent: wrapper,
@@ -10,22 +14,79 @@ frappe.pages["hbos-shift-management"].on_page_load = function (wrapper) {
 	renderPage(wrapper);
 };
 
+// 规则名、部门名、班次类型都来自用户可写字段 → 一律转义后再拼进 HTML
+const esc =
+	(frappe.utils && frappe.utils.escape_html) ||
+	function (value) {
+		return String(value)
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;")
+			.replace(/'/g, "&#039;");
+	};
+
+// 样式只声明本页结构；色值、圆角、阴影一律走 var(--h-*)（由
+// hbos_attendance.bundle.css 在 .hbos-surface 下定义），不写死。
+// 字号只取契约 v2.0 允许的 30 / 20 / 16 / 14 / 12。
+//
+// 强度：本页是**编辑器**（改时间、绑人员），整页按 V1 处理——面板实色不模糊、
+// 表格密集、无动效。这是四处改造里唯一「一屏没有任何玻璃」的页面：编辑动作
+// 里最不该出现的就是会动的装饰。标签页沿用共享样式给的 nav-pills 重着色。
+function injectStyle() {
+	if ($("#sm-style").length) return;
+	$("<style id='sm-style'>").text(
+		".sm-heading{margin-bottom:16px;}" +
+		".sm-heading h1{margin:6px 0 4px;font-size:30px;line-height:38px;font-weight:600;color:var(--h-text);}" +
+		".sm-heading p{margin:0;font-size:14px;line-height:22px;color:var(--h-text-2);max-width:64ch;}" +
+		".sm-tabs{margin-bottom:16px;}" +
+
+		".sm-panel{background:var(--h-surface-solid);border:1px solid var(--h-border);border-radius:var(--h-radius-card);margin-bottom:16px;overflow:hidden;}" +
+		".sm-panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--h-border);font-size:16px;line-height:24px;font-weight:600;color:var(--h-text);}" +
+		".sm-panel-head .hint{font-size:12px;line-height:20px;font-weight:400;color:var(--h-muted);}" +
+		".sm-panel-body{padding:16px;}" +
+		".sm-panel-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--h-border);background:var(--h-subtle);}" +
+
+		"ul.sm-depts{list-style:none;margin:0;padding:0;max-height:520px;overflow:auto;}" +
+		".sm-dept{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 16px;font-size:14px;line-height:22px;color:var(--h-text);border-bottom:1px solid var(--h-border);cursor:pointer;}" +
+		".sm-dept:hover{background:var(--h-subtle);}" +
+		".sm-dept.active{background:rgba(103,95,255,.08);box-shadow:inset 3px 0 0 var(--h-brand);font-weight:500;}" +
+		".sm-dept .cnt{font-size:12px;color:var(--h-muted);font-variant-numeric:tabular-nums;}" +
+
+		"table.sm-tbl{width:100%;border-collapse:collapse;font-size:14px;line-height:22px;}" +
+		".sm-tbl th{background:var(--h-subtle);color:var(--h-text-2);font-weight:500;font-size:12px;line-height:20px;text-align:left;padding:10px 12px;border-bottom:1px solid var(--h-border-strong);white-space:nowrap;}" +
+		".sm-tbl td{padding:8px 12px;border-bottom:1px solid var(--h-border);color:var(--h-text);vertical-align:middle;}" +
+		".sm-tbl tbody tr:hover td{background:var(--h-subtle);}" +
+		".sm-tbl .num{font-variant-numeric:tabular-nums;}" +
+		".sm-tbl .form-control{border-radius:var(--h-radius-control);}" +
+		".sm-none{padding:20px 16px;font-size:14px;line-height:22px;color:var(--h-muted);}" +
+		".sm-foot-note{margin:12px 0 0;font-size:12px;line-height:20px;color:var(--h-muted);}" +
+		".sys-shift{color:var(--h-info);}" +
+		".sm-load{padding:32px 16px;text-align:center;font-size:14px;line-height:22px;color:var(--h-text-2);}" +
+		".sm-load.error{color:var(--h-critical);}"
+	).appendTo("head");
+}
+
 function renderPage(wrapper) {
+	injectStyle();
 	const $main = $(wrapper).find(".layout-main-section").empty();
 	$main.append(`
-		<div class="shift-mgmt" style="padding: 15px;">
-			<ul class="nav nav-pills mb-3">
-				<li class="nav-item"><a class="nav-link active" id="tab-setup" href="#">班次设置</a></li>
-				<li class="nav-item"><a class="nav-link" id="tab-rules-board" href="#">规则看板</a></li>
-			</ul>
-			<div id="shift-setup-container">
-				<div class="row">
-					<div class="col-md-4" id="dept-panel"></div>
-					<div class="col-md-8" id="shift-panel"></div>
-				</div>
-			</div>
-			<div id="rules-board-container" style="display:none;"></div>
+		<div class="sm-heading">
+			<div class="hbos-breadcrumb">海滨考勤工作台 / 班次管理</div>
+			<h1>班次管理</h1>
+			<p>按部门维护班次规则与人员绑定。改动次日生效，历史考勤不受影响。</p>
 		</div>
+		<ul class="nav nav-pills sm-tabs">
+			<li class="nav-item"><a class="nav-link active" id="tab-setup" href="#">班次设置</a></li>
+			<li class="nav-item"><a class="nav-link" id="tab-rules-board" href="#">规则看板</a></li>
+		</ul>
+		<div id="shift-setup-container">
+			<div class="row">
+				<div class="col-md-4" id="dept-panel"></div>
+				<div class="col-md-8" id="shift-panel"></div>
+			</div>
+		</div>
+		<div id="rules-board-container" style="display:none;"></div>
 	`);
 	$("#tab-setup").on("click", function (e) {
 		e.preventDefault();
@@ -37,6 +98,7 @@ function renderPage(wrapper) {
 	});
 	loadOverview();
 }
+
 
 function switchTab(tab) {
 	if (tab === "setup") {
@@ -55,10 +117,9 @@ function switchTab(tab) {
 
 function renderRulesBoard() {
 	const $c = $("#rules-board-container");
-	$c.html('<div class="rb-toolbar" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">'
-		+ '<button class="btn btn-primary btn-sm" id="rb-export-roster">导出班次人员维护表</button></div>'
-		+ '<div class="rb-loading text-center p-5"><div class="spinner-border text-primary"></div>'
-		+ '<p class="mt-2 text-muted">加载规则看板...</p></div>');
+	$c.html('<div class="rb-toolbar">'
+		+ '<button class="btn btn-primary btn-xs" id="rb-export-roster">导出班次人员维护表</button></div>'
+		+ '<div class="rb-loading sm-load">加载规则看板…</div>');
 	$c.find("#rb-export-roster").on("click", function () {
 		const $btn = $(this).prop("disabled", true);
 		frappe.call({
@@ -82,43 +143,53 @@ function renderRulesBoard() {
 		method: "hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data.get_rules_board",
 		callback(r) {
 			if (!r.message) {
-				$c.find(".rb-loading").html('<div class="p-5 text-center text-danger">无法加载规则看板</div>');
+				$c.find(".rb-loading").addClass("error").text("无法加载规则看板");
 				return;
 			}
 			renderRulesBoardSections($c, r.message);
 		},
 		error() {
-			$c.find(".rb-loading").html('<div class="p-5 text-center text-danger">加载失败，请重试</div>');
+			$c.find(".rb-loading").addClass("error").text("加载失败，请重试");
 		},
 	});
 }
 
 function renderRulesBoardSections($c, data) {
 	if (!$("#rb-style").length) {
+		// 规则看板自己的类，与 .sm-* 分开：看板是「读」的面（分节卡片更像文档），
+		// 设置页是「改」的面（面板+密集表）。两者共用同一套 token，故观感一致。
 		$("<style id='rb-style'>" +
 			".rb-chain{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap;margin-bottom:18px;}" +
-			".rb-step{flex:1;min-width:150px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;}" +
-			".rb-step .n{font-weight:700;color:#2c3e50;}" +
-			".rb-step .d{font-size:11px;color:#888;margin-top:2px;}" +
-			".rb-sec{background:#fff;border-radius:8px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-bottom:16px;}" +
-			".rb-sec h5{font-size:15px;margin:0 0 10px 0;color:#333;}" +
-			".rb-sec table{width:100%;font-size:13px;border-collapse:collapse;}" +
-			".rb-sec th{background:#f7f8fa;text-align:left;padding:7px 8px;border-bottom:2px solid #e0e0e0;}" +
-			".rb-sec td{padding:6px 8px;border-bottom:1px solid #f0f0f0;}" +
+			".rb-step{flex:1;min-width:150px;background:var(--h-surface-solid);border:1px solid var(--h-border);border-radius:var(--h-radius-card);padding:10px 12px;}" +
+			".rb-step .n{font-weight:600;font-size:14px;line-height:22px;color:var(--h-text);}" +
+			".rb-step .d{font-size:12px;line-height:20px;color:var(--h-muted);margin-top:2px;}" +
+			".rb-sec{background:var(--h-surface-solid);border:1px solid var(--h-border);border-radius:var(--h-radius-card);padding:16px;margin-bottom:16px;}" +
+			".rb-sec h5{font-size:16px;line-height:24px;font-weight:600;margin:0 0 12px 0;color:var(--h-text);}" +
+			".rb-sec h5 .hint{font-size:12px;line-height:20px;font-weight:400;color:var(--h-muted);}" +
+			".rb-sec table{width:100%;font-size:14px;line-height:22px;border-collapse:collapse;}" +
+			".rb-sec th{background:var(--h-subtle);color:var(--h-text-2);font-weight:500;font-size:12px;line-height:20px;text-align:left;padding:10px 12px;border-bottom:1px solid var(--h-border-strong);white-space:nowrap;}" +
+			".rb-sec td{padding:9px 12px;border-bottom:1px solid var(--h-border);color:var(--h-text);font-variant-numeric:tabular-nums;}" +
+			".rb-sec tbody tr:hover td{background:var(--h-subtle);}" +
 			".rb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}" +
-			".rb-card{border:1px solid #e0e0e0;border-radius:8px;padding:12px 14px;cursor:pointer;background:#fff;}" +
-			".rb-card:hover{border-color:#5b9bd5;}" +
-			".rb-card .t{font-weight:700;font-size:14px;}" +
-			".rb-card .c{display:inline-block;background:#eef2f7;border-radius:10px;padding:1px 8px;font-size:12px;color:#2c3e50;margin-left:6px;}" +
-			".rb-card .d{font-size:12px;color:#777;margin:6px 0;}" +
-			".rb-nums{display:none;margin-top:8px;max-height:220px;overflow-y:auto;font-family:monospace;font-size:12px;line-height:1.7;background:#fafbfc;border-radius:6px;padding:8px;}" +
+			".rb-card{border:1px solid var(--h-border);border-radius:var(--h-radius-card);padding:12px 14px;cursor:pointer;background:var(--h-surface-solid);transition:border-color var(--h-motion) var(--h-ease);}" +
+			".rb-card:hover{border-color:var(--h-brand);}" +
+			".rb-card .t{font-weight:600;font-size:14px;line-height:22px;color:var(--h-text);}" +
+			".rb-card .c{display:inline-block;background:rgba(103,95,255,.10);border-radius:var(--h-radius-pill);padding:1px 8px;font-size:12px;line-height:18px;color:var(--h-processing);margin-left:6px;}" +
+			".rb-card .d{font-size:12px;line-height:20px;color:var(--h-muted);margin:6px 0;}" +
+			".rb-nums{display:none;margin-top:8px;max-height:220px;overflow-y:auto;font-family:var(--h-font);font-size:12px;line-height:20px;background:var(--h-subtle);border:1px solid var(--h-border);border-radius:var(--h-radius-control);padding:8px;color:var(--h-text-2);font-variant-numeric:tabular-nums;}" +
+			// 部门分区容器：此前是内联 border/#e0e0e0，收进类里便于统一改值
+			".rb-dept-card{border:1px solid var(--h-border);border-radius:var(--h-radius-control);padding:12px 14px;margin-bottom:12px;background:var(--h-surface-solid);}" +
+			".rb-dept-card .rb-dept-title{font-weight:500;font-size:14px;line-height:22px;color:var(--h-text);margin-bottom:8px;}" +
+			".rb-dept-card .rb-dept-title .hint{font-weight:400;font-size:12px;color:var(--h-muted);}" +
+			".rb-toggle-dept{font-size:12px;line-height:20px;}" +
+			".rb-toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;}" +
 			"</style>").appendTo("head");
 	}
 
 	let h = "";
 
 	// 1. 判定优先级链
-	h += '<div class="rb-sec"><h5>考勤判定优先级链</h5><div class="rb-chain">';
+	h += '<div class="rb-sec"><h5>考勤判定优先级链 <span class="hint">从上到下依次命中，命中即停</span></h5><div class="rb-chain">';
 	(data.priority_chain || []).forEach(s => {
 		h += '<div class="rb-step"><span class="n">' + s.step + '. ' + s.name + '</span><div class="d">' + (s.desc || '') + '</div></div>';
 	});
@@ -141,22 +212,22 @@ function renderRulesBoardSections($c, data) {
 		if (ag !== bg) return ag - bg;
 		return a.localeCompare(b, "zh");
 	});
-	h += '<div class="rb-sec"><h5>班次规则记录（' + rules.length + ' 条，按部门分组）</h5>';
+	h += '<div class="rb-sec"><h5>班次规则记录 <span class="hint">' + rules.length + ' 条，按部门分组；停用规则折叠在各部门内</span></h5>';
 	deptNames.forEach((dept, di) => {
 		const dRules = byDept[dept];
 		const dActive = dRules.filter(r => r.status !== "停用");
 		const dInactive = dRules.filter(r => r.status === "停用");
 		const shown = dActive.length ? dActive : dRules;
 		const cardTitle = isGlobalDept(dept) ? '全局规则（' + dept + '）' : dept;
-		h += '<div class="rb-dept-card" style="border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;margin-bottom:12px;">';
-		h += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">' + cardTitle
-			+ ' <span class="text-muted" style="font-weight:400;font-size:12px;">' + dRules.length + ' 条规则</span></div>';
-		h += '<table style="width:100%;font-size:13px;border-collapse:collapse;"><thead>' + tableHead + '</thead><tbody>';
+		h += '<div class="rb-dept-card">';
+		h += '<div class="rb-dept-title">' + cardTitle
+			+ ' <span class="hint">' + dRules.length + ' 条规则</span></div>';
+		h += '<table><thead>' + tableHead + '</thead><tbody>';
 		shown.forEach(r => { h += ruleRow(r); });
 		h += '</tbody></table>';
 		if (dInactive.length) {
-			h += '<div class="text-muted" style="margin-top:6px;"><a href="#" class="rb-toggle-dept" data-di="' + di + '" data-count="' + dInactive.length + '" style="font-size:12px;">展开已停用历史规则（' + dInactive.length + ' 条）</a></div>';
-			h += '<div class="rb-dept-inactive" data-di="' + di + '" style="display:none;"><table style="width:100%;font-size:13px;border-collapse:collapse;"><thead>' + tableHead + '</thead><tbody>';
+			h += '<div style="margin-top:8px;"><a href="#" class="rb-toggle-dept" data-di="' + di + '" data-count="' + dInactive.length + '">展开已停用历史规则（' + dInactive.length + ' 条）</a></div>';
+			h += '<div class="rb-dept-inactive" data-di="' + di + '" style="display:none;"><table><thead>' + tableHead + '</thead><tbody>';
 			dInactive.forEach(r => { h += ruleRow(r); });
 			h += '</tbody></table></div>';
 		}
@@ -164,8 +235,9 @@ function renderRulesBoardSections($c, data) {
 	});
 	h += '</div>';
 
+
 	// 3. 内置默认班次
-	h += '<div class="rb-sec"><h5>内置默认班次（未配置专属规则时按此判定）</h5><table><thead><tr><th>班次</th><th>上班</th><th>下班</th><th>迟到起算</th><th>最小工时(小时)</th></tr></thead><tbody>';
+	h += '<div class="rb-sec"><h5>内置默认班次 <span class="hint">未配置专属规则时按此判定</span></h5><table><thead><tr><th>班次</th><th>上班</th><th>下班</th><th>迟到起算</th><th>最小工时(小时)</th></tr></thead><tbody>';
 	(data.builtin_shifts || []).forEach(b => {
 		h += '<tr><td>' + b.shift_type + '</td><td>' + fmtTime(b.start_time) + '</td><td>' + fmtTime(b.end_time) + '</td>'
 			+ '<td>' + fmtTime(b.late_after) + '</td><td>' + b.min_hours + '</td></tr>';
@@ -173,7 +245,7 @@ function renderRulesBoardSections($c, data) {
 	h += '</tbody></table></div>';
 
 	// 4. 名单规则卡片（点击展开姓名，未建档/离职工号兜底显示工号）
-	h += '<div class="rb-sec"><h5>名单规则（点击卡片展开姓名）</h5><div class="rb-grid">';
+	h += '<div class="rb-sec"><h5>名单规则 <span class="hint">点击卡片展开名单，未建档或已离职工号回退显示工号</span></h5><div class="rb-grid">';
 	(data.lists || []).forEach(g => {
 		const items = (g.names || g.nums || []);
 		h += '<div class="rb-card" data-key="' + g.key + '">'
@@ -185,13 +257,13 @@ function renderRulesBoardSections($c, data) {
 	h += '</div></div>';
 
 	// 5. 配对算法参数
-	h += '<div class="rb-sec"><h5>配对算法参数</h5><table><thead><tr><th>参数</th><th>值</th><th>说明</th></tr></thead><tbody>';
+	h += '<div class="rb-sec"><h5>配对算法参数 <span class="hint">配对上限与判定窗口的当前取值</span></h5><table><thead><tr><th>参数</th><th>值</th><th>说明</th></tr></thead><tbody>';
 	(data.pairing_params || []).forEach(p => {
 		h += '<tr><td>' + p.name + '</td><td>' + p.value + '</td><td>' + (p.desc || '') + '</td></tr>';
 	});
 	h += '</tbody></table></div>';
 
-	$c.find(".rb-loading").removeClass("text-center p-5").html(h);
+	$c.find(".rb-loading").replaceWith(h);
 
 	$c.find(".rb-card").on("click", function () {
 		$(this).find(".rb-nums").toggle();
@@ -221,17 +293,23 @@ function loadOverview() {
 
 function renderDeptPanel(data) {
 	const $dept = $("#dept-panel").empty();
-	let html = `<div class="card"><div class="card-header">部门列表</div><ul class="list-group list-group-flush">`;
-	(data.departments || []).forEach(dept => {
-		const cnt = data.dept_employee_count[dept] || 0;
-		html += `<li class="list-group-item dept-item" data-dept="${dept}" style="cursor:pointer;">
-			${dept} <span class="badge badge-secondary">${cnt}人</span></li>`;
-	});
-	html += `</ul></div>`;
-	$dept.html(html);
-	$dept.find(".dept-item").on("click", function () {
+	const depts = data.departments || [];
+	let items = "";
+	if (!depts.length) {
+		items = '<li class="sm-none">没有可维护的部门。</li>';
+	} else {
+		depts.forEach(dept => {
+			const cnt = data.dept_employee_count[dept] || 0;
+			items += '<li class="sm-dept" data-dept="' + esc(dept) + '">'
+				+ '<span>' + esc(dept) + '</span><span class="cnt">' + cnt + ' 人</span></li>';
+		});
+	}
+	$dept.html('<div class="sm-panel">'
+		+ '<div class="sm-panel-head">部门 <span class="hint">选中后右侧显示规则与人员</span></div>'
+		+ '<ul class="sm-depts">' + items + '</ul></div>');
+	$dept.find(".sm-dept").on("click", function () {
 		const dept = $(this).attr("data-dept");
-		$dept.find(".dept-item").removeClass("active");
+		$dept.find(".sm-dept").removeClass("active");
 		$(this).addClass("active");
 		loadDeptShifts(dept);
 	});
@@ -239,21 +317,24 @@ function renderDeptPanel(data) {
 
 function renderActiveShifts(data) {
 	const $shift = $("#shift-panel").empty();
-	let html = `<div class="card mb-3">
-		<div class="card-header">正在进行的班次（当前 ${data.now}）</div>
-		<ul class="list-group list-group-flush">`;
-	if ((data.active_shifts || []).length === 0) {
-		html += `<li class="list-group-item text-muted">当前没有进行中的班次</li>`;
+	const active = data.active_shifts || [];
+	let body;
+	if (!active.length) {
+		body = '<div class="sm-none">当前没有进行中的班次。</div>';
+	} else {
+		body = '<table class="sm-tbl"><thead><tr><th>规则</th><th>班次类型</th><th>时间</th><th>状态</th></tr></thead><tbody>';
+		active.forEach(s => {
+			body += '<tr><td>' + esc(s.rule_name) + '</td><td>' + esc(s.shift_type) + '</td>'
+				+ '<td class="num">' + fmtTime(s.start_time) + ' - ' + fmtTime(s.end_time) + '</td>'
+				+ '<td><span class="h-badge h-badge--success">进行中</span></td></tr>';
+		});
+		body += '</tbody></table>';
 	}
-	data.active_shifts.forEach(s => {
-		html += `<li class="list-group-item">
-			<b>${s.rule_name}</b>（${s.shift_type}）
-			<span class="text-muted">${fmtTime(s.start_time)} - ${fmtTime(s.end_time)}</span>
-			<span class="badge badge-success">进行中</span></li>`;
-	});
-	html += `</ul></div>
-		<div class="text-muted mb-3">点击左侧部门查看该部门的班次规则和人员班次设置</div>`;
-	$shift.html(html);
+	$shift.html('<div class="sm-panel">'
+		+ '<div class="sm-panel-head">正在进行的班次 <span class="hint">当前 ' + esc(data.now || "") + '</span></div>'
+		+ body
+		+ '<div class="sm-panel-foot">点击左侧部门查看该部门的班次规则和人员班次设置</div>'
+		+ '</div>');
 }
 
 function loadDeptShifts(dept) {
@@ -270,42 +351,45 @@ function loadDeptShifts(dept) {
 
 function renderDeptShifts(dept, shifts) {
 	const $shift = $("#shift-panel").empty();
-	let html = `<div class="card mb-3"><div class="card-header">${dept} - 班次规则</div>
-		<table class="table table-bordered table-sm">
-		<thead><tr><th>规则</th><th>班次</th><th>上班</th><th>下班</th><th>迟到起算</th><th>生效日期</th><th>状态</th><th>操作</th></tr></thead><tbody>`;
+	let rows = "";
 	if (!shifts || shifts.length === 0) {
-		html += `<tr><td colspan="8" class="text-muted">该部门暂无专属班次规则（使用「全部部门」的全局规则）</td></tr>`;
+		rows = `<tr><td colspan="8" class="sm-none">该部门暂无专属班次规则（使用「全部部门」的全局规则）</td></tr>`;
 	}
 	(shifts || []).forEach(s => {
-		html += `<tr>
-			<td>${s.rule_name}</td>
-			<td>${s.shift_type}</td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="start_time" value="${fmtTime(s.start_time)}" ${s.status === "草稿" ? "disabled" : ""}></td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="end_time" value="${fmtTime(s.end_time)}" ${s.status === "草稿" ? "disabled" : ""}></td>
-			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${s.name}" data-field="late_after" value="${fmtTime(s.late_after)}" ${s.status === "草稿" ? "disabled" : ""}></td>
-			<td>${s.effective_from}</td>
+		rows += `<tr>
+			<td>${esc(s.rule_name)}</td>
+			<td>${esc(s.shift_type)}</td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${esc(s.name)}" data-field="start_time" value="${fmtTime(s.start_time)}" ${s.status === "草稿" ? "disabled" : ""}></td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${esc(s.name)}" data-field="end_time" value="${fmtTime(s.end_time)}" ${s.status === "草稿" ? "disabled" : ""}></td>
+			<td><input type="time" class="form-control form-control-sm shift-edit" data-name="${esc(s.name)}" data-field="late_after" value="${fmtTime(s.late_after)}" ${s.status === "草稿" ? "disabled" : ""}></td>
+			<td class="num">${esc(s.effective_from)}</td>
 			<td>
-				<select class="form-control form-control-sm rule-status" data-name="${s.name}">
+				<select class="form-control form-control-sm rule-status" data-name="${esc(s.name)}">
 					<option value="生效" ${s.status === "生效" ? "selected" : ""}>生效</option>
 					<option value="停用" ${s.status === "停用" ? "selected" : ""}>停用</option>
 					<option value="草稿" ${s.status === "草稿" ? "selected" : ""}>草稿</option>
 				</select>
 			</td>
 			<td>
-				${s.status === "生效" ? `<button class="btn btn-xs btn-primary save-shift" data-name="${s.name}">保存</button>` : ""}
-				<button class="btn btn-xs btn-danger delete-shift" data-name="${s.name}">删除</button>
+				${s.status === "生效" ? `<button class="btn btn-xs btn-primary save-shift" data-name="${esc(s.name)}">保存</button>` : ""}
+				<button class="btn btn-xs btn-danger delete-shift" data-name="${esc(s.name)}">删除</button>
 			</td>
 		</tr>`;
 	});
-	html += `</tbody></table>
-		<div class="card-footer">
-			<button class="btn btn-sm btn-secondary" id="btn-new-shift">新建班次</button>
-			<button class="btn btn-sm btn-secondary" id="btn-new-rule">新建规则</button>
-			<button class="btn btn-sm btn-info" id="btn-import-schedule">导入排班表</button>
-			<span class="text-muted ml-2">修改/新建均次日生效（历史考勤不受影响）</span>
-		</div></div>
-		<div id="dept-employees"><div class="text-muted">加载人员中...</div></div>`;
-	$shift.html(html);
+	$shift.html(`<div class="sm-panel">
+			<div class="sm-panel-head">${esc(dept)} · 班次规则 <span class="hint">改动次日生效，历史考勤不受影响</span></div>
+			<table class="sm-tbl">
+				<thead><tr><th>规则</th><th>班次</th><th>上班</th><th>下班</th><th>迟到起算</th><th>生效日期</th><th>状态</th><th>操作</th></tr></thead>
+				<tbody>${rows}</tbody>
+			</table>
+			<div class="sm-panel-foot">
+				<button class="btn btn-xs btn-default" id="btn-new-shift">新建班次</button>
+				<button class="btn btn-xs btn-default" id="btn-new-rule">新建规则</button>
+				<button class="btn btn-xs btn-default" id="btn-import-schedule">导入排班表</button>
+			</div>
+		</div>
+		<div class="sm-panel"><div class="sm-panel-head">人员班次绑定</div><div class="sm-panel-body" id="dept-employees"><span class="sm-none">加载人员中…</span></div></div>`);
+
 
 	$shift.find(".save-shift").on("click", function () {
 		saveShiftRow($(this));
@@ -414,25 +498,30 @@ function loadDeptEmployees(dept) {
 }
 
 function renderDeptEmployees(dept, employees) {
+	// 外层 .sm-panel / .sm-panel-head 由 renderDeptShifts 提供，这里只出内容，
+	// 避免面板套面板。
 	const $emp = $("#dept-employees").empty();
-	let html = `<div class="card"><div class="card-header">${dept} - 人员班次设置（${(employees || []).length}人）</div>
-		<table class="table table-bordered table-sm">
-		<thead><tr><th>工号</th><th>姓名</th><th>已绑定班次</th><th>设置班次（勾选绑定）</th></tr></thead><tbody>`;
+	let rows = "";
+	if (!(employees || []).length) {
+		rows = `<tr><td colspan="4" class="sm-none">该部门没有在职员工。</td></tr>`;
+	}
 	(employees || []).forEach(e => {
 		// 手动绑定优先, 否则显示系统名单班次
 		const current = e.fixed_shift_name
-			? `${e.fixed_shift_name}（${e.fixed_shift_type}）`
-			: `<span class="text-primary">${e.system_shift || "通用倒班(按时间判定)"}</span>`;
-		html += `<tr>
-			<td>${e.employee_number || ""}</td>
-			<td>${e.employee_name || ""}</td>
-			<td class="bound-display" data-emp="${e.name}">${current}</td>
-			<td class="shift-checkbox-cell" data-emp="${e.name}"></td>
+			? esc(`${e.fixed_shift_name}（${e.fixed_shift_type}）`)
+			: `<span class="sys-shift">${esc(e.system_shift || "通用倒班(按时间判定)")}</span>`;
+		rows += `<tr>
+			<td class="num">${esc(e.employee_number || "")}</td>
+			<td>${esc(e.employee_name || "")}</td>
+			<td class="bound-display" data-emp="${esc(e.name)}">${current}</td>
+			<td class="shift-checkbox-cell" data-emp="${esc(e.name)}"></td>
 		</tr>`;
 	});
-	html += `</tbody></table>
-		<div class="text-muted mb-1">蓝色 = 系统名单班次；勾选即绑定、取消勾选即解绑；绑定多个班次时判定按打卡时间自动匹配</div></div>`;
-	$emp.html(html);
+	$emp.html(`<table class="sm-tbl">
+			<thead><tr><th style="width:110px;">工号</th><th style="width:110px;">姓名</th><th style="width:220px;">已绑定班次</th><th>设置班次（勾选绑定）</th></tr></thead>
+			<tbody>${rows}</tbody>
+		</table>
+		<p class="sm-foot-note">蓝字 = 系统名单班次；勾选即绑定、取消勾选即解绑；绑定多个班次时判定按打卡时间自动匹配。</p>`);
 
 	// 填充复选框(全部生效规则)
 	frappe.call({
@@ -481,16 +570,17 @@ function renderDeptEmployees(dept, employees) {
 function updateBoundDisplay(emp, boundRules, allRules) {
 	const $cell = $(`.bound-display[data-emp="${emp}"]`);
 	if (!boundRules || boundRules.length === 0) {
-		$cell.html('<span class="text-muted">未绑定</span>');
+		$cell.html('<span class="sm-foot-note" style="margin:0;">未绑定</span>');
 		return;
 	}
 	let html = "";
 	boundRules.forEach(r => {
 		const rule = allRules.find(x => x.name === r);
 		const label = rule ? `${rule.rule_name}` : r;
-		html += `<span class="badge badge-primary mr-1">${label}</span>`;
+		html += `<span class="h-badge h-badge--info" style="margin-right:4px;">${esc(label)}</span>`;
 	});
-	html += `<span class="text-muted" style="font-size:11px;">（${boundRules.length} 个）</span>`;
+	// 字号只取契约允许的 30/20/16/14/12，此处原为 11px
+	html += `<span class="sm-foot-note" style="margin:0;">（${boundRules.length} 个）</span>`;
 	$cell.html(html);
 }
 
@@ -760,7 +850,10 @@ function fmtTime(t) {
 }
 
 function statusBadge(s) {
-	if (s === "生效") return `<span class="badge badge-success">生效</span>`;
-	if (s === "停用") return `<span class="badge badge-secondary">停用</span>`;
-	return `<span class="badge badge-warning">${s}</span>`;
+	// 统一走共享徽章类：色 + 文字，不靠颜色单独承载语义（EA-4 §530）
+	if (s === "生效") return `<span class="h-badge h-badge--success">生效</span>`;
+	if (s === "停用") return `<span class="h-badge h-badge--neutral">停用</span>`;
+	return `<span class="h-badge h-badge--warning">${esc(s)}</span>`;
 }
+
+})();

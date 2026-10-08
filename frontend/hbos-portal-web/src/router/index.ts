@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import PortalLayout from '@/components/layout/PortalLayout.vue'
 import LimsLayout from '@/components/layout/LimsLayout.vue'
+import AttendanceLayout from '@/components/layout/AttendanceLayout.vue'
 import AttendanceDashboardView from '@/views/AttendanceDashboardView.vue'
 import AttendanceEmployeesView from '@/views/AttendanceEmployeesView.vue'
 import AttendanceBoardView from '@/views/AttendanceBoardView.vue'
@@ -35,22 +36,20 @@ const router = createRouter({
       ],
     },
     {
-      // 考勤仪表盘已原生进 Portal SPA（migration_mode: native）。
-      // 后端 resolve_stable_route 把 /hbos/attendance 解析回自身，
+      // 考勤已原生进 Portal SPA（migration_mode: native）。
+      // 后端 resolve_stable_route 把 /hbos/attendance* 解析回自身，
       // 故前端走「以 /hbos/ 开头即 SPA 路由」分支，不再进 iframe。
+      //
+      // 三条路由挂在 AttendanceLayout 下：这是 2026-10-02 之前遗漏的一层——
+      // 它们此前是并列的顶层路由，**不带门户外壳**（没有 GlobalHeader、
+      // 没有 aurora 背景），所以玻璃卡是浮在白底上的。挂上布局后与 LIMS 一致。
       path: '/hbos/attendance',
-      component: AttendanceDashboardView,
-      meta: { title: '考勤管理' },
-    },
-    {
-      path: '/hbos/attendance/employees',
-      component: AttendanceEmployeesView,
-      meta: { title: '人员管理' },
-    },
-    {
-      path: '/hbos/attendance/board',
-      component: AttendanceBoardView,
-      meta: { title: '部门看板' },
+      component: AttendanceLayout,
+      children: [
+        { path: '', name: 'attendance-dashboard', component: AttendanceDashboardView, meta: { title: '考勤管理' } },
+        { path: 'employees', name: 'attendance-employees', component: AttendanceEmployeesView, meta: { title: '人员管理' } },
+        { path: 'board', name: 'attendance-board', component: AttendanceBoardView, meta: { title: '部门看板' } },
+      ],
     },
     {
       path: '/hbos/lims',

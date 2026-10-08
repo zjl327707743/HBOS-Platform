@@ -122,6 +122,7 @@ M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 F
 10. M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现，M1-FIX-B-FIX 已补齐浏览器导入与中文体验修复，M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS 但数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING。
 11. **M3-PORTAL-R1**（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`）为 REVIEWING：R1–R4 均已交付（选择性移植门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层；Vite 5178 同域代理；同域 iframe 承载真实 Frappe 考勤页面；考勤测试 458 通过、判定核心三文件逐字节不变、装 + migrate 零副作用；**R4 生产形态**：独立门户容器 8081 + `.env.production` 固化 `VITE_BASE=/hbos/` 与 `VITE_PORTAL_DATA_MODE=frappe`，8081 与 8080 逐路径一致、浏览器实测同源 iframe 与四指标对账通过）。主文档 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`（编号 **M3-PORTAL-R1**，Owner 2026-09-28 裁定）。
 12. **M3-PORTAL-R1 后续**（2026-09-29，REVIEWING）：考勤仪表盘 / 人员管理 / 部门看板三页由同域 iframe 改为**门户原生页**（`migration_mode` 由 `legacy` 改 `native`，后端 `resolve_stable_route` 改为解析回自身并新增稳定路由白名单）；Desk 侧 6 个考勤页接入**共享视觉层**（`hbos_attendance.bundle.css` + `.hbos-surface`，全部规则限定该作用域内、Desk 外壳不受影响）；顺带补上班次管理 13 个 `@frappe.whitelist()` 接口缺失的服务端角色门禁。考勤全量 458 → **460 通过**；门户三页与 Desk 页、后端接口三方逐值一致。主文档 `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`。
+13. **M3-PORTAL-R1 后续**（2026-10-02，REVIEWING）：Desk 四页视觉改造（人员管理 / 导入考勤机导出表 / 月度考勤上传 / 班次管理）全部按 V1 操作面改版；发现并修复「**Desk 页面缓存不会自愈**」——Frappe 把页面脚本缓存在浏览器 localStorage，失效判据是 `Page` 文档的 `modified`，而改磁盘 `.js` 不动该字段，导致改完页面后所有看过它的浏览器永远跑旧版本（**普通刷新无效**）；新增长期工具 `bump_page_cache.py`。另按 Gate 先出原型、Owner 选定方案 B，新增门户考勤应用内导航（`AttendanceLayout.vue`：页签 + 管理后台入口）。考勤 467 通过、门户构建通过。主文档 `docs/milestones/M3_考勤Desk页视觉改造与门户导航.md`。
 
 ## AI 协作方式
 

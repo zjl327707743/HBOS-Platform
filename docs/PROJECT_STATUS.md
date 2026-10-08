@@ -5,7 +5,7 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-F（REVIEWING，**第一、二阶段均已上线；整支复查已完成并处置**）；另有 **M3-PORTAL-R1（HBOS 门户工作台集成，REVIEWING，分支 `feature/hbos-portal-workbench`，R1–R4 均已交付；2026-09-29 追加「考勤页原生化 + Desk 共享视觉层」后续交付，REVIEWING）**
+- 当前轮次：M1-FIX-F（REVIEWING，**第一、二阶段均已上线；整支复查已完成并处置**）；另有 **M3-PORTAL-R1（HBOS 门户工作台集成，REVIEWING，分支 `feature/hbos-portal-workbench`，R1–R4 均已交付；2026-09-29 追加「考勤页原生化 + Desk 共享视觉层」、2026-10-02 追加「Desk 四页视觉改造 + 门户应用内导航」，均为 REVIEWING）**
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
 - 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块两阶段均已上线：119 条入库、103 条解析、41 已核实 / 53 核实不通过；已核实调休日已接入考勤豁免与看板；整支复查完成，1 项发现已修、1 项归因已更正）；M1-FIX-C/D/E 未启动；M3-PORTAL-R1（HBOS 门户工作台集成）R1–R4 均已交付（REVIEWING）。
 - 本批最新交付：2026-09-22 完成 **M1-FIX-F 调休模块第一阶段**——飞书调休审批进入系统并按海滨口径完成「加班日提取 → 打卡核实」，产出可人工复核的结论清单。分支 `m1-fix-c-rest-leave`（16 提交），全量测试 311 → **396 通过**。**本阶段只出结论、不改变任何考勤结果**。2026-09-22 已上线：119 条入库、103 条解析出加班日、核实结论 40 已核实 / 53 核实不通过 / 14 解析失败；**考勤结果与上线前逐值一致（零副作用）**。上线中发现并修复三项阻断（模型下线、HBOS_AI_* 未注入队列容器、nginx 需 reload），详见落地记录 §8。详见 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
@@ -15,7 +15,7 @@
 
 ## M3-PORTAL-R1 HBOS 门户工作台集成 状态（分支 `feature/hbos-portal-workbench`）
 
-状态：**REVIEWING**（**R1–R4 均已交付**；2026-09-29 追加「考勤页原生化与 Desk 共享视觉层」后续交付，同样为 REVIEWING）。
+状态：**REVIEWING**（**R1–R4 均已交付**；2026-09-29 追加「考勤页原生化与 Desk 共享视觉层」、2026-10-02 追加「Desk 四页视觉改造 + 门户应用内导航」，均为 REVIEWING）。
 
 轮次定位：以长期分支 `origin/feature/hbos-portal-product` 为基准**选择性移植**（**非 merge**）门户工作台——在本分支新增 Vue 3 门户 SPA + `hbos_portal` 薄平台 App + 考勤 portal 适配层，并以**同域 iframe** 在门户内容区承载现有 Frappe 考勤页面，实现「导航不出门户」。
 
@@ -47,6 +47,18 @@ M3-PORTAL-R1 的 R1–R4 用**同域 iframe** 承载真实 Frappe 考勤页面�
 - **未触碰**：判定核心 `pairing.py` / `api.py` / `rule_lists.py` 零改动；未重建容器、未 `migrate`、未写运行态数据库；未提交真实数据。
 - **顺带修复（与前端无关，独立提交）**：`shift_management_data.py` 的 13 个 `@frappe.whitelist()` 接口此前**全是裸装饰器**（任何已登录用户可直接调，页面角色只挡「能否打开页面」），已补读/写两组服务端角色门禁。已验证全仓库只有 `hbos_shift_management.js` 一个调用方，不会打断定时任务。**但只修了这半**：`employee_management_data.bind_shift` / `bulk_bind_shift`（同等级爆炸半径）、`upload.py`、`api.py`、两个报表模块、`roster_export.py`、`sync_rest_leave.py` 共 **9 处仍无守卫**，「班次管理已加门禁」不能读成「写接口已收敛」。
 - 主文档：`docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`。
+
+### (0b) 2026-10-02 后续交付：Desk 四页视觉改造 + 门户应用内导航（REVIEWING）
+
+上一批把 6 个 Desk 页挂了 `.hbos-surface`，但**只有仪表盘与部门看板真正改版**，另外 4 页只加了挂载点（各 +3 行），旧风格内容浮在新画布上。本轮补齐，并补上门户缺失的考勤导航。
+
+- **Desk 四页改造**：人员管理（玻璃工具条 + 实色密集表 + 「共 N 人」计数 + 三态）、导入考勤机导出表（Frappe 变量 → HBOS 令牌、指标卡墙 → 定义列表、新增三步流程条）、月度考勤上传（居中窄卡 → 「选择文件｜本次处理结果」双栏）、班次管理（`card`/`list-group`/`badge` → 实色面板与密集表，规则看板硬编码色值与字号全部换成 `var(--h-*)` 契约档位）。四页均为 **V1 操作面**（实色、密集、无动效）；班次管理是唯一一屏无玻璃的页面（编辑器不放会动的装饰）。顺带补上部门名 / 姓名 / 规则名的 **XSS 转义**。
+- **关键发现：页面缓存不会自愈**。Frappe 把标准 `Page` 脚本缓存在浏览器 localStorage（`_page:<名>`），失效判据是 **`Page` 文档的 `modified`**（`desk.js` 的 `sync_pages`），而改磁盘 `.js` **不动该字段** → 改完页面，所有看过它的浏览器**永远跑旧版本**；**普通刷新无效**（F5/Cmd+Shift+R 不清 localStorage），只有 Frappe 的 `Ctrl+Shift+R`（**Control** 键）才清。**修复**：一次性顶 6 个 `modified` + 长期工具 `bump_page_cache.py`（一条命令、可反复执行）+ 写入 `FRONTEND_IMPLEMENTATION_GUIDE.md` §1.1.1。**本次顶时间戳时发现仪表盘与部门看板的 `modified` 同样陈旧**（JS 改于 9-28 23:15/23:31，时间戳停在 16:29）——这两页此前的改动也处于「改了但看不到」状态。
+- **我引入并修复的缺陷（留档）**：为修「人员管理与班次管理抢同一个顶层 `renderPage`」，我把两页函数收进 IIFE，**但 `on_page_load` 赋值留在了闭包外**，而它在闭包内调 `renderPage` → `ReferenceError`、**页面整个空白**。症状从「旧界面」变成「白页」，一度误导排查方向；真正确认靠控制台那条 ReferenceError。已修，并用脚本对六页做了 IIFE 边界自检。
+- **门户考勤导航**（按 Gate 先出原型、Owner 选定方案 B）：新增 `AttendanceLayout.vue`（对齐 `LimsLayout`：GlobalHeader + aurora + 内容区 + 移动导航）；三条路由改为其**子路由**（原为并列顶层路由，**不带门户外壳**，玻璃卡浮在白底上）；页签「考勤仪表盘 / 人员管理 / 部门看板」用**精确匹配**高亮（`/hbos/attendance` 是另两条前缀）；右侧「管理后台」链 `/app/海滨考勤工作台`（Workspace 而非具体页面）**新开页签**。Owner 同时裁定**班次管理 / 导入 / 月度上传暂不搬进门户**（另开一轮）。
+- **验收**：考勤 467 通过；`npm run build` 通过；浏览器实测 Desk 四页新结构齐备且**旧结构计数为 0**；门户三页签切换与高亮正确、管理后台 200→302→Desk；门户外壳 `.aurora` 计数 2（此前缺失）。
+- **运行态影响**：动过数据库一次（6 个 `Page.modified`，只写该字段）；4 个页面 JS 经 bind-mount 即时生效（Desk 直读文件，不走资源管线）；未重建容器、未 `migrate`、未 `bench build`。
+- 主文档：`docs/milestones/M3_考勤Desk页视觉改造与门户导航.md`；原型：`docs/frontend/prototypes/2026-10-02-考勤应用内导航方案.html`。
 
 ### (a) 曾发生并已修复的 migrate 副作用（已恢复，留档备查）
 
@@ -678,6 +690,7 @@ M0-FINAL 收口后的路线已执行到 M1-R5：
 28. M4-STOCK-R1：IN_PROGRESS，库存模块隔离——新建独立 `stock` 站点（只装 frappe + erpnext）、新增 `hb_stock_app` 与「海滨库存」工作台，使库存数据与考勤站点 `frontend` 物理隔离。分支 `m4-stock-r1`，主文档 `docs/milestones/M4_STOCK_R1_库存模块隔离实施记录.md`。Task 3（建站 + frontend 备份）、Task 4（App 安装 + 工作台生成 + migrate 幂等）、Task 5（HAIBIN 公司 + 默认仓库）已交付 PASS，Task 7/8 待续。
 29. M3-PORTAL-R1（HBOS 门户工作台集成）：REVIEWING（R1–R4 均已交付）。分支 `feature/hbos-portal-workbench`（基于 `93ae18a`，19 提交）——选择性移植门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层，以同域 iframe 承载真实 Frappe 考勤页面。主文档 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md`。编号已裁定为 **M3-PORTAL-R1**。详见上方「M3-PORTAL-R1 HBOS 门户工作台集成 状态」节。
 30. M3-PORTAL-R1 后续（2026-09-29）：REVIEWING。考勤仪表盘 / 人员管理 / 部门看板三页由同域 iframe 改为门户原生页（`migration_mode` `legacy`→`native`、`resolve_stable_route` 解析回自身 + 稳定路由白名单）；Desk 侧 6 个考勤页接入共享视觉层（`.hbos-surface`）；顺带修班次管理 13 个裸 `@frappe.whitelist()` 的服务端角色门禁。考勤 458→**460 通过**。主文档 `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`。**本轮未认领新里程碑编号**（`R1`~`R4` 已作为 M3-PORTAL-R1 的内部阶段号被占用），编号是否重排待 Owner 裁定。
+31. M3-PORTAL-R1 后续（2026-10-02）：REVIEWING。Desk 四页视觉改造（人员管理 / 导入考勤机导出表 / 月度考勤上传 / 班次管理）+ 页面缓存失效机制（`bump_page_cache.py`）+ 门户考勤应用内导航（`AttendanceLayout.vue`，页签 + 管理后台入口；Owner 审查原型后选定方案 B）。考勤 **467 通过**；`npm run build` 通过。主文档 `docs/milestones/M3_考勤Desk页视觉改造与门户导航.md`；原型 `docs/frontend/prototypes/2026-10-02-考勤应用内导航方案.html`。**未认领新里程碑编号**，待 Owner 裁定。
 
 ## M1-FIX 状态
 
@@ -729,7 +742,7 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1-FIX-C/D/E = PLANNED
 - M4-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m4-stock-r1`）
 - M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION
-- M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29 后续交付「考勤页原生化 + Desk 共享视觉层」同为 REVIEWING）
+- M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29「考勤页原生化 + Desk 共享视觉层」、2026-10-02「Desk 四页视觉改造 + 门户应用内导航」两批后续交付同为 REVIEWING）
 
 M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不在 M1-FIX 轮次内做 M2 工作（M4-STOCK-R1 已在独立分支 `m4-stock-r1` 进行，不在本分支展开），不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
 

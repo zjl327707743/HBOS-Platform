@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>考勤应用内导航 · 三案对比（待 Owner 审查）</title>
+<style>
+  /* 值取自 frontend/hbos-portal-web/src/theme/tokens.css —— 本原型不新造色板，
+     只比较「导航放哪」这一件事。视觉语言沿用既有设计系统。 */
+  :root{
+    --canvas:#f4f8fd; --surface:rgba(255,255,255,.68); --surface-solid:#fff;
+    --glass-border:rgba(255,255,255,.72); --subtle:#f7f9fc;
+    --border:rgba(65,91,138,.10); --border-strong:rgba(65,91,138,.16);
+    --t1:#17253c; --t2:#425675; --muted:#72829d;
+    --brand:#675fff; --brand2:#49a8ff; --accent:linear-gradient(135deg,#6b60ff,#8c61ff);
+    --attr:linear-gradient(135deg,#6b60ff,#8c61ff);
+    --ok:#1bbc86; --warn:#f4a523; --crit:#ed5a72; --info:#4b9cff;
+    --r-ctl:12px; --r-card:18px; --r-panel:24px; --r-pill:999px;
+    --shadow:0 18px 56px rgba(47,72,117,.09);
+    --font:Inter,"SF Pro Display","PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    --ease:cubic-bezier(.2,0,0,1); --fast:160ms;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px 28px 64px;background:var(--canvas);color:var(--t1);
+       font-family:var(--font);font-size:14px;line-height:22px;
+       background-image:
+         radial-gradient(circle at 8% 8%,rgba(108,99,255,.13),transparent 25%),
+         radial-gradient(circle at 90% 12%,rgba(69,166,255,.13),transparent 24%),
+         radial-gradient(circle at 70% 84%,rgba(84,224,192,.10),transparent 22%),
+         linear-gradient(180deg,#f7faff 0%,#f4f8fd 44%,#eef5fc 100%);
+       background-attachment:fixed}
+  h1{font-size:30px;line-height:38px;font-weight:600;margin:0 0 6px}
+  .lede{margin:0 0 28px;max-width:70ch;color:var(--t2)}
+  .lede b{color:var(--t1);font-weight:600}
+  .opt{margin-bottom:40px}
+  .opt-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .opt-head h2{font-size:20px;line-height:28px;font-weight:600;margin:0}
+  .tag{display:inline-block;padding:2px 10px;border-radius:var(--r-pill);font-size:12px;line-height:18px;font-weight:500}
+  .tag.rec{background:rgba(27,188,134,.12);color:var(--ok)}
+  .tag.match{background:rgba(75,156,255,.12);color:var(--info)}
+  .tag.cost{background:rgba(244,165,35,.14);color:#b8770a}
+  .why{margin:0 0 14px;color:var(--t2);max-width:78ch}
+  .why em{font-style:normal;color:var(--muted)}
+  frame-title{display:block}
+  .frame{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--r-panel);
+         box-shadow:var(--shadow);overflow:hidden}
+  /* 门户顶栏（三案相同，仅作上下文） */
+  .topbar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);
+          background:var(--surface);backdrop-filter:blur(20px)}
+  .logo{width:26px;height:26px;border-radius:8px;background:var(--accent)}
+  .topbar .t{font-weight:600;font-size:14px}
+  .topbar .t small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+  .search{margin-left:auto;flex:0 1 260px;height:30px;border:1px solid var(--border);border-radius:var(--r-pill);
+          background:var(--surface-solid);color:var(--muted);font-size:12px;display:flex;align-items:center;padding:0 12px}
+  .avatar{width:26px;height:26px;border-radius:50%;background:rgba(103,95,255,.14);color:var(--brand);
+          font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center}
+
+  .body{display:flex;min-height:330px}
+  /* 通用页面骨架 */
+  .page{padding:18px 20px;flex:1;min-width:0}
+  .kicker{font-size:12px;line-height:20px;color:var(--muted);letter-spacing:.02em}
+  .ptitle{font-size:30px;line-height:38px;font-weight:600;margin:2px 0 4px}
+  .psub{margin:0 0 16px;color:var(--t2);font-size:12px;line-height:20px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+  .kpi{background:var(--surface);border:1px solid var(--glass-border);border-radius:var(--r-card);
+       box-shadow:var(--shadow);padding:14px 12px;text-align:center}
+  .kpi i{display:block;height:3px;width:30px;border-radius:var(--r-pill);background:var(--accent);margin:0 auto 8px}
+  .kpi b{display:block;font-size:30px;line-height:38px;font-weight:600;font-variant-numeric:tabular-nums}
+  .kpi span{font-size:12px;line-height:20px;color:var(--muted)}
+  .panel{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--r-card);padding:16px}
+  .panel h4{margin:0 0 10px;font-size:16px;line-height:24px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:14px;line-height:22px}
+  th{background:var(--subtle);color:var(--t2);font-weight:500;font-size:12px;line-height:20px;
+     text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-strong)}
+  td{padding:7px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+  .ph{height:10px;border-radius:var(--r-pill);background:rgba(65,91,138,.08)}
+
+  /* A. 左侧应用栏 */
+  .sidenav{width:208px;flex:0 0 208px;border-right:1px solid var(--border);background:var(--surface);
+           padding:14px 12px;display:flex;flex-direction:column;gap:4px}
+  .brandmini{display:flex;align-items:center;gap:8px;padding:4px 8px 12px;border-bottom:1px solid var(--border);margin-bottom:8px}
+  .brandmini .ic{width:28px;height:28px;border-radius:9px;background:var(--attr)}
+  .brandmini b{font-size:14px}
+  .brandmini small{display:block;font-size:12px;color:var(--muted);font-weight:400}
+  .back{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding:6px 8px;border-radius:var(--r-ctl)}
+  .nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r-ctl);
+            color:var(--t2);font-size:14px}
+  .nav-item.on{background:rgba(103,95,255,.10);color:var(--brand);font-weight:500}
+  .nav-item .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
+  .nav-sec{font-size:12px;color:var(--muted);padding:10px 10px 4px}
+  .nfoot{margin-top:auto;border-top:1px solid var(--border);padding-top:8px}
+  .admin{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);padding:6px 10px}
+
+  /* B. 横向页签 */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:2px 0 16px}
+  .tab{padding:8px 14px;font-size:14px;color:var(--t2);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.on{color:var(--brand);font-weight:500;border-bottom-color:var(--brand)}
+  .tabs .spacer{margin-left:auto}
+  .ghost{font-size:12px;color:var(--muted);align-self:center;padding:0 8px}
+
+  /* C. 入口卡 */
+  .entries{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .entry{background:var(--surface-solid);border:1px solid var(--border);border-radius:var(--r-card);padding:16px;
+         display:flex;flex-direction:column;gap:4px}
+  .entry .ic{width:30px;height:30px;border-radius:9px;background:rgba(103,95,255,.10);margin-bottom:6px}
+  .entry b{font-size:16px;line-height:24px;font-weight:600}
+  .entry small{font-size:12px;line-height:20px;color:var(--muted)}
+  .entry .go{margin-top:auto;font-size:12px;color:var(--brand);padding-top:8px}
+
+  .verdict{margin-top:8px;padding:14px 16px;background:var(--surface-solid);border:1px solid var(--border);
+           border-radius:var(--r-card)}
+  .verdict h3{margin:0 0 8px;font-size:16px;line-height:24px;font-weight:600}
+  .verdict ul{margin:0;padding-left:18px;color:var(--t2)}
+  .verdict li{margin:4px 0}
+  footer{margin-top:28px;font-size:12px;line-height:20px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<h1>考勤应用内导航 · 三案对比</h1>
+<p class="lede">
+  现状：门户里的考勤<b>只有一个入口</b>（仪表盘）。人员管理、部门看板两页已经做好、路由也能直接打开，
+  但<b>没有任何链接指向它们</b>；班次管理 / 导入 / 月度上传则只存在于 Desk，门户里没有。<br>
+  本原型只回答一个问题：<b>这三个考勤页之间怎么互相跳转</b>。视觉语言沿用现有设计系统（令牌取自 <code>tokens.css</code>），不新造色板。
+</p>
+
+<!-- ══════════ A ══════════ -->
+<section class="opt">
+  <div class="opt-head">
+    <h2>A · 左侧应用栏</h2>
+    <span class="tag match">与 LIMS 对称</span>
+  </div>
+  <p class="why">
+    LIMS 已经有一个这样的应用内左侧栏（<code>AppLocalSidebar.vue</code>）。考勤照做一个，位置、宽度、行为都对齐——
+    用户在两个应用之间来回时，<em>不用重新学导航</em>。左侧还能放「返回 HBOS 工作台」和「管理后台」。
+    <em>代价：占 208px 宽，密集表格少一截横向空间。</em>
+  </p>
+  <div class="frame">
+    <div class="topbar">
+      <div class="logo"></div>
+      <div class="t">HBOS<small>海滨智能运营工作台</small></div>
+      <div class="search">搜索应用、批次、样品、员工或输入命令…</div>
+      <div class="avatar">AD</div>
+    </div>
+    <div class="body">
+      <aside class="sidenav">
+        <div class="brandmini"><div class="ic"></div><div><b>考勤</b><small>Attendance</small></div></div>
+        <div class="back">← 返回 HBOS 工作台</div>
+        <div class="nav-sec">考勤</div>
+        <div class="nav-item on"><span class="dot"></span>考勤仪表盘</div>
+        <div class="nav-item"><span class="dot"></span>人员管理</div>
+        <div class="nav-item"><span class="dot"></span>部门看板</div>
+        <div class="nfoot"><div class="admin">管理后台 <span>›</span></div></div>
+      </aside>
+      <div class="page">
+        <div class="kicker">ATTENDANCE · 考勤管理</div>
+        <div class="ptitle">考勤异常仪表盘</div>
+        <p class="psub">2026-09-28 ~ 2026-10-04 · 数据来自考勤判定引擎的落库结果，本页只做展示投影</p>
+        <div class="kpis">
+          <div class="kpi"><i></i><b>8</b><span>迟到 人次</span></div>
+          <div class="kpi"><i></i><b>0</b><span>早退 人次</span></div>
+          <div class="kpi"><i></i><b>909</b><span>缺勤 人天</span></div>
+          <div class="kpi"><i></i><b>353</b><span>异常人员 人</span></div>
+        </div>
+        <div class="panel"><h4>异常明细排行</h4>
+          <table><thead><tr><th>工号</th><th>姓名</th><th>部门</th><th>迟到</th><th>缺勤</th></tr></thead>
+          <tbody>
+            <tr><td>11009003</td><td>赵家乐</td><td>AI创新部</td><td>2</td><td>0</td></tr>
+            <tr><td>11001001</td><td>李永超</td><td>一车间</td><td>0</td><td>3</td></tr>
+            <tr><td>11001005</td><td>郭嘉豪</td><td>一车间</td><td>1</td><td>1</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ B ══════════ -->
+<section class="opt">
+  <div class="opt-head">
+    <h2>B · 顶部横向页签</h2>
+    <span class="tag rec">推荐</span>
+  </div>
+  <p class="why">
+    考勤只有三个页面，且都是<b>同一件事的三个视角</b>（总览 / 人 / 部门），不是三个独立模块——
+    用页签比用侧栏更贴合这个心智。表格拿到完整宽度（人员管理那张表有 6 列、696 行，横向空间是真需求）。
+    <em>代价：不与 LIMS 的侧栏形式对称；将来考勤页面变多（比如加进班次管理）页签会变挤。</em>
+  </p>
+  <div class="frame">
+    <div class="topbar">
+      <div class="logo"></div>
+      <div class="t">HBOS<small>海滨智能运营工作台</small></div>
+      <div class="search">搜索应用、批次、样品、员工或输入命令…</div>
+      <div class="avatar">AD</div>
+    </div>
+    <div class="body">
+      <div class="page">
+        <div class="kicker">ATTENDANCE · 考勤管理</div>
+        <div class="tabs">
+          <div class="tab on">考勤仪表盘</div>
+          <div class="tab">人员管理</div>
+          <div class="tab">部门看板</div>
+          <div class="spacer"></div>
+          <div class="ghost">返回 HBOS 工作台</div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><i></i><b>8</b><span>迟到 人次</span></div>
+          <div class="kpi"><i></i><b>0</b><span>早退 人次</span></div>
+          <div class="kpi"><i></i><b>909</b><span>缺勤 人天</span></div>
+          <div class="kpi"><i></i><b>353</b><span>异常人员 人</span></div>
+        </div>
+        <div class="panel"><h4>异常明细排行</h4>
+          <table><thead><tr><th>工号</th><th>姓名</th><th>部门</th><th>迟到</th><th>缺勤</th></tr></thead>
+          <tbody>
+            <tr><td>11009003</td><td>赵家乐</td><td>AI创新部</td><td>2</td><td>0</td></tr>
+            <tr><td>11001001</td><td>李永超</td><td>一车间</td><td>0</td><td>3</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ C ══════════ -->
+<section class="opt">
+  <div class="opt-head">
+    <h2>C · 仪表盘内入口卡</h2>
+    <span class="tag cost">结构最省，跳转最绕</span>
+  </div>
+  <p class="why">
+    不加任何常驻导航，只在仪表盘底部放三张入口卡，另外两页各带一个「返回仪表盘」。
+    <em>代价：永远要多跳一次；在人员管理里想切到部门看板，必须先回仪表盘。页面一多就撑不住。</em>
+  </p>
+  <div class="frame">
+    <div class="topbar">
+      <div class="logo"></div>
+      <div class="t">HBOS<small>海滨智能运营工作台</small></div>
+      <div class="search">搜索应用、批次、样品、员工或输入命令…</div>
+      <div class="avatar">AD</div>
+    </div>
+    <div class="body">
+      <div class="page">
+        <div class="kicker">ATTENDANCE · 考勤管理</div>
+        <div class="ptitle">考勤异常仪表盘</div>
+        <p class="psub">2026-09-28 ~ 2026-10-04 · 本页只做展示投影</p>
+        <div class="kpis">
+          <div class="kpi"><i></i><b>8</b><span>迟到 人次</span></div>
+          <div class="kpi"><i></i><b>0</b><span>早退 人次</span></div>
+          <div class="kpi"><i></i><b>909</b><span>缺勤 人天</span></div>
+          <div class="kpi"><i></i><b>353</b><span>异常人员 人</span></div>
+        </div>
+        <div class="entries">
+          <div class="entry"><div class="ic"></div><b>人员管理</b><small>在职员工名录与固定班次绑定</small><div class="go">进入 ›</div></div>
+          <div class="entry"><div class="ic"></div><b>部门看板</b><small>实时出勤快照与历史回顾</small><div class="go">进入 ›</div></div>
+          <div class="entry"><div class="ic"></div><b>班次管理</b><small>班次规则与人员绑定（在 Desk）</small><div class="go">打开 ›</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="verdict">
+  <h3>我的建议</h3>
+  <ul>
+    <li><b>B（页签）</b>：考勤就三页、且是同一件事的三个视角，页签最贴合；表格能拿到完整宽度。</li>
+    <li>若你更看重<b>和 LIMS 长得一样</b>，选 A。</li>
+    <li><b>无论选哪个</b>：班次管理 / 导入 / 月度上传目前只在 Desk。要进门户得另开一轮（3 个新页面 + 各自数据层），
+        建议先不并进来，在页签最右侧留一个「管理后台」入口链到 Desk。</li>
+    <li>移动端（&lt;768px）：A 的侧栏会折叠成抽屉，B 的页签变成可横向滚动——两种都已在小屏可用，实现时一并处理。</li>
+  </ul>
+</div>
+
+<footer>
+  原型文件：<code>docs/frontend/prototypes/2026-10-02-考勤应用内导航方案.html</code> ·
+  依据 <code>docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md</code> 的「原型先行 → Owner 审查 → 复刻实现」。
+  审查通过后才动代码。
+</footer>
+
+</body>
+</html>
