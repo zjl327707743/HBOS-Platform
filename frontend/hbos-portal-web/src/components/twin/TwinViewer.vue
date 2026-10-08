@@ -1,377 +1,173 @@
 <template>
-  <section class="twin-viewport" aria-label="M607B 受保护三维模型查看器">
-    <canvas
-      ref="canvas"
-      tabindex="0"
-      aria-label="M607B 三维模型。拖动转动，滚轮缩放；点击部件以选择。"
-      @keydown="onKeydown"
-    ></canvas>
-
-    <div class="viewer-top">
-      <div>
-        <a-tag color="purple">真实获批模型</a-tag>
-        <span>{{ manifest.label }} · {{ manifest.site_identity }}</span>
-      </div>
-      <a-tag>{{ manifest.connection_state === 'not_connected' ? '未接现场' : manifest.connection_state }}</a-tag>
+  <section ref="viewport" class="twin-viewport" :aria-label="`${manifest.label} 受保护三维工作区`">
+    <canvas ref="canvas" tabindex="0" :aria-label="`${manifest.label} 三维模型。拖动旋转，双指缩放，方向键旋转，F 聚焦，R 复位，Esc 清空。`" @keydown="onKeydown" />
+    <div class="viewport-label"><span class="source-dot"></span>{{ session.mode === 'browse' ? '设备浏览 · 无现场数据' : '原理演示 / 非现场状态 / 非操作规程' }}</div>
+    <div class="viewer-tools" role="toolbar" aria-label="三维查看工具">
+      <button title="聚焦所选 (F)" aria-label="聚焦所选部件" :disabled="!hasSelection" @click="focusSelected">◎</button>
+      <button title="隔离所选" aria-label="隔离所选部件" :aria-pressed="isolated" :disabled="!hasSelection" @click="toggleIsolate">◫</button>
+      <button title="隐藏所选" aria-label="隐藏所选部件" :disabled="!hasSelection" @click="hideSelected">⊖</button>
+      <button title="线框" aria-label="切换线框" :aria-pressed="wireframe" @click="toggleWireframe">▧</button>
+      <button title="恢复全部" aria-label="恢复全部显隐和材质" @click="restoreAll">↺</button>
+      <button title="复位镜头 (R)" aria-label="复位镜头" @click="resetView">⌂</button>
+      <button title="全屏 / Esc 退出" aria-label="切换全屏" @click="toggleFullscreen">⛶</button>
     </div>
-
-    <div class="viewer-tools" aria-label="查看器工具">
-      <a-tooltip title="聚焦已选部件"><button type="button" :disabled="!selectedAssetId" @click="focusSelected"><AimOutlined /></button></a-tooltip>
-      <a-tooltip :title="isolated ? '退出隔离' : '隔离已选部件'"><button type="button" :class="{ active: isolated }" :disabled="!selectedAssetId" @click="toggleIsolate"><PartitionOutlined /></button></a-tooltip>
-      <a-tooltip title="切换线框"><button type="button" :class="{ active: wireframe }" @click="toggleWireframe"><BorderOutlined /></button></a-tooltip>
-      <a-tooltip title="复位视图"><button type="button" @click="resetView"><ReloadOutlined /></button></a-tooltip>
+    <div v-if="loading || error" class="viewer-state" role="status" aria-live="polite">
+      <span class="state-mark">{{ error ? '!' : '◌' }}</span>
+      <strong>{{ error ? '模型暂时不可用' : '正在校验并载入设备模型' }}</strong>
+      <p>{{ error || '仅加载当前会话允许的私有制品' }}</p>
+      <button v-if="error && !fatal" @click="loadModel">重试</button>
     </div>
-
-    <div v-if="loading" class="viewer-state">
-      <a-spin size="large" />
-      <strong>正在校验并载入真实模型</strong>
-      <span>{{ progress }}%</span>
-    </div>
-    <div v-else-if="error" class="viewer-state error">
-      <WarningOutlined />
-      <strong>模型暂时无法显示</strong>
-      <span>{{ error }}</span>
-      <a-button @click="loadModel">重试</a-button>
-    </div>
-
-    <div v-if="isolated && selectedAssetId" class="isolate-chip">隔离查看 · {{ selectedAssetId }}</div>
-    <div class="viewer-bottom">
-      <span><span class="mouse-mark">◎</span> 拖动转动 · 滚轮缩放 · 点击选择</span>
-      <span>{{ manifest.fit_disclaimer }}</span>
-    </div>
+    <div v-if="isolated" class="view-chip">隔离查看 <button @click="restoreAll">恢复全部</button></div>
+    <div class="viewer-bottom"><span>拖动旋转 · 双指 / 滚轮缩放 · 点击选择</span><span>展示拟合 · 非工程测量</span></div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import {
-  AimOutlined,
-  BorderOutlined,
-  PartitionOutlined,
-  ReloadOutlined,
-  WarningOutlined,
-} from '@ant-design/icons-vue'
-import * as THREE from 'three'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import * as T from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { TwinManifest } from '@/contracts/p1'
+import type { DemoSession, ProcessBundle, TwinManifest, ViewerMetrics } from '@/types/twin'
+import type { TwinScheduler } from '@/composables/twin/scheduler'
+import { DisplayState, disposeTree, effectiveVisible } from './resources'
+import { createProduction, type ProductionRuntime } from './process/runtime'
 
-const props = defineProps<{ manifest: TwinManifest }>()
-const emit = defineEmits<{
-  (event: 'select', assetId: string | null): void
-  (event: 'ready'): void
-  (event: 'error', message: string): void
-}>()
-
-const canvas = ref<HTMLCanvasElement | null>(null)
-const loading = ref(true)
-const progress = ref(0)
-const error = ref<string | null>(null)
-const selectedAssetId = ref<string | null>(null)
-const isolated = ref(false)
-const wireframe = ref(false)
-
-let renderer: THREE.WebGLRenderer | null = null
-let scene: THREE.Scene | null = null
-let camera: THREE.PerspectiveCamera | null = null
-let controls: OrbitControls | null = null
-let modelRoot: THREE.Object3D | null = null
-let selectedNode: THREE.Object3D | null = null
-let resizeObserver: ResizeObserver | null = null
-let disposed = false
-const raycaster = new THREE.Raycaster()
-const pointer = new THREE.Vector2()
-const originalView = {
-  position: new THREE.Vector3(),
-  target: new THREE.Vector3(),
+const props = defineProps<{ manifest:TwinManifest; process:ProcessBundle | null; session:DemoSession; scheduler:TwinScheduler }>()
+const emit = defineEmits<{ select:[assetId:string|null]; ready:[]; fatal:[message:string]; error:[message:string]; manual:[]; metrics:[value:ViewerMetrics]; processError:[message:string]; restore:[] }>()
+const canvas=ref<HTMLCanvasElement|null>(null), viewport=ref<HTMLElement|null>(null)
+const loading=ref(true), error=ref(''), fatal=ref(false), hasSelection=ref(false), isolated=ref(false), wireframe=ref(false)
+let renderer:T.WebGLRenderer|null=null, scene:T.Scene|null=null, camera:T.PerspectiveCamera|null=null, controls:OrbitControls|null=null
+let root:T.Object3D|null=null, display:DisplayState|null=null, processRuntime:ProductionRuntime|null=null
+let observer:ResizeObserver|null=null, abort:AbortController|null=null, generation=0, disposed=false, dirty=true, userCamera=false
+let unsubscribe:(()=>void)|null=null, parseMs=0, downloadMs=0, started=0, firstVisibleMs:number|null=null
+const nodes=new Map<string,T.Object3D>(), pointers=new Map<number,{x:number;y:number}>()
+let gestureMoved=false
+const raycaster=new T.Raycaster(), pointer=new T.Vector2()
+const original={position:new T.Vector3(),target:new T.Vector3(),near:.01,far:1000,fov:38}
+const invalidate=()=>{dirty=true;props.scheduler.invalidate()}
+function selectedNodes(){return display ? [...display.selected] : []}
+function syncTools(){hasSelection.value=Boolean(display?.selected.size);isolated.value=Boolean(display?.isolated);wireframe.value=Boolean(display?.wireframe)}
+function selectIds(ids:string[], notify=false){display?.setSelection(ids.map(id=>nodes.get(id)).filter((n):n is T.Object3D=>!!n));syncTools();invalidate();if(notify)emit('select',ids[0]||null)}
+function clearSelection(){selectIds([],true)}
+function frameObject(object:T.Object3D,padding=1.2){
+  if(!camera||!controls)return
+  object.updateWorldMatrix(true,true)
+  const box=new T.Box3().setFromObject(object)
+  if(box.isEmpty())return
+  const sphere=box.getBoundingSphere(new T.Sphere()), radius=Math.max(sphere.radius,.01)
+  const halfVertical=T.MathUtils.degToRad(camera.fov/2), halfHorizontal=Math.atan(Math.tan(halfVertical)*camera.aspect)
+  const distance=radius/Math.sin(Math.min(halfVertical,halfHorizontal))*padding
+  const direction=new T.Vector3(.85,.52,1).normalize()
+  camera.position.copy(sphere.center).addScaledVector(direction,distance)
+  controls.target.copy(sphere.center);camera.near=Math.max(distance/2000,.001);camera.far=Math.max(distance*30,100);camera.updateProjectionMatrix();controls.update();invalidate()
 }
-const highlighted = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>()
-
-function render() {
-  if (!renderer || !scene || !camera || disposed) return
-  renderer.render(scene, camera)
+function resetView(){if(!camera||!controls)return;camera.position.copy(original.position);controls.target.copy(original.target);camera.near=original.near;camera.far=original.far;camera.fov=original.fov;camera.updateProjectionMatrix();controls.update();invalidate()}
+function focusIds(ids:string[]){
+  if(!scene)return
+  const box=new T.Box3()
+  for(const id of ids){const node=nodes.get(id);if(node)box.union(new T.Box3().setFromObject(node))}
+  if(box.isEmpty()||!camera||!controls)return
+  const size=box.getSize(new T.Vector3()),center=box.getCenter(new T.Vector3()),radius=Math.max(size.length()/2,.03)
+  const half=Math.min(T.MathUtils.degToRad(camera.fov/2),Math.atan(Math.tan(T.MathUtils.degToRad(camera.fov/2))*camera.aspect))
+  camera.position.copy(center).addScaledVector(new T.Vector3(.6,.3,1).normalize(),radius/Math.sin(half)*1.4)
+  camera.near=Math.max(radius/2000,.001);camera.far=Math.max(radius*500,100);camera.updateProjectionMatrix();controls.target.copy(center);controls.update();invalidate()
 }
-
-function frameObject(object: THREE.Object3D, padding = 1.35) {
-  if (!camera || !controls) return
-  const box = new THREE.Box3().setFromObject(object)
-  if (box.isEmpty()) return
-  const sphere = box.getBoundingSphere(new THREE.Sphere())
-  const radius = Math.max(sphere.radius, 0.01)
-  const halfFov = THREE.MathUtils.degToRad(camera.fov / 2)
-  const distance = (radius / Math.tan(halfFov)) * padding
-  const direction = new THREE.Vector3(1, 0.72, 1).normalize()
-  camera.position.copy(sphere.center).addScaledVector(direction, distance)
-  camera.near = Math.max(distance / 1000, 0.001)
-  camera.far = Math.max(distance * 50, 100)
-  camera.updateProjectionMatrix()
-  controls.target.copy(sphere.center)
-  controls.update()
-  render()
+function focusSelected(){focusIds(selectedNodes().map(n=>String(n.userData.asset_id)))}
+function toggleIsolate(){if(!display||!hasSelection.value)return;display.isolated=!display.isolated;display.apply();syncTools();invalidate()}
+function hideSelected(){if(!display)return;for(const n of display.selected)display.hidden.add(n);display.selected.clear();display.apply();syncTools();emit('select',null);invalidate()}
+function toggleWireframe(){if(!display)return;display.wireframe=!display.wireframe;display.apply();syncTools();invalidate()}
+function restoreAll(){exitProcess();emit('restore');display?.reset();syncTools();emit('select',null);invalidate()}
+async function toggleFullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else await viewport.value?.requestFullscreen()}catch{error.value='浏览器暂不支持全屏，可继续使用当前视图。'}}
+function assetNode(object:T.Object3D){let n:T.Object3D|null=object;while(n&&n!==root?.parent){if(typeof n.userData.asset_id==='string'&&!n.userData.schematic_only)return n;n=n.parent}return null}
+function pointerDown(event:PointerEvent){if(event.pointerType==='mouse'&&event.button!==0)return;if(!pointers.size)gestureMoved=false;pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size>1)gestureMoved=true}
+function pointerMove(event:PointerEvent){const start=pointers.get(event.pointerId);if(start&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>6)gestureMoved=true}
+function pointerCancel(event:PointerEvent){pointers.delete(event.pointerId);gestureMoved=true}
+function pointerUp(event:PointerEvent){
+  const start=pointers.get(event.pointerId),wasMultiple=pointers.size>1;pointers.delete(event.pointerId)
+  if(!start||gestureMoved||wasMultiple||pointers.size||!canvas.value||!camera||!root||loading.value||error.value)return
+  const r=canvas.value.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,-(event.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera)
+  const hit=raycaster.intersectObject(root,true).find(h=>effectiveVisible(h.object))
+  const node=hit?assetNode(hit.object):null
+  selectIds(node?[String(node.userData.asset_id)]:[],true)
 }
-
-function cloneHighlight(material: THREE.Material): THREE.Material {
-  const clone = material.clone()
-  const standard = clone as THREE.MeshStandardMaterial
-  if (standard.emissive?.isColor) {
-    standard.emissive.set('#5c63ff')
-    standard.emissiveIntensity = 0.7
-  } else if (standard.color?.isColor) {
-    standard.color.lerp(new THREE.Color('#7069ff'), 0.48)
-  }
-  return clone
+function manual(){userCamera=true;emit('manual')}
+function onKeydown(event:KeyboardEvent){
+  if(!camera||!controls)return
+  const key=event.key.toLowerCase()
+  if(!['r','f','escape','+','=','-','arrowleft','arrowright','arrowup','arrowdown'].includes(key))return
+  event.preventDefault();manual()
+  if(key==='r')resetView();if(key==='f')focusSelected();if(key==='escape')clearSelection()
+  if(['+','=','-'].includes(key)){camera.position.sub(controls.target).multiplyScalar(key==='-'?1.12:.89).add(controls.target);controls.update();invalidate()}
+  if(key.startsWith('arrow')){const offset=camera.position.clone().sub(controls.target),s=new T.Spherical().setFromVector3(offset);s.theta+=key==='arrowleft'?.12:key==='arrowright'?-.12:0;s.phi=T.MathUtils.clamp(s.phi+(key==='arrowup'?-.12:key==='arrowdown'?.12:0),.08,Math.PI-.08);camera.position.copy(controls.target).add(new T.Vector3().setFromSpherical(s));controls.update();invalidate()}
 }
-
-function clearHighlight() {
-  for (const [mesh, original] of highlighted) {
-    const active = mesh.material
-    const activeMaterials = Array.isArray(active) ? active : [active]
-    activeMaterials.forEach((material) => material.dispose())
-    mesh.material = original
-  }
-  highlighted.clear()
+function exitProcess(){
+  if(!processRuntime)return
+  display?.restoreMaterials();processRuntime.dispose();processRuntime=null;display?.captureMaterials();display?.apply();invalidate()
 }
-
-function applyHighlight(node: THREE.Object3D) {
-  clearHighlight()
-  node.traverse((child) => {
-    if (!(child instanceof THREE.Mesh)) return
-    highlighted.set(child, child.material)
-    child.material = Array.isArray(child.material)
-      ? child.material.map(cloneHighlight)
-      : cloneHighlight(child.material)
-  })
+function enterProcess(){
+  exitProcess()
+  if(!root||!props.process||props.session.mode!=='production')return
+  const config=props.process.bindings[props.session.equipmentId]
+  if(!config){emit('processError','当前设备尚无兼容的示教绑定。');return}
+  display?.reset();display?.restoreMaterials()
+  try{processRuntime=createProduction(root,config);display?.captureMaterials();processRuntime.update(props.session.time);syncTools();if(props.session.followCamera)focusIds(config.ids);invalidate()}
+  catch{emit('processError','示教目标或版本不兼容，静态模型仍可浏览。')}
 }
-
-function assetNodeFor(object: THREE.Object3D | null): THREE.Object3D | null {
-  let current = object
-  while (current && current !== modelRoot?.parent) {
-    if (typeof current.userData?.asset_id === 'string' && current.userData.asset_id.trim()) {
-      return current
-    }
-    current = current.parent
-  }
-  return null
+function cleanupModel(){
+  abort?.abort();abort=null;exitProcess();display?.dispose();display=null
+  if(root)disposeTree(root);root=null;nodes.clear();hasSelection.value=false;isolated.value=false;wireframe.value=false
 }
-
-function selectNode(node: THREE.Object3D | null) {
-  if (isolated.value) restoreVisibility()
-  selectedNode = node
-  selectedAssetId.value = node ? String(node.userData.asset_id) : null
-  if (node) applyHighlight(node)
-  else clearHighlight()
-  emit('select', selectedAssetId.value)
-  render()
-}
-
-function pick(event: PointerEvent) {
-  if (!canvas.value || !camera || !modelRoot || loading.value || error.value) return
-  const rect = canvas.value.getBoundingClientRect()
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-  raycaster.setFromCamera(pointer, camera)
-  const intersections = raycaster.intersectObject(modelRoot, true)
-  const node = intersections.length ? assetNodeFor(intersections[0]?.object || null) : null
-  selectNode(node)
-}
-
-function restoreVisibility() {
-  modelRoot?.traverse((node) => { node.visible = true })
-  isolated.value = false
-}
-
-function toggleIsolate() {
-  if (!modelRoot || !selectedNode) return
-  if (isolated.value) {
-    restoreVisibility()
-  } else {
-    const selectedObjects = new Set<THREE.Object3D>()
-    selectedNode.traverse((item) => selectedObjects.add(item))
-    modelRoot.traverse((item) => {
-      if (item instanceof THREE.Mesh) item.visible = selectedObjects.has(item)
-    })
-    isolated.value = true
-  }
-  render()
-}
-
-function focusSelected() {
-  if (selectedNode) frameObject(selectedNode, 1.7)
-}
-
-function toggleWireframe() {
-  wireframe.value = !wireframe.value
-  modelRoot?.traverse((node) => {
-    if (!(node instanceof THREE.Mesh)) return
-    const materials = Array.isArray(node.material) ? node.material : [node.material]
-    materials.forEach((material) => {
-      const candidate = material as THREE.MeshStandardMaterial
-      if ('wireframe' in candidate) candidate.wireframe = wireframe.value
-    })
-  })
-  render()
-}
-
-function resetView() {
-  if (!camera || !controls) return
-  restoreVisibility()
-  camera.position.copy(originalView.position)
-  controls.target.copy(originalView.target)
-  controls.update()
-  render()
-}
-
-function onKeydown(event: KeyboardEvent) {
-  if (!camera || !controls) return
-  if (event.key.toLowerCase() === 'r') resetView()
-  if (event.key === '+' || event.key === '=') {
-    camera.position.lerp(controls.target, 0.12)
-    controls.update(); render()
-  }
-  if (event.key === '-') {
-    camera.position.sub(controls.target).multiplyScalar(1.12).add(controls.target)
-    controls.update(); render()
+async function loadModel(){
+  const token=++generation;cleanupModel();loading.value=true;error.value='';fatal.value=false;started=performance.now();firstVisibleMs=null
+  const controller=new AbortController();abort=controller
+  try{
+    const response=await fetch(props.manifest.model_url,{credentials:'same-origin',cache:'no-store',signal:controller.signal})
+    if(!response.ok){if([401,403,409].includes(response.status)){fatal.value=true;throw new Error('设备权限、会话或模型完整性已失效。')}throw new Error('受保护模型暂时不可用，请重试。')}
+    const data=await response.arrayBuffer();downloadMs=performance.now()-started
+    const digest=await crypto.subtle.digest('SHA-256',data)
+    const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')
+    if(hash!==props.manifest.model_sha256||data.byteLength!==props.manifest.model_size_bytes){fatal.value=true;throw new Error('模型完整性校验失败，已停止展示。')}
+    const parsing=performance.now(),gltf=await new GLTFLoader().parseAsync(data,'');parseMs=performance.now()-parsing
+    if(disposed||token!==generation||!scene){disposeTree(gltf.scene);return}
+    root=gltf.scene;scene.add(root);display=new DisplayState(root)
+    root.traverse(n=>{if(typeof n.userData.asset_id==='string')nodes.set(n.userData.asset_id,n)})
+    userCamera=false;frameObject(root)
+    if(camera&&controls){original.position.copy(camera.position);original.target.copy(controls.target);original.near=camera.near;original.far=camera.far;original.fov=camera.fov}
+    loading.value=false;enterProcess();emit('ready');invalidate()
+  }catch(reason){
+    if(disposed||token!==generation||controller.signal.aborted)return
+    loading.value=false;error.value=reason instanceof Error?reason.message:'模型暂时不可用。'
+    if(fatal.value){cleanupModel();emit('fatal',error.value)}else emit('error',error.value)
   }
 }
-
-function disposeObjectResources(object: THREE.Object3D) {
-  object.traverse((node) => {
-    if (!(node instanceof THREE.Mesh)) return
-    node.geometry.dispose()
-    const materials = Array.isArray(node.material) ? node.material : [node.material]
-    materials.forEach((material) => {
-      for (const value of Object.values(material)) {
-        if (value instanceof THREE.Texture) value.dispose()
-      }
-      material.dispose()
-    })
-  })
+function resize(){if(!canvas.value||!renderer||!camera)return;const w=Math.max(canvas.value.clientWidth,1),h=Math.max(canvas.value.clientHeight,1);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(root&&!userCamera&&props.session.mode==='browse'){frameObject(root);if(controls){original.position.copy(camera.position);original.target.copy(controls.target);original.near=camera.near;original.far=camera.far}}invalidate()}
+function lost(event:Event){event.preventDefault();generation++;cleanupModel();error.value='图形上下文已丢失。恢复后将重新验证并载入。';loading.value=false;emit('error',error.value)}
+function recovered(){if(disposed)return;initializeRenderer();void loadModel()}
+function releaseRenderer(){controls?.removeEventListener('change',invalidate);controls?.removeEventListener('start',manual);controls?.dispose();controls=null;renderer?.dispose();renderer=null;scene=null;camera=null}
+function initializeRenderer(){
+  releaseRenderer();if(!canvas.value)return
+  renderer=new T.WebGLRenderer({canvas:canvas.value,antialias:true,powerPreference:'high-performance'});renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;renderer.localClippingEnabled=true
+  scene=new T.Scene();scene.background=new T.Color('#e9eff5')
+  scene.add(new T.HemisphereLight('#f3f7ff','#6e7f91',2.8));const light=new T.DirectionalLight('#ffffff',3.8);light.position.set(6,10,8);scene.add(light);const fill=new T.DirectionalLight('#b3c7ef',2);fill.position.set(-6,4,-4);scene.add(fill)
+  camera=new T.PerspectiveCamera(38,1,.01,1000);controls=new OrbitControls(camera,canvas.value);controls.enableDamping=false;controls.screenSpacePanning=true;controls.addEventListener('change',invalidate);controls.addEventListener('start',manual);resize()
 }
-
-function disposeScene() {
-  disposed = true
-  clearHighlight()
-  restoreVisibility()
-  canvas.value?.removeEventListener('pointerup', pick)
-  controls?.removeEventListener('change', render)
-  controls?.dispose()
-  resizeObserver?.disconnect()
-  if (modelRoot) disposeObjectResources(modelRoot)
-  renderer?.dispose()
-  renderer?.forceContextLoss()
-  renderer = null
-  scene = null
-  camera = null
-  controls = null
-  modelRoot = null
-  selectedNode = null
-}
-
-function resize() {
-  if (!canvas.value || !renderer || !camera) return
-  const width = Math.max(1, canvas.value.clientWidth)
-  const height = Math.max(1, canvas.value.clientHeight)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.setSize(width, height, false)
-  camera.aspect = width / height
-  camera.updateProjectionMatrix()
-  render()
-}
-
-function initializeRenderer() {
-  if (!canvas.value) return
-  disposed = false
-  renderer = new THREE.WebGLRenderer({ canvas: canvas.value, antialias: true, alpha: true, powerPreference: 'high-performance' })
-  renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.12
-  scene = new THREE.Scene()
-  scene.background = new THREE.Color('#eef4fb')
-  scene.environment = null
-  camera = new THREE.PerspectiveCamera(38, 1, 0.01, 10000)
-  controls = new OrbitControls(camera, canvas.value)
-  controls.enableDamping = false
-  controls.screenSpacePanning = true
-  controls.addEventListener('change', render)
-  scene.add(new THREE.HemisphereLight('#dbe9ff', '#7b8796', 2.2))
-  const key = new THREE.DirectionalLight('#ffffff', 3.1)
-  key.position.set(6, 10, 8)
-  scene.add(key)
-  const fill = new THREE.DirectionalLight('#8da7ff', 1.8)
-  fill.position.set(-8, 3, -5)
-  scene.add(fill)
-  canvas.value.addEventListener('pointerup', pick)
-  canvas.value.addEventListener('webglcontextlost', (event) => {
-    event.preventDefault()
-    error.value = '浏览器图形上下文已丢失，请刷新或重试。'
-    emit('error', error.value)
-  }, { once: true })
-  resizeObserver = new ResizeObserver(resize)
-  resizeObserver.observe(canvas.value)
-  resize()
-}
-
-function loadModel() {
-  if (!scene) return
-  loading.value = true
-  progress.value = 0
-  error.value = null
-  const loader = new GLTFLoader()
-  loader.setWithCredentials(true)
-  loader.load(
-    props.manifest.model_url,
-    (gltf) => {
-      if (disposed || !scene) {
-        disposeObjectResources(gltf.scene)
-        return
-      }
-      modelRoot = gltf.scene
-      scene.add(modelRoot)
-      frameObject(modelRoot)
-      if (camera && controls) {
-        originalView.position.copy(camera.position)
-        originalView.target.copy(controls.target)
-      }
-      loading.value = false
-      progress.value = 100
-      emit('ready')
-      render()
-    },
-    (event) => {
-      if (event.total > 0) progress.value = Math.min(99, Math.round((event.loaded / event.total) * 100))
-    },
-    () => {
-      loading.value = false
-      error.value = '模型加载或完整性校验失败；没有使用替代几何。'
-      emit('error', error.value)
-    },
-  )
-}
-
-onMounted(() => {
-  initializeRenderer()
-  loadModel()
+watch(()=>[props.session.mode,props.session.equipmentId,props.process],enterProcess)
+watch(()=>props.session.followCamera,follow=>{if(follow&&props.process){const c=props.process.bindings[props.session.equipmentId];if(c)focusIds(c.ids)}})
+watch(()=>props.manifest.model_sha256,()=>{void loadModel()})
+onMounted(()=>{
+  initializeRenderer();const c=canvas.value!;c.addEventListener('pointerdown',pointerDown);c.addEventListener('pointermove',pointerMove);c.addEventListener('pointerup',pointerUp);c.addEventListener('pointercancel',pointerCancel);c.addEventListener('webglcontextlost',lost);c.addEventListener('webglcontextrestored',recovered)
+  observer=new ResizeObserver(resize);observer.observe(c)
+  unsubscribe=props.scheduler.subscribe(()=>{if(disposed||!renderer||!scene||!camera||error.value)return false;if(processRuntime){processRuntime.update(props.session.time);dirty=true}if(dirty){renderer.render(scene,camera);dirty=false;if(root&&!loading.value&&firstVisibleMs===null)firstVisibleMs=performance.now()-started;const info=renderer.info;if(firstVisibleMs!==null)emit('metrics',{geometries:info.memory.geometries,textures:info.memory.textures,triangles:info.render.triangles,calls:info.render.calls,downloadMs,parseMs,firstVisibleMs,ownedMaterials:display?.owned.size||0})}return false})
+  void loadModel()
 })
-onBeforeUnmount(disposeScene)
-
-defineExpose({ focusSelected, resetView, toggleIsolate })
+onBeforeUnmount(()=>{
+  disposed=true;generation++;unsubscribe?.();observer?.disconnect();pointers.clear()
+  const c=canvas.value;if(c){c.removeEventListener('pointerdown',pointerDown);c.removeEventListener('pointermove',pointerMove);c.removeEventListener('pointerup',pointerUp);c.removeEventListener('pointercancel',pointerCancel);c.removeEventListener('webglcontextlost',lost);c.removeEventListener('webglcontextrestored',recovered)}
+  cleanupModel();releaseRenderer()
+})
+defineExpose({selectIds,focusIds,focusSelected,toggleIsolate,hideSelected,restoreAll,resetView})
 </script>
 
 <style scoped>
-.twin-viewport { position:relative;overflow:hidden;min-height:650px;border:1px solid rgba(255,255,255,.82);border-radius:26px;background:radial-gradient(circle at 70% 30%,rgba(92,110,255,.12),transparent 29%),linear-gradient(180deg,#f5f9fe,#eaf2fa);box-shadow:var(--hbos-shadow-card); }
-canvas { display:block;width:100%;height:650px;outline:none;cursor:grab; }
-canvas:active { cursor:grabbing; }
-.viewer-top { position:absolute;z-index:2;top:17px;left:17px;right:17px;display:flex;justify-content:space-between;gap:12px;pointer-events:none; }
-.viewer-top > div { display:flex;align-items:center;gap:9px; }
-.viewer-top span { color:#576b8b;font-size:10px;font-weight:700; }
-.viewer-tools { position:absolute;z-index:3;top:68px;right:17px;display:grid;gap:7px; }
-.viewer-tools button { display:grid;width:38px;height:38px;place-items:center;border:1px solid rgba(65,91,138,.12);border-radius:12px;background:rgba(255,255,255,.82);color:#526786;box-shadow:0 8px 22px rgba(47,72,117,.08);cursor:pointer;backdrop-filter:blur(12px); }
-.viewer-tools button.active { color:#fff;background:#6268f4; }.viewer-tools button:disabled{opacity:.42;cursor:not-allowed}
-.viewer-state { position:absolute;z-index:4;inset:0;display:grid;place-content:center;justify-items:center;gap:11px;background:rgba(239,246,252,.82);color:#365071;backdrop-filter:blur(10px); }
-.viewer-state strong { font-size:14px; }.viewer-state span { max-width:340px;text-align:center;color:#76869e;font-size:11px;line-height:1.6; }
-.viewer-state.error > :first-child { color:#d9784c;font-size:30px; }
-.isolate-chip { position:absolute;left:17px;bottom:60px;padding:7px 10px;border-radius:10px;background:rgba(33,50,81,.78);color:#fff;font-size:10px;backdrop-filter:blur(12px); }
-.viewer-bottom { position:absolute;z-index:2;left:17px;right:17px;bottom:15px;display:flex;justify-content:space-between;gap:12px;color:#697c98;font-size:10px;pointer-events:none; }
-.mouse-mark { color:#6268f4;font-size:13px; }
-@media (max-width: 700px) { .twin-viewport{min-height:500px}canvas{height:500px}.viewer-top>div span{display:none}.viewer-bottom{flex-direction:column}.viewer-bottom span:last-child{display:none} }
+.twin-viewport{position:relative;min-width:0;height:610px;overflow:hidden;border-radius:18px;background:#e9eff5;border:1px solid #dce5ee}canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}canvas:active{cursor:grabbing}canvas:focus-visible{outline:3px solid #655cf0;outline-offset:-4px}.viewport-label{position:absolute;top:18px;left:18px;max-width:calc(100% - 80px);padding:8px 11px;background:#fffffff0;border-radius:9px;color:#526276;font-size:12px;pointer-events:none}.source-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#9c7b3c;margin-right:8px}.viewer-tools{position:absolute;right:14px;top:16px;display:grid;gap:6px}.viewer-tools button,.view-chip button{border:1px solid #d7e1eb;background:#ffffffed;color:#415875;border-radius:10px;min-width:40px;min-height:40px;font-size:21px;cursor:pointer}.viewer-tools button[aria-pressed=true]{background:#6158d8;color:white}.viewer-tools button:disabled{opacity:.35;cursor:default}.viewer-tools button:focus-visible,.view-chip button:focus-visible{outline:3px solid #655cf0;outline-offset:2px}.viewer-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#edf3f9ed;text-align:center;padding:30px;gap:12px;color:#38526f}.viewer-state strong{font-size:18px}.viewer-state p{max-width:360px;margin:0;color:#6e7e91}.viewer-state button{padding:10px 24px;border:1px solid #c7d6e6;border-radius:10px;background:white;cursor:pointer}.state-mark{font-size:38px;color:#736bc1}.viewer-bottom{position:absolute;left:18px;right:18px;bottom:14px;display:flex;justify-content:space-between;gap:10px;color:#66768a;font-size:12px;pointer-events:none}.view-chip{position:absolute;bottom:52px;left:18px;padding:6px 12px;background:white;border-radius:10px;font-size:13px}.view-chip button{font-size:12px;border:0}.twin-viewport:fullscreen{height:100vh;border-radius:0}@media(max-width:700px){.twin-viewport{height:520px}.viewer-bottom{font-size:11px;flex-direction:column}.viewport-label{font-size:11px}.viewer-tools button{min-width:44px;min-height:44px}}
 </style>
