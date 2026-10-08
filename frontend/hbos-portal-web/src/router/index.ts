@@ -5,6 +5,11 @@ import AttendanceLayout from '@/components/layout/AttendanceLayout.vue'
 import AttendanceDashboardView from '@/views/AttendanceDashboardView.vue'
 import AttendanceEmployeesView from '@/views/AttendanceEmployeesView.vue'
 import AttendanceBoardView from '@/views/AttendanceBoardView.vue'
+import AttendanceEmbedView from '@/views/AttendanceEmbedView.vue'
+import AttendanceReportView from '@/views/AttendanceReportView.vue'
+import AttendanceListView from '@/views/AttendanceListView.vue'
+import AttendanceImportView from '@/views/AttendanceImportView.vue'
+import AttendanceMonthlyUploadView from '@/views/AttendanceMonthlyUploadView.vue'
 import PortalHome from '@/views/PortalHome.vue'
 import MyWorkView from '@/views/MyWorkView.vue'
 import AppCenterView from '@/views/AppCenterView.vue'
@@ -40,15 +45,25 @@ const router = createRouter({
       // 后端 resolve_stable_route 把 /hbos/attendance* 解析回自身，
       // 故前端走「以 /hbos/ 开头即 SPA 路由」分支，不再进 iframe。
       //
-      // 三条路由挂在 AttendanceLayout 下：这是 2026-10-02 之前遗漏的一层——
-      // 它们此前是并列的顶层路由，**不带门户外壳**（没有 GlobalHeader、
-      // 没有 aurora 背景），所以玻璃卡是浮在白底上的。挂上布局后与 LIMS 一致。
+      // 三条原生路由挂在 AttendanceLayout 下（2026-10-02 补齐——此前是并列的
+      // 顶层路由，**不带门户外壳**，玻璃卡浮在白底上）；embed/:slug 是后台面
+      // 的同域 iframe 载体，必须挂在**同一个** layout 下：若复用顶层
+      // `/hbos/embed`，点开报表会离开 /hbos/attendance，侧栏整个消失。
       path: '/hbos/attendance',
       component: AttendanceLayout,
       children: [
         { path: '', name: 'attendance-dashboard', component: AttendanceDashboardView, meta: { title: '考勤管理' } },
         { path: 'employees', name: 'attendance-employees', component: AttendanceEmployeesView, meta: { title: '人员管理' } },
         { path: 'board', name: 'attendance-board', component: AttendanceBoardView, meta: { title: '部门看板' } },
+        // 报表：门户原生渲染（AntD 表格），不再 iframe 内嵌 Desk 报表。
+        { path: 'report/:slug', name: 'attendance-report', component: AttendanceReportView, meta: { title: '考勤报表' } },
+        // DocType 列表：同样原生渲染。
+        { path: 'list/:slug', name: 'attendance-list', component: AttendanceListView, meta: { title: '考勤记录' } },
+        // 导入考勤机导出表：原生页（文件上传 + 三步流程）。
+        { path: 'import', name: 'attendance-import', component: AttendanceImportView, meta: { title: '导入考勤机导出表' } },
+        // 上传月度考勤表：原生页（原始文件字节 POST，与导入页的 upload_file 通路不同）。
+        { path: 'monthly-upload', name: 'attendance-monthly-upload', component: AttendanceMonthlyUploadView, meta: { title: '上传月度考勤表' } },
+        { path: 'embed/:slug', name: 'attendance-embed', component: AttendanceEmbedView, meta: { title: '考勤业务页面' } },
       ],
     },
     {

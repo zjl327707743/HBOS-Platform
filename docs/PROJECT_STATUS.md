@@ -5,7 +5,7 @@
 ## 当前状态
 
 - 当前阶段：M1-FIX 功能补漏阶段（IN_PROGRESS）；M1 产品交付尚未完成
-- 当前轮次：M1-FIX-F（REVIEWING，**第一、二阶段均已上线；整支复查已完成并处置**）；另有 **M3-PORTAL-R1（HBOS 门户工作台集成，REVIEWING，分支 `feature/hbos-portal-workbench`，R1–R4 均已交付；2026-09-29 追加「考勤页原生化 + Desk 共享视觉层」、2026-10-02 追加「Desk 四页视觉改造 + 门户应用内导航」，均为 REVIEWING）**
+- 当前轮次：M1-FIX-F（REVIEWING，**第一、二阶段均已上线；整支复查已完成并处置**）；另有 **M3-PORTAL-R1（HBOS 门户工作台集成，REVIEWING，分支 `feature/hbos-portal-workbench`，R1–R4 均已交付；2026-09-29 追加「考勤页原生化 + Desk 共享视觉层」、2026-10-02 追加「Desk 四页视觉改造 + 门户应用内导航」、2026-10-08 追加「考勤面板全面化与分组导航」，均为 REVIEWING）**
 - 当前仓库定位：工程启动文档、AI 上下文、里程碑状态、计划、ADR、环境设计文档、最小 Docker 配置与 M1-FIX 轻量自定义 App
 - 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块两阶段均已上线：119 条入库、103 条解析、41 已核实 / 53 核实不通过；已核实调休日已接入考勤豁免与看板；整支复查完成，1 项发现已修、1 项归因已更正）；M1-FIX-C/D/E 未启动；M3-PORTAL-R1（HBOS 门户工作台集成）R1–R4 均已交付（REVIEWING）。
 - 本批最新交付：2026-09-22 完成 **M1-FIX-F 调休模块第一阶段**——飞书调休审批进入系统并按海滨口径完成「加班日提取 → 打卡核实」，产出可人工复核的结论清单。分支 `m1-fix-c-rest-leave`（16 提交），全量测试 311 → **396 通过**。**本阶段只出结论、不改变任何考勤结果**。2026-09-22 已上线：119 条入库、103 条解析出加班日、核实结论 40 已核实 / 53 核实不通过 / 14 解析失败；**考勤结果与上线前逐值一致（零副作用）**。上线中发现并修复三项阻断（模型下线、HBOS_AI_* 未注入队列容器、nginx 需 reload），详见落地记录 §8。详见 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
@@ -15,7 +15,7 @@
 
 ## M3-PORTAL-R1 HBOS 门户工作台集成 状态（分支 `feature/hbos-portal-workbench`）
 
-状态：**REVIEWING**（**R1–R4 均已交付**；2026-09-29 追加「考勤页原生化与 Desk 共享视觉层」、2026-10-02 追加「Desk 四页视觉改造 + 门户应用内导航」，均为 REVIEWING）。
+状态：**REVIEWING**（**R1–R4 均已交付**；2026-09-29 追加「考勤页原生化与 Desk 共享视觉层」、2026-10-02 追加「Desk 四页视觉改造 + 门户应用内导航」、2026-10-08 追加「考勤面板全面化与分组导航」，均为 REVIEWING）。
 
 轮次定位：以长期分支 `origin/feature/hbos-portal-product` 为基准**选择性移植**（**非 merge**）门户工作台——在本分支新增 Vue 3 门户 SPA + `hbos_portal` 薄平台 App + 考勤 portal 适配层，并以**同域 iframe** 在门户内容区承载现有 Frappe 考勤页面，实现「导航不出门户」。
 
@@ -742,7 +742,7 @@ M1-FIX 后续规划（仅规划，不自动启动）：
 - M1-FIX-C/D/E = PLANNED
 - M4-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m4-stock-r1`）
 - M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION
-- M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29「考勤页原生化 + Desk 共享视觉层」、2026-10-02「Desk 四页视觉改造 + 门户应用内导航」两批后续交付同为 REVIEWING）
+- M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29「考勤页原生化 + Desk 共享视觉层」、2026-10-02「Desk 四页视觉改造 + 门户应用内导航」、2026-10-08「考勤面板全面化与分组导航」三批后续交付同为 REVIEWING）
 
 M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩大为大而全 HR App，不修改 Frappe/ERPNext/HRMS 核心源码，不提交 `.env`/App Secret/密钥/token/真实数据/Excel/CSV，不接真实考勤机，不部署公司内网/云服务器，不启动大型 Vue/React 前端，不在 M1-FIX 轮次内做 M2 工作（M4-STOCK-R1 已在独立分支 `m4-stock-r1` 进行，不在本分支展开），不伪造飞书登录成功，不执行 `docker compose down -v`，不删除 Docker volume，不重建 `frontend` site。
 

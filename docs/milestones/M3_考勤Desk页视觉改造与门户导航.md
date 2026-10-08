@@ -167,3 +167,14 @@ docker exec hbos-m0-r3a-backend-1 sh -c 'cd /home/frappe/frappe-bench && bench -
 - `docs/milestones/README.md`：文件索引新增本文件。
 - `README.md` / `docs/AI_CONTEXT.md`：各补一行本轮状态。
 - `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`：新增 §1.1.1「改完页面 JS 必须让浏览器缓存失效」。
+
+## 十三、后续变更（Owner 2026-10-08）
+
+本文件第十二节所述的两项决定已被 Owner 于 2026-10-08 变更：
+
+| 本文件原记录 | 现决定 |
+|---|---|
+| 「班次管理 / 导入 / 月度上传**暂不搬进门户**」（第五节） | **全部搬进**；其中班次管理保留 Desk iframe 作为有意的例外 |
+| 「**新开页签**而不内嵌」（第五节末） | 改为**门户原生 AntD 渲染**；仅班次管理保留内嵌 |
+
+变更后的交付见 `docs/milestones/M3_考勤面板全面化与分组导航.md`。本文件其余内容（Desk 四页改造、页面缓存机制）**不受影响，继续有效**。

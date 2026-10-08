@@ -217,3 +217,84 @@
 .hbos-surface .h-empty { color: var(--h-muted); }
 .hbos-surface .h-error { color: var(--h-critical); }
 .hbos-surface .h-loading { color: var(--h-text-2); }
+
+/* ══════════════════════════════════════════════════════════════════
+   Frappe 报表 / 列表页组件
+
+   自定义页有自己的 .h-* 类，但报表与列表页**不是我们的代码**——它们用
+   Frappe 的 datatable（.dt-*）与 ListView（.list-*）。要它们也融入同一套
+   语言，只能接管这些类。
+
+   作用域仍是 .hbos-surface：Desk 侧由 hbos_attendance_surface.js 按路由
+   给「本 App 的报表 / 列表」挂上该 class；门户内嵌时由 iframe 注入口挂。
+   其余 app 的报表不受影响。
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 画布：报表页不铺极光（内容密集，铺了只会干扰读数）── */
+.hbos-surface.hbos-surface--data::before { display: none !important; }
+.hbos-surface.hbos-surface--data { padding: 16px 20px 32px !important; }
+
+/* ── 筛选区（.page-form）：白底卡片，标签小字 ── */
+.hbos-surface .page-form {
+  background: var(--h-surface-solid) !important;
+  border: 1px solid var(--h-border) !important;
+  border-radius: var(--h-radius-card) !important;
+  padding: 14px 16px !important;
+}
+.hbos-surface .page-form .form-group label,
+.hbos-surface .page-form .control-label {
+  font-size: 12px !important; line-height: 20px !important; color: var(--h-text-2) !important;
+}
+.hbos-surface .page-form .form-control {
+  border-radius: var(--h-radius-control) !important; font-size: 14px !important;
+}
+
+/* ── 报表表格：表头吸顶、密集行、数字等宽（与 .h-table 同规格）──
+   这些是 Frappe 的框架类，其自带规则特异性未必更低，故一律 !important。
+   （对比：.h-* 是我们自己的类，那份规则不需要 !important。） */
+.hbos-surface .dt-cell--header,
+.hbos-surface .dt-cell--header .dt-cell__content {
+  background: var(--h-subtle) !important;
+  color: var(--h-text-2) !important;
+  font-size: 12px !important; line-height: 20px !important; font-weight: 500 !important;
+}
+.hbos-surface .dt-cell--header { border-bottom: 1px solid var(--h-border-strong) !important; }
+.hbos-surface .dt-cell { border-color: var(--h-border) !important; }
+.hbos-surface .dt-cell__content {
+  color: var(--h-text) !important;
+  font-size: 14px !important; line-height: 22px !important;
+  font-variant-numeric: tabular-nums !important;
+  padding: 8px 12px !important;
+}
+.hbos-surface .dt-row:hover .dt-cell { background: var(--h-subtle) !important; }
+.hbos-surface .dt-scrollable {
+  border: 1px solid var(--h-border) !important;
+  border-radius: var(--h-radius-card) !important;
+  background: var(--h-surface-solid) !important;
+}
+.hbos-surface .dt-cell--sticky-last,
+.hbos-surface .dt-cell--row-index { background: var(--h-surface-solid) !important; }
+
+/* ── 按钮：主按钮走品牌色，次按钮中性 ── */
+.hbos-surface .btn-default,
+.hbos-surface .btn-secondary { border-radius: var(--h-radius-control) !important; }
+.hbos-surface .btn:focus-visible { outline: 2px solid var(--h-brand) !important; outline-offset: 1px !important; }
+
+/* ── 列表页（DocType ListView）── */
+.hbos-surface .list-row-head {
+  background: var(--h-subtle) !important;
+  border-bottom: 1px solid var(--h-border-strong) !important;
+}
+.hbos-surface .list-row-head .list-row-col {
+  font-size: 12px !important; color: var(--h-text-2) !important; font-weight: 500 !important;
+}
+.hbos-surface .list-row { border-bottom: 1px solid var(--h-border) !important; }
+.hbos-surface .list-row:hover { background: var(--h-subtle) !important; }
+.hbos-surface .list-row-container { border-radius: 0 !important; }
+
+/* ── 分页 / 汇总条 ── */
+.hbos-surface .list-paging-area,
+.hbos-surface .report-footer {
+  border-top: 1px solid var(--h-border) !important;
+  font-size: 12px !important; color: var(--h-muted) !important;
+}

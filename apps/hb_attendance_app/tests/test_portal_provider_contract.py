@@ -12,7 +12,12 @@ from hb_attendance_app.hbos_attendance.portal.access import (
 )
 from hb_attendance_app.hbos_attendance.portal.manifest import get_manifest
 from hb_attendance_app.hbos_attendance.portal.provider import get_provider
-from hb_attendance_app.hbos_attendance.portal.routes import resolve_stable_route
+from hb_attendance_app.hbos_attendance.portal.routes import (
+    EMBEDDED_ROUTES,
+    NATIVE_PATHS,
+    REGISTERED_PATHS,
+    resolve_stable_route,
+)
 from hb_attendance_app.hbos_attendance.portal.summary import project_dashboard_summary
 
 
@@ -66,15 +71,10 @@ class AttendancePortalAccessTest(unittest.TestCase):
 
 
 class AttendancePortalRouteTest(unittest.TestCase):
-    def test_registered_routes_map_to_themselves(self):
-        self.assertEqual(
-            "/hbos/attendance",
-            resolve_stable_route("/hbos/attendance"),
-        )
-        self.assertEqual(
-            "/hbos/attendance/dashboard",
-            resolve_stable_route("/hbos/attendance/dashboard"),
-        )
+    def test_native_routes_resolve_to_themselves(self):
+        for path in sorted(NATIVE_PATHS):
+            with self.subTest(path=path):
+                self.assertEqual(path, resolve_stable_route(path))
 
     def test_employees_subroute_is_registered(self):
         self.assertEqual(
@@ -94,11 +94,67 @@ class AttendancePortalRouteTest(unittest.TestCase):
             resolve_stable_route("/hbos/attendance?range=week"),
         )
 
+    def test_embedded_routes_map_to_their_desk_paths(self):
+        # 逐条钉死映射目标：只断言「不等于自身」测不出映射写错到别的页面。
+        expected = {
+            "/hbos/attendance/report/monthly": "/app/query-report/月度考勤汇总",
+            "/hbos/attendance/report/checkins": "/app/query-report/打卡流水",
+            "/hbos/attendance/report/results": "/app/query-report/考勤结果",
+            "/hbos/attendance/report/staging": "/app/query-report/HBOS 月度汇总暂存（对账）",
+            "/hbos/attendance/import": "/app/hbos-attendance-import",
+            "/hbos/attendance/import-log": "/app/hbos-attendance-import-log",
+            "/hbos/attendance/monthly-upload": "/app/hbos-monthly-upload",
+            "/hbos/attendance/shifts": "/app/hbos-shift-management",
+            "/hbos/attendance/feishu/leave": "/app/hbos-leave-record",
+            "/hbos/attendance/feishu/overtime": "/app/hbos-overtime-record",
+            "/hbos/attendance/feishu/rest-leave": "/app/hbos-rest-leave-record",
+        }
+        self.assertEqual(expected, dict(EMBEDDED_ROUTES))
+        for stable_path, desk_path in expected.items():
+            with self.subTest(stable=stable_path):
+                self.assertEqual(desk_path, resolve_stable_route(stable_path))
+
+    def test_embedded_query_is_preserved(self):
+        self.assertEqual(
+            "/app/query-report/月度考勤汇总?from_date=2026-09-01",
+            resolve_stable_route(
+                "/hbos/attendance/report/monthly?from_date=2026-09-01"
+            ),
+        )
+
+    def test_embedded_targets_stay_inside_the_desk_namespace(self):
+        # 结构不变量：所有内嵌目标必须落在 /app/ 下。若将来有人把它改成
+        # 站外地址或 /logout 之类的敏感本地路径，这条会先失败。
+        for stable_path, desk_path in EMBEDDED_ROUTES.items():
+            with self.subTest(stable=stable_path):
+                self.assertTrue(desk_path.startswith("/app/"), desk_path)
+
+    def test_registered_set_is_exactly_native_plus_embedded(self):
+        self.assertEqual(
+            NATIVE_PATHS | frozenset(EMBEDDED_ROUTES),
+            REGISTERED_PATHS,
+        )
+
+    def test_native_and_embedded_never_collide(self):
+        # 同一个稳定路径若同时在两张表里，原生判定优先、内嵌静默失效。
+        self.assertEqual(set(), NATIVE_PATHS & set(EMBEDDED_ROUTES))
+
+    def test_stable_paths_are_ascii(self):
+        # 稳定路径保持纯 ASCII：它要经 axios 查询参数与 urlsplit/urlunsplit 往返，
+        # 中文只应出现在映射目标里。
+        for path in REGISTERED_PATHS:
+            with self.subTest(path=path):
+                self.assertTrue(path.isascii(), path)
+
     def test_unregistered_or_unsafe_paths_are_rejected(self):
         for path in (
             "/hbos/inventory",
             "https://evil.example/hbos/attendance",
             "/hbos/attendance/%2e%2e/admin",
+            # 只应在映射目标里出现、不得当作稳定路径使用
+            "/hbos/attendance/report",
+            "/hbos/attendance/feishu",
+            "/hbos/attendance/reports/monthly",
         ):
             with self.subTest(path=path):
                 with self.assertRaises(ValueError):

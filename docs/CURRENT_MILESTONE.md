@@ -56,6 +56,17 @@ M1-FIX-F：调休模块（**两个阶段均已上线**）。当前状态：**REV
 - **运行态影响**：动过数据库一次（6 个 `Page.modified`）；4 个页面 JS 经 bind-mount 即时生效；未重建容器、未 `migrate`、未 `bench build`。
 - 主文档 `docs/milestones/M3_考勤Desk页视觉改造与门户导航.md`；原型 `docs/frontend/prototypes/2026-10-02-考勤应用内导航方案.html`。**未认领新里程碑编号**。
 
+**M3-PORTAL-R1 后续（2026-10-08，REVIEWING）**：**考勤面板全面化与分组导航**。
+
+- **导航**：3 页签 → **分组侧栏**（14 入口 4 组：概览 / 报表 / 数据与导入 / 配置）。导航数据单一来源 `attendanceNav.ts`。修复侧栏 15 入口被裁（共享样式只给固定高度、无 overflow）——改为中间 nav 滚动、首尾钉住。
+- **11 个后台面改原生 AntD**：4 报表（`report_data.py` 薄包装 `execute()`）+ 4 列表（`list_data.py` 走 `frappe.get_list()` 自带权限过滤）+ 2 上传页。**取数逻辑一行未重写**，查询口径只有一份。
+- **新增 `file_api.get_csrf_token`**（Owner 裁定方案 A）：门户是独立 SPA，拿不到 Desk 内联下发的 CSRF token，无法 POST 上传。该端点只读、要求已登录、只回当前会话 token。
+- **班次管理保留 Desk iframe**（Owner 裁定「甲」）：编辑器型页面、13 个写接口中两个会改判定口径、低频；且它与只读看板同页两页签，拆开会导致两种风格并在同一屏。**这是有意的例外，非遗漏。**
+- **实测修复四项**：① **筛选经 HTTP 传参后被后端丢弃**（只判 dict、未处理 JSON 字符串）——打卡流水 61815 → 4914 行；② `row-key` 用错字段致翻页串行；③ 侧栏 15 入口被裁；④ AntD 缺中文 locale（空表显示 `No data`）。
+- **验收**：考勤 **466 通过**；门户构建通过；判定核心仍零改动；14 项逐项浏览器实测。
+- **推翻两处既有决定**（Owner 2026-10-08 变更，已在 PROJECT_STATUS 与本文件更正）：原「班次管理/导入/月度上传暂不搬进门户」→ 全部搬进（班次管理保留 iframe）；原「纯页签、不内嵌」→ 报表/列表改原生。
+- 主文档 `docs/milestones/M3_考勤面板全面化与分组导航.md`；原型 `docs/frontend/prototypes/2026-10-08-考勤全面板导航方案.html`。**未认领新里程碑编号**。
+
 
 
 - **来源**：改动来自 2026-10-01 另一个中断的会话，本轮为**接管收口**（核对、实测、记录、提交）。落点由 Owner 2026-10-02 裁定为**另开分支承载**，以保住门户分支「判定核心零改动」的约束。
@@ -175,7 +186,7 @@ M1-FIX-B5 = REVIEWING
 M1-FIX-F = REVIEWING / 两阶段均已上线
 M4-STOCK-R1 = IN_PROGRESS（库存模块隔离，分支 `m4-stock-r1`）
 M2 其余轮次 = NOT STARTED / WAITING OWNER AUTHORIZATION
-M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29「考勤页原生化 + Desk 共享视觉层」、2026-10-02「Desk 四页视觉改造 + 门户应用内导航」两批后续交付同为 REVIEWING）
+M3-PORTAL-R1 = REVIEWING（HBOS 门户工作台集成，分支 `feature/hbos-portal-workbench`；R1–R4 均已交付；2026-09-29「考勤页原生化 + Desk 共享视觉层」、2026-10-02「Desk 四页视觉改造 + 门户应用内导航」、2026-10-08「考勤面板全面化与分组导航」三批后续交付同为 REVIEWING）
 ```
 
 ## 下一轮预告

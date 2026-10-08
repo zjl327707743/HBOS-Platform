@@ -13,6 +13,12 @@ after_migrate = "hb_attendance_app.hbos_attendance.setup.after_migrate"
 # Console 保留自身身份）。样式只此一份——6 个页面各抄一遍色值必然漂移。
 app_include_css = "hbos_attendance.bundle.css"
 
+# 报表与 DocType 列表页不是我们的代码（Frappe 的视图工厂生成），不会自己挂
+# `.hbos-surface`。这个小脚本按路由给「本 App 的报表 / 列表」补上挂载点，
+# 于是上面那份 CSS 自然生效，无需在 bundle 里再抄一遍报表样式。
+# 其余 app 的页面不受影响。
+app_include_js = "hbos_attendance.bundle.js"
+
 scheduler_events = {
     "cron": {
         # 考勤通知：北京时间 09:00（Frappe 系统时区为 Asia/Shanghai，cron 按本地时区判定，
