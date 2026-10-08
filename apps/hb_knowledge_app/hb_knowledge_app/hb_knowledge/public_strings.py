@@ -8,7 +8,7 @@ from .errors import KnowledgeError
 
 DANGER=re.compile(r"(?i)(?:[a-z][a-z0-9+.-]*://|www\.|(?:javascript|data|mailto):|"
     r"(?:^|[\s\"'(])/(?:[^\s<>]+)|[a-z]:[\\/]|(?:\.\.[\\/])|"
-    r"%2f|%5c|\\u[0-9a-f]{4}|[<>]|(?:api.?key|token|password|secret)\s*[:=]\s*\S+)")
+    r"%2f|%5c|\\u[0-9a-f]{4}|<\s*(?:/?[a-z!])[^>]*>|(?:api.?key|token|password|secret)\s*[:=]\s*\S+)")
 
 def safe_string(value, maximum=None, *, physical_ids=(), nullable=False):
     if value is None and nullable:

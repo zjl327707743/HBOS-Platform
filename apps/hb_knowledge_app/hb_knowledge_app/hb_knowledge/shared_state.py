@@ -106,7 +106,9 @@ redis.call('EXPIREAT',KEYS[3],ARGV[3]); return 1
 class RedisDecisions:
     test_only=False
     clock=staticmethod(time.time)
-    def __init__(self,provider,quota,state,key):
+    def __init__(self,provider,quota,state,key,deadline_seconds=12):
+        if type(deadline_seconds) is not int or not 1<=deadline_seconds<=90:raise KnowledgeError("POLICY_UNAVAILABLE")
+        self.deadline_seconds=deadline_seconds
         self.provider,self.quota,self.state,self.key=provider,quota,state,key
     def fingerprint(self,request):
         return hmac.new(self.key.encode(),canonical(request.to_wire()).encode(),hashlib.sha256).hexdigest()
@@ -136,7 +138,7 @@ class RedisDecisions:
         digest=hashlib.sha256(json.dumps(plan.to_wire(),sort_keys=True,ensure_ascii=True).encode()).hexdigest()
         ref=secrets.token_urlsafe(32)
         row=canonical({'plan':plan.to_wire(),'request':request.to_wire(),'fingerprint':fp,'digest':digest,
-                       'deadline':iso(min(time.time()+12,timestamp(plan.expires_at)))})
+                       'deadline':iso(min(time.time()+self.deadline_seconds,timestamp(plan.expires_at)))})
         selected=self.state.eval(ISSUE_LUA,['identity:'+ik,'decision:'+ref],[ref,row])
         ticket=self._read(selected)
         if fp!=ticket.request_fingerprint: raise KnowledgeError('REPLAY_REJECTED')

@@ -66,7 +66,7 @@ def get_status():
         actor=runtime.actor()
         return {"can_enter":bool(actor.enabled),"can_search":_can_search(runtime,actor),
                 "policy_revision":None,"gateway_configured":runtime.gateway.configured,
-                "ask_enabled":False,"mode":"retrieval","environment":runtime.profile}
+                "ask_enabled":_ask_enabled(runtime),"mode":"retrieval","environment":runtime.profile}
     return _run(current)
 
 @frappe.whitelist(methods=["POST"])
@@ -100,6 +100,9 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
         data={"request_id":request_id,"mode":"retrieval","results":output}
         if request.context: data["context"]=dict(request.context)
         validate_structure("SearchData",data)
+        if runtime.profile=="production":
+            from .activity import write
+            write("History",request.query,request.space_ids,records,runtime)
         runtime.audit.record(actor.user_ref,"search","SUCCESS",len(output))
         return data
     return _run(current)
@@ -134,15 +137,117 @@ def resolve_evidence(evidence_id=None, **business_fields):
         return data
     return _run(current)
 
-@frappe.whitelist(methods=["POST"])
+def _ask_enabled(runtime):
+    if runtime.profile!='production':return False
+    from .shared_reference import configuration
+    return configuration().get('ask_enabled') is True
+
+@frappe.whitelist(methods=['POST'])
 def ask(**business_fields):
     def current(request_id):
-        raw=_framework_business(business_fields,"ask")
-        validate_structure("AskRequest",raw)
-        runtime=load_runtime(); actor=runtime.actor()
-        runtime.provider._current(actor,runtime.client)
-        return _disabled()
+        raw=_framework_business(business_fields,'ask');validate_structure('AskRequest',raw)
+        runtime=load_runtime();actor=runtime.actor()
+        if not _ask_enabled(runtime):raise KnowledgeError('MODEL_NOT_APPROVED')
+        from .activity import owned,current as activity_current,bindings_for,write
+        from .public_strings import safe_string
+        question=safe_string(raw['question'].strip(),500)
+        if raw.get('conversation_id'):
+            _,mapping=activity_current(runtime)
+            _,previous=owned(raw['conversation_id'],actor,kinds=('History',))
+            bindings_for(previous,mapping)
+            question='前一问题：'+previous['query'][-180:]+'\n追问：'+question
+        request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context')}})
+        ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
+        runtime.publication.plan=ticket.plan
+        answer,labels,records=runtime.gateway.ask(ticket=ticket)
+        if records:runtime.gateway.authorize_evidence(ticket,records,phase='pre_issue')
+        runtime.provider.revalidate(ticket.plan)
+        from knowledge_service.hbos_gateway.response_projection import public_evidence
+        citations=[]
+        runtime.quota.reserve_output(actor.user_ref,len(answer)+sum(len(r.excerpt) for r in records))
+        for label,record in zip(labels,records):
+            handle=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
+            citations.append(dict(public_evidence(record,handle,environment=runtime.profile),citation_label=label))
+        from .r1_contract import validate_ask_data
+        data={'request_id':request_id,'turn_id':request_id,'mode':'internal_reference_generation',
+            'answer_status':'REFERENCE_ANSWERED' if citations else 'INSUFFICIENT_EVIDENCE',
+            'answerable':bool(citations),'answer':answer,'citations':citations}
+        if not citations:data['mode']='authorized_generation'
+        validate_ask_data(data,environment=runtime.profile)
+        turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'))
+        data['turn_id']=turn;data['conversation_id']=turn
+        runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
+        runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
+        return data
     return _run(current)
 
-def _disabled():
-    raise KnowledgeError("MODEL_NOT_APPROVED")
+
+@frappe.whitelist(methods=["GET"])
+def get_documents(**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'get_documents'):raise KnowledgeError('INVALID_REQUEST')
+        from .reference_admin import get_catalog
+        runtime=load_runtime();return get_catalog(runtime,runtime.actor())
+    return _run(current)
+
+@frappe.whitelist(methods=['GET'])
+def get_activity(kind=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'get_activity'):raise KnowledgeError('INVALID_REQUEST')
+        from .activity import list_activity
+        return list_activity(load_runtime(),kind)
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
+def open_saved(activity_id=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'open_saved'):raise KnowledgeError('INVALID_REQUEST')
+        from .activity import reopen
+        return reopen(load_runtime(),activity_id,request_id)
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
+def remove_saved(activity_id=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'remove_saved'):raise KnowledgeError('INVALID_REQUEST')
+        from .activity import remove
+        return remove(load_runtime(),activity_id)
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
+def save_bookmark(evidence_id=None,query=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'save_bookmark'):raise KnowledgeError('INVALID_REQUEST')
+        runtime=load_runtime();actor=runtime.actor()
+        record,ticket=resolve_cached_evidence(runtime.cache,actor,runtime.client,normalize_evidence({'evidence_id':evidence_id}),runtime=runtime,request_id=request_id)
+        from .activity import write
+        return {'id':write('Bookmark',normalize_search({'query':query}).query,[record.space_id],[record],runtime)}
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
+def submit_feedback(evidence_id=None,category=None,note='',**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'submit_feedback') or category not in ('内容疑问','版本疑问','检索不相关','其他'):raise KnowledgeError('INVALID_REQUEST')
+        runtime=load_runtime();actor=runtime.actor();records=[]
+        if evidence_id:
+            record,ticket=resolve_cached_evidence(runtime.cache,actor,runtime.client,normalize_evidence({'evidence_id':evidence_id}),runtime=runtime,request_id=request_id)
+            records=[record]
+        from .activity import write
+        return {'id':write('Feedback','反馈',[],records,runtime,category=category,note=note),'status':'Pending'}
+    return _run(current)
+
+@frappe.whitelist(methods=['GET'])
+def get_feedback_queue(**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'get_feedback_queue'):raise KnowledgeError('INVALID_REQUEST')
+        from .activity import feedback_queue
+        return feedback_queue(load_runtime())
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
+def review_feedback(activity_id=None,status=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'review_feedback'):raise KnowledgeError('INVALID_REQUEST')
+        from .activity import review_feedback as update
+        return update(load_runtime(),activity_id,status)
+    return _run(current)

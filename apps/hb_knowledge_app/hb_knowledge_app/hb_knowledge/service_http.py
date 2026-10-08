@@ -59,7 +59,7 @@ class SignedHttp:
                 headers=sign(self.key,self.caller,path,origin,body)
                 if getattr(self,'site',None): headers['X-Frappe-Site-Name']=self.site
                 with session.post(self.url+path, data=body,
-                     headers=headers,timeout=(2,6),stream=True,
+                     headers=headers,timeout=(2,getattr(self,"read_timeout",6)),stream=True,
                      allow_redirects=False) as response:
                     data=bytearray()
                     for part in response.iter_content(8192):

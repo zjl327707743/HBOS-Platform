@@ -58,7 +58,7 @@ def resolve_evidence(cache, actor, client, evidence_id, *, runtime, request_id):
             raise KnowledgeError("EVIDENCE_UNAVAILABLE")
         b=reference.binding
         record=EvidenceRecord(b.canonical_document_id,b.title,b.business_version,
-             "SYNTHETIC_ONLY" if b.source_type=="SYNTHETIC_TEST" else b.authority_status,
+             "SYNTHETIC_ONLY" if b.source_type=="SYNTHETIC_TEST" else "内部参考／有效性待核" if b.authority_status=="CONTROLLED_REFERENCE_REVIEWED" else b.authority_status,
              b.section,reference.page_number,reference.excerpt,reference.chunk_id,
              b.dataset_alias,b.space_id,b.version_id,b.binding_ref,b)
         runtime.checkpoint("before_evidence_backend")

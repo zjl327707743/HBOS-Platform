@@ -62,7 +62,7 @@
       "additionalProperties": false,
       "examples": [
         {
-          "query": "\u5408\u6210\u6821\u51c6\u6f14\u793a",
+          "query": "合成校准演示",
           "space_ids": [
             "SPACE_QA_DEMO"
           ],
@@ -104,7 +104,7 @@
       "additionalProperties": false,
       "examples": [
         {
-          "question": "\u5408\u6210\u6f14\u793a\u6709\u54ea\u4e9b\u5df2\u6388\u6743\u4f9d\u636e\uff1f",
+          "question": "合成演示有哪些已授权依据？",
           "space_ids": [
             "SPACE_QA_DEMO"
           ]
@@ -205,6 +205,13 @@
             "ORDINARY_INTERNAL_KNOWLEDGE",
             "SYNTHETIC_TEST"
           ]
+        },
+        "document_number": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
         }
       },
       "required": [
@@ -291,6 +298,13 @@
         "citation_label": {
           "type": "string",
           "pattern": "^C[1-5]$"
+        },
+        "document_number": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
         }
       },
       "required": [
@@ -363,12 +377,12 @@
           "results": [
             {
               "document_id": "DOC_QA_DEMO",
-              "title": "\u5408\u6210\u6821\u51c6\u53c2\u8003\u5361",
+              "title": "合成校准参考卡",
               "version": "demo-v1",
-              "status_note": "\u5408\u6210\u6d4b\u8bd5\u8d44\u6599\uff0c\u975e\u516c\u53f8\u6b63\u5f0f\u7a0b\u5e8f",
-              "section": "\u68c0\u67e5\u70b9",
+              "status_note": "合成测试资料，非公司正式程序",
+              "section": "检查点",
               "page_number": null,
-              "excerpt": "\u6b64\u5904\u4ec5\u4e3a\u5408\u6210\u793a\u4f8b\u6458\u5f55\u3002",
+              "excerpt": "此处仅为合成示例摘录。",
               "evidence_id": "evidence-demo-reference",
               "space_id": "SPACE_QA_DEMO",
               "source_type": "SYNTHETIC_TEST"
@@ -399,7 +413,8 @@
           "enum": [
             "authorized_generation",
             "reference_only",
-            "synthetic_test"
+            "synthetic_test",
+            "internal_reference_generation"
           ]
         },
         "answer_status": {
@@ -407,7 +422,8 @@
             "ANSWERED",
             "INSUFFICIENT_EVIDENCE",
             "REFERENCE_ONLY",
-            "SYNTHETIC_TEST"
+            "SYNTHETIC_TEST",
+            "REFERENCE_ANSWERED"
           ]
         },
         "answerable": {
@@ -475,7 +491,7 @@
                 "maxItems": 0
               },
               "answer": {
-                "const": "\u5f53\u524d\u6388\u6743\u8d44\u6599\u4e0d\u8db3\u4ee5\u5f62\u6210\u56de\u7b54\u3002"
+                "const": "当前授权资料不足以形成回答。"
               }
             }
           }
@@ -498,7 +514,7 @@
                 "maxItems": 5
               },
               "answer": {
-                "const": "\u4ec5\u4f9b\u53c2\u8003\uff0c\u8bf7\u6838\u5bf9\u83b7\u51c6\u4f9d\u636e\u3002"
+                "const": "仅供参考，请核对获准依据。"
               }
             }
           }
@@ -521,7 +537,27 @@
                 "maxItems": 0
               },
               "answer": {
-                "const": "SYNTHETIC_ONLY\uff1a\u4ec5\u4f9b\u9694\u79bb\u6d4b\u8bd5\u3002"
+                "const": "SYNTHETIC_ONLY：仅供隔离测试。"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "answer_status": {
+                "const": "REFERENCE_ANSWERED"
+              }
+            },
+            "required": [
+              "answer_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "citations": {
+                "minItems": 1,
+                "maxItems": 5
               }
             }
           }
@@ -535,7 +571,7 @@
           "mode": "authorized_generation",
           "answer_status": "INSUFFICIENT_EVIDENCE",
           "answerable": false,
-          "answer": "\u5f53\u524d\u6388\u6743\u8d44\u6599\u4e0d\u8db3\u4ee5\u5f62\u6210\u56de\u7b54\u3002",
+          "answer": "当前授权资料不足以形成回答。",
           "citations": []
         }
       ],
@@ -604,6 +640,24 @@
             },
             "answerable": {
               "const": false
+            }
+          },
+          "required": [
+            "mode",
+            "answer_status",
+            "answerable"
+          ]
+        },
+        {
+          "properties": {
+            "mode": {
+              "const": "internal_reference_generation"
+            },
+            "answer_status": {
+              "const": "REFERENCE_ANSWERED"
+            },
+            "answerable": {
+              "const": true
             }
           },
           "required": [
@@ -1264,7 +1318,8 @@
                   "CONTROLLED_APPROVED",
                   "EXTERNAL_REFERENCE_REVIEWED",
                   "INTERNAL_REFERENCE_REVIEWED",
-                  "SYNTHETIC_ONLY"
+                  "SYNTHETIC_ONLY",
+                  "CONTROLLED_REFERENCE_REVIEWED"
                 ]
               },
               "dataset_alias": {
@@ -1314,6 +1369,13 @@
               },
               "mapping_ready": {
                 "const": true
+              },
+              "document_number": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 120
               }
             },
             "required": [
@@ -1356,7 +1418,10 @@
                 "then": {
                   "properties": {
                     "authority_status": {
-                      "const": "CONTROLLED_APPROVED"
+                      "enum": [
+                        "CONTROLLED_APPROVED",
+                        "CONTROLLED_REFERENCE_REVIEWED"
+                      ]
                     }
                   }
                 }
@@ -1439,7 +1504,8 @@
             "kind": {
               "enum": [
                 "IAM_ROLE_SCOPE",
-                "HBOS_LEGACY_READONLY"
+                "HBOS_LEGACY_READONLY",
+                "INTERNAL_SHARED_REFERENCE"
               ]
             },
             "authority_revision": {

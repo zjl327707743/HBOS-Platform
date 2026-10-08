@@ -36,7 +36,7 @@ def load_runtime():
     runtime = getattr(frappe.local, "hbos_knowledge_runtime", None)
     if not isinstance(runtime, CandidateRuntime):
         import os
-        if not os.environ.get("HBOS_K1C2_SITE"):
+        if not (os.environ.get("HBOS_K1C2_SITE") or os.environ.get("HBOS_KNOWLEDGE_REFERENCE_CONFIG")):
             raise KnowledgeError("POLICY_UNAVAILABLE")
         from .frappe_factory import build_runtime
         runtime = build_runtime()

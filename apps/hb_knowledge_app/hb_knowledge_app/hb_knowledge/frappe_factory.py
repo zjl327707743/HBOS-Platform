@@ -27,15 +27,21 @@ def components():
                       socket_connect_timeout=2,socket_timeout=2),cfg['prefix'],cfg['run_id'])
     state.ready()
     proofs=SessionProofs(state,cfg)
-    provider=LegacyHbosPolicyProvider(FrappePairedAuthority(proofs,cfg),environment='synthetic')
+    if cfg.get('profile')=='INTERNAL_SHARED_REFERENCE':
+        from .shared_reference import InternalSharedAuthority, InternalSharedReferenceProvider
+        provider=InternalSharedReferenceProvider(InternalSharedAuthority(proofs,cfg),environment='production')
+    else:
+        provider=LegacyHbosPolicyProvider(FrappePairedAuthority(proofs,cfg),environment='synthetic')
     quota=RedisQuota(state,cfg['fingerprint_key'])
-    decisions=RedisDecisions(provider,quota,state,cfg['fingerprint_key'])
+    decisions=RedisDecisions(provider,quota,state,cfg['fingerprint_key'],deadline_seconds=cfg.get('decision_deadline_seconds',12))
     return cfg,state,proofs,provider,quota,decisions
 
 class HttpGateway:
     test_only=True  # Synthetic transport stays explicitly marked.
     configured=True
-    def __init__(self,cfg): self.http=SignedHttp(cfg['gateway_url'],cfg['bff_key'],'hbos-bff')
+    def __init__(self,cfg):
+        self.profile=cfg['environment']
+        self.http=SignedHttp(cfg['gateway_url'],cfg['bff_key'],'hbos-bff')
     def search(self,*,ticket):
         raw=self.http.post('/v1/knowledge/search',search_body(ticket),ticket.plan.client.client_id)
         if not isinstance(raw,dict) or set(raw)!={'status','results'} or raw['status']!='SUCCESS' or not isinstance(raw['results'],list) or len(raw['results'])>5:
@@ -48,10 +54,11 @@ class HttpGateway:
             b=selected.get(fragment['binding_ref'])
             if not b or b.version_id!=fragment['version_id'] or not isinstance(fragment['chunk_id'],str):
                 raise KnowledgeError('UPSTREAM_SCOPE_VIOLATION')
-            record=EvidenceRecord(b.canonical_document_id,b.title,b.business_version,'SYNTHETIC_ONLY',
+            record=EvidenceRecord(b.canonical_document_id,b.title,b.business_version,
+                 'SYNTHETIC_ONLY' if b.source_type=='SYNTHETIC_TEST' else '内部参考／有效性待核' if b.authority_status=='CONTROLLED_REFERENCE_REVIEWED' else b.authority_status,
                  b.section,fragment['page_number'],fragment['excerpt'],fragment['chunk_id'],b.dataset_alias,
                  b.space_id,b.version_id,b.binding_ref,b)
-            public_evidence(record,'CHECK_SYNTHETIC',environment='synthetic')
+            public_evidence(record,'CHECK_PROJECTION',environment=cfg_environment(self))
             result.append(record)
         return result
     def authorize_evidence(self,ticket,records,*,phase):
@@ -61,11 +68,42 @@ class HttpGateway:
         if raw!={'allowed':True,'budget_owner':'HBOS'}: raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         return True
 
+    def ask(self,*,ticket):
+        if getattr(self,'profile',None)!='production':raise KnowledgeError('MODEL_NOT_APPROVED')
+        raw=self.http.post('/v1/knowledge/ask',search_body(ticket),ticket.plan.client.client_id)
+        if not isinstance(raw,dict) or set(raw)!={'status','answer','labels','results'} or raw['status']!='SUCCESS':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        from .public_strings import safe_string
+        answer=safe_string(raw['answer'],1500)
+        if not isinstance(raw['labels'],list) or len(set(raw['labels']))!=len(raw['labels']) or not isinstance(raw['results'],list) or len(raw['results'])>5:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        from knowledge_service.hbos_gateway.response_projection import public_evidence
+        records=[];labels=[];selected={b.binding_ref:b for b in ticket.plan.bindings}
+        for item in raw['results']:
+            if not isinstance(item,dict) or set(item)!={'binding_ref','version_id','chunk_id','excerpt','page_number','score','citation_label'}:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+            b=selected.get(item['binding_ref']);label=item['citation_label']
+            if not b or b.version_id!=item['version_id'] or label not in {'C1','C2','C3','C4','C5'} or label in labels:raise KnowledgeError('UPSTREAM_SCOPE_VIOLATION')
+            r=EvidenceRecord(b.canonical_document_id,b.title,b.business_version,'内部参考／有效性待核',b.section,item['page_number'],item['excerpt'],item['chunk_id'],b.dataset_alias,b.space_id,b.version_id,b.binding_ref,b)
+            public_evidence(r,'ASK_PROJECTION_CHECK',environment='production');records.append(r);labels.append(label)
+        if set(labels)!=set(raw['labels']):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        return answer,labels,records
+
+def cfg_environment(gateway):
+    return gateway.profile
+
+class ReferenceHttpGateway(HttpGateway):
+    test_only=False
+    def __init__(self,cfg):
+        if cfg.get('profile')!='INTERNAL_SHARED_REFERENCE' or cfg.get('environment')!='production' or not cfg.get('internal_sharing_approved'):
+            raise KnowledgeError('POLICY_UNAVAILABLE')
+        super().__init__(cfg)
+        self.http.read_timeout=80
+
 def build_runtime(client=None):
     import frappe
     cfg,state,proofs,provider,quota,decisions=components()
-    client=client or Client('K1C2_PORTAL')
-    if client not in {Client('K1C2_PORTAL'),Client('K1C2_INTERNAL')}:
+    real=cfg.get('profile')=='INTERNAL_SHARED_REFERENCE'
+    client=client or Client(cfg['portal_client_id'] if real else 'K1C2_PORTAL')
+    clients={Client(cfg['portal_client_id'])} if real else {Client('K1C2_PORTAL'),Client('K1C2_INTERNAL')}
+    if client not in clients:
         raise KnowledgeError('CLIENT_AUTH_FAILED')
     def checkpoint(phase):
         # Test faults are owner-controlled Redis entries in the new namespace only.
@@ -78,8 +116,8 @@ def build_runtime(client=None):
                     time.sleep(.02)
                 if state.get('barrier:'+phase)=='armed': raise KnowledgeError('SERVICE_ERROR')
     publication=Publication(state,provider,checkpoint)
-    runtime=CandidateRuntime('synthetic',provider,decisions,DatabaseReferences(publication),
-         HandleCache(state,publication),HttpGateway(cfg),quota,DatabaseAudit(publication,cfg['audit_key']),
+    runtime=CandidateRuntime('production' if real else 'synthetic',provider,decisions,DatabaseReferences(publication),
+         HandleCache(state,publication),ReferenceHttpGateway(cfg) if real else HttpGateway(cfg),quota,DatabaseAudit(publication,cfg['audit_key']),
          lambda:proofs.from_native_request(client),client,checkpoint)
     runtime.publication=publication
     return runtime

@@ -91,6 +91,7 @@ def validate_ask_data(value: dict, *, environment: str):
     triple = (value["mode"], value["answer_status"], value["answerable"])
     admitted = {
         ("authorized_generation", "ANSWERED", True),
+        ("internal_reference_generation", "REFERENCE_ANSWERED", True),
         ("authorized_generation", "INSUFFICIENT_EVIDENCE", False),
         ("reference_only", "REFERENCE_ONLY", False),
         ("synthetic_test", "SYNTHETIC_TEST", False),

@@ -43,6 +43,7 @@ class HbosReadOnlyAuthority:
             raise KnowledgeError("POLICY_UNAVAILABLE") from None
 
 class LegacyHbosPolicyProvider:
+    provider_kind="HBOS_LEGACY_READONLY"
     def __init__(self, repository: AuthorityRepository, *, environment: str, clock=time.time):
         if environment not in {"production", "synthetic"} or (environment == "production" and repository.test_only):
             raise KnowledgeError("POLICY_UNAVAILABLE")
@@ -67,7 +68,9 @@ class LegacyHbosPolicyProvider:
         if client.audience != "knowledge-gateway" or client not in snapshot.clients:
             raise KnowledgeError("CLIENT_AUTH_FAILED")
         expiry = snapshot.provider.compatibility_expires_at
-        if snapshot.provider.kind != "HBOS_LEGACY_READONLY" or not expiry or timestamp(expiry) <= self.clock():
+        if (snapshot.provider.kind != self.provider_kind or
+            (self.provider_kind=="HBOS_LEGACY_READONLY" and (not expiry or timestamp(expiry)<=self.clock())) or
+            (self.provider_kind=="INTERNAL_SHARED_REFERENCE" and (self.environment!="production" or expiry is not None))):
             raise KnowledgeError("POLICY_UNAVAILABLE")
         return snapshot
 
@@ -112,7 +115,7 @@ class LegacyHbosPolicyProvider:
         # rounded timestamp being fractionally later than the validation clock;
         # the authorization lifetime is shortened, never extended past 120s.
         issued = float(int(now))
-        expires = min(issued + 120, timestamp(snapshot.provider.compatibility_expires_at))
+        expires = min(issued + 120, timestamp(snapshot.provider.compatibility_expires_at)) if snapshot.provider.compatibility_expires_at else issued + 120
         plan = AuthorizedExecutionPlan(CONTRACT_VERSION, secrets.token_urlsafe(24), actor, client,
             action, self.environment, tuple(spaces), grants, tuple(selected),
             snapshot.policy_revision, snapshot.corpus_revision, snapshot.provider,

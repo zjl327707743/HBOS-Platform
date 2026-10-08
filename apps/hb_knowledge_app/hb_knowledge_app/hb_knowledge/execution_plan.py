@@ -75,6 +75,7 @@ class Binding:
     equipment_id: str | None = None
     asset_id: str | None = None
     component_id: str | None = None
+    document_number: str | None = None
 
 @dataclass(frozen=True)
 class ProviderStamp:
@@ -120,11 +121,12 @@ def validate_admission(binding: Binding, environment: str, now: float):
     if (binding.backend != "ragflow" or not binding.mapping_ready or binding.withdrawn
             or binding.publication_state != "published"):
         raise KnowledgeError("SCOPE_REJECTED")
-    if ADMISSION.get(binding.source_type) != binding.authority_status:
+    if (ADMISSION.get(binding.source_type) != binding.authority_status and
+        not (binding.source_type=="COMPANY_CONTROLLED" and binding.authority_status=="CONTROLLED_REFERENCE_REVIEWED")):
         raise KnowledgeError("SCOPE_REJECTED")
     if environment == "production" and binding.source_type == "SYNTHETIC_TEST":
         raise KnowledgeError("SCOPE_REJECTED")
-    if binding.source_type == "COMPANY_CONTROLLED" and not binding.business_version:
+    if binding.authority_status == "CONTROLLED_APPROVED" and not binding.business_version:
         raise KnowledgeError("SCOPE_REJECTED")
     start = timestamp(binding.valid_from)
     end = timestamp(binding.valid_until) if binding.valid_until else None

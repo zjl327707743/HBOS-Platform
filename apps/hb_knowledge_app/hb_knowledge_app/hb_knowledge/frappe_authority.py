@@ -14,6 +14,9 @@ from .metadata_integrity import binding_from_row
 
 def configuration():
     import frappe
+    if os.environ.get('HBOS_KNOWLEDGE_REFERENCE_CONFIG'):
+        from .shared_reference import configuration as reference_configuration
+        return reference_configuration()
     site, run = os.environ.get('HBOS_K1C2_SITE'), os.environ.get('HBOS_K1C2_RUN_ID')
     if (not site or not run or frappe.local.site != site or not frappe.conf.get('hbos_k1c2_enabled')
         or frappe.conf.get('hbos_k1c2_run_id') != run or frappe.conf.get('ignore_csrf')):
@@ -28,8 +31,10 @@ def committed_view():
     import frappe
     conn=None
     try:
-        if frappe.conf.db_host!='db': raise KnowledgeError('POLICY_UNAVAILABLE')
-        conn=pymysql.connect(host='db',port=3306,user=frappe.conf.get('db_user') or frappe.conf.db_name,
+        cfg=configuration()
+        host=cfg.get('db_host','db');port=int(cfg.get('db_port',3306))
+        if frappe.conf.db_host!=host or int(frappe.conf.get('db_port') or 3306)!=port: raise KnowledgeError('POLICY_UNAVAILABLE')
+        conn=pymysql.connect(host=host,port=port,user=frappe.conf.get('db_user') or frappe.conf.db_name,
              password=frappe.conf.db_password,database=frappe.conf.db_name,
              connect_timeout=2,read_timeout=3,write_timeout=3,autocommit=False,
              cursorclass=pymysql.cursors.DictCursor)
@@ -65,7 +70,9 @@ class SessionProofs:
             raise KnowledgeError('AUTHENTICATION_REQUIRED')
         updated=sessions[0]['lastupdate']
         # Site is explicitly UTC; native DB dates are naive UTC in this synthetic Site.
-        if updated.tzinfo is None: updated=updated.replace(tzinfo=timezone.utc)
+        if updated.tzinfo is None:
+            from zoneinfo import ZoneInfo
+            updated=updated.replace(tzinfo=ZoneInfo(self.config.get('timezone','UTC')))
         expiry=get_expiry_in_seconds(data.get('session_expiry'))
         if time.time()-updated.timestamp()>expiry or (data.get('session_end') and timestamp(data['session_end'])<=time.time()):
             raise KnowledgeError('AUTHENTICATION_REQUIRED')

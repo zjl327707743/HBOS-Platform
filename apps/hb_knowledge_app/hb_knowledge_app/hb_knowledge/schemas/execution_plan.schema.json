@@ -207,7 +207,8 @@
               "CONTROLLED_APPROVED",
               "EXTERNAL_REFERENCE_REVIEWED",
               "INTERNAL_REFERENCE_REVIEWED",
-              "SYNTHETIC_ONLY"
+              "SYNTHETIC_ONLY",
+              "CONTROLLED_REFERENCE_REVIEWED"
             ]
           },
           "dataset_alias": {
@@ -257,6 +258,13 @@
           },
           "mapping_ready": {
             "const": true
+          },
+          "document_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
           }
         },
         "required": [
@@ -299,7 +307,10 @@
             "then": {
               "properties": {
                 "authority_status": {
-                  "const": "CONTROLLED_APPROVED"
+                  "enum": [
+                    "CONTROLLED_APPROVED",
+                    "CONTROLLED_REFERENCE_REVIEWED"
+                  ]
                 }
               }
             }
@@ -382,7 +393,8 @@
         "kind": {
           "enum": [
             "IAM_ROLE_SCOPE",
-            "HBOS_LEGACY_READONLY"
+            "HBOS_LEGACY_READONLY",
+            "INTERNAL_SHARED_REFERENCE"
           ]
         },
         "authority_revision": {
