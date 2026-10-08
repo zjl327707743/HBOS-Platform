@@ -25,6 +25,7 @@ export interface KnowledgeEvidence {
   document_id: string
   title?: string | null
   version?: string | null
+  document_number?: string | null
   status_note?: string | null
   section?: string | null
   page_number?: number | null
@@ -91,4 +92,32 @@ export interface KnowledgeSpace {
   space_id: string
   title: string
   document_count: number
+}
+
+export interface KnowledgeDocument {
+  document_id: string
+  title: string | null
+  space_id: string
+  department: string
+  document_number: string | null
+  version: string | null
+  status_note: string
+}
+
+export interface KnowledgeActivity {
+  id: string
+  query: string
+  created_at: string
+  available: boolean
+  titles: (string | null)[]
+}
+export interface KnowledgeAnswer {
+  request_id: string
+  turn_id: string
+  conversation_id?: string
+  mode: 'internal_reference_generation' | 'authorized_generation'
+  answer_status: 'REFERENCE_ANSWERED' | 'INSUFFICIENT_EVIDENCE'
+  answerable: boolean
+  answer: string
+  citations: (KnowledgeEvidence & { citation_label: string })[]
 }

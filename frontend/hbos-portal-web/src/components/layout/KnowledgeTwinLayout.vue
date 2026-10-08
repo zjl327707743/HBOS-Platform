@@ -47,7 +47,7 @@ import { usePortalSession } from '@/composables/usePortalSession'
 const portal = usePortalStore()
 const route = useRoute()
 const commandOpen = ref(false)
-const contextLabel = computed(() => route.path.startsWith('/hbos/twin') ? '设备与工艺' : '知识助理')
+const contextLabel = computed(() => route.path.startsWith('/hbos/twin') ? '设备与工艺' : '知识库')
 const { sessionPending, sessionError } = usePortalSession()
 
 function shortcut(event: KeyboardEvent) {

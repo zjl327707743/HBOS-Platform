@@ -6,6 +6,7 @@ import type {
   KnowledgeSearchResult,
   KnowledgeStatus,
   KnowledgeSpace,
+  KnowledgeDocument,
   TwinComponentMapping,
   TwinManifest,
   TwinStatus,
@@ -63,7 +64,7 @@ function safeKnowledgeString(value: unknown, maximum: number, nullable = false):
   if (typeof value !== 'string' || [...value].length > maximum) throw new DomainApiError('SERVICE_ERROR', '知识服务返回了无效响应。')
   let text = value.normalize('NFKC')
   try { for (let i = 0; i < 3; i++) text = decodeURIComponent(text) } catch { /* reject literal encoded paths below */ }
-  if (/(?:[a-z][a-z0-9+.-]*:\/\/|www\.|(?:javascript|data|mailto):|(?:^|[\s"'(])\/\S+|[a-z]:[\\/]|\.{2}[\\/]|%2f|%5c|\\u[0-9a-f]{4}|[<>]|&(?:lt|gt|#x?[\da-f]+);)/i.test(text)) {
+  if (/(?:[a-z][a-z0-9+.-]*:\/\/|www\.|(?:javascript|data|mailto):|(?:^|[\s"'(])\/\S+|[a-z]:[\\/]|\.{2}[\\/]|%2f|%5c|\\u[0-9a-f]{4}|<\s*(?:\/?[a-z!])[^>]*>|&(?:lt|gt|#x?[\da-f]+);)/i.test(text)) {
     throw new DomainApiError('SERVICE_ERROR', '知识服务返回了无效响应。')
   }
 }
@@ -71,13 +72,13 @@ function validateKnowledgeEvidence(value: unknown): KnowledgeEvidence {
   const invalid = () => new DomainApiError('SERVICE_ERROR', '知识服务返回了无效响应。')
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid()
   const item = value as Record<string, unknown>
-  const fields = new Set(['document_id','title','version','status_note','section','page_number','excerpt','evidence_id','space_id','source_type'])
+  const fields = new Set(['document_id','title','version','status_note','section','page_number','excerpt','evidence_id','space_id','source_type','document_number'])
   if (Object.keys(item).some(key => !fields.has(key))) throw invalid()
   for (const key of ['document_id','excerpt','evidence_id']) {
     safeKnowledgeString(item[key], key === 'excerpt' ? 500 : 128)
     if (!(item[key] as string).trim()) throw invalid()
   }
-  for (const [key, maximum] of [['title',240],['version',80],['status_note',320],['section',240]] as const) {
+  for (const [key, maximum] of [['title',240],['version',80],['status_note',320],['section',240],['document_number',120]] as const) {
     safeKnowledgeString(item[key], maximum, true)
   }
   if (item.page_number != null && (!Number.isInteger(item.page_number) || (item.page_number as number) < 1 || (item.page_number as number) > 100000)) throw invalid()
@@ -194,4 +195,53 @@ export async function getTwinComponentMapping(
 
 export async function getFeishuLoginStatus(): Promise<FeishuLoginStatus> {
   return callFrappeMethod<FeishuLoginStatus>('hbos_portal.auth.feishu.get_status')
+}
+
+export async function getKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
+  const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{documents: KnowledgeDocument[]}>>(
+    'hb_knowledge_app.hb_knowledge.api.get_documents',
+  ))
+  if (!data || Object.keys(data).length !== 1 || !Array.isArray(data.documents) || data.documents.length > 1000) throw new DomainApiError('SERVICE_ERROR','资料目录暂时不可用。')
+  for (const doc of data.documents) {
+    if (Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+    for (const key of ['document_id','space_id','department','status_note'] as const) safeKnowledgeString(doc[key],320)
+    safeKnowledgeString(doc.title,240,true); safeKnowledgeString(doc.document_number,120,true); safeKnowledgeString(doc.version,80,true)
+  }
+  return data.documents
+}
+
+export async function getKnowledgeActivity(kind: 'History' | 'Bookmark'): Promise<import('@/contracts/p1').KnowledgeActivity[]> {
+  const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{items: import('@/contracts/p1').KnowledgeActivity[]}>>('hb_knowledge_app.hb_knowledge.api.get_activity', {kind}))
+  if (!Array.isArray(data.items) || data.items.length > 30) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  data.items.forEach(item => {
+    if (Object.keys(item).some(k => !['id','query','created_at','available','titles'].includes(k)) || typeof item.available !== 'boolean' || !Array.isArray(item.titles)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+    safeKnowledgeString(item.id,128);safeKnowledgeString(item.query,500);safeKnowledgeString(item.created_at,80)
+    item.titles.forEach(t => safeKnowledgeString(t,240,true))
+  })
+  return data.items
+}
+export async function openKnowledgeSaved(id: string): Promise<{query: string;space_ids: string[]}> {
+  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{query: string;space_ids: string[]}>>('hb_knowledge_app.hb_knowledge.api.open_saved',{activity_id:id}))
+  safeKnowledgeString(data.query,500)
+  if (!Array.isArray(data.space_ids)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  data.space_ids.forEach(s => safeKnowledgeString(s,120));return data
+}
+export async function removeKnowledgeSaved(id: string): Promise<void> {
+  unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{removed:boolean}>>('hb_knowledge_app.hb_knowledge.api.remove_saved',{activity_id:id}))
+}
+export async function saveKnowledgeBookmark(evidence: string, query: string): Promise<void> {
+  unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{id:string}>>('hb_knowledge_app.hb_knowledge.api.save_bookmark',{evidence_id:evidence,query}))
+}
+export async function sendKnowledgeFeedback(evidence: string | undefined, category: string, note: string): Promise<void> {
+  unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{id:string}>>('hb_knowledge_app.hb_knowledge.api.submit_feedback',{evidence_id:evidence,category,note}))
+}
+export async function askKnowledgeReference(question: string, space?: string, conversation?: string): Promise<import('@/contracts/p1').KnowledgeAnswer> {
+  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<import('@/contracts/p1').KnowledgeAnswer>>('hb_knowledge_app.hb_knowledge.api.ask',{question,...(space?{space_ids:[space]}:{}),...(conversation?{conversation_id:conversation}:{})}))
+  if (Object.keys(data).some(k => !['request_id','turn_id','conversation_id','mode','answer_status','answerable','answer','citations'].includes(k)) || !Array.isArray(data.citations) || data.citations.length>5) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  safeKnowledgeString(data.answer,2000);safeKnowledgeString(data.turn_id,128)
+  const answered=data.mode==='internal_reference_generation' && data.answer_status==='REFERENCE_ANSWERED' && data.answerable===true && data.citations.length>0
+  const insufficient=data.mode==='authorized_generation' && data.answer_status==='INSUFFICIENT_EVIDENCE' && data.answerable===false && data.answer==='当前授权资料不足以形成回答。' && data.citations.length===0
+  if (!answered && !insufficient) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  data.citations.forEach(c => { const {citation_label,...e}=c; if (!/^C[1-5]$/.test(citation_label)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。');validateKnowledgeEvidence(e) })
+  return data
 }

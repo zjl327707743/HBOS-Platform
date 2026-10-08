@@ -46,7 +46,7 @@ const router = createRouter({
       path: '/hbos/knowledge',
       component: KnowledgeTwinLayout,
       children: [
-        { path: '', name: 'knowledge', component: KnowledgeView, meta: { title: '知识助理' } },
+        { path: '', name: 'knowledge', component: KnowledgeView, meta: { title: '知识库' } },
       ],
     },
     {
@@ -61,7 +61,8 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.afterEach((to) => {
+router.afterEach((to, _from, failure) => {
+  if (failure || router.currentRoute.value.fullPath !== to.fullPath) return
   const title = typeof to.meta.title === 'string' ? to.meta.title : 'HBOS'
   document.title = title === 'HBOS 首页' ? 'HBOS · 海滨智能运营工作台' : `${title} · HBOS`
 })

@@ -9,7 +9,7 @@
     <template #title>
       <div class="evidence-title">
         <small>依据卡 · EVIDENCE</small>
-        <strong>{{ (open && evidence?.title) || (open && evidence?.document_id) || '正在核验依据' }}</strong>
+        <strong>{{ error ? '依据已失效' : loading ? '正在核验依据' : (open && evidence?.title) || (open && evidence?.document_id) || '来源依据' }}</strong>
       </div>
     </template>
 
@@ -21,13 +21,13 @@
       <section class="evidence-card">
         <h3>来源信息</h3>
         <dl>
-          <dt>资料编号</dt><dd>{{ evidence.document_id }}</dd>
+          <dt>文档编号</dt><dd>{{ evidence.document_number || '未标注' }}</dd>
           <dt>资料名称</dt><dd>{{ evidence.title || '未标注' }}</dd>
           <dt>资料版本</dt><dd>{{ evidence.version || '版本未核' }}</dd>
           <dt>核验状态</dt><dd>{{ evidence.status_note || '待核' }}</dd>
           <dt>定位页码</dt><dd>{{ evidence.page_number ?? '定位未核' }}</dd>
           <dt>定位章节</dt><dd>{{ evidence.section || '未标注' }}</dd>
-          <dt>交付方式</dt><dd>短时证据 ID · 每次展开重新授权</dd>
+          <dt>交付方式</dt><dd>每次查阅均核验资料状态</dd>
         </dl>
       </section>
       <section>
@@ -36,7 +36,7 @@
       </section>
       <div class="evidence-boundary">
         <SafetyCertificateOutlined />
-        <span>不提供原文件、全文、源路径或下载地址。屏幕上可见内容仍可能被人工保存。</span>
+        <span>资料仅供内部参考，请核对适用版本；不提供原件下载。</span>
       </div>
     </div>
   </a-drawer>
