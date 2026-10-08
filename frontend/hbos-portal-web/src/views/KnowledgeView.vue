@@ -86,7 +86,7 @@
           <a-skeleton v-if="searching" active :paragraph="{ rows: 6 }" />
           <div v-else class="result-list">
             <article v-for="item in results" :key="item.evidence_id" class="result-card">
-              <div class="result-meta"><a-tag color="geekblue">{{ spaces.find(s => s.space_id === item.space_id)?.title || '检索依据' }}</a-tag><span>{{ item.version || '版本未标注' }}</span><a-tag color="orange">状态待核</a-tag></div>
+              <div class="result-meta"><a-tag color="geekblue">{{ spaces.find(s => s.space_id === item.space_id)?.title || '检索依据' }}</a-tag><span>{{ item.version || '版本待核' }}</span><a-tag color="orange">状态待核</a-tag></div>
               <h3>{{ item.title || '未标注标题' }}</h3>
               <p v-if="item.document_number" class="section-label">{{ item.document_number }}</p>
               <p v-if="item.status_note" class="status-note">{{ item.status_note }}</p>
@@ -101,10 +101,14 @@
 
         <section v-if="catalog.length" class="knowledge-start hbos-glass-g2">
           <div class="section-title"><div><h2>资料目录</h2><p>内部参考／有效性待核</p></div><a-tag>{{ filteredCatalog.length }} 份</a-tag></div>
-          <article v-for="doc in filteredCatalog" :key="doc.document_id" class="catalog-row">
-            <div><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.document_number || '文档编号未标注' }} · {{ doc.version || '版本未标注' }}</p></div>
+          <label class="sr-only" for="catalog-query">筛选资料标题或文档编号</label>
+          <input id="catalog-query" v-model="catalogQuery" class="catalog-query" type="search" maxlength="240" placeholder="筛选资料标题或文档编号…" />
+          <a-empty v-if="!filteredCatalog.length" description="该部门没有匹配的资料，请调整目录筛选。" />
+          <article v-for="doc in pagedCatalog" :key="doc.document_id" class="catalog-row">
+            <div><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.document_number || '文档编号待核' }} · {{ doc.version || '版本待核' }}</p></div>
             <a-tag>{{ doc.department }}</a-tag>
           </article>
+          <a-pagination v-if="filteredCatalog.length > catalogPageSize" v-model:current="catalogPage" :page-size="catalogPageSize" :total="filteredCatalog.length" :show-size-changer="false" size="small" :show-less-items="true" />
         </section>
 
         <footer class="knowledge-footer">
@@ -164,8 +168,17 @@ const status = ref<KnowledgeStatus | null>(null)
 const spaces = ref<KnowledgeSpace[]>([])
 const selectedSpace = ref('')
 const catalog = ref<KnowledgeDocument[]>([])
+const catalogQuery = ref('')
+const catalogPage = ref(1)
+const catalogPageSize = 12
 const tools = ref<InstanceType<typeof KnowledgeTools> | null>(null)
-const filteredCatalog = computed(() => catalog.value.filter(doc => !selectedSpace.value || doc.space_id === selectedSpace.value))
+const filteredCatalog = computed(() => {
+  const needle = catalogQuery.value.trim().toLocaleLowerCase()
+  return catalog.value.filter(doc => (!selectedSpace.value || doc.space_id === selectedSpace.value) &&
+    (!needle || `${doc.title || ''} ${doc.document_number || ''}`.toLocaleLowerCase().includes(needle)))
+})
+const pagedCatalog = computed(() => filteredCatalog.value.slice((catalogPage.value - 1) * catalogPageSize, catalogPage.value * catalogPageSize))
+watch([catalogQuery, selectedSpace, catalog], () => { catalogPage.value = 1 })
 function selectDepartment(id: string) { selectedSpace.value = id; document.getElementById('knowledge-query')?.focus() }
 const route = useRoute()
 const equipmentId = computed(() => typeof route.query.equipment_id === 'string' ? route.query.equipment_id : '')
@@ -187,6 +200,7 @@ watch(subjectKey, () => {
   subjectGeneration++; searchGeneration++; drawer.close()
   status.value = null; results.value = []; query.value = ''; searching.value = false
   spaces.value = []; catalog.value = []; selectedSpace.value = ''
+  catalogQuery.value = ''; catalogPage.value = 1
   pageError.value = null; pageErrorCode.value = null; hasSearched.value = false
   if (subjectKey.value) void refreshStatus()
 }, { flush: 'sync' })
@@ -341,6 +355,8 @@ li b { color:#626bf6;font-size: var(--hbos-font-meta); } li span { color:var(--h
 .department-grid span,.catalog-row p { color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }
 .catalog-row { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding: 16px 0; border-top: 1px solid var(--hbos-border-strong); }
 .catalog-row strong { font-size: var(--hbos-font-body); overflow-wrap: anywhere; }
+.catalog-query { width: 100%; min-width: 0; padding: 11px 14px; margin-bottom: 12px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; font: inherit; background: var(--hbos-surface, white); }
+.catalog-query:focus-visible { outline: 2px solid var(--hbos-brand-violet); outline-offset: 2px; }
 .catalog-row p { margin: 6px 0 0; overflow-wrap: anywhere; }
 .result-meta :deep(.ant-tag),.catalog-row :deep(.ant-tag) { width: auto; flex: 0 0 auto; }
 button:focus-visible { outline: 2px solid var(--hbos-brand-violet); outline-offset: 3px; }
