@@ -25,7 +25,7 @@ class EvidenceRecord:
     def from_fragment(cls, fragment):
         b=fragment.binding
         return cls(b.canonical_document_id,b.title,b.business_version,
-                   "SYNTHETIC_ONLY" if b.source_type=="SYNTHETIC_TEST" else "内部参考／有效性待核" if b.authority_status=="CONTROLLED_REFERENCE_REVIEWED" else b.authority_status,
+                   "SYNTHETIC_ONLY" if b.source_type=="SYNTHETIC_TEST" else "内部参考／有效性待核" if b.authority_status in {"CONTROLLED_REFERENCE_REVIEWED","INTERNAL_REFERENCE_REVIEWED"} else b.authority_status,
                    b.section,fragment.page_number,fragment.excerpt,fragment.chunk_id,
                    b.dataset_alias,b.space_id,b.version_id,b.binding_ref,b)
 

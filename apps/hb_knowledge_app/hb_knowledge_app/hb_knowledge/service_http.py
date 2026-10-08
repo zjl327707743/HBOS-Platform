@@ -5,7 +5,7 @@ import requests
 from .errors import KnowledgeError
 from .execution_plan import Client, ServicePrincipal
 
-MAX_BODY = 262144
+MAX_BODY = 1048576  # Bounded for at most 512 explicitly authorized bindings.
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=True, separators=(',', ':'))
