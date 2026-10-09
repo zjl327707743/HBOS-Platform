@@ -282,9 +282,11 @@ def save_bookmark(evidence_id=None,query=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'save_bookmark'):raise KnowledgeError('INVALID_REQUEST')
         runtime=load_runtime();actor=runtime.actor()
-        record,ticket=resolve_cached_evidence(runtime.cache,actor,runtime.client,normalize_evidence({'evidence_id':evidence_id}),runtime=runtime,request_id=request_id)
-        from .activity import write
-        return {'id':write('Bookmark',normalize_search({'query':query}).query,[record.space_id],[record],runtime)}
+        from .activity import save_bookmark as save
+        value=normalize_evidence({'evidence_id':evidence_id})
+        def resolve():
+            return resolve_cached_evidence(runtime.cache,runtime.actor(),runtime.client,value,runtime=runtime,request_id=request_id)[0]
+        return {'id':save(runtime,normalize_search({'query':query}).query,resolve)}
     return _run(current)
 
 @frappe.whitelist(methods=['POST'])

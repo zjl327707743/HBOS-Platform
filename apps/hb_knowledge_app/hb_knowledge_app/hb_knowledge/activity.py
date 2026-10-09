@@ -23,6 +23,25 @@ def current(runtime):
 def logical(records):
     return sorted({(r.binding.canonical_document_id,r.binding.version_id,r.binding.binding_ref,r.chunk_id) for r in records})
 
+def save_bookmark(runtime,query,resolve):
+    """One bounded transaction retry, reauthorizing the source every time.
+
+    MariaDB snapshot isolation can reject a locking read of a concurrently
+    committed bookmark with error 1020. Only this read-and-save endpoint retries;
+    it has no model operation and must have no staged publication writes.
+    """
+    import frappe
+    for attempt in range(2):
+        try:
+            record=resolve()
+            return write('Bookmark',query,[record.space_id],[record],runtime)
+        except frappe.QueryDeadlockError:
+            publication=getattr(runtime,'publication',None)
+            if (attempt or publication is None or any(getattr(publication,k,()) for k in ('references','audits','handles'))):
+                raise KnowledgeError('SERVICE_ERROR') from None
+            frappe.db.rollback()
+    raise KnowledgeError('SERVICE_ERROR')
+
 def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None,note=None,context=None):
     import frappe
     actor,_=current(runtime)
@@ -90,17 +109,22 @@ def bindings_for(data,mapping):
 def list_activity(runtime,kind):
     import frappe
     if kind not in ('History','Bookmark'):raise KnowledgeError('INVALID_REQUEST')
-    actor,mapping=current(runtime);out=[]
+    actor,mapping=current(runtime)
     rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref,'kind':kind},fields=['name','payload_json','creation','publication_id'],order_by='creation desc',limit_page_length=30)
-    for row in rows:
-        if row.publication_id and not frappe.db.exists('HBOS Knowledge Audit',{'publication_id':row.publication_id,'publication_state':'Complete'}):continue
-        data=json.loads(row.payload_json)
-        try:
-            bindings=bindings_for(data,mapping);available=True
-        except KnowledgeError:bindings=[];available=False
-        out.append({'id':row.name,'query':safe_string(data['query'],500),'created_at':str(row.creation),
-            'available':available,'titles':[safe_string(b.title,240,nullable=True) for b in bindings]})
-    current(runtime)  # Native eligibility is read again immediately before return.
+    def project(current_mapping):
+        out=[]
+        for row in rows:
+            if row.publication_id and not frappe.db.exists('HBOS Knowledge Audit',{'publication_id':row.publication_id,'publication_state':'Complete'}):continue
+            data=json.loads(row.payload_json)
+            try:
+                bindings=bindings_for(data,current_mapping);available=True
+            except KnowledgeError:bindings=[];available=False
+            out.append({'id':row.name,'query':safe_string(data['query'],500),'created_at':str(row.creation),
+                'available':available,'titles':[safe_string(b.title,240,nullable=True) for b in bindings]})
+        return out
+    out=project(mapping)
+    final_actor,final_mapping=current(runtime)
+    if final_actor!=actor or out!=project(final_mapping):raise KnowledgeError('SCOPE_REJECTED')
     return {'items':out}
 
 def reopen(runtime,name,request_id):
