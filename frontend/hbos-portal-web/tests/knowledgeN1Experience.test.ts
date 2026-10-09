@@ -79,6 +79,24 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     expect(api.feedback).toHaveBeenCalledWith(card.evidence_id, '版本疑问', '合成维护问题'); expect(w.text()).toContain('待处理'); expect(w.find('#feedback-note').exists()).toBe(false)
     api.getFeedback.mockResolvedValue([{ id: 'FEEDBACK_N1_DEMO', category: '版本疑问', note: '合成维护问题', status: 'Resolved', created_at: '2026-10-10 01:00', updated_at: '2026-10-10 01:05' }]); await clickText(w, '刷新记录'); expect(w.text()).toContain('已解决'); expect(w.text()).not.toContain('待处理')
   })
+  it('allows general feedback during an accounting block, requires a note and never invents a source', async () => {
+    api.status.mockResolvedValue({ ...ready, retrieval_availability: { ...ready.retrieval_availability, blocked: true, budget_status: 'ACCOUNTING_PENDING' } })
+    const w = await view(); await clickText(w, '我的反馈'); await clickText(w, '提交一般反馈')
+    expect(w.text()).toContain('这条反馈没有关联资料来源'); expect(w.get('#feedback-category').element).toHaveProperty('value', '其他'); expect(w.get('#feedback-note').attributes()).toHaveProperty('required')
+    await w.get('#feedback-note').setValue('   '); await w.get('.feedback-form form').trigger('submit'); await flushPromises(); expect(api.feedback).not.toHaveBeenCalled(); expect(w.text()).toContain('请填写反馈说明')
+    api.getFeedback.mockResolvedValue([{ id: 'FEEDBACK_GENERAL_DEMO', category: '其他', note: '合成一般使用问题', status: 'Pending', created_at: '2026-10-10', updated_at: '2026-10-10' }])
+    await w.get('#feedback-note').setValue(' 合成一般使用问题 '); await clickText(w, '提交反馈')
+    expect(api.feedback).toHaveBeenCalledWith(undefined, '其他', '合成一般使用问题'); expect(w.text()).toContain('待处理'); expect(api.search).not.toHaveBeenCalled(); expect(api.ask).not.toHaveBeenCalled()
+  })
+  it('general feedback does not retain a previously selected evidence token', async () => {
+    const w = await view(); await search(w); await clickText(w, '反馈'); await clickText(w, '取消'); await clickText(w, '我的反馈'); await clickText(w, '提交一般反馈')
+    await w.get('#feedback-note').setValue('合成一般问题'); await clickText(w, '提交反馈'); expect(api.feedback).toHaveBeenCalledWith(undefined, '其他', '合成一般问题'); expect(api.feedback).not.toHaveBeenCalledWith(card.evidence_id, expect.anything(), expect.anything())
+  })
+  it('general feedback blocks duplicate sends and drops late success after a user switch', async () => {
+    const pending = deferred(); api.feedback.mockReturnValue(pending.promise)
+    const w = await view(); await clickText(w, '我的反馈'); await clickText(w, '提交一般反馈'); await w.get('#feedback-note').setValue('A 用户合成问题'); await w.get('.feedback-form form').trigger('submit'); await w.get('.feedback-form form').trigger('submit'); expect(api.feedback).toHaveBeenCalledTimes(1)
+    session.user = { id: 'USER_N1_OTHER' }; await flushPromises(); pending.resolve(undefined); await flushPromises(); expect(w.find('#feedback-note').exists()).toBe(false); expect(w.text()).not.toContain('A 用户合成问题'); expect(w.text()).not.toContain('反馈已提交')
+  })
   it('does not expose invalid bookmark titles, and deletion requires server success', async () => {
     api.activity.mockImplementation((kind: string) => Promise.resolve(kind === 'Bookmark' ? [{ id: 'SAVED_N1_DEMO', query: '合成旧问题', created_at: '2026-10-10', available: false, titles: ['WITHDRAWN_PRIVATE_TITLE'] }] : []))
     const w = await view(); await clickText(w, '我的收藏'); expect(w.text()).not.toContain('WITHDRAWN_PRIVATE_TITLE'); expect(w.text()).toContain('依据已下架或版本变化')

@@ -28,10 +28,10 @@
       <div :id="`knowledge-panel-${kind}`" role="tabpanel" :aria-labelledby="`knowledge-tab-${kind}`" :aria-label="activeLabel" tabindex="0">
         <slot v-if="kind === 'Catalog'" name="catalog" />
         <template v-else-if="kind === 'Feedback'">
-          <p class="muted">这里只显示本人提交的反馈。资料维护人通过既有管理入口处理。</p>
+          <div class="feedback-heading"><p class="muted">这里只显示本人提交的反馈。资料维护人通过既有管理入口处理。</p><a-button :disabled="busy || !subject" @click="generalFeedback">提交一般反馈</a-button></div>
           <a-skeleton v-if="feedbackLoading" active :paragraph="{ rows: 3 }" />
           <a-alert v-else-if="feedbackError" type="error" show-icon :message="feedbackError" />
-          <a-empty v-else-if="!feedbackItems.length" description="还没有提交过反馈。可在检索结果中反馈资料问题。" />
+          <a-empty v-else-if="!feedbackItems.length" description="还没有提交过反馈。可以提交使用问题，也可在检索结果中反馈资料问题。" />
           <article v-for="item in pagedFeedback" :key="item.id" class="feedback-row">
             <div><strong>{{ item.category }}</strong><p>{{ item.note || '未填写补充说明' }}</p><small>提交 {{ displayDate(item.created_at) }} · 更新 {{ displayDate(item.updated_at) }}</small></div>
             <a-tag :color="item.status === 'Resolved' ? 'green' : item.status === 'In Review' ? 'blue' : 'orange'">{{ feedbackStatus[item.status] }}</a-tag>
@@ -53,15 +53,16 @@
       <a-alert v-if="error" type="error" show-icon :message="error" />
     </section>
 
-    <a-modal :open="Boolean(feedbackTarget)" title="反馈资料问题" :footer="null" :destroy-on-close="true" @cancel="closeFeedback()">
-      <div v-if="feedbackTarget" class="feedback-form">
-        <p class="feedback-title">{{ feedbackTarget.title || '当前检索依据' }}</p>
+    <a-modal :open="Boolean(feedbackMode)" :title="feedbackMode === 'general' ? '提交一般反馈' : '反馈资料问题'" :footer="null" :destroy-on-close="true" @cancel="closeFeedback()">
+      <div v-if="feedbackMode" class="feedback-form">
+        <p v-if="feedbackMode === 'general'" class="feedback-title">这条反馈没有关联资料来源。请描述使用中遇到的问题。</p>
+        <p v-else class="feedback-title">{{ feedbackTarget?.title || '当前检索依据' }}</p>
         <a-alert v-if="error" type="error" show-icon :message="error" />
         <form @submit.prevent="sendFeedback">
           <label for="feedback-category">问题类型</label><select id="feedback-category" v-model="category" :disabled="busy"><option v-for="c in categories" :key="c">{{ c }}</option></select>
-          <label for="feedback-note">补充说明</label><textarea id="feedback-note" v-model="note" maxlength="500" :disabled="busy" placeholder="请描述需要维护人核对的问题" />
+          <label for="feedback-note">{{ feedbackMode === 'general' ? '反馈说明（必填）' : '补充说明' }}</label><textarea id="feedback-note" v-model="note" maxlength="500" :disabled="busy" :required="feedbackMode === 'general'" placeholder="请描述需要维护人核对的问题" />
           <p class="muted">不要填写个人身份证、薪资或其他敏感个人信息。</p>
-          <div class="tool-actions"><a-button type="primary" html-type="submit" :disabled="busy" :loading="busy">提交反馈</a-button><a-button :disabled="busy" @click="closeFeedback()">取消</a-button></div>
+          <div class="tool-actions"><a-button type="primary" html-type="submit" :disabled="busy || (feedbackMode === 'general' && !note.trim())" :loading="busy">提交反馈</a-button><a-button :disabled="busy" @click="closeFeedback()">取消</a-button></div>
         </form>
       </div>
     </a-modal>
@@ -104,6 +105,7 @@ const notice = ref('')
 const error = ref('')
 const feedbackError = ref('')
 const feedbackTarget = ref<KnowledgeEvidence | null>(null)
+const feedbackMode = ref<'source' | 'general' | null>(null)
 const categories = ['内容疑问', '版本疑问', '检索不相关', '其他']
 const category = ref('内容疑问')
 const note = ref('')
@@ -188,19 +190,28 @@ async function bookmark(item: KnowledgeEvidence) {
 function feedback(item: KnowledgeEvidence) {
   if (busy.value) return
   feedbackTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  feedbackTarget.value = item; notice.value = ''; error.value = ''; note.value = ''; category.value = '内容疑问'
-  void nextTick(() => { if (feedbackTarget.value) document.getElementById('feedback-note')?.focus() })
+  feedbackTarget.value = item; feedbackMode.value = 'source'; notice.value = ''; error.value = ''; note.value = ''; category.value = '内容疑问'
+  void nextTick(() => { if (feedbackMode.value) document.getElementById('feedback-note')?.focus() })
+}
+function generalFeedback() {
+  if (busy.value || !props.subject) return
+  feedbackTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  feedbackTarget.value = null; feedbackMode.value = 'general'; notice.value = ''; error.value = ''; note.value = ''; category.value = '其他'
+  void nextTick(() => { if (feedbackMode.value) document.getElementById('feedback-note')?.focus() })
 }
 function closeFeedback(restoreFocus = true) {
-  feedbackTarget.value = null; note.value = ''
+  feedbackTarget.value = null; feedbackMode.value = null; note.value = ''
   if (restoreFocus && feedbackTrigger?.isConnected) feedbackTrigger.focus({ preventScroll: true })
   feedbackTrigger = null
 }
 async function sendFeedback() {
   const target = feedbackTarget.value
-  if (!target) return
+  const mode = feedbackMode.value
+  const normalized = note.value.trim()
+  if (!mode || (mode === 'source' && !target)) return
+  if (mode === 'general' && !normalized) { error.value = '请填写反馈说明。'; return }
   await action(async current => {
-    await sendKnowledgeFeedback(target.evidence_id, category.value, note.value.trim())
+    await sendKnowledgeFeedback(mode === 'source' ? target!.evidence_id : undefined, category.value, normalized)
     if (current === generation) { closeFeedback(); notice.value = '反馈已提交。可在“我的反馈”查看处理状态。'; if (kind.value === 'Feedback') await refreshFeedback(); else kind.value = 'Feedback' }
   })
 }
@@ -282,6 +293,8 @@ onMounted(refresh)
 .answer-note { font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small)!important; color: var(--hbos-text-muted)!important; }
 .citation-link { display: block; text-align: left; padding: 8px 0; border: 0; background: transparent; color: #247a70; font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); cursor: pointer; overflow-wrap: anywhere; max-width: 100%; }
 .feedback-title { overflow-wrap: anywhere; }
+.feedback-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.feedback-heading p { margin-top: 0; flex: 1 1 220px; }
 .tool-notice { color: #127a57!important; }
 @media(max-width:600px) { .ask-area,.reference-library { padding: 16px; } .saved-row { flex-direction: column; gap: 10px; } .tool-heading { align-items: flex-start; } .tool-tabs button { padding: 9px 10px; } }
 </style>

@@ -119,6 +119,14 @@ describe('N1 current-user feedback and paginated catalog projections', () => {
     transport.get.mockResolvedValueOnce({ ok: true, data: { items: [{ ...feedback, status: 'InventedStatus' }] } })
     await expect(getKnowledgeFeedback()).rejects.toBeInstanceOf(DomainApiError)
   })
+  it('submits general feedback without an evidence token and preserves a server denial', async () => {
+    const { sendKnowledgeFeedback } = await import('@/services/p1Api')
+    transport.post.mockResolvedValueOnce({ ok: true, data: { id: 'GENERAL_FEEDBACK_DEMO' } })
+    await sendKnowledgeFeedback(undefined, '其他', '合成一般使用问题')
+    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.submit_feedback', { evidence_id: undefined, category: '其他', note: '合成一般使用问题' })
+    transport.post.mockResolvedValueOnce({ ok: false, error: { code: 'FORBIDDEN', message: 'SYNTHETIC_DENIED' } })
+    await expect(sendKnowledgeFeedback(undefined, '其他', '合成一般使用问题')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  })
 })
 
 describe('N1 bounded follow-up responses', () => {
