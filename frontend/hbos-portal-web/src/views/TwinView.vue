@@ -457,11 +457,15 @@ function resizeModule() {
     selectionCollapsed.value = true;
   }
   wasNarrow = narrow;
-  if (moduleRoot.value)
+  if (moduleRoot.value && document.fullscreenElement !== moduleRoot.value)
     moduleTop.value = Math.round(
       moduleRoot.value.getBoundingClientRect().top + window.scrollY,
     );
 }
+watch(fullscreen.active, async () => {
+  await nextTick();
+  resizeModule();
+});
 watch(moduleRoot, async () => {
   await nextTick();
   resizeModule();

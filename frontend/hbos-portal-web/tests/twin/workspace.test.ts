@@ -446,6 +446,36 @@ it("does not enable automatic lesson cameras for reduced motion", async () => {
   expect(viewer().props("session").followCamera).toBe(false);
 });
 
+it("retains the normal module offset during fullscreen resize and measures it again on exit", async () => {
+  await start();
+  const target = wrapper!.get(".twin-module").element;
+  let top = 114;
+  vi.spyOn(target, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, top, 1000, 600));
+  const descriptor = Object.getOwnPropertyDescriptor(document, "fullscreenElement");
+  let current: Element | null = null;
+  Object.defineProperty(document, "fullscreenElement", { get: () => current, configurable: true });
+  try {
+    window.dispatchEvent(new Event("resize"));
+    await flushPromises();
+    expect((target as HTMLElement).style.getPropertyValue("--module-top")).toBe("114px");
+    current = target;
+    top = 0;
+    document.dispatchEvent(new Event("fullscreenchange"));
+    window.dispatchEvent(new Event("resize"));
+    await flushPromises();
+    expect((target as HTMLElement).style.getPropertyValue("--module-top")).toBe("114px");
+    current = null;
+    top = 114;
+    document.dispatchEvent(new Event("fullscreenchange"));
+    await flushPromises();
+    expect((target as HTMLElement).style.getPropertyValue("--module-top")).toBe("114px");
+  } finally {
+    current = null;
+    if (descriptor) Object.defineProperty(document, "fullscreenElement", descriptor);
+    else delete (document as unknown as Record<string, unknown>).fullscreenElement;
+  }
+});
+
 it("rejects a stale incremental camera configuration while preserving the static model", async () => {
   api.getProcess.mockImplementation(async (m) => ({
     ...m,
