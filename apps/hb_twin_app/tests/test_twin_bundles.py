@@ -200,6 +200,43 @@ class BundleBoundaries(unittest.TestCase):
             glb(path, **options)
             self.denied(lambda: inspect_model(path), "ASSET_INVALID")
 
+    def add_increment(self):
+        ids = [f"fixture-{i}" for i in range(5)]
+        change_resource(self.folder, "parts", lambda d: d.update(groups=[
+            {"group_id": "registered-main", "equipment_id": "M607B", "asset_ids": ids}]))
+        change_resource(self.folder, "process", lambda d: d.update(
+            modes=["production", "filtration", "cip", "sip"], camera_revision="camera-1", demo_revision="demo-1",
+            camera_targets={"M607B": {"overview_ids": ids, "source_group_ids": ["registered-main"]}}))
+
+    def test_increment_preserves_legacy_and_validates_registered_camera_targets(self):
+        self.assertEqual(["production"], api.process_config(api.load_bundle(self.root, "M607B", policy()))["modes"])
+        self.add_increment()
+        result = api.process_config(api.load_bundle(self.root, "M607B", policy()))
+        self.assertEqual(["production", "filtration", "cip", "sip"], result["modes"])
+        self.assertEqual(5, len(result["camera_targets"]["M607B"]["overview_ids"]))
+
+    def test_increment_rejects_stale_camera_and_unregistered_targets_locally(self):
+        self.add_increment()
+        change_resource(self.folder, "process", lambda d: d.update(camera_revision="old-camera"))
+        self.denied(lambda: api.process_config(api.load_bundle(self.root, "M607B", policy())), "PROCESS_INCOMPATIBLE")
+        change_resource(self.folder, "process", lambda d: d.update(camera_revision="camera-1"))
+        change_resource(self.folder, "process", lambda d: d["camera_targets"]["M607B"].update(overview_ids=["outside-approved-members"]))
+        self.denied(lambda: api.process_config(api.load_bundle(self.root, "M607B", policy())), "PROCESS_INCOMPATIBLE")
+        self.assertEqual("M607B", api.load_bundle(self.root, "M607B", policy()).browser_manifest()["entry_id"])
+
+    def test_increment_rejects_unregistered_source_group_and_wrong_accessory_scope(self):
+        self.add_increment()
+        change_resource(self.folder, "process", lambda d: d["camera_targets"]["M607B"].update(source_group_ids=["guessed-root"]))
+        self.denied(lambda: api.process_config(api.load_bundle(self.root, "M607B", policy())), "PROCESS_INCOMPATIBLE")
+        change_resource(self.folder, "process", lambda d: d.update(camera_targets={}, modes=["production", "attachment"],
+            lessons={"attachment": {"ids": ["fixture-0"], "status": "candidate"}}))
+        self.denied(lambda: api.process_config(api.load_bundle(self.root, "M607B", policy())), "PROCESS_INCOMPATIBLE")
+
+    def test_increment_does_not_allow_a_topic_without_its_geometry_or_an_unknown_mode(self):
+        for mode in ["jacket", "attachment", "unreviewed-mode"]:
+            change_resource(self.folder, "process", lambda d: d.update(modes=["production", mode]))
+            self.denied(lambda: api.process_config(api.load_bundle(self.root, "M607B", policy())), "PROCESS_INCOMPATIBLE")
+
 
 if __name__ == "__main__":
     unittest.main()

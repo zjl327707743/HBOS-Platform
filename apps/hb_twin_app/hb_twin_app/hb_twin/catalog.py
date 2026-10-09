@@ -232,10 +232,44 @@ def process_config(bundle: Bundle) -> Mapping[str, Any]:
         raise TwinError("PROCESS_INCOMPATIBLE", "示教绑定版本不兼容。")
     if bundle.manifest.get("demo_seed") != 102:
         raise TwinError("PROCESS_INCOMPATIBLE", "示教种子与当前运行版本不兼容。")
+    # Optional increment fields preserve the sealed A2 production combination.
+    for key in ("camera_revision", "demo_revision"):
+        if key in doc and doc[key] != bundle.manifest[key]:
+            raise TwinError("PROCESS_INCOMPATIBLE", "示教镜头或演示版本不兼容。")
+    if not set(doc.get("modes", [])) <= {"production", "filtration", "cip", "sip", "jacket", "attachment"}:
+        raise TwinError("PROCESS_INCOMPATIBLE", "示教专题版本不兼容。")
     for equipment, config in doc.get("bindings", {}).items():
         targets = config.get("ids", [])
         if equipment not in bundle.definition["equipment_ids"] or len(set(targets)) != 5 or len(targets) != 5 or not set(targets) <= bundle.members or config.get("anchor") not in targets:
             raise TwinError("PROCESS_INCOMPATIBLE", "示教目标不在当前设备模型中。")
         if any(equipment not in bundle.member_scopes[a] for a in targets):
             raise TwinError("PROCESS_INCOMPATIBLE", "示教目标不属于当前讲解设备。")
+    groups = {g.get("group_id"): g for g in bundle.resource("parts").get("groups", [])}
+    for equipment, camera in doc.get("camera_targets", {}).items():
+        ids = camera.get("overview_ids", [])
+        source_groups = [groups.get(g) for g in camera.get("source_group_ids", [])]
+        if (equipment not in bundle.definition["equipment_ids"] or not ids or len(set(ids)) != len(ids)
+                or not set(ids) <= bundle.members or not source_groups
+                or any(g is None or g.get("equipment_id") != equipment for g in source_groups)):
+            raise TwinError("PROCESS_INCOMPATIBLE", "总览镜头缺少当前设备的登记分组依据。")
+        registered = {a for g in source_groups for a in g.get("asset_ids", [])}
+        if not set(ids) <= registered or any(equipment not in bundle.member_scopes[a] for a in ids):
+            raise TwinError("PROCESS_INCOMPATIBLE", "总览镜头目标不属于当前登记设备组。")
+    lessons = doc.get("lessons", {})
+    if not set(lessons) <= {"jacket", "attachment"}:
+        raise TwinError("PROCESS_INCOMPATIBLE", "几何讲解配置不受支持。")
+    for kind, lesson in lessons.items():
+        if kind not in doc.get("modes", []) or "M607B" not in doc.get("bindings", {}):
+            raise TwinError("PROCESS_INCOMPATIBLE", "几何讲解没有对应的设备绑定。")
+        rows = [lesson.get("supply", {}), lesson.get("return", {})] if kind == "jacket" else [lesson]
+        for row in rows:
+            ids = row.get("ids", [])
+            scope = "M607B" if kind == "jacket" else "M660B"
+            if (not ids or len(set(ids)) != len(ids) or not set(ids) <= bundle.members
+                    or any(scope not in bundle.member_scopes[a] for a in ids)):
+                raise TwinError("PROCESS_INCOMPATIBLE", "几何讲解目标超出已登记成员范围。")
+            if kind == "jacket" and (len(ids) != 7 or row.get("parent_id") not in bundle.members):
+                raise TwinError("PROCESS_INCOMPATIBLE", "夹套供回名称候选与原讲解不兼容。")
+    if any(mode in doc.get("modes", []) and mode not in lessons for mode in ("jacket", "attachment")):
+        raise TwinError("PROCESS_INCOMPATIBLE", "几何讲解缺少登记目标。")
     return doc
