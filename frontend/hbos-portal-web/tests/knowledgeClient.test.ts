@@ -82,3 +82,63 @@ describe('C01/C04 actual knowledge client; Frappe transport stub is not Session/
     expect(transport.post).not.toHaveBeenCalled()
   })
 })
+
+describe('N1 current-user feedback and paginated catalog projections', () => {
+  const doc = { document_id: 'DOC_N1_DEMO', title: '合成标题', space_id: 'SPACE_N1_DEMO', department: '合成部门', document_number: null, version: null, status_note: 'SYNTHETIC_ONLY' }
+  it('reads one server-scoped catalog page without a model POST', async () => {
+    const { getKnowledgeDocumentsPage } = await import('@/services/p1Api')
+    transport.get.mockResolvedValue({ ok: true, data: { documents: [doc], total: 25, page: 2, page_size: 12 } })
+    expect(await getKnowledgeDocumentsPage(' 合成 ', 'SPACE_N1_DEMO', 2, 12)).toMatchObject({ total: 25, page: 2 })
+    expect(transport.get).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.get_documents_page', { query: '合成', space_id: 'SPACE_N1_DEMO', page: 2, page_size: 12 })
+    expect(transport.post).not.toHaveBeenCalled()
+  })
+  it.each([
+    { documents: [{ ...doc, dataset_id: 'PHYSICAL_ID' }], total: 1, page: 1, page_size: 12 },
+    { documents: [doc], total: 1, page: 2, page_size: 12 },
+    { documents: [doc, doc], total: 2, page: 1, page_size: 12 },
+    { documents: [{ ...doc, space_id: 'OTHER_SPACE_DEMO' }], total: 1, page: 1, page_size: 12 },
+    { documents: [doc], total: -1, page: 1, page_size: 12 },
+  ])('rejects invalid catalog scope/metadata/page/count case %#', async data => {
+    const { getKnowledgeDocumentsPage } = await import('@/services/p1Api')
+    transport.get.mockResolvedValue({ ok: true, data })
+    await expect(getKnowledgeDocumentsPage('', 'SPACE_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
+  })
+  it('does not send invalid page sizes or noncanonical scope', async () => {
+    const { getKnowledgeDocumentsPage } = await import('@/services/p1Api')
+    await expect(getKnowledgeDocumentsPage('', '', 1, 51)).rejects.toBeInstanceOf(DomainApiError)
+    await expect(getKnowledgeDocumentsPage('', ' SPACE_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
+    expect(transport.get).not.toHaveBeenCalled()
+  })
+  it('accepts current-user feedback statuses and refuses internal identifiers or unknown states', async () => {
+    const { getKnowledgeFeedback } = await import('@/services/p1Api')
+    const feedback = { id: 'FEEDBACK_N1_DEMO', category: '版本疑问', note: '合成维护问题', status: 'Pending', created_at: '2026-10-10', updated_at: '2026-10-10' }
+    transport.get.mockResolvedValueOnce({ ok: true, data: { items: [feedback] } })
+    expect(await getKnowledgeFeedback()).toEqual([feedback])
+    transport.get.mockResolvedValueOnce({ ok: true, data: { items: [{ ...feedback, evidence_id: 'INTERNAL_EVIDENCE' }] } })
+    await expect(getKnowledgeFeedback()).rejects.toBeInstanceOf(DomainApiError)
+    transport.get.mockResolvedValueOnce({ ok: true, data: { items: [{ ...feedback, status: 'InventedStatus' }] } })
+    await expect(getKnowledgeFeedback()).rejects.toBeInstanceOf(DomainApiError)
+  })
+})
+
+describe('N1 bounded follow-up responses', () => {
+  const refusal = '无法可靠定位前一回答中的具体条目。请指出步骤名称或关键词后再问；当前资料不足以直接回答这个追问。'
+  const unanswered = { request_id: 'REQ_FOLLOWUP_DEMO', turn_id: 'TURN_FOLLOWUP_DEMO', conversation_id: 'TURN_FOLLOWUP_DEMO', mode: 'authorized_generation', answer_status: 'INSUFFICIENT_EVIDENCE', answerable: false, answer: refusal, citations: [] }
+  it('shows the exact server clarification for an ambiguous reference without invented citations', async () => {
+    const { askKnowledgeReference } = await import('@/services/p1Api')
+    transport.post.mockResolvedValue({ ok: true, data: unanswered })
+    expect(await askKnowledgeReference('上面第二条是什么意思？', 'SPACE_QA_DEMO', 'PREVIOUS_TURN_DEMO')).toEqual(unanswered)
+    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.ask', { question: '上面第二条是什么意思？', space_ids: ['SPACE_QA_DEMO'], conversation_id: 'PREVIOUS_TURN_DEMO' })
+  })
+  it.each([
+    { ...unanswered, answer: '未被契约批准的拒答文本' },
+    { ...unanswered, conversation_id: 'MISMATCHED_TURN_DEMO' },
+    { ...unanswered, citations: [{ ...card, citation_label: 'C1' }] },
+    { request_id: 'REQ_DUPLICATE_DEMO', turn_id: 'TURN_DUPLICATE_DEMO', mode: 'internal_reference_generation', answer_status: 'REFERENCE_ANSWERED', answerable: true, answer: 'SYNTHETIC [C1]', citations: [{ ...card, citation_label: 'C1' }, { ...card, citation_label: 'C1' }] },
+    { request_id: 'REQ_SCOPE_DEMO', turn_id: 'TURN_SCOPE_DEMO', mode: 'internal_reference_generation', answer_status: 'REFERENCE_ANSWERED', answerable: true, answer: 'SYNTHETIC [C1]', citations: [{ ...card, space_id: 'OTHER_SPACE_DEMO', citation_label: 'C1' }] },
+  ])('rejects fabricated clarification, mismatched context, or ambiguous/wrong-scope citation case %#', async data => {
+    const { askKnowledgeReference } = await import('@/services/p1Api')
+    transport.post.mockResolvedValue({ ok: true, data })
+    await expect(askKnowledgeReference('合成问题', 'SPACE_QA_DEMO')).rejects.toBeInstanceOf(DomainApiError)
+  })
+})

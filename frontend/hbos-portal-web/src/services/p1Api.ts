@@ -7,6 +7,8 @@ import type {
   KnowledgeStatus,
   KnowledgeSpace,
   KnowledgeDocument,
+  KnowledgeDocumentPage,
+  KnowledgeFeedback,
   TwinComponentMapping,
   TwinManifest,
   TwinStatus,
@@ -197,17 +199,42 @@ export async function getFeishuLoginStatus(): Promise<FeishuLoginStatus> {
   return callFrappeMethod<FeishuLoginStatus>('hbos_portal.auth.feishu.get_status')
 }
 
+function validateKnowledgeDocument(doc: KnowledgeDocument): void {
+  if (!doc || typeof doc !== 'object' || Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  for (const key of ['document_id','space_id','department','status_note'] as const) safeKnowledgeString(doc[key],320)
+  safeKnowledgeString(doc.title,240,true); safeKnowledgeString(doc.document_number,120,true); safeKnowledgeString(doc.version,80,true)
+}
+
 export async function getKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
   const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{documents: KnowledgeDocument[]}>>(
     'hb_knowledge_app.hb_knowledge.api.get_documents',
   ))
   if (!data || Object.keys(data).length !== 1 || !Array.isArray(data.documents) || data.documents.length > 1000) throw new DomainApiError('SERVICE_ERROR','资料目录暂时不可用。')
-  for (const doc of data.documents) {
-    if (Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
-    for (const key of ['document_id','space_id','department','status_note'] as const) safeKnowledgeString(doc[key],320)
-    safeKnowledgeString(doc.title,240,true); safeKnowledgeString(doc.document_number,120,true); safeKnowledgeString(doc.version,80,true)
-  }
+  data.documents.forEach(validateKnowledgeDocument)
   return data.documents
+}
+
+export async function getKnowledgeDocumentsPage(query = '', spaceId = '', page = 1, pageSize = 12): Promise<KnowledgeDocumentPage> {
+  if (typeof query !== 'string' || [...query].length > 240 || typeof spaceId !== 'string' || spaceId !== spaceId.trim() || !Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 50) throw new DomainApiError('INVALID_REQUEST','目录筛选格式无效。')
+  if (spaceId) safeKnowledgeString(spaceId,120)
+  const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<KnowledgeDocumentPage>>(
+    'hb_knowledge_app.hb_knowledge.api.get_documents_page', { query: query.trim(), space_id: spaceId, page, page_size: pageSize },
+  ))
+  if (!data || Object.keys(data).some(k => !['documents','total','page','page_size'].includes(k)) || !Array.isArray(data.documents) || data.documents.length > pageSize || !Number.isSafeInteger(data.total) || data.total < 0 || data.total < data.documents.length || data.page !== page || data.page_size !== pageSize) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  data.documents.forEach(validateKnowledgeDocument)
+  if (new Set(data.documents.map(doc => doc.document_id)).size !== data.documents.length || (spaceId && data.documents.some(doc => doc.space_id !== spaceId))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  return data
+}
+
+export async function getKnowledgeFeedback(): Promise<KnowledgeFeedback[]> {
+  const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{items: KnowledgeFeedback[]}>>('hb_knowledge_app.hb_knowledge.api.get_feedback'))
+  if (!data || Object.keys(data).length !== 1 || !Array.isArray(data.items) || data.items.length > 100) throw new DomainApiError('SERVICE_ERROR','反馈记录暂时不可用。')
+  data.items.forEach(item => {
+    if (!item || typeof item !== 'object' || Object.keys(item).some(k => !['id','category','note','status','created_at','updated_at'].includes(k)) || !['Pending','In Review','Resolved'].includes(item.status)) throw new DomainApiError('SERVICE_ERROR','反馈记录响应无效。')
+    safeKnowledgeString(item.id,128); safeKnowledgeString(item.category,120); safeKnowledgeString(item.note,500)
+    safeKnowledgeString(item.created_at,80); safeKnowledgeString(item.updated_at,80)
+  })
+  return data.items
 }
 
 export async function getKnowledgeActivity(kind: 'History' | 'Bookmark'): Promise<import('@/contracts/p1').KnowledgeActivity[]> {
@@ -239,9 +266,13 @@ export async function askKnowledgeReference(question: string, space?: string, co
   const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<import('@/contracts/p1').KnowledgeAnswer>>('hb_knowledge_app.hb_knowledge.api.ask',{question,...(space?{space_ids:[space]}:{}),...(conversation?{conversation_id:conversation}:{})}))
   if (Object.keys(data).some(k => !['request_id','turn_id','conversation_id','mode','answer_status','answerable','answer','citations'].includes(k)) || !Array.isArray(data.citations) || data.citations.length>5) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   safeKnowledgeString(data.answer,2000);safeKnowledgeString(data.turn_id,128)
+  safeKnowledgeString(data.request_id,128)
+  if (data.conversation_id !== undefined) { safeKnowledgeString(data.conversation_id,128); if (data.conversation_id !== data.turn_id) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。') }
   const answered=data.mode==='internal_reference_generation' && data.answer_status==='REFERENCE_ANSWERED' && data.answerable===true && data.citations.length>0
-  const insufficient=data.mode==='authorized_generation' && data.answer_status==='INSUFFICIENT_EVIDENCE' && data.answerable===false && data.answer==='当前授权资料不足以形成回答。' && data.citations.length===0
+  const refusalMessages=['当前授权资料不足以形成回答。','无法可靠定位前一回答中的具体条目。请指出步骤名称或关键词后再问；当前资料不足以直接回答这个追问。']
+  const insufficient=data.mode==='authorized_generation' && data.answer_status==='INSUFFICIENT_EVIDENCE' && data.answerable===false && refusalMessages.includes(data.answer) && data.citations.length===0
   if (!answered && !insufficient) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   data.citations.forEach(c => { const {citation_label,...e}=c; if (!/^C[1-5]$/.test(citation_label)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。');validateKnowledgeEvidence(e) })
+  if (new Set(data.citations.map(c => c.citation_label)).size !== data.citations.length || (space && data.citations.some(c => c.space_id !== undefined && c.space_id !== space))) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   return data
 }

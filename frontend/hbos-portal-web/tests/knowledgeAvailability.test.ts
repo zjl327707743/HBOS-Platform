@@ -6,15 +6,15 @@ const api=vi.hoisted(()=>({status:vi.fn(),spaces:vi.fn(),documents:vi.fn(),searc
 vi.mock('vue-router',()=>({useRoute:()=>({query:{q:'SYNTHETIC question',auto:'1'}})}))
 vi.mock('@/stores/portal',()=>({usePortalStore:()=>({user:{id:'USER_DEMO'}})}))
 vi.mock('@/services/p1Api',()=>({getKnowledgeStatus:api.status,getKnowledgeSpaces:api.spaces,
-  getKnowledgeDocuments:api.documents,searchKnowledge:api.search,DomainApiError:class extends Error{}}))
-const stubs={RouterLink:{template:'<span><slot/></span>'},KnowledgeTools:{template:'<p>个人记录</p>'},EvidenceDrawer:true,
+  getKnowledgeDocumentsPage:api.documents,searchKnowledge:api.search,DomainApiError:class extends Error{}}))
+const stubs={RouterLink:{template:'<span><slot/></span>'},KnowledgeTools:{template:'<section>个人记录<slot name="catalog"/></section>'},EvidenceDrawer:true,
   'a-alert':{props:['message'],template:'<p role="status">{{message}}</p>'},'a-button':{template:'<button><slot/></button>'},
   'a-tag':{template:'<span><slot/></span>'},'a-empty':true,'a-skeleton':true,'a-pagination':true}
 const wrappers:ReturnType<typeof mount>[]=[]
 function status(state='UNKNOWN',blocked=false){return {can_enter:true,can_search:true,gateway_configured:true,ask_enabled:true,mode:'retrieval',environment:'production',
   retrieval_availability:{configured:true,status:state,last_success_at:null,observed_at:null,observed_error:blocked?'UPSTREAM_UNAVAILABLE':null,blocked,expires_at:null,manual_recheck_required:blocked}}}
 async function view(){const w=mount(KnowledgeView,{global:{stubs}});wrappers.push(w);await flushPromises();return w}
-beforeEach(()=>{vi.clearAllMocks();api.status.mockResolvedValue(status());api.spaces.mockResolvedValue([]);api.documents.mockResolvedValue([{document_id:'DOC_DEMO',title:'SYNTHETIC reference',space_id:'SPACE_DEMO',department:'SYNTHETIC'}])})
+beforeEach(()=>{vi.clearAllMocks();api.status.mockResolvedValue(status());api.spaces.mockResolvedValue([]);api.documents.mockResolvedValue({documents:[{document_id:'DOC_DEMO',title:'SYNTHETIC reference',space_id:'SPACE_DEMO',department:'SYNTHETIC'}],total:1,page:1,page_size:12})})
 afterEach(()=>wrappers.splice(0).forEach(w=>w.unmount()))
 
 it('does not infer live availability from configuration or auto-query deep links',async()=>{

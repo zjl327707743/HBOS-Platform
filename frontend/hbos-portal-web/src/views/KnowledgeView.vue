@@ -20,44 +20,47 @@
 
     <a-alert v-if="retrievalBlocked" type="warning" show-icon role="status"
       message="检索服务暂不可用，目录与个人记录仍可查看。"
-      description="恢复后可重新提交检索。当前提示依据最近真实调用结果，刷新页面不会试调用模型。" />
+      :description="blockedDescription" />
 
     <div class="knowledge-grid">
       <div class="knowledge-primary">
-        <section class="knowledge-hero hbos-glass-g3" :class="{ compact: hasSearched }">
-          <div class="knowledge-eyebrow"><BulbOutlined /> 部门分类 · 查阅已收录的内部参考资料</div>
-          <h2 v-if="!hasSearched">工作中的问题，<br><span>从这里找到依据。</span></h2>
-          <h2 v-else>找到相关内容，<span>也看清它的依据。</span></h2>
-          <p v-if="!hasSearched">描述你的工作场景；没有依据时，系统会明确告诉你。</p>
-          <form class="knowledge-search" @submit.prevent="submitSearch">
-            <SearchOutlined aria-hidden="true" />
-            <label class="sr-only" for="knowledge-query">描述工作中的问题</label>
-            <input
-              id="knowledge-query"
-              v-model="query"
-              maxlength="500"
-              autocomplete="off"
-              placeholder="描述问题，或输入工艺、文件编号、制度关键词…"
-              :disabled="searching || !canSubmit"
-            />
-            <a-button type="primary" html-type="submit" :loading="searching" :disabled="!canSubmit || !query.trim()">
-              检索知识 <ArrowRightOutlined />
-            </a-button>
+        <section class="knowledge-hero hbos-glass-g3">
+          <div class="knowledge-eyebrow"><BulbOutlined /> 查阅已收录的内部参考资料</div>
+          <h2>从资料中<span>找到依据。</span></h2>
+          <p>先选范围，再明确你要查找或确认的内容。</p>
+          <div class="composer-toolbar">
+            <div class="knowledge-modes" role="group" aria-label="知识使用方式">
+              <button type="button" :aria-pressed="mode === 'ask'" :disabled="!status?.ask_enabled" @click="setMode('ask')">问知识</button>
+              <button type="button" :aria-pressed="mode === 'search'" @click="setMode('search')">搜资料</button>
+            </div>
+            <div class="knowledge-space-filter">
+              <label for="knowledge-space">部门范围</label>
+              <select id="knowledge-space" v-model="selectedSpace" :disabled="!spaces.length">
+                <option value="">全部已收录资料</option>
+                <option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }} · {{ space.document_count }} 份资料</option>
+              </select>
+            </div>
+          </div>
+          <form class="knowledge-search" :class="{ 'ask-composer': mode === 'ask' }" @submit.prevent="submitComposer">
+            <SearchOutlined v-if="mode === 'search'" aria-hidden="true" />
+            <label class="sr-only" for="knowledge-query">{{ mode === 'ask' ? '你的知识问题' : '描述工作中的问题' }}</label>
+            <input v-if="mode === 'search'" id="knowledge-query" v-model="query" maxlength="500" autocomplete="off" placeholder="输入资料标题、文件编号或制度关键词…" :disabled="working" @compositionstart="composing = true" @compositionend="composing = false" @keydown="composerKeydown" />
+            <textarea v-else id="knowledge-query" v-model="query" maxlength="280" placeholder="描述希望从资料中确认的问题…" :disabled="working" @compositionstart="composing = true" @compositionend="composing = false" @keydown="composerKeydown" />
+            <a-button type="primary" html-type="submit" :loading="working" :disabled="working || !canSubmit || !query.trim() || inputTooLong">{{ mode === 'ask' ? hasConversation ? '继续追问' : '提交问题' : '搜资料' }}<ArrowRightOutlined /></a-button>
           </form>
+          <div class="composer-help"><span>{{ mode === 'ask' ? 'Ctrl / ⌘ + Enter 提交；Enter 换行。回答仅供内部参考。' : 'Enter 搜索；只查当前范围内已收录资料。' }}</span><span :class="{ 'over-limit': inputTooLong }">{{ [...query].length }} / {{ mode === 'ask' ? 280 : 500 }}</span></div>
+          <div class="composer-actions">
+            <a-button v-if="working" size="small" @click="cancelPending">返回编辑</a-button>
+            <a-button v-if="mode === 'ask' && hasConversation" size="small" :disabled="working" @click="startNewQuestion">新问题</a-button>
+            <span v-if="working" class="muted">返回编辑会丢弃晚响应；实际用量以服务端记录为准。</span>
+            <span v-if="composerNotice" role="status" class="muted">{{ composerNotice }}</span>
+          </div>
           <div class="knowledge-state-line" role="status" aria-live="polite">
             <span :class="['state-dot', statusTone]"></span>
             {{ statusLabel }}
-            <span v-if="status?.policy_revision" class="revision">策略 {{ status.policy_revision }}</span>
-            <a-button size="small" :disabled="searching" @click="refreshStatus">刷新状态</a-button>
-          </div>
-          <div v-if="spaces.length" class="knowledge-space-filter">
-            <label for="knowledge-space">部门分类</label>
-            <select id="knowledge-space" v-model="selectedSpace" :disabled="searching">
-              <option value="">全部知识库</option>
-              <option v-for="space in spaces" :key="space.space_id" :value="space.space_id">
-                {{ space.title }} · {{ space.document_count }} 份资料
-              </option>
-            </select>
+            <span v-if="retrievalBlocked" class="observation-note">检索待恢复</span>
+            <span v-if="status?.retrieval_availability?.status === 'UNKNOWN' && status.retrieval_availability.last_success_at" class="observation-note">较早成功已过观察期限</span>
+            <a-button size="small" :disabled="statusLoading" :loading="statusLoading" @click="refreshStatus">刷新状态</a-button>
           </div>
         </section>
 
@@ -69,22 +72,11 @@
           class="knowledge-alert"
         />
 
-        <section v-if="!hasSearched && !pageError" class="knowledge-start hbos-glass-g2">
-          <div class="section-title">
-            <div><h2>按部门查阅</h2><p>部门用于分类，已批准资料供内部知识用户共享查阅。</p></div>
-            <a-tag>{{ spaces.reduce((n, s) => n + s.document_count, 0) }} 份资料</a-tag>
-          </div>
-          <div class="department-grid">
-            <button v-for="space in spaces" :key="space.space_id" type="button" :aria-pressed="selectedSpace === space.space_id" @click="selectDepartment(space.space_id)">
-              <ApartmentOutlined /><strong>{{ space.title }}</strong><span>{{ space.document_count }} 份已收录资料</span>
-            </button>
-          </div>
-          <a-empty v-if="!spaces.length" description="暂无可查阅的部门资料" />
-        </section>
 
-        <section v-else-if="hasSearched" class="knowledge-results hbos-glass-g2">
+
+        <section v-if="mode === 'search' && hasSearched" class="knowledge-results hbos-glass-g2">
           <div class="section-title">
-            <div><h2>检索依据</h2><p>查看必要摘录，并核对文档编号、版本和参考状态。</p></div>
+            <div><h2>检索依据</h2><p>{{ currentScopeLabel }} · 本次检索时点的资料依据</p></div>
             <a-tag>{{ results.length }} 条</a-tag>
           </div>
           <a-empty v-if="!searching && !results.length && !pageError" description="未找到相关依据，请换一个关键词或调整部门范围。" />
@@ -97,47 +89,48 @@
               <p v-if="item.status_note" class="status-note">{{ item.status_note }}</p>
               <p class="section-label">{{ item.section || '章节未标注' }}</p>
               <p class="excerpt-preview">{{ item.excerpt }}</p>
-              <div class="result-actions"><button type="button" @click="openEvidence(item)">查看依据 <ArrowRightOutlined /></button><template v-if="status?.environment === 'production'"><a-button size="small" @click="tools?.bookmark(item)">收藏</a-button><a-button size="small" @click="tools?.feedback(item)">反馈</a-button></template></div>
+              <div class="result-actions"><button type="button" @click="openEvidence(item)">查看依据 <ArrowRightOutlined /></button><template v-if="status?.environment === 'production'"><a-button size="small" :disabled="working" @click="tools?.bookmark(item)">收藏</a-button><a-button size="small" :disabled="working" @click="tools?.feedback(item)">反馈</a-button></template></div>
             </article>
           </div>
         </section>
 
-        <KnowledgeTools v-if="status?.environment === 'production' && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :ask-enabled="Boolean(status?.ask_enabled)" :retrieval-blocked="retrievalBlocked" @replay="replaySaved" @evidence="drawer.show" />
+        <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :ask-enabled="Boolean(status?.ask_enabled)" :retrieval-blocked="retrievalBlocked" :mode="mode" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @evidence="drawer.show" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
+          <template #catalog>
+            <div class="catalog-heading"><p>只展示当前可读的已收录资料；内部参考／有效性待核。</p><a-tag>{{ catalogTotal }} 份</a-tag></div>
+            <form class="catalog-filter" @submit.prevent="refreshCatalog">
+              <label class="sr-only" for="catalog-query">筛选资料标题或文档编号</label>
+              <input id="catalog-query" v-model="catalogQuery" class="catalog-query" type="search" maxlength="240" placeholder="筛选资料标题或文档编号…" />
+              <a-button html-type="submit" :loading="catalogLoading">筛选</a-button>
+            </form>
+            <div class="catalog-content" :aria-busy="catalogLoading">
+              <a-skeleton v-if="catalogLoading" active :paragraph="{ rows: 4 }" />
+              <a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" />
+              <a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" />
+              <template v-else><article v-for="doc in catalog" :key="doc.document_id" class="catalog-row"><div><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.document_number || '文档编号待核' }} · {{ doc.version || '版本待核' }}</p><small>{{ doc.status_note || '内部参考／有效性待核' }}</small></div><a-tag>{{ doc.department }}</a-tag></article></template>
+            </div>
+            <a-pagination v-if="catalogTotal > catalogPageSize" v-model:current="catalogPage" :page-size="catalogPageSize" :total="catalogTotal" :show-size-changer="false" :disabled="catalogLoading" size="small" :show-less-items="true" />
+          </template>
+        </KnowledgeTools>
 
-        <section v-if="catalog.length" class="knowledge-start hbos-glass-g2">
-          <div class="section-title"><div><h2>资料目录</h2><p>内部参考／有效性待核</p></div><a-tag>{{ filteredCatalog.length }} 份</a-tag></div>
-          <label class="sr-only" for="catalog-query">筛选资料标题或文档编号</label>
-          <input id="catalog-query" v-model="catalogQuery" class="catalog-query" type="search" maxlength="240" placeholder="筛选资料标题或文档编号…" />
-          <a-empty v-if="!filteredCatalog.length" description="该部门没有匹配的资料，请调整目录筛选。" />
-          <article v-for="doc in pagedCatalog" :key="doc.document_id" class="catalog-row">
-            <div><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.document_number || '文档编号待核' }} · {{ doc.version || '版本待核' }}</p></div>
-            <a-tag>{{ doc.department }}</a-tag>
-          </article>
-          <a-pagination v-if="filteredCatalog.length > catalogPageSize" v-model:current="catalogPage" :page-size="catalogPageSize" :total="filteredCatalog.length" :show-size-changer="false" size="small" :show-less-items="true" />
+        <section v-if="!hasSearched && !pageError" class="knowledge-start hbos-glass-g2">
+          <div class="section-title">
+            <div><h2>按部门查阅</h2><p>部门用于分类，选择部门不会自动检索或调用模型。</p></div>
+            <a-tag>{{ spaces.reduce((n, s) => n + s.document_count, 0) }} 份资料</a-tag>
+          </div>
+          <div class="department-grid">
+            <button v-for="space in spaces" :key="space.space_id" type="button" :aria-pressed="selectedSpace === space.space_id" @click="selectDepartment(space.space_id)">
+              <ApartmentOutlined /><strong>{{ space.title }}</strong><span>{{ space.document_count }} 份已收录资料</span>
+            </button>
+          </div>
+          <a-empty v-if="!spaces.length" description="暂无可查阅的部门资料" />
         </section>
 
         <footer class="knowledge-footer">
           <span><SafetyCertificateOutlined /> 仅展示必要摘录，不提供原文下载。</span>
-          <span>{{ status?.ask_enabled ? '来源核验 · 内部参考回答' : '检索模式 · 回答能力未开启' }}</span>
+          <span>资料未经现行性核验时，请向文控或资料维护人确认。</span>
         </footer>
       </div>
 
-      <aside class="knowledge-secondary">
-        <section class="knowledge-side-card hbos-glass-g2">
-          <div class="side-icon"><BulbOutlined /></div>
-          <h3>有依据，才继续</h3>
-          <p>先查看来源与适用版本。资料未经现行性核验时，请向文控或资料维护人确认。</p>
-          <div class="connection"><span></span>{{ retrievalBlocked ? '检索待恢复' : status?.ask_enabled ? '回答能力已获准 · 可用性需实际核验' : '回答能力未配置' }}</div>
-        </section>
-        <section class="knowledge-side-card hbos-glass-g2">
-          <small>让每次查阅更有把握</small>
-          <ol>
-            <li><b>01</b><span><strong>说清工作场景</strong>描述设备、问题和希望了解的内容。</span></li>
-            <li><b>02</b><span><strong>核对内容依据</strong>查看资料、版本和对应章节。</span></li>
-            <li><b>03</b><span><strong>回到实际任务</strong>不把解释替代受控规程或质量决策。</span></li>
-          </ol>
-        </section>
-      </aside>
     </div>
 
     <EvidenceDrawer
@@ -145,235 +138,226 @@
       :loading="drawerLoading"
       :evidence="drawerEvidence"
       :error="drawerError"
-      @close="drawer.close"
+      :error-code="drawerErrorCode"
+      @close="drawer.close()"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  ApartmentOutlined,
-  ArrowRightOutlined,
-  BulbOutlined,
-  DeploymentUnitOutlined,
-  RightOutlined,
-  SafetyCertificateOutlined,
-  SearchOutlined,
-} from '@ant-design/icons-vue'
+import { ApartmentOutlined, ArrowRightOutlined, BulbOutlined, RightOutlined, SafetyCertificateOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import type { KnowledgeEvidence, KnowledgeStatus, KnowledgeSpace, KnowledgeDocument } from '@/contracts/p1'
-import { DomainApiError, getKnowledgeStatus, getKnowledgeSpaces, getKnowledgeDocuments, searchKnowledge } from '@/services/p1Api'
+import { DomainApiError, getKnowledgeStatus, getKnowledgeSpaces, getKnowledgeDocumentsPage, searchKnowledge } from '@/services/p1Api'
 import EvidenceDrawer from '@/components/knowledge/EvidenceDrawer.vue'
 import KnowledgeTools from '@/components/knowledge/KnowledgeTools.vue'
 import { useEvidenceResolution } from '@/composables/useEvidenceResolution'
 import { usePortalStore } from '@/stores/portal'
 
-const status = ref<KnowledgeStatus | null>(null)
-const spaces = ref<KnowledgeSpace[]>([])
-const selectedSpace = ref('')
-const catalog = ref<KnowledgeDocument[]>([])
-const catalogQuery = ref('')
-const catalogPage = ref(1)
-const catalogPageSize = 12
-const tools = ref<InstanceType<typeof KnowledgeTools> | null>(null)
-const filteredCatalog = computed(() => {
-  const needle = catalogQuery.value.trim().toLocaleLowerCase()
-  return catalog.value.filter(doc => (!selectedSpace.value || doc.space_id === selectedSpace.value) &&
-    (!needle || `${doc.title || ''} ${doc.document_number || ''}`.toLocaleLowerCase().includes(needle)))
-})
-const pagedCatalog = computed(() => filteredCatalog.value.slice((catalogPage.value - 1) * catalogPageSize, catalogPage.value * catalogPageSize))
-watch([catalogQuery, selectedSpace, catalog], () => { catalogPage.value = 1 })
-function selectDepartment(id: string) { selectedSpace.value = id; document.getElementById('knowledge-query')?.focus() }
 const route = useRoute()
+const portal = usePortalStore()
+const subjectKey = computed(() => portal.user?.id || null)
 const equipmentId = computed(() => typeof route.query.equipment_id === 'string' ? route.query.equipment_id : '')
 const assetId = computed(() => typeof route.query.asset_id === 'string' ? route.query.asset_id : '')
 const componentId = computed(() => typeof route.query.component_id === 'string' ? route.query.component_id : '')
-const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const status = ref<KnowledgeStatus | null>(null)
+const statusLoading = ref(false)
+const spaces = ref<KnowledgeSpace[]>([])
+const selectedSpace = ref('')
+const mode = ref<'search' | 'ask'>('search')
+const query = ref(typeof route.query.q === 'string' ? [...route.query.q].slice(0, 500).join('') : '')
+const composing = ref(false)
 const results = ref<KnowledgeEvidence[]>([])
 const searching = ref(false)
+const askBusy = ref(false)
 const hasSearched = ref(false)
+const hasConversation = ref(false)
+const working = computed(() => searching.value || askBusy.value)
+const inputTooLong = computed(() => [...query.value].length > (mode.value === 'ask' ? 280 : 500))
 const pageError = ref<string | null>(null)
 const pageErrorCode = ref<string | null>(null)
-const portal = usePortalStore()
-const subjectKey = computed(() => portal.user?.id || null)
-const drawer = useEvidenceResolution(() => subjectKey.value, () => { results.value = [] })
-const { open: drawerOpen, loading: drawerLoading, evidence: drawerEvidence, error: drawerError } = drawer
+const composerNotice = ref('')
+const catalog = ref<KnowledgeDocument[]>([])
+const catalogTotal = ref(0)
+const catalogQuery = ref('')
+const catalogPage = ref(1)
+const catalogPageSize = 12
+const catalogLoading = ref(false)
+const catalogError = ref('')
+const tools = ref<InstanceType<typeof KnowledgeTools> | null>(null)
+const drawer = useEvidenceResolution(() => subjectKey.value, invalidateEvidence, () => document.getElementById('knowledge-query')?.focus())
+const { open: drawerOpen, loading: drawerLoading, evidence: drawerEvidence, error: drawerError, errorCode: drawerErrorCode } = drawer
 let subjectGeneration = 0
 let searchGeneration = 0
-watch(subjectKey, () => {
-  subjectGeneration++; searchGeneration++; drawer.close()
-  status.value = null; results.value = []; query.value = ''; searching.value = false
-  spaces.value = []; catalog.value = []; selectedSpace.value = ''
-  catalogQuery.value = ''; catalogPage.value = 1
-  pageError.value = null; pageErrorCode.value = null; hasSearched.value = false
-  if (subjectKey.value) void refreshStatus()
-}, { flush: 'sync' })
-watch(selectedSpace, () => {
-  searchGeneration++; drawer.close(); results.value = []; hasSearched.value = false
-  searching.value = false; pageError.value = null; pageErrorCode.value = null
-}, { flush: 'sync' })
-onBeforeUnmount(() => { subjectGeneration++; searchGeneration++; drawer.close() })
+let statusGeneration = 0
+let catalogGeneration = 0
+let catalogTimer: ReturnType<typeof setTimeout> | null = null
+const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED', 'EMPTY_SCOPE']
 
+const currentScopeLabel = computed(() => spaces.value.find(s => s.space_id === selectedSpace.value)?.title || '全部已收录资料')
+const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked || status.value?.retrieval_availability?.status === 'OBSERVED_ERROR' || ['ACCOUNTING_PENDING', 'EXPIRED', 'EXHAUSTED', 'UNAVAILABLE'].includes(status.value?.retrieval_availability?.budget_status || '')))
+const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && (mode.value === 'search' || status.value?.ask_enabled)))
+const statusTone = computed(() => status.value?.retrieval_availability?.status === 'AVAILABLE' && !retrievalBlocked.value ? 'ready' : 'waiting')
+const blockedDescription = computed(() => {
+  const availability = status.value?.retrieval_availability
+  if (availability?.budget_status === 'ACCOUNTING_PENDING') return '当前阻断来自费用核验与原累计预算门槛。较早的检索结果不能放行新调用；刷新状态不会调用模型。'
+  if (availability?.budget_status === 'EXHAUSTED') return '当前剩余累计预算不足以继续调用。刷新状态不会改变预算或试调用模型。'
+  if (availability?.budget_status === 'EXPIRED') return '当前调用授权已过期。刷新状态不会自动续期或试调用模型。'
+  if (availability?.budget_status === 'UNAVAILABLE') return '暂时无法核验调用预算。刷新状态不会绕过预算门槛或试调用模型。'
+  if (availability?.status === 'OBSERVED_ERROR' || availability?.observed_error) return '当前提示依据最近真实调用的错误观察。恢复后可重新提交检索；刷新页面不会试调用模型。'
+  return '当前检索仍有阻断记录，可用性需实际检索确认。刷新页面不会自动试调用模型。'
+})
 const statusLabel = computed(() => {
   if (!status.value) return '正在核验服务与资料权限…'
   if (!status.value.can_enter) return '当前账号没有知识助理访问权限'
   if (!status.value.can_search) return '当前没有已发布且可检索的资料范围'
-  if (!status.value.gateway_configured) return 'Gateway 尚未完成本地安全配置'
+  if (!status.value.gateway_configured) return '检索链路尚未完成配置'
+  const budget = status.value.retrieval_availability?.budget_status
+  if (budget === 'ACCOUNTING_PENDING') return '费用待对账 · 检索与问答暂停，目录和个人记录可查看'
+  if (budget === 'EXHAUSTED') return '当前累计预算不足 · 检索与问答暂停'
+  if (budget === 'EXPIRED') return '调用授权已过期 · 检索与问答暂停'
+  if (budget === 'UNAVAILABLE') return '当前无法核验调用预算 · 检索与问答暂停'
   if (retrievalBlocked.value) return '检索服务暂不可用，目录与个人记录仍可查看。'
   if (status.value.retrieval_availability?.status === 'AVAILABLE') return '最近检索成功 · 当前资料权限已核验'
   return status.value.environment === 'synthetic' ? '隔离合成环境 · 检索链路已配置' : '检索链路已配置 · 当前可用性待实际检索确认'
 })
-const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked || status.value?.retrieval_availability?.status === 'OBSERVED_ERROR'))
-const statusTone = computed(() => status.value?.retrieval_availability?.status === 'AVAILABLE' && !retrievalBlocked.value ? 'ready' : 'waiting')
-const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value))
+
+watch(subjectKey, () => {
+  subjectGeneration++; searchGeneration++; statusGeneration++; catalogGeneration++; drawer.close(false)
+  if (catalogTimer) clearTimeout(catalogTimer)
+  status.value = null; statusLoading.value = false; results.value = []; query.value = ''; composing.value = false
+  searching.value = false; askBusy.value = false; hasConversation.value = false; composerNotice.value = ''
+  spaces.value = []; catalog.value = []; catalogTotal.value = 0; selectedSpace.value = ''; catalogQuery.value = ''; catalogPage.value = 1
+  catalogLoading.value = false; catalogError.value = ''; pageError.value = null; pageErrorCode.value = null; hasSearched.value = false
+  if (subjectKey.value) void refreshStatus()
+}, { flush: 'sync' })
+watch(selectedSpace, () => {
+  searchGeneration++; drawer.close(false); results.value = []; hasSearched.value = false; searching.value = false
+  pageError.value = null; pageErrorCode.value = null; composerNotice.value = ''
+}, { flush: 'sync' })
+watch([catalogQuery, selectedSpace], () => {
+  catalogPage.value = 1; catalogGeneration++; catalog.value = []; catalogTotal.value = 0; catalogError.value = ''
+  if (catalogTimer) clearTimeout(catalogTimer)
+  catalogTimer = setTimeout(() => { catalogTimer = null; void refreshCatalog() }, 200)
+}, { flush: 'sync' })
+watch(catalogPage, () => { if (catalogTimer) clearTimeout(catalogTimer); catalogTimer = null; void refreshCatalog() })
+onBeforeUnmount(() => {
+  subjectGeneration++; searchGeneration++; statusGeneration++; catalogGeneration++; drawer.close(false)
+  if (catalogTimer) clearTimeout(catalogTimer)
+})
 
 function applyError(error: unknown) {
   const apiError = error instanceof DomainApiError ? error : null
-  pageErrorCode.value = apiError?.code || 'SERVICE_ERROR'
-  pageError.value = apiError?.message || '知识服务暂时不可用。'
+  pageErrorCode.value = apiError?.code || 'SERVICE_ERROR'; pageError.value = apiError?.message || '知识服务暂时不可用。'
+  if (accessFailureCodes.includes(pageErrorCode.value)) {
+    results.value = []; drawer.close(false); tools.value?.newConversation()
+    catalogGeneration++; catalog.value = []; catalogTotal.value = 0; spaces.value = []; status.value = null
+  }
 }
-
+function invalidateEvidence(code?: string) {
+  results.value = []; tools.value?.invalidateSources()
+  if (code && accessFailureCodes.includes(code)) applyError(new DomainApiError(code, '当前来源不可访问，请重新确认登录状态与资料权限。'))
+}
+function setMode(value: 'search' | 'ask') {
+  if (value === mode.value || (value === 'ask' && !status.value?.ask_enabled)) return
+  if (working.value) cancelPending()
+  searchGeneration++; results.value = []; hasSearched.value = false
+  mode.value = value; composing.value = false; drawer.close(false); pageError.value = null; pageErrorCode.value = null
+  void nextTick(() => document.getElementById('knowledge-query')?.focus())
+}
+function cancelPending() {
+  searchGeneration++; searching.value = false; hasSearched.value = false; results.value = []; tools.value?.cancelPending(); askBusy.value = false
+  composerNotice.value = '已返回编辑，晚响应不会覆盖当前页面。'
+}
+function startNewQuestion() { tools.value?.newConversation(); query.value = ''; composerNotice.value = ''; document.getElementById('knowledge-query')?.focus() }
+function selectDepartment(id: string) { selectedSpace.value = id; document.getElementById('knowledge-query')?.focus() }
+function composerKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter') return
+  if (composing.value || event.isComposing || event.keyCode === 229) { event.preventDefault(); return }
+  if (mode.value === 'ask') { if (event.ctrlKey || event.metaKey) { event.preventDefault(); void submitComposer() } }
+  else { event.preventDefault(); void submitComposer() }
+}
+async function submitComposer() {
+  if (composing.value || working.value || !query.value.trim() || inputTooLong.value) return
+  if (mode.value === 'ask') {
+    if (!canSubmit.value) { applyError(new DomainApiError('UPSTREAM_UNAVAILABLE', '检索服务暂不可用，目录与个人记录仍可查看。')); return }
+    composerNotice.value = ''; await tools.value?.ask(query.value)
+  } else await submitSearch()
+}
 async function submitSearch() {
   const normalized = query.value.trim()
   if (!normalized || searching.value || !subjectKey.value) return
-  if (!canSubmit.value) {
-    pageErrorCode.value = 'UPSTREAM_UNAVAILABLE'
-    pageError.value = '检索服务暂不可用，目录与个人记录仍可查看。'
-    return
-  }
+  if (!canSubmit.value) { applyError(new DomainApiError('UPSTREAM_UNAVAILABLE', '检索服务暂不可用，目录与个人记录仍可查看。')); return }
   const generation = ++searchGeneration
   const subject = subjectKey.value
-  drawer.close()
-  searching.value = true
-  hasSearched.value = true
-  pageError.value = null
-  pageErrorCode.value = null
-  results.value = []
+  const scope = selectedSpace.value
+  drawer.close(false); searching.value = true; hasSearched.value = true; pageError.value = null; pageErrorCode.value = null; composerNotice.value = ''; results.value = []
   try {
-    const response = await searchKnowledge(normalized, {
-      equipment_id: equipmentId.value || undefined,
-      asset_id: assetId.value || undefined,
-      component_id: componentId.value || undefined,
-    }, selectedSpace.value ? [selectedSpace.value] : undefined)
-    if (generation === searchGeneration && subject === subjectKey.value) { results.value = response.results; void tools.value?.refresh() }
+    const response = await searchKnowledge(normalized, { equipment_id: equipmentId.value || undefined, asset_id: assetId.value || undefined, component_id: componentId.value || undefined }, scope ? [scope] : undefined)
+    if (generation === searchGeneration && subject === subjectKey.value && scope === selectedSpace.value) { results.value = response.results; void tools.value?.refresh() }
   } catch (error) {
-    if (generation === searchGeneration && subject === subjectKey.value) {
-      applyError(error)
-      if (pageErrorCode.value === 'UPSTREAM_UNAVAILABLE') void refreshStatus()
+    if (generation === searchGeneration && subject === subjectKey.value) { applyError(error); if (pageErrorCode.value === 'UPSTREAM_UNAVAILABLE') void refreshStatus() }
+  } finally { if (generation === searchGeneration) searching.value = false }
+}
+async function replaySaved(value: string, scope: string[]) { setMode('search'); selectedSpace.value = scope.length === 1 ? scope[0]! : ''; query.value = value; await submitSearch() }
+async function openEvidence(item: KnowledgeEvidence) { await drawer.show(item.evidence_id) }
+async function refreshCatalog() {
+  if (catalogTimer) { clearTimeout(catalogTimer); catalogTimer = null }
+  if (!subjectKey.value || status.value?.environment !== 'production') return
+  const generation = ++catalogGeneration
+  const subject = subjectKey.value
+  catalogLoading.value = true; catalogError.value = ''
+  try {
+    const data = await getKnowledgeDocumentsPage(catalogQuery.value, selectedSpace.value, catalogPage.value, catalogPageSize)
+    if (generation !== catalogGeneration || subject !== subjectKey.value) return
+    catalog.value = data.documents; catalogTotal.value = data.total
+    const lastPage = Math.max(1, Math.ceil(data.total / catalogPageSize))
+    if (catalogPage.value > lastPage) catalogPage.value = lastPage
+  } catch (error) {
+    if (generation === catalogGeneration && subject === subjectKey.value) {
+      catalog.value = []; catalogTotal.value = 0; catalogError.value = error instanceof DomainApiError ? error.message : '资料目录暂时不可用。'
+      if (error instanceof DomainApiError && accessFailureCodes.includes(error.code)) applyError(error)
     }
-  } finally {
-    if (generation === searchGeneration) searching.value = false
-  }
+  } finally { if (generation === catalogGeneration) catalogLoading.value = false }
 }
-
-async function replaySaved(value: string, spaces: string[]) { selectedSpace.value=spaces.length === 1 ? spaces[0]! : ''; query.value=value; await submitSearch() }
-
-async function openEvidence(item: KnowledgeEvidence) {
-  await drawer.show(item.evidence_id)
-}
-
 async function refreshStatus() {
-  const generation = subjectGeneration
+  if (!subjectKey.value) return
+  const generation = ++statusGeneration
+  const subject = subjectGeneration
+  statusLoading.value = true
   try {
     const [current, currentSpaces] = await Promise.all([getKnowledgeStatus(), getKnowledgeSpaces()])
-    if (generation !== subjectGeneration || !subjectKey.value) return
-    status.value = current
-    spaces.value = currentSpaces
-    if (current.environment === 'production') {
-      const docs = await getKnowledgeDocuments()
-      if (generation === subjectGeneration && subjectKey.value) catalog.value = docs
+    if (generation !== statusGeneration || subject !== subjectGeneration || !subjectKey.value) return
+    if (!current.can_enter || !current.can_search || (status.value?.policy_revision && status.value.policy_revision !== current.policy_revision)) {
+      searchGeneration++; results.value = []; hasSearched.value = false; searching.value = false; drawer.close(false); tools.value?.newConversation()
     }
-    // Deep links prefill the question; page loads never spend model tokens.
-  } catch (error) {
-    if (generation === subjectGeneration) applyError(error)
-  }
+    if (!current.can_enter) { catalogGeneration++; catalog.value = []; catalogTotal.value = 0 }
+    status.value = current; spaces.value = current.can_enter ? currentSpaces : []
+    if (selectedSpace.value && !currentSpaces.some(space => space.space_id === selectedSpace.value)) selectedSpace.value = ''
+    if (!current.ask_enabled && mode.value === 'ask') setMode('search')
+    if (current.can_enter && current.environment === 'production') await refreshCatalog()
+    // Page loads and deep-link prefills never call a model.
+  } catch (error) { if (generation === statusGeneration && subject === subjectGeneration) applyError(error) }
+  finally { if (generation === statusGeneration) statusLoading.value = false }
 }
 onMounted(refreshStatus)
-
 </script>
 
 <style scoped>
-.knowledge-page { display: grid; gap: 18px; }
+.knowledge-page,.knowledge-primary { display: grid; gap: 18px; min-width: 0; }.knowledge-grid { min-width: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.knowledge-search:focus-within { outline: 2px solid var(--hbos-brand-violet); outline-offset: 3px; }
-.kt-breadcrumb { display: flex; align-items: center; gap: 7px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }
-.kt-breadcrumb a { color: inherit; }
-.kt-breadcrumb span { color: #3f557a; font-weight: 700; }
-.kt-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
-.kt-page-heading h1 { margin: 0; color: #193661; font-size: var(--hbos-font-page-title); letter-spacing: -.8px; }
-.kt-page-heading p { margin: 6px 0 0; color: var(--hbos-text-muted); }
-.heading-actions { display:flex;align-items:center;gap:10px; }
-.knowledge-grid { display: grid; grid-template-columns: minmax(0,1fr) 290px; gap: 18px; }
-.knowledge-primary { min-width: 0; display: grid; align-content: start; gap: 16px; }
-.knowledge-hero { position: relative; overflow: hidden; min-height: 332px; padding: 36px; border-radius: 28px; box-shadow: var(--hbos-shadow-hero); }
-.knowledge-hero::after { content:""; position:absolute; width:330px; height:330px; right:-80px; top:-100px; border-radius:50%; background:radial-gradient(circle,rgba(83,173,255,.23),transparent 68%); pointer-events:none; }
-.knowledge-hero.compact { min-height: 245px; }
-.knowledge-hero.compact h2 { font-size: var(--hbos-font-page-title); line-height: var(--hbos-line-page-title); letter-spacing: -.5px; }
-.knowledge-eyebrow { color: #6476a6; font-size: var(--hbos-font-meta); font-weight: 800; letter-spacing: .08em; }
-.knowledge-hero h2 { position: relative; z-index: 1; margin: 18px 0 10px; color: #183661; font-size: var(--hbos-font-hero); line-height: 1.06; letter-spacing: -2px; }
-.knowledge-hero h2 span { background:linear-gradient(90deg,#6762ff,#4aa7ff,#42c8b8); background-clip:text; color:transparent; }
-.knowledge-hero > p { margin: 0 0 22px; color: var(--hbos-text-secondary); }
-.knowledge-search { position: relative; z-index: 1; display: grid; grid-template-columns: auto 1fr auto; gap: 11px; align-items: center; padding: 8px 9px 8px 15px; border: 1px solid rgba(70,95,140,.14); border-radius: 17px; background: rgba(255,255,255,.83); box-shadow: 0 14px 38px rgba(54,78,124,.10); }
-.knowledge-search > :first-child { color: #687da4; }
-.knowledge-search input { min-width: 0; border: 0; outline: 0; background: transparent; color: var(--hbos-text-primary); font-size: var(--hbos-font-body); }
-.knowledge-search .ant-btn { height: 40px; border: 0; border-radius: 12px; background: linear-gradient(135deg,#5b63ff,#46a1ff); }
-.knowledge-state-line { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; margin-top: 14px; color: #657896; font-size: var(--hbos-font-meta); }
-.knowledge-space-filter { position: relative; z-index: 1; display: flex; align-items: center; flex-wrap: wrap; gap: var(--hbos-space-2); margin-top: var(--hbos-space-3); color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); }
-.knowledge-space-filter select { max-width: 100%; padding: var(--hbos-space-2); border: 1px solid var(--hbos-border-strong); border-radius: var(--hbos-radius-sm); color: var(--hbos-text-primary); background: var(--hbos-bg-surface); font: inherit; }
-.state-dot { width: 7px; height: 7px; border-radius: 50%; background: #e5a42c; box-shadow: 0 0 0 4px rgba(229,164,44,.11); }
-.state-dot.ready { background: #1bbc86; box-shadow: 0 0 0 4px rgba(27,188,134,.11); }
-.revision { margin-left: auto; font-family: var(--hbos-font-mono); font-size: var(--hbos-font-meta); }
-.knowledge-alert,.knowledge-start,.knowledge-results { border-radius: 23px; }
-.knowledge-start,.knowledge-results { padding: 22px; }
-.section-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.section-title h2 { margin: 0; color: #203b66; font-size: var(--hbos-font-section-title); }
-.section-title p { margin: 4px 0 0; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }
-.topic-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
-.topic-grid article { padding: 17px; border: 1px solid rgba(65,91,138,.09); border-radius: 18px; background: rgba(255,255,255,.62); }
-.topic-grid article > :first-child { color: #626bf6; font-size: var(--hbos-font-section-title); }
-.topic-grid h3 { margin: 12px 0 7px; font-size: var(--hbos-font-body); }
-.topic-grid p { margin: 0; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: 1.6; }
-.knowledge-bridge { display: grid; grid-template-columns: auto 1fr auto; gap: 13px; align-items: center; margin-top: 14px; padding: 15px; border-radius: 17px; background: linear-gradient(100deg,rgba(103,95,255,.09),rgba(72,205,188,.07)); }
-.knowledge-bridge > :first-child { color: #5d66f5; font-size: var(--hbos-font-section-title); }
-.knowledge-bridge strong,.knowledge-bridge span { display:block; }
-.knowledge-bridge strong { font-size: var(--hbos-font-meta); }.knowledge-bridge span { margin-top:3px;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta); }
-.result-list { display: grid; gap: 11px; }
-.result-card { padding: 18px; border: 1px solid rgba(65,91,138,.09); border-radius: 18px; background: rgba(255,255,255,.67); transition: transform .16s ease, box-shadow .16s ease; }
-.result-card:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(50,72,113,.08); }
-.result-actions { display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px; }
-.result-meta { flex-wrap:wrap;display:flex;align-items:center;gap:8px;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta); }
-.result-card h3 { margin: 12px 0 3px; color:#243e66;font-size: var(--hbos-font-body);word-break:break-all; }
-.section-label { margin:0;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta); }
-.status-note { margin:8px 0 0;color:#9a6b24;font-size: var(--hbos-font-meta); }
-.excerpt-preview { display:-webkit-box;overflow:hidden;margin:12px 0;color:var(--hbos-text-secondary);font-size: var(--hbos-font-meta);line-height:1.7;-webkit-box-orient:vertical;-webkit-line-clamp:3; }
-.result-card button { display:flex;align-items:center;gap:6px;padding:0;border:0;background:transparent;color:#5365e9;font-size: var(--hbos-font-meta);font-weight:750;cursor:pointer; }
-.knowledge-footer { display:flex;justify-content:space-between;gap:12px;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta); }
-.knowledge-secondary { display:grid;align-content:start;gap:14px; }
-.knowledge-side-card { padding:20px;border-radius:22px; }
-.side-icon { display:grid;width:42px;height:42px;place-items:center;border-radius:14px;color:#fff;background:linear-gradient(135deg,#6c63ff,#4aa8ff); }
-.knowledge-side-card h3 { margin:15px 0 8px;color:#223e68;font-size: var(--hbos-font-card-title); }
-.knowledge-side-card > p { margin:0;color:var(--hbos-text-muted);font-size: var(--hbos-font-meta);line-height:1.65; }
-.connection { display:flex;align-items:center;gap:7px;margin-top:15px;padding:10px;border-radius:12px;background:rgba(72,91,126,.05);color:#6d7e99;font-size: var(--hbos-font-meta); }
-.connection span { width:7px;height:7px;border-radius:50%;background:#e5a42c; }
-.knowledge-side-card > small { color:#6577a2;font-size: var(--hbos-font-meta);font-weight:800;letter-spacing:.08em; }
-ol { display:grid;gap:17px;margin:17px 0 0;padding:0;list-style:none; }
-li { display:grid;grid-template-columns:30px 1fr;gap:10px; }
-li b { color:#626bf6;font-size: var(--hbos-font-meta); } li span { color:var(--hbos-text-muted);font-size: var(--hbos-font-meta);line-height:1.55; } li strong { display:block;margin-bottom:3px;color:#304868;font-size: var(--hbos-font-meta); }
-@media (max-width: 1180px) { .knowledge-grid { grid-template-columns:1fr; }.knowledge-secondary{grid-template-columns:1fr 1fr;} }
-@media (max-width: 700px) { .knowledge-hero h2 { font-size: var(--hbos-font-page-title); line-height: var(--hbos-line-page-title); letter-spacing: -.5px; } .knowledge-hero{padding:24px 18px;}.knowledge-search{grid-template-columns:auto 1fr;}.knowledge-search .ant-btn{grid-column:1/-1}.topic-grid,.knowledge-secondary{grid-template-columns:1fr}.knowledge-footer{flex-direction:column}.kt-page-heading{align-items:flex-start;flex-direction:column}.heading-actions{width:100%;justify-content:space-between}.knowledge-bridge{grid-template-columns:auto 1fr}.knowledge-bridge .ant-btn{grid-column:1/-1} }
-</style>
-
-<style scoped>
-.department-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; }
-.department-grid button { display: grid; justify-items: start; gap: 8px; padding: 20px; border: 1px solid var(--hbos-border-strong); border-radius: 18px; background: rgba(255,255,255,.65); color: var(--hbos-text-primary); text-align: left; font: inherit; cursor: pointer; }
-.department-grid button[aria-pressed="true"] { border-color: var(--hbos-brand-violet); }
-.department-grid span,.catalog-row p { color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }
-.catalog-row { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding: 16px 0; border-top: 1px solid var(--hbos-border-strong); }
-.catalog-row strong { font-size: var(--hbos-font-body); overflow-wrap: anywhere; }
-.catalog-query { width: 100%; min-width: 0; padding: 11px 14px; margin-bottom: 12px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; font: inherit; background: var(--hbos-surface, white); }
-.catalog-query:focus-visible { outline: 2px solid var(--hbos-brand-violet); outline-offset: 2px; }
-.catalog-row p { margin: 6px 0 0; overflow-wrap: anywhere; }
-.result-meta :deep(.ant-tag),.catalog-row :deep(.ant-tag) { width: auto; flex: 0 0 auto; }
-button:focus-visible { outline: 2px solid var(--hbos-brand-violet); outline-offset: 3px; }
+.kt-breadcrumb { display: flex; align-items: center; gap: 7px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }.kt-breadcrumb a { color: inherit; }.kt-breadcrumb span { color: var(--hbos-text-secondary); }
+.kt-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }.kt-page-heading h1 { margin: 0; color: #193661; font-size: 30px; line-height: 38px; letter-spacing: -.4px; }.kt-page-heading p { margin: 6px 0 0; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); }.heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.knowledge-hero { padding: 26px; border-radius: 24px; min-width: 0; }.knowledge-eyebrow { display: flex; gap: 8px; align-items: center; color: #347f76; font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); }.knowledge-hero h2 { margin: 12px 0 6px; color: #193661; font-size: 30px; line-height: 38px; letter-spacing: -.4px; }.knowledge-hero h2 span { background: linear-gradient(115deg,#58a994,#38a9bc); -webkit-background-clip: text; background-clip: text; color: transparent; }.knowledge-hero>p { margin: 0 0 22px; font-size: var(--hbos-font-body); color: var(--hbos-text-secondary); }
+.composer-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }.knowledge-modes { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(35,115,102,.07); }.knowledge-modes button { padding: 8px 18px; border: 0; border-radius: 9px; color: var(--hbos-text-secondary); background: transparent; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); cursor: pointer; }.knowledge-modes button[aria-pressed=true] { color: #146f61; background: rgba(255,255,255,.95); box-shadow: 0 2px 8px rgba(35,115,102,.08); }.knowledge-modes button:disabled { color: var(--hbos-text-muted); cursor: not-allowed; }
+.knowledge-space-filter { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); }.knowledge-space-filter label { white-space: nowrap; }.knowledge-space-filter select { max-width: 100%; min-width: 0; padding: 9px 12px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; background: var(--hbos-bg-surface); color: var(--hbos-text-primary); font: inherit; }
+.knowledge-search { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border: 1px solid var(--hbos-border-strong); border-radius: 16px; background: rgba(255,255,255,.9); }.knowledge-search:focus-within { outline: 2px solid var(--hbos-brand-aqua); outline-offset: 3px; }.knowledge-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); color: var(--hbos-text-primary); }.knowledge-search textarea { grid-column: 1/-1; width: 100%; min-height: 92px; min-width: 0; resize: vertical; border: 0; outline: 0; background: transparent; font: inherit; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); color: var(--hbos-text-primary); }.ask-composer { grid-template-columns: 1fr auto; }.ask-composer .ant-btn { grid-column: 2; }
+.composer-help { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); }.composer-help>span:last-child { flex-shrink: 0; }.over-limit { color: #b43c50; }.composer-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 8px; }.composer-actions:empty { display: none; }.muted { font-size: var(--hbos-font-meta); color: var(--hbos-text-muted); }
+.knowledge-state-line { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); }.knowledge-state-line .ant-btn { margin-left: auto; }.state-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #e5a42c; box-shadow: 0 0 0 4px rgba(229,164,44,.1); }.state-dot.ready { background: #1bbc86; box-shadow: 0 0 0 4px rgba(27,188,134,.1); }.observation-note { font-size: var(--hbos-font-meta); color: var(--hbos-text-muted); }
+.knowledge-results,.knowledge-start { padding: 22px; border-radius: 23px; min-width: 0; }.section-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }.section-title h2 { margin: 0; font-size: 20px; line-height: 28px; color: #203b66; }.section-title p { margin: 4px 0 0; font-size: var(--hbos-font-body); color: var(--hbos-text-secondary); }.result-list { display: grid; gap: 12px; }.result-card { padding: 18px; border: 1px solid var(--hbos-border-strong); border-radius: 18px; background: rgba(255,255,255,.7); min-width: 0; }.result-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }.result-card h3 { margin: 12px 0 5px; color: #243e66; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); overflow-wrap: anywhere; }.section-label,.status-note { font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); margin: 4px 0; color: var(--hbos-text-muted); }.status-note { color: #96702d; }.excerpt-preview { margin: 12px 0; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); color: var(--hbos-text-secondary); overflow-wrap: anywhere; }.result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; }.result-actions>button { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 6px 0; font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); color: #247a70; cursor: pointer; }
+.catalog-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }.catalog-heading p { margin: 0 0 12px; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); }.catalog-filter { display: flex; gap: 10px; margin-bottom: 12px; }.catalog-query { width: 100%; min-width: 0; padding: 10px 14px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; font: inherit; background: rgba(255,255,255,.82); color: var(--hbos-text-primary); }.catalog-content { min-height: 150px; }.catalog-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 16px 0; border-top: 1px solid var(--hbos-border-strong); }.catalog-row>div { min-width: 0; }.catalog-row strong { font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); overflow-wrap: anywhere; }.catalog-row p { margin: 6px 0 2px; font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); color: var(--hbos-text-muted); overflow-wrap: anywhere; }.catalog-row small { font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); color: #96702d; }.catalog-row :deep(.ant-tag) { flex-shrink: 0; max-width: 34%; white-space: normal; overflow-wrap: anywhere; }
+.department-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; }.department-grid button { display: grid; justify-items: start; gap: 8px; padding: 16px; border: 1px solid var(--hbos-border-strong); border-radius: 16px; background: rgba(255,255,255,.65); color: var(--hbos-text-primary); text-align: left; font: inherit; cursor: pointer; }.department-grid button[aria-pressed=true] { border-color: #48bca6; background: rgba(236,252,247,.7); }.department-grid strong { font-size: var(--hbos-font-card-title); }.department-grid span { color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }
+.knowledge-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); color: var(--hbos-text-muted); }button:focus-visible,select:focus-visible,.catalog-query:focus-visible { outline: 2px solid var(--hbos-brand-aqua); outline-offset: 3px; }
+@media(max-width:700px) { .kt-page-heading { align-items: flex-start; flex-direction: column; gap: 10px; }.knowledge-hero { padding: 20px 16px; }.knowledge-hero h2 { font-size: 20px; line-height: 28px; }.composer-toolbar { align-items: flex-start; flex-direction: column; }.knowledge-space-filter { width: 100%; }.knowledge-space-filter select { flex: 1; }.knowledge-search { grid-template-columns: auto minmax(0,1fr); }.knowledge-search .ant-btn { grid-column: 1/-1; width: 100%; }.composer-help { flex-wrap: wrap; gap: 4px; }.knowledge-state-line .ant-btn { margin-left: 0; }.knowledge-results,.knowledge-start { padding: 16px; }.department-grid { grid-template-columns: 1fr; } }
 </style>

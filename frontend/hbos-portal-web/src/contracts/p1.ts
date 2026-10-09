@@ -28,6 +28,7 @@ export interface KnowledgeStatus {
     blocked: boolean
     expires_at: string | null
     manual_recheck_required: boolean
+    budget_status?: 'UNKNOWN' | 'READY' | 'ACCOUNTING_PENDING' | 'EXPIRED' | 'EXHAUSTED' | 'UNAVAILABLE'
   }
 }
 
@@ -112,6 +113,22 @@ export interface KnowledgeDocument {
   document_number: string | null
   version: string | null
   status_note: string
+}
+
+export interface KnowledgeDocumentPage {
+  documents: KnowledgeDocument[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface KnowledgeFeedback {
+  id: string
+  category: string
+  note: string
+  status: 'Pending' | 'In Review' | 'Resolved'
+  created_at: string
+  updated_at: string
 }
 
 export interface KnowledgeActivity {
