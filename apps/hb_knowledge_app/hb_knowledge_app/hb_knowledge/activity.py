@@ -33,14 +33,32 @@ def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None
     if category:data.update(category=category,note=safe_string(note or '',500))
     if kind=='Bookmark':
         fingerprint=canonical(data)
-        old=frappe.db.get_value(DOCTYPE,{'owner_user':actor.user_ref,'kind':kind,'payload_json':fingerprint},'name')
-        if old:return old
     name=('BOOKMARK_'+hashlib.sha256((actor.user_ref+'\0'+fingerprint).encode()).hexdigest()
           if kind=='Bookmark' else secrets.token_urlsafe(24))
     doc={'doctype':DOCTYPE,'activity_id':name,'owner_user':actor.user_ref,'kind':kind,
         'payload_json':canonical(data),'status':'Pending' if kind=='Feedback' else 'Saved',
         'publication_id':runtime.publication.publication_id if kind=='History' else ''}
     if kind=='Bookmark':
+        # Lock an existing native row, rather than competing for the absent
+        # bookmark's index gap. MariaDB may otherwise raise a transaction
+        # deadlock before it can report a duplicate insert. The user row remains
+        # locked until Frappe commits the whole request, serializing this owner's
+        # saves across processes without a separate lock service or new table.
+        users=frappe.db.sql('SELECT name,enabled FROM `tabUser` WHERE name=%s FOR UPDATE',
+                           (actor.user_ref,),as_dict=True)
+        if len(users)!=1 or not users[0]['enabled']:raise KnowledgeError('AUTHENTICATION_REQUIRED')
+        found=frappe.db.sql('SELECT name,payload_json FROM `tabHBOS Knowledge Activity` '
+            'WHERE name=%s AND owner_user=%s AND kind=%s FOR UPDATE',
+            (name,actor.user_ref,'Bookmark'),as_dict=True)
+        if found:
+            if len(found)!=1 or found[0]['payload_json']!=fingerprint:raise KnowledgeError('SERVICE_ERROR')
+            return found[0]['name']
+        # Keep previously saved random IDs; a locking read also sees a save
+        # committed after this request's earlier consistent reads.
+        old=frappe.db.sql('SELECT name FROM `tabHBOS Knowledge Activity` '
+            'WHERE owner_user=%s AND kind=%s AND payload_json=%s LIMIT 1 FOR UPDATE',
+            (actor.user_ref,'Bookmark',fingerprint),as_dict=True)
+        if old:return old[0]['name']
         frappe.db.savepoint('knowledge_bookmark_insert')
         try:frappe.get_doc(doc).insert(ignore_permissions=True)
         except frappe.DuplicateEntryError:
