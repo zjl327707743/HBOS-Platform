@@ -130,7 +130,8 @@ def list_activity(runtime,kind):
 def reopen(runtime,name,request_id):
     actor,mapping=current(runtime);_,data=owned(name,actor)
     bindings=bindings_for(data,mapping)
-    request=normalize_search({'query':data['query'],**({'space_ids':data['space_ids']} if data['space_ids'] else {})})
+    request=normalize_search({'query':data['query'],**({'space_ids':data['space_ids']} if data['space_ids'] else {}),
+                              **({'context':data['context']} if data.get('context') else {})})
     ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
     # Revalidate native RAGFlow metadata, not only the saved title or HBOS cache.
     records=[EvidenceRecord(b.canonical_document_id,b.title,b.business_version,None,b.section,None,'',reference[3],b.dataset_alias,b.space_id,b.version_id,b.binding_ref,b) for b,reference in zip(bindings,data['references'])]
@@ -138,7 +139,7 @@ def reopen(runtime,name,request_id):
         runtime.decisions.online(__principal(runtime),ticket.call('introspect','introspect'))
         runtime.gateway.authorize_evidence(ticket,records,phase='evidence_read')
     runtime.provider.revalidate(ticket.plan)
-    return {'query':data['query'],'space_ids':data['space_ids']}
+    return {'query':data['query'],'space_ids':data['space_ids'],**({'context':dict(request.context)} if request.context else {})}
 
 def remove(runtime,name):
     import frappe
