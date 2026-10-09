@@ -40,6 +40,8 @@
 - `docs/milestones/M3_考勤页原生化与Desk共享视觉层.md`：M3-PORTAL-R1 后续（2026-09-29）——考勤三页由同域 iframe 改为门户原生页 + Desk 共享视觉层 + 班次管理写接口服务端 RBAC。
 - `docs/milestones/M3_考勤Desk页视觉改造与门户导航.md`：M3-PORTAL-R1 后续（2026-10-02）——Desk 四页视觉改造 + 页面缓存失效机制（`bump_page_cache.py`）+ 门户考勤应用内导航（`AttendanceLayout.vue`）。
 - `docs/milestones/M3_考勤面板全面化与分组导航.md`：M3-PORTAL-R1 后续（2026-10-08）——11 个后台面改门户原生（AntD）+ 分组侧栏导航 + 上传 CSRF 支持；班次管理保留 iframe。
+- `docs/milestones/M1_FIX_设备动力部24小时连班配对修复.md`：设备动力部 24 小时值班配对修复（2026-10-02 起草，分支 `m1-fix-pairing-long-duty`）——形状放宽配对、真实数据实测。
+- `docs/milestones/M1_FIX_设备动力部值班配对生效记录.md`：上述修复的**生效记录**（2026-10-09）——合入本分支、重启容器、单次重算；设备动力部缺勤 470→197、零误伤、无缺日；顺带发现 9/30 整日缺失。
 - 后续每个大里程碑单独一个文件，例如 `M1.md`、`M2.md`。
 
 ## 里程碑文件规则
