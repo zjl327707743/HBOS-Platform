@@ -91,6 +91,7 @@ it('clears the model on context loss and revalidates it on restoration',async()=
   const scheduler=await start();render();const canvas=wrapper!.get('canvas').element
   const lost=new Event('webglcontextlost',{cancelable:true});canvas.dispatchEvent(lost)
   expect(lost.defaultPrevented).toBe(true);expect(original.dispose).toHaveBeenCalledTimes(1)
+  expect(wrapper!.emitted('contextLost')).toHaveLength(1)
   canvas.dispatchEvent(new Event('webglcontextrestored'));await flushPromises();render()
   expect(fetch).toHaveBeenCalledTimes(2);expect(replacement.dispose).not.toHaveBeenCalled();expect(wrapper!.emitted('ready')).toHaveLength(2);scheduler.stop()
 })

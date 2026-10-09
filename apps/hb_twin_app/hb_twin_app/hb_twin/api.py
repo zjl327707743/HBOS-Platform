@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import time
 from typing import Callable
 
 import frappe
@@ -45,12 +46,15 @@ def _model_error_status(code: str) -> int:
 def _bundle(entry_id: str, expected_model_sha256: str | None = None,
             expected_mapping_revision: str | None = None,
             expected_process_revision: str | None = None) -> bundles.Bundle:
-    return bundles.load_bundle(
+    started = time.perf_counter()
+    bundle = bundles.load_bundle(
         _asset_root(), entry_id, load_current_policy(),
         expected_model_sha256=expected_model_sha256,
         expected_mapping_revision=expected_mapping_revision,
         expected_process_revision=expected_process_revision,
     )
+    frappe.local.response_headers["Server-Timing"] = f"twin_integrity;dur={(time.perf_counter()-started)*1000:.2f}"
+    return bundle
 
 
 def _run_v1(action: Callable[[], dict[str, object]]) -> dict[str, object]:

@@ -10,7 +10,7 @@ import type { CatalogEntry, DemoSession, TwinManifest, TwinMapping } from '@/typ
 const api=vi.hoisted(()=>({getCatalog:vi.fn(),getManifest:vi.fn(),getParts:vi.fn(),getProcess:vi.fn(),getMapping:vi.fn()}))
 vi.mock('@/services/twin/twinApi',async original=>({...await original<typeof import('@/services/twin/twinApi')>(),...api}))
 const Viewer=defineComponent({
-  name:'TestTwinViewer',props:['manifest','process','session','scheduler'],emits:['select','ready','manual','restore'],
+  name:'TestTwinViewer',props:['manifest','process','session','scheduler'],emits:['select','ready','manual','restore','contextLost'],
   setup(_props,{emit,expose}){onMounted(()=>emit('ready'));expose({selectIds:vi.fn(),focusIds:vi.fn(),focusSelected:vi.fn(),toggleIsolate:vi.fn(),hideSelected:vi.fn(),restoreAll:vi.fn()})},
   template:'<div data-test="viewer">{{manifest.entry_id}}</div>',
 })
@@ -77,6 +77,15 @@ it('keeps dual equipment timelines independent',async()=>{
   wrapper!.getComponent(TwinProcessPanel).vm.$emit('seek',29);await wrapper!.get('.device-select select').setValue('M607B')
   expect(viewer().props('session').time).toBe(0);expect(viewer().props('session').mode).toBe('browse')
   await wrapper!.get('.device-select select').setValue('M606B');expect(viewer().props('session').time).toBe(29);expect(viewer().props('session').paused).toBe(true)
+})
+
+it('pauses the active demo on graphics loss and requires a fresh viewer before playing',async()=>{
+  await start();await button('生产示教').trigger('click');wrapper!.getComponent(TwinProcessPanel).vm.$emit('toggle');await flushPromises()
+  const active=viewer().props('session') as DemoSession;expect(active.paused).toBe(false)
+  viewer().vm.$emit('contextLost');await flushPromises()
+  expect(active.paused).toBe(true);expect(button('生产示教').attributes('disabled')).toBeDefined()
+  viewer().vm.$emit('ready');await flushPromises()
+  expect(active.paused).toBe(true);expect(button('生产示教').attributes('disabled')).toBeUndefined()
 })
 
 it('leaves static browsing available on a process incompatibility',async()=>{

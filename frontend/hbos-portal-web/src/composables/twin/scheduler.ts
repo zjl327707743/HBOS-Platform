@@ -1,5 +1,7 @@
 /** One scheduler owns every Twin render and demo tick in this workspace. */
+import { twinLifecycle } from './reviewMetrics'
 export function createScheduler(request = requestAnimationFrame, cancel = cancelAnimationFrame) {
+  twinLifecycle.schedulersCreated++
   let frame: number | null = null
   let previous: number | null = null
   let destroyed = false
@@ -18,7 +20,7 @@ export function createScheduler(request = requestAnimationFrame, cancel = cancel
     listeners.add(listener); invalidate()
     return () => { listeners.delete(listener) }
   }
-  function stop() { destroyed = true; if (frame !== null) cancel(frame); frame = null; previous = null; listeners.clear() }
+  function stop() { if(!destroyed)twinLifecycle.schedulersStopped++; destroyed = true; if (frame !== null) cancel(frame); frame = null; previous = null; listeners.clear() }
   return { invalidate, subscribe, stop, get listenerCount() { return listeners.size }, get pendingFrames() { return frame === null ? 0 : 1 } }
 }
 export type TwinScheduler = ReturnType<typeof createScheduler>

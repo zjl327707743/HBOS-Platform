@@ -31,15 +31,24 @@ import type { DemoSession, ProcessBundle, TwinManifest, ViewerMetrics } from '@/
 import type { TwinScheduler } from '@/composables/twin/scheduler'
 import { applySourcePresentation, DisplayState, disposeTree, effectiveVisible } from './resources'
 import { createProduction, type ProductionRuntime } from './process/runtime'
+import { boundedSample, sampleSummary, twinLifecycle } from '@/composables/twin/reviewMetrics'
 
 const props = defineProps<{ manifest:TwinManifest; process:ProcessBundle | null; session:DemoSession; scheduler:TwinScheduler }>()
-const emit = defineEmits<{ select:[assetId:string|null]; ready:[]; fatal:[message:string]; error:[message:string]; manual:[]; metrics:[value:ViewerMetrics]; processError:[message:string]; restore:[] }>()
+const emit = defineEmits<{ select:[assetId:string|null]; ready:[]; fatal:[message:string]; error:[message:string]; manual:[]; metrics:[value:ViewerMetrics]; processError:[message:string]; restore:[]; contextLost:[] }>()
 const canvas=ref<HTMLCanvasElement|null>(null), viewport=ref<HTMLElement|null>(null)
 const loading=ref(true), error=ref(''), fatal=ref(false), hasSelection=ref(false), isolated=ref(false), wireframe=ref(false)
 let renderer:T.WebGLRenderer|null=null, scene:T.Scene|null=null, camera:T.PerspectiveCamera|null=null, controls:OrbitControls|null=null
 let root:T.Object3D|null=null, display:DisplayState|null=null, processRuntime:ProductionRuntime|null=null
 let observer:ResizeObserver|null=null, abort:AbortController|null=null, generation=0, disposed=false, dirty=true, userCamera=false
 let unsubscribe:(()=>void)|null=null, parseMs=0, downloadMs=0, started=0, firstVisibleMs:number|null=null
+let serverTiming:string|null=null, baseline='', lastDemoFrame:number|null=null, lastMetrics=0
+let recoveryTimer:ReturnType<typeof setTimeout>|null=null
+const picks:number[]=[], demoIntervals:number[]=[], renderSubmission:number[]=[]
+function sourceSignature(){
+  let hash=2166136261
+  root?.traverse(n=>{const text=JSON.stringify([n.visible,n.matrix.elements,n instanceof T.Mesh?(Array.isArray(n.material)?n.material:[n.material]).map(m=>m.uuid):[]]);for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619)})
+  return (hash>>>0).toString(16)
+}
 const nodes=new Map<string,T.Object3D>(), pointers=new Map<number,{x:number;y:number}>()
 let gestureMoved=false
 const raycaster=new T.Raycaster(), pointer=new T.Vector2()
@@ -86,9 +95,11 @@ function pointerUp(event:PointerEvent){
   const start=pointers.get(event.pointerId),wasMultiple=pointers.size>1;pointers.delete(event.pointerId)
   if(!start||gestureMoved||wasMultiple||pointers.size||!canvas.value||!camera||!root||loading.value||error.value)return
   const r=canvas.value.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,-(event.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera)
+  const picking=performance.now()
   const hit=raycaster.intersectObject(root,true).find(h=>effectiveVisible(h.object))
   const node=hit?assetNode(hit.object):null
   selectIds(node?[String(node.userData.asset_id)]:[],true)
+  boundedSample(picks,performance.now()-picking)
 }
 function manual(){userCamera=true;emit('manual')}
 function onKeydown(event:KeyboardEvent){
@@ -115,13 +126,14 @@ function enterProcess(){
 }
 function cleanupModel(){
   abort?.abort();abort=null;exitProcess();display?.dispose();display=null
-  if(root)disposeTree(root);root=null;nodes.clear();hasSelection.value=false;isolated.value=false;wireframe.value=false
+  if(root){disposeTree(root);twinLifecycle.modelsDisposed++}root=null;nodes.clear();hasSelection.value=false;isolated.value=false;wireframe.value=false
 }
 async function loadModel(){
-  const token=++generation;cleanupModel();loading.value=true;error.value='';fatal.value=false;started=performance.now();firstVisibleMs=null
+  const token=++generation;cleanupModel();loading.value=true;error.value='';fatal.value=false;started=performance.now();firstVisibleMs=null;lastMetrics=0;lastDemoFrame=null;baseline='';picks.length=0;demoIntervals.length=0;renderSubmission.length=0
   const controller=new AbortController();abort=controller
   try{
     const response=await fetch(props.manifest.model_url,{credentials:'same-origin',cache:'no-store',signal:controller.signal})
+    serverTiming=response.headers?.get('Server-Timing')??null
     if(!response.ok){if([401,403,409].includes(response.status)){fatal.value=true;throw new Error('设备权限、会话或模型完整性已失效。')}throw new Error('受保护模型暂时不可用，请重试。')}
     const data=await response.arrayBuffer();downloadMs=performance.now()-started
     const digest=await crypto.subtle.digest('SHA-256',data)
@@ -130,6 +142,7 @@ async function loadModel(){
     const parsing=performance.now(),gltf=await new GLTFLoader().parseAsync(data,'');parseMs=performance.now()-parsing
     if(disposed||token!==generation||!scene){disposeTree(gltf.scene);return}
     root=gltf.scene;applySourcePresentation(root);scene.add(root);display=new DisplayState(root)
+    root.updateMatrixWorld(true);baseline=sourceSignature()
     root.traverse(n=>{if(typeof n.userData.asset_id==='string')nodes.set(n.userData.asset_id,n)})
     userCamera=false;frameObject(root)
     if(camera&&controls){original.position.copy(camera.position);original.target.copy(controls.target);original.near=camera.near;original.far=camera.far;original.fov=camera.fov}
@@ -141,12 +154,13 @@ async function loadModel(){
   }
 }
 function resize(){if(!canvas.value||!renderer||!camera)return;const w=Math.max(canvas.value.clientWidth,1),h=Math.max(canvas.value.clientHeight,1);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(root&&!userCamera&&props.session.mode==='browse'){frameObject(root);if(controls){original.position.copy(camera.position);original.target.copy(controls.target);original.near=camera.near;original.far=camera.far}}invalidate()}
-function lost(event:Event){event.preventDefault();generation++;cleanupModel();error.value='图形上下文已丢失。恢复后将重新验证并载入。';loading.value=false;emit('error',error.value)}
+function lost(event:Event){event.preventDefault();generation++;cleanupModel();error.value='图形上下文已丢失。恢复后将重新验证并载入。';loading.value=false;emit('contextLost');emit('error',error.value)}
 function recovered(){if(disposed)return;initializeRenderer();void loadModel()}
-function releaseRenderer(){controls?.removeEventListener('change',invalidate);controls?.removeEventListener('start',manual);controls?.dispose();controls=null;renderer?.dispose();renderer=null;scene=null;camera=null}
+function releaseRenderer(){controls?.removeEventListener('change',invalidate);controls?.removeEventListener('start',manual);controls?.dispose();controls=null;if(renderer){renderer.dispose();twinLifecycle.renderersDisposed++}renderer=null;scene=null;camera=null}
 function initializeRenderer(){
   releaseRenderer();if(!canvas.value)return
   renderer=new T.WebGLRenderer({canvas:canvas.value,antialias:true,powerPreference:'high-performance'});renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;renderer.localClippingEnabled=true
+  twinLifecycle.renderersCreated++
   scene=new T.Scene();scene.background=new T.Color('#e9eff5')
   scene.add(new T.HemisphereLight('#f3f7ff','#6e7f91',2.8));const light=new T.DirectionalLight('#ffffff',3.8);light.position.set(6,10,8);scene.add(light);const fill=new T.DirectionalLight('#b3c7ef',2);fill.position.set(-6,4,-4);scene.add(fill)
   camera=new T.PerspectiveCamera(38,1,.01,1000);controls=new OrbitControls(camera,canvas.value);controls.enableDamping=false;controls.screenSpacePanning=true;controls.addEventListener('change',invalidate);controls.addEventListener('start',manual);resize()
@@ -157,17 +171,54 @@ watch(()=>props.manifest.model_sha256,()=>{void loadModel()})
 onMounted(()=>{
   initializeRenderer();const c=canvas.value!;c.addEventListener('pointerdown',pointerDown);c.addEventListener('pointermove',pointerMove);c.addEventListener('pointerup',pointerUp);c.addEventListener('pointercancel',pointerCancel);c.addEventListener('webglcontextlost',lost);c.addEventListener('webglcontextrestored',recovered)
   observer=new ResizeObserver(resize);observer.observe(c)
-  unsubscribe=props.scheduler.subscribe(()=>{if(disposed||!renderer||!scene||!camera||error.value)return false;if(processRuntime){processRuntime.update(props.session.time);dirty=true}if(dirty){renderer.render(scene,camera);dirty=false;if(root&&!loading.value&&firstVisibleMs===null)firstVisibleMs=performance.now()-started;const info=renderer.info;if(firstVisibleMs!==null)emit('metrics',{geometries:info.memory.geometries,textures:info.memory.textures,triangles:info.render.triangles,calls:info.render.calls,downloadMs,parseMs,firstVisibleMs,ownedMaterials:display?.owned.size||0})}return false})
+  unsubscribe=props.scheduler.subscribe((_dt,now)=>{
+    if(disposed||!renderer||!scene||!camera||error.value)return false
+    if(processRuntime){processRuntime.update(props.session.time);dirty=true}
+    const running=Boolean(processRuntime&&!props.session.paused)
+    if(running&&lastDemoFrame!==null)boundedSample(demoIntervals,now-lastDemoFrame)
+    lastDemoFrame=running?now:null
+    if(dirty){const submit=performance.now();renderer.render(scene,camera);boundedSample(renderSubmission,performance.now()-submit);dirty=false
+      if(root&&!loading.value&&firstVisibleMs===null)firstVisibleMs=performance.now()-started
+      const info=renderer.info
+      if(firstVisibleMs!==null&&(!running||!lastMetrics||now-lastMetrics>=1000)){lastMetrics=now;emit('metrics',{geometries:info.memory.geometries,textures:info.memory.textures,triangles:info.render.triangles,calls:info.render.calls,downloadMs,parseMs,firstVisibleMs,ownedMaterials:display?.owned.size||0})}
+    }return false
+  })
   void loadModel()
 })
 onBeforeUnmount(()=>{
   disposed=true;generation++;unsubscribe?.();observer?.disconnect();pointers.clear()
+  if(recoveryTimer!==null)clearTimeout(recoveryTimer)
   const c=canvas.value;if(c){c.removeEventListener('pointerdown',pointerDown);c.removeEventListener('pointermove',pointerMove);c.removeEventListener('pointerup',pointerUp);c.removeEventListener('pointercancel',pointerCancel);c.removeEventListener('webglcontextlost',lost);c.removeEventListener('webglcontextrestored',recovered)}
   cleanupModel();releaseRenderer()
 })
-defineExpose({selectIds,focusIds,focusSelected,toggleIsolate,hideSelected,restoreAll,resetView})
+function reviewSnapshot(){
+  const c=canvas.value,gl=renderer?.getContext(),debug=gl?.getExtension('WEBGL_debug_renderer_info'),rect=c?.getBoundingClientRect()
+  root?.updateMatrixWorld(true)
+  return {entry_id:props.manifest.entry_id,equipment_id:props.session.equipmentId,model_sha256:props.manifest.model_sha256,
+    captured_at:new Date().toISOString(),browser:navigator.userAgent,hardware_concurrency:navigator.hardwareConcurrency,
+    viewport:{width:innerWidth,height:innerHeight,client_width:document.documentElement.clientWidth,dpr:devicePixelRatio},
+    canvas:{css_width:rect?.width,css_height:rect?.height,buffer_width:c?.width,buffer_height:c?.height,quality_pixel_ratio_cap:1.5,antialias:true},
+    graphics:gl?{version:gl.getParameter(gl.VERSION),vendor:debug?gl.getParameter(debug.UNMASKED_VENDOR_WEBGL):gl.getParameter(gl.VENDOR),renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)}:null,
+    load:{request_started_at_ms:started,download_ms:downloadMs,parse_ms:parseMs,model_request_to_first_render_ms:firstVisibleMs,server_timing:serverTiming},
+    pick_cpu:sampleSummary(picks),demo_frame_interval:sampleSummary(demoIntervals),render_cpu_submission:sampleSummary(renderSubmission),
+    resources:renderer?{...renderer.info.memory,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,owned_materials:display?.owned.size||0}:null,
+    lifecycle:{...twinLifecycle,active_renderers:twinLifecycle.renderersCreated-twinLifecycle.renderersDisposed,active_demos:twinLifecycle.demosCreated-twinLifecycle.demosDisposed,active_schedulers:twinLifecycle.schedulersCreated-twinLifecycle.schedulersStopped},
+    scheduler:{listeners:props.scheduler.listenerCount,pending_frames:props.scheduler.pendingFrames},
+    source_state:{baseline_signature:baseline,current_signature:sourceSignature(),baseline_restored:baseline===sourceSignature()},
+    session:{mode:props.session.mode,time:props.session.time,paused:props.session.paused,speed:props.session.speed,follow_camera:props.session.followCamera},
+    schematic:processRuntime?.reviewState()??null,
+    measurement_limit:'Frame intervals and CPU submission are browser observations, not GPU duration or a whole-memory leak proof.'}
+}
+function reviewGraphicsRecovery(){
+  if(!props.manifest.review_only||!renderer||recoveryTimer!==null)return false
+  const extension=renderer.getContext().getExtension('WEBGL_lose_context')
+  if(!extension)return false
+  extension.loseContext();recoveryTimer=setTimeout(()=>{recoveryTimer=null;if(!disposed)extension.restoreContext()},600)
+  return true
+}
+defineExpose({selectIds,focusIds,focusSelected,toggleIsolate,hideSelected,restoreAll,resetView,reviewSnapshot,reviewGraphicsRecovery})
 </script>
 
 <style scoped>
-.twin-viewport{position:relative;min-width:0;height:610px;overflow:hidden;border-radius:18px;background:#e9eff5;border:1px solid #dce5ee}canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}canvas:active{cursor:grabbing}canvas:focus-visible{outline:3px solid #655cf0;outline-offset:-4px}.viewport-label{position:absolute;top:18px;left:18px;max-width:calc(100% - 80px);padding:8px 11px;background:#fffffff0;border-radius:9px;color:#526276;font-size:12px;pointer-events:none}.source-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#9c7b3c;margin-right:8px}.viewer-tools{position:absolute;right:14px;top:16px;display:grid;gap:6px}.viewer-tools button,.view-chip button{border:1px solid #d7e1eb;background:#ffffffed;color:#415875;border-radius:10px;min-width:40px;min-height:40px;font-size:21px;cursor:pointer}.viewer-tools button[aria-pressed=true]{background:#6158d8;color:white}.viewer-tools button:disabled{opacity:.35;cursor:default}.viewer-tools button:focus-visible,.view-chip button:focus-visible{outline:3px solid #655cf0;outline-offset:2px}.viewer-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#edf3f9ed;text-align:center;padding:30px;gap:12px;color:#38526f}.viewer-state strong{font-size:18px}.viewer-state p{max-width:360px;margin:0;color:#6e7e91}.viewer-state button{padding:10px 24px;border:1px solid #c7d6e6;border-radius:10px;background:white;cursor:pointer}.state-mark{font-size:38px;color:#736bc1}.viewer-bottom{position:absolute;left:18px;right:18px;bottom:14px;display:flex;justify-content:space-between;gap:10px;color:#66768a;font-size:12px;pointer-events:none}.view-chip{position:absolute;bottom:52px;left:18px;padding:6px 12px;background:white;border-radius:10px;font-size:13px}.view-chip button{font-size:12px;border:0}.twin-viewport:fullscreen{height:100vh;border-radius:0}@media(max-width:700px){.twin-viewport{height:520px}.viewer-bottom{font-size:11px;flex-direction:column}.viewport-label{font-size:11px}.viewer-tools button{min-width:44px;min-height:44px}}
+.twin-viewport{position:relative;min-width:0;height:var(--twin-viewer-height,610px);overflow:hidden;border-radius:18px;background:#e9eff5;border:1px solid #dce5ee}canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}canvas:active{cursor:grabbing}canvas:focus-visible{outline:3px solid #655cf0;outline-offset:-4px}.viewport-label{position:absolute;top:18px;left:18px;max-width:calc(100% - 80px);padding:8px 11px;background:#fffffff0;border-radius:9px;color:#526276;font-size:12px;pointer-events:none}.source-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#9c7b3c;margin-right:8px}.viewer-tools{position:absolute;right:14px;top:16px;display:grid;gap:6px}.viewer-tools button,.view-chip button{border:1px solid #d7e1eb;background:#ffffffed;color:#415875;border-radius:10px;min-width:40px;min-height:40px;font-size:21px;cursor:pointer}.viewer-tools button[aria-pressed=true]{background:#6158d8;color:white}.viewer-tools button:disabled{opacity:.35;cursor:default}.viewer-tools button:focus-visible,.view-chip button:focus-visible{outline:3px solid #655cf0;outline-offset:2px}.viewer-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#edf3f9ed;text-align:center;padding:30px;gap:12px;color:#38526f}.viewer-state strong{font-size:18px}.viewer-state p{max-width:360px;margin:0;color:#6e7e91}.viewer-state button{padding:10px 24px;border:1px solid #c7d6e6;border-radius:10px;background:white;cursor:pointer}.state-mark{font-size:38px;color:#736bc1}.viewer-bottom{position:absolute;left:18px;right:18px;bottom:14px;display:flex;justify-content:space-between;gap:10px;color:#66768a;font-size:12px;pointer-events:none}.view-chip{position:absolute;bottom:52px;left:18px;padding:6px 12px;background:white;border-radius:10px;font-size:13px}.view-chip button{font-size:12px;border:0}.twin-viewport:fullscreen{height:100vh;border-radius:0}@media(max-width:700px){.twin-viewport{height:520px}.viewer-bottom{font-size:11px;flex-direction:column}.viewport-label{font-size:11px}.viewer-tools button{min-width:44px;min-height:44px}}
 </style>
