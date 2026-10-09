@@ -10,6 +10,11 @@ from datetime import timedelta as _timedelta
 # (2026-08-20 事故: queue worker 容器为 UTC, fromtimestamp 导致打卡时间错位 8 小时)
 DELICLOUD_TZ = _tz(_timedelta(hours=8))
 
+# 定时重算的回溯天数。必须 > 31, 否则「上个月最后一天」仍会掉进跨月空洞
+# （原实现回溯到「本月 1 日」, 于是每月末丢一天）。取 35 留了余量。
+# 见 regenerate_attendance 调用处的注释。
+REGENERATE_LOOKBACK_DAYS = 35
+
 from hb_attendance_app.hbos_attendance.pairing import (
     pair_employee_checkins, FOUR_SHIFT_NUMS, safety_shift_from_gap, LONG_DUTY_DEPTS,
 )
@@ -286,9 +291,21 @@ def sync_delicloud_checkin():
         from datetime import datetime as _dt, timedelta as _td
 
         # 考勤生成只算到昨天: 今天数据不完整(下班卡/夜班卡未打), 避免全员假缺勤
-        yesterday = (_dt.now() - _td(days=1)).strftime("%Y-%m-%d")
-        month_start = _dt.now().replace(day=1).strftime("%Y-%m-%d")
-        gen_result = regenerate_attendance(month_start, yesterday)
+        yesterday = _dt.now() - _td(days=1)
+        # 窗口用**滚动回溯**而非「本月 1 日」。
+        #
+        # 为什么要跨月: regenerate_attendance 先删后建, 而它的第二条 DELETE 会删掉
+        # `attendance_date > range_end` 的全部记录。原实现取 range_end = 昨天,
+        # 于是**每个月最后一天**在次日被删掉, 而次日已跨月、窗口从 1 日起,
+        # 重建范围覆盖不到它 —— 那天就此永久丢失。
+        # 实测: 9/30 整日为 0 行(7/31、8/31 因当时还没有那条 DELETE 而幸存),
+        # 且 10/01 那天月首(10-01) > 昨天(09-30) 区间倒置, in_range 恒为假,
+        # 一个字都不会重建。见 M1_FIX_设备动力部值班配对生效记录.md §10。
+        #
+        # 回溯 35 天足以含住「上个月最后一天」, 使它在次日就被重建。
+        # 代价: 每 10 分钟重建约 35 天而非本月 1 日起的约 8 天。
+        gen_start = (yesterday - _td(days=REGENERATE_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+        gen_result = regenerate_attendance(gen_start, yesterday.strftime("%Y-%m-%d"))
 
         return {"total": len(all_recs), "created": created, "skipped": skipped,
                 "attendance_generated": gen_result}
