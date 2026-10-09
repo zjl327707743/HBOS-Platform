@@ -4,12 +4,18 @@ from .execution_plan import validate_admission
 from .r1_contract import validate_structure
 
 
+def authorized_spaces(snapshot,*,actions=('knowledge.spaces',)):
+    allowed=set(snapshot.active_spaces)-set(snapshot.denied_spaces)
+    for action in actions:
+        allowed &= {g.space_id for g in snapshot.grants
+                    if g.action==action and g.role_ref in snapshot.actor_state.roles}
+    return allowed
+
+
 def list_spaces(runtime, actor):
     def project(snapshot):
         from .public_strings import safe_string
-        allowed = {grant.space_id for grant in snapshot.grants
-                   if grant.action == 'knowledge.spaces' and grant.role_ref in snapshot.actor_state.roles
-                   and grant.space_id in snapshot.active_spaces and grant.space_id not in snapshot.denied_spaces}
+        allowed = authorized_spaces(snapshot)
         if len(allowed) > 100:
             raise KnowledgeError('POLICY_UNAVAILABLE')
         titles = dict(snapshot.space_titles)

@@ -69,6 +69,7 @@ def _availability(runtime,*,diagnostics=False):
         if not isinstance(value,dict) or not PUBLIC_FIELDS.issubset(value):return fallback
         if value['status'] not in {'AVAILABLE','UNKNOWN','OBSERVED_ERROR','NOT_CONFIGURED'}:return fallback
         if value['observed_error'] not in {None,'UPSTREAM_UNAVAILABLE'}:return fallback
+        if value['budget_status'] not in {'UNKNOWN','READY','ACCOUNTING_PENDING','EXPIRED','EXHAUSTED','UNAVAILABLE'}:return fallback
         # The signed service is trusted for the fixed projection, never raw errors.
         return value if diagnostics else {k:value[k] for k in PUBLIC_FIELDS}
     except KnowledgeError:return fallback
@@ -127,7 +128,7 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
         validate_structure("SearchData",data)
         if runtime.profile=="production":
             from .activity import write
-            write("History",request.query,request.space_ids,records,runtime)
+            write("History",request.query,request.space_ids,records,runtime,context=request.context)
         runtime.audit.record(actor.user_ref,"search","SUCCESS",len(output))
         return data
     return _run(current)
@@ -180,6 +181,9 @@ def ask(**business_fields):
             _,mapping=activity_current(runtime)
             _,previous=owned(raw['conversation_id'],actor,kinds=('History',))
             bindings_for(previous,mapping)
+            requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context')}})
+            from .followup import validate_followup_scope
+            validate_followup_scope(previous,requested.space_ids,requested.context)
             from .followup import followup_query, UNRESOLVED_FOLLOWUP
             followup=followup_query(previous['query'],question)
             if followup is None:
@@ -189,7 +193,7 @@ def ask(**business_fields):
                 ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
                 runtime.publication.plan=ticket.plan
                 runtime.quota.reserve_output(actor.user_ref,len(UNRESOLVED_FOLLOWUP))
-                turn=write('History',question,request.space_ids,[],runtime,conversation_id=raw['conversation_id'])
+                turn=write('History',question,request.space_ids,[],runtime,conversation_id=raw['conversation_id'],context=request.context)
                 activity_current(runtime)
                 runtime.audit.record(actor.user_ref,'ask','INSUFFICIENT_EVIDENCE',0)
                 return {'request_id':request_id,'turn_id':turn,'conversation_id':turn,'mode':'authorized_generation',
@@ -214,7 +218,7 @@ def ask(**business_fields):
             'answerable':bool(citations),'answer':answer,'citations':citations}
         if not citations:data['mode']='authorized_generation'
         validate_ask_data(data,environment=runtime.profile)
-        turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'))
+        turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context)
         data['turn_id']=turn;data['conversation_id']=turn
         runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
         runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
@@ -230,12 +234,31 @@ def get_documents(**business_fields):
         runtime=load_runtime();return get_catalog(runtime,runtime.actor())
     return _run(current)
 
+
+@frappe.whitelist(methods=['GET'])
+def get_documents_page(query=None,space_id=None,page=1,page_size=12,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'get_documents_page'):raise KnowledgeError('INVALID_REQUEST')
+        from .reference_admin import get_catalog_page
+        runtime=load_runtime()
+        return get_catalog_page(runtime,runtime.actor(),query=query,space_id=space_id,page=page,page_size=page_size)
+    return _run(current)
+
 @frappe.whitelist(methods=['GET'])
 def get_activity(kind=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'get_activity'):raise KnowledgeError('INVALID_REQUEST')
         from .activity import list_activity
         return list_activity(load_runtime(),kind)
+    return _run(current)
+
+
+@frappe.whitelist(methods=['GET'])
+def get_feedback(**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'get_feedback'):raise KnowledgeError('INVALID_REQUEST')
+        from .activity import list_feedback
+        return list_feedback(load_runtime())
     return _run(current)
 
 @frappe.whitelist(methods=['POST'])

@@ -12,4 +12,6 @@ import hb_knowledge_app.hb_knowledge
 import pytest
 
 assert Path(hb_knowledge_app.hb_knowledge.__file__).resolve() == APP / 'hb_knowledge_app/hb_knowledge/__init__.py'
-raise SystemExit(pytest.main(['--import-mode=importlib', str(APP / 'tests'), '-q', '-p', 'no:cacheprovider', *sys.argv[1:]]))
+targets=[str(APP/'tests')]
+if (ROOT/'scripts/knowledge/tests').is_dir():targets.append(str(ROOT/'scripts/knowledge/tests'))
+raise SystemExit(pytest.main(['--import-mode=importlib', *targets, '-q', '-p', 'no:cacheprovider', *sys.argv[1:]]))

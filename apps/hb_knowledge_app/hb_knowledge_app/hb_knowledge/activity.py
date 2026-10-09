@@ -1,5 +1,5 @@
 """Native user-owned logical activity; no originals, full text or durable excerpts."""
-import json,secrets
+import hashlib,json,secrets
 from .errors import KnowledgeError
 from .r1_contract import normalize_search
 from .public_strings import safe_string
@@ -9,27 +9,47 @@ from .service_http import canonical
 DOCTYPE='HBOS Knowledge Activity'
 
 def current(runtime):
+    from .spaces import authorized_spaces
+    from .execution_plan import validate_admission
     actor=runtime.actor();snapshot=runtime.provider._current(actor,runtime.client)
-    return actor,{(b.canonical_document_id,b.version_id):b for b in snapshot.bindings}
+    allowed=authorized_spaces(snapshot,actions=('knowledge.search',));mapping={}
+    for b in snapshot.bindings:
+        if b.space_id not in allowed or b.dataset_id not in snapshot.allowed_datasets:continue
+        try:validate_admission(b,runtime.profile,runtime.provider.clock())
+        except KnowledgeError:continue
+        mapping[(b.canonical_document_id,b.version_id)]=b
+    return actor,mapping
 
 def logical(records):
     return sorted({(r.binding.canonical_document_id,r.binding.version_id,r.binding.binding_ref,r.chunk_id) for r in records})
 
-def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None,note=None):
+def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None,note=None,context=None):
     import frappe
     actor,_=current(runtime)
     safe_string(query,500)
-    data={'query':query,'space_ids':list(spaces or []),'references':logical(records)}
+    data={'query':query,'space_ids':sorted(set(spaces or [])),'references':logical(records)}
+    if context:data['context']=dict(context)
     if conversation_id:data['conversation_id']=conversation_id
     if category:data.update(category=category,note=safe_string(note or '',500))
     if kind=='Bookmark':
         fingerprint=canonical(data)
         old=frappe.db.get_value(DOCTYPE,{'owner_user':actor.user_ref,'kind':kind,'payload_json':fingerprint},'name')
         if old:return old
-    name=secrets.token_urlsafe(24)
-    frappe.get_doc({'doctype':DOCTYPE,'activity_id':name,'owner_user':actor.user_ref,'kind':kind,
+    name=('BOOKMARK_'+hashlib.sha256((actor.user_ref+'\0'+fingerprint).encode()).hexdigest()
+          if kind=='Bookmark' else secrets.token_urlsafe(24))
+    doc={'doctype':DOCTYPE,'activity_id':name,'owner_user':actor.user_ref,'kind':kind,
         'payload_json':canonical(data),'status':'Pending' if kind=='Feedback' else 'Saved',
-        'publication_id':runtime.publication.publication_id if kind=='History' else ''}).insert(ignore_permissions=True)
+        'publication_id':runtime.publication.publication_id if kind=='History' else ''}
+    if kind=='Bookmark':
+        frappe.db.savepoint('knowledge_bookmark_insert')
+        try:frappe.get_doc(doc).insert(ignore_permissions=True)
+        except frappe.DuplicateEntryError:
+            frappe.db.rollback(save_point='knowledge_bookmark_insert')
+            found=frappe.db.sql('SELECT name,payload_json FROM `tabHBOS Knowledge Activity` '
+                'WHERE name=%s AND owner_user=%s AND kind=%s FOR UPDATE',
+                (name,actor.user_ref,'Bookmark'),as_dict=True)
+            if len(found)!=1 or found[0]['payload_json']!=fingerprint:raise KnowledgeError('SERVICE_ERROR')
+    else:frappe.get_doc(doc).insert(ignore_permissions=True)
     return name
 
 def owned(name,actor,kinds=('History','Bookmark')):
@@ -83,6 +103,23 @@ def remove(runtime,name):
     actor,_=current(runtime);owned(name,actor)
     frappe.delete_doc(DOCTYPE,name,ignore_permissions=True)
     return {'removed':True}
+
+
+def list_feedback(runtime):
+    """Employee-owned notes/status only; no source handles or maintenance queue."""
+    import frappe
+    actor,_=current(runtime);out=[]
+    rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref,'kind':'Feedback'},
+        fields=['name','payload_json','status','creation','modified'],order_by='creation desc',limit_page_length=100)
+    for row in rows:
+        if row.status not in ('Pending','In Review','Resolved'):raise KnowledgeError('SERVICE_ERROR')
+        data=json.loads(row.payload_json)
+        out.append({'id':row.name,'category':safe_string(data.get('category'),120),
+            'note':safe_string(data.get('note',''),500),'status':row.status,
+            'created_at':str(row.creation),'updated_at':str(row.modified)})
+    final_actor,_=current(runtime)
+    if final_actor!=actor:raise KnowledgeError('SCOPE_REJECTED')
+    return {'items':out}
 
 def feedback_queue(runtime):
     import frappe

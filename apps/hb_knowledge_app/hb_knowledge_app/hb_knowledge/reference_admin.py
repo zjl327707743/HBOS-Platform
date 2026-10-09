@@ -6,6 +6,7 @@ from .execution_plan import Binding, iso, validate_admission
 from .metadata_integrity import physical_pair_key, IDENTITY_FIELDS
 from .service_http import canonical
 from .publication import PublicationConflict, decide, receipt_id, verify_frozen_target, select_publication_items
+from .errors import KnowledgeError
 
 def _require(condition, message):
     if not condition:
@@ -156,21 +157,52 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
             'batch_sha256':state['batch_sha256'],'selection_sha256':selection_hash,
             'selected_documents':len(items),'frozen_items':len(state['items']),'results':results}
 
-def get_catalog(runtime,actor):
+def _catalog_projection(runtime, snapshot):
     from .public_strings import safe_string
-    def project(snapshot):
-        titles=dict(snapshot.space_titles);seen=set();out=[]
-        for b in snapshot.bindings:
-            key=(b.space_id,b.canonical_document_id,b.version_id)
-            if key in seen:continue
-            try:validate_admission(b,runtime.profile,runtime.provider.clock())
-            except Exception:continue
-            seen.add(key)
-            out.append({'document_id':safe_string(b.canonical_document_id,120),'title':safe_string(b.title,240,nullable=True),
-                'space_id':b.space_id,'department':safe_string(titles.get(b.space_id,''),120),
-                'document_number':safe_string(b.document_number,120,nullable=True),'version':b.business_version,
-                'status_note':'内部参考／有效性待核' if b.authority_status in {'CONTROLLED_REFERENCE_REVIEWED','INTERNAL_REFERENCE_REVIEWED'} else b.authority_status})
-        return {'documents':out}
-    value=project(runtime.provider._current(actor,runtime.client))
-    if value!=project(runtime.provider._current(actor,runtime.client)):raise RuntimeError('Catalog changed')
+    from .spaces import authorized_spaces
+    allowed=authorized_spaces(snapshot,actions=('knowledge.spaces','knowledge.search'))
+    titles=dict(snapshot.space_titles);seen=set();out=[]
+    for b in snapshot.bindings:
+        key=(b.space_id,b.canonical_document_id,b.version_id)
+        if (key in seen or b.space_id not in allowed
+                or b.dataset_id not in snapshot.allowed_datasets):continue
+        try:validate_admission(b,runtime.profile,runtime.provider.clock())
+        except KnowledgeError:continue
+        seen.add(key)
+        out.append({'document_id':safe_string(b.canonical_document_id,120),'title':safe_string(b.title,240,nullable=True),
+            'space_id':safe_string(b.space_id,120),'department':safe_string(titles.get(b.space_id,''),120),
+            'document_number':safe_string(b.document_number,120,nullable=True),'version':b.business_version,
+            'status_note':'内部参考／有效性待核' if b.authority_status in {'CONTROLLED_REFERENCE_REVIEWED','INTERNAL_REFERENCE_REVIEWED'} else b.authority_status})
+    return sorted(out,key=lambda d:(d['department'],d['title'] or '',d['document_id'],d['space_id']))
+
+
+def _catalog_read(runtime,actor,project):
+    value=project(_catalog_projection(runtime,runtime.provider._current(actor,runtime.client)))
+    runtime.checkpoint('before_catalog_return')
+    if value!=project(_catalog_projection(runtime,runtime.provider._current(actor,runtime.client))):
+        raise KnowledgeError('SCOPE_REJECTED')
     return value
+
+
+def get_catalog(runtime,actor):
+    return _catalog_read(runtime,actor,lambda docs:{'documents':docs})
+
+
+def _page_number(value,maximum):
+    if isinstance(value,str) and re.fullmatch(r'[0-9]{1,6}',value):value=int(value)
+    if type(value) is not int or not 1<=value<=maximum:raise KnowledgeError('INVALID_REQUEST')
+    return value
+
+
+def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=12):
+    from .public_strings import safe_string
+    page=_page_number(page,100000);page_size=_page_number(page_size,50)
+    if query is not None:query=safe_string(query,240).strip().casefold()
+    if space_id is not None:space_id=safe_string(space_id,120)
+    def project(docs):
+        selected=[d for d in docs if (not space_id or d['space_id']==space_id)
+                  and (not query or any(query in (d[k] or '').casefold()
+                                       for k in ('title','document_number','department')))]
+        start=(page-1)*page_size
+        return {'documents':selected[start:start+page_size],'total':len(selected),'page':page,'page_size':page_size}
+    return _catalog_read(runtime,actor,project)
