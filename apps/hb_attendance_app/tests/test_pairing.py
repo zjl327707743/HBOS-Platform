@@ -553,3 +553,64 @@ class NightOutDupTest(unittest.TestCase):
         atts = pair_employee_checkins(cks, "E1", "11005002", fake_shift_fn,
                                       terminal_aware=True, now_dt=datetime(2026, 9, 11, 4, 0))
         self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+
+class LongDutyPairingTest(unittest.TestCase):
+    """设备动力部 24 小时连班（早班 08:00 上班 → 次日 08:00 下班）配对。
+
+    Owner 2026-10-01 确认：该部门 12 小时倒班存在 早班+晚班 连班（约 24-25h），
+    超过统一 18h 配对上限，两端卡各自落孤立 → 两天各判一次缺勤（康东阁 9/25 一类）。
+    只对该部门放开「24 小时连班形状」，其余超长间隔照旧判缺勤。
+    """
+
+    def _in(self, day, h, m=0, s=0):
+        return {"time": datetime(2026, 9, day, h, m, s), "employee_name": "测试",
+                "department": "设备动力部", "hbos_terminal_sn": "13750CS_D7C69C16EC0B2447"}
+
+    def _out(self, day, h, m=0, s=0):
+        return {"time": datetime(2026, 9, day, h, m, s), "employee_name": "测试",
+                "department": "设备动力部", "hbos_terminal_sn": "13750CS_93C9390B9995FE8C"}
+
+    def _status(self, cks, **kw):
+        atts = pair_employee_checkins(
+            cks, "E1", "10009023", fake_shift_fn, terminal_aware=True,
+            now_dt=datetime(2026, 10, 1, 0, 0), **kw)
+        return {(a[2], a[3]) for a in atts}
+
+    def test_24h_duty_paired_when_long_duty_enabled(self):
+        # 9/2 08:12 上班 → 9/3 08:34 下班 = 24.37h，连班形状
+        s = self._status([self._in(2, 8, 12), self._out(3, 8, 34)], long_duty=True)
+        self.assertIn(("2026-09-02", "Present"), s)
+        self.assertNotIn(("2026-09-03", "Absent"), s)
+
+    def test_24h_duty_absent_when_long_duty_disabled(self):
+        # 默认关闭：与现行 18h 上限行为一致，两端各判一次缺勤
+        s = self._status([self._in(2, 8, 12), self._out(3, 8, 34)], long_duty=False)
+        self.assertIn(("2026-09-02", "Absent"), s)
+        self.assertIn(("2026-09-03", "Absent"), s)
+
+    def test_long_duty_defaults_to_off(self):
+        # 不传 long_duty 时保持旧行为（向后兼容）
+        s = self._status([self._in(2, 8, 12), self._out(3, 8, 34)])
+        self.assertIn(("2026-09-02", "Absent"), s)
+
+    def test_non_duty_shape_not_paired(self):
+        # 宋磊 9/4 案例：17:32 上班机误刷 + 次日 17:32 下班卡 = 24.01h，
+        # 非连班形状（上班卡不在 07-09 点），不得借放宽上限配对
+        s = self._status([self._in(2, 17, 32, 10), self._out(3, 17, 32)], long_duty=True)
+        self.assertIn(("2026-09-02", "Absent"), s)
+        self.assertIn(("2026-09-03", "Absent"), s)
+
+    def test_duty_end_window_boundary(self):
+        # 次日 09:30 下班仍在窗口内（< 10 点）
+        s = self._status([self._in(2, 8, 0), self._out(3, 9, 30)], long_duty=True)
+        self.assertIn(("2026-09-02", "Present"), s)
+
+    def test_duty_end_outside_window_not_paired(self):
+        # 次日 10:30 下班：出窗口（>= 10 点）且 26.5h 超上限
+        s = self._status([self._in(2, 8, 0), self._out(3, 10, 30)], long_duty=True)
+        self.assertIn(("2026-09-02", "Absent"), s)
+
+    def test_long_duty_depts_constant(self):
+        from hb_attendance_app.hbos_attendance.pairing import LONG_DUTY_DEPTS
+        self.assertIn("设备动力部", LONG_DUTY_DEPTS)

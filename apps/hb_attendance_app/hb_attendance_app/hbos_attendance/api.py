@@ -10,7 +10,9 @@ from datetime import timedelta as _timedelta
 # (2026-08-20 事故: queue worker 容器为 UTC, fromtimestamp 导致打卡时间错位 8 小时)
 DELICLOUD_TZ = _tz(_timedelta(hours=8))
 
-from hb_attendance_app.hbos_attendance.pairing import pair_employee_checkins, FOUR_SHIFT_NUMS, safety_shift_from_gap
+from hb_attendance_app.hbos_attendance.pairing import (
+    pair_employee_checkins, FOUR_SHIFT_NUMS, safety_shift_from_gap, LONG_DUTY_DEPTS,
+)
 from hb_attendance_app.hbos_attendance.rest_leave_apply import verified_rest_dates
 from hb_attendance_app.hbos_attendance.rule_lists import (
     ADMIN_NUMS, EXEMPT_NUMS, FOOD_NUMS, SAFETY_NUMS, LATE_EXEMPT_NUMS,
@@ -531,6 +533,9 @@ def regenerate_attendance(range_start, range_end):
         is_admin = emp_num in ADMIN_NUMS
         # 配对上限统一 18h（见 MAX_GAP_HOURS）
         max_gap_hours = MAX_GAP_HOURS
+        # 24 小时连班部门(Owner 2026-10-01 确认, 见 pairing.LONG_DUTY_DEPTS):
+        # 只放开「早 8 点上班 → 次日早 8 点下班」的连班形状, 其余超长间隔仍判缺勤
+        long_duty = (cks[0].get("department") or "") in LONG_DUTY_DEPTS
         # 有排班记录的员工放开行政班约束(排班表明确今天上什么班, 夜班跨天合法)
         has_schedule = bool(schedule_map.get(eid))
         if has_schedule:
@@ -549,6 +554,7 @@ def regenerate_attendance(range_start, range_end):
             track_roles=True,
             max_gap_hours=max_gap_hours,
             terminal_aware=True,
+            long_duty=long_duty,
             # 与打卡时间同基准（+8 naive）：容器 TZ 为 UTC，直接用 now() 会差 8 小时，
             # 使「班次未结束」的豁免窗口整体偏移（见 pairing.shift_may_be_unfinished）
             now_dt=_dt.now(DELICLOUD_TZ).replace(tzinfo=None),
