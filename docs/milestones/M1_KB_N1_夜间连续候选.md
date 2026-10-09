@@ -1,6 +1,6 @@
 # M1-KB-N1 夜间连续候选
 
-状态：REVIEWING / N1_PARTIAL_WITH_INDEPENDENT_WORK_COMPLETED / ACCOUNTING_PENDING。
+状态：N1_PARTIAL_WITH_INDEPENDENT_WORK_COMPLETED / REVIEW_COMPLETE_FOR_OFFLINE_SCOPE / ACCOUNTING_PENDING。
 
 本轮在旧候选和原持久数据上定向实施，不创建第二套知识实现。原生 RAGFlow 固定实现通过独立知识服务的模型注册扩展接入指定协议；请求/响应严格校验、禁止重定向和自动重试、预算停止守卫仍覆盖实际发送。单次诊断的旧成功没有替代真实业务恢复验收，计费 UNKNOWN 没有改写。
 
@@ -24,3 +24,9 @@ PR #30 只在所有任务门槛满足时合入 feature/hbos-portal-product。当
 HBOS App 与独立服务分别保留源码和提交；独立服务 0.3.11 wheel 随联合制品交付，不复制成 HBOS 第二实现。部署前安装该 wheel 与被测领域 App，绑定原 native 预算配置，并在启动 uvicorn 前安装原 generation 物理发送计量器。RAGFlow 扩展在其 api.apps 导入后注册，绑定固定原生模块及配置摘要；重复安装需重新校验文件和配置，不能靠旧类标记跳过校验。
 
 参考 [知识 App 联合装配](../../apps/hb_knowledge_app/README.md)。真实路径、凭据、冻结批次、费用、页面截图和后续人工决定仅在 Owner 本地交付；开发包只含代码、合成用例、依赖和制品摘要。
+
+## 非模型验收收口
+
+真实 HTTP／会话／权限检查55项通过；原生数据库10项发布事务合成检查及两个 OS 进程的收藏单行幂等通过。合成运行主体、来源回调和外部绑定验证器的边界保留，不把它们写成真实来源质量或付费业务通过。浏览器实际核对目录、本人反馈处理状态和三种视口，并发现、修复目录 debounce 期间假零结果；对应组件反例通过，前端最终143项。原领域106、本地准入18、服务162、旧核心207和 Portal 身份77项通过；层级重叠不合计。原业务三 App Provider 合同及 LIMS 生产构建保持。
+
+本轮没有原生 schema 变化，未迁移或 seed 原 Site。原12资料的版本、绑定、活动、审计、引用及用户指纹保留，原已发布批次重放12项 NOOP。旧成功项不重新解析，新资料未在线发布。最终联合制品和运行锁由开发交付核对；账务与真实业务门槛未通过，PR #30 保留 Draft。

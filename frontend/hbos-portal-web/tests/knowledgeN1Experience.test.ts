@@ -69,6 +69,15 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     const w = await view(); await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 12)
     vi.useFakeTimers(); await w.get('#catalog-query').setValue('合成标题'); await vi.advanceTimersByTimeAsync(200); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('合成标题', '', 1, 12); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
   })
+  it.each(['department', 'filter'])('catalog %s changes show pending state through debounce and only show empty after completion', async change => {
+    const w = await view(); const pending = deferred(); api.documents.mockReturnValueOnce(pending.promise); vi.useFakeTimers()
+    if (change === 'department') await w.get('#knowledge-space').setValue('SPACE_N1_SECOND')
+    else await w.get('#catalog-query').setValue('未匹配合成词')
+    expect(w.get('.catalog-heading').text()).toContain('更新中'); expect(w.find('.catalog-content [data-loading]').exists()).toBe(true); expect(w.find('.catalog-content [data-empty]').exists()).toBe(false)
+    await vi.advanceTimersByTimeAsync(200); await flushPromises(); expect(w.get('.catalog-heading').text()).toContain('更新中'); expect(w.find('.catalog-content [data-empty]').exists()).toBe(false)
+    pending.resolve({ documents: [], total: 0, page: 1, page_size: 12 }); await flushPromises()
+    expect(w.get('.catalog-heading').text()).toContain('0 份'); expect(w.find('.catalog-content [data-loading]').exists()).toBe(false); expect(w.get('.catalog-content [data-empty]').text()).toContain(change === 'department' ? '当前范围暂无' : '没有匹配的资料')
+  })
   it('late old catalog responses cannot refill a newly selected department', async () => {
     const old = deferred(); api.documents.mockReturnValueOnce(old.promise); const w = await view(); vi.useFakeTimers(); await w.get('#knowledge-space').setValue('SPACE_N1_SECOND'); api.documents.mockResolvedValue({ documents: [], total: 0, page: 1, page_size: 12 }); await vi.advanceTimersByTimeAsync(200); await flushPromises()
     old.resolve({ documents: [{ ...doc, title: 'OLD_SCOPE_CATALOG' }], total: 1, page: 1, page_size: 12 }); await flushPromises(); expect(w.text()).not.toContain('OLD_SCOPE_CATALOG'); expect(w.text()).toContain('当前范围暂无可查阅')

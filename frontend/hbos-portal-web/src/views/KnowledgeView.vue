@@ -97,7 +97,7 @@
 
         <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :ask-enabled="Boolean(status?.ask_enabled)" :retrieval-blocked="retrievalBlocked" :mode="mode" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @evidence="drawer.show" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
           <template #catalog>
-            <div class="catalog-heading"><p>只展示当前可读的已收录资料；内部参考／有效性待核。</p><a-tag>{{ catalogTotal }} 份</a-tag></div>
+            <div class="catalog-heading"><p>只展示当前可读的已收录资料；内部参考／有效性待核。</p><a-tag>{{ catalogLoading ? '更新中' : `${catalogTotal} 份` }}</a-tag></div>
             <form class="catalog-filter" @submit.prevent="refreshCatalog">
               <label class="sr-only" for="catalog-query">筛选资料标题或文档编号</label>
               <input id="catalog-query" v-model="catalogQuery" class="catalog-query" type="search" maxlength="240" placeholder="筛选资料标题或文档编号…" />
@@ -252,7 +252,7 @@ watch([equipmentId, assetId, componentId], () => {
   tools.value?.newConversation(); pageError.value = null; pageErrorCode.value = null
 }, { flush: 'sync' })
 watch([catalogQuery, selectedSpace], () => {
-  catalogPage.value = 1; catalogGeneration++; catalog.value = []; catalogTotal.value = 0; catalogError.value = ''
+  catalogPage.value = 1; catalogGeneration++; catalog.value = []; catalogTotal.value = 0; catalogError.value = ''; catalogLoading.value = true
   if (catalogTimer) clearTimeout(catalogTimer)
   catalogTimer = setTimeout(() => { catalogTimer = null; void refreshCatalog() }, 200)
 }, { flush: 'sync' })
