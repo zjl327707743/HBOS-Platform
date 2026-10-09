@@ -71,12 +71,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useSlots, watch } from 'vue'
-import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFeedback } from '@/contracts/p1'
+import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFeedback, KnowledgeSearchContext } from '@/contracts/p1'
 import { askKnowledgeReference, getKnowledgeActivity, getKnowledgeFeedback, openKnowledgeSaved, removeKnowledgeSaved, saveKnowledgeBookmark, sendKnowledgeFeedback, DomainApiError } from '@/services/p1Api'
 
 type RecordKind = 'Catalog' | 'History' | 'Bookmark' | 'Feedback'
 const props = defineProps<{ subject: string; query: string; selectedSpace: string; askEnabled: boolean; retrievalBlocked?: boolean; composerExternal?: boolean; mode?: 'search' | 'ask' }>()
-const emit = defineEmits<{ replay: [query: string, spaces: string[]]; evidence: [id: string]; busy: [value: boolean]; conversation: [value: boolean]; 'upstream-error': []; 'access-error': [error: DomainApiError]; 'evidence-invalidated': [] }>()
+const emit = defineEmits<{ replay: [query: string, spaces: string[], context?: KnowledgeSearchContext]; evidence: [id: string]; busy: [value: boolean]; conversation: [value: boolean]; 'upstream-error': []; 'access-error': [error: DomainApiError]; 'evidence-invalidated': [] }>()
 const slots = useSlots()
 const tabs = computed(() => [
   ...(slots.catalog ? [{ kind: 'Catalog' as const, label: '资料目录' }] : []),
@@ -219,7 +219,10 @@ async function reopen(id: string) {
   if (props.retrievalBlocked) { error.value = '检索服务暂不可用，目录与个人记录仍可查看。'; return }
   await action(async current => {
     const data = await openKnowledgeSaved(id)
-    if (current === generation) emit('replay', data.query, data.space_ids)
+    if (current === generation) {
+      if (data.context) emit('replay', data.query, data.space_ids, data.context)
+      else emit('replay', data.query, data.space_ids)
+    }
   })
 }
 async function remove(id: string) {

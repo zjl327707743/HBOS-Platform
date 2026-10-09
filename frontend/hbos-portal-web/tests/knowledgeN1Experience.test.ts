@@ -73,6 +73,34 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     const old = deferred(); api.documents.mockReturnValueOnce(old.promise); const w = await view(); vi.useFakeTimers(); await w.get('#knowledge-space').setValue('SPACE_N1_SECOND'); api.documents.mockResolvedValue({ documents: [], total: 0, page: 1, page_size: 12 }); await vi.advanceTimersByTimeAsync(200); await flushPromises()
     old.resolve({ documents: [{ ...doc, title: 'OLD_SCOPE_CATALOG' }], total: 1, page: 1, page_size: 12 }); await flushPromises(); expect(w.text()).not.toContain('OLD_SCOPE_CATALOG'); expect(w.text()).toContain('当前范围暂无可查阅')
   })
+  it('saved replay restores its own context and displays that range before fresh search', async () => {
+    route.query = { equipment_id: 'EQ_CURRENT_DEMO', asset_id: 'ASSET_CURRENT_DEMO' }
+    api.activity.mockResolvedValue([{ id: 'SAVED_CONTEXT_DEMO', query: '合成旧问题', created_at: '2026-10-10', available: true, titles: ['合成标题'] }])
+    const context = { equipment_id: 'EQ_SAVED_DEMO', asset_id: 'ASSET_SAVED_DEMO', component_id: 'COMPONENT_SAVED_DEMO' }
+    api.open.mockResolvedValue({ query: '合成旧问题', space_ids: ['SPACE_N1_DEMO'], context })
+    api.search.mockImplementation(() => { expect(document.body.textContent).toContain('设备上下文 EQ_SAVED_DEMO'); expect(document.body.textContent).toContain('资产范围 ASSET_SAVED_DEMO'); return Promise.resolve({ request_id: 'REQ_N1_DEMO', mode: 'retrieval', results: [] }) })
+    const w = await view(); await clickText(w, '最近查阅'); await clickText(w, '重新查阅')
+    expect(api.search).toHaveBeenCalledWith('合成旧问题', context, ['SPACE_N1_DEMO']); expect(w.text()).not.toContain('EQ_CURRENT_DEMO'); expect(w.text()).toContain('组件范围 COMPONENT_SAVED_DEMO')
+  })
+  it('a legacy saved record without context does not inherit an unrelated current device range', async () => {
+    route.query = { equipment_id: 'EQ_CURRENT_DEMO' }
+    api.activity.mockResolvedValue([{ id: 'SAVED_LEGACY_DEMO', query: '合成旧问题', created_at: '2026-10-10', available: true, titles: [] }]); api.open.mockResolvedValue({ query: '合成旧问题', space_ids: [] })
+    const w = await view(); await clickText(w, '最近查阅'); await clickText(w, '重新查阅')
+    expect(api.search).toHaveBeenCalledWith('合成旧问题', {}, undefined); expect(w.text()).not.toContain('设备上下文 EQ_CURRENT_DEMO')
+  })
+  it('a saved multi-department scope never silently replays against all departments', async () => {
+    api.activity.mockResolvedValue([{ id: 'SAVED_MULTI_SCOPE_DEMO', query: '合成多部门问题', created_at: '2026-10-10', available: true, titles: [] }])
+    const context = { equipment_id: 'EQ_SAVED_DEMO' }; api.open.mockResolvedValue({ query: '合成多部门问题', space_ids: ['SPACE_N1_DEMO', 'SPACE_N1_SECOND'], context })
+    const w = await view(); await clickText(w, '最近查阅'); await clickText(w, '重新查阅')
+    expect(w.get('#knowledge-query').element).toHaveProperty('value', '合成多部门问题'); expect(w.text()).toContain('这条记录包含多个部门'); expect(api.search).not.toHaveBeenCalled(); expect(api.ask).not.toHaveBeenCalled()
+    await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.search).not.toHaveBeenCalled()
+    await w.get('#knowledge-space').setValue('SPACE_N1_DEMO'); expect(api.search).not.toHaveBeenCalled(); await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.search).toHaveBeenCalledWith('合成多部门问题', context, ['SPACE_N1_DEMO'])
+  })
+  it('a device range change discards a slow response from the previous range', async () => {
+    route.query = { equipment_id: 'EQ_OLD_DEMO' }; const pending = deferred(); api.search.mockReturnValueOnce(pending.promise)
+    const w = await view(); await w.get('#knowledge-query').setValue('合成设备问题'); await w.get('.knowledge-search').trigger('submit'); route.query = { equipment_id: 'EQ_NEW_DEMO' }; await flushPromises()
+    pending.resolve({ request_id: 'REQ_OLD_CONTEXT_DEMO', mode: 'retrieval', results: [{ ...card, excerpt: 'OLD_DEVICE_PRIVATE' }] }); await flushPromises(); expect(w.text()).not.toContain('OLD_DEVICE_PRIVATE'); expect(w.text()).toContain('设备上下文 EQ_NEW_DEMO')
+  })
   it('opens feedback near its trigger and reads the real pending/resolved state', async () => {
     api.getFeedback.mockResolvedValue([{ id: 'FEEDBACK_N1_DEMO', category: '版本疑问', note: '合成维护问题', status: 'Pending', created_at: '2026-10-10 01:00', updated_at: '2026-10-10 01:00' }])
     const w = await view(); await search(w); await clickText(w, '反馈'); await w.get('#feedback-category').setValue('版本疑问'); await w.get('#feedback-note').setValue('合成维护问题'); await clickText(w, '提交反馈')

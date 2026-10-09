@@ -127,6 +127,31 @@ describe('N1 current-user feedback and paginated catalog projections', () => {
     transport.post.mockResolvedValueOnce({ ok: false, error: { code: 'FORBIDDEN', message: 'SYNTHETIC_DENIED' } })
     await expect(sendKnowledgeFeedback(undefined, '其他', '合成一般使用问题')).rejects.toMatchObject({ code: 'FORBIDDEN' })
   })
+  it('preserves a saved equipment/asset/component context while accepting legacy records without context', async () => {
+    const { openKnowledgeSaved } = await import('@/services/p1Api')
+    const saved = { query: '合成旧问题', space_ids: ['SPACE_N1_DEMO'], context: { equipment_id: 'EQ_N1_DEMO', asset_id: 'ASSET_N1_DEMO', component_id: 'COMPONENT_N1_DEMO' } }
+    transport.post.mockResolvedValueOnce({ ok: true, data: saved }); expect(await openKnowledgeSaved('SAVED_N1_DEMO')).toEqual(saved)
+    const { context, ...legacy } = saved
+    transport.post.mockResolvedValueOnce({ ok: true, data: legacy }); expect(await openKnowledgeSaved('SAVED_LEGACY_DEMO')).toEqual(legacy)
+    transport.post.mockResolvedValueOnce({ ok: true, data: { ...legacy, context: {} } }); expect(await openKnowledgeSaved('SAVED_EMPTY_CONTEXT_DEMO')).toEqual(legacy)
+  })
+  it.each([
+    { equipment_id: 'EQ_N1_DEMO', dataset_id: 'PHYSICAL_ID' },
+    { equipment_id: 42 },
+    { asset_id: 'ASSET_WITHOUT_EQUIPMENT_DEMO' },
+    null,
+  ])('rejects an unsafe optional saved context case %#', async context => {
+    const { openKnowledgeSaved } = await import('@/services/p1Api')
+    transport.post.mockResolvedValue({ ok: true, data: { query: '合成旧问题', space_ids: ['SPACE_N1_DEMO'], context } })
+    await expect(openKnowledgeSaved('SAVED_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
+  })
+  it('rejects duplicate saved departments and unprojected response fields', async () => {
+    const { openKnowledgeSaved } = await import('@/services/p1Api')
+    transport.post.mockResolvedValueOnce({ ok: true, data: { query: '合成旧问题', space_ids: ['SPACE_N1_DEMO', 'SPACE_N1_DEMO'] } })
+    await expect(openKnowledgeSaved('SAVED_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
+    transport.post.mockResolvedValueOnce({ ok: true, data: { query: '合成旧问题', space_ids: [], owner_user: 'PRIVATE_USER_DEMO' } })
+    await expect(openKnowledgeSaved('SAVED_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
+  })
 })
 
 describe('N1 bounded follow-up responses', () => {

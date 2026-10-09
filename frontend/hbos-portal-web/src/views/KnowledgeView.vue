@@ -13,8 +13,9 @@
       <div class="heading-actions">
         <a-tag v-if="status?.environment === 'synthetic'" color="orange">隔离合成测试</a-tag>
         <a-tag v-if="status?.environment === 'production'" color="blue">内部共享参考库</a-tag>
-        <a-tag v-if="equipmentId" color="geekblue">设备上下文 {{ equipmentId }}</a-tag>
-
+        <a-tag v-if="mode === 'search' && equipmentId" color="geekblue">设备上下文 {{ equipmentId }}</a-tag>
+        <a-tag v-if="mode === 'search' && assetId" color="geekblue">资产范围 {{ assetId }}</a-tag>
+        <a-tag v-if="mode === 'search' && componentId" color="geekblue">组件范围 {{ componentId }}</a-tag>
       </div>
     </header>
 
@@ -148,7 +149,7 @@
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApartmentOutlined, ArrowRightOutlined, BulbOutlined, RightOutlined, SafetyCertificateOutlined, SearchOutlined } from '@ant-design/icons-vue'
-import type { KnowledgeEvidence, KnowledgeStatus, KnowledgeSpace, KnowledgeDocument } from '@/contracts/p1'
+import type { KnowledgeEvidence, KnowledgeStatus, KnowledgeSpace, KnowledgeDocument, KnowledgeSearchContext } from '@/contracts/p1'
 import { DomainApiError, getKnowledgeStatus, getKnowledgeSpaces, getKnowledgeDocumentsPage, searchKnowledge } from '@/services/p1Api'
 import EvidenceDrawer from '@/components/knowledge/EvidenceDrawer.vue'
 import KnowledgeTools from '@/components/knowledge/KnowledgeTools.vue'
@@ -158,13 +159,20 @@ import { usePortalStore } from '@/stores/portal'
 const route = useRoute()
 const portal = usePortalStore()
 const subjectKey = computed(() => portal.user?.id || null)
-const equipmentId = computed(() => typeof route.query.equipment_id === 'string' ? route.query.equipment_id : '')
-const assetId = computed(() => typeof route.query.asset_id === 'string' ? route.query.asset_id : '')
-const componentId = computed(() => typeof route.query.component_id === 'string' ? route.query.component_id : '')
+const savedContext = ref<KnowledgeSearchContext | null>(null)
+const currentContext = computed<KnowledgeSearchContext>(() => savedContext.value ?? {
+  equipment_id: typeof route.query.equipment_id === 'string' ? route.query.equipment_id : undefined,
+  asset_id: typeof route.query.asset_id === 'string' ? route.query.asset_id : undefined,
+  component_id: typeof route.query.component_id === 'string' ? route.query.component_id : undefined,
+})
+const equipmentId = computed(() => currentContext.value.equipment_id || '')
+const assetId = computed(() => currentContext.value.asset_id || '')
+const componentId = computed(() => currentContext.value.component_id || '')
 const status = ref<KnowledgeStatus | null>(null)
 const statusLoading = ref(false)
 const spaces = ref<KnowledgeSpace[]>([])
 const selectedSpace = ref('')
+const savedScopeNeedsSelection = ref(false)
 const mode = ref<'search' | 'ask'>('search')
 const query = ref(typeof route.query.q === 'string' ? [...route.query.q].slice(0, 500).join('') : '')
 const composing = ref(false)
@@ -197,7 +205,7 @@ const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FO
 
 const currentScopeLabel = computed(() => spaces.value.find(s => s.space_id === selectedSpace.value)?.title || '全部已收录资料')
 const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked || status.value?.retrieval_availability?.status === 'OBSERVED_ERROR' || ['ACCOUNTING_PENDING', 'EXPIRED', 'EXHAUSTED', 'UNAVAILABLE'].includes(status.value?.retrieval_availability?.budget_status || '')))
-const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && (mode.value === 'search' || status.value?.ask_enabled)))
+const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && !savedScopeNeedsSelection.value && (mode.value === 'search' || status.value?.ask_enabled)))
 const statusTone = computed(() => status.value?.retrieval_availability?.status === 'AVAILABLE' && !retrievalBlocked.value ? 'ready' : 'waiting')
 const blockedDescription = computed(() => {
   const availability = status.value?.retrieval_availability
@@ -228,6 +236,7 @@ watch(subjectKey, () => {
   if (catalogTimer) clearTimeout(catalogTimer)
   status.value = null; statusLoading.value = false; results.value = []; query.value = ''; composing.value = false
   searching.value = false; askBusy.value = false; hasConversation.value = false; composerNotice.value = ''
+  savedContext.value = null; savedScopeNeedsSelection.value = false
   spaces.value = []; catalog.value = []; catalogTotal.value = 0; selectedSpace.value = ''; catalogQuery.value = ''; catalogPage.value = 1
   catalogLoading.value = false; catalogError.value = ''; pageError.value = null; pageErrorCode.value = null; hasSearched.value = false
   if (subjectKey.value) void refreshStatus()
@@ -235,6 +244,12 @@ watch(subjectKey, () => {
 watch(selectedSpace, () => {
   searchGeneration++; drawer.close(false); results.value = []; hasSearched.value = false; searching.value = false
   pageError.value = null; pageErrorCode.value = null; composerNotice.value = ''
+  if (selectedSpace.value) savedScopeNeedsSelection.value = false
+}, { flush: 'sync' })
+watch(() => [route.query.equipment_id, route.query.asset_id, route.query.component_id], () => { savedContext.value = null }, { flush: 'sync' })
+watch([equipmentId, assetId, componentId], () => {
+  searchGeneration++; drawer.close(false); results.value = []; hasSearched.value = false; searching.value = false
+  tools.value?.newConversation(); pageError.value = null; pageErrorCode.value = null
 }, { flush: 'sync' })
 watch([catalogQuery, selectedSpace], () => {
   catalogPage.value = 1; catalogGeneration++; catalog.value = []; catalogTotal.value = 0; catalogError.value = ''
@@ -280,6 +295,7 @@ function composerKeydown(event: KeyboardEvent) {
 }
 async function submitComposer() {
   if (composing.value || working.value || !query.value.trim() || inputTooLong.value) return
+  if (savedScopeNeedsSelection.value) { applyError(new DomainApiError('INVALID_REQUEST', '请选择一个明确的部门后再提交。')); return }
   if (mode.value === 'ask') {
     if (!canSubmit.value) { applyError(new DomainApiError('UPSTREAM_UNAVAILABLE', '检索服务暂不可用，目录与个人记录仍可查看。')); return }
     composerNotice.value = ''; await tools.value?.ask(query.value)
@@ -288,19 +304,33 @@ async function submitComposer() {
 async function submitSearch() {
   const normalized = query.value.trim()
   if (!normalized || searching.value || !subjectKey.value) return
+  if (savedScopeNeedsSelection.value) { applyError(new DomainApiError('INVALID_REQUEST', '请选择一个明确的部门后再提交。')); return }
   if (!canSubmit.value) { applyError(new DomainApiError('UPSTREAM_UNAVAILABLE', '检索服务暂不可用，目录与个人记录仍可查看。')); return }
   const generation = ++searchGeneration
   const subject = subjectKey.value
   const scope = selectedSpace.value
   drawer.close(false); searching.value = true; hasSearched.value = true; pageError.value = null; pageErrorCode.value = null; composerNotice.value = ''; results.value = []
   try {
-    const response = await searchKnowledge(normalized, { equipment_id: equipmentId.value || undefined, asset_id: assetId.value || undefined, component_id: componentId.value || undefined }, scope ? [scope] : undefined)
+    const response = await searchKnowledge(normalized, { ...currentContext.value }, scope ? [scope] : undefined)
     if (generation === searchGeneration && subject === subjectKey.value && scope === selectedSpace.value) { results.value = response.results; void tools.value?.refresh() }
   } catch (error) {
     if (generation === searchGeneration && subject === subjectKey.value) { applyError(error); if (pageErrorCode.value === 'UPSTREAM_UNAVAILABLE') void refreshStatus() }
   } finally { if (generation === searchGeneration) searching.value = false }
 }
-async function replaySaved(value: string, scope: string[]) { setMode('search'); selectedSpace.value = scope.length === 1 ? scope[0]! : ''; query.value = value; await submitSearch() }
+async function replaySaved(value: string, scope: string[], context: KnowledgeSearchContext = {}) {
+  setMode('search'); tools.value?.newConversation()
+  searchGeneration++; drawer.close(false); results.value = []; hasSearched.value = false; searching.value = false
+  selectedSpace.value = scope.length === 1 ? scope[0]! : ''
+  savedContext.value = { ...context }; query.value = value
+  savedScopeNeedsSelection.value = scope.length > 1 || (scope.length === 1 && !spaces.value.some(space => space.space_id === scope[0]))
+  if (savedScopeNeedsSelection.value) {
+    selectedSpace.value = ''
+    composerNotice.value = scope.length > 1 ? '这条记录包含多个部门。请选择一个部门后再提交；不会自动检索。' : '这条记录原来的部门当前不可选。请选择一个明确部门后再提交；不会自动检索。'
+    return
+  }
+  await nextTick()
+  await submitSearch()
+}
 async function openEvidence(item: KnowledgeEvidence) { await drawer.show(item.evidence_id) }
 async function refreshCatalog() {
   if (catalogTimer) { clearTimeout(catalogTimer); catalogTimer = null }

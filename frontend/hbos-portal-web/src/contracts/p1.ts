@@ -59,6 +59,12 @@ export interface KnowledgeSearchContext {
   component_id?: string
 }
 
+export interface KnowledgeSavedQuery {
+  query: string
+  space_ids: string[]
+  context?: KnowledgeSearchContext
+}
+
 export interface TwinStatus {
   can_enter: boolean
   equipment_ids: string[]

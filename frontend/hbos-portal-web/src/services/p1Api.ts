@@ -4,6 +4,7 @@ import type {
   KnowledgeEvidence,
   KnowledgeSearchContext,
   KnowledgeSearchResult,
+  KnowledgeSavedQuery,
   KnowledgeStatus,
   KnowledgeSpace,
   KnowledgeDocument,
@@ -247,11 +248,20 @@ export async function getKnowledgeActivity(kind: 'History' | 'Bookmark'): Promis
   })
   return data.items
 }
-export async function openKnowledgeSaved(id: string): Promise<{query: string;space_ids: string[]}> {
-  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{query: string;space_ids: string[]}>>('hb_knowledge_app.hb_knowledge.api.open_saved',{activity_id:id}))
+export async function openKnowledgeSaved(id: string): Promise<KnowledgeSavedQuery> {
+  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<KnowledgeSavedQuery>>('hb_knowledge_app.hb_knowledge.api.open_saved',{activity_id:id}))
+  const invalid = () => new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  if (!data || typeof data !== 'object' || Object.keys(data).some(key => !['query','space_ids','context'].includes(key))) throw invalid()
   safeKnowledgeString(data.query,500)
-  if (!Array.isArray(data.space_ids)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
-  data.space_ids.forEach(s => safeKnowledgeString(s,120));return data
+  if (!Array.isArray(data.space_ids) || data.space_ids.length > 20 || new Set(data.space_ids).size !== data.space_ids.length) throw invalid()
+  data.space_ids.forEach(s => { safeKnowledgeString(s,120); if (!s.trim() || s !== s.trim()) throw invalid() })
+  const projected: KnowledgeSavedQuery = { query: data.query, space_ids: [...data.space_ids] }
+  if ('context' in data) {
+    if (!data.context || typeof data.context !== 'object' || Array.isArray(data.context) || Object.keys(data.context).some(key => !['equipment_id','asset_id','component_id'].includes(key))) throw invalid()
+    validateKnowledgeContext(data.context)
+    if (Object.keys(data.context).length) projected.context = { ...data.context }
+  }
+  return projected
 }
 export async function removeKnowledgeSaved(id: string): Promise<void> {
   unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{removed:boolean}>>('hb_knowledge_app.hb_knowledge.api.remove_saved',{activity_id:id}))
