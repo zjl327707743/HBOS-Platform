@@ -34,17 +34,29 @@
           style="width: 200px"
         />
       </template>
-      <a-button type="primary" :loading="loading" @click="load">查询</a-button>
+      <a-button type="primary" :loading="loading" @click="reloadFromFirstPage">查询</a-button>
       <a-button :disabled="loading" @click="reset">重置</a-button>
     </div>
 
-    <a-alert
-      v-if="error"
-      type="error"
-      show-icon
-      :message="error"
-      class="rep-alert"
-    />
+    <!-- 页面动作。这些在 Desk 侧是报表的页内按钮，改原生时一度漏掉——
+         它们是这条业务线的核心动作（尤其 AI 复核与导出），不能只留表格。 -->
+    <div v-if="actions.length" class="rep-actions">
+      <a-space wrap>
+        <a-button
+          v-for="action in actions"
+          :key="action.key"
+          :type="action.kind === 'primary' ? 'primary' : 'default'"
+          :loading="busy === action.key"
+          :disabled="isActionDisabled(action.key)"
+          @click="run(action.key)"
+        >{{ action.label }}</a-button>
+      </a-space>
+      <span v-if="aiApplied" class="rep-ai-flag">
+        已执行 AI 复核（AI 列随「导出 Excel」一并导出）
+      </span>
+    </div>
+
+    <a-alert v-if="error" type="error" show-icon :message="error" class="rep-alert" />
 
     <div v-else class="rep-panel glass-surface">
       <a-table
@@ -70,6 +82,10 @@
               >{{ day }}</span>
             </span>
           </template>
+          <template v-else-if="column.key === 'ai_review'">
+            <span v-if="!record.ai_review" class="rep-zero">—</span>
+            <span v-else class="rep-ai">{{ record.ai_review }}</span>
+          </template>
           <template v-else-if="isNumeric(record[column.key])">
             <span :class="{ 'rep-zero': !record[column.key] }">{{ record[column.key] || 0 }}</span>
           </template>
@@ -81,25 +97,57 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { Modal, message } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import { callFrappeMethod } from '@/services/frappeClient'
 import {
+  exportMonthlyExceptions,
+  exportMonthlyXlsx,
   fetchReport,
   findReport,
+  previewAiReview,
   type ReportColumn,
   type ReportPayload,
 } from '@/services/attendanceReports'
 
 const route = useRoute()
+const router = useRouter()
 
 const payload = ref<ReportPayload | null>(null)
 const loading = ref(false)
 const error = ref('')
 const page = ref(1)
+/** 正在执行的动作 key —— 同一时刻只允许一个动作在跑 */
+const busy = ref('')
+
+/**
+ * 动作按钮的禁用态。
+ *
+ * **必须回真布尔**：写成内联的 `loading || (busy && busy !== key)`，两个分支
+ * 都为假时会得到 `''`（空字符串）。AntD 的 `disabled` 是 Boolean 声明属性，
+ * Vue 按 HTML 老规矩把空字符串转成 **true** —— 按钮会**永久禁用**。
+ * 实测踩到过：四个按钮全部点不动。
+ */
+function isActionDisabled(key: string): boolean {
+  return loading.value || (busy.value !== '' && busy.value !== key)
+}
+/** 本页是否已按 AI 复核重查过（决定提示与导出是否带 AI 列） */
+const aiApplied = ref(false)
 
 const slug = computed(() => String(route.params.slug ?? ''))
 const spec = computed(() => findReport(slug.value))
+
+/** 只有月度考勤汇总有页内动作；其余三张在 Desk 侧也只有筛选。 */
+const actions = computed(() => {
+  if (slug.value !== 'monthly') return []
+  return [
+    { key: 'ai', label: 'AI复核', kind: 'primary' },
+    { key: 'export', label: '导出 Excel', kind: 'default' },
+    { key: 'exceptions', label: '异常考勤导出', kind: 'default' },
+    { key: 'upload', label: '上传原始考勤表', kind: 'default' },
+  ]
+})
 
 const today = dayjs()
 // 默认窗口按报表给：不加日期过滤时这些报表会全量返回（打卡流水实测 61815 行），
@@ -148,7 +196,6 @@ function isNumeric(value: unknown) {
   return typeof value === 'number'
 }
 
-// 表格列：索引列 + 报表列。宽度沿用报表自己的定义，明细列给足空间。
 interface TableColumn {
   title: string
   key: string
@@ -169,7 +216,7 @@ const tableColumns = computed<TableColumn[]>(() => {
       key,
       dataIndex: key,
       width: isDetail(key) ? 260 : col.width || 110,
-      // 整型右对齐：数字列对齐后才能被纵向扫描比较
+      // 只有整型右对齐：Float/Currency 列左对齐是既有观感，不在此处改
       align: col.fieldtype === 'Int' ? 'right' : undefined,
     })
   }
@@ -234,7 +281,7 @@ async function loadDepartments() {
   }
 }
 
-function buildFilters(): Record<string, string> {
+function buildFilters(extra: Record<string, string> = {}): Record<string, string> {
   const out: Record<string, string> = {}
   const f = spec.value
   if (!f) return out
@@ -248,10 +295,10 @@ function buildFilters(): Record<string, string> {
     out.from_date = range.value[0].format('YYYY-MM-DD')
     out.to_date = range.value[1].format('YYYY-MM-DD')
   }
-  return out
+  return { ...out, ...extra }
 }
 
-async function load() {
+async function load(extra: Record<string, string> = {}) {
   const target = spec.value
   if (!target) {
     error.value = '未知的报表'
@@ -260,7 +307,11 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    payload.value = await fetchReport(target, buildFilters(), (page.value - 1) * pageSize())
+    payload.value = await fetchReport(
+      target,
+      buildFilters(extra),
+      (page.value - 1) * pageSize(),
+    )
   } catch (cause) {
     payload.value = null
     error.value = (cause instanceof Error && cause.message) || '报表加载失败'
@@ -273,13 +324,98 @@ function pageSize() {
   return spec.value?.pageSize ?? 50
 }
 
+function reloadFromFirstPage() {
+  page.value = 1
+  // 普通筛选变更时复位 AI 状态：Frappe 报表框架也是这个语义
+  // （enable_ai 只在复核流程里置 1，普通重查不带它）
+  aiApplied.value = false
+  load()
+}
+
 function reset() {
   filters.value.month = String(today.month() + 1)
   filters.value.year = String(today.year())
   filters.value.department = ''
   range.value = initialRange()
   page.value = 1
+  aiApplied.value = false
   load()
+}
+
+// ── 页面动作 ──────────────────────────────────────────────
+
+async function run(key: string) {
+  if (busy.value) return
+  busy.value = key
+  try {
+    if (key === 'ai') await doAiReview()
+    else if (key === 'export') await doExport('xlsx')
+    else if (key === 'exceptions') await doExport('exceptions')
+    else if (key === 'upload') goUpload()
+  } finally {
+    busy.value = ''
+  }
+}
+
+/**
+ * AI 复核：预览 → 确认 → 带 enable_ai 重查。
+ *
+ * **必须保留服务端的闸**：`ai_review_preview` 会在异常员工数超过单批上限
+ * （AI_BATCH）时返回那个数字，我们要**照它拒绝**。绕过它等于让用户一次
+ * 触发上百次付费 LLM 调用——服务端 `_attach_ai_review` 只复核前 AI_BATCH 人，
+ * 其余的标记「未复核」，那正是配合这个闸的。
+ */
+async function doAiReview() {
+  try {
+    const p = await previewAiReview(buildFilters())
+    if (!p.employee_count) {
+      message.info('当前范围没有需复核的异常员工')
+      return
+    }
+    if (p.employee_count > p.batch) {
+      message.warning(
+        `当前范围 ${p.employee_count} 名异常员工，超过单批复核上限 ${p.batch} 人。`
+        + '请先用部门 / 员工过滤缩小范围，或分批逐次复核。',
+      )
+      return
+    }
+    Modal.confirm({
+      title: 'AI 复核',
+      content: `将调用 AI 复核 ${p.employee_count} 名异常员工（约 ${p.anomaly_count} 条异常）。`
+        + '将调用外部大模型，请确认已配置 HBOS_AI_* 且接受相应费用。继续？',
+      okText: '开始复核',
+      cancelText: '取消',
+      onOk: async () => {
+        aiApplied.value = true
+        page.value = 1
+        await load({ enable_ai: '1' })
+      },
+    })
+  } catch (cause) {
+    message.error((cause instanceof Error && cause.message) || 'AI 复核失败')
+  }
+}
+
+/** 导出：后端生成文件并返回 URL，门户只负责打开。 */
+async function doExport(kind: 'xlsx' | 'exceptions') {
+  try {
+    const args = buildFilters(aiApplied.value ? { enable_ai: '1' } : {})
+    const url = kind === 'xlsx'
+      ? await exportMonthlyXlsx(args)
+      : await exportMonthlyExceptions(args)
+    if (!url) {
+      message.error('导出失败：未返回文件地址')
+      return
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  } catch (cause) {
+    message.error((cause instanceof Error && cause.message) || '导出失败')
+  }
+}
+
+/** 上传原始考勤表：与「上传月度考勤表」页同端点，此处只做快捷入口。 */
+function goUpload() {
+  router.push('/hbos/attendance/monthly-upload')
 }
 
 onMounted(() => {
@@ -292,12 +428,13 @@ onMounted(() => {
 //
 // 为什么必须清 filters：`department` 四张表都有，若不清，在月度汇总选了
 // 「生产部」再切到打卡流水，新表会**带着旧部门条件**——看起来像数据缺失，
-// 而用户以为自己什么都没选。页码同理，否则会停在上一次的页上。
+// 而用户以为自己什么都没选。页码与 AI 状态同理。
 watch(slug, (value) => {
   if (!value || !findReport(value)) return
   payload.value = null
   error.value = ''
   page.value = 1
+  aiApplied.value = false
   filters.value = {
     month: String(today.month() + 1),
     year: String(today.year()),
@@ -331,6 +468,19 @@ watch(slug, (value) => {
   padding: 12px 16px;
   border-radius: var(--hbos-radius-card);
 }
+
+.rep-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rep-ai-flag {
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--hbos-status-success);
+}
+
 .rep-alert { margin: 0; }
 
 .rep-panel {
@@ -355,6 +505,8 @@ watch(slug, (value) => {
 .rep-day.tone-warning  { background: rgba(244, 165, 35, .14); color: #b8770a; }
 .rep-day.tone-success  { background: rgba(27, 188, 134, .12); color: var(--hbos-status-success); }
 .rep-day.tone-muted    { background: rgba(114, 130, 157, .12); color: var(--hbos-text-muted); }
+
+.rep-ai { font-size: 12px; line-height: 20px; color: var(--hbos-text-secondary); white-space: pre-wrap; }
 
 @media (max-width: 720px) {
   .rep-head h1 { font-size: 20px; line-height: 28px; }

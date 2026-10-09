@@ -128,3 +128,39 @@ export async function fetchReport(
     start,
   })
 }
+
+/**
+ * 月度考勤汇总的三个动作端点。
+ *
+ * 与取数同源：它们都在报表自己的目录下（`report/月度考勤汇总/`），
+ * 门户只做转发，不重写逻辑。
+ */
+const MONTHLY_DIR = 'hb_attendance_app.hbos_attendance.report.月度考勤汇总'
+
+export interface AiReviewPreview {
+  employee_count: number
+  anomaly_count: number
+  batch: number
+}
+
+/** AI 复核的「先预览」——返回本范围待复核的异常员工数与单批上限。 */
+export async function previewAiReview(
+  filters: Record<string, string>,
+): Promise<AiReviewPreview> {
+  return callFrappeMethod<AiReviewPreview>(
+    `${MONTHLY_DIR}.月度考勤汇总.ai_review_preview`,
+    filters,
+  )
+}
+
+/** 导出 Excel（若已做过 AI 复核，enable_ai=1 会把 AI 列一并导出）。 */
+export async function exportMonthlyXlsx(filters: Record<string, string>): Promise<string> {
+  return callFrappeMethod<string>(`${MONTHLY_DIR}.export.export_xlsx`, filters)
+}
+
+/** 导出异常考勤（总览 / 缺勤汇总 / 迟到早退三表）。 */
+export async function exportMonthlyExceptions(
+  filters: Record<string, string>,
+): Promise<string> {
+  return callFrappeMethod<string>(`${MONTHLY_DIR}.export.export_exceptions`, filters)
+}
