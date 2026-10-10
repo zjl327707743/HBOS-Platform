@@ -1,68 +1,41 @@
 <template>
-  <a-drawer
-    :open="open"
-    :width="520"
-    placement="right"
-    root-class-name="evidence-drawer-root"
-    @close="$emit('close')"
-  >
-    <template #title>
-      <div class="evidence-title">
-        <small>依据卡 · EVIDENCE</small>
-        <strong>{{ evidence?.title || evidence?.document_id || '正在核验依据' }}</strong>
-      </div>
-    </template>
-
-    <a-skeleton v-if="loading" active :paragraph="{ rows: 8 }" />
-    <a-alert v-else-if="error" type="error" show-icon :message="error" />
-    <div v-else-if="evidence" class="evidence-content">
-      <a-tag color="blue">授权摘录</a-tag>
-      <section class="evidence-card">
-        <h3>来源信息</h3>
-        <dl>
-          <dt>资料编号</dt><dd>{{ evidence.document_id }}</dd>
-          <dt>资料名称</dt><dd>{{ evidence.title || '未标注' }}</dd>
-          <dt>资料版本</dt><dd>{{ evidence.version || '未标注' }}</dd>
-          <dt>核验状态</dt><dd>{{ evidence.status_note || '待核' }}</dd>
-          <dt>定位章节</dt><dd>{{ evidence.section || '未标注' }}</dd>
-          <dt>交付方式</dt><dd>短时证据 ID · 每次展开重新授权</dd>
-        </dl>
-      </section>
-      <section>
-        <h3>必要摘录</h3>
-        <blockquote>{{ evidence.excerpt }}</blockquote>
-      </section>
-      <div class="evidence-boundary">
-        <SafetyCertificateOutlined />
-        <span>不提供原文件、全文、源路径或下载地址。屏幕上可见内容仍可能被人工保存。</span>
-      </div>
-    </div>
+  <a-drawer :open="open" title="资料来源" width="min(560px, 100vw)" root-class-name="kb-drawer kb-scope evidence-drawer-root" @close="$emit('close')">
+    <a-skeleton v-if="open && loading" active :paragraph="{rows:6}" />
+    <div v-else-if="open && error" class="evidence-failure" role="status"><h2>{{failureTitle}}</h2><a-alert :type="permissionFailure?'warning':'error'" show-icon :message="error" :description="failureHelp"/><a-button @click="$emit('close')">返回查阅</a-button></div>
+    <template v-else-if="open && evidence"><h2 class="kb-drawer-title">{{evidence.title || '来源依据'}}</h2><p class="kb-source-meta">{{evidence.document_number || '文号待核'}} · {{evidence.version || '版本待核'}}</p><div class="kb-source-status"><CheckCircleOutlined/>{{evidence.status_note==='INTERNAL_REFERENCE_REVIEWED'?'内部参考／有效性待核':evidence.status_note || '当前授权摘录'}}</div><div class="kb-source-excerpt"><strong>相关依据</strong><blockquote>{{evidence.excerpt}}</blockquote><p v-if="evidence.page_number || evidence.section" class="kb-muted">{{evidence.page_number ? '第 '+evidence.page_number+' 页' : ''}} {{evidence.section}}</p></div><div class="kb-drawer-actions"><a-button @click="$emit('bookmark',evidence)"><StarFilled v-if="bookmarked" class="kb-star"/><StarOutlined v-else/>{{bookmarked?'取消收藏':'收藏资料'}}</a-button><a-button disabled><DownloadOutlined/>下载</a-button></div><p class="kb-muted">待部门文档下载权限上线</p><a-button type="link" @click="$emit('feedback',evidence)"><MessageOutlined/>反馈来源问题</a-button></template>
   </a-drawer>
 </template>
-
 <script setup lang="ts">
-import { SafetyCertificateOutlined } from '@ant-design/icons-vue'
+import { computed } from 'vue'
+import { StarOutlined, StarFilled, DownloadOutlined, MessageOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import type { KnowledgeEvidence } from '@/contracts/p1'
 
-defineProps<{
+const props = defineProps<{
   open: boolean
   loading: boolean
   evidence: KnowledgeEvidence | null
   error: string | null
+  errorCode?: string | null
+  bookmarked?: boolean
 }>()
 
-defineEmits<{ (event: 'close'): void }>()
+const permissionFailure = computed(() => ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED'].includes(props.errorCode || ''))
+const failureTitle = computed(() => {
+  if (['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED'].includes(props.errorCode || '')) return '登录状态已失效'
+  if (['FORBIDDEN', 'SCOPE_REJECTED'].includes(props.errorCode || '')) return '当前来源不可访问'
+  if (['UPSTREAM_UNAVAILABLE', 'SERVICE_ERROR', 'POLICY_UNAVAILABLE'].includes(props.errorCode || '')) return '来源核验暂不可用'
+  return '来源暂不可用'
+})
+const failureHelp = computed(() => {
+  if (['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED'].includes(props.errorCode || '')) return '请重新登录后再查阅，当前摘录已清除。'
+  if (['EVIDENCE_UNAVAILABLE', 'EVIDENCE_REVOKED', 'EVIDENCE_INVALID'].includes(props.errorCode || '')) return '来源可能已过期、撤回或不再属于当前可读范围。请重新检索，系统不会保留失效摘录。'
+  if (permissionFailure.value) return '请核对当前账号与资料范围，当前摘录已清除。'
+  return '请稍后重新检索并核验来源；当前提示不代表没有相关资料。'
+})
+
+defineEmits<{ close: []; bookmark: [evidence:KnowledgeEvidence]; feedback: [evidence:KnowledgeEvidence] }>()
 </script>
 
 <style scoped>
-.evidence-title small { display: block; color: #72829d; font-size: 10px; letter-spacing: .14em; }
-.evidence-title strong { display: block; margin-top: 4px; color: #1c365f; font-size: 17px; }
-.evidence-content { display: grid; gap: 22px; }
-.evidence-card { padding: 18px; border: 1px solid rgba(65,91,138,.10); border-radius: 18px; background: #f7faff; }
-h3 { margin: 0 0 12px; font-size: 14px; }
-dl { display: grid; grid-template-columns: 100px 1fr; gap: 10px 16px; margin: 0; font-size: 12px; }
-dt { color: #72829d; }
-dd { margin: 0; color: #314768; word-break: break-all; }
-blockquote { margin: 0; padding: 18px; border-left: 3px solid #6b65ff; border-radius: 0 16px 16px 0; background: #f7f8ff; color: #314768; font-size: 14px; line-height: 1.85; white-space: pre-wrap; }
-.evidence-boundary { display: flex; gap: 10px; padding: 13px; border-radius: 14px; background: rgba(38,183,141,.08); color: #3b6c62; font-size: 11px; line-height: 1.6; }
+blockquote{margin:16px 0 0;font-size:16px;line-height:28px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--hbos-text-primary)}.evidence-failure{display:grid;gap:16px}
 </style>

@@ -1,0 +1,76 @@
+# Operator-reviewed server overlay after a consistent restore into NEW target
+# volumes. External volumes prevent creating a second empty knowledge base.
+services:
+  ragflow:
+    mem_limit: 4g
+    restart: unless-stopped
+    image: ${RAGFLOW_IMAGE:?fixed source image digest required}
+    command: [api]
+    environment: &native-env
+      HBOS_PROVIDER_ACCOUNTING_MODE: AUDIT_ONLY
+      HBOS_RECOVERY_PROVIDER_BUDGET: /run/hbos-audit/native/config.json
+      HBOS_RECOVERY_PHASE: ONLINE
+      HBOS_MAINTENANCE_CONTROLLER_CONFIG: /run/hbos-private/controller.json
+    volumes: &native-volumes
+      - ${HBOS_PRIVATE_ROOT:?required}/ragflow-conf:/ragflow/conf:ro
+      - ${HBOS_PRIVATE_ROOT:?required}:/run/hbos-private:ro
+      - ${HBOS_AUDIT_ROOT:?required}:/run/hbos-audit
+      - ${HBOS_UPLOAD_ROOT:?required}:/srv/hbos-uploads
+      - native-work:/srv/hbos-native-work
+    networks: [joint]
+  maintenance-controller:
+    mem_limit: 4g
+    restart: unless-stopped
+    image: ${RAGFLOW_IMAGE:?fixed source image digest required}
+    command: [controller]
+    environment: *native-env
+    volumes: *native-volumes
+    networks: [joint]
+  ragflow-db:
+    mem_limit: 1g
+    restart: unless-stopped
+    image: ${RAGFLOW_MYSQL_IMAGE:?original compatible digest required}
+    environment: {MYSQL_ROOT_PASSWORD_FILE: /run/secrets/ragflow-db-root}
+    secrets: [ragflow-db-root]
+    volumes: [ragflow-db:/var/lib/mysql]
+    networks: [joint]
+  ragflow-index:
+    mem_limit: 4g
+    restart: unless-stopped
+    image: ${RAGFLOW_ES_IMAGE:?original compatible digest required}
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms2g -Xmx2g
+      ELASTIC_PASSWORD_FILE: /run/secrets/es-password
+    secrets: [es-password]
+    volumes: [ragflow-index:/usr/share/elasticsearch/data]
+    networks: [joint]
+  ragflow-objects:
+    mem_limit: 1g
+    restart: unless-stopped
+    image: ${RAGFLOW_OBJECT_IMAGE:?original MinIO-compatible digest required}
+    command: [server, /data]
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/object-user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/object-password
+    secrets: [object-user, object-password]
+    volumes: [ragflow-objects:/data]
+    networks: [joint]
+  ragflow-redis:
+    mem_limit: 512m
+    restart: unless-stopped
+    image: ${RAGFLOW_REDIS_IMAGE:?original compatible digest required}
+    command: [redis-server, --appendonly, "yes", --appendfsync, always]
+    volumes: [ragflow-redis:/data]
+    networks: [joint]
+volumes:
+  native-work: {}
+  ragflow-db: {external: true, name: "${RAGFLOW_DB_VOLUME:?restored target required}"}
+  ragflow-index: {external: true, name: "${RAGFLOW_INDEX_VOLUME:?restored target required}"}
+  ragflow-objects: {external: true, name: "${RAGFLOW_OBJECT_VOLUME:?restored target required}"}
+  ragflow-redis: {external: true, name: "${RAGFLOW_REDIS_VOLUME:?restored target required}"}
+secrets:
+  ragflow-db-root: {file: "${HBOS_PRIVATE_ROOT:?required}/ragflow-db-root"}
+  es-password: {file: "${HBOS_PRIVATE_ROOT:?required}/es-password"}
+  object-user: {file: "${HBOS_PRIVATE_ROOT:?required}/object-user"}
+  object-password: {file: "${HBOS_PRIVATE_ROOT:?required}/object-password"}

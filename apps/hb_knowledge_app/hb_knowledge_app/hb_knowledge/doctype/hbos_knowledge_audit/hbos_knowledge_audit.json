@@ -1,0 +1,71 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Audit",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "actor_key",
+    "publication_id",
+    "operation",
+    "code",
+    "result_count",
+    "publication_state"
+  ],
+  "fields": [
+    {
+      "fieldname": "actor_key",
+      "fieldtype": "Data",
+      "label": "Actor Key",
+      "reqd": 1
+    },
+    {
+      "fieldname": "publication_id",
+      "fieldtype": "Data",
+      "label": "Publication Id",
+      "reqd": 1
+    },
+    {
+      "fieldname": "operation",
+      "fieldtype": "Data",
+      "label": "Operation",
+      "reqd": 1
+    },
+    {
+      "fieldname": "code",
+      "fieldtype": "Data",
+      "label": "Code",
+      "reqd": 1
+    },
+    {
+      "fieldname": "result_count",
+      "fieldtype": "Int",
+      "label": "Result Count"
+    },
+    {
+      "fieldname": "publication_state",
+      "fieldtype": "Select",
+      "label": "Publication State",
+      "options": "Prepared\nComplete\nAborted",
+      "default": "Prepared",
+      "reqd": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0,
+      "export": 0,
+      "print": 0,
+      "report": 0,
+      "share": 0,
+      "email": 0
+    }
+  ],
+  "allow_rename": 0,
+  "index_web_pages_for_search": 0,
+  "track_changes": 0
+}

@@ -1,60 +1,156 @@
 {
- "actions": [],
- "allow_rename": 0,
- "autoname": "field:document_id",
- "creation": "2026-09-29 00:00:00.000000",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "document_id",
-  "source_hash",
-  "source_reference",
-  "version",
-  "effective_date",
-  "approval_status",
-  "ingestion_status",
-  "dataset_id",
-  "corpus_revision",
-  "policy_revision",
-  "parser_revision",
-  "embedding_revision",
-  "knowledge_owner",
-  "equipment_id",
-  "component_id",
-  "process_step_id",
-  "withdrawn"
- ],
- "fields": [
-  {"fieldname": "document_id", "fieldtype": "Data", "label": "Document ID", "reqd": 1, "unique": 1},
-  {"fieldname": "source_hash", "fieldtype": "Data", "label": "Source SHA-256", "reqd": 1, "read_only": 1},
-  {"fieldname": "source_reference", "fieldtype": "Data", "label": "Private Source Reference", "read_only": 1},
-  {"fieldname": "version", "fieldtype": "Data", "label": "Version"},
-  {"fieldname": "effective_date", "fieldtype": "Date", "label": "Effective Date"},
-  {"fieldname": "approval_status", "fieldtype": "Data", "label": "Source Approval Status"},
-  {"default": "queued", "fieldname": "ingestion_status", "fieldtype": "Select", "label": "Ingestion Status", "options": "queued\nparsed\nreviewed\npublished\nquarantined\nretired", "reqd": 1},
-  {"fieldname": "dataset_id", "fieldtype": "Data", "label": "Dataset ID"},
-  {"fieldname": "corpus_revision", "fieldtype": "Data", "label": "Corpus Revision"},
-  {"fieldname": "policy_revision", "fieldtype": "Data", "label": "Policy Revision"},
-  {"fieldname": "parser_revision", "fieldtype": "Data", "label": "Parser Revision"},
-  {"fieldname": "embedding_revision", "fieldtype": "Data", "label": "Embedding Revision"},
-  {"fieldname": "knowledge_owner", "fieldtype": "Data", "label": "Knowledge Owner"},
-  {"fieldname": "equipment_id", "fieldtype": "Data", "label": "Equipment ID"},
-  {"fieldname": "component_id", "fieldtype": "Data", "label": "Component ID"},
-  {"fieldname": "process_step_id", "fieldtype": "Data", "label": "Process Step ID"},
-  {"default": "0", "fieldname": "withdrawn", "fieldtype": "Check", "label": "Withdrawn", "read_only": 1}
- ],
- "index_web_pages_for_search": 0,
- "links": [],
- "modified": "2026-09-29 00:00:00.000000",
- "modified_by": "Administrator",
- "module": "HB Knowledge",
- "name": "HBOS Knowledge Document",
- "owner": "Administrator",
- "permissions": [
-  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1}
- ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+  "actions": [],
+  "allow_rename": 0,
+  "autoname": "field:document_id",
+  "creation": "2026-09-29 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "document_id",
+    "source_hash",
+    "source_reference",
+    "version",
+    "effective_date",
+    "approval_status",
+    "ingestion_status",
+    "dataset_id",
+    "corpus_revision",
+    "policy_revision",
+    "parser_revision",
+    "embedding_revision",
+    "knowledge_owner",
+    "equipment_id",
+    "component_id",
+    "process_step_id",
+    "withdrawn",
+    "current_version"
+  ],
+  "fields": [
+    {
+      "fieldname": "document_id",
+      "fieldtype": "Data",
+      "label": "Document ID",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "source_hash",
+      "fieldtype": "Data",
+      "label": "Source SHA-256",
+      "reqd": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "source_reference",
+      "fieldtype": "Data",
+      "label": "Private Source Reference",
+      "read_only": 1
+    },
+    {
+      "fieldname": "version",
+      "fieldtype": "Data",
+      "label": "Version"
+    },
+    {
+      "fieldname": "effective_date",
+      "fieldtype": "Date",
+      "label": "Effective Date"
+    },
+    {
+      "fieldname": "approval_status",
+      "fieldtype": "Data",
+      "label": "Source Approval Status"
+    },
+    {
+      "default": "queued",
+      "fieldname": "ingestion_status",
+      "fieldtype": "Select",
+      "label": "Ingestion Status",
+      "options": "queued\nparsed\nreviewed\npublished\nquarantined\nretired",
+      "reqd": 1
+    },
+    {
+      "fieldname": "dataset_id",
+      "fieldtype": "Data",
+      "label": "Dataset ID"
+    },
+    {
+      "fieldname": "corpus_revision",
+      "fieldtype": "Data",
+      "label": "Corpus Revision"
+    },
+    {
+      "fieldname": "policy_revision",
+      "fieldtype": "Data",
+      "label": "Policy Revision"
+    },
+    {
+      "fieldname": "parser_revision",
+      "fieldtype": "Data",
+      "label": "Parser Revision"
+    },
+    {
+      "fieldname": "embedding_revision",
+      "fieldtype": "Data",
+      "label": "Embedding Revision"
+    },
+    {
+      "fieldname": "knowledge_owner",
+      "fieldtype": "Data",
+      "label": "Knowledge Owner"
+    },
+    {
+      "fieldname": "equipment_id",
+      "fieldtype": "Data",
+      "label": "Equipment ID"
+    },
+    {
+      "fieldname": "component_id",
+      "fieldtype": "Data",
+      "label": "Component ID"
+    },
+    {
+      "fieldname": "process_step_id",
+      "fieldtype": "Data",
+      "label": "Process Step ID"
+    },
+    {
+      "default": "0",
+      "fieldname": "withdrawn",
+      "fieldtype": "Check",
+      "label": "Withdrawn",
+      "read_only": 1
+    },
+    {
+      "fieldname": "current_version",
+      "fieldtype": "Link",
+      "options": "HBOS Knowledge Version",
+      "label": "Current Version"
+    }
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-09-29 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "HB Knowledge",
+  "name": "HBOS Knowledge Document",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": [],
+  "track_changes": 1
 }

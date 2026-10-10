@@ -1,0 +1,22 @@
+# Headless native API/controller from the exact preserved source archive.
+# The verified v2.1 base currently advertises linux/amd64 only. No KB/data init.
+ARG RAGFLOW_BASE=infiniflow/ragflow-base@sha256:5f67514110dfce2e9a57e86f68d3d5fbaa7dd757e4fd84a99e1517d6d3faf6a5
+FROM ${RAGFLOW_BASE}
+WORKDIR /ragflow
+COPY artifacts/ragflow-fixed-source.tar.gz /tmp/ragflow-source.tar.gz
+RUN tar -xzf /tmp/ragflow-source.tar.gz -C /ragflow \
+ && uv sync --python 3.13 --frozen \
+ && .venv/bin/python -m ensurepip --upgrade \
+ && printf 'v0.27.0 ec9c08d809f63ba2815090182fa225899d2437d5\n' > VERSION
+COPY artifacts/*.whl /tmp/wheels/
+COPY hbos/apps/hb_knowledge_app /opt/hbos-domain
+COPY deployment /opt/hbos-joint
+RUN .venv/bin/python -m pip install --no-deps /tmp/wheels/*.whl
+ENV PATH=/ragflow/.venv/bin:$PATH
+ENV PYTHONPATH=/opt/hbos-joint/native_startup:/opt/hbos-domain:/ragflow
+ENV RAG_PROJECT_BASE=/ragflow
+ENV RAG_DEPLOY_BASE=/ragflow
+ENV HBOS_PROVIDER_ACCOUNTING_MODE=AUDIT_ONLY
+LABEL org.hbos.ragflow.source=ec9c08d809f63ba2815090182fa225899d2437d5
+ENTRYPOINT ["python", "/opt/hbos-joint/native_entry.py"]
+CMD ["api"]

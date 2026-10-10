@@ -46,7 +46,12 @@ const router = createRouter({
       path: '/hbos/knowledge',
       component: KnowledgeTwinLayout,
       children: [
-        { path: '', name: 'knowledge', component: KnowledgeView, meta: { title: '知识助理' } },
+        { path: '', name: 'knowledge', component: KnowledgeView, meta: { title: '知识库' } },
+        { path: 'catalog', name: 'knowledge-catalog', component: KnowledgeView, meta: { title: '资料目录' } },
+        { path: 'favorites', name: 'knowledge-favorites', component: KnowledgeView, meta: { title: '我的收藏' } },
+        { path: 'history', name: 'knowledge-history', component: KnowledgeView, meta: { title: '我的记录' } },
+        ...['upload', 'versions', 'feedback'].map(view => ({ path: `maintenance/${view}`, component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '知识维护' } })),
+        { path: 'maintenance', name: 'knowledge-maintenance', component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '知识维护' } },
       ],
     },
     {
@@ -61,7 +66,8 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.afterEach((to) => {
+router.afterEach((to, _from, failure) => {
+  if (failure || router.currentRoute.value.fullPath !== to.fullPath) return
   const title = typeof to.meta.title === 'string' ? to.meta.title : 'HBOS'
   document.title = title === 'HBOS 首页' ? 'HBOS · 海滨智能运营工作台' : `${title} · HBOS`
 })

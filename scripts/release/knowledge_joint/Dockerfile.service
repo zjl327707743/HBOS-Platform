@@ -1,0 +1,13 @@
+ARG PYTHON_IMAGE
+FROM ${PYTHON_IMAGE}
+COPY requirements/runtime.lock /tmp/runtime.lock
+COPY artifacts/*.whl /tmp/wheels/
+COPY hbos/apps/hb_knowledge_app /opt/domain
+COPY deployment /opt/hbos-joint
+RUN pip install --require-hashes -r /tmp/runtime.lock \
+ && pip install --no-deps --no-build-isolation /opt/domain /tmp/wheels/*.whl \
+ && pip check \
+ && useradd --uid 1000 --create-home knowledge
+ENV HBOS_PROVIDER_ACCOUNTING_MODE=AUDIT_ONLY
+USER knowledge
+CMD ["python", "-m", "uvicorn", "knowledge_service.hbos_gateway.network_runtime:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
