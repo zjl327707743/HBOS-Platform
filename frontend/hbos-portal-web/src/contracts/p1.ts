@@ -14,10 +14,13 @@ export interface DomainEnvelope<T> {
 export interface KnowledgeStatus {
   can_enter: boolean
   can_search: boolean
+  can_maintain?: boolean
   policy_revision?: string | null
   gateway_configured: boolean
+  answer_availability?: { configured: boolean; available: boolean; budget_status: string }
   ask_enabled: boolean
   mode: 'retrieval'
+  search_mode?: 'STANDARD' | 'PRECISE'
   environment?: 'synthetic' | 'production'
   retrieval_availability?: {
     configured: boolean
@@ -49,6 +52,7 @@ export interface KnowledgeEvidence {
 export interface KnowledgeSearchResult {
   request_id: string
   mode: 'retrieval'
+  search_mode?: 'STANDARD' | 'PRECISE'
   context?: KnowledgeSearchContext
   results: KnowledgeEvidence[]
 }
@@ -59,7 +63,10 @@ export interface KnowledgeSearchContext {
   component_id?: string
 }
 
+export interface KnowledgeRestored { mode: 'search' | 'ask'; search_mode: 'STANDARD' | 'PRECISE'; results: KnowledgeEvidence[]; turns: (KnowledgeAnswer & {question:string})[] }
+
 export interface KnowledgeSavedQuery {
+  restored?: KnowledgeRestored
   query: string
   space_ids: string[]
   context?: KnowledgeSearchContext
@@ -133,6 +140,7 @@ export interface KnowledgeFeedback {
   category: string
   note: string
   status: 'Pending' | 'In Review' | 'Resolved'
+  reply?: string
   created_at: string
   updated_at: string
 }

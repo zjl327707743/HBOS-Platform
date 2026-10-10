@@ -11,6 +11,8 @@
         <p>让知识更好地服务每一次工作。</p>
       </div>
       <div class="heading-actions">
+        <a-button :disabled="!subjectKey" @click="connectionOpen = true">连接个人助手（MCP）</a-button>
+        <RouterLink v-if="status?.can_maintain" to="/hbos/knowledge/maintenance"><a-button>知识维护</a-button></RouterLink>
         <a-tag v-if="status?.environment === 'synthetic'" color="orange">隔离合成测试</a-tag>
         <a-tag v-if="status?.environment === 'production'" color="blue">内部共享参考库</a-tag>
         <a-tag v-if="mode === 'search' && equipmentId" color="geekblue">设备上下文 {{ equipmentId }}</a-tag>
@@ -22,6 +24,8 @@
     <a-alert v-if="retrievalBlocked" type="warning" show-icon role="status"
       message="检索服务暂不可用，目录与个人记录仍可查看。"
       :description="blockedDescription" />
+
+    <a-alert v-if="status?.ask_enabled && status.answer_availability && !status.answer_availability.available" type="warning" show-icon message="回答已暂停：生成费用待核验或预算不可用" description="目录、有效来源和已保存会话仍可查看。标准检索以检索状态为准；需要真实对账才能恢复付费能力。" />
 
     <div class="knowledge-grid">
       <div class="knowledge-primary">
@@ -42,6 +46,8 @@
               </select>
             </div>
           </div>
+          <label class="search-mode-option"><input type="checkbox" :checked="searchMode === 'PRECISE'" :disabled="working" @change="searchMode = ($event.target as HTMLInputElement).checked ? 'PRECISE' : 'STANDARD'" /> 更精准排序（可选，会调用外部重排）</label>
+          <p class="mode-cost-note">标准模式：关键词与向量融合，重排和回答模型调用为0；向量查询仍计量。问知识另按需生成一次答案。</p>
           <form class="knowledge-search" :class="{ 'ask-composer': mode === 'ask' }" @submit.prevent="submitComposer">
             <SearchOutlined v-if="mode === 'search'" aria-hidden="true" />
             <label class="sr-only" for="knowledge-query">{{ mode === 'ask' ? '你的知识问题' : '描述工作中的问题' }}</label>
@@ -95,7 +101,7 @@
           </div>
         </section>
 
-        <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :ask-enabled="Boolean(status?.ask_enabled)" :retrieval-blocked="retrievalBlocked" :mode="mode" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @evidence="drawer.show" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
+        <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :ask-enabled="Boolean(status?.ask_enabled)" :retrieval-blocked="retrievalBlocked" :mode="mode" :search-mode="searchMode" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @restored="restoreSaved" @evidence="drawer.show" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
           <template #catalog>
             <div class="catalog-heading"><p>只展示当前可读的已收录资料；内部参考／有效性待核。</p><a-tag>{{ catalogLoading ? '更新中' : `${catalogTotal} 份` }}</a-tag></div>
             <form class="catalog-filter" @submit.prevent="refreshCatalog">
@@ -134,6 +140,7 @@
 
     </div>
 
+    <KnowledgeConnections :open="connectionOpen" :subject="subjectKey || ''" @close="connectionOpen = false" />
     <EvidenceDrawer
       :open="drawerOpen"
       :loading="drawerLoading"
@@ -149,10 +156,11 @@
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApartmentOutlined, ArrowRightOutlined, BulbOutlined, RightOutlined, SafetyCertificateOutlined, SearchOutlined } from '@ant-design/icons-vue'
-import type { KnowledgeEvidence, KnowledgeStatus, KnowledgeSpace, KnowledgeDocument, KnowledgeSearchContext } from '@/contracts/p1'
+import type { KnowledgeEvidence, KnowledgeStatus, KnowledgeSpace, KnowledgeDocument, KnowledgeSearchContext, KnowledgeSavedQuery } from '@/contracts/p1'
 import { DomainApiError, getKnowledgeStatus, getKnowledgeSpaces, getKnowledgeDocumentsPage, searchKnowledge } from '@/services/p1Api'
 import EvidenceDrawer from '@/components/knowledge/EvidenceDrawer.vue'
 import KnowledgeTools from '@/components/knowledge/KnowledgeTools.vue'
+import KnowledgeConnections from '@/components/knowledge/KnowledgeConnections.vue'
 import { useEvidenceResolution } from '@/composables/useEvidenceResolution'
 import { usePortalStore } from '@/stores/portal'
 
@@ -168,12 +176,14 @@ const currentContext = computed<KnowledgeSearchContext>(() => savedContext.value
 const equipmentId = computed(() => currentContext.value.equipment_id || '')
 const assetId = computed(() => currentContext.value.asset_id || '')
 const componentId = computed(() => currentContext.value.component_id || '')
+const connectionOpen = ref(false)
 const status = ref<KnowledgeStatus | null>(null)
 const statusLoading = ref(false)
 const spaces = ref<KnowledgeSpace[]>([])
 const selectedSpace = ref('')
 const savedScopeNeedsSelection = ref(false)
 const mode = ref<'search' | 'ask'>('search')
+const searchMode = ref<'STANDARD' | 'PRECISE'>('STANDARD')
 const query = ref(typeof route.query.q === 'string' ? [...route.query.q].slice(0, 500).join('') : '')
 const composing = ref(false)
 const results = ref<KnowledgeEvidence[]>([])
@@ -205,7 +215,7 @@ const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FO
 
 const currentScopeLabel = computed(() => spaces.value.find(s => s.space_id === selectedSpace.value)?.title || '全部已收录资料')
 const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked || status.value?.retrieval_availability?.status === 'OBSERVED_ERROR' || ['ACCOUNTING_PENDING', 'EXPIRED', 'EXHAUSTED', 'UNAVAILABLE'].includes(status.value?.retrieval_availability?.budget_status || '')))
-const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && !savedScopeNeedsSelection.value && (mode.value === 'search' || status.value?.ask_enabled)))
+const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && !savedScopeNeedsSelection.value && (mode.value === 'search' || (status.value?.ask_enabled && status.value?.answer_availability?.available !== false))))
 const statusTone = computed(() => status.value?.retrieval_availability?.status === 'AVAILABLE' && !retrievalBlocked.value ? 'ready' : 'waiting')
 const blockedDescription = computed(() => {
   const availability = status.value?.retrieval_availability
@@ -311,12 +321,22 @@ async function submitSearch() {
   const scope = selectedSpace.value
   drawer.close(false); searching.value = true; hasSearched.value = true; pageError.value = null; pageErrorCode.value = null; composerNotice.value = ''; results.value = []
   try {
-    const response = await searchKnowledge(normalized, { ...currentContext.value }, scope ? [scope] : undefined)
+    const response = await searchKnowledge(normalized, { ...currentContext.value }, scope ? [scope] : undefined, searchMode.value)
     if (generation === searchGeneration && subject === subjectKey.value && scope === selectedSpace.value) { results.value = response.results; void tools.value?.refresh() }
   } catch (error) {
     if (generation === searchGeneration && subject === subjectKey.value) { applyError(error); if (pageErrorCode.value === 'UPSTREAM_UNAVAILABLE') void refreshStatus() }
   } finally { if (generation === searchGeneration) searching.value = false }
 }
+function restoreSaved(data: KnowledgeSavedQuery) {
+  if (!data.restored) return
+  searchGeneration++; drawer.close(false); searching.value=false
+  selectedSpace.value=data.space_ids.length===1 ? data.space_ids[0]! : ''
+  savedContext.value={...(data.context || {})}; savedScopeNeedsSelection.value=data.space_ids.length>1
+  searchMode.value=data.restored.search_mode; setMode(data.restored.mode); query.value=data.query
+  results.value=data.restored.results; hasSearched.value=data.restored.mode==='search'
+  composerNotice.value='已核验当前来源并恢复记录；未触发模型。'
+}
+watch(searchMode,()=>{searchGeneration++;results.value=[];hasSearched.value=false;drawer.close(false);tools.value?.newConversation()}, {flush:'sync'})
 async function replaySaved(value: string, scope: string[], context: KnowledgeSearchContext = {}) {
   setMode('search'); tools.value?.newConversation()
   searchGeneration++; drawer.close(false); results.value = []; hasSearched.value = false; searching.value = false
@@ -375,6 +395,8 @@ onMounted(refreshStatus)
 </script>
 
 <style scoped>
+.search-mode-option { display:flex; align-items:center; gap:8px; margin:12px 0 0; font-size:var(--hbos-font-body); }
+.mode-cost-note { font-size:var(--hbos-font-meta); line-height:1.6; color:var(--hbos-text-secondary); margin:8px 0; }
 .knowledge-page,.knowledge-primary { display: grid; gap: 18px; min-width: 0; }.knowledge-grid { min-width: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .kt-breadcrumb { display: flex; align-items: center; gap: 7px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }.kt-breadcrumb a { color: inherit; }.kt-breadcrumb span { color: var(--hbos-text-secondary); }

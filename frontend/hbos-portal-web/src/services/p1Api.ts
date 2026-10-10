@@ -53,6 +53,9 @@ const KNOWLEDGE_MESSAGES: Record<string, string> = {
   UPSTREAM_UNAVAILABLE: '检索服务暂不可用，目录与个人记录仍可查看。',
   RATE_LIMITED: '请求较频繁，请稍后重试。',
   EXTRACTION_LIMITED: '本时段可展示的摘录已达上限。',
+  ANSWER_MODEL_UNAVAILABLE: '回答模型暂时不可用或未通过依据校验。请稍后重试；检索和记录仍可使用。',
+  MODEL_NOT_APPROVED: '回答能力尚未获准。',
+  ANSWER_BUDGET_BLOCKED: '回答费用待核验或预算不可用，回答已暂停；目录、来源和个人记录仍可查看。',
 }
 function unwrapKnowledge<T>(envelope: DomainEnvelope<T>): T {
   if (!envelope.ok || envelope.data === undefined) {
@@ -94,10 +97,14 @@ function validateKnowledgeEvidence(value: unknown): KnowledgeEvidence {
 }
 function validateKnowledgeSearch(value: KnowledgeSearchResult): KnowledgeSearchResult {
   const invalid = () => new DomainApiError('SERVICE_ERROR', '知识服务返回了无效响应。')
-  if (!value || Object.keys(value).some(key => !['request_id','mode','results','context'].includes(key)) ||
+  if (!value || Object.keys(value).some(key => !['request_id','mode','results','context','search_mode'].includes(key)) ||
       value.mode !== 'retrieval' || !Array.isArray(value.results) || value.results.length > 5) throw invalid()
   safeKnowledgeString(value.request_id,128)
   const projected: KnowledgeSearchResult = { request_id:value.request_id, mode:'retrieval', results:value.results.map(validateKnowledgeEvidence) }
+  if (value.search_mode !== undefined) {
+    if (!['STANDARD','PRECISE'].includes(value.search_mode)) throw invalid()
+    projected.search_mode = value.search_mode
+  }
   // Current P1 legacy DTO may have context={}; canonical R1.1 omits it.
   if (value.context && Object.keys(value.context).length) {
     validateKnowledgeContext(value.context)
@@ -134,6 +141,7 @@ export async function searchKnowledge(
   query: string,
   context: KnowledgeSearchContext = {},
   spaceIds?: string[],
+  searchMode: 'STANDARD' | 'PRECISE' = 'STANDARD',
 ): Promise<KnowledgeSearchResult> {
   validateKnowledgeContext(context)
   if (spaceIds !== undefined) {
@@ -144,7 +152,7 @@ export async function searchKnowledge(
   }
   return validateKnowledgeSearch(unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<KnowledgeSearchResult>>(
     'hb_knowledge_app.hb_knowledge.api.search',
-    { query, limit: 5, ...context, ...(spaceIds ? { space_ids: [...spaceIds] } : {}) },
+    { query, limit: 5, search_mode: searchMode, ...context, ...(spaceIds ? { space_ids: [...spaceIds] } : {}) },
   )))
 }
 
@@ -231,9 +239,9 @@ export async function getKnowledgeFeedback(): Promise<KnowledgeFeedback[]> {
   const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{items: KnowledgeFeedback[]}>>('hb_knowledge_app.hb_knowledge.api.get_feedback'))
   if (!data || Object.keys(data).length !== 1 || !Array.isArray(data.items) || data.items.length > 100) throw new DomainApiError('SERVICE_ERROR','反馈记录暂时不可用。')
   data.items.forEach(item => {
-    if (!item || typeof item !== 'object' || Object.keys(item).some(k => !['id','category','note','status','created_at','updated_at'].includes(k)) || !['Pending','In Review','Resolved'].includes(item.status)) throw new DomainApiError('SERVICE_ERROR','反馈记录响应无效。')
+    if (!item || typeof item !== 'object' || Object.keys(item).some(k => !['id','category','note','status','created_at','updated_at','reply'].includes(k)) || !['Pending','In Review','Resolved'].includes(item.status)) throw new DomainApiError('SERVICE_ERROR','反馈记录响应无效。')
     safeKnowledgeString(item.id,128); safeKnowledgeString(item.category,120); safeKnowledgeString(item.note,500)
-    safeKnowledgeString(item.created_at,80); safeKnowledgeString(item.updated_at,80)
+    safeKnowledgeString(item.created_at,80); safeKnowledgeString(item.updated_at,80); safeKnowledgeString(item.reply,500,true)
   })
   return data.items
 }
@@ -251,7 +259,7 @@ export async function getKnowledgeActivity(kind: 'History' | 'Bookmark'): Promis
 export async function openKnowledgeSaved(id: string): Promise<KnowledgeSavedQuery> {
   const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<KnowledgeSavedQuery>>('hb_knowledge_app.hb_knowledge.api.open_saved',{activity_id:id}))
   const invalid = () => new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
-  if (!data || typeof data !== 'object' || Object.keys(data).some(key => !['query','space_ids','context'].includes(key))) throw invalid()
+  if (!data || typeof data !== 'object' || Object.keys(data).some(key => !['query','space_ids','context','restored'].includes(key))) throw invalid()
   safeKnowledgeString(data.query,500)
   if (!Array.isArray(data.space_ids) || data.space_ids.length > 20 || new Set(data.space_ids).size !== data.space_ids.length) throw invalid()
   data.space_ids.forEach(s => { safeKnowledgeString(s,120); if (!s.trim() || s !== s.trim()) throw invalid() })
@@ -260,6 +268,13 @@ export async function openKnowledgeSaved(id: string): Promise<KnowledgeSavedQuer
     if (!data.context || typeof data.context !== 'object' || Array.isArray(data.context) || Object.keys(data.context).some(key => !['equipment_id','asset_id','component_id'].includes(key))) throw invalid()
     validateKnowledgeContext(data.context)
     if (Object.keys(data.context).length) projected.context = { ...data.context }
+  }
+  if (data.restored) {
+    const r=data.restored
+    if (!['ask','search'].includes(r.mode) || !['STANDARD','PRECISE'].includes(r.search_mode) || !Array.isArray(r.turns) || r.turns.length>10 || !Array.isArray(r.results) || r.results.length>5 || Object.keys(r).some(k=>!['mode','search_mode','results','turns'].includes(k))) throw invalid()
+    r.results.forEach(validateKnowledgeEvidence)
+    r.turns.forEach(t=>{const {question,...answer}=t;safeKnowledgeString(question,500);validateKnowledgeAnswer(answer)})
+    projected.restored=r
   }
   return projected
 }
@@ -272,8 +287,11 @@ export async function saveKnowledgeBookmark(evidence: string, query: string): Pr
 export async function sendKnowledgeFeedback(evidence: string | undefined, category: string, note: string): Promise<void> {
   unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{id:string}>>('hb_knowledge_app.hb_knowledge.api.submit_feedback',{evidence_id:evidence,category,note}))
 }
-export async function askKnowledgeReference(question: string, space?: string, conversation?: string): Promise<import('@/contracts/p1').KnowledgeAnswer> {
-  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<import('@/contracts/p1').KnowledgeAnswer>>('hb_knowledge_app.hb_knowledge.api.ask',{question,...(space?{space_ids:[space]}:{}),...(conversation?{conversation_id:conversation}:{})}))
+export async function askKnowledgeReference(question: string, space?: string, conversation?: string, searchMode: 'STANDARD' | 'PRECISE' = 'STANDARD'): Promise<import('@/contracts/p1').KnowledgeAnswer> {
+  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<import('@/contracts/p1').KnowledgeAnswer>>('hb_knowledge_app.hb_knowledge.api.ask',{question,search_mode:searchMode,...(space?{space_ids:[space]}:{}),...(conversation?{conversation_id:conversation}:{})}))
+  return validateKnowledgeAnswer(data,space)
+}
+function validateKnowledgeAnswer(data: import('@/contracts/p1').KnowledgeAnswer, space?: string): import('@/contracts/p1').KnowledgeAnswer {
   if (Object.keys(data).some(k => !['request_id','turn_id','conversation_id','mode','answer_status','answerable','answer','citations'].includes(k)) || !Array.isArray(data.citations) || data.citations.length>5) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   safeKnowledgeString(data.answer,2000);safeKnowledgeString(data.turn_id,128)
   safeKnowledgeString(data.request_id,128)
@@ -286,3 +304,19 @@ export async function askKnowledgeReference(question: string, space?: string, co
   if (new Set(data.citations.map(c => c.citation_label)).size !== data.citations.length || (space && data.citations.some(c => c.space_id !== undefined && c.space_id !== space))) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   return data
 }
+
+export interface PersonalConnection { id: string; label: string; client: 'OpenClaw' | 'Hermes'; stage: string; expires_at: string; revoked: boolean; expired: boolean; last_used_at: string | null }
+export interface ConnectionInfo { items: PersonalConnection[]; endpoint: string; auth_type: string; ttl_days: number; tools: string[]; deployment: string; query_blocked: boolean; client_versions: Record<string,string>; client_verification: Record<string,string> }
+export async function getKnowledgeConnections(): Promise<ConnectionInfo> {
+  const data=unwrapKnowledge(await callFrappeMethod<DomainEnvelope<ConnectionInfo>>('hb_knowledge_app.hb_knowledge.api.get_connections'))
+  if (!Array.isArray(data.items) || data.items.length>50 || !Array.isArray(data.tools) || data.tools.length!==4 || typeof data.endpoint!=='string') throw new DomainApiError('SERVICE_ERROR','连接信息无效。')
+  const endpoint=new URL(data.endpoint)
+  if (endpoint.pathname!=='/mcp' || endpoint.search || endpoint.hash || (endpoint.protocol!=='https:' && !['localhost','knowledge-r2.localhost','127.0.0.1'].includes(endpoint.hostname))) throw new DomainApiError('SERVICE_ERROR','连接地址无效。')
+  return data
+}
+export async function createKnowledgeConnection(label: string, client: string): Promise<{ id: string; token: string; expires_at: string }> {
+  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{id:string;token:string;expires_at:string}>>('hb_knowledge_app.hb_knowledge.api.create_connection',{label,client_name:client}))
+  if (!/^hbos_mcp_[0-9a-f]{32}\.[A-Za-z0-9_-]{43}$/.test(data.token) || !/^[0-9a-f]{32}$/.test(data.id)) throw new DomainApiError('SERVICE_ERROR','连接凭据无效。')
+  return data
+}
+export async function revokeKnowledgeConnection(id: string): Promise<void> { unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{revoked:boolean}>>('hb_knowledge_app.hb_knowledge.api.revoke_connection',{connection_id:id})) }

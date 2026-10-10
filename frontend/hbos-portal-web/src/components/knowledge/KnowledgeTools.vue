@@ -33,18 +33,18 @@
           <a-alert v-else-if="feedbackError" type="error" show-icon :message="feedbackError" />
           <a-empty v-else-if="!feedbackItems.length" description="还没有提交过反馈。可以提交使用问题，也可在检索结果中反馈资料问题。" />
           <article v-for="item in pagedFeedback" :key="item.id" class="feedback-row">
-            <div><strong>{{ item.category }}</strong><p>{{ item.note || '未填写补充说明' }}</p><small>提交 {{ displayDate(item.created_at) }} · 更新 {{ displayDate(item.updated_at) }}</small></div>
+            <div><strong>{{ item.category }}</strong><p>{{ item.note || '未填写补充说明' }}</p><p v-if="item.reply" class="maintenance-reply">维护回复：{{ item.reply }}</p><small>提交 {{ displayDate(item.created_at) }} · 更新 {{ displayDate(item.updated_at) }}</small></div>
             <a-tag :color="item.status === 'Resolved' ? 'green' : item.status === 'In Review' ? 'blue' : 'orange'">{{ feedbackStatus[item.status] }}</a-tag>
           </article>
           <a-pagination v-if="feedbackItems.length > savedPageSize" v-model:current="savedPage" :page-size="savedPageSize" :total="feedbackItems.length" :show-size-changer="false" :show-less-items="true" size="small" />
         </template>
         <template v-else>
-          <p class="muted">重新查阅会按当前权限和资料版本重新检索，不恢复旧答案。</p>
+          <p class="muted">重新查阅会核验当前来源并恢复已保存的有限记录，不调用回答模型。早期未保存回答的记录可重新检索。</p>
           <a-skeleton v-if="refreshing" active :paragraph="{ rows: 3 }" />
           <a-empty v-else-if="!shown.length" :description="kind === 'History' ? '检索和问答后会在这里记录问题。' : '在检索结果中收藏资料，稍后继续查阅。'" />
           <article v-for="item in pagedSaved" :key="item.id" class="saved-row">
             <div><strong>{{ item.query }}</strong><p>{{ item.available ? item.titles.filter(Boolean).join('；') || '检索记录' : '依据已下架或版本变化，请重新检索' }}</p><small>{{ displayDate(item.created_at) }}</small></div>
-            <div class="tool-actions"><a-button size="small" :disabled="busy || retrievalBlocked || !item.available" @click="reopen(item.id)">重新查阅</a-button><a-button size="small" :disabled="busy" @click="remove(item.id)">删除</a-button></div>
+            <div class="tool-actions"><a-button size="small" :disabled="busy || !item.available" @click="reopen(item.id)">重新查阅</a-button><a-button size="small" :disabled="busy" @click="remove(item.id)">删除</a-button></div>
           </article>
           <a-pagination v-if="shown.length > savedPageSize" v-model:current="savedPage" :page-size="savedPageSize" :total="shown.length" :show-size-changer="false" :show-less-items="true" size="small" />
         </template>
@@ -71,12 +71,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useSlots, watch } from 'vue'
-import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFeedback, KnowledgeSearchContext } from '@/contracts/p1'
+import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFeedback, KnowledgeSearchContext, KnowledgeSavedQuery } from '@/contracts/p1'
 import { askKnowledgeReference, getKnowledgeActivity, getKnowledgeFeedback, openKnowledgeSaved, removeKnowledgeSaved, saveKnowledgeBookmark, sendKnowledgeFeedback, DomainApiError } from '@/services/p1Api'
 
 type RecordKind = 'Catalog' | 'History' | 'Bookmark' | 'Feedback'
-const props = defineProps<{ subject: string; query: string; selectedSpace: string; askEnabled: boolean; retrievalBlocked?: boolean; composerExternal?: boolean; mode?: 'search' | 'ask' }>()
-const emit = defineEmits<{ replay: [query: string, spaces: string[], context?: KnowledgeSearchContext]; evidence: [id: string]; busy: [value: boolean]; conversation: [value: boolean]; 'upstream-error': []; 'access-error': [error: DomainApiError]; 'evidence-invalidated': [] }>()
+const props = defineProps<{ subject: string; query: string; selectedSpace: string; askEnabled: boolean; retrievalBlocked?: boolean; composerExternal?: boolean; mode?: 'search' | 'ask'; searchMode?: 'STANDARD' | 'PRECISE' }>()
+const emit = defineEmits<{ replay: [query: string, spaces: string[], context?: KnowledgeSearchContext]; evidence: [id: string]; busy: [value: boolean]; conversation: [value: boolean]; 'upstream-error': []; 'access-error': [error: DomainApiError]; 'evidence-invalidated': []; restored: [data: KnowledgeSavedQuery] }>()
 const slots = useSlots()
 const tabs = computed(() => [
   ...(slots.catalog ? [{ kind: 'Catalog' as const, label: '资料目录' }] : []),
@@ -126,7 +126,7 @@ watch(() => props.subject, () => {
   emit('conversation', false)
   if (props.subject) void refresh()
 }, { flush: 'sync' })
-watch(() => props.selectedSpace, () => {
+watch(() => [props.selectedSpace,props.searchMode], () => {
   generation++; turns.value = []; conversation.value = ''; busy.value = false; askPending.value = false
   error.value = ''; notice.value = ''; closeFeedback(false); emit('conversation', false)
 }, { flush: 'sync' })
@@ -216,11 +216,21 @@ async function sendFeedback() {
   })
 }
 async function reopen(id: string) {
-  if (props.retrievalBlocked) { error.value = '检索服务暂不可用，目录与个人记录仍可查看。'; return }
   await action(async current => {
     const data = await openKnowledgeSaved(id)
     if (current === generation) {
-      if (data.context) emit('replay', data.query, data.space_ids, data.context)
+      if (data.restored) {
+        const subject=props.subject
+        emit('restored',data)
+        const restoreGeneration=generation
+        await nextTick()
+        if (subject===props.subject && restoreGeneration===generation) {
+          turns.value=data.restored.turns
+          conversation.value=turns.value[turns.value.length-1]?.turn_id || ''
+          emit('conversation',Boolean(conversation.value))
+          notice.value='已按当前来源状态恢复记录，未调用回答模型。'
+        }
+      } else if (data.context) emit('replay', data.query, data.space_ids, data.context)
       else emit('replay', data.query, data.space_ids)
     }
   })
@@ -243,7 +253,7 @@ async function ask(value = question.value) {
   if ([...normalized].length > 280) { error.value = '请将问题控制在 280 字以内。'; return }
   await action(async current => {
     askPending.value = true
-    const data = await askKnowledgeReference(normalized, props.selectedSpace, conversation.value || undefined)
+    const data = await askKnowledgeReference(normalized, props.selectedSpace, conversation.value || undefined, props.searchMode || 'STANDARD')
     if (current === generation) {
       turns.value.push({ ...data, question: normalized }); conversation.value = data.turn_id; question.value = ''; emit('conversation', true)
       await refresh()

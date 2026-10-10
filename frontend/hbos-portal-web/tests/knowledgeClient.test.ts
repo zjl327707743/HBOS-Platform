@@ -12,7 +12,7 @@ describe('authorized space contract', () => {
     expect(await getKnowledgeSpaces()).toEqual([{space_id:'SPACE_QA_DEMO',title:'合成质检',document_count:1}])
     transport.post.mockResolvedValue({ok:true,data:{request_id:'REQ_DEMO',mode:'retrieval',results:[]}})
     await searchKnowledge('SYNTHETIC',{},['SPACE_QA_DEMO'])
-    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.search',{query:'SYNTHETIC',limit:5,space_ids:['SPACE_QA_DEMO']})
+    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.search',{search_mode:'STANDARD',query:'SYNTHETIC',limit:5,space_ids:['SPACE_QA_DEMO']})
   })
   it('empty requested scope never falls back to all spaces', async () => {
     await expect(searchKnowledge('SYNTHETIC',{},[])).rejects.toBeInstanceOf(DomainApiError)
@@ -34,7 +34,7 @@ describe('C01/C04 actual knowledge client; Frappe transport stub is not Session/
   it('preserves search/resolve methods and legacy flat device context',async () => {
     transport.post.mockResolvedValueOnce({ok:true,data:{request_id:'REQ_DEMO',mode:'retrieval',results:[card],context:{equipment_id:'EQ_DEMO'}}})
     await searchKnowledge('SYNTHETIC',{equipment_id:'EQ_DEMO'})
-    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.search',{query:'SYNTHETIC',limit:5,equipment_id:'EQ_DEMO'})
+    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.search',{search_mode:'STANDARD',query:'SYNTHETIC',limit:5,equipment_id:'EQ_DEMO'})
     transport.post.mockResolvedValueOnce({ok:true,data:card})
     expect(await resolveKnowledgeEvidence('EV_QA_DEMO')).toEqual(card)
     expect(transport.post).toHaveBeenLastCalledWith('hb_knowledge_app.hb_knowledge.api.resolve_evidence',{evidence_id:'EV_QA_DEMO'})
@@ -142,14 +142,14 @@ describe('N1 current-user feedback and paginated catalog projections', () => {
     null,
   ])('rejects an unsafe optional saved context case %#', async context => {
     const { openKnowledgeSaved } = await import('@/services/p1Api')
-    transport.post.mockResolvedValue({ ok: true, data: { query: '合成旧问题', space_ids: ['SPACE_N1_DEMO'], context } })
+    transport.post.mockResolvedValue({ ok: true, data: { search_mode:'STANDARD', query: '合成旧问题', space_ids: ['SPACE_N1_DEMO'], context } })
     await expect(openKnowledgeSaved('SAVED_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
   })
   it('rejects duplicate saved departments and unprojected response fields', async () => {
     const { openKnowledgeSaved } = await import('@/services/p1Api')
-    transport.post.mockResolvedValueOnce({ ok: true, data: { query: '合成旧问题', space_ids: ['SPACE_N1_DEMO', 'SPACE_N1_DEMO'] } })
+    transport.post.mockResolvedValueOnce({ ok: true, data: { search_mode:'STANDARD', query: '合成旧问题', space_ids: ['SPACE_N1_DEMO', 'SPACE_N1_DEMO'] } })
     await expect(openKnowledgeSaved('SAVED_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
-    transport.post.mockResolvedValueOnce({ ok: true, data: { query: '合成旧问题', space_ids: [], owner_user: 'PRIVATE_USER_DEMO' } })
+    transport.post.mockResolvedValueOnce({ ok: true, data: { search_mode:'STANDARD', query: '合成旧问题', space_ids: [], owner_user: 'PRIVATE_USER_DEMO' } })
     await expect(openKnowledgeSaved('SAVED_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
   })
 })
@@ -161,7 +161,7 @@ describe('N1 bounded follow-up responses', () => {
     const { askKnowledgeReference } = await import('@/services/p1Api')
     transport.post.mockResolvedValue({ ok: true, data: unanswered })
     expect(await askKnowledgeReference('上面第二条是什么意思？', 'SPACE_QA_DEMO', 'PREVIOUS_TURN_DEMO')).toEqual(unanswered)
-    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.ask', { question: '上面第二条是什么意思？', space_ids: ['SPACE_QA_DEMO'], conversation_id: 'PREVIOUS_TURN_DEMO' })
+    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.ask', { search_mode:'STANDARD', question: '上面第二条是什么意思？', space_ids: ['SPACE_QA_DEMO'], conversation_id: 'PREVIOUS_TURN_DEMO' })
   })
   it.each([
     { ...unanswered, answer: '未被契约批准的拒答文本' },

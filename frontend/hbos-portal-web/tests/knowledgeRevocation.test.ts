@@ -40,8 +40,8 @@ async function view(items=[card()]) {
   const wrapper = mount(KnowledgeView,{global:{stubs}})
   wrappers.push(wrapper)
   await flushPromises()
-  await wrapper.find('input').setValue('SYNTHETIC query')
-  await wrapper.find('form').trigger('submit')
+  await wrapper.find('#knowledge-query').setValue('SYNTHETIC query')
+  await wrapper.find('.knowledge-search').trigger('submit')
   await flushPromises()
   return wrapper
 }
@@ -175,7 +175,7 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
     const pending=deferred<{request_id:string,mode:'retrieval',results:KnowledgeEvidence[]}>()
     api.search.mockReturnValueOnce(pending.promise)
     const wrapper=mount(KnowledgeView,{global:{stubs}}); wrappers.push(wrapper); await flushPromises()
-    await wrapper.find('input').setValue('SYNTHETIC query'); await wrapper.find('form').trigger('submit')
+    await wrapper.find('#knowledge-query').setValue('SYNTHETIC query'); await wrapper.find('.knowledge-search').trigger('submit')
     subject.user=null; pending.resolve({request_id:'REQ_LATE_DEMO',mode:'retrieval',results:[card()]})
     await flushPromises()
     expect(wrapper.text()).not.toContain(card().excerpt)

@@ -49,7 +49,7 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
   })
   it('uses Command/Ctrl+Enter for questions while plain Enter keeps multiline editing', async () => {
     const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成问题'); await w.get('#knowledge-query').trigger('keydown', { key: 'Enter' }); expect(api.ask).not.toHaveBeenCalled()
-    await w.get('#knowledge-query').trigger('keydown', { key: 'Enter', metaKey: true }); await flushPromises(); expect(api.ask).toHaveBeenCalledWith('合成问题', '', undefined); expect(w.text()).toContain(answer.answer)
+    await w.get('#knowledge-query').trigger('keydown', { key: 'Enter', metaKey: true }); await flushPromises(); expect(api.ask).toHaveBeenCalledWith('合成问题', '', undefined, 'STANDARD'); expect(w.text()).toContain(answer.answer)
   })
   it('does not turn a canceled search into zero hits or accept its late response', async () => {
     const pending = deferred(); api.search.mockReturnValue(pending.promise); const w = await view(); await w.get('#knowledge-query').setValue('合成关键词'); await w.get('.knowledge-search').trigger('submit'); await clickText(w, '返回编辑')
@@ -59,7 +59,7 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
   it('changing department discards a slow answer and starts the next turn without old context', async () => {
     const pending = deferred(); api.ask.mockReturnValueOnce(pending.promise); const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成问题'); await w.get('.knowledge-search').trigger('submit')
     await w.get('#knowledge-space').setValue('SPACE_N1_SECOND'); pending.resolve({ ...answer, answer: 'OLD_SCOPE_ANSWER' }); await flushPromises(); expect(w.text()).not.toContain('OLD_SCOPE_ANSWER')
-    await w.get('#knowledge-query').setValue('另一范围问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.ask).toHaveBeenLastCalledWith('另一范围问题', 'SPACE_N1_SECOND', undefined)
+    await w.get('#knowledge-query').setValue('另一范围问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.ask).toHaveBeenLastCalledWith('另一范围问题', 'SPACE_N1_SECOND', undefined, 'STANDARD')
   })
   it('switching user suppresses a late answer and clears personal state', async () => {
     const pending = deferred(); api.ask.mockReturnValueOnce(pending.promise); const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('A用户问题'); await w.get('.knowledge-search').trigger('submit')
@@ -89,13 +89,13 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     api.open.mockResolvedValue({ query: '合成旧问题', space_ids: ['SPACE_N1_DEMO'], context })
     api.search.mockImplementation(() => { expect(document.body.textContent).toContain('设备上下文 EQ_SAVED_DEMO'); expect(document.body.textContent).toContain('资产范围 ASSET_SAVED_DEMO'); return Promise.resolve({ request_id: 'REQ_N1_DEMO', mode: 'retrieval', results: [] }) })
     const w = await view(); await clickText(w, '最近查阅'); await clickText(w, '重新查阅')
-    expect(api.search).toHaveBeenCalledWith('合成旧问题', context, ['SPACE_N1_DEMO']); expect(w.text()).not.toContain('EQ_CURRENT_DEMO'); expect(w.text()).toContain('组件范围 COMPONENT_SAVED_DEMO')
+    expect(api.search).toHaveBeenCalledWith('合成旧问题', context, ['SPACE_N1_DEMO'], 'STANDARD'); expect(w.text()).not.toContain('EQ_CURRENT_DEMO'); expect(w.text()).toContain('组件范围 COMPONENT_SAVED_DEMO')
   })
   it('a legacy saved record without context does not inherit an unrelated current device range', async () => {
     route.query = { equipment_id: 'EQ_CURRENT_DEMO' }
     api.activity.mockResolvedValue([{ id: 'SAVED_LEGACY_DEMO', query: '合成旧问题', created_at: '2026-10-10', available: true, titles: [] }]); api.open.mockResolvedValue({ query: '合成旧问题', space_ids: [] })
     const w = await view(); await clickText(w, '最近查阅'); await clickText(w, '重新查阅')
-    expect(api.search).toHaveBeenCalledWith('合成旧问题', {}, undefined); expect(w.text()).not.toContain('设备上下文 EQ_CURRENT_DEMO')
+    expect(api.search).toHaveBeenCalledWith('合成旧问题', {}, undefined, 'STANDARD'); expect(w.text()).not.toContain('设备上下文 EQ_CURRENT_DEMO')
   })
   it('a saved multi-department scope never silently replays against all departments', async () => {
     api.activity.mockResolvedValue([{ id: 'SAVED_MULTI_SCOPE_DEMO', query: '合成多部门问题', created_at: '2026-10-10', available: true, titles: [] }])
@@ -103,7 +103,7 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     const w = await view(); await clickText(w, '最近查阅'); await clickText(w, '重新查阅')
     expect(w.get('#knowledge-query').element).toHaveProperty('value', '合成多部门问题'); expect(w.text()).toContain('这条记录包含多个部门'); expect(api.search).not.toHaveBeenCalled(); expect(api.ask).not.toHaveBeenCalled()
     await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.search).not.toHaveBeenCalled()
-    await w.get('#knowledge-space').setValue('SPACE_N1_DEMO'); expect(api.search).not.toHaveBeenCalled(); await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.search).toHaveBeenCalledWith('合成多部门问题', context, ['SPACE_N1_DEMO'])
+    await w.get('#knowledge-space').setValue('SPACE_N1_DEMO'); expect(api.search).not.toHaveBeenCalled(); await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.search).toHaveBeenCalledWith('合成多部门问题', context, ['SPACE_N1_DEMO'], 'STANDARD')
   })
   it('a device range change discards a slow response from the previous range', async () => {
     route.query = { equipment_id: 'EQ_OLD_DEMO' }; const pending = deferred(); api.search.mockReturnValueOnce(pending.promise)

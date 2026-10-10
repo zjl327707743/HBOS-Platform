@@ -19,3 +19,12 @@ it('reopens a saved reference through the server before emitting a fresh search'
  await flushPromises();await w.findAll('[role="tab"]')[1]!.trigger('click');await w.findAll('button').find(b=>b.text()==='重新查阅')!.trigger('click');await flushPromises()
  expect(mock.open).toHaveBeenCalledWith('saved');expect(w.emitted('replay')?.[0]).toEqual(['verified query',['DEPT_PRODUCTION']]);w.unmount()
 })
+it('restores a source-validated saved answer while new paid retrieval is blocked',async()=>{
+ mock.activity.mockImplementation((kind:string)=>Promise.resolve(kind==='History'?[{id:'saved-answer',query:'已存问题',created_at:'2026-10-10',available:true,titles:['资料']}]:[]))
+ const restored={query:'已存问题',space_ids:['DEPT_PRODUCTION'],restored:{mode:'ask',search_mode:'STANDARD',results:[],turns:[{turn_id:'saved-answer',question:'已存问题',answer:'已存答案',citations:[],answerable:true}]}}
+ mock.open.mockResolvedValue(restored)
+ const w=mount(KnowledgeTools,{props:{...props,retrievalBlocked:true},global:{stubs:{'a-button':{template:'<button><slot/></button>'},'a-alert':true,'a-tag':true}}})
+ await flushPromises();const button=w.findAll('button').find(b=>b.text()==='重新查阅')!
+ expect(button.attributes('disabled')).toBeUndefined();await button.trigger('click');await flushPromises()
+ expect(mock.open).toHaveBeenCalledWith('saved-answer');expect(mock.ask).not.toHaveBeenCalled();expect(w.emitted('restored')?.[0]).toEqual([restored]);expect(w.text()).toContain('已存答案');w.unmount()
+})
