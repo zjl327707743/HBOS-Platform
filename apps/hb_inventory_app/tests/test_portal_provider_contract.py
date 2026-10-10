@@ -153,9 +153,14 @@ class InventoryPortalRouteTest(unittest.TestCase):
         self.assertTrue(router_file.exists(), f"找不到 {router_file}")
 
         source = router_file.read_text(encoding="utf-8")
-        # 抠出 `path: 'xxx'`（只取库存那一段之后的，避免把 Portal/LIMS 的算进来）
+        # 抠出 `path: 'xxx'`（只取**库存那一段**，避免把 Portal/LIMS 的算进来）。
+        #
+        # 只到库存块的**结尾**为止，不能一路扫到文件尾：库存块之后还跟着
+        # 生产看板 / 知识 / 孪生等**别的 App 的**路由（合并产品分支后新增），
+        # 那些由各自的 App 解析，库存测试去解析它们只会误报。
         inv_start = source.index("path: '/hbos/inventory'")
-        inv_part = source[inv_start:]
+        nxt = re.search(r"path:\s*'/hbos/(?!inventory)", source[inv_start + 1:])
+        inv_part = source[inv_start: inv_start + 1 + nxt.start()] if nxt else source[inv_start:]
         rel_paths = re.findall(r"path:\s*'([^']*)'", inv_part)
 
         # 拼成绝对路径：'' → /hbos/inventory；'batch' → /hbos/inventory/batch
