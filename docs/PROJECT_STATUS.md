@@ -10,7 +10,9 @@
 - 当前实现状态：M1-FIX-B2 已 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-F 为 REVIEWING（调休模块两阶段均已上线：119 条入库、103 条解析、41 已核实 / 53 核实不通过；已核实调休日已接入考勤豁免与看板；整支复查完成，1 项发现已修、1 项归因已更正）；M1-FIX-C/D/E 未启动；M3-PORTAL-R1（HBOS 门户工作台集成）R1–R4 均已交付（REVIEWING）。
 - 本批最新交付：2026-09-22 完成 **M1-FIX-F 调休模块第一阶段**——飞书调休审批进入系统并按海滨口径完成「加班日提取 → 打卡核实」，产出可人工复核的结论清单。分支 `m1-fix-c-rest-leave`（16 提交），全量测试 311 → **396 通过**。**本阶段只出结论、不改变任何考勤结果**。2026-09-22 已上线：119 条入库、103 条解析出加班日、核实结论 40 已核实 / 53 核实不通过 / 14 解析失败；**考勤结果与上线前逐值一致（零副作用）**。上线中发现并修复三项阻断（模型下线、HBOS_AI_* 未注入队列容器、nginx 需 reload），详见落地记录 §8。详见 `docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md`。
 - 另：2026-09-28 交付 **M3-PORTAL-R1（HBOS 门户工作台集成）R1–R4**（分支 `feature/hbos-portal-workbench`，基于 `m1-fix-c-rest-leave` HEAD `93ae18a`，19 提交）——选择性移植（非 merge）门户前端 + `hbos_portal` 薄平台 App + 考勤 portal 适配层，Vite 5178 代理 12 条 Frappe 前缀实现同域，并以同域 iframe 在内嵌内容区承载真实 Frappe 考勤页面；考勤测试 458 通过（基线 445）、判定核心三文件逐字节不变、装 + migrate 零副作用、frappe 模式四指标与后端逐值一致。**R4 生产形态已于 2026-09-28 获 Owner 授权并完成**（独立门户容器 8081 + 生产构建参数固化）。详见 `docs/milestones/M3_PORTAL_R1_HBOS门户工作台集成实施记录.md` 与下方「M3-PORTAL-R1 HBOS 门户工作台集成 状态」节。
-- 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS.git`，GitHub visibility = `PRIVATE`
+- 当前远端：`origin` -> `https://github.com/zjl327707743/HBOS-Platform.git`，GitHub visibility = **`public`**
+  - **2026-10-10 实测更正**：此前台账记的是 `HBOS.git` + `PRIVATE`，两项都错。地址经 `git remote -v` 核对；可见性经 `https://api.github.com/repos/zjl327707743/HBOS-Platform` 匿名访问证得 `private: false / visibility: public`，且匿名 `git ls-remote` 能列出全部分支。
+  - ⚠ **待 Owner 处置**：公开仓库意味着任何匿名者都可读全部分支内容。若分支中出现过真实员工数据、`.env`、密钥或导入产物，均视为已泄露。建议核对后决定是否转为 private，并轮换可能暴露的凭据。
 - **2026-10-09 已生效**：设备动力部 24 小时值班配对放宽——修复代码从 `m1-fix-pairing-long-duty` 合入本分支（`5b23628`），重启 backend/scheduler/queue 后**单次重算 8/15–10/08**。设备动力部缺勤 **470 → 197**；修复本身效果（严格隔离对照）：`Absent→Present` **165 条**、冗余 `Absent` 消除 **163 条**、**零误伤**；逐日核对**无缺日、无清空**；HRMS 原生行 1690 未受影响。**顺带发现并已修复 `2026-09-30` 整日缺失**：根因是定时重算的窗口「本月 1 日 → 昨天」覆盖不到上个月最后一天，而 2026-09-02 引入的第二条 DELETE（删 `attendance_date > range_end`）会把它删掉——9/30 掉进跨月空洞、永久丢失（7/31、8/31 幸存是因为引入日之前）。已按 Owner 裁定改为**滚动回溯 35 天**（`REGENERATE_LOOKBACK_DAYS`），并新增 7 个边界测试守住（含逐月扫描与变异验证）。详见 `docs/milestones/M1_FIX_设备动力部值班配对生效记录.md`。
 - 下一步路线：M1-FIX-F 两阶段均已上线；**建议下一轮优先处理「分机实施前数据修复」**（含 8/14 的 223 条错误缺勤与 `pairing.py` 设备方向判定的按天改造）与台账 #10「重算幂等改造」（本轮已实际踩中其地雷）；M1-FIX-C（异常三级流程）为 PLANNED / 待 Owner 授权；M1-FIX-D/E 未启动。**M4-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m4-stock-r1`。**M3-PORTAL-R1（HBOS 门户工作台集成）R1–R4 均已交付**；门户现由独立容器 8081 提供生产形态（详见其状态节）。**M3-PORTAL-R1 后续（2026-09-29）：考勤三页原生化 + Desk 共享视觉层已交付（REVIEWING）**，另修班次管理 13 个 `@frappe.whitelist()` 接口缺失的服务端角色门禁。
 
@@ -645,7 +647,7 @@ M0 最终边界：
 - 当前仍未创建自定义 App。
 - 当前仍未开发考勤业务。
 - 当前仍未接飞书。
-- M0-FINAL 收口时仍无远端 remote；M0-REMOTE 已在后续轮次完成 GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push。
+- M0-FINAL 收口时仍无远端 remote；M0-REMOTE 已在后续轮次完成 GitHub remote 创建、`origin` 绑定和 `main` 首次 push（可见性 2026-10-10 实测为 **public**）。
 
 后续架构原则：
 
@@ -753,7 +755,7 @@ M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩�
 
 本轮目标：
 
-- 创建 GitHub Private 仓库。
+- 创建 GitHub 仓库（当时记为 Private；2026-10-10 实测为 public）。
 - 添加 `origin`。
 - 首次 push `main`。
 - 确认 `origin/main` 与本地 `main` 一致。
@@ -761,12 +763,13 @@ M1-FIX 全程禁止：不创建 `hb_core_app`，不把 `hb_attendance_app` 扩�
 
 当前结果：
 
-- GitHub 仓库：`https://github.com/zjl327707743/HBOS`
-- Git remote URL：`https://github.com/zjl327707743/HBOS.git`
-- visibility：`PRIVATE`
+- GitHub 仓库：`https://github.com/zjl327707743/HBOS-Platform`
+- Git remote URL：`https://github.com/zjl327707743/HBOS-Platform.git`
+- visibility：**`public`**
 - 首次 push 的本地 HEAD：`0a29ca526a417d7ec666234f9312dd3de47a687b`
 - 首次 push 后本地 `main` 与 `origin/main` 一致。
 - M0-REMOTE 本轮仅完成远端创建、绑定、push 和状态记录；当时 M1 尚未启动。当前 M1-R0 已收口为 COMPLETED。
+- **2026-10-10 更正**：本轮当时记为「Private 仓库 `HBOS.git`」，实测两项都不符——现地址为 `HBOS-Platform.git`（仓库曾改名），可见性为 **public**。见上方「当前状态」节的实测依据。**仓库名与可见性的变更时点未考证**，上述三项为 2026-10-10 的实测值。
 
 本轮未做：
 

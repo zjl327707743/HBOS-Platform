@@ -6,7 +6,7 @@
 
 - `docs/milestones/README.md`：全项目里程碑索引和状态总览。
 - `docs/milestones/M0.md`：M0 工程启动与项目骨架的规划、轮次和状态。
-- `docs/milestones/M0_REMOTE.md`：M0 后 GitHub Private remote 创建、绑定和首次 push 记录。
+- `docs/milestones/M0_REMOTE.md`：M0 后 GitHub remote 创建、绑定和首次 push 记录（可见性 2026-10-10 实测为 public）。
 - `docs/milestones/M1_R0_平台入口账号权限与本地化诊断方案.md`：M1-R0 平台入口、账号体系、角色权限、飞书 SSO 可行性和中文化 / 本地化诊断方案。
 - `docs/milestones/M1_R1_HRMS原生考勤对象模型验证记录.md`：M1-R1 HRMS 原生考勤对象模型验证记录。
 - `docs/milestones/M1_R2_HRMS原生考勤配置试运行方案.md`：M1-R2 HRMS 原生考勤配置试运行方案。
@@ -67,7 +67,7 @@
 | 里程碑 | 名称 | 状态 |
 | --- | --- | --- |
 | M0 | 工程启动与项目骨架 | COMPLETED |
-| M0-REMOTE | GitHub Private remote 收口 | COMPLETED |
+| M0-REMOTE | GitHub remote 收口 | COMPLETED |
 | M1 | 考勤一期产品交付 | IN_PROGRESS（M1-FIX） |
 | M1-R0 | 平台入口账号权限与本地化诊断方案 | COMPLETED |
 | M1-R1 | HRMS 原生考勤对象模型验证 | COMPLETED |
