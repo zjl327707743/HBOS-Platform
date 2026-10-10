@@ -1,6 +1,8 @@
 # Reading Guide
 
-PR #21 已完成 FINAL_REVIEW_PASS 并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Browser final-submit 3/3 与 Owner 最新无破坏验收均已 PASS；旧 #22 已关闭，IAM-0 由 clean Draft PR #23 承接。PR #15 仍 Draft，main 未放行。以 [本轮主记录](milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 顶部的合并后收口状态为准；下方 BLOCKED/WAITING 文字均为历史。
+基线快照（核验日 2026-10-06）：产品分支 `feature/hbos-portal-product` 核验日 HEAD = `72e5b1728981b7ef102a2c9ee033ce0452c400e7`；#24–#28 已合并，#26/#27/#28 为安全修复。本机 P1 运行版本仍为 `2d138f86a14883214f4963f5809550770a2bc3df`（build ID `dcfcba32096a320a9981`），安全修复已合入源码、未部署，当前为旧版本功能走查。旧部署与产品分支历史不直接相连**主要原因是 PR #21 采用 squash 合并**，不代表旧账号/飞书功能遗漏，不需要重新合并旧分支。IAM-1 = PAUSED；Owner 验收 = WAITING_OWNER。团队获取代码只使用 `feature/hbos-portal-product`。本快照不随分支自动更新，引用前须当日重新核验；以 [项目状态](PROJECT_STATUS.md) 与 [当前里程碑](CURRENT_MILESTONE.md) 顶部状态为准；下方 2026-10-01 文字均为历史。
+
+历史（2026-10-01）：PR #21 已完成 FINAL_REVIEW_PASS 并 squash 合入 `feature/hbos-portal-product`，收口点 `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Browser final-submit 3/3 与 Owner 最新无破坏验收均已 PASS；旧 #22 已关闭，IAM-0 由 clean Draft PR #23 承接。PR #15 仍 Draft，main 未放行。原 `codex/portal-unified-account-release` 已删除，仅作 PR #21 历史来源。
 
 本指南用于限制 AI 在新乡海滨智能运营管理平台中的默认阅读范围，避免上下文膨胀和误读旧资料。
 

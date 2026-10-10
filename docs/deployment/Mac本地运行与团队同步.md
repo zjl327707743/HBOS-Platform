@@ -82,11 +82,13 @@ Administrator 许可 `hbos_feishu_allow_administrator_link` 只在 Owner 指定 
 
 ## 团队获取同一版本
 
+产品代码 Authority 是 `feature/hbos-portal-product`。原 `codex/portal-unified-account-release` 已作为 PR #21 的历史来源在 GitHub 删除，不再用于获取代码。
+
 首次获取：
 
 ```bash
 export HBOS_CODE_DIR="$PWD/HBOS-Platform"
-git clone --branch codex/portal-unified-account-release --single-branch https://github.com/zjl327707743/HBOS-Platform.git "$HBOS_CODE_DIR"
+git clone --branch feature/hbos-portal-product --single-branch https://github.com/zjl327707743/HBOS-Platform.git "$HBOS_CODE_DIR"
 git -C "$HBOS_CODE_DIR" rev-parse HEAD
 ```
 
@@ -94,15 +96,17 @@ git -C "$HBOS_CODE_DIR" rev-parse HEAD
 
 ```bash
 git -C "$HBOS_CODE_DIR" status --short --branch
-git -C "$HBOS_CODE_DIR" fetch origin codex/portal-unified-account-release
-git -C "$HBOS_CODE_DIR" merge --ff-only origin/codex/portal-unified-account-release
+git -C "$HBOS_CODE_DIR" fetch origin feature/hbos-portal-product
+git -C "$HBOS_CODE_DIR" merge --ff-only origin/feature/hbos-portal-product
 ```
 
-后两条仅在当前工作区就是该发布分支、且工作区干净时执行；存在分歧时停止并审查整合。PR #21 保持团队入口，不推 main/base、不强推、不自动合并。
+后两条仅在当前工作区就是 `feature/hbos-portal-product`、且工作区干净、且该目录没有同时作为正在运行服务的可变源码挂载时执行；存在分歧时停止并审查整合。PR #21 保留为已合并的审查证据，PR #15 仍为 Draft（base `main`），不用于获取团队代码、不推 main/base、不强推、不自动合并。产品分支状态以 [项目状态](../PROJECT_STATUS.md) 顶部的**核验日快照**为准（快照 SHA 不自动前进，引用前须当日重新 `git ls-remote` 核验）；源码已合并不等于本机已部署。
+
+> 历史为何对不上：本机曾运行的 `2d138f8` 与产品分支不共享父提交，**主要原因是 PR #21 采用 squash 合并**。这不代表旧账号/飞书功能被遗漏——运行版本独有的提交内容已随 PR #21 进入产品分支，逐文件内容差很小。因此**不要把“重新合并旧分支”当作升级手段**；版本对齐只能通过“构建新制品 → 备份 → 迁移”完成，且必须另行授权。
 
 两份旧考勤同步脚本已改为读取部署环境变量 `HBOS_FEISHU_LEAVE_APP_TOKEN` / `HBOS_FEISHU_LEAVE_TABLE_ID`、`HBOS_FEISHU_EXCEPTION_APP_TOKEN` / `HBOS_FEISHU_EXCEPTION_TABLE_ID`。它们是其他业务同步的资源标识，与 Portal OAuth Secret 分开配置；未接入时不启动同步，不使用仓库中的真实表格标识。
 
-运行 SHA 和 build ID 以 `/assets/hbos_portal/portal/build-info.json`、制品 `release.json` 与 PR HEAD 三者一致为准。新提交必须重新构建、部署并验证。每次 CI 必须核对最新提交的本次结果及制品，历史 PASS 不代表本次 PASS。
+运行 SHA 和 build ID 以 `/assets/hbos_portal/portal/build-info.json`、制品 `release.json` 与**用于构建的源码提交**（`feature/hbos-portal-product` 的当日 HEAD）三者一致为准。新提交必须重新构建、部署并验证。每次 CI 必须核对最新提交的本次结果及制品，历史 PASS 不代表本次 PASS。
 
 上传仅包含通用 App、Gateway、运行工具、配置模板、锁文件及编译资产。数据库备份、用户、密码散列、Secret/Token、个人映射、知识原文/索引、私有模型/图纸/照片、证书私钥与本机报告保留在本机。截图和本人验收报告单独交付，不放入公共 Git。
 
