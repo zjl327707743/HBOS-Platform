@@ -5,7 +5,9 @@ import { createMemoryHistory, createRouter } from "vue-router";
 import TwinView from "@/views/TwinView.vue";
 import TwinProcessPanel from "@/components/twin/TwinProcessPanel.vue";
 import { TwinError } from "@/services/twin/twinApi";
+import { FrappeRequestError } from "@/services/frappeClient";
 import type {
+  Catalog,
   CatalogEntry,
   DemoSession,
   TwinManifest,
@@ -84,10 +86,12 @@ function mapped(m: TwinManifest, asset: string): TwinMapping {
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => {
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((r, j) => {
     resolve = r;
+    reject = j;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 let wrapper: VueWrapper | null = null;
 beforeEach(() => {
@@ -114,6 +118,7 @@ afterEach(() => {
   wrapper?.unmount();
   wrapper = null;
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 async function start() {
   const router = createRouter({
@@ -159,6 +164,251 @@ it("drops a late model manifest after switching entries", async () => {
   await flushPromises();
   expect(viewer().props("manifest").entry_id).toBe("M607B");
   expect(api.getParts).toHaveBeenCalledTimes(1);
+});
+
+async function pendingRefresh() {
+  const old = deferred<TwinManifest>();
+  api.getManifest.mockReturnValueOnce(old.promise);
+  window.dispatchEvent(new Event("focus"));
+  await flushPromises();
+  expect(api.getManifest).toHaveBeenLastCalledWith("M606B", "M606B-sha");
+  return old;
+}
+function expectCatalogIdle() {
+  expect((wrapper!.vm as unknown as { catalogLoading: boolean }).catalogLoading).toBe(false);
+}
+
+it.each([
+  "ASSET_REVISION_MISMATCH", "MEMBERS_PENDING", "FORBIDDEN",
+  "ASSET_INTEGRITY_FAILED", "ASSET_INVALID", "SERVICE_ERROR",
+])("preserves the newer entry and saved progress after a late %s refresh denial", async (code) => {
+  await start();
+  await button("生产示教").trigger("click");
+  wrapper!.getComponent(TwinProcessPanel).vm.$emit("seek", 33);
+  await flushPromises();
+  const first = viewer().props("session");
+  const old = await pendingRefresh();
+  await choose("M607B");
+  await button("生产示教").trigger("click");
+  wrapper!.getComponent(TwinProcessPanel).vm.$emit("seek", 8);
+  await flushPromises();
+  const current = viewer().props("session");
+  old.reject(new TwinError(code, "fixture old entry denied"));
+  await flushPromises();
+  expect(viewer().props("manifest").entry_id).toBe("M607B");
+  expect(viewer().props("session")).toBe(current);
+  expect(current.time).toBe(8);
+  expect(button("生产示教").attributes("disabled")).toBeUndefined();
+  expect(wrapper!.find(".error-card").exists()).toBe(false);
+  expectCatalogIdle();
+  await choose("M606B");
+  expect(viewer().props("session")).toBe(first);
+  expect(first.time).toBe(33);
+  expect(first.paused).toBe(true);
+});
+
+it("discards an old manifest success with revised content after switching", async () => {
+  await start();
+  const old = await pendingRefresh();
+  await choose("M607B");
+  const current = viewer().props("manifest"), active = viewer().props("session");
+  old.resolve({ ...manifest("M606B"), model_sha256: "fixture-old-sha", mapping_revision: "old" });
+  await flushPromises();
+  expect(viewer().props("manifest")).toBe(current);
+  expect(viewer().props("session")).toBe(active);
+  expect(wrapper!.find(".error-card").exists()).toBe(false);
+  expectCatalogIdle();
+});
+
+it.each(["success", "denial"])("discards refresh %s after leaving and reopening the same entry", async (outcome) => {
+  await start();
+  const old = await pendingRefresh();
+  await choose("M607B");
+  await choose("M606B");
+  const current = viewer().props("manifest"), active = viewer().props("session");
+  if (outcome === "success") old.resolve({ ...manifest("M606B"), mapping_revision: "old" });
+  else old.reject(new TwinError("FORBIDDEN", "fixture earlier generation denied"));
+  await flushPromises();
+  expect(viewer().props("manifest")).toBe(current);
+  expect(viewer().props("session")).toBe(active);
+  expect(wrapper!.find(".error-card").exists()).toBe(false);
+  expectCatalogIdle();
+});
+
+it("does not apply an old catalog to the newer entry", async () => {
+  await start();
+  const old = deferred<Catalog>();
+  api.getCatalog.mockReturnValueOnce(old.promise);
+  window.dispatchEvent(new Event("focus"));
+  await flushPromises();
+  await choose("M607B");
+  const current = viewer().props("session");
+  old.resolve({ schema: "twin.catalog.v1", catalog_revision: "fixture-old", entries: [entries[0]!] });
+  await flushPromises();
+  expect(viewer().props("manifest").entry_id).toBe("M607B");
+  expect(viewer().props("session")).toBe(current);
+  expect(wrapper!.get(".twin-catalog").text()).toContain("M607B");
+  expectCatalogIdle();
+});
+
+it.each(["ASSET_REVISION_MISMATCH", "MEMBERS_PENDING", "FORBIDDEN", "ASSET_INTEGRITY_FAILED", "ASSET_INVALID"])(
+  "still clears protected content and saved progress when the current refresh returns %s", async (code) => {
+    await start();
+    await button("生产示教").trigger("click");
+    wrapper!.getComponent(TwinProcessPanel).vm.$emit("seek", 33);
+    await flushPromises();
+    const old = await pendingRefresh();
+    old.reject(new TwinError(code, "fixture current entry denied"));
+    await flushPromises();
+    expect(wrapper!.find('[data-test="viewer"]').exists()).toBe(false);
+    expect(wrapper!.find(".twin-catalog").exists()).toBe(false);
+    expect(wrapper!.text()).toContain("fixture current entry denied");
+    expectCatalogIdle();
+    await button("重新核验").trigger("click");
+    await flushPromises();
+    expect(viewer().props("session").time).toBe(0);
+    expectCatalogIdle();
+  },
+);
+
+it.each(["removed", "MEMBERS_PENDING"])("stops the current entry when catalog approval is %s", async (availability) => {
+  await start();
+  api.getCatalog.mockResolvedValue({ entries: availability === "removed" ? [] : entries.map((e) => ({ ...e, availability })) });
+  window.dispatchEvent(new Event("focus"));
+  await flushPromises();
+  expect(wrapper!.find('[data-test="viewer"]').exists()).toBe(false);
+  expect(wrapper!.find(".twin-catalog").exists()).toBe(false);
+  expect(wrapper!.text()).toContain("当前设备查看范围或成员批准已失效");
+  expectCatalogIdle();
+});
+
+it.each(["UNAUTHENTICATED", "FORBIDDEN"] as const)(
+  "revalidates the current context after a late native %s rather than clearing a valid newer entry", async (code) => {
+    await start();
+    const old = await pendingRefresh();
+    await choose("M607B");
+    const current = viewer().props("session");
+    api.getCatalog.mockClear();
+    old.reject(new FrappeRequestError(code, "fixture old native denial", code === "UNAUTHENTICATED" ? 401 : 403));
+    await flushPromises();
+    expect(viewer().props("session")).toBe(current);
+    expect(api.getCatalog).toHaveBeenCalledOnce();
+    expect(api.getManifest).toHaveBeenLastCalledWith("M607B", "M607B-sha");
+    expect(wrapper!.find(".error-card").exists()).toBe(false);
+    expectCatalogIdle();
+  },
+);
+
+it.each([false, true])("stops protected display on a native session failure (switched: %s)", async (switched) => {
+  await start();
+  const old = await pendingRefresh();
+  if (switched) await choose("M607B");
+  api.getCatalog.mockRejectedValue(new FrappeRequestError("UNAUTHENTICATED", "fixture current session expired", 401));
+  old.reject(new FrappeRequestError("UNAUTHENTICATED", "fixture session expired", 401));
+  await flushPromises();
+  expect(wrapper!.find('[data-test="viewer"]').exists()).toBe(false);
+  expect(wrapper!.find(".twin-catalog").exists()).toBe(false);
+  expect(wrapper!.text()).toContain("session expired");
+  expectCatalogIdle();
+});
+
+it("still stops a newer entry denied by the fresh native permission check", async () => {
+  await start();
+  const old = await pendingRefresh();
+  await choose("M607B");
+  api.getManifest.mockRejectedValue(new FrappeRequestError("FORBIDDEN", "fixture current native denied", 403));
+  old.reject(new FrappeRequestError("FORBIDDEN", "fixture old native denied", 403));
+  await flushPromises();
+  expect(api.getManifest).toHaveBeenLastCalledWith("M607B", "M607B-sha");
+  expect(wrapper!.find('[data-test="viewer"]').exists()).toBe(false);
+  expect(wrapper!.text()).toContain("fixture current native denied");
+  expectCatalogIdle();
+});
+
+it.each(["success", "denial", "session"])("does not reopen a rejected newer entry after an old refresh %s", async (outcome) => {
+  await start();
+  const old = await pendingRefresh();
+  await choose("M607B");
+  api.getMapping.mockRejectedValue(new TwinError("FORBIDDEN", "fixture current entry revoked"));
+  viewer().vm.$emit("select", "fixture-node");
+  await flushPromises();
+  const calls = api.getCatalog.mock.calls.length;
+  if (outcome === "success") old.resolve(manifest("M606B"));
+  else old.reject(outcome === "session" ? new FrappeRequestError("UNAUTHENTICATED", "fixture old expired", 401) : new TwinError("FORBIDDEN", "fixture old denied"));
+  await flushPromises();
+  expect(wrapper!.find('[data-test="viewer"]').exists()).toBe(false);
+  expect(wrapper!.find(".twin-catalog").exists()).toBe(false);
+  expect(wrapper!.text()).toContain("fixture current entry revoked");
+  expect(api.getCatalog).toHaveBeenCalledTimes(calls);
+  expectCatalogIdle();
+});
+
+it("checks current approval after a stale catalog-wide denial", async () => {
+  await start();
+  const old = deferred<Catalog>();
+  api.getCatalog.mockReturnValueOnce(old.promise);
+  window.dispatchEvent(new Event("focus"));
+  await flushPromises();
+  await choose("M607B");
+  api.getCatalog.mockResolvedValue({ entries: [entries[0]!] });
+  old.reject(new TwinError("FORBIDDEN", "fixture old catalog denied"));
+  await flushPromises();
+  expect(wrapper!.find('[data-test="viewer"]').exists()).toBe(false);
+  expect(wrapper!.text()).toContain("当前设备查看范围或成员批准已失效");
+  expectCatalogIdle();
+});
+
+it.each(["success", "denial"])("does not let a superseded refresh %s release newer loading or restore its scene", async (outcome) => {
+  await start();
+  const old = await pendingRefresh();
+  const latest = deferred<TwinManifest>();
+  api.getManifest.mockReturnValueOnce(latest.promise);
+  window.dispatchEvent(new Event("focus"));
+  await flushPromises();
+  if (outcome === "success") old.resolve({ ...manifest("M606B"), mapping_revision: "old" });
+  else old.reject(new TwinError("MEMBERS_PENDING", "fixture old denied"));
+  await flushPromises();
+  expect(viewer().props("manifest").entry_id).toBe("M606B");
+  expect((wrapper!.vm as unknown as { catalogLoading: boolean }).catalogLoading).toBe(true);
+  await choose("M607B");
+  expectCatalogIdle();
+  latest.resolve({ ...manifest("M606B"), mapping_revision: "old" });
+  await flushPromises();
+  expect(viewer().props("manifest").entry_id).toBe("M607B");
+  expectCatalogIdle();
+});
+
+it.each(["success", "denial", "session"])("discards late refresh %s on leaving without another request or loading", async (outcome) => {
+  await start();
+  const old = await pendingRefresh(), calls = api.getCatalog.mock.calls.length, detached = wrapper!;
+  detached.unmount();
+  wrapper = null;
+  if (outcome === "success") old.resolve(manifest("M606B"));
+  else old.reject(outcome === "session" ? new FrappeRequestError("UNAUTHENTICATED", "fixture expired", 401) : new TwinError("FORBIDDEN", "fixture denied"));
+  await flushPromises();
+  expect(api.getCatalog).toHaveBeenCalledTimes(calls);
+  expect((detached.vm as unknown as { manifest: TwinManifest | null }).manifest).toBeNull();
+  expect((detached.vm as unknown as { catalogLoading: boolean }).catalogLoading).toBe(false);
+});
+
+it("keeps initial auto-selection, same-entry verification, focus and 30-second polling", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  await start();
+  expect(viewer().props("manifest").entry_id).toBe("M606B");
+  expectCatalogIdle();
+  await button("生产示教").trigger("click");
+  wrapper!.getComponent(TwinProcessPanel).vm.$emit("seek", 33);
+  await flushPromises();
+  const current = viewer().props("session");
+  window.dispatchEvent(new Event("focus"));
+  await flushPromises();
+  expect(api.getManifest).toHaveBeenLastCalledWith("M606B", "M606B-sha");
+  vi.advanceTimersByTime(30000);
+  await flushPromises();
+  expect(api.getCatalog).toHaveBeenCalledTimes(3);
+  expect(viewer().props("session")).toBe(current);
+  expect(current.time).toBe(33);
+  expectCatalogIdle();
 });
 
 it("keeps the last selection, then discards late mapping after clear and switch", async () => {

@@ -411,6 +411,7 @@ import {
   getParts,
   getProcess,
   protectedFailure,
+  TwinError,
 } from "@/services/twin/twinApi";
 import { createScheduler } from "@/composables/twin/scheduler";
 import {
@@ -641,6 +642,9 @@ function clearSelection() {
   viewer.value?.selectIds([]);
 }
 function resetEntry() {
+  // 切换或清场同时取消旧后台复核，并释放它持有的 loading。
+  catalogEpoch++;
+  catalogLoading.value = false;
   compareMode.value = false;
   comparisonSessions.clear();
   knowledgeError.value = "";
@@ -686,20 +690,22 @@ function chooseEquipment(equipment: string) {
   scheduler.invalidate();
 }
 async function loadCatalog() {
-  const token = ++catalogEpoch;
+  const token = ++catalogEpoch,
+    active = manifest.value;
+  let checkingEntry = false;
   catalogLoading.value = true;
   pageError.value = "";
   try {
     const c = await getCatalog();
     if (disposed || token !== catalogEpoch) return;
     catalog.value = c;
-    if (manifest.value) {
-      const active = manifest.value,
-        current = c.entries.find((e) => e.entry_id === active.entry_id);
+    if (active) {
+      const current = c.entries.find((e) => e.entry_id === active.entry_id);
       if (!current || current.availability !== "READY") {
         failProtected("当前设备查看范围或成员批准已失效，展示已停止。");
         return;
       }
+      checkingEntry = true;
       const checked = await getManifest(active.entry_id, active.model_sha256);
       if (disposed || token !== catalogEpoch) return;
       if (
@@ -731,7 +737,17 @@ async function loadCatalog() {
       if (entry) await chooseEntry(entry);
     }
   } catch (e) {
-    if (disposed || token !== catalogEpoch) return;
+    if (disposed) return;
+    if (token !== catalogEpoch) {
+      // 旧条目的领域错误已失效；目录或原生会话拒绝须重新核验当前上下文。
+      if (
+        protectedFailure(e) &&
+        (!checkingEntry || !(e instanceof TwinError)) &&
+        (catalog.value || entryLoading.value || catalogLoading.value)
+      )
+        void loadCatalog();
+      return;
+    }
     if (protectedFailure(e))
       failProtected(errorText(e, "登录或设备权限已失效。"));
     else pageError.value = errorText(e, "设备目录暂时不可用。");
