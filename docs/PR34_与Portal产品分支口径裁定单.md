@@ -1,10 +1,11 @@
 # PR #34 与 `feature/hbos-portal-product` 口径裁定单
 
 > 生成：2026-10-10 · 交付流程产出，**供 Owner 裁定使用**
-> 状态：**已提交**，由 **PR #35** 承载（`docs/pr34-base-ruling` → `feature/hbos-portal-product`，差异 1 文件）
-> 关联：PR #34 https://github.com/zjl327707743/HBOS-Platform/pull/34（**已关闭**）／ PR #35 https://github.com/zjl327707743/HBOS-Platform/pull/35
+> 状态：**待合并的文档候选**，由 **PR #35** 承载（`docs/pr34-base-ruling` → `feature/hbos-portal-product`，实际差异为 4 份文档）
+> 关联：PR #34 https://github.com/zjl327707743/HBOS-Platform/pull/34（**Open / 存在合并冲突，截至 2026-10-10 本轮远端复核**）／ PR #35 https://github.com/zjl327707743/HBOS-Platform/pull/35
 > Head `feature/hbos-attendance-console` @ `8b7d92f` ／ Base `feature/hbos-portal-product` @ `ddbe9bf3`
 > 修订：2026-10-10 追加 §5.8 与 §7 第 8 项（移植分析新发现的两项 Base 测试覆盖不到的差异）
+> Owner 范围澄清：现有人员资料为测试人员数据，本轮不以其隐私泄漏作为合并阻塞；本文件对旧来源状态的技术事实不代表对生产凭据、数据迁移或业务规则改动的授权。
 
 ---
 
@@ -247,7 +248,7 @@ Base 有 OCR 服务与三 App 挂载及 clean-site 安装序列；Head 有 `port
 
 ---
 
-## 七、需要 Owner 裁定的事项（8 项）
+## 七、推荐裁定的事项（8 项；技术建议不自动等于 Owner 正式批准）
 
 | # | 事项 | 选项 | 建议 |
 | --- | --- | --- | --- |
@@ -257,7 +258,7 @@ Base 有 OCR 服务与三 App 挂载及 clean-site 安装序列；Head 有 `port
 | **4** | **旧引擎政策**（§4.3） | (A) 采纳 Base「必须删除」／(B) 采纳 Head「保留 + 废弃标记」 | **(A)**，并删除 Head 版 `LEGACY` 断言 |
 | **5** | **门户前端基线**（§5.5） | (A) Base 为基线 + 移植 Head 22 文件／(B) Head 为基线／(C) 暂不动前端 | **(A)**；需确认 Base 的 LIMS / twin 页面要保留 |
 | **6** | **`apps/hb_stock_app` 归属**（§5.7） | (A) 移出本 PR／(B) 随本 PR 进入 Portal | **(A)** |
-| **7** | **凭据与身份数据处置** | (A) 移植时改为 env，**不重写历史**，另定是否轮换 4 个 token／(B) 仅改当前版本／(C) 保持现状 | **(A)**。**另需 Owner 专断**：仓库为 **public**，`docs/attendance/HBOS班次名单_工号姓名对照表.md` 与 `..._工号姓名部门对照表.md` 含真实姓名与工号，自 push 起即可被匿名读取；是否转 private / 删文档，请 Owner 决定 |
+| **7** | **凭据与身份数据处置** | (A) 移植时改为 env，**不重写历史**，另定是否轮换 4 个 token／(B) 仅改当前版本／(C) 保持现状 | **(A)**。Owner 已确认本次属于测试人员数据，本轮不启动隐私清理；有效凭据、系统访问权限和生产写入仍需独立核验 |
 | **8** | **考勤卡片出站开关**（§5.8a） | (A) 移植时保留 Base 的 `feishu_write_enabled()` + `HBOS_FEISHU_SYNC_ENABLED`（默认关闭）／(B) 采用 Head 的无开关形态 | **(A)**——这是真实飞书**出站**的总闸，缺它则新环境一上线就会往群里发卡片；且该回归**不在** Base 15 项测试覆盖内，只能靠本单发现 |
 
 > **§7 第 7 项的补充（2026-10-10）**：身份数据残留不止那两份名单文档。`rotation_schedule.py` 另有 9 行裸姓名注释（详见 §5.8b），且**不在** Base 治理测试的姓名正则覆盖内。
@@ -311,9 +312,9 @@ git show origin/feature/hbos-portal-product:apps/hb_attendance_app/tests/test_me
 
 - 本裁定单**只做分析**：未修改任何被冲突的文件，未解决冲突，未 rebase，未 force push，未合并 PR。
 - **未动运行态**：未执行 `migrate`、未重建容器、未写数据库、未跑 Frappe 测试套件（本机容器承载约 700 名员工的在跑数据）。
-- **落点**：本文件于 2026-10-10 提交于分支 `docs/pr34-base-ruling`（基于 `feature/hbos-portal-product` 的 `ddbe9bf`），并由 **PR #35** 承载；相对 Base 差异为 **1 个文件**。
+- **落点**：本文件于 2026-10-10 提交于分支 `docs/pr34-base-ruling`（基于 `feature/hbos-portal-product` 的 `ddbe9bf`），并由 **PR #35** 承载；该 PR 实际新增 **4 份文档**，此文件只是其中一份。
 - **修订记录**：
   - 2026-10-10 初版 —— 冲突分类、15 项治理测试对照、三组耦合冲突、7 项裁定事项。
   - 2026-10-10 追加 §5.8 与 §7 第 8 项 —— 移植分析发现的两项 Base 测试覆盖不到的差异（出站总开关、姓名注释残留）。
-  - 原 PR #34 已关闭（109 文件冲突无法 merge）；来源分支 `feature/hbos-attendance-console` 保留，作为移植增量的来源。
+  - 截至本轮最新远端复核，PR #34 仍 Open / mergeable=false；来源分支 `feature/hbos-attendance-console` 保留，作为选择性移植的来源。
   - 本节所引的 `HEAD` 均指 `feature/hbos-attendance-console` 的 `8b7d92f`。
