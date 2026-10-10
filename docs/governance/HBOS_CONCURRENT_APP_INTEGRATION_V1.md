@@ -62,7 +62,7 @@ git rev-parse origin/feature/hbos-portal-product
 git log --oneline -5 origin/feature/hbos-portal-product
 
 # 启动新 Portal 功能前，基于当天最新产品主线创建短期分支
-git switch -c feat/<app>-<small-feature> origin/feature/hbos-portal-product
+git switch -c feat/inventory-small-fix origin/feature/hbos-portal-product
 
 # 开 PR 前审查自身差异
 git diff --stat origin/feature/hbos-portal-product...HEAD
