@@ -1,6 +1,16 @@
 # AI Context
 
-## HBOS Knowledge N1 夜间候选 — 2026-10-10
+## HBOS Knowledge UAT-1 当前候选 — 2026-10-10
+
+**PARTIAL / ACCOUNTING_PENDING / LOCAL_UAT / COMPANY_ROLLOUT_PENDING。** 本轮直接实现并装配个人 MCP、页面维护、默认标准检索、有限会话和反馈闭环；未达到完整人工验收放行。旧事件的 Owner 风险例外已按原信封追加，但新增生成未知和在途 embedding 未结算使付费查询、问答、解析暂停，不扩大旧例外。
+
+生产发布 13（原 12 + 本轮 1），人事/安全发布 0；旧 224 解析成功、78 失败保留。MCP 认证/发现/撤销可用；停止前 Hermes 的真实检索/来源通过，OpenClaw 完整问答未通过。维护 UI 的去重、质量、发布、下架/恢复及反馈处理通过，新资料完整解析和换版查询链待补。原生 API/索引不重建，批量 worker 和自动付费测试停止，Owner 1.5 元控制预留留在原两个信封内但当前受对账门槛阻断。
+
+最终标准领域入口 132 项（114 领域 + 18 本地准入）、服务 185 项、前端 148 项分别通过，不能代替功能验收。PR #30 保持 Draft、人工验收前不合并；P1、main、其他 PR 和真实员工范围不改。
+
+当前主记录：[M1-KB-UAT1 完整功能人工验收候选](milestones/M1_KB_UAT1_完整功能人工验收候选.md)；两轮审查和真实缺口在主记录中，以下 N1 / R2 条目为历史记录。
+
+## 历史：HBOS Knowledge N1 夜间候选 — 2026-10-10
 
 状态：N1_PARTIAL_WITH_INDEPENDENT_WORK_COMPLETED / ACCOUNTING_PENDING / LOCAL_CANDIDATE_ONLY。原生 rerank 协议适配进入固定 RAGFlow 的实际模型注册入口；严格校验本请求的索引、分数、usage 和 request_id，其他模型保持原实现。生产参考装配缺原预算绑定时拒绝调用。旧 UNKNOWN 没有结清依据，普通模型调用、旧失败项解析和新资料在线发布继续关闭，不能以离线适配或此前单次成功宣称业务恢复。
 
