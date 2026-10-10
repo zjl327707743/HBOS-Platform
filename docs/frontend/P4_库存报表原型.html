@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HBOS 仓储库存 · 库存报表 原型</title>
+<style>
+/* ============================================================
+   HBOS 仓储库存 — 库存报表（V1 Operational）
+    Authority:
+   - EA-4 Design System v1
+   - EA-5.4 §21 Data Table / §22 Filter Bar / §44 Typography Contract v2.0
+   - 报表 Authority：hb_inventory_app/.../report/<报表>/{<报表>.py, <报表>.js}
+   ============================================================ */
+
+:root{
+  --bg-canvas:#F4F8FD; --bg-surface:#FFFFFF; --bg-subtle:#F7F9FC; --bg-inset:#F1F4F9;
+  --text-primary:#17253C; --text-secondary:#425675; --text-muted:#72829D;
+  --border-default:rgba(65,91,138,.10); --border-strong:rgba(65,91,138,.18);
+  --radius-card:16px; --radius-control:12px; --radius-pill:999px;
+  --shadow-card:0 1px 2px rgba(47,72,117,.06), 0 8px 24px rgba(47,72,117,.05);
+  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px; --sp8:32px;
+  --f-page:30px; --lh-page:38px; --f-section:20px; --lh-section:28px;
+  --f-card:16px; --lh-card:24px; --f-body:14px; --lh-body:22px;
+  --f-meta:12px; --lh-meta:20px;
+  --w-reg:400; --w-med:500; --w-str:600;
+  --domain:#F5A821; --domain-strong:#8F5E0C; --domain-soft:rgba(245,168,33,.14);
+  --st-success:#1BBC86; --st-warning:#F4A523; --st-critical:#ED5A72; --st-info:#4B9CFF;
+  --font-sans:Inter,"SF Pro Display","PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --font-mono:"SFMono-Regular","JetBrains Mono",Consolas,ui-monospace,monospace;
+  --ease:cubic-bezier(.2,0,0,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg-canvas);color:var(--text-primary);font-family:var(--font-sans);font-size:var(--f-body);line-height:var(--lh-body)}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:2px solid rgba(73,168,255,.9);outline-offset:2px}
+
+/* header / shell —— 与其余库存页一致 */
+.hb-header{position:sticky;top:0;z-index:20;height:72px;display:flex;align-items:center;gap:var(--sp4);padding:0 var(--sp6);background:rgba(255,255,255,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--border-default)}
+.hb-mark{width:40px;height:40px;flex:0 0 40px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:var(--w-str);font-size:var(--f-card);line-height:1;background:linear-gradient(135deg,#6C63FF,#49A9FF 65%,#4BD8BF)}
+.hb-brand{display:flex;flex-direction:column;gap:var(--sp1);min-width:0}
+.hb-brand b{font-size:var(--f-card);line-height:var(--lh-card);font-weight:var(--w-str)}
+.hb-brand span{font-size:var(--f-meta);line-height:var(--lh-meta);color:var(--text-muted)}
+.hb-gap{flex:1}
+.hb-icon{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;border:0;border-radius:var(--radius-control);background:transparent;color:var(--text-secondary)}
+.hb-icon:hover{background:var(--bg-inset)}
+.hb-icon svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9}
+.hb-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:50%;display:grid;place-items:center;font-size:var(--f-body);font-weight:var(--w-str);background:rgba(114,130,157,.16);color:var(--text-secondary)}
+
+.hb-shell{display:grid;grid-template-columns:240px minmax(0,1fr);gap:var(--sp6);padding:var(--sp6);max-width:1600px;margin:0 auto;align-items:start}
+.hb-side{position:sticky;top:88px;display:flex;flex-direction:column;gap:var(--sp2);padding:var(--sp4) var(--sp3);max-height:calc(100vh - 112px);border-radius:var(--radius-card);background:var(--bg-surface);border:1px solid var(--border-default);box-shadow:var(--shadow-card)}
+.hb-back{display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);margin-bottom:var(--sp2);border-radius:var(--radius-control);text-decoration:none;color:var(--text-muted);font-size:var(--f-meta);line-height:var(--lh-meta)}
+.hb-back:hover{background:var(--bg-inset);color:var(--text-secondary)}
+.hb-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.hb-navlabel{padding:var(--sp3) var(--sp3) var(--sp1);font-size:var(--f-meta);color:var(--text-muted)}
+.hb-navitem{display:flex;align-items:center;gap:var(--sp3);width:100%;min-height:42px;padding:0 var(--sp3);border:0;border-radius:var(--radius-control);background:transparent;text-align:left;text-decoration:none;color:var(--text-secondary);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-navitem:hover{background:var(--bg-inset);color:var(--text-primary)}
+.hb-navitem[aria-current="page"]{background:var(--domain-soft);color:var(--domain-strong);font-weight:var(--w-med)}
+.hb-navitem svg{width:18px;height:18px;flex:0 0 18px;stroke:currentColor;fill:none;stroke-width:1.8}
+.hb-navitem span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-navdiv{height:1px;margin:var(--sp3) var(--sp3);background:var(--border-default)}
+
+.hb-main{min-width:0;display:flex;flex-direction:column;gap:var(--sp5)}
+.hb-pagehead{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp4);flex-wrap:wrap}
+.hb-pagehead h1{margin:0 0 var(--sp1);font-size:var(--f-page);line-height:var(--lh-page);font-weight:var(--w-str);letter-spacing:-.4px}
+.hb-pagehead p{margin:0;color:var(--text-secondary);font-size:var(--f-body)}
+.hb-result-meta{text-align:right;color:var(--text-muted);font-size:var(--f-meta);line-height:var(--lh-meta)}
+.hb-result-meta b{display:block;font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-str);color:var(--text-secondary);font-variant-numeric:tabular-nums}
+
+/* ---------- 筛选栏（EA-5.4 §22）----------
+   高频 2–4 个直接铺开；其余收进「更多筛选」。 */
+.hb-filterbar{display:flex;align-items:flex-end;gap:var(--sp3);flex-wrap:wrap;padding:var(--sp4) var(--sp5);border-radius:var(--radius-card);background:var(--bg-surface);border:1px solid var(--border-default);box-shadow:var(--shadow-card)}
+.hb-filter{display:flex;flex-direction:column;gap:var(--sp2);min-width:150px}
+.hb-filter > span{color:var(--text-secondary);font-size:var(--f-meta);line-height:var(--lh-meta);font-weight:var(--w-med)}
+.hb-input,.hb-select{height:42px;padding:0 var(--sp3);border:1px solid var(--border-strong);border-radius:var(--radius-control);background:var(--bg-surface);color:var(--text-primary);font-size:var(--f-body);font-family:inherit}
+.hb-input:focus,.hb-select:focus{outline:2px solid rgba(73,168,255,.55);outline-offset:0;border-color:var(--st-info)}
+.hb-check{display:inline-flex;align-items:center;gap:var(--sp2);height:42px;color:var(--text-secondary);font-size:var(--f-body);white-space:nowrap}
+.hb-filterbar .hb-spacer{flex:1}
+.hb-filterbar-actions{display:flex;gap:var(--sp3);align-items:flex-end}
+
+.hb-btn{min-height:42px;padding:0 var(--sp5);display:inline-flex;align-items:center;gap:var(--sp2);border:1px solid var(--border-strong);border-radius:var(--radius-control);background:var(--bg-surface);color:var(--text-primary);font-size:var(--f-body);white-space:nowrap;text-decoration:none}
+.hb-btn:hover{background:var(--bg-subtle)}
+.hb-btn.primary{background:#8F5E0C;border-color:#8F5E0C;color:#fff;font-weight:var(--w-med)}
+.hb-btn.primary:hover{background:#7A5009}
+.hb-btn.sm{min-height:34px;padding:0 var(--sp3);font-size:var(--f-meta)}
+.hb-btn svg{width:18px;height:18px;flex:0 0 18px;stroke:currentColor;fill:none;stroke-width:1.9}
+.hb-btn.sm svg{width:16px;height:16px;flex:0 0 16px}
+
+/* 「更多筛选」气泡 */
+.hb-more{position:relative}
+.hb-more-panel{position:absolute;right:0;top:calc(100% + var(--sp2));z-index:15;width:320px;padding:var(--sp4);display:none;flex-direction:column;gap:var(--sp4);border-radius:var(--radius-card);background:var(--bg-surface);border:1px solid var(--border-strong);box-shadow:0 18px 48px rgba(47,72,117,.16)}
+.hb-more-panel.open{display:flex}
+
+/* ---------- 结果区 ---------- */
+.hb-pane{border-radius:var(--radius-card);background:var(--bg-surface);border:1px solid var(--border-default);box-shadow:var(--shadow-card);overflow:hidden}
+.hb-pane-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp3);padding:var(--sp4) var(--sp5);border-bottom:1px solid var(--border-default);flex-wrap:wrap}
+.hb-pane-head h2{margin:0;font-size:var(--f-card);line-height:var(--lh-card);font-weight:var(--w-str)}
+.hb-pane-head .hb-sub{color:var(--text-muted);font-size:var(--f-meta);line-height:var(--lh-meta)}
+
+/* 数据表（EA-5.4 §21）：粘住表头、密排、数字右对齐等宽 */
+.hb-table-wrap{max-height:calc(100vh - 420px);min-height:220px;overflow:auto}
+.hb-table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--f-meta)}
+.hb-table th{
+  position:sticky;top:0;z-index:2;
+  text-align:left;padding:var(--sp3) var(--sp3);white-space:nowrap;
+  background:var(--bg-subtle);border-bottom:1px solid var(--border-default);
+  color:var(--text-muted);font-weight:var(--w-med);
+}
+.hb-table th.num,.hb-table td.num{text-align:right}
+.hb-table th.sortable{cursor:pointer;user-select:none}
+.hb-table th.sortable:hover{color:var(--text-secondary)}
+/* 排序指示符：用 meta token，不另造字号（EA-5.4 §44 禁止组件自造中间字号） */
+.hb-table th .hb-sort{opacity:.4;margin-left:4px;font-size:var(--f-meta)}
+.hb-table th.sorted{color:var(--text-primary)}
+.hb-table th.sorted .hb-sort{opacity:1}
+.hb-table td{
+  padding:var(--sp3) var(--sp3);border-bottom:1px solid var(--border-default);
+  color:var(--text-secondary);vertical-align:middle;white-space:nowrap;
+}
+.hb-table tbody tr:hover td{background:var(--bg-subtle)}
+.hb-table tbody tr:last-child td{border-bottom:0}
+.hb-table .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.hb-table .strong{color:var(--text-primary);font-weight:var(--w-med)}
+.hb-table .dash{color:var(--text-muted)}
+
+/* 表格里的实体链接：批号 → 批次页；货位 → 后续页 */
+.hb-link{border:0;background:transparent;padding:0;color:var(--st-info);font-family:var(--font-mono);font-size:var(--f-meta);text-decoration:underline}
+.hb-link:hover{opacity:.8}
+
+/* 状态语义：色 + 文字 + 图标三通道（EA-5.4 §24）*/
+.hb-tag{display:inline-flex;align-items:center;gap:4px;padding:0 var(--sp2);border-radius:var(--radius-pill);border:1px solid transparent;font-size:var(--f-meta);line-height:18px;font-weight:var(--w-med);white-space:nowrap}
+.hb-tag.pending{background:rgba(75,156,255,.10);border-color:rgba(75,156,255,.30);color:#2B5FA8}
+.hb-tag.released{background:rgba(27,188,134,.10);border-color:rgba(27,188,134,.28);color:#0C6B4C}
+.hb-tag.blocked{background:rgba(237,90,114,.10);border-color:rgba(237,90,114,.30);color:#96334A}
+.hb-tag.critical{background:rgba(237,90,114,.12);border-color:rgba(237,90,114,.34);color:#96334A}
+.hb-tag.warning{background:rgba(244,165,35,.12);border-color:rgba(244,165,35,.34);color:#8A5A0B}
+.hb-tag.neutral{background:rgba(114,130,157,.10);border-color:var(--border-strong);color:var(--text-secondary)}
+.hb-tag.notset{background:transparent;border-color:var(--border-default);color:var(--text-muted);font-weight:var(--w-reg)}
+
+/* 差异列：非 0 才强调 */
+.hb-table td.variance{font-family:var(--font-mono);font-weight:var(--w-med)}
+.hb-table td.variance.bad{color:var(--st-critical)}
+.hb-table td.variance.ok{color:var(--text-muted)}
+
+/* 骨架 / 空 / 错误 */
+.hb-skel{border-radius:var(--radius-control);background:rgba(114,130,157,.11);animation:hb-pulse 1.4s var(--ease) infinite}
+@keyframes hb-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.hb-skel-row{height:36px;margin-bottom:var(--sp2)}
+
+.hb-state{display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp2);padding:var(--sp8) var(--sp5)}
+.hb-state > svg{width:30px;height:30px;margin-bottom:var(--sp2);stroke:currentColor;fill:none;stroke-width:1.7}
+.hb-state h3{margin:0;font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-str)}
+.hb-state p{margin:0;max-width:60ch;color:var(--text-secondary);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-state .hb-actions{display:flex;gap:var(--sp3);margin-top:var(--sp4);flex-wrap:wrap}
+.hb-state.ok > svg{color:var(--st-success)}
+.hb-state.err > svg{color:var(--st-critical)}
+
+/* 说明条 */
+.hb-verdict{display:flex;gap:var(--sp3);align-items:flex-start;padding:var(--sp3) var(--sp4);border-radius:var(--radius-card);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-verdict svg{width:20px;height:20px;flex:0 0 20px;margin-top:1px;stroke:currentColor;fill:none;stroke-width:1.9}
+.hb-verdict.warn{background:rgba(244,165,35,.10);border:1px solid rgba(244,165,35,.30);color:#8A5A0B}
+.hb-verdict.info{background:rgba(75,156,255,.08);border:1px solid rgba(75,156,255,.26);color:#2B5FA8}
+
+/* ---------- 原型脚手架 ---------- */
+.hb-scaffold{position:sticky;top:72px;z-index:19;display:flex;align-items:center;gap:var(--sp3);flex-wrap:wrap;padding:var(--sp3) var(--sp6);background:#17253C;color:#E7EEF9;font-size:var(--f-meta);line-height:var(--lh-meta)}
+.hb-scaffold b{font-weight:var(--w-str)}
+.hb-scaffold button{min-height:32px;padding:0 var(--sp3);border:1px solid rgba(255,255,255,.28);border-radius:var(--radius-pill);background:transparent;color:#E7EEF9;font-size:var(--f-meta)}
+.hb-scaffold button[aria-pressed="true"]{background:#fff;color:#17253C;border-color:#fff;font-weight:var(--w-med)}
+.hb-scaffold .hb-sep{width:1px;height:20px;background:rgba(255,255,255,.22)}
+
+[hidden]{display:none !important}
+
+@media (max-width:1599px){ .hb-shell{max-width:none} }
+@media (max-width:1199px){
+  .hb-shell{grid-template-columns:76px minmax(0,1fr);gap:var(--sp4)}
+  .hb-side{padding:var(--sp3) var(--sp2);align-items:center}
+  .hb-back span,.hb-navlabel,.hb-navitem span{display:none}
+  .hb-back,.hb-navitem{justify-content:center;padding:0}
+  .hb-filterbar .hb-spacer{display:none}
+}
+@media (max-width:767px){
+  .hb-header{height:64px;padding:0 var(--sp4);gap:var(--sp2)}
+  .hb-brand span{display:none}
+  .hb-scaffold{position:static}
+  .hb-shell{grid-template-columns:minmax(0,1fr);padding:var(--sp4)}
+  .hb-side{display:none}
+  .hb-pagehead{flex-direction:column;gap:var(--sp2)}
+  .hb-result-meta{text-align:left}
+  .hb-filterbar{padding:var(--sp4)}
+  .hb-filter{min-width:0;flex:1 1 140px}
+  .hb-filterbar-actions{width:100%}
+  .hb-filterbar-actions .hb-btn{flex:1;justify-content:center}
+  .hb-more-panel{width:min(320px,88vw)}
+  .hb-table-wrap{max-height:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:1ms !important;animation-iteration-count:1 !important;transition-duration:1ms !important}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+<symbol id="i-apps" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7v.3"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l3.5-3.5"/><path d="M20.5 16a9 9 0 1 0-17 0"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.2"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4M9 12h6M9 16h4"/></symbol>
+<symbol id="i-in" viewBox="0 0 24 24"><path d="M12 3v10"/><path d="M8.5 9.5L12 13l3.5-3.5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M12 13V3"/><path d="M8.5 6.5L12 3l3.5 3.5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-batch" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4-8 4z"/><path d="M4 8v8l8 4 8-4V8"/><path d="M12 12v8"/></symbol>
+<symbol id="i-shelf" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="15" width="18" height="5" rx="1"/><path d="M6 9v6M18 9v6"/></symbol>
+<symbol id="i-item" viewBox="0 0 24 24"><path d="M20 7.5L12 3 4 7.5v9L12 21l8-4.5z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+<symbol id="i-report" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 15l3-4 3 3 4-6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+<symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 10h18M9 10v10"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></symbol>
+<symbol id="i-off" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l8.5 15H3.5z"/><path d="M12 10v4M12 17h.01"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10"/><path d="M8.5 10.5L12 14l3.5-3.5"/><path d="M5 19h14"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-1 5"/><path d="M20 4v7h-7"/></symbol>
+<symbol id="i-empty" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 12h5l1.5 2h5L16 12h5"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+</defs></svg>
+
+<!-- ============ 原型脚手架：仅供 Owner 审查，正式实现必须删除 ============ -->
+<div class="hb-scaffold">
+  <b>原型脚手架</b>
+  <span>报表：</span>
+  <button type="button" data-report="location-detail" aria-pressed="true">货位明细表</button>
+  <button type="button" data-report="expiry-warning" aria-pressed="false">效期预警</button>
+  <button type="button" data-report="batch-location" aria-pressed="false">按批号查货位</button>
+  <button type="button" data-report="stocktake" aria-pressed="false">库级盘点三对账</button>
+  <span class="hb-sep"></span>
+  <span>状态：</span>
+  <span id="hb-states" style="display:flex;gap:8px;flex-wrap:wrap"></span>
+  <span style="flex:1 1 100%;color:#9FB0CC">以下行为<b>示意数据</b>，取自真实报表结构；接入时以报表真实返回为准，不得沿用。</span>
+</div>
+
+<header class="hb-header">
+  <div class="hb-mark" aria-hidden="true">H</div>
+  <div class="hb-brand"><b>HBOS</b><span>仓储库存工作台</span></div>
+  <div class="hb-gap"></div>
+  <button class="hb-icon" type="button" aria-label="应用切换器"><svg aria-hidden="true"><use href="#i-apps"/></svg></button>
+  <button class="hb-icon" type="button" aria-label="通知"><svg aria-hidden="true"><use href="#i-bell"/></svg></button>
+  <button class="hb-icon" type="button" aria-label="帮助"><svg aria-hidden="true"><use href="#i-help"/></svg></button>
+  <div class="hb-avatar" aria-label="当前用户 Administrator">AD</div>
+</header>
+
+<div class="hb-shell">
+
+  <!-- ============ App Local Sidebar ============ -->
+  <aside class="hb-side">
+    <a class="hb-back" href="#" aria-label="返回 HBOS 工作台">
+      <svg aria-hidden="true"><use href="#i-back"/></svg><span>返回 HBOS 工作台</span>
+    </a>
+    <div class="hb-navlabel">工作台</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-gauge"/></svg><span>库存概览</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">入库作业</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-camera"/></svg><span>入库拍照识别</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-doc"/></svg><span>库存单据</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-in"/></svg><span>采购入库</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-check"/></svg><span>待检与放行</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">出库作业</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-out"/></svg><span>销售出库</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-report"/></svg><span>拣货单</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">盘点与对账</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-report"/></svg><span>库存对账</span></a>
+    <a class="hb-navitem" href="#" data-nav="stocktake"><svg aria-hidden="true"><use href="#i-report"/></svg><span>库级盘点三对账</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">主数据</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-batch"/></svg><span>批次</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-shelf"/></svg><span>货位</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-item"/></svg><span>物料</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">报表</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-report"/></svg><span>库存余额</span></a>
+    <a class="hb-navitem" href="#" data-nav="expiry-warning"><svg aria-hidden="true"><use href="#i-clock"/></svg><span>效期预警</span></a>
+    <a class="hb-navitem" href="#" data-nav="batch-location"><svg aria-hidden="true"><use href="#i-search"/></svg><span>按批号查货位</span></a>
+    <a class="hb-navitem" href="#" data-nav="location-detail"><svg aria-hidden="true"><use href="#i-table"/></svg><span>货位明细表</span></a>
+  </aside>
+
+  <main class="hb-main">
+
+    <!-- ==================== 页头 ==================== -->
+    <div class="hb-pagehead">
+      <div>
+        <h1 id="rp-title">货位明细表</h1>
+        <p id="rp-sub">按货位逐项列出当前库存</p>
+      </div>
+      <div class="hb-result-meta" data-view="ready empty">
+        <b id="rp-count">—</b>
+        行 · 查询于 <span id="rp-time">—</span>
+      </div>
+    </div>
+
+    <!-- ==================== 筛选栏 ==================== -->
+    <div class="hb-filterbar" data-view="ready empty">
+      <div id="rp-primary-filters" style="display:flex;gap:var(--sp3);flex-wrap:wrap;align-items:flex-end"></div>
+      <div class="hb-spacer"></div>
+      <div class="hb-filterbar-actions">
+        <div class="hb-more">
+          <button class="hb-btn" type="button" id="rp-more-btn">
+            <svg aria-hidden="true"><use href="#i-filter"/></svg>更多筛选
+          </button>
+          <div class="hb-more-panel" id="rp-more-panel">
+            <div id="rp-extra-filters" style="display:flex;flex-direction:column;gap:var(--sp4)"></div>
+          </div>
+        </div>
+        <button class="hb-btn primary" type="button" id="rp-run">
+          <svg aria-hidden="true"><use href="#i-refresh"/></svg>查询
+        </button>
+        <button class="hb-btn" type="button" id="rp-export" data-view="ready">
+          <svg aria-hidden="true"><use href="#i-download"/></svg>导出 Excel
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== 报表特定说明 ==================== -->
+    <div id="rp-notice"></div>
+
+    <!-- ==================== 结果 ==================== -->
+    <div class="hb-pane">
+
+      <!-- 加载 -->
+      <div data-view="loading" hidden>
+        <div class="hb-pane-head">
+          <h2>查询中…</h2>
+          <span class="hb-sub">正在读取库存流水</span>
+        </div>
+        <div style="padding:var(--sp5)">
+          <div class="hb-skel hb-skel-row" style="width:92%"></div>
+          <div class="hb-skel hb-skel-row"></div>
+          <div class="hb-skel hb-skel-row"></div>
+          <div class="hb-skel hb-skel-row"></div>
+          <div class="hb-skel hb-skel-row"></div>
+          <div class="hb-skel hb-skel-row" style="width:64%"></div>
+        </div>
+      </div>
+
+      <!-- 出错 -->
+      <div data-view="error" hidden>
+        <div class="hb-state err">
+          <svg aria-hidden="true"><use href="#i-off"/></svg>
+          <h3>报表没跑起来</h3>
+          <p>
+            服务端返回了错误，这次查询没拿到数据。<b>这不是「没有数据」</b>——
+            请重试；若反复失败，联系管理员查看错误日志。
+          </p>
+          <div class="hb-actions">
+            <button class="hb-btn primary" type="button" data-action="retry">
+              <svg aria-hidden="true"><use href="#i-refresh"/></svg>重新查询
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 无权限 -->
+      <div data-view="denied" hidden>
+        <div class="hb-state err">
+          <svg aria-hidden="true"><use href="#i-lock"/></svg>
+          <h3>你没有查看这张报表的权限</h3>
+          <p>报表按角色放行。若你认为这是配置错误，请联系业务管理员。</p>
+          <div class="hb-actions">
+            <a class="hb-btn primary" href="#">返回库存概览</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 空 -->
+      <div data-view="empty" hidden>
+        <div class="hb-state ok">
+          <svg aria-hidden="true"><use href="#i-empty"/></svg>
+          <h3 id="rp-empty-title">没有符合条件的记录</h3>
+          <p id="rp-empty-body">当前筛选条件下没有数据。可以放宽条件再查一次。</p>
+          <div class="hb-actions">
+            <button class="hb-btn" type="button" data-action="clear-filters">清空筛选条件</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 有数据 -->
+      <div data-view="ready" hidden>
+        <div class="hb-pane-head">
+          <h2 id="rp-table-title">明细</h2>
+          <span class="hb-sub">表头粘住，滚动时始终可见</span>
+        </div>
+        <div class="hb-table-wrap">
+          <table class="hb-table">
+            <thead><tr id="rp-head"></tr></thead>
+            <tbody id="rp-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+// 原型脚手架。正式实现不得包含本段。
+(function () {
+  // ------------------------------------------------------------------
+  // 四个报表的元信息与**示意数据**（结构取自真实报表的 _columns()）
+  // ------------------------------------------------------------------
+  const REPORTS = {
+    'location-detail': {
+      title: '货位明细表',
+      sub: '按货位逐项列出当前库存',
+      tableTitle: '货位明细',
+      nav: 'location-detail',
+      primary: [
+        { k: 'warehouse', label: '货位 / 库位', type: 'text', ph: '如 16-03-206 - HB' },
+        { k: 'include_children', label: '含下级货位', type: 'check', on: true },
+      ],
+      extra: [
+        { k: 'item_code', label: '物料', type: 'text', ph: '物料代码' },
+        { k: 'batch_no', label: '批号', type: 'text', ph: '批号' },
+      ],
+      columns: [
+        { k: 'warehouse', label: '货位', kind: 'link' },
+        { k: 'item_code', label: '物料代码', kind: 'link' },
+        { k: 'item_name', label: '物料名称', kind: 'strong' },
+        { k: 'batch_no', label: '批号', kind: 'link' },
+        { k: 'qty', label: '数量', kind: 'num' },
+        { k: 'uom', label: '单位', kind: 'text' },
+        { k: 'expiry_date', label: '有效期至', kind: 'mono' },
+        { k: 'release_status', label: '放行状态', kind: 'status' },
+      ],
+      rows: [
+        ['16-03-206 - HB','13000900','美罗培南混粉','BMT2407502',3,'Kg','—','待检'],
+        ['16-03-206 - HB','13000912','美罗培南混粉','BMT2609001',160,'Kg','2029-08-31','待检'],
+        ['16-03-207 - HB','13000912','美罗培南混粉','BMT2307002',1,'Kg','—','待检'],
+        ['16-03-211 - HB','13000912','美罗培南混粉','BMT2609001',160,'Kg','2029-08-31','待检'],
+        ['16-03-212 - HB','13000894','美罗培南','B2507343',6,'Kg','2027-06-30','待检'],
+        ['16-03-221 - HB','TEST-M3R1-虚构产品','TEST-M3R1-虚构产品','TEST-M3R1-B003',10,'Kg','2026-10-04','已放行'],
+        ['16-03-205 - HB','13000215','亚胺培南西司他丁钠混粉','B2609503',25.5,'Kg','2028-09-01','已放行'],
+        ['16-03-205 - HB','13000215','亚胺培南西司他丁钠混粉','B2609504',12,'Kg','2028-09-01','不放行'],
+      ],
+      emptyTitle: '这个货位下没有库存',
+      emptyBody: '该货位当前账面数量为零。可能尚未入库，或已全部发出。',
+    },
+
+    'expiry-warning': {
+      title: '效期预警',
+      sub: '列出生效期临近或已过期的批次',
+      tableTitle: '临近效期批次',
+      nav: 'expiry-warning',
+      primary: [
+        { k: 'within_days', label: '预警天数（剩余不足）', type: 'number', value: 90 },
+        { k: 'include_expired', label: '含已过期', type: 'check', on: true },
+        { k: 'warehouse', label: '货位', type: 'text', ph: '全部货位' },
+      ],
+      extra: [
+        { k: 'item_code', label: '物料', type: 'text', ph: '物料代码' },
+        { k: 'release_status', label: '放行状态', type: 'select', options: ['全部','待检','已放行','不放行'] },
+      ],
+      columns: [
+        { k: 'urgency', label: '紧急度', kind: 'urgency' },
+        { k: 'days_left', label: '剩余天数', kind: 'num' },
+        { k: 'expiry_date', label: '有效期至', kind: 'mono' },
+        { k: 'manufacturing_date', label: '生产日期', kind: 'mono' },
+        { k: 'item_code', label: '物料代码', kind: 'link' },
+        { k: 'item_name', label: '物料名称', kind: 'strong' },
+        { k: 'batch_no', label: '批号', kind: 'link' },
+        { k: 'warehouse', label: '货位', kind: 'link' },
+        { k: 'qty', label: '数量', kind: 'num' },
+        { k: 'uom', label: '单位', kind: 'text' },
+        { k: 'shelf_life_type', label: '效期类型', kind: 'text' },
+        { k: 'release_status', label: '放行状态', kind: 'status' },
+      ],
+      rows: [
+        ['已过期',-12,'2026-09-13','2025-08-10','13000894','美罗培南','B2406001','16-03-212 - HB',4,'Kg','有效期','已放行'],
+        ['紧急（≤30 天）',9,'2026-10-04','2025-08-10','TEST-M3R1-虚构产品','TEST-M3R1-虚构产品','TEST-M3R1-B003','16-03-221 - HB',10,'Kg','有效期','已放行'],
+        ['紧急（≤30 天）',21,'2026-10-16','2024-10-17','13000900','美罗培南混粉','B2410003','16-03-206 - HB',7.5,'Kg','复检期','待检'],
+        ['关注（≤90 天）',63,'2026-11-27','2025-11-28','13000894','美罗培南','B2511001','16-03-212 - HB',20,'Kg','有效期','待检'],
+        ['关注（≤90 天）',88,'2026-12-22','2025-12-23','13000215','亚胺培南西司他丁钠混粉','B2512002','16-03-205 - HB',30,'Kg','有效期','已放行'],
+      ],
+      emptyTitle: '近期没有临近效期的批次',
+      emptyBody: '在设定的预警天数内没有需要关注的批次。可以调大「预警天数」再看。',
+    },
+
+    'batch-location': {
+      title: '按批号查货位',
+      sub: '输批号定位货位；外购料可输原厂批号后按结果核对',
+      tableTitle: '批号所在货位',
+      nav: 'batch-location',
+      primary: [
+        { k: 'batch_no', label: '批号', type: 'text', ph: '支持模糊匹配，如 BMT' },
+        { k: 'warehouse', label: '货位', type: 'text', ph: '全部货位' },
+      ],
+      extra: [
+        { k: 'item_code', label: '物料', type: 'text', ph: '物料代码' },
+        { k: 'release_status', label: '放行状态', type: 'select', options: ['全部','待检','已放行','不放行'] },
+      ],
+      columns: [
+        { k: 'batch_no', label: '批号', kind: 'link' },
+        { k: 'item_code', label: '物料代码', kind: 'link' },
+        { k: 'item_name', label: '物料名称', kind: 'strong' },
+        { k: 'warehouse', label: '货位', kind: 'link' },
+        { k: 'qty', label: '数量', kind: 'num' },
+        { k: 'uom', label: '单位', kind: 'text' },
+        { k: 'manufacturing_date', label: '生产日期', kind: 'mono' },
+        { k: 'expiry_date', label: '有效期至', kind: 'mono' },
+        { k: 'release_status', label: '放行状态', kind: 'status' },
+        { k: 'supplier_batch_no', label: '原厂批号', kind: 'mono' },
+      ],
+      rows: [
+        ['BMT2307002','13000912','美罗培南混粉','16-03-207 - HB',1,'Kg','2023-07-03','—','待检','—'],
+        ['BMT2407502','13000900','美罗培南混粉','16-03-206 - HB',3,'Kg','2024-07-05','—','待检','—'],
+        ['BMT2609001','13000912','美罗培南混粉','16-03-211 - HB',160,'Kg','2026-09-01','2029-08-31','待检','—'],
+        ['BMT2609001','13000912','美罗培南混粉','16-03-206 - HB',160,'Kg','2026-09-01','2029-08-31','待检','—'],
+      ],
+      emptyTitle: '没找到这个批号',
+      emptyBody: '批号支持模糊匹配。确认输入无误后仍查不到，说明该系统里没有这个批次——可能还没入库。',
+    },
+
+    'stocktake': {
+      title: '库级盘点三对账',
+      sub: 'ERP 账面数量导出后，与货位卡、实物三方核对',
+      tableTitle: 'ERP 账面数量',
+      nav: 'stocktake',
+      // 这一页的**关键差别**：报表只算得出 ERP 一列，另两列是空的
+      notice: {
+        tone: 'warn',
+        icon: 'i-alert',
+        html: '本页只显示 <b>ERP 账面数量</b>。「货位卡数量」「实物数量」需要现场清点，' +
+              '报表给不出——<b>请导出后在 Excel 里填写，差异列随之算出</b>。' +
+              '因此这里不显示那三列，免得空格被读成「数量为零」。',
+      },
+      primary: [
+        { k: 'warehouse', label: '库位', type: 'text', ph: '如 3904；可填库位或货位' },
+        { k: 'include_children', label: '含下级', type: 'check', on: true },
+      ],
+      extra: [
+        { k: 'item_code', label: '物料', type: 'text', ph: '物料代码' },
+      ],
+      columns: [
+        { k: 'warehouse', label: '库位', kind: 'link' },
+        { k: 'item_code', label: '物料代码', kind: 'link' },
+        { k: 'item_name', label: '物料名称', kind: 'strong' },
+        { k: 'batch_no', label: '批号', kind: 'link' },
+        { k: 'uom', label: '单位', kind: 'text' },
+        { k: 'erp_qty', label: 'ERP数量', kind: 'num' },
+        { k: 'expiry_date', label: '有效期至', kind: 'mono' },
+        { k: 'release_status', label: '放行状态', kind: 'status' },
+      ],
+      rows: [
+        ['16-03-206 - HB','13000900','美罗培南混粉','BMT2407502','Kg',3,'—','待检'],
+        ['16-03-206 - HB','13000912','美罗培南混粉','BMT2609001','Kg',160,'2029-08-31','待检'],
+        ['16-03-207 - HB','13000912','美罗培南混粉','BMT2307002','Kg',1,'—','待检'],
+        ['16-03-211 - HB','13000912','美罗培南混粉','BMT2609001','Kg',160,'2029-08-31','待检'],
+        ['16-03-212 - HB','13000894','美罗培南','B2507343','Kg',6,'2027-06-30','待检'],
+        ['16-03-221 - HB','TEST-M3R1-虚构产品','TEST-M3R1-虚构产品','TEST-M3R1-B003','Kg',10,'2026-10-04','已放行'],
+      ],
+      emptyTitle: '这个库位下没有库存',
+      emptyBody: '该库位当前账面数量为零，没有需要盘点的记录。',
+    },
+  };
+
+  const STATE_LABELS = {
+    ready: '有数据',
+    loading: '查询中',
+    empty: '无结果',
+    error: '出错',
+    denied: '无权限',
+  };
+
+  let curReport = 'location-detail';
+  let curState = 'ready';
+
+  const $ = (s) => document.querySelector(s);
+  const el = (h) => { const d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstChild; };
+
+  function filterControl(f) {
+    if (f.type === 'check') {
+      return `<label class="hb-check"><input type="checkbox" ${f.on ? 'checked' : ''} /> ${f.label}</label>`;
+    }
+    if (f.type === 'select') {
+      return `<label class="hb-filter"><span>${f.label}</span>
+        <select class="hb-select">${f.options.map((o) => `<option>${o}</option>`).join('')}</select></label>`;
+    }
+    if (f.type === 'number') {
+      return `<label class="hb-filter"><span>${f.label}</span>
+        <input class="hb-input" type="number" value="${f.value}" style="width:170px" /></label>`;
+    }
+    return `<label class="hb-filter"><span>${f.label}</span>
+      <input class="hb-input" placeholder="${f.ph || ''}" style="width:200px" /></label>`;
+  }
+
+  // 放行状态 → 共享语义（EA-5.4 §24）
+  const RELEASE_CLASS = { '待检': 'pending', '已放行': 'released', '不放行': 'blocked' };
+  const URGENCY_CLASS = { '已过期': 'critical', '紧急（≤30 天）': 'critical', '关注（≤90 天）': 'warning', '正常': 'neutral' };
+
+  function cell(col, v) {
+    if (v === null || v === undefined || v === '' || v === '—') {
+      return '<span class="dash">—</span>';
+    }
+    switch (col.kind) {
+      case 'link': return `<button class="hb-link" type="button">${v}</button>`;
+      case 'strong': return `<span class="strong">${v}</span>`;
+      case 'num': return String(v);
+      case 'mono': return `<span class="mono">${v}</span>`;
+      case 'status':
+        return `<span class="hb-tag ${RELEASE_CLASS[v] || 'neutral'}">${v}</span>`;
+      case 'urgency':
+        return `<span class="hb-tag ${URGENCY_CLASS[v] || 'neutral'}">${v}</span>`;
+      default:
+        return `<span class="${v === '未设置' ? 'dash' : ''}">${v}</span>`;
+    }
+  }
+
+  function render() {
+    const R = REPORTS[curReport];
+
+    $('#rp-title').textContent = R.title;
+    $('#rp-sub').textContent = R.sub;
+    $('#rp-table-title').textContent = R.tableTitle;
+    $('#rp-empty-title').textContent = R.emptyTitle;
+    $('#rp-empty-body').textContent = R.emptyBody;
+
+    // 筛选
+    $('#rp-primary-filters').innerHTML = R.primary.map(filterControl).join('');
+    $('#rp-extra-filters').innerHTML = R.extra.map(filterControl).join('');
+
+    // 报表特定提示
+    $('#rp-notice').innerHTML = R.notice
+      ? `<div class="hb-verdict ${R.notice.tone}">
+           <svg aria-hidden="true"><use href="#${R.notice.icon}"/></svg>
+           <div>${R.notice.html}</div>
+         </div>`
+      : '';
+
+    // 表头：数字列右对齐（EA-5.4 §21）
+    $('#rp-head').innerHTML = R.columns
+      .map((c) => `<th class="${c.kind === 'num' ? 'num ' : ''}sortable">${c.label}<span class="hb-sort">↕</span></th>`)
+      .join('');
+
+    // 表体
+    $('#rp-body').innerHTML = R.rows
+      .map((row) => `<tr>${R.columns.map((c, i) => {
+        const cls = c.kind === 'num' ? 'num' : '';
+        return `<td class="${cls}">${cell(c, row[i])}</td>`;
+      }).join('')}</tr>`)
+      .join('');
+
+    $('#rp-count').textContent = R.rows.length;
+    $('#rp-time').textContent = '刚刚';
+
+    // 状态切换
+    document.querySelectorAll('[data-view]').forEach((n) => {
+      n.hidden = (n.dataset.view || '').split(/\s+/).indexOf(curState) === -1;
+    });
+
+    // 侧边栏当前项
+    document.querySelectorAll('.hb-navitem[data-nav]').forEach((a) => {
+      if (a.dataset.nav === R.nav) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+
+    // 状态下拉
+    const bar = $('#hb-states');
+    bar.innerHTML = '';
+    Object.entries(STATE_LABELS).forEach(([key, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.dataset.state = key;
+      b.setAttribute('aria-pressed', String(key === curState));
+      b.addEventListener('click', () => { curState = key; render(); });
+      bar.appendChild(b);
+    });
+    document.querySelectorAll('.hb-scaffold button[data-report]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.report === curReport));
+    });
+  }
+
+  document.querySelectorAll('.hb-scaffold button[data-report]').forEach((b) => {
+    b.addEventListener('click', () => { curReport = b.dataset.report; curState = 'ready'; render(); });
+  });
+
+  // 更多筛选气泡
+  $('#rp-more-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('#rp-more-panel').classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.hb-more')) $('#rp-more-panel').classList.remove('open');
+  });
+
+  // 清空筛选
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-action="clear-filters"]')) {
+      document.querySelectorAll('.hb-input').forEach((i) => { if (i.type !== 'number') i.value = ''; });
+      document.querySelectorAll('.hb-check input').forEach((c) => { c.checked = false; });
+    }
+    if (e.target.closest('[data-action="retry"]')) { curState = 'ready'; render(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

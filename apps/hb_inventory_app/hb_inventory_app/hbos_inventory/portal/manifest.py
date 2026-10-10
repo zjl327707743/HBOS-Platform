@@ -11,7 +11,8 @@ def get_manifest() -> dict[str, object]:
         "icon": "InboxOutlined",
         "accent": "inventory",
         "order": 20,
-        "migration_mode": "legacy",
+        # 概览页已原生（Portal SPA），入库拍照识别等仍是 Desk —— 故为 hybrid。
+        "migration_mode": "hybrid",
         "route": "/hbos/inventory",
         # P3-INV-2 exposes only a permission-aware count projection.
         "capabilities": ["summary"],
