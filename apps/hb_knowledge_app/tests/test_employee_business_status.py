@@ -2,6 +2,14 @@ import importlib,sys
 from types import SimpleNamespace
 
 def api_module(monkeypatch):
+    # Domain CI deliberately does not install the separately released service.
+    # Exercise the Portal projection against its signed-service contract.
+    def unknown(configured=True):
+        return dict(configured=configured,status='UNKNOWN' if configured else 'NOT_CONFIGURED',
+            last_success_at=None,observed_at=None,observed_error=None,blocked=False,
+            expires_at=None,manual_recheck_required=False,budget_status='UNKNOWN')
+    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway.availability',
+        SimpleNamespace(unknown=unknown,PUBLIC_FIELDS=set(unknown())))
     fake=SimpleNamespace(whitelist=lambda **kw:lambda fn:fn,
         session=SimpleNamespace(user='employee@example.invalid'),
         get_roles=lambda *args:[])
