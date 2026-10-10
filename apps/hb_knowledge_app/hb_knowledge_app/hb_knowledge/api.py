@@ -61,7 +61,11 @@ def _can_search(runtime,actor):
 
 def _availability(runtime,*,diagnostics=False):
     from knowledge_service.hbos_gateway.availability import unknown, PUBLIC_FIELDS
+    # Financial facts belong to the role-protected diagnostic endpoint. Older
+    # Portal clients treat these codes as hard stops even when blocked=False.
+    employee_fields=PUBLIC_FIELDS-{'budget_status'}
     fallback=unknown(runtime.gateway.configured)
+    if not diagnostics:fallback={k:fallback[k] for k in employee_fields}
     read=getattr(runtime.gateway,'availability',None)
     if not callable(read):return fallback
     try:
@@ -71,7 +75,7 @@ def _availability(runtime,*,diagnostics=False):
         if value['observed_error'] not in {None,'UPSTREAM_UNAVAILABLE'}:return fallback
         if value['budget_status'] not in {'UNKNOWN','READY','ACCOUNTING_PENDING','EXPIRED','EXHAUSTED','UNAVAILABLE'}:return fallback
         # The signed service is trusted for the fixed projection, never raw errors.
-        return value if diagnostics else {k:value[k] for k in PUBLIC_FIELDS}
+        return value if diagnostics else {k:value[k] for k in employee_fields}
     except KnowledgeError:return fallback
 
 @frappe.whitelist(methods=["GET"])
@@ -84,7 +88,7 @@ def get_status():
         return {"can_enter":bool(actor.enabled),"can_search":_can_search(runtime,actor),
                 "policy_revision":None,"gateway_configured":runtime.gateway.configured,
                 "ask_enabled":_ask_enabled(runtime),"can_maintain":permitted(),"mode":"retrieval","environment":runtime.profile,
-                "answer_availability":answer_status,
+                "answer_availability":{k:answer_status[k] for k in ('configured','available')},
                 "retrieval_availability":_availability(runtime)}
     return _run(current)
 
