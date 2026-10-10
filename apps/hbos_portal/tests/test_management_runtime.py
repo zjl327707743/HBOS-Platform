@@ -186,7 +186,7 @@ class ConfigParsingTests(unittest.TestCase):
 class PrivateFileTests(unittest.TestCase):
     reject = ConfigParsingTests.reject
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix="hbos-runtime-offline-", dir="/private/tmp")
+        self.directory = tempfile.TemporaryDirectory(prefix="hbos-runtime-offline-")
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         os.chmod(self.root, 0o700)
@@ -265,7 +265,7 @@ class PrivateFileTests(unittest.TestCase):
 
 class RuntimeApplicationTests(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix="hbos-runtime-wsgi-offline-", dir="/private/tmp")
+        self.directory = tempfile.TemporaryDirectory(prefix="hbos-runtime-wsgi-offline-")
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         os.chmod(self.root, 0o700)
