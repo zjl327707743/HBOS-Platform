@@ -386,6 +386,10 @@ Q1 审批方式、Q2 检验员读取范围及其他口径仍未确认；第一�
 
 未提交、推送或部署。真实只读证据按 §10 保留，完整真实角色 / 签署流程及 Owner 验收待办；合并基线 33 项 Frappe 运行态测试跳过，LIMS 独立前端在线依赖审查未完成，不以局部审查推断全项目零漏洞。此前 PR #21 产品发布事实及各业务子轮状态保持其历史口径。
 
+## 并行权限治理 IAM-0 — 2026-10-01
+
+Owner 已批准进入统一身份与权限治理。当前仅交付设计、角色—动作—范围矩阵、只读源码盘点工具与本机任务书；实际 Site 盘点和隔离验收仍为 NOT_RUN，不修改账号、角色或业务数据，不替代原账号收尾。入口：[IAM-0 治理资料](governance/iam/README.md)。
+
 ## PR #21 合并后收口 — 2026-10-01
 
 状态：**FINAL_REVIEW_PASS / MERGED_TO_PORTAL_PRODUCT**。PR #21 已使用 expected-head squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 仅承接原 11 文件增量；PR #15 仍 Open Draft，main 未变化。

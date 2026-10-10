@@ -63,6 +63,23 @@ HBOS_TEST_RESULT_SYSTEM_FIELDS = (
 	"approver", "approved_signature", "approved_at",
 )
 
+# R7C 处理申请 / 使用申请：状态与各级签署/执行留痕只能经业务服务写入。
+# 这两个单据的控制器原先没有调用 guard_system_fields，导致 System Manager 可用
+# 原生 REST 直改 status，绕过 QC主管/QC经理/QA复核/QA经理/QM 五级签署链（L03）。
+HBOS_RETENTION_DISPOSAL_SYSTEM_FIELDS = (
+	"status",
+	"qc_supervisor_sign", "qc_manager_sign", "qa_review_sign", "qa_manager_sign",
+	"qm_sign", "qm_approved_at",
+	"disposal_by", "disposal_date", "monitor_by", "monitor_date",
+)
+
+HBOS_RETENTION_USAGE_SYSTEM_FIELDS = (
+	"status",
+	"stock_confirm_by", "stock_confirm_date",
+	"qc_approval", "qa_approval", "qm_approval",
+	"executed_by", "executed_date",
+)
+
 HBOS_COA_SYSTEM_FIELDS = (
 	"report_status", "qa_reviewer", "qa_reviewed_at",
 	"published_by", "published_at", "pdf_attachment", "content_fingerprint",
