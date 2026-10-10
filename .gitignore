@@ -38,3 +38,15 @@ feishu_records.json
 
 # 例外：App 翻译文件属于源码，必须提交
 !apps/hb_attendance_app/hb_attendance_app/translations/*.csv
+
+# 前端构建产物不进仓库（`npm run build` 的产物，交给部署流程生成）
+frontend/hbos-portal-web/dist/
+*.tsbuildinfo
+frontend/hbos-portal-web/vite.config.js
+
+# openclaw 生产看板参考打包件 —— 2026-10-02 Owner 指示：只作参考，不入库。
+# 包内含明文飞书 app_secret，任何情况下不得提交。
+workspace_backup_*.tar.gz
+scb_package_*.tar.gz
+scb_package/
+workspace_backup/

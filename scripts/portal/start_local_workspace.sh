@@ -40,23 +40,24 @@ if ! docker compose exec -T backend bash -lc "bench --site \"$SITE_NAME\" list-a
 fi
 
 echo "==> 验证三业务 Provider 已注册"
-docker compose exec -T backend bash -lc "SITE_NAME='$SITE_NAME' python - <<'PY'
-import os
+# 走 `bench console`，不要裸调 python：镜像里的 `python` 是系统解释器（import frappe
+# 直接 ModuleNotFoundError），而 `./env/bin/python` 虽能 import，但没经过 bench 的
+# 环境准备，frappe.init 会因站点路径解析不到、日志目录落到 /home/frappe/logs 而失败。
+# console 不会把异常转成非零退出码，所以用哨兵串判定，再由 grep 决定成败。
+registry_out="$(docker compose exec -T backend bash -lc "bench --site \"$SITE_NAME\" console" <<'PY'
 import frappe
+
+frappe.set_user("Administrator")
 from hbos_portal.services.registry import build_registry
 
-site = os.environ['SITE_NAME']
-frappe.init(site=site)
-frappe.connect()
-try:
-    frappe.set_user('Administrator')
-    registry = build_registry()
-    assert not registry.failures, registry.failures
-    assert sorted(registry.entries) == ['attendance', 'inventory', 'lims']
-    print('Portal Registry:', sorted(registry.entries))
-finally:
-    frappe.destroy()
-PY"
+registry = build_registry()
+print("HBOS_REGISTRY_FAILURES=", registry.failures)
+print("HBOS_REGISTRY_ENTRIES=", sorted(registry.entries))
+PY
+)"
+grep -qF "HBOS_REGISTRY_FAILURES= []" <<<"$registry_out" || fail "Portal Registry 存在失败项：$registry_out"
+grep -qF "HBOS_REGISTRY_ENTRIES= ['attendance', 'inventory', 'lims']" <<<"$registry_out" || fail "Portal Registry 条目不符合预期：$registry_out"
+grep -F "HBOS_REGISTRY_" <<<"$registry_out"
 
 command -v node >/dev/null 2>&1 || fail "本机缺少 Node.js"
 command -v npm >/dev/null 2>&1 || fail "本机缺少 npm"

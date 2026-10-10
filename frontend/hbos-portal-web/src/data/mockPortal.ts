@@ -24,9 +24,40 @@ export const appManifests: AppManifestDTO[] = [
   { id: 'inventory', title: '仓储库存', shortTitle: 'Inventory', description: '入库、出库、批次、货位与盘点', icon: 'InboxOutlined', accent: 'inventory', route: '/hbos/inventory', migrationMode: 'hybrid', capabilitySummary: true, capabilityTasks: true, capabilitySearch: true, pendingCount: 3, meta: '3 个待处理', featured: true },
   { id: 'attendance', title: '考勤管理', shortTitle: 'Attendance', description: '个人、团队、异常与排班', icon: 'ClockCircleOutlined', accent: 'attendance', route: '/hbos/attendance', migrationMode: 'legacy', capabilitySummary: true, capabilityTasks: true, capabilitySearch: true, pendingCount: 3, meta: '3 个异常', featured: true },
   { id: 'equipment', title: '设备管理', shortTitle: 'Equipment', description: '设备、点检、健康与数字孪生', icon: 'ToolOutlined', accent: 'equipment', route: '/hbos/equipment', migrationMode: 'native', capabilitySummary: true, capabilityTasks: false, capabilitySearch: true, meta: '98.5% 在线', featured: true },
-  { id: 'production', title: '生产运营', shortTitle: 'Production', description: '未来生产运营应用', icon: 'ThunderboltOutlined', accent: 'production', route: '/hbos/production', migrationMode: 'native', capabilitySummary: false, capabilityTasks: false, capabilitySearch: false, meta: '规划中' },
+  // production 不在此列：它是**前端自有模块**（与 Frappe 无关），
+  // 由 stores/portal 在 bootstrap 后并入 apps（见 frontendModules）。
   { id: 'ehs', title: 'EHS', shortTitle: 'EHS', description: '环境、健康与安全', icon: 'SafetyOutlined', accent: 'ehs', route: '/hbos/ehs', migrationMode: 'native', capabilitySummary: false, capabilityTasks: false, capabilitySearch: false, meta: '未来应用' },
   { id: 'training', title: '培训', shortTitle: 'Training', description: '人员培训与能力发展', icon: 'ReadOutlined', accent: 'training', route: '/hbos/training', migrationMode: 'native', capabilitySummary: false, capabilityTasks: false, capabilitySearch: false, meta: '未来应用' },
+]
+
+/**
+ * 前端自有模块 —— **不由后端投影**。
+ *
+ * 生产看板与 Frappe 无关（Owner 2026-09-29 口径），所以它不进 `appManifests`
+ * （那份清单是「后端 App 的镜像」），而是单独声明，由 `stores/portal`
+ * 在 bootstrap 后**并入** `apps`。
+ *
+ * 并集而非替换：将来若真有了后端 provider，判重按 `id` 也不会重复。
+ *
+ * `capabilitySummary/Tasks/Search` 均为 false —— 生产看板不产出统一任务，
+ * 也不参与 Portal 的 summary / search 聚合（那两条都走 hbos_portal）。
+ */
+export const frontendModules: AppManifestDTO[] = [
+  {
+    id: 'production',
+    title: '生产看板',
+    shortTitle: '生产看板',
+    description: '产量达成、收率跟踪与工艺分析',
+    icon: 'ThunderboltOutlined',
+    accent: 'production',
+    route: '/hbos/production',
+    migrationMode: 'native',
+    capabilitySummary: false,
+    capabilityTasks: false,
+    capabilitySearch: false,
+    featured: true,
+    meta: '产量与收率看板',
+  },
 ]
 
 export const heroMetrics: SummaryMetricDTO[] = [
