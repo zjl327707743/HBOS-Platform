@@ -35,3 +35,10 @@ feishu_records.json
 frontend/hbos-portal-web/dist/
 *.tsbuildinfo
 frontend/hbos-portal-web/vite.config.js
+
+# openclaw 生产看板参考打包件 —— 2026-10-02 Owner 指示：只作参考，不入库。
+# 包内含明文飞书 app_secret，任何情况下不得提交。
+workspace_backup_*.tar.gz
+scb_package_*.tar.gz
+scb_package/
+workspace_backup/

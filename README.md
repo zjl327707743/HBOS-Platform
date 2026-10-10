@@ -165,4 +165,11 @@ bash scripts/portal/p3_workspace_runtime_smoke.sh
 
 第一条用于持续启动真实 Frappe 模式 Portal；第二条用于验证三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Frappe Session 和 Vite API proxy。Owner 本机 Isolated Preview 已于 2026-09-25 完成并通过；P3 Local Runtime = PASS，P4-F0 前端真实页面审计与设计已放行。
 
+生产看板模块（**浅色精致版**，与 Frappe / ERPNext 无关，数据源为飞书多维表格的批生产记录台账）已交付原型与视觉方案 REV 8，**已复刻进 Portal 并接通真实数据**。共两页：基层管理人员看板 / 生产管理中心看板。数据经独立取数服务 `services/hbos_production`（本机 8101，只读飞书）聚合；「工艺提升与改进方案」由独立 AI 分析服务 `services/hbos_production_ai`（每天 16:30 定时，覆盖全部 6 个在产产品）生成后写回飞书结果表。
+
+- `docs/frontend/P4_生产看板原型.html`
+- `docs/frontend/P4_生产看板视觉方案与页面结构.md`
+- `docs/frontend/P4_生产看板_AI分析服务规格.md`
+- `frontend/hbos-portal-web/src/views/ProductionDashboardView.vue`
+
 Portal 是 Experience Shell，不替代 Attendance / Inventory / LIMS 的领域 Authority；运行时身份统一使用 Frappe User + Frappe Session。PR #15 继续保持 Draft，直到三 APP 工作台运行态、本地验收和下一阶段前端强化 Gate 达到可收口状态。

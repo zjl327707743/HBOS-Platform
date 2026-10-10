@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HBOS 生产看板 · 原型</title>
+<style>
+/* ============================================================
+   HBOS 生产看板 — 原型（浅色精致 · Portal 同源工艺）
+   Authority:
+   - Owner 2026-09-30：**浅色精致**，比照 Portal「数字孪生运行态势」那套工艺，
+     不照抄任何一张参考图（此前两版深色均已废弃）。
+   - Owner 2026-09-30：范围收敛为参考图那 8 行；F13 = 粗品B + 粗品C。
+   - 视觉语言取自 frontend/hbos-portal-web/src/styles/global.css：
+     玻璃卡 rgba(255,255,255,.57~.74) + 白色描边 + 柔和外阴影 + 18~22px 圆角；
+     强调渐变 linear-gradient(135deg,#6c63ff,#42b9d1)；状态点 #1dbf84 等。
+   - 口径见视觉方案 §3 / §6；「口径待定」「待确认」「—」都是刻意的留白。
+   ============================================================ */
+
+:root{
+  /* 画布 */
+  --canvas:#f2f7fd;
+  --tint-violet:rgba(108,99,255,.07);
+  --tint-blue:rgba(72,167,255,.08);
+
+  /* 玻璃卡 */
+  --card:rgba(255,255,255,.74);
+  --card-soft:rgba(255,255,255,.60);
+  --card-border:rgba(255,255,255,.92);
+  --hair:rgba(65,91,138,.10);
+  --hair-2:rgba(65,91,138,.06);
+  --shadow:0 10px 34px rgba(61,88,136,.08);
+  --shadow-sm:0 6px 18px rgba(61,88,136,.07);
+
+  /* 字 */
+  --ink:#17253c;
+  --ink-2:#425675;
+  --ink-3:#72829d;
+  --ink-4:#a4b0c1;
+
+  /* 强调与语义 */
+  --acc-a:#6c63ff;
+  --bar-grad:linear-gradient(90deg,#6c63ff,#42b9d1);
+  --good:#1dbf84;
+  --warn:#e09b34;
+  --crit:#e2605f;
+
+  /* 字号：看板场景，比 Portal 正文略大一档 */
+  --f-title:34px;  --lh-title:44px;
+  --f-kpi:36px;    --lh-kpi:42px;
+  --f-sec:17px;    --lh-sec:24px;
+  --f-body:14px;   --lh-body:22px;
+  --f-meta:12px;   --lh-meta:19px;
+  --f-micro:11px;  --lh-micro:17px;
+
+  --w-reg:400; --w-med:600;
+  --font-sans:Inter,"SF Pro Display","PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --font-num:"SF Mono","SFMono-Regular","JetBrains Mono",Inter,ui-monospace,monospace;
+
+  --r-lg:22px; --r:18px; --gap:16px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--canvas);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:var(--f-body);
+  line-height:var(--lh-body);
+  font-weight:var(--w-reg);
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid rgba(73,168,255,.85);outline-offset:2px}
+/* 必须强制回来：下面多处写 display:flex/grid，会盖掉 UA 的 [hidden] */
+[hidden]{display:none !important}
+
+/* ---------- 画布：两层极淡径向色，落到浅蓝底上 ---------- */
+.ss-canvas{
+  min-height:100vh;position:relative;
+  padding:0 0 34px;
+  background:
+    radial-gradient(1100px 560px at 8% -6%,var(--tint-violet),transparent 62%),
+    radial-gradient(900px 520px at 92% 4%,var(--tint-blue),transparent 60%),
+    var(--canvas);
+}
+
+/* ---------- 原型脚手架（不得进入正式实现） ---------- */
+.ss-scaffold{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  padding:10px 30px;
+  background:rgba(255,255,255,.62);
+  border-bottom:1px solid var(--hair);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  font-size:var(--f-micro);line-height:var(--lh-micro);
+  color:var(--ink-3);
+}
+.ss-scaffold b{font-weight:var(--w-med);color:var(--ink-2)}
+.ss-scaffold button{
+  min-height:28px;padding:0 13px;
+  border:1px solid var(--hair);border-radius:999px;
+  background:rgba(255,255,255,.6);color:var(--ink-2);
+  font-size:var(--f-micro);line-height:var(--lh-micro);
+  transition:background .2s,border-color .2s,color .2s,box-shadow .2s;
+}
+.ss-scaffold button:hover{border-color:rgba(73,168,255,.5);color:var(--acc-a)}
+.ss-scaffold button[aria-pressed="true"]{
+  background:#fff;border-color:transparent;color:var(--acc-a);
+  font-weight:var(--w-med);box-shadow:var(--shadow-sm);
+}
+.ss-scaffold .sp{flex:1}
+
+/* ---------- 页头：kicker + 标题 + 副标题（同数字孪生面板结构） ---------- */
+.ss-head{
+  padding:32px 30px 22px;
+  display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;
+}
+.ss-head .kicker{
+  display:block;margin-bottom:8px;
+  font-size:var(--f-micro);line-height:var(--lh-micro);font-weight:var(--w-med);
+  letter-spacing:.14em;text-transform:uppercase;color:var(--acc-a);
+}
+.ss-head h1{
+  margin:0 0 6px;
+  font-size:var(--f-title);line-height:var(--lh-title);
+  font-weight:var(--w-med);letter-spacing:-.6px;color:var(--ink);
+}
+.ss-head .sub{margin:0;font-size:var(--f-body);line-height:var(--lh-body);color:var(--ink-2)}
+.ss-head .ss-h-r{
+  text-align:right;font-size:var(--f-meta);line-height:var(--lh-meta);color:var(--ink-3);white-space:nowrap;
+}
+.ss-head .ss-h-r b{display:block;font-size:var(--f-body);font-weight:var(--w-med);color:var(--ink-2)}
+
+.ss-page{padding:0 30px}
+.ss-page[hidden]{display:none !important}
+
+/* ---------- 玻璃卡 ---------- */
+.glass{
+  background:var(--card);
+  border:1px solid var(--card-border);
+  box-shadow:var(--shadow);
+  border-radius:var(--r-lg);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  min-width:0;
+}
+
+/* ---------- KPI 带：标签左 / 值右 / 渐变细条 ---------- */
+.ss-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap);margin-bottom:var(--gap)}
+.kpi{padding:20px 22px 18px;display:flex;flex-direction:column;min-width:0}
+.kpi .top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.kpi .lb{font-size:var(--f-meta);line-height:var(--lh-meta);color:var(--ink-3);font-weight:var(--w-med)}
+.kpi .vl{
+  font-family:var(--font-num);font-size:var(--f-kpi);line-height:var(--lh-kpi);
+  font-weight:var(--w-med);letter-spacing:-.02em;color:var(--ink);white-space:nowrap;
+}
+.kpi .vl.ok{color:var(--good)}
+.kpi .vl.tbd{
+  font-family:var(--font-sans);font-size:17px;line-height:42px;
+  color:var(--ink-4);font-weight:var(--w-reg);letter-spacing:0;
+}
+.kpi .bar{margin-top:12px;height:7px;border-radius:999px;background:rgba(65,91,138,.09);overflow:hidden}
+.kpi .bar > i{display:block;height:100%;border-radius:999px;background:var(--bar-grad)}
+.kpi .bar.good > i{background:linear-gradient(90deg,#2fd39a,#42b9d1)}
+.kpi .fn{margin-top:10px;font-size:var(--f-micro);line-height:var(--lh-micro);color:var(--ink-3)}
+
+/* ---------- 主体栅格 ---------- */
+.ss-cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:var(--gap);align-items:start}
+.ss-stack{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+
+/* ---------- 段落头：小色条 + 标题 + 右侧提示 ---------- */
+.sec-head{display:flex;align-items:center;gap:10px;padding:20px 24px 14px}
+.sec-head i{width:3px;height:14px;border-radius:2px;background:var(--bar-grad);flex:0 0 3px}
+.sec-head h2{
+  margin:0;font-size:var(--f-sec);line-height:var(--lh-sec);
+  font-weight:var(--w-med);letter-spacing:-.2px;color:var(--ink);
+}
+.sec-head .note{margin-left:auto;font-size:var(--f-micro);line-height:var(--lh-micro);color:var(--ink-4)}
+.sec-head.warn i{background:linear-gradient(180deg,#efb455,#e09b34)}
+.sec-head.crit i{background:linear-gradient(180deg,#ef7a79,#e2605f)}
+
+/* ---------- 表格：淡发丝分隔、无斑马纹、数字等宽右对齐 ---------- */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th,.tbl td{padding:12px 10px;text-align:left;vertical-align:middle}
+.tbl thead th{
+  padding-top:0;padding-bottom:10px;
+  font-size:var(--f-micro);line-height:var(--lh-micro);
+  font-weight:var(--w-med);color:var(--ink-3);
+  letter-spacing:.06em;white-space:nowrap;
+  border-bottom:1px solid var(--hair);
+}
+.tbl tbody tr{border-bottom:1px solid var(--hair-2)}
+.tbl tbody tr:last-child{border-bottom:0}
+.tbl tbody tr:hover{background:rgba(108,99,255,.035)}
+.tbl td{font-size:var(--f-body);line-height:var(--lh-body);color:var(--ink)}
+.tbl .num{text-align:right;font-family:var(--font-num)}
+.tbl .dim{color:var(--ink-4)}
+.tbl .pname{font-weight:var(--w-med);color:var(--ink);white-space:nowrap}
+.tbl .pname small{font-weight:var(--w-reg);color:var(--ink-4)}
+
+/* 完成率：细条 + 数字并排。缺口本身就是「还差多少」。 */
+.rate{display:flex;align-items:center;gap:12px;justify-content:flex-end}
+.track{
+  width:96px;height:7px;flex:0 0 96px;
+  border-radius:999px;background:rgba(65,91,138,.09);overflow:hidden;
+}
+.track > i{display:block;height:100%;border-radius:999px;background:var(--bar-grad)}
+.track.full > i{background:linear-gradient(90deg,#2fd39a,#42b9d1)}
+.rate .pct{font-family:var(--font-num);min-width:56px;text-align:right}
+
+/* 收率：值 + 一枚状态点 */
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:8px;vertical-align:middle}
+.dot.ok{background:var(--good)}
+.dot.no{background:var(--warn)}
+.dot.na{background:rgba(65,91,138,.20)}
+
+/* ---------- 清单 ---------- */
+.list{margin:0;padding:0 24px 18px;list-style:none;display:flex;flex-direction:column}
+.list li{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:11px 0;font-size:var(--f-body);line-height:var(--lh-body);
+  color:var(--ink-2);border-bottom:1px solid var(--hair-2);
+}
+.list li:last-child{border-bottom:0}
+.list li::before{content:"";width:5px;height:5px;border-radius:50%;background:#42b9d1;flex:0 0 5px;margin-top:9px}
+.list b{color:var(--ink);font-weight:var(--w-med)}
+.list .mk{font-family:var(--font-num);color:var(--ink)}
+
+.note{padding:14px 24px 20px;font-size:var(--f-meta);line-height:1.75;color:var(--ink-3)}
+.note b{color:var(--ink-2);font-weight:var(--w-med)}
+.note code{
+  font-family:var(--font-num);font-size:11.5px;
+  background:rgba(108,99,255,.07);padding:2px 6px;border-radius:5px;color:var(--acc-a);
+}
+.note .warn-txt{color:var(--warn);font-weight:var(--w-med)}
+
+/* ---------- 状态：未接入 / 空态 / 加载 / 错误 ---------- */
+.state{padding:60px 34px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.state .ic{width:34px;height:34px;stroke:currentColor;fill:none;stroke-width:1.6;margin-bottom:4px;color:var(--acc-a)}
+.state.soon .ic{color:var(--warn)}
+.state.void .ic{color:var(--good)}
+.state.err .ic{color:var(--crit)}
+.state h3{margin:0;font-size:21px;line-height:30px;font-weight:var(--w-med);color:var(--ink)}
+.state p{margin:0;max-width:80ch;font-size:var(--f-body);line-height:1.75;color:var(--ink-2)}
+.state .facts{
+  margin-top:8px;padding:16px 18px;border:1px solid var(--hair);border-radius:14px;
+  font-size:var(--f-meta);line-height:1.8;color:var(--ink-2);background:rgba(255,255,255,.5);
+}
+.state .facts b{color:var(--ink);font-weight:var(--w-med)}
+
+.skel{background:linear-gradient(90deg,rgba(65,91,138,.07),rgba(65,91,138,.12),rgba(65,91,138,.07));border-radius:12px;animation:ss-p 1.6s ease-in-out infinite;background-size:200% 100%}
+@keyframes ss-p{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.skel-kpi{height:126px}
+.skel-row{height:52px;margin-bottom:10px}
+
+/* ---------- 页脚 ---------- */
+.ss-foot{
+  margin:var(--gap) 30px 0;padding-top:16px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  border-top:1px solid var(--hair);
+  font-size:var(--f-micro);line-height:var(--lh-micro);color:var(--ink-3);
+}
+.ss-foot .r{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.ss-foot .legend{display:inline-flex;align-items:center;gap:7px}
+.ss-foot .legend .dot{margin-left:0}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:1439px){
+  .ss-cols{grid-template-columns:minmax(0,1fr)}
+  .track{width:80px;flex-basis:80px}
+}
+@media (max-width:1099px){
+  .ss-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:900px){
+  :root{--f-title:26px;--lh-title:34px;--f-kpi:30px;--lh-kpi:38px;--gap:14px}
+  .ss-head,.ss-page{padding-left:16px;padding-right:16px}
+  .ss-foot{margin-left:16px;margin-right:16px}
+  .ss-scaffold{padding-left:16px;padding-right:16px}
+  .tbl .hide-sm{display:none}
+  .track{width:60px;flex-basis:60px}
+  .state{padding:44px 22px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:1ms !important;animation-iteration-count:1 !important;transition-duration:1ms !important}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v6M15 3v6"/><path d="M6 9h12v3a6 6 0 0 1-12 0z"/><path d="M12 18v3"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3"/></symbol>
+<symbol id="i-off" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+</defs></svg>
+
+<div class="ss-canvas">
+
+<!-- ============ 原型脚手架：仅供 Owner 审查，正式实现必须删除 ============ -->
+<div class="ss-scaffold">
+  <b>原型脚手架</b>
+  <span>看板</span>
+  <button type="button" data-page="baseline" aria-pressed="true">基层管理人员看板</button>
+  <button type="button" data-page="center" aria-pressed="false">生产管理中心看板</button>
+  <span style="margin-left:10px">状态</span>
+  <button type="button" data-state="ready" aria-pressed="true">正常</button>
+  <button type="button" data-state="void" aria-pressed="false">空态</button>
+  <button type="button" data-state="loading" aria-pressed="false">加载</button>
+  <button type="button" data-state="denied" aria-pressed="false">错误</button>
+  <button type="button" data-state="soon" aria-pressed="false">未接入</button>
+  <span class="sp"></span>
+  <span>范围：会议口径筛出的 <b>6 个在产产品</b> · 数字取自 <b>2026-10</b> 实读。</span>
+</div>
+
+<!-- ============================================================
+     页面 A · 基层管理人员看板
+     下区 = 收率质量跟踪 / 重点关注 / 异常处置 —— 一线管理动作
+     ============================================================ -->
+<div class="ss-page" data-screen="baseline">
+
+  <header class="ss-head">
+    <div>
+      <span class="kicker">Production · Baseline</span>
+      <h1>基层管理人员看板</h1>
+      <p class="sub">车间生产状态、产量达成与产线异常</p>
+    </div>
+    <div class="ss-h-r">
+      <b>2026 年 10 月 01 日</b>
+      <span data-view="ready">数据月份 2026-10 · 本月已过 <b>1</b> 天</span>
+    </div>
+  </header>
+
+  <div class="glass state soon" data-view="soon">
+    <svg class="ic" aria-hidden="true"><use href="#i-plug"/></svg>
+    <h3>看板数据还没接通</h3>
+    <p>这一页的数字来自飞书多维表格。取数通道还没建立，所以这里<b>不显示任何数字</b>——宁可不给，也不给一个看起来像真实产量的占位值。</p>
+    <p>页面结构与字段口径已定稿（视觉方案 §3 / §6），数据接通后按同一套结构填充，不再改版。</p>
+    <div class="facts">
+      <b>已核对的取数面</b>（2026-09-30 实读）：台账 4 张（F12-A线 148 批、B6 117 批、CDCA(B5) 19 批、A7 29 批）；
+      目标表 2 张；产量明细 7 张（合计 9,759 行 / 35 个品种）；AI 规则 26 条（4 条启用）。
+    </div>
+  </div>
+
+  <div class="glass state void" data-view="void" hidden>
+    <svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>
+    <h3>本月还没有生产记录</h3>
+    <p>目标表与明细表里都查不到本月的批次。这不等于「本月没有生产」——只是记录还没填或还没同步过来。</p>
+  </div>
+
+  <div class="glass state err" data-view="denied" hidden>
+    <svg class="ic" aria-hidden="true"><use href="#i-off"/></svg>
+    <h3>暂时取不到生产数据</h3>
+    <p>取数通道没有响应。<b>请勿把这里当作「本月没有产量」</b>——只是现在取不到。</p>
+  </div>
+
+  <div data-view="loading" hidden>
+    <div class="skel skel-kpi" style="margin-bottom:16px"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row" style="margin-bottom:0"></div>
+  </div>
+
+  <div data-view="ready" hidden>
+
+    <!-- KPI 带 -->
+    <section class="ss-kpis" aria-label="月度关键指标">
+      <div class="glass kpi">
+        <div class="top"><span class="lb">当月计划完成率</span><span class="vl">2.7%</span></div>
+        <div class="bar"><i style="width:2.7%"></i></div>
+        <div class="fn">12 / 450 批 · 批数口径 · 6 个在产产品</div>
+      </div>
+      <div class="glass kpi">
+        <div class="top"><span class="lb">收率达标率</span><span class="vl">25.0%</span></div>
+        <div class="bar"><i style="width:25%"></i></div>
+        <div class="fn">1 / 4 个有收率数据的品种达标（F13 达标）</div>
+      </div>
+      <div class="glass kpi">
+        <div class="top"><span class="lb">质量合格率</span><span class="vl tbd">口径待定</span></div>
+        <div class="fn" style="margin-top:14px">成品质量表字段不可用，无判定来源（§15 B3）</div>
+      </div>
+      <div class="glass kpi">
+        <div class="top"><span class="lb">异常闭环率</span><span class="vl">29.0%</span></div>
+        <div class="bar"><i style="width:29%"></i></div>
+        <div class="fn">二车间 · 4BMA · 累计 31 条（9 已闭环）<br>非本月口径 · 见下方说明</div>
+      </div>
+    </section>
+
+    <div class="ss-cols">
+
+      <!-- 当月生产累计完成情况 -->
+      <section class="glass">
+        <div class="sec-head">
+          <i></i><h2>当月生产累计完成情况</h2>
+          <span class="note">2026-10 · 在产 6 个产品</span>
+        </div>
+        <div style="padding:0 24px 18px">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>产品</th>
+                <th class="num">完成</th>
+                <th class="num">目标</th>
+                <th class="num" style="width:176px">完成率</th>
+                <th class="num">收率</th>
+                <th class="num hide-sm">昨日入库</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="pname">4BMA</td><td class="num">3</td><td class="num dim">90</td>
+                <td><span class="rate"><span class="track"><i style="width:3.3%"></i></span><span class="pct">3.3%</span></span></td>
+                <td class="num">90.1<span class="dot no" title="低于目标收率 91.0%"></span></td>
+                              <td class="num">676.1</td>
+              </tr>
+              <tr>
+                <td class="pname">F9</td><td class="num">1</td><td class="num dim">45</td>
+                <td><span class="rate"><span class="track"><i style="width:2.2%"></i></span><span class="pct">2.2%</span></span></td>
+                <td class="num">110.3<span class="dot no" title="低于目标收率 110.9%"></span></td>
+                              <td class="num">441.2</td>
+              </tr>
+              <tr>
+                <td class="pname">F12</td><td class="num">3</td><td class="num dim">88</td>
+                <td><span class="rate"><span class="track"><i style="width:3.4%"></i></span><span class="pct">3.4%</span></span></td>
+                <td class="num">148.2<span class="dot no" title="低于目标收率 149.6%"></span></td>
+                              <td class="num">800.2</td>
+              </tr>
+              <tr>
+                <td class="pname">F13<small>（粗品·合并）</small></td><td class="num">5</td><td class="num dim">134</td>
+                <td><span class="rate"><span class="track"><i style="width:3.7%"></i></span><span class="pct">3.7%</span></span></td>
+                <td class="num">50.2<span class="dot ok" title="达到目标收率 50.0%"></span></td>
+                              <td class="num">251.0</td>
+              </tr>
+              <tr>
+                <td class="pname">无菌美罗培南<small>（合并）</small></td><td class="num dim">0</td><td class="num dim">77</td>
+                <td><span class="rate"><span class="track"><i style="width:0%"></i></span><span class="pct">0%</span></span></td>
+                <td class="num dim">—<span class="dot na" title="本月无收率数据"></span></td>
+                              <td class="num dim">—</td>
+              </tr>
+              <tr>
+                <td class="pname">无菌亚胺培南<small>（合并）</small></td><td class="num dim">0</td><td class="num dim">16</td>
+                <td><span class="rate"><span class="track"><i style="width:0%"></i></span><span class="pct">0%</span></span></td>
+                <td class="num dim">—<span class="dot na" title="本月无收率数据"></span></td>
+                              <td class="num dim">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">
+          <b>本月已过 1 天</b>（10-01），累计完成率天然接近 0 —— 这不是产线异常，是月初基准。<br>
+          <b>口径（2026-10-02 会议 + Owner 确认）</b>：目标 = <code>月度生产计划明细</code> 1–31 日求和；
+          完成与收率 = <code>产量明细数据-*</code> 按 <b>收料日期</b> 落月；目标收率 = <code>月度目标产能.目标收率</code>（合并行按<b>计划批数加权</b>）。<br>
+          <b>已排除</b>（会议）：欧盟线 / 混粉 / 晶种 / USP / 碳酸氢钠 / 比阿培南；<b>四车间</b>（B5·A7·B6·CDCA）当前无在产，暂不录入。<br>
+          <b>合并口径</b>：<code>F13 = 国内规范粗品 + 美罗培南粗品B + 美罗培南粗品C</code>；
+          <code>无菌美罗培南 = 美罗培南B + 美罗培南 + （FDA）+ 精粗品D + 精粗品EP</code>；
+          <code>无菌亚胺培南 = 亚胺培南-乙醇 + -甲醇 + （CEP）</code>。<br>
+          <b>暂不列</b>：六车间的 <code>亚胺培南粗品-甲醇 / -乙醇</code>（产量少，既有看板也未曾列入）。<br>
+          <b>无菌两行 0 批</b>：本月确实未生产（Owner 确认），完成 0 是真实值。<br>
+          <b>昨日入库</b> = 前一日（<code>2026-10-01</code>）按 <b>收料日期</b> 的产量求和（会议口径）；全场合计 <b>2,168.4 kg</b>。
+        </div>
+      </section>
+
+      <div class="ss-stack">
+        <!-- 产品收率质量跟踪 -->
+        <section class="glass">
+          <div class="sec-head warn"><i></i><h2>产品收率质量跟踪</h2></div>
+          <ul class="list">
+            <li><span><b>F12</b> 收率 <span class="mk">148.2%</span>，目标 149.6%，差 <span class="mk">1.4</span>pt</span></li>
+            <li><span><b>F9</b> <span class="mk">110.3%</span>，目标 110.9%，差 <span class="mk">0.6</span>pt</span></li>
+            <li><span><b>4BMA</b> <span class="mk">90.1%</span>，目标 91.0%，差 <span class="mk">0.9</span>pt</span></li>
+            <li><span><b>F13</b>（粗品）<span class="mk">50.2%</span>，目标 50.0%，<b>达标</b></span></li>
+            <li><span>无菌两行本月无收率数据（未生产）</span></li>
+            <li><span>有收率数据的 <span class="mk">4</span> 个里，达标 <span class="mk">1</span> 个</span></li>
+          </ul>
+        </section>
+
+        <!-- 重点关注 -->
+        <section class="glass">
+          <div class="sec-head warn"><i></i><h2>重点关注</h2></div>
+          <ul class="list">
+            <li><span><b>月初基准</b>：本月已过 <span class="mk">1</span> 天，6 行累计都接近 0，属正常</span></li>
+            <li><span><b>F13（粗品）</b> 目标 <span class="mk">134</span> 批，为全场最大，是粗品B + 粗品C + 国内规范粗品三者合并</span></li>
+            <li><span><b>无菌美罗培南</b> 目标 <span class="mk">77</span> 批（5 个品种合并），本月尚未开始</span></li>
+            <li><span><b>4BMA / F9 / F12</b> 目标合计 <span class="mk">223</span> 批，三项占全场一半</span></li>
+            <li><span>收率达标 <span class="mk">1 / 4</span>，三个主力品种均差 <span class="mk">1</span>pt 左右</span></li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <!-- 异常警报闭环处置 -->
+    <section class="glass" style="margin-top:16px">
+      <div class="sec-head crit">
+        <i></i><h2>异常警报闭环处置</h2>
+        <span class="note">二车间（4BMA） · 按发生时间倒序 · 共 31 条</span>
+      </div>
+      <div style="padding:0 24px 4px">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th style="width:96px">发生时间</th>
+              <th style="width:150px">事件</th>
+              <th>事件内容</th>
+              <th style="width:96px">当前状态</th>
+              <th style="width:260px">事件原因</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num dim" style="text-align:left">2026-08-22</td>
+              <td>合成投料延迟</td>
+              <td>R228、R229 更换轴套，影响生产进度约 6h/次</td>
+              <td><span class="dot ok" style="margin-left:0;margin-right:7px"></span>已闭环</td>
+              <td class="dim">R228、R229 搅拌异常，进行更换轴套，距上次更换已 1 个半月</td>
+            </tr>
+            <tr>
+              <td class="num dim" style="text-align:left">2026-08-20</td>
+              <td>水解异常</td>
+              <td>双氧水罐浮漂破损堵塞管道，加双氧水由 3–5min 超时至 8min，水解反应不合格。影响生产进度 2h</td>
+              <td><span class="dot no" style="margin-left:0;margin-right:7px"></span>未闭环</td>
+              <td class="dim">—</td>
+            </tr>
+            <tr>
+              <td class="num dim" style="text-align:left">2026-07-21</td>
+              <td>冰机故障</td>
+              <td>冰机频繁跳低压保护，影响生产进度 2h/批</td>
+              <td><span class="dot ok" style="margin-left:0;margin-right:7px"></span>已闭环</td>
+              <td class="dim">已联系工程部，7.22 厂家现场排查；7.21 启动备用冰机</td>
+            </tr>
+            <tr>
+              <td class="num dim" style="text-align:left">2026-05-24</td>
+              <td>冰机故障</td>
+              <td>冰机降温效果差，停机清洗换热器</td>
+              <td><span class="dot ok" style="margin-left:0;margin-right:7px"></span>已闭环</td>
+              <td class="dim">冰机降温效果差，生产进度受影响，停机清洗换热器</td>
+            </tr>
+            <tr>
+              <td class="num dim" style="text-align:left">2026-05-19</td>
+              <td>冰机故障</td>
+              <td>冰机运行正常，冷媒温度降不下去（-17~-20℃），水解降温时间延长</td>
+              <td><span class="dot no" style="margin-left:0;margin-right:7px"></span>未闭环</td>
+              <td class="dim">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <b>数据来源</b>：<code>异常情况上报</code> 表（Base <code>EYI1b7bvKaQ…</code>，31 条，全部二车间）。
+        <b>闭环判定 = <code>事件原因</code> 列非空</b>（Owner 2026-10-01 口径）：31 条中 9 条已闭环，闭环率 <b>29.0%</b>。<br>
+        <span class="warn-txt">本表最新记录停在 2026-08-22，无 10 月数据</span> —— 上述「异常闭环率 29.0%」是<b>累计口径</b>，不是本月值。本月值为空（0/0）。<br>
+        另有 <code>openclaw 异常跟踪表</code>（6 条，列名与参考图逐字一致）与 <code>异常事件表</code>（10 条，覆盖新乡各车间、带调查报告附件）两套并行台账 —— <b>哪套为准需生产确认</b>（§15 C1）。
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ============================================================
+     页面 B · 生产管理中心看板
+     上区与基层版逐字一致；下区 = 工艺提升 / 异常汇报 —— 管理层视角
+     ============================================================ -->
+<div class="ss-page" data-screen="center" hidden>
+
+  <header class="ss-head">
+    <div>
+      <span class="kicker">Production · Center</span>
+      <h1>生产管理中心看板</h1>
+      <p class="sub">月度产量达成、工艺改进与异常升级</p>
+    </div>
+    <div class="ss-h-r">
+      <b>2026 年 10 月 01 日</b>
+      <span data-view="ready">数据月份 2026-10 · 本月已过 <b>1</b> 天</span>
+    </div>
+  </header>
+
+  <div class="glass state soon" data-view="soon">
+    <svg class="ic" aria-hidden="true"><use href="#i-plug"/></svg>
+    <h3>看板数据还没接通</h3>
+    <p>与「基层管理人员看板」共用同一套取数通道。通道未建立前，这里同样<b>不显示任何数字</b>。</p>
+  </div>
+
+  <div class="glass state void" data-view="void" hidden>
+    <svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>
+    <h3>本月还没有生产记录</h3>
+    <p>目标表与明细表里都查不到本月的批次。这不等于「本月没有生产」——只是记录还没填或还没同步过来。</p>
+  </div>
+
+  <div class="glass state err" data-view="denied" hidden>
+    <svg class="ic" aria-hidden="true"><use href="#i-off"/></svg>
+    <h3>暂时取不到生产数据</h3>
+    <p>取数通道没有响应。<b>请勿把这里当作「本月没有产量」</b>——只是现在取不到。</p>
+  </div>
+
+  <div data-view="loading" hidden>
+    <div class="skel skel-kpi" style="margin-bottom:16px"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row" style="margin-bottom:0"></div>
+  </div>
+
+  <div data-view="ready" hidden>
+
+    <section class="ss-kpis" aria-label="月度关键指标">
+      <div class="glass kpi">
+        <div class="top"><span class="lb">当月计划完成率</span><span class="vl">2.7%</span></div>
+        <div class="bar"><i style="width:2.7%"></i></div>
+        <div class="fn">12 / 450 批 · 批数口径 · 6 个在产产品</div>
+      </div>
+      <div class="glass kpi">
+        <div class="top"><span class="lb">收率达标率</span><span class="vl">25.0%</span></div>
+        <div class="bar"><i style="width:25%"></i></div>
+        <div class="fn">1 / 4 个有收率数据的品种达标（F13 达标）</div>
+      </div>
+      <div class="glass kpi">
+        <div class="top"><span class="lb">质量合格率</span><span class="vl tbd">口径待定</span></div>
+        <div class="fn" style="margin-top:14px">成品质量表字段不可用，无判定来源（§15 B3）</div>
+      </div>
+      <div class="glass kpi">
+        <div class="top"><span class="lb">异常闭环率</span><span class="vl">29.0%</span></div>
+        <div class="bar"><i style="width:29%"></i></div>
+        <div class="fn">二车间 · 4BMA · 累计 31 条（9 已闭环）<br>非本月口径 · 见下方说明</div>
+      </div>
+    </section>
+
+    <div class="ss-cols">
+      <section class="glass">
+        <div class="sec-head">
+          <i></i><h2>当月生产累计完成情况</h2>
+          <span class="note">2026-10 · 在产 6 个产品</span>
+        </div>
+        <div style="padding:0 24px 18px">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>产品</th>
+                <th class="num">完成</th>
+                <th class="num">目标</th>
+                <th class="num" style="width:186px">完成率</th>
+                <th class="num">收率</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="pname">4BMA</td><td class="num">3</td><td class="num dim">90</td>
+                <td><span class="rate"><span class="track"><i style="width:3.3%"></i></span><span class="pct">3.3%</span></span></td>
+                <td class="num">90.1<span class="dot no" title="低于目标收率 91.0%"></span></td>
+              </tr>
+              <tr>
+                <td class="pname">F9</td><td class="num">1</td><td class="num dim">45</td>
+                <td><span class="rate"><span class="track"><i style="width:2.2%"></i></span><span class="pct">2.2%</span></span></td>
+                <td class="num">110.3<span class="dot no" title="低于目标收率 110.9%"></span></td>
+              </tr>
+              <tr>
+                <td class="pname">F12</td><td class="num">3</td><td class="num dim">88</td>
+                <td><span class="rate"><span class="track"><i style="width:3.4%"></i></span><span class="pct">3.4%</span></span></td>
+                <td class="num">148.2<span class="dot no" title="低于目标收率 149.6%"></span></td>
+              </tr>
+              <tr>
+                <td class="pname">F13<small>（粗品·合并）</small></td><td class="num">5</td><td class="num dim">134</td>
+                <td><span class="rate"><span class="track"><i style="width:3.7%"></i></span><span class="pct">3.7%</span></span></td>
+                <td class="num">50.2<span class="dot ok" title="达到目标收率 50.0%"></span></td>
+              </tr>
+              <tr>
+                <td class="pname">无菌美罗培南<small>（合并）</small></td><td class="num dim">0</td><td class="num dim">77</td>
+                <td><span class="rate"><span class="track"><i style="width:0%"></i></span><span class="pct">0%</span></span></td>
+                <td class="num dim">—<span class="dot na" title="本月无收率数据"></span></td>
+              </tr>
+              <tr>
+                <td class="pname">无菌亚胺培南<small>（合并）</small></td><td class="num dim">0</td><td class="num dim">16</td>
+                <td><span class="rate"><span class="track"><i style="width:0%"></i></span><span class="pct">0%</span></span></td>
+                <td class="num dim">—<span class="dot na" title="本月无收率数据"></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">
+          上区与基层版<b>逐字一致</b>——同一份数据只算一次，两页不会出现同一个完成率两个值（§4.3）。<br>
+          <b>口径（2026-10-02 会议 + Owner 确认）</b>：目标 = <code>月度生产计划明细</code> 1–31 日求和；
+          完成与收率 = <code>产量明细数据-*</code> 按 <b>收料日期</b> 落月；目标收率 = <code>月度目标产能.目标收率</code>（合并行按<b>计划批数加权</b>）。<br>
+          <b>已排除</b>（会议）：欧盟线 / 混粉 / 晶种 / USP / 碳酸氢钠 / 比阿培南；<b>四车间</b>（B5·A7·B6·CDCA）当前无在产，暂不录入。<br>
+          <b>合并口径</b>：<code>F13 = 国内规范粗品 + 美罗培南粗品B + 美罗培南粗品C</code>；
+          <code>无菌美罗培南 = 美罗培南B + 美罗培南 + （FDA）+ 精粗品D + 精粗品EP</code>；
+          <code>无菌亚胺培南 = 亚胺培南-乙醇 + -甲醇 + （CEP）</code>。<br>
+          <b>暂不列</b>：六车间的 <code>亚胺培南粗品-甲醇 / -乙醇</code>；<b>范围</b>：在产 <b>6 个产品</b>，数据月份 <code>2026-10</code>。
+        </div>
+      </section>
+
+      <div class="ss-stack">
+        <section class="glass">
+          <div class="sec-head warn">
+            <i></i><h2>工艺提升与改进方案</h2>
+            <span class="note">AI 分析 · 待接入</span>
+          </div>
+          <div style="padding:0 24px 6px">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th style="width:70px">产品</th>
+                  <th style="width:118px">工序</th>
+                  <th>结论摘要</th>
+                  <th style="width:92px">评级</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="pname" rowspan="4">4BMA</td>
+                  <td>4AA→7eb</td>
+                  <td class="dim">设计可审查，实际效果未证实；目标 95%→95.3%，无同口径实测</td>
+                  <td>数据不足</td>
+                </tr>
+                <tr>
+                  <td>7eb→粗品</td>
+                  <td class="dim">pH / 等待时间已做，水解未做；5 条件缺标准化收率</td>
+                  <td>数据不足</td>
+                </tr>
+                <tr>
+                  <td>粗品→精品</td>
+                  <td class="dim">9 条件单因素观察，基线 / 质量权衡待解；保留加水 3.5h 候选</td>
+                  <td>数据不足</td>
+                </tr>
+                <tr>
+                  <td>锌粉减量</td>
+                  <td class="dim">反应侧可选（800目20%、1200目25%/35%），生产稳定性未证实</td>
+                  <td>部分达到</td>
+                </tr>
+                <tr>
+                  <td class="pname">F9</td>
+                  <td>—</td>
+                  <td class="dim">待分析（分析服务未接入）</td>
+                  <td class="dim">—</td>
+                </tr>
+                <tr>
+                  <td class="pname">F12</td>
+                  <td>—</td>
+                  <td class="dim">待分析（分析服务未接入）</td>
+                  <td class="dim">—</td>
+                </tr>
+                <tr>
+                  <td class="pname">F13<small>（粗品）</small></td>
+                  <td>—</td>
+                  <td class="dim">待分析（分析服务未接入）</td>
+                  <td class="dim">—</td>
+                </tr>
+                <tr>
+                  <td class="pname">无菌美罗培南</td>
+                  <td>—</td>
+                  <td class="dim">待分析（分析服务未接入）</td>
+                  <td class="dim">—</td>
+                </tr>
+                <tr>
+                  <td class="pname">无菌亚胺培南</td>
+                  <td>—</td>
+                  <td class="dim">待分析（分析服务未接入）</td>
+                  <td class="dim">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="note">
+            <b>上表 4BMA 的 4 行是示例</b>（摘要取自《4BMA降本增效实验方案分析报告》），
+            其余产品显示「待分析」—— <b>结果表已建好但尚无数据</b>，分析服务未接入。<br>
+            <b>结果表（已建，Owner 2026-10-02）</b>：<code>Dl45bIEEya78fWsL4DXcwuJtn8c</code> / <code>tblXD7oAwbU8U040</code>
+            「AI工艺分析结果」，字段 = <code>产品 / 工序 / 分析日期 / 结论摘要 / 评级 / 完整报告 / 数据指纹</code>；当前 0 行。<br>
+            <b>数据来源</b>：各产品<b>工艺描述</b>（工艺 / 标准工艺参数 / 设备描述）+ <b>生产台账</b>实测值，由 AI 比对生成。<br>
+            <b>运行方式（Owner 2026-10-02 定）</b>：服务端（Owner 本机）<b>定时每天 16:30</b> 跑，按产品分析，结果写回上述结果表；看板读该表。<br>
+            <b>看板位只显示「结论摘要」</b>（一行一条工序）；点开产品另看完整报告。<br>
+            <b>写入端必须用 <code>数据指纹</code> 做幂等</b>：写之前先按指纹查重，有则跳过 —— 既有 openclaw 项目缺这一步，导致同一格被追加 64 次。
+          </div>
+        </section>
+
+        <section class="glass">
+          <div class="sec-head crit">
+            <i></i><h2>异常汇报</h2>
+            <span class="note">管理层向 · 按月汇总</span>
+          </div>
+          <ul class="list">
+            <li><span>暂无数据 —— 这是<b>正常状态，不是缺失</b>：本月没有「未闭环且影响产量或收率」的项升到管理层。</span></li>
+            <li><span>与基层版同源，但基层版是<b>全量跟踪清单</b>，这里是有门槛的汇总（§4.4）。</span></li>
+          </ul>
+          <div class="note">
+            <b>门槛口径待定</b>（§15 C4）：「未闭环 且 影响产量或收率」是建议值。<br>
+            空态文案必须写清「没有需要上报的」≠「没有异常」，否则管理层会误判。
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- 页脚 ---------- -->
+<div class="ss-foot">
+  <span>新乡海滨药业 · 生产看板 · 范围：在产 6 个产品</span>
+  <span class="r">
+    <span class="legend"><span class="dot ok"></span>达到目标收率</span>
+    <span class="legend"><span class="dot no"></span>低于目标收率</span>
+    <span class="legend"><span class="dot na"></span>无收率数据</span>
+    <span data-view="ready">数据截至 2026-09-30 16:43</span>
+  </span>
+</div>
+
+</div>
+
+<script>
+// 原型脚手架：切换「看板页」与「数据状态」。正式实现不得包含本段。
+(function () {
+  var root = document.querySelector('.ss-canvas')
+  var pageBtns = root.querySelectorAll('[data-page]')
+  var stateBtns = root.querySelectorAll('[data-state]')
+  var page = 'baseline'
+  var state = 'ready'
+
+  function render() {
+    root.querySelectorAll('[data-screen]').forEach(function (el) {
+      el.hidden = el.dataset.screen !== page
+    })
+    // data-view 支持空格分隔的多值（例如「正常与空态都显示页头日期」）
+    root.querySelectorAll('[data-view]').forEach(function (el) {
+      el.hidden = (el.dataset.view || '').split(/\s+/).indexOf(state) === -1
+    })
+    pageBtns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.page === page)) })
+    stateBtns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.state === state)) })
+  }
+
+  pageBtns.forEach(function (b) { b.addEventListener('click', function () { page = b.dataset.page; render() }) })
+  stateBtns.forEach(function (b) { b.addEventListener('click', function () { state = b.dataset.state; render() }) })
+  render()
+})()
+</script>
+</body>
+</html>

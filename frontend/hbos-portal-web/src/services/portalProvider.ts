@@ -1,6 +1,7 @@
 import {
   appManifests,
   businessPulse,
+  frontendModules,
   heroMetrics,
   limsQueue,
   portalUser,
@@ -31,6 +32,22 @@ const mockBranding: PortalBranding = {
   workspaceName: '海滨智能运营工作台',
 }
 
+/**
+ * 把**前端自有模块**并入后端/ mock 返回的 apps。
+ *
+ * 生产看板与 Frappe 无关，后端 provider 里没有它，所以在这一层补上 ——
+ * `getPortalData` 是两条数据源（mock / frappe）的唯一汇合点，
+ * 放这里比分别改两边少一处遗漏（此前 Portal 出过「页面在、入口被挡」的漏改）。
+ *
+ * 判重按 `id`：将来若真有了后端 provider，也不会出现两个 production。
+ */
+function withFrontendModules<T extends { apps: AppManifestDTO[] }>(data: T): T {
+  const known = new Set(data.apps.map((app) => app.id))
+  const missing = frontendModules.filter((app) => !known.has(app.id))
+  if (!missing.length) return data
+  return { ...data, apps: [...data.apps, ...missing] }
+}
+
 async function getMockPortalData() {
   await sleep(180)
   return {
@@ -47,9 +64,9 @@ async function getMockPortalData() {
 
 export async function getPortalData() {
   if (portalDataSource === 'frappe') {
-    return getFrappePortalData()
+    return withFrontendModules(await getFrappePortalData())
   }
-  return getMockPortalData()
+  return withFrontendModules(await getMockPortalData())
 }
 
 

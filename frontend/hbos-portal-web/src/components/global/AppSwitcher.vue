@@ -65,6 +65,7 @@ import {
   ExperimentOutlined,
   InboxOutlined,
   NodeIndexOutlined,
+  ThunderboltOutlined,
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { AppManifestDTO } from '@/contracts/portal'
@@ -78,10 +79,14 @@ const iconMap: Record<string, Component> = {
   InboxOutlined,
   ClockCircleOutlined,
   ToolOutlined,
+  ThunderboltOutlined,
 }
 
+// 与首页宫格、应用中心保持同一份白名单（生产看板平级）
 const visibleApps = computed(() =>
-  props.apps.filter((app) => ['lims', 'inventory', 'attendance', 'equipment'].includes(app.id)),
+  props.apps.filter((app) =>
+    ['lims', 'inventory', 'attendance', 'equipment', 'production'].includes(app.id),
+  ),
 )
 
 function go(path: string) {

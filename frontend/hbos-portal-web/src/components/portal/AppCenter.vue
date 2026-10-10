@@ -53,6 +53,7 @@ import {
   InboxOutlined,
   NodeIndexOutlined,
   RightOutlined,
+  ThunderboltOutlined,
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { AppManifestDTO, AppMigrationMode } from '@/contracts/portal'
@@ -66,9 +67,13 @@ const iconMap: Record<string, Component> = {
   InboxOutlined,
   ClockCircleOutlined,
   ToolOutlined,
+  ThunderboltOutlined,
 }
+// 首页宫格固定为这几个核心应用。生产看板与它们平级（Owner 要求首页可见）。
 const primaryApps = computed(() =>
-  props.apps.filter((app) => ['lims', 'inventory', 'attendance', 'equipment'].includes(app.id)),
+  props.apps.filter((app) =>
+    ['lims', 'inventory', 'attendance', 'equipment', 'production'].includes(app.id),
+  ),
 )
 
 function migrationLabel(mode: AppMigrationMode) {
