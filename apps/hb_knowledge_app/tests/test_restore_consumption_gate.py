@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import sys
 import pytest
 from hb_knowledge_app.hb_knowledge import activity, evidence
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
@@ -12,6 +13,10 @@ def fixture(monkeypatch, *, revoked=False):
     data={'query':'已存问题','space_ids':['SPACE'],'references':[['DOC','VERSION','binding','chunk']],
           'previews':[{'reference':['DOC','VERSION','binding','chunk'],'page_number':None,'excerpt':'有限依据'}],
           'answer':'已存答案[C1]','labels':['C1']}
+    # The domain unit tests exercise publication, not the separately shipped
+    # service projector. Its real implementation is covered by service and HTTP tests.
+    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway.response_projection',
+        SimpleNamespace(public_evidence=lambda record,handle,**kwargs:{'evidence_id':handle,'document_id':record.document_id,'excerpt':record.excerpt}))
     audits=[];ticket=SimpleNamespace(plan=object(),call=lambda *args:object())
     runtime=SimpleNamespace(client=object(),profile='production',cache=object(),publication=SimpleNamespace(plan=None),
         decisions=SimpleNamespace(issue=lambda *args:ticket,online=lambda *args:None),
