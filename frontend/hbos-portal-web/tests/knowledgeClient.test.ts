@@ -175,3 +175,36 @@ describe('N1 bounded follow-up responses', () => {
     await expect(askKnowledgeReference('合成问题', 'SPACE_QA_DEMO')).rejects.toBeInstanceOf(DomainApiError)
   })
 })
+
+describe('UAT2 signed-service compatibility in the existing Portal layout', () => {
+  const doc={document_id:'DOC_UAT2_DEMO',title:'合成资料',space_id:'SPACE_UAT2_DEMO',department:'合成部门',document_number:null,version:null,status_note:'内部参考／有效性待核',version_id:'VER_UAT2_DEMO',download_state:'permission_required',download_note:'待部门文档下载权限上线'}
+  it('shows current-version catalog metadata without granting original access', async () => {
+    const {getKnowledgeDocumentsPage}=await import('@/services/p1Api')
+    transport.get.mockResolvedValue({ok:true,data:{documents:[doc],total:1,page:1,page_size:12}})
+    expect((await getKnowledgeDocumentsPage()).documents).toEqual([doc])
+    expect(transport.post).not.toHaveBeenCalled()
+  })
+  it.each([{...doc,download_state:'available'},{...doc,download_url:'https://example.invalid/original'}])('rejects an original-download channel %#',async unsafe=>{
+    const {getKnowledgeDocumentsPage}=await import('@/services/p1Api')
+    transport.get.mockResolvedValue({ok:true,data:{documents:[unsafe],total:1,page:1,page_size:12}})
+    await expect(getKnowledgeDocumentsPage()).rejects.toBeInstanceOf(DomainApiError)
+  })
+  it('accepts personal paginated records carrying authorized document and version identities',async()=>{
+    const {getKnowledgeActivity,getKnowledgeFeedback}=await import('@/services/p1Api')
+    const item={id:'BOOKMARK_UAT2_DEMO',query:'合成资料',created_at:'2026-10-10 00:00:00',available:true,titles:['合成资料'],document_ids:['DOC_UAT2_DEMO'],version_ids:['VER_UAT2_DEMO'],bookmark_type:'Document'}
+    transport.get.mockResolvedValueOnce({ok:true,data:{items:[item],page:1,page_size:12,has_more:false}})
+    expect(await getKnowledgeActivity('Bookmark')).toEqual([item])
+    transport.get.mockResolvedValueOnce({ok:true,data:{items:[],page:1,page_size:12,has_more:false}})
+    expect(await getKnowledgeFeedback()).toEqual([])
+    expect(transport.post).not.toHaveBeenCalled()
+  })
+  it('reopens a scoped document bookmark as metadata without generating or downloading',async()=>{
+    const {openKnowledgeSaved}=await import('@/services/p1Api')
+    const data={query:'合成资料',space_ids:['SPACE_UAT2_DEMO'],document:doc,bookmark_type:'Document'}
+    transport.post.mockResolvedValue({ok:true,data})
+    expect(await openKnowledgeSaved('BOOKMARK_UAT2_DEMO')).toEqual(data)
+    expect(transport.post).toHaveBeenCalledTimes(1)
+    transport.post.mockResolvedValue({ok:true,data:{...data,space_ids:['OTHER_SPACE_DEMO']}})
+    await expect(openKnowledgeSaved('BOOKMARK_UAT2_DEMO')).rejects.toBeInstanceOf(DomainApiError)
+  })
+})

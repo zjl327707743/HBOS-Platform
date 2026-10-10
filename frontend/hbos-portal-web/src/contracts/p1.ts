@@ -66,6 +66,8 @@ export interface KnowledgeSearchContext {
 export interface KnowledgeRestored { mode: 'search' | 'ask'; search_mode: 'STANDARD' | 'PRECISE'; results: KnowledgeEvidence[]; turns: (KnowledgeAnswer & {question:string})[] }
 
 export interface KnowledgeSavedQuery {
+  document?: KnowledgeDocument
+  bookmark_type?: 'Document'
   restored?: KnowledgeRestored
   query: string
   space_ids: string[]
@@ -126,6 +128,9 @@ export interface KnowledgeDocument {
   document_number: string | null
   version: string | null
   status_note: string
+  version_id?: string
+  download_state?: 'permission_required'
+  download_note?: string
 }
 
 export interface KnowledgeDocumentPage {
@@ -151,6 +156,9 @@ export interface KnowledgeActivity {
   created_at: string
   available: boolean
   titles: (string | null)[]
+  document_ids?: string[]
+  version_ids?: string[]
+  bookmark_type?: 'Document' | 'Evidence'
 }
 export interface KnowledgeAnswer {
   request_id: string

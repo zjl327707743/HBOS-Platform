@@ -209,9 +209,12 @@ export async function getFeishuLoginStatus(): Promise<FeishuLoginStatus> {
 }
 
 function validateKnowledgeDocument(doc: KnowledgeDocument): void {
-  if (!doc || typeof doc !== 'object' || Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  if (!doc || typeof doc !== 'object' || Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note','version_id','download_state','download_note'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
   for (const key of ['document_id','space_id','department','status_note'] as const) safeKnowledgeString(doc[key],320)
   safeKnowledgeString(doc.title,240,true); safeKnowledgeString(doc.document_number,120,true); safeKnowledgeString(doc.version,80,true)
+  if (doc.version_id !== undefined) safeKnowledgeString(doc.version_id,128)
+  if (doc.download_state !== undefined && doc.download_state !== 'permission_required') throw new DomainApiError('SERVICE_ERROR','资料下载权限尚未上线。')
+  if (doc.download_note !== undefined) safeKnowledgeString(doc.download_note,320)
 }
 
 export async function getKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
@@ -235,9 +238,19 @@ export async function getKnowledgeDocumentsPage(query = '', spaceId = '', page =
   return data
 }
 
+function validateRecordPage(value: unknown): void {
+  const invalid=()=>new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid()
+  const data=value as Record<string,unknown>
+  if (Object.keys(data).some(k=>!['items','page','page_size','has_more'].includes(k))) throw invalid()
+  if (['page','page_size','has_more'].some(k=>k in data)) {
+    if (!Number.isSafeInteger(data.page) || Number(data.page)<1 || !Number.isSafeInteger(data.page_size) || Number(data.page_size)<1 || Number(data.page_size)>50 || typeof data.has_more!=='boolean' || !Array.isArray(data.items) || data.items.length>Number(data.page_size)) throw invalid()
+  }
+}
 export async function getKnowledgeFeedback(): Promise<KnowledgeFeedback[]> {
   const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{items: KnowledgeFeedback[]}>>('hb_knowledge_app.hb_knowledge.api.get_feedback'))
-  if (!data || Object.keys(data).length !== 1 || !Array.isArray(data.items) || data.items.length > 100) throw new DomainApiError('SERVICE_ERROR','反馈记录暂时不可用。')
+  validateRecordPage(data)
+  if (!Array.isArray(data.items) || data.items.length > 100) throw new DomainApiError('SERVICE_ERROR','反馈记录暂时不可用。')
   data.items.forEach(item => {
     if (!item || typeof item !== 'object' || Object.keys(item).some(k => !['id','category','note','status','created_at','updated_at','reply'].includes(k)) || !['Pending','In Review','Resolved'].includes(item.status)) throw new DomainApiError('SERVICE_ERROR','反馈记录响应无效。')
     safeKnowledgeString(item.id,128); safeKnowledgeString(item.category,120); safeKnowledgeString(item.note,500)
@@ -248,22 +261,35 @@ export async function getKnowledgeFeedback(): Promise<KnowledgeFeedback[]> {
 
 export async function getKnowledgeActivity(kind: 'History' | 'Bookmark'): Promise<import('@/contracts/p1').KnowledgeActivity[]> {
   const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{items: import('@/contracts/p1').KnowledgeActivity[]}>>('hb_knowledge_app.hb_knowledge.api.get_activity', {kind}))
+  validateRecordPage(data)
   if (!Array.isArray(data.items) || data.items.length > 30) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   data.items.forEach(item => {
-    if (Object.keys(item).some(k => !['id','query','created_at','available','titles'].includes(k)) || typeof item.available !== 'boolean' || !Array.isArray(item.titles)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+    if (Object.keys(item).some(k => !['id','query','created_at','available','titles','document_ids','version_ids','bookmark_type'].includes(k)) || typeof item.available !== 'boolean' || !Array.isArray(item.titles)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
     safeKnowledgeString(item.id,128);safeKnowledgeString(item.query,500);safeKnowledgeString(item.created_at,80)
     item.titles.forEach(t => safeKnowledgeString(t,240,true))
+    for (const key of ['document_ids','version_ids'] as const) {
+      if (item[key] !== undefined) {
+        if (!Array.isArray(item[key]) || item[key]!.length !== item.titles.length) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+        item[key]!.forEach(id => safeKnowledgeString(id,128))
+      }
+    }
+    if (item.bookmark_type !== undefined && !['Document','Evidence'].includes(item.bookmark_type)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   })
   return data.items
 }
 export async function openKnowledgeSaved(id: string): Promise<KnowledgeSavedQuery> {
   const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<KnowledgeSavedQuery>>('hb_knowledge_app.hb_knowledge.api.open_saved',{activity_id:id}))
   const invalid = () => new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
-  if (!data || typeof data !== 'object' || Object.keys(data).some(key => !['query','space_ids','context','restored'].includes(key))) throw invalid()
+  if (!data || typeof data !== 'object' || Object.keys(data).some(key => !['query','space_ids','context','restored','document','bookmark_type'].includes(key))) throw invalid()
   safeKnowledgeString(data.query,500)
   if (!Array.isArray(data.space_ids) || data.space_ids.length > 20 || new Set(data.space_ids).size !== data.space_ids.length) throw invalid()
   data.space_ids.forEach(s => { safeKnowledgeString(s,120); if (!s.trim() || s !== s.trim()) throw invalid() })
   const projected: KnowledgeSavedQuery = { query: data.query, space_ids: [...data.space_ids] }
+  if ('document' in data || 'bookmark_type' in data) {
+    if (data.bookmark_type !== 'Document' || !data.document || data.restored || data.context || data.space_ids.length !== 1 || data.document.space_id !== data.space_ids[0]) throw invalid()
+    validateKnowledgeDocument(data.document)
+    projected.document=data.document;projected.bookmark_type='Document'
+  }
   if ('context' in data) {
     if (!data.context || typeof data.context !== 'object' || Array.isArray(data.context) || Object.keys(data.context).some(key => !['equipment_id','asset_id','component_id'].includes(key))) throw invalid()
     validateKnowledgeContext(data.context)
