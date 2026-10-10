@@ -250,20 +250,20 @@ def get_documents_page(query=None,space_id=None,page=1,page_size=12,**business_f
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])
-def get_activity(kind=None,**business_fields):
+def get_activity(kind=None,page=1,page_size=12,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'get_activity'):raise KnowledgeError('INVALID_REQUEST')
         from .activity import list_activity
-        return list_activity(load_runtime(),kind)
+        return list_activity(load_runtime(),kind,page,page_size)
     return _run(current)
 
 
 @frappe.whitelist(methods=['GET'])
-def get_feedback(**business_fields):
+def get_feedback(page=1,page_size=12,status=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'get_feedback'):raise KnowledgeError('INVALID_REQUEST')
         from .activity import list_feedback
-        return list_feedback(load_runtime())
+        return list_feedback(load_runtime(),page,page_size,status)
     return _run(current)
 
 @frappe.whitelist(methods=['POST'])
@@ -287,11 +287,18 @@ def save_bookmark(evidence_id=None,query=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'save_bookmark'):raise KnowledgeError('INVALID_REQUEST')
         runtime=load_runtime();actor=runtime.actor()
-        from .activity import save_bookmark as save
+        from .activity import save_document
         value=normalize_evidence({'evidence_id':evidence_id})
-        def resolve():
-            return resolve_cached_evidence(runtime.cache,runtime.actor(),runtime.client,value,runtime=runtime,request_id=request_id)[0]
-        return {'id':save(runtime,normalize_search({'query':query}).query,resolve)}
+        record=resolve_cached_evidence(runtime.cache,runtime.actor(),runtime.client,value,runtime=runtime,request_id=request_id)[0]
+        return {'id':save_document(runtime,record.binding.canonical_document_id,record.binding.version_id,request_id+'_bookmark')}
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
+def save_document_bookmark(document_id=None,version_id=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'save_document_bookmark'):raise KnowledgeError('INVALID_REQUEST')
+        from .activity import save_document
+        return {'id':save_document(load_runtime(),document_id,version_id,request_id)}
     return _run(current)
 
 @frappe.whitelist(methods=['POST'])
@@ -307,11 +314,11 @@ def submit_feedback(evidence_id=None,category=None,note='',**business_fields):
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])
-def get_feedback_queue(**business_fields):
+def get_feedback_queue(page=1,page_size=12,status=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'get_feedback_queue'):raise KnowledgeError('INVALID_REQUEST')
         from .activity import feedback_queue
-        return feedback_queue(load_runtime())
+        return feedback_queue(load_runtime(),page,page_size,status)
     return _run(current)
 
 @frappe.whitelist(methods=['POST'])
@@ -353,10 +360,12 @@ def _maintenance_action(method,fields,fn):
         from .maintenance_access import require
         require()
         try:return fn()
-        except Exception:
+        except Exception as exc:
             # _run returns a safe envelope, so Frappe would otherwise commit
             # partial writes as a successful HTTP request.
             frappe.db.rollback()
+            from .publication import PublicationConflict
+            if isinstance(exc,PublicationConflict):raise KnowledgeError('IDENTITY_CONFLICT') from None
             raise
     return _run(current)
 
@@ -376,9 +385,9 @@ def queue_import(batch_id=None,document_ids=None,operation='parse',**fields):
     return _maintenance_action('queue_import',fields,lambda:queue(batch_id,document_ids,operation))
 
 @frappe.whitelist(methods=['POST'])
-def preview_import(batch_id=None,document_id=None,**fields):
+def preview_import(batch_id=None,document_id=None,page=1,**fields):
     from .maintenance import preview
-    return _maintenance_action('preview_import',fields,lambda:preview(batch_id,document_id))
+    return _maintenance_action('preview_import',fields,lambda:preview(batch_id,document_id,page))
 
 @frappe.whitelist(methods=['POST'])
 def review_import(batch_id=None,document_id=None,checks=None,note=None,**fields):

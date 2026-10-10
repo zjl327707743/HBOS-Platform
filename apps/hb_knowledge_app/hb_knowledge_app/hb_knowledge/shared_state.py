@@ -53,7 +53,7 @@ redis.call('SET',KEYS[3],ARGV[3],'EX',600); return 1
 OUTPUT_LUA='''
 if redis.call('GET',KEYS[1])~=ARGV[1] then return -9 end
 local cost=tonumber(ARGV[2]); local lim=tonumber(ARGV[3])
-if not cost or cost<0 or cost~=math.floor(cost) or not lim or lim>5000 then return -4 end
+if not cost or cost<0 or cost~=math.floor(cost) or not lim or lim>30000 then return -4 end
 local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
 redis.call('ZREMRANGEBYSCORE',KEYS[2],'-inf',ms-60000)
 local total=0; local values=redis.call('ZRANGE',KEYS[2],0,-1)
@@ -74,7 +74,7 @@ class RedisQuota:
         if result==-1: raise KnowledgeError('RATE_LIMITED')
         if result==-2: raise KnowledgeError('REPLAY_REJECTED')
         if result==-4: raise KnowledgeError('INVALID_REQUEST')
-    def reserve_output(self,subject,codepoints,*,limit=5000):
+    def reserve_output(self,subject,codepoints,*,limit=30000):
         if type(codepoints) is not int or codepoints<0: raise KnowledgeError('INVALID_REQUEST')
         result=self.state.eval(OUTPUT_LUA,['quota:chars:'+self.subject(subject)],
                                [codepoints,limit,secrets.token_hex(16)])
@@ -93,11 +93,11 @@ if redis.call('GET',KEYS[1])~=ARGV[1] then return -9 end
 if redis.call('EXISTS',KEYS[2])==0 then return -1 end
 local p=ARGV[2]; local function has(x) return redis.call('SISMEMBER',KEYS[3],x)==1 end
 local allowed=p=='introspect' or
- ((p=='cache_read' or p=='pre_retrieval' or p=='evidence_read') and has('introspect')) or
+ ((p=='cache_read' or p=='pre_retrieval' or p=='evidence_read' or p=='document_read') and has('introspect')) or
  (p=='post_retrieval' and has('pre_retrieval')) or
  (p=='pre_projection' and (has('post_retrieval') or has('cache_read'))) or
  (p=='pre_issue' and has('pre_projection')) or
- (p=='final_publish' and (has('pre_projection') or has('pre_issue') or has('evidence_read')))
+ (p=='final_publish' and (has('pre_projection') or has('pre_issue') or has('evidence_read') or has('document_read')))
 if not allowed then return -2 end
 redis.call('SADD',KEYS[3],p)
 redis.call('EXPIREAT',KEYS[3],ARGV[3]); return 1
@@ -155,9 +155,11 @@ class RedisDecisions:
              plan.request_id,plan.action,ticket.request_fingerprint,ticket.plan_digest,ticket.deadline_at):
             raise KnowledgeError('REPLAY_REJECTED')
         expected={'introspect':'introspect','cache_read':'introspect','pre_issue':'authorize-evidence',
-                  'evidence_read':'authorize-evidence'} .get(call.phase,'revalidate')
+                  'evidence_read':'authorize-evidence','document_read':'authorize-evidence'} .get(call.phase,'revalidate')
         if call.operation!=expected: raise KnowledgeError('INVALID_REQUEST')
         if expected=='authorize-evidence' and not call.references: raise KnowledgeError('EMPTY_SCOPE')
+        if call.phase=='document_read' and (len(call.references)!=1 or call.references[0].chunk_id!='CATALOG_METADATA_ONLY'):
+            raise KnowledgeError('SCOPE_REJECTED')
         authorized={(b.binding_ref,b.version_id) for b in plan.bindings}
         if any((p.binding_ref,p.version_id) not in authorized or not p.chunk_id or len(p.chunk_id)>128 for p in call.references):
             raise KnowledgeError('SCOPE_REJECTED')

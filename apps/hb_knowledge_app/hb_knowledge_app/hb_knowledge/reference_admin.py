@@ -16,11 +16,10 @@ def _require(condition, message):
 def _verify_backend(cfg, item):
     """Private admin port; employees never receive credentials or originals."""
     import requests
-    from urllib.parse import urlparse
     auth = json.loads(Path(cfg['publication_ragflow_auth_file']).read_text())
-    base = auth['base_url'].rstrip('/')
-    _require(urlparse(base).hostname in {'127.0.0.1', 'localhost', 'host.docker.internal'}
-             and urlparse(base).scheme == 'http', 'Unregistered publication backend')
+    from knowledge_service.ingestion import validate_admin_base
+    try:base=validate_admin_base(auth,allow_host_bridge=True)
+    except ValueError:raise PublicationConflict('Unregistered publication backend') from None
     dataset, document = item['dataset_id'], item['ragflow_document_id']
     with requests.Session() as session:
         session.trust_env = False
@@ -177,6 +176,8 @@ def _catalog_projection(runtime, snapshot):
         out.append({'document_id':safe_string(b.canonical_document_id,120),'title':safe_string(b.title,240,nullable=True),
             'space_id':safe_string(b.space_id,120),'department':safe_string(titles.get(b.space_id,''),120),
             'document_number':safe_string(b.document_number,120,nullable=True),'version':b.business_version,
+            'version_id':safe_string(b.version_id,120),
+            'download_state':'permission_required','download_note':'待部门文档下载权限上线',
             'status_note':'内部参考／有效性待核' if b.authority_status in {'CONTROLLED_REFERENCE_REVIEWED','INTERNAL_REFERENCE_REVIEWED'} else b.authority_status})
     return sorted(out,key=lambda d:(d['department'],d['title'] or '',d['document_id'],d['space_id']))
 

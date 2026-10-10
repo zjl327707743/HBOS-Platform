@@ -84,7 +84,7 @@ def create(runtime,label,client_name):
     with committed_view() as cur:_,version=_user(cur,actor.user_ref,cfg)
     frappe.get_doc({'doctype':DOCTYPE,'connection_id':name,'owner_user':actor.user_ref,'label':label,
         'client_name':client_name,'token_hash':hashlib.sha256(secret.encode()).hexdigest(),'security_version':version,
-        'audience':AUDIENCE,'expires_at':expires,'revoked':0,'stage':'Configured'}).insert(ignore_permissions=True)
+        'audience':AUDIENCE,'expires_at':expires,'revoked':0,'stage':'Configured','verification_json':'{}'}).insert(ignore_permissions=True)
     runtime.provider._current(actor,runtime.client)
     return {'id':name,'token':'hbos_mcp_'+name+'.'+secret,'expires_at':expires.isoformat()+'Z',
             'auth_type':'PERSONAL_BEARER_TOKEN','tools':list(TOOLS)}
@@ -92,10 +92,12 @@ def create(runtime,label,client_name):
 def list_owned(runtime):
     import frappe
     actor=runtime.actor();runtime.provider._current(actor,runtime.client)
-    rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref},fields=['name','label','client_name','expires_at','revoked','last_used_at','stage'],order_by='creation desc',limit_page_length=50)
+    rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref},fields=['name','label','client_name','expires_at','revoked','last_used_at','stage','verification_json'],order_by='creation desc',limit_page_length=50)
     return {'items':[{'id':r.name,'label':safe_string(r.label,80),'client':r.client_name,
         'expires_at':r.expires_at.isoformat()+'Z','revoked':bool(r.revoked),'expired':r.expires_at<=datetime.now(timezone.utc).replace(tzinfo=None),
-        'last_used_at':r.last_used_at.isoformat()+'Z' if r.last_used_at else None,'stage':r.stage} for r in rows],
+        'last_used_at':r.last_used_at.isoformat()+'Z' if r.last_used_at else None,'stage':r.stage,
+        'checks':verification(getattr(r,'verification_json',None)),
+        'agent_conversation':'CLIENT_TEST_NOT_RUN'} for r in rows],
         'tools':list(TOOLS),'auth_type':'PERSONAL_BEARER_TOKEN','ttl_days':7,
         'portal_logout_revokes_connection':False,'deployment':'LOCAL_UAT',
         'query_blocked':__import__(__package__+'.api',fromlist=['_availability'])._availability(runtime).get('blocked',True),
@@ -105,7 +107,8 @@ def list_owned(runtime):
 def configuration_metadata(field):
     from .shared_reference import configuration
     value=configuration().get('mcp_client_validation',{}).get(field,{})
-    allowed={'VERIFIED_TOOLS_ONLY_QUERY_BLOCKED','VERIFIED_QUERY_AND_SOURCE_BEFORE_BUDGET_STOP','PENDING_REAL_CLIENT_TEST'}
+    allowed={'VERIFIED_TOOLS_ONLY_QUERY_BLOCKED','VERIFIED_QUERY_AND_SOURCE_BEFORE_BUDGET_STOP','PENDING_REAL_CLIENT_TEST',
+             'VERIFIED_SEARCH_AND_EVIDENCE','VERIFIED_AGENT_CONVERSATION'}
     return {client:safe_string(value.get(client,'PENDING_REAL_CLIENT_TEST' if field=='verification' else '未验证'),80)
             if field!='verification' or value.get(client) in allowed else 'PENDING_REAL_CLIENT_TEST'
             for client in ('OpenClaw','Hermes')}
@@ -125,11 +128,23 @@ def revoke(runtime,name):
     frappe.db.set_value(DOCTYPE,name,{'revoked':1,'stage':'Revoked'})
     return {'revoked':True}
 
+CHECKS={'Authenticated':'authenticated','Tools Discovered':'tools_discovered',
+        'Search Passed':'search_passed','Evidence Opened':'evidence_opened','Answer Generated':'answer_generated'}
+
+def verification(value):
+    try:parsed=json.loads(value or '{}')
+    except (ValueError,TypeError):raise KnowledgeError('POLICY_UNAVAILABLE') from None
+    if not isinstance(parsed,dict) or set(parsed)-set(CHECKS.values()):raise KnowledgeError('POLICY_UNAVAILABLE')
+    return {key:parsed.get(key) for key in CHECKS.values()}
+
 def observe(name,stage):
     import frappe
-    stages={'Authenticated':1,'Tools Discovered':2,'Knowledge Used':3}
+    stages={'Authenticated':1,'Tools Discovered':2,'Knowledge Used':3,'Search Passed':3,'Evidence Opened':4,'Answer Generated':3}
     if stage not in stages:raise KnowledgeError('INVALID_REQUEST')
-    rows=frappe.db.sql('SELECT stage,revoked FROM `tabHBOS Knowledge Connection` WHERE name=%s FOR UPDATE',(name,),as_dict=True)
+    rows=frappe.db.sql('SELECT stage,revoked,verification_json FROM `tabHBOS Knowledge Connection` WHERE name=%s FOR UPDATE',(name,),as_dict=True)
     if len(rows)!=1 or rows[0]['revoked']:raise KnowledgeError('AUTHENTICATION_REQUIRED')
     current=rows[0]['stage'];new=stage if stages.get(current,0)<stages[stage] else current
-    frappe.db.set_value(DOCTYPE,name,{'stage':new,'last_used_at':datetime.now(timezone.utc).replace(tzinfo=None)})
+    now=datetime.now(timezone.utc).replace(tzinfo=None)
+    facts={k:v for k,v in verification(rows[0].get('verification_json')).items() if v is not None}
+    if stage in CHECKS:facts[CHECKS[stage]]=now.isoformat()+'Z'
+    frappe.db.set_value(DOCTYPE,name,{'stage':new,'last_used_at':now,'verification_json':canonical(facts)})

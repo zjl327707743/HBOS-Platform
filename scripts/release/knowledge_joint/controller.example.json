@@ -1,0 +1,17 @@
+{
+  "native_budget_config": "/run/hbos-audit/native/config.json",
+  "gateway_config": "/run/hbos-private/gateway.json",
+  "authority_url": "http://bff:8000",
+  "ragflow_auth": "/run/hbos-private/ragflow-auth.json",
+  "private_work": "/srv/hbos-native-work/jobs",
+  "embedding_model": "qwen3.7-text-embedding",
+  "registered_worker_record": "/srv/hbos-native-work/worker.json",
+  "native_env_file": "/run/hbos-private/native.env",
+  "native_source": "/ragflow",
+  "native_python": "/ragflow/.venv/bin/python",
+  "native_project_base": "/ragflow",
+  "native_deploy_base": "/ragflow",
+  "nltk_data": "/ragflow/nltk_data",
+  "native_worker_log": "/srv/hbos-native-work/worker.log",
+  "python_paths": ["/opt/hbos-joint/native_startup", "/opt/hbos-domain", "/ragflow"]
+}

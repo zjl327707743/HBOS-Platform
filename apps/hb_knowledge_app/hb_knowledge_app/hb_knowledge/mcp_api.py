@@ -18,6 +18,7 @@ def authenticate_connection(**ignored):
     def run():
         raw,principal,_=_service_request()
         if set(raw)-{'token','stage'}:raise KnowledgeError('INVALID_REQUEST')
+        if raw.get('stage','Authenticated') not in ('Authenticated','Tools Discovered'):raise KnowledgeError('INVALID_REQUEST')
         _,name=_bound(raw,principal)
         connections.observe(name,raw.get('stage','Authenticated'))
         return {'authenticated':True}
@@ -39,7 +40,10 @@ def dispatch(**ignored):
         handlers={'list_knowledge_spaces':api.get_spaces,'search_knowledge':api.search,
                   'get_evidence':api.resolve_evidence,'ask_knowledge':api.ask}
         result=handlers[name](**arguments)
-        if result.get('ok'):connections.observe(connection,'Knowledge Used')
+        if result.get('ok'):
+            if name=='search_knowledge' and result.get('data',{}).get('results'):connections.observe(connection,'Search Passed')
+            elif name=='get_evidence':connections.observe(connection,'Evidence Opened')
+            elif name=='ask_knowledge' and result.get('data',{}).get('answer_status')=='REFERENCE_ANSWERED':connections.observe(connection,'Answer Generated')
         return result
     except KnowledgeError as error:return error_payload(error)
     except Exception:return error_payload(KnowledgeError('SERVICE_ERROR'))

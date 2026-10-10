@@ -1,5 +1,12 @@
 # M1 启动门禁
 
+## 当前：HBOS Knowledge UAT2 — 2026-10-10
+
+**PARTIAL / DESIGN_REVIEW_PENDING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 当前已恢复正常搜索、引用问答、MCP 与按需解析，费用和历史 UNKNOWN 不作为业务门禁。15 份获准已发布资料、目录收藏、追问恢复、反馈和维护换版/下架后端链路有实际证据；新版原型待 Owner 确认后复刻，不能标记 UAT2_READY。联合部署准备及隔离演练不等同真实服务器上线。PR #30 保持 Draft，人工验收前不合并、不切 P1、不开放员工。
+
+主记录：[M1-KB-UAT2 完整业务与迁移候选](M1_KB_UAT2_完整业务与迁移候选.md)。下文 UAT1/N1 的旧财务阻断为历史事实，服从本轮最新 Owner 决策。
+
+
 ## HBOS Knowledge UAT-1 当前候选 — 2026-10-10
 
 **PARTIAL / ACCOUNTING_PENDING / LOCAL_UAT / COMPANY_ROLLOUT_PENDING。** 本轮直接实现并装配个人 MCP、页面维护、默认标准检索、有限会话和反馈闭环；未达到完整人工验收放行。旧事件的 Owner 风险例外已按原信封追加，但新增生成未知和在途 embedding 未结算使付费查询、问答、解析暂停，不扩大旧例外。

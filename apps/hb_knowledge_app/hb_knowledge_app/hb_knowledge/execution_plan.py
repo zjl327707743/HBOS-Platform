@@ -89,7 +89,7 @@ class Limits:
     max_excerpt_codepoints: int = 500
     max_answer_codepoints: int = 2000
     requests_per_minute: int = 12
-    external_codepoints_per_minute: int = 5000
+    external_codepoints_per_minute: int = 30000
 
 @dataclass(frozen=True)
 class AuthorizedExecutionPlan:

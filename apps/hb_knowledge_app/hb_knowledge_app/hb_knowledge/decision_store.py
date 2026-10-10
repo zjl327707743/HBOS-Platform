@@ -106,12 +106,15 @@ class DecisionStore:
                 "pre_projection": call.operation == "revalidate" and bool({"post_retrieval","cache_read"} & phases),
                 "pre_issue": call.operation == "authorize-evidence" and "pre_projection" in phases,
                 "evidence_read": call.operation == "authorize-evidence" and "introspect" in phases,
-                "final_publish": call.operation == "revalidate" and bool({"pre_projection","pre_issue","evidence_read"} & phases),
+                "document_read": call.operation == "authorize-evidence" and "introspect" in phases,
+                "final_publish": call.operation == "revalidate" and bool({"pre_projection","pre_issue","evidence_read","document_read"} & phases),
             }
             if not valid[call.phase]:
                 raise KnowledgeError("INVALID_REQUEST")
             if call.operation == "authorize-evidence" and not call.references:
                 raise KnowledgeError("EMPTY_SCOPE")
+            if call.phase=='document_read' and (len(call.references)!=1 or call.references[0].chunk_id!='CATALOG_METADATA_ONLY'):
+                raise KnowledgeError('SCOPE_REJECTED')
             authorized = {(b.binding_ref,b.version_id) for b in plan.bindings}
             for proof in call.references:
                 if (proof.binding_ref,proof.version_id) not in authorized or not proof.chunk_id or len(proof.chunk_id)>128:

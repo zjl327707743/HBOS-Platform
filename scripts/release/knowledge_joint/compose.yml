@@ -1,0 +1,98 @@
+# Dedicated clean-site rehearsal. Existing company Sites use the reviewed overlay
+# and migrate process; this file never binds an existing DB/sites/RAGFlow volume.
+services:
+  db:
+    mem_limit: 512m
+    restart: unless-stopped
+    image: ${MARIADB_IMAGE:?digest required}
+    environment:
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db-root-password
+    secrets: [db-root-password]
+    volumes: [db:/var/lib/mysql]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 3s
+      retries: 60
+    networks: [joint]
+  redis:
+    mem_limit: 128m
+    restart: unless-stopped
+    image: ${REDIS_IMAGE:?digest required}
+    command: [redis-server, --appendonly, "yes", --appendfsync, always]
+    volumes: [redis:/data]
+    networks: [joint]
+  initialize:
+    mem_limit: 1g
+    image: ${HBOS_FRAPPE_IMAGE:?immutable image required}
+    entrypoint: [/home/frappe/frappe-bench/env/bin/python, /opt/hbos-joint/initialize_site.py]
+    environment:
+      HBOS_SITE: ${HBOS_SITE:?isolated Site required}
+      HBOS_SMOKE_PROJECT: ${COMPOSE_PROJECT_NAME:?isolated project required}
+      HBOS_PORTAL_ORIGIN: ${HBOS_PORTAL_ORIGIN:?origin required}
+    volumes: [sites:/home/frappe/frappe-bench/sites, logs:/home/frappe/frappe-bench/logs]
+    secrets: [db-root-password, site-admin-password]
+    networks: [joint]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_started}
+    profiles: [initialize]
+  bff:
+    mem_limit: 768m
+    restart: unless-stopped
+    image: ${HBOS_FRAPPE_IMAGE:?immutable image required}
+    working_dir: /home/frappe/frappe-bench/sites
+    entrypoint: [/home/frappe/frappe-bench/env/bin/gunicorn, --bind, "0.0.0.0:8000", --workers, "2", --timeout, "90", --access-logfile, /dev/null, frappe.app:application]
+    environment:
+      HBOS_PROVIDER_ACCOUNTING_MODE: AUDIT_ONLY
+      HBOS_KNOWLEDGE_REFERENCE_CONFIG: /run/hbos-private/hbos.json
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ${HBOS_PRIVATE_ROOT:?protected runtime directory required}:/run/hbos-private:ro
+      - ${HBOS_UPLOAD_ROOT:?protected upload directory required}:/srv/hbos-uploads
+    networks: [joint]
+  rollback:
+    mem_limit: 1g
+    image: ${HBOS_FRAPPE_IMAGE:?immutable image required}
+    entrypoint: [/home/frappe/frappe-bench/env/bin/python, /opt/hbos-joint/rollback_site.py]
+    environment:
+      HBOS_SITE: ${HBOS_SITE:?isolated Site required}
+      HBOS_SMOKE_PROJECT: ${COMPOSE_PROJECT_NAME:?isolated project required}
+      HBOS_BACKUP_LOCK_SHA256: ${HBOS_BACKUP_LOCK_SHA256:-}
+      HBOS_ROLLBACK_MARKER: ${HBOS_ROLLBACK_MARKER:-}
+    volumes: [sites:/home/frappe/frappe-bench/sites, logs:/home/frappe/frappe-bench/logs]
+    secrets: [db-root-password]
+    networks: [joint]
+    profiles: [rollback]
+  service:
+    mem_limit: 512m
+    restart: unless-stopped
+    image: ${HBOS_SERVICE_IMAGE:?immutable image required}
+    environment:
+      HBOS_PROVIDER_ACCOUNTING_MODE: AUDIT_ONLY
+      HBOS_KNOWLEDGE_SERVICE_CONFIG: /run/hbos-private/gateway.json
+    volumes:
+      - ${HBOS_PRIVATE_ROOT:?protected runtime directory required}:/run/hbos-private:ro
+      - ${HBOS_AUDIT_ROOT:?protected audit directory required}:/run/hbos-audit
+    networks: [joint]
+    profiles: [knowledge]
+  frontend:
+    mem_limit: 128m
+    restart: unless-stopped
+    image: ${NGINX_IMAGE:?digest required}
+    entrypoint: [nginx, -g, "daemon off;"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - sites:/home/frappe/frappe-bench/sites:ro
+      - ${HBOS_RELEASE_ROOT:?validated joint bundle required}/hbos/apps/hbos_portal/hbos_portal/public:/var/www/hbos:ro
+    ports: ["127.0.0.1:${HBOS_SMOKE_PORT:-18460}:8080"]
+    networks: [joint]
+volumes: {db: {}, redis: {}, sites: {}, logs: {}}
+networks:
+  joint:
+    ipam:
+      config:
+        - subnet: ${HBOS_NETWORK_SUBNET:?reviewed unused private subnet required}
+secrets:
+  db-root-password: {file: "${HBOS_PRIVATE_ROOT:?required}/db-root-password"}
+  site-admin-password: {file: "${HBOS_PRIVATE_ROOT:?required}/site-admin-password"}

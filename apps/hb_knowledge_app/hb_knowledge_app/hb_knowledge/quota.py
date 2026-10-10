@@ -25,7 +25,7 @@ class InMemoryQuota:
             self.requests[key] = current + 1
             self.identities[identity] = fingerprint
 
-    def reserve_output(self, subject, codepoints, *, limit=5000):
+    def reserve_output(self, subject, codepoints, *, limit=30000):
         if type(codepoints) is not int or codepoints < 0:
             raise KnowledgeError("INVALID_REQUEST")
         with self.lock:

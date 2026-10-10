@@ -456,7 +456,7 @@
         "external_codepoints_per_minute": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 5000
+          "maximum": 30000
         }
       },
       "required": [

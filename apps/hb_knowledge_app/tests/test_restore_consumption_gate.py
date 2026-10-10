@@ -38,3 +38,13 @@ def test_revoked_source_cannot_publish_restored_handles_or_success_audit(monkeyp
     runtime,row,data,actor,mapping,audits=fixture(monkeypatch,revoked=True)
     with pytest.raises(KnowledgeError):activity.restore(runtime,row,data,actor,mapping,'restore-request')
     assert audits==[]
+
+def test_insufficient_evidence_turn_still_completes_the_authorization_phase_chain(monkeypatch):
+    runtime,row,data,actor,mapping,audits=fixture(monkeypatch)
+    data.update(references=[],previews=[],answer='资料不足',labels=[])
+    phases=[];ticket=SimpleNamespace(plan=object(),call=lambda operation,phase:phase)
+    runtime.decisions.issue=lambda *args:ticket
+    runtime.decisions.online=lambda principal,phase:phases.append(phase)
+    result=activity.restore(runtime,row,data,actor,mapping,'restore-request')
+    assert result['restored']['turns'][0]['citations']==[]
+    assert phases==['introspect','cache_read','pre_projection','final_publish']

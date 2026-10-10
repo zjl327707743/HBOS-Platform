@@ -43,12 +43,15 @@ def save_bookmark(runtime,query,resolve):
     raise KnowledgeError('SERVICE_ERROR')
 
 def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None,note=None,context=None,
-          answer=None,labels=None,question=None,search_mode='STANDARD'):
+          answer=None,labels=None,question=None,search_mode='STANDARD',document_bookmark=False):
     import frappe
     actor,_=current(runtime)
     safe_string(query,500)
     data={'query':query,'space_ids':sorted(set(spaces or [])),'references':logical(records)}
-    if kind in ('History','Bookmark'):
+    if document_bookmark:
+        if kind!='Bookmark' or len(records)!=1:raise KnowledgeError('INVALID_REQUEST')
+        data['bookmark_type']='Document'
+    if kind in ('History','Bookmark') and not document_bookmark:
         # Only the finite previews already authorized for this response. Never
         # store native full chunks, files, service tokens or evidence handles.
         data['previews']=[{'reference':[r.binding.canonical_document_id,r.binding.version_id,r.binding.binding_ref,r.chunk_id],
@@ -123,11 +126,13 @@ def bindings_for(data,mapping):
         selected.append(b)
     return selected
 
-def list_activity(runtime,kind):
+def list_activity(runtime,kind,page=1,page_size=12):
     import frappe
     if kind not in ('History','Bookmark'):raise KnowledgeError('INVALID_REQUEST')
+    from .reference_admin import _page_number
+    page=_page_number(page,100000);page_size=_page_number(page_size,50)
     actor,mapping=current(runtime)
-    rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref,'kind':kind},fields=['name','payload_json','creation','publication_id'],order_by='creation desc',limit_page_length=30)
+    rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref,'kind':kind},fields=['name','payload_json','creation','publication_id'],order_by='creation desc,name desc',limit_start=(page-1)*page_size,limit_page_length=page_size+1)
     def project(current_mapping):
         out=[]
         for row in rows:
@@ -137,15 +142,32 @@ def list_activity(runtime,kind):
                 bindings=bindings_for(data,current_mapping);available=True
             except KnowledgeError:bindings=[];available=False
             out.append({'id':row.name,'query':safe_string(data.get('question',data['query']),500),'created_at':str(row.creation),
-                'available':available,'titles':[safe_string(b.title,240,nullable=True) for b in bindings]})
+                'available':available,'titles':[safe_string(b.title,240,nullable=True) for b in bindings],
+                'document_ids':[b.canonical_document_id for b in bindings],
+                'version_ids':[b.version_id for b in bindings],
+                'bookmark_type':data.get('bookmark_type','Evidence')})
         return out
     out=project(mapping)
     final_actor,final_mapping=current(runtime)
     if final_actor!=actor or out!=project(final_mapping):raise KnowledgeError('SCOPE_REJECTED')
-    return {'items':out}
+    return {'items':out[:page_size],'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
 
 def reopen(runtime,name,request_id):
     actor,mapping=current(runtime);row,data=owned(name,actor)
+    if data.get('bookmark_type')=='Document':
+        bindings=bindings_for(data,mapping)
+        if len(bindings)!=1:raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+        binding=bindings[0]
+        authorize_document(runtime,actor,binding,request_id)
+        from .reference_admin import _catalog_projection
+        documents=_catalog_projection(runtime,runtime.provider._current(actor,runtime.client))
+        selected=[d for d in documents if d['document_id']==binding.canonical_document_id and d['version_id']==binding.version_id]
+        if len(selected)!=1:raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+        final_actor,final_mapping=current(runtime)
+        if final_actor!=actor:raise KnowledgeError('SCOPE_REJECTED')
+        bindings_for(data,final_mapping)
+        return {'query':binding.title or data['query'],'space_ids':[binding.space_id],
+                'document':selected[0],'bookmark_type':'Document'}
     if 'previews' in data:
         return restore(runtime,row,data,actor,mapping,request_id)
     bindings=bindings_for(data,mapping)
@@ -159,6 +181,37 @@ def reopen(runtime,name,request_id):
         runtime.gateway.authorize_evidence(ticket,records,phase='evidence_read')
     runtime.provider.revalidate(ticket.plan)
     return {'query':data['query'],'space_ids':data['space_ids'],**({'context':dict(request.context)} if request.context else {})}
+
+def authorize_document(runtime,actor,binding,request_id):
+    """Verify current authorization and native indexed metadata; issue no chunk handle."""
+    query=safe_string(binding.title or binding.canonical_document_id,240)
+    request=normalize_search({'query':query,'space_ids':[binding.space_id]})
+    ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
+    record=EvidenceRecord(binding.canonical_document_id,binding.title,binding.business_version,None,
+        binding.section,None,'','CATALOG_METADATA_ONLY',binding.dataset_alias,binding.space_id,
+        binding.version_id,binding.binding_ref,binding)
+    runtime.decisions.online(__principal(runtime),ticket.call('introspect','introspect'))
+    runtime.gateway.authorize_evidence(ticket,[record],phase='document_read')
+    runtime.decisions.online(__principal(runtime),ticket.call('revalidate','final_publish'))
+    return record
+
+def save_document(runtime,document_id,version_id,request_id):
+    """A client logical ID selects a current authorized binding, never grants reading."""
+    import frappe
+    safe_string(document_id,120);safe_string(version_id,120)
+    for attempt in range(2):
+        try:
+            actor,mapping=current(runtime);binding=mapping.get((document_id,version_id))
+            if not binding:raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+            record=authorize_document(runtime,actor,binding,request_id+'_'+str(attempt))
+            name=write('Bookmark',binding.title or document_id,[binding.space_id],[record],runtime,document_bookmark=True)
+            final_actor,final_mapping=current(runtime)
+            if final_actor!=actor or final_mapping.get((document_id,version_id))!=binding:raise KnowledgeError('SCOPE_REJECTED')
+            return name
+        except frappe.QueryDeadlockError:
+            if attempt:raise KnowledgeError('SERVICE_ERROR') from None
+            frappe.db.rollback()
+    raise KnowledgeError('SERVICE_ERROR')
 
 def restore(runtime,row,data,actor,mapping,request_id):
     """A fresh session gets fresh handles only after present source authorization.
@@ -193,8 +246,10 @@ def restore(runtime,row,data,actor,mapping,request_id):
             if not b or b.binding_ref!=reference:raise KnowledgeError('EVIDENCE_UNAVAILABLE')
             records.append(EvidenceRecord(document,b.title,b.business_version,'内部参考／有效性待核',b.section,
                 preview['page_number'],safe_string(preview['excerpt'],500),chunk,b.dataset_alias,b.space_id,b.version_id,reference,b))
+        runtime.decisions.online(__principal(runtime),ticket.call('introspect','introspect'))
+        runtime.decisions.online(__principal(runtime),ticket.call('introspect','cache_read'))
+        runtime.decisions.online(__principal(runtime),ticket.call('revalidate','pre_projection'))
         if records:
-            runtime.decisions.online(__principal(runtime),ticket.call('introspect','introspect'))
             runtime.gateway.authorize_evidence(ticket,records,phase='evidence_read')
         runtime.provider.revalidate(ticket.plan)
         runtime.quota.reserve_output(actor.user_ref,sum(len(r.excerpt) for r in records)+len(item.get('answer','')))
@@ -225,12 +280,17 @@ def remove(runtime,name):
     return {'removed':True}
 
 
-def list_feedback(runtime):
+def list_feedback(runtime,page=1,page_size=12,status=None):
     """Employee-owned notes/status only; no source handles or maintenance queue."""
     import frappe
+    from .reference_admin import _page_number
+    page=_page_number(page,100000);page_size=_page_number(page_size,50)
+    if status not in (None,'','Pending','In Review','Resolved'):raise KnowledgeError('INVALID_REQUEST')
     actor,_=current(runtime);out=[]
-    rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref,'kind':'Feedback'},
-        fields=['name','payload_json','status','creation','modified'],order_by='creation desc',limit_page_length=100)
+    filters={'owner_user':actor.user_ref,'kind':'Feedback'}
+    if status:filters['status']=status
+    rows=frappe.get_all(DOCTYPE,filters=filters,
+        fields=['name','payload_json','status','creation','modified'],order_by='creation desc,name desc',limit_start=(page-1)*page_size,limit_page_length=page_size+1)
     for row in rows:
         if row.status not in ('Pending','In Review','Resolved'):raise KnowledgeError('SERVICE_ERROR')
         data=json.loads(row.payload_json)
@@ -241,14 +301,20 @@ def list_feedback(runtime):
             out[-1]['reply']=safe_string(data['maintenance_reply'],500)
     final_actor,_=current(runtime)
     if final_actor!=actor:raise KnowledgeError('SCOPE_REJECTED')
-    return {'items':out}
+    return {'items':out[:page_size],'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
 
-def feedback_queue(runtime):
+def feedback_queue(runtime,page=1,page_size=12,status=None):
     import frappe
     from .maintenance_access import require
     require()
-    rows=frappe.get_all(DOCTYPE,filters={'kind':'Feedback'},fields=['name','payload_json','status','creation'],order_by='creation desc',limit_page_length=100)
-    return {'items':[{'id':r.name,'status':r.status,'created_at':str(r.creation),**json.loads(r.payload_json)} for r in rows]}
+    from .reference_admin import _page_number
+    page=_page_number(page,100000);page_size=_page_number(page_size,50)
+    if status not in (None,'','Pending','In Review','Resolved'):raise KnowledgeError('INVALID_REQUEST')
+    filters={'kind':'Feedback'}
+    if status:filters['status']=status
+    rows=frappe.get_all(DOCTYPE,filters=filters,fields=['name','payload_json','status','creation'],order_by='creation desc,name desc',limit_start=(page-1)*page_size,limit_page_length=page_size+1)
+    return {'items':[{'id':r.name,'status':r.status,'created_at':str(r.creation),**json.loads(r.payload_json)} for r in rows[:page_size]],
+            'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
 
 def review_feedback(runtime,name,status,reply=''):
     import frappe

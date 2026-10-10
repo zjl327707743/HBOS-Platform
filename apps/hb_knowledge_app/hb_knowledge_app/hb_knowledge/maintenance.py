@@ -133,13 +133,13 @@ def dashboard(batch_id=None,page=1,page_size=12):
 
 def queue(batch_id,document_ids,operation='parse'):
     require();row,frozen,state=_row(batch_id,True)
-    if operation not in ('parse','retry') or not isinstance(document_ids,list) or not 1<=len(document_ids)<=4 or len(set(document_ids))!=len(document_ids):raise KnowledgeError('INVALID_REQUEST')
+    if operation not in ('parse','retry','resume','continue') or not isinstance(document_ids,list) or not 1<=len(document_ids)<=4 or len(set(document_ids))!=len(document_ids):raise KnowledgeError('INVALID_REQUEST')
     items=[i for i in state['items'] if i['canonical_document_id'] in document_ids]
-    allowed={'planned','uploaded'} if operation=='parse' else {'parse_failed'}
+    allowed={'planned','uploaded'} if operation=='parse' else ({'parse_queued'} if operation in ('resume','continue') else {'parse_failed'})
     if len(items)!=len(document_ids) or any(i['status'] not in allowed or i['disposition']=='SAME_CONTENT_SKIP' for i in items):raise KnowledgeError('INVALID_REQUEST')
     from .api import _availability
     from .runtime import load_runtime
-    if _availability(load_runtime()).get('budget_status')!='READY':raise KnowledgeError('IMPORT_BUDGET_BLOCKED')
+    if _availability(load_runtime()).get('blocked'):raise KnowledgeError('UPSTREAM_UNAVAILABLE')
     current=_json(row,'job_json',{})
     if current.get('status') in ('Queued','Running'):raise KnowledgeError('IMPORT_BUSY')
     job={'id':secrets.token_hex(16),'status':'Queued','operation':operation,'document_ids':document_ids,
@@ -147,23 +147,30 @@ def queue(batch_id,document_ids,operation='parse'):
     frappe.db.set_value(TABLE,batch_id,{'job_json':canonical(job),'status':'Queued','last_error':None})
     frappe.db.commit();return {'job_id':job['id'],'status':'Queued'}
 
-def preview(batch_id,document_id):
+def preview(batch_id,document_id,page=1):
     require();row,frozen,state=_row(batch_id)
     items=[i for i in state['items'] if i['canonical_document_id']==document_id and i['status']=='parsed/indexed']
     if len(items)!=1:raise KnowledgeError('INVALID_REQUEST')
     item=items[0]
-    from .reference_admin import _verify_backend
+    from .reference_admin import _verify_backend,_page_number
+    page=_page_number(page,max(1,(int(item.get('chunk_count',0))+4)//5))
     cfg=configuration();_verify_backend(cfg,item)
     auth=json.loads(Path(cfg['publication_ragflow_auth_file']).read_text())
     import requests
     with requests.Session() as session:
         session.trust_env=False;session.headers['Authorization']='Bearer '+auth['token']
-        r=session.get(auth['base_url'].rstrip('/')+'/api/v1/datasets/'+item['dataset_id']+'/documents/'+item['ragflow_document_id']+'/chunks',params={'page':1,'page_size':5},timeout=(3,30),allow_redirects=False);r.raise_for_status();value=r.json()
+        r=session.get(auth['base_url'].rstrip('/')+'/api/v1/datasets/'+item['dataset_id']+'/documents/'+item['ragflow_document_id']+'/chunks',params={'page':page,'page_size':5},timeout=(3,30),allow_redirects=False);r.raise_for_status();value=r.json()
     if value.get('code')!=0:raise KnowledgeError('SERVICE_ERROR')
     from .public_strings import safe_string
     chunks=value.get('data',{}).get('chunks',[])
+    from knowledge_service.hbos_gateway.native_text import native_text
+    def inert_preview(chunk):
+        content=chunk.get('content','')
+        if not isinstance(content,str) or len(content)>131072:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        return safe_string(native_text(content)[:800],800)
     return {'document_id':document_id,'version_id':item['version_id'],'title':item['title'],
-        'fragments':[{'text':safe_string(str(c.get('content',''))[:800],800),'location':'解析片段；页码未核验'} for c in chunks[:5]],
+        'fragments':[{'text':inert_preview(c),'location':'解析片段；页码未核验'} for c in chunks[:5]],
+        'page':page,'page_size':5,'has_more':page*5<int(item.get('chunk_count',0)),
         'chunk_count':item.get('chunk_count',0),'source_sha256':item['sha256']}
 
 def review(batch_id,document_id,checks,note):
@@ -208,7 +215,24 @@ def publish(batch_id,document_ids,operation='publish',expected_version=None,reas
     if operation not in ('publish','replace','restore') or not isinstance(document_ids,list):raise KnowledgeError('INVALID_REQUEST')
     if operation!='publish' and (len(document_ids)!=1 or not isinstance(reason,str) or not 3<=len(reason.strip())<=500):raise KnowledgeError('INVALID_REQUEST')
     from .reference_admin import publish as existing
-    approval='NATIVE_MAINTENANCE:'+frappe.session.user+':'+secrets.token_hex(12)
+    # Same authenticated operation retains one durable intent and receipt. Older
+    # random references are reused without rewriting their immutable audit rows.
+    actor=frappe.session.user
+    approval='NATIVE_MAINTENANCE:'+hashlib.sha256(canonical(
+        [actor,batch_id,sorted(document_ids),operation,expected_version,reason]).encode()).hexdigest()
+    if operation!='publish' and len(document_ids)==1:
+        _,_,state=_row(batch_id)
+        targets=[i['version_id'] for i in state['items'] if i['canonical_document_id']==document_ids[0]
+                 and i.get('disposition')!='ALIAS']
+        if len(targets)!=1:raise KnowledgeError('INVALID_REQUEST')
+        committed=frappe.get_all('HBOS Knowledge Publication',filters={
+            'canonical_document_id':document_ids[0],'target_version':targets[0],
+            'batch_sha256':state['batch_sha256'],'operation':operation,
+            'expected_current_version':expected_version,'reason':reason},
+            fields=['approval_ref'],order_by='creation asc',limit_page_length=0)
+        owned=[r['approval_ref'] for r in committed if r['approval_ref']==approval
+               or (r.get('approval_ref') or '').startswith('NATIVE_MAINTENANCE:'+actor+':')]
+        if owned:approval=owned[0]
     return existing(None,operation,expected_version,reason,approval,document_ids,registered_batch_id=batch_id)
 
 def withdraw(batch_id,document_id,expected_version,reason):
@@ -218,7 +242,13 @@ def withdraw(batch_id,document_id,expected_version,reason):
     if len(items)!=1:raise KnowledgeError('INVALID_REQUEST')
     rows=frappe.db.sql('SELECT current_version,withdrawn,source_hash FROM `tabHBOS Knowledge Document` WHERE name=%s FOR UPDATE',(document_id,),as_dict=True)
     if len(rows)!=1 or rows[0]['current_version']!=expected_version:raise KnowledgeError('IDENTITY_CONFLICT')
-    receipt='PUB_'+hashlib.sha256(canonical([batch_id,document_id,expected_version,'withdraw',time.time(),frappe.session.user]).encode()).hexdigest()
+    if rows[0]['withdrawn']:
+        prior=frappe.get_all('HBOS Knowledge Publication',filters={'canonical_document_id':document_id,
+            'target_version':expected_version,'operation':'withdraw'},fields=['receipt_id'],
+            order_by='creation desc',limit_page_length=1)
+        if not prior:raise KnowledgeError('IDENTITY_CONFLICT')
+        return {'outcome':'NOOP','receipt_id':prior[0]['receipt_id']}
+    receipt='PUB_'+hashlib.sha256(canonical([batch_id,document_id,expected_version,'withdraw',reason,frappe.session.user]).encode()).hexdigest()
     frappe.db.set_value('HBOS Knowledge Document',document_id,{'withdrawn':1,'ingestion_status':'retired'})
     frappe.get_doc({'doctype':'HBOS Knowledge Publication','receipt_id':receipt,'canonical_document_id':document_id,
         'target_version':expected_version,'batch_sha256':state['batch_sha256'],'operation':'withdraw',

@@ -1,0 +1,17 @@
+ARG FRAPPE_IMAGE=frappe/erpnext:v16.26.2@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583
+FROM ${FRAPPE_IMAGE}
+USER root
+COPY hbos/apps /home/frappe/frappe-bench/apps
+COPY deployment /opt/hbos-joint
+COPY requirements/build.lock /tmp/requirements/
+COPY artifacts/*.whl /tmp/wheels/
+RUN chown -R frappe:frappe /home/frappe/frappe-bench/apps /opt/hbos-joint \
+ && /home/frappe/frappe-bench/env/bin/pip install --require-hashes -r /tmp/requirements/build.lock \
+ && /home/frappe/frappe-bench/env/bin/pip install --require-hashes -r /opt/hbos-joint/frappe-dependencies/requirements.lock \
+ && /home/frappe/frappe-bench/env/bin/pip install --no-deps --no-build-isolation \
+      /home/frappe/frappe-bench/apps/hbos_portal /home/frappe/frappe-bench/apps/hb_knowledge_app /tmp/wheels/*.whl \
+ && /home/frappe/frappe-bench/env/bin/pip check
+ENV PYTHONPATH=/home/frappe/frappe-bench/apps/hbos_portal:/home/frappe/frappe-bench/apps/hb_knowledge_app
+ENV HBOS_PROVIDER_ACCOUNTING_MODE=AUDIT_ONLY
+USER frappe
+WORKDIR /home/frappe/frappe-bench

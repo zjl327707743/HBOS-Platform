@@ -6,7 +6,7 @@ from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
 
 
 def subject(user='synthetic-owner'):return SimpleNamespace(user_ref=user)
-def mapping():return {('synthetic-doc','synthetic-version'):SimpleNamespace(binding_ref='synthetic-binding',title='Synthetic reference')}
+def mapping():return {('synthetic-doc','synthetic-version'):SimpleNamespace(binding_ref='synthetic-binding',title='Synthetic reference',canonical_document_id='synthetic-doc',version_id='synthetic-version')}
 
 
 def configure(monkeypatch,reads):

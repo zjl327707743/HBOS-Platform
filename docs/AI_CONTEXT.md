@@ -1,5 +1,12 @@
 # AI Context
 
+## 当前：HBOS Knowledge UAT2 — 2026-10-10
+
+**PARTIAL / DESIGN_REVIEW_PENDING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 最新 Owner 决策取消费用、UNKNOWN 和累计预算对正常业务的阻断，保留审计与实际安全守卫。后端已实测全部 15 份获准共享资料的搜索及引用问答、直接资料收藏、三轮追问、MCP 真实客户端、上传到换版下架闭环。新版交互原型已提交，真实前端须 Owner 确认后复刻；Chrome 多尺寸、真实 IME、两轮独立审查及真实服务器执行仍待完成。不得将后端通过标记为全部 UAT2_READY。
+
+当前记录：[M1-KB-UAT2 完整业务与迁移候选](milestones/M1_KB_UAT2_完整业务与迁移候选.md)。下文 UAT1/N1 的财务阻断和旧终态仅为历史记录，不能覆盖本轮最新要求。PR #30 保持 Draft，P1 与员工开放范围不变。
+
+
 ## HBOS Knowledge UAT-1 当前候选 — 2026-10-10
 
 **PARTIAL / ACCOUNTING_PENDING / LOCAL_UAT / COMPANY_ROLLOUT_PENDING。** 本轮直接实现并装配个人 MCP、页面维护、默认标准检索、有限会话和反馈闭环；未达到完整人工验收放行。旧事件的 Owner 风险例外已按原信封追加，但新增生成未知和在途 embedding 未结算使付费查询、问答、解析暂停，不扩大旧例外。
