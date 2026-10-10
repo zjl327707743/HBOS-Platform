@@ -34,7 +34,8 @@ def _verify_backend(cfg, item):
                  'Backend document cannot be verified')
         actual = docs[0]
         expected = {k: item[k] for k in ('version_id', 'canonical_document_id', 'binding_revision')}
-        _require(actual.get('meta_fields') == expected and int(actual.get('chunk_count', 0)) > 0
+        from .native_identity import identity_metadata_matches
+        _require(identity_metadata_matches(actual.get('meta_fields'),expected) and int(actual.get('chunk_count', 0)) > 0
                  and str(actual.get('run')).upper() in {'DONE', '3'}, 'Backend binding is not indexed')
         # Stream hashing is bounded in memory; it verifies the actual uploaded derivative.
         with session.get(base + f'/api/v1/datasets/{dataset}/documents/{document}',
@@ -47,14 +48,18 @@ def _verify_backend(cfg, item):
 
 
 def publish(manifest_path, operation='publish', expected_current_version=None, reason=None, approval_ref=None,
-            selected_document_ids=None):
+            selected_document_ids=None, *, registered_batch_id=None):
     import frappe
     from .shared_reference import configuration
-    cfg=configuration();frappe.only_for('System Manager')
-    state=json.loads(Path(manifest_path).read_text())
+    if registered_batch_id:
+        from .maintenance import publication_config
+        cfg,state=publication_config(registered_batch_id,selected_document_ids,operation,expected_current_version,reason,approval_ref)
+    else:
+        cfg=configuration();frappe.only_for('System Manager')
+        state=json.loads(Path(manifest_path).read_text())
     _require(state['batch_sha256'] in cfg.get('approved_batch_sha256s', [cfg.get('approved_batch_sha256')]),
              'Batch is not approved')
-    space_id='DEPT_'+state['department_key'].upper()
+    space_id=cfg.get('department_space_map',{}).get(state['department_key'],'DEPT_'+state['department_key'].upper())
     _require(space_id in cfg['approved_space_ids'], 'Space is not approved')
     allowed_items = cfg.get('approved_publication_items', {}).get(state['batch_sha256'])
     items=select_publication_items(state,selected_document_ids)

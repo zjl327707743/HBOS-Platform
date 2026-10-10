@@ -108,7 +108,7 @@ class DatabaseAudit:
     def __init__(self,publication,key): self.publication,self.key=publication,key
     def record(self,subject,operation,code,count=0):
         import frappe
-        if operation not in {'search','evidence','ask','contract'} or type(count) is not int: raise KnowledgeError('SERVICE_ERROR')
+        if operation not in {'search','evidence','ask','restore','contract'} or type(count) is not int: raise KnowledgeError('SERVICE_ERROR')
         self.publication.checkpoint('audit_write')
         row=frappe.get_doc({'doctype':'HBOS Knowledge Audit',
            'actor_key':hmac.new(self.key.encode(),subject.encode(),hashlib.sha256).hexdigest()[:24],

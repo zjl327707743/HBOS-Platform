@@ -20,8 +20,8 @@ def sign(key, caller, path, origin, body):
             'X-HBOS-Origin-Client': origin, 'X-HBOS-Time': stamp, 'X-HBOS-Nonce': nonce,
             'X-HBOS-Signature': signature(key, 'POST', path, origin, stamp, nonce, body)}
 
-def authenticate(headers, body, path, config, state):
-    if len(body) > MAX_BODY:
+def authenticate(headers, body, path, config, state, *, max_body=MAX_BODY):
+    if len(body) > max_body:
         raise KnowledgeError('INVALID_REQUEST')
     caller, origin = headers.get('X-HBOS-Caller'), headers.get('X-HBOS-Origin-Client')
     row = config.get('callers', {}).get(caller)
@@ -51,7 +51,8 @@ class SignedHttp:
         self.url, self.key, self.caller = url.rstrip('/'), key, caller
     def post(self, path, payload, origin):
         body = canonical(payload).encode()
-        if len(body) > MAX_BODY:
+        bound=getattr(self,'max_body',MAX_BODY)
+        if len(body) > bound:
             raise KnowledgeError('INVALID_REQUEST')
         try:
             with requests.Session() as session:
@@ -64,7 +65,7 @@ class SignedHttp:
                     data=bytearray()
                     for part in response.iter_content(8192):
                         data.extend(part)
-                        if len(data)>MAX_BODY: raise ValueError()
+                        if len(data)>bound: raise ValueError()
                     raw=json.loads(data)
                     if response.status_code != 200:
                         if isinstance(raw,dict) and isinstance(raw.get('error'),dict):

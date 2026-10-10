@@ -472,6 +472,14 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128
+    },
+    "search_mode": {
+      "type": "string",
+      "enum": [
+        "STANDARD",
+        "PRECISE"
+      ],
+      "default": "STANDARD"
     }
   },
   "required": [

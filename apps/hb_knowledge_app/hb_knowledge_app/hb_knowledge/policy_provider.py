@@ -119,7 +119,7 @@ class LegacyHbosPolicyProvider:
         plan = AuthorizedExecutionPlan(CONTRACT_VERSION, secrets.token_urlsafe(24), actor, client,
             action, self.environment, tuple(spaces), grants, tuple(selected),
             snapshot.policy_revision, snapshot.corpus_revision, snapshot.provider,
-            request_id, iso(issued), iso(expires), Limits(), snapshot.model_policy_ref)
+            request_id, iso(issued), iso(expires), Limits(), snapshot.model_policy_ref, request.search_mode)
         return validate_plan(plan, now=now)
 
     def revalidate(self, plan: AuthorizedExecutionPlan):

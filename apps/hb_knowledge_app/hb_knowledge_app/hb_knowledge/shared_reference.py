@@ -46,19 +46,40 @@ class InternalSharedAuthority(FrappePairedAuthority):
                 'LEFT JOIN `tabHBOS Knowledge Space` s ON s.name=b.space_id '
                 'LEFT JOIN `tabHBOS Knowledge Version` v ON v.name=b.version_id '
                 'LEFT JOIN `tabHBOS Knowledge Document` d ON d.name=b.canonical_document_id WHERE b.enabled=1')
+            allowed_datasets=set(self.config['approved_dataset_ids'])
+            allowed_documents=set(self.config['approved_document_ids'])
+            registered_pairs=set()
+            if self.config.get('maintenance_registry_enabled'):
+                from .maintenance_contract import registered
+                batches=rows(cur,'SELECT frozen_json,state_json,quality_json FROM `tabHBOS Knowledge Import Batch`')
+                for entry in batches:
+                    try:
+                        frozen=json.loads(entry['frozen_json']);batch_state=json.loads(entry['state_json']);quality=json.loads(entry['quality_json'] or '{}')
+                        registered(frozen,batch_state)
+                        for item in batch_state['items']:
+                            q=quality.get(item['version_id'],{})
+                            if (item['status']=='parsed/indexed' and item.get('disposition')!='SAME_CONTENT_SKIP' and
+                                q.get('status')=='Passed' and q.get('source_sha256')==item['sha256'] and
+                                q.get('upload_sha256')==item.get('upload_sha256')):
+                                registered_pairs.add((item['canonical_document_id'],item['version_id'],item['dataset_id'],item['ragflow_document_id'],item['binding_revision']))
+                                allowed_datasets.add(item['dataset_id'])
+                    except (ValueError,KeyError,TypeError,KnowledgeError):
+                        continue
             accepted=[]
             for row in data:
                 try:b=binding_from_row(row)
                 except KnowledgeError:continue
                 if (b.space_id in {s['name'] for s in spaces} and b.dataset_id in self.config['approved_dataset_ids']
-                    and b.canonical_document_id in self.config['approved_document_ids'] and b.source_type!='SYNTHETIC_TEST'):
+                    and b.canonical_document_id in allowed_documents and b.source_type!='SYNTHETIC_TEST') or (
+                    b.space_id in {s['name'] for s in spaces} and b.source_type!='SYNTHETIC_TEST' and
+                    (b.canonical_document_id,b.version_id,b.dataset_id,b.document_id,b.binding_revision) in registered_pairs):
                     accepted.append(b)
         bindings=tuple(accepted)
         revision=hashlib.sha256(json.dumps(sorted((b.binding_ref,b.binding_revision,b.version_id) for b in bindings)).encode()).hexdigest()
         grants=tuple(GrantPair(self.config['reader_role'],s['name'],a,'SHARED_'+s['name']+'_'+a.split('.')[-1])
             for s in spaces for a in ('knowledge.search','knowledge.evidence','knowledge.spaces'))
         return AuthoritySnapshot(state,(Client(self.config['portal_client_id']),),grants,tuple(s['name'] for s in spaces),
-            bindings,tuple(self.config['approved_dataset_ids']),(),self.config['policy_revision'],revision,
+            bindings,tuple(sorted(allowed_datasets)),(),self.config['policy_revision'],revision,
             ProviderStamp('INTERNAL_SHARED_REFERENCE',self.config['policy_revision'],None),
             self.config['model_policy_ref'],True,tuple((s['name'],s['title']) for s in spaces))
 

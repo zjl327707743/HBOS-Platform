@@ -79,9 +79,12 @@ def get_status():
     def current(request_id):
         runtime=load_runtime()
         actor=runtime.actor()
+        from .maintenance_access import permitted
+        answer_status=runtime.gateway.answer_status() if hasattr(runtime.gateway,'answer_status') else {'configured':False,'available':False,'budget_status':'UNAVAILABLE'}
         return {"can_enter":bool(actor.enabled),"can_search":_can_search(runtime,actor),
                 "policy_revision":None,"gateway_configured":runtime.gateway.configured,
-                "ask_enabled":_ask_enabled(runtime),"mode":"retrieval","environment":runtime.profile,
+                "ask_enabled":_ask_enabled(runtime),"can_maintain":permitted(),"mode":"retrieval","environment":runtime.profile,
+                "answer_availability":answer_status,
                 "retrieval_availability":_availability(runtime)}
     return _run(current)
 
@@ -97,13 +100,13 @@ def get_retrieval_diagnostics(**business_fields):
 
 @frappe.whitelist(methods=["POST"])
 def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, component_id=_UNSET,
-           context=_UNSET, space_ids=_UNSET, **business_fields):
+           context=_UNSET, space_ids=_UNSET, search_mode=_UNSET, **business_fields):
     def current(request_id):
         raw=_framework_business(business_fields,"search")
         raw["query"]=query
         if limit is not _UNSET: raw["limit"]=limit
         for key,value in (("equipment_id",equipment_id),("asset_id",asset_id),("component_id",component_id),
-                          ("context",context),("space_ids",space_ids)):
+                          ("context",context),("space_ids",space_ids),("search_mode",search_mode)):
             if value is not _UNSET: raw[key]=value
         request=normalize_search(raw,legacy=True)
         runtime=load_runtime(); actor=runtime.actor()
@@ -123,12 +126,12 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
             output.append(public_evidence(record,evidence_id,environment=runtime.profile))
         runtime.checkpoint("before_search_publication")
         runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call("revalidate","final_publish"))
-        data={"request_id":request_id,"mode":"retrieval","results":output}
+        data={"request_id":request_id,"mode":"retrieval","search_mode":request.search_mode,"results":output}
         if request.context: data["context"]=dict(request.context)
         validate_structure("SearchData",data)
         if runtime.profile=="production":
             from .activity import write
-            write("History",request.query,request.space_ids,records,runtime,context=request.context)
+            write("History",request.query,request.space_ids,records,runtime,context=request.context,search_mode=request.search_mode)
         runtime.audit.record(actor.user_ref,"search","SUCCESS",len(output))
         return data
     return _run(current)
@@ -181,7 +184,7 @@ def ask(**business_fields):
             _,mapping=activity_current(runtime)
             _,previous=owned(raw['conversation_id'],actor,kinds=('History',))
             bindings_for(previous,mapping)
-            requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context')}})
+            requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')}})
             from .followup import validate_followup_scope
             validate_followup_scope(previous,requested.space_ids,requested.context)
             from .followup import followup_query, UNRESOLVED_FOLLOWUP
@@ -189,18 +192,19 @@ def ask(**business_fields):
             if followup is None:
                 # We do not persist answer structure or copy old answer text as facts.
                 # Ownership and current versions above are still mandatory.
-                request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context')}})
+                request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')}})
                 ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
                 runtime.publication.plan=ticket.plan
                 runtime.quota.reserve_output(actor.user_ref,len(UNRESOLVED_FOLLOWUP))
-                turn=write('History',question,request.space_ids,[],runtime,conversation_id=raw['conversation_id'],context=request.context)
+                turn=write('History',question,request.space_ids,[],runtime,conversation_id=raw['conversation_id'],context=request.context,
+                    answer=UNRESOLVED_FOLLOWUP,labels=[],question=raw['question'],search_mode=request.search_mode)
                 activity_current(runtime)
                 runtime.audit.record(actor.user_ref,'ask','INSUFFICIENT_EVIDENCE',0)
                 return {'request_id':request_id,'turn_id':turn,'conversation_id':turn,'mode':'authorized_generation',
                         'answer_status':'INSUFFICIENT_EVIDENCE','answerable':False,
                         'answer':UNRESOLVED_FOLLOWUP,'citations':[]}
             question=followup
-        request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context')}})
+        request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')}})
         ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
         runtime.publication.plan=ticket.plan
         answer,labels,records=runtime.gateway.ask(ticket=ticket)
@@ -218,7 +222,8 @@ def ask(**business_fields):
             'answerable':bool(citations),'answer':answer,'citations':citations}
         if not citations:data['mode']='authorized_generation'
         validate_ask_data(data,environment=runtime.profile)
-        turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context)
+        turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context,
+            answer=answer,labels=labels,question=raw['question'],search_mode=request.search_mode)
         data['turn_id']=turn;data['conversation_id']=turn
         runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
         runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
@@ -310,9 +315,82 @@ def get_feedback_queue(**business_fields):
     return _run(current)
 
 @frappe.whitelist(methods=['POST'])
-def review_feedback(activity_id=None,status=None,**business_fields):
+def review_feedback(activity_id=None,status=None,reply='',**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'review_feedback'):raise KnowledgeError('INVALID_REQUEST')
         from .activity import review_feedback as update
-        return update(load_runtime(),activity_id,status)
+        return update(load_runtime(),activity_id,status,reply)
     return _run(current)
+
+@frappe.whitelist(methods=['GET'])
+def get_connections(**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'get_connections'):raise KnowledgeError('INVALID_REQUEST')
+        from .connections import list_owned
+        return list_owned(load_runtime())
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
+def create_connection(label=None,client_name=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'create_connection'):raise KnowledgeError('INVALID_REQUEST')
+        from .connections import create
+        return create(load_runtime(),label,client_name)
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
+def revoke_connection(connection_id=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'revoke_connection'):raise KnowledgeError('INVALID_REQUEST')
+        from .connections import revoke
+        return revoke(load_runtime(),connection_id)
+    return _run(current)
+
+# Maintenance mutations retain native Session/CSRF processing before this module.
+def _maintenance_action(method,fields,fn):
+    def current(request_id):
+        if _framework_business(fields,method):raise KnowledgeError('INVALID_REQUEST')
+        from .maintenance_access import require
+        require()
+        try:return fn()
+        except Exception:
+            # _run returns a safe envelope, so Frappe would otherwise commit
+            # partial writes as a successful HTTP request.
+            frappe.db.rollback()
+            raise
+    return _run(current)
+
+@frappe.whitelist(methods=['GET'])
+def get_maintenance(batch_id=None,page=1,page_size=12,**fields):
+    from .maintenance import dashboard
+    return _maintenance_action('get_maintenance',fields,lambda:dashboard(batch_id,page,page_size))
+
+@frappe.whitelist(methods=['POST'])
+def upload_knowledge(department=None,label=None,sharing=None,replace_document=None,expected_version=None,**fields):
+    from .maintenance import upload
+    return _maintenance_action('upload_knowledge',fields,lambda:upload(department,label,sharing,replace_document,expected_version))
+
+@frappe.whitelist(methods=['POST'])
+def queue_import(batch_id=None,document_ids=None,operation='parse',**fields):
+    from .maintenance import queue
+    return _maintenance_action('queue_import',fields,lambda:queue(batch_id,document_ids,operation))
+
+@frappe.whitelist(methods=['POST'])
+def preview_import(batch_id=None,document_id=None,**fields):
+    from .maintenance import preview
+    return _maintenance_action('preview_import',fields,lambda:preview(batch_id,document_id))
+
+@frappe.whitelist(methods=['POST'])
+def review_import(batch_id=None,document_id=None,checks=None,note=None,**fields):
+    from .maintenance import review
+    return _maintenance_action('review_import',fields,lambda:review(batch_id,document_id,checks,note))
+
+@frappe.whitelist(methods=['POST'])
+def publish_import(batch_id=None,document_ids=None,operation='publish',expected_version=None,reason=None,**fields):
+    from .maintenance import publish
+    return _maintenance_action('publish_import',fields,lambda:publish(batch_id,document_ids,operation,expected_version,reason))
+
+@frappe.whitelist(methods=['POST'])
+def withdraw_import(batch_id=None,document_id=None,expected_version=None,reason=None,**fields):
+    from .maintenance import withdraw
+    return _maintenance_action('withdraw_import',fields,lambda:withdraw(batch_id,document_id,expected_version,reason))

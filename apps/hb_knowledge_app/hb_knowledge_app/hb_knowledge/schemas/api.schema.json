@@ -54,6 +54,14 @@
         },
         "context": {
           "$ref": "#/$defs/Context"
+        },
+        "search_mode": {
+          "type": "string",
+          "enum": [
+            "STANDARD",
+            "PRECISE"
+          ],
+          "default": "STANDARD"
         }
       },
       "required": [
@@ -96,6 +104,14 @@
         },
         "context": {
           "$ref": "#/$defs/Context"
+        },
+        "search_mode": {
+          "type": "string",
+          "enum": [
+            "STANDARD",
+            "PRECISE"
+          ],
+          "default": "STANDARD"
         }
       },
       "required": [
@@ -362,6 +378,14 @@
             "$ref": "#/$defs/EvidenceCard"
           },
           "maxItems": 5
+        },
+        "search_mode": {
+          "type": "string",
+          "enum": [
+            "STANDARD",
+            "PRECISE"
+          ],
+          "default": "STANDARD"
         }
       },
       "required": [
@@ -871,6 +895,14 @@
           "minItems": 1,
           "maxItems": 20,
           "uniqueItems": true
+        },
+        "search_mode": {
+          "type": "string",
+          "enum": [
+            "STANDARD",
+            "PRECISE"
+          ],
+          "default": "STANDARD"
         }
       },
       "required": [
@@ -1583,6 +1615,14 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128
+        },
+        "search_mode": {
+          "type": "string",
+          "enum": [
+            "STANDARD",
+            "PRECISE"
+          ],
+          "default": "STANDARD"
         }
       },
       "required": [

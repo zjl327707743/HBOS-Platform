@@ -110,6 +110,7 @@ class AuthorizedExecutionPlan:
     expires_at: str
     limits: Limits
     model_policy_ref: str
+    search_mode: str = "STANDARD"
 
     def to_wire(self):
         value = asdict(self)

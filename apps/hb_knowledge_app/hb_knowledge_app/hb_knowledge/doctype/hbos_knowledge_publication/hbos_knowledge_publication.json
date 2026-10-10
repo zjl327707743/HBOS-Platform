@@ -53,7 +53,7 @@
       "fieldtype": "Select",
       "label": "Operation",
       "read_only": 1,
-      "options": "publish\nreplace\nrestore"
+      "options": "publish\nreplace\nrestore\nwithdraw"
     },
     {
       "fieldname": "expected_current_version",

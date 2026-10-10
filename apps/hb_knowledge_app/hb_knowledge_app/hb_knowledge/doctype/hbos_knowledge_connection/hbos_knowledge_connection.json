@@ -1,0 +1,84 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Connection",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "field:connection_id",
+  "fields": [
+    {
+      "fieldname": "connection_id",
+      "fieldtype": "Data",
+      "label": "Connection Id",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "owner_user",
+      "fieldtype": "Link",
+      "label": "Owner User",
+      "options": "User"
+    },
+    {
+      "fieldname": "label",
+      "fieldtype": "Data",
+      "label": "Label"
+    },
+    {
+      "fieldname": "client_name",
+      "fieldtype": "Data",
+      "label": "Client Name"
+    },
+    {
+      "fieldname": "token_hash",
+      "fieldtype": "Data",
+      "label": "Token Hash"
+    },
+    {
+      "fieldname": "security_version",
+      "fieldtype": "Int",
+      "label": "Security Version"
+    },
+    {
+      "fieldname": "audience",
+      "fieldtype": "Data",
+      "label": "Audience"
+    },
+    {
+      "fieldname": "expires_at",
+      "fieldtype": "Datetime",
+      "label": "Expires At"
+    },
+    {
+      "fieldname": "revoked",
+      "fieldtype": "Check",
+      "label": "Revoked"
+    },
+    {
+      "fieldname": "last_used_at",
+      "fieldtype": "Datetime",
+      "label": "Last Used At"
+    },
+    {
+      "fieldname": "stage",
+      "fieldtype": "Data",
+      "label": "Stage"
+    }
+  ],
+  "field_order": [
+    "connection_id",
+    "owner_user",
+    "label",
+    "client_name",
+    "token_hash",
+    "security_version",
+    "audience",
+    "expires_at",
+    "revoked",
+    "last_used_at",
+    "stage"
+  ],
+  "permissions": [],
+  "allow_rename": 0,
+  "track_changes": 0,
+  "index_web_pages_for_search": 0
+}

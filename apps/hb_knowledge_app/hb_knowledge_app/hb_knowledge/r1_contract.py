@@ -32,9 +32,10 @@ class SearchRequest:
     limit: int = 5
     space_ids: tuple[str, ...] | None = None
     context: tuple[tuple[str, str], ...] = ()
+    search_mode: str = "STANDARD"
 
     def to_wire(self):
-        value = {"query": self.query, "limit": self.limit}
+        value = {"query": self.query, "limit": self.limit, "search_mode": self.search_mode}
         if self.space_ids is not None:
             value["space_ids"] = list(self.space_ids)
         if self.context:
@@ -44,7 +45,7 @@ class SearchRequest:
 def normalize_search(raw: dict, *, legacy: bool = False) -> SearchRequest:
     if not isinstance(raw, dict):
         raise KnowledgeError("INVALID_REQUEST")
-    allowed = {"query", "limit", "space_ids", "context"} | (set(CONTEXT_KEYS) if legacy else set())
+    allowed = {"query", "limit", "space_ids", "context", "search_mode"} | (set(CONTEXT_KEYS) if legacy else set())
     if set(raw) - allowed:
         raise KnowledgeError("INVALID_REQUEST")
     raw = dict(raw)
@@ -78,7 +79,7 @@ def normalize_search(raw: dict, *, legacy: bool = False) -> SearchRequest:
     validate_structure("SearchRequest", raw)
     return SearchRequest(raw["query"], raw.get("limit", 5),
                          tuple(raw["space_ids"]) if "space_ids" in raw else None,
-                         tuple(sorted(raw.get("context", {}).items())))
+                         tuple(sorted(raw.get("context", {}).items())), raw.get("search_mode", "STANDARD"))
 
 def normalize_evidence(raw: dict):
     validate_structure("EvidenceRequest", raw)

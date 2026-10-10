@@ -98,6 +98,9 @@ class SessionProofs:
         try:
             if not raw: raise ValueError()
             proof=json.loads(raw)
+            if 'connection_ref' in proof:
+                from .connections import resolve_actor
+                return resolve_actor(actor,client,proof,self.config)
             if (proof['site'],proof['instance'],proof['user'],proof['generation'],proof['client'],proof['purpose']) != (
                  self.config['site'],self.config['run_id'],actor.user_ref,actor.session_revision,client.client_id,'knowledge.read'):
                 raise ValueError()

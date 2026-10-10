@@ -2,6 +2,10 @@ from __future__ import annotations
 
 # Messages are fixed. Exception details, IDs, paths and upstream bodies never escape.
 ERRORS = {
+    "IMPORT_BUSY": (409,"该批次正在处理，请等待本次完成。",True),
+    "IDENTITY_CONFLICT": (409,"文件与现有身份或当前版本冲突，请选择明确的换版关系。",False),
+    "QUALITY_REQUIRED": (409,"请先完成本版本的质量核对。",False),
+    "IMPORT_BUDGET_BLOCKED": (503,"解析费用待核验或预算不可用，解析已暂停；质量核对、发布和下架仍可操作。",False),
     "INVALID_REQUEST": (400, "请求格式无效。", False),
     "AUTHENTICATION_REQUIRED": (401, "需要有效登录。", False),
     "CLIENT_AUTH_FAILED": (401, "客户端认证无效。", False),
@@ -16,6 +20,8 @@ ERRORS = {
     "UPSTREAM_SCOPE_VIOLATION": (502, "知识服务权限校验失败。", False),
     "UPSTREAM_INVALID_RESULT": (502, "知识服务返回无效。", False),
     "MODEL_NOT_APPROVED": (503, "回答能力尚未获准。", False),
+    "ANSWER_MODEL_UNAVAILABLE": (503, "回答模型暂时不可用或未通过依据校验。请稍后重试；检索和记录仍可使用。", True),
+    "ANSWER_BUDGET_BLOCKED": (503, "回答费用待核验或预算不可用，回答已暂停；目录、来源和个人记录仍可查看。", False),
     "RATE_LIMITED": (429, "请求较频繁，请稍后重试。", True),
     "EXTRACTION_LIMITED": (429, "本时段可展示的摘录已达上限。", True),
     "SERVICE_ERROR": (503, "知识服务暂时不可用。", True),

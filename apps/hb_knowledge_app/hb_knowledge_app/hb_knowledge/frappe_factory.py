@@ -46,6 +46,8 @@ class HttpGateway:
     def availability(self,*,diagnostics=False):
         return self.http.post('/v1/knowledge/availability',
             {'client_id':self.client_id,'diagnostics':diagnostics},self.client_id)
+    def answer_status(self):
+        return self.http.post('/v1/knowledge/answer-status',{'client_id':self.client_id},self.client_id)
     def search(self,*,ticket):
         raw=self.http.post('/v1/knowledge/search',search_body(ticket),ticket.plan.client.client_id)
         if not isinstance(raw,dict) or set(raw)!={'status','results'} or raw['status']!='SUCCESS' or not isinstance(raw['results'],list) or len(raw['results'])>5:
@@ -101,7 +103,7 @@ class ReferenceHttpGateway(HttpGateway):
         super().__init__(cfg)
         self.http.read_timeout=80
 
-def build_runtime(client=None):
+def build_runtime(client=None,*,actor_resolver=None):
     import frappe
     cfg,state,proofs,provider,quota,decisions=components()
     real=cfg.get('profile')=='INTERNAL_SHARED_REFERENCE'
@@ -122,15 +124,15 @@ def build_runtime(client=None):
     publication=Publication(state,provider,checkpoint)
     runtime=CandidateRuntime('production' if real else 'synthetic',provider,decisions,DatabaseReferences(publication),
          HandleCache(state,publication),ReferenceHttpGateway(cfg) if real else HttpGateway(cfg),quota,DatabaseAudit(publication,cfg['audit_key']),
-         lambda:proofs.from_native_request(client),client,checkpoint)
+         actor_resolver or (lambda:proofs.from_native_request(client)),client,checkpoint)
     runtime.publication=publication
     return runtime
 
-def _service_request():
+def _service_request(*,max_body=MAX_BODY):
     import frappe
     cfg,state,proofs,provider,quota,decisions=components()
     body=frappe.request.get_data()
-    principal=authenticate(frappe.request.headers,body,frappe.request.path,cfg['authority_auth'],state)
+    principal=authenticate(frappe.request.headers,body,frappe.request.path,cfg['authority_auth'],state,max_body=max_body)
     if frappe.request.headers.get('Cookie'):
         raise KnowledgeError('CLIENT_AUTH_FAILED')
     try: payload=json.loads(body)
@@ -161,7 +163,7 @@ def authority_search(**ignored):
         raw,principal,decisions=_service_request()
         validate_structure('InternalSearchCompat',raw)
         if raw['client_id']!=principal.client.client_id: raise KnowledgeError('CLIENT_AUTH_FAILED')
-        business={k:v for k,v in raw.items() if k in {'query','limit','space_ids','context'}}
+        business={k:v for k,v in raw.items() if k in {'query','limit','space_ids','context','search_mode'}}
         decisions.verify_request(raw['decision_ref'],normalize_search(business))
         from knowledge_service.hbos_gateway.policy_client import InProcessPolicyClient
         call=InProcessPolicyClient.make_call(raw,'introspect','introspect')
