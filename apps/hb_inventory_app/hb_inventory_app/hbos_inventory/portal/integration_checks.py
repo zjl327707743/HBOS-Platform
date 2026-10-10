@@ -28,14 +28,19 @@ def run() -> dict[str, object]:
 
     if manifest["route"] != "/hbos/inventory":
         raise AssertionError("Inventory stable route mismatch")
-    if manifest["migration_mode"] != "legacy":
-        raise AssertionError("Inventory must remain legacy until hybrid/native UX gate")
+    # 「保留 legacy 直到 hybrid/native UX 门禁通过」的旧断言已过时：
+    # 概览 / 拍照识别 / 草稿复核 / 批次 / 单据 / 拣货 / 对账等页已前端化，
+    # manifest 相应改为 hybrid（见 `portal/manifest.py`）。这里跟随现状断言，
+    # 而不是把 manifest 退回 legacy —— 页面确实已经在前端了。
+    if manifest["migration_mode"] != "hybrid":
+        raise AssertionError("Inventory should be hybrid after native UX rollout")
     if manifest["capabilities"] != ["summary"]:
         raise AssertionError("P3-INV-2 must expose only the summary capability")
 
+    # 基础路由必须解析回 SPA 自身（概览页已原生），不再跳去 Desk。
     resolved = provider.resolve_route("/hbos/inventory")
-    if resolved != "/app/hbos-photo-intake":
-        raise AssertionError("Inventory current implementation route mismatch")
+    if resolved != "/hbos/inventory":
+        raise AssertionError("Inventory base route should stay inside the Portal SPA")
 
     summary = provider.summary()
     if summary.get("app_id") != "inventory":
