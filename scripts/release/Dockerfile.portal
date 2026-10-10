@@ -1,0 +1,5 @@
+ARG FRAPPE_IMAGE=frappe/erpnext:v16.26.2
+FROM ${FRAPPE_IMAGE}
+USER frappe
+COPY --chown=frappe:frappe apps/hbos_portal/requirements.txt /tmp/hbos-portal-requirements.txt
+RUN /home/frappe/frappe-bench/env/bin/pip install --no-cache-dir --only-binary=:all: --require-hashes -r /tmp/hbos-portal-requirements.txt

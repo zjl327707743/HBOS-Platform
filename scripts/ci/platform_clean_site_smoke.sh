@@ -10,8 +10,12 @@ test -d runtime/apps/hrms || {
 }
 
 PROJECT="${HBOS_SMOKE_PROJECT:-hbos-platform-smoke-${GITHUB_RUN_ID:-local}}"
+[[ "$PROJECT" =~ ^hbos-platform-[A-Za-z0-9_-]+$ ]] || {
+  echo 'CI 只能使用 hbos-platform- 命名空间的独立测试项目' >&2
+  exit 1
+}
 export COMPOSE_PROJECT_NAME="$PROJECT"
-export ERPNEXT_VERSION="${ERPNEXT_VERSION:-v16.26.2}"
+export ERPNEXT_VERSION="${ERPNEXT_VERSION:-v16.26.2@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583}"
 export SITE_NAME="${SITE_NAME:-platform-smoke.localhost}"
 export FRAPPE_SITE_NAME_HEADER="$SITE_NAME"
 export HTTP_PORT="${HTTP_PORT:-18090}"
@@ -68,11 +72,12 @@ docker compose -p "$PROJECT" up -d db redis-cache redis-queue
 docker compose -p "$PROJECT" run --rm configurator
 docker compose -p "$PROJECT" run --rm create-site
 docker compose -p "$PROJECT" up -d backend
+docker compose -p "$PROJECT" exec -T backend /home/frappe/frappe-bench/env/bin/pip install --only-binary=:all: --require-hashes -r /home/frappe/frappe-bench/apps/hbos_portal/requirements.txt
 
 echo "[PLATFORM] verify installed apps"
 APPS="$(docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" list-apps)"
 printf '%s\n' "$APPS"
-for app in frappe erpnext hrms hb_attendance_app hb_inventory_app hb_lims_app; do
+for app in frappe erpnext hrms hb_attendance_app hb_inventory_app hb_lims_app hbos_portal; do
   printf '%s\n' "$APPS" | awk '{print $1}' | grep -qx "$app" || {
     echo "::error:: platform clean site missing app: $app"
     exit 1
@@ -82,6 +87,26 @@ done
 echo "[PLATFORM] double migrate"
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
 docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" migrate
+
+echo "[PLATFORM] Portal Registry + LIMS provider"
+docker compose -p "$PROJECT" exec -T \
+  -e HBOS_PORTAL_INTEGRATION_CHECKS=1 \
+  backend bench --site "$SITE_NAME" execute hbos_portal.integration_checks.run
+
+echo "[PLATFORM] LIMS stable deep-link projection"
+docker compose -p "$PROJECT" exec -T \
+  -e HBOS_PORTAL_INTEGRATION_CHECKS=1 \
+  backend bench --site "$SITE_NAME" execute hb_lims_app.hbos_lims.portal.integration_checks.run
+
+echo "[PLATFORM] Attendance Portal provider"
+docker compose -p "$PROJECT" exec -T \
+  -e HBOS_PORTAL_INTEGRATION_CHECKS=1 \
+  backend bench --site "$SITE_NAME" execute hb_attendance_app.hbos_attendance.portal.integration_checks.run
+
+echo "[PLATFORM] Inventory Portal provider"
+docker compose -p "$PROJECT" exec -T \
+  -e HBOS_PORTAL_INTEGRATION_CHECKS=1 \
+  backend bench --site "$SITE_NAME" execute hb_inventory_app.hbos_inventory.portal.integration_checks.run
 
 echo "[PLATFORM] verify Chinese font inside backend"
 docker compose -p "$PROJECT" exec -T backend bash -lc \
@@ -170,4 +195,14 @@ grep -q 'lims_spa_loader.js' /tmp/hbos-lims-dashboard-after-recreate.html || {
 }
 curl -fsS -H "Host: $SITE_NAME"   "http://127.0.0.1:$HTTP_PORT/assets/hb_lims_app/hbos-lims/$ENTRY_FILE" >/dev/null
 
+echo "[PLATFORM] Unified account synthetic lifecycle"
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_account_test_site 1
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute hbos_portal.auth.account_integration.run
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_custody_test_site 1
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute hbos_portal.auth.change_integration.run
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" set-config hbos_portal_origin "http://$SITE_NAME:$HTTP_PORT"
+docker compose -p "$PROJECT" restart backend
+wait_http "/hbos/login" /tmp/hbos-account-login.html
+docker compose -p "$PROJECT" exec -T backend bench --site "$SITE_NAME" execute hbos_portal.auth.http_integration.run --kwargs '{"transport":"http://127.0.0.1:8000"}'
+python3 scripts/ci/portal_account_http_checks.py --container "$(docker compose -p "$PROJECT" ps -q backend)" --site "$SITE_NAME" --origin "http://$SITE_NAME:$HTTP_PORT" --transport "http://127.0.0.1:$HTTP_PORT"
 echo "HBOS PLATFORM clean-site integration PASS"

@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-09-29 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "provider",
+  "tenant_key",
+  "app_id",
+  "id_type",
+  "external_id",
+  "identity_key",
+  "active_user_key",
+  "user",
+  "enabled",
+  "last_verified_at",
+  "retired_reason",
+  "retired_operation"
+ ],
+ "fields": [
+  {"default": "feishu", "fieldname": "provider", "fieldtype": "Select", "label": "Provider", "options": "feishu", "reqd": 1},
+  {"fieldname": "tenant_key", "fieldtype": "Data", "label": "Tenant Key", "reqd": 1},
+  {"fieldname": "app_id", "fieldtype": "Data", "label": "App ID", "reqd": 1},
+  {"default": "open_id", "fieldname": "id_type", "fieldtype": "Select", "label": "ID Type", "options": "open_id", "reqd": 1},
+  {"fieldname": "external_id", "fieldtype": "Data", "label": "External ID", "reqd": 1},
+  {"fieldname": "identity_key", "fieldtype": "Data", "hidden": 1, "label": "Identity Key", "read_only": 1, "unique": 1},
+  {"fieldname": "active_user_key", "fieldtype": "Data", "hidden": 1, "label": "Active User Key", "read_only": 1, "unique": 1},
+  {"fieldname": "user", "fieldtype": "Link", "label": "Existing Frappe User", "options": "User", "reqd": 1},
+  {"default": "1", "fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"},
+  {"fieldname": "last_verified_at", "fieldtype": "Datetime", "label": "Last Verified At", "read_only": 1},
+  {"fieldname": "retired_reason", "fieldtype": "Data", "label": "Retired Reason", "read_only": 1},
+  {"fieldname": "retired_operation", "fieldtype": "Link", "label": "Retired Operation", "options": "HBOS Account Operation", "read_only": 1}
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "HBOS Portal",
+ "name": "HBOS External Identity",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
