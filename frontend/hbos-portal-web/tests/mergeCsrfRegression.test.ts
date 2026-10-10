@@ -57,6 +57,36 @@ it('password login preserves its freshly issued security token instead of an old
   expect(writes.at(-1)).toBe('synthetic-session-B')
 })
 
+it('logout followed by password login uses Guest security and a fresh token for the new session', async () => {
+  const fixtureAdapter = axios.defaults.adapter as AxiosAdapter
+  let guest = false
+  const passwordSubmissions: unknown[] = []
+  axios.defaults.adapter = async config => {
+    if (config.url?.endsWith('accounts.get_request_security') && guest) {
+      return { data: { message: { csrf_token: null } }, status: 200, statusText: 'OK', headers: {}, config }
+    }
+    if (config.url?.endsWith('accounts.password_login')) {
+      expect(guest).toBe(true)
+      expect(config.headers.has('X-Frappe-CSRF-Token')).toBe(false)
+      passwordSubmissions.push(config.data)
+      guest = false
+      token = 'synthetic-session-C'
+      return { data: { message: { logged_in: true } }, status: 200, statusText: 'OK', headers: {}, config }
+    }
+    const result = await fixtureAdapter(config)
+    if (config.url?.endsWith('/logout')) guest = true
+    return result
+  }
+  const api = await import('@/services/frappeClient')
+  await api.callFrappeAction('synthetic.first_session_action')
+  await api.logoutFrappeSession()
+  await expect(api.loginWithPassword('synthetic-user', 'synthetic-password')).resolves.toMatchObject({ logged_in: true })
+  await api.callFrappeAction('synthetic.new_session_action')
+  expect(passwordSubmissions).toHaveLength(1)
+  expect(writes).toEqual(['synthetic-session-A', 'synthetic-session-A', 'synthetic-session-C'])
+  expect(tokenReads).toBe(2)
+})
+
 it.each(['clearCachedCsrfToken', 'clearFrappeCsrfToken'] as const)('%s prevents reuse of a previous session and its injected page token', async clear => {
   const api = await import('@/services/frappeClient')
   ;(window as Window & { csrf_token?: string }).csrf_token = token

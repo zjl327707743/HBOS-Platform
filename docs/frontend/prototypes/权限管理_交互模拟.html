@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+  <title>HBOS 权限管理 · HTML 交互原型</title>
+  <style>
+    :root { color-scheme: light; --ink:#17253c; --sub:#425675; --muted:#62738d; --brand:#675fff; --line:#dce5f0; --canvas:#f4f8fd; --green:#21663f; --amber:#795119; --red:#a03447; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--canvas); font:14px/1.6 Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; }
+    button,input,select,textarea { outline-offset:3px; }
+    :focus-visible { outline:2px solid var(--brand); }
+    h1,h2,h3,p { margin:0; }
+    h1 { font-size:30px; line-height:1.35; letter-spacing:-.4px; font-weight:600; }
+    h2 { font-size:20px; font-weight:600; line-height:1.45; }
+    h3 { font-size:16px; font-weight:600; }
+    small,.meta { font-size:12px; color:var(--muted); }
+    .muted { color:var(--sub); }
+    .small { font-size:12px; }
+    .demo-bar { background:#e7ecf5; border-bottom:1px solid #dbe2ed; padding:9px 24px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+    .demo-label { display:flex; flex-wrap:wrap; align-items:center; gap:10px; color:var(--sub); }
+    .demo-label strong { color:var(--ink); font-size:13px; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .demo-controls button,.demo-controls select { min-height:36px; border:1px solid #cdd7e6; border-radius:8px; background:white; padding:5px 12px; color:var(--sub); }
+    .demo-controls button[aria-pressed="true"] { color:var(--brand); border-color:var(--brand); }
+    .stage { padding:18px 24px 32px; }
+    .app { max-width:1488px; margin:auto; container:app / inline-size; transition:max-width .18s ease; }
+    body.phone .app { max-width:390px; }
+    .topbar { display:flex; align-items:center; gap:28px; min-height:72px; padding:14px 20px; background:rgba(255,255,255,.94); border:1px solid var(--line); border-radius:18px; }
+    .brand { display:flex; align-items:center; gap:12px; min-width:220px; }
+    .brand-mark { background:linear-gradient(135deg,#675fff,#49a8ff); color:white; width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-weight:600; }
+    .brand strong { font-size:18px; font-weight:600; }
+    .brand small { display:block; }
+    .crumb { flex:1; color:var(--sub); }
+    .identity { display:flex; align-items:center; gap:10px; color:var(--sub); }
+    .avatar { width:34px; height:34px; border-radius:50%; background:#eeedff; color:#5148bd; display:grid; place-items:center; font-size:12px; }
+    .layout { display:grid; grid-template-columns:208px minmax(0,1fr); gap:24px; margin-top:18px; }
+    aside { border:1px solid var(--line); border-radius:18px; background:white; padding:20px 12px; display:flex; flex-direction:column; gap:18px; align-self:start; position:sticky; top:18px; min-height:720px; }
+    aside h2 { padding:0 12px; }
+    .nav { display:flex; flex-direction:column; gap:6px; }
+    .nav button { display:flex; align-items:center; gap:12px; min-height:48px; border:0; padding:10px 16px; border-radius:10px; color:var(--sub); background:transparent; text-align:left; }
+    .nav button:hover { background:#f6f7fc; }
+    .nav button.active { color:var(--brand); background:#eeedff; font-weight:500; }
+    .icon { width:19px; height:19px; flex-shrink:0; }
+    .scope-note { border-top:1px solid var(--line); margin:8px 12px 0; padding-top:20px; }
+    .scope-note p { color:var(--sub); margin-top:6px; }
+    .side-foot { margin: auto 12px 0; padding-top:120px; color:var(--muted); font-size:12px; }
+    main { min-width:0; }
+    .page-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:16px; margin:6px 0 22px; }
+    .page-head p { color:var(--sub); margin-top:7px; }
+    .btn { border:1px solid var(--line); color:var(--sub); background:white; border-radius:10px; min-height:44px; padding:10px 18px; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+    .btn:hover:not(:disabled) { border-color:#9f9bff; color:var(--brand); }
+    .btn.primary { background:var(--brand); color:white; border-color:var(--brand); }
+    .btn.danger { background:#fff6f7; color:var(--red); border-color:#edc4cd; }
+    .btn:disabled { color:#697990; background:#edf0f4; border-color:#dce2eb; }
+    .btn.link { padding:0; border:0; background:transparent; min-height:44px; color:#534bda; }
+    .btn.compact { min-height:36px; padding:6px 12px; font-size:12px; }
+    .btn.full { width:100%; }
+    .card { background:white; border:1px solid var(--line); border-radius:18px; padding:22px; min-width:0; }
+    .card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+    .grid-main { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(310px,1fr); gap:24px; align-items:start; }
+    .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-bottom:20px; }
+    .metric { background:white; border:1px solid var(--line); padding:16px 18px; border-radius:14px; }
+    .metric span { font-size:13px; color:var(--sub); }
+    .metric strong { display:block; font-size:30px; line-height:1.3; font-weight:600; margin-top:5px; }
+    .filters { display:grid; grid-template-columns:minmax(130px,1.6fr) minmax(116px,1fr) minmax(116px,1fr); gap:12px; margin-bottom:18px; }
+    input,select,textarea { display:block; width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; min-height:44px; color:var(--ink); background:white; }
+    textarea { resize:vertical; min-height:84px; }
+    label { display:block; color:var(--sub); }
+    label span.label { display:block; margin-bottom:7px; font-size:13px; }
+    input::placeholder,textarea::placeholder { color:#6e7d94; }
+    .table-wrap { overflow:auto; }
+    table { width:100%; border-collapse:collapse; text-align:left; }
+    th { font-size:12px; font-weight:500; color:var(--sub); background:#f4f6fb; padding:12px; white-space:nowrap; }
+    td { padding:16px 12px; border-bottom:1px solid #e7ecf4; vertical-align:top; }
+    tr.selected td { background:#f1f0ff; }
+    .person-btn { border:0; padding:0; background:none; color:var(--ink); font-weight:500; min-height:44px; text-align:left; }
+    .person-btn small { display:block; font-weight:400; }
+    .person-btn:hover { color:var(--brand); }
+    .tag { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:8px; font-size:12px; color:#5148bd; background:#eeedff; white-space:nowrap; }
+    .tag.green { color:var(--green); background:#e8f6ee; }
+    .tag.amber { color:var(--amber); background:#fff2db; }
+    .tag.gray { color:#51627b; background:#edf0f5; }
+    .tag.red { color:var(--red); background:#ffedf0; }
+    .alert { background:#fff7e8; border:1px solid #ecd5a8; border-radius:11px; color:var(--amber); padding:12px 15px; margin-top:18px; }
+    .alert p { font-size:12px; margin-top:5px; }
+    .info { background:#f0f3ff; color:var(--sub); border-radius:12px; padding:16px; }
+    .grant { margin-top:16px; border:1px solid var(--line); border-radius:12px; background:#f8fafd; padding:16px; }
+    .grant.active-grant { border-color:#a7a2f5; }
+    .grant-head { display:flex; align-items:start; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    .grant-head h3 { min-width:0; }
+    .grant dl,.description { display:grid; grid-template-columns:78px minmax(0,1fr); gap:9px 12px; margin:0; }
+    dt { color:var(--muted); font-size:12px; }
+    dd { margin:0; color:var(--sub); overflow-wrap:anywhere; }
+    .date { white-space:nowrap; }
+    .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
+    .actions .btn { flex:1; }
+    .explain { color:var(--sub); margin-top:18px; }
+    .footer-note { font-size:12px; color:var(--muted); margin-top:14px; }
+    .tabs { display:flex; gap:8px; border-bottom:1px solid var(--line); margin:0 0 20px; padding-bottom:8px; }
+    .tabs button { border:0; border-radius:9px; padding:8px 16px; min-height:44px; background:transparent; color:var(--sub); }
+    .tabs button.active { background:#eeedff; color:var(--brand); }
+    .template-grid,.self-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+    .template-card { display:flex; flex-direction:column; gap:16px; }
+    .template-card .btn { margin-top:auto; }
+    .plain-list { margin:0; padding-left:18px; color:var(--sub); }
+    .plain-list li { margin:5px 0; }
+    .steps { display:flex; gap:18px; padding:16px 20px; margin-bottom:20px; flex-wrap:wrap; border:1px solid var(--line); border-radius:14px; background:white; }
+    .steps span { flex:1; color:var(--sub); }
+    .steps span:first-child { color:var(--brand); }
+    .change { margin-top:16px; padding:18px; border:1px solid var(--line); border-radius:12px; background:#f8fafd; }
+    .change.new { background:#f0f3ff; }
+    .change p { margin-top:8px; color:var(--sub); }
+    .flow { list-style:none; padding:0; margin:20px 0; }
+    .flow li { position:relative; border-left:2px solid #dce2ef; margin-left:10px; padding:0 0 28px 24px; }
+    .flow li::before { content:""; width:10px; height:10px; background:white; border:2px solid #8c86ef; border-radius:50%; position:absolute; left:-7px; top:6px; }
+    .flow p { color:var(--sub); font-size:13px; margin-top:6px; }
+    .empty { text-align:center; padding:48px 20px; }
+    .empty-icon { width:76px; height:76px; margin:0 auto 20px; border-radius:20px; background:#eeedff; color:var(--brand); display:grid; place-items:center; }
+    .empty p { max-width:420px; margin:12px auto 20px; color:var(--sub); }
+    .empty-icon .icon { width:30px; height:30px; }
+    .self-top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:14px; margin-bottom:18px; }
+    .self-top select { width:auto; max-width:100%; }
+    .app-foot { color:var(--muted); font-size:12px; padding:18px 0 0; }
+    dialog { width:min(760px,calc(100vw - 32px)); max-height:calc(100dvh - 40px); border:1px solid var(--line); border-radius:18px; padding:0; color:var(--ink); box-shadow:0 24px 78px #2f48751e; overflow:auto; }
+    dialog::backdrop { background:#17253c60; }
+    .dialog-head { position:sticky; top:0; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 24px; border-bottom:1px solid var(--line); background:white; z-index:1; }
+    .dialog-body { padding:22px 24px; }
+    .dialog-foot { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; padding:16px 24px; border-top:1px solid var(--line); background:white; position:sticky; bottom:0; }
+    .close { width:44px; height:44px; border:0; border-radius:10px; background:#f1f4f9; color:var(--sub); font-size:24px; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .form-grid .wide { grid-column:1/-1; }
+    .summary { margin:18px 0 0; padding:18px; border-radius:12px; background:#f8fafd; border:1px solid var(--line); }
+    .summary h3 { margin-bottom:12px; }
+    .toast { position:fixed; z-index:20; bottom:28px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 32px); padding:12px 18px; border-radius:12px; background:#17253c; color:white; box-shadow:0 8px 28px #17253c25; }
+    .toast:empty { display:none; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @container app (max-width:1120px) { .grid-main { grid-template-columns:minmax(0,1fr); } .template-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .topbar { gap:16px; } .brand { min-width:190px; } .identity .identity-copy { display:none; } }
+    @container app (max-width:760px) {
+      .layout { grid-template-columns:minmax(0,1fr); gap:16px; margin-top:14px; }
+      aside { position:static; min-height:0; padding:8px; border-radius:12px; gap:0; }
+      aside h2,.scope-note,.side-foot { display:none; }
+      .nav { flex-direction:row; overflow:auto; gap:5px; }
+      .nav button { white-space:nowrap; padding:8px 13px; min-height:44px; }
+      .nav .icon { display:none; }
+      .topbar { padding:12px; border-radius:14px; min-height:68px; gap:10px; }
+      .brand { min-width:0; gap:9px; flex:1; }
+      .brand small { display:none; }
+      .brand strong { font-size:16px; }
+      .crumb { display:none; }
+      h1 { font-size:26px; }
+      .page-head { margin:2px 0 18px; }
+      .page-head p { font-size:13px; }
+      .card { padding:16px; border-radius:14px; }
+      .metrics { gap:8px; }
+      .metric { padding:12px; }
+      .metric span { font-size:12px; }
+      .metric strong { font-size:26px; }
+      .filters { grid-template-columns:1fr 1fr; }
+      .filters label:first-child { grid-column:1/-1; }
+      .template-grid,.self-grid { grid-template-columns:minmax(0,1fr); }
+      .card-head { align-items:start; }
+      .card-head .btn { padding:8px 12px; }
+      .grant-head { flex-wrap:wrap; }
+      .steps { gap:8px; padding:12px; font-size:12px; }
+      .self-top select { width:100%; }
+      .description { grid-template-columns:70px minmax(0,1fr); }
+      table.responsive thead { display:none; }
+      table.responsive,table.responsive tbody,table.responsive tr,table.responsive td { display:block; width:100%; }
+      table.responsive tr { border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin:12px 0; overflow:hidden; }
+      table.responsive td { border:0; padding:5px 0; }
+      table.responsive td[data-label]::before { content:attr(data-label) "："; color:var(--muted); font-size:12px; }
+      table.responsive td .person-btn { width:100%; }
+      tr.selected td { background:transparent; }
+      tr.selected { background:#f1f0ff; }
+    }
+    @media (max-width:600px) { .stage { padding:12px; } .demo-bar { padding:10px 12px; } .demo-label span { display:none; } .demo-controls { width:100%; } .demo-controls select { flex:1; } .form-grid { grid-template-columns:1fr; } .dialog-head,.dialog-body { padding:18px; } .dialog-foot { padding:14px 18px; } }
+    @media (prefers-reduced-motion:reduce) { .app { transition:none; } }
+  </style>
+</head>
+<body>
+  <div class="demo-bar">
+    <div class="demo-label"><strong>HBOS 权限管理 · HTML 交互原型</strong><span>全部为合成数据 · 无 API · 刷新后重置</span></div>
+    <div class="demo-controls">
+      <label class="sr-only" for="perspective">切换演示视角</label>
+      <select id="perspective"><option value="admin">管理员演示视角</option><option value="self">本人演示视角</option></select>
+      <button id="phone-toggle" type="button" aria-pressed="false">手机预览</button>
+      <button id="reset-demo" type="button">重置演示</button>
+    </div>
+  </div>
+  <div class="stage"><div class="app" id="app"></div></div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    'use strict';
+    // Only synthetic, in-memory prototype state. No backend or persistent storage.
+    const icons = {
+      people:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+      requests:'M9 5H5v16h14V5h-4 M9 3h6v4H9z M8 12h8 M8 16h5',
+      templates:'M4 3h16v18H4z M8 7h8 M8 11h8 M8 15h5',
+      catalog:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
+      audit:'M12 3a9 9 0 1 0 9 9 M12 7v5l4 2 M17 3h4v4',
+      shield:'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z M8 12l3 3 5-6'
+    };
+    const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${icons[name] || icons.shield}"/></svg>`;
+    const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const people = [{id:'U-X',employee:'E-DEMO-X'},{id:'U-Y',employee:'E-DEMO-Y'}];
+    const actions = [
+      {id:'lims.tasks.read',name:'读取检验任务',type:'任务',phase:'首批候选'},
+      {id:'lims.results.read',name:'读取检验结果',type:'结果',phase:'首批候选'},
+      {id:'lims.results.submit',name:'提交本人结果',type:'结果',phase:'首批候选'},
+      {id:'lims.results.review',name:'复核他人结果',type:'结果',phase:'首批候选'},
+      {id:'lims.results.approve',name:'批准结果',type:'结果',phase:'后续范围'},
+      {id:'lims.tasks.assign',name:'分配检验任务',type:'任务',phase:'后续范围'},
+      {id:'lims.tasks.execute',name:'开始检验',type:'任务',phase:'后续范围'}
+    ];
+    const templates = [
+      {id:'reader',name:'组内只读',version:1,actions:['lims.tasks.read','lims.results.read'],note:'按批准检验组读取任务与结果。'},
+      {id:'reviewer',name:'复核人',version:1,actions:['lims.tasks.read','lims.results.read','lims.results.review'],note:'在批准范围内复核他人符合条件的结果。'},
+      {id:'analyst',name:'检验员',version:1,actions:['lims.tasks.read','lims.results.read','lims.results.submit'],note:'提交本人符合条件的结果；读取口径待确认。'}
+    ];
+    const seed = {
+      grants:[
+        {id:'G-DEMO-01',subject:'U-X',template:'reviewer',group:'A',from:'2026-10-08',until:'2026-10-31',status:'active',basis:'AP-DEMO-00'},
+        {id:'G-DEMO-02',subject:'U-X',template:'reader',group:'B',from:'2026-10-08',until:'2026-10-31',status:'active',basis:'AP-DEMO-00'},
+        {id:'G-DEMO-03',subject:'U-Y',template:'reader',group:'A',from:'2026-10-08',until:'2026-11-30',status:'active',basis:'AP-DEMO-00'}
+      ],
+      requests:[{id:'AP-DEMO-01',subject:'U-X',template:'analyst',group:'B',from:'2026-10-08',until:'2026-10-31',reason:'阶段性参与 B 组检验工作（合成示例）',status:'待规则确认',requester:'U-X',revision:1}],
+      events:[
+        {time:'2026-10-08 09:00',subject:'U-X',event:'建立演示授权',target:'G-DEMO-01',actor:'U-M（合成）',reason:'A 组复核岗位示例',result:'演示有效'},
+        {time:'2026-10-08 09:01',subject:'U-X',event:'建立演示授权',target:'G-DEMO-02',actor:'U-M（合成）',reason:'B 组只读岗位示例',result:'演示有效'},
+        {time:'2026-10-08 09:02',subject:'U-Y',event:'建立演示授权',target:'G-DEMO-03',actor:'U-M（合成）',reason:'A 组只读岗位示例',result:'演示有效'}
+      ]
+    };
+    let data = JSON.parse(JSON.stringify(seed));
+    let page = 'people', perspective = 'admin', selected = 'U-X', focusedGrant = 'G-DEMO-01';
+    let filters = {search:'',group:'all',status:'active'}, mineTab = 'grants', mineScene = 'normal';
+    let requestSelected = 'AP-DEMO-01', toastTimer, dialogOrigin;
+    const app=document.getElementById('app'), modal=document.getElementById('modal');
+    const templateOf=id=>templates.find(t=>t.id===id);
+    const roleName=id=>{const t=templateOf(id);return `${t.name} v${t.version}`;};
+    const actionNames=id=>templateOf(id).actions.map(a=>actions.find(x=>x.id===a).name);
+    const tag=(text,cls='')=>`<span class="tag ${cls}">${escapeHTML(text)}</span>`;
+    const grantTag=g=>g.status==='active'?tag('有效 · 演示','green'):tag('已撤销 · 演示','gray');
+    const ending=until=>{const d=new Date(until+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10);};
+    const timeframe=g=>`<span class="date">${escapeHTML(g.from)}</span> 至 <span class="date">${escapeHTML(g.until)}</span>`;
+    const title=(heading,desc,extra='')=>`<div class="page-head"><div><h1>${heading}</h1><p>${desc}</p></div>${extra}</div>`;
+    const empty=(heading,desc,button='')=>`<div class="empty"><div class="empty-icon">${icon('shield')}</div><h2>${heading}</h2><p>${desc}</p>${button}</div>`;
+    const localNote='仅操作当前 HTML 的合成数据，刷新后恢复；没有实际权限变化。';
+    function toast(message){const el=document.getElementById('toast');el.textContent=message;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.textContent='',4200);}
+    function openDialog(heading,body,foot=''){
+      const alreadyOpen=modal.open;
+      if(!alreadyOpen)dialogOrigin=document.activeElement;
+      modal.innerHTML=`<div class="dialog-head"><h2 id="modal-title">${heading}</h2><button class="close" type="button" data-close aria-label="关闭对话框">×</button></div><div class="dialog-body">${body}</div>${foot?`<div class="dialog-foot">${foot}</div>`:''}`;
+      if(!alreadyOpen)modal.showModal();
+      else modal.querySelector('.close').focus();
+    }
+    modal.addEventListener('close',()=>{if(dialogOrigin?.isConnected)dialogOrigin.focus();});
+    modal.addEventListener('click',e=>{if(e.target.closest('[data-close]'))modal.close();});
+    function navigate(next){page=next;render();}
+    function render(){
+      const adminNav=[['people','人员授权','people'],['requests','申请审批','requests'],['templates','角色模板','templates'],['catalog','权限目录','catalog'],['audit','授权审计','audit']];
+      const nav=perspective==='admin'?adminNav:[['mine','我的权限','shield']];
+      const label=perspective==='admin'?'管理中心 / 权限管理':'个人入口 / 我的权限';
+      app.innerHTML=`<header class="topbar"><div class="brand"><div class="brand-mark">HB</div><div><strong>新乡海滨</strong><small>智能运营管理平台</small></div></div><div class="crumb">${label}</div><div class="identity"><span class="avatar">${perspective==='admin'?'UM':'UX'}</span><span class="identity-copy">${perspective==='admin'?'U-M · 受限管理员':'U-X · 本人'}（合成）</span></div></header><div class="layout"><aside><h2>${perspective==='admin'?'权限管理':'本人入口'}</h2><nav class="nav" aria-label="原型页面">${nav.map(([key,text,ico])=>`<button type="button" data-page="${key}" class="${page===key?'active':''}" ${page===key?'aria-current="page"':''}>${icon(ico)}${text}</button>`).join('')}</nav><div class="scope-note"><small>${perspective==='admin'?'管理范围':'查看范围'}</small><p>${perspective==='admin'?'LIMS · 演示 A / B 组':'U-X 的合成授权及申请'}</p></div><p class="side-foot">此处是交互原型，<br>所有人员与权限均为合成示例。</p></aside><main id="content"></main></div><footer class="app-foot">HTML 评审素材 · 全部为合成数据 · Q1 审批与 Q2 读取规则尚未确认 · 未接入真实账号、业务或后端服务</footer>`;
+      const views={people:peoplePage,requests:requestsPage,templates:templatesPage,catalog:catalogPage,audit:auditPage,mine:minePage};
+      document.getElementById('content').innerHTML=views[page]();
+      if(page==='people')updatePeople();
+      if(page==='requests')updateRequest();
+    }
+    function peoplePage(){
+      const active=data.grants.filter(g=>g.status==='active');
+      const soon=active.filter(g=>(new Date(ending(g.until)+'T00:00:00Z')-new Date('2026-10-08T00:00:00Z'))/86400000<=30).length;
+      return `${title('人员授权','按条核对岗位、范围与期限，清楚说明每一次授权。')}<div class="grid-main"><section><div class="metrics"><div class="metric"><span>有效授权 · 演示</span><strong>${active.length}</strong></div><div class="metric"><span>未完成申请 · 演示</span><strong>${data.requests.length}</strong></div><div class="metric"><span>30 日内到期 · 演示</span><strong>${soon}</strong></div></div><div class="card"><div class="card-head"><h2>管理范围内的授权</h2><button class="btn primary" data-new-request>＋ 新建申请</button></div><div class="filters"><label><span class="sr-only">搜索人员或岗位</span><input id="people-search" type="search" placeholder="搜索人员 / 岗位" value="${escapeHTML(filters.search)}"></label><label><span class="sr-only">筛选检验组</span><select id="group-filter"><option value="all">全部获准检验组</option><option value="A" ${filters.group==='A'?'selected':''}>A 组</option><option value="B" ${filters.group==='B'?'selected':''}>B 组</option></select></label><label><span class="sr-only">筛选授权状态</span><select id="status-filter"><option value="active" ${filters.status==='active'?'selected':''}>有效授权</option><option value="revoked" ${filters.status==='revoked'?'selected':''}>已撤销</option><option value="all" ${filters.status==='all'?'selected':''}>全部状态</option></select></label></div><div id="records-area"></div><div class="alert"><strong>审批方式待确认（Q1）</strong><p>原型可以查看、填写和保存演示草案；不提交真实申请。</p></div><p class="footer-note">计数限定在当前管理范围；演示参考日期为 2026-10-08。</p></div></section><section class="card" id="detail-panel" aria-label="人员授权详情"></section></div>`;
+    }
+    function updatePeople(){
+      const search=filters.search.toLowerCase();
+      const visible=data.grants.filter(g=>(filters.group==='all'||g.group===filters.group)&&(filters.status==='all'||g.status===filters.status)&&`${g.subject} ${roleName(g.template)} ${g.group}`.toLowerCase().includes(search));
+      if(visible.length&&!visible.some(g=>g.subject===selected)){selected=visible[0].subject;focusedGrant=visible[0].id;}
+      document.getElementById('records-area').innerHTML=visible.length?`<div class="table-wrap"><table class="responsive"><thead><tr><th>人员</th><th>角色版本</th><th>范围</th><th>有效至</th><th>状态</th></tr></thead><tbody>${visible.map(g=>`<tr class="${g.id===focusedGrant?'selected':''}"><td><button class="person-btn" data-subject="${g.subject}" data-focused="${g.id}" aria-label="查看 ${g.subject} 的 ${roleName(g.template)} ${g.group} 组授权">${g.subject}<small>合成人员</small></button></td><td data-label="角色">${roleName(g.template)}</td><td data-label="范围">${g.group} 组</td><td data-label="有效至">${g.until.slice(5)}</td><td>${grantTag(g)}</td></tr>`).join('')}</tbody></table></div>`:empty('当前筛选下暂无授权','调整检验组、状态或搜索条件后再查看。');
+      document.getElementById('detail-panel').innerHTML=visible.length?personDetails(selected):empty('请选择一条授权','列表仅显示当前管理范围内的合成记录。');
+    }
+    function grantCard(g,withButton=true){
+      return `<article class="grant ${g.id===focusedGrant?'active-grant':''}"><div class="grant-head"><h3>LIMS / ${roleName(g.template)}</h3>${grantTag(g)}</div><dl><dt>范围</dt><dd>${g.group} 组</dd><dt>动作</dt><dd>${actionNames(g.template).map(escapeHTML).join('、')}</dd><dt>期限</dt><dd>${timeframe(g)}</dd><dt>批准依据</dt><dd>${escapeHTML(g.basis)}（合成）</dd></dl>${withButton?`<button class="btn link" data-grant-info="${g.id}">查看这条授权</button>`:''}</article>`;
+    }
+    function personDetails(subject){
+      const grants=data.grants.filter(g=>g.subject===subject);
+      return `<h2>${subject} · 合成人员</h2><p class="meta" style="margin-top:7px">授权解释 · 每条范围分别判断</p>${grants.map(g=>grantCard(g)).join('')}<p class="explain">${subject==='U-X'?'A 组复核与 B 组只读分别成条；A 组的复核动作不会用于 B 组。':'当前只读岗位限定在 A 组。'}</p><div class="actions"><button class="btn" data-new-request data-person="${subject}">发起变更申请</button><button class="btn danger" data-revoke-person="${subject}" ${grants.some(g=>g.status==='active')?'':'disabled'}>选择授权撤销</button></div>`;
+    }
+    function requestsPage(){
+      return `${title('申请审批','核对固定申请内容、人员资格和范围，再形成审批决定。',`<button class="btn primary" data-new-request>＋ 新建申请</button>`)}<div class="steps"><span>1 申请及资格核对</span><span>2 审批方式确认</span><span>3 批准后核对生效</span></div><div class="grid-main"><section class="card"><div class="card-head"><h2>演示申请</h2>${tag('Q1 / Q2 待确认','amber')}</div><div class="table-wrap"><table class="responsive"><thead><tr><th>申请</th><th>对象及岗位</th><th>范围</th><th>状态</th></tr></thead><tbody>${data.requests.map(r=>`<tr class="${r.id===requestSelected?'selected':''}"><td><button class="person-btn" data-request="${r.id}">${r.id}<small>内容版本 ${r.revision}</small></button></td><td data-label="申请对象">${r.subject}<br><span class="meta">${roleName(r.template)}</span></td><td data-label="范围">${r.group} 组</td><td>${tag(r.status,r.status==='草案'?'gray':'amber')}</td></tr>`).join('')}</tbody></table></div><p class="footer-note">保存草案只改变内存中的演示记录；批准与生效不合并显示。</p></section><section class="card" id="request-panel" aria-label="申请核对详情"></section></div>`;
+    }
+    function updateRequest(){
+      const r=data.requests.find(x=>x.id===requestSelected)||data.requests[0];
+      if(!r)return;
+      const existing=data.grants.filter(g=>g.subject===r.subject&&g.status==='active');
+      document.getElementById('request-panel').innerHTML=`<div class="card-head"><h2>${escapeHTML(r.id)}</h2>${tag(r.status,'amber')}</div><dl class="description"><dt>申请对象</dt><dd>${r.subject}（合成）</dd><dt>申请人</dt><dd>${r.requester}（合成）</dd><dt>内容版本</dt><dd>${r.revision}；变更后重新核对</dd></dl><div class="change"><h3>原有授权</h3>${existing.length?existing.map(g=>`<p>LIMS / ${roleName(g.template)} · ${g.group} 组</p>`).join(''):'<p>暂无有效演示授权</p>'}</div><div class="change new"><h3>这次拟新增</h3><p>LIMS / ${roleName(r.template)} · ${r.group} 组</p><p>${timeframe(r)}</p><p class="small">${r.template==='analyst'?'读取口径待确认；提交仍限定本人业务条件。':'原有授权分别保留，新增范围按条核对。'}</p></div><div style="margin-top:18px"><h3>申请理由</h3><p class="muted" style="margin-top:8px">${escapeHTML(r.reason)}</p></div><ol class="flow"><li><h3>申请及人员资格</h3><p>核对人员关联、任职资格及申请依据。</p></li><li><h3>审批方式尚待确认（Q1）</h3><p>没有绑定真实审批人；本人增权需要独立审批。</p></li><li><h3>批准后再确认生效</h3><p>“已批准待生效”与“已生效”分别显示。</p></li></ol><button class="btn full" disabled>审批决定 · 待规则确认</button><p class="footer-note">当前原型不执行审批或授予真实权限。</p>`;
+    }
+    function templatesPage(){
+      return `${title('角色模板','岗位动作固定在明确版本中；发布新版本不自动扩大旧授权。')}<div class="template-grid">${templates.map(t=>`<section class="card template-card"><div class="card-head"><h2>${t.name}</h2>${tag('v'+t.version)}</div>${tag(t.id==='analyst'?'读取规则待确认':'固定示例版本',t.id==='analyst'?'amber':'green')}<p class="muted">${t.note}</p><ul class="plain-list">${actionNames(t.id).map(a=>`<li>${a}</li>`).join('')}</ul><button class="btn" data-template="${t.id}">查看版本详情</button></section>`).join('')}</div><div class="card" style="margin-top:20px"><h2>新增应用与功能</h2><p class="muted" style="margin-top:12px">按后端注册的应用、动作和范围扩展可授目录。模板只包含本版本明确动作；增权需要新版本及新的授权依据。</p><div class="alert"><strong>新版本不自动升级人员</strong><p>界面先说明动作、范围和受影响授权的变化，再发起明确的升级申请。</p></div></div>`;
+    }
+    function catalogPage(){
+      return `${title('权限目录','展示应用提供的动作与范围说明；目录为只读候选，不编辑后端规则。')}<section class="card"><div class="card-head"><h2>LIMS · 动作目录</h2>${tag('合成目录')}</div><div class="table-wrap"><table class="responsive"><thead><tr><th>中文动作</th><th>资源</th><th>范围</th><th>试点状态</th></tr></thead><tbody>${actions.map(a=>`<tr><td><strong style="font-weight:500">${a.name}</strong><details><summary class="meta">专业标识</summary><small>${a.id}</small></details></td><td data-label="资源">${a.type}</td><td data-label="范围">检验组 + 相应业务守卫</td><td>${tag(a.phase,a.phase==='首批候选'?'':'gray')}</td></tr>`).join('')}</tbody></table></div><div class="info" style="margin-top:20px">“后续范围”表示首批新模板不会自动授予这些动作，既有业务功能仍按明确迁移基线处理。实际接入和原生入口验证均未执行。</div></section>`;
+    }
+    function auditPage(){
+      return `${title('授权审计','查看管理范围内的变更、原因与结果，保留历史依据。')}<section class="card"><div class="card-head"><h2>合成事件</h2>${tag(data.events.length+' 条 · 演示','gray')}</div><div class="table-wrap"><table class="responsive"><thead><tr><th>时间 / 对象</th><th>事件</th><th>关联记录</th><th>操作人</th><th>原因 / 结果</th></tr></thead><tbody>${data.events.slice().reverse().map(e=>`<tr><td>${escapeHTML(e.time)}<br><small>${e.subject}</small></td><td data-label="事件">${e.event}</td><td data-label="关联">${e.target}</td><td data-label="操作人">${e.actor}</td><td data-label="原因">${escapeHTML(e.reason)}<br>${tag(e.result,e.result.includes('撤销')?'gray':'green')}</td></tr>`).join('')}</tbody></table></div><p class="footer-note">${localNote}原型没有外部发送、导出或删除审计功能。</p></section>`;
+    }
+    function minePage(){
+      const grants=data.grants.filter(g=>g.subject==='U-X'&&g.status==='active');
+      const requests=data.requests.filter(r=>r.subject==='U-X');
+      let body='';
+      if(mineScene==='none')body=empty('暂无此应用的业务授权','可以查看可申请岗位及要求，申请获批并生效后再办理业务。',`<button class="btn primary" data-available>查看可申请岗位</button>`);
+      else if(mineScene==='relation')body=empty('人员关联待核对','该业务需要的人员关系尚不可核验。本人资料与申请入口可以分别查看，不据缺失关系放行业务。',`<button class="btn" data-available>查看可申请岗位</button>`);
+      else if(mineTab==='grants')body=grants.length?`<div class="self-grid">${grants.map(g=>`<section class="card">${grantCard(g)}<p class="footer-note">有效至 ${g.until}；${ending(g.until)} 零点失效（演示时区 Asia/Shanghai）。</p></section>`).join('')}</div><div class="actions"><button class="btn" data-available>查看可申请岗位</button></div>`:empty('暂无有效演示授权','查看历史或申请新的岗位授权。',`<button class="btn" data-available>查看可申请岗位</button>`);
+      else body=`<div class="self-grid">${requests.map(r=>`<section class="card"><div class="card-head"><h3>${r.id}</h3>${tag(r.status,'amber')}</div><p class="muted">LIMS / ${roleName(r.template)} · ${r.group} 组</p><p class="meta" style="margin-top:8px">${timeframe(r)}</p><ol class="flow"><li><h3>申请内容已形成</h3><p>${escapeHTML(r.reason)}</p></li><li><h3>审批方式 / 读取规则待确认</h3><p>没有新增业务权限。</p></li><li><h3>审批后确认生效</h3><p>显示最终授权结果。</p></li></ol></section>`).join('')}</div>`;
+      return `${title('我的权限','查看本人获准的岗位、范围及期限，跟踪本人申请。')}<div class="self-top"><h2>U-X · 本人（合成）</h2><label><span class="sr-only">切换本人演示场景</span><select id="mine-scene"><option value="normal" ${mineScene==='normal'?'selected':''}>演示：正常授权</option><option value="none" ${mineScene==='none'?'selected':''}>演示：暂无业务授权</option><option value="relation" ${mineScene==='relation'?'selected':''}>演示：人员关联待核对</option></select></label></div><div class="tabs" aria-label="本人权限及申请"><button data-mine-tab="grants" class="${mineTab==='grants'?'active':''}" ${mineTab==='grants'?'aria-current="page"':''}>当前授权</button><button data-mine-tab="requests" class="${mineTab==='requests'?'active':''}" ${mineTab==='requests'?'aria-current="page"':''}>我的申请</button></div>${body}`;
+    }
+    function openGrant(id){
+      const g=data.grants.find(x=>x.id===id);
+      if(!g)return;
+      openDialog('逐条授权说明',`<dl class="description"><dt>人员</dt><dd>${g.subject}（合成）</dd><dt>授权记录</dt><dd>${g.id}</dd><dt>状态</dt><dd>${grantTag(g)}</dd><dt>角色版本</dt><dd>LIMS / ${roleName(g.template)}</dd><dt>范围</dt><dd>检验组 ${g.group}</dd><dt>明确动作</dt><dd>${actionNames(g.template).join('、')}</dd><dt>有效期</dt><dd>${timeframe(g)}；${ending(g.until)} 零点失效</dd><dt>批准依据</dt><dd>${g.basis}（合成）</dd></dl><div class="info" style="margin-top:20px">范围和动作在本条授权内一起判断。业务记录仍需满足状态、本人归属与职责分离要求。</div><p class="footer-note">此记录仅为演示；正式人员、批准依据及 Site 时区仍待核实。</p>`,`<button class="btn" data-close>关闭</button>`);
+    }
+    function openTemplate(id){
+      const t=templateOf(id);
+      openDialog('角色版本详情',`<div class="card-head"><h2>LIMS / ${t.name} v${t.version}</h2>${tag('固定示例版本')}</div><p class="muted">${t.note}</p><ul class="plain-list" style="margin-top:16px">${actionNames(id).map(a=>`<li>${a}</li>`).join('')}</ul><div class="info" style="margin-top:20px">新动作不自动进入本版本。增权须形成新版本，并逐条升级经过批准的授权。</div>${id==='analyst'?'<div class="alert"><strong>读取口径待确认（Q2）</strong><p>没有选定本人负责或批准组内全部，当前不启用该选择。</p></div>':''}`,`<button class="btn" data-close>关闭</button>`);
+    }
+    function openAvailable(){
+      openDialog('可申请岗位 · 合成目录',`<p class="muted">首批原型使用 LIMS 举例，实际可申请目录由后端资格与范围共同限制。</p>${templates.map(t=>`<div class="change"><h3>${t.name} v${t.version}</h3><p>${t.note}</p></div>`).join('')}<div class="alert"><strong>当前只能填写演示草案</strong><p>审批方式及检验员读取规则没有确定。</p></div>`,`<button class="btn" data-close>返回</button><button class="btn primary" data-new-request data-person="U-X">填写演示申请</button>`);
+    }
+    function openRequest(subject=selected){
+      const self=perspective==='self';
+      openDialog('新建授权申请',`<div class="steps"><span>1 选择人员</span><span>2 岗位与范围</span><span>3 核对申请</span></div><form id="request-form"><div class="form-grid"><label class="wide"><span class="label">申请对象 · 合成人员</span><select id="req-subject" ${self?'disabled':''}>${people.map(p=>`<option value="${p.id}" ${p.id===(self?'U-X':subject)?'selected':''}>${p.id} · 合成员工关联 ${p.employee}</option>`).join('')}</select></label><label><span class="label">应用</span><input value="LIMS" readonly></label><label><span class="label">岗位及固定版本</span><select id="req-template">${templates.map(t=>`<option value="${t.id}" ${t.id==='analyst'?'selected':''}>${t.name} v${t.version}${t.id==='analyst'?'（候选）':''}</option>`).join('')}</select></label><label class="wide"><span class="label">检验组范围</span><select id="req-group"><option value="A">A 组</option><option value="B" selected>B 组</option></select></label><label><span class="label">生效日期</span><input id="req-from" type="date" value="2026-10-08" required></label><label><span class="label">有效至 · 次日零点失效</span><input id="req-until" type="date" value="2026-10-31" required></label><label class="wide"><span class="label">申请理由</span><textarea id="req-reason" required minlength="4" maxlength="240" placeholder="说明岗位、范围与期限的业务依据">阶段性参与 B 组检验工作（合成示例）</textarea></label></div><div id="form-rule"></div><section class="summary"><h3>核对这条申请</h3><div id="request-summary"></div></section><p class="footer-note">保存草案仅保留在当前页面内存；刷新后丢弃，不写入浏览器持久存储。</p></form>`,`<button class="btn" data-close>取消</button><button class="btn" id="save-draft" type="button">保存演示草案</button><button class="btn primary" disabled>提交申请 · 待规则确认</button>`);
+      updateForm();
+    }
+    function updateForm(){
+      const t=templateOf(document.getElementById('req-template').value);
+      const group=document.getElementById('req-group').value;
+      document.getElementById('form-rule').innerHTML=`<div class="alert"><strong>${t.id==='analyst'?'审批（Q1）与读取规则（Q2）待确认':'审批方式待确认（Q1）'}</strong><p>${t.id==='analyst'?'读取口径没有默认值；当前不能审批或生效。':'申请提交尚未接入后端；原型只保存演示草案。'}</p></div>`;
+      document.getElementById('request-summary').innerHTML=`<dl class="description"><dt>人员</dt><dd>${document.getElementById('req-subject').value}（合成）</dd><dt>岗位版本</dt><dd>LIMS / ${t.name} v${t.version}</dd><dt>范围</dt><dd>检验组 ${group}</dd><dt>拟授动作</dt><dd>${actionNames(t.id).join('、')}</dd><dt>有效期</dt><dd>${escapeHTML(document.getElementById('req-from').value)} 至 ${escapeHTML(document.getElementById('req-until').value)}</dd><dt>审批方式</dt><dd>待确认</dd></dl>`;
+    }
+    function saveDraft(){
+      const form=document.getElementById('request-form');
+      if(!form.reportValidity())return;
+      const from=document.getElementById('req-from').value,until=document.getElementById('req-until').value;
+      if(until<from){document.getElementById('req-until').setCustomValidity('有效截止日期不能早于生效日期。');document.getElementById('req-until').reportValidity();return;}
+      const reason=document.getElementById('req-reason').value.trim();
+      if(reason.length<4){document.getElementById('req-reason').setCustomValidity('请填写至少四个有效字符的申请理由。');document.getElementById('req-reason').reportValidity();return;}
+      const id='AP-DEMO-'+String(data.requests.length+1).padStart(2,'0');
+      data.requests.push({id,subject:document.getElementById('req-subject').value,template:document.getElementById('req-template').value,group:document.getElementById('req-group').value,from,until,reason,status:'草案',requester:perspective==='admin'?'U-M':'U-X',revision:1});
+      modal.close();requestSelected=id;
+      if(perspective==='self'){mineTab='requests';navigate('mine');}else navigate('requests');
+      toast('演示草案已保存。没有提交审批或新增业务权限；刷新后重置。');
+    }
+    function openRevoke(subject){
+      const grants=data.grants.filter(g=>g.subject===subject&&g.status==='active');
+      openDialog('选择一条授权撤销',`<p class="muted">${localNote}</p><form id="revoke-form" style="margin-top:18px"><label><span class="label">撤销对象 · 按条选择</span><select id="revoke-grant" required><option value="">请选择具体一条授权</option>${grants.map(g=>`<option value="${g.id}">${g.subject} / ${roleName(g.template)} / ${g.group} 组</option>`).join('')}</select></label><label style="margin-top:18px"><span class="label">撤销理由</span><textarea id="revoke-reason" required minlength="4" maxlength="240" placeholder="说明撤销依据（只用于合成示例）"></textarea></label><div class="alert"><strong>影响限定在所选授权</strong><p>其他授权分别保留，既有业务历史不删除。本原型不执行实际撤权。</p></div></form>`,`<button class="btn" data-close>取消</button><button class="btn danger" id="confirm-revoke">确认撤销（仅演示）</button>`);
+    }
+    function revoke(){
+      if(!document.getElementById('revoke-form').reportValidity())return;
+      const reason=document.getElementById('revoke-reason').value.trim();
+      if(reason.length<4){document.getElementById('revoke-reason').setCustomValidity('请填写至少四个有效字符的撤销理由。');document.getElementById('revoke-reason').reportValidity();return;}
+      const g=data.grants.find(g=>g.id===document.getElementById('revoke-grant').value);
+      if(!g||g.status!=='active'){toast('这条演示记录已变化，请重新核对。');return;}
+      g.status='revoked';
+      data.events.push({time:'2026-10-08 · 本次演示',subject:g.subject,event:'撤销演示授权',target:g.id,actor:'U-M（合成）',reason,result:'演示已撤销'});
+      modal.close();render();toast('所选合成记录已撤销；其他授权分别保留。刷新可重置。');
+    }
+    document.addEventListener('click',e=>{
+      const b=e.target.closest('button');if(!b||b.disabled)return;
+      if(b.dataset.page)navigate(b.dataset.page);
+      else if(b.hasAttribute('data-new-request'))openRequest(b.dataset.person||selected);
+      else if(b.dataset.subject){selected=b.dataset.subject;focusedGrant=b.dataset.focused;updatePeople();}
+      else if(b.dataset.grantInfo)openGrant(b.dataset.grantInfo);
+      else if(b.dataset.request){requestSelected=b.dataset.request;render();}
+      else if(b.dataset.template)openTemplate(b.dataset.template);
+      else if(b.dataset.revokePerson)openRevoke(b.dataset.revokePerson);
+      else if(b.hasAttribute('data-available'))openAvailable();
+      else if(b.dataset.mineTab){mineTab=b.dataset.mineTab;render();}
+      else if(b.id==='save-draft')saveDraft();
+      else if(b.id==='confirm-revoke')revoke();
+    });
+    document.addEventListener('input',e=>{
+      if(e.target.id==='people-search'){filters.search=e.target.value;updatePeople();}
+      if(e.target.id?.startsWith('req-')){e.target.setCustomValidity('');if(e.target.id==='req-until'||e.target.id==='req-from')document.getElementById('req-until').setCustomValidity('');updateForm();}
+      if(e.target.id==='revoke-reason')e.target.setCustomValidity('');
+    });
+    document.addEventListener('change',e=>{
+      const id=e.target.id,value=e.target.value;
+      if(id==='group-filter'){filters.group=value;updatePeople();}
+      if(id==='status-filter'){filters.status=value;updatePeople();}
+      if(id==='mine-scene'){mineScene=value;render();}
+      if(id==='perspective'){perspective=value;page=value==='admin'?'people':'mine';render();}
+      if(id.startsWith('req-'))updateForm();
+    });
+    document.addEventListener('submit',e=>e.preventDefault());
+    document.getElementById('phone-toggle').addEventListener('click',e=>{
+      const on=document.body.classList.toggle('phone');
+      e.currentTarget.setAttribute('aria-pressed',String(on));e.currentTarget.textContent=on?'桌面预览':'手机预览';
+    });
+    document.getElementById('reset-demo').addEventListener('click',()=>{
+      if(modal.open)modal.close();data=JSON.parse(JSON.stringify(seed));filters={search:'',group:'all',status:'active'};selected='U-X';focusedGrant='G-DEMO-01';requestSelected='AP-DEMO-01';mineTab='grants';mineScene='normal';render();toast('已恢复初始合成数据。');
+    });
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Organization Command Receipt",
+ "module": "HBOS Portal",
+ "autoname": "field:record_key",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_key",
+  "site_id",
+  "actor",
+  "command_type",
+  "request_key",
+  "request_digest",
+  "result_json",
+  "recorded_at_utc"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_key",
+   "fieldtype": "Data",
+   "label": "record_key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "site_id",
+   "fieldtype": "Data",
+   "label": "site_id",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "actor",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "command_type",
+   "fieldtype": "Select",
+   "label": "command_type",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "create_position\nupdate_position\ncreate_assignment\nupdate_assignment"
+  },
+  {
+   "fieldname": "request_key",
+   "fieldtype": "Data",
+   "label": "request_key",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_digest",
+   "fieldtype": "Data",
+   "label": "request_digest",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "result_json",
+   "fieldtype": "Long Text",
+   "label": "result_json",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "recorded_at_utc",
+   "fieldtype": "Datetime",
+   "label": "recorded_at_utc",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "allow_import": 0,
+ "allow_copy": 0
+}

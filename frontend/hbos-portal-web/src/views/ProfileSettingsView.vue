@@ -25,7 +25,7 @@
           <a-descriptions-item label="已启用的登录方式"><span>{{ loginMethods.enabled }}</span><p class="login-method-detail">{{ loginMethods.detail }}</p></a-descriptions-item>
           <a-descriptions-item label="可用应用">{{ portal.apps.length }}</a-descriptions-item>
         </a-descriptions>
-        <a-button v-if="deskAccess" block @click="openProfile">管理个人资料</a-button>
+        <a-button v-if="deskAccess" block :href="profileTarget || undefined">管理个人资料</a-button>
       </section>
 
       <section class="settings-stack">
@@ -40,7 +40,7 @@
         <div v-if="deskAccess" class="setting-card glass-surface management-entry">
           <div class="setting-head"><div><h3>Management Console</h3><p>仅管理员 / 实施人员 / 高级业务管理员可进入</p></div><SafetyCertificateOutlined /></div>
           <a-alert message="进入后将切换到 Frappe Desk 管理后台界面。" type="info" show-icon />
-          <a-button style="margin-top: 14px" @click="openDesk">进入管理后台 <ArrowRightOutlined /></a-button>
+          <a-button style="margin-top: 14px" :href="deskTarget || undefined">进入管理后台 <ArrowRightOutlined /></a-button>
         </div>
       </section>
     </div>
@@ -58,6 +58,7 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
+import { businessNavigationTarget } from '@/services/businessNavigation'
 
 const portal = usePortalStore()
 const security = ref<SecurityStatus | null>(null)
@@ -69,8 +70,11 @@ const roleTag = computed(() => {
 const loginMethods = computed(() => describeLoginMethods(security.value))
 const deskAccess = ref(false)
 const canDiagnose = ref(false)
-function openDesk() { window.location.assign('/app') }
-function openProfile() { if (portal.user) window.location.assign(`/app/user/${encodeURIComponent(portal.user.id)}`) }
+// Desk 由 Frappe 处理；原生链接触发整页导航，不交给 Portal 的 Vue Router。
+const deskTarget = computed(() => businessNavigationTarget('/desk'))
+const profileTarget = computed(() => portal.user
+  ? businessNavigationTarget(`/desk/user/${encodeURIComponent(portal.user.id)}`)
+  : null)
 function updateSecurity(status: SecurityStatus | null) {
   security.value = status?.user === portal.user?.id ? status : null
   deskAccess.value = Boolean(security.value?.desk_access)

@@ -1,7 +1,7 @@
 # LIMS P4-F6-5 前端审核整改记录
 
-状态：**REVIEWING / 2026-10-02 m2-r11 合并后问题修复与本地验证完成 / 待完整真实流程及 Owner 验收**
-日期：2026-09-30；更新：2026-10-02
+状态：**REVIEWING / 2026-10-08 当前 Site 飞书登录已启用，精确回调通过 / Owner 完整 OAuth 待验收**
+日期：2026-09-30；更新：2026-10-08
 
 ## 1. 审核结论确认
 
@@ -206,3 +206,207 @@ Owner 反馈 5178 无法连接服务器：本机检查确认 5178 没有监听�
 - 本轮未执行真实 Frappe / Docker 联调、角色与签署写流程、OAuth / final-submit 或新部署后的 Owner 验收；§10 的旧分支真实只读证据作为历史保留。既有 Ant vendor 构建体积提示保留。
 
 已同步 PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、RP3 账号边界主记录及 README / AI_CONTEXT / READING_GUIDE；CLAUDE / AGENTS 已检查，无过期阶段描述，无需改动。本轮未新增业务轮次，P4-F6-5 保持 REVIEWING。未新建或切换分支、提交、推送、部署或改写真实账号数据；后续先补真实运行态与 Owner 验收，再进行放行。
+
+## 12. 2026-10-07 恢复 5178 开发入口
+
+状态：**LOCAL ENTRY HTTP CHECK PASS / REVIEWING**。Owner 反馈 5178 无法连接服务，按该问题恢复既有 Portal 开发入口；权限管理仍保持“先不动代码、第一步逐项推进”。当前分支为 `m2-r11@27d3558`，没有创建或切换分支。
+
+### 原因与处理
+
+- 5178 没有监听进程，连接失败发生在前端服务入口。仓库 Vite 配置及 package.json 已指定 5178 为真实 Frappe 开发，5193 为 Mock；5178 与固定 P1 的 5188 是不同入口。
+- 本机既有 `.env` 的路由摘要为 project `hbos-m0-r3a`、Site `frontend`、HTTP_PORT `8080`；只读取这些路由字段，没有输出凭据。8080 的公开 Frappe ping 返回 HTTP 200 / pong。
+- 使用已存在的 Node、npm 和 node_modules，以现有命令恢复前端；未执行会安装 App 或刷新后端的整套启动脚本，也未运行依赖安装。
+
+```bash
+cd frontend/hbos-portal-web
+VITE_FRAPPE_PROXY_TARGET=http://127.0.0.1:8080 \
+VITE_FRAPPE_APP_ORIGIN=http://127.0.0.1:8080 \
+npm run dev:frappe -- --host 127.0.0.1
+```
+
+开发进程保留运行，仅监听 `127.0.0.1:5178`；Vite 的 strictPort 继续启用，没有自动改端口或切换数据源。
+
+### 实际验证
+
+| 检查 | 本轮结果 |
+| --- | --- |
+| lsof 监听 | Node 监听 127.0.0.1:5178 |
+| /hbos、/hbos/login、/hbos/lims | 均 HTTP 200，返回含 Vite 入口的 HTML |
+| /@vite/client、/src/main.ts | 均 HTTP 200；入口模块注入 frappe 数据模式 |
+| 5178 代理的 /api/method/frappe.ping | HTTP 200 / pong |
+| 无凭据访问受保护 Bootstrap | HTTP 403，未登录仍被拒绝 |
+
+这是入口、模块传输与代理连通性检查，没有浏览器渲染、真实登录或签署业务验收证据；HTML 200 不代表各业务页面或权限已经完整验收。不因本次恢复重跑无关测试或更新源码。
+
+本轮只有运行进程恢复及文档同步，未修改业务代码、依赖、Site 配置、账号、角色、数据库或 Docker 服务。PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE 和公共入口已同步；CLAUDE / AGENTS 的规则无变化，无需修改。未提交、推送或部署。
+
+权限管理的 P1 来源定位仍为 PARTIAL / 实际权限盘点 NOT_RUN；恢复 frontend 的 5178 开发入口不等于找到了 P1，不自动替换固定目标。P4-F6-5 继续 REVIEWING，完整真实角色 / 签署流程与 Owner 验收仍待办。
+
+## 13. 2026-10-08 退出后密码登录来源修复
+
+状态：**LOCAL LOGIN ORIGIN FIX VERIFIED / REVIEWING / Owner 真实登录待复验**。Owner 截图显示退出后密码登录报“安全会话已更新”。沿用既有 `m2-r11`，未创建或切换分支，保留工作区权限原型、资料页及其他已有改动。项目指定 superpowers 当前不可用，按既有规则人工执行；未调整 Skill 路由。
+
+### 根因与最小修复
+
+- 使用匿名会话和虚构账号复现：`127.0.0.1:5178` 的 `password_login` 返回 HTTP 400 / CSRFTokenError，服务端实际消息为“请求来源无效”；同源 localhost 请求返回 HTTP 401 / AuthenticationError，已到密码校验。错误发生于 `require_post`，不能据此认定真实密码错误。
+- 只读配置确认既有 frontend Site 的规范来源为 `http://127.0.0.1:8080`，已启用 `hbos_account_test_site=1`，开发来源只有 `http://localhost:5178`。代码还只接受 localhost / .localhost 开发来源，不能直接添加回环 IP 生效。nginx 转发 Host 使用 `$host`；Origin/Host 主机名须保持一致。
+- `accounts.require_post` 仅对测试 Site 的显式开发来源增加 `127.0.0.1` / `::1` 支持；不启用隐式回环通配、不改变生产来源、不移除 Origin/Host 匹配、Guest JSON/X-Requested-With 或已登录 Session CSRF 校验。
+- `frappeClient` 将“请求来源无效”识别为 `INVALID_ORIGIN`，提示使用配置入口，真实令牌失配仍为 `CSRF_MISMATCH`。没有自动重放密码或业务写请求。
+
+### 本机应用与回退证据
+
+既有 backend 挂载当前 `apps/hbos_portal`。修改配置前校验既有测试标志和规范来源，备份至容器私有目录：
+
+```text
+/home/frappe/frappe-bench/sites/frontend/private/backups/login-origin-20261008-ihiexbsc/site_config.json
+```
+
+备份目录权限 0700、文件权限 0600，内容未输出或提交。配置仅向原开发来源列表追加 `http://127.0.0.1:5178`，保留原 localhost 和 8080 规范来源。原 Gunicorn 主进程收到 SIGHUP 平滑加载，不重建容器或 Site，不迁移数据库，不修改账号、密码、绑定、角色或权限。若回退，仅还原该私有配置备份并平滑加载，源码按本节最小 diff 撤销，禁止重置整个已有工作区。
+
+### 验证与限制
+
+| 检查 | 结果 |
+| --- | --- |
+| 修复前新增来源 / 错误提示回归 | 回环 IP 被拒绝，来源提示错误；新增用例复现失败 |
+| 后端账号相关隔离测试 | 20 项通过，含显式回环、生产禁用、未配置 / 错端口 / 外部来源 / Host 不匹配拒绝、当前 CSRF 仍必需 |
+| Vitest + Node 前端测试 | 66 + 34 = 100 项通过，含退出 → Guest 密码登录 → 新会话令牌、密码只提交一次 |
+| lint、类型、LIMS 前端契约、真实模式生产构建 | 通过；既有大 chunk 提示保留 |
+| 127.0.0.1:5178 浏览器表单 | 修复后虚构账号返回“账号或密码不正确”，原来源拦截解除；未使用截图密码 |
+| 补充真实 HTTP 来源矩阵 / 匿名 Bootstrap | 自动审批连接中断，动作未执行；不记为运行态 PASS，不用隔离测试替代 |
+| Owner 真实账号成功登录与完整退出再登录 | 待本人复验，不记 PASS |
+
+浏览器截图为 `/private/tmp/HBOS_登录来源修复验证_20261008.jpg`，只含虚构账号及已清空的密码框，为临时本机证据，不是实际账号成功登录截图。前端构建只做验证，未替换部署制品或远端发布。
+
+收尾时检测到同一工作区其他进程正在修改启动脚本及 `frappeClient` 的 CSRF 消息映射。保留这些改动，将本次 `INVALID_ORIGIN` 分支与消息映射衔接；中间快照的未接入映射 / 类型问题不记通过。最终 lint、类型、66 + 34 项前端测试和真实模式构建连续通过，登录 service 及两份本轮回归文件的 SHA-256 在整轮检查前后一致。其他进程的启动脚本改动不属于本轮修复或完整审查结论。
+
+PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、账号轮次主文档 M1_RP3 与本记录已同步；README、AI_CONTEXT、READING_GUIDE 和 Portal README 已更新，后者的旧 `m2-r10` 当前分支描述已更正。CLAUDE / AGENTS 为规则文件，检查后无需修改。未新增文档文件、提交、推送或部署；新增测试复用既有生态约定文件名，截图使用中文名。
+
+P4-F6-5 仍 REVIEWING，权限管理原型仍待 Owner 审查，P1 PARTIAL / 实际盘点 NOT_RUN、Q1 / Q2 与 S01—S06 门禁保持原状；本次登录修复不构成权限实现或业务验收批准。
+
+
+## 14. 2026-10-08 个人资料与管理后台入口修复
+
+状态：**LOCAL DESK NAVIGATION FIX VERIFIED / REVIEWING / Owner 登录后点击待复验**。沿用既有 `m2-r11`，不创建或切换分支；保留工作区已有登录修复、权限原型及其他变更。superpowers 当前不可用，按项目规则人工执行等价定位、回归与核对。
+
+### 根因与修复
+
+- 原入口将 `/app` 和 `/app/user/<当前用户>` 发往 Portal 开发来源 5178。Vite 返回 Portal HTML，Vue catch-all 显示截图中的 HBOS 404；这不是已证实的账号权限错误。
+- 实际 Frappe 16 使用 `/desk`；8080 上的旧 `/app` 会 301 到 `/desk`，因此旧路径本身不是后台 404 的根因。修复使用规范 `/desk` 路径和当前用户 ID 编码，避免依赖旧别名。
+- `ProfileSettingsView.vue` 通过既有 `businessNavigationTarget` 解析来源，两个入口改为带真实 href 的 Ant Design Vue 链接，触发整页导航；沿用原有 Desk 权限与用户身份校验，不增加授权。
+- Vite 在 Frappe 开发模式未显式配置 `VITE_FRAPPE_APP_ORIGIN` 时默认采用实际 API 代理目标。显式配置优先；生产缺省仍使用同源，隔离预览不会被固定到 8080。移除工作区此前 dev 命令对页面来源的硬编码，来源统一由配置解析。
+
+### 验证与边界
+
+| 检查 | 结果 |
+| --- | --- |
+| 新增组件回归 | 修复前两入口缺少预期 href；修复后覆盖本机 8080、隔离 18091、生产同源、当前用户编码及无 Desk 权限隐藏 |
+| Vite 配置回归 | 开发随实际代理、显式覆盖、生产同源全部通过 |
+| 前端测试 | Vitest 70 + Node 35 = 105 项通过 |
+| lint、类型检查、LIMS 前端契约、真实模式生产构建 | 通过；既有大 chunk 提示保留 |
+| 原 5178 的 /app 与用户路径 | HTTP 200 返回 Portal HTML，解释 SPA 404 |
+| 8080 的 /app 与用户路径 | 301 到对应 /desk 路径，旧别名有效 |
+| 8080 的 /desk 与当前用户路径（匿名） | 301 到带正确 redirect-to 的 Frappe 登录页，跟随跳转 HTTP 200 |
+| 5178 实际运行模块 | 两入口 href 与 /desk 路径已加载；公开页面来源解析为 http://127.0.0.1:8080 |
+| 匿名浏览器打开当前用户资料路径 | 到达 Frappe 登录页，URL 保留 /desk/user/Administrator 回跳目标，未进入 Portal 404 |
+| 登录后真实资料编辑 / Desk 页面及 Owner 点击验收 | 待复验，不记 PASS |
+
+浏览器证据：`/private/tmp/HBOS_资料后台入口路由验证_20261008.jpg`，是未登录时的受控登录页，不代表成功登录或资料编辑验收。截图已保存；收尾重新打开 5178 复验页时自动审批服务连接中断，未执行该次导航，没有绕过审批。HTTP 与已完成的浏览器目标验证不受此限制。
+
+本次没有修改后端源码、Site、账号、凭据、角色或数据库，没有执行真实业务写入。构建仅验证，未提交、推送或远端部署。PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、M1_RP3 与本记录已同步；README、AI_CONTEXT、READING_GUIDE、Portal README 和配置示例已更新。CLAUDE / AGENTS 的规则已检查，无需修改；未新增文档文件，回归复用既有测试文件。
+
+P4-F6-5 保持 REVIEWING，权限管理 UI_PROTOTYPE_DRAFT / 待审、P1 PARTIAL / 实际盘点 NOT_RUN、Q1 / Q2 未确认和 S01—S06 NOT_STARTED / 验收 NOT_RUN 均不变。
+
+
+## 15. 2026-10-08 当前 Site 飞书登录启用准备
+
+状态：**FEISHU LOGIN ENABLED / EXACT REDIRECT ACCEPTED / OWNER OAUTH PENDING / REVIEWING**。Owner 提供应用凭据并明确要求启用飞书登录；沿用 `m2-r11`，复用现有 OAuth、单次 state / 浏览器 nonce、PKCE、企业和内部成员核验实现。本轮不开发新登录方式或绑定旁路。superpowers、lark-shared 在当前环境未找到，按项目规则人工等价执行。
+
+### 当前环境与已完成工作
+
+- 5178 的实际后端是 `hbos-m0-r3a` / `frontend` / 8080。其飞书配置字段原先均缺失，`HBOS External Identity` 记录为 0；历史 P1 的真人成功不代表此 Site 已配置。
+- 使用用户明确提供的凭据向飞书官方应用 Token、企业信息和机器人信息接口验证：均成功，机器人为“海滨小助手”，企业为“健康元药业集团股份有限公司”。未输出或持久化 Token、未读取成员清单或聊天，未向飞书写业务数据。
+- 已创建 Site 私有备份目录 `/home/frappe/frappe-bench/sites/frontend/private/backups/feishu-login-20261008-jungc1vb`（0700），包含原 `site_config.json`、待启用 Secret、已由官方接口发现的企业标识、非活动配置草案（各 0600）。原先不存在活动 Secret / 企业私有文件；草案带 `requires_owner_confirmation=true`，没有修改活动配置或公开入口。主机隐藏输入使用的临时 Secret 文件已删除。
+- 当前 backend 缺少自动开户所需 pypinyin。只从官方 PyPI 下载既有 `requirements.txt` 锁定的 0.55.0 wheel，SHA-256 与仓库 `d53b1e8ad2cdb815fb2cb604ed3123372f5a28c6f447571244aca36fc62a286f` 一致，离线安装到现有 backend bench Python。运行态版本及合成姓名“张三”→ `zhangsan` 已验证；没有创建真实账号。
+- 此次只补现有 backend 容器中的依赖，不重建容器或改镜像、Compose。容器重建须使用已存在的 `Dockerfile.portal` / 锁定 requirements 构建路径，不能假定临时容器层安装会自动保留；本轮未改变队列 / scheduler 环境。
+- 账号 / OAuth / 诊断定向隔离测试 39 项通过；补齐临时测试依赖并采用包发现方式后，Portal 后端全部 68 项通过。最初的单文件 / 顶层发现方式存在 stub 或相对导入问题，主机原本也缺 pypinyin，未将这些中间失败记为 PASS；最终依赖仅展开在主机临时目录，没有安装到主机系统 Python。
+
+### 首次准备时的确认要求（Owner 已确认）
+
+现有 `scripts/release/configure_feishu.py` 要求确认发现的企业全称及控制台条件，不能仅凭 Secret 将 `app_published` / `redirect_registered` 标记为已核实。已向 Owner 询问：
+
+1. “健康元药业集团股份有限公司”是否就是本项目批准接入的企业。
+2. 下列精确回调是否已登记，内部可用范围及登录 / 成员读取权限是否已获批发布。
+
+```text
+http://127.0.0.1:5178/api/method/hbos_portal.auth.feishu.callback
+```
+
+用户 OAuth 仅请求 `contact:user.base:readonly`；应用身份另须具备既有内部成员核验所需权限（含 `contact:user.employee:readonly` 的在职状态，企业信息接口本次已验证成功）。不申请聊天读取、广泛业务写入或验证码发送权限。
+
+只读打开飞书控制台因自动审批服务连接中断被拒绝，操作未执行；未用其他浏览器或低层方式绕过。不能据此确认回调、发布范围或成员权限已经就绪。Owner 答复到达前不应用草案，不启用普通成员自动开户或 Administrator 绑定许可，不更改原规范来源。
+
+### 原定应用与复验步骤（已应用，真实回调未通过）
+
+收到上述明确确认后，只将本 Site 私有待启用 Secret / 企业标识和草案字段写入活动配置，保留现有 Origin/Host、CSRF 与账号策略；不得用 P1 身份映射替代当前 Site 的本人验证。平滑加载 Web 后核对 `get_status`、受保护 OAuth start、正确的 client_id / callback / scope、单次 state、PKCE 和浏览器 nonce；不输出授权票据或 Secret。
+
+`configured=true` 只代表配置条件满足。真人 OAuth、成员状态、已有账号本人绑定 / 新成员普通开户、退出再登录和 Owner 验收仍分别待执行；没有自动映射到 Administrator，也不启用收件验证码或高风险交接。
+
+若撤销准备，保留原活动配置，仅清理本次明确命名的待启用材料；若已应用再回退，使用本节私有配置备份并平滑加载，私有凭据按原存在性恢复，不重置工作区或数据库。依赖回退可只卸载本轮新增的 pypinyin；不影响原 Frappe 或 App。
+
+PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、M1_RP3、README、AI_CONTEXT、READING_GUIDE 和 Portal README 已同步；CLAUDE / AGENTS 规则已检查，无需修改。P4-F6-5 保持 REVIEWING，权限原型待审、P1 PARTIAL / NOT_RUN、Q1 / Q2 与 S01—S06 门禁不变。未新建分支、App、文档文件、提交、推送或远端部署。
+
+
+### Owner 确认后的实际应用与飞书结果（保存回调前，历史）
+
+Owner 随后明确回复“已确认”。应用前重新核对 `m2-r11` 与默认规则 / 状态文件，校验原私有草案、当前 Site、活动凭据缺失和企业证据。最初 Gunicorn 识别保护把主进程与 worker 一并计入，因唯一性检查失败而在配置写入前停止；只读核实 PID 1 为 master 后修正运行脚本，不改仓库源码。
+
+已将既有私有 Secret / 企业标识和草案字段原子应用到 frontend Site，文件 0600。另存 `site_config.before-apply.json` 和无凭据 `applied_receipt.json` 于本节原备份目录。原 `hbos_portal_origin` 保留，Administrator / privileged 绑定许可、收件验证码及高风险交接均未启用。Web 仅向核实的 Gunicorn master PID 1 发送 SIGHUP，不重建 Site 或容器。
+
+| 实际检查 | 结果 |
+| --- | --- |
+| 8080 / 5178 get_status（应用后） | HTTP 200，configured=true、missing=[]，PKCE=true，callback 正确 |
+| 两次独立匿名 OAuth start | HTTP 302 到 accounts.feishu.cn；client_id、精确 callback、基础身份 scope 正确，state / PKCE / nonce 各自不同 |
+| 浏览器绑定 | HttpOnly、SameSite=Lax；输出仅布尔检查，不记录 state、Cookie、code 或 Secret |
+| 匿名 Bootstrap | HTTP 403，配置启用不产生匿名访问权限 |
+| 实际 Portal 登录页 | “使用飞书登录”按钮已启用，已保存本机截图 |
+| 点击后实际飞书授权页 | **错误 20029：重定向 URL 有误**，未到本人授权或回调，不记登录成功 |
+| 保护处理后的 5178 状态 | configured=false，仅缺 redirect_registration；start 302 回 /hbos/login?status=config_required |
+| 真实用户 / 绑定 / 角色变更 | 未执行；没有创建普通账号或映射 Administrator |
+
+飞书真实返回优先于人工登记确认。仅将 `hbos_feishu_redirect_registered` 改回 0 并平滑加载，其他私有配置与 PKCE 保留，防止未通过的授权继续显示可用。私有 receipt 已记录 REJECTED_20029 / login_available=false。实际安全设置链接已打开，但该浏览器没有控制台会话，停在本人扫码登录页；已向 Owner 请求扫码登录后核对，或自行添加保存下列精确 URL 后复验：
+
+```text
+http://127.0.0.1:5178/api/method/hbos_portal.auth.feishu.callback
+```
+
+该安全设置为 `https://open.feishu.cn/app/cli_aa973f7d17b81cd8/safe`。没有代替本人扫码、批准新增权限或保存控制台配置。截图 `/private/tmp/HBOS_飞书回调20029_20261008.jpg` 为当前实际失败证据；此前 `/private/tmp/HBOS_飞书登录已启用_20261008.jpg` 只说明应用后的短暂启用状态，不代表当前入口仍开放。控制台登录页保留供 Owner 操作。
+
+本次源码未变化，前序 68 项隔离测试不重跑；新增运行态 HTTP / 浏览器证据如上，未完成真人 OAuth、成员核验、已有账号本人绑定和退出重登。若干配置 / HTTP 工具调用曾因自动审批服务连接中断未执行，同一低风险动作重新申请后成功；本轮实际控制台导航成功，不再将旧的打开失败作为当前访问障碍，当前缺口是本人控制台登录与精确回调保存。
+
+状态台账、M2 门禁、M1_RP3 和公共入口已更新为实际回调拒绝；CLAUDE / AGENTS 为规则文件，无需修改。继续不新增轮次、分支、App、提交、推送或远端部署；权限原型及 P1 / Q1 / Q2 / S01—S06 门禁保持原状。
+
+
+### Owner 保存回调后的最终复验与启用
+
+Owner 明确回复“已保存”。复核默认规则、状态文件、M2 门禁、账号主记录和 `m2-r11` 后，只恢复当前 frontend Site 的 `hbos_feishu_redirect_registered=1`，保留既有私有凭据和所有其他配置；向 Gunicorn master PID 1 发送 SIGHUP 平滑加载。没有修改仓库源码、Site 来源、账号、角色、其他回调或应用权限。
+
+在 Owner 已登录的飞书控制台安全设置中，只读确认精确 URL 已存在，应用为“海滨小助手”、状态“已启用”、企业匹配，并显示“当前修改均已发布”；没有编辑或删除其他登记项。
+
+为避免验证时自动为当前飞书人员开户，浏览器授权探测使用未由 HBOS 签发的测试 state 和公开的测试 PKCE challenge。真实飞书已经显示“海滨小助手”本人授权确认页，20029 消失；停在授权按钮之前，没有点击授权、兑换 code、读取成员资料或建立 HBOS 身份。该探测票据不能用来正常登录；测试页已关闭，正常操作须从 Portal 重新发起。
+
+| 最终检查 | 结果 |
+| --- | --- |
+| 控制台精确回调与发布状态 | URL 完全匹配 5178 callback，当前修改均已发布 |
+| 实际飞书授权页面 | 正常显示本人授权确认，20029 已消失 |
+| 5178 get_status | HTTP 200，configured=true、missing=[]、PKCE=true，callback 完全匹配 |
+| 正常 start 的 HTTP 验证 | HTTP 302，client_id / callback / scope 正确，fresh state / PKCE 及 HttpOnly / SameSite=Lax 浏览器绑定存在；未跟随授权 |
+| Site 身份绑定记录 | 仍为 0，本轮未创建真实账号或绑定 |
+| 本人完整 OAuth / 当前成员核验 / 原账号绑定 / 退出重登 | 待本人执行，不记 PASS |
+
+私有 `applied_receipt.json` 已更新为 ACCEPTED_AUTHORIZATION_PROMPT / login_available=true / owner_oauth=NOT_COMPLETED_BY_AGENT；文件为 0600。当前 Site 没有飞书身份绑定，原 Administrator 不自动关联；相关管理员 / privileged 绑定许可仍未开启，若 Owner 需要使用原管理员身份，须在明确目标后走原有本人验证 / MFA / 绑定流程，不用普通新账号替代原目标。
+
+本轮没有源码或依赖变更，不重复前序已通过的 68 项隔离测试。正常 start 验证仅保留布尔结果，未记录 state、Cookie、code、Token 或 Secret。浏览器证据 `/private/tmp/HBOS_飞书精确回调已通过_20261008.jpg` 是授权确认页，不能作为已登录成功证明；先前 20029 截图为历史失败证据。
+
+切回 Portal 登录页的浏览器动作因自动审批服务连接中断未执行；没有绕过该动作，已保存当前授权页证据并关闭测试页，避免 Owner 误用未签发的探测票据。Owner 自行保留的控制台页未关闭，正常登录使用 `http://127.0.0.1:5178/hbos/login`。最终 HTTP 和私有 receipt 更新均已完成，不因该可选导航失败将配置写成未启用。
+
+PROJECT_STATUS、CURRENT_MILESTONE、M2_START_GATE、M1_RP3、README、AI_CONTEXT、READING_GUIDE、Portal README 和本记录已同步为当前启用状态；CLAUDE / AGENTS 为规则文件，无需修改。P4-F6-5 仍 REVIEWING；权限原型待审、P1 PARTIAL / NOT_RUN、Q1 / Q2 与 S01—S06 门禁保持原状。未创建分支、App、提交、推送或远端部署。

@@ -1,0 +1,327 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-10",
+  "status": "S02_RESTORE_VOLUME_JOURNAL_CLEANUP_OFFLINE_VALIDATED",
+  "review_state": "PARTIAL / REVIEWING",
+  "production_entry": "5178_REAL_READONLY",
+  "branch": "m2-r11",
+  "head": "27d3558d8f5846b668fa1bbd582b5e46333c61b0",
+  "tests": {
+    "tests_run": 342,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "per_module": {
+      "test_full_site_restore_cleanup": 39,
+      "test_full_site_restore_inputs": 35,
+      "test_full_site_restore_journal": 46,
+      "test_full_site_restore_landing": 36,
+      "test_full_site_restore_lifecycle": 35,
+      "test_full_site_restore_ownership": 34,
+      "test_full_site_restore_plan": 19,
+      "test_full_site_restore_relay": 23,
+      "test_full_site_restore_transport": 17,
+      "test_full_site_restore_volumes": 22,
+      "test_full_site_restore_wire": 36
+    },
+    "elapsed_seconds": 1.378,
+    "python": "3.12.14",
+    "ast_3_10_files": 26,
+    "source_sha256": {
+      "scripts/release/full_site_restore/__init__.py": "95d945d1079216da565633df8cada183b8e167312d95f426bbb3caf5004687f5",
+      "scripts/release/full_site_restore/cleanup.py": "798f8a3d394281b309886264ea9e543d1d044c9452aa64f1d7adce1ed4402583",
+      "scripts/release/full_site_restore/common.py": "60fdcf9e109ff32d3de0312636005c209db14256154021231e959ddfaec3af38",
+      "scripts/release/full_site_restore/forward.py": "ed201a60d6f0db07cec28a9beb3a7f7db38517b6ed01a2f6023c377d5a872ca4",
+      "scripts/release/full_site_restore/inputs.py": "e1f63c52d48f31bd8e562955f80834d88bb28867713828ccfab55d816ec82f7a",
+      "scripts/release/full_site_restore/journal.py": "1133d8c5d4649be7b664c00d07d77e7b3377f5f22c0c8bc3820bab416135c7cb",
+      "scripts/release/full_site_restore/landing.py": "7c3463af62bb365bed2a6387344da484c9a326da1206cc4b0c94d0ae16f8e894",
+      "scripts/release/full_site_restore/lifecycle.py": "86b7053711f849ca08a3d83a8ee0d89e70120d949cc1efd842fd2e31f645bc82",
+      "scripts/release/full_site_restore/ownership.py": "48b0cba767674072c9275f397349eda09bf04aaa057035de2a4f1f2245bacd4f",
+      "scripts/release/full_site_restore/plan.py": "d9b8ff2cca0c159c2db91229575387e910d36e86f3288f2a4d4ca522a1fcb215",
+      "scripts/release/full_site_restore/relay.py": "e95d1ac0d6c6b55c35ae2092f84e8e91d4399ede5bd8f36f82ee602ce9734cc4",
+      "scripts/release/full_site_restore/transport.py": "a632dfb4742317aa97a984731af769cb250553d4c677f04eebc98ffb48acaae2",
+      "scripts/release/full_site_restore/volumes.py": "02eb01766752a954741f13190a15683e7abdd3c96367140a2f201bd5b76dea51",
+      "scripts/release/full_site_restore/wire.py": "9c8955a386d52d62287f13309eb69766db6bfc112e481d42f8915b43950357be",
+      "scripts/release/prepare_full_site_restore.py": "d8a9843b44721537fbfec9b51f63d9fa3219f2360358b7852691cc3024c50bed",
+      "scripts/release/tests/test_full_site_restore_cleanup.py": "4ee6c75ab580960887c9342fa8e5ecf09b51a69243883d18616843dddb527ab8",
+      "scripts/release/tests/test_full_site_restore_inputs.py": "b700268a35c37eb0ef1bf1419d3ca13648f2b77ebb7b795f956be76f265efb65",
+      "scripts/release/tests/test_full_site_restore_journal.py": "d00f44e8556775dafe78306d8af6f8a16e4fc6d02ca43883b18d2f69d88a83e6",
+      "scripts/release/tests/test_full_site_restore_landing.py": "1f8b165edd8b11a5a0728bf718f6fd672dae716eab976fd38a5680eedfda7f2c",
+      "scripts/release/tests/test_full_site_restore_lifecycle.py": "86929f37ecc1139a8375108fe96ff1dfbd42466f819c4f4756d5153111871b2c",
+      "scripts/release/tests/test_full_site_restore_ownership.py": "0efa409bbb34813bc86b84b61f2bb7fb03e44452f80e364ccbe00004d422e16c",
+      "scripts/release/tests/test_full_site_restore_plan.py": "829b44197ade17525cd4beccd223ca05f97aed1159dd5a3dd2dcdfaa2d4d947d",
+      "scripts/release/tests/test_full_site_restore_relay.py": "362bd15c2d0984abe4c43e62596f70acb94fd2b8ec8b3ff9c42852c00def35b4",
+      "scripts/release/tests/test_full_site_restore_transport.py": "2cdad72e5a515d44012a60f8e014028f22bd14ef00e33dd8b026dbd37442b347",
+      "scripts/release/tests/test_full_site_restore_volumes.py": "dc2796edcf3ba21989d1cb36f4990359c4bd4254c9cf891f108776bdeff440ed",
+      "scripts/release/tests/test_full_site_restore_wire.py": "9e37bc652be0fe3a23a42afd1ec582a529318283e4398d9c5146259503ded5ba"
+    },
+    "cli_default": {
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "status": "OFFLINE_PROPOSAL_ONLY",
+      "execution": "NOT_IMPLEMENTED",
+      "runtime_ready": false
+    },
+    "actual_root_exists": false
+  },
+  "source_readonly_audit": {
+    "status": "LOGIN_HOOK_SOURCE_READONLY_AUDIT_COMPLETED",
+    "report_sha256": "fd48303ac6f0c49d98795641a197d9d6b8eb2cf6d206b7c1da7d340b07f312fc",
+    "script_sha256": "2c11187658945a5f505ca0adae9760ec111089857e76ed56906cbf156f734509",
+    "docker_read_calls": 3,
+    "before_after_metadata_match": true,
+    "original_sql_connections": 0,
+    "site_app_imports": 0,
+    "service_control": 0,
+    "created_resources": 0,
+    "files": {
+      "apps/hbos_portal/hbos_portal/auth/accounts.py": {
+        "status": "READ",
+        "sha256": "a0bc9bd0052a1ba9df0d0049cd59c3d9e7c476f29768b39ac617f2fd2f013fa2",
+        "bytes": 41418
+      },
+      "apps/hbos_portal/hbos_portal/auth/security.py": {
+        "status": "READ",
+        "sha256": "2d1f3029a5e26176e34cd81af4c06581dbdbb6bb4d0c8382282a3934dde3c562",
+        "bytes": 7306
+      },
+      "apps/hbos_portal/hbos_portal/organization/native_read_boundary.py": {
+        "status": "READ",
+        "sha256": "4b6c3c3606adb68fca761d883207da419c5dfa63800d6e71c40eb5ef969389cb",
+        "bytes": 7115
+      },
+      "apps/frappe/frappe/desk/doctype/note/note.py": {
+        "status": "READ",
+        "sha256": "0f0140d0b0b2b243e6fa3679f4ddd4a5b8dd33db32a0f2ed2d58cd4143f9dce9",
+        "bytes": 3200
+      },
+      "apps/frappe/frappe/core/doctype/activity_log/feed.py": {
+        "status": "READ",
+        "sha256": "69aba9c5b5c2c542f8d8a25c9c1ddbc448a553ff9aa766e6faa306da5d2496ca",
+        "bytes": 680
+      },
+      "apps/frappe/frappe/core/doctype/user/user.py": {
+        "status": "READ",
+        "sha256": "8f2cb0c914c7d20b86ffad4603c689a4696322fe1ae9be84c7047817bdc9c500",
+        "bytes": 47626
+      },
+      "apps/erpnext/erpnext/portal/utils.py": {
+        "status": "READ",
+        "sha256": "1ac75b44df39937d0774f1d29400d31149025f7f055e26aa80f11692c1a83a3d",
+        "bytes": 2791
+      },
+      "apps/frappe/frappe/model/document.py": {
+        "status": "READ",
+        "sha256": "76eb218cfac4152f432cde4c211ad15a1b841c06d308f5bd7b7546dacc0a610a",
+        "bytes": 71389
+      },
+      "apps/frappe/frappe/email/doctype/notification/notification.py": {
+        "status": "READ",
+        "sha256": "3c5ee3c5923851cc176e1e61e235b53cbfe83852e8786f4144d03475ac034ac9",
+        "bytes": 30281
+      },
+      "apps/frappe/frappe/twofactor.py": {
+        "status": "READ",
+        "sha256": "2e60a925b910980d6a643f618379b173b20a694cdc89281d9e7ddc61691fff08",
+        "bytes": 14470
+      }
+    },
+    "backend_sleep": {
+      "/bin/sleep": {
+        "is_file": true,
+        "resolved": "/usr/bin/sleep",
+        "executable": true
+      },
+      "/usr/bin/sleep": {
+        "is_file": true,
+        "resolved": "/usr/bin/sleep",
+        "executable": true
+      }
+    },
+    "local_accounts_full_file_sha_matches_source": true,
+    "native_login_finite_writes": "NOT_READY",
+    "actual_clone_actor_config_notification_facts": "NOT_RUN",
+    "original_full_row_fingerprint_this_turn": "NOT_RUN"
+  },
+  "matrix_sha256": "c53b77d1cbba41242f4f6913786d4dec09304887dfe6cfee7f688db65de7b157",
+  "scope_proposal": {
+    "owner": "hbos-owned-site-restore-20261010-a7d3",
+    "root": "/private/tmp/hbos-owned-site-restore-20261010-a7d3",
+    "site": "frontend",
+    "roles": [
+      "db",
+      "redis-cache",
+      "redis-queue",
+      "backend",
+      "frontend"
+    ],
+    "volumes": [
+      "hbos-owned-site-restore-20261010-a7d3-db-data",
+      "hbos-owned-site-restore-20261010-a7d3-redis-cache-data",
+      "hbos-owned-site-restore-20261010-a7d3-redis-queue-data",
+      "hbos-owned-site-restore-20261010-a7d3-sites",
+      "hbos-owned-site-restore-20261010-a7d3-logs",
+      "hbos-owned-site-restore-20261010-a7d3-assets-data",
+      "hbos-owned-site-restore-20261010-a7d3-frappe-dist",
+      "hbos-owned-site-restore-20261010-a7d3-erpnext-dist",
+      "hbos-owned-site-restore-20261010-a7d3-hbos-lims-dist"
+    ],
+    "networks": 0,
+    "host": "hbos-restore.localhost:18092",
+    "origin": "http://hbos-restore.localhost:18092",
+    "host_bind": "127.0.0.1",
+    "port": 18092,
+    "run_seconds": 2700,
+    "cleanup_seconds": 600,
+    "container_incarnations": 10,
+    "max_simultaneous_containers": 5,
+    "phases": [
+      "namespace-volume-initialize",
+      "service"
+    ]
+  },
+  "runtime_gates": {
+    "volume_execution": "HARD_BLOCKED",
+    "journal_runtime_capture": "NOT_IMPLEMENTED",
+    "journal_cross_process_resume": "HARD_BLOCKED",
+    "journal_hash_chain_is_signature": false,
+    "same_uid_exclusive_control_required": true,
+    "empty_volume_observation_replay_proves_freshness": false,
+    "nested_mount_empty_volume_capture": "NOT_VERIFIED",
+    "stage_transition": "HARD_BLOCKED",
+    "cleanup_production_adapter": "HARD_BLOCKED",
+    "actual_engine_absence_capture": "NOT_IMPLEMENTED",
+    "listener": "NOT_IMPLEMENTED",
+    "actual_exec_exit_capture": "NOT_IMPLEMENTED",
+    "full_site_restore": "NOT_RUN",
+    "owner_login": "NOT_RUN",
+    "actual_key_decrypt": "NOT_RUN"
+  },
+  "kept_history": {
+    "previous_component_tests": 222,
+    "previous_guard_tests": 94,
+    "previous_evidence_overwritten": false
+  },
+  "public_entry_and_state_check": {
+    "updated": [
+      "README.md",
+      "docs/PROJECT_STATUS.md",
+      "docs/CURRENT_MILESTONE.md",
+      "docs/AI_CONTEXT.md",
+      "docs/READING_GUIDE.md",
+      "docs/milestones/M2_START_GATE.md",
+      "docs/plans/人员权限_完整Site恢复执行包.md",
+      "docs/plans/人员权限_原站只读预检与备份恢复准备范围.md",
+      "docs/plans/人员权限_5178只读管理启用配置与验收清单.md",
+      "docs/plans/人员权限_只读管理正式配置与装配规范.md",
+      "docs/milestones/M2_人员权限完整Site恢复执行组件实施记录.md",
+      "docs/milestones/M2_人员权限恢复卷与持久登记清理实施记录.md"
+    ],
+    "rules_checked_unchanged": [
+      "CLAUDE.md",
+      "AGENTS.md"
+    ],
+    "new_branch_commit_push": false
+  },
+  "pending_gates": [
+    "SOURCE_SNAPSHOT_CAPTURE_AND_HASH_NOT_RUN",
+    "SOURCE_LINK_AND_RUNTIME_DEPENDENCY_CLOSURE_NOT_VERIFIED",
+    "SERVICE_UID_GID_BINARY_AND_ENTRYPOINT_COMPATIBILITY_NOT_VERIFIED",
+    "EXPLICIT_IMAGE_VOLUME_COVERAGE_NOT_VERIFIED",
+    "PRIVATE_HOST_LANDING_OFFLINE_VALIDATED_CONTAINER_BIND_ADMISSION_NOT_IMPLEMENTED",
+    "REGISTRY_AND_JOURNAL_OFFLINE_VALIDATED_TRUSTED_CAPTURE_NOT_IMPLEMENTED",
+    "VOLUME_INITIALIZATION_OFFLINE_VALIDATED_DAEMON_UID_MODE_AND_NO_COPY_NOT_RUN",
+    "NESTED_MOUNT_EMPTY_VOLUME_CAPTURE_NOT_VERIFIED",
+    "TWO_BATCH_REPLACEMENT_FRESH_ABSENCE_RECEIPTS_AND_GENERATIONS_NOT_IMPLEMENTED",
+    "CONTAINER_VOLUME_LANDING_SQL_IMPORT_AND_FINGERPRINT_NOT_IMPLEMENTED",
+    "ACTUAL_ENCRYPTED_AUTH_APPLICABILITY_AND_DECRYPT_NOT_RUN",
+    "CLONE_SESSION_INVALIDATION_AND_OLD_SID_REJECTION_NOT_RUN",
+    "NATIVE_PASSWORD_LOGIN_FINITE_WRITE_SET_NOT_VERIFIED",
+    "COMPLETE_PAGE_AND_BUSINESS_REQUEST_ALLOWLIST_NOT_VERIFIED",
+    "NETWORK_NAMESPACE_ROUTES_AND_EGRESS_REJECTION_NOT_RUN",
+    "STDIO_COMPONENTS_OFFLINE_VALIDATED_LISTENER_AND_EXEC_EXIT_CAPTURE_NOT_IMPLEMENTED",
+    "DEADLINE_AND_OWNED_CLEANUP_OFFLINE_VALIDATED_COMPLETE_RUNTIME_ABSENCE_NOT_IMPLEMENTED",
+    "OWNER_EXACT_RESOURCE_AND_CLONE_WRITE_AUTHORIZATION_PENDING",
+    "OWNER_ORIGINAL_ACCOUNT_LOGIN_AND_BUSINESS_ACCEPTANCE_NOT_RUN"
+  ],
+  "closeout": {
+    "before_files": 1342,
+    "baseline_sha256": "1dc053cf0b29b5816d9ef6860274ab865c3a9c1a927467391d002d122dbe068c",
+    "added": [
+      "docs/milestones/M2_人员权限恢复卷与持久登记清理实施记录.md",
+      "docs/milestones/evidence/人员权限_恢复分阶段资源矩阵_20261010.json",
+      "docs/milestones/evidence/人员权限_恢复卷与持久登记清理验收摘要_20261010.json",
+      "scripts/release/full_site_restore/cleanup.py",
+      "scripts/release/full_site_restore/journal.py",
+      "scripts/release/full_site_restore/volumes.py",
+      "scripts/release/tests/test_full_site_restore_cleanup.py",
+      "scripts/release/tests/test_full_site_restore_journal.py",
+      "scripts/release/tests/test_full_site_restore_volumes.py"
+    ],
+    "modified": [
+      "README.md",
+      "docs/AI_CONTEXT.md",
+      "docs/CURRENT_MILESTONE.md",
+      "docs/PROJECT_STATUS.md",
+      "docs/READING_GUIDE.md",
+      "docs/milestones/M2_START_GATE.md",
+      "docs/milestones/M2_人员权限完整Site恢复执行组件实施记录.md",
+      "docs/plans/人员权限_5178只读管理启用配置与验收清单.md",
+      "docs/plans/人员权限_原站只读预检与备份恢复准备范围.md",
+      "docs/plans/人员权限_只读管理正式配置与装配规范.md",
+      "docs/plans/人员权限_完整Site恢复执行包.md",
+      "scripts/release/full_site_restore/landing.py",
+      "scripts/release/full_site_restore/lifecycle.py",
+      "scripts/release/full_site_restore/ownership.py",
+      "scripts/release/full_site_restore/plan.py",
+      "scripts/release/tests/test_full_site_restore_lifecycle.py",
+      "scripts/release/tests/test_full_site_restore_ownership.py",
+      "scripts/release/tests/test_full_site_restore_plan.py"
+    ],
+    "deleted": [],
+    "changed_files": 27,
+    "other_existing_files_sha_unchanged": true,
+    "relative_links_checked": 314,
+    "existing_private_values_scanned": 3,
+    "private_value_hits": 0,
+    "git_diff_check": "PASS"
+  },
+  "independent_reviews": {
+    "volumes": {
+      "result": "PASS",
+      "unit_tests": 22,
+      "observation_replay_and_nested_mount_limit_kept": true
+    },
+    "journal": {
+      "result": "PASS",
+      "unit_tests": 46,
+      "previous_defect_paths_reproduced": 4,
+      "production_admission": "HARD_BLOCKED"
+    },
+    "cleanup": {
+      "result": "PASS",
+      "unit_tests": 39,
+      "decode_deadline_and_invalid_fault_defects_reproduced_fixed": true,
+      "production_admission": "HARD_BLOCKED"
+    },
+    "plan_lifecycle": {
+      "result": "PASS",
+      "unit_tests": 54,
+      "ten_incarnations_five_simultaneous_scope_matched": true,
+      "stage_transition": "HARD_BLOCKED"
+    },
+    "documents_evidence": {
+      "result": "PASS",
+      "unit_test_loader_count": 342,
+      "source_hash_and_ast_files": 26,
+      "relative_links": 314,
+      "baseline_files": 1342,
+      "added": 9,
+      "modified": 18,
+      "deleted": 0,
+      "history_222_94_sha_unchanged": true,
+      "private_values_read_by_reviewer": false,
+      "actual_root_lexists": false
+    }
+  }
+}

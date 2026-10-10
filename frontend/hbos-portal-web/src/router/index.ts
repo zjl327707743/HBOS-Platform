@@ -28,6 +28,9 @@ const router = createRouter({
         { path: 'work', name: 'my-work', component: () => import('@/views/MyWorkView.vue'), meta: { title: '我的工作' } },
         { path: 'apps', name: 'apps', component: () => import('@/views/AppCenterView.vue'), meta: { title: '应用中心' } },
         { path: 'profile', name: 'profile', component: () => import('@/views/ProfileSettingsView.vue'), meta: { title: '我的与设置' } },
+        // 真实入口读取受原生权限过滤的只读投影；合成夹具仅供独立 Mock 构建。
+        { path: 'admin/people', name: 'admin-people', component: import.meta.env.VITE_PORTAL_DATA_MODE === 'mock' ? () => import('@/views/PeopleAccessDemoView.vue') : () => import('@/views/PeopleAccessView.vue'), meta: { title: '人员信息' } },
+        { path: 'admin/roles', name: 'admin-roles', component: import.meta.env.VITE_PORTAL_DATA_MODE === 'mock' ? () => import('@/views/PeopleAccessDemoView.vue') : () => import('@/views/PeopleAccessView.vue'), meta: { title: '权限管理' } },
         { path: '403', name: 'forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { title: '无权限' } },
       ],
     },

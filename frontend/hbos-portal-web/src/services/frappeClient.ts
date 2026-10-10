@@ -1,7 +1,11 @@
-import axios from 'axios'
+import axios, { type AxiosRequestConfig } from 'axios'
 
 interface FrappeMethodResponse<T> {
   message: T
+}
+
+interface SessionGuardedRequestConfig extends AxiosRequestConfig {
+  hbosCsrfGeneration?: number
 }
 
 /* ------------------------------------------------------------------ *
@@ -48,6 +52,7 @@ export function unwrapPortalMethod<T>(envelope: PortalMethodEnvelope<T>): T {
 export type FrappeRequestErrorCode =
   | 'UNAUTHENTICATED'
   | 'INVALID_CREDENTIALS'
+  | 'INVALID_ORIGIN'
   | 'CSRF_MISMATCH'
   | 'FORBIDDEN'
   | 'NETWORK_ERROR'
@@ -77,6 +82,25 @@ function responseText(data: unknown): string {
     payload._error_message,
     payload._server_messages,
   ].filter(Boolean).join(' ')
+}
+
+// `frappe.CSRFTokenError` 是一个笼统的异常类型：来源被拒、请求方式异常、令牌轮换都走它。
+// 只按异常类型统一提示「安全会话已更新」会把「来源被拒」误导成刷新即可恢复，故按后端消息细分。
+const CSRF_REASON_MESSAGES: Record<string, string> = {
+  '请求来源无效。': '当前访问来源不是受信任的登录入口，请从正式入口重新登录。',
+  '请使用同源 JSON 请求。': '登录请求方式异常，请从正式入口重新登录。',
+  '安全会话已更新，请刷新后重试。': '安全会话已更新，请刷新页面后重试。',
+  '待绑定请求安全校验失败。': '操作安全校验失败，请重新发起。',
+}
+const CSRF_DEFAULT_MESSAGE = '安全会话已更新，请刷新页面后重试。'
+
+function firstServerMessage(data: unknown): string {
+  try {
+    const messages = JSON.parse(String((data as Record<string, unknown> | undefined)?._server_messages || '[]'))
+    const first = JSON.parse(messages[0] || '{}')
+    if (typeof first.message === 'string') return first.message.replace(/<[^>]*>/g, '').trim()
+  } catch { /* 后端未带可读消息时回退到默认提示。 */ }
+  return ''
 }
 
 export function normalizeFrappeError(error: unknown, method?: string): FrappeRequestError {
@@ -115,8 +139,13 @@ export function normalizeFrappeError(error: unknown, method?: string): FrappeReq
     return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
   }
   if (/CSRFTokenError|csrf token/i.test(detail)) {
+    const serverMessage = firstServerMessage(error.response.data)
+    const message = CSRF_REASON_MESSAGES[serverMessage] || CSRF_DEFAULT_MESSAGE
+    if (/请求来源无效/.test(detail)) {
+      return new FrappeRequestError('INVALID_ORIGIN', CSRF_REASON_MESSAGES['请求来源无效。'] ?? CSRF_DEFAULT_MESSAGE, status)
+    }
     clearCachedCsrfToken()
-    return new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请刷新页面后重试。', status)
+    return new FrappeRequestError('CSRF_MISMATCH', message, status)
   }
   if (status === 403 || status === 417) {
     return new FrappeRequestError('FORBIDDEN', '当前账号没有执行此操作的权限。', status)
@@ -180,7 +209,7 @@ async function getCsrfToken(): Promise<string> {
       const response = await http.get<FrappeMethodResponse<{
         ok: boolean
         data?: { csrf_token: string }
-      }>>('/api/method/hbos_portal.api.csrf.get_token')
+      }>>('/api/method/hbos_portal.api.csrf.get_token', { hbosCsrfGeneration: generation } as SessionGuardedRequestConfig)
       const payload = response.data.message
       if (generation !== csrfGeneration) {
         // Reject the old write without invalidating a newer authenticated session.
@@ -239,6 +268,11 @@ http.interceptors.request.use(async (config) => {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
+    const generation = (error?.config as SessionGuardedRequestConfig | undefined)?.hbosCsrfGeneration
+    if (generation !== undefined && generation !== csrfGeneration) {
+      // A previous session's read must not clear the new token or sign it out.
+      return Promise.reject(new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请重试。'))
+    }
     if (axios.isAxiosError(error) && /CSRFTokenError|csrf token/i.test(responseText(error.response?.data))) {
       clearCachedCsrfToken()
     }
@@ -254,14 +288,50 @@ http.interceptors.response.use(
 export async function callFrappeMethod<T>(
   method: string,
   params?: Record<string, unknown>,
+  options?: { requireCsrf?: boolean },
 ): Promise<T> {
+  const generation = options?.requireCsrf === true ? csrfGeneration : undefined
   try {
-    const response = await http.get<FrappeMethodResponse<T>>(
-      `/api/method/${method}`,
-      { params },
-    )
+    let headers: Record<string, string> | undefined
+    if (generation !== undefined) {
+      const token = await getCsrfToken()
+      if (generation !== csrfGeneration) {
+        throw new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请重试。')
+      }
+      headers = { 'X-Frappe-CSRF-Token': token }
+    }
+    const config: SessionGuardedRequestConfig = { params, ...(headers ? { headers, hbosCsrfGeneration: generation } : {}) }
+    const response = await http.get<FrappeMethodResponse<T>>(`/api/method/${method}`, config)
+    if (generation !== undefined && generation !== csrfGeneration) {
+      throw new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请重试。')
+    }
     return response.data.message
   } catch (error) {
+    // These fixed read methods use the Portal error envelope even on non-2xx
+    // responses. Preserve only reviewed codes; never render native error data.
+    const queries = ['get_management_context', 'list_positions', 'get_person_assignments', 'lookup_people']
+    const query = method.startsWith('hbos_portal.api.organization_relations.')
+      && queries.includes(method.slice('hbos_portal.api.organization_relations.'.length))
+    if (query && axios.isAxiosError(error)) {
+      const payload = error.response?.data as { message?: unknown } | undefined
+      const raw = payload?.message ?? error.response?.data
+      if (raw && typeof raw === 'object') {
+        const envelope = raw as PortalMethodEnvelope<unknown>
+        const code = envelope.ok === false ? envelope.error?.code : undefined
+        const messages: Record<string, string> = {
+          NOT_SUPPORTED: '岗位与任职查询尚未启用。',
+          FORBIDDEN: '当前账号没有查看岗位或任职资料的权限。',
+          UNAUTHENTICATED: '登录状态已失效，请重新登录。',
+          SOURCE_UNAVAILABLE: '岗位与任职资料暂时无法读取，请稍后重试。',
+          CONFLICT: '查询条件或权限已更新，请重新查询。',
+          CONFLICT_RETRY_REQUIRED: '查询条件或权限已更新，请重新查询。',
+          INVALID_REQUEST: '查询条件无效，请检查后重试。',
+        }
+        if (typeof code === 'string' && Object.prototype.hasOwnProperty.call(messages, code)) {
+          throw new PortalMethodError({ code, message: messages[code], retryable: envelope.error?.retryable === true })
+        }
+      }
+    }
     throw normalizeFrappeError(error, method)
   }
 }

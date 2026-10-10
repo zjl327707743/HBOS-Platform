@@ -9,9 +9,14 @@ export default defineConfig(({ mode, command }) => {
   const proxyTarget =
     env.VITE_FRAPPE_PROXY_TARGET ||
     (dataMode === 'frappe' ? 'http://127.0.0.1:8080' : '')
+  const frappeAppOrigin = env.VITE_FRAPPE_APP_ORIGIN
+    || (command === 'serve' && dataMode === 'frappe' ? proxyTarget : '')
 
   return {
     base: env.VITE_BASE || '/',
+    define: {
+      'import.meta.env.VITE_FRAPPE_APP_ORIGIN': JSON.stringify(frappeAppOrigin),
+    },
     plugins: [vue()],
     resolve: {
       alias: {

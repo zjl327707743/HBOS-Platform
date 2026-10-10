@@ -1,0 +1,571 @@
+{
+  "date": "2026-10-09",
+  "branch": "m2-r11",
+  "head": "27d3558",
+  "status": "S02_MANAGEMENT_ADAPTER_PREVIEW_VALIDATED / PARTIAL / REVIEWING",
+  "scope": "Complete policy adapter for position/assignment facts, strict historical reduction, original-command receipt replay; default closed, no HTTP or business grant.",
+  "source_sha256": {
+    "apps/hbos_portal/hbos_portal/organization/frappe_repository.py": "743d58f213b378471c4102366c36ff611db2529ff8ecebcd3217dd6822fc43bc",
+    "apps/hbos_portal/hbos_portal/organization/managed_relations.py": "c81dc66571a4faf0cddf6a5c324b951ae5b986ddd9658e17bc84a884ecb1ac08",
+    "apps/hbos_portal/hbos_portal/organization/management_contracts.py": "1b550fdc961afcbb69c827ad1466526ea285588fd215c730d123d7fb05bf85a8",
+    "apps/hbos_portal/hbos_portal/organization/management_policy.py": "40427d1426aab0ae241857957791f9cf01dabf2aff3c3dd89653381a661d7071",
+    "apps/hbos_portal/hbos_portal/organization/relation_service.py": "c4bc9072712e5f43856da7e1e5e544a8346f748aaa952944b92fb4eca6c0781d",
+    "apps/hbos_portal/tests/integration_management_relations.py": "da0462f85124e46e1cf39e725ee2aaa3e4bbc18df2a4d78ae9ba2f05e0ccc484",
+    "apps/hbos_portal/tests/test_managed_relations.py": "17128f8da627b9427c33b1b4dbdc7022427f131103d966b6732db3746e1c162d"
+  },
+  "offline": {
+    "tests_run": 233,
+    "new_adapter_tests": 30,
+    "previous_regression_tests": 203,
+    "test_status": "PASS",
+    "new_adapter_test_names": [
+      "tests.test_managed_relations.ManagedRelationTests.test_approval_pin_is_required_for_active_policy",
+      "tests.test_managed_relations.ManagedRelationTests.test_assignment_create_replay_is_stable_after_later_update",
+      "tests.test_managed_relations.ManagedRelationTests.test_assignment_update_replay_uses_original_before_after_history",
+      "tests.test_managed_relations.ManagedRelationTests.test_changed_payload_with_same_idempotency_key_is_conflict",
+      "tests.test_managed_relations.ManagedRelationTests.test_changed_policy_generation_between_checks_requires_retry",
+      "tests.test_managed_relations.ManagedRelationTests.test_complete_policy_writes_fact_history_without_grant_effect",
+      "tests.test_managed_relations.ManagedRelationTests.test_compound_revoke_and_extend_is_not_a_strict_reduction",
+      "tests.test_managed_relations.ManagedRelationTests.test_current_source_change_between_checks_rejects_before_write",
+      "tests.test_managed_relations.ManagedRelationTests.test_default_closed_adapter_does_not_write",
+      "tests.test_managed_relations.ManagedRelationTests.test_disabled_approver_cannot_authorize_historical_cleanup",
+      "tests.test_managed_relations.ManagedRelationTests.test_disabled_department_position_cleanup_preserves_original_metadata",
+      "tests.test_managed_relations.ManagedRelationTests.test_disabled_department_requires_history_and_only_allows_strict_reduction",
+      "tests.test_managed_relations.ManagedRelationTests.test_duration_cap_and_finite_limit_apply_to_create",
+      "tests.test_managed_relations.ManagedRelationTests.test_exact_native_session_cannot_be_replaced_by_actor_resolver",
+      "tests.test_managed_relations.ManagedRelationTests.test_expiry_after_fact_write_rolls_back_history_and_receipt",
+      "tests.test_managed_relations.ManagedRelationTests.test_fresh_clock_expiry_between_checks_rolls_back_everything",
+      "tests.test_managed_relations.ManagedRelationTests.test_inactive_position_allows_reduction_without_restoring_assignment",
+      "tests.test_managed_relations.ManagedRelationTests.test_left_disabled_user_and_relinked_employee_only_allow_strict_reduction",
+      "tests.test_managed_relations.ManagedRelationTests.test_long_match_evidence_uses_schema_sized_reference_without_truncation",
+      "tests.test_managed_relations.ManagedRelationTests.test_missing_employee_still_allows_only_immutable_history_cleanup",
+      "tests.test_managed_relations.ManagedRelationTests.test_missing_history_cannot_recover_disabled_organization_scope",
+      "tests.test_managed_relations.ManagedRelationTests.test_person_department_move_uses_original_scope_for_strict_cleanup",
+      "tests.test_managed_relations.ManagedRelationTests.test_policy_repository_must_share_relation_root",
+      "tests.test_managed_relations.ManagedRelationTests.test_replay_requires_current_policy_head_after_revocation",
+      "tests.test_managed_relations.ManagedRelationTests.test_rule_action_and_scope_cannot_be_borrowed_across_rules",
+      "tests.test_managed_relations.ManagedRelationTests.test_self_assignment_create_cannot_benefit_manager",
+      "tests.test_managed_relations.ManagedRelationTests.test_self_benefit_restore_and_extension_denied_but_shrink_allowed",
+      "tests.test_managed_relations.ManagedRelationTests.test_source_evidence_change_cannot_reuse_unchanged_snapshot_digest",
+      "tests.test_managed_relations.ManagedRelationTests.test_tampered_history_cannot_recover_old_beneficiary_or_scope",
+      "tests.test_managed_relations.ManagedRelationTests.test_unknown_client_fields_cannot_inject_management_context"
+    ],
+    "python_runtime": "bundled Python",
+    "site_io": false
+  },
+  "native_preflight": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "server": "9695c5a0f6c1",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "preflight": {
+      "native_counts": {
+        "User": 2,
+        "Employee": 0,
+        "Company": 0,
+        "Department": 0,
+        "Designation": 0
+      },
+      "tables_present": {
+        "HBOS Organization Write Lock": true,
+        "HBOS Position": true,
+        "HBOS Personnel Assignment": true,
+        "HBOS Position Revision": true,
+        "HBOS Personnel Assignment Revision": true,
+        "HBOS Organization Command Receipt": true
+      }
+    },
+    "policy_tables_present": {
+      "HBOS Organization Management Policy": true,
+      "HBOS Organization Management Policy Revision": true
+    },
+    "relation_schema": {
+      "HBOS Organization Write Lock": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Position": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Personnel Assignment": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Position Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Personnel Assignment Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Command Receipt": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "policy_schema": {
+      "HBOS Organization Management Policy": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Management Policy Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    }
+  },
+  "approval_transport": {
+    "attempts_not_executed": 2,
+    "reason": "Automatic approval review stream disconnected; no unsafe determination; identical approved scope succeeded on third attempt.",
+    "bypassed": false
+  },
+  "native_first_attempt": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "server": "9695c5a0f6c1",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "preflight": {
+      "native_counts": {
+        "User": 2,
+        "Employee": 0,
+        "Company": 0,
+        "Department": 0,
+        "Designation": 0
+      },
+      "tables_present": {
+        "HBOS Organization Write Lock": true,
+        "HBOS Position": true,
+        "HBOS Personnel Assignment": true,
+        "HBOS Position Revision": true,
+        "HBOS Personnel Assignment Revision": true,
+        "HBOS Organization Command Receipt": true
+      }
+    },
+    "policy_tables_present": {
+      "HBOS Organization Management Policy": true,
+      "HBOS Organization Management Policy Revision": true
+    },
+    "relation_schema": {
+      "HBOS Organization Write Lock": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Position": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Personnel Assignment": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Position Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Personnel Assignment Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Command Receipt": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "policy_schema": {
+      "HBOS Organization Management Policy": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Management Policy Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "tests_run": 12,
+    "test_names": [
+      "test_complete_policy_writes_facts_and_records_protected_history",
+      "test_create_and_update_receipt_replay_after_later_revision_has_no_new_write",
+      "test_disabled_or_resolver_mismatched_actor_cannot_write",
+      "test_finite_limit_and_cross_rule_scope_cannot_be_borrowed",
+      "test_invalid_native_sources_allow_only_historical_strict_reduction",
+      "test_missing_historical_scope_refuses_disabled_source_cleanup",
+      "test_policy_revocation_refuses_old_receipt_replay",
+      "test_receipt_failure_rolls_back_master_revision_and_receipt",
+      "test_reduction_cannot_hide_extension_or_request_injected_history",
+      "test_revoke_first_old_snapshot_requires_whole_request_restart_then_denies",
+      "test_self_creation_restore_extension_denied_but_strict_reduction_allowed",
+      "test_write_first_root_lock_blocks_revoke_and_next_request_denies"
+    ],
+    "test_status": "FAIL",
+    "native_preservation": "PASS",
+    "final_native_counts": {
+      "User": 2,
+      "Employee": 0,
+      "Company": 0,
+      "Department": 0,
+      "Designation": 0
+    },
+    "final_managed_counts": {
+      "HBOS Organization Write Lock": 0,
+      "HBOS Position": 0,
+      "HBOS Personnel Assignment": 0,
+      "HBOS Position Revision": 0,
+      "HBOS Personnel Assignment Revision": 0,
+      "HBOS Organization Command Receipt": 0,
+      "HBOS Organization Management Policy": 0,
+      "HBOS Organization Management Policy Revision": 0
+    },
+    "tables_empty": true,
+    "limits": "Synthetic managed facts only; HTTP/session/CSRF, real management approval, Date qualification and business grants NOT_RUN.",
+    "errors": 14,
+    "scenarios_passed": 2,
+    "scenarios_with_errors": 10,
+    "cause": "CharacterLengthExceededError: complete management match JSON exceeded existing policy_ref Data 140 character capacity.",
+    "fix": "Fixed-length management-match-v1:SHA256 reference; full match remains in source_evidence_json and is anchored by immutable snapshot digest. No schema changes."
+  },
+  "native_acceptance": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "server": "9695c5a0f6c1",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "preflight": {
+      "native_counts": {
+        "User": 2,
+        "Employee": 0,
+        "Company": 0,
+        "Department": 0,
+        "Designation": 0
+      },
+      "tables_present": {
+        "HBOS Organization Write Lock": true,
+        "HBOS Position": true,
+        "HBOS Personnel Assignment": true,
+        "HBOS Position Revision": true,
+        "HBOS Personnel Assignment Revision": true,
+        "HBOS Organization Command Receipt": true
+      }
+    },
+    "policy_tables_present": {
+      "HBOS Organization Management Policy": true,
+      "HBOS Organization Management Policy Revision": true
+    },
+    "relation_schema": {
+      "HBOS Organization Write Lock": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Position": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Personnel Assignment": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Position Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Personnel Assignment Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Command Receipt": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "policy_schema": {
+      "HBOS Organization Management Policy": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Management Policy Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "tests_run": 12,
+    "test_names": [
+      "test_complete_policy_writes_facts_and_records_protected_history",
+      "test_create_and_update_receipt_replay_after_later_revision_has_no_new_write",
+      "test_disabled_or_resolver_mismatched_actor_cannot_write",
+      "test_finite_limit_and_cross_rule_scope_cannot_be_borrowed",
+      "test_invalid_native_sources_allow_only_historical_strict_reduction",
+      "test_missing_historical_scope_refuses_disabled_source_cleanup",
+      "test_policy_revocation_refuses_old_receipt_replay",
+      "test_receipt_failure_rolls_back_master_revision_and_receipt",
+      "test_reduction_cannot_hide_extension_or_request_injected_history",
+      "test_revoke_first_old_snapshot_requires_whole_request_restart_then_denies",
+      "test_self_creation_restore_extension_denied_but_strict_reduction_allowed",
+      "test_write_first_root_lock_blocks_revoke_and_next_request_denies"
+    ],
+    "test_status": "PASS",
+    "native_preservation": "PASS",
+    "final_native_counts": {
+      "User": 2,
+      "Employee": 0,
+      "Company": 0,
+      "Department": 0,
+      "Designation": 0
+    },
+    "final_managed_counts": {
+      "HBOS Organization Write Lock": 0,
+      "HBOS Position": 0,
+      "HBOS Personnel Assignment": 0,
+      "HBOS Position Revision": 0,
+      "HBOS Personnel Assignment Revision": 0,
+      "HBOS Organization Command Receipt": 0,
+      "HBOS Organization Management Policy": 0,
+      "HBOS Organization Management Policy Revision": 0
+    },
+    "tables_empty": true,
+    "limits": "Synthetic managed facts only; HTTP/session/CSRF, real management approval, Date qualification and business grants NOT_RUN."
+  },
+  "original_site_readonly": {
+    "site": "frontend",
+    "database_sha256": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+    "readonly": true,
+    "native_counts": {
+      "User": 18,
+      "Employee": 0,
+      "Company": 1,
+      "Department": 14,
+      "Designation": 31
+    },
+    "tables_present": {
+      "HBOS Organization Write Lock": false,
+      "HBOS Position": false,
+      "HBOS Personnel Assignment": false,
+      "HBOS Position Revision": false,
+      "HBOS Personnel Assignment Revision": false,
+      "HBOS Organization Command Receipt": false,
+      "HBOS Organization Management Policy": false,
+      "HBOS Organization Management Policy Revision": false
+    }
+  },
+  "review": {
+    "code_review": "PASS, no reproducible privilege bypass found in reviewed scope",
+    "additional_memory_combinations": 7,
+    "included_in_offline_count": false,
+    "policy_ref_fix": "Full match retained and digest reference fits existing schema."
+  },
+  "boundary": {
+    "transaction_pending": true,
+    "authorization_effect": "none",
+    "runtime_verified": false,
+    "MG19": "PARTIAL: pending outer delayed commit / HTTP before_commit / unknown commit result remain unverified.",
+    "MG20": "PARTIAL: native strict cleanup PASS; HTTP and full source concurrency lifecycle remain unverified.",
+    "HTTP": "NOT_RUN",
+    "real_operator_configuration": "NOT_CONFIGURED",
+    "real_approval_pins": "NOT_CONFIGURED",
+    "business_grant": "NOT_RUN",
+    "full_restore": "NOT_RUN",
+    "S01_B": "PARTIAL",
+    "S02": "PARTIAL",
+    "C": "NOT_STARTED",
+    "S03_S06": "NOT_STARTED"
+  },
+  "preserved": {
+    "production_write": false,
+    "production_schema_change": false,
+    "preview_schema_change": false,
+    "new_site_bench_app": false,
+    "compose_change": false,
+    "frontend_change": false,
+    "branch_created": false,
+    "commit": false,
+    "push": false
+  },
+  "closeout_qa": {
+    "status": "PASS",
+    "changed_this_turn": 29,
+    "new_files": 5,
+    "source_files": 7,
+    "existing_source_files_modified": 4,
+    "new_main_and_evidence": 2,
+    "existing_documents_updated": 20,
+    "existing_files_unchanged": 1239,
+    "python_3_10_syntax": "PASS",
+    "json_and_source_hashes": "PASS",
+    "local_markdown_links_checked": 323,
+    "whitespace": "PASS",
+    "public_status_and_m2_gate": "CONSISTENT",
+    "other_existing_application_frontend_and_previous_evidence": "UNCHANGED",
+    "branch": "m2-r11@27d3558",
+    "merge_index": "CLEAR"
+  }
+}

@@ -1,0 +1,767 @@
+{
+  "budget_proposal_seconds": {
+    "cleanup": 600,
+    "owner_acceptance": 900,
+    "restore": 1800
+  },
+  "containers": [
+    {
+      "argv_template": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "create",
+        "--name",
+        "hbos-owned-site-restore-20261010-a7d3-db",
+        "--label",
+        "hbos.restore.owner=hbos-owned-site-restore-20261010-a7d3",
+        "--network",
+        "none",
+        "--user",
+        "<VERIFIED_SERVICE_UID_GID>",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--no-healthcheck",
+        "--log-driver",
+        "none",
+        "--restart",
+        "no",
+        "--entrypoint",
+        "/usr/sbin/mariadbd",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-db-data,destination=/var/lib/mysql",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/runtime/db.cnf,destination=/run/hbos-restore/db.cnf,readonly",
+        "mariadb@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4",
+        "--defaults-file=/run/hbos-restore/db.cnf"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "executable": false,
+      "healthcheck": "DISABLED",
+      "image": "mariadb@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4",
+      "log_driver": "none",
+      "mounts": [
+        {
+          "destination": "/var/lib/mysql",
+          "kind": "volume",
+          "read_only": false,
+          "source": "hbos-owned-site-restore-20261010-a7d3-db-data"
+        },
+        {
+          "destination": "/run/hbos-restore/db.cnf",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/runtime/db.cnf"
+        }
+      ],
+      "name": "hbos-owned-site-restore-20261010-a7d3-db",
+      "network": "none",
+      "ownership_admission": "SERVICE_COMMAND_NOT_ADMITTED",
+      "published_ports": [],
+      "read_only_rootfs": true,
+      "restart_policy": "no",
+      "role": "db",
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "service_command_template": [
+        "/usr/sbin/mariadbd",
+        "--defaults-file=/run/hbos-restore/db.cnf"
+      ],
+      "uid_gid": "NOT_VERIFIED"
+    },
+    {
+      "argv_template": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "create",
+        "--name",
+        "hbos-owned-site-restore-20261010-a7d3-redis-cache",
+        "--label",
+        "hbos.restore.owner=hbos-owned-site-restore-20261010-a7d3",
+        "--network",
+        "container:<VERIFIED_NEW_DB_ID>",
+        "--user",
+        "<VERIFIED_SERVICE_UID_GID>",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--no-healthcheck",
+        "--log-driver",
+        "none",
+        "--restart",
+        "no",
+        "--entrypoint",
+        "/usr/local/bin/redis-server",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-redis-cache-data,destination=/data",
+        "redis@sha256:ec5e187c913d422cdf60f4216a5fdfb95246792c6de6fe21ff5bed75cbfc8c23",
+        "--bind",
+        "127.0.0.1",
+        "--port",
+        "6379",
+        "--protected-mode",
+        "yes",
+        "--save",
+        "",
+        "--appendonly",
+        "no"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "executable": false,
+      "healthcheck": "DISABLED",
+      "image": "redis@sha256:ec5e187c913d422cdf60f4216a5fdfb95246792c6de6fe21ff5bed75cbfc8c23",
+      "log_driver": "none",
+      "mounts": [
+        {
+          "destination": "/data",
+          "kind": "volume",
+          "read_only": false,
+          "source": "hbos-owned-site-restore-20261010-a7d3-redis-cache-data"
+        }
+      ],
+      "name": "hbos-owned-site-restore-20261010-a7d3-redis-cache",
+      "network": "container:<VERIFIED_NEW_DB_ID>",
+      "ownership_admission": "SERVICE_COMMAND_NOT_ADMITTED",
+      "published_ports": [],
+      "read_only_rootfs": true,
+      "restart_policy": "no",
+      "role": "redis-cache",
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "service_command_template": [
+        "/usr/local/bin/redis-server",
+        "--bind",
+        "127.0.0.1",
+        "--port",
+        "6379",
+        "--protected-mode",
+        "yes",
+        "--save",
+        "",
+        "--appendonly",
+        "no"
+      ],
+      "uid_gid": "NOT_VERIFIED"
+    },
+    {
+      "argv_template": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "create",
+        "--name",
+        "hbos-owned-site-restore-20261010-a7d3-redis-queue",
+        "--label",
+        "hbos.restore.owner=hbos-owned-site-restore-20261010-a7d3",
+        "--network",
+        "container:<VERIFIED_NEW_DB_ID>",
+        "--user",
+        "<VERIFIED_SERVICE_UID_GID>",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--no-healthcheck",
+        "--log-driver",
+        "none",
+        "--restart",
+        "no",
+        "--entrypoint",
+        "/usr/local/bin/redis-server",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-redis-queue-data,destination=/data",
+        "redis@sha256:ec5e187c913d422cdf60f4216a5fdfb95246792c6de6fe21ff5bed75cbfc8c23",
+        "--bind",
+        "127.0.0.1",
+        "--port",
+        "6380",
+        "--protected-mode",
+        "yes",
+        "--save",
+        "",
+        "--appendonly",
+        "no"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "executable": false,
+      "healthcheck": "DISABLED",
+      "image": "redis@sha256:ec5e187c913d422cdf60f4216a5fdfb95246792c6de6fe21ff5bed75cbfc8c23",
+      "log_driver": "none",
+      "mounts": [
+        {
+          "destination": "/data",
+          "kind": "volume",
+          "read_only": false,
+          "source": "hbos-owned-site-restore-20261010-a7d3-redis-queue-data"
+        }
+      ],
+      "name": "hbos-owned-site-restore-20261010-a7d3-redis-queue",
+      "network": "container:<VERIFIED_NEW_DB_ID>",
+      "ownership_admission": "SERVICE_COMMAND_NOT_ADMITTED",
+      "published_ports": [],
+      "read_only_rootfs": true,
+      "restart_policy": "no",
+      "role": "redis-queue",
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "service_command_template": [
+        "/usr/local/bin/redis-server",
+        "--bind",
+        "127.0.0.1",
+        "--port",
+        "6380",
+        "--protected-mode",
+        "yes",
+        "--save",
+        "",
+        "--appendonly",
+        "no"
+      ],
+      "uid_gid": "NOT_VERIFIED"
+    },
+    {
+      "argv_template": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "create",
+        "--name",
+        "hbos-owned-site-restore-20261010-a7d3-backend",
+        "--label",
+        "hbos.restore.owner=hbos-owned-site-restore-20261010-a7d3",
+        "--network",
+        "container:<VERIFIED_NEW_DB_ID>",
+        "--user",
+        "<VERIFIED_SERVICE_UID_GID>",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--no-healthcheck",
+        "--log-driver",
+        "none",
+        "--restart",
+        "no",
+        "--entrypoint",
+        "/home/frappe/frappe-bench/env/bin/gunicorn",
+        "--workdir",
+        "/home/frappe/frappe-bench",
+        "--env",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-sites,destination=/home/frappe/frappe-bench/sites",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-logs,destination=/home/frappe/frappe-bench/logs",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-assets-data,destination=/home/frappe/frappe-bench/sites/assets,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-assets-data,destination=/home/frappe/frappe-bench/assets,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/env,destination=/home/frappe/frappe-bench/env,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/fonts,destination=/home/frappe/frappe-bench/fonts,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/frappe,destination=/home/frappe/frappe-bench/apps/frappe,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/erpnext,destination=/home/frappe/frappe-bench/apps/erpnext,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hrms,destination=/home/frappe/frappe-bench/apps/hrms,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_attendance_app,destination=/home/frappe/frappe-bench/apps/hb_attendance_app,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_inventory_app,destination=/home/frappe/frappe-bench/apps/hb_inventory_app,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_lims_app,destination=/home/frappe/frappe-bench/apps/hb_lims_app,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hbos_portal,destination=/home/frappe/frappe-bench/apps/hbos_portal,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_knowledge_app,destination=/home/frappe/frappe-bench/apps/hb_knowledge_app,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_twin_app,destination=/home/frappe/frappe-bench/apps/hb_twin_app,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-frappe-dist,destination=/home/frappe/frappe-bench/apps/frappe/frappe/public/dist,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-erpnext-dist,destination=/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-hbos-lims-dist,destination=/home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public/hbos-lims,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/runtime/forward.py,destination=/run/hbos-restore/forward.py,readonly",
+        "frappe/erpnext@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583",
+        "--bind",
+        "127.0.0.1:8000",
+        "--workers",
+        "2",
+        "--threads",
+        "4",
+        "--timeout",
+        "60",
+        "frappe.app:application"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "executable": false,
+      "healthcheck": "DISABLED",
+      "image": "frappe/erpnext@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583",
+      "log_driver": "none",
+      "mounts": [
+        {
+          "destination": "/home/frappe/frappe-bench/sites",
+          "kind": "volume",
+          "read_only": false,
+          "source": "hbos-owned-site-restore-20261010-a7d3-sites"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/logs",
+          "kind": "volume",
+          "read_only": false,
+          "source": "hbos-owned-site-restore-20261010-a7d3-logs"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/sites/assets",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-assets-data"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/assets",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-assets-data"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/env",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/env"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/fonts",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/fonts"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/frappe",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/frappe"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/erpnext",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/erpnext"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hrms",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hrms"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_attendance_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_attendance_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_inventory_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_inventory_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_lims_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_lims_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hbos_portal",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hbos_portal"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_knowledge_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_knowledge_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_twin_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_twin_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/frappe/frappe/public/dist",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-frappe-dist"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-erpnext-dist"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public/hbos-lims",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-hbos-lims-dist"
+        },
+        {
+          "destination": "/run/hbos-restore/forward.py",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/runtime/forward.py"
+        }
+      ],
+      "name": "hbos-owned-site-restore-20261010-a7d3-backend",
+      "network": "container:<VERIFIED_NEW_DB_ID>",
+      "ownership_admission": "SERVICE_COMMAND_NOT_ADMITTED",
+      "published_ports": [],
+      "read_only_rootfs": true,
+      "restart_policy": "no",
+      "role": "backend",
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "service_command_template": [
+        "/home/frappe/frappe-bench/env/bin/gunicorn",
+        "--bind",
+        "127.0.0.1:8000",
+        "--workers",
+        "2",
+        "--threads",
+        "4",
+        "--timeout",
+        "60",
+        "frappe.app:application"
+      ],
+      "uid_gid": "NOT_VERIFIED"
+    },
+    {
+      "argv_template": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "create",
+        "--name",
+        "hbos-owned-site-restore-20261010-a7d3-frontend",
+        "--label",
+        "hbos.restore.owner=hbos-owned-site-restore-20261010-a7d3",
+        "--network",
+        "container:<VERIFIED_NEW_DB_ID>",
+        "--user",
+        "<VERIFIED_SERVICE_UID_GID>",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--no-healthcheck",
+        "--log-driver",
+        "none",
+        "--restart",
+        "no",
+        "--entrypoint",
+        "/usr/sbin/nginx",
+        "--workdir",
+        "/home/frappe/frappe-bench",
+        "--env",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-sites,destination=/home/frappe/frappe-bench/sites,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-logs,destination=/home/frappe/frappe-bench/logs",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-assets-data,destination=/home/frappe/frappe-bench/sites/assets,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-assets-data,destination=/home/frappe/frappe-bench/assets,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/env,destination=/home/frappe/frappe-bench/env,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/fonts,destination=/home/frappe/frappe-bench/fonts,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/frappe,destination=/home/frappe/frappe-bench/apps/frappe,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/erpnext,destination=/home/frappe/frappe-bench/apps/erpnext,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hrms,destination=/home/frappe/frappe-bench/apps/hrms,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_attendance_app,destination=/home/frappe/frappe-bench/apps/hb_attendance_app,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_inventory_app,destination=/home/frappe/frappe-bench/apps/hb_inventory_app,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_lims_app,destination=/home/frappe/frappe-bench/apps/hb_lims_app,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hbos_portal,destination=/home/frappe/frappe-bench/apps/hbos_portal,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_knowledge_app,destination=/home/frappe/frappe-bench/apps/hb_knowledge_app,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_twin_app,destination=/home/frappe/frappe-bench/apps/hb_twin_app,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-frappe-dist,destination=/home/frappe/frappe-bench/apps/frappe/frappe/public/dist,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-erpnext-dist,destination=/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist,readonly",
+        "--mount",
+        "type=volume,source=hbos-owned-site-restore-20261010-a7d3-hbos-lims-dist,destination=/home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public/hbos-lims,readonly",
+        "--mount",
+        "type=bind,source=/private/tmp/hbos-owned-site-restore-20261010-a7d3/runtime/nginx.conf,destination=/run/hbos-restore/nginx.conf,readonly",
+        "frappe/erpnext@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583",
+        "-c",
+        "/run/hbos-restore/nginx.conf",
+        "-g",
+        "daemon off;"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "executable": false,
+      "healthcheck": "DISABLED",
+      "image": "frappe/erpnext@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583",
+      "log_driver": "none",
+      "mounts": [
+        {
+          "destination": "/home/frappe/frappe-bench/sites",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-sites"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/logs",
+          "kind": "volume",
+          "read_only": false,
+          "source": "hbos-owned-site-restore-20261010-a7d3-logs"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/sites/assets",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-assets-data"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/assets",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-assets-data"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/env",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/env"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/fonts",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/fonts"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/frappe",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/frappe"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/erpnext",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/erpnext"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hrms",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hrms"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_attendance_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_attendance_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_inventory_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_inventory_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_lims_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_lims_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hbos_portal",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hbos_portal"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_knowledge_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_knowledge_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_twin_app",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/snapshot/apps/hb_twin_app"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/frappe/frappe/public/dist",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-frappe-dist"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-erpnext-dist"
+        },
+        {
+          "destination": "/home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public/hbos-lims",
+          "kind": "volume",
+          "read_only": true,
+          "source": "hbos-owned-site-restore-20261010-a7d3-hbos-lims-dist"
+        },
+        {
+          "destination": "/run/hbos-restore/nginx.conf",
+          "kind": "bind",
+          "read_only": true,
+          "source": "/private/tmp/hbos-owned-site-restore-20261010-a7d3/runtime/nginx.conf"
+        }
+      ],
+      "name": "hbos-owned-site-restore-20261010-a7d3-frontend",
+      "network": "container:<VERIFIED_NEW_DB_ID>",
+      "ownership_admission": "SERVICE_COMMAND_NOT_ADMITTED",
+      "published_ports": [],
+      "read_only_rootfs": true,
+      "restart_policy": "no",
+      "role": "frontend",
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "service_command_template": [
+        "/usr/sbin/nginx",
+        "-c",
+        "/run/hbos-restore/nginx.conf",
+        "-g",
+        "daemon off;"
+      ],
+      "uid_gid": "NOT_VERIFIED"
+    }
+  ],
+  "custom_networks": [],
+  "execution": "NOT_IMPLEMENTED",
+  "guard_scope": "INPUTS_POLICY_AND_NAMESPACE_PRECHECK_METADATA_ONLY",
+  "host_relay": {
+    "host": "hbos-restore.localhost:18092",
+    "implementation": "NOT_IMPLEMENTED",
+    "listen": "127.0.0.1:18092",
+    "name": "hbos-owned-site-restore-20261010-a7d3-http-relay",
+    "origin": "http://hbos-restore.localhost:18092"
+  },
+  "internal_loopback": {
+    "backend": 8000,
+    "db": 3306,
+    "frontend": 8080,
+    "redis_cache": 6379,
+    "redis_queue": 6380
+  },
+  "owner": "hbos-owned-site-restore-20261010-a7d3",
+  "pending_gates": [
+    "SOURCE_SNAPSHOT_CAPTURE_AND_HASH_NOT_RUN",
+    "SOURCE_LINK_AND_RUNTIME_DEPENDENCY_CLOSURE_NOT_VERIFIED",
+    "SERVICE_UID_GID_BINARY_AND_ENTRYPOINT_COMPATIBILITY_NOT_VERIFIED",
+    "EXPLICIT_IMAGE_VOLUME_COVERAGE_NOT_VERIFIED",
+    "PRIVATE_ROOT_AND_BIND_REALPATH_ADMISSION_NOT_IMPLEMENTED",
+    "RUNTIME_RESOURCE_CREATION_REGISTRY_NOT_IMPLEMENTED",
+    "RESTORE_EXTRACTION_SQL_IMPORT_AND_FINGERPRINT_NOT_IMPLEMENTED",
+    "ACTUAL_ENCRYPTED_AUTH_APPLICABILITY_AND_DECRYPT_NOT_RUN",
+    "CLONE_SESSION_INVALIDATION_AND_OLD_SID_REJECTION_NOT_RUN",
+    "NATIVE_PASSWORD_LOGIN_FINITE_WRITE_SET_NOT_VERIFIED",
+    "COMPLETE_PAGE_AND_BUSINESS_REQUEST_ALLOWLIST_NOT_VERIFIED",
+    "NETWORK_NAMESPACE_ROUTES_AND_EGRESS_REJECTION_NOT_RUN",
+    "HTTP_LISTENER_STDIO_TRANSPORT_AND_CHILD_REAP_NOT_IMPLEMENTED",
+    "RUNTIME_DEADLINE_ENFORCEMENT_AND_COMPLETE_CLEANUP_NOT_IMPLEMENTED",
+    "OWNER_EXACT_RESOURCE_AND_CLONE_WRITE_AUTHORIZATION_PENDING",
+    "OWNER_ORIGINAL_ACCOUNT_LOGIN_AND_BUSINESS_ACCEPTANCE_NOT_RUN"
+  ],
+  "private_root": "/private/tmp/hbos-owned-site-restore-20261010-a7d3",
+  "runtime_ready": false,
+  "schema_version": 1,
+  "status": "OFFLINE_PROPOSAL_ONLY",
+  "volumes": [
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-db-data"
+    },
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-redis-cache-data"
+    },
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-redis-queue-data"
+    },
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-sites"
+    },
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-logs"
+    },
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-assets-data"
+    },
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-frappe-dist"
+    },
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-erpnext-dist"
+    },
+    {
+      "labels": {
+        "hbos.restore.owner": "hbos-owned-site-restore-20261010-a7d3"
+      },
+      "name": "hbos-owned-site-restore-20261010-a7d3-hbos-lims-dist"
+    }
+  ]
+}

@@ -10,7 +10,10 @@ after_install = "hbos_portal.auth.migration.migrate_identity_constraints"
 on_login = ["hbos_portal.auth.accounts.check_login"]
 on_session_creation = ['hbos_portal.auth.security.on_session_creation']
 auth_hooks = ['hbos_portal.auth.accounts.check_request']
-before_request = ["hbos_portal.auth.accounts.check_request"]
+before_request = [
+    "hbos_portal.auth.accounts.check_request",
+    "hbos_portal.organization.native_read_boundary.before_request",
+]
 on_logout = ["hbos_portal.auth.accounts.on_logout"]
 doc_events = {
     "User": {"before_validate": "hbos_portal.auth.accounts.guard_document_password", "on_update": "hbos_portal.auth.accounts.user_updated"},
@@ -19,6 +22,20 @@ doc_events = {
 override_whitelisted_methods = {
     "frappe.core.doctype.user.user.update_password": "hbos_portal.auth.accounts.update_password",
     "frappe.core.doctype.user.user.reset_password": "hbos_portal.auth.accounts.request_reset",
+}
+_protected_organization_doctypes = (
+    "HBOS Position", "HBOS Position Revision", "HBOS Personnel Assignment",
+    "HBOS Personnel Assignment Revision", "HBOS Organization Command Receipt",
+    "HBOS Organization Write Lock", "HBOS Organization Management Policy",
+    "HBOS Organization Management Policy Revision",
+)
+has_permission = {
+    kind: "hbos_portal.organization.native_read_boundary.deny_native_permission"
+    for kind in _protected_organization_doctypes
+}
+permission_query_conditions = {
+    kind: "hbos_portal.organization.native_read_boundary.deny_native_query"
+    for kind in _protected_organization_doctypes
 }
 website_route_rules = [{"from_route": "/hbos/<path:app_path>", "to_route": "hbos"}]
 scheduler_events = {"cron": {"*/5 * * * *": ["hbos_portal.auth.lifecycle.sync_disabled_members", 'hbos_portal.auth.operations.expire_operations']}}

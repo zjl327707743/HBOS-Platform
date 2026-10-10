@@ -1,5 +1,45 @@
 # 新乡海滨智能运营管理平台
 
+## 人员与权限：阶段交付本地提交接续 — 2026-10-10
+
+Owner已明确要求commit，沿用m2-r11；[提交范围与验证记录](docs/milestones/M2_人员权限阶段交付提交记录.md)固化连续人员权限 / Portal修复 / 恢复组件及其依赖。本次428后端、20账号、179前端及35 Node离线回归通过，类型 / lint / 内容门禁 / 正式模式本地构建通过；前段恢复342项的26源码SHA吻合。本次提交接续不改变S02 PARTIAL / REVIEWING、5178_REAL_READONLY及运行许可门禁；完整恢复 / 本人登录仍NOT_RUN，正式管理GET NOT_READY / POST关闭 / Grant NOT_RUN。以下为前序实施证据，提交后的Git标识以日志为准。
+
+## 人员与权限：恢复卷、持久登记与清理离线验证 — 2026-10-10
+
+当前进度 **S02_RESTORE_VOLUME_JOURNAL_CLEANUP_OFFLINE_VALIDATED / PARTIAL / REVIEWING / 5178_REAL_READONLY**；[本轮主记录](docs/milestones/M2_人员权限恢复卷与持久登记清理实施记录.md)、[验收摘要](docs/milestones/evidence/人员权限_恢复卷与持久登记清理验收摘要_20261010.json)、[分阶段矩阵](docs/milestones/evidence/人员权限_恢复分阶段资源矩阵_20261010.json)。**342/342离线PASS**，26文件Python3.10 AST通过。卷根权限tar / NoCopy守卫、固定持久日志及清理适配边界已实现，真实执行仍硬关闭。修正提案为两批同名五容器（累计最多10次创建、同时最多5个）、九卷、0新网络、1relay；阶段换代 / 可信采集尚未实现。
+
+本轮实际3次Docker只读源码核验，五角色metadata前后MATCH，原SQL连接 / App import / 服务控制 / 资源创建均0。登录Hook的通知、客户供应商、MFA和动态写链仍未闭合；空卷daemon / 嵌套挂载、全量快照 / SQL / 文件 / key、listener / exec退出 / absence及Owner登录仍NOT_RUN或NOT_READY。下一步先接可信执行捕获与阶段登记，不提前申请不完整动作的运行许可。5178既有真实只读，管理GET NOT_READY / POST关闭 / Grant NOT_RUN；S01-B/S02 PARTIAL、C/S03—S06 NOT_STARTED、P4-F6-5 REVIEWING及全部旧门禁保留。状态 / M2 Gate / 当前主记录 / 执行包 / 公共入口同步，CLAUDE / AGENTS仅规则检查无需改动；无新分支、commit、push或部署。以下为前序历史，以本段及主记录为准。
+
+## 前序人员与权限：完整Site恢复执行组件离线验证 — 2026-10-10
+
+当前进度 **S02_FULL_SITE_RESTORE_COMPONENTS_OFFLINE_VALIDATED / PARTIAL / REVIEWING / 5178_REAL_READONLY**；[本轮主记录](docs/milestones/M2_人员权限完整Site恢复执行组件实施记录.md)、[验收摘要](docs/milestones/evidence/人员权限_完整Site恢复执行组件验收摘要_20261010.json)。**222/222离线PASS**，20文件Python3.10 AST通过；安全私有落地、有限stdio / 固定loopback转发组件和内存生命周期规划已实现。真实ROOT / clone恢复 / 解密 / 网络 / 本人登录NOT_RUN，listener / 可信持久登记 / 全阶段执行清理未实现，生产服务HARD_BLOCKED。
+
+本轮20次Docker只读源码 / UID核验，两段五角色metadata MATCH，零原SQL / 服务控制 / 真实资源创建。源码PID1为Frappe1000:1000、DB999:999、Redis999:1000；新卷初始化未核。登录hash升级 / Hook / 通知 / 重置 / 2FA副作用未闭合，有限写入NOT_READY。下一步先补这些运行门禁及执行器，不提前请求创建运行许可。5178保持既有真实只读，管理GET NOT_READY / POST关闭 / Grant NOT_RUN；S01-B/S02 PARTIAL、C/S03—S06 NOT_STARTED、P4-F6-5 REVIEWING与所有旧门禁保留。状态 / 本轮主记录 / M2 Gate / 相关规范 / 公共入口同步，CLAUDE / AGENTS仅规则检查。无新分支、提交、推送或部署。以下前序记录只表示当时状态，以本段为准。
+
+
+前序安全层记录（2026-10-10）：**S02_FULL_SITE_RESTORE_GUARDS_OFFLINE_VALIDATED / PARTIAL / REVIEWING / 5178_REAL_READONLY**；[安全工具实施记录](docs/milestones/M2_人员权限完整Site恢复安全工具实施记录.md)、[验收摘要](docs/milestones/evidence/人员权限_完整Site恢复安全工具验收摘要_20261010.json)与[执行包](docs/plans/人员权限_完整Site恢复执行包.md)。新增11个 release 校验源码 / 测试文件，**94/94离线PASS**（input35/ownership29/relay20/plan10），Python3.12.14及3.10 AST通过。真实既有五备份 / before只读验证PASS，public0/private9/auth2、gzip SQL29683935bytes；未提取 / 解密 / 导入或连接原SQL。默认CLI只打印提案，无执行参数；5容器/0新网络/9卷/1relay矩阵均不可执行，UID / 新DB ID仍占位。 守卫只验证输入、最小HTTP政策、namespace-precheck元数据与精确清理argv；healthcheck禁用、daemon日志none、restart=no。没有Docker调用、服务控制、网络访问或资源创建，未改变原App / 前端 / schema / 配置 / Compose。 恢复执行器、realpath / 创建登记、listener / stdio传输、完整exec清理 / 截止时间、登录有限副作用与请求全清单仍待完成；完整恢复 / 网络实测 / 本人登录NOT_RUN，运行NOT_READY。下一步先补这些代码与离线审查，使行动具体可复核，再核对精确Owner创建运行许可。5178保持既有真实只读，GET NOT_READY/POST关闭/Grant NOT_RUN；S01-B/S02 PARTIAL，C/S03—S06 NOT_STARTED，P4-F6-5 REVIEWING及全部旧门禁保留。以下前序记录仅表示当时状态，接续以本段为准。
+
+前序完整Site恢复准备记录（2026-10-10，当时状态）：**S02_FULL_SITE_RESTORE_PREPARATION_REVIEWED / PARTIAL / REVIEWING / 5178_REAL_READONLY**；[完整Site恢复准备](docs/milestones/M2_人员权限完整Site恢复准备记录.md)、[摘要](docs/milestones/evidence/人员权限_完整Site恢复准备摘要_20261010.json)、[执行包](docs/plans/人员权限_完整Site恢复执行包.md)。本轮仅检查运行元数据、源文件与备份hash，零原SQL连接、无App初始化/服务控制/资源创建/新快照复制。9 App与完整env已盘点，尚非原子快照；Node依赖内容未盘点、env有变化，不能仅原镜像复原。复制/落地/实际解密/App启动/本人登录/实际网络验收NOT_RUN。singlebridge准备提案已弃用；none+container:本次新DBnetns与宿主受限HTTP relay（含受控exec子进程）尚未实现，网络执行NOT_READY，5组件互访同clone loopback，非peer端口ACL，提案要求克隆Docker组件无publish/原网络。克隆须作废旧Sessions。a7d3的5容器/0新Docker网络/9卷/1宿主受限HTTP relay提案未创建，hbos-restore.localhost:18092不变；下一步先实现并离线审查安全恢复工具、请求白名单和命令/挂载矩阵，再请求具体Owner创建运行许可，当前不询问执行许可；双栈解析与20GiB阈值不证明入口或峰值。GET NOT_READY/POST关闭/Grant NOT_RUN，全部旧门禁保留。无代码变更、历史测试未重跑。
+
+前序人员与权限记录（2026-10-10，原站备份与隔离SQL验收）：[原站备份与隔离SQL验收](docs/milestones/M2_人员权限原站备份与隔离SQL验收记录.md)已完成，**S02_ORIGINAL_BACKUP_SQL_RESTORE_VALIDATED / PARTIAL / REVIEWING / 5178_REAL_READONLY**（[验收摘要](docs/milestones/evidence/人员权限_原站备份与隔离SQL验收摘要_20261010.json)）。Owner确认窗口后，最终备份attempt4 PASS、8.400962125秒，原websocket暂停/解冻及其余窗口服务恢复，同12个原容器公开原态与最终元数据（挂载数组规范排序）匹配，原生八表/配置hash/旧4文件与2目录保全；源私有0700/0600，6个验证输入加manifest共7文件源/主机hash匹配。隔离SQL、账户与业务关联指纹及三类归档读取PASS（User18/凭据6/User角色关联103），新容器/卷/临时凭据已清理；5178人员页200、ping pong、两RQ worker注册/订阅/PID1/hostname匹配且空闲。两次producer失败的备份NOT_STARTED且原12公开状态MATCH、SIGINT位误读已更正；第一次SQL验收因挂载数组顺序误报FAIL，原报告保留，规范排序后另报告重验PASS。全局事务UNAVAILABLE/认证1045、websocket内部自动重启与完整连续冻结证据NOT_VERIFIED；完整Site文件落地/key解密/原App启动/本人业务登录恢复NOT_RUN。八管理表仍缺失，管理GET NOT_READY、POST关闭、Grant NOT_RUN。S01-B/S02 PARTIAL、C/S03—S06 NOT_STARTED、P4-F6-5 REVIEWING及全部原Q1/Q2、Date、固定P1/完整恢复/Owner与管理门禁保留。正式源码/测试/前端/配置/schema及Compose未改，未安装/创建App或创建bench；实际停启/冻结与私有备份已执行，14原生/428离线等历史测试本段未重跑，无commit/push/新分支。以下保留前序交付当时的记录。
+
+
+前序只读预检（2026-10-10，备份执行前）：[原站只读预检](docs/milestones/M2_人员权限原站只读预检记录.md)已完成，**S02_ORIGINAL_READONLY_PREFLIGHT_COMPLETED / PARTIAL / REVIEWING / 5178_REAL_READONLY**。实际frontend / DB摘要精确匹配，五来源InnoDB与24必需列PASS，COUNT18/0/1/14/31；八管理表全缺，正式预检在tables以STORAGE_PREFLIGHT_SCHEMA_INVALID停止。10诊断SELECT含正式预检2，零transaction_writes、rollback/destroy PASS，未初始化。只读诊断完成不等于结构或启用PASS；管理GET仍NOT_READY。原站备份工具release路径缺失，现已有镜像 / 权限 / 磁盘 / 备份总量仅元数据确认，原样stdin备份操作包已准备但未执行。下一段先确定停写一致性窗口 / 原服务恢复措施，再按同次私有备份与隔离SQL恢复范围执行；不建表 / 人员 / 政策 / pins或启GET。5178既有真实只读；本段未改代码 / 配置 / 服务 / 缓存 / schema，未备份 / 恢复或浏览器复验。前段14原生 / 428离线PASS为历史证据，本段未重跑。S01-B/S02 PARTIAL，C/S03—S06 NOT_STARTED，Grant NOT_RUN，P4-F6-5 REVIEWING；原Q1/Q2、Date、固定P1 / 完整恢复 / Owner及管理门禁保留。 以下为前序交付当时的记录。
+
+前序 V2 原型记录（2026-10-08，Owner 已接受）：**UI_PROTOTYPE_V2_ACCEPTED / Owner 已接受结构与交互，未接入真实权限**。Owner 明确否决旧版，已按三张参考图重做[人员与权限管理岗位关联原型](docs/frontend/人员与权限管理_岗位关联原型设计.md)及[可交互 HTML](docs/frontend/prototypes/人员信息与权限管理_岗位关联原型.html)：人员信息、权限管理两个主页面，组织树 + 表格 + 编辑弹窗；具体部门岗位关联角色，人员匹配岗位后显示角色。五张浏览器截图随文档交付，全部合成数据，仅在内存演示，独立预览端口 5196。本轮未修改正式应用与真实权限，其他任务已有变更保留。旧版 REJECTED / NOT_ADOPTED；P4-F6-5 REVIEWING、P1 PARTIAL / NOT_RUN、Q1 / Q2 与后端门禁不变。下方保留既有任务及旧原型历史记录，最新原型以 V2 为准。
+
+当前飞书登录已启用（2026-10-08）：Owner 保存精确回调后，控制台已显示该 URL 且当前修改已发布；飞书授权页正常出现，20029 消失。当前 frontend Site 的 HTTP 状态 configured=true、missing=[]，PKCE 与浏览器绑定验证通过。本次没有点击本人授权或创建账号，绑定记录仍为 0；正常登录从 [5178 登录页](http://127.0.0.1:5178/hbos/login)发起，原 Administrator 须本人验证绑定，不自动关联。见[整改记录 §15](docs/experience/LIMS_P4-F6-5_前端审核整改记录.md#15-2026-10-08-当前-site-飞书登录启用准备)。状态为 FEISHU LOGIN ENABLED / OWNER OAUTH PENDING，P4-F6-5 REVIEWING 与权限 / P1 门禁不变。以下为前序记录。
+
+本机入口修复（2026-10-08）：[我的与设置](http://127.0.0.1:5178/hbos/profile)中的个人资料与管理后台已改为 Frappe `/desk` 整页链接，开发地址默认跟随实际代理，解决误入 Portal 404。105 项前端测试及工程检查通过；已验证匿名目标进入 Frappe 登录页，真实账号点击待复验。详见[整改记录 §14](docs/experience/LIMS_P4-F6-5_前端审核整改记录.md#14-2026-10-08-个人资料与管理后台入口修复)。P4-F6-5 仍 REVIEWING，权限原型及 P1 门禁不变；下方为前序记录。
+
+本机登录修复（2026-10-08）：[127.0.0.1:5178 登录入口](http://127.0.0.1:5178/hbos/login)的来源拒绝已修复，原先误报为“安全会话已更新”。既有测试 Site 配置私有备份后仅追加该本机来源，浏览器虚构账号已进入密码校验，自动化与构建检查通过；真实账号成功登录待 Owner 复验。详见[整改记录 §13](docs/experience/LIMS_P4-F6-5_前端审核整改记录.md#13-2026-10-08-退出后密码登录来源修复)。P4-F6-5 保持 REVIEWING，权限管理原型与 P1 门禁不变；下方原型段落为独立前序任务记录。
+
+旧版权限原型记录（2026-10-08，Owner 已否决）：已形成[页面信息架构与原型](docs/frontend/权限管理_页面信息架构与原型.md)，并按 Owner 要求追加[HTML 交互模拟](docs/frontend/prototypes/权限管理_交互模拟.html)，状态 **REJECTED / NOT_ADOPTED / 旧稿已否决，未复刻、未接入**。包含八个页面 / 区域结构、四张静态图和独立 HTML；合成数据仅在原型内存演示，预览为 127.0.0.1:5196。本轮只改文档与设计资产，不动现有应用代码、5178 或后端；Q1 / Q2 待确认，P1 PARTIAL / 实际盘点 NOT_RUN，实际授权未实施。
+
+相关依据：[后端详细设计](docs/plans/权限管理_后端详细设计与实施拆分.md)、[业务权限矩阵](docs/plans/权限管理_业务权限矩阵与授权流程草案.md)、[P1 只读盘点](docs/plans/权限管理_P1环境只读盘点记录.md)、[可扩展授权契约](docs/plans/权限管理_可扩展授权契约与LIMS试点规格.md)、[IAM 字段映射](docs/plans/权限管理_IAM对齐与首批字段映射.md)。业务矩阵仍待口径确认，P1 来源仍待补；最新进度以状态台账顶部为准。
+
+本机连接恢复（2026-10-07）：[5178 Portal 开发入口](http://127.0.0.1:5178/hbos)已恢复，使用真实 Frappe 模式代理到既有 8080 后端；页面 / 模块与 API 代理连通性检查通过，无凭据 Bootstrap 仍返回 403。仅恢复前端进程并同步文档，未改代码或真实权限。详见[整改记录 §12](docs/experience/LIMS_P4-F6-5_前端审核整改记录.md#12-2026-10-07-恢复-5178-开发入口)。P4-F6-5 保持 REVIEWING；P1 的 5188 来源与权限盘点仍待补，5178 不替代 P1。
+
 当前本地工作分支（2026-10-02）：`m2-r11`。合并冲突检查通过，已修复 CSRF 缓存、旧请求竞态及 LIMS 会话重试问题，升级 Portal / 网关存在已知漏洞的依赖，并补齐回归和 CI 入口。P4-F6-5 保持 **REVIEWING**，本轮未提交、推送或部署；完整真实角色 / 签署流程与 Owner 验收待办。详见[合并后整改记录](docs/experience/LIMS_P4-F6-5_前端审核整改记录.md#11-2026-10-02-m2-r11-合并后检查与问题修复)。下方 PR #21 的 PASS 属于此前产品发布基线，不代替本轮运行态验收。
 
 2026-10-01 产品发布基线：PR #21 已在 FINAL_REVIEW_PASS 后 squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS、浏览器设密/改密/恢复 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。IAM-0 已由 clean Draft PR #23 承接，旧 #22 已关闭且未合并；PR #15 仍为 Draft，main 未变化。[当前 Gate](docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 记录本轮收口事实。

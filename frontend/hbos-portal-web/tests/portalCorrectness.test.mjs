@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { createServer, transformWithEsbuild } from 'vite'
+import { createServer, resolveConfig, transformWithEsbuild } from 'vite'
 import { parse, compileScript } from '@vue/compiler-sfc'
 import axios from 'axios'
 import postcss from 'postcss'
@@ -51,6 +51,29 @@ before(async () => {
   errors = await server.ssrLoadModule('/src/services/portalErrors.ts')
 })
 after(async () => { axios.defaults.adapter = originalAdapter; await server?.close() })
+
+test('Desk origin follows the development proxy, keeps explicit overrides and stays same-origin in production', async () => {
+  const keys = ['VITE_PORTAL_DATA_MODE', 'VITE_FRAPPE_APP_ORIGIN', 'VITE_FRAPPE_PROXY_TARGET']
+  const original = Object.fromEntries(keys.map(key => [key, process.env[key]]))
+  try {
+    process.env.VITE_PORTAL_DATA_MODE = 'frappe'
+    for (const [command, origin, proxy, expected] of [
+      ['serve', '', 'http://127.0.0.1:18091', 'http://127.0.0.1:18091'],
+      ['serve', 'https://hbos.example.test', 'http://127.0.0.1:8080', 'https://hbos.example.test'],
+      ['build', '', 'http://127.0.0.1:8080', ''],
+    ]) {
+      process.env.VITE_FRAPPE_APP_ORIGIN = origin
+      process.env.VITE_FRAPPE_PROXY_TARGET = proxy
+      const config = await resolveConfig({ root, configFile: `${root}/vite.config.ts`, mode: 'development' }, command)
+      assert.equal(config.define['import.meta.env.VITE_FRAPPE_APP_ORIGIN'], JSON.stringify(expected))
+    }
+  } finally {
+    for (const key of keys) {
+      if (original[key] === undefined) delete process.env[key]
+      else process.env[key] = original[key]
+    }
+  }
+})
 
 test('data mode whitelist rejects omitted/misspelled/case/space values and production Mock', () => {
   for (const value of [undefined, '', 'FRAPPE', 'frape', ' mock']) assert.throws(() => mode.resolvePortalDataMode(value))
