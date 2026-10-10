@@ -1,62 +1,59 @@
 <template>
-  <a-drawer :open="open" title="连接个人助手（MCP）" width="min(700px, 100vw)" :content-wrapper-style="{maxWidth:'100vw'}" :destroy-on-close="true" @close="close">
-    <div class="connections">
-      <p>用本人的知识库权限连接个人助手。连接有效期 7 天；退出 Portal 后仍可用，可在这里随时撤销。</p>
-      <a-alert v-if="error" type="error" show-icon :message="error" />
-      <a-skeleton v-if="loading" active />
-      <template v-if="info">
-        <a-alert v-if="info.deployment === 'LOCAL_UAT'" type="info" show-icon message="本机人工验收入口" description="此地址仅供本机客户端；从平板或其他电脑使用需要部署者提供受控 HTTPS 地址。" />
-        <a-alert :type="info.query_blocked?'warning':'info'" show-icon :message="info.query_blocked?'本轮知识查询暂停':'客户端实测范围'" :description="verification" />
-        <dl><dt>服务地址</dt><dd><code>{{ info.endpoint }}</code></dd><dt>认证</dt><dd>个人 Bearer Token · 不使用员工登录密码</dd><dt>受控工具</dt><dd>{{ info.tools.join('、') }}</dd></dl>
-        <form @submit.prevent="create">
-          <label for="mcp-client">助手客户端</label><select id="mcp-client" v-model="client" :disabled="busy"><option>OpenClaw</option><option>Hermes</option></select>
-          <label for="mcp-label">连接名称</label><input id="mcp-label" v-model="label" maxlength="80" placeholder="例如：我的工作助手" :disabled="busy" />
-          <a-button type="primary" html-type="submit" :loading="busy" :disabled="busy || !label.trim()">创建本人连接</a-button>
-        </form>
-        <section v-if="credential" class="credential" aria-live="polite">
-          <h3>保存本次连接凭据</h3><p>凭据仅显示这一次，请保存在本人客户端；关闭后需要新建连接。不要转发给他人。</p>
-          <label for="mcp-template">{{ client }} 配置</label><textarea id="mcp-template" readonly :value="template" aria-label="本人 MCP 连接配置" />
-          <div class="actions"><a-button @click="copy">复制配置</a-button><a-button @click="credential = null">已保存，隐藏凭据</a-button></div>
-          <p v-if="notice" role="status">{{ notice }}</p>
-        </section>
-        <section class="steps"><h3>连接并核验</h3><ol>
-          <li>OpenClaw：执行 <code>openclaw mcp set hbos '&lt;上方配置 JSON&gt;'</code>，把引号中的占位内容替换为本人的配置。transport 为 streamable-http。已核验版本：{{ info.client_versions.OpenClaw }}。</li>
-          <li>Hermes：把配置中的 hbos 条目加入本人的 config.yaml 的 mcp_servers，重启本人助手以加载。已测版本：{{ info.client_versions.Hermes }}。</li>
-          <li>刷新工具列表，应出现上面的四个工具；先查部门，再用 search_knowledge 查询，接着用 get_evidence 展开返回的 evidence_id。</li>
-          <li>向助手明确说“调用 HBOS 的 ask_knowledge 回答”，才使用知识库生成能力。标准检索不调用外部 rerank，向量查询仍计量；客户端自身生成也可能产生其账户费用。</li>
-          <li>完成后查看下方阶段是否到“已查询知识”；撤销后原连接下一次请求会被拒绝。</li>
-        </ol></section>
-        <div class="section-title"><h3>本人的连接</h3><a-button :disabled="busy || loading" @click="refresh">刷新连接状态</a-button></div>
-        <a-empty v-if="!info.items.length" description="还没有创建个人连接" />
-        <article v-for="item in info.items" :key="item.id"><div><strong>{{ item.label }}</strong><p>{{ item.client }} · {{ stage(item) }}</p><small>到期 {{ date(item.expires_at) }}<span v-if="item.last_used_at"> · 最近使用 {{ date(item.last_used_at) }}</span></small></div><a-button danger size="small" :disabled="busy || item.revoked" @click="revoke(item.id)">撤销连接</a-button></article>
-      </template>
-    </div>
+  <a-drawer :open="open" title="连接个人助手" width="min(620px, 100vw)" root-class-name="kb-drawer kb-scope" :destroy-on-close="true" @close="close">
+    <p class="kb-muted">让你的助手在回答公司问题时，先核对知识库。</p>
+    <a-alert v-if="error" type="error" show-icon :message="error"/><a-skeleton v-if="loading && !info" active/>
+    <template v-if="info">
+      <div class="kb-wizard-progress"><span>{{stepNames[step]}}</span><span>{{step+1}} / 6</span></div><a-progress :percent="Math.round((step+1)/6*100)" :show-info="false" stroke-color="#159b89"/>
+      <section class="kb-wizard-body">
+        <template v-if="step===0"><h2>你使用哪个助手？</h2><button v-for="name in ['OpenClaw','Hermes']" :key="name" :class="['kb-assistant-option',{selected:client===name}]" @click="client=name"><strong>{{name}}</strong><span>按已验证版本提供连接配置与操作步骤</span><CheckCircleOutlined v-if="client===name"/></button><p class="kb-muted">{{info.deployment==='LOCAL_UAT'?'本机地址仅供这台电脑使用。团队使用需受控 HTTPS 地址。':'使用部署者提供的受控 HTTPS 地址。'}}</p></template>
+        <template v-else-if="step===1"><h2>创建绑定本人的连接</h2><p>连接只查阅你的授权资料，有效期 {{info.ttl_days}} 天，可随时撤销。</p><form @submit.prevent="create"><label class="sr-only" for="mcp-label">连接名称</label><a-input id="mcp-label" v-model:value="label" :maxlength="80" :disabled="busy" placeholder="我的个人助手"/><a-button type="primary" html-type="submit" :loading="busy" :disabled="busy||!label.trim()"><PlusOutlined/>{{credential?'重新创建连接':'创建本人连接'}}</a-button></form><p v-if="credential" class="kb-notice">本人连接已创建。凭据仅在本次向导中提供，关闭后不会再次显示。</p></template>
+        <template v-else-if="step===2"><h2>将配置加入 {{client}}</h2><ol v-if="client==='OpenClaw'"><li>打开终端，运行下方配置命令。</li><li>保存后重新加载助手的 MCP 连接。</li></ol><ol v-else><li>打开本人 Hermes 的 config.yaml。</li><li>将连接条目加入 mcp_servers，重启本人助手。</li></ol><a-button type="primary" :disabled="!credential" @click="copyConfig"><CopyOutlined/>复制连接配置</a-button><a-collapse ghost><a-collapse-panel key="config" header="高级：查看本次配置"><textarea id="mcp-template" readonly :value="template" aria-label="本人 MCP 连接配置"/><p class="kb-muted">只在本人的客户端保存，不转发凭据。</p></a-collapse-panel></a-collapse><p class="kb-muted">已核验 {{client}} {{info.client_versions[client]}}。{{client==='OpenClaw'?'配置为 streamable-http 传输。':'本配置适配已安装的 Hermes。'}}</p></template>
+        <template v-else-if="step===3"><h2>把这段话发给你的助手</h2><p>以后询问公司制度时，助手会先查资料，并给出来源。</p><div class="kb-prompt-preview">{{usagePrompt}}</div><a-button type="primary" @click="copyPrompt"><CopyOutlined/>复制中文使用提示词</a-button></template>
+        <template v-else-if="step===4"><h2>连接后，做一次真实查询</h2><label for="mcp-test-query">测试问题</label><a-input id="mcp-test-query" v-model:value="testQuery" :maxlength="500" :disabled="busy" placeholder="输入已共享资料的标题或关键词"/><div class="kb-connection-check" v-for="check in checkRows" :key="check.key"><span>{{check.label}}</span><a-tag :color="checks[check.key]==='passed'?'green':checks[check.key]==='failed'?'red':'default'">{{checkNames[checks[check.key]]}}</a-tag></div><p class="kb-muted">检测会实际调用 MCP 检索与来源。助手配置是否已加载，还需在 {{client}} 发送测试问题。</p><a-button :loading="busy" :disabled="busy||!credential||!testQuery.trim()" @click="detect">检测连接</a-button><a-button @click="copyTest">复制助手测试问题</a-button><a-alert v-if="checks.error" type="warning" show-icon :message="checks.error"/></template>
+        <template v-else><h2>{{checks.evidence==='passed'?'检索与来源检查通过':'连接配置已准备'}}</h2><p>{{checks.evidence==='passed'?'本人身份、四个工具、实际搜索和来源已经分别核验。请在助手里完成一次对话。':'配置完成后仍需实际检索与来源核验。配置已创建不代表连接成功。'}}</p><div class="kb-connection-summary"><strong>{{client}} · {{label}}</strong><a-tag :color="checks.evidence==='passed'?'green':'default'">{{checks.evidence==='passed'?'查询已验证':'查询待验证'}}</a-tag></div><a-button v-if="credential" danger :disabled="busy" @click="revoke(credential.id)">撤销本次连接</a-button></template>
+      </section>
+      <p v-if="notice" class="kb-notice" role="status">{{notice}}</p>
+      <div class="kb-wizard-footer"><a-button v-if="step>0" :disabled="busy" @click="step--">上一步</a-button><a-button v-if="step<5" type="primary" :disabled="busy||(step===1&&!credential)" @click="step++">下一步<ArrowRightOutlined/></a-button><a-button v-else type="primary" @click="close">完成</a-button></div>
+      <a-collapse ghost class="connection-list"><a-collapse-panel key="items" header="管理本人的连接"><a-button :loading="loading" :disabled="busy" @click="refresh">刷新连接状态</a-button><a-empty v-if="!info.items.length" description="还没有创建个人连接"/><article v-for="item in info.items" :key="item.id"><div><strong>{{item.label}}</strong><p>{{item.client}} · {{stage(item)}}</p><small>到期 {{date(item.expires_at)}}</small></div><a-button danger :disabled="busy||item.revoked" @click="revoke(item.id)">撤销连接</a-button></article></a-collapse-panel></a-collapse>
+    </template>
   </a-drawer>
 </template>
 <script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { CopyOutlined, PlusOutlined, ArrowRightOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import { getKnowledgeConnections, createKnowledgeConnection, revokeKnowledgeConnection, DomainApiError } from '@/services/p1Api'
 import type { ConnectionInfo, PersonalConnection } from '@/services/p1Api'
-const props=defineProps<{open:boolean;subject:string}>()
-const emit=defineEmits<{close:[]}>()
+import { checkKnowledgeConnection, type ConnectionChecks } from '@/services/knowledgeConnectionCheck'
+const props=defineProps<{open:boolean;subject:string}>(),emit=defineEmits<{close:[]}>()
 const info=ref<ConnectionInfo|null>(null), credential=ref<{id:string;token:string;expires_at:string}|null>(null)
-const client=ref('OpenClaw'), label=ref('我的工作助手'), loading=ref(false), busy=ref(false), error=ref(''), notice=ref('')
-let generation=0, refreshGeneration=0
-const template=computed(()=> !info.value || !credential.value ? '' : JSON.stringify(client.value==='OpenClaw' ? {transport:'streamable-http',url:info.value.endpoint,headers:{Authorization:'Bearer '+credential.value.token}} : {mcp_servers:{hbos:{url:info.value.endpoint,headers:{Authorization:'Bearer '+credential.value.token},timeout:90}}},null,2))
-const verification=computed(()=>{const status=info.value?.client_verification[client.value];return status==='VERIFIED_TOOLS_ONLY_QUERY_BLOCKED' ? 'OpenClaw 的认证、四个工具发现和部门读取已实测；知识查询和完整助手回答尚未通过。费用待核验期间不会发送新模型请求。' : status==='VERIFIED_QUERY_AND_SOURCE_BEFORE_BUDGET_STOP' ? 'Hermes 已装版本的知识查询和来源展开在暂停前实测通过；完整助手生成尚未验证。当前费用待核验，查询已暂停。' : '客户端完整查询尚未验证。请查看知识库服务状态；当前存在未结算请求。'})
+const step=ref(0),client=ref('OpenClaw'),label=ref('我的个人助手'),loading=ref(false),busy=ref(false),error=ref(''),notice=ref(''),testQuery=ref('培养箱操作规程')
+const stepNames=['选择助手','创建本人连接','复制配置','复制使用提示词','测试连接与查询','完成']
+const usagePrompt='以后涉及新乡海滨药业公司制度、SOP、生产、质量、安全或人事问题时，请优先调用 HBOS MCP 的 list_knowledge_spaces、search_knowledge；必要时调用 get_evidence 核对来源，再用你自己的模型组织回答并列出标题、版本状态与依据。资料不足时明确说明，不得凭记忆编造公司规定；不索取原始文件或调用 get_source。只有我明确要求由 HBOS 生成答案时才调用 ask_knowledge。'
+const checkRows=[{key:'authentication' as const,label:'本人身份认证'},{key:'tools' as const,label:'四个受控工具'},{key:'search' as const,label:'实际搜索'},{key:'evidence' as const,label:'来源展开'}]
+const checkNames={pending:'待检查',passed:'已通过',failed:'未通过'}
+const emptyChecks=():ConnectionChecks=>({authentication:'pending',tools:'pending',search:'pending',evidence:'pending',error:''})
+const checks=ref<ConnectionChecks>(emptyChecks())
+let generation=0,refreshGeneration=0,controller:AbortController|null=null
+const config=computed(()=>!info.value||!credential.value?'':JSON.stringify(client.value==='OpenClaw'?{transport:'streamable-http',url:info.value.endpoint,headers:{Authorization:'Bearer '+credential.value.token}}:{mcp_servers:{hbos:{url:info.value.endpoint,headers:{Authorization:'Bearer '+credential.value.token},timeout:90}}},null,2))
+const template=computed(()=>client.value==='OpenClaw'&&config.value ? "openclaw mcp set hbos '"+config.value+"'" : config.value)
 function date(s:string){return new Date(s).toLocaleString()}
-function stage(item:PersonalConnection){return item.revoked ? '已撤销' : item.expired ? '已过期' : ({Configured:'已配置',Authenticated:'已认证','Tools Discovered':'已发现工具','Knowledge Used':'已查询知识'}[item.stage] || '待核验')}
-function close(){generation++;credential.value=null;info.value=null;error.value='';busy.value=false;loading.value=false;emit('close')}
-function fail(e:unknown){error.value=e instanceof DomainApiError ? e.message : '连接操作暂时不可用。'}
-async function refresh(){const current=generation, seq=++refreshGeneration;loading.value=true;error.value='';try{const result=await getKnowledgeConnections();if(current===generation && seq===refreshGeneration)info.value=result}catch(e){if(current===generation && seq===refreshGeneration)fail(e)}finally{if(current===generation && seq===refreshGeneration)loading.value=false}}
-async function create(){if(busy.value)return;const current=++generation;busy.value=true;credential.value=null;error.value='';notice.value='';try{const result=await createKnowledgeConnection(label.value.trim(),client.value);if(current===generation){credential.value=result;await refresh()}}catch(e){if(current===generation)fail(e)}finally{if(current===generation)busy.value=false}}
-async function revoke(id:string){if(busy.value)return;const current=++generation;busy.value=true;error.value='';try{await revokeKnowledgeConnection(id);if(current===generation){if(credential.value?.id===id)credential.value=null;await refresh()}}catch(e){if(current===generation)fail(e)}finally{if(current===generation)busy.value=false}}
-async function copy(){try{await navigator.clipboard.writeText(template.value);notice.value='已复制，请粘贴到本人客户端。'}catch{notice.value='复制受浏览器限制，请手动选择并复制上方配置。'}}
-watch(()=>props.open,value=>{if(value&&props.subject)void refresh();else{generation++;credential.value=null;info.value=null;busy.value=false;loading.value=false}})
-watch(()=>props.subject,()=>{generation++;credential.value=null;info.value=null;error.value='';notice.value='';busy.value=false;loading.value=false;label.value='我的工作助手';if(props.open&&props.subject)void refresh()})
-watch(client,()=>{generation++;credential.value=null;notice.value=''})
-onBeforeUnmount(()=>{generation++;credential.value=null})
+function stage(item:PersonalConnection){return item.revoked?'已撤销':item.expired?'已过期':({Configured:'已配置，查询待验证',Authenticated:'已认证','Tools Discovered':'已发现工具','Knowledge Used':'已查询知识'}[item.stage]||'待核验')}
+function reset(){generation++;controller?.abort();controller=null;credential.value=null;info.value=null;error.value='';notice.value='';busy.value=false;loading.value=false;checks.value=emptyChecks();step.value=0}
+function close(){reset();emit('close')}
+function fail(e:unknown){error.value=e instanceof DomainApiError?e.message:'连接操作暂时不可用。'}
+async function refresh(){const current=generation,seq=++refreshGeneration;loading.value=true;error.value='';try{const result=await getKnowledgeConnections();if(current===generation&&seq===refreshGeneration)info.value=result}catch(e){if(current===generation&&seq===refreshGeneration)fail(e)}finally{if(current===generation&&seq===refreshGeneration)loading.value=false}}
+async function create(){if(busy.value)return;const current=++generation;busy.value=true;credential.value=null;checks.value=emptyChecks();error.value='';notice.value='';try{const result=await createKnowledgeConnection(label.value.trim(),client.value);if(current===generation){credential.value=result;await refresh()}}catch(e){if(current===generation)fail(e)}finally{if(current===generation)busy.value=false}}
+async function revoke(id:string){if(busy.value)return;const current=++generation;controller?.abort();busy.value=true;error.value='';try{await revokeKnowledgeConnection(id);if(current===generation){if(credential.value?.id===id){credential.value=null;checks.value=emptyChecks()}notice.value='连接已撤销，旧凭据不能继续访问。';await refresh()}}catch(e){if(current===generation)fail(e)}finally{if(current===generation)busy.value=false}}
+async function copy(value:string,success:string){const current=generation;try{await navigator.clipboard.writeText(value);if(current===generation)notice.value=success}catch{if(current===generation)notice.value='复制受浏览器限制，请手动选择并复制。'}}
+function copyConfig(){if(credential.value)void copy(template.value,'已复制本人配置，请保存在所选助手。')}
+function copyPrompt(){void copy(usagePrompt,'已复制中文提示词，其中不含连接凭据或公司资料。')}
+function copyTest(){void copy('请调用 HBOS search_knowledge 搜索“'+testQuery.value+'”，再调用 get_evidence 核对返回的来源。请列出资料标题及版本状态；资料不足时说明。','已复制助手测试问题。')}
+async function detect(){if(busy.value||!credential.value||!info.value)return;const current=generation;controller=new AbortController();busy.value=true;checks.value=emptyChecks();try{await checkKnowledgeConnection(info.value,credential.value.token,testQuery.value,controller.signal,value=>{if(current===generation)checks.value=value});if(current===generation)await refresh()}catch(e){if(current===generation)error.value=e instanceof Error?e.message:'检测未完成。'}finally{if(current===generation)busy.value=false}}
+watch(()=>props.open,value=>{if(value&&props.subject){step.value=0;void refresh()}else reset()},{immediate:true})
+watch(()=>props.subject,()=>{reset();label.value='我的个人助手';if(props.open&&props.subject)void refresh()},{flush:'sync'})
+watch(client,()=>{generation++;controller?.abort();credential.value=null;checks.value=emptyChecks();notice.value='';busy.value=false})
+onBeforeUnmount(reset)
 </script>
 <style scoped>
-.connections{display:grid;gap:16px;font-size:var(--hbos-font-body);line-height:var(--hbos-line-body);overflow-wrap:anywhere;min-width:0}.connections p{margin:0;color:var(--hbos-text-secondary)}.connections h3{font-size:var(--hbos-font-card-title);margin:0 0 8px}.connections form{display:grid;gap:8px}.connections input,.connections select,.connections textarea{width:100%;padding:10px;border:1px solid var(--hbos-border-strong);border-radius:10px;background:var(--hbos-bg-surface);font:inherit}.connections textarea{min-height:230px;resize:vertical;font-size:var(--hbos-font-meta);white-space:pre;overflow:auto}.connections label,.connections dt{font-weight:var(--hbos-weight-strong)}.connections dd{margin:4px 0 12px}.credential{padding:16px;border-radius:16px;border:1px solid var(--hbos-border-strong);display:grid;gap:10px}.actions,.section-title{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}.connections article{display:flex;gap:12px;justify-content:space-between;border-top:1px solid var(--hbos-border-strong);padding:12px 0}.connections article>div{min-width:0}.connections small{font-size:var(--hbos-font-meta);color:var(--hbos-text-muted)}.steps li{margin:8px 0}
+.kb-wizard-body form{display:grid;gap:20px}.kb-wizard-body textarea{width:100%;min-height:240px;border:1px solid var(--hbos-border-default);border-radius:12px;padding:16px;font-size:14px;line-height:24px;white-space:pre-wrap;overflow-wrap:anywhere}.connection-list{margin-top:24px}.connection-list article{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 0;border-bottom:1px solid var(--hbos-border-default)}.connection-list strong{font-size:16px;overflow-wrap:anywhere}.connection-list p{margin:8px 0;font-size:14px}.connection-list small{font-size:12px;color:var(--hbos-text-muted)}
 </style>

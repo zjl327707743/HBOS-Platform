@@ -12,9 +12,9 @@ vi.mock('@/services/p1Api', async importOriginal => ({
   getKnowledgeStatus: api.status,
   getKnowledgeSpaces: api.spaces,
   searchKnowledge: api.search,
-  resolveKnowledgeEvidence: api.resolve,
+  resolveKnowledgeEvidence: api.resolve, getKnowledgeActivityPage: async (_kind: string,page: number,pageSize: number) => ({items:[],page,page_size:pageSize,has_more:false}),
 }))
-vi.mock('vue-router', () => ({ useRoute: () => ({query:{},path:'/hbos/knowledge'}) }))
+vi.mock('vue-router', () => ({ useRoute: () => ({query:{},path:'/hbos/knowledge'}), useRouter:()=>({push:vi.fn()}) }))
 const subject = reactive<{ user:{id:string}|null }>({user:{id:'USER_QA_DEMO'}})
 vi.mock('@/stores/portal', () => ({ usePortalStore:() => subject }))
 
@@ -40,6 +40,7 @@ async function view(items=[card()]) {
   const wrapper = mount(KnowledgeView,{global:{stubs}})
   wrappers.push(wrapper)
   await flushPromises()
+  await wrapper.findAll('button').find(b=>b.text()==='搜资料')!.trigger('click')
   await wrapper.find('#knowledge-query').setValue('SYNTHETIC query')
   await wrapper.find('.knowledge-search').trigger('submit')
   await flushPromises()
@@ -57,23 +58,23 @@ afterEach(() => {wrappers.splice(0).forEach(wrapper => wrapper.unmount())})
 describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC only', () => {
   it('each open performs resolve, never reuses the preview as evidence', async () => {
     const wrapper = await view()
-    await wrapper.find('.result-card button').trigger('click')
+    await wrapper.find('.result-card .kb-doc-main').trigger('click')
     await flushPromises()
     expect(api.resolve).toHaveBeenCalledTimes(1)
     expect(wrapper.find('blockquote').text()).toBe(card().excerpt)
     await wrapper.find('[data-close]').trigger('click')
     expect(wrapper.find('blockquote').exists()).toBe(false)
-    await wrapper.find('.result-card button').trigger('click')
+    await wrapper.find('.result-card .kb-doc-main').trigger('click')
     await flushPromises()
     expect(api.resolve).toHaveBeenCalledTimes(2)
   })
 
   it('clears old excerpt before a second resolve starts', async () => {
     const wrapper=await view([card(),card('B')])
-    await wrapper.findAll('.result-card button')[0].trigger('click')
+    await wrapper.findAll('.result-card .kb-doc-main')[0].trigger('click')
     await flushPromises()
     const next=deferred<KnowledgeEvidence>(); api.resolve.mockReturnValueOnce(next.promise)
-    await wrapper.findAll('.result-card button')[1].trigger('click')
+    await wrapper.findAll('.result-card .kb-doc-main')[1].trigger('click')
     expect(wrapper.find('blockquote').exists()).toBe(false)
     next.resolve(card('B')); await flushPromises()
     expect(wrapper.find('blockquote').text()).toBe(card('B').excerpt)
@@ -83,9 +84,9 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
     const wrapper=await view([card(),card('B')])
     const a=deferred<KnowledgeEvidence>(), b=deferred<KnowledgeEvidence>()
     api.resolve.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise)
-    await wrapper.findAll('.result-card button')[0].trigger('click')
+    await wrapper.findAll('.result-card .kb-doc-main')[0].trigger('click')
     const signalA=api.resolve.mock.calls[0][1] as AbortSignal
-    await wrapper.findAll('.result-card button')[1].trigger('click')
+    await wrapper.findAll('.result-card .kb-doc-main')[1].trigger('click')
     expect(signalA.aborted).toBe(true)
     b.resolve(card('B')); await flushPromises()
     a.resolve(card()); await flushPromises()
@@ -95,7 +96,7 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
   it('close cancels and late success cannot reopen', async () => {
     const wrapper=await view()
     const pending=deferred<KnowledgeEvidence>(); api.resolve.mockReturnValueOnce(pending.promise)
-    await wrapper.find('.result-card button').trigger('click')
+    await wrapper.find('.result-card .kb-doc-main').trigger('click')
     const signal=api.resolve.mock.calls[0][1] as AbortSignal
     await wrapper.find('[data-close]').trigger('click')
     pending.resolve(card()); await flushPromises()
@@ -107,7 +108,7 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
   it.each(['USER_PROD_DEMO',null])('switch user / logout clears and rejects late success: %s',async id => {
     const wrapper=await view()
     const pending=deferred<KnowledgeEvidence>(); api.resolve.mockReturnValueOnce(pending.promise)
-    await wrapper.find('.result-card button').trigger('click')
+    await wrapper.find('.result-card .kb-doc-main').trigger('click')
     subject.user=id?{id}:null
     await flushPromises()
     pending.resolve(card()); await flushPromises()
@@ -119,7 +120,7 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
   it('same user logout/login still invalidates the request generation',async () => {
     const wrapper=await view()
     const pending=deferred<KnowledgeEvidence>(); api.resolve.mockReturnValueOnce(pending.promise)
-    await wrapper.find('.result-card button').trigger('click')
+    await wrapper.find('.result-card .kb-doc-main').trigger('click')
     subject.user=null
     subject.user={id:'USER_QA_DEMO'}
     pending.resolve(card()); await flushPromises()
@@ -129,10 +130,10 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
 
   it('revoked evidence clears drawer and previous result previews',async () => {
     const wrapper=await view()
-    await wrapper.find('.result-card button').trigger('click'); await flushPromises()
+    await wrapper.find('.result-card .kb-doc-main').trigger('click'); await flushPromises()
     await wrapper.find('[data-close]').trigger('click')
     api.resolve.mockRejectedValueOnce(new DomainApiError('EVIDENCE_UNAVAILABLE','该证据不可用或已失效。'))
-    await wrapper.find('.result-card button').trigger('click'); await flushPromises()
+    await wrapper.find('.result-card .kb-doc-main').trigger('click'); await flushPromises()
     expect(wrapper.find('blockquote').exists()).toBe(false)
     expect(wrapper.find('[data-error]').text()).toBe('该证据不可用或已失效。')
     expect(wrapper.text()).not.toContain(card().excerpt)
@@ -141,8 +142,8 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
   it('late old failure cannot clear a newer successful evidence',async () => {
     const wrapper=await view([card(),card('B')]); const a=deferred<KnowledgeEvidence>()
     api.resolve.mockReturnValueOnce(a.promise).mockResolvedValueOnce(card('B'))
-    await wrapper.findAll('.result-card button')[0].trigger('click')
-    await wrapper.findAll('.result-card button')[1].trigger('click'); await flushPromises()
+    await wrapper.findAll('.result-card .kb-doc-main')[0].trigger('click')
+    await wrapper.findAll('.result-card .kb-doc-main')[1].trigger('click'); await flushPromises()
     a.reject(new Error('SYNTHETIC old failure')); await flushPromises()
     expect(wrapper.find('blockquote').text()).toBe(card('B').excerpt)
     expect(wrapper.find('[data-error]').exists()).toBe(false)
@@ -151,16 +152,16 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
   it('unknown service error is fixed text; no raw path is rendered',async () => {
     const wrapper=await view()
     api.resolve.mockRejectedValueOnce(new Error('/SYNTHETIC/private/file.pdf'))
-    await wrapper.find('.result-card button').trigger('click'); await flushPromises()
+    await wrapper.find('.result-card .kb-doc-main').trigger('click'); await flushPromises()
     expect(wrapper.find('blockquote').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('/SYNTHETIC')
   })
 
   it('unknown business version/page stay explicitly unverified',async () => {
     const wrapper=await view()
-    await wrapper.find('.result-card button').trigger('click'); await flushPromises()
-    expect(wrapper.find('[data-drawer]').text()).toContain('版本未核')
-    expect(wrapper.find('[data-drawer]').text()).toContain('定位未核')
+    await wrapper.find('.result-card .kb-doc-main').trigger('click'); await flushPromises()
+    expect(wrapper.find('[data-drawer]').text()).toContain('版本待核')
+    expect(wrapper.find('[data-drawer]').text()).not.toContain('第 1 页')
     expect(wrapper.find('[data-drawer]').text()).toContain('SYNTHETIC_ONLY')
     expect(wrapper.find('a[href]').exists()).toBe(false)
   })
@@ -175,7 +176,8 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
     const pending=deferred<{request_id:string,mode:'retrieval',results:KnowledgeEvidence[]}>()
     api.search.mockReturnValueOnce(pending.promise)
     const wrapper=mount(KnowledgeView,{global:{stubs}}); wrappers.push(wrapper); await flushPromises()
-    await wrapper.find('#knowledge-query').setValue('SYNTHETIC query'); await wrapper.find('.knowledge-search').trigger('submit')
+    await wrapper.findAll('button').find(b=>b.text()==='搜资料')!.trigger('click')
+  await wrapper.find('#knowledge-query').setValue('SYNTHETIC query'); await wrapper.find('.knowledge-search').trigger('submit')
     subject.user=null; pending.resolve({request_id:'REQ_LATE_DEMO',mode:'retrieval',results:[card()]})
     await flushPromises()
     expect(wrapper.text()).not.toContain(card().excerpt)
@@ -185,7 +187,7 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
   it('unmount invalidates pending evidence',async () => {
     const wrapper=await view(); const pending=deferred<KnowledgeEvidence>()
     api.resolve.mockReturnValueOnce(pending.promise)
-    await wrapper.find('.result-card button').trigger('click')
+    await wrapper.find('.result-card .kb-doc-main').trigger('click')
     const signal=api.resolve.mock.calls[0][1] as AbortSignal
     wrapper.unmount(); pending.resolve(card()); await flushPromises()
     expect(signal.aborted).toBe(true)

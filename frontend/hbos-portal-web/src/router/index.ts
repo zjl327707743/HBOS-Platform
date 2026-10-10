@@ -47,6 +47,10 @@ const router = createRouter({
       component: KnowledgeTwinLayout,
       children: [
         { path: '', name: 'knowledge', component: KnowledgeView, meta: { title: '知识库' } },
+        { path: 'catalog', name: 'knowledge-catalog', component: KnowledgeView, meta: { title: '资料目录' } },
+        { path: 'favorites', name: 'knowledge-favorites', component: KnowledgeView, meta: { title: '我的收藏' } },
+        { path: 'history', name: 'knowledge-history', component: KnowledgeView, meta: { title: '我的记录' } },
+        ...['upload', 'versions', 'feedback'].map(view => ({ path: `maintenance/${view}`, component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '知识维护' } })),
         { path: 'maintenance', name: 'knowledge-maintenance', component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '知识维护' } },
       ],
     },

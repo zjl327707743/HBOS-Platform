@@ -263,7 +263,12 @@ export async function getKnowledgeActivity(kind: 'History' | 'Bookmark'): Promis
   const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<{items: import('@/contracts/p1').KnowledgeActivity[]}>>('hb_knowledge_app.hb_knowledge.api.get_activity', {kind}))
   validateRecordPage(data)
   if (!Array.isArray(data.items) || data.items.length > 30) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
-  data.items.forEach(item => {
+  validateKnowledgeActivities(data.items)
+  return data.items
+}
+export interface KnowledgeRecordPage<T> { items: T[]; page: number; page_size: number; has_more: boolean }
+function validateKnowledgeActivities(items: import('@/contracts/p1').KnowledgeActivity[]): void {
+  items.forEach(item => {
     if (Object.keys(item).some(k => !['id','query','created_at','available','titles','document_ids','version_ids','bookmark_type'].includes(k)) || typeof item.available !== 'boolean' || !Array.isArray(item.titles)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
     safeKnowledgeString(item.id,128);safeKnowledgeString(item.query,500);safeKnowledgeString(item.created_at,80)
     item.titles.forEach(t => safeKnowledgeString(t,240,true))
@@ -275,7 +280,29 @@ export async function getKnowledgeActivity(kind: 'History' | 'Bookmark'): Promis
     }
     if (item.bookmark_type !== undefined && !['Document','Evidence'].includes(item.bookmark_type)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   })
-  return data.items
+ }
+export async function getKnowledgeActivityPage(kind: 'History' | 'Bookmark', page=1, pageSize=6): Promise<KnowledgeRecordPage<import('@/contracts/p1').KnowledgeActivity>> {
+  if (!Number.isSafeInteger(page) || page<1 || !Number.isSafeInteger(pageSize) || pageSize<1 || pageSize>50) throw new DomainApiError('INVALID_REQUEST','记录分页无效。')
+  const data=unwrapKnowledge(await callFrappeMethod<DomainEnvelope<KnowledgeRecordPage<import('@/contracts/p1').KnowledgeActivity>>>('hb_knowledge_app.hb_knowledge.api.get_activity',{kind,page,page_size:pageSize}))
+  validateRecordPage(data)
+  if (data.page!==page || data.page_size!==pageSize) throw new DomainApiError('SERVICE_ERROR','记录分页响应无效。')
+  validateKnowledgeActivities(data.items)
+  return data
+}
+export async function saveKnowledgeDocumentBookmark(documentId:string,versionId:string): Promise<void> {
+  safeKnowledgeString(documentId,120); safeKnowledgeString(versionId,120)
+  unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{id:string}>>('hb_knowledge_app.hb_knowledge.api.save_document_bookmark',{document_id:documentId,version_id:versionId}))
+}
+export async function getKnowledgeFeedbackPage(page=1,pageSize=6): Promise<KnowledgeRecordPage<KnowledgeFeedback>> {
+  if (!Number.isSafeInteger(page) || page<1 || !Number.isSafeInteger(pageSize) || pageSize<1 || pageSize>50) throw new DomainApiError('INVALID_REQUEST','反馈分页无效。')
+  const data=unwrapKnowledge(await callFrappeMethod<DomainEnvelope<KnowledgeRecordPage<KnowledgeFeedback>>>('hb_knowledge_app.hb_knowledge.api.get_feedback',{page,page_size:pageSize}))
+  validateRecordPage(data)
+  if (data.page!==page || data.page_size!==pageSize) throw new DomainApiError('SERVICE_ERROR','反馈分页响应无效。')
+  for (const item of data.items) {
+    if (!item || typeof item !== 'object' || Object.keys(item).some(k=>!['id','category','note','status','created_at','updated_at','reply'].includes(k)) || !['Pending','In Review','Resolved'].includes(item.status)) throw new DomainApiError('SERVICE_ERROR','反馈响应无效。')
+    safeKnowledgeString(item.id,128);safeKnowledgeString(item.note,500);safeKnowledgeString(item.category,120);safeKnowledgeString(item.created_at,80);safeKnowledgeString(item.updated_at,80);safeKnowledgeString(item.reply,500,true)
+  }
+  return data
 }
 export async function openKnowledgeSaved(id: string): Promise<KnowledgeSavedQuery> {
   const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<KnowledgeSavedQuery>>('hb_knowledge_app.hb_knowledge.api.open_saved',{activity_id:id}))

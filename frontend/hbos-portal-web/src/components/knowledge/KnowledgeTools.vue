@@ -1,5 +1,5 @@
 <template>
-  <div class="knowledge-tools">
+  <div v-if="!view" class="knowledge-tools">
     <section v-if="askEnabled && (!mode || mode === 'ask')" class="ask-area hbos-glass-g2">
       <form v-if="!composerExternal" @submit.prevent="ask()">
         <label for="knowledge-question">{{ conversation ? '继续追问' : '你的问题' }}</label>
@@ -67,16 +67,56 @@
       </div>
     </a-modal>
   </div>
+  <div v-else class="knowledge-tools kb-tools">
+    <section v-if="view==='query' && mode==='ask' && (turns.length || askPending)" class="kb-panel kb-answer-panel hbos-glass-g1">
+      <div class="kb-section-title"><h2>回答</h2><a-button type="text" @click="newConversation">开启新问题</a-button></div>
+      <div class="kb-answer-list" aria-live="polite">
+        <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
+          <h3 class="answer-question">{{turn.question}}</h3><a-tag v-if="!turn.answerable" color="orange">依据不足</a-tag>
+          <p class="kb-answer-copy">{{turn.answer}}</p><div v-if="turn.citations.length" class="kb-source-label">参考来源</div>
+          <div v-for="source in turn.citations" :key="source.citation_label" class="kb-citation-row">
+            <button class="kb-source-link" @click="emit('evidence',source.evidence_id)"><FileTextOutlined/><span>[{{source.citation_label}}] {{source.title||'未标注标题'}}<small>{{source.version||'版本待核'}} · {{source.status_note==='INTERNAL_REFERENCE_REVIEWED'?'内部参考／有效性待核':source.status_note}}</small></span></button>
+            <a-button type="text" :aria-label="(isBookmarked(source)?'取消收藏 ':'收藏 ')+source.title" :disabled="busy" @click="bookmark(source)"><StarFilled v-if="isBookmarked(source)" class="kb-star"/><StarOutlined v-else/></a-button>
+            <a-button type="text" aria-label="反馈来源" @click="feedback(source)"><MessageOutlined/></a-button>
+          </div>
+        </article>
+      </div>
+      <a-skeleton v-if="askPending" active :paragraph="{rows:4}"/>
+      <form v-if="turns.length" class="kb-followup" @submit.prevent="ask()"><label class="sr-only" for="knowledge-question">追问内容</label><textarea id="knowledge-question" v-model="question" rows="2" maxlength="280" :disabled="busy||retrievalBlocked" placeholder="继续追问这个问题…" @compositionstart="composing=true" @compositionend="composing=false" @keydown="questionKeydown"/><a-button type="primary" html-type="submit" :loading="busy" :disabled="busy||retrievalBlocked||!question.trim()">追问<ArrowRightOutlined/></a-button></form>
+    </section>
+    <slot v-if="view==='catalog'" name="catalog"/>
+    <section v-if="['favorites','history','feedback'].includes(view)" class="kb-panel hbos-glass-g1">
+      <template v-if="view==='favorites'"><div class="kb-list-toolbar"><a-input-search id="favorite-query" v-model:value="favoriteQuery" placeholder="查找标题或文号" aria-label="查找收藏标题或文号"/><select v-model="favoriteSpace" class="kb-scope-select" aria-label="筛选收藏部门"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{space.title}}</option></select></div><div class="kb-list-caption"><span>{{refreshing?'更新中':favoriteFilterActive?filteredFavorites.length+' 项匹配收藏':'本页 '+bookmarks.length+' 项收藏'}} · 仅本人可见</span><span>下载待部门权限上线</span></div></template><div v-else class="kb-section-title"><h2>{{view==='feedback'?'我的反馈':'最近查阅'}}</h2><span>仅本人可见</span><a-button type="text" :disabled="busy||refreshing" @click="refresh">刷新记录</a-button></div>
+      <div v-if="view==='history'||view==='feedback'" class="kb-secondary-tabs"><a-button :type="view==='history'?'primary':'text'" @click="emit('records-view','history')">查阅记录</a-button><a-button :type="view==='feedback'?'primary':'text'" @click="emit('records-view','feedback')">我的反馈</a-button><a-button type="text" @click="generalFeedback"><MessageOutlined/>反馈与建议</a-button></div>
+      <a-skeleton v-if="refreshing||feedbackLoading" active :paragraph="{rows:4}"/>
+      <template v-else-if="view==='feedback'">
+        <a-alert v-if="feedbackError" type="error" :message="feedbackError"/><a-empty v-else-if="!feedbackItems.length" description="还没有提交过反馈。"/>
+        <article v-for="item in feedbackItems" :key="item.id" class="kb-feedback-row"><MessageOutlined/><div><strong>{{item.category}}</strong><p>{{item.note}}</p><small>{{displayDate(item.created_at)}}</small><details v-if="item.reply"><summary>查看维护人回复</summary><p>{{item.reply}}</p></details></div><a-tag :color="item.status==='Resolved'?'green':'default'">{{feedbackStatus[item.status]}}</a-tag></article>
+      </template>
+      <template v-else>
+        <a-empty v-if="!shown.length" :description="view==='favorites'?'还没有收藏，点击资料旁的星标即可保存。':'开始一次查询后，可以在这里继续查阅。'"/>
+        <article v-for="item in shown" :key="item.id" class="kb-doc-row">
+          <div class="kb-doc-icon"><StarOutlined v-if="view==='favorites'"/><HistoryOutlined v-else/></div>
+          <button class="kb-doc-main" :disabled="busy||!item.available" @click="reopen(item.id)"><strong>{{!item.available&&item.bookmark_type==='Document'?'已失效的收藏':view==='favorites'&&item.available?item.titles.filter(Boolean).join('；')||item.query:item.query}}</strong><p>{{item.available?(view==='favorites'?(favoriteDocument(item)?.status_note||'打开当前可用来源'):(item.titles.filter(Boolean)[0]||'查阅记录')+(item.titles.length>1?' 等 '+item.titles.length+' 份资料':'')):'依据已下架、换版或授权变化，请重新检索。'}}</p><small v-if="view==='favorites'&&favoriteDocument(item)">{{favoriteDocument(item)?.document_number||'文号待核'}} · {{favoriteDocument(item)?.department}} · {{favoriteDocument(item)?.version||'版本待核'}}<a-tag color="green">已共享</a-tag></small><small v-else>{{displayDate(item.created_at)}}</small></button>
+          <div class="kb-doc-actions"><a-button type="text" :disabled="busy" :aria-label="view==='favorites'?'取消收藏':'删除记录'" @click="remove(item.id)"><StarFilled v-if="view==='favorites'" class="kb-star"/><DeleteOutlined v-else/></a-button><a-tooltip v-if="view==='favorites'" title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined/></a-button></a-tooltip><a-button v-else-if="item.available" :disabled="busy" @click="reopen(item.id)">继续查阅</a-button></div>
+        </article>
+      </template>
+      <div class="kb-pagination"><a-button :disabled="savedPage<=1||busy||refreshing||feedbackLoading" @click="savedPage--">上一页</a-button><span>第 {{savedPage}} 页</span><a-button :disabled="!savedHasMore||busy||refreshing||feedbackLoading" @click="savedPage++">下一页</a-button></div>
+    </section>
+    <p v-if="notice" role="status" class="kb-notice">{{notice}}</p><a-alert v-if="error" type="error" show-icon :message="error"/>
+    <a-drawer :open="Boolean(feedbackMode)" title="反馈与建议" width="min(520px, 100vw)" root-class-name="kb-drawer kb-scope" @close="closeFeedback()"><div class="feedback-form"><p>{{feedbackTarget?.title||'说明资料、回答或使用中的问题，维护人会核对后回复。'}}</p><form @submit.prevent="sendFeedback"><label for="feedback-category">问题类型</label><select id="feedback-category" v-model="category" :disabled="busy"><option v-for="c in categories" :key="c">{{c}}</option></select><label for="feedback-note">反馈说明</label><textarea id="feedback-note" v-model="note" maxlength="500" :disabled="busy" :required="feedbackMode==='general'" placeholder="描述问题或建议…"/><a-alert v-if="error" type="error" :message="error"/><a-button type="primary" html-type="submit" :disabled="busy||(feedbackMode==='general'&&!note.trim())" :loading="busy">提交反馈</a-button></form></div></a-drawer>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { ArrowRightOutlined, FileTextOutlined, StarFilled, StarOutlined, HistoryOutlined, MessageOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useSlots, watch } from 'vue'
-import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFeedback, KnowledgeSearchContext, KnowledgeSavedQuery } from '@/contracts/p1'
-import { askKnowledgeReference, getKnowledgeActivity, getKnowledgeFeedback, openKnowledgeSaved, removeKnowledgeSaved, saveKnowledgeBookmark, sendKnowledgeFeedback, DomainApiError } from '@/services/p1Api'
+import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFeedback, KnowledgeSearchContext, KnowledgeSavedQuery, KnowledgeDocument, KnowledgeSpace } from '@/contracts/p1'
+import { askKnowledgeReference, getKnowledgeActivity, getKnowledgeFeedback, openKnowledgeSaved, removeKnowledgeSaved, saveKnowledgeBookmark, sendKnowledgeFeedback, DomainApiError, getKnowledgeActivityPage, getKnowledgeFeedbackPage, saveKnowledgeDocumentBookmark, getKnowledgeDocumentsPage } from '@/services/p1Api'
 
 type RecordKind = 'Catalog' | 'History' | 'Bookmark' | 'Feedback'
-const props = defineProps<{ subject: string; query: string; selectedSpace: string; askEnabled: boolean; retrievalBlocked?: boolean; composerExternal?: boolean; mode?: 'search' | 'ask'; searchMode?: 'STANDARD' | 'PRECISE' }>()
-const emit = defineEmits<{ replay: [query: string, spaces: string[], context?: KnowledgeSearchContext]; evidence: [id: string]; busy: [value: boolean]; conversation: [value: boolean]; 'upstream-error': []; 'access-error': [error: DomainApiError]; 'evidence-invalidated': []; restored: [data: KnowledgeSavedQuery] }>()
+const props = defineProps<{ subject: string; query: string; selectedSpace: string; spaces?:KnowledgeSpace[]; askEnabled: boolean; retrievalBlocked?: boolean; composerExternal?: boolean; mode?: 'search' | 'ask'; searchMode?: 'STANDARD' | 'PRECISE'; view?: 'query'|'catalog'|'favorites'|'history'|'feedback' }>()
+const emit = defineEmits<{ replay: [query: string, spaces: string[], context?: KnowledgeSearchContext]; evidence: [id: string]; busy: [value: boolean]; conversation: [value: boolean]; 'upstream-error': []; 'access-error': [error: DomainApiError]; 'evidence-invalidated': []; restored: [data: KnowledgeSavedQuery]; document: [data: KnowledgeDocument]; 'records-view': [view:'history'|'feedback'] }>()
 const slots = useSlots()
 const tabs = computed(() => [
   ...(slots.catalog ? [{ kind: 'Catalog' as const, label: '资料目录' }] : []),
@@ -88,8 +128,11 @@ const history = ref<KnowledgeActivity[]>([])
 const bookmarks = ref<KnowledgeActivity[]>([])
 const feedbackItems = ref<KnowledgeFeedback[]>([])
 const feedbackStatus = { Pending: '待处理', 'In Review': '处理中', Resolved: '已解决' }
-const shown = computed(() => kind.value === 'History' ? history.value : bookmarks.value)
-const savedPage = ref(1)
+const favoriteQuery=ref(''),favoriteSpace=ref(''),favoriteDocuments=ref<KnowledgeDocument[]>([]),filterFavorites=ref<KnowledgeActivity[]>([])
+const favoriteFilterActive=computed(()=>Boolean(favoriteQuery.value.trim()||favoriteSpace.value))
+const filteredFavorites=computed(()=>filterFavorites.value.filter(item=>(!favoriteQuery.value.trim()||(item.available?item.titles.join(' '):'已失效的收藏').toLowerCase().includes(favoriteQuery.value.trim().toLowerCase())||favoriteDocument(item)?.document_number?.toLowerCase().includes(favoriteQuery.value.trim().toLowerCase()))&&(!favoriteSpace.value||favoriteDocument(item)?.space_id===favoriteSpace.value)))
+const shown = computed(() => props.view ? props.view==='history'?history.value:props.view==='favorites'&&favoriteFilterActive.value?filteredFavorites.value.slice((savedPage.value-1)*4,savedPage.value*4):bookmarks.value : kind.value === 'History' ? history.value : bookmarks.value)
+const savedPage = ref(1), savedHasMore = ref(false), bookmarkIndex = ref<KnowledgeActivity[]>([])
 const savedPageSize = 6
 const pagedSaved = computed(() => shown.value.slice((savedPage.value - 1) * savedPageSize, savedPage.value * savedPageSize))
 const pagedFeedback = computed(() => feedbackItems.value.slice((savedPage.value - 1) * savedPageSize, savedPage.value * savedPageSize))
@@ -116,11 +159,15 @@ let feedbackTrigger: HTMLElement | null = null
 const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED', 'EMPTY_SCOPE']
 
 watch(busy, value => emit('busy', value), { flush: 'sync' })
+watch(() => props.view, () => { savedPage.value=1; history.value=[]; bookmarks.value=[]; feedbackItems.value=[]; void refresh() })
+watch(savedPage,()=>{if(props.view==='favorites'&&favoriteFilterActive.value)savedHasMore.value=savedPage.value*4<filteredFavorites.value.length;else if(props.view)void refresh()})
+watch([favoriteQuery,favoriteSpace],()=>{savedPage.value=1;void refresh()})
 watch(kind, () => { savedPage.value = 1; if (kind.value === 'Feedback') void refreshFeedback() })
-watch([history, bookmarks, feedbackItems], () => { const total = kind.value === 'Feedback' ? feedbackItems.value.length : shown.value.length; savedPage.value = Math.min(savedPage.value, Math.max(1, Math.ceil(total / savedPageSize))) })
+watch([history, bookmarks, feedbackItems], () => { if (props.view) return; const total = kind.value === 'Feedback' ? feedbackItems.value.length : shown.value.length; savedPage.value = Math.min(savedPage.value, Math.max(1, Math.ceil(total / savedPageSize))) })
 watch(() => props.subject, () => {
   generation++; recordsGeneration++; feedbackGeneration++
-  history.value = []; bookmarks.value = []; feedbackItems.value = []; turns.value = []
+  history.value = []; bookmarks.value = []; bookmarkIndex.value=[]; feedbackItems.value = []; turns.value = []
+  favoriteDocuments.value=[];filterFavorites.value=[];favoriteQuery.value='';favoriteSpace.value=''
   conversation.value = ''; question.value = ''; notice.value = ''; error.value = ''; feedbackError.value = ''
   closeFeedback(false); busy.value = false; refreshing.value = false; feedbackLoading.value = false
   emit('conversation', false)
@@ -133,46 +180,84 @@ watch(() => [props.selectedSpace,props.searchMode], () => {
 onBeforeUnmount(() => { generation++; recordsGeneration++; feedbackGeneration++; closeFeedback(false) })
 
 function displayDate(value: string) { return value.slice(0, 16).replace('T', ' ') }
+function favoriteDocument(item:KnowledgeActivity){return item.available?favoriteDocuments.value.find(d=>item.document_ids?.includes(d.document_id)&&(!item.version_ids?.length||item.version_ids.includes(d.version_id||''))):undefined}
 function failure(e: unknown, invalidateSource = true) {
   if (e instanceof DomainApiError && e.code === 'UPSTREAM_UNAVAILABLE') emit('upstream-error')
   if (e instanceof DomainApiError && accessFailureCodes.includes(e.code)) {
     generation++; recordsGeneration++; feedbackGeneration++
-    turns.value = []; history.value = []; bookmarks.value = []; feedbackItems.value = []
+    turns.value = []; history.value = []; bookmarks.value = []; bookmarkIndex.value=[]; feedbackItems.value = []
+    favoriteDocuments.value=[];filterFavorites.value=[]
     busy.value = false; refreshing.value = false; feedbackLoading.value = false; conversation.value = ''; closeFeedback(false)
     emit('conversation', false); emit('access-error', e)
   }
   if (e instanceof DomainApiError && ['EVIDENCE_UNAVAILABLE', 'EVIDENCE_INVALID', 'EVIDENCE_REVOKED'].includes(e.code)) {
     history.value = history.value.map(item => ({ ...item, available: false, titles: [] }))
-    bookmarks.value = bookmarks.value.map(item => ({ ...item, available: false, titles: [] }))
+    bookmarks.value = bookmarks.value.map(item => ({ ...item, available: false, titles: [] })); bookmarkIndex.value=[]
+    favoriteDocuments.value=[];filterFavorites.value=[]
     closeFeedback(false); if (invalidateSource) emit('evidence-invalidated')
   }
   error.value = e instanceof DomainApiError ? e.message : '知识服务暂时不可用。'
 }
 async function refreshFeedback() {
-  const current = ++feedbackGeneration
-  const subject = props.subject
-  feedbackLoading.value = true; feedbackError.value = ''
+  const current=++feedbackGeneration, subject=props.subject
+  feedbackLoading.value=true;feedbackError.value=''
   try {
-    const items = await getKnowledgeFeedback()
-    if (current === feedbackGeneration && subject === props.subject) feedbackItems.value = items
-  } catch (e) {
-    if (current === feedbackGeneration && subject === props.subject) {
-      feedbackItems.value = []
-      feedbackError.value = e instanceof DomainApiError ? e.message : '反馈记录暂时不可用。'
-      if (e instanceof DomainApiError && accessFailureCodes.includes(e.code)) failure(e)
-    }
-  } finally { if (current === feedbackGeneration) feedbackLoading.value = false }
+    const page=props.view ? await getKnowledgeFeedbackPage(savedPage.value,6) : {items:await getKnowledgeFeedback(),has_more:false}
+    if(current===feedbackGeneration && subject===props.subject){feedbackItems.value=page.items;savedHasMore.value=page.has_more}
+  } catch(e) { if(current===feedbackGeneration && subject===props.subject){feedbackItems.value=[];feedbackError.value=e instanceof DomainApiError?e.message:'反馈记录暂不可用。';if(e instanceof DomainApiError && accessFailureCodes.includes(e.code))failure(e)} }
+  finally {if(current===feedbackGeneration)feedbackLoading.value=false}
 }
 async function refresh() {
-  const current = ++recordsGeneration
-  const subject = props.subject
-  refreshing.value = true
+  const current=++recordsGeneration, subject=props.subject
+  refreshing.value=true
   try {
-    const [h, b] = await Promise.all([getKnowledgeActivity('History'), getKnowledgeActivity('Bookmark')])
-    if (current === recordsGeneration && subject === props.subject) { history.value = h; bookmarks.value = b }
-  } catch (e) { if (current === recordsGeneration && subject === props.subject) failure(e, false) }
-  finally { if (current === recordsGeneration) refreshing.value = false }
-  if (kind.value === 'Feedback') await refreshFeedback()
+    if(!props.view) {
+      const [h,b]=await Promise.all([getKnowledgeActivity('History'),getKnowledgeActivity('Bookmark')])
+      if(current===recordsGeneration && subject===props.subject){history.value=h;bookmarks.value=b;bookmarkIndex.value=b}
+    } else if(props.view==='feedback') await refreshFeedback()
+    else if(props.view==='history' || props.view==='favorites') {
+      if(props.view==='favorites'&&favoriteFilterActive.value){
+        const all:KnowledgeActivity[]=[]
+        for(let n=1;n<=100;n++){const page=await getKnowledgeActivityPage('Bookmark',n,50);if(current!==recordsGeneration||subject!==props.subject)return;all.push(...page.items);if(!page.has_more)break;if(n===100)throw new DomainApiError('SERVICE_ERROR','收藏过多，请联系维护人。')}
+        filterFavorites.value=all;bookmarkIndex.value=all
+      }else{
+        const page=await getKnowledgeActivityPage(props.view==='history'?'History':'Bookmark',savedPage.value,props.view==='favorites'?4:6)
+        if(current!==recordsGeneration||subject!==props.subject)return
+        history.value=props.view==='history'?page.items:[];bookmarks.value=props.view==='favorites'?page.items:[];if(props.view==='favorites')bookmarkIndex.value=page.items;savedHasMore.value=page.has_more
+      }
+      if(props.view==='favorites'){
+        const docs:KnowledgeDocument[]=[]
+        for(let n=1;n<=100;n++){const page=await getKnowledgeDocumentsPage('','',n,50);if(current!==recordsGeneration||subject!==props.subject)return;docs.push(...page.documents);if(n*page.page_size>=page.total)break;if(n===100)throw new DomainApiError('SERVICE_ERROR','资料过多，请联系维护人。')}
+        favoriteDocuments.value=docs
+        if(favoriteFilterActive.value)savedHasMore.value=savedPage.value*4<filteredFavorites.value.length
+      }
+    } else {
+      let page=1,all:KnowledgeActivity[]=[]
+      while(true) {
+        const result=await getKnowledgeActivityPage('Bookmark',page,50)
+        if(current!==recordsGeneration || subject!==props.subject)return
+        all.push(...result.items)
+        if(!result.has_more)break
+        if(page>=100)throw new DomainApiError('SERVICE_ERROR','收藏记录过多，请联系维护人。')
+        page++
+      }
+      bookmarkIndex.value=all
+    }
+  } catch(e) { if(current===recordsGeneration && subject===props.subject)failure(e,false) }
+  finally {if(current===recordsGeneration)refreshing.value=false}
+  if(!props.view && kind.value==='Feedback')await refreshFeedback()
+}
+function findBookmark(item:{document_id:string;version_id?:string}) {
+  return bookmarkIndex.value.find(b=>b.available && b.document_ids?.includes(item.document_id) && (!item.version_id || b.version_ids?.includes(item.version_id)))
+}
+function isBookmarked(item:{document_id:string;version_id?:string}) {return Boolean(findBookmark(item))}
+async function toggleDocumentBookmark(doc:KnowledgeDocument) {
+  if(!doc.version_id)return
+  await action(async current=>{
+    const old=findBookmark(doc)
+    if(old)await removeKnowledgeSaved(old.id);else await saveKnowledgeDocumentBookmark(doc.document_id,doc.version_id!)
+    if(current===generation){notice.value=old?'已取消收藏。':'已收藏。';await refresh()}
+  })
 }
 async function action(run: (current: number) => Promise<void>) {
   if (busy.value || !props.subject) return
@@ -183,8 +268,9 @@ async function action(run: (current: number) => Promise<void>) {
 }
 async function bookmark(item: KnowledgeEvidence) {
   await action(async current => {
-    await saveKnowledgeBookmark(item.evidence_id, props.query)
-    if (current === generation) { notice.value = '已收藏。重新查阅时会核验资料状态。'; await refresh() }
+    const old=props.view?findBookmark(item):undefined
+    if(old) await removeKnowledgeSaved(old.id); else await saveKnowledgeBookmark(item.evidence_id, props.query)
+    if (current === generation) { notice.value = old ? '已取消收藏。' : '已收藏。重新查阅时会核验资料状态。'; await refresh() }
   })
 }
 function feedback(item: KnowledgeEvidence) {
@@ -212,14 +298,15 @@ async function sendFeedback() {
   if (mode === 'general' && !normalized) { error.value = '请填写反馈说明。'; return }
   await action(async current => {
     await sendKnowledgeFeedback(mode === 'source' ? target!.evidence_id : undefined, category.value, normalized)
-    if (current === generation) { closeFeedback(); notice.value = '反馈已提交。可在“我的反馈”查看处理状态。'; if (kind.value === 'Feedback') await refreshFeedback(); else kind.value = 'Feedback' }
+    if (current === generation) { closeFeedback(); notice.value = '反馈已提交。可在“我的反馈”查看处理状态。'; if (props.view === 'feedback' || (!props.view && kind.value === 'Feedback')) await refreshFeedback(); else if(props.view)emit('records-view','feedback');else kind.value = 'Feedback' }
   })
 }
 async function reopen(id: string) {
   await action(async current => {
     const data = await openKnowledgeSaved(id)
     if (current === generation) {
-      if (data.restored) {
+      if (data.document) emit('document',data.document)
+      else if (data.restored) {
         const subject=props.subject
         emit('restored',data)
         const restoreGeneration=generation
@@ -243,7 +330,8 @@ function newConversation() { cancelPending(); conversation.value = ''; turns.val
 function invalidateSources() {
   newConversation(); closeFeedback(false)
   history.value = history.value.map(item => ({ ...item, available: false, titles: [] }))
-  bookmarks.value = bookmarks.value.map(item => ({ ...item, available: false, titles: [] }))
+  bookmarks.value = bookmarks.value.map(item => ({ ...item, available: false, titles: [] })); bookmarkIndex.value=[]
+  favoriteDocuments.value=[];filterFavorites.value=[]
   void refresh()
 }
 async function ask(value = question.value) {
@@ -273,7 +361,7 @@ function tabKeydown(event: KeyboardEvent, current: RecordKind) {
   void nextTick(() => document.getElementById(`knowledge-tab-${kind.value}`)?.focus())
 }
 
-defineExpose({ refresh, bookmark, feedback, ask, newConversation, cancelPending, invalidateSources })
+defineExpose({ refresh, bookmark, feedback, generalFeedback, ask, newConversation, cancelPending, invalidateSources, isBookmarked, toggleDocumentBookmark })
 onMounted(refresh)
 </script>
 

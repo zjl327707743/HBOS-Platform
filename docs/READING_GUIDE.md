@@ -2,7 +2,7 @@
 
 ## 当前：HBOS Knowledge UAT2 — 2026-10-10
 
-**PARTIAL / DESIGN_REVIEW_PENDING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 当前已恢复正常搜索、引用问答、MCP 与按需解析，费用和历史 UNKNOWN 不作为业务门禁。15 份获准已发布资料、目录收藏、追问恢复、反馈和维护换版/下架后端链路有实际证据；新版原型待 Owner 确认后复刻，不能标记 UAT2_READY。联合部署准备及隔离演练不等同真实服务器上线。PR #30 保持 Draft，人工验收前不合并、不切 P1、不开放员工。
+**UAT2_IMPLEMENTATION_CANDIDATE / PROTOTYPE_APPROVED / OWNER_NOT_RUN / ROLLOUT_PENDING。** Owner 已正式批准知识库交互设计 V1，本轮原型审批门禁已满足。知识模块按批准原型完成独立首页、资料目录、本人收藏/记录、六步 MCP 向导和维护员资料/上传/版本/反馈页面；接入原生 Frappe/API，保留 15 份真实共享资料、GPT-6-luna、千问 Embedding、用户权限及关闭原件下载。按两轮截图与实际操作复验，最终运行源码、构建资产和 CI 以本机 Owner 交付联合锁为准。人工产品验收与真实服务器上线是独立 Gate；PR #30 保持 Draft，不合并、不切 P1、不开放全员。
 
 主记录：[M1-KB-UAT2 完整业务与迁移候选](milestones/M1_KB_UAT2_完整业务与迁移候选.md)。下文 UAT1/N1 的旧财务阻断为历史事实，服从本轮最新 Owner 决策。
 

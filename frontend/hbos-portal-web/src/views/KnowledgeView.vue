@@ -1,161 +1,41 @@
 <template>
   <div class="knowledge-page">
-    <div class="kt-breadcrumb">
-      <RouterLink to="/hbos">工作台</RouterLink><RightOutlined />
-      <RouterLink to="/hbos/apps">应用中心</RouterLink><RightOutlined />
-      <span>知识库</span>
-    </div>
-    <header class="kt-page-heading">
-      <div>
-        <h1>知识库</h1>
-        <p>让知识更好地服务每一次工作。</p>
-      </div>
-      <div class="heading-actions">
-        <a-button :disabled="!subjectKey" @click="connectionOpen = true">连接个人助手（MCP）</a-button>
-        <RouterLink v-if="status?.can_maintain" to="/hbos/knowledge/maintenance"><a-button>知识维护</a-button></RouterLink>
-        <a-tag v-if="status?.environment === 'synthetic'" color="orange">隔离合成测试</a-tag>
-        <a-tag v-if="status?.environment === 'production'" color="blue">内部共享参考库</a-tag>
-        <a-tag v-if="mode === 'search' && equipmentId" color="geekblue">设备上下文 {{ equipmentId }}</a-tag>
-        <a-tag v-if="mode === 'search' && assetId" color="geekblue">资产范围 {{ assetId }}</a-tag>
-        <a-tag v-if="mode === 'search' && componentId" color="geekblue">组件范围 {{ componentId }}</a-tag>
-      </div>
-    </header>
-
-    <a-alert v-if="retrievalBlocked" type="warning" show-icon role="status"
-      message="检索服务暂不可用，目录与个人记录仍可查看。"
-      :description="blockedDescription" />
-
-    <a-alert v-if="status?.ask_enabled && status.answer_availability && !status.answer_availability.available" type="warning" show-icon message="回答已暂停：生成费用待核验或预算不可用" description="目录、有效来源和已保存会话仍可查看。标准检索以检索状态为准；需要真实对账才能恢复付费能力。" />
-
-    <div class="knowledge-grid">
-      <div class="knowledge-primary">
-        <section class="knowledge-hero hbos-glass-g3">
-          <div class="knowledge-eyebrow"><BulbOutlined /> 查阅已收录的内部参考资料</div>
-          <h2>从资料中<span>找到依据。</span></h2>
-          <p>先选范围，再明确你要查找或确认的内容。</p>
-          <div class="composer-toolbar">
-            <div class="knowledge-modes" role="group" aria-label="知识使用方式">
-              <button type="button" :aria-pressed="mode === 'ask'" :disabled="!status?.ask_enabled" @click="setMode('ask')">问知识</button>
-              <button type="button" :aria-pressed="mode === 'search'" @click="setMode('search')">搜资料</button>
-            </div>
-            <div class="knowledge-space-filter">
-              <label for="knowledge-space">部门范围</label>
-              <select id="knowledge-space" v-model="selectedSpace" :disabled="!spaces.length">
-                <option value="">全部已收录资料</option>
-                <option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }} · {{ space.document_count }} 份资料</option>
-              </select>
-            </div>
-          </div>
-          <label class="search-mode-option"><input type="checkbox" :checked="searchMode === 'PRECISE'" :disabled="working" @change="searchMode = ($event.target as HTMLInputElement).checked ? 'PRECISE' : 'STANDARD'" /> 更精准排序（可选，会调用外部重排）</label>
-          <p class="mode-cost-note">标准模式：关键词与向量融合，重排和回答模型调用为0；向量查询仍计量。问知识另按需生成一次答案。</p>
-          <form class="knowledge-search" :class="{ 'ask-composer': mode === 'ask' }" @submit.prevent="submitComposer">
-            <SearchOutlined v-if="mode === 'search'" aria-hidden="true" />
-            <label class="sr-only" for="knowledge-query">{{ mode === 'ask' ? '你的知识问题' : '描述工作中的问题' }}</label>
-            <input v-if="mode === 'search'" id="knowledge-query" v-model="query" maxlength="500" autocomplete="off" placeholder="输入资料标题、文件编号或制度关键词…" :disabled="working" @compositionstart="composing = true" @compositionend="composing = false" @keydown="composerKeydown" />
-            <textarea v-else id="knowledge-query" v-model="query" maxlength="280" placeholder="描述希望从资料中确认的问题…" :disabled="working" @compositionstart="composing = true" @compositionend="composing = false" @keydown="composerKeydown" />
-            <a-button type="primary" html-type="submit" :loading="working" :disabled="working || !canSubmit || !query.trim() || inputTooLong">{{ mode === 'ask' ? hasConversation ? '继续追问' : '提交问题' : '搜资料' }}<ArrowRightOutlined /></a-button>
-          </form>
-          <div class="composer-help"><span>{{ mode === 'ask' ? 'Ctrl / ⌘ + Enter 提交；Enter 换行。回答仅供内部参考。' : 'Enter 搜索；只查当前范围内已收录资料。' }}</span><span :class="{ 'over-limit': inputTooLong }">{{ [...query].length }} / {{ mode === 'ask' ? 280 : 500 }}</span></div>
-          <div class="composer-actions">
-            <a-button v-if="working" size="small" @click="cancelPending">返回编辑</a-button>
-            <a-button v-if="mode === 'ask' && hasConversation" size="small" :disabled="working" @click="startNewQuestion">新问题</a-button>
-            <span v-if="working" class="muted">返回编辑会丢弃晚响应；实际用量以服务端记录为准。</span>
-            <span v-if="composerNotice" role="status" class="muted">{{ composerNotice }}</span>
-          </div>
-          <div class="knowledge-state-line" role="status" aria-live="polite">
-            <span :class="['state-dot', statusTone]"></span>
-            {{ statusLabel }}
-            <span v-if="retrievalBlocked" class="observation-note">检索待恢复</span>
-            <span v-if="status?.retrieval_availability?.status === 'UNKNOWN' && status.retrieval_availability.last_success_at" class="observation-note">较早成功已过观察期限</span>
-            <a-button size="small" :disabled="statusLoading" :loading="statusLoading" @click="refreshStatus">刷新状态</a-button>
-          </div>
+    <header class="kb-heading"><div><h1>{{ pageTitle }}</h1><p>从已共享资料中查找依据，答案与来源一起呈现。</p></div><a-button :disabled="!subjectKey" @click="connectionOpen = true"><LinkOutlined />连接个人助手</a-button></header>
+    <div v-if="equipmentId || assetId || componentId" class="kb-context"><a-tag v-if="equipmentId">设备上下文 {{ equipmentId }}</a-tag><a-tag v-if="assetId">资产范围 {{ assetId }}</a-tag><a-tag v-if="componentId">组件范围 {{ componentId }}</a-tag></div>
+    <a-alert v-if="pageError || retrievalBlocked || (status?.answer_availability?.available === false && mode === 'ask')" :type="pageErrorCode === 'FORBIDDEN' ? 'warning' : 'error'" show-icon :message="pageError || '查询暂不可用，请稍后重试；目录与个人记录仍可查看。'" class="kb-alert"><template #action><a-button :loading="statusLoading" @click="refreshStatus">刷新状态</a-button></template></a-alert>
+    <template v-if="view === 'query'">
+      <section v-if="mode === 'search' || !hasConversation" class="kb-composer hbos-glass-g3" aria-label="知识查询">
+        <form class="knowledge-search" @submit.prevent="submitComposer">
+          <div class="kb-composer-top"><div class="kb-modes" role="group" aria-label="知识使用方式"><button type="button" :aria-pressed="mode === 'ask'" :disabled="!status?.ask_enabled" @click="setMode('ask')">问知识</button><button type="button" :aria-pressed="mode === 'search'" @click="setMode('search')">搜资料</button></div><label class="sr-only" for="knowledge-space">查询部门范围</label><select id="knowledge-space" v-model="selectedSpace" class="kb-scope-select" :disabled="!spaces.length"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select></div>
+          <label class="sr-only" for="knowledge-query">知识问题</label><textarea id="knowledge-query" v-model="query" :maxlength="mode === 'ask' ? 280 : 500" :disabled="working" :placeholder="mode === 'ask' ? '描述你想了解的问题…' : '输入资料标题、文号或关键词…'" rows="3" @compositionstart="composing = true" @compositionend="composing = false" @keydown="composerKeydown" />
+          <div class="kb-composer-bottom"><span>{{ mode === 'ask' ? '回答附带可核对的资料来源' : '直接查找资料与相关依据' }}<small class="kb-keyboard"> · ⌘ / Ctrl + Enter</small></span><a-button type="primary" html-type="submit" :loading="working" :disabled="working || !canSubmit || !query.trim() || inputTooLong">{{ mode === 'ask' ? '提问' : '搜索' }}<ArrowRightOutlined /></a-button></div>
+        </form>
+        <div v-if="working || composerNotice" class="kb-composer-notice"><a-button v-if="working" @click="cancelPending">返回编辑</a-button><span role="status">{{ composerNotice }}</span></div>
+      </section>
+      <div v-if="!hasConversation && !hasSearched && !working" class="kb-start-grid"><section class="kb-suggestions"><div class="kb-section-title"><h2>从一个问题开始</h2><span>示例问题</span></div><button v-for="q in exampleQuestions" :key="q" type="button" @click="useExample(q)"><span>{{ q }}</span><ArrowRightOutlined /></button></section><section class="kb-help-card hbos-glass-g1"><ReadOutlined /><h2>查找资料，也能继续追问</h2><p>点开回答中的来源核对依据。常用资料可以收藏，方便下次直接查阅。</p><RouterLink to="/hbos/knowledge/catalog">打开资料目录<ArrowRightOutlined /></RouterLink></section></div>
+      <section v-if="mode === 'search' && hasSearched" class="kb-panel knowledge-results hbos-glass-g1"><div class="kb-section-title"><h2>相关资料</h2><span>{{ results.length }} 条依据</span></div><a-skeleton v-if="searching" active :paragraph="{rows:4}" /><a-empty v-else-if="!results.length && !pageError" description="未找到相关依据，请换一个关键词或调整部门范围。" /><article v-for="item in results" :key="item.evidence_id" class="kb-doc-row result-card"><div class="kb-doc-icon"><FileTextOutlined /></div><button type="button" class="kb-doc-main" :aria-label="'查看来源 '+item.title" @click="openEvidence(item)"><strong>{{ item.title || '未标注标题' }}</strong><p>{{ item.excerpt }}</p><small>{{ spaces.find(s => s.space_id === item.space_id)?.title }} · {{ item.document_number || '文号待核' }} · {{ item.version || '版本待核' }}</small></button><div class="kb-doc-actions"><a-button type="text" :disabled="working" :aria-label="(tools?.isBookmarked(item) ? '取消收藏 ' : '收藏 ') + item.title" @click="tools?.bookmark(item)"><StarFilled v-if="tools?.isBookmarked(item)" class="kb-star" /><StarOutlined v-else /></a-button><a-button type="text" :disabled="working" aria-label="反馈" @click="tools?.feedback(item)"><MessageOutlined /></a-button><a-tooltip title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined /></a-button></a-tooltip></div></article></section>
+    </template>
+    <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :spaces="spaces" :ask-enabled="Boolean(status?.ask_enabled) && status?.answer_availability?.available !== false" :retrieval-blocked="retrievalBlocked" :mode="mode" :search-mode="searchMode" :view="view" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @restored="restoreSaved" @records-view="router.push($event === 'feedback' ? '/hbos/knowledge/history?tab=feedback' : '/hbos/knowledge/history')" @document="showDocumentSummary" @evidence="drawer.show" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
+      <template #catalog>
+        <section class="kb-panel hbos-glass-g1">
+          <form class="kb-list-toolbar catalog-filter" @submit.prevent="refreshCatalog"><label class="sr-only" for="catalog-query">查找标题或文号</label><a-input-search id="catalog-query" v-model:value="catalogQuery" placeholder="查找标题或文号" aria-label="查找标题或文号" @search="refreshCatalog" /><label class="sr-only" for="catalog-department">筛选部门</label><select id="catalog-department" v-model="selectedSpace" class="kb-scope-select"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select></form>
+          <div class="kb-list-caption catalog-heading"><span>{{ catalogLoading ? '更新中' : `${catalogTotal} 份资料` }}</span><span>下载待部门权限上线</span></div>
+          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" /><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small>{{ doc.document_number || '文号待核' }} · {{ doc.department }} · {{ doc.version || '版本待核' }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-tooltip title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined /></a-button></a-tooltip></div></article></template></div>
+          <div class="kb-pagination"><a-pagination v-model:current="catalogPage" :page-size="catalogPageSize" :total="catalogTotal" :show-size-changer="false" :disabled="catalogLoading" :show-less-items="true" /></div>
         </section>
-
-        <a-alert
-          v-if="pageError"
-          :type="pageErrorCode === 'FORBIDDEN' ? 'warning' : 'error'"
-          show-icon
-          :message="pageError"
-          class="knowledge-alert"
-        />
-
-
-
-        <section v-if="mode === 'search' && hasSearched" class="knowledge-results hbos-glass-g2">
-          <div class="section-title">
-            <div><h2>检索依据</h2><p>{{ currentScopeLabel }} · 本次检索时点的资料依据</p></div>
-            <a-tag>{{ results.length }} 条</a-tag>
-          </div>
-          <a-empty v-if="!searching && !results.length && !pageError" description="未找到相关依据，请换一个关键词或调整部门范围。" />
-          <a-skeleton v-if="searching" active :paragraph="{ rows: 6 }" />
-          <div v-else class="result-list">
-            <article v-for="item in results" :key="item.evidence_id" class="result-card">
-              <div class="result-meta"><a-tag color="geekblue">{{ spaces.find(s => s.space_id === item.space_id)?.title || '检索依据' }}</a-tag><span>{{ item.version || '版本待核' }}</span><a-tag color="orange">状态待核</a-tag></div>
-              <h3>{{ item.title || '未标注标题' }}</h3>
-              <p v-if="item.document_number" class="section-label">{{ item.document_number }}</p>
-              <p v-if="item.status_note" class="status-note">{{ item.status_note }}</p>
-              <p class="section-label">{{ item.section || '章节未标注' }}</p>
-              <p class="excerpt-preview">{{ item.excerpt }}</p>
-              <div class="result-actions"><button type="button" @click="openEvidence(item)">查看依据 <ArrowRightOutlined /></button><template v-if="status?.environment === 'production'"><a-button size="small" :disabled="working" @click="tools?.bookmark(item)">收藏</a-button><a-button size="small" :disabled="working" @click="tools?.feedback(item)">反馈</a-button></template></div>
-            </article>
-          </div>
-        </section>
-
-        <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :ask-enabled="Boolean(status?.ask_enabled)" :retrieval-blocked="retrievalBlocked" :mode="mode" :search-mode="searchMode" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @restored="restoreSaved" @evidence="drawer.show" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
-          <template #catalog>
-            <div class="catalog-heading"><p>只展示当前可读的已收录资料；内部参考／有效性待核。</p><a-tag>{{ catalogLoading ? '更新中' : `${catalogTotal} 份` }}</a-tag></div>
-            <form class="catalog-filter" @submit.prevent="refreshCatalog">
-              <label class="sr-only" for="catalog-query">筛选资料标题或文档编号</label>
-              <input id="catalog-query" v-model="catalogQuery" class="catalog-query" type="search" maxlength="240" placeholder="筛选资料标题或文档编号…" />
-              <a-button html-type="submit" :loading="catalogLoading">筛选</a-button>
-            </form>
-            <div class="catalog-content" :aria-busy="catalogLoading">
-              <a-skeleton v-if="catalogLoading" active :paragraph="{ rows: 4 }" />
-              <a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" />
-              <a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" />
-              <template v-else><article v-for="doc in catalog" :key="doc.document_id" class="catalog-row"><div><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.document_number || '文档编号待核' }} · {{ doc.version || '版本待核' }}</p><small>{{ doc.status_note || '内部参考／有效性待核' }}</small></div><a-tag>{{ doc.department }}</a-tag></article></template>
-            </div>
-            <a-pagination v-if="catalogTotal > catalogPageSize" v-model:current="catalogPage" :page-size="catalogPageSize" :total="catalogTotal" :show-size-changer="false" :disabled="catalogLoading" size="small" :show-less-items="true" />
-          </template>
-        </KnowledgeTools>
-
-        <section v-if="!hasSearched && !pageError" class="knowledge-start hbos-glass-g2">
-          <div class="section-title">
-            <div><h2>按部门查阅</h2><p>部门用于分类，选择部门不会自动检索或调用模型。</p></div>
-            <a-tag>{{ spaces.reduce((n, s) => n + s.document_count, 0) }} 份资料</a-tag>
-          </div>
-          <div class="department-grid">
-            <button v-for="space in spaces" :key="space.space_id" type="button" :aria-pressed="selectedSpace === space.space_id" @click="selectDepartment(space.space_id)">
-              <ApartmentOutlined /><strong>{{ space.title }}</strong><span>{{ space.document_count }} 份已收录资料</span>
-            </button>
-          </div>
-          <a-empty v-if="!spaces.length" description="暂无可查阅的部门资料" />
-        </section>
-
-        <footer class="knowledge-footer">
-          <span><SafetyCertificateOutlined /> 仅展示必要摘录，不提供原文下载。</span>
-          <span>资料未经现行性核验时，请向文控或资料维护人确认。</span>
-        </footer>
-      </div>
-
-    </div>
-
+      </template>
+    </KnowledgeTools>
+    <p class="kb-page-footnote">依据可展开核对 · 原件下载待部门权限上线</p>
     <KnowledgeConnections :open="connectionOpen" :subject="subjectKey || ''" @close="connectionOpen = false" />
-    <EvidenceDrawer
-      :open="drawerOpen"
-      :loading="drawerLoading"
-      :evidence="drawerEvidence"
-      :error="drawerError"
-      :error-code="drawerErrorCode"
-      @close="drawer.close()"
-    />
+    <EvidenceDrawer :open="drawerOpen" :loading="drawerLoading" :evidence="drawerEvidence" :error="drawerError" :error-code="drawerErrorCode" :bookmarked="drawerEvidence ? tools?.isBookmarked(drawerEvidence) : false" @close="drawer.close()" @bookmark="tools?.bookmark($event)" @feedback="tools?.feedback($event)" />
+    <a-drawer :open="summaryOpen" title="资料详情" width="min(560px, 100vw)" root-class-name="kb-drawer kb-scope" @close="closeSummary"><a-skeleton v-if="summaryLoading" active /><a-alert v-else-if="summaryError" type="warning" show-icon :message="summaryError" /><template v-else-if="summaryDocument"><h2 class="kb-drawer-title">{{ summaryDocument.title }}</h2><p class="kb-muted">{{ summaryDocument.document_number || '文号待核' }} · {{ summaryDocument.department }} · {{ summaryDocument.version || '版本待核' }}</p><div class="kb-source-status"><CheckCircleOutlined />当前授权共享版本</div><div class="kb-source-excerpt"><strong>资料状态</strong><p>{{ summaryDocument.status_note }}</p></div><div class="kb-drawer-actions"><a-button :disabled="askBusy" @click="tools?.toggleDocumentBookmark(summaryDocument)"><StarOutlined />{{ tools?.isBookmarked(summaryDocument) ? '取消收藏' : '收藏资料' }}</a-button><a-button disabled><DownloadOutlined />下载</a-button></div><p class="kb-muted">待部门文档下载权限上线</p></template></a-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { ApartmentOutlined, ArrowRightOutlined, BulbOutlined, RightOutlined, SafetyCertificateOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ArrowRightOutlined, ReadOutlined, LinkOutlined, FileTextOutlined, StarOutlined, StarFilled, MessageOutlined, DownloadOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import type { KnowledgeEvidence, KnowledgeStatus, KnowledgeSpace, KnowledgeDocument, KnowledgeSearchContext, KnowledgeSavedQuery } from '@/contracts/p1'
 import { DomainApiError, getKnowledgeStatus, getKnowledgeSpaces, getKnowledgeDocumentsPage, searchKnowledge } from '@/services/p1Api'
 import EvidenceDrawer from '@/components/knowledge/EvidenceDrawer.vue'
@@ -165,6 +45,29 @@ import { useEvidenceResolution } from '@/composables/useEvidenceResolution'
 import { usePortalStore } from '@/stores/portal'
 
 const route = useRoute()
+const router = useRouter()
+const props = defineProps<{sessionRevision?:number}>()
+const view = computed<'query'|'catalog'|'favorites'|'history'|'feedback'>(() => route.path?.endsWith('/catalog') ? 'catalog' : route.path?.endsWith('/favorites') ? 'favorites' : route.path?.endsWith('/history') ? (route.query.tab === 'feedback' ? 'feedback' : 'history') : 'query')
+const pageTitle = computed(() => ({query:'知识库',catalog:'资料目录',favorites:'我的收藏',history:'我的记录',feedback:'我的记录'}[view.value]))
+const exampleQuestions = ['培养箱使用前需要检查哪些项目？','在哪里查找岗位安全培训资料？','如何确认引用的是当前版本？']
+const summaryOpen = ref(false), summaryLoading = ref(false), summaryError = ref(''), summaryDocument = ref<KnowledgeDocument|null>(null)
+let summaryGeneration = 0
+function closeSummary() { summaryGeneration++; summaryOpen.value=false; summaryLoading.value=false; summaryDocument.value=null; summaryError.value='' }
+function showDocumentSummary(doc: KnowledgeDocument) { summaryDocument.value=doc; summaryError.value=''; summaryLoading.value=false; summaryOpen.value=true }
+async function openDocumentSummary(doc: KnowledgeDocument) {
+  const generation=++summaryGeneration, subject=subjectKey.value
+  summaryOpen.value=true; summaryLoading.value=true; summaryDocument.value=null; summaryError.value=''
+  try {
+    const page = await getKnowledgeDocumentsPage(doc.title || '',doc.space_id,1,50)
+    if (generation!==summaryGeneration || subject!==subjectKey.value) return
+    const current=page.documents.find(d=>d.document_id===doc.document_id && d.version_id===doc.version_id)
+    if (!current) throw new DomainApiError('EVIDENCE_UNAVAILABLE','资料已换版、下架或授权已变化，请刷新目录。')
+    summaryDocument.value=current
+  } catch (e) { if (generation===summaryGeneration) { summaryError.value=e instanceof DomainApiError?e.message:'资料核验暂不可用。'; if (e instanceof DomainApiError && accessFailureCodes.includes(e.code)) applyError(e) } }
+  finally { if (generation===summaryGeneration) summaryLoading.value=false }
+}
+function useExample(value:string) { query.value=value; void submitComposer() }
+watch(view,()=>{ drawer.close(false); closeSummary(); if (view.value==='catalog') void refreshCatalog() })
 const portal = usePortalStore()
 const subjectKey = computed(() => portal.user?.id || null)
 const savedContext = ref<KnowledgeSearchContext | null>(null)
@@ -182,7 +85,7 @@ const statusLoading = ref(false)
 const spaces = ref<KnowledgeSpace[]>([])
 const selectedSpace = ref('')
 const savedScopeNeedsSelection = ref(false)
-const mode = ref<'search' | 'ask'>('search')
+const mode = ref<'search' | 'ask'>('ask')
 const searchMode = ref<'STANDARD' | 'PRECISE'>('STANDARD')
 const query = ref(typeof route.query.q === 'string' ? [...route.query.q].slice(0, 500).join('') : '')
 const composing = ref(false)
@@ -200,7 +103,7 @@ const catalog = ref<KnowledgeDocument[]>([])
 const catalogTotal = ref(0)
 const catalogQuery = ref('')
 const catalogPage = ref(1)
-const catalogPageSize = 12
+const catalogPageSize = 4
 const catalogLoading = ref(false)
 const catalogError = ref('')
 const tools = ref<InstanceType<typeof KnowledgeTools> | null>(null)
@@ -216,33 +119,8 @@ const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FO
 const currentScopeLabel = computed(() => spaces.value.find(s => s.space_id === selectedSpace.value)?.title || '全部已收录资料')
 const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked))
 const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && !savedScopeNeedsSelection.value && (mode.value === 'search' || (status.value?.ask_enabled && status.value?.answer_availability?.available !== false))))
-const statusTone = computed(() => status.value?.retrieval_availability?.status === 'AVAILABLE' && !retrievalBlocked.value ? 'ready' : 'waiting')
-const blockedDescription = computed(() => {
-  const availability = status.value?.retrieval_availability
-  if (availability?.budget_status === 'ACCOUNTING_PENDING') return '当前阻断来自费用核验与原累计预算门槛。较早的检索结果不能放行新调用；刷新状态不会调用模型。'
-  if (availability?.budget_status === 'EXHAUSTED') return '当前剩余累计预算不足以继续调用。刷新状态不会改变预算或试调用模型。'
-  if (availability?.budget_status === 'EXPIRED') return '当前调用授权已过期。刷新状态不会自动续期或试调用模型。'
-  if (availability?.budget_status === 'UNAVAILABLE') return '暂时无法核验调用预算。刷新状态不会绕过预算门槛或试调用模型。'
-  if (availability?.status === 'OBSERVED_ERROR' || availability?.observed_error) return '当前提示依据最近真实调用的错误观察。恢复后可重新提交检索；刷新页面不会试调用模型。'
-  return '当前检索仍有阻断记录，可用性需实际检索确认。刷新页面不会自动试调用模型。'
-})
-const statusLabel = computed(() => {
-  if (!status.value) return '正在核验服务与资料权限…'
-  if (!status.value.can_enter) return '当前账号没有知识助理访问权限'
-  if (!status.value.can_search) return '当前没有已发布且可检索的资料范围'
-  if (!status.value.gateway_configured) return '检索链路尚未完成配置'
-  const budget = status.value.retrieval_availability?.budget_status
-  if (budget === 'ACCOUNTING_PENDING') return '费用待对账 · 检索与问答暂停，目录和个人记录可查看'
-  if (budget === 'EXHAUSTED') return '当前累计预算不足 · 检索与问答暂停'
-  if (budget === 'EXPIRED') return '调用授权已过期 · 检索与问答暂停'
-  if (budget === 'UNAVAILABLE') return '当前无法核验调用预算 · 检索与问答暂停'
-  if (retrievalBlocked.value) return '检索服务暂不可用，目录与个人记录仍可查看。'
-  if (status.value.retrieval_availability?.status === 'AVAILABLE') return '最近检索成功 · 当前资料权限已核验'
-  return status.value.environment === 'synthetic' ? '隔离合成环境 · 检索链路已配置' : '检索链路已配置 · 当前可用性待实际检索确认'
-})
-
 watch(subjectKey, () => {
-  subjectGeneration++; searchGeneration++; statusGeneration++; catalogGeneration++; drawer.close(false)
+  subjectGeneration++; searchGeneration++; statusGeneration++; catalogGeneration++; drawer.close(false); closeSummary()
   if (catalogTimer) clearTimeout(catalogTimer)
   status.value = null; statusLoading.value = false; results.value = []; query.value = ''; composing.value = false
   searching.value = false; askBusy.value = false; hasConversation.value = false; composerNotice.value = ''
@@ -268,7 +146,7 @@ watch([catalogQuery, selectedSpace], () => {
 }, { flush: 'sync' })
 watch(catalogPage, () => { if (catalogTimer) clearTimeout(catalogTimer); catalogTimer = null; void refreshCatalog() })
 onBeforeUnmount(() => {
-  subjectGeneration++; searchGeneration++; statusGeneration++; catalogGeneration++; drawer.close(false)
+  subjectGeneration++; searchGeneration++; statusGeneration++; catalogGeneration++; drawer.close(false); closeSummary()
   if (catalogTimer) clearTimeout(catalogTimer)
 })
 
@@ -276,12 +154,12 @@ function applyError(error: unknown) {
   const apiError = error instanceof DomainApiError ? error : null
   pageErrorCode.value = apiError?.code || 'SERVICE_ERROR'; pageError.value = apiError?.message || '知识服务暂时不可用。'
   if (accessFailureCodes.includes(pageErrorCode.value)) {
-    results.value = []; drawer.close(false); tools.value?.newConversation()
+    results.value = []; drawer.close(false); closeSummary(); tools.value?.invalidateSources()
     catalogGeneration++; catalog.value = []; catalogTotal.value = 0; spaces.value = []; status.value = null
   }
 }
 function invalidateEvidence(code?: string) {
-  results.value = []; tools.value?.invalidateSources()
+  results.value = []; closeSummary(); tools.value?.invalidateSources()
   if (code && accessFailureCodes.includes(code)) applyError(new DomainApiError(code, '当前来源不可访问，请重新确认登录状态与资料权限。'))
 }
 function setMode(value: 'search' | 'ask') {
@@ -299,7 +177,7 @@ function startNewQuestion() { tools.value?.newConversation(); query.value = ''; 
 function selectDepartment(id: string) { selectedSpace.value = id; document.getElementById('knowledge-query')?.focus() }
 function composerKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter') return
-  if (composing.value || event.isComposing || event.keyCode === 229) { event.preventDefault(); return }
+  if (composing.value || event.isComposing || event.keyCode === 229) return
   if (mode.value === 'ask') { if (event.ctrlKey || event.metaKey) { event.preventDefault(); void submitComposer() } }
   else { event.preventDefault(); void submitComposer() }
 }
@@ -329,15 +207,17 @@ async function submitSearch() {
 }
 function restoreSaved(data: KnowledgeSavedQuery) {
   if (!data.restored) return
+  void router.push('/hbos/knowledge')
   searchGeneration++; drawer.close(false); searching.value=false
   selectedSpace.value=data.space_ids.length===1 ? data.space_ids[0]! : ''
   savedContext.value={...(data.context || {})}; savedScopeNeedsSelection.value=data.space_ids.length>1
-  searchMode.value=data.restored.search_mode; setMode(data.restored.mode); query.value=data.query
+  searchMode.value='STANDARD'; setMode(data.restored.mode); query.value=data.query
   results.value=data.restored.results; hasSearched.value=data.restored.mode==='search'
   composerNotice.value='已核验当前来源并恢复记录；未触发模型。'
 }
 watch(searchMode,()=>{searchGeneration++;results.value=[];hasSearched.value=false;drawer.close(false);tools.value?.newConversation()}, {flush:'sync'})
 async function replaySaved(value: string, scope: string[], context: KnowledgeSearchContext = {}) {
+  void router.push('/hbos/knowledge')
   setMode('search'); tools.value?.newConversation()
   searchGeneration++; drawer.close(false); results.value = []; hasSearched.value = false; searching.value = false
   selectedSpace.value = scope.length === 1 ? scope[0]! : ''
@@ -386,30 +266,11 @@ async function refreshStatus() {
     status.value = current; spaces.value = current.can_enter ? currentSpaces : []
     if (selectedSpace.value && !currentSpaces.some(space => space.space_id === selectedSpace.value)) selectedSpace.value = ''
     if (!current.ask_enabled && mode.value === 'ask') setMode('search')
-    if (current.can_enter && current.environment === 'production') await refreshCatalog()
+    if (current.can_enter && current.environment === 'production' && view.value === 'catalog') await refreshCatalog()
     // Page loads and deep-link prefills never call a model.
   } catch (error) { if (generation === statusGeneration && subject === subjectGeneration) applyError(error) }
   finally { if (generation === statusGeneration) statusLoading.value = false }
 }
+watch(() => props.sessionRevision, () => { void refreshStatus() })
 onMounted(refreshStatus)
 </script>
-
-<style scoped>
-.search-mode-option { display:flex; align-items:center; gap:8px; margin:12px 0 0; font-size:var(--hbos-font-body); }
-.mode-cost-note { font-size:var(--hbos-font-meta); line-height:1.6; color:var(--hbos-text-secondary); margin:8px 0; }
-.knowledge-page,.knowledge-primary { display: grid; gap: 18px; min-width: 0; }.knowledge-grid { min-width: 0; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.kt-breadcrumb { display: flex; align-items: center; gap: 7px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }.kt-breadcrumb a { color: inherit; }.kt-breadcrumb span { color: var(--hbos-text-secondary); }
-.kt-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }.kt-page-heading h1 { margin: 0; color: #193661; font-size: 30px; line-height: 38px; letter-spacing: -.4px; }.kt-page-heading p { margin: 6px 0 0; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); }.heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.knowledge-hero { padding: 26px; border-radius: 24px; min-width: 0; }.knowledge-eyebrow { display: flex; gap: 8px; align-items: center; color: #347f76; font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); }.knowledge-hero h2 { margin: 12px 0 6px; color: #193661; font-size: 30px; line-height: 38px; letter-spacing: -.4px; }.knowledge-hero h2 span { background: linear-gradient(115deg,#58a994,#38a9bc); -webkit-background-clip: text; background-clip: text; color: transparent; }.knowledge-hero>p { margin: 0 0 22px; font-size: var(--hbos-font-body); color: var(--hbos-text-secondary); }
-.composer-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }.knowledge-modes { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(35,115,102,.07); }.knowledge-modes button { padding: 8px 18px; border: 0; border-radius: 9px; color: var(--hbos-text-secondary); background: transparent; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); cursor: pointer; }.knowledge-modes button[aria-pressed=true] { color: #146f61; background: rgba(255,255,255,.95); box-shadow: 0 2px 8px rgba(35,115,102,.08); }.knowledge-modes button:disabled { color: var(--hbos-text-muted); cursor: not-allowed; }
-.knowledge-space-filter { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); }.knowledge-space-filter label { white-space: nowrap; }.knowledge-space-filter select { max-width: 100%; min-width: 0; padding: 9px 12px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; background: var(--hbos-bg-surface); color: var(--hbos-text-primary); font: inherit; }
-.knowledge-search { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border: 1px solid var(--hbos-border-strong); border-radius: 16px; background: rgba(255,255,255,.9); }.knowledge-search:focus-within { outline: 2px solid var(--hbos-brand-aqua); outline-offset: 3px; }.knowledge-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); color: var(--hbos-text-primary); }.knowledge-search textarea { grid-column: 1/-1; width: 100%; min-height: 92px; min-width: 0; resize: vertical; border: 0; outline: 0; background: transparent; font: inherit; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); color: var(--hbos-text-primary); }.ask-composer { grid-template-columns: 1fr auto; }.ask-composer .ant-btn { grid-column: 2; }
-.composer-help { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); }.composer-help>span:last-child { flex-shrink: 0; }.over-limit { color: #b43c50; }.composer-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 8px; }.composer-actions:empty { display: none; }.muted { font-size: var(--hbos-font-meta); color: var(--hbos-text-muted); }
-.knowledge-state-line { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); }.knowledge-state-line .ant-btn { margin-left: auto; }.state-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #e5a42c; box-shadow: 0 0 0 4px rgba(229,164,44,.1); }.state-dot.ready { background: #1bbc86; box-shadow: 0 0 0 4px rgba(27,188,134,.1); }.observation-note { font-size: var(--hbos-font-meta); color: var(--hbos-text-muted); }
-.knowledge-results,.knowledge-start { padding: 22px; border-radius: 23px; min-width: 0; }.section-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }.section-title h2 { margin: 0; font-size: 20px; line-height: 28px; color: #203b66; }.section-title p { margin: 4px 0 0; font-size: var(--hbos-font-body); color: var(--hbos-text-secondary); }.result-list { display: grid; gap: 12px; }.result-card { padding: 18px; border: 1px solid var(--hbos-border-strong); border-radius: 18px; background: rgba(255,255,255,.7); min-width: 0; }.result-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }.result-card h3 { margin: 12px 0 5px; color: #243e66; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); overflow-wrap: anywhere; }.section-label,.status-note { font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); margin: 4px 0; color: var(--hbos-text-muted); }.status-note { color: #96702d; }.excerpt-preview { margin: 12px 0; font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); color: var(--hbos-text-secondary); overflow-wrap: anywhere; }.result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; }.result-actions>button { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 6px 0; font-size: var(--hbos-font-body); line-height: var(--hbos-line-body); color: #247a70; cursor: pointer; }
-.catalog-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }.catalog-heading p { margin: 0 0 12px; color: var(--hbos-text-secondary); font-size: var(--hbos-font-body); }.catalog-filter { display: flex; gap: 10px; margin-bottom: 12px; }.catalog-query { width: 100%; min-width: 0; padding: 10px 14px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; font: inherit; background: rgba(255,255,255,.82); color: var(--hbos-text-primary); }.catalog-content { min-height: 150px; }.catalog-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 16px 0; border-top: 1px solid var(--hbos-border-strong); }.catalog-row>div { min-width: 0; }.catalog-row strong { font-size: var(--hbos-font-card-title); line-height: var(--hbos-line-important); overflow-wrap: anywhere; }.catalog-row p { margin: 6px 0 2px; font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); color: var(--hbos-text-muted); overflow-wrap: anywhere; }.catalog-row small { font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); color: #96702d; }.catalog-row :deep(.ant-tag) { flex-shrink: 0; max-width: 34%; white-space: normal; overflow-wrap: anywhere; }
-.department-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; }.department-grid button { display: grid; justify-items: start; gap: 8px; padding: 16px; border: 1px solid var(--hbos-border-strong); border-radius: 16px; background: rgba(255,255,255,.65); color: var(--hbos-text-primary); text-align: left; font: inherit; cursor: pointer; }.department-grid button[aria-pressed=true] { border-color: #48bca6; background: rgba(236,252,247,.7); }.department-grid strong { font-size: var(--hbos-font-card-title); }.department-grid span { color: var(--hbos-text-muted); font-size: var(--hbos-font-meta); }
-.knowledge-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: var(--hbos-font-meta); line-height: var(--hbos-line-small); color: var(--hbos-text-muted); }button:focus-visible,select:focus-visible,.catalog-query:focus-visible { outline: 2px solid var(--hbos-brand-aqua); outline-offset: 3px; }
-@media(max-width:700px) { .kt-page-heading { align-items: flex-start; flex-direction: column; gap: 10px; }.knowledge-hero { padding: 20px 16px; }.knowledge-hero h2 { font-size: 20px; line-height: 28px; }.composer-toolbar { align-items: flex-start; flex-direction: column; }.knowledge-space-filter { width: 100%; }.knowledge-space-filter select { flex: 1; }.knowledge-search { grid-template-columns: auto minmax(0,1fr); }.knowledge-search .ant-btn { grid-column: 1/-1; width: 100%; }.composer-help { flex-wrap: wrap; gap: 4px; }.knowledge-state-line .ant-btn { margin-left: 0; }.knowledge-results,.knowledge-start { padding: 16px; }.department-grid { grid-template-columns: 1fr; } }
-</style>
