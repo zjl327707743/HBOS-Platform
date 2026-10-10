@@ -5,6 +5,8 @@
 > - `03_Git与GitHub多人协作规范.md`（分支、提交、PR 规则）
 > - `12_常用Git与Docker命令解释.md`（每条命令的含义）
 > **目的**：把"每天从上班到下班"的每一步都写成清单，跟着做就行。
+>
+> **2026-10-10 Portal 并行开发覆盖规则（优先于本文旧的 main / migrate 指令）**：当前 Portal 业务工作以 `feature/hbos-portal-product` 为基线，运行前须读取 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md`；本文 §1.1 的 `git checkout main && git pull main` 不适用于 Portal 工作。也**不得**因拉取了代码就自动在现有开发/UAT/真实 Site 执行 `bench migrate`、重建 Docker 或覆盖数据库。应先 `git status --short`、`git fetch origin`，在隔离 worktree 验证并取得明确的环境变更授权。下方历史示例保留为 main 维护参考。
 
 ---
 
