@@ -39,15 +39,11 @@
 </template>
 
 <script setup lang="ts">
-import { type Component } from 'vue'
+import { appIcon, chineseApp } from '@/components/appIcons'
 import { useRouter } from 'vue-router'
 import {
-  ClockCircleOutlined,
   CheckCircleOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
   RightOutlined,
-  ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
 import { openBusinessRoute } from '@/services/businessNavigation'
@@ -59,26 +55,6 @@ const router = useRouter()
 
 function openTask(task: UnifiedTaskDTO) {
   void openBusinessRoute(router, task.appId, task.deepLink)
-}
-
-const icons: Record<string, Component> = {
-  lims: ExperimentOutlined,
-  attendance: ClockCircleOutlined,
-  inventory: InboxOutlined,
-  equipment: ToolOutlined,
-}
-
-function appIcon(appId: string) {
-  return icons[appId] || InboxOutlined
-}
-
-function chineseApp(appId: string) {
-  return ({
-    lims: 'LIMS',
-    attendance: '考勤',
-    inventory: '仓储',
-    equipment: '设备',
-  } as Record<string, string>)[appId] || appId
 }
 
 function tagText(task: UnifiedTaskDTO) {

@@ -1,5 +1,6 @@
 /** Only Portal paths can be resumed; a similar prefix is a different path. */
 export function accountRedirect(value: unknown): string {
+  // eslint-disable-next-line no-control-regex -- 需拒绝反斜杠与控制字符，避免路径注入
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || /[\\\u0000-\u0020]/.test(value)) return '/hbos'
   try {
     const url = new URL(value, 'https://hbos.example.test')

@@ -5,10 +5,10 @@
         <div class="page-head">
           <div>
             <h1>检验结果录入</h1>
-            <p>{{ result.name }} · {{ result.item_name }} · 提交后自动判定并生成电子签名</p>
+            <p>{{ result.name }} · {{ result.item_name }} · 提交后自动判定并记录操作签署</p>
           </div>
           <div class="page-actions">
-            <a-button v-if="result.result_status === '草稿'" type="primary" :loading="submitting" @click="submitResult">
+            <a-button v-if="result.result_status === '草稿'" type="primary" :loading="submitting" @click="onSubmitClick">
               <template #icon><CheckOutlined /></template>
               提交结果
             </a-button>
@@ -73,7 +73,7 @@
                 </div>
 
                 <div class="form-section">
-                  <div class="form-section-title">电子签名</div>
+                  <div class="form-section-title">操作签署</div>
                   <div class="signature-strip">
                     <div class="sig-item"><div class="sig-label">检验人</div><div class="sig-name">{{ result.submitted_signature || '待提交' }}</div></div>
                     <div class="sig-arrow">→</div>
@@ -133,6 +133,24 @@
         </div>
       </a-form>
     </a-modal>
+
+    <!-- 代提交弹窗（L10-P0-03：当前用户不是检验人时，代提交必须记录理由） -->
+    <a-modal v-model:open="showProxySubmit" title="代提交检验结果" :footer="null" width="460">
+      <p class="proxy-note">
+        该记录的检验人是 <span class="mono">{{ result?.analyst }}</span>，非当前用户。
+        LIMS Manager 代提交必须填写理由，理由将写入合规审计（ALCOA）。
+      </p>
+      <a-form layout="vertical">
+        <a-form-item label="代提交理由 *">
+          <a-textarea v-model:value="proxyForm.reason" :rows="3"
+                      placeholder="如：检验员休假，由经理代提交" />
+        </a-form-item>
+        <div class="modal-footer">
+          <a-button @click="showProxySubmit = false">取消</a-button>
+          <a-button type="primary" :loading="submitting" @click="submitResult">确认提交</a-button>
+        </div>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -145,8 +163,10 @@ import {
   getDoc, submitResult as apiSubmit, reviewResult as apiReview,
   approveResult as apiApprove, reviseResult as apiRevise, listDoctype,
 } from '@/api/lims'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const auth = useAuthStore()
 const loading = ref(true)
 const submitting = ref(false)
 const revising = ref(false)
@@ -155,6 +175,16 @@ const revisions = ref<any[]>([])
 
 const showRevise = ref(false)
 const reviseForm = reactive({ new_value: '', reason: '' })
+
+// L10-P0-03：检验人本人的草稿可直接提交；他人代提交须填写理由（后端强制，前端引导）。
+// 身份未就绪时不做代提交引导，交由后端判定，避免登录态未稳时误弹窗。
+const showProxySubmit = ref(false)
+const proxyForm = reactive({ reason: '' })
+const isOwnResult = computed(() => {
+  const me = auth.user?.name
+  if (!me || !result.value?.analyst) return true
+  return result.value.analyst === me
+})
 
 const taskName = computed(() => String(route.params.id || ''))
 
@@ -215,8 +245,22 @@ async function loadResult() {
   }
 }
 
+function onSubmitClick() {
+  if (isOwnResult.value) {
+    void submitResult()
+    return
+  }
+  proxyForm.reason = ''
+  showProxySubmit.value = true
+}
+
 async function submitResult() {
   if (!result.value) return
+  const proxyReason = isOwnResult.value ? '' : proxyForm.reason.trim()
+  if (!isOwnResult.value && !proxyReason) {
+    message.warning('代提交必须填写理由')
+    return
+  }
   submitting.value = true
   try {
     const res = await apiSubmit({
@@ -225,8 +269,10 @@ async function submitResult() {
       result_value: result.value.result_value,
       result_text: result.value.result_text,
       instrument_used: result.value.instrument_used,
+      proxy_reason: proxyReason || undefined,
     })
     message.success(`结果已提交，判定：${res.verdict}`)
+    showProxySubmit.value = false
     await loadResult()
   } finally {
     submitting.value = false
@@ -273,7 +319,10 @@ async function doRevise() {
   }
 }
 
-onMounted(loadResult)
+onMounted(() => {
+  void auth.checkSession()
+  void loadResult()
+})
 </script>
 
 <style scoped>
@@ -282,6 +331,7 @@ onMounted(loadResult)
 .page-head h1 { font-size: 20px; color: var(--ink); }
 .page-head p { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .page-actions { display: flex; gap: 8px; }
+.proxy-note { margin-bottom: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
 
 .result-layout { display: grid; grid-template-columns: 320px 1fr; gap: 14px; align-items: start; }
 .context-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }

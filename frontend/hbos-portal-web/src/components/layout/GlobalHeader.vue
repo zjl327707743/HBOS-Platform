@@ -6,8 +6,8 @@
         <span v-else>H</span>
       </div>
       <div class="brand-copy">
-        <div class="brand-name">HBOS</div>
-        <div class="brand-caption">{{ contextLabel || '海滨智能运营工作台' }}</div>
+        <div class="brand-name">{{ contextLabel === 'LIMS' ? '海滨实验室' : 'HBOS' }}</div>
+        <div class="brand-caption">{{ contextLabel === 'LIMS' ? 'HBOS / LIMS' : (contextLabel || '海滨智能运营工作台') }}</div>
       </div>
     </button>
 
@@ -19,7 +19,12 @@
 
     <div class="header-actions">
       <AppSwitcher :apps="apps" />
-      <NotificationCenter />
+      <NotificationCenter v-if="portalDataSource === 'mock'" />
+
+      <div v-if="groupLogoUrl" class="group-brand" aria-label="健康元集团标识">
+        <span class="header-divider" aria-hidden="true"></span>
+        <img :src="groupLogoUrl" alt="健康元集团标识" class="group-logo-image" />
+      </div>
 
       <a-tooltip title="帮助">
         <a-button
@@ -66,6 +71,7 @@ import AppSwitcher from '@/components/global/AppSwitcher.vue'
 import NotificationCenter from '@/components/global/NotificationCenter.vue'
 import type { AppManifestDTO } from '@/contracts/portal'
 import { logoutFrappeSession } from '@/services/frappeClient'
+import { portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 
 const router = useRouter()
@@ -78,11 +84,12 @@ async function handleLogout() {
   signingOut.value = true
   try {
     if (portal.dataSource === 'frappe') await logoutFrappeSession()
-    portal.clearSession()
-    await router.replace({ path: '/hbos/login', query: { status: 'signed_out' } })
   } catch (error) {
+    // 服务端会话可能已半死导致登出失败；仍要清本地会话并离开受保护页面。
     message.error(error instanceof Error ? error.message : '退出失败，请稍后重试。')
   } finally {
+    portal.clearSession()
+    await router.replace({ path: '/hbos/login', query: { status: 'signed_out' } })
     signingOut.value = false
   }
 }
@@ -91,6 +98,7 @@ defineProps<{
   avatarText: string
   avatarUrl?: string | null
   companyLogoUrl?: string | null
+  groupLogoUrl?: string | null
   apps: AppManifestDTO[]
   contextLabel?: string
 }>()

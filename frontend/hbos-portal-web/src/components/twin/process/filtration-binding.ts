@@ -3,7 +3,7 @@ import * as T from 'three';
 import type { BindingConfig } from '@/types/twin';
 export class FiltrationBinding{
  readonly saved=new Map<T.Mesh,{material:T.Material|T.Material[];geometry:T.BufferGeometry;visible:boolean;parent:T.Object3D|null;matrix:number[]}>();
- readonly trimmed=new Map<T.Mesh,T.BufferGeometry>();readonly clones=new Set<T.Material>();readonly matrix=new T.Matrix4();readonly planes:T.Plane[];readonly record:any;
+ readonly trimmed=new Map<T.Mesh,T.BufferGeometry>();readonly clones=new Set<T.Material>();readonly matrix=new T.Matrix4();readonly planes:T.Plane[];readonly record:Record<string,unknown>;
  cutaway=false;readonly hiddenRear=new Map<T.Mesh,boolean>();readonly auxiliary=new Map<T.Mesh,T.Material|T.Material[]>();readonly auxiliaryClones=new Map<T.Mesh,T.Material|T.Material[]>();
  constructor(readonly meshes:T.Mesh[],readonly group:T.Group,readonly config:BindingConfig){
   const equipment=config.source_key,vesselIds=config.ids,anchorId=config.anchor;

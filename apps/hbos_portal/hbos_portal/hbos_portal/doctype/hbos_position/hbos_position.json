@@ -1,0 +1,105 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Position",
+ "module": "HBOS Portal",
+ "autoname": "field:record_key",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_key",
+  "title",
+  "company",
+  "department",
+  "designation",
+  "status",
+  "revision",
+  "authorization_generation",
+  "source_provider",
+  "source_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_key",
+   "fieldtype": "Data",
+   "label": "record_key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "title",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "company",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "Company",
+   "search_index": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "department",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "Department",
+   "search_index": 1
+  },
+  {
+   "fieldname": "designation",
+   "fieldtype": "Link",
+   "label": "designation",
+   "read_only": 1,
+   "options": "Designation"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "status",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "active\ninactive\nrevoked",
+   "search_index": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "revision",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "authorization_generation",
+   "fieldtype": "Int",
+   "label": "authorization_generation",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_provider",
+   "fieldtype": "Data",
+   "label": "source_provider",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_key",
+   "fieldtype": "Data",
+   "label": "source_key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  }
+ ],
+ "permissions": [],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "allow_import": 0,
+ "allow_copy": 0
+}

@@ -4,12 +4,26 @@ PROVIDER_HOOK = "hbos_portal_provider"
 CAPABILITY_SUMMARY = "summary"
 CAPABILITY_TASKS = "tasks"
 CAPABILITY_SEARCH = "search"
+CAPABILITY_RESULTS = "results"
+CAPABILITY_LEDGER = "ledger"
+CAPABILITY_AUDIT = "audit"
+CAPABILITY_COA = "coa"
+CAPABILITY_SPECIFICATIONS = "specifications"
+CAPABILITY_RETAINS = "retains"
+CAPABILITY_STABILITY = "stability"
 
 SUPPORTED_PROVIDER_CAPABILITIES = frozenset(
     {
         CAPABILITY_SUMMARY,
         CAPABILITY_TASKS,
         CAPABILITY_SEARCH,
+        CAPABILITY_RESULTS,
+        CAPABILITY_LEDGER,
+        CAPABILITY_AUDIT,
+        CAPABILITY_COA,
+        CAPABILITY_SPECIFICATIONS,
+        CAPABILITY_RETAINS,
+        CAPABILITY_STABILITY,
     }
 )
 
@@ -17,6 +31,13 @@ CAPABILITY_METHODS = {
     CAPABILITY_SUMMARY: "summary",
     CAPABILITY_TASKS: "my_tasks",
     CAPABILITY_SEARCH: "search",
+    CAPABILITY_RESULTS: "results",
+    CAPABILITY_LEDGER: "ledger",
+    CAPABILITY_AUDIT: "audit",
+    CAPABILITY_COA: "coa",
+    CAPABILITY_SPECIFICATIONS: "specifications",
+    CAPABILITY_RETAINS: "retains",
+    CAPABILITY_STABILITY: "stability",
 }
 
 SUPPORTED_MIGRATION_MODES = frozenset({"legacy", "hybrid", "native"})

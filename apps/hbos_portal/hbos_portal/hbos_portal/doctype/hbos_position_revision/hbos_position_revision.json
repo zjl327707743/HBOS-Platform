@@ -1,0 +1,109 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Position Revision",
+ "module": "HBOS Portal",
+ "autoname": "field:record_key",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_key",
+  "position",
+  "revision",
+  "previous_revision",
+  "snapshot_json",
+  "content_digest",
+  "actor",
+  "policy_ref",
+  "reason",
+  "source_evidence_json",
+  "recorded_at_utc"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_key",
+   "fieldtype": "Data",
+   "label": "record_key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "position",
+   "fieldtype": "Link",
+   "label": "position",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "HBOS Position",
+   "search_index": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "revision",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "previous_revision",
+   "fieldtype": "Int",
+   "label": "previous_revision",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "snapshot_json",
+   "fieldtype": "Long Text",
+   "label": "snapshot_json",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "content_digest",
+   "fieldtype": "Data",
+   "label": "content_digest",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "actor",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "policy_ref",
+   "fieldtype": "Data",
+   "label": "policy_ref",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "reason",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_evidence_json",
+   "fieldtype": "Long Text",
+   "label": "source_evidence_json",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "recorded_at_utc",
+   "fieldtype": "Datetime",
+   "label": "recorded_at_utc",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "allow_import": 0,
+ "allow_copy": 0
+}

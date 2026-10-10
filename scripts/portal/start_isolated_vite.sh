@@ -30,7 +30,7 @@ command -v npm >/dev/null 2>&1 || fail "未找到 npm"
 
 cd frontend/hbos-portal-web
 if [[ ! -d node_modules ]]; then
-  npm install --no-audit --no-fund --package-lock=false
+  npm ci --no-audit --no-fund
 fi
 
 echo "HBOS Preview Vite-only"

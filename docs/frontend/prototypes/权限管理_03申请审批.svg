@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="940" viewBox="0 0 1440 940">
+<title>申请审批与变化解释</title>
+<desc>HBOS 权限管理静态设计原型。全部为合成数据，未接入 API，未实施真实授权。</desc>
+<rect x="0" y="0" width="1440" height="940" rx="0" fill="#f4f8fd"/>
+<rect x="0" y="0" width="1440" height="36" rx="0" fill="#e7ecf5"/>
+<text x="24" y="11" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#425675">HBOS 权限管理 / 03 · 静态原型 · 全部合成数据 · 未接入 API / 未实施</text>
+<text x="1190" y="11" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#425675">2026-10-08 · 待审查</text>
+<rect x="16" y="48" width="1408" height="68" rx="18" fill="white" stroke="#dce5f0"/>
+<rect x="36" y="63" width="38" height="38" rx="12" fill="#675fff"/>
+<text x="44" y="75" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="600" fill="white">HB</text>
+<text x="88" y="63" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="18" font-weight="600" fill="#17253c">新乡海滨</text>
+<text x="88" y="88" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#596b86">智能运营管理平台</text>
+<text x="280" y="76" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="400" fill="#425675">管理中心  /  权限管理</text>
+<text x="1120" y="77" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">演示身份 · 受限管理员</text>
+<rect x="16" y="132" width="216" height="764" rx="18" fill="white" stroke="#dce5f0"/>
+<text x="36" y="158" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="20" font-weight="600" fill="#17253c">权限管理</text>
+<text x="48" y="221" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">人员授权</text>
+<rect x="28" y="262" width="192" height="44" rx="10" fill="#eeedff"/>
+<text x="48" y="277" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="600" fill="#675fff">申请审批</text>
+<text x="48" y="333" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">角色模板</text>
+<text x="48" y="389" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">权限目录</text>
+<text x="48" y="445" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">授权审计</text>
+<path d="M36,504 L212,504" stroke="#dce5f0" fill="none"/>
+<text x="40" y="530" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#596b86">管理范围</text>
+<text x="40" y="558" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">LIMS · 演示 A / B 组</text>
+<text x="40" y="794" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#596b86">只显示获准管理的人员、模板</text>
+<text x="40" y="814" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#596b86">与审计。</text>
+<text x="256" y="142" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="30" font-weight="600" fill="#17253c">申请审批</text>
+<text x="256" y="184" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">先核对申请事实与范围，再作出有依据的决定。</text>
+<text x="256" y="914" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#596b86">设计评审素材；图中的授权状态、人员和计数均不是实际 Site 数据。</text>
+<rect x="256" y="214" width="736" height="680" rx="18" fill="white" stroke="#dce5f0"/>
+<text x="280" y="238" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="20" font-weight="600" fill="#17253c">AP-DEMO-01 · 授权申请</text>
+<rect x="800" y="233" width="82" height="26" rx="8" fill="#fff2db"/>
+<text x="811" y="240" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#795119">待规则确认</text>
+<text x="280" y="278" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">申请对象 U-X（合成）  ·  申请人 U-X（合成）</text>
+<text x="280" y="312" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#596b86">申请内容版本 1；变更后需重新核对，不沿用旧批准。</text>
+<path d="M280,346 L968,346" stroke="#dce5f0" fill="none"/>
+<text x="280" y="370" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="600" fill="#17253c">原有授权</text>
+<rect x="280" y="406" width="688" height="102" rx="12" fill="#f8fafd" stroke="#dce5f0"/>
+<text x="300" y="426" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="600" fill="#17253c">LIMS / A 组复核人 v1</text>
+<text x="300" y="460" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">A 组 · 任务 / 结果读取及复核 · 独立演示记录</text>
+<text x="280" y="532" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="600" fill="#17253c">这次拟新增</text>
+<rect x="280" y="568" width="688" height="130" rx="12" fill="#f0f3ff" stroke="#dce5f0"/>
+<text x="300" y="588" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="600" fill="#17253c">LIMS / B 组检验员 v1（候选）</text>
+<text x="300" y="624" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">B 组 · 提交本人符合条件的结果；读取口径待确认</text>
+<text x="300" y="659" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#425675">有效期：10-08 至 10-31；不增加 A / B 组复核范围</text>
+<text x="280" y="726" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="600" fill="#425675">申请理由</text>
+<text x="280" y="757" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">阶段性参与 B 组检验工作（合成示例）</text>
+<rect x="280" y="800" width="688" height="44" rx="10" fill="#fff7e8" stroke="#ecd5a8"/>
+<text x="296" y="814" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="600" fill="#795119">新增授权分别核对，不把 A 组复核动作配给 B 组。</text>
+<rect x="1016" y="214" width="392" height="680" rx="18" fill="white" stroke="#dce5f0"/>
+<text x="1040" y="238" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="20" font-weight="600" fill="#17253c">审批步骤与核对</text>
+<text x="1040" y="286" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="600" fill="#17253c">1  申请内容与人员资格</text>
+<text x="1060" y="319" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">人员关联、岗位资格及申请依据需要核对。</text>
+<path d="M1040,378 L1384,378" stroke="#dce5f0" fill="none"/>
+<text x="1040" y="402" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="600" fill="#17253c">2  审批方式（Q1）</text>
+<text x="1060" y="435" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">Owner 集中或组确认 / 管理员复核，仍待选择。未</text>
+<text x="1060" y="458" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">绑定真实审批人。</text>
+<path d="M1040,516 L1384,516" stroke="#dce5f0" fill="none"/>
+<text x="1040" y="540" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="16" font-weight="600" fill="#17253c">3  权限变化与范围上限</text>
+<text x="1060" y="573" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">本人增权需独立审批；Q2 读取规则尚未确认，当前</text>
+<text x="1060" y="596" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">不能批准。</text>
+<text x="1040" y="656" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="600" fill="#425675">批准后仍需确认生效结果</text>
+<text x="1040" y="689" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">界面分别显示“已批准待生效”和“已生效”，不提前</text>
+<text x="1040" y="712" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#425675">显示成功。</text>
+<rect x="1040" y="772" width="344" height="44" rx="10" fill="#edf0f4" stroke="#dce2eb"/>
+<text x="1138.0" y="787" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="14" font-weight="400" fill="#697990">审批决定 · 待规则确认</text>
+<text x="1040" y="840" dominant-baseline="text-before-edge" font-family="PingFang SC, Heiti SC, sans-serif" font-size="12" font-weight="400" fill="#596b86">原型展示状态，不执行真实审批。</text>
+</svg>

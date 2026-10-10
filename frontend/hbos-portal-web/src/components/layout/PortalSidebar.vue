@@ -8,6 +8,10 @@
     </RouterLink>
 
     <div class="nav-divider"></div>
+    <div class="nav-section-label">平台管理</div>
+    <RouterLink to="/hbos/admin/people" class="portal-nav-item" :class="{ 'router-link-exact-active': route.path.startsWith('/hbos/admin/') }" title="人员与权限" aria-label="人员与权限"><TeamOutlined /><span>人员与权限</span></RouterLink>
+
+    <div class="nav-divider"></div>
     <div class="nav-section-label">个人</div>
     <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="我的与设置">
       <UserOutlined /><span>我的与设置</span>
@@ -26,9 +30,12 @@ import {
   HomeOutlined,
   UnorderedListOutlined,
   UserOutlined,
+  TeamOutlined,
 } from '@ant-design/icons-vue'
+import { useRoute } from 'vue-router'
 
 defineProps<{ workCount: number }>()
+const route = useRoute()
 
 const mainNav = [
   { path: '/hbos', label: '首页', icon: HomeOutlined },
@@ -36,3 +43,10 @@ const mainNav = [
   { path: '/hbos/apps', label: '应用中心', icon: AppstoreOutlined },
 ]
 </script>
+
+<style scoped>
+@media (max-width: 1280px) and (min-width: 768px) {
+  .portal-nav-item > span:not(.anticon), .nav-section-label, .portal-side-note { display: none; }
+  .portal-nav-item > .anticon { font-size: 20px; }
+}
+</style>

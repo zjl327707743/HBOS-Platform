@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>海滨 LIMS · 实验室工作台</title>
+<link rel="stylesheet" href="style.css">
+<script src="modules.js" defer></script><script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+<div class="preview-bar"><span><i></i>设计评审 · 第二版 <span class="preview-desc">所有记录均为演示数据</span></span><div><label>查看身份 <select id="persona"><option value="analyst">检验员 A</option><option value="reviewer">复核员 B</option><option value="qa">质量人员 C</option></select></label><button class="preview-btn" data-action="preview-settings">评审工具</button></div></div>
+<header class="global-header">
+  <button class="brand" data-page="dashboard" aria-label="海滨实验室工作台首页"><img src="assets/海滨公司.png" alt="海滨公司标识"><span><strong>海滨实验室</strong><small>HBOS / LIMS</small></span></button>
+  <form class="global-search" id="global-search"><span data-icon="search"></span><input name="q" aria-label="搜索样品、批次或检验任务" placeholder="搜索样品、批次或检验任务"><kbd>回车</kbd></form>
+  <div class="header-right"><img class="group-logo" src="assets/健康元集团.png" alt="健康元集团标识"><span class="header-divider"></span><button class="icon-btn" data-action="reminders" aria-label="待办提醒"><span data-icon="bell"></span><b class="notif-dot"></b></button><span class="avatar">检</span><span id="identity-label">检验员 A</span></div>
+</header>
+<div class="app-frame">
+  <aside class="sidebar" aria-label="实验室导航"><div class="app-name"><span class="app-emblem" data-icon="flask"></span><span>实验室管理<small>让每一份结果有据可循</small></span></div><nav id="navigation"></nav><button class="portal-return" data-action="portal"><span data-icon="arrow-left"></span>返回 HBOS 工作台</button><div class="sidebar-foot"><span class="status-dot"></span>设计预览 <span>第二版</span></div></aside>
+  <main id="main" tabindex="-1"></main>
+</div>
+<nav class="mobile-nav" aria-label="移动端快捷导航"><button data-page="dashboard"><span data-icon="home"></span>工作台</button><button data-page="tasks"><span data-icon="flask"></span>我的检验</button><button data-page="samples"><span data-icon="sample"></span>样品</button><button data-page="modules"><span data-icon="grid"></span>全部功能</button></nav>
+<dialog id="dialog"><div class="dialog-head"><h2 id="dialog-title"></h2><button class="icon-btn" data-action="close-dialog" aria-label="关闭弹窗"><span data-icon="x"></span></button></div><div id="dialog-body"></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+</body></html>

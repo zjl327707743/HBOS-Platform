@@ -1,5 +1,31 @@
 # M1-RP3：统一账号、飞书绑定与正式发布
 
+## 当前 Site 飞书登录已启用 — 2026-10-08
+
+状态：**FEISHU LOGIN ENABLED / EXACT REDIRECT ACCEPTED / OWNER OAUTH PENDING / P4-F6-5 REVIEWING**。Owner 已添加保存精确回调；既有 `m2-r11`、5178 → 8080 / `frontend` Site 已恢复回调登记标记并平滑加载 Web。控制台实际显示该回调与“当前修改均已发布”，飞书授权页已正常出现，原 20029 错误消失。
+
+最终 HTTP 复验 configured=true、missing=[]；OAuth start 302 到飞书，应用 ID、精确 callback、基础身份 scope、PKCE S256 与 HttpOnly / SameSite 浏览器绑定正确。复验使用未签发给 HBOS 的测试 state，并停在本人授权确认前，没有创建用户或绑定；当前身份绑定记录仍为 0。正常登录请从 [5178 登录页](http://127.0.0.1:5178/hbos/login)重新发起；原 Administrator 不会按姓名或邮箱自动关联，须完成本人验证和绑定。
+
+私有 Secret / 企业标识与备份保留 0600，原规范来源、CSRF、账号及权限不变。本人完整 OAuth、成员核验与后续账号验收待执行；此前 68 项后端测试为配置准备证据，本次无源码变化，不重复无关测试。权限原型、P1 与 S01—S06 门禁保持原状。详见[整改记录 §15](../experience/LIMS_P4-F6-5_前端审核整改记录.md#15-2026-10-08-当前-site-飞书登录启用准备)。以下为前序记录。
+
+## 本地个人资料与管理后台入口修复 — 2026-10-08
+
+状态：**m2-r11 LOCAL DESK NAVIGATION FIX VERIFIED / P4-F6-5 REVIEWING**。Owner 报告资料与后台入口 404，定位为后台路径被发送到 Portal 开发地址；修复为 Frappe `/desk` 及当前用户资料页的原生整页链接，开发页面地址默认随实际代理。105 项前端测试及 lint、类型、契约、真实模式构建通过；实际 HTTP 和匿名浏览器确认由 Frappe 接管，Owner 登录后点击待复验。见[整改记录 §14](../experience/LIMS_P4-F6-5_前端审核整改记录.md#14-2026-10-08-个人资料与管理后台入口修复)。
+
+本次不修改账号、凭据、角色、Site 或历史 RP3 发布结论，不提交、推送或远端部署；权限管理与 P1 门禁不放行。以下为前序记录。
+
+## 本地开发入口密码登录来源修复 — 2026-10-08
+
+状态：**m2-r11 LOCAL LOGIN ORIGIN FIX VERIFIED / P4-F6-5 REVIEWING**。Owner 报告退出后不能登录，定位为 `127.0.0.1:5178` 未获准，而非已证实的密码错误或旧令牌缓存。仅在既有测试 Site 的显式开发来源支持回环 IP，保留 Origin/Host 与 Session CSRF 校验；本机 frontend 配置私有备份后追加该来源，Web 平滑加载。前端区分来源拒绝和令牌失配，浏览器虚构账号进入正常密码校验；前端 100 项、后端账号相关 20 项及工程检查通过。完整 HTTP 来源矩阵受自动审批连接中断限制，真实账号成功登录待 Owner 复验，未使用截图密码或修改账号。详见[整改记录 §13](../experience/LIMS_P4-F6-5_前端审核整改记录.md#13-2026-10-08-退出后密码登录来源修复)。
+
+不改变 RP3 历史发布结论，不提交、推送或远端部署；权限管理原型及 P1 门禁不放行。
+
+## 本地合并分支账号边界修复 — 2026-10-02
+
+状态：**m2-r11 LOCAL FIX VERIFIED / P4-F6-5 REVIEWING**。Owner 本轮授权在当前合并分支修复问题，合并基线 `f13be09`。统一 Portal / LIMS 写请求 CSRF 缓存，登录使用新取得的安全令牌；会话切换时未完成的旧令牌请求只拒绝旧操作，不误触发新会话退出。保留工作区已有 `/hbos/login` 统一入口及安全回跳调整，旧 `/login` 转向统一入口。Portal 94 项回归及前端工程门禁通过，网关升级依赖后的 10 项回归通过，两套已复查依赖为 0 项已知漏洞。
+
+本轮未操作真实凭据、绑定或 MFA，未提交、推送或部署，未重复宣称真实 OAuth / final-submit PASS。PR #21 下列 **FINAL_REVIEW_PASS / MERGED_TO_PORTAL_PRODUCT** 是此前发布基线的收口事实，保留其历史状态；本轮新改动仍待真实运行态与 Owner 验收。细节见 `../experience/LIMS_P4-F6-5_前端审核整改记录.md` §11。
+
 ## 合并后最终状态 — 2026-10-01
 
 状态：**FINAL_REVIEW_PASS / MERGED_TO_PORTAL_PRODUCT**。

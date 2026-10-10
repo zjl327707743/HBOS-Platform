@@ -31,3 +31,20 @@ it('A02: primary password failures still use the uniform credential message', ()
   } } }, 'login')
   expect(error.message).toBe('账号或密码不正确。')
 })
+
+it('a rejected login origin explains the configured entry instead of asking for a page refresh', () => {
+  const error = normalizeFrappeError({ isAxiosError: true, response: { status: 400, data: {
+    exc_type: 'CSRFTokenError',
+    _server_messages: JSON.stringify([JSON.stringify({ message: '请求来源无效。' })]),
+  } } }, 'login')
+  expect(error.code).toBe('INVALID_ORIGIN')
+  expect(error.message).toBe('当前访问来源不是受信任的登录入口，请从正式入口重新登录。')
+})
+
+it('a real token mismatch still explains session renewal', () => {
+  const error = normalizeFrappeError({ isAxiosError: true, response: { status: 400, data: {
+    exc_type: 'CSRFTokenError', message: '安全会话已更新，请刷新后重试。',
+  } } }, 'login')
+  expect(error.code).toBe('CSRF_MISMATCH')
+  expect(error.message).toBe('安全会话已更新，请刷新页面后重试。')
+})

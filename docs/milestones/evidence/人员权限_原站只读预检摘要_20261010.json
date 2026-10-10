@@ -1,0 +1,329 @@
+{
+  "date": "2026-10-10",
+  "branch": "m2-r11@27d3558",
+  "status": "S02_ORIGINAL_READONLY_PREFLIGHT_COMPLETED / PARTIAL / REVIEWING / 5178_REAL_READONLY",
+  "diagnostic_completion": "PASS",
+  "management_activation": "NOT_READY",
+  "native_preflight": {
+    "site": "frontend",
+    "expected_database_sha256": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+    "read_only": true,
+    "production_ready": false,
+    "authorization_effect": "none",
+    "position_authorization_connected": false,
+    "database_sha256": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "python": "3.14.2",
+    "native_tables": {
+      "User": {
+        "present": true,
+        "engine": "InnoDB"
+      },
+      "Employee": {
+        "present": true,
+        "engine": "InnoDB"
+      },
+      "Company": {
+        "present": true,
+        "engine": "InnoDB"
+      },
+      "Department": {
+        "present": true,
+        "engine": "InnoDB"
+      },
+      "Designation": {
+        "present": true,
+        "engine": "InnoDB"
+      }
+    },
+    "managed_tables_present": {
+      "HBOS Position": false,
+      "HBOS Personnel Assignment": false,
+      "HBOS Position Revision": false,
+      "HBOS Personnel Assignment Revision": false,
+      "HBOS Organization Command Receipt": false,
+      "HBOS Organization Write Lock": false,
+      "HBOS Organization Management Policy": false,
+      "HBOS Organization Management Policy Revision": false
+    },
+    "missing_managed_tables": [
+      "HBOS Position",
+      "HBOS Personnel Assignment",
+      "HBOS Position Revision",
+      "HBOS Personnel Assignment Revision",
+      "HBOS Organization Command Receipt",
+      "HBOS Organization Write Lock",
+      "HBOS Organization Management Policy",
+      "HBOS Organization Management Policy Revision"
+    ],
+    "native_required_columns": {
+      "User": {
+        "required_columns": 4,
+        "missing_columns": [],
+        "invalid_type_columns": [],
+        "validated": true
+      },
+      "Employee": {
+        "required_columns": 10,
+        "missing_columns": [],
+        "invalid_type_columns": [],
+        "validated": true
+      },
+      "Company": {
+        "required_columns": 2,
+        "missing_columns": [],
+        "invalid_type_columns": [],
+        "validated": true
+      },
+      "Department": {
+        "required_columns": 6,
+        "missing_columns": [],
+        "invalid_type_columns": [],
+        "validated": true
+      },
+      "Designation": {
+        "required_columns": 2,
+        "missing_columns": [],
+        "invalid_type_columns": [],
+        "validated": true
+      }
+    },
+    "native_structure_validated": true,
+    "native_counts": {
+      "User": 18,
+      "Employee": 0,
+      "Company": 1,
+      "Department": 14,
+      "Designation": 31
+    },
+    "management_structure": {
+      "structure_validated": false,
+      "production_ready": false,
+      "error_code": "STORAGE_PREFLIGHT_SCHEMA_INVALID",
+      "path": "preflight.tables"
+    },
+    "management_structure_selects": 2,
+    "diagnostic_selects": 10,
+    "all_diagnostic_sql_select": true,
+    "diagnostic_sql_sha256": [
+      "6fa7390d4d065a9b6d075161ca1b7150cc39799c5bd632165140c011d1695c6f",
+      "f5a64be16a282a37bf084fafd158ea507f9927a9e1be7f934e3aa6cf4eb7424a",
+      "2f04ac1d83edccb7dc8ccc61efa059b51012a161dc746f7e02c8607b1acb0f9f",
+      "379b7229b4316ad850561c397cbbd68a6dbdea031dd94faf96d31edc76032922",
+      "a18a9fe2276e48dba1b5f62e7cbedc8f1666d78705f715c938e9c2b757b5e17c",
+      "648397543eccb7e026ab959d7917c4595ea61d51b09059b038a07b9b627830a2",
+      "ff368f62027f51cac64032444d96585ad8efdd7be0307d21c1e024f7c369a441",
+      "c9252c11b7bdb8f04b6f39683bbe9522451d0051b9823fe2e484e0331c962b52",
+      "24360c1e960ac1cc39a8d79a1ed7d6bdf7fc4e00aed1a3db808ca4037dfc939d",
+      "f5a64be16a282a37bf084fafd158ea507f9927a9e1be7f934e3aa6cf4eb7424a"
+    ],
+    "transaction_writes_before": 0,
+    "transaction_writes_after": 0,
+    "status": "READONLY_PREFLIGHT_COMPLETED_NOT_READY",
+    "caller_rollback": "PASS",
+    "caller_destroy": "PASS"
+  },
+  "backup_preparation_metadata": {
+    "site": "frontend",
+    "euid": 1000,
+    "python": "3.14.2",
+    "python_resolved": "/usr/local/bin/python3.14",
+    "bench_in_path": "/usr/local/bin/bench",
+    "filesystem_metadata": {
+      "release_backup_cli": {
+        "present": false
+      },
+      "mounted_backup_cli": {
+        "present": false
+      },
+      "live_site_inventory": {
+        "present": true,
+        "mode": "0o644",
+        "uid": 1000,
+        "gid": 1000,
+        "regular": true,
+        "directory": false,
+        "symlink": false,
+        "bytes": 2605,
+        "sha256": "28507d91a838158acad9839baa0bf2fa015f21d982400917523572a04f7bf73d"
+      },
+      "site_config": {
+        "present": true,
+        "mode": "0o600",
+        "uid": 1000,
+        "gid": 1000,
+        "regular": true,
+        "directory": false,
+        "symlink": false,
+        "bytes": 1259
+      },
+      "private_parent": {
+        "present": true,
+        "mode": "0o755",
+        "uid": 1000,
+        "gid": 1000,
+        "regular": false,
+        "directory": true,
+        "symlink": false,
+        "bytes": 4096
+      },
+      "native_backups": {
+        "present": true,
+        "mode": "0o755",
+        "uid": 1000,
+        "gid": 1000,
+        "regular": false,
+        "directory": true,
+        "symlink": false,
+        "bytes": 4096
+      },
+      "proposed_audit_parent": {
+        "present": false
+      },
+      "hbos_feishu_app_secret": {
+        "present": true,
+        "mode": "0o600",
+        "uid": 1000,
+        "gid": 1000,
+        "regular": true,
+        "directory": false,
+        "symlink": false,
+        "bytes": 33
+      },
+      "hbos_feishu_tenant_key": {
+        "present": true,
+        "mode": "0o600",
+        "uid": 1000,
+        "gid": 1000,
+        "regular": true,
+        "directory": false,
+        "symlink": false,
+        "bytes": 17
+      },
+      "hbos_knowledge_gateway_token": {
+        "present": false
+      }
+    },
+    "package_versions": {
+      "frappe": "16.26.3",
+      "erpnext": "16.26.2",
+      "hrms": "UNAVAILABLE",
+      "hbos_portal": "UNAVAILABLE"
+    },
+    "read_only": true,
+    "site_initialized": false,
+    "backup_executed": false,
+    "private_file_content_read": false,
+    "private_directory_created": false,
+    "site_filesystem_capacity": {
+      "total_bytes": 485473984512,
+      "free_bytes": 450212184064,
+      "estimate_required": "NOT_RUN"
+    },
+    "existing_backup_metadata": {
+      "regular_files": 4,
+      "total_bytes": 1791036,
+      "database_archive_count": 1,
+      "archive_contents_validated": false,
+      "backup_restore_verified": false
+    }
+  },
+  "container": "hbos-m0-r3a-backend-1",
+  "images": {
+    "backend": {
+      "tag": "frappe/erpnext:v16.26.2",
+      "image_id": "sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583",
+      "repo_digest": "frappe/erpnext@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583"
+    },
+    "database": {
+      "tag": "mariadb:11.8",
+      "image_id": "sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4",
+      "repo_digest": "mariadb@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4"
+    }
+  },
+  "source_sha256": {
+    "apps/hbos_portal/hbos_portal/organization/management_runtime.py": "e6cb43f40a3b67ff61115b53c5decf361e24d05bf4fe011286de1d4be5c73d44",
+    "apps/hbos_portal/hbos_portal/organization/management_wsgi.py": "fd6da887904877313a550fabbe7b3e08579035d36d2e3eb3a63ae19f0f9cd4c8",
+    "apps/hbos_portal/hbos_portal/organization/management_preflight.py": "a99454583f9ac1773ed12c07166c528bb6230a98a2e3500623ead588e3915d0a",
+    "apps/hbos_portal/hbos_portal/organization/management_query_http.py": "84b89306e1bf1fb6c1955cf231ae2bc2baf6ed9a190484a677a38ffff241c218",
+    "scripts/release/prepare_existing_backup.py": "5803439792af5e98f706664d1d812ea635686245a7acd2d9007a20ea7d4f2bf3",
+    "scripts/release/verify_backup_restore.py": "6ad6151c6dc626a7c3eb5623f4c24a21f9dc267c40cc89b2bbf9f2aca51718b0",
+    "apps/hbos_portal/hbos_portal/auth/site_inventory.py": "28507d91a838158acad9839baa0bf2fa015f21d982400917523572a04f7bf73d"
+  },
+  "diagnostic_script": {
+    "sha256": "276ee8657cf49a47a714e45314b5a1293bb95ed61280f27613b2ed678d945415",
+    "bytes": 5865,
+    "static_review": "PASS",
+    "python_no_bytecode": true,
+    "persisted_to_original_site": false
+  },
+  "metadata_script": {
+    "sha256": "d91f17a0440b03e2d07dc04ec2038ecb95e112a2c4e177437bd74bfdb53273a6",
+    "python_no_bytecode": true,
+    "site_initialized": false
+  },
+  "approval_transport": {
+    "interruptions_without_execution": 0,
+    "bypassed": false
+  },
+  "validation": {
+    "actual_sql_diagnostic": "PASS: 10 SELECT, 0 recorded transaction writes, caller rollback/destroy",
+    "static_scope_review": "PASS",
+    "prior_tests": "2026-10-10 prior phase: 14 native + 428 offline PASS; NOT_RERUN this phase",
+    "production_or_frontend_source_changed": false
+  },
+  "boundary": {
+    "personnel_identifiers_or_rows_read": false,
+    "credential_role_policy_rows_read": false,
+    "explicit_metadata_cache_call": false,
+    "schema_ddl_migrate": false,
+    "root_lock_initialized": false,
+    "original_policy_or_pins_write": false,
+    "original_private_config_or_permissions_change": false,
+    "original_cache_refresh_or_restart": false,
+    "original_browser_proxy_wsgi_activation": "NOT_RUN",
+    "backup_or_restore_executed": false,
+    "service_maintenance_or_workers_changed": false,
+    "position_authorization_connected": false,
+    "authorization_effect": "none"
+  },
+  "limitations": [
+    "COUNT and metadata snapshot are not full-row preservation fingerprints, policy/human approval or business qualification.",
+    "Management structure stops after two SELECT due to 8 missing tables; later index/UTC/permission/root checks NOT_RUN on original.",
+    "Lifecycle native init/connect + caller START READ ONLY/rollback/destroy are separate from diagnostic SELECT-only trace.",
+    "Package metadata UNAVAILABLE does not mean App missing; mounted modules are importable.",
+    "Filesystem capacity only measured; database/file backup size and restore peak need further estimation.",
+    "Existing 4 backup files were only metadata-counted; archive contents and restore NOT_RUN.",
+    "Original 5178 browser/proxy/new factory behavior NOT_RUN; original GET NOT_READY and writes/Grant remain closed.",
+    "Full Site file/key/runtime/Owner restoration and Q1/Q2/Date/fixedP1/all unfinished management gates remain."
+  ],
+  "next_step": "核对可停写一致性窗口，按精确原站/私有0700叶目录/原样stdin脚本准备同次完整私有备份及隔离SQL恢复；不启动安装脚本或创建管理schema。",
+  "raw_artifact_hashes": {
+    "hbos_original_preflight_20261010_result.json": {
+      "sha256": "fa264fe538fb546faa9a6b3a492aa4cf17f5a2b4e93c0e78e310eaabe03b09f2",
+      "bytes": 3171,
+      "private_local_only": true
+    },
+    "hbos_original_preflight_20261010_private.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "private_local_only": true
+    },
+    "hbos_original_backup_metadata_20261010_result.json": {
+      "sha256": "9773f2b966807925c8383b9ff3129e2befcc7d952ff0eb84ae65bac9cc602f96",
+      "bytes": 1897,
+      "private_local_only": true
+    }
+  },
+  "next_backup_delivery": {
+    "mode": "REVIEWED_REPOSITORY_SOURCE_STDIN",
+    "executed": false,
+    "audit_leaf": "/home/frappe/frappe-bench/sites/frontend/private/hbos-management-preparation",
+    "audit_leaf_created": false,
+    "consistency_window": "UNCONFIRMED",
+    "host_private_staging": "REQUIRED_NOT_CREATED",
+    "source_backup_retention": "REQUIRED",
+    "original_backup_and_restore": "NOT_RUN"
+  }
+}

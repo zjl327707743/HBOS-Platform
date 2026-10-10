@@ -1,0 +1,245 @@
+{
+  "date": "2026-10-09",
+  "branch": "m2-r11",
+  "head": "27d3558",
+  "status": "S01_B_NATIVE_SOURCE_VALIDATED / PARTIAL / REVIEWING",
+  "target": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "innodb_snapshot_isolation": 1
+  },
+  "offline": {
+    "tests_run": 134,
+    "status": "PASS",
+    "new_loader_tests": 13,
+    "previous_regressions": 121,
+    "reexecuted_this_followup": false,
+    "carry_forward_reason": "All five source/test hashes in this evidence remain unchanged; follow-up only reran the three blocked native concurrency regressions."
+  },
+  "native_sources": {
+    "tests_run": 10,
+    "status": "PASS",
+    "cases": [
+      {
+        "case": "关联并发插入",
+        "result": "PASS",
+        "evidence": "锁定完整 Employee 范围时，另一连接插入重复账号关联超时；释放后可插入，完整加载检测歧义，拒绝任职"
+      },
+      {
+        "case": "员工状态旧快照",
+        "result": "PASS",
+        "evidence": "旧视图仍为 Active；锁定读终止旧事务，新请求读取 Left，资格仍 unknown"
+      },
+      {
+        "case": "账号停用",
+        "result": "PASS",
+        "evidence": "即使合成管理回调允许，停用 actor 仍拒绝"
+      },
+      {
+        "case": "员工账号换绑",
+        "result": "PASS",
+        "evidence": "现有任职不转移给新 User，更新拒绝 SOURCE_ASSOCIATION_CHANGED"
+      },
+      {
+        "case": "管理边界",
+        "result": "PASS",
+        "evidence": "布尔值及公司 / 部门 / 人员错配的管理决定均拒绝"
+      },
+      {
+        "case": "权限撤销",
+        "result": "PASS",
+        "evidence": "第二次管理检查撤销时，拒绝新写入及幂等重放"
+      },
+      {
+        "case": "旧收据快照",
+        "result": "PASS",
+        "evidence": "旧视图看不到已提交收据，旧事务终止；新请求以同键重放原结果"
+      },
+      {
+        "case": "岗位停用旧快照",
+        "result": "PASS",
+        "evidence": "旧视图岗位 active；旧事务终止，新请求拒绝在停用岗位建立 active 任职"
+      },
+      {
+        "case": "主岗重叠旧快照",
+        "result": "PASS",
+        "evidence": "旧视图任职数为 0；旧事务终止，新请求识别另一连接提交的重叠主岗并拒绝"
+      },
+      {
+        "case": "部门停用旧快照",
+        "result": "PASS",
+        "evidence": "旧事务终止，新请求读取停用部门并拒绝"
+      }
+    ]
+  },
+  "native_storage_regression": {
+    "tests_run": 6,
+    "status": "PASS"
+  },
+  "native_concurrency_regression": {
+    "tests_run": 3,
+    "planned": 3,
+    "status": "PASS",
+    "owner_authorization": "2026-10-09 Owner replied 继续 to retry the remaining three concurrency regressions.",
+    "cases": {
+      "same_key_create": "PASS",
+      "overlapping_primary": "PASS",
+      "same_revision_update": "PASS"
+    },
+    "prior_blocked_attempt": {
+      "tests_run": 0,
+      "planned": 3,
+      "status": "NOT_RUN",
+      "reason": "Automatic approval review failed twice: stream disconnected before completion. Both commands were not executed. Historical PASS is not a current regression result."
+    },
+    "native_report": {
+      "site": "portal-preview.localhost",
+      "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+      "server": "9695c5a0f6c1",
+      "database_version": "11.8.8-MariaDB-ubu2404",
+      "isolation": "REPEATABLE-READ",
+      "preflight": {
+        "native_counts": {
+          "User": 2,
+          "Employee": 0,
+          "Company": 0,
+          "Department": 0,
+          "Designation": 0
+        },
+        "tables_present": {
+          "HBOS Organization Write Lock": true,
+          "HBOS Position": true,
+          "HBOS Personnel Assignment": true,
+          "HBOS Position Revision": true,
+          "HBOS Personnel Assignment Revision": true,
+          "HBOS Organization Command Receipt": true
+        }
+      },
+      "schema": {
+        "HBOS Organization Write Lock": {
+          "engine": "InnoDB",
+          "unique_columns": [
+            "name",
+            "record_key"
+          ],
+          "utc_precision": {},
+          "permissions": []
+        },
+        "HBOS Position": {
+          "engine": "InnoDB",
+          "unique_columns": [
+            "name",
+            "record_key",
+            "source_key"
+          ],
+          "utc_precision": {},
+          "permissions": []
+        },
+        "HBOS Personnel Assignment": {
+          "engine": "InnoDB",
+          "unique_columns": [
+            "name",
+            "record_key",
+            "source_key"
+          ],
+          "utc_precision": {
+            "valid_from_utc": 6,
+            "valid_until_utc": 6
+          },
+          "permissions": []
+        },
+        "HBOS Position Revision": {
+          "engine": "InnoDB",
+          "unique_columns": [
+            "name",
+            "record_key"
+          ],
+          "utc_precision": {
+            "recorded_at_utc": 6
+          },
+          "permissions": []
+        },
+        "HBOS Personnel Assignment Revision": {
+          "engine": "InnoDB",
+          "unique_columns": [
+            "name",
+            "record_key"
+          ],
+          "utc_precision": {
+            "recorded_at_utc": 6
+          },
+          "permissions": []
+        },
+        "HBOS Organization Command Receipt": {
+          "engine": "InnoDB",
+          "unique_columns": [
+            "name",
+            "record_key"
+          ],
+          "utc_precision": {
+            "recorded_at_utc": 6
+          },
+          "permissions": []
+        }
+      },
+      "concurrency": {
+        "cases": {
+          "same_key_create": "PASS",
+          "overlapping_primary": "PASS",
+          "same_revision_update": "PASS"
+        },
+        "independent_database_connections": true,
+        "native_preservation": "PASS",
+        "relation_tables_empty": true,
+        "native_writer_and_business_closure": "NOT_RUN"
+      }
+    },
+    "runner_sha256": "fc098204887a22ffacb25ecbb698944fd25751fe611df2e3dca63654c8fe8f79",
+    "scope": "Existing synthetic source loader in storage runner; current repository locking-read and rollback changes regressed. Ten prior native-loader cases are separate evidence."
+  },
+  "cleanup": {
+    "native_fingerprint_preservation": "PASS, asserted per test for 8 tables; raw rows and credential fingerprints not published",
+    "native_counts": {
+      "User": 2,
+      "Employee": 0,
+      "Company": 0,
+      "Department": 0,
+      "Designation": 0
+    },
+    "all_six_relation_counts": 0
+  },
+  "transaction_contract": {
+    "native_stale_read_error": 1020,
+    "former_masking_savepoint_error": 1305,
+    "stable_error": "RELATION_TRANSACTION_RETRY_REQUIRED",
+    "full_request_restart": "required; no automatic replay or commit",
+    "nested_scope_invalidation": "unit-tested"
+  },
+  "production": {
+    "site": "frontend",
+    "port": 5178,
+    "changes": "no schema/config/account/role/frontend modifications; existing real read-only path retained",
+    "online_reprobe": "NOT_RUN in this segment"
+  },
+  "remaining": [
+    "real management policy and named managers",
+    "ordinary-role REST/import matrix",
+    "native Employee.save and other source lifecycle writers",
+    "Employee Date qualification policy",
+    "business Grant and revocation transactions",
+    "fixed P1 / Q1 / Q2 / Owner gates",
+    "full backup restore"
+  ],
+  "source_sha256": {
+    "apps/hbos_portal/hbos_portal/organization/frappe_repository.py": "fa82f57205eaacd5c3cbbd7aa06b72d7db0e81d125a0908980d23667c017d86a",
+    "apps/hbos_portal/hbos_portal/organization/frappe_source_loader.py": "34817aceb119d4208a9c20970a854d2f4782b71d7ccd981f6e7d16941ad7b8f1",
+    "apps/hbos_portal/tests/test_frappe_source_loader.py": "7bf8ac36cb90a88f6d75626d9c9cbf9aebfe07f3403275ef053bbb665328ee51",
+    "apps/hbos_portal/tests/test_organization_storage_guards.py": "94e383bc285733ada2c57e9eef3b16259c32fe7158f42d232f37d8bf24b93c54",
+    "apps/hbos_portal/tests/integration_organization_sources.py": "591c28cdf6b430fede09508c9148d85e4ced63f9773568b58e1d2617380f607b"
+  },
+  "native_database_cases_total": 19,
+  "followup_date": "2026-10-09",
+  "followup_changes": "Evidence and progress documentation only; no source/schema/configuration changes."
+}
