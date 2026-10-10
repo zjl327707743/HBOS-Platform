@@ -1,9 +1,10 @@
 # PR #34 与 `feature/hbos-portal-product` 口径裁定单
 
 > 生成：2026-10-10 · 交付流程产出，**供 Owner 裁定使用**
-> 状态：**未提交**（本文件为新增未跟踪文件；PR #34 的 head SHA 不受影响）
-> 关联：PR #34 https://github.com/zjl327707743/HBOS-Platform/pull/34
+> 状态：**已提交**，由 **PR #35** 承载（`docs/pr34-base-ruling` → `feature/hbos-portal-product`，差异 1 文件）
+> 关联：PR #34 https://github.com/zjl327707743/HBOS-Platform/pull/34（**已关闭**）／ PR #35 https://github.com/zjl327707743/HBOS-Platform/pull/35
 > Head `feature/hbos-attendance-console` @ `8b7d92f` ／ Base `feature/hbos-portal-product` @ `ddbe9bf3`
+> 修订：2026-10-10 追加 §5.8 与 §7 第 8 项（移植分析新发现的两项 Base 测试覆盖不到的差异）
 
 ---
 
@@ -195,6 +196,39 @@ Base 有 OCR 服务与三 App 挂载及 clean-site 安装序列；Head 有 `port
 
 属 M4-STOCK-R1 库存隔离线（台账记为 IN_PROGRESS、分支 `m4-stock-r1`），Base **不含**该目录。建议剥离，另开 PR，避免未完成的另一条线混入考勤交付。
 
+### 5.8 移植分析追加：两项 Base 治理测试**覆盖不到**、但移植时必须带上的差异（2026-10-10 追加）
+
+做移植增量盘点时，逐模块比对（`base → head`）额外发现两处差异。两者的共同点是：**Base 的 15 项治理测试都检查不到**——所以只看 §3 那张表会漏掉它们，必须单列。
+
+#### (a) `attendance_notify.py`：Head 上没有飞书出站总开关
+
+| | Base | Head |
+| --- | --- | --- |
+| `feishu_write_enabled()` 定义 | **有**（读 `HBOS_FEISHU_SYNC_ENABLED`） | **无** |
+| `HBOS_FEISHU_SYNC_ENABLED` 引用 | **有** | **无** |
+| `base → head` diff | —— | `+1 / -10`（净删 9 行，删掉的就是开关与其守卫） |
+
+即 Head 的「每日 09:00 到岗卡片」在**全新环境里没有 kill switch**，会被直接发往飞书群。
+
+**为什么 §3 那张表看不出来**：Base 的 `test_external_writes_and_ai_are_default_off` 只检查 `.env.example` 的键与 `ai_review.py` 的两行，**不检查 `attendance_notify.py`**。所以这条回归在 15 项测试里零覆盖。
+
+**处置**：移植时保留 Base 的 `feishu_write_enabled()` 与其在 `send_daily_report` 中的守卫，**不要**照 Head 删掉。
+
+#### (b) `rotation_schedule.py`：Head 仍留有 9 行真实员工姓名注释
+
+| | Base | Head |
+| --- | --- | --- |
+| 行尾中文姓名注释（形如 `# 姓名`） | **0 行** | **9 行** |
+| 8 位工号字面量（作为 `members` 字典的键） | 0 | 6 个去重（9 处） |
+
+**为什么 §3 那张表看不出全貌**：Base 的 `test_runtime_sources_do_not_embed_employee_policy_memberships` 用两个正则判定，其中姓名用的是 `HB-[一-鿿]{2,}` —— **要求 `HB-` 前缀**。本文件的姓名注释是裸中文名、无该前缀，**不匹配**，故姓名这一半不会被该测试抓到（工号那一半会命中，所以该测试确实 FAIL，但失配原因只是工号）。
+
+**与既有去标识化工作的关系**：`8b7d92f`（「去标识化——把本会话写入的真实员工姓名换为工号」）已处理 6 个文件，但其提交信息明确写了「**只处理本会话写入的文件**」——`rotation_schedule.py` **不在**那批里，因此一直没人动过它。
+
+**处置**：移植时以 Base 的 `rotation_schedule.py` 为准（Base 走 `get_rotation_assignments()` 从业务数据取名单，文件内既无工号也无姓名），此问题随之消失。**但**：若最终决定保留 Head 版该文件，须先清掉这 9 行姓名注释。
+
+> 这两条同时说明一件事：**§3 的 15 项测试是一道好闸门，但不是全量**。移植后仍应单独扫一遍 `HB-` 前缀之外的裸姓名与注释。
+
 ---
 
 ## 六、解决冲突后 CI 会跑什么（真正的验收闸门）
@@ -213,7 +247,7 @@ Base 有 OCR 服务与三 App 挂载及 clean-site 安装序列；Head 有 `port
 
 ---
 
-## 七、需要 Owner 裁定的事项（7 项）
+## 七、需要 Owner 裁定的事项（8 项）
 
 | # | 事项 | 选项 | 建议 |
 | --- | --- | --- | --- |
@@ -224,6 +258,9 @@ Base 有 OCR 服务与三 App 挂载及 clean-site 安装序列；Head 有 `port
 | **5** | **门户前端基线**（§5.5） | (A) Base 为基线 + 移植 Head 22 文件／(B) Head 为基线／(C) 暂不动前端 | **(A)**；需确认 Base 的 LIMS / twin 页面要保留 |
 | **6** | **`apps/hb_stock_app` 归属**（§5.7） | (A) 移出本 PR／(B) 随本 PR 进入 Portal | **(A)** |
 | **7** | **凭据与身份数据处置** | (A) 移植时改为 env，**不重写历史**，另定是否轮换 4 个 token／(B) 仅改当前版本／(C) 保持现状 | **(A)**。**另需 Owner 专断**：仓库为 **public**，`docs/attendance/HBOS班次名单_工号姓名对照表.md` 与 `..._工号姓名部门对照表.md` 含真实姓名与工号，自 push 起即可被匿名读取；是否转 private / 删文档，请 Owner 决定 |
+| **8** | **考勤卡片出站开关**（§5.8a） | (A) 移植时保留 Base 的 `feishu_write_enabled()` + `HBOS_FEISHU_SYNC_ENABLED`（默认关闭）／(B) 采用 Head 的无开关形态 | **(A)**——这是真实飞书**出站**的总闸，缺它则新环境一上线就会往群里发卡片；且该回归**不在** Base 15 项测试覆盖内，只能靠本单发现 |
+
+> **§7 第 7 项的补充（2026-10-10）**：身份数据残留不止那两份名单文档。`rotation_schedule.py` 另有 9 行裸姓名注释（详见 §5.8b），且**不在** Base 治理测试的姓名正则覆盖内。
 
 ---
 
@@ -248,12 +285,35 @@ git show HEAD:apps/hb_attendance_app/hb_attendance_app/hbos_attendance/report/�
 # 平台 App 双份体量：Base 83 · Head 37 · Head 独有 0
 git ls-tree -r --name-only origin/feature/hbos-portal-product -- apps/hbos_portal | wc -l
 git ls-tree -r --name-only HEAD -- apps/hbos_portal | wc -l
+
+# §5.8a 出站总开关：Base 3 处命中 / Head 0 处
+P=apps/hb_attendance_app/hb_attendance_app/hbos_attendance
+git show origin/feature/hbos-portal-product:$P/attendance_notify.py \
+  | grep -cE 'feishu_write_enabled|HBOS_FEISHU_SYNC_ENABLED'      # Base: 3
+git show HEAD:$P/attendance_notify.py \
+  | grep -cE 'feishu_write_enabled|HBOS_FEISHU_SYNC_ENABLED'      # Head: 0
+git diff --numstat origin/feature/hbos-portal-product:$P/attendance_notify.py \
+  HEAD:$P/attendance_notify.py                                     # +1  -10
+
+# §5.8b 姓名注释：Head 9 行 / Base 0 行
+git show HEAD:$P/rotation_schedule.py | grep -cE '# *[一-鿿]{2,3}$'   # Head: 9
+git show origin/feature/hbos-portal-product:$P/rotation_schedule.py \
+  | grep -cE '# *[一-鿿]{2,3}$'                                        # Base: 0
+# 注意：Base 治理测试的姓名正则是 `HB-[一-鿿]{2,}`，**要求 HB- 前缀**，
+# 故上面这 9 行裸姓名不会被该测试抓到。
+git show origin/feature/hbos-portal-product:apps/hb_attendance_app/tests/test_merge_governance.py \
+  | grep -n 'HB-'                                                    # 见姓名正则
 ```
 
 ---
 
 ## 九、交付边界声明
 
-- 本裁定单**只做分析**：未修改任何被冲突的文件，未解决冲突，未 rebase，未 force push，未删除分支，未合并 PR。
+- 本裁定单**只做分析**：未修改任何被冲突的文件，未解决冲突，未 rebase，未 force push，未合并 PR。
 - **未动运行态**：未执行 `migrate`、未重建容器、未写数据库、未跑 Frappe 测试套件（本机容器承载约 700 名员工的在跑数据）。
-- 本文件为**新增未提交文件**。如需入库，请 Owner 指明落点，以及是否随 PR #34 提交（提交会改变 PR 的 head SHA 与文件数）。
+- **落点**：本文件于 2026-10-10 提交于分支 `docs/pr34-base-ruling`（基于 `feature/hbos-portal-product` 的 `ddbe9bf`），并由 **PR #35** 承载；相对 Base 差异为 **1 个文件**。
+- **修订记录**：
+  - 2026-10-10 初版 —— 冲突分类、15 项治理测试对照、三组耦合冲突、7 项裁定事项。
+  - 2026-10-10 追加 §5.8 与 §7 第 8 项 —— 移植分析发现的两项 Base 测试覆盖不到的差异（出站总开关、姓名注释残留）。
+  - 原 PR #34 已关闭（109 文件冲突无法 merge）；来源分支 `feature/hbos-attendance-console` 保留，作为移植增量的来源。
+  - 本节所引的 `HEAD` 均指 `feature/hbos-attendance-console` 的 `8b7d92f`。
