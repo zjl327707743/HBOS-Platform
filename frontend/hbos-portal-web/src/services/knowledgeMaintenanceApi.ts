@@ -5,7 +5,7 @@ export interface ImportItem { document_id:string; version_id:string; title:strin
 export interface ImportBatch { batch_id:string; label:string; department:string; status:string; last_error:string|null; items:ImportItem[]; total:number; page:number; page_size:number; counts:{parsed:number;failed:number;quality_passed:number} }
 export interface MaintenanceFeedback { id:string; category:string; note:string; status:string; reply?:string; title?:string }
 export interface VersionTarget { document_id:string; version_id:string; current_version:string; title:string; department:string }
-export interface MaintenanceDashboard { published_documents:VersionTarget[]; departments:{key:string;title:string}[]; batches:{name:string;label:string;department_key:string;status:string}[]; selected:ImportBatch|null; feedback:{items:MaintenanceFeedback[]}; import_availability:{budget_status:string} }
+export interface MaintenanceDashboard { published_documents:VersionTarget[]; departments:{key:string;title:string}[]; batches:{name:string;label:string;department_key:string;status:string}[]; selected:ImportBatch|null; feedback:{items:MaintenanceFeedback[]}; import_availability:{can_parse:boolean;configured:boolean;blocked:boolean} }
 export interface QualityPreview { title:string; fragments:{text:string;location:string}[]; chunk_count:number; source_sha256:string; version_id:string }
 const method=(name:string)=>`hb_knowledge_app.hb_knowledge.api.${name}`
 const messages:Record<string,string>={SCOPE_REJECTED:'当前账号没有知识维护权限。',AUTHENTICATION_REQUIRED:'登录已失效，请重新登录。',INVALID_REQUEST:'文件或操作无效，请核对格式、大小和当前状态。',IDENTITY_CONFLICT:'身份或当前版本冲突，请选择明确的换版关系。',IMPORT_BUSY:'该批次正在处理，请等待本次完成。',QUALITY_REQUIRED:'请先完成本版本的质量核对。',IMPORT_BUDGET_BLOCKED:'解析费用待核验或预算不可用，解析已暂停。'}

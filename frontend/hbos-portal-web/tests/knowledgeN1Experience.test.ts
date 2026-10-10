@@ -148,9 +148,9 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     const w = await view(); const first = w.get('#knowledge-tab-Catalog'); await first.trigger('keydown', { key: 'End' }); await flushPromises(); expect(document.activeElement?.id).toBe('knowledge-tab-Feedback'); expect(w.get('#knowledge-tab-Feedback').attributes('aria-selected')).toBe('true')
     await w.get('#knowledge-tab-Feedback').trigger('keydown', { key: 'Home' }); await flushPromises(); expect(document.activeElement?.id).toBe('knowledge-tab-Catalog')
   })
-  it('accounting block overrides an older successful observation and never sends a model request', async () => {
+  it('financial diagnostics cannot override actual unblocked retrieval capability', async () => {
     api.status.mockResolvedValue({ ...ready, retrieval_availability: { ...ready.retrieval_availability, status: 'AVAILABLE', blocked: false, budget_status: 'ACCOUNTING_PENDING' } }); const w = await view(); await w.get('#knowledge-query').setValue('合成问题'); await w.get('.knowledge-search').trigger('submit')
-    expect(w.text()).toContain('费用待对账'); expect(w.find('.state-dot.ready').exists()).toBe(false); expect(api.search).not.toHaveBeenCalled(); expect(api.ask).not.toHaveBeenCalled()
+    expect(api.search).toHaveBeenCalled(); expect(api.ask).not.toHaveBeenCalled()
   })
   it('a refreshed access denial clears results and personal catalog without waiting for a new identity', async () => {
     const w = await view(); await search(w); expect(w.text()).toContain(card.excerpt); api.status.mockRejectedValueOnce(new DomainApiError('FORBIDDEN', '当前请求不可访问。')); await clickText(w, '刷新状态'); expect(w.text()).not.toContain(card.excerpt); expect(w.find('.catalog-row').exists()).toBe(false); expect(w.find('.reference-library').exists()).toBe(false)

@@ -17,7 +17,7 @@ export interface KnowledgeStatus {
   can_maintain?: boolean
   policy_revision?: string | null
   gateway_configured: boolean
-  answer_availability?: { configured: boolean; available: boolean; budget_status: string }
+  answer_availability?: { configured: boolean; available: boolean; budget_status?: string }
   ask_enabled: boolean
   mode: 'retrieval'
   search_mode?: 'STANDARD' | 'PRECISE'

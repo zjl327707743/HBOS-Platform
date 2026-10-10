@@ -10,7 +10,7 @@ const qualityOpen=ref(false), preview=ref<QualityPreview|null>(null), qualityIte
 const feedbackReplies=ref<Record<string,string>>({})
 let epoch=0, readSequence=0
 const batch=computed(()=>data.value?.selected)
-const canParse=computed(()=>data.value?.import_availability.budget_status==='READY')
+const canParse=computed(()=>data.value?.import_availability.can_parse===true)
 const replacements=computed(()=>data.value?.published_documents?.filter(i=>i.department===department.value)||[])
 watch(department,()=>{replacement.value=null})
 const parseNames:Record<string,string>={'planned':'待解析','uploaded':'待解析','parse_intent':'请求待核验','parse_queued':'解析中','parsed/indexed':'解析完成','parse_failed':'解析失败','quarantined':'身份待核对','skipped_duplicate':'重复，保留原版本'}

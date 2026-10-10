@@ -214,7 +214,7 @@ let catalogTimer: ReturnType<typeof setTimeout> | null = null
 const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED', 'EMPTY_SCOPE']
 
 const currentScopeLabel = computed(() => spaces.value.find(s => s.space_id === selectedSpace.value)?.title || '全部已收录资料')
-const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked || status.value?.retrieval_availability?.status === 'OBSERVED_ERROR' || ['ACCOUNTING_PENDING', 'EXPIRED', 'EXHAUSTED', 'UNAVAILABLE'].includes(status.value?.retrieval_availability?.budget_status || '')))
+const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked))
 const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && !savedScopeNeedsSelection.value && (mode.value === 'search' || (status.value?.ask_enabled && status.value?.answer_availability?.available !== false))))
 const statusTone = computed(() => status.value?.retrieval_availability?.status === 'AVAILABLE' && !retrievalBlocked.value ? 'ready' : 'waiting')
 const blockedDescription = computed(() => {

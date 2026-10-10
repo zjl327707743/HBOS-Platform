@@ -126,10 +126,12 @@ def dashboard(batch_id=None,page=1,page_size=12):
         'department':normalized_department(b.space_id.removeprefix('DEPT_')).lower()}
         for b in snapshot.bindings if b.dataset_id in snapshot.allowed_datasets}
     if len(published)>1000:raise KnowledgeError('POLICY_UNAVAILABLE')
+    availability=__import__(__package__+'.api',fromlist=['_availability'])._availability(runtime)
+    availability['can_parse']=bool(availability['configured'] and not availability['blocked'])
     return {'departments':[{'key':k,'title':v} for k,v in DEPARTMENTS.items()],
             'batches':batches,'selected':selected,'feedback':feedback_queue(load_runtime()),
             'published_documents':sorted(published.values(),key=lambda i:i['title']),
-            'import_availability':__import__(__package__+'.api',fromlist=['_availability'])._availability(load_runtime())}
+            'import_availability':availability}
 
 def queue(batch_id,document_ids,operation='parse'):
     require();row,frozen,state=_row(batch_id,True)
