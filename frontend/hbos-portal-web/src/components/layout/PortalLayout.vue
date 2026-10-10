@@ -19,15 +19,16 @@
       <div class="portal-layout-grid">
         <PortalSidebar :work-count="actionableCount" />
         <main id="main-content" class="portal-route-content" tabindex="-1">
-          <ForbiddenView v-if="portal.bootstrapErrorStatus === 403" />
+          <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
+          <ForbiddenView v-else-if="portal.bootstrapErrorStatus === 403" />
           <a-alert
-            v-else-if="portal.bootstrapError"
+            v-else-if="sessionError"
             type="error"
             show-icon
             class="portal-bootstrap-error"
-            :message="portal.bootstrapError"
+            :message="sessionError"
           />
-          <RouterView v-else />
+          <RouterView v-else :key="portal.user?.id" />
         </main>
       </div>
     </div>
@@ -47,10 +48,12 @@ import PortalSidebar from '@/components/layout/PortalSidebar.vue'
 import MobilePortalNav from '@/components/layout/MobilePortalNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
+import { usePortalSession } from '@/composables/usePortalSession'
 
 const portal = usePortalStore()
 const ui = reactive({ commandOpen: false })
 const actionableCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
+const { sessionPending, sessionError } = usePortalSession()
 
 function onShortcut(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -60,15 +63,6 @@ function onShortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') ui.commandOpen = false
 }
 
-onMounted(async () => {
-  if (!portal.user) {
-    try {
-      await portal.bootstrap()
-    } catch {
-      // Error state is rendered in the shell. No raw exception reaches the UI.
-    }
-  }
-  window.addEventListener('keydown', onShortcut)
-})
+onMounted(() => window.addEventListener('keydown', onShortcut))
 onBeforeUnmount(() => window.removeEventListener('keydown', onShortcut))
 </script>

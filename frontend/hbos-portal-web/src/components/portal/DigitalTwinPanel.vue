@@ -4,25 +4,25 @@
       <div>
         <span class="section-kicker">运营空间 · DIGITAL TWIN</span>
         <h2>数字孪生运行态势</h2>
-        <p>把设备、工艺与现场状态作为 HBOS 的空间化业务入口；有真实 Provider 时才展示实时数据。</p>
+        <p>查看已授权的设备模型与关联知识；现场数据状态单独标注。</p>
       </div>
       <a-space>
-        <a-tag color="processing">LIVE READY</a-tag>
-        <a-button type="primary">进入 3D 空间 <ArrowRightOutlined /></a-button>
+        <a-tag :color="overviewTone">{{ overviewLabel }}</a-tag>
+        <a-button type="primary" @click="openTwin">进入 3D 空间 <ArrowRightOutlined /></a-button>
       </a-space>
     </div>
 
     <div class="twin-layout twin-layout-enhanced">
       <div class="twin-canvas">
         <div class="twin-head">
-          <strong>无菌生产区域</strong>
-          <span>M606B / M607B · 数字孪生接口预留</span>
+          <strong>设备与工艺空间</strong>
+          <span>{{ equipmentLabel }}</span>
         </div>
 
         <div class="twin-mode-switch">
-          <button class="active">运行态势</button>
-          <button>工艺流程</button>
-          <button>设备健康</button>
+          <button class="active">模型总览</button>
+          <button disabled title="等待真实工艺数据接入">工艺流程</button>
+          <button disabled title="等待真实设备状态接入">设备健康</button>
         </div>
 
         <svg viewBox="0 0 760 330" aria-label="数字孪生示意">
@@ -69,41 +69,83 @@
           </g>
         </svg>
 
-        <span class="node n1">M606B · 正常</span>
-        <span class="node n2">M607B · 过滤阶段</span>
-        <span class="node n3">环境 · 正常</span>
+        <span class="node n1">{{ modelNode }}</span>
+        <span class="node n2">{{ equipmentNode }}</span>
+        <span class="node n3">{{ liveNode }}</span>
       </div>
 
       <div class="status-stack twin-status-stack">
-        <article v-for="item in statuses" :key="item.id" class="status-card">
-          <div>
-            <span>{{ item.label }}</span>
-            <strong :class="`tone-${item.tone || 'neutral'}`">{{ item.value }}</strong>
-          </div>
-          <a-progress
-            v-if="item.progress !== undefined"
-            :percent="item.progress"
-            :show-info="false"
-            stroke-color="#5f70f8"
-          />
-          <small v-else>温湿度 / 压差 / 洁净区状态均在许可范围</small>
+        <template v-if="loading">
+          <article v-for="index in 4" :key="`loading-${index}`" class="status-card twin-status-skeleton">
+            <a-skeleton active :paragraph="false" />
+          </article>
+        </template>
+        <article v-else-if="error" class="status-card twin-overview-message">
+          <WarningOutlined />
+          <div><strong>状态暂时不可用</strong><small>{{ error }}</small></div>
         </article>
+        <template v-else>
+          <article v-for="item in statuses" :key="item.id" class="status-card">
+            <div>
+              <span>{{ item.label }}</span>
+              <strong :class="`tone-${item.tone || 'neutral'}`">{{ item.value }}</strong>
+            </div>
+            <a-progress
+              v-if="item.progress !== undefined"
+              :percent="item.progress"
+              :show-info="false"
+              stroke-color="#5f70f8"
+            />
+            <small v-else>{{ item.meta || '设备当前可用状态' }}</small>
+          </article>
+        </template>
 
-        <article class="status-card twin-link-card">
+        <button type="button" class="status-card twin-link-card" @click="openTwin">
           <div class="twin-link-icon"><NodeIndexOutlined /></div>
           <div>
             <strong>进入空间化操作</strong>
-            <small>未来可从 3D 场景直接进入设备、工艺、维护和培训。</small>
+            <small>查看 M607B 私有模型，并从设备上下文进入受控知识检索。</small>
           </div>
           <ArrowRightOutlined />
-        </article>
+        </button>
       </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ArrowRightOutlined, NodeIndexOutlined } from '@ant-design/icons-vue'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { ArrowRightOutlined, NodeIndexOutlined, WarningOutlined } from '@ant-design/icons-vue'
 import type { TwinStatusDTO } from '@/contracts/portal'
-defineProps<{ statuses: TwinStatusDTO[] }>()
+
+const props = withDefaults(defineProps<{
+  statuses: TwinStatusDTO[]
+  equipmentIds?: string[]
+  loading?: boolean
+  error?: string | null
+}>(), {
+  equipmentIds: () => [],
+  loading: false,
+  error: null,
+})
+
+const router = useRouter()
+const statusMap = computed(() => new Map(props.statuses.map((status) => [status.id, status])))
+const equipmentLabel = computed(() => props.equipmentIds.length
+  ? `${props.equipmentIds.join(' / ')} · 当前账号授权范围`
+  : '设备授权范围待确认')
+const modelNode = computed(() => `私有模型 · ${statusMap.value.get('model')?.value || '待核'}`)
+const equipmentNode = computed(() => props.equipmentIds.length ? `${props.equipmentIds[0]} · 授权范围` : '设备范围 · 待确认')
+const liveNode = computed(() => `现场数据 · ${statusMap.value.get('live')?.value || '待核'}`)
+const overviewLabel = computed(() => {
+  if (props.loading) return '状态读取中'
+  if (props.error) return '入口可用 · 状态待核'
+  return props.equipmentIds.length ? '设备入口可用' : '设备范围待确认'
+})
+const overviewTone = computed(() => props.error ? 'warning' : props.loading ? 'processing' : 'success')
+
+function openTwin() {
+  void router.push('/hbos/twin')
+}
 </script>

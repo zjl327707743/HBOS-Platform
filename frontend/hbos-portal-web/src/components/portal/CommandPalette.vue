@@ -13,7 +13,7 @@
         ref="inputRef"
         v-model:value="query"
         bordered="false"
-        placeholder="搜索应用、批次、样品、员工或输入命令…"
+        placeholder="搜索应用与业务事项…"
         aria-label="全局搜索"
         @keydown.down.prevent="move(1)"
         @keydown.up.prevent="move(-1)"
@@ -50,7 +50,7 @@
       @click="go('/hbos/work')"
     >
       <div class="command-result-icon inventory"><ScanOutlined /></div>
-      <div><strong>扫码入库</strong><span>仓储 · 快捷操作</span></div>
+      <div><strong>我的工作</strong><span>查看当前账号的真实待办</span></div>
       <ArrowRightOutlined class="result-arrow" />
     </button>
   </a-modal>
@@ -59,6 +59,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 import {
   ArrowRightOutlined,
   ClockCircleOutlined,
@@ -92,7 +93,8 @@ function appIcon(appId: string) {
 }
 
 async function refresh() {
-  results.value = await searchPortal(query.value)
+  try { results.value = await searchPortal(query.value) }
+  catch { results.value = []; message.warning('搜索暂时不可用，请刷新登录状态后重试。') }
   selectedIndex.value = 0
 }
 

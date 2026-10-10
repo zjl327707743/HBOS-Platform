@@ -1,6 +1,7 @@
 import type { Router } from 'vue-router'
 import { portalDataSource, resolveBusinessRoute } from '@/services/portalProvider'
-import { alignLoopbackHost } from '@/services/frappeClient'
+import { message } from 'ant-design-vue'
+import { alignLoopbackHost, callFrappeMethod, FrappeRequestError } from '@/services/frappeClient'
 import { frontendModules } from '@/data/mockPortal'
 import { isNativePortalPath } from '@/router/nativeRoutes'
 
@@ -44,7 +45,21 @@ export async function openBusinessRoute(
     return
   }
 
-  const target = await resolveBusinessRoute(appId, stablePath)
+  let target: string
+  try {
+    target = await resolveBusinessRoute(appId, stablePath)
+  } catch (error) {
+    if (error instanceof FrappeRequestError && ['UNAUTHENTICATED', 'FORBIDDEN'].includes(error.code)) {
+      const session = await callFrappeMethod<{csrf_token?: string}>('hbos_portal.auth.accounts.get_request_security').catch(() => null)
+      if (session && !session.csrf_token) {
+        message.info('登录状态已失效，请重新登录。')
+        await router.push({path:'/hbos/login',query:{redirect_to:stablePath}})
+        return
+      }
+    }
+    message.warning(error instanceof Error ? error.message : '应用暂时无法打开，请稍后重试。')
+    return
+  }
   const navigationTarget = businessNavigationTarget(target)
 
   if (navigationTarget === target && target.startsWith('/hbos/')) {

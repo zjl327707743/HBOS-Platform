@@ -8,12 +8,12 @@
       </div>
       <a-space>
         <a-button :loading="portal.tasksLoading" @click="portal.refreshTasks"><ReloadOutlined /> 刷新</a-button>
-        <a-button type="primary"><SettingOutlined /> 工作偏好</a-button>
+        <a-button type="primary" @click="router.push('/hbos/profile')"><SettingOutlined /> 工作偏好</a-button>
       </a-space>
     </div>
 
     <div class="work-overview">
-      <article class="work-stat glass-surface"><span>需要我处理</span><strong>{{ actionableCount }}</strong><small>来自 4 个业务应用</small></article>
+      <article class="work-stat glass-surface"><span>需要我处理</span><strong>{{ actionableCount }}</strong><small>来自 {{ taskApps.length }} 个支持待办的应用</small></article>
       <article class="work-stat glass-surface critical-card"><span>已超期</span><strong>{{ overdueCount }}</strong><small>优先处理</small></article>
       <article class="work-stat glass-surface"><span>今天截止</span><strong>{{ todayCount }}</strong><small>按截止时间排序</small></article>
       <article class="work-stat glass-surface"><span>等待别人</span><strong>{{ waitingCount }}</strong><small>不计入“需要我处理”</small></article>
@@ -25,10 +25,7 @@
         <div class="toolbar-right">
           <a-select v-model:value="appFilter" style="width: 156px">
             <a-select-option value="all">全部应用</a-select-option>
-            <a-select-option value="lims">LIMS</a-select-option>
-            <a-select-option value="attendance">考勤</a-select-option>
-            <a-select-option value="inventory">仓储</a-select-option>
-            <a-select-option value="equipment">设备</a-select-option>
+            <a-select-option v-for="app in taskApps" :key="app.id" :value="app.id">{{ app.shortTitle }}</a-select-option>
           </a-select>
           <a-input v-model:value="keyword" allow-clear placeholder="搜索工作事项" style="width: 220px">
             <template #prefix><SearchOutlined /></template>
@@ -87,6 +84,7 @@ const router = useRouter()
 const scope = ref('需要我处理')
 const appFilter = ref('all')
 const keyword = ref('')
+const taskApps = computed(() => portal.apps.filter(app => app.capabilityTasks))
 const scopeOptions = ['需要我处理', '今天', '本周', '超期', '等待别人', '已完成']
 
 const actionableCount = computed(() => portal.tasks.filter((t) => t.status === 'open').length)

@@ -1,5 +1,7 @@
 # Reading Guide
 
+PR #21 已完成 FINAL_REVIEW_PASS 并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Browser final-submit 3/3 与 Owner 最新无破坏验收均已 PASS；旧 #22 已关闭，IAM-0 由 clean Draft PR #23 承接。PR #15 仍 Draft，main 未放行。以 [本轮主记录](milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 顶部的合并后收口状态为准；下方 BLOCKED/WAITING 文字均为历史。
+
 本指南用于限制 AI 在新乡海滨智能运营管理平台中的默认阅读范围，避免上下文膨胀和误读旧资料。
 
 ## 默认读取文件
@@ -79,7 +81,7 @@ M0 历史任务曾允许读取：
 
 - `docs/adr/`
 
-## 当前里程碑提醒
+## 既有里程碑背景（不覆盖当前 RP3）
 
 当前 M0 已完成并封板，M0-REMOTE 已完成，M1-R0 已完成并通过 Codex 独立审查，M1-R1 已完成 HRMS 原生考勤对象模型验证记录并收口为 COMPLETED，M1-R2 已完成 HRMS 原生考勤配置试运行方案并通过 Codex 独立审查收口为 COMPLETED。M1-R3 已执行 HRMS 原生考勤最小测试数据试运行并通过 Codex 审查，实际结论为 PARTIAL / BLOCKED，最终状态收口为 BLOCKED：部分 TEST 数据已落库，14 个打卡场景未完成闭环验证。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查收口为 COMPLETED。M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；该轮只执行 `docker compose up -d redis-cache redis-queue`。M1-R3C 已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED。M1-R3D 已通过 Codex 审查并收口为 COMPLETED，结论为 Gap 四类分类、均不需要立即创建 hb_attendance_app。M1-R3E 已通过 Codex 审查并收口为 COMPLETED。M1-R3F 已通过 Codex 审查并收口为 COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED。M1-R4 已通过 Codex 审查并收口为 COMPLETED，主文档 `docs/milestones/M1_R4_Demo技术方案与实施路线拆分.md` 已交付。M1-R5 已通过 Codex 审查并收口为 COMPLETED，主文档 `docs/milestones/M1_R5_HRMS配置基线工作台月报Demo.md` 已交付。M1-R6A 已通过 Codex 审查并收口为 COMPLETED，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付。M1-R6B 已通过 Codex 审查并收口为 COMPLETED，主文档 `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md` 已交付。M1-R6C = COMPLETED，异常识别与异常说明流程最小实现已通过 Codex 审查并 closeout。M1-R7 = COMPLETED，飞书登录、领导 Demo 与 M1 收口准备已通过 Codex 审查并 closeout。M1 历史 closeout 已完成，但 Owner UI 验收发现功能缺口，当前 M1 产品交付仍在 M1-FIX 中，尚未完成。M0-R3A 已完成 Frappe / ERPNext / Docker 最小本地环境落地，M0-R3C 已完成 Frappe HR / HRMS 安装验证，M0-R3C-FIX 已完成 HRMS 前端资源与 Roster 白屏诊断修复，M0-R3D 已完成 HRMS 能力盘点与 M1 考勤一期边界设计，M0-R3E 已完成 HRMS 环境可复现性收口并通过 Codex 审查。
 
@@ -107,4 +109,15 @@ M0 历史任务曾允许读取：
 
 不得因此递归读取整个 `docs/`。
 
-Portal 当前为 Owner 已授权并行产品工作流，分支为 `feature/hbos-portal-product`；它不改变 M1-FIX 主里程碑。
+Portal 产品 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；原 `codex/portal-unified-account-release` 仅保留为已合并 PR #21 的历史来源。
+
+
+## Portal 统一账号与正式发布
+
+当前任务定向读取 `docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`、`docs/deployment/统一账号与Portal正式部署说明.md`、`docs/frontend/统一账号发布与前端完整性矩阵.md`。旧预览/试点记录是历史背景，不能替代原账号或正式 Site 验收。真实目标清单、备份与内部报告私下保存。
+
+团队通用交付已经通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 进入产品分支。当前后续代码以 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea` 为准；公司服务器/HTTPS 和尚未执行的真人高风险场景仍按独立后续 Gate 管理。
+
+当前 Portal 本轮门禁以 RP3 主记录和 `deployment/Mac本地运行与团队同步.md` 为准；原库选择、公司服务器和 HTTPS 不阻塞已授权 Mac 运行。
+
+当前飞书成员拒绝、自动开户/拼音登录名与受控换绑/交接，定向阅读 `docs/deployment/飞书自动开户与受控账号变更.md`。2026-10-01 Owner 已确认 Administrator 本人飞书成功登录；旧成员权限待审批记录为历史，当前新版本真人回归及其他真人操作单独记录，不恢复旧的原库/服务器/HTTPS门禁。

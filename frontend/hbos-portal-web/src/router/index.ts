@@ -26,10 +26,19 @@ import InventoryUnavailableView from '@/views/InventoryUnavailableView.vue'
 import ProductionLayout from '@/components/layout/ProductionLayout.vue'
 import ProductionDashboardView from '@/views/ProductionDashboardView.vue'
 
+const KnowledgeTwinLayout = () => import('@/components/layout/KnowledgeTwinLayout.vue')
+const KnowledgeView = () => import('@/views/KnowledgeView.vue')
+const TwinView = () => import('@/views/TwinView.vue')
+const FeishuLoginView = () => import('@/views/FeishuLoginView.vue')
+
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory('/'),
   routes: [
     { path: '/', redirect: '/hbos' },
+    { path: '/hbos/login', name: 'feishu-login', component: FeishuLoginView, meta: { title: '企业身份登录' } },
+    { path: '/hbos/account-connect', component: () => import('@/views/AccountConnectView.vue'), meta: { title: '账号归属与绑定' } },
+    { path: '/hbos/account-change', component: () => import('@/views/AccountChangeView.vue'), meta: { title: '绑定与职责交接' } },
+    { path: '/hbos/reset-password', component: () => import('@/views/ResetPasswordView.vue'), meta: { title: '账号恢复' } },
     {
       path: '/hbos',
       component: PortalLayout,
@@ -149,6 +158,20 @@ const router = createRouter({
       children: [
         { path: '', name: 'production-baseline', component: ProductionDashboardView, meta: { title: '生产看板' } },
         { path: 'center', name: 'production-center', component: ProductionDashboardView, meta: { title: '生产管理中心看板' } },
+      ],
+    },
+    {
+      path: '/hbos/knowledge',
+      component: KnowledgeTwinLayout,
+      children: [
+        { path: '', name: 'knowledge', component: KnowledgeView, meta: { title: '知识助理' } },
+      ],
+    },
+    {
+      path: '/hbos/twin',
+      component: KnowledgeTwinLayout,
+      children: [
+        { path: '', name: 'twin', component: TwinView, meta: { title: '设备与工艺' } },
       ],
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: { title: '页面不存在' } },

@@ -22,6 +22,9 @@
 
 ## 当前里程碑边界
 
+默认边界服从用户当轮明确授权。Owner 已授权的 Portal v3 覆盖旧的“不实现 SSO / 不 push / 不创建 PR”限制，范围以 `docs/CURRENT_MILESTONE.md` 与对应主文档为准；原账号目标、备份恢复、安全检查和 Owner 真实验收门禁继续适用。这是协作规则，不在本文件维护轮次进度。
+
+
 每轮任务必须以用户当前指令和 `docs/CURRENT_MILESTONE.md` 为准。
 
 禁止事项：
