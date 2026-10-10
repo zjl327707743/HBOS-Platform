@@ -36,6 +36,14 @@ def execute(filters=None):
 	values = {}
 
 	scope, scope_values = _warehouse_scope(filters)
+
+	# 指定了货位，但一把都没匹配到（货位名拼错、或该库位下确实没有子货位）。
+	# **必须在这里返回空结果**，不能继续往下拼 `in ()` —— 那是无效 SQL，
+	# 报表会以 ProgrammingError 500 收场。用户看到「报表没跑起来」而不是
+	# 「这里没有库存」，而后者才是事实。
+	if scope is not None and not scope:
+		return _columns(), []
+
 	if scope is not None:
 		placeholders = ", ".join(f"%(wh_{i})s" for i in range(len(scope)))
 		conditions.append(f"sbe.warehouse in ({placeholders})")
