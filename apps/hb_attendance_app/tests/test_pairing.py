@@ -556,7 +556,7 @@ class NightOutDupTest(unittest.TestCase):
 
 
 class LongDutyPairingTest(unittest.TestCase):
-    """设备动力部 24 小时连班放宽（Owner 2026-10-01，康东阁 9/25/郭建伟 9/24 一类）。
+    """设备动力部 24 小时连班放宽（Owner 2026-10-01：早班 8 点上班卡 + 次日 8 点下班卡）。
 
     上班卡 08:05 → 次日 08:40 间隔约 24.58h，超过统一配对上限 18h；
     long_duty=True 且形状匹配时配对成功，否则仍按「漏下班卡」判缺勤。
