@@ -373,7 +373,7 @@ onMounted(refresh)
 .answer-heading p { margin: 6px 0 16px; font-size: var(--hbos-font-body); }
 .knowledge-tools form,.feedback-form form { display: grid; gap: 10px; }
 .knowledge-tools label,.feedback-form label { font-weight: var(--hbos-weight-strong); }
-.knowledge-tools textarea,.knowledge-tools select,.feedback-form textarea,.feedback-form select { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; background: var(--hbos-bg-surface); font: inherit; color: var(--hbos-text-primary); }
+.knowledge-tools textarea,.knowledge-tools select:not(.kb-scope-select),.feedback-form textarea,.feedback-form select { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; background: var(--hbos-bg-surface); font: inherit; color: var(--hbos-text-primary); }
 .knowledge-tools textarea,.feedback-form textarea { min-height: 96px; resize: vertical; }
 .knowledge-tools button:focus-visible,.knowledge-tools textarea:focus-visible,.knowledge-tools select:focus-visible { outline: 2px solid var(--hbos-brand-aqua); outline-offset: 3px; }
 .tool-actions { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
