@@ -92,6 +92,10 @@ git log --oneline origin/feature/hbos-portal-product..HEAD
 - #30 知识库处于独立推进，本次集成窗口保持不改动。
 - 以上是开发顺序与审查规则，**不是**对未修复 PR 的预先合并批准。
 
+## HBOS V2 后端与权限统一决策入口
+
+新 APP 选型、Frappe 与 FastAPI 的接口边界、同一 User 下 Portal/Desk 不同入口权限、角色×范围授权及 #37 IAM DocType 归属，见 [HBOS V2 后端选型与统一身份权限边界（决策候选）](HBOS_BACKEND_AND_IAM_BOUNDARY_V2_PROPOSAL.md)。该架构草案不直接授权真实人员或改动部署。
+
 ## 8. 新人/Agent 发版前 8 项检查
 
 ```text
