@@ -1876,6 +1876,33 @@ body:has(.kb-main[aria-busy="true"]) .kb-drawer {
   .kb-scope .kb-doc-main {
     flex-basis: calc(100% - 48px);
   }
+  .kb-scope .kb-feedback-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .kb-scope .kb-feedback-row>span:first-child {
+    flex: none;
+    width: 24px;
+  }
+  .kb-scope .kb-feedback-row>div {
+    grid-column: 2 / -1;
+  }
+  .kb-scope .kb-feedback-row>.ant-tag {
+    grid-column: 2;
+    justify-self: start;
+    margin-left: 0;
+  }
+  .kb-scope .kb-feedback-row>.ant-btn {
+    grid-column: 3;
+  }
+  .kb-scope .maintenance-page .kb-feedback-row strong {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 
 .kb-scope .ant-tag {
