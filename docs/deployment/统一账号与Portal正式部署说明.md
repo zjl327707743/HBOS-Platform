@@ -4,7 +4,9 @@
 
 ## 版本与团队取得方式
 
-实际交付为 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并）。PR 目标为 `feature/hbos-portal-product`；本轮发布分支为 `codex/portal-unified-account-release`。接续已有 Portal/Knowledge/Twin 源码，以独立净化提交提供必要代码，不发布个人开发分支中的内部运行报告。团队使用 PR 的实际 HEAD SHA，禁止引用个人绝对路径。
+版本基线快照（核验日 2026-10-06）：团队获取产品代码使用 `feature/hbos-portal-product`，核验日 HEAD `72e5b1728981b7ef102a2c9ee033ce0452c400e7`（#24–#28 已合并，其中 #26/#27/#28 为安全修复）。该 SHA 是核验日快照，后续以当日 `git ls-remote` 重新核验为准。原发布分支 `codex/portal-unified-account-release` 已在 GitHub 删除，仅作历史来源；旧部署（`2d138f8`）与本分支历史不直接相连**主要原因是 PR #21 采用 squash 合并**，不代表旧账号/飞书功能遗漏，**不需要重新合并旧分支**。源码合并不等于已部署：本机 P1 运行版本仍为 `2d138f86a14883214f4963f5809550770a2bc3df`，安全修复未部署，升级须按本文件流程另行授权执行。
+
+以下为 PR #21 轮次的历史记录：实际交付为 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（当时为 Draft，现为已合并）。PR 目标为 `feature/hbos-portal-product`；该轮发布分支为 `codex/portal-unified-account-release`。接续已有 Portal/Knowledge/Twin 源码，以独立净化提交提供必要代码，不发布个人开发分支中的内部运行报告。团队使用 PR 的实际 HEAD SHA，禁止引用个人绝对路径。
 
 `bash scripts/release/build_bundle.sh` 在 clean checkout 执行 `npm ci`、类型检查及 production build，生成 `.release/hbos-portal-release.tar.gz`。包内包含六个自定义 App、Gateway 通用源码、部署工具、前端编译资产、`release.json` 和资产 `build-info.json`。构建强制使用 Frappe 数据模式及同源 API。检查 `source_dirty=false`、commit、文件 SHA256 和 build ID；仅 `.release` 内的显式测试制品可以带 dirty 标记，不准用于正式发布。GitHub Actions 从真实 PR head SHA 上传同一构建流程的制品，保留 14 天；制品来源不能以短期合并预演 SHA 代替已审查 head。 打包统一规范时间/所有者并排除 macOS 资源分叉；构建自动校验归档安全路径、全量文件 SHA、来源提交及 Portal/LIMS 编译入口，避免本机元数据进入交付包。
 
