@@ -3,6 +3,8 @@ import os,sys
 from knowledge_service.provider_budget import install_from_environment
 os.environ['HBOS_PROVIDER_ACCOUNTING_MODE']='AUDIT_ONLY'
 if install_from_environment() is None:raise SystemExit('Approved provider identity/audit route configuration is required')
+from knowledge_service.model_egress import install_from_environment as install_egress
+if install_egress() is None:raise SystemExit('UAT3 model egress configuration is required')
 if len(sys.argv)!=2 or sys.argv[1] not in ('api','controller'):raise SystemExit('Supported native role: api/controller')
 if sys.argv[1]=='api':
     from knowledge_service.hbos_gateway.native_rerank import install_ragflow_extension

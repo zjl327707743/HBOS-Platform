@@ -97,7 +97,9 @@ local allowed=p=='introspect' or
  (p=='post_retrieval' and has('pre_retrieval')) or
  (p=='pre_projection' and (has('post_retrieval') or has('cache_read'))) or
  (p=='pre_issue' and has('pre_projection')) or
- (p=='final_publish' and (has('pre_projection') or has('pre_issue') or has('evidence_read') or has('document_read')))
+ (p=='pre_general_generation' and has('introspect')) or
+ (p=='post_general_generation' and has('pre_general_generation')) or
+ (p=='final_publish' and (has('pre_projection') or has('pre_issue') or has('evidence_read') or has('document_read') or has('post_general_generation')))
 if not allowed then return -2 end
 redis.call('SADD',KEYS[3],p)
 redis.call('EXPIREAT',KEYS[3],ARGV[3]); return 1
@@ -157,6 +159,10 @@ class RedisDecisions:
         expected={'introspect':'introspect','cache_read':'introspect','pre_issue':'authorize-evidence',
                   'evidence_read':'authorize-evidence','document_read':'authorize-evidence'} .get(call.phase,'revalidate')
         if call.operation!=expected: raise KnowledgeError('INVALID_REQUEST')
+        if call.phase in ('pre_general_generation','post_general_generation'):
+            from .answer_policy import route_question
+            if not plan.model_alias or route_question(ticket.request.query,knowledge_only=plan.knowledge_only,context=ticket.request.context)!='GENERAL':
+                raise KnowledgeError('SCOPE_REJECTED')
         if expected=='authorize-evidence' and not call.references: raise KnowledgeError('EMPTY_SCOPE')
         if call.phase=='document_read' and (len(call.references)!=1 or call.references[0].chunk_id!='CATALOG_METADATA_ONLY'):
             raise KnowledgeError('SCOPE_REJECTED')

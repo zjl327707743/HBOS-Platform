@@ -1,6 +1,10 @@
 # M1 启动门禁
 
-## 当前：HBOS Knowledge UAT2 — 2026-10-10
+## 当前：HBOS Knowledge UAT3 — 2026-10-11
+
+状态 **UAT3_READY_FOR_OWNER / LOCAL_UAT / OWNER_NOT_RUN**，限定已实测的四模型、一般/知识回答、原生 MCP 工具收据与本机版本。事实、发送数量、两轮修复及 NOT_RUN 子项见 [UAT3 验收候选](M1_KB_UAT3_四模型与真实助手验收候选.md)。Owner 人工验收前 PR #30 保持 Draft，不合并、不切 P1、不扩大员工范围。UAT2 原型批准继续作为视觉依据，受保护的旧协作和状态文件保持原哈希。
+
+## 历史：HBOS Knowledge UAT2 — 2026-10-10
 
 **PARTIAL / DESIGN_REVIEW_PENDING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 当前已恢复正常搜索、引用问答、MCP 与按需解析，费用和历史 UNKNOWN 不作为业务门禁。15 份获准已发布资料、目录收藏、追问恢复、反馈和维护换版/下架后端链路有实际证据；新版原型待 Owner 确认后复刻，不能标记 UAT2_READY。联合部署准备及隔离演练不等同真实服务器上线。PR #30 保持 Draft，人工验收前不合并、不切 P1、不开放员工。
 

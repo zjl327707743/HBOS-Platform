@@ -43,7 +43,7 @@ def save_bookmark(runtime,query,resolve):
     raise KnowledgeError('SERVICE_ERROR')
 
 def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None,note=None,context=None,
-          answer=None,labels=None,question=None,search_mode='STANDARD',document_bookmark=False):
+          answer=None,labels=None,question=None,search_mode='STANDARD',document_bookmark=False,answer_origin=None,model_alias=None):
     import frappe
     actor,_=current(runtime)
     safe_string(query,500)
@@ -62,6 +62,10 @@ def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None
         data['answer']=safe_string(answer,2000)
         data['labels']=list(labels or [])
         data['question']=safe_string(question or query,500)
+        if answer_origin is not None:
+            from .answer_policy import model_alias as validate
+            if answer_origin not in ('GENERAL','KNOWLEDGE') or (answer_origin=='GENERAL' and (records or labels)):raise KnowledgeError('INVALID_REQUEST')
+            data.update(answer_origin=answer_origin,model_alias=validate(model_alias))
     if context:data['context']=dict(context)
     if conversation_id:data['conversation_id']=conversation_id
     if category:data.update(category=category,note=safe_string(note or '',500))
@@ -145,7 +149,9 @@ def list_activity(runtime,kind,page=1,page_size=12):
                 'available':available,'titles':[safe_string(b.title,240,nullable=True) for b in bindings],
                 'document_ids':[b.canonical_document_id for b in bindings],
                 'version_ids':[b.version_id for b in bindings],
-                'bookmark_type':data.get('bookmark_type','Evidence')})
+                'bookmark_type':data.get('bookmark_type','Evidence'),
+                'answer_origin':data.get('answer_origin','KNOWLEDGE') if 'answer' in data else None,
+                'model_alias':data.get('model_alias') if 'answer' in data else None})
         return out
     out=project(mapping)
     final_actor,final_mapping=current(runtime)
@@ -258,9 +264,12 @@ def restore(runtime,row,data,actor,mapping,request_id):
             labels=item.get('labels',[])
             if len(labels)!=len(output):raise KnowledgeError('EVIDENCE_UNAVAILABLE')
             citations=[dict(source,citation_label=label) for source,label in zip(output,labels)]
-            turns.append({'request_id':request_id,'turn_id':turn,'conversation_id':turn,'mode':'internal_reference_generation' if citations else 'authorized_generation',
-                'answer_status':'REFERENCE_ANSWERED' if citations else 'INSUFFICIENT_EVIDENCE','answerable':bool(citations),
-                'answer':item['answer'],'citations':citations,'question':item.get('question',item['query'])})
+            general=item.get('answer_origin')=='GENERAL'
+            if general and (records or citations):raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+            turns.append({'request_id':request_id,'turn_id':turn,'conversation_id':turn,'mode':'general_generation' if general else 'internal_reference_generation' if citations else 'authorized_generation',
+                'answer_status':'GENERAL_ANSWERED' if general else 'REFERENCE_ANSWERED' if citations else 'INSUFFICIENT_EVIDENCE','answerable':general or bool(citations),
+                'answer':item['answer'],'citations':citations,'question':item.get('question',item['query']),
+                'answer_origin':item.get('answer_origin','KNOWLEDGE'),'model_alias':item.get('model_alias')})
         else:results=output
         runtime.decisions.online(__principal(runtime),ticket.call('revalidate','final_publish'))
     final_actor,final_mapping=current(runtime)

@@ -5,9 +5,9 @@ import KnowledgeView from '@/views/KnowledgeView.vue'
 const api=vi.hoisted(()=>({status:vi.fn(),spaces:vi.fn(),documents:vi.fn(),search:vi.fn()}))
 vi.mock('vue-router',()=>({useRoute:()=>({path:'/hbos/knowledge',query:{q:'SYNTHETIC question',auto:'1'}}),useRouter:()=>({push:vi.fn()})}))
 vi.mock('@/stores/portal',()=>({usePortalStore:()=>({user:{id:'USER_DEMO'}})}))
-vi.mock('@/services/p1Api',()=>({getKnowledgeStatus:api.status,getKnowledgeSpaces:api.spaces,
+vi.mock('@/services/p1Api',async original=>({...await original<typeof import('@/services/p1Api')>(),getKnowledgeStatus:api.status,getKnowledgeSpaces:api.spaces,
   getKnowledgeDocumentsPage:api.documents,searchKnowledge:api.search,DomainApiError:class extends Error{}}))
-const stubs={RouterLink:{template:'<span><slot/></span>'},KnowledgeTools:{template:'<section>个人记录<slot name="catalog"/></section>'},EvidenceDrawer:true,
+const stubs={RouterLink:{template:'<span><slot/></span>'},KnowledgeTools:{methods:{ask(){}},template:'<section>个人记录<slot name="catalog"/></section>'},EvidenceDrawer:true,
   'a-alert':{props:['message'],template:'<p role="status">{{message}}</p>'},'a-button':{template:'<button><slot/></button>'},
   'a-tag':{template:'<span><slot/></span>'},'a-empty':true,'a-skeleton':true,'a-pagination':true}
 const wrappers:ReturnType<typeof mount>[]=[]

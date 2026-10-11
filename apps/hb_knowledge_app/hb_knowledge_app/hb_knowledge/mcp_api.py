@@ -10,6 +10,7 @@ def _bound(raw,principal):
     actor=connections.issue_actor(raw.get('token'),cfg,state)
     runtime=build_runtime(actor_resolver=lambda:actor)
     frappe.local.hbos_knowledge_runtime=runtime
+    frappe.local.hbos_mcp_connection=raw['token'].removeprefix('hbos_mcp_').split('.')[0]
     runtime.provider._current(actor,runtime.client)
     return runtime,raw['token'].removeprefix('hbos_mcp_').split('.')[0]
 
@@ -17,10 +18,10 @@ def _bound(raw,principal):
 def authenticate_connection(**ignored):
     def run():
         raw,principal,_=_service_request()
-        if set(raw)-{'token','stage'}:raise KnowledgeError('INVALID_REQUEST')
+        if set(raw)-{'token','stage','observation'}:raise KnowledgeError('INVALID_REQUEST')
         if raw.get('stage','Authenticated') not in ('Authenticated','Tools Discovered'):raise KnowledgeError('INVALID_REQUEST')
         _,name=_bound(raw,principal)
-        connections.observe(name,raw.get('stage','Authenticated'))
+        connections.observe(name,raw.get('stage','Authenticated'),raw.get('observation'))
         return {'authenticated':True}
     return _authority_envelope(run)
 
@@ -29,7 +30,7 @@ def dispatch(**ignored):
     from .errors import error_payload
     try:
         raw,principal,_=_service_request()
-        if set(raw)!={'token','tool','arguments'}:raise KnowledgeError('INVALID_REQUEST')
+        if set(raw)-{'token','tool','arguments','observation'} or not {'token','tool','arguments'}<=set(raw):raise KnowledgeError('INVALID_REQUEST')
         from knowledge_service.hbos_gateway.closed_tools import TOOLS
         from .r1_contract import validate_structure
         name=raw['tool'];arguments=raw['arguments']
@@ -41,9 +42,11 @@ def dispatch(**ignored):
                   'get_evidence':api.resolve_evidence,'ask_knowledge':api.ask}
         result=handlers[name](**arguments)
         if result.get('ok'):
-            if name=='search_knowledge' and result.get('data',{}).get('results'):connections.observe(connection,'Search Passed')
-            elif name=='get_evidence':connections.observe(connection,'Evidence Opened')
-            elif name=='ask_knowledge' and result.get('data',{}).get('answer_status')=='REFERENCE_ANSWERED':connections.observe(connection,'Answer Generated')
+            if name=='search_knowledge' and result.get('data',{}).get('results'):connections.observe(connection,'Search Passed',raw.get('observation'),result=result['data'],arguments=arguments)
+            elif name=='get_evidence':
+                receipt=dict(result['data'],request_id=getattr(frappe.local,'hbos_knowledge_request_id',None))
+                connections.observe(connection,'Evidence Opened',raw.get('observation'),result=receipt,arguments=arguments)
+            elif name=='ask_knowledge' and result.get('data',{}).get('answer_status')=='REFERENCE_ANSWERED':connections.observe(connection,'Answer Generated',raw.get('observation'))
         return result
     except KnowledgeError as error:return error_payload(error)
     except Exception:return error_payload(KnowledgeError('SERVICE_ERROR'))

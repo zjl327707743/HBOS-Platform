@@ -9,5 +9,7 @@ RUN pip install --require-hashes -r /tmp/runtime.lock \
  && pip check \
  && useradd --uid 1000 --create-home knowledge
 ENV HBOS_PROVIDER_ACCOUNTING_MODE=AUDIT_ONLY
+ENV PYTHONPATH=/opt/hbos-joint/native_startup
+ENV HBOS_MODEL_EGRESS_REQUIRED=1
 USER knowledge
-CMD ["python", "-m", "uvicorn", "knowledge_service.hbos_gateway.network_runtime:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+CMD ["python", "-m", "uvicorn", "knowledge_service.hbos_gateway.mcp_runtime:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

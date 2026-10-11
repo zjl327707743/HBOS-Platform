@@ -33,6 +33,9 @@ class SearchRequest:
     space_ids: tuple[str, ...] | None = None
     context: tuple[tuple[str, str], ...] = ()
     search_mode: str = "STANDARD"
+    model_alias: str | None = None
+    knowledge_only: bool = False
+    answer_caller: str | None = None
 
     def to_wire(self):
         value = {"query": self.query, "limit": self.limit, "search_mode": self.search_mode}
@@ -40,12 +43,17 @@ class SearchRequest:
             value["space_ids"] = list(self.space_ids)
         if self.context:
             value["context"] = dict(self.context)
+        if self.model_alias is not None:
+            value.update(model_alias=self.model_alias, knowledge_only=self.knowledge_only,
+                         answer_caller=self.answer_caller or 'PORTAL')
+        elif self.answer_caller is not None:
+            value['answer_caller'] = self.answer_caller
         return value
 
 def normalize_search(raw: dict, *, legacy: bool = False) -> SearchRequest:
     if not isinstance(raw, dict):
         raise KnowledgeError("INVALID_REQUEST")
-    allowed = {"query", "limit", "space_ids", "context", "search_mode"} | (set(CONTEXT_KEYS) if legacy else set())
+    allowed = {"query", "limit", "space_ids", "context", "search_mode", "model_alias", "knowledge_only", "answer_caller"} | (set(CONTEXT_KEYS) if legacy else set())
     if set(raw) - allowed:
         raise KnowledgeError("INVALID_REQUEST")
     raw = dict(raw)
@@ -79,7 +87,9 @@ def normalize_search(raw: dict, *, legacy: bool = False) -> SearchRequest:
     validate_structure("SearchRequest", raw)
     return SearchRequest(raw["query"], raw.get("limit", 5),
                          tuple(raw["space_ids"]) if "space_ids" in raw else None,
-                         tuple(sorted(raw.get("context", {}).items())), raw.get("search_mode", "STANDARD"))
+                         tuple(sorted(raw.get("context", {}).items())), raw.get("search_mode", "STANDARD"),
+                         raw.get('model_alias'), raw.get('knowledge_only', False),
+                         raw.get('answer_caller') or ('PORTAL' if raw.get('model_alias') else None))
 
 def normalize_evidence(raw: dict):
     validate_structure("EvidenceRequest", raw)
@@ -93,6 +103,7 @@ def validate_ask_data(value: dict, *, environment: str):
     admitted = {
         ("authorized_generation", "ANSWERED", True),
         ("internal_reference_generation", "REFERENCE_ANSWERED", True),
+        ("general_generation", "GENERAL_ANSWERED", True),
         ("authorized_generation", "INSUFFICIENT_EVIDENCE", False),
         ("reference_only", "REFERENCE_ONLY", False),
         ("synthetic_test", "SYNTHETIC_TEST", False),
@@ -100,6 +111,9 @@ def validate_ask_data(value: dict, *, environment: str):
     if triple not in admitted or environment not in {"production", "synthetic"}:
         raise KnowledgeError("INVALID_REQUEST")
     citations = value["citations"]
+    if value.get('answer_origin')=='GENERAL':
+        if triple!=("general_generation","GENERAL_ANSWERED",True) or citations:raise KnowledgeError('INVALID_REQUEST')
+    elif triple[1]=='GENERAL_ANSWERED':raise KnowledgeError('INVALID_REQUEST')
     if len({c["citation_label"] for c in citations}) != len(citations):
         raise KnowledgeError("INVALID_REQUEST")
     if triple[1] == "REFERENCE_ONLY" and (value["answer"] != REFERENCE_TEXT or not citations):

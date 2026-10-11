@@ -1,6 +1,10 @@
 # Reading Guide
 
-## 当前：HBOS Knowledge UAT2 — 2026-10-10
+## 当前：HBOS Knowledge UAT3 — 2026-10-11
+
+**UAT3_READY_FOR_OWNER / LOCAL_UAT / OWNER_NOT_RUN。** 当前四模型白名单、通用/知识来源模式与真实 MCP 工具收据的事实见 [UAT3 验收候选](milestones/M1_KB_UAT3_四模型与真实助手验收候选.md)。该状态只适用于已实测的本机流程与限定客户端版本；人工产品验收、真实资料发布/下架/换版复跑和公司上线没有被标为 PASS。PR #30 保持 Draft，受保护的旧规范和状态文件原哈希保留。
+
+## 历史：HBOS Knowledge UAT2 — 2026-10-10
 
 **UAT2_IMPLEMENTATION_CANDIDATE / PROTOTYPE_APPROVED / OWNER_NOT_RUN / ROLLOUT_PENDING。** Owner 已正式批准知识库交互设计 V1，本轮原型审批门禁已满足。知识模块按批准原型完成独立首页、资料目录、本人收藏/记录、六步 MCP 向导和维护员资料/上传/版本/反馈页面；接入原生 Frappe/API，保留 15 份真实共享资料、GPT-6-luna、千问 Embedding、用户权限及关闭原件下载。按两轮截图与实际操作复验，最终运行源码、构建资产和 CI 以本机 Owner 交付联合锁为准。人工产品验收与真实服务器上线是独立 Gate；PR #30 保持 Draft，不合并、不切 P1、不开放全员。
 

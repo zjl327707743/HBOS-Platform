@@ -72,7 +72,7 @@
       <div class="kb-section-title"><h2>回答</h2><a-button type="text" @click="newConversation">开启新问题</a-button></div>
       <div class="kb-answer-list" aria-live="polite">
         <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
-          <h3 class="answer-question">{{turn.question}}</h3><a-tag v-if="!turn.answerable" color="orange">依据不足</a-tag>
+          <h3 class="answer-question">{{turn.question}}</h3><div class="kb-answer-origin"><a-tag :color="!turn.answerable?'orange':turn.answer_origin==='GENERAL'?'default':'cyan'">{{!turn.answerable?'依据不足':turn.answer_origin==='GENERAL'?'未使用知识库':'已使用知识库'}}</a-tag><small>{{turn.model_alias||'原模型未记录'}}</small></div>
           <p class="kb-answer-copy">{{turn.answer}}</p><div v-if="turn.citations.length" class="kb-source-label">参考来源</div>
           <div v-for="source in turn.citations" :key="source.citation_label" class="kb-citation-row">
             <button class="kb-source-link" @click="emit('evidence',source.evidence_id)"><FileTextOutlined/><span>[{{source.citation_label}}] {{source.title||'未标注标题'}}<small>{{source.version||'版本待核'}} · {{source.status_note==='INTERNAL_REFERENCE_REVIEWED'?'内部参考／有效性待核':source.status_note}}</small></span></button>
@@ -97,7 +97,7 @@
         <a-empty v-if="!shown.length" :description="view==='favorites'?'还没有收藏，点击资料旁的星标即可保存。':'开始一次查询后，可以在这里继续查阅。'"/>
         <article v-for="item in shown" :key="item.id" class="kb-doc-row">
           <div class="kb-doc-icon"><StarOutlined v-if="view==='favorites'"/><HistoryOutlined v-else/></div>
-          <button class="kb-doc-main" :disabled="busy||!item.available" @click="reopen(item.id)"><strong>{{!item.available&&item.bookmark_type==='Document'?'已失效的收藏':view==='favorites'&&item.available?item.titles.filter(Boolean).join('；')||item.query:item.query}}</strong><p>{{item.available?(view==='favorites'?(favoriteDocument(item)?.status_note||'打开当前可用来源'):(item.titles.filter(Boolean)[0]||'查阅记录')+(item.titles.length>1?' 等 '+item.titles.length+' 份资料':'')):'依据已下架、换版或授权变化，请重新检索。'}}</p><small v-if="view==='favorites'&&favoriteDocument(item)">{{favoriteDocument(item)?.document_number||'文号待核'}} · {{favoriteDocument(item)?.department}} · {{favoriteDocument(item)?.version||'版本待核'}}<a-tag color="green">已共享</a-tag></small><small v-else>{{displayDate(item.created_at)}}</small></button>
+          <button class="kb-doc-main" :disabled="busy||!item.available" @click="reopen(item.id)"><strong>{{!item.available&&item.bookmark_type==='Document'?'已失效的收藏':view==='favorites'&&item.available?item.titles.filter(Boolean).join('；')||item.query:item.query}}</strong><p>{{item.available?(view==='favorites'?(favoriteDocument(item)?.status_note||'打开当前可用来源'):(item.answer_origin==='GENERAL'?'未使用知识库 · '+(item.model_alias||'通用 AI'):item.titles.filter(Boolean)[0]||'查阅记录')+(item.titles.length>1?' 等 '+item.titles.length+' 份资料':'')):'依据已下架、换版或授权变化，请重新检索。'}}</p><small v-if="view==='favorites'&&favoriteDocument(item)">{{favoriteDocument(item)?.document_number||'文号待核'}} · {{favoriteDocument(item)?.department}} · {{favoriteDocument(item)?.version||'版本待核'}}<a-tag color="green">已共享</a-tag></small><small v-else>{{displayDate(item.created_at)}}</small></button>
           <div class="kb-doc-actions"><a-button type="text" :disabled="busy" :aria-label="view==='favorites'?'取消收藏':'删除记录'" @click="remove(item.id)"><StarFilled v-if="view==='favorites'" class="kb-star"/><DeleteOutlined v-else/></a-button><a-tooltip v-if="view==='favorites'" title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined/></a-button></a-tooltip><a-button v-else-if="item.available" :disabled="busy" @click="reopen(item.id)">继续查阅</a-button></div>
         </article>
       </template>
@@ -115,7 +115,7 @@ import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFe
 import { askKnowledgeReference, getKnowledgeActivity, getKnowledgeFeedback, openKnowledgeSaved, removeKnowledgeSaved, saveKnowledgeBookmark, sendKnowledgeFeedback, DomainApiError, getKnowledgeActivityPage, getKnowledgeFeedbackPage, saveKnowledgeDocumentBookmark, getKnowledgeDocumentsPage } from '@/services/p1Api'
 
 type RecordKind = 'Catalog' | 'History' | 'Bookmark' | 'Feedback'
-const props = defineProps<{ subject: string; query: string; selectedSpace: string; spaces?:KnowledgeSpace[]; askEnabled: boolean; retrievalBlocked?: boolean; composerExternal?: boolean; mode?: 'search' | 'ask'; searchMode?: 'STANDARD' | 'PRECISE'; view?: 'query'|'catalog'|'favorites'|'history'|'feedback' }>()
+const props = defineProps<{ subject: string; query: string; selectedSpace: string; spaces?:KnowledgeSpace[]; askEnabled: boolean; retrievalBlocked?: boolean; composerExternal?: boolean; mode?: 'search' | 'ask'; searchMode?: 'STANDARD' | 'PRECISE'; modelAlias?:import('@/contracts/p1').KnowledgeModelAlias; knowledgeOnly?:boolean; view?: 'query'|'catalog'|'favorites'|'history'|'feedback' }>()
 const emit = defineEmits<{ replay: [query: string, spaces: string[], context?: KnowledgeSearchContext]; evidence: [id: string]; busy: [value: boolean]; conversation: [value: boolean]; 'upstream-error': []; 'access-error': [error: DomainApiError]; 'evidence-invalidated': []; restored: [data: KnowledgeSavedQuery]; document: [data: KnowledgeDocument]; 'records-view': [view:'history'|'feedback'] }>()
 const slots = useSlots()
 const tabs = computed(() => [
@@ -341,7 +341,7 @@ async function ask(value = question.value) {
   if ([...normalized].length > 280) { error.value = '请将问题控制在 280 字以内。'; return }
   await action(async current => {
     askPending.value = true
-    const data = await askKnowledgeReference(normalized, props.selectedSpace, conversation.value || undefined, props.searchMode || 'STANDARD')
+    const data = await askKnowledgeReference(normalized, props.selectedSpace, conversation.value || undefined, props.searchMode || 'STANDARD',props.modelAlias || 'gpt-6-luna',Boolean(props.knowledgeOnly))
     if (current === generation) {
       turns.value.push({ ...data, question: normalized }); conversation.value = data.turn_id; question.value = ''; emit('conversation', true)
       await refresh()

@@ -10,6 +10,8 @@ services:
       HBOS_PROVIDER_ACCOUNTING_MODE: AUDIT_ONLY
       HBOS_RECOVERY_PROVIDER_BUDGET: /run/hbos-audit/native/config.json
       HBOS_RECOVERY_PHASE: ONLINE
+      HBOS_MODEL_EGRESS_REQUIRED: "1"
+      HBOS_MODEL_EGRESS_CONFIG: /run/hbos-private/egress-native.json
       HBOS_MAINTENANCE_CONTROLLER_CONFIG: /run/hbos-private/controller.json
     volumes: &native-volumes
       - ${HBOS_PRIVATE_ROOT:?required}/ragflow-conf:/ragflow/conf:ro

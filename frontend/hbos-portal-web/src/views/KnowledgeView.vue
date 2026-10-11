@@ -8,14 +8,15 @@
         <form class="knowledge-search" @submit.prevent="submitComposer">
           <div class="kb-composer-top"><div class="kb-modes" role="group" aria-label="知识使用方式"><button type="button" :aria-pressed="mode === 'ask'" :disabled="!status?.ask_enabled" @click="setMode('ask')">问知识</button><button type="button" :aria-pressed="mode === 'search'" @click="setMode('search')">搜资料</button></div><label class="sr-only" for="knowledge-space">查询部门范围</label><select id="knowledge-space" v-model="selectedSpace" class="kb-scope-select" :disabled="!spaces.length"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select></div>
           <label class="sr-only" for="knowledge-query">知识问题</label><textarea id="knowledge-query" v-model="query" :maxlength="mode === 'ask' ? 280 : 500" :disabled="working" :placeholder="mode === 'ask' ? '描述你想了解的问题…' : '输入资料标题、文号或关键词…'" rows="3" @compositionstart="composing = true" @compositionend="composing = false" @keydown="composerKeydown" />
-          <div class="kb-composer-bottom"><span>{{ mode === 'ask' ? '回答附带可核对的资料来源' : '直接查找资料与相关依据' }}<small class="kb-keyboard"> · ⌘ / Ctrl + Enter</small></span><a-button type="primary" html-type="submit" :loading="working" :disabled="working || !canSubmit || !query.trim() || inputTooLong">{{ mode === 'ask' ? '提问' : '搜索' }}<ArrowRightOutlined /></a-button></div>
+          <div class="kb-composer-bottom"><span>{{ mode === 'ask' ? '企业问题核对来源，一般问题明确标示通用 AI' : '直接查找资料与相关依据' }}<small class="kb-keyboard"> · ⌘ / Ctrl + Enter</small></span><a-button type="primary" html-type="submit" :loading="working" :disabled="working || !canSubmit || !query.trim() || inputTooLong">{{ mode === 'ask' ? '提问' : '搜索' }}<ArrowRightOutlined /></a-button></div>
         </form>
         <div v-if="working || composerNotice" class="kb-composer-notice"><a-button v-if="working" @click="cancelPending">返回编辑</a-button><span role="status">{{ composerNotice }}</span></div>
       </section>
+      <div v-if="mode==='ask'" class="kb-model-controls"><label for="knowledge-model">回答模型</label><select id="knowledge-model" :value="selectedModel" :disabled="working||modelSaving" class="kb-scope-select" @change="changeModel"><option v-for="item in modelChoices" :key="item.alias" :value="item.alias" :disabled="!item.available">{{item.alias}}{{item.available?'':' · 暂不可用'}}</option></select><label class="kb-knowledge-only"><input v-model="knowledgeOnly" type="checkbox" :disabled="working">仅使用知识库</label></div>
       <div v-if="!hasConversation && !hasSearched && !working" class="kb-start-grid"><section class="kb-suggestions"><div class="kb-section-title"><h2>从一个问题开始</h2><span>示例问题</span></div><button v-for="q in exampleQuestions" :key="q" type="button" @click="useExample(q)"><span>{{ q }}</span><ArrowRightOutlined /></button></section><section class="kb-help-card hbos-glass-g1"><ReadOutlined /><h2>查找资料，也能继续追问</h2><p>点开回答中的来源核对依据。常用资料可以收藏，方便下次直接查阅。</p><RouterLink to="/hbos/knowledge/catalog">打开资料目录<ArrowRightOutlined /></RouterLink></section></div>
       <section v-if="mode === 'search' && hasSearched" class="kb-panel knowledge-results hbos-glass-g1"><div class="kb-section-title"><h2>相关资料</h2><span>{{ results.length }} 条依据</span></div><a-skeleton v-if="searching" active :paragraph="{rows:4}" /><a-empty v-else-if="!results.length && !pageError" description="未找到相关依据，请换一个关键词或调整部门范围。" /><article v-for="item in results" :key="item.evidence_id" class="kb-doc-row result-card"><div class="kb-doc-icon"><FileTextOutlined /></div><button type="button" class="kb-doc-main" :aria-label="'查看来源 '+item.title" @click="openEvidence(item)"><strong>{{ item.title || '未标注标题' }}</strong><p>{{ item.excerpt }}</p><small>{{ spaces.find(s => s.space_id === item.space_id)?.title }} · {{ item.document_number || '文号待核' }} · {{ item.version || '版本待核' }}</small></button><div class="kb-doc-actions"><a-button type="text" :disabled="working" :aria-label="(tools?.isBookmarked(item) ? '取消收藏 ' : '收藏 ') + item.title" @click="tools?.bookmark(item)"><StarFilled v-if="tools?.isBookmarked(item)" class="kb-star" /><StarOutlined v-else /></a-button><a-button type="text" :disabled="working" aria-label="反馈" @click="tools?.feedback(item)"><MessageOutlined /></a-button><a-tooltip title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined /></a-button></a-tooltip></div></article></section>
     </template>
-    <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :spaces="spaces" :ask-enabled="Boolean(status?.ask_enabled) && status?.answer_availability?.available !== false" :retrieval-blocked="retrievalBlocked" :mode="mode" :search-mode="searchMode" :view="view" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @restored="restoreSaved" @records-view="router.push($event === 'feedback' ? '/hbos/knowledge/history?tab=feedback' : '/hbos/knowledge/history')" @document="showDocumentSummary" @evidence="drawer.show" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
+    <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :spaces="spaces" :ask-enabled="Boolean(status?.ask_enabled) && status?.answer_availability?.available !== false" :retrieval-blocked="retrievalBlocked && knowledgeOnly" :model-alias="selectedModel" :knowledge-only="knowledgeOnly" :mode="mode" :search-mode="searchMode" :view="view" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @restored="restoreSaved" @records-view="router.push($event === 'feedback' ? '/hbos/knowledge/history?tab=feedback' : '/hbos/knowledge/history')" @document="showDocumentSummary" @evidence="drawer.show" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
       <template #catalog>
         <section class="kb-panel hbos-glass-g1">
           <form class="kb-list-toolbar catalog-filter" @submit.prevent="refreshCatalog"><label class="sr-only" for="catalog-query">查找标题或文号</label><a-input-search id="catalog-query" v-model:value="catalogQuery" placeholder="查找标题或文号" aria-label="查找标题或文号" @search="refreshCatalog" /><label class="sr-only" for="catalog-department">筛选部门</label><select id="catalog-department" v-model="selectedSpace" class="kb-scope-select"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select></form>
@@ -37,7 +38,7 @@ import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRightOutlined, ReadOutlined, LinkOutlined, FileTextOutlined, StarOutlined, StarFilled, MessageOutlined, DownloadOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import type { KnowledgeEvidence, KnowledgeStatus, KnowledgeSpace, KnowledgeDocument, KnowledgeSearchContext, KnowledgeSavedQuery } from '@/contracts/p1'
-import { DomainApiError, getKnowledgeStatus, getKnowledgeSpaces, getKnowledgeDocumentsPage, searchKnowledge } from '@/services/p1Api'
+import { DomainApiError, getKnowledgeStatus, getKnowledgeSpaces, getKnowledgeDocumentsPage, searchKnowledge, setKnowledgeModelPreference, modelAliases } from '@/services/p1Api'
 import EvidenceDrawer from '@/components/knowledge/EvidenceDrawer.vue'
 import KnowledgeTools from '@/components/knowledge/KnowledgeTools.vue'
 import KnowledgeConnections from '@/components/knowledge/KnowledgeConnections.vue'
@@ -84,6 +85,16 @@ const status = ref<KnowledgeStatus | null>(null)
 const statusLoading = ref(false)
 const spaces = ref<KnowledgeSpace[]>([])
 const selectedSpace = ref('')
+const selectedModel=ref<import('@/contracts/p1').KnowledgeModelAlias>('gpt-6-luna'),modelSaving=ref(false),knowledgeOnly=ref(false)
+const modelChoices=computed(()=>status.value?.model_catalog?.models || modelAliases.map(alias=>({alias,available:alias==='gpt-6-luna'&&Boolean(status.value?.answer_availability?.available),reason:null})))
+async function changeModel(event:Event) {
+  const alias=(event.target as HTMLSelectElement).value as import('@/contracts/p1').KnowledgeModelAlias
+  if(working.value || modelSaving.value)return
+  const subject=subjectGeneration,old=selectedModel.value;selectedModel.value=alias;modelSaving.value=true
+  try{await setKnowledgeModelPreference(alias);if(subject===subjectGeneration)composerNotice.value='已保存本人模型选择；每轮回答会显示实际模型。'}
+  catch(error){if(subject===subjectGeneration){selectedModel.value=old;applyError(error)}}
+  finally{if(subject===subjectGeneration)modelSaving.value=false}
+}
 const savedScopeNeedsSelection = ref(false)
 const mode = ref<'search' | 'ask'>('ask')
 const searchMode = ref<'STANDARD' | 'PRECISE'>('STANDARD')
@@ -118,11 +129,11 @@ const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FO
 
 const currentScopeLabel = computed(() => spaces.value.find(s => s.space_id === selectedSpace.value)?.title || '全部已收录资料')
 const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked))
-const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && !savedScopeNeedsSelection.value && (mode.value === 'search' || (status.value?.ask_enabled && status.value?.answer_availability?.available !== false))))
+const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && (mode.value === 'ask' || !retrievalBlocked.value) && !modelSaving.value && !savedScopeNeedsSelection.value && (mode.value === 'search' || (status.value?.ask_enabled && status.value?.answer_availability?.available !== false))))
 watch(subjectKey, () => {
   subjectGeneration++; searchGeneration++; statusGeneration++; catalogGeneration++; drawer.close(false); closeSummary()
   if (catalogTimer) clearTimeout(catalogTimer)
-  status.value = null; statusLoading.value = false; results.value = []; query.value = ''; composing.value = false
+  selectedModel.value='gpt-6-luna';modelSaving.value=false;knowledgeOnly.value=false; status.value = null; statusLoading.value = false; results.value = []; query.value = ''; composing.value = false
   searching.value = false; askBusy.value = false; hasConversation.value = false; composerNotice.value = ''
   savedContext.value = null; savedScopeNeedsSelection.value = false
   spaces.value = []; catalog.value = []; catalogTotal.value = 0; selectedSpace.value = ''; catalogQuery.value = ''; catalogPage.value = 1
@@ -263,7 +274,8 @@ async function refreshStatus() {
       searchGeneration++; results.value = []; hasSearched.value = false; searching.value = false; drawer.close(false); tools.value?.newConversation()
     }
     if (!current.can_enter) { catalogGeneration++; catalog.value = []; catalogTotal.value = 0 }
-    status.value = current; spaces.value = current.can_enter ? currentSpaces : []
+    status.value = current
+    if(current.model_catalog)selectedModel.value=current.model_catalog.selected_alias; spaces.value = current.can_enter ? currentSpaces : []
     if (selectedSpace.value && !currentSpaces.some(space => space.space_id === selectedSpace.value)) selectedSpace.value = ''
     if (!current.ask_enabled && mode.value === 'ask') setMode('search')
     if (current.can_enter && current.environment === 'production' && view.value === 'catalog') await refreshCatalog()

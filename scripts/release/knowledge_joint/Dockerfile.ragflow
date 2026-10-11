@@ -17,6 +17,7 @@ ENV PYTHONPATH=/opt/hbos-joint/native_startup:/opt/hbos-domain:/ragflow
 ENV RAG_PROJECT_BASE=/ragflow
 ENV RAG_DEPLOY_BASE=/ragflow
 ENV HBOS_PROVIDER_ACCOUNTING_MODE=AUDIT_ONLY
+ENV HBOS_MODEL_EGRESS_REQUIRED=1
 LABEL org.hbos.ragflow.source=ec9c08d809f63ba2815090182fa225899d2437d5
 ENTRYPOINT ["python", "/opt/hbos-joint/native_entry.py"]
 CMD ["api"]

@@ -111,6 +111,9 @@ class AuthorizedExecutionPlan:
     limits: Limits
     model_policy_ref: str
     search_mode: str = "STANDARD"
+    model_alias: str | None = None
+    knowledge_only: bool = False
+    answer_caller: str | None = None
 
     def to_wire(self):
         value = asdict(self)

@@ -26,6 +26,7 @@ services:
     image: ${HBOS_FRAPPE_IMAGE:?immutable image required}
     entrypoint: [/home/frappe/frappe-bench/env/bin/python, /opt/hbos-joint/initialize_site.py]
     environment:
+      HBOS_MODEL_EGRESS_REQUIRED: "0" # isolated DB management only; no model operation
       HBOS_SITE: ${HBOS_SITE:?isolated Site required}
       HBOS_SMOKE_PROJECT: ${COMPOSE_PROJECT_NAME:?isolated project required}
       HBOS_PORTAL_ORIGIN: ${HBOS_PORTAL_ORIGIN:?origin required}
@@ -45,17 +46,21 @@ services:
     environment:
       HBOS_PROVIDER_ACCOUNTING_MODE: AUDIT_ONLY
       HBOS_KNOWLEDGE_REFERENCE_CONFIG: /run/hbos-private/hbos.json
+      HBOS_MODEL_EGRESS_REQUIRED: "1"
+      HBOS_MODEL_EGRESS_CONFIG: /run/hbos-private/egress-bff.json
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
       - ${HBOS_PRIVATE_ROOT:?protected runtime directory required}:/run/hbos-private:ro
       - ${HBOS_UPLOAD_ROOT:?protected upload directory required}:/srv/hbos-uploads
+      - ${HBOS_AUDIT_ROOT:?protected audit directory required}:/run/hbos-audit
     networks: [joint]
   rollback:
     mem_limit: 1g
     image: ${HBOS_FRAPPE_IMAGE:?immutable image required}
     entrypoint: [/home/frappe/frappe-bench/env/bin/python, /opt/hbos-joint/rollback_site.py]
     environment:
+      HBOS_MODEL_EGRESS_REQUIRED: "0" # isolated DB management only; no model operation
       HBOS_SITE: ${HBOS_SITE:?isolated Site required}
       HBOS_SMOKE_PROJECT: ${COMPOSE_PROJECT_NAME:?isolated project required}
       HBOS_BACKUP_LOCK_SHA256: ${HBOS_BACKUP_LOCK_SHA256:-}
@@ -71,6 +76,9 @@ services:
     environment:
       HBOS_PROVIDER_ACCOUNTING_MODE: AUDIT_ONLY
       HBOS_KNOWLEDGE_SERVICE_CONFIG: /run/hbos-private/gateway.json
+      HBOS_MODEL_EGRESS_REQUIRED: "1"
+      HBOS_MODEL_EGRESS_CONFIG: /run/hbos-private/egress-service.json
+      HBOS_MODEL_REGISTRY: /run/hbos-private/model-registry.json
     volumes:
       - ${HBOS_PRIVATE_ROOT:?protected runtime directory required}:/run/hbos-private:ro
       - ${HBOS_AUDIT_ROOT:?protected audit directory required}:/run/hbos-audit

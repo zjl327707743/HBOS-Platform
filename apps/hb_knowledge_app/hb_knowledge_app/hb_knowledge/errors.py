@@ -2,6 +2,11 @@ from __future__ import annotations
 
 # Messages are fixed. Exception details, IDs, paths and upstream bodies never escape.
 ERRORS = {
+    "MODEL_UNAVAILABLE": (503,"所选模型配置尚未核验或已撤销，暂不可用。未自动切换其他模型。",False),
+    "MODEL_REQUEST_INVALID": (502,"模型服务拒绝了请求格式；请联系维护人核对模型协议。",False),
+    "MODEL_AUTH_FAILED": (502,"模型服务认证或授权失败；请联系维护人核对服务端配置。",False),
+    "MODEL_RATE_LIMITED": (429,"所选模型当前限流，请稍后重新提交。未自动重试或切换模型。",True),
+    "MODEL_SERVICE_FAILED": (503,"所选模型服务故障，请稍后重新提交。未自动重试或切换模型。",True),
     "IMPORT_BUSY": (409,"该批次正在处理，请等待本次完成。",True),
     "IDENTITY_CONFLICT": (409,"文件与现有身份或当前版本冲突，请选择明确的换版关系。",False),
     "QUALITY_REQUIRED": (409,"请先完成本版本的质量核对。",False),
@@ -10,6 +15,7 @@ ERRORS = {
     "AUTHENTICATION_REQUIRED": (401, "需要有效登录。", False),
     "CLIENT_AUTH_FAILED": (401, "客户端认证无效。", False),
     "SCOPE_REJECTED": (403, "当前请求不可访问。", False),
+    "ORIGINAL_ACCESS_DENIED": (403, "不能提供未授权资料或原件。请只查询已共享且有权查阅的资料。", False),
     "EMPTY_SCOPE": (403, "当前没有可用授权资料。", False),
     "DECISION_EXPIRED": (409, "授权决定已失效，请重新请求。", True),
     "REPLAY_REJECTED": (409, "请求标识已用于其他请求。", False),

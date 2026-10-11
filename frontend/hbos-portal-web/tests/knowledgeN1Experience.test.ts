@@ -50,7 +50,7 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
   })
   it('uses Command/Ctrl+Enter for questions while plain Enter keeps multiline editing', async () => {
     const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成问题'); await w.get('#knowledge-query').trigger('keydown', { key: 'Enter' }); expect(api.ask).not.toHaveBeenCalled()
-    await w.get('#knowledge-query').trigger('keydown', { key: 'Enter', metaKey: true }); await flushPromises(); expect(api.ask).toHaveBeenCalledWith('合成问题', '', undefined, 'STANDARD'); expect(w.text()).toContain(answer.answer)
+    await w.get('#knowledge-query').trigger('keydown', { key: 'Enter', metaKey: true }); await flushPromises(); expect(api.ask).toHaveBeenCalledWith('合成问题', '', undefined, 'STANDARD', 'gpt-6-luna', false); expect(w.text()).toContain(answer.answer)
   })
   it('does not turn a canceled search into zero hits or accept its late response', async () => {
     const pending = deferred(); api.search.mockReturnValue(pending.promise); const w = await view(); await w.get('#knowledge-query').setValue('合成关键词'); await w.get('.knowledge-search').trigger('submit'); await clickText(w, '返回编辑')
@@ -60,7 +60,7 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
   it('changing department discards a slow answer and starts the next turn without old context', async () => {
     const pending = deferred(); api.ask.mockReturnValueOnce(pending.promise); const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成问题'); await w.get('.knowledge-search').trigger('submit')
     await w.get('#knowledge-space').setValue('SPACE_N1_SECOND'); pending.resolve({ ...answer, answer: 'OLD_SCOPE_ANSWER' }); await flushPromises(); expect(w.text()).not.toContain('OLD_SCOPE_ANSWER')
-    await w.get('#knowledge-query').setValue('另一范围问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.ask).toHaveBeenLastCalledWith('另一范围问题', 'SPACE_N1_SECOND', undefined, 'STANDARD')
+    await w.get('#knowledge-query').setValue('另一范围问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.ask).toHaveBeenLastCalledWith('另一范围问题', 'SPACE_N1_SECOND', undefined, 'STANDARD', 'gpt-6-luna', false)
   })
   it('switching user suppresses a late answer and clears personal state', async () => {
     const pending = deferred(); api.ask.mockReturnValueOnce(pending.promise); const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('A用户问题'); await w.get('.knowledge-search').trigger('submit')

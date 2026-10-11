@@ -98,6 +98,10 @@ class DecisionStore:
                 raise KnowledgeError("REPLAY_REJECTED")
             self._validate_ticket(ticket)
             phases = self._phases[call.decision_ref]
+            if call.phase in ('pre_general_generation','post_general_generation'):
+                from .answer_policy import route_question
+                if not plan.model_alias or route_question(ticket.request.query,knowledge_only=plan.knowledge_only,context=ticket.request.context)!='GENERAL':
+                    raise KnowledgeError('SCOPE_REJECTED')
             valid = {
                 "introspect": call.operation == "introspect",
                 "cache_read": call.operation == "introspect" and "introspect" in phases,
@@ -107,7 +111,9 @@ class DecisionStore:
                 "pre_issue": call.operation == "authorize-evidence" and "pre_projection" in phases,
                 "evidence_read": call.operation == "authorize-evidence" and "introspect" in phases,
                 "document_read": call.operation == "authorize-evidence" and "introspect" in phases,
-                "final_publish": call.operation == "revalidate" and bool({"pre_projection","pre_issue","evidence_read","document_read"} & phases),
+                "pre_general_generation": call.operation == "revalidate" and "introspect" in phases,
+                "post_general_generation": call.operation == "revalidate" and "pre_general_generation" in phases,
+                "final_publish": call.operation == "revalidate" and bool({"pre_projection","pre_issue","evidence_read","document_read","post_general_generation"} & phases),
             }
             if not valid[call.phase]:
                 raise KnowledgeError("INVALID_REQUEST")

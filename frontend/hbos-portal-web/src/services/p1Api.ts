@@ -40,11 +40,17 @@ function unwrap<T>(envelope: DomainEnvelope<T>): T {
 }
 
 const KNOWLEDGE_MESSAGES: Record<string, string> = {
+  MODEL_UNAVAILABLE:'所选模型配置尚未核验或已撤销，暂不可用。未自动切换其他模型。',
+  MODEL_REQUEST_INVALID:'模型服务拒绝了请求格式，请联系维护人。',
+  MODEL_AUTH_FAILED:'模型服务认证或授权失败，请联系维护人。',
+  MODEL_RATE_LIMITED:'所选模型当前限流，未自动重试或切换模型。',
+  MODEL_SERVICE_FAILED:'所选模型服务故障，未自动重试或切换模型。',
   INVALID_REQUEST: '请求格式无效。',
   AUTHENTICATION_REQUIRED: '登录状态已失效，请重新登录。',
   CLIENT_AUTH_FAILED: '登录状态已失效，请重新登录。',
   FORBIDDEN: '当前请求不可访问。',
   SCOPE_REJECTED: '当前请求不可访问。',
+  ORIGINAL_ACCESS_DENIED: '不能提供未授权资料或原件。请只查询已共享且有权查阅的资料。',
   EMPTY_SCOPE: '当前没有可用授权资料。',
   EVIDENCE_INVALID: '该证据不可用或已失效。',
   EVIDENCE_REVOKED: '该证据不可用或已失效。',
@@ -131,10 +137,21 @@ function abortable<T>(work: Promise<T>, signal?: AbortSignal): Promise<T> {
   })
 }
 
+export const modelAliases=['gpt-6-luna','deepseek-flash','gemini-3.8-flash','kimi-k3'] as const
+function validateModelCatalog(data:import('@/contracts/p1').KnowledgeModels) {
+  if (!data || Object.keys(data).some(k=>!['default','models','selected_alias'].includes(k)) || data.default!=='gpt-6-luna' || !modelAliases.includes(data.selected_alias) || !Array.isArray(data.models) || data.models.length!==4 || data.models.some((m,i)=>m.alias!==modelAliases[i] || Object.keys(m).some(k=>!['alias','available','reason'].includes(k)) || typeof m.available!=='boolean' || ![null,'CONFIGURATION_NOT_VERIFIED'].includes(m.reason))) throw new DomainApiError('SERVICE_ERROR','模型配置状态无效。')
+  return data
+}
+export async function setKnowledgeModelPreference(alias:import('@/contracts/p1').KnowledgeModelAlias):Promise<void> {
+  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{selected_alias:string}>>('hb_knowledge_app.hb_knowledge.api.set_model_preference',{model_alias:alias}))
+  if (Object.keys(data).length!==1 || data.selected_alias!==alias) throw new DomainApiError('SERVICE_ERROR','模型偏好保存未确认。')
+}
 export async function getKnowledgeStatus(): Promise<KnowledgeStatus> {
-  return unwrapKnowledge(await callFrappeMethod<DomainEnvelope<KnowledgeStatus>>(
+  const data=unwrapKnowledge(await callFrappeMethod<DomainEnvelope<KnowledgeStatus>>(
     'hb_knowledge_app.hb_knowledge.api.get_status',
   ))
+  if (data.model_catalog) validateModelCatalog(data.model_catalog)
+  return data
 }
 
 export async function searchKnowledge(
@@ -269,7 +286,7 @@ export async function getKnowledgeActivity(kind: 'History' | 'Bookmark'): Promis
 export interface KnowledgeRecordPage<T> { items: T[]; page: number; page_size: number; has_more: boolean }
 function validateKnowledgeActivities(items: import('@/contracts/p1').KnowledgeActivity[]): void {
   items.forEach(item => {
-    if (Object.keys(item).some(k => !['id','query','created_at','available','titles','document_ids','version_ids','bookmark_type'].includes(k)) || typeof item.available !== 'boolean' || !Array.isArray(item.titles)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+    if (Object.keys(item).some(k => !['id','query','created_at','available','titles','document_ids','version_ids','bookmark_type','answer_origin','model_alias'].includes(k)) || typeof item.available !== 'boolean' || !Array.isArray(item.titles) || (item.answer_origin!=null && !['KNOWLEDGE','GENERAL'].includes(item.answer_origin)) || (item.model_alias!=null && !modelAliases.includes(item.model_alias))) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
     safeKnowledgeString(item.id,128);safeKnowledgeString(item.query,500);safeKnowledgeString(item.created_at,80)
     item.titles.forEach(t => safeKnowledgeString(t,240,true))
     for (const key of ['document_ids','version_ids'] as const) {
@@ -326,7 +343,7 @@ export async function openKnowledgeSaved(id: string): Promise<KnowledgeSavedQuer
     const r=data.restored
     if (!['ask','search'].includes(r.mode) || !['STANDARD','PRECISE'].includes(r.search_mode) || !Array.isArray(r.turns) || r.turns.length>10 || !Array.isArray(r.results) || r.results.length>5 || Object.keys(r).some(k=>!['mode','search_mode','results','turns'].includes(k))) throw invalid()
     r.results.forEach(validateKnowledgeEvidence)
-    r.turns.forEach(t=>{const {question,...answer}=t;safeKnowledgeString(question,500);validateKnowledgeAnswer(answer)})
+    r.turns.forEach(t=>{const {question,...answer}=t;safeKnowledgeString(question,500);validateKnowledgeAnswer(answer,undefined,true)})
     projected.restored=r
   }
   return projected
@@ -340,35 +357,51 @@ export async function saveKnowledgeBookmark(evidence: string, query: string): Pr
 export async function sendKnowledgeFeedback(evidence: string | undefined, category: string, note: string): Promise<void> {
   unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{id:string}>>('hb_knowledge_app.hb_knowledge.api.submit_feedback',{evidence_id:evidence,category,note}))
 }
-export async function askKnowledgeReference(question: string, space?: string, conversation?: string, searchMode: 'STANDARD' | 'PRECISE' = 'STANDARD'): Promise<import('@/contracts/p1').KnowledgeAnswer> {
-  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<import('@/contracts/p1').KnowledgeAnswer>>('hb_knowledge_app.hb_knowledge.api.ask',{question,search_mode:searchMode,...(space?{space_ids:[space]}:{}),...(conversation?{conversation_id:conversation}:{})}))
-  return validateKnowledgeAnswer(data,space)
+export async function askKnowledgeReference(question: string, space?: string, conversation?: string, searchMode: 'STANDARD' | 'PRECISE' = 'STANDARD', modelAlias:import('@/contracts/p1').KnowledgeModelAlias='gpt-6-luna',knowledgeOnly=false): Promise<import('@/contracts/p1').KnowledgeAnswer> {
+  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<import('@/contracts/p1').KnowledgeAnswer>>('hb_knowledge_app.hb_knowledge.api.ask',{question,search_mode:searchMode,model_alias:modelAlias,knowledge_only:knowledgeOnly,...(space?{space_ids:[space]}:{}),...(conversation?{conversation_id:conversation}:{})}))
+  const answer=validateKnowledgeAnswer(data,space)
+  if (answer.model_alias!==modelAlias || (knowledgeOnly && answer.answer_origin==='GENERAL')) throw new DomainApiError('SERVICE_ERROR','回答与本次模型或知识库选择不一致。')
+  return answer
 }
-function validateKnowledgeAnswer(data: import('@/contracts/p1').KnowledgeAnswer, space?: string): import('@/contracts/p1').KnowledgeAnswer {
-  if (Object.keys(data).some(k => !['request_id','turn_id','conversation_id','mode','answer_status','answerable','answer','citations'].includes(k)) || !Array.isArray(data.citations) || data.citations.length>5) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+function validateKnowledgeAnswer(data: import('@/contracts/p1').KnowledgeAnswer, space?: string,historical=false): import('@/contracts/p1').KnowledgeAnswer {
+  if (!data || typeof data!=='object' || Array.isArray(data)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  if (Object.keys(data).some(k => !['request_id','turn_id','conversation_id','mode','answer_status','answerable','answer','citations','answer_origin','model_alias'].includes(k)) || !Array.isArray(data.citations) || data.citations.length>5 || !(modelAliases.includes(data.model_alias as any)||(historical&&data.model_alias===null)) || !['KNOWLEDGE','GENERAL'].includes(data.answer_origin || '')) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   safeKnowledgeString(data.answer,2000);safeKnowledgeString(data.turn_id,128)
   safeKnowledgeString(data.request_id,128)
   if (data.conversation_id !== undefined) { safeKnowledgeString(data.conversation_id,128); if (data.conversation_id !== data.turn_id) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。') }
   const answered=data.mode==='internal_reference_generation' && data.answer_status==='REFERENCE_ANSWERED' && data.answerable===true && data.citations.length>0
-  const refusalMessages=['当前授权资料不足以形成回答。','无法可靠定位前一回答中的具体条目。请指出步骤名称或关键词后再问；当前资料不足以直接回答这个追问。']
+  const refusalMessages=['当前授权资料不足以形成回答。','没有可核验的企业依据。请提供已发布且有权查阅的资料。','无法可靠定位前一回答中的具体条目。请指出步骤名称或关键词后再问；当前资料不足以直接回答这个追问。']
   const insufficient=data.mode==='authorized_generation' && data.answer_status==='INSUFFICIENT_EVIDENCE' && data.answerable===false && refusalMessages.includes(data.answer) && data.citations.length===0
-  if (!answered && !insufficient) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  const general=data.mode==='general_generation' && data.answer_status==='GENERAL_ANSWERED' && data.answerable===true && data.answer_origin==='GENERAL' && data.citations.length===0 && !/\[C[1-5]\]/.test(data.answer)
+  if ((!answered && !insufficient && !general) || ((answered || insufficient) && data.answer_origin!=='KNOWLEDGE')) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   data.citations.forEach(c => { const {citation_label,...e}=c; if (!/^C[1-5]$/.test(citation_label)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。');validateKnowledgeEvidence(e) })
   if (new Set(data.citations.map(c => c.citation_label)).size !== data.citations.length || (space && data.citations.some(c => c.space_id !== undefined && c.space_id !== space))) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   return data
 }
 
-export interface PersonalConnection { id: string; label: string; client: 'OpenClaw' | 'Hermes'; stage: string; expires_at: string; revoked: boolean; expired: boolean; last_used_at: string | null }
+export interface PersonalConnection { id: string; label: string; client: 'OpenClaw' | 'Hermes'; stage: string; expires_at: string; revoked: boolean; expired: boolean; last_used_at: string | null; verification_state?:'CLIENT_NOT_VERIFIED'|'SERVER_READY'|'CLIENT_CONNECTED'|'KNOWLEDGE_USED'; client_receipt?:{connection_id:string;client:string;challenge_id:string;authenticated_at:string|null;tools_at:string|null;search_request_id:string|null;evidence_request_id:string|null;knowledge_used_at:string|null;assurance:string} | null }
 export interface ConnectionInfo { items: PersonalConnection[]; endpoint: string; auth_type: string; ttl_days: number; tools: string[]; deployment: string; query_blocked: boolean; client_versions: Record<string,string>; client_verification: Record<string,string> }
 export async function getKnowledgeConnections(): Promise<ConnectionInfo> {
   const data=unwrapKnowledge(await callFrappeMethod<DomainEnvelope<ConnectionInfo>>('hb_knowledge_app.hb_knowledge.api.get_connections'))
   if (!Array.isArray(data.items) || data.items.length>50 || !Array.isArray(data.tools) || data.tools.length!==4 || typeof data.endpoint!=='string') throw new DomainApiError('SERVICE_ERROR','连接信息无效。')
   const endpoint=new URL(data.endpoint)
-  if (endpoint.pathname!=='/mcp' || endpoint.search || endpoint.hash || (endpoint.protocol!=='https:' && !['localhost','knowledge-r2.localhost','127.0.0.1'].includes(endpoint.hostname))) throw new DomainApiError('SERVICE_ERROR','连接地址无效。')
+  if (endpoint.pathname!=='/mcp' || endpoint.search || endpoint.hash || endpoint.username || endpoint.password || (endpoint.protocol!=='https:' && !['localhost','knowledge-r2.localhost','127.0.0.1'].includes(endpoint.hostname))) throw new DomainApiError('SERVICE_ERROR','连接地址无效。')
+  const tools=['list_knowledge_spaces','search_knowledge','get_evidence','ask_knowledge']
+  if (new Set(data.tools).size!==4 || data.tools.some(t=>!tools.includes(t))) throw new DomainApiError('SERVICE_ERROR','连接工具范围无效。')
+  for (const item of data.items) {
+    if (!item || !/^[0-9a-f]{32}$/.test(item.id) || !['OpenClaw','Hermes'].includes(item.client) || typeof item.revoked!=='boolean' || typeof item.expired!=='boolean') throw new DomainApiError('SERVICE_ERROR','连接状态无效。')
+    safeKnowledgeString(item.label,80);safeKnowledgeString(item.stage,80)
+    if (item.verification_state && !['CLIENT_NOT_VERIFIED','SERVER_READY','CLIENT_CONNECTED','KNOWLEDGE_USED'].includes(item.verification_state)) throw new DomainApiError('SERVICE_ERROR','客户端收据无效。')
+    const receipt=item.client_receipt
+    if (receipt && (receipt.connection_id!==item.id || receipt.client!==item.client || !/^[0-9a-f]{32}$/.test(receipt.challenge_id) || receipt.assurance!=='BOUND_CHALLENGE_TOOL_CALLS')) throw new DomainApiError('SERVICE_ERROR','客户端收据无效。')
+    if (receipt) for (const key of ['authenticated_at','tools_at','knowledge_used_at'] as const) if (receipt[key]!==null && (typeof receipt[key]!=='string' || !Number.isFinite(Date.parse(receipt[key]!)))) throw new DomainApiError('SERVICE_ERROR','客户端收据时间无效。')
+    if (item.verification_state==='CLIENT_CONNECTED' && (!receipt?.authenticated_at || !receipt.tools_at)) throw new DomainApiError('SERVICE_ERROR','客户端收据未完成。')
+    if (item.verification_state==='KNOWLEDGE_USED' && (!receipt?.authenticated_at || !receipt.tools_at || !receipt.search_request_id || !receipt.evidence_request_id || !receipt.knowledge_used_at)) throw new DomainApiError('SERVICE_ERROR','来源收据未完成。')
+  }
   return data
 }
-export async function createKnowledgeConnection(label: string, client: string): Promise<{ id: string; token: string; expires_at: string }> {
-  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{id:string;token:string;expires_at:string}>>('hb_knowledge_app.hb_knowledge.api.create_connection',{label,client_name:client}))
+export async function createKnowledgeConnection(label: string, client: string): Promise<{ id: string; token: string; expires_at: string;challenge_id?:string;challenge_expires_at?:string }> {
+  const data=unwrapKnowledge(await callFrappePostMethod<DomainEnvelope<{id:string;token:string;expires_at:string;challenge_id?:string;challenge_expires_at?:string}>>('hb_knowledge_app.hb_knowledge.api.create_connection',{label,client_name:client}))
   if (!/^hbos_mcp_[0-9a-f]{32}\.[A-Za-z0-9_-]{43}$/.test(data.token) || !/^[0-9a-f]{32}$/.test(data.id)) throw new DomainApiError('SERVICE_ERROR','连接凭据无效。')
   return data
 }

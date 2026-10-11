@@ -79,15 +79,18 @@ def create(runtime,label,client_name):
     active=frappe.db.count(DOCTYPE,{'owner_user':actor.user_ref,'revoked':0,'expires_at':['>',datetime.now(timezone.utc).replace(tzinfo=None)]})
     if active>=8:raise KnowledgeError('RATE_LIMITED')
     name=secrets.token_hex(16);secret=secrets.token_urlsafe(32)
+    challenge=secrets.token_hex(16)
+    verification_data={'challenge':{'id':challenge,'expires_at':time.time()+1800},'client_receipt':None,'server_ready':None}
     expires=datetime.fromtimestamp(time.time()+7*86400,timezone.utc).replace(tzinfo=None)
     from .frappe_authority import committed_view
     with committed_view() as cur:_,version=_user(cur,actor.user_ref,cfg)
     frappe.get_doc({'doctype':DOCTYPE,'connection_id':name,'owner_user':actor.user_ref,'label':label,
         'client_name':client_name,'token_hash':hashlib.sha256(secret.encode()).hexdigest(),'security_version':version,
-        'audience':AUDIENCE,'expires_at':expires,'revoked':0,'stage':'Configured','verification_json':'{}'}).insert(ignore_permissions=True)
+        'audience':AUDIENCE,'expires_at':expires,'revoked':0,'stage':'Configured','verification_json':canonical(verification_data)}).insert(ignore_permissions=True)
     runtime.provider._current(actor,runtime.client)
     return {'id':name,'token':'hbos_mcp_'+name+'.'+secret,'expires_at':expires.isoformat()+'Z',
-            'auth_type':'PERSONAL_BEARER_TOKEN','tools':list(TOOLS)}
+            'auth_type':'PERSONAL_BEARER_TOKEN','tools':list(TOOLS),'challenge_id':challenge,
+            'challenge_expires_at':datetime.fromtimestamp(verification_data['challenge']['expires_at'],timezone.utc).isoformat()}
 
 def list_owned(runtime):
     import frappe
@@ -97,6 +100,8 @@ def list_owned(runtime):
         'expires_at':r.expires_at.isoformat()+'Z','revoked':bool(r.revoked),'expired':r.expires_at<=datetime.now(timezone.utc).replace(tzinfo=None),
         'last_used_at':r.last_used_at.isoformat()+'Z' if r.last_used_at else None,'stage':r.stage,
         'checks':verification(getattr(r,'verification_json',None)),
+        'verification_state':verification_state(getattr(r,'verification_json',None)),
+        'client_receipt':verification(getattr(r,'verification_json',None)).get('client_receipt'),
         'agent_conversation':'CLIENT_TEST_NOT_RUN'} for r in rows],
         'tools':list(TOOLS),'auth_type':'PERSONAL_BEARER_TOKEN','ttl_days':7,
         'portal_logout_revokes_connection':False,'deployment':'LOCAL_UAT',
@@ -134,10 +139,17 @@ CHECKS={'Authenticated':'authenticated','Tools Discovered':'tools_discovered',
 def verification(value):
     try:parsed=json.loads(value or '{}')
     except (ValueError,TypeError):raise KnowledgeError('POLICY_UNAVAILABLE') from None
-    if not isinstance(parsed,dict) or set(parsed)-set(CHECKS.values()):raise KnowledgeError('POLICY_UNAVAILABLE')
-    return {key:parsed.get(key) for key in CHECKS.values()}
+    if not isinstance(parsed,dict) or set(parsed)-set(CHECKS.values())-{'server_ready','client_receipt','challenge'}:raise KnowledgeError('POLICY_UNAVAILABLE')
+    return {**{key:parsed.get(key) for key in CHECKS.values()},**{k:parsed.get(k) for k in ('server_ready','client_receipt','challenge')}}
 
-def observe(name,stage):
+def verification_state(value):
+    facts=verification(value);receipt=facts.get('client_receipt') or {}
+    if receipt.get('knowledge_used_at'):return 'KNOWLEDGE_USED'
+    if receipt.get('authenticated_at') and receipt.get('tools_at'):return 'CLIENT_CONNECTED'
+    if facts.get('server_ready'):return 'SERVER_READY'
+    return 'CLIENT_NOT_VERIFIED'
+
+def observe(name,stage,observation=None,*,result=None,arguments=None):
     import frappe
     stages={'Authenticated':1,'Tools Discovered':2,'Knowledge Used':3,'Search Passed':3,'Evidence Opened':4,'Answer Generated':3}
     if stage not in stages:raise KnowledgeError('INVALID_REQUEST')
@@ -147,4 +159,28 @@ def observe(name,stage):
     now=datetime.now(timezone.utc).replace(tzinfo=None)
     facts={k:v for k,v in verification(rows[0].get('verification_json')).items() if v is not None}
     if stage in CHECKS:facts[CHECKS[stage]]=now.isoformat()+'Z'
+    # Legacy timestamp observations are retained; only the new separated facts
+    # can establish UAT3 client success.
+    observation=observation or {};channel=observation.get('channel')
+    if channel=='PORTAL_SELF_CHECK':
+        if stage=='Tools Discovered':facts['server_ready']=now.isoformat()+'Z'
+    elif channel=='CLIENT':
+        challenge=facts.get('challenge') or {}
+        client=frappe.db.get_value(DOCTYPE,name,'client_name')
+        if (observation.get('challenge_id')==challenge.get('id') and challenge.get('expires_at',0)>time.time()
+            and observation.get('client_name')==client):
+            receipt=facts.get('client_receipt') or {'connection_id':name,'client':client,'challenge_id':challenge['id'],
+                'assurance':'BOUND_CHALLENGE_TOOL_CALLS','authenticated_at':None,'tools_at':None,
+                'search_request_id':None,'evidence_request_id':None,'knowledge_used_at':None,'evidence_hashes':[]}
+            stamp=now.isoformat()+'Z'
+            if stage=='Authenticated':receipt['authenticated_at']=stamp
+            elif stage=='Tools Discovered':receipt['tools_at']=stamp
+            elif stage=='Search Passed' and receipt.get('tools_at') and isinstance(result,dict):
+                receipt['search_request_id']=result.get('request_id');receipt['knowledge_used_at']=None
+                receipt['evidence_hashes']=[hashlib.sha256(r['evidence_id'].encode()).hexdigest() for r in result.get('results',[]) if isinstance(r.get('evidence_id'),str)]
+            elif stage=='Evidence Opened' and receipt.get('search_request_id') and arguments:
+                handle=arguments.get('evidence_id','')
+                if hashlib.sha256(handle.encode()).hexdigest() in receipt['evidence_hashes']:
+                    receipt['evidence_request_id']=(result or {}).get('request_id');receipt['knowledge_used_at']=stamp
+            facts['client_receipt']=receipt
     frappe.db.set_value(DOCTYPE,name,{'stage':new,'last_used_at':now,'verification_json':canonical(facts)})

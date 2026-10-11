@@ -480,6 +480,25 @@
         "PRECISE"
       ],
       "default": "STANDARD"
+    },
+    "model_alias": {
+      "enum": [
+        null,
+        "gpt-6-luna",
+        "deepseek-flash",
+        "gemini-3.8-flash",
+        "kimi-k3"
+      ]
+    },
+    "knowledge_only": {
+      "type": "boolean"
+    },
+    "answer_caller": {
+      "enum": [
+        null,
+        "PORTAL",
+        "MCP"
+      ]
     }
   },
   "required": [

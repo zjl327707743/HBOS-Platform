@@ -8,10 +8,12 @@ COPY artifacts/*.whl /tmp/wheels/
 RUN chown -R frappe:frappe /home/frappe/frappe-bench/apps /opt/hbos-joint \
  && /home/frappe/frappe-bench/env/bin/pip install --require-hashes -r /tmp/requirements/build.lock \
  && /home/frappe/frappe-bench/env/bin/pip install --require-hashes -r /opt/hbos-joint/frappe-dependencies/requirements.lock \
+ && /home/frappe/frappe-bench/env/bin/pip install --require-hashes -r /opt/hbos-joint/frappe-dependencies/egress-requirements.lock \
  && /home/frappe/frappe-bench/env/bin/pip install --no-deps --no-build-isolation \
       /home/frappe/frappe-bench/apps/hbos_portal /home/frappe/frappe-bench/apps/hb_knowledge_app /tmp/wheels/*.whl \
  && /home/frappe/frappe-bench/env/bin/pip check
-ENV PYTHONPATH=/home/frappe/frappe-bench/apps/hbos_portal:/home/frappe/frappe-bench/apps/hb_knowledge_app
+ENV PYTHONPATH=/opt/hbos-joint/native_startup:/home/frappe/frappe-bench/apps/hbos_portal:/home/frappe/frappe-bench/apps/hb_knowledge_app
+ENV HBOS_MODEL_EGRESS_REQUIRED=1
 ENV HBOS_PROVIDER_ACCOUNTING_MODE=AUDIT_ONLY
 USER frappe
 WORKDIR /home/frappe/frappe-bench

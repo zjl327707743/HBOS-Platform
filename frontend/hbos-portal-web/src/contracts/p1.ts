@@ -12,6 +12,7 @@ export interface DomainEnvelope<T> {
 }
 
 export interface KnowledgeStatus {
+  model_catalog?: KnowledgeModels
   can_enter: boolean
   can_search: boolean
   can_maintain?: boolean
@@ -151,6 +152,8 @@ export interface KnowledgeFeedback {
 }
 
 export interface KnowledgeActivity {
+  answer_origin?: 'KNOWLEDGE' | 'GENERAL' | null
+  model_alias?: KnowledgeModelAlias | null
   id: string
   query: string
   created_at: string
@@ -161,12 +164,17 @@ export interface KnowledgeActivity {
   bookmark_type?: 'Document' | 'Evidence'
 }
 export interface KnowledgeAnswer {
+  answer_origin?: 'KNOWLEDGE' | 'GENERAL'
+  model_alias?: KnowledgeModelAlias | null
   request_id: string
   turn_id: string
   conversation_id?: string
-  mode: 'internal_reference_generation' | 'authorized_generation'
-  answer_status: 'REFERENCE_ANSWERED' | 'INSUFFICIENT_EVIDENCE'
+  mode: 'internal_reference_generation' | 'authorized_generation' | 'general_generation'
+  answer_status: 'REFERENCE_ANSWERED' | 'INSUFFICIENT_EVIDENCE' | 'GENERAL_ANSWERED'
   answerable: boolean
   answer: string
   citations: (KnowledgeEvidence & { citation_label: string })[]
 }
+
+export type KnowledgeModelAlias = 'gpt-6-luna' | 'deepseek-flash' | 'gemini-3.8-flash' | 'kimi-k3'
+export interface KnowledgeModels { default: 'gpt-6-luna'; selected_alias: KnowledgeModelAlias; models: {alias:KnowledgeModelAlias;available:boolean;reason:null|'CONFIGURATION_NOT_VERIFIED'}[] }

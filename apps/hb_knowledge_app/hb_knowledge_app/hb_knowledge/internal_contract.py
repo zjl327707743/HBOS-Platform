@@ -6,7 +6,8 @@ from .errors import KnowledgeError
 from .r1_contract import CONTRACT_VERSION
 
 PHASES = ("introspect", "pre_retrieval", "post_retrieval", "pre_projection",
-          "cache_read", "pre_issue", "evidence_read", "document_read", "final_publish")
+          "cache_read", "pre_issue", "evidence_read", "document_read", "final_publish",
+          "pre_general_generation", "post_general_generation")
 
 @dataclass(frozen=True)
 class ReferenceProof:

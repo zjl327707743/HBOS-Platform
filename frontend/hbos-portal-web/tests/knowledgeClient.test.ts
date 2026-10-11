@@ -156,12 +156,12 @@ describe('N1 current-user feedback and paginated catalog projections', () => {
 
 describe('N1 bounded follow-up responses', () => {
   const refusal = '无法可靠定位前一回答中的具体条目。请指出步骤名称或关键词后再问；当前资料不足以直接回答这个追问。'
-  const unanswered = { request_id: 'REQ_FOLLOWUP_DEMO', turn_id: 'TURN_FOLLOWUP_DEMO', conversation_id: 'TURN_FOLLOWUP_DEMO', mode: 'authorized_generation', answer_status: 'INSUFFICIENT_EVIDENCE', answerable: false, answer: refusal, citations: [] }
+  const unanswered = { request_id: 'REQ_FOLLOWUP_DEMO', turn_id: 'TURN_FOLLOWUP_DEMO', conversation_id: 'TURN_FOLLOWUP_DEMO', mode: 'authorized_generation', answer_status: 'INSUFFICIENT_EVIDENCE', answerable: false, answer: refusal, citations: [], answer_origin:'KNOWLEDGE', model_alias:'gpt-6-luna' }
   it('shows the exact server clarification for an ambiguous reference without invented citations', async () => {
     const { askKnowledgeReference } = await import('@/services/p1Api')
     transport.post.mockResolvedValue({ ok: true, data: unanswered })
     expect(await askKnowledgeReference('上面第二条是什么意思？', 'SPACE_QA_DEMO', 'PREVIOUS_TURN_DEMO')).toEqual(unanswered)
-    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.ask', { search_mode:'STANDARD', question: '上面第二条是什么意思？', space_ids: ['SPACE_QA_DEMO'], conversation_id: 'PREVIOUS_TURN_DEMO' })
+    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.ask', { model_alias:'gpt-6-luna',knowledge_only:false,search_mode:'STANDARD', question: '上面第二条是什么意思？', space_ids: ['SPACE_QA_DEMO'], conversation_id: 'PREVIOUS_TURN_DEMO' })
   })
   it.each([
     { ...unanswered, answer: '未被契约批准的拒答文本' },
@@ -207,4 +207,31 @@ describe('UAT2 signed-service compatibility in the existing Portal layout', () =
     transport.post.mockResolvedValue({ok:true,data:{...data,space_ids:['OTHER_SPACE_DEMO']}})
     await expect(openKnowledgeSaved('BOOKMARK_UAT2_DEMO')).rejects.toBeInstanceOf(DomainApiError)
   })
+})
+
+describe('UAT3 model selection and authentic source states; synthetic transport only',()=>{
+ const general={request_id:'REQUEST_DEMO',turn_id:'TURN_DEMO',mode:'general_generation',answer_status:'GENERAL_ANSWERED',answerable:true,answer:'你好',citations:[],answer_origin:'GENERAL',model_alias:'gpt-6-luna'}
+ it('accepts a closed general answer and binds it to the selected model and knowledge-only option',async()=>{
+  const {askKnowledgeReference}=await import('@/services/p1Api')
+  transport.post.mockResolvedValue({ok:true,data:general})
+  expect((await askKnowledgeReference('你好')).answer_origin).toBe('GENERAL')
+  await expect(askKnowledgeReference('你好',undefined,undefined,'STANDARD','kimi-k3')).rejects.toBeInstanceOf(DomainApiError)
+  await expect(askKnowledgeReference('你好',undefined,undefined,'STANDARD','gpt-6-luna',true)).rejects.toBeInstanceOf(DomainApiError)
+ })
+ it.each([{...general,citations:[{...card,citation_label:'C1'}]},{...general,answer:'你好 [C1]'},{...general,model_alias:'claude'},{...general,provider_key:'PRIVATE_DEMO'}])('rejects fabricated general provenance or provider field %#',async data=>{
+  const {askKnowledgeReference}=await import('@/services/p1Api');transport.post.mockResolvedValue({ok:true,data})
+  await expect(askKnowledgeReference('你好')).rejects.toBeInstanceOf(DomainApiError)
+ })
+ it('does not accept claimed client success without the matching search and evidence receipt',async()=>{
+  const {getKnowledgeConnections}=await import('@/services/p1Api')
+  transport.get.mockResolvedValue({ok:true,data:{items:[{id:'a'.repeat(32),label:'合成连接',client:'OpenClaw',stage:'Evidence Opened',revoked:false,expired:false,verification_state:'KNOWLEDGE_USED',client_receipt:null}],tools:['list_knowledge_spaces','search_knowledge','get_evidence','ask_knowledge'],endpoint:'http://localhost:18350/mcp'}})
+  await expect(getKnowledgeConnections()).rejects.toBeInstanceOf(DomainApiError)
+ })
+ it('can reopen history with an unrecorded original model without accepting an unrecorded live model',async()=>{
+  const {openKnowledgeSaved,askKnowledgeReference}=await import('@/services/p1Api')
+  const turn={...general,question:'旧的合成记录',model_alias:null}
+  transport.post.mockResolvedValueOnce({ok:true,data:{query:'旧的合成记录',space_ids:[],restored:{mode:'ask',search_mode:'STANDARD',turns:[turn],results:[]}}})
+  expect((await openKnowledgeSaved('HISTORY_DEMO')).restored?.turns[0].model_alias).toBeNull()
+  transport.post.mockResolvedValueOnce({ok:true,data:turn});await expect(askKnowledgeReference('你好')).rejects.toBeInstanceOf(DomainApiError)
+ })
 })

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import secrets
+import secrets,re
 import frappe
 from .errors import KnowledgeError, error_payload
 from .r1_contract import normalize_search, normalize_evidence, validate_structure
@@ -21,9 +21,10 @@ def _run(action):
         request=getattr(frappe.local,"request",None)
         retry=request.headers.get("X-HBOS-Request-ID") if request else None
         if retry is not None:
-            if not isinstance(retry,str) or not 8<=len(retry)<=128:
+            if not isinstance(retry,str) or not 8<=len(retry)<=128 or not re.fullmatch(r'[A-Za-z0-9_-]+',retry):
                 raise KnowledgeError("INVALID_REQUEST")
             request_id=retry
+        frappe.local.hbos_knowledge_request_id=request_id
         data=action(request_id)
         runtime=getattr(frappe.local,"hbos_knowledge_runtime",None)
         publication=getattr(runtime,"publication",None)
@@ -89,7 +90,8 @@ def get_status():
                 "policy_revision":None,"gateway_configured":runtime.gateway.configured,
                 "ask_enabled":_ask_enabled(runtime),"can_maintain":permitted(),"mode":"retrieval","environment":runtime.profile,
                 "answer_availability":{k:answer_status[k] for k in ('configured','available')},
-                "retrieval_availability":_availability(runtime)}
+                "retrieval_availability":_availability(runtime),
+                **({'model_catalog':_personal_models(runtime,actor)} if hasattr(runtime.gateway,'models') else {})}
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])
@@ -114,6 +116,12 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
             if value is not _UNSET: raw[key]=value
         request=normalize_search(raw,legacy=True)
         runtime=load_runtime(); actor=runtime.actor()
+        # Caller attribution is derived from the authenticated server connection.
+        # Browsers cannot nominate another caller or a model for retrieval.
+        if any(k in raw for k in ('model_alias','knowledge_only','answer_caller')):
+            raise KnowledgeError('INVALID_REQUEST')
+        from dataclasses import replace
+        request=replace(request,answer_caller='MCP' if getattr(frappe.local,'hbos_mcp_connection',None) else 'PORTAL')
         ticket=runtime.decisions.issue(actor,runtime.client,"knowledge.search",request,request_id)
         if getattr(runtime,"publication",None): runtime.publication.plan=ticket.plan
         records=load_gateway_client().search(ticket=ticket)
@@ -180,38 +188,46 @@ def ask(**business_fields):
     def current(request_id):
         raw=_framework_business(business_fields,'ask');validate_structure('AskRequest',raw)
         runtime=load_runtime();actor=runtime.actor()
+        from .answer_policy import model_alias,DEFAULT_MODEL
+        import frappe
+        selected=model_alias(raw.get('model_alias') or (DEFAULT_MODEL if getattr(frappe.local,'hbos_mcp_connection',None) else _personal_models(runtime,actor)['selected_alias']))
+        options={'model_alias':selected,'knowledge_only':raw.get('knowledge_only',False),
+                 'answer_caller':'MCP' if getattr(frappe.local,'hbos_mcp_connection',None) else 'PORTAL'}
         if not _ask_enabled(runtime):raise KnowledgeError('MODEL_NOT_APPROVED')
         from .activity import owned,current as activity_current,bindings_for,write
         from .public_strings import safe_string
         question=safe_string(raw['question'].strip(),500)
+        from .answer_policy import guard_restricted_request
+        guard_restricted_request(question)
         if raw.get('conversation_id'):
             _,mapping=activity_current(runtime)
             _,previous=owned(raw['conversation_id'],actor,kinds=('History',))
             bindings_for(previous,mapping)
-            requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')}})
+            requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
             from .followup import validate_followup_scope
             validate_followup_scope(previous,requested.space_ids,requested.context)
             from .followup import followup_query, UNRESOLVED_FOLLOWUP
-            followup=followup_query(previous['query'],question)
+            followup=(previous['query']+'；追问：'+question)[:500] if previous.get('answer_origin')=='GENERAL' and question in ('进一步解释','继续解释','举个例子') else followup_query(previous['query'],question)
             if followup is None:
                 # We do not persist answer structure or copy old answer text as facts.
                 # Ownership and current versions above are still mandatory.
-                request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')}})
+                request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
                 ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
                 runtime.publication.plan=ticket.plan
                 runtime.quota.reserve_output(actor.user_ref,len(UNRESOLVED_FOLLOWUP))
                 turn=write('History',question,request.space_ids,[],runtime,conversation_id=raw['conversation_id'],context=request.context,
-                    answer=UNRESOLVED_FOLLOWUP,labels=[],question=raw['question'],search_mode=request.search_mode)
+                    answer=UNRESOLVED_FOLLOWUP,labels=[],question=raw['question'],search_mode=request.search_mode,
+                    answer_origin='KNOWLEDGE',model_alias=selected)
                 activity_current(runtime)
                 runtime.audit.record(actor.user_ref,'ask','INSUFFICIENT_EVIDENCE',0)
                 return {'request_id':request_id,'turn_id':turn,'conversation_id':turn,'mode':'authorized_generation',
                         'answer_status':'INSUFFICIENT_EVIDENCE','answerable':False,
-                        'answer':UNRESOLVED_FOLLOWUP,'citations':[]}
+                        'answer':UNRESOLVED_FOLLOWUP,'citations':[],'answer_origin':'KNOWLEDGE','model_alias':selected}
             question=followup
-        request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')}})
+        request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
         ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
         runtime.publication.plan=ticket.plan
-        answer,labels,records=runtime.gateway.ask(ticket=ticket)
+        answer,labels,records,origin,actual_alias=runtime.gateway.ask(ticket=ticket)
         if records:runtime.gateway.authorize_evidence(ticket,records,phase='pre_issue')
         runtime.provider.revalidate(ticket.plan)
         from knowledge_service.hbos_gateway.response_projection import public_evidence
@@ -221,17 +237,57 @@ def ask(**business_fields):
             handle=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
             citations.append(dict(public_evidence(record,handle,environment=runtime.profile),citation_label=label))
         from .r1_contract import validate_ask_data
-        data={'request_id':request_id,'turn_id':request_id,'mode':'internal_reference_generation',
-            'answer_status':'REFERENCE_ANSWERED' if citations else 'INSUFFICIENT_EVIDENCE',
-            'answerable':bool(citations),'answer':answer,'citations':citations}
-        if not citations:data['mode']='authorized_generation'
+        data={'request_id':request_id,'turn_id':request_id,'mode':'general_generation' if origin=='GENERAL' else 'internal_reference_generation' if citations else 'authorized_generation',
+            'answer_status':'GENERAL_ANSWERED' if origin=='GENERAL' else 'REFERENCE_ANSWERED' if citations else 'INSUFFICIENT_EVIDENCE',
+            'answerable':origin=='GENERAL' or bool(citations),'answer':answer,'citations':citations,
+            'answer_origin':origin,'model_alias':actual_alias}
         validate_ask_data(data,environment=runtime.profile)
         turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context,
-            answer=answer,labels=labels,question=raw['question'],search_mode=request.search_mode)
+            answer=answer,labels=labels,question=raw['question'],search_mode=request.search_mode,
+            answer_origin=origin,model_alias=actual_alias)
         data['turn_id']=turn;data['conversation_id']=turn
         runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
         runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
         return data
+    return _run(current)
+
+
+def _personal_models(runtime,actor):
+    import frappe
+    from .answer_policy import ALIASES,DEFAULT_MODEL
+    runtime.provider._current(actor,runtime.client)
+    data=runtime.gateway.models()
+    if (not isinstance(data,dict) or set(data)!={'default','models'} or data['default']!=DEFAULT_MODEL
+        or not isinstance(data['models'],list) or [m.get('alias') for m in data['models']]!=list(ALIASES)
+        or any(set(m)!={'alias','available','reason'} or type(m['available']) is not bool or m['reason'] not in (None,'CONFIGURATION_NOT_VERIFIED') for m in data['models'])):
+        raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+    selected=frappe.defaults.get_user_default('hbos_knowledge_model',user=actor.user_ref)
+    available={m['alias'] for m in data['models'] if m['available']}
+    if selected not in available:selected=DEFAULT_MODEL
+    runtime.provider._current(actor,runtime.client)
+    return {**data,'selected_alias':selected}
+
+
+@frappe.whitelist(methods=['GET'])
+def get_models(**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'get_models'):raise KnowledgeError('INVALID_REQUEST')
+        runtime=load_runtime();return _personal_models(runtime,runtime.actor())
+    return _run(current)
+
+
+@frappe.whitelist(methods=['POST'])
+def set_model_preference(model_alias=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'set_model_preference'):raise KnowledgeError('INVALID_REQUEST')
+        from .answer_policy import model_alias as validate
+        import frappe
+        selected=validate(model_alias);runtime=load_runtime();actor=runtime.actor()
+        catalog=_personal_models(runtime,actor)
+        if not any(m['alias']==selected and m['available'] for m in catalog['models']):raise KnowledgeError('MODEL_UNAVAILABLE')
+        frappe.defaults.set_user_default('hbos_knowledge_model',selected,user=actor.user_ref)
+        runtime.provider._current(actor,runtime.client)
+        return {'selected_alias':selected}
     return _run(current)
 
 

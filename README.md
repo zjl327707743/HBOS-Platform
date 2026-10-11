@@ -1,6 +1,10 @@
 # 新乡海滨智能运营管理平台
 
-## 当前：HBOS Knowledge UAT2 — 2026-10-10
+## 当前：HBOS Knowledge UAT3 — 2026-10-11
+
+**UAT3_READY_FOR_OWNER / LOCAL_UAT / OWNER_NOT_RUN。** 四模型服务端白名单、明确通用/知识回答和真实 OpenClaw/Hermes MCP 工具收据已在既有本机候选完成关键流程实测。保留 UAT2 风格、15 份已发布资料和旧数据；PR #30 仍为 Draft，不合并、不切 P1。实际调用、两轮修复、证据边界与未运行子项见 [UAT3 验收候选](docs/milestones/M1_KB_UAT3_四模型与真实助手验收候选.md)。Owner 人工验收和公司服务器上线仍待执行。
+
+## 历史：HBOS Knowledge UAT2 — 2026-10-10
 
 **UAT2_IMPLEMENTATION_CANDIDATE / PROTOTYPE_APPROVED / OWNER_NOT_RUN / ROLLOUT_PENDING。** Owner 已正式批准知识库交互设计 V1，本轮原型审批门禁已满足。知识模块按批准原型完成独立首页、资料目录、本人收藏/记录、六步 MCP 向导和维护员资料/上传/版本/反馈页面；接入原生 Frappe/API，保留 15 份真实共享资料、GPT-6-luna、千问 Embedding、用户权限及关闭原件下载。按两轮截图与实际操作复验，最终运行源码、构建资产和 CI 以本机 Owner 交付联合锁为准。人工产品验收与真实服务器上线是独立 Gate；PR #30 保持 Draft，不合并、不切 P1、不开放全员。
 
