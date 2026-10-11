@@ -165,9 +165,12 @@ def department_funnel(published):
                     # confirmation when counting that single document.
                     before=bool(previous.get('internal_sharing_confirmed') and previous.get('owner_inclusion_confirmed'))
                     after=bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed'))
-                    if before and not after:continue
+                    if before and not after and prior['explicit_sharing_confirmation']:continue
                 elif item['version_id']!=current:continue
-            seen[(dept,doc)]={'item':item,'quality':quality.get(item['version_id'],{}),'new_batch':row['name'] not in baseline_batches}
+            explicit=(state.get('approval_status')=='OWNER_APPROVED' and bool(state.get('parent_processing_batch'))
+                      and str(item.get('approval_ref','')).startswith('NATIVE_SHARED_APPROVAL:'))
+            seen[(dept,doc)]={'item':item,'quality':quality.get(item['version_id'],{}),
+                             'new_batch':row['name'] not in baseline_batches,'explicit_sharing_confirmation':explicit}
     for (dept,doc),record in seen.items():
         item=record['item'];q=record['quality'];c=counts[dept]
         if record['new_batch']:c['discovered']+=1
