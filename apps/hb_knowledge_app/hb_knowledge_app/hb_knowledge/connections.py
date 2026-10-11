@@ -79,8 +79,7 @@ def create(runtime,label,client_name):
     active=frappe.db.count(DOCTYPE,{'owner_user':actor.user_ref,'revoked':0,'expires_at':['>',datetime.now(timezone.utc).replace(tzinfo=None)]})
     if active>=8:raise KnowledgeError('RATE_LIMITED')
     name=secrets.token_hex(16);secret=secrets.token_urlsafe(32)
-    challenge=secrets.token_hex(16)
-    verification_data={'challenge':{'id':challenge,'expires_at':time.time()+1800},'client_receipt':None,'server_ready':None}
+    verification_data={'client_receipt':None,'server_ready':None,'knowledge_usage':None,'pending_searches':[]}
     expires=datetime.fromtimestamp(time.time()+7*86400,timezone.utc).replace(tzinfo=None)
     from .frappe_authority import committed_view
     with committed_view() as cur:_,version=_user(cur,actor.user_ref,cfg)
@@ -89,8 +88,7 @@ def create(runtime,label,client_name):
         'audience':AUDIENCE,'expires_at':expires,'revoked':0,'stage':'Configured','verification_json':canonical(verification_data)}).insert(ignore_permissions=True)
     runtime.provider._current(actor,runtime.client)
     return {'id':name,'token':'hbos_mcp_'+name+'.'+secret,'expires_at':expires.isoformat()+'Z',
-            'auth_type':'PERSONAL_BEARER_TOKEN','tools':list(TOOLS),'challenge_id':challenge,
-            'challenge_expires_at':datetime.fromtimestamp(verification_data['challenge']['expires_at'],timezone.utc).isoformat()}
+            'auth_type':'PERSONAL_BEARER_TOKEN','tools':list(TOOLS)}
 
 def list_owned(runtime):
     import frappe
@@ -101,10 +99,12 @@ def list_owned(runtime):
         'last_used_at':r.last_used_at.isoformat()+'Z' if r.last_used_at else None,'stage':r.stage,
         'checks':verification(getattr(r,'verification_json',None)),
         'verification_state':verification_state(getattr(r,'verification_json',None)),
+        'knowledge_used_at':knowledge_used_at(getattr(r,'verification_json',None)),
+        'is_test':bool(re.search(r'\bUAT\d*\b|隔离测试',r.label or '',re.I)),
         'client_receipt':verification(getattr(r,'verification_json',None)).get('client_receipt'),
         'agent_conversation':'CLIENT_TEST_NOT_RUN'} for r in rows],
         'tools':list(TOOLS),'auth_type':'PERSONAL_BEARER_TOKEN','ttl_days':7,
-        'portal_logout_revokes_connection':False,'deployment':'LOCAL_UAT',
+        'portal_logout_revokes_connection':False,'deployment':endpoint_deployment(),
         'query_blocked':__import__(__package__+'.api',fromlist=['_availability'])._availability(runtime).get('blocked',True),
         'endpoint':cfg_endpoint(),'client_versions':configuration_metadata('versions'),
         'client_verification':configuration_metadata('verification')}
@@ -120,9 +120,25 @@ def configuration_metadata(field):
 
 def cfg_endpoint():
     from .shared_reference import configuration
+    from urllib.parse import urlsplit
     value=configuration().get('mcp_public_url')
-    if not value:raise KnowledgeError('POLICY_UNAVAILABLE')
+    if not isinstance(value,str):raise KnowledgeError('POLICY_UNAVAILABLE')
+    try:
+        endpoint=urlsplit(value)
+        local=endpoint.hostname in {'knowledge-r2.localhost','localhost','127.0.0.1','::1'}
+        valid=(endpoint.scheme in {'http','https'} and endpoint.hostname and endpoint.path=='/mcp'
+               and not endpoint.username and not endpoint.password and not endpoint.query and not endpoint.fragment
+               and (endpoint.scheme=='https' or local))
+        endpoint.port  # Reject malformed ports before returning an installation address.
+    except ValueError:valid=False
+    if not valid:raise KnowledgeError('POLICY_UNAVAILABLE')
+    if local and configuration().get('mcp_deployment_mode','LOCAL_UAT')!='LOCAL_UAT':
+        raise KnowledgeError('POLICY_UNAVAILABLE')
     return value
+
+def endpoint_deployment():
+    from urllib.parse import urlsplit
+    return 'LOCAL_UAT' if urlsplit(cfg_endpoint()).hostname in {'knowledge-r2.localhost','localhost','127.0.0.1','::1'} else 'SERVER_HTTPS'
 
 def revoke(runtime,name):
     import frappe
@@ -139,12 +155,26 @@ CHECKS={'Authenticated':'authenticated','Tools Discovered':'tools_discovered',
 def verification(value):
     try:parsed=json.loads(value or '{}')
     except (ValueError,TypeError):raise KnowledgeError('POLICY_UNAVAILABLE') from None
-    if not isinstance(parsed,dict) or set(parsed)-set(CHECKS.values())-{'server_ready','client_receipt','challenge'}:raise KnowledgeError('POLICY_UNAVAILABLE')
-    return {**{key:parsed.get(key) for key in CHECKS.values()},**{k:parsed.get(k) for k in ('server_ready','client_receipt','challenge')}}
+    if not isinstance(parsed,dict) or set(parsed)-set(CHECKS.values())-{'server_ready','client_receipt','challenge','knowledge_usage','pending_searches'}:raise KnowledgeError('POLICY_UNAVAILABLE')
+    return {**{key:parsed.get(key) for key in CHECKS.values()},**{k:parsed.get(k) for k in ('server_ready','client_receipt','challenge','knowledge_usage','pending_searches')}}
+
+def knowledge_used_at(value):
+    facts=verification(value)
+    usage=facts.get('knowledge_usage') or {}
+    if (usage.get('assurance')=='CONNECTION_SEARCH_AND_EVIDENCE' and usage.get('search_request_id')
+            and usage.get('evidence_request_id') and usage.get('knowledge_used_at')):
+        return usage['knowledge_used_at']
+    # Keep actual UAT3 search/source receipts, without requiring their expired
+    # installation challenge for future natural use of the same connection.
+    receipt=facts.get('client_receipt') or {}
+    if (receipt.get('assurance')=='BOUND_CHALLENGE_TOOL_CALLS' and receipt.get('search_request_id')
+            and receipt.get('evidence_request_id') and receipt.get('knowledge_used_at')):
+        return receipt['knowledge_used_at']
+    return None
 
 def verification_state(value):
     facts=verification(value);receipt=facts.get('client_receipt') or {}
-    if receipt.get('knowledge_used_at'):return 'KNOWLEDGE_USED'
+    if knowledge_used_at(value):return 'KNOWLEDGE_USED'
     if receipt.get('authenticated_at') and receipt.get('tools_at'):return 'CLIENT_CONNECTED'
     if facts.get('server_ready'):return 'SERVER_READY'
     return 'CLIENT_NOT_VERIFIED'
@@ -165,6 +195,27 @@ def observe(name,stage,observation=None,*,result=None,arguments=None):
     if channel=='PORTAL_SELF_CHECK':
         if stage=='Tools Discovered':facts['server_ready']=now.isoformat()+'Z'
     elif channel=='CLIENT':
+        # The signed bridge has authenticated this user's connection token and
+        # the tool result has already passed normal source authorization. App
+        # headers are advisory; neither a challenge nor tools/list is required.
+        pending=[p for p in facts.get('pending_searches') or [] if isinstance(p,dict) and p.get('expires_at',0)>time.time()]
+        if stage=='Search Passed' and isinstance(result,dict) and result.get('request_id'):
+            hashes=[hashlib.sha256(r['evidence_id'].encode()).hexdigest() for r in result.get('results',[])
+                    if isinstance(r,dict) and isinstance(r.get('evidence_id'),str)]
+            if hashes:
+                pending.append({'request_id':result['request_id'],'evidence_hashes':hashes[:50],'expires_at':time.time()+600})
+        elif stage=='Evidence Opened' and isinstance(result,dict) and result.get('request_id') and arguments:
+            handle=arguments.get('evidence_id')
+            digest=hashlib.sha256(handle.encode()).hexdigest() if isinstance(handle,str) else None
+            matches=[p for p in pending if digest in p.get('evidence_hashes',[])]
+            if matches:
+                facts['knowledge_usage']={'connection_id':name,'assurance':'CONNECTION_SEARCH_AND_EVIDENCE',
+                    'search_request_id':matches[-1]['request_id'],'evidence_request_id':result['request_id'],
+                    'knowledge_used_at':now.isoformat()+'Z'}
+                new='Knowledge Used'
+        facts['pending_searches']=pending[-16:]
+        # Existing UAT3 challenge receipts remain append-only compatibility
+        # evidence. They do not gate or identify the executing application.
         challenge=facts.get('challenge') or {}
         client=frappe.db.get_value(DOCTYPE,name,'client_name')
         if (observation.get('challenge_id')==challenge.get('id') and challenge.get('expires_at',0)>time.time()

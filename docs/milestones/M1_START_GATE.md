@@ -1,6 +1,13 @@
 # M1 启动门禁
 
-## 当前：HBOS Knowledge UAT3 — 2026-10-11
+## 当前：HBOS Knowledge UAT4 — 2026-10-11
+
+**LOCAL_UAT / REVIEWING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 个人助手入口简化为客户端选择、一次私密安装和最近真实知识使用。状态只在本人连接实际检索并打开同一检索来源后更新；个人 Token 与无凭据使用规则分开存储。已批准的成功资料按精确子集分批发布，完整性未过关的资料保持待核；解析许可不能代替共享许可。原 15 份、UAT2 样式、四回答模型、千问 Embedding 和默认零外部 rerank 保留。
+
+本轮事实、最终统计及制品边界见 [UAT4 验收候选](M1_KB_UAT4_极简接入与真实资料发布候选.md)；Owner 私有联合锁为数量、运行源码、CI 和 wheel 的最终依据。PR #30 保持 Draft，不合并、不切 P1、不开放正式员工。公司 HTTPS 入口待部署，本机地址仅用于本机 Owner 验收。
+
+
+## 历史：HBOS Knowledge UAT3 — 2026-10-11
 
 状态 **UAT3_READY_FOR_OWNER / LOCAL_UAT / OWNER_NOT_RUN**，限定已实测的四模型、一般/知识回答、原生 MCP 工具收据与本机版本。事实、发送数量、两轮修复及 NOT_RUN 子项见 [UAT3 验收候选](M1_KB_UAT3_四模型与真实助手验收候选.md)。Owner 人工验收前 PR #30 保持 Draft，不合并、不切 P1、不扩大员工范围。UAT2 原型批准继续作为视觉依据，受保护的旧协作和状态文件保持原哈希。
 

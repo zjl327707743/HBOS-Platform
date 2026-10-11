@@ -455,6 +455,21 @@ def review_import(batch_id=None,document_id=None,checks=None,note=None,**fields)
     return _maintenance_action('review_import',fields,lambda:review(batch_id,document_id,checks,note))
 
 @frappe.whitelist(methods=['POST'])
+def review_import_batch(batch_id=None,document_ids=None,checks=None,note=None,**fields):
+    from .maintenance import review_batch
+    return _maintenance_action('review_import_batch',fields,lambda:review_batch(batch_id,document_ids,checks,note))
+
+@frappe.whitelist(methods=['POST'])
+def hold_import_quality(batch_id=None,document_ids=None,note=None,**fields):
+    from .maintenance import hold_quality
+    return _maintenance_action('hold_import_quality',fields,lambda:hold_quality(batch_id,document_ids,note))
+
+@frappe.whitelist(methods=['POST'])
+def approve_import_sharing(batch_id=None,document_ids=None,note=None,**fields):
+    from .maintenance import approve_sharing
+    return _maintenance_action('approve_import_sharing',fields,lambda:approve_sharing(batch_id,document_ids,note))
+
+@frappe.whitelist(methods=['POST'])
 def publish_import(batch_id=None,document_ids=None,operation='publish',expected_version=None,reason=None,**fields):
     from .maintenance import publish
     return _maintenance_action('publish_import',fields,lambda:publish(batch_id,document_ids,operation,expected_version,reason))

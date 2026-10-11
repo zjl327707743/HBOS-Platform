@@ -59,6 +59,7 @@ class InternalSharedAuthority(FrappePairedAuthority):
                         for item in batch_state['items']:
                             q=quality.get(item['version_id'],{})
                             if (item['status']=='parsed/indexed' and item.get('disposition')!='SAME_CONTENT_SKIP' and
+                                item.get('internal_sharing_confirmed') is True and item.get('owner_inclusion_confirmed') is True and
                                 q.get('status')=='Passed' and q.get('source_sha256')==item['sha256'] and
                                 q.get('upload_sha256')==item.get('upload_sha256')):
                                 registered_pairs.add((item['canonical_document_id'],item['version_id'],item['dataset_id'],item['ragflow_document_id'],item['binding_revision']))

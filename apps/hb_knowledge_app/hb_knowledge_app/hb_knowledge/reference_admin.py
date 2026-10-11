@@ -24,18 +24,24 @@ def _verify_backend(cfg, item):
     with requests.Session() as session:
         session.trust_env = False
         session.headers['Authorization'] = 'Bearer ' + auth['token']
-        response = session.get(base + f'/api/v1/datasets/{dataset}/documents',
-                               params={'id': document, 'page_size': 2}, timeout=(3, 30), allow_redirects=False)
-        response.raise_for_status()
-        value = response.json()
-        docs = value.get('data', {}).get('docs', [])
-        _require(value.get('code') == 0 and len(docs) == 1 and docs[0]['id'] == document,
-                 'Backend document cannot be verified')
-        actual = docs[0]
         expected = {k: item[k] for k in ('version_id', 'canonical_document_id', 'binding_revision')}
         from .native_identity import identity_metadata_matches
-        _require(identity_metadata_matches(actual.get('meta_fields'),expected) and int(actual.get('chunk_count', 0)) > 0
-                 and str(actual.get('run')).upper() in {'DONE', '3'}, 'Backend binding is not indexed')
+        # Native index metadata can settle shortly after DONE. Bounded reads
+        # never enqueue parsing or relax the final identity/source checks.
+        for attempt in range(3):
+            response = session.get(base + f'/api/v1/datasets/{dataset}/documents',
+                                   params={'id': document, 'page_size': 2}, timeout=(3, 30), allow_redirects=False)
+            response.raise_for_status()
+            value = response.json()
+            docs = value.get('data', {}).get('docs', [])
+            _require(value.get('code') == 0 and len(docs) == 1 and docs[0]['id'] == document,
+                     'Backend document cannot be verified')
+            actual = docs[0]
+            indexed = int(actual.get('chunk_count', 0)) > 0 and str(actual.get('run')).upper() in {'DONE', '3'}
+            _require(indexed, 'Backend binding is not indexed')
+            if identity_metadata_matches(actual.get('meta_fields'), expected):break
+            if attempt == 2:raise PublicationConflict('Backend binding is not indexed')
+            time.sleep(1)
         # Stream hashing is bounded in memory; it verifies the actual uploaded derivative.
         with session.get(base + f'/api/v1/datasets/{dataset}/documents/{document}',
                          timeout=(3, 60), stream=True, allow_redirects=False) as original:

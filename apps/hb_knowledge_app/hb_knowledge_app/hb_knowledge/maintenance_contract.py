@@ -65,7 +65,7 @@ def admit_file(name,data):
     return ext,hashlib.sha256(data).hexdigest()
 
 def registered(frozen,state):
-    from knowledge_service.ingestion import canonical,verify_state
+    from knowledge_service.ingestion import canonical,verify_state,processing_approved
     if (not isinstance(frozen,dict) or normalized_department(frozen.get('department_key')) not in DEPARTMENTS or
         not isinstance(frozen.get('items'),list) or not 1<=len(frozen['items'])<=512):
         raise KnowledgeError('INVALID_REQUEST')
@@ -74,9 +74,7 @@ def registered(frozen,state):
         raise KnowledgeError('INVALID_REQUEST')
     ids=set()
     for item in frozen['items']:
-        if (item.get('department_key')!=frozen['department_key'] or
-            not item.get('internal_sharing_confirmed') or not item.get('owner_inclusion_confirmed') or
-            not item.get('approval_ref') ):
+        if (item.get('department_key')!=frozen['department_key'] or not processing_approved(frozen,item)):
             raise KnowledgeError('INVALID_REQUEST')
         if item['version_id'] in ids and item.get('disposition')!='SAME_CONTENT_SKIP':raise KnowledgeError('INVALID_REQUEST')
         ids.add(item['version_id'])

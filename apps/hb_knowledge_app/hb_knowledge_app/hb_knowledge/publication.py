@@ -17,6 +17,7 @@ FROZEN_PUBLICATION_FIELDS = (
 
 def select_publication_items(state, selected_document_ids=None):
     eligible=[item for item in state['items'] if item['status']=='parsed/indexed'
+              and item.get('owner_inclusion_confirmed') is True and item.get('internal_sharing_confirmed') is True
               and item.get('disposition') not in {'SAME_CONTENT_SKIP','ALIAS'}]
     if selected_document_ids is None:return eligible
     if (not isinstance(selected_document_ids,list) or not 1<=len(selected_document_ids)<=512

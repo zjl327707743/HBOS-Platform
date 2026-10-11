@@ -5,9 +5,9 @@ from hb_knowledge_app.hb_knowledge.publication import PublicationConflict,decide
 class PublicationTests(unittest.TestCase):
     def test_subset_preserves_original_frozen_order_and_does_not_modify_state(self):
         import copy
-        state={'items':[{'canonical_document_id':'A','status':'parsed/indexed'},
+        state={'items':[{'canonical_document_id':'A','status':'parsed/indexed','owner_inclusion_confirmed':True,'internal_sharing_confirmed':True},
                         {'canonical_document_id':'B','status':'parse_failed'},
-                        {'canonical_document_id':'C','status':'parsed/indexed'}]}
+                        {'canonical_document_id':'C','status':'parsed/indexed','owner_inclusion_confirmed':True,'internal_sharing_confirmed':True}]}
         before=copy.deepcopy(state)
         self.assertEqual([i['canonical_document_id'] for i in select_publication_items(state,['C'])],['C'])
         self.assertEqual(state,before)
@@ -15,8 +15,8 @@ class PublicationTests(unittest.TestCase):
             with self.subTest(selected=selected),self.assertRaises(PublicationConflict):select_publication_items(state,selected)
 
     def test_subset_does_not_select_a_duplicate_alias_as_another_publication(self):
-        state={'items':[{'canonical_document_id':'A','status':'parsed/indexed'},
-                        {'canonical_document_id':'A','status':'parsed/indexed','disposition':'ALIAS'}]}
+        state={'items':[{'canonical_document_id':'A','status':'parsed/indexed','owner_inclusion_confirmed':True,'internal_sharing_confirmed':True},
+                        {'canonical_document_id':'A','status':'parsed/indexed','owner_inclusion_confirmed':True,'internal_sharing_confirmed':True,'disposition':'ALIAS'}]}
         self.assertEqual(len(select_publication_items(state,['A'])),1)
 
     def frozen(self):

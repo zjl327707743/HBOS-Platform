@@ -1,5 +1,5 @@
 """Native maintenance workflow; publication reuses the existing CAS publisher."""
-import hashlib,json,os,secrets,time
+import copy,hashlib,json,os,secrets,time
 from pathlib import Path
 import frappe
 from .errors import KnowledgeError
@@ -101,6 +101,7 @@ def _projection(row,frozen,state,page,page_size):
             'relationship':item['disposition'],'expected_version':item.get('expected_current_version'),
             'parse_status':item['status'],'progress':max(0,min(1,float(item.get('progress') or 0))),
             'chunk_count':int(item.get('chunk_count') or 0),'quality_status':review.get('status','Pending'),
+            'shared_approved':bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed')),
             'quality_note':review.get('note',''),'current_version':published.get('current_version') if published else None,
             'publication_status':'Withdrawn' if published and published['withdrawn'] else ('Published' if published and published['current_version']==item['version_id'] and published['ingestion_status']=='published' else 'Unpublished')})
     return {'batch_id':row['name'],'label':row['label'],'department':row['department_key'],'status':row['status'],
@@ -131,12 +132,75 @@ def dashboard(batch_id=None,page=1,page_size=12):
     return {'departments':[{'key':k,'title':v} for k,v in DEPARTMENTS.items()],
             'batches':batches,'selected':selected,'feedback':feedback_queue(load_runtime()),
             'published_documents':sorted(published.values(),key=lambda i:i['title']),
-            'import_availability':availability}
+            'import_availability':availability,'department_funnel':department_funnel(published)}
+
+def department_funnel(published):
+    """Counts only, with a private discovery baseline and live native states."""
+    cfg=configuration();outside={};baseline_batches=set();excluded=set()
+    path=cfg.get('corpus_funnel_snapshot_file')
+    if path:
+        try:
+            value=json.loads(Path(path).read_text())
+            outside=value.get('outside_registered',{});baseline_batches=set(value.get('registered_batch_ids',[]))
+            excluded=set(value.get('excluded_batch_ids',[]))
+        except (ValueError,TypeError,OSError):raise KnowledgeError('POLICY_UNAVAILABLE') from None
+    fields=('discovered','shared_approved','uploaded','parsed','validated','published','pending_review','isolated','sensitive','failed','sharing_pending')
+    counts={d:{key:0 for key in fields} for d in DEPARTMENTS};seen={};known=set()
+    for row in frappe.get_all(TABLE,fields=['name','frozen_json','state_json','quality_json'],
+                              order_by='modified asc',limit_page_length=1000):
+        if row['name'] in excluded:continue
+        state=_json(row,'state_json',{});quality=_json(row,'quality_json',{});dept=normalized_department(state.get('department_key'))
+        if dept not in counts:continue
+        for item in state.get('items',[]):
+            if item.get('disposition') in ('SAME_CONTENT_SKIP','ALIAS'):continue
+            doc=item['canonical_document_id'];known.add(doc)
+            current=published.get(doc,{}).get('version_id')
+            prior=seen.get((dept,doc))
+            if prior:
+                previous=prior['item']
+                if current and previous['version_id']==current and item['version_id']!=current:continue
+                if previous['version_id']==item['version_id']:
+                    # An approved derivative retains the same logical/physical
+                    # identity as its processing-only parent. Prefer the sharing
+                    # confirmation when counting that single document.
+                    before=bool(previous.get('internal_sharing_confirmed') and previous.get('owner_inclusion_confirmed'))
+                    after=bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed'))
+                    if before and not after:continue
+                elif item['version_id']!=current:continue
+            seen[(dept,doc)]={'item':item,'quality':quality.get(item['version_id'],{}),'new_batch':row['name'] not in baseline_batches}
+    for (dept,doc),record in seen.items():
+        item=record['item'];q=record['quality'];c=counts[dept]
+        if record['new_batch']:c['discovered']+=1
+        c['shared_approved']+=bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed'))
+        c['sharing_pending']+=not bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed'))
+        c['uploaded']+=bool(item.get('ragflow_document_id'))
+        c['parsed']+=item.get('status')=='parsed/indexed'
+        passed=q.get('status')=='Passed' and q.get('source_sha256')==item.get('sha256') and q.get('upload_sha256')==item.get('upload_sha256')
+        c['validated']+=passed
+        c['pending_review']+=item.get('status')=='parsed/indexed' and not passed
+        c['failed']+=item.get('status')=='parse_failed'
+        c['isolated']+=item.get('status')=='quarantined'
+    for doc,item in published.items():
+        dept=item['department'];c=counts.get(dept)
+        if c is None:continue
+        c['published']+=1
+        if doc not in known:
+            for key in ('shared_approved','uploaded','parsed','validated'):c[key]+=1
+            if not path:c['discovered']+=1
+    for dept,c in counts.items():
+        extra=outside.get(dept,{})
+        for key in fields:
+            if key=='published':continue
+            number=extra.get(key,0)
+            if type(number) is not int or not 0<=number<=100000:raise KnowledgeError('POLICY_UNAVAILABLE')
+            c[key]+=number
+    return [{'department':dept,'title':DEPARTMENTS[dept],**c} for dept,c in counts.items()]
 
 def queue(batch_id,document_ids,operation='parse'):
     require();row,frozen,state=_row(batch_id,True)
     if operation not in ('parse','retry','resume','continue') or not isinstance(document_ids,list) or not 1<=len(document_ids)<=4 or len(set(document_ids))!=len(document_ids):raise KnowledgeError('INVALID_REQUEST')
-    items=[i for i in state['items'] if i['canonical_document_id'] in document_ids]
+    items=[i for i in state['items'] if i['canonical_document_id'] in document_ids
+           and i.get('disposition') not in ('SAME_CONTENT_SKIP','ALIAS')]
     allowed={'planned','uploaded'} if operation=='parse' else ({'parse_queued'} if operation in ('resume','continue') else {'parse_failed'})
     if len(items)!=len(document_ids) or any(i['status'] not in allowed or i['disposition']=='SAME_CONTENT_SKIP' for i in items):raise KnowledgeError('INVALID_REQUEST')
     from .api import _availability
@@ -176,22 +240,91 @@ def preview(batch_id,document_id,page=1):
         'chunk_count':item.get('chunk_count',0),'source_sha256':item['sha256']}
 
 def review(batch_id,document_id,checks,note):
+    return review_batch(batch_id,[document_id],checks,note)
+
+def hold_quality(batch_id,document_ids,note):
+    """Keep an exact unpublished subset pending after a stronger quality check."""
     require();row,frozen,state=_row(batch_id,True)
+    if (not isinstance(document_ids,list) or not 1<=len(document_ids)<=50
+            or len(set(document_ids))!=len(document_ids) or not isinstance(note,str)
+            or not 3<=len(note.strip())<=500):raise KnowledgeError('INVALID_REQUEST')
+    items=[i for i in state['items'] if i['canonical_document_id'] in document_ids
+           and i.get('disposition') not in ('SAME_CONTENT_SKIP','ALIAS')]
+    if len(items)!=len(document_ids):raise KnowledgeError('INVALID_REQUEST')
+    for item in items:
+        current=frappe.db.get_value('HBOS Knowledge Document',item['canonical_document_id'],
+                                   ['current_version','withdrawn','ingestion_status'],as_dict=True)
+        if (current and current['current_version']==item['version_id']
+                and not current['withdrawn'] and current['ingestion_status']=='published'):
+            raise KnowledgeError('INVALID_REQUEST')
+    from .public_strings import safe_string
+    quality=_json(row,'quality_json',{})
+    for item in items:
+        record={'status':'Pending','note':safe_string(note.strip(),500),'source_sha256':item['sha256'],
+                'upload_sha256':item.get('upload_sha256'),'version_id':item['version_id'],
+                'reviewed_by':frappe.session.user,'reviewed_at':time.time()}
+        record['evidence_sha256']=hashlib.sha256(canonical(record).encode()).hexdigest()
+        quality[item['version_id']]=record
+    frappe.db.set_value(TABLE,batch_id,'quality_json',canonical(quality));frappe.db.commit()
+    return {'status':'Pending','held_documents':len(items)}
+
+def review_batch(batch_id,document_ids,checks,note):
+    require();row,frozen,state=_row(batch_id,True)
+    if not isinstance(document_ids,list) or not 1<=len(document_ids)<=50 or len(set(document_ids))!=len(document_ids):raise KnowledgeError('INVALID_REQUEST')
     if not isinstance(checks,list) or set(checks)!={'text','numbers','tables','identity'} or not isinstance(note,str) or not 3<=len(note.strip())<=500:raise KnowledgeError('INVALID_REQUEST')
     from .public_strings import safe_string
     note=safe_string(note.strip(),500)
-    items=[i for i in state['items'] if i['canonical_document_id']==document_id and i['status']=='parsed/indexed']
-    if len(items)!=1:raise KnowledgeError('INVALID_REQUEST')
-    item=items[0]
+    items=[i for i in state['items'] if i['canonical_document_id'] in document_ids and i.get('disposition') not in ('SAME_CONTENT_SKIP','ALIAS')]
+    from knowledge_service.ingestion import processing_approved
+    if len(items)!=len(document_ids) or any(i['status']!='parsed/indexed' or not processing_approved(frozen,i) for i in items):raise KnowledgeError('INVALID_REQUEST')
     from .reference_admin import _verify_backend
-    _verify_backend(configuration(),item)
-    quality=_json(row,'quality_json',{});record={'status':'Passed','note':note.strip(),'checks':sorted(checks),
-        'source_sha256':item['sha256'],'upload_sha256':item['upload_sha256'],'version_id':item['version_id'],
-        'reviewed_by':frappe.session.user,'reviewed_at':time.time()}
-    record['evidence_sha256']=hashlib.sha256(canonical(record).encode()).hexdigest()
-    quality[item['version_id']]=record
+    # Verify the entire exact selection before changing any review record.
+    for item in items:_verify_backend(configuration(),item)
+    quality=_json(row,'quality_json',{});records=[]
+    for item in items:
+        record={'status':'Passed','note':note.strip(),'checks':sorted(checks),
+            'source_sha256':item['sha256'],'upload_sha256':item['upload_sha256'],'version_id':item['version_id'],
+            'reviewed_by':frappe.session.user,'reviewed_at':time.time()}
+        record['evidence_sha256']=hashlib.sha256(canonical(record).encode()).hexdigest()
+        quality[item['version_id']]=record;records.append(record)
     frappe.db.set_value(TABLE,batch_id,'quality_json',canonical(quality));frappe.db.commit()
-    return {'status':'Passed','evidence_sha256':record['evidence_sha256']}
+    return {'status':'Passed','reviewed_documents':len(items),'evidence_sha256':records[0]['evidence_sha256'] if len(records)==1 else hashlib.sha256(canonical(records).encode()).hexdigest()}
+
+def approve_sharing(batch_id,document_ids,note):
+    """An explicit maintainer confirmation creates a new immutable sharing batch."""
+    require();row,frozen,state=_row(batch_id,True)
+    if (frozen.get('approval_status')!='OWNER_PROCESSING_ONLY' or not isinstance(document_ids,list)
+            or not 1<=len(document_ids)<=50 or len(set(document_ids))!=len(document_ids)
+            or not isinstance(note,str) or not 3<=len(note.strip())<=500):raise KnowledgeError('INVALID_REQUEST')
+    items=[i for i in state['items'] if i['canonical_document_id'] in document_ids
+           and i.get('disposition') not in ('SAME_CONTENT_SKIP','ALIAS')]
+    quality=_json(row,'quality_json',{})
+    if len(items)!=len(document_ids):raise KnowledgeError('INVALID_REQUEST')
+    for item in items:
+        q=quality.get(item['version_id'],{})
+        if (item['status']!='parsed/indexed' or item.get('technical_admission')!='ADMIT_INTERNAL_REFERENCE'
+                or item.get('internal_sharing_confirmed') is not False or item.get('owner_inclusion_confirmed') is not False
+                or q.get('status')!='Passed' or q.get('source_sha256')!=item['sha256']
+                or q.get('upload_sha256')!=item.get('upload_sha256')):raise KnowledgeError('QUALITY_REQUIRED')
+    from .public_strings import safe_string
+    from .reference_admin import _verify_backend
+    for item in items:_verify_backend(configuration(),item)
+    approval='NATIVE_SHARED_APPROVAL:'+hashlib.sha256(canonical([frappe.session.user,batch_id,sorted(document_ids),note.strip()]).encode()).hexdigest()
+    new_frozen=copy.deepcopy(frozen);new_frozen.pop('batch_sha256')
+    new_frozen.update(approval_status='OWNER_APPROVED',approval_ref=approval,
+        parent_processing_batch=batch_id,sharing_review_note=safe_string(note.strip(),500))
+    new_frozen['items']=[copy.deepcopy(i) for i in frozen['items'] if i['canonical_document_id'] in document_ids]
+    for item in new_frozen['items']:item.update(owner_inclusion_confirmed=True,internal_sharing_confirmed=True,approval_ref=approval)
+    new_frozen['batch_sha256']=hashlib.sha256(canonical(new_frozen).encode()).hexdigest()
+    new_state=copy.deepcopy(new_frozen)
+    from knowledge_service.ingestion import RUNTIME_STATE_FIELDS,RUNTIME_ITEM_FIELDS
+    new_state.update({k:v for k,v in state.items() if k in RUNTIME_STATE_FIELDS})
+    by_version={i['version_id']:i for i in items}
+    for item in new_state['items']:item.update({k:v for k,v in by_version[item['version_id']].items() if k in RUNTIME_ITEM_FIELDS})
+    new_id='IMP_'+new_frozen['batch_sha256'][:32];exists=frappe.db.exists(TABLE,new_id)
+    register_batch(new_frozen,new_state,'已确认共享的资料批次',frappe.session.user)
+    if not exists:frappe.db.set_value(TABLE,new_id,'quality_json',canonical({i['version_id']:quality[i['version_id']] for i in items}))
+    frappe.db.commit();return {'batch_id':new_id,'approved_documents':len(items),'status':'Sharing approved; publication required'}
 
 def publication_config(batch_id,selected,operation,expected,reason,approval):
     # Called only after the public native handler checked the maintenance role,
@@ -240,7 +373,8 @@ def publish(batch_id,document_ids,operation='publish',expected_version=None,reas
 def withdraw(batch_id,document_id,expected_version,reason):
     require();row,frozen,state=_row(batch_id,True)
     if not isinstance(reason,str) or not 3<=len(reason.strip())<=500:raise KnowledgeError('INVALID_REQUEST')
-    items=[i for i in state['items'] if i['canonical_document_id']==document_id and i['version_id']==expected_version]
+    items=[i for i in state['items'] if i['canonical_document_id']==document_id and i['version_id']==expected_version
+           and i.get('disposition') not in ('SAME_CONTENT_SKIP','ALIAS')]
     if len(items)!=1:raise KnowledgeError('INVALID_REQUEST')
     rows=frappe.db.sql('SELECT current_version,withdrawn,source_hash FROM `tabHBOS Knowledge Document` WHERE name=%s FOR UPDATE',(document_id,),as_dict=True)
     if len(rows)!=1 or rows[0]['current_version']!=expected_version:raise KnowledgeError('IDENTITY_CONFLICT')

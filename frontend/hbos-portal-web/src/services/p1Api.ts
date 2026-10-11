@@ -379,13 +379,13 @@ function validateKnowledgeAnswer(data: import('@/contracts/p1').KnowledgeAnswer,
   return data
 }
 
-export interface PersonalConnection { id: string; label: string; client: 'OpenClaw' | 'Hermes'; stage: string; expires_at: string; revoked: boolean; expired: boolean; last_used_at: string | null; verification_state?:'CLIENT_NOT_VERIFIED'|'SERVER_READY'|'CLIENT_CONNECTED'|'KNOWLEDGE_USED'; client_receipt?:{connection_id:string;client:string;challenge_id:string;authenticated_at:string|null;tools_at:string|null;search_request_id:string|null;evidence_request_id:string|null;knowledge_used_at:string|null;assurance:string} | null }
+export interface PersonalConnection { id: string; label: string; client: 'OpenClaw' | 'Hermes'; stage: string; expires_at: string; revoked: boolean; expired: boolean; last_used_at: string | null; knowledge_used_at?:string|null; is_test?:boolean; verification_state?:'CLIENT_NOT_VERIFIED'|'SERVER_READY'|'CLIENT_CONNECTED'|'KNOWLEDGE_USED'; client_receipt?:{connection_id:string;client:string;challenge_id:string;authenticated_at:string|null;tools_at:string|null;search_request_id:string|null;evidence_request_id:string|null;knowledge_used_at:string|null;assurance:string} | null }
 export interface ConnectionInfo { items: PersonalConnection[]; endpoint: string; auth_type: string; ttl_days: number; tools: string[]; deployment: string; query_blocked: boolean; client_versions: Record<string,string>; client_verification: Record<string,string> }
 export async function getKnowledgeConnections(): Promise<ConnectionInfo> {
   const data=unwrapKnowledge(await callFrappeMethod<DomainEnvelope<ConnectionInfo>>('hb_knowledge_app.hb_knowledge.api.get_connections'))
   if (!Array.isArray(data.items) || data.items.length>50 || !Array.isArray(data.tools) || data.tools.length!==4 || typeof data.endpoint!=='string') throw new DomainApiError('SERVICE_ERROR','连接信息无效。')
   const endpoint=new URL(data.endpoint)
-  if (endpoint.pathname!=='/mcp' || endpoint.search || endpoint.hash || endpoint.username || endpoint.password || (endpoint.protocol!=='https:' && !['localhost','knowledge-r2.localhost','127.0.0.1'].includes(endpoint.hostname))) throw new DomainApiError('SERVICE_ERROR','连接地址无效。')
+  if (endpoint.pathname!=='/mcp' || endpoint.search || endpoint.hash || endpoint.username || endpoint.password || !['http:','https:'].includes(endpoint.protocol) || (endpoint.protocol!=='https:' && !['localhost','knowledge-r2.localhost','127.0.0.1'].includes(endpoint.hostname))) throw new DomainApiError('SERVICE_ERROR','连接地址无效。')
   const tools=['list_knowledge_spaces','search_knowledge','get_evidence','ask_knowledge']
   if (new Set(data.tools).size!==4 || data.tools.some(t=>!tools.includes(t))) throw new DomainApiError('SERVICE_ERROR','连接工具范围无效。')
   for (const item of data.items) {
@@ -396,7 +396,9 @@ export async function getKnowledgeConnections(): Promise<ConnectionInfo> {
     if (receipt && (receipt.connection_id!==item.id || receipt.client!==item.client || !/^[0-9a-f]{32}$/.test(receipt.challenge_id) || receipt.assurance!=='BOUND_CHALLENGE_TOOL_CALLS')) throw new DomainApiError('SERVICE_ERROR','客户端收据无效。')
     if (receipt) for (const key of ['authenticated_at','tools_at','knowledge_used_at'] as const) if (receipt[key]!==null && (typeof receipt[key]!=='string' || !Number.isFinite(Date.parse(receipt[key]!)))) throw new DomainApiError('SERVICE_ERROR','客户端收据时间无效。')
     if (item.verification_state==='CLIENT_CONNECTED' && (!receipt?.authenticated_at || !receipt.tools_at)) throw new DomainApiError('SERVICE_ERROR','客户端收据未完成。')
-    if (item.verification_state==='KNOWLEDGE_USED' && (!receipt?.authenticated_at || !receipt.tools_at || !receipt.search_request_id || !receipt.evidence_request_id || !receipt.knowledge_used_at)) throw new DomainApiError('SERVICE_ERROR','来源收据未完成。')
+    if (item.knowledge_used_at!==undefined && item.knowledge_used_at!==null && (typeof item.knowledge_used_at!=='string'||!Number.isFinite(Date.parse(item.knowledge_used_at)))) throw new DomainApiError('SERVICE_ERROR','最近使用时间无效。')
+    if (item.is_test!==undefined && typeof item.is_test!=='boolean') throw new DomainApiError('SERVICE_ERROR','连接状态无效。')
+    if (item.verification_state==='KNOWLEDGE_USED' && !item.knowledge_used_at && (!receipt?.authenticated_at || !receipt.tools_at || !receipt.search_request_id || !receipt.evidence_request_id || !receipt.knowledge_used_at)) throw new DomainApiError('SERVICE_ERROR','来源收据未完成。')
   }
   return data
 }
