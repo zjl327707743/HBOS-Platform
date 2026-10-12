@@ -33,7 +33,8 @@
 
 ## 3. 共享文件的“单写入口”
 
-以下属于平台共享面，**领域团队不能在长期功能分支中反复整文件覆盖**：
+以下属于平台共享面。**默认只由平台集成人员修改**，领域团队不得在**长期**功能分支中
+反复整文件覆盖：
 
 - `frontend/hbos-portal-web/src/router/index.ts`、`src/services/frappeClient.ts`、`src/services/portalProvider.ts`
 - `frontend/hbos-portal-web/src/components/portal/AppCenter.vue`、`src/components/global/AppSwitcher.vue`
@@ -41,7 +42,28 @@
 - `apps/hbos_portal/hbos_portal/services/bootstrap.py`、Registry / Provider Contract
 - `AGENTS.md`、`CLAUDE.md`、根 `README.md`、`docs/PROJECT_STATUS.md`、CI 工作流
 
-应用团队原则上只提交本域增量；共享入口由**平台集成人员**在单独、短小的接入 PR 中修改，并在 PR 描述列出访问控制测试。APP 专属前端路由/导航/样式优先模块化，避免日常直接改全局 CSS。确需改共享文件时，事先在 PR 中登记变更接口并与平台组约定集成顺序。
+### 3.1 领域短期分支可携带本域必需的共享文件改动（登记制）
+
+**Owner 2026-10-12 追认**：领域 PR **可以**携带本域必需的共享文件改动，
+但必须按下列条件，而不是一律禁止：
+
+1. **短期分支**：改动发生在基于当日 `origin/feature/hbos-portal-product` 的短期功能分支上，
+   不是长期分支反复覆盖；
+2. **本域必需**：只改本域跑起来所必需的部分（例如仓库新增页面所需的
+   `router/index.ts` 路由条目、`inventoryNav.ts` 的导航数据），不做无关的全局重构；
+3. **PR 内登记**：在 PR 描述中**列出改了哪些共享文件、改了哪个接口**，
+   并说明访问控制 / 权限测试；
+4. **集成窗口核对**：由平台集成人员在集成窗口统一核对，冲突时以平台侧为准。
+
+若偏离上述条件（长期分支、非必需改动、未登记接口），仍按平台单写处理——
+由平台集成人员在单独、短小的接入 PR 中修改。
+
+**先例（本条追认的依据）**：PR #39（仓库 P4 原生工作台）基于当日产品分支的短期分支，
+携带了 `router/index.ts`（+105）、`frappeClient.ts`（+353/-5）、`global.css`（+1214）、
+`stores/portal.ts`（+32/-2）与 `components/layout/*`。这些是仓库工作台自证完整所必需的，
+且改动有界、可登记。**该形态属被追认的正常做法**，不再与「单写入口」字面冲突。
+
+APP 专属前端路由 / 导航 / 样式仍优先模块化，避免日常直接改全局 CSS。
 
 ## 4. PR 粒度与提交合同
 
