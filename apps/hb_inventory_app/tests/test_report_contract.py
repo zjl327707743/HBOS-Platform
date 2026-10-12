@@ -319,8 +319,13 @@ class ReportEmptyScopeTest(unittest.TestCase):
     所以这里断言**源码结构**：空 scope 的早退分支必须存在，且位置在拼 SQL 之前。
     """
 
-    #: 共享同一套 `_warehouse_scope` 的两张报表
-    SCOPE_REPORTS = ("货位明细表", "库级盘点三对账")
+    #: 四张报表都经 `warehouse_scope.resolve_scope` 取货位范围、都拼 `in (...)`，
+    #: 因此共享同一个「空范围 → 空结果」的不变量。
+    #
+    # 2026-10-12 变更：原先只有两张报表自带 `_warehouse_scope`，另两张用单值相等。
+    # 修跨仓读取时把范围解析统一收进 `warehouse_scope.py`，四张都改走共享入口，
+    # 于是这个不变量也落到四张上。断言仍指向同一个意图，只是形状跟着改。
+    SCOPE_REPORTS = ("货位明细表", "库级盘点三对账", "效期预警", "按批号查货位")
 
     def _source(self, report_name: str) -> str:
         return (REPORT_DIR / report_name / f"{report_name}.py").read_text(encoding="utf-8")
@@ -330,7 +335,7 @@ class ReportEmptyScopeTest(unittest.TestCase):
             with self.subTest(report=report_name):
                 source = self._source(report_name)
                 self.assertIn(
-                    "if scope is not None and not scope:",
+                    "if not scope:",
                     source,
                     f"「{report_name}」缺少「空范围 → 空结果」的早退分支；"
                     f"货位名拼错时报表会 500 而不是返回空",
@@ -341,7 +346,7 @@ class ReportEmptyScopeTest(unittest.TestCase):
         for report_name in self.SCOPE_REPORTS:
             with self.subTest(report=report_name):
                 source = self._source(report_name)
-                guard = source.index("if scope is not None and not scope:")
+                guard = source.index("if not scope:")
                 build = source.index("placeholders = ")
                 self.assertLess(
                     guard,
@@ -356,12 +361,14 @@ class ReportEmptyScopeTest(unittest.TestCase):
                 source = self._source(report_name)
                 self.assertIn("return _columns(), []", source)
 
-    def test_single_value_warehouse_reports_are_not_affected(self):
-        """另两张用单值相等（`sbe.warehouse = %(warehouse)s`），不拼 IN，天然没有这个坑。
+    def test_no_report_keeps_its_own_scope_helper(self):
+        """范围解析只有一份：四张报表都不得自带 `_warehouse_scope` 副本。
 
-        记录这条是为了说清「为什么只改两张」——免得后来者以为漏改了两张。
+        副本是这份测试原本要防的漂移来源；现在连那次收敛也钉住——
+        将来谁再抄一份回去，这里会先红。
         """
-        for report_name in ("效期预警", "按批号查货位"):
+        for report_name in self.SCOPE_REPORTS:
             with self.subTest(report=report_name):
                 source = self._source(report_name)
                 self.assertNotIn("_warehouse_scope", source)
+                self.assertIn("resolve_scope(filters)", source)
