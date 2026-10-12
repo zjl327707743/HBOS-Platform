@@ -1,5 +1,10 @@
 import unittest
 
+from hbos_portal.contracts.errors import PortalException
+from hbos_portal.services.access import (
+    SEMANTIC_ACCESS_REQUIREMENTS,
+    require_provider_capability,
+)
 from hbos_portal.services.registry import build_registry
 
 from .fake_providers import (
@@ -49,6 +54,65 @@ class RegistryTests(unittest.TestCase):
         )
         self.assertEqual({}, registry.entries)
         self.assertEqual(1, len(registry.failures))
+
+    def test_lims_semantic_capability_gates_are_explicit(self):
+        self.assertEqual(
+            {
+                ("lims", "results"): "lims.results.read",
+                ("lims", "ledger"): "lims.ledger.read",
+                ("lims", "retains"): "lims.retention.read",
+            },
+            SEMANTIC_ACCESS_REQUIREMENTS,
+        )
+
+        class _Provider:
+            def access_context(self):
+                return {
+                    "app_id": "lims",
+                    "can_enter": True,
+                    "capabilities": [
+                        "lims.results.read",
+                        "lims.ledger.read",
+                        "lims.retention.read",
+                    ],
+                    "scopes": {},
+                }
+
+        class _Manifest:
+            id = "lims"
+
+        entry = type("Entry", (), {
+            "manifest": _Manifest(),
+            "provider": _Provider(),
+        })()
+
+        for capability in ("results", "ledger", "retains"):
+            with self.subTest(capability=capability):
+                self.assertTrue(require_provider_capability(entry, capability).can_enter)
+
+        entry.provider = type("Provider", (), {
+            "access_context": lambda self: {
+                "app_id": "lims",
+                "can_enter": True,
+                "capabilities": [],
+                "scopes": {},
+            }
+        })()
+        with self.assertRaises(PortalException) as raised:
+            require_provider_capability(entry, "ledger")
+        self.assertEqual("FORBIDDEN", raised.exception.error.code)
+
+        entry.provider = type("Provider", (), {
+            "access_context": lambda self: {
+                "app_id": "lims",
+                "can_enter": False,
+                "capabilities": [],
+                "scopes": {},
+            }
+        })()
+        with self.assertRaises(PortalException) as raised:
+            require_provider_capability(entry, "results")
+        self.assertEqual("FORBIDDEN", raised.exception.error.code)
 
 
 if __name__ == "__main__":

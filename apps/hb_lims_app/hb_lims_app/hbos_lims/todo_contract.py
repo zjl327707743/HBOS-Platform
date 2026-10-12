@@ -111,6 +111,11 @@ TODO_RULES = (
         route="/tasks", route_param_fields=("scope", "task"),
     ),
     _rule(
+        "quality", "HBOS COA", "已审核", "publish_coa", "发布 COA",
+        execute_mode="direct",
+        route="/tasks", route_param_fields=("scope", "view", "coa"),
+    ),
+    _rule(
         "stability_timepoint", "HBOS Stability Timepoint", "待取样",
         "complete_sampling", "完成取样", assignment_field="sample_by",
         execute_mode="direct", due_extractor="effective_sample_due",
@@ -247,6 +252,20 @@ TODO_RULES = (
         condition="monitor_missing",
     ),
 )
+
+
+# Portal 本地任务视图只按已有业务动作聚合，不自行发明状态或角色判断。
+# `publish_coa` 由 COA 质量凭证流程提供，和普通结果批准保持独立。
+PORTAL_TASK_VIEW_ACTIONS = {
+    "my-testing": frozenset({"start_task", "submit_result"}),
+    "my-review": frozenset({"review_result", "review_observation"}),
+    "my-approval": frozenset({
+        "approve_result",
+        "approve_usage",
+        "approve_disposal",
+        "publish_coa",
+    }),
+}
 
 
 def business_roles_for_user(user: str, roles: Sequence[str]) -> tuple[str, ...]:
