@@ -22,13 +22,6 @@ STATE_DIR="${HBOS_PREVIEW_STATE_DIR:-${TMPDIR:-/tmp}/hbos-portal-preview-${USER:
 ENV_FILE="$STATE_DIR/preview.env"
 PREVIEW_COMPOSE="$ROOT_DIR/scripts/portal/docker-compose.isolated-preview.yml"
 
-# 隔离 Site 的 host_name。**必须设置**：不设时 frappe.utils.get_url() 会落到
-# http://$SITE_NAME，而该域名在 backend 容器内解析到 127.0.0.1，那里没有 web 服务，
-# 于是 wkhtmltopdf 报 ConnectionRefusedError——货位卡 / 待检证 / 一切 HTML→PDF 全部失败。
-# 指向 Compose 服务别名 frontend 即可：backend 与 frontend 同在本项目网络内，
-# 既真实可解析，又不会指向宿主或正式栈。
-PREVIEW_HOST_NAME="${HBOS_PREVIEW_HOST_NAME:-http://frontend:8080}"
-
 mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
 
@@ -142,33 +135,12 @@ dc() {
 info "1/7 校验隔离 Compose"
 dc config --quiet
 
-# 断言 Preview 的 assets 存储确实落在本项目自己的 assets-data 命名卷内。
-#
-# 旧断言查的是 `/home/frappe/frappe-bench/sites/assets` 的挂载条数（要求 >=8）。
-# 该断言基于一个已被实测推翻的前提：它假设必须把 assets-data 挂到 sites/assets。
-# 实际上镜像 entrypoint 自己会把 sites/assets 软链到 bench/assets，
-# 而 bench/assets 本就由基础 compose 挂到 assets-data；在 sites/assets
-# 再挂一次会让 entrypoint 的 `rm -rf sites/assets` 因 EBUSY 失败，
-# 在 `set -e` 下直接导致 Preview 全部 Frappe 服务崩溃循环。
-#
-# 因此改为断言真正的隔离不变量（注意 `docker compose config` 输出的是
-# 长格式 `source:` / `target:`，不是 `vol:/path` 短格式）：
-#   ① assets-data 卷解析到本项目命名空间；
-#   ② 有服务把它挂到 bench/assets；
-#   ③ 没有任何服务把它挂到 sites/assets。
-COMPOSE_CONFIG="$(dc config)"
-
-if ! grep -q "name: ${PROJECT}_assets-data" <<<"$COMPOSE_CONFIG"; then
-  fail "assets-data 未解析到本项目命名空间 ${PROJECT}_assets-data（隔离性无法保证）"
-fi
-
-ASSET_MOUNT_COUNT="$(grep -c 'target: /home/frappe/frappe-bench/assets' <<<"$COMPOSE_CONFIG" || true)"
-if [[ "$ASSET_MOUNT_COUNT" -lt 1 ]]; then
-  fail "Preview Compose 未把 assets-data 挂到 Frappe 服务的 bench/assets（当前命中 $ASSET_MOUNT_COUNT）"
-fi
-
-if grep -q 'target: /home/frappe/frappe-bench/sites/assets' <<<"$COMPOSE_CONFIG"; then
-  fail "Preview Compose 仍把卷挂到 sites/assets；镜像 entrypoint 的 rm -rf 会因 EBUSY 失败并导致崩溃循环"
+ASSET_MOUNT_COUNT="$(
+  dc config |
+    grep -c '/home/frappe/frappe-bench/sites/assets' || true
+)"
+if [[ "$ASSET_MOUNT_COUNT" -lt 8 ]]; then
+  fail "Preview Compose 未对所有 Frappe 服务显式命名 sites/assets 卷（当前命中 $ASSET_MOUNT_COUNT）"
 fi
 
 if docker ps --format '{{.Names}}' | grep -q '^hbos-m0-r3a-'; then
@@ -209,21 +181,6 @@ fi
 
 # Ensure the existing isolated site is aligned with the current worktree.
 dc exec -T backend bench --site "$SITE_NAME" migrate >/dev/null
-
-# 对齐 host_name：见文件头部 PREVIEW_HOST_NAME 注释。幂等——值相同就不动 site_config。
-EXISTING_HOST_NAME="$(
-  dc exec -T backend bash -lc \
-    "test -f sites/$SITE_NAME/site_config.json && python3 -c \"import json;print(json.load(open('sites/$SITE_NAME/site_config.json')).get('host_name') or '')\"" \
-    2>/dev/null || true
-)"
-EXISTING_HOST_NAME="$(printf '%s' "$EXISTING_HOST_NAME" | tr -d '\r\n')"
-if [[ "$EXISTING_HOST_NAME" != "$PREVIEW_HOST_NAME" ]]; then
-  dc exec -T backend bench --site "$SITE_NAME" set-config host_name "$PREVIEW_HOST_NAME" >/dev/null
-  dc exec -T backend bench --site "$SITE_NAME" clear-cache >/dev/null
-  echo "host_name 已设为 $PREVIEW_HOST_NAME（原为 ${EXISTING_HOST_NAME:-未设置}）"
-else
-  echo "host_name 已是 $PREVIEW_HOST_NAME"
-fi
 
 APPS="$(dc exec -T backend bench --site "$SITE_NAME" list-apps)"
 printf '%s\n' "$APPS"

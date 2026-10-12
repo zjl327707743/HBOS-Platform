@@ -1,27 +1,43 @@
 # Preview-only Compose hardening.
 #
-# 结论（2026-10-12 实测更正）：本文件原先声明的「v16 镜像可能把
-# /home/frappe/frappe-bench/sites/assets 声明为嵌套 VOLUME」对本仓库使用的
-# frappe/erpnext:v16.26.2 **不成立**。实测该镜像的 VOLUME 只有两个：
+# frappe/erpnext v16-era images may declare /home/frappe/frappe-bench/sites/assets
+# as a nested VOLUME. docker compose run / temporary containers can otherwise
+# create anonymous volumes outside the Compose project namespace.
 #
-#   /home/frappe/frappe-bench/logs
-#   /home/frappe/frappe-bench/sites
-#
-# 而镜像 entrypoint（/usr/local/bin/entrypoint.sh，带 `set -e`）无条件执行：
-#
-#   rm -rf /home/frappe/frappe-bench/sites/assets
-#   ln -s /home/frappe/frappe-bench/assets /home/frappe/frappe-bench/sites/assets
-#
-# 也就是说：**assets 的统一本来就由 entrypoint 的软链完成**，
-# sites/assets 会指向 bench/assets，而 bench/assets 已由基础 compose
-# 挂到 assets-data 命名卷。原先在此处再挂一次 assets-data 是
-# ① 冗余、② 有害——docker 卷挂载点无法被 `rm -rf` 删除，
-# 在 `set -e` 下容器立即退出，配合 `restart: on-failure` 形成崩溃循环。
-#
-# 因此本 override 不再挂 sites/assets；assets 仍全部落在
-# hbos-portal-preview 项目自己的 assets-data 命名卷内，隔离性不变。
-#
-# 保留本文件是为了维持 Preview 与正式栈使用同一套 compose 入口
-# （start_isolated_preview.sh 会 -f 它），也便于将来重新加回真正的硬化项。
+# Reuse the Preview project's named assets-data volume at that exact mountpoint
+# for every Frappe/ERPNext service. This keeps all generated volumes under the
+# hbos-portal-preview project namespace and makes sites/assets and bench/assets
+# see the same Preview-owned asset storage.
 
-services: {}
+services:
+  backend:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  configurator:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  create-site:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  frontend:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  queue-long:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  queue-short:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  scheduler:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  websocket:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
