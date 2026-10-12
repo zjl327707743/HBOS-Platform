@@ -1,0 +1,17 @@
+[project]
+name = "hbos-production"
+version = "0.1.0"
+description = "HBOS 生产看板取数服务（飞书凭据只在服务端）"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110,<1.0",
+    "uvicorn[standard]>=0.27,<1.0",
+    "httpx>=0.27,<1.0",
+]
+
+[tool.uv]
+# 见 README：本服务是**独立服务**（同 services/hbos_ocr 的定位），
+# 不依赖 Frappe、不直连数据库。
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

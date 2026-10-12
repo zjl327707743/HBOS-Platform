@@ -1,0 +1,396 @@
+"""生产看板取数服务（FastAPI）。
+
+集成方式沿用 `services/hbos_ocr` 的规范：**独立服务，通过 HTTP 提供服务**，
+不修改 Frappe 核心源码、不直连数据库。
+
+与 hbos_ocr 的两处不同：
+    - 本服务**只读飞书**（不写），写飞书的是 AI 分析服务（另一条链路）；
+    - 本服务**常驻等请求**（hbos_ocr 也是），而 AI 分析是定时脚本。
+
+**凭据边界**：飞书 `app_secret` 只在本服务的环境变量里，前端拿不到 ——
+这是选「独立服务」而非「前端直连」的唯一理由（见取数架构方案 §2）。
+
+运行：
+    uvicorn app.main:app --host 127.0.0.1 --port 8101
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from datetime import date, datetime, timedelta
+from typing import Any, Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+from . import config, contract, feishu, sources
+
+logging.basicConfig(level=config.LOG_LEVEL)
+log = logging.getLogger("hbos_production")
+
+app = FastAPI(
+    title="HBOS 生产看板取数服务",
+    version="0.1.0",
+    description="独立取数服务，飞书凭据只在服务端。见 docs/frontend/P4_生产看板_取数架构方案对比.md",
+)
+
+# 允许前端访问。开发默认只放本机 Vite 端口；
+# **部署到服务器时用 HBOS_PRODUCTION_CORS_ORIGINS 改成看板的实际域名**，
+# 否则浏览器会因 CORS 拦掉请求（见 config.py 的说明）。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config.CORS_ORIGINS,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
+# ---------------------------------------------------------------------------
+# 缓存
+# ---------------------------------------------------------------------------
+#
+# 看板是「看一眼就走」的场景，而飞书**慢到不能每次请求都全量拉**：
+# 实测单张 400 行的表就要 5~7 秒，9 张表（含翻页）冷启动 100 秒以上。
+#
+# 策略：**先给旧的、后台刷新**（stale-while-revalidate）。
+#   - 有缓存（哪怕已过期）→ 立刻返回旧值，同时后台异步刷新
+#   - 完全没有（服务刚启动）→ 才同步拉一次（这一次慢，不可避免）
+#
+# 数据按天更新，返回几分钟前的值没有任何问题；而「打开就转圈 100 秒」
+# 是致命的。
+
+_CACHE: dict[str, dict[str, Any]] = {}   # key -> {"value":…, "stale_at":…, "built_at":…, "built_on":…}
+_REFRESHING: set[str] = set()
+_CACHE_LOCK = threading.Lock()
+#: 串行化「强制刷新」（前端点刷新按钮时走这条）。见 `_refresh_now`。
+_REFRESH_LOCK = threading.Lock()
+
+
+def _cached(key: str, producer, *, built_on: date | None = None):
+    """stale-while-revalidate：**先给旧的、后台刷新**。
+
+    `built_on` 是这批数据算出来时的日期。**跨天即视为过期** —— 缓存里的 rows
+    是用「今天」算的（当月目标、昨日入库），过了零点再用就不是今天的数据了。
+    不判跨天的话，10 号建的缓存 12 号打开会原样返回，页面上「昨日入库」显示的是
+    前天的量（实测踩到过）。
+    """
+    now = time.time()
+    with _CACHE_LOCK:
+        hit = _CACHE.get(key)
+        expired = hit is not None and now >= hit["stale_at"]
+        rolled_over = (
+            hit is not None and built_on is not None and hit.get("built_on") != built_on
+        )
+        stale = expired or rolled_over
+        if stale and key not in _REFRESHING:
+            _REFRESHING.add(key)
+
+    if hit is not None:
+        if stale:
+            _background_refresh(key, producer, built_on)
+        return hit["value"]
+
+    # 冷启动：只能同步拉一次
+    value = producer()
+    with _CACHE_LOCK:
+        _store(key, value, built_on)
+    return value
+
+
+def _store(key: str, value, built_on: date | None) -> None:
+    """写入缓存（调用方需持有 `_CACHE_LOCK`）。"""
+    _CACHE[key] = {
+        "value": value,
+        "stale_at": time.time() + config.CACHE_TTL_SECONDS,
+        "built_at": time.time(),
+        "built_on": built_on,
+    }
+
+
+def _cached_at(key: str) -> float | None:
+    """这批缓存是**什么时候取回来的**（epoch 秒）；没有则 None。
+
+    页面的「数据截至 HH:MM」用它 —— 它是**数据的时刻**，不是请求的时刻。
+    """
+    with _CACHE_LOCK:
+        hit = _CACHE.get(key)
+    return hit["built_at"] if hit else None
+
+
+def _refresh_now(key: str, producer, built_on: date | None):
+    """**同步**重新取数并更新缓存（前端点「刷新」时用）。
+
+    与 `_cached` 的区别：这里真的等它拉完（几十秒）再返回，而不是先给旧值 ——
+    点了刷新还拿到同一份旧数据，那个按钮就没有意义。
+
+    并发保护：拿不到锁就说明已经有人在刷，等他刷完直接用结果，不重复拉。
+    """
+    started = time.time()
+    with _REFRESH_LOCK:
+        with _CACHE_LOCK:
+            hit = _CACHE.get(key)
+        # 等锁这段时间别人已经刷过了 → 用他的结果
+        if (
+            hit is not None
+            and hit.get("built_at", 0) >= started
+            and (built_on is None or hit.get("built_on") == built_on)
+        ):
+            return hit["value"]
+
+        value = producer()
+        with _CACHE_LOCK:
+            _store(key, value, built_on)
+        log.info("强制刷新 %s 完成", key)
+    return value
+
+
+def _background_refresh(key: str, producer, built_on: date | None = None) -> None:
+    """后台刷新 —— 失败保留旧值（旧数据好过没有），只记日志。"""
+
+    def run():
+        try:
+            value = producer()
+            with _CACHE_LOCK:
+                _store(key, value, built_on)
+            log.info("后台刷新 %s 完成", key)
+        except Exception as exc:  # noqa: BLE001 - 刷新失败不该影响正在看的人
+            log.warning("后台刷新 %s 失败，继续用旧值：%s", key, str(exc)[:120])
+        finally:
+            with _CACHE_LOCK:
+                _REFRESHING.discard(key)
+
+    threading.Thread(target=run, name=f"refresh-{key}", daemon=True).start()
+
+
+# ---------------------------------------------------------------------------
+# 取数
+# ---------------------------------------------------------------------------
+
+def _iso_local(epoch: float | None) -> Optional[str]:
+    """epoch 秒 → 带本地时区偏移的 ISO 串（如 `2026-10-12T08:39:20+08:00`）。
+
+    带上偏移是给前端 `new Date(...)` 用的 —— 不带偏移的裸串会被当成本地时间，
+    跨时区看就错了。
+    """
+    if not epoch:
+        return None
+    return datetime.fromtimestamp(epoch).astimezone().isoformat()
+
+
+def _require_feishu() -> None:
+    if not config.feishu_configured():
+        # 明确 503 而不是编造数据 —— 前端据此显示「未接入」态
+        raise HTTPException(status_code=503, detail="飞书凭据未配置，取数服务尚不可用")
+
+
+def _load_details(fetched: dict | None = None):
+    """把 7 张产量明细归一化成 `DetailRecordWithQty` + 标记四车间成员。
+
+    `fetched` 是 `feishu.list_records_many` 的整批结果（见 `_fetch_all`）——
+    传进来就不用再逐张拉。为 None 时自己拉（单元测试与单表调用用）。
+
+    关于并发：早先注释写「并发没用、还更容易撞 1254607」，那是**当时没有重试**
+    的结论。现在 `_get_with_retry` 会退避重试该码，实测并发 5 路既快又稳
+    （57s → 19s，无失败）。详见 `feishu.list_records_many`。
+    """
+    records: list[contract.DetailRecordWithQty] = []
+    four_ws_products: set[str] = set()
+    for key, table_id in contract.DETAIL_TABLES.items():
+        spec = (contract.BASE_OPERATIONS, table_id)
+        raw = fetched.get(spec) if fetched is not None else feishu.list_records(*spec)
+        for r in raw or []:
+            rec = sources.to_detail_record(r)
+            if rec is None:
+                continue
+            records.append(rec)
+            # 会议：四车间当前无在产，暂不录入 —— 按**表来源**判，不按产品名
+            if key == "四车间":
+                four_ws_products.add(rec.product)
+    return records, four_ws_products
+
+
+def _fetch_all() -> dict:
+    """**一次并发**把看板要的 13 张表全拉回来 → `{(base, table): rows}`。
+
+    13 张表串行实测 57 秒，并发 5 路 ~19 秒。合并成一次调用而不是分几批，
+    是为了让线程池自己调度 —— 分两批反而要多等一轮。
+    """
+    specs: list[tuple[str, str]] = [
+        (contract.BASE_OPERATIONS, tid) for tid in contract.DETAIL_TABLES.values()
+    ]
+    specs += [
+        (contract.BASE_OPERATIONS, contract.PLAN_TABLE),
+        (contract.BASE_OPERATIONS, contract.TARGET_TABLE),
+    ]
+    specs += [(s.base_token, s.table_id) for s in contract.ANOMALY_SOURCES]
+    return feishu.list_records_many(specs)
+
+
+def _load_anomalies(today: date, fetched: dict | None = None) -> dict:
+    """各车间的异常表，按滚动窗口算闭环率。
+
+    每个车间一个独立 Base。**一个失败不该拖垮其余**，所以逐源 try/except ——
+    但**整批拉表**（`list_records_many`）时若某张表抛错，`_fetch_all` 会整体失败。
+    这里把两种情况都接住：从 `fetched` 取不到就退回单源重拉，
+    再失败就把该车间记进 `failedWorkshops`（宁可显示「某车间取不到」，
+    也不给一个偏低的合计数）。
+    """
+    start = contract.anomaly_window_start(today)
+    stats: list[contract.AnomalyStats] = []
+    failed: list[str] = []
+    for src in contract.ANOMALY_SOURCES:
+        spec = (src.base_token, src.table_id)
+        try:
+            raw = fetched.get(spec) if fetched is not None else None
+            if raw is None:
+                raw = feishu.list_records(*spec)
+        except feishu.FeishuError as exc:
+            log.warning("异常表取数失败 %s code=%s", src.name, exc.code)
+            failed.append(src.name)
+            continue
+        # 飞书 API 是 {"record_id":…, "fields":{…}} 嵌套结构 —— 必须拆，
+        # 否则字段全取不到、闭环率静默变 0/0（见 sources.to_anomaly_record）
+        rows = [sources.to_anomaly_record(r) for r in raw]
+        stats.append(contract.anomaly_stats(src, rows, start))
+
+    result = contract.overall_closure(stats, start, contract.ANOMALY_WINDOW_MONTHS)
+    result["failedWorkshops"] = failed
+    return result
+
+
+def _board_data(today: date) -> dict:
+    """**进入缓存的部分** —— 只有「要查飞书才拿得到」的行与异常。
+
+    `月 / 已过天数 / 数据时刻` 刻意**不在这里**：它们不查飞书、每次请求都能算准，
+    冻进缓存只会让页面显示过期的时间（实测：12 号打开显示「本月已过 10 天」）。
+    见 `monthly()`。
+    """
+    _require_feishu()
+
+    month = today.strftime("%Y-%m")
+    yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    # 13 张表**一次并发**拉完（串行 57s → 并发 ~19s，见 `_fetch_all`）
+    fetched = _fetch_all()
+
+    details, four_ws = _load_details(fetched)
+    plan_rows = fetched[(contract.BASE_OPERATIONS, contract.PLAN_TABLE)]
+    target_rows = fetched[(contract.BASE_OPERATIONS, contract.TARGET_TABLE)]
+    plan_map = sources.to_plan_map(plan_rows)
+    target_yield = sources.to_target_yield_map(target_rows)
+
+    rows = contract.build_rows(
+        month=month,
+        yesterday=yesterday,
+        details=details,
+        members_excluded=four_ws,
+        plan_by_product=plan_map,
+        yield_by_product=target_yield,
+    )
+
+    return {
+        "rows": [contract.asdict_row(r) for r in rows],
+        "anomaly": _load_anomalies(today, fetched),
+    }
+
+
+# ---------------------------------------------------------------------------
+# 接口
+# ---------------------------------------------------------------------------
+
+@app.get("/health")
+def health() -> dict:
+    return {
+        "ok": True,
+        "feishuConfigured": config.feishu_configured(),
+        "cacheTtl": config.CACHE_TTL_SECONDS,
+    }
+
+
+@app.get("/production/monthly")
+def monthly(refresh: bool = False) -> dict:
+    """当月看板行。取不到就 503 —— **不返回 0 或空行**。
+
+    前端 `productionBoard.ts` 收到非 200 即渲染「未接入」态，
+    符合「数据接通前不显示任何数字」的纪律（EA-5.4 §16）。
+
+    `?refresh=1` = **同步**重新取数（前端「刷新」按钮）。不带就是缓存优先，
+    先给旧值、后台更新 —— 打开页面因此不会转圈。
+
+    **`月 / 已过天数 / 数据时刻` 每次都现算**（见 `_board_data` 的说明）：
+    只有 rows 与 anomaly 走缓存。这样即使行数据是几分钟前的，
+    「本月已过 N 天」「数据截至 HH:MM」也永远是对的。
+    """
+    today = date.today()
+    month = today.strftime("%Y-%m")
+    try:
+        data = (
+            _refresh_now("board", lambda: _board_data(today), today)
+            if refresh
+            else _cached("board", lambda: _board_data(today), built_on=today)
+        )
+    except feishu.FeishuError as exc:
+        log.error("取数失败 code=%s", exc.code)
+        raise HTTPException(status_code=502, detail="飞书取数失败") from exc
+
+    built_at = _cached_at("board")
+    return {
+        "month": month,
+        "daysElapsed": contract.days_elapsed(month, today),
+        "updatedAt": today.isoformat(),
+        # 这批**行数据**是什么时候取回来的（不是本次请求的时刻）。
+        # 页面据此标「数据截至」—— 缓存命中时它会早于现在，这是有意的。
+        "dataAsOf": _iso_local(built_at),
+        "rows": data["rows"],
+        "anomaly": data["anomaly"],
+    }
+
+
+@app.get("/production/yesterday")
+def yesterday() -> dict:
+    """昨日入库量（按收料日期）。已含在 `/monthly` 的 row 里，此处单列便于复用。"""
+    data = monthly()
+    return {
+        "date": data.get("updatedAt"),
+        "rows": [
+            {"label": r["label"], "inbound": r["yesterdayInbound"]}
+            for r in data.get("rows", [])
+        ],
+    }
+
+
+@app.get("/production/ai-analysis")
+def ai_analysis() -> dict:
+    """AI 工艺分析结论（读「AI工艺分析结果」表）。
+
+    表空时返回 `{"rows": []}` —— 前端显示「待分析」，
+    而不是伪造一条结论（AI 结论直接影响生产判断）。
+    """
+    _require_feishu()
+    try:
+        raw = _cached(
+            "ai",
+            lambda: feishu.list_records(contract.BASE_AI, contract.AI_TABLE),
+        )
+    except feishu.FeishuError as exc:
+        log.error("AI 结果读取失败 code=%s", exc.code)
+        raise HTTPException(status_code=502, detail="AI 结果读取失败") from exc
+
+    rows = []
+    for r in raw:
+        f = r.get("fields") or {}
+        product = sources.text(f.get("产品"))
+        process = sources.text(f.get("工序"))
+        if not product or not process:
+            continue
+        rows.append(
+            {
+                "product": product,
+                "process": process,
+                "summary": sources.text(f.get("结论摘要")),
+                "grade": sources.text(f.get("评级")),
+                "analyzedAt": contract.parse_month_day(f.get("分析日期")),
+            }
+        )
+    return {"rows": rows}

@@ -31,3 +31,14 @@ Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服�
 `AGENTS.md`、`CLAUDE.md` 为规则入口；进度以状态台账与对应里程碑为准。Portal 本轮不改变其他考勤/库存里程碑的 Owner 验收状态。禁止创建未知替代库、覆盖未知数据库、重置原密码/角色、发布凭据或私有资料。
 
 团队后续 Portal 代码来源：`feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。PR #21 保留为已合并的审查与发布证据；Mac 本地运行与本人验收分开记录，公司生产尚未部署。
+
+## 生产看板模块（P4）
+
+生产看板（**浅色精致版**，与 Frappe / ERPNext 无关，数据源为飞书多维表格的批生产记录台账）已交付原型与视觉方案 REV 8，**已复刻进 Portal 并接通真实数据**。共两页：基层管理人员看板 / 生产管理中心看板。数据经独立取数服务 `services/hbos_production`（本机 8101，只读飞书）聚合；「工艺提升与改进方案」由独立 AI 分析服务 `services/hbos_production_ai`（每天 16:30 定时，覆盖全部 6 个在产产品）生成后写回飞书结果表。
+
+- `docs/frontend/P4_生产看板原型.html`
+- `docs/frontend/P4_生产看板视觉方案与页面结构.md`
+- `docs/frontend/P4_生产看板_AI分析服务规格.md`
+- `frontend/hbos-portal-web/src/views/ProductionDashboardView.vue`
+
+Portal 是 Experience Shell，不替代 Attendance / Inventory / LIMS 的领域 Authority；运行时身份统一使用 Frappe User + Frappe Session。PR #15 继续保持 Draft，直到三 APP 工作台运行态、本地验收和下一阶段前端强化 Gate 达到可收口状态。

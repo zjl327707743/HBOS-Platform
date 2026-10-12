@@ -20,6 +20,7 @@
         <PortalSidebar :work-count="actionableCount" />
         <main id="main-content" class="portal-route-content" tabindex="-1">
           <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
+          <ForbiddenView v-else-if="portal.bootstrapErrorStatus === 403" />
           <a-alert
             v-else-if="sessionError"
             type="error"
@@ -46,6 +47,7 @@ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import PortalSidebar from '@/components/layout/PortalSidebar.vue'
 import MobilePortalNav from '@/components/layout/MobilePortalNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
+import ForbiddenView from '@/views/ForbiddenView.vue'
 import { usePortalSession } from '@/composables/usePortalSession'
 
 const portal = usePortalStore()

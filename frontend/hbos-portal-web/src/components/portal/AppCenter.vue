@@ -51,6 +51,7 @@ import {
   InboxOutlined,
   ReadOutlined,
   RightOutlined,
+  ThunderboltOutlined,
   ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { AppManifestDTO } from '@/contracts/portal'
@@ -67,8 +68,10 @@ const iconMap: Record<string, Component> = {
   ReadOutlined,
   BulbOutlined,
   DeploymentUnitOutlined,
+  ThunderboltOutlined,
 }
-const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'equipment', 'twin']
+// 首页宫格固定为这几个核心应用，并按 appOrder 排序（生产看板与知识/孪生平级）。
+const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'equipment', 'twin', 'production']
 const primaryApps = computed(() => props.apps
   .filter((app) => appOrder.includes(app.id))
   .sort((left, right) => appOrder.indexOf(left.id) - appOrder.indexOf(right.id)))
