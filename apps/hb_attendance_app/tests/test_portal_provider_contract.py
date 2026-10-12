@@ -199,6 +199,11 @@ class AttendancePortalProviderRuntimeBoundaryTest(unittest.TestCase):
             whitelist=lambda *args, **kwargs: (lambda fn: fn),
         )
         sys.modules["frappe"] = fake_frappe
+        # summary() 会经 dashboard_data.get_data() 导入 api 模块，而 api.py 顶层
+        # `import requests`。本契约测试只验会话身份边界、不做出站调用，CI 的
+        # Backend Gate 也不装 requests，故与 frappe 同样存根掉，
+        # 避免把「测试环境缺依赖」误报成契约失败。
+        sys.modules.setdefault("requests", types.ModuleType("requests"))
 
         provider = get_provider()
         access = provider.access_context()
