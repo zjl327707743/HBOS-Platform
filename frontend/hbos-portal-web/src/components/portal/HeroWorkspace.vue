@@ -2,7 +2,7 @@
   <section class="hero-workspace glass-hero">
     <div class="hero-main">
       <div class="eyebrow">HBOS · 企业运营工作空间</div>
-      <div class="hello">晚上好，{{ userName }}</div>
+      <div class="hello">你好，{{ userName }}</div>
       <h1>今天有 <span>{{ totalActions }} 项工作</span><br />需要你处理</h1>
       <p>
         查看本人待办、业务汇总与可用应用，从当前工作继续。
@@ -26,9 +26,9 @@
       <div class="status-glass">
         <div class="status-title">
           <span>工作台状态</span>
-          <a-tag color="success">已连接</a-tag>
+          <a-tag :color="portal.authenticated ? 'success' : 'default'">{{ sessionLabel }}</a-tag>
         </div>
-        <div class="status-row"><i class="blue"></i><span>统一身份与会话</span><b>已连接</b></div>
+        <div class="status-row"><i class="blue"></i><span>统一身份与会话</span><b>{{ sessionLabel }}</b></div>
         <div class="status-row"><i class="violet"></i><span>我的可用应用</span><b>{{ appCount }}</b></div>
         <div class="status-row"><i class="green"></i><span>需要我处理</span><b>{{ totalActions }}</b></div>
       </div>
@@ -66,8 +66,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ArrowRightOutlined } from '@ant-design/icons-vue'
+import { usePortalStore } from '@/stores/portal'
 import type { SummaryMetricDTO } from '@/contracts/portal'
+
+const portal = usePortalStore()
+const sessionLabel = computed(() => portal.dataSource === 'mock' ? '演示会话' : portal.authenticated ? '会话已验证' : '会话待验证')
 
 defineProps<{
   userName: string
