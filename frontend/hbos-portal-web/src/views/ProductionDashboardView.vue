@@ -14,27 +14,30 @@
         <span v-if="board">数据月份 {{ board.month }} · 本月已过 {{ board.daysElapsed }} 天</span>
         <!-- 数据新鲜度 + 手动刷新。
              服务端是「先给旧的、后台更新」，所以**这里显示的时点可能早于现在** ——
-             那正是要让人看见的信息，不能藏。 -->
-        <span class="pb-asof">
-          <template v-if="board">
-            数据截至 {{ dataAsOfText }}
-            <button class="pb-refresh" :disabled="refreshing" :title="`重新从飞书取数（约 20–30 秒）`" @click="refreshBoard">
-              <ReloadOutlined :spin="refreshing" />
-              {{ refreshing ? '取数中…' : '刷新' }}
-            </button>
-          </template>
+             那正是要让人看见的信息，不能藏。
+             `dataAsOf` 拿不到（旧版服务）时**整段不显示**，只留刷新按钮 ——
+             不编一个「xx 起累计」之类看着别扭的字样。 -->
+        <span v-if="board" class="pb-asof">
+          <template v-if="dataAsOfText">数据截至 {{ dataAsOfText }}</template>
+          <!-- 刷新完成后短暂显示「已更新」：时间戳只到分钟，刚点完刷新往往看不出变化，
+              会让人以为没生效。 -->
+          <span v-if="justRefreshed" class="pb-updated">已更新</span>
+          <button class="pb-refresh" :disabled="refreshing" title="重新从飞书多维表格取数（约 15 秒）" @click="refreshBoard">
+            <ReloadOutlined :spin="refreshing" />
+            {{ refreshing ? `取数中 ${refreshElapsed}s` : '刷新' }}
+          </button>
         </span>
       </div>
     </header>
 
-    <!-- 加载中。**必须与「未接入」分开** —— 冷缓存时服务端要拉 9 张飞书表，
-         20~30 秒。不加这个态的话，这段时间页面会显示「未接入」，用户以为坏了。 -->
+    <!-- 加载中。**必须与「未接入」分开** —— 冷缓存时服务端要并发拉 13 张飞书表，
+         约 15 秒。不加这个态的话，这段时间页面会显示「未接入」，用户以为坏了。 -->
     <section v-if="phase === 'loading'" class="pb-panel pb-skeleton" aria-busy="true" aria-live="polite">
       <div class="pb-skel pb-skel-kpi"></div>
       <div class="pb-skel pb-skel-row"></div>
       <div class="pb-skel pb-skel-row"></div>
       <div class="pb-skel pb-skel-row"></div>
-      <p class="pb-skel-note">正在取生产数据…（首次打开约需 20–30 秒）</p>
+      <p class="pb-skel-note">正在取生产数据…（首次打开约需 15 秒）</p>
     </section>
 
     <!-- 未接入：**取不到**才显示。数据接通前不显示任何数字 -->
@@ -270,7 +273,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { PRODUCTION_CENTER_PATH } from '@/data/productionNav'
@@ -329,11 +332,20 @@ const monthLabel = (m: string) => {
 // 服务端是「先给旧的、后台更新」，所以打开页面拿到的那份**可能不是刚拉的**。
 // 把「数据截至 HH:MM」摆出来，让人自己判断要不要点刷新 —— 不藏。
 const refreshing = ref(false)
+/** 刷新已等了多少秒 —— 这条链路要十几秒，静默转圈会被当成卡死。 */
+const refreshElapsed = ref(0)
+/** 刚刷完，短暂显示「已更新」（时间戳只到分钟，看不出变化会以为没生效）。 */
+const justRefreshed = ref(false)
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+let justRefreshedTimer: ReturnType<typeof setTimeout> | null = null
 
-/** 这批数据是什么时候取回来的。取不到（旧版服务 / mock）就退回「数据月份」。 */
+/**
+ * 这批数据是什么时候取回来的。**取不到就返回空串** —— 调用方整段不渲染，
+ * 不编「xx 起累计」这类字样（用户反馈那串看着别扭）。
+ */
 const dataAsOfText = computed(() => {
   const iso = board.value?.dataAsOf
-  if (!iso) return board.value ? `${board.value.month}-01 起累计` : '—'
+  if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   const p = (n: number) => String(n).padStart(2, '0')
@@ -350,18 +362,34 @@ const dataAsOfText = computed(() => {
  * 手动刷新 —— 让服务端**同步**重取（`?refresh=1`），不是先给旧值。
  *
  * 只换 board，不动 phase：刷新失败时旧数据仍在，比把整页打回「未接入」好。
- * 期间按钮显示「取数中…」并禁用 —— 这条链路要 20~30 秒，没有反馈会以为没点上。
+ *
+ * 为什么计秒：服务端要并发拉 13 张飞书表（实测约 19 秒），静默转圈会被当成点漏了
+ * 或卡死。把已等秒数摆出来，用户知道它在动。
  */
 async function refreshBoard() {
   if (refreshing.value) return
   refreshing.value = true
+  refreshElapsed.value = 0
+  refreshTimer = setInterval(() => { refreshElapsed.value += 1 }, 1000)
   try {
     const data = await fetchProductionBoard({ refresh: true })
-    if (data) board.value = data
+    if (data) {
+      board.value = data
+      justRefreshed.value = true
+      if (justRefreshedTimer) clearTimeout(justRefreshedTimer)
+      justRefreshedTimer = setTimeout(() => { justRefreshed.value = false }, 4000)
+    }
   } finally {
+    if (refreshTimer) clearInterval(refreshTimer)
+    refreshTimer = null
     refreshing.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+  if (justRefreshedTimer) clearTimeout(justRefreshedTimer)
+})
 
 // --- KPI 汇总（口径：只计入目标 > 0 的行，避免未排产行稀释分母）---
 const targetRows = computed(() => (board.value?.rows || []).filter((r) => r.target > 0))
@@ -468,6 +496,7 @@ onMounted(async () => {
 .pb-refresh { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 1px solid rgba(65,91,138,.18); border-radius: 999px; background: rgba(255,255,255,.6); font-size: 11px; color: var(--hbos-brand-violet); cursor: pointer; }
 .pb-refresh:hover:not(:disabled) { background: rgba(108,99,255,.07); }
 .pb-refresh:disabled { cursor: progress; opacity: .62; }
+.pb-updated { color: #0e9f6e; font-weight: 600; }
 
 .pb-panel { background: rgba(255,255,255,.74); border: 1px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 10px 34px rgba(61,88,136,.08); backdrop-filter: blur(20px); min-width: 0; }
 

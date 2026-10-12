@@ -9,7 +9,9 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import httpx
@@ -19,6 +21,9 @@ from . import config
 log = logging.getLogger("hbos_production.feishu")
 
 _TOKEN: dict[str, Any] = {"value": "", "expires_at": 0.0}
+#: `_TOKEN` 是进程级共享状态，而 `list_records_many` 会并发调用 ——
+#: 不加锁的话冷启动时几个线程会同时去换 token（幂等但浪费，且更容易撞节流）。
+_TOKEN_LOCK = threading.Lock()
 
 
 class FeishuError(RuntimeError):
@@ -36,16 +41,22 @@ def _token() -> str:
     if _TOKEN["value"] and now < _TOKEN["expires_at"]:
         return _TOKEN["value"]
 
-    url = f"{config.FEISHU_BASE}/open-apis/auth/v3/tenant_access_token/internal"
-    with httpx.Client(timeout=config.TIMEOUT_SECONDS) as c:
-        r = c.post(url, json={"app_id": config.FEISHU_APP_ID, "app_secret": config.FEISHU_APP_SECRET})
-    body = r.json()
-    if body.get("code") != 0:
-        # 错误信息里可能带凭据相关提示，因此只记 code 不记 msg 全文
-        raise FeishuError(int(body.get("code", -1)), "tenant_access_token 获取失败")
-    _TOKEN["value"] = body["tenant_access_token"]
-    _TOKEN["expires_at"] = now + int(body.get("expire", 7200)) - 60
-    return _TOKEN["value"]
+    with _TOKEN_LOCK:
+        # 双检：等锁期间可能已经有别的线程换好了
+        now = time.time()
+        if _TOKEN["value"] and now < _TOKEN["expires_at"]:
+            return _TOKEN["value"]
+
+        url = f"{config.FEISHU_BASE}/open-apis/auth/v3/tenant_access_token/internal"
+        with httpx.Client(timeout=config.TIMEOUT_SECONDS) as c:
+            r = c.post(url, json={"app_id": config.FEISHU_APP_ID, "app_secret": config.FEISHU_APP_SECRET})
+        body = r.json()
+        if body.get("code") != 0:
+            # 错误信息里可能带凭据相关提示，因此只记 code 不记 msg 全文
+            raise FeishuError(int(body.get("code", -1)), "tenant_access_token 获取失败")
+        _TOKEN["value"] = body["tenant_access_token"]
+        _TOKEN["expires_at"] = now + int(body.get("expire", 7200)) - 60
+        return _TOKEN["value"]
 
 
 #: 值得重试的飞书错误码。
@@ -124,4 +135,32 @@ def list_records(base_token: str, table_id: str, page_size: int = 500) -> list[d
             page_token = data.get("page_token") or ""
             if not page_token:
                 break
+    return out
+
+
+def list_records_many(specs: list[tuple[str, str]]) -> dict[tuple[str, str], list[dict]]:
+    """并发拉多张表 → `{(base_token, table_id): rows}`。
+
+    **为什么要并发**：看板要 13 张表，其中 7 张明细表各 1500~2000 行（翻 3~4 页），
+    串行实测 **57 秒** —— 点一次刷新要等近一分钟，体验很差。并发后 ~19 秒。
+
+    两个不变量：
+
+    - **同一张表只拉一次**：调用方可能重复引用（去重后再分发）。
+    - **异常照抛**：任一张表最终失败就让整次取数失败（调用方转 502），
+      不静默少算几行 —— 看板的数字宁可没有，也不能是「少拉了两张表」的结果。
+
+    `workers <= 1` 时退回串行（保留开关，便于排查是不是并发引起的问题）。
+    """
+    uniq = list(dict.fromkeys(specs))
+    if not uniq:
+        return {}
+    if config.FETCH_WORKERS <= 1 or len(uniq) == 1:
+        return {s: list_records(*s) for s in uniq}
+
+    out: dict[tuple[str, str], list[dict]] = {}
+    with ThreadPoolExecutor(max_workers=min(config.FETCH_WORKERS, len(uniq))) as pool:
+        futures = {pool.submit(list_records, b, t): (b, t) for b, t in uniq}
+        for fut in as_completed(futures):
+            out[futures[fut]] = fut.result()
     return out

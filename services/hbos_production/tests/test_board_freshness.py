@@ -35,18 +35,54 @@ def _fake_data(today: date) -> dict:
     return {"rows": [], "anomaly": {"total": 0, "closed": 0, "rate": None}}
 
 
+def _empty_fetch(main) -> dict:
+    """`_fetch_all` 的桩：**键要齐全**（`_board_data` 直接按 key 取）。
+
+    空 dict 会 KeyError —— 那正好说明取数边界漏了表，不该在这里被掩盖。
+    """
+    specs = [(main.contract.BASE_OPERATIONS, t) for t in main.contract.DETAIL_TABLES.values()]
+    specs += [
+        (main.contract.BASE_OPERATIONS, main.contract.PLAN_TABLE),
+        (main.contract.BASE_OPERATIONS, main.contract.TARGET_TABLE),
+    ]
+    specs += [(s.base_token, s.table_id) for s in main.contract.ANOMALY_SOURCES]
+    return {s: [] for s in specs}
+
+
 def test_board_data_does_not_carry_time_fields(monkeypatch):
     """沉到缓存的 `_board_data` **不得**返回时间类字段。
 
     它一旦返回，就会随缓存一起过期 —— 这正是「12 号显示 10 天」的成因。
     """
     main, _ = _client(monkeypatch)
-    monkeypatch.setattr(main, "_load_details", lambda: ([], set()))
-    monkeypatch.setattr(main.feishu, "list_records", lambda *a, **k: [])
-    monkeypatch.setattr(main, "_load_anomalies", lambda today: {})
+    monkeypatch.setattr(main, "_fetch_all", lambda: _empty_fetch(main))
 
     data = main._board_data(date(2026, 10, 12))
     assert set(data) == {"rows", "anomaly"}
+
+
+def test_fetch_all_requests_every_table_the_board_needs(monkeypatch):
+    """`_fetch_all` 必须把**每张**要用的表都放进去 ——
+
+    少一张，`_board_data` 就会 KeyError（而不是静默少算），但要早发现。
+    """
+    main, _ = _client(monkeypatch)
+    seen: list[tuple[str, str]] = []
+
+    def fake_many(specs):
+        seen.extend(specs)
+        return {s: [] for s in specs}
+
+    monkeypatch.setattr(main.feishu, "list_records_many", fake_many)
+    main._fetch_all()
+
+    want = {(main.contract.BASE_OPERATIONS, t) for t in main.contract.DETAIL_TABLES.values()}
+    want |= {
+        (main.contract.BASE_OPERATIONS, main.contract.PLAN_TABLE),
+        (main.contract.BASE_OPERATIONS, main.contract.TARGET_TABLE),
+    }
+    want |= {(s.base_token, s.table_id) for s in main.contract.ANOMALY_SOURCES}
+    assert set(seen) == want
 
 
 def test_days_elapsed_is_fresh_even_when_cache_is_old(monkeypatch):

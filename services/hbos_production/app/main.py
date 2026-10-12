@@ -184,19 +184,22 @@ def _require_feishu() -> None:
         raise HTTPException(status_code=503, detail="飞书凭据未配置，取数服务尚不可用")
 
 
-def _load_details():
-    """拉 7 张产量明细，归一化成 `DetailRecordWithQty` + 标记四车间成员。
+def _load_details(fetched: dict | None = None):
+    """把 7 张产量明细归一化成 `DetailRecordWithQty` + 标记四车间成员。
 
-    **串行**拉。曾试过并发（8 路）—— 实测**没用**：飞书侧本身就是瓶颈
-    （单张 400 行的表要 5~7 秒，是服务端在慢慢吐），并发只把总时长从 ~100s
-    压到 ~30s，却明显更容易撞上 `1254607 Data not ready`。
-    真正解决「打开慢」的是上面的 stale-while-revalidate 缓存，不是并发。
+    `fetched` 是 `feishu.list_records_many` 的整批结果（见 `_fetch_all`）——
+    传进来就不用再逐张拉。为 None 时自己拉（单元测试与单表调用用）。
+
+    关于并发：早先注释写「并发没用、还更容易撞 1254607」，那是**当时没有重试**
+    的结论。现在 `_get_with_retry` 会退避重试该码，实测并发 5 路既快又稳
+    （57s → 19s，无失败）。详见 `feishu.list_records_many`。
     """
     records: list[contract.DetailRecordWithQty] = []
     four_ws_products: set[str] = set()
     for key, table_id in contract.DETAIL_TABLES.items():
-        raw = feishu.list_records(contract.BASE_OPERATIONS, table_id)
-        for r in raw:
+        spec = (contract.BASE_OPERATIONS, table_id)
+        raw = fetched.get(spec) if fetched is not None else feishu.list_records(*spec)
+        for r in raw or []:
             rec = sources.to_detail_record(r)
             if rec is None:
                 continue
@@ -207,18 +210,41 @@ def _load_details():
     return records, four_ws_products
 
 
-def _load_anomalies(today: date) -> dict:
-    """拉各车间的异常表，按滚动窗口算闭环率。
+def _fetch_all() -> dict:
+    """**一次并发**把看板要的 13 张表全拉回来 → `{(base, table): rows}`。
 
-    每个车间一个独立 Base —— 一个失败不该拖垮其余，故逐源 try/except，
-    失败的车间在 `byWorkshop` 里标出来（宁可显示「某车间取不到」，也不给一个偏低的合计数）。
+    13 张表串行实测 57 秒，并发 5 路 ~19 秒。合并成一次调用而不是分几批，
+    是为了让线程池自己调度 —— 分两批反而要多等一轮。
+    """
+    specs: list[tuple[str, str]] = [
+        (contract.BASE_OPERATIONS, tid) for tid in contract.DETAIL_TABLES.values()
+    ]
+    specs += [
+        (contract.BASE_OPERATIONS, contract.PLAN_TABLE),
+        (contract.BASE_OPERATIONS, contract.TARGET_TABLE),
+    ]
+    specs += [(s.base_token, s.table_id) for s in contract.ANOMALY_SOURCES]
+    return feishu.list_records_many(specs)
+
+
+def _load_anomalies(today: date, fetched: dict | None = None) -> dict:
+    """各车间的异常表，按滚动窗口算闭环率。
+
+    每个车间一个独立 Base。**一个失败不该拖垮其余**，所以逐源 try/except ——
+    但**整批拉表**（`list_records_many`）时若某张表抛错，`_fetch_all` 会整体失败。
+    这里把两种情况都接住：从 `fetched` 取不到就退回单源重拉，
+    再失败就把该车间记进 `failedWorkshops`（宁可显示「某车间取不到」，
+    也不给一个偏低的合计数）。
     """
     start = contract.anomaly_window_start(today)
     stats: list[contract.AnomalyStats] = []
     failed: list[str] = []
     for src in contract.ANOMALY_SOURCES:
+        spec = (src.base_token, src.table_id)
         try:
-            raw = feishu.list_records(src.base_token, src.table_id)
+            raw = fetched.get(spec) if fetched is not None else None
+            if raw is None:
+                raw = feishu.list_records(*spec)
         except feishu.FeishuError as exc:
             log.warning("异常表取数失败 %s code=%s", src.name, exc.code)
             failed.append(src.name)
@@ -245,9 +271,12 @@ def _board_data(today: date) -> dict:
     month = today.strftime("%Y-%m")
     yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    details, four_ws = _load_details()
-    plan_rows = feishu.list_records(contract.BASE_OPERATIONS, contract.PLAN_TABLE)
-    target_rows = feishu.list_records(contract.BASE_OPERATIONS, contract.TARGET_TABLE)
+    # 13 张表**一次并发**拉完（串行 57s → 并发 ~19s，见 `_fetch_all`）
+    fetched = _fetch_all()
+
+    details, four_ws = _load_details(fetched)
+    plan_rows = fetched[(contract.BASE_OPERATIONS, contract.PLAN_TABLE)]
+    target_rows = fetched[(contract.BASE_OPERATIONS, contract.TARGET_TABLE)]
     plan_map = sources.to_plan_map(plan_rows)
     target_yield = sources.to_target_yield_map(target_rows)
 
@@ -262,7 +291,7 @@ def _board_data(today: date) -> dict:
 
     return {
         "rows": [contract.asdict_row(r) for r in rows],
-        "anomaly": _load_anomalies(today),
+        "anomaly": _load_anomalies(today, fetched),
     }
 
 
