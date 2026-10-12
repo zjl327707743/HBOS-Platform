@@ -11,7 +11,7 @@ def get_manifest() -> dict[str, object]:
         "icon": "ClockCircleOutlined",
         "accent": "attendance",
         "order": 10,
-        "migration_mode": "legacy",
+        "migration_mode": "native",
         "route": "/hbos/attendance",
         # P3-ATT-2 exposes the existing HR anomaly dashboard as a read projection.
         "capabilities": ["summary"],
