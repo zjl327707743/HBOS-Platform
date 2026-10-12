@@ -74,10 +74,18 @@ export interface AnomalyInfo {
 export interface ProductionBoardData {
   /** 数据月份，如 "2026-10"。 */
   month: string
-  /** 本月已过天数 —— 用于「月初基准」提示。 */
+  /** 本月已过天数 —— 用于「月初基准」提示。**服务端每次请求现算**。 */
   daysElapsed: number
   /** 数据截至时间（ISO 或展示串）。 */
   updatedAt: string
+  /**
+   * 这批**行数据**是什么时候取回来的（带时区偏移的 ISO），没有则为 null。
+   *
+   * 与 `updatedAt` 的区别：`updatedAt` 是「今天」，这个是「数据的新鲜度」。
+   * 服务端缓存命中时它会早于现在 —— 页面据此标「数据截至」，
+   * 让看的人知道手里这份是几分钟前的还是刚拉的。
+   */
+  dataAsOf: string | null
   rows: ProductionRow[]
   anomaly?: AnomalyInfo
 }
@@ -96,15 +104,20 @@ export interface AiAnalysisRow {
  * 取不到就返回 `unavailable` —— 调用方渲染未接入态，
  * **不得**用 0 或空行代替（见文件头说明）。
  *
- * 注意它**可能很慢**（冷缓存时服务端要拉 9 张表）。调用方应先把状态置为
- * `loading`，不要在这一步之前就把界面钉成「未接入」。
+ * 注意它**可能很慢**：冷缓存时服务端要拉 9 张表（20~30 秒），
+ * `refresh: true` 时服务端会**同步**重拉，同样是这个量级。
+ * 调用方应先把状态置为 loading，不要在这一步之前就把界面钉成「未接入」。
+ *
+ * @param refresh 点「刷新」时为 true —— 服务端绕过缓存同步重取，
+ *   而不是先给旧值再后台更新（否则点了刷新看到的还是同一份数据）。
  */
-export async function fetchProductionBoard(): Promise<ProductionBoardData | null> {
+export async function fetchProductionBoard(
+  opts: { refresh?: boolean } = {},
+): Promise<ProductionBoardData | null> {
   if (!productionServiceConfigured) return null
   try {
-    const res = await fetch(`${SERVICE_ORIGIN}/production/monthly`, {
-      headers: { Accept: 'application/json' },
-    })
+    const url = `${SERVICE_ORIGIN}/production/monthly${opts.refresh ? '?refresh=1' : ''}`
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
     if (!res.ok) return null
     return (await res.json()) as ProductionBoardData
   } catch {

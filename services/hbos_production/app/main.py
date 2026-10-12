@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
@@ -60,44 +60,99 @@ app.add_middleware(
 # 数据按天更新，返回几分钟前的值没有任何问题；而「打开就转圈 100 秒」
 # 是致命的。
 
-_CACHE: dict[str, dict[str, Any]] = {}   # key -> {"value":…, "stale_at":…}
+_CACHE: dict[str, dict[str, Any]] = {}   # key -> {"value":…, "stale_at":…, "built_at":…, "built_on":…}
 _REFRESHING: set[str] = set()
 _CACHE_LOCK = threading.Lock()
+#: 串行化「强制刷新」（前端点刷新按钮时走这条）。见 `_refresh_now`。
+_REFRESH_LOCK = threading.Lock()
 
 
-def _cached(key: str, producer):
+def _cached(key: str, producer, *, built_on: date | None = None):
+    """stale-while-revalidate：**先给旧的、后台刷新**。
+
+    `built_on` 是这批数据算出来时的日期。**跨天即视为过期** —— 缓存里的 rows
+    是用「今天」算的（当月目标、昨日入库），过了零点再用就不是今天的数据了。
+    不判跨天的话，10 号建的缓存 12 号打开会原样返回，页面上「昨日入库」显示的是
+    前天的量（实测踩到过）。
+    """
     now = time.time()
     with _CACHE_LOCK:
         hit = _CACHE.get(key)
-        stale = hit is not None and now >= hit["stale_at"]
-        missing = hit is None
+        expired = hit is not None and now >= hit["stale_at"]
+        rolled_over = (
+            hit is not None and built_on is not None and hit.get("built_on") != built_on
+        )
+        stale = expired or rolled_over
         if stale and key not in _REFRESHING:
             _REFRESHING.add(key)
 
-    if hit is not None and not missing:
+    if hit is not None:
         if stale:
-            _background_refresh(key, producer)
+            _background_refresh(key, producer, built_on)
         return hit["value"]
 
     # 冷启动：只能同步拉一次
     value = producer()
     with _CACHE_LOCK:
-        _CACHE[key] = {"value": value, "stale_at": time.time() + config.CACHE_TTL_SECONDS}
-        _REFRESHING.discard(key)
+        _store(key, value, built_on)
     return value
 
 
-def _background_refresh(key: str, producer) -> None:
+def _store(key: str, value, built_on: date | None) -> None:
+    """写入缓存（调用方需持有 `_CACHE_LOCK`）。"""
+    _CACHE[key] = {
+        "value": value,
+        "stale_at": time.time() + config.CACHE_TTL_SECONDS,
+        "built_at": time.time(),
+        "built_on": built_on,
+    }
+
+
+def _cached_at(key: str) -> float | None:
+    """这批缓存是**什么时候取回来的**（epoch 秒）；没有则 None。
+
+    页面的「数据截至 HH:MM」用它 —— 它是**数据的时刻**，不是请求的时刻。
+    """
+    with _CACHE_LOCK:
+        hit = _CACHE.get(key)
+    return hit["built_at"] if hit else None
+
+
+def _refresh_now(key: str, producer, built_on: date | None):
+    """**同步**重新取数并更新缓存（前端点「刷新」时用）。
+
+    与 `_cached` 的区别：这里真的等它拉完（几十秒）再返回，而不是先给旧值 ——
+    点了刷新还拿到同一份旧数据，那个按钮就没有意义。
+
+    并发保护：拿不到锁就说明已经有人在刷，等他刷完直接用结果，不重复拉。
+    """
+    started = time.time()
+    with _REFRESH_LOCK:
+        with _CACHE_LOCK:
+            hit = _CACHE.get(key)
+        # 等锁这段时间别人已经刷过了 → 用他的结果
+        if (
+            hit is not None
+            and hit.get("built_at", 0) >= started
+            and (built_on is None or hit.get("built_on") == built_on)
+        ):
+            return hit["value"]
+
+        value = producer()
+        with _CACHE_LOCK:
+            _store(key, value, built_on)
+        log.info("强制刷新 %s 完成", key)
+    return value
+
+
+def _background_refresh(key: str, producer, built_on: date | None = None) -> None:
     """后台刷新 —— 失败保留旧值（旧数据好过没有），只记日志。"""
 
     def run():
         try:
             value = producer()
             with _CACHE_LOCK:
-                _CACHE[key] = {
-                    "value": value,
-                    "stale_at": time.time() + config.CACHE_TTL_SECONDS,
-                }
+                _store(key, value, built_on)
             log.info("后台刷新 %s 完成", key)
         except Exception as exc:  # noqa: BLE001 - 刷新失败不该影响正在看的人
             log.warning("后台刷新 %s 失败，继续用旧值：%s", key, str(exc)[:120])
@@ -111,6 +166,17 @@ def _background_refresh(key: str, producer) -> None:
 # ---------------------------------------------------------------------------
 # 取数
 # ---------------------------------------------------------------------------
+
+def _iso_local(epoch: float | None) -> Optional[str]:
+    """epoch 秒 → 带本地时区偏移的 ISO 串（如 `2026-10-12T08:39:20+08:00`）。
+
+    带上偏移是给前端 `new Date(...)` 用的 —— 不带偏移的裸串会被当成本地时间，
+    跨时区看就错了。
+    """
+    if not epoch:
+        return None
+    return datetime.fromtimestamp(epoch).astimezone().isoformat()
+
 
 def _require_feishu() -> None:
     if not config.feishu_configured():
@@ -167,10 +233,15 @@ def _load_anomalies(today: date) -> dict:
     return result
 
 
-def _board_payload() -> dict:
+def _board_data(today: date) -> dict:
+    """**进入缓存的部分** —— 只有「要查飞书才拿得到」的行与异常。
+
+    `月 / 已过天数 / 数据时刻` 刻意**不在这里**：它们不查飞书、每次请求都能算准，
+    冻进缓存只会让页面显示过期的时间（实测：12 号打开显示「本月已过 10 天」）。
+    见 `monthly()`。
+    """
     _require_feishu()
 
-    today = date.today()
     month = today.strftime("%Y-%m")
     yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -190,9 +261,6 @@ def _board_payload() -> dict:
     )
 
     return {
-        "month": month,
-        "daysElapsed": contract.days_elapsed(month, today),
-        "updatedAt": today.isoformat(),
         "rows": [contract.asdict_row(r) for r in rows],
         "anomaly": _load_anomalies(today),
     }
@@ -212,17 +280,42 @@ def health() -> dict:
 
 
 @app.get("/production/monthly")
-def monthly() -> dict:
+def monthly(refresh: bool = False) -> dict:
     """当月看板行。取不到就 503 —— **不返回 0 或空行**。
 
     前端 `productionBoard.ts` 收到非 200 即渲染「未接入」态，
     符合「数据接通前不显示任何数字」的纪律（EA-5.4 §16）。
+
+    `?refresh=1` = **同步**重新取数（前端「刷新」按钮）。不带就是缓存优先，
+    先给旧值、后台更新 —— 打开页面因此不会转圈。
+
+    **`月 / 已过天数 / 数据时刻` 每次都现算**（见 `_board_data` 的说明）：
+    只有 rows 与 anomaly 走缓存。这样即使行数据是几分钟前的，
+    「本月已过 N 天」「数据截至 HH:MM」也永远是对的。
     """
+    today = date.today()
+    month = today.strftime("%Y-%m")
     try:
-        return _cached("board", _board_payload)
+        data = (
+            _refresh_now("board", lambda: _board_data(today), today)
+            if refresh
+            else _cached("board", lambda: _board_data(today), built_on=today)
+        )
     except feishu.FeishuError as exc:
         log.error("取数失败 code=%s", exc.code)
         raise HTTPException(status_code=502, detail="飞书取数失败") from exc
+
+    built_at = _cached_at("board")
+    return {
+        "month": month,
+        "daysElapsed": contract.days_elapsed(month, today),
+        "updatedAt": today.isoformat(),
+        # 这批**行数据**是什么时候取回来的（不是本次请求的时刻）。
+        # 页面据此标「数据截至」—— 缓存命中时它会早于现在，这是有意的。
+        "dataAsOf": _iso_local(built_at),
+        "rows": data["rows"],
+        "anomaly": data["anomaly"],
+    }
 
 
 @app.get("/production/yesterday")

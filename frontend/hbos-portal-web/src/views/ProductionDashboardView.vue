@@ -12,6 +12,18 @@
       <div class="pb-meta">
         <b>{{ board ? monthLabel(board.month) : '—' }}</b>
         <span v-if="board">数据月份 {{ board.month }} · 本月已过 {{ board.daysElapsed }} 天</span>
+        <!-- 数据新鲜度 + 手动刷新。
+             服务端是「先给旧的、后台更新」，所以**这里显示的时点可能早于现在** ——
+             那正是要让人看见的信息，不能藏。 -->
+        <span class="pb-asof">
+          <template v-if="board">
+            数据截至 {{ dataAsOfText }}
+            <button class="pb-refresh" :disabled="refreshing" :title="`重新从飞书取数（约 20–30 秒）`" @click="refreshBoard">
+              <ReloadOutlined :spin="refreshing" />
+              {{ refreshing ? '取数中…' : '刷新' }}
+            </button>
+          </template>
+        </span>
       </div>
     </header>
 
@@ -260,7 +272,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ThunderboltOutlined } from '@ant-design/icons-vue'
+import { ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { PRODUCTION_CENTER_PATH } from '@/data/productionNav'
 import {
   fetchProductionBoard,
@@ -310,6 +322,45 @@ const aiProductCount = computed(() => new Set(aiRows.value.map((r) => r.product)
 const monthLabel = (m: string) => {
   const [y, mo] = m.split('-')
   return y && mo ? `${y} 年 ${Number(mo)} 月` : m
+}
+
+// --- 数据新鲜度 ---
+//
+// 服务端是「先给旧的、后台更新」，所以打开页面拿到的那份**可能不是刚拉的**。
+// 把「数据截至 HH:MM」摆出来，让人自己判断要不要点刷新 —— 不藏。
+const refreshing = ref(false)
+
+/** 这批数据是什么时候取回来的。取不到（旧版服务 / mock）就退回「数据月份」。 */
+const dataAsOfText = computed(() => {
+  const iso = board.value?.dataAsOf
+  if (!iso) return board.value ? `${board.value.month}-01 起累计` : '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const p = (n: number) => String(n).padStart(2, '0')
+  const today = new Date()
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  const hm = `${p(d.getHours())}:${p(d.getMinutes())}`
+  return sameDay ? hm : `${d.getMonth() + 1}-${p(d.getDate())} ${hm}`
+})
+
+/**
+ * 手动刷新 —— 让服务端**同步**重取（`?refresh=1`），不是先给旧值。
+ *
+ * 只换 board，不动 phase：刷新失败时旧数据仍在，比把整页打回「未接入」好。
+ * 期间按钮显示「取数中…」并禁用 —— 这条链路要 20~30 秒，没有反馈会以为没点上。
+ */
+async function refreshBoard() {
+  if (refreshing.value) return
+  refreshing.value = true
+  try {
+    const data = await fetchProductionBoard({ refresh: true })
+    if (data) board.value = data
+  } finally {
+    refreshing.value = false
+  }
 }
 
 // --- KPI 汇总（口径：只计入目标 > 0 的行，避免未排产行稀释分母）---
@@ -412,6 +463,11 @@ onMounted(async () => {
 .pb-sub { margin: 0; font-size: 14px; color: var(--hbos-text-secondary); }
 .pb-meta { text-align: right; font-size: 12px; color: var(--hbos-text-muted); white-space: nowrap; }
 .pb-meta b { display: block; font-size: 14px; font-weight: 600; color: var(--hbos-text-secondary); }
+
+.pb-asof { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; margin-top: 2px; }
+.pb-refresh { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 1px solid rgba(65,91,138,.18); border-radius: 999px; background: rgba(255,255,255,.6); font-size: 11px; color: var(--hbos-brand-violet); cursor: pointer; }
+.pb-refresh:hover:not(:disabled) { background: rgba(108,99,255,.07); }
+.pb-refresh:disabled { cursor: progress; opacity: .62; }
 
 .pb-panel { background: rgba(255,255,255,.74); border: 1px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 10px 34px rgba(61,88,136,.08); backdrop-filter: blur(20px); min-width: 0; }
 
