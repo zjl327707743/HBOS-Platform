@@ -85,7 +85,7 @@ const iconMap: Record<string, Component> = {
 }
 
 const visibleApps = computed(() =>
-  props.apps.filter((app) => ['knowledge', 'twin', 'lims', 'inventory', 'attendance', 'equipment'].includes(app.id)),
+  props.apps.filter((app) => ['knowledge', 'twin', 'lims', 'inventory', 'attendance', 'equipment', 'production'].includes(app.id)),
 )
 
 function go(path: string) {

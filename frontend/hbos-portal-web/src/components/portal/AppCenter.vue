@@ -68,7 +68,7 @@ const iconMap: Record<string, Component> = {
   BulbOutlined,
   DeploymentUnitOutlined,
 }
-const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'equipment', 'twin']
+const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'equipment', 'twin', 'production']
 const primaryApps = computed(() => props.apps
   .filter((app) => appOrder.includes(app.id))
   .sort((left, right) => appOrder.indexOf(left.id) - appOrder.indexOf(right.id)))
