@@ -42,6 +42,16 @@ class PreviewComposeGuardTests(unittest.TestCase):
     def test_valid_isolated_volume_layout(self):
         validate_compose(valid_config(), PROJECT)
 
+    def test_compose_logical_sources_are_valid_if_declared_names_are_isolated(self):
+        data = valid_config()
+        for service in FRAPPE_SERVICES:
+            for volume in data["services"][service]["volumes"]:
+                if volume["target"] == SITES:
+                    volume["source"] = "sites"
+                elif volume["target"] == BENCH_ASSETS:
+                    volume["source"] = "assets-data"
+        validate_compose(data, PROJECT)
+
     def test_nested_sites_assets_mount_must_fail_even_if_named(self):
         data = valid_config()
         data["services"]["backend"]["volumes"].append(
