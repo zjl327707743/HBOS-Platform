@@ -1,43 +1,12 @@
-# Preview-only Compose hardening.
+# Isolated Preview overlay.  Use the base Compose volumes without nested
+# sites/assets mounts.  The Frappe v16 entrypoint runs
+#   rm -rf sites/assets && ln -s ../../assets sites/assets
+# Mounting sites/assets separately causes EBUSY and crashes the containers.
 #
-# frappe/erpnext v16-era images may declare /home/frappe/frappe-bench/sites/assets
-# as a nested VOLUME. docker compose run / temporary containers can otherwise
-# create anonymous volumes outside the Compose project namespace.
+# The base docker-compose.yml already mounts the project-scoped "sites" volume
+# on every Frappe service, and named "assets-data" on bench/assets where needed.
+# The launcher always passes a dedicated -p project name and validates the
+# resolved volume sources with preview_compose_guard.py before starting Docker.
 #
-# Reuse the Preview project's named assets-data volume at that exact mountpoint
-# for every Frappe/ERPNext service. This keeps all generated volumes under the
-# hbos-portal-preview project namespace and makes sites/assets and bench/assets
-# see the same Preview-owned asset storage.
-
-services:
-  backend:
-    volumes:
-      - assets-data:/home/frappe/frappe-bench/sites/assets
-
-  configurator:
-    volumes:
-      - assets-data:/home/frappe/frappe-bench/sites/assets
-
-  create-site:
-    volumes:
-      - assets-data:/home/frappe/frappe-bench/sites/assets
-
-  frontend:
-    volumes:
-      - assets-data:/home/frappe/frappe-bench/sites/assets
-
-  queue-long:
-    volumes:
-      - assets-data:/home/frappe/frappe-bench/sites/assets
-
-  queue-short:
-    volumes:
-      - assets-data:/home/frappe/frappe-bench/sites/assets
-
-  scheduler:
-    volumes:
-      - assets-data:/home/frappe/frappe-bench/sites/assets
-
-  websocket:
-    volumes:
-      - assets-data:/home/frappe/frappe-bench/sites/assets
+# Keep this file as an explicit isolated-preview overlay/extension point.
+services: {}
