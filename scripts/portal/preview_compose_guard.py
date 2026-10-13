@@ -58,7 +58,10 @@ def validate_compose(config: dict[str, Any], project: str) -> None:
         matches = [v for v in volumes if v.get("target") == SITES]
         if len(matches) != 1 or matches[0].get("type") != "volume":
             raise ValueError(f"{name}: sites must be exactly one named volume")
-        if matches[0].get("source") != f"{project}_sites":
+        # Docker Compose config may retain the logical source key "sites"
+        # even though the top-level volume's resolved name is project_sites.
+        # The declaration above has already proved that exact mapping.
+        if matches[0].get("source") not in {"sites", f"{project}_sites"}:
             raise ValueError(f"{name}: sites volume is not Preview-namespaced")
 
     for name in ASSET_USERS:
@@ -66,7 +69,7 @@ def validate_compose(config: dict[str, Any], project: str) -> None:
         matches = [v for v in volumes if v.get("target") == BENCH_ASSETS]
         if len(matches) != 1 or matches[0].get("type") != "volume":
             raise ValueError(f"{name}: bench/assets must be exactly one named volume")
-        if matches[0].get("source") != f"{project}_assets-data":
+        if matches[0].get("source") not in {"assets-data", f"{project}_assets-data"}:
             raise ValueError(f"{name}: bench/assets volume is not Preview-namespaced")
 
 
