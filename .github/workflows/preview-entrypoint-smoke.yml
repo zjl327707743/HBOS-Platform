@@ -1,0 +1,33 @@
+name: HBOS Preview Entrypoint Smoke
+
+on:
+  pull_request:
+    branches: [feature/hbos-portal-product, main]
+    paths:
+      - 'scripts/portal/preview_entrypoint_smoke.sh'
+      - 'scripts/portal/preview_compose_guard.py'
+      - 'scripts/portal/test_preview_compose_guard.py'
+      - 'scripts/portal/docker-compose.isolated-preview.yml'
+      - '.github/workflows/preview-entrypoint-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-image-entrypoint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record candidate source
+        env:
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          printf 'PR head: %s\nPR base: %s\n' "$PR_HEAD" "$PR_BASE"
+          git rev-parse HEAD
+      - name: Validate probe syntax
+        run: bash -n scripts/portal/preview_entrypoint_smoke.sh
+      - name: Probe real pinned Frappe image (no Site, no network from containers)
+        run: bash scripts/portal/preview_entrypoint_smoke.sh
