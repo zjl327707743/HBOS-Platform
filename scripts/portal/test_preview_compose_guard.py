@@ -104,5 +104,84 @@ class PreviewComposeGuardTests(unittest.TestCase):
             validate_compose(data, "hbos-m0-r3a")
 
 
+"""Focused supplementary tests. No Docker daemon, network, or real data."""
+
+
+def with_db():
+    config = valid_config()
+    config['volumes']['db-data'] = {'name': f'{PROJECT}_db-data'}
+    config['services']['db'] = {'volumes': [
+        {'type': 'volume', 'source': 'db-data', 'target': '/var/lib/mysql'}
+    ]}
+    return config
+
+
+class PreviewVolumeRegressionTests(unittest.TestCase):
+    def test_namespaced_database_volume_allowed(self):
+        validate_compose(with_db(), PROJECT)
+
+    def test_foreign_database_volume_denied(self):
+        config = with_db()
+        config['volumes']['db-data'] = {'name': 'existing-business-db', 'external': True}
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+    def test_external_site_volume_denied_even_if_name_matches(self):
+        config = valid_config()
+        config['volumes']['sites']['external'] = True
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+    def test_local_volume_bind_to_host_database_denied(self):
+        config = with_db()
+        config['volumes']['db-data']['driver_opts'] = {
+            'type': 'none', 'o': 'bind', 'device': '/protected-business-db'
+        }
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+    def test_undeclared_foreign_worker_volume_denied(self):
+        config = valid_config()
+        config['services']['queue-long']['volumes'].append(
+            {'type': 'volume', 'source': 'business-backups', 'target': '/backups'}
+        )
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+    def test_anonymous_volume_denied(self):
+        config = valid_config()
+        config['services']['queue-long']['volumes'].append(
+            {'type': 'volume', 'target': '/scratch-data'}
+        )
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+    def test_database_direct_host_bind_denied(self):
+        config = with_db()
+        config['services']['db']['volumes'] = [
+            {'type': 'bind', 'source': '/private/business-db', 'target': '/var/lib/mysql'}
+        ]
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+    def test_invalid_volume_declaration_denied(self):
+        config = valid_config()
+        config['volumes']['sites'] = []
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+    def test_invalid_service_mount_denied(self):
+        config = valid_config()
+        config['services']['backend']['volumes'].append('sites:/unknown')
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+    def test_resolved_looking_alias_cannot_hide_foreign_volume(self):
+        config = valid_config()
+        config['volumes'][f'{PROJECT}_sites'] = {'name': 'existing-business-sites'}
+        with self.assertRaises(ValueError):
+            validate_compose(config, PROJECT)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
