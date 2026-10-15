@@ -79,6 +79,10 @@ def resolve_evidence(cache, actor, client, evidence_id, *, runtime, request_id):
         logging.getLogger('hbos.knowledge.source_diagnostics').warning(json.dumps({
             'event':'SOURCE_RESOLUTION_FAILED','request_id':safe_request,'stage':phase,'reason':error.code,
             'document_sha256':hashlib.sha256(reference.binding.canonical_document_id.encode()).hexdigest()},sort_keys=True))
+        from knowledge_service.hbos_gateway.diagnostics import persist_diagnostic
+        persist_diagnostic({'stage':'SOURCE_RESOLUTION_FAILED','request_id':safe_request,
+            'reason':error.code,'detail_reason':phase,
+            'document_hashes':[hashlib.sha256(reference.binding.canonical_document_id.encode()).hexdigest()]})
         if error.code in {"POLICY_UNAVAILABLE","UPSTREAM_UNAVAILABLE","MODEL_NOT_APPROVED",
                           "RATE_LIMITED","EXTRACTION_LIMITED","DECISION_EXPIRED"}:
             raise
