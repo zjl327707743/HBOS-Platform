@@ -1,5 +1,9 @@
 # M2-LIMS 启动门禁
 
+## PR #37 候选源码 CI 修复 — 2026-10-15
+
+[本轮记录](PR37_CI定向修复与来源同步.md)：来源 `pr-m2-r11` 同步指定产品 Base `39366822a5b5d6041b9eea94da4f77255ad26761`，仅定向修复范围门禁与离线安全契约。**CI_FIX_READY_FOR_REVIEW / RUNTIME_SECURITY_NOT_RUN / PR37_NOT_MERGE_READY**。不批准模型最终设计、真实权限、迁移、部署或整包合并；以下旧日期段落保留为各阶段历史，不代表本轮重做或产品发布。
+
 ## 人员与权限：阶段交付本地提交接续 — 2026-10-10
 
 Owner已明确要求commit，沿用m2-r11；[提交范围与验证记录](M2_人员权限阶段交付提交记录.md)固化连续人员权限 / Portal修复 / 恢复组件及其依赖。本次428后端、20账号、179前端及35 Node离线回归通过，类型 / lint / 内容门禁 / 正式模式本地构建通过；前段恢复342项的26源码SHA吻合。本次提交接续不改变S02 PARTIAL / REVIEWING、5178_REAL_READONLY及运行许可门禁；完整恢复 / 本人登录仍NOT_RUN，正式管理GET NOT_READY / POST关闭 / Grant NOT_RUN。以下为前序实施证据，提交后的Git标识以日志为准。

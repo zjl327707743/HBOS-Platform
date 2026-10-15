@@ -2,7 +2,7 @@
 
 ## PR #37 来源分支基线同步 — 2026-10-15
 
-本轮仅将指定产品提交 `39366822a5b5d6041b9eea94da4f77255ad26761` 单向同步到来源分支 `pr-m2-r11`（修复前 Head `a91708d858c9c4c7a06ea999426c29dc2efd4386`），不将 PR 合入产品分支。后续范围门禁和测试正在定向修复；状态 **CI_FIX_IN_PROGRESS / RUNTIME_SECURITY_NOT_RUN / PR37_NOT_MERGE_READY**。
+本轮仅将指定产品提交 `39366822a5b5d6041b9eea94da4f77255ad26761` 单向同步到来源分支 `pr-m2-r11`（修复前 Head `a91708d858c9c4c7a06ea999426c29dc2efd4386`），不将 PR 合入产品分支。精确范围门禁及离线契约已修复并通过本地检查；最终提交的生产包和远端 CI 见本轮交付报告。状态 **CI_FIX_READY_FOR_REVIEW / RUNTIME_SECURITY_NOT_RUN / PR37_NOT_MERGE_READY**。
 
 产品治理事实与来源分支阶段事实均保留。以下 2026-10-10 及更早记录按其当时范围解释，不代表八个模型已获最终设计批准、已启用或部署；本次不执行真实 Site、安全及迁移验收。
 

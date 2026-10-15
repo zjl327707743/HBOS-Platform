@@ -85,14 +85,27 @@ class StorageGuardTests(unittest.TestCase):
 
     def test_six_schema_definitions_have_physical_keys_and_no_general_write_permission(self):
         base = Path(__file__).resolve().parents[1] / "hbos_portal/hbos_portal/doctype"
-        for kind in (POSITION, ASSIGNMENT, POSITION_REVISION, ASSIGNMENT_REVISION, RECEIPT, WRITE_LOCK):
-            slug = kind.lower().replace(" ", "_"); metadata = json.loads((base/slug/(slug+".json")).read_text())
-            fields = {field["fieldname"]: field for field in metadata["fields"]}
-            self.assertEqual(metadata["autoname"], "field:record_key")
-            self.assertEqual(fields["record_key"]["unique"], 1)
-            self.assertEqual(metadata["permissions"], [])
-            self.assertEqual(metadata["allow_rename"], 0)
-            self.assertEqual(metadata["allow_import"], 0)
+        models = (
+            ("hbos_position", POSITION),
+            ("hbos_personnel_assignment", ASSIGNMENT),
+            ("hbos_position_revision", POSITION_REVISION),
+            ("hbos_personnel_assignment_revision", ASSIGNMENT_REVISION),
+            ("hbos_organization_command_receipt", RECEIPT),
+            ("hbos_organization_write_lock", WRITE_LOCK),
+        )
+        for slug, kind in models:
+            with self.subTest(doctype=kind):
+                metadata = json.loads((base/slug/(slug+".json")).read_text())
+                fields = {field["fieldname"]: field for field in metadata["fields"]}
+                self.assertEqual(metadata["doctype"], "DocType")
+                self.assertEqual(metadata["name"], kind)
+                self.assertEqual(metadata["module"], "HBOS Portal")
+                self.assertEqual(metadata["engine"], "InnoDB")
+                self.assertEqual(metadata["autoname"], "field:record_key")
+                self.assertEqual(fields["record_key"]["unique"], 1)
+                self.assertEqual(metadata["permissions"], [])
+                self.assertEqual(metadata["allow_rename"], 0)
+                self.assertEqual(metadata["allow_import"], 0)
 
 
 class FrappeRepositoryBoundaryTests(unittest.TestCase):

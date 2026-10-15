@@ -272,12 +272,17 @@ class NativeRepositoryContractTests(unittest.TestCase):
         with self.locked(),self.assertRaises(ContractError):self.repo.get_current(self.row.policy_id)
     def test_native_schema_has_physical_keys_no_permissions_or_rpc(self):
         base=Path(__file__).resolve().parents[1]/'hbos_portal/hbos_portal/doctype'
-        for kind in (POLICY,POLICY_REVISION):
-            slug=kind.lower().replace(' ','_');data=json.loads((base/slug/(slug+'.json')).read_text())
-            self.assertEqual(data['engine'],'InnoDB');self.assertEqual(data['permissions'],[])
-            self.assertEqual(data['autoname'],'field:record_key')
-            self.assertEqual(next(field for field in data['fields'] if field['fieldname']=='record_key')['unique'],1)
-            self.assertEqual(data['allow_import'],0);self.assertEqual(data['allow_rename'],0)
+        models=(('hbos_organization_management_policy',POLICY),
+                ('hbos_organization_management_policy_revision',POLICY_REVISION))
+        for slug,kind in models:
+            with self.subTest(doctype=kind):
+                data=json.loads((base/slug/(slug+'.json')).read_text())
+                self.assertEqual(data['doctype'],'DocType');self.assertEqual(data['name'],kind)
+                self.assertEqual(data['module'],'HBOS Portal')
+                self.assertEqual(data['engine'],'InnoDB');self.assertEqual(data['permissions'],[])
+                self.assertEqual(data['autoname'],'field:record_key')
+                self.assertEqual(next(field for field in data['fields'] if field['fieldname']=='record_key')['unique'],1)
+                self.assertEqual(data['allow_import'],0);self.assertEqual(data['allow_rename'],0)
     def test_locked_capability_expires_at_transaction_end_or_after_site_change(self):
         with self.locked():
             self.assertEqual(self.repo.get_current(self.row.policy_id),self.row)
