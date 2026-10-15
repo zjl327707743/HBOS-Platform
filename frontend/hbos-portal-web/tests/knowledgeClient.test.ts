@@ -235,3 +235,56 @@ describe('UAT3 model selection and authentic source states; synthetic transport 
   transport.post.mockResolvedValueOnce({ok:true,data:turn});await expect(askKnowledgeReference('你好')).rejects.toBeInstanceOf(DomainApiError)
  })
 })
+
+
+describe('UAT5 bounded failure classifications', () => {
+  it.each([
+    ['MODEL_TRANSPORT_FAILURE', '回答服务连接失败'],
+    ['MODEL_REQUEST_FORMAT', '回答服务未接受请求格式'],
+    ['MODEL_REQUEST_INVALID', '模型服务拒绝了请求格式'],
+    ['MODEL_AUTH_FAILED', '模型服务认证或授权失败'],
+    ['MODEL_RATE_LIMITED', '所选模型当前限流'],
+    ['ANSWER_SCHEMA_INVALID', '回答格式未通过校验'],
+    ['CITATION_SUPPORT_FAILED', '回答未通过来源支持校验'],
+    ['RETRIEVAL_EMPTY', '没有找到可核实的公司依据'],
+    ['RETRIEVAL_UPSTREAM_FAILED', '资料检索暂时失败'],
+    ['SOURCE_VERSION_STALE', '来源已换版、下架或授权变化'],
+  ])('preserves %s and a safe request ID while hiding provider details', async (code, message) => {
+    transport.post.mockResolvedValue({ ok: false, error: { code, message: '/PRIVATE/provider/key', retryable: true, request_id: 'REQ_UAT5_SYNTHETIC' } })
+    await expect(searchKnowledge('SYNTHETIC')).rejects.toMatchObject({ code, requestId: 'REQ_UAT5_SYNTHETIC', message: expect.stringContaining(message) })
+  })
+  it('legacy model unavailability no longer conflates citation validation with provider failure', async () => {
+    transport.post.mockResolvedValue({ ok: false, error: { code: 'ANSWER_MODEL_UNAVAILABLE', message: '/PRIVATE/provider/key', request_id: '/PRIVATE/id' } })
+    try { await searchKnowledge('SYNTHETIC'); throw new Error('Expected rejection') }
+    catch (error) { expect(error).toBeInstanceOf(DomainApiError); expect((error as DomainApiError).message).not.toContain('依据校验'); expect((error as DomainApiError).requestId).toBeUndefined() }
+  })
+})
+
+
+describe('UAT5 public law catalog contract', () => {
+  const legal = { category: '国家法律法规', level: null, issuer: null, published_date: null, region: null, applicability: null, effective_status: '待核' }
+  const doc = { document_id: 'DOC_LAW_SYNTHETIC', title: '合成法规', space_id: 'DEPT_PUBLIC_LAW', department: '公司公共法律法规知识', document_number: null, version: null, status_note: '内部参考', legal_metadata: legal }
+  it('preserves reviewed legal classification, keeps unknown effectiveness, and sends the selected filter', async () => {
+    const { getKnowledgeDocumentsPage } = await import('@/services/p1Api')
+    transport.get.mockResolvedValue({ ok: true, data: { documents: [doc], total: 1, page: 1, page_size: 4 } })
+    expect((await getKnowledgeDocumentsPage('', 'DEPT_PUBLIC_LAW', 1, 4, '国家法律法规')).documents[0]?.legal_metadata?.effective_status).toBe('待核')
+    expect(transport.get).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.get_documents_page', { query: '', space_id: 'DEPT_PUBLIC_LAW', page: 1, page_size: 4, law_category: '国家法律法规' })
+  })
+  it.each([
+    { ...doc, legal_metadata: { ...legal, effective_status: 'CURRENT_BY_FOLDER' } },
+    { ...doc, legal_metadata: { ...legal, category: 'OTHER_CATEGORY' } },
+    { ...doc, legal_metadata: { ...legal, issuer: '/PRIVATE/issuer' } },
+    { ...doc, legal_metadata: { ...legal, published_date: '2026-02-30' } },
+    { ...doc, legal_metadata: { ...legal, download_url: 'PRIVATE_LINK' } },
+    { ...doc, space_id: 'DEPT_PRODUCTION' },
+  ])('rejects invalid or unsafe law metadata %#', async bad => {
+    const { getKnowledgeDocumentsPage } = await import('@/services/p1Api')
+    transport.get.mockResolvedValue({ ok: true, data: { documents: [bad], total: 1, page: 1, page_size: 4 } })
+    await expect(getKnowledgeDocumentsPage('', '', 1, 4)).rejects.toBeInstanceOf(DomainApiError)
+  })
+  it('rejects a category-mismatched server page without showing an unrelated law', async () => {
+    const { getKnowledgeDocumentsPage } = await import('@/services/p1Api')
+    transport.get.mockResolvedValue({ ok: true, data: { documents: [doc], total: 1, page: 1, page_size: 4 } })
+    await expect(getKnowledgeDocumentsPage('', '', 1, 4, '安全环保')).rejects.toBeInstanceOf(DomainApiError)
+  })
+})

@@ -2,6 +2,13 @@ from __future__ import annotations
 
 # Messages are fixed. Exception details, IDs, paths and upstream bodies never escape.
 ERRORS = {
+    "MODEL_TRANSPORT_FAILURE": (503,"回答服务连接失败，请稍后重新提交。检索和个人记录仍可使用。",True),
+    "MODEL_REQUEST_FORMAT": (502,"回答服务未接受请求格式，请联系维护人。",False),
+    "ANSWER_SCHEMA_INVALID": (502,"回答格式未通过校验，本次未展示回答。请重新提交或查阅来源。",True),
+    "CITATION_SUPPORT_FAILED": (422,"回答未通过来源支持校验，本次未展示回答。请查阅来源或调整问题。",True),
+    "RETRIEVAL_EMPTY": (404,"没有找到可核实的公司依据，请调整关键词或资料范围。",False),
+    "RETRIEVAL_UPSTREAM_FAILED": (503,"资料检索暂时失败，请稍后重试；目录和个人记录仍可查看。",True),
+    "SOURCE_VERSION_STALE": (409,"来源已换版、下架或授权变化，请重新检索并核对当前来源。",True),
     "MODEL_UNAVAILABLE": (503,"所选模型配置尚未核验或已撤销，暂不可用。未自动切换其他模型。",False),
     "MODEL_REQUEST_INVALID": (502,"模型服务拒绝了请求格式；请联系维护人核对模型协议。",False),
     "MODEL_AUTH_FAILED": (502,"模型服务认证或授权失败；请联系维护人核对服务端配置。",False),
@@ -26,7 +33,7 @@ ERRORS = {
     "UPSTREAM_SCOPE_VIOLATION": (502, "知识服务权限校验失败。", False),
     "UPSTREAM_INVALID_RESULT": (502, "知识服务返回无效。", False),
     "MODEL_NOT_APPROVED": (503, "回答能力尚未获准。", False),
-    "ANSWER_MODEL_UNAVAILABLE": (503, "回答模型暂时不可用或未通过依据校验。请稍后重试；检索和记录仍可使用。", True),
+    "ANSWER_MODEL_UNAVAILABLE": (503, "回答服务暂时不可用，请稍后重试；检索和个人记录仍可使用。", True),
     "ANSWER_BUDGET_BLOCKED": (503, "回答费用待核验或预算不可用，回答已暂停；目录、来源和个人记录仍可查看。", False),
     "RATE_LIMITED": (429, "请求较频繁，请稍后重试。", True),
     "EXTRACTION_LIMITED": (429, "本时段可展示的摘录已达上限。", True),

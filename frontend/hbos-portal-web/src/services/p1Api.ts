@@ -15,16 +15,19 @@ import type {
   TwinStatus,
 } from '@/contracts/p1'
 import { callFrappeMethod, callFrappePostMethod } from '@/services/frappeClient'
+import { knowledgeLawCategories } from '@/contracts/p1'
 
 export class DomainApiError extends Error {
   code: string
   retryable: boolean
+  requestId?: string
 
-  constructor(code: string, message: string, retryable = false) {
+  constructor(code: string, message: string, retryable = false, requestId?: string) {
     super(message)
     this.name = 'DomainApiError'
     this.code = code
     this.retryable = retryable
+    if (typeof requestId === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(requestId)) this.requestId = requestId
   }
 }
 
@@ -40,6 +43,13 @@ function unwrap<T>(envelope: DomainEnvelope<T>): T {
 }
 
 const KNOWLEDGE_MESSAGES: Record<string, string> = {
+  MODEL_TRANSPORT_FAILURE:'回答服务连接失败，请稍后重新提交。检索和个人记录仍可使用。',
+  MODEL_REQUEST_FORMAT:'回答服务未接受请求格式，请联系维护人。',
+  ANSWER_SCHEMA_INVALID:'回答格式未通过校验，本次未展示回答。请重新提交或查阅来源。',
+  CITATION_SUPPORT_FAILED:'回答未通过来源支持校验，本次未展示回答。请查阅来源或调整问题。',
+  RETRIEVAL_EMPTY:'没有找到可核实的公司依据，请调整关键词或资料范围。',
+  RETRIEVAL_UPSTREAM_FAILED:'资料检索暂时失败，请稍后重试；目录和个人记录仍可查看。',
+  SOURCE_VERSION_STALE:'来源已换版、下架或授权变化，请重新检索并核对当前来源。',
   MODEL_UNAVAILABLE:'所选模型配置尚未核验或已撤销，暂不可用。未自动切换其他模型。',
   MODEL_REQUEST_INVALID:'模型服务拒绝了请求格式，请联系维护人。',
   MODEL_AUTH_FAILED:'模型服务认证或授权失败，请联系维护人。',
@@ -59,7 +69,7 @@ const KNOWLEDGE_MESSAGES: Record<string, string> = {
   UPSTREAM_UNAVAILABLE: '检索服务暂不可用，目录与个人记录仍可查看。',
   RATE_LIMITED: '请求较频繁，请稍后重试。',
   EXTRACTION_LIMITED: '本时段可展示的摘录已达上限。',
-  ANSWER_MODEL_UNAVAILABLE: '回答模型暂时不可用或未通过依据校验。请稍后重试；检索和记录仍可使用。',
+  ANSWER_MODEL_UNAVAILABLE: '回答服务暂时不可用，请稍后重试；检索和个人记录仍可使用。',
   MODEL_NOT_APPROVED: '回答能力尚未获准。',
   ANSWER_BUDGET_BLOCKED: '回答费用待核验或预算不可用，回答已暂停；目录、来源和个人记录仍可查看。',
 }
@@ -67,7 +77,7 @@ function unwrapKnowledge<T>(envelope: DomainEnvelope<T>): T {
   if (!envelope.ok || envelope.data === undefined) {
     const supplied = envelope.error?.code || 'SERVICE_ERROR'
     const code = supplied in KNOWLEDGE_MESSAGES ? supplied : 'SERVICE_ERROR'
-    throw new DomainApiError(code, KNOWLEDGE_MESSAGES[code] || '知识服务暂时不可用。', Boolean(envelope.error?.retryable))
+    throw new DomainApiError(code, KNOWLEDGE_MESSAGES[code] || '知识服务暂时不可用。', Boolean(envelope.error?.retryable), envelope.error?.request_id)
   }
   return envelope.data
 }
@@ -226,12 +236,18 @@ export async function getFeishuLoginStatus(): Promise<FeishuLoginStatus> {
 }
 
 function validateKnowledgeDocument(doc: KnowledgeDocument): void {
-  if (!doc || typeof doc !== 'object' || Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note','version_id','download_state','download_note'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  if (!doc || typeof doc !== 'object' || Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note','version_id','download_state','download_note','legal_metadata'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
   for (const key of ['document_id','space_id','department','status_note'] as const) safeKnowledgeString(doc[key],320)
   safeKnowledgeString(doc.title,240,true); safeKnowledgeString(doc.document_number,120,true); safeKnowledgeString(doc.version,80,true)
   if (doc.version_id !== undefined) safeKnowledgeString(doc.version_id,128)
   if (doc.download_state !== undefined && doc.download_state !== 'permission_required') throw new DomainApiError('SERVICE_ERROR','资料下载权限尚未上线。')
   if (doc.download_note !== undefined) safeKnowledgeString(doc.download_note,320)
+  if (doc.legal_metadata !== undefined) {
+    const legal = doc.legal_metadata
+    if (doc.space_id !== 'DEPT_PUBLIC_LAW' || !legal || typeof legal !== 'object' || Array.isArray(legal) || Object.keys(legal).some(k => !['category','level','issuer','published_date','region','applicability','effective_status'].includes(k)) || !knowledgeLawCategories.includes(legal.category) || !['待核','现行有效','已废止'].includes(legal.effective_status)) throw new DomainApiError('SERVICE_ERROR','法规分类响应无效。')
+    for (const field of ['level','issuer','region','applicability'] as const) safeKnowledgeString(legal[field],160,true)
+    if (legal.published_date != null && (!/^\d{4}-\d{2}-\d{2}$/.test(legal.published_date) || Number.isNaN(Date.parse(legal.published_date)) || new Date(legal.published_date).toISOString().slice(0,10) !== legal.published_date)) throw new DomainApiError('SERVICE_ERROR','法规日期响应无效。')
+  }
 }
 
 export async function getKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
@@ -243,15 +259,16 @@ export async function getKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
   return data.documents
 }
 
-export async function getKnowledgeDocumentsPage(query = '', spaceId = '', page = 1, pageSize = 12): Promise<KnowledgeDocumentPage> {
+export async function getKnowledgeDocumentsPage(query = '', spaceId = '', page = 1, pageSize = 12, lawCategory?: import('@/contracts/p1').KnowledgeLawCategory): Promise<KnowledgeDocumentPage> {
   if (typeof query !== 'string' || [...query].length > 240 || typeof spaceId !== 'string' || spaceId !== spaceId.trim() || !Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 50) throw new DomainApiError('INVALID_REQUEST','目录筛选格式无效。')
   if (spaceId) safeKnowledgeString(spaceId,120)
+  if (lawCategory !== undefined && !knowledgeLawCategories.includes(lawCategory)) throw new DomainApiError('INVALID_REQUEST','法规分类格式无效。')
   const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<KnowledgeDocumentPage>>(
-    'hb_knowledge_app.hb_knowledge.api.get_documents_page', { query: query.trim(), space_id: spaceId, page, page_size: pageSize },
+    'hb_knowledge_app.hb_knowledge.api.get_documents_page', { query: query.trim(), space_id: spaceId, page, page_size: pageSize, ...(lawCategory ? { law_category: lawCategory } : {}) },
   ))
   if (!data || Object.keys(data).some(k => !['documents','total','page','page_size'].includes(k)) || !Array.isArray(data.documents) || data.documents.length > pageSize || !Number.isSafeInteger(data.total) || data.total < 0 || data.total < data.documents.length || data.page !== page || data.page_size !== pageSize) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
   data.documents.forEach(validateKnowledgeDocument)
-  if (new Set(data.documents.map(doc => doc.document_id)).size !== data.documents.length || (spaceId && data.documents.some(doc => doc.space_id !== spaceId))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  if (new Set(data.documents.map(doc => doc.document_id)).size !== data.documents.length || (spaceId && data.documents.some(doc => doc.space_id !== spaceId)) || (lawCategory && data.documents.some(doc => doc.legal_metadata?.category !== lawCategory))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
   return data
 }
 

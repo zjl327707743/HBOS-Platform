@@ -11,6 +11,8 @@ export interface DomainEnvelope<T> {
   error?: DomainErrorPayload
 }
 
+export type KnowledgeOperationState = 'idle' | 'loading' | 'retrieved' | 'answering' | 'success' | 'no_evidence' | 'error' | 'cancelled'
+
 export interface KnowledgeStatus {
   model_catalog?: KnowledgeModels
   can_enter: boolean
@@ -121,6 +123,18 @@ export interface KnowledgeSpace {
   document_count: number
 }
 
+export const knowledgeLawCategories = ['国家法律法规', 'GMP与药品监管', '药典与技术标准', '地方政策', '安全环保', '待分类'] as const
+export type KnowledgeLawCategory = typeof knowledgeLawCategories[number]
+export interface KnowledgeLegalMetadata {
+  category: KnowledgeLawCategory
+  level: string | null
+  issuer: string | null
+  published_date: string | null
+  region: string | null
+  applicability: string | null
+  effective_status: '待核' | '现行有效' | '已废止'
+}
+
 export interface KnowledgeDocument {
   document_id: string
   title: string | null
@@ -130,6 +144,7 @@ export interface KnowledgeDocument {
   version: string | null
   status_note: string
   version_id?: string
+  legal_metadata?: KnowledgeLegalMetadata
   download_state?: 'permission_required'
   download_note?: string
 }

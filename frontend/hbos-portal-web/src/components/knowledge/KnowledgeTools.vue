@@ -11,12 +11,13 @@
       <div class="answer-list" aria-live="polite">
         <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
           <h3 class="answer-question">{{ turn.question }}</h3>
-          <a-tag :color="turn.answerable ? 'blue' : 'orange'">{{ turn.answerable ? '内部参考回答' : '依据不足' }}</a-tag>
+          <a-tag :color="turn.answerable ? 'blue' : 'orange'">{{ !turn.answerable ? '没有可核实公司依据' : turn.answer_origin === 'GENERAL' ? '通用 AI 回答' : '已使用知识库' }}</a-tag>
           <p class="answer-text">{{ turn.answer }}</p>
           <button v-for="source in turn.citations" :key="source.citation_label" type="button" class="citation-link" @click="emit('evidence', source.evidence_id)">[{{ source.citation_label }}] {{ source.title || '未标注标题' }} · 查看依据</button>
           <p class="answer-note">本次检索时点的资料依据；再次查阅会核验当前状态。</p>
         </article>
       </div>
+      <a-alert v-if="error && errorScope === 'query'" type="error" show-icon :message="error" />
       <p v-if="!turns.length && !busy" class="muted">问一个明确的问题，回答会同时列出可核验的来源。</p>
     </section>
 
@@ -50,14 +51,14 @@
         </template>
       </div>
       <p v-if="notice" role="status" class="tool-notice">{{ notice }}</p>
-      <a-alert v-if="error" type="error" show-icon :message="error" />
+      <a-alert v-if="recordsError || (error && errorScope === 'operation' && !feedbackMode)" type="error" show-icon :message="recordsError || error" />
     </section>
 
     <a-modal :open="Boolean(feedbackMode)" :title="feedbackMode === 'general' ? '提交一般反馈' : '反馈资料问题'" :footer="null" :destroy-on-close="true" @cancel="closeFeedback()">
       <div v-if="feedbackMode" class="feedback-form">
         <p v-if="feedbackMode === 'general'" class="feedback-title">这条反馈没有关联资料来源。请描述使用中遇到的问题。</p>
         <p v-else class="feedback-title">{{ feedbackTarget?.title || '当前检索依据' }}</p>
-        <a-alert v-if="error" type="error" show-icon :message="error" />
+        <a-alert v-if="error && errorScope === 'feedback'" type="error" show-icon :message="error" />
         <form @submit.prevent="sendFeedback">
           <label for="feedback-category">问题类型</label><select id="feedback-category" v-model="category" :disabled="busy"><option v-for="c in categories" :key="c">{{ c }}</option></select>
           <label for="feedback-note">{{ feedbackMode === 'general' ? '反馈说明（必填）' : '补充说明' }}</label><textarea id="feedback-note" v-model="note" maxlength="500" :disabled="busy" :required="feedbackMode === 'general'" placeholder="请描述需要维护人核对的问题" />
@@ -68,11 +69,11 @@
     </a-modal>
   </div>
   <div v-else class="knowledge-tools kb-tools">
-    <section v-if="view==='query' && mode==='ask' && (turns.length || askPending)" class="kb-panel kb-answer-panel hbos-glass-g1">
+    <section v-if="view==='query' && mode==='ask' && (turns.length || askPending || hasQueryError)" class="kb-panel kb-answer-panel hbos-glass-g1">
       <div class="kb-section-title"><h2>回答</h2><a-button type="text" @click="newConversation">开启新问题</a-button></div>
       <div class="kb-answer-list" aria-live="polite">
         <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
-          <h3 class="answer-question">{{turn.question}}</h3><div class="kb-answer-origin"><a-tag :color="!turn.answerable?'orange':turn.answer_origin==='GENERAL'?'default':'cyan'">{{!turn.answerable?'依据不足':turn.answer_origin==='GENERAL'?'未使用知识库':'已使用知识库'}}</a-tag><small>{{turn.model_alias||'原模型未记录'}}</small></div>
+          <h3 class="answer-question">{{turn.question}}</h3><div class="kb-answer-origin"><a-tag :color="!turn.answerable?'orange':turn.answer_origin==='GENERAL'?'default':'cyan'">{{!turn.answerable?'没有可核实公司依据':turn.answer_origin==='GENERAL'?'通用 AI 回答':'已使用知识库'}}</a-tag><small>{{turn.model_alias||'原模型未记录'}}</small></div>
           <p class="kb-answer-copy">{{turn.answer}}</p><div v-if="turn.citations.length" class="kb-source-label">参考来源</div>
           <div v-for="source in turn.citations" :key="source.citation_label" class="kb-citation-row">
             <button class="kb-source-link" @click="emit('evidence',source.evidence_id)"><FileTextOutlined/><span>[{{source.citation_label}}] {{source.title||'未标注标题'}}<small>{{source.version||'版本待核'}} · {{source.status_note==='INTERNAL_REFERENCE_REVIEWED'?'内部参考／有效性待核':source.status_note}}</small></span></button>
@@ -82,6 +83,7 @@
         </article>
       </div>
       <a-skeleton v-if="askPending" active :paragraph="{rows:4}"/>
+      <a-alert v-if="hasQueryError" class="kb-query-alert" type="error" show-icon :message="error"/>
       <form v-if="turns.length" class="kb-followup" @submit.prevent="ask()"><label class="sr-only" for="knowledge-question">追问内容</label><textarea id="knowledge-question" v-model="question" rows="2" maxlength="280" :disabled="busy||retrievalBlocked" placeholder="继续追问这个问题…" @compositionstart="composing=true" @compositionend="composing=false" @keydown="questionKeydown"/><a-button type="primary" html-type="submit" :loading="busy" :disabled="busy||retrievalBlocked||!question.trim()">追问<ArrowRightOutlined/></a-button></form>
     </section>
     <slot v-if="view==='catalog'" name="catalog"/>
@@ -97,14 +99,14 @@
         <a-empty v-if="!shown.length" :description="view==='favorites'?'还没有收藏，点击资料旁的星标即可保存。':'开始一次查询后，可以在这里继续查阅。'"/>
         <article v-for="item in shown" :key="item.id" class="kb-doc-row">
           <div class="kb-doc-icon"><StarOutlined v-if="view==='favorites'"/><HistoryOutlined v-else/></div>
-          <button class="kb-doc-main" :disabled="busy||!item.available" @click="reopen(item.id)"><strong>{{!item.available&&item.bookmark_type==='Document'?'已失效的收藏':view==='favorites'&&item.available?item.titles.filter(Boolean).join('；')||item.query:item.query}}</strong><p>{{item.available?(view==='favorites'?(favoriteDocument(item)?.status_note||'打开当前可用来源'):(item.answer_origin==='GENERAL'?'未使用知识库 · '+(item.model_alias||'通用 AI'):item.titles.filter(Boolean)[0]||'查阅记录')+(item.titles.length>1?' 等 '+item.titles.length+' 份资料':'')):'依据已下架、换版或授权变化，请重新检索。'}}</p><small v-if="view==='favorites'&&favoriteDocument(item)">{{favoriteDocument(item)?.document_number||'文号待核'}} · {{favoriteDocument(item)?.department}} · {{favoriteDocument(item)?.version||'版本待核'}}<a-tag color="green">已共享</a-tag></small><small v-else>{{displayDate(item.created_at)}}</small></button>
+          <button class="kb-doc-main" :disabled="busy||!item.available" @click="reopen(item.id)"><strong>{{!item.available&&item.bookmark_type==='Document'?'已失效的收藏':view==='favorites'&&item.available?item.titles.filter(Boolean).join('；')||item.query:item.query}}</strong><p>{{item.available?(view==='favorites'?(favoriteDocument(item)?.status_note||'打开当前可用来源'):(item.answer_origin==='GENERAL'?'通用 AI 回答 · '+(item.model_alias||'通用 AI'):item.titles.filter(Boolean)[0]||'查阅记录')+(item.titles.length>1?' 等 '+item.titles.length+' 份资料':'')):'依据已下架、换版或授权变化，请重新检索。'}}</p><small v-if="view==='favorites'&&favoriteDocument(item)">{{favoriteDocument(item)?.document_number||'文号待核'}} · {{favoriteDocument(item)?.department}} · {{favoriteDocument(item)?.version||'版本待核'}}<a-tag color="green">已共享</a-tag></small><small v-else>{{displayDate(item.created_at)}}</small></button>
           <div class="kb-doc-actions"><a-button type="text" :disabled="busy" :aria-label="view==='favorites'?'取消收藏':'删除记录'" @click="remove(item.id)"><StarFilled v-if="view==='favorites'" class="kb-star"/><DeleteOutlined v-else/></a-button><a-tooltip v-if="view==='favorites'" title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined/></a-button></a-tooltip><a-button v-else-if="item.available" :disabled="busy" @click="reopen(item.id)">继续查阅</a-button></div>
         </article>
       </template>
       <div class="kb-pagination"><a-button :disabled="savedPage<=1||busy||refreshing||feedbackLoading" @click="savedPage--">上一页</a-button><span>第 {{savedPage}} 页</span><a-button :disabled="!savedHasMore||busy||refreshing||feedbackLoading" @click="savedPage++">下一页</a-button></div>
     </section>
-    <p v-if="notice" role="status" class="kb-notice">{{notice}}</p><a-alert v-if="error" type="error" show-icon :message="error"/>
-    <a-drawer :open="Boolean(feedbackMode)" title="反馈与建议" width="min(520px, 100vw)" root-class-name="kb-drawer kb-scope" @close="closeFeedback()"><div class="feedback-form"><p>{{feedbackTarget?.title||'说明资料、回答或使用中的问题，维护人会核对后回复。'}}</p><form @submit.prevent="sendFeedback"><label for="feedback-category">问题类型</label><select id="feedback-category" v-model="category" :disabled="busy"><option v-for="c in categories" :key="c">{{c}}</option></select><label for="feedback-note">反馈说明</label><textarea id="feedback-note" v-model="note" maxlength="500" :disabled="busy" :required="feedbackMode==='general'" placeholder="描述问题或建议…"/><a-alert v-if="error" type="error" :message="error"/><a-button type="primary" html-type="submit" :disabled="busy||(feedbackMode==='general'&&!note.trim())" :loading="busy">提交反馈</a-button></form></div></a-drawer>
+    <p v-if="notice" role="status" class="kb-notice">{{notice}}</p><a-alert v-if="(recordsError && ['favorites','history'].includes(view)) || (error && errorScope === 'operation' && !feedbackMode)" type="error" show-icon :message="recordsError || error"/>
+    <a-drawer :open="Boolean(feedbackMode)" title="反馈与建议" width="min(520px, 100vw)" root-class-name="kb-drawer kb-scope" @close="closeFeedback()"><div class="feedback-form"><p>{{feedbackTarget?.title||'说明资料、回答或使用中的问题，维护人会核对后回复。'}}</p><form @submit.prevent="sendFeedback"><label for="feedback-category">问题类型</label><select id="feedback-category" v-model="category" :disabled="busy"><option v-for="c in categories" :key="c">{{c}}</option></select><label for="feedback-note">反馈说明</label><textarea id="feedback-note" v-model="note" maxlength="500" :disabled="busy" :required="feedbackMode==='general'" placeholder="描述问题或建议…"/><a-alert v-if="error && errorScope === 'feedback'" type="error" :message="error"/><a-button type="primary" html-type="submit" :disabled="busy||(feedbackMode==='general'&&!note.trim())" :loading="busy">提交反馈</a-button></form></div></a-drawer>
   </div>
 </template>
 
@@ -145,7 +147,10 @@ const askPending = ref(false)
 const refreshing = ref(false)
 const feedbackLoading = ref(false)
 const notice = ref('')
-const error = ref('')
+type ErrorScope = 'query' | 'operation' | 'feedback' | 'records'
+const error = ref(''), errorScope = ref<ErrorScope>('operation'), recordsError = ref('')
+const hasQueryError = computed(() => Boolean(error.value && errorScope.value === 'query'))
+const queryState = ref<import('@/contracts/p1').KnowledgeOperationState>('idle')
 const feedbackError = ref('')
 const feedbackTarget = ref<KnowledgeEvidence | null>(null)
 const feedbackMode = ref<'source' | 'general' | null>(null)
@@ -159,7 +164,13 @@ let feedbackTrigger: HTMLElement | null = null
 const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED', 'EMPTY_SCOPE']
 
 watch(busy, value => emit('busy', value), { flush: 'sync' })
-watch(() => props.view, () => { savedPage.value=1; history.value=[]; bookmarks.value=[]; feedbackItems.value=[]; void refresh() })
+watch(() => props.view, () => {
+  cancelPending(); feedbackGeneration++; feedbackLoading.value = false; closeFeedback(false)
+  error.value = ''; recordsError.value = ''; feedbackError.value = ''; notice.value = ''
+  savedPage.value = 1; history.value = []; bookmarks.value = []; feedbackItems.value = []
+  void refresh()
+}, { flush: 'sync' })
+watch(() => [props.mode, props.modelAlias, props.knowledgeOnly], () => { cancelPending(); error.value = ''; notice.value = ''; closeFeedback(false) }, { flush: 'sync' })
 watch(savedPage,()=>{if(props.view==='favorites'&&favoriteFilterActive.value)savedHasMore.value=savedPage.value*4<filteredFavorites.value.length;else if(props.view)void refresh()})
 watch([favoriteQuery,favoriteSpace],()=>{savedPage.value=1;void refresh()})
 watch(kind, () => { savedPage.value = 1; if (kind.value === 'Feedback') void refreshFeedback() })
@@ -168,35 +179,38 @@ watch(() => props.subject, () => {
   generation++; recordsGeneration++; feedbackGeneration++
   history.value = []; bookmarks.value = []; bookmarkIndex.value=[]; feedbackItems.value = []; turns.value = []
   favoriteDocuments.value=[];filterFavorites.value=[];favoriteQuery.value='';favoriteSpace.value=''
-  conversation.value = ''; question.value = ''; notice.value = ''; error.value = ''; feedbackError.value = ''
-  closeFeedback(false); busy.value = false; refreshing.value = false; feedbackLoading.value = false
+  conversation.value = ''; question.value = ''; notice.value = ''; error.value = ''; recordsError.value = ''; feedbackError.value = ''; queryState.value = 'idle'
+  closeFeedback(false); busy.value = false; askPending.value = false; refreshing.value = false; feedbackLoading.value = false
   emit('conversation', false)
   if (props.subject) void refresh()
 }, { flush: 'sync' })
 watch(() => [props.selectedSpace,props.searchMode], () => {
   generation++; turns.value = []; conversation.value = ''; busy.value = false; askPending.value = false
-  error.value = ''; notice.value = ''; closeFeedback(false); emit('conversation', false)
+  error.value = ''; queryState.value = 'idle'; notice.value = ''; closeFeedback(false); emit('conversation', false)
 }, { flush: 'sync' })
 onBeforeUnmount(() => { generation++; recordsGeneration++; feedbackGeneration++; closeFeedback(false) })
 
 function displayDate(value: string) { return value.slice(0, 16).replace('T', ' ') }
 function favoriteDocument(item:KnowledgeActivity){return item.available?favoriteDocuments.value.find(d=>item.document_ids?.includes(d.document_id)&&(!item.version_ids?.length||item.version_ids.includes(d.version_id||''))):undefined}
-function failure(e: unknown, invalidateSource = true) {
-  if (e instanceof DomainApiError && e.code === 'UPSTREAM_UNAVAILABLE') emit('upstream-error')
+function failure(e: unknown, invalidateSource = true, scope: ErrorScope = 'operation') {
+  if (e instanceof DomainApiError && ['UPSTREAM_UNAVAILABLE', 'RETRIEVAL_UPSTREAM_FAILED'].includes(e.code)) emit('upstream-error')
   if (e instanceof DomainApiError && accessFailureCodes.includes(e.code)) {
     generation++; recordsGeneration++; feedbackGeneration++
     turns.value = []; history.value = []; bookmarks.value = []; bookmarkIndex.value=[]; feedbackItems.value = []
     favoriteDocuments.value=[];filterFavorites.value=[]
     busy.value = false; refreshing.value = false; feedbackLoading.value = false; conversation.value = ''; closeFeedback(false)
-    emit('conversation', false); emit('access-error', e)
+    error.value = ''; recordsError.value = ''; feedbackError.value = ''; askPending.value = false
+    emit('conversation', false); emit('access-error', e); return
   }
-  if (e instanceof DomainApiError && ['EVIDENCE_UNAVAILABLE', 'EVIDENCE_INVALID', 'EVIDENCE_REVOKED'].includes(e.code)) {
+  if (e instanceof DomainApiError && ['EVIDENCE_UNAVAILABLE', 'EVIDENCE_INVALID', 'EVIDENCE_REVOKED', 'SOURCE_VERSION_STALE'].includes(e.code)) {
     history.value = history.value.map(item => ({ ...item, available: false, titles: [] }))
     bookmarks.value = bookmarks.value.map(item => ({ ...item, available: false, titles: [] })); bookmarkIndex.value=[]
     favoriteDocuments.value=[];filterFavorites.value=[]
     closeFeedback(false); if (invalidateSource) emit('evidence-invalidated')
   }
-  error.value = e instanceof DomainApiError ? e.message : '知识服务暂时不可用。'
+  const message = e instanceof DomainApiError ? e.message : '知识服务暂时不可用。'
+  if (scope === 'records') recordsError.value = message
+  else { error.value = message; errorScope.value = scope; if (scope === 'query') queryState.value = 'error' }
 }
 async function refreshFeedback() {
   const current=++feedbackGeneration, subject=props.subject
@@ -209,7 +223,7 @@ async function refreshFeedback() {
 }
 async function refresh() {
   const current=++recordsGeneration, subject=props.subject
-  refreshing.value=true
+  refreshing.value=true; recordsError.value=''
   try {
     if(!props.view) {
       const [h,b]=await Promise.all([getKnowledgeActivity('History'),getKnowledgeActivity('Bookmark')])
@@ -243,7 +257,7 @@ async function refresh() {
       }
       bookmarkIndex.value=all
     }
-  } catch(e) { if(current===recordsGeneration && subject===props.subject)failure(e,false) }
+  } catch(e) { if(current===recordsGeneration && subject===props.subject)failure(e,false,'records') }
   finally {if(current===recordsGeneration)refreshing.value=false}
   if(!props.view && kind.value==='Feedback')await refreshFeedback()
 }
@@ -259,11 +273,11 @@ async function toggleDocumentBookmark(doc:KnowledgeDocument) {
     if(current===generation){notice.value=old?'已取消收藏。':'已收藏。';await refresh()}
   })
 }
-async function action(run: (current: number) => Promise<void>) {
+async function action(run: (current: number) => Promise<void>, scope: ErrorScope = 'operation') {
   if (busy.value || !props.subject) return
   const current = generation
-  busy.value = true; error.value = ''; notice.value = ''
-  try { await run(current) } catch (e) { if (current === generation) failure(e) }
+  busy.value = true; error.value = ''; recordsError.value = ''; errorScope.value = scope; notice.value = ''
+  try { await run(current) } catch (e) { if (current === generation) failure(e, true, scope) }
   finally { if (current === generation) { busy.value = false; askPending.value = false } }
 }
 async function bookmark(item: KnowledgeEvidence) {
@@ -276,17 +290,18 @@ async function bookmark(item: KnowledgeEvidence) {
 function feedback(item: KnowledgeEvidence) {
   if (busy.value) return
   feedbackTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  feedbackTarget.value = item; feedbackMode.value = 'source'; notice.value = ''; error.value = ''; note.value = ''; category.value = '内容疑问'
+  feedbackTarget.value = item; feedbackMode.value = 'source'; notice.value = ''; error.value = ''; errorScope.value = 'feedback'; note.value = ''; category.value = '内容疑问'
   void nextTick(() => { if (feedbackMode.value) document.getElementById('feedback-note')?.focus() })
 }
 function generalFeedback() {
   if (busy.value || !props.subject) return
   feedbackTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  feedbackTarget.value = null; feedbackMode.value = 'general'; notice.value = ''; error.value = ''; note.value = ''; category.value = '其他'
+  feedbackTarget.value = null; feedbackMode.value = 'general'; notice.value = ''; error.value = ''; errorScope.value = 'feedback'; note.value = ''; category.value = '其他'
   void nextTick(() => { if (feedbackMode.value) document.getElementById('feedback-note')?.focus() })
 }
 function closeFeedback(restoreFocus = true) {
   feedbackTarget.value = null; feedbackMode.value = null; note.value = ''
+  if (errorScope.value === 'feedback') error.value = ''
   if (restoreFocus && feedbackTrigger?.isConnected) feedbackTrigger.focus({ preventScroll: true })
   feedbackTrigger = null
 }
@@ -295,11 +310,11 @@ async function sendFeedback() {
   const mode = feedbackMode.value
   const normalized = note.value.trim()
   if (!mode || (mode === 'source' && !target)) return
-  if (mode === 'general' && !normalized) { error.value = '请填写反馈说明。'; return }
+  if (mode === 'general' && !normalized) { error.value = '请填写反馈说明。'; errorScope.value = 'feedback'; return }
   await action(async current => {
     await sendKnowledgeFeedback(mode === 'source' ? target!.evidence_id : undefined, category.value, normalized)
     if (current === generation) { closeFeedback(); notice.value = '反馈已提交。可在“我的反馈”查看处理状态。'; if (props.view === 'feedback' || (!props.view && kind.value === 'Feedback')) await refreshFeedback(); else if(props.view)emit('records-view','feedback');else kind.value = 'Feedback' }
-  })
+  }, 'feedback')
 }
 async function reopen(id: string) {
   await action(async current => {
@@ -307,16 +322,8 @@ async function reopen(id: string) {
     if (current === generation) {
       if (data.document) emit('document',data.document)
       else if (data.restored) {
-        const subject=props.subject
-        emit('restored',data)
-        const restoreGeneration=generation
-        await nextTick()
-        if (subject===props.subject && restoreGeneration===generation) {
-          turns.value=data.restored.turns
-          conversation.value=turns.value[turns.value.length-1]?.turn_id || ''
-          emit('conversation',Boolean(conversation.value))
-          notice.value='已按当前来源状态恢复记录，未调用回答模型。'
-        }
+        if (props.view) emit('restored', data)
+        else { const subject = props.subject; emit('restored', data); await nextTick(); if (current === generation && subject === props.subject) restoreSnapshot(data.restored) }
       } else if (data.context) emit('replay', data.query, data.space_ids, data.context)
       else emit('replay', data.query, data.space_ids)
     }
@@ -325,8 +332,14 @@ async function reopen(id: string) {
 async function remove(id: string) {
   await action(async current => { await removeKnowledgeSaved(id); if (current === generation) { notice.value = '已删除这条个人记录。'; await refresh() } })
 }
-function cancelPending() { generation++; recordsGeneration++; busy.value = false; askPending.value = false; refreshing.value = false }
-function newConversation() { cancelPending(); conversation.value = ''; turns.value = []; question.value = ''; error.value = ''; emit('conversation', false) }
+function restoreSnapshot(snapshot: import('@/contracts/p1').KnowledgeRestored) {
+  turns.value = snapshot.turns
+  conversation.value = turns.value[turns.value.length - 1]?.turn_id || ''
+  queryState.value = turns.value.length ? (turns.value[turns.value.length - 1]!.answerable ? 'success' : 'no_evidence') : 'idle'
+  emit('conversation', Boolean(conversation.value))
+}
+function cancelPending() { generation++; recordsGeneration++; if (askPending.value) queryState.value = 'cancelled'; busy.value = false; askPending.value = false; refreshing.value = false; if (errorScope.value === 'query') error.value = '' }
+function newConversation() { cancelPending(); conversation.value = ''; turns.value = []; question.value = ''; error.value = ''; queryState.value = 'idle'; emit('conversation', false) }
 function invalidateSources() {
   newConversation(); closeFeedback(false)
   history.value = history.value.map(item => ({ ...item, available: false, titles: [] }))
@@ -337,16 +350,17 @@ function invalidateSources() {
 async function ask(value = question.value) {
   const normalized = value.trim()
   if (composing.value || !normalized || busy.value) return
-  if (!props.askEnabled || props.retrievalBlocked) { error.value = '检索服务暂不可用，目录与个人记录仍可查看。'; return }
-  if ([...normalized].length > 280) { error.value = '请将问题控制在 280 字以内。'; return }
+  if (!props.askEnabled || props.retrievalBlocked) { error.value = props.retrievalBlocked ? '检索服务暂不可用，目录与个人记录仍可查看。' : '回答服务暂时不可用，可切换搜资料查找依据。'; errorScope.value = 'query'; queryState.value = 'error'; return }
+  if ([...normalized].length > 280) { error.value = '请将问题控制在 280 字以内。'; errorScope.value = 'query'; queryState.value = 'error'; return }
   await action(async current => {
-    askPending.value = true
+    askPending.value = true; queryState.value = 'answering'
     const data = await askKnowledgeReference(normalized, props.selectedSpace, conversation.value || undefined, props.searchMode || 'STANDARD',props.modelAlias || 'gpt-6-luna',Boolean(props.knowledgeOnly))
     if (current === generation) {
+      queryState.value = data.answerable ? 'success' : 'no_evidence'
       turns.value.push({ ...data, question: normalized }); conversation.value = data.turn_id; question.value = ''; emit('conversation', true)
       await refresh()
     }
-  })
+  }, 'query')
 }
 function questionKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || composing.value || event.isComposing || event.keyCode === 229) return
@@ -361,7 +375,7 @@ function tabKeydown(event: KeyboardEvent, current: RecordKind) {
   void nextTick(() => document.getElementById(`knowledge-tab-${kind.value}`)?.focus())
 }
 
-defineExpose({ refresh, bookmark, feedback, generalFeedback, ask, newConversation, cancelPending, invalidateSources, isBookmarked, toggleDocumentBookmark })
+defineExpose({ restoreSnapshot, hasQueryError, queryState, refresh, bookmark, feedback, generalFeedback, ask, newConversation, cancelPending, invalidateSources, isBookmarked, toggleDocumentBookmark })
 onMounted(refresh)
 </script>
 

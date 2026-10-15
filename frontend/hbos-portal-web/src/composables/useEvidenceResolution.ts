@@ -55,7 +55,7 @@ export function useEvidenceResolution(
       evidence.value = null
       error.value = reason instanceof DomainApiError ? reason.message : '依据暂时不可用，请重新检索。'
       errorCode.value = reason instanceof DomainApiError ? reason.code : 'SERVICE_ERROR'
-      onInvalidation(errorCode.value || undefined)
+      if (['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED', 'EMPTY_SCOPE', 'EVIDENCE_UNAVAILABLE', 'EVIDENCE_REVOKED', 'EVIDENCE_INVALID', 'SOURCE_VERSION_STALE'].includes(errorCode.value)) onInvalidation(errorCode.value)
       return false
     } finally {
       if (current === generation) loading.value = false

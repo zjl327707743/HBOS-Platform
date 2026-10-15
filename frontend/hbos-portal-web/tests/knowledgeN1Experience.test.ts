@@ -22,7 +22,7 @@ const doc = { document_id: 'DOC_N1_DEMO', title: '合成资料标题', space_id:
 const ready = { can_enter: true, can_search: true, gateway_configured: true, ask_enabled: true, mode: 'retrieval', environment: 'production', retrieval_availability: { status: 'UNKNOWN', blocked: false, budget_status: 'READY', last_success_at: null } }
 const answer = { request_id: 'REQ_N1_DEMO', turn_id: 'TURN_N1_DEMO', answer: 'SYNTHETIC 内部参考回答', answerable: true, citations: [{ ...card, citation_label: 'C1' }] }
 const wrappers: ReturnType<typeof mount>[] = []
-function deferred<T = unknown>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done }); return { promise, resolve } }
+function deferred<T = unknown>() { let resolve!: (value: T) => void, reject!: (reason: unknown) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail }); return { promise, resolve, reject } }
 async function view() { const wrapper = mount(KnowledgeView, { attachTo: document.body, global: { stubs } }); wrappers.push(wrapper); await flushPromises(); await clickText(wrapper,'搜资料'); return wrapper }
 async function clickText(wrapper: ReturnType<typeof mount>, value: string) { if(['最近查阅','我的收藏','我的反馈','资料目录'].includes(value)){route.path='/hbos/knowledge/'+(value==='我的收藏'?'favorites':value==='资料目录'?'catalog':'history');route.query=value==='我的反馈'?{tab:'feedback'}:{};await flushPromises();return} if(value==='刷新状态'){await (wrapper.vm as any).refreshStatus();await flushPromises();return} if(value==='查看依据'){await wrapper.get('.result-card .kb-doc-main').trigger('click');await flushPromises();return} const aliases:Record<string,string>={'重新查阅':'继续查阅','提交一般反馈':'反馈与建议','删除':'取消收藏'}; const button = wrapper.findAll('button').find(b => b.text() === (aliases[value]||value) || (Boolean(aliases[value]) && b.attributes('aria-label')===aliases[value]) || b.attributes('aria-label')===value); expect(button, `button ${value}`).toBeDefined(); await button!.trigger('click'); await flushPromises() }
 async function askMode(wrapper: ReturnType<typeof mount>) { await clickText(wrapper, '问知识') }
@@ -178,6 +178,111 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     api.activity.mockImplementation((kind: string) => Promise.resolve(kind === 'History' ? [{ id: 'PRIVATE_HISTORY_DEMO', query: '个人合成问题', created_at: '2026-10-10', available: true, titles: ['WITHDRAWN_PRIVATE_TITLE'] }] : []))
     const w = await view(); await search(w); const current = deferred<never[]>(); api.activity.mockReturnValue(current.promise); api.resolve.mockRejectedValueOnce(new DomainApiError('EVIDENCE_UNAVAILABLE', '该证据不可用或已失效。')); await clickText(w, '查看依据'); await clickText(w, '最近查阅')
     expect(w.text()).not.toContain('WITHDRAWN_PRIVATE_TITLE'); expect(w.text()).not.toContain(card.excerpt); expect(w.find('blockquote').exists()).toBe(false); current.resolve([]); await flushPromises()
+  })
+
+  it('UAT5 shows a failed answer once, keeps read views clean, and allows a fresh question', async () => {
+    api.ask.mockRejectedValueOnce(new DomainApiError('CITATION_SUPPORT_FAILED', '回答未通过来源支持校验，本次未展示回答。'))
+    const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成引用问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises()
+    expect(w.findAll('[role="alert"]').map(a => a.text())).toEqual(['回答未通过来源支持校验，本次未展示回答。'])
+    expect(w.attributes('data-query-state')).toBe('error')
+    for (const label of ['我的收藏', '资料目录', '最近查阅']) {
+      await clickText(w, label); expect(w.find('[role="alert"]').exists()).toBe(false)
+    }
+    route.path = '/hbos/knowledge'; await flushPromises()
+    expect(w.find('[role="alert"]').exists()).toBe(false)
+    await w.get('.knowledge-search').trigger('submit'); await flushPromises()
+    expect(api.ask).toHaveBeenCalledTimes(2); expect(w.text()).toContain(answer.answer); expect(w.attributes('data-query-state')).toBe('success')
+  })
+  it.each(['success', 'failure'])('UAT5 view changes discard late answer %s without blocking favorites', async outcome => {
+    const pending = deferred(); api.ask.mockReturnValueOnce(pending.promise)
+    const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成慢问题'); await w.get('.knowledge-search').trigger('submit')
+    expect(w.attributes('data-query-state')).toBe('answering')
+    await clickText(w, '我的收藏')
+    if (outcome === 'success') pending.resolve({ ...answer, answer: 'LATE_VIEW_ANSWER' })
+    else pending.reject(new DomainApiError('MODEL_RATE_LIMITED', 'LATE_VIEW_ERROR'))
+    await flushPromises(); expect(w.find('[role="alert"]').exists()).toBe(false); expect(w.text()).not.toContain('LATE_VIEW')
+    route.path = '/hbos/knowledge'; await flushPromises()
+    expect(w.text()).not.toContain('LATE_VIEW'); expect(w.get('#knowledge-query').attributes('disabled')).toBeUndefined()
+    await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.ask).toHaveBeenLastCalledWith('合成慢问题', '', undefined, 'STANDARD', 'gpt-6-luna', false)
+  })
+  it('UAT5 mode changes discard late answer failure and preserve editable input', async () => {
+    const pending = deferred(); api.ask.mockReturnValueOnce(pending.promise)
+    const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成慢问题'); await w.get('.knowledge-search').trigger('submit')
+    await clickText(w, '搜资料'); pending.reject(new DomainApiError('ANSWER_SCHEMA_INVALID', 'OLD_MODE_FAILURE')); await flushPromises()
+    expect(w.find('[role="alert"]').exists()).toBe(false); expect(w.get('#knowledge-query').element).toHaveProperty('value', '合成慢问题')
+    await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.search).toHaveBeenCalledTimes(1)
+  })
+  it('UAT5 view changes discard late search failures instead of refilling another page', async () => {
+    const pending = deferred(); api.search.mockReturnValueOnce(pending.promise)
+    const w = await view(); await w.get('#knowledge-query').setValue('合成慢检索'); await w.get('.knowledge-search').trigger('submit')
+    await clickText(w, '资料目录'); pending.reject(new DomainApiError('RETRIEVAL_UPSTREAM_FAILED', 'OLD_QUERY_FAILURE')); await flushPromises()
+    expect(w.find('[role="alert"]').exists()).toBe(false); expect(w.text()).toContain(doc.title)
+    route.path = '/hbos/knowledge'; await flushPromises(); expect(w.text()).not.toContain('OLD_QUERY_FAILURE'); expect(w.text()).not.toContain('未找到相关依据')
+  })
+  it('UAT5 capability warnings stay in the query view and blocked retrieval cannot use general fallback', async () => {
+    api.status.mockResolvedValue({ ...ready, answer_availability: { configured: true, available: false }, retrieval_availability: { ...ready.retrieval_availability, blocked: true } })
+    const w = await view(); await askMode(w); expect(w.findAll('[role="alert"]')).toHaveLength(1)
+    await w.get('#knowledge-query').setValue('合成一般问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.ask).not.toHaveBeenCalled()
+    for (const label of ['我的收藏', '资料目录', '最近查阅']) { await clickText(w, label); expect(w.find('[role="alert"]').exists()).toBe(false) }
+  })
+  it('UAT5 a failed status refresh does not duplicate a query failure or persist into catalog', async () => {
+    const w = await view(); api.status.mockRejectedValueOnce(new DomainApiError('SERVICE_ERROR', 'STATE_FAILURE'))
+    api.search.mockRejectedValueOnce(new DomainApiError('RETRIEVAL_UPSTREAM_FAILED', '本次资料检索失败'))
+    await search(w); expect(w.findAll('[role="alert"]').map(a => a.text())).toEqual(['本次资料检索失败'])
+    await clickText(w, '资料目录'); expect(w.find('[role="alert"]').exists()).toBe(false)
+  })
+  it('UAT5 feedback failure appears only in its drawer and clears when it closes', async () => {
+    const w = await view(); await clickText(w, '我的反馈'); await clickText(w, '提交一般反馈')
+    api.feedback.mockRejectedValueOnce(new DomainApiError('SERVICE_ERROR', '本次反馈提交失败'))
+    await w.get('#feedback-note').setValue('合成反馈'); await w.get('.feedback-form form').trigger('submit'); await flushPromises()
+    expect(w.findAll('[role="alert"]')).toHaveLength(1); expect(w.get('.feedback-form [role="alert"]').text()).toContain('本次反馈提交失败')
+    await w.get('[data-close]').trigger('click'); await flushPromises(); expect(w.find('[role="alert"]').exists()).toBe(false)
+  })
+  it('UAT5 transient source failure retains successful results and does not invalidate personal sources', async () => {
+    const w = await view(); await search(w)
+    api.resolve.mockRejectedValueOnce(new DomainApiError('RETRIEVAL_UPSTREAM_FAILED', '来源核验暂时失败'))
+    await clickText(w, '查看依据'); expect(w.get('[data-evidence]').text()).toContain('来源核验暂不可用')
+    expect(w.findAll('[role="alert"]')).toHaveLength(1); expect(w.find('.result-card').exists()).toBe(true)
+    await w.get('[data-close]').trigger('click'); await flushPromises(); expect(w.find('.result-card').exists()).toBe(true)
+  })
+  it('UAT5 successful answers survive read-only navigation without another model call', async () => {
+    const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成已答问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises()
+    await clickText(w, '资料目录'); route.path = '/hbos/knowledge'; await flushPromises()
+    expect(w.text()).toContain(answer.answer); expect(api.ask).toHaveBeenCalledTimes(1)
+  })
+
+  it('UAT5 filters public laws by reviewed category, resets pagination, and labels unknown effectiveness', async () => {
+    api.spaces.mockResolvedValue([{ space_id: 'SPACE_N1_DEMO', title: '合成部门', document_count: 1 }, { space_id: 'DEPT_PUBLIC_LAW', title: '公司公共法律法规知识', document_count: 25 }])
+    const law = { ...doc, document_id: 'DOC_LAW_SYNTHETIC', space_id: 'DEPT_PUBLIC_LAW', title: '合成法规', legal_metadata: { category: '国家法律法规', level: null, issuer: null, published_date: null, region: null, applicability: null, effective_status: '待核' } }
+    api.documents.mockImplementation((_q: string, space: string, page: number, size: number) => Promise.resolve({ documents: space === 'SPACE_N1_DEMO' ? [doc] : [law], total: 25, page, page_size: size }))
+    const w = await view(); await clickText(w, '资料目录'); expect(w.text()).toContain('效力待核'); expect(w.text()).toContain('发布机构待核')
+    await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 4)
+    vi.useFakeTimers(); await w.get('#catalog-law-category').setValue('国家法律法规'); await vi.advanceTimersByTimeAsync(200); await flushPromises()
+    expect(api.documents).toHaveBeenLastCalledWith('', '', 1, 4, '国家法律法规'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
+    await w.get('#catalog-department').setValue('SPACE_N1_DEMO'); await vi.advanceTimersByTimeAsync(200); await flushPromises()
+    expect(w.find('#catalog-law-category').exists()).toBe(false); expect(api.documents).toHaveBeenLastCalledWith('', 'SPACE_N1_DEMO', 1, 4)
+  })
+
+  it('UAT5 restores an authorized answer after route, mode and department props settle without generation', async () => {
+    const saved = { ...answer, question: '合成已保存问题' }
+    api.activity.mockResolvedValue([{ id: 'SAVED_UAT5_SYNTHETIC', query: saved.question, created_at: '2026-10-15', available: true, titles: [card.title] }])
+    api.open.mockResolvedValue({ query: saved.question, space_ids: ['SPACE_N1_DEMO'], context: {}, restored: { mode: 'ask', search_mode: 'STANDARD', results: [], turns: [saved] } })
+    const w = await view(); await clickText(w, '最近查阅'); await clickText(w, '重新查阅'); await flushPromises()
+    expect(route.path).toBe('/hbos/knowledge'); expect(w.text()).toContain(saved.answer); expect(w.text()).toContain('合成已保存问题')
+    expect(w.attributes('data-query-state')).toBe('success'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
+  })
+  it('UAT5 general answers identify their origin without displaying company sources', async () => {
+    api.ask.mockResolvedValue({ ...answer, answer_origin: 'GENERAL', answer: '合成一般知识说明', citations: [] })
+    const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成一般知识问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises()
+    expect(w.text()).toContain('通用 AI 回答'); expect(w.text()).not.toContain('已使用知识库'); expect(w.find('.kb-citation-row').exists()).toBe(false)
+  })
+
+  it('UAT5 status refresh from an earlier visit cannot refill errors after leaving and returning', async () => {
+    const w = await view(), pending = deferred(); api.status.mockReturnValueOnce(pending.promise)
+    const refreshing = (w.vm as any).refreshStatus()
+    await clickText(w, '资料目录'); route.path = '/hbos/knowledge'; await flushPromises()
+    pending.reject(new DomainApiError('SERVICE_ERROR', 'EARLIER_VISIT_STATUS_FAILURE')); await refreshing; await flushPromises()
+    expect(w.find('[role="alert"]').exists()).toBe(false)
   })
 
 })

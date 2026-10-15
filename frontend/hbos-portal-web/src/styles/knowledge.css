@@ -1937,3 +1937,11 @@ body:has(.kb-main[aria-busy="true"]) .kb-drawer {
   .kb-scope .knowledge-tools.kb-tools form.kb-followup{flex-direction:column;align-items:stretch}
   .kb-scope .knowledge-tools.kb-tools .kb-followup textarea{width:100%;flex:auto}
 }
+
+/* Public law filters reuse the approved catalog controls at every breakpoint. */
+.kb-scope .catalog-filter { flex-wrap: wrap; }
+.kb-scope .catalog-filter #catalog-law-category { margin-left: 0; max-width: 100%; }
+.kb-scope .kb-law-meta { display: block; margin-bottom: 4px; }
+.kb-scope .kb-legal-details { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 8px 16px; }
+.kb-scope .kb-legal-details dt { color: var(--hbos-text-secondary); }
+.kb-scope .kb-legal-details dd { margin: 0; overflow-wrap: anywhere; }

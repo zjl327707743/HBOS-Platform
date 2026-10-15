@@ -301,12 +301,12 @@ def get_documents(**business_fields):
 
 
 @frappe.whitelist(methods=['GET'])
-def get_documents_page(query=None,space_id=None,page=1,page_size=12,**business_fields):
+def get_documents_page(query=None,space_id=None,page=1,page_size=12,law_category=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'get_documents_page'):raise KnowledgeError('INVALID_REQUEST')
         from .reference_admin import get_catalog_page
         runtime=load_runtime()
-        return get_catalog_page(runtime,runtime.actor(),query=query,space_id=space_id,page=page,page_size=page_size)
+        return get_catalog_page(runtime,runtime.actor(),query=query,space_id=space_id,page=page,page_size=page_size,law_category=law_category)
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])

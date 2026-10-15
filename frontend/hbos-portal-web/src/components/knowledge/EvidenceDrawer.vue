@@ -23,12 +23,12 @@ const permissionFailure = computed(() => ['AUTHENTICATION_REQUIRED', 'CLIENT_AUT
 const failureTitle = computed(() => {
   if (['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED'].includes(props.errorCode || '')) return '登录状态已失效'
   if (['FORBIDDEN', 'SCOPE_REJECTED'].includes(props.errorCode || '')) return '当前来源不可访问'
-  if (['UPSTREAM_UNAVAILABLE', 'SERVICE_ERROR', 'POLICY_UNAVAILABLE'].includes(props.errorCode || '')) return '来源核验暂不可用'
+  if (['UPSTREAM_UNAVAILABLE', 'RETRIEVAL_UPSTREAM_FAILED', 'SERVICE_ERROR', 'POLICY_UNAVAILABLE'].includes(props.errorCode || '')) return '来源核验暂不可用'
   return '来源暂不可用'
 })
 const failureHelp = computed(() => {
   if (['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED'].includes(props.errorCode || '')) return '请重新登录后再查阅，当前摘录已清除。'
-  if (['EVIDENCE_UNAVAILABLE', 'EVIDENCE_REVOKED', 'EVIDENCE_INVALID'].includes(props.errorCode || '')) return '来源可能已过期、撤回或不再属于当前可读范围。请重新检索，系统不会保留失效摘录。'
+  if (['EVIDENCE_UNAVAILABLE', 'EVIDENCE_REVOKED', 'EVIDENCE_INVALID', 'SOURCE_VERSION_STALE'].includes(props.errorCode || '')) return '来源可能已过期、撤回或不再属于当前可读范围。请重新检索，系统不会保留失效摘录。'
   if (permissionFailure.value) return '请核对当前账号与资料范围，当前摘录已清除。'
   return '请稍后重新检索并核验来源；当前提示不代表没有相关资料。'
 })
