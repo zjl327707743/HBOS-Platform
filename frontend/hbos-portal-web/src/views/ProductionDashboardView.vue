@@ -273,7 +273,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { PRODUCTION_CENTER_PATH } from '@/data/productionNav'
@@ -460,6 +460,20 @@ function deltaText(row: ProductionRow): string {
   return d.toFixed(1)
 }
 
+/**
+ * 拉一次 AI 结论。只有管理中心页有这块面板。
+ *
+ * 单独抽出来是因为它**有两个触发点**，见下面 `watch` 的说明。
+ */
+async function loadAiAnalysis() {
+  aiLoading.value = true
+  try {
+    aiRows.value = await fetchAiAnalysis()
+  } finally {
+    aiLoading.value = false
+  }
+}
+
 onMounted(async () => {
   // 两个页面共用同一份看板数据（原型 §4.3：上区逐字一致）
   const data = await fetchProductionBoard()
@@ -469,14 +483,17 @@ onMounted(async () => {
   } else {
     phase.value = 'unavailable'
   }
-  if (isCenter.value) {
-    aiLoading.value = true
-    try {
-      aiRows.value = await fetchAiAnalysis()
-    } finally {
-      aiLoading.value = false
-    }
-  }
+  if (isCenter.value) await loadAiAnalysis()
+})
+
+// 两张看板是**同一个组件**的两条路由，从基层版切到管理中心时 Vue 会复用
+// 组件实例 —— `onMounted` **不会重跑**，AI 面板就一直停在「暂无结果」，
+// 非得整页刷新或绕去别的 App 再回来才出内容（实测踩到过）。
+//
+// 所以按路由变化补一次拉取。`pre` 时机（默认）在重渲染之前执行，
+// `aiLoading` 先置真，不会先闪一下空态。
+watch(isCenter, (now) => {
+  if (now && !aiRows.value.length) void loadAiAnalysis()
 })
 </script>
 
