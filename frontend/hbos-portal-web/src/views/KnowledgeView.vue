@@ -3,7 +3,7 @@
     <header class="kb-heading"><div><h1>{{ pageTitle }}</h1><p>从已共享资料中查找依据，答案与来源一起呈现。</p></div><a-button :disabled="!subjectKey" @click="connectionOpen = true"><LinkOutlined />连接个人助手</a-button></header>
     <div v-if="equipmentId || assetId || componentId" class="kb-context"><a-tag v-if="equipmentId">设备上下文 {{ equipmentId }}</a-tag><a-tag v-if="assetId">资产范围 {{ assetId }}</a-tag><a-tag v-if="componentId">组件范围 {{ componentId }}</a-tag></div>
     <a-alert v-if="globalError" :type="globalErrorCode === 'FORBIDDEN' ? 'warning' : 'error'" show-icon :message="globalError" class="kb-alert"><template #action><a-button :loading="statusLoading" @click="refreshStatus">刷新状态</a-button></template></a-alert>
-    <a-alert v-if="!globalError && statusError && !pageError && !tools?.hasQueryError && !catalogError" type="error" show-icon :message="statusError" class="kb-alert"><template #action><a-button :loading="statusLoading" @click="refreshStatus">刷新状态</a-button></template></a-alert>
+    <a-alert v-if="!globalError && statusError && !pageError && !tools?.hasQueryError && (view !== 'catalog' || !catalogError)" type="error" show-icon :message="statusError" class="kb-alert"><template #action><a-button :loading="statusLoading" @click="refreshStatus">刷新状态</a-button></template></a-alert>
     <template v-if="view === 'query'">
       <a-alert v-if="!globalError && (pageError || (!statusError && !tools?.hasQueryError && queryAvailabilityMessage))" type="error" show-icon :message="pageError || queryAvailabilityMessage" class="kb-alert kb-query-alert"><template #action><a-button :loading="statusLoading" @click="refreshStatus">刷新状态</a-button></template></a-alert>
       <section v-if="mode === 'search' || !hasConversation" class="kb-composer hbos-glass-g3" aria-label="知识查询">
@@ -72,8 +72,8 @@ async function openDocumentSummary(doc: KnowledgeDocument) {
 }
 function useExample(value:string) { query.value=value; void submitComposer() }
 watch(view, () => {
-  viewGeneration++; searchGeneration++; searching.value = false; statusError.value = ''; pageError.value = null; pageErrorCode.value = null; composerNotice.value = ''
-  if (searchState.value === 'loading') { searchState.value = 'cancelled'; hasSearched.value = false; results.value = [] }
+  viewGeneration++; searchGeneration++; searching.value = false; composing.value = false; statusError.value = ''; pageError.value = null; pageErrorCode.value = null; composerNotice.value = ''
+  if (searchState.value === 'loading' || searchState.value === 'error') { searchState.value = searchState.value === 'loading' ? 'cancelled' : 'idle'; hasSearched.value = false; results.value = [] }
   drawer.close(false); closeSummary()
   if (view.value === 'catalog') void refreshCatalog()
 }, { flush: 'sync' })

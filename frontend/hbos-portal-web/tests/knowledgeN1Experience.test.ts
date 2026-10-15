@@ -285,4 +285,23 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     expect(w.find('[role="alert"]').exists()).toBe(false)
   })
 
+  it('UAT5 revisiting after a completed failed search does not turn the failure into zero hits', async () => {
+    api.search.mockRejectedValueOnce(new DomainApiError('RETRIEVAL_UPSTREAM_FAILED', '合成检索失败'))
+    const w = await view(); await search(w); expect(w.attributes('data-query-state')).toBe('error')
+    await clickText(w, '我的收藏'); route.path = '/hbos/knowledge'; await flushPromises()
+    expect(w.find('[role="alert"]').exists()).toBe(false); expect(w.text()).not.toContain('未找到相关依据'); expect(w.attributes('data-query-state')).toBe('idle')
+    await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.search).toHaveBeenCalledTimes(2)
+  })
+  it('UAT5 unmounting an IME input while navigating clears composition state for the new editor', async () => {
+    const w = await view(); await w.get('#knowledge-query').setValue('合成中文问题'); await w.get('#knowledge-query').trigger('compositionstart')
+    await clickText(w, '资料目录'); route.path = '/hbos/knowledge'; await flushPromises()
+    await w.get('.knowledge-search').trigger('submit'); await flushPromises(); expect(api.search).toHaveBeenCalledTimes(1)
+  })
+  it('UAT5 answer availability changes leave an in-flight favorites read intact', async () => {
+    const w = await view(), pending = deferred(); await askMode(w); api.activity.mockReturnValueOnce(pending.promise)
+    await clickText(w, '我的收藏'); api.status.mockResolvedValueOnce({ ...ready, ask_enabled: false })
+    await (w.vm as any).refreshStatus(); pending.resolve([{ id: 'FAVORITE_UAT5_SYNTHETIC', query: '合成收藏', titles: ['合成收藏标题'], available: true, created_at: '2026-10-15' }]); await flushPromises()
+    expect(w.text()).toContain('合成收藏标题'); expect(w.find('[role="alert"]').exists()).toBe(false)
+  })
+
 })

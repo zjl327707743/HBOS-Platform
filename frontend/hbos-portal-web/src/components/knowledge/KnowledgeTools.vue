@@ -165,12 +165,12 @@ const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FO
 
 watch(busy, value => emit('busy', value), { flush: 'sync' })
 watch(() => props.view, () => {
-  cancelPending(); feedbackGeneration++; feedbackLoading.value = false; closeFeedback(false)
+  cancelPending(); composing.value = false; feedbackGeneration++; feedbackLoading.value = false; closeFeedback(false)
   error.value = ''; recordsError.value = ''; feedbackError.value = ''; notice.value = ''
   savedPage.value = 1; history.value = []; bookmarks.value = []; feedbackItems.value = []
   void refresh()
 }, { flush: 'sync' })
-watch(() => [props.mode, props.modelAlias, props.knowledgeOnly], () => { cancelPending(); error.value = ''; notice.value = ''; closeFeedback(false) }, { flush: 'sync' })
+watch(() => [props.mode, props.modelAlias, props.knowledgeOnly], () => { cancelPending(false); composing.value = false; error.value = ''; notice.value = ''; closeFeedback(false) }, { flush: 'sync' })
 watch(savedPage,()=>{if(props.view==='favorites'&&favoriteFilterActive.value)savedHasMore.value=savedPage.value*4<filteredFavorites.value.length;else if(props.view)void refresh()})
 watch([favoriteQuery,favoriteSpace],()=>{savedPage.value=1;void refresh()})
 watch(kind, () => { savedPage.value = 1; if (kind.value === 'Feedback') void refreshFeedback() })
@@ -338,7 +338,14 @@ function restoreSnapshot(snapshot: import('@/contracts/p1').KnowledgeRestored) {
   queryState.value = turns.value.length ? (turns.value[turns.value.length - 1]!.answerable ? 'success' : 'no_evidence') : 'idle'
   emit('conversation', Boolean(conversation.value))
 }
-function cancelPending() { generation++; recordsGeneration++; if (askPending.value) queryState.value = 'cancelled'; busy.value = false; askPending.value = false; refreshing.value = false; if (errorScope.value === 'query') error.value = '' }
+function cancelPending(cancelRecords = true) {
+  generation++
+  if (cancelRecords) { recordsGeneration++; refreshing.value = false }
+  if (askPending.value) queryState.value = 'cancelled'
+  else if (queryState.value === 'error') queryState.value = 'idle'
+  busy.value = false; askPending.value = false
+  if (errorScope.value === 'query') error.value = ''
+}
 function newConversation() { cancelPending(); conversation.value = ''; turns.value = []; question.value = ''; error.value = ''; queryState.value = 'idle'; emit('conversation', false) }
 function invalidateSources() {
   newConversation(); closeFeedback(false)
