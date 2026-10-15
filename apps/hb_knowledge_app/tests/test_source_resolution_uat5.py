@@ -1,9 +1,17 @@
 from dataclasses import replace
 from types import SimpleNamespace
-import pytest
+import pytest,sys
 from .test_spaces import runtime as fixture
 from hb_knowledge_app.hb_knowledge.evidence import resolve_evidence,EVIDENCE_SCHEMA
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
+
+
+@pytest.fixture(autouse=True)
+def private_diagnostic_service_port(monkeypatch):
+    # Domain CI has no companion service. Test the source refusal and its safe
+    # logger here; durable metadata storage is exercised in the service suite.
+    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway.diagnostics',
+                        SimpleNamespace(persist_diagnostic=lambda row:None))
 
 
 def setup():

@@ -3,8 +3,28 @@ import copy,hashlib,importlib,json,sys
 from types import SimpleNamespace
 import pytest
 from hb_knowledge_app.hb_knowledge.publication import decide,PublicationConflict,validate_technical_repair,FROZEN_PUBLICATION_FIELDS
-from knowledge_service.ingestion import parser_config_for_profile,NATIVE_TEXT_NEWLINE_PROFILE
 from hb_knowledge_app.hb_knowledge.service_http import canonical
+
+
+# Public domain CI does not install the independently shipped service. This is
+# its explicit parser-profile port; real PDF/profile validation is covered by
+# the companion service suite and the joint candidate checks.
+NATIVE_TEXT_NEWLINE_PROFILE='VERIFIED_NATIVE_TEXT_NEWLINE_V1'
+
+def parser_config_for_profile(profile):
+    assert profile==NATIVE_TEXT_NEWLINE_PROFILE
+    return {'synthetic_parser_contract':True,'delimiter':'\n'}
+
+@pytest.fixture(autouse=True)
+def separate_parser_profile_port(monkeypatch):
+    from types import ModuleType
+    def approved(item):
+        if item.get('parser_config')!=parser_config_for_profile(NATIVE_TEXT_NEWLINE_PROFILE):
+            raise ValueError('Synthetic parser profile rejected')
+        return NATIVE_TEXT_NEWLINE_PROFILE
+    port=ModuleType('knowledge_service.ingestion')
+    port.approved_parser_profile=approved;port.NATIVE_TEXT_NEWLINE_PROFILE=NATIVE_TEXT_NEWLINE_PROFILE
+    monkeypatch.setitem(sys.modules,'knowledge_service.ingestion',port)
 
 
 def items():
