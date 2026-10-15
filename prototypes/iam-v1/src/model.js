@@ -1,13 +1,15 @@
 import { reactive, computed } from 'vue'
 import { createSeed } from './seed.js'
 import { evaluatePermission } from './permission.js'
-export const STORAGE_KEY='hbos.iam-v1.r4.synthetic.v4'
+export const STORAGE_KEY='hbos.iam-v1.r5.synthetic.v5'
 export const ui=reactive({busy:false,fault:'none',notice:'',error:''})
-let initial=createSeed()
+let initial=createSeed({expanded:true})
 try {
  const saved=localStorage.getItem(STORAGE_KEY)
- if(saved){const p=JSON.parse(saved);if(p.version===4&&['employees','nonEmployeeAccounts','depts','apps','logs','attendanceRecords'].every(k=>Array.isArray(p[k]))){initial=p;initial.session=null}else ui.error='R4 演示记录不兼容，已载入初始合成场景；R3 本机记录保留。'}
-}catch{ui.error='R4 演示记录无法读取，已载入合成场景。'}
+ if(saved){const p=JSON.parse(saved);if(p.version===5&&['employees','nonEmployeeAccounts','depts','apps','logs','attendanceRecords'].every(k=>Array.isArray(p[k]))){initial=p;initial.session=null}else ui.error='R5 演示记录不兼容，已载入初始合成场景；R3/R4 本机记录保留。'}
+}catch{ui.error='R5 演示记录无法读取，已载入合成场景。'}
+// The prototype opens at the normal administrator workspace; this is not authentication.
+initial.session={employeeId:'admin',method:'password',phase:'active'}
 export const state=reactive(initial)
 export const allSubjects=computed(()=>[...state.employees,...state.nonEmployeeAccounts])
 const find=id=>allSubjects.value.find(e=>e.id===id)
@@ -18,7 +20,7 @@ export const scopeLabel=id=>id.includes('!')?id.split('!').map(scopeLabel).join(
 export const effective=(employee,appId,actionId,context)=>evaluatePermission(state,employee,appId,actionId,context)
 const tempToken=()=>`DEMO-${crypto.randomUUID().slice(0,8)}-Aa!`
 const pause=()=>new Promise(resolve=>setTimeout(resolve,250))
-export async function saveDemo(label,fn){
+export async function saveDemo(label,fn,logDetails={}){
  if(ui.busy)return {ok:false,error:'正在保存，请稍后再试。'}
  ui.busy=true;ui.error='';ui.notice='演示保存中…'
  const snapshot=JSON.stringify(state)
@@ -27,7 +29,7 @@ export async function saveDemo(label,fn){
   if(ui.fault==='save-failure')throw new Error('演示保存失败：本机存储不可用。改动未生效，请切回正常后重试。')
   if(ui.fault==='conflict')throw new Error('演示版本冲突：改动未生效，请核对后重试。')
   fn();state.revision++
-  state.logs.unshift({id:crypto.randomUUID(),time:new Date().toLocaleString('zh-CN',{hour12:false}),label,actor:currentUser.value?.name||'演示系统'})
+  state.logs.unshift({id:crypto.randomUUID(),time:new Date().toLocaleString('zh-CN',{hour12:false}),label,...logDetails,actor:currentUser.value?.name||'演示系统'})
   localStorage.setItem(STORAGE_KEY,JSON.stringify({...state,session:null}))
   ui.notice='演示已保存到本机';return {ok:true}
  }catch(e){Object.assign(state,JSON.parse(snapshot));ui.notice='';ui.error=e.message||'演示保存失败';return {ok:false,error:ui.error}}
@@ -67,17 +69,17 @@ export async function linkExistingAccount(id,accountId){return saveDemo(`${find(
 })}
 export async function createEmployee(draft){return saveDemo('新增完整合成员工档案，尚未创建登录账号',()=>{
  for(const key of ['name','employeeNumber','company','departmentId','gender','birthDate','employmentDate','position'])if(typeof draft[key]!=='string'||!draft[key].trim())throw new Error('请完整填写合成必填资料，日期不自动编造')
- if(!state.depts.some(d=>d.id===draft.departmentId))throw new Error('部门未映射')
+ if(!state.depts.some(d=>d.id===draft.departmentId&&d.confirmed!==false))throw new Error('部门未映射')
  if(state.employees.some(e=>e.employeeNumber===draft.employeeNumber))throw new Error('工号冲突，待核对；不选择第一条')
  if(!/^\d{4}-\d{2}-\d{2}$/.test(draft.birthDate)||!/^\d{4}-\d{2}-\d{2}$/.test(draft.employmentDate)||draft.birthDate>=draft.employmentDate)throw new Error('请填写有效的合成生日和入职日期')
  const id='demo-emp-'+crypto.randomUUID().slice(0,8)
  state.employees.push({...draft,id,employeeId:'DEMO-EMP-'+crypto.randomUUID().slice(0,8),code:'DEMO-'+draft.employeeNumber,subjectType:'employee',secondaryDepartments:[],accountId:'',username:'',status:'pending',firstPassword:true,bound:false,feishuId:'',checked:false,relationStatus:'unlinked',deviceId:'',attendanceIdentity:{source:'delicloud',namespace:'demo-company/tenant-a',externalPersonId:'',employeeNum:draft.employeeNumber,status:'pending'},exceptions:{}})
 })}
-export async function transfer(id,departmentId){return saveDemo(`${find(id)?.name}调岗：${deptName(find(id)?.departmentId)} → ${deptName(departmentId)}，本人历史外键保留`,()=>{if(!state.depts.some(d=>d.id===departmentId))throw new Error('部门未映射');state.employees.find(e=>e.id===id).departmentId=departmentId})}
+export async function transfer(id,departmentId){return saveDemo(`${find(id)?.name}调岗：${deptName(find(id)?.departmentId)} → ${deptName(departmentId)}，本人历史外键保留`,()=>{if(!state.depts.some(d=>d.id===departmentId&&d.confirmed!==false))throw new Error('部门未映射');state.employees.find(e=>e.id===id).departmentId=departmentId})}
 export async function disable(id){return saveDemo(`${find(id)?.name}停用演示账号`,()=>{if(id==='admin')throw new Error('保留演示管理入口');find(id).status='disabled';if(state.session?.employeeId===id)state.session=null})}
 export async function resetPassword(id){const result=await saveDemo(`${find(id)?.name}管理员重置临时状态，现用密码不可读取`,()=>{const e=find(id);if(e.status!=='active')throw new Error('仅可重置已开通账号');e.firstPassword=true;if(state.session?.employeeId===id)state.session=null});return result.ok?{...result,temporaryPassword:tempToken()}:result}
 export async function registerDemoApp(){if(state.apps.some(a=>a.id==='equipment'))return {ok:false,error:'演示模块已注册'};return saveDemo('注册合成扩展元数据；无真实执行器',()=>state.apps.push({id:'equipment',name:'设备管理',description:'演示注册，未接入后端',color:'#498999',actions:[{id:'view',name:'查看设备',highRisk:false}],scopes:[{value:'equipmentA',label:'演示设备组 A'}]}))}
-export async function resetDemo(){return saveDemo('重置 R4 合成场景（保留 R3 命名空间记录）',()=>{Object.assign(state,createSeed());ui.fault='none'})}
+export async function resetDemo(){return saveDemo('重置 R5 合成场景（保留 R3/R4 本机记录）',()=>{Object.assign(state,createSeed({expanded:true}));ui.fault='none'})}
 // Explicit synthetic verified identity fixtures. No OAuth, credentials or real API.
 export async function enterpriseLogin(scenario){
  if(scenario==='foreign')return {ok:false,error:'非本企业 tenant / app 的身份已拒绝，没有创建账号。'}

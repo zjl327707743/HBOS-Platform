@@ -25,9 +25,9 @@ function createBaseSeed() {
 }
 
 // R4: Employee records and accounts without an Employee are distinct fixtures.
-export function createSeed() {
+export function createSeed({expanded=false}={}) {
  const data=createBaseSeed()
- data.version=4
+ data.version=5
  const admin=data.employees.shift()
  Object.assign(admin,{subjectType:'service',employeeId:null,departmentId:null,secondaryDepartments:[],position:'应急 / 管理主体（非员工）',username:'demo.admin',relationStatus:'not-applicable'})
  data.nonEmployeeAccounts=[admin]
@@ -44,5 +44,14 @@ export function createSeed() {
  const row=(id,employeeId,date,dept,confirmed=true)=>({id,employeeId,date,checkIn:'08:30',status:'出勤',eventDepartmentId:dept,departmentEvidenceConfirmed:!!dept,identityConfirmed:confirmed,owner:'demo-sync-service'})
  data.attendanceRecords=[row('DEMO-CI-101','DEMO-EMP-00101','2026-10-14','d1'),row('DEMO-CI-102','DEMO-EMP-00102','2026-10-14','d2'),row('DEMO-CI-103','DEMO-EMP-00101','2026-08-20','d2'),row('DEMO-CI-104','DEMO-EMP-00102','2026-08-20',null),row('DEMO-CI-105','DEMO-EMP-00105','2026-10-14','d1'),row('DEMO-CI-UNKNOWN',null,'2026-10-14',null,false)]
  data.logs=[{id:'r4-seed',time:'2026-10-15',label:'R4 合成场景：员工档案与非员工账号分开，考勤按明确 Employee 关联',actor:'演示系统'}]
+ for(const dept of data.depts)dept.confirmed=true
+ if(expanded){
+  data.depts.push({id:'d-long',name:'新产品质量研究与跨部门项目协同技术支持中心',parentId:'demo',confirmed:true,description:'长名称合成部门，用于查看完整名称与成员安排',presets:JSON.parse(JSON.stringify(data.depts[0].presets))},{id:'d-unconfirmed',name:'待确认的组织安排',parentId:'demo',confirmed:false,description:'这个部门尚未确认，暂不能用于分配人员或应用权限',presets:{}})
+  for(let i=6;i<=29;i++){
+   const num=String(100+i).padStart(5,'0'),pending=i%8===0,disabled=i===12||i===20
+   data.employees.push({id:'e'+i,name:i===6?'演示跨部门项目协同与质量验证专员超长姓名显示检查':'演示成员'+String(i).padStart(2,'0'),code:'DEMO-'+(100+i),employeeId:'DEMO-EMP-'+num,employeeNumber:num,subjectType:'employee',company:'演示公司',gender:'未说明',birthDate:'1996-06-18',employmentDate:'2026-09-01',departmentId:i===6||i>=26?'d-long':i%2?'d1':'d2',secondaryDepartments:[],position:i===6?'跨部门项目质量研究与设备验证协同专员':'演示业务专员',status:pending?'pending':disabled?'disabled':'active',bound:!pending,feishuId:pending?'':'demo-feishu-e'+i,accountId:pending?'':'demo.e'+i+'@example.invalid',username:pending?'':'member'+i,firstPassword:false,checked:!pending,relationStatus:pending?'unlinked':'confirmed',exceptions:{},deviceId:'demo-device-'+num,attendanceIdentity:{source:'delicloud',namespace:'demo-company/tenant-a',externalPersonId:'demo-dl-'+num,employeeNum:num,status:i===19?'conflict':pending?'pending':'confirmed'}})
+  }
+  data.nonEmployeeAccounts.push({id:'u-demo-wait',name:'演示待关联账号',subjectType:'pending-employee',employeeId:null,employeeNumber:'',departmentId:null,secondaryDepartments:[],position:'等待员工档案关联',accountId:'demo.wait@example.invalid',username:'demo.wait',status:'active',bound:true,feishuId:'demo-feishu-wait',firstPassword:false,checked:false,relationStatus:'pending',exceptions:{}})
+ }
  return data
 }

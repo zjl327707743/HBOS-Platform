@@ -1,167 +1,197 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { state, ui, isAdmin, saveDemo, deptName, scopeLabel } from '../model'
-import { evaluatePermission } from '../permission'
+import { SearchOutlined, ApartmentOutlined } from '@ant-design/icons-vue'
+import { state, ui, isAdmin, deptName } from '../model.js'
+import { summarizeWorkApp } from '../work-policy.js'
+import WorkSettings from './WorkSettings.vue'
 
+const emit = defineEmits(['open'])
 const selectedId = ref('d1')
-const selectedDept = computed(() => state.depts.find(dept => dept.id === selectedId.value))
+const activeTab = ref('members')
+const departmentSearch = ref('')
+const expandedKeys = ref(state.depts.map(department => department.id))
+const autoExpandParent = ref(true)
+const memberSearch = ref('')
+const memberPage = ref(1)
+const editingAppId = ref('')
+const settings = ref(null)
+const selectedDept = computed(() => state.depts.find(department => department.id === selectedId.value))
+const confirmed = department => !!department && department.confirmed !== false && department.mapped !== false && !['pending', 'unconfirmed'].includes(department.status)
+const selectedConfirmed = computed(() => confirmed(selectedDept.value))
+const confirmedCount = computed(() => state.depts.filter(confirmed).length)
 const primaryMembers = computed(() => state.employees.filter(employee => employee.departmentId === selectedId.value))
-const secondaryMembers = computed(() => state.employees.filter(employee => employee.secondaryDepartments?.includes(selectedId.value)))
-const tree = computed(() => [{ title: '演示组织', key: 'demo', selectable: false, children: [
-  ...state.depts.map(dept => ({ title: dept.name, key: dept.id })),
-  { title: '新产品项目协同与技术支持中心（未映射）', key: 'unmapped' },
-] }])
-const statusInfo = status => ({ active: ['已开通', 'green'], pending: ['待核验 / 未开通', 'orange'], disabled: ['已停用', 'default'] }[status] || ['待核对', 'default'])
-const modalOpen = ref(false)
-const draftApp = ref('attendance')
-const draftAction = ref('*')
-const draftMode = ref('allow')
-const draftScopes = ref([])
-const previewed = ref(false)
-const activeApp = computed(() => state.apps.find(app => app.id === draftApp.value))
-const actionOptions = computed(() => [
-  { value: '*', label: 'APP 整体进入权限' },
-  ...(activeApp.value?.actions.filter(action => !action.highRisk).map(action => ({ value: action.id, label: action.name })) || []),
-])
-const presetRows = computed(() => state.apps.filter(app=>app.id!=='platform').flatMap(app => ['*', ...app.actions.filter(action => !action.highRisk).map(action => action.id)].map(actionId => {
-  const rule = selectedDept.value?.presets?.[`${app.id}:${actionId}`]
-  return { key: `${app.id}:${actionId}`, appId: app.id, appName: app.name, actionId, actionName: actionId === '*' ? 'APP 整体' : app.actions.find(action => action.id === actionId)?.name, mode: rule?.mode || 'unset', scope: rule?.scope || [] }
-})))
-const resultText = result => result.allowed ? `允许 · ${result.scope.map(scopeLabel).join('、')}` : `拒绝 · ${result.reason}`
-const impact = computed(() => {
-  if (!selectedDept.value || !activeApp.value) return []
-  const nextState = JSON.parse(JSON.stringify(state))
-  const nextDept = nextState.depts.find(dept => dept.id === selectedId.value)
-  const key = `${draftApp.value}:${draftAction.value}`
-  if (draftMode.value === 'unset') delete nextDept.presets[key]
-  else nextDept.presets[key] = { mode: draftMode.value, scope: [...draftScopes.value] }
-  const actions = draftAction.value === '*' ? ['*', ...activeApp.value.actions.map(action => action.id)] : [draftAction.value]
-  return primaryMembers.value.flatMap(employee => actions.map(actionId => {
-    const before = evaluatePermission(state, employee, draftApp.value, actionId)
-    const after = evaluatePermission(nextState, nextState.employees.find(item => item.id === employee.id), draftApp.value, actionId)
-    return { key: `${employee.id}:${actionId}`, name: employee.name, action: actionId === '*' ? 'APP 整体' : activeApp.value.actions.find(action => action.id === actionId)?.name, before, after, changed: before.allowed !== after.allowed || JSON.stringify(before.scope) !== JSON.stringify(after.scope) }
-  }))
+const secondaryMembers = computed(() => state.employees.filter(employee => employee.departmentId !== selectedId.value && employee.secondaryDepartments?.includes(selectedId.value)))
+const filteredMembers = computed(() => {
+  const query = memberSearch.value.trim().toLocaleLowerCase()
+  return primaryMembers.value.filter(employee => !query || [employee.name, employee.employeeNumber, employee.position].some(value => String(value || '').toLocaleLowerCase().includes(query)))
 })
-const changedPeople = computed(() => new Set(impact.value.filter(row => row.changed).map(row => row.name)).size)
-const impactColumns = [
-  { title: '具名员工 / 动作', key: 'employee', width: 150 },
-  { title: '保存前', key: 'before' },
-  { title: '保存后', key: 'after' },
-  { title: '范围差异', key: 'diff', width: 180 },
-]
-function hydrateDraft() {
-  const rule = selectedDept.value?.presets?.[`${draftApp.value}:${draftAction.value}`]
-  draftMode.value = rule?.mode || 'unset'
-  draftScopes.value = [...(rule?.scope || [])]
-  previewed.value = false
-}
-watch(draftApp, () => { draftAction.value = '*'; hydrateDraft() }, { flush: 'sync' })
-watch(draftAction, hydrateDraft, { flush: 'sync' })
-watch([draftMode, draftScopes], () => { previewed.value = false }, { deep: true })
-function openEditor(row) {
-  draftApp.value = row?.appId || 'attendance'
-  draftAction.value = row?.actionId || '*'
-  hydrateDraft()
-  modalOpen.value = true
-}
-function preview() {
-  if (!isAdmin.value) return message.error('仅演示管理员可修改部门预设。')
-  if (!selectedDept.value) return message.error('此节点尚未映射，不允许授权。')
-  if (activeApp.value?.actions.find(action => action.id === draftAction.value)?.highRisk) return message.error('高风险动作不能通过部门预设授予。')
-  previewed.value = true
-}
-async function savePreset() {
-  if (!previewed.value || !isAdmin.value || !selectedDept.value) return
-  const departmentId = selectedId.value
-  const appId = draftApp.value
-  const actionId = draftAction.value
-  const mode = draftMode.value
-  const scope = [...draftScopes.value]
-  const result = await saveDemo(`调整${selectedDept.value.name}的${activeApp.value.name}部门预设（已预览影响）`, () => {
-    if (!isAdmin.value) throw new Error('当前演示账号无管理权限。')
-    const app = state.apps.find(item => item.id === appId)
-    if (!app || app.id==='platform' || (actionId !== '*' && !app.actions.some(action => action.id === actionId && !action.highRisk))) throw new Error('部门预设只接受已注册的普通动作。')
-    if ((mode === 'deny' && actionId !== '*' && !scope.length) || scope.some(value => !app.scopes.some(item => item.value === value))) throw new Error('数据范围已变化，请重新预览。')
-    const department = state.depts.find(item => item.id === departmentId)
-    if (!department) throw new Error('部门未映射，保存已拒绝。')
-    if (mode === 'unset') delete department.presets[`${appId}:${actionId}`]
-    else department.presets[`${appId}:${actionId}`] = { mode, scope: scope }
+const memberPagination = computed(() => ({
+  current: memberPage.value, pageSize: 8, total: filteredMembers.value.length, showSizeChanger: false,
+  hideOnSinglePage: false, showTotal: total => '共 ' + total + ' 名员工',
+  onChange: page => { memberPage.value = page }
+}))
+const treeData = computed(() => {
+  const nodes = new Map(state.depts.map(department => [department.id, {
+    key: department.id, title: department.name, confirmed: confirmed(department), children: []
+  }]))
+  const roots = []
+  for (const department of state.depts) {
+    const node = nodes.get(department.id)
+    const parent = department.parentId !== department.id && nodes.get(department.parentId)
+    if (parent) parent.children.push(node)
+    else roots.push(node)
+  }
+  const query = departmentSearch.value.trim().toLocaleLowerCase()
+  const prune = nodes => nodes.flatMap(node => {
+    const children = prune(node.children)
+    return !query || node.title.toLocaleLowerCase().includes(query) || children.length ? [{ ...node, children }] : []
   })
-  if (result.ok) { message.success('演示已保存到本机'); modalOpen.value = false }
-  else message.error(result.error)
+  return prune(roots)
+})
+const ordinaryApps = computed(() => state.apps
+  .filter(app => app.id !== 'platform' && app.actions?.some(action => !action.highRisk))
+  .map(app => ({ app, summary: summarizeWorkApp(state, 'department', selectedId.value, app.id) })))
+const columns = [
+  { title: '姓名', key: 'person' },
+  { title: '工号', key: 'employeeNumber', width: 116 },
+  { title: '账号状态', key: 'account', width: 108 },
+  { title: '操作', key: 'open', width: 72 }
+]
+const appColumns = [
+  { title: '应用', key: 'application', width: 136 },
+  { title: '本部门通常可以做什么', key: 'arrangement' },
+  { title: '操作', key: 'settings', width: 88 }
+]
+function accountStatus(employee) {
+  if (!employee.accountId || employee.status === 'pending') return { text: '未开通', color: 'default' }
+  return employee.status === 'disabled' ? { text: '已停用', color: 'default' } : { text: '已开通', color: 'green' }
 }
-function difference(row) {
-  const added = row.after.scope.filter(scope => !row.before.scope.includes(scope)).map(scopeLabel)
-  const removed = row.before.scope.filter(scope => !row.after.scope.includes(scope)).map(scopeLabel)
-  if (!row.changed) return '有效权限未变化'
-  return [added.length && `增加：${added.join('、')}`, removed.length && `撤销：${removed.join('、')}`, !added.length && !removed.length && `${row.before.allowed ? '允许' : '拒绝'} → ${row.after.allowed ? '允许' : '拒绝'}`].filter(Boolean).join('；')
+function appStatus(summary) {
+  return { color: { available: 'green', none: 'default', suspended: 'default', unavailable: 'orange', review: 'orange' }[summary.status] || 'default', text: summary.statusLabel || '暂未安排' }
 }
+function openEmployee(employee) { emit('open', employee.id, 'basic', null) }
+function expandDepartments(keys) { expandedKeys.value = keys; autoExpandParent.value = false }
+async function selectDepartment(keys) {
+  const nextId = keys[0]
+  if (!nextId || nextId === selectedId.value || ui.busy || !state.depts.some(department => department.id === nextId)) return
+  if (editingAppId.value && settings.value && !await settings.value.requestLeave()) return
+  selectedId.value = nextId
+  editingAppId.value = ''
+  memberSearch.value = ''
+  memberPage.value = 1
+}
+function openApplication(appId) {
+  if (!selectedConfirmed.value) return message.warning('这个部门尚未确认，暂不能用于分配人员或应用权限。')
+  editingAppId.value = appId
+}
+function backToApplications() { editingAppId.value = '' }
+watch(memberSearch, () => { memberPage.value = 1 })
+watch(departmentSearch, query => {
+  if (query.trim()) { expandedKeys.value = state.depts.map(department => department.id); autoExpandParent.value = true }
+})
+watch(() => state.depts.map(department => department.id), (ids, previous = []) => {
+  expandedKeys.value = [...new Set([...expandedKeys.value.filter(id => ids.includes(id)), ...ids.filter(id => !previous.includes(id))])]
+})
+watch(() => state.depts, () => {
+  if (!selectedDept.value) {
+    selectedId.value = state.depts[0]?.id || ''
+    editingAppId.value = ''
+  }
+})
+watch(() => filteredMembers.value.length, length => {
+  if (memberPage.value > Math.max(1, Math.ceil(length / 8))) memberPage.value = 1
+})
 </script>
 
 <template>
-  <div class="departments-page stack">
+  <div class="departments-page">
     <div class="page-heading">
-      <div><div class="kicker">ORGANIZATION</div><h1>部门与继承预设</h1><p class="muted">部门定义普通权限的起点；主岗继承，兼岗记录单独展示。</p></div>
-      <a-tag color="green">全部为合成演示资料</a-tag>
+      <div><h1>部门管理</h1><p>先查看部门成员，再安排大家通常使用的应用。</p></div>
     </div>
-    <a-alert v-if="!isAdmin" type="info" show-icon message="当前为只读视图。使用演示管理员登录后，可调整部门权限预设。" />
     <div class="department-layout">
-      <aside class="panel organization-panel">
-        <div class="section-top"><h3>组织目录</h3><a-tag>{{ state.depts.length }} 个已映射部门</a-tag></div>
-        <a-tree :tree-data="tree" :selected-keys="[selectedId]" :default-expanded-keys="['demo']" block-node @select="keys => { if (keys.length) selectedId = keys[0] }" />
-        <div class="organization-foot">长名称完整展示。未映射节点保留待核对状态，不据此自动授权。</div>
+      <aside class="panel department-directory" aria-label="部门目录">
+        <div class="directory-heading"><ApartmentOutlined /><h2>部门目录</h2></div>
+        <a-input v-model:value="departmentSearch" aria-label="搜索部门名称" placeholder="搜索部门" allow-clear :disabled="ui.busy"><template #prefix><SearchOutlined /></template></a-input>
+        <div class="department-tree">
+          <a-tree v-if="treeData.length" :tree-data="treeData" :selected-keys="[selectedId]" :expanded-keys="expandedKeys" :auto-expand-parent="autoExpandParent" :disabled="ui.busy" block-node @select="selectDepartment" @expand="expandDepartments">
+            <template #title="{ title, confirmed: nodeConfirmed }"><span class="tree-label" :aria-label="title"><span class="tree-name">{{ title }}</span><span v-if="!nodeConfirmed" class="tree-pending">待确认</span></span></template>
+          </a-tree>
+          <a-empty v-else :image-style="{ height: '42px' }" description="没有找到这个部门" />
+        </div>
+        <div class="directory-count">{{ confirmedCount }} 个已确认<span v-if="confirmedCount !== state.depts.length"> · {{ state.depts.length - confirmedCount }} 个待确认</span></div>
       </aside>
-      <main v-if="selectedDept" class="stack">
-        <section class="panel department-summary">
-          <div><div class="kicker">已映射 · 演示部门</div><h2>{{ selectedDept.name }}</h2><p class="muted">{{ selectedDept.description }}</p></div>
-          <div class="member-count"><strong>{{ primaryMembers.length }}</strong><span>主岗成员</span></div>
+
+      <section v-if="selectedDept" class="department-detail" aria-label="部门详情">
+        <section class="panel department-overview">
+          <div class="department-heading"><h2>{{ selectedDept.name }}</h2><a-tag :color="selectedConfirmed ? 'green' : 'orange'">{{ selectedConfirmed ? '已确认' : '待确认' }}</a-tag></div>
+          <p v-if="selectedDept.description" class="department-description">{{ selectedDept.description }}</p>
+          <div class="department-facts"><span>{{ primaryMembers.length }} 名主部门员工</span><span v-if="secondaryMembers.length">{{ secondaryMembers.length }} 名兼岗员工</span></div>
+          <a-alert v-if="!selectedConfirmed" class="confirmation-notice" type="warning" show-icon message="这个部门尚未确认，暂不能用于分配人员或应用权限。" description="可以先查看现有信息；确认部门归属后再进行安排。" />
+          <a-alert v-else-if="!isAdmin" class="confirmation-notice" type="info" show-icon message="当前只能查看部门安排，修改需要相应管理权限。" />
         </section>
-        <section class="panel">
-          <div class="section-top"><h3>主岗成员</h3><span class="muted">普通权限由本部门继承</span></div>
-          <div class="member-list">
-            <div v-for="employee in primaryMembers" :key="employee.id" class="member-row">
-              <div class="person-avatar">{{ employee.name.slice(0, 1) }}</div>
-              <div class="person-main"><strong>{{ employee.name }}</strong><span>{{ employee.position }} · {{ employee.code }}</span></div>
-              <a-tag :color="statusInfo(employee.status)[1]">{{ statusInfo(employee.status)[0] }}</a-tag>
-            </div>
-          </div>
-          <div class="secondary-section">
-            <div class="section-top"><h4>兼岗记录</h4><a-tag>不自动叠加部门权限</a-tag></div>
-            <div v-if="secondaryMembers.length" class="secondary-list"><div v-for="employee in secondaryMembers" :key="employee.id"><strong>{{ employee.name }}</strong><span class="muted">主岗：{{ deptName(employee.departmentId) }} · 本部门兼岗</span></div></div>
-            <a-empty v-else description="本部门暂无合成兼岗记录" />
-          </div>
+
+        <section class="panel department-content">
+          <a-tabs v-model:activeKey="activeTab">
+            <a-tab-pane key="members" tab="部门成员">
+              <div class="member-toolbar"><a-input v-model:value="memberSearch" aria-label="搜索本部门员工姓名或工号" placeholder="搜索姓名或工号" allow-clear><template #prefix><SearchOutlined /></template></a-input><span>{{ filteredMembers.length }} 名员工</span></div>
+              <a-table class="department-members-table" :columns="columns" :data-source="filteredMembers" row-key="id" :pagination="memberPagination" table-layout="fixed" :locale="{ emptyText: memberSearch ? '没有找到符合条件的员工' : '这个部门暂时没有主部门员工' }">
+                <template #bodyCell="{ column, record }">
+                  <template v-if="column.key === 'person'"><button type="button" class="employee-link" @click="openEmployee(record)">{{ record.name }}</button><span class="employee-position">{{ record.position || '岗位待确认' }}</span></template>
+                  <template v-else-if="column.key === 'employeeNumber'"><span class="employee-number">{{ record.employeeNumber || '未填写' }}</span></template>
+                  <template v-else-if="column.key === 'account'"><a-tag :color="accountStatus(record).color">{{ accountStatus(record).text }}</a-tag></template>
+                  <template v-else-if="column.key === 'open'"><a-button type="link" @click="openEmployee(record)">查看</a-button></template>
+                </template>
+              </a-table>
+              <details v-if="secondaryMembers.length" class="secondary-members">
+                <summary>兼岗员工（{{ secondaryMembers.length }} 名）</summary>
+                <p>兼岗只记录任职，不自动获得本部门的应用安排。</p>
+                <div v-for="employee in secondaryMembers" :key="employee.id" class="secondary-member"><button type="button" class="employee-link" @click="openEmployee(employee)">{{ employee.name }}</button><span>主部门：{{ deptName(employee.departmentId) }}</span></div>
+              </details>
+            </a-tab-pane>
+
+            <a-tab-pane key="applications" tab="默认应用">
+              <div class="application-introduction"><h3>本部门的日常应用安排</h3><p>这里设置该部门员工通常可以使用的应用。单独为某位员工调整的内容，仍按其个人设置执行。</p><div class="attendance-explanation"><strong>安排给本部门员工，不等于查看所有人的数据。</strong><span>例如，大家都可以使用考勤应用时，通常查看的是各自本人的考勤。</span></div></div>
+              <a-alert v-if="!selectedConfirmed" type="info" show-icon message="部门确认后，才能安排默认应用。" />
+              <WorkSettings v-else-if="editingAppId" ref="settings" :key="selectedId + ':' + editingAppId" subject-kind="department" :subject-id="selectedId" :app-id="editingAppId" @back="backToApplications" />
+              <template v-else>
+                <a-table class="default-application-table" :columns="appColumns" :data-source="ordinaryApps" :row-key="record => record.app.id" :pagination="false" table-layout="fixed" :locale="{ emptyText: '暂时没有可安排的普通应用' }">
+                  <template #bodyCell="{ column, record }">
+                    <template v-if="column.key === 'application'"><strong class="application-name">{{ record.app.name }}</strong><a-tag :color="appStatus(record.summary).color">{{ appStatus(record.summary).text }}</a-tag></template>
+                    <template v-else-if="column.key === 'arrangement'"><p class="application-result">{{ record.summary.text || record.summary.reason || '暂未安排日常工作' }}</p><details v-if="record.summary.actionRows?.length" class="work-details"><summary>查看具体工作</summary><ul><li v-for="work in record.summary.actionRows" :key="work.id"><strong>{{ work.name }}</strong><span>{{ (work.configuredEnabled ?? work.enabled) ? (work.scopeText || '范围待确认') : '未安排' }}</span></li></ul></details></template>
+                    <template v-else-if="column.key === 'settings'"><a-button type="link" :disabled="!isAdmin || !selectedConfirmed || ui.busy" @click="openApplication(record.app.id)">查看设置</a-button></template>
+                  </template>
+                </a-table>
+                <p class="department-save-note">修改时会先列出受到调整的员工、保留个人设置的员工，以及暂时无法使用的员工。核对一次后再保存。</p>
+                <p class="important-operation-note">重要库存调整、质量签署和平台管理，需要对具体人员单独核对，不能作为部门普通安排。</p>
+              </template>
+            </a-tab-pane>
+          </a-tabs>
         </section>
-        <section class="panel">
-          <div class="section-top"><div><h3>普通权限预设</h3><p class="muted">APP 进入权限与动作、范围同时成立，员工才可以访问。</p></div><a-button type="primary" :disabled="!isAdmin" @click="openEditor()">调整预设</a-button></div>
-          <div class="preset-list">
-            <div v-for="row in presetRows" :key="row.key" class="preset-row">
-              <div><strong>{{ row.appName }}</strong><span class="muted">{{ row.actionName }}</span></div>
-              <a-tag :color="row.mode === 'allow' ? 'green' : row.mode === 'deny' ? 'red' : 'default'">{{ row.mode === 'allow' ? '允许' : row.mode === 'deny' ? '禁止' : '未授予' }}</a-tag>
-              <span class="preset-scopes">{{ row.mode === 'allow' ? (row.scope.length ? row.scope.map(scopeLabel).join('、') : '空范围 · 有效结果拒绝') : '—' }}</span>
-              <a-button type="link" :disabled="!isAdmin" @click="openEditor(row)">编辑</a-button>
-            </div>
-          </div>
-          <a-alert class="rule-alert" type="warning" show-icon message="质量签署、重要调账、平台管理等高风险动作不能由部门自动授予。" description="请到个人权限页面，具名核验资格与领域范围后单独配置。" />
-        </section>
-      </main>
-      <section v-else class="panel unmapped-state"><a-tag color="orange">待核对 / 只读</a-tag><h2>新产品项目协同与技术支持中心</h2><p>此合成节点没有对应的受控部门映射。成员、主兼岗及负责人需核对后才能进入导入候选。</p><a-alert type="warning" show-icon message="当前不会创建部门、迁移人员或自动授权。" /></section>
+      </section>
+      <section v-else class="panel no-department"><a-empty description="请从左侧选择一个部门" /></section>
     </div>
-    <a-modal v-model:open="modalOpen" title="调整部门普通权限预设" :width="940" :mask-closable="!ui.busy" :closable="!ui.busy" @cancel="previewed = false">
-      <div class="preset-editor stack">
-        <a-alert type="info" show-icon :message="`${selectedDept?.name} · 仅影响主岗普通继承；个人明确例外继续保留。`" />
-        <div class="editor-grid"><label>业务 APP<a-select v-model:value="draftApp" :options="state.apps.filter(app=>app.id!=='platform').map(app => ({ value: app.id, label: app.name }))" :disabled="ui.busy" /></label><label>预设动作<a-select v-model:value="draftAction" :options="actionOptions" :disabled="ui.busy" /></label></div>
-        <label class="field-label">预设结果</label>
-        <a-radio-group v-model:value="draftMode" :disabled="ui.busy"><a-radio-button value="unset">不授予</a-radio-button><a-radio-button value="allow">允许</a-radio-button><a-radio-button value="deny">明确禁止</a-radio-button></a-radio-group>
-        <div v-if="draftMode === 'allow' || (draftMode === 'deny' && draftAction !== '*')" class="scope-box"><strong>{{draftMode === 'deny' ? '仅禁止匹配对象的范围' : '允许范围'}}</strong><a-checkbox-group v-model:value="draftScopes" :options="activeApp?.scopes" :disabled="ui.busy" /><p class="muted">可保留空范围；空范围始终拒绝访问，不代表全部。</p></div>
-        <a-alert v-if="draftMode === 'allow' && !draftScopes.length" type="warning" show-icon message="当前范围为空，保存后此预设不会产生可用访问权限。" />
-        <div v-if="previewed" class="impact-preview"><div class="section-top"><h3>影响预览</h3><a-tag color="green">{{ changedPeople }} 位员工的有效权限变化</a-tag></div><p class="muted">逐一列出主岗具名员工，兼岗不参与继承。未开通与停用账号继续拒绝访问。</p><a-table :columns="impactColumns" :data-source="impact" :pagination="false" size="small" :scroll="{ x: 720, y: 320 }"><template #bodyCell="{ column, record }"><template v-if="column.key === 'employee'"><strong>{{ record.name }}</strong><div class="muted">{{ record.action }}</div></template><template v-else-if="column.key === 'before'"><span :class="record.before.allowed ? 'allow-text' : 'muted'">{{ resultText(record.before) }}</span></template><template v-else-if="column.key === 'after'"><span :class="record.after.allowed ? 'allow-text' : 'deny-text'">{{ resultText(record.after) }}</span></template><template v-else-if="column.key === 'diff'">{{ difference(record) }}</template></template></a-table><div class="preview-note">保存范围：仅本机合成演示。正式服务的权限判定与审计仍待 Owner 确认原型后实施。</div></div>
-      </div>
-      <template #footer><a-button :disabled="ui.busy" @click="modalOpen = false">取消</a-button><a-button v-if="!previewed" type="primary" :disabled="!isAdmin" @click="preview">预览受影响员工</a-button><a-button v-else type="primary" :loading="ui.busy" :disabled="!isAdmin" @click="savePreset">确认影响并保存演示</a-button></template>
-    </a-modal>
   </div>
 </template>
 
 <style scoped>
-.department-layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:20px;align-items:start}.organization-panel{position:sticky;top:20px;padding:22px 16px}.section-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}.section-top h3,.section-top h4{margin:0}.section-top p{margin:6px 0 0}.organization-foot{border-top:1px solid #e5ebe6;margin:22px 4px 0;padding-top:18px;color:#738378;font-size:12px;line-height:1.8}.organization-panel :deep(.ant-tree){background:transparent}.organization-panel :deep(.ant-tree-title){white-space:normal;line-height:1.65}.organization-panel :deep(.ant-tree-node-content-wrapper){padding:7px 8px;min-height:38px}.organization-panel :deep(.ant-tree-node-selected){background:#e4f1e7!important}.department-summary{display:flex;justify-content:space-between;gap:20px;align-items:center}.department-summary h2{margin:8px 0}.member-count{display:flex;flex-direction:column;align-items:center;border-left:1px solid #e3eae4;padding-left:32px;color:#6f8074;white-space:nowrap}.member-count strong{font-size:34px;color:#356849;line-height:1.2}.member-count span{font-size:12px;margin-top:7px}.member-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #eff2ef}.member-row:first-child{border-top:0}.person-avatar{width:38px;height:38px;display:grid;place-items:center;background:#e6efe7;color:#477555;border-radius:12px;font-weight:600}.person-main{display:flex;flex:1;flex-direction:column;gap:3px}.person-main span{color:#7c8b81;font-size:12px}.secondary-section{border-top:1px dashed #dbe5dd;margin-top:16px;padding-top:23px}.secondary-list>div{display:flex;gap:15px;padding:12px 0}.secondary-section :deep(.ant-empty){margin:12px 0;color:#8b998f}.preset-row{display:grid;grid-template-columns:minmax(130px,1.2fr) 74px minmax(150px,1.4fr) 50px;gap:12px;align-items:center;padding:14px 0;border-top:1px solid #edf2ee}.preset-row>div:first-child{display:flex;flex-direction:column;gap:4px}.preset-row .ant-tag{margin:0;width:max-content}.preset-scopes{font-size:13px;color:#5f7566}.rule-alert{margin-top:20px}.unmapped-state{padding:48px;min-height:350px}.unmapped-state h2{margin:20px 0 12px}.unmapped-state p{color:#758379;line-height:1.8;max-width:580px}.editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.editor-grid label{display:flex;flex-direction:column;gap:8px;color:#53655a;font-size:13px}.field-label{font-weight:600;color:#44584a}.scope-box{background:#f5f8f4;border:1px solid #e2ebe2;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:15px}.scope-box p{margin:0;font-size:12px}.scope-box :deep(.ant-checkbox-group){display:flex;gap:12px 20px;flex-wrap:wrap}.impact-preview{border-top:1px solid #e4ebe5;padding-top:20px}.impact-preview>.muted{font-size:12px}.impact-preview :deep(.ant-table-cell){font-size:12px;line-height:1.7}.allow-text{color:#36784f}.deny-text{color:#926b3d}.preview-note{margin-top:15px;padding:12px 14px;background:#f6f8f5;color:#77857b;font-size:12px;border-radius:8px}@media(max-width:1000px){.department-layout{grid-template-columns:230px minmax(0,1fr)}.preset-row{grid-template-columns:1fr 65px}.preset-scopes{grid-column:1}.preset-row .ant-btn{grid-column:2}}@media(max-width:760px){.department-layout{grid-template-columns:1fr}.organization-panel{position:static}.department-summary{align-items:flex-start}.member-count{padding-left:20px}.editor-grid{grid-template-columns:1fr}.secondary-list>div{flex-direction:column;gap:5px}.unmapped-state{padding:24px}}
+.departments-page{display:flex;flex-direction:column;gap:24px;min-width:0}
+.page-heading{margin:0;align-items:flex-start}.page-heading h1{margin-bottom:8px}.page-heading p{margin:0;color:#526059;font-size:16px;line-height:24px}
+.department-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px;align-items:start;min-width:0}
+.department-directory{position:sticky;top:136px;padding:16px;min-width:0}
+.directory-heading{display:flex;align-items:center;gap:10px;margin-bottom:16px;color:#314c3b}.directory-heading>.anticon{font-size:20px}.directory-heading h2{font-size:20px;line-height:28px;margin:0}
+.department-tree{margin:16px -4px 0;max-height:calc(100vh - 360px);overflow:auto;scrollbar-gutter:stable;min-height:60px}.department-directory :deep(.ant-tree){background:transparent;font-size:16px;line-height:24px}.department-directory :deep(.ant-tree-treenode){padding:0 0 8px;align-items:flex-start}.department-directory :deep(.ant-tree-switcher){margin-top:10px;width:20px}.department-directory :deep(.ant-tree-indent-unit){width:16px}.department-directory :deep(.ant-tree-node-content-wrapper){padding:10px 8px;min-height:44px;line-height:24px;min-width:0}.department-directory :deep(.ant-tree-node-selected){background:#e9f2e5}.department-directory :deep(.ant-tree-title){white-space:normal;display:block}
+.tree-label{display:flex;flex-direction:column;gap:4px}.tree-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;line-height:24px}.tree-pending{font-size:14px;line-height:22px;color:#846832}.directory-count{padding-top:16px;margin-top:16px;border-top:1px solid #e1e7df;font-size:14px;line-height:22px;color:#59655c}
+.department-detail{display:flex;flex-direction:column;gap:24px;min-width:0}.department-overview{padding:24px}.department-heading{display:flex;gap:16px;align-items:flex-start}.department-heading h2{font-size:20px;line-height:28px;overflow-wrap:anywhere;margin:0;min-width:0;flex:1}.department-heading .ant-tag{white-space:nowrap;margin:3px 0 0;font-size:14px;line-height:22px}
+.department-description{margin:12px 0 0;font-size:16px;line-height:24px;color:#526059;overflow-wrap:anywhere}.department-facts{display:flex;flex-wrap:wrap;gap:8px 20px;color:#526059;font-size:14px;line-height:22px;margin-top:16px}.confirmation-notice{margin-top:20px}.confirmation-notice :deep(.ant-alert-message),.confirmation-notice :deep(.ant-alert-description){font-size:14px;line-height:22px}
+.department-content{padding:0;min-width:0;overflow:hidden}.department-content :deep(.ant-tabs-nav){margin:0;padding:0 24px}.department-content :deep(.ant-tabs-tab){padding:18px 0;font-size:16px;line-height:24px}.department-content :deep(.ant-tabs-tabpane){padding:24px;min-width:0}
+.member-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}.member-toolbar>.ant-input-affix-wrapper{max-width:320px;flex:1}.member-toolbar>span{white-space:nowrap;font-size:14px;color:#59655c}.department-directory :deep(.ant-input-affix-wrapper),.member-toolbar :deep(.ant-input-affix-wrapper){min-height:40px}
+.department-members-table :deep(.ant-table-cell),.default-application-table :deep(.ant-table-cell){font-size:16px;line-height:24px;padding:16px 12px;overflow-wrap:anywhere;vertical-align:middle}.department-members-table :deep(.ant-table-thead .ant-table-cell),.default-application-table :deep(.ant-table-thead .ant-table-cell){font-size:14px;line-height:22px;background:#f6f8f3;color:#526059;font-weight:500}.department-members-table :deep(.ant-tag),.default-application-table :deep(.ant-tag){font-size:14px;line-height:22px;white-space:nowrap;margin:0}.department-members-table :deep(.ant-btn-link),.default-application-table :deep(.ant-btn-link){font-size:16px;line-height:24px;min-height:40px;padding:6px 0;white-space:nowrap}.department-members-table :deep(.ant-pagination){font-size:14px;line-height:22px;flex-wrap:wrap;row-gap:8px;margin-bottom:0}
+.employee-link{border:0;background:none;padding:0;color:#2d6444;font-size:16px;line-height:24px;font-weight:500;text-align:left;overflow-wrap:anywhere}.employee-link:hover{text-decoration:underline}.employee-link:focus-visible{outline:2px solid #4c8c68;outline-offset:4px;border-radius:2px}.employee-position{display:block;font-size:14px;line-height:22px;color:#59655c;margin-top:4px}.employee-number{font-variant-numeric:tabular-nums;white-space:nowrap}
+.secondary-members{border-top:1px solid #e5e9e1;padding-top:20px;margin-top:24px}.secondary-members>summary,.work-details>summary{cursor:pointer;font-size:14px;line-height:22px;color:#37694a;width:fit-content}.secondary-members>summary:focus-visible,.work-details>summary:focus-visible{outline:2px solid #4c8c68;outline-offset:4px}.secondary-members>p{font-size:14px;line-height:22px;color:#59655c;margin:12px 0}.secondary-member{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid #edf0e8}.secondary-member>span{font-size:14px;line-height:22px;color:#59655c;overflow-wrap:anywhere;text-align:right;max-width:65%}
+.application-introduction{margin-bottom:24px}.application-introduction h3{font-size:20px;line-height:28px;margin:0 0 12px}.application-introduction>p{font-size:16px;line-height:24px;color:#526059;margin:0}.attendance-explanation{background:#f3f7ee;border:1px solid #dfe8d5;padding:16px;border-radius:8px;margin-top:16px;display:flex;flex-direction:column;gap:6px}.attendance-explanation strong{font-weight:500;font-size:16px;line-height:24px}.attendance-explanation span{font-size:14px;line-height:22px;color:#526059}
+.application-name{display:block;font-size:16px;line-height:24px;font-weight:500;margin-bottom:8px}.application-result{margin:0;font-size:16px;line-height:24px;overflow-wrap:anywhere}.work-details{margin-top:10px}.work-details ul{padding:0;margin:12px 0 0;list-style:none}.work-details li{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;font-size:14px;line-height:22px}.work-details li strong{font-weight:500}.work-details li span{color:#526059;overflow-wrap:anywhere}.department-save-note,.important-operation-note{font-size:14px;line-height:22px;color:#59655c;margin:20px 0 0}.important-operation-note{padding-top:16px;border-top:1px solid #e5e9e1}.no-department{padding:40px 24px}
+@media(max-width:1050px){.department-layout{gap:16px}.department-content :deep(.ant-tabs-tabpane){padding:20px 16px}.department-content :deep(.ant-tabs-nav){padding:0 16px}.department-overview{padding:20px}.department-members-table :deep(.ant-table-cell),.default-application-table :deep(.ant-table-cell){padding-left:8px;padding-right:8px}}
+@media(max-width:900px){.department-layout{grid-template-columns:1fr}.department-directory{position:static}.department-tree{max-height:260px}.department-detail{gap:16px}.directory-count{margin-top:12px;padding-top:12px}.department-heading{gap:12px}}
+@media(max-width:600px){.department-content :deep(.ant-tabs-tabpane){padding:16px}.department-heading{flex-wrap:wrap}.department-heading h2{flex-basis:100%}.member-toolbar{align-items:flex-start;flex-direction:column;gap:10px}.member-toolbar>.ant-input-affix-wrapper{width:100%;max-width:none}.secondary-member{flex-direction:column;gap:6px}.secondary-member>span{text-align:left;max-width:100%}.department-members-table :deep(.ant-table-content>table){min-width:460px}.department-members-table :deep(.ant-table-content),.default-application-table :deep(.ant-table-content){overflow-x:auto}.default-application-table :deep(.ant-table-content>table){min-width:480px}.department-facts{margin-top:12px}.department-overview{padding:16px}}
 </style>
