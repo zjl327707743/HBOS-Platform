@@ -17,7 +17,7 @@ after_install = [
 ]
 on_login = ["hbos_portal.auth.accounts.check_login"]
 on_session_creation = ['hbos_portal.auth.security.on_session_creation', 'hbos_portal.iam.temporary_passwords.on_session_creation']
-auth_hooks = ['hbos_portal.auth.accounts.check_request', 'hbos_portal.iam.guards.check_identity_request']
+auth_hooks = ['hbos_portal.auth.accounts.check_request']
 before_request = ["hbos_portal.auth.accounts.check_request", "hbos_portal.iam.guards.check_identity_request"]
 before_job = ["hbos_portal.iam.guards.check_identity_job"]
 on_logout = ["hbos_portal.auth.accounts.on_logout"]

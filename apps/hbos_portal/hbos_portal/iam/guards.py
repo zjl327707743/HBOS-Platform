@@ -205,3 +205,14 @@ def check_identity_job(method=None, kwargs=None, transaction_type=None):
     if policy.enabled_flag("hbos_iam_enabled") and method == "frappe.desk.reportview.delete_bulk":
         args = kwargs or {}
         _deny_managed_deletions(args.get("doctype"), args.get("items"))
+
+
+def check_authenticated_request():
+    """Fixed post-native-auth checks, not an authentication provider dispatcher."""
+    if not policy.enabled_flag("hbos_iam_enabled"):
+        return
+    check_identity_request()
+    if "hb_attendance_app" in frappe.get_installed_apps():
+        # Keep Portal independent of a business-app import when uninstalled.
+        # An installed guard that cannot load must fail closed, never be skipped.
+        frappe.get_attr("hb_attendance_app.hbos_attendance.portal.permissions.check_request")()

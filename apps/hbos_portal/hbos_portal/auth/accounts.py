@@ -813,6 +813,8 @@ def check_request() -> None:
         check_version()
         from hbos_portal.iam.temporary_passwords import check_request as temporary_check
         temporary_check()
+        from hbos_portal.iam.guards import check_authenticated_request
+        check_authenticated_request()
 
 
 @frappe.whitelist(methods=['POST'])

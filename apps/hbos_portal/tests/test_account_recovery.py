@@ -274,5 +274,88 @@ class RecoverySecurityTest(unittest.TestCase):
         self.assertEqual({"user": self.user}, metadata)
 
 
+class AuthenticatedRequestDispatchTest(unittest.TestCase):
+    def setUp(self):
+        from hbos_portal.iam import guards, policy, temporary_passwords
+        self.guards, self.policy, self.temporary = guards, policy, temporary_passwords
+        self.attendance = Mock()
+        self.fake = types.SimpleNamespace(conf={"hbos_iam_enabled": 1},
+            session=types.SimpleNamespace(user="api-user@example.test", sid="Guest", data={}),
+            get_installed_apps=Mock(return_value=["frappe", "hbos_portal", "hb_attendance_app"]),
+            get_attr=Mock(return_value=self.attendance),
+            get_hooks=Mock(side_effect=AssertionError("no arbitrary auth hook dispatcher")))
+        for target in (guards, policy):
+            context = patch.object(target, "frappe", self.fake)
+            context.start(); self.addCleanup(context.stop)
+
+    def test_feature_off_does_not_inspect_apps_or_dispatch_guards(self):
+        self.fake.conf["hbos_iam_enabled"] = 0
+        with patch.object(self.guards, "check_identity_request") as identity:
+            self.guards.check_authenticated_request()
+        identity.assert_not_called()
+        self.fake.get_installed_apps.assert_not_called()
+        self.fake.get_attr.assert_not_called()
+        self.fake.get_hooks.assert_not_called()
+
+    def test_enabled_api_actor_runs_only_the_fixed_installed_attendance_guard(self):
+        self.fake.get_installed_apps.return_value += ["unknown_external_auth_app"]
+        with patch.object(self.guards, "check_identity_request") as identity:
+            self.guards.check_authenticated_request()
+        identity.assert_called_once_with()
+        self.fake.get_attr.assert_called_once_with("hb_attendance_app.hbos_attendance.portal.permissions.check_request")
+        self.attendance.assert_called_once_with()
+        self.fake.get_hooks.assert_not_called()
+
+    def test_uninstalled_attendance_is_not_imported_and_broken_installed_guard_fails_closed(self):
+        with patch.object(self.guards, "check_identity_request") as identity:
+            self.fake.get_installed_apps.return_value = ["frappe", "hbos_portal"]
+            self.guards.check_authenticated_request()
+            self.fake.get_attr.assert_not_called()
+            self.fake.get_installed_apps.return_value.append("hb_attendance_app")
+            self.fake.get_attr.side_effect = ImportError("installed guard missing")
+            with self.assertRaises(ImportError):
+                self.guards.check_authenticated_request()
+        self.assertEqual(2, identity.call_count)
+
+    def test_native_token_actor_is_checked_after_the_guest_before_request_stage(self):
+        # Native API-key/OAuth authentication starts with Guest sid and sets
+        # the actor before invoking auth_hooks. A cookie sid is not required.
+        calls = []
+        self.fake.session.user = "Guest"
+        self.fake.get_attr.return_value = lambda: calls.append(("attendance", self.fake.session.user))
+        with patch.object(accounts, "frappe", self.fake), \
+                patch.object(accounts, "require_user", side_effect=lambda: calls.append(("user", self.fake.session.user))), \
+                patch.object(security, "check_request", side_effect=lambda: calls.append(("security", self.fake.session.user))), \
+                patch.object(self.temporary, "check_request", side_effect=lambda: calls.append(("temporary", self.fake.session.user))), \
+                patch.object(self.guards, "check_identity_request", side_effect=lambda: calls.append(("identity", self.fake.session.user))):
+            accounts.check_request()  # before_request, before native token parsing
+            self.assertEqual([], calls)
+            self.fake.session.user = "native-token-user@example.test"
+            accounts.check_request()  # original auth_hook, after native token parsing
+        self.assertEqual([(name, "native-token-user@example.test") for name in ("user", "security", "temporary", "identity", "attendance")], calls)
+        self.assertEqual("Guest", self.fake.session.sid)
+        self.fake.get_hooks.assert_not_called()
+
+    def test_existing_custody_inventory_still_rejects_an_unknown_auth_hook(self):
+        from hbos_portal.auth import operations
+        fake = types.SimpleNamespace(conf={"hbos_administrator_custody_handover_enabled": 1},
+            get_hooks=Mock(return_value=["hbos_portal.auth.accounts.check_request", "external_auth_app.authenticate"]),
+            get_doc=Mock(), throw=reject, PermissionError=Rejected)
+        operation = types.SimpleNamespace(target_user="Administrator", initiator="Administrator", credential_verified=True)
+        with patch.object(operations, "frappe", fake), self.assertRaises(Rejected):
+            operations._custody_cutover(operation)
+        fake.get_doc.assert_not_called()
+
+    def test_only_the_original_auth_hook_remains_registered(self):
+        import runpy
+        from pathlib import Path
+        from hbos_portal import hooks
+        self.assertEqual(["hbos_portal.auth.accounts.check_request"], hooks.auth_hooks)
+        attendance_hooks = runpy.run_path(str(Path(__file__).resolve().parents[2] / "hb_attendance_app" / "hb_attendance_app" / "hooks.py"))
+        self.assertNotIn("auth_hooks", attendance_hooks)
+        self.assertIn("hbos_portal.iam.guards.check_identity_request", hooks.before_request)
+        self.assertEqual(["hb_attendance_app.hbos_attendance.portal.permissions.check_request"], attendance_hooks["before_request"])
+
+
 if __name__ == "__main__":
     unittest.main()

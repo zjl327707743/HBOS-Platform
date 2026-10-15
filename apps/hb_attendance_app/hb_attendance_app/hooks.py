@@ -63,5 +63,4 @@ doc_events = {
     },
 }
 before_request = ["hb_attendance_app.hbos_attendance.portal.permissions.check_request"]
-auth_hooks = ["hb_attendance_app.hbos_attendance.portal.permissions.check_request"]
 before_job = ["hb_attendance_app.hbos_attendance.portal.permissions.check_background_job"]
