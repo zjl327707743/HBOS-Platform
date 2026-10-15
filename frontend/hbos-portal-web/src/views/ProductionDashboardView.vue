@@ -230,7 +230,7 @@
         <div v-if="aiLoading" class="pb-foot-note">正在读取分析结果…</div>
         <div v-else-if="!aiRows.length" class="pb-foot-note">
           会议口径：基于各产品的<b>工艺描述文档与生产台账数据</b>，由 AI 自动分析生成优化建议。<br>
-          结果表里还没有数据。分析服务每工作日 16:30 生成一次；若无结果，可能是模型不可用或校验未通过
+          结果表里还没有数据。分析服务每天 16:30 生成一次；若无结果，可能是模型不可用或校验未通过
           （<b>校验不过不写库</b>，宁可这轮没有，也不让没通过校验的内容进看板）。
         </div>
         <template v-else>
@@ -264,7 +264,7 @@
             </button>
           </div>
           <div class="pb-foot-note">
-            结果表 <code>AI工艺分析结果</code> · 每工作日 16:30 自动生成 · 按工序幂等覆盖，不追加。
+            结果表 <code>AI工艺分析结果</code> · 每天 16:30 自动生成 · 按工序幂等覆盖，不追加。
           </div>
         </template>
       </section>
