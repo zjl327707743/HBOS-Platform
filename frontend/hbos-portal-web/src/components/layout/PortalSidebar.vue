@@ -7,6 +7,8 @@
       <b v-if="item.path === '/hbos/work' && workCount > 0">{{ workCount }}</b>
     </RouterLink>
 
+    <RouterLink v-if="hasManagementAccess()" to="/hbos/admin" class="portal-nav-item" title="管理中心"><TeamOutlined /><span>管理中心</span></RouterLink>
+
     <div class="nav-divider"></div>
     <div class="nav-section-label">个人</div>
     <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="我的与设置">
@@ -26,7 +28,9 @@ import {
   HomeOutlined,
   UnorderedListOutlined,
   UserOutlined,
+  TeamOutlined,
 } from '@ant-design/icons-vue'
+import { hasManagementAccess } from '@/services/iamAccess'
 
 defineProps<{ workCount: number }>()
 

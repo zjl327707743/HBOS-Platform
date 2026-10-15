@@ -14,7 +14,7 @@
       </a-form>
       <div class="account-buttons"><RouterLink :to="username.trim().toLowerCase() === 'administrator' ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password'">忘记密码或账号恢复</RouterLink></div>
     </template>
-    <template #footer>密码和飞书使用同一个账号。已有账号可在“账号与安全”验证本人后绑定飞书；自动开户没有默认密码。</template>
+    <template #footer>密码和飞书使用同一个账号。已有账号可在“账号与安全”验证本人后绑定飞书；新账号的独立初始密码仅在验证本人后领取一次，首次使用须修改。</template>
   </AccountLayout>
 </template>
 <script setup lang="ts">
@@ -27,6 +27,7 @@ import { FrappeRequestError, loginWithPassword } from '@/services/frappeClient'
 import { getFeishuLoginStatus } from '@/services/p1Api'
 import { usePortalStore } from '@/stores/portal'
 import { accountRedirect } from '@/services/accountNavigation'
+import { getIamSecurity } from '@/services/iamAccount'
 const route = useRoute(), router = useRouter(), portal = usePortalStore()
 const loading = ref(true), submitting = ref(false), authenticated = ref(false), status = ref<FeishuLoginStatus|null>(null), statusError = ref(''), error = ref('')
 const username = ref(''), password = ref(''), otp = ref(''), tmpId = ref('')
@@ -41,7 +42,7 @@ function cancelMfa() { password.value = ''; otp.value = ''; tmpId.value = ''; er
 function guardComposition(e: KeyboardEvent) { if (e.isComposing || e.keyCode === 229) { e.preventDefault(); e.stopPropagation() } }
 watch(username, () => { if (tmpId.value) cancelMfa() })
 watch(() => route.query.status, () => { cancelMfa(); authenticated.value = false })
-async function resumeWorkspace() { if (submitting.value) return; submitting.value = true; error.value = ''; try { await portal.bootstrap(); if (!disposed) await router.replace(accountRedirect(route.query.redirect_to)) } catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '工作台暂时无法加载，请重试。' } finally { if (!disposed) submitting.value = false } }
+async function resumeWorkspace() { if (submitting.value) return; submitting.value = true; error.value = ''; try { const security = await getIamSecurity(); if (!security.first_password_required) await portal.bootstrap(); if (!disposed) await router.replace(accountRedirect(route.query.redirect_to)) } catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '工作台暂时无法加载，请重试。' } finally { if (!disposed) submitting.value = false } }
 async function submitAccountLogin() {
  if (!canSubmit.value) return; submitting.value = true; error.value = ''
  try { const result = await loginWithPassword(username.value.trim(),password.value,otp.value,tmpId.value); if (disposed) return; if (result.tmp_id && result.verification) { tmpId.value = result.tmp_id; return }; cancelMfa(); authenticated.value = true; portal.clearSession() }
