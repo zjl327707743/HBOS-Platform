@@ -146,6 +146,67 @@ class RecoverySecurityTest(unittest.TestCase):
                 self.assertTrue(result["mfa_required"])
             write.assert_not_called()
 
+    def test_repeatable_read_snapshot_cannot_revive_current_revoked_disabled_or_expired_key(self):
+        utility = types.SimpleNamespace(now_datetime=lambda: self.now, get_datetime=lambda value: value)
+        old = self.record()
+        current_rows = [None, self.record(enabled=0),
+            self.record(last_reset_password_key_generated_on=self.now - dt.timedelta(seconds=900)),
+            self.record(name="another-employee@example.test")]
+        for current in current_rows:
+            reads = []
+            def get_value(doctype, filters, fields, **kwargs):
+                reads.append(kwargs.get("for_update", False))
+                if isinstance(filters, str) and fields == "reset_password_key":
+                    return accounts.digest(self.key)  # old RR snapshot
+                return current if kwargs.get("for_update") else old
+            fake = types.SimpleNamespace(flags=Flags(),
+                db=types.SimpleNamespace(get_value=get_value, sql=Mock(return_value=[])),
+                throw=reject, AuthenticationError=Rejected, ValidationError=Rejected,
+                QueryDeadlockError=type('Deadlock', (Exception,), {}), QueryTimeoutError=type('LockTimeout', (Exception,), {}))
+            with self.subTest(current=current), patch.dict(sys.modules, {"frappe.utils": utility}), \
+                    patch.object(accounts, "frappe", fake), patch.object(accounts, "require_post"), \
+                    patch.object(accounts, "require_user", return_value=self.user), \
+                    patch.object(accounts, "_require_recovery_context", return_value={"epoch": 7}), \
+                    patch.object(accounts, "verify_mfa", return_value=None), \
+                    patch.object(accounts, "_write_password") as write:
+                with self.assertRaises(Rejected):
+                    accounts.update_password("synthetic-new-password", key=self.key, recovery_context="context-A")
+                write.assert_not_called()
+                self.assertIn(True, reads)
+
+    def test_recovery_rechecks_context_after_user_lock_and_keeps_original_proof_epoch(self):
+        utility = types.SimpleNamespace(now_datetime=lambda: self.now, get_datetime=lambda value: value)
+        context = {"user": self.user, "key_hash": accounts.digest(self.key),
+            "browser_hash": accounts.digest("synthetic-browser"), "session": "session-A", "epoch": 7}
+        fake = types.SimpleNamespace(flags=Flags(),
+            db=types.SimpleNamespace(get_value=lambda *a, **kw: self.record()),
+            cache=types.SimpleNamespace(get_value=lambda key: context),
+            local=types.SimpleNamespace(request=types.SimpleNamespace(cookies={accounts.RECOVERY_COOKIE: "synthetic-browser"})),
+            throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
+        with patch.dict(sys.modules, {"frappe.utils": utility}), patch.object(accounts, "frappe", fake), \
+                patch.object(accounts, "require_post"), patch.object(accounts, "require_user", return_value=self.user), \
+                patch.object(accounts, "session_digest", return_value="session-A"), \
+                patch.object(accounts, "epoch", side_effect=[7, 8]), \
+                patch.object(accounts, "verify_mfa", return_value=None), patch.object(accounts, "_write_password") as write:
+            with self.assertRaises(Rejected):
+                accounts.update_password("synthetic-new-password", key=self.key, recovery_context="context-A")
+            self.assertEqual((self.user, 7), fake.flags.hbos_iam_password_proof_epoch)
+            write.assert_not_called()
+
+    def test_password_writer_rejects_recovery_epoch_revoked_at_user_lock(self):
+        native_write = Mock()
+        fake = types.SimpleNamespace(flags=Flags(hbos_iam_password_proof_epoch=(self.user, 7)),
+            db=types.SimpleNamespace(sql=Mock(return_value=[(1,)]), commit=Mock()),
+            throw=reject, AuthenticationError=Rejected)
+        modules = {"frappe.utils.password": types.SimpleNamespace(update_password=native_write),
+            "frappe.core.doctype.user.user": types.SimpleNamespace(test_password_strength=Mock(), handle_password_test_fail=Mock())}
+        with patch.dict(sys.modules, modules), patch.object(accounts, "frappe", fake), \
+                patch.object(accounts, "require_user", return_value=self.user), patch.object(accounts, "epoch", return_value=8):
+            with self.assertRaises(Rejected):
+                accounts._write_password(self.user, "synthetic-new-password")
+        native_write.assert_not_called()
+        fake.db.commit.assert_not_called()
+
     def test_recovery_link_uses_fragment_and_preserves_exact_key(self):
         fake = types.SimpleNamespace(conf={"hbos_portal_origin": "https://hbos.example.test"}, throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
         from urllib.parse import parse_qs, urlsplit

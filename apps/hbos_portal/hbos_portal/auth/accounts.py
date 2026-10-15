@@ -143,6 +143,7 @@ def require_proof(user: str, *, consume: bool = False) -> dict:
         if not frappe.cache.set(frappe.cache.make_key(claim), "1", ex=PROOF_TTL, nx=True):
             frappe.throw("身份验证已使用，请重新验证。", frappe.AuthenticationError)
         frappe.cache.delete_value(_proof_key(user))
+    frappe.flags.hbos_iam_password_proof_epoch = (user, proof['epoch'])
     return proof
 
 
@@ -212,7 +213,12 @@ def verify_credentials(username: str, password: str, *, otp: str = "", tmp_id: s
     manager = _manager()
     manager.authenticate(user=username, pwd=password)
     user = require_user(manager.user)
-    return user, verify_mfa(user, otp=otp, tmp_id=tmp_id, password=password)
+    from hbos_portal.iam.temporary_passwords import check_credentials
+    check_credentials(user)
+    challenge = verify_mfa(user, otp=otp, tmp_id=tmp_id, password=password)
+    if not challenge:
+        frappe.flags.hbos_iam_password_proof_epoch = (user, epoch(user))
+    return user, challenge
 
 
 def _pending_key(nonce: str) -> str:
@@ -347,7 +353,10 @@ def get_security(request_id: str = "") -> dict:
     settings = load_settings()
     account = frappe.get_doc("User", user)
     bound = _bound_identity(user)
-    return {"user": user, "login_name": account.username or user, "has_password": has_password(user),
+    from hbos_portal.iam.temporary_passwords import status as temporary_status
+    temporary = temporary_status(user)
+    return {"temporary_password_state": temporary, "first_password_required": temporary['pending'],
+        "user": user, "login_name": account.username or user, "has_password": has_password(user),
         "password_login_available": has_password(user) and not bool(frappe.get_system_settings("disable_user_pass_login")),
         "proof": proof_status(user),
         "write_result": _write_receipt(user, request_id, ""),
@@ -462,6 +471,8 @@ def complete_pending(action: str, username: str = "", password: str = "", otp: s
         consume_pending(nonce)
         frappe.db.commit()
         if record["intent"] != "link":
+            if record["intent"] == "login_mfa":
+                frappe.flags.hbos_iam_verified_oauth_login = user
             frappe.local.login_manager.login_as(user)
         return {"completed": True, "user": user, "login_name": frappe.db.get_value("User", user, "username") or user,
             "password_optional": not has_password(user), "created": created if action == "create_new" else False, "redirect_to": record["redirect_to"]}
@@ -531,6 +542,9 @@ def _write_password(user: str, new_password: str) -> None:
     locked = frappe.db.sql("SELECT enabled FROM `tabUser` WHERE name=%s FOR UPDATE", (user,))
     if not locked or not locked[0][0]:
         frappe.throw("账号已停用。", frappe.AuthenticationError)
+    verified_epoch = frappe.flags.get('hbos_iam_password_proof_epoch')
+    if verified_epoch and (verified_epoch[0] != user or verified_epoch[1] != epoch(user)):
+        frappe.throw('密码验证期间账号状态已变化，请重新验证。', frappe.AuthenticationError)
     if not new_password or len(new_password) > 512:
         frappe.throw("请输入符合站点策略且不超过 512 字符的密码。")
     result = test_password_strength(new_password, user_data=frappe.db.get_value("User", user, ["first_name", "middle_name", "last_name", "email", "birth_date"]))
@@ -539,6 +553,10 @@ def _write_password(user: str, new_password: str) -> None:
         handle_password_test_fail(feedback)
     write_standard_password(user, new_password)
     frappe.db.set_value("User", user, {"last_password_reset_date": frappe.utils.today(), "reset_password_key": ""})
+    # Native hash and lifecycle settlement share this SQL transaction. A
+    # failure here must roll back both; no after_request success heuristic.
+    from hbos_portal.iam.temporary_passwords import on_password_changed
+    on_password_changed(user)
     # Explicitly invalidate all existing sessions, then issue a new standard
     # session to the already verified caller. No business data or roles change.
     revoke_sessions(user)
@@ -630,13 +648,13 @@ def recovery_target(doc) -> dict:
     return {"user": doc.name, "login_name": doc.username or doc.name, "display_name": doc.full_name or doc.first_name or doc.name}
 
 
-def _recovery_record(key: str):
+def _recovery_record(key: str, *, for_update: bool = False):
     from frappe.utils import get_datetime, now_datetime
 
     record = None
     if isinstance(key, str) and 16 <= len(key) <= 512 and not any(c.isspace() for c in key):
         record = frappe.db.get_value("User", {"reset_password_key": digest(key)},
-            ["name", "last_reset_password_key_generated_on", "enabled"], as_dict=True)
+            ["name", "last_reset_password_key_generated_on", "enabled"], as_dict=True, for_update=for_update)
     age = None
     if record and record.last_reset_password_key_generated_on:
         age = (now_datetime() - get_datetime(record.last_reset_password_key_generated_on)).total_seconds()
@@ -665,11 +683,12 @@ def validate_recovery(key: str) -> dict:
         frappe.local.form_dict.pop("key", None)
 
 
-def _require_recovery_context(context: str, key: str, user: str) -> None:
+def _require_recovery_context(context: str, key: str, user: str) -> dict:
     record = frappe.cache.get_value("hbos:account:recovery:" + digest(str(context))) if context else None
     browser = unquote(str(frappe.local.request.cookies.get(RECOVERY_COOKIE) or ""))
     if not record or record.get("user") != user or record.get("epoch") != epoch(user) or record.get("session") != session_digest() or not secrets.compare_digest(record.get("key_hash", ""), digest(key)) or not browser or not secrets.compare_digest(record.get("browser_hash", ""), digest(browser)):
         frappe.throw("恢复验证已失效，请重新打开恢复链接。", frappe.ValidationError)
+    return record
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
@@ -699,17 +718,25 @@ def update_password(new_password: str, logout_all_sessions: int = 1, key: str | 
     require_post()
     if key:
         record, _ = _recovery_record(key)
-        _require_recovery_context(recovery_context, key, record.name)
+        recovery_proof = _require_recovery_context(recovery_context, key, record.name)
         challenge = verify_mfa(record.name, otp=otp, tmp_id=tmp_id)
         if challenge:
             return challenge
-        frappe.db.sql("SELECT name FROM `tabUser` WHERE name=%s AND reset_password_key=%s FOR UPDATE", (record.name, digest(key)))
-        if frappe.db.get_value("User", record.name, "reset_password_key", cache=False) != digest(key):
-            frappe.throw("恢复链接已使用。", frappe.AuthenticationError)
-        # Re-check expiry, enabled account and the target under the User lock.
-        locked, _ = _recovery_record(key)
+        # Bind the already verified context's epoch before waiting for User.
+        # A later reset must not turn a stale recovery proof into a new one.
+        frappe.flags.hbos_iam_password_proof_epoch = (record.name, recovery_proof["epoch"])
+        # A locking read must return current values, not just acquire a lock
+        # followed by ordinary reads from an older repeatable-read snapshot.
+        # A cleared/replaced key yields no row and is rejected by this helper.
+        try:
+            locked, _ = _recovery_record(key, for_update=True)
+        except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
+            # The pinned MariaDB may signal a changed RR record (1020)
+            # instead of returning the cleared key. Both invalidate this proof.
+            frappe.throw("账号在恢复期间已变化，请重新打开恢复入口。", frappe.AuthenticationError)
         if locked.name != record.name:
             frappe.throw("恢复验证已失效。", frappe.AuthenticationError)
+        _require_recovery_context(recovery_context, key, locked.name)
         _write_password(record.name, new_password)
         _write_receipt(record.name, request_id, "recovery", save=True)
         frappe.cache.delete_value("hbos:account:recovery:" + digest(recovery_context))
@@ -747,12 +774,16 @@ def guard_document_password(doc, method=None) -> None:
         actor = require_user()
         if actor != doc.name and actor != "Administrator" and "System Manager" not in frappe.get_roles(actor):
             frappe.throw("请在账号与安全页面修改本人密码。", frappe.PermissionError)
+        frappe.db.sql('SELECT name FROM `tabUser` WHERE name=%s FOR UPDATE', (doc.name,))
         require_proof(actor, consume=True)
+        frappe.flags.hbos_verified_document_password_user = doc.name
         doc.flags.hbos_password_written = True
 
 
 def user_updated(doc, method=None) -> None:
-    if doc.flags.get("hbos_password_written"):
+    if doc.flags.get("hbos_password_written") and frappe.flags.get('hbos_verified_document_password_user') == doc.name:
+        from hbos_portal.iam.temporary_passwords import on_password_changed
+        on_password_changed(doc.name)
         revoke_sessions(doc.name)
         invalidate_user_tickets(doc.name)
         frappe.db.set_value("User", doc.name, "reset_password_key", "", update_modified=False)
@@ -771,6 +802,8 @@ def check_login(login_manager=None) -> None:
         require_user(login_manager.user)
         from hbos_portal.auth.security import require_custody_mfa_for_login
         require_custody_mfa_for_login(login_manager.user)
+        from hbos_portal.iam.temporary_passwords import check_login as temporary_check
+        temporary_check(login_manager)
 
 
 def check_request() -> None:
@@ -778,6 +811,15 @@ def check_request() -> None:
         require_user()
         from hbos_portal.auth.security import check_request as check_version
         check_version()
+        from hbos_portal.iam.temporary_passwords import check_request as temporary_check
+        temporary_check()
+
+
+@frappe.whitelist(methods=['POST'])
+@rate_limit(limit=3, seconds=300)
+def claim_initial_password() -> dict:
+    from hbos_portal.iam.temporary_passwords import claim_initial_password as claim
+    return claim()
 
 
 @frappe.whitelist(allow_guest=True, methods=['POST'])
