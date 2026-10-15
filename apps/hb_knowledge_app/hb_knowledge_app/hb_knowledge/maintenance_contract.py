@@ -6,7 +6,8 @@ from io import BytesIO
 from pathlib import PurePath
 from zipfile import ZipFile,BadZipFile
 from .errors import KnowledgeError
-DEPARTMENTS={'production':'生产','hr':'人事','safety':'安全'}
+DEPARTMENTS={'production':'生产','hr':'人事','safety':'安全','engineering':'设备工程',
+             'public_law':'公司公共法律法规知识'}
 DEPARTMENT_ALIASES={'ASEPTIC_WORKSHOP':'production','PRODUCTION':'production'}
 def normalized_department(value):return DEPARTMENT_ALIASES.get(value,value)
 MAX_FILE=20*1024*1024

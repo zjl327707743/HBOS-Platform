@@ -115,6 +115,9 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
                 if outcome!='RECEIPT_REQUIRED':
                     _require(not frappe.db.exists('HBOS Knowledge Publication',receipt), 'Operation approval was already consumed')
             version_data={k:item.get(k) for k in ['sha256','upload_sha256','document_number','business_version','source_type','authority_status']}
+            if item.get('legal_metadata') is not None:
+                from .legal_metadata import legal_metadata
+                version_data['legal_metadata']=legal_metadata(item['legal_metadata'])
             old_version=frappe.db.get_value('HBOS Knowledge Version',version,['name','version_id','canonical_document_id','version_json'],as_dict=True)
             if old_version:
                 _require(old_version['name']==version and old_version['version_id']==version
@@ -179,12 +182,18 @@ def _catalog_projection(runtime, snapshot):
         try:validate_admission(b,runtime.profile,runtime.provider.clock())
         except KnowledgeError:continue
         seen.add(key)
-        out.append({'document_id':safe_string(b.canonical_document_id,120),'title':safe_string(b.title,240,nullable=True),
+        from .download_policy import document_download_decision
+        download=document_download_decision(subject_enabled=True,version_current=True)
+        item={'document_id':safe_string(b.canonical_document_id,120),'title':safe_string(b.title,240,nullable=True),
             'space_id':safe_string(b.space_id,120),'department':safe_string(titles.get(b.space_id,''),120),
             'document_number':safe_string(b.document_number,120,nullable=True),'version':b.business_version,
             'version_id':safe_string(b.version_id,120),
             'download_state':'permission_required','download_note':'待部门文档下载权限上线',
-            'status_note':'内部参考／有效性待核' if b.authority_status in {'CONTROLLED_REFERENCE_REVIEWED','INTERNAL_REFERENCE_REVIEWED'} else b.authority_status})
+            'status_note':'内部参考／有效性待核' if b.authority_status in {'CONTROLLED_REFERENCE_REVIEWED','INTERNAL_REFERENCE_REVIEWED'} else b.authority_status}
+        if download.allowed:raise KnowledgeError('POLICY_UNAVAILABLE')
+        from .legal_metadata import LAW_SPACE,for_version
+        if b.space_id==LAW_SPACE:item['legal_metadata']=for_version(b.version_id)
+        out.append(item)
     return sorted(out,key=lambda d:(d['department'],d['title'] or '',d['document_id'],d['space_id']))
 
 
@@ -206,13 +215,17 @@ def _page_number(value,maximum):
     return value
 
 
-def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=12):
+def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=12,law_category=None):
     from .public_strings import safe_string
     page=_page_number(page,100000);page_size=_page_number(page_size,50)
     if query is not None:query=safe_string(query,240).strip().casefold()
     if space_id is not None:space_id=safe_string(space_id,120)
+    if law_category is not None:
+        from .legal_metadata import LAW_CATEGORIES
+        if law_category not in LAW_CATEGORIES:raise KnowledgeError('INVALID_REQUEST')
     def project(docs):
         selected=[d for d in docs if (not space_id or d['space_id']==space_id)
+                  and (not law_category or d.get('legal_metadata',{}).get('category')==law_category)
                   and (not query or any(query in (d[k] or '').casefold()
                                        for k in ('title','document_number','department')))]
         start=(page-1)*page_size
