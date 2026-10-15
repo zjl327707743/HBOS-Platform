@@ -1,6 +1,15 @@
 # AI Context
 
-## 当前：HBOS Knowledge UAT4 — 2026-10-11
+## 当前知识专项：HBOS Knowledge UAT5 — 2026-10-15
+
+**UAT5_PARTIAL / LOCAL_UAT / OWNER_NOT_RUN / ROLLOUT_PENDING。** 本轮以真实检索、回答和来源质量为验收依据。已修复跨部门候选汇总、单个异常片段拖垮检索、在线来源/会话续租及问答错误跨页面显示；增加公共法规分类和独立原文下载决策点，原件下载仍关闭。真实回答的自然归纳支持率、更多资料的逐份质量与授权仍有缺口，不能据 CI 或 HTTP200 宣布 READY。
+
+全目录已完成递归哈希盘点、历史身份对账和分阶段质量检查；解析完成与已发布分别计数。仅精确获准且质量通过的子集可发布，个人/保密和授权冲突资料维持待核。测试仅 DeepSeek-Flash，员工默认 GPT-6-luna、原千问 Embedding/维度和默认零 rerank 保持。PR #30 保持 Draft，不合并，不切 P1。
+
+本轮证据范围与剩余门槛见 [UAT5质量候选](milestones/M1_KB_UAT5_检索可靠性与全目录质量候选.md)；详细真实问题、原文、账号、目录和完整漏斗仅留 Owner 本机交付。
+
+
+## 历史：HBOS Knowledge UAT4 — 2026-10-11
 
 **LOCAL_UAT / REVIEWING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 个人助手入口简化为客户端选择、一次私密安装和最近真实知识使用。状态只在本人连接实际检索并打开同一检索来源后更新；个人 Token 与无凭据使用规则分开存储。已批准的成功资料按精确子集分批发布，完整性未过关的资料保持待核；解析许可不能代替共享许可。原 15 份、UAT2 样式、四回答模型、千问 Embedding 和默认零外部 rerank 保留。
 
