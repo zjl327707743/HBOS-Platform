@@ -8,6 +8,8 @@ on:
       - main
     paths:
       - 'apps/hb_attendance_app/**'
+      - 'scripts/ci/attendance_report_scope_smoke.sh'
+      - 'scripts/ci/platform_clean_site_smoke.sh'
       - '.github/workflows/attendance-report-scope-gate.yml'
   workflow_dispatch:
 
@@ -58,3 +60,41 @@ jobs:
         env:
           PYTHONPATH: apps/hb_attendance_app
         run: python -m unittest discover -s apps/hb_attendance_app/tests -v
+
+  native-report-runtime:
+    name: Native Frappe report permission and same-session revocation
+    needs: report-scope-regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Record runtime authority
+        env:
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          printf 'Runtime PR head: %s\nRuntime PR base: %s\n' "$PR_HEAD" "$PR_BASE"
+          git rev-parse HEAD
+      - name: Build same-site Portal assets
+        run: |
+          bash scripts/release/build_bundle.sh
+          tar -xzf .release/hbos-portal-release.tar.gz apps/hbos_portal/hbos_portal/public/portal
+      - name: Prepare pinned HRMS source
+        run: |
+          mkdir -p runtime/apps
+          git init runtime/apps/hrms
+          git -C runtime/apps/hrms remote add origin https://github.com/frappe/hrms.git
+          git -C runtime/apps/hrms fetch --depth 1 origin c0a04b80eeb721417b75cea758e831464d0da041
+          git -C runtime/apps/hrms checkout --detach FETCH_HEAD
+      - name: Validate isolated probe syntax
+        run: |
+          bash -n scripts/ci/attendance_report_scope_smoke.sh
+          bash -n scripts/ci/platform_clean_site_smoke.sh
+      - name: Real database and HTTP scope tests on a disposable Site
+        run: bash scripts/ci/attendance_report_scope_smoke.sh
