@@ -52,6 +52,43 @@ def _verify_backend(cfg, item):
         _require(sha.hexdigest() == item['upload_sha256'], 'Backend source hash mismatch')
 
 
+def _verify_technical_repair(cfg,item,current,expected,space_id):
+    """Called under the document CAS lock; no intermediate old publication."""
+    import frappe
+    from .publication import validate_technical_repair
+    approval=cfg.get('approved_technical_repairs',{}).get(item['canonical_document_id'])
+    _require(isinstance(approval,dict),'Exact technical recovery approval is required')
+    proof=validate_technical_repair(item,approval.get('parent_item',{}),expected)
+    _require(proof==approval.get('proof') and re.fullmatch(r'[0-9a-f]{64}',approval.get('parent_quality_sha256','')),
+             'Technical recovery approval drift')
+    _require(current and current['source_hash']==item['sha256'] and current['dataset_id']==item['dataset_id'],
+             'Technical repair cannot change the current source or dataset')
+    parent=frappe.db.get_value('HBOS Knowledge Version',expected,
+        ['canonical_document_id','version_json'],as_dict=True)
+    binding=frappe.db.get_value('HBOS Knowledge Backend Binding','BIND_'+expected.removeprefix('VER_'),
+        ['space_id','version_id','dataset_id','binding_json'],as_dict=True)
+    _require(parent and parent['canonical_document_id']==item['canonical_document_id'] and binding
+             and binding['space_id']==space_id and binding['version_id']==expected
+             and binding['dataset_id']==item['dataset_id'],'Technical repair parent identity drift')
+    try:metadata=json.loads(parent['version_json']);old_binding=json.loads(binding['binding_json'])
+    except (ValueError,TypeError):raise PublicationConflict('Invalid technical repair parent') from None
+    for field in ('sha256','business_version','document_number','source_type','authority_status'):
+        _require(metadata.get(field)==item.get(field),'Technical repair parent metadata drift')
+    _require(old_binding.get('canonical_document_id')==item['canonical_document_id']
+             and old_binding.get('version_id')==expected,'Technical repair binding identity drift')
+    withdrawals=frappe.db.sql('SELECT receipt_id,canonical_document_id,target_version,source_hash,batch_sha256,reason '
+        'FROM `tabHBOS Knowledge Publication` WHERE canonical_document_id=%s AND operation=%s '
+        'ORDER BY creation DESC,name DESC LIMIT 1 FOR UPDATE',(item['canonical_document_id'],'withdraw'),as_dict=True)
+    _require(len(withdrawals)==1,'Technical repair requires an immutable withdrawal receipt')
+    withdrawal=withdrawals[0]
+    _require(withdrawal['receipt_id']==proof['withdrawal_receipt_id']
+             and withdrawal['canonical_document_id']==item['canonical_document_id']
+             and withdrawal['target_version']==expected and withdrawal['source_hash']==item['sha256']
+             and withdrawal['batch_sha256']==proof['parent_batch_sha256']
+             and hashlib.sha256((withdrawal.get('reason') or '').encode()).hexdigest()==proof['withdrawal_reason_sha256'],
+             'Technical repair withdrawal receipt drift')
+
+
 def publish(manifest_path, operation='publish', expected_current_version=None, reason=None, approval_ref=None,
             selected_document_ids=None, *, registered_batch_id=None):
     import frappe
@@ -103,6 +140,9 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
                                'FROM `tabHBOS Knowledge Document` WHERE name=%s FOR UPDATE',(doc,),as_dict=True)
             current=rows[0] if rows else None
             if current:_require(current['document_id']==doc, 'Document identity drift')
+            if operation=='repair':
+                _require(registered_batch_id is not None,'Technical repair requires a registered maintenance batch')
+                _verify_technical_repair(cfg,item,current,expected_current_version,space_id)
             outcome=decide(current,version,operation,expected_current_version)
             receipt=receipt_id(state['batch_sha256'],item,operation,expected_current_version,approval_ref if operation!='publish' else None)
             if outcome=='SKIPPED_WITHDRAWN':
@@ -156,7 +196,7 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
                     'pair_key':physical_pair_key(b.backend,b.dataset_id,b.document_id),'binding_json':canonical(asdict(b)),
                     'enabled':1}).insert(ignore_permissions=True)
             frappe.get_doc({'doctype':'HBOS Knowledge Publication','receipt_id':receipt,'canonical_document_id':doc,
-                'target_version':version,'batch_sha256':state['batch_sha256'],'operation':operation,
+                'target_version':version,'batch_sha256':state['batch_sha256'],'operation':'replace' if operation=='repair' else operation,
                 'expected_current_version':expected_current_version,'source_hash':item['sha256'],
                 'reason':reason,'approval_ref':approval_ref or item.get('approval_ref'),'outcome':outcome}).insert(ignore_permissions=True)
             results.append({'document_id':doc,'outcome':outcome,'receipt_id':receipt})
@@ -166,7 +206,7 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
         if isinstance(exc,frappe.QueryDeadlockError):
             raise PublicationConflict('CONFLICT: concurrent publisher changed state') from None
         raise
-    return {'published_documents':sum(r['outcome'] in {'PUBLISHED','REPLACED','RESTORED'} for r in results),
+    return {'published_documents':sum(r['outcome'] in {'PUBLISHED','REPLACED','RESTORED','REPAIRED'} for r in results),
             'batch_sha256':state['batch_sha256'],'selection_sha256':selection_hash,
             'selected_documents':len(items),'frozen_items':len(state['items']),'results':results}
 

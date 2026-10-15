@@ -1,5 +1,5 @@
 """Native maintenance workflow; publication reuses the existing CAS publisher."""
-import copy,hashlib,json,os,secrets,time
+import copy,hashlib,json,os,re,secrets,time
 from pathlib import Path
 import frappe
 from .errors import KnowledgeError
@@ -344,13 +344,31 @@ def publication_config(batch_id,selected,operation,expected,reason,approval):
     cfg['approved_publication_items']={sha:{i['canonical_document_id']:{k:i.get(k) for k in FROZEN_PUBLICATION_FIELDS} for i in items}}
     cfg['approved_publication_subsets']={selection:{'batch_sha256':sha,'canonical_document_ids':sorted(selected),'approval_ref':approval,
         'quality_evidence_sha256':hashlib.sha256(canonical(quality).encode()).hexdigest()}}
+    if operation=='repair':
+        if len(items)!=1:raise KnowledgeError('INVALID_REQUEST')
+        item=items[0];proof=item.get('technical_correction')
+        from .publication import validate_technical_repair
+        if not isinstance(proof,dict):raise KnowledgeError('INVALID_REQUEST')
+        parent_sha=proof.get('parent_batch_sha256')
+        if not isinstance(parent_sha,str) or not re.fullmatch(r'[0-9a-f]{64}',parent_sha):raise KnowledgeError('INVALID_REQUEST')
+        parent_row,parent_frozen,parent_state=_row('IMP_'+parent_sha[:32],True)
+        if parent_frozen['batch_sha256']!=parent_sha:raise KnowledgeError('INVALID_REQUEST')
+        parents=[i for i in parent_state['items'] if i['canonical_document_id']==item['canonical_document_id']
+                 and i['version_id']==expected and i.get('disposition') not in ('SAME_CONTENT_SKIP','ALIAS')]
+        if len(parents)!=1:raise KnowledgeError('INVALID_REQUEST')
+        validate_technical_repair(item,parents[0],expected)
+        parent_quality=_json(parent_row,'quality_json',{}).get(expected,{})
+        if (parent_quality.get('status')!='Pending' or parent_quality.get('version_id')!=expected
+            or parent_quality.get('source_sha256')!=item['sha256']):raise KnowledgeError('QUALITY_REQUIRED')
+        cfg['approved_technical_repairs']={item['canonical_document_id']:{'proof':copy.deepcopy(proof),
+            'parent_item':copy.deepcopy(parents[0]),'parent_quality_sha256':hashlib.sha256(canonical(parent_quality).encode()).hexdigest()}}
     cfg['approved_publication_intents']=[{'batch_sha256':sha,'canonical_document_id':i['canonical_document_id'],'operation':operation,
         'expected_current_version':expected,'version_id':i['version_id'],'sha256':i['sha256'],'approval_ref':approval,'reason':reason} for i in items]
     return cfg,state
 
 def publish(batch_id,document_ids,operation='publish',expected_version=None,reason=None):
     require()
-    if operation not in ('publish','replace','restore') or not isinstance(document_ids,list):raise KnowledgeError('INVALID_REQUEST')
+    if operation not in ('publish','replace','restore','repair') or not isinstance(document_ids,list):raise KnowledgeError('INVALID_REQUEST')
     if operation!='publish' and (len(document_ids)!=1 or not isinstance(reason,str) or not 3<=len(reason.strip())<=500):raise KnowledgeError('INVALID_REQUEST')
     from .reference_admin import publish as existing
     # Same authenticated operation retains one durable intent and receipt. Older
@@ -365,7 +383,7 @@ def publish(batch_id,document_ids,operation='publish',expected_version=None,reas
         if len(targets)!=1:raise KnowledgeError('INVALID_REQUEST')
         committed=frappe.get_all('HBOS Knowledge Publication',filters={
             'canonical_document_id':document_ids[0],'target_version':targets[0],
-            'batch_sha256':state['batch_sha256'],'operation':operation,
+            'batch_sha256':state['batch_sha256'],'operation':'replace' if operation=='repair' else operation,
             'expected_current_version':expected_version,'reason':reason},
             fields=['approval_ref'],order_by='creation asc',limit_page_length=0)
         owned=[r['approval_ref'] for r in committed if r['approval_ref']==approval
