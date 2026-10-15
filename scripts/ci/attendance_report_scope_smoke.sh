@@ -10,6 +10,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 [[ ! -e .env ]] || { echo 'Refusing a worktree with an existing .env' >&2; exit 2; }
 test -d runtime/apps/hrms
+# Record exact files actually checked out on this attempt. No credentials or
+# config contents are printed; compare these IDs with the PR merge checkout.
+printf '[REPORT-SCOPE] checkout=%s\n' "$(git rev-parse HEAD)"
+for source in scripts/ci/attendance_report_scope_smoke.sh \
+  apps/hb_attendance_app/hb_attendance_app/hbos_attendance/report_scope_runtime_checks.py \
+  apps/hb_attendance_app/hb_attendance_app/hbos_attendance/report_scope.py; do
+  printf '[REPORT-SCOPE] blob=%s path=%s\n' "$(git hash-object "$source")" "$source"
+done
 TEST_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 PROJECT="hbos-platform-report-${TEST_ID}"
 export COMPOSE_PROJECT_NAME="$PROJECT"
@@ -87,7 +95,12 @@ trap cleanup EXIT
 # completely unchanged; report fixtures start on their own empty Site.
 dc up -d db redis-cache redis-queue
 dc run --rm configurator
-dc run --rm create-site
+# Keep initialization failures separate from permission-test failures.
+printf '[REPORT-SCOPE] phase=create-site\n'
+if ! dc run --rm create-site; then
+  printf '[REPORT-SCOPE] create-site failed; permission assertions NOT_RUN\n' >&2
+  exit 1
+fi
 dc up -d backend
 dc exec -T backend /home/frappe/frappe-bench/env/bin/pip install --only-binary=:all: --require-hashes \
   -r /home/frappe/frappe-bench/apps/hbos_portal/requirements.txt
@@ -112,6 +125,29 @@ for attempt in range(60):
 else:
     raise SystemExit("Native Frappe HTTP did not become ready")
 PY
+# Prove the container sees the same test source and approved non-secret marker
+# before invoking bench. Never dump the environment, site_config or passwords.
+EXPECTED_RUNTIME_BLOB="$(git hash-object apps/hb_attendance_app/hb_attendance_app/hbos_attendance/report_scope_runtime_checks.py)"
+dc exec -T \
+  -e GITHUB_ACTIONS=true -e HBOS_REPORT_SCOPE_TEST_ID="$TEST_ID" \
+  -e HBOS_SCOPE_EXPECTED_BLOB="$EXPECTED_RUNTIME_BLOB" \
+  backend /home/frappe/frappe-bench/env/bin/python - <<'PY_DIAGNOSTIC'
+import hashlib
+import json
+import os
+from pathlib import Path
+path = Path("/home/frappe/frappe-bench/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/report_scope_runtime_checks.py")
+source = path.read_bytes()
+actual = hashlib.sha1(b"blob " + str(len(source)).encode() + b"\0" + source).hexdigest()
+expected = os.environ["HBOS_SCOPE_EXPECTED_BLOB"]
+print("[REPORT-SCOPE] " + json.dumps({"phase": "pre-execute", "runtime_blob": actual,
+      "matches_checkout": actual == expected,
+      "github_actions_flag": os.environ.get("GITHUB_ACTIONS") == "true",
+      "test_id_present": bool(os.environ.get("HBOS_REPORT_SCOPE_TEST_ID"))}))
+if actual != expected:
+    raise SystemExit("Refusing to test a container source different from the reviewed checkout")
+PY_DIAGNOSTIC
+printf '[REPORT-SCOPE] phase=permission-assertions\n'
 dc exec -T \
   -e GITHUB_ACTIONS=true -e HBOS_REPORT_SCOPE_TEST_ID="$TEST_ID" \
   -e HBOS_FEISHU_SYNC_ENABLED=0 -e HBOS_DELICLOUD_SYNC_ENABLED=0 \
