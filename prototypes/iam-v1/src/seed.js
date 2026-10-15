@@ -1,6 +1,6 @@
 // Every record is invented for this prototype. No HR export is imported here.
 const permission = (scope) => ({mode:'allow',scope})
-export function createSeed() {
+function createBaseSeed() {
  return {
   version:3, revision:1, session:null,
   employees:[
@@ -22,4 +22,27 @@ export function createSeed() {
   ],
   logs:[{id:'seed',time:'2026-10-14 16:30',label:'建立合成场景：两个部门、管理员与普通员工',actor:'演示系统'}]
  }
+}
+
+// R4: Employee records and accounts without an Employee are distinct fixtures.
+export function createSeed() {
+ const data=createBaseSeed()
+ data.version=4
+ const admin=data.employees.shift()
+ Object.assign(admin,{subjectType:'service',employeeId:null,departmentId:null,secondaryDepartments:[],position:'应急 / 管理主体（非员工）',username:'demo.admin',relationStatus:'not-applicable'})
+ data.nonEmployeeAccounts=[admin]
+ const aliases={e1:'linzhou',e2:'chenning',e3:'shenhe',e4:'xucheng'}
+ for(const e of data.employees){
+  const num=String(100+Number(e.id.slice(1))).padStart(5,'0')
+  Object.assign(e,{subjectType:'employee',employeeId:'DEMO-EMP-'+num,employeeNumber:num,username:e.accountId?aliases[e.id]:'',company:'演示公司',gender:'未说明',birthDate:'1995-01-01',employmentDate:'2026-09-01',relationStatus:e.accountId?'confirmed':'unlinked',deviceId:'demo-device-'+num,attendanceIdentity:{source:'delicloud',namespace:'demo-company/tenant-a',externalPersonId:'demo-dl-'+num,employeeNum:num,status:e.id==='e3'?'pending':'confirmed'}})
+ }
+ data.employees.push({id:'e5',name:'叶知',code:'DEMO-105',employeeId:'DEMO-EMP-00105',employeeNumber:'00105',subjectType:'employee',company:'演示公司',gender:'未说明',birthDate:'1995-01-01',employmentDate:'2026-09-01',departmentId:'d1',secondaryDepartments:[],position:'管理员已预建账号',status:'active',bound:false,feishuId:'',accountId:'demo.e5@example.invalid',username:'yezhi',firstPassword:true,checked:true,relationStatus:'confirmed',exceptions:{},deviceId:'demo-device-00105',attendanceIdentity:{source:'delicloud',namespace:'demo-company/tenant-a',externalPersonId:'demo-dl-00105',employeeNum:'00105',status:'confirmed'}})
+ data.employees.find(e=>e.id==='e2').exceptions['inventory:issue'].scope=['warehouseA']
+ for(const d of data.depts){d.presets['attendance:read']=d.presets['attendance:view'];delete d.presets['attendance:view']}
+ const app=data.apps.find(a=>a.id==='attendance')
+ Object.assign(app,{description:'身份关联与本人 / 部门数据范围',actions:[{id:'read',name:'查看考勤',operationId:'attendance.read',highRisk:false},{id:'export',name:'导出考勤（候选，未接入）',operationId:'attendance.export',availability:'candidate',highRisk:false}]})
+ const row=(id,employeeId,date,dept,confirmed=true)=>({id,employeeId,date,checkIn:'08:30',status:'出勤',eventDepartmentId:dept,departmentEvidenceConfirmed:!!dept,identityConfirmed:confirmed,owner:'demo-sync-service'})
+ data.attendanceRecords=[row('DEMO-CI-101','DEMO-EMP-00101','2026-10-14','d1'),row('DEMO-CI-102','DEMO-EMP-00102','2026-10-14','d2'),row('DEMO-CI-103','DEMO-EMP-00101','2026-08-20','d2'),row('DEMO-CI-104','DEMO-EMP-00102','2026-08-20',null),row('DEMO-CI-105','DEMO-EMP-00105','2026-10-14','d1'),row('DEMO-CI-UNKNOWN',null,'2026-10-14',null,false)]
+ data.logs=[{id:'r4-seed',time:'2026-10-15',label:'R4 合成场景：员工档案与非员工账号分开，考勤按明确 Employee 关联',actor:'演示系统'}]
+ return data
 }

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { SafetyCertificateOutlined, LockOutlined, LinkOutlined, CheckCircleFilled, ArrowRightOutlined } from '@ant-design/icons-vue'
-import { state, ui, currentUser, changePassword, rebind } from '../model.js'
+import { state, ui, currentUser, allSubjects, changePassword, rebind } from '../model.js'
 
 const props = defineProps({ employee: { type: Object, default: null } })
 const emit = defineEmits(['recover'])
@@ -17,7 +17,7 @@ const flowError = ref('')
 const resultMessage = ref('')
 const working = ref(false)
 const busy = computed(() => working.value || ui.busy)
-const occupied = computed(() => state.employees.find(person => person.id !== account.value?.id && person.bound && person.feishuId))
+const occupied = computed(() => allSubjects.value.find(person => person.id !== account.value?.id && person.bound && person.feishuId))
 const ownNewIdentity = computed(() => `demo-feishu-${account.value?.id || 'self'}-new`)
 const passwordSteps = [{ title: '重新验证' }, { title: '确认改密' }, { title: '结果' }]
 const bindingSteps = [{ title: '重新验证' }, { title: '确认新身份' }, { title: '确认影响' }, { title: '结果' }]
@@ -37,7 +37,7 @@ function startFlow(type) {
 function nextIdentity() {
   flowError.value = ''
   if (!newIdentity.value) { flowError.value = '请选择本人新的演示飞书身份。'; return }
-  if (state.employees.some(person => person.id !== account.value.id && person.bound && person.feishuId === newIdentity.value)) {
+  if (allSubjects.value.some(person => person.id !== account.value.id && person.bound && person.feishuId === newIdentity.value)) {
     flowError.value = '此演示飞书身份已被其他员工账号占用，不能抢占。请选择本人未占用的演示身份。'
     return
   }

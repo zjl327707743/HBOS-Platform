@@ -9,7 +9,7 @@ const allow = (scope, extra = {}) => ({ mode: 'allow', scope, ...extra })
 const deny = () => ({ mode: 'deny', scope: [] })
 const fixture = (id = 'e1') => {
   const data = createSeed()
-  return { data, employee: data.employees.find(person => person.id === id) }
+  return { data, employee: [...data.employees,...data.nonEmployeeAccounts].find(person => person.id === id) }
 }
 
 test('个人 APP 整体禁止覆盖具名且有资格的动作允许', () => {
@@ -56,13 +56,13 @@ test('动作范围为空不解释为全部，也不回退到部门动作范围',
   assert.deepEqual(result.scope, [])
 })
 
-test('有效动作范围只含动作、APP 与注册范围的交集', () => {
+test('未知范围不被静默降级为部分有效授权', () => {
   const { data, employee } = fixture()
   employee.exceptions['lims:*'] = allow(['labA', 'unregistered'])
   employee.exceptions['lims:view'] = allow(['labA', 'labB', 'unregistered'])
   const result = evaluatePermission(data, employee, 'lims', 'view')
-  assert.equal(result.allowed, true)
-  assert.deepEqual(result.scope, ['labA'])
+  assert.equal(result.allowed, false)
+  assert.deepEqual(result.scope, [])
 })
 
 test('动作与 APP 范围没有交集时拒绝', () => {
@@ -108,7 +108,7 @@ test('平台管理员即使有平台管理资格也不自动得到 LIMS 签署',
   employee.exceptions['platform:*'] = allow(['platform'])
   employee.exceptions['platform:manage'] = allow(['platform'], { qualified: true })
   assert.equal(evaluatePermission(data, employee, 'platform', 'manage').allowed, true)
-  assert.equal(evaluatePermission(data, employee, 'lims', 'view').allowed, true)
+  assert.equal(evaluatePermission(data, employee, 'lims', 'view').allowed, false)
   assert.equal(evaluatePermission(data, employee, 'lims', 'sign').allowed, false)
 })
 

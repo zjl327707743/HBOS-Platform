@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { state, ui, isAdmin, effective, saveDemo, registerDemoApp, deptName, scopeLabel } from '../model'
+import AttendancePreview from './AttendancePreview.vue'
 import { evaluatePermission } from '../permission'
 
 const props = defineProps({employeeId:{type:String,default:'e1'}})
@@ -33,7 +34,7 @@ const preview = computed(() => {
   const target = snapshot.employees.find(item => item.id === employeeId.value)
   if (target) {
     if (mode.value === 'inherit') delete target.exceptions[permissionKey.value]
-    else target.exceptions[permissionKey.value] = { mode: mode.value, scope: mode.value === 'deny' ? [] : [...scopes.value], qualified: !!(namedConfirmed.value && qualified.value) }
+    else target.exceptions[permissionKey.value] = { mode: mode.value, scope: [...scopes.value], qualified: !!(namedConfirmed.value && qualified.value) }
   }
   return evaluatePermission(snapshot, target, appId.value, actionId.value)
 })
@@ -58,7 +59,7 @@ hydrate()
 async function saveException() {
   if (!isAdmin.value) return message.error('仅演示管理员可配置个人权限。')
   if (!employee.value || !app.value) return message.error('请选择已登记的员工与 APP。')
-  if (mode.value === 'allow' && !scopes.value.length) return message.error('空范围拒绝授权：请选择至少一个明确的数据范围。')
+  if ((mode.value === 'allow' || (mode.value === 'deny' && actionId.value !== '*')) && !scopes.value.length) return message.error('空范围拒绝授权：请选择至少一个明确的数据范围。')
   if (mode.value === 'allow' && action.value?.highRisk && (!namedConfirmed.value || !qualified.value || !employee.value.checked)) return message.error('高风险动作须具名确认，并完成资格 / 领域范围校验。')
   const targetId = employeeId.value
   const targetApp = appId.value
@@ -74,10 +75,10 @@ async function saveException() {
     const targetModule = state.apps.find(item => item.id === targetApp)
     const targetOperation = targetModule?.actions.find(item => item.id === targetAction)
     if (!target || !targetModule || (targetAction !== '*' && !targetOperation)) throw new Error('记录已变化，请重新核对。')
-    if (selectedMode === 'allow' && (!scope.length || scope.some(value => !targetModule.scopes.some(item => item.value === value)))) throw new Error('数据范围无效，保存已拒绝。')
+    if ((selectedMode === 'allow' || (selectedMode === 'deny' && targetAction !== '*')) && (!scope.length || scope.some(value => !targetModule.scopes.some(item => item.value === value)))) throw new Error('数据范围无效，保存已拒绝。')
     if (selectedMode === 'allow' && targetOperation?.highRisk && (!checkedHighRisk || !target.checked)) throw new Error('高风险资格 / 领域校验未通过。')
     if (selectedMode === 'inherit') delete target.exceptions[`${targetApp}:${targetAction}`]
-    else target.exceptions[`${targetApp}:${targetAction}`] = { mode: selectedMode, scope: selectedMode === 'deny' ? [] : scope, ...(targetOperation?.highRisk && selectedMode === 'allow' ? { qualified: true } : {}) }
+    else target.exceptions[`${targetApp}:${targetAction}`] = { mode: selectedMode, scope: scope, ...(targetOperation?.highRisk && selectedMode === 'allow' ? { qualified: true } : {}) }
   })
   if (result.ok) message.success('演示已保存到本机')
   else message.error(result.error)
@@ -117,8 +118,8 @@ async function addModule() {
         <label class="field-label">选择动作<a-select v-model:value="actionId" :options="actionOptions" :disabled="ui.busy" /></label>
         <a-alert v-if="appDenied && actionId !== '*'" type="warning" show-icon message="APP 整体禁止优先。即使本动作额外允许，当前仍无法访问。" description="需先核对 APP 整体规则，动作例外不会绕过上层禁止。" />
         <div class="inheritance-summary"><span class="muted">移除此项个人例外后</span><strong>{{ inherited.allowed ? '继承后允许' : '继承后拒绝' }}</strong><span>{{ inherited.allowed ? inherited.scope.map(scopeLabel).join('、') : inherited.reason }}</span></div>
-        <div><label class="field-label">个人三态</label><a-radio-group v-model:value="mode" class="mode-group" :disabled="!isAdmin || ui.busy"><a-radio-button value="inherit">继承</a-radio-button><a-radio-button value="allow">额外允许</a-radio-button><a-radio-button value="deny">明确禁止</a-radio-button></a-radio-group><p class="field-help">继承：无个人例外。明确禁止：优先拒绝此项。APP 整体禁止约束所有动作。</p></div>
-        <div v-if="mode === 'allow'" class="scope-editor"><div class="step-title"><span class="step-number">04</span><h3>限定数据范围</h3></div><a-checkbox-group v-model:value="scopes" :options="app?.scopes" :disabled="!isAdmin || ui.busy" /><p class="field-help">只有与 APP 整体范围相交的部分才会生效。空范围拒绝访问，不代表全部。</p><a-alert v-if="!scopes.length" type="warning" show-icon message="请选择明确范围，当前预览结果为拒绝。" /></div>
+        <div><label class="field-label">个人三态</label><a-radio-group v-model:value="mode" class="mode-group" :disabled="!isAdmin || ui.busy"><a-radio-button value="inherit">继承</a-radio-button><a-radio-button value="allow">额外允许</a-radio-button><a-radio-button value="deny">明确禁止</a-radio-button></a-radio-group><p class="field-help">继承：无个人例外。动作明确禁止：仅拒绝选中范围的对象。APP 整体禁止才拒绝所有动作与对象。</p></div>
+        <div v-if="mode === 'allow' || (mode === 'deny' && actionId !== '*')" class="scope-editor"><div class="step-title"><span class="step-number">04</span><h3>限定数据范围{{mode === 'deny' ? '（仅禁止匹配对象）' : ''}}</h3></div><a-checkbox-group v-model:value="scopes" :options="app?.scopes" :disabled="!isAdmin || ui.busy" /><p class="field-help">只有与 APP 整体范围相交的部分才会生效。空范围拒绝访问，不代表全部。</p><a-alert v-if="!scopes.length" type="warning" show-icon message="请选择明确范围，当前预览结果为拒绝。" /></div>
         <div v-if="action?.highRisk" class="high-risk"><a-tag color="orange">高风险动作</a-tag><strong>{{ action.name }}需要具名校验</strong><p>部门预设不会自动授予。管理员不能通过广泛 APP 权限替代本动作资格与业务领域约束。</p><template v-if="mode === 'allow'"><a-checkbox v-model:checked="namedConfirmed" :disabled="!isAdmin || ui.busy">明确具名授权给 {{ employee?.name }}（{{ employee?.code }}）</a-checkbox><a-checkbox v-model:checked="qualified" :disabled="!isAdmin || ui.busy || !employee?.checked">已核验此员工的操作资格及所选业务领域范围</a-checkbox><span v-if="!employee?.checked" class="deny-text">员工企业身份尚未核验，资格确认不可用。</span><small>此勾选仅演示资格门禁；正式领域校验待后端实现。</small></template><p v-else class="muted">继承不会产生高风险允许；明确禁止继续拒绝。</p></div>
         <div class="editor-actions"><a-button type="primary" :loading="ui.busy" :disabled="!isAdmin" @click="saveException">保存个人权限演示</a-button><a-button v-if="savedRule" danger :disabled="!isAdmin || ui.busy" @click="removeException">删除例外，恢复继承</a-button></div>
       </section>
@@ -128,7 +129,7 @@ async function addModule() {
         <div class="contract-note"><strong>判定顺序</strong><p>账号状态 → APP 整体门禁 → 个人明确禁止 → 动作授权 → 高风险资格 → 有效范围交集。</p></div>
       </aside>
     </div>
-    <section class="panel result-table"><div class="section-top"><div><h3>{{ employee?.name }} · {{ app?.name }}的全部有效结果</h3><p class="muted">保存后同步更新。每个动作都说明权限来源与范围。</p></div><a-tag>只读判定预览</a-tag></div><a-table :columns="columns" :data-source="permissionRows" :pagination="false" row-key="id" :scroll="{ x: 700 }"><template #bodyCell="{ column, record }"><template v-if="column.key === 'action'"><strong>{{ record.name }}</strong><a-tag v-if="record.highRisk" color="orange" class="risk-tag">高风险</a-tag></template><template v-else-if="column.key === 'result'"><a-tag :color="record.result.allowed ? 'green' : 'default'">{{ record.result.allowed ? '允许' : '拒绝' }}</a-tag></template><template v-else-if="column.key === 'scope'"><span v-if="record.result.scope.length">{{ record.result.scope.map(scopeLabel).join('、') }}</span><span v-else class="muted">空范围 · {{ record.result.reason }}</span></template><template v-else-if="column.key === 'source'">{{ record.result.source }}<div v-if="record.exception" class="muted exception-note">已保存个人例外</div></template><template v-else-if="column.key === 'edit'"><a-button type="link" @click="actionId = record.id">查看</a-button></template></template></a-table></section>
+    <AttendancePreview v-if="appId === 'attendance' && employee" :employee="employee" :can-configure="true"/><section class="panel result-table"><div class="section-top"><div><h3>{{ employee?.name }} · {{ app?.name }}的全部有效结果</h3><p class="muted">保存后同步更新。每个动作都说明权限来源与范围。</p></div><a-tag>只读判定预览</a-tag></div><a-table :columns="columns" :data-source="permissionRows" :pagination="false" row-key="id" :scroll="{ x: 700 }"><template #bodyCell="{ column, record }"><template v-if="column.key === 'action'"><strong>{{ record.name }}</strong><a-tag v-if="record.highRisk" color="orange" class="risk-tag">高风险</a-tag></template><template v-else-if="column.key === 'result'"><a-tag :color="record.result.allowed ? 'green' : 'default'">{{ record.result.allowed ? '允许' : '拒绝' }}</a-tag></template><template v-else-if="column.key === 'scope'"><span v-if="record.result.scope.length">{{ record.result.scope.map(scopeLabel).join('、') }}</span><span v-else class="muted">空范围 · {{ record.result.reason }}</span></template><template v-else-if="column.key === 'source'">{{ record.result.source }}<div v-if="record.exception" class="muted exception-note">已保存个人例外</div></template><template v-else-if="column.key === 'edit'"><a-button type="link" @click="actionId = record.id">查看</a-button></template></template></a-table></section>
   </div>
 </template>
 

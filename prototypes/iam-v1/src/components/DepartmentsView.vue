@@ -82,11 +82,11 @@ async function savePreset() {
     if (!isAdmin.value) throw new Error('当前演示账号无管理权限。')
     const app = state.apps.find(item => item.id === appId)
     if (!app || app.id==='platform' || (actionId !== '*' && !app.actions.some(action => action.id === actionId && !action.highRisk))) throw new Error('部门预设只接受已注册的普通动作。')
-    if (scope.some(value => !app.scopes.some(item => item.value === value))) throw new Error('数据范围已变化，请重新预览。')
+    if ((mode === 'deny' && actionId !== '*' && !scope.length) || scope.some(value => !app.scopes.some(item => item.value === value))) throw new Error('数据范围已变化，请重新预览。')
     const department = state.depts.find(item => item.id === departmentId)
     if (!department) throw new Error('部门未映射，保存已拒绝。')
     if (mode === 'unset') delete department.presets[`${appId}:${actionId}`]
-    else department.presets[`${appId}:${actionId}`] = { mode, scope: mode === 'deny' ? [] : scope }
+    else department.presets[`${appId}:${actionId}`] = { mode, scope: scope }
   })
   if (result.ok) { message.success('演示已保存到本机'); modalOpen.value = false }
   else message.error(result.error)
@@ -153,7 +153,7 @@ function difference(row) {
         <div class="editor-grid"><label>业务 APP<a-select v-model:value="draftApp" :options="state.apps.filter(app=>app.id!=='platform').map(app => ({ value: app.id, label: app.name }))" :disabled="ui.busy" /></label><label>预设动作<a-select v-model:value="draftAction" :options="actionOptions" :disabled="ui.busy" /></label></div>
         <label class="field-label">预设结果</label>
         <a-radio-group v-model:value="draftMode" :disabled="ui.busy"><a-radio-button value="unset">不授予</a-radio-button><a-radio-button value="allow">允许</a-radio-button><a-radio-button value="deny">明确禁止</a-radio-button></a-radio-group>
-        <div v-if="draftMode === 'allow'" class="scope-box"><strong>允许范围</strong><a-checkbox-group v-model:value="draftScopes" :options="activeApp?.scopes" :disabled="ui.busy" /><p class="muted">可保留空范围；空范围始终拒绝访问，不代表全部。</p></div>
+        <div v-if="draftMode === 'allow' || (draftMode === 'deny' && draftAction !== '*')" class="scope-box"><strong>{{draftMode === 'deny' ? '仅禁止匹配对象的范围' : '允许范围'}}</strong><a-checkbox-group v-model:value="draftScopes" :options="activeApp?.scopes" :disabled="ui.busy" /><p class="muted">可保留空范围；空范围始终拒绝访问，不代表全部。</p></div>
         <a-alert v-if="draftMode === 'allow' && !draftScopes.length" type="warning" show-icon message="当前范围为空，保存后此预设不会产生可用访问权限。" />
         <div v-if="previewed" class="impact-preview"><div class="section-top"><h3>影响预览</h3><a-tag color="green">{{ changedPeople }} 位员工的有效权限变化</a-tag></div><p class="muted">逐一列出主岗具名员工，兼岗不参与继承。未开通与停用账号继续拒绝访问。</p><a-table :columns="impactColumns" :data-source="impact" :pagination="false" size="small" :scroll="{ x: 720, y: 320 }"><template #bodyCell="{ column, record }"><template v-if="column.key === 'employee'"><strong>{{ record.name }}</strong><div class="muted">{{ record.action }}</div></template><template v-else-if="column.key === 'before'"><span :class="record.before.allowed ? 'allow-text' : 'muted'">{{ resultText(record.before) }}</span></template><template v-else-if="column.key === 'after'"><span :class="record.after.allowed ? 'allow-text' : 'deny-text'">{{ resultText(record.after) }}</span></template><template v-else-if="column.key === 'diff'">{{ difference(record) }}</template></template></a-table><div class="preview-note">保存范围：仅本机合成演示。正式服务的权限判定与审计仍待 Owner 确认原型后实施。</div></div>
       </div>
