@@ -184,7 +184,7 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     api.ask.mockRejectedValueOnce(new DomainApiError('CITATION_SUPPORT_FAILED', '回答未通过来源支持校验，本次未展示回答。'))
     const w = await view(); await askMode(w); await w.get('#knowledge-query').setValue('合成引用问题'); await w.get('.knowledge-search').trigger('submit'); await flushPromises()
     expect(w.findAll('[role="alert"]').map(a => a.text())).toEqual(['回答未通过来源支持校验，本次未展示回答。'])
-    expect(w.attributes('data-query-state')).toBe('error')
+    expect(w.attributes('data-query-state')).toBe('error'); expect(w.find('.kb-start-grid').exists()).toBe(false)
     for (const label of ['我的收藏', '资料目录', '最近查阅']) {
       await clickText(w, label); expect(w.find('[role="alert"]').exists()).toBe(false)
     }
