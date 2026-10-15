@@ -21,7 +21,7 @@ class AttendancePortalProvider:
         user = frappe.session.user
         roles = frappe.get_roles(user) if user and user != "Guest" else []
         from hb_attendance_app.hbos_attendance.portal.permissions import legacy_hr
-        if not (frappe.conf.get("hbos_iam_enabled") in (True, 1, "1")) or legacy_hr(user):
+        if not (getattr(frappe, "conf", {}).get("hbos_iam_enabled") in (True, 1, "1")) or legacy_hr(user):
             return build_access_context(user, roles)
         return build_access_context(user, [], personal_allowed=_personal_allowed())
 
