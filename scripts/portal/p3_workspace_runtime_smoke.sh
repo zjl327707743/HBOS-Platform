@@ -103,7 +103,10 @@ try:
     expected_caps = {
         'attendance': ['summary'],
         'inventory': ['summary'],
-        'lims': ['summary', 'tasks', 'search'],
+        'lims': [
+            'summary', 'tasks', 'search', 'results', 'ledger', 'audit',
+            'coa', 'specifications', 'retains', 'stability',
+        ],
     }
     for app_id, caps in expected_caps.items():
         assert registry.entries[app_id].manifest.to_dict()['capabilities'] == caps
@@ -205,7 +208,7 @@ command -v npm >/dev/null 2>&1 || fail "本机缺少 npm"
 
 (
   cd frontend/hbos-portal-web
-  npm install --no-audit --no-fund --package-lock=false >/dev/null
+  npm ci --no-audit --no-fund >/dev/null
   VITE_PORTAL_DATA_MODE=frappe \
   VITE_FRAPPE_PROXY_TARGET="$BASE_URL" \
   npm run dev -- --host 127.0.0.1 --port "$PORTAL_DEV_PORT" --strictPort

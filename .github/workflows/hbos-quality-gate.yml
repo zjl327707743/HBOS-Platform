@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Checkout 代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: 固化 PR 变更文件清单
         run: |

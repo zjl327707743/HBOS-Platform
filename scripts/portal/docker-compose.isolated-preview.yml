@@ -8,9 +8,32 @@
 # for every Frappe/ERPNext service. This keeps all generated volumes under the
 # hbos-portal-preview project namespace and makes sites/assets and bench/assets
 # see the same Preview-owned asset storage.
+#
+# 镜像的 /usr/local/bin/entrypoint.sh（带 `set -e`）会先 `rm -rf sites/assets`，
+# 再把它改造成指向 /home/frappe/frappe-bench/assets 的符号链接。上面这层挂载让
+# sites/assets 成了挂载点，`rm -rf` 必然返回 EBUSY → 入口退出 1 → 容器无限重启。
+# 因此对「使用镜像默认 entrypoint」的服务覆盖 entrypoint：保留挂载语义（sites/assets
+# 本身就是 assets-data 卷，与符号链接指向的 /assets 是同一份存储），只跳过会失败的
+# rm+relink，然后照原样执行各服务自己的 Cmd。
+#
+# 注意：configurator / create-site 在主 compose 中已自带 entrypoint，不在此覆盖，
+# 否则会顶掉它们各自的 bash -c 入口。
 
 services:
   backend:
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        mkdir -p /home/frappe/frappe-bench/sites/assets
+        exec "$$@"
+      - --
+    # 该服务在主 compose 中未显式声明 command，靠镜像默认 CMD。覆盖 entrypoint 后
+    # CMD 会丢（实测容器 Cmd=null）→ `exec "$@"` 无参数 → 容器启动即退出 0。
+    # 此处显式补回镜像默认值 /usr/local/bin/start.sh（gunicorn）。
+    command:
+      - start.sh
     volumes:
       - assets-data:/home/frappe/frappe-bench/sites/assets
 
@@ -23,21 +46,61 @@ services:
       - assets-data:/home/frappe/frappe-bench/sites/assets
 
   frontend:
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        mkdir -p /home/frappe/frappe-bench/sites/assets
+        exec "$$@"
+      - --
     volumes:
       - assets-data:/home/frappe/frappe-bench/sites/assets
 
   queue-long:
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        mkdir -p /home/frappe/frappe-bench/sites/assets
+        exec "$$@"
+      - --
     volumes:
       - assets-data:/home/frappe/frappe-bench/sites/assets
 
   queue-short:
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        mkdir -p /home/frappe/frappe-bench/sites/assets
+        exec "$$@"
+      - --
     volumes:
       - assets-data:/home/frappe/frappe-bench/sites/assets
 
   scheduler:
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        mkdir -p /home/frappe/frappe-bench/sites/assets
+        exec "$$@"
+      - --
     volumes:
       - assets-data:/home/frappe/frappe-bench/sites/assets
 
   websocket:
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        mkdir -p /home/frappe/frappe-bench/sites/assets
+        exec "$$@"
+      - --
     volumes:
       - assets-data:/home/frappe/frappe-bench/sites/assets

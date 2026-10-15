@@ -1,0 +1,118 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Organization Management Policy",
+ "module": "HBOS Portal",
+ "autoname": "field:record_key",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_key",
+  "site_id",
+  "source_provider",
+  "subject_user",
+  "status",
+  "revision",
+  "authority_generation",
+  "schema_version",
+  "valid_from_utc",
+  "valid_until_utc",
+  "content_digest",
+  "policy_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_key",
+   "fieldtype": "Data",
+   "label": "record_key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "site_id",
+   "fieldtype": "Data",
+   "label": "site_id",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_provider",
+   "fieldtype": "Data",
+   "label": "source_provider",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "subject_user",
+   "fieldtype": "Link",
+   "label": "subject_user",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "User",
+   "search_index": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "status",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "draft\nactive\ninactive\nrevoked",
+   "search_index": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "revision",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "authority_generation",
+   "fieldtype": "Int",
+   "label": "authority_generation",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "schema_version",
+   "fieldtype": "Int",
+   "label": "schema_version",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_from_utc",
+   "fieldtype": "Datetime",
+   "label": "valid_from_utc",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_until_utc",
+   "fieldtype": "Datetime",
+   "label": "valid_until_utc",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "content_digest",
+   "fieldtype": "Data",
+   "label": "content_digest",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "policy_json",
+   "fieldtype": "Long Text",
+   "label": "policy_json",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "allow_import": 0,
+ "allow_copy": 0
+}

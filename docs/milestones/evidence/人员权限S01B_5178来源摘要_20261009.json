@@ -1,0 +1,930 @@
+{
+  "apps": {
+    "erpnext": "16.26.2",
+    "frappe": "16.26.3",
+    "hb_attendance_app": "0.0.1",
+    "hb_inventory_app": "0.0.1",
+    "hb_knowledge_app": "0.1.0",
+    "hb_lims_app": "0.0.1",
+    "hb_twin_app": "0.1.0",
+    "hbos_portal": "0.1.0",
+    "hrms": "16.14.0"
+  },
+  "audit_date": "2026-10-09",
+  "audit_script_sha256": {
+    "hbos_s01b_source_audit.py": "3c6dab1a9774437cc9787c501006c83bfbbff633474dd05b2483100a2d686730",
+    "hbos_s01b_source_followup.py": "b56f2b8c55dfb1fe3dc23092eba5ca6e8700ae2fe6155a3e9314cc33fa653412"
+  },
+  "backend_container": "hbos-m0-r3a-backend-1",
+  "branch": "m2-r11",
+  "business_writes": false,
+  "database_engine": "11.8.8-MariaDB-ubu2404",
+  "entry": "http://127.0.0.1:5178",
+  "fixed_p1_verified": false,
+  "head": "27d3558",
+  "image_tag": "frappe/erpnext:v16.26.2",
+  "method": "Frappe begin(read_only=True), SELECT/SHOW metadata and aggregates, rollback and destroy",
+  "person_rows_exported": false,
+  "position_assignment_candidates": [
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "Automation",
+      "name": "Assignment Rule"
+    },
+    {
+      "custom": 0,
+      "istable": 1,
+      "module": "Automation",
+      "name": "Assignment Rule Day"
+    },
+    {
+      "custom": 0,
+      "istable": 1,
+      "module": "Automation",
+      "name": "Assignment Rule User"
+    },
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "Payroll",
+      "name": "Bulk Salary Structure Assignment"
+    },
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "HBOS Attendance",
+      "name": "HBOS Attendance Policy Assignment"
+    },
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "HR",
+      "name": "Holiday List Assignment"
+    },
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "HR",
+      "name": "Leave Policy Assignment"
+    },
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "Payroll",
+      "name": "Salary Structure Assignment"
+    },
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "HR",
+      "name": "Shift Assignment"
+    },
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "HR",
+      "name": "Shift Assignment Tool"
+    },
+    {
+      "custom": 0,
+      "istable": 0,
+      "module": "HR",
+      "name": "Shift Schedule Assignment"
+    }
+  ],
+  "read_only_transaction": true,
+  "relationships": {
+    "department_dangling_parent": 0,
+    "department_without_company": 1,
+    "employee_active_duplicate_user_groups": 0,
+    "employee_dangling_company": 0,
+    "employee_dangling_department": 0,
+    "employee_dangling_designation": 0,
+    "employee_dangling_user": 0,
+    "employee_duplicate_user_groups": 0,
+    "employee_linked_to_user": 0,
+    "employee_missing_company": 0,
+    "employee_missing_department": 0,
+    "employee_missing_designation": 0,
+    "employee_status_counts": [],
+    "employee_without_user": 0,
+    "user_type_enabled_counts_excluding_reserved": [
+      {
+        "count": 14,
+        "enabled": 1,
+        "user_type": "System User"
+      },
+      {
+        "count": 2,
+        "enabled": 1,
+        "user_type": "Website User"
+      }
+    ],
+    "user_without_employee_excluding_reserved": 16
+  },
+  "runtime_authorization_verified": false,
+  "schema": {
+    "Company": {
+      "autoname": "field:company_name",
+      "count": 1,
+      "custom_fields": [
+        {
+          "fieldname": "column_break_10",
+          "fieldtype": "Column Break",
+          "options": null
+        },
+        {
+          "fieldname": "default_employee_advance_account",
+          "fieldtype": "Link",
+          "options": "Account"
+        },
+        {
+          "fieldname": "default_expense_claim_payable_account",
+          "fieldtype": "Link",
+          "options": "Account"
+        },
+        {
+          "fieldname": "default_payroll_payable_account",
+          "fieldtype": "Link",
+          "options": "Account"
+        },
+        {
+          "fieldname": "hr_and_payroll_tab",
+          "fieldtype": "Tab Break",
+          "options": null
+        },
+        {
+          "fieldname": "hr_settings_section",
+          "fieldtype": "Section Break",
+          "options": null
+        }
+      ],
+      "exists": true,
+      "fields": {
+        "company_name": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": null,
+          "permlevel": 0,
+          "required": true,
+          "unique_declared": true
+        },
+        "creation": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "disabled": {
+          "exists": false,
+          "fieldtype": null,
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "modified": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        }
+      },
+      "is_tree": true,
+      "unique_indexes": {
+        "PRIMARY": [
+          "name"
+        ],
+        "company_name": [
+          "company_name"
+        ]
+      }
+    },
+    "Department": {
+      "autoname": null,
+      "count": 14,
+      "custom_fields": [
+        {
+          "fieldname": "approvers",
+          "fieldtype": "Section Break",
+          "options": null
+        },
+        {
+          "fieldname": "column_break_9",
+          "fieldtype": "Column Break",
+          "options": null
+        },
+        {
+          "fieldname": "leave_block_list",
+          "fieldtype": "Link",
+          "options": "Leave Block List"
+        },
+        {
+          "fieldname": "payroll_cost_center",
+          "fieldtype": "Link",
+          "options": "Cost Center"
+        },
+        {
+          "fieldname": "section_break_4",
+          "fieldtype": "Section Break",
+          "options": null
+        }
+      ],
+      "exists": true,
+      "fields": {
+        "company": {
+          "exists": true,
+          "fieldtype": "Link",
+          "options": "Company",
+          "permlevel": 0,
+          "required": true,
+          "unique_declared": false
+        },
+        "creation": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "department_name": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": null,
+          "permlevel": 0,
+          "required": true,
+          "unique_declared": false
+        },
+        "disabled": {
+          "exists": true,
+          "fieldtype": "Check",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "is_group": {
+          "exists": true,
+          "fieldtype": "Check",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "lft": {
+          "exists": true,
+          "fieldtype": "Int",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "modified": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "parent_department": {
+          "exists": true,
+          "fieldtype": "Link",
+          "options": "Department",
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "rgt": {
+          "exists": true,
+          "fieldtype": "Int",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        }
+      },
+      "is_tree": true,
+      "unique_indexes": {
+        "PRIMARY": [
+          "name"
+        ]
+      }
+    },
+    "Designation": {
+      "autoname": "field:designation_name",
+      "count": 31,
+      "custom_fields": [
+        {
+          "fieldname": "appraisal_template",
+          "fieldtype": "Link",
+          "options": "Appraisal Template"
+        },
+        {
+          "fieldname": "required_skills_section",
+          "fieldtype": "Section Break",
+          "options": null
+        }
+      ],
+      "exists": true,
+      "fields": {
+        "creation": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "description": {
+          "exists": true,
+          "fieldtype": "Text",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "designation_name": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": null,
+          "permlevel": 0,
+          "required": true,
+          "unique_declared": true
+        },
+        "disabled": {
+          "exists": false,
+          "fieldtype": null,
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "modified": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        }
+      },
+      "is_tree": false,
+      "unique_indexes": {
+        "PRIMARY": [
+          "name"
+        ],
+        "designation_name": [
+          "designation_name"
+        ]
+      }
+    },
+    "Employee": {
+      "autoname": "naming_series:",
+      "count": 0,
+      "custom_fields": [
+        {
+          "fieldname": "approvers_section",
+          "fieldtype": "Section Break",
+          "options": null
+        },
+        {
+          "fieldname": "column_break_45",
+          "fieldtype": "Column Break",
+          "options": null
+        },
+        {
+          "fieldname": "default_shift",
+          "fieldtype": "Link",
+          "options": "Shift Type"
+        },
+        {
+          "fieldname": "employee_advance_account",
+          "fieldtype": "Link",
+          "options": "Account"
+        },
+        {
+          "fieldname": "employment_type",
+          "fieldtype": "Link",
+          "options": "Employment Type"
+        },
+        {
+          "fieldname": "expense_approver",
+          "fieldtype": "Link",
+          "options": "User"
+        },
+        {
+          "fieldname": "grade",
+          "fieldtype": "Link",
+          "options": "Employee Grade"
+        },
+        {
+          "fieldname": "hbos_fixed_shift",
+          "fieldtype": "Link",
+          "options": "HBOS Shift Rule"
+        },
+        {
+          "fieldname": "hbos_fixed_shift_code",
+          "fieldtype": "Data",
+          "options": null
+        },
+        {
+          "fieldname": "health_insurance_no",
+          "fieldtype": "Data",
+          "options": null
+        },
+        {
+          "fieldname": "health_insurance_provider",
+          "fieldtype": "Link",
+          "options": "Employee Health Insurance"
+        },
+        {
+          "fieldname": "health_insurance_section",
+          "fieldtype": "Section Break",
+          "options": null
+        },
+        {
+          "fieldname": "job_applicant",
+          "fieldtype": "Link",
+          "options": "Job Applicant"
+        },
+        {
+          "fieldname": "leave_approver",
+          "fieldtype": "Link",
+          "options": "User"
+        },
+        {
+          "fieldname": "payroll_cost_center",
+          "fieldtype": "Link",
+          "options": "Cost Center"
+        },
+        {
+          "fieldname": "salary_cb",
+          "fieldtype": "Column Break",
+          "options": null
+        },
+        {
+          "fieldname": "shift_request_approver",
+          "fieldtype": "Link",
+          "options": "User"
+        }
+      ],
+      "exists": true,
+      "fields": {
+        "cell_number": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": "Phone",
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "company": {
+          "exists": true,
+          "fieldtype": "Link",
+          "options": "Company",
+          "permlevel": 0,
+          "required": true,
+          "unique_declared": false
+        },
+        "creation": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "date_of_joining": {
+          "exists": true,
+          "fieldtype": "Date",
+          "options": null,
+          "permlevel": 0,
+          "required": true,
+          "unique_declared": false
+        },
+        "department": {
+          "exists": true,
+          "fieldtype": "Link",
+          "options": "Department",
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "designation": {
+          "exists": true,
+          "fieldtype": "Link",
+          "options": "Designation",
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "employee_name": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "employee_number": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "modified": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "relieving_date": {
+          "exists": true,
+          "fieldtype": "Date",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "status": {
+          "exists": true,
+          "fieldtype": "Select",
+          "options": "Active\nInactive\nSuspended\nLeft",
+          "permlevel": 0,
+          "required": true,
+          "unique_declared": false
+        },
+        "user_id": {
+          "exists": true,
+          "fieldtype": "Link",
+          "options": "User",
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        }
+      },
+      "is_tree": true,
+      "unique_indexes": {
+        "PRIMARY": [
+          "name"
+        ],
+        "attendance_device_id": [
+          "attendance_device_id"
+        ]
+      }
+    },
+    "User": {
+      "autoname": null,
+      "count": 18,
+      "custom_fields": [],
+      "exists": true,
+      "fields": {
+        "creation": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "enabled": {
+          "exists": true,
+          "fieldtype": "Check",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "full_name": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "mobile_no": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": "Phone",
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": true
+        },
+        "modified": {
+          "exists": true,
+          "fieldtype": "Datetime",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": false
+        },
+        "role_profile_name": {
+          "exists": true,
+          "fieldtype": "Link",
+          "options": "Role Profile",
+          "permlevel": 1,
+          "required": false,
+          "unique_declared": false
+        },
+        "role_profiles": {
+          "exists": true,
+          "fieldtype": "Table MultiSelect",
+          "options": "User Role Profile",
+          "permlevel": 1,
+          "required": false,
+          "unique_declared": false
+        },
+        "roles": {
+          "exists": true,
+          "fieldtype": "Table",
+          "options": "Has Role",
+          "permlevel": 1,
+          "required": false,
+          "unique_declared": false
+        },
+        "user_type": {
+          "exists": true,
+          "fieldtype": "Link",
+          "options": "User Type",
+          "permlevel": 1,
+          "required": false,
+          "unique_declared": false
+        },
+        "username": {
+          "exists": true,
+          "fieldtype": "Data",
+          "options": null,
+          "permlevel": 0,
+          "required": false,
+          "unique_declared": true
+        }
+      },
+      "is_tree": false,
+      "unique_indexes": {
+        "PRIMARY": [
+          "name"
+        ],
+        "api_key": [
+          "api_key"
+        ],
+        "mobile_no": [
+          "mobile_no"
+        ],
+        "username": [
+          "username"
+        ]
+      }
+    }
+  },
+  "scope": "5178_current_site_only",
+  "site": "frontend",
+  "source_followup": {
+    "candidate_fields": {
+      "Assignment Rule": [
+        {
+          "name": "document_type",
+          "options": "DocType",
+          "type": "Link"
+        },
+        {
+          "name": "due_date_based_on",
+          "options": null,
+          "type": "Select"
+        },
+        {
+          "name": "priority",
+          "options": null,
+          "type": "Int"
+        },
+        {
+          "name": "disabled",
+          "options": null,
+          "type": "Check"
+        },
+        {
+          "name": "description",
+          "options": null,
+          "type": "Small Text"
+        },
+        {
+          "name": "assign_condition",
+          "options": null,
+          "type": "Code"
+        },
+        {
+          "name": "unassign_condition",
+          "options": null,
+          "type": "Code"
+        },
+        {
+          "name": "close_condition",
+          "options": null,
+          "type": "Code"
+        },
+        {
+          "name": "assignment_days",
+          "options": "Assignment Rule Day",
+          "type": "Table"
+        },
+        {
+          "name": "rule",
+          "options": null,
+          "type": "Select"
+        },
+        {
+          "name": "field",
+          "options": null,
+          "type": "Select"
+        },
+        {
+          "name": "users",
+          "options": "Assignment Rule User",
+          "type": "Table MultiSelect"
+        },
+        {
+          "name": "weighted_users",
+          "options": "Assignment Rule User",
+          "type": "Table"
+        },
+        {
+          "name": "last_user",
+          "options": "User",
+          "type": "Link"
+        },
+        {
+          "name": "current_index",
+          "options": null,
+          "type": "Int"
+        }
+      ],
+      "HBOS Attendance Policy Assignment": [
+        {
+          "name": "employee",
+          "options": "Employee",
+          "type": "Link"
+        },
+        {
+          "name": "employee_number",
+          "options": null,
+          "type": "Data"
+        },
+        {
+          "name": "employee_name",
+          "options": null,
+          "type": "Data"
+        },
+        {
+          "name": "policy_type",
+          "options": null,
+          "type": "Select"
+        },
+        {
+          "name": "enabled",
+          "options": null,
+          "type": "Check"
+        },
+        {
+          "name": "effective_from",
+          "options": null,
+          "type": "Date"
+        },
+        {
+          "name": "effective_to",
+          "options": null,
+          "type": "Date"
+        },
+        {
+          "name": "group_name",
+          "options": null,
+          "type": "Data"
+        },
+        {
+          "name": "anchor_shift",
+          "options": null,
+          "type": "Select"
+        },
+        {
+          "name": "source_type",
+          "options": null,
+          "type": "Select"
+        },
+        {
+          "name": "remarks",
+          "options": null,
+          "type": "Small Text"
+        }
+      ],
+      "Shift Assignment": [
+        {
+          "name": "employee",
+          "options": "Employee",
+          "type": "Link"
+        },
+        {
+          "name": "employee_name",
+          "options": null,
+          "type": "Data"
+        },
+        {
+          "name": "company",
+          "options": "Company",
+          "type": "Link"
+        },
+        {
+          "name": "department",
+          "options": "Department",
+          "type": "Link"
+        },
+        {
+          "name": "shift_type",
+          "options": "Shift Type",
+          "type": "Link"
+        },
+        {
+          "name": "shift_location",
+          "options": "Shift Location",
+          "type": "Link"
+        },
+        {
+          "name": "status",
+          "options": null,
+          "type": "Select"
+        },
+        {
+          "name": "overtime_type",
+          "options": "Overtime Type",
+          "type": "Link"
+        },
+        {
+          "name": "start_date",
+          "options": null,
+          "type": "Date"
+        },
+        {
+          "name": "end_date",
+          "options": null,
+          "type": "Date"
+        },
+        {
+          "name": "shift_request",
+          "options": "Shift Request",
+          "type": "Link"
+        },
+        {
+          "name": "shift_schedule_assignment",
+          "options": "Shift Schedule Assignment",
+          "type": "Link"
+        },
+        {
+          "name": "amended_from",
+          "options": "Shift Assignment",
+          "type": "Link"
+        }
+      ]
+    },
+    "department_disabled_count": 0,
+    "department_missing_company_root_groups": 1,
+    "employee_naming_method": "Naming Series",
+    "installed_source_hashes": {
+      "erpnext/erpnext/setup/doctype/department/department.py": "8200ddefc0fbe2c91f7c2b0e31cfa0386c9ac16d390acb05c4d1f56d5289f041",
+      "erpnext/erpnext/setup/doctype/designation/designation.py": "8e5db49598af4aff6ab207700495776859614f1ee38aac9e35018b454a3b8de5",
+      "erpnext/erpnext/setup/doctype/employee/employee.py": "51541d427dd195396f6cdc610e6de7d211849b440f9d465a75e496a73ecd0fff",
+      "frappe/frappe/core/doctype/user/user.py": "8f2cb0c914c7d20b86ffad4603c689a4696322fe1ae9be84c7047817bdc9c500",
+      "hrms/hrms/hooks.py": "c20c186ec5b354f90010b88be5328c4d850d972bde07d057a8e48546b47ace8a",
+      "hrms/hrms/overrides/employee_master.py": "ba2a81661a6d1f429bf6045ab24177e8d17dbda1b9e00a728f102b1104b69c46"
+    },
+    "relationship_native_versions": {
+      "Department": {
+        "authorization_generation": false,
+        "revision": false
+      },
+      "Designation": {
+        "authorization_generation": false,
+        "revision": false
+      },
+      "Employee": {
+        "authorization_generation": false,
+        "revision": false
+      },
+      "User": {
+        "authorization_generation": false,
+        "revision": false
+      }
+    },
+    "system_time_zone": "Asia/Shanghai"
+  },
+  "timezone": "Asia/Shanghai",
+  "working_tree": "preexisting_uncommitted_changes_preserved"
+}

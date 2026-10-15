@@ -7,6 +7,13 @@ from hb_lims_app.hbos_lims.todo_contract import LIMS_BUSINESS_ROLES
 
 APP_ID = "lims"
 READ_CAPABILITY = "lims.read"
+AUDIT_READ_CAPABILITY = "lims.audit.read"
+RESULTS_READ_CAPABILITY = "lims.results.read"
+LEDGER_READ_CAPABILITY = "lims.ledger.read"
+RETENTION_READ_CAPABILITY = "lims.retention.read"
+RESULTS_SUBMIT_CAPABILITY = "lims.results.submit"
+RESULTS_REVIEW_CAPABILITY = "lims.results.review"
+RESULTS_APPROVE_CAPABILITY = "lims.results.approve"
 
 
 def build_access_context(user: str | None, roles: Sequence[str] | None) -> dict[str, object]:
@@ -30,9 +37,25 @@ def build_access_context(user: str | None, roles: Sequence[str] | None) -> dict[
             or has_system_read_role
         )
 
+    is_break_glass = normalized_user == "Administrator"
+    capabilities = [READ_CAPABILITY]
+    if is_break_glass or role_set.intersection({wf.ROLE_ANALYST, wf.ROLE_REVIEWER, wf.ROLE_MANAGER, wf.ROLE_SYSTEM}):
+        capabilities.extend((RESULTS_READ_CAPABILITY, LEDGER_READ_CAPABILITY))
+    if is_break_glass or role_set.intersection({wf.ROLE_ANALYST, wf.ROLE_REVIEWER, wf.ROLE_LIMS_QA, wf.ROLE_MANAGER, wf.ROLE_SYSTEM}):
+        capabilities.append(RETENTION_READ_CAPABILITY)
+    if is_break_glass or role_set.intersection({wf.ROLE_ANALYST, wf.ROLE_MANAGER}):
+        capabilities.append(RESULTS_SUBMIT_CAPABILITY)
+    if is_break_glass or role_set.intersection({wf.ROLE_REVIEWER, wf.ROLE_MANAGER}):
+        capabilities.extend((RESULTS_REVIEW_CAPABILITY, RESULTS_APPROVE_CAPABILITY))
+    if (
+        is_break_glass
+        or role_set.intersection({wf.ROLE_REVIEWER, wf.ROLE_MANAGER, wf.ROLE_SYSTEM})
+    ):
+        capabilities.append(AUDIT_READ_CAPABILITY)
+
     return {
         "app_id": APP_ID,
         "can_enter": can_enter,
-        "capabilities": [READ_CAPABILITY] if can_enter else [],
+        "capabilities": capabilities if can_enter else [],
         "scopes": {},
     }

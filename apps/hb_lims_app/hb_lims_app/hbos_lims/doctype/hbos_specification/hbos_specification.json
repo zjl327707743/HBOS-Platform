@@ -12,6 +12,7 @@
   "material_code",
   "material_name",
   "version",
+  "supersedes",
   "effective_date",
   "status",
   "standard_source",
@@ -63,6 +64,13 @@
    "fieldtype": "Data",
    "label": "版本号",
    "reqd": 1
+  },
+  {
+   "fieldname": "supersedes",
+   "fieldtype": "Link",
+   "label": "被替代的版本",
+   "options": "HBOS Specification",
+   "read_only": 1
   },
   {
    "fieldname": "effective_date",

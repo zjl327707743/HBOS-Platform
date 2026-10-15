@@ -28,6 +28,60 @@ class Flags(dict):
         self[name] = value
 
 
+class RequestOriginTest(unittest.TestCase):
+    def check_request(self, origin, *, test_site=True, development_origins=None, host="127.0.0.1", user="Guest", token="", expected=""):
+        fake = types.SimpleNamespace(
+            flags=Flags(),
+            conf={
+                "hbos_portal_origin": "http://127.0.0.1:8080",
+                "hbos_account_test_site": test_site,
+                "hbos_portal_development_origins": development_origins if development_origins is not None else ["http://127.0.0.1:5178"],
+            },
+            session=types.SimpleNamespace(user=user, data={"csrf_token": expected}),
+            local=types.SimpleNamespace(form_dict={}, request=types.SimpleNamespace(
+                method="POST", scheme="http", host=host, is_json=True,
+                headers={"Origin": origin, "X-Requested-With": "XMLHttpRequest", "X-Frappe-CSRF-Token": token},
+            )),
+            throw=reject, CSRFTokenError=Rejected,
+        )
+        with patch.object(accounts, "frappe", fake):
+            accounts.require_post()
+
+    def test_explicit_loopback_development_origins_work_on_test_sites(self):
+        for origin, host in [
+            ("http://127.0.0.1:5178", "127.0.0.1"),
+            ("http://[::1]:5178", "[::1]"),
+            ("http://localhost:5178", "localhost"),
+            ("http://portal.localhost:5178", "portal.localhost"),
+        ]:
+            with self.subTest(origin=origin):
+                self.check_request(origin, host=host, development_origins=[origin])
+
+    def test_development_origins_are_not_enabled_on_production_sites(self):
+        with self.assertRaisesRegex(Rejected, "请求来源无效"):
+            self.check_request("http://127.0.0.1:5178", test_site=False)
+
+    def test_loopback_is_not_implicitly_allowed_without_configuration(self):
+        with self.assertRaisesRegex(Rejected, "请求来源无效"):
+            self.check_request("http://127.0.0.1:5178", development_origins=[])
+
+    def test_test_site_still_rejects_unlisted_ports_remote_origins_and_host_mismatches(self):
+        for origin, host, configured in [
+            ("http://127.0.0.1:5199", "127.0.0.1", "http://127.0.0.1:5178"),
+            ("http://localhost:5178", "127.0.0.1", "http://localhost:5178"),
+            ("https://remote.example.test", "remote.example.test", "https://remote.example.test"),
+            ("http://127.0.0.1.evil.test:5178", "127.0.0.1.evil.test", "http://127.0.0.1.evil.test:5178"),
+        ]:
+            with self.subTest(origin=origin), self.assertRaisesRegex(Rejected, "请求来源无效"):
+                self.check_request(origin, host=host, development_origins=[configured])
+
+    def test_authenticated_development_requests_still_require_the_current_csrf_token(self):
+        for token in ("", "stale-token"):
+            with self.subTest(token=token), self.assertRaisesRegex(Rejected, "安全会话已更新"):
+                self.check_request("http://127.0.0.1:5178", user="synthetic-user", token=token, expected="current-token")
+        self.check_request("http://127.0.0.1:5178", user="synthetic-user", token="current-token", expected="current-token")
+
+
 class MFAProofTest(unittest.TestCase):
     def setUp(self):
         self.user = "Administrator"

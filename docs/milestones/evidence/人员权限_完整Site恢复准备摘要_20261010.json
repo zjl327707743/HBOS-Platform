@@ -1,0 +1,827 @@
+{
+  "actual_scope": {
+    "app_modules_imported": false,
+    "docker_resource_creations": 0,
+    "frappe_initialized": false,
+    "methods": [
+      "exact-ID filtered Docker inspect",
+      "Docker image metadata",
+      "Docker diff paths summarized",
+      "stdlib file/hash/AST/importlib distribution metadata via original Python -B",
+      "read-only git rev-parse with optional locks disabled",
+      "private host backup rehash and full gzip read"
+    ],
+    "site_restore_executed": false,
+    "source_configuration_writes": 0,
+    "source_service_controls": 0,
+    "source_snapshots_copied": false,
+    "source_sql_connections": 0
+  },
+  "apps": {
+    "erpnext": {
+      "dependency_files": {
+        "package.json": {
+          "bytes": 600,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "15104ce6d422c8c079b5014b3b46d1e89a40d201338d4d89a50748b735587d8c",
+          "uid": 1000
+        },
+        "pyproject.toml": {
+          "bytes": 2617,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "42b1d3cc58b588d759b032103680ed351e038ec3c0976e0915b56ce70c3b2daa",
+          "uid": 1000
+        },
+        "yarn.lock": {
+          "bytes": 345,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "ba6a3285c968d3e7ac606652b1aee15ed9c3ea133c019a7c0697533cf5dad8f0",
+          "uid": 1000
+        }
+      },
+      "source_version": "16.26.2",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 1263,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 587,
+        "logical_bytes": 134648605,
+        "regular_files": 5184,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "1a09d27d7b2132eb3144cdf048e72d543b3b094398a9f742ec6a6da3bc69346a"
+      }
+    },
+    "frappe": {
+      "dependency_files": {
+        "package.json": {
+          "bytes": 2686,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "2b9d4fc1661d854e81e2cd63812efa9cd344070777a26a433d9bba4f497c4768",
+          "uid": 1000
+        },
+        "pyproject.toml": {
+          "bytes": 7312,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "c9dc791e87bfe60d94eb1aae12eea8fe88a74850b25ff58077af410c4b3edcb0",
+          "uid": 1000
+        },
+        "yarn.lock": {
+          "bytes": 155559,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "f6fde024ff99cbb03ba72bd4dec423238f48a14a61dfd1df664c77eaba6cbc43",
+          "uid": 1000
+        }
+      },
+      "source_version": "16.26.3",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 611,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 327,
+        "logical_bytes": 114531060,
+        "regular_files": 3406,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "35197abbf513af1b5a94edcc120df41c6dfecada0d32a3fbe6b283b74e6c569a"
+      }
+    },
+    "hb_attendance_app": {
+      "dependency_files": {
+        "pyproject.toml": {
+          "bytes": 432,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "ff5da693b1af1ce86f452c2720669cd7941d0a706dd5c681f144adb61adc01db",
+          "uid": 1000
+        }
+      },
+      "source_version": "0.0.1",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 33,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 20,
+        "logical_bytes": 847224,
+        "regular_files": 169,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "a7617cab9a661de5d57a7e96a7fea32a87351ffaa552e85fdb27df81c909a06b"
+      }
+    },
+    "hb_inventory_app": {
+      "dependency_files": {
+        "pyproject.toml": {
+          "bytes": 409,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "f8a1ab430bb0bcd820e5793249aca62570f3d89bffe757db5770a4544d525aa5",
+          "uid": 1000
+        }
+      },
+      "source_version": "0.0.1",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 21,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 8,
+        "logical_bytes": 244944,
+        "regular_files": 71,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "a65a6b253ff2118bf3c9aa354acfb17420add6586acff129279837a06a08cb9f"
+      }
+    },
+    "hb_knowledge_app": {
+      "dependency_files": {
+        "pyproject.toml": {
+          "bytes": 416,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "795160daf62f9e1cfc6dca81710a1a050c4ff17684e430cb46207cbf73b76cd3",
+          "uid": 1000
+        }
+      },
+      "source_version": "0.1.0",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 6,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 5,
+        "logical_bytes": 62261,
+        "regular_files": 26,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "d7f188d12c2d11ff00a5890c04ff77568e39d01f941dab598a07023432939ddd"
+      }
+    },
+    "hb_lims_app": {
+      "dependency_files": {
+        "pyproject.toml": {
+          "bytes": 421,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "59a52b2289be7809f861ef5edfc7de305ca5401040cee514bf287bb2b49f4bab",
+          "uid": 1000
+        }
+      },
+      "source_version": "0.0.1",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 75,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 59,
+        "logical_bytes": 1302972,
+        "regular_files": 256,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "6831b97d50f1ab81da588eb5406a5d8bd994ded79a41d4605bc6b82e93289b80"
+      }
+    },
+    "hb_twin_app": {
+      "dependency_files": {
+        "pyproject.toml": {
+          "bytes": 399,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "b0d70b4900aea777f75e15787de8e92e6379c853d98e1be1c76f52c4217aa450",
+          "uid": 1000
+        }
+      },
+      "source_version": "0.1.0",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 4,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 3,
+        "logical_bytes": 24985,
+        "regular_files": 18,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "f298179fa330eeca9b0681df9b951674f10045298153ea5b3ffa64325e5bdc19"
+      }
+    },
+    "hbos_portal": {
+      "dependency_files": {
+        "pyproject.toml": {
+          "bytes": 409,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "80061d0e4f47f907f28c4667eb3f6831818b83642189a7278f59b523dceb1dec",
+          "uid": 1000
+        },
+        "requirements.txt": {
+          "bytes": 228,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "fe0bc0617a7cf3c040d019858095e79ab07784c6dabb7538ca9463833017f08e",
+          "uid": 1000
+        }
+      },
+      "source_version": "0.1.0",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 32,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 24,
+        "logical_bytes": 3907754,
+        "regular_files": 225,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "6e6c5694e33d8c4751413a29a9884a926a1a469bc82bda85099a7be6cea6de80"
+      }
+    },
+    "hrms": {
+      "dependency_files": {
+        "package.json": {
+          "bytes": 976,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "46d46745654d1e859d8a328554eb032776065580577a73c7da5ed8a18838bf8e",
+          "uid": 1000
+        },
+        "pyproject.toml": {
+          "bytes": 1984,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "9ab7257a74ffdf2f0645e9ebd38ff5a6655411d0c19d7fa7811f8451413d2cc1",
+          "uid": 1000
+        },
+        "yarn.lock": {
+          "bytes": 1638,
+          "gid": 1000,
+          "mode": 420,
+          "sha256": "0ba78c1d62bacf9af7177df2ecb2c7ef1406fac5cf5f36fadec195196a983daf",
+          "uid": 1000
+        }
+      },
+      "source_version": "16.14.0",
+      "tree": {
+        "atomic_snapshot": false,
+        "directories": 390,
+        "excluded_names": [
+          ".git",
+          "__pycache__",
+          "node_modules",
+          "*.pyc",
+          "*.pyo"
+        ],
+        "exclusions": 182,
+        "logical_bytes": 48926194,
+        "regular_files": 1833,
+        "special_files": 0,
+        "status": "HASHED",
+        "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "symlinks": 0,
+        "tree_sha256": "372f98b927e10e45bfd53cfdcc876a2a8aa7fe69fa8f980e1acfab91a1088826"
+      }
+    }
+  },
+  "apps_txt": [
+    "erpnext",
+    "frappe",
+    "hb_attendance_app",
+    "hb_inventory_app",
+    "hb_knowledge_app",
+    "hb_lims_app",
+    "hb_twin_app",
+    "hbos_portal",
+    "hrms"
+  ],
+  "apps_txt_matches_backup_app_set": true,
+  "backend_asset_trees": {
+    "apps/erpnext/erpnext/public/dist": {
+      "atomic_snapshot": false,
+      "directories": 3,
+      "excluded_names": [
+        ".git",
+        "__pycache__",
+        "node_modules",
+        "*.pyc",
+        "*.pyo"
+      ],
+      "exclusions": 0,
+      "logical_bytes": 1709592,
+      "regular_files": 22,
+      "special_files": 0,
+      "status": "HASHED",
+      "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "symlinks": 0,
+      "tree_sha256": "627f0cf485c9e315d55ce544844e563cf572aec6d7d9ef0335ae0c84696b32dc"
+    },
+    "apps/frappe/frappe/public/dist": {
+      "atomic_snapshot": false,
+      "directories": 3,
+      "excluded_names": [
+        ".git",
+        "__pycache__",
+        "node_modules",
+        "*.pyc",
+        "*.pyo"
+      ],
+      "exclusions": 0,
+      "logical_bytes": 48382459,
+      "regular_files": 86,
+      "special_files": 0,
+      "status": "HASHED",
+      "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "symlinks": 0,
+      "tree_sha256": "a5695b48069e27a3e394cdda103ffee5d95e6046562ef66802019f200a6c36e0"
+    },
+    "assets": {
+      "atomic_snapshot": false,
+      "directories": 75,
+      "excluded_names": [
+        ".git",
+        "__pycache__",
+        "node_modules",
+        "*.pyc",
+        "*.pyo"
+      ],
+      "exclusions": 0,
+      "logical_bytes": 25163131,
+      "regular_files": 70,
+      "special_files": 0,
+      "status": "HASHED",
+      "symlink_sha256": "64beb16d8eeaa0e0d5296db8df0d39e6c7fbff91058e9dd568e06df5d13464ae",
+      "symlinks": 6,
+      "tree_sha256": "2e12f86cac15700c6a4ca01d413f13d9ee818e3d1d0b8068608d90c5a4823eef"
+    },
+    "fonts": {
+      "atomic_snapshot": false,
+      "directories": 0,
+      "excluded_names": [
+        ".git",
+        "__pycache__",
+        "node_modules",
+        "*.pyc",
+        "*.pyo"
+      ],
+      "exclusions": 0,
+      "logical_bytes": 23720136,
+      "regular_files": 2,
+      "special_files": 0,
+      "status": "HASHED",
+      "symlink_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "symlinks": 0,
+      "tree_sha256": "9c7aa38e174c06e42b198db3446bd5088d0b71ba181ab8d8d5eb3ef4fd5a3026"
+    },
+    "sites/assets": {
+      "atomic_snapshot": false,
+      "directories": 75,
+      "excluded_names": [
+        ".git",
+        "__pycache__",
+        "node_modules",
+        "*.pyc",
+        "*.pyo"
+      ],
+      "exclusions": 0,
+      "logical_bytes": 25163131,
+      "regular_files": 70,
+      "special_files": 0,
+      "status": "HASHED",
+      "symlink_sha256": "64beb16d8eeaa0e0d5296db8df0d39e6c7fbff91058e9dd568e06df5d13464ae",
+      "symlinks": 6,
+      "tree_sha256": "2e12f86cac15700c6a4ca01d413f13d9ee818e3d1d0b8068608d90c5a4823eef"
+    }
+  },
+  "branch": "m2-r11",
+  "capacity": {
+    "container_filesystem_available_bytes": 450202763264,
+    "filesystem_available_not_guaranteed_volume_quota": true,
+    "host_available_bytes": 277103665152,
+    "minimum_preflight_threshold_bytes": 21474836480,
+    "peak_budget": "PRELIMINARY_NOT_PROVEN",
+    "threshold_pass": true
+  },
+  "capture_limits": [
+    "tree hashes exclude .git, node_modules, __pycache__, pyc and pyo",
+    "individual regular-file stat before/after matched; no global atomic tree snapshot",
+    "symbolic links counted/hashed without following child links; target restoration not yet verified",
+    "backend/frontend tree hashing layouts differ; only equal algorithms may be compared",
+    "version literals and package metadata do not prove installed App runtime startup",
+    "git commit alone does not prove clean source; actual filtered source-tree hashes retained"
+  ],
+  "commits": {
+    "erpnext_commit": "UNAVAILABLE",
+    "frappe_commit": "UNAVAILABLE",
+    "hrms_commit": "6aa125b976469cb1c342afa3ef07d381c88677e0"
+  },
+  "cryptography_check": {
+    "auth_fingerprint_basis": "prior successful original backup full-row comparison",
+    "auth_full_row_count": 6,
+    "auth_full_row_sha256": "35dce6d763423b8a81bdeb182b011f5e8ded50be541b5625783a3717d5fd6f20",
+    "cipher_applicability": "NOT_VERIFIED",
+    "decrypt": "NOT_RUN",
+    "if_complete_verified_auth_parse_proves_no_encrypted_rows": "NOT_APPLICABLE",
+    "library_version": "46.0.7",
+    "mechanism": "Fernet with explicit backup encryption key; no get_encryption_key/init/connect",
+    "original_cipher_rows_decoded": "NOT_RUN",
+    "original_password_source_sha256": "083942571bcfa0ae9642b182146f8384eaa73a0b687061fd3a26af60332c2b1b",
+    "parser_required": "reviewed MySQL literal parser or exact owned SQL target; multiline INSERT; never split commas or lines",
+    "synthetic_cipher_proves_original_recovery": false
+  },
+  "diagnostic_history": [
+    {
+      "docker_calls_executed": false,
+      "reason": "private metadata top-level schema mismatch",
+      "result": "PRECHECK_STOPPED"
+    },
+    {
+      "docker_calls_executed": false,
+      "reason": "concurrent authorized execution-package addition rejected by repository baseline",
+      "result": "PRECHECK_STOPPED"
+    },
+    {
+      "reason": "schema corrected; only exact authorized document addition accepted; existing repository file hashes preserved",
+      "result": "READONLY_INVENTORY_COMPLETED"
+    }
+  ],
+  "documentation_checks": {
+    "backup_hashes_match": true,
+    "broken_local_links": 0,
+    "changed_repository_files": 15,
+    "existing_application_files_changed": 0,
+    "helpers_python310_ast": "PASS",
+    "independent_document_review": {
+      "remaining_fail": 0,
+      "remaining_warn": 0,
+      "restoration_or_isolation_pass": false,
+      "result": "PASS"
+    },
+    "known_private_value_hits": 0,
+    "private_closeout_report_sha256": "b52f28bd444c438dfce5601c084b07160f6336b44d28822b76d4d71ac7332d69",
+    "resource_proposal_tables_match": true,
+    "result": "PASS",
+    "whitespace_findings": 0
+  },
+  "frontend_asset_trees": {
+    "/home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public/hbos-lims": {
+      "atomic_snapshot": false,
+      "logical_bytes": 3268063,
+      "regular_files": 91,
+      "status": "HASHED",
+      "symlinks": 0,
+      "tree_sha256": "26d743b30ebf2b06714fa380fe309981ebab14d22bddfd931f2e880a9ca5de8d"
+    },
+    "/home/frappe/frappe-bench/assets": {
+      "atomic_snapshot": false,
+      "logical_bytes": 25163131,
+      "regular_files": 70,
+      "status": "HASHED",
+      "symlinks": 6,
+      "tree_sha256": "1576ec3355f0dab478a8dea6fdf6af020d8dce3c286cef885dd828ec3befd935"
+    },
+    "/home/frappe/frappe-bench/sites/assets/hbos-lims": {
+      "status": "MISSING"
+    }
+  },
+  "head": "27d3558d8f5846b668fa1bbd582b5e46333c61b0",
+  "helper_sha256": {
+    "hbos_site_restore_preflight_20261010.py": "d868dd762e861e4e1715a81eaa5895e895e030edfe41f62fc6ca46c6044f6191",
+    "hbos_site_restore_supplement_20261010.py": "513cee787cc3ab5b36970fa0d1d55755bb3839992e820d7a974bfeb8908cfc49"
+  },
+  "images": {
+    "frappe_erpnext": {
+      "architecture": "arm64",
+      "digests": [
+        "frappe/erpnext@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583"
+      ],
+      "id": "sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583",
+      "os": "linux",
+      "size": 811901199
+    },
+    "mariadb": {
+      "architecture": "arm64",
+      "digests": [
+        "mariadb@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4"
+      ],
+      "id": "sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4",
+      "os": "linux",
+      "size": 104293601
+    },
+    "redis": {
+      "architecture": "arm64",
+      "digests": [
+        "redis@sha256:ec5e187c913d422cdf60f4216a5fdfb95246792c6de6fe21ff5bed75cbfc8c23"
+      ],
+      "id": "sha256:ec5e187c913d422cdf60f4216a5fdfb95246792c6de6fe21ff5bed75cbfc8c23",
+      "os": "linux",
+      "size": 11871295
+    }
+  },
+  "installed_apps_basis": "private before.json from validated original backup; no new live SQL query",
+  "inventory_completed_at": "2026-10-10T07:31:17.822491+00:00",
+  "management": {
+    "c_s03_s06": "NOT_STARTED",
+    "p4f6_5": "REVIEWING",
+    "post": "CLOSED",
+    "read": "NOT_READY",
+    "real_grant": "NOT_RUN",
+    "s01b_s02": "PARTIAL",
+    "schema_preparation": "NOT_RUN",
+    "source_eight_management_tables_absent_basis": "prior original preflight; not re-queried"
+  },
+  "network_design_basis": {
+    "sources": [
+      "https://docs.docker.com/engine/network/drivers/none/",
+      "https://docs.docker.com/engine/network/",
+      "https://docs.docker.com/reference/cli/docker/container/exec/"
+    ],
+    "status": "DESIGN_INFERENCE_NOT_RUNTIME_VERIFIED"
+  },
+  "original_sql_is_restore_destination": false,
+  "original_target": {
+    "bench": "/home/frappe/frappe-bench",
+    "continuous_backup_freeze_event_history": "NOT_VERIFIED",
+    "database_live_query_this_turn": "NOT_RUN",
+    "expected_database_sha256": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+    "filtered_container_metadata_preserved": true,
+    "filtered_metadata_fields": [
+      "id",
+      "name",
+      "image_id",
+      "image",
+      "running",
+      "paused",
+      "restart_policy",
+      "network_mode",
+      "port_bindings",
+      "ports",
+      "mounts",
+      "auto_remove"
+    ],
+    "global_source_transaction_consistency": "UNAVAILABLE",
+    "internal_websocket_automatic_restart": "NOT_VERIFIED",
+    "original_container_count": 12,
+    "site": "frontend"
+  },
+  "portal_mode": "5178_REAL_READONLY",
+  "private_report_sha256": {
+    "inventory": "8613a63263ee49d8c5e401c91bf8067e0ced7484c1113079abf749cfb5216c34",
+    "supplement": "d87887d44803db3f160a46ce1192089acb044b1bfca7305b5ee1b403e853ec3a"
+  },
+  "proposed_execution": {
+    "clone_business_acceptance": "NOT_RUN",
+    "clone_write_scope": [
+      "SQL import to new DB",
+      "cloned configuration derivation",
+      "restored tabSessions invalidation",
+      "Owner new password-login Session/Log writes"
+    ],
+    "command_uid_capabilities_mount_matrix": "NOT_READY",
+    "containers": 5,
+    "docker_published_ports": 0,
+    "explicit_execution_permission": "PENDING",
+    "host_bind": "127.0.0.1",
+    "host_http_relay_processes": 1,
+    "host_relay": "fixed owned new backend ID exec to namespace loopback frontend 8080; method/path/cmd allowlist required",
+    "host_relay_child_processes": "BOUNDED_UNIMPLEMENTED",
+    "hostname_browser_ipv4_or_fallback": "NOT_RUN",
+    "hostname_resolved_addresses": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "label": "hbos-owned-site-restore-20261010-a7d3",
+    "listener_present": false,
+    "loopback_hostname": "hbos-restore.localhost",
+    "named_volumes": 9,
+    "network_enforcement": "NOT_READY",
+    "network_mode_proposal": "new DB none; remaining four container:<exact owned new DB ID>",
+    "network_negative_tests": "NOT_RUN",
+    "networks": 0,
+    "next_step": "implement and independently review offline recovery tools and whitelist before requesting exact resource execution permission",
+    "owner_password_login": "NOT_RUN",
+    "peer_port_acl": "NOT_CLAIMED; five trusted clone components share loopback",
+    "port": 18092,
+    "previous_internal_bridge_proposal": "REJECTED; no peer-port enforcement",
+    "prohibited": [
+      "source resource mounts/endpoints",
+      "new bench/new-site/new-app/install-app/migrate",
+      "pip/npm/git downloads",
+      "workers/scheduler/websocket/integrations",
+      "privileged/host network/NET_ADMIN",
+      "original service control"
+    ],
+    "request_whitelist_implementation": "NOT_READY",
+    "resource_name_collision": false,
+    "resource_status": "PROPOSED_NOT_CREATED",
+    "root_exists": false,
+    "site_files_restored": "NOT_RUN"
+  },
+  "readiness": "PARTIAL",
+  "repository_changes_this_turn": "documents_and_sanitized_evidence_only",
+  "restored_session_gate": {
+    "basis": "independent private dump structure inspection; no SID disclosed",
+    "clone_only_session_invalidation": "REQUIRED_NOT_RUN",
+    "empty_redis_alone_invalidates_restored_sql_sessions": false,
+    "native_login_additional_side_effect_scope": "NOT_READY; original Frappe User login-metadata updates still require exact source review",
+    "source_cookie_or_sid_reuse_for_login": "FORBIDDEN",
+    "source_session_invalidation": "FORBIDDEN",
+    "sql_contains_tabSessions_create_and_insert": true
+  },
+  "review": "REVIEWING",
+  "runtime": {
+    "backend_writable_diff": {
+      "entries": 5754,
+      "env_bytecode_entries": 1745,
+      "env_entries": 2061,
+      "env_other_entries": 316,
+      "path_list_sha256": "69729c4652aeb75d1f711b26d50d9ec3cc92f6f8055c9952508354c205decf60"
+    },
+    "dependency_or_app_installation": "NOT_RUN",
+    "distribution_count": 149,
+    "distribution_metadata_sha256": "60bc6762346e19ed465c4508a3aee8d3acd73501d906b65f172369fdd053fc2a",
+    "euid": 1000,
+    "node": "v24.12.0",
+    "node_modules_contents": "NOT_INVENTORIED",
+    "python": "3.14.2",
+    "python_environment": {
+      "atomic_snapshot": false,
+      "directories": 2568,
+      "excluded_names": [
+        ".git",
+        "__pycache__",
+        "node_modules",
+        "*.pyc",
+        "*.pyo"
+      ],
+      "exclusions": 266,
+      "logical_bytes": 384120721,
+      "regular_files": 17622,
+      "special_files": 0,
+      "status": "HASHED",
+      "symlink_sha256": "f871400751ecf69b9ff042996427ea2d75126c0ba0eba62827e03a1c621a3aa6",
+      "symlinks": 4,
+      "tree_sha256": "6aa2422a4ab12b167aec8824c22e4aab0e0770b4bf45545009ea891a34084021"
+    },
+    "runtime_closure": "INVENTORIED_NOT_CAPTURED",
+    "runtime_import_or_start": "NOT_RUN",
+    "selected_distribution_versions": {
+      "cryptography": "46.0.7",
+      "erpnext": "16.26.2",
+      "frappe": "16.26.3",
+      "gunicorn": "23.0.0",
+      "hbos-portal": "UNAVAILABLE",
+      "hrms": "UNAVAILABLE",
+      "pymysql": "1.1.2",
+      "pypinyin": "0.55.0",
+      "redis": "7.1.1",
+      "rq": "2.6.1"
+    }
+  },
+  "schema_version": 1,
+  "source_file_metadata": {
+    "apps/frappe/frappe/utils/password.py": {
+      "bytes": 6977,
+      "gid": 1000,
+      "mode": 420,
+      "sha256": "083942571bcfa0ae9642b182146f8384eaa73a0b687061fd3a26af60332c2b1b",
+      "uid": 1000
+    },
+    "sites/apps.txt": {
+      "bytes": 108,
+      "gid": 1000,
+      "mode": 420,
+      "sha256": "f729c9977eeca60dc68e1e4b44218498b1edb352bb3f711b0a6262f507bd0473",
+      "uid": 1000
+    },
+    "sites/common_site_config.json": {
+      "bytes": 298,
+      "gid": 1000,
+      "mode": 420,
+      "sha256": "caa296533e604fb712977e422092b8e77463ff72ac8c85e69b4c12b197b409bf",
+      "uid": 1000
+    },
+    "sites/frontend/site_config.json": {
+      "bytes": 1259,
+      "gid": 1000,
+      "mode": 384,
+      "sha256": "533a2b31faf6265df003d6fa2fc1bc42fa9fa70778a4fa5c5d08c8c8ec37b89a",
+      "uid": 1000
+    }
+  },
+  "started_at": "2026-10-10T07:31:06.390867+00:00",
+  "status": "S02_FULL_SITE_RESTORE_PREPARATION_REVIEWED",
+  "supplement_completed_at": "2026-10-10T07:34:19.616831+00:00",
+  "validated_backup_recheck": {
+    "archives_layout": {
+      "auth_regular_files": 2,
+      "basis": "unchanged SHA and independent read-only archive inspection",
+      "landing": "NOT_RUN",
+      "linux_uid_gid": [
+        1000,
+        1000
+      ],
+      "private_regular_files": 9,
+      "public_regular_files": 0
+    },
+    "files": {
+      "auth_files": {
+        "bytes": 293,
+        "sha256": "56043bd376e2366ec8dff632feea3184f798558dac2a2772404928ab3d3aab20"
+      },
+      "database": {
+        "bytes": 2645386,
+        "sha256": "c2f3c190095224ae075867582cedb5bd831a7fd7c9c7481d8f3df27ecccceac9"
+      },
+      "private_files": {
+        "bytes": 174080,
+        "sha256": "cc581cc045fd49b226d536816e5631a43f84b02ef3a74f0751e81c2c7675f3f5"
+      },
+      "public_files": {
+        "bytes": 10240,
+        "sha256": "ec494d1950ae0bfe001150421a8218b5e9a3fb99cdf2e7b34e54769db87e00ed"
+      },
+      "site_config": {
+        "bytes": 1259,
+        "sha256": "533a2b31faf6265df003d6fa2fc1bc42fa9fa70778a4fa5c5d08c8c8ec37b89a"
+      }
+    },
+    "five_component_sha_match_previous": "PASS",
+    "gzip_full_read": "PASS",
+    "private_before_and_manifest": {
+      "backup-prepared.json": {
+        "bytes": 674,
+        "sha256": "c7392dc3fd56155e93519706f992db75d269d802f3431e5ca0618fdeaaf22afc"
+      },
+      "before.json": {
+        "bytes": 1039,
+        "sha256": "e225e34a6f659e638c8ee597f22342e2aa12303d9d65ead731dc64734f825748"
+      }
+    },
+    "source_native_table_fingerprints_this_turn": "NOT_RUN",
+    "sql_uncompressed_bytes": 29683935
+  }
+}

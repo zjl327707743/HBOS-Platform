@@ -221,7 +221,7 @@ fi
 info "7/7 启动 Portal Vite（真实 preview Frappe 模式）"
 cd frontend/hbos-portal-web
 if [[ ! -d node_modules ]]; then
-  npm install --no-audit --no-fund --package-lock=false
+  npm ci --no-audit --no-fund
 fi
 
 echo

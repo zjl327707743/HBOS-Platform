@@ -32,6 +32,11 @@ def build_bootstrap() -> dict[str, object]:
                 "manifest": entry.manifest.to_dict(),
                 "access": {
                     "can_enter": True,
+                    "capabilities": list(access.capabilities),
+                    "scopes": {
+                        key: list(items)
+                        for key, items in access.scopes.items()
+                    },
                 },
             }
         )

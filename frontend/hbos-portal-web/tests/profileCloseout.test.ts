@@ -20,8 +20,24 @@ async function render(component: object, props = {}) {
  const wrapper=mount(component,{props,global:{plugins:[Antd,router],stubs:{AccountSecurity:SecurityStub,AppDiagnostics:true}}});wrappers.push(wrapper);await flushPromises();return wrapper
 }
 beforeEach(() => getSecurity.mockResolvedValue({user:state.user.id,has_password:true,password_login_available:true,feishu_bound:false,feishu_configured:true,desk_access:false,can_admin_recover:false}))
-afterEach(() => {wrappers.forEach(w => w.unmount());wrappers=[]})
+afterEach(() => {wrappers.forEach(w => w.unmount());wrappers=[];vi.unstubAllEnvs()})
 describe('小范围账号收尾', () => {
+ it.each(['http://127.0.0.1:8080', 'http://127.0.0.1:18091', ''])('资料与管理入口使用 Frappe 整页链接：%s',async origin => {
+  vi.stubEnv('VITE_FRAPPE_APP_ORIGIN',origin)
+  getSecurity.mockResolvedValue({user:state.user.id,desk_access:true,can_admin_recover:false})
+  const w=await render(Profile)
+  const profile=w.findAll('a').find(link => link.text()==='管理个人资料')
+  const desk=w.findAll('a').find(link => link.text().includes('进入管理后台'))
+  expect(profile?.attributes('href')).toBe(`${origin}/desk/user/${encodeURIComponent(state.user.id)}`)
+  expect(desk?.attributes('href')).toBe(`${origin}/desk`)
+  expect(profile?.classes()).not.toContain('router-link-active')
+  expect(desk?.classes()).not.toContain('router-link-active')
+ })
+ it('没有 Desk 权限时不显示个人资料或管理后台入口',async () => {
+  const w=await render(Profile)
+  expect(w.text()).not.toContain('管理个人资料')
+  expect(w.text()).not.toContain('进入管理后台')
+ })
  it.each([
   [{has_password:false,feishu_bound:true,feishu_configured:true},'本人飞书','尚未设置密码'],
   [{has_password:true,feishu_bound:false,feishu_configured:true},'密码','飞书未绑定'],

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def manifest_for(
     app_id: str,
     *,

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/hbos-portal-product
+      - m2-r11
     paths:
       - 'apps/hbos_portal/**'
       - 'apps/hb_lims_app/hb_lims_app/hooks.py'
@@ -134,13 +135,8 @@ jobs:
             exit 1
           fi
 
-      - name: 认证 DocType 范围
-        run: |
-          set -euo pipefail
-          if find apps/hbos_portal -type f -path '*/doctype/*/*.json' ! -name hbos_external_identity.json ! -name hbos_account_operation.json ! -name hbos_account_change_event.json ! -name hbos_account_security.json | grep -q .; then
-            echo "::error:: Portal 仅允许已授权的账号与身份安全 DocType"
-            exit 1
-          fi
+      - name: 认证与候选 IAM DocType 精确范围
+        run: python scripts/portal/check_doctype_scope.py
 
       - name: Portal Backend Gate 通过
         run: echo "HBOS Portal backend skeleton gate PASS"

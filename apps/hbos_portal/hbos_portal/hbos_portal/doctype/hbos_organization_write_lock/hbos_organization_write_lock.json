@@ -1,0 +1,26 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Organization Write Lock",
+ "module": "HBOS Portal",
+ "autoname": "field:record_key",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_key",
+   "fieldtype": "Data",
+   "label": "record_key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  }
+ ],
+ "permissions": [],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "allow_import": 0,
+ "allow_copy": 0
+}

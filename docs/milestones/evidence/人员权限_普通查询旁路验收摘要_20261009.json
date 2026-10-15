@@ -1,0 +1,1164 @@
+{
+  "date": "2026-10-09",
+  "branch": "m2-r11@27d3558",
+  "status": "S02_NATIVE_READ_BOUNDARY_PREVIEW_VALIDATED / PARTIAL / REVIEWING",
+  "source_sha256": {
+    "apps/hbos_portal/hbos_portal/organization/native_read_boundary.py": "4b6c3c3606adb68fca761d883207da419c5dfa63800d6e71c40eb5ef969389cb",
+    "apps/hbos_portal/hbos_portal/organization/protected_document.py": "8459adfae5d23704f28c0aaa58ba2058c915264033296db026f44c91caa299a1",
+    "apps/hbos_portal/hbos_portal/organization/protected_policy_document.py": "c6b4f2b557f4724c6dc2459352a8717003b764f7d5f880daa7002967df86fe95",
+    "apps/hbos_portal/hbos_portal/hooks.py": "c5ab755ef3c6bec1e37c3f648e2ebfe8a1e50a3308e30ef9a395a63a28b39e1c",
+    "apps/hbos_portal/hbos_portal/api/people_access.py": "9c491691c05faabdfba531c3f0804d9237e2414300ab4e3038bbf46c04d24b8b",
+    "apps/hbos_portal/tests/test_native_read_boundary.py": "ae23178f614119499acfec36d732dfc2d3e2c2a9948bff8eafe9daa220331371",
+    "apps/hbos_portal/tests/test_people_access_read.py": "661c509db057a0086dc7ebae76fe3ce3a95dd4691e83c75b611970687a7b806d",
+    "apps/hbos_portal/tests/integration_native_read_boundary.py": "56bd7c0bcd2926439064206934d59193ceacc267c32e07810fe1bc045dda7ca3"
+  },
+  "offline": {
+    "status": "PASS",
+    "tests_run": 372,
+    "module_test_counts": {
+      "tests.test_native_read_boundary": 27,
+      "tests.test_people_access_read": 13,
+      "tests.test_management_queries": 21,
+      "tests.test_management_query_http": 21,
+      "tests.test_management_http": 50,
+      "tests.test_management_finalization": 14,
+      "tests.test_management_policy": 43,
+      "tests.test_management_storage": 26,
+      "tests.test_managed_relations": 30,
+      "tests.test_frappe_source_loader": 13,
+      "tests.test_organization_storage_acceptance": 4,
+      "tests.test_organization_relation_service": 31,
+      "tests.test_organization_storage_guards": 14,
+      "tests.test_organization_source_adapter": 37,
+      "tests.test_authorization_registry": 15,
+      "tests.test_authorization_relations": 13
+    },
+    "test_names": {
+      "tests.test_native_read_boundary": [
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_before_request_rejects_every_actor_without_native_domain_query_fallback",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_client_insert_and_save_document_json_are_denied",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_controlled_cap_cannot_authorize_neighbor_type_key_or_mismatched_record",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_controlled_exact_document_cap_preserves_create_write_only",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_controlled_new_document_permission_uses_exact_autoname_key",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_custom_report_reference_chain_cannot_hide_protected_target",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_data_export_and_import_template_targets_are_denied",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_desk_savedocs_and_run_doc_method_document_targets_are_denied",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_document_hook_does_not_grant_administrator_role_or_flag_shortcuts",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_exact_eight_storage_types_do_not_include_native_personnel",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_fixed_controlled_methods_are_not_classified_as_native_storage_reads",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_legacy_cmd_dispatch_and_v1_suffix_dispatch_are_denied",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_legacy_short_run_doc_method_dispatch_cannot_skip_native_http_guard",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_named_query_report_uses_server_reference_not_client_target",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_native_client_list_count_detail_value_and_permission_rpc_are_denied",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_native_literal_collision_is_conservatively_denied_without_taking_over_directory",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_native_nested_table_reference_cannot_hide_in_fields_or_filters",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_native_personnel_rest_desk_and_existing_directory_are_not_taken_over",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_nested_child_doc_cannot_hide_protected_storage_target",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_ordinary_native_report_remains_in_native_personnel_domain",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_query_hook_throws_instead_of_returning_share_bypassable_false_condition",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_report_builder_form_and_link_search_targets_are_denied",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_report_reference_depth_and_native_input_complexity_are_bounded",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_report_resolution_failure_missing_resolver_or_cycle_is_closed",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_resource_details_copy_and_document_methods_are_denied",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_v1_and_v2_collection_paths_are_denied_for_every_type",
+        "tests.test_native_read_boundary.NativeReadBoundaryTest.test_v2_count_meta_and_controller_rpc_are_denied"
+      ],
+      "tests.test_people_access_read": [
+        "tests.test_people_access_read.PeopleAccessReadTest.test_anonymous_is_rejected_before_query",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_ascii_decimal_pagination_and_bounds_keep_native_permissions",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_employee_keeps_native_department_and_does_not_invent_user_or_grant",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_empty_phone_keeps_native_read_compatibility",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_invalid_source_page_and_filter_are_rejected_without_query",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_like_search_uses_literals_and_count_uses_identical_filters",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_native_denial_does_not_fall_back_to_other_data",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_native_roles_are_read_only_and_do_not_claim_position_mapping",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_non_string_filters_are_rejected_without_query",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_organization_cap_is_explicit_and_no_hidden_counts_are_queried",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_page_and_size_reject_non_ascii_decimal_or_non_integer_values",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_page_and_total_use_native_permissions_and_phone_is_masked",
+        "tests.test_people_access_read.PeopleAccessReadTest.test_phone_probes_are_rejected_before_count_or_rows"
+      ],
+      "tests.test_management_queries": [
+        "tests.test_management_queries.ManagementQueryTests.test_actual_database_session_sid_and_actor_are_bound_to_read_proof",
+        "tests.test_management_queries.ManagementQueryTests.test_ambiguous_missing_or_relinked_identity_cannot_read_assignment_facts",
+        "tests.test_management_queries.ManagementQueryTests.test_assignment_scope_and_person_scope_must_match_one_complete_rule",
+        "tests.test_management_queries.ManagementQueryTests.test_assignment_scope_cannot_be_combined_across_policies",
+        "tests.test_management_queries.ManagementQueryTests.test_context_preserves_complete_scope_pairs_and_exposes_no_policy_reference",
+        "tests.test_management_queries.ManagementQueryTests.test_current_position_revision_change_before_release_denies_old_rows",
+        "tests.test_management_queries.ManagementQueryTests.test_default_closed_before_source_or_repository_access",
+        "tests.test_management_queries.ManagementQueryTests.test_empty_label_falls_back_to_stable_id_and_label_changes_block_release",
+        "tests.test_management_queries.ManagementQueryTests.test_expiry_revocation_and_new_head_before_release_deny_old_result",
+        "tests.test_management_queries.ManagementQueryTests.test_final_read_proof_is_single_use_and_copies_do_not_authorize",
+        "tests.test_management_queries.ManagementQueryTests.test_hidden_and_nonexistent_person_have_identical_empty_results",
+        "tests.test_management_queries.ManagementQueryTests.test_invalid_query_params_are_strictly_rejected",
+        "tests.test_management_queries.ManagementQueryTests.test_left_or_disabled_linked_account_can_read_facts_without_grant",
+        "tests.test_management_queries.ManagementQueryTests.test_literal_name_and_stable_id_search_do_not_match_phone_or_sql_wildcards",
+        "tests.test_management_queries.ManagementQueryTests.test_lookup_never_reads_hidden_person_label_or_contact_data",
+        "tests.test_management_queries.ManagementQueryTests.test_native_role_name_or_administrator_does_not_replace_management_policy",
+        "tests.test_management_queries.ManagementQueryTests.test_position_and_assignment_outputs_are_minimal_whitelisted_facts",
+        "tests.test_management_queries.ManagementQueryTests.test_read_write_and_lookup_operations_do_not_imply_each_other",
+        "tests.test_management_queries.ManagementQueryTests.test_scope_filter_precedes_total_and_pagination",
+        "tests.test_management_queries.ManagementQueryTests.test_second_pending_read_and_foreign_service_proof_are_rejected",
+        "tests.test_management_queries.ManagementQueryTests.test_source_change_before_release_requires_retry"
+      ],
+      "tests.test_management_query_http": [
+        "tests.test_management_query_http.QueryRequestTests.test_authenticated_same_origin_get_parses_decimal_page_strings",
+        "tests.test_management_query_http.QueryRequestTests.test_context_has_no_parameters_and_assignment_accepts_only_person_paging",
+        "tests.test_management_query_http.QueryRequestTests.test_cookie_session_native_csrf_and_fixed_transport_origin_are_required",
+        "tests.test_management_query_http.QueryRequestTests.test_default_closed_binding_cannot_be_replaced_by_request_data",
+        "tests.test_management_query_http.QueryRequestTests.test_get_exact_path_and_empty_request_body_are_mandatory",
+        "tests.test_management_query_http.QueryRequestTests.test_page_strings_must_be_ascii_digits_without_sign_space_or_decimal",
+        "tests.test_management_query_http.QueryRequestTests.test_query_multidict_preserves_and_rejects_duplicates_and_unknowns",
+        "tests.test_management_query_http.QueryWSGITests.test_all_four_exact_query_routes_require_trusted_handler_capability",
+        "tests.test_management_query_http.QueryWSGITests.test_default_closed_short_circuit_and_native_raw_errors_never_leak_payload",
+        "tests.test_management_query_http.QueryWSGITests.test_destroyed_closed_request_error_never_rolls_back_a_lazy_reconnected_database",
+        "tests.test_management_query_http.QueryWSGITests.test_final_denial_discards_staged_rows_and_performs_full_rollback",
+        "tests.test_management_query_http.QueryWSGITests.test_native_session_upkeep_commit_does_not_claim_fact_write_or_grant",
+        "tests.test_management_query_http.QueryWSGITests.test_query_logging_failure_keeps_denial_and_no_commit",
+        "tests.test_management_query_http.QueryWSGITests.test_query_rpc_without_trusted_wrapper_capability_remains_closed",
+        "tests.test_management_query_http.QueryWSGITests.test_session_metadata_commit_failure_withholds_read_data_without_fact_save_status",
+        "tests.test_management_query_http.QueryWSGITests.test_success_query_is_revalidated_and_rolled_back_before_response_release",
+        "tests.test_management_query_http.QueryWSGITests.test_write_unknown_and_suffix_routes_pass_through_to_their_own_boundaries",
+        "tests.test_management_query_http.ReadGateTests.test_final_result_mismatch_is_not_released_as_success",
+        "tests.test_management_query_http.ReadGateTests.test_only_native_session_update_may_commit_metadata_after_read_release_check",
+        "tests.test_management_query_http.ReadGateTests.test_queries_cannot_commit_before_or_after_staging_or_finalization",
+        "tests.test_management_query_http.ReadGateTests.test_query_domain_error_full_rollback_and_failed_rollback_remain_read_errors"
+      ],
+      "tests.test_management_http": [
+        "tests.test_management_http.CommitBoundaryTests.test_abort_after_fact_commit_reports_unknown_even_for_known_domain_error",
+        "tests.test_management_http.CommitBoundaryTests.test_abort_discards_commit_hooks_but_preserves_native_rollback_watchers",
+        "tests.test_management_http.CommitBoundaryTests.test_after_commit_failure_does_not_claim_that_persisted_facts_rolled_back",
+        "tests.test_management_http.CommitBoundaryTests.test_before_hook_domain_rejection_runs_before_recheck_and_rolls_back",
+        "tests.test_management_http.CommitBoundaryTests.test_database_replacement_cannot_commit_against_a_different_connection",
+        "tests.test_management_http.CommitBoundaryTests.test_early_commit_and_double_commit_never_reach_sql_twice",
+        "tests.test_management_http.CommitBoundaryTests.test_existing_and_added_before_hooks_run_before_final_policy_check",
+        "tests.test_management_http.CommitBoundaryTests.test_known_final_policy_rejection_rolls_back_whole_transaction",
+        "tests.test_management_http.CommitBoundaryTests.test_noop_native_commit_never_confirms_persisted_success",
+        "tests.test_management_http.CommitBoundaryTests.test_pending_requires_one_nonempty_proof",
+        "tests.test_management_http.CommitBoundaryTests.test_recursive_before_commit_is_rejected_without_sql_commit",
+        "tests.test_management_http.CommitBoundaryTests.test_rollback_failure_poisoning_blocks_sql_and_commit",
+        "tests.test_management_http.CommitBoundaryTests.test_sql_commit_failure_is_unknown_and_terminal_for_remaining_request",
+        "tests.test_management_http.CommitBoundaryTests.test_validation_gate_without_service_can_abort_and_poison_failed_rollback",
+        "tests.test_management_http.RequestBoundaryTests.test_actual_body_size_enforced_despite_declared_small_length",
+        "tests.test_management_http.RequestBoundaryTests.test_binding_is_default_closed_and_requires_exact_server_configuration",
+        "tests.test_management_http.RequestBoundaryTests.test_cookie_must_equal_native_sid_and_token_auth_cannot_substitute",
+        "tests.test_management_http.RequestBoundaryTests.test_duplicate_keys_at_any_depth_and_non_finite_json_are_invalid",
+        "tests.test_management_http.RequestBoundaryTests.test_exact_cookie_authenticated_json_parses_without_database_access",
+        "tests.test_management_http.RequestBoundaryTests.test_guest_and_missing_native_user_are_unauthenticated",
+        "tests.test_management_http.RequestBoundaryTests.test_json_root_shape_unknown_fields_and_create_record_id_rejected",
+        "tests.test_management_http.RequestBoundaryTests.test_native_csrf_token_is_required_and_not_replaced_by_body_data",
+        "tests.test_management_http.RequestBoundaryTests.test_origin_and_transport_host_must_both_equal_configured_origin",
+        "tests.test_management_http.RequestBoundaryTests.test_post_and_exact_route_required_no_get_or_suffix_alias",
+        "tests.test_management_http.RequestBoundaryTests.test_query_parameters_and_non_json_body_rejected",
+        "tests.test_management_http.RequestBoundaryTests.test_update_requires_record_id_in_exact_top_level_shape",
+        "tests.test_management_http.SessionTailBoundaryTests.test_arbitrary_after_response_callback_never_receives_session_capability",
+        "tests.test_management_http.SessionTailBoundaryTests.test_changed_connection_session_state_sid_or_actor_prevents_tail",
+        "tests.test_management_http.SessionTailBoundaryTests.test_duplicate_bound_update_callback_cannot_refresh_twice",
+        "tests.test_management_http.SessionTailBoundaryTests.test_exact_bound_slot_session_refresh_may_commit_once_after_fact_commit",
+        "tests.test_management_http.SessionTailBoundaryTests.test_false_native_update_does_not_commit_and_does_not_grant_later_capability",
+        "tests.test_management_http.SessionTailBoundaryTests.test_preexisting_writes_or_queued_commit_hooks_prevent_session_refresh",
+        "tests.test_management_http.SessionTailBoundaryTests.test_session_commit_sql_failure_is_unknown_and_poisoned",
+        "tests.test_management_http.SessionTailBoundaryTests.test_third_commit_from_session_update_is_refused",
+        "tests.test_management_http.SessionTailBoundaryTests.test_unrelated_callback_after_native_refresh_cannot_reuse_commit_capability",
+        "tests.test_management_http.WSGIBoundaryTests.test_after_commit_and_response_cleanup_errors_both_report_unknown_result",
+        "tests.test_management_http.WSGIBoundaryTests.test_api_reentry_after_fact_commit_cannot_release_staged_success",
+        "tests.test_management_http.WSGIBoundaryTests.test_audit_logger_failure_cannot_turn_policy_denial_into_success",
+        "tests.test_management_http.WSGIBoundaryTests.test_committed_non_success_core_response_is_conservatively_unknown",
+        "tests.test_management_http.WSGIBoundaryTests.test_destroyed_native_db_proxy_does_not_break_terminal_gate_restore",
+        "tests.test_management_http.WSGIBoundaryTests.test_early_request_validation_abort_cleans_without_service_or_releasing_body",
+        "tests.test_management_http.WSGIBoundaryTests.test_exact_managed_route_cannot_release_success_without_commit_capability",
+        "tests.test_management_http.WSGIBoundaryTests.test_final_policy_denial_replaces_staged_success_response",
+        "tests.test_management_http.WSGIBoundaryTests.test_native_rpc_without_wrapper_capability_returns_default_closed_error",
+        "tests.test_management_http.WSGIBoundaryTests.test_nonmanaged_and_suffix_routes_are_forwarded_unchanged",
+        "tests.test_management_http.WSGIBoundaryTests.test_outer_request_scope_restored_after_nested_wsgi_wrapper",
+        "tests.test_management_http.WSGIBoundaryTests.test_pending_response_without_core_commit_is_rejected_and_rolled_back",
+        "tests.test_management_http.WSGIBoundaryTests.test_predispatch_native_errors_are_enveloped_without_raw_trace_or_personal_data",
+        "tests.test_management_http.WSGIBoundaryTests.test_success_response_is_buffered_until_actual_commit_and_closes_iterator",
+        "tests.test_management_http.WSGIBoundaryTests.test_uncertain_sql_result_replaces_staged_success_with_same_key_recheck_message"
+      ],
+      "tests.test_management_finalization": [
+        "tests.test_management_finalization.PendingFinalizationTests.test_actual_native_database_replacement_is_detected_even_if_proxy_is_stable",
+        "tests.test_management_finalization.PendingFinalizationTests.test_expiry_at_final_boundary_denies_and_consumes_proof",
+        "tests.test_management_finalization.PendingFinalizationTests.test_final_check_requires_same_root_lock_and_failed_check_consumes_proof",
+        "tests.test_management_finalization.PendingFinalizationTests.test_four_commands_and_their_replays_have_fresh_readonly_final_proofs",
+        "tests.test_management_finalization.PendingFinalizationTests.test_fresh_sources_changed_after_fact_write_require_retry",
+        "tests.test_management_finalization.PendingFinalizationTests.test_native_session_identity_change_denies_finalization",
+        "tests.test_management_finalization.PendingFinalizationTests.test_new_assignment_revision_after_fact_write_requires_retry",
+        "tests.test_management_finalization.PendingFinalizationTests.test_new_position_revision_after_fact_write_requires_retry",
+        "tests.test_management_finalization.PendingFinalizationTests.test_new_valid_policy_revision_still_requires_entire_request_retry",
+        "tests.test_management_finalization.PendingFinalizationTests.test_proof_is_bound_to_exact_owning_service",
+        "tests.test_management_finalization.PendingFinalizationTests.test_proof_is_immutable_and_copy_cannot_replace_issued_object",
+        "tests.test_management_finalization.PendingFinalizationTests.test_receipt_change_and_anchored_history_change_are_rejected",
+        "tests.test_management_finalization.PendingFinalizationTests.test_revoked_current_policy_head_denies_finalization",
+        "tests.test_management_finalization.PendingFinalizationTests.test_superseded_and_explicitly_discarded_proofs_cannot_be_used"
+      ],
+      "tests.test_management_policy": [
+        "tests.test_management_policy.ManagementPolicyTests.test_action_and_scope_cannot_be_combined_across_policies",
+        "tests.test_management_policy.ManagementPolicyTests.test_action_and_scope_cannot_be_combined_across_rules",
+        "tests.test_management_policy.ManagementPolicyTests.test_actor_mismatch_and_disabled_actor_denied",
+        "tests.test_management_policy.ManagementPolicyTests.test_approval_actor_time_revision_generation_and_digest_checked",
+        "tests.test_management_policy.ManagementPolicyTests.test_assignment_duration_cannot_be_borrowed_from_another_rule",
+        "tests.test_management_policy.ManagementPolicyTests.test_assignment_end_limit_in_same_rule_and_null_end_denied",
+        "tests.test_management_policy.ManagementPolicyTests.test_assignment_read_does_not_require_new_assignment_end_or_active_employee",
+        "tests.test_management_policy.ManagementPolicyTests.test_changes_in_fixed_content_invalidate_existing_approval",
+        "tests.test_management_policy.ManagementPolicyTests.test_clean_process_imports_and_evaluation_without_runtime_io",
+        "tests.test_management_policy.ManagementPolicyTests.test_cleanup_does_not_transfer_old_subject_after_native_relink",
+        "tests.test_management_policy.ManagementPolicyTests.test_complete_match_is_immutable_offline_evidence_not_runtime_decision",
+        "tests.test_management_policy.ManagementPolicyTests.test_complete_policy_alternatives_and_deterministic_rule_evidence",
+        "tests.test_management_policy.ManagementPolicyTests.test_context_digest_binds_time_actor_and_entire_proposed_facts",
+        "tests.test_management_policy.ManagementPolicyTests.test_cross_company_person_rule_is_not_an_implicit_exception",
+        "tests.test_management_policy.ManagementPolicyTests.test_default_closed_without_evaluating_inputs",
+        "tests.test_management_policy.ManagementPolicyTests.test_direct_dataclass_construction_is_revalidated_before_matching",
+        "tests.test_management_policy.ManagementPolicyTests.test_disabled_organization_cleanup_requires_later_historical_scope_proof",
+        "tests.test_management_policy.ManagementPolicyTests.test_duplicate_heads_cannot_resurrect_old_active_policy",
+        "tests.test_management_policy.ManagementPolicyTests.test_empty_wildcard_descendant_and_duplicate_scope_rejected",
+        "tests.test_management_policy.ManagementPolicyTests.test_explicit_employee_department_can_differ_from_position_department",
+        "tests.test_management_policy.ManagementPolicyTests.test_explicit_finite_times_required_with_microsecond_precision",
+        "tests.test_management_policy.ManagementPolicyTests.test_inconsistent_person_or_context_shape_cannot_match",
+        "tests.test_management_policy.ManagementPolicyTests.test_left_employee_or_disabled_subject_cannot_increase_facts",
+        "tests.test_management_policy.ManagementPolicyTests.test_missing_approval_and_nonactive_states_denied",
+        "tests.test_management_policy.ManagementPolicyTests.test_new_known_operation_or_new_department_does_not_expand_old_policy",
+        "tests.test_management_policy.ManagementPolicyTests.test_no_policy_does_not_infer_management_from_native_identity",
+        "tests.test_management_policy.ManagementPolicyTests.test_normalized_content_digest_stable_across_input_order_and_timezone",
+        "tests.test_management_policy.ManagementPolicyTests.test_parser_copies_nested_collections_and_freezes_all_levels",
+        "tests.test_management_policy.ManagementPolicyTests.test_person_lookup_is_separate_from_assignment_write",
+        "tests.test_management_policy.ManagementPolicyTests.test_policy_half_open_time_interval",
+        "tests.test_management_policy.ManagementPolicyTests.test_position_create_update_and_read_use_only_their_own_operation",
+        "tests.test_management_policy.ManagementPolicyTests.test_record_references_and_versions_must_match_full_change_context",
+        "tests.test_management_policy.ManagementPolicyTests.test_removing_an_unbounded_old_end_is_a_reduction_not_a_long_term_grant",
+        "tests.test_management_policy.ManagementPolicyTests.test_scope_dimensions_all_required_without_cross_products",
+        "tests.test_management_policy.ManagementPolicyTests.test_self_assignment_creation_restoration_and_extension_denied",
+        "tests.test_management_policy.ManagementPolicyTests.test_self_strict_reduction_still_requires_complete_management_policy",
+        "tests.test_management_policy.ManagementPolicyTests.test_shortening_cannot_disguise_restoration_extension_or_primary_change",
+        "tests.test_management_policy.ManagementPolicyTests.test_site_and_source_provider_are_part_of_binding",
+        "tests.test_management_policy.ManagementPolicyTests.test_sql_like_reference_is_literal_and_does_not_expand_scope",
+        "tests.test_management_policy.ManagementPolicyTests.test_unknown_fields_and_wrong_types_not_silently_ignored",
+        "tests.test_management_policy.ManagementPolicyTests.test_unknown_operations_and_versions_rejected",
+        "tests.test_management_policy.ManagementPolicyTests.test_unknown_unlinked_and_ambiguous_beneficiary_not_assumed_other",
+        "tests.test_management_policy.ManagementPolicyTests.test_update_without_increase_limit_can_only_reduce"
+      ],
+      "tests.test_management_storage": [
+        "tests.test_management_storage.NativeRepositoryContractTests.test_active_history_requires_approval_source_audit_reference",
+        "tests.test_management_storage.NativeRepositoryContractTests.test_database_isolation_and_engine_cannot_silently_downgrade",
+        "tests.test_management_storage.NativeRepositoryContractTests.test_locked_capability_expires_at_transaction_end_or_after_site_change",
+        "tests.test_management_storage.NativeRepositoryContractTests.test_missing_or_tampered_current_revision_refuses_head",
+        "tests.test_management_storage.NativeRepositoryContractTests.test_native_schema_has_physical_keys_no_permissions_or_rpc",
+        "tests.test_management_storage.NativeRepositoryContractTests.test_policy_controller_flags_partial_write_delete_rename_and_revision_overwrite_denied",
+        "tests.test_management_storage.NativeRepositoryContractTests.test_repository_requires_enabled_target_and_transaction",
+        "tests.test_management_storage.NativeRepositoryContractTests.test_subject_query_uses_parameterized_current_heads_and_locked_revision",
+        "tests.test_management_storage.PolicyContractTests.test_approval_pin_binds_site_database_revision_generation_and_full_content",
+        "tests.test_management_storage.PolicyContractTests.test_canonical_policy_record_roundtrip_and_precise_utc",
+        "tests.test_management_storage.PolicyContractTests.test_duplicate_or_mismatched_approval_pins_do_not_pass",
+        "tests.test_management_storage.PolicyContractTests.test_metadata_snapshot_and_provider_tampering_rejected",
+        "tests.test_management_storage.PolicyContractTests.test_raw_approval_strings_cannot_replace_preverified_pin",
+        "tests.test_management_storage.PolicyContractTests.test_source_validation_checks_subject_approver_and_exact_organization",
+        "tests.test_management_storage.PolicyStoreTests.test_administrator_requires_explicit_operator_and_verified_pin",
+        "tests.test_management_storage.PolicyStoreTests.test_default_closed_before_dependency_access",
+        "tests.test_management_storage.PolicyStoreTests.test_disabled_native_operator_cannot_write_even_with_valid_pin",
+        "tests.test_management_storage.PolicyStoreTests.test_expected_revision_generation_and_subject_are_checked",
+        "tests.test_management_storage.PolicyStoreTests.test_failed_history_write_rolls_back_head",
+        "tests.test_management_storage.PolicyStoreTests.test_loader_never_resurrects_a_revoked_head_and_is_default_closed",
+        "tests.test_management_storage.PolicyStoreTests.test_loader_requires_root_lock_native_session_and_approval",
+        "tests.test_management_storage.PolicyStoreTests.test_naive_clock_invalid_version_expired_policy_and_site_denied",
+        "tests.test_management_storage.PolicyStoreTests.test_operator_configuration_cannot_be_a_string_or_guest_list",
+        "tests.test_management_storage.PolicyStoreTests.test_revoke_preserves_history_but_restore_requires_new_pinned_approval",
+        "tests.test_management_storage.PolicyStoreTests.test_revoke_still_works_after_policy_source_is_disabled",
+        "tests.test_management_storage.PolicyStoreTests.test_write_is_transaction_pending_and_records_operator_reason_source"
+      ],
+      "tests.test_managed_relations": [
+        "tests.test_managed_relations.ManagedRelationTests.test_approval_pin_is_required_for_active_policy",
+        "tests.test_managed_relations.ManagedRelationTests.test_assignment_create_replay_is_stable_after_later_update",
+        "tests.test_managed_relations.ManagedRelationTests.test_assignment_update_replay_uses_original_before_after_history",
+        "tests.test_managed_relations.ManagedRelationTests.test_changed_payload_with_same_idempotency_key_is_conflict",
+        "tests.test_managed_relations.ManagedRelationTests.test_changed_policy_generation_between_checks_requires_retry",
+        "tests.test_managed_relations.ManagedRelationTests.test_complete_policy_writes_fact_history_without_grant_effect",
+        "tests.test_managed_relations.ManagedRelationTests.test_compound_revoke_and_extend_is_not_a_strict_reduction",
+        "tests.test_managed_relations.ManagedRelationTests.test_current_source_change_between_checks_rejects_before_write",
+        "tests.test_managed_relations.ManagedRelationTests.test_default_closed_adapter_does_not_write",
+        "tests.test_managed_relations.ManagedRelationTests.test_disabled_approver_cannot_authorize_historical_cleanup",
+        "tests.test_managed_relations.ManagedRelationTests.test_disabled_department_position_cleanup_preserves_original_metadata",
+        "tests.test_managed_relations.ManagedRelationTests.test_disabled_department_requires_history_and_only_allows_strict_reduction",
+        "tests.test_managed_relations.ManagedRelationTests.test_duration_cap_and_finite_limit_apply_to_create",
+        "tests.test_managed_relations.ManagedRelationTests.test_exact_native_session_cannot_be_replaced_by_actor_resolver",
+        "tests.test_managed_relations.ManagedRelationTests.test_expiry_after_fact_write_rolls_back_history_and_receipt",
+        "tests.test_managed_relations.ManagedRelationTests.test_fresh_clock_expiry_between_checks_rolls_back_everything",
+        "tests.test_managed_relations.ManagedRelationTests.test_inactive_position_allows_reduction_without_restoring_assignment",
+        "tests.test_managed_relations.ManagedRelationTests.test_left_disabled_user_and_relinked_employee_only_allow_strict_reduction",
+        "tests.test_managed_relations.ManagedRelationTests.test_long_match_evidence_uses_schema_sized_reference_without_truncation",
+        "tests.test_managed_relations.ManagedRelationTests.test_missing_employee_still_allows_only_immutable_history_cleanup",
+        "tests.test_managed_relations.ManagedRelationTests.test_missing_history_cannot_recover_disabled_organization_scope",
+        "tests.test_managed_relations.ManagedRelationTests.test_person_department_move_uses_original_scope_for_strict_cleanup",
+        "tests.test_managed_relations.ManagedRelationTests.test_policy_repository_must_share_relation_root",
+        "tests.test_managed_relations.ManagedRelationTests.test_replay_requires_current_policy_head_after_revocation",
+        "tests.test_managed_relations.ManagedRelationTests.test_rule_action_and_scope_cannot_be_borrowed_across_rules",
+        "tests.test_managed_relations.ManagedRelationTests.test_self_assignment_create_cannot_benefit_manager",
+        "tests.test_managed_relations.ManagedRelationTests.test_self_benefit_restore_and_extension_denied_but_shrink_allowed",
+        "tests.test_managed_relations.ManagedRelationTests.test_source_evidence_change_cannot_reuse_unchanged_snapshot_digest",
+        "tests.test_managed_relations.ManagedRelationTests.test_tampered_history_cannot_recover_old_beneficiary_or_scope",
+        "tests.test_managed_relations.ManagedRelationTests.test_unknown_client_fields_cannot_inject_management_context"
+      ],
+      "tests.test_frappe_source_loader": [
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_aborted_transaction_uses_full_rollback_and_preserves_retry_cause",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_active_repository_transaction_and_writer_lock_required",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_caught_nested_abort_cannot_restore_outer_source_lock_or_succeed",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_database_connection_or_site_swap_invalidates_context",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_default_disabled_before_any_native_access",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_driver_isolation_and_nontransactional_engine_rejected",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_each_load_reads_current_selected_rows_without_snapshot_cache",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_explicit_server_bindings_required",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_full_fixed_ranges_current_read_in_lock_order_without_pages_or_caches",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_missing_native_modified_fails_without_fabricating_freshness",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_relationship_and_receipt_reads_are_current_with_parameterized_ids",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_scope_revoked_on_failure_and_nested_scope_restores_outer_lock",
+        "tests.test_frappe_source_loader.NativeSourceLoaderTests.test_site_and_database_cannot_be_substituted"
+      ],
+      "tests.test_organization_storage_acceptance": [
+        "tests.test_organization_storage_acceptance.AcceptanceSafetyTests.test_backup_path_escape_or_incomplete_backup_cannot_be_accepted",
+        "tests.test_organization_storage_acceptance.AcceptanceSafetyTests.test_preflight_rejects_any_business_master_or_additional_user",
+        "tests.test_organization_storage_acceptance.AcceptanceSafetyTests.test_preservation_fingerprints_hide_rows_and_ignore_query_order",
+        "tests.test_organization_storage_acceptance.AcceptanceSafetyTests.test_site_flag_expected_fingerprint_and_actual_database_all_must_match"
+      ],
+      "tests.test_organization_relation_service": [
+        "tests.test_organization_relation_service.RelationServiceTests.test_adjacent_assignments_and_secondary_other_department_are_allowed",
+        "tests.test_organization_relation_service.RelationServiceTests.test_assignment_move_or_start_rewrite_requires_new_relation",
+        "tests.test_organization_relation_service.RelationServiceTests.test_assignment_records_fact_and_leaves_qualification_unresolved",
+        "tests.test_organization_relation_service.RelationServiceTests.test_canonical_user_alias_cannot_bypass_overlap",
+        "tests.test_organization_relation_service.RelationServiceTests.test_changed_native_account_link_cannot_move_existing_assignment",
+        "tests.test_organization_relation_service.RelationServiceTests.test_client_cannot_set_actor_subject_generation_or_flags",
+        "tests.test_organization_relation_service.RelationServiceTests.test_concurrent_replays_under_repository_serialization_create_once",
+        "tests.test_organization_relation_service.RelationServiceTests.test_create_has_stable_identity_snapshot_and_no_grant_effect",
+        "tests.test_organization_relation_service.RelationServiceTests.test_default_closed_and_missing_management_policy_do_not_touch_store",
+        "tests.test_organization_relation_service.RelationServiceTests.test_disable_and_restore_advance_generation_without_reviving_grants",
+        "tests.test_organization_relation_service.RelationServiceTests.test_display_edit_increments_revision_and_preserves_old_snapshot",
+        "tests.test_organization_relation_service.RelationServiceTests.test_employee_without_account_can_have_fact_but_not_business_authorization",
+        "tests.test_organization_relation_service.RelationServiceTests.test_equivalent_timezone_input_replays_same_assignment",
+        "tests.test_organization_relation_service.RelationServiceTests.test_expired_or_future_intervals_are_all_scanned_beyond_a_page",
+        "tests.test_organization_relation_service.RelationServiceTests.test_failed_update_keeps_previous_fact_and_history",
+        "tests.test_organization_relation_service.RelationServiceTests.test_failure_at_each_persistence_phase_rolls_back_everything",
+        "tests.test_organization_relation_service.RelationServiceTests.test_future_cutoff_does_not_early_revoke_but_extension_advances_generation",
+        "tests.test_organization_relation_service.RelationServiceTests.test_future_overlapping_primary_and_duplicate_position_are_rejected",
+        "tests.test_organization_relation_service.RelationServiceTests.test_guest_disabled_or_missing_actor_is_denied",
+        "tests.test_organization_relation_service.RelationServiceTests.test_immediate_cutoff_and_assignment_restore_advance_generation",
+        "tests.test_organization_relation_service.RelationServiceTests.test_inactive_position_rejects_active_new_assignment",
+        "tests.test_organization_relation_service.RelationServiceTests.test_invalid_stored_related_interval_is_rejected",
+        "tests.test_organization_relation_service.RelationServiceTests.test_management_decision_must_bind_actor_command_and_scope",
+        "tests.test_organization_relation_service.RelationServiceTests.test_position_relocation_requires_new_identity",
+        "tests.test_organization_relation_service.RelationServiceTests.test_replay_rechecks_management_authority",
+        "tests.test_organization_relation_service.RelationServiceTests.test_same_key_replays_and_changed_payload_conflicts",
+        "tests.test_organization_relation_service.RelationServiceTests.test_same_request_key_is_namespaced_by_actor",
+        "tests.test_organization_relation_service.RelationServiceTests.test_site_or_incomplete_source_cannot_be_used_for_writes",
+        "tests.test_organization_relation_service.RelationServiceTests.test_source_refresh_or_completeness_change_rejects_before_write",
+        "tests.test_organization_relation_service.RelationServiceTests.test_stale_revision_rejected_without_partial_history",
+        "tests.test_organization_relation_service.RelationServiceTests.test_user_only_and_ambiguous_person_cannot_be_accepted"
+      ],
+      "tests.test_organization_storage_guards": [
+        "tests.test_organization_storage_guards.FrappeRepositoryBoundaryTests.test_controlled_insert_releases_capability_on_native_failure",
+        "tests.test_organization_storage_guards.FrappeRepositoryBoundaryTests.test_interval_scan_requests_all_rows_and_normalizes_storage_values",
+        "tests.test_organization_storage_guards.FrappeRepositoryBoundaryTests.test_missing_write_lock_fails_without_automatic_bootstrap",
+        "tests.test_organization_storage_guards.FrappeRepositoryBoundaryTests.test_repository_default_closed_before_accessing_framework",
+        "tests.test_organization_storage_guards.FrappeRepositoryBoundaryTests.test_savepoint_failure_rolls_back_and_never_commits",
+        "tests.test_organization_storage_guards.FrappeRepositoryBoundaryTests.test_source_locks_use_fixed_order_and_parameterized_keys",
+        "tests.test_organization_storage_guards.FrappeRepositoryBoundaryTests.test_stale_native_revision_rejected_without_save",
+        "tests.test_organization_storage_guards.FrappeRepositoryBoundaryTests.test_success_leaves_commit_to_caller",
+        "tests.test_organization_storage_guards.StorageGuardTests.test_capability_is_exact_and_resets_after_exception",
+        "tests.test_organization_storage_guards.StorageGuardTests.test_client_flags_cannot_bypass_validate_or_database_write_guard",
+        "tests.test_organization_storage_guards.StorageGuardTests.test_history_update_delete_rename_and_partial_update_are_rejected",
+        "tests.test_organization_storage_guards.StorageGuardTests.test_nested_capabilities_restore_outer_scope",
+        "tests.test_organization_storage_guards.StorageGuardTests.test_six_schema_definitions_have_physical_keys_and_no_general_write_permission",
+        "tests.test_organization_storage_guards.StorageGuardTests.test_snapshot_identity_and_digest_cannot_be_rewritten"
+      ],
+      "tests.test_organization_source_adapter": [
+        "tests.test_organization_source_adapter.PersonSourceTests.test_ambiguity_is_preserved_even_when_linked_user_is_missing",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_dangling_and_reserved_users_do_not_become_subjects",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_disabled_account_and_nonactive_employee_remain_unqualified",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_employee_dates_are_dates_without_implicit_midnight_policy",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_employee_without_user_preserves_source_and_unlinked_state",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_empty_employee_source_never_fabricates_employee",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_multiple_links_including_inactive_history_are_ambiguous",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_one_visible_link_does_not_prove_global_uniqueness",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_organization_dependencies_and_inconsistent_dates_are_visible",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_unique_website_user_link_is_not_employee_qualification",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_unknown_source_type_or_primary_key_is_rejected_without_guessing",
+        "tests.test_organization_source_adapter.PersonSourceTests.test_user_and_employee_aliases_resolve_to_same_canonical_reference",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_assignment_invalid_intervals_versions_and_extra_fields_are_rejected",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_assignment_maps_stable_source_revisions_and_explicit_utc_fields",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_assignment_rejects_unknown_position_or_cross_company_employee",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_assignment_subject_claim_cannot_override_source_resolution",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_bool_or_missing_generations_are_not_replaced_with_modified",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_disabled_dangling_cyclic_or_cross_company_ancestors_are_rejected",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_evidence_from_different_snapshot_cannot_be_mixed",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_optional_designation_is_not_replaced_with_a_concrete_position",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_position_requires_real_department_company_and_category_references",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_same_labels_keep_distinct_ids_and_department_references",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_secondary_assignment_does_not_require_employee_department_to_match",
+        "tests.test_organization_source_adapter.RelationshipMappingTests.test_unlinked_assignment_stays_unlinked_without_creating_account",
+        "tests.test_organization_source_adapter.SourceSnapshotTests.test_completeness_flag_and_employee_dates_use_strict_types",
+        "tests.test_organization_source_adapter.SourceSnapshotTests.test_completeness_is_a_separate_explicit_declaration",
+        "tests.test_organization_source_adapter.SourceSnapshotTests.test_duplicate_ids_missing_fields_and_unknown_types_rejected",
+        "tests.test_organization_source_adapter.SourceSnapshotTests.test_fresh_process_import_and_adaptation_have_no_runtime_io",
+        "tests.test_organization_source_adapter.SourceSnapshotTests.test_modified_is_preserved_without_becoming_an_integer_version",
+        "tests.test_organization_source_adapter.SourceSnapshotTests.test_native_check_fields_accept_only_boolean_or_integer_zero_one",
+        "tests.test_organization_source_adapter.SourceSnapshotTests.test_snapshots_are_copies_and_deeply_immutable",
+        "tests.test_organization_source_adapter.SourceSnapshotTests.test_unknown_fields_and_errors_never_echo_sensitive_payload",
+        "tests.test_organization_source_adapter.TimeCodecTests.test_codec_rejects_aware_storage_and_naive_protocol_datetime",
+        "tests.test_organization_source_adapter.TimeCodecTests.test_explicit_utc_storage_round_trip_does_not_assume_local_timezone",
+        "tests.test_organization_source_adapter.TimeCodecTests.test_half_open_expiry_is_independent_of_scheduler_or_browser_clock",
+        "tests.test_organization_source_adapter.TimeCodecTests.test_naive_dates_invalid_offsets_and_precision_loss_are_rejected",
+        "tests.test_organization_source_adapter.TimeCodecTests.test_offsets_normalize_and_preserve_microseconds"
+      ],
+      "tests.test_authorization_registry": [
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_duplicate_app_still_quarantines_both_when_one_payload_is_invalid",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_historical_retired_action_preserved_but_new_template_rejected",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off01_valid_definition_is_only_structural",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off02_extensible_apps_and_invalid_isolation",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off03_duplicate_apps_all_quarantined_in_either_order",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off04_duplicate_actions_and_namespace_intrusion",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off05_versions_are_positive_integers_and_supported",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off06_missing_or_incompatible_references",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off07_untrusted_claim_and_executable_fields_rejected",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off08_manifest_claims_never_become_runtime_proof",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off09_new_directory_actions_do_not_expand_fixed_template",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off10_template_fixed_version_conflict",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off11_nested_input_mutations_do_not_change_snapshot",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off19_fresh_process_no_runtime_io_or_frappe",
+        "tests.test_authorization_registry.AuthorizationRegistryTests.test_off20_payload_safe_stable_errors_with_healthy_app"
+      ],
+      "tests.test_authorization_relations": [
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_cross_app_components_require_their_own_registered_scope",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_fixed_role_and_binding_version_conflicts_require_new_version",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_half_open_intervals_and_different_persons_do_not_conflict",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_inactive_position_projection_preserved_not_used_as_qualification",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_missing_role_template_position_and_duplicate_components_rejected",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_off12_two_assignments_keep_whole_role_scope_pairs",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_off13_incomplete_extra_empty_wrong_or_executable_scope_rejected",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_off14_equal_labels_never_merge_department_positions_or_business_ids",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_off15_unlinked_unknown_and_ambiguous_qualifications_are_preserved",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_off16_intervals_timezone_and_null_end_are_not_permanent_approval",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_off17_primary_overlap_and_duplicate_assignment_conflicts",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_off18_revision_generation_and_source_status_never_autorevive",
+        "tests.test_authorization_relations.AuthorizationRelationTests.test_relation_snapshots_are_deeply_immutable_and_payload_safe"
+      ]
+    },
+    "previous_total": 339,
+    "elapsed_seconds": 0.864,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "native_preflight": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "server": "9695c5a0f6c1",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "preflight": {
+      "native_counts": {
+        "User": 2,
+        "Employee": 0,
+        "Company": 0,
+        "Department": 0,
+        "Designation": 0
+      },
+      "tables_present": {
+        "HBOS Organization Write Lock": true,
+        "HBOS Position": true,
+        "HBOS Personnel Assignment": true,
+        "HBOS Position Revision": true,
+        "HBOS Personnel Assignment Revision": true,
+        "HBOS Organization Command Receipt": true
+      }
+    },
+    "policy_tables_present": {
+      "HBOS Organization Management Policy": true,
+      "HBOS Organization Management Policy Revision": true
+    },
+    "relation_schema": {
+      "HBOS Organization Write Lock": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Position": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Personnel Assignment": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Position Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Personnel Assignment Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Command Receipt": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "policy_schema": {
+      "HBOS Organization Management Policy": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Management Policy Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    }
+  },
+  "native_acceptance": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "server": "9695c5a0f6c1",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "preflight": {
+      "native_counts": {
+        "User": 2,
+        "Employee": 0,
+        "Company": 0,
+        "Department": 0,
+        "Designation": 0
+      },
+      "tables_present": {
+        "HBOS Organization Write Lock": true,
+        "HBOS Position": true,
+        "HBOS Personnel Assignment": true,
+        "HBOS Position Revision": true,
+        "HBOS Personnel Assignment Revision": true,
+        "HBOS Organization Command Receipt": true
+      }
+    },
+    "policy_tables_present": {
+      "HBOS Organization Management Policy": true,
+      "HBOS Organization Management Policy Revision": true
+    },
+    "relation_schema": {
+      "HBOS Organization Write Lock": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Position": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Personnel Assignment": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Position Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Personnel Assignment Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Command Receipt": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "policy_schema": {
+      "HBOS Organization Management Policy": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Management Policy Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "preview_hooks_cache_refresh": "Exact Preview site-scoped app_hooks key in explicit test phase only",
+    "tests_run": 9,
+    "test_names": [
+      "test_admin_and_system_manager_model_permission_and_query_guard",
+      "test_desk_reportview_form_load_link_search_export_all_types",
+      "test_document_method_routes_and_legacy_cmd_cannot_return_protected_doc",
+      "test_explicit_native_docshare_does_not_open_managed_storage",
+      "test_named_and_custom_reference_reports_resolve_server_protected_target",
+      "test_native_client_rpc_list_count_document_value_permission_all_types",
+      "test_nested_client_insert_save_and_desk_flags_cannot_bypass",
+      "test_personnel_directory_phone_rejected_before_query_and_name_is_literal",
+      "test_rest_v1_v2_list_document_count_copy_meta_all_eight_types"
+    ],
+    "test_status": "PASS",
+    "native_preservation": "PASS",
+    "report_docshare_preservation": "PASS",
+    "final_native_counts": {
+      "User": 2,
+      "Employee": 0,
+      "Company": 0,
+      "Department": 0,
+      "Designation": 0
+    },
+    "final_managed_counts": {
+      "HBOS Organization Write Lock": 0,
+      "HBOS Position": 0,
+      "HBOS Personnel Assignment": 0,
+      "HBOS Position Revision": 0,
+      "HBOS Personnel Assignment Revision": 0,
+      "HBOS Organization Command Receipt": 0,
+      "HBOS Organization Management Policy": 0,
+      "HBOS Organization Management Policy Revision": 0
+    },
+    "tables_empty": true,
+    "http_requests_by_category": {
+      "desk_reads_export": 96,
+      "document_methods_legacy": 64,
+      "docshare_reads": 16,
+      "named_custom_reports": 32,
+      "native_client_reads": 64,
+      "native_document_writes": 40,
+      "native_personnel_directory": 4,
+      "rest_v1_v2": 72
+    },
+    "http_requests": 388,
+    "model_permission_checks": 80,
+    "trusted_internal_share_query": "NATIVE_SHARED_ROW_BRANCH_ALLOWED_TRUSTED_SERVER_ONLY",
+    "real_native_password_session": true,
+    "administrator_http": "NOT_RUN",
+    "limits": "System Manager HTTP and Administrator model only; no Administrator password/session fabrication, real management activation, schema action, business grant, original-site write or full restore. Enumerated native storage routes only; arbitrary custom SQL reports and future RPCs not universally audited."
+  },
+  "native_query_regression": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "server": "9695c5a0f6c1",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "preflight": {
+      "native_counts": {
+        "User": 2,
+        "Employee": 0,
+        "Company": 0,
+        "Department": 0,
+        "Designation": 0
+      },
+      "tables_present": {
+        "HBOS Organization Write Lock": true,
+        "HBOS Position": true,
+        "HBOS Personnel Assignment": true,
+        "HBOS Position Revision": true,
+        "HBOS Personnel Assignment Revision": true,
+        "HBOS Organization Command Receipt": true
+      }
+    },
+    "policy_tables_present": {
+      "HBOS Organization Management Policy": true,
+      "HBOS Organization Management Policy Revision": true
+    },
+    "relation_schema": {
+      "HBOS Organization Write Lock": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Position": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Personnel Assignment": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Position Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Personnel Assignment Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Command Receipt": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "policy_schema": {
+      "HBOS Organization Management Policy": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Management Policy Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "tests_run": 16,
+    "test_names": [
+      "test_assignment_read_is_independent_and_matches_person_and_position_scope",
+      "test_company_department_and_search_filters_cannot_widen_scope",
+      "test_context_has_only_independent_read_operations_and_scoped_metadata",
+      "test_expired_policy_refuses_query_and_returns_no_count",
+      "test_native_application_and_unbound_query_wrapper_remain_closed",
+      "test_native_session_refresh_commits_metadata_without_managed_fact_write",
+      "test_native_system_manager_without_policy_cannot_query",
+      "test_person_lookup_is_independent_and_projects_only_safe_fields",
+      "test_policy_expiring_after_selection_is_refused_before_release",
+      "test_position_filtering_happens_before_total_and_pagination",
+      "test_position_read_does_not_supply_assignment_or_person_lookup",
+      "test_protocol_cookie_csrf_origin_method_fields_and_duplicates_are_strict",
+      "test_return_guard_rejects_fact_changed_by_independent_controlled_writer",
+      "test_return_guard_rejects_native_source_changed_by_independent_connection",
+      "test_return_guard_rejects_policy_changed_by_independent_committed_connection",
+      "test_revoked_policy_refuses_query_and_returns_no_count"
+    ],
+    "test_status": "PASS",
+    "native_preservation": "PASS",
+    "final_native_counts": {
+      "User": 2,
+      "Employee": 0,
+      "Company": 0,
+      "Department": 0,
+      "Designation": 0
+    },
+    "final_managed_counts": {
+      "HBOS Organization Write Lock": 0,
+      "HBOS Position": 0,
+      "HBOS Personnel Assignment": 0,
+      "HBOS Position Revision": 0,
+      "HBOS Personnel Assignment Revision": 0,
+      "HBOS Organization Command Receipt": 0,
+      "HBOS Organization Management Policy": 0,
+      "HBOS Organization Management Policy Revision": 0
+    },
+    "tables_empty": true,
+    "real_native_password_session": true,
+    "limits": "No Administrator password/session fabrication, real management activation, schema action, business grant or full restore."
+  },
+  "native_write_regression": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "server": "9695c5a0f6c1",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "preflight": {
+      "native_counts": {
+        "User": 2,
+        "Employee": 0,
+        "Company": 0,
+        "Department": 0,
+        "Designation": 0
+      },
+      "tables_present": {
+        "HBOS Organization Write Lock": true,
+        "HBOS Position": true,
+        "HBOS Personnel Assignment": true,
+        "HBOS Position Revision": true,
+        "HBOS Personnel Assignment Revision": true,
+        "HBOS Organization Command Receipt": true
+      }
+    },
+    "policy_tables_present": {
+      "HBOS Organization Management Policy": true,
+      "HBOS Organization Management Policy Revision": true
+    },
+    "relation_schema": {
+      "HBOS Organization Write Lock": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Position": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Personnel Assignment": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Position Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Personnel Assignment Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Command Receipt": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "policy_schema": {
+      "HBOS Organization Management Policy": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Management Policy Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "tests_run": 15,
+    "test_names": [
+      "test_assignment_routes_commit_and_self_benefit_request_is_refused",
+      "test_before_commit_policy_source_and_master_changes_refuse_and_roll_back",
+      "test_before_commit_recursive_and_early_commit_are_refused",
+      "test_delay_after_execute_expires_policy_before_actual_commit",
+      "test_get_unknown_fields_and_client_management_identity_refused",
+      "test_missing_or_wrong_csrf_wrong_origin_and_guest_session_refused",
+      "test_native_password_login_session_resume_and_successful_committed_create_update",
+      "test_native_session_refresh_threshold_commits_fact_and_session_tail",
+      "test_native_system_manager_role_does_not_supply_management_policy",
+      "test_plain_native_application_and_disabled_wrapper_cannot_write",
+      "test_revision_receipt_and_serialization_faults_roll_back_whole_request",
+      "test_rollback_failure_returns_unavailable_without_success_and_closes_connection",
+      "test_same_key_replay_and_conflict_remain_currently_authorized",
+      "test_sql_commit_and_after_commit_faults_report_unknown_never_false_rollback",
+      "test_unapproved_third_commit_after_real_session_refresh_is_refused"
+    ],
+    "test_status": "PASS",
+    "native_preservation": "PASS",
+    "final_native_counts": {
+      "User": 2,
+      "Employee": 0,
+      "Company": 0,
+      "Department": 0,
+      "Designation": 0
+    },
+    "final_managed_counts": {
+      "HBOS Organization Write Lock": 0,
+      "HBOS Position": 0,
+      "HBOS Personnel Assignment": 0,
+      "HBOS Position Revision": 0,
+      "HBOS Personnel Assignment Revision": 0,
+      "HBOS Organization Command Receipt": 0,
+      "HBOS Organization Management Policy": 0,
+      "HBOS Organization Management Policy Revision": 0
+    },
+    "tables_empty": true,
+    "real_native_password_session": true,
+    "administrator_http_no_policy": "NOT_RUN: no Administrator password use/change or fabricated session.",
+    "fault_injection": "Request-limited synthetic hooks; no claim of real network loss.",
+    "limits": "No real management activation, external service request, Date qualification, business grant or full restore."
+  },
+  "original_site_readonly": {
+    "site": "frontend",
+    "database_sha256": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+    "readonly": true,
+    "native_counts": {
+      "User": 18,
+      "Employee": 0,
+      "Company": 1,
+      "Department": 14,
+      "Designation": 31
+    },
+    "tables_present": {
+      "HBOS Organization Write Lock": false,
+      "HBOS Position": false,
+      "HBOS Personnel Assignment": false,
+      "HBOS Position Revision": false,
+      "HBOS Personnel Assignment Revision": false,
+      "HBOS Organization Command Receipt": false,
+      "HBOS Organization Management Policy": false,
+      "HBOS Organization Management Policy Revision": false
+    }
+  },
+  "approval_transport": {
+    "interruptions_without_execution": 3,
+    "recovered_same_scope": true,
+    "bypassed": false
+  },
+  "boundary": {
+    "protected_doctypes": [
+      "HBOS Organization Command Receipt",
+      "HBOS Organization Management Policy",
+      "HBOS Organization Management Policy Revision",
+      "HBOS Organization Write Lock",
+      "HBOS Personnel Assignment",
+      "HBOS Personnel Assignment Revision",
+      "HBOS Position",
+      "HBOS Position Revision"
+    ],
+    "native_permission_default_closed": true,
+    "controlled_create_write_exact_private_capability": true,
+    "production_management_wrapper_installed": false,
+    "real_policy_and_approval_pins_configured": false,
+    "frontend_schema_core_original_site_config_modified": false,
+    "hooks_and_existing_application_source_modified": true,
+    "original_site_hooks_cache_refresh": false,
+    "original_site_restart": false,
+    "original_site_new_code_browser_verified": false,
+    "preview_hooks_cache_refresh": "site-scoped app_hooks in explicit test phase only",
+    "personnel_domain": "native_personnel",
+    "management_policy_applied_to_personnel_directory": false,
+    "phone_filter_nonempty_rejected_before_query": true,
+    "phone_display": "masked under native personnel permissions",
+    "authorization_effect": "none",
+    "position_authorization_connected": false
+  },
+  "limitations": [
+    "Administrator HTTP NOT_RUN; native Administrator model checked.",
+    "Trusted internal no-role shared-row branch can return a protected shared row; HTTP rejected.",
+    "Internal get_doc/get_all/ignore_permissions/direct SQL are not sandboxed.",
+    "Arbitrary custom SQL report or server script using another ref_doctype is not universally audited.",
+    "Original 5178 new-code online loading/browser validation NOT_RUN; counts only read.",
+    "Phone display remains masked native domain; all ERP/HR/REST phone fields are not globally filtered.",
+    "Front-end phone input unchanged; nonempty now receives INVALID_REQUEST and awaits UI alignment.",
+    "Production management binding/pins and human policies not configured; no facts save/grants activated.",
+    "Full audit/lifecycle/network/restore/Date/fixedP1/Q1/Q2/Owner gates remain."
+  ],
+  "gates": {
+    "MG21_MG22": "PARTIAL: enumerated native protected storage routes PASS; no universal trusted-code SQL sandbox",
+    "MG13": "PARTIAL: System Manager HTTP and Administrator model PASS; Administrator HTTP NOT_RUN",
+    "MG12_MG19_MG20_MG23": "PARTIAL: previous evidence retained, full UI/scale/timing/lifecycle/audit/network/restore not proven"
+  },
+  "milestone": {
+    "S01_B": "PARTIAL",
+    "S02": "PARTIAL",
+    "C": "NOT_STARTED",
+    "S03_S06": "NOT_STARTED",
+    "real_position_authorization": "NOT_RUN",
+    "P4_F6_5": "REVIEWING"
+  },
+  "next_step": "正式路径只读接入与UI目录/管理查询分域、手机筛选对齐，准备可审核生产配置和验收清单；真实保存保留原门禁。",
+  "closeout_qa": {
+    "status": "PASS",
+    "changed_this_turn": 33,
+    "new_files": 5,
+    "source_files": 8,
+    "existing_source_files_modified": 5,
+    "existing_documents_updated": 23,
+    "existing_files_unchanged": 1254,
+    "python_3_10_syntax": "PASS",
+    "json_source_hashes_and_test_counts": "PASS",
+    "local_markdown_links_checked": 355,
+    "whitespace": "PASS",
+    "public_status_and_m2_gate": "CONSISTENT",
+    "frontend_schema_framework_core_and_previous_evidence": "UNCHANGED",
+    "original_site": "READONLY_COUNTS_ONLY_NO_CACHE_RESTART_OR_MANAGEMENT_BINDING",
+    "branch": "m2-r11@27d3558",
+    "merge_index": "CLEAR"
+  },
+  "independent_review": {
+    "status": "PASS",
+    "scope": "源码/权限兼容性、原始日志/摘要/计数/清理/指纹、5178只读、状态入口与门禁限制",
+    "code_or_site_changed_by_reviewer": false
+  }
+}

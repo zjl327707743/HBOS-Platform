@@ -1,0 +1,178 @@
+{
+  "date": "2026-10-09",
+  "branch": "m2-r11",
+  "head": "27d3558",
+  "status": "S02_PORTAL_READONLY_INTEGRATION_PREPARED / PARTIAL / REVIEWING / 5178_REAL_READONLY",
+  "scope": {
+    "frontend_files": 10,
+    "approved_prototype_reused": true,
+    "mock_server_started": false,
+    "backend_modified": false,
+    "site_operations": false,
+    "write_actions_enabled": false,
+    "business_grant": "NOT_RUN"
+  },
+  "verification": {
+    "vitest": {
+      "total": 179,
+      "passed": 179,
+      "failed": 0,
+      "skipped": 0,
+      "added_this_round": 88,
+      "modules": {
+        "accountRegression.test.ts": 17,
+        "deskNavigation.test.ts": 3,
+        "limsSessionRetry.test.ts": 2,
+        "loginLimitRegression.test.ts": 8,
+        "managedOrganizationReadOnly.test.ts": 11,
+        "managementGetSecurity.test.ts": 15,
+        "mergeCsrfRegression.test.ts": 7,
+        "motionRegression.test.ts": 1,
+        "organizationManagementApi.test.ts": 42,
+        "peopleAccessApiContract.test.ts": 19,
+        "peopleAccessDemo.test.ts": 15,
+        "peopleAccessLive.test.ts": 7,
+        "profileCloseout.test.ts": 14,
+        "sessionAccessRegression.test.ts": 6,
+        "sessionRegression.test.ts": 10,
+        "subjectViewRegression.test.ts": 2
+      },
+      "json_sha256": "1ff65beb38b6362527bc11e66b5cc5ca691239f0ff3a25c0ba2e0af15e72412d",
+      "log_sha256": "e816ed51271408d9e4341b8fc5a08d711e162e84cfd1b4c12dd4be4bdd0ae431"
+    },
+    "node_tests": {
+      "total": 35,
+      "passed": 35,
+      "failed": 0,
+      "exit_code": 0
+    },
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "mock_content_gate": "PASS",
+    "lims_frontend_contract": "PASS",
+    "frappe_production_build": {
+      "status": "PASS",
+      "modules": 3408,
+      "exit_code": 0,
+      "warning": "Existing chunks above 500kB; not changed in this scope"
+    },
+    "independent_review": {
+      "status": "PASS",
+      "memory_reproductions": 4,
+      "fixed_findings": [
+        "CONFLICT_RETRY_REQUIRED mapping",
+        "old-session response release and error side-effects"
+      ]
+    },
+    "es2020_initial_typecheck": "FAILED_OBJECT_HASOWN_FIXED_AND_RECHECKED",
+    "independent_document_review": "PASS"
+  },
+  "source_sha256": {
+    "frontend/hbos-portal-web/src/services/frappeClient.ts": "dad7ddcf9ed2cf8d6fa43929dc50c9543585a069e7191bc28374ffc4b0cbccff",
+    "frontend/hbos-portal-web/src/services/peopleAccessApi.ts": "f7fd038d3e90a041c1c6d9aa795f53fe45da336f5333552e93ea029c04f4f91d",
+    "frontend/hbos-portal-web/src/services/organizationManagementApi.ts": "e56e8acf6133e86e1c853f1b9fce5345e820018e5ae34bd6092a6efd677ae1f5",
+    "frontend/hbos-portal-web/src/views/PeopleAccessView.vue": "4e4e44902ebf2f874346c31dc1e66aa273e6736220827adc71a19ba2ff425f13",
+    "frontend/hbos-portal-web/src/components/peopleAccess/ManagedOrganizationReadOnly.vue": "8d2b6fbb872f36f03e76983ab04236785bfb42d7a25f994b5e7d8780aebedf98",
+    "frontend/hbos-portal-web/tests/organizationManagementApi.test.ts": "5c3ab6cfd68ba4c0ebb378aabd08154644b444e57924ec07168fd3bd62fd2167",
+    "frontend/hbos-portal-web/tests/peopleAccessApiContract.test.ts": "0067a4570a3ed745d09788982bf03048ea047bf06f50b449ef1857fb1307ab4f",
+    "frontend/hbos-portal-web/tests/managementGetSecurity.test.ts": "34c243d8e43bb3e2abc9e8fd1c7d195040dcf99d6ede65638f7af657e79c1a87",
+    "frontend/hbos-portal-web/tests/managedOrganizationReadOnly.test.ts": "4843790a21f81ac2fd1f18a287f5f57c756296ff105aea4bd260895b8f2c502e",
+    "frontend/hbos-portal-web/tests/peopleAccessLive.test.ts": "a44b9c37ed945939f9fa44d887c7fa887e75529ecb46bf195cf5974647f17c54"
+  },
+  "build_artifacts_sha256": {
+    "frontend/hbos-portal-web/dist/assets/PeopleAccessView-Ba4JL14Z.js": "a0079717b2de7d2258732384d08b48849fdbffa0b3629cf44a7f328e9bd74e97",
+    "frontend/hbos-portal-web/dist/assets/PeopleAccessView-DFiKZUnr.css": "d2c8320fca88b79e462c395f166192f6ea3c740f1f3d6e200fa0bfb7cccf8fea"
+  },
+  "browser": {
+    "initial_prechange_page_observed": true,
+    "postchange_verification": "NOT_RUN",
+    "approval_review_failure": "TRANSPORT_DISCONNECTED_ACTION_NOT_EXECUTED",
+    "deemed_unsafe": false,
+    "retried_or_bypassed": false,
+    "new_screenshot": false
+  },
+  "production": {
+    "management_read_activation": "NOT_READY",
+    "management_get_runtime": "NOT_RUN",
+    "configuration_loader": "NOT_IMPLEMENTED",
+    "wsgi_query_installation": "NOT_IMPLEMENTED",
+    "schema_or_root_lock_preparation": "NOT_RUN",
+    "policy_or_pin_creation": "NOT_RUN",
+    "restore": "NOT_RUN",
+    "readonly_sql_this_round": "NOT_RUN",
+    "prior_only_baseline": {
+      "reference": "人员权限_普通查询旁路验收摘要_20261009.json",
+      "User": 18,
+      "Employee": 0,
+      "Company": 1,
+      "Department": 14,
+      "Designation": 31,
+      "managed_tables_present": 0
+    }
+  },
+  "prior_backend_evidence_only": {
+    "offline": 372,
+    "native_scenarios": 9,
+    "http_requests": 388,
+    "model_checks": 80,
+    "management_queries": 16,
+    "write_regressions": 15,
+    "rerun_this_round": false
+  },
+  "gates": {
+    "S01_B": "PARTIAL",
+    "S02": "PARTIAL",
+    "C_S03_S06": "NOT_STARTED",
+    "P4_F6_5": "REVIEWING",
+    "business_grant": "NOT_RUN",
+    "Q1_Q2_Date_P1_restore_Owner": "RETAINED"
+  },
+  "documents_updated": [
+    "docs/plans/权限管理_后端详细设计与实施拆分.md",
+    "docs/plans/权限管理_S01首段实施范围与离线验收规格.md",
+    "docs/plans/权限管理_岗位任职与角色关联后端契约.md",
+    "docs/plans/权限管理_IAM对齐与首批字段映射.md",
+    "docs/milestones/M2_人员权限岗位任职存储与版本方案.md",
+    "docs/milestones/M2_人员权限S01B来源适配实施记录.md",
+    "docs/milestones/M2_人员权限S02岗位任职存储实施记录.md",
+    "docs/milestones/M2_人员权限S02隔离数据库验收记录.md",
+    "docs/frontend/人员与权限管理_前端复刻实施记录.md",
+    "docs/milestones/M2_人员权限S01B实时来源与管理边界验收记录.md",
+    "docs/plans/权限管理_业务权限矩阵与授权流程草案.md",
+    "docs/milestones/M2_人员权限管理边界与受控接口实施规格.md",
+    "docs/milestones/M2_人员权限管理政策离线实施记录.md",
+    "docs/milestones/M2_人员权限管理政策可信存储实施记录.md",
+    "docs/milestones/M2_人员权限完整管理适配与收窄实施记录.md",
+    "docs/milestones/M2_人员权限HTTP请求边界与提交前复核实施记录.md",
+    "docs/milestones/M2_人员权限管理查询范围与分页隔离实施记录.md",
+    "docs/milestones/M2_人员权限普通查询旁路与人员目录边界实施记录.md",
+    "README.md",
+    "docs/AI_CONTEXT.md",
+    "docs/READING_GUIDE.md",
+    "frontend/hbos-portal-web/README.md",
+    "docs/PROJECT_STATUS.md",
+    "docs/CURRENT_MILESTONE.md",
+    "docs/milestones/M2_START_GATE.md",
+    "docs/milestones/M2_人员权限Portal只读查询接入与启用准备实施记录.md",
+    "docs/plans/人员权限_5178只读管理启用配置与验收清单.md"
+  ],
+  "rule_documents_checked_not_modified": [
+    "CLAUDE.md",
+    "AGENTS.md"
+  ],
+  "closeout_qa": {
+    "status": "PASS",
+    "baseline_files": 1287,
+    "current_files": 1296,
+    "changed_files": 38,
+    "existing_modified": 29,
+    "added_files": 9,
+    "existing_unchanged": 1258,
+    "removed_files": 0,
+    "local_markdown_links_checked": 402,
+    "unexpected_changes": [],
+    "expected_changes_missing": [],
+    "backend_schema_prior_evidence_unchanged": true,
+    "rule_files_unchanged": true
+  }
+}

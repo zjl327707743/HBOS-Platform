@@ -32,7 +32,7 @@
             </template>
             <template v-else-if="column.key === 'actions'">
               <a-button type="link" size="small" @click="previewSpec(record)">明细</a-button>
-              <a-button type="link" size="small" @click="openEdit(record)">修订</a-button>
+              <a-button v-if="record.status === '草稿'" type="link" size="small" @click="openEdit(record)">修订</a-button>
               <a-button v-if="record.status !== '已废止'" type="link" size="small" @click="handleUpgrade(record)">升版</a-button>
               <a-button v-if="record.status === '草稿'" type="link" size="small" @click="handleActivate(record)">生效</a-button>
               <a-button v-if="record.status === '已生效'" type="link" size="small" @click="handleObsolete(record)">废止</a-button>
@@ -430,9 +430,13 @@ async function saveSpec() {
       await updateSpecification({ ...payload, spec_name: form.sourceName, spec_name_label: form.spec_name })
       message.success('质量标准已修订')
     } else {
-      // 升版：基于当前规格复制为新版本（版本号 +0.1）
-      await createSpecification({ ...payload, version: form.newVersion })
-      message.success(`质量标准已升版为 V${form.newVersion}（草稿）`)
+      // 升版：基于当前规格复制为新版本（版本号 +0.1），并声明被替代版本以保留版本链
+      await createSpecification({
+        ...payload,
+        version: form.newVersion,
+        supersedes: form.sourceName,
+      })
+      message.success(`质量标准已升版为 V${form.newVersion}（草稿，替代 ${form.sourceName}）`)
     }
     showForm.value = false
     await loadSpecs()

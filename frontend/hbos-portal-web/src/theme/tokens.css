@@ -55,6 +55,10 @@
   --hbos-text-secondary: #425675;
   --hbos-text-muted: #72829d;
 
+  /* LIMS accents also apply to drawers teleported outside the page shell. */
+  --lims-ink: #174a45;
+  --lims-green: #20aa83;
+
   --hbos-border-default: rgba(65,91,138,.10);
   --hbos-border-strong: rgba(65,91,138,.16);
 

@@ -19,7 +19,7 @@
 | `docs/frontend/M2_R7_留样板块前端原型.html` | 交互式 HTML 原型，6 个视图，可用 `#view` 直达 |
 | `docs/milestones/M2_R7D_留样板块前端设计.md` | 本文件（轮次主文档） |
 
-设计图渲染文件位于本地可视化目录（非仓库交付物）：`【本地私有路径已省略】`。
+设计图渲染文件位于本地可视化目录（非仓库交付物）：`/Users/hbzl/.codex/visualizations/2026/09/07/01a07a89-2a2a-7521-aeb5-42c049a88c41/m2-r7-retention-design/`。
 
 ## 设计范围
 
@@ -45,7 +45,7 @@ Owner 2026-09-08 确认按本方案进入 Vue 复刻并授权同步生产。在 
 - **路由与导航**：`/retention`（工作台总览）、`/retention/samples`、`/retention/products`、`/retention/observations`、`/retention/usage`、`/retention/disposal`；侧栏「留样管理」扩为 6 入口。
 - **新增文件**：`RetentionDashboardView / RetentionObservationsView / RetentionUsageView / RetentionDisposalView` 四视图；`styles/retention.scss` 共用布局/状态样式；`src/demo/retentionDemo.ts` 演示数据源与演示角色矩阵；`components/retention/DemoBar`（演示横幅 + 身份切换，驱动角色动作矩阵显隐与 SoD 提示）；登记台账/产品沿用真实 R7A 页并小幅对齐（可用量独立列、临期范围筛选、页头样式统一）。
 - **数据口径**：登记台账/产品接真实 R7A API；工作台/观察/使用/处理 4 视图因 R7B/C 后端已实现（演示数据源已切换真实 API），先以演示数据（TEST-HBOS-M2-RET-*）渲染完整 UI 与交互并横幅标注，操作不真实落库；R7B/C 后端落地后将 `retentionDemo` 演示数据源替换为 `retention_service` whitelist。
-- **验证与部署**：`vue-tsc` 0 错误；六路由浏览器回归无控制台错误；生产构建 `npm run build:prod`；`docker cp` 同步生产容器 `hbos-m0-r3a-frontend-1`（备份 `【内部备份标识已省略】`，root 清旧 assets 防新旧 hash 残留）；`http://localhost:8080/hbos-lims/` 全部页面与主/视图 bundle HTTP 200。
+- **验证与部署**：`vue-tsc` 0 错误；六路由浏览器回归无控制台错误；生产构建 `npm run build:prod`；`docker cp` 同步生产容器 `hbos-m0-r3a-frontend-1`（备份 `hbos-lims.bak-20260908101325`，root 清旧 assets 防新旧 hash 残留）；`http://localhost:8080/hbos-lims/` 全部页面与主/视图 bundle HTTP 200。
 
 ## 验收清单（Owner 审查点）
 

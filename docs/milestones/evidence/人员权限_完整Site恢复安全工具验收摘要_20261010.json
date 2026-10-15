@@ -1,0 +1,227 @@
+{
+  "actual_operations": {
+    "archive_extraction_or_landing": 0,
+    "decryption": 0,
+    "docker_calls": 0,
+    "frappe_initializations": 0,
+    "network_access": 0,
+    "new_snapshot_capture": 0,
+    "original_sql_connections": 0,
+    "real_login": 0,
+    "resource_creation_or_deletion": 0,
+    "service_control": 0,
+    "sql_import": 0
+  },
+  "branch": "m2-r11",
+  "closeout_checks": {
+    "code_sha_after_final_tests": "PASS",
+    "known_private_config_values_hits": 0,
+    "new_and_modified_text_whitespace": "PASS",
+    "private_values_checked": 3,
+    "relative_links": "PASS",
+    "relative_markdown_links_checked": 276,
+    "same_pinned_branch": "m2-r11"
+  },
+  "code_files_sha256": {
+    "scripts/release/full_site_restore/__init__.py": "95d945d1079216da565633df8cada183b8e167312d95f426bbb3caf5004687f5",
+    "scripts/release/full_site_restore/common.py": "60fdcf9e109ff32d3de0312636005c209db14256154021231e959ddfaec3af38",
+    "scripts/release/full_site_restore/inputs.py": "e1f63c52d48f31bd8e562955f80834d88bb28867713828ccfab55d816ec82f7a",
+    "scripts/release/full_site_restore/ownership.py": "0cc940883172e48966541171e87f0683d950ace65ad58549d75152bd3970a9b4",
+    "scripts/release/full_site_restore/plan.py": "3c3860cab00cf8e17031d0e1b9cf13bdd8ff823e69ece00ca3d79e535495b5f7",
+    "scripts/release/full_site_restore/relay.py": "724e40d7dee5c8222d10140c12a5249527685f7d5839f3f1fae27c3fe5b0e4ba",
+    "scripts/release/prepare_full_site_restore.py": "d8a9843b44721537fbfec9b51f63d9fa3219f2360358b7852691cc3024c50bed",
+    "scripts/release/tests/test_full_site_restore_inputs.py": "b700268a35c37eb0ef1bf1419d3ca13648f2b77ebb7b795f956be76f265efb65",
+    "scripts/release/tests/test_full_site_restore_ownership.py": "5928ed79a6a7933b0849ed6f6034b71e832165222ba8e9c156a7db8fd3ae7b00",
+    "scripts/release/tests/test_full_site_restore_plan.py": "09e98d39368ea87a5e571de33b75f7b57c95413849b7a2fe6601385b73f10deb",
+    "scripts/release/tests/test_full_site_restore_relay.py": "4ea49566fdac6b48863c598834eb7903444193479e631654307c50ef0b159c4c"
+  },
+  "date": "2026-10-10",
+  "diagnostic_history": [
+    {
+      "finding": "global PAX error-code classification differed; fixed and full regression passed",
+      "stage": "input_first_tests"
+    },
+    {
+      "finding": "host Python3.9 slots incompatibility; no test body ran; switched to specified3.12.14",
+      "stage": "relay_first_interpreter"
+    },
+    {
+      "finding": "held all input FDs through batch and added2 late mutation regressions; disabled healthcheck/daemon log channel/auto restart with3 hostile metadata regressions; final94 rerun",
+      "stage": "late_review"
+    }
+  ],
+  "existing_backup_readonly_validation": {
+    "before_sha256": "e225e34a6f659e638c8ee597f22342e2aa12303d9d65ead731dc64734f825748",
+    "code": null,
+    "components": {
+      "auth_files": {
+        "bytes": 293,
+        "directories": 0,
+        "expanded_bytes": 10240,
+        "files": 2,
+        "members": 2,
+        "payload_bytes": 50,
+        "sha256": "56043bd376e2366ec8dff632feea3184f798558dac2a2772404928ab3d3aab20"
+      },
+      "database": {
+        "bytes": 2645386,
+        "expanded_bytes": 29683935,
+        "sha256": "c2f3c190095224ae075867582cedb5bd831a7fd7c9c7481d8f3df27ecccceac9"
+      },
+      "private_files": {
+        "bytes": 174080,
+        "directories": 1,
+        "expanded_bytes": 174080,
+        "files": 9,
+        "members": 10,
+        "payload_bytes": 155411,
+        "sha256": "cc581cc045fd49b226d536816e5631a43f84b02ef3a74f0751e81c2c7675f3f5"
+      },
+      "public_files": {
+        "bytes": 10240,
+        "directories": 1,
+        "expanded_bytes": 10240,
+        "files": 0,
+        "members": 1,
+        "payload_bytes": 0,
+        "sha256": "ec494d1950ae0bfe001150421a8218b5e9a3fb99cdf2e7b34e54769db87e00ed"
+      },
+      "site_config": {
+        "bytes": 1259,
+        "encryption_key_present": true,
+        "sha256": "533a2b31faf6265df003d6fa2fc1bc42fa9fa70778a4fa5c5d08c8c8ec37b89a"
+      }
+    },
+    "default_cli": {
+      "containers": 5,
+      "execution": "NOT_IMPLEMENTED",
+      "exit_code": 0,
+      "networks": 0,
+      "proposal_matches_final_matrix": "PASS",
+      "runtime_ready": false,
+      "status": "OFFLINE_PROPOSAL_ONLY",
+      "stderr_bytes": 0,
+      "volumes": 9
+    },
+    "execution": "NOT_IMPLEMENTED",
+    "exit_code": 0,
+    "input_status": "VALIDATED_ONLY",
+    "landing": "NOT_IMPLEMENTED",
+    "manifest_sha256": "7d6f8ec4bc1fa8e874cb0cf47da09919bdd08b1b1970ee0f2de6dd14bd09124c",
+    "runtime_ready": false,
+    "status": "OFFLINE_INPUT_VALIDATION_ONLY"
+  },
+  "head": "27d3558",
+  "management": {
+    "get": "NOT_READY",
+    "online_reverification_this_turn": "NOT_RUN",
+    "portal": "5178_REAL_READONLY",
+    "post": "CLOSED",
+    "real_grant": "NOT_RUN"
+  },
+  "milestone": "PARTIAL / REVIEWING",
+  "proposal_matrix_sha256": "59dc444f657a106302d6749a6aa50397424b19de6431e1783b11cf464fbed752",
+  "proposed_resources": {
+    "containers": 5,
+    "created": 0,
+    "custom_networks": 0,
+    "host_relay": 1,
+    "volumes": 9
+  },
+  "public_documentation": "UPDATED",
+  "readiness": {
+    "actual_network_isolation": "NOT_RUN",
+    "complete_lifecycle_cleanup": "NOT_IMPLEMENTED",
+    "default_cli": "OFFLINE_PROPOSAL_ONLY",
+    "execute_option": "ABSENT",
+    "full_site_restore": "NOT_RUN",
+    "http_policy": "MINIMAL_OUTLINE_ONLY",
+    "http_transport": "NOT_IMPLEMENTED",
+    "namespace_precheck": "METADATA_POLICY_ONLY_NOT_RUN",
+    "owner_login_business_acceptance": "NOT_RUN",
+    "runtime_registry": "NOT_IMPLEMENTED",
+    "service_argv": "NON_EXECUTABLE_PLACEHOLDERS"
+  },
+  "repository_preservation": {
+    "application_frontend_schema_config_compose": "MATCH",
+    "baseline_regular_files": 1316,
+    "changed_files": [
+      "README.md",
+      "docs/AI_CONTEXT.md",
+      "docs/CURRENT_MILESTONE.md",
+      "docs/PROJECT_STATUS.md",
+      "docs/READING_GUIDE.md",
+      "docs/milestones/M2_START_GATE.md",
+      "docs/milestones/M2_人员权限完整Site恢复准备记录.md",
+      "docs/milestones/M2_人员权限完整Site恢复安全工具实施记录.md",
+      "docs/milestones/evidence/人员权限_完整Site恢复命令挂载矩阵_20261010.json",
+      "docs/milestones/evidence/人员权限_完整Site恢复安全工具验收摘要_20261010.json",
+      "docs/plans/人员权限_5178只读管理启用配置与验收清单.md",
+      "docs/plans/人员权限_原站只读预检与备份恢复准备范围.md",
+      "docs/plans/人员权限_只读管理正式配置与装配规范.md",
+      "docs/plans/人员权限_完整Site恢复执行包.md",
+      "frontend/hbos-portal-web/README.md",
+      "scripts/release/full_site_restore/__init__.py",
+      "scripts/release/full_site_restore/common.py",
+      "scripts/release/full_site_restore/inputs.py",
+      "scripts/release/full_site_restore/ownership.py",
+      "scripts/release/full_site_restore/plan.py",
+      "scripts/release/full_site_restore/relay.py",
+      "scripts/release/prepare_full_site_restore.py",
+      "scripts/release/tests/test_full_site_restore_inputs.py",
+      "scripts/release/tests/test_full_site_restore_ownership.py",
+      "scripts/release/tests/test_full_site_restore_plan.py",
+      "scripts/release/tests/test_full_site_restore_relay.py"
+    ],
+    "claude_agents_rules": "MATCH",
+    "code_and_tests": 11,
+    "documentation_and_evidence": 15,
+    "other_preexisting_files_sha": "MATCH",
+    "status": "PASS"
+  },
+  "review": {
+    "final_documents_and_actual_source_matrix_hashes": "PASS_WITHIN_DECLARED_OFFLINE_SCOPE",
+    "input_to_ownership": "PASS_WITHIN_DECLARED_OFFLINE_SCOPE",
+    "late_healthcheck_log_restart_fixes": "REVIEWED_CLOSED",
+    "plan_cli_contract_and_main_document": "PASS_WITHIN_DECLARED_OFFLINE_SCOPE",
+    "relay_to_input_plan_cli": "PASS_WITHIN_DECLARED_OFFLINE_SCOPE",
+    "remaining_offline_blocking_findings": 0,
+    "runtime_approval": "NOT_REQUESTED_NOT_GRANTED"
+  },
+  "runtime_pending_gates": [
+    "SOURCE_SNAPSHOT_CAPTURE_AND_HASH_NOT_RUN",
+    "SOURCE_LINK_AND_RUNTIME_DEPENDENCY_CLOSURE_NOT_VERIFIED",
+    "SERVICE_UID_GID_BINARY_AND_ENTRYPOINT_COMPATIBILITY_NOT_VERIFIED",
+    "EXPLICIT_IMAGE_VOLUME_COVERAGE_NOT_VERIFIED",
+    "PRIVATE_ROOT_AND_BIND_REALPATH_ADMISSION_NOT_IMPLEMENTED",
+    "RUNTIME_RESOURCE_CREATION_REGISTRY_NOT_IMPLEMENTED",
+    "RESTORE_EXTRACTION_SQL_IMPORT_AND_FINGERPRINT_NOT_IMPLEMENTED",
+    "ACTUAL_ENCRYPTED_AUTH_APPLICABILITY_AND_DECRYPT_NOT_RUN",
+    "CLONE_SESSION_INVALIDATION_AND_OLD_SID_REJECTION_NOT_RUN",
+    "NATIVE_PASSWORD_LOGIN_FINITE_WRITE_SET_NOT_VERIFIED",
+    "COMPLETE_PAGE_AND_BUSINESS_REQUEST_ALLOWLIST_NOT_VERIFIED",
+    "NETWORK_NAMESPACE_ROUTES_AND_EGRESS_REJECTION_NOT_RUN",
+    "HTTP_LISTENER_STDIO_TRANSPORT_AND_CHILD_REAP_NOT_IMPLEMENTED",
+    "RUNTIME_DEADLINE_ENFORCEMENT_AND_COMPLETE_CLEANUP_NOT_IMPLEMENTED",
+    "OWNER_EXACT_RESOURCE_AND_CLONE_WRITE_AUTHORIZATION_PENDING",
+    "OWNER_ORIGINAL_ACCOUNT_LOGIN_AND_BUSINESS_ACCEPTANCE_NOT_RUN"
+  ],
+  "schema_version": 1,
+  "scope": "OFFLINE_INPUT_POLICY_AND_NAMESPACE_PRECHECK_METADATA_GUARDS",
+  "status": "S02_FULL_SITE_RESTORE_GUARDS_OFFLINE_VALIDATED",
+  "tests": {
+    "by_module": {
+      "test_full_site_restore_inputs": 35,
+      "test_full_site_restore_ownership": 29,
+      "test_full_site_restore_plan": 10,
+      "test_full_site_restore_relay": 20
+    },
+    "errors": 0,
+    "failures": 0,
+    "python": "3.12.14",
+    "python_310_ast": "PASS",
+    "skipped": 0,
+    "status": "PASS",
+    "tests_run": 94
+  }
+}

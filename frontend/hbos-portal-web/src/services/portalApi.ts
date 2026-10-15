@@ -4,9 +4,13 @@ import type {
   PortalUser,
   SearchResultDTO,
   SummaryMetricDTO,
+  LimsTaskQuery,
   UnifiedTaskDTO,
+  ProviderBatch,
+  TaskPage,
 } from '@/contracts/portal'
-import { callFrappeMethod } from '@/services/frappeClient'
+import { callFrappeMethod, isAuthError } from '@/services/frappeClient'
+import { portalErrorMessage } from '@/services/portalErrors'
 
 interface PortalErrorPayload {
   code: string
@@ -53,6 +57,8 @@ interface BackendApp {
   manifest: BackendManifest
   access: {
     can_enter: boolean
+    capabilities?: string[]
+    scopes?: Record<string, string[]>
   }
 }
 
@@ -81,6 +87,7 @@ interface BackendSummaryMetric {
 interface BackendSummaryPayload {
   app_id: string
   generated_at: string
+  scope_label?: string
   status?: string
   metrics: BackendSummaryMetric[]
 }
@@ -93,6 +100,7 @@ interface BackendTask {
   description: string
   action: string
   action_label: string
+  status?: string
   priority: string
   due_at?: string | null
   overdue?: boolean
@@ -136,6 +144,7 @@ interface BackendSearchPayload {
   provider_errors: Array<{
     app_id: string
     code: string
+    trace_id?: string | null
   }>
 }
 
@@ -222,6 +231,8 @@ function mapApp(value: BackendApp): AppManifestDTO {
     capabilitySummary: capabilities.has('summary'),
     capabilityTasks: capabilities.has('tasks'),
     capabilitySearch: capabilities.has('search'),
+    capabilities: [...capabilities],
+    accessCapabilities: [...(value.access.capabilities || [])],
     featured: ['knowledge', 'twin', 'lims', 'inventory', 'attendance'].includes(manifest.id),
   }
 }
@@ -271,6 +282,15 @@ function taskDuePresentation(dueAt?: string | null): Pick<UnifiedTaskDTO, 'dueLa
   }
 }
 
+export function normalizeTaskStatus(status?: string, action?: string): UnifiedTaskDTO['status'] {
+  if (status === 'open' || status === 'waiting' || status === 'done') return status
+  // 领域单据状态不等于待办状态：已完成时间点仍可等待趋势评价，已批准申请仍可等待执行。
+  if (action) return 'open'
+  if (['已完成', '已取消', '已关闭'].includes(status || '')) return 'done'
+  if (['等待别人', '等待中', '挂起'].includes(status || '')) return 'waiting'
+  return 'open'
+}
+
 function mapTask(task: BackendTask, appTitle: string): UnifiedTaskDTO {
   return {
     taskId: task.task_id,
@@ -280,7 +300,12 @@ function mapTask(task: BackendTask, appTitle: string): UnifiedTaskDTO {
     description: task.description,
     priority: normalizeTaskPriority(task.priority),
     ...taskDuePresentation(task.due_at),
-    status: 'open',
+    status: normalizeTaskStatus(task.status, task.action),
+    domainStatus: task.status || undefined,
+    action: task.action || undefined,
+    actionLabel: task.action_label || undefined,
+    assignmentType: task.assignment_type || undefined,
+    category: task.category || undefined,
     overdue: Boolean(task.overdue),
     deepLink: task.deep_link,
   }
@@ -309,7 +334,7 @@ export async function getFrappePortalData() {
 
 export async function getFrappeSummariesForApps(
   apps: AppManifestDTO[],
-): Promise<SummaryMetricDTO[]> {
+): Promise<ProviderBatch<SummaryMetricDTO>> {
   const summaryApps = apps.filter((app) => app.capabilitySummary)
   const batches = await Promise.allSettled(
     summaryApps.map(async (app) => {
@@ -327,37 +352,68 @@ export async function getFrappeSummariesForApps(
         tone: normalizeTone(metric.tone),
         meta: app.shortTitle,
         deepLink: metric.deep_link || undefined,
+        scopeLabel: dispatch.data.scope_label || undefined,
+        generatedAt: dispatch.data.generated_at || undefined,
+        summaryStatus: dispatch.data.status || undefined,
       }))
     }),
   )
 
-  return batches.flatMap((result) =>
-    result.status === 'fulfilled' ? result.value : [],
-  )
+  return collectBatches(summaryApps, batches, '业务概览暂时不可用，请重试。')
 }
 
-export async function getFrappeTasksForApps(
-  apps: AppManifestDTO[],
-): Promise<UnifiedTaskDTO[]> {
-  const taskApps = apps.filter((app) => app.capabilityTasks)
-  const batches = await Promise.allSettled(
-    taskApps.map(async (app) => {
-      const envelope = await callFrappeMethod<
-        PortalEnvelope<BackendDispatch<BackendTaskPayload>>
-      >('hbos_portal.api.tasks.get_tasks', {
-        app_id: app.id,
-        limit: 20,
-      })
-      const dispatch = unwrap(envelope)
-      return (dispatch.data.tasks || []).map((task) =>
-        mapTask(task, app.shortTitle),
-      )
-    }),
-  )
+function collectBatches<T>(apps: AppManifestDTO[], batches: PromiseSettledResult<T[]>[], fallback: string): ProviderBatch<T> {
+  const items: T[] = []
+  const errors: ProviderBatch<T>['errors'] = []
+  batches.forEach((result, index) => {
+    if (result.status === 'fulfilled') items.push(...result.value)
+    else {
+      if (isAuthError(result.reason)) throw result.reason
+      const app = apps[index]!
+      errors.push({ appId: app.id, appTitle: app.shortTitle,
+        message: portalErrorMessage(result.reason, fallback) })
+    }
+  })
+  return { items, errors }
+}
 
-  return batches.flatMap((result) =>
-    result.status === 'fulfilled' ? result.value : [],
-  )
+export async function getFrappeTaskPage(app: AppManifestDTO, query: LimsTaskQuery = {}): Promise<TaskPage> {
+  const envelope = await callFrappeMethod<PortalEnvelope<BackendDispatch<BackendTaskPayload>>>(
+    'hbos_portal.api.tasks.get_tasks', {
+      app_id: app.id, limit: query.limit || 20, cursor: query.cursor,
+      ...(app.id === 'lims' ? { view: query.view, status: query.status,
+        priority: query.priority, keyword: query.keyword } : {}),
+    })
+  const dispatch = unwrap(envelope)
+  const items = (dispatch.data.tasks || []).map(task => mapTask(task, app.shortTitle))
+  return { items, nextCursor: dispatch.data.next_cursor || null, total: dispatch.data.total ?? items.length }
+}
+
+/** Portal 汇总加载全部游标页，避免工作计数被第一页截断。单页界面使用 getFrappeTaskPage。 */
+export async function getFrappeTasksForApps(apps: AppManifestDTO[], query: LimsTaskQuery = {}): Promise<ProviderBatch<UnifiedTaskDTO>> {
+  const taskApps = apps.filter(app => app.capabilityTasks)
+  const batches = await Promise.all(taskApps.map(async app => {
+    const items = new Map<string, UnifiedTaskDTO>()
+    const cursors = new Set<string>()
+    try {
+      let cursor: string | undefined
+      do {
+        const page = await getFrappeTaskPage(app, { ...query, cursor })
+        page.items.forEach(task => items.set(task.taskId, task))
+        cursor = page.nextCursor || undefined
+        if (cursor && (cursors.has(cursor) || cursors.size >= 200)) {
+          throw new Error('任务分页游标无效')
+        }
+        if (cursor) cursors.add(cursor)
+      } while (cursor)
+      return { items: [...items.values()], errors: [] }
+    } catch (error) {
+      if (isAuthError(error)) throw error
+      return { items: [...items.values()], errors: [{ appId: app.id, appTitle: app.shortTitle,
+        message: portalErrorMessage(error, '工作事项加载不完整，请重试。') }] }
+    }
+  }))
+  return { items: batches.flatMap(batch => batch.items), errors: batches.flatMap(batch => batch.errors) }
 }
 
 export async function resolveFrappeRoute(
@@ -376,7 +432,7 @@ export async function resolveFrappeRoute(
 
 export async function searchFrappePortal(
   query: string,
-): Promise<SearchResultDTO[]> {
+): Promise<ProviderBatch<SearchResultDTO>> {
   const envelope = await callFrappeMethod<PortalEnvelope<BackendSearchPayload>>(
     'hbos_portal.api.search.search',
     {
@@ -386,7 +442,7 @@ export async function searchFrappePortal(
   )
   const data = unwrap(envelope)
 
-  return data.results.map((item) => ({
+  const items = data.results.map((item) => ({
     id: `${item.app_id}:${item.entity_type || 'result'}:${item.entity_id || item.title}`,
     appId: item.app_id,
     appTitle: item.app_id.toUpperCase(),
@@ -395,4 +451,8 @@ export async function searchFrappePortal(
     typeLabel: item.entity_type || '结果',
     deepLink: item.deep_link,
   }))
+  return { items, errors: (data.provider_errors || []).map(error => ({
+    appId: error.app_id, appTitle: error.app_id,
+    message: portalErrorMessage({ traceId: error.trace_id }, '此应用搜索暂时不可用，结果不完整。'),
+  })) }
 }

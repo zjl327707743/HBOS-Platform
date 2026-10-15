@@ -1,7 +1,19 @@
 name: Portal Unified Account Release
 on:
+  push:
+    branches:
+      - m2-r11
+    paths:
+      - 'apps/hbos_portal/**'
+      - 'apps/hb_knowledge_app/**'
+      - 'apps/hb_twin_app/**'
+      - 'services/hbos_gateway/**'
+      - 'scripts/release/**'
+      - 'scripts/local/**'
+      - 'frontend/hbos-portal-web/**'
+      - '.github/workflows/portal-unified-account-release.yml'
   pull_request:
-    branches: [main, feature/hbos-portal-product]
+    branches: [main, feature/hbos-portal-product, m2-r11]
     paths:
       - 'apps/hbos_portal/**'
       - 'apps/hb_knowledge_app/**'
@@ -22,7 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r services/hbos_gateway/requirements.txt
+      - run: pip install -r services/hbos_gateway/requirements-test.txt
       - run: |
           pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
       - name: Portal and domain contracts

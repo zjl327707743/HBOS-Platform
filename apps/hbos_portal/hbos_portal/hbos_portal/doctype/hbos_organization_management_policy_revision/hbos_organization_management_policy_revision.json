@@ -1,0 +1,99 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Organization Management Policy Revision",
+ "module": "HBOS Portal",
+ "autoname": "field:record_key",
+ "engine": "InnoDB",
+ "field_order": [
+  "record_key",
+  "policy",
+  "revision",
+  "previous_revision",
+  "snapshot_json",
+  "snapshot_digest",
+  "actor",
+  "reason",
+  "approval_source_ref",
+  "recorded_at_utc"
+ ],
+ "fields": [
+  {
+   "fieldname": "record_key",
+   "fieldtype": "Data",
+   "label": "record_key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "policy",
+   "fieldtype": "Link",
+   "label": "policy",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "HBOS Organization Management Policy",
+   "search_index": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "revision",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "previous_revision",
+   "fieldtype": "Int",
+   "label": "previous_revision",
+   "read_only": 1
+  },
+  {
+   "fieldname": "snapshot_json",
+   "fieldtype": "Long Text",
+   "label": "snapshot_json",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "snapshot_digest",
+   "fieldtype": "Data",
+   "label": "snapshot_digest",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "actor",
+   "read_only": 1,
+   "reqd": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "reason",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "approval_source_ref",
+   "fieldtype": "Data",
+   "label": "approval_source_ref",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recorded_at_utc",
+   "fieldtype": "Datetime",
+   "label": "recorded_at_utc",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": [],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "allow_import": 0,
+ "allow_copy": 0
+}

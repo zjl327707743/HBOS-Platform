@@ -40,18 +40,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { iconMap } from '@/components/appIcons'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   AppstoreAddOutlined,
-  BulbOutlined,
-  ClockCircleOutlined,
-  DeploymentUnitOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
-  ReadOutlined,
   RightOutlined,
-  ToolOutlined,
 } from '@ant-design/icons-vue'
 import type { AppManifestDTO } from '@/contracts/portal'
 import { openBusinessRoute } from '@/services/businessNavigation'
@@ -59,15 +53,6 @@ import { openBusinessRoute } from '@/services/businessNavigation'
 const props = defineProps<{ apps: AppManifestDTO[] }>()
 const router = useRouter()
 
-const iconMap: Record<string, Component> = {
-  ExperimentOutlined,
-  InboxOutlined,
-  ClockCircleOutlined,
-  ToolOutlined,
-  ReadOutlined,
-  BulbOutlined,
-  DeploymentUnitOutlined,
-}
 const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'equipment', 'twin']
 const primaryApps = computed(() => props.apps
   .filter((app) => appOrder.includes(app.id))

@@ -1,0 +1,198 @@
+{
+  "date": "2026-10-09",
+  "branch": "m2-r11",
+  "head": "27d3558",
+  "status": "S02_PREVIEW_STORAGE_VALIDATED / PARTIAL / REVIEWING",
+  "preview_audit": {
+    "site": "portal-preview.localhost",
+    "database_sha256": "c1278fd11beed36c90a5d0b507015749e5c14a4627249507aeef9b95a726f953",
+    "server": "9695c5a0f6c1",
+    "database_version": "11.8.8-MariaDB-ubu2404",
+    "isolation": "REPEATABLE-READ",
+    "native_counts": {
+      "User": 2,
+      "Employee": 0,
+      "Company": 0,
+      "Department": 0,
+      "Designation": 0
+    },
+    "tables_present": {
+      "HBOS Organization Write Lock": true,
+      "HBOS Position": true,
+      "HBOS Personnel Assignment": true,
+      "HBOS Position Revision": true,
+      "HBOS Personnel Assignment Revision": true,
+      "HBOS Organization Command Receipt": true
+    },
+    "schema": {
+      "HBOS Organization Write Lock": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Position": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {},
+        "permissions": []
+      },
+      "HBOS Personnel Assignment": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key",
+          "source_key"
+        ],
+        "utc_precision": {
+          "valid_from_utc": 6,
+          "valid_until_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Position Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Personnel Assignment Revision": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      },
+      "HBOS Organization Command Receipt": {
+        "engine": "InnoDB",
+        "unique_columns": [
+          "name",
+          "record_key"
+        ],
+        "utc_precision": {
+          "recorded_at_utc": 6
+        },
+        "permissions": []
+      }
+    },
+    "relation_counts": {
+      "HBOS Organization Write Lock": 0,
+      "HBOS Position": 0,
+      "HBOS Personnel Assignment": 0,
+      "HBOS Position Revision": 0,
+      "HBOS Personnel Assignment Revision": 0,
+      "HBOS Organization Command Receipt": 0
+    },
+    "backup": {
+      "backup_stem": "20261009_072526-portal-preview_localhost",
+      "files": [
+        {
+          "name": "20261009_072526-portal-preview_localhost-site_config_backup.json",
+          "bytes": 390,
+          "sha256": "d38691f8c0f81d1f150162bc630c8c1f7c8c9e5e7fe503ffdcfd141759f96847"
+        },
+        {
+          "name": "20261009_072526-portal-preview_localhost-database.sql.gz",
+          "bytes": 1113524,
+          "sha256": "5b67e661495aa1b1f8f1a07df2a1b74f0142a478db50a886a36e04e0e16cd6c2"
+        },
+        {
+          "name": "20261009_072526-portal-preview_localhost-files.tar",
+          "bytes": 10240,
+          "sha256": "5aee06c9b0a8c52df5bc06fea8c79f5954a07500144d1205a01ab23b37018c64"
+        },
+        {
+          "name": "20261009_072526-portal-preview_localhost-private-files.tar",
+          "bytes": 10240,
+          "sha256": "233baddb178ea6473b7b7eb60e2b3e8b2d25ac07c2a838ab0d367f9047152e44"
+        }
+      ],
+      "archive_integrity": "PASS",
+      "full_restore": "NOT_RUN"
+    },
+    "runner_sha256": "fc098204887a22ffacb25ecbb698944fd25751fe611df2e3dca63654c8fe8f79"
+  },
+  "primary_5178_audit": {
+    "site": "frontend",
+    "database_sha256": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+    "relation_tables_present": {
+      "HBOS Position": false,
+      "HBOS Personnel Assignment": false,
+      "HBOS Position Revision": false,
+      "HBOS Personnel Assignment Revision": false,
+      "HBOS Organization Command Receipt": false,
+      "HBOS Organization Write Lock": false
+    },
+    "native_counts": {
+      "User": 18,
+      "Employee": 0,
+      "Company": 1,
+      "Department": 14,
+      "Designation": 31
+    }
+  },
+  "observed_test_runs": {
+    "frappe_mariadb_transaction_cases": {
+      "count": 6,
+      "status": "PASS",
+      "cases": [
+        "position_revision_and_idempotency",
+        "assignment_utc_roundtrip_and_primary_conflict",
+        "failed_receipt_rolls_back_master_and_revision",
+        "direct_orm_flags_and_partial_writes_rejected",
+        "history_cannot_be_overwritten",
+        "physical_uniqueness"
+      ]
+    },
+    "independent_connection_concurrency": {
+      "count": 3,
+      "status": "PASS",
+      "cases": [
+        "same_key_create",
+        "overlapping_primary",
+        "same_revision_update"
+      ],
+      "native_fingerprint_preservation": "PASS",
+      "generated_fixtures_cleaned": true
+    },
+    "offline_regression": {
+      "count": 121,
+      "status": "PASS",
+      "new_acceptance_safety_cases": 4,
+      "prior_regression_cases": 117
+    }
+  },
+  "scope": {
+    "new_sites": false,
+    "new_apps": false,
+    "global_bench_migrate": false,
+    "preview_six_doctypes_synced": true,
+    "primary_5178_migrated": false,
+    "real_roles_granted": false,
+    "service_enabled": false
+  },
+  "remaining_not_run": [
+    "full_backup_restore",
+    "actual_REST_import_and_ordinary_role_matrix",
+    "native_Employee_User_link_lifecycle_and_phantom_races",
+    "business_Grant_and_revocation_transaction_closure",
+    "qualified_management_policy",
+    "Owner_acceptance"
+  ]
+}

@@ -27,7 +27,7 @@ lims
 ```text
 Attendance  summary
 Inventory   summary
-LIMS        summary / tasks / search
+LIMS        summary / tasks / search / results / ledger / audit / coa / specifications / retains / stability
 ```
 
 Inventory Summary 由 Inventory App 自己提供 permission-aware projection；Portal 不读取库存表、不复制库存口径。

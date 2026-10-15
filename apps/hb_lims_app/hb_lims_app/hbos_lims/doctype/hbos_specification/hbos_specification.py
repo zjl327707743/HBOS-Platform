@@ -6,11 +6,21 @@ import frappe
 from frappe.model.document import Document
 
 from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.guards import guard_content_frozen
 from hb_lims_app.hbos_lims.guards import guard_system_fields
 
 SPEC_STATUS_DRAFT = "草稿"
 SPEC_STATUS_ACTIVE = "已生效"
 SPEC_STATUS_OBSOLETE = "已废止"
+
+# 受控状态：进入后内容整体冻结，改动必须升版（L10-P0-04）
+SPEC_CONTENT_FROZEN_STATUSES = (SPEC_STATUS_ACTIVE, SPEC_STATUS_OBSOLETE)
+# 冻结的内容字段；`status` / `effective_date` / `supersedes` 由系统字段守卫负责
+SPEC_CONTENT_FIELDS = (
+	"spec_code", "spec_name", "material_code", "material_name", "version",
+	"standard_source", "storage_condition", "retain_sample_qty", "remarks",
+)
+SPEC_CONTENT_TABLE_FIELDS = ("items",)
 
 
 def is_spec_active(spec_name):
@@ -32,39 +42,12 @@ def get_active_specifications():
 class HBOSSpecification(Document):
 	def validate(self):
 		guard_system_fields(self, wf.HBOS_SPECIFICATION_SYSTEM_FIELDS)
-		self._validate_immutable_after_activation()
+		# 已生效/已废止后内容整体冻结：堵住「原地改内容、版本号不变」
+		guard_content_frozen(self, SPEC_CONTENT_FIELDS, SPEC_CONTENT_FROZEN_STATUSES,
+							 table_fields=SPEC_CONTENT_TABLE_FIELDS,
+							 remedy="升版生成新版本（L10-P0-04）")
 		self._validate_unique_version()
 		self._validate_limits()
-
-	def _validate_immutable_after_activation(self):
-		"""已生效/已废止版本是质量标准快照，不允许原地改业务内容。"""
-		if self.is_new():
-			return
-		before = self.get_doc_before_save()
-		if not before or before.status == SPEC_STATUS_DRAFT:
-			return
-		locked = (
-			"spec_code", "spec_name", "material_code", "material_name", "version",
-			"standard_source", "effective_date", "storage_condition",
-			"retain_sample_qty", "remarks",
-		)
-		for field in locked:
-			if str(self.get(field) or "") != str(before.get(field) or ""):
-				frappe.throw(
-					f"质量标准 {self.name} 已进入 {before.status}，业务内容不可原地修改；请复制生成新版本。"
-				)
-		def sig(rows):
-			return [
-				tuple(str(row.get(k) or "") for k in (
-					"item", "item_name", "method_sop", "limits_type", "lower_limit",
-					"upper_limit", "unit", "significant_digits"
-				))
-				for row in (rows or [])
-			]
-		if sig(self.items) != sig(before.items):
-			frappe.throw(
-				f"质量标准 {self.name} 已进入 {before.status}，检验项目/限度不可原地修改；请复制生成新版本。"
-			)
 
 	def _validate_unique_version(self):
 		"""同规格 ID + 同版本号禁止重复（版本控制为复制新版本人工流程）。"""

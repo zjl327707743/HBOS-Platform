@@ -102,7 +102,23 @@
 
 ## 7. 生产部署记录（Owner 2026-09-16 授权）
 
-按已授权流程发布前端静态资源并完成内部备份。具体站点位置、备份标识及恢复命令保留在内部运行记录。
+部署方式沿用 R7D 的纯前端资产替换（**不重建容器、不重启后端、不改 nginx**）：
+
+```bash
+npm run build:prod                       # VITE_BASE=/hbos-lims/
+# 1 备份
+docker exec <frontend> cp -a <REMOTE> <REMOTE>.bak-20260916120644
+# 2 清空旧 assets（M2-R6D 教训：新旧 chunk 哈希错配会导致部分页面懒加载 404）
+docker exec -u root <frontend> rm -rf <REMOTE>/assets
+# 3 复制新构建
+docker cp dist/. <frontend>:<REMOTE>/
+# 4 归一属主（上次部署遗留 501:dialout，本次统一为 frappe:frappe）
+docker exec -u root <frontend> chown -R frappe:frappe <REMOTE>
+```
+
+- 生产路径：`/home/frappe/frappe-bench/sites/frontend/public/hbos-lims`
+- 备份：`hbos-lims.bak-20260916120644`（可回滚）
+- 入口 bundle：`assets/index-BRsJ2Zss.js`
 
 ### 7.1 部署后验证
 
@@ -132,4 +148,4 @@
 
 - 生产路径：`http://localhost:8080/hbos-lims/`（含 `/stability` 及 6 个子路由）
 - 测试路径：`http://localhost:5173/stability`（Vite 开发服务器，仍在运行）
-- 备份回滚点：`【内部备份标识已省略】`
+- 备份回滚点：`hbos-lims.bak-20260916120644`

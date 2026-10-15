@@ -74,7 +74,9 @@ def require_post() -> None:
     if frappe.conf.get("hbos_account_test_site"):
         for value in frappe.conf.get("hbos_portal_development_origins") or []:
             parsed = urlsplit(value)
-            if parsed.hostname == "localhost" or str(parsed.hostname).endswith(".localhost"):
+            # Explicit local development origins only; production sites never
+            # enter this branch. Keep the Origin/Host and Session token checks.
+            if parsed.hostname in {"localhost", "127.0.0.1", "::1"} or str(parsed.hostname).endswith(".localhost"):
                 allowed.add(str(value).rstrip("/"))
     if not origin or origin.rstrip("/") not in allowed or urlsplit(origin).hostname != urlsplit(f"//{request.host}").hostname:
         frappe.throw("请求来源无效。", frappe.CSRFTokenError)

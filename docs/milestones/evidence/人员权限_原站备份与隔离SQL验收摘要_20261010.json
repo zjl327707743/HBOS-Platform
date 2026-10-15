@@ -1,0 +1,868 @@
+{
+  "record_version": 1,
+  "generated_utc": "2026-10-10T07:02:19.510073+00:00",
+  "status": "S02_ORIGINAL_BACKUP_SQL_RESTORE_VALIDATED",
+  "milestone_status": "PARTIAL / REVIEWING / 5178_REAL_READONLY",
+  "branch": "m2-r11",
+  "head": "27d3558",
+  "authorization": "Owner replied 现在可以进入窗口 to original-site ten-minute stop-write-window question; 下一步 continued execution.",
+  "target": {
+    "site": "frontend",
+    "database_sha256": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+    "backend_original_id": "e05aefb5730a55a4fef848d766bfa0288e6b88430aa424e7c235b7bf87a34169",
+    "mariadb_version": "11.8.8",
+    "frappe_python": "3.14.2",
+    "host_restore_python": "3.12.14",
+    "mariadb_image": "mariadb@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4"
+  },
+  "previous_window_attempts": [
+    {
+      "report_basename": "hbos_original_backup_window_20261010_result.json",
+      "report_sha256": "4bede27f7a8a9e45df8072917eab19268bc0713d241121a88b878c9ef3cca66d",
+      "window_start_utc": "2026-10-10T01:51:27.087466+00:00",
+      "window_end_utc": "2026-10-10T01:54:57.888074+00:00",
+      "window_seconds": 210.799856708,
+      "backup_execution": "NOT_STARTED",
+      "raw_backup_status": "UNVERIFIED",
+      "raw_service_recovery": "FAIL",
+      "public_container_states_match": true,
+      "recovered_services": [
+        "frontend"
+      ],
+      "actual_limit": "Requested-but-not-stopped service stayed running; raw pending-list error is not proof of original service loss."
+    },
+    {
+      "report_basename": "hbos_original_backup_window_20261010_attempt2_result.json",
+      "report_sha256": "1de4782466e414ffcf5e8563ecc151668afdce566a0c5176893e7ddfd94cf626",
+      "window_start_utc": "2026-10-10T06:41:46.886068+00:00",
+      "window_end_utc": "2026-10-10T06:45:18.354827+00:00",
+      "window_seconds": 211.46727704100002,
+      "backup_execution": "NOT_STARTED",
+      "raw_backup_status": "UNVERIFIED",
+      "raw_service_recovery": "FAIL",
+      "public_container_states_match": true,
+      "recovered_services": [
+        "frontend",
+        "scheduler"
+      ],
+      "actual_limit": "Requested-but-not-stopped service stayed running; raw pending-list error is not proof of original service loss."
+    }
+  ],
+  "successful_window": {
+    "window_authorized": true,
+    "backup": "PASS",
+    "source_service_recovery": "PASS",
+    "pre_stop_rq": {
+      "workers": [
+        {
+          "key_sha256": "4ec64781f4adfe383039d1003c1a9589c38905f9e4a61c6df715289b43f5c0ab",
+          "state": "idle",
+          "current_job_present": false,
+          "age_seconds": 26.548519,
+          "ttl_ms": 453451
+        },
+        {
+          "key_sha256": "c005186f3783869507d768d9e21dc6e4c6f4b5963e7f24e833026383469d4496",
+          "state": "idle",
+          "current_job_present": false,
+          "age_seconds": 26.66367,
+          "ttl_ms": 453336
+        }
+      ],
+      "queued_count": 0,
+      "started_count": 0
+    },
+    "second_pre_stop_rq": {
+      "workers": [
+        {
+          "key_sha256": "4ec64781f4adfe383039d1003c1a9589c38905f9e4a61c6df715289b43f5c0ab",
+          "state": "idle",
+          "current_job_present": false,
+          "age_seconds": 27.765691,
+          "ttl_ms": 452234
+        },
+        {
+          "key_sha256": "c005186f3783869507d768d9e21dc6e4c6f4b5963e7f24e833026383469d4496",
+          "state": "idle",
+          "current_job_present": false,
+          "age_seconds": 27.880859,
+          "ttl_ms": 452119
+        }
+      ],
+      "queued_count": 0,
+      "started_count": 0
+    },
+    "window_start_utc": "2026-10-10T06:52:29.546382+00:00",
+    "before_consumer_stop_rq": {
+      "workers": [
+        {
+          "key_sha256": "4ec64781f4adfe383039d1003c1a9589c38905f9e4a61c6df715289b43f5c0ab",
+          "state": "idle",
+          "current_job_present": false,
+          "age_seconds": 28.971406,
+          "ttl_ms": 451029
+        },
+        {
+          "key_sha256": "c005186f3783869507d768d9e21dc6e4c6f4b5963e7f24e833026383469d4496",
+          "state": "idle",
+          "current_job_present": false,
+          "age_seconds": 29.086581,
+          "ttl_ms": 450913
+        }
+      ],
+      "queued_count": 0,
+      "started_count": 0
+    },
+    "known_producers_consumers_quiesced": true,
+    "websocket_quiescence": "DOCKER_PAUSE",
+    "signal_interpretation_corrected": true,
+    "backup_summary": {
+      "backup": "PASS",
+      "full_site_restore": "NOT_RUN",
+      "started_utc": "2026-10-10T06:52:32.741914+00:00",
+      "old_native_backup_count": 4,
+      "native_before": {
+        "User": {
+          "rows": 18,
+          "sha256": "61de1400b61e5485c154d6894679472bde7c6baf4dd0874affeca9233fd58171"
+        },
+        "Employee": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "Company": {
+          "rows": 1,
+          "sha256": "dd32560836c21d7f482aa960dd0e5aeb99d8893273d82c640632b9af3b81a3aa"
+        },
+        "Department": {
+          "rows": 14,
+          "sha256": "c5add4fbf50e9c12698d97e9d9fd97db2e72e2db2d18d3c92b784cc2611d71f5"
+        },
+        "Designation": {
+          "rows": 31,
+          "sha256": "4d8ef21c59e6b5aaa601fb47e37e329952a0d6f0781b148b57c7630a22b11611"
+        },
+        "Has Role": {
+          "rows": 963,
+          "sha256": "3c760545f85473beb02eff8033684b1e71b7db7a93a2b899ce84675f82eba55d"
+        },
+        "User Permission": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "__Auth": {
+          "rows": 6,
+          "sha256": "35dce6d763423b8a81bdeb182b011f5e8ded50be541b5625783a3717d5fd6f20"
+        }
+      },
+      "config_before": {
+        "site": "533a2b31faf6265df003d6fa2fc1bc42fa9fa70778a4fa5c5d08c8c8ec37b89a",
+        "common": "caa296533e604fb712977e422092b8e77463ff72ac8c85e69b4c12b197b409bf"
+      },
+      "stem": "20261010_145234-frontend",
+      "artifacts": {
+        "database": {
+          "basename": "20261010_145234-frontend-database.sql.gz",
+          "sha256": "c2f3c190095224ae075867582cedb5bd831a7fd7c9c7481d8f3df27ecccceac9",
+          "bytes": 2645386,
+          "mode": "0600",
+          "uid": 1000
+        },
+        "site_config": {
+          "basename": "20261010_145234-frontend-site_config_backup.json",
+          "sha256": "533a2b31faf6265df003d6fa2fc1bc42fa9fa70778a4fa5c5d08c8c8ec37b89a",
+          "bytes": 1259,
+          "mode": "0600",
+          "uid": 1000
+        },
+        "public_files": {
+          "basename": "20261010_145234-frontend-files.tar",
+          "sha256": "ec494d1950ae0bfe001150421a8218b5e9a3fb99cdf2e7b34e54769db87e00ed",
+          "bytes": 10240,
+          "mode": "0600",
+          "uid": 1000
+        },
+        "private_files": {
+          "basename": "20261010_145234-frontend-private-files.tar",
+          "sha256": "cc581cc045fd49b226d536816e5631a43f84b02ef3a74f0751e81c2c7675f3f5",
+          "bytes": 174080,
+          "mode": "0600",
+          "uid": 1000
+        },
+        "auth_files": {
+          "basename": "auth-private.tar.gz",
+          "sha256": "56043bd376e2366ec8dff632feea3184f798558dac2a2772404928ab3d3aab20",
+          "bytes": 293,
+          "mode": "0600",
+          "uid": 1000
+        }
+      },
+      "archives": {
+        "public_files": {
+          "regular_member_count": 0,
+          "source_file_content_match": true
+        },
+        "private_files": {
+          "regular_member_count": 9,
+          "source_file_content_match": true
+        },
+        "auth_files": {
+          "regular_member_count": 2,
+          "source_file_content_match": true,
+          "fixed_files": [
+            "hbos_feishu_app_secret",
+            "hbos_feishu_tenant_key"
+          ]
+        }
+      },
+      "gzip_crc": "PASS",
+      "native_after": {
+        "User": {
+          "rows": 18,
+          "sha256": "61de1400b61e5485c154d6894679472bde7c6baf4dd0874affeca9233fd58171"
+        },
+        "Employee": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "Company": {
+          "rows": 1,
+          "sha256": "dd32560836c21d7f482aa960dd0e5aeb99d8893273d82c640632b9af3b81a3aa"
+        },
+        "Department": {
+          "rows": 14,
+          "sha256": "c5add4fbf50e9c12698d97e9d9fd97db2e72e2db2d18d3c92b784cc2611d71f5"
+        },
+        "Designation": {
+          "rows": 31,
+          "sha256": "4d8ef21c59e6b5aaa601fb47e37e329952a0d6f0781b148b57c7630a22b11611"
+        },
+        "Has Role": {
+          "rows": 963,
+          "sha256": "3c760545f85473beb02eff8033684b1e71b7db7a93a2b899ce84675f82eba55d"
+        },
+        "User Permission": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "__Auth": {
+          "rows": 6,
+          "sha256": "35dce6d763423b8a81bdeb182b011f5e8ded50be541b5625783a3717d5fd6f20"
+        }
+      },
+      "native_full_rows_unchanged": true,
+      "config_after": {
+        "site": "533a2b31faf6265df003d6fa2fc1bc42fa9fa70778a4fa5c5d08c8c8ec37b89a",
+        "common": "caa296533e604fb712977e422092b8e77463ff72ac8c85e69b4c12b197b409bf"
+      },
+      "encryption_key_present": true,
+      "source_database_restore_destination": false,
+      "old_native_directory_preservation": "PASS",
+      "old_native_directories_returned": 2,
+      "old_native_preservation": "PASS",
+      "old_native_files_recovered_after_retention_cleanup": 4,
+      "finished_utc": "2026-10-10T06:52:36.606874+00:00"
+    },
+    "requested_stop_services": [
+      "frontend",
+      "websocket",
+      "scheduler",
+      "queue-short",
+      "queue-long"
+    ],
+    "recovered_services": [
+      "queue-short",
+      "queue-long",
+      "websocket",
+      "frontend",
+      "scheduler"
+    ],
+    "recovery_errors": [],
+    "final_original_states": [
+      {
+        "service": "backend",
+        "id": "e05aefb5730a55a4fef848d766bfa0288e6b88430aa424e7c235b7bf87a34169",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      },
+      {
+        "service": "queue-short",
+        "id": "9d9cb6b5c8582aa40b50f6e5e5b049e507c0f768c909333d236800ccff6a6d72",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      },
+      {
+        "service": "queue-long",
+        "id": "e8d553f3a941bfa236041c1e74c96c4737b767f088a0029adbce1219510460e2",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      },
+      {
+        "service": "scheduler",
+        "id": "00f65ca2a04ff9e147632ff47cc9b35a9e02618bb1bfbf5371b9fc55bef27b6f",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      },
+      {
+        "service": "frontend",
+        "id": "1172cc3cf8d55fa5852dc5e77bc312c9166060222745e821549502581aa7e0cf",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      },
+      {
+        "service": "websocket",
+        "id": "034cd6ac2a4b4091f202200576d6aba27203eec33803dd2a6ef4b437ef2ce948",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      },
+      {
+        "service": "hbos-web-prepare",
+        "id": "43d89b9f37832b81ca5b1938ead533441c4925b9bac9c9ebbd42bd58ff985945",
+        "running": false,
+        "paused": false,
+        "restart_policy": "no",
+        "matches_baseline": true
+      },
+      {
+        "service": "create-site",
+        "id": "53b3bea2cf57c6b4fdc5c492a996db415b30148dd440db752180c0229f2ec9b1",
+        "running": false,
+        "paused": false,
+        "restart_policy": "no",
+        "matches_baseline": true
+      },
+      {
+        "service": "configurator",
+        "id": "0bbe7a6a66b0e7787d05de812d93981c74bc09f0dadcbca985dbd6e32623d6ed",
+        "running": false,
+        "paused": false,
+        "restart_policy": "no",
+        "matches_baseline": true
+      },
+      {
+        "service": "db",
+        "id": "779c6365463d74d8a2bd86ed1b43b38aa1835c416ee3c7f43fe420fdc7cef0ba",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      },
+      {
+        "service": "redis-queue",
+        "id": "9a7bca1f089aa434821d287181067827d7a824bedada6d91b2aa0d5848b6e997",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      },
+      {
+        "service": "redis-cache",
+        "id": "375e79b3ae81e07e2304e8393f6f6ba6570bd8fe46cb3e6ac32ad0c189a5d87a",
+        "running": true,
+        "paused": false,
+        "restart_policy": "on-failure",
+        "matches_baseline": true
+      }
+    ],
+    "websocket_automatic_restart_semantics": "NOT_VERIFIED_AFTER_EARLIER_STOP_REQUESTS",
+    "window_end_utc": "2026-10-10T06:52:37.947961+00:00",
+    "window_seconds": 8.400962125,
+    "events": [
+      {
+        "utc": "2026-10-10T06:52:29.617104+00:00",
+        "kind": "original_websocket_process_frozen"
+      },
+      {
+        "utc": "2026-10-10T06:52:30.521480+00:00",
+        "kind": "frontend_graceful_drain_completed"
+      },
+      {
+        "utc": "2026-10-10T06:52:31.782641+00:00",
+        "kind": "consumer_warm_exit_completed",
+        "service": "queue-short",
+        "exit_code": 0
+      },
+      {
+        "utc": "2026-10-10T06:52:32.600084+00:00",
+        "kind": "consumer_warm_exit_completed",
+        "service": "queue-long",
+        "exit_code": 0
+      },
+      {
+        "utc": "2026-10-10T06:52:36.795698+00:00",
+        "kind": "backup_capture_finished",
+        "status": "PASS"
+      },
+      {
+        "utc": "2026-10-10T06:52:37.025006+00:00",
+        "kind": "original_service_restarted",
+        "service": "queue-short"
+      },
+      {
+        "utc": "2026-10-10T06:52:37.239006+00:00",
+        "kind": "original_service_restarted",
+        "service": "queue-long"
+      },
+      {
+        "utc": "2026-10-10T06:52:37.338089+00:00",
+        "kind": "original_websocket_process_unfrozen"
+      },
+      {
+        "utc": "2026-10-10T06:52:37.529982+00:00",
+        "kind": "original_service_restarted",
+        "service": "frontend"
+      },
+      {
+        "utc": "2026-10-10T06:52:37.701070+00:00",
+        "kind": "original_service_restarted",
+        "service": "scheduler"
+      }
+    ],
+    "window_budget": "WITHIN_600_SECONDS"
+  },
+  "source_post_check": {
+    "checked_utc": "2026-10-10T06:57:32.535101+00:00",
+    "containers": [
+      {
+        "service": "backend",
+        "id": "e05aefb5730a55a4fef848d766bfa0288e6b88430aa424e7c235b7bf87a34169",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "queue-short",
+        "id": "9d9cb6b5c8582aa40b50f6e5e5b049e507c0f768c909333d236800ccff6a6d72",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "queue-long",
+        "id": "e8d553f3a941bfa236041c1e74c96c4737b767f088a0029adbce1219510460e2",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "scheduler",
+        "id": "00f65ca2a04ff9e147632ff47cc9b35a9e02618bb1bfbf5371b9fc55bef27b6f",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "frontend",
+        "id": "1172cc3cf8d55fa5852dc5e77bc312c9166060222745e821549502581aa7e0cf",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "websocket",
+        "id": "034cd6ac2a4b4091f202200576d6aba27203eec33803dd2a6ef4b437ef2ce948",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "hbos-web-prepare",
+        "id": "43d89b9f37832b81ca5b1938ead533441c4925b9bac9c9ebbd42bd58ff985945",
+        "running": false,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "create-site",
+        "id": "53b3bea2cf57c6b4fdc5c492a996db415b30148dd440db752180c0229f2ec9b1",
+        "running": false,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "configurator",
+        "id": "0bbe7a6a66b0e7787d05de812d93981c74bc09f0dadcbca985dbd6e32623d6ed",
+        "running": false,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": false,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": true
+      },
+      {
+        "service": "db",
+        "id": "779c6365463d74d8a2bd86ed1b43b38aa1835c416ee3c7f43fe420fdc7cef0ba",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": true,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": false
+      },
+      {
+        "service": "redis-queue",
+        "id": "9a7bca1f089aa434821d287181067827d7a824bedada6d91b2aa0d5848b6e997",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": true,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": false
+      },
+      {
+        "service": "redis-cache",
+        "id": "375e79b3ae81e07e2304e8393f6f6ba6570bd8fe46cb3e6ac32ad0c189a5d87a",
+        "running": true,
+        "paused": false,
+        "matches_baseline": true,
+        "raw_metadata_stable": true,
+        "semantic_metadata_stable": true,
+        "mount_order_only_change": false
+      }
+    ],
+    "all_12_public_states_match": true,
+    "ws_events": [],
+    "event_cache_limit": 256,
+    "automatic_restart_internal_semantics": "NOT_VERIFIED"
+  },
+  "source_availability": {
+    "checked_utc": "2026-10-10T06:58:50.773464+00:00",
+    "source_private_meta": {
+      "config_sha256": {
+        "site": "533a2b31faf6265df003d6fa2fc1bc42fa9fa70778a4fa5c5d08c8c8ec37b89a",
+        "common": "caa296533e604fb712977e422092b8e77463ff72ac8c85e69b4c12b197b409bf"
+      },
+      "audit_mode": "0o700",
+      "audit_uid": 1000,
+      "old_regular_count": 4,
+      "old_regular_sha256_all_match": true,
+      "known_old_directories_returned": true,
+      "prepared_components_count": 5,
+      "knowledge_gateway_token_present": false
+    },
+    "http": {
+      "portal_people": {
+        "status": 200,
+        "content_type": "text/html",
+        "bytes_read": 446
+      },
+      "portal_ping": {
+        "status": 200,
+        "content_type": "application/json",
+        "ping_pong": true
+      },
+      "frappe_ping": {
+        "status": 200,
+        "content_type": "application/json",
+        "ping_pong": true
+      }
+    },
+    "owner_login_business_acceptance": "NOT_RUN",
+    "anonymous_only": true
+  },
+  "post_rq": {
+    "workers": [
+      {
+        "container_name": "hbos-m0-r3a-queue-short-1",
+        "worker_key_sha256": "73d358f5f7788a48ec74ff3252b589abfe4375440233e902a06d648d70abceaf",
+        "registered": true,
+        "pid": "1",
+        "hostname_hash_matches": true,
+        "queues": [
+          "short",
+          "default"
+        ],
+        "state": "idle",
+        "current_job_present": false,
+        "birth_present": true,
+        "ttl_ms": 385542,
+        "startup_error_counts": {
+          "Traceback": 0,
+          "AuthenticationError": 0,
+          "ConnectionError": 0,
+          "ImportError": 0,
+          "ModuleNotFoundError": 0,
+          "OperationalError": 0
+        }
+      },
+      {
+        "container_name": "hbos-m0-r3a-queue-long-1",
+        "worker_key_sha256": "3efaac986b89eef557be6b79d8cd24d066da79f428287c2fdf64ebdde5c6856b",
+        "registered": true,
+        "pid": "1",
+        "hostname_hash_matches": true,
+        "queues": [
+          "long",
+          "default",
+          "short"
+        ],
+        "state": "idle",
+        "current_job_present": false,
+        "birth_present": true,
+        "ttl_ms": 385623,
+        "startup_error_counts": {
+          "Traceback": 0,
+          "AuthenticationError": 0,
+          "ConnectionError": 0,
+          "ImportError": 0,
+          "ModuleNotFoundError": 0,
+          "OperationalError": 0
+        }
+      }
+    ],
+    "worker_count": 2,
+    "queued_count": 0,
+    "started_count": 0,
+    "raw_redis_reads_only_for_this_check": true,
+    "previous_partial_registry_root_cause": "UNKNOWN; fresh records after authorized normal warm exit/start are complete.",
+    "earlier_worker_all_call": "May remove expired registrations; no whole-turn Redis-zero-write claim."
+  },
+  "transfer": {
+    "source_leaf_mode": "0700",
+    "source_components": 5,
+    "verification_inputs": 6,
+    "transferred_files_including_original_manifest": 7,
+    "host_directory_mode": "0700",
+    "source_retained": true,
+    "host_staging_retained": true,
+    "components": {
+      "database": {
+        "basename": "20261010_145234-frontend-database.sql.gz",
+        "sha256": "c2f3c190095224ae075867582cedb5bd831a7fd7c9c7481d8f3df27ecccceac9",
+        "bytes": 2645386,
+        "mode": "0600",
+        "source_uid": 1000,
+        "host_uid": 501,
+        "double_hash_match": true
+      },
+      "site_config": {
+        "basename": "20261010_145234-frontend-site_config_backup.json",
+        "sha256": "533a2b31faf6265df003d6fa2fc1bc42fa9fa70778a4fa5c5d08c8c8ec37b89a",
+        "bytes": 1259,
+        "mode": "0600",
+        "source_uid": 1000,
+        "host_uid": 501,
+        "double_hash_match": true
+      },
+      "public_files": {
+        "basename": "20261010_145234-frontend-files.tar",
+        "sha256": "ec494d1950ae0bfe001150421a8218b5e9a3fb99cdf2e7b34e54769db87e00ed",
+        "bytes": 10240,
+        "mode": "0600",
+        "source_uid": 1000,
+        "host_uid": 501,
+        "double_hash_match": true
+      },
+      "private_files": {
+        "basename": "20261010_145234-frontend-private-files.tar",
+        "sha256": "cc581cc045fd49b226d536816e5631a43f84b02ef3a74f0751e81c2c7675f3f5",
+        "bytes": 174080,
+        "mode": "0600",
+        "source_uid": 1000,
+        "host_uid": 501,
+        "double_hash_match": true
+      },
+      "auth_files": {
+        "basename": "auth-private.tar.gz",
+        "sha256": "56043bd376e2366ec8dff632feea3184f798558dac2a2772404928ab3d3aab20",
+        "bytes": 293,
+        "mode": "0600",
+        "source_uid": 1000,
+        "host_uid": 501,
+        "double_hash_match": true
+      }
+    },
+    "extra_files": {
+      "before": {
+        "basename": "before.json",
+        "sha256": "e225e34a6f659e638c8ee597f22342e2aa12303d9d65ead731dc64734f825748",
+        "bytes": 1039,
+        "double_hash_match": true,
+        "mode": "0600"
+      },
+      "source_manifest": {
+        "basename": "backup-prepared.json",
+        "sha256": "c7392dc3fd56155e93519706f992db75d269d802f3431e5ca0618fdeaaf22afc",
+        "bytes": 674,
+        "double_hash_match": true,
+        "mode": "0600"
+      }
+    },
+    "full_original_container_pre_metadata_private_record": true
+  },
+  "first_isolated_restore": {
+    "report_sha256": "7eee9f96a2c9af029eb1f2be4ea7043f9d8d0a0cee0dc9f541e645fbf6814a05",
+    "raw_status": "FAIL",
+    "sql_restore": {
+      "account_fingerprints_match": "PASS",
+      "database_backup_sha256": "c2f3c190095224ae075867582cedb5bd831a7fd7c9c7481d8f3df27ecccceac9",
+      "database_fingerprint": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+      "database_restore": "PASS",
+      "encryption_key_present": true,
+      "files_archive_read": "PASS",
+      "restored_credential_count": 6,
+      "restored_user_count": 18,
+      "restored_user_role_count": 103,
+      "source_database_modified": false
+    },
+    "cleanup": {
+      "credential_directory_removed": true,
+      "original_container_metadata_preserved": false,
+      "owned_container_removed": true,
+      "owned_volumes_removed": true,
+      "sql_import_process_closed": true
+    },
+    "corrective_diagnostic": "Nine multi-mount services returned nondeterministically ordered Mounts; three snapshots equal after complete-record sorting. Final helper sorts complete mount records and retains private pre-metadata."
+  },
+  "final_isolated_restore": {
+    "cleanup": {
+      "credential_directory_removed": true,
+      "original_container_metadata_preserved": true,
+      "owned_container_removed": true,
+      "owned_volumes_removed": true,
+      "sql_import_process_closed": true
+    },
+    "during_isolation": {
+      "credential_bind_readonly": true,
+      "fresh_database_volumes": 1,
+      "id": "9fc208ffa009acb1956541c100838a5f701e338081b072cc23c38f0b3992af7a",
+      "image_id": "sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4",
+      "name": "hbos-owned-restore-check-f2a5741ee2c9",
+      "network": "none",
+      "original_volume_bindings": 0,
+      "published_ports": 0
+    },
+    "full_site_restore": "NOT_RUN",
+    "host_staging_retained": true,
+    "original_internal_automatic_restart_semantics": "NOT_VERIFIED",
+    "prepare_source_sha256": "5803439792af5e98f706664d1d812ea635686245a7acd2d9007a20ea7d4f2bf3",
+    "private_host_transfer": "PASS",
+    "restore_budget_seconds": 1200,
+    "source_audit_retained": true,
+    "source_database_destination": false,
+    "source_host_component_hashes": "PASS",
+    "source_preservation_gates": "PASS",
+    "sql_restore": {
+      "account_fingerprints_match": "PASS",
+      "database_backup_sha256": "c2f3c190095224ae075867582cedb5bd831a7fd7c9c7481d8f3df27ecccceac9",
+      "database_fingerprint": "98d2b2166d96e1969c24b420238b40e82a7572a59105b5e31d4f6f215b6aa4cb",
+      "database_restore": "PASS",
+      "encryption_key_present": true,
+      "files_archive_read": "PASS",
+      "restored_credential_count": 6,
+      "restored_user_count": 18,
+      "restored_user_role_count": 103,
+      "source_database_modified": false
+    },
+    "status": "PASS",
+    "verify_source_sha256": "6ad6151c6dc626a7c3eb5623f4c24a21f9dc267c40cc89b2bbf9f2aca51718b0"
+  },
+  "identity_restore_fingerprint_included": true,
+  "source_hashes": {
+    "hbos_original_backup_window_20261010_attempt4.py": "18a0d4fa1323b5bfd5fad7e7b9d4cfd20fa2d43667459aea49d5b9c9aa261c48",
+    "hbos_original_restore_20261010.py": "71721f3126c9242f716d8234e19f37d8013844d06d8d14935a43c25a7193fc49",
+    "prepare_existing_backup.py": "5803439792af5e98f706664d1d812ea635686245a7acd2d9007a20ea7d4f2bf3",
+    "verify_backup_restore.py": "6ad6151c6dc626a7c3eb5623f4c24a21f9dc267c40cc89b2bbf9f2aca51718b0"
+  },
+  "raw_report_hashes": {
+    "hbos_original_backup_window_20261010_attempt4_result.json": "3de40efa0b090179520d338fb75ec7452183380b459d070910393421a796f321",
+    "hbos_original_restore_20261010_attempt2_result.json": "c1ed9ad069f3c950ff5f8adfa8f447aab814008991a232764dc9afb1428f4316",
+    "hbos_backup_window_post_control_20261010_result.json": "09aef69b79993e38dd59d776138e56fb92e6a75bf579c0ab732a819e743fc612",
+    "hbos_backup_window_post_rq_20261010_result.json": "1637fa84f2f7299d408481b9f8bcdf77facd0c7b5588c37230c89f496fce35d6",
+    "hbos_backup_window_post_availability_20261010_result.json": "ca326b6c57e4456948447c6d957f9730a92c052b21ccf542f1e0651c2d6818b8"
+  },
+  "scope_limits": {
+    "full_site_restore": "NOT_RUN",
+    "encryption_key_decryption": "NOT_RUN",
+    "native_frappe_and_mounted_app_restore_startup": "NOT_RUN",
+    "owner_original_account_login_business_acceptance": "NOT_RUN",
+    "redis_restore": "NOT_RUN",
+    "global_inflight_transaction_visibility": "UNAVAILABLE_AUTHENTICATION_REJECTED_1045",
+    "websocket_internal_automatic_restart_semantics": "NOT_VERIFIED_AFTER_EARLIER_STOP_REQUESTS",
+    "continuous_websocket_kernel_freeze": "NOT_VERIFIED_BY_EVENT_HISTORY; bounded Docker cache returned no retained events, limit 256. Initial pause acknowledgement and final unpause are recorded, no detected interruption is not an atomic proof.",
+    "source_preservation_full_rows": "Eight listed native tables and two config files only; no all-database or global-writer invariance claim.",
+    "management_schema": "EIGHT_TABLES_ABSENT_FROM_PRECEDING_READONLY_PREFLIGHT; no DDL this step",
+    "management_get_enablement": "NOT_READY",
+    "management_post": "CLOSED",
+    "actual_business_grant": "NOT_RUN",
+    "schema_root_policy_pins_changes": "NOT_RUN",
+    "new_bench_site_app_or_compose": "NOT_RUN",
+    "probe_direct_signal_and_attempt3": "NOT_RUN",
+    "signal_mask_correction": {
+      "actual_websocket_sigcgt_hex": "0000000100000600",
+      "sigblk_hex": "0000000000000000",
+      "sigint_handler": false,
+      "sigterm_handler": false,
+      "prior_int_caught_claim": "INCORRECT_BIT_INTERPRETATION; superseded by (1 << (signal_number - 1))."
+    },
+    "formal_repository_code_tests": "NOT_RERUN_NO_APP_SOURCE_CHANGE; historical 14 native/428 offline/179 Vitest/35 Node/build not recounted.",
+    "git_commit_push_branch_creation": "NOT_RUN"
+  },
+  "repository_closeout": {
+    "baseline_file_count": 1310,
+    "unchanged_baseline_files": 1300,
+    "changed_existing_documents": [
+      "README.md",
+      "docs/AI_CONTEXT.md",
+      "docs/CURRENT_MILESTONE.md",
+      "docs/PROJECT_STATUS.md",
+      "docs/READING_GUIDE.md",
+      "docs/milestones/M2_START_GATE.md",
+      "docs/plans/人员权限_5178只读管理启用配置与验收清单.md",
+      "docs/plans/人员权限_原站只读预检与备份恢复准备范围.md",
+      "docs/plans/人员权限_只读管理正式配置与装配规范.md",
+      "frontend/hbos-portal-web/README.md"
+    ],
+    "new_documents_and_evidence": [
+      "docs/milestones/M2_人员权限原站备份与隔离SQL验收记录.md",
+      "docs/milestones/evidence/人员权限_原站备份与隔离SQL验收摘要_20261010.json",
+      "docs/plans/人员权限_原站备份停写窗口执行包.md"
+    ],
+    "all_preexisting_code_and_config_bytes_preserved": true,
+    "missing_baseline_files": [],
+    "current_local_markdown_links_checked": 170,
+    "broken_current_links": [],
+    "unmerged_index_entries": 0,
+    "whitespace_check": "PASS",
+    "standalone_helper_ast": "PASS",
+    "project_status_current_milestone_m2_gate_and_public_entries_updated": true,
+    "claude_agents_rules_checked_no_change": true,
+    "application_tests_not_repeated": "No application source edits; earlier counts retained as historical only."
+  }
+}
