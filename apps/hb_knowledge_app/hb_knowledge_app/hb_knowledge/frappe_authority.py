@@ -89,7 +89,12 @@ class SessionProofs:
         value={'site':self.config['site'],'instance':self.config['run_id'],'user':user,'generation':generation,
                'client':client.client_id,'purpose':'knowledge.read','expires':time.time()+600,
                'private_session':Fernet(self.config['sid_encryption_key'].encode()).encrypt(sid.encode()).decode()}
-        self.state.set('private-proof:'+ref,canonical(value),ex=600,nx=True)
+        # A fresh native session/security check above is the only renewal point.
+        # NX left a stable active session's original ten-minute deadline intact:
+        # a request starting just before it could lose its proof mid-retrieval.
+        # Every later authority phase still rechecks the native session, account
+        # state and security generation; renewing is not a last-known allow.
+        self.state.set('private-proof:'+ref,canonical(value),ex=600)
         actor=Actor(user,ref,generation,True)
         self.resolve(actor,client)
         return actor
