@@ -35,3 +35,33 @@ scheduler_events = {
 hbos_portal_provider = [
     "hb_attendance_app.hbos_attendance.portal.provider.get_provider",
 ]
+
+# IAM is an explicit Site rollout. With its flag off, existing native HR
+# boundaries remain unchanged; no ordinary IAM reader receives an HR role.
+permission_query_conditions = {
+    "Employee Checkin": "hb_attendance_app.hbos_attendance.portal.permissions.query_conditions",
+    "Attendance": "hb_attendance_app.hbos_attendance.portal.permissions.query_conditions",
+    "Prepared Report": "hb_attendance_app.hbos_attendance.portal.permissions.prepared_report_query_conditions",
+    "File": "hb_attendance_app.hbos_attendance.portal.permissions.file_query_conditions",
+}
+has_permission = {
+    "Employee Checkin": "hb_attendance_app.hbos_attendance.portal.permissions.has_permission",
+    "Attendance": "hb_attendance_app.hbos_attendance.portal.permissions.has_permission",
+    "Prepared Report": "hb_attendance_app.hbos_attendance.portal.permissions.prepared_report_has_permission",
+    "File": "hb_attendance_app.hbos_attendance.portal.permissions.file_has_permission",
+}
+doc_events = {
+    "Prepared Report": {
+        "before_insert": "hb_attendance_app.hbos_attendance.portal.permissions.guard_prepared_report",
+        "before_validate": "hb_attendance_app.hbos_attendance.portal.permissions.guard_prepared_report",
+        "on_trash": "hb_attendance_app.hbos_attendance.portal.permissions.guard_prepared_report",
+    },
+    "File": {
+        "before_insert": "hb_attendance_app.hbos_attendance.portal.permissions.guard_file",
+        "before_validate": "hb_attendance_app.hbos_attendance.portal.permissions.guard_file",
+        "on_trash": "hb_attendance_app.hbos_attendance.portal.permissions.guard_file",
+    },
+}
+before_request = ["hb_attendance_app.hbos_attendance.portal.permissions.check_request"]
+auth_hooks = ["hb_attendance_app.hbos_attendance.portal.permissions.check_request"]
+before_job = ["hb_attendance_app.hbos_attendance.portal.permissions.check_background_job"]
