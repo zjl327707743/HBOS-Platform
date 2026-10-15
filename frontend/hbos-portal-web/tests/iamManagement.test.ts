@@ -48,14 +48,15 @@ it('keeps suspend and reenable previews available when timed ordinary rules are 
     wrapper.unmount()
   }
 })
-it('renders the server impact result as natural text without undefined before or after fields',async()=>{
+it('keeps an individual preview summary without department impact counts or employee lists',async()=>{
   Object.assign(iamSession,{ready:true,user:'manager',capabilities:['iam.people.read','iam.access.manage']})
   vi.mocked(getPerson).mockResolvedValue({employee:{id:'EMP-a',user_id:'user-a',account_status:'active'}} as never)
   vi.mocked(getEffectiveWork).mockResolvedValue(app)
   vi.mocked(previewWork).mockResolvedValue({version:1,context_revision:'r1',changed:true,summary:'服务端影响已核对',after:app,impact:{changed:1,personal_preserved:1,unavailable:0,employees:[{name:'员工甲',result:'本次只停用该员工的考勤入口，已有工作安排保留。',personal_preserved:true}]}})
   const wrapper=mount(WorkSettings,{props:{subjectKind:'employee',subjectId:'EMP-a',appId:'attendance'},global:{plugins:[Antd]}})
   await flushPromises();await wrapper.findAll('button').find(row=>row.text()==='只停用此人此应用')!.trigger('click');await flushPromises()
-  expect(wrapper.text()).toContain('员工甲：本次只停用该员工的考勤入口，已有工作安排保留。')
+  expect(wrapper.text()).toContain('服务端影响已核对')
+  expect(wrapper.text()).not.toContain('跟随变化');expect(wrapper.text()).not.toContain('查看全部受影响员工');expect(wrapper.text()).not.toContain('员工甲')
   expect(wrapper.text()).not.toContain('undefined');expect(wrapper.text()).not.toContain('→')
   wrapper.unmount()
 })

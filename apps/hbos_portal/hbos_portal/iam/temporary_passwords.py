@@ -44,9 +44,11 @@ def status(user):
         return empty
     pending = bool(value.get(FIELDS[0]))
     temporary = bool(value.get(FIELDS[1]))
+    session = getattr(frappe, 'session', None)
+    delivery_session = bool(session and session.user == user and (session.data or {}).get('hbos_iam_initial_delivery'))
     return dict(pending=pending, temporary=temporary, expires_at=value.get(FIELDS[2]),
                 generation=int(value.get(FIELDS[3]) or 0),
-                can_claim=pending and not temporary and not int(value.get(FIELDS[3]) or 0))
+                can_claim=pending and not temporary and not int(value.get(FIELDS[3]) or 0) and delivery_session)
 
 
 @contextmanager
@@ -153,7 +155,10 @@ def on_session_creation(login_manager=None):
     if not available():
         return
     user = login_manager.user if login_manager else frappe.session.user
-    if status(user)['can_claim'] and frappe.flags.get('hbos_iam_verified_oauth_login') == user:
+    current = status(user)
+    if (current['pending'] and not current['temporary'] and not current['generation']
+            and frappe.flags.get('hbos_iam_verified_oauth_login') == user
+            and frappe.session.user == user):
         frappe.session.data['hbos_iam_initial_delivery'] = 1
         frappe.local.session_obj._update_in_cache = True
 

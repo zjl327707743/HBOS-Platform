@@ -60,6 +60,30 @@ class TemporaryPasswordContractTest(unittest.TestCase):
             with temporary.authority(doc.name): temporary.guard_user_fields(doc)
             self.assertIsNone(fake.flags.get('hbos_iam_temporary_authority'))
 
+    def test_initial_delivery_eligibility_requires_the_same_verified_enterprise_session(self):
+        fake = self.fake()
+        fake.db.get_value.return_value = dict(zip(temporary.FIELDS, (1, 0, None, 0)))
+        with patch.object(temporary, 'frappe', fake), patch.object(temporary, 'available', return_value=True):
+            self.assertFalse(temporary.status(fake.session.user)['can_claim'])
+            fake.session.data['hbos_iam_initial_delivery'] = 1
+            self.assertTrue(temporary.status(fake.session.user)['can_claim'])
+            self.assertFalse(temporary.status('another@example.test')['can_claim'])
+
+    def test_verified_oauth_session_establishes_delivery_eligibility_without_an_existing_marker(self):
+        fake = self.fake()
+        fake.db.get_value.return_value = dict(zip(temporary.FIELDS, (1, 0, None, 0)))
+        fake.local.session_obj = types.SimpleNamespace(_update_in_cache=False)
+        with patch.object(temporary, 'frappe', fake), patch.object(temporary, 'available', return_value=True):
+            temporary.on_session_creation()
+            self.assertFalse(temporary.status(fake.session.user)['can_claim'])
+            fake.flags['hbos_iam_verified_oauth_login'] = 'another@example.test'
+            temporary.on_session_creation()
+            self.assertFalse(temporary.status(fake.session.user)['can_claim'])
+            fake.flags['hbos_iam_verified_oauth_login'] = fake.session.user
+            temporary.on_session_creation()
+            self.assertTrue(temporary.status(fake.session.user)['can_claim'])
+            self.assertTrue(fake.local.session_obj._update_in_cache)
+
     def test_issue_uses_native_hash_and_stores_only_status_not_plaintext(self):
         fake = self.fake()
         native = Mock()
@@ -121,4 +145,3 @@ class TemporaryPasswordContractTest(unittest.TestCase):
         with patch.object(accounts, 'frappe', fake), patch.object(temporary, 'on_password_changed') as settle:
             accounts.user_updated(doc)
             settle.assert_not_called()
-
