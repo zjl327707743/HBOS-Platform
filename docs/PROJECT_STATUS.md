@@ -86,6 +86,12 @@ PARTIAL / ACCOUNTING_PENDING / NOT_RELEASED。服务0.3.10增加维护入口专�
 
 后端 GitHub CI FAIL：当前 OAuth 凭据缺 `workflow` scope，GitHub 拒绝更新工作流；修复补丁单独交付，应用检查和全新依赖环境的本地等价复测通过。远端前端与普通 bundle 构建 PASS；普通 bundle 不包含联合 service，不能据此部署知识功能。主任务书 `HBOS_KNOWLEDGE_AUTONOMOUS_MASTER_TASK_R1.md` 未随已提供三附件出现，本机按名称检索未找到，时间/资源/完整依赖与分仓目标未核对。真实 RAGFlow、受控模型问答、员工 MCP、历史/收藏/反馈/资料维护、旧库恢复、生产 IAM/TLS 与发布仍未完成；模型与 MCP 路由保持关闭。执行事实见 `docs/milestones/M1_KB_AUTO_R1_知识候选连续执行.md`；以下旧轮次条目保留为历史与其他业务范围。
 
+
+## 2026-10-10 HBOS 多 APP 集成治理（产品分支）
+
+制定 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md` 作为并行开发、PR 粒度与分批合并协作规范：Portal 任务以当前产品分支为基线，领域增量与共享入口分离，拉代码不自动 migrate。此项仅为治理文档，不代表 #33/#34/#37 的高风险代码或 #30 知识库已合并、不代表原本本机运行版本已更新。正式合并/验收按各 PR 最新 SHA 独立记录。
+
+
 ## 并行权限治理 IAM-0 — 2026-10-01
 
 Owner 已批准进入统一身份与权限治理。当前仅交付设计、角色—动作—范围矩阵、只读源码盘点工具与本机任务书；实际 Site 盘点和隔离验收仍为 NOT_RUN，不修改账号、角色或业务数据，不替代原账号收尾。入口：[IAM-0 治理资料](governance/iam/README.md)。

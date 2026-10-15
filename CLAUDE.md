@@ -10,6 +10,10 @@
 
 主技术栈：Frappe Framework、ERPNext、Frappe HR、Python、JavaScript、MariaDB/MySQL 兼容体系、Redis、Docker、Docker Compose、Vue/React、ECharts、FastAPI。
 
+## 多 APP 并行集成基线
+
+每次执行 Portal/业务 APP 开发与 PR 集成，先读取 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md`：从最新产品分支创建短期分支，领域 PR 不混入他域历史，共享入口由平台集成，权限由后端核验；PR 合并只以新 HEAD 的 CI/审批作门禁，拉代码绝不自动修改真实数据库。文档不代表已批准业务上线或放宽 IAM 门禁。
+
 ## 进度来源
 
 `CLAUDE.md` 是 Claude 协作规则入口，不承载具体项目进度。
