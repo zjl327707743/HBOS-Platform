@@ -1,5 +1,6 @@
 from __future__ import annotations
 import secrets
+import hashlib,json,logging,re
 import math
 from .errors import KnowledgeError
 from .repositories import KnowledgeReference
@@ -50,11 +51,16 @@ def resolve_evidence(cache, actor, client, evidence_id, *, runtime, request_id):
         or now>=reference.expires_at or reference.expires_at-reference.issued_at>300):
         raise KnowledgeError("EVIDENCE_UNAVAILABLE")
     request=normalize_search({"query":"EVIDENCE_LOOKUP","space_ids":[reference.binding.space_id]})
+    phase='DECISION_ISSUE'
     try:
         ticket=runtime.decisions.issue(actor,client,"knowledge.evidence",request,request_id)
+        phase='AUTHORITY_INTROSPECT'
         runtime.decisions.online(__principal(client),ticket.call("introspect","introspect"))
-        if (reference.binding not in ticket.plan.bindings or reference.policy_revision!=ticket.plan.policy_revision
-                or reference.corpus_revision!=ticket.plan.corpus_revision):
+        phase='SOURCE_VERSION_CHECK'
+        # A newly published unrelated document changes the whole-corpus stamp.
+        # The exact source must instead remain a current, authorized binding;
+        # revocation, replacement and role changes are still checked online.
+        if (reference.binding not in ticket.plan.bindings or reference.policy_revision!=ticket.plan.policy_revision):
             raise KnowledgeError("EVIDENCE_UNAVAILABLE")
         b=reference.binding
         record=EvidenceRecord(b.canonical_document_id,b.title,b.business_version,
@@ -62,11 +68,17 @@ def resolve_evidence(cache, actor, client, evidence_id, *, runtime, request_id):
              b.section,reference.page_number,reference.excerpt,reference.chunk_id,
              b.dataset_alias,b.space_id,b.version_id,b.binding_ref,b)
         runtime.checkpoint("before_evidence_backend")
+        phase='BACKEND_SOURCE_CHECK'
         runtime.gateway.authorize_evidence(ticket,[record],phase="evidence_read")
         runtime.checkpoint("before_evidence_publication")
+        phase='FINAL_AUTHORITY_CHECK'
         runtime.decisions.online(__principal(client),ticket.call("revalidate","final_publish"))
         return record,ticket
     except KnowledgeError as error:
+        safe_request=request_id if isinstance(request_id,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',request_id) else 'UNAVAILABLE'
+        logging.getLogger('hbos.knowledge.source_diagnostics').warning(json.dumps({
+            'event':'SOURCE_RESOLUTION_FAILED','request_id':safe_request,'stage':phase,'reason':error.code,
+            'document_sha256':hashlib.sha256(reference.binding.canonical_document_id.encode()).hexdigest()},sort_keys=True))
         if error.code in {"POLICY_UNAVAILABLE","UPSTREAM_UNAVAILABLE","MODEL_NOT_APPROVED",
                           "RATE_LIMITED","EXTRACTION_LIMITED","DECISION_EXPIRED"}:
             raise
