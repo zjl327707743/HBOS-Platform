@@ -101,6 +101,22 @@ def _protected_report(name, resolver):
             return True
         if report["ref_doctype"] in PROTECTED_DOCTYPES:
             return True
+        if report.get("report_type") == "Query Report":
+            # Ref DocType is only a report access label; saved SQL may read a
+            # different table. Inspect the server-owned query, never a query
+            # supplied by the caller. Do not execute it during classification.
+            query = report.get("query")
+            if query is not None and not isinstance(query, str):
+                return True
+            if query:
+                if len(query) > 65536:
+                    return True
+                folded = query.casefold()
+                if any(("tab" + kind).casefold() in folded for kind in PROTECTED_DOCTYPES):
+                    return True
+            # Empty queries cannot produce rows; native validation still runs.
+            # This conservative marker check is not an arbitrary SQL sandbox:
+            # views/functions and trusted Script Reports need separate review.
         if report.get("report_type") != "Custom Report":
             return False
         name = report.get("reference_report")
@@ -164,9 +180,10 @@ def before_request(native=None):
     request = native.local.request
 
     def resolve_report(name):
-        # Fixed metadata fields only. Do not execute a report or read its SQL.
+        # Fixed metadata and saved SQL for classification only; never execute
+        # report SQL or return it to the requesting user.
         rows = native.db.sql(
-            "SELECT ref_doctype,report_type,reference_report FROM `tabReport` WHERE name=%s",
+            "SELECT ref_doctype,report_type,reference_report,`query` FROM `tabReport` WHERE name=%s",
             (name,), as_dict=True,
         )
         return dict(rows[0]) if len(rows) == 1 else None
