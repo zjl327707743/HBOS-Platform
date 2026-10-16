@@ -288,3 +288,15 @@ describe('UAT5 public law catalog contract', () => {
     await expect(getKnowledgeDocumentsPage('', '', 1, 4, '安全环保')).rejects.toBeInstanceOf(DomainApiError)
   })
 })
+
+it('retains verified sources without presenting a rejected summary as answered', async () => {
+  const {askKnowledgeReference}=await import('@/services/p1Api')
+  const data={request_id:'REQ_SOURCE_ONLY',turn_id:'TURN_SOURCE_ONLY',mode:'reference_only',answer_status:'REFERENCE_ONLY',answerable:false,
+    answer:'已找到并核实以下资料，但本次未形成可核验的归纳。请先查看来源。',citations:[{...card,citation_label:'C1'}],answer_origin:'KNOWLEDGE',model_alias:'deepseek-flash'}
+  transport.post.mockResolvedValue({ok:true,data})
+  expect(await askKnowledgeReference('合成资料要求',undefined,undefined,'STANDARD','deepseek-flash',true)).toEqual(data)
+  for (const change of [{answerable:true},{citations:[]},{answer:'未经核验的合成模型结论。'},{answer_origin:'GENERAL'}]) {
+    transport.post.mockResolvedValue({ok:true,data:{...data,...change}})
+    await expect(askKnowledgeReference('合成资料要求',undefined,undefined,'STANDARD','deepseek-flash',true)).rejects.toBeInstanceOf(DomainApiError)
+  }
+})

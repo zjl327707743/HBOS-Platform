@@ -237,9 +237,9 @@ def ask(**business_fields):
             handle=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
             citations.append(dict(public_evidence(record,handle,environment=runtime.profile),citation_label=label))
         from .r1_contract import validate_ask_data
-        data={'request_id':request_id,'turn_id':request_id,'mode':'general_generation' if origin=='GENERAL' else 'internal_reference_generation' if citations else 'authorized_generation',
-            'answer_status':'GENERAL_ANSWERED' if origin=='GENERAL' else 'REFERENCE_ANSWERED' if citations else 'INSUFFICIENT_EVIDENCE',
-            'answerable':origin=='GENERAL' or bool(citations),'answer':answer,'citations':citations,
+        from .answer_policy import answer_presentation
+        data={'request_id':request_id,'turn_id':request_id,**answer_presentation(answer,bool(citations),origin=='GENERAL'),
+            'answer':answer,'citations':citations,
             'answer_origin':origin,'model_alias':actual_alias}
         validate_ask_data(data,environment=runtime.profile)
         turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context,

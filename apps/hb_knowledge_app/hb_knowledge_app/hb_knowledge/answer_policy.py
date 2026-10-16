@@ -20,3 +20,12 @@ def route_question(question,*,knowledge_only=False,context=()):
     if re.match(r'(?:计算|请计算)\s*[\d()+*/.\s-]+[?？。]*$',q):return 'GENERAL'
     if re.match(r'(?:写|请写|帮我写|如何写|how to write)\s*(?:一个|一段|a\s)?(?:python|javascript|typescript|sql|正则)',q):return 'GENERAL'
     return 'KNOWLEDGE'
+
+
+def answer_presentation(answer,has_citations,general=False):
+    from .r1_contract import REFERENCE_TEXT,LEGACY_REFERENCE_TEXT
+    if general:return {'mode':'general_generation','answer_status':'GENERAL_ANSWERED','answerable':True}
+    if has_citations and answer in (REFERENCE_TEXT,LEGACY_REFERENCE_TEXT):
+        return {'mode':'reference_only','answer_status':'REFERENCE_ONLY','answerable':False}
+    if has_citations:return {'mode':'internal_reference_generation','answer_status':'REFERENCE_ANSWERED','answerable':True}
+    return {'mode':'authorized_generation','answer_status':'INSUFFICIENT_EVIDENCE','answerable':False}

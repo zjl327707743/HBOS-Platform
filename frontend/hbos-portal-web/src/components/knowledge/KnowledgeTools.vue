@@ -11,7 +11,7 @@
       <div class="answer-list" aria-live="polite">
         <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
           <h3 class="answer-question">{{ turn.question }}</h3>
-          <a-tag :color="turn.answerable ? 'blue' : 'orange'">{{ !turn.answerable ? '没有可核实公司依据' : turn.answer_origin === 'GENERAL' ? '通用 AI 回答' : '已使用知识库' }}</a-tag>
+          <a-tag :color="turn.answerable ? 'blue' : 'orange'">{{ turn.answer_status==='REFERENCE_ONLY' ? '已找到资料，归纳待核验' : !turn.answerable ? '没有可核实公司依据' : turn.answer_origin === 'GENERAL' ? '通用 AI 回答' : '已使用知识库' }}</a-tag>
           <p class="answer-text">{{ turn.answer }}</p>
           <button v-for="source in turn.citations" :key="source.citation_label" type="button" class="citation-link" @click="emit('evidence', source.evidence_id)">[{{ source.citation_label }}] {{ source.title || '未标注标题' }} · 查看依据</button>
           <p class="answer-note">本次检索时点的资料依据；再次查阅会核验当前状态。</p>
@@ -73,7 +73,7 @@
       <div class="kb-section-title"><h2>回答</h2><a-button type="text" @click="newConversation">开启新问题</a-button></div>
       <div class="kb-answer-list" aria-live="polite">
         <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
-          <h3 class="answer-question">{{turn.question}}</h3><div class="kb-answer-origin"><a-tag :color="!turn.answerable?'orange':turn.answer_origin==='GENERAL'?'default':'cyan'">{{!turn.answerable?'没有可核实公司依据':turn.answer_origin==='GENERAL'?'通用 AI 回答':'已使用知识库'}}</a-tag><small>{{turn.model_alias||'原模型未记录'}}</small></div>
+          <h3 class="answer-question">{{turn.question}}</h3><div class="kb-answer-origin"><a-tag :color="!turn.answerable?'orange':turn.answer_origin==='GENERAL'?'default':'cyan'">{{turn.answer_status==='REFERENCE_ONLY'?'已找到资料，归纳待核验':!turn.answerable?'没有可核实公司依据':turn.answer_origin==='GENERAL'?'通用 AI 回答':'已使用知识库'}}</a-tag><small>{{turn.model_alias||'原模型未记录'}}</small></div>
           <p class="kb-answer-copy">{{turn.answer}}</p><div v-if="turn.citations.length" class="kb-source-label">参考来源</div>
           <div v-for="source in turn.citations" :key="source.citation_label" class="kb-citation-row">
             <button class="kb-source-link" @click="emit('evidence',source.evidence_id)"><FileTextOutlined/><span>[{{source.citation_label}}] {{source.title||'未标注标题'}}<small>{{source.version||'版本待核'}} · {{source.status_note==='INTERNAL_REFERENCE_REVIEWED'?'内部参考／有效性待核':source.status_note}}</small></span></button>
@@ -335,7 +335,7 @@ async function remove(id: string) {
 function restoreSnapshot(snapshot: import('@/contracts/p1').KnowledgeRestored) {
   turns.value = snapshot.turns
   conversation.value = turns.value[turns.value.length - 1]?.turn_id || ''
-  queryState.value = turns.value.length ? (turns.value[turns.value.length - 1]!.answerable ? 'success' : 'no_evidence') : 'idle'
+  queryState.value = turns.value.length ? ((turns.value[turns.value.length - 1]!.answerable || turns.value[turns.value.length - 1]!.citations.length>0) ? 'success' : 'no_evidence') : 'idle'
   emit('conversation', Boolean(conversation.value))
 }
 function cancelPending(cancelRecords = true) {
@@ -363,7 +363,7 @@ async function ask(value = question.value) {
     askPending.value = true; queryState.value = 'answering'
     const data = await askKnowledgeReference(normalized, props.selectedSpace, conversation.value || undefined, props.searchMode || 'STANDARD',props.modelAlias || 'gpt-6-luna',Boolean(props.knowledgeOnly))
     if (current === generation) {
-      queryState.value = data.answerable ? 'success' : 'no_evidence'
+      queryState.value = (data.answerable || data.citations.length>0) ? 'success' : 'no_evidence'
       turns.value.push({ ...data, question: normalized }); conversation.value = data.turn_id; question.value = ''; emit('conversation', true)
       await refresh()
     }

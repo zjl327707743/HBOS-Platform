@@ -12,7 +12,8 @@ from .errors import KnowledgeError
 SCHEMA_ROOT = Path(__file__).parent / "schemas"
 CONTRACT_VERSION = "k1c1-r1.1"
 INSUFFICIENT_TEXT = "当前授权资料不足以形成回答。"
-REFERENCE_TEXT = "仅供参考，请核对获准依据。"
+LEGACY_REFERENCE_TEXT = "仅供参考，请核对获准依据。"
+REFERENCE_TEXT = "已找到并核实以下资料，但本次未形成可核验的归纳。请先查看来源。"
 SYNTHETIC_TEXT = "SYNTHETIC_ONLY：仅供隔离测试。"
 CONTEXT_KEYS = ("equipment_id", "asset_id", "component_id")
 
@@ -116,7 +117,7 @@ def validate_ask_data(value: dict, *, environment: str):
     elif triple[1]=='GENERAL_ANSWERED':raise KnowledgeError('INVALID_REQUEST')
     if len({c["citation_label"] for c in citations}) != len(citations):
         raise KnowledgeError("INVALID_REQUEST")
-    if triple[1] == "REFERENCE_ONLY" and (value["answer"] != REFERENCE_TEXT or not citations):
+    if triple[1] == "REFERENCE_ONLY" and (value["answer"] not in (REFERENCE_TEXT,LEGACY_REFERENCE_TEXT) or not citations):
         raise KnowledgeError("INVALID_REQUEST")
     if triple[1] == "SYNTHETIC_TEST" and (environment != "synthetic" or value["answer"] != SYNTHETIC_TEXT or citations):
         raise KnowledgeError("INVALID_REQUEST")

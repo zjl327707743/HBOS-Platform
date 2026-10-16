@@ -184,8 +184,8 @@ export interface KnowledgeAnswer {
   request_id: string
   turn_id: string
   conversation_id?: string
-  mode: 'internal_reference_generation' | 'authorized_generation' | 'general_generation'
-  answer_status: 'REFERENCE_ANSWERED' | 'INSUFFICIENT_EVIDENCE' | 'GENERAL_ANSWERED'
+  mode: 'internal_reference_generation' | 'authorized_generation' | 'general_generation' | 'reference_only'
+  answer_status: 'REFERENCE_ANSWERED' | 'INSUFFICIENT_EVIDENCE' | 'GENERAL_ANSWERED' | 'REFERENCE_ONLY'
   answerable: boolean
   answer: string
   citations: (KnowledgeEvidence & { citation_label: string })[]

@@ -390,7 +390,8 @@ function validateKnowledgeAnswer(data: import('@/contracts/p1').KnowledgeAnswer,
   const refusalMessages=['当前授权资料不足以形成回答。','没有可核验的企业依据。请提供已发布且有权查阅的资料。','无法可靠定位前一回答中的具体条目。请指出步骤名称或关键词后再问；当前资料不足以直接回答这个追问。']
   const insufficient=data.mode==='authorized_generation' && data.answer_status==='INSUFFICIENT_EVIDENCE' && data.answerable===false && refusalMessages.includes(data.answer) && data.citations.length===0
   const general=data.mode==='general_generation' && data.answer_status==='GENERAL_ANSWERED' && data.answerable===true && data.answer_origin==='GENERAL' && data.citations.length===0 && !/\[C[1-5]\]/.test(data.answer)
-  if ((!answered && !insufficient && !general) || ((answered || insufficient) && data.answer_origin!=='KNOWLEDGE')) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  const referenceOnly=data.mode==='reference_only' && data.answer_status==='REFERENCE_ONLY' && data.answerable===false && data.citations.length>0 && ['仅供参考，请核对获准依据。','已找到并核实以下资料，但本次未形成可核验的归纳。请先查看来源。'].includes(data.answer)
+  if ((!answered && !insufficient && !general && !referenceOnly) || ((answered || insufficient || referenceOnly) && data.answer_origin!=='KNOWLEDGE')) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   data.citations.forEach(c => { const {citation_label,...e}=c; if (!/^C[1-5]$/.test(citation_label)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。');validateKnowledgeEvidence(e) })
   if (new Set(data.citations.map(c => c.citation_label)).size !== data.citations.length || (space && data.citations.some(c => c.space_id !== undefined && c.space_id !== space))) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   return data

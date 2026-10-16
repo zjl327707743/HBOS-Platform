@@ -266,8 +266,8 @@ def restore(runtime,row,data,actor,mapping,request_id):
             citations=[dict(source,citation_label=label) for source,label in zip(output,labels)]
             general=item.get('answer_origin')=='GENERAL'
             if general and (records or citations):raise KnowledgeError('EVIDENCE_UNAVAILABLE')
-            turns.append({'request_id':request_id,'turn_id':turn,'conversation_id':turn,'mode':'general_generation' if general else 'internal_reference_generation' if citations else 'authorized_generation',
-                'answer_status':'GENERAL_ANSWERED' if general else 'REFERENCE_ANSWERED' if citations else 'INSUFFICIENT_EVIDENCE','answerable':general or bool(citations),
+            from .answer_policy import answer_presentation
+            turns.append({'request_id':request_id,'turn_id':turn,'conversation_id':turn,**answer_presentation(item['answer'],bool(citations),general),
                 'answer':item['answer'],'citations':citations,'question':item.get('question',item['query']),
                 'answer_origin':item.get('answer_origin','KNOWLEDGE'),'model_alias':item.get('model_alias')})
         else:results=output
