@@ -6,7 +6,7 @@ HBOS 知识资料准入、权限策略、Gateway 适配与有限证据交付。
 
 ## 当前 UAT5 联合候选
 
-知识页面继续使用已批准的 Portal 结构。独立服务源码候选为 `hbos_knowledge_service` 0.6.12；实际安装提交、wheel、镜像、静态资源和业务统计以 Owner 本机联合锁为准。本仓库不包含该独立服务源码，普通 Portal bundle 不能单独启用真实知识链路。
+知识页面继续使用已批准的 Portal 结构。独立服务源码候选为 `hbos_knowledge_service` 0.6.13；实际安装提交、wheel、镜像、静态资源和业务统计以 Owner 本机联合锁为准。本仓库不包含该独立服务源码，普通 Portal bundle 不能单独启用真实知识链路。
 
 原生 Frappe Session 负责员工身份；本 App 的 `hb_knowledge/api.py` 负责员工 API、授权与发布，`mcp_api.py` 和 `connections.py` 负责本人连接认证及四工具分发。独立服务的 `knowledge_service.hbos_gateway.mcp_runtime:app` 承接 `/mcp`，由 `mcp_host.py` 回调 Frappe dispatch，复用 list spaces、search、resolve evidence 和 ask，没有第三套知识 MCP。前端的 `services/knowledgeInstaller.ts` 只写私有客户端配置及无凭据规则，不改变用户自己的模型选择。
 
