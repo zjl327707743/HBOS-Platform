@@ -115,19 +115,24 @@ def run():
     original_user = frappe.session.user
     frappe.set_user("Administrator")
     prefix = "HBOS-RS-" + test_id
+    company = prefix + "-COMPANY"
+    company_abbr = "RS" + test_id.split("-", 1)[0][-3:]
     users = [f"hbos-rs-{test_id}-{kind}@example.invalid" for kind in ("all", "a")]
     passwords = {user: secrets.token_urlsafe(32) for user in users}
     employees = [prefix + "-EMP-A", prefix + "-EMP-B"]
     row_ids = [prefix + "-ATT-A", prefix + "-ATT-B"]
     checkin_ids = [prefix + "-LOG-A", prefix + "-LOG-B"]
     departments, created_users, grants = [], [], []
-    tables = ("User", "Employee", "Department", "User Permission", "Attendance", "Employee Checkin")
+    tables = ("Company", "User", "Employee", "Department", "User Permission",
+              "Attendance", "Employee Checkin")
     before = {kind: frappe.db.count(kind) for kind in tables}
     # Refusal happens before entering cleanup: never delete a pre-existing ID.
-    for kind, names in (("User", users), ("Employee", employees),
+    for kind, names in (("Company", (company,)), ("User", users), ("Employee", employees),
                         ("Attendance", row_ids), ("Employee Checkin", checkin_ids)):
         if any(frappe.db.exists(kind, name) for name in names):
             raise RuntimeError("Refusing to reuse existing synthetic fixture IDs")
+    if frappe.db.exists("Company", {"abbr": company_abbr}):
+        raise RuntimeError("Refusing to reuse a pre-existing synthetic company abbreviation")
     for suffix in ("A", "B"):
         if frappe.db.exists("Department", {"department_name": prefix + "-" + suffix}):
             raise RuntimeError("Refusing to reuse a pre-existing synthetic department")
@@ -170,9 +175,15 @@ def run():
                        "filter_keys": sorted(filters)})
 
     try:
+        # Minimal synthetic master, as with Employee/Attendance below: this suite
+        # tests report permissions, not Company accounting setup or lifecycle.
+        # Do not create a chart of accounts, relax mandatory fields, or borrow
+        # an existing Company. Departments still use their native controller.
+        _sql_fixture("Company", {"name": company, "company_name": company,
+            "abbr": company_abbr, "default_currency": "CNY", "country": "China"})
         for suffix in ("A", "B"):
             dep = frappe.get_doc({"doctype": "Department", "department_name": prefix + "-" + suffix,
-                                 "is_group": 0}).insert()
+                                 "company": company, "is_group": 0}).insert()
             departments.append(dep.name)
         for user in users:
             frappe.get_doc({"doctype": "User", "email": user, "first_name": "Synthetic Scope HR",
@@ -182,9 +193,10 @@ def run():
         for index, employee in enumerate(employees):
             _sql_fixture("Employee", {"name": employee, "employee_name": employee,
                 "employee_number": prefix + "-" + str(index), "status": "Active",
-                "department": departments[index]})
+                "department": departments[index], "company": company})
             _sql_fixture("Attendance", {"name": row_ids[index], "employee": employee,
-                "attendance_date": "2026-01-05", "status": "Present", "docstatus": 1})
+                "attendance_date": "2026-01-05", "status": "Present", "docstatus": 1,
+                "company": company})
             _sql_fixture("Employee Checkin", {"name": checkin_ids[index], "employee": employee,
                 "time": "2026-01-05 08:00:00", "log_type": "IN"})
         frappe.db.commit()
@@ -249,6 +261,7 @@ def run():
         for department in reversed(departments):
             if frappe.db.exists("Department", department):
                 frappe.delete_doc("Department", department, force=1)
+        frappe.db.delete("Company", {"name": company})
         frappe.db.commit()
         after = {kind: frappe.db.count(kind) for kind in tables}
         frappe.set_user(original_user)
