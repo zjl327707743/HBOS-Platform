@@ -23,7 +23,7 @@ const canPublishSelected=computed(()=>selectedItems.value.length>0&&selectedItem
 const canApproveSharing=computed(()=>selectedItems.value.length>0&&selectedItems.value.every(i=>i.quality_status==='Passed'&&i.shared_approved===false))
 const canParse=computed(()=>data.value?.import_availability.can_parse===true)
 const replacements=computed(()=>data.value?.published_documents.filter(i=>i.department===department.value)||[])
-const parseNames:Record<string,string>={'planned':'待解析','uploaded':'待解析','parse_intent':'请求待核验','parse_queued':'解析中','parsed/indexed':'解析完成','parse_failed':'解析失败','quarantined':'身份待核对','skipped_duplicate':'重复，保留原版本'}
+const parseNames:Record<string,string>={'planned':'待解析','uploaded':'待解析','original_stored':'原件已保留（全文另验）','parse_intent':'请求待核验','parse_queued':'解析中','parsed/indexed':'解析完成','parse_failed':'解析失败','quarantined':'身份待核对','skipped_duplicate':'重复，保留原版本'}
 const relationships:Record<string,string>={NEW:'新增资料',UPDATE_CONFIRMED:'已确认换版',SAME_CONTENT_SKIP:'相同内容，保留原身份',UPDATE_CANDIDATE:'换版关系待确认',CONFLICT:'身份冲突'}
 const departmentName=(key:string)=>data.value?.departments.find(d=>d.key===key)?.title||key
 const managed=computed(()=>{
@@ -89,7 +89,7 @@ onBeforeUnmount(()=>{epoch++;readSequence++;feedbackSequence++})
   <a-skeleton v-if="!initialized" active/>
   <a-result v-else-if="!allowed" status="403" title="当前账号没有知识维护权限" sub-title="请使用获分配维护权限的本人账号登录。"/>
   <template v-else>
-   <section v-if="view==='manage'&&data?.department_funnel?.length" class="funnel-grid" aria-label="部门资料处理统计"><article v-for="row in data.department_funnel" :key="row.department" class="kb-panel hbos-glass-g1"><h2>{{row.title}}</h2><dl><template v-for="stat in [{key:'discovered',label:'发现路径'},{key:'shared_approved',label:'获准共享'},{key:'uploaded',label:'已上传'},{key:'parsed',label:'已解析'},{key:'validated',label:'质量已核对'},{key:'published',label:'已发布'},{key:'pending_review',label:'待审核'},{key:'failed',label:'解析失败'},{key:'isolated',label:'隔离'},{key:'sharing_pending',label:'共享待批'}] as const" :key="stat.key"><div><dt>{{stat.label}}</dt><dd>{{row[stat.key]}}</dd></div></template></dl><p v-if="row.sensitive" class="kb-muted">隔离中 {{row.sensitive}} 项涉及敏感内容。</p></article></section>
+   <section v-if="view==='manage'&&data?.department_funnel?.length" class="funnel-grid" aria-label="部门资料处理统计"><article v-for="row in data.department_funnel" :key="row.department" class="kb-panel hbos-glass-g1"><h2>{{row.title}}</h2><dl><template v-for="stat in [{key:'discovered',label:'发现资料（去重）'},{key:'shared_approved',label:'获准共享'},{key:'uploaded',label:'已上传'},{key:'parsed',label:'已解析'},{key:'validated',label:'质量已核对'},{key:'published',label:'已发布（逻辑文档）'},{key:'pending_review',label:'待审核'},{key:'failed',label:'解析失败'},{key:'isolated',label:'隔离'},{key:'sharing_pending',label:'共享待批'}] as const" :key="stat.key"><div><dt>{{stat.label}}</dt><dd>{{row[stat.key]}}</dd></div></template></dl><p v-if="row.sensitive" class="kb-muted">隔离中 {{row.sensitive}} 项涉及敏感内容。</p></article></section>
    <section v-if="view==='manage'||view==='versions'" class="kb-panel hbos-glass-g1">
     <div class="kb-status-filters"><a-tag color="green">已发布 {{data?.published_documents.length||0}}</a-tag><a-button type="text" :loading="loading" @click="refresh">刷新资料</a-button></div>
     <div class="kb-list-toolbar"><a-input-search v-model:value="filter" placeholder="查找资料标题" aria-label="查找维护资料"/><a-select v-model:value="departmentFilter" :options="[{label:'全部部门',value:''},...(data?.departments.map(d=>({label:d.title,value:d.key}))||[])]" aria-label="筛选维护部门"/></div>

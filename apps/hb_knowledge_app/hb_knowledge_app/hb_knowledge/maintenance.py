@@ -99,7 +99,8 @@ def _projection(row,frozen,state,page,page_size):
         items.append({'document_id':doc,'version_id':item['version_id'],'title':item['title'][:240],
             'filename':Path(item['relative_path']).name,'sha256':item['sha256'],
             'relationship':item['disposition'],'expected_version':item.get('expected_current_version'),
-            'parse_status':item['status'],'progress':max(0,min(1,float(item.get('progress') or 0))),
+            'parse_status':'original_stored' if item.get('original_asset_only') else item['status'],
+            'progress':max(0,min(1,float(item.get('progress') or 0))),
             'chunk_count':int(item.get('chunk_count') or 0),'quality_status':review.get('status','Pending'),
             'shared_approved':bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed')),
             'quality_note':review.get('note',''),'current_version':published.get('current_version') if published else None,
@@ -155,7 +156,8 @@ def department_funnel(published):
             if item.get('disposition') in ('SAME_CONTENT_SKIP','ALIAS'):continue
             doc=item['canonical_document_id'];known.add(doc)
             current=published.get(doc,{}).get('version_id')
-            prior=seen.get((dept,doc))
+            source_key=item.get('sha256') or doc
+            prior=seen.get((dept,source_key))
             if prior:
                 previous=prior['item']
                 if current and previous['version_id']==current and item['version_id']!=current:continue
@@ -166,10 +168,20 @@ def department_funnel(published):
                     before=bool(previous.get('internal_sharing_confirmed') and previous.get('owner_inclusion_confirmed'))
                     after=bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed'))
                     if before and not after and prior['explicit_sharing_confirmation']:continue
-                elif item['version_id']!=current:continue
+                elif item['version_id']!=current:
+                    if current or not previous.get('sha256') or previous.get('sha256')!=item.get('sha256'):continue
+                    # An original asset and its verified full-text derivative
+                    # are one source, even before a version is published. Keep
+                    # the original's upload until the derivative has a real ID;
+                    # then report the best completed processing evidence.
+                    if item.get('original_asset_only') and not previous.get('original_asset_only'):continue
+                    if previous.get('original_asset_only') and not item.get('ragflow_document_id'):continue
+                    rank={'planned':0,'upload_intent':0,'uploaded':1,'parse_intent':2,
+                          'parse_queued':2,'parse_failed':2,'quarantined':0,'parsed/indexed':3}
+                    if not previous.get('original_asset_only') and rank.get(item.get('status'),0)<rank.get(previous.get('status'),0):continue
             explicit=(state.get('approval_status')=='OWNER_APPROVED' and bool(state.get('parent_processing_batch'))
                       and str(item.get('approval_ref','')).startswith('NATIVE_SHARED_APPROVAL:'))
-            seen[(dept,doc)]={'item':item,'quality':quality.get(item['version_id'],{}),
+            seen[(dept,source_key)]={'item':item,'quality':quality.get(item['version_id'],{}),
                              'new_batch':row['name'] not in baseline_batches,'explicit_sharing_confirmation':explicit}
     for (dept,doc),record in seen.items():
         item=record['item'];q=record['quality'];c=counts[dept]
@@ -205,7 +217,8 @@ def queue(batch_id,document_ids,operation='parse'):
     items=[i for i in state['items'] if i['canonical_document_id'] in document_ids
            and i.get('disposition') not in ('SAME_CONTENT_SKIP','ALIAS')]
     allowed={'planned','uploaded'} if operation=='parse' else ({'parse_queued'} if operation in ('resume','continue') else {'parse_failed'})
-    if len(items)!=len(document_ids) or any(i['status'] not in allowed or i['disposition']=='SAME_CONTENT_SKIP' for i in items):raise KnowledgeError('INVALID_REQUEST')
+    if len(items)!=len(document_ids) or any(i['status'] not in allowed or i['disposition']=='SAME_CONTENT_SKIP'
+                                         or i.get('original_asset_only') for i in items):raise KnowledgeError('INVALID_REQUEST')
     from .api import _availability
     from .runtime import load_runtime
     if _availability(load_runtime()).get('blocked'):raise KnowledgeError('UPSTREAM_UNAVAILABLE')

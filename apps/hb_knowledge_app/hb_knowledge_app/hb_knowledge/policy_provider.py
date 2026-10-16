@@ -129,9 +129,15 @@ class LegacyHbosPolicyProvider:
         if not current.query_embedding_admitted or current.model_policy_ref != plan.model_policy_ref:
             raise KnowledgeError("MODEL_NOT_APPROVED")
         if (current.policy_revision != plan.policy_revision
-                or current.corpus_revision != plan.corpus_revision
+                or (current.corpus_revision != plan.corpus_revision
+                    and plan.provider.kind != 'INTERNAL_SHARED_REFERENCE')
                 or current.provider != plan.provider):
             raise KnowledgeError("SCOPE_REJECTED")
+        # Shared-reference publication may add unrelated bindings while a
+        # request is in flight. Its signed plan retains the original scope;
+        # the exact old grants and every old binding must still be current.
+        # New corpus entries never become authorized by this existing plan.
+        # The legacy compatibility provider retains its exact corpus stamp.
         if any(s not in current.active_spaces or s in current.denied_spaces for s in plan.space_ids):
             raise KnowledgeError("SCOPE_REJECTED")
         # Exact grant pairs plus current roles, not independent role/space sets.
