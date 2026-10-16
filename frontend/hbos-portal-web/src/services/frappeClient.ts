@@ -195,3 +195,11 @@ export async function logoutFrappeSession(): Promise<void> {
     throw normalizeFrappeError(error, 'logout')
   }
 }
+
+export async function callFrappeUploadMethod<T>(method: string, form: FormData): Promise<T> {
+  try {
+    const token = await getCsrfToken()
+    const response = await http.post<FrappeMethodResponse<T>>(`/api/method/${method}`, form, { headers: { 'X-Frappe-CSRF-Token': token } })
+    return response.data.message
+  } catch (error) { throw normalizeFrappeError(error, method) }
+}

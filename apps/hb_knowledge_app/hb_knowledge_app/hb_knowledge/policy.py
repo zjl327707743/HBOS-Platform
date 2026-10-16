@@ -111,6 +111,13 @@ def load_current_policy() -> SubjectPolicy:
     from hbos_portal.services.internal_users import load_internal_user_decision
 
     decision = load_internal_user_decision(frappe.session.user)
+    import os
+    if os.environ.get('HBOS_KNOWLEDGE_REFERENCE_CONFIG'):
+        from .shared_reference import configuration
+        cfg=configuration()
+        eligible=decision.allowed and cfg['reader_role'] in frappe.get_roles(frappe.session.user)
+        return SubjectPolicy(frappe.session.user,eligible,(SEARCH_CAPABILITY,) if eligible else (),
+            tuple(cfg['dataset_aliases']),tuple(cfg['approved_document_ids']),cfg['policy_revision'])
     return policy_for_subject(
         frappe.conf.get("hbos_knowledge_policy"),
         frappe.session.user,
