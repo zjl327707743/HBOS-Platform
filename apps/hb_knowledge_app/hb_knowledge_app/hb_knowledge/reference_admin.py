@@ -89,6 +89,29 @@ def _verify_technical_repair(cfg,item,current,expected,space_id):
              'Technical repair withdrawal receipt drift')
 
 
+def _verify_same_source_reindex(cfg,item,current,expected,space_id):
+    """Under the existing document CAS lock, without an intermediate withdrawal."""
+    import frappe
+    from .source_reindex import validate_same_source_reindex
+    proof=item.get('native_text_preflight',{}).get('same_source_reindex',{})
+    parent_id=proof.get('parent_version_id')
+    parent=frappe.db.get_value('HBOS Knowledge Version',parent_id,
+        ['canonical_document_id','version_json'],as_dict=True) if parent_id else None
+    binding=frappe.db.get_value('HBOS Knowledge Backend Binding','BIND_'+parent_id.removeprefix('VER_'),
+        ['canonical_document_id','version_id','binding_json'],as_dict=True) if parent_id else None
+    _require(parent and binding and parent['canonical_document_id']==item['canonical_document_id']
+             and binding['canonical_document_id']==item['canonical_document_id'] and binding['version_id']==parent_id,
+             'Reindex immutable parent is missing')
+    try:metadata=json.loads(parent['version_json']);old=json.loads(binding['binding_json'])
+    except (ValueError,TypeError):raise PublicationConflict('Invalid reindex parent') from None
+    validate_same_source_reindex(item,current,metadata,old,expected,space_id)
+    # Re-hash the retained original immediately before replacement as well as
+    # the new derivative below. No old native document or vector is rewritten.
+    _verify_backend(cfg,{'dataset_id':old['dataset_id'],'ragflow_document_id':old['document_id'],
+        'canonical_document_id':old['canonical_document_id'],'version_id':old['version_id'],
+        'binding_revision':old['binding_revision'],'upload_sha256':metadata['sha256']})
+
+
 def publish(manifest_path, operation='publish', expected_current_version=None, reason=None, approval_ref=None,
             selected_document_ids=None, *, registered_batch_id=None):
     import frappe
@@ -140,6 +163,12 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
                                'FROM `tabHBOS Knowledge Document` WHERE name=%s FOR UPDATE',(doc,),as_dict=True)
             current=rows[0] if rows else None
             if current:_require(current['document_id']==doc, 'Document identity drift')
+            same_source_reindex=(item.get('parser_input')=='VERIFIED_LOCAL_FULL_TEXT'
+                                 and item.get('disposition')=='REPLACE_CURRENT')
+            if same_source_reindex or item.get('native_text_preflight',{}).get('same_source_reindex') is not None:
+                _require(registered_batch_id is not None and operation=='replace',
+                         'Same-source reindex requires an explicit registered replacement')
+                _verify_same_source_reindex(cfg,item,current,expected_current_version,space_id)
             if operation=='repair':
                 _require(registered_batch_id is not None,'Technical repair requires a registered maintenance batch')
                 _verify_technical_repair(cfg,item,current,expected_current_version,space_id)
