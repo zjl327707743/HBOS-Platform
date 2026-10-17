@@ -250,8 +250,13 @@ def normalize_mobile(pr):
         text = text.replace(':title="drawerTitle"', 'title="LIMS 导航"', 1)
     require(blob(text) == LIMS_BLOB, 'LIMS mobile differs from reviewed43 after explicit hunk adapters; inspect saved diff')
     edit(MOBILE, text, 'Remove only generic additions from LIMS implementation')
-    require(not Path(DOMAIN).exists() or Path(DOMAIN).read_text() == generic, 'Unexpected existing MobileDomainNav')
-    edit(DOMAIN, generic, 'New isolated domain module from identical39/46 generic source')
+    #43 openBusinessRoute is explicitly nullable on denied/unavailable routes;
+    # the existing go() already returns when !item.to. Reflect that contract,
+    # without inventing a fallback path or widening navigation.
+    require(generic.count('  to?: string\n')==1,'Generic target type anchor drift')
+    domain_generic=generic.replace('  to?: string\n','  to?: string | null\n',1)
+    require(not Path(DOMAIN).exists() or Path(DOMAIN).read_text() == domain_generic, 'Unexpected existing MobileDomainNav')
+    edit(DOMAIN, domain_generic, 'New domain module; nullable denied route matches43 contract and existing fail-closed go')
     layout = PREFIX + 'src/components/layout/' + ('ProductionLayout.vue' if pr == '46' else 'InventoryLayout.vue')
     content = Path(layout).read_text()
     old = "from '@/components/layout/MobileAppNav.vue'"
