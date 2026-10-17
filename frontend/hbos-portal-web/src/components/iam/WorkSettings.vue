@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { developmentObservation } from '@/services/frappeClient'
 import { computed, getCurrentInstance, ref, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { getPerson } from '@/services/iamPeople'
@@ -42,7 +43,7 @@ async function back() { if (await requestLeave()) emit('back') }
 watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { immediate: true }); defineExpose({ requestLeave })
 </script>
 <template>
-<section class="work-settings" :data-view-instance="viewInstance">
+<section class="work-settings" :data-view-instance="viewInstance"><output v-if="developmentObservation">本机页面实例 {{ viewInstance }}</output>
   <div class="work-head"><a-button :disabled="busy" @click="back">返回应用清单</a-button><h2>{{ app?.title || '应用权限' }}</h2></div>
   <p v-if="identity" class="target-identity">正在设置：{{ identity }}</p>
   <a-alert v-if="error" :message="error" type="warning" show-icon /><a-button v-if="error" :disabled="busy" @click="load(editing)">读取最新设置，保留草稿</a-button>

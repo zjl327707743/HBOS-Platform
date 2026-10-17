@@ -102,3 +102,5 @@ frontend/hbos-portal-web/tests/sessionAccessRegression.test.ts
 先完成A真实会话/组件回归，再完成B/C/D与R01–R15。真OAuth/真200%按实际逐项记录；截图不代替无重挂/请求合并证据。最终运行源码、build及HEAD核对一致、#52保持Draft，交付后停止自动测试/夹具变化并保留服务。未具核心证据前不标READY_FOR_OWNER。
 
 复验观测补充：CUA只读DOM不提供performance/hasFocus，因此开发运行在布局DOM公开无认证能力的文档实例标记、Vue实例、请求计数和恢复事件计数；生产构建不输出这些属性。不记录URL参数、主体、sid、token或proof，不参与组件key或授权；真实隐藏/恢复窗口后从只读DOM核对，不能用截图冒充生命周期证据。
+
+- 原生 Chrome 无 DOM 连接时，可在开发模式显式附加 `?iam_uat=1` 打开只读页面观测：文档随机标识、路由/设置面板 Vue 实例号、恢复事件及三类 GET 次数；生产构建不显示，普通入口不显示。无身份、凭据或业务负载，不控制授权/组件 key。

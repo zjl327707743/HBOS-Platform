@@ -9,6 +9,7 @@ let writesBlocked = false
 // DEV-only, non-authorizing lifecycle evidence. No URL, subject, SID, token,
 // proof or payload is retained. These values never control a component key.
 export const frappeDiagnostics = { document: import.meta.env.DEV ? crypto.randomUUID() : '', security: 0, capabilities: 0, bootstrap: 0 }
+export const developmentObservation = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('iam_uat') === '1'
 function recordRead(method: string) {
   if (!import.meta.env.DEV) return
   if (method === 'hbos_portal.auth.accounts.get_security') frappeDiagnostics.security++

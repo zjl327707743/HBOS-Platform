@@ -1,7 +1,7 @@
 import {expect,it,vi,beforeEach} from 'vitest'
 import {mount,flushPromises} from '@vue/test-utils'
 import Antd from 'ant-design-vue'
-vi.mock('@/services/frappeClient',()=>({callFrappeMethod:vi.fn(),callFrappePostMethod:vi.fn(),isUnauthenticatedError:()=>false,clearFrappeCsrfToken:vi.fn(),blockFrappeWrites:vi.fn(),invalidateFrappeRequests:vi.fn(),frappeDiagnostics:{},FrappeRequestError:class extends Error {},logoutFrappeSession:vi.fn()}))
+vi.mock('@/services/frappeClient',()=>({callFrappeMethod:vi.fn(),callFrappePostMethod:vi.fn(),isUnauthenticatedError:()=>false,clearFrappeCsrfToken:vi.fn(),blockFrappeWrites:vi.fn(),invalidateFrappeRequests:vi.fn(),frappeDiagnostics:{},developmentObservation:false,FrappeRequestError:class extends Error {},logoutFrappeSession:vi.fn()}))
 const portal=vi.hoisted(()=>({user:null,branding:null,apps:[],tasks:[],bootstrap:vi.fn(),clearSession:vi.fn()}))
 vi.mock('@/stores/portal',()=>({usePortalStore:()=>portal}))
 vi.mock('@/services/portalProvider',()=>({portalDataSource:'frappe'}))

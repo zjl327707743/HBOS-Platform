@@ -44,6 +44,9 @@
     <MobilePortalNav :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
 
     <CommandPalette :open="ui.commandOpen" @close="ui.commandOpen = false" />
+    <aside v-if="developmentObservation" class="development-observation" aria-label="本机验收观测">
+      <details><summary>本机验收观测（开发模式）</summary><output>文档 {{ frappeDiagnostics.document }}；安全读取 {{ frappeDiagnostics.security }}；能力读取 {{ frappeDiagnostics.capabilities }}；业务初始化 {{ frappeDiagnostics.bootstrap }}；恢复事件 {{ portalSession.resumeEvents }}；主体代次 {{ portalSession.generation }}；阶段 {{ portalSession.phase }}</output></details>
+    </aside>
   </div>
 </template>
 
@@ -62,7 +65,7 @@ import { attachPortalSession, ensurePortalSession, portalSession, resetPortalSes
 import { accountRedirect } from '@/services/accountNavigation'
 import { canIam } from '@/services/iamAccess'
 import { Modal } from 'ant-design-vue'
-import { frappeDiagnostics } from '@/services/frappeClient'
+import { developmentObservation, frappeDiagnostics } from '@/services/frappeClient'
 import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
 
 const portal = usePortalStore()
@@ -97,5 +100,6 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onShortcut); windo
 </script>
 <style scoped>
 .session-content{min-width:0;width:100%}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}
+.development-observation{position:fixed;bottom:0;left:8px;z-index:2000;max-width:min(700px,90vw);padding:4px 8px;background:#fff;border:1px solid #ccd5e0;font-size:12px}.development-observation output{display:block;overflow-wrap:anywhere}
 :global(body.hbos-session-shield .ant-drawer),:global(body.hbos-session-shield .ant-modal-root),:global(body.hbos-session-shield .ant-popover){visibility:hidden!important;pointer-events:none!important}
 </style>

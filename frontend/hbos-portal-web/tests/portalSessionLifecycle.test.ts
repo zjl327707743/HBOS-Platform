@@ -10,7 +10,7 @@ vi.mock('@/stores/portal', () => ({ usePortalStore: () => portal }))
 vi.mock('@/services/portalProvider', () => ({ portalDataSource: 'frappe' }))
 vi.mock('@/services/iamAccount', () => ({ getIamSecurity: api.security, getMyEmployeeStatus:api.association }))
 vi.mock('@/services/iamAccess', () => ({ iamSession:{revision:'r1'}, fetchIamAccess:api.caps, applyIamAccess:vi.fn(), clearIamAccess:vi.fn() }))
-vi.mock('@/services/frappeClient', () => ({ blockFrappeWrites:api.block, invalidateFrappeRequests:api.invalidate,frappeDiagnostics:{}, isUnauthenticatedError:()=>false, FrappeRequestError:class extends Error {}, logoutFrappeSession:vi.fn() }))
+vi.mock('@/services/frappeClient', () => ({ blockFrappeWrites:api.block, invalidateFrappeRequests:api.invalidate,frappeDiagnostics:{},developmentObservation:false, isUnauthenticatedError:()=>false, FrappeRequestError:class extends Error {}, logoutFrappeSession:vi.fn() }))
 vi.mock('@/services/attendancePersonal',()=>({getMyAttendance:api.attendance}))
 import PortalLayout from '@/components/layout/PortalLayout.vue'
 import { ensurePortalSession, portalSession, resetPortalSession } from '@/services/portalSessionCoordinator'
