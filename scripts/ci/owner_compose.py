@@ -28,11 +28,15 @@ SESSION = PREFIX + 'src/composables/usePortalSession.ts'
 MOBILE = PREFIX + 'src/components/layout/MobileAppNav.vue'
 DOMAIN = PREFIX + 'src/components/layout/MobileDomainNav.vue'
 APPS = PREFIX + 'src/components/portal/AppCenter.vue'
+CLIENT = PREFIX + 'src/services/frappeClient.ts'
+STORE = PREFIX + 'src/stores/portal.ts'
+CSS = PREFIX + 'src/styles/global.css'
 LIMS_BLOB = '0850f2b26b67fa0286b20ef791c51d205c2ffb5e'
 GENERIC_BLOB = '2862f63f650b999d4e4a7e0b107b12e647886663'
 KNOWN = {'42': set(), '43': {ROUTER, SESSION},
-         '46': {ROUTER, MOBILE, APPS}, '39': {ROUTER, MOBILE}}
+         '46': {ROUTER, MOBILE, APPS}, '39': {ROUTER, MOBILE, CLIENT, STORE, CSS}}
 ITEM = "        { path: 'inventory/item/:itemCode?', name: 'inventory-item-readonly', component: () => import('@/views/InventoryItemReadOnlyView.vue'), meta: { title: '仓储 · 物料只读浏览' } },\n"
+EXTRA_HUNKS = {'services/frappeClient.ts': [('7c1aca23d78689a86b8e394bd11ec94560ddaa50d89f8947a357e7d3be5f88e1', 'b5a65e74437f2cca6c9b48b9243b70ef34acac37fdcae4abf9aa704fac30cb8a'), ('37552ed2a0ab68a52c3d4d8a5d243b9d3989d7a52fd7ab513429b65d9ee1e644', '7c0d1ddccd2a79fb9ff62ce1a12781c926fef329a3985a5be29805378bb32e97')], 'stores/portal.ts': [('9655f3597db250bb78917edf0da222774d5b3c0a1d4f217ce7facfb83538f6ad', '5a7f817a00a8fa1e366812e021e614667e0f168c04348c3786478daf127b2c0d'), ('e542ecb44241fe6d4443d9f8a0ff2c368879d18c32e3edbc1f9490ab9441b07e', '80d721006143744894ffddfc0fe0f1b85f8fbd5a37536e82ef2469c2dd23bd44'), ('a0de4edc2935737ef7beae6e65cb5e78d24c984ef77ea1ee3da8f0e535e7692c', '5e473731f45ec3706e276b66114b80581dc2f39c788518e3fbd6e9844fcef9a7')], 'styles/global.css': [('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', '2c6e47d028c0c60dc6958360e6015ffb2504a01a4480f401dcb5f775e39e615b'), ('443f7a4401a4c3f7352078caf7cffed7107c34840a45771fb5c70ce900561c11', '9e0894b694cf03e06291e15d0247cd89bcfa4f8c7ff4390d26810b10533dfe1f')]}
 CHANGED = set()
 ADAPTER_DIFFS = []
 AUDIT = []
@@ -89,9 +93,49 @@ def resolve_hunks(path, pr):
     incoming_source = source(pr, path)
     require(hunks, 'Expected conflict markers in ' + path)
     decisions = []
+    hunk_index = 0
     def pick(match):
+        nonlocal hunk_index
+        hunk_number = hunk_index
+        hunk_index += 1
         left, right = match.group(1), match.group(2)
         require(not right or right in incoming_source, 'Incoming hunk not a fixed-source fragment: ' + path)
+        extra_key = path.removeprefix(PREFIX+'src/')
+        if extra_key in EXTRA_HUNKS:
+            require(pr=='39', 'Extra shared conflict outside39')
+            observed=(hashlib.sha256(left.encode()).hexdigest(),hashlib.sha256(right.encode()).hexdigest())
+            require(hunk_number < len(EXTRA_HUNKS[extra_key]) and observed==EXTRA_HUNKS[extra_key][hunk_number], 'Unreviewed exact shared hunk drift '+path)
+            decisions.append({'path':path,'hunk':hunk_number,'exact_source_hashes':observed,'policy':'preserve lifecycle; append compatible domain sections'})
+            if path==CSS:
+                # Disjoint LIMS ledger/audit and Inventory styles; retain both sections.
+                return left+right
+            if path==STORE:
+                return left+right if hunk_number in (0,2) else left
+            if hunk_number==0:
+                # Keep generation request config plus just the Inventory error base;
+                # do not duplicate the axios client declared later in43.
+                error_class=between(right,'/**','const http = axios.create({')
+                return left+error_class
+            domain=right[right.index('export interface FrappeDocPayload {'):]
+            legacy_post=between(domain,'export async function postFrappeMethod<T>(', '/**\n * 上传文件')
+            domain=domain.replace(legacy_post, '''export async function postFrappeMethod<T>(method: string, params?: Record<string, unknown>): Promise<T> {
+  return callFrappePostMethod<T>(method, params)
+}
+
+''',1)
+            domain=domain.replace('withCsrf()', 'csrfHeaders()')
+            domain=domain.replace('throw toFrappeError(error)', 'throw normalizeFrappeError(error)')
+            # Remove only the now-unused legacy error parser; preserve native session probe.
+            legacy_errors=between(domain,'function toFrappeError(', '/**\n * 会话是否仍然有效。')
+            domain=domain.replace(legacy_errors,'',1)
+            csrf='''// Inventory aliases reuse the generation-aware Portal CSRF lifecycle.
+export async function ensureCsrfToken(): Promise<string> { return getCsrfToken() }
+export async function csrfHeaders(): Promise<Record<string, string>> {
+  return { 'X-Frappe-CSRF-Token': await getCsrfToken() }
+}
+
+'''
+            return left+csrf+domain
         tokens = {
             ROUTER: ('import ', 'path:', 'component:', 'meta:', 'const ', 'name:'),
             SESSION: ('synchronize', 'runCheck', 'inflight', 'checking', 'lims|knowledge|twin', 'return ', 'disposed'),
@@ -216,6 +260,42 @@ def normalize_mobile(pr):
     edit(layout, content.replace(old, new, 1), 'Only domain layout module specifier changed; alias/template preserved')
 
 
+def normalize_shared39(pr):
+    if pr!='39' or not HAS43:
+        return
+    text=Path(STORE).read_text()
+    require('sessionGeneration' not in text, 'Obsolete39 lifecycle survived')
+    require(text.count('    bootstrapError.value = null\n')==1,'bootstrap reset anchor drift')
+    text=text.replace('    bootstrapError.value = null\n','    bootstrapError.value = null\n    bootstrapErrorStatus.value = 0\n',1)
+    reset='    bootstrapError.value = summariesError.value = tasksError.value = null\n'
+    require(text.count(reset)==1,'session reset anchor drift')
+    text=text.replace(reset,reset+'    bootstrapErrorStatus.value = 0\n',1)
+    old="""          if (isAuthError(error)) markSignedOut()
+          else {
+            authenticated.value = false
+            sessionChecked.value = false
+            bootstrapError.value = portalErrorMessage(error, 'HBOS 初始化失败，请稍后重试。')
+          }"""
+    new="""          if (isAuthError(error)) {
+            markSignedOut()
+            bootstrapErrorStatus.value = 401
+          } else {
+            const described = await describeBootstrapError(error)
+            if (current !== generation) return
+            authenticated.value = false
+            sessionChecked.value = false
+            bootstrapErrorStatus.value = described.status
+            bootstrapError.value = described.message
+          }"""
+    require(text.count(old)==1,'43 bootstrap catch anchor drift')
+    text=text.replace(old,new,1)
+    edit(STORE,text,'Preserve43 single-flight generation guards plus39 error status; recheck generation after asynchronous probe')
+    client=Path(CLIENT).read_text()
+    for token in ['const http = axios.create(', 'let csrfToken:', 'let csrfGeneration =', 'export async function callFrappeAction<', 'export async function callFrappePostMethod<']:
+        require(client.count(token)==1,'Client lifecycle duplicate/loss: '+token)
+    require('cachedCsrf' not in client and 'withCsrf' not in client,'Legacy39 CSRF cache survived')
+
+
 def normalize_apps(pr):
     if pr != '46':
         return
@@ -298,6 +378,7 @@ def merge(pr):
     normalize_session(pr)
     normalize_mobile(pr)
     normalize_apps(pr)
+    normalize_shared39(pr)
     if pr == '43':
         HAS43 = True
     git('diff', '--check')
