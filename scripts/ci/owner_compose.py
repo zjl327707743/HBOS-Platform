@@ -47,7 +47,7 @@ HAS43 = False
 def git(*args, check=True):
     result = subprocess.run(['git', *args], text=True, capture_output=True)
     if check and result.returncode:
-        raise RuntimeError('git ' + ' '.join(args) + '\n' + result.stderr)
+        raise RuntimeError('git ' + ' '.join(args) + '\n' + result.stdout + result.stderr)
     return result
 
 
@@ -439,7 +439,20 @@ def main():
         test = PREFIX + 'tests/ownerComposition.test.ts'
         git('add', '--', test)
         git('commit', '-m', 'test: cloud-only composition route regression coverage')
-    git('diff', '--check', BASE, 'HEAD')
+    # Original42 adds a blank EOF in one test file. Remove only that extra
+    # newline in this ephemeral adapter; no assertions or test bodies change.
+    pairing='apps/hb_attendance_app/tests/test_pairing.py'
+    if '42' in sequence:
+        raw=Path(pairing).read_text()
+        require(raw.endswith('\n\n'),'Reviewed42 EOF shape drift')
+        edit(pairing,raw.rstrip('\n')+'\n','Remove only extra blank EOF from42 test; assertions unchanged')
+        git('add','--',pairing)
+        git('commit','-m','test: normalize original42 extra blank EOF in cloud candidate')
+    check=git('diff','--check',BASE,'HEAD',check=False)
+    if check.returncode:
+        (EVIDENCE/'whitespace-before.txt').write_text(check.stdout+check.stderr)
+        print(check.stdout+check.stderr,flush=True)
+        raise RuntimeError('Composition whitespace check failed; inspect whitespace-before.txt')
     (EVIDENCE / 'final.txt').write_text(identity() + '\n')
     (EVIDENCE / 'final.diff').write_text(git('diff', BASE, 'HEAD').stdout)
     (EVIDENCE / 'audit.json').write_text(json.dumps(AUDIT,ensure_ascii=False,indent=2)+'\n')
