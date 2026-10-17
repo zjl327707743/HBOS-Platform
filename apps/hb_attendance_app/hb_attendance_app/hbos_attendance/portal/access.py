@@ -14,6 +14,8 @@ ATTENDANCE_PORTAL_ROLES = frozenset({
 def build_access_context(
     user: str | None,
     roles: Sequence[str] | None,
+    *,
+    personal_allowed: bool = False,
 ) -> dict[str, object]:
     """Translate current Attendance authority into Portal semantic access.
 
@@ -29,7 +31,8 @@ def build_access_context(
         normalized_user
         and normalized_user != "Guest"
         and (
-            normalized_user == "Administrator"
+            personal_allowed
+            or normalized_user == "Administrator"
             or bool(role_set.intersection(ATTENDANCE_PORTAL_ROLES))
         )
     )
@@ -38,5 +41,5 @@ def build_access_context(
         "app_id": APP_ID,
         "can_enter": can_enter,
         "capabilities": [READ_CAPABILITY] if can_enter else [],
-        "scopes": {},
+        "scopes": {"SELF": ["current_employee"]} if personal_allowed else {},
     }

@@ -114,11 +114,17 @@ def resolve_verified_login(settings, identity: dict) -> tuple[str, bool]:
                     raise FeishuLoginError('account_disabled', '对应 HBOS 账号已停用。')
                 if not row.enabled:
                     raise FeishuLoginError('identity_revoked', '此身份的旧绑定已撤销或更换；请验证原账号或通过受控归属流程恢复。')
-                return _validate_login_account(row.user), False
+                user = _validate_login_account(row.user)
+                frappe.flags.hbos_iam_verified_oauth_login = user
+                return user, False
+            from hbos_portal.iam.onboarding import before_create, prepare_new_user
+            before_create(settings, identity)
             user = insert_ordinary_user(settings, identity)
             accounts.bind_identity(settings, identity, user)
+            prepare_new_user(user, settings, identity)
             accounts.audit('verified_feishu_automatic_onboarding', user)
             frappe.db.commit()
+            frappe.flags.hbos_iam_verified_oauth_login = user
             return user, True
         except Exception:
             frappe.db.rollback()

@@ -1,0 +1,352 @@
+{
+  "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+  "review_baseline": "fa500b73e58fa595ad5425f869743135e8feb15f",
+  "pr_base": "39366822a5b5d6041b9eea94da4f77255ad26761",
+  "changed_file_count_at_source_freeze": 46,
+  "files": [
+    {
+      "path": "apps/hbos_portal/hbos_portal/api/iam_access.py",
+      "added": 31,
+      "removed": 5,
+      "sha256": "fdbf98e3d8a4385428925107ad822e426054fcd2b249c25132d67e5ea60874b7"
+    },
+    {
+      "path": "apps/hbos_portal/hbos_portal/api/iam_departments.py",
+      "added": 6,
+      "removed": 3,
+      "sha256": "0578f0d8337fddbdf7a9afc3c56a5f54f83247a725f27dd6efbe1162920fc62a"
+    },
+    {
+      "path": "apps/hbos_portal/hbos_portal/api/iam_people.py",
+      "added": 16,
+      "removed": 7,
+      "sha256": "a82a3846173b9d77b4ab9e9eb883a70b3c9fd4c87d1266cc342ea4f4420e6e7b"
+    },
+    {
+      "path": "apps/hbos_portal/hbos_portal/auth/accounts.py",
+      "added": 26,
+      "removed": 2,
+      "sha256": "9d3fc241a3b5ea68cb849a33a6c3bff99c4c922c3a7960c02618b620f27ff6d5"
+    },
+    {
+      "path": "apps/hbos_portal/hbos_portal/iam/audit.py",
+      "added": 1,
+      "removed": 0,
+      "sha256": "ae56d867a381e14e161fbd333f8e844e9a3a15b460959e45a9a17f482ebc429a"
+    },
+    {
+      "path": "apps/hbos_portal/hbos_portal/iam/organization.py",
+      "added": 104,
+      "removed": 0,
+      "sha256": "a4432984db14aaf7079aa797a52e6126110a03f2eb368d7a59b2b85286167177"
+    },
+    {
+      "path": "apps/hbos_portal/hbos_portal/iam/people.py",
+      "added": 51,
+      "removed": 8,
+      "sha256": "fe907527ec672df113eccff158b179a354d8e2bb4b27d8eecfb60786f1290858"
+    },
+    {
+      "path": "apps/hbos_portal/hbos_portal/iam/policy.py",
+      "added": 19,
+      "removed": 7,
+      "sha256": "59a226ee3bba783ed885dba30149bdb5168c35eee03825a7d4d73da436c96ee2"
+    },
+    {
+      "path": "apps/hbos_portal/hbos_portal/iam/work_commands.py",
+      "added": 108,
+      "removed": 38,
+      "sha256": "2cc02a8e156f4d05f7ed29aa8233bea5756fa47339f452c083e1d64b11efed1b"
+    },
+    {
+      "path": "apps/hbos_portal/tests/test_iam_organization.py",
+      "added": 32,
+      "removed": 0,
+      "sha256": "7036cb8f431e3a487d1aa58d414feac29f467704efe901b3ca42279eec985404"
+    },
+    {
+      "path": "apps/hbos_portal/tests/test_iam_policy.py",
+      "added": 17,
+      "removed": 0,
+      "sha256": "d927cf4c52a5d7be35e0e7addba51ab8d5b13c02257effa03670ed36f7b01b6b"
+    },
+    {
+      "path": "apps/hbos_portal/tests/test_iam_work_commands.py",
+      "added": 51,
+      "removed": 0,
+      "sha256": "5c36ba82ec8bb95b8a0c6288b7d5c5266a2d0a70f8e34944cb00031e5c51e22e"
+    },
+    {
+      "path": "docs/design/iam-v1/UAT_R1_工程映射.md",
+      "added": 108,
+      "removed": 0,
+      "sha256": "53e91054464ff01059d363b679f7e7733dd25e596a2e529175982fad90082502"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/FirstPasswordGate.vue",
+      "added": 3,
+      "removed": 2,
+      "sha256": "afdd286413ea2e2ddd669fda97e1eb8a2d6a7113a84d7d96637d5ad0b815535f"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/OwnAccountVerification.vue",
+      "added": 1,
+      "removed": 1,
+      "sha256": "20c9414961a2fb84a1cee3c5fcefcf2e45b18eda16fa1d03cf23d5b85f19422a"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/iam/AppUsageList.vue",
+      "added": 1,
+      "removed": 1,
+      "sha256": "8cea02cc12b5c218fe38b80b464cdde82592797b0422f736e2738fde822bf05a"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/iam/EmployeeDrawer.vue",
+      "added": 20,
+      "removed": 12,
+      "sha256": "e9971a06335259305630d5e6f34196171f2194ea33edd439b888b3de48f93032"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/iam/WorkSettings.vue",
+      "added": 60,
+      "removed": 18,
+      "sha256": "7b0cacfb072d61cff448d61ce61b48fbe6600dcd7a4554cf9b2508d9b0b81705"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue",
+      "added": 15,
+      "removed": 6,
+      "sha256": "90259b4f23501c0da82c530cd50ba38af7ad60d00bfd6c0550be6bb533003556"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/PortalLayout.vue",
+      "added": 53,
+      "removed": 42,
+      "sha256": "15f791ee01597d901b9649513ff6fa358a1a57278759f359dad0aecae9e4ba43"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue",
+      "added": 9,
+      "removed": 3,
+      "sha256": "e6934d3cc79450b9ce0781c320f8e9b40f8130e0ffa0bdc56f41906f859419ea"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/composables/useAccountProof.ts",
+      "added": 9,
+      "removed": 2,
+      "sha256": "2a03f5bc0d418e558b8cd6630c6454aae469f2c8c0e23e5be191f87c7297299e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/router/index.ts",
+      "added": 5,
+      "removed": 6,
+      "sha256": "a2ed29eedd946e03d3b66543d155023513dd55bb8bd9e57ea04f7bcea870d288"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/accountErrors.ts",
+      "added": 1,
+      "removed": 1,
+      "sha256": "425a9c57e3e128fd090cbdeb0a1ed922c6c1c4d76a198b2b5f5436760c3dbbc6"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/frappeClient.ts",
+      "added": 132,
+      "removed": 170,
+      "sha256": "54bbd1c493a57679682f2108907c68d48d5f5c5f89775fec9adb4cef146b322e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamAccess.ts",
+      "added": 9,
+      "removed": 1,
+      "sha256": "377ef2ba7f3eeddcace8eea260e104c24862a950bbb0a4681d9693741570e3d4"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamAccount.ts",
+      "added": 2,
+      "removed": 2,
+      "sha256": "e73209a8fa2050ec80f9f75360a99840884c4754bf47d0763e69908fc0a5599b"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamDepartments.ts",
+      "added": 2,
+      "removed": 2,
+      "sha256": "8a2d98b5a15c59bc3dfb680800caf502a992fcbf611153d98e3904b25258893e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamPeople.ts",
+      "added": 5,
+      "removed": 3,
+      "sha256": "47e80afa2942ee541f4f4d173dccc51058a000309be541a7e6caad460cc07a78"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamWork.ts",
+      "added": 8,
+      "removed": 5,
+      "sha256": "639e39f955b0cf30b18b15fadd4bf1597e0213d4964c8d09224e41e3a80bb591"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/portalSessionCoordinator.ts",
+      "added": 121,
+      "removed": 0,
+      "sha256": "215b629fff7d4c0ae6a45994f4d77ba8277bff95cbc268f9d5c5a22137135d49"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/types/iam.ts",
+      "added": 5,
+      "removed": 2,
+      "sha256": "b30724e97488ab35602c5f0a9bcdc8510dd1973dff0d20b8b707f2ae65daa77c"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/FeishuLoginView.vue",
+      "added": 5,
+      "removed": 4,
+      "sha256": "1860bf5b15098a63002b67e2a221560e4bccb5d52ff87e0162285497fad3f34c"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/AccessAdminView.vue",
+      "added": 4,
+      "removed": 3,
+      "sha256": "859dd578a5e354cabf5ea582fee6f4d2e32500f1c1c3cee04a2fab26b9c958ee"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/AdminWorkspaceView.vue",
+      "added": 1,
+      "removed": 1,
+      "sha256": "11b4d9cbd1f76206e22560b0b0f39b20c9df6e24885d3fdb90b83cb4eed7960e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/DepartmentsAdminView.vue",
+      "added": 5,
+      "removed": 4,
+      "sha256": "e55ede68b82844f9dec50c2e63eda755f88068a6382f5de9ec0ea14357df86b8"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/PeopleAdminView.vue",
+      "added": 7,
+      "removed": 4,
+      "sha256": "56ba9a254b17f1255955289d9c029c174caa0e70b1fe7f6f5f538e3067189dc5"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/attendance/MyAttendanceView.vue",
+      "added": 11,
+      "removed": 5,
+      "sha256": "ed341330cfca7648618e3d9225c8920d1deb0762d933a35cec1417cd5b0c3fcc"
+    },
+    {
+      "path": "frontend/hbos-portal-web/tests/accountRegression.test.ts",
+      "added": 3,
+      "removed": 0,
+      "sha256": "3d9e2aed0436d3bb835e2dedf649def519290634a4377529e287f2826fa735ad"
+    },
+    {
+      "path": "frontend/hbos-portal-web/tests/frappeSessionErrors.test.ts",
+      "added": 33,
+      "removed": 0,
+      "sha256": "db26f082618b01d16b6f1d04e200823686f56ec9759c45fba0828e9527e47c2a"
+    },
+    {
+      "path": "frontend/hbos-portal-web/tests/iamAccount.test.ts",
+      "added": 6,
+      "removed": 5,
+      "sha256": "939050d56fa09d8017eba0b33ab387a02864bea5765865b5fa51902acc12ca94"
+    },
+    {
+      "path": "frontend/hbos-portal-web/tests/iamDepartments.test.ts",
+      "added": 1,
+      "removed": 1,
+      "sha256": "c3b0d09b782cf1b1852ffd30e5b288d6fefdd30c1f454a21f99793454017535a"
+    },
+    {
+      "path": "frontend/hbos-portal-web/tests/iamManagement.test.ts",
+      "added": 28,
+      "removed": 20,
+      "sha256": "9bdef51824e869c27723b556dfb9d21f0b691658bbcbf975a900edea4e6f8aa5"
+    },
+    {
+      "path": "frontend/hbos-portal-web/tests/iamWork.test.ts",
+      "added": 1,
+      "removed": 1,
+      "sha256": "0f13aca5ef2c03299a1a80c66eefa9be500a9c1bd468c910648d58ce023ff2ca"
+    },
+    {
+      "path": "frontend/hbos-portal-web/tests/portalSessionCoordinator.test.ts",
+      "added": 28,
+      "removed": 0,
+      "sha256": "3866dad100916862809b279fc925479180f80d038f2bb006e8db9a44ac2ee331"
+    },
+    {
+      "path": "frontend/hbos-portal-web/tests/portalSessionLifecycle.test.ts",
+      "added": 72,
+      "removed": 0,
+      "sha256": "6d3705dab83a2b53fa9339f4924dd93615b4fc5dd5ad812be0f46d566b3ff1d1"
+    }
+  ],
+  "shared_hunks": "UAT_R1_共享最小hunk.diff",
+  "runtime": {
+    "mode": "5198 Vite DEV; production dist separately built",
+    "frontend_source_files": 104,
+    "served_raw_and_transformed_modules": 9,
+    "backend_files": 202,
+    "source_matches_head": true,
+    "runtime_evidence_private": ".local/iam-v1/uat-r1/runtime-source-freeze.json",
+    "site": "iam-r4-b.localhost",
+    "ports": [
+      5198,
+      8198,
+      9198
+    ],
+    "frappe_frozen_sha": "4113465d23888d70936bb332fd9110ab4330cbf1"
+  },
+  "ci_at_source_head": [
+    {
+      "name": "contracts",
+      "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431437/job/117450648322"
+    },
+    {
+      "name": "production-bundle",
+      "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431437/job/117450648054"
+    },
+    {
+      "name": "platform-clean-site",
+      "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431376/job/117450648016"
+    },
+    {
+      "name": "Portal 前端构建",
+      "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431368/job/117450647960"
+    },
+    {
+      "name": "Portal 后端骨架",
+      "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431381/job/117450647934"
+    },
+    {
+      "name": "lims-frontend",
+      "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431376/job/117450647819"
+    }
+  ],
+  "delivery_files_added_after_source_freeze": [
+    "docs/design/iam-v1/UAT_R1_修复交付.md",
+    "docs/design/iam-v1/UAT_R1_Owner复验单.md",
+    "docs/design/iam-v1/UAT_R1_逐项回归证据.json",
+    "docs/design/iam-v1/UAT_R1_文件与运行指纹.json",
+    "docs/design/iam-v1/UAT_R1_共享最小hunk.diff"
+  ],
+  "final_incremental_paths_count": 51
+}

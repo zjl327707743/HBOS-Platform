@@ -1,0 +1,81 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS IAM Rule",
+ "module": "HBOS Portal",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "app_id",
+  "operation_id",
+  "effect",
+  "scope_type",
+  "scope_ref",
+  "include_descendants",
+  "valid_from",
+  "valid_until",
+  "qualification_ref"
+ ],
+ "fields": [
+  {
+   "fieldname": "app_id",
+   "fieldtype": "Data",
+   "label": "App Id",
+   "reqd": 1,
+   "length": 64
+  },
+  {
+   "fieldname": "operation_id",
+   "fieldtype": "Data",
+   "label": "Operation Id",
+   "reqd": 1,
+   "length": 96
+  },
+  {
+   "fieldname": "effect",
+   "fieldtype": "Select",
+   "label": "Effect",
+   "reqd": 1,
+   "options": "allow\ndeny"
+  },
+  {
+   "fieldname": "scope_type",
+   "fieldtype": "Select",
+   "label": "Scope Type",
+   "reqd": 1,
+   "options": "SELF\nDEPARTMENT\nCOMPANY\nWAREHOUSE\nLAB_GROUP\nKNOWLEDGE_SPACE\nEQUIPMENT\nALL"
+  },
+  {
+   "fieldname": "scope_ref",
+   "fieldtype": "Data",
+   "label": "Scope Ref",
+   "length": 140
+  },
+  {
+   "fieldname": "include_descendants",
+   "fieldtype": "Check",
+   "label": "Include Descendants",
+   "default": "0"
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Datetime",
+   "label": "Valid From"
+  },
+  {
+   "fieldname": "valid_until",
+   "fieldtype": "Datetime",
+   "label": "Valid Until"
+  },
+  {
+   "fieldname": "qualification_ref",
+   "fieldtype": "Data",
+   "label": "Qualification Ref",
+   "length": 140
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

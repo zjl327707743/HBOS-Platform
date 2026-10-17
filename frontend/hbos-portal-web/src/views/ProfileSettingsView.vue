@@ -30,6 +30,7 @@
 
       <section class="settings-stack">
         <AccountSecurity @status-change="updateSecurity" />
+        <EmployeeIdentityStatus v-if="portal.dataSource === 'frappe'" />
         <AppDiagnostics v-if="canDiagnose" />
         <details class="setting-card glass-surface">
           <summary>外观与工作偏好（说明）</summary>
@@ -50,6 +51,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import AccountSecurity from '@/components/account/AccountSecurity.vue'
+import EmployeeIdentityStatus from '@/components/account/EmployeeIdentityStatus.vue'
 import AppDiagnostics from '@/components/account/AppDiagnostics.vue'
 import type { SecurityStatus } from '@/services/accountApi'
 import { describeLoginMethods } from '@/services/accountStatus'
