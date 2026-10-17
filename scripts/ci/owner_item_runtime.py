@@ -63,6 +63,7 @@ def run():
         if visible:assert visible in text,(method,'missing positive record')
         if forbidden:assert forbidden not in text,(method,'cross-Item data leak')
         checks.append(dict(method=method,http=status))
+        print('[OWNER-ITEM] check='+json.dumps(checks[-1]))
     fields=json.dumps(['name','item_name','item_group','stock_uom','hbos_product_kind','hbos_workshop','hbos_storage_condition','hbos_shelf_life_type','hbos_shelf_life_months','has_batch_no','disabled'])
     params=dict(doctype='Item',fields=fields,limit_page_length=201,order_by='name asc')
     call('frappe.client.get_list',params,visible='CLOUD-ITEM-A',forbidden='CLOUD-ITEM-B')
@@ -77,7 +78,14 @@ def run():
     call('frappe.client.get_list',params,False,forbidden='Synthetic dry storage')
     call('frappe.client.get',dict(doctype='Item',name='CLOUD-ITEM-A'),False,forbidden='Synthetic dry storage')
     status,payload,_=client.call('frappe.auth.get_logged_user')
-    assert status==200 and payload.get('message')==user, 'Role revocation must not be confused with logout'
+    assert status==403 or (status==200 and payload.get('message')==user), 'Unexpected session after role revocation'
+    checks.append(dict(case='role_revocation_session',http=status,invalidated=status==403))
+    print('[OWNER-ITEM] check='+json.dumps(checks[-1]))
+    # Frappe may invalidate the current session after a role change. Test logout
+    # independently on a new genuine authenticated session, without restoring roles.
+    client=Client(origin).login(user,password)
+    status,payload,_=client.call('frappe.auth.get_logged_user')
+    assert status==200 and payload.get('message')==user, 'Logout precondition requires an authenticated session'
     status,_,_=client.call('logout',post=True)
     assert status==200, 'Logout request failed'
     status,_,_=client.call('frappe.auth.get_logged_user')
