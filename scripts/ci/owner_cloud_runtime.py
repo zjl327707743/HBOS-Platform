@@ -33,6 +33,16 @@ def run():
         frappe.set_user('Administrator')
         spec=importlib.util.spec_from_file_location(name,root/(name+'.py'))
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        if name=='test_lims_audit_integrity_runtime':
+            # Fresh synthetic Site has no historical v1 rows. Establish independent
+            # committed fixtures; never change audit_log(commit=True) no-op semantics.
+            from hb_lims_app.hbos_lims import lims_service as svc
+            svc.audit_log('修改','HBOS Sample','TEST-HBOS-P002-AUDIT-SENTINEL',action_text='Synthetic independent v2 anchor fixture')
+            legacy=svc.audit_log('修改','HBOS Sample','CLOUD-LEGACY-AUDIT',action_text='Synthetic historical v1 fixture')
+            legacy_payload=frappe.get_doc('HBOS Audit Log',legacy).as_dict()
+            frappe.db.set_value('HBOS Audit Log',legacy,dict(checksum_version='',checksum=svc._checksum(legacy_payload,version='1')),update_modified=False)
+            frappe.db.commit()
+            print('[OWNER-AUDIT] integrity-fixture='+json.dumps(dict(v2_sentinel=True,synthetic_v1=True,production_code_unchanged=True)))
         suite=unittest.defaultTestLoader.loadTestsFromModule(module)
         result=unittest.TextTestRunner(verbosity=2).run(suite)
         summary.append(dict(name=name,run=result.testsRun,failures=len(result.failures),errors=len(result.errors),skips=len(result.skipped)))
@@ -91,7 +101,7 @@ def sql_fixture(doctype, values):
 def make_user(email,role):
     assert not frappe.db.exists('User',email)
     password=secrets.token_urlsafe(32)
-    frappe.get_doc(dict(doctype='User',email=email,first_name='Synthetic Cloud Audit',enabled=1,user_type='System User',send_welcome_email=0,new_password=password,roles=[dict(role=role)])).insert(ignore_permissions=True)
+    frappe.get_doc(dict(doctype='User',email=email,first_name='Synthetic Cloud Audit',enabled=1,user_type='System User',send_welcome_email=0,new_password=password,roles=[dict(role=r) for r in (role if isinstance(role,list) else [role])])).insert(ignore_permissions=True)
     frappe.db.commit()
     return password
 
@@ -120,10 +130,19 @@ def attendance():
     except frappe.PermissionError:pass
     else:raise AssertionError('Prepared-cache fixture must be restricted; visible='+json.dumps(frappe.get_list('Employee',pluck='name',limit_page_length=0)))
     origin=str(frappe.conf.hbos_portal_origin);client=Client(origin).login(user,password)
-    # Download cached output generated before revocation, without executing SQL again.
-    response=client.opener.open(Request('http://127.0.0.1:8000'+quote(file.file_url,safe='/'),headers=client.headers),timeout=30)
+    status,payload,_=client.call('frappe.auth.get_logged_user')
+    assert status==200 and payload.get('message')==user, 'Fresh HTTP identity prerequisite'
+    status,payload,text=client.call('frappe.client.get_list',dict(doctype='Employee',fields=json.dumps(['name']),limit_page_length=200))
+    assert status==200 and prefix+'-EMP-A' in text and prefix+'-EMP-B' not in text, 'Fresh HTTP native Employee scope prerequisite'
+    print('[OWNER-AUDIT] prepared-prerequisites='+json.dumps(dict(identity=True,employee_a_visible=True,employee_b_hidden=True)))
+    # Download cached output generated before restriction, without executing SQL again.
+    try:
+        response=client.opener.open(Request('http://127.0.0.1:8000'+quote(file.file_url,safe='/'),headers=client.headers),timeout=30)
+    except HTTPError as error:
+        response=error
     with response:
         body=response.read();status=response.code
+    assert status in (200,403), 'Unexpected attachment HTTP status '+str(status)
     leaked=marker.encode() in gzip.decompress(body) if status==200 else False
     print('[OWNER-AUDIT] '+json.dumps(dict(case='prepared_report_file_after_scope_revocation',http=status,leaked=leaked)))
     assert not leaked, 'Restricted HR can download stale all-employee Prepared Report attachment'
@@ -132,7 +151,7 @@ def attendance():
 def inventory():
     from hb_inventory_app.hbos_inventory import warehouse_scope
     reports=['货位明细表','库级盘点三对账','按批号查货位','效期预警']
-    user='cloud-stock-a@example.invalid';password=make_user(user,'Stock User')
+    user='cloud-stock-a@example.invalid';password=make_user(user,['Stock User','Item Manager'])
     company='CLOUD-STOCK-COMPANY'
     sql_fixture('Company',dict(name=company,company_name=company,abbr='CST',default_currency='CNY',country='China',is_group=0))
     warehouses=[]
@@ -160,6 +179,15 @@ def inventory():
                 if status!=200 or 'CLOUD-BATCH-A' not in text: failures.append(dict(report=name,http=status,case='positive'))
             elif status!=403:failures.append(dict(report=name,http=status,case='negative'))
             checks.append(dict(report=name,filter=filters,http=status))
+    # Pure Stock User lacks upstream Batch report rights; preserve that negative.
+    frappe.set_user('Administrator')
+    pure='cloud-pure-stock@example.invalid';pure_password=make_user(pure,'Stock User')
+    pure_client=Client(origin).login(pure,pure_password)
+    for report in reports[2:]:
+        status,_,text=pure_client.call('frappe.desk.query_report.run',dict(report_name=report,filters='{}',ignore_prepared_report=1))
+        assert status==403 and 'CLOUD-BATCH-' not in text, 'Native Batch role denial must remain'
+        checks.append(dict(case='pure_stock_user_batch_denied',report=report,http=status))
+    frappe.set_user(user)
     print('[OWNER-AUDIT] inventory='+json.dumps(checks))
     # Record actual upstream constraints and native submit/cancel rights, without posting stock.
     for doctype in ['Stock Reconciliation','Stock Entry']:

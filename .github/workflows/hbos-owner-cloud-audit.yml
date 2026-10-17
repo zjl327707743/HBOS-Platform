@@ -18,7 +18,7 @@ jobs:
           - pr: 43
             sha: e6d3f6c785850007a6ab68e7092810b0e323f6fa
           - pr: 46
-            sha: 990b9a17bc40551dc552249f90e18a82e8eab090
+            sha: bfa3b4c1380d488c062477d6c9c42c5ea804b19a
           - pr: 39
             sha: 136e90dc102cc40d294650b8f463ac2e709c92cb
           - pr: 54
@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 39366822a5b5d6041b9eea94da4f77255ad26761
+          ref: 45658fe4b84d8fb7dd4433c459aa30572e0d13d3
           fetch-depth: 0
       - name: Compose fixed product and candidate
         env:
@@ -44,7 +44,7 @@ jobs:
           git config user.email 'hbos-cloud-validation@users.noreply.github.com'
           git merge --no-ff --no-edit "$CANDIDATE"
           git show -s --format='commit=%H tree=%T parents=%P' HEAD | tee /tmp/hbos-audit/authority.txt
-          git diff --stat 39366822a5b5d6041b9eea94da4f77255ad26761 HEAD > /tmp/hbos-audit/diff-stat.txt
+          git diff --stat 45658fe4b84d8fb7dd4433c459aa30572e0d13d3 HEAD > /tmp/hbos-audit/diff-stat.txt
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -96,7 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 39366822a5b5d6041b9eea94da4f77255ad26761
+          ref: 45658fe4b84d8fb7dd4433c459aa30572e0d13d3
           fetch-depth: 0
       - name: Sequential combination and shared-file evidence
         run: |
@@ -105,7 +105,7 @@ jobs:
           git config user.email 'hbos-cloud-validation@users.noreply.github.com'
           python - <<'PY_COMPOSE'
           import json,pathlib,subprocess
-          queue=[(42,'dc478b67b5164770fd356dc7d97e7ba03a360fe1'),(43,'e6d3f6c785850007a6ab68e7092810b0e323f6fa'),(46,'990b9a17bc40551dc552249f90e18a82e8eab090'),(39,'136e90dc102cc40d294650b8f463ac2e709c92cb')]
+          queue=[(42,'dc478b67b5164770fd356dc7d97e7ba03a360fe1'),(43,'e6d3f6c785850007a6ab68e7092810b0e323f6fa'),(46,'bfa3b4c1380d488c062477d6c9c42c5ea804b19a'),(39,'136e90dc102cc40d294650b8f463ac2e709c92cb')]
           evidence=[]
           for pr,sha in queue:
               before=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
@@ -155,7 +155,7 @@ jobs:
         run: |
           cp scripts/ci/owner_cloud_site_bootstrap.sh /tmp/owner_cloud_site_bootstrap.sh
           cp scripts/ci/owner_cloud_runtime.py /tmp/owner_cloud_runtime.py
-          git checkout --detach 39366822a5b5d6041b9eea94da4f77255ad26761
+          git checkout --detach 45658fe4b84d8fb7dd4433c459aa30572e0d13d3
           git -c user.name='HBOS Cloud Validation' -c user.email='hbos-cloud-validation@users.noreply.github.com' merge --no-ff --no-edit "$CANDIDATE"
           git show -s --format='commit=%H tree=%T parents=%P'
       - uses: actions/setup-node@v4
