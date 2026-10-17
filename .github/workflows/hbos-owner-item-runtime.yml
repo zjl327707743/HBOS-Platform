@@ -1,0 +1,68 @@
+name: HBOS Item Read-only Native Gate
+on:
+  pull_request:
+    branches: [feature/hbos-portal-product]
+    paths:
+      - 'frontend/hbos-portal-web/src/views/InventoryItemReadOnlyView.vue'
+      - 'frontend/hbos-portal-web/src/services/inventoryItems.ts'
+      - 'frontend/hbos-portal-web/tests/inventoryItem*.test.ts'
+      - 'scripts/ci/owner_item_runtime.py'
+      - '.github/workflows/hbos-owner-item-runtime.yml'
+  push:
+    branches: [feature/hbos-portal-product]
+    paths:
+      - 'frontend/hbos-portal-web/src/views/InventoryItemReadOnlyView.vue'
+      - 'frontend/hbos-portal-web/src/services/inventoryItems.ts'
+      - 'scripts/ci/owner_item_runtime.py'
+      - '.github/workflows/hbos-owner-item-runtime.yml'
+permissions:
+  contents: read
+jobs:
+  native-item:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      OWNER_AUDIT_DOMAIN: inventory-items
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: b20b2eb49addb79af659a1b06c4f1f5788f0ace9
+          path: harness
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify actual tested tree and run frontend behavior tests
+        working-directory: candidate
+        run: |
+          git show -s --format='commit=%H tree=%T parents=%P'
+          cd frontend/hbos-portal-web
+          npm ci
+          npm test
+      - name: Build clean candidate assets and prepare pinned dependencies
+        working-directory: candidate
+        run: |
+          bash scripts/release/build_bundle.sh
+          tar -xzf .release/hbos-portal-release.tar.gz apps/hbos_portal/hbos_portal/public/portal
+          mkdir -p runtime/apps
+          git init runtime/apps/hrms
+          git -C runtime/apps/hrms remote add origin https://github.com/frappe/hrms.git
+          git -C runtime/apps/hrms fetch --depth 1 origin c0a04b80eeb721417b75cea758e831464d0da041
+          git -C runtime/apps/hrms checkout --detach FETCH_HEAD
+          bash scripts/setup_fonts.sh --no-container-check
+          cp ../harness/scripts/ci/owner_cloud_site_bootstrap.sh scripts/ci/owner_cloud_site_bootstrap.sh
+          cp scripts/ci/owner_item_runtime.py apps/hbos_portal/hbos_portal/_owner_cloud_audit.py
+      - name: Fresh isolated install double migrate and real Item ACL HTTP checks
+        working-directory: candidate
+        run: |
+          set -o pipefail
+          bash scripts/ci/owner_cloud_site_bootstrap.sh 2>&1 | tee /tmp/owner-native-item.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-item-runtime
+          path: /tmp/owner-native-item.txt
