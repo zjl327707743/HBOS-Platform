@@ -76,7 +76,24 @@ def run():
     u=frappe.get_doc('User',user);u.set('roles',[]);u.save(ignore_permissions=True);frappe.db.commit();frappe.clear_cache(user=user)
     call('frappe.client.get_list',params,False,forbidden='Synthetic dry storage')
     call('frappe.client.get',dict(doctype='Item',name='CLOUD-ITEM-A'),False,forbidden='Synthetic dry storage')
-    client.call('logout',post=True)
+    status,payload,_=client.call('frappe.auth.get_logged_user')
+    assert status==200 and payload.get('message')==user, 'Role revocation must not be confused with logout'
+    status,_,_=client.call('logout',post=True)
+    assert status==200, 'Logout request failed'
+    status,_,_=client.call('frappe.auth.get_logged_user')
+    assert status==403, 'Session remained authenticated after logout'
+    checks.append(dict(case='logout_session_invalidated',http=status))
     call('frappe.client.get',dict(doctype='Item',name='CLOUD-ITEM-A'),False,forbidden='Synthetic dry storage')
+    # Regress the unchanged baseline provider/route contracts and LIMS release projection.
+    import importlib
+    os.environ['HBOS_PORTAL_INTEGRATION_CHECKS']='1'
+    os.environ['HBOS_G1_INTEGRATION_CHECKS']='1'
+    os.environ['HBOS_G3_INTEGRATION_CHECKS']='1'
+    modules=['hbos_portal.integration_checks','hb_attendance_app.hbos_attendance.portal.integration_checks','hb_inventory_app.hbos_inventory.portal.integration_checks','hb_lims_app.hbos_lims.portal.integration_checks','hb_attendance_app.hbos_attendance.g1_integration_checks','hb_lims_app.hbos_lims.g3_integration_checks']
+    for module in modules:
+        frappe.set_user('Administrator')
+        result=importlib.import_module(module).run()
+        print('[OWNER-ITEM] baseline='+json.dumps(dict(module=module,result=result),default=str))
+
     print('[OWNER-ITEM] '+json.dumps(dict(ok=True,checks=checks,source='native Frappe HTTP + MariaDB + User Permission',owner_environment='NOT_TOUCHED')))
     return dict(ok=True,checks=checks)
