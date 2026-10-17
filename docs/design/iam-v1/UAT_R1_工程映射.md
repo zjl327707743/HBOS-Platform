@@ -100,3 +100,5 @@ frontend/hbos-portal-web/tests/sessionAccessRegression.test.ts
 实施补充：组合保存结果的幂等回放需在 `apps/hbos_portal/hbos_portal/iam/audit.py` 的配置快照白名单保留 `settings/access_state/permission_mode/changes`，不加入秘密或业务数据字段。组织分组复用 `iam/organization.py` 的明确原生ID清单，仅作列表筛选；对应人员、部门及应用目标列表接缝不改变授权。
 
 先完成A真实会话/组件回归，再完成B/C/D与R01–R15。真OAuth/真200%按实际逐项记录；截图不代替无重挂/请求合并证据。最终运行源码、build及HEAD核对一致、#52保持Draft，交付后停止自动测试/夹具变化并保留服务。未具核心证据前不标READY_FOR_OWNER。
+
+复验观测补充：CUA只读DOM不提供performance/hasFocus，因此开发运行在布局DOM公开无认证能力的文档实例标记、Vue实例、请求计数和恢复事件计数；生产构建不输出这些属性。不记录URL参数、主体、sid、token或proof，不参与组件key或授权；真实隐藏/恢复窗口后从只读DOM核对，不能用截图冒充生命周期证据。

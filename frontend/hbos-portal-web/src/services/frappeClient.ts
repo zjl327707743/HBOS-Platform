@@ -6,6 +6,15 @@ let csrfToken: string | null = null
 let csrfFlight: Promise<string> | null = null
 let requestEpoch = 0
 let writesBlocked = false
+// DEV-only, non-authorizing lifecycle evidence. No URL, subject, SID, token,
+// proof or payload is retained. These values never control a component key.
+export const frappeDiagnostics = { document: import.meta.env.DEV ? crypto.randomUUID() : '', security: 0, capabilities: 0, bootstrap: 0 }
+function recordRead(method: string) {
+  if (!import.meta.env.DEV) return
+  if (method === 'hbos_portal.auth.accounts.get_security') frappeDiagnostics.security++
+  if (method === 'hbos_portal.api.iam_access.get_capabilities') frappeDiagnostics.capabilities++
+  if (method === 'hbos_portal.api.bootstrap.get_bootstrap') frappeDiagnostics.bootstrap++
+}
 export function clearFrappeCsrfToken() { csrfToken = null; csrfFlight = null }
 export function invalidateFrappeRequests() { requestEpoch++; clearFrappeCsrfToken() }
 export function blockFrappeWrites(blocked: boolean) { writesBlocked = blocked }
@@ -98,6 +107,7 @@ async function getCsrfToken(): Promise<string> {
 }
 export async function callFrappeMethod<T>(method: string, params?: Record<string, unknown>): Promise<T> {
   const epoch = requestEpoch
+  recordRead(method)
   try { const response = await http.get<FrappeMethodResponse<T>>(`/api/method/${method}`, { params }); assertEpoch(epoch); return response.data.message }
   catch (error) { throw await requestError(error, method, epoch) }
 }

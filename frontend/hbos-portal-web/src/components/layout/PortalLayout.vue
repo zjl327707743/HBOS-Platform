@@ -1,5 +1,5 @@
 <template>
-  <div class="portal-page" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
+  <div class="portal-page" :data-document-instance="development ? frappeDiagnostics.document : undefined" :data-session-phase="development ? portalSession.phase : undefined" :data-security-reads="development ? frappeDiagnostics.security : undefined" :data-capability-reads="development ? frappeDiagnostics.capabilities : undefined" :data-bootstrap-reads="development ? frappeDiagnostics.bootstrap : undefined" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <PointerAtmosphere />
     <div class="aurora aurora-a"></div>
@@ -62,6 +62,7 @@ import { attachPortalSession, ensurePortalSession, portalSession, resetPortalSes
 import { accountRedirect } from '@/services/accountNavigation'
 import { canIam } from '@/services/iamAccess'
 import { Modal } from 'ant-design-vue'
+import { frappeDiagnostics } from '@/services/frappeClient'
 import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
 
 const portal = usePortalStore()
