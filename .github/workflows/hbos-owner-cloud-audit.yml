@@ -21,6 +21,8 @@ jobs:
             sha: 990b9a17bc40551dc552249f90e18a82e8eab090
           - pr: 39
             sha: 136e90dc102cc40d294650b8f463ac2e709c92cb
+          - pr: 54
+            sha: 447476707b108e3586397cff5b0213e7b938ffcd
     env:
       HBOS_AI_ENABLED: '0'
       HBOS_AI_DRY_RUN: '1'
@@ -77,6 +79,12 @@ jobs:
         run: |
           set -o pipefail
           bash scripts/release/build_bundle.sh 2>&1 | tee /tmp/hbos-audit/build.txt
+      - name: Frontend interaction unit tests
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          cd frontend/hbos-portal-web
+          npm test 2>&1 | tee /tmp/hbos-audit/frontend-tests.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

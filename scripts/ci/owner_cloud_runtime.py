@@ -11,7 +11,7 @@ def run():
     assert os.environ.get('HBOS_FRAPPE_SMOKE')=='1'
     assert all(os.environ.get(k)=='0' for k in ['HBOS_AI_ENABLED','HBOS_AI_ALLOW_PII','HBOS_FEISHU_SYNC_ENABLED','HBOS_DELICLOUD_SYNC_ENABLED'])
     frappe.set_user('Administrator')
-    print('[OWNER-AUDIT] versions='+json.dumps(frappe.get_versions()))
+    print('[OWNER-AUDIT] installed_apps='+json.dumps(frappe.get_installed_apps()))
     domain=os.environ['OWNER_AUDIT_DOMAIN']
     if domain=='inventory': return inventory()
     if domain=='attendance': return attendance()

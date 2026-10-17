@@ -121,4 +121,5 @@ else:
     raise SystemExit("Native Frappe HTTP did not become ready")
 PY
 
+dc exec -T backend bench version
 dc exec -T -e GITHUB_ACTIONS=true -e HBOS_REPORT_SCOPE_TEST_ID="$TEST_ID" -e HBOS_FRAPPE_SMOKE=1 -e OWNER_AUDIT_DOMAIN="$OWNER_AUDIT_DOMAIN" -e FRAPPE_SITE="$SITE_NAME" backend bench --site "$SITE_NAME" execute hbos_portal._owner_cloud_audit.run
