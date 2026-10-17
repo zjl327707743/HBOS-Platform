@@ -39,6 +39,15 @@ OUT_TERMINAL_SNS = {"13750CS_9FB66A86CF3487D7", "13750CS_93C9390B9995FE8C"}
 # 分机实施起始日期（Owner 2026-08-20 纠正: 15 号才实施上下分开打卡, 8/14 及之前按旧规则）
 SPLIT_MACHINE_START_DATE = "2026-08-15"
 
+# 24 小时连班（Owner 2026-10-01 确认）：设备动力部 12 小时倒班存在
+# 「早班 08:00 上班 + 晚班 20:00 下班」连班，打卡表现为 早 8:0x-8:3x 上班卡 →
+# 次日 早 8:3x-8:5x 下班卡，间隔约 23.5-25.5h，超过统一配对上限 18h。
+# 只对 LONG_DUTY_DEPTS 部门放开该形状，其余超长间隔仍按「漏下班卡」处理。
+LONG_DUTY_DEPTS = {"设备动力部"}
+LONG_DUTY_START_HOURS = (7, 9)
+LONG_DUTY_END_HOURS = (7, 10)
+LONG_DUTY_MAX_GAP_HOURS = 26
+
 # 特殊班次/四班次的“规则类型”仍由代码定义；具体人员由
 # HBOS Attendance Policy Assignment 业务数据维护，不在源码保存真实身份。
 SPECIAL_SHIFT_NUMS = PolicySet(POLICY_SPECIAL_SHIFT)
@@ -251,7 +260,7 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                            emp_leave_dates=None, track_roles=False,
                            terminal_aware=False, max_gap_hours=16,
                            is_late_exempt=False, now_dt=None,
-                           special_shift=None, four_shift=None):
+                           special_shift=None, four_shift=None, long_duty=False):
     """对单个员工按时间升序的打卡做 HBOS 配对。
 
     参数:
@@ -270,6 +279,8 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
             SPLIT_MACHINE_START_DATE 起，见文件顶部常量）：
             上班机卡只能当下班机卡的「上班」，下班机卡只能当「下班」，
             避免纯时间贪心把跨班次卡配错(曹云山 8/19 案例)
+        long_duty: True 时对 LONG_DUTY_DEPTS 部门放开「24 小时连班」形状
+            （上班卡 7-9 点、次日 7-10 点下班、间隔 ≤ 26h）。见文件顶部常量。
 
     返回记录列表，每条为 9 元组:
     (name, employee, date_str, status, shift, late, in_time_str, working_hours, missing_out)
@@ -436,9 +447,18 @@ def pair_employee_checkins(cks, eid, emp_num, shift_fn,
                 if gap < 0:
                     continue
                 if gap > max_gap_hours:
-                    # 超过上限: 正常班次最长12小时(无菌12h), 超过上限的
-                    # 「配对」必是漏下班卡导致的假超长班(冯慧杰 8/15 15.69h 案例)
-                    continue
+                    # 例外：24 小时连班。只认连班形状——上班卡 7-9 点、
+                    # 次日 7-10 点下班、间隔 ≤ 26h，其余超长间隔仍判漏下班卡。
+                    _out_dt = cks[j]["time"]
+                    _is_long_duty = (
+                        long_duty
+                        and LONG_DUTY_START_HOURS[0] <= cks[i]["time"].hour < LONG_DUTY_START_HOURS[1]
+                        and _out_dt.date() != cks[i]["time"].date()
+                        and LONG_DUTY_END_HOURS[0] <= _out_dt.hour < LONG_DUTY_END_HOURS[1]
+                        and gap <= LONG_DUTY_MAX_GAP_HOURS
+                    )
+                    if not _is_long_duty:
+                        continue
                 if gap < 2:
                     # 不足2小时: 上下班机相邻连刷/误刷方向, 不配对
                     continue

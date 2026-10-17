@@ -64,6 +64,9 @@ def _role_map_for_rows(rows):
 
 
 def execute(filters=None):
+	# Fail closed until scoped legacy Script Reports are query-time filtered.
+	from hb_attendance_app.hbos_attendance.report_scope import require_unrestricted_employee_read
+	require_unrestricted_employee_read()
 	filters = filters or {}
 	has_import_log = frappe.db.has_column("Employee Checkin", "hbos_import_log")
 	has_source_type = frappe.db.has_column("Employee Checkin", "hbos_source_type")
