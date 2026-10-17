@@ -33,6 +33,14 @@ def run():
         frappe.set_user('Administrator')
         spec=importlib.util.spec_from_file_location(name,root/(name+'.py'))
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        if name=='test_audit_transaction_runtime':
+            # Persist only synthetic preconditions; original runtime tests exercise
+            # real service guards and rollback/independent-audit commits unchanged.
+            sql_fixture('HBOS Sample',dict(name='CLOUD-TX-SAMPLE',remarks='Synthetic baseline'))
+            sql_fixture('HBOS Stability Room',dict(name='CLOUD-TX-ROOM'))
+            sql_fixture('HBOS Retention Usage Apply',dict(name='CLOUD-TX-USAGE',status='待QC批准',stock_confirm_by='r7c-qc1@test.local',applicant='r7c-an@test.local'))
+            frappe.db.commit()
+            print('[OWNER-AUDIT] transaction-fixture='+json.dumps(dict(sample=True,protected_room=True,sod_usage=True,production_code_unchanged=True)))
         if name=='test_lims_audit_integrity_runtime':
             # Fresh synthetic Site has no historical v1 rows. Establish independent
             # committed fixtures; never change audit_log(commit=True) no-op semantics.
@@ -135,6 +143,21 @@ def attendance():
     status,payload,text=client.call('frappe.client.get_list',dict(doctype='Employee',fields=json.dumps(['name']),limit_page_length=200))
     assert status==200 and prefix+'-EMP-A' in text and prefix+'-EMP-B' not in text, 'Fresh HTTP native Employee scope prerequisite'
     print('[OWNER-AUDIT] prepared-prerequisites='+json.dumps(dict(identity=True,employee_a_visible=True,employee_b_hidden=True)))
+    export_checks=[]
+    reports=['月度考勤汇总','打卡流水','考勤结果','HBOS 月度汇总暂存（对账）']
+    # Real native export endpoint must re-enter the same pre-SQL gate.
+    # Keep background export disabled, so no queued mail/external dispatch occurs.
+    for name in reports:
+        assert frappe.db.exists('Report',name), 'Unexpected attendance Report fixture '+name
+        status,_,text=client.call('frappe.desk.query_report.export_query',dict(report_name=name,filters='{}',file_format_type='CSV',export_in_background=0),post=True)
+        assert status==403 and marker not in text, 'Restricted native export must deny before data'
+        export_checks.append(dict(report=name,http=status))
+    prepared_enabled=bool(frappe.db.get_value('Report',report,'prepared_report'))
+    status,_,text=client.call('frappe.desk.query_report.run',dict(report_name=report,filters=json.dumps(dict(prepared_report_name=prepared)),ignore_prepared_report=0))
+    leaked_query=marker in text
+    print('[OWNER-AUDIT] native-prepared-query='+json.dumps(dict(report=report,prepared_enabled=prepared_enabled,http=status,leaked=leaked_query)))
+    assert status==403 and not leaked_query, 'Restricted HR native cached report query must deny'
+    print('[OWNER-AUDIT] native-exports='+json.dumps(export_checks))
     # Download cached output generated before restriction, without executing SQL again.
     try:
         response=client.opener.open(Request('http://127.0.0.1:8000'+quote(file.file_url,safe='/'),headers=client.headers),timeout=30)

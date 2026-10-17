@@ -2,7 +2,7 @@ name: HBOS Owner Cloud Integration Audit
 on:
   pull_request:
     branches: [feature/hbos-portal-product]
-    paths: ['.github/workflows/hbos-owner-cloud-audit.yml', 'scripts/ci/owner_cloud_site_bootstrap.sh', 'scripts/ci/owner_cloud_runtime.py']
+    paths: ['.github/workflows/hbos-owner-cloud-audit.yml', 'scripts/ci/owner_cloud_site_bootstrap.sh', 'scripts/ci/owner_cloud_runtime.py', 'scripts/ci/owner_compose.py']
 permissions:
   contents: read
 jobs:
@@ -37,12 +37,18 @@ jobs:
       - name: Compose fixed product and candidate
         env:
           CANDIDATE: ${{ matrix.sha }}
+          AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/hbos-audit
           git config user.name 'HBOS Cloud Validation'
           git config user.email 'hbos-cloud-validation@users.noreply.github.com'
-          git merge --no-ff --no-edit "$CANDIDATE"
+          git show "$AUDIT_HEAD:scripts/ci/owner_compose.py" > /tmp/owner_compose.py
+          case "$CANDIDATE" in
+            e6d3f6c785850007a6ab68e7092810b0e323f6fa|136e90dc102cc40d294650b8f463ac2e709c92cb)
+              python3 /tmp/owner_compose.py single "$CANDIDATE" ;;
+            *) git merge --no-ff --no-edit "$CANDIDATE" ;;
+          esac
           git show -s --format='commit=%H tree=%T parents=%P' HEAD | tee /tmp/hbos-audit/authority.txt
           git diff --stat 45658fe4b84d8fb7dd4433c459aa30572e0d13d3 HEAD > /tmp/hbos-audit/diff-stat.txt
       - uses: actions/setup-python@v5
@@ -90,37 +96,77 @@ jobs:
         with:
           name: candidate-${{ matrix.pr }}
           path: /tmp/hbos-audit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: candidate-composition-${{ matrix.pr }}
+          path: /tmp/hbos-composition
+          if-no-files-found: ignore
   composition:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
+    env:
+      HBOS_AI_ENABLED: '0'
+      HBOS_AI_DRY_RUN: '1'
+      HBOS_NOTIFY_DRY_RUN: '1'
+      HBOS_FEISHU_SYNC_ENABLED: '0'
+      HBOS_DELICLOUD_SYNC_ENABLED: '0'
     steps:
       - uses: actions/checkout@v4
         with:
           ref: 45658fe4b84d8fb7dd4433c459aa30572e0d13d3
           fetch-depth: 0
-      - name: Sequential combination and shared-file evidence
+      - name: Compose reviewed shared-file hunks on new product baseline
+        env:
+          AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          mkdir -p /tmp/hbos-composition
-          git config user.name 'HBOS Cloud Validation'
-          git config user.email 'hbos-cloud-validation@users.noreply.github.com'
-          python - <<'PY_COMPOSE'
-          import json,pathlib,subprocess
-          queue=[(42,'dc478b67b5164770fd356dc7d97e7ba03a360fe1'),(43,'e6d3f6c785850007a6ab68e7092810b0e323f6fa'),(46,'bfa3b4c1380d488c062477d6c9c42c5ea804b19a'),(39,'136e90dc102cc40d294650b8f463ac2e709c92cb')]
-          evidence=[]
-          for pr,sha in queue:
-              before=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-              p=subprocess.run(['git','merge','--no-ff','--no-edit',sha],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
-              files=subprocess.check_output(['git','diff','--name-only','--diff-filter=U'],text=True).splitlines()
-              patch=subprocess.check_output(['git','diff'],text=True)
-              pathlib.Path('/tmp/hbos-composition/'+str(pr)+'.diff').write_text(patch)
-              evidence.append(dict(pr=pr,head=sha,base=before,exit=p.returncode,conflicts=files,log=p.stdout))
-              print(json.dumps(evidence[-1]))
-              if p.returncode:
-                  subprocess.run(['git','merge','--abort'],check=True)
-                  break
-          pathlib.Path('/tmp/hbos-composition/results.json').write_text(json.dumps(evidence,indent=2))
-          if any(x['exit'] for x in evidence):raise SystemExit('Shared-file composition needs explicit hunk resolution')
-          PY_COMPOSE
+          git show "$AUDIT_HEAD:scripts/ci/owner_compose.py" > /tmp/owner_compose.py
+          python3 /tmp/owner_compose.py full
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install declared test dependencies
+        run: |
+          python -m pip install --require-hashes -r apps/hbos_portal/requirements.txt
+          python -m pip install 'openpyxl==3.1.5' 'fastapi>=0.110,<1.0' 'httpx>=0.27,<1.0' requests pytest
+      - name: Domain and platform regression with actual counts
+        run: |
+          python - <<'PY_TEST'
+          import json, os, pathlib, subprocess
+          suites = [('attendance','apps/hb_attendance_app'),('lims','apps/hb_lims_app'),('inventory','apps/hb_inventory_app'),('portal','apps/hbos_portal')]
+          if pathlib.Path('services/hbos_production').exists():
+              suites += [('production','services/hbos_production'),('production-ai','services/hbos_production_ai')]
+          failed=[]
+          for name, root in suites:
+              env=dict(os.environ, PYTHONPATH=str(pathlib.Path(root).resolve()))
+              command = ['python','-m','pytest','tests','-q','-rA'] if name.startswith('production') else ['python','-m','unittest','discover','-s','tests','-v'] + (['-t','.'] if name=='portal' else [])
+              p=subprocess.run(command,cwd=root,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+              pathlib.Path('/tmp/hbos-audit/'+name+'.txt').write_text(p.stdout)
+              print(name, 'exit=',p.returncode)
+              print('\n'.join(p.stdout.splitlines()[-30:]))
+              if p.returncode: failed.append(name)
+          pathlib.Path('/tmp/hbos-audit/results.json').write_text(json.dumps({'failed':failed}))
+          if failed: raise SystemExit('Failing suites: '+','.join(failed))
+          PY_TEST
+      - name: Build both same-site frontends
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          bash scripts/release/build_bundle.sh 2>&1 | tee /tmp/hbos-audit/build.txt
+      - name: Frontend interaction unit tests
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          cd frontend/hbos-portal-web
+          npm test 2>&1 | tee /tmp/hbos-audit/frontend-tests.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owner-full-regression
+          path: /tmp/hbos-audit
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -141,6 +187,9 @@ jobs:
           - pr: 42
             sha: dc478b67b5164770fd356dc7d97e7ba03a360fe1
             domain: attendance
+          - pr: combined
+            sha: full
+            domain: lims
     env:
       OWNER_AUDIT_DOMAIN: ${{ matrix.domain }}
     runs-on: ubuntu-latest
@@ -152,11 +201,18 @@ jobs:
       - name: Preserve runner-only harness and compose fixed business candidate
         env:
           CANDIDATE: ${{ matrix.sha }}
+          AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           cp scripts/ci/owner_cloud_site_bootstrap.sh /tmp/owner_cloud_site_bootstrap.sh
           cp scripts/ci/owner_cloud_runtime.py /tmp/owner_cloud_runtime.py
+          cp scripts/ci/owner_compose.py /tmp/owner_compose.py
           git checkout --detach 45658fe4b84d8fb7dd4433c459aa30572e0d13d3
-          git -c user.name='HBOS Cloud Validation' -c user.email='hbos-cloud-validation@users.noreply.github.com' merge --no-ff --no-edit "$CANDIDATE"
+          case "$CANDIDATE" in
+            full) python3 /tmp/owner_compose.py full ;;
+            e6d3f6c785850007a6ab68e7092810b0e323f6fa|136e90dc102cc40d294650b8f463ac2e709c92cb)
+              python3 /tmp/owner_compose.py single "$CANDIDATE" ;;
+            *) git -c user.name='HBOS Cloud Validation' -c user.email='hbos-cloud-validation@users.noreply.github.com' merge --no-ff --no-edit "$CANDIDATE" ;;
+          esac
           git show -s --format='commit=%H tree=%T parents=%P'
       - uses: actions/setup-node@v4
         with:
@@ -181,4 +237,6 @@ jobs:
         if: always()
         with:
           name: native-runtime-${{ matrix.pr }}
-          path: /tmp/owner-native-lims.txt
+          path: |
+            /tmp/owner-native-lims.txt
+            /tmp/hbos-composition
