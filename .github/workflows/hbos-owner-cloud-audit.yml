@@ -119,22 +119,37 @@ jobs:
           name: shared-file-composition
           path: /tmp/hbos-composition
 
-  lims-runtime:
+  native-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pr: 43
+            sha: e6d3f6c785850007a6ab68e7092810b0e323f6fa
+            domain: lims
+          - pr: 39
+            sha: 136e90dc102cc40d294650b8f463ac2e709c92cb
+            domain: inventory
+          - pr: 42
+            sha: dc478b67b5164770fd356dc7d97e7ba03a360fe1
+            domain: attendance
+    env:
+      OWNER_AUDIT_DOMAIN: ${{ matrix.domain }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Preserve runner-only harness and compose fixed LIMS candidate
+      - name: Preserve runner-only harness and compose fixed business candidate
+        env:
+          CANDIDATE: ${{ matrix.sha }}
         run: |
           cp scripts/ci/owner_cloud_site_bootstrap.sh /tmp/owner_cloud_site_bootstrap.sh
           cp scripts/ci/owner_cloud_runtime.py /tmp/owner_cloud_runtime.py
           git checkout --detach 39366822a5b5d6041b9eea94da4f77255ad26761
-          git -c user.name='HBOS Cloud Validation' -c user.email='hbos-cloud-validation@users.noreply.github.com' merge --no-ff --no-edit e6d3f6c785850007a6ab68e7092810b0e323f6fa
+          git -c user.name='HBOS Cloud Validation' -c user.email='hbos-cloud-validation@users.noreply.github.com' merge --no-ff --no-edit "$CANDIDATE"
           git show -s --format='commit=%H tree=%T parents=%P'
-          cp /tmp/owner_cloud_runtime.py apps/hbos_portal/hbos_portal/_owner_cloud_audit.py
-          cp /tmp/owner_cloud_site_bootstrap.sh scripts/ci/owner_cloud_site_bootstrap.sh
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -148,6 +163,8 @@ jobs:
           git -C runtime/apps/hrms fetch --depth 1 origin c0a04b80eeb721417b75cea758e831464d0da041
           git -C runtime/apps/hrms checkout --detach FETCH_HEAD
           bash scripts/setup_fonts.sh --no-container-check
+          cp /tmp/owner_cloud_runtime.py apps/hbos_portal/hbos_portal/_owner_cloud_audit.py
+          cp /tmp/owner_cloud_site_bootstrap.sh scripts/ci/owner_cloud_site_bootstrap.sh
       - name: Clean install double migrate and real multi-user signature guards
         run: |
           set -o pipefail
@@ -155,5 +172,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: native-lims-runtime
+          name: native-runtime-${{ matrix.pr }}
           path: /tmp/owner-native-lims.txt
