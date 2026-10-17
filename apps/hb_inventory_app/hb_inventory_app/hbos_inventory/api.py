@@ -52,6 +52,44 @@ def _require_permission() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 独立前端辅助
+# ---------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def get_csrf_token() -> str:
+	"""返回当前会话的 CSRF token，供**跨源**前端（HBOS Portal）的 POST 请求携带。
+
+	## 为什么需要这个接口
+
+	Frappe 框架的 CSRF 校验一直在跑（``frappe.auth.validate_csrf_token``），任何
+	非 GET 请求都必须带 ``X-Frappe-CSRF-Token``，否则 400 ``CSRFTokenError``。
+
+	Desk 页面里能用，是因为框架注入了 ``frappe.csrf_token`` 变量。但入库拍照识别
+	前端化以后跑在 Portal（独立部署、跨源），拿不到那个注入——本地开发时甚至跨端口，
+	连 ``csrftoken`` cookie 都读不到（本页面是 host-only cookie，``:8080`` 与 ``:5178``
+	在浏览器看来是**不同来源**）。
+
+	## 安全边界
+
+	本接口**不返回任何超出当前会话本身的信息**：调用者能拿到 token，前提是他已经
+	持有该会话的有效 cookie。它做的是「把原本 Desk 页面就能拿到的值，用受控接口
+	暴露给受信任前端」，**没有削弱 CSRF 防护**——攻击者若没有会话 cookie，拿不到
+	token，拿不到 token 就发不出合法 POST。
+
+	同款做法见 ``hb_lims_app.hbos_lims.lims_service.get_csrf_token``（独立前端
+	LIMS 前端使用），本处与之一致。
+
+	**未做 ``_require_permission()``**：token 是会话级的，不携带业务数据；若在此
+	校验角色，会让「有 Portal 访问权但无库存权限」的用户拿到一个多余的失败面，
+	而真正的权限校验在 ``recognize_label`` / ``create_intake_draft`` 里逐条把关。
+	"""
+	from frappe.sessions import get_csrf_token as _issue_token
+
+	return _issue_token()
+
+
+# ---------------------------------------------------------------------------
 # 上下文 / 状态
 # ---------------------------------------------------------------------------
 
