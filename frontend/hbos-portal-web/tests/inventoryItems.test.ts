@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { callFrappeMethod } from '@/services/frappeClient'
 import { getItem, searchItems, ITEM_LIST_LIMIT } from '@/services/inventoryItems'
 vi.mock('@/services/frappeClient', () => ({ callFrappeMethod: vi.fn() }))
-beforeEach(() => vi.mocked(callFrappeMethod).mockReset())
+beforeEach(() => { vi.mocked(callFrappeMethod).mockReset() })
 it('uses the existing permission-aware Item list API with bounded search', async () => {
   vi.mocked(callFrappeMethod).mockResolvedValue([{name:'A',item_name:'Visible'}])
   const result = await searchItems(' needle ')
