@@ -112,13 +112,13 @@ def attendance():
     from frappe.core.doctype.prepared_report.prepared_report import create_json_gz_file
     create_json_gz_file({'columns':[{'fieldname':'employee','label':'Employee','fieldtype':'Data'}],'result':[{'employee':marker}]},'Prepared Report',prepared,report)
     file=frappe.db.get_value('File',dict(attached_to_doctype='Prepared Report',attached_to_name=prepared),['name','file_url'],as_dict=True)
-    frappe.get_doc(dict(doctype='User Permission',user=user,allow='Department',for_value=deps[0],apply_to_all_doctypes=1)).insert(ignore_permissions=True)
+    frappe.get_doc(dict(doctype='User Permission',user=user,allow='Employee',for_value=prefix+'-EMP-A',apply_to_all_doctypes=1,hide_descendants=1)).insert(ignore_permissions=True)
     frappe.db.commit();frappe.clear_cache(user=user)
     frappe.set_user(user)
     from hb_attendance_app.hbos_attendance.report_scope import require_unrestricted_employee_read
     try:require_unrestricted_employee_read()
     except frappe.PermissionError:pass
-    else:raise AssertionError('Fixture must be restricted')
+    else:raise AssertionError('Prepared-cache fixture must be restricted; visible='+json.dumps(frappe.get_list('Employee',pluck='name',limit_page_length=0)))
     origin=str(frappe.conf.hbos_portal_origin);client=Client(origin).login(user,password)
     # Download cached output generated before revocation, without executing SQL again.
     response=client.opener.open(Request('http://127.0.0.1:8000'+file.file_url,headers=client.headers),timeout=30)
@@ -154,6 +154,7 @@ def inventory():
         for filters,allowed in [({},True),({'warehouse':warehouses[0]},True),({'warehouse':warehouses[0],'include_children':1},True),({'warehouse':warehouses[1]},False),({'warehouse':warehouses[1],'include_children':1},False)]:
             status,payload,text=client.call('frappe.desk.query_report.run',dict(report_name=name,filters=json.dumps(filters),ignore_prepared_report=1))
             assert 'CLOUD-BATCH-B' not in text and 'CLOUD-SUPPLIER-B' not in text,'Cross-Warehouse data leak'
+            print('[OWNER-AUDIT] report-case='+json.dumps(dict(report=name,filters=filters,http=status,expected_allowed=allowed,messages=payload.get('_server_messages','')[:1200])))
             if allowed:
                 assert status==200,(name,status,payload.get('exc_type'))
                 assert 'CLOUD-BATCH-A' in text,'Positive report data missing: '+name
