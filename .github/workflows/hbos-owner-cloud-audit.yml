@@ -2,7 +2,7 @@ name: HBOS Owner Cloud Integration Audit
 on:
   pull_request:
     branches: [feature/hbos-portal-product]
-    paths: ['.github/workflows/hbos-owner-cloud-audit.yml']
+    paths: ['.github/workflows/hbos-owner-cloud-audit.yml', 'scripts/ci/owner_cloud_site_bootstrap.sh', 'scripts/ci/owner_cloud_runtime.py']
 permissions:
   contents: read
 jobs:
