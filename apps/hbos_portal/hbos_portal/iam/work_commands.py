@@ -191,13 +191,13 @@ def _operation_state(summary, operation_id):
 
 def _summary_text(summary):
     if summary.get("suspended"):
-        return "已停用这个应用，已有安排保留。"
+        return "已暂停使用此应用，原权限来源保留。"
     texts = []
     for operation in summary.get("operations", []):
         if not operation.get("available"):
             continue
         label = operation.get("label", operation["operation_id"])
-        texts.append(label if operation.get("allowed") else "暂未安排" + label)
+        texts.append("可以" + label if operation.get("allowed") else "当前不能" + label)
     return "；".join(texts) or "尚未接入此管理功能。"
 
 
@@ -231,7 +231,56 @@ def _impact(subject_type, subject_name, app_id, after_rules):
     return result
 
 
-def build_plan(subject_type, subject_name, app_id, changes=None, kind="save"):
+def _apply_ordinary(subject_type, target, app_id, app, before, original, rows, changes):
+    touched = set()
+    changes = normalize_changes(changes or [], app)
+    for change in changes:
+        operation_id = change["operation_id"]
+        current = _operation_state(before, operation_id)
+        if change["enabled"] == bool(current["allowed"]) and _objects(change["scopes"]) == _objects(current["scopes"]):
+            continue
+        if before.get("suspended"):
+            frappe.throw("请先重新启用这个应用并核对将恢复的权限。", frappe.PermissionError)
+        if any(_complex(row) for row in original if row["app_id"] == app_id and row["operation_id"] == operation_id):
+            frappe.throw("这项工作含有期限或特别限制，请先核对具名安排，普通勾选不会覆盖它。", frappe.PermissionError)
+        touched.add(operation_id)
+        rows = [row for row in rows if not (row["app_id"] == app_id and row["operation_id"] == operation_id)]
+        operation = _operation(app, operation_id)
+        deadline = _grant_deadline(subject_type, target, app_id) if change["enabled"] else None
+        selected = _objects(change["scopes"])
+        for scope in operation["objects"]:
+            effect = "allow" if (scope["scope_type"], scope["scope_ref"]) in selected else "deny"
+            rows.append(_new_rule(app_id, operation_id, effect, scope, deadline))
+    if touched:
+        # Coordinate only the needed entry gate. Never delete a stop deny.
+        for change in changes:
+            if change["operation_id"] in touched and change["enabled"]:
+                for scope in change["scopes"]:
+                    if _entry_allows(subject_type, target, rows, app_id, scope):
+                        continue
+                    gate = _new_rule(app_id, "app.enter", "allow", scope, _grant_deadline(subject_type, target, app_id))
+                    if not any(_json(row) == _json(gate) for row in rows):
+                        rows.append(gate)
+    return rows, touched
+
+
+def normalize_settings(settings, app):
+    if isinstance(settings, str):
+        try:
+            settings = json.loads(settings)
+        except ValueError:
+            _invalid("权限设置格式不正确。")
+    if not isinstance(settings, dict) or set(settings) != {"access_state", "permission_mode", "changes"}:
+        _invalid("请提交明确的访问状态、权限来源和有限功能变更。")
+    if settings["access_state"] not in {"normal", "paused"} or settings["permission_mode"] not in {"department", "personal"}:
+        _invalid("访问状态或权限来源不正确。")
+    changes = normalize_changes(settings["changes"], app)
+    if settings["permission_mode"] == "department" and changes:
+        _invalid("使用部门默认权限时不能同时提交个人功能。")
+    return {**settings, "changes": changes}
+
+
+def build_plan(subject_type, subject_name, app_id, changes=None, kind="save", settings=None):
     target = _authorize(subject_type, subject_name, app_id, write=True)
     app = _app(app_id)
     before = policy.effective_work(subject_type, subject_name, app_id)
@@ -240,35 +289,49 @@ def build_plan(subject_type, subject_name, app_id, changes=None, kind="save"):
     rows = copy.deepcopy(original)
     ordinary = _ordinary_ids(app)
     touched = set()
+    resume_baseline = None
     if kind == "save":
-        changes = normalize_changes(changes or [], app)
-        for change in changes:
-            operation_id = change["operation_id"]
-            current = _operation_state(before, operation_id)
-            if change["enabled"] == bool(current["allowed"]) and _objects(change["scopes"]) == _objects(current["scopes"]):
-                continue
-            if before.get("suspended"):
-                frappe.throw("请先重新启用这个应用并核对将恢复的权限。", frappe.PermissionError)
-            if any(_complex(row) for row in original if row["app_id"] == app_id and row["operation_id"] == operation_id):
-                frappe.throw("这项工作含有期限或特别限制，请先核对具名安排，普通勾选不会覆盖它。", frappe.PermissionError)
-            touched.add(operation_id)
-            rows = [row for row in rows if not (row["app_id"] == app_id and row["operation_id"] == operation_id)]
-            operation = _operation(app, operation_id)
-            deadline = _grant_deadline(subject_type, target, app_id) if change["enabled"] else None
-            selected = _objects(change["scopes"])
-            for scope in operation["objects"]:
-                effect = "allow" if (scope["scope_type"], scope["scope_ref"]) in selected else "deny"
-                rows.append(_new_rule(app_id, operation_id, effect, scope, deadline))
-        if touched:
-            # Coordinate only the needed entry gate. Never delete a stop deny.
-            for change in changes:
-                if change["operation_id"] in touched and change["enabled"]:
-                    for scope in change["scopes"]:
-                        if _entry_allows(subject_type, target, rows, app_id, scope):
-                            continue
-                        gate = _new_rule(app_id, "app.enter", "allow", scope, _grant_deadline(subject_type, target, app_id))
-                        if not any(_json(row) == _json(gate) for row in rows):
-                            rows.append(gate)
+        rows, touched = _apply_ordinary(subject_type, target, app_id, app, before, original, rows, changes)
+    elif kind == "configure":
+        settings = normalize_settings(settings, app)
+        timed_stop = any(_stop(row, app_id) and _complex(row) for row in original)
+        if timed_stop and (settings["access_state"] == "paused") != bool(before.get("suspended")):
+            frappe.throw("应用暂停包含特别期限，请专门核对。普通权限面板不会覆盖它。", frappe.PermissionError)
+        if subject_type == "Department" and (settings["access_state"] != "normal" or settings["permission_mode"] != "personal"):
+            _invalid("部门默认权限只接受普通功能设置。")
+        if subject_type == "User":
+            # Only this employee's simple application stop is coordinated here.
+            # Department denies and other personal restrictions remain effective.
+            rows = [row for row in rows if not (_stop(row, app_id) and not _complex(row))]
+        mode_before = before["permission_mode"]
+        if settings["permission_mode"] == "department":
+            if any(_complex(row) for row in rows if row["app_id"] == app_id and row["operation_id"] in ordinary):
+                frappe.throw("个人权限包含期限或特别限制，请专门核对，普通面板不会覆盖。", frappe.PermissionError)
+            has_important = any(row["app_id"] == app_id and row["operation_id"] not in ordinary | {"app.enter"} for row in rows)
+            rows = [row for row in rows if not (row["app_id"] == app_id and (row["operation_id"] in ordinary or (row["operation_id"] == "app.enter" and not has_important and not _complex(row))))]
+            touched = ordinary
+        else:
+            if subject_type == "User" and mode_before == "department" and not settings["changes"]:
+                _invalid("为此员工单独设置时，请明确选择至少一项普通功能。")
+            working = policy.effective_work(subject_type, subject_name, app_id, policy_overrides={(subject_type, subject_name): rows})
+            if before.get("suspended") and settings["access_state"] == "normal":
+                resume_baseline = working
+            rows, touched = _apply_ordinary(subject_type, target, app_id, app, working, original, rows, settings["changes"])
+            if mode_before == "department":
+                # Explicitly choosing personal source records the selected finite
+                # ordinary intention, even when it equals the current default.
+                for change in settings["changes"]:
+                    if change["operation_id"] in touched:
+                        continue
+                    if any(_complex(row) for row in original if row["app_id"] == app_id and row["operation_id"] == change["operation_id"]):
+                        frappe.throw("特别限制不能由普通权限设置覆盖。", frappe.PermissionError)
+                    touched.add(change["operation_id"])
+                    selected = _objects(change["scopes"])
+                    for scope in _operation(app, change["operation_id"])["objects"]:
+                        effect = "allow" if (scope["scope_type"], scope["scope_ref"]) in selected else "deny"
+                        rows.append(_new_rule(app_id, change["operation_id"], effect, scope, _grant_deadline(subject_type, target, app_id) if effect == "allow" else None))
+        if settings["access_state"] == "paused" and not any(_stop(row, app_id) for row in rows):
+            rows.append(_new_rule(app_id, "app.enter", "deny", {"scope_type": "ALL", "scope_ref": "*"}))
     elif kind == "restore":
         if subject_type != "User":
             _invalid("恢复部门安排只能用于一位员工。")
@@ -299,21 +362,25 @@ def build_plan(subject_type, subject_name, app_id, changes=None, kind="save"):
     for operation in after["operations"]:
         old = _operation_state(before, operation["operation_id"])
         gains = set(_objects(operation["scopes"])) - set(_objects(old["scopes"]))
-        if kind == "save" and operation["operation_id"] not in touched and _objects(operation["scopes"]) != _objects(old["scopes"]):
-            frappe.throw("应用入口变化会影响本次未修改的工作，已阻止自动保存。", frappe.PermissionError)
+        if kind in {"save", "configure"} and operation["operation_id"] not in touched and _objects(operation["scopes"]) != _objects(old["scopes"]):
+            pausing = kind == "configure" and settings["access_state"] == "paused" and not gains
+            restoring = resume_baseline is not None and set(_objects(operation["scopes"])) <= set(_objects(_operation_state(resume_baseline, operation["operation_id"])["scopes"]))
+            if not pausing and not restoring:
+                frappe.throw("应用入口变化会影响本次未修改的工作，已阻止自动保存。", frappe.PermissionError)
         if gains and operation["operation_id"] not in touched:
             registered = next((item for item in app["operations"] if item["id"] == operation["operation_id"]), {})
-            if kind != "reenable" or not registered.get("ordinary"):
+            restoring = resume_baseline is not None and gains <= set(_objects(_operation_state(resume_baseline, operation["operation_id"])["scopes"]))
+            if (kind != "reenable" and not restoring) or not registered.get("ordinary"):
                 frappe.throw("应用入口变化会启用本次未选择的工作，已阻止自动保存，请单独核对。", frappe.PermissionError)
     return {"before": describe(before), "after": describe(after), "changed": _json(original) != _json(rows), "context_revision": before["context_revision"], "impact": _impact(subject_type, subject_name, app_id, rows), "_rules": rows, "_version": int(document.version) if document else 0}
 
 
-def preview_work(subject_type, subject_name, app_id, changes=None, kind="save"):
-    result = build_plan(subject_type, subject_name, app_id, changes, kind)
+def preview_work(subject_type, subject_name, app_id, changes=None, kind="save", settings=None):
+    result = build_plan(subject_type, subject_name, app_id, changes, kind, settings)
     return {key: value for key, value in result.items() if not key.startswith("_")}
 
 
-def commit_work(subject_type, subject_name, app_id, changes=None, expected_version=None, context_revision=None, request_id=None, kind="save"):
+def commit_work(subject_type, subject_name, app_id, changes=None, expected_version=None, context_revision=None, request_id=None, kind="save", settings=None):
     guards.require_post()
     if not isinstance(request_id, str) or not 16 <= len(request_id) <= 100:
         _invalid("请提交独立的请求编号。")
@@ -322,6 +389,9 @@ def commit_work(subject_type, subject_name, app_id, changes=None, expected_versi
     except (ValueError, TypeError):
         _invalid("缺少已读取的策略版本。")
     payload = {"app_id": app_id, "changes": changes or [], "kind": kind, "expected_version": expected_version, "context_revision": context_revision}
+    if kind == "configure":
+        settings = normalize_settings(settings, _app(app_id))
+        payload["settings"] = settings
     from hbos_portal.auth.onboarding import serialize
     # Serialize IAM writers even when the target Policy does not yet exist.
     # Current DB row locks remain the final arbiter for native account revocation.
@@ -334,7 +404,7 @@ def commit_work(subject_type, subject_name, app_id, changes=None, expected_versi
         replayed = audit.replay(request_id, "work." + kind, subject_type, subject_name, payload)
         if replayed is not None:
             return {**replayed, "replayed": True}
-        plan = build_plan(subject_type, subject_name, app_id, changes, kind)
+        plan = build_plan(subject_type, subject_name, app_id, changes, kind, settings)
         if expected_version != plan["_version"] or not context_revision or context_revision != plan["context_revision"]:
             _conflict("安排或其来源已变化，请刷新结果并保留草稿后重新核对。")
         if not plan["changed"]:

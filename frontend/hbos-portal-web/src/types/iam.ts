@@ -1,5 +1,6 @@
-export interface PageResult<T> { items: T[]; total: number; page: number; page_size: number }
+export interface PageResult<T> { groups_available?: boolean; items: T[]; total: number; page: number; page_size: number }
 export interface EmployeeSummary {
+  verification_group?: 'daily'|'technical'
   id: string; name: string; employee_number: string; department: string; department_name: string
   company: string; position: string; user_id: string | null; account_status: 'active' | 'unopened' | 'disabled'
   attendance_status: 'confirmed' | 'pending'; version: string
@@ -30,13 +31,15 @@ export interface WorkOperation {
   editable: boolean; important?: boolean; reason?: string; objects?: WorkScope[]
 }
 export interface WorkApp {
+  permission_mode?: 'department' | 'personal'
   synthetic?: boolean
   app_id: string; title: string; integrated: boolean; status: string; summary: string; source_text: string
   operations: WorkOperation[]; version: number; context_revision: string; suspended?: boolean; objects?: WorkScope[]
 }
+export interface AppSettings { access_state: 'normal' | 'paused'; permission_mode: 'department' | 'personal'; changes: WorkChange[] }
 export interface WorkSummary { subject_type: 'User' | 'Department'; subject_name: string; employee_id?: string; apps: WorkApp[] }
 export interface WorkChange { operation_id: string; enabled: boolean; scopes: WorkScope[] }
 export interface WorkTarget { subject_type: 'User' | 'Department'; subject_name: string; app_id: string; employee_id?: string }
 export interface WorkPreview { version: number; context_revision: string; changed: boolean; summary: string; after: WorkApp; impact?: { changed: number; personal_preserved: number; unavailable: number; employees: Array<{ name: string; result?:string; before?: string; after?: string; personal_preserved?: boolean }> }; warnings?: string[] }
-export interface AttendanceRow { id: string; date: string; time?: string; log_type?: string; status?: string }
+export interface AttendanceRow { source?: 'Attendance' | 'Employee Checkin' | string; id: string; date: string; time?: string; log_type?: string; status?: string }
 export interface MyAttendance { rows: AttendanceRow[]; total: number; page: number; page_size: number; summary: { records: number; days: number } }

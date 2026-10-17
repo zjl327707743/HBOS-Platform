@@ -8,7 +8,7 @@ import { useAccountProof } from '@/composables/useAccountProof'
 import { isUncertainWrite } from '@/services/accountErrors'
 import OwnAccountVerification from './OwnAccountVerification.vue'
 import InitialPasswordDelivery from './InitialPasswordDelivery.vue'
-const props = defineProps<{ subjectUser: string }>()
+const props = defineProps<{ subjectUser: string; security?: IamSecurity }>()
 const emit = defineEmits<{ ready: []; blocked: [] }>()
 const status = ref<IamSecurity | null>(null), loading = ref(true), busy = ref(false), error = ref(''), password = ref(''), confirmation = ref(''), uncertain = ref(false)
 const proof = useAccountProof(() => { password.value = ''; confirmation.value = '' })
@@ -22,7 +22,8 @@ async function save() {
   finally { busy.value = false; password.value = ''; confirmation.value = '' }
 }
 async function checkOutcome() { busy.value = true; try { const result = await getSecurity(requestId); if (result.user !== props.subjectUser) throw new Error('当前会话已改变。'); if (result.write_result?.completed) uncertain.value = false; await load() } catch (e) { error.value = iamMessage(e) } finally { busy.value = false } }
-watch(() => props.subjectUser, () => { status.value = null; uncertain.value = false; proof.invalidate(); void load() }, { immediate: true })
+watch(() => props.subjectUser, () => { status.value = props.security || null; loading.value = !props.security; uncertain.value = false; proof.invalidate(); if (!props.security) void load() }, { immediate: true })
+watch(() => props.security, value => { if (value) { status.value = value; loading.value = false } })
 onBeforeUnmount(() => { generation++; proof.invalidate(); password.value = ''; confirmation.value = ''; requestId = '' })
 </script>
 <template>

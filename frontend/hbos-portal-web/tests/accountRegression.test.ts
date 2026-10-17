@@ -12,6 +12,8 @@ import LoginView from '@/views/FeishuLoginView.vue'
 const api = vi.hoisted(() => ({ getSecurity: vi.fn(), reauthenticate: vi.fn(), requestFeishuCode: vi.fn(), verifyFeishuCode: vi.fn(), setPassword: vi.fn(), unlinkFeishu: vi.fn(), startLink: vi.fn(), adminIssueRecovery: vi.fn() }))
 const changes = vi.hoisted(() => ({ changeActions: vi.fn(), recentChanges: vi.fn(), getChange: vi.fn(), getParticipant: vi.fn(), changePost: vi.fn() }))
 const session = vi.hoisted(() => ({ bootstrap: vi.fn(), clearSession: vi.fn() }))
+const coordinator = vi.hoisted(()=>({ensurePortalSession:vi.fn(async()=>({})),resetPortalSession:vi.fn(),refreshAccountProof:vi.fn()}))
+vi.mock('@/services/portalSessionCoordinator',()=>coordinator)
 const login = vi.hoisted(() => vi.fn())
 vi.mock('@/services/accountApi', () => api)
 vi.mock('@/services/accountChanges', () => ({ ...changes, kindLabel: (kind: string) => kind, stateLabel: (state: string) => state }))
@@ -37,6 +39,7 @@ async function clickText(wrapper: VueWrapper, text: string) {
   await button!.trigger('click'); await flushPromises()
 }
 beforeEach(() => {
+  coordinator.refreshAccountProof.mockImplementation(()=>api.getSecurity());
   api.getSecurity.mockResolvedValue(structuredClone(security)); api.reauthenticate.mockResolvedValue({ verified: true, expires_in: 1 })
   changes.changeActions.mockResolvedValue(permitted); changes.recentChanges.mockResolvedValue({ changes: [] })
   changes.getChange.mockImplementation(async (operation: string) => ({ operation, kind: 'rebind', expires_in: 600, state: 'Pending' }))

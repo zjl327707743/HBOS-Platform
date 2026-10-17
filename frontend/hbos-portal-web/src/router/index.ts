@@ -9,8 +9,9 @@ import ForbiddenView from '@/views/ForbiddenView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import LimsHomeView from '@/views/LimsHomeView.vue'
 import LimsResultReviewView from '@/views/LimsResultReviewView.vue'
-import { loadIamAccess, canIam, iamSession } from '@/services/iamAccess'
-import { getIamSecurity } from '@/services/iamAccount'
+import { canIam } from '@/services/iamAccess'
+import { ensurePortalSession } from '@/services/portalSessionCoordinator'
+import { accountRedirect } from '@/services/accountNavigation'
 import { isUnauthenticatedError } from '@/services/frappeClient'
 
 const KnowledgeTwinLayout = () => import('@/components/layout/KnowledgeTwinLayout.vue')
@@ -76,18 +77,16 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (!to.meta.iam && !to.meta.attendanceSelf) return true
   try {
-    const security = await getIamSecurity()
+    const security = await ensurePortalSession()
     if (security.first_password_required) return true
     if (to.meta.attendanceSelf || to.path === '/hbos/admin/unavailable') return true
-    await loadIamAccess(security.user)
     if (to.path === '/hbos/admin' || to.path === '/hbos/admin/') {
       const entry = [['iam.people.read','people'],['iam.departments.read','departments'],['iam.access.read','access'],['iam.audit.read','audit']].find(([cap]) => canIam(cap!))
       return entry ? `/hbos/admin/${entry[1]}` : '/hbos/admin/unavailable'
     }
     return typeof to.meta.iamCapability === 'string' && canIam(to.meta.iamCapability) ? true : '/hbos/admin/unavailable'
   } catch (e) {
-    if (isUnauthenticatedError(e)) return { path: '/hbos/login', query: { status: 'session_required', redirect_to: to.fullPath } }
-    iamSession.ready = false
+    if (isUnauthenticatedError(e)) return { path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(to.fullPath) } }
     return to.path === '/hbos/admin/unavailable' || to.meta.attendanceSelf ? true : '/hbos/admin/unavailable'
   }
 })

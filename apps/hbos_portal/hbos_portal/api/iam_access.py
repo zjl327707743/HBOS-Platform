@@ -141,20 +141,23 @@ def get_capabilities(**kwargs):
                 capabilities.append(operation)
         if policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
             capabilities.append("attendance.read")
-        return {"schema_version": 1, "subject_user": user, "policy_revision": policy.current_revision(user), "capabilities": capabilities}
+        from hbos_portal.auth.accounts import browser_session_context
+        return {"schema_version": 1, "subject_user": user, "session_context": browser_session_context(), "policy_revision": policy.current_revision(user), "capabilities": capabilities}
     return _call(load)
 
 
 def _work_person(employee, department=None):
+    from hbos_portal.iam.organization import technical_ids
+    group = 'technical' if employee.name in technical_ids('Employee', frappe.conf) else 'daily'
     users = frappe.db.sql("select name,enabled from `tabUser` where name=%s for update", (employee.user_id,), as_dict=True) if employee.user_id else []
     enabled = bool(users and users[0].enabled)
-    return {"id": employee.name, "name": employee.employee_name, "employee_number": employee.employee_number or "", "department": employee.department, "department_name": (department.department_name or department.name) if department else "", "company": employee.company, "position": employee.designation or "", "user_id": employee.user_id, "account_status": "active" if enabled else "disabled" if employee.user_id else "unopened", "attendance_status": "confirmed" if employee.user_id and employee.status == "Active" else "pending", "version": str(employee.modified)}
+    return {"verification_group": group, "id": employee.name, "name": employee.employee_name, "employee_number": employee.employee_number or "", "department": employee.department, "department_name": (department.department_name or department.name) if department else "", "company": employee.company, "position": employee.designation or "", "user_id": employee.user_id, "account_status": "active" if enabled else "disabled" if employee.user_id else "unopened", "attendance_status": "confirmed" if employee.user_id and employee.status == "Active" else "pending", "version": str(employee.modified)}
 
 
 @frappe.whitelist()
-def list_app_people(app_id, search="", department="", page=1, page_size=20, **kwargs):
+def list_app_people(app_id, search="", department="", page=1, page_size=20, view_group="daily", **kwargs):
     def load():
-        _only(kwargs, {"app_id", "search", "department", "page", "page_size"})
+        _only(kwargs, {"app_id", "search", "department", "page", "page_size", "view_group"})
         departments = _readable_app(app_id)
         if department and department not in departments:
             frappe.throw("没有该部门的应用配置读取权限。", frappe.PermissionError)
@@ -165,10 +168,13 @@ def list_app_people(app_id, search="", department="", page=1, page_size=20, **kw
         except (ValueError, TypeError):
             frappe.throw("分页或搜索参数无效。", frappe.ValidationError)
         rows = _authorized_employees(_current_employees([department] if department else departments, search=str(search)), "iam.access.read", app_id)
+        from hbos_portal.iam.organization import filter_rows, group_filter
+        rows = filter_rows(rows, "Employee", view_group, conf=frappe.conf)
+        grouped = group_filter("Employee", view_group, frappe.conf)[1]
         # Count and pagination share the same current, re-authorized population;
         # a separate snapshot COUNT could expose moved or revoked employees.
         page_rows = rows[(current - 1) * size:current * size]
-        return {"items": [_work_person(row, departments[row.department]) for row in page_rows], "total": len(rows), "page": current, "page_size": size}
+        return {"items": [_work_person(row, departments[row.department]) for row in page_rows], "total": len(rows), "page": current, "page_size": size, "groups_available": grouped}
     return _call(load)
 
 
@@ -233,6 +239,26 @@ def _commit(kind, subject_type, subject_name, app_id, changes=None, expected_ver
 @frappe.whitelist(methods=["POST"])
 def save_work(subject_type, subject_name, app_id, changes=None, expected_version=None, context_revision=None, request_id=None, **kwargs):
     return _commit("save", subject_type, subject_name, app_id, changes, expected_version, context_revision, request_id, **kwargs)
+
+
+@frappe.whitelist(methods=["POST"])
+def preview_app_settings(subject_type, subject_name, app_id, settings, expected_version, context_revision, **kwargs):
+    def load():
+        guards.require_post()
+        _only(kwargs, {"subject_type", "subject_name", "app_id", "settings", "expected_version", "context_revision"})
+        result = work_commands.preview_work(subject_type, subject_name, app_id, kind="configure", settings=settings)
+        if int(expected_version) != result["before"]["version"] or context_revision != result["context_revision"]:
+            work_commands._conflict("权限或来源已变化，请重新核对。")
+        return result
+    return _call(load)
+
+
+@frappe.whitelist(methods=["POST"])
+def save_app_settings(subject_type, subject_name, app_id, settings, expected_version, context_revision, request_id, **kwargs):
+    def save():
+        _only(kwargs, {"subject_type", "subject_name", "app_id", "settings", "expected_version", "context_revision", "request_id"})
+        return work_commands.commit_work(subject_type, subject_name, app_id, expected_version=expected_version, context_revision=context_revision, request_id=request_id, kind="configure", settings=settings)
+    return _call(save)
 
 
 @frappe.whitelist(methods=["POST"])

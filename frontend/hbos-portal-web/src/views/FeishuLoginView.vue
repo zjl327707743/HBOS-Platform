@@ -27,12 +27,13 @@ import { FrappeRequestError, loginWithPassword } from '@/services/frappeClient'
 import { getFeishuLoginStatus } from '@/services/p1Api'
 import { usePortalStore } from '@/stores/portal'
 import { accountRedirect } from '@/services/accountNavigation'
-import { getIamSecurity } from '@/services/iamAccount'
+import { ensurePortalSession, resetPortalSession } from '@/services/portalSessionCoordinator'
 const route = useRoute(), router = useRouter(), portal = usePortalStore()
 const loading = ref(true), submitting = ref(false), authenticated = ref(false), status = ref<FeishuLoginStatus|null>(null), statusError = ref(''), error = ref('')
 const username = ref(''), password = ref(''), otp = ref(''), tmpId = ref('')
 let disposed = false
 const statusMessages: Record<string,string> = {
+ logout_unconfirmed:'本机内容已清理，服务端退出尚未确认。连接恢复后请重新登录，或返回后重试退出。',
  cancelled:'已取消飞书授权，您可以重新选择登录方式。', config_required:'飞书登录当前不可用，请稍后重试或联系管理员。', invalid_state:'授权已过期、已使用或与当前浏览器不匹配，请重新发起。', identity_unmapped:'当前成员尚未获准开通账号，请联系管理员。', existing_account_requires_link:'当前浏览器已有账号，请在账号与安全中验证本人后绑定飞书。', identity_conflict:'此飞书身份与账号存在冲突，请联系管理员核对。', identity_revoked:'旧飞书绑定已撤销或更换，请使用原账号密码或联系管理员恢复。', account_busy:'账号正在完成另一项操作，请稍后重新授权。', same_identity:'新旧飞书身份相同，无需更换绑定。', personal_account_required:'接任者请先使用本人永久账号。', operation_invalid:'账号变更验证已失效，请重新发起。', account_changed:'账号登录方式已更换，请重新登录。', onboarding_dependency_missing:'开户服务暂不可用，请联系管理员。', member_scope_denied:'您尚未在此应用的获准成员范围内，请联系管理员。', account_disabled:'此账号当前不可用，请联系管理员。', tenant_rejected:'此企业身份未获准使用 HBOS。', tenant_evidence_missing:'暂时无法核验企业身份，请联系管理员。', application_tenant_mismatch:'企业身份核验未完成，请联系管理员。', member_identity_mismatch:'本人身份核验未通过，请重新授权。', member_status_missing:'无法核验当前成员状态，请联系管理员并提供诊断编号。', member_status_invalid:'无法核验当前成员状态，请联系管理员。', member_inactive:'您的飞书账号尚未激活。', member_disabled:'您的飞书账号已停用，请联系管理员。', member_departed:'此成员已离职或退出，无法登录。', member_department_missing:'成员准入信息不完整，请联系管理员。', member_api_failed:'暂时无法核验成员信息，请稍后重试或联系管理员。', external_member_rejected:'此入口仅供获准企业成员使用。', exchange_failed:'飞书身份核验未完成，请重新授权。', session_required:'请先登录，再继续访问原页面。', signed_out:'已安全退出当前账号。',
 }
 const callbackMessage = computed(() => { const message = error.value || statusMessages[String(route.query.status || '')]; const trace = typeof route.query.trace === 'string' && /^[a-f0-9]{16}$/.test(route.query.trace) ? route.query.trace : ''; return message && trace ? `${message} 诊断编号：${trace}` : message })
@@ -42,10 +43,10 @@ function cancelMfa() { password.value = ''; otp.value = ''; tmpId.value = ''; er
 function guardComposition(e: KeyboardEvent) { if (e.isComposing || e.keyCode === 229) { e.preventDefault(); e.stopPropagation() } }
 watch(username, () => { if (tmpId.value) cancelMfa() })
 watch(() => route.query.status, () => { cancelMfa(); authenticated.value = false })
-async function resumeWorkspace() { if (submitting.value) return; submitting.value = true; error.value = ''; try { const security = await getIamSecurity(); if (!security.first_password_required) await portal.bootstrap(); if (!disposed) await router.replace(accountRedirect(route.query.redirect_to)) } catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '工作台暂时无法加载，请重试。' } finally { if (!disposed) submitting.value = false } }
+async function resumeWorkspace() { if (submitting.value) return; submitting.value = true; error.value = ''; try { await ensurePortalSession({ force: true }); if (!disposed) await router.replace(accountRedirect(route.query.redirect_to)) } catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '工作台暂时无法加载，请重试。' } finally { if (!disposed) submitting.value = false } }
 async function submitAccountLogin() {
  if (!canSubmit.value) return; submitting.value = true; error.value = ''
- try { const result = await loginWithPassword(username.value.trim(),password.value,otp.value,tmpId.value); if (disposed) return; if (result.tmp_id && result.verification) { tmpId.value = result.tmp_id; return }; cancelMfa(); authenticated.value = true; portal.clearSession() }
+ try { const result = await loginWithPassword(username.value.trim(),password.value,otp.value,tmpId.value); if (disposed) return; if (result.tmp_id && result.verification) { tmpId.value = result.tmp_id; return }; cancelMfa(); authenticated.value = true; resetPortalSession() }
  catch (e) { if (!disposed) { cancelMfa(); portal.clearSession(); error.value = e instanceof FrappeRequestError ? e.message : '登录请求未确认，请稍后重试。' } }
  finally { if (!disposed) submitting.value = false }
  if (authenticated.value && !disposed) await resumeWorkspace()

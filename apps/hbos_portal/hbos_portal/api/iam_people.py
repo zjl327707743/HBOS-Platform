@@ -21,7 +21,11 @@ def _call(method, values, write=False):
         if write:
             guards.require_post()
         return {'ok': True, 'data': getattr(people, method)(**values)}
-    except (frappe.PermissionError, frappe.AuthenticationError):
+    except frappe.AuthenticationError:
+        frappe.db.rollback()
+        frappe.local.response['http_status_code'] = 403
+        return {'ok': False, 'error': {'code': 'PROOF_REQUIRED', 'message': '本人身份验证已过期，请重新验证后再保存。', 'retryable': False}}
+    except frappe.PermissionError:
         frappe.db.rollback()
         frappe.local.response['http_status_code'] = 403
         return {'ok': False, 'error': {'code': 'FORBIDDEN', 'message': '没有此操作权限，或本人安全验证已过期；请重新验证后核对管理范围。', 'retryable': False}}
@@ -42,8 +46,8 @@ def _call(method, values, write=False):
 
 
 @frappe.whitelist(methods=['GET'])
-def list_people(page=1, page_size=20, search='', department='', account_status='', category='employees'):
-    return _call('list_people', dict(page=page, page_size=page_size, search=search, department=department, account_status=account_status, category=category))
+def list_people(page=1, page_size=20, search='', department='', account_status='', category='employees', view_group='daily'):
+    return _call('list_people', dict(page=page, page_size=page_size, search=search, department=department, account_status=account_status, category=category, view_group=view_group))
 
 
 @frappe.whitelist(methods=['GET'])
@@ -52,8 +56,8 @@ def get_person(employee_id):
 
 
 @frappe.whitelist(methods=['GET'])
-def get_employee_metadata():
-    return _call('get_employee_metadata', {})
+def get_employee_metadata(view_group='daily'):
+    return _call('get_employee_metadata', dict(view_group=view_group))
 
 
 @frappe.whitelist(methods=['GET'])
@@ -82,8 +86,13 @@ def create_employee(fields, expected_version, request_id):
 
 
 @frappe.whitelist(methods=['POST'])
-def transfer_employee(employee_id, department, expected_version, request_id):
-    return _call('transfer_employee', dict(employee_id=employee_id, department=department, expected_version=expected_version, request_id=request_id), True)
+def transfer_employee(employee_id, department, expected_version, request_id, context_revision=''):
+    return _call('transfer_employee', dict(employee_id=employee_id, department=department, expected_version=expected_version, request_id=request_id, context_revision=context_revision), True)
+
+
+@frappe.whitelist(methods=['GET'])
+def preview_transfer_employee(employee_id, department, expected_version):
+    return _call('preview_transfer_employee', dict(employee_id=employee_id, department=department, expected_version=expected_version))
 
 
 @frappe.whitelist(methods=['POST'])

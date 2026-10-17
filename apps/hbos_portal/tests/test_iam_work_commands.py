@@ -124,6 +124,57 @@ class WorkCommandTest(unittest.TestCase):
         target.save.assert_not_called()
         event.assert_not_called()
 
+    def _configure(self, rows, settings, department_rows=None):
+        self.db.policies['Department-D1'] = Attr(name='Department-D1',subject_type='Department',subject_name='D1',version=1,enabled=1,rules=department_rows if department_rows is not None else [rule('app.enter'),rule('attendance.read')])
+        self.db.policies['User-a'] = Attr(name='User-a',subject_type='User',subject_name='a',version=3,enabled=1,rules=rows)
+        with patch.object(work,'_authorize',return_value=self.db.employees[0]),patch.object(guards,'isolated_root',return_value=True):
+            return work.build_plan('User','a','attendance',kind='configure',settings=settings)
+
+    def test_combined_source_pause_and_function_are_one_finite_plan(self):
+        setting=dict(access_state='paused',permission_mode='personal',changes=[dict(operation_id='attendance.read',enabled=False,scopes=[])])
+        plan=self._configure([],setting)
+        self.assertTrue(plan['after']['suspended']);self.assertFalse(plan['after']['operations'][0]['allowed'])
+        self.assertEqual(len([row for row in plan['_rules'] if work._stop(row,'attendance')]),1)
+        self.assertEqual(plan['after']['permission_mode'],'personal')
+        with self.assertRaises(Invalid):work.normalize_settings({**setting,'rules':[]},work._app('attendance'))
+
+    def test_restore_access_preserves_personal_and_department_denies(self):
+        stop=rule('app.enter','ALL','*',effect='deny')
+        setting=dict(access_state='normal',permission_mode='personal',changes=[])
+        plan=self._configure([rule('attendance.read',effect='deny'),stop],setting)
+        self.assertFalse(plan['after']['suspended']);self.assertFalse(plan['after']['operations'][0]['allowed'])
+        self.assertTrue(any(row['operation_id']=='attendance.read' and row['effect']=='deny' for row in plan['_rules']))
+        self.assertFalse(any(work._stop(row,'attendance') for row in plan['_rules']))
+        inherited=self._configure([stop],dict(access_state='normal',permission_mode='department',changes=[]),[rule('app.enter'),rule('attendance.read',effect='deny')])
+        self.assertFalse(inherited['after']['operations'][0]['allowed']);self.assertIn('限制',inherited['after']['operations'][0]['reason'])
+
+    def test_department_source_restores_actual_self_without_touching_other_app(self):
+        other=rule('iam.access.read','DEPARTMENT','D2',app='iam')
+        plan=self._configure([rule('attendance.read',effect='deny'),rule('app.enter','ALL','*',effect='deny'),other],dict(access_state='normal',permission_mode='department',changes=[]))
+        self.assertTrue(plan['after']['operations'][0]['allowed']);self.assertEqual(plan['after']['permission_mode'],'department')
+        self.assertEqual([row for row in plan['_rules'] if row['app_id']=='iam'],[work.plain_rule(other)])
+
+    def test_ordinary_panel_cannot_replace_a_timed_personal_rule(self):
+        with self.assertRaises(PermissionDenied):self._configure([rule('attendance.read',valid_until=self.now+timedelta(days=1))],dict(access_state='normal',permission_mode='department',changes=[]))
+
+    def test_timed_application_stop_is_preserved_and_cannot_be_silently_replaced(self):
+        timed=rule('app.enter','ALL','*',effect='deny',valid_until=self.now+timedelta(days=1))
+        rows=[rule('attendance.read'),timed]
+        with self.assertRaises(PermissionDenied):self._configure(rows,dict(access_state='normal',permission_mode='personal',changes=[]))
+        plan=self._configure(rows,dict(access_state='paused',permission_mode='personal',changes=[]))
+        self.assertFalse(plan['changed']);self.assertEqual(plan['_rules'],[work.plain_rule(row) for row in rows])
+
+    def test_combined_save_audit_failure_rolls_back_the_whole_plan(self):
+        target,plan=self._commit_fixture()
+        setting=dict(access_state='paused',permission_mode='department',changes=[])
+        with patch.object(policy,'get_current_user',return_value='manager'),patch.object(policy,'get_policy',return_value=target),patch.object(work,'_authorize'),patch.object(audit,'replay',return_value=None),patch.object(work,'build_plan',return_value=plan),patch.object(policy,'effective_work',return_value=self.summary()),patch.object(audit,'append_event',side_effect=RuntimeError('audit unavailable')):
+            with self.assertRaises(RuntimeError):work.commit_work('User','a','attendance',expected_version=5,context_revision='current-context',request_id='combined-atomic-failure',kind='configure',settings=setting)
+        self.db.rollback.assert_called_once_with(save_point='iam_work_command')
+
+    def test_idempotent_configuration_receipt_preserves_source_but_never_a_secret(self):
+        value=audit.safe_snapshot({'permission_mode':'personal','settings':{'access_state':'paused','permission_mode':'department','changes':[]},'password':'private','proof':'private'})
+        self.assertEqual(value,{'permission_mode':'personal','settings':{'access_state':'paused','permission_mode':'department','changes':[]}})
+
 
 class LifecycleCurrentReadTest(unittest.TestCase):
     """Simulate an older RR snapshot; these are not concurrent MariaDB tests."""

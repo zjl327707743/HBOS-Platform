@@ -1,5 +1,5 @@
 <template>
-  <div class="portal-page">
+  <div class="portal-page" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <PointerAtmosphere />
     <div class="aurora aurora-a"></div>
@@ -8,39 +8,47 @@
 
     <div class="portal-shell">
       <GlobalHeader
-        :avatar-text="portal.user?.avatarText || 'HB'"
-        :avatar-url="portal.user?.avatarUrl"
+        :avatar-text="masked ? '?' : portal.user?.avatarText || 'HB'"
+        :avatar-url="masked ? undefined : portal.user?.avatarUrl"
         :company-logo-url="portal.branding?.logoUrl"
         :context-label="portal.branding?.workspaceName"
         :apps="portal.apps"
-        @open-command="ui.commandOpen = true"
+        :session-blocked="masked"
+        @open-command="!masked && (ui.commandOpen = true)"
       />
 
       <div class="portal-layout-grid">
-        <PortalSidebar :work-count="actionableCount" />
+        <PortalSidebar :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
         <main id="main-content" class="portal-route-content" tabindex="-1">
-          <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
-          <a-alert
-            v-else-if="sessionError"
-            type="error"
-            show-icon
-            class="portal-bootstrap-error"
-            :message="sessionError"
-          />
-          <FirstPasswordGate v-else-if="securityUser" :key="securityUser" :subject-user="securityUser" @blocked="sessionReady = false; clearIamAccess()" @ready="finishSession"><RouterView v-if="sessionReady" :key="portal.user?.id" /><a-skeleton v-else active /></FirstPasswordGate>
-          <RouterView v-else-if="portalDataSource === 'mock'" :key="portal.user?.id" />
+          <template v-if="portalDataSource === 'mock'">
+            <a-skeleton v-if="sessionPending" active /><a-alert v-else-if="sessionError" type="error" :message="sessionError" /><RouterView v-else :key="portal.user?.id" />
+          </template>
+          <template v-else>
+            <div v-if="masked" class="session-recovery" role="status">
+              <a-alert type="warning" show-icon :message="routeDenied ? '当前账号已无此页面的管理权限，不能继续办理。可返回工作台或退出登录。' : portalSession.error || '正在重新核对登录状态，页面内容暂时隐藏，草稿仍保留。'" />
+              <RouterLink v-if="routeDenied" to="/hbos">返回工作台</RouterLink>
+              <a-button :loading="portalSession.phase === 'checking'" @click="retrySession">重试核验</a-button>
+              <a-button @click="recoverLogout">退出当前账号</a-button>
+              <a-button v-if="portalSession.phase === 'unconfirmed'" @click="returnToLogin">前往登录页</a-button>
+            </div>
+            <div v-if="portalSession.security?.first_password_required" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined"><FirstPasswordGate :key="portalSession.generation" :subject-user="portalSession.security.user" :security="portalSession.security" @ready="retrySession" /></div>
+            <div v-if="portalSession.mounted" :key="portalSession.generation" class="session-content" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" :aria-hidden="masked || undefined">
+              <RouterView />
+            </div>
+            <a-skeleton v-else-if="(!portalSession.security && portalSession.phase === 'initial') || portalSession.phase === 'logging_out'" active :paragraph="{ rows: 6 }" />
+          </template>
         </main>
       </div>
     </div>
 
-    <MobilePortalNav :work-count="actionableCount" />
+    <MobilePortalNav :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
 
     <CommandPalette :open="ui.commandOpen" @close="ui.commandOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
@@ -50,38 +58,32 @@ import CommandPalette from '@/components/portal/CommandPalette.vue'
 import { usePortalSession } from '@/composables/usePortalSession'
 import { useRoute, useRouter } from 'vue-router'
 import { portalDataSource } from '@/services/portalProvider'
-import { getIamSecurity } from '@/services/iamAccount'
-import { clearIamAccess, loadIamAccess } from '@/services/iamAccess'
-import { isUnauthenticatedError } from '@/services/frappeClient'
+import { attachPortalSession, ensurePortalSession, portalSession, resetPortalSession, signOutPortalSession } from '@/services/portalSessionCoordinator'
 import { accountRedirect } from '@/services/accountNavigation'
+import { canIam } from '@/services/iamAccess'
+import { Modal } from 'ant-design-vue'
 import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
 
 const portal = usePortalStore()
+const development = import.meta.env.DEV
 const ui = reactive({ commandOpen: false })
 const actionableCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
 const { sessionPending, sessionError } = portalDataSource === 'mock' ? usePortalSession() : { sessionPending: ref(true), sessionError: ref<string | null>(null) }
-const route = useRoute(), router = useRouter(), securityUser = ref(''), sessionReady = ref(false)
-let disposed = false, checking = false, bootstrapping = false
-async function finishSession() {
-  if (disposed || bootstrapping) return
-  bootstrapping = true
-  try { await portal.bootstrap(); if (disposed) return; if (portal.user?.id !== securityUser.value) throw new Error('当前会话已改变，请重新核对。'); try { await loadIamAccess(securityUser.value) } catch { /* Keep the failed capability state; ordinary workspace uses its own server gates. */ }; sessionReady.value = true }
-  catch (e) { await sessionFailure(e) } finally { bootstrapping = false }
-}
-async function sessionFailure(error: unknown) {
-  sessionReady.value = false; portal.clearSession(); clearIamAccess()
-  if (isUnauthenticatedError(error)) { portal.clearSession(); securityUser.value = ''; await router.replace({path:'/hbos/login',query:{status:'session_required',redirect_to:accountRedirect(route.fullPath)}}) }
-  else sessionError.value = error instanceof Error ? error.message : '当前会话暂时无法确认，请重试。'
-}
-async function synchronize() {
-  if (disposed || checking || portalDataSource !== 'frappe') return
-  checking = true; sessionPending.value = true; sessionError.value = null
-  try { const security = await getIamSecurity(); if (disposed) return; if (portal.user?.id && portal.user.id !== security.user) { portal.clearSession(); clearIamAccess() }; securityUser.value = security.user; if (security.first_password_required) { portal.clearSession(); sessionReady.value = false; clearIamAccess() } else await finishSession() }
-  catch (e) { if (!disposed) await sessionFailure(e) } finally { if (!disposed) sessionPending.value = false; checking = false }
-}
-const resume = () => { if (document.visibilityState !== 'hidden') void synchronize() }
+const route = useRoute(), router = useRouter()
+const routeDenied = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !canIam(route.meta.iamCapability))
+const masked = computed(() => ['unconfirmed', 'guest', 'logging_out'].includes(portalSession.phase) || routeDenied.value)
+watch(masked, value => { document.body.classList.toggle('hbos-session-shield', value); if(value) ui.commandOpen=false }, { immediate:true })
+const closeSecurityDialogs = () => Modal.destroyAll()
+let detach: (() => void) | undefined
+async function retrySession() { try { await ensurePortalSession({ force: true }) } catch { /* Local recovery stays available. */ } }
+async function recoverLogout() { try { await signOutPortalSession(); await router.replace({ path: '/hbos/login', query: { status: 'signed_out' } }) } catch { /* Do not claim a server logout without confirmation. */ } }
+async function returnToLogin() { resetPortalSession(false); await router.replace({path:'/hbos/login',query:{status:'logout_unconfirmed',redirect_to:accountRedirect(route.fullPath)}}) }
+watch(() => portalSession.phase, phase => {
+  if (phase === 'guest' && portalDataSource === 'frappe') void router.replace({ path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(route.fullPath) } })
+})
 
 function onShortcut(event: KeyboardEvent) {
+  if (masked.value) return
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
     ui.commandOpen = true
@@ -89,6 +91,10 @@ function onShortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') ui.commandOpen = false
 }
 
-onMounted(() => { window.addEventListener('keydown', onShortcut); if (portalDataSource === 'frappe') { void synchronize(); window.addEventListener('focus',resume); window.addEventListener('pageshow',resume); document.addEventListener('visibilitychange',resume) } })
-onBeforeUnmount(() => { disposed = true; clearIamAccess(); window.removeEventListener('keydown', onShortcut); window.removeEventListener('focus',resume); window.removeEventListener('pageshow',resume); document.removeEventListener('visibilitychange',resume) })
+onMounted(() => { window.addEventListener('keydown', onShortcut); window.addEventListener('hbos:session-boundary', closeSecurityDialogs); if (portalDataSource === 'frappe') { detach = attachPortalSession(); void ensurePortalSession().catch(() => undefined) } })
+onBeforeUnmount(() => { window.removeEventListener('keydown', onShortcut); window.removeEventListener('hbos:session-boundary', closeSecurityDialogs); document.body.classList.remove('hbos-session-shield'); detach?.() })
 </script>
+<style scoped>
+.session-content{min-width:0;width:100%}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}
+:global(body.hbos-session-shield .ant-drawer),:global(body.hbos-session-shield .ant-modal-root),:global(body.hbos-session-shield .ant-popover){visibility:hidden!important;pointer-events:none!important}
+</style>

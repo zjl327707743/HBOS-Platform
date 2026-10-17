@@ -56,11 +56,15 @@ def person_version(employee, user=None):
 
 
 def employee_dto(employee):
+    from hbos_portal.iam.organization import technical_ids
+    group = 'technical' if employee.name in technical_ids('Employee', frappe.conf) else 'daily'
     user = _user(employee.get('user_id'))
-    return dict(id=employee.name, name=employee.employee_name, employee_number=str(employee.employee_number or ''), department=employee.department, department_name=employee.department, company=employee.company, position=employee.designation or '', user_id=employee.user_id or '', account_status='unopened' if not user else 'active' if user.enabled else 'disabled', attendance_status='confirmed' if employee.get('attendance_device_id') else 'pending', version=person_version(employee, user))
+    associations = frappe.db.sql('select name from `tabEmployee` where user_id=%s order by name limit 2 for update', (employee.user_id,)) if employee.user_id else []
+    linked = bool(user and employee.status == 'Active' and len(associations) == 1)
+    return dict(verification_group=group, id=employee.name, name=employee.employee_name, employee_number=str(employee.employee_number or ''), department=employee.department, department_name=frappe.db.get_value('Department', employee.department, 'department_name') or employee.department, company=employee.company, position=employee.designation or '', user_id=employee.user_id or '', account_status='unopened' if not user else 'active' if user.enabled else 'disabled', attendance_status='confirmed' if linked else 'pending', version=person_version(employee, user))
 
 
-def list_people(page=1, page_size=20, search='', department='', account_status='', category='employees'):
+def list_people(page=1, page_size=20, search='', department='', account_status='', category='employees', view_group='daily'):
     page, page_size = pagination(page, page_size)
     guards.require_capability('iam.people.read')
     if category not in {'employees', 'pending', 'other'}:
@@ -102,6 +106,11 @@ def list_people(page=1, page_size=20, search='', department='', account_status='
         values['enabled'] = int(account_status == 'active')
     elif account_status:
         reject('账号状态无效。')
+    from hbos_portal.iam.organization import group_filter
+    technical, grouped = group_filter('Employee', view_group, getattr(frappe, 'conf', {}))
+    if grouped and view_group != 'all':
+        conditions.append('e.name ' + ('in' if view_group == 'technical' else 'not in') + ' %(technical)s')
+        values['technical'] = tuple(technical)
     where = ' and '.join(conditions)
     # A locking read must load the values as well as the row identity. A later
     # ordinary get_doc can otherwise reuse an older repeatable-read snapshot.
@@ -109,7 +118,7 @@ def list_people(page=1, page_size=20, search='', department='', account_status='
     result = frappe.db.sql('select ' + ','.join('e.`'+key+'`' for key in EMPLOYEE_FIELDS) + ' from `tabEmployee` e where ' + where + ' order by e.employee_name,e.name limit %(limit)s offset %(start)s for update', values, as_dict=True)
     for row in result:
         guards.require_capability('iam.people.read', department=row.department, company=row.company, target_user=row.user_id or None)
-    return dict(items=[employee_dto(row) for row in result], total=total, page=page, page_size=page_size)
+    return dict(items=[employee_dto(row) for row in result], total=total, page=page, page_size=page_size, groups_available=grouped)
 
 
 def _employee(employee_id, operation, lock=False):
@@ -139,13 +148,16 @@ def get_person(employee_id):
     bound = bool(user and frappe.db.exists('HBOS External Identity', {'user': user.name, 'enabled': 1}))
     state = temporary_passwords.status(employee.user_id) if user else {}
     proposed = 'iam.' + hashlib.sha256(employee.name.encode()).hexdigest()[:24] + '@users.invalid'
-    return dict(employee=employee_dto(employee), account=dict(user_id=employee.user_id or '', proposed_user_id=proposed if not employee.user_id else '', username=user.username if user else '', enabled=bool(user and user.enabled), feishu_bound=bound, initial_password_pending=bool(state.get('pending'))), association=dict(employee_id=employee.name, user_id=employee.user_id or '', attendance_identifier=employee.get('attendance_device_id') or '', attendance_status='confirmed' if employee.get('attendance_device_id') else 'pending'), history=[])
+    row = employee_dto(employee)
+    return dict(employee=row, account=dict(user_id=employee.user_id or '', proposed_user_id=proposed if not employee.user_id else '', username=user.username if user else '', enabled=bool(user and user.enabled), feishu_bound=bound, initial_password_pending=bool(state.get('pending'))), association=dict(employee_id=employee.name, user_id=employee.user_id or '', attendance_identifier=employee.get('attendance_device_id') or '', attendance_status=row['attendance_status']), history=[])
 
 
-def get_employee_metadata():
+def get_employee_metadata(view_group='daily'):
     guards.require_capability('iam.people.read')
     departments = guards.managed_departments('iam.people.read')
-    options = frappe.db.sql('select name,department_name,company from `tabDepartment` where name in %(departments)s order by name for update', {'departments': tuple(departments)}, as_dict=True) if departments else []
+    options = frappe.db.sql('select name,department_name,company from `tabDepartment` where name in %(departments)s and coalesce(is_group,0)=0 order by name for update', {'departments': tuple(departments)}, as_dict=True) if departments else []
+    from hbos_portal.iam.organization import filter_rows
+    options = filter_rows(options, 'Department', view_group, conf=frappe.conf)
     companies = sorted({row.company for row in options if row.company})
     meta = frappe.get_meta('Employee')
     required = [dict(fieldname=df.fieldname, label=df.label, fieldtype=df.fieldtype, options=df.options) for df in meta.fields if df.reqd and not df.read_only and df.fieldname in CREATE_FIELDS]
@@ -365,12 +377,43 @@ def create_user(employee_id, ownership_evidence, expected_version, request_id):
         return _finish(employee, operation, request_id, payload, before, secret)
 
 
-def transfer_employee(employee_id, department, expected_version, request_id):
-    operation = 'iam.people.transfer'; payload = dict(employee_id=employee_id, department=department, expected_version=expected_version)
+def preview_transfer_employee(employee_id, department, expected_version):
+    employee = _employee(employee_id, 'iam.people.transfer', lock=True)
+    _version(employee, expected_version)
+    destination = _department(department, employee.company)
+    guards.require_capability('iam.people.transfer', department=department, company=employee.company, target_user=employee.user_id or None)
+    source = frappe.get_doc('Department', employee.department, for_update=True)
+    projected = frappe._dict({key: employee.get(key) for key in EMPLOYEE_FIELDS})
+    projected.department = department
+    effects, fingerprints = [], []
+    for app in policy.registered_apps():
+        if not app['integrated'] or app['id'] == 'iam':
+            continue
+        target_policy = policy.get_policy('Department', department, for_update=True)
+        target_rules = [policy.rule_dict(row) for row in policy.value(target_policy, 'rules', []) if policy.value(row, 'app_id') == app['id']]
+        fingerprints.append([app, policy._target_context('User', employee.user_id, app['id']) if employee.user_id else '', policy.value(target_policy, 'version', 0), policy.value(target_policy, 'enabled', 1), [(row, policy.active(row, policy._now())) for row in target_rules]])
+        if not employee.user_id:
+            continue
+        before = policy.effective_work('User', employee.user_id, app['id'])
+        after = policy.effective_work('User', employee.user_id, app['id'], employee_context=projected)
+        for old, new in zip(before['operations'], after['operations']):
+            if not old['ordinary']:
+                continue
+            scopes = lambda row: {(scope['scope_type'], scope['scope_ref'], scope.get('label', '')) for scope in row['scopes']}
+            effects.append(dict(app=app['title'], operation=old['label'], lost=[dict(scope_type=k, scope_ref=r, label=l) for k, r, l in sorted(scopes(old)-scopes(new))], gained=[dict(scope_type=k, scope_ref=r, label=l) for k, r, l in sorted(scopes(new)-scopes(old))], after_allowed=new['allowed'], reason=new['reason']))
+    context = [person_version(employee), employee.department, department, str(source.modified), str(destination.modified), fingerprints]
+    return dict(employee_id=employee.name, expected_version=person_version(employee), from_department=source.department_name or source.name, to_department=destination.department_name or destination.name, context_revision=hashlib.sha256(json.dumps(context, ensure_ascii=False, default=str, sort_keys=True).encode()).hexdigest(), effects=effects, personal_preserved=True, important_not_inherited=True, may_require_login=bool(employee.user_id), unlinked=not bool(employee.user_id))
+
+
+def transfer_employee(employee_id, department, expected_version, request_id, context_revision=''):
+    operation = 'iam.people.transfer'; payload = dict(employee_id=employee_id, department=department, expected_version=expected_version, context_revision=context_revision)
     with serialize('iam-request', str(request_id)):
         employee, replayed = _begin(employee_id, operation, expected_version, request_id, payload)
         if replayed:
             return replayed
+        preview = preview_transfer_employee(employee_id, department, expected_version)
+        if not context_revision or context_revision != preview['context_revision']:
+            reject('部门权限或员工状态已变化，请重新核对调岗影响。', 409)
         _department(department, employee.company)
         guards.require_capability(operation, department=department, company=employee.company, target_user=employee.user_id or None)
         before = {'department': employee.department}

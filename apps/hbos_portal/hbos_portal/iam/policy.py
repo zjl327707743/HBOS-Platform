@@ -204,17 +204,19 @@ def _decide(personal, department, app_id, operation_id, scope_type, scope_ref, n
     # An expired explicit personal allow does not silently restore a broader inherited grant.
     gates = personal_gates if any(r["effect"] == "allow" for r in personal_gates) else department_gates
     if not any(r["effect"] == "allow" for r in matching(gates)):
-        return False, "尚未安排此应用及对象范围。", "尚未安排"
+        expired = any(r["effect"] == "allow" and _matches(r, scope_type, scope_ref, company) and not active(r, now) for r in gates)
+        return False, "此应用权限尚未生效或已过期，请核对有效期。" if expired else "所属部门尚未开通此应用，或该数据范围尚未获准。", "个人设置" if gates is personal_gates else "部门安排"
     own_rules, inherited = relevant(personal, operation_id), relevant(department, operation_id)
     if any(r["effect"] == "deny" for r in matching(own_rules + inherited)):
         return False, "此项工作在该对象范围受到限制。", "个人设置" if matching(own_rules) else "部门安排"
     allows = own_rules if any(r["effect"] == "allow" for r in own_rules) else inherited
     if not any(r["effect"] == "allow" for r in matching(allows)):
-        return False, "尚未安排此项工作，或安排已过期。", "个人设置" if allows is own_rules else "部门安排"
+        expired = any(r["effect"] == "allow" and _matches(r, scope_type, scope_ref, company) and not active(r, now) for r in allows)
+        return False, "此功能权限尚未生效或已过期，请核对有效期。" if expired else "该部门尚未开通此功能，或该数据范围尚未获准。", "个人设置" if allows is own_rules else "部门安排"
     return True, "", "个人设置" if allows is own_rules else "部门安排"
 
 
-def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overrides=None):
+def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overrides=None, employee_context=None):
     rejected = lambda reason: {"allowed": False, "reason": reason, "source": "未开放"}
     if not isinstance(scope_type, str) or not isinstance(scope_ref, str):
         return rejected("对象范围格式无效。")
@@ -223,10 +225,19 @@ def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overr
         return rejected("工作或对象范围尚未开放。")
     if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled", for_update=True):
         return rejected("账号未开通或已停用。")
+    from hbos_portal.iam.temporary_passwords import status as password_status
+    if password_status(user).get("pending"):
+        return rejected("员工须先完成首次改密，当前尚不能使用此功能。")
     try:
         employee = resolve_employee(user, required=app_id == "attendance" and not operation_id.startswith("iam."))
     except frappe.PermissionError:
         return rejected("员工档案关联尚未确认或已失效。")
+    if employee_context is not None:
+        # Internal transfer projection only. The HTTP API never accepts this
+        # context, and it cannot replace a User or an Employee association.
+        if not employee or value(employee_context, "name") != value(employee, "name") or value(employee_context, "user_id") != user or value(employee_context, "company") != value(employee, "company"):
+            return rejected("调岗预览的员工关联不一致。")
+        employee = employee_context
     if scope_type == "SELF" and (scope_ref or not employee):
         return rejected("本人范围必须使用当前有效员工关联。")
     if scope_type in {"DEPARTMENT", "COMPANY"} and not frappe.db.exists("Department" if scope_type == "DEPARTMENT" else "Company", scope_ref):
@@ -297,7 +308,7 @@ def _target_context(subject_type, subject_name, app_id):
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False).encode()).hexdigest()
 
 
-def effective_work(subject_type, subject_name, app_id, policy_overrides=None):
+def effective_work(subject_type, subject_name, app_id, policy_overrides=None, employee_context=None):
     app = next((item for item in registered_apps() if item["id"] == app_id), None)
     rules, doc = _rules(subject_type, subject_name, policy_overrides)
     now = _now()
@@ -309,7 +320,7 @@ def effective_work(subject_type, subject_name, app_id, policy_overrides=None):
         scopes, sources, reasons = [], [], []
         for obj in objects:
             if subject_type == "User":
-                result = _evaluate(subject_name, app_id, op["id"], obj["scope_type"], obj["scope_ref"], now=now, overrides=policy_overrides)
+                result = _evaluate(subject_name, app_id, op["id"], obj["scope_type"], obj["scope_ref"], now=now, overrides=policy_overrides, employee_context=employee_context)
             else:
                 decision = _decide([], rules, app_id, op["id"], obj["scope_type"], obj["scope_ref"], now)
                 result = {"allowed": decision[0] and op["integrated"] and op["ordinary"], "reason": decision[1], "source": "部门安排"}
@@ -322,13 +333,14 @@ def effective_work(subject_type, subject_name, app_id, policy_overrides=None):
     suspension_rules = list(rules)
     if subject_type == "User":
         try:
-            employee = resolve_employee(subject_name, required=False)
+            employee = employee_context or resolve_employee(subject_name, required=False)
             inherited, _ = _rules("Department", value(employee, "department"), policy_overrides) if employee else ([], None)
             suspension_rules.extend(inherited)
         except frappe.PermissionError:
             pass
     suspended = any(r["app_id"] == app_id and r["operation_id"] == "app.enter" and r["effect"] == "deny" and r["scope_type"] == "ALL" and r["scope_ref"] == "*" and active(r, now) for r in suspension_rules)
-    return {"subject_type": subject_type, "subject_name": subject_name, "app_id": app_id, "version": value(doc, "version", 0), "context_revision": _target_context(subject_type, subject_name, app_id), "operations": operations, "suspended": suspended}
+    ordinary_ids = {op["id"] for op in app["operations"] if op["ordinary"] and op["integrated"]} if app else set()
+    return {"subject_type": subject_type, "subject_name": subject_name, "app_id": app_id, "version": value(doc, "version", 0), "context_revision": _target_context(subject_type, subject_name, app_id), "operations": operations, "suspended": suspended, "permission_mode": "personal" if subject_type == "Department" or any(r["app_id"] == app_id and r["operation_id"] in ordinary_ids for r in rules) else "department"}
 
 
 def preview_effective_work(subject_type, subject_name, app_id, rules):

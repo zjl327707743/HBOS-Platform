@@ -1,17 +1,17 @@
 <template>
   <aside class="portal-sidebar glass-surface">
     <div class="nav-section-label">工作台</div>
-    <RouterLink v-for="item in mainNav" :key="item.path" :to="item.path" class="portal-nav-item" :title="item.label">
+    <RouterLink v-for="item in mainNav" :key="item.path" :to="item.path" class="portal-nav-item" :title="item.label" :aria-label="item.label">
       <component :is="item.icon" />
       <span>{{ item.label }}</span>
       <b v-if="item.path === '/hbos/work' && workCount > 0">{{ workCount }}</b>
     </RouterLink>
 
-    <RouterLink v-if="hasManagementAccess()" to="/hbos/admin" class="portal-nav-item" title="管理中心"><TeamOutlined /><span>管理中心</span></RouterLink>
+    <RouterLink v-if="hasManagementAccess()" to="/hbos/admin" class="portal-nav-item" title="管理中心" aria-label="管理中心"><TeamOutlined /><span>管理中心</span></RouterLink>
 
     <div class="nav-divider"></div>
     <div class="nav-section-label">个人</div>
-    <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="我的与设置">
+    <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="我的与设置" aria-label="我的与设置">
       <UserOutlined /><span>我的与设置</span>
     </RouterLink>
 
@@ -40,3 +40,9 @@ const mainNav = [
   { path: '/hbos/apps', label: '应用中心', icon: AppstoreOutlined },
 ]
 </script>
+<style scoped>
+@media(min-width:761px) and (max-width:1180px){
+  .portal-nav-item :deep(.anticon){display:inline-flex}
+  .portal-side-note{display:none}
+}
+</style>

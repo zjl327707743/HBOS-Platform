@@ -18,7 +18,7 @@ export function iamMessage(error: unknown): string {
   if (raw.status === 403 || raw.code === 'FORBIDDEN') return '当前操作未获授权，草稿已保留。请联系有相应管理范围的负责人。'
   return raw?.message || '请求未完成，草稿已保留，请重试。'
 }
-export interface Capabilities { schema_version: 1; subject_user: string; policy_revision: string; capabilities: string[] }
+export interface Capabilities { schema_version: 1; subject_user: string; session_context?: string; policy_revision: string; capabilities: string[] }
 export const iamSession = reactive({ user: '', revision: '', ready: false, loading: false, error: '', capabilities: [] as string[] })
 const known = new Set(['iam.people.read','iam.people.link','iam.people.provision','iam.people.create','iam.people.transfer','iam.people.disable','iam.people.reset','iam.departments.read','iam.departments.manage','iam.access.read','iam.access.manage','iam.audit.read','attendance.read','iam_demo.read'])
 let generation = 0
@@ -27,6 +27,14 @@ export function validateCapabilities(raw: unknown, expectedUser?: string): Capab
   const value = raw as Capabilities
   if (!value || value.schema_version !== 1 || typeof value.subject_user !== 'string' || !value.subject_user || value.subject_user === 'Guest' || (expectedUser && value.subject_user !== expectedUser) || typeof value.policy_revision !== 'string' || !Array.isArray(value.capabilities) || value.capabilities.some(id => typeof id !== 'string' || !known.has(id))) throw new IamError('无法确认当前账号的管理能力，请重新验证会话。')
   return value
+}
+export async function fetchIamAccess(expectedUser: string, context: string) {
+  const result = validateCapabilities(await iamQuery('hbos_portal.api.iam_access.get_capabilities'), expectedUser)
+  if (result.session_context !== context) throw new IamError('登录状态已改变，请重新核验。', 'SESSION_CHANGED')
+  return result
+}
+export function applyIamAccess(result: Capabilities) {
+  Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, capabilities: result.capabilities, ready: true, loading: false, error: '' })
 }
 export async function loadIamAccess(expectedUser?: string) {
   const current = ++generation

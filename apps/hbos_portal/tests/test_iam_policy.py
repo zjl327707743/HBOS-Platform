@@ -114,6 +114,21 @@ class IAMPolicyTest(unittest.TestCase):
         self.db.users["a"].enabled = 0
         self.assertFalse(policy.evaluate("a", "attendance", "attendance.read", "SELF", "")["allowed"])
 
+    def test_transfer_projection_uses_new_department_but_cannot_replace_the_employee(self):
+        self.store('Department','D2',[rule('app.enter'),rule('attendance.read',effect='deny')])
+        projected=Attr(self.db.employees[0],department='D2')
+        current=policy.effective_work('User','a','attendance')
+        after=policy.effective_work('User','a','attendance',employee_context=projected)
+        self.assertTrue(current['operations'][0]['allowed']);self.assertFalse(after['operations'][0]['allowed'])
+        self.assertEqual(self.db.employees[0].department,'D1')
+        self.assertFalse(policy.effective_work('User','a','attendance',employee_context=self.db.employees[1])['operations'][0]['allowed'])
+
+    def test_configured_self_scope_does_not_claim_access_before_first_password_completion(self):
+        from hbos_portal.iam import temporary_passwords
+        with patch.object(temporary_passwords,'status',return_value={'pending':True}):
+            result=policy.evaluate('a','attendance','attendance.read','SELF','')
+        self.assertFalse(result['allowed']);self.assertIn('首次改密',result['reason'])
+
     def test_unknown_objects_operations_and_unintegrated_export_are_rejected(self):
         for args in [("attendance", "attendance.read", "SELF", "EMP-002"), ("attendance", "attendance.read", "DEPARTMENT", "D1"), ("attendance", "attendance.export", "SELF", ""), ("unknown", "read", "SELF", "")]:
             self.assertFalse(policy.evaluate("a", *args)["allowed"])
@@ -314,6 +329,8 @@ class IAMCurrentReadAPITest(unittest.TestCase):
         for module in (self.api, self.departments_api):
             self.stack.enter_context(patch.object(module, 'frappe', self.fake))
         self.stack.enter_context(patch.object(policy, 'current_revision', return_value='current-revision'))
+        from hbos_portal.auth import accounts
+        self.stack.enter_context(patch.object(accounts, 'browser_session_context', return_value='a' * 64))
         original_all = self.fake.get_all
         def no_employee_snapshot(doctype, *args, **kwargs):
             if doctype in {'Employee', 'User'}:

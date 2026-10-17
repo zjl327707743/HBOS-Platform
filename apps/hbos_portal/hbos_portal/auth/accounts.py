@@ -94,7 +94,30 @@ def no_store() -> None:
 @frappe.whitelist(allow_guest=True, methods=["GET"])
 def get_request_security() -> dict:
     no_store()
-    return {"csrf_token": frappe.sessions.get_csrf_token() if frappe.session.user != "Guest" else None}
+    authenticated = bool(frappe.session.user and frappe.session.user != "Guest")
+    return {"authenticated": authenticated,
+        "session_context": browser_session_context() if authenticated else None,
+        "csrf_token": frappe.sessions.get_csrf_token() if authenticated else None}
+
+
+def browser_session_context() -> str:
+    """Non-authorizing, in-memory comparison marker. Never return the SID.
+
+    Comparing User alone misses a logout/login or native session rotation for
+    the same User. This one-way marker is never accepted by any endpoint as a
+    credential, proof, CSRF token or authorization source.
+    """
+    return digest(f"hbos-ui:{frappe.local.site}:{frappe.session.sid}")
+
+
+def browser_identity(user: str, account) -> dict:
+    rows = frappe.get_all("Employee", filters={"user_id": user, "status": "Active"},
+        fields=["employee_name", "employee_number", "department"], limit_page_length=2)
+    employee = rows[0] if len(rows) == 1 else None
+    department = frappe.db.get_value("Department", employee.department, "department_name") if employee and employee.department else ""
+    return {"display_name": employee.employee_name if employee else account.full_name,
+        "employee_number": str(employee.employee_number or "") if employee else "",
+        "department": department or "", "login_name": account.username or user}
 
 
 def has_password(user: str) -> bool:
@@ -356,7 +379,8 @@ def get_security(request_id: str = "") -> dict:
     from hbos_portal.iam.temporary_passwords import status as temporary_status
     temporary = temporary_status(user)
     return {"temporary_password_state": temporary, "first_password_required": temporary['pending'],
-        "user": user, "login_name": account.username or user, "has_password": has_password(user),
+        "user": user, "session_context": browser_session_context(), "identity": browser_identity(user, account),
+        "login_name": account.username or user, "has_password": has_password(user),
         "password_login_available": has_password(user) and not bool(frappe.get_system_settings("disable_user_pass_login")),
         "proof": proof_status(user),
         "write_result": _write_receipt(user, request_id, ""),

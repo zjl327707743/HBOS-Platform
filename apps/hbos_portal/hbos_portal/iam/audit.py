@@ -11,6 +11,7 @@ from hbos_portal.iam import guards, policy
 EVENT = "HBOS IAM Change Event"
 # Only configuration, lifecycle state and minimal command results. No arbitrary response bodies.
 SAFE_KEYS = {
+    "settings", "access_state", "permission_mode", "changes",
     "subject_type", "subject_name", "employee", "employee_id", "user", "user_id", "department", "department_id", "company",
     "app_id", "operation_id", "operation", "effect", "scope_type", "scope_ref", "include_descendants", "valid_from", "valid_until", "qualification_ref",
     "name", "version", "expected_version", "context_revision", "policy_revision", "enabled", "status", "relation_status", "account_status",
