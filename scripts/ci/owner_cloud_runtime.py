@@ -15,7 +15,7 @@ def run():
     domain=os.environ['OWNER_AUDIT_DOMAIN']
     if domain=='inventory': return inventory()
     if domain=='attendance': return attendance()
-    users={'r7c-mgr@test.local':['LIMS Manager'],'test-hbos-m2-analyst@test.local':['LIMS Analyst'],'r7c-an@test.local':['LIMS Analyst'],'test-hbos-m2-reviewer@test.local':['LIMS Reviewer'],'r7c-qc2@test.local':['LIMS Reviewer'],'r7c-qa1@test.local':['LIMS QA'],'r7c-qa2@test.local':['LIMS QA'],'r7audit@test.local':['System Manager']}
+    users={'r7c-mgr@test.local':['LIMS Manager'],'test-hbos-m2-analyst@test.local':['LIMS Analyst'],'r7c-an@test.local':['LIMS Analyst'],'test-hbos-m2-reviewer@test.local':['LIMS Reviewer'],'r7c-qc1@test.local':['LIMS Reviewer'],'r7c-qc2@test.local':['LIMS Reviewer'],'r7c-qa1@test.local':['LIMS QA'],'r7c-qa2@test.local':['LIMS QA'],'r7audit@test.local':['System Manager']}
     for user,roles in users.items():
         assert not frappe.db.exists('User',user), 'Never reuse existing user'
         frappe.get_doc(dict(doctype='User',email=user,first_name='Synthetic CI',enabled=1,send_welcome_email=0,user_type='System User',roles=[dict(role=r) for r in roles])).insert(ignore_permissions=True)
@@ -44,7 +44,7 @@ def run():
 import secrets,gzip
 from http.cookiejar import CookieJar
 from urllib.error import HTTPError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 class Client:
     """Real loopback HTTP; never print cookies, passwords or response bodies."""
@@ -121,7 +121,7 @@ def attendance():
     else:raise AssertionError('Prepared-cache fixture must be restricted; visible='+json.dumps(frappe.get_list('Employee',pluck='name',limit_page_length=0)))
     origin=str(frappe.conf.hbos_portal_origin);client=Client(origin).login(user,password)
     # Download cached output generated before revocation, without executing SQL again.
-    response=client.opener.open(Request('http://127.0.0.1:8000'+file.file_url,headers=client.headers),timeout=30)
+    response=client.opener.open(Request('http://127.0.0.1:8000'+quote(file.file_url,safe='/'),headers=client.headers),timeout=30)
     with response:
         body=response.read();status=response.code
     leaked=marker.encode() in gzip.decompress(body) if status==200 else False
@@ -150,15 +150,15 @@ def inventory():
     assert warehouse_scope.resolve_scope({})==[warehouses[0]], 'Real Warehouse User Permission fixture invalid'
     origin=str(frappe.conf.hbos_portal_origin);client=Client(origin).login(user,password)
     checks=[]
+    failures=[]
     for name in reports:
         for filters,allowed in [({},True),({'warehouse':warehouses[0]},True),({'warehouse':warehouses[0],'include_children':1},True),({'warehouse':warehouses[1]},False),({'warehouse':warehouses[1],'include_children':1},False)]:
             status,payload,text=client.call('frappe.desk.query_report.run',dict(report_name=name,filters=json.dumps(filters),ignore_prepared_report=1))
             assert 'CLOUD-BATCH-B' not in text and 'CLOUD-SUPPLIER-B' not in text,'Cross-Warehouse data leak'
             print('[OWNER-AUDIT] report-case='+json.dumps(dict(report=name,filters=filters,http=status,expected_allowed=allowed,messages=payload.get('_server_messages','')[:1200])))
             if allowed:
-                assert status==200,(name,status,payload.get('exc_type'))
-                assert 'CLOUD-BATCH-A' in text,'Positive report data missing: '+name
-            else:assert status==403,(name,status)
+                if status!=200 or 'CLOUD-BATCH-A' not in text: failures.append(dict(report=name,http=status,case='positive'))
+            elif status!=403:failures.append(dict(report=name,http=status,case='negative'))
             checks.append(dict(report=name,filter=filters,http=status))
     print('[OWNER-AUDIT] inventory='+json.dumps(checks))
     # Record actual upstream constraints and native submit/cancel rights, without posting stock.
@@ -169,4 +169,5 @@ def inventory():
     for name in ['validate_warehouse','validate_source_and_target_warehouse']:
         method=getattr(StockEntry,name,None)
         if method:print('[OWNER-AUDIT] upstream-'+name+'='+inspect.getsource(method))
+    assert not failures, 'Native report validation failed: '+json.dumps(failures)
     return dict(ok=True,checks=checks,stock_posting='NOT_RUN',export='NOT_RUN')
