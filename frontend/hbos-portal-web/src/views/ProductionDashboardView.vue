@@ -67,9 +67,8 @@
           <div class="pb-kpi-fn">{{ yieldRateNote }}</div>
         </div>
         <div class="pb-panel pb-kpi">
-          <div class="pb-kpi-top"><span class="pb-kpi-lb">质量合格率</span><span class="pb-kpi-vl">{{ qualityRateText }}</span></div>
-          <div class="pb-bar"><i :style="{ width: qualityRatePct + '%' }" /></div>
-          <div class="pb-kpi-fn">沿用既有看板口径 · 成品质量数据源接入前</div>
+          <div class="pb-kpi-top"><span class="pb-kpi-lb">质量合格率</span><span class="pb-kpi-vl">未接入</span></div>
+          <div class="pb-kpi-fn">缺少包含不合格批次的完整质量数据源，暂不计算。</div>
         </div>
         <div class="pb-panel pb-kpi">
           <div class="pb-kpi-top">
@@ -414,14 +413,6 @@ const yieldRateNote = computed(() =>
 const biggestTarget = computed(() =>
   [...targetRows.value].sort((a, b) => b.target - a.target)[0] || null,
 )
-
-// 质量合格率：**沿用既有 openclaw 看板的固定口径 99.9%**（Owner 2026-10-10 定）。
-// 现有《产品质量数据汇总》是合格放行台账，不收录不合格批，算出来恒为 100%，
-// 不如沿用既有口径。成品质量数据源接入后再改成实算。取数服务暂不返回该值，
-// 故先写死；将来接了服务端可用 `board.qualityRate ?? 0.999`。
-const QUALITY_RATE = 0.999
-const qualityRatePct = computed(() => QUALITY_RATE * 100)
-const qualityRateText = computed(() => `${(QUALITY_RATE * 100).toFixed(1)}%`)
 
 const anomalyRatePct = computed(() =>
   anomaly.value && anomaly.value.rate !== null ? anomaly.value.rate * 100 : null,
