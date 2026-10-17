@@ -122,6 +122,7 @@ jobs:
         run: |
           git show "$AUDIT_HEAD:scripts/ci/owner_compose.py" > /tmp/owner_compose.py
           python3 /tmp/owner_compose.py full
+          mkdir -p /tmp/hbos-audit
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
