@@ -30,7 +30,7 @@ jobs:
           path: candidate
       - uses: actions/checkout@v4
         with:
-          ref: b20b2eb49addb79af659a1b06c4f1f5788f0ace9
+          ref: a1461b67047c2b57478046773ec6be85dc48751e
           path: harness
           persist-credentials: false
       - uses: actions/setup-node@v4
