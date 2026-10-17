@@ -1,0 +1,53 @@
+name: Portal Unified Account Release
+on:
+  pull_request:
+    branches: [main, feature/hbos-portal-product]
+    paths:
+      - 'apps/hbos_portal/**'
+      - 'apps/hb_knowledge_app/**'
+      - 'apps/hb_twin_app/**'
+      - 'services/hbos_gateway/**'
+      - 'scripts/release/**'
+      - 'scripts/local/**'
+      - 'frontend/hbos-portal-web/**'
+      - '.github/workflows/portal-unified-account-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r services/hbos_gateway/requirements.txt
+      - run: |
+          pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
+      - name: Portal and domain contracts
+        run: |
+          PYTHONPATH=apps/hbos_portal python -m unittest discover -s apps/hbos_portal/tests -t apps/hbos_portal -q
+          PYTHONPATH=apps/hb_knowledge_app python -m unittest discover -s apps/hb_knowledge_app/tests -q
+          PYTHONPATH=apps/hb_twin_app python -m unittest discover -s apps/hb_twin_app/tests -q
+          PYTHONPATH=apps/hb_knowledge_app:. python -m unittest discover -s services/hbos_gateway/tests -v
+      - name: Release script syntax and source compilation
+        run: |
+          bash -n scripts/release/build_bundle.sh scripts/release/apply_existing_site.sh scripts/local/hbos.sh
+          python -m compileall -q apps/hbos_portal apps/hb_knowledge_app apps/hb_twin_app services/hbos_gateway scripts/release scripts/local
+          python -m unittest discover -s scripts/local/tests -v
+  production-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: bash scripts/release/build_bundle.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hbos-portal-production-bundle
+          path: .release/hbos-portal-release.tar.gz
+          retention-days: 14

@@ -10,7 +10,8 @@
 
 ### 分支策略
 
-- 从最新的 `origin/main` 创建功能分支
+- **Portal / 新业务 App 集成开发**：从最新的 `origin/feature/hbos-portal-product` 创建短期功能分支，PR 目标也必须是该产品分支；**仅生产就绪 main / 独立修复** 从 `origin/main` 分支衍生。
+- 本轮多 APP 冲突治理与同步规则见 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md`。
 - 分支命名规范：
 
 | 类型 | 格式 | 示例 |
@@ -20,12 +21,13 @@
 | 文档 | `docs/<description>` | `docs/api-guide` |
 | 杂项 | `chore/<description>` | `chore/update-dependencies` |
 
-- 禁止长期存在的个人分支；功能分支应在合并后尽快删除
+- 禁止长期存在的个人分支；功能分支应在合并后尽快删除（Owner 要求保留的安全证据分支例外）。
+- 跨应用共享文件（Portal Router、App Registry、frappeClient、CI、账号权限）实行平台统一接入；业务 PR 不得整文件覆盖他人更新。长期分支出现大规模冲突时，以当前 Base 新建干净分支，只移植属于本域的增量。
 
 ### 提交前检查清单
 
 - [ ] `git fetch origin` 拉取最新远程状态
-- [ ] `git diff origin/main...HEAD` 检查与 `main` 的差异
+- [ ] 先确认本 PR 的目标 base（Portal：`origin/feature/hbos-portal-product`；main：`origin/main`），执行 `git diff <目标base>...HEAD` 和 `git log <目标base>..HEAD`，确保不含别的 APP 旧历史
 - [ ] 执行本地测试：`docker compose exec backend python3 -m unittest discover -s apps/hb_attendance_app/tests -v`
 - [ ] 检查是否误提交了敏感文件（见下方禁止项）
 - [ ] 提交信息遵循约定式提交格式：`<type>: <description>`
@@ -63,12 +65,15 @@
 
 ### 审查与合并
 
-- 至少 **1 名非作者**的批准后才能合并
-- 所有 Review Conversation 必须解决
-- 新提交推送后旧批准自动失效，需重新审查
-- 合并方式：**Squash Merge**（将分支所有提交压缩为一个干净 commit）
-- 合并后自动删除功能分支
-- 普通成员**不得**使用 Owner 应急绕过能力
+- **main 分支及高风险变更**：至少 **1 名非作者**的有效 GitHub `Approve` 后才能合并；Owner 不得自批本人的 PR。
+- **产品开发分支 Owner 自主合并**（自 2026-10-10 生效）：仅限 `feature/hbos-portal-product` 的非生产发布、低中风险或隔离候选代码。Owner 本人可在独立技术审查、关键问题闭环、必要测试和 CI 通过后，以明确的本轮 Owner 决定执行本人 PR 的 Squash Merge，无须伪造非作者 GitHub `Approve`。该 Owner 决定须记录在 PR Conversation 中，写明固定 base/head、审查结论、风险与不授权范围；AI 审查不等于 GitHub Approve。
+- **不适用自主合并**：`main`、生产部署与真实数据/模型分发，以及登录/身份、IAM/角色/Grant、真实数据导出或权限绕过、敏感业务写入、数据库结构迁移、安全门禁削弱等高风险变更；这些继续履行非作者审查和专门发布授权。对风险有疑义时按高风险处理。
+- 所有 Review Conversation 必须解决；存在有效 `Request Changes` 不得绕过。
+- 新提交后需要对最新 HEAD 重新核验代码/安全审查和 CI；高风险/主分支既有人工 Approve 按规则更新。
+- 合并方式：**Squash Merge**，并核对预期 HEAD、目标分支和实际 squash 提交。
+- 功能分支全局默认可能自动删除；Owner 明确要求保留的来源分支必须在合并前落实备份与保留措施，并在合并后实读验证。
+- 代码合并不等于安装、部署、公司员工授权、模型/知识资产分发或发布。
+- 普通成员不得自行援引 Owner 自主合并或使用 Owner 应急绕过能力。
 
 ## 数据库与配置规范
 
@@ -98,7 +103,7 @@ Owner 保留仓库管理权限，但**仅限以下场景**：
 - 严重安全事件（如密钥泄露需立即回滚）
 - 门禁自身失效（如 Ruleset 配置错误阻止合法操作）
 
-**日常开发不得绕过 PR、Review 和 CI 流程。** 每次使用应急权限必须补充审计记录。
+**日常开发不得绕过 PR、适用的审查和 CI 流程。** 上述产品开发分支的 Owner 自主合并是有记录的正常治理路径，不属于应急 Break-glass；应急权限仍须单独补充审计记录。
 
 ---
 

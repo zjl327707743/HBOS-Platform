@@ -19,6 +19,29 @@ def _is_shift_dept(dept_name):
 
 @frappe.whitelist()
 def process_excel(month=None, year=None):
+    # ------------------------------------------------------------------
+    # G-01 服务端写权限门禁（Phase-3B 修复）。
+    #
+    # 本入口此前只有 @frappe.whitelist()：任何已登录用户（含零角色 Website
+    # User、只读的 HR User）都能 POST 一个 xlsx 进来，直接生成
+    # Employee Checkin / Attendance 并 commit。
+    #
+    # 门禁必须放在**最前面**——早于读取上传文件、解析 Excel、查询 Employee、
+    # 创建任何 doc 以及 commit。任何副作用之前失败，未授权请求不得被业务处理。
+    #
+    # 复用 api.py 的唯一写权限定义（HR Manager / System Manager），
+    # 不在此另造第三套 Attendance 写角色定义。
+    # ------------------------------------------------------------------
+    from hb_attendance_app.hbos_attendance.api import _require_hr_write
+
+    _require_hr_write()
+
+    # 下面的 Employee Checkin / Attendance 写入仍带 ignore_permissions=True。
+    # 这是**已通过上面显式服务端 HR 授权之后**的特权服务写（privileged service
+    # write after explicit server-side HR authorization）；它绕过的是 DocPerm/
+    # User Permission 复核，不是授权判断本身。移除该参数需要先有运行时证据证明
+    # HR Manager / System Manager 凭既有 DocPerm 即可直接 insert 这两个 DocType，
+    # 见 PHASE-3B 报告 G-01 / B2 一节。本注释不代表 ignore_permissions 已经消失。
     from frappe.utils.file_manager import save_file
 
     file = frappe.request.files.get("file")
@@ -167,7 +190,7 @@ def process_excel(month=None, year=None):
                                     "time": dt_str,
                                     "log_type": "IN" if is_in else "OUT",
                                 })
-                                doc.insert(ignore_permissions=True)
+                                doc.insert(ignore_permissions=True)  # privileged service write after explicit server-side HR authorization
                                 checkin_count += 1
                             except Exception:
                                 pass
@@ -193,7 +216,7 @@ def process_excel(month=None, year=None):
                                 "early_exit": early,
                                 "shift": shift,
                             })
-                            doc.insert(ignore_permissions=True)
+                            doc.insert(ignore_permissions=True)  # privileged service write after explicit server-side HR authorization
                             att_count += 1
                             if late:
                                 late_count += 1
@@ -235,7 +258,7 @@ def process_excel(month=None, year=None):
                                     "time": dt_str,
                                     "log_type": "IN" if hf == min(times) else "OUT",
                                 })
-                                doc.insert(ignore_permissions=True)
+                                doc.insert(ignore_permissions=True)  # privileged service write after explicit server-side HR authorization
                                 checkin_count += 1
                             except Exception:
                                 pass
@@ -252,7 +275,7 @@ def process_excel(month=None, year=None):
                                 "early_exit": early_f,
                                 "shift": shift,
                             })
-                            doc.insert(ignore_permissions=True)
+                            doc.insert(ignore_permissions=True)  # privileged service write after explicit server-side HR authorization
                             att_count += 1
                             if late_f:
                                 late_count += 1

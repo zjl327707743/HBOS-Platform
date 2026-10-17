@@ -1,0 +1,178 @@
+:root {
+  /* Typography */
+  --hbos-font-sans: Inter, "SF Pro Display", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --hbos-font-mono: "SFMono-Regular", "JetBrains Mono", Consolas, ui-monospace, monospace;
+
+  --hbos-font-hero: 52px;
+  --hbos-font-page-title: 30px;
+  --hbos-font-section-title: 20px;
+  --hbos-font-card-title: 16px;
+  --hbos-font-body: 14px;
+  --hbos-font-dense: 14px;
+  --hbos-font-meta: 12px;
+  --hbos-font-micro: 12px;
+  --hbos-font-kpi: 30px;
+
+  /* Ant Design aligned line-height */
+  --hbos-line-page-title: 38px;
+  --hbos-line-section-title: 28px;
+  --hbos-line-important: 24px;
+  --hbos-line-body: 22px;
+  --hbos-line-small: 20px;
+
+  /* Ant Design aligned weights */
+  --hbos-weight-regular: 400;
+  --hbos-weight-medium: 500;
+  --hbos-weight-strong: 600;
+
+  /* Spacing */
+  --hbos-space-1: 4px;
+  --hbos-space-2: 8px;
+  --hbos-space-3: 12px;
+  --hbos-space-4: 16px;
+  --hbos-space-5: 20px;
+  --hbos-space-6: 24px;
+  --hbos-space-8: 32px;
+  --hbos-space-10: 40px;
+  --hbos-space-12: 48px;
+  --hbos-space-16: 64px;
+  --hbos-space-20: 80px;
+
+  /* Radius */
+  --hbos-radius-sm: 8px;
+  --hbos-radius-control: 12px;
+  --hbos-radius-card: 18px;
+  --hbos-radius-panel: 24px;
+  --hbos-radius-hero: 32px;
+  --hbos-radius-pill: 999px;
+
+  /* Core colors */
+  --hbos-bg-canvas: #f4f8fd;
+  --hbos-bg-surface: rgba(255,255,255,.68);
+  --hbos-bg-elevated: rgba(255,255,255,.86);
+
+  --hbos-text-primary: #17253c;
+  --hbos-text-secondary: #425675;
+  --hbos-text-muted: #72829d;
+
+  --hbos-border-default: rgba(65,91,138,.10);
+  --hbos-border-strong: rgba(65,91,138,.16);
+
+  --hbos-brand-violet: #675fff;
+  --hbos-brand-blue: #49a8ff;
+  --hbos-brand-cyan: #49cbe6;
+  --hbos-brand-aqua: #48d6bd;
+
+  /* Semantic */
+  --hbos-status-neutral: #72829d;
+  --hbos-status-info: #4b9cff;
+  --hbos-status-processing: #675fff;
+  --hbos-status-success: #1bbc86;
+  --hbos-status-warning: #f4a523;
+  --hbos-status-critical: #ed5a72;
+  --hbos-status-disabled: #a8b2c2;
+
+  /* Domain colors */
+  --hbos-domain-attendance: linear-gradient(135deg,#6b60ff,#8c61ff);
+  --hbos-domain-inventory: linear-gradient(135deg,#f5a821,#ff7f4e);
+  --hbos-domain-lims: linear-gradient(135deg,#1abc86,#2ac9c6);
+  --hbos-domain-equipment: linear-gradient(135deg,#24bad5,#3d8cff);
+  --hbos-domain-digital-twin: linear-gradient(135deg,#4f75ff,#665eff 50%,#3bc9c0);
+
+  /* Glass */
+  --hbos-glass-g3-bg: linear-gradient(135deg,rgba(255,255,255,.76),rgba(255,255,255,.54));
+  --hbos-glass-g3-blur: 28px;
+  --hbos-glass-g3-border: rgba(255,255,255,.88);
+
+  --hbos-glass-g2-bg: rgba(255,255,255,.64);
+  --hbos-glass-g2-blur: 20px;
+  --hbos-glass-g2-border: rgba(255,255,255,.78);
+
+  --hbos-glass-g1-bg: rgba(255,255,255,.82);
+  --hbos-glass-g1-blur: 10px;
+  --hbos-glass-g1-border: rgba(65,91,138,.08);
+
+  /* Shadow */
+  --hbos-shadow-card: 0 18px 56px rgba(47,72,117,.09);
+  --hbos-shadow-card-hover: 0 24px 72px rgba(47,72,117,.14);
+  --hbos-shadow-hero: 0 24px 78px rgba(47,72,117,.11);
+
+  /* Motion */
+  --hbos-motion-instant: 100ms;
+  --hbos-motion-fast: 160ms;
+  --hbos-motion-control: 200ms;
+  --hbos-motion-panel: 260ms;
+  --hbos-motion-page: 360ms;
+  --hbos-motion-ambient: 12s;
+
+  --hbos-ease-standard: cubic-bezier(.2,0,0,1);
+  --hbos-ease-enter: cubic-bezier(0,0,0,1);
+  --hbos-ease-exit: cubic-bezier(.4,0,1,1);
+
+  /* Layout */
+  --hbos-header-height: 80px;
+  --hbos-header-icon-hit: 48px;
+  --hbos-portal-sidebar-width: 224px;
+  --hbos-portal-sidebar-collapsed: 76px;
+  --hbos-app-sidebar-width: 240px;
+  --hbos-app-sidebar-collapsed: 76px;
+  --hbos-content-max: 1560px;
+  --hbos-business-content-max: 1440px;
+}
+
+/* Glass primitives */
+.hbos-glass-g3 {
+  background: var(--hbos-glass-g3-bg);
+  border: 1px solid var(--hbos-glass-g3-border);
+  backdrop-filter: blur(var(--hbos-glass-g3-blur)) saturate(128%);
+  -webkit-backdrop-filter: blur(var(--hbos-glass-g3-blur)) saturate(128%);
+  box-shadow:
+    var(--hbos-shadow-card),
+    inset 0 1px 0 rgba(255,255,255,.78);
+}
+
+.hbos-glass-g2 {
+  background: var(--hbos-glass-g2-bg);
+  border: 1px solid var(--hbos-glass-g2-border);
+  backdrop-filter: blur(var(--hbos-glass-g2-blur));
+  -webkit-backdrop-filter: blur(var(--hbos-glass-g2-blur));
+}
+
+.hbos-glass-g1 {
+  background: var(--hbos-glass-g1-bg);
+  border: 1px solid var(--hbos-glass-g1-border);
+  backdrop-filter: blur(var(--hbos-glass-g1-blur));
+  -webkit-backdrop-filter: blur(var(--hbos-glass-g1-blur));
+}
+
+/* Accessibility */
+:focus-visible {
+  outline: 2px solid rgba(73,168,255,.85);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1199px) {
+  :root {
+    --hbos-font-hero: 52px;
+    --hbos-font-page-title: 32px;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --hbos-font-hero: 44px;
+    --hbos-font-page-title: 30px;
+    --hbos-font-section-title: 19px;
+    --hbos-header-height: 68px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --hbos-motion-fast: 1ms;
+    --hbos-motion-control: 1ms;
+    --hbos-motion-panel: 1ms;
+    --hbos-motion-page: 1ms;
+    --hbos-motion-ambient: 1ms;
+  }
+}

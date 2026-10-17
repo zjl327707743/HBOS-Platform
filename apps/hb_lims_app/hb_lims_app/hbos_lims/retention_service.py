@@ -15,6 +15,23 @@ from hb_lims_app.hbos_lims import retention_contract as rtc
 from hb_lims_app.hbos_lims import workflow_contract as wf
 
 
+
+# ---------------------------------------------------------------------------
+# 业务服务写标记（L03）
+# ---------------------------------------------------------------------------
+# 处理申请 / 使用申请的状态与签署字段由 guard_system_fields 保护，守卫只认可
+# >= `doc.flags.allow_system_fields`。所有服务写路径统一经 _service_save 打标，
+# 原生 REST / Desk 表单写入不会带上该标记，因此仍被控制器守卫拦截。
+_APPROVAL_DOCTYPES = ("HBOS Retention Disposal Apply", "HBOS Retention Usage Apply")
+
+
+def _service_save(doc):
+	"""业务服务写：显式放行审批单据的状态/签署系统字段。"""
+	if doc.doctype in _APPROVAL_DOCTYPES:
+		doc.flags.allow_system_fields = True
+	doc.save(ignore_permissions=True)
+
+
 def _user():
 	return frappe.session.user
 
@@ -597,7 +614,7 @@ def submit_usage_apply(usage_name):
 		if doc.status != "草稿":
 			frappe.throw("仅草稿状态可提交。")
 		doc.status = "待库存确认"
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_commit()
 		return {"name": doc.name, "status": doc.status}
 	except Exception:
@@ -626,7 +643,7 @@ def confirm_stock(usage_name):
 		doc.stock_confirm_by = _user()
 		doc.stock_confirm_date = frappe.utils.today()
 		doc.status = "待QC批准"
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Usage Apply", "预占", doc.name,
 				  action_text="库存确认即预占", new_value="reserved += {}".format(doc.apply_qty))
 		_commit()
@@ -657,7 +674,7 @@ def approve_usage(usage_name):
 			doc.status = "已批准"
 		else:
 			doc.status = nxt
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Usage Apply", "审批签署", doc.name,
 				  action_text="{}（{}）".format(field, _user()), new_value="status={}".format(doc.status))
 		_commit()
@@ -690,7 +707,7 @@ def execute_usage(usage_name):
 		doc.status = "已执行"
 		doc.executed_by = _user()
 		doc.executed_date = frappe.utils.today()
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Usage Apply", "使用出库", doc.name,
 				  action_text="取样执行扣减", new_value="-{} {}".format(doc.apply_qty, doc.qty_uom))
 		_commit()
@@ -730,7 +747,7 @@ def reject_usage(usage_name, reason):
 					  action_text="驳回释放预占", new_value="-{}".format(doc.apply_qty))
 		sample.save(ignore_permissions=True)
 		doc.status = "已驳回"
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Usage Apply", "驳回", doc.name, reason=reason)
 		_commit()
 		return {"name": doc.name, "status": doc.status}
@@ -758,7 +775,7 @@ def cancel_usage_apply(usage_name, reason):
 				_audit_on("HBOS Retention Usage Apply", "释放预占", doc.name,
 						  action_text="Manager 取消释放预占", new_value="-{}".format(doc.apply_qty))
 		doc.status = "已取消"
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Usage Apply", "审批签署", doc.name,
 				  action_text="取消（逃生口）", reason=reason)
 		_commit()
@@ -857,7 +874,7 @@ def submit_disposal_apply(dsp_name):
 		if doc.status != "草稿":
 			frappe.throw("仅草稿状态可提交。")
 		doc.status = "待QC主管审核"
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_commit()
 		return {"name": doc.name, "status": doc.status}
 	except Exception:
@@ -896,10 +913,10 @@ def approve_disposal(dsp_name):
 		if nxt == "已批准" and doc.disposal_type != DSP_TYPE_CONTINUE:
 			doc.status = "待执行"
 			doc.deadline = _add_months_dt(doc.qm_approved_at, 3)
-			doc.save(ignore_permissions=True)
+			_service_save(doc)
 			_enter_pending(doc)
 		else:
-			doc.save(ignore_permissions=True)
+			_service_save(doc)
 		_audit_on("HBOS Retention Disposal Apply", "审批签署", doc.name,
 				  action_text="{}（{}）".format(field, _user()), new_value="status={}".format(doc.status))
 		_commit()
@@ -944,7 +961,7 @@ def _enter_pending(doc):
 		frappe.throw("该留样存在在途预占，进入待处理被拒绝。")
 	sample.status = rtc.RET_PENDING
 	sample.save(ignore_permissions=True)
-	doc.save(ignore_permissions=True)
+	_service_save(doc)
 
 
 @frappe.whitelist()
@@ -979,7 +996,7 @@ def _dsp_sign(dsp_name, who_field, date_field):
 			frappe.throw("处理人与监督人不得为同一用户（SoD）。")
 		doc.set(who_field, who)
 		doc.set(date_field, frappe.utils.today())
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_complete_if_signed(doc)
 		_commit()
 		return {"name": doc.name, "status": doc.status}
@@ -1006,7 +1023,7 @@ def _complete_if_signed(doc):
 		_write_stock_log(sample, "销毁出库", -qty_now,
 						 "HBOS Retention Disposal Apply", doc.name)
 		doc.status = "已完成"
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Disposal Apply", "销毁出库", doc.name,
 				  action_text="双签完成销毁", new_value="-{} {}".format(qty_now, doc.qty_uom))
 
@@ -1034,7 +1051,7 @@ def continue_retention(dsp_name):
 		doc.status = "已完成"
 		doc.disposal_by = doc.disposal_by or _user()
 		doc.disposal_date = frappe.utils.today()
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Disposal Apply", "续留改期", doc.name,
 				  action_text="续留回写留样期至", old_value="due={}".format(old),
 				  new_value="due={}".format(doc.new_retention_due_date))
@@ -1058,7 +1075,7 @@ def reject_disposal(dsp_name, reason):
 		if not reason:
 			frappe.throw("驳回必须填写原因。")
 		doc.status = "已驳回"
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Disposal Apply", "驳回", doc.name, reason=reason)
 		_commit()
 		return {"name": doc.name, "status": doc.status}
@@ -1085,7 +1102,7 @@ def cancel_disposal_apply(dsp_name, reason):
 				sample.status = doc.sample_prev_status
 				sample.save(ignore_permissions=True)
 		doc.status = "已取消"
-		doc.save(ignore_permissions=True)
+		_service_save(doc)
 		_audit_on("HBOS Retention Disposal Apply", "驳回", doc.name,
 				  action_text="Manager 取消（逃生口）", reason=reason)
 		_commit()

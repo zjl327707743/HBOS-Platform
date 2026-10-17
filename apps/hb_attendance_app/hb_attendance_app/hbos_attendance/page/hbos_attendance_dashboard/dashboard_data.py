@@ -100,7 +100,10 @@ def get_data(start_str=None, end_str=None):
     total_early = sum(r["early_count"] for r in rows)
     total_absent = sum(r["absent_count"] for r in rows)
     anomaly_people = len(rows)
-    attendance_rate = round((1 - total_absent / max(total_employees * max((end - start).days, 1), 1)) * 100, 1)
+    attendance_rate = (
+        round((1 - total_absent / max(total_employees * max((end - start).days, 1), 1)) * 100, 1)
+        if atts and total_employees else None
+    )
     daily_avg_late = round(total_late / max((end - start).days + 1, 1), 1)
 
     # ---------- Top 15 late ----------

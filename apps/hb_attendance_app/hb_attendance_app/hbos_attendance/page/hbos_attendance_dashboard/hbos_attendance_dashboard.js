@@ -78,7 +78,8 @@ frappe.pages["hbos-attendance-dashboard"].on_page_load = function (wrapper) {
 		h += '<div class="dash-stat"><div class="num" style="color:#f39c12;">' + (data.total_early || 0) + '</div><div class="lbl">' + __("早退") + '</div></div>';
 		h += '<div class="dash-stat"><div class="num" style="color:#8e44ad;">' + (data.total_absent || 0) + '</div><div class="lbl">' + __("缺勤") + '</div></div>';
 		h += '<div class="dash-stat"><div class="num" style="color:#3498db;">' + (data.anomaly_people || 0) + '</div><div class="lbl">' + __("异常人员") + '</div></div>';
-		h += '<div class="dash-stat"><div class="num" style="color:#27ae60;">' + (data.attendance_rate || 0) + '%</div><div class="lbl">' + __("出勤率") + '</div></div>';
+		var rate = data.attendance_rate == null ? __("暂无数据") : data.attendance_rate + '%';
+		h += '<div class="dash-stat"><div class="num" style="color:#27ae60;">' + rate + '</div><div class="lbl">' + __("出勤率") + '</div></div>';
 		h += '<div class="dash-stat"><div class="num" style="color:#2c3e50;">' + (data.total_employees || 0) + '</div><div class="lbl">' + __("总人数") + '</div></div>';
 		h += '</div>';
 		h += '<div class="dash-grid">';

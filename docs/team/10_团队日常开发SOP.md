@@ -5,6 +5,8 @@
 > - `03_Git与GitHub多人协作规范.md`（分支、提交、PR 规则）
 > - `12_常用Git与Docker命令解释.md`（每条命令的含义）
 > **目的**：把"每天从上班到下班"的每一步都写成清单，跟着做就行。
+>
+> **2026-10-10 Portal 并行开发覆盖规则（优先于本文旧的 main / migrate 指令）**：当前 Portal 业务工作以 `feature/hbos-portal-product` 为基线，运行前须读取 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md`；本文 §1.1 的 `git checkout main && git pull main` 不适用于 Portal 工作。也**不得**因拉取了代码就自动在现有开发/UAT/真实 Site 执行 `bench migrate`、重建 Docker 或覆盖数据库。应先 `git status --short`、`git fetch origin`，在隔离 worktree 验证并取得明确的环境变更授权。下方历史示例保留为 main 维护参考。
 
 ---
 
@@ -50,13 +52,18 @@
   如果提示 `Already up to date`，说明你的本地代码已经是最新的。
   如果拉下来新代码，记一下有哪些文件变了（`git log --oneline -5` 看一眼）。
 
-- [ ] **4. 如果拉了新代码，执行 migrate**
+- [ ] **4. 换了新代码后是否 migrate：只在含 DocType / Patch 变更、且目标是你自己的本地开发 site 时才做**
 
   ```bash
-  docker compose exec backend bash -c "bench --site frontend migrate"
+  # 把 <你的本地开发 site> 换成本地开发 site；**不要**填 frontend 等共享 / UAT / 真实 Site
+  docker compose exec backend bash -c "bench --site <你的本地开发 site> migrate"
   ```
 
-  因为新代码可能包含 DocType 变更或 Patch，必须 migrate 才能生效。
+  新代码若包含 DocType 变更或 Patch，migrate 后才会在本地生效。
+
+  ⚠️ **禁止**因拉取代码就对现有开发 / UAT / 真实 Site 自动执行 migrate
+  （见文首「2026-10-10 Portal 并行开发覆盖规则」）。Portal / 领域开发请在
+  隔离 worktree + 隔离 Site 验证，并取得明确的环境变更授权后再谈 migrate。
 
 - [ ] **5. 查看 GitHub 上有没有新的 PR 需要审查**
 
@@ -205,13 +212,16 @@
   | 数据查询 | 在 Frappe Desk 中查看报表，确认数据正确 |
   | 页面 UI | 检查页面加载、布局、按钮是否正常 |
 
-- [ ] **6. 修改 DocType 后执行 migrate**
+- [ ] **6. 修改 DocType 后，只在你自己的本地开发 site 执行 migrate**
 
   ```bash
-  docker compose exec backend bash -c "bench --site frontend migrate"
+  # ⚠️ 目标只能是你自己的本地开发 site；**不要**填 frontend 等共享 / UAT / 真实 Site
+  docker compose exec backend bash -c "bench --site <你的本地开发 site> migrate"
   ```
 
-  改了 DocType 的 JSON 文件（加字段、改字段类型、改权限）后必须 migrate。
+  改了 DocType 的 JSON 文件（加字段、改字段类型、改权限）后，**本地开发 site**
+  需要 migrate 才会生效。共享 / UAT / 真实 Site 的结构变更须走独立授权与变更窗口，
+  不得随手 migrate。
 
 - [ ] **7. 修改 Python 文件后重启 backend**
 
@@ -249,6 +259,9 @@
 | 改 docker-compose.yml | ✅ | ✅ | ✅ |
 | 改 .env | ✅ | ✅ | ✅ |
 
+> ⚠️ 上表「需要 migrate」指的是**你自己的本地开发 site**。共享 / UAT / 真实 Site
+> 不得因拉代码或改 DocType 自动 migrate（见文首 2026-10-10 覆盖规则）。
+
 ### 3.3 开发中常见问题
 
 **问：我改完代码，浏览器里看不到变化？**
@@ -256,7 +269,7 @@
 先判断改了什么类型的文件：
 - 改 Python → 重启 backend
 - 改 JS/CSS → bench build + clear-cache
-- 改 DocType → bench migrate
+- 改 DocType → bench migrate（**仅本地开发 site**；共享 / 真实 Site 见文首覆盖规则）
 - 改文档 → 不需要在浏览器看
 
 **问：migrate 报错了怎么办？**
@@ -387,15 +400,17 @@
   （评估风险等级和影响范围）
   ```
 
-- [ ] **4. 指定 Reviewer**
+- [ ] **4. 确认适用的审查路径**
 
-  在 PR 页面右侧 `Reviewers` 区域，点击齿轮图标，选择审查人。
+  `main` 或高风险变更必须向非作者且有审查权限的 GitHub Reviewer 申请 `Approve`。
+  `feature/hbos-portal-product` 的 Owner 自主合并（见 §10.10）可采用独立技术审查加 Owner 的 PR 明确决定，不得把 AI 评审冒充 GitHub `Approve`。
 
   | 谁来审 | 什么情况 |
   |--------|---------|
-  | Codex（Reviewer） | 默认，所有代码 PR |
-  | Owner | 影响业务逻辑、安全、权限、数据模型的 PR |
-  | 任何 Developer | 文档、配置等非代码变更 |
+  | 独立 Codex / 技术 Reviewer | 代码问题、测试与安全风险审查（本身不产生 GitHub Approve） |
+  | 非作者 GitHub Reviewer | `main` 和高风险变更，必须实际提交 Approve |
+  | Owner | 产品分支自主合并的风险分类、验收和最终执行决定 |
+  | Developer | 参与非敏感文档等协同评审 |
 
 - [ ] **5. 关联 Issue**
 
@@ -466,16 +481,19 @@
 
 - [ ] **4. 何时可以合并**
 
-  PR 可以合并的条件（全部满足）：
+  PR 可以合并的共同条件：
 
-  - [ ] 所有 `Request Changes` 已解决
-  - [ ] 至少一个 Reviewer 点了 `Approve`
-  - [ ] 所有 CI 检查通过（如果有配置）
-  - [ ] 没有合并冲突
-  - [ ] 需要 Owner 验收的 PR，Owner 已确认
-  - [ ] PR 描述完整（变更范围、回滚方法都有）
+  - [ ] 所有有效 `Request Changes` 和 Review Conversation 已处理
+  - [ ] 适用的 CI 检查全部成功，明确绑定本次最终 HEAD 或试合并 tree
+  - [ ] 无合并冲突；目标分支与预期 HEAD/tree 已复核
+  - [ ] 需要 Owner 验收的 PR，Owner 已确认，并记录代码与真实发布的授权边界
+  - [ ] PR 描述完整（改动、测试、安全、回滚、范围）
 
-  **满足条件后，由 Maintainer 执行合并。PR 作者自己不能合并自己的 PR。**
+  **独立审批条件按目标分支与风险确定**：
+  - `main` 与高风险变更：仍需至少一名非作者 GitHub Reviewer 在最新 HEAD 上正式 `Approve`；普通作者不得自行合并。
+  - `feature/hbos-portal-product` 的低中风险、未进入生产的隔离候选：Owner 可以按照 §10.10 凭独立技术审查及明确的 PR Owner 决定自任作者执行 Squash Merge，不要求伪造/补造 GitHub Approve。
+
+  以上两条不可交叉借用；Owner 自主合并不豁免 CI，也不授权真实用户、数据或模型分发。
 
 ### 6.2 审查期间的礼仪
 
@@ -498,13 +516,14 @@
   git pull origin main
   ```
 
-- [ ] **2. 在 Docker 中执行 migrate**
+- [ ] **2. 在 Docker 中执行 migrate（仅 main 维护 / 你自己的本地开发 site）**
 
   ```bash
-  docker compose exec backend bash -c "bench --site frontend migrate"
+  # ⚠️ 仅限 main 维护或你自己的本地开发 site；**不要**对共享 / UAT / 真实 Site 执行
+  docker compose exec backend bash -c "bench --site <你的本地开发 site> migrate"
   ```
 
-  这一步确保你本地数据库与最新代码一致。
+  这一步确保**你本地**数据库与最新代码一致。Portal / 领域开发不适用本节流程。
 
 - [ ] **3. 验证环境正常**
 
@@ -857,7 +876,7 @@ git push -u origin hotfix/紧急修复描述
 | 做什么 | 命令 |
 |--------|------|
 | 健康检查 | `bench doctor` |
-| 数据库迁移 | `bench --site frontend migrate` |
+| 数据库迁移（**仅本地开发 site**） | `bench --site <你的本地开发 site> migrate` |
 | 构建前端 | `bench build` |
 | 清除缓存 | `bench --site frontend clear-cache` |
 | 重启服务 | `bench restart` |
@@ -872,12 +891,15 @@ git push -u origin hotfix/紧急修复描述
 ### 11.4 常用组合命令（复制粘贴用）
 
 ```bash
-# 开始一天工作
+# 开始一天工作（main 维护）
 cd "$HBOS_HOME"     # 使用上面定义的 HBOS_HOME
 docker compose up -d
 docker compose ps
-git checkout main && git pull origin main
-docker compose exec backend bash -c "bench --site frontend migrate"
+git status --short                       # 先看有没有未提交改动
+git fetch origin
+# ⚠️ 不要在这里无条件 checkout main / pull / migrate：
+#    Portal / 领域开发请基于 origin/feature/hbos-portal-product 建短期分支，
+#    并只在隔离环境验证（见文首 2026-10-10 覆盖规则）。
 
 # 开始新功能
 git checkout main && git pull origin main
@@ -887,7 +909,9 @@ git checkout -b feature/功能名
 git add .
 git commit -m "feat: 功能描述"
 git push
-docker compose exec backend bash -c "bench --site frontend migrate && bench restart"
+# migrate 仅在改动了 DocType / fixtures / patches 时，且只对本地开发 site 执行：
+# docker compose exec backend bash -c "bench --site <你的本地开发 site> migrate"
+docker compose exec backend bash -c "bench restart"
 
 # 改完 JS/CSS 后的操作
 git add .
@@ -933,12 +957,12 @@ docker compose ps
 
 ### 10.1 分支与合并规则
 
-> 以下规则已通过 GitHub 仓库设置强制执行，违反操作将被 GitHub 拒绝。
+> 本节 G1D 记录 `main` 的严格治理基线；部分规则由 GitHub 强制，部分由仓库文档约束。2026-10-10 新增的产品开发分支 Owner 自主合并仅见 §10.10，不修改 `main` 保护规则。
 
 | 规则 | 要求 |
 |------|------|
 | 合并方式 | 仅允许 **Squash Merge**（Merge Commit 和 Rebase Merge 已关闭） |
-| 合并后分支 | **自动删除**已合并的功能分支 |
+| 合并后分支 | 仓库默认**自动删除**已合并功能分支；有 Owner 指定保留来源的需求须先建立安全保留措施，并在合并后核验 |
 | 直接 push main | **禁止**（所有成员，包括 Write 权限） |
 | force push main | **禁止** |
 | 删除 main 分支 | **禁止** |
@@ -1024,7 +1048,7 @@ Owner 保留仓库管理权限，但**仅限以下场景**：
 | 严重安全事件 | 密钥泄露需立即回滚 |
 | 门禁自身失效 | Ruleset 配置错误阻止合法操作 |
 
-**日常开发不得绕过 PR、Review 和 CI 流程。** 每次使用应急权限必须：
+**日常开发不得绕过 PR、适用的审查和 CI 流程。** §10.10 的产品分支 Owner 自主合并是正式审批路径，不属于此处 Break-glass。每次使用应急权限必须：
 
 1. 记录时间、原因、操作内容
 2. 追加到 `docs/team/audits/` 目录下的审计报告
@@ -1049,9 +1073,25 @@ Owner 保留仓库管理权限，但**仅限以下场景**：
 
 ---
 
+
+### 10.10 Owner 自主合并：产品开发分支（2026-10-10 生效）
+
+适用边界：仅 `feature/hbos-portal-product` 上的**低中风险、非生产发布** PR。Owner 可以作为 PR 作者执行 Squash Merge，但必须在该 PR Conversation 中给出当次明确决定，记录固定 base/head、独立技术审查结论、CI/风险、合并范围和禁止的发布动作。Owner 自主合并 **不是** GitHub 的 `Approve`，不得虚构他人审查记录。
+
+1. 合并前必须有独立技术审查及已关闭的阻断项；核对最新 HEAD 的测试、CI、适用安全检查和必要的合成运行证据。不得合并未解决的 `Request Changes`，不得冒用过期 CI 或试合并提交充当实际 squash。
+2. `main` 永远按 §10.2 的非作者 GitHub `Approve` 门禁；涉及正式登录身份、IAM、角色/Grant、敏感数据导出、业务关键写入、实际分发/发布、重要数据库迁移、安全门禁削弱等高风险变更，继续要求非作者人工审查；不明确的风险按高风险处理。
+3. 合并只改变目标代码分支；不构成生产 Site/容器更新，不给员工授予模型或知识资料访问权，不批准工程语义真实性，不允许更改 P1、真实权限或知识服务运行环境。
+4. 若 Owner 指定保留来源分支，合并前须在已核固定 HEAD 建立可追溯的留存引用或防删除配置；合并后核实原来源 ref，自动删除时从同 SHA 安全恢复并再次核验。不得静默清理来源、模型或证据。
+5. 采用 GitHub Squash Merge，核对正确 PR / base / head，合并后记录实际 squash commit、parent、tree、post-merge CI 与该 SHA 绑定的新制品。若仓库规则要求更多条件，以更严格者为准。
+6. 现有 PR 如已请求非作者审查，可以记录 Owner 改用自主合并路径；无需把未发生的 GitHub `Approve` 记为通过。Reviewer 独立意见可继续保留，但非必须。
+
+**首个适用案例**：Twin V1 PR #31（隔离、合成身份、私有资产评审候选）的**代码合入产品分支**。Owner 于 2026-10-10 明确决定采用此路径；前提是独立 R01 修复复审已通过、最终 CI 通过、不放宽已封存的真实资产权限。Owner 最终视觉、实际用户授权、资产真实分发、知识真实检索、安装、部署和发布仍然各自待批准。
+
+---
+
 > **文档维护者**：HBOS 开发团队
 > **创建日期**：2026-07-14
-> **最后更新**：2026-07-17（G1D-A 多人协作治理生效）
+> **最后更新**：2026-10-10（保留 main 严格门禁；增加产品分支 Owner 自主合并）
 > **相关文档**：
 > - `03_Git与GitHub多人协作规范.md`
 > - `06_Frappe自定义内容与数据库迁移规范.md`
