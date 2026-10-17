@@ -144,19 +144,24 @@ def attendance():
     assert status==200 and prefix+'-EMP-A' in text and prefix+'-EMP-B' not in text, 'Fresh HTTP native Employee scope prerequisite'
     print('[OWNER-AUDIT] prepared-prerequisites='+json.dumps(dict(identity=True,employee_a_visible=True,employee_b_hidden=True)))
     export_checks=[]
+    failures=[]
     reports=['月度考勤汇总','打卡流水','考勤结果','HBOS 月度汇总暂存（对账）']
     # Real native export endpoint must re-enter the same pre-SQL gate.
     # Keep background export disabled, so no queued mail/external dispatch occurs.
     for name in reports:
         assert frappe.db.exists('Report',name), 'Unexpected attendance Report fixture '+name
         status,_,text=client.call('frappe.desk.query_report.export_query',dict(report_name=name,filters='{}',file_format_type='CSV',export_in_background=0),post=True)
-        assert status==403 and marker not in text, 'Restricted native export must deny before data'
+        if status!=403 or marker in text: failures.append(dict(case='native_export',report=name,http=status,leaked=marker in text))
         export_checks.append(dict(report=name,http=status))
+    status,_,text=client.call('frappe.core.doctype.prepared_report.prepared_report.download_attachment',dict(dn=prepared))
+    leaked_attachment=marker in text
+    print('[OWNER-AUDIT] native-prepared-download='+json.dumps(dict(http=status,leaked=leaked_attachment)))
+    if status not in (403,417) or leaked_attachment: failures.append(dict(case='native_prepared_download',http=status,leaked=leaked_attachment))
     prepared_enabled=bool(frappe.db.get_value('Report',report,'prepared_report'))
     status,_,text=client.call('frappe.desk.query_report.run',dict(report_name=report,filters=json.dumps(dict(prepared_report_name=prepared)),ignore_prepared_report=0))
     leaked_query=marker in text
     print('[OWNER-AUDIT] native-prepared-query='+json.dumps(dict(report=report,prepared_enabled=prepared_enabled,http=status,leaked=leaked_query)))
-    assert status==403 and not leaked_query, 'Restricted HR native cached report query must deny'
+    if status!=403 or leaked_query: failures.append(dict(case='native_prepared_query',http=status,leaked=leaked_query))
     print('[OWNER-AUDIT] native-exports='+json.dumps(export_checks))
     # Download cached output generated before restriction, without executing SQL again.
     try:
@@ -168,7 +173,8 @@ def attendance():
     assert status in (200,403), 'Unexpected attachment HTTP status '+str(status)
     leaked=marker.encode() in gzip.decompress(body) if status==200 else False
     print('[OWNER-AUDIT] '+json.dumps(dict(case='prepared_report_file_after_scope_revocation',http=status,leaked=leaked)))
-    assert not leaked, 'Restricted HR can download stale all-employee Prepared Report attachment'
+    if leaked: failures.append(dict(case='private_file_download',http=status,leaked=leaked))
+    assert not failures, 'Native attendance boundary failures: '+json.dumps(failures)
     return dict(ok=True)
 
 def inventory():
