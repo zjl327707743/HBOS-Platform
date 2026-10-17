@@ -1,7 +1,7 @@
 <template>
   <AccountLayout title="登录 HBOS" eyebrow="企业内部使用" description="使用本人飞书或已有账号密码，进入海滨工作台。">
     <a-alert v-if="callbackMessage" :type="callbackTone" show-icon :message="callbackMessage" role="alert" />
-    <template v-if="authenticated"><a-alert message="登录已完成，工作台暂未加载。请重试加载，无需再次输入密码。" type="info" show-icon role="status" /><a-button size="large" type="primary" block :loading="submitting" @click="resumeWorkspace">重试加载工作台</a-button></template>
+    <template v-if="authenticated"><a-alert :message="submitting ? '登录已完成，正在加载工作台…' : '登录已完成，工作台暂未加载。请重试加载，无需再次输入密码。'" type="info" show-icon role="status" /><a-button v-if="!submitting" size="large" type="primary" block @click="resumeWorkspace">重试加载工作台</a-button></template>
     <template v-else>
       <a-skeleton v-if="loading" active :paragraph="{rows:1}" />
       <template v-else><a-button size="large" type="primary" block :disabled="submitting || !status?.configured || Boolean(statusError)" @click="beginFeishuLogin"><MessageOutlined /> 使用飞书登录</a-button><p v-if="status?.configured && !statusError" class="account-meta">已启用企业成员登录，新成员可按授权自动开通普通账号。</p><a-alert v-else-if="statusError" :message="statusError" type="warning" show-icon /><p v-else class="account-meta">飞书入口暂不可用，您仍可使用已有账号密码。</p><a-button v-if="statusError" @click="loadStatus">重试读取登录方式</a-button></template>
