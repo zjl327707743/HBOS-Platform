@@ -1,4 +1,12 @@
-# 2026-10-18 Owner 云端集成：仓储物料只读候选
+# 2026-10-18 Owner 业务集成：首个完整业务已合并
+
+**#42 考勤已实际 Squash Merge** 到唯一产品分支 `feature/hbos-portal-product`。新产品提交为 `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8`，父提交为 `45658fe4b84d8fb7dd4433c459aa30572e0d13d3`，树为 `31097c5f9e6f245ecbaca779643c421a4458bee8`；与已审批、已测试的真实组合相符。来源 `5780924fb000c869ddf7e23afa76e2f95fe15ea8` 保存在 `archive/owner-r3-pr42-5780924-20261018`。
+
+证据：[实际 PR #42](https://github.com/zjl327707743/HBOS-Platform/pull/42)、[当前来源 Owner 审批](https://github.com/zjl327707743/HBOS-Platform/pull/42#pullrequestreview-5561462238)、[原生权限与导出补充验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39097688048/job/117587422856)。批次最终审批由 Owner 承担，依据 [本批次正式裁定](governance/HBOS_Owner_业务集成批次裁定_20261018.md) 执行，不伪造另一位人工审批，也不减免技术门禁。
+
+后续以每次合并后的真实产品 HEAD 顺序验证 #46 生产、#39 仓储，#43 LIMS 独立增量后置。#55 物料只读子范围此前已合并；完整仓储不能据此算作完成。生产原生服务链、仓储库存账务和质检放行各以当前来源 SHA 的实际运行结果为准。历史环境验收不等于本轮部署；本轮仅使用远端源码与新建的云端合成 Site。
+
+## 历史记录：2026-10-18 仓储物料只读候选
 
 本轮从 #39 固定 HEAD `136e90dc102cc40d294650b8f463ac2e709c92cb` 单独提取物料浏览，使用已有 Portal Shell、原批准主从页面和 Frappe Item 原生 ACL。候选新增列表/搜索/详情与深链，保留库存原 Desk 默认入口；不携带 SQL 报表、二维码、附件导出、库存写入、调账、放行、角色或 Schema 修改。
 

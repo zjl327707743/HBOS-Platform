@@ -9,6 +9,8 @@ import ForbiddenView from '@/views/ForbiddenView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import LimsHomeView from '@/views/LimsHomeView.vue'
 import LimsResultReviewView from '@/views/LimsResultReviewView.vue'
+import ProductionLayout from '@/components/layout/ProductionLayout.vue'
+import ProductionDashboardView from '@/views/ProductionDashboardView.vue'
 
 const KnowledgeTwinLayout = () => import('@/components/layout/KnowledgeTwinLayout.vue')
 const KnowledgeView = () => import('@/views/KnowledgeView.vue')
@@ -87,6 +89,17 @@ const router = createRouter({
       component: KnowledgeTwinLayout,
       children: [
         { path: '', name: 'twin', component: TwinView, meta: { title: '设备与工艺' } },
+      ],
+    },
+    {
+      // 生产看板：Portal SPA 原生页。数据**不直连**外部服务 ——
+      // 走受控后端 hbos_portal.api.production.*（会话 + 应用权限 + 服务间令牌）。
+      // 无权限时后端拒绝，页面渲染「未接入」态，不显示任何数字。
+      path: '/hbos/production',
+      component: ProductionLayout,
+      children: [
+        { path: '', name: 'production-baseline', component: ProductionDashboardView, meta: { title: '生产看板' } },
+        { path: 'center', name: 'production-center', component: ProductionDashboardView, meta: { title: '生产管理中心看板' } },
       ],
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: { title: '页面不存在' } },
