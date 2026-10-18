@@ -25,4 +25,4 @@ def list_departments(view_group="daily", **kwargs):
             if row.company:
                 companies.add(row.company)
         return {"groups_available": grouped, "items": items, "companies": [{"id": name, "name": name} for name in sorted(companies)]}
-    return _call(load)
+    return _call(load, read_only=True)

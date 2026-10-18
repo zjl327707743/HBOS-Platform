@@ -40,3 +40,7 @@
 2b9678c 运行源码上，两独立 HTTP 主体各12次并行读取（本人考勤 / 本部门默认配置），员工12次200，管理员12次409；停止并行后同配置连续3次200。原生服务函数单独执行也通过。这证明并行路径事务冲突，不据此认定 Owner 原 Safari 问题的唯一根因。
 
 追加最小文件 `apps/hbos_portal/hbos_portal/api/iam_people.py`：其四个固定 GET people 函数调用同一 `policy.current_read`；写入方法完全不重试。api/iam_access 的 load 查询与 personal 的纯读取使用最多3次事务重试，只捕获原生 QueryDeadlockError/QueryTimeoutError，回滚后重新执行原有身份/范围检查，25ms/125ms有界退避。最终仍冲突返回409，个人页显示中文重试原因；不重放任何保存、调岗、开户、proof或口令命令。
+
+## 补充：部门列表同一只读接缝
+
+4d4ed62 上补测员工本人读取与管理员 `iam_departments.list_departments` 并行，各12次；员工12次200，部门列表12次409。该列表仍调用未启用重试的 `_call(load)`。追加确切文件 `apps/hbos_portal/hbos_portal/api/iam_departments.py`，只将这一纯读取闭包接入同一 `read_only=True`；成员/数量仍在重试内重新鉴权，不重用上次行。测试补充“回滚后部门委托已撤销则403、不可返回旧成员”及有界失败；不改变任何写入命令。

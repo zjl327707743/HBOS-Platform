@@ -489,3 +489,40 @@ class IAMCurrentReadAPITest(unittest.TestCase):
         self.assertEqual(department['member_count'], 1)
         self.assertEqual(department['members'][0]['account_status'], 'disabled')
         self.assertNotIn('EMP-002', json.dumps(result))
+
+
+    def test_department_list_retries_entire_scoped_read_after_deadlock(self):
+        current = self.departments_api._current_employees
+        calls = 0
+        def transient(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise self.fake.QueryDeadlockError('synthetic read conflict')
+            return current(*args, **kwargs)
+        with patch.object(self.departments_api, '_current_employees', side_effect=transient), patch('time.sleep'):
+            result = self.departments_api.list_departments()
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(calls, 2)
+        self.assertEqual(result['data']['items'][0]['member_count'], 1)
+
+    def test_department_list_conflict_then_revocation_cannot_return_prior_members(self):
+        current = self.departments_api._current_employees
+        def withdraw(*args, **kwargs):
+            current(*args, **kwargs)  # Rows existed in the discarded transaction.
+            self.db.policies['User-manager'].rules = []
+            raise self.fake.QueryDeadlockError('synthetic read conflict')
+        with patch.object(self.departments_api, '_current_employees', side_effect=withdraw), patch('time.sleep'):
+            result = self.departments_api.list_departments()
+        self.assertFalse(result['ok'])
+        self.assertEqual(self.fake.local.response['http_status_code'], 403)
+        self.assertNotIn('data', result)
+        self.assertNotIn('EMP-001', json.dumps(result))
+
+    def test_department_list_exhausted_conflict_is_bounded_and_read_classified(self):
+        with patch.object(self.departments_api, '_current_employees', side_effect=self.fake.QueryDeadlockError('private database detail')) as read, patch('time.sleep'):
+            result = self.departments_api.list_departments()
+        self.assertEqual(read.call_count, 3)
+        self.assertEqual(result['error']['code'], 'READ_CONFLICT')
+        self.assertEqual(self.fake.local.response['http_status_code'], 409)
+        self.assertNotIn('private database detail', str(result))
