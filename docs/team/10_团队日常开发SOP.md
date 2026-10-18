@@ -5,6 +5,8 @@
 > - `03_Git与GitHub多人协作规范.md`（分支、提交、PR 规则）
 > - `12_常用Git与Docker命令解释.md`（每条命令的含义）
 > **目的**：把"每天从上班到下班"的每一步都写成清单，跟着做就行。
+>
+> **2026-10-10 Portal 并行开发覆盖规则（优先于本文旧的 main / migrate 指令）**：当前 Portal 业务工作以 `feature/hbos-portal-product` 为基线，运行前须读取 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md`；本文 §1.1 的 `git checkout main && git pull main` 不适用于 Portal 工作。也**不得**因拉取了代码就自动在现有开发/UAT/真实 Site 执行 `bench migrate`、重建 Docker 或覆盖数据库。应先 `git status --short`、`git fetch origin`，在隔离 worktree 验证并取得明确的环境变更授权。下方历史示例保留为 main 维护参考。
 
 ---
 
@@ -50,13 +52,18 @@
   如果提示 `Already up to date`，说明你的本地代码已经是最新的。
   如果拉下来新代码，记一下有哪些文件变了（`git log --oneline -5` 看一眼）。
 
-- [ ] **4. 如果拉了新代码，执行 migrate**
+- [ ] **4. 换了新代码后是否 migrate：只在含 DocType / Patch 变更、且目标是你自己的本地开发 site 时才做**
 
   ```bash
-  docker compose exec backend bash -c "bench --site frontend migrate"
+  # 把 <你的本地开发 site> 换成本地开发 site；**不要**填 frontend 等共享 / UAT / 真实 Site
+  docker compose exec backend bash -c "bench --site <你的本地开发 site> migrate"
   ```
 
-  因为新代码可能包含 DocType 变更或 Patch，必须 migrate 才能生效。
+  新代码若包含 DocType 变更或 Patch，migrate 后才会在本地生效。
+
+  ⚠️ **禁止**因拉取代码就对现有开发 / UAT / 真实 Site 自动执行 migrate
+  （见文首「2026-10-10 Portal 并行开发覆盖规则」）。Portal / 领域开发请在
+  隔离 worktree + 隔离 Site 验证，并取得明确的环境变更授权后再谈 migrate。
 
 - [ ] **5. 查看 GitHub 上有没有新的 PR 需要审查**
 
@@ -205,13 +212,16 @@
   | 数据查询 | 在 Frappe Desk 中查看报表，确认数据正确 |
   | 页面 UI | 检查页面加载、布局、按钮是否正常 |
 
-- [ ] **6. 修改 DocType 后执行 migrate**
+- [ ] **6. 修改 DocType 后，只在你自己的本地开发 site 执行 migrate**
 
   ```bash
-  docker compose exec backend bash -c "bench --site frontend migrate"
+  # ⚠️ 目标只能是你自己的本地开发 site；**不要**填 frontend 等共享 / UAT / 真实 Site
+  docker compose exec backend bash -c "bench --site <你的本地开发 site> migrate"
   ```
 
-  改了 DocType 的 JSON 文件（加字段、改字段类型、改权限）后必须 migrate。
+  改了 DocType 的 JSON 文件（加字段、改字段类型、改权限）后，**本地开发 site**
+  需要 migrate 才会生效。共享 / UAT / 真实 Site 的结构变更须走独立授权与变更窗口，
+  不得随手 migrate。
 
 - [ ] **7. 修改 Python 文件后重启 backend**
 
@@ -249,6 +259,9 @@
 | 改 docker-compose.yml | ✅ | ✅ | ✅ |
 | 改 .env | ✅ | ✅ | ✅ |
 
+> ⚠️ 上表「需要 migrate」指的是**你自己的本地开发 site**。共享 / UAT / 真实 Site
+> 不得因拉代码或改 DocType 自动 migrate（见文首 2026-10-10 覆盖规则）。
+
 ### 3.3 开发中常见问题
 
 **问：我改完代码，浏览器里看不到变化？**
@@ -256,7 +269,7 @@
 先判断改了什么类型的文件：
 - 改 Python → 重启 backend
 - 改 JS/CSS → bench build + clear-cache
-- 改 DocType → bench migrate
+- 改 DocType → bench migrate（**仅本地开发 site**；共享 / 真实 Site 见文首覆盖规则）
 - 改文档 → 不需要在浏览器看
 
 **问：migrate 报错了怎么办？**
@@ -503,13 +516,14 @@
   git pull origin main
   ```
 
-- [ ] **2. 在 Docker 中执行 migrate**
+- [ ] **2. 在 Docker 中执行 migrate（仅 main 维护 / 你自己的本地开发 site）**
 
   ```bash
-  docker compose exec backend bash -c "bench --site frontend migrate"
+  # ⚠️ 仅限 main 维护或你自己的本地开发 site；**不要**对共享 / UAT / 真实 Site 执行
+  docker compose exec backend bash -c "bench --site <你的本地开发 site> migrate"
   ```
 
-  这一步确保你本地数据库与最新代码一致。
+  这一步确保**你本地**数据库与最新代码一致。Portal / 领域开发不适用本节流程。
 
 - [ ] **3. 验证环境正常**
 
@@ -862,7 +876,7 @@ git push -u origin hotfix/紧急修复描述
 | 做什么 | 命令 |
 |--------|------|
 | 健康检查 | `bench doctor` |
-| 数据库迁移 | `bench --site frontend migrate` |
+| 数据库迁移（**仅本地开发 site**） | `bench --site <你的本地开发 site> migrate` |
 | 构建前端 | `bench build` |
 | 清除缓存 | `bench --site frontend clear-cache` |
 | 重启服务 | `bench restart` |
@@ -877,12 +891,15 @@ git push -u origin hotfix/紧急修复描述
 ### 11.4 常用组合命令（复制粘贴用）
 
 ```bash
-# 开始一天工作
+# 开始一天工作（main 维护）
 cd "$HBOS_HOME"     # 使用上面定义的 HBOS_HOME
 docker compose up -d
 docker compose ps
-git checkout main && git pull origin main
-docker compose exec backend bash -c "bench --site frontend migrate"
+git status --short                       # 先看有没有未提交改动
+git fetch origin
+# ⚠️ 不要在这里无条件 checkout main / pull / migrate：
+#    Portal / 领域开发请基于 origin/feature/hbos-portal-product 建短期分支，
+#    并只在隔离环境验证（见文首 2026-10-10 覆盖规则）。
 
 # 开始新功能
 git checkout main && git pull origin main
@@ -892,7 +909,9 @@ git checkout -b feature/功能名
 git add .
 git commit -m "feat: 功能描述"
 git push
-docker compose exec backend bash -c "bench --site frontend migrate && bench restart"
+# migrate 仅在改动了 DocType / fixtures / patches 时，且只对本地开发 site 执行：
+# docker compose exec backend bash -c "bench --site <你的本地开发 site> migrate"
+docker compose exec backend bash -c "bench restart"
 
 # 改完 JS/CSS 后的操作
 git add .

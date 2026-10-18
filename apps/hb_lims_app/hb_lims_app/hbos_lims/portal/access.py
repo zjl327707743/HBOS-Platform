@@ -43,10 +43,12 @@ def build_access_context(user: str | None, roles: Sequence[str] | None) -> dict[
         capabilities.extend((RESULTS_READ_CAPABILITY, LEDGER_READ_CAPABILITY))
     if is_break_glass or role_set.intersection({wf.ROLE_ANALYST, wf.ROLE_REVIEWER, wf.ROLE_LIMS_QA, wf.ROLE_MANAGER, wf.ROLE_SYSTEM}):
         capabilities.append(RETENTION_READ_CAPABILITY)
-    if is_break_glass or role_set.intersection({wf.ROLE_ANALYST, wf.ROLE_MANAGER}):
+    if wf.user_action_allowed("submit_result", normalized_user, role_set):
         capabilities.append(RESULTS_SUBMIT_CAPABILITY)
-    if is_break_glass or role_set.intersection({wf.ROLE_REVIEWER, wf.ROLE_MANAGER}):
-        capabilities.extend((RESULTS_REVIEW_CAPABILITY, RESULTS_APPROVE_CAPABILITY))
+    if wf.user_action_allowed("review_result", normalized_user, role_set):
+        capabilities.append(RESULTS_REVIEW_CAPABILITY)
+    if wf.user_action_allowed("approve_result", normalized_user, role_set):
+        capabilities.append(RESULTS_APPROVE_CAPABILITY)
     if (
         is_break_glass
         or role_set.intersection({wf.ROLE_REVIEWER, wf.ROLE_MANAGER, wf.ROLE_SYSTEM})

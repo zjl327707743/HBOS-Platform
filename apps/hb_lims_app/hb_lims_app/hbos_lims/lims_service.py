@@ -52,7 +52,7 @@ def _signature(meaning):
 
 def _check_action(action):
 	roles = frappe.get_roles(_user())
-	if not any(wf.action_allowed(action, role) for role in roles):
+	if not wf.user_action_allowed(action, _user(), roles):
 		frappe.throw(f"当前用户（{_user()}）没有执行「{action}」的权限。")
 
 
@@ -970,6 +970,9 @@ def publish_coa(coa_name):
 						action_text="COA 发布违反职责分离",
 						reason="审核人同为 {}".format(coa.qa_reviewer))
 
+		coa.report_status = "已发布"
+		coa.published_by = _user()
+		coa.published_at = _now()
 		# 生成 PDF（直接渲染 Print Format 模板，绕开 website 渲染管线；中文支持）
 		html = _coa_print_html(coa)
 		pdf = frappe.utils.pdf.get_pdf(html)
@@ -988,9 +991,6 @@ def publish_coa(coa_name):
 
 		coa.content_fingerprint = _coa_content_fingerprint(coa)
 		coa.pdf_attachment = file_doc.file_url
-		coa.report_status = "已发布"
-		coa.published_by = _user()
-		coa.published_at = _now()
 		coa.flags.allow_system_fields = True
 		coa.save(ignore_permissions=True)
 		_commit()

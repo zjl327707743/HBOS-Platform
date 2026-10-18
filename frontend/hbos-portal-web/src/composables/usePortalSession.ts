@@ -20,11 +20,11 @@ export function usePortalSession() {
   const resume = () => { if (document.visibilityState !== 'hidden') void synchronize() }
   async function runCheck(): Promise<boolean> {
     sessionError.value = null
-    if (/^\/hbos\/(lims|knowledge|twin)(?:\/|$)/.test(route.path)) sessionPending.value = true
+    if (/^\/hbos\/(lims|knowledge|twin|inventory|production)(?:\/|$)/.test(route.path)) sessionPending.value = true
     try {
       await portal.bootstrap()
       if (disposed) return false
-      const app = route.path.match(/^\/hbos\/(lims|knowledge|twin)(?:\/|$)/)?.[1]
+      const app = route.path.match(/^\/hbos\/(lims|knowledge|twin|inventory|production)(?:\/|$)/)?.[1]
       if (app && !portal.apps.some(candidate => candidate.id === app)) {
         await router.replace({ path: '/hbos/403', query: { app } })
         return false
@@ -32,7 +32,7 @@ export function usePortalSession() {
       return true
     } catch (error) {
       if (disposed) return false
-      if (isUnauthenticatedError(error)) {
+      if (isUnauthenticatedError(error) && portal.bootstrapErrorStatus !== 403) {
         const redirectTo = safeRedirectTarget(route.fullPath)
         portal.clearSession()
         await router.replace({

@@ -36,6 +36,7 @@
         </div>
       </button>
     </div>
+    <a-button v-if="apps.some(app => app.id === 'inventory')" type="link" @click="$router.push('/hbos/inventory/item')">仓储 · 物料只读浏览 <RightOutlined /></a-button>
   </section>
 </template>
 
@@ -53,7 +54,7 @@ import { openBusinessRoute } from '@/services/businessNavigation'
 const props = defineProps<{ apps: AppManifestDTO[] }>()
 const router = useRouter()
 
-const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'equipment', 'twin']
+const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'equipment', 'twin', 'production']
 const primaryApps = computed(() => props.apps
   .filter((app) => appOrder.includes(app.id))
   .sort((left, right) => appOrder.indexOf(left.id) - appOrder.indexOf(right.id)))

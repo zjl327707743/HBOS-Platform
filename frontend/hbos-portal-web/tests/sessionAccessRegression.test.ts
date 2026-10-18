@@ -19,7 +19,7 @@ async function render(path: string) {
 }
 beforeEach(() => provider.getPortalData.mockResolvedValue(data(['knowledge'])))
 afterEach(() => { wrapper?.unmount(); wrapper = undefined })
-it.each(['lims','knowledge','twin'])('E01/F08: a protected %s deep link rejects an application absent from the authorized manifest', async app => {
+it.each(['lims','knowledge','twin','production'])('E01/F08: a protected %s deep link rejects an application absent from the authorized manifest', async app => {
   provider.getPortalData.mockResolvedValue(data([]))
   const {router} = await render('/hbos/'+app)
   expect(router.currentRoute.value.path).toBe('/hbos/403')
@@ -30,8 +30,9 @@ it('F08: an authorized application deep link remains available', async () => {
   expect(router.currentRoute.value.path).toBe('/hbos/knowledge')
   expect(wrapper.text()).toContain('Protected application content')
 })
-it('A07: resuming hides old protected content while account authorization is checked again', async () => {
-  const {router,wrapper} = await render('/hbos/knowledge')
+it.each(['knowledge', 'production'])('A07: resuming %s hides old protected content while account authorization is checked again', async app => {
+  provider.getPortalData.mockResolvedValue(data([app]))
+  const {router,wrapper} = await render('/hbos/'+app)
   let resolve!: (value: unknown) => void
   provider.getPortalData.mockReturnValue(new Promise(r => {resolve=r}))
   window.dispatchEvent(new Event('focus')); await flushPromises()

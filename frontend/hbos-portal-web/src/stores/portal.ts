@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { clearFrappeCsrfToken, FrappeHttpError, hasFrappeSession } from '@/services/frappeClient'
 import {
   getPortalData,
   getPortalSummaries,
@@ -8,7 +9,7 @@ import {
 } from '@/services/portalProvider'
 import { getTwinManifest, getTwinStatus } from '@/services/p1Api'
 import { portalErrorMessage, providerFailureMessage } from '@/services/portalErrors'
-import { isAuthError, login, logout, clearCachedCsrfToken } from '@/services/frappeClient'
+import { isAuthError, login, logout } from '@/services/frappeClient'
 import type {
   AppManifestDTO,
   BusinessPulseDTO,
@@ -19,6 +20,31 @@ import type {
   TwinStatusDTO,
   UnifiedTaskDTO,
 } from '@/contracts/portal'
+
+/**
+ * 把底层 HTTP 异常翻成用户语义。
+ *
+ * 只有 frappe 数据源才会走到 401/403——mock 模式不发请求。
+ *
+ * Frappe 对「未登录访客」与「已登录但无权」都返回 403，**同码不同因**，
+ * 所以这里先用会话探针分辨成因，再把「无会话」归一化成 401：
+ * 会话失效要引导重新登录，会话有效而进不去才是真的无权限。两者给用户的
+ * 下一步动作完全不同，不能共用一句文案。
+ */
+async function describeBootstrapError(error: unknown): Promise<{ status: number; message: string }> {
+  if (portalDataSource !== 'frappe' || !(error instanceof FrappeHttpError)) {
+    return { status: 0, message: 'HBOS 初始化失败，请稍后重试。' }
+  }
+
+  if (error.status === 403 || error.status === 401) {
+    if (!(await hasFrappeSession())) {
+      return { status: 401, message: '当前会话已失效，请重新登录 HBOS 后再打开工作台。' }
+    }
+    return { status: 403, message: '你没有权限进入这个应用。若你认为这是配置错误，请联系业务管理员。' }
+  }
+
+  return { status: error.status, message: 'HBOS 服务暂时不可用，请稍后重试。' }
+}
 
 export const usePortalStore = defineStore('portal', () => {
   const user = ref<PortalUser | null>(null)
@@ -39,6 +65,7 @@ export const usePortalStore = defineStore('portal', () => {
   const bootstrapError = ref<string | null>(null)
   const summariesError = ref<string | null>(null)
   const tasksError = ref<string | null>(null)
+  const bootstrapErrorStatus = ref<number>(0)
   const dataSource = ref(portalDataSource)
   const authenticated = ref(false)
   const sessionChecked = ref(false)
@@ -60,7 +87,7 @@ export const usePortalStore = defineStore('portal', () => {
     checkedAt = 0
     authenticated.value = false
     sessionChecked.value = false
-    clearCachedCsrfToken()
+    clearFrappeCsrfToken()
     user.value = null
     branding.value = null
     apps.value = []
@@ -75,6 +102,7 @@ export const usePortalStore = defineStore('portal', () => {
     limsQueue.value = []
     bootstrapError.value = summariesError.value = tasksError.value = null
     loading.value = summariesLoading.value = tasksLoading.value = false
+    bootstrapErrorStatus.value = 0
   }
 
   /** 远端账号/知识/孪生页面沿用的命名，语义等同 markSignedOut。 */
@@ -82,16 +110,17 @@ export const usePortalStore = defineStore('portal', () => {
 
   async function bootstrap() {
     if (bootstrapRequest) return bootstrapRequest
-    const current = generation
+    let current = generation
     loading.value = true
     bootstrapError.value = null
+    bootstrapErrorStatus.value = 0
     const request = (async () => {
       try {
         const data = await getPortalData()
         if (current !== generation) return
         if (user.value?.id && data.user?.id && user.value.id !== data.user.id) {
           markSignedOut()
-          return
+          current = generation
         }
         user.value = data.user
         branding.value = data.branding
@@ -111,14 +140,14 @@ export const usePortalStore = defineStore('portal', () => {
           void refreshTwinOverview()
         }
       } catch (error) {
-        if (current === generation) {
-          if (isAuthError(error)) markSignedOut()
-          else {
-            authenticated.value = false
-            sessionChecked.value = false
-            bootstrapError.value = portalErrorMessage(error, 'HBOS 初始化失败，请稍后重试。')
-          }
-        }
+        if (current !== generation) return
+        const described = await describeBootstrapError(error)
+        if (current !== generation) return
+        if (isAuthError(error) && described.status !== 403) markSignedOut()
+        authenticated.value = false
+        sessionChecked.value = false
+        bootstrapErrorStatus.value = described.status
+        bootstrapError.value = portalErrorMessage(error, described.message)
         throw error
       } finally {
         if (current === generation) loading.value = false
@@ -143,7 +172,9 @@ export const usePortalStore = defineStore('portal', () => {
       return authenticated.value
     } catch (error) {
       // 服务不可用时允许进入错误壳，但不能把未知会话标记成已认证。
-      return current === generation && Boolean(bootstrapError.value) && !isAuthError(error)
+      return current === generation && Boolean(bootstrapError.value)
+        && bootstrapErrorStatus.value !== 401
+        && (!isAuthError(error) || bootstrapErrorStatus.value === 403)
     }
   }
 
@@ -333,6 +364,7 @@ export const usePortalStore = defineStore('portal', () => {
     bootstrapError,
     summariesError,
     tasksError,
+    bootstrapErrorStatus,
     dataSource,
     authenticated,
     sessionChecked,

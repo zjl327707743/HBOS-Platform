@@ -1,6 +1,34 @@
 # AI Context
 
-最新事实：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
+## 当前集成状态 — 2026-10-18
+
+**三个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储。** 唯一目标为 `feature/hbos-portal-product`；本次已核对业务基线为 `a1cc65dde73cfad656faf290264f75fb1a25c32b`。实际来源、Squash、父提交与树见 [项目状态](PROJECT_STATUS.md)；[PR #39](https://github.com/zjl327707743/HBOS-Platform/pull/39) 已于 2026-10-18 07:28:34 UTC 正常 Squash Merge。
+
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
+
+接续时先读本节、项目状态及远端产品 ref。[Owner 当前来源最终裁定](https://github.com/zjl327707743/HBOS-Platform/pull/39#issuecomment-6247133194) 已逐项关闭 B1/B2，旧 Request Changes 已为 `DISMISSED`，没有自我 Approve。Run1–6 的失败按日期保留在 [#56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；下方旧阶段的“当前”只指当时。#43 仍是独立来源契约通过、`NOT_PRODUCT_COMPOSITION`；IAM #52、OCR、实体样本／打印和生产 UAT 未因本次合并完成。
+
+历史验证按发生日期保留，旧失败与当时的未合并判断以对应 Run 为范围；最新状态以本节及实际 PR 记录为准。
+
+## 验证历史 — 2026-10-18 Run6
+
+[报表、扫码及附件验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810152) **74 PASS / 0 FAIL**；[事务验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810103) **6 PASS / 2 FAIL**。余两项失败为按单一 URL 误选 Batch File 的测试定位错误，LIMS 放行后两种外发 submit/cancel 仍 **NOT_REACHED**，完整仓储门禁未通过。
+
+## 验证历史 — 2026-10-18 Run5
+
+以下保留 Run5 当时的观察与判断，其中“当前”“尚未通过”“原因待定位”均指该次验证；后续状态以页首“当前集成状态”和实际 PR 记录为准。
+
+当前工作是 Owner 授权的远端业务 PR 集成：完整 #42 考勤、#46 生产已实际合并，已核对产品基线为 `feature/hbos-portal-product@4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。[#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) 尚未合并，继续技术门禁；[#56](https://github.com/zjl327707743/HBOS-Platform/pull/56) 是固定组合验证入口。#43 LIMS 独立增量后置，独立契约通过不代表产品组合通过。
+
+按 [项目状态](PROJECT_STATUS.md)、[当前里程碑](CURRENT_MILESTONE.md)、[Owner 本批次裁定](governance/HBOS_Owner_业务集成批次裁定_20261018.md) 与 [M3 门禁](milestones/M3_START_GATE.md) 接续工作，每次合并后重读远端 HEAD。#39 候选扫码仅展示原生 Warehouse 授权范围；全批次卡证读取要求全仓范围，受控收货自动制证不授予读取或手动再生权限。本轮使用云端合成环境，不操作 Mac、真实业务库或生产；#37 排除，IAM #52 独立。
+
+## 历史阶段记录
+
+下方账号、M1 与 Portal 阶段记录保留其原日期的背景和验收结果；旧“当前”“本轮”“Authority”不覆盖本页首 R3 记录。#55 已合入的物料只读范围不能代表完整 #39 完成。
+
+> 2026-10-18 代码集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
+
+历史账号验收事实（2026-10-01）：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
 
 ## 账号小范围收尾 — 2026-10-01
 
@@ -24,9 +52,9 @@
 
 主技术栈：Frappe Framework、ERPNext、Frappe HR、Python、JavaScript、MariaDB/MySQL 兼容体系、Redis、Docker、Docker Compose、Vue/React、ECharts、FastAPI。
 
-## 当前上下文
+## 历史账号上下文 — 2026-10-01
 
-本轮账号 UI、统一账号、飞书、Knowledge/Twin 与发布收口已经通过 PR #21 完成并进入产品分支。当前产品 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 真人飞书基线和浏览器密码生命周期 3/3 均已通过，未执行的真人高风险交接/实体设备项目继续按历史记录保留。公司服务器仍 NOT_DEPLOYED。
+本轮账号 UI、统一账号、飞书、Knowledge/Twin 与发布收口已经通过 PR #21 完成并进入产品分支。该账号轮次历史 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 真人飞书基线和浏览器密码生命周期 3/3 均已通过，未执行的真人高风险交接/实体设备项目继续按历史记录保留。公司服务器仍 NOT_DEPLOYED。
 
 其他业务里程碑以各自已登记主文档为准，本轮不扩大考勤/库存范围。新增代码通过独立净化发布分支交付；私有运行报告、账号、知识和模型不进入新可达对象。
 
@@ -82,7 +110,7 @@ Skill 路由规范文件为：
 
 - `docs/AI技能路由规范.md`
 
-## 后续路线
+## 历史路线背景（不覆盖 R3 集成队列）
 
 后续路线只记录，不代表已启动：
 
@@ -110,7 +138,7 @@ Skill 路由规范文件为：
 
 该工作流与既有 Attendance / Inventory / LIMS 治理线并行；Portal 是 Experience Shell，不替代业务 App 的领域 Authority。
 
-Authority：
+该历史 Portal 阶段 Authority：
 
 - 分支：`feature/hbos-portal-product`
 - Draft PR：#15

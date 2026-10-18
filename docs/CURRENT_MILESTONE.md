@@ -1,5 +1,37 @@
 # Current Milestone
 
+## 当前集成状态 — 2026-10-18
+
+**三个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储。** 唯一目标为 `feature/hbos-portal-product`；本次已核对业务基线为 `a1cc65dde73cfad656faf290264f75fb1a25c32b`。实际来源、Squash、父提交与树见 [项目状态](PROJECT_STATUS.md)；[PR #39](https://github.com/zjl327707743/HBOS-Platform/pull/39) 已于 2026-10-18 07:28:34 UTC 正常 Squash Merge。
+
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
+
+实际新产品基线回归已通过，当前收口状态文档，并以最新 HEAD 继续推进后置 #43，保留其独立领域与共享文件逐段适配门禁。[Owner 对 #39 的最终裁定](https://github.com/zjl327707743/HBOS-Platform/pull/39#issuecomment-6247133194) 和旧 Review `DISMISSED` 已形成审查闭环。IAM #52、#37、OCR、真实样本、实体打印及生产 UAT／部署不由本次代码合并 closeout。
+
+历史验证按发生日期保留，旧失败与当时的未合并判断以对应 Run 为范围；最新状态以本节及实际 PR 记录为准。
+
+## 验证历史 — 2026-10-18 Run6
+
+[报表、扫码及附件验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810152) **74 PASS / 0 FAIL**；[事务验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810103) **6 PASS / 2 FAIL**。余两项失败为按单一 URL 误选 Batch File 的测试定位错误，LIMS 放行后两种外发 submit/cancel 仍 **NOT_REACHED**，完整仓储门禁未通过。
+
+## 验证历史 — 2026-10-18 Run5
+
+以下保留 Run5 当时的观察与判断，其中“当前”“尚未通过”“原因待定位”均指该次验证；后续状态以页首“当前集成状态”和实际 PR 记录为准。
+
+当前继续完成 Owner 授权的业务 PR 合并。完整 #42 考勤与 #46 生产已合并，已核对产品为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。[#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) **尚未合并／技术门禁 FAIL**：Run 5 的扫码与附件权限域 73/74 通过、真实事务域 3/8 场景通过；PDF 正文、注册外协目标放行旁路及完整 LIMS 放行链仍需收口。具体失败、`NOT_REACHED` 和固定 SHA 见 [项目状态](PROJECT_STATUS.md) 与 [#56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不能用来源分支提交替代产品合并。
+
+下一步在最新仓储来源修复并重跑其真实组合，满足门禁后才 Squash、重读产品 HEAD 并做合并后回归。#43 后置；其独立 39/39 契约与 4 项 mutation 检查通过只记为 `NOT_PRODUCT_COMPOSITION`。本轮不据此完成 M3-R6 的 OCR／实体打印验收，不推进 IAM #52、#37 或生产部署。
+
+## 历史阶段记录
+
+下方较早合并、账号、M1 与 Portal 阶段的“当前”“本轮”和允许范围保留原日期含义，不覆盖页首 R3 授权与验证记录；实际最新来源、验证及合并以 PR #39、PR #56 和远端产品 ref 为准。
+
+> 2026-10-18 生产已完成集成：完整 #42 考勤、#46 生产均已实际合并。最新核对产品为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`，来源、审批与原生验证见 [项目状态](PROJECT_STATUS.md)。继续推进 #39 仓储，#43 后置；以下较早产品 SHA 为各阶段历史记录，不替代远端最新 ref。
+
+> 2026-10-18 最新代码集成：**首个完整业务 #42 考勤已实际合并**。产品基线 `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8`，实际父提交 `45658fe4b84d8fb7dd4433c459aa30572e0d13d3`。来源与审批、CI、归档证据见 [PR #42](https://github.com/zjl327707743/HBOS-Platform/pull/42) 和 [项目状态](PROJECT_STATUS.md)。下一顺序为 #46 生产、#39 仓储，#43 LIMS 后置；每项仍以当前 SHA 的权限、运行与审查门禁为准。Owner 承担本批次最终审批，具体方式见 [正式裁定](governance/HBOS_Owner_业务集成批次裁定_20261018.md)。本轮不代表真实环境部署或 IAM #52 完成。
+
+> 历史记录：2026-10-18 物料只读集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
+
 ## Portal 产品分支合并后 Gate — 2026-10-01
 
 当前：**PR21_FINAL_REVIEW_PASS / PRODUCT_BRANCH_ACTIVE**。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收与 Browser final-submit 3/3 已通过，新 squash 四项 CI SUCCESS。旧 #22 已关闭且未合并，IAM-0 由 clean Draft PR #23 单独承接；#15 仍 Open Draft，main 未变化。

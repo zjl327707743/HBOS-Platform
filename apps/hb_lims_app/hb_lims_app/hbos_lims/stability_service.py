@@ -65,7 +65,7 @@ def _check_action(action, doctype_target, doc_name="", system=False):
 		return
 	roles = frappe.get_roles(_user())
 	# scope=doctype_target：同名动作（R3 检验流程 vs 稳定性结果）按 DocType 分别授权
-	if not any(wf.action_allowed(action, role, scope=doctype_target) for role in roles):
+	if not wf.user_action_allowed(action, _user(), roles, scope=doctype_target):
 		_audit_violation(doctype_target, doc_name,
 						 "角色不足：{}".format(action),
 						 "当前用户（{}）没有执行「{}」的权限".format(_user(), action))

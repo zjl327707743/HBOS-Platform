@@ -56,7 +56,7 @@ def _rollback():
 
 def _check_action(action):
 	roles = frappe.get_roles(_user())
-	if not any(wf.action_allowed(action, role) for role in roles):
+	if not wf.user_action_allowed(action, _user(), roles):
 		frappe.throw(f"当前用户（{_user()}）没有执行「{action}」的权限。")
 
 

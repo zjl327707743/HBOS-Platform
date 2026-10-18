@@ -431,6 +431,23 @@ SCOPED_ACTION_ROLES = {
 		{ROLE_ANALYST, ROLE_MANAGER, ROLE_SYSTEM},
 }
 
+# Administrator 的原生 all-role 结果不代表业务资格。只读例外逐项登记，
+# 新动作必须审查其实际副作用，不能仅凭 get_* / verify_* 名称自动放行。
+ADMINISTRATOR_READ_ACTIONS = frozenset({
+	"get_result_ledger", "get_audit_log", "verify_coa_content",
+	"verify_audit_integrity", "verify_audit_anchor",
+	"get_retention_dashboard", "get_retention_ledger",
+	"get_observation_plan", "get_disposal_quarterly",
+	"get_stability_dashboard", "get_stability_notices", "get_stability_notice_detail",
+	"get_stability_master", "get_stability_products", "get_stability_protocols",
+	"get_stability_audit", "get_stability_samples", "get_stability_sample_detail",
+	"get_stability_schedule", "get_stability_timepoint_detail", "get_stability_delays",
+	"get_stability_validity_advice", "get_stability_results", "get_stability_result_detail",
+	"get_stability_trend", "get_stability_reports", "get_stability_report_detail",
+	"get_stability_customer_scan", "get_stability_changes", "get_stability_change_detail",
+	"get_stability_room_logs", "get_stability_equipments", "get_stability_fault_tickets",
+})
+
 
 def can_transition(flow, current, target):
 	"""状态转移合法性（纯状态表检查，不含角色）。"""
@@ -464,6 +481,19 @@ def action_allowed(action, actor_role, scope=None):
 		if scoped is not None:
 			return actor_role in scoped
 	return actor_role in ACTION_ROLES.get(action, set())
+
+
+def user_action_allowed(action, user, roles, scope=None):
+	"""主体与角色均须满足既有动作契约。
+
+	内置 Administrator 只保留明确只读动作和既有 break_glass_update；
+	该应急入口的理由、字段守卫与审计要求不变。具名技术用户持有明确
+	LIMS 业务角色时仍按原角色矩阵执行，不将 System Manager 等同于内置主体。
+	"""
+	if (user == "Administrator" and action not in ADMINISTRATOR_READ_ACTIONS
+			and action != "break_glass_update"):
+		return False
+	return any(action_allowed(action, role, scope=scope) for role in (roles or ()))
 
 
 def is_final_state(flow, state):

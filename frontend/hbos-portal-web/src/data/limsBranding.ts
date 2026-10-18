@@ -5,6 +5,6 @@
  * 用于 API 尚未返回 logo 时保持双品牌页头完整，不承载业务数据。
  */
 export const LIMS_BRANDING = {
-  companyLogoUrl: '/assets/branding/haibin-company.png',
-  groupLogoUrl: '/assets/branding/healthgen-group.png',
+  companyLogoUrl: `${import.meta.env.BASE_URL}assets/branding/haibin-company.png`,
+  groupLogoUrl: `${import.meta.env.BASE_URL}assets/branding/healthgen-group.png`,
 } as const
