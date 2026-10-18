@@ -166,6 +166,8 @@ class TestSpecificationVersionRuntime(unittest.TestCase):
 
 	def _assert_blocked(self, message_part, fn):
 		"""执行 fn，断言被拦下且抛出信息含 message_part。"""
+		# 每项冻结检查使用具名业务身份，避免上一项清理留下 Administrator。
+		frappe.set_user(MGR)
 		with self.assertRaises(frappe.ValidationError) as ctx:
 			fn()
 		self.assertIn(message_part, str(ctx.exception))
