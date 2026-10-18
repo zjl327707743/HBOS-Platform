@@ -28,14 +28,19 @@ def run() -> dict[str, object]:
     manifest = provider.manifest()
     if manifest["route"] != "/hbos/attendance":
         raise AssertionError("Attendance stable route mismatch")
-    if manifest["migration_mode"] != "legacy":
-        raise AssertionError("Attendance must remain legacy until native UX gate")
+    if manifest["migration_mode"] != "native":
+        raise AssertionError("Attendance manifest must be native (portal SPA entry)")
     if manifest["capabilities"] != ["summary"]:
         raise AssertionError("P3-ATT-2 must enable summary only")
 
+    # 原生路由解析回自身（前端按 /hbos/ 前缀命中 SPA 路由）；
+    # 班次管理仍按内嵌映射到 Desk 实现。
     resolved = provider.resolve_route("/hbos/attendance")
-    if resolved != "/app/hbos-attendance-dashboard":
-        raise AssertionError("Attendance current implementation route mismatch")
+    if resolved != "/hbos/attendance":
+        raise AssertionError("Attendance native route must resolve to itself")
+    embedded = provider.resolve_route("/hbos/attendance/shifts")
+    if embedded != "/app/hbos-shift-management":
+        raise AssertionError("Attendance embedded route mismatch")
 
     summary_payload = provider.summary()
     metrics = list(summary_payload.get("metrics") or [])
