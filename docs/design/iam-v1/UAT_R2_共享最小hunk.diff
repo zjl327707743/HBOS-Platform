@@ -1,0 +1,274 @@
+diff --git a/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue b/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
+index fe6f489..324f858 100644
+--- a/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
++++ b/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
+@@ -45,13 +45,14 @@
+
+     <CommandPalette :open="ui.commandOpen" @close="ui.commandOpen = false" />
+     <aside v-if="developmentObservation" class="development-observation" aria-label="本机验收观测">
+-      <details><summary>本机验收观测（开发模式）</summary><output>文档 {{ frappeDiagnostics.document }}；安全读取 {{ frappeDiagnostics.security }}；能力读取 {{ frappeDiagnostics.capabilities }}；业务初始化 {{ frappeDiagnostics.bootstrap }}；恢复事件 {{ portalSession.resumeEvents }}；主体代次 {{ portalSession.generation }}；阶段 {{ portalSession.phase }}</output></details>
++      <details><summary>本机验收观测（开发模式）</summary><output>文档 {{ frappeDiagnostics.document }}；安全读取 {{ frappeDiagnostics.security }}；能力读取 {{ frappeDiagnostics.capabilities }}；业务初始化 {{ frappeDiagnostics.bootstrap }}；恢复事件 {{ portalSession.resumeEvents }}；主体代次 {{ portalSession.generation }}；阶段 {{ portalSession.phase }}</output>
++      <output>路由 {{ route.path }}；考勤实例 {{ attendanceObservation.instance }}；挂载/卸载 {{ attendanceObservation.mounts }}/{{ attendanceObservation.unmounts }}；查询/完成/丢弃 {{ attendanceObservation.requests }}/{{ attendanceObservation.completed }}/{{ attendanceObservation.stale }}；权限触发 {{ attendanceObservation.permissions }}；关联 {{ attendanceObservation.request }}；草稿 {{ attendanceObservation.draft }}；已应用 {{ attendanceObservation.applied }}；结果范围 {{ attendanceObservation.range }}；时序 {{ attendanceObservation.events.join('，') }}</output></details>
+     </aside>
+   </div>
+ </template>
+
+ <script setup lang="ts">
+-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
++import { computed, onBeforeUnmount, onMounted, reactive, ref, watch, nextTick } from 'vue'
+ import { usePortalStore } from '@/stores/portal'
+ import GlobalHeader from '@/components/layout/GlobalHeader.vue'
+ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
+@@ -67,6 +68,7 @@ import { canIam } from '@/services/iamAccess'
+ import { Modal } from 'ant-design-vue'
+ import { developmentObservation, frappeDiagnostics } from '@/services/frappeClient'
+ import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
++import { attendanceObservation } from '@/services/attendanceObservation'
+
+ const portal = usePortalStore()
+ const development = import.meta.env.DEV
+@@ -76,7 +78,16 @@ const { sessionPending, sessionError } = portalDataSource === 'mock' ? usePortal
+ const route = useRoute(), router = useRouter()
+ const routeDenied = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !canIam(route.meta.iamCapability))
+ const masked = computed(() => ['unconfirmed', 'guest', 'logging_out'].includes(portalSession.phase) || routeDenied.value)
+-watch(masked, value => { document.body.classList.toggle('hbos-session-shield', value); if(value) ui.commandOpen=false }, { immediate:true })
++let maskedFocus: {element:HTMLElement;generation:number}|null = null
++watch(masked, async value => {
++  if(value && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) maskedFocus={element:document.activeElement,generation:portalSession.generation}
++  document.body.classList.toggle('hbos-session-shield', value)
++  if(value) ui.commandOpen=false
++  else {
++    const prior=maskedFocus;maskedFocus=null;await nextTick()
++    if(prior?.generation===portalSession.generation && prior.element.isConnected && !masked.value && portalSession.phase==='ready') prior.element.focus({preventScroll:true})
++  }
++}, { immediate:true })
+ const closeSecurityDialogs = () => Modal.destroyAll()
+ let detach: (() => void) | undefined
+ async function retrySession() { try { await ensurePortalSession({ force: true }) } catch { /* Local recovery stays available. */ } }
+@@ -100,6 +111,6 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onShortcut); windo
+ </script>
+ <style scoped>
+ .session-content{min-width:0;width:100%}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}
+-.development-observation{position:fixed;bottom:0;left:8px;z-index:2000;max-width:min(700px,90vw);padding:4px 8px;background:#fff;border:1px solid #ccd5e0;font-size:12px}.development-observation output{display:block;overflow-wrap:anywhere}
++.development-observation{position:fixed;bottom:0;left:8px;z-index:2000;max-width:min(700px,90vw);padding:4px 8px;background:#fff;border:1px solid #ccd5e0;font-size:12px;max-height:35vh;overflow:auto}.development-observation output{display:block;overflow-wrap:anywhere}
+ :global(body.hbos-session-shield .ant-drawer),:global(body.hbos-session-shield .ant-modal-root),:global(body.hbos-session-shield .ant-popover){visibility:hidden!important;pointer-events:none!important}
+ </style>
+diff --git a/frontend/hbos-portal-web/src/services/frappeClient.ts b/frontend/hbos-portal-web/src/services/frappeClient.ts
+index 2f9d050..c32c55d 100644
+--- a/frontend/hbos-portal-web/src/services/frappeClient.ts
++++ b/frontend/hbos-portal-web/src/services/frappeClient.ts
+@@ -19,7 +19,7 @@ function recordRead(method: string) {
+ export function clearFrappeCsrfToken() { csrfToken = null; csrfFlight = null }
+ export function invalidateFrappeRequests() { requestEpoch++; clearFrappeCsrfToken() }
+ export function blockFrappeWrites(blocked: boolean) { writesBlocked = blocked }
+-export type FrappeRequestErrorCode = 'UNAUTHENTICATED' | 'INVALID_CREDENTIALS' | 'PROOF_REQUIRED' | 'SESSION_UNCONFIRMED' | 'STALE_RESPONSE' | 'CSRF_MISMATCH' | 'FORBIDDEN' | 'NETWORK_ERROR' | 'SERVICE_ERROR' | 'VALIDATION_ERROR' | 'RATE_LIMITED'
++export type FrappeRequestErrorCode = 'UNAUTHENTICATED' | 'INVALID_CREDENTIALS' | 'PROOF_REQUIRED' | 'SESSION_UNCONFIRMED' | 'STALE_RESPONSE' | 'CSRF_MISMATCH' | 'FORBIDDEN' | 'NETWORK_ERROR' | 'SERVICE_ERROR' | 'VALIDATION_ERROR' | 'RATE_LIMITED' | 'READ_CONFLICT'
+ export class FrappeRequestError extends Error {
+   constructor(public code: FrappeRequestErrorCode, message: string, public status?: number, public diagnosticId?: string) { super(message); this.name = 'FrappeRequestError' }
+ }
+@@ -58,6 +58,7 @@ export function normalizeFrappeError(error: unknown, method?: string, fact?: Pic
+   // Account validation messages must never hide a confirmed Guest boundary.
+   if (fact?.authenticated === false || (status === 401 && !credentialMethod)) return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
+   const wire = (error.response.data as {message?: {error?: {code?:string;message?:string}}})?.message?.error
++  if (status === 409 && wire?.code === 'READ_CONFLICT') return new FrappeRequestError('READ_CONFLICT', '读取遇到暂时冲突，请重试查询。', status)
+   if (wire?.code === 'PROOF_REQUIRED') return new FrappeRequestError('PROOF_REQUIRED', '本人身份验证已过期，请重新验证后再保存。', status)
+   if (/not whitelisted|not permitted to access this method|Failed to get method/i.test(detail)) return fact?.authenticated ? diagnostic(status) : new FrappeRequestError('SESSION_UNCONFIRMED', '暂时无法确认登录状态，请重试核验或退出登录。', status)
+   if (/AuthenticationError/.test(detail) && fact?.authenticated) return new FrappeRequestError('PROOF_REQUIRED', '本人身份验证已过期，请重新验证后再保存。', status)
+diff --git a/frontend/hbos-portal-web/src/services/iamAccess.ts b/frontend/hbos-portal-web/src/services/iamAccess.ts
+index 95ca067..8e72ab6 100644
+--- a/frontend/hbos-portal-web/src/services/iamAccess.ts
++++ b/frontend/hbos-portal-web/src/services/iamAccess.ts
+@@ -14,18 +14,20 @@ export async function iamQuery<T>(method: string, params?: Record<string, unknow
+ export async function iamCommand<T>(method: string, params: Record<string, unknown>): Promise<T> { return unwrapIam<T>(await callFrappePostMethod(method, params)) }
+ export function iamMessage(error: unknown): string {
+   const raw = error as { status?: number; code?: string; message?: string }
++  if (raw.code === 'READ_CONFLICT') return raw.message || '读取遇到暂时冲突，请重试查询。'
+   if (raw.status === 409 || ['VERSION_CONFLICT', 'STALE_PREVIEW', 'CONFLICT'].includes(raw.code || '')) return '设置已被更新或预览已过期。草稿已保留，请重新读取并核对后再保存。'
+   if (raw.status === 403 || raw.code === 'FORBIDDEN') return '当前操作未获授权，草稿已保留。请联系有相应管理范围的负责人。'
+   return raw?.message || '请求未完成，草稿已保留，请重试。'
+ }
+-export interface Capabilities { schema_version: 1; subject_user: string; session_context?: string; policy_revision: string; capabilities: string[] }
+-export const iamSession = reactive({ user: '', revision: '', ready: false, loading: false, error: '', capabilities: [] as string[] })
++export interface Capabilities { schema_version: 1; subject_user: string; session_context?: string; policy_revision: string; app_revisions?: Record<string, string>; capabilities: string[] }
++export const iamSession = reactive({ user: '', revision: '', appRevisions: {} as Record<string, string>, ready: false, loading: false, error: '', capabilities: [] as string[] })
+ const known = new Set(['iam.people.read','iam.people.link','iam.people.provision','iam.people.create','iam.people.transfer','iam.people.disable','iam.people.reset','iam.departments.read','iam.departments.manage','iam.access.read','iam.access.manage','iam.audit.read','attendance.read','iam_demo.read'])
+ let generation = 0
+-export function clearIamAccess() { generation++; Object.assign(iamSession, { user: '', revision: '', ready: false, loading: false, error: '', capabilities: [] }) }
++export function clearIamAccess() { generation++; Object.assign(iamSession, { user: '', revision: '', appRevisions: {}, ready: false, loading: false, error: '', capabilities: [] }) }
+ export function validateCapabilities(raw: unknown, expectedUser?: string): Capabilities {
+   const value = raw as Capabilities
+   if (!value || value.schema_version !== 1 || typeof value.subject_user !== 'string' || !value.subject_user || value.subject_user === 'Guest' || (expectedUser && value.subject_user !== expectedUser) || typeof value.policy_revision !== 'string' || !Array.isArray(value.capabilities) || value.capabilities.some(id => typeof id !== 'string' || !known.has(id))) throw new IamError('无法确认当前账号的管理能力，请重新验证会话。')
++  if (value.app_revisions !== undefined && (!value.app_revisions || typeof value.app_revisions !== 'object' || Array.isArray(value.app_revisions) || Object.values(value.app_revisions).some(item => typeof item !== 'string'))) throw new IamError('无法确认应用权限版本，请重试核验。')
+   return value
+ }
+ export async function fetchIamAccess(expectedUser: string, context: string) {
+@@ -34,7 +36,7 @@ export async function fetchIamAccess(expectedUser: string, context: string) {
+   return result
+ }
+ export function applyIamAccess(result: Capabilities) {
+-  Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, capabilities: result.capabilities, ready: true, loading: false, error: '' })
++  Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, appRevisions: result.app_revisions || {}, capabilities: result.capabilities, ready: true, loading: false, error: '' })
+ }
+ export async function loadIamAccess(expectedUser?: string) {
+   const current = ++generation
+@@ -42,7 +44,7 @@ export async function loadIamAccess(expectedUser?: string) {
+   try {
+     const result = validateCapabilities(await iamQuery('hbos_portal.api.iam_access.get_capabilities'), expectedUser)
+     if (current !== generation) throw new IamError('会话已改变，请重新读取。')
+-    Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, capabilities: result.capabilities, ready: true })
++    Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, appRevisions: result.app_revisions || {}, capabilities: result.capabilities, ready: true })
+     return result
+   } catch (e) { if (current === generation) { iamSession.error = iamMessage(e); iamSession.ready = false }; throw e }
+   finally { if (current === generation) iamSession.loading = false }
+diff --git a/frontend/hbos-portal-web/src/services/portalSessionCoordinator.ts b/frontend/hbos-portal-web/src/services/portalSessionCoordinator.ts
+index d70773f..41180d6 100644
+--- a/frontend/hbos-portal-web/src/services/portalSessionCoordinator.ts
++++ b/frontend/hbos-portal-web/src/services/portalSessionCoordinator.ts
+@@ -4,6 +4,8 @@ import { getIamSecurity, type IamSecurity } from './iamAccount'
+ import { applyIamAccess, clearIamAccess, fetchIamAccess, iamSession } from './iamAccess'
+ import { blockFrappeWrites, invalidateFrappeRequests, isUnauthenticatedError, FrappeRequestError, logoutFrappeSession } from './frappeClient'
+ import { getSecurity, type SecurityStatus } from './accountApi'
++import { confirmAttendanceSubject, forgetAttendanceState } from './attendancePageState'
++import { observeResume } from './attendanceObservation'
+
+ export const portalSession = reactive({
+   phase: 'initial' as 'initial' | 'ready' | 'password_required' | 'checking' | 'unconfirmed' | 'guest' | 'logging_out',
+@@ -41,6 +43,7 @@ function boundary() {
+ }
+ /** Explicit login/logout or a confirmed native session boundary only. */
+ export function resetPortalSession(notify = true) {
++  forgetAttendanceState()
+   revision++; flight = null; if (slowTimer) clearTimeout(slowTimer); if (resumeTimer) clearTimeout(resumeTimer)
+   boundary(); portalSession.phase = 'initial'; portalSession.error = ''
+   if (notify) channel?.postMessage('changed')
+@@ -49,7 +52,7 @@ export function requirePortalRecheck() { portalSession.checkedAt = 0 }
+ export async function ensurePortalSession(options: { force?: boolean } = {}): Promise<IamSecurity> {
+   if (flight) return flight
+   if (!options.force && portalSession.security && ['ready', 'password_required'].includes(portalSession.phase) && Date.now() - portalSession.checkedAt < FRESH_MS) return portalSession.security
+-  const run = revision, previous = portalSession.security, previousRevision = iamSession.revision
++  const run = revision, previous = portalSession.security, previousRevision = iamSession.revision, previousApps = { ...iamSession.appRevisions }
+   const background = !!previous && (portalSession.mounted || previous.first_password_required), uncertain = portalSession.phase === 'unconfirmed'
+   portalSession.error = ''; portalSession.phase = background ? (uncertain ? 'unconfirmed' : 'checking') : 'initial'; blockFrappeWrites(true)
+   if (slowTimer) clearTimeout(slowTimer)
+@@ -59,7 +62,9 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
+     try {
+       const security = await getIamSecurity()
+       if (run !== revision) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变。')
+-      if (!previous || previous.user !== security.user || previous.session_context !== security.session_context) boundary()
++      const newContext = !previous || previous.user !== security.user || previous.session_context !== security.session_context
++      if (previous && previous.user !== security.user) forgetAttendanceState()
++      if (newContext) boundary()
+       portalSession.security = security
+       if (security.first_password_required) {
+         if (portalSession.mounted) { boundary(); portalSession.security = security }
+@@ -68,6 +73,10 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
+         const capabilities = await fetchIamAccess(security.user, security.session_context)
+         if (run !== revision) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变。')
+         applyIamAccess(capabilities)
++        if (newContext) {
++          await confirmAttendanceSubject(window.location.host, security.user, security.session_context, portalSession.generation, previous?.user === security.user)
++          if (run !== revision) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变。')
++        }
+         if (!portalSession.mounted) {
+           await usePortalStore().bootstrap()
+           if (run !== revision) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变。')
+@@ -75,14 +84,18 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
+           portalSession.mounted = true
+         }
+         portalSession.phase = 'ready'; blockFrappeWrites(false)
+-        if (previous && previousRevision !== capabilities.policy_revision) event('hbos:permissions-changed')
++        if (previous && previousRevision !== capabilities.policy_revision) {
++          const nextApps = capabilities.app_revisions
++          const apps = nextApps && Object.keys(previousApps).length ? [...new Set([...Object.keys(previousApps), ...Object.keys(nextApps)])].filter(app => previousApps[app] !== nextApps[app]) : null
++          event('hbos:permissions-changed', { apps })
++        }
+       }
+       portalSession.checkedAt = Date.now(); event('hbos:security-confirmed', security.proof)
+       return security
+     } catch (error) {
+       if (run !== revision) throw error
+       blockFrappeWrites(true)
+-      if (isUnauthenticatedError(error)) { boundary(); portalSession.phase = 'guest' }
++      if (isUnauthenticatedError(error)) { forgetAttendanceState(); boundary(); portalSession.phase = 'guest' }
+       else { portalSession.phase = 'unconfirmed'; portalSession.error = error instanceof FrappeRequestError ? error.message : '暂时无法核对当前登录状态。草稿已保留，请重试核验或退出登录。' }
+       throw error
+     } finally { if (run === revision && slowTimer) clearTimeout(slowTimer) }
+@@ -90,7 +103,8 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
+   flight = pending
+   try { return await pending } finally { if (flight === pending) flight = null }
+ }
+-function resume() {
++function resume(event: Event) {
++  observeResume(event.type + ':' + document.visibilityState)
+   portalSession.resumeEvents++
+   if (document.visibilityState === 'hidden') return
+   if (resumeTimer) clearTimeout(resumeTimer)
+@@ -98,6 +112,7 @@ function resume() {
+ }
+ function expired() {
+   if (portalSession.phase === 'guest') return
++  forgetAttendanceState()
+   revision++; flight = null; boundary(); portalSession.phase = 'guest'
+   channel?.postMessage('signed_out')
+ }
+diff --git a/frontend/hbos-portal-web/src/types/iam.ts b/frontend/hbos-portal-web/src/types/iam.ts
+index 80e344d..090944c 100644
+--- a/frontend/hbos-portal-web/src/types/iam.ts
++++ b/frontend/hbos-portal-web/src/types/iam.ts
+@@ -27,10 +27,12 @@ export interface DepartmentSummary {
+ export interface AuditEvent { name?: string; actor: string; operation: string; subject_name: string; result: string; reason?: string; occurred_at: string }
+ export interface WorkScope { scope_type: string; scope_ref: string; label?: string }
+ export interface WorkOperation {
++  available?: boolean
+   operation_id: string; label: string; enabled: boolean; scopes: WorkScope[]; source_text: string
+   editable: boolean; important?: boolean; reason?: string; objects?: WorkScope[]
+ }
+ export interface WorkApp {
++  department_default?: { id: string; name: string; enabled: boolean; suspended: boolean; can_open: boolean }
+   permission_mode?: 'department' | 'personal'
+   synthetic?: boolean
+   app_id: string; title: string; integrated: boolean; status: string; summary: string; source_text: string
+@@ -42,4 +44,4 @@ export interface WorkChange { operation_id: string; enabled: boolean; scopes: Wo
+ export interface WorkTarget { subject_type: 'User' | 'Department'; subject_name: string; app_id: string; employee_id?: string }
+ export interface WorkPreview { version: number; context_revision: string; changed: boolean; summary: string; after: WorkApp; impact?: { changed: number; personal_preserved: number; unavailable: number; employees: Array<{ name: string; result?:string; before?: string; after?: string; personal_preserved?: boolean }> }; warnings?: string[] }
+ export interface AttendanceRow { source?: 'Attendance' | 'Employee Checkin' | string; id: string; date: string; time?: string; log_type?: string; status?: string }
+-export interface MyAttendance { rows: AttendanceRow[]; total: number; page: number; page_size: number; summary: { records: number; days: number } }
++export interface MyAttendance { rows: AttendanceRow[]; total: number; page: number; page_size: number; date_from?: string; date_to?: string; site_today?: string; site_timezone?: string; summary: { records: number; days: number } }
+diff --git a/frontend/hbos-portal-web/src/views/FeishuLoginView.vue b/frontend/hbos-portal-web/src/views/FeishuLoginView.vue
+index 71844aa..0abb5ec 100644
+--- a/frontend/hbos-portal-web/src/views/FeishuLoginView.vue
++++ b/frontend/hbos-portal-web/src/views/FeishuLoginView.vue
+@@ -31,27 +31,28 @@ import { ensurePortalSession, resetPortalSession } from '@/services/portalSessio
+ const route = useRoute(), router = useRouter(), portal = usePortalStore()
+ const loading = ref(true), submitting = ref(false), authenticated = ref(false), status = ref<FeishuLoginStatus|null>(null), statusError = ref(''), error = ref('')
+ const username = ref(''), password = ref(''), otp = ref(''), tmpId = ref('')
++const callbackConsumed = ref(false)
+ let disposed = false
+ const statusMessages: Record<string,string> = {
+  logout_unconfirmed:'本机内容已清理，服务端退出尚未确认。连接恢复后请重新登录，或返回后重试退出。',
+  cancelled:'已取消飞书授权，您可以重新选择登录方式。', config_required:'飞书登录当前不可用，请稍后重试或联系管理员。', invalid_state:'授权已过期、已使用或与当前浏览器不匹配，请重新发起。', identity_unmapped:'当前成员尚未获准开通账号，请联系管理员。', existing_account_requires_link:'当前浏览器已有账号，请在账号与安全中验证本人后绑定飞书。', identity_conflict:'此飞书身份与账号存在冲突，请联系管理员核对。', identity_revoked:'旧飞书绑定已撤销或更换，请使用原账号密码或联系管理员恢复。', account_busy:'账号正在完成另一项操作，请稍后重新授权。', same_identity:'新旧飞书身份相同，无需更换绑定。', personal_account_required:'接任者请先使用本人永久账号。', operation_invalid:'账号变更验证已失效，请重新发起。', account_changed:'账号登录方式已更换，请重新登录。', onboarding_dependency_missing:'开户服务暂不可用，请联系管理员。', member_scope_denied:'您尚未在此应用的获准成员范围内，请联系管理员。', account_disabled:'此账号当前不可用，请联系管理员。', tenant_rejected:'此企业身份未获准使用 HBOS。', tenant_evidence_missing:'暂时无法核验企业身份，请联系管理员。', application_tenant_mismatch:'企业身份核验未完成，请联系管理员。', member_identity_mismatch:'本人身份核验未通过，请重新授权。', member_status_missing:'无法核验当前成员状态，请联系管理员并提供诊断编号。', member_status_invalid:'无法核验当前成员状态，请联系管理员。', member_inactive:'您的飞书账号尚未激活。', member_disabled:'您的飞书账号已停用，请联系管理员。', member_departed:'此成员已离职或退出，无法登录。', member_department_missing:'成员准入信息不完整，请联系管理员。', member_api_failed:'暂时无法核验成员信息，请稍后重试或联系管理员。', external_member_rejected:'此入口仅供获准企业成员使用。', exchange_failed:'飞书身份核验未完成，请重新授权。', session_required:'请先登录，再继续访问原页面。', signed_out:'已安全退出当前账号。',
+ }
+-const callbackMessage = computed(() => { const message = error.value || statusMessages[String(route.query.status || '')]; const trace = typeof route.query.trace === 'string' && /^[a-f0-9]{16}$/.test(route.query.trace) ? route.query.trace : ''; return message && trace ? `${message} 诊断编号：${trace}` : message })
++const callbackMessage = computed(() => { const message = error.value || (!callbackConsumed.value && !authenticated.value && statusMessages[String(route.query.status || '')]); const trace = typeof route.query.trace === 'string' && /^[a-f0-9]{16}$/.test(route.query.trace) ? route.query.trace : ''; return message && trace ? `${message} 诊断编号：${trace}` : message })
+ const callbackTone = computed(() => ['cancelled','signed_out'].includes(String(route.query.status || '')) ? 'info' : 'warning')
+ const canSubmit = computed(() => Boolean(username.value.trim() && password.value && (!tmpId.value || otp.value) && !submitting.value))
+ function cancelMfa() { password.value = ''; otp.value = ''; tmpId.value = ''; error.value = '' }
+ function guardComposition(e: KeyboardEvent) { if (e.isComposing || e.keyCode === 229) { e.preventDefault(); e.stopPropagation() } }
+ watch(username, () => { if (tmpId.value) cancelMfa() })
+-watch(() => route.query.status, () => { cancelMfa(); authenticated.value = false })
++watch(() => route.query.status, () => { cancelMfa(); authenticated.value = false; callbackConsumed.value = false })
+ async function resumeWorkspace() { if (submitting.value) return; submitting.value = true; error.value = ''; try { await ensurePortalSession({ force: true }); if (!disposed) await router.replace(accountRedirect(route.query.redirect_to)) } catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '工作台暂时无法加载，请重试。' } finally { if (!disposed) submitting.value = false } }
+ async function submitAccountLogin() {
+- if (!canSubmit.value) return; submitting.value = true; error.value = ''
++ if (!canSubmit.value) return; callbackConsumed.value = true; submitting.value = true; error.value = ''
+  try { const result = await loginWithPassword(username.value.trim(),password.value,otp.value,tmpId.value); if (disposed) return; if (result.tmp_id && result.verification) { tmpId.value = result.tmp_id; return }; cancelMfa(); authenticated.value = true; resetPortalSession() }
+  catch (e) { if (!disposed) { cancelMfa(); portal.clearSession(); error.value = e instanceof FrappeRequestError ? e.message : '登录请求未确认，请稍后重试。' } }
+  finally { if (!disposed) submitting.value = false }
+  if (authenticated.value && !disposed) await resumeWorkspace()
+ }
+-function beginFeishuLogin() { cancelMfa(); window.location.assign(`/api/method/hbos_portal.auth.feishu.start?redirect_to=${encodeURIComponent(accountRedirect(route.query.redirect_to))}`) }
++function beginFeishuLogin() { callbackConsumed.value = true; cancelMfa(); window.location.assign(`/api/method/hbos_portal.auth.feishu.start?redirect_to=${encodeURIComponent(accountRedirect(route.query.redirect_to))}`) }
+ async function loadStatus() { loading.value = true; statusError.value = ''; try { const loaded = await getFeishuLoginStatus(); if (!disposed) status.value = loaded } catch { if (!disposed) statusError.value = '无法读取飞书登录状态，请重试。' } finally { if (!disposed) loading.value = false } }
+ onMounted(loadStatus); onBeforeUnmount(() => { disposed = true; cancelMfa() })
+ </script>
+# End of R2 review patch; not applied to product integration.
