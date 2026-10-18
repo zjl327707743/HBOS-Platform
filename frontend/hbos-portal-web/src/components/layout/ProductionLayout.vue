@@ -35,7 +35,7 @@
       </div>
     </div>
 
-    <MobileAppNav
+    <MobileDomainNav
       aria-label="生产看板移动端导航"
       drawer-title="生产看板导航"
       app-path="/hbos/production"
@@ -55,7 +55,7 @@ import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import ProductionLocalSidebar from '@/components/layout/ProductionLocalSidebar.vue'
-import MobileAppNav, { type MobileNavGroup } from '@/components/layout/MobileAppNav.vue'
+import MobileDomainNav, { type MobileNavGroup } from '@/components/layout/MobileDomainNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
 import { usePortalSession } from '@/composables/usePortalSession'
 import { PRODUCTION_NAV_GROUPS, PRODUCTION_CENTER_PATH } from '@/data/productionNav'

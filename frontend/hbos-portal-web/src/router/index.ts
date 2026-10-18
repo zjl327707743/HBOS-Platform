@@ -33,6 +33,7 @@ const router = createRouter({
         { path: 'work', name: 'my-work', component: MyWorkView, meta: { title: '我的工作' } },
         { path: 'apps', name: 'apps', component: AppCenterView, meta: { title: '应用中心' } },
         { path: 'profile', name: 'profile', component: ProfileSettingsView, meta: { title: '我的与设置' } },
+        { path: 'inventory/item/:itemCode?', name: 'inventory-item-readonly', component: () => import('@/views/InventoryItemReadOnlyView.vue'), meta: { title: '仓储 · 物料只读浏览' } },
         { path: '403', name: 'forbidden', component: ForbiddenView, meta: { title: '无权限' } },
       ],
     },

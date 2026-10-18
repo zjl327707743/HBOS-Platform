@@ -36,6 +36,7 @@
         </div>
       </button>
     </div>
+    <a-button v-if="apps.some(app => app.id === 'inventory')" type="link" @click="$router.push('/hbos/inventory/item')">仓储 · 物料只读浏览 <RightOutlined /></a-button>
   </section>
 </template>
 

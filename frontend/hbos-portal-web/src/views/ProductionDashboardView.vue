@@ -30,6 +30,8 @@
       </div>
     </header>
 
+    <p v-if="board && boardError" class="pb-foot-note" role="alert">{{ boardError }} 当前仍显示上次成功读取的数据。</p>
+
     <!-- 加载中。**必须与「未接入」分开** —— 冷缓存时服务端要并发拉 13 张飞书表，
          约 15 秒。不加这个态的话，这段时间页面会显示「未接入」，用户以为坏了。 -->
     <section v-if="phase === 'loading'" class="pb-panel pb-skeleton" aria-busy="true" aria-live="polite">
@@ -41,14 +43,11 @@
     </section>
 
     <!-- 未接入：**取不到**才显示。数据接通前不显示任何数字 -->
-    <section v-else-if="phase === 'unavailable'" class="pb-panel pb-state">
+    <section v-else-if="phase !== 'ready'" class="pb-panel pb-state" role="alert">
       <ThunderboltOutlined class="pb-state-ic" />
-      <h3>看板数据还没接通</h3>
-      <p>
-        这一页的数字来自飞书多维表格，经独立取数服务聚合后提供。
-        取数服务暂时不可用，所以这里<b>不显示任何数字</b>——宁可不给，也不给一个看起来像真实产量的占位值。
-      </p>
-      <p>页面结构与字段口径已经定稿，数据接通后按同一套结构填充，不再改版。</p>
+      <h3>{{ phase === 'denied' ? '当前无法访问生产看板' : phase === 'unavailable' ? '看板数据还没接通' : '生产数据读取失败' }}</h3>
+      <p>{{ boardError || '生产数据服务尚未接入，请联系管理员。' }}</p>
+      <button v-if="phase !== 'denied'" type="button" class="pb-refresh" @click="loadBoard">重试</button>
     </section>
 
     <!-- `v-else-if="board"` 而不是 `v-else` —— 让 TS 把 board 收窄成非 null
@@ -224,13 +223,12 @@
       <section v-if="isCenter" class="pb-panel pb-ai">
         <div class="pb-sec-head">
           <i class="warn" /><h2>工艺提升与改进方案</h2>
-          <span class="pb-note">{{ aiLoading ? 'AI 分析 · 读取中' : (aiRows.length ? 'AI 分析 · 每天 16:30 更新' : 'AI 分析 · 暂无结果') }}</span>
+          <span class="pb-note">{{ aiLoading ? 'AI 分析 · 读取中' : aiError ? 'AI 分析 · 读取失败' : (aiRows.length ? 'AI 分析 · 已有结果' : 'AI 分析 · 暂无结果') }}</span>
         </div>
         <div v-if="aiLoading" class="pb-foot-note">正在读取分析结果…</div>
+        <div v-else-if="aiError" class="pb-foot-note" role="alert">{{ aiError }}</div>
         <div v-else-if="!aiRows.length" class="pb-foot-note">
-          会议口径：基于各产品的<b>工艺描述文档与生产台账数据</b>，由 AI 自动分析生成优化建议。<br>
-          结果表里还没有数据。分析服务每工作日 16:30 生成一次；若无结果，可能是模型不可用或校验未通过
-          （<b>校验不过不写库</b>，宁可这轮没有，也不让没通过校验的内容进看板）。
+          结果表里还没有分析结果。分析服务启用并完成校验后，可在这里查看已保存的工艺建议。
         </div>
         <template v-else>
           <div class="pb-ai-bar">
@@ -263,7 +261,7 @@
             </button>
           </div>
           <div class="pb-foot-note">
-            结果表 <code>AI工艺分析结果</code> · 每工作日 16:30 自动生成 · 按工序幂等覆盖，不追加。
+            展示已保存的工艺分析结果，数据时效以分析日期为准。
           </div>
         </template>
       </section>
@@ -272,9 +270,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
+import { usePortalStore } from '@/stores/portal'
 import { PRODUCTION_CENTER_PATH } from '@/data/productionNav'
 import {
   fetchProductionBoard,
@@ -285,14 +284,46 @@ import {
 } from '@/services/productionBoard'
 
 const route = useRoute()
+const portal = usePortalStore()
 const isCenter = computed(() => route.path === PRODUCTION_CENTER_PATH)
 
-/** 加载 → 取不到 → 就绪。**三态分开**，见模板里的说明。 */
-const phase = ref<'loading' | 'unavailable' | 'ready'>('loading')
+/** 显式区分加载、未配置、读取失败、撤权和成功数据。 */
+const phase = ref<'loading' | 'unavailable' | 'error' | 'denied' | 'ready'>('loading')
 const board = ref<ProductionBoardData | null>(null)
+const boardError = ref<string | null>(null)
 const aiRows = ref<AiAnalysisRow[]>([])
+const aiError = ref<string | null>(null)
 const anomaly = computed(() => board.value?.anomaly ?? null)
 const aiLoading = ref(false)
+let generation = 0
+let aiGeneration = 0
+let disposed = false
+
+function errorCode(error: unknown): string {
+  return error && typeof error === 'object' && 'code' in error ? String(error.code) : ''
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : '生产数据读取失败，请稍后重试。'
+}
+
+function clearEvidence() {
+  generation += 1
+  aiGeneration += 1
+  board.value = null
+  aiRows.value = []
+  aiLoading.value = false
+  aiError.value = null
+  justRefreshed.value = false
+}
+
+function rejectAccess(error: unknown): boolean {
+  if (!['UNAUTHENTICATED', 'FORBIDDEN'].includes(errorCode(error))) return false
+  clearEvidence()
+  phase.value = 'denied'
+  boardError.value = errorMessage(error)
+  return true
+}
 
 // --- AI 工艺分析面板：排序 + 计数 + 折叠 ---
 /** 未展开时最多显示多少行（62 道工序全铺开太长）。 */
@@ -367,17 +398,23 @@ const dataAsOfText = computed(() => {
  */
 async function refreshBoard() {
   if (refreshing.value) return
+  const current = generation
   refreshing.value = true
+  boardError.value = null
+  justRefreshed.value = false
   refreshElapsed.value = 0
   refreshTimer = setInterval(() => { refreshElapsed.value += 1 }, 1000)
   try {
     const data = await fetchProductionBoard({ refresh: true })
-    if (data) {
+    if (!disposed && current === generation) {
       board.value = data
       justRefreshed.value = true
       if (justRefreshedTimer) clearTimeout(justRefreshedTimer)
       justRefreshedTimer = setTimeout(() => { justRefreshed.value = false }, 4000)
     }
+  } catch (error) {
+    if (disposed || current !== generation) return
+    if (!rejectAccess(error)) boardError.value = errorMessage(error)
   } finally {
     if (refreshTimer) clearInterval(refreshTimer)
     refreshTimer = null
@@ -386,6 +423,8 @@ async function refreshBoard() {
 }
 
 onBeforeUnmount(() => {
+  disposed = true
+  clearEvidence()
   if (refreshTimer) clearInterval(refreshTimer)
   if (justRefreshedTimer) clearTimeout(justRefreshedTimer)
 })
@@ -451,23 +490,55 @@ function deltaText(row: ProductionRow): string {
   return d.toFixed(1)
 }
 
-onMounted(async () => {
-  // 两个页面共用同一份看板数据（原型 §4.3：上区逐字一致）
-  const data = await fetchProductionBoard()
-  if (data) {
+async function loadBoard() {
+  const current = ++generation
+  phase.value = 'loading'
+  boardError.value = null
+  try {
+    const data = await fetchProductionBoard()
+    if (disposed || current !== generation) return
     board.value = data
     phase.value = 'ready'
-  } else {
-    phase.value = 'unavailable'
+    if (isCenter.value) await loadAi()
+  } catch (error) {
+    if (disposed || current !== generation) return
+    if (rejectAccess(error)) return
+    board.value = null
+    boardError.value = errorMessage(error)
+    phase.value = errorCode(error) === 'SERVICE_NOT_CONFIGURED' ? 'unavailable' : 'error'
   }
-  if (isCenter.value) {
-    aiLoading.value = true
-    try {
-      aiRows.value = await fetchAiAnalysis()
-    } finally {
-      aiLoading.value = false
+}
+
+async function loadAi() {
+  if (!isCenter.value || phase.value !== 'ready' || aiLoading.value) return
+  const current = generation
+  const request = ++aiGeneration
+  aiLoading.value = true
+  aiError.value = null
+  try {
+    const rows = await fetchAiAnalysis()
+    if (disposed || current !== generation || request !== aiGeneration) return
+    aiRows.value = rows
+  } catch (error) {
+    if (disposed || current !== generation || request !== aiGeneration) return
+    if (!rejectAccess(error)) {
+      aiRows.value = []
+      aiError.value = errorMessage(error)
     }
+  } finally {
+    if (!disposed && current === generation && request === aiGeneration) aiLoading.value = false
   }
+}
+
+watch(isCenter, (center) => { if (center) void loadAi() })
+watch([() => portal.user?.id, () => portal.apps.some(app => app.id === 'production')], () => {
+  clearEvidence()
+  phase.value = 'denied'
+  boardError.value = '会话或生产访问权限已更新，请重新打开生产看板。'
+}, { flush: 'sync' })
+
+onMounted(() => {
+  void loadBoard()
 })
 </script>
 

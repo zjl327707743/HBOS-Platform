@@ -11,8 +11,8 @@ Owner 尚未批准生产看板的正式角色与车间范围（见交付物的�
 - 其余用户 `can_enter = False`，`bootstrap` 里不会出现生产看板入口，
   直接调后端 API 也会被 `FORBIDDEN` 拒掉。
 
-Owner 批准后，把角色名填进 `PRODUCTION_ROLES` 即可 —— 这是**唯一**的放行开关，
-不允许前端用角色名拼权限、也不允许绕过它。
+未来启用普通业务角色时，必须同时落实 Owner 批准的角色与服务端数据范围契约；
+仅向 `PRODUCTION_ROLES` 增加角色名不足以安全启用。前端不得自行拼接权限或绕过判定。
 
 > 与 `HBOS_BACKEND_AND_IAM_BOUNDARY_V2_PROPOSAL.md` 一致：独立 FastAPI
 > 不另建员工账号；授权真相在 HBOS 侧，前端 CORS 不是鉴权。
