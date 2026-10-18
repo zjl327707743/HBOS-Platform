@@ -108,6 +108,21 @@ class IAMPolicyTest(unittest.TestCase):
         self.db.employees.append(Attr(self.db.employees[0], name="DUPLICATE"))
         with self.assertRaises(PermissionDenied): policy.resolve_employee("a", required=False)
 
+    def test_fixed_read_retry_rolls_back_and_rechecks_instead_of_reusing_authorization(self):
+        from unittest.mock import Mock
+        class Conflict(Exception): pass
+        self.fake.QueryDeadlockError = Conflict
+        self.db.rollback = Mock()
+        read = Mock(side_effect=[Conflict(), PermissionDenied('revoked')])
+        with patch('time.sleep'), self.assertRaises(PermissionDenied):
+            policy.current_read(read)
+        self.assertEqual(read.call_count, 2)
+        self.db.rollback.assert_called_once()
+        read = Mock(side_effect=Conflict())
+        with patch('time.sleep'), self.assertRaises(Conflict):
+            policy.current_read(read)
+        self.assertEqual(read.call_count, 3)
+
     def test_default_self_permission_fresh_db_and_no_role_fallback(self):
         self.assertTrue(policy.evaluate("a", "attendance", "attendance.read", "SELF", "")["allowed"])
         self.assertFalse(policy.evaluate("b", "attendance", "attendance.read", "SELF", "")["allowed"])

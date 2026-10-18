@@ -18,6 +18,11 @@ it('R03: business forbidden, proof, password/OTP, CSRF, rate, network and unknow
   expect(normalizeFrappeError(error(417,'not whitelisted')).code).toBe('SESSION_UNCONFIRMED')
 })
 it('R03: ambiguous real framework error performs only the minimal probe',async()=>{http.get.mockRejectedValueOnce(error(417,'not whitelisted')).mockResolvedValueOnce(fact(false));await expect(callFrappeMethod('hbos_portal.auth.accounts.get_security')).rejects.toMatchObject({code:'UNAUTHENTICATED'});expect(http.get).toHaveBeenLastCalledWith('/api/method/hbos_portal.auth.accounts.get_request_security',expect.anything())})
+it('R2: an exhausted read conflict stays a query retry message and makes no automatic client replay',async()=>{
+  http.get.mockRejectedValueOnce({isAxiosError:true,response:{status:409,data:{message:{ok:false,error:{code:'READ_CONFLICT',message:'读取遇到暂时冲突，请重试查询。'}}}}})
+  await expect(callFrappeMethod('business.read')).rejects.toMatchObject({code:'READ_CONFLICT',message:'读取遇到暂时冲突，请重试查询。'})
+  expect(http.get).toHaveBeenCalledTimes(1);expect(http.post).not.toHaveBeenCalled()
+})
 it('R04: confirmed Guest logout succeeds without a POST',async()=>{http.get.mockResolvedValueOnce(fact(false));await logoutFrappeSession();expect(http.post).not.toHaveBeenCalled()})
 it('R04: logout alone retries once on native CSRF rotation and confirms Guest',async()=>{http.get.mockResolvedValueOnce(fact(true)).mockResolvedValueOnce(fact(true)).mockResolvedValueOnce(fact(false));http.post.mockRejectedValueOnce(error(400,'CSRFTokenError')).mockResolvedValueOnce({});await logoutFrappeSession();expect(http.post).toHaveBeenCalledTimes(2)})
 it('R04: unknown server revocation stays uncertain; ordinary writes never replay',async()=>{http.get.mockResolvedValueOnce(fact(true));http.post.mockRejectedValueOnce({isAxiosError:true});await expect(logoutFrappeSession()).rejects.toMatchObject({code:'NETWORK_ERROR'});http.get.mockResolvedValueOnce({data:{message:{ok:true,data:{csrf_token:'token'}}}});http.post.mockRejectedValueOnce(error(400,'CSRFTokenError'));await expect(callFrappePostMethod('business.save',{})).rejects.toMatchObject({code:'CSRF_MISMATCH'});expect(http.post).toHaveBeenCalledTimes(2)})

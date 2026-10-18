@@ -115,6 +115,17 @@ class PersonalAttendanceTest(unittest.TestCase):
         with self.assertRaises(Denied): self.read()
         self.assertEqual(len(self.calls), 2)
 
+    def test_retry_after_read_conflict_still_refuses_a_new_revocation_and_discards_loaded_rows(self):
+        class Conflict(Exception): pass
+        self.fake.QueryDeadlockError = Conflict
+        self.fake.db.rollback = Mock()
+        self.evaluator.side_effect = [{'allowed':True}, Conflict(), {'allowed':False}]
+        with patch.object(policy,'frappe',self.fake), patch('time.sleep'), self.assertRaises(Denied):
+            self.read()
+        self.assertEqual(self.current_user.call_count, 2)
+        self.assertEqual(len(self.calls), 2)
+        self.fake.db.rollback.assert_called_once()
+
     def test_invalid_dates_and_unbounded_page_are_refused(self):
         for params in [{"page": 0}, {"page_size": 51}, {"page": "1.5"}, {"date_from": ""}, {"date_to": ""}, {"date_from": "2026-2-01"}, {"date_to": "2026-02-30"}, {"date_from": "not-a-date"}, {"date_from": "2026-10-16", "date_to": "2026-10-15"}, {"date_from": "2025-01-01", "date_to": "2026-10-15"}]:
             with self.subTest(params=params), self.assertRaises(Invalid):
