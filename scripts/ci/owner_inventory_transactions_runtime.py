@@ -137,13 +137,28 @@ class Client:
         return self.ok("frappe.client.cancel", {"doctype": doctype, "name": name}, post=True)
 
 
-def deny(client, method, params, *, codes=(403,), contains=None, csrf=True):
+def deny(client, method, params, *, codes=(403,), contains=None, csrf=True,
+         exception=None, label=None, audit_stock=False):
+    before = stock_write_counts() if audit_stock else None
     status, payload = client.call(method, params, post=True, csrf=csrf)
-    assert status in codes, f"{method}: expected denial {codes}, got HTTP {status}"
+    actual_exception = payload.get("exc_type")
+    observation = {"label": label or method, "http": status, "exception": actual_exception}
+    if audit_stock:
+        after = stock_write_counts()
+        observation.update(stock_facts_before=before, stock_facts_after=after)
+    # Log only the guard label, native exception class and synthetic fact counts.
+    # Never emit request parameters, credentials, cookies or CSRF token values.
+    emit("native_negative_observation", **observation)
+    assert status in codes, (
+        f"{label or method}: expected denial {codes}, got HTTP {status} ({actual_exception})")
+    if exception:
+        assert actual_exception == exception, f"{label or method}: unexpected denial class {actual_exception}"
+    if audit_stock:
+        assert before == after, f"{label or method}: denied action changed stock document or ledger counts"
     if contains:
         detail = json.dumps(payload, ensure_ascii=False)
         assert contains.lower() in detail.lower(), f"Expected {contains!r} denial, got {payload.get('exc_type')}"
-    return {"http": status, "exception": payload.get("exc_type")}
+    return observation
 
 
 def native_insert(data):
@@ -168,6 +183,22 @@ def setup():
     # The setup wizard normally inserts it; install-app alone does not.
     if not frappe.db.exists("Warehouse Type", "Transit"):
         native_insert({"doctype": "Warehouse Type", "name": "Transit"})
+    # v16 defaults batch tracking to disabled. Enable the native feature before
+    # exercising real batch documents; retain negative-stock and valuation rules.
+    stock_settings = frappe.get_doc("Stock Settings")
+    stock_settings.enable_serial_and_batch_no_for_item = 1
+    stock_settings.save()
+    frappe.db.commit()
+    stock_settings.reload()
+    assert stock_settings.enable_serial_and_batch_no_for_item == 1
+    assert not stock_settings.allow_negative_stock and not stock_settings.allow_negative_stock_for_batch
+    assert not stock_settings.do_not_use_batchwise_valuation
+    emit("native_stock_settings", status="PASS", saved_and_reloaded=True,
+         enable_serial_and_batch_no_for_item=stock_settings.enable_serial_and_batch_no_for_item,
+         use_serial_batch_fields=stock_settings.use_serial_batch_fields,
+         allow_negative_stock=stock_settings.allow_negative_stock,
+         allow_negative_stock_for_batch=stock_settings.allow_negative_stock_for_batch,
+         do_not_use_batchwise_valuation=stock_settings.do_not_use_batchwise_valuation)
     # Native Company creation builds the chart, default accounts and cost centres.
     companies = []
     for label, abbr in (("HBOS R3 Inventory CI", "HCI"), ("HBOS R3 Outside CI", "HCO")):
@@ -278,6 +309,13 @@ def fresh_read():
     frappe.set_user("Administrator")
 
 
+def stock_write_counts():
+    fresh_read()
+    return {doctype: frappe.db.count(doctype) for doctype in (
+        "Stock Entry", "Serial and Batch Bundle", "Stock Ledger Entry", "GL Entry",
+    )}
+
+
 def assert_stock(item, expected):
     fresh_read()
     actual = {}
@@ -321,11 +359,17 @@ def receipt_and_permissions():
     wh = FIXTURE["warehouses"]
     clients = FIXTURE["clients"]
     payload = stock_payload(item, batch, "Material Receipt", 100, target=wh["a"])
-    no_role = deny(clients["none"], "frappe.client.insert", {"doc": json.dumps(payload)})
-    guest = deny(Client(), "frappe.client.insert", {"doc": json.dumps(payload)})
+    no_role = deny(clients["none"], "frappe.client.insert", {"doc": json.dumps(payload)},
+        label="no_stock_role_insert", exception="PermissionError", audit_stock=True)
+    guest = deny(Client(), "frappe.client.insert", {"doc": json.dumps(payload)},
+        label="guest_insert", exception="PermissionError", audit_stock=True)
     cross = dict(payload, items=[dict(payload["items"][0], t_warehouse=wh["b"])])
-    cross_scope = deny(clients["restricted"], "frappe.client.insert", {"doc": json.dumps(cross)})
-    csrf = deny(clients["stock"], "frappe.client.insert", {"doc": json.dumps(payload)}, csrf=False)
+    cross_scope = deny(clients["restricted"], "frappe.client.insert", {"doc": json.dumps(cross)},
+        label="warehouse_scope_insert", exception="PermissionError", audit_stock=True)
+    # Frappe v16.26.3 declares CSRFTokenError as HTTP 400, independently of the
+    # 403 permission denials above. An unrelated 400 must still fail this proof.
+    csrf = deny(clients["stock"], "frappe.client.insert", {"doc": json.dumps(payload)},
+        csrf=False, codes=(400,), exception="CSRFTokenError", label="missing_csrf_insert", audit_stock=True)
     name = receive(item, batch)
     # Wrong identity cannot cancel the real posted voucher.
     no_role_cancel = deny(clients["none"], "frappe.client.cancel", {"doctype": "Stock Entry", "name": name})
