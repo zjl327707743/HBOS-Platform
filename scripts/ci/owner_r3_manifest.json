@@ -3,33 +3,33 @@
   "repository": "zjl327707743/HBOS-Platform",
   "target_branch": "feature/hbos-portal-product",
   "base": {
-    "sha": "374e2bd8633d4127fabcc4659c2314e4a7ca7cd8",
-    "tree": "31097c5f9e6f245ecbaca779643c421a4458bee8"
+    "sha": "4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30",
+    "tree": "dabf7846817f096434949bc38a48c7cc4ec958bd"
   },
   "candidates": {
     "attendance": {
       "pr": 42,
-      "source_sha": "374e2bd8633d4127fabcc4659c2314e4a7ca7cd8",
-      "source_tree": "31097c5f9e6f245ecbaca779643c421a4458bee8",
-      "expected_tree": "31097c5f9e6f245ecbaca779643c421a4458bee8"
+      "source_sha": "4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30",
+      "source_tree": "dabf7846817f096434949bc38a48c7cc4ec958bd",
+      "expected_tree": "dabf7846817f096434949bc38a48c7cc4ec958bd"
     },
     "production": {
       "pr": 46,
-      "source_sha": "3f0e8847f2769025d764214ae56950fe97693808",
+      "source_sha": "4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30",
       "source_tree": "dabf7846817f096434949bc38a48c7cc4ec958bd",
       "expected_tree": "dabf7846817f096434949bc38a48c7cc4ec958bd"
     },
     "inventory-reports": {
       "pr": 39,
-      "source_sha": "ac4094d6de6cdebb16a7f06cad07f14ee70d7c30",
-      "source_tree": "774ba223d3fa441697747bef8cf8f2954e1d0afa",
-      "expected_tree": "774ba223d3fa441697747bef8cf8f2954e1d0afa"
+      "source_sha": "a4f4e315c0ceffaec6f28c04a0278e750b33b17b",
+      "source_tree": "649a8d6177567fb248deaaea61a31aee6a3241a6",
+      "expected_tree": "649a8d6177567fb248deaaea61a31aee6a3241a6"
     },
     "inventory-transactions": {
       "pr": 39,
-      "source_sha": "ac4094d6de6cdebb16a7f06cad07f14ee70d7c30",
-      "source_tree": "774ba223d3fa441697747bef8cf8f2954e1d0afa",
-      "expected_tree": "774ba223d3fa441697747bef8cf8f2954e1d0afa"
+      "source_sha": "a4f4e315c0ceffaec6f28c04a0278e750b33b17b",
+      "source_tree": "649a8d6177567fb248deaaea61a31aee6a3241a6",
+      "expected_tree": "649a8d6177567fb248deaaea61a31aee6a3241a6"
     }
   },
   "upstream": {
