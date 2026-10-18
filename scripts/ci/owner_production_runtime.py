@@ -310,15 +310,18 @@ def run():
             time.sleep(0.1)
         raise AssertionError('Synthetic FastAPI did not become ready')
 
-    def no_secrets(raw):
-        assert all(value not in raw for value in secret_values), 'Credential in response or log'
-        assert service_url not in raw and upstream_url not in raw, 'Internal service origin in browser response'
+    def no_credentials(raw, surface):
+        assert all(value not in raw for value in secret_values), 'Credential in ' + surface
+
+    def no_browser_exposure(raw, surface='browser response'):
+        no_credentials(raw, surface)
+        assert service_url not in raw and upstream_url not in raw, 'Internal service origin in ' + surface
 
     def denied(client, case):
         before = dict(upstream.counts)
         for method in METHODS:
             status, body, raw = client.production(method)
-            no_secrets(raw)
+            no_browser_exposure(raw)
             assert 'rows' not in raw and upstream.marker not in raw, case + ': data leaked'
             assert (status in (401, 403) or (status == 200 and body.get('ok') is False
                     and body.get('error', {}).get('code') in ('UNAUTHENTICATED', 'FORBIDDEN'))), case
@@ -327,7 +330,7 @@ def run():
 
     def allowed(client, *, refresh=False):
         status, body, raw = client.production(refresh=refresh)
-        no_secrets(raw)
+        no_browser_exposure(raw)
         assert status == 200 and body.get('ok') is True, 'Authorized board request failed'
         data = body['data']
         row = next(row for row in data['rows'] if row['label'] == '4BMA')
@@ -337,7 +340,7 @@ def run():
 
     def provider_failure(client, case, *, retryable=True):
         status, body, raw = client.production(refresh=True)
-        no_secrets(raw)
+        no_browser_exposure(raw)
         assert status == 200 and body.get('ok') is False, case
         error = body.get('error', {})
         assert error.get('code') == 'PROVIDER_ERROR' and error.get('retryable') is retryable, case
@@ -365,7 +368,7 @@ def run():
         status, body, raw = admin.production()
         assert status == 200 and body.get('ok') is False
         assert body.get('error', {}).get('code') == 'SERVICE_NOT_CONFIGURED'
-        no_secrets(raw)
+        no_browser_exposure(raw)
         passed('frappe_service_not_configured', no_data=True)
         denied(guest, 'guest_rpc_denied')
         denied(employee, 'employee_rpc_denied')
@@ -376,7 +379,7 @@ def run():
             for path in ENDPOINTS:
                 status, _, raw = _http(service_url + path, headers)
                 assert status == 401 and 'rows' not in raw
-                no_secrets(raw)
+                no_browser_exposure(raw)
             passed(case, endpoints=len(ENDPOINTS), http=401)
 
         # Real site_config file, then wait for Frappe's unchanged 60s config-cache TTL.
@@ -387,7 +390,7 @@ def run():
         deadline = time.monotonic() + 75
         while True:
             status, body, raw = admin.production()
-            no_secrets(raw)
+            no_browser_exposure(raw)
             if status == 200 and body.get('ok') is True:
                 break
             assert body.get('error', {}).get('code') == 'SERVICE_NOT_CONFIGURED', 'Unexpected config transition'
@@ -399,7 +402,7 @@ def run():
                actual_http=True, real_aggregation=True, scopes_empty=True)
         status, body, raw = admin.production('get_ai_analysis')
         assert status == 200 and body.get('ok') and upstream.marker in raw
-        no_secrets(raw)
+        no_browser_exposure(raw)
         passed('administrator_reads_existing_ai_results', triggers_analysis=False)
 
         # Warm data must never be served to a separate or newly logged-out session.
@@ -433,7 +436,7 @@ def run():
         for path in ENDPOINTS:
             status, _, raw = _http(service_url + path, {'X-HBOS-Service-Token': token})
             assert status == 503 and 'rows' not in raw
-            no_secrets(raw)
+            no_browser_exposure(raw)
         passed('fastapi_service_token_unconfigured', endpoints=len(ENDPOINTS), http=503)
         provider_failure(admin, 'frappe_service_unconfigured_upstream')
 
@@ -474,22 +477,28 @@ def run():
                                 cwd=SERVICE_ROOT / 'hbos_production_ai', env=ai_env,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
         assert result.returncode == 0, 'Disabled AI / dry-run writer contract failed'
-        no_secrets(result.stdout)
+        # This PIPE contains server stdout/stderr, never a Portal response.
+        # httpx INFO logs include request URLs during the dry-run writer's read;
+        # the same credential prohibition still applies to every output surface.
+        no_credentials(result.stdout, 'AI server output')
+        passed('ai_server_output_credential_scan', credential_hits=0,
+               internal_origin_in_server_diagnostics=upstream_url in result.stdout)
         assert upstream.counts['model'] == before['model'] == 0
         assert upstream.counts['write'] == before['write'] == 0
         passed('ai_defaults_disabled_and_dry_run', model_calls=0, upstream_writes=0)
 
         stop()
         log.flush()
-        # Scan response/error logs and actual built browser assets without printing contents.
-        assert all(value not in log_path.read_text() for value in secret_values), 'Credential in service log'
+        # Server logs prohibit credentials. Browser bundles additionally prohibit
+        # internal origins, just like the real RPC responses checked above.
+        no_credentials(log_path.read_text(), 'FastAPI server log')
         for row in frappe.get_all('Error Log', fields=['error'], limit_page_length=0):
-            assert all(value not in (row.error or '') for value in secret_values), 'Credential in Frappe log'
+            no_credentials(row.error or '', 'Frappe server error log')
         assets = Path(frappe.get_app_path('hbos_portal', 'public', 'portal'))
         bundles = list(assets.rglob('*.js'))
         assert bundles, 'Actual built frontend assets are required'
         for bundle in bundles:
-            no_secrets(bundle.read_text())
+            no_browser_exposure(bundle.read_text(), 'browser bundle')
         passed('secrets_absent_from_errors_logs_browser_bundles', bundles=len(bundles))
         assert source_hashes == {str(p.relative_to(SERVICE_ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                                  for p in source_files}, 'Fixture modified production service source'

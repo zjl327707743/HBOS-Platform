@@ -16,6 +16,9 @@ SHIFT_NAMES = {
 
 
 def execute(filters=None):
+    # Fail closed until scoped legacy Script Reports are query-time filtered.
+    from hb_attendance_app.hbos_attendance.report_scope import require_unrestricted_employee_read
+    require_unrestricted_employee_read("Attendance", "Employee Checkin", "HBOS Leave Record")
     filters = filters or {}
     enable_ai = bool(filters.get("enable_ai"))
     conditions = []

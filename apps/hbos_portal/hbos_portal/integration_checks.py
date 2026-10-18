@@ -71,11 +71,13 @@ def run() -> dict[str, object]:
     if route_result["resolved_path"] != "/hbos-lims/tasks?scope=mine&task=TASK-001":
         raise AssertionError("LIMS stable route adapter mismatch")
 
+    # 考勤已迁到门户原生 SPA：稳定路由解析回自身，由前端 /hbos/ 前缀命中 Vue 路由。
+    # （班次管理仍内嵌到 Desk 实现，见 hb_attendance_app 的 portal/routes.py。）
     attendance_route = resolve_stable_route(
         "attendance",
         "/hbos/attendance",
     )
-    if attendance_route["resolved_path"] != "/app/hbos-attendance-dashboard":
+    if attendance_route["resolved_path"] != "/hbos/attendance":
         raise AssertionError("Attendance stable route adapter mismatch")
 
     inventory_route = resolve_stable_route(
