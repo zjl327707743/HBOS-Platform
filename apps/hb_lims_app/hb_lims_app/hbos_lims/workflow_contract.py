@@ -449,9 +449,11 @@ def action_allowed(action, actor_role, scope=None):
 	`scope`（DocType 名）用于同名但角色不同的动作。
 
 	治理约束：System Manager 是技术运维角色，不是质量业务批准角色。
-	即使历史 ACTION_ROLES 里仍保留 ROLE_SYSTEM 作为兼容记录，它也只能执行
-	`get_*` 只读动作；任何状态、签署、主数据、处置等写动作必须持有明确 LIMS 业务角色。
-	真正的技术 break-glass 仅保留给内建 Administrator，并由字段守卫/审计单独处理。
+	即使历史 ACTION_ROLES 里仍保留 ROLE_SYSTEM 作为兼容记录，质量业务中的
+	状态、签署、主数据、处置等写动作仍必须持有明确 LIMS 业务角色。
+	技术角色除 `get_*` 外，仅有 L10-P0-06 显式的 `break_glass_update` 例外；
+	其理由、字段白名单与审计由服务入口校验，不能凭身份直接绕过字段守卫。
+	这不表示 IAM-1 候选中的应急时限、审批/双人复核或生产启用门禁已完成。
 	"""
 	if actor_role == ROLE_SYSTEM and not str(action or "").startswith("get_"):
 		# 例外：`break_glass_update` 不是质量业务动作，而是技术运维的**受审计**逃生口

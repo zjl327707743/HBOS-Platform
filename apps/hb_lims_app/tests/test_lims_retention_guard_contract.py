@@ -25,8 +25,9 @@ R7C 这两个单据只是漏接线（控制器为 `class X(Document): pass`）�
    继续使用其原有 `doc.save(ignore_permissions=True)`，本轮刻意不改动。
 4. 守卫覆盖完整性：任何**带状态字段**的 LIMS DocType，其控制器必须接线守卫，
    否则必须出现在带理由的豁免表中（防再次遗漏）
-5. A04 治理不变量：`action_allowed()` 对 System Manager 只放行只读动作，
-   即使 ACTION_ROLES 历史声明里仍保留该角色
+5. A04 治理不变量：System Manager 不因技术角色获得质量业务写权限，即使
+   ACTION_ROLES 历史声明里仍保留该角色；L10-P0-06 明确的唯一技术写入口为
+   `break_glass_update`，其角色、理由、白名单与审计另有专用原生测试
 
 第 3 项的判定**按 DocType 精确作用域**，而不是「名为 doc 的局部变量一律禁止」——
 后者会把无关业务对象的保存点也算作违规，逼迫为统一风格扩大改动范围。
@@ -461,15 +462,23 @@ class TestGuardCoverageCompleteness(unittest.TestCase):
 
 
 class TestSystemManagerGovernance(unittest.TestCase):
-	"""A04 运行时结论固化：System Manager 是技术运维角色，不是质量批准角色。"""
+	"""A04 不授予质量批准权；L10-P0-06 的显式应急入口不等于业务角色授权。
 
-	def test_system_manager_is_denied_every_write_action(self):
+	本契约只固定当前服务及 test_lims_break_glass_runtime 的既有边界；不代表
+	IAM-1 候选中的应急时限、审批/双人复核和生产启用门禁已实现或获批。
+	"""
+
+	def test_system_manager_is_denied_business_writes_except_explicit_break_glass(self):
 		from hb_lims_app.hbos_lims.workflow_contract import ACTION_ROLES, action_allowed
 
 		allowed_writes = [a for a in ACTION_ROLES
 						  if not a.startswith("get_") and action_allowed(a, "System Manager")]
-		self.assertEqual(allowed_writes, [],
-						 "System Manager 不得执行任何状态/签署/主数据写动作")
+		self.assertEqual(allowed_writes, ["break_glass_update"],
+						 "唯一允许的技术写入口必须是 break_glass_update，不能扩展为质量业务权限")
+		for scope, action in wf.SCOPED_ACTION_ROLES:
+			if not action.startswith("get_"):
+				self.assertFalse(action_allowed(action, "System Manager", scope=scope),
+								 f"{scope}/{action}: 指定 DocType 不得重新放行技术角色的业务写动作")
 
 	def test_system_manager_keeps_read_actions(self):
 		from hb_lims_app.hbos_lims.workflow_contract import ACTION_ROLES, action_allowed
@@ -480,14 +489,21 @@ class TestSystemManagerGovernance(unittest.TestCase):
 						"System Manager 应保留只读动作")
 
 	def test_historical_grants_do_not_imply_runtime_allowance(self):
-		"""ACTION_ROLES 里保留的 System Manager 记录只是历史兼容，
-		必须以 action_allowed() 的运行时结论为准（防止静态计数误判为越权放行）。"""
+		"""历史业务授权仍拒绝，唯一显式技术例外必须按独立契约验证。"""
 		from hb_lims_app.hbos_lims.workflow_contract import ACTION_ROLES
 
 		declared = [a for a, roles in ACTION_ROLES.items() if "System Manager" in roles]
 		self.assertTrue(declared, "ACTION_ROLES 仍保留历史声明（本测试固化该事实）")
 		for action in declared:
 			if action.startswith("get_"):
+				continue
+			if action == "break_glass_update":
+				self.assertEqual(ACTION_ROLES[action], {wf.ROLE_SYSTEM})
+				self.assertTrue(wf.action_allowed(action, "System Manager"))
+				for business_role in (wf.ROLE_ANALYST, wf.ROLE_REVIEWER,
+									  wf.ROLE_MANAGER, wf.ROLE_LIMS_QA):
+					self.assertFalse(wf.action_allowed(action, business_role),
+									 "质量业务角色不得自动继承应急维护能力")
 				continue
 			self.assertFalse(wf.action_allowed(action, "System Manager"),
 							 f"{action} 声明含 System Manager，但运行时必须拒绝")

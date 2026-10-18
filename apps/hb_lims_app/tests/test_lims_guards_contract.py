@@ -22,6 +22,7 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
@@ -61,6 +62,33 @@ NO_FLAG_NEEDED = {
 }
 
 SAVE_METHODS = ("save", "insert")
+
+# L10-P0-06 当前显式应急名单；不是所有受守卫 DocType 的自动并集。
+# 修改名单须单独审查，禁止因新增控制器守卫而自动扩大技术维护权限。
+BREAK_GLASS_FIELD_SETS = {
+	"HBOS Sample": "wf.HBOS_SAMPLE_SYSTEM_FIELDS",
+	"HBOS Sample Task": "wf.HBOS_SAMPLE_TASK_SYSTEM_FIELDS",
+	"HBOS Test Result": "wf.HBOS_TEST_RESULT_SYSTEM_FIELDS",
+	"HBOS COA": "wf.HBOS_COA_SYSTEM_FIELDS",
+	"HBOS Specification": "wf.HBOS_SPECIFICATION_SYSTEM_FIELDS",
+	"HBOS Stability Notice": "stability_guards.NOTICE_SYSTEM_FIELDS",
+	"HBOS Stability Protocol": "stability_guards.PROTOCOL_SYSTEM_FIELDS",
+	"HBOS Stability Sample": "stability_guards.SAMPLE_SYSTEM_FIELDS",
+	"HBOS Stability Timepoint": "stability_guards.TIMEPOINT_SYSTEM_FIELDS",
+	"HBOS Stability Result": "stability_guards.RESULT_SYSTEM_FIELDS",
+	"HBOS Stability Report": "stability_guards.REPORT_SYSTEM_FIELDS",
+	"HBOS Stability Change": "stability_guards.CHANGE_SYSTEM_FIELDS",
+	"HBOS Stability Room Log": "stability_guards.ROOM_LOG_SYSTEM_FIELDS",
+	"HBOS Stability Fault Ticket": "stability_guards.FAULT_SYSTEM_FIELDS",
+	"HBOS Stability Equipment": "stability_guards.EQUIPMENT_SYSTEM_FIELDS",
+}
+
+# 方案 M2-R7 §5.5/5.6/6.1：留样申请的审批/签署伴随预占、执行、销毁等联动，
+# 必须经 retention_service；受字段守卫保护不表示可借 break-glass 单改字段。
+BUSINESS_ONLY_FIELD_SETS = {
+	"HBOS Retention Usage Apply": "wf.HBOS_RETENTION_USAGE_SYSTEM_FIELDS",
+	"HBOS Retention Disposal Apply": "wf.HBOS_RETENTION_DISPOSAL_SYSTEM_FIELDS",
+}
 
 
 def _source(path):
@@ -157,15 +185,41 @@ def _registry_source_map():
 
 
 def _controller_guard_calls():
-	"""扫描各控制器源码：DocType 名 -> `guard_system_fields(self, <表达式>)` 的表达式。"""
+	"""只计入 validate 主体的真实守卫调用，不把注释、其它方法或条件分支算作接线。"""
 	calls = {}
 	for path in sorted(DOCTYPES.rglob("*.py")):
-		match = re.search(r"guard_system_fields\(self,\s*([A-Za-z_.]+)\)", _source(path))
-		if not match:
-			continue
-		doctype = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["name"]
-		calls[doctype] = match.group(1)
+		for cls in (n for n in ast.parse(_source(path)).body if isinstance(n, ast.ClassDef)):
+			for validate in (n for n in cls.body
+							 if isinstance(n, ast.FunctionDef) and n.name == "validate"):
+				for stmt in validate.body:
+					if not isinstance(stmt, ast.Expr) or not isinstance(stmt.value, ast.Call):
+						continue
+					call = stmt.value
+					if ast.unparse(call.func) not in ("guard_system_fields", "guards.guard_system_fields"):
+						continue
+					if len(call.args) != 2 or ast.unparse(call.args[0]) != "self":
+						raise AssertionError(f"{path}: 守卫必须接收当前文档及字段集")
+					doctype = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["name"]
+					if doctype in calls:
+						raise AssertionError(f"{doctype}: 重复守卫需显式审查")
+					calls[doctype] = ast.unparse(call.args[1])
 	return calls
+
+
+class _GuardRejected(Exception):
+	pass
+
+
+def _reject(message):
+	raise _GuardRejected(message)
+
+
+def _source_function(path, name, **namespace):
+	"""执行实际纯函数体；仅替代 Frappe 抛错/文档边界，不声称原生 Site 验证。"""
+	function = next(n for n in ast.parse(_source(path)).body
+					if isinstance(n, ast.FunctionDef) and n.name == name)
+	exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), "exec"), namespace)
+	return namespace[name]
 
 
 class TestNoPrivilegedBypass(unittest.TestCase):
@@ -204,26 +258,57 @@ def _normalize_ref(expr):
 
 
 class TestSystemFieldRegistry(unittest.TestCase):
-	"""break-glass 的字段白名单须与各控制器实际守卫的字段集同源（防漂移）。
+	"""分别验证完整字段保护与显式应急白名单，不能把两者机械取成相同集合。
 
-	登记表若与控制器不一致：要么逃生口放行了本不该放行的字段（削弱 P0-04/P0-05 的
-	内容冻结），要么对合法运维动作误报拒绝。故用「引用表达式」逐条比对，而不是把
-	元组重抄一遍（重抄本身就会漂）。
+	17 个控制器须实际接线，15 个应急条目须逐项同源；留样两类申请保持受保护且
+	不在应急名单中。不得用任意 subset、忽略缺项或扩白名单来消除契约失败。
 	"""
 
 	def test_registry_matches_controller_guard_calls(self):
-		registry = {dt: _normalize_ref(ref) for dt, ref in _registry_source_map().items()}
+		expected = {**BREAK_GLASS_FIELD_SETS, **BUSINESS_ONLY_FIELD_SETS}
 		controllers = {dt: _normalize_ref(ref)
 					   for dt, ref in _controller_guard_calls().items()}
-		self.assertEqual(registry, controllers,
-						 "guards.SYSTEM_FIELD_SETS 与控制器实际守卫的字段集不一致")
+		self.assertEqual(controllers, expected,
+						 "17 个控制器的 validate 守卫必须完整，且使用各自准确的字段集")
+		stability_fields = {
+			n.targets[0].id: ast.literal_eval(n.value)
+			for n in ast.parse(_source(STABILITY_GUARDS)).body
+			if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)
+			and n.targets[0].id.endswith("_SYSTEM_FIELDS")
+		}
+		frappe_stub = SimpleNamespace(throw=_reject)
+		guard = _source_function(STABILITY_GUARDS, "guard_system_fields", frappe=frappe_stub)
+		for doctype, ref in expected.items():
+			module, constant = ref.split(".")
+			fields = getattr(wf, constant) if module == "wf" else stability_fields[constant]
+			self.assertTrue(fields, f"{doctype}: 不得用空字段集架空守卫")
+			before = dict.fromkeys(fields, "原值")
+			for user in ("System Manager", "Administrator"):
+				frappe_stub.session = SimpleNamespace(user=user)
+				frappe_stub.get_roles = lambda: ["System Manager"]
+				for field in fields:
+					with self.subTest(doctype=doctype, field=field, user=user):
+						current = {**before, field: "直接伪造的新值"}
+						doc = SimpleNamespace(doctype=doctype, flags={}, get=current.get,
+											  get_doc_before_save=lambda: before)
+						with self.assertRaises(_GuardRejected):
+							guard(doc, fields)
+						# 合法业务服务仍可显式写入；全拒绝不能成为通过测试的办法。
+						doc.flags["allow_system_fields"] = True
+						guard(doc, fields)
 
 	def test_registry_covers_both_boards(self):
-		"""两块板块都要在册：检验流程（wf.*）与稳定性（stability_guards.*）。"""
-		registry = _registry_source_map()
-		self.assertTrue(any(expr.startswith("wf.") for expr in registry.values()))
-		self.assertTrue(any(expr.startswith("stability_guards.") for expr in registry.values()))
-		self.assertGreaterEqual(len(registry), 15)
+		"""检验/稳定性 15 项名单逐项固定；未登记的留样对象仍须拒绝应急修改。"""
+		registry = {dt: _normalize_ref(ref) for dt, ref in _registry_source_map().items()}
+		self.assertEqual(registry, BREAK_GLASS_FIELD_SETS,
+						 "应急名单增删或字段引用变更必须单独审查，不随控制器守卫自动扩张")
+		lookup = _source_function(GUARDS, "system_fields_for",
+								  SYSTEM_FIELD_SETS=registry, frappe=SimpleNamespace(throw=_reject))
+		for doctype, ref in BREAK_GLASS_FIELD_SETS.items():
+			self.assertEqual(lookup(doctype), ref)
+		for doctype in (*BUSINESS_ONLY_FIELD_SETS, "HBOS Retention Sample", "Unregistered DocType"):
+			with self.subTest(doctype=doctype), self.assertRaises(_GuardRejected):
+				lookup(doctype)
 
 
 class TestSpecificationContentFreeze(unittest.TestCase):

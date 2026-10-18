@@ -12,8 +12,9 @@
   后，内容字段与子表整体只读，同样不设特权旁路 —— 受控文件生效后任何改动都须走升版 /
   作废重出（L10-P0-04 / L10-P0-05）。
 
-`SYSTEM_FIELD_SETS` / `system_fields_for()` 汇总各板块的受守卫字段集，供应急处置
-（break-glass）限定可改范围：未登记即拒绝。
+`SYSTEM_FIELD_SETS` / `system_fields_for()` 是应急处置（break-glass）的显式字段
+白名单，条目使用控制器的同一字段集；它不是全部受守卫 DocType 的登记表。
+新增字段守卫不会自动扩大应急范围：未登记即拒绝。
 
 此处只做中性再导出，供 M2-R3/R6 检验流程等其它板块复用**同一实现**，
 避免两套守卫逻辑分叉。各板块自己持有字段集与受控状态：检验流程见
@@ -32,8 +33,8 @@ __all__ = ["guard_system_fields", "guard_content_frozen", "system_fields_for",
 
 # DocType -> 受守卫的系统字段集（状态 / 签署 / 版本链）。
 # 应急处置（break-glass）据此限定可改字段：**未登记即拒绝**，避免逃生口变成绕过
-# 内容冻结（L10-P0-04 / P0-05）的后门。登记表必须与各控制器 validate() 里实际守卫
-# 的字段集一致，由 tests/test_lims_guards_contract.py::TestSystemFieldRegistry 防漂移。
+# 内容冻结（L10-P0-04 / P0-05）的后门。每个已登记条目必须与其控制器 validate()
+# 实际守卫的字段集一致；名单与完整守卫覆盖分别由 TestSystemFieldRegistry 防漂移。
 SYSTEM_FIELD_SETS = {
 	"HBOS Sample": wf.HBOS_SAMPLE_SYSTEM_FIELDS,
 	"HBOS Sample Task": wf.HBOS_SAMPLE_TASK_SYSTEM_FIELDS,
@@ -56,7 +57,8 @@ SYSTEM_FIELD_SETS = {
 def system_fields_for(doctype):
 	"""返回该 DocType 已登记的系统字段集；未登记即拒绝应急处置修改。
 
-	未登记（如 `HBOS Retention Sample`：库存 / 状态另有 `adjust_stock`、使用与处理
+	未登记（如 `HBOS Retention Sample`、`HBOS Retention Usage Apply`、
+	`HBOS Retention Disposal Apply`：库存、状态、签署另有 `adjust_stock`、使用与处理
 	审批链等受审计业务路径）时抛错，属**安全默认** —— 逃生口不应自动覆盖所有 DocType。
 	"""
 	fields = SYSTEM_FIELD_SETS.get(doctype)
