@@ -840,6 +840,9 @@ def publish_coa(coa_name):
 		if coa.report_status != "已审核":
 			frappe.throw(f"COA {coa_name} 状态为 {coa.report_status}，仅已审核可发布。")
 
+		coa.report_status = "已发布"
+		coa.published_by = _user()
+		coa.published_at = _now()
 		# 生成 PDF（直接渲染 Print Format 模板，绕开 website 渲染管线；中文支持）
 		html = _coa_print_html(coa)
 		pdf = frappe.utils.pdf.get_pdf(html)
@@ -857,9 +860,6 @@ def publish_coa(coa_name):
 		file_doc.insert(ignore_permissions=True)
 
 		coa.pdf_attachment = file_doc.file_url
-		coa.report_status = "已发布"
-		coa.published_by = _user()
-		coa.published_at = _now()
 		coa.flags.allow_system_fields = True
 		coa.save(ignore_permissions=True)
 		_commit()
