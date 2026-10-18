@@ -31,8 +31,23 @@ const http = axios.create({
 })
 
 let csrfToken: string | null = null
+let csrfGeneration = 0
+let bootstrapCsrfAvailable = true
 
-export function clearFrappeCsrfToken() { csrfToken = null }
+export function clearFrappeCsrfToken() {
+  csrfGeneration += 1
+  csrfToken = null
+  // 页面注入值属于最初的会话；清理后必须向当前会话重新取值。
+  bootstrapCsrfAvailable = false
+}
+
+/** 独立 fetch 请求的失败清理只作用于发起请求时的会话。 */
+export function createFrappeCsrfInvalidator(): () => void {
+  const generation = csrfGeneration
+  return () => {
+    if (generation === csrfGeneration) clearFrappeCsrfToken()
+  }
+}
 
 export type FrappeRequestErrorCode =
   | 'UNAUTHENTICATED'
@@ -102,7 +117,7 @@ export function normalizeFrappeError(error: unknown, method?: string): FrappeReq
     return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
   }
   if (/CSRFTokenError|csrf token/i.test(detail)) {
-    csrfToken = null
+    clearFrappeCsrfToken()
     return new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请刷新页面后重试。', status)
   }
   if (status === 403 || status === 417) {
@@ -125,7 +140,11 @@ function bootstrapCsrfToken(): string | null {
 }
 
 async function getCsrfToken(): Promise<string> {
-  csrfToken ||= bootstrapCsrfToken()
+  const generation = csrfGeneration
+  if (bootstrapCsrfAvailable) {
+    csrfToken ||= bootstrapCsrfToken()
+    bootstrapCsrfAvailable = false
+  }
   if (csrfToken) return csrfToken
 
   try {
@@ -133,6 +152,7 @@ async function getCsrfToken(): Promise<string> {
       ok: boolean
       data?: { csrf_token: string }
     }>>('/api/method/hbos_portal.api.csrf.get_token')
+    assertCsrfGeneration(generation)
     const payload = response.data.message
     if (!payload.ok || !payload.data?.csrf_token) {
       throw new FrappeRequestError('UNAUTHENTICATED', '当前会话无法建立安全请求，请重新登录。')
@@ -140,7 +160,14 @@ async function getCsrfToken(): Promise<string> {
     csrfToken = payload.data.csrf_token
     return csrfToken
   } catch (error) {
+    assertCsrfGeneration(generation)
     throw normalizeFrappeError(error, 'hbos_portal.api.csrf.get_token')
+  }
+}
+
+function assertCsrfGeneration(generation: number) {
+  if (generation !== csrfGeneration) {
+    throw new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请重新确认后重试。')
   }
 }
 
@@ -163,55 +190,26 @@ export async function callFrappeMethod<T>(
 }
 
 // ---------------------------------------------------------------------------
-// CSRF（库存线：走 hb_inventory_app 的受控接口）
+// CSRF（库存与账号共用 Portal 当前会话生命周期）
 // ---------------------------------------------------------------------------
 
 /**
- * Frappe 的 CSRF 校验一直在跑（`frappe.auth.validate_csrf_token`），任何非 GET 请求
- * 都必须带 `X-Frappe-CSRF-Token`，否则 400 `CSRFTokenError`。
- *
- * Desk 页面里能用，是框架注入了 `frappe.csrf_token`；Portal 是独立前端、跨源
- * （本地开发甚至跨端口），拿不到那个注入。所以走 `hb_inventory_app` 提供的受控接口。
- *
- * 该接口只返回**当前会话**的 token：有 cookie 才有 token，没 cookie 拿不到，
- * 拿不到就发不出合法 POST——因此并没有削弱 CSRF 防护。
+ * 统一产品 Portal 只维护一份当前会话 token。登录、退出、账号变更或 CSRF 失败
+ * 统一清理，库存写入与账号写入都不能继续使用旧缓存或旧页面注入值。
+ * 取 token 失败即停止本次请求；用户重新确认后才能重新发起写入。
  */
-let cachedCsrf: string | null = null
-
-function readCsrfCookie(): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/)
-  const value = match?.[1]
-  return value ? decodeURIComponent(value) : null
-}
-
-export async function ensureCsrfToken(): Promise<string | null> {
-  // 同源部署时 cookie 里就有，不必多打一次请求
-  const fromCookie = readCsrfCookie()
-  if (fromCookie) return fromCookie
-  if (cachedCsrf) return cachedCsrf
-
-  try {
-    const response = await http.get<FrappeMethodResponse<string>>(
-      '/api/method/hb_inventory_app.hbos_inventory.api.get_csrf_token',
-    )
-    cachedCsrf = response.data.message || null
-    return cachedCsrf
-  } catch {
-    return null
-  }
+export async function ensureCsrfToken(): Promise<string> {
+  return getCsrfToken()
 }
 
 async function withCsrf(): Promise<Record<string, string>> {
+  const generation = csrfGeneration
   const token = await ensureCsrfToken()
-  // 拿不到也照样发：让服务端给出权威的失败原因，而不是前端替它下结论
-  return token ? { 'X-Frappe-CSRF-Token': token } : {}
+  assertCsrfGeneration(generation)
+  return { 'X-Frappe-CSRF-Token': token }
 }
 
-/**
- * 库存线取 CSRF 头；账号线用 `callFrappePostMethod`（走 hbos_portal 的接口）。
- * 两条线各用各的接口，因为安装的 App 不同。
- */
+/** 报表等现有调用方保留同一接口，凭据来源与其他 Portal 请求一致。 */
 export async function csrfHeaders(): Promise<Record<string, string>> {
   return withCsrf()
 }
@@ -392,14 +390,18 @@ export async function postFrappeMethod<T>(
   method: string,
   params?: Record<string, unknown>,
 ): Promise<T> {
+  const generation = csrfGeneration
   try {
+    const headers = await withCsrf()
+    assertCsrfGeneration(generation)
     const response = await http.post<FrappeMethodResponse<T>>(
       `/api/method/${method}`,
       params,
-      { headers: await withCsrf() },
+      { headers },
     )
     return response.data.message
   } catch (error) {
+    assertCsrfGeneration(generation)
     throw toFrappeError(error)
   }
 }
@@ -415,24 +417,31 @@ export async function uploadFrappeFile(
   file: File,
   fields: Record<string, string> = {},
 ): Promise<Record<string, unknown>> {
+  const generation = csrfGeneration
   const form = new FormData()
   form.append('file', file)
   for (const [key, value] of Object.entries(fields)) form.append(key, value)
 
   try {
+    const headers = await withCsrf()
+    assertCsrfGeneration(generation)
     const response = await http.post<FrappeMethodResponse<Record<string, unknown>>>(
       endpoint,
       form,
-      { headers: await withCsrf() },
+      { headers },
     )
     return response.data.message || {}
   } catch (error) {
+    assertCsrfGeneration(generation)
     throw toFrappeError(error)
   }
 }
 
 function toFrappeError(error: unknown): FrappeHttpError {
+  if (error instanceof FrappeRequestError) return error
   if (axios.isAxiosError(error)) {
+    const normalized = normalizeFrappeError(error)
+    if (normalized.code === 'CSRF_MISMATCH' || normalized.code === 'UNAUTHENTICATED') return normalized
     const status = error.response?.status ?? 0
     // 服务端的中文业务提示优先于 axios 的英文 message——EA-5.4 §28 要求
     // 用户看到的是业务语义，不是「Request failed with status code 400」
@@ -496,8 +505,10 @@ export async function callFrappePostMethod<T>(
   data?: Record<string, unknown>,
   extraHeaders?: Record<string, string>,
 ): Promise<T> {
+  const generation = csrfGeneration
   try {
     const token = await getCsrfToken()
+    assertCsrfGeneration(generation)
     const response = await http.post<FrappeMethodResponse<T>>(
       `/api/method/${method}`,
       data || {},
@@ -511,35 +522,45 @@ export async function callFrappePostMethod<T>(
     )
     return response.data.message
   } catch (error) {
+    assertCsrfGeneration(generation)
     throw normalizeFrappeError(error, method)
   }
 }
 
 export interface PasswordLoginResult { tmp_id?: string; verification?: unknown; message?: string }
 export async function loginWithPassword(username: string, password: string, otp = '', tmpId = ''): Promise<PasswordLoginResult> {
+  clearFrappeCsrfToken()
+  const generation = csrfGeneration
   try {
     const security = await http.get<{message: {csrf_token?: string}}>('/api/method/hbos_portal.auth.accounts.get_request_security')
+    assertCsrfGeneration(generation)
     const result = await http.post<{message: PasswordLoginResult}>('/api/method/hbos_portal.auth.accounts.password_login', { username, password, otp, tmp_id: tmpId }, {
       headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(security.data.message.csrf_token ? {'X-Frappe-CSRF-Token': security.data.message.csrf_token} : {}) },
     })
-    csrfToken = null
     return result.data.message
   } catch (error) {
+    assertCsrfGeneration(generation)
     throw normalizeFrappeError(error, tmpId ? 'login_mfa' : 'login')
+  } finally {
+    if (generation === csrfGeneration) clearFrappeCsrfToken()
   }
 }
 
 export async function logoutFrappeSession(): Promise<void> {
+  const generation = csrfGeneration
   try {
     const token = await getCsrfToken()
+    assertCsrfGeneration(generation)
     await http.post('/api/method/logout', {}, {
       headers: {
         'X-Frappe-CSRF-Token': token,
         'Content-Type': 'application/json',
       },
     })
-    csrfToken = null
   } catch (error) {
+    assertCsrfGeneration(generation)
     throw normalizeFrappeError(error, 'logout')
+  } finally {
+    if (generation === csrfGeneration) clearFrappeCsrfToken()
   }
 }

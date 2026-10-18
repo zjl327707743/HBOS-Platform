@@ -9,6 +9,9 @@ STATUS_LABELS = {
 	"Work From Home": "正常出勤",
 }
 def execute(filters=None):
+	# Fail closed until scoped legacy Script Reports are query-time filtered.
+	from hb_attendance_app.hbos_attendance.report_scope import require_unrestricted_employee_read
+	require_unrestricted_employee_read("Attendance", "Employee Checkin")
 	filters = filters or {}
 	conditions = ["a.docstatus < 2"]
 	values = {}

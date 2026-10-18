@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { FrappeHttpError, hasFrappeSession } from '@/services/frappeClient'
+import { clearFrappeCsrfToken, FrappeHttpError, hasFrappeSession } from '@/services/frappeClient'
 import {
   getPortalData,
   getPortalSummaries,
@@ -70,6 +70,7 @@ export const usePortalStore = defineStore('portal', () => {
 
   function clearSession() {
     sessionGeneration++; loading.value = false; summariesLoading.value = false; tasksLoading.value = false
+    clearFrappeCsrfToken()
     user.value = null
     branding.value = null
     apps.value = []
@@ -82,6 +83,7 @@ export const usePortalStore = defineStore('portal', () => {
     twinEquipmentIds.value = []
     limsQueue.value = []
     bootstrapError.value = null
+    bootstrapErrorStatus.value = 0
   }
 
   async function bootstrap() {
@@ -111,6 +113,7 @@ export const usePortalStore = defineStore('portal', () => {
     } catch (error) {
       if (generation !== sessionGeneration) return
       const described = await describeBootstrapError(error)
+      if (generation !== sessionGeneration) return
       bootstrapErrorStatus.value = described.status
       bootstrapError.value = described.message
       throw error

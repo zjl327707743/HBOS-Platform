@@ -1,4 +1,4 @@
-import { callFrappeMethod, csrfHeaders } from '@/services/frappeClient'
+import { callFrappeMethod, createFrappeCsrfInvalidator, csrfHeaders } from '@/services/frappeClient'
 
 /**
  * 库存报表 —— 前端侧接口层。
@@ -134,7 +134,8 @@ export async function exportReport(
     ...extraParams,
   })
 
-  // 复用共享的 CSRF 机制（跨源时逐请求取 token）
+  // 复用当前会话的 CSRF；迟到的导出失败不能清除另一会话的 token。
+  const invalidateCsrf = createFrappeCsrfInvalidator()
   const headers: Record<string, string> = {
     'Content-Type': 'application/x-www-form-urlencoded',
     'X-Requested-With': 'XMLHttpRequest',
@@ -149,6 +150,12 @@ export async function exportReport(
   })
 
   if (!response.ok) {
+    try {
+      const failure: unknown = await response.json()
+      if (failure && typeof failure === 'object' && 'exc_type' in failure && failure.exc_type === 'CSRFTokenError') {
+        invalidateCsrf()
+      }
+    } catch { /* 非 JSON 错误仍使用下面的业务提示，不自动重试导出。 */ }
     // 服务端会带中文业务提示；这里只兜一句可读的语义，不暴露状态码
     throw new Error(
       response.status === 403

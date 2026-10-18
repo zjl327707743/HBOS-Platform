@@ -18,21 +18,17 @@
       <div class="app-layout-grid">
         <InventoryLocalSidebar />
         <main id="inventory-main-content" class="app-route-content" tabindex="-1">
-          <!--
-            与 PortalLayout 同款错误处理。缺少这一段的话，bootstrap 失败时
-            （会话失效、403、服务不可达）页面会**静默渲染成没有用户、没有提示**的空壳，
-            用户只看到一句 axios 原始英文报错或干脆什么都没有。
-            ForbiddenView 已经是现成组件，403 时直接用它。
-          -->
-          <ForbiddenView v-if="portal.bootstrapErrorStatus === 403" />
+          <!-- 复核会话时卸载旧业务视图；失败时保留归一化的中文错误。 -->
+          <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
+          <ForbiddenView v-else-if="portal.bootstrapErrorStatus === 403" />
           <a-alert
-            v-else-if="portal.bootstrapError"
+            v-else-if="portal.bootstrapError || sessionError"
             type="error"
             show-icon
             class="portal-bootstrap-error"
-            :message="portal.bootstrapError"
+            :message="portal.bootstrapError || sessionError"
           />
-          <RouterView v-else />
+          <RouterView v-else :key="portal.user?.id" />
         </main>
       </div>
     </div>
@@ -54,10 +50,11 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { CameraOutlined } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
+import { usePortalSession } from '@/composables/usePortalSession'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import InventoryLocalSidebar from '@/components/layout/InventoryLocalSidebar.vue'
-import MobileAppNav, { type MobileNavGroup } from '@/components/layout/MobileAppNav.vue'
+import MobileAppNav, { type MobileNavGroup } from '@/components/layout/MobileDomainNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 import {
@@ -69,6 +66,7 @@ import { businessNavigationTarget } from '@/services/businessNavigation'
 
 const portal = usePortalStore()
 const commandOpen = ref(false)
+const { sessionPending, sessionError } = usePortalSession()
 
 /**
  * 移动端「入库」快捷动作的目标。
@@ -111,15 +109,6 @@ function shortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') commandOpen.value = false
 }
 
-onMounted(async () => {
-  if (!portal.user) {
-    try {
-      await portal.bootstrap()
-    } catch {
-      // Portal shell 负责渲染已经归一化的错误态，原始异常不进界面。
-    }
-  }
-  window.addEventListener('keydown', shortcut)
-})
+onMounted(() => window.addEventListener('keydown', shortcut))
 onBeforeUnmount(() => window.removeEventListener('keydown', shortcut))
 </script>
