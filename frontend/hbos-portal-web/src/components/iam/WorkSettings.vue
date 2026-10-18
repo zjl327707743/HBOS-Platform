@@ -18,7 +18,7 @@ const explicitlyEdited = ref<Set<string>>(new Set())
 let generation = 0
 const changes = computed(() => changedWork(original.value, draft.value)), dirty = computed(() => editing.value && (changes.value.length > 0 || explicitlyEdited.value.size > 0 || accessState.value !== (app.value?.suspended ? 'paused' : 'normal') || permissionMode.value !== app.value?.permission_mode))
 const ordinary = computed(() => app.value?.operations.filter(row => !row.important && row.available !== false) || []), important = computed(() => app.value?.operations.filter(row => row.important) || [])
-const effectiveStatus = computed(() => app.value?.suspended ? '已暂停' : ordinary.value.some(row=>row.enabled) ? `已开通：${ordinary.value.flatMap(row=>row.scopes).every(scope=>scope.scope_type==='SELF') ? '仅本人' : app.value?.summary}` : `未开通：${ordinary.value.find(row=>row.reason)?.reason || '当前没有有效功能授权'}`)
+const effectiveStatus = computed(() => app.value?.suspended ? '已暂停' : ordinary.value.some(row=>row.enabled) ? `${props.subjectKind==='department'?'已默认开通：成员':'已开通：'}${ordinary.value.flatMap(row=>row.scopes).every(scope=>scope.scope_type==='SELF') ? '仅本人' : app.value?.summary}` : `未开通：${ordinary.value.find(row=>row.reason)?.reason || '当前没有有效功能授权'}`)
 const canManageApp = computed(() => canConfigure.value && canIam(props.subjectKind === 'department' ? 'iam.departments.manage' : 'iam.access.manage') && app.value?.integrated)
 const canEditWork = computed(() => canManageApp.value && ordinary.value.some(row => row.editable))
 const scopeKey = (scope: WorkScope) => JSON.stringify([scope.scope_type, scope.scope_ref])
@@ -51,7 +51,7 @@ watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { imm
   <a-alert v-if="error" :message="error" type="warning" show-icon /><a-button v-if="error" :disabled="busy" @click="load(editing)">读取最新设置，保留草稿</a-button>
   <a-skeleton v-if="loading" active />
   <template v-else-if="app">
-    <section class="current-result"><h3>{{ effectiveStatus }}</h3><p>权限来源：{{ app.permission_mode === 'personal' ? '为此员工单独设置' : '来自所属部门' }}</p>
+    <section class="current-result"><h3>{{ effectiveStatus }}</h3><p>权限来源：{{ subjectKind === 'department' ? '本部门默认权限' : app.permission_mode === 'personal' ? '为此员工单独设置' : '来自所属部门' }}</p>
       <article v-for="row in ordinary" :key="row.operation_id" class="work-row"><strong>{{ row.label }}</strong><span v-if="!row.enabled">{{row.reason || '当前不可用'}}</span><span v-else-if="!fixedSelfScope(row)">{{row.scopes.map(scope=>scope.label||scope.scope_ref).join('、')}}</span></article>
     </section>
     <AttendanceAccessSummary v-if="app.app_id === 'attendance' && subjectKind === 'employee'" :app="app" />
@@ -70,7 +70,7 @@ watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { imm
       <div class="work-footer"><a-button :disabled="busy" @click="editing = false; setDraft()">取消修改</a-button><a-button type="primary" :disabled="!dirty || Boolean(preview)" :loading="busy" html-type="submit">核对变更</a-button></div>
     </a-form>
     <details v-if="important.length"><summary>重要权限（仅查看）</summary><p class="aux">重要权限不会随普通部门权限获得，也不能在此授予。</p><article v-for="row in important" :key="row.operation_id" class="work-row"><strong>{{ row.label }}</strong><span>{{ row.reason || (row.enabled ? '请通过专门流程核验资格与用途' : '未授予') }}</span><small>{{ row.source_text }}</small></article></details>
-    <section v-if="preview" class="preview" aria-live="polite"><h3>保存后的实际结果</h3><p>{{ preview.summary }}</p><p>访问状态：{{ preview.after.suspended ? '已暂停' : '正常' }}；权限来源：{{ preview.after.permission_mode === 'personal' ? '为此员工单独设置' : '来自所属部门' }}</p><p v-for="row in preview.after.operations.filter(item => !item.important)" :key="row.operation_id">{{ row.label }}：{{ row.enabled ? row.scopes.map(scope => scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref)).join('、') : row.reason || '当前不可用' }}</p>
+    <section v-if="preview" class="preview" aria-live="polite"><h3>保存后的实际结果</h3><p>{{ preview.summary }}</p><p>访问状态：{{ preview.after.suspended ? '已暂停' : '正常' }}；权限来源：{{ subjectKind === 'department' ? '本部门默认权限' : preview.after.permission_mode === 'personal' ? '为此员工单独设置' : '来自所属部门' }}</p><p v-for="row in preview.after.operations.filter(item => !item.important)" :key="row.operation_id">{{ row.label }}：{{ row.enabled ? row.scopes.map(scope => scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref)).join('、') : row.reason || '当前不可用' }}</p>
       <template v-if="subjectKind === 'department' && preview.impact"><p>跟随变化 {{ preview.impact.changed }} 人；个人权限保留 {{ preview.impact.personal_preserved }} 人；不可用 {{ preview.impact.unavailable }} 人。</p><details><summary>查看全部受影响员工</summary><p v-for="(row,index) in preview.impact.employees" :key="index">{{ row.name }}：{{ impactResult(row) }}{{ row.personal_preserved ? '（保留个人权限）' : '' }}</p></details></template>
       <p class="aux">保存时再次核对管理范围、来源、期限和资格；本次变更一次保存。</p><a-button :disabled="busy" @click="preview = null">返回核对</a-button><a-button type="primary" :loading="busy" @click="commit">确认保存</a-button>
     </section>
