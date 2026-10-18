@@ -1,6 +1,22 @@
 # M3 启动门禁
 
-## 2026-10-18 R3 集成记录 / 验证基线
+## 当前集成状态 — 2026-10-18
+
+**三个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储。** 唯一目标为 `feature/hbos-portal-product`；本次已核对业务基线为 `a1cc65dde73cfad656faf290264f75fb1a25c32b`。实际来源、Squash、父提交与树见 [项目状态](../PROJECT_STATUS.md)；[PR #39](https://github.com/zjl327707743/HBOS-Platform/pull/39) 已于 2026-10-18 07:28:34 UTC 正常 Squash Merge。
+
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
+
+本轮仓储代码集成门禁已通过真实收货／取消、盘点100→123→100、内部隔离、跨公司拒绝、既有 LIMS 放行后出库及两种已登记外协路径的提交／取消。扫码按原生 Warehouse 范围；全批次卡读取要求全仓范围，受控自动制证不授予后续阅读权限。M3-R6 OCR、实体样本／打印和生产 UAT 仍独立验收；#43 source-only 与 IAM #52 不因此完成。
+
+历史验证按发生日期保留，旧失败与当时的未合并判断以对应 Run 为范围；最新状态以本节及实际 PR 记录为准。
+
+## 验证历史 — 2026-10-18 Run6
+
+[报表、扫码及附件验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810152) **74 PASS / 0 FAIL**；[事务验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810103) **6 PASS / 2 FAIL**。余两项失败为按单一 URL 误选 Batch File 的测试定位错误，LIMS 放行后两种外发 submit/cancel 仍 **NOT_REACHED**，完整仓储门禁未通过。
+
+## 验证历史 — 2026-10-18 Run5
+
+以下保留 Run5 当时的观察与判断，其中“当前”“尚未通过”“原因待定位”均指该次验证；后续状态以页首“当前集成状态”和实际 PR 记录为准。
 
 完整 #42 考勤、#46 生产已合并，已核对产品基线为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。[#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) 仍在技术门禁中、尚未合并，最新来源与实际合并以该 PR 为准，隔离运行以 [#56](https://github.com/zjl327707743/HBOS-Platform/pull/56) 为准。完整事实见 [项目状态](../PROJECT_STATUS.md)。
 
