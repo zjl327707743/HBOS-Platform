@@ -34,3 +34,9 @@
 ## 台账边界
 
 本轮以新增 UAT-R2 主记录承载状态。交付时给共享 PROJECT_STATUS/CURRENT_MILESTONE/公共入口提供最小追加 hunk，由产品合并线接收；不以 IAM 修复覆盖其他业务里程碑。历史 UAT-R1 不改写。
+
+## 补充：真实并行读取冲突
+
+2b9678c 运行源码上，两独立 HTTP 主体各12次并行读取（本人考勤 / 本部门默认配置），员工12次200，管理员12次409；停止并行后同配置连续3次200。原生服务函数单独执行也通过。这证明并行路径事务冲突，不据此认定 Owner 原 Safari 问题的唯一根因。
+
+追加最小文件 `apps/hbos_portal/hbos_portal/api/iam_people.py`：其四个固定 GET people 函数调用同一 `policy.current_read`；写入方法完全不重试。api/iam_access 的 load 查询与 personal 的纯读取使用最多3次事务重试，只捕获原生 QueryDeadlockError/QueryTimeoutError，回滚后重新执行原有身份/范围检查，25ms/125ms有界退避。最终仍冲突返回409，个人页显示中文重试原因；不重放任何保存、调岗、开户、proof或口令命令。

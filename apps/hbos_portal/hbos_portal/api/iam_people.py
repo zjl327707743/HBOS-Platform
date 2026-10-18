@@ -20,7 +20,10 @@ def _call(method, values, write=False):
     try:
         if write:
             guards.require_post()
-        return {'ok': True, 'data': getattr(people, method)(**values)}
+        from hbos_portal.iam import policy
+        read = lambda: getattr(people, method)(**values)
+        retry_read = not write and method in {'list_people', 'get_person', 'get_employee_metadata', 'get_my_employee_status'}
+        return {'ok': True, 'data': policy.current_read(read) if retry_read else read()}
     except frappe.AuthenticationError:
         frappe.db.rollback()
         frappe.local.response['http_status_code'] = 403
@@ -37,7 +40,7 @@ def _call(method, values, write=False):
     except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
         frappe.db.rollback()
         frappe.local.response['http_status_code'] = 409
-        return {'ok': False, 'error': {'code': 'CONFLICT', 'message': '并发操作使当前事务失效，改动未保存，请刷新后重新验证。', 'retryable': True}}
+        return {'ok': False, 'error': {'code': 'CONFLICT' if write else 'READ_CONFLICT', 'message': '并发操作使当前事务失效，改动未保存，请刷新后重新验证。' if write else '读取遇到暂时冲突，请重试查询。', 'retryable': True}}
     except Exception:
         frappe.db.rollback()
         frappe.local.response['http_status_code'] = 500

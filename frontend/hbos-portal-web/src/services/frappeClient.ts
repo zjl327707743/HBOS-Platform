@@ -19,7 +19,7 @@ function recordRead(method: string) {
 export function clearFrappeCsrfToken() { csrfToken = null; csrfFlight = null }
 export function invalidateFrappeRequests() { requestEpoch++; clearFrappeCsrfToken() }
 export function blockFrappeWrites(blocked: boolean) { writesBlocked = blocked }
-export type FrappeRequestErrorCode = 'UNAUTHENTICATED' | 'INVALID_CREDENTIALS' | 'PROOF_REQUIRED' | 'SESSION_UNCONFIRMED' | 'STALE_RESPONSE' | 'CSRF_MISMATCH' | 'FORBIDDEN' | 'NETWORK_ERROR' | 'SERVICE_ERROR' | 'VALIDATION_ERROR' | 'RATE_LIMITED'
+export type FrappeRequestErrorCode = 'UNAUTHENTICATED' | 'INVALID_CREDENTIALS' | 'PROOF_REQUIRED' | 'SESSION_UNCONFIRMED' | 'STALE_RESPONSE' | 'CSRF_MISMATCH' | 'FORBIDDEN' | 'NETWORK_ERROR' | 'SERVICE_ERROR' | 'VALIDATION_ERROR' | 'RATE_LIMITED' | 'READ_CONFLICT'
 export class FrappeRequestError extends Error {
   constructor(public code: FrappeRequestErrorCode, message: string, public status?: number, public diagnosticId?: string) { super(message); this.name = 'FrappeRequestError' }
 }
@@ -58,6 +58,7 @@ export function normalizeFrappeError(error: unknown, method?: string, fact?: Pic
   // Account validation messages must never hide a confirmed Guest boundary.
   if (fact?.authenticated === false || (status === 401 && !credentialMethod)) return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
   const wire = (error.response.data as {message?: {error?: {code?:string;message?:string}}})?.message?.error
+  if (status === 409 && wire?.code === 'READ_CONFLICT') return new FrappeRequestError('READ_CONFLICT', '读取遇到暂时冲突，请重试查询。', status)
   if (wire?.code === 'PROOF_REQUIRED') return new FrappeRequestError('PROOF_REQUIRED', '本人身份验证已过期，请重新验证后再保存。', status)
   if (/not whitelisted|not permitted to access this method|Failed to get method/i.test(detail)) return fact?.authenticated ? diagnostic(status) : new FrappeRequestError('SESSION_UNCONFIRMED', '暂时无法确认登录状态，请重试核验或退出登录。', status)
   if (/AuthenticationError/.test(detail) && fact?.authenticated) return new FrappeRequestError('PROOF_REQUIRED', '本人身份验证已过期，请重新验证后再保存。', status)

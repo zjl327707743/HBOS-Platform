@@ -5,17 +5,17 @@ import frappe
 from hbos_portal.iam import guards, policy, work_commands
 
 
-def _call(function):
+def _call(function, *, read_only=False):
     try:
         if frappe.conf.get("hbos_iam_enabled") not in (True, 1, "1"):
             frappe.throw("此站点尚未启用IAM实施候选。", frappe.PermissionError)
-        return {"ok": True, "data": function()}
+        return {"ok": True, "data": policy.current_read(function) if read_only else function()}
     except Exception as exc:
         status = frappe.local.response.get("http_status_code")
         if isinstance(exc, frappe.PermissionError):
             status, code, message = 403, "FORBIDDEN", str(exc)
         elif isinstance(exc, (frappe.QueryDeadlockError, frappe.QueryTimeoutError)):
-            status, code, message = 409, "CONFLICT", "并发操作使当前事务失效，改动未保存，请刷新后重新核对。"
+            status, code, message = (409, "READ_CONFLICT", "读取遇到暂时冲突，请重试查询。") if read_only else (409, "CONFLICT", "并发操作使当前事务失效，改动未保存，请刷新后重新核对。")
         elif isinstance(exc, frappe.TimestampMismatchError) or status == 409:
             status, code, message = 409, "CONFLICT", str(exc)
         elif isinstance(exc, (frappe.ValidationError, ValueError, TypeError)):
@@ -150,7 +150,7 @@ def get_capabilities(**kwargs):
             capabilities.append("attendance.read")
         from hbos_portal.auth.accounts import browser_session_context
         return {"schema_version": 1, "subject_user": user, "session_context": browser_session_context(), **policy.revision_digests(user), "capabilities": capabilities}
-    return _call(load)
+    return _call(load, read_only=True)
 
 
 def _work_person(employee, department=None):
@@ -182,7 +182,7 @@ def list_app_people(app_id, search="", department="", page=1, page_size=20, view
         # a separate snapshot COUNT could expose moved or revoked employees.
         page_rows = rows[(current - 1) * size:current * size]
         return {"items": [_work_person(row, departments[row.department]) for row in page_rows], "total": len(rows), "page": current, "page_size": size, "groups_available": grouped}
-    return _call(load)
+    return _call(load, read_only=True)
 
 
 @frappe.whitelist()
@@ -196,7 +196,7 @@ def get_work_subject(employee_id, app_id, **kwargs):
         row = rows[0]
         person = _work_person(row, departments[row.department])
         return {"employee": person, "account": {"status": person["account_status"], "user_id": row.user_id}, "association": {"status": person["attendance_status"]}, "configuration_only": True}
-    return _call(load)
+    return _call(load, read_only=True)
 
 
 @frappe.whitelist()
@@ -207,7 +207,7 @@ def get_registered_apps(**kwargs):
         if not apps:
             frappe.throw("没有可读取的应用管理范围。", frappe.PermissionError)
         return {"apps": apps}
-    return _call(load)
+    return _call(load, read_only=True)
 
 
 @frappe.whitelist()
@@ -235,7 +235,7 @@ def get_effective_access(subject_type, subject_name, app_id, **kwargs):
                 # own source, no department population or business records.
                 result["department_default"] = {"id": department_id, "name": policy.value(department, "department_name") or department_id, "enabled": any(row["allowed"] for row in default["operations"] if row["ordinary"] and row["available"]), "suspended": default["suspended"], "can_open": can_open}
         return result
-    return _call(load)
+    return _call(load, read_only=True)
 
 
 @frappe.whitelist()

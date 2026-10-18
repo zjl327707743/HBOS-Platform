@@ -18,6 +18,24 @@ MANAGEMENT = {
 }
 
 
+def current_read(function):
+    """Bounded retry for a fixed read-only closure, never a business command.
+
+    Authorization is inside the closure and runs again after rollback. No
+    decisions, rows, proofs or permissions survive a failed transaction.
+    """
+    from time import sleep
+    conflicts = tuple(kind for name in ("QueryDeadlockError", "QueryTimeoutError") if isinstance((kind := getattr(frappe, name, None)), type))
+    for attempt in range(3):
+        try:
+            return function()
+        except conflicts:
+            frappe.db.rollback()
+            if attempt == 2:
+                raise
+            sleep((0.025, 0.125)[attempt])
+
+
 def value(row: Any, key: str, default=None):
     return row.get(key, default) if isinstance(row, dict) else getattr(row, key, default)
 

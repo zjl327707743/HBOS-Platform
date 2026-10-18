@@ -25,6 +25,18 @@ def bounded_request(date_from=None, date_to=None, page=1, page_size=20):
 @frappe.whitelist(methods=["GET"])
 def get_my_attendance(date_from=None, date_to=None, page=1, page_size=20, **kwargs):
     from hbos_portal.iam import policy
+    try:
+        return policy.current_read(lambda: _read_my_attendance(date_from, date_to, page, page_size, **kwargs))
+    except Exception as exc:
+        conflicts = tuple(kind for name in ("QueryDeadlockError", "QueryTimeoutError") if isinstance((kind := getattr(frappe, name, None)), type))
+        if not isinstance(exc, conflicts):
+            raise
+        frappe.local.response["http_status_code"] = 409
+        return {"ok": False, "error": {"code": "READ_CONFLICT", "message": "本人考勤读取遇到暂时冲突，请重试查询。", "retryable": True}}
+
+
+def _read_my_attendance(date_from=None, date_to=None, page=1, page_size=20, **kwargs):
+    from hbos_portal.iam import policy
     from hbos_portal.iam.temporary_passwords import check_request
     from hbos_portal.auth.accounts import no_store
     no_store()
