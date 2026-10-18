@@ -11,7 +11,7 @@ import re
 import secrets
 from http.cookiejar import CookieJar
 from urllib.error import HTTPError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 import frappe
@@ -32,7 +32,7 @@ class Client:
         self.opener = build_opener(HTTPCookieProcessor(CookieJar()))
 
     def call(self, method, params=None, *, post=False):
-        url = "http://127.0.0.1:8000/api/method/" + method
+        url = "http://127.0.0.1:8000/api/method/" + quote(method, safe=".")
         encoded = urlencode(params or {}).encode()
         request = Request(url if post or not encoded else url + "?" + encoded.decode(),
                           data=encoded if post else None, headers=self.headers)
@@ -122,13 +122,15 @@ def run():
     employees = [prefix + "-EMP-A", prefix + "-EMP-B"]
     row_ids = [prefix + "-ATT-A", prefix + "-ATT-B"]
     checkin_ids = [prefix + "-LOG-A", prefix + "-LOG-B"]
+    staging_ids = [prefix + "-STAGING-A", prefix + "-STAGING-B"]
     departments, created_users, grants = [], [], []
     tables = ("Company", "User", "Employee", "Department", "User Permission",
-              "Attendance", "Employee Checkin")
+              "Attendance", "Employee Checkin", "HBOS Attendance Import Log")
     before = {kind: frappe.db.count(kind) for kind in tables}
     # Refusal happens before entering cleanup: never delete a pre-existing ID.
     for kind, names in (("Company", (company,)), ("User", users), ("Employee", employees),
-                        ("Attendance", row_ids), ("Employee Checkin", checkin_ids)):
+                        ("Attendance", row_ids), ("Employee Checkin", checkin_ids),
+                        ("HBOS Attendance Import Log", staging_ids)):
         if any(frappe.db.exists(kind, name) for name in names):
             raise RuntimeError("Refusing to reuse existing synthetic fixture IDs")
     if frappe.db.exists("Company", {"abbr": company_abbr}):
@@ -142,22 +144,31 @@ def run():
     from hb_attendance_app.hbos_attendance import report_data
     from hb_attendance_app.hbos_attendance.report_scope import require_unrestricted_employee_read
 
-    def grant(user, department):
+    def grant(user, value, *, allow="Department", applicable_for=None):
         frappe.set_user("Administrator")
         permission = frappe.get_doc({"doctype": "User Permission", "user": user,
-                                   "allow": "Department", "for_value": department,
-                                   "apply_to_all_doctypes": 1, "hide_descendants": 1}).insert()
+                                   "allow": allow, "for_value": value,
+                                   "apply_to_all_doctypes": 0 if applicable_for else 1,
+                                   "applicable_for": applicable_for, "hide_descendants": 1}).insert()
         grants.append(permission.name)
         frappe.db.commit()
         frappe.clear_cache(user=user)
         return permission.name
 
+    def remove_grant(user, permission):
+        frappe.set_user("Administrator")
+        frappe.delete_doc("User Permission", permission)
+        grants.remove(permission)
+        frappe.db.commit()
+        frappe.clear_cache(user=user)
+
     def visible(user):
         frappe.set_user(user)
         return set(frappe.get_list("Employee", pluck="name", limit_page_length=0))
 
-    def exercise(client, filters, denied):
-        for _, report_name, endpoint in REPORTS:
+    def exercise(client, filters, denied, *, only=None):
+        selected = [row for row in REPORTS if only is None or row[0] in only]
+        for _, report_name, endpoint in selected:
             encoded = json.dumps(filters)
             responses = (
                 ("portal", client.call("hb_attendance_app.hbos_attendance.report_data." + endpoint,
@@ -171,8 +182,26 @@ def run():
                     _require_denied(response, employees[1], label)
                 else:
                     _require_ok(response, label)
-        checks.append({"case": "http_deny" if denied else "http_allow", "routes": 8,
+        checks.append({"case": "http_deny" if denied else "http_allow", "routes": 2 * len(selected),
                        "filter_keys": sorted(filters)})
+
+    def ai_preview(client, denied):
+        response = client.call(report_data._REPORTS["monthly"] + ".ai_review_preview",
+                               {"year": 2026, "month": 1})
+        if denied:
+            _require_denied(response, employees[1], "ai-review-preview")
+        else:
+            result = _require_ok(response, "ai-review-preview")
+            if not isinstance(result.get("employee_count"), int):
+                raise AssertionError("Native AI preview did not return its normal count contract")
+        checks.append({"case": "ai_preview_deny" if denied else "ai_preview_allow", "result": "PASS"})
+
+    def require_staging_marker(client):
+        result = _require_ok(client.call(
+            "hb_attendance_app.hbos_attendance.report_data.get_monthly_staging",
+            {"filters": json.dumps({"import_log": staging_ids[1]})}), "positive-unknown-staging")
+        if employees[1] not in json.dumps(result, default=str):
+            raise AssertionError("Unrestricted HR must still read the synthetic unmatched staging row")
 
     try:
         # Minimal synthetic master, as with Employee/Attendance below: this suite
@@ -199,6 +228,16 @@ def run():
                 "company": company})
             _sql_fixture("Employee Checkin", {"name": checkin_ids[index], "employee": employee,
                 "time": "2026-01-05 08:00:00", "log_type": "IN"})
+            # The imported JSON does not depend on an Employee foreign key.
+            # B deliberately carries an unmatched employee_number.
+            _sql_fixture("HBOS Attendance Import Log", {"name": staging_ids[index],
+                "import_type": "考勤机月度导出表", "import_status": "Success",
+                "period_start": "2026-01-01", "period_end": "2026-01-31",
+                "monthly_summary_staging": json.dumps({"records": [{
+                    "employee_name": employee,
+                    "employee_number": prefix + ("-0" if index == 0 else "-UNMATCHED-B"),
+                    "department": departments[index], "expected_days": 20,
+                    "actual_days": 20, "absent_days": 0}]})})
         frappe.db.commit()
         grant(users[1], departments[0])
         if not set(employees).issubset(visible(users[0])):
@@ -227,18 +266,74 @@ def run():
         for filters in ({}, {"department": departments[1]}, {"employee": employees[1]},
                         {"department": departments[0]}):
             exercise(scoped, filters, denied=True)
-        # Add the other department without changing the HTTP session.
+        ai_preview(scoped, denied=True)
+        ai_preview(full, denied=False)
+        require_staging_marker(full)
+        # Add B without changing the HTTP session. A+B matches every current
+        # Employee but remains an explicit scope: it cannot prove permission
+        # over unknown historical/staging rows. Keep this as a negative case.
         extra = grant(users[1], departments[1])
         if visible(users[1]) != set(employees):
             raise AssertionError("Grant of department B did not change native visible scope")
+        exercise(scoped, {}, denied=True)
+        checks.append({"case": "all_current_departments_granted_remains_scoped", "result": "PASS"})
+        remove_grant(users[1], extra)
+        exercise(scoped, {}, denied=True)
+        # Grant genuinely unrestricted read by removing the only remaining
+        # scope, then restore department A, all on the very same HTTP session.
+        remove_grant(users[1], grants[0])
+        if frappe.permissions.get_user_permissions(users[1]):
+            raise AssertionError("Positive HR fixture must have no native User Permission scope")
         exercise(scoped, {}, denied=False)
-        frappe.set_user("Administrator")
-        frappe.delete_doc("User Permission", extra)
-        grants.remove(extra)
-        frappe.db.commit()
-        frappe.clear_cache(user=users[1])
+        grant(users[1], departments[0])
         exercise(scoped, {}, denied=True)
         checks.append({"case": "same_session_grant_then_revocation", "result": "PASS"})
+
+        # Scopes applicable only to a source DocType leave Employee fully
+        # visible. Each actual source must still close the corresponding raw
+        # report before it reads data; no role or permission algorithm changes.
+        source_cases = (
+            ("Employee", employees[0], "Attendance", "results"),
+            ("Employee", employees[0], "Employee Checkin", "checkins"),
+            ("Employee", employees[0], "HBOS Leave Record", "monthly"),
+            ("HBOS Attendance Import Log", staging_ids[0], "HBOS Attendance Import Log", "staging"),
+            ("Department", departments[0], "HBOS Shift Rule", "checkins"),
+        )
+        for allow, value, doctype, report_key in source_cases:
+            source_permission = grant(users[0], value, allow=allow, applicable_for=doctype)
+            if visible(users[0]) != set(employees):
+                raise AssertionError("Source-only fixture unexpectedly restricted Employee: " + doctype)
+            exercise(full, {}, denied=True, only={report_key})
+            if report_key == "monthly":
+                ai_preview(full, denied=True)
+            remove_grant(users[0], source_permission)
+            exercise(full, {}, denied=False, only={report_key})
+            checks.append({"case": "source_only_scope", "doctype": doctype, "result": "PASS"})
+
+        # A departed Employee still counts in native visibility. Then remove
+        # only these newly inserted synthetic Employee masters to model legacy
+        # orphan Attendance/Checkin rows. Never delete an existing employee.
+        frappe.set_user("Administrator")
+        frappe.db.set_value("Employee", employees[1], "status", "Left")
+        frappe.db.commit()
+        if employees[1] not in visible(users[0]) or employees[1] in visible(users[1]):
+            raise AssertionError("Departed employee visibility fixture is not meaningful")
+        exercise(full, {}, denied=False)
+        exercise(scoped, {}, denied=True)
+        checks.append({"case": "departed_employee", "result": "PASS"})
+        for remaining, removed in ((1, employees[1]), (0, employees[0])):
+            frappe.set_user("Administrator")
+            frappe.db.delete("Employee", {"name": removed})
+            frappe.db.commit()
+            frappe.clear_cache(user=users[1])
+            if len(visible(users[1])) != remaining or frappe.db.count("Employee") != remaining:
+                raise AssertionError("Historical fixture must reproduce equal visible/total Employee counts")
+            exercise(scoped, {}, denied=True)
+            ai_preview(scoped, denied=True)
+            exercise(full, {}, denied=False)
+            require_staging_marker(full)
+            checks.append({"case": "orphan_and_unmatched_staging" if remaining else "zero_employee_history",
+                           "remaining_employees": remaining, "result": "PASS"})
         frappe.set_user("Guest")
         try:
             require_unrestricted_employee_read()
@@ -252,7 +347,8 @@ def run():
         for permission in grants:
             if frappe.db.exists("User Permission", permission):
                 frappe.delete_doc("User Permission", permission)
-        for kind, names in (("Attendance", row_ids), ("Employee Checkin", checkin_ids), ("Employee", employees)):
+        for kind, names in (("Attendance", row_ids), ("Employee Checkin", checkin_ids),
+                            ("HBOS Attendance Import Log", staging_ids), ("Employee", employees)):
             for name in names:
                 frappe.db.delete(kind, {"name": name})
         for user in created_users:

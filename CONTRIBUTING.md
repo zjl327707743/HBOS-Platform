@@ -10,7 +10,8 @@
 
 ### 分支策略
 
-- 从最新的 `origin/main` 创建功能分支
+- **Portal / 新业务 App 集成开发**：从最新的 `origin/feature/hbos-portal-product` 创建短期功能分支，PR 目标也必须是该产品分支；**仅生产就绪 main / 独立修复** 从 `origin/main` 分支衍生。
+- 本轮多 APP 冲突治理与同步规则见 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md`。
 - 分支命名规范：
 
 | 类型 | 格式 | 示例 |
@@ -20,12 +21,13 @@
 | 文档 | `docs/<description>` | `docs/api-guide` |
 | 杂项 | `chore/<description>` | `chore/update-dependencies` |
 
-- 禁止长期存在的个人分支；功能分支应在合并后尽快删除
+- 禁止长期存在的个人分支；功能分支应在合并后尽快删除（Owner 要求保留的安全证据分支例外）。
+- 跨应用共享文件（Portal Router、App Registry、frappeClient、CI、账号权限）实行平台统一接入；业务 PR 不得整文件覆盖他人更新。长期分支出现大规模冲突时，以当前 Base 新建干净分支，只移植属于本域的增量。
 
 ### 提交前检查清单
 
 - [ ] `git fetch origin` 拉取最新远程状态
-- [ ] `git diff origin/main...HEAD` 检查与 `main` 的差异
+- [ ] 先确认本 PR 的目标 base（Portal：`origin/feature/hbos-portal-product`；main：`origin/main`），执行 `git diff <目标base>...HEAD` 和 `git log <目标base>..HEAD`，确保不含别的 APP 旧历史
 - [ ] 执行本地测试：`docker compose exec backend python3 -m unittest discover -s apps/hb_attendance_app/tests -v`
 - [ ] 检查是否误提交了敏感文件（见下方禁止项）
 - [ ] 提交信息遵循约定式提交格式：`<type>: <description>`
