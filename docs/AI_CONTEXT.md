@@ -1,5 +1,15 @@
 # AI Context
 
+## 2026-10-18 R3 集成记录 / 验证基线
+
+当前工作是 Owner 授权的远端业务 PR 集成：完整 #42 考勤、#46 生产已实际合并，已核对产品基线为 `feature/hbos-portal-product@4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。[#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) 尚未合并，继续技术门禁；[#56](https://github.com/zjl327707743/HBOS-Platform/pull/56) 是固定组合验证入口。#43 LIMS 独立增量后置，独立契约通过不代表产品组合通过。
+
+按 [项目状态](PROJECT_STATUS.md)、[当前里程碑](CURRENT_MILESTONE.md)、[Owner 本批次裁定](governance/HBOS_Owner_业务集成批次裁定_20261018.md) 与 [M3 门禁](milestones/M3_START_GATE.md) 接续工作，每次合并后重读远端 HEAD。#39 候选扫码仅展示原生 Warehouse 授权范围；全批次卡证读取要求全仓范围，受控收货自动制证不授予读取或手动再生权限。本轮使用云端合成环境，不操作 Mac、真实业务库或生产；#37 排除，IAM #52 独立。
+
+## 历史阶段记录
+
+下方账号、M1 与 Portal 阶段记录保留其原日期的背景和验收结果；旧“当前”“本轮”“Authority”不覆盖本页首 R3 记录。#55 已合入的物料只读范围不能代表完整 #39 完成。
+
 > 2026-10-18 代码集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
 
 历史账号验收事实（2026-10-01）：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
@@ -26,7 +36,7 @@
 
 主技术栈：Frappe Framework、ERPNext、Frappe HR、Python、JavaScript、MariaDB/MySQL 兼容体系、Redis、Docker、Docker Compose、Vue/React、ECharts、FastAPI。
 
-## 当前上下文
+## 历史账号上下文 — 2026-10-01
 
 本轮账号 UI、统一账号、飞书、Knowledge/Twin 与发布收口已经通过 PR #21 完成并进入产品分支。该账号轮次历史 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 真人飞书基线和浏览器密码生命周期 3/3 均已通过，未执行的真人高风险交接/实体设备项目继续按历史记录保留。公司服务器仍 NOT_DEPLOYED。
 
@@ -84,7 +94,7 @@ Skill 路由规范文件为：
 
 - `docs/AI技能路由规范.md`
 
-## 后续路线
+## 历史路线背景（不覆盖 R3 集成队列）
 
 后续路线只记录，不代表已启动：
 
@@ -112,7 +122,7 @@ Skill 路由规范文件为：
 
 该工作流与既有 Attendance / Inventory / LIMS 治理线并行；Portal 是 Experience Shell，不替代业务 App 的领域 Authority。
 
-Authority：
+该历史 Portal 阶段 Authority：
 
 - 分支：`feature/hbos-portal-product`
 - Draft PR：#15

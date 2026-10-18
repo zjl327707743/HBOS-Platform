@@ -1,4 +1,26 @@
-# 2026-10-18 Owner 业务集成：考勤和生产已实际合并
+# 2026-10-18 R3 集成记录 / 验证基线
+
+**当前结论：两个完整业务 PR 已合并，#39 仓储技术门禁未通过，尚未合并。** 唯一目标为 `feature/hbos-portal-product`；#42 考勤实际 Squash 为 `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8`，#46 生产实际 Squash／本记录已核对产品为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。来源、审批和合并后证据见下方对应记录。
+
+本次 Run 5 验证快照：产品 base `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`，仓储来源 `bb74cb3c5143b5319219ef352188dda462e80ff4`，运行器 `9790397d7bf8478972de68ac73439fd468ed4b8e`。后续最新来源、门禁和实际 Squash 以 [PR #39](https://github.com/zjl327707743/HBOS-Platform/pull/39)、[PR #56 验证记录](https://github.com/zjl327707743/HBOS-Platform/pull/56) 及远端产品 ref 为准；这些 SHA 是已经发生的验证快照，不是文档提交后的新产品 HEAD。
+
+| 验证范围 | Run 5 已观察结果 | 仍未满足的门禁 |
+| --- | --- | --- |
+| 库存报表、扫码及附件权限 | [原生 Job 117600061266](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39102020894/job/117600061266)：74 项中 73 PASS、1 FAIL；扫码、跨仓拒绝、下载、File owner／DocShare、zip、改写与撤权检查通过 | 真实 PDF 返回 200、2 页，但提取正文缺 A/B 仓标识，内容断言 FAIL，原因待定位 |
+| 真实库存和账务 | [事务 Job 117600061186](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39102020894/job/117600061186)：8 个场景中 3 PASS、5 FAIL；Run 4 已通过的收货／取消、对账 `100→123→100`、内部移库与跨公司拒绝在本次继续 PASS | 完整事务门禁仍 FAIL，不能以前三项通过代表整个仓储可合并 |
+| 既有产品 LIMS 完整放行链 | 真实 COA 渲染和注入 PDF 失败后的回滚检查 PASS | 后续链遇到 `AssertionError`，待定位；不能记为完整放行出库通过 |
+| 注册外协目标移库 | 已建立真实 `SC-ORD-2026-00001`；普通 Material Transfer `MAT-STE-2026-00010` 使待检批次进入外协仓 1 单位（HTTP 200），随后原生 cancel 恢复库存 | 已确认放行旁路，必须修复并重验；同公司目标不能自动视为普通内部货位 |
+| 纯 Stock User 自动制证 | 三场景均产生真实私有 Batch PDF，owner 和本单 SBB/SBE/SLE/GL 来源核验通过；同进程 ContextVar／打印 flag 恢复及后续直接再生拒绝的前置断言已通过 | 三场景均在 PDF 仓库正文断言处 FAIL；后续 HTTP 下载与伪造参数负例为 `NOT_REACHED`，不得记 PASS |
+
+Run 5 后的新候选已完成 PDF CMap 处理与已登记外协目的仓识别的最小修复，原生复验待运行；上表保留 Run 5 的真实失败记录，不提前将新候选记为 PASS。
+
+#43 LIMS 独立增量仍后置。独立候选 `1a8f49251dc818859336ee70fbf81dcef87c0bfd` 的 [契约 Job 117600061138](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39102020894/job/117600061138) 已通过 39/39 契约和 4 项 mutation 检查，但证据级别为 **NOT_PRODUCT_COMPOSITION**，不替代它与最新产品、仓储的组合验证。
+
+#39 候选的当前权限口径：扫码保留获授权 Warehouse 范围内的全部字段；全批次卡证读取要求全仓读取范围；受控原生收货可生成其私有衍生附件，但不授予收货人后续读取、下载或手动再生权限。手动再生仍要求 Batch.write 与全仓范围。历史附件若在修复前已同时改掉文件名和 URL 的库存卡标识，仍为 `NOT_COVERED`。
+
+本轮只使用远端源码与云端合成 Site，未操作 Mac 既有项目、真实业务库或生产。#37 不在任务范围，IAM #52 保持独立。M3-R6 的 OCR、置信度与实体打印验收不因本次代码集成自动完成。以下按发生阶段保留历史证据，其中“当前”“本轮”只适用于对应记录。
+
+# 历史记录：2026-10-18 考勤和生产已实际合并
 
 最新已核对产品基线为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`，实际父提交为考勤基线 `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8`，代码树为 `dabf7846817f096434949bc38a48c7cc4ec958bd`。
 

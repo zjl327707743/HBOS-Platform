@@ -16,6 +16,7 @@ import os
 import re
 import secrets
 import time
+import traceback
 from datetime import date
 from http.cookiejar import CookieJar
 from pathlib import Path
@@ -550,21 +551,49 @@ def release_through_existing_lims(item, batch, label):
     if label == "RELEASE":
         assert_coa_publication_rollback(coa, sample, batch)
     published = qa.ok(LIMS + "publish_coa", {"coa_name": coa}, post=True)
-    assert published.get("pdf", "").startswith("/private/files/")
+    assert isinstance(published, dict), f"publish_coa must return a mapping; received {type(published).__name__}"
+    emit("lims_publication_http_response", sample=sample, coa=coa,
+         returned_coa=published.get("coa"), pdf_url=published.get("pdf"))
+    assert isinstance(published.get("pdf"), str) and published["pdf"].startswith("/private/files/"), (
+        f"publish_coa did not return a private PDF URL: {published.get('pdf')!r}")
     released = reviewer.ok(LIMS + "release_sample", {"sample_name": sample}, post=True)
-    assert released["batch"] == batch and released["coa"] == coa
+    assert isinstance(released, dict), f"release_sample must return a mapping; received {type(released).__name__}"
+    emit("lims_release_http_response", expected_sample=sample, expected_coa=coa, expected_batch=batch,
+         sample=released.get("sample"), coa=released.get("coa"), batch=released.get("batch"))
+    assert released.get("batch") == batch, f"release_sample Batch mismatch: {released.get('batch')!r} != {batch!r}"
+    assert released.get("coa") == coa, f"release_sample COA mismatch: {released.get('coa')!r} != {coa!r}"
     fresh_read()
-    projection = frappe.db.get_value("Batch", batch, ["hbos_release_status", "hbos_release_source",
-        "hbos_release_date", "hbos_lims_reference", "hbos_certificate_no", "hbos_certificate_file"], as_dict=True)
-    assert projection.hbos_release_status == "已放行" and projection.hbos_release_source == "LIMS"
-    assert projection.hbos_lims_reference == sample and projection.hbos_certificate_no == coa
+    projection_fields = ["hbos_release_status", "hbos_release_source", "hbos_release_date",
+        "hbos_lims_reference", "hbos_certificate_no", "hbos_certificate_file"]
+    projection = frappe.db.get_value("Batch", batch, projection_fields, as_dict=True)
+    emit("lims_batch_projection", batch=batch, projection=projection,
+         field_types={field: frappe.get_meta("Batch").get_field(field).fieldtype for field in projection_fields})
+    assert projection, f"Published LIMS release has no native Batch row: {batch}"
+    assert projection.hbos_release_status == "已放行", f"Batch release status mismatch: {projection.hbos_release_status!r}"
+    assert projection.hbos_release_source == "LIMS", f"Batch release source mismatch: {projection.hbos_release_source!r}"
+    assert projection.hbos_lims_reference == sample, f"Batch LIMS reference mismatch: {projection.hbos_lims_reference!r} != {sample!r}"
+    assert projection.hbos_certificate_no == coa, f"Batch COA certificate mismatch: {projection.hbos_certificate_no!r} != {coa!r}"
     published_coa = frappe.db.get_value("HBOS COA", coa,
-        ["report_status", "published_by", "published_at"], as_dict=True)
-    assert published_coa.report_status == "已发布"
-    assert published_coa.published_by == FIXTURE["users"]["qa"] and published_coa.published_at
+        ["report_status", "published_by", "published_at", "pdf_attachment"], as_dict=True)
+    emit("lims_published_coa_record", coa=coa, published_coa=published_coa,
+         expected_publisher=FIXTURE["users"]["qa"])
+    assert published_coa, f"Published COA record is missing: {coa}"
+    assert published_coa.report_status == "已发布", f"COA report status mismatch: {published_coa.report_status!r}"
+    assert published_coa.published_by == FIXTURE["users"]["qa"], f"COA publishing identity mismatch: {published_coa.published_by!r}"
+    assert published_coa.published_at, "Published COA has no publication timestamp"
+    linked_files = frappe.get_all("File", filters={"file_url": projection.hbos_certificate_file},
+        fields=["name", "file_name", "file_url", "is_private", "attached_to_doctype", "attached_to_name"],
+        order_by="name", limit_page_length=20)
     file = frappe.get_doc("File", {"file_url": projection.hbos_certificate_file})
-    assert file.is_private and file.attached_to_doctype == "HBOS COA" and file.attached_to_name == coa
-    assert file.get_content().startswith(b"%PDF-"), "Published COA must contain a real PDF"
+    emit("lims_coa_file_lookup", certificate_url=projection.hbos_certificate_file,
+         selected_file=file.name, same_url_records=linked_files)
+    assert file.is_private, f"Published COA File is not private: {file.name}"
+    assert file.attached_to_doctype == "HBOS COA", f"Published COA File has wrong parent type: {file.attached_to_doctype!r}"
+    assert file.attached_to_name == coa, f"Published COA File has wrong parent: {file.attached_to_name!r} != {coa!r}"
+    content = file.get_content()
+    emit("lims_coa_pdf_bytes", file=file.name, content_type=type(content).__name__,
+         bytes=len(content), sha256=hashlib.sha256(content).hexdigest() if isinstance(content, bytes) else None)
+    assert content.startswith(b"%PDF-"), "Published COA must contain a real PDF"
     return {"sample": sample, "coa": coa, "real_pdf": True,
             "publication_positive_level": "real HTTP / unpatched PDF generator"}
 
@@ -666,6 +695,21 @@ def registered_jobworker_transfer():
     assert "LIMS" in detail or "放行" in detail, "External rejection did not prove quality-release enforcement"
     assert_stock(item, {wh["a"]: 100, wh["jobworker"]: 0})
     authority = release_through_existing_lims(item, batch, "JOBWORKER")
+    client.submit("Stock Entry", native_send["name"])
+    send_moved = assert_stock(item, {wh["a"]: 99, wh["jobworker"]: 1})
+    send_submitted = frappe.db.get_value("Stock Entry", native_send["name"], "docstatus")
+    assert send_submitted == 1, "Released Send to Subcontractor did not submit natively"
+    send_gl = observe_transfer_gl(native_send["name"])
+    client.cancel("Stock Entry", native_send["name"])
+    send_restored = assert_stock(item, {wh["a"]: 100, wh["jobworker"]: 0})
+    send_cancelled = frappe.db.get_value("Stock Entry", native_send["name"], "docstatus")
+    assert send_cancelled == 2, "Released Send to Subcontractor did not cancel natively"
+    send_reversed_gl = observe_transfer_gl(native_send["name"])
+    emit("native_send_to_subcontractor_released_submit_cancel", status="PASS", native_sco=sco.name,
+         voucher=native_send["name"], batch=batch, actor=FIXTURE["users"]["stock"], **authority,
+         submitted_docstatus=send_submitted, moved=send_moved, posted_gl=send_gl,
+         cancelled_docstatus=send_cancelled, restored=send_restored, reversed_gl=send_reversed_gl,
+         execution_level="same Stock User HTTP submit/cancel; native controller and ledgers")
     client.submit("Stock Entry", target["name"])
     released_moved = assert_stock(item, {wh["a"]: 99, wh["jobworker"]: 1})
     posted_gl = observe_transfer_gl(target["name"])
@@ -751,11 +795,40 @@ def _automatic_card_ids(batch):
     return sorted(frappe.get_all("File", filters={"attached_to_doctype": "Batch", "attached_to_name": batch}, pluck="name"))
 
 
-def _automatic_card(batch, actor, *, warehouses):
+def _automatic_card_error_logs(batch, voucher):
+    """Only the current synthetic receipt's card errors, without request metadata."""
+    try:
+        rows = frappe.get_all("Error Log", filters={"method": ["in", [
+            "生成货位卡/待检证失败", "自动生成货位卡/待检证失败（整体）"]],
+            "error": ["like", "%" + voucher + "%"]},
+            fields=["method", "error"], order_by="creation desc", limit_page_length=5)
+        errors = []
+        for row in rows:
+            safe_lines = []
+            for line in str(row.error or "").splitlines():
+                if line.lstrip().startswith("Traceback"):
+                    break
+                if re.search(r"cookie|csrf|password|authorization|session|\bsid\b", line, re.I):
+                    safe_lines.append("[authentication or session detail omitted]")
+                elif not line.lstrip().startswith(('File "', "locals:")):
+                    safe_lines.append(line[:800])
+                if len(safe_lines) == 4:
+                    break
+            errors.append({"title": row.method, "message": "\n".join(safe_lines)[:1500]})
+        emit("automatic_receipt_missing_pdf_errors", batch=batch, voucher=voucher, errors=errors)
+    except Exception as error:
+        # Diagnostics cannot replace the original missing-PDF gate below.
+        emit("automatic_receipt_error_diagnostic_unavailable", batch=batch, voucher=voucher,
+             error=type(error).__name__)
+
+
+def _automatic_card(batch, actor, *, warehouses, voucher):
     """Require actual on_submit output; no standalone/fallback PDF is acceptable."""
     from pypdf import PdfReader
 
     names = _automatic_card_ids(batch)
+    if not names:
+        _automatic_card_error_logs(batch, voucher)
     assert len(names) == 1, f"Automatic receipt must create exactly one private Batch PDF: {names}"
     doc = frappe.get_doc("File", names[0])
     assert doc.owner == actor, "Automatic card must preserve the actual receiving actor"
@@ -764,8 +837,24 @@ def _automatic_card(batch, actor, *, warehouses):
     assert doc.file_name.startswith("HBOS-") and "-待检证+货位卡" in doc.file_name and doc.file_name.endswith(".pdf")
     content = Path(doc.get_full_path()).read_bytes()
     assert content.startswith(b"%PDF-"), "Automatic receipt attachment is not a PDF"
+    assert re.fullmatch(r"HBOS-R3-AUTO-[A-Z0-9-]+", batch), "Only synthetic receipt PDFs may be retained as CI evidence"
+    evidence_dir = Path("/tmp/owner-r3-pdf-evidence")
+    evidence_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    evidence_name = "synthetic-transaction-" + batch
+    (evidence_dir / (evidence_name + ".pdf")).write_bytes(content)
     reader = PdfReader(io.BytesIO(content))
-    compact = re.sub(r"\s+", "", " ".join(page.extract_text() or "" for page in reader.pages))
+    page_texts = [page.extract_text() or "" for page in reader.pages]
+    diagnostic = {"batch": batch, "voucher": voucher, "file": doc.name,
+                  "owner": doc.owner, "is_private": bool(doc.is_private), "file_url": doc.file_url,
+                  "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest(),
+                  "pages": len(reader.pages), "page_details": [
+                      {"page": index + 1, "width_pt": float(page.mediabox.width),
+                       "height_pt": float(page.mediabox.height), "text_characters": len(page_texts[index]),
+                       "text": page_texts[index][:1500]} for index, page in enumerate(reader.pages)]}
+    (evidence_dir / (evidence_name + ".json")).write_text(
+        json.dumps(diagnostic, ensure_ascii=False, indent=2), encoding="utf-8")
+    emit("automatic_receipt_pdf_diagnostic", **diagnostic)
+    compact = re.sub(r"\s+", "", " ".join(page_texts))
     for warehouse in warehouses:
         short = re.sub(r"\s+", "", warehouse.split(" - ")[0])
         assert short in compact, "Real automatic PDF is missing synthetic warehouse " + short
@@ -797,8 +886,10 @@ def _automatic_source(voucher, batch, actor, warehouse, qty):
         assert ledger and all(row.warehouse == warehouse and float(row.actual_qty) > 0 for row in ledger)
         assert abs(sum(float(row.actual_qty) for row in ledger) - qty) < 0.00001
         bundles.append({"name": bundle.name, "batch_entries": len(rows), "sle": ledger})
-    return {"voucher": voucher, "owner": entry.owner, "docstatus": entry.docstatus,
-            "purpose": entry.purpose, "native_bundles": bundles, "gl": assert_gl("Stock Entry", voucher)}
+    result = {"voucher": voucher, "owner": entry.owner, "docstatus": entry.docstatus,
+              "purpose": entry.purpose, "native_bundles": bundles, "gl": assert_gl("Stock Entry", voucher)}
+    emit("automatic_receipt_native_source", batch=batch, **result)
+    return result
 
 
 def _automatic_denials(user, client, batch, voucher, card, *, scoped):
@@ -888,7 +979,7 @@ def automatic_receipt_private_pdf(*, scoped=False):
     expected = {wh["a"]: qty, **({wh["b"]: 7} if scoped else {})}
     balances = assert_stock(item, expected)
     source = _automatic_source(draft["name"], batch, user, wh["a"], qty)
-    card = _automatic_card(batch, user, warehouses=list(expected))
+    card = _automatic_card(batch, user, warehouses=list(expected), voucher=draft["name"])
     assert card["name"] not in old_cards, "on_submit reused an old card instead of generating the new batch snapshot"
     _automatic_denials(user, client, batch, draft["name"], card, scoped=scoped)
     after_permissions = _automatic_permissions(user, batch)
@@ -936,7 +1027,7 @@ def automatic_receipt_context_restoration():
         fresh_read()
     balances = assert_stock(item, {warehouse: 2})
     source = _automatic_source(doc.name, batch, user, warehouse, 2)
-    card = _automatic_card(batch, user, warehouses=[warehouse])
+    card = _automatic_card(batch, user, warehouses=[warehouse], voucher=doc.name)
     assert _automatic_permissions(user, batch) == before_permissions
     emit("automatic_receipt_context_restoration", status="PASS", source=source,
          balances=balances, card=card, same_process=True, context_restored=True,
@@ -963,7 +1054,9 @@ def run():
         except Exception as error:
             frappe.db.rollback()
             result = {"name": name, "status": "FAIL", "error": type(error).__name__,
-                      "detail": str(error)[:1600]}
+                      "detail": str(error)[:1600],
+                      "frames": [{"file": frame.filename, "line": frame.lineno, "function": frame.name}
+                                 for frame in traceback.extract_tb(error.__traceback__)[-12:]]}
         else:
             result = {"name": name, "status": "PASS"}
         RESULTS.append(result)

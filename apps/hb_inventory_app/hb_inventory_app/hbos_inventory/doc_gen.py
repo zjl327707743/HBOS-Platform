@@ -231,10 +231,11 @@ def _fix_tounicode_cmap(text: str) -> str:
             return re.sub(_HEX4, fix_hex, line) if line.count("<") > 2 else _fix_pair(line)
 
         def _fix_pair(line):
-            parts = re.findall(_HEX4, line)
+            parts = list(re.finditer(_HEX4, line))
             if len(parts) != 2:
                 return line
-            return f"{parts[0]} {_kangxi_to_han(parts[1])}"
+            target = parts[1]
+            return line[:target.start()] + _kangxi_to_han(target.group(0)) + line[target.end():]
 
         body = "".join(one_line(l) for l in m.group(1).splitlines(keepends=True))
         return "beginbfchar" + body + "endbfchar"
@@ -248,10 +249,12 @@ def _fix_tounicode_cmap(text: str) -> str:
                     line,
                     flags=re.S,
                 )
-            parts = re.findall(_HEX4, line)
+            parts = list(re.finditer(_HEX4, line))
             if len(parts) != 3:
                 return line
-            return f"{parts[0]} {parts[1]} {_kangxi_to_han(parts[2])}"
+            # 保留原空白和换行，避免把下一条 range 粘到本行后丢失字符映射。
+            target = parts[2]
+            return line[:target.start()] + _kangxi_to_han(target.group(0)) + line[target.end():]
 
         body = "".join(one_line(l) for l in m.group(1).splitlines(keepends=True))
         return "beginbfrange" + body + "endbfrange"
