@@ -164,6 +164,10 @@ def setup():
             native_insert({"doctype": "Stock Entry Type", "name": purpose,
                 "purpose": purpose, "is_standard": 1})
         assert frappe.db.get_value("Stock Entry Type", purpose, "purpose") == purpose
+    # ERPNext v16.26.2 Company creates "Goods In Transit" with this linked type.
+    # The setup wizard normally inserts it; install-app alone does not.
+    if not frappe.db.exists("Warehouse Type", "Transit"):
+        native_insert({"doctype": "Warehouse Type", "name": "Transit"})
     # Native Company creation builds the chart, default accounts and cost centres.
     companies = []
     for label, abbr in (("HBOS R3 Inventory CI", "HCI"), ("HBOS R3 Outside CI", "HCO")):

@@ -1,3 +1,11 @@
+# 2026-10-18 Owner 业务集成：考勤和生产已实际合并
+
+最新已核对产品基线为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`，实际父提交为考勤基线 `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8`，代码树为 `dabf7846817f096434949bc38a48c7cc4ec958bd`。
+
+完整 [#46 生产 PR](https://github.com/zjl327707743/HBOS-Platform/pull/46) 已普通 Squash Merge，来源 `3f0e8847f2769025d764214ae56950fe97693808` 保存于 `archive/owner-r3-pr46-3f0e884-20261018`；[Owner 正式审批](https://github.com/zjl327707743/HBOS-Platform/pull/46#pullrequestreview-5561524421) 与当前树的五项 CI、[28项真实服务链验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39098816237/job/117590685169) 均已核对。服务/AI 41+26项、Portal前端146项通过，AI模型调用与上游写入均为0。普通生产角色仍默认拒绝，Administrator 例外明确；代码集成不代表启用真实服务或完成车间范围授权。
+
+#39 仓储正在新基线上继续真实库存、账务、外协放行、二维码与打印附件权限门禁；#43 LIMS 独立增量后置。当前远端产品 ref 与各 PR 的实际合并记录是后续更新的权威；下面保留每阶段的历史证据。
+
 # 2026-10-18 Owner 业务集成：首个完整业务已合并
 
 **#42 考勤已实际 Squash Merge** 到唯一产品分支 `feature/hbos-portal-product`。新产品提交为 `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8`，父提交为 `45658fe4b84d8fb7dd4433c459aa30572e0d13d3`，树为 `31097c5f9e6f245ecbaca779643c421a4458bee8`；与已审批、已测试的真实组合相符。来源 `5780924fb000c869ddf7e23afa76e2f95fe15ea8` 保存在 `archive/owner-r3-pr42-5780924-20261018`。

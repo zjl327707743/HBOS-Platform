@@ -1,5 +1,7 @@
 # Current Milestone
 
+> 2026-10-18 生产已完成集成：完整 #42 考勤、#46 生产均已实际合并。最新核对产品为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`，来源、审批与原生验证见 [项目状态](PROJECT_STATUS.md)。继续推进 #39 仓储，#43 后置；以下较早产品 SHA 为各阶段历史记录，不替代远端最新 ref。
+
 > 2026-10-18 最新代码集成：**首个完整业务 #42 考勤已实际合并**。产品基线 `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8`，实际父提交 `45658fe4b84d8fb7dd4433c459aa30572e0d13d3`。来源与审批、CI、归档证据见 [PR #42](https://github.com/zjl327707743/HBOS-Platform/pull/42) 和 [项目状态](PROJECT_STATUS.md)。下一顺序为 #46 生产、#39 仓储，#43 LIMS 后置；每项仍以当前 SHA 的权限、运行与审查门禁为准。Owner 承担本批次最终审批，具体方式见 [正式裁定](governance/HBOS_Owner_业务集成批次裁定_20261018.md)。本轮不代表真实环境部署或 IAM #52 完成。
 
 > 历史记录：2026-10-18 物料只读集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
