@@ -1,0 +1,189 @@
+name: HBOS Owner R3 Priority Integration
+
+on:
+  pull_request:
+    branches: [feature/hbos-portal-product]
+    paths:
+      - '.github/workflows/hbos-owner-r3-priority.yml'
+      - 'scripts/ci/owner_r3_manifest.json'
+      - 'scripts/ci/owner_r3_candidate.py'
+      - 'scripts/ci/owner_r3_site_bootstrap.sh'
+      - 'scripts/ci/owner_r3_runtime.py'
+      - 'scripts/ci/owner_r3_legacy_runtime.py'
+
+permissions:
+  contents: read
+
+env:
+  HBOS_AI_ENABLED: '0'
+  HBOS_AI_ALLOW_PII: '0'
+  HBOS_AI_DRY_RUN: '1'
+  HBOS_NOTIFY_DRY_RUN: '1'
+  HBOS_FEISHU_SYNC_ENABLED: '0'
+  HBOS_DELICLOUD_SYNC_ENABLED: '0'
+
+jobs:
+  candidate:
+    name: "Exact product + ${{ matrix.domain }} offline regression"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        domain: [attendance, production]
+    env:
+      OWNER_AUDIT_DOMAIN: ${{ matrix.domain }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: runner
+          persist-credentials: false
+      - name: Read frozen authority
+        id: authority
+        run: python runner/scripts/ci/owner_r3_candidate.py select --domain "$OWNER_AUDIT_DOMAIN" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.authority.outputs.base_sha }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+      - name: Ordinary merge and exact source tree verification
+        id: composition
+        run: python runner/scripts/ci/owner_r3_candidate.py compose --domain "$OWNER_AUDIT_DOMAIN"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install declared offline dependencies
+        working-directory: candidate
+        run: |
+          python -m pip install --only-binary=:all: --require-hashes -r apps/hbos_portal/requirements.txt
+          python -m pip install 'openpyxl==3.1.5' pytest requests
+          if test -d services/hbos_production; then
+            python -m pip install -r services/hbos_production/requirements.txt -r services/hbos_production_ai/requirements.txt
+          fi
+      - name: All existing domain and Portal suites with actual counts
+        working-directory: candidate
+        run: |
+          python - <<'PY_TEST'
+          import json, os, pathlib, re, subprocess, sys
+          evidence = pathlib.Path('/tmp/owner-r3')
+          suites = [('attendance', 'apps/hb_attendance_app'), ('lims', 'apps/hb_lims_app'), ('inventory', 'apps/hb_inventory_app'), ('portal', 'apps/hbos_portal')]
+          summary = []
+          if pathlib.Path('services/hbos_production').is_dir():
+              suites += [('production', 'services/hbos_production'), ('production-ai', 'services/hbos_production_ai')]
+          else:
+              summary.append({'suite': 'production', 'status': 'NOT_IN_CANDIDATE'})
+          for name, directory in suites:
+              root = pathlib.Path(directory).resolve()
+              env = dict(os.environ, PYTHONPATH=str(root))
+              if name.startswith('production'):
+                  command = [sys.executable, '-m', 'pytest', 'tests', '-q', '-rA', '--junitxml=' + str(evidence / (name + '.xml'))]
+              else:
+                  code = '''import json, unittest, sys
+          suite = unittest.defaultTestLoader.discover('tests', top_level_dir='.' if sys.argv[1] == 'portal' else None)
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          print('[OWNER-R3-COUNTS] ' + json.dumps(dict(run=result.testsRun, failures=len(result.failures), errors=len(result.errors), skips=len(result.skipped), skip_reasons=[str(reason) for test, reason in result.skipped])))
+          raise SystemExit(0 if result.testsRun and result.wasSuccessful() else 1)
+          '''
+                  command = [sys.executable, '-c', code, name]
+              result = subprocess.run(command, cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+              (evidence / (name + '.txt')).write_text(result.stdout, encoding='utf-8')
+              record = {'suite': name, 'exit': result.returncode, 'status': 'PASS' if result.returncode == 0 else 'FAIL'}
+              matches = re.findall(r'^\[OWNER-R3-COUNTS\] (.+)$', result.stdout, re.M)
+              if matches:
+                  record.update(json.loads(matches[-1]))
+              elif not name.startswith('production'):
+                  record['status'] = 'FAIL'
+                  record['reason'] = 'No completed unittest result'
+              summary.append(record)
+              print(json.dumps(record, ensure_ascii=False))
+              print('\n'.join(result.stdout.splitlines()[-30:]))
+          (evidence / 'offline-results.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          if any(result['status'] == 'FAIL' for result in summary):
+              raise SystemExit('One or more current-candidate suites failed; see retained logs')
+          PY_TEST
+      - name: Build both frontends and validate release bundle
+        if: ${{ !cancelled() && steps.composition.outcome == 'success' }}
+        working-directory: candidate
+        run: |
+          set -o pipefail
+          bash scripts/release/build_bundle.sh 2>&1 | tee /tmp/owner-r3/build.txt
+      - name: All Portal frontend behavior tests
+        if: ${{ !cancelled() && steps.composition.outcome == 'success' }}
+        working-directory: candidate/frontend/hbos-portal-web
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/owner-r3/frontend-portal.txt
+      - name: All current LIMS frontend unit tests
+        if: ${{ !cancelled() && steps.composition.outcome == 'success' }}
+        working-directory: candidate/frontend/hbos-lims-web
+        run: |
+          set -o pipefail
+          npm run test:unit 2>&1 | tee /tmp/owner-r3/frontend-lims.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r3-${{ matrix.domain }}-candidate
+          path: /tmp/owner-r3
+
+  native-runtime:
+    name: "Exact product + ${{ matrix.domain }} native HTTP"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        domain: [attendance, production]
+    env:
+      OWNER_AUDIT_DOMAIN: ${{ matrix.domain }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: runner
+          persist-credentials: false
+      - name: Read frozen authority
+        id: authority
+        run: python runner/scripts/ci/owner_r3_candidate.py select --domain "$OWNER_AUDIT_DOMAIN" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.authority.outputs.base_sha }}
+          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
+      - name: Ordinary merge and exact source tree verification
+        id: composition
+        run: python runner/scripts/ci/owner_r3_candidate.py compose --domain "$OWNER_AUDIT_DOMAIN"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build exact candidate assets and prepare pinned HRMS
+        working-directory: candidate
+        env:
+          HRMS_SHA: ${{ steps.authority.outputs.hrms_sha }}
+        run: |
+          bash scripts/release/build_bundle.sh
+          tar -xzf .release/hbos-portal-release.tar.gz apps/hbos_portal/hbos_portal/public/portal
+          mkdir -p runtime/apps
+          git init runtime/apps/hrms
+          git -C runtime/apps/hrms remote add origin https://github.com/frappe/hrms.git
+          git -C runtime/apps/hrms fetch --depth 1 origin "$HRMS_SHA"
+          git -C runtime/apps/hrms checkout --detach FETCH_HEAD
+          test "$(git -C runtime/apps/hrms rev-parse HEAD)" = "$HRMS_SHA"
+          bash scripts/setup_fonts.sh --no-container-check
+      - name: Record only the explicit runner audit overlay
+        run: python runner/scripts/ci/owner_r3_candidate.py stage-runtime --domain "$OWNER_AUDIT_DOMAIN"
+      - name: Fresh isolated Site double migrate and native permission checks
+        working-directory: candidate
+        run: |
+          set -o pipefail
+          bash scripts/ci/owner_r3_site_bootstrap.sh 2>&1 | tee /tmp/owner-r3/native-${OWNER_AUDIT_DOMAIN}.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r3-${{ matrix.domain }}-native
+          path: /tmp/owner-r3

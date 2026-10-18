@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "repository": "zjl327707743/HBOS-Platform",
+  "target_branch": "feature/hbos-portal-product",
+  "base": {
+    "sha": "45658fe4b84d8fb7dd4433c459aa30572e0d13d3",
+    "tree": "ec1c0c544267d964ec33f10014750278eaec44e9"
+  },
+  "candidates": {
+    "attendance": {
+      "pr": 42,
+      "source_sha": "5780924fb000c869ddf7e23afa76e2f95fe15ea8",
+      "source_tree": "31097c5f9e6f245ecbaca779643c421a4458bee8",
+      "expected_tree": "31097c5f9e6f245ecbaca779643c421a4458bee8"
+    },
+    "production": {
+      "pr": 46,
+      "source_sha": "6bd28b44d8908558e18c23cc02da8fc4b27b89fd",
+      "source_tree": "e69d054722dd74dad418bac655b6ab044eaec3ed",
+      "expected_tree": "e69d054722dd74dad418bac655b6ab044eaec3ed"
+    }
+  },
+  "upstream": {
+    "erpnext_image": "v16.26.2@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583",
+    "frappe_version": "16.26.3",
+    "erpnext_version": "16.26.2",
+    "hrms_sha": "c0a04b80eeb721417b75cea758e831464d0da041"
+  },
+  "legacy": {
+    "commit": "73121a2989ce2b559e0644f93baa5bc99d1832f1",
+    "path": "scripts/ci/owner_cloud_runtime.py",
+    "entrypoint": "attendance",
+    "sha256": "67d75217ed3b6756fe39acf345ab8476b3072685dc65c70293820260721054ef"
+  }
+}
