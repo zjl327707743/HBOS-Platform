@@ -116,6 +116,8 @@ def stage_runtime(root, domain, evidence):
         files.append((root / "scripts/ci/owner_production_runtime.py", portal / "_owner_production_audit.py"))
     elif domain == "inventory-transactions":
         files.append((root / "scripts/ci/owner_inventory_transactions_runtime.py", portal / "_owner_inventory_transactions_runtime.py"))
+    elif domain == "inventory-reports":
+        files.append((SCRIPT_DIR / "owner_r3_inventory_permissions.py", portal / "_owner_r3_inventory_permissions.py"))
     overlay = []
     for source, target in files:
         assert source.is_file(), "Missing runtime input: " + str(source)

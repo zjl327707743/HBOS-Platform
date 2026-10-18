@@ -56,7 +56,11 @@ def inventory_reports():
             assert payload.get("exc_type") == "PermissionError", "Export rejection must be a native permission denial, not a failed session or CSRF precondition"
             checks.append(row)
     assert frappe.db.count("Stock Ledger Entry") == 0, "Report/export checks posted stock"
-    return {**result, "export": {"ok": True, "checks": checks}, "site_purpose": "report_fixtures_only"}
+    permissions = importlib.import_module("hbos_portal._owner_r3_inventory_permissions").run()
+    assert permissions.get("ok") is True, "Native QR/card/private-file checks did not complete"
+    assert frappe.db.count("Stock Ledger Entry") == 0, "QR/card permission audit posted stock"
+    return {**result, "export": {"ok": True, "checks": checks},
+            "permissions": permissions, "site_purpose": "report_fixtures_only"}
 
 
 def run():

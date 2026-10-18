@@ -10,6 +10,8 @@ on:
       - 'scripts/ci/owner_r3_site_bootstrap.sh'
       - 'scripts/ci/owner_r3_runtime.py'
       - 'scripts/ci/owner_r3_legacy_runtime.py'
+      - 'scripts/ci/owner_r3_inventory_permissions.py'
+      - 'scripts/ci/owner_r3_lims_contracts.py'
 
 permissions:
   contents: read
@@ -23,6 +25,36 @@ env:
   HBOS_DELICLOUD_SYNC_ENABLED: '0'
 
 jobs:
+  lims-source-contracts:
+    name: "Exact PR43 source contracts (not product composition)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: runner
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Select frozen standalone LIMS source
+        id: authority
+        run: python runner/scripts/ci/owner_r3_lims_contracts.py select >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.authority.outputs.source_sha }}
+          fetch-depth: 2
+          path: lims-source
+          persist-credentials: false
+      - name: Verify exact source, unchanged executable AST and contracts
+        run: python runner/scripts/ci/owner_r3_lims_contracts.py verify --source lims-source --evidence /tmp/owner-r3/lims-contracts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r3-lims-source-contracts
+          path: /tmp/owner-r3/lims-contracts
+
   candidate:
     name: "Exact product + ${{ matrix.domain }} offline regression"
     runs-on: ubuntu-latest

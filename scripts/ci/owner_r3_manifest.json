@@ -21,15 +21,15 @@
     },
     "inventory-reports": {
       "pr": 39,
-      "source_sha": "a70aefac4c49a3f0aa8a990aa84a2201ca343f14",
-      "source_tree": "60118aac612d03e920bbf569f843fa5b94b0e7ad",
-      "expected_tree": "60118aac612d03e920bbf569f843fa5b94b0e7ad"
+      "source_sha": "bb74cb3c5143b5319219ef352188dda462e80ff4",
+      "source_tree": "dbe6e0efab46ee76de15bc7125631a33d88acd89",
+      "expected_tree": "dbe6e0efab46ee76de15bc7125631a33d88acd89"
     },
     "inventory-transactions": {
       "pr": 39,
-      "source_sha": "a70aefac4c49a3f0aa8a990aa84a2201ca343f14",
-      "source_tree": "60118aac612d03e920bbf569f843fa5b94b0e7ad",
-      "expected_tree": "60118aac612d03e920bbf569f843fa5b94b0e7ad"
+      "source_sha": "bb74cb3c5143b5319219ef352188dda462e80ff4",
+      "source_tree": "dbe6e0efab46ee76de15bc7125631a33d88acd89",
+      "expected_tree": "dbe6e0efab46ee76de15bc7125631a33d88acd89"
     }
   },
   "upstream": {
