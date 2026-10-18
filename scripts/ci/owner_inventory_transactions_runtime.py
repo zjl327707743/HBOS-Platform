@@ -10,6 +10,7 @@ are used to make a positive case pass. Failed cases remain visible in the result
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
@@ -19,7 +20,7 @@ from datetime import date
 from http.cookiejar import CookieJar
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 import frappe
@@ -27,7 +28,7 @@ import frappe
 
 LIMS_AUTHORITY = (
     "Product 45658fe4b84d8fb7dd4433c459aa30572e0d13d3 LIMS + "
-    "three-line in-memory COA publication metadata reorder; no PR43"
+    "formal source change: set COA document publication metadata before rendering; no PR43"
 )
 LIMS_AUTHORITY_SHA256 = {
     "hb_lims_app/hb_lims_app/hbos_lims/lims_service.py":
@@ -68,7 +69,7 @@ def guard():
         actual = hashlib.sha256((Path("/home/frappe/frappe-bench/apps") / rel).read_bytes()).hexdigest()
         assert actual == expected, "Declared LIMS authority changed: " + rel
     emit("isolation_and_existing_lims_authority", status="PASS", site=frappe.local.site,
-         source_product="45658fe4b84d8fb7dd4433c459aa30572e0d13d3",
+         lims_origin_product="45658fe4b84d8fb7dd4433c459aa30572e0d13d3",
          authority=LIMS_AUTHORITY, sha256=LIMS_AUTHORITY_SHA256,
          stock_sql_fixtures=False, release_projection_stubs=False)
 
@@ -82,10 +83,13 @@ class Client:
                         "X-Requested-With": "XMLHttpRequest"}
         self.opener = build_opener(HTTPCookieProcessor(CookieJar()))
 
-    def call(self, method, params=None, *, post=False, csrf=True):
-        encoded = urlencode(params or {}).encode()
+    def call(self, method, params=None, *, post=False, csrf=True, json_body=False):
+        assert not json_body or post, "JSON request bodies are only used for explicit POST calls"
+        encoded = (json.dumps(params or {}) if json_body else urlencode(params or {})).encode()
         url = "http://127.0.0.1:8000/api/method/" + method
         headers = dict(self.headers)
+        if json_body:
+            headers["Content-Type"] = "application/json"
         if not csrf:
             headers.pop("X-Frappe-CSRF-Token", None)
         request = Request(url if post or not encoded else url + "?" + encoded.decode(),
@@ -102,8 +106,8 @@ class Client:
                 payload = {}
             return response.code, payload
 
-    def ok(self, method, params=None, *, post=False):
-        status, payload = self.call(method, params, post=post)
+    def ok(self, method, params=None, *, post=False, json_body=False):
+        status, payload = self.call(method, params, post=post, json_body=json_body)
         if status != 200:
             # Synthetic business diagnostics only; credentials/cookies never enter this path.
             detail = str(payload.get("_server_messages") or payload.get("exc_type") or "")[:1000]
@@ -525,8 +529,9 @@ def release_through_existing_lims(item, batch, label):
     spec = manager.ok(LIMS + "create_specification", {"spec_code": "R3-" + label + "-SPEC",
         "spec_name": "Synthetic R3 release specification", "material_code": item,
         "material_name": "Synthetic release material", "standard_source": "企业内控", "version": "1.0",
-        "effective_date": frappe.utils.today(), "items": json.dumps([{"item": "R3-CI-TEST",
-            "limits_type": "上限", "upper_limit": 100, "unit": "mg", "significant_digits": 2}])}, post=True)
+        "effective_date": frappe.utils.today(), "items": [{"item": "R3-CI-TEST",
+            "limits_type": "上限", "upper_limit": 100, "unit": "mg", "significant_digits": 2}]},
+        post=True, json_body=True)
     manager.ok(LIMS + "activate_specification", {"spec_name": spec}, post=True)
     sample = manager.ok(LIMS + "register_sample", {"sample_type": FIXTURE["sample_type"],
         "material_code": item, "batch_no": batch, "item_ref": item, "batch_ref": batch,
@@ -625,11 +630,13 @@ def registered_jobworker_transfer():
     sco.submit()
     frappe.db.commit()
     assert sco.docstatus == 1 and sco.supplier_warehouse == wh["jobworker"]
+    assert any(row.rm_item_code == item and row.main_item_code == finished
+               for row in sco.supplied_items), "Native SCO/BOM did not establish the supplied raw-material relationship"
     client = FIXTURE["clients"]["stock"]
     subcontract = stock_payload(item, batch, "Send to Subcontractor", 1,
         source=wh["a"], target=wh["jobworker"])
     subcontract.update(supplier=supplier, subcontracting_order=sco.name)
-    subcontract["items"][0]["main_item_code"] = finished
+    subcontract["items"][0]["subcontracted_item"] = finished
     native_send = client.insert(subcontract)
     send_denial = deny(client, "frappe.client.submit", {
         "doc": json.dumps(client.get_doc("Stock Entry", native_send["name"]))},
@@ -645,10 +652,14 @@ def registered_jobworker_transfer():
     reached = status == 200 and frappe.db.get_value("Stock Entry", target["name"], "docstatus") == 1
     if reached:
         moved = assert_stock(item, {wh["a"]: 99, wh["jobworker"]: 1})
+        posted_gl = observe_transfer_gl(target["name"])
         client.cancel("Stock Entry", target["name"])
-        assert_stock(item, {wh["a"]: 100, wh["jobworker"]: 0})
+        restored = assert_stock(item, {wh["a"]: 100, wh["jobworker"]: 0})
+        reversed_gl = observe_transfer_gl(target["name"])
         emit("registered_jobworker_material_transfer", status="FAIL", native_sco=sco.name,
-             pending_batch_reached_target=True, http=status, moved=moved, reversed_by_native_cancel=True)
+             voucher=target["name"], batch=batch, pending_batch_reached_target=True,
+             http=status, moved=moved, posted_gl=posted_gl, restored=restored,
+             reversed_gl=reversed_gl, reversed_by_native_cancel=True)
         raise AssertionError("Unreleased Batch reached an ERPNext-registered Job Worker Warehouse using Material Transfer")
     assert status in (403, 417), f"Unexpected external-target failure: HTTP {status}"
     detail = json.dumps(response, ensure_ascii=False)
@@ -657,11 +668,280 @@ def registered_jobworker_transfer():
     authority = release_through_existing_lims(item, batch, "JOBWORKER")
     client.submit("Stock Entry", target["name"])
     released_moved = assert_stock(item, {wh["a"]: 99, wh["jobworker"]: 1})
+    posted_gl = observe_transfer_gl(target["name"])
     client.cancel("Stock Entry", target["name"])
     restored = assert_stock(item, {wh["a"]: 100, wh["jobworker"]: 0})
+    reversed_gl = observe_transfer_gl(target["name"])
     emit("registered_jobworker_material_transfer", status="PASS", native_sco=sco.name,
-         pending_batch_reached_target=False, http=status, **authority,
-         released_moved=released_moved, cancelled_restored=restored)
+         voucher=target["name"], batch=batch, pending_batch_reached_target=False,
+         http=status, **authority, released_moved=released_moved,
+         posted_gl=posted_gl, cancelled_restored=restored, reversed_gl=reversed_gl)
+
+
+def observe_transfer_gl(voucher):
+    """Record native GL facts; same-account internal transfers may have no rows."""
+    fresh_read()
+    rows = frappe.get_all("GL Entry", filters={"voucher_type": "Stock Entry", "voucher_no": voucher},
+        fields=["name", "account", "debit", "credit", "is_cancelled"], order_by="name")
+    return {"entries": len(rows), "rows": rows,
+            "debit": sum(float(row.debit) for row in rows),
+            "credit": sum(float(row.credit) for row in rows),
+            "zero_rows_permitted_for_same_inventory_account": True}
+
+
+def _automatic_http(client, path, params=None, *, post=False, timeout=180):
+    """Binary-safe HTTP using the Client's existing cookie jar and actual CSRF."""
+    encoded = urlencode(params or {}).encode()
+    url = "http://127.0.0.1:8000" + path
+    if encoded and not post:
+        url += ("&" if "?" in url else "?") + encoded.decode()
+    request = Request(url, data=encoded if post else None, headers=dict(client.headers))
+    try:
+        response = client.opener.open(request, timeout=timeout)
+    except HTTPError as error:
+        response = error
+    with response:
+        body = response.read()
+        try:
+            payload = json.loads(body)
+        except (ValueError, UnicodeDecodeError):
+            payload = {}
+        return response.code, payload, body
+
+
+def _automatic_user(scoped):
+    key = "automatic_scoped" if scoped else "automatic_pure"
+    if key not in FIXTURE["clients"]:
+        fresh_read()
+        time.sleep(8)
+        user = "r3-inventory-" + key.replace("_", "-") + "@example.invalid"
+        password = secrets.token_urlsafe(32)
+        native_insert({"doctype": "User", "email": user, "first_name": "Synthetic Receipt PDF",
+            "enabled": 1, "send_welcome_email": 0, "user_type": "System User", "language": "en",
+            "new_password": password, "roles": [{"role": "Stock User"}]})
+        if scoped:
+            native_insert({"doctype": "User Permission", "user": user, "allow": "Warehouse",
+                "for_value": FIXTURE["warehouses"]["a"], "apply_to_all_doctypes": 1, "hide_descendants": 1})
+        frappe.defaults.set_user_default("Company", FIXTURE["company"], user)
+        frappe.db.commit()
+        frappe.clear_cache(user=user)
+        FIXTURE["clients"][key] = Client().login(user, password)
+        FIXTURE["users"][key] = user
+    return FIXTURE["users"][key], FIXTURE["clients"][key]
+
+
+def _automatic_permissions(user, batch):
+    """Native role/range/DocShare/Batch permissions, not UI capability flags."""
+    fresh_read()
+    doc = frappe.get_doc("Batch", batch)
+    return {
+        "roles": sorted(frappe.get_roles(user)),
+        "batch_read": bool(doc.has_permission("read", user=user)),
+        "batch_write": bool(doc.has_permission("write", user=user)),
+        "warehouse_read": sorted(frappe.get_list("Warehouse", pluck="name", limit_page_length=0, user=user)),
+        "user_permissions": frappe.get_all("User Permission", filters={"user": user},
+            fields=["name", "allow", "for_value", "apply_to_all_doctypes", "hide_descendants"], order_by="name"),
+        "shares": frappe.get_all("DocShare", filters={"user": user},
+            fields=["share_doctype", "share_name", "read", "write", "share"], order_by="name"),
+    }
+
+
+def _automatic_card_ids(batch):
+    fresh_read()
+    return sorted(frappe.get_all("File", filters={"attached_to_doctype": "Batch", "attached_to_name": batch}, pluck="name"))
+
+
+def _automatic_card(batch, actor, *, warehouses):
+    """Require actual on_submit output; no standalone/fallback PDF is acceptable."""
+    from pypdf import PdfReader
+
+    names = _automatic_card_ids(batch)
+    assert len(names) == 1, f"Automatic receipt must create exactly one private Batch PDF: {names}"
+    doc = frappe.get_doc("File", names[0])
+    assert doc.owner == actor, "Automatic card must preserve the actual receiving actor"
+    assert doc.is_private and doc.file_url.startswith("/private/files/")
+    assert doc.attached_to_doctype == "Batch" and doc.attached_to_name == batch
+    assert doc.file_name.startswith("HBOS-") and "-待检证+货位卡" in doc.file_name and doc.file_name.endswith(".pdf")
+    content = Path(doc.get_full_path()).read_bytes()
+    assert content.startswith(b"%PDF-"), "Automatic receipt attachment is not a PDF"
+    reader = PdfReader(io.BytesIO(content))
+    compact = re.sub(r"\s+", "", " ".join(page.extract_text() or "" for page in reader.pages))
+    for warehouse in warehouses:
+        short = re.sub(r"\s+", "", warehouse.split(" - ")[0])
+        assert short in compact, "Real automatic PDF is missing synthetic warehouse " + short
+    return {"name": doc.name, "file_name": doc.file_name, "file_url": doc.file_url,
+            "owner": doc.owner, "batch": batch, "is_private": bool(doc.is_private),
+            "bytes": len(content), "pages": len(reader.pages),
+            "sha256": hashlib.sha256(content).hexdigest(), "checked_warehouses": list(warehouses)}
+
+
+def _automatic_source(voucher, batch, actor, warehouse, qty):
+    """Read the submitted native documents and their SLE linkage, never fabricate it."""
+    fresh_read()
+    entry = frappe.get_doc("Stock Entry", voucher)
+    assert entry.docstatus == 1 and entry.purpose == "Material Receipt"
+    assert entry.owner == actor and entry.modified_by == actor
+    bundles = []
+    for detail in entry.items:
+        assert detail.t_warehouse == warehouse and not detail.s_warehouse
+        assert detail.serial_and_batch_bundle, "Native receipt did not create its Batch Bundle"
+        bundle = frappe.get_doc("Serial and Batch Bundle", detail.serial_and_batch_bundle)
+        assert bundle.docstatus == 1 and not bundle.is_cancelled
+        assert bundle.voucher_type == "Stock Entry" and bundle.voucher_no == voucher
+        rows = [row for row in bundle.entries if row.batch_no == batch and not row.is_cancelled]
+        assert rows and all(float(row.qty) > 0 for row in rows)
+        assert abs(sum(float(row.qty) for row in rows) - qty) < 0.00001
+        ledger = frappe.get_all("Stock Ledger Entry", filters={"voucher_type": "Stock Entry",
+            "voucher_no": voucher, "serial_and_batch_bundle": bundle.name, "is_cancelled": 0},
+            fields=["name", "warehouse", "actual_qty"])
+        assert ledger and all(row.warehouse == warehouse and float(row.actual_qty) > 0 for row in ledger)
+        assert abs(sum(float(row.actual_qty) for row in ledger) - qty) < 0.00001
+        bundles.append({"name": bundle.name, "batch_entries": len(rows), "sle": ledger})
+    return {"voucher": voucher, "owner": entry.owner, "docstatus": entry.docstatus,
+            "purpose": entry.purpose, "native_bundles": bundles, "gl": assert_gl("Stock Entry", voucher)}
+
+
+def _automatic_denials(user, client, batch, voucher, card, *, scoped):
+    """No internal receipt authority is inherited by the next ordinary request."""
+    before_counts = stock_write_counts()
+    before_card_ids = _automatic_card_ids(batch)
+    regenerate = "hb_inventory_app.hbos_inventory.doc_gen.regenerate_for_batch"
+    fake_context = {"actor": user, "entry": voucher, "batch": batch}
+    fake_flags = {"ignore_permissions": True, "ignore_print_permissions": True,
+                  "hbos_automatic_receipt_card": fake_context, "_AUTOMATIC_CARD": [user, voucher, batch]}
+    deny(client, regenerate, {"batch_name": batch}, exception="PermissionError",
+         label="automatic_receipt_does_not_grant_manual_regeneration", audit_stock=True)
+    deny(client, regenerate, {"batch_name": batch, "flags": json.dumps(fake_flags),
+         "_automatic_card": json.dumps(fake_context)}, exception="PermissionError",
+         label="client_parameters_do_not_establish_receipt_context", audit_stock=True)
+    for flag_payload in ({}, fake_flags):
+        payload = {"doctype": "File", "file_name": card["file_name"], "file_url": card["file_url"],
+            "is_private": 1, "attached_to_doctype": "Batch", "attached_to_name": batch,
+            "flags": flag_payload}
+        deny(client, "frappe.client.insert", {"doc": json.dumps(payload)},
+             exception="PermissionError", label="native_file_creation_without_receipt_context"
+             + ("_forged_flags" if flag_payload else ""), audit_stock=True)
+    methods = (
+        "hb_inventory_app.hbos_inventory.doc_gen.generate_for_batch",
+        "hb_inventory_app.hbos_inventory.doc_gen.generate_for_stock_entry",
+        "hb_inventory_app.hbos_inventory.card_permissions._automatic_receipt_card",
+        "hb_inventory_app.hbos_inventory.card_permissions._automatic_print_permission",
+    )
+    for method in methods:
+        for post in (False, True):
+            status, payload = client.call(method, {"batch_name": batch, "doc": voucher,
+                "doctype": "Batch", "name": batch, "print_format": "HBOS 自产货位卡"}, post=post)
+            emit("automatic_receipt_internal_endpoint_denial", method=method,
+                 http_method="POST" if post else "GET", http=status, exception=payload.get("exc_type"))
+            assert status == 403 and payload.get("exc_type") == "PermissionError", "Internal helper became an RPC"
+    deny(client, "run_doc_method", {"dt": "Stock Entry", "dn": voucher, "method": "on_submit"},
+         exception="PermissionError", label="cannot_replay_on_submit_via_rpc", audit_stock=True)
+    assert client.ok("frappe.auth.get_logged_user") == user
+    assert stock_write_counts() == before_counts and _automatic_card_ids(batch) == before_card_ids
+    fresh_read()
+    assert hashlib.sha256(Path(frappe.get_doc("File", card["name"]).get_full_path()).read_bytes()).hexdigest() == card["sha256"]
+    for label, path, params in (
+        ("private_url", quote(card["file_url"], safe="/"), None),
+        ("download_file", "/api/method/download_file", {"file_url": card["file_url"]}),
+    ):
+        status, payload, body = _automatic_http(client, path, params)
+        if scoped:
+            assert status == 403 and not body.startswith(b"%PDF-"), "Restricted receiving owner downloaded full card"
+            assert FIXTURE["warehouses"]["b"].split(" - ")[0].encode() not in body
+        else:
+            assert status == 200 and hashlib.sha256(body).hexdigest() == card["sha256"], "Full-scope owner cannot read actual generated PDF"
+        emit("automatic_receipt_pdf_access", path=label, scoped=scoped, http=status,
+             receiving_owner=user, pdf_returned=body.startswith(b"%PDF-"))
+    if scoped:
+        status, payload, body = _automatic_http(client, "/api/method/frappe.core.api.file.zip_files",
+            {"files": json.dumps([card["name"]])})
+        assert status == 403 and payload.get("exc_type") == "PermissionError"
+        emit("automatic_receipt_scoped_owner_zip_denied", http=status, exception=payload.get("exc_type"))
+
+
+def automatic_receipt_private_pdf(*, scoped=False):
+    user, client = _automatic_user(scoped)
+    label = "AUTO-SCOPED" if scoped else "AUTO-PURE"
+    item, batch = new_stock(label)
+    wh = FIXTURE["warehouses"]
+    if scoped:
+        # Establish B stock with a genuine authorized receipt. The A-only user's
+        # later derived PDF includes that same batch's A+B inventory, but its
+        # receiving owner still must not be able to download the full snapshot.
+        seed = FIXTURE["clients"]["stock"].insert(stock_payload(item, batch, "Material Receipt", 7, target=wh["b"]))
+        FIXTURE["clients"]["stock"].submit("Stock Entry", seed["name"])
+        assert_stock(item, {wh["a"]: 0, wh["b"]: 7})
+        assert_gl("Stock Entry", seed["name"])
+    before_permissions = _automatic_permissions(user, batch)
+    assert not before_permissions["batch_read"] and not before_permissions["batch_write"]
+    assert "Stock User" in before_permissions["roles"]
+    assert not {"Item Manager", "Stock Manager", "System Manager"}.intersection(before_permissions["roles"])
+    assert wh["a"] in before_permissions["warehouse_read"]
+    assert (wh["b"] not in before_permissions["warehouse_read"]) == scoped
+    qty = 3 if scoped else 11
+    old_cards = _automatic_card_ids(batch)
+    draft = client.insert(stock_payload(item, batch, "Material Receipt", qty, target=wh["a"]))
+    assert draft["docstatus"] == 0 and _automatic_card_ids(batch) == old_cards, "Draft save generated a card"
+    status, payload, _ = _automatic_http(client, "/api/method/frappe.client.submit",
+        {"doc": json.dumps(client.get_doc("Stock Entry", draft["name"]))}, post=True)
+    assert status == 200, "Pure Stock User receipt submit failed: " + str(payload.get("exc_type"))
+    expected = {wh["a"]: qty, **({wh["b"]: 7} if scoped else {})}
+    balances = assert_stock(item, expected)
+    source = _automatic_source(draft["name"], batch, user, wh["a"], qty)
+    card = _automatic_card(batch, user, warehouses=list(expected))
+    assert card["name"] not in old_cards, "on_submit reused an old card instead of generating the new batch snapshot"
+    _automatic_denials(user, client, batch, draft["name"], card, scoped=scoped)
+    after_permissions = _automatic_permissions(user, batch)
+    assert after_permissions == before_permissions, "Automatic receipt altered native business permissions"
+    emit("automatic_receipt_private_pdf", status="PASS", scoped=scoped,
+         source=source, balances=balances, card=card, batch_read=False, batch_write=False,
+         roles_and_ranges_unchanged=True, privileges_added=False,
+         positive_level="real HTTP native insert/submit/on_submit + real PDF; no mocks or SQL fixtures")
+
+
+def automatic_receipt_context_restoration():
+    """Same-process native submit proves context/print flags are reset on return."""
+    from hb_inventory_app.hbos_inventory import card_permissions, doc_gen
+
+    user, _ = _automatic_user(True)
+    item, batch = new_stock("AUTO-CONTEXT")
+    warehouse = FIXTURE["warehouses"]["a"]
+    before_permissions = _automatic_permissions(user, batch)
+    assert not before_permissions["batch_read"] and not before_permissions["batch_write"]
+    before_context = card_permissions._AUTOMATIC_CARD.get()
+    assert before_context is None, "Native runner already has a receipt capability"
+    before_flag = ("ignore_print_permissions" in frappe.flags, frappe.flags.get("ignore_print_permissions"))
+    assert not before_flag[1], "Do not start the lifecycle proof with elevated print flags"
+    try:
+        frappe.set_user(user)
+        doc = frappe.get_doc(stock_payload(item, batch, "Material Receipt", 2, target=warehouse)).insert()
+        assert doc.docstatus == 0
+        doc.submit()  # Actual StockEntry controller + installed on_submit hooks.
+        assert frappe.session.user == user, "Automatic generation changed the receiving identity"
+        assert card_permissions._AUTOMATIC_CARD.get() is None
+        assert not card_permissions._is_automatic_batch(batch)
+        assert ("ignore_print_permissions" in frappe.flags, frappe.flags.get("ignore_print_permissions")) == before_flag
+        frappe.db.commit()
+        # In the SAME Python context, not a fresh HTTP request, the user no
+        # longer has the internal ability even when calling the service directly.
+        try:
+            doc_gen.generate_for_batch(batch)
+        except frappe.PermissionError:
+            pass
+        else:
+            raise AssertionError("Receipt capability survived and allowed a later direct regeneration")
+        assert card_permissions._AUTOMATIC_CARD.get() is None
+        assert ("ignore_print_permissions" in frappe.flags, frappe.flags.get("ignore_print_permissions")) == before_flag
+    finally:
+        fresh_read()
+    balances = assert_stock(item, {warehouse: 2})
+    source = _automatic_source(doc.name, batch, user, warehouse, 2)
+    card = _automatic_card(batch, user, warehouses=[warehouse])
+    assert _automatic_permissions(user, batch) == before_permissions
+    emit("automatic_receipt_context_restoration", status="PASS", source=source,
+         balances=balances, card=card, same_process=True, context_restored=True,
+         print_flag_restored=True, direct_regeneration_after_context_denied=True,
+         native_permissions_unchanged=True, execution_level="native bench insert/submit; no permission stubs")
 
 
 def run():
@@ -673,6 +953,9 @@ def run():
         ("internal_and_cross_company_transfer", internal_transfer),
         ("existing_lims_release_chain", lims_release_and_issue),
         ("registered_external_target", registered_jobworker_transfer),
+        ("automatic_receipt_pure_stock_user", automatic_receipt_private_pdf),
+        ("automatic_receipt_scoped_stock_user", lambda: automatic_receipt_private_pdf(scoped=True)),
+        ("automatic_receipt_context_restoration", automatic_receipt_context_restoration),
     ):
         fresh_read()
         try:
