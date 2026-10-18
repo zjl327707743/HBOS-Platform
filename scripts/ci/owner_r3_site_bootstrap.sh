@@ -11,7 +11,7 @@ cd "$ROOT"
 [[ ! -e .env ]] || { echo 'Refusing a worktree with an existing .env' >&2; exit 2; }
 test -d runtime/apps/hrms
 case "${OWNER_AUDIT_DOMAIN:-}" in
-  attendance|production|inventory-reports|inventory-transactions) ;;
+  attendance|production|inventory-reports|inventory-transactions|lims) ;;
   *) echo 'Unsupported R3 native domain' >&2; exit 2 ;;
 esac
 python3 - "$OWNER_AUDIT_DOMAIN" <<'PY_MANIFEST'
@@ -144,7 +144,7 @@ for attempt in 1 2; do
 done
 dc exec -T backend bench --site "$SITE_NAME" set-config hbos_portal_origin "http://$SITE_NAME:$HTTP_PORT"
 dc exec -T backend bench --site "$SITE_NAME" set-config hbos_report_scope_ci "$TEST_ID"
-if [[ "$OWNER_AUDIT_DOMAIN" == inventory-* ]]; then
+if [[ "$OWNER_AUDIT_DOMAIN" == inventory-* || "$OWNER_AUDIT_DOMAIN" == lims ]]; then
   # Real inventory PDFs use Frappe's print CSS/assets. Serve them through this
   # disposable project's native frontend instead of an unreachable Site URL.
   dc up -d frontend
@@ -167,7 +167,7 @@ else:
     raise SystemExit("Native Frappe HTTP did not become ready")
 PY
 
-if [[ "$OWNER_AUDIT_DOMAIN" == inventory-* ]]; then
+if [[ "$OWNER_AUDIT_DOMAIN" == inventory-* || "$OWNER_AUDIT_DOMAIN" == lims ]]; then
   dc exec -T backend /home/frappe/frappe-bench/env/bin/python - <<'PY_PDF_ASSETS'
 import json
 from pathlib import Path

@@ -12,6 +12,7 @@ on:
       - 'scripts/ci/owner_r3_legacy_runtime.py'
       - 'scripts/ci/owner_r3_inventory_permissions.py'
       - 'scripts/ci/owner_r3_lims_contracts.py'
+      - 'scripts/ci/owner_r3_lims_runtime.py'
 
 permissions:
   contents: read
@@ -26,7 +27,7 @@ env:
 
 jobs:
   lims-source-contracts:
-    name: "Exact PR43 source contracts (not product composition)"
+    name: "Frozen PR43 contract fix at 1a8 (not current composition)"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -62,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        domain: [attendance, production, inventory-transactions]
+        domain: [attendance, production, inventory-transactions, lims]
     env:
       OWNER_AUDIT_DOMAIN: ${{ matrix.domain }}
     steps:
@@ -156,6 +157,13 @@ jobs:
         run: |
           set -o pipefail
           npm run test:unit 2>&1 | tee /tmp/owner-r3/frontend-lims.txt
+      - name: Current LIMS shell and frontend contracts
+        if: ${{ !cancelled() && steps.composition.outcome == 'success' && matrix.domain == 'lims' }}
+        working-directory: candidate
+        run: |
+          set -o pipefail
+          bash scripts/portal/lims_shell_contract.sh 2>&1 | tee /tmp/owner-r3/lims-shell-contract.txt
+          node scripts/portal/lims_frontend_contract.mjs 2>&1 | tee /tmp/owner-r3/lims-frontend-contract.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -169,7 +177,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        domain: [attendance, production, inventory-reports, inventory-transactions]
+        domain: [attendance, production, inventory-reports, inventory-transactions, lims]
     env:
       OWNER_AUDIT_DOMAIN: ${{ matrix.domain }}
     steps:

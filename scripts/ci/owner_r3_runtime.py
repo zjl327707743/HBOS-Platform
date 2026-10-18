@@ -98,6 +98,8 @@ def run():
         result = inventory_reports()
     elif domain == "inventory-transactions":
         result = importlib.import_module("hbos_portal._owner_inventory_transactions_runtime").run()
+    elif domain == "lims":
+        result = importlib.import_module("hbos_portal._owner_r3_lims_runtime").run()
     else:
         raise AssertionError("Unsupported R3 domain")
     assert isinstance(result, dict) and result.get("ok") is True, "Incomplete domain runtime result"

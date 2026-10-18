@@ -19,10 +19,19 @@ def manifest():
     assert data["repository"] == "zjl327707743/HBOS-Platform"
     assert data["target_branch"] == "feature/hbos-portal-product"
     pairs = [data["base"]["sha"], data["base"]["tree"], data["upstream"]["hrms_sha"]]
-    allowed = {"attendance": 42, "production": 46, "inventory-reports": 39, "inventory-transactions": 39}
+    allowed = {"attendance": 42, "production": 46, "inventory-reports": 39, "inventory-transactions": 39, "lims": 43}
+    integration_pr = data.get("integration_pr")
+    if integration_pr is not None:
+        assert integration_pr == 43, "Only the explicitly frozen LIMS integration may share a candidate across domains"
+        assert set(data["candidates"]) == set(allowed), "LIMS integration must regress all five native domains"
     for domain, entry in data["candidates"].items():
-        assert entry["pr"] == allowed[domain]
+        assert domain in allowed
+        assert entry["pr"] == (integration_pr or allowed[domain])
         pairs.extend(entry[key] for key in ("source_sha", "source_tree", "expected_tree"))
+    if integration_pr is not None:
+        lims = data["candidates"]["lims"]
+        assert all(all(entry[key] == lims[key] for key in ("source_sha", "source_tree", "expected_tree"))
+                   for entry in data["candidates"].values()), "All domains must test the same full LIMS/product composition"
     inventories = ("inventory-reports", "inventory-transactions")
     if any(domain in data["candidates"] for domain in inventories):
         reports, transactions = (data["candidates"][domain] for domain in inventories)
@@ -46,6 +55,7 @@ def compose(root, domain, evidence):
     evidence.mkdir(parents=True, exist_ok=True)
     inputs = {
         "repository": data["repository"], "target_branch": data["target_branch"],
+        "integration_pr": data.get("integration_pr"),
         "domain": domain, "base": base, "candidate": entry,
         "runner_sha": git(SCRIPT_DIR, "rev-parse", "HEAD"),
         "runner_tree": git(SCRIPT_DIR, "rev-parse", "HEAD^{tree}"),
@@ -118,6 +128,8 @@ def stage_runtime(root, domain, evidence):
         files.append((root / "scripts/ci/owner_inventory_transactions_runtime.py", portal / "_owner_inventory_transactions_runtime.py"))
     elif domain == "inventory-reports":
         files.append((SCRIPT_DIR / "owner_r3_inventory_permissions.py", portal / "_owner_r3_inventory_permissions.py"))
+    elif domain == "lims":
+        files.append((SCRIPT_DIR / "owner_r3_lims_runtime.py", portal / "_owner_r3_lims_runtime.py"))
     overlay = []
     for source, target in files:
         assert source.is_file(), "Missing runtime input: " + str(source)

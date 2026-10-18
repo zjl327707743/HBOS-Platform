@@ -3,33 +3,39 @@
   "repository": "zjl327707743/HBOS-Platform",
   "target_branch": "feature/hbos-portal-product",
   "base": {
-    "sha": "a1cc65dde73cfad656faf290264f75fb1a25c32b",
-    "tree": "43b59653ebbe61db530f523ea980163c88f1899e"
+    "sha": "366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857",
+    "tree": "dafa05eba9db5c5f538ba8ac608dfdfdf85c9326"
   },
   "candidates": {
     "attendance": {
-      "pr": 42,
-      "source_sha": "a1cc65dde73cfad656faf290264f75fb1a25c32b",
-      "source_tree": "43b59653ebbe61db530f523ea980163c88f1899e",
-      "expected_tree": "43b59653ebbe61db530f523ea980163c88f1899e"
+      "pr": 43,
+      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
+      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
+      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
     },
     "production": {
-      "pr": 46,
-      "source_sha": "a1cc65dde73cfad656faf290264f75fb1a25c32b",
-      "source_tree": "43b59653ebbe61db530f523ea980163c88f1899e",
-      "expected_tree": "43b59653ebbe61db530f523ea980163c88f1899e"
+      "pr": 43,
+      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
+      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
+      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
     },
     "inventory-reports": {
-      "pr": 39,
-      "source_sha": "a1cc65dde73cfad656faf290264f75fb1a25c32b",
-      "source_tree": "43b59653ebbe61db530f523ea980163c88f1899e",
-      "expected_tree": "43b59653ebbe61db530f523ea980163c88f1899e"
+      "pr": 43,
+      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
+      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
+      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
     },
     "inventory-transactions": {
-      "pr": 39,
-      "source_sha": "a1cc65dde73cfad656faf290264f75fb1a25c32b",
-      "source_tree": "43b59653ebbe61db530f523ea980163c88f1899e",
-      "expected_tree": "43b59653ebbe61db530f523ea980163c88f1899e"
+      "pr": 43,
+      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
+      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
+      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
+    },
+    "lims": {
+      "pr": 43,
+      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
+      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
+      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
     }
   },
   "upstream": {
@@ -43,5 +49,6 @@
     "path": "scripts/ci/owner_cloud_runtime.py",
     "entrypoint": "attendance",
     "sha256": "67d75217ed3b6756fe39acf345ab8476b3072685dc65c70293820260721054ef"
-  }
+  },
+  "integration_pr": 43
 }
