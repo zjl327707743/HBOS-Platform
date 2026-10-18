@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        domain: [attendance, production]
+        domain: [attendance, production, inventory-transactions]
     env:
       OWNER_AUDIT_DOMAIN: ${{ matrix.domain }}
     steps:
@@ -137,7 +137,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        domain: [attendance, production]
+        domain: [attendance, production, inventory-reports, inventory-transactions]
     env:
       OWNER_AUDIT_DOMAIN: ${{ matrix.domain }}
     steps:

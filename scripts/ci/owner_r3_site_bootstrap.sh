@@ -11,7 +11,7 @@ cd "$ROOT"
 [[ ! -e .env ]] || { echo 'Refusing a worktree with an existing .env' >&2; exit 2; }
 test -d runtime/apps/hrms
 case "${OWNER_AUDIT_DOMAIN:-}" in
-  attendance|production|inventory-transactions) ;;
+  attendance|production|inventory-reports|inventory-transactions) ;;
   *) echo 'Unsupported R3 native domain' >&2; exit 2 ;;
 esac
 python3 - "$OWNER_AUDIT_DOMAIN" <<'PY_MANIFEST'

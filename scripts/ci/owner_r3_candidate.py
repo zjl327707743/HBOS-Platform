@@ -19,10 +19,14 @@ def manifest():
     assert data["repository"] == "zjl327707743/HBOS-Platform"
     assert data["target_branch"] == "feature/hbos-portal-product"
     pairs = [data["base"]["sha"], data["base"]["tree"], data["upstream"]["hrms_sha"]]
-    allowed = {"attendance": 42, "production": 46, "inventory-transactions": 39}
+    allowed = {"attendance": 42, "production": 46, "inventory-reports": 39, "inventory-transactions": 39}
     for domain, entry in data["candidates"].items():
         assert entry["pr"] == allowed[domain]
         pairs.extend(entry[key] for key in ("source_sha", "source_tree", "expected_tree"))
+    inventories = ("inventory-reports", "inventory-transactions")
+    if any(domain in data["candidates"] for domain in inventories):
+        reports, transactions = (data["candidates"][domain] for domain in inventories)
+        assert all(reports[key] == transactions[key] for key in ("source_sha", "source_tree", "expected_tree")), "Inventory domains must test the same source and composition"
     assert all(re.fullmatch(r"[a-f0-9]{40}", value) for value in pairs)
     return data
 
@@ -38,13 +42,14 @@ def write_json(path, value):
 def compose(root, domain, evidence):
     data = manifest()
     base, entry = data["base"], data["candidates"][domain]
+    baseline = entry["source_sha"] == base["sha"]
     evidence.mkdir(parents=True, exist_ok=True)
     inputs = {
         "repository": data["repository"], "target_branch": data["target_branch"],
         "domain": domain, "base": base, "candidate": entry,
         "runner_sha": git(SCRIPT_DIR, "rev-parse", "HEAD"),
         "runner_tree": git(SCRIPT_DIR, "rev-parse", "HEAD^{tree}"),
-        "composition": "git merge --no-ff --no-edit; no conflict resolver or business overlay",
+        "composition": "post_merge_baseline" if baseline else "git merge --no-ff --no-edit; no conflict resolver or business overlay",
     }
     write_json(evidence / "inputs.json", inputs)
     assert not git(root, "status", "--porcelain"), "Candidate checkout must be clean"
@@ -52,24 +57,32 @@ def compose(root, domain, evidence):
     assert git(root, "rev-parse", "HEAD^{tree}") == base["tree"], "Product tree mismatch"
     assert git(root, "rev-parse", entry["source_sha"] + "^{commit}") == entry["source_sha"]
     assert git(root, "rev-parse", entry["source_sha"] + "^{tree}") == entry["source_tree"]
-    command = [
-        "git", "-C", str(root), "-c", "user.name=HBOS Cloud Validation",
-        "-c", "user.email=hbos-cloud-validation@users.noreply.github.com",
-        "merge", "--no-ff", "--no-edit", entry["source_sha"],
-    ]
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    (evidence / "merge.txt").write_text(result.stdout, encoding="utf-8")
-    print("[OWNER-R3] ordinary_merge_exit=" + str(result.returncode))
-    if result.returncode:
-        print(result.stdout)
-    result.check_returncode()
+    if baseline:
+        assert base["tree"] == entry["source_tree"] == entry["expected_tree"], "Baseline tree mismatch"
+        (evidence / "merge.txt").write_text("post_merge_baseline: source is exactly the current product commit; no merge performed\n", encoding="utf-8")
+        print("[OWNER-R3] composition=post_merge_baseline")
+    else:
+        command = [
+            "git", "-C", str(root), "-c", "user.name=HBOS Cloud Validation",
+            "-c", "user.email=hbos-cloud-validation@users.noreply.github.com",
+            "merge", "--no-ff", "--no-edit", entry["source_sha"],
+        ]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        (evidence / "merge.txt").write_text(result.stdout, encoding="utf-8")
+        print("[OWNER-R3] ordinary_merge_exit=" + str(result.returncode))
+        if result.returncode:
+            print(result.stdout)
+        result.check_returncode()
     authority = {
         **inputs, "commit": git(root, "rev-parse", "HEAD"),
         "tree": git(root, "rev-parse", "HEAD^{tree}"),
         "parents": git(root, "show", "-s", "--format=%P", "HEAD").split(),
     }
     write_json(evidence / "authority.json", authority)
-    assert authority["parents"] == [base["sha"], entry["source_sha"]], "Unexpected merge parents"
+    if baseline:
+        assert authority["commit"] == base["sha"], "Post-merge baseline commit changed"
+    else:
+        assert authority["parents"] == [base["sha"], entry["source_sha"]], "Unexpected merge parents"
     assert authority["tree"] == entry["expected_tree"], "Ordinary merge tree differs from frozen review"
     assert not git(root, "status", "--porcelain"), "Composition changed uncommitted files"
     # Record existing source formatting separately; this runner cannot repair
