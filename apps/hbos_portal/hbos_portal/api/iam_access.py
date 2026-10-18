@@ -135,7 +135,14 @@ def get_capabilities(**kwargs):
         _only(kwargs)
         user = policy.get_current_user()
         capabilities = []
+        own, _ = policy._rules("User", user)
+        # Management never inherits from department defaults. The absence of
+        # a registered personal operation can safely narrow candidates; every
+        # candidate still receives the existing fresh target authorization.
+        candidates = set(policy.MANAGEMENT) if guards.isolated_root() else {row["operation_id"] for row in own if row["operation_id"] in policy.MANAGEMENT and policy.registration(row["app_id"], row["operation_id"])}
         for operation in policy.MANAGEMENT:
+            if operation not in candidates:
+                continue
             apps = [app["id"] for app in policy.registered_apps() if app["integrated"]] if operation in {"iam.access.read", "iam.access.manage", "iam.departments.manage"} else ["iam"]
             if any(_current_departments(operation, app_id=app_id) for app_id in apps):
                 capabilities.append(operation)

@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch, nextTick } from 'vue'
 import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
@@ -78,7 +78,16 @@ const { sessionPending, sessionError } = portalDataSource === 'mock' ? usePortal
 const route = useRoute(), router = useRouter()
 const routeDenied = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !canIam(route.meta.iamCapability))
 const masked = computed(() => ['unconfirmed', 'guest', 'logging_out'].includes(portalSession.phase) || routeDenied.value)
-watch(masked, value => { document.body.classList.toggle('hbos-session-shield', value); if(value) ui.commandOpen=false }, { immediate:true })
+let maskedFocus: {element:HTMLElement;generation:number}|null = null
+watch(masked, async value => {
+  if(value && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) maskedFocus={element:document.activeElement,generation:portalSession.generation}
+  document.body.classList.toggle('hbos-session-shield', value)
+  if(value) ui.commandOpen=false
+  else {
+    const prior=maskedFocus;maskedFocus=null;await nextTick()
+    if(prior?.generation===portalSession.generation && prior.element.isConnected && !masked.value && portalSession.phase==='ready') prior.element.focus({preventScroll:true})
+  }
+}, { immediate:true })
 const closeSecurityDialogs = () => Modal.destroyAll()
 let detach: (() => void) | undefined
 async function retrySession() { try { await ensurePortalSession({ force: true }) } catch { /* Local recovery stays available. */ } }
