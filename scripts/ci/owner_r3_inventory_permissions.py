@@ -208,7 +208,22 @@ def _pdf_fixture(audit, full_client):
         from pypdf import PdfReader
 
         reader = PdfReader(io.BytesIO(content))
-        extracted = " ".join(page.extract_text() or "" for page in reader.pages)
+        page_texts = [page.extract_text() or "" for page in reader.pages]
+        extracted = " ".join(page_texts)
+        # These documents contain only this disposable Site's synthetic fixtures.
+        # Retain the actual PDF and bounded text evidence before any assertion;
+        # a broken CMap must not turn into an unexplained missing-marker failure.
+        evidence_dir = Path("/tmp/owner-r3-pdf-evidence")
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+        (evidence_dir / "synthetic-report-card.pdf").write_bytes(content)
+        pdf_evidence = {"sha256": hashlib.sha256(content).hexdigest(), "bytes": len(content),
+                        "pages": [{"width": float(page.mediabox.width),
+                                   "height": float(page.mediabox.height),
+                                   "text_excerpt": text[:1500], "text_chars": len(text)}
+                                  for page, text in zip(reader.pages, page_texts)]}
+        (evidence_dir / "synthetic-report-card.json").write_text(
+            json.dumps(pdf_evidence, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("[OWNER-R3] inventory-pdf-evidence=" + json.dumps(pdf_evidence, ensure_ascii=False))
         # ASCII synthetic warehouse markers survive font substitutions. They
         # prove this is a full-batch A+B snapshot, not an empty placeholder PDF.
         compact = re.sub(r"\s+", "", extracted)

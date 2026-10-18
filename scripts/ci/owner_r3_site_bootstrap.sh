@@ -96,6 +96,16 @@ done < <(python3 -c 'import json,sys; print("\n".join(v["name"] for v in json.lo
 cleanup() {
   local status=$?
   trap - EXIT
+  if [[ "$OWNER_AUDIT_DOMAIN" == inventory-* ]] && \
+      dc exec -T backend test -d /tmp/owner-r3-pdf-evidence >/dev/null 2>&1; then
+    # Only the audit's explicit synthetic PDFs/text; never copy the Site,
+    # database, private-file directory, sessions or configuration.
+    mkdir -p "/tmp/owner-r3/$OWNER_AUDIT_DOMAIN/pdf"
+    if ! dc cp backend:/tmp/owner-r3-pdf-evidence/. "/tmp/owner-r3/$OWNER_AUDIT_DOMAIN/pdf"; then
+      echo '[OWNER-R3] synthetic_pdf_evidence_copy=FAIL' >&2
+      status=1
+    fi
+  fi
   if ! dc down -v --remove-orphans >/dev/null 2>&1; then
     echo '[OWNER-R3] cleanup=FAIL' >&2
     status=1
