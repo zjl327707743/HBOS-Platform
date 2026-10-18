@@ -121,7 +121,7 @@ class IAMPolicyTest(unittest.TestCase):
         read = Mock(side_effect=Conflict())
         with patch('time.sleep'), self.assertRaises(Conflict):
             policy.current_read(read)
-        self.assertEqual(read.call_count, 3)
+        self.assertEqual(read.call_count, 4)
 
     def test_default_self_permission_fresh_db_and_no_role_fallback(self):
         self.assertTrue(policy.evaluate("a", "attendance", "attendance.read", "SELF", "")["allowed"])
@@ -522,7 +522,7 @@ class IAMCurrentReadAPITest(unittest.TestCase):
     def test_department_list_exhausted_conflict_is_bounded_and_read_classified(self):
         with patch.object(self.departments_api, '_current_employees', side_effect=self.fake.QueryDeadlockError('private database detail')) as read, patch('time.sleep'):
             result = self.departments_api.list_departments()
-        self.assertEqual(read.call_count, 3)
+        self.assertEqual(read.call_count, 4)
         self.assertEqual(result['error']['code'], 'READ_CONFLICT')
         self.assertEqual(self.fake.local.response['http_status_code'], 409)
         self.assertNotIn('private database detail', str(result))

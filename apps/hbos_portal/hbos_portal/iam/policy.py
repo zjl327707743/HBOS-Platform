@@ -26,14 +26,14 @@ def current_read(function):
     """
     from time import sleep
     conflicts = tuple(kind for name in ("QueryDeadlockError", "QueryTimeoutError") if isinstance((kind := getattr(frappe, name, None)), type))
-    for attempt in range(3):
+    for attempt in range(4):
         try:
             return function()
         except conflicts:
             frappe.db.rollback()
-            if attempt == 2:
+            if attempt == 3:
                 raise
-            sleep((0.025, 0.125)[attempt])
+            sleep((0.025, 0.125, 0.5)[attempt])
 
 
 def value(row: Any, key: str, default=None):
