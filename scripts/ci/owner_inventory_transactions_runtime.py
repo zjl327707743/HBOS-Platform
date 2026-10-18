@@ -584,7 +584,10 @@ def release_through_existing_lims(item, batch, label):
     linked_files = frappe.get_all("File", filters={"file_url": projection.hbos_certificate_file},
         fields=["name", "file_name", "file_url", "is_private", "attached_to_doctype", "attached_to_name"],
         order_by="name", limit_page_length=20)
-    file = frappe.get_doc("File", {"file_url": projection.hbos_certificate_file})
+    # Native Attach fields also create File records for the Batch projection.
+    # Audit the COA attachment itself, not an arbitrary record sharing its URL.
+    file = frappe.get_doc("File", {"file_url": projection.hbos_certificate_file,
+        "attached_to_doctype": "HBOS COA", "attached_to_name": coa})
     emit("lims_coa_file_lookup", certificate_url=projection.hbos_certificate_file,
          selected_file=file.name, same_url_records=linked_files)
     assert file.is_private, f"Published COA File is not private: {file.name}"
