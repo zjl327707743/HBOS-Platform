@@ -87,7 +87,10 @@ def _render(doctype: str, name: str, print_format: str, options: dict) -> bytes:
     用 `frappe.get_print(as_pdf=False)` 先取 HTML，是为了能插入覆盖 CSS——
     直接 `as_pdf=True` 拿不到注入前的 HTML。
     """
-    html = frappe.get_print(doctype, name, print_format=print_format, as_pdf=False)
+    from hb_inventory_app.hbos_inventory.card_permissions import _automatic_print_permission
+
+    with _automatic_print_permission(doctype, name, print_format):
+        html = frappe.get_print(doctype, name, print_format=print_format, as_pdf=False)
     html = html.replace("</head>", _FRAME_OVERRIDE + "</head>", 1)
     return get_pdf(html, options=options)
 
@@ -282,6 +285,13 @@ def generate_for_batch(batch_name: str) -> dict:
 
     **不做异常兜底**——由调用方决定失败怎么处理（入库流程要吞掉，手动按钮要抛）。
     """
+    from hb_inventory_app.hbos_inventory.card_permissions import _is_automatic_batch, require_full_card_scope
+
+    # A readable / shared Batch is not permission to replace its attachments.
+    # Keep this before rendering, purging old files, or the privileged insert.
+    if not _is_automatic_batch(batch_name):
+        frappe.get_doc("Batch", batch_name).check_permission("write")
+    require_full_card_scope(batch_name=batch_name)
     batch_id = frappe.db.get_value("Batch", batch_name, "batch_id") or batch_name
     filename = FILENAME_TPL.format(batch_id=batch_id)
     card_fmt = _card_format_for(batch_name)
@@ -334,7 +344,10 @@ def generate_for_stock_entry(doc, method: str | None = None) -> None:
         done, failed = [], []
         for batch_name in batches:
             try:
-                done.append(generate_for_batch(batch_name))
+                from hb_inventory_app.hbos_inventory.card_permissions import _automatic_receipt_card
+
+                with _automatic_receipt_card(doc, batch_name):
+                    done.append(generate_for_batch(batch_name))
             except Exception as exc:  # noqa: BLE001
                 failed.append(batch_name)
                 frappe.log_error(
@@ -407,7 +420,7 @@ def _distinct_batches(doc) -> list[str]:
     return seen
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def regenerate_for_batch(batch_name: str) -> dict:
     """供「重新生成」按钮调用：白名单方法，带权限检查，失败要抛给界面看。
 
