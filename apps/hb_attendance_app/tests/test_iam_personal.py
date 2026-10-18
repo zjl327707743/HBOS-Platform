@@ -51,6 +51,7 @@ class PersonalAttendanceTest(unittest.TestCase):
         utils = types.ModuleType("frappe.utils")
         utils.getdate = lambda value: value if isinstance(value, date) else date.fromisoformat(value)
         utils.nowdate = lambda: "2026-10-15"
+        utils.get_system_timezone = lambda: "Asia/Shanghai"
         self.stack = ExitStack()
         self.stack.enter_context(patch.dict(sys.modules, {"hbos_portal.iam.temporary_passwords": security, "hbos_portal.auth.accounts": accounts, "frappe.utils": utils}))
         self.stack.enter_context(patch.object(personal, "frappe", self.fake))
@@ -76,6 +77,7 @@ class PersonalAttendanceTest(unittest.TestCase):
         self.assertIn("limit %(limit)s offset %(offset)s", rows[0])
         self.assertEqual(result["data"]["total"], 2)
         self.assertEqual(result["data"]["summary"], {"records": 2, "days": 1})
+        self.assertEqual((result['data']['date_from'], result['data']['date_to'], result['data']['site_timezone']), ('2026-10-01','2026-10-15','Asia/Shanghai'))
         self.assertEqual(set(result["data"]["rows"][0]), {"id", "date", "time", "log_type", "status", "source"})
         self.no_store.assert_called_once()
 
@@ -114,6 +116,6 @@ class PersonalAttendanceTest(unittest.TestCase):
         self.assertEqual(len(self.calls), 2)
 
     def test_invalid_dates_and_unbounded_page_are_refused(self):
-        for params in [{"page": 0}, {"page_size": 51}, {"page": "1.5"}, {"date_from": "not-a-date"}, {"date_from": "2026-10-16", "date_to": "2026-10-15"}, {"date_from": "2025-01-01", "date_to": "2026-10-15"}]:
+        for params in [{"page": 0}, {"page_size": 51}, {"page": "1.5"}, {"date_from": ""}, {"date_to": ""}, {"date_from": "2026-2-01"}, {"date_to": "2026-02-30"}, {"date_from": "not-a-date"}, {"date_from": "2026-10-16", "date_to": "2026-10-15"}, {"date_from": "2025-01-01", "date_to": "2026-10-15"}]:
             with self.subTest(params=params), self.assertRaises(Invalid):
                 personal.bounded_request(**params)

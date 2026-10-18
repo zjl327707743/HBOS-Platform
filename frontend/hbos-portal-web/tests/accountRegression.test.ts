@@ -48,6 +48,16 @@ beforeEach(() => {
 afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; document.body.innerHTML = ''; vi.useRealTimers() })
 
 describe('confirmed account UI regressions', () => {
+  it('R2-05: the previous logout notice is consumed when a new password login starts', async()=>{
+    let finish!:(v:unknown)=>void; login.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+    const {wrapper}=await render(LoginView,'/hbos/login?status=signed_out')
+    expect(wrapper.text()).toContain('已安全退出当前账号')
+    await wrapper.find('input[autocomplete="username"]').setValue('synthetic')
+    await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic password')
+    await wrapper.find('form').trigger('submit');await flushPromises()
+    expect(wrapper.text()).not.toContain('已安全退出当前账号')
+    finish({message:'Logged In'});await flushPromises();expect(wrapper.text()).not.toContain('已安全退出当前账号')
+  })
   it('F03: a minimal participant response without TTL is not treated as expired', async () => {
     vi.useFakeTimers()
     changes.getParticipant.mockResolvedValue({operation:'synthetic-invited',kind:'rebind',requires_feishu_verification:true})

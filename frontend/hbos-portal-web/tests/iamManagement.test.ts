@@ -14,7 +14,20 @@ const app={app_id:'attendance',title:'考勤',integrated:true,status:'可以使�
 beforeEach(()=>{clearIamAccess();vi.resetAllMocks()})
 it('shows each management entry only for its own capability',()=>{Object.assign(iamSession,{ready:true,user:'manager',capabilities:['iam.departments.read']});const wrapper=mount(AdminWorkspace,{global:{plugins:[Antd],stubs:{RouterLink:{template:'<a><slot/></a>'},RouterView:true}}});expect(wrapper.text()).toContain('部门管理');expect(wrapper.text()).not.toContain('员工管理');expect(wrapper.text()).not.toContain('变更审计');wrapper.unmount()})
 it('reuses the application list in read-only mode without modification controls',async()=>{vi.mocked(getWorkSummary).mockResolvedValue({subject_type:'User',subject_name:'user-a',apps:[app]});const wrapper=mount(AppUsageList,{props:{employeeId:'EMP-a',canEdit:false},global:{plugins:[Antd]}});await flushPromises();expect(wrapper.text()).toContain('只显示本人考勤');expect(wrapper.text()).not.toContain('查看与修改');wrapper.unmount()})
-it('configuration summary explains the boundary without rendering target business records',()=>{const wrapper=mount(AttendanceAccessSummary,{props:{app}});expect(wrapper.text()).toContain('本人真实考勤请使用自己的会话');expect(wrapper.find('table').exists()).toBe(false)})
+it('configuration summary explains the boundary without rendering target business records',()=>{const wrapper=mount(AttendanceAccessSummary,{props:{app}});expect(wrapper.text()).toContain('配置页只核对权限，不读取员工的考勤记录');expect(wrapper.find('table').exists()).toBe(false)})
+it('R2-06: fixed SELF is implicit once, disable sends no scope, and only a server-authorized department link is shown',async()=>{
+  Object.assign(iamSession,{ready:true,user:'manager',capabilities:['iam.people.read','iam.access.manage']})
+  vi.mocked(getPerson).mockResolvedValue({employee:{id:'EMP-a',user_id:'user-a',account_status:'active'}} as never)
+  const configured={...app,department_default:{id:'synthetic-D1',name:'验收部门甲',enabled:true,suspended:false,can_open:false},operations:[{operation_id:'attendance.read',label:'查看自己的考勤',enabled:false,scopes:[],objects:[{scope_type:'SELF',scope_ref:'',label:'本人'}],source_text:'个人设置',editable:true}]}
+  vi.mocked(getEffectiveWork).mockResolvedValue(configured);vi.mocked(previewAppSettings).mockResolvedValue({version:1,context_revision:'r1',changed:true,summary:'仅本人',after:configured})
+  const w=mount(WorkSettings,{props:{subjectKind:'employee',subjectId:'EMP-a',appId:'attendance'},global:{plugins:[Antd],stubs:{RouterLink:{template:'<a><slot /></a>'}}}});await flushPromises()
+  expect(w.text()).toContain('【验收部门甲】的默认权限：可查看本人考勤');expect(w.findAll('a').some(row=>row.text()==='查看部门默认')).toBe(false)
+  await w.findAll('button').find(row=>row.text()==='设置权限')!.trigger('click');expect(w.findAll('input[type="checkbox"]')).toHaveLength(1)
+  await w.find('input[type="checkbox"]').setValue(true);await w.find('form').trigger('submit');await flushPromises()
+  expect(previewAppSettings).toHaveBeenLastCalledWith(expect.anything(),expect.objectContaining({changes:[{operation_id:'attendance.read',enabled:true,scopes:[{scope_type:'SELF',scope_ref:''}]}]}))
+  await w.findAll('button').find(row=>row.text()==='返回核对')!.trigger('click');await w.find('input[type="checkbox"]').setValue(false);await w.find('form').trigger('submit');await flushPromises()
+  expect(previewAppSettings).toHaveBeenLastCalledWith(expect.anything(),expect.objectContaining({changes:[{operation_id:'attendance.read',enabled:false,scopes:[]}]}));w.unmount()
+})
 it('retains an edited work draft after a real conflict and emits no saved success',async()=>{
   Object.assign(iamSession,{ready:true,user:'manager',capabilities:['iam.people.read','iam.access.manage']})
   vi.mocked(getPerson).mockResolvedValue({employee:{id:'EMP-a',user_id:'user-a',account_status:'active'}} as never)

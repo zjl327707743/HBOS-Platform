@@ -18,15 +18,15 @@ const security = (user='A', context='a') => ({ user, session_context:context.rep
 let wrapper: ReturnType<typeof mount> | undefined
 beforeEach(() => {
   vi.useFakeTimers(); vi.clearAllMocks(); api.clear.mockImplementation(()=>{portal.user=null}); resetPortalSession()
-  api.association.mockResolvedValue({status:'linked',employee_number:'0001'});api.attendance.mockResolvedValue({rows:[{id:'1',date:'2026-10-14',source:'Employee Checkin',log_type:'IN',time:'08:11:00'},{id:'2',date:'2026-10-14',source:'Attendance',status:'Present'}],total:2,page:1,page_size:20,summary:{records:2,days:1}});api.security.mockResolvedValue(security()); api.caps.mockResolvedValue({subject_user:'A',session_context:'a'.repeat(64),policy_revision:'r1',capabilities:[]}); api.bootstrap.mockImplementation(async()=>{portal.user={id:'A'}})
+  api.association.mockResolvedValue({status:'linked',employee_number:'0001'});api.attendance.mockImplementation(async (query: {date_from?:string;date_to?:string;page?:number})=>({date_from:query.date_from||'2026-09-18',date_to:query.date_to||'2026-10-18',rows:[{id:'1',date:'2026-10-14',source:'Employee Checkin',log_type:'IN',time:'08:11:00'},{id:'2',date:'2026-10-14',source:'Attendance',status:'Present'}],total:2,page:1,page_size:20,summary:{records:2,days:1}}));api.security.mockResolvedValue(security()); api.caps.mockResolvedValue({subject_user:'A',session_context:'a'.repeat(64),policy_revision:'r1',capabilities:[]}); api.bootstrap.mockImplementation(async()=>{portal.user={id:'A'}})
 })
 afterEach(()=>{wrapper?.unmount(); wrapper=undefined; vi.useRealTimers()})
 async function render(path='/hbos/admin/people') {
   const Page = defineComponent({ setup() { onMounted(api.mounted); onBeforeUnmount(api.unmounted) }, template:'<section><input aria-label="筛选" value="" /><textarea aria-label="草稿" /><div style="height:2000px">实际路由内容</div></section>' })
   const router = createRouter({history:createMemoryHistory(),routes:[{path:'/hbos',component:PortalLayout,children:[{path:'admin/people',component:Page},{path:'attendance/me',component:MyAttendanceView}]}]})
   await router.push(path); await router.isReady()
-  wrapper=mount(defineComponent({template:'<RouterView />'}),{global:{plugins:[Antd,router],stubs:{GlobalHeader:true,PointerAtmosphere:true,PortalSidebar:true,MobilePortalNav:true,CommandPalette:true,'a-skeleton':true,'a-button':{template:'<button><slot /></button>'},'a-alert':{props:['message'],template:'<div>{{message}}</div>'}}}})
-  await flushPromises(); return wrapper
+  wrapper=mount(defineComponent({template:'<RouterView />'}),{attachTo:document.body,global:{plugins:[Antd,router],stubs:{GlobalHeader:true,PointerAtmosphere:true,PortalSidebar:true,MobilePortalNav:true,CommandPalette:true,'a-skeleton':true,'a-button':{template:'<button><slot /></button>'},'a-alert':{props:['message'],template:'<div>{{message}}</div>'}}}})
+  await flushPromises(); await ensurePortalSession(); await flushPromises(); return wrapper
 }
 it('R01/R02: actual PortalLayout retains one route instance and draft through ten focus/pageshow/visibility bursts', async()=>{
   const w=await render(); await w.find('input').setValue('0001'); await w.find('textarea').setValue('尚未保存的安排')
@@ -37,12 +37,12 @@ it('R01/R02: actual PortalLayout retains one route instance and draft through te
   expect(w.find('input').element).toBe(input); expect((input as HTMLInputElement).value).toBe('0001'); expect((area as HTMLTextAreaElement).value).toBe('尚未保存的安排')
 })
 it('R02: slow and failed checks mask sensitive content and block writes while retaining the draft subtree',async()=>{
-  const w=await render(); await w.find('textarea').setValue('保留我'); const area=w.find('textarea').element
+  const w=await render(); await w.find('textarea').setValue('保留我'); const area=w.find('textarea').element; (area as HTMLElement).focus()
   let reject!:(reason:unknown)=>void; api.security.mockImplementationOnce(()=>new Promise((_,r)=>{reject=r}))
   const check=ensurePortalSession({force:true}).catch(()=>undefined); await vi.advanceTimersByTimeAsync(801); await flushPromises()
   expect(w.find('.session-content').attributes('inert')).toBeDefined(); expect(w.find('.session-content').classes()).toContain('session-content-hidden')
   reject(new Error('offline')); await check; await flushPromises(); expect(portalSession.phase).toBe('unconfirmed'); expect(w.find('textarea').element).toBe(area); expect((area as HTMLTextAreaElement).value).toBe('保留我'); expect(api.block).toHaveBeenLastCalledWith(true)
-  await ensurePortalSession({force:true}); await flushPromises(); expect(w.find('.session-content').classes()).not.toContain('session-content-hidden'); expect(api.unmounted).not.toHaveBeenCalled()
+  await ensurePortalSession({force:true}); await flushPromises(); expect(w.find('.session-content').classes()).not.toContain('session-content-hidden'); expect(api.unmounted).not.toHaveBeenCalled(); expect(document.activeElement).toBe(area)
 })
 it('R05: a new native session for the same User clears the old view and rejects a previous coordinator response',async()=>{
   const w=await render(); await w.find('textarea').setValue('旧会话'); api.security.mockResolvedValueOnce(security('A','b'))

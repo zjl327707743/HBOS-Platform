@@ -173,11 +173,35 @@ class IAMPolicyTest(unittest.TestCase):
     def test_context_revision_changes_on_expiry_membership_and_revocation(self):
         row = self.db.policies["Department-D1"].rules[1]
         row.valid_until = self.now + timedelta(minutes=1)
-        before = policy.current_revision()
+        before = policy.current_revision('a')
         with patch.object(policy, "_now", return_value=self.now + timedelta(minutes=2)):
-            self.assertNotEqual(policy.current_revision(), before)
+            self.assertNotEqual(policy.current_revision('a'), before)
         self.db.employees[0].department = "D2"
-        self.assertNotEqual(policy.current_revision(), before)
+        self.assertNotEqual(policy.current_revision('a'), before)
+
+    def test_subject_app_revision_ignores_unrelated_people_apps_and_modified_times(self):
+        before = policy.revision_digests('a')['app_revisions']['attendance']
+        self.db.users['b'].enabled = 0
+        self.db.employees[1].department = 'D1'
+        self.store('User', 'b', [rule('attendance.read', effect='deny')])
+        self.assertEqual(policy.revision_digests('a')['app_revisions']['attendance'], before)
+        self.store('User', 'a', [rule('app.enter', app='iam_demo')])
+        self.assertEqual(policy.revision_digests('a')['app_revisions']['attendance'], before)
+        self.db.users['a'].modified = 'unrelated-profile'
+        self.db.policies['Department-D1'].version += 1
+        self.assertEqual(policy.revision_digests('a')['app_revisions']['attendance'], before)
+        self.db.policies['Department-D1'].rules.append(rule('attendance.read', effect='deny'))
+        self.assertNotEqual(policy.revision_digests('a')['app_revisions']['attendance'], before)
+        self.assertFalse(policy.evaluate('a','attendance','attendance.read','SELF','')['allowed'])
+
+    def test_subject_revision_tracks_qualification_registration_and_duplicate_association(self):
+        before = policy.revision_digests('a')['app_revisions']['attendance']
+        self.db.policies['Department-D1'].rules[1].qualification_ref = 'not-integrated'
+        self.assertNotEqual(policy.revision_digests('a')['app_revisions']['attendance'], before)
+        self.db.policies['Department-D1'].rules[1].qualification_ref = None
+        self.db.employees.append(Attr(self.db.employees[0], name='duplicate'))
+        self.assertNotEqual(policy.revision_digests('a')['app_revisions']['attendance'], before)
+        self.assertFalse(policy.evaluate('a','attendance','attendance.read','SELF','')['allowed'])
 
     def test_target_context_tracks_related_expiry_but_not_unrelated_user(self):
         context = policy.effective_work("User", "a", "attendance")["context_revision"]
