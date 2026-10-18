@@ -142,7 +142,7 @@ def get_capabilities(**kwargs):
         if policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
             capabilities.append("attendance.read")
         from hbos_portal.auth.accounts import browser_session_context
-        return {"schema_version": 1, "subject_user": user, "session_context": browser_session_context(), "policy_revision": policy.current_revision(user), "capabilities": capabilities}
+        return {"schema_version": 1, "subject_user": user, "session_context": browser_session_context(), **policy.revision_digests(user), "capabilities": capabilities}
     return _call(load)
 
 
@@ -212,6 +212,21 @@ def get_effective_access(subject_type, subject_name, app_id, **kwargs):
         rows = work_commands._rules(policy.get_policy(subject_type, subject_name, for_update=True))
         for operation in result["operations"]:
             operation["editable"] = operation["ordinary"] and operation["available"] and not any(work_commands._complex(row) for row in rows if row["app_id"] == app_id and row["operation_id"] == operation["operation_id"])
+        if subject_type == "User":
+            employee = policy.resolve_employee(subject_name, required=False)
+            department_id = policy.value(employee, "department") if employee else None
+            if department_id:
+                department = frappe.db.get_value("Department", department_id, ["department_name", "company"], as_dict=True, for_update=True)
+                default = policy.effective_work("Department", department_id, app_id)
+                can_open = False
+                try:
+                    guards.require_capability("iam.departments.read", department=department_id, company=policy.value(department, "company"))
+                    can_open = True
+                except frappe.PermissionError:
+                    pass
+                # The target was already authorized above. Return only its
+                # own source, no department population or business records.
+                result["department_default"] = {"id": department_id, "name": policy.value(department, "department_name") or department_id, "enabled": any(row["allowed"] for row in default["operations"] if row["ordinary"] and row["available"]), "suspended": default["suspended"], "can_open": can_open}
         return result
     return _call(load)
 

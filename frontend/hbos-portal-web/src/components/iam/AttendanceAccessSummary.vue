@@ -2,5 +2,5 @@
 import type { WorkApp } from '@/types/iam'
 defineProps<{ app: WorkApp }>()
 </script>
-<template><section class="attendance-access"><strong>本人考勤范围</strong><p>{{ app.summary }}</p><p class="aux">这里只显示关联状态、可用工作和设置来源。本人真实考勤请使用自己的会话进入“我的考勤”。</p><p v-if="app.operations.some(row => row.enabled)">同事的打卡时间、考勤结果和数量不会在配置页返回。</p></section></template>
+<template><section class="attendance-access"><template v-if="app.department_default"><strong>所属部门默认权限</strong><p>【{{app.department_default.name}}】的默认权限：{{app.department_default.suspended ? '已暂停' : app.department_default.enabled ? '可查看本人考勤' : '未默认开通本人考勤'}}。</p><RouterLink v-if="app.department_default.can_open" :to="{path:'/hbos/admin/departments',query:{department:app.department_default.id,tab:'apps',app:app.app_id}}">查看部门默认</RouterLink><p v-else class="aux">查看部门默认详情需要该部门的读取权限。</p></template><p v-else class="aux">部门来源尚未确认，请读取最新设置。</p><p class="aux">配置页只核对权限，不读取员工的考勤记录。</p></section></template>
 <style scoped>.attendance-access{padding:var(--hbos-space-4);background:var(--hbos-surface-subtle,#f4f8f6);border-radius:var(--hbos-radius-md);font-size:16px}.attendance-access p{margin:var(--hbos-space-2) 0 0;line-height:1.6}.attendance-access .aux{font-size:14px;color:var(--hbos-text-secondary)}</style>

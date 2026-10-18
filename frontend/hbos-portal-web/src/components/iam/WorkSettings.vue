@@ -4,7 +4,7 @@ import { computed, getCurrentInstance, ref, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { getPerson } from '@/services/iamPeople'
 import { listDepartments } from '@/services/iamDepartments'
-import { getEffectiveWork, getWorkSubject, previewAppSettings, saveAppSettings, savedWorkResult, changedWork, type WorkDraft } from '@/services/iamWork'
+import { getEffectiveWork, getWorkSubject, previewAppSettings, saveAppSettings, savedWorkResult, changedWork, fixedSelfScope, type WorkDraft } from '@/services/iamWork'
 import { canIam, iamMessage } from '@/services/iamAccess'
 import type { WorkApp, WorkChange, WorkPreview, WorkTarget, WorkScope, AppSettings } from '@/types/iam'
 import AttendanceAccessSummary from './AttendanceAccessSummary.vue'
@@ -17,7 +17,8 @@ const original = ref<WorkChange[]>([]), draft = ref<WorkChange[]>([]), preview =
 const explicitlyEdited = ref<Set<string>>(new Set())
 let generation = 0
 const changes = computed(() => changedWork(original.value, draft.value)), dirty = computed(() => editing.value && (changes.value.length > 0 || explicitlyEdited.value.size > 0 || accessState.value !== (app.value?.suspended ? 'paused' : 'normal') || permissionMode.value !== app.value?.permission_mode))
-const ordinary = computed(() => app.value?.operations.filter(row => !row.important) || []), important = computed(() => app.value?.operations.filter(row => row.important) || [])
+const ordinary = computed(() => app.value?.operations.filter(row => !row.important && row.available !== false) || []), important = computed(() => app.value?.operations.filter(row => row.important) || [])
+const effectiveStatus = computed(() => app.value?.suspended ? '已暂停' : ordinary.value.some(row=>row.enabled) ? `已开通：${ordinary.value.flatMap(row=>row.scopes).every(scope=>scope.scope_type==='SELF') ? '仅本人' : app.value?.summary}` : `未开通：${ordinary.value.find(row=>row.reason)?.reason || '当前没有有效功能授权'}`)
 const canManageApp = computed(() => canConfigure.value && canIam(props.subjectKind === 'department' ? 'iam.departments.manage' : 'iam.access.manage') && app.value?.integrated)
 const canEditWork = computed(() => canManageApp.value && ordinary.value.some(row => row.editable))
 const scopeKey = (scope: WorkScope) => JSON.stringify([scope.scope_type, scope.scope_ref])
@@ -38,6 +39,7 @@ async function commit() {
 }
 function impactResult(row: {result?:string;before?:string;after?:string}) { return row.result || [row.before,row.after].filter(text => typeof text === 'string' && text).join(' → ') || '已按当前安排核对' }
 function changeScopes(row: WorkChange, keys: unknown[]) { explicitlyEdited.value.add(row.operation_id); row.scopes = keys.map(key => { const [scope_type, scope_ref] = JSON.parse(String(key)); return {scope_type,scope_ref} }); preview.value = null }
+function toggleWork(row: WorkChange) { explicitlyEdited.value.add(row.operation_id); const fixed=fixedSelfScope(ordinary.value.find(item=>item.operation_id===row.operation_id)); row.scopes=row.enabled ? (fixed ? [fixed] : row.scopes) : []; preview.value=null }
 async function requestLeave() { if (busy.value) return false; if (!dirty.value) return true; return new Promise<boolean>(resolve => Modal.confirm({ title: '放弃尚未保存的工作草稿？', content: '已保存的安排不受影响。', okText: '放弃草稿', cancelText: '继续编辑', onOk: () => resolve(true), onCancel: () => resolve(false) })) }
 async function back() { if (await requestLeave()) emit('back') }
 watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { immediate: true }); defineExpose({ requestLeave })
@@ -49,8 +51,8 @@ watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { imm
   <a-alert v-if="error" :message="error" type="warning" show-icon /><a-button v-if="error" :disabled="busy" @click="load(editing)">读取最新设置，保留草稿</a-button>
   <a-skeleton v-if="loading" active />
   <template v-else-if="app">
-    <section class="current-result"><h3>当前可查看的数据</h3><p>{{ app.summary }}</p><p>访问状态：{{ app.suspended ? '已暂停，原权限来源保留' : '正常（仍须满足下列范围）' }}</p><p>权限来源：{{ app.permission_mode === 'personal' ? '为此员工单独设置' : '来自所属部门' }}</p>
-      <article v-for="row in ordinary" :key="row.operation_id" class="work-row"><strong>{{ row.label }}</strong><span>{{ row.enabled ? row.scopes.map(scope => scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref)).join('、') : row.reason || '当前不可用' }}</span><small>{{ row.source_text }}</small></article>
+    <section class="current-result"><h3>{{ effectiveStatus }}</h3><p>权限来源：{{ app.permission_mode === 'personal' ? '为此员工单独设置' : '来自所属部门' }}</p>
+      <article v-for="row in ordinary" :key="row.operation_id" class="work-row"><strong>{{ row.label }}</strong><span v-if="!row.enabled">{{row.reason || '当前不可用'}}</span><span v-else-if="!fixedSelfScope(row)">{{row.scopes.map(scope=>scope.label||scope.scope_ref).join('、')}}</span></article>
     </section>
     <AttendanceAccessSummary v-if="app.app_id === 'attendance' && subjectKind === 'employee'" :app="app" />
     <a-alert v-if="!app.integrated || !canConfigure" :message="!app.integrated ? '尚未接入此管理功能。' : '员工账号尚未确认，当前只读。'" type="info" />
@@ -58,12 +60,12 @@ watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { imm
     <a-button v-if="!editing && canManageApp && app.suspended" @click="setDraft(); accessState = 'normal'; editing = true">恢复访问</a-button>
     <a-form v-if="editing" layout="vertical" @submit.prevent="prepare">
       <fieldset :disabled="busy || Boolean(preview)">
-        <a-form-item v-if="subjectKind === 'employee'" label="访问状态"><a-radio-group v-model:value="accessState"><a-radio value="normal">正常访问</a-radio><a-radio value="paused">暂停此员工使用{{ app.title }}</a-radio></a-radio-group><p class="aux">暂停保留原权限来源。恢复访问后能否查看数据，由当前有效权限决定。</p></a-form-item>
         <a-form-item v-if="subjectKind === 'employee'" label="权限来源"><a-radio-group v-model:value="permissionMode"><a-radio value="department">使用部门默认权限</a-radio><a-radio value="personal">为此员工单独设置</a-radio></a-radio-group></a-form-item>
         <p v-if="permissionMode === 'department'" class="aux">该应用的普通个人设置将被替换，其他应用和重要权限保留。核对变更时会读取所属部门当前有效权限，并显示实际范围和不可用原因。</p>
-        <template v-else><p class="aux">选择该员工可以完成的工作及可查看的数据。特别期限与重要权限须通过专门流程核对。</p>
-          <section v-for="row in draft" :key="row.operation_id" class="work-row"><a-checkbox v-model:checked="row.enabled" @change="explicitlyEdited.add(row.operation_id); row.scopes = row.enabled ? row.scopes : []; preview = null">{{ ordinary.find(item => item.operation_id === row.operation_id)?.label }}</a-checkbox><template v-if="row.enabled"><label>可查看的数据</label><a-checkbox-group :value="row.scopes.map(scopeKey)" @change="(values: unknown[]) => changeScopes(row, values)"><a-checkbox v-for="scope in ordinary.find(item => item.operation_id === row.operation_id)?.objects || []" :key="scopeKey(scope)" :value="scopeKey(scope)">{{ scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref) }}</a-checkbox></a-checkbox-group></template></section>
+        <template v-else>
+          <section v-for="row in draft" :key="row.operation_id" class="work-row"><a-checkbox v-model:checked="row.enabled" @change="toggleWork(row)">{{ ordinary.find(item => item.operation_id === row.operation_id)?.label }}</a-checkbox><template v-if="row.enabled && !fixedSelfScope(ordinary.find(item=>item.operation_id===row.operation_id))"><label>可查看的数据</label><a-checkbox-group :value="row.scopes.map(scopeKey)" @change="(values: unknown[]) => changeScopes(row, values)"><a-checkbox v-for="scope in ordinary.find(item => item.operation_id === row.operation_id)?.objects || []" :key="scopeKey(scope)" :value="scopeKey(scope)">{{ scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref) }}</a-checkbox></a-checkbox-group></template></section>
         </template>
+        <details v-if="subjectKind==='employee'"><summary>暂停此应用</summary><a-form-item label="应用总限制"><a-radio-group v-model:value="accessState"><a-radio value="normal">解除暂停，按有效权限访问</a-radio><a-radio value="paused">暂停此员工使用{{ app.title }}</a-radio></a-radio-group><p class="aux">暂停保留原权限。解除暂停仍受其他禁止和期限限制。</p></a-form-item></details>
       </fieldset>
       <div class="work-footer"><a-button :disabled="busy" @click="editing = false; setDraft()">取消修改</a-button><a-button type="primary" :disabled="!dirty || Boolean(preview)" :loading="busy" html-type="submit">核对变更</a-button></div>
     </a-form>

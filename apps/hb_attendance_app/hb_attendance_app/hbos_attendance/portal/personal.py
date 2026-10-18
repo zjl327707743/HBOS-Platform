@@ -9,6 +9,9 @@ import frappe
 def bounded_request(date_from=None, date_to=None, page=1, page_size=20):
     from frappe.utils import getdate, nowdate
     try:
+        for item in (date_from, date_to):
+            if item is not None and (not isinstance(item, str) or not item or len(item) != 10 or datetime.strptime(item, "%Y-%m-%d").date().isoformat() != item):
+                raise ValueError
         end = getdate(date_to or nowdate())
         start = getdate(date_from or end - timedelta(days=30))
         page, page_size = int(page), int(page_size)
@@ -62,5 +65,7 @@ def get_my_attendance(date_from=None, date_to=None, page=1, page_size=20, **kwar
     # the browser or borrowed from a configuration administrator's session.
     if not policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
         frappe.throw("考勤安排已变化，请重新加载。", frappe.PermissionError)
+    from frappe.utils import nowdate, get_system_timezone
     return {"ok": True, "data": {"rows": rows, "total": int(counts.records), "page": page, "page_size": page_size,
+                                  "date_from": start.isoformat(), "date_to": end.isoformat(), "site_today": nowdate(), "site_timezone": get_system_timezone(),
                                   "summary": {"records": int(counts.records), "days": int(counts.days)}}}

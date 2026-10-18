@@ -4,6 +4,8 @@ import { getIamSecurity, type IamSecurity } from './iamAccount'
 import { applyIamAccess, clearIamAccess, fetchIamAccess, iamSession } from './iamAccess'
 import { blockFrappeWrites, invalidateFrappeRequests, isUnauthenticatedError, FrappeRequestError, logoutFrappeSession } from './frappeClient'
 import { getSecurity, type SecurityStatus } from './accountApi'
+import { confirmAttendanceSubject, forgetAttendanceState } from './attendancePageState'
+import { observeResume } from './attendanceObservation'
 
 export const portalSession = reactive({
   phase: 'initial' as 'initial' | 'ready' | 'password_required' | 'checking' | 'unconfirmed' | 'guest' | 'logging_out',
@@ -41,6 +43,7 @@ function boundary() {
 }
 /** Explicit login/logout or a confirmed native session boundary only. */
 export function resetPortalSession(notify = true) {
+  forgetAttendanceState()
   revision++; flight = null; if (slowTimer) clearTimeout(slowTimer); if (resumeTimer) clearTimeout(resumeTimer)
   boundary(); portalSession.phase = 'initial'; portalSession.error = ''
   if (notify) channel?.postMessage('changed')
@@ -49,7 +52,7 @@ export function requirePortalRecheck() { portalSession.checkedAt = 0 }
 export async function ensurePortalSession(options: { force?: boolean } = {}): Promise<IamSecurity> {
   if (flight) return flight
   if (!options.force && portalSession.security && ['ready', 'password_required'].includes(portalSession.phase) && Date.now() - portalSession.checkedAt < FRESH_MS) return portalSession.security
-  const run = revision, previous = portalSession.security, previousRevision = iamSession.revision
+  const run = revision, previous = portalSession.security, previousRevision = iamSession.revision, previousApps = { ...iamSession.appRevisions }
   const background = !!previous && (portalSession.mounted || previous.first_password_required), uncertain = portalSession.phase === 'unconfirmed'
   portalSession.error = ''; portalSession.phase = background ? (uncertain ? 'unconfirmed' : 'checking') : 'initial'; blockFrappeWrites(true)
   if (slowTimer) clearTimeout(slowTimer)
@@ -59,7 +62,9 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
     try {
       const security = await getIamSecurity()
       if (run !== revision) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变。')
-      if (!previous || previous.user !== security.user || previous.session_context !== security.session_context) boundary()
+      const newContext = !previous || previous.user !== security.user || previous.session_context !== security.session_context
+      if (previous && previous.user !== security.user) forgetAttendanceState()
+      if (newContext) boundary()
       portalSession.security = security
       if (security.first_password_required) {
         if (portalSession.mounted) { boundary(); portalSession.security = security }
@@ -68,6 +73,10 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
         const capabilities = await fetchIamAccess(security.user, security.session_context)
         if (run !== revision) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变。')
         applyIamAccess(capabilities)
+        if (newContext) {
+          await confirmAttendanceSubject(window.location.host, security.user, security.session_context, portalSession.generation, previous?.user === security.user)
+          if (run !== revision) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变。')
+        }
         if (!portalSession.mounted) {
           await usePortalStore().bootstrap()
           if (run !== revision) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变。')
@@ -75,14 +84,18 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
           portalSession.mounted = true
         }
         portalSession.phase = 'ready'; blockFrappeWrites(false)
-        if (previous && previousRevision !== capabilities.policy_revision) event('hbos:permissions-changed')
+        if (previous && previousRevision !== capabilities.policy_revision) {
+          const nextApps = capabilities.app_revisions
+          const apps = nextApps && Object.keys(previousApps).length ? [...new Set([...Object.keys(previousApps), ...Object.keys(nextApps)])].filter(app => previousApps[app] !== nextApps[app]) : null
+          event('hbos:permissions-changed', { apps })
+        }
       }
       portalSession.checkedAt = Date.now(); event('hbos:security-confirmed', security.proof)
       return security
     } catch (error) {
       if (run !== revision) throw error
       blockFrappeWrites(true)
-      if (isUnauthenticatedError(error)) { boundary(); portalSession.phase = 'guest' }
+      if (isUnauthenticatedError(error)) { forgetAttendanceState(); boundary(); portalSession.phase = 'guest' }
       else { portalSession.phase = 'unconfirmed'; portalSession.error = error instanceof FrappeRequestError ? error.message : '暂时无法核对当前登录状态。草稿已保留，请重试核验或退出登录。' }
       throw error
     } finally { if (run === revision && slowTimer) clearTimeout(slowTimer) }
@@ -90,7 +103,8 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
   flight = pending
   try { return await pending } finally { if (flight === pending) flight = null }
 }
-function resume() {
+function resume(event: Event) {
+  observeResume(event.type + ':' + document.visibilityState)
   portalSession.resumeEvents++
   if (document.visibilityState === 'hidden') return
   if (resumeTimer) clearTimeout(resumeTimer)
@@ -98,6 +112,7 @@ function resume() {
 }
 function expired() {
   if (portalSession.phase === 'guest') return
+  forgetAttendanceState()
   revision++; flight = null; boundary(); portalSession.phase = 'guest'
   channel?.postMessage('signed_out')
 }

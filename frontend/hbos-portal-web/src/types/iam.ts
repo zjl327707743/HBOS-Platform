@@ -27,10 +27,12 @@ export interface DepartmentSummary {
 export interface AuditEvent { name?: string; actor: string; operation: string; subject_name: string; result: string; reason?: string; occurred_at: string }
 export interface WorkScope { scope_type: string; scope_ref: string; label?: string }
 export interface WorkOperation {
+  available?: boolean
   operation_id: string; label: string; enabled: boolean; scopes: WorkScope[]; source_text: string
   editable: boolean; important?: boolean; reason?: string; objects?: WorkScope[]
 }
 export interface WorkApp {
+  department_default?: { id: string; name: string; enabled: boolean; suspended: boolean; can_open: boolean }
   permission_mode?: 'department' | 'personal'
   synthetic?: boolean
   app_id: string; title: string; integrated: boolean; status: string; summary: string; source_text: string
@@ -42,4 +44,4 @@ export interface WorkChange { operation_id: string; enabled: boolean; scopes: Wo
 export interface WorkTarget { subject_type: 'User' | 'Department'; subject_name: string; app_id: string; employee_id?: string }
 export interface WorkPreview { version: number; context_revision: string; changed: boolean; summary: string; after: WorkApp; impact?: { changed: number; personal_preserved: number; unavailable: number; employees: Array<{ name: string; result?:string; before?: string; after?: string; personal_preserved?: boolean }> }; warnings?: string[] }
 export interface AttendanceRow { source?: 'Attendance' | 'Employee Checkin' | string; id: string; date: string; time?: string; log_type?: string; status?: string }
-export interface MyAttendance { rows: AttendanceRow[]; total: number; page: number; page_size: number; summary: { records: number; days: number } }
+export interface MyAttendance { rows: AttendanceRow[]; total: number; page: number; page_size: number; date_from?: string; date_to?: string; site_today?: string; site_timezone?: string; summary: { records: number; days: number } }

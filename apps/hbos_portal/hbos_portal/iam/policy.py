@@ -265,18 +265,51 @@ def evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None):
     return result
 
 
-def current_revision(user=None) -> str:
-    # Fresh DB state; no process/session/Redis permission cache. Only a digest leaves this service.
-    def current_rows(doctype, fields):
-        return frappe.get_all(doctype, fields=fields, order_by="name", limit_page_length=0)
-    payload = {"schema": 1, "policies": current_rows(POLICY, ["name", "version", "enabled", "modified"])}
-    for doctype, fields in [("Employee", ["name", "user_id", "department", "company", "status", "modified"]), ("User", ["name", "enabled", "modified"]), ("Department", ["name", "company", "modified"])]:
-        payload[doctype] = current_rows(doctype, fields)
+def revision_digests(user=None) -> dict:
+    """Invalidation hints, never authorization or command preview revisions.
+
+    Read the subject's native association and the policies the evaluator uses.
+    Do not include unrelated User/Employee modified times or a whole Policy
+    version: changing another app in the same policy must not invalidate SELF.
+    Future role executors must extend this versioned dependency contract with
+    assignment/template versions and paired scope/expiry, before registration.
+    """
+    user = user or getattr(frappe.session, "user", None)
+    state = frappe.db.get_value("User", user, ["name", "enabled", "hbos_initial_password_pending", "hbos_temporary_password", "hbos_temporary_password_expires_at", "hbos_password_generation"], as_dict=True, for_update=True) if user else None
+    employees = frappe.db.sql("select name,user_id,department,company,status,employee_number from `tabEmployee` where user_id=%s order by name limit 2 for update", (user,), as_dict=True) if user else []
+    # Explicit projection excludes unrelated fields returned by test adapters.
+    fields = ("name", "user_id", "department", "company", "status", "employee_number")
+    association = [{key: value(row, key) for key in fields} for row in employees]
+    own, own_doc = _rules("User", user) if user and user != "Guest" else ([], None)
+    departments = {}
+    inherited = []
+    for department in sorted({value(row, "department") for row in employees if value(row, "department")}):
+        rules, doc = _rules("Department", department)
+        inherited.extend(rules)
+        departments[department] = {"state": frappe.db.get_value("Department", department, ["name", "company", "disabled"], as_dict=True, for_update=True), "enabled": value(doc, "enabled", 1)}
     now = _now()
-    timed_rules = current_rows(RULE, ["name", "parent", "valid_from", "valid_until"])
-    payload["active_rules"] = [(value(row, "name"), value(row, "parent"), active(row, now)) for row in timed_rules]
-    payload["demo"] = enabled_flag("hbos_iam_demo_enabled")
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False).encode()).hexdigest()
+    def digest(payload):
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False).encode()).hexdigest()
+    revisions = {}
+    for app in registered_apps():
+        app_id = app["id"]
+        rules = lambda rows: sorted(({**rule_dict(row), "active": active(row, now)} for row in rows if row["app_id"] == app_id), key=lambda row: json.dumps(row, sort_keys=True, default=str))
+        # Only management delegations depend on the target organization set.
+        delegated = [row for row in own if row["app_id"] == app_id and row["operation_id"] in MANAGEMENT]
+        targets = {}
+        for row in delegated:
+            kind, ref = row["scope_type"], row["scope_ref"]
+            if kind == "COMPANY":
+                targets["company:" + ref] = frappe.db.get_value("Company", ref, "name", for_update=True)
+                targets["members:" + ref] = frappe.get_all("Department", filters={"company": ref}, fields=["name", "company", "disabled"], order_by="name", limit_page_length=0)
+            elif kind == "DEPARTMENT":
+                targets["department:" + ref] = frappe.db.get_value("Department", ref, ["name", "company", "disabled"], as_dict=True, for_update=True)
+        revisions[app_id] = digest({"schema": 2, "role_extension": "not_integrated", "enabled": enabled_flag("hbos_iam_enabled"), "subject": state, "association": association, "departments": departments, "personal_enabled": value(own_doc, "enabled", 1), "personal": rules(own), "inherited": rules(inherited), "registration": app, "delegation_targets": targets})
+    return {"policy_revision": digest(revisions), "app_revisions": revisions}
+
+
+def current_revision(user=None) -> str:
+    return revision_digests(user)["policy_revision"]
 
 
 def _target_context(subject_type, subject_name, app_id):

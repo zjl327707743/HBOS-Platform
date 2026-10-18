@@ -46,6 +46,7 @@
     <CommandPalette :open="ui.commandOpen" @close="ui.commandOpen = false" />
     <aside v-if="developmentObservation" class="development-observation" aria-label="本机验收观测">
       <details><summary>本机验收观测（开发模式）</summary><output>文档 {{ frappeDiagnostics.document }}；安全读取 {{ frappeDiagnostics.security }}；能力读取 {{ frappeDiagnostics.capabilities }}；业务初始化 {{ frappeDiagnostics.bootstrap }}；恢复事件 {{ portalSession.resumeEvents }}；主体代次 {{ portalSession.generation }}；阶段 {{ portalSession.phase }}</output></details>
+      <output>路由 {{ route.path }}；考勤实例 {{ attendanceObservation.instance }}；挂载/卸载 {{ attendanceObservation.mounts }}/{{ attendanceObservation.unmounts }}；查询/完成/丢弃 {{ attendanceObservation.requests }}/{{ attendanceObservation.completed }}/{{ attendanceObservation.stale }}；权限触发 {{ attendanceObservation.permissions }}；关联 {{ attendanceObservation.request }}；草稿 {{ attendanceObservation.draft }}；已应用 {{ attendanceObservation.applied }}；结果范围 {{ attendanceObservation.range }}；时序 {{ attendanceObservation.events.join('，') }}</output>
     </aside>
   </div>
 </template>
@@ -67,6 +68,7 @@ import { canIam } from '@/services/iamAccess'
 import { Modal } from 'ant-design-vue'
 import { developmentObservation, frappeDiagnostics } from '@/services/frappeClient'
 import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
+import { attendanceObservation } from '@/services/attendanceObservation'
 
 const portal = usePortalStore()
 const development = import.meta.env.DEV

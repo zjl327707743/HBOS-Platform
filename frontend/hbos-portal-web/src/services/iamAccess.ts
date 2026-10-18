@@ -18,14 +18,15 @@ export function iamMessage(error: unknown): string {
   if (raw.status === 403 || raw.code === 'FORBIDDEN') return '当前操作未获授权，草稿已保留。请联系有相应管理范围的负责人。'
   return raw?.message || '请求未完成，草稿已保留，请重试。'
 }
-export interface Capabilities { schema_version: 1; subject_user: string; session_context?: string; policy_revision: string; capabilities: string[] }
-export const iamSession = reactive({ user: '', revision: '', ready: false, loading: false, error: '', capabilities: [] as string[] })
+export interface Capabilities { schema_version: 1; subject_user: string; session_context?: string; policy_revision: string; app_revisions?: Record<string, string>; capabilities: string[] }
+export const iamSession = reactive({ user: '', revision: '', appRevisions: {} as Record<string, string>, ready: false, loading: false, error: '', capabilities: [] as string[] })
 const known = new Set(['iam.people.read','iam.people.link','iam.people.provision','iam.people.create','iam.people.transfer','iam.people.disable','iam.people.reset','iam.departments.read','iam.departments.manage','iam.access.read','iam.access.manage','iam.audit.read','attendance.read','iam_demo.read'])
 let generation = 0
-export function clearIamAccess() { generation++; Object.assign(iamSession, { user: '', revision: '', ready: false, loading: false, error: '', capabilities: [] }) }
+export function clearIamAccess() { generation++; Object.assign(iamSession, { user: '', revision: '', appRevisions: {}, ready: false, loading: false, error: '', capabilities: [] }) }
 export function validateCapabilities(raw: unknown, expectedUser?: string): Capabilities {
   const value = raw as Capabilities
   if (!value || value.schema_version !== 1 || typeof value.subject_user !== 'string' || !value.subject_user || value.subject_user === 'Guest' || (expectedUser && value.subject_user !== expectedUser) || typeof value.policy_revision !== 'string' || !Array.isArray(value.capabilities) || value.capabilities.some(id => typeof id !== 'string' || !known.has(id))) throw new IamError('无法确认当前账号的管理能力，请重新验证会话。')
+  if (value.app_revisions !== undefined && (!value.app_revisions || typeof value.app_revisions !== 'object' || Array.isArray(value.app_revisions) || Object.values(value.app_revisions).some(item => typeof item !== 'string'))) throw new IamError('无法确认应用权限版本，请重试核验。')
   return value
 }
 export async function fetchIamAccess(expectedUser: string, context: string) {
@@ -34,7 +35,7 @@ export async function fetchIamAccess(expectedUser: string, context: string) {
   return result
 }
 export function applyIamAccess(result: Capabilities) {
-  Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, capabilities: result.capabilities, ready: true, loading: false, error: '' })
+  Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, appRevisions: result.app_revisions || {}, capabilities: result.capabilities, ready: true, loading: false, error: '' })
 }
 export async function loadIamAccess(expectedUser?: string) {
   const current = ++generation
@@ -42,7 +43,7 @@ export async function loadIamAccess(expectedUser?: string) {
   try {
     const result = validateCapabilities(await iamQuery('hbos_portal.api.iam_access.get_capabilities'), expectedUser)
     if (current !== generation) throw new IamError('会话已改变，请重新读取。')
-    Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, capabilities: result.capabilities, ready: true })
+    Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, appRevisions: result.app_revisions || {}, capabilities: result.capabilities, ready: true })
     return result
   } catch (e) { if (current === generation) { iamSession.error = iamMessage(e); iamSession.ready = false }; throw e }
   finally { if (current === generation) iamSession.loading = false }
