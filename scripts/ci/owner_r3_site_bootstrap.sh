@@ -134,6 +134,12 @@ for attempt in 1 2; do
 done
 dc exec -T backend bench --site "$SITE_NAME" set-config hbos_portal_origin "http://$SITE_NAME:$HTTP_PORT"
 dc exec -T backend bench --site "$SITE_NAME" set-config hbos_report_scope_ci "$TEST_ID"
+if [[ "$OWNER_AUDIT_DOMAIN" == inventory-* ]]; then
+  # Real inventory PDFs use Frappe's print CSS/assets. Serve them through this
+  # disposable project's native frontend instead of an unreachable Site URL.
+  dc up -d frontend
+  dc exec -T backend bench --site "$SITE_NAME" set-config host_name http://frontend:8080
+fi
 dc restart backend
 dc exec -T -e HBOS_EXPECTED_SITE="$SITE_NAME" backend /home/frappe/frappe-bench/env/bin/python - <<'PY'
 import os
@@ -150,6 +156,23 @@ for attempt in range(60):
 else:
     raise SystemExit("Native Frappe HTTP did not become ready")
 PY
+
+if [[ "$OWNER_AUDIT_DOMAIN" == inventory-* ]]; then
+  dc exec -T backend /home/frappe/frappe-bench/env/bin/python - <<'PY_PDF_ASSETS'
+import json
+from pathlib import Path
+from urllib.request import urlopen
+
+assets = json.loads(Path('sites/assets/assets.json').read_text())
+print_css = assets['print.bundle.css']
+assert print_css.startswith('/assets/')
+for path in ('/api/method/ping', print_css):
+    with urlopen('http://frontend:8080' + path, timeout=20) as response:
+        content = response.read()
+        assert response.status == 200 and content, 'Native PDF asset endpoint unavailable'
+print('[OWNER-R3] native_pdf_asset_preflight=PASS')
+PY_PDF_ASSETS
+fi
 
 dc exec -T backend /home/frappe/frappe-bench/env/bin/python -c 'import frappe,erpnext,hrms,json; print(json.dumps({"frappe":frappe.__version__,"erpnext":erpnext.__version__,"hrms":hrms.__version__}))' 
 # Production services use an isolated Python environment in this disposable
