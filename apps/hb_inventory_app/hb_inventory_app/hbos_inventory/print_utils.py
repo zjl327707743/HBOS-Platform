@@ -103,6 +103,9 @@ def hbos_batch_bins(batch):
 	"""
 	if not batch:
 		return []
+	from hb_inventory_app.hbos_inventory.card_permissions import require_full_card_scope
+
+	require_full_card_scope(batch_name=batch)
 	return frappe.db.sql(
 		"""
 		select sbe.warehouse, sum(sbe.qty) as qty
@@ -153,6 +156,9 @@ def hbos_first_receipt_date(batch):
 	"""首次入库日期：取该批次最早一笔入库的记账日期。"""
 	if not batch:
 		return None
+	from hb_inventory_app.hbos_inventory.card_permissions import require_full_card_scope
+
+	require_full_card_scope(batch_name=batch)
 	d = frappe.db.sql(
 		"""
 		select min(sle.posting_date)
@@ -283,6 +289,9 @@ def hbos_batch_flow(batch):
 	"""
 	if not batch:
 		return []
+	from hb_inventory_app.hbos_inventory.card_permissions import require_full_card_scope
+
+	require_full_card_scope(batch_name=batch)
 
 	movements = frappe.db.sql(
 		"""

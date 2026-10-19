@@ -18,17 +18,16 @@ class HBOSRetentionSample(Document):
 		self._guard_stock_invariants()
 
 	def _guard_system_fields(self):
-		"""字段级系统写入守卫：库存/状态字段仅系统服务（带 allow_system_fields 标记）
-		或 System Manager/Administrator 可改；普通角色直写（frappe.client.set_value/
-		DocType 表单）一律拦截（read_only 不构成服务端保护，此处为双保险）。"""
+		"""字段级系统写入守卫：库存/状态字段仅系统服务（带 allow_system_fields 标记）可改。
+
+		**无角色旁路**（L10-P0-06）：System Manager / Administrator 亦不得凭身份直改
+		（技术管理员不是质量批准人）；确需技术干预走 `lims_service.break_glass_update()`
+		（显式、必填理由、全程留痕）。普通角色直写（frappe.client.set_value / DocType
+		表单）一律拦截（read_only 不构成服务端保护，此处为双保险）。
+		"""
 		import frappe
 		before = self.get_doc_before_save()
-		if not before:
-			return
-		roles = frappe.get_roles()
-		if frappe.session.user == "Administrator" or "System Manager" in roles:
-			return
-		if self.flags.get("allow_system_fields"):
+		if not before or self.flags.get("allow_system_fields"):
 			return
 		for f in ("current_qty", "reserved_qty", "status"):
 			if str(before.get(f) or "") != str(self.get(f) or ""):

@@ -8,26 +8,7 @@
 
 import frappe
 
-
-def _warehouse_scope(filters):
-	"""返回 (warehouse 列表, 参数)。勾选含子级时按 Warehouse 树展开。"""
-	warehouse = filters.get("warehouse")
-	if not warehouse:
-		return None, {}
-
-	if not filters.get("include_children"):
-		return [warehouse], {}
-
-	descendants = frappe.db.sql(
-		"""
-		select name from `tabWarehouse`
-		where lft >= (select lft from `tabWarehouse` where name = %(root)s)
-		  and rgt <= (select rgt from `tabWarehouse` where name = %(root)s)
-		""",
-		{"root": warehouse},
-		pluck=True,
-	)
-	return descendants, {}
+from hb_inventory_app.hbos_inventory.warehouse_scope import resolve_scope
 
 
 def execute(filters=None):
@@ -35,12 +16,19 @@ def execute(filters=None):
 	conditions = []
 	values = {}
 
-	scope, scope_values = _warehouse_scope(filters)
-	if scope is not None:
-		placeholders = ", ".join(f"%(wh_{i})s" for i in range(len(scope)))
-		conditions.append(f"sbe.warehouse in ({placeholders})")
-		for i, name in enumerate(scope):
-			values[f"wh_{i}"] = name
+	# 货位范围必须先与**当前用户可见范围**求交：本报表用 raw SQL 查
+	# `Serial and Batch Entry`，而 raw SQL 不走 Frappe 的权限过滤——不加这一步，
+	# 任何能打开报表的人都能看到全部货位的库存（跨仓读取）。
+	# resolve_scope 返回恒为具体列表：为空即「没有可见货位」，直接给空结果；
+	# 继续往下拼 `in ()` 是无效 SQL，报表会 500。
+	scope = resolve_scope(filters)
+	if not scope:
+		return _columns(), []
+
+	placeholders = ", ".join(f"%(wh_{i})s" for i in range(len(scope)))
+	conditions.append(f"sbe.warehouse in ({placeholders})")
+	for i, name in enumerate(scope):
+		values[f"wh_{i}"] = name
 
 	if filters.get("item_code"):
 		conditions.append("sbe.item_code = %(item_code)s")

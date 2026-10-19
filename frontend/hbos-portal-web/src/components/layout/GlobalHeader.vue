@@ -6,8 +6,8 @@
         <span v-else>H</span>
       </div>
       <div class="brand-copy">
-        <div class="brand-name">HBOS</div>
-        <div class="brand-caption">{{ contextLabel || '海滨智能运营工作台' }}</div>
+        <div class="brand-name">{{ contextLabel === 'LIMS' ? '海滨实验室' : 'HBOS' }}</div>
+        <div class="brand-caption">{{ contextLabel === 'LIMS' ? 'HBOS / LIMS' : (contextLabel || '海滨智能运营工作台') }}</div>
       </div>
     </button>
 
@@ -18,7 +18,12 @@
     </button>
 
     <div class="header-actions">
-      <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" /><NotificationCenter /></div>
+      <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" /><NotificationCenter v-if="portalDataSource === 'mock'" /></div>
+
+      <div v-if="groupLogoUrl" class="group-brand" aria-label="健康元集团标识">
+        <span class="header-divider" aria-hidden="true"></span>
+        <img :src="groupLogoUrl" alt="健康元集团标识" class="group-logo-image" />
+      </div>
 
       <a-tooltip title="帮助">
         <a-button
@@ -69,6 +74,7 @@ import NotificationCenter from '@/components/global/NotificationCenter.vue'
 import type { AppManifestDTO } from '@/contracts/portal'
 import { portalSession, signOutPortalSession } from '@/services/portalSessionCoordinator'
 import { hasManagementAccess } from '@/services/iamAccess'
+import { portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 
 const router = useRouter()
@@ -96,6 +102,7 @@ defineProps<{
   avatarText: string
   avatarUrl?: string | null
   companyLogoUrl?: string | null
+  groupLogoUrl?: string | null
   apps: AppManifestDTO[]
   contextLabel?: string
   sessionBlocked?: boolean

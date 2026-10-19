@@ -63,17 +63,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, type Component } from 'vue'
+import { appIcon, chineseApp } from '@/components/appIcons'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  ClockCircleOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
   ReloadOutlined,
   RightOutlined,
   SearchOutlined,
   SettingOutlined,
-  ToolOutlined,
 } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
@@ -81,10 +78,10 @@ import { openBusinessRoute } from '@/services/businessNavigation'
 
 const portal = usePortalStore()
 const router = useRouter()
+const taskApps = computed(() => portal.apps.filter((app) => portal.dataSource === 'mock' || app.capabilityTasks))
 const scope = ref('需要我处理')
 const appFilter = ref('all')
 const keyword = ref('')
-const taskApps = computed(() => portal.apps.filter(app => app.capabilityTasks))
 const scopeOptions = ['需要我处理', '今天', '本周', '超期', '等待别人', '已完成']
 
 const actionableCount = computed(() => portal.tasks.filter((t) => t.status === 'open').length)
@@ -104,20 +101,10 @@ const filtered = computed(() => portal.tasks.filter((task) => {
   return true
 }))
 
-const icons: Record<string, Component> = {
-  lims: ExperimentOutlined,
-  attendance: ClockCircleOutlined,
-  inventory: InboxOutlined,
-  equipment: ToolOutlined,
-}
 function openTask(task: UnifiedTaskDTO) {
   void openBusinessRoute(router, task.appId, task.deepLink)
 }
 
-function appIcon(appId: string) { return icons[appId] || InboxOutlined }
-function chineseApp(appId: string) {
-  return ({ lims: 'LIMS', attendance: '考勤', inventory: '仓储', equipment: '设备' } as Record<string,string>)[appId] || appId
-}
 function label(task: UnifiedTaskDTO) {
   if (task.overdue) return '已超期'
   if (task.priority === 'high') return '高优先级'

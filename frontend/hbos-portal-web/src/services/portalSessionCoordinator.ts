@@ -96,7 +96,7 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
       if (run !== revision) throw error
       blockFrappeWrites(true)
       if (isUnauthenticatedError(error)) { forgetAttendanceState(); boundary(); portalSession.phase = 'guest' }
-      else { portalSession.phase = 'unconfirmed'; portalSession.error = error instanceof FrappeRequestError ? error.message : '暂时无法核对当前登录状态。草稿已保留，请重试核验或退出登录。' }
+      else { portalSession.phase = 'unconfirmed'; portalSession.error = error instanceof FrappeRequestError || error instanceof Error && 'status' in error ? error.message : '暂时无法核对当前登录状态。草稿已保留，请重试核验或退出登录。' }
       throw error
     } finally { if (run === revision && slowTimer) clearTimeout(slowTimer) }
   })()

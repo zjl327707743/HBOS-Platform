@@ -45,8 +45,9 @@ scheduler_events = {"cron": {"*/5 * * * *": ["hbos_portal.auth.lifecycle.sync_di
 
 # Business applications register their adapters through this custom hook:
 #
-# hbos_portal_provider = [
-#     "some_app.portal.provider.get_provider"
-# ]
-#
-# hbos_portal itself intentionally registers no business provider.
+# 生产看板没有自己的 Frappe App（事实来源是独立 FastAPI + 飞书多维表格），
+# 所以它的 Portal 适配器放在 hbos_portal 内。它**不持有业务状态**，
+# 只做「报清单 / 判权限 / 受控代理」——业务事实仍在外部服务。
+hbos_portal_provider = [
+	"hbos_portal.production.provider.get_provider",
+]
