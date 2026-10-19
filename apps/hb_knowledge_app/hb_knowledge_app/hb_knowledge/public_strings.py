@@ -23,13 +23,17 @@ CONTROL=re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 CID_GLYPH=re.compile(r"/G\d{2,3}\b")
 
 
-def source_string(value, maximum=None, *, physical_ids=(), nullable=False):
-    """Validate a *source* string for display.
+def source_string(value, maximum=None, *, physical_ids=(), nullable=False, strict_glyphs=False):
+    """Validate a *source* string.
 
-    Allows the document's own URLs and paths (rendered as inert text), while
-    still refusing credentials, markup, encoded traversal, control characters
-    and private-use/CID glyph residue — the things that indicate the text was
-    not actually decoded.
+    ``strict_glyphs=False`` (display): allows the document's own URLs and paths,
+    which are rendered as inert text. Identical to ``safe_string`` apart from
+    those two clauses, so nothing that could be displayed before is rejected now.
+
+    ``strict_glyphs=True`` (index adapter): additionally refuses private-use /
+    CID glyph residue and control characters. That is the signal that the text
+    was never really decoded, and it belongs to accepting an index, not to
+    rendering an excerpt of it.
     """
     if value is None and nullable:
         return None
@@ -38,9 +42,9 @@ def source_string(value, maximum=None, *, physical_ids=(), nullable=False):
     normalized=unicodedata.normalize("NFKC",value)
     for _ in range(3):
         normalized=html.unescape(unquote(normalized))
-    if (DANGER_SOURCE.search(normalized) or PUA.search(value) or CONTROL.search(value)
-            or CID_GLYPH.search(value)
-            or any(identity and identity in value for identity in physical_ids)):
+    if DANGER_SOURCE.search(normalized) or any(identity and identity in value for identity in physical_ids):
+        raise KnowledgeError("UPSTREAM_INVALID_RESULT")
+    if strict_glyphs and (PUA.search(value) or CONTROL.search(value) or CID_GLYPH.search(value)):
         raise KnowledgeError("UPSTREAM_INVALID_RESULT")
     if maximum is not None and len(value)>maximum:
         raise KnowledgeError("UPSTREAM_INVALID_RESULT")

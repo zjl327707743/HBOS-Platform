@@ -65,9 +65,16 @@ def test_a_source_excerpt_may_cite_a_url_but_model_output_may_not():
     with pytest.raises(KnowledgeError):
         safe_string(url)
 
-    for dangerous in ('api_key: sk-123456', '<script>x</script>', '残留 /G21/G22', '私有 \ue011 字符'):
+    for dangerous in ('api_key: sk-123456', '<script>x</script>'):
         with pytest.raises(KnowledgeError):
             source_string(dangerous)
+
+    # Glyph residue is an *index acceptance* signal, not a display rule: a text
+    # with two private-use characters must still render for the reader.
+    assert source_string('私有 \ue011 字符') == '私有 \ue011 字符'
+    for dangerous in ('残留 /G21/G22', '私有 \ue011 字符'):
+        with pytest.raises(KnowledgeError):
+            source_string(dangerous, strict_glyphs=True)
 
     # Navigation-encoded traversal is still refused.
     with pytest.raises(KnowledgeError):
