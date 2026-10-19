@@ -118,7 +118,8 @@ def get_shift_overview():
         dept_counts=frappe.db.sql("select department from `tabEmployee` where status='Active' and department in %(departments)s and company=(select company from `tabDepartment` iam_department where iam_department.name=tabEmployee.department)",dict(departments=tuple(bound['departments'])),as_dict=True)
     dept_emp = defaultdict(int)
     for d in dept_counts:
-        dept_emp[d.department] += 1
+        if d.department:
+            dept_emp[d.department] += 1
 
     for versions in _group_rule_versions(rules).values():
         latest=max(versions,key=_rule_sort_key).name

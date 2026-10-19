@@ -106,7 +106,7 @@
       "private_evidence_file": "veto-noop-chain.json"
     },
     {
-      "case": "department_deny_veto_current_published_company_role",
+      "case": "department_deny_veto_published_SELF_while_department_source_cannot_grant_company_operation",
       "status": "PASS",
       "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_SOURCE_FIXTURE",
       "private_evidence_file": "veto-noop-chain.json"

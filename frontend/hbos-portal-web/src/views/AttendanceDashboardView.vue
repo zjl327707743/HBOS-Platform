@@ -31,7 +31,7 @@
       <div class="att-grid">
         <section class="section-panel glass-surface">
           <div class="section-head">
-            <div><h2>迟到 Top 15</h2><p>按本月迟到次数排序</p></div>
+            <div><h2>迟到 Top 15</h2><p>按所选区间迟到次数排序</p></div>
           </div>
           <div v-if="!topLate.length" class="att-empty">本区间无迟到记录</div>
           <ol v-else class="att-rank">
@@ -46,7 +46,7 @@
 
         <section class="section-panel glass-surface">
           <div class="section-head">
-            <div><h2>缺勤 Top 15</h2><p>按本月缺勤天数排序</p></div>
+            <div><h2>缺勤 Top 15</h2><p>按所选区间缺勤天数排序</p></div>
           </div>
           <div v-if="!topAbsent.length" class="att-empty">本区间无缺勤记录</div>
           <ol v-else class="att-rank">

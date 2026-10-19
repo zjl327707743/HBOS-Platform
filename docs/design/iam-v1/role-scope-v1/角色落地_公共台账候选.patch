@@ -2,83 +2,83 @@
 +++ b/README.md
 @@ -1,0 +2,9 @@
 +
-+## IAM 角色落地启动：基线待平台确认（2026-10-19）
++## IAM V1 角色工程候选收口（2026-10-19）
 +
-+Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
 +
-+拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
 +
-+交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
 +
 --- a/docs/PROJECT_STATUS.md
 +++ b/docs/PROJECT_STATUS.md
 @@ -1,0 +2,9 @@
 +
-+## IAM 角色落地启动：基线待平台确认（2026-10-19）
++## IAM V1 角色工程候选收口（2026-10-19）
 +
-+Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
 +
-+拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
 +
-+交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
 +
 --- a/docs/CURRENT_MILESTONE.md
 +++ b/docs/CURRENT_MILESTONE.md
 @@ -1,0 +2,9 @@
 +
-+## IAM 角色落地启动：基线待平台确认（2026-10-19）
++## IAM V1 角色工程候选收口（2026-10-19）
 +
-+Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
 +
-+拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
 +
-+交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
 +
 --- a/docs/AI_CONTEXT.md
 +++ b/docs/AI_CONTEXT.md
 @@ -1,0 +2,9 @@
 +
-+## IAM 角色落地启动：基线待平台确认（2026-10-19）
++## IAM V1 角色工程候选收口（2026-10-19）
 +
-+Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
 +
-+拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
 +
-+交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
 +
 --- a/docs/READING_GUIDE.md
 +++ b/docs/READING_GUIDE.md
 @@ -1,0 +2,9 @@
 +
-+## IAM 角色落地启动：基线待平台确认（2026-10-19）
++## IAM V1 角色工程候选收口（2026-10-19）
 +
-+Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
 +
-+拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
 +
-+交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
 +
 --- a/docs/milestones/M1_START_GATE.md
 +++ b/docs/milestones/M1_START_GATE.md
 @@ -1,0 +2,9 @@
 +
-+## IAM 角色落地启动：基线待平台确认（2026-10-19）
++## IAM V1 角色工程候选收口（2026-10-19）
 +
-+Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
 +
-+拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
 +
-+交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
 +
 --- a/docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md
 +++ b/docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md
 @@ -1,0 +2,9 @@
 +
-+## IAM 角色落地启动：基线待平台确认（2026-10-19）
++## IAM V1 角色工程候选收口（2026-10-19）
 +
-+Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
 +
-+拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
 +
-+交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
 +
