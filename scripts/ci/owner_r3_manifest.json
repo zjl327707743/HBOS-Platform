@@ -3,37 +3,37 @@
   "repository": "zjl327707743/HBOS-Platform",
   "target_branch": "feature/hbos-portal-product",
   "base": {
-    "sha": "366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857",
-    "tree": "dafa05eba9db5c5f538ba8ac608dfdfdf85c9326"
+    "sha": "04e0bb033cb2e7156e407cf49a7b6966b0d2a022",
+    "tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
   },
   "candidates": {
     "attendance": {
       "pr": 43,
-      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_sha": "04e0bb033cb2e7156e407cf49a7b6966b0d2a022",
       "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
       "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     },
     "production": {
       "pr": 43,
-      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_sha": "04e0bb033cb2e7156e407cf49a7b6966b0d2a022",
       "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
       "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     },
     "inventory-reports": {
       "pr": 43,
-      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_sha": "04e0bb033cb2e7156e407cf49a7b6966b0d2a022",
       "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
       "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     },
     "inventory-transactions": {
       "pr": 43,
-      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_sha": "04e0bb033cb2e7156e407cf49a7b6966b0d2a022",
       "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
       "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     },
     "lims": {
       "pr": 43,
-      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_sha": "04e0bb033cb2e7156e407cf49a7b6966b0d2a022",
       "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
       "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     }

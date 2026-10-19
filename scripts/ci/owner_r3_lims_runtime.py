@@ -1274,3 +1274,57 @@ def run():
     }
     emit("summary", **result)
     return result
+
+
+def todo_native_smoke():
+    """Run the unchanged one-test smoke in a separate bench execute process.
+
+    Its legacy import helper clears hb_lims_app modules. This entrypoint must
+    not run in the process holding the main suite's cached controller classes.
+    """
+    assert not RESULTS and not FIXTURE, "Todo smoke requires a new bench process"
+    guard()
+    site, previous_user = frappe.local.site, frappe.session.user
+    manager = "r7c-mgr@test.local"
+    try:
+        fresh()
+        assert frappe.db.exists("User", manager), "Original native-suite Manager is missing"
+        roles = set(frappe.get_roles(manager))
+        assert "LIMS Manager" in roles and "System Manager" not in roles, (
+            "Todo smoke requires the existing named Manager without System Manager")
+        frappe.set_user(manager)
+        name = "test_todo_runtime_smoke"
+        path = Path("/home/frappe/frappe-bench/apps/hb_lims_app/tests") / (name + ".py")
+        source_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        suite = unittest.defaultTestLoader.loadTestsFromModule(module)
+        test_class = getattr(module, "TestTodoRuntimeSmoke")
+        assert test_class.__module__ == name and suite.countTestCases() == 1
+        assert all(type(instance) is test_class for instance in _test_instances(suite))
+        emit("todo_native_smoke_source", module=name, test_class=test_class.__name__,
+             sha256=source_hash, site=site, user=manager, roles=sorted(roles),
+             process="dedicated bench execute", pid=os.getpid(), expected_native_tests=1,
+             http_only=False, original_seven_suite_count=32, canonical_audit_suite_count=9)
+        result = unittest.TextTestRunner(verbosity=2).run(suite)
+        identity_unchanged = frappe.session.user == manager
+        ok = (result.testsRun == 1 and not (result.failures or result.errors or result.skipped)
+              and identity_unchanged)
+        evidence = {"ok": bool(ok), "status": "PASS" if ok else "FAIL",
+                    "module": name, "sha256": source_hash, "site": site, "user": manager,
+                    "run": result.testsRun, "failures": len(result.failures),
+                    "errors": len(result.errors), "skips": len(result.skipped),
+                    "native_identity_unchanged": identity_unchanged,
+                    "counted_separately_from_original_32_and_audit_9": True,
+                    "http_only": False}
+        emit("todo_native_smoke_result", **evidence)
+        assert ok, "The independent native Todo smoke is incomplete or failed"
+        return evidence
+    finally:
+        frappe.db.rollback()
+        frappe.set_user(previous_user)
+        restored = frappe.session.user == previous_user and frappe.local.site == site
+        emit("todo_native_smoke_restoration", site=site, user=frappe.session.user,
+             pending_transaction="rolled back", restored=restored)
+        assert restored, "Todo smoke did not restore its original Site/session state"

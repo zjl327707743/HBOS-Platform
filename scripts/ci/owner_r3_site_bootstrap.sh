@@ -206,3 +206,14 @@ dc exec -T -e GITHUB_ACTIONS=true -e HBOS_REPORT_SCOPE_TEST_ID="$TEST_ID" \
   -e FRAPPE_SITE="$SITE_NAME" -e OWNER_AUDIT_ADMIN_PASSWORD \
   -e OWNER_PRODUCTION_PYTHON -e OWNER_PRODUCTION_SERVICES \
   backend bench --site "$SITE_NAME" execute hbos_portal._owner_r3_runtime.run
+
+# Preserve the main probe's set -e failure and cleanup behavior. The old Todo
+# test clears hb_lims_app imports, so run it only in a new bench process after
+# the LIMS main probe succeeds, while this same disposable Site still exists.
+if [[ "$OWNER_AUDIT_DOMAIN" == lims ]]; then
+  printf '[OWNER-R3] phase=todo-native-independent-process\n'
+  dc exec -T -e GITHUB_ACTIONS=true -e HBOS_REPORT_SCOPE_TEST_ID="$TEST_ID" \
+    -e HBOS_FRAPPE_SMOKE=1 -e OWNER_AUDIT_DOMAIN=lims \
+    -e FRAPPE_SITE="$SITE_NAME" -e OWNER_AUDIT_ADMIN_PASSWORD \
+    backend bench --site "$SITE_NAME" execute hbos_portal._owner_r3_lims_runtime.todo_native_smoke
+fi
