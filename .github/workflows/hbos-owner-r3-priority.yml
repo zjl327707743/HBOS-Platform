@@ -139,6 +139,13 @@ jobs:
           if any(result['status'] == 'FAIL' for result in summary):
               raise SystemExit('One or more current-candidate suites failed; see retained logs')
           PY_TEST
+      - name: Complete current LIMS pytest collection
+        if: ${{ !cancelled() && steps.composition.outcome == 'success' && matrix.domain == 'lims' }}
+        working-directory: candidate
+        run: |
+          set -o pipefail
+          PYTHONPATH="$PWD/apps/hb_lims_app" python -m pytest -q -rA -p no:cacheprovider \
+            apps/hb_lims_app/tests --junitxml=/tmp/owner-r3/lims-pytest.xml 2>&1 | tee /tmp/owner-r3/lims-pytest.txt
       - name: Build both frontends and validate release bundle
         if: ${{ !cancelled() && steps.composition.outcome == 'success' }}
         working-directory: candidate

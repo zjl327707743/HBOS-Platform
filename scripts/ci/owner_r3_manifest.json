@@ -9,33 +9,33 @@
   "candidates": {
     "attendance": {
       "pr": 43,
-      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
-      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
-      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
+      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
+      "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     },
     "production": {
       "pr": 43,
-      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
-      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
-      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
+      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
+      "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     },
     "inventory-reports": {
       "pr": 43,
-      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
-      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
-      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
+      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
+      "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     },
     "inventory-transactions": {
       "pr": 43,
-      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
-      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
-      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
+      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
+      "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     },
     "lims": {
       "pr": 43,
-      "source_sha": "2b7b1c2a4f4963b4a067b8bf2c6222876b1e962e",
-      "source_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b",
-      "expected_tree": "1854d3261b8b504c8b6a695247451e8f20ead33b"
+      "source_sha": "06e4639fe8efeda9d1874b0eb5d5d33706be98d2",
+      "source_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620",
+      "expected_tree": "aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620"
     }
   },
   "upstream": {
