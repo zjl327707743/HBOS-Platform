@@ -1,5 +1,11 @@
 # Milestones
 
+## 当前产品集成索引 — 2026-10-19
+
+#42 考勤、#46 生产、#39 仓储、#43 LIMS 四项完整业务 PR 已实际合入 `feature/hbos-portal-product`。业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护；接续工作读取远端最新产品 HEAD。[R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 全部 10 jobs SUCCESS；[R11 实际产品回归](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 全部 10 jobs SUCCESS，五个原生域直接运行业务合并基线并通过双 migrate 与清理；LIMS 原 32 + 审计 9 + 独立 Todo 1，共 42 项原生测试通过。Todo 只有 1 项，归属 LIMS。
+
+当前阅读入口：[项目状态与四项合并来源](../PROJECT_STATUS.md)、[当前轮次](../CURRENT_MILESTONE.md)、[M2-LIMS 门禁](M2_START_GATE.md)、[M3 门禁](M3_START_GATE.md)。以下旧里程碑表和下一步路线保留当时的产品验收状态，不因本次代码合并统一改为 COMPLETED；旧编号“M2 飞书集成”也不改写为本次 LIMS。IAM #52、OCR、实体样本／打印、生产 UAT／部署及质量放行撤回不由本轮 closeout。
+
 本目录用于记录新乡海滨智能运营管理平台的全项目里程碑索引和状态总览。
 
 ## 文件定位
@@ -56,7 +62,7 @@
 - `BLOCKED`：受阻，等待用户决策或外部条件。
 - `CANCELLED`：已取消。
 
-## 当前里程碑表
+## 历史里程碑表
 
 | 里程碑 | 名称 | 状态 |
 | --- | --- | --- |
@@ -94,7 +100,7 @@
 | M2-STOCK-R1 | 库存模块隔离（独立 stock 站点 + hb_stock_app + 海滨库存工作台） | IN_PROGRESS（分支 `m2-stock-r1`） |
 | M2 | 飞书集成（长期轮次） | NOT STARTED |
 
-## 下一步路线
+## 历史下一步路线
 
 1. M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口，四份设计文档全部完成。
 2. M1-R4 已通过 Codex 审查并收口为 COMPLETED，主文档 `M1_R4_Demo技术方案与实施路线拆分.md` 已交付。

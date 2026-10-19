@@ -1,14 +1,20 @@
 # AI Context
 
-## 当前集成状态 — 2026-10-18
+## 当前集成状态 — 2026-10-19
 
-**三个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储。** 唯一目标为 `feature/hbos-portal-product`；本次已核对业务基线为 `a1cc65dde73cfad656faf290264f75fb1a25c32b`。实际来源、Squash、父提交与树见 [项目状态](PROJECT_STATUS.md)；[PR #39](https://github.com/zjl327707743/HBOS-Platform/pull/39) 已于 2026-10-18 07:28:34 UTC 正常 Squash Merge。
+**四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](PROJECT_STATUS.md)。
+
+**合并前精确组合：PASS。** [R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 全部 10 jobs SUCCESS，五个原生域与离线／契约／构建在本次 #43 来源和产品基线的真实组合上通过；该组合树与实际 Squash 树相同。
+
+**实际产品合并后回归：PASS。** [R11 39195037712](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 全部 10 jobs SUCCESS；五个原生域均直接运行业务合并基线 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，无额外 merge，实际单父与树一致，双 migrate 与清理均成功。LIMS 原有 32 项、新增审计 9 项、独立 Todo 1 项合计 42 项原生测试全部通过；Todo 只有 1 项，归属 LIMS。
+
+接续时先读本节、[项目状态](PROJECT_STATUS.md)及远端产品 ref。[#43 Owner Approve 5566593947](https://github.com/zjl327707743/HBOS-Platform/pull/43#pullrequestreview-5566593947) 对应最终来源 `06e4639fe8efeda9d1874b0eb5d5d33706be98d2`；#39 的 Owner 裁定及旧 Review 闭环继续保留。R11 实际产品回归及 LIMS 独立 Todo 1 项补证已经通过，不再将 #43 记为 source-only；后续收口只另行记录两处 Python 3.10 测试夹具兼容修复，本收尾 PR 必须在固定候选 SHA 的 Python 3.10／3.12 检查通过后方可合并，实际结果以本 PR 最新 Owner 裁定及最终报告所列 SHA／Job 为准。IAM #52、OCR、实体样本／打印和生产 UAT 保留各自门禁。
+
+业务合并基线与文档保存后的 HEAD 分开记录。Run1–9 的历史失败、未合并及 `NOT_PRODUCT_COMPOSITION` 均按各自日期、来源和作业保留，详见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；最新业务与回归状态以本节和项目状态为准。
+
+### 历史回归 — 2026-10-18 Run8（#39 合并后）
 
 **合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
-
-接续时先读本节、项目状态及远端产品 ref。[Owner 当前来源最终裁定](https://github.com/zjl327707743/HBOS-Platform/pull/39#issuecomment-6247133194) 已逐项关闭 B1/B2，旧 Request Changes 已为 `DISMISSED`，没有自我 Approve。Run1–6 的失败按日期保留在 [#56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；下方旧阶段的“当前”只指当时。#43 仍是独立来源契约通过、`NOT_PRODUCT_COMPOSITION`；IAM #52、OCR、实体样本／打印和生产 UAT 未因本次合并完成。
-
-历史验证按发生日期保留，旧失败与当时的未合并判断以对应 Run 为范围；最新状态以本节及实际 PR 记录为准。
 
 ## 验证历史 — 2026-10-18 Run6
 
