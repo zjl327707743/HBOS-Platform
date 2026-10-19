@@ -1,0 +1,112 @@
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,13 @@
+ # 新乡海滨智能运营管理平台
++
++## IAM 角色落地启动：基线待平台确认（2026-10-19）
++
++Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++
++拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++
++交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++
+ 
+ ## 当前集成状态 — 2026-10-19
+ 
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -1,4 +1,13 @@
+ # 项目状态
++
++## IAM 角色落地启动：基线待平台确认（2026-10-19）
++
++Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++
++拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++
++交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++
+ 
+ ## 当前集成状态 — 2026-10-19
+ 
+--- a/docs/CURRENT_MILESTONE.md
++++ b/docs/CURRENT_MILESTONE.md
+@@ -1,4 +1,13 @@
+ # Current Milestone
++
++## IAM 角色落地启动：基线待平台确认（2026-10-19）
++
++Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++
++拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++
++交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++
+ 
+ ## 当前集成状态 — 2026-10-19
+ 
+--- a/docs/AI_CONTEXT.md
++++ b/docs/AI_CONTEXT.md
+@@ -1,4 +1,13 @@
+ # AI Context
++
++## IAM 角色落地启动：基线待平台确认（2026-10-19）
++
++Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++
++拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++
++交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++
+ 
+ ## 当前集成状态 — 2026-10-19
+ 
+--- a/docs/READING_GUIDE.md
++++ b/docs/READING_GUIDE.md
+@@ -1,4 +1,13 @@
+ # Reading Guide
++
++## IAM 角色落地启动：基线待平台确认（2026-10-19）
++
++Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++
++拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++
++交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++
+ 
+ ## 当前集成状态 — 2026-10-19
+ 
+--- a/docs/milestones/M1_START_GATE.md
++++ b/docs/milestones/M1_START_GATE.md
+@@ -1,4 +1,13 @@
+ # M1 启动门禁
++
++## IAM 角色落地启动：基线待平台确认（2026-10-19）
++
++Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++
++拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++
++交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++
+ 
+ ## PR #21 最终 Gate — 2026-10-01
+ 
+--- a/docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md
++++ b/docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md
+@@ -1,4 +1,13 @@
+ # M1-RP3：统一账号、飞书绑定与正式发布
++
++## IAM 角色落地启动：基线待平台确认（2026-10-19）
++
++Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d` 并授权原IAM目录/feature/iam-v1/Draft #52正式实施。当前仅完成产品同步请求及精确模型/功能契约映射，状态 BASE_SYNC_REQUESTED；角色业务实现/迁移/三角色验收尚未开始。此条优先于下方历史阶段描述，旧记录保留。
++
++拟吸收产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突，未实际merge；待平台线确认固定SHA、共享唯一写者及普通同步方式。5198/5199/8198健康GET通过，未安装新schema、运行迁移或改时区/账号；不合并、不生产发布。
++
++交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
++
+ 
+ ## 合并后最终状态 — 2026-10-01
+ 
