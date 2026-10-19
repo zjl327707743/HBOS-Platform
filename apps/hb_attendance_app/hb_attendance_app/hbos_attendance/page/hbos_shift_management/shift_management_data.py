@@ -583,56 +583,61 @@ def import_schedule_file(file_path=None, file_content=None, file_url=None):
             input_keys.add(key)
             resolved.append((emp, row))
 
-        dates = sorted({str(row["date"]) for _, row in resolved})
-        matched_emps = sorted({emp for emp, _ in resolved})
-
-        if dates and matched_emps:
-            for emp in matched_emps:
-                frappe.db.delete(
-                    "HBOS Employee Schedule",
-                    {
-                        "employee": emp,
-                        "schedule_date": ["between", [dates[0], dates[-1]]],
-                        "source_type": ["in", ["IMPORT", "ROTATION"]],
-                    },
-                )
-
-        created = 0
-        protected = 0
-        for emp, row in resolved:
-            ds = str(row["date"])
-            existing = frappe.db.get_value(
-                "HBOS Employee Schedule",
-                {"employee": emp, "schedule_date": ds},
-                ["name", "source_type"],
-                as_dict=True,
-            )
-            if existing:
-                protected += 1
-                continue
-            frappe.get_doc({
-                "doctype": "HBOS Employee Schedule",
-                "employee": emp,
-                "schedule_date": ds,
-                "shift_type": row["shift_type"] or "",
-                "leave_type": row["leave_type"] or "",
-                "source_type": "IMPORT",
-                "source_ref": source_ref,
-            }).insert(ignore_permissions=True)
-            created += 1
-
-        frappe.db.commit()
-        return {
-            "created": created,
-            "skipped": skipped,
-            "protected": protected,
-            "total": len(rows),
-            "date_range": [dates[0], dates[-1]] if dates else [],
-        }
+        return _apply_resolved_schedules(resolved, source_ref, len(rows), skipped)
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
+
+def _apply_resolved_schedules(resolved, source_ref, total, skipped=0, *, commit=True):
+    """Shared source-ownership writer; scoped callers own the whole transaction."""
+    dates = sorted({str(row["date"]) for _, row in resolved})
+    matched_emps = sorted({emp for emp, _ in resolved})
+
+    if dates and matched_emps:
+        for emp in matched_emps:
+            frappe.db.delete(
+                "HBOS Employee Schedule",
+                {
+                    "employee": emp,
+                    "schedule_date": ["between", [dates[0], dates[-1]]],
+                    "source_type": ["in", ["IMPORT", "ROTATION"]],
+                },
+            )
+
+    created = 0
+    protected = 0
+    for emp, row in resolved:
+        ds = str(row["date"])
+        existing = frappe.db.get_value(
+            "HBOS Employee Schedule",
+            {"employee": emp, "schedule_date": ds},
+            ["name", "source_type"],
+            as_dict=True,
+        )
+        if existing:
+            protected += 1
+            continue
+        frappe.get_doc({
+            "doctype": "HBOS Employee Schedule",
+            "employee": emp,
+            "schedule_date": ds,
+            "shift_type": row["shift_type"] or "",
+            "leave_type": row["leave_type"] or "",
+            "source_type": "IMPORT",
+            "source_ref": source_ref,
+        }).insert(ignore_permissions=True)
+        created += 1
+
+    if commit:
+        frappe.db.commit()
+    return {
+        "created": created,
+        "skipped": skipped,
+        "protected": protected,
+        "total": total,
+        "date_range": [dates[0], dates[-1]] if dates else [],
+    }
 
 @frappe.whitelist()
 def get_conflicts():

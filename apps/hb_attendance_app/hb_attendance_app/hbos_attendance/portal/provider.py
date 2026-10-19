@@ -67,6 +67,10 @@ def get_provider() -> AttendancePortalProvider:
 
 
 ROLE_ROUTES = {
+    **{op:'/hbos/attendance/import' for op in ('attendance.import.preview','attendance.import.execute','attendance.schedule.import')},
+    'attendance.import.monthly':'/hbos/attendance/monthly-upload',
+    'attendance.report.staging.read':'/hbos/attendance/report/staging',
+    'attendance.record.import_log.read':'/hbos/attendance/list/import-log',
     **{'attendance.export.'+kind:'/hbos/attendance/exports' for kind in ('monthly','exceptions','roster')},
     **{'attendance.record.'+operation+'.read':'/hbos/attendance/list/'+slug for operation,slug in [('leave','feishu-leave'),('overtime','feishu-overtime'),('rest_leave','feishu-rest-leave')]},
     **{op:'/hbos/attendance/shifts' for op in ('attendance.shift.read','attendance.shift.manage','attendance.shift.status','attendance.shift.delete','attendance.schedule.read','attendance.schedule.bind')},

@@ -72,14 +72,13 @@ import {
   TeamOutlined,
   UploadOutlined,
 } from '@ant-design/icons-vue'
-import { activeNavForPath, attendanceNavGroups, navTarget } from '@/services/attendanceNav'
+import { activeNavForPath, attendanceNavGroups, navTarget, attendancePathCapability, attendanceCapabilityAllowed } from '@/services/attendanceNav'
 
 import { usePortalStore } from '@/stores/portal'
 const portal=usePortalStore()
 const access=computed(()=>portal.apps.find(app=>app.id==='attendance')?.accessCapabilities || [])
 const managed=computed(()=>access.value.includes('attendance.role.managed'))
-const operations:Record<string,string>={'feishu-leave':'attendance.record.leave.read','feishu-overtime':'attendance.record.overtime.read','feishu-rest-leave':'attendance.record.rest_leave.read',employees:'attendance.department.records.read',dashboard:'attendance.company.read',board:'attendance.department.board.read',monthly:'attendance.report.monthly.read',checkins:'attendance.report.checkins.read',results:'attendance.report.results.read'}
-const visibleGroups=computed(()=>managed.value ? attendanceNavGroups.map(group=>({...group,items:group.items.filter(item=>access.value.includes(operations[item.slug] || ''))})).filter(group=>group.items.length) : attendanceNavGroups)
+const visibleGroups=computed(()=>managed.value ? attendanceNavGroups.map(group=>({...group,items:group.items.filter(item=>attendanceCapabilityAllowed(attendancePathCapability(navTarget(item)),access.value))})).filter(group=>group.items.length) : attendanceNavGroups)
 const route = useRoute()
 
 // 图标按名字查表：导航数据里只存字符串，避免把组件实例塞进纯数据模块

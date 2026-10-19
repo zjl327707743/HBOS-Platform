@@ -113,8 +113,8 @@ def _file(manifest):
     file=frappe.get_doc('File',manifest['file_id'],for_update=True)
     if not file.is_private or file.owner!=policy.get_current_user():
         frappe.throw('文件不属于当前导出账号。',frappe.PermissionError)
-    content=file.get_content(encodings=())
-    content=content.encode() if isinstance(content,str) else content
+    from hb_attendance_app.hbos_attendance.portal.artifacts import private_content
+    content=private_content(file)
     if hashlib.sha256(content).hexdigest()!=manifest['file_hash']:
         frappe.throw('文件内容来源已变化，下载已拒绝。',frappe.PermissionError)
     return file,content

@@ -205,6 +205,9 @@ def guard_file(doc, method=None):
     from hb_attendance_app.hbos_attendance.portal.export_scope import authorizes_new_file
     if authorizes_new_file(doc,method):
         return
+    from hb_attendance_app.hbos_attendance.portal.import_scope import authorizes_new_file as import_file
+    if import_file(doc,method):
+        return
     subjects = [row for row in (_before(doc), doc) if row]
     references = [ref for row in subjects for ref in _file_references(row)]
     if not any(_attachment_is_attendance(row) for row in references):
@@ -311,6 +314,7 @@ def check_request():
     if "/method/" in path:
         command = path.split("/method/", 1)[1]
     integrated = {
+        *{'hb_attendance_app.hbos_attendance.portal.imports.'+name for name in ('preview_import','execute_import')},
         *{'hb_attendance_app.hbos_attendance.portal.scoped_exports.'+name for name in ('create_export','download_export')},
         *{'hb_attendance_app.hbos_attendance.list_data.'+name for name in ('get_list','get_filter_options')},
         *{'hb_attendance_app.hbos_attendance.portal.calculations.'+name for name in ('calculation_employees','preview_calculation','execute_calculation','get_employee_policies','save_employee_policy')},
@@ -319,7 +323,7 @@ def check_request():
         *{'hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data.' + name for name in ('get_shift_overview', 'get_department_shifts', 'get_department_employees', 'get_employee_bound_shifts', 'update_shift_rule', 'create_shift_rule', 'set_rule_status', 'delete_shift_rule', 'bind_employee_shifts')},
         'hb_attendance_app.hbos_attendance.page.hbos_attendance_dashboard.dashboard_data.get_data',
         'hb_attendance_app.hbos_attendance.page.hbos_department_board.department_board_data.get_data',
-        *{'hb_attendance_app.hbos_attendance.report_data.' + key for key in ('get_monthly_summary','get_checkin_flow','get_attendance_results')},
+        *{'hb_attendance_app.hbos_attendance.report_data.' + key for key in ('get_monthly_summary','get_checkin_flow','get_attendance_results','get_monthly_staging')},
     }
     role_path = frappe.conf.get('hbos_iam_roles_enabled') in (True,1,'1') and command in integrated
     if command.startswith("hb_attendance_app.") and command != PERSONAL and not role_path:

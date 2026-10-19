@@ -47,10 +47,14 @@ class RolePolicyTest(unittest.TestCase):
         self.assertEqual(roles.normalize_features([allowed],'staff',publishing=True),[allowed])
 
     def test_unintegrated_visible_features_cannot_publish(self):
-        choices=[row for row in roles.registry('admin') if not row['integrated']]
-        self.assertTrue(choices)
-        for row in choices:
-            with self.subTest(op=row['operation_id']),self.assertRaises(PermissionDenied):
+        # The finite V1 list may be fully integrated. A future executor still
+        # remains visible and unpublishable until its integration bit changes.
+        key='attendance.import.execute'
+        label,group,scope,_=roles.OPERATIONS[key]
+        with patch.dict(roles.OPERATIONS,{key:(label,group,scope,False)}):
+            row=next(row for row in roles.registry('admin') if row['operation_id']==key)
+            self.assertFalse(row['integrated'])
+            with self.assertRaises(PermissionDenied):
                 roles.normalize_features([roles.feature_dict(row)],'admin',publishing=True)
 
     def test_draft_is_not_an_authorization_source_and_revocation_is_live(self):

@@ -152,6 +152,10 @@ def get_list(key: str, filters=None, limit: int = 200, start: int = 0):
         start = 0
 
     from hb_attendance_app.hbos_attendance.portal import record_lists
+    if key=='import-log':
+        from hb_attendance_app.hbos_attendance.portal import import_records
+        scoped=import_records.get_list(spec,filters,limit,start)
+        if scoped is not None:return scoped
     if key in record_lists.SPECS:
         scoped=record_lists.get_list(key,spec,filters,limit,start)
         if scoped is not None:return scoped
@@ -212,6 +216,10 @@ def get_filter_options(key: str, fieldname: str, filters=None):
     """
     spec = _spec(key)
     from hb_attendance_app.hbos_attendance.portal import record_lists
+    if key=='import-log':
+        from hb_attendance_app.hbos_attendance.portal import import_records
+        scoped=import_records.filter_options(spec,fieldname,filters)
+        if scoped is not None:return scoped
     if key in record_lists.SPECS:
         scoped=record_lists.filter_options(key,spec,fieldname,filters)
         if scoped is not None:return scoped

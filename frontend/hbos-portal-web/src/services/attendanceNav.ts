@@ -32,6 +32,10 @@ export interface AttendanceNavGroup {
 export function attendancePathCapability(path: string): string | null {
   const normalized=path.replace(/\/+$/,'')
   const paths:Record<string,string>={
+    '/hbos/attendance/import':'attendance.import',
+    '/hbos/attendance/monthly-upload':'attendance.import.monthly',
+    '/hbos/attendance/report/staging':'attendance.report.staging.read',
+    '/hbos/attendance/list/import-log':'attendance.record.import_log.read',
     '/hbos/attendance':'attendance.company.read',
     '/hbos/attendance/dashboard':'attendance.company.read',
     '/hbos/attendance/me':'attendance.read',
@@ -52,6 +56,7 @@ export function attendancePathCapability(path: string): string | null {
 }
 
 export function attendanceCapabilityAllowed(required:string|null, capabilities:string[]):boolean {
+  if(required==='attendance.import')return capabilities.includes('attendance.import.preview')||capabilities.includes('attendance.schedule.import')
   if(required==='attendance.export')return capabilities.some(op=>op.startsWith(required+'.'))
   if(required==='attendance.correction')return capabilities.some(op=>op.startsWith(required+'.'))
   if(required==='attendance.shift')return capabilities.some(op=>op.startsWith('attendance.shift.')||op==='attendance.schedule.read'||op==='attendance.schedule.bind')

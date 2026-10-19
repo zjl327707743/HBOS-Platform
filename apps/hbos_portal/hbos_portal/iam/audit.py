@@ -11,6 +11,7 @@ from hbos_portal.iam import guards, policy
 EVENT = "HBOS IAM Change Event"
 # Only configuration, lifecycle state and minimal command results. No arbitrary response bodies.
 SAFE_KEYS = {
+    'actor','kind','log_name','log_hash','event_name','expected_inputs','import_type','total_rows','matched_rows','success_rows','failed_rows','created_employees','created_checkins','created_attendance','existing_attendance','skipped_duplicates','auto_attendance_used','fallback_used','period_start','period_end','notes','protected','skipped','total','date_range',
     "source_hash", "date_from", "date_to", "from_date", "to_date", "employee_names", "coverage", "complete", "rejected_ranges", "scope",
     'docstatus', 'expected_employee_version', 'request_name',
     "role", "role_key", "assignment", "release", "content_hash", "draft_version", "published_revision", "source_mode", "review_required", "reference_count", "effective_changed_count", "file_id", "file_hash", "source_operation", "mode",
@@ -45,7 +46,7 @@ def safe_snapshot(value, depth=0):
     if isinstance(value, dict):
         result = {}
         for key, child in value.items():
-            if SECRET_KEY.search(str(key)) and key not in {"temporary_password_state", "first_password_required"}:
+            if SECRET_KEY.search(str(key)) and key not in {"temporary_password_state", "first_password_required", "created_checkins"}:
                 continue
             if key in SAFE_KEYS:
                 result[key] = safe_snapshot(child, depth + 1)

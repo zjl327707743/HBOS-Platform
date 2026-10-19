@@ -121,6 +121,10 @@ def _run_once(report_key: str, filters, limit=MAX_ROWS, start=0) -> dict[str, ob
     if bound is not None:
         from hb_attendance_app.hbos_attendance.portal.role_scope import check_fields
         check_fields({'filters','limit','start'})
+        if report_key=='staging':
+            from hb_attendance_app.hbos_attendance.portal.import_records import staging
+            limit,start=_bounds(limit,start)
+            return staging(clean,limit,start)
         allowed = {'from_date','to_date','department','employee','month','year','source_device','hbos_only','source_type','import_log'}
         if set(clean) - allowed:
             frappe.throw('角色报表不接受未知筛选或外部服务选项。', frappe.PermissionError)

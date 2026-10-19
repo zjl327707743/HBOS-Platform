@@ -18,11 +18,11 @@ def _call(function, *, read_only=False):
         elif isinstance(exc, frappe.PermissionError):
             status, code, message = 403, 'FORBIDDEN', str(exc)
         elif isinstance(exc, (frappe.QueryDeadlockError, frappe.QueryTimeoutError, frappe.TimestampMismatchError)) or status == 409:
-            status, code, message = 409, 'CONFLICT', '角色、成员或权限已变化，本次未保存，请重新预览。'
+            status, code, message = 409, 'CONFLICT', '资料、范围或权限已变化，本次未保存部分更新，请重新预览。'
         elif isinstance(exc, (frappe.ValidationError, ValueError, TypeError)):
             status, code, message = 400, 'INVALID_REQUEST', str(exc)
         else:
-            status, code, message = 500, 'SERVICE_ERROR', '角色操作暂时无法完成，权限未作部分更新。'
+            status, code, message = 500, 'SERVICE_ERROR', '操作暂时无法完成，未保留部分更新，请稍后重试。'
             frappe.logger('hbos_iam').error('Role service failure (%s)', type(exc).__name__)
         frappe.db.rollback()
         frappe.local.response['http_status_code'] = status
