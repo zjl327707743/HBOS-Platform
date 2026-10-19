@@ -47,3 +47,28 @@ def test_legacy_model_failure_does_not_claim_citation_validation_failed():
 
 def test_unknown_upstream_classification_fails_closed():
     assert KnowledgeError('/PRIVATE/provider/key').code == 'SERVICE_ERROR'
+
+
+def test_a_source_excerpt_may_cite_a_url_but_model_output_may_not():
+    """Source text and model output are different trust domains.
+
+    A regulation citing its own URL is content; a URL invented by the model is a
+    injection risk. source_string keeps the second protection while allowing the
+    first, and still refuses credentials, markup and CID residue.
+    """
+    from hb_knowledge_app.hb_knowledge.public_strings import safe_string, source_string
+    from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
+    import pytest
+
+    url = '依据 GB50016 见 https://www.mohurd.gov.cn/xx 的说明。'
+    assert source_string(url) == url
+    with pytest.raises(KnowledgeError):
+        safe_string(url)
+
+    for dangerous in ('api_key: sk-123456', '<script>x</script>', '残留 /G21/G22', '私有 \ue011 字符'):
+        with pytest.raises(KnowledgeError):
+            source_string(dangerous)
+
+    # Navigation-encoded traversal is still refused.
+    with pytest.raises(KnowledgeError):
+        source_string('%2e%2e%2fetc%2fpasswd')

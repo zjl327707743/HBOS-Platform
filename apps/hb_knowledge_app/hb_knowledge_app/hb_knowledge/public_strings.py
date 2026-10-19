@@ -10,6 +10,43 @@ DANGER=re.compile(r"(?i)(?:[a-z][a-z0-9+.-]*://|www\.|(?:javascript|data|mailto)
     r"(?:^|[\s\"'(])/(?=[^\s<>，。；、（）？！“”]*(?:[A-Za-z0-9._~%-]|/))(?:[^\s<>]+)|[a-z]:[\\/]|(?:\.\.[\\/])|"
     r"%2f|%5c|\\u[0-9a-f]{4}|<\s*(?:/?[a-z!])[^>]*>|(?:api.?key|token|password|secret)\s*[:=]\s*\S+)")
 
+# Source text is the document's own content, not model output. A regulation that
+# cites a standard's URL, or a table that spells a path, is still the document.
+# The injection defence below targets what a MODEL writes into an answer, so for
+# source excerpts the link/path clauses are dropped while the clauses that catch
+# credentials, markup and encoded traversal are kept.
+DANGER_SOURCE=re.compile(r"(?i)(?:javascript:|data:|mailto:|\.\.[\\/]|\\\\u[0-9a-f]{4}|"
+    r"%2f|%5c|<\s*(?:/?[a-z!])[^>]*>|(?:api.?key|token|password|secret)\s*[:=]\s*\S+)")
+
+PUA=re.compile(r"[\ue000-\uf8ff]")
+CONTROL=re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+CID_GLYPH=re.compile(r"/G\d{2,3}\b")
+
+
+def source_string(value, maximum=None, *, physical_ids=(), nullable=False):
+    """Validate a *source* string for display.
+
+    Allows the document's own URLs and paths (rendered as inert text), while
+    still refusing credentials, markup, encoded traversal, control characters
+    and private-use/CID glyph residue — the things that indicate the text was
+    not actually decoded.
+    """
+    if value is None and nullable:
+        return None
+    if not isinstance(value,str):
+        raise KnowledgeError("UPSTREAM_INVALID_RESULT")
+    normalized=unicodedata.normalize("NFKC",value)
+    for _ in range(3):
+        normalized=html.unescape(unquote(normalized))
+    if (DANGER_SOURCE.search(normalized) or PUA.search(value) or CONTROL.search(value)
+            or CID_GLYPH.search(value)
+            or any(identity and identity in value for identity in physical_ids)):
+        raise KnowledgeError("UPSTREAM_INVALID_RESULT")
+    if maximum is not None and len(value)>maximum:
+        raise KnowledgeError("UPSTREAM_INVALID_RESULT")
+    return value
+
+
 def safe_string(value, maximum=None, *, physical_ids=(), nullable=False):
     if value is None and nullable:
         return None
