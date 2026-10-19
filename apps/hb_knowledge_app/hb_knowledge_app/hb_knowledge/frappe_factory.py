@@ -79,16 +79,25 @@ class HttpGateway:
     def ask(self,*,ticket):
         if getattr(self,'profile',None)!='production':raise KnowledgeError('MODEL_NOT_APPROVED')
         raw=self.http.post('/v1/knowledge/ask',search_body(ticket),ticket.plan.client.client_id)
-        if not isinstance(raw,dict) or set(raw)!={'status','answer','labels','results','answer_origin','model_alias'} or raw['status']!='SUCCESS':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        if not isinstance(raw,dict) or set(raw)!={'status','answer','labels','results','answer_origin','model_alias','answer_status'} or raw['status']!='SUCCESS':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         from .answer_policy import model_alias
         model_alias(raw['model_alias'])
-        if raw['model_alias']!=ticket.plan.model_alias or raw['answer_origin'] not in ('KNOWLEDGE','GENERAL'):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        allowed_status={'GENERATED_WITH_SOURCES','CATALOG_RESULTS','GENERAL_ANSWER','CLARIFICATION','REFERENCE_EXCERPTS','FAILED','INSUFFICIENT_EVIDENCE'}
+        if raw['answer_status'] not in allowed_status or raw['model_alias']!=ticket.plan.model_alias or raw['answer_origin'] not in ('KNOWLEDGE','GENERAL'):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         if raw['answer_origin']=='GENERAL' and (raw['results'] or raw['labels'] or ticket.plan.knowledge_only):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        if raw['answer_status'] in ('CATALOG_RESULTS','CLARIFICATION') and (raw['labels'] or raw['results']):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        if raw['answer_status'] in ('GENERAL_ANSWER','CLARIFICATION') and ticket.plan.knowledge_only:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         from .answer_policy import route_question
-        expected=route_question(ticket.request.query,knowledge_only=ticket.plan.knowledge_only,context=ticket.request.context)
-        if raw['answer_origin']!=expected:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        expected=route_question(ticket.request.query,knowledge_only=ticket.plan.knowledge_only,context=ticket.request.context,history=ticket.request.history)
+        if raw['answer_status']=='GENERAL_ANSWER':
+            if expected!='GENERAL':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        elif raw['answer_status']=='CATALOG_RESULTS':
+            if expected!='CATALOG':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        elif raw['answer_status']=='CLARIFICATION':
+            if expected!='CLARIFICATION':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        elif raw['answer_origin']!=expected:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         from .public_strings import safe_string
-        answer=safe_string(raw['answer'],1500)
+        answer=safe_string(raw['answer'],2000)
         if not isinstance(raw['labels'],list) or len(set(raw['labels']))!=len(raw['labels']) or not isinstance(raw['results'],list) or len(raw['results'])>5:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         from knowledge_service.hbos_gateway.response_projection import public_evidence
         records=[];labels=[];selected={b.binding_ref:b for b in ticket.plan.bindings}
@@ -99,7 +108,7 @@ class HttpGateway:
             r=EvidenceRecord(b.canonical_document_id,b.title,b.business_version,'内部参考／有效性待核',b.section,item['page_number'],item['excerpt'],item['chunk_id'],b.dataset_alias,b.space_id,b.version_id,b.binding_ref,b)
             public_evidence(r,'ASK_PROJECTION_CHECK',environment='production');records.append(r);labels.append(label)
         if set(labels)!=set(raw['labels']):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
-        return answer,labels,records,raw['answer_origin'],raw['model_alias']
+        return answer,labels,records,raw['answer_origin'],raw['model_alias'],raw['answer_status']
 
 def cfg_environment(gateway):
     return gateway.profile
@@ -172,7 +181,7 @@ def authority_search(**ignored):
         raw,principal,decisions=_service_request()
         validate_structure('InternalSearchCompat',raw)
         if raw['client_id']!=principal.client.client_id: raise KnowledgeError('CLIENT_AUTH_FAILED')
-        business={k:v for k,v in raw.items() if k in {'query','limit','space_ids','context','search_mode','model_alias','knowledge_only','answer_caller'}}
+        business={k:v for k,v in raw.items() if k in {'query','limit','space_ids','context','search_mode','model_alias','knowledge_only','answer_caller','history','space_titles'}}
         decisions.verify_request(raw['decision_ref'],normalize_search(business))
         from knowledge_service.hbos_gateway.policy_client import InProcessPolicyClient
         call=InProcessPolicyClient.make_call(raw,'introspect','introspect')

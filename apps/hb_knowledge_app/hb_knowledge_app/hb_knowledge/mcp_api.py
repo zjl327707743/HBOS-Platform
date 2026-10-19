@@ -46,7 +46,7 @@ def dispatch(**ignored):
             elif name=='get_evidence':
                 receipt=dict(result['data'],request_id=getattr(frappe.local,'hbos_knowledge_request_id',None))
                 connections.observe(connection,'Evidence Opened',raw.get('observation'),result=receipt,arguments=arguments)
-            elif name=='ask_knowledge' and result.get('data',{}).get('answer_status')=='REFERENCE_ANSWERED':connections.observe(connection,'Answer Generated',raw.get('observation'))
+            elif name=='ask_knowledge' and result.get('data',{}).get('answer_status') in {'GENERATED_WITH_SOURCES','CATALOG_RESULTS','REFERENCE_ANSWERED'}:connections.observe(connection,'Answer Generated',raw.get('observation'))
         return result
     except KnowledgeError as error:return error_payload(error)
     except Exception:return error_payload(KnowledgeError('SERVICE_ERROR'))

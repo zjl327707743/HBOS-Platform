@@ -1,6 +1,27 @@
 """Knowledge-domain tests use fake providers and no real network."""
 import socket
+import sys
+from pathlib import Path
 import pytest
+
+# The Frappe app is imported as ``hb_knowledge_app`` from its package parent
+# (``apps/hb_knowledge_app``), where ``hb_knowledge_app/`` is the real package.
+# pytest also inserts the repository ``apps`` directory, whose same-named
+# directory is only a container; importing from there yields an empty package
+# with no ``hb_knowledge`` submodule. Put the package parent first and drop a
+# container package that an earlier import may have cached.
+_APP_ROOT = Path(__file__).resolve().parents[1]
+_PACKAGE_PARENT = str(_APP_ROOT)
+if _PACKAGE_PARENT in sys.path:
+    sys.path.remove(_PACKAGE_PARENT)
+sys.path.insert(0, _PACKAGE_PARENT)
+_cached = sys.modules.get('hb_knowledge_app')
+if _cached is not None and not hasattr(_cached, 'hb_knowledge'):
+    # Never evict a module that is currently being imported (this conftest).
+    for _name in [n for n in list(sys.modules)
+                  if (n == 'hb_knowledge_app' or n.startswith('hb_knowledge_app.'))
+                  and n != __name__ and not __name__.startswith(n + '.')]:
+        sys.modules.pop(_name, None)
 
 @pytest.fixture(autouse=True)
 def no_provider_network(monkeypatch):

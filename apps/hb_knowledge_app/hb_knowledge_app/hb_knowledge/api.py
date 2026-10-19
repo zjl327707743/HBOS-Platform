@@ -203,31 +203,54 @@ def ask(**business_fields):
             _,mapping=activity_current(runtime)
             _,previous=owned(raw['conversation_id'],actor,kinds=('History',))
             bindings_for(previous,mapping)
+            from .spaces import list_spaces
+            titles={s['space_id']:s['title'] for s in list_spaces(runtime,actor)['spaces']}
             requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
             from .followup import validate_followup_scope
             validate_followup_scope(previous,requested.space_ids,requested.context)
-            from .followup import followup_query, UNRESOLVED_FOLLOWUP
-            followup=(previous['query']+'；追问：'+question)[:500] if previous.get('answer_origin')=='GENERAL' and question in ('进一步解释','继续解释','举个例子') else followup_query(previous['query'],question)
-            if followup is None:
-                # We do not persist answer structure or copy old answer text as facts.
-                # Ownership and current versions above are still mandatory.
-                request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
-                ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
-                runtime.publication.plan=ticket.plan
-                runtime.quota.reserve_output(actor.user_ref,len(UNRESOLVED_FOLLOWUP))
-                turn=write('History',question,request.space_ids,[],runtime,conversation_id=raw['conversation_id'],context=request.context,
-                    answer=UNRESOLVED_FOLLOWUP,labels=[],question=raw['question'],search_mode=request.search_mode,
-                    answer_origin='KNOWLEDGE',model_alias=selected)
-                activity_current(runtime)
-                runtime.audit.record(actor.user_ref,'ask','INSUFFICIENT_EVIDENCE',0)
-                return {'request_id':request_id,'turn_id':turn,'conversation_id':turn,'mode':'authorized_generation',
-                        'answer_status':'INSUFFICIENT_EVIDENCE','answerable':False,
-                        'answer':UNRESOLVED_FOLLOWUP,'citations':[],'answer_origin':'KNOWLEDGE','model_alias':selected}
-            question=followup
-        request=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
+            # The follow-up question stays the retrieval query; the previous
+            # user/assistant turns travel separately for the generation model.
+            from .followup import conversation_history
+            older=None
+            if previous.get('conversation_id'):
+                _,candidate=owned(previous['conversation_id'],actor,kinds=('History',))
+                bindings_for(candidate,mapping)
+                older=candidate
+            history=conversation_history(previous,older=older)
+            question=raw['question'].strip()[:500]
+            request=normalize_search({'query':question,'history':list(history),'space_titles':titles,
+                **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
+            ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
+            runtime.publication.plan=ticket.plan
+            answer,labels,records,origin,actual_alias,answer_status=runtime.gateway.ask(ticket=ticket)
+            if records:runtime.gateway.authorize_evidence(ticket,records,phase='pre_issue')
+            runtime.provider.revalidate(ticket.plan)
+            from knowledge_service.hbos_gateway.response_projection import public_evidence
+            citations=[]
+            runtime.quota.reserve_output(actor.user_ref,len(answer)+sum(len(r.excerpt) for r in records))
+            for label,record in zip(labels,records):
+                handle=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
+                citations.append(dict(public_evidence(record,handle,environment=runtime.profile),citation_label=label))
+            from .r1_contract import validate_ask_data
+            from .answer_policy import answer_presentation
+            data={'request_id':request_id,'turn_id':request_id,**answer_presentation(answer,bool(citations),origin=='GENERAL',state=answer_status),
+                'answer':answer,'citations':citations,
+                'answer_origin':origin,'model_alias':actual_alias}
+            validate_ask_data(data,environment=runtime.profile)
+            turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context,
+                answer=answer,labels=labels,question=raw['question'],search_mode=request.search_mode,
+                answer_origin=origin,model_alias=actual_alias)
+            data['turn_id']=turn;data['conversation_id']=turn
+            runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
+            runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
+            return data
+        from .spaces import list_spaces
+        titles={s['space_id']:s['title'] for s in list_spaces(runtime,actor)['spaces']}
+        request=normalize_search({'query':question,'space_titles':titles,
+            **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
         ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
         runtime.publication.plan=ticket.plan
-        answer,labels,records,origin,actual_alias=runtime.gateway.ask(ticket=ticket)
+        answer,labels,records,origin,actual_alias,answer_status=runtime.gateway.ask(ticket=ticket)
         if records:runtime.gateway.authorize_evidence(ticket,records,phase='pre_issue')
         runtime.provider.revalidate(ticket.plan)
         from knowledge_service.hbos_gateway.response_projection import public_evidence
@@ -238,7 +261,7 @@ def ask(**business_fields):
             citations.append(dict(public_evidence(record,handle,environment=runtime.profile),citation_label=label))
         from .r1_contract import validate_ask_data
         from .answer_policy import answer_presentation
-        data={'request_id':request_id,'turn_id':request_id,**answer_presentation(answer,bool(citations),origin=='GENERAL'),
+        data={'request_id':request_id,'turn_id':request_id,**answer_presentation(answer,bool(citations),origin=='GENERAL',state=answer_status),
             'answer':answer,'citations':citations,
             'answer_origin':origin,'model_alias':actual_alias}
         validate_ask_data(data,environment=runtime.profile)

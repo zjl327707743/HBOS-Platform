@@ -37,6 +37,8 @@ class SearchRequest:
     model_alias: str | None = None
     knowledge_only: bool = False
     answer_caller: str | None = None
+    history: tuple[tuple[str, str], ...] = ()
+    space_titles: tuple[tuple[str, str], ...] = ()
 
     def to_wire(self):
         value = {"query": self.query, "limit": self.limit, "search_mode": self.search_mode}
@@ -44,6 +46,10 @@ class SearchRequest:
             value["space_ids"] = list(self.space_ids)
         if self.context:
             value["context"] = dict(self.context)
+        if self.history:
+            value["history"] = [{"role": role, "content": text} for role, text in self.history]
+        if self.space_titles:
+            value["space_titles"] = dict(self.space_titles)
         if self.model_alias is not None:
             value.update(model_alias=self.model_alias, knowledge_only=self.knowledge_only,
                          answer_caller=self.answer_caller or 'PORTAL')
@@ -54,7 +60,7 @@ class SearchRequest:
 def normalize_search(raw: dict, *, legacy: bool = False) -> SearchRequest:
     if not isinstance(raw, dict):
         raise KnowledgeError("INVALID_REQUEST")
-    allowed = {"query", "limit", "space_ids", "context", "search_mode", "model_alias", "knowledge_only", "answer_caller"} | (set(CONTEXT_KEYS) if legacy else set())
+    allowed = {"query", "limit", "space_ids", "context", "search_mode", "model_alias", "knowledge_only", "answer_caller", "history", "space_titles"} | (set(CONTEXT_KEYS) if legacy else set())
     if set(raw) - allowed:
         raise KnowledgeError("INVALID_REQUEST")
     raw = dict(raw)
@@ -85,12 +91,38 @@ def normalize_search(raw: dict, *, legacy: bool = False) -> SearchRequest:
         ids = raw["space_ids"]
         if not isinstance(ids, list) or any(not isinstance(v, str) or not v.strip() or v != v.strip() for v in ids):
             raise KnowledgeError("INVALID_REQUEST")
+    if "history" in raw:
+        history = raw["history"]
+        if (not isinstance(history, list) or not history or len(history) > 6
+                or any(not isinstance(turn, dict) or set(turn) != {"role", "content"}
+                       or turn["role"] not in ("user", "assistant")
+                       or not isinstance(turn["content"], str) or not turn["content"].strip()
+                       or len(turn["content"]) > 2000
+                       or any(ch in turn["content"] for ch in ("\x00", "\r"))
+                       for turn in history)):
+            raise KnowledgeError("INVALID_REQUEST")
+        total = sum(len(turn["content"]) for turn in history)
+        if total > 12000:
+            raise KnowledgeError("INVALID_REQUEST")
+        for turn in history:
+            turn["content"] = turn["content"].strip()
+    if "space_titles" in raw:
+        titles = raw["space_titles"]
+        if (not isinstance(titles, dict) or not titles or len(titles) > 20
+                or any(not isinstance(k, str) or not k.strip() or k != k.strip()
+                       or not isinstance(v, str) or not v.strip() or len(v) > 120
+                       for k, v in titles.items())):
+            raise KnowledgeError("INVALID_REQUEST")
+        raw["space_titles"] = sorted((k, v.strip()) for k, v in titles.items())
     validate_structure("SearchRequest", raw)
+    history = tuple((turn["role"], turn["content"]) for turn in raw.get("history", ()))
+    titles = tuple(raw.get("space_titles", ()))
     return SearchRequest(raw["query"], raw.get("limit", 5),
                          tuple(raw["space_ids"]) if "space_ids" in raw else None,
                          tuple(sorted(raw.get("context", {}).items())), raw.get("search_mode", "STANDARD"),
                          raw.get('model_alias'), raw.get('knowledge_only', False),
-                         raw.get('answer_caller') or ('PORTAL' if raw.get('model_alias') else None))
+                         raw.get('answer_caller') or ('PORTAL' if raw.get('model_alias') else None),
+                         history, titles)
 
 def normalize_evidence(raw: dict):
     validate_structure("EvidenceRequest", raw)
@@ -108,6 +140,12 @@ def validate_ask_data(value: dict, *, environment: str):
         ("authorized_generation", "INSUFFICIENT_EVIDENCE", False),
         ("reference_only", "REFERENCE_ONLY", False),
         ("synthetic_test", "SYNTHETIC_TEST", False),
+        # UAT5 explicit answer states produced by the main generation path.
+        ("internal_reference_generation", "GENERATED_WITH_SOURCES", True),
+        ("catalog_results", "CATALOG_RESULTS", True),
+        ("clarification", "CLARIFIED", False),
+        ("reference_excerpts", "REFERENCE_EXCERPTS", False),
+        ("failed", "FAILED", False),
     }
     if triple not in admitted or environment not in {"production", "synthetic"}:
         raise KnowledgeError("INVALID_REQUEST")
@@ -115,6 +153,8 @@ def validate_ask_data(value: dict, *, environment: str):
     if value.get('answer_origin')=='GENERAL':
         if triple!=("general_generation","GENERAL_ANSWERED",True) or citations:raise KnowledgeError('INVALID_REQUEST')
     elif triple[1]=='GENERAL_ANSWERED':raise KnowledgeError('INVALID_REQUEST')
+    if value.get('answer_status') in ("CATALOG_RESULTS","CLARIFIED") and citations:
+        raise KnowledgeError('INVALID_REQUEST')
     if len({c["citation_label"] for c in citations}) != len(citations):
         raise KnowledgeError("INVALID_REQUEST")
     if triple[1] == "REFERENCE_ONLY" and (value["answer"] not in (REFERENCE_TEXT,LEGACY_REFERENCE_TEXT) or not citations):
