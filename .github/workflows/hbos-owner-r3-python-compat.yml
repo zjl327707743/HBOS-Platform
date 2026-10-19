@@ -1,0 +1,139 @@
+name: HBOS Owner R3 Python Compatibility
+
+# Put only this file on a separate evidence PR based on the actual product.
+# Fixed reviewed final-closeout authority; business code is identical to the R11 product.
+# The expected current parent tree is aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620.
+on:
+  pull_request:
+    branches: [feature/hbos-portal-product]
+    paths: ['.github/workflows/hbos-owner-r3-python-compat.yml']
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: '0b99cfc16d9d8141c17f74bd5c417bf5f0f99993'
+  SOURCE_TREE: '1352d978e022125952db20b2535fabd08c614401'
+  PARENT_SHA: '04e0bb033cb2e7156e407cf49a7b6966b0d2a022'
+  PARENT_TREE: 'aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620'
+
+jobs:
+  lims-python-compat:
+    name: LIMS offline / Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12']
+    env:
+      COMPAT_PYTHON: ${{ matrix.python }}
+      HBOS_FRAPPE_SMOKE: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Record requested source and reject unbound placeholders
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          evidence = pathlib.Path(os.environ['RUNNER_TEMP']) / ('hbos-owner-r3-python-compat-' + os.environ['COMPAT_PYTHON'])
+          evidence.mkdir(parents=True, exist_ok=True)
+          requested = {key: os.environ[key] for key in ('SOURCE_SHA', 'SOURCE_TREE', 'PARENT_SHA', 'PARENT_TREE')}
+          requested.update(python_requested=os.environ['COMPAT_PYTHON'], workflow_event_sha=os.environ['GITHUB_SHA'], tests='NOT_RUN')
+          (evidence / 'requested-source.json').write_text(json.dumps(requested, indent=2) + '\n', encoding='utf-8')
+          invalid = [key for key in ('SOURCE_SHA', 'SOURCE_TREE', 'PARENT_SHA', 'PARENT_TREE') if not re.fullmatch(r'[0-9a-f]{40}', requested[key])]
+          if invalid:
+              raise SystemExit('::error::Unbound or invalid full Git object IDs: ' + ', '.join(invalid))
+          PY
+
+      - name: Checkout the exact reviewed candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up matrix Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Verify candidate HEAD, single parent, and both trees
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, pathlib, subprocess, sys
+          evidence = pathlib.Path(os.environ['RUNNER_TEMP']) / ('hbos-owner-r3-python-compat-' + os.environ['COMPAT_PYTHON'])
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          actual = {
+              'source_sha': git('rev-parse', 'HEAD'),
+              'source_tree': git('rev-parse', 'HEAD^{tree}'),
+              'parents': git('show', '-s', '--format=%P', 'HEAD').split(),
+              'expected_parent_actual_tree': git('rev-parse', os.environ['PARENT_SHA'] + '^{tree}'),
+              'python': sys.version,
+              'scope': 'full LIMS offline pytest; no native Site or database',
+          }
+          checks = {
+              'head': actual['source_sha'] == os.environ['SOURCE_SHA'],
+              'single_parent': actual['parents'] == [os.environ['PARENT_SHA']],
+              'source_tree': actual['source_tree'] == os.environ['SOURCE_TREE'],
+              'parent_tree': actual['expected_parent_actual_tree'] == os.environ['PARENT_TREE'],
+              'python_minor': '.'.join(map(str, sys.version_info[:2])) == os.environ['COMPAT_PYTHON'],
+          }
+          actual['checks'] = checks
+          actual['tests'] = 'NOT_RUN'
+          rendered = json.dumps(actual, indent=2)
+          (evidence / 'candidate-verification.json').write_text(rendered + '\n', encoding='utf-8')
+          print(rendered)
+          if not all(checks.values()):
+              raise SystemExit('::error::Candidate identity or Python verification failed')
+          changed = git('diff', '--name-only', os.environ['PARENT_SHA'], os.environ['SOURCE_SHA'])
+          (evidence / 'candidate-changed-files.txt').write_text(changed + '\n', encoding='utf-8')
+          PY
+
+      - name: Install the existing Quality Gate offline dependencies
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/hbos-owner-r3-python-compat-$COMPAT_PYTHON"
+          python -m pip install -q openpyxl pytest pyyaml 2>&1 | tee "$evidence/install.log"
+          python -m pip list --format=json > "$evidence/dependencies.json"
+
+      - name: Run the full existing LIMS offline pytest suite
+        id: lims_tests
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/hbos-owner-r3-python-compat-$COMPAT_PYTHON"
+          export PYTHONPATH="$PWD/apps/hb_lims_app${PYTHONPATH:+:$PYTHONPATH}"
+          python -m pytest -q -p no:cacheprovider apps/hb_lims_app/tests \
+            --junitxml="$evidence/junit.xml" 2>&1 | tee "$evidence/pytest.log"
+
+      - name: Record the actual pytest step outcome
+        if: always()
+        env:
+          TEST_OUTCOME: ${{ steps.lims_tests.outcome }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, xml.etree.ElementTree as ET
+          evidence = pathlib.Path(os.environ['RUNNER_TEMP']) / ('hbos-owner-r3-python-compat-' + os.environ['COMPAT_PYTHON'])
+          evidence.mkdir(parents=True, exist_ok=True)
+          report = {'pytest_step_outcome': os.environ.get('TEST_OUTCOME') or 'NOT_RUN', 'junit_present': (evidence / 'junit.xml').is_file()}
+          if report['junit_present']:
+              document = ET.parse(evidence / 'junit.xml').getroot()
+              suites = [document] if document.tag == 'testsuite' else list(document.iter('testsuite'))
+              report['junit_totals'] = {key: sum(int(suite.get(key, '0')) for suite in suites) for key in ('tests', 'failures', 'errors', 'skipped')}
+          (evidence / 'test-outcome.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(report))
+          PY
+
+      - name: Preserve source evidence, logs, and JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hbos-owner-r3-python-compat-${{ matrix.python }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hbos-owner-r3-python-compat-${{ matrix.python }}/
+          if-no-files-found: error
+          retention-days: 14
