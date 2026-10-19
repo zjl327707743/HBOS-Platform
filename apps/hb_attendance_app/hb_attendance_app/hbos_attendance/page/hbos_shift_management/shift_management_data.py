@@ -10,12 +10,21 @@ def _require_roles(allowed):
         frappe.throw("你无权访问考勤班次管理。", frappe.PermissionError)
 
 
-def _require_hr_read():
-    _require_roles(READ_ROLES)
+def _require_hr_read(operation='attendance.shift.read', **target):
+    from hb_attendance_app.hbos_attendance.portal.role_scope import context
+    bound=context(operation,**target)
+    if bound is None:_require_roles(READ_ROLES)
+    return bound
 
 
-def _require_hr_write():
-    _require_roles(WRITE_ROLES)
+def _require_hr_write(operation='attendance.shift.manage', **target):
+    from hb_attendance_app.hbos_attendance.portal.role_scope import context
+    bound=context(operation,**target)
+    if bound is None:_require_roles(WRITE_ROLES)
+    else:
+        from hbos_portal.iam.guards import require_post
+        require_post()
+    return bound
 
 
 
@@ -88,11 +97,12 @@ def _bindable_family_rows(rules, day):
 @frappe.whitelist()
 def get_shift_overview():
     """班次管理总览：版本记录 + 当前有效版本 + 可绑定的稳定规则族。"""
-    _require_hr_read()
+    bound=_require_hr_read()
     from collections import defaultdict
 
     rules = [_fmt_rule(r) for r in frappe.db.get_all(
         "HBOS Shift Rule",
+        filters={"department":["in",bound["departments"]]} if bound else {},
         fields=["name", "rule_code", "rule_name", "department", "shift_type",
                 "start_time", "end_time", "late_after", "min_hours",
                 "effective_from", "supersedes", "status"],
@@ -101,7 +111,7 @@ def get_shift_overview():
 
     dept_counts = frappe.db.get_all(
         "Employee",
-        filters={"status": "Active"},
+        filters={"status": "Active", **({"department":["in",bound["departments"]]} if bound else {})},
         fields=["department"],
     )
     dept_emp = defaultdict(int)
@@ -143,7 +153,7 @@ def update_shift_rule(rule_name, updates=None, field=None, value=None):
     Legacy one-field calls are rejected deliberately: the old UI emitted three HTTP
     calls and therefore created three versions for one Save action.
     """
-    _require_hr_write()
+    bound=_require_hr_write(rule=rule_name)
     import json as _json
 
     if field is not None or value is not None:
@@ -162,6 +172,10 @@ def update_shift_rule(rule_name, updates=None, field=None, value=None):
         frappe.throw("没有需要保存的班次变更。")
 
     old = frappe.get_doc("HBOS Shift Rule", rule_name)
+    if bound:
+        family=frappe.db.get_all('HBOS Shift Rule',filters={'rule_code':old.rule_code},fields=['department'])
+        if any(row.department not in bound['departments'] for row in family):
+            frappe.throw('规则族包含当前公司范围以外的版本，须先核对。',frappe.PermissionError)
     if old.status == "草稿":
         frappe.throw("草稿规则请先完成配置后再生效，不通过升版接口修改。")
 
@@ -203,7 +217,7 @@ def update_shift_rule(rule_name, updates=None, field=None, value=None):
 @frappe.whitelist()
 def get_department_shifts(department):
     """All versions for one department, with latest-version marker per stable family."""
-    _require_hr_read()
+    bound=_require_hr_read(department=department)
     rules = frappe.db.get_all(
         "HBOS Shift Rule",
         filters={"department": department},
@@ -224,7 +238,7 @@ def get_department_shifts(department):
 @frappe.whitelist()
 def get_department_employees(department):
     """部门人员列表(含固定班次绑定 + 系统名单班次)。"""
-    _require_hr_read()
+    bound=_require_hr_read('attendance.schedule.read',department=department)
     from hb_attendance_app.hbos_attendance.api import (
         ADMIN_NUMS, EXEMPT_NUMS, WUJUN_NUMS, SAFETY_NUMS, FOOD_NUMS,
     )
@@ -267,7 +281,7 @@ def create_shift_rule(rule_name, department, shift_type,
                       start_time, end_time, late_after=None, min_hours=8,
                       effective_from=None):
     """Create the first version of a new stable shift-rule family."""
-    _require_hr_write()
+    bound=_require_hr_write(department=department)
     from hb_attendance_app.hbos_attendance.doctype.hbos_shift_rule.hbos_shift_rule import make_rule_code
 
     if not effective_from:
@@ -323,7 +337,7 @@ def create_shift_rule(rule_name, department, shift_type,
 @frappe.whitelist()
 def bind_employee_shifts(employee, shift_rules):
     """Replace employee bindings using stable rule codes, not version docnames."""
-    _require_hr_write()
+    bound=_require_hr_write('attendance.schedule.bind',employee=employee)
     import json as _json
     try:
         codes = [str(x).strip() for x in _json.loads(shift_rules or "[]") if str(x).strip()]
@@ -337,11 +351,13 @@ def bind_employee_shifts(employee, shift_rules):
         versions = frappe.db.get_all(
             "HBOS Shift Rule",
             filters={"rule_code": code},
-            fields=["name", "status", "effective_from"],
+            fields=["name", "status", "effective_from", "department"],
             order_by="effective_from desc, creation desc",
         )
         if not versions:
             frappe.throw(f"规则族不存在：{code}")
+        if bound and any(row.department not in [*bound['departments'],'全部部门'] for row in versions):
+            frappe.throw('所选班次规则不属于负责公司。',frappe.PermissionError)
         usable = [r for r in versions if r.status != "草稿"]
         if not usable:
             frappe.throw(f"规则族 {code} 只有草稿版本，不能绑定员工。")
@@ -375,7 +391,7 @@ def bind_employee_shifts(employee, shift_rules):
 @frappe.whitelist()
 def get_employee_bound_shifts(employee):
     """Return stable rule codes bound to the employee."""
-    _require_hr_read()
+    bound=_require_hr_read('attendance.schedule.read',employee=employee)
     rows = frappe.db.get_all(
         "HBOS Employee Shift",
         filters={"employee": employee},
@@ -395,11 +411,15 @@ def get_employee_bound_shifts(employee):
 @frappe.whitelist()
 def set_rule_status(rule_name, status):
     """Versioned status change. Historical versions are never mutated in place."""
-    _require_hr_write()
+    bound=_require_hr_write('attendance.shift.status',rule=rule_name)
     if status not in {"生效", "停用"}:
         frappe.throw("状态变更只支持「生效 / 停用」；草稿不允许覆盖已生效历史。")
 
     old = frappe.get_doc("HBOS Shift Rule", rule_name)
+    if bound:
+        family=frappe.db.get_all('HBOS Shift Rule',filters={'rule_code':old.rule_code},fields=['department'])
+        if any(row.department not in bound['departments'] for row in family):
+            frappe.throw('规则族包含当前公司范围以外的版本，须先核对。',frappe.PermissionError)
     latest = frappe.db.get_all(
         "HBOS Shift Rule",
         filters={"rule_code": old.rule_code},
@@ -432,10 +452,14 @@ def set_rule_status(rule_name, status):
 @frappe.whitelist()
 def delete_shift_rule(rule_name):
     """Only an unreferenced draft version may be physically deleted."""
-    _require_hr_write()
+    bound=_require_hr_write('attendance.shift.delete',rule=rule_name)
     if not frappe.db.exists("HBOS Shift Rule", rule_name):
         frappe.throw("规则不存在")
     doc = frappe.get_doc("HBOS Shift Rule", rule_name)
+    if bound:
+        family=frappe.db.get_all('HBOS Shift Rule',filters={'rule_code':doc.rule_code},fields=['department'])
+        if any(row.department not in bound['departments'] for row in family):
+            frappe.throw('规则族包含当前公司范围以外的版本，须先核对。',frappe.PermissionError)
     if doc.status != "草稿":
         frappe.throw("已进入历史链的规则版本不可物理删除；请创建「停用」版本。")
     if frappe.db.exists("HBOS Shift Rule", {"supersedes": doc.name}):

@@ -51,7 +51,7 @@
    "fieldtype": "Select",
    "label": "Subject Type",
    "reqd": 1,
-   "options": "User\nDepartment\nEmployee",
+   "options": "User\nDepartment\nEmployee\nHBOS IAM App Role",
    "read_only": 1
   },
   {

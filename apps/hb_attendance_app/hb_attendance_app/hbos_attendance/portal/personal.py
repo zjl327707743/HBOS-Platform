@@ -54,7 +54,17 @@ def _read_my_attendance(date_from=None, date_to=None, page=1, page_size=20, **kw
     if not decision["allowed"]:
         frappe.throw("尚未安排本人考勤，或安排已停用、失效。", frappe.PermissionError)
     start, end, page, page_size = bounded_request(date_from, date_to, page, page_size)
-    params = {"employee": employee.name, "start": start, "end": end,
+    data = _record_page(employee.name,start,end,page,page_size)
+    # Recheck immediately before returning; no capability result is cached in
+    # the browser or borrowed from a configuration administrator's session.
+    if not policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
+        frappe.throw("考勤安排已变化，请重新加载。", frappe.PermissionError)
+    return {"ok": True, "data": data}
+
+
+def _record_page(employee, start, end, page, page_size):
+    """Private shared query; callers must authorize this exact Employee first."""
+    params = {"employee": employee, "start": start, "end": end,
               "start_time": datetime.combine(start, time.min), "end_time": datetime.combine(end + timedelta(days=1), time.min),
               "limit": page_size, "offset": (page - 1) * page_size}
     # The same bound predicate is shared by rows/count/summary, before any
@@ -73,11 +83,7 @@ def _read_my_attendance(date_from=None, date_to=None, page=1, page_size=20, **kw
     """
     counts = frappe.db.sql("select count(*) as records, count(distinct date) as days from (" + union + ") bounded", params, as_dict=True)[0]
     rows = frappe.db.sql("select * from (" + union + ") bounded order by date desc, time desc, source, id limit %(limit)s offset %(offset)s", params, as_dict=True)
-    # Recheck immediately before returning; no capability result is cached in
-    # the browser or borrowed from a configuration administrator's session.
-    if not policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
-        frappe.throw("考勤安排已变化，请重新加载。", frappe.PermissionError)
     from frappe.utils import nowdate, get_system_timezone
-    return {"ok": True, "data": {"rows": rows, "total": int(counts.records), "page": page, "page_size": page_size,
+    return {"rows": rows, "total": int(counts.records), "page": page, "page_size": page_size,
                                   "date_from": start.isoformat(), "date_to": end.isoformat(), "site_today": nowdate(), "site_timezone": get_system_timezone(),
-                                  "summary": {"records": int(counts.records), "days": int(counts.days)}}}
+                                  "summary": {"records": int(counts.records), "days": int(counts.days)}}

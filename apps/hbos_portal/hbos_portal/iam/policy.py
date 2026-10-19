@@ -15,6 +15,8 @@ MANAGEMENT = {
     "iam.people.create": "新增员工", "iam.people.transfer": "调整部门", "iam.people.disable": "停用账号",
     "iam.people.reset": "重置临时密码", "iam.departments.read": "查看部门", "iam.departments.manage": "安排部门应用",
     "iam.access.read": "查看应用安排", "iam.access.manage": "修改应用安排", "iam.audit.read": "查看变更记录",
+    "iam.roles.read": "查看角色与发布版本", "iam.roles.edit": "保存角色草稿",
+    "iam.roles.publish": "发布角色权限", "iam.roles.assign": "分配应用角色",
 }
 
 
@@ -100,6 +102,13 @@ def registered_apps() -> list[dict]:
         {"id": "iam", "title": "管理中心", "integrated": enabled, "synthetic": False, "operations": [
             _operation(identifier, title, ordinary=False, integrated=enabled, scope_types=["DEPARTMENT", "COMPANY"]) for identifier, title in MANAGEMENT.items()]},
     ]
+    if enabled_flag('hbos_iam_roles_enabled'):
+        from hbos_portal.iam.role_access import OPERATIONS
+        apps[0]['operations'].extend(_operation(identifier, title, ordinary=False, integrated=enabled and integrated,
+            scope_types=['DEPARTMENT', 'COMPANY'] if minimum == 'DEPARTMENT' else ['COMPANY'])
+            for identifier, (title, _, minimum, integrated) in OPERATIONS.items() if identifier != 'attendance.read')
+    else:
+        apps[1]['operations'] = [operation for operation in apps[1]['operations'] if not operation['id'].startswith('iam.roles.')]
     for identifier, title in [("inventory", "库存管理"), ("lims", "质量检验"), ("knowledge", "知识库"), ("twin", "数字孪生")]:
         apps.append({"id": identifier, "title": title, "integrated": False, "synthetic": False, "operations": []})
     demo = enabled and enabled_flag("hbos_iam_test_site") and enabled_flag("hbos_iam_demo_enabled")
@@ -115,6 +124,10 @@ def registered_apps() -> list[dict]:
 
 
 def registration(app_id: str, operation_id: str):
+    if not isinstance(operation_id, str):
+        return None
+    if operation_id.startswith('iam.roles.') and not enabled_flag('hbos_iam_roles_enabled'):
+        return None
     app = next((item for item in registered_apps() if item["id"] == app_id), None)
     if not app or not app["integrated"]:
         return None
@@ -272,6 +285,11 @@ def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overr
                 validate_rule(rule, root=True)
     except ValueError:
         return rejected("已有规则包含未知或未接入的对象与资格，请核对设置。")
+    if app_id == 'attendance' and not operation_id.startswith('iam.') and enabled_flag('hbos_iam_roles_enabled'):
+        from hbos_portal.iam.role_access import decide
+        decision = decide(employee, operation_id, scope_type, scope_ref)
+        if decision is not None:
+            return decision
     company = frappe.db.get_value("Department", scope_ref, "company", for_update=True) if scope_type == "DEPARTMENT" else None
     allowed, reason, source = _decide(own, inherited, app_id, operation_id, scope_type, scope_ref or "", now or _now(), company)
     return {"allowed": allowed, "reason": reason, "source": source}
@@ -322,7 +340,11 @@ def revision_digests(user=None) -> dict:
                 targets["members:" + ref] = frappe.get_all("Department", filters={"company": ref}, fields=["name", "company", "disabled"], order_by="name", limit_page_length=0)
             elif kind == "DEPARTMENT":
                 targets["department:" + ref] = frappe.db.get_value("Department", ref, ["name", "company", "disabled"], as_dict=True, for_update=True)
-        revisions[app_id] = digest({"schema": 2, "role_extension": "not_integrated", "enabled": enabled_flag("hbos_iam_enabled"), "subject": state, "association": association, "departments": departments, "personal_enabled": value(own_doc, "enabled", 1), "personal": rules(own), "inherited": rules(inherited), "registration": app, "delegation_targets": targets})
+        role_dependencies = None
+        if app_id == 'attendance' and enabled_flag('hbos_iam_roles_enabled'):
+            from hbos_portal.iam.role_access import revision_dependencies
+            role_dependencies = revision_dependencies(user)
+        revisions[app_id] = digest({"schema": 3 if role_dependencies is not None else 2, "role_extension": role_dependencies if role_dependencies is not None else "not_integrated", "enabled": enabled_flag("hbos_iam_enabled"), "subject": state, "association": association, "departments": departments, "personal_enabled": value(own_doc, "enabled", 1), "personal": rules(own), "inherited": rules(inherited), "registration": app, "delegation_targets": targets})
     return {"policy_revision": digest(revisions), "app_revisions": revisions}
 
 
@@ -346,6 +368,9 @@ def _target_context(subject_type, subject_name, app_id):
             department = value(row, "department")
             if department:
                 context["departments"][department] = {"state": frappe.db.get_value("Department", department, ["name", "company", "modified"], as_dict=True, for_update=True), "policy": fingerprint("Department", department)}
+        if app_id == 'attendance' and enabled_flag('hbos_iam_roles_enabled'):
+            from hbos_portal.iam.role_access import revision_dependencies
+            context['role_source'] = revision_dependencies(user)
         return context
     if subject_type == "User":
         payload["target"] = user_context(subject_name)
@@ -364,8 +389,23 @@ def effective_work(subject_type, subject_name, app_id, policy_overrides=None, em
     rules, doc = _rules(subject_type, subject_name, policy_overrides)
     now = _now()
     operations = []
+    role_assignment = None
+    role_summary = None
+    if app_id == 'attendance' and enabled_flag('hbos_iam_roles_enabled'):
+        from hbos_portal.iam import role_access as roles
+        if subject_type == 'User':
+            role_employee = employee_context or resolve_employee(subject_name, required=False)
+            role_assignment = roles.resolve(role_employee) if role_employee else None
+        else:
+            defaults = roles.assignments('Department', subject_name, app_id)
+            if defaults:
+                default = defaults[0]
+                role_summary = '已默认安排普通员工；成员能否使用仍按各自账号、发布功能和既有限制核验。' if default.enabled and default.mode == 'DIRECT' else '当前不默认开通角色；个人独立安排保持。'
     for op in app["operations"] if app else []:
         objects = op["objects"]
+        if role_assignment is not None and not op['id'].startswith('iam.') and op['id'] != 'attendance.read':
+            feature = next((row for row in role_assignment.get('features', []) if row['operation_id'] == op['id']), None)
+            objects = [{**scope, 'label': scope['scope_ref']} for scope in role_assignment.get('responsibilities', [])] if feature else []
         if op["id"].startswith("iam."):
             objects = [{"scope_type": r["scope_type"], "scope_ref": r["scope_ref"], "label": r["scope_ref"]} for r in rules if r["operation_id"] == op["id"] and r["scope_type"] in {"DEPARTMENT", "COMPANY"}]
         scopes, sources, reasons = [], [], []
@@ -391,7 +431,7 @@ def effective_work(subject_type, subject_name, app_id, policy_overrides=None, em
             pass
     suspended = any(r["app_id"] == app_id and r["operation_id"] == "app.enter" and r["effect"] == "deny" and r["scope_type"] == "ALL" and r["scope_ref"] == "*" and active(r, now) for r in suspension_rules)
     ordinary_ids = {op["id"] for op in app["operations"] if op["ordinary"] and op["integrated"]} if app else set()
-    return {"subject_type": subject_type, "subject_name": subject_name, "app_id": app_id, "version": value(doc, "version", 0), "context_revision": _target_context(subject_type, subject_name, app_id), "operations": operations, "suspended": suspended, "permission_mode": "personal" if subject_type == "Department" or any(r["app_id"] == app_id and r["operation_id"] in ordinary_ids for r in rules) else "department"}
+    return {"subject_type": subject_type, "subject_name": subject_name, "app_id": app_id, "version": value(doc, "version", 0), "context_revision": _target_context(subject_type, subject_name, app_id), "operations": operations, "suspended": suspended, 'role_summary': role_summary, "permission_mode": ("personal" if role_assignment['source_mode'] == 'direct' else "department") if role_assignment is not None else "personal" if subject_type == "Department" or any(r["app_id"] == app_id and r["operation_id"] in ordinary_ids for r in rules) else "department"}
 
 
 def preview_effective_work(subject_type, subject_name, app_id, rules):

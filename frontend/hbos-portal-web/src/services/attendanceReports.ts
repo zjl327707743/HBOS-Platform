@@ -19,6 +19,7 @@ export interface ReportColumn {
 }
 
 export interface ReportPayload {
+  coverage?: {complete:boolean;rejected_ranges:Array<{department:string;date_from:string;date_to:string;reason:string}>} | null
   report: string
   columns: ReportColumn[]
   data: Record<string, unknown>[]

@@ -28,6 +28,22 @@ export interface AttendanceNavGroup {
   items: AttendanceNavItem[]
 }
 
+/** A fresh managed-role manifest supplies these semantic capabilities. */
+export function attendancePathCapability(path: string): string | null {
+  const normalized=path.replace(/\/+$/,'')
+  const paths:Record<string,string>={
+    '/hbos/attendance':'attendance.company.read',
+    '/hbos/attendance/dashboard':'attendance.company.read',
+    '/hbos/attendance/me':'attendance.read',
+    '/hbos/attendance/board':'attendance.department.board.read',
+    '/hbos/attendance/employees':'attendance.department.records.read',
+    '/hbos/attendance/report/monthly':'attendance.report.monthly.read',
+    '/hbos/attendance/report/checkins':'attendance.report.checkins.read',
+    '/hbos/attendance/report/results':'attendance.report.results.read',
+  }
+  return paths[normalized] || null
+}
+
 export const attendanceNavGroups: AttendanceNavGroup[] = [
   {
     label: '概览',

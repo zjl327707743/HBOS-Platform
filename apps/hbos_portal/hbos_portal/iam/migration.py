@@ -24,4 +24,21 @@ def migrate():
         # non-unique: no existing identity association or empty value is changed.
         frappe.db.add_index('Employee', ['user_id'], index_name='hbos_iam_employee_user_lookup')
         frappe.db.add_index('Employee', ['department'], index_name='hbos_iam_employee_department_lookup')
+    # Schema only. No feature flag, role definition, member or permission is seeded.
+    role_indexes = [
+        ('HBOS IAM App Role', ['app_id', 'role_key'], 'hbos_iam_app_role_key', True),
+        ('HBOS IAM Role Release', ['role', 'revision'], 'hbos_iam_role_release_revision', True),
+        ('HBOS IAM Role Release', ['request_id'], 'hbos_iam_role_release_request', True),
+        ('HBOS IAM Role Feature', ['parenttype', 'parent', 'parentfield', 'operation_id'], 'hbos_iam_role_feature_lookup', False),
+        ('HBOS IAM Role Assignment', ['subject_type', 'subject_name', 'app_id', 'role'], 'hbos_iam_role_assignment_key', True),
+        ('HBOS IAM Role Assignment', ['role', 'app_id', 'enabled'], 'hbos_iam_role_assignment_role', False),
+        ('HBOS IAM Role Assignment', ['subject_type', 'subject_name', 'app_id'], 'hbos_iam_role_assignment_subject', False),
+        ('HBOS IAM Role Scope', ['parenttype', 'parent', 'parentfield', 'scope_type', 'scope_ref'], 'hbos_iam_role_scope_lookup', False),
+    ]
+    for doctype, fields, name, unique in role_indexes:
+        if frappe.db.table_exists(doctype):
+            if unique:
+                frappe.db.add_unique(doctype, fields, constraint_name=name)
+            else:
+                frappe.db.add_index(doctype, fields, index_name=name)
     frappe.clear_cache(doctype='User')

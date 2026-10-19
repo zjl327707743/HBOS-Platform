@@ -72,6 +72,10 @@ def execute(filters=None):
 	has_source_type = frappe.db.has_column("Employee Checkin", "hbos_source_type")
 	conditions = []
 	values = {}
+	from hb_attendance_app.hbos_attendance.portal.role_scope import report_predicate
+	iam_predicate = report_predicate('ec', values)
+	if iam_predicate:
+		conditions.append(iam_predicate)
 	if filters.get("from_date"):
 		conditions.append("date(ec.time) >= %(from_date)s")
 		values["from_date"] = filters["from_date"]

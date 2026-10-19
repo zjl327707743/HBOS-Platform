@@ -8,7 +8,7 @@ import frappe
 
 from hbos_portal.iam import policy
 
-WRITE_CAPABILITIES = {"iam.people.link", "iam.people.provision", "iam.people.create", "iam.people.transfer", "iam.people.disable", "iam.people.reset", "iam.departments.manage", "iam.access.manage"}
+WRITE_CAPABILITIES = {"iam.people.link", "iam.people.provision", "iam.people.create", "iam.people.transfer", "iam.people.disable", "iam.people.reset", "iam.departments.manage", "iam.access.manage", "iam.roles.edit", "iam.roles.publish", "iam.roles.assign"}
 
 
 def isolated_root() -> bool:
@@ -77,10 +77,17 @@ def require_capability(operation_id, department=None, company=None, app_id="iam"
 
 
 def _managed_department(name):
+    if name and policy.enabled_flag('hbos_iam_roles_enabled') and frappe.db.exists('DocType', 'HBOS IAM Role Assignment'):
+        if frappe.db.get_value('HBOS IAM Role Assignment', {'app_id': 'attendance', 'subject_type': 'Department', 'subject_name': name}, 'name', for_update=True):
+            return True
     return bool(name and frappe.db.exists("DocType", policy.POLICY) and frappe.db.get_value(policy.POLICY, {"subject_type": "Department", "subject_name": name}, "name", for_update=True))
 
 
 def _managed_user(user):
+    if user and policy.enabled_flag('hbos_iam_roles_enabled') and frappe.db.exists('DocType', 'HBOS IAM Role Assignment'):
+        employees = frappe.db.sql('select name,department from `tabEmployee` where user_id=%s order by name for update', (user,), as_dict=True)
+        if any(frappe.db.get_value('HBOS IAM Role Assignment', {'app_id': 'attendance', 'subject_type': 'Employee', 'subject_name': policy.value(row, 'name')}, 'name', for_update=True) or _managed_department(policy.value(row, 'department')) for row in employees):
+            return True
     if not user or not frappe.db.exists("DocType", policy.POLICY):
         return False
     if frappe.db.get_value(policy.POLICY, {"subject_type": "User", "subject_name": user}, "name", for_update=True):

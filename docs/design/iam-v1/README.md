@@ -1,17 +1,20 @@
-## 当前：角色落地启动与基线确认（2026-10-19）
+# IAM V1 交接入口
 
-Owner 已确认采用设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d`，授权原目录、`feature/iam-v1`、Draft #52 推进角色正式实现和隔离验收。当前状态 **BASE_SYNC_REQUESTED / CONTRACT_MAPPING_READY / IMPLEMENTATION_NOT_STARTED**，设计确认已经完成，不能继续沿用旧的“无后端实施授权”作为当前停点。
+当前状态：`IAM_ROLE_V1_PARTIAL_IMPLEMENTING / NOT_MERGE_READY`。Owner 已确认设计 `90185653853d508a52cbfb9bb49b6e0cf0bc5a5d`，并批准固定产品 SHA 与共享分工。
 
-产品拟吸收 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf`，现有实现源码 `a38a15ce04bdfd1b8604775c63c5f3db9e458a4b`，共同祖先 `39366822a5b5d6041b9eea94da4f77255ad26761`。实测6个重叠文件、3个文本冲突；仅做Git对象预演，尚未实际merge。按任务第3.2节等待平台固定产品SHA、共享唯一写者和普通同步方式确认；当前执行者只写IAM专属映射/证据，未抢写公共源码/台账/CI。
+沿用 `/Users/hb/Projects/HBOS-IAM-R4-B`、`feature/iam-v1`、Draft [PR #52](https://github.com/zjl327707743/HBOS-Platform/pull/52)。产品 `e3f6a5a04c72f90a17948191665bc82fd7fb00bf` 已普通合并为 `09dd8d68a9d4fa05dc01c33673a2b903598a4f87`，无未解冲突；这是 IAM 候选吸收产品代码。原 5198/8198/9198、5199 设计与 5197 历史保留，无新 Site、clone、工作树、PR 或 Compose。
 
-- [BASE_SYNC_REQUEST与完整分工方案](role-scope-v1/角色落地_BASE_SYNC_REQUEST.md) / [已提交原PR的请求](https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120)
-- [五个精确模型、命令/发布/并发/迁移合同与真实功能接入矩阵](role-scope-v1/角色落地_实现合同与功能接入矩阵.md)
-- [基线、三方预演、服务健康与设计hash的实际只读证据](role-scope-v1/角色落地_基线与只读证据.json) / [固定产品36个HTTP入口与2个内部函数盘点](role-scope-v1/角色落地_产品接口盘点.json)
-- [公共台账最小追加patch（以拟吸收产品SHA为底，由平台单写方应用）](role-scope-v1/角色落地_公共台账候选.patch)
+已实现五个精确持久模型及受控角色 API，接入员工、角色与权限、部门默认三个正式 Vue 交互。草稿不生效；发布原子切换不可变版本，发布前重新核对全部直接/继承引用、成员集、可管理域、可授范围与本人验证。原规则不作正向投影、不被角色保存删除。默认开关 `hbos_iam_roles_enabled=0`；仅本隔离 Site 显式启用并建立有界合成夹具，migrate 不分配人员。
 
-公共台账候选采用零上下文以避免补丁本身的空白上下文触发仓库空白检查；平台确认固定SHA后使用 `git apply --unidiff-zero --check` 核对，再在自身分工窗口应用，不对当前旧基线直接套用。
+真实 HTTP 已通过：两名同角色员工的本人读取、草稿不生效、取消发布不生效、旧预览 409、发布撤销及新版本恢复、重试审计幂等；具名部门面板、员工详情、三类原有报表、公司汇总与班次创建/升版/绑定的正反例，历史依据缺失、跨部门/伪造员工、外部同步和原生全量报表拒绝。发布中途数据库故障回滚为单独的原生 DB 注入证据，本人 proof 在该层 stub，不能冒充 HTTP 全链。
 
-5198、5199、8198本轮健康GET均200，5199内容与批准设计逐字节吻合；5197端口当前无监听，历史原型文件/提交未改。无新增Site/clone/工作树/PR/Compose。没有停止服务、安装角色schema、运行迁移、改账号/密码/时区或启动外部同步。本轮三角色真实业务验收 **NOT_RUN**，不能把36个现入口、旧SELF或历史CI写成新角色已实现。下一执行者沿用本目录；平台确认后才进入自有备份/同步窗口、旧路径回归与角色实际实施。
+- [首批逐项运行证据与未完成边界](role-scope-v1/角色落地_首批逐项运行证据.json)
+- [精确模型、接口、并发合同与目标功能矩阵](role-scope-v1/角色落地_实现合同与功能接入矩阵.md)
+- [实际接入状态与下一步](role-scope-v1/角色落地_首批交接与未完成项.md)
+- [CI 五模型精确名单候选补丁，交平台唯一写者](role-scope-v1/角色落地_CI精确模型名单候选.patch)
+- [历史 BASE_SYNC_REQUEST](role-scope-v1/角色落地_BASE_SYNC_REQUEST.md) / [原 PR 请求](https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120)
+
+公共状态台账与 CI 仍由平台线单写，本线提供候选补丁。新模型使旧七模型门禁按预期拒绝，未把旧 HEAD CI 绿色算为当前通过。公司完整写操作、导入/更正/重算/暂存/导出、时区与全部合并门禁仍未闭合；继续本目录实施，不交付三角色全部可用结论，不自动合并或发布。
 
 ## 历史：UAT-R3（2026-10-19，当时状态）
 

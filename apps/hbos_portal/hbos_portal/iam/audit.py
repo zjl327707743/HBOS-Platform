@@ -11,6 +11,7 @@ from hbos_portal.iam import guards, policy
 EVENT = "HBOS IAM Change Event"
 # Only configuration, lifecycle state and minimal command results. No arbitrary response bodies.
 SAFE_KEYS = {
+    "role", "role_key", "assignment", "release", "content_hash", "draft_version", "published_revision", "source_mode", "review_required", "reference_count", "effective_changed_count", "file_id", "file_hash", "source_operation", "mode",
     "settings", "access_state", "permission_mode", "changes",
     "subject_type", "subject_name", "employee", "employee_id", "user", "user_id", "department", "department_id", "company",
     "app_id", "operation_id", "operation", "effect", "scope_type", "scope_ref", "include_descendants", "valid_from", "valid_until", "qualification_ref",
@@ -105,6 +106,17 @@ def list_events(subject_type=None, subject_name=None, page=1, page_size=20):
     # Resolve authorized subjects before list and count; never count the unscoped log.
     employees = frappe.db.sql("select name,user_id from `tabEmployee` where department in %(departments)s order by name for update", {"departments": tuple(departments)}, as_dict=True) if departments else []
     allowed = {("Department", name) for name in departments} | {("User", policy.value(row, "user_id")) for row in employees if policy.value(row, "user_id")} | {("Employee", policy.value(row, "name")) for row in employees}
+    if policy.enabled_flag('hbos_iam_roles_enabled'):
+        from hbos_portal.iam import role_access as roles
+        for row in frappe.db.sql('select name from `tabHBOS IAM App Role` order by name for update', as_dict=True):
+            role=roles.document(roles.ROLE,row.name)
+            try:
+                for company in roles.management_companies(role):
+                    guards.require_capability('iam.audit.read',company=company)
+                    guards.require_capability('iam.roles.read',company=company,app_id=role.app_id)
+            except frappe.PermissionError:
+                continue
+            allowed.add((roles.ROLE,role.name))
     if subject_type or subject_name:
         if not subject_type or not subject_name or (subject_type, subject_name) not in allowed:
             if not guards.isolated_root():

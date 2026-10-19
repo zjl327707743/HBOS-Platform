@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { canIam, iamSession } from '@/services/iamAccess'
-const links = computed(() => [{path:'/hbos/admin/people',label:'员工管理',cap:'iam.people.read'},{path:'/hbos/admin/departments',label:'部门管理',cap:'iam.departments.read'},{path:'/hbos/admin/access',label:'应用权限',cap:'iam.access.read'},{path:'/hbos/admin/audit',label:'变更审计',cap:'iam.audit.read'}].filter(row => canIam(row.cap)))
+const links = computed(() => [{path:'/hbos/admin/people',label:'员工管理',cap:'iam.people.read'},{path:'/hbos/admin/departments',label:'部门管理',cap:'iam.departments.read'},{path:'/hbos/admin/access',label:'应用权限',cap:'iam.access.read'},{path:'/hbos/admin/roles',label:'角色与权限',cap:'iam.roles.read'},{path:'/hbos/admin/audit',label:'变更审计',cap:'iam.audit.read'}].filter(row => canIam(row.cap)))
 const route=useRoute()
 </script>
 <template><section class="iam-workspace"><div class="iam-title"><span>组织与应用权限</span><p>按当前账号获准的管理范围处理，每项操作由服务端核验。</p></div><nav aria-label="管理中心"><RouterLink v-for="link in links" :key="link.path" :to="link.path">{{ link.label }}</RouterLink></nav><a-alert v-if="!iamSession.ready && !route?.path.endsWith('/unavailable')" :message="iamSession.error || '正在确认当前账号的管理能力，暂不显示管理内容。'" :type="iamSession.error?'warning':'info'" /><RouterView v-if="iamSession.ready || route?.path.endsWith('/unavailable')" /></section></template>

@@ -207,7 +207,7 @@ class LifecycleCurrentReadTest(unittest.TestCase):
             calls.append((kind, filters, kwargs))
             return "POLICY-D2" if kwargs.get("for_update") and filters == {"subject_type": "Department", "subject_name": "D2"} else None
         fake = types.SimpleNamespace(db=Attr(exists=lambda *a: True, get_value=get_value, sql=Mock(return_value=[Attr(department="D2")])))
-        with patch.object(guards, "frappe", fake):
+        with patch.object(guards, "frappe", fake), patch.object(policy, 'enabled_flag', return_value=False):
             self.assertTrue(guards._managed_user("a"))
         self.assertTrue(all(kwargs.get("for_update") for _, _, kwargs in calls))
         self.assertIn("for update", fake.db.sql.call_args.args[0])

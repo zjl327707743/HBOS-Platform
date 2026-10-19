@@ -8,6 +8,14 @@ import frappe
 
 PERSONAL = "hb_attendance_app.hbos_attendance.portal.personal.get_my_attendance"
 BUSINESS_TYPES = {"Attendance", "Employee Checkin"}
+ROLE_BUSINESS_TYPES = {"Attendance Request", "Shift Type", "Shift Assignment",
+    "HBOS Attendance Import Log", "HBOS Shift Rule", "HBOS Employee Shift", "HBOS Employee Schedule",
+    "HBOS Leave Record", "HBOS Overtime Record", "HBOS Rest Leave Record"}
+
+
+def _business_types():
+    return BUSINESS_TYPES | ROLE_BUSINESS_TYPES if frappe.conf.get('hbos_iam_roles_enabled') in (True,1,'1') else BUSINESS_TYPES
+
 HR_ROLES = {"HR User", "HR Manager", "System Manager"}
 REPORT_MODULES = {"HBOS Attendance", "Hbos Attendance"}
 PREPARED_METHODS = "frappe.core.doctype.prepared_report.prepared_report."
@@ -27,6 +35,10 @@ def legacy_hr(user=None, *, for_update=False):
         return False
     if user == "Administrator":
         return True
+    if frappe.conf.get('hbos_iam_roles_enabled') in (True, 1, '1'):
+        from hbos_portal.iam.guards import _managed_user
+        if _managed_user(user):
+            return False
     # A department policy explicitly brings that department into IAM on this
     # opted-in Site. Neither personal nor department-managed users may recover
     # native access from an obsolete coarse HR role.
@@ -62,12 +74,12 @@ def _report_is_attendance(name, seen=None):
         return False
     seen.add(name)
     row = frappe.db.get_value("Report", name, ["ref_doctype", "module", "reference_report"], as_dict=True)
-    return bool(row and (_value(row, "ref_doctype") in BUSINESS_TYPES or _value(row, "module") in REPORT_MODULES or _report_is_attendance(_value(row, "reference_report"), seen)))
+    return bool(row and (_value(row, "ref_doctype") in _business_types() or _value(row, "module") in REPORT_MODULES or _report_is_attendance(_value(row, "reference_report"), seen)))
 
 
 def _attendance_reports():
     rows = frappe.get_all("Report", fields=["name", "ref_doctype", "module", "reference_report"], limit_page_length=0)
-    names = {_value(row, "name") for row in rows if _value(row, "ref_doctype") in BUSINESS_TYPES or _value(row, "module") in REPORT_MODULES}
+    names = {_value(row, "name") for row in rows if _value(row, "ref_doctype") in _business_types() or _value(row, "module") in REPORT_MODULES}
     # Custom Reports can wrap another Custom Report. Do not hide unrelated
     # reports or trust the wrapper's module to classify the underlying data.
     while True:
@@ -90,7 +102,7 @@ def _prepared_is_attendance(name):
 
 def _attachment_is_attendance(doc):
     kind, name = _value(doc, "attached_to_doctype"), _value(doc, "attached_to_name")
-    return kind in BUSINESS_TYPES or (kind == "Report" and _report_is_attendance(name)) or (kind == "Prepared Report" and _prepared_is_attendance(name))
+    return kind in _business_types() or (kind == "Report" and _report_is_attendance(name)) or (kind == "Prepared Report" and _prepared_is_attendance(name))
 
 
 def _file_references(doc):
@@ -126,7 +138,7 @@ def prepared_report_query_conditions(user=None):
 
 
 def _attachment_sql(alias, reports):
-    kinds = ",".join(frappe.db.escape(kind) for kind in sorted(BUSINESS_TYPES))
+    kinds = ",".join(frappe.db.escape(kind) for kind in sorted(_business_types()))
     kind, name = f"coalesce({alias}.`attached_to_doctype`,'')", f"coalesce({alias}.`attached_to_name`,'')"
     conditions = [f"{kind} in ({kinds})"]
     if reports:
@@ -230,7 +242,7 @@ def _json(value):
 
 
 def _check_named_document(kind, name):
-    if kind in BUSINESS_TYPES or (kind == "Report" and _report_is_attendance(name)) or (kind == "Prepared Report" and _prepared_is_attendance(name)):
+    if kind in _business_types() or (kind == "Report" and _report_is_attendance(name)) or (kind == "Prepared Report" and _prepared_is_attendance(name)):
         _deny()
     if kind == "File" and isinstance(name, str):
         row = frappe.db.get_value("File", name, ["name", "file_url", "attached_to_doctype", "attached_to_name"], as_dict=True)
@@ -264,7 +276,15 @@ def check_request():
     command = str(args.get("cmd") or "")
     if "/method/" in path:
         command = path.split("/method/", 1)[1]
-    if command.startswith("hb_attendance_app.") and command != PERSONAL:
+    integrated = {
+        *{'hb_attendance_app.hbos_attendance.page.hbos_employee_management.employee_management_data.' + name for name in ('get_employees','get_departments','get_department_attendance')},
+        *{'hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data.' + name for name in ('get_shift_overview', 'get_department_shifts', 'get_department_employees', 'get_employee_bound_shifts', 'update_shift_rule', 'create_shift_rule', 'set_rule_status', 'delete_shift_rule', 'bind_employee_shifts')},
+        'hb_attendance_app.hbos_attendance.page.hbos_attendance_dashboard.dashboard_data.get_data',
+        'hb_attendance_app.hbos_attendance.page.hbos_department_board.department_board_data.get_data',
+        *{'hb_attendance_app.hbos_attendance.report_data.' + key for key in ('get_monthly_summary','get_checkin_flow','get_attendance_results')},
+    }
+    role_path = frappe.conf.get('hbos_iam_roles_enabled') in (True,1,'1') and command in integrated
+    if command.startswith("hb_attendance_app.") and command != PERSONAL and not role_path:
         _deny()
     for prefix in ("/api/resource/", "/api/v2/document/", "/api/v2/doctype/"):
         if path.startswith(prefix):

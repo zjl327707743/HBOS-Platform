@@ -66,6 +66,7 @@ export interface BoardMeta {
 }
 
 export interface BoardPayload {
+  coverage?: {complete:boolean;rejected_ranges:Array<{department:string;date_from:string;date_to:string;reason:string}>} | null
   departments: { name: string; count: number }[]
   meta: BoardMeta
   stats: BoardStats

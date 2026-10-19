@@ -141,15 +141,17 @@ def get_capabilities(**kwargs):
         # candidate still receives the existing fresh target authorization.
         candidates = set(policy.MANAGEMENT) if guards.isolated_root() else {row["operation_id"] for row in own if row["operation_id"] in policy.MANAGEMENT and policy.registration(row["app_id"], row["operation_id"])}
         for operation in policy.MANAGEMENT:
+            if operation.startswith('iam.roles.') and not policy.enabled_flag('hbos_iam_roles_enabled'):
+                continue
             if operation not in candidates:
                 continue
-            apps = [app["id"] for app in policy.registered_apps() if app["integrated"]] if operation in {"iam.access.read", "iam.access.manage", "iam.departments.manage"} else ["iam"]
+            apps = [app["id"] for app in policy.registered_apps() if app["integrated"]] if operation in {"iam.access.read", "iam.access.manage", "iam.departments.manage"} or operation.startswith('iam.roles.') else ["iam"]
             if any(_current_departments(operation, app_id=app_id) for app_id in apps):
                 capabilities.append(operation)
         if policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
             capabilities.append("attendance.read")
         from hbos_portal.auth.accounts import browser_session_context
-        return {"schema_version": 1, "subject_user": user, "session_context": browser_session_context(), **policy.revision_digests(user), "capabilities": capabilities}
+        return {"schema_version": 1, "subject_user": user, "session_context": browser_session_context(), "app_roles_enabled": policy.enabled_flag('hbos_iam_roles_enabled'), **policy.revision_digests(user), "capabilities": capabilities}
     return _call(load, read_only=True)
 
 

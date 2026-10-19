@@ -5,6 +5,7 @@ import { usePortalStore } from '@/stores/portal'
 import { accountRedirect } from '@/services/accountNavigation'
 import { portalDataSource } from '@/services/portalProvider'
 import { attachPortalSession, ensurePortalSession, portalSession, resetPortalSession } from '@/services/portalSessionCoordinator'
+import { attendancePathCapability } from '@/services/attendanceNav'
 
 /** App shells share the same subject lifecycle as PortalLayout. */
 export function usePortalSession() {
@@ -36,11 +37,21 @@ export function usePortalSession() {
           }
         }
         if (disposed) return false
-        const app = route.path.match(/^\/hbos\/(lims|knowledge|twin|inventory|production)(?:\/|$)/)?.[1]
+        const app = route.path.match(/^\/hbos\/(attendance|lims|knowledge|twin|inventory|production)(?:\/|$)/)?.[1]
         if (app && !portal.apps.some(candidate => candidate.id === app)) {
           accessApproved.value = false
           await router.replace({ path: '/hbos/403', query: { app } })
           return false
+        }
+        if (app === 'attendance') {
+          const manifest=portal.apps.find(candidate=>candidate.id===app)
+          const capabilities=manifest?.accessCapabilities || []
+          const required=attendancePathCapability(route.path)
+          if (capabilities.includes('attendance.role.managed') && (!required || !capabilities.includes(required))) {
+            accessApproved.value=false
+            await router.replace({path:'/hbos/403',query:{app}})
+            return false
+          }
         }
         accessApproved.value = true
         return true
@@ -53,7 +64,7 @@ export function usePortalSession() {
     void pending.finally(() => { if (domainFlight === pending) domainFlight = null })
     return pending
   }
-  const confirmed = () => { if (initialized && !disposed && /\/hbos\/(lims|knowledge|twin|inventory|production)(?:\/|$)/.test(route.path)) void checkAccess(true) }
+  const confirmed = () => { if (initialized && !disposed && /\/hbos\/(attendance|lims|knowledge|twin|inventory|production)(?:\/|$)/.test(route.path)) void checkAccess(true) }
   async function synchronize(): Promise<boolean> {
     if (disposed) return false
     try {

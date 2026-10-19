@@ -56,6 +56,7 @@
       </span>
     </div>
 
+    <a-alert v-if="!error && payload?.coverage && !payload.coverage.complete" type="warning" show-icon message="部分历史归属待核对，对应记录已拒绝读取。当前统计仅含可证范围，不代表完整部门或公司结果。" style="margin-bottom:16px" />
     <a-alert v-if="error" type="error" show-icon :message="error" class="rep-alert" />
 
     <div v-else class="rep-panel glass-surface">

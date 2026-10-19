@@ -9,7 +9,9 @@ def get_data(start_str=None, end_str=None):
 
     Defaults to current week (Mon-Sun) if start_str is not provided.
     """
-    frappe.only_for(["HR Manager", "HR User", "System Manager"])
+    from hb_attendance_app.hbos_attendance.portal.role_scope import require, historical_employees, check_fields
+    bound=require('attendance.company.read')
+    if bound:check_fields({'start_str','end_str'})
     # Default to current week
     today = date.today()
     if not start_str:
@@ -21,10 +23,14 @@ def get_data(start_str=None, end_str=None):
     else:
         end = date.fromisoformat(end_str)
     start_str = start.isoformat()
+    if bound:
+        from hb_attendance_app.hbos_attendance.portal.personal import bounded_request
+        end=min(end,today)
+        start,end,_,_=bounded_request(start.isoformat(),end.isoformat())
     end_str = end.isoformat()
 
     # ---------- Active employee snapshot ----------
-    active_emps = frappe.db.get_all(
+    active_emps = historical_employees(bound,start,end) if bound else frappe.db.get_all(
         "Employee",
         filters={"status": "Active"},
         fields=["name", "employee_name", "employee_number", "department"],
@@ -33,19 +39,25 @@ def get_data(start_str=None, end_str=None):
     total_employees = len(active_emps)
 
     # ---------- Attendance query (all statuses in range) ----------
+    extra=' AND a.employee in %(iam_employees)s' if bound else ''
+    values={'start':start_str,'end':end_str}
+    if bound:values['iam_employees']=tuple(e.name for e in active_emps) or ('',)
     atts = frappe.db.sql(
-        """
+        f"""
         SELECT a.employee, emp.employee_name, emp.employee_number, emp.department,
                a.attendance_date, a.late_entry, a.early_exit, a.status, a.shift, a.working_hours
         FROM tabAttendance a
         JOIN tabEmployee emp ON emp.name = a.employee
         WHERE a.attendance_date BETWEEN %(start)s AND %(end)s
-          AND a.docstatus < 2
+          AND a.docstatus < 2 {extra}
         ORDER BY a.attendance_date DESC
         """,
-        {"start": start_str, "end": end_str},
+        values,
         as_dict=True,
     )
+
+    if bound:
+        for row in atts:row.department=emp_index[row.employee].department
 
     # ---------- Aggregate per employee ----------
     from hb_attendance_app.hbos_attendance.api import _is_exempt
@@ -166,6 +178,7 @@ def get_data(start_str=None, end_str=None):
 
     return {
         # Summary cards
+        "coverage":getattr(active_emps,'coverage',None),
         "total_late": total_late,
         "total_early": total_early,
         "total_absent": total_absent,

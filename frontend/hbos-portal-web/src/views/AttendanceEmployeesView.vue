@@ -38,6 +38,7 @@
         size="middle"
         :scroll="{ y: 560 }"
       >
+        <a-table-column title="考勤" key="records" :width="120"><template #default="{record}"><a-button type="link" @click="openRecords(record)">查看考勤</a-button></template></a-table-column>
         <a-table-column title="工号" data-index="employee_number" key="num" :width="130" />
         <a-table-column title="姓名" data-index="employee_name" key="name" :width="130" />
         <a-table-column title="部门" data-index="department" key="dept" />
@@ -55,11 +56,20 @@
         </a-table-column>
       </a-table>
     </section>
+    <a-modal v-model:open="recordsOpen" :title="selectedEmployee?.employee_name + ' · 员工考勤'" :footer="null" width="800px"><p>按当前负责范围核验所选员工在查询期间的部门归属。</p><a-space wrap><a-input v-model:value="fromDate" type="date" aria-label="员工考勤开始日期"/><a-input v-model:value="toDate" type="date" aria-label="员工考勤结束日期"/><a-button :loading="recordsBusy" @click="loadRecords()">查询</a-button></a-space><a-alert v-if="recordsError" :message="recordsError" type="warning"/><p v-if="recordData">查询期间 {{recordData.date_from}} 至 {{recordData.date_to}} · 共 {{recordData.total}} 条</p><a-table v-if="recordData" :data-source="recordData.rows" :columns="recordColumns" row-key="id" :pagination="{current:recordData.page,pageSize:recordData.page_size,total:recordData.total,onChange:(value:number)=>loadRecords(value)}" :loading="recordsBusy"/></a-modal>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { iamQuery, iamMessage } from '@/services/iamAccess'
+import type { MyAttendance } from '@/types/iam'
+const recordsOpen=ref(false),recordsBusy=ref(false),recordsError=ref(''),selectedEmployee=ref<EmployeeRow|null>(null),recordData=ref<MyAttendance|null>(null),fromDate=ref(''),toDate=ref('')
+const recordColumns=[{title:'日期',dataIndex:'date'},{title:'时间',dataIndex:'time'},{title:'状态',dataIndex:'status'},{title:'来源',dataIndex:'source'}]
+async function openRecords(row:EmployeeRow){selectedEmployee.value=row;recordData.value=null;recordsError.value='';recordsOpen.value=true;await loadRecords()}
+let recordGeneration=0
+async function loadRecords(page=1){if(!selectedEmployee.value)return;recordsBusy.value=true;recordsError.value='';const run=++recordGeneration,target=selectedEmployee.value.name;try{const result=await iamQuery<MyAttendance>('hb_attendance_app.hbos_attendance.page.hbos_employee_management.employee_management_data.get_department_attendance',{employee:selectedEmployee.value.name,department:selectedEmployee.value.department,...(fromDate.value?{date_from:fromDate.value}:{}),...(toDate.value?{date_to:toDate.value}:{}),page,page_size:20});if(run===recordGeneration&&selectedEmployee.value?.name===target)recordData.value=result}catch(e){if(run===recordGeneration){recordsError.value=iamMessage(e);recordData.value=null}}finally{if(run===recordGeneration)recordsBusy.value=false}}
+
 import {
   fetchDepartments,
   fetchEmployees,

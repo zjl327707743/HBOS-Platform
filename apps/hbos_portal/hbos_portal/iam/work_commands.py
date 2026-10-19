@@ -190,6 +190,8 @@ def _operation_state(summary, operation_id):
 
 
 def _summary_text(summary):
+    if summary.get('role_summary') and not summary.get('suspended'):
+        return summary['role_summary']
     if summary.get("suspended"):
         return "已暂停使用此应用，原权限来源保留。"
     texts = []

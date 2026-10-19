@@ -24,14 +24,14 @@ FILTERS = {
 }
 
 
-def verified_rest_dates():
+def verified_rest_dates(employees=None):
     """返回 {employee: {日期}}，仅含已通过且已核实的调休日。
 
     查不到任何记录时返回 {}——调用方按「无豁免」处理即可。
     """
     rows = frappe.db.get_all(
         DOCTYPE,
-        filters=FILTERS,
+        filters={**FILTERS, **({'employee': ['in', employees]} if employees is not None else {})},
         fields=["employee", "start_date", "end_date"],
     )
     return expand_verified_records(rows)

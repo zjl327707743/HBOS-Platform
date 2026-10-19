@@ -7,7 +7,10 @@ import { listDepartments } from '@/services/iamDepartments'
 import { getEffectiveWork, getWorkSubject, previewAppSettings, saveAppSettings, savedWorkResult, changedWork, fixedSelfScope, type WorkDraft } from '@/services/iamWork'
 import { canIam, iamMessage } from '@/services/iamAccess'
 import type { WorkApp, WorkChange, WorkPreview, WorkTarget, WorkScope, AppSettings } from '@/types/iam'
+import RoleSettings from './RoleSettings.vue'
+import { iamSession } from '@/services/iamAccess'
 import AttendanceAccessSummary from './AttendanceAccessSummary.vue'
+const roleSettings = ref<InstanceType<typeof RoleSettings> | null>(null)
 const props = defineProps<{ subjectKind: 'employee' | 'department'; subjectId: string; appId: string }>()
 const viewInstance = import.meta.env.DEV ? getCurrentInstance()?.uid : undefined
 const emit = defineEmits<{ back: []; saved: [] }>()
@@ -40,12 +43,12 @@ async function commit() {
 function impactResult(row: {result?:string;before?:string;after?:string}) { return row.result || [row.before,row.after].filter(text => typeof text === 'string' && text).join(' → ') || '已按当前安排核对' }
 function changeScopes(row: WorkChange, keys: unknown[]) { explicitlyEdited.value.add(row.operation_id); row.scopes = keys.map(key => { const [scope_type, scope_ref] = JSON.parse(String(key)); return {scope_type,scope_ref} }); preview.value = null }
 function toggleWork(row: WorkChange) { explicitlyEdited.value.add(row.operation_id); const fixed=fixedSelfScope(ordinary.value.find(item=>item.operation_id===row.operation_id)); row.scopes=row.enabled ? (fixed ? [fixed] : row.scopes) : []; preview.value=null }
-async function requestLeave() { if (busy.value) return false; if (!dirty.value) return true; return new Promise<boolean>(resolve => Modal.confirm({ title: '放弃尚未保存的工作草稿？', content: '已保存的安排不受影响。', okText: '放弃草稿', cancelText: '继续编辑', onOk: () => resolve(true), onCancel: () => resolve(false) })) }
+async function requestLeave() { if (roleSettings.value) return roleSettings.value.requestLeave(); if (busy.value) return false; if (!dirty.value) return true; return new Promise<boolean>(resolve => Modal.confirm({ title: '放弃尚未保存的工作草稿？', content: '已保存的安排不受影响。', okText: '放弃草稿', cancelText: '继续编辑', onOk: () => resolve(true), onCancel: () => resolve(false) })) }
 async function back() { if (await requestLeave()) emit('back') }
-watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { immediate: true }); defineExpose({ requestLeave })
+watch(() => [props.subjectKind,props.subjectId,props.appId], () => { if (!(iamSession.rolesEnabled && props.appId === 'attendance')) void load() }, { immediate: true }); defineExpose({ requestLeave })
 </script>
 <template>
-<section class="work-settings" :data-view-instance="viewInstance"><output v-if="developmentObservation">本机页面实例 {{ viewInstance }}</output>
+<RoleSettings v-if="iamSession.rolesEnabled && appId === 'attendance'" ref="roleSettings" :subject-kind="subjectKind" :subject-id="subjectId" @back="emit('back')" @saved="emit('saved')"/><section v-else class="work-settings" :data-view-instance="viewInstance"><output v-if="developmentObservation">本机页面实例 {{ viewInstance }}</output>
   <div class="work-head"><a-button :disabled="busy" @click="back">返回应用清单</a-button><h2>{{ app?.title || '应用权限' }}</h2></div>
   <p v-if="identity" class="target-identity">正在设置：{{ identity }}</p>
   <a-alert v-if="error" :message="error" type="warning" show-icon /><a-button v-if="error" :disabled="busy" @click="load(editing)">读取最新设置，保留草稿</a-button>

@@ -106,7 +106,7 @@ def _load_leave_records(date_str, emp_names):
         out.setdefault(r.employee, r.leave_type)
     # 已核实的调休：仅覆盖当日、且属于本次查询人员的
     wanted = set(emp_names)
-    for emp, days in verified_rest_dates().items():
+    for emp, days in verified_rest_dates(emp_names).items():
         if emp in wanted and date_str in days:
             out.setdefault(emp, "调休")
     return out
@@ -238,7 +238,10 @@ def _today():
 @frappe.whitelist()
 def get_data(department=None, date_str=None):
     """部门看板数据。date_str 缺省=今天；仅允许今天及以前（实时/回顾）。"""
-    frappe.only_for(["HR Manager", "HR User", "System Manager"])
+    from hb_attendance_app.hbos_attendance.portal.role_scope import require, historical_employees, check_fields
+    bound = require('attendance.department.board.read', department=department if department != '全部部门' else None)
+    if bound:
+        check_fields({'department','date_str'})
     today = _today()
     if not date_str:
         date_str = today.isoformat()
@@ -255,15 +258,20 @@ def get_data(department=None, date_str=None):
     mode = "live" if target == today else "review"
     weekday = target.weekday()
 
-    emps = frappe.db.get_all(
-        "Employee", filters={"status": "Active"},
-        fields=["name", "employee_number", "employee_name", "department"],
-        order_by="department, employee_number",
-    )
-    if department and department != "全部部门":
-        emps = [e for e in emps if (e.department or "") == department]
+    if bound:
+        emps = historical_employees(bound, target, target)
+        allowed_departments = [dict(name=name, count=sum(e.department==name for e in emps)) for name in bound['departments']]
+    else:
+        emps = frappe.db.get_all(
+            "Employee", filters={"status": "Active"},
+            fields=["name", "employee_number", "employee_name", "department"],
+            order_by="department, employee_number",
+        )
+        if department and department != "全部部门":
+            emps = [e for e in emps if (e.department or "") == department]
+        allowed_departments = _all_depts()
     if not emps:
-        return {"departments": _all_depts(), "meta": {"date": date_str, "mode": mode,
+        return {"coverage":getattr(emps,'coverage',None),"departments": allowed_departments, "meta": {"date": date_str, "mode": mode,
                                                       "now_hm": now.strftime("%H:%M"),
                                                       "scope": department or "全部部门"},
                 "stats": summarize_rows([]), "dept_stats": [], "rows": []}
@@ -342,7 +350,7 @@ def get_data(department=None, date_str=None):
             "anomaly_hidden": p["num"] in ANOMALY_HIDDEN_NUMS,
         })
 
-    return {"departments": _all_depts(), "meta": {"date": date_str, "mode": mode,
+    return {"coverage":getattr(emps,'coverage',None),"departments": allowed_departments, "meta": {"date": date_str, "mode": mode,
                                                   "now_hm": now.strftime("%H:%M"),
                                                   "scope": department or "全部部门"},
             "stats": summarize_rows(rows), "dept_stats": dept_summary(rows), "rows": rows}
