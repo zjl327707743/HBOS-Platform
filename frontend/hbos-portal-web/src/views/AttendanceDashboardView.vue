@@ -4,7 +4,7 @@
       <div>
         <span class="page-kicker">ATTENDANCE · 考勤管理</span>
         <h1>考勤异常仪表盘</h1>
-        <p>{{ data?.date_range || '本周' }} · 数据来自考勤判定引擎的落库结果，本页只做展示投影</p>
+        <p>{{ data?.date_range || '本周' }} · {{ data?.scope ? data.scope + ' · ' : '' }}数据来自考勤判定引擎的落库结果，本页只做展示投影</p>
       </div>
       <a-space>
         <a-range-picker

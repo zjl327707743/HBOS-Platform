@@ -85,8 +85,9 @@ def _managed_department(name):
 
 def _managed_user(user):
     if user and policy.enabled_flag('hbos_iam_roles_enabled') and frappe.db.exists('DocType', 'HBOS IAM Role Assignment'):
-        employees = frappe.db.sql('select name,department from `tabEmployee` where user_id=%s order by name for update', (user,), as_dict=True)
-        if any(frappe.db.get_value('HBOS IAM Role Assignment', {'app_id': 'attendance', 'subject_type': 'Employee', 'subject_name': policy.value(row, 'name')}, 'name', for_update=True) or _managed_department(policy.value(row, 'department')) for row in employees):
+        employees = frappe.db.sql('select name,user_id,department,company,status from `tabEmployee` where user_id=%s order by name for update', (user,), as_dict=True)
+        from hbos_portal.iam import role_access
+        if any(role_access.resolve(row) is not None for row in employees):
             return True
     if not user or not frappe.db.exists("DocType", policy.POLICY):
         return False
@@ -95,7 +96,9 @@ def _managed_user(user):
     if not frappe.db.exists("DocType", "Employee"):
         return False
     employees = frappe.db.sql("select department from `tabEmployee` where user_id=%s for update", (user,), as_dict=True)
-    return any(_managed_department(policy.value(row, "department")) for row in employees)
+    # New department defaults preserve independent legacy sources; the old IAM
+    # policy boundary remains authoritative for native-role bypass prevention.
+    return any(frappe.db.get_value(policy.POLICY, {"subject_type":"Department","subject_name":policy.value(row,"department")}, "name", for_update=True) for row in employees if policy.value(row,"department"))
 
 
 def guard_employee(doc, method=None):

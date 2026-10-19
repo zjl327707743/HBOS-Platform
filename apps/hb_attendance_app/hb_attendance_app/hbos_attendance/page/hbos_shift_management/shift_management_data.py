@@ -114,14 +114,23 @@ def get_shift_overview():
         filters={"status": "Active", **({"department":["in",bound["departments"]]} if bound else {})},
         fields=["department"],
     )
+    if bound:
+        dept_counts=frappe.db.sql("select department from `tabEmployee` where status='Active' and department in %(departments)s and company=(select company from `tabDepartment` iam_department where iam_department.name=tabEmployee.department)",dict(departments=tuple(bound['departments'])),as_dict=True)
     dept_emp = defaultdict(int)
     for d in dept_counts:
         dept_emp[d.department] += 1
 
+    for versions in _group_rule_versions(rules).values():
+        latest=max(versions,key=_rule_sort_key).name
+        for row in versions:row['is_latest']=int(row.name==latest)
     now = frappe.utils.nowtime()
+    if bound:
+        from zoneinfo import ZoneInfo
+        business_now=datetime.now(ZoneInfo('Asia/Shanghai'))
+        now=business_now.strftime('%H:%M:%S')
     now_secs = _to_secs(now)
     now_display = now.split(".")[0][:5]
-    today = frappe.utils.today()
+    today = business_now.date().isoformat() if bound else frappe.utils.today()
 
     active_shifts = []
     for _, versions in _group_rule_versions(rules).items():
@@ -137,7 +146,8 @@ def get_shift_overview():
             active_shifts.append(_fmt_rule(frappe._dict(r)))
 
     return {
-        "departments": sorted(dept_emp.keys()),
+        "departments": sorted(bound["departments"] if bound else dept_emp.keys()),
+        "shift_types": (frappe.get_meta("HBOS Shift Rule").get_field("shift_type").options or "").splitlines(),
         "dept_employee_count": dict(dept_emp),
         "rules": rules,
         "bindable_rules": _bindable_family_rows(rules, today),
@@ -195,6 +205,9 @@ def update_shift_rule(rule_name, updates=None, field=None, value=None):
         datetime.now() + timedelta(days=1)
     ).strftime("%Y-%m-%d")
 
+    if bound:
+        from zoneinfo import ZoneInfo
+        tomorrow=(datetime.now(ZoneInfo('Asia/Shanghai')).date()+timedelta(days=1)).isoformat()
     new_doc = frappe.copy_doc(old)
     new_doc.rule_code = old.rule_code
     new_doc.supersedes = old.name
@@ -262,6 +275,7 @@ def get_department_employees(department):
             return "食堂(不判异常)"
         return "通用倒班(按时间判定)"
 
+    consistency=" AND e.company=(select company from `tabDepartment` iam_department where iam_department.name=e.department)" if bound else ""
     rows = frappe.db.sql("""
         SELECT e.name, e.employee_name, e.employee_number,
                e.hbos_fixed_shift, sr.rule_name as fixed_shift_name,
@@ -269,8 +283,7 @@ def get_department_employees(department):
         FROM tabEmployee e
         LEFT JOIN `tabHBOS Shift Rule` sr ON sr.name = e.hbos_fixed_shift
         WHERE e.department = %s AND e.status = 'Active'
-        ORDER BY e.employee_number
-    """, (department,), as_dict=True)
+    """ + consistency + " ORDER BY e.employee_number", (department,), as_dict=True)
     for r in rows:
         r["system_shift"] = system_shift(r.employee_number or "")
     return rows
@@ -285,7 +298,10 @@ def create_shift_rule(rule_name, department, shift_type,
     from hb_attendance_app.hbos_attendance.doctype.hbos_shift_rule.hbos_shift_rule import make_rule_code
 
     if not effective_from:
-        effective_from = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        if bound:
+            from zoneinfo import ZoneInfo
+            effective_from=(datetime.now(ZoneInfo('Asia/Shanghai')).date()+timedelta(days=1)).isoformat()
+        else:effective_from = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 
     def _norm_time(t):
         if not t:
@@ -356,7 +372,7 @@ def bind_employee_shifts(employee, shift_rules):
         )
         if not versions:
             frappe.throw(f"规则族不存在：{code}")
-        if bound and any(row.department not in [*bound['departments'],'全部部门'] for row in versions):
+        if bound and any(row.department not in bound['departments'] for row in versions):
             frappe.throw('所选班次规则不属于负责公司。',frappe.PermissionError)
         usable = [r for r in versions if r.status != "草稿"]
         if not usable:
@@ -433,6 +449,9 @@ def set_rule_status(rule_name, status):
         return {"rule": old.name, "status": old.status, "versioned": False}
 
     effective_from = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    if bound:
+        from zoneinfo import ZoneInfo
+        effective_from=(datetime.now(ZoneInfo('Asia/Shanghai')).date()+timedelta(days=1)).isoformat()
     new_doc = frappe.copy_doc(old)
     new_doc.rule_code = old.rule_code
     new_doc.supersedes = old.name

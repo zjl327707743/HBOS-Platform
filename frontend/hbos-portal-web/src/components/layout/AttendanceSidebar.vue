@@ -17,7 +17,7 @@
       <ArrowLeftOutlined /><span>返回 HBOS 工作台</span>
     </button>
 
-    <nav><RouterLink v-if="managed && access.includes('attendance.read')" class="local-nav" to="/hbos/attendance/me">我的考勤</RouterLink>
+    <nav><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.rules.')||op==='attendance.schedule.generate')" class="local-nav" to="/hbos/attendance/rules">规则与重算</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.shift.')||op==='attendance.schedule.read'||op==='attendance.schedule.bind')" class="local-nav" to="/hbos/attendance/shifts">班次与排班</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.correction.'))" class="local-nav" to="/hbos/attendance/corrections">考勤更正</RouterLink><RouterLink v-if="managed && access.includes('attendance.read')" class="local-nav" to="/hbos/attendance/me">我的考勤</RouterLink>
       <template v-for="group in visibleGroups" :key="group.label">
         <div class="nav-section-label">{{ group.label }}</div>
         <RouterLink

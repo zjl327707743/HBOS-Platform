@@ -67,6 +67,9 @@ def get_provider() -> AttendancePortalProvider:
 
 
 ROLE_ROUTES = {
+    **{op:'/hbos/attendance/shifts' for op in ('attendance.shift.read','attendance.shift.manage','attendance.shift.status','attendance.shift.delete','attendance.schedule.read','attendance.schedule.bind')},
+    **{op:'/hbos/attendance/rules' for op in ('attendance.rules.manage','attendance.rules.recalculate','attendance.schedule.generate')},
+    **{'attendance.correction.'+action:'/hbos/attendance/corrections' for action in ('create','submit','cancel','amend')},
     'attendance.department.records.read':'/hbos/attendance/employees',
     'attendance.company.read':'/hbos/attendance',
     'attendance.read':'/hbos/attendance/me',
@@ -94,7 +97,8 @@ def _role_context():
 
 
 def _role_route(capabilities):
-    return next((path for operation,path in ROLE_ROUTES.items() if operation in capabilities), '/hbos/attendance')
+    priority=('attendance.company.read','attendance.department.board.read','attendance.department.records.read','attendance.read')
+    return next((ROLE_ROUTES[operation] for operation in (*priority,*ROLE_ROUTES) if operation in capabilities), '/hbos/attendance')
 
 
 def _personal_allowed():

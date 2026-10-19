@@ -12,6 +12,7 @@ from datetime import datetime, time
 import frappe
 
 _report = ContextVar('attendance_role_report', default=None)
+_correction_cancel = ContextVar('attendance_role_correction_cancel', default=None)
 
 
 class HistoricalEmployees(list):
@@ -79,9 +80,19 @@ def context(operation, *, department=None, employee=None, rule=None):
         department=frappe.db.get_value('HBOS Shift Rule',rule,'department',for_update=True)
     if employee:
         department=frappe.db.get_value('Employee',employee,'department',for_update=True)
+        company=frappe.db.get_value('Employee',employee,'company',for_update=True)
+        if not department or not company or company!=frappe.db.get_value('Department',department,'company',for_update=True):
+            frappe.throw('员工与部门公司归属不一致，须先核对。',frappe.PermissionError)
     if (employee or rule) and not department or department and department not in departments:
         frappe.throw('该员工、班次或部门不在当前具名负责范围内。',frappe.PermissionError)
-    return dict(user=user,departments=[department] if department else departments,operation=operation)
+    label='部门：'+department if department else '、'.join(('公司：' if row['scope_type']=='COMPANY' else '负责部门：')+row['scope_ref'] for row in resolved['responsibilities'])
+    return dict(user=user,departments=[department] if department else departments,operation=operation,scope_label=label)
+
+
+def current_company_predicate(alias):
+    if alias not in {'e','emp','tabEmployee'}:
+        raise ValueError('Unknown employee source')
+    return f'{alias}.company=(select company from `tabDepartment` iam_department where iam_department.name={alias}.department)'
 
 
 def require(operation, **target):
@@ -100,8 +111,18 @@ def _historical_department(employee, start, end):
 
     An unprovable period or a transition inside it is refused. SELF is separate.
     """
-    from frappe.utils import get_datetime
-    if not frappe.get_meta('Employee').track_changes or not employee.creation or get_datetime(employee.creation)>start:
+    from frappe.utils import get_datetime, get_system_timezone
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    frozen=getattr(frappe,'conf',{}).get('hbos_iam_role_native_clock_zone')
+    if not frozen or frozen != get_system_timezone():
+        return None  # A Site clock change needs its own proven cutover plan.
+    try:
+        native_zone=ZoneInfo(frozen)
+    except (ValueError,ZoneInfoNotFoundError):
+        return None
+    def native_time(value):
+        return get_datetime(value).replace(tzinfo=native_zone).astimezone(ZoneInfo('Asia/Shanghai')).replace(tzinfo=None)
+    if not frappe.get_meta('Employee').track_changes or not employee.creation or native_time(employee.creation)>start:
         return None
     department,company=employee.department,employee.company
     versions=frappe.db.sql("select creation,data from `tabVersion` where ref_doctype='Employee' and docname=%s order by creation desc,name desc for update",(employee.name,),as_dict=True)
@@ -114,7 +135,7 @@ def _historical_department(employee, start, end):
             if not isinstance(change,list) or len(change)!=3 or change[0] not in {'department','company'}:
                 continue
             field,old,new=change
-            stamp=get_datetime(version.creation)
+            stamp=native_time(version.creation)
             if stamp<=start:
                 continue
             current=department if field=='department' else company
@@ -156,6 +177,10 @@ def historical_employees(bound, start, end):
         if department in departments:
             actual_company=frappe.db.get_value('Department',department,'company',for_update=True)
             if actual_company!=company:
+                employees.coverage['complete']=False
+                continue
+            stated=frappe.db.sql("select distinct company from `tabAttendance` where employee=%s and attendance_date between %s and %s and docstatus<2 and coalesce(company,'')<>'' for update",(employee.name,start.date(),end.date()),as_dict=True)
+            if any(item.company!=company for item in stated):
                 employees.coverage['complete']=False
                 continue
             employees.append(frappe._dict({**employee,'department':department,'company':company}))

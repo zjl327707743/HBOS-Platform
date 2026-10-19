@@ -71,3 +71,7 @@ doc_events = {
 }
 before_request = ["hb_attendance_app.hbos_attendance.portal.permissions.check_request"]
 before_job = ["hb_attendance_app.hbos_attendance.portal.permissions.check_background_job"]
+
+override_doctype_class = {
+    'Attendance Request': 'hb_attendance_app.hbos_attendance.portal.attendance_request.ScopedAttendanceRequest',
+}

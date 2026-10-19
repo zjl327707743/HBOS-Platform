@@ -25,7 +25,6 @@ def get_data(start_str=None, end_str=None):
     start_str = start.isoformat()
     if bound:
         from hb_attendance_app.hbos_attendance.portal.personal import bounded_request
-        end=min(end,today)
         start,end,_,_=bounded_request(start.isoformat(),end.isoformat())
     end_str = end.isoformat()
 
@@ -179,6 +178,7 @@ def get_data(start_str=None, end_str=None):
     return {
         # Summary cards
         "coverage":getattr(active_emps,'coverage',None),
+        "scope":bound['scope_label'] if bound else None,
         "total_late": total_late,
         "total_early": total_early,
         "total_absent": total_absent,

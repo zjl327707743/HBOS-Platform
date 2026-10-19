@@ -5,7 +5,7 @@ import { usePortalStore } from '@/stores/portal'
 import { accountRedirect } from '@/services/accountNavigation'
 import { portalDataSource } from '@/services/portalProvider'
 import { attachPortalSession, ensurePortalSession, portalSession, resetPortalSession } from '@/services/portalSessionCoordinator'
-import { attendancePathCapability } from '@/services/attendanceNav'
+import { attendanceCapabilityAllowed, attendancePathCapability } from '@/services/attendanceNav'
 
 /** App shells share the same subject lifecycle as PortalLayout. */
 export function usePortalSession() {
@@ -47,7 +47,8 @@ export function usePortalSession() {
           const manifest=portal.apps.find(candidate=>candidate.id===app)
           const capabilities=manifest?.accessCapabilities || []
           const required=attendancePathCapability(route.path)
-          if (capabilities.includes('attendance.role.managed') && (!required || !capabilities.includes(required))) {
+          const allowed=attendanceCapabilityAllowed(required,capabilities)
+          if (capabilities.includes('attendance.role.managed') && !allowed) {
             accessApproved.value=false
             await router.replace({path:'/hbos/403',query:{app}})
             return false

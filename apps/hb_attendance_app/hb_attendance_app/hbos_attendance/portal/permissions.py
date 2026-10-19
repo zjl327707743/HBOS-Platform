@@ -10,7 +10,7 @@ PERSONAL = "hb_attendance_app.hbos_attendance.portal.personal.get_my_attendance"
 BUSINESS_TYPES = {"Attendance", "Employee Checkin"}
 ROLE_BUSINESS_TYPES = {"Attendance Request", "Shift Type", "Shift Assignment",
     "HBOS Attendance Import Log", "HBOS Shift Rule", "HBOS Employee Shift", "HBOS Employee Schedule",
-    "HBOS Leave Record", "HBOS Overtime Record", "HBOS Rest Leave Record"}
+    "HBOS Attendance Policy Assignment", "HBOS Leave Record", "HBOS Overtime Record", "HBOS Rest Leave Record"}
 
 
 def _business_types():
@@ -266,6 +266,17 @@ def _deny():
     frappe.throw("此入口未向当前账号开放。请使用“我的考勤”；部门报表和导出暂未接入。", frappe.PermissionError)
 
 
+def _check_widget_source(kind, name=None, raw=None):
+    if kind not in {'Dashboard Chart','Number Card','Dashboard Chart Source'}:return
+    fields=[field for field in ('document_type','report_name','source','method') if frappe.db.has_column(kind,field)]
+    row=raw if isinstance(raw,dict) else frappe.db.get_value(kind,name,fields,as_dict=True) if name and fields else None
+    if not row:return
+    if _value(row,'document_type') in _business_types() or _report_is_attendance(_value(row,'report_name')) or str(_value(row,'method') or '').startswith('hb_attendance_app.'):
+        _deny()
+    if kind=='Dashboard Chart' and _value(row,'source'):
+        _check_widget_source('Dashboard Chart Source',_value(row,'source'))
+
+
 def check_request():
     request = getattr(frappe.local, "request", None)
     user = getattr(frappe.session, "user", None)
@@ -277,6 +288,8 @@ def check_request():
     if "/method/" in path:
         command = path.split("/method/", 1)[1]
     integrated = {
+        *{'hb_attendance_app.hbos_attendance.portal.calculations.'+name for name in ('calculation_employees','preview_calculation','execute_calculation','get_employee_policies','save_employee_policy')},
+        *{'hb_attendance_app.hbos_attendance.portal.corrections.' + name for name in ('list_correction_employees','list_corrections','get_correction_context','create_correction','update_correction','transition_correction')},
         *{'hb_attendance_app.hbos_attendance.page.hbos_employee_management.employee_management_data.' + name for name in ('get_employees','get_departments','get_department_attendance')},
         *{'hb_attendance_app.hbos_attendance.page.hbos_shift_management.shift_management_data.' + name for name in ('get_shift_overview', 'get_department_shifts', 'get_department_employees', 'get_employee_bound_shifts', 'update_shift_rule', 'create_shift_rule', 'set_rule_status', 'delete_shift_rule', 'bind_employee_shifts')},
         'hb_attendance_app.hbos_attendance.page.hbos_attendance_dashboard.dashboard_data.get_data',
@@ -300,6 +313,15 @@ def check_request():
         _check_document_payload(_json(args.get(field)))
     if command.startswith(("hrms.hr.doctype.employee_checkin.", "hrms.hr.doctype.attendance.")):
         _deny()
+    if frappe.conf.get('hbos_iam_roles_enabled') in (True,1,'1'):
+        if command.startswith(('hrms.hr.doctype.shift_','hrms.hr.doctype.attendance_request.')) or command in {
+            'hrms.api.'+name for name in ('get_attendance_calendar_events','get_attendance_for_calendar','get_shift_requests','get_attendance_requests','get_shift_request_approvers','get_shifts')
+        }:
+            _deny()
+        widgets={'frappe.desk.doctype.dashboard_chart.dashboard_chart.':'Dashboard Chart','frappe.desk.doctype.number_card.number_card.':'Number Card'}
+        for prefix,kind in widgets.items():
+            if command.startswith(prefix):
+                _check_widget_source(kind,args.get('chart_name') or args.get('card_name') or args.get('name'),_json(args.get('doc')))
     report = args.get("report_name") or args.get("report")
     if _report_is_attendance(report):
         _deny()

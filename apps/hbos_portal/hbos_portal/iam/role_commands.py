@@ -143,7 +143,8 @@ def _member_context(employee):
         rows, doc = policy._rules(kind, name)
         policies.append(dict(subject_type=kind, subject_name=name, version=policy.value(doc, 'version', 0), enabled=policy.value(doc, 'enabled', 1),
                              rules=[{**row, 'active': policy.active(row, now)} for row in rows if row['app_id'] == 'attendance']))
-    return dict(employee=dict(employee), user=user, policies=policies,
+    native_roles=frappe.db.sql("select role from `tabHas Role` where parenttype='User' and parent=%s order by role for update", (employee.user_id,), as_dict=True) if employee.user_id else []
+    return dict(employee=dict(employee), user=user, policies=policies, native_roles=native_roles, legacy_personal=roles.preserves_legacy_personal(employee),
                 direct=[row.as_dict() for row in roles.assignments('Employee', employee.name)],
                 default=[row.as_dict() for row in roles.assignments('Department', employee.department)] if employee.department else [])
 
@@ -200,7 +201,7 @@ def _references(role):
         context = _member_context(employee)
         contexts.append(context)  # Includes excluded DIRECT/NONE rows to detect membership changes.
         own = context['direct'][0] if context['direct'] else None
-        if employee.name in direct or employee.department in departments and (not own or own['mode'] == 'FOLLOW_DEPARTMENT'):
+        if employee.name in direct or employee.department in departments and (own and own['mode'] == 'FOLLOW_DEPARTMENT' or not own and not roles.preserves_legacy_personal(employee)):
             members.append(employee)
     if direct - {employee.name for employee in candidates}:
         frappe.throw('角色包含失效员工引用，须先核对。', frappe.PermissionError)
@@ -354,7 +355,7 @@ def get_assignment(employee_id, app_id):
     own = roles.assignments('Employee', employee_id, app_id)
     resolved = roles.resolve(employee, app_id)
     return dict(employee=employee_id, department=employee.department, company=employee.company, version=int(policy.value(own[0], 'version', 0)) if own else 0,
-                mode=own[0].mode if own else 'FOLLOW_DEPARTMENT', role_key=policy.value(resolved, 'role_key', ''),
+                mode=own[0].mode if own else 'LEGACY' if roles.preserves_legacy_personal(employee) else 'FOLLOW_DEPARTMENT', role_key=policy.value(resolved, 'role_key', ''),
                 selected_role=resolved, effective_access=_effective(employee, resolved),
                 responsibilities=[roles.scope_dict(row) for row in own[0].responsibilities] if own else [],
                 roles=[{'role_key': key, 'title': title, 'boundary_kind': boundary} for key, (title, boundary) in roles.BLUEPRINTS.items()])
@@ -386,7 +387,7 @@ def _department_plan(department, app_id, role_key, expected_version):
         context = _member_context(employee)
         contexts.append(context)
         own = context['direct'][0] if context['direct'] else None
-        if own and own['mode'] != 'FOLLOW_DEPARTMENT':
+        if own and own['mode'] != 'FOLLOW_DEPARTMENT' or not own and roles.preserves_legacy_personal(employee):
             personal_preserved += 1
             continue
         before = _effective(employee, roles.resolve(employee))

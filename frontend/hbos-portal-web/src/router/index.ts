@@ -85,6 +85,9 @@ const router = createRouter({
       children: [
         { path: '', name: 'attendance-dashboard', component: AttendanceDashboardView, meta: { title: '考勤管理' } },
         { path: 'employees', name: 'attendance-employees', component: AttendanceEmployeesView, meta: { title: '人员管理' } },
+        { path: 'rules', component: () => import('@/views/AttendanceRulesView.vue'), meta: { title: '规则与重算' } },
+        { path: 'shifts', component: () => import('@/views/AttendanceShiftsView.vue'), meta: { title: '班次与排班' } },
+        { path: 'corrections', name: 'attendance-corrections', component: () => import('@/views/AttendanceCorrectionsView.vue'), meta: { title: '考勤更正' } },
         { path: 'board', name: 'attendance-board', component: AttendanceBoardView, meta: { title: '部门看板' } },
         { path: 'report/:slug', name: 'attendance-report', component: AttendanceReportView, meta: { title: '考勤报表' } },
         { path: 'list/:slug', name: 'attendance-list', component: AttendanceListView, meta: { title: '考勤记录' } },

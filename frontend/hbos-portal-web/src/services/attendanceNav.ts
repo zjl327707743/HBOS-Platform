@@ -40,8 +40,18 @@ export function attendancePathCapability(path: string): string | null {
     '/hbos/attendance/report/monthly':'attendance.report.monthly.read',
     '/hbos/attendance/report/checkins':'attendance.report.checkins.read',
     '/hbos/attendance/report/results':'attendance.report.results.read',
+    '/hbos/attendance/corrections':'attendance.correction',
+    '/hbos/attendance/shifts':'attendance.shift',
+    '/hbos/attendance/rules':'attendance.rules',
   }
   return paths[normalized] || null
+}
+
+export function attendanceCapabilityAllowed(required:string|null, capabilities:string[]):boolean {
+  if(required==='attendance.correction')return capabilities.some(op=>op.startsWith(required+'.'))
+  if(required==='attendance.shift')return capabilities.some(op=>op.startsWith('attendance.shift.')||op==='attendance.schedule.read'||op==='attendance.schedule.bind')
+  if(required==='attendance.rules')return capabilities.some(op=>op.startsWith('attendance.rules.')||op==='attendance.schedule.generate')
+  return Boolean(required&&capabilities.includes(required))
 }
 
 export const attendanceNavGroups: AttendanceNavGroup[] = [

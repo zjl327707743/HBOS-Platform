@@ -34,15 +34,16 @@ OPERATIONS = {
     'attendance.schedule.read': ('查看员工排班', 'schedule', 'COMPANY', True),
     'attendance.schedule.bind': ('安排员工班次', 'schedule', 'COMPANY', True),
     'attendance.schedule.import': ('导入员工排班', 'import', 'COMPANY', False),
-    'attendance.schedule.generate': ('生成轮班排班', 'rules', 'COMPANY', False),
+    'attendance.schedule.generate': ('生成轮班排班', 'rules', 'COMPANY', True),
     'attendance.import.preview': ('预览考勤导入', 'import', 'COMPANY', False),
     'attendance.import.execute': ('提交考勤导入', 'import', 'COMPANY', False),
     'attendance.import.monthly': ('导入月度考勤', 'import', 'COMPANY', False),
-    'attendance.correction.create': ('登记考勤更正', 'correction', 'COMPANY', False),
-    'attendance.correction.submit': ('提交考勤更正', 'correction', 'COMPANY', False),
-    'attendance.correction.cancel': ('取消考勤更正', 'correction', 'COMPANY', False),
-    'attendance.correction.amend': ('修订考勤更正', 'correction', 'COMPANY', False),
-    'attendance.rules.recalculate': ('重新计算考勤', 'rules', 'COMPANY', False),
+    'attendance.correction.create': ('登记考勤更正', 'correction', 'COMPANY', True),
+    'attendance.correction.submit': ('提交考勤更正', 'correction', 'COMPANY', True),
+    'attendance.correction.cancel': ('取消考勤更正', 'correction', 'COMPANY', True),
+    'attendance.correction.amend': ('修订考勤更正', 'correction', 'COMPANY', True),
+    'attendance.rules.recalculate': ('重新计算考勤', 'rules', 'COMPANY', True),
+    'attendance.rules.manage': ('配置员工考勤规则', 'rules', 'COMPANY', True),
     'attendance.report.checkins.read': ('查看打卡流水报表', 'reports', 'DEPARTMENT', True),
     'attendance.report.results.read': ('查看考勤结果报表', 'reports', 'DEPARTMENT', True),
     'attendance.report.monthly.read': ('查看月度考勤汇总', 'reports', 'DEPARTMENT', True),
@@ -183,6 +184,22 @@ def management_companies(role):
 _UNSET = object()
 
 
+def preserves_legacy_personal(employee):
+    """An unset new association never overwrites an existing independent source."""
+    user=policy.value(employee,'user_id')
+    if not user:return False
+    rules,doc=policy._rules('User',user)
+    stored=policy.value(doc,'rules',[]) if doc else []
+    if any(policy.value(row,'app_id')=='attendance' and policy.value(row,'operation_id')!='app.enter' and not str(policy.value(row,'operation_id') or '').startswith('iam.') for row in stored):
+        return True
+    # Existing un-managed native HR remains on its original executor until an
+    # explicit personal association opts it in. Old IAM management still wins.
+    if doc or policy.get_policy('Department',policy.value(employee,'department'),for_update=True):
+        return False
+    native=frappe.db.sql("select role from `tabHas Role` where parenttype='User' and parent=%s order by role for update",(user,),as_dict=True)
+    return bool({policy.value(row,'role') for row in native}&{'HR User','HR Manager','System Manager'})
+
+
 def resolve(employee, app_id='attendance', *, own_override=_UNSET, default_override=_UNSET):
     """None means this subject is still on the exact legacy evaluator."""
     if not enabled() or app_id != 'attendance':
@@ -192,6 +209,8 @@ def resolve(employee, app_id='attendance', *, own_override=_UNSET, default_overr
     own = own[0] if own else None
     if own_override is not _UNSET:
         own = own_override
+    if not own and preserves_legacy_personal(employee):
+        return None
     inherited = None
     if not own or own.mode == 'FOLLOW_DEPARTMENT':
         department = policy.value(employee, 'department')

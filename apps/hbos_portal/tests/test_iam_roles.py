@@ -72,3 +72,17 @@ class RolePolicyTest(unittest.TestCase):
         context['responsibilities']=[dict(scope_type='COMPANY',scope_ref='C',include_descendants=0)]
         self.assertTrue(roles.decide(self.employee,'attendance.company.read','DEPARTMENT','D1',resolved=context)['allowed'])
         self.assertFalse(roles.decide(self.employee,'attendance.company.read','COMPANY','OTHER',resolved=context)['allowed'])
+
+    def test_unset_role_association_preserves_old_personal_rule_source(self):
+        self.store('User','a',[rule('app.enter'),rule('attendance.read')])
+        with patch.object(roles,'require_available'),patch.object(roles,'assignments',return_value=[]):
+            self.assertTrue(roles.preserves_legacy_personal(self.employee))
+            self.assertIsNone(roles.resolve(self.employee))
+
+    def test_unmanaged_native_HR_is_not_silently_migrated_by_a_department_default(self):
+        self.db.policies.clear()
+        original=self.db.sql
+        self.db.sql=lambda query,*a,**k:[Attr(role='HR User')] if 'tabHas Role' in query else original(query,*a,**k)
+        with patch.object(roles,'require_available'),patch.object(roles,'assignments',return_value=[]):
+            self.assertTrue(roles.preserves_legacy_personal(self.employee))
+            self.assertIsNone(roles.resolve(self.employee))

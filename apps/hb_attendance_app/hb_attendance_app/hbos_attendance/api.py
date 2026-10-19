@@ -364,7 +364,7 @@ def regenerate_attendance(range_start, range_end):
         raise
 
 
-def _regenerate_attendance_impl(range_start, range_end):
+def _regenerate_attendance_impl(range_start, range_end, *, employee_scope=None):
     """按 HBOS 配对算法重新生成 Attendance；事务边界由 regenerate_attendance 管理。
 
     流程:
@@ -377,17 +377,39 @@ def _regenerate_attendance_impl(range_start, range_end):
     from datetime import datetime as _dt, timedelta as _td
     from datetime import date as _date, timedelta as _tdelta
 
+    # Only a trusted in-process adapter supplies this immutable historical roster.
+    # Native legacy callers keep their existing behavior and transaction owner.
+    scoped = employee_scope is not None
+    roster = {row.name: row for row in employee_scope or []}
+    names = tuple(roster) or ('',)
+    departments = sorted({row.department for row in roster.values()})
+    def _sources(doctype, *, filters=None, **kwargs):
+        filters = dict(filters or {})
+        if scoped:
+            field = {'Employee':'name', 'HBOS Shift Rule':'department'}.get(doctype, 'employee')
+            filters[field] = ['in', departments if field == 'department' else list(names)]
+            if doctype in {'HBOS Leave Record','HBOS Rest Leave Record'}:
+                filters.update(start_date=['<=',fetch_end],end_date=['>=',fetch_start])
+            if doctype == 'HBOS Employee Schedule':
+                filters['schedule_date']=['between',[fetch_start,fetch_end]]
+        return frappe.db.get_all(doctype, filters=filters, **kwargs)
+    protected = set()
+    if scoped:
+        native = frappe.db.sql("select employee,attendance_date from `tabAttendance` where employee in %(employees)s and attendance_date between %(start)s and %(end)s and docstatus<2 and (name not like 'HBOS-ATT-%%' or coalesce(attendance_request,'')<>'' or docstatus=1 or modified is not null) for update",dict(employees=names,start=range_start,end=range_end),as_dict=True)
+        protected = {(row.employee,str(row.attendance_date)) for row in native}
+
     # 自动轮转排班(设备动力部 12h 倒班, Owner 2026-08-26 确认):
     # 生成到「重算终点」与「未来 30 天」的较晚者, 保证休息日在排班表中有记录,
     # 缺勤判定的「排班休息日无打卡=休息」逻辑会自动豁免, 不会误判缺勤。
     from hb_attendance_app.hbos_attendance.rotation_schedule import generate_rotation_schedule
     _rot_until = max(range_end, (_date.today() + _tdelta(days=30)).isoformat())
-    generate_rotation_schedule(_rot_until)
+    generate_rotation_schedule(range_end, employees=list(names), start_date=range_start) if scoped else generate_rotation_schedule(_rot_until)
 
     # 拉取足够多的历史打卡确保配对上下文(覆盖生成范围+前后各1天)
     fetch_start = (_date.fromisoformat(range_start) - _tdelta(days=1)).strftime("%Y-%m-%d")
     fetch_end = (_date.fromisoformat(range_end) + _tdelta(days=1)).strftime("%Y-%m-%d")
 
+    checkin_predicate = " AND ec.employee in %s" if scoped else ""
     all_ck = frappe.db.sql("""
         SELECT ec.employee, ec.time, emp.employee_name, emp.employee_number, emp.department,
                ec.hbos_terminal_sn, ec.hbos_check_type
@@ -395,9 +417,11 @@ def _regenerate_attendance_impl(range_start, range_end):
         JOIN tabEmployee emp ON emp.name = ec.employee
         WHERE DATE(ec.time) BETWEEN %s AND %s
           AND emp.status = 'Active'
-        ORDER BY ec.employee, ec.time
-    """, (fetch_start, fetch_end), as_dict=True)
+        """ + checkin_predicate + " ORDER BY ec.employee, ec.time", (fetch_start, fetch_end, names) if scoped else (fetch_start, fetch_end), as_dict=True)
 
+    if scoped:
+        for ck in all_ck:
+            ck['department'] = roster[ck['employee']].department
     by_emp = defaultdict(list)
     for ck in all_ck:
         by_emp[ck["employee"]].append(ck)
@@ -414,7 +438,7 @@ def _regenerate_attendance_impl(range_start, range_end):
 
 
     # 请假日期集合: employee -> set(日期)，配对分支与零打卡分支共用
-    leaves = frappe.db.get_all(
+    leaves = _sources(
         "HBOS Leave Record",
         filters={"approval_status": "已通过"},
         fields=["employee", "start_date", "end_date"],
@@ -432,11 +456,11 @@ def _regenerate_attendance_impl(range_start, range_end):
     # 排班表中的请假日期也计入请假豁免(排班表优先于飞书请假)
     # 排班「休息」的日期单独记录(休息日无打卡=无记录, 不生成 On Leave)
     emp_rest_dates = defaultdict(set)
-    for s in frappe.db.get_all("HBOS Employee Schedule",
+    for s in _sources("HBOS Employee Schedule",
             filters={"leave_type": ["is", "set"]},
             fields=["employee", "schedule_date", "leave_type"]):
         emp_leave_dates[s.employee].add(str(s.schedule_date))
-    for s in frappe.db.get_all("HBOS Employee Schedule",
+    for s in _sources("HBOS Employee Schedule",
             filters={"shift_type": "休息"},
             fields=["employee", "schedule_date"]):
         emp_rest_dates[s.employee].add(str(s.schedule_date))
@@ -444,7 +468,7 @@ def _regenerate_attendance_impl(range_start, range_end):
     # 已核实的调休日：并入请假豁免集合（pairing 只看它抑制缺勤），
     # 同时另存一份用于区分「调休」与「请假」的记录标记。
     # 口径（已通过 + 已核实）由 rest_leave_apply 独占，此处不自建查询。
-    emp_rest_leave_dates = verified_rest_dates()
+    emp_rest_leave_dates = verified_rest_dates(employees=list(names), date_from=fetch_start, date_to=fetch_end) if scoped else verified_rest_dates()
     for _eid, _days in emp_rest_leave_dates.items():
         emp_leave_dates[_eid].update(_days)
 
@@ -452,8 +476,8 @@ def _regenerate_attendance_impl(range_start, range_end):
     # 严格限制在 [range_start, range_end]：窄窗口重算绝不能删除范围之后的正式考勤。
     # 此处不提前 commit；与后续重建写入处于同一事务，最终成功后统一提交。
     frappe.db.sql(
-        "DELETE FROM tabAttendance WHERE name LIKE 'HBOS-ATT-%%' AND attendance_date BETWEEN %s AND %s",
-        (range_start, range_end),
+        "DELETE FROM tabAttendance WHERE name LIKE 'HBOS-ATT-%%' AND attendance_date BETWEEN %s AND %s" + (" AND employee in %s AND docstatus=0 AND coalesce(attendance_request,'')='' AND modified is null" if scoped else ""),
+        (range_start, range_end, names) if scoped else (range_start, range_end),
     )
 
     # 对每个员工做贪心配对（纯函数，见 pairing.py）
@@ -464,7 +488,7 @@ def _regenerate_attendance_impl(range_start, range_end):
     # 每个业务日期取 effective_from <= 当日的最后一个版本；若最后版本是「停用」，
     # 该日期起规则族不再生效。这样升版/停用不会污染历史重算。
     rules_versioned = {}
-    for r in frappe.db.get_all(
+    for r in _sources(
         "HBOS Shift Rule",
         filters={"effective_from": ["<=", range_end]},
         fields=["name", "rule_code", "rule_name", "department", "shift_type",
@@ -488,7 +512,7 @@ def _regenerate_attendance_impl(range_start, range_end):
     # 固定班次绑定: employee -> stable rule_code list.
     # Legacy version pointers are only fallback sources during migration.
     fixed_shift_map = {}
-    for b in frappe.db.get_all(
+    for b in _sources(
         "HBOS Employee Shift",
         fields=["employee", "rule_code", "shift_rule"],
     ):
@@ -498,7 +522,7 @@ def _regenerate_attendance_impl(range_start, range_end):
         if code:
             fixed_shift_map.setdefault(b.employee, []).append(code)
 
-    for e in frappe.db.get_all(
+    for e in _sources(
         "Employee",
         fields=["name", "hbos_fixed_shift_code", "hbos_fixed_shift"],
     ):
@@ -512,7 +536,7 @@ def _regenerate_attendance_impl(range_start, range_end):
 
     # 排班表是最高优先级；G1-C 保证同一 employee + date 只有一条权威记录。
     schedule_map = {}
-    for s in frappe.db.get_all(
+    for s in _sources(
         "HBOS Employee Schedule",
         fields=["employee", "schedule_date", "shift_type", "leave_type", "source_type", "source_ref"],
     ):
@@ -559,7 +583,7 @@ def _regenerate_attendance_impl(range_start, range_end):
 
     emp_num_to_eid = {
         e.employee_number: e.name
-        for e in frappe.db.get_all(
+        for e in _sources(
             "Employee",
             fields=["name", "employee_number"],
             filters={"employee_number": ["is", "set"]},
@@ -640,7 +664,7 @@ def _regenerate_attendance_impl(range_start, range_end):
                 seen[key] = (name, emp, date, status, shift, late, ck, wh, miss_out)
             continue
         seen[key] = (name, emp, date, status, shift, late, ck, wh, miss_out)
-    deduped = list(seen.values())
+    deduped = [row for row in seen.values() if not scoped or (row[1],row[2]) not in protected]
 
     # 四班次人员(Owner 2026-08-20): 上够8小时算正常出勤, 不足8小时置早退标记
     four_shift_emps = set(
@@ -655,14 +679,13 @@ def _regenerate_attendance_impl(range_start, range_end):
 
     for i in range(0, len(deduped), 500):
         chunk = deduped[i:i+500]
-        placeholders = ",".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(chunk))
+        placeholders = ",".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" if scoped else "(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(chunk))
         params = []
         for name, emp, day, status, shift, late, ck, wh, miss_out, early in chunk:
-            params.extend([name, emp, day, status, shift, late, early, ck, wh, miss_out])
+            params.extend([name, emp, day, status, shift, late, early, ck, wh, miss_out] + ([roster[emp].company] if scoped else []))
         frappe.db.sql(
             "INSERT IGNORE INTO tabAttendance "
-            "(name, employee, attendance_date, status, shift, late_entry, early_exit, creation, working_hours, hbos_missing_out) "
-            "VALUES " + placeholders,
+            "(name, employee, attendance_date, status, shift, late_entry, early_exit, creation, working_hours, hbos_missing_out" + (", company" if scoped else "") + ") VALUES " + placeholders,
             tuple(params),
         )
 
@@ -678,7 +701,7 @@ def _regenerate_attendance_impl(range_start, range_end):
     zero_absent = []
     leave_absent = []
     emp_streak = {}
-    active_emps = frappe.db.get_all(
+    active_emps = _sources(
         "Employee",
         filters={"status": "Active"},
         fields=["name", "employee_number", "department"],
@@ -691,11 +714,14 @@ def _regenerate_attendance_impl(range_start, range_end):
         ds = d.strftime("%Y-%m-%d")
         is_weekend = d.weekday() >= 5  # 周六(5)/周日(6)
         in_range = range_start <= ds <= range_end
-        ck_emps = frappe.db.sql("SELECT DISTINCT ec.employee FROM `tabEmployee Checkin` ec WHERE DATE(ec.time) = %s", ds, as_dict=True)
+        ck_emps = frappe.db.sql("SELECT DISTINCT ec.employee FROM `tabEmployee Checkin` ec WHERE DATE(ec.time) = %s" + checkin_predicate, (ds,names) if scoped else ds, as_dict=True)
         ck_emp_set = set(c["employee"] for c in ck_emps)
 
         for e in active_emps:
             eid = e["name"]
+            if scoped and (eid,ds) in protected:
+                emp_streak[eid] = 0
+                continue
             if eid in ck_emp_set:
                 emp_streak[eid] = 0
                 continue
@@ -740,14 +766,13 @@ def _regenerate_attendance_impl(range_start, range_end):
     def _insert_attendance_rows_without_early(rows):
         for i in range(0, len(rows), 500):
             chunk = rows[i:i+500]
-            placeholders = ",".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(chunk))
+            placeholders = ",".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" if scoped else "(%s,%s,%s,%s,%s,%s,%s,%s,%s)"] * len(chunk))
             params = []
             for name, emp, day, status, shift, late, ck, wh, miss_out in chunk:
-                params.extend([name, emp, day, status, shift, late, ck, wh, miss_out])
+                params.extend([name, emp, day, status, shift, late, ck, wh, miss_out] + ([roster[emp].company] if scoped else []))
             frappe.db.sql(
                 "INSERT IGNORE INTO tabAttendance "
-                "(name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out) "
-                "VALUES " + placeholders,
+                "(name, employee, attendance_date, status, shift, late_entry, creation, working_hours, hbos_missing_out" + (", company" if scoped else "") + ") VALUES " + placeholders,
                 tuple(params),
             )
 

@@ -27,7 +27,7 @@
       <div class="app-layout-grid">
         <AttendanceSidebar :style="sessionBlocked ? { visibility: 'hidden' } : undefined" :inert="sessionBlocked || undefined" />
         <main id="attendance-main-content" class="app-route-content" tabindex="-1">
-          <SessionContent :pending="sessionPending" :ready="sessionReady" :blocked="sessionBlocked" :generation="sessionGeneration" :error="sessionError" @retry="synchronize"><RouterView /></SessionContent>
+          <SessionContent :pending="sessionPending" :ready="sessionReady" :blocked="sessionBlocked" :generation="attendanceGeneration" :error="sessionError" @retry="synchronize"><RouterView /></SessionContent>
         </main>
       </div>
     </div>
@@ -39,7 +39,8 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { iamSession } from '@/services/iamAccess'
 import { usePortalSession } from '@/composables/usePortalSession'
 import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
@@ -52,6 +53,7 @@ import CommandPalette from '@/components/portal/CommandPalette.vue'
 const portal = usePortalStore()
 const commandOpen = ref(false)
 const { sessionPending, sessionError, sessionReady, sessionBlocked, sessionGeneration, synchronize } = usePortalSession()
+const attendanceGeneration=computed(()=>`${sessionGeneration.value}:${iamSession.appRevisions.attendance || ''}`)
 
 function shortcut(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {

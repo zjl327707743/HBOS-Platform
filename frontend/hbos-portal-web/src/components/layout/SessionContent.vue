@@ -8,7 +8,7 @@
   <a-skeleton v-else-if="pending" active :paragraph="{ rows: 6 }" />
 </template>
 <script setup lang="ts">
-defineProps<{ pending: boolean; ready?: boolean; blocked?: boolean; generation?: number; error?: string | null }>()
+defineProps<{ pending: boolean; ready?: boolean; blocked?: boolean; generation?: number | string; error?: string | null }>()
 defineEmits<{ retry: [] }>()
 </script>
 <style scoped>

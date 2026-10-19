@@ -14,6 +14,7 @@ export async function iamQuery<T>(method: string, params?: Record<string, unknow
 export async function iamCommand<T>(method: string, params: Record<string, unknown>): Promise<T> { return unwrapIam<T>(await callFrappePostMethod(method, params)) }
 export function iamMessage(error: unknown): string {
   const raw = error as { status?: number; code?: string; message?: string }
+  if (raw.code === 'PROOF_REQUIRED') return '本人验证已失效，请重新验证当前账号密码及已有二次认证。草稿已保留。'
   if (raw.code === 'READ_CONFLICT') return raw.message || '读取遇到暂时冲突，请重试查询。'
   if (raw.status === 409 || ['VERSION_CONFLICT', 'STALE_PREVIEW', 'CONFLICT'].includes(raw.code || '')) return '设置已被更新或预览已过期。草稿已保留，请重新读取并核对后再保存。'
   if (raw.status === 403 || raw.code === 'FORBIDDEN') return '当前操作未获授权，草稿已保留。请联系有相应管理范围的负责人。'

@@ -2,6 +2,7 @@ import { callFrappeMethod } from '@/services/frappeClient'
 
 /** 后端 `dashboard_data.get_data` 的返回结构（只声明本页真正消费的字段）。 */
 export interface AttendanceDashboardData {
+  scope?:string|null
   coverage?: {complete:boolean;rejected_ranges:Array<{department:string;date_from:string;date_to:string;reason:string}>} | null
   total_late: number
   total_early: number

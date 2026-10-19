@@ -30,7 +30,8 @@ def get_employees(department=None, search=None, fixed_shift=None):
     conditions = ["e.status = 'Active'"]
     values = {}
     if bound:
-        conditions.append('e.department in %(iam_departments)s')
+        from hb_attendance_app.hbos_attendance.portal.role_scope import current_company_predicate
+        conditions.extend(['e.department in %(iam_departments)s',current_company_predicate('e')])
         values['iam_departments']=tuple(bound['departments'])
     if department:
         conditions.append("e.department = %(department)s")
@@ -61,7 +62,7 @@ def get_departments():
     bound=require('attendance.department.records.read')
     if bound:
         check_fields(set())
-        return frappe.db.sql("select department,count(*) cnt from `tabEmployee` where status='Active' and department in %(departments)s group by department order by department",{'departments':tuple(bound['departments'])},as_dict=True)
+        return frappe.db.sql("select department,count(*) cnt from `tabEmployee` where status='Active' and company=(select company from `tabDepartment` iam_department where iam_department.name=tabEmployee.department) and department in %(departments)s group by department order by department",{'departments':tuple(bound['departments'])},as_dict=True)
     rows = frappe.db.sql("""
         SELECT department, COUNT(*) cnt FROM tabEmployee
         WHERE status = 'Active' GROUP BY department ORDER BY department

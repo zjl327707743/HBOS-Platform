@@ -273,7 +273,7 @@ def get_data(department=None, date_str=None):
     if not emps:
         return {"coverage":getattr(emps,'coverage',None),"departments": allowed_departments, "meta": {"date": date_str, "mode": mode,
                                                       "now_hm": now.strftime("%H:%M"),
-                                                      "scope": department or "全部部门"},
+                                                      "scope": bound['scope_label'] if bound else department or "全部部门"},
                 "stats": summarize_rows([]), "dept_stats": [], "rows": []}
 
     emp_names = [e.name for e in emps]
@@ -352,7 +352,7 @@ def get_data(department=None, date_str=None):
 
     return {"coverage":getattr(emps,'coverage',None),"departments": allowed_departments, "meta": {"date": date_str, "mode": mode,
                                                   "now_hm": now.strftime("%H:%M"),
-                                                  "scope": department or "全部部门"},
+                                                  "scope": bound['scope_label'] if bound else department or "全部部门"},
             "stats": summarize_rows(rows), "dept_stats": dept_summary(rows), "rows": rows}
 
 

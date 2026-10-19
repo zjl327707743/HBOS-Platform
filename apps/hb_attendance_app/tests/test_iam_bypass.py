@@ -103,6 +103,20 @@ class AttendanceBypassTest(unittest.TestCase):
                 self.request(path, **args)
         self.request("/api/resource/Attendance%20Request")  # exact native type, no prefix overblock
 
+    def test_opted_in_roles_cannot_recover_native_shift_policy_or_widget_access(self):
+        self.fake.conf.hbos_iam_roles_enabled=1
+        self.fake.db.has_column=lambda *args:True
+        for path in (
+            '/api/resource/Attendance%20Request',
+            '/api/resource/HBOS%20Attendance%20Policy%20Assignment',
+            '/api/method/hrms.hr.doctype.shift_assignment.shift_assignment.create_bulk_assignments',
+            '/api/method/hrms.hr.doctype.attendance_request.attendance_request.get_attendance_warnings',
+            '/api/method/hrms.api.get_attendance_for_calendar',
+        ):
+            with self.subTest(path=path),self.assertRaises(Denied):self.request(path)
+        with self.assertRaises(Denied):
+            self.request('/api/method/frappe.desk.doctype.dashboard_chart.dashboard_chart.get',doc=json.dumps({'document_type':'Attendance'}))
+
     def test_query_conditions_exclude_wrapped_reports_and_url_aliases(self):
         prepared = boundary.prepared_report_query_conditions()
         for name in ("Attendance Base", "Attendance Wrapped", "Attendance Twice"):
