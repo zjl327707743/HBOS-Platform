@@ -1,3 +1,13 @@
+## 当前：UAT-R3（2026-10-19）
+
+有限界面修正已交付，角色编辑/员工关联仅合成设计，**PENDING_OWNER，无后端实施授权**。A运行源码`35e241f`；B固定设计`9018565`；原Owner人工通过记录保留。
+
+- [本轮总报告](UAT_R3_总报告.md)
+- [5198隔离Portal](http://iam-r4-b.localhost:5198/hbos) / [5199角色预览](http://127.0.0.1:5199/%E8%A7%92%E8%89%B2%E4%B8%8E%E8%8C%83%E5%9B%B4%E9%A2%84%E8%A7%88.html)
+- [角色功能与最小工程映射](role-scope-v1/UAT_R3_角色功能与最小工程映射.md)
+
+以下R2及更早记录保留为历史。
+
 # IAM 专属交付入口
 
 当前轮次：2026-10-18 UAT-R2。A 为 `IAM_UAT_R2_PARTIAL`；角色范围设计为 `IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER`。沿用实现目录、隔离 Site和 Draft #52，不合并、不发布。Owner 10月18日A1未通过；历史 R1自动结果不代表本次 Owner体验通过。
