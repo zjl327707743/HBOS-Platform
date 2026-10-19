@@ -263,7 +263,16 @@ def legacy_veto(employee, operation_id, scope_type, scope_ref):
         if doc and not doc.enabled:
             return '已有权限安排尚未启用。'
         for row in rules:
-            if row['app_id'] != 'attendance' or row['operation_id'] not in {'app.enter', operation_id} or not policy._matches(row, scope_type, scope_ref, company):
+            if row['app_id'] != 'attendance' or row['operation_id'] not in {'app.enter', operation_id}:
+                continue
+            # A company query covers its departments, including historical
+            # attribution. Refuse the entire request before any business SQL;
+            # removing a department alone would leave the company OR grant.
+            if (scope_type == 'COMPANY' and row['scope_type'] == 'DEPARTMENT'
+                    and row['effect'] == 'deny' and policy.active(row, now)
+                    and frappe.db.get_value('Department', row['scope_ref'], 'company', for_update=True) == scope_ref):
+                return '公司范围包含当前明确禁止的部门，本次公司请求已拒绝；请先核对权限安排。'
+            if not policy._matches(row, scope_type, scope_ref, company):
                 continue
             if row['effect'] == 'deny' and policy.active(row, now):
                 return '已有禁止或临时禁用仍然生效。'
