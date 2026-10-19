@@ -30,3 +30,18 @@ class OrganizationContractTest(unittest.TestCase):
             for user,request in [('ordinary',None),('Administrator',object())]:
                 self.fake.session.user=user;self.fake.local.request=request
                 with self.assertRaises(PermissionDenied):organization._root()
+
+    def test_deep_link_adds_only_exact_authorized_target_and_ancestors_in_selected_company(self):
+        rows=[Attr(name='root-a',company='A',parent_department=''),Attr(name='daily',company='A',parent_department='root-a'),Attr(name='tech',company='A',parent_department='root-a'),Attr(name='sibling',company='A',parent_department='root-a'),Attr(name='other',company='B',parent_department='')]
+        conf=Attr(hbos_iam_test_site=1,hbos_iam_technical_department_ids=['tech','sibling','other'])
+        visible,companies,selected=organization.department_view(rows,target_department='tech',conf=conf)
+        self.assertEqual({r.name for r in visible},{'root-a','daily','tech'})
+        self.assertEqual(companies,['A']);self.assertEqual(selected,'A')
+        for target in ['unknown','other']:
+            visible,_,_=organization.department_view(rows,target_department=target,conf=conf)
+            self.assertEqual({r.name for r in visible},{'root-a','daily'})
+        with self.assertRaises(PermissionDenied):organization.department_view(rows,company='B',conf=conf)
+    def test_same_label_never_merges_companies_or_reveals_unauthorized_ancestors(self):
+        rows=[Attr(name='a',company='A',parent_department='secret'),Attr(name='b',company='B',parent_department='secret')]
+        visible,companies,selected=organization.department_view(rows,company='B',conf=Attr())
+        self.assertEqual([r.name for r in visible],['b']);self.assertEqual(companies,['A','B'])

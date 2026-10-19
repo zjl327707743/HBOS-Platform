@@ -102,3 +102,38 @@ def apply_source_organization(company, nodes, source_sha256, expected_revision):
         except Exception:
             frappe.db.rollback(save_point='iam_source_organization')
             raise
+
+
+def department_view(rows, group='daily', target_department=None, company=None, conf=None):
+    """Presentation only, applied after management authorization.
+
+    A deep link can add its exact authorized target and ancestors in the chosen
+    company. It cannot turn daily organization into an all-company query.
+    """
+    conf = frappe.conf if conf is None else conf
+    for value in (target_department, company):
+        if value is not None and (not isinstance(value, str) or len(value) > 140):
+            frappe.throw('部门或公司筛选不正确。', frappe.ValidationError)
+    visible = filter_rows(rows, 'Department', group, conf=conf)
+    company_ids = sorted({policy.value(row, 'company') for row in visible if policy.value(row, 'company')})
+    selected = company or (company_ids[0] if company_ids else '')
+    if company and company not in company_ids:
+        frappe.throw('该公司当前不可查看。', frappe.PermissionError)
+    visible = [row for row in visible if policy.value(row, 'company') == selected]
+    authorized = {policy.value(row, 'name'): row for row in rows}
+    target = authorized.get(target_department)
+    if target is not None and policy.value(target, 'company') == selected:
+        visible.append(target)
+    # Include only authorized ancestors; never fetch outside the caller's scope.
+    included = {policy.value(row, 'name'): row for row in visible}
+    for row in list(visible):
+        parent = policy.value(row, 'parent_department')
+        seen = set()
+        while parent and parent not in seen:
+            seen.add(parent)
+            ancestor = authorized.get(parent)
+            if ancestor is None or policy.value(ancestor, 'company') != selected:
+                break
+            included[parent] = ancestor
+            parent = policy.value(ancestor, 'parent_department')
+    return list(included.values()), company_ids, selected
