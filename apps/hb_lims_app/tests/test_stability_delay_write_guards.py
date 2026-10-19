@@ -32,7 +32,12 @@ class Rejected(Exception):
 
 
 class Values(dict):
-	__getattr__ = dict.get
+	def __getattr__(self, name):
+		# copy/pickle probes missing protocol hooks on Python 3.10.
+		if name.startswith("__") and name.endswith("__"):
+			raise AttributeError(name)
+		return self.get(name)
+
 	__setattr__ = dict.__setitem__
 
 

@@ -1,24 +1,67 @@
 # 项目状态
 
-## 当前集成状态 — 2026-10-18
+## 当前集成状态 — 2026-10-19
 
-**三个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储。** 已在唯一目标 `feature/hbos-portal-product` 形成统一产品开发基线。本次业务合并前产品为 `45658fe4b84d8fb7dd4433c459aa30572e0d13d3`，依次合并后的真实产品为 `a1cc65dde73cfad656faf290264f75fb1a25c32b`；#39 于 2026-10-18 07:28:34 UTC 正常 Squash Merge，实际单父与树已经核对。
+**四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`。业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护；不把后续文档提交的 HEAD 当作已经运行过的业务提交。#43 于 2026-10-19 03:28:29 UTC 正常 Squash Merge，REST 已核对实际单父 `366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857` 与树 `aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620`。
 
-**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
+**合并前 R10：PASS；实际产品 R11：PASS。** [R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 与 [R11 39195037712](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 均为全部 10 jobs SUCCESS；R11 五个原生域直接运行实际产品 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，已核单父、树、双 migrate 与清理。LIMS 原有 32 项、新增审计 9 项、独立 Todo 1 项，共 42 项原生测试全部通过；Todo 只有 1 项，归属 LIMS。
 
-### 三项实际合并与来源
+### 四项实际合并与来源
 
 | 完整业务 PR | 合并前正式来源 HEAD | 实际 Squash | 实际父提交 | 实际产品树 |
 | --- | --- | --- | --- | --- |
 | [#42 考勤](https://github.com/zjl327707743/HBOS-Platform/pull/42) | `5780924fb000c869ddf7e23afa76e2f95fe15ea8` | `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8` | `45658fe4b84d8fb7dd4433c459aa30572e0d13d3` | `31097c5f9e6f245ecbaca779643c421a4458bee8` |
 | [#46 生产](https://github.com/zjl327707743/HBOS-Platform/pull/46) | `3f0e8847f2769025d764214ae56950fe97693808` | `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30` | `374e2bd8633d4127fabcc4659c2314e4a7ca7cd8` | `dabf7846817f096434949bc38a48c7cc4ec958bd` |
 | [#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) | `463284fea3a3094f689611d63704c19931f5d437` | `a1cc65dde73cfad656faf290264f75fb1a25c32b` | `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30` | `43b59653ebbe61db530f523ea980163c88f1899e` |
+| [#43 LIMS](https://github.com/zjl327707743/HBOS-Platform/pull/43) | `06e4639fe8efeda9d1874b0eb5d5d33706be98d2` | `04e0bb033cb2e7156e407cf49a7b6966b0d2a022` | `366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857` | `aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620` |
 
-三项来源分别保存在 `archive/owner-r3-pr42-5780924-20261018`、`archive/owner-r3-pr46-3f0e884-20261018`、`archive/owner-r3-pr39-463284f-20261018`。#39 来源分支在合并后自动删除，固定来源仍由上述 archive 引用保存。#55 Item 只读增量此前已合并，当前保留唯一入口；本次 #39 才是完整仓储合并。#49 既有已合并事实保持。
+#39 于 2026-10-18 07:28:34 UTC 正常 Squash Merge。前三项来源分别保存在 `archive/owner-r3-pr42-5780924-20261018`、`archive/owner-r3-pr46-3f0e884-20261018`、`archive/owner-r3-pr39-463284f-20261018`。#39 来源分支在合并后自动删除，固定来源仍由上述 archive 引用保存。#55 Item 只读增量此前已合并，当前保留唯一入口；本次 #39 才是完整仓储合并。#49 既有已合并事实保持。#43 最终来源已保存并回读为 `archive/owner-r3-pr43-06e4639-20261019`，指向 `06e4639fe8efeda9d1874b0eb5d5d33706be98d2`。#57 文档收口此前已形成 `366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857`，是本次 #43 的真实产品父提交；它不计作第五个业务 PR。
 
-#42 的 [Owner Approve](https://github.com/zjl327707743/HBOS-Platform/pull/42#pullrequestreview-5561462238) 与 #46 的 [Owner Approve](https://github.com/zjl327707743/HBOS-Platform/pull/46#pullrequestreview-5561524421) 对应上表来源。#39 由 [Owner 最终审查评论 6247133194](https://github.com/zjl327707743/HBOS-Platform/pull/39#issuecomment-6247133194) 按本批次授权承接审查责任，逐项关闭 B1 四报表跨仓读取、B2 Send to Subcontractor 和普通 Material Transfer 到已登记外协仓的放行旁路；[旧 Review 5486039245](https://github.com/zjl327707743/HBOS-Platform/pull/39#pullrequestreview-5486039245) 已为 **DISMISSED**。#39 作者为 Owner，未伪造自我 Approve；历史 Review、失败与原始来源均保留。
+#42 的 [Owner Approve](https://github.com/zjl327707743/HBOS-Platform/pull/42#pullrequestreview-5561462238) 与 #46 的 [Owner Approve](https://github.com/zjl327707743/HBOS-Platform/pull/46#pullrequestreview-5561524421) 对应上表来源。#39 由 [Owner 最终审查评论 6247133194](https://github.com/zjl327707743/HBOS-Platform/pull/39#issuecomment-6247133194) 按本批次授权承接审查责任，逐项关闭 B1 四报表跨仓读取、B2 Send to Subcontractor 和普通 Material Transfer 到已登记外协仓的放行旁路；[旧 Review 5486039245](https://github.com/zjl327707743/HBOS-Platform/pull/39#pullrequestreview-5486039245) 已为 **DISMISSED**。#39 作者为 Owner，未伪造自我 Approve；历史 Review、失败与原始来源均保留。#43 的 [Owner Approve 5566593947](https://github.com/zjl327707743/HBOS-Platform/pull/43#pullrequestreview-5566593947) 对应本表最终来源与 R10 精确组合；原审查及失败记录继续保留。
+
+### R10 合并前精确组合 — 2026-10-19
+
+产品 base `366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857` 与 #43 正式 source `06e4639fe8efeda9d1874b0eb5d5d33706be98d2` 的实际组合树为 `aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620`，与实际 Squash 树相同。R10 全部 10 jobs SUCCESS；它是合并前组合证据，不替代 R11 对真实单父产品提交的回归。
+
+R10／R11 各自的十个 jobs 中，冻结 `1a8f49251dc818859336ee70fbf81dcef87c0bfd` 的旧契约作业仍仅证明旧来源；当前 LIMS 完整契约已分别在 R10 实际组合的 [offline Job 117844865393](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396/job/117844865393) 与 R11 实际产品的 [offline Job 117875877290](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712/job/117875877290) 中独立运行，未用旧来源结果替代当前契约证据。
+
+| R10 验证范围 | 实际结果与证据 |
+| --- | --- |
+| 离线、契约与双构建 | [Job 117844865393](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396/job/117844865393) SUCCESS；593 PASS、42 项 skip、5976 个 subtests 分列记录，skip 不计为原生通过；Portal 前端 190 项、LIMS 前端 10 项、双构建及契约检查通过 |
+| LIMS 原生 | [Job 117844865453](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396/job/117844865453) SUCCESS；原有 32 项原生验证与新增 9 项审计验证均 0 failure / 0 error / 0 skip，R3 runner 的 47 组检查 PASS（含 12 项质量父／子表负向）；两种计数口径分列，不相互替代 |
+| 考勤原生 | R10 对同一实际组合的范围、权限负向及会话回归 SUCCESS |
+| 生产服务原生 | R10 同组合 28 PASS / 0 FAIL / 0 SKIP；保持真实 Frappe → HTTP → FastAPI → 合成上游与权限、失败恢复、关闭 AI 的门禁 |
+| 仓储报表与附件原生 | R10 同组合 22 项 HTTP、8 项跨仓 CSV、74 项卡证／权限检查通过 |
+| 仓储事务原生 | R10 同组合 8/8 PASS；真实库存账与 GL、LIMS 放行后出库、两种外协提交／取消及自动制证权限闭环通过 |
+
+### R11 实际业务产品合并后回归 — PASS
+
+[R11 39195037712](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 使用 runner `f870a68b5c10ae244fd8df888b499ce84bd0908c`、runner tree `8caab22aba170c16d348092e4dc0707db93316b0`，全部 10 jobs SUCCESS。五个原生域的 base、source 与实际运行 commit 均为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，直接检出产品，无额外 merge；实际单父均为 `366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857`，树均为 `aeb1c8d3db671cb6b3e60cb5f7175f5fd620e620`。各原生 Site 的两次 migrate 与清理均成功，退出码为 0。
+
+| R11 实际产品验证 | 实际结果与直接证据 |
+| --- | --- |
+| LIMS 原生 | [Job 117875877169](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712/job/117875877169) SUCCESS；R3 runner 47 组检查全 PASS，无 FAIL 或 NOT_RUN；原有 32 项、新增审计 9 项、独立 Todo 1 项合计 42 项原生测试通过，均无 failure／error／skip |
+| 考勤原生 | [Job 117875877444](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712/job/117875877444) SUCCESS；实际产品的范围、权限负向及会话回归通过 |
+| 生产服务原生 | [Job 117875877412](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712/job/117875877412) 28 PASS / 0 FAIL / 0 SKIP；真实服务链、权限拒绝及失败恢复通过 |
+| 仓储报表与附件原生 | [Job 117875877374](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712/job/117875877374) 22 项 HTTP、8 项跨仓 CSV、74 项卡证／权限检查通过 |
+| 仓储事务原生 | [Job 117875877351](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712/job/117875877351) 8/8 PASS；真实库存账、GL、放行后出库、两种外协提交／取消与自动制证权限回归通过 |
+| 离线、契约与双构建 | [Job 117875877290](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712/job/117875877290) SUCCESS；593 passed、42 skipped、5976 个 subtests 分列，离线 skip 不折算为 PASS；Portal 前端 190 项／20 文件、LIMS 前端 10 项与双构建通过，原生验证见上述独立作业 |
+
+独立 Todo 是 LIMS 的 1 项既有原生测试，在同一合成 Site 使用真实 LIMS Manager（无 System Manager 身份），结果为 1 passed / 0 failure / 0 error / 0 skip。原测试文件 SHA-256 为 `ae34b6b5a2a2e685cf86b5eeff01de57a5287172f5583f0bcac6fe30ec6324b4`；finally 的 rollback 与恢复 Administrator 均为 true。计数为原有 32 + 审计 9 + Todo 1 = 42，不与 runner 的 47 组检查或离线 subtests 累加。
+
+### 独立 CI 事件与测试夹具收口
+
+实际产品 push 的 [Backend 39194854851](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39194854851) 与 [Frontend 39194854885](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39194854885) 已 SUCCESS。
+
+既有 Draft [#15](https://github.com/zjl327707743/HBOS-Platform/pull/15) 从产品分支指向 main，其自动 `pull_request` 事件的 [Quality Gate 39194859711 / Job 117875314410](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39194859711/job/117875314410) 因 Python 3.10 测试夹具失败而为 FAIL。该原始失败作为历史保留。本次 docs/test 收尾只修正两个测试夹具的特殊属性处理，业务源码与测试断言保持不变；本收尾 PR 必须在固定候选 SHA 的 Python 3.10／3.12 检查通过后方可合并，实际结果以本 PR 最新 Owner 裁定及最终报告所列 SHA／Job 为准。此处不提前声明修复后 PASS，不涉及 main 合并或仓库保护规则变更，也不把 R10／R11 的指定事件成功概括成仓库所有 CI 均成功。
+
+### 保留的历史验证边界
+
+[Run9 39146339006](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39146339006) 的失败、当次来源与夹具前提按原始作业和 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56) 保留，后续修复和 R10 通过不回写其历史结论。Run8 对应 #39 后的 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，当时 #43 的独立契约不构成产品组合证据；该限制属于当次记录。
 
 ### Run8 实际产品合并后回归 — 2026-10-18
+
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
 
 固定 runner `af5d3f3edcba5f7c80a096618216396256e89f3f`，runner tree `f18f8a83d9d0f2247b240270587d58939206f1a0`；四个业务域的 base、source和运行commit均为实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，没有构造新的业务组合。GitHub Run整体SUCCESS，源树与实际单父再次核对。
 
@@ -52,7 +95,7 @@
 
 当前权限口径：二维码保留原生Warehouse可见范围内全部字段；全批次卡读取要求全仓范围；受控原生收货只生成本次提交批次的私有附件，不授予后续读取／下载权限，手动再生仍需Batch.write与全仓范围。外协目标识别依据原生已提交SCO／外协PO登记；历史上名称和URL都已丢失卡证识别信息的附件仍为 `NOT_COVERED`；Stock Balance客户端CSV与四报表原生export证据分列。
 
-新产品合并后回归已通过；后续以最新产品基线继续审查后置 #43，共享适配和原生领域门禁仍独立记录。IAM #52、OCR、真实样本、实体打印、生产UAT／部署继续独立；本轮未合main、未整包合#37，未操作Owner Mac既有项目或真实业务库。
+以上 Run7／Run8 为各自历史业务基线的验证记录，#43 的实际合并与新产品回归见页首。IAM #52、OCR、真实样本、实体打印、生产 UAT／部署继续独立；本轮未合 main、未整包合 #37，未操作 Owner Mac 既有项目或真实业务库。库存单据取消与 GL 反转不构成 LIMS 质量放行撤回流程的证明，现有已放行样品仍为终态。
 
 Run1–6的真实失败完整保留在 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；以下Run6、Run5及更早阶段均为有日期的历史快照，其中的“当前”“未通过”“未合并”只指该次记录，实际状态以页首和最新PR为准。
 
