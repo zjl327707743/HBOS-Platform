@@ -11,18 +11,29 @@ from hb_lims_app.hbos_lims.portal.specifications import get_specification_projec
 
 class PortalCoaSpecificationProjectionTest(unittest.TestCase):
     def test_coa_projection_filters_and_paginates_permission_list(self):
-        fake_frappe = types.SimpleNamespace(
-            get_list=lambda doctype, **kwargs: [
-                {
-                    "name": "COA-001", "sample": "SAMPLE-001", "batch_no": "B-001",
-                    "material_name": "阿莫西林", "spec_version": "V3.1", "report_status": "已发布",
-                },
-                {
-                    "name": "COA-002", "sample": "SAMPLE-002", "batch_no": "B-002",
-                    "material_name": "头孢原料", "spec_version": "V2.4", "report_status": "草稿",
-                },
-            ],
-        )
+        rows = [
+            {
+                "name": "COA-001", "sample": "SAMPLE-001", "batch_no": "B-001",
+                "material_name": "阿莫西林", "spec_version": "V3.1", "report_status": "已发布",
+            },
+            {
+                "name": "COA-002", "sample": "SAMPLE-002", "batch_no": "B-002",
+                "material_name": "头孢原料", "spec_version": "V2.4", "report_status": "草稿",
+            },
+        ]
+
+        def get_list(doctype, **query):
+            self.assertEqual("HBOS COA", doctype)
+            alternatives = query["or_filters"]
+            self.assertIn(["material_name", "like", "%阿莫西林%"], alternatives)
+            matching = [row for row in rows if any(
+                str(value).strip("%") in str(row.get(field) or "")
+                for field, operator, value in alternatives
+            )]
+            offset = query.get("limit_start", 0)
+            return matching[offset:offset + query["limit_page_length"]]
+
+        fake_frappe = types.SimpleNamespace(get_list=get_list)
         with patch.dict(sys.modules, {"frappe": fake_frappe}):
             payload = get_coa_projection(keyword="阿莫西林", limit=1)
 

@@ -49,6 +49,11 @@ class HBOSSpecification(Document):
 		self._validate_unique_version()
 		self._validate_limits()
 
+	def on_trash(self):
+		"""原生删除须保留受控版本；草稿仍经过既有权限与引用检查。"""
+		if self.status in SPEC_CONTENT_FROZEN_STATUSES:
+			frappe.throw("已生效或已废止的质量标准禁止删除，必须保留版本历史。")
+
 	def _validate_unique_version(self):
 		"""同规格 ID + 同版本号禁止重复（版本控制为复制新版本人工流程）。"""
 		existing = frappe.db.get_value(

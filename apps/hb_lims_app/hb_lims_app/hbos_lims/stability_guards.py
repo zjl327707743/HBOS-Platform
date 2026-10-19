@@ -12,6 +12,8 @@
 其后果由 8.6 运行期一致性扫描检出（见方案 8.6，R8B 起落地）。
 """
 
+import json
+
 import frappe
 
 NOTICE_SYSTEM_FIELDS = (
@@ -124,19 +126,28 @@ def _assert_table_frozen(doc, before, table_field, current, suffix, sort):
 
 
 def _table_signature(rows, child_doctype, sort=True):
-	"""子表内容指纹：按行内容拼接，用于判断「行是否被增删改」。
+	"""子表冻结签名：无歧义 JSON 绑定行身份与字段，检出增删改及同内容换行。
 
-	`sort=True`（默认）忽略行序，只比行的集合；`sort=False` 连行序一并比
-	（顺序本身有语义时用，如 COA 报告书的项目排列）。
+	`sort=True`（默认）忽略行序与 idx，只比行的集合；`sort=False` 同时绑定
+	数组顺序与 idx（如 COA 项目排列，idx 可在数组不变时被单独改写）。
 	"""
 	if not rows:
-		return ""
+		return "[]"
 	fieldnames = [f.fieldname for f in frappe.get_meta(child_doctype).fields
 				  if f.fieldname and f.fieldtype not in ("Section Break", "Column Break", "Tab Break")]
-	lines = []
+
+	def text(value):
+		return "" if value is None else str(value)
+
+	signatures = []
 	for row in rows:
-		lines.append("|".join(str(row.get(f) or "") for f in fieldnames))
-	return "\n".join(sorted(lines) if sort else lines)
+		signature = [text(row.get("name"))]
+		if not sort:
+			signature.append(text(row.get("idx")))
+		signature.append([text(row.get(field)) for field in fieldnames])
+		signatures.append(signature)
+	return json.dumps(sorted(signatures) if sort else signatures,
+		ensure_ascii=False, separators=(",", ":"))
 
 
 def guard_child_table_frozen(doc, table_field):

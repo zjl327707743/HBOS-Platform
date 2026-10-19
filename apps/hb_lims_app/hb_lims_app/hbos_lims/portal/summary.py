@@ -104,12 +104,10 @@ def _semantic_counts(items: list[dict[str, object]]) -> dict[str, int]:
 
 def get_summary_projection() -> dict[str, object]:
     from hb_lims_app.hbos_lims.todo_service import get_my_todo_summary
-    from hb_lims_app.hbos_lims.todo_service import get_my_todos
-    from hb_lims_app.hbos_lims.portal.tasks import get_pending_coa_todos
+    from hb_lims_app.hbos_lims.portal.tasks import get_domain_todos, get_pending_coa_todos
 
     payload = dict(get_my_todo_summary())
-    task_payload = get_my_todos(limit=200, offset=0)
-    items = list(task_payload.get("items") or [])
+    items = get_domain_todos()
     items.extend(get_pending_coa_todos())
     payload["semantic"] = _semantic_counts(items)
     payload["scope_label"] = _scope_label()

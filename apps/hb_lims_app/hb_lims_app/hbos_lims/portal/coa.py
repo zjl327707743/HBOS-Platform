@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from hb_lims_app.hbos_lims.portal.pagination import literal_keyword_query, permission_page_with_total
+
 
 def _cursor(value: str | None) -> int:
     if value in (None, ""):
@@ -86,24 +88,31 @@ def get_coa_projection(
     import frappe
 
     page_size = max(1, min(int(limit or 50), 50))
+    offset = _cursor(cursor)
+    needle = str(keyword or "").strip()
     filters: dict[str, object] = {"name": coa_id} if coa_id else {}
     if status and not coa_id:
         filters["report_status"] = status
     query: dict[str, object] = {
         "fields": COA_FIELDS,
         "filters": filters,
-        "order_by": "creation desc",
-        "limit_page_length": 1 if coa_id else page_size + 1,
+        "order_by": "creation desc, name desc",
     }
-    if keyword and not coa_id:
+    if needle and not coa_id:
         query["or_filters"] = [
-            [field, "like", f"%{keyword}%"]
+            [field, "like", f"%{needle}%"]
             for field in ("name", "sample", "batch_no", "material_name", "spec_version")
         ]
-    rows = frappe.get_list(
-        "HBOS COA",
-        **query,
-    )
+        query = literal_keyword_query(
+            "HBOS COA", **query, keyword=needle,
+            search_fields=("name", "sample", "batch_no", "material_name", "spec_version"),
+        )
+    if coa_id:
+        rows = frappe.get_list("HBOS COA", **query, limit_page_length=1)
+    else:
+        rows, total, next_cursor = permission_page_with_total(
+            "HBOS COA", **query, limit=page_size, offset=offset,
+        )
     projected = [_project_coa(row) for row in rows if _value(row, "name")]
 
     if coa_id:
@@ -113,24 +122,9 @@ def get_coa_projection(
         detail = _project_coa(frappe.get_doc("HBOS COA", coa_id), include_items=True)
         return {"coas": [detail], "total": 1, "next_cursor": None, "detail": detail}
 
-    needle = str(keyword or "").strip().lower()
-    filtered = [
-        row for row in projected
-        if (not status or row["report_status"] == str(status))
-        and (
-            not needle
-            or needle in " ".join(
-                str(row.get(field) or "")
-                for field in ("coa_id", "sample", "batch_no", "material_name", "spec_version")
-            ).lower()
-        )
-    ]
-    offset = _cursor(cursor)
-    page = filtered[offset:offset + page_size]
-    next_offset = offset + len(page)
     return {
-        "coas": page,
-        "total": len(filtered),
-        "next_cursor": str(next_offset) if next_offset < len(filtered) else None,
+        "coas": projected,
+        "total": total,
+        "next_cursor": next_cursor,
         "detail": None,
     }

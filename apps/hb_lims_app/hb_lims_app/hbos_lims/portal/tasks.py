@@ -147,6 +147,21 @@ def get_pending_coa_todos() -> list[dict[str, object]]:
     return tasks
 
 
+def get_domain_todos(**filters: Any) -> list[dict[str, Any]]:
+    """Read every authorized domain page without changing its 200-row cap."""
+    from hb_lims_app.hbos_lims import todo_service
+
+    items: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        response = todo_service.get_my_todos(limit=200, offset=offset, **filters)
+        page = list(response.get("items") or [])
+        items.extend(page)
+        offset += len(page)
+        if len(page) < 200 or (response.get("total") is not None and offset >= int(response["total"])):
+            return items
+
+
 def get_task_projection(
     *,
     limit: int = 20,
@@ -156,22 +171,15 @@ def get_task_projection(
     priority: str | None = None,
     keyword: str | None = None,
 ) -> dict[str, object]:
-    from hb_lims_app.hbos_lims import todo_service
-
     offset = normalize_cursor(cursor)
     selected_view = normalize_view(view)
-    # The current todo service caps one response at 200. The adapter filters
-    # the permission-aware result set before paging so view counts and cursors
-    # describe the same collection as the UI.
+    # Filter the complete domain-authorized collection before paging the view.
     priority_filter = _PRIORITY_FILTER_MAP.get(str(priority or "").strip(), priority)
-    response = todo_service.get_my_todos(
-        limit=200,
-        offset=0,
+    raw_items = get_domain_todos(
         status=status or None,
         priority=priority_filter or None,
         keyword=keyword or None,
     )
-    raw_items = list(response.get("items") or [])
     raw_items.extend(get_pending_coa_todos())
 
     normalized_priority = normalize_priority(priority) if priority else None
@@ -198,7 +206,7 @@ def get_task_projection(
 
     tasks = [project_todo(dict(item)) for item in raw_items]
     total = len(tasks)
-    page = tasks[offset:offset + max(int(limit), 1)]
+    page = tasks[offset:offset + max(1, min(int(limit or 50), 50))]
     next_offset = offset + len(page)
 
     return {

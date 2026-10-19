@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from hb_lims_app.hbos_lims.portal.pagination import literal_keyword_query, permission_page_with_total
+
 
 def _cursor(value: str | None) -> int:
     if value in (None, ""):
@@ -98,24 +100,31 @@ def get_specification_projection(
     import frappe
 
     page_size = max(1, min(int(limit or 50), 50))
+    offset = _cursor(cursor)
+    needle = str(keyword or "").strip()
     filters: dict[str, object] = {"name": specification_id} if specification_id else {}
     if status and not specification_id:
         filters["status"] = status
     query: dict[str, object] = {
         "fields": SPECIFICATION_FIELDS,
         "filters": filters,
-        "order_by": "creation desc",
-        "limit_page_length": 1 if specification_id else page_size + 1,
+        "order_by": "creation desc, name desc",
     }
-    if keyword and not specification_id:
+    if needle and not specification_id:
         query["or_filters"] = [
-            [field, "like", f"%{keyword}%"]
+            [field, "like", f"%{needle}%"]
             for field in ("name", "spec_code", "spec_name", "material_code", "material_name", "version")
         ]
-    rows = frappe.get_list(
-        "HBOS Specification",
-        **query,
-    )
+        query = literal_keyword_query(
+            "HBOS Specification", **query, keyword=needle,
+            search_fields=("name", "spec_code", "spec_name", "material_code", "material_name", "version"),
+        )
+    if specification_id:
+        rows = frappe.get_list("HBOS Specification", **query, limit_page_length=1)
+    else:
+        rows, total, next_cursor = permission_page_with_total(
+            "HBOS Specification", **query, limit=page_size, offset=offset,
+        )
     projected = [_project_spec(row) for row in rows if _as_dict(row).get("name")]
 
     if specification_id:
@@ -133,24 +142,9 @@ def get_specification_projection(
             "detail": detail,
         }
 
-    needle = str(keyword or "").strip().lower()
-    filtered = [
-        row for row in projected
-        if (not status or row["status"] == str(status))
-        and (
-            not needle
-            or needle in " ".join(
-                str(row.get(field) or "")
-                for field in ("specification_id", "spec_code", "spec_name", "material_code", "material_name", "version")
-            ).lower()
-        )
-    ]
-    offset = _cursor(cursor)
-    page = filtered[offset:offset + page_size]
-    next_offset = offset + len(page)
     return {
-        "specifications": page,
-        "total": len(filtered),
-        "next_cursor": str(next_offset) if next_offset < len(filtered) else None,
+        "specifications": projected,
+        "total": total,
+        "next_cursor": next_cursor,
         "detail": None,
     }

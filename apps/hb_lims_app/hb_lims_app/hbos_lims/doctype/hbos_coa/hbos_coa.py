@@ -27,6 +27,11 @@ class HBOSCOA(Document):
 		guard_system_fields(self, wf.HBOS_COA_SYSTEM_FIELDS)
 		self._validate_locked_after_review()
 
+	def on_trash(self):
+		"""原生删除不经过 validate；受控报告必须保留，草稿仍遵循原有删除权限。"""
+		if self.report_status in COA_FROZEN_STATUSES:
+			frappe.throw("已审核或已发布的 COA 禁止删除，必须保留原始报告。")
+
 	def _validate_locked_after_review(self):
 		"""已审核/已发布后整份 COA 快照冻结（L10-P0-05）。
 

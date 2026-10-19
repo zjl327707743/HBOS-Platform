@@ -29,11 +29,11 @@ import frappe
 
 LIMS_AUTHORITY = (
     "PR43 formal LIMS integration on product 366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857; "
-    "reviewed Administrator action boundary and unchanged inventory quality projection"
+    "reviewed Administrator action boundary, canonical COA snapshot binding and unchanged inventory quality projection"
 )
 LIMS_AUTHORITY_SHA256 = {
     "hb_lims_app/hb_lims_app/hbos_lims/lims_service.py":
-        "cf9194983773ee39a85b560e22b93c4be5478b8058a8fbc5f75ab41e823fdf6b",
+        "edc0173c9082673a0a6fbb71152d49841e063877c9f105448b16985a9c42c70f",
     "hb_lims_app/hb_lims_app/hbos_lims/workflow_contract.py":
         "7dfa43cd30f67eda1b9ccf636615d01ef36f1838bb9ce72c258c082545b65fca",
     "hb_inventory_app/hb_inventory_app/hbos_inventory/quality_projection.py":

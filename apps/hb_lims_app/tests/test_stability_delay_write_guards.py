@@ -96,7 +96,7 @@ class TestStabilityDelayWriteGuards(unittest.TestCase):
 	def setUp(self):
 		self.frappe = SimpleNamespace(throw=_throw, PermissionError=Rejected, get_meta=_meta,
 			get_doc=lambda *args: Values(), session=Values(user="Administrator"))
-		self.guards = _definitions(DOMAIN / "stability_guards.py", {"frappe": self.frappe})
+		self.guards = _definitions(DOMAIN / "stability_guards.py", {"frappe": self.frappe, "json": json})
 		namespace = {"frappe": self.frappe, "Document": DocumentBoundary, "guards": self.guards}
 		self.Parent = _definitions(PARENT_PATH, namespace.copy()).HBOSStabilityTimepoint
 		self.Child = _definitions(CHILD_PATH, namespace.copy()).HBOSStabilityTimepointDelay

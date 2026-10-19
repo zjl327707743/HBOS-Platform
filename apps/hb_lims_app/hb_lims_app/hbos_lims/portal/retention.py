@@ -1,7 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any
+
+from hb_lims_app.hbos_lims.portal.pagination import (
+    iter_permission_rows,
+    literal_keyword_query,
+    page_cursor,
+    permission_page_with_total,
+    read_permission_page,
+)
 
 
 SAMPLE_FIELDS = [
@@ -33,35 +40,44 @@ def _cursor(value: str | None) -> int:
     return offset
 
 
-def _text(row: Mapping[str, Any], *fields: str) -> str:
-    return " ".join(str(row.get(field) or "") for field in fields).lower()
-
-
-def _page(rows: list[dict[str, Any]], *, limit: int, cursor: str | None) -> tuple[list[dict[str, Any]], int, str | None]:
-    offset = _cursor(cursor)
-    page_size = max(1, min(int(limit or 50), 50))
-    page = rows[offset:offset + page_size]
-    next_offset = offset + len(page)
-    return page, len(rows), str(next_offset) if next_offset < len(rows) else None
-
-
-def _sample_rows(*, keyword: str | None, status: str | None, page_size: int) -> list[dict[str, Any]]:
+def _sample_rows(
+    *, keyword: str | None, status: str | None, page_size: int, offset: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     import frappe
 
     filters = {"status": status} if status else {}
     query: dict[str, Any] = {
         "fields": SAMPLE_FIELDS,
         "filters": filters,
-        "order_by": "retention_date desc, modified desc",
-        "limit_page_length": page_size + 1,
+        "order_by": "retention_date desc, modified desc, name desc",
     }
-    if keyword:
+    needle = str(keyword or "").strip()
+    if needle:
+        # Product names participate in the same SQL OR as sample fields. The
+        # lookup itself is permission-filtered and may span multiple pages.
+        product_query = literal_keyword_query(
+            "HBOS Retention Product", keyword=needle, search_fields=("product_name",),
+            fields=["name"], filters={"product_name": ["like", f"%{needle}%"]}, order_by="name asc",
+        )
+        matching_products = {
+            str(row["name"]) for row in iter_permission_rows("HBOS Retention Product", **product_query)
+        }
         query["or_filters"] = [
-            [field, "like", f"%{keyword}%"]
+            [field, "like", f"%{needle}%"]
             for field in ("name", "sample_name", "material_code", "batch_no", "storage_location")
         ]
-    raw = frappe.get_list("HBOS Retention Sample", **query)
-    product_names = [str(row.get("retention_product") or "") for row in raw if row.get("retention_product")]
+        if matching_products:
+            query["or_filters"].append(["retention_product", "in", sorted(matching_products)])
+        query = literal_keyword_query(
+            "HBOS Retention Sample", **query, keyword=needle,
+            search_fields=("name", "sample_name", "material_code", "batch_no", "storage_location"),
+            linked_matches={"retention_product": matching_products},
+        )
+    raw = read_permission_page("HBOS Retention Sample", **query, limit=page_size, offset=offset)
+    facts = list(iter_permission_rows("HBOS Retention Sample", **{
+        **query, "fields": ["name", "status", "observed_flag", "retention_due_date"],
+    }))
+    product_names = sorted({str(row["retention_product"]) for row in raw if row.get("retention_product")})
     products: dict[str, Any] = {}
     if product_names:
         product_query: dict[str, Any] = {
@@ -73,12 +89,9 @@ def _sample_rows(*, keyword: str | None, status: str | None, page_size: int) -> 
             str(row.get("name")): row
             for row in frappe.get_list("HBOS Retention Product", **product_query)
         }
-    needle = str(keyword or "").strip().lower()
     rows: list[dict[str, Any]] = []
     for raw_row in raw:
         row = dict(raw_row)
-        if status and str(row.get("status") or "") != status:
-            continue
         product = products.get(str(row.get("retention_product") or ""), {})
         projected = {
             "name": str(row.get("name") or ""),
@@ -112,37 +125,38 @@ def _sample_rows(*, keyword: str | None, status: str | None, page_size: int) -> 
             "retained_by": str(row.get("retained_by") or ""),
             "remarks": str(row.get("remarks") or ""),
         }
-        if needle and needle not in _text(projected, "name", "product_name", "sample_name", "batch_no", "material_code", "storage_location"):
-            continue
         rows.append(projected)
-    return rows
+    return rows, facts
 
 
-def _product_rows(*, keyword: str | None, active: str | None, page_size: int) -> list[dict[str, Any]]:
-    import frappe
-
+def _product_rows(
+    *, keyword: str | None, active: str | None, page_size: int, offset: int,
+) -> tuple[list[dict[str, Any]], int, str | None]:
     filters = {}
     if active in {"启用", "停用"}:
         filters["is_active"] = 1 if active == "启用" else 0
     query: dict[str, Any] = {
         "fields": PRODUCT_FIELDS,
         "filters": filters,
-        "order_by": "modified desc",
-        "limit_page_length": page_size + 1,
+        "order_by": "modified desc, name desc",
     }
-    if keyword:
+    needle = str(keyword or "").strip()
+    if needle:
         query["or_filters"] = [
-            [field, "like", f"%{keyword}%"]
+            [field, "like", f"%{needle}%"]
             for field in ("name", "product_code", "product_name", "category", "obs_rule", "storage_condition")
         ]
-    raw = frappe.get_list("HBOS Retention Product", **query)
-    needle = str(keyword or "").strip().lower()
+        query = literal_keyword_query(
+            "HBOS Retention Product", **query, keyword=needle,
+            search_fields=("name", "product_code", "product_name", "category", "obs_rule", "storage_condition"),
+        )
+    raw, total, next_cursor = permission_page_with_total(
+        "HBOS Retention Product", **query, limit=page_size, offset=offset,
+    )
     rows: list[dict[str, Any]] = []
     for raw_row in raw:
         row = dict(raw_row)
         is_active = bool(row.get("is_active"))
-        if active in {"启用", "停用"} and (is_active != (active == "启用")):
-            continue
         projected = {
             "name": str(row.get("name") or ""),
             "product_code": str(row.get("product_code") or ""),
@@ -158,10 +172,8 @@ def _product_rows(*, keyword: str | None, active: str | None, page_size: int) ->
             "storage_condition": str(row.get("storage_condition") or ""),
             "obs_rule": str(row.get("obs_rule") or ""),
         }
-        if needle and needle not in _text(projected, "name", "product_code", "product_name", "category", "obs_rule", "storage_condition"):
-            continue
         rows.append(projected)
-    return rows
+    return rows, total, next_cursor
 
 
 def get_retention_projection(
@@ -182,16 +194,19 @@ def get_retention_projection(
     from hb_lims_app.hbos_lims import retention_service
 
     page_size = max(1, min(int(limit or 50), 50))
-    samples = _sample_rows(keyword=keyword, status=status, page_size=page_size)
-    products = _product_rows(keyword=keyword, active=active, page_size=page_size)
+    offset = _cursor(cursor)
+    sample_page, sample_facts = _sample_rows(keyword=keyword, status=status, page_size=page_size, offset=offset)
+    product_page, product_total, product_cursor = _product_rows(
+        keyword=keyword, active=active, page_size=page_size, offset=offset,
+    )
     observations = retention_service.get_observation_plan()
     usage_status = status if section == "usage" else None
     disposal_status = status if section == "disposal" else None
     usages = retention_service.list_usage_applies(status=usage_status or None)
     disposals = retention_service.list_disposal_applies(status=disposal_status or None)
 
-    sample_page, sample_total, sample_cursor = _page(samples, limit=limit, cursor=cursor)
-    product_page, product_total, product_cursor = _page(products, limit=limit, cursor=cursor)
+    sample_total = len(sample_facts)
+    sample_cursor = page_cursor(offset=offset, count=len(sample_page), total=sample_total)
     observation_rows = list(observations.get("rows") or [])
     usage_rows = list(usages.get("rows") or [])
     disposal_rows = list(disposals.get("rows") or [])
@@ -205,7 +220,7 @@ def get_retention_projection(
         import datetime
         horizon = today + datetime.timedelta(days=30)
         near_due = sum(
-            1 for row in samples
+            1 for row in sample_facts
             if row.get("retention_due_date") and today <= frappe.utils.getdate(row["retention_due_date"]) <= horizon
         )
     except Exception:
@@ -224,8 +239,8 @@ def get_retention_projection(
         "disposal": {"rows": disposal_rows, "total": disposals.get("total", len(disposal_rows))},
         "summary": {
             "sample_total": sample_total,
-            "in_stock": sum(1 for row in samples if row.get("status") in {"在库", "部分使用"}),
-            "observed": sum(1 for row in samples if row.get("observed_flag")),
+            "in_stock": sum(1 for row in sample_facts if row.get("status") in {"在库", "部分使用"}),
+            "observed": sum(1 for row in sample_facts if row.get("observed_flag")),
             "near_due_30": near_due,
             "pending_usage": pending_usage,
             "pending_disposal": pending_disposal,

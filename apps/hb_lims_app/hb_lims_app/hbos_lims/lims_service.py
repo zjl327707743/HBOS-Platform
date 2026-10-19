@@ -914,19 +914,29 @@ COA_FINGERPRINT_ITEM_FIELDS = ("test_item", "item_name", "method_sop", "standard
 
 
 def _coa_content_fingerprint(coa):
-	"""COA 快照内容指纹（sha256）：报告头 + 按行序的项目明细（L10-P0-05）。
+	"""COA v2 快照指纹（sha256）：规范 JSON 绑定报告头、行身份、idx 与有序明细。
 
 	用途是「结构化内容与发布 PDF 属同一版本」的**完整性校验**：指纹在发布时固化，
 	事后重算，能检出绕过 `validate()` 的低层直写（`frappe.db.set_value` / 裸 SQL）。
+	v2 消除分隔符边界歧义并绑定行序；既有缺失或 v1 指纹不伪装成 v2 校验通过。
 
 	**不是防篡改证据**：指纹与内容同库同行，有 DB 直写权限者可以同时改写两者。
 	性质与 L10-P0-02 对 checksum 的口径一致，不得据此宣称强防篡改。
 	"""
-	parts = ["hbos-coa-v1"]
-	parts.extend(str(coa.get(field) or "") for field in COA_FINGERPRINT_FIELDS)
-	for row in coa.items:
-		parts.extend(str(row.get(field) or "") for field in COA_FINGERPRINT_ITEM_FIELDS)
-	return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+	def text(value):
+		return "" if value is None else str(value)
+
+	payload = {
+		"domain": "hbos-coa-v2",
+		"header": {field: text(coa.get(field)) for field in COA_FINGERPRINT_FIELDS},
+		"items": [{
+			"name": text(row.get("name")),
+			"idx": text(row.get("idx")),
+			"content": {field: text(row.get(field)) for field in COA_FINGERPRINT_ITEM_FIELDS},
+		} for row in coa.items],
+	}
+	content = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+	return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 @frappe.whitelist()
