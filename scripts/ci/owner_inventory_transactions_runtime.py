@@ -33,7 +33,7 @@ LIMS_AUTHORITY = (
 )
 LIMS_AUTHORITY_SHA256 = {
     "hb_lims_app/hb_lims_app/hbos_lims/lims_service.py":
-        "edc0173c9082673a0a6fbb71152d49841e063877c9f105448b16985a9c42c70f",
+        "2f7f137f1159286bfe897e7278b554fb131e8d6bfe49d58cb62429942f767db0",
     "hb_lims_app/hb_lims_app/hbos_lims/workflow_contract.py":
         "7dfa43cd30f67eda1b9ccf636615d01ef36f1838bb9ce72c258c082545b65fca",
     "hb_inventory_app/hb_inventory_app/hbos_inventory/quality_projection.py":

@@ -137,7 +137,7 @@ class TestAuditIntegrityContract(unittest.TestCase):
 
     def test_rows_record_checksum_version(self):
         source = SERVICE.read_text(encoding="utf-8")
-        self.assertIn('CHECKSUM_VERSION_CURRENT = "2"', source)
+        self.assertIn('CHECKSUM_VERSION_CURRENT = "3"', source)
         self.assertIn('payload["checksum_version"] = CHECKSUM_VERSION_CURRENT', source)
         self.assertIn("def verify_audit_integrity(name=None, limit=200):", source)
 

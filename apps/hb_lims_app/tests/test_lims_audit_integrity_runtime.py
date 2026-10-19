@@ -6,13 +6,13 @@
 有 DB 直写权限者可同时改写两者；而代码/文案却称之为「防篡改」。
 
 本轮口径（Owner 选定：完整性校验 + 轻量外部锚定）：
-- 指纹升为 sha256 且覆盖全部载荷字段；历史行按其原 v1 算法仍可校验；
+- 新行 v3 使用 sha256 + 规范 JSON；历史 v1/v2 保留原算法，不追溯升级；
 - 逐行记录 `checksum_version`，校验接口同时统计 legacy 行数；
 - 全量历史摘要 + 行数每日锚定到**数据库之外**的 append-only 文件，使「仅 DB 写权限」
   的删除 / 改写暴露；并明确不宣称强防篡改。
 
 覆盖：
-- v2 ×2：新行按 v2 落库并校验通过；篡改 `action_text`（v1 漏掉的字段）被检出；
+- 新行 ×2：按当前 v3 落库并校验通过；篡改 `action_text`（v1 漏掉的字段）被检出；
 - 历史 ×1：v1 旧行仍可按原算法校验，且被计为 legacy；
 - 锚定 ×2：锚定后对账通过；删行后对账失败（能指出是删除），回滚后恢复通过。
 
@@ -102,19 +102,19 @@ class TestAuditIntegrityRuntime(unittest.TestCase):
 			["name", "action_text", "checksum", "checksum_version"], as_dict=True)
 
 	# ------------------------------------------------------------------
-	# 用例 01：新行走 v2 且可校验
+	# 用例 01：新行走 v3 且可校验
 	# ------------------------------------------------------------------
 
-	def test_01_new_rows_use_v2_and_verify(self):
-		"""新写入的审计行按 v2（sha256 全字段）落库，校验通过。"""
+	def test_01_new_rows_use_v3_and_verify(self):
+		"""新写入的审计行按 v3（sha256 + 规范 JSON）落库，校验通过。"""
 		frappe.set_user("Administrator")
-		# commit=True：该行是后续用例（篡改检出、锚定对账）的观测对象，必须落库留存
+		# commit=True 是历史兼容 no-op；后续用例使用原生运行器预先提交的同标记夹具。
 		name = self.svc.audit_log("修改", "HBOS Sample", DOC_NAME,
 								  action_text="P002 完整性校验用例",
 								  field_changed="remarks", old_value="", new_value="x",
 								  reason="P002 用例", commit=True)
 		row = self._row(name)
-		self.assertEqual("2", str(row.checksum_version or ""), "新行须记录 v2")
+		self.assertEqual("3", str(row.checksum_version or ""), "新行须记录 v3")
 		self.assertEqual(64, len(row.checksum or ""), "sha256 十六进制应为 64 位")
 
 		frappe.set_user(MGR)
@@ -144,11 +144,11 @@ class TestAuditIntegrityRuntime(unittest.TestCase):
 		self.assertEqual([], result["mismatched"], "历史行须仍可按 v1 校验")
 
 	# ------------------------------------------------------------------
-	# 用例 03：v1 漏掉的字段被篡改 —— v2 能检出
+	# 用例 03：v1 漏掉的字段被篡改 —— 当前指纹能检出
 	# ------------------------------------------------------------------
 
 	def test_03_tampering_previously_uncovered_field_is_detected(self):
-		"""低层直写 `action_text`（v1 完全覆盖不到的字段）必须被 v2 指纹检出。"""
+		"""低层直写 `action_text`（v1 完全覆盖不到的字段）必须被当前 v3 指纹检出。"""
 		frappe.set_user("Administrator")
 		rows = frappe.get_all("HBOS Audit Log", filters={"doc_name": DOC_NAME},
 							  pluck="name", limit_page_length=1, order_by="creation desc")

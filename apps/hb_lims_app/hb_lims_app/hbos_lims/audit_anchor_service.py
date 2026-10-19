@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 """M2 审计锚定（L10-P0-02）：把审计历史的整体摘要写到**数据库之外**的 append-only 文件。
 
-为什么需要：`HBOS Audit Log` 的 checksum 与内容同库同行，具备 DB 直写权限的人可以同时
-改写两者 —— 单靠 checksum 只能检出应用级误改。把「全量行数 + 整体摘要」写到 DB 之外的
-文件后，删行 / 改行都会在下次对账时暴露（改内容必然改逐行 checksum，进而改整体摘要）。
-
-能证明什么：**锚定点之前**的审计历史未被整体改动 —— 行数变少（删除）或任一行的
-name/created_at/checksum 变化（改写、插入、重排）都会使重算摘要与锚定不符。
+新 v2 锚点直接绑定其建立时点所见的原始审计载荷、行身份和指纹版本。旧无版本锚点
+仍按原 v1 编码校验（只绑定 name/created_at/checksum，且不绑定锚定时间 at）。
+旧行和旧文件不重写；为旧行建立新快照不能追溯证明旧载荷从未被改变。
 
 不能证明什么（不得据此宣称强防篡改）：
 - 主机级权限（root / 容器）可同时改 DB 与锚定文件；
-- 锚定文件是本机文件，不是远端存证；最新一行与其后的新增行尚未被锚定；
+- 锚定文件是本机文件，不是远端存证；锚点建立后的新增行尚未被该锚覆盖；
 - 锚定只覆盖"点"，两点之间的改动要靠下一行的链与摘要比对收敛。
 """
 
+import fcntl
 import hashlib
 import json
 import os
@@ -21,6 +19,7 @@ import os
 import frappe
 
 from hb_lims_app.hbos_lims import workflow_contract as wf
+from hb_lims_app.hbos_lims.lims_service import CHECKSUM_V2_FIELDS, _audit_checksum_version
 
 ANCHOR_FILENAME = "hbos_audit_anchor.log"
 _ANCHOR_GENESIS = "genesis"
@@ -42,29 +41,45 @@ def anchor_path():
 	return os.path.join(frappe.utils.get_bench_path(), "logs", ANCHOR_FILENAME)
 
 
-def history_digest(limit=None):
-	"""全量审计历史的整体指纹（分块计算，结果与分块方式无关）。
-
-	按 `(created_at, name)` 升序逐行累加 `name|created_at|checksum`。`limit` 限定只
-	累积前 N 行 —— 对账时用它重算"锚定点之前"的那一段，从而不受锚定之后新增行影响。
-	"""
-	digest = hashlib.sha256(b"hbos-audit-history-v1")
+def _history_snapshot(limit=None, version=1):
+	if str(version) not in {"1", "2"}:
+		raise ValueError("未知锚定版本：{}".format(version))
+	version = int(version)
+	fields = ["name", "created_at", "checksum", "checksum_version"]
+	if version == 2:
+		fields = list(dict.fromkeys(fields + list(CHECKSUM_V2_FIELDS)))
+	digest = hashlib.sha256(b"hbos-audit-history-v1" if version == 1 else b"hbos-audit-history-v2\n")
+	versions = {"1": 0, "2": 0, "3": 0}
 	offset = 0
 	while limit is None or offset < limit:
 		batch = _CHUNK if limit is None else min(_CHUNK, limit - offset)
 		rows = frappe.get_all("HBOS Audit Log",
-							  fields=["name", "created_at", "checksum"],
+							  fields=fields,
 							  order_by="created_at asc, name asc",
 							  limit_start=offset, limit_page_length=batch)
 		if not rows:
 			break
 		for row in rows:
-			digest.update("{}|{}|{}".format(
-				row.name, row.created_at or "", row.checksum or "").encode("utf-8"))
+			versions[_audit_checksum_version(row.get("checksum_version"))] += 1
+			if version == 1:
+				# Preserve the original bytes, including its limited coverage.
+				digest.update("{}|{}|{}".format(
+					row.name, row.created_at or "", row.checksum or "").encode("utf-8"))
+			else:
+				# Stored values are read on both sides; keep null distinct from
+				# empty text and JSON-frame each row, including embedded newlines.
+				payload = {field: row.get(field) for field in fields}
+				digest.update(json.dumps(payload, ensure_ascii=False, sort_keys=True,
+					separators=(",", ":"), default=str, allow_nan=False).encode("utf-8") + b"\n")
 		offset += len(rows)
 		if len(rows) < batch:
 			break
-	return digest.hexdigest()
+	return {"digest": digest.hexdigest(), "rows": offset, "versions": versions}
+
+
+def history_digest(limit=None, version=1):
+	"""Stable prefix digest; omitted version retains the historical v1 API."""
+	return _history_snapshot(limit=limit, version=version)["digest"]
 
 
 def _read_anchor_lines(path):
@@ -84,9 +99,23 @@ def _read_anchor_lines(path):
 	return lines
 
 
-def _anchor_hash(prev_hash, rows, digest, source):
-	return hashlib.sha256("|".join(
-		[prev_hash, str(rows), digest, source]).encode("utf-8")).hexdigest()
+def _anchor_version(line):
+	version = str(line["version"]) if "version" in line else "1"
+	if version not in {"1", "2"}:
+		raise ValueError("未知锚定版本：{}".format(version))
+	return int(version)
+
+
+def _anchor_hash(prev_hash, rows, digest, source, *, version=1, at=None):
+	if str(version) == "1":
+		return hashlib.sha256("|".join(
+			[prev_hash, str(rows), digest, source]).encode("utf-8")).hexdigest()
+	if str(version) != "2":
+		raise ValueError("未知锚定版本：{}".format(version))
+	payload = {"version": 2, "at": at, "prev": prev_hash, "rows": rows,
+			   "digest": digest, "source": source}
+	return hashlib.sha256(("hbos-audit-anchor-v2|" + json.dumps(payload,
+		ensure_ascii=False, sort_keys=True, separators=(",", ":"))).encode("utf-8")).hexdigest()
 
 
 def write_anchor_at(path=None, source="scheduled"):
@@ -95,21 +124,32 @@ def write_anchor_at(path=None, source="scheduled"):
 	锚定行之间也串链：改动历史锚定行会破坏链。`path` 仅供测试指定；生产走默认路径。
 	"""
 	path = path or anchor_path()
-	previous = _read_anchor_lines(path)
-	prev_hash = previous[-1].get("anchor", _ANCHOR_GENESIS) if previous else _ANCHOR_GENESIS
-	rows = frappe.db.count("HBOS Audit Log")
-	digest = history_digest()
-	line = {
-		"at": str(frappe.utils.now()),
-		"source": source,
-		"rows": rows,
-		"digest": digest,
-		"prev": prev_hash,
-		"anchor": _anchor_hash(prev_hash, rows, digest, source),
-	}
 	os.makedirs(os.path.dirname(path), exist_ok=True)
-	with open(path, "a", encoding="utf-8") as handle:
-		handle.write(json.dumps(line, ensure_ascii=False, sort_keys=True) + "\n")
+	with open(path, "a+", encoding="utf-8") as handle:
+		fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+		try:
+			previous = _read_anchor_lines(path)
+			if previous:
+				verdict = verify_anchor_at(path)
+				if not verdict["ok"]:
+					raise ValueError("已有锚定前缀不一致，禁止追加或重新锚定：" + verdict["reason"])
+			# Read after acquiring the append lock. An earlier snapshot must not
+			# follow another writer's newer/larger anchor and shrink its coverage.
+			rows = frappe.db.count("HBOS Audit Log")
+			if previous and rows < previous[-1]["rows"]:
+				raise ValueError("锚定覆盖行数不得倒退。")
+			snapshot = _history_snapshot(limit=rows, version=2)
+			if snapshot["rows"] != rows:
+				raise ValueError("审计行数在读取期间变化，拒绝建立不一致锚点。")
+			prev_hash = previous[-1]["anchor"] if previous else _ANCHOR_GENESIS
+			line = {"version": 2, "at": str(frappe.utils.now()), "source": source,
+					"rows": rows, "digest": snapshot["digest"], "prev": prev_hash}
+			line["anchor"] = _anchor_hash(prev_hash, rows, line["digest"], source,
+				version=2, at=line["at"])
+			handle.write(json.dumps(line, ensure_ascii=False, sort_keys=True) + "\n")
+			handle.flush()
+		finally:
+			fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 	return dict(line, path=path)
 
 
@@ -127,27 +167,50 @@ def verify_anchor_at(path=None):
 				"reason": "尚无锚定记录（未执行过锚定）。"}
 
 	prev_hash = _ANCHOR_GENESIS
+	previous_rows = 0
 	for index, line in enumerate(lines, 1):
+		try:
+			if not isinstance(line, dict):
+				raise ValueError("锚定行必须是对象。")
+			version = _anchor_version(line)
+			if type(line.get("rows")) is not int or line["rows"] < 0:
+				raise ValueError("锚定行数必须是非负整数。")
+			if line["rows"] < previous_rows:
+				raise ValueError("锚定覆盖行数不得倒退。")
+			expected = _anchor_hash(line.get("prev"), line["rows"], line.get("digest", ""),
+				line.get("source", ""), version=version, at=line.get("at"))
+		except (ValueError, TypeError) as exc:
+			return {"ok": False, "anchors": len(lines), "reason": "锚定记录第 {} 行无效：{}".format(index, exc)}
 		if line.get("prev") != prev_hash:
 			return {"ok": False, "anchors": len(lines),
 					"reason": "锚定链在第 {} 行断裂（历史锚定记录被改动或缺失）。".format(index)}
-		expected = _anchor_hash(line.get("prev"), line.get("rows"),
-								line.get("digest", ""), line.get("source", ""))
 		if line.get("anchor") != expected:
 			return {"ok": False, "anchors": len(lines),
 					"reason": "锚定记录第 {} 行的哈希不符（该行被改动）。".format(index)}
 		prev_hash = line["anchor"]
+		previous_rows = line["rows"]
 
 	last = lines[-1]
-	anchored_rows = int(last.get("rows") or 0)
+	anchored_rows = last["rows"]
 	current_rows = frappe.db.count("HBOS Audit Log")
 	if current_rows < anchored_rows:
 		return {"ok": False, "anchors": len(lines), "last_at": last.get("at"),
 				"anchored_rows": anchored_rows, "current_rows": current_rows,
 				"reason": "审计行数比锚定更少（存在删除）。"}
-	ok = history_digest(limit=anchored_rows) == last.get("digest")
+	version = _anchor_version(last)
+	try:
+		snapshot = _history_snapshot(limit=anchored_rows, version=version)
+	except ValueError as exc:
+		return {"ok": False, "anchors": len(lines), "last_at": last.get("at"),
+				"anchored_rows": anchored_rows, "current_rows": current_rows, "reason": str(exc)}
+	ok = snapshot["rows"] == anchored_rows and snapshot["digest"] == last.get("digest")
 	return {"ok": ok, "anchors": len(lines), "last_at": last.get("at"),
 			"anchored_rows": anchored_rows, "current_rows": current_rows,
+			"anchor_version": version, "versions": snapshot["versions"],
+			"weak_legacy": snapshot["versions"]["1"] + snapshot["versions"]["2"],
+			"payload_coverage": "snapshot_v2" if version == 2 else "legacy_checksum_only",
+			"coverage_note": ("仅绑定新锚建立时点所见的载荷；旧 v1/v2 行未重算，不能追溯证明其原始内容。"
+				if version == 2 else "历史锚仅覆盖 name/created_at/checksum，不覆盖完整载荷或锚定时间；旧记录未升级。"),
 			"reason": "" if ok else "锚定点之前的历史与锚定摘要不一致（存在改写 / 插入 / 重排）。"}
 
 

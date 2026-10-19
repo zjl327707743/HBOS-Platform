@@ -121,9 +121,8 @@ def _commit():
 
 AUDIT_EXCLUDE_DOCTYPES = {"HBOS Audit Log"}  # 审计日志自身不入日志（避免递归）
 
-# 指纹算法版本：v1 为历史行（sha1 / 7 字段），v2 为当前行（sha256 / 全字段）。
-# 逐行记版本，使历史行仍可按其原算法校验，而不是笼统标成"不可校验"。
-CHECKSUM_VERSION_CURRENT = "2"
+# v1/v2 保留历史编码；新 v3 用规范 JSON 明确字段边界。旧行不重算、不重标。
+CHECKSUM_VERSION_CURRENT = "3"
 CHECKSUM_V1_FIELDS = ("doctype_target", "doc_name", "log_type", "user", "created_at",
 					  "old_value", "new_value")
 CHECKSUM_V2_FIELDS = ("log_type", "doctype_target", "doc_name", "action_text",
@@ -131,22 +130,40 @@ CHECKSUM_V2_FIELDS = ("log_type", "doctype_target", "doc_name", "action_text",
 					  "user", "created_at")
 
 
+def _audit_checksum_version(value):
+	version = "1" if value is None or value == "" else str(value)
+	if version not in {"1", "2", "3"}:
+		raise ValueError("未知审计指纹版本：{}".format(version))
+	return version
+
+
+def _canonical_audit_payload(payload):
+	# Frappe nullable text is equivalent to empty text for the row checksum;
+	# unlike the historical `or ""`, numeric zero/False are not erased.
+	values = {field: "" if payload.get(field) is None else str(payload.get(field))
+			  for field in CHECKSUM_V2_FIELDS}
+	return json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
 def _checksum(payload, version=CHECKSUM_VERSION_CURRENT):
 	"""审计记录指纹（按版本分发）。
 
-	- **v2（当前，新行一律用）**：sha256，覆盖**全部**载荷字段（含 `action_text` /
-	  `field_changed` / `reason`）。v1 漏了这三个字段，改它们检不出来（L10-P0-02）。
-	- **v1（历史行，只读保留）**：sha1，仅覆盖 7 个字段。站点上已按此算法落库的
-	  8106 行仍用它校验；旧行仍可验，但覆盖范围有限，校验接口会单独统计 legacy。
+	- **v3（新行）**：sha256 + 带字段名的规范 JSON，保留字段边界。
+	- **v2（历史）**：原 sha256 / 十字段未转义分隔编码，可能有字段边界碰撞。
+	- **v1（历史）**：原 sha1 / 七字段编码，另有载荷字段未覆盖。
+	历史行只按原算法校验，不表示已经升级或证明其原始载荷未被改变。
 
 	性质是**完整性校验**，不是防篡改证据：指纹与内容同库同行，具备 DB 直写权限者
-	可以同时改写两者。跨库的删除 / 改写历史由 `audit_anchor_service` 的外部锚定检出。
+	可以同时改写两者。新版外部锚定仅绑定其建立时点所见的载荷。
 	"""
-	if str(version) == "1":
+	version = _audit_checksum_version(version)
+	if version == "1":
 		raw = "|".join(str(payload.get(k) or "") for k in CHECKSUM_V1_FIELDS)
 		return hashlib.sha1(raw.encode("utf-8")).hexdigest()
-	raw = "|".join(str(payload.get(k) or "") for k in CHECKSUM_V2_FIELDS)
-	return hashlib.sha256(("hbos-audit-v2|" + raw).encode("utf-8")).hexdigest()
+	if version == "2":
+		raw = "|".join(str(payload.get(k) or "") for k in CHECKSUM_V2_FIELDS)
+		return hashlib.sha256(("hbos-audit-v2|" + raw).encode("utf-8")).hexdigest()
+	return hashlib.sha256(("hbos-audit-v3|" + _canonical_audit_payload(payload)).encode("utf-8")).hexdigest()
 
 
 def audit_log(log_type, doctype_target, doc_name, action_text="", field_changed="",
@@ -1527,10 +1544,11 @@ def verify_audit_integrity(name=None, limit=200):
 
 	`name` 给定则校验单条；否则按时间倒序校验最近 `limit` 条。逐条按该行记录的
 	`checksum_version` 重算指纹并与落库值比对，返回
-	`{checked, mismatched, legacy}`（legacy = 仍属 v1 算法的历史行数，覆盖字段较少）。
+	保留 `{checked, mismatched, legacy}`（legacy 仍只统计 v1），并返回逐版本数量、
+	`weak_legacy`（v1/v2）和 `unknown`。旧行匹配原算法不代表覆盖弱点已经消除。
 
 	性质是**应用级误改 / 直写检测**，不是防篡改证明：有 DB 直写权限者可同时改写内容
-	与指纹。跨库的删除 / 改写历史由 `audit_anchor_service.verify_audit_anchor()` 检出。
+	与指纹。`audit_anchor_service.verify_audit_anchor()` 检查对应锚版本实际覆盖的历史。
 	"""
 	_check_action("verify_audit_integrity")
 	fields = ["name", "checksum", "checksum_version", "log_type", "doctype_target",
@@ -1544,14 +1562,21 @@ def verify_audit_integrity(name=None, limit=200):
 							  order_by="created_at desc, name desc",
 							  limit_page_length=int(limit or 200))
 	mismatched = []
-	legacy = 0
+	versions = {"1": 0, "2": 0, "3": 0}
+	unknown = []
 	for row in rows:
-		version = str(row.get("checksum_version") or "1")
-		if version == "1":
-			legacy += 1
+		try:
+			version = _audit_checksum_version(row.get("checksum_version"))
+		except ValueError:
+			unknown.append(row.get("name"))
+			mismatched.append(row.get("name"))
+			continue
+		versions[version] += 1
 		if _checksum(row, version) != (row.get("checksum") or ""):
 			mismatched.append(row.get("name"))
-	return {"checked": len(rows), "mismatched": mismatched, "legacy": legacy}
+	return {"checked": len(rows), "mismatched": mismatched, "legacy": versions["1"],
+			"versions": versions, "weak_legacy": versions["1"] + versions["2"], "unknown": unknown,
+			"coverage_note": "v1/v2 仅按历史编码校验，存在遗漏或字段边界碰撞；旧行未重算或升级。"}
 
 
 @frappe.whitelist()
