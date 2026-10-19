@@ -1,7 +1,6 @@
 --- a/README.md
 +++ b/README.md
-@@ -1,4 +1,13 @@
- # 新乡海滨智能运营管理平台
+@@ -1,0 +2,9 @@
 +
 +## IAM 角色落地启动：基线待平台确认（2026-10-19）
 +
@@ -11,13 +10,9 @@
 +
 +交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
 +
- 
- ## 当前集成状态 — 2026-10-19
- 
 --- a/docs/PROJECT_STATUS.md
 +++ b/docs/PROJECT_STATUS.md
-@@ -1,4 +1,13 @@
- # 项目状态
+@@ -1,0 +2,9 @@
 +
 +## IAM 角色落地启动：基线待平台确认（2026-10-19）
 +
@@ -27,13 +22,9 @@
 +
 +交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
 +
- 
- ## 当前集成状态 — 2026-10-19
- 
 --- a/docs/CURRENT_MILESTONE.md
 +++ b/docs/CURRENT_MILESTONE.md
-@@ -1,4 +1,13 @@
- # Current Milestone
+@@ -1,0 +2,9 @@
 +
 +## IAM 角色落地启动：基线待平台确认（2026-10-19）
 +
@@ -43,13 +34,9 @@
 +
 +交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
 +
- 
- ## 当前集成状态 — 2026-10-19
- 
 --- a/docs/AI_CONTEXT.md
 +++ b/docs/AI_CONTEXT.md
-@@ -1,4 +1,13 @@
- # AI Context
+@@ -1,0 +2,9 @@
 +
 +## IAM 角色落地启动：基线待平台确认（2026-10-19）
 +
@@ -59,13 +46,9 @@
 +
 +交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
 +
- 
- ## 当前集成状态 — 2026-10-19
- 
 --- a/docs/READING_GUIDE.md
 +++ b/docs/READING_GUIDE.md
-@@ -1,4 +1,13 @@
- # Reading Guide
+@@ -1,0 +2,9 @@
 +
 +## IAM 角色落地启动：基线待平台确认（2026-10-19）
 +
@@ -75,13 +58,9 @@
 +
 +交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
 +
- 
- ## 当前集成状态 — 2026-10-19
- 
 --- a/docs/milestones/M1_START_GATE.md
 +++ b/docs/milestones/M1_START_GATE.md
-@@ -1,4 +1,13 @@
- # M1 启动门禁
+@@ -1,0 +2,9 @@
 +
 +## IAM 角色落地启动：基线待平台确认（2026-10-19）
 +
@@ -91,13 +70,9 @@
 +
 +交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
 +
- 
- ## PR #21 最终 Gate — 2026-10-01
- 
 --- a/docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md
 +++ b/docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md
-@@ -1,4 +1,13 @@
- # M1-RP3：统一账号、飞书绑定与正式发布
+@@ -1,0 +2,9 @@
 +
 +## IAM 角色落地启动：基线待平台确认（2026-10-19）
 +
@@ -107,6 +82,3 @@
 +
 +交接入口：`docs/design/iam-v1/README.md`；请求：https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120 。公共文件由平台唯一写方应用本追加，不以本patch代替授权或集成结果。
 +
- 
- ## 合并后最终状态 — 2026-10-01
- 
