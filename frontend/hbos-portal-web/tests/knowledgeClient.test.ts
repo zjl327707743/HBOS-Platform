@@ -164,7 +164,9 @@ describe('N1 bounded follow-up responses', () => {
     expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.ask', { model_alias:'gpt-6-luna',knowledge_only:false,search_mode:'STANDARD', question: '上面第二条是什么意思？', space_ids: ['SPACE_QA_DEMO'], conversation_id: 'PREVIOUS_TURN_DEMO' })
   })
   it.each([
-    { ...unanswered, answer: '未被契约批准的拒答文本' },
+    { ...unanswered, answer_status: 'CLARIFIED' },
+    { ...unanswered, mode: 'catalog_results' },
+    { ...unanswered, answerable: true },
     { ...unanswered, conversation_id: 'MISMATCHED_TURN_DEMO' },
     { ...unanswered, citations: [{ ...card, citation_label: 'C1' }] },
     { request_id: 'REQ_DUPLICATE_DEMO', turn_id: 'TURN_DUPLICATE_DEMO', mode: 'internal_reference_generation', answer_status: 'REFERENCE_ANSWERED', answerable: true, answer: 'SYNTHETIC [C1]', citations: [{ ...card, citation_label: 'C1' }, { ...card, citation_label: 'C1' }] },

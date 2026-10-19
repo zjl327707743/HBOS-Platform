@@ -30,14 +30,26 @@ it('F08: an authorized application deep link remains available', async () => {
   expect(router.currentRoute.value.path).toBe('/hbos/knowledge')
   expect(wrapper.text()).toContain('Protected application content')
 })
-it('A07: resuming hides old protected content while account authorization is checked again', async () => {
+it('A07: resuming re-verifies authorization without blanking the page, and still revokes on a real change', async () => {
   const {router,wrapper} = await render('/hbos/knowledge')
   let resolve!: (value: unknown) => void
   provider.getPortalData.mockReturnValue(new Promise(r => {resolve=r}))
   window.dispatchEvent(new Event('focus')); await flushPromises()
-  expect(wrapper.text()).not.toContain('Protected application content')
+  // Owner requirement: a tab resume must not look like a forced page refresh.
+  // The already-authorized content stays until the re-check proves otherwise.
+  expect(wrapper.text()).toContain('Protected application content')
+  expect(wrapper.text()).not.toContain('Checking account')
   resolve(data([])); await flushPromises()
+  // An actual manifest change still revokes access and redirects.
   expect(router.currentRoute.value.path).toBe('/hbos/403')
+})
+
+it('A07: a transient resume failure keeps authorized content and is not treated as revocation', async () => {
+  const {router,wrapper} = await render('/hbos/knowledge')
+  provider.getPortalData.mockRejectedValueOnce(new Error('network unavailable'))
+  window.dispatchEvent(new Event('focus')); await flushPromises()
+  expect(wrapper.text()).toContain('Protected application content')
+  expect(router.currentRoute.value.path).toBe('/hbos/knowledge')
 })
 it('C02: a normal profile recheck preserves an in-progress verification for the same account', async () => {
   const {router,wrapper} = await render('/hbos/profile')

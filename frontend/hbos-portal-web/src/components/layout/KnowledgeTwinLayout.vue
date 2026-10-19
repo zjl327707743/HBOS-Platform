@@ -77,9 +77,11 @@ const isTwin = computed(() => route.path.startsWith('/hbos/twin'))
 const isMaintenance = computed(() => route.path.startsWith('/hbos/knowledge/maintenance'))
 const canMaintain = ref(false)
 const knowledgeTheme = { ...hbosAntdTheme, token: { ...hbosAntdTheme.token, colorPrimary:'#159b89', colorLink:'#159b89' } }
-const { sessionPending, sessionError } = usePortalSession()
-const permissionPending = ref(false), sessionRevision = ref(0)
-watch(sessionPending, (pending, previous) => { if (!pending && previous) sessionRevision.value++ })
+// ``sessionRevision`` comes from the composable and advances only after a
+// *successful* re-verification, so a failed or transient resume does not look
+// like an authorization change to the child views.
+const { sessionPending, sessionError, sessionRevision } = usePortalSession()
+const permissionPending = ref(false)
 let permissionEpoch = 0
 watch(() => [portal.user?.id, route.path, sessionPending.value], async () => {
   const epoch = ++permissionEpoch

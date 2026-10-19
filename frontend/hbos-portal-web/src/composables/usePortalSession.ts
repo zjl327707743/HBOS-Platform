@@ -8,19 +8,54 @@ function safeRedirectTarget(fullPath: string): string {
   return accountRedirect(fullPath)
 }
 
+/**
+ * Session bootstrap plus resume handling.
+ *
+ * Two rules drive this composable:
+ *
+ * 1. A resume (tab focus, ``pageshow``, ``visibilitychange``) is a *re-check*,
+ *    never a page reload. The page keeps the answer, draft, scroll position and
+ *    focus it already had, and no skeleton is raised over established content.
+ *    Only the first load — or a hard authentication failure — may show the
+ *    pending state.
+ * 2. A transient failure is not a revocation. Network and service errors keep
+ *    the current page and its authorized content. Only an authentication error
+ *    clears the session and redirects to the login page; a manifest change
+ *    still redirects to 403.
+ *
+ * The composable never triggers a knowledge or model request. Views decide what
+ * to refresh from ``sessionRevision``, which advances only after a *successful*
+ * re-verification.
+ */
 export function usePortalSession() {
   const portal = usePortalStore()
   const route = useRoute()
   const router = useRouter()
   const sessionPending = ref(true)
   const sessionError = ref<string | null>(null)
+  // Advances after every successful re-verification. Views watch it to refresh
+  // authorization state in place, without being torn down or re-asking a model.
+  const sessionRevision = ref(0)
 
-  let disposed = false, checking = false
-  const resume = () => { if (document.visibilityState !== 'hidden') void synchronize() }
-  async function synchronize() {
+  let disposed = false
+  let checking = false
+  // True once a bootstrap has succeeded in this page lifetime. It is cleared
+  // only by a real authentication failure, so a later transient error cannot
+  // promote itself into a "you were logged out" screen.
+  let established = false
+
+  const resume = () => {
+    if (document.visibilityState !== 'hidden') void synchronize(true)
+  }
+
+  async function synchronize(soft = false) {
+    // Single-flight: repeated focus/pageshow/visibilitychange events must not
+    // stack concurrent status requests.
     if (disposed || checking) return
-    checking = true; sessionError.value = null
-    if (/^\/hbos\/(lims|knowledge|twin)(?:\/|$)/.test(route.path)) sessionPending.value = true
+    checking = true
+    sessionError.value = null
+    const showPending = !soft || !established
+    if (showPending && /^\/hbos\/(lims|knowledge|twin)(?:\/|$)/.test(route.path)) sessionPending.value = true
     try {
       await portal.bootstrap()
       if (disposed) return
@@ -29,10 +64,15 @@ export function usePortalSession() {
         await router.replace({ path: '/hbos/403', query: { app } })
         return
       }
+      established = true
+      sessionRevision.value++
     } catch (error) {
       if (disposed) return
       if (isUnauthenticatedError(error)) {
+        // A real unauthenticated response is the only resume outcome that may
+        // discard protected content.
         const redirectTo = safeRedirectTarget(route.fullPath)
+        established = false
         portal.clearSession()
         await router.replace({
           path: '/hbos/login',
@@ -40,14 +80,20 @@ export function usePortalSession() {
         })
         return
       }
-      sessionError.value = error instanceof Error
-        ? error.message
-        : 'HBOS 初始化失败，请稍后重试。'
+      // Transient network/service failure: keep the current page and its
+      // already-authorized content. Report the error only when nothing was
+      // established yet; otherwise the user keeps working.
+      if (!established) {
+        sessionError.value = error instanceof Error
+          ? error.message
+          : 'HBOS 初始化失败，请稍后重试。'
+      }
     } finally {
-      if (!disposed) sessionPending.value = false
+      if (!disposed && showPending) sessionPending.value = false
       checking = false
     }
   }
+
   onMounted(() => {
     void synchronize()
     window.addEventListener('focus', resume)
@@ -61,5 +107,5 @@ export function usePortalSession() {
     document.removeEventListener('visibilitychange', resume)
   })
 
-  return { sessionPending, sessionError }
+  return { sessionPending, sessionError, sessionRevision }
 }

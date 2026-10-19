@@ -20,7 +20,7 @@ const stubs = { 'a-input-search':SearchInput, RouterLink: { template: '<span><sl
 const card: KnowledgeEvidence = { document_id: 'DOC_N1_DEMO', title: '合成资料标题', version: null, document_number: null, status_note: 'SYNTHETIC_ONLY', section: null, page_number: null, excerpt: 'SYNTHETIC 必要摘录', evidence_id: 'EV_N1_DEMO', space_id: 'SPACE_N1_DEMO', source_type: 'SYNTHETIC_TEST' }
 const doc = { document_id: 'DOC_N1_DEMO', title: '合成资料标题', space_id: 'SPACE_N1_DEMO', department: '合成部门', document_number: null, version: null, status_note: 'SYNTHETIC_ONLY' }
 const ready = { can_enter: true, can_search: true, gateway_configured: true, ask_enabled: true, mode: 'retrieval', environment: 'production', retrieval_availability: { status: 'UNKNOWN', blocked: false, budget_status: 'READY', last_success_at: null } }
-const answer = { request_id: 'REQ_N1_DEMO', turn_id: 'TURN_N1_DEMO', answer: 'SYNTHETIC 内部参考回答', answerable: true, citations: [{ ...card, citation_label: 'C1' }] }
+const answer = { request_id: 'REQ_N1_DEMO', turn_id: 'TURN_N1_DEMO', mode: 'internal_reference_generation', answer_status: 'GENERATED_WITH_SOURCES', answer_origin: 'KNOWLEDGE', model_alias: 'gpt-6-luna', answer: 'SYNTHETIC 内部参考回答', answerable: true, citations: [{ ...card, citation_label: 'C1' }] }
 const wrappers: ReturnType<typeof mount>[] = []
 function deferred<T = unknown>() { let resolve!: (value: T) => void, reject!: (reason: unknown) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail }); return { promise, resolve, reject } }
 async function view() { const wrapper = mount(KnowledgeView, { attachTo: document.body, global: { stubs } }); wrappers.push(wrapper); await flushPromises(); await clickText(wrapper,'搜资料'); return wrapper }
