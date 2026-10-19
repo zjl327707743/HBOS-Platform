@@ -101,7 +101,9 @@ class AttendanceBypassTest(unittest.TestCase):
         for path, args in cases:
             with self.subTest(path=path), self.assertRaises(Denied):
                 self.request(path, **args)
-        self.request("/api/resource/Attendance%20Request")  # exact native type, no prefix overblock
+        with self.assertRaises(Denied):
+            self.request("/api/resource/Attendance%20Request")
+        self.request("/api/resource/Attendance%20Request%20Extension")  # unknown prefix is left to native DocType permissions
 
     def test_opted_in_roles_cannot_recover_native_shift_policy_or_widget_access(self):
         self.fake.conf.hbos_iam_roles_enabled=1

@@ -49,12 +49,12 @@ OPERATIONS = {
     'attendance.report.monthly.read': ('查看月度考勤汇总', 'reports', 'DEPARTMENT', True),
     'attendance.report.staging.read': ('查看月度对账暂存', 'reports', 'DEPARTMENT', False),
     'attendance.record.import_log.read': ('查看导入日志', 'reports', 'COMPANY', False),
-    'attendance.record.leave.read': ('查看请假记录', 'reports', 'COMPANY', False),
-    'attendance.record.overtime.read': ('查看加班记录', 'reports', 'COMPANY', False),
-    'attendance.record.rest_leave.read': ('查看调休记录', 'reports', 'COMPANY', False),
-    'attendance.export.monthly': ('导出月度考勤', 'export', 'COMPANY', False),
-    'attendance.export.exceptions': ('导出考勤异常', 'export', 'COMPANY', False),
-    'attendance.export.roster': ('导出班次人员表', 'export', 'COMPANY', False),
+    'attendance.record.leave.read': ('查看请假记录', 'reports', 'COMPANY', True),
+    'attendance.record.overtime.read': ('查看加班记录', 'reports', 'COMPANY', True),
+    'attendance.record.rest_leave.read': ('查看调休记录', 'reports', 'COMPANY', True),
+    'attendance.export.monthly': ('导出月度考勤', 'export', 'COMPANY', True),
+    'attendance.export.exceptions': ('导出考勤异常', 'export', 'COMPANY', True),
+    'attendance.export.roster': ('导出班次人员表', 'export', 'COMPANY', True),
 }
 BINDINGS = {'SELF': 'SELF', 'DEPARTMENT': 'RESPONSIBLE_DEPARTMENTS', 'COMPANY': 'RESPONSIBLE_COMPANIES'}
 

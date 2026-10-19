@@ -40,7 +40,12 @@ def _plan(action, employees, date_from, date_to):
     selected=[row for row in roster if row.name in names and row.status=='Active']
     if len(selected)!=len(names):
         frappe.throw('所选员工期间存在无法证明的归属或已失效，未计算。',frappe.PermissionError)
-    params=dict(names=tuple(sorted(names)),start=start-pad,end=end+pad,departments=tuple(bound['departments']))
+    from hb_attendance_app.hbos_attendance.portal.record_lists import approved_sources
+    for key,doctype,metadata in [('feishu-leave','HBOS Leave Record',{'approval_status':'已通过'}),('feishu-rest-leave','HBOS Rest Leave Record',{'approval_status':'已通过','verify_status':'已核实'})]:
+        _,_,complete=approved_sources(bound,selected,key,dict(doctype=doctype,metadata_filters=metadata),start-pad,end+pad)
+        if not complete:
+            frappe.throw('计算来源的完整期间或引用归属缺少依据，须先核对；本次未计算。',frappe.PermissionError)
+    params=dict(names=tuple(sorted(names)),start=start-pad,end=end+pad,departments=tuple(bound['departments']) or ('',))
     sources={}
     specs={
         'Employee':"name in %(names)s",
@@ -50,11 +55,13 @@ def _plan(action, employees, date_from, date_to):
         'HBOS Attendance Policy Assignment':"employee in %(names)s",
         'HBOS Employee Shift':"employee in %(names)s",
         'HBOS Shift Rule':"department in %(departments)s",
-        'HBOS Leave Record':"employee in %(names)s and start_date<=%(end)s and end_date>=%(start)s",
-        'HBOS Rest Leave Record':"employee in %(names)s and start_date<=%(end)s and end_date>=%(start)s",
+        'HBOS Leave Record':"employee in %(names)s and start_date<=%(end)s and end_date>=%(start)s and approval_status='已通过'",
+        'HBOS Rest Leave Record':"employee in %(names)s and start_date<=%(end)s and end_date>=%(start)s and approval_status='已通过' and verify_status='已核实'",
     }
     for doctype,predicate in specs.items():
-        sources[doctype]=frappe.db.sql(f'select * from `tab{doctype}` where '+predicate+' order by name for update',params,as_dict=True)
+        fields={'Employee':'name,modified,department,company,status,employee_number,hbos_fixed_shift,hbos_fixed_shift_code',
+                'Employee Checkin':'name,employee,time,log_type,hbos_terminal_sn,hbos_check_type'}.get(doctype,'*')
+        sources[doctype]=frappe.db.sql(f'select {fields} from `tab{doctype}` where '+predicate+' order by name for update',params,as_dict=True)
     # Validate all fixed family references before the native engine resolves a
     # legacy pointer. No cross-company family can influence a result.
     allowed_rules={row.name for row in sources['HBOS Shift Rule']}
@@ -81,7 +88,9 @@ def calculation_employees(action='recalculate', search='', **kwargs):
         role_scope.check_fields({'action','search'})
         bound=_bound(action)
         if not isinstance(search,str) or len(search)>80:frappe.throw('查询内容过长。',frappe.ValidationError)
-        return dict(scope=bound['scope_label'],items=frappe.db.sql("select name,employee_name,employee_number,department from `tabEmployee` where company=(select company from `tabDepartment` iam_department where iam_department.name=tabEmployee.department) and department in %(departments)s and status='Active' and (employee_name like %(search)s or employee_number like %(search)s) order by employee_number,name limit 200",dict(departments=tuple(bound['departments']),search='%'+search+'%'),as_dict=True))
+        params=dict(search='%'+search+'%')
+        predicate=role_scope.employee_predicate(bound,'tabEmployee',params)
+        return dict(scope=bound['scope_label'],items=frappe.db.sql(f"select name,employee_name,employee_number,department from `tabEmployee` where {predicate} and status='Active' and (employee_name like %(search)s or employee_number like %(search)s) order by employee_number,name limit 200",params,as_dict=True))
     return _call(run,read_only=True)
 
 
@@ -101,7 +110,7 @@ def execute_calculation(action, employees, date_from, date_to, expected_inputs, 
         guards.require_post()
         with serialize('attendance-calculation','company'):
             # Replay rechecks every selected employee's current authority.
-            _,rows,start,end,fingerprint=_plan(action,employees,date_from,date_to)
+            bound,rows,start,end,fingerprint=_plan(action,employees,date_from,date_to)
             subject=rows[0].name
             payload=dict(action=action,employees=employees,date_from=date_from,date_to=date_to,expected_version=expected_inputs)
             replay=audit.replay(request_id,OPERATIONS[action],'Employee',subject,payload)
@@ -116,7 +125,7 @@ def execute_calculation(action, employees, date_from, date_to, expected_inputs, 
                     result=generate_rotation_schedule(str(end),employees=[row.name for row in rows],start_date=str(start))
                 else:
                     from hb_attendance_app.hbos_attendance.api import _regenerate_attendance_impl
-                    result=_regenerate_attendance_impl(str(start),str(end),employee_scope=rows)
+                    result=_regenerate_attendance_impl(str(start),str(end),employee_scope=rows,rule_departments=bound['departments'])
             result={**result,'changed':True}
             audit.append_event(request_id,OPERATIONS[action],'Employee',subject,payload,after=result)
             return result

@@ -62,7 +62,7 @@ def _read_my_attendance(date_from=None, date_to=None, page=1, page_size=20, **kw
     return {"ok": True, "data": data}
 
 
-def _record_page(employee, start, end, page, page_size):
+def _record_page(employee, start, end, page, page_size, *, locking_sources=False):
     """Private shared query; callers must authorize this exact Employee first."""
     params = {"employee": employee, "start": start, "end": end,
               "start_time": datetime.combine(start, time.min), "end_time": datetime.combine(end + timedelta(days=1), time.min),
@@ -81,6 +81,8 @@ def _record_page(employee, start, end, page, page_size):
        where employee=%(employee)s and attendance_date between %(start)s and %(end)s
          and docstatus < 2
     """
+    if locking_sources:
+        union=' union all '.join('('+select.strip()+' for update)' for select in union.split('union all'))
     counts = frappe.db.sql("select count(*) as records, count(distinct date) as days from (" + union + ") bounded", params, as_dict=True)[0]
     rows = frappe.db.sql("select * from (" + union + ") bounded order by date desc, time desc, source, id limit %(limit)s offset %(offset)s", params, as_dict=True)
     from frappe.utils import nowdate, get_system_timezone

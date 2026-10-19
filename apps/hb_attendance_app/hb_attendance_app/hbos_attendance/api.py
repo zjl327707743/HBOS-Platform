@@ -364,7 +364,7 @@ def regenerate_attendance(range_start, range_end):
         raise
 
 
-def _regenerate_attendance_impl(range_start, range_end, *, employee_scope=None):
+def _regenerate_attendance_impl(range_start, range_end, *, employee_scope=None, rule_departments=None):
     """按 HBOS 配对算法重新生成 Attendance；事务边界由 regenerate_attendance 管理。
 
     流程:
@@ -382,7 +382,7 @@ def _regenerate_attendance_impl(range_start, range_end, *, employee_scope=None):
     scoped = employee_scope is not None
     roster = {row.name: row for row in employee_scope or []}
     names = tuple(roster) or ('',)
-    departments = sorted({row.department for row in roster.values()})
+    departments = sorted({row.department for row in roster.values()}) if rule_departments is None else list(rule_departments)
     def _sources(doctype, *, filters=None, **kwargs):
         filters = dict(filters or {})
         if scoped:
@@ -392,6 +392,9 @@ def _regenerate_attendance_impl(range_start, range_end, *, employee_scope=None):
                 filters.update(start_date=['<=',fetch_end],end_date=['>=',fetch_start])
             if doctype == 'HBOS Employee Schedule':
                 filters['schedule_date']=['between',[fetch_start,fetch_end]]
+        if scoped:
+            from hb_attendance_app.hbos_attendance.portal.role_scope import current_rows
+            return current_rows(doctype,filters=filters,**kwargs)
         return frappe.db.get_all(doctype, filters=filters, **kwargs)
     protected = set()
     if scoped:

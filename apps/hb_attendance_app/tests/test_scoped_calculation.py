@@ -30,7 +30,7 @@ class ScopedCalculationTest(unittest.TestCase):
         namespace=dict(frappe=SimpleNamespace(db=DB()),verified_rest_dates=lambda **kwargs:{},ADMIN_NUMS=set(),SAFETY_NUMS=set(),FOOD_NUMS=set(),LATE_EXEMPT_NUMS=set(),FOUR_SHIFT_NUMS=set(),EXEMPT_NUMS=set(),_is_exempt=lambda _:False)
         exec(compile(ast.Module(body=[function],type_ignores=[]),str(source),'exec'),namespace)
         def generate(end,**kwargs):self.generated.append((end,kwargs))
-        with patch('hb_attendance_app.hbos_attendance.rotation_schedule.generate_rotation_schedule',side_effect=generate):
+        with patch('hb_attendance_app.hbos_attendance.rotation_schedule.generate_rotation_schedule',side_effect=generate),patch('hb_attendance_app.hbos_attendance.portal.role_scope.current_rows',side_effect=namespace['frappe'].db.get_all):
             namespace['_regenerate_attendance_impl']('2026-10-14','2026-10-16',employee_scope=[Row(name='EMP-A',company='C-A',department='D-A')])
 
     def test_every_source_and_delete_is_employee_bounded_and_schedule_dates_stay_requested(self):

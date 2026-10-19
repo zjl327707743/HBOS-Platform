@@ -93,6 +93,18 @@ def _bounds(limit, start) -> tuple[int, int]:
 
 
 def _run(report_key: str, filters, limit=MAX_ROWS, start=0) -> dict[str, object]:
+    # Retry only a read closure. Legacy AI/external work keeps its own lifecycle.
+    if getattr(frappe,'conf',{}).get('hbos_iam_roles_enabled') in (True,1,'1') and not _clean_filters(filters).get('enable_ai'):
+        from hbos_portal.iam import policy
+        try:
+            return policy.current_read(lambda:_run_once(report_key,filters,limit,start))
+        except (frappe.QueryDeadlockError,frappe.QueryTimeoutError):
+            frappe.local.response['http_status_code']=409
+            return {'ok':False,'error':{'code':'READ_CONFLICT','message':'报表读取遇到暂时冲突，请重试查询。','retryable':True}}
+    return _run_once(report_key,filters,limit,start)
+
+
+def _run_once(report_key: str, filters, limit=MAX_ROWS, start=0) -> dict[str, object]:
     """调用报表本体的 execute()，截取一段返回。
 
     报表的 execute() 没有分页参数（它是 Frappe 的脚本报表约定，返回全量），
@@ -140,7 +152,7 @@ def _run(report_key: str, filters, limit=MAX_ROWS, start=0) -> dict[str, object]
 
     try:
         if bound is not None:
-            with report_execution(report_key,employees):
+            with report_execution(report_key,employees,bound=bound,date_from=start_date,date_to=end_date,coverage=coverage):
                 result=execute(clean)
             by_name={row.name:row.department for row in employees}
             if isinstance(result,(tuple,list)) and len(result)>1:

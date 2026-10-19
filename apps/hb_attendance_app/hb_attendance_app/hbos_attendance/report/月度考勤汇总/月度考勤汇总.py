@@ -1,6 +1,7 @@
 import calendar
 
 import frappe
+from hb_attendance_app.hbos_attendance.portal.role_scope import report_sql
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -61,7 +62,7 @@ def execute(filters=None):
     where = " AND ".join(conditions) if conditions else "1=1"
 
     # Get all attendance records
-    attendance = frappe.db.sql(
+    attendance = report_sql(
         f"""
         SELECT
             a.name, a.employee, a.attendance_date, a.status,
@@ -97,7 +98,7 @@ def execute(filters=None):
         leave_values["to_date"] = filters["to_date"]
 
     leave_where = " AND ".join(leave_conditions) if leave_conditions else "1=1"
-    leave_records = frappe.db.sql(
+    leave_records = report_sql(
         f"""
         SELECT lr.employee, lr.start_date, lr.end_date, lr.leave_type, lr.leave_days
         FROM `tabHBOS Leave Record` lr
@@ -359,7 +360,7 @@ def _attach_ai_review(data, filters, emp_leave_dates):
     checkin_map = {}
     if emp_ids:
         q = ",".join("'%s'" % e.replace("'", "") for e in emp_ids)
-        rows = frappe.db.sql(
+        rows = report_sql(
             f"SELECT employee, time, log_type, device_id FROM `tabEmployee Checkin` "
             f"WHERE employee IN ({q}) AND DATE(time) BETWEEN %(s)s AND %(e)s "
             f"ORDER BY employee, time",

@@ -17,7 +17,7 @@
       <ArrowLeftOutlined /><span>返回 HBOS 工作台</span>
     </button>
 
-    <nav><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.rules.')||op==='attendance.schedule.generate')" class="local-nav" to="/hbos/attendance/rules">规则与重算</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.shift.')||op==='attendance.schedule.read'||op==='attendance.schedule.bind')" class="local-nav" to="/hbos/attendance/shifts">班次与排班</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.correction.'))" class="local-nav" to="/hbos/attendance/corrections">考勤更正</RouterLink><RouterLink v-if="managed && access.includes('attendance.read')" class="local-nav" to="/hbos/attendance/me">我的考勤</RouterLink>
+    <nav><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.export.'))" class="local-nav" to="/hbos/attendance/exports">考勤导出</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.rules.')||op==='attendance.schedule.generate')" class="local-nav" to="/hbos/attendance/rules">规则与重算</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.shift.')||op==='attendance.schedule.read'||op==='attendance.schedule.bind')" class="local-nav" to="/hbos/attendance/shifts">班次与排班</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.correction.'))" class="local-nav" to="/hbos/attendance/corrections">考勤更正</RouterLink><RouterLink v-if="managed && access.includes('attendance.read')" class="local-nav" to="/hbos/attendance/me">我的考勤</RouterLink>
       <template v-for="group in visibleGroups" :key="group.label">
         <div class="nav-section-label">{{ group.label }}</div>
         <RouterLink
@@ -78,7 +78,7 @@ import { usePortalStore } from '@/stores/portal'
 const portal=usePortalStore()
 const access=computed(()=>portal.apps.find(app=>app.id==='attendance')?.accessCapabilities || [])
 const managed=computed(()=>access.value.includes('attendance.role.managed'))
-const operations:Record<string,string>={employees:'attendance.department.records.read',dashboard:'attendance.company.read',board:'attendance.department.board.read',monthly:'attendance.report.monthly.read',checkins:'attendance.report.checkins.read',results:'attendance.report.results.read'}
+const operations:Record<string,string>={'feishu-leave':'attendance.record.leave.read','feishu-overtime':'attendance.record.overtime.read','feishu-rest-leave':'attendance.record.rest_leave.read',employees:'attendance.department.records.read',dashboard:'attendance.company.read',board:'attendance.department.board.read',monthly:'attendance.report.monthly.read',checkins:'attendance.report.checkins.read',results:'attendance.report.results.read'}
 const visibleGroups=computed(()=>managed.value ? attendanceNavGroups.map(group=>({...group,items:group.items.filter(item=>access.value.includes(operations[item.slug] || ''))})).filter(group=>group.items.length) : attendanceNavGroups)
 const route = useRoute()
 

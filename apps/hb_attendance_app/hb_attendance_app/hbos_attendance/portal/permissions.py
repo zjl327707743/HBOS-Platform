@@ -8,16 +8,19 @@ import frappe
 
 PERSONAL = "hb_attendance_app.hbos_attendance.portal.personal.get_my_attendance"
 BUSINESS_TYPES = {"Attendance", "Employee Checkin"}
-ROLE_BUSINESS_TYPES = {"Attendance Request", "Shift Type", "Shift Assignment",
+ROLE_BUSINESS_TYPES = {"Attendance Request", "Shift Type", "Shift Assignment", "Shift Schedule", "Shift Schedule Assignment", "Employee Attendance Tool",
     "HBOS Attendance Import Log", "HBOS Shift Rule", "HBOS Employee Shift", "HBOS Employee Schedule",
     "HBOS Attendance Policy Assignment", "HBOS Leave Record", "HBOS Overtime Record", "HBOS Rest Leave Record"}
 
 
 def _business_types():
-    return BUSINESS_TYPES | ROLE_BUSINESS_TYPES if frappe.conf.get('hbos_iam_roles_enabled') in (True,1,'1') else BUSINESS_TYPES
+    # Disabling a positive role source must not expose its persisted files or
+    # custom records through native fallback permissions.
+    return BUSINESS_TYPES | ROLE_BUSINESS_TYPES
 
 HR_ROLES = {"HR User", "HR Manager", "System Manager"}
 REPORT_MODULES = {"HBOS Attendance", "Hbos Attendance"}
+ATTENDANCE_PAGES = {'hbos-shift-management','hbos-department-board','hbos-attendance-dashboard','hbos-employee-management','hbos-rules-board','海滨考勤工作台'}
 PREPARED_METHODS = "frappe.core.doctype.prepared_report.prepared_report."
 
 
@@ -35,6 +38,12 @@ def legacy_hr(user=None, *, for_update=False):
         return False
     if user == "Administrator":
         return True
+    if for_update:
+        if not frappe.db.get_value('User',user,'enabled',for_update=True):
+            return False
+        from hbos_portal.iam.temporary_passwords import status as password_status
+        if password_status(user).get('pending'):
+            return False
     if frappe.conf.get('hbos_iam_roles_enabled') in (True, 1, '1'):
         from hbos_portal.iam.guards import _managed_user
         if _managed_user(user):
@@ -102,7 +111,7 @@ def _prepared_is_attendance(name):
 
 def _attachment_is_attendance(doc):
     kind, name = _value(doc, "attached_to_doctype"), _value(doc, "attached_to_name")
-    return kind in _business_types() or (kind == "Report" and _report_is_attendance(name)) or (kind == "Prepared Report" and _prepared_is_attendance(name))
+    return kind in _business_types() or (kind == 'Page' and name in ATTENDANCE_PAGES) or (kind == "Report" and _report_is_attendance(name)) or (kind == "Prepared Report" and _prepared_is_attendance(name))
 
 
 def _file_references(doc):
@@ -141,6 +150,8 @@ def _attachment_sql(alias, reports):
     kinds = ",".join(frappe.db.escape(kind) for kind in sorted(_business_types()))
     kind, name = f"coalesce({alias}.`attached_to_doctype`,'')", f"coalesce({alias}.`attached_to_name`,'')"
     conditions = [f"{kind} in ({kinds})"]
+    pages=",".join(frappe.db.escape(page) for page in sorted(ATTENDANCE_PAGES))
+    conditions.append(f"({kind}='Page' and {name} in ({pages}))")
     if reports:
         values = ",".join(frappe.db.escape(report) for report in sorted(reports))
         conditions.extend([
@@ -191,6 +202,9 @@ def guard_prepared_report(doc, method=None):
 def guard_file(doc, method=None):
     if not iam_enabled():
         return
+    from hb_attendance_app.hbos_attendance.portal.export_scope import authorizes_new_file
+    if authorizes_new_file(doc,method):
+        return
     subjects = [row for row in (_before(doc), doc) if row]
     references = [ref for row in subjects for ref in _file_references(row)]
     if not any(_attachment_is_attendance(row) for row in references):
@@ -213,7 +227,16 @@ def check_background_job(method=None, kwargs=None, transaction_type=None):
     if not iam_enabled():
         return
     kwargs = kwargs or {}
-    if method in (PREPARED_METHODS + "generate_report", PREPARED_METHODS + "convert_json_to_csv"):
+    if callable(method):method=method.__module__+'.'+method.__qualname__
+    native_attendance=bool(isinstance(method,str) and method.startswith((
+        'hb_attendance_app.hbos_attendance.', 'hrms.hr.doctype.attendance.',
+        'hrms.hr.doctype.employee_checkin.', 'hrms.hr.doctype.shift_type.',
+        'hrms.hr.doctype.shift_assignment.', 'hrms.hr.doctype.employee_attendance_tool.',
+        'hrms.hr.doctype.attendance_request.', 'hrms.api.roster.',
+    ))) or method=='frappe.utils.background_jobs.execute_doc_method' and kwargs.get('doctype') in _business_types()
+    if native_attendance:
+        pass  # No synchronous scoped lease is transferable into an old job.
+    elif method in (PREPARED_METHODS + "generate_report", PREPARED_METHODS + "convert_json_to_csv"):
         name = kwargs.get("prepared_report") or kwargs.get("prepared_report_name")
         row = _prepared_report(name, for_update=True)
         if not row or not _report_is_attendance(_value(row, "report_name")):
@@ -263,7 +286,7 @@ def _check_document_payload(doc):
 
 
 def _deny():
-    frappe.throw("此入口未向当前账号开放。请使用“我的考勤”；部门报表和导出暂未接入。", frappe.PermissionError)
+    frappe.throw("此原生入口未向当前账号开放，请从当前角色获准的考勤页面办理。", frappe.PermissionError)
 
 
 def _check_widget_source(kind, name=None, raw=None):
@@ -288,6 +311,8 @@ def check_request():
     if "/method/" in path:
         command = path.split("/method/", 1)[1]
     integrated = {
+        *{'hb_attendance_app.hbos_attendance.portal.scoped_exports.'+name for name in ('create_export','download_export')},
+        *{'hb_attendance_app.hbos_attendance.list_data.'+name for name in ('get_list','get_filter_options')},
         *{'hb_attendance_app.hbos_attendance.portal.calculations.'+name for name in ('calculation_employees','preview_calculation','execute_calculation','get_employee_policies','save_employee_policy')},
         *{'hb_attendance_app.hbos_attendance.portal.corrections.' + name for name in ('list_correction_employees','list_corrections','get_correction_context','create_correction','update_correction','transition_correction')},
         *{'hb_attendance_app.hbos_attendance.page.hbos_employee_management.employee_management_data.' + name for name in ('get_employees','get_departments','get_department_attendance')},
@@ -311,7 +336,10 @@ def check_request():
             _check_named_document(doctype, name)
     for field in ("docs", "doc", "document", "data"):
         _check_document_payload(_json(args.get(field)))
-    if command.startswith(("hrms.hr.doctype.employee_checkin.", "hrms.hr.doctype.attendance.")):
+    if command.startswith(("hrms.hr.doctype.employee_checkin.", "hrms.hr.doctype.attendance.", "hrms.hr.doctype.attendance_tool.", "hrms.hr.doctype.employee_attendance_tool.", "hrms.api.roster.")) or command in {
+        'hrms.overrides.employee_master.get_timeline_data',
+        'hrms.hr.report.monthly_attendance_sheet.monthly_attendance_sheet.get_attendance_years',
+    }:
         _deny()
     if frappe.conf.get('hbos_iam_roles_enabled') in (True,1,'1'):
         if command.startswith(('hrms.hr.doctype.shift_','hrms.hr.doctype.attendance_request.')) or command in {

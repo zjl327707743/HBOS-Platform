@@ -97,6 +97,8 @@
 </template>
 
 <script setup lang="ts">
+import { createAttendanceExport } from '@/services/attendanceExports'
+import { usePortalStore } from '@/stores/portal'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Modal, message } from 'ant-design-vue'
@@ -135,6 +137,9 @@ function isActionDisabled(key: string): boolean {
 }
 /** 本页是否已按 AI 复核重查过（决定提示与导出是否带 AI 列） */
 const aiApplied = ref(false)
+const exportPortal=usePortalStore()
+const roleCaps=computed(()=>exportPortal.apps.find(app=>app.id==='attendance')?.accessCapabilities||[])
+const roleManaged=computed(()=>roleCaps.value.includes('attendance.role.managed'))
 
 const slug = computed(() => String(route.params.slug ?? ''))
 const spec = computed(() => findReport(slug.value))
@@ -142,12 +147,14 @@ const spec = computed(() => findReport(slug.value))
 /** 只有月度考勤汇总有页内动作；其余三张在 Desk 侧也只有筛选。 */
 const actions = computed(() => {
   if (slug.value !== 'monthly') return []
-  return [
+  const list=[
     { key: 'ai', label: 'AI复核', kind: 'primary' },
     { key: 'export', label: '导出 Excel', kind: 'default' },
     { key: 'exceptions', label: '异常考勤导出', kind: 'default' },
     { key: 'upload', label: '上传原始考勤表', kind: 'default' },
   ]
+  if(!roleManaged.value)return list
+  return list.filter(item=>item.key==='export'?roleCaps.value.includes('attendance.export.monthly'):item.key==='exceptions'?roleCaps.value.includes('attendance.export.exceptions'):item.key==='upload'?roleCaps.value.includes('attendance.import.preview'):false)
 })
 
 const today = dayjs()
@@ -401,7 +408,7 @@ async function doAiReview() {
 async function doExport(kind: 'xlsx' | 'exceptions') {
   try {
     const args = buildFilters(aiApplied.value ? { enable_ai: '1' } : {})
-    const url = kind === 'xlsx'
+    const url = roleManaged.value ? (await createAttendanceExport(kind==='xlsx'?'monthly':'exceptions',args,crypto.randomUUID())).download_url : kind === 'xlsx'
       ? await exportMonthlyXlsx(args)
       : await exportMonthlyExceptions(args)
     if (!url) {

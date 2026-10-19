@@ -43,11 +43,16 @@ export function attendancePathCapability(path: string): string | null {
     '/hbos/attendance/corrections':'attendance.correction',
     '/hbos/attendance/shifts':'attendance.shift',
     '/hbos/attendance/rules':'attendance.rules',
+    '/hbos/attendance/exports':'attendance.export',
+    '/hbos/attendance/list/feishu-leave':'attendance.record.leave.read',
+    '/hbos/attendance/list/feishu-overtime':'attendance.record.overtime.read',
+    '/hbos/attendance/list/feishu-rest-leave':'attendance.record.rest_leave.read',
   }
   return paths[normalized] || null
 }
 
 export function attendanceCapabilityAllowed(required:string|null, capabilities:string[]):boolean {
+  if(required==='attendance.export')return capabilities.some(op=>op.startsWith(required+'.'))
   if(required==='attendance.correction')return capabilities.some(op=>op.startsWith(required+'.'))
   if(required==='attendance.shift')return capabilities.some(op=>op.startsWith('attendance.shift.')||op==='attendance.schedule.read'||op==='attendance.schedule.bind')
   if(required==='attendance.rules')return capabilities.some(op=>op.startsWith('attendance.rules.')||op==='attendance.schedule.generate')

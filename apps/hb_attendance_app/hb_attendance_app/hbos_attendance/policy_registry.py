@@ -110,7 +110,7 @@ def get_policy_numbers(policy_type, day=None):
               AND (p.effective_to IS NULL OR p.effective_to = '' OR p.effective_to >= %s)
               AND emp.status = 'Active'
               AND IFNULL(emp.employee_number, '') != ''
-            """ + predicate,
+            """ + predicate + (" for update" if bound is not None else ""),
             (policy_type, ds, ds, bound) if bound is not None else (policy_type, ds, ds),
             as_dict=True,
         )
@@ -131,7 +131,11 @@ def get_rotation_assignments(day=None, *, employees=None):
     if frappe is None:
         return []
     ds = _day_string(day)
-    return frappe.db.get_all(
+    reader=frappe.db.get_all
+    if employees is not None:
+        from hb_attendance_app.hbos_attendance.portal.role_scope import current_rows
+        reader=current_rows
+    return reader(
         "HBOS Attendance Policy Assignment",
         filters={
             "enabled": 1,

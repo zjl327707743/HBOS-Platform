@@ -97,6 +97,7 @@ def generate_rotation_schedule(end_date, *, employees=None, start_date=None):
                 {"employee": employee, "schedule_date": d.isoformat()},
                 ["name", "source_type"],
                 as_dict=True,
+                for_update=employees is not None,
             )
             if existing:
                 protected += 1

@@ -140,7 +140,6 @@ def get_list(key: str, filters=None, limit: int = 200, start: int = 0):
     limit 封顶 500：这些表都可能上千行，不封顶会让浏览器直接卡住。
     超出部分由前端分页承担（一次只取一页）。
     """
-    _require_read()
     spec = _spec(key)
 
     try:
@@ -152,6 +151,11 @@ def get_list(key: str, filters=None, limit: int = 200, start: int = 0):
     except (TypeError, ValueError):
         start = 0
 
+    from hb_attendance_app.hbos_attendance.portal import record_lists
+    if key in record_lists.SPECS:
+        scoped=record_lists.get_list(key,spec,filters,limit,start)
+        if scoped is not None:return scoped
+    _require_read()
     fields = [c["fieldname"] for c in spec["columns"]]
     allowed_filters = set(spec.get("filters", []))
     clean = {k: v for k, v in _clean(filters).items() if k in allowed_filters}
@@ -196,7 +200,7 @@ def get_list(key: str, filters=None, limit: int = 200, start: int = 0):
 
 
 @frappe.whitelist()
-def get_filter_options(key: str, fieldname: str):
+def get_filter_options(key: str, fieldname: str, filters=None):
     """某筛选字段的可选值（去重后的现有取值）。
 
     不新造字典表：选项从真实数据里归纳，避免「选项里有、数据里没有」的假选择。
@@ -206,8 +210,12 @@ def get_filter_options(key: str, fieldname: str):
     全局出现过的所有审批状态）。本模块开头就写了这条区别，早前的实现却在此
     自相矛盾——现已统一。
     """
-    _require_read()
     spec = _spec(key)
+    from hb_attendance_app.hbos_attendance.portal import record_lists
+    if key in record_lists.SPECS:
+        scoped=record_lists.filter_options(key,spec,fieldname,filters)
+        if scoped is not None:return scoped
+    _require_read()
     if fieldname not in set(spec.get("filters", [])):
         frappe.throw(f"字段不可筛选：{fieldname}", frappe.ValidationError)
 

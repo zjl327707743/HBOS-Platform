@@ -93,7 +93,9 @@ def list_correction_employees(action='create', search='', **kwargs):
             frappe.throw('此更正功能未向当前账号开放。',frappe.PermissionError)
         if not isinstance(search,str) or len(search)>80:
             frappe.throw('查询内容过长。',frappe.ValidationError)
-        return dict(items=frappe.db.sql("select name,employee_name,employee_number,department from `tabEmployee` where company=(select company from `tabDepartment` iam_department where iam_department.name=tabEmployee.department) and status='Active' and department in %(departments)s and (employee_name like %(search)s or employee_number like %(search)s) order by employee_number,name limit 50",{'departments':tuple(bound['departments']),'search':'%'+search+'%'},as_dict=True))
+        params=dict(search='%'+search+'%')
+        predicate=role_scope.employee_predicate(bound,'tabEmployee',params)
+        return dict(items=frappe.db.sql(f"select name,employee_name,employee_number,department from `tabEmployee` where status='Active' and {predicate} and (employee_name like %(search)s or employee_number like %(search)s) order by employee_number,name limit 50",params,as_dict=True))
     return _call(run,read_only=True)
 
 
