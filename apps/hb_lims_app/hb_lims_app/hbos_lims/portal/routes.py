@@ -5,6 +5,23 @@ from urllib.parse import parse_qsl, urlencode, unquote, urlsplit, urlunsplit
 STABLE_PREFIX = "/hbos/lims"
 IMPLEMENTATION_PREFIX = "/hbos-lims"
 
+# Stable Portal paths may have a clearer product IA than the current native
+# Vue paths. Keep those aliases in the LIMS-owned adapter until the new
+# frontend implements the stable routes directly.
+IMPLEMENTATION_ALIASES = {
+    "/ledger": "/results/ledger",
+    "/samples/new": "/samples",
+}
+
+# Keep deep links emitted by the current native app in the stable Portal
+# namespace as well. This is intentionally separate from the forward map:
+# `/samples/new` currently resolves to the combined native `/samples` page, so
+# the reverse projection of that page is the stable list / ledger route.
+IMPLEMENTATION_TO_STABLE_ALIASES = {
+    "/results/ledger": "/ledger",
+    "/samples": "/samples",
+}
+
 
 def _validated_path(raw_path: str) -> tuple[str, str]:
     value = str(raw_path or "").strip()
@@ -50,7 +67,8 @@ def build_stable_deep_link(
         raise ValueError("LIMS internal route must not contain traversal segments")
 
     suffix = parsed.path if parsed.path != "/" else ""
-    stable_path = STABLE_PREFIX + suffix
+    stable_suffix = IMPLEMENTATION_TO_STABLE_ALIASES.get(suffix, suffix)
+    stable_path = STABLE_PREFIX + stable_suffix
 
     query_items = list(parse_qsl(parsed.query, keep_blank_values=True))
     for key, raw_value in (route_params or {}).items():
@@ -77,6 +95,7 @@ def resolve_stable_route(stable_path: str) -> str:
     if suffix in {"", "/"}:
         implementation_path = IMPLEMENTATION_PREFIX + "/dashboard"
     else:
-        implementation_path = IMPLEMENTATION_PREFIX + suffix
+        implementation_suffix = IMPLEMENTATION_ALIASES.get(suffix, suffix)
+        implementation_path = IMPLEMENTATION_PREFIX + implementation_suffix
 
     return urlunsplit(("", "", implementation_path, query, ""))

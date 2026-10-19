@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
-vi.mock('axios', () => ({ default: {
-  create: () => http,
-  isAxiosError: (error: { isAxiosError?: boolean }) => Boolean(error?.isAxiosError),
-} }))
+vi.mock('axios', async importOriginal => {
+  const actual = await importOriginal<typeof import('axios')>()
+  const { createTrackedAxios } = await import('./helpers/axiosAdapter')
+  return { ...actual, default: { ...actual.default,
+    create: (options?: import('axios').CreateAxiosDefaults) => createTrackedAxios(actual.default, http, options),
+  } }
+})
 
 let client: typeof import('@/services/frappeClient')
 let reports: typeof import('@/services/inventoryReports')

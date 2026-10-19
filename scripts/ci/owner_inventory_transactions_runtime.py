@@ -1,4 +1,4 @@
-"""R3 native inventory / existing-product LIMS proof on a fresh GitHub CI Site.
+"""R3 native inventory / declared LIMS source proof on a fresh GitHub CI Site.
 
 Runner-only entry point: copy this file into the disposable application's package
 and invoke ``run`` with bench execute. This is not a whitelisted business API.
@@ -28,14 +28,14 @@ import frappe
 
 
 LIMS_AUTHORITY = (
-    "Product 45658fe4b84d8fb7dd4433c459aa30572e0d13d3 LIMS + "
-    "formal source change: set COA document publication metadata before rendering; no PR43"
+    "PR43 formal LIMS integration on product 366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857; "
+    "reviewed Administrator action boundary, canonical COA snapshot binding and unchanged inventory quality projection"
 )
 LIMS_AUTHORITY_SHA256 = {
     "hb_lims_app/hb_lims_app/hbos_lims/lims_service.py":
-        "89ae137faf69d70d83b137e6b980b44c433339b4d31cac227912abe0480a58e2",
+        "2f7f137f1159286bfe897e7278b554fb131e8d6bfe49d58cb62429942f767db0",
     "hb_lims_app/hb_lims_app/hbos_lims/workflow_contract.py":
-        "c65dbc7dbd434cf6a9acdecd75934780394ef586bc913d4c6530437e59d8cfbc",
+        "7dfa43cd30f67eda1b9ccf636615d01ef36f1838bb9ce72c258c082545b65fca",
     "hb_inventory_app/hb_inventory_app/hbos_inventory/quality_projection.py":
         "b1f0112d2d202fa3d612315a86e534d89456716a5d4f645cf515e661b99c5cb0",
 }
@@ -70,7 +70,7 @@ def guard():
         actual = hashlib.sha256((Path("/home/frappe/frappe-bench/apps") / rel).read_bytes()).hexdigest()
         assert actual == expected, "Declared LIMS authority changed: " + rel
     emit("isolation_and_existing_lims_authority", status="PASS", site=frappe.local.site,
-         lims_origin_product="45658fe4b84d8fb7dd4433c459aa30572e0d13d3",
+         lims_origin_product="366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857", integration_pr=43,
          authority=LIMS_AUTHORITY, sha256=LIMS_AUTHORITY_SHA256,
          stock_sql_fixtures=False, release_projection_stubs=False)
 

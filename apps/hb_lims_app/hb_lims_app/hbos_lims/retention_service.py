@@ -56,7 +56,7 @@ def _rollback():
 
 def _check_action(action):
 	roles = frappe.get_roles(_user())
-	if not any(wf.action_allowed(action, role) for role in roles):
+	if not wf.user_action_allowed(action, _user(), roles):
 		frappe.throw(f"当前用户（{_user()}）没有执行「{action}」的权限。")
 
 
@@ -554,10 +554,14 @@ def _audit_on(doctype, log_type, doc_name, action_text="", old_value="", new_val
 
 
 def _audit_commit(doctype, log_type, doc_name, action_text="", old_value="", new_value="", reason=""):
-	"""违规尝试（SoD/越权）审计：抛错前事务内记录，不提交当前业务事务；拒绝操作的持久化证据由独立日志/Outbox承担。"""
-	from hb_lims_app.hbos_lims.lims_service import audit_log
-	audit_log(log_type, doctype, doc_name, action_text=action_text,
-			  old_value=old_value, new_value=new_value, reason=reason, commit=False)
+	"""违规尝试（SoD/越权）审计：先回滚未提交业务写入，再独立提交留痕（L10-P0-01）。
+
+	原实现直接 `frappe.db.commit()`，会把拦截前的部分业务写入一并提交，令随后的
+	`frappe.throw()` 无法回滚；现改由 `audit_violation()` 先回滚再提交。
+	"""
+	from hb_lims_app.hbos_lims.lims_service import audit_violation
+	audit_violation(log_type, doctype, doc_name, action_text=action_text,
+					old_value=old_value, new_value=new_value, reason=reason)
 
 
 def _release_reservation(sample, apply_qty, from_state):
