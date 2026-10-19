@@ -113,10 +113,11 @@ def normalize_search(raw: dict, *, legacy: bool = False) -> SearchRequest:
                        or not isinstance(v, str) or not v.strip() or len(v) > 120
                        for k, v in titles.items())):
             raise KnowledgeError("INVALID_REQUEST")
-        raw["space_titles"] = sorted((k, v.strip()) for k, v in titles.items())
+        # Validate the wire object as given, then keep the normalized pairs.
+        raw["space_titles"] = {k: v.strip() for k, v in titles.items()}
     validate_structure("SearchRequest", raw)
     history = tuple((turn["role"], turn["content"]) for turn in raw.get("history", ()))
-    titles = tuple(raw.get("space_titles", ()))
+    titles = tuple(sorted((k, v) for k, v in (raw.get("space_titles") or {}).items()))
     return SearchRequest(raw["query"], raw.get("limit", 5),
                          tuple(raw["space_ids"]) if "space_ids" in raw else None,
                          tuple(sorted(raw.get("context", {}).items())), raw.get("search_mode", "STANDARD"),
