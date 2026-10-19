@@ -208,9 +208,10 @@ def ask(**business_fields):
             requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
             from .followup import validate_followup_scope
             validate_followup_scope(previous,requested.space_ids,requested.context)
-            # The follow-up question stays the retrieval query; the previous
-            # user/assistant turns travel separately for the generation model.
-            from .followup import conversation_history
+            # Generation gets the real turns; retrieval gets a query that
+            # names the topic. A bare "上一条是什么意思" has no topic words, so
+            # using it verbatim retrieved unrelated documents.
+            from .followup import conversation_history,retrieval_query
             older=None
             if previous.get('conversation_id'):
                 _,candidate=owned(previous['conversation_id'],actor,kinds=('History',))
@@ -218,7 +219,8 @@ def ask(**business_fields):
                 older=candidate
             history=conversation_history(previous,older=older)
             question=raw['question'].strip()[:500]
-            request=normalize_search({'query':question,'history':list(history),'space_titles':titles,
+            search_query=retrieval_query(question,previous)
+            request=normalize_search({'query':search_query,'history':list(history),'space_titles':titles,
                 **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
             ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
             runtime.publication.plan=ticket.plan

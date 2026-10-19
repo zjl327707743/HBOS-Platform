@@ -36,3 +36,34 @@ class FollowupTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# Retrieval query for referential follow-ups.
+#
+# A bare "上一条是什么意思" has no topic words, so using it as the retrieval
+# query returned unrelated documents (an incubator question followed by
+# "上一条是什么意思" retrieved 安全生产法). Retrieval now reuses the previous
+# question verbatim; the displayed question and the stored history stay raw.
+# ---------------------------------------------------------------------------
+
+def test_a_bare_reference_reuses_the_previous_question_for_retrieval():
+    from hb_knowledge_app.hb_knowledge.followup import retrieval_query
+    previous = {'query': '培养箱使用前需要检查哪些项目？'}
+    for follow_up in ('上一条是什么意思', '用三句话总结', '展开说说', '这条要求由谁负责？'):
+        query = retrieval_query(follow_up, previous)
+        assert '培养箱' in query, follow_up
+        assert follow_up in query, follow_up
+
+
+def test_a_self_contained_follow_up_is_not_rewritten():
+    from hb_knowledge_app.hb_knowledge.followup import retrieval_query
+    previous = {'query': '培养箱使用前需要检查哪些项目？'}
+    for question in ('那培养箱的灭菌要求呢？', 'SOP-MP-3-B-063 是什么', '灭菌器维护周期是多少'):
+        assert retrieval_query(question, previous) == question
+
+
+def test_the_first_turn_is_never_rewritten():
+    from hb_knowledge_app.hb_knowledge.followup import retrieval_query
+    assert retrieval_query('上一条是什么意思', None) == '上一条是什么意思'
+    assert retrieval_query('上一条是什么意思', {'query': ''}) == '上一条是什么意思'
