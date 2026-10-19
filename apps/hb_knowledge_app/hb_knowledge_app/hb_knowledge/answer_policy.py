@@ -21,13 +21,40 @@ def model_alias(value):
 
 _FOLLOWUP_MARKERS=re.compile(r'(?:上一条|上面|前面|刚才|之前|这个|那个|它|它们|再|继续|接着|三句话|总结一下|什么意思|是什么含义|展开|详细说|举个例子|进一步|追问)',re.I)
 
+# A question that asks what a *specific named document* says is a content
+# question, not a directory request. Without this, "录像监控系统的标准操作
+# 规程里，对录像保存时间有什么要求" matched 规程 (a doc noun) + 有什么 (a
+# find verb) and was answered with a 210-item catalogue instead of the rule.
+_CONTENT_ASK=re.compile(
+    r'(?:哪些要求|有什么要求|什么要求|具体要求|要求是什么|有哪些规定|有什么规定|怎么规定|如何规定|'
+    r'主要(?:内容|讲什么|说什么|要求)|讲什么|说什么|说明了什么|'
+    r'有什么区别|有何区别|差异|对比|相比|'
+    r'适用于|是否适用|适用吗|能不能用|可不可以用|'
+    r'多久|多长时间|几次|多少(?:度|分钟|小时|天|页|个)|'
+    r'由谁|谁负责|责任人|责任部门|'
+    r'步骤|流程|怎么操作|如何操作|如何执行|怎么执行)',re.I)
+
+# A request for the set of documents is still a catalogue request even when it
+# also carries a content verb.
+_SET_REQUEST=re.compile(r'(?:有哪些资料|都有哪些|资料都有|有哪些文件|有哪些文档|列出|列一下|清单|一览|目录|分类|在哪里|在哪儿|去哪|如何找到|怎么找)',re.I)
+
+
 def _looks_like_catalog(question):
-    """A request to find/list/dir documents, regulations or where-to-find."""
+    """A request to find/list/dir documents, regulations or where-to-find.
+
+    A named-document content question is excluded first: the owner asking what
+    a specific SOP requires is not asking for the catalogue.
+    """
     q=question
     doc_nouns=r'(?:资料|文件|文档|法规|法律|条例|办法|规定|规程|制度|标准|sop|手册|台账|目录|证书|预案|报告|图纸|记录)'
     find_verbs=r'(?:列表|清单|目录|一览|有哪些|都有哪些|有什么|在哪里|在哪儿|在哪个|去哪|如何找到|怎么找|找一下|查找|查询|列出|列一下|枚举|分一下类|分类)'
-    if re.search(doc_nouns+r'.{0,16}?'+find_verbs,q,re.I):return True
-    if re.search(find_verbs+r'.{0,16}?'+doc_nouns,q,re.I):return True
+    matched=(re.search(doc_nouns+r'.{0,16}?'+find_verbs,q,re.I)
+             or re.search(find_verbs+r'.{0,16}?'+doc_nouns,q,re.I))
+    if matched:
+        # Content wording without an explicit set request means "answer from
+        # this document", not "list the documents".
+        if _CONTENT_ASK.search(q) and not _SET_REQUEST.search(q):return False
+        return True
     # Standalone catalogue titles: "法律法规", "新乡海滨法规列表", "安全培训资料"
     if re.fullmatch(r'[\s，,。.、]*((?:新乡|海滨|公司|厂|公共)?(?:法律)?法规|安全培训资料|岗位安全培训资料|培训资料|工程资料|设备资料)[\s，,。.、]*',q):
         return True
