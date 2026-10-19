@@ -184,8 +184,8 @@ export interface KnowledgeAnswer {
   request_id: string
   turn_id: string
   conversation_id?: string
-  mode: 'internal_reference_generation' | 'authorized_generation' | 'general_generation' | 'reference_only'
-  answer_status: 'REFERENCE_ANSWERED' | 'INSUFFICIENT_EVIDENCE' | 'GENERAL_ANSWERED' | 'REFERENCE_ONLY'
+  mode: 'internal_reference_generation' | 'authorized_generation' | 'general_generation' | 'reference_only' | 'catalog_results' | 'clarification' | 'reference_excerpts' | 'failed'
+  answer_status: 'GENERATED_WITH_SOURCES' | 'CATALOG_RESULTS' | 'CLARIFIED' | 'REFERENCE_EXCERPTS' | 'FAILED' | 'REFERENCE_ANSWERED' | 'INSUFFICIENT_EVIDENCE' | 'GENERAL_ANSWERED' | 'REFERENCE_ONLY'
   answerable: boolean
   answer: string
   citations: (KnowledgeEvidence & { citation_label: string })[]

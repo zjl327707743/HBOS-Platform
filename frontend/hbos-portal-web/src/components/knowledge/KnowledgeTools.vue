@@ -11,7 +11,7 @@
       <div class="answer-list" aria-live="polite">
         <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
           <h3 class="answer-question">{{ turn.question }}</h3>
-          <a-tag :color="turn.answerable ? 'blue' : 'orange'">{{ turn.answer_status==='REFERENCE_ONLY' ? '已找到资料，归纳待核验' : !turn.answerable ? '没有可核实公司依据' : turn.answer_origin === 'GENERAL' ? '通用 AI 回答' : '已使用知识库' }}</a-tag>
+          <a-tag :color="answerTone(turn)">{{ answerLabel(turn) }}</a-tag>
           <p class="answer-text">{{ turn.answer }}</p>
           <button v-for="source in turn.citations" :key="source.citation_label" type="button" class="citation-link" @click="emit('evidence', source.evidence_id)">[{{ source.citation_label }}] {{ source.title || '未标注标题' }} · 查看依据</button>
           <p class="answer-note">本次检索时点的资料依据；再次查阅会核验当前状态。</p>
@@ -73,7 +73,7 @@
       <div class="kb-section-title"><h2>回答</h2><a-button type="text" @click="newConversation">开启新问题</a-button></div>
       <div class="kb-answer-list" aria-live="polite">
         <article v-for="turn in turns" :key="turn.turn_id" class="answer-card">
-          <h3 class="answer-question">{{turn.question}}</h3><div class="kb-answer-origin"><a-tag :color="!turn.answerable?'orange':turn.answer_origin==='GENERAL'?'default':'cyan'">{{turn.answer_status==='REFERENCE_ONLY'?'已找到资料，归纳待核验':!turn.answerable?'没有可核实公司依据':turn.answer_origin==='GENERAL'?'通用 AI 回答':'已使用知识库'}}</a-tag><small>{{turn.model_alias||'原模型未记录'}}</small></div>
+          <h3 class="answer-question">{{turn.question}}</h3><div class="kb-answer-origin"><a-tag :color="answerTone(turn)">{{answerLabel(turn)}}</a-tag><small>{{turn.model_alias||'原模型未记录'}}</small></div>
           <p class="kb-answer-copy">{{turn.answer}}</p><div v-if="turn.citations.length" class="kb-source-label">参考来源</div>
           <div v-for="source in turn.citations" :key="source.citation_label" class="kb-citation-row">
             <button class="kb-source-link" @click="emit('evidence',source.evidence_id)"><FileTextOutlined/><span>[{{source.citation_label}}] {{source.title||'未标注标题'}}<small>{{source.version||'版本待核'}} · {{source.status_note==='INTERNAL_REFERENCE_REVIEWED'?'内部参考／有效性待核':source.status_note}}</small></span></button>
@@ -191,6 +191,38 @@ watch(() => [props.selectedSpace,props.searchMode], () => {
 onBeforeUnmount(() => { generation++; recordsGeneration++; feedbackGeneration++; closeFeedback(false) })
 
 function displayDate(value: string) { return value.slice(0, 16).replace('T', ' ') }
+// Explicit answer states from the service; the UI never infers success from
+// the presence of citations alone.
+const ANSWER_LABELS: Record<string, string> = {
+  GENERATED_WITH_SOURCES: '已使用知识库',
+  CATALOG_RESULTS: '资料目录',
+  CLARIFIED: '需要补充问题',
+  REFERENCE_EXCERPTS: '已找到资料，未形成归纳',
+  FAILED: '回答暂不可用，已列出来源',
+  REFERENCE_ANSWERED: '已使用知识库',
+  GENERAL_ANSWERED: '通用 AI 回答',
+  INSUFFICIENT_EVIDENCE: '没有找到相关企业依据',
+  REFERENCE_ONLY: '已找到资料，归纳待核验',
+}
+function answerLabel(turn: KnowledgeAnswer) {
+  // General-origin answers never use company sources, whatever the state field says.
+  if (turn.answer_origin === 'GENERAL') return '通用 AI 回答'
+  if (turn.answer_status) return ANSWER_LABELS[turn.answer_status] || '回答状态未知'
+  return turn.answerable ? '已使用知识库' : '没有找到相关企业依据'
+}
+// Page-level operation state: a degraded excerpt answer is not a success, and
+// a clarification or empty result is its own outcome, never a service error.
+function answerState(data: KnowledgeAnswer): import('@/contracts/p1').KnowledgeOperationState {
+  if (data.answer_status === 'GENERATED_WITH_SOURCES' || data.answer_status === 'CATALOG_RESULTS' || data.answer_status === 'GENERAL_ANSWERED' || data.answer_status === 'REFERENCE_ANSWERED') return 'success'
+  if (data.answer_status === 'CLARIFIED' || data.answer_status === 'INSUFFICIENT_EVIDENCE') return 'no_evidence'
+  return 'error'
+}
+function answerTone(turn: KnowledgeAnswer) {
+  if (turn.answer_status === 'GENERATED_WITH_SOURCES' || turn.answer_status === 'REFERENCE_ANSWERED') return 'cyan'
+  if (turn.answer_status === 'CATALOG_RESULTS') return 'blue'
+  if (turn.answer_status === 'GENERAL_ANSWERED') return 'default'
+  return 'orange'
+}
 function favoriteDocument(item:KnowledgeActivity){return item.available?favoriteDocuments.value.find(d=>item.document_ids?.includes(d.document_id)&&(!item.version_ids?.length||item.version_ids.includes(d.version_id||''))):undefined}
 function failure(e: unknown, invalidateSource = true, scope: ErrorScope = 'operation') {
   if (e instanceof DomainApiError && ['UPSTREAM_UNAVAILABLE', 'RETRIEVAL_UPSTREAM_FAILED'].includes(e.code)) emit('upstream-error')
@@ -363,7 +395,7 @@ async function ask(value = question.value) {
     askPending.value = true; queryState.value = 'answering'
     const data = await askKnowledgeReference(normalized, props.selectedSpace, conversation.value || undefined, props.searchMode || 'STANDARD',props.modelAlias || 'gpt-6-luna',Boolean(props.knowledgeOnly))
     if (current === generation) {
-      queryState.value = (data.answerable || data.citations.length>0) ? 'success' : 'no_evidence'
+      queryState.value = answerState(data)
       turns.value.push({ ...data, question: normalized }); conversation.value = data.turn_id; question.value = ''; emit('conversation', true)
       await refresh()
     }
