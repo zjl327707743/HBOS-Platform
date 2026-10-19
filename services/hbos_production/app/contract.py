@@ -128,6 +128,15 @@ ANOMALY_SOURCES: list[AnomalySource] = [
         closure_label="事件原因",
     ),
     AnomalySource(
+        name="五车间",
+        base_token="IuZibyuqiaWoizszaqFcKnI4nee",
+        table_id="tblnEY7eSaJNFu5t",
+        content_field="事件内容",
+        date_field="发生时间",
+        closure_field="事件原因",
+        closure_label="事件原因",
+    ),
+    AnomalySource(
         name="六车间",
         base_token="QHifbyzqtaJ74Xs9lVMcpDv7nce",
         table_id="tblM5t0mwRJswGdc",
@@ -173,44 +182,56 @@ def _as_text(value) -> str:
     return str(value).strip()
 
 
-_DATE_IN_TEXT = re.compile(r"\s*(\d{4})[.\-/年](\d{1,2})[.\-/月](\d{1,2})")
+_DATE_IN_TEXT = re.compile(
+    r"(\d{4})\s*[.\-/年]\s*(\d{1,2})\s*[.\-/月]\s*(\d{1,2})"
+)
+
+
+def _as_date(value) -> Optional[str]:
+    """datetime 字段 → `YYYY-MM-DD`。飞书 API 返回**毫秒时间戳**，
+    lark-cli 返回 ISO 字符串 —— 两种形态都要认。"""
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value / 1000, tz=_CN_TZ).strftime("%Y-%m-%d")
+        except (OSError, ValueError, OverflowError):
+            return None
+    v = _as_text(value)
+    return v[:10] if v else None
 
 
 def resolve_anomaly_date(record: dict, src: "AnomalySource") -> Optional[str]:
-    """解析一条异常的发生日期，返回 `YYYY-MM-DD`；三处都取不到返回 None。
+    r"""解析一条异常的发生日期，返回 `YYYY-MM-DD`；三处都取不到返回 None。
 
     三级兜底 —— 实测无菌车间那张表 **32 条里只有 10 条填了 `发生时间`**，
-    另外 22 条的日期写在 `异常事件内容` 开头（`2026.03.13 12:23 …`）：
+    另外 22 条的日期写在 `异常事件内容` 里（`2026.03.13 12:23 …`）：
 
         ① `发生时间` 字段
-        ② 从 `异常事件内容` 文本开头解析 `YYYY.MM.DD`
+        ② 从 `异常事件内容` 里找 `YYYY.MM.DD` / `YYYY-MM-DD` / `YYYY 年 MM 月 DD 日`
         ③ `调查完成时间` 字段（近似 —— 调查通常在发生后几天，可接受）
 
     不兜的话那 22 条会因「没有日期」被 12 个月窗口排除，
     无菌的闭环率就只按 10 条算 —— 那是错的。
-    """
-    # ⚠️ 飞书 API 直接返回时，datetime 字段是**毫秒时间戳（int）**；
-    #    经 lark-cli 看到的却是 ISO 字符串 —— 同一字段两种形态。
-    #    早先只按字符串处理，`str(1759248000000)[:10]` = "1759248000"，
-    #    跟 "2025-11-01" 一比（'1' < '2'）**全都判成窗口外**，整个车间静默变 0 条。
-    raw = record.get(src.date_field)
-    if isinstance(raw, (int, float)):
-        try:
-            return datetime.fromtimestamp(raw / 1000, tz=_CN_TZ).strftime("%Y-%m-%d")
-        except (OSError, ValueError, OverflowError):
-            pass
-    v = _as_text(raw)
-    if v:
-        return v[:10]
 
-    m = _DATE_IN_TEXT.match(_as_text(record.get(src.content_field)))
+    ⚠️ ② 和 ③ 各踩过一个坑，改动前先看这两条：
+
+    - ② 原先是 `match`（要求日期在开头），但实际写法有
+      `1.2026.04.05 …`、`亚胺培南B2603101 2026.03.19 …`、`2026 年 03 月 30 日 …`，
+      开头不是数字就漏掉；后一种还带空格，原正则的 `[.\-/年]` 也不认。
+      改用 `search` + 允许分隔符两侧有空格。
+    - ③ 原先把 `调查完成时间` 当字符串截前 10 位，但它从飞书 API 来的是**毫秒
+      时间戳**，`str(1774022400000)[:10]` = `"1774022400"` —— 这个串能过窗口比较
+      （`"1" < "2"`），于是 4 条记录被**静默算进/算出窗口**，条数悄悄变了。
+      现在走 `_as_date`，与 ① 同一套解析。
+    """
+    d = _as_date(record.get(src.date_field))
+    if d:
+        return d
+
+    m = _DATE_IN_TEXT.search(_as_text(record.get(src.content_field)))
     if m:
         return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
 
-    v = _as_text(record.get("调查完成时间"))
-    if v:
-        return v[:10]
-    return None
+    return _as_date(record.get("调查完成时间"))
 
 
 @dataclass

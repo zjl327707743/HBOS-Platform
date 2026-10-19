@@ -269,6 +269,29 @@ def test_date_falls_back_to_text_then_survey_date():
     assert contract.resolve_anomaly_date(r3, _src()) is None
 
 
+def test_date_in_text_not_at_start_is_still_found():
+    # 实测无菌车间三种真实写法，日期都不在开头 —— 原先用 match 全漏：
+    #   "1.2026.04.05 21:37 、\n2.2026.04.06 …"
+    #   "亚胺培南B2603101 2026.03.19 18:03 现场操作人员…"
+    #   "2026 年 03 月 30 日 10:31，操作人员…"   ← 分隔符两侧有空格
+    sterile = _src(name="无菌车间", content="异常事件内容")
+    cases = {
+        "1.2026.04.05 21:37 、\n2.2026.04.06 16:47": "2026-04-05",
+        "亚胺培南B2603101 2026.03.19 18:03 现场操作人员发现": "2026-03-19",
+        "2026 年 03 月 30 日 10:31，操作人员曲巧红": "2026-03-30",
+    }
+    for text, want in cases.items():
+        assert contract.resolve_anomaly_date({"异常事件内容": text}, sterile) == want, text
+
+
+def test_survey_date_may_be_millisecond_timestamp():
+    # `调查完成时间` 从飞书 API 来的是毫秒时间戳，不是 ISO 串。
+    # 原先直接 `str(v)[:10]` 会得到 "1774022400"，它能通过窗口的字符串比较，
+    # 于是记录被静默算进/算出窗口 —— 条数变了却没有任何报错（踩过）。
+    r = {"事件内容": "设备异响", "调查完成时间": 1774022400000}   # 2026-03-21 +08:00
+    assert contract.resolve_anomaly_date(r, _src()) == "2026-03-21"
+
+
 def test_undated_records_are_reported_not_silently_dropped():
     # 解析不出日期的记 `undated`，如实报出 —— 静默丢弃会让比率失真且看不出
     recs = [_anom(), {"事件内容": "无日期的异常", "事件原因": "x"}]
