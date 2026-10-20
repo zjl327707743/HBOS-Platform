@@ -69,9 +69,10 @@
         <div class="pb-panel pb-kpi">
           <div class="pb-kpi-top">
             <span class="pb-kpi-lb">质量合格率</span>
-            <span class="pb-kpi-vl">{{ qualityRateText }}</span>
+            <span class="pb-kpi-vl" :class="{ 'pb-tbd': qualityRateText === null }">{{ qualityRateText ?? '暂无数据' }}</span>
           </div>
-          <div class="pb-bar"><i :style="{ width: qualityRatePct + '%' }" /></div>
+          <div v-if="qualityRatePct !== null" class="pb-bar"><i :style="{ width: qualityRatePct + '%' }" /></div>
+          <div class="pb-kpi-fn" :class="{ 'pb-kpi-fn-gap': qualityRatePct === null }">{{ qualityNote }}</div>
         </div>
         <div class="pb-panel pb-kpi">
           <div class="pb-kpi-top">
@@ -417,23 +418,36 @@ const biggestTarget = computed(() =>
   [...targetRows.value].sort((a, b) => b.target - a.target)[0] || null,
 )
 
-// 质量合格率：**固定 100%**（Owner 2026-10-20 定）。
+// 质量合格率：**实算**（会议 2026-10-19 定的取数规则，服务端 `contract.quality_stats`）。
 //
-// 为什么固定：QC 表是「合格放行台账」—— 不合格批次**根本不录入**。
-// 按会议 2026-10-19 的规则实算，任何月份、任何产品都只会得到 100%
-// （实算验证：2026-06~10 全部产品 1000+ 批，判定不合格 1 批）。
-// 换句话说，这个数字**不是测出来的，是口径决定的**。
+// 口径一句话：从「同步 QC 数据-产品」按 `生产日期` 取当月行，**已登记即合格**
+// （不合格批次根本不录入）；两个已检批次之间的空档 = 不合格，
+// 最后一个已检批次之后的空档 = 还没检测（不进分母）。
 //
-// 服务端的实算已经写好并测过了（`contract.quality_stats` + `_load_quality`），
-// 只是 QC Base 的应用身份权限拿不到（Owner 说暂时要不来）。
-// 权限解决后把下面三行换回 `board.value?.quality` 即可，注释里保留原逻辑：
+// ⚠️ 分母是「已检批次」，不是当月全部批次 —— 所以 `tested / (tested+failed)`
+// 和「未检 N 批」必须一起显示。只写一个 100% 会被读成「全批全检全合格」，
+// 那是会议里李洋担心的误读。
 //
-//     const quality = computed(() => board.value?.quality ?? null)
-//     qualityRatePct = quality.rate * 100
-//     脚注 = `${tested} / ${tested + failed} 批已检` + 未检批数
-const QUALITY_RATE = 1.0
-const qualityRatePct = computed(() => QUALITY_RATE * 100)
-const qualityRateText = computed(() => `${(QUALITY_RATE * 100).toFixed(1)}%`)
+// 没有 QC 数据源的产品（无菌两行、F13 的「国内规范粗品」）按 Owner 口径
+// **直接忽略**，不在面板上点名。
+const quality = computed(() => board.value?.quality ?? null)
+const qualityRatePct = computed(() =>
+  quality.value && quality.value.rate !== null ? quality.value.rate * 100 : null,
+)
+const qualityRateText = computed(() =>
+  qualityRatePct.value === null ? null : `${qualityRatePct.value.toFixed(1)}%`,
+)
+const qualityNote = computed(() => {
+  const q = quality.value
+  if (!q) return ''
+  // 取数失败 ≠ 没检测：前者是「没取到」，后者是「真没检」。不点产品名。
+  if (q.rate === null) return q.failedLabels.length ? '质量数据暂不可用' : '本月尚无已检批次'
+  const parts = [`${q.tested} / ${q.tested + q.failed} 批已检`]
+  if (q.failed > 0) parts.push(`不合格 ${q.failed} 批`)
+  // 未检批数只在**真的还有没检的**时候出现 —— 全检完的月份不挂这一句
+  if (q.untested > 0) parts.push(`未检 ${q.untested} 批`)
+  return parts.join(' · ')
+})
 
 const anomalyRatePct = computed(() =>
   anomaly.value && anomaly.value.rate !== null ? anomaly.value.rate * 100 : null,
