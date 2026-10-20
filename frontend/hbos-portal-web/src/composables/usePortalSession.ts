@@ -43,6 +43,13 @@ export function usePortalSession() {
   // only by a real authentication failure, so a later transient error cannot
   // promote itself into a "you were logged out" screen.
   let established = false
+  // Freshness window for the soft re-check. Rapid focus/pageshow/visibility
+  // events used to fan out into repeated bootstrap calls within a second of
+  // each other; inside this window the identity cannot have changed, and every
+  // new real request is still authorized by the server.
+  const SOFT_WINDOW_MS = 15000
+  let lastSyncAt = 0
+  let identitySignature = ''
 
   const resume = () => {
     if (document.visibilityState !== 'hidden') void synchronize(true)
@@ -57,7 +64,7 @@ export function usePortalSession() {
     const showPending = !soft || !established
     if (showPending && /^\/hbos\/(lims|knowledge|twin)(?:\/|$)/.test(route.path)) sessionPending.value = true
     try {
-      await portal.bootstrap()
+      await portal.bootstrap({ light: soft })
       if (disposed) return
       const app = route.path.match(/^\/hbos\/(lims|knowledge|twin)(?:\/|$)/)?.[1]
       if (app && !portal.apps.some(candidate => candidate.id === app)) {
@@ -65,6 +72,11 @@ export function usePortalSession() {
         return
       }
       established = true
+      lastSyncAt = Date.now()
+      // Only a changed identity or app set needs the views to re-read state.
+      // Bumping this unconditionally made every resume look like a refresh to
+      // KnowledgeView, which then re-pulled the catalogue and lost scroll.
+      identitySignature = `${portal.user?.id ?? ''}|${portal.apps.map(app => app.id).join(',')}`
       sessionRevision.value++
     } catch (error) {
       if (disposed) return

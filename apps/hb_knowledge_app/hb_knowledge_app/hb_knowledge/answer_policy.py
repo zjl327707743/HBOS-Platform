@@ -36,7 +36,18 @@ _CONTENT_ASK=re.compile(
 
 # A request for the set of documents is still a catalogue request even when it
 # also carries a content verb.
-_SET_REQUEST=re.compile(r'(?:有哪些资料|都有哪些|资料都有|有哪些文件|有哪些文档|列出|列一下|清单|一览|目录|分类|在哪里|在哪儿|去哪|如何找到|怎么找)',re.I)
+
+# A question about how many documents exist is a directory statistic, not a
+# content question. Without this branch "知识库共有多少份文件" matched no find
+# verb at all, fell through to the company-subject guard and was answered by a
+# retrieval plus generation round that could only say the count was not stated.
+# The count word must sit near a set noun so "这份规程要求保留多少份副本"
+# stays a content question.
+_COUNT_WORD=r'(?:共有|共|总共|一共|合计|统计|总数|总量|数量|多少[份分个条项]?|几[份分个])'
+_SET_NOUN=r'(?:知识库|文件|资料|文档|条目|台账|各部门|部门|分类|目录)'
+_STATS_ASK=re.compile(_COUNT_WORD+r'[^。；;？?]{0,12}?'+_SET_NOUN+r'|'+_SET_NOUN+r'[^。；;？?]{0,12}?'+_COUNT_WORD,re.I)
+
+_SET_REQUEST=re.compile(r'(?:有多少|多少份|多少分|共多少|统计|总数|有几|有哪些资料|都有哪些|资料都有|有哪些文件|有哪些文档|列出|列一下|清单|一览|目录|分类|在哪里|在哪儿|去哪|如何找到|怎么找)',re.I)
 
 
 def _looks_like_catalog(question):
@@ -48,6 +59,7 @@ def _looks_like_catalog(question):
     q=question
     doc_nouns=r'(?:资料|文件|文档|法规|法律|条例|办法|规定|规程|制度|标准|sop|手册|台账|目录|证书|预案|报告|图纸|记录)'
     find_verbs=r'(?:列表|清单|目录|一览|有哪些|都有哪些|有什么|在哪里|在哪儿|在哪个|去哪|如何找到|怎么找|找一下|查找|查询|列出|列一下|枚举|分一下类|分类)'
+    if _STATS_ASK.search(q):return True
     matched=(re.search(doc_nouns+r'.{0,16}?'+find_verbs,q,re.I)
              or re.search(find_verbs+r'.{0,16}?'+doc_nouns,q,re.I))
     if matched:

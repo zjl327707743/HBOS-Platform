@@ -57,7 +57,10 @@ export const usePortalStore = defineStore('portal', () => {
     bootstrapError.value = null
   }
 
-  async function bootstrap() {
+  // A resume re-check (tab focus, pageshow, visibilitychange) does not need the
+  // home tasks, summaries or twin overview. Those are unrelated to the page the
+  // user is on, and fetching them made every tab switch look like a full reload.
+  async function bootstrap(options?: { light?: boolean }) {
     let generation = ++sessionGeneration
     loading.value = true
     bootstrapError.value = null
@@ -75,7 +78,7 @@ export const usePortalStore = defineStore('portal', () => {
       businessPulse.value = data.businessPulse
       twinStatuses.value = data.twinStatuses
       limsQueue.value = data.limsQueue
-      if (dataSource.value === 'frappe') {
+      if (dataSource.value === 'frappe' && !options?.light) {
         void refreshTasks().catch(() => undefined)
         void refreshSummaries().catch(() => undefined)
         void refreshTwinOverview().catch(() => undefined)
