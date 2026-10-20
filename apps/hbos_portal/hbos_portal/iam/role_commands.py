@@ -161,8 +161,7 @@ def _effective(employee, resolved, *, features=None):
         return {'allowed': False, 'reason': '须先完成首次改密。', 'operations': []}
     if resolved is None:
         decision = policy._evaluate(employee.user_id, 'attendance', 'attendance.read', 'SELF', '')
-        from hb_attendance_app.hbos_attendance.portal.permissions import legacy_hr
-        native_hr = legacy_hr(employee.user_id)
+        native_hr = frappe.get_attr("hb_attendance_app.hbos_attendance.portal.permissions.legacy_hr")(employee.user_id)
         return {'allowed': decision['allowed'] or native_hr, 'reason': '沿用已有权限安排。', 'legacy_native_hr': native_hr,
                 'operations': [dict(operation_id='attendance.read', scope_type='SELF', scope_ref='', allowed=decision['allowed'])]}
     entries = []
