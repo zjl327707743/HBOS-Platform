@@ -22,6 +22,7 @@
           <!-- 刷新完成后短暂显示「已更新」：时间戳只到分钟，刚点完刷新往往看不出变化，
               会让人以为没生效。 -->
           <span v-if="justRefreshed" class="pb-updated">已更新</span>
+          <span v-else-if="refreshFailed" class="pb-refresh-failed">刷新失败，仍是旧数据</span>
           <button class="pb-refresh" :disabled="refreshing" title="重新从飞书多维表格取数（约 15 秒）" @click="refreshBoard">
             <ReloadOutlined :spin="refreshing" />
             {{ refreshing ? `取数中 ${refreshElapsed}s` : '刷新' }}
@@ -339,6 +340,8 @@ const refreshing = ref(false)
 const refreshElapsed = ref(0)
 /** 刚刷完，短暂显示「已更新」（时间戳只到分钟，看不出变化会以为没生效）。 */
 const justRefreshed = ref(false)
+/** 上一次刷新**失败**了（服务端 502 / 网络错误）—— 必须让用户看见，不能静默。 */
+const refreshFailed = ref(false)
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 let justRefreshedTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -373,6 +376,7 @@ async function refreshBoard() {
   if (refreshing.value) return
   refreshing.value = true
   refreshElapsed.value = 0
+  refreshFailed.value = false
   refreshTimer = setInterval(() => { refreshElapsed.value += 1 }, 1000)
   try {
     const data = await fetchProductionBoard({ refresh: true })
@@ -381,6 +385,12 @@ async function refreshBoard() {
       justRefreshed.value = true
       if (justRefreshedTimer) clearTimeout(justRefreshedTimer)
       justRefreshedTimer = setTimeout(() => { justRefreshed.value = false }, 4000)
+    } else {
+      // ⚠️ 刷新失败**必须说出来**。早先这里是 `if (data)` 静默跳过 ——
+      // 服务端撞飞书限流（1254607）返回 502 时，按钮转完 90 秒就停了，
+      // 页面上什么都没有变，看起来像「刷新成功但时间没动」（实测踩到过）。
+      // 旧数据保留（比打回「未接入」好），但要明确告诉用户这次没刷上。
+      refreshFailed.value = true
     }
   } finally {
     if (refreshTimer) clearInterval(refreshTimer)
@@ -540,6 +550,8 @@ watch(isCenter, (now) => {
 .pb-refresh:hover:not(:disabled) { background: rgba(108,99,255,.07); }
 .pb-refresh:disabled { cursor: progress; opacity: .62; }
 .pb-updated { color: #0e9f6e; font-weight: 600; }
+/* 刷新失败用告警色，但**不是红色错误** —— 数据还在，只是这一下没刷上 */
+.pb-refresh-failed { color: var(--hbos-text-muted); font-weight: 600; }
 
 .pb-panel { background: rgba(255,255,255,.74); border: 1px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 10px 34px rgba(61,88,136,.08); backdrop-filter: blur(20px); min-width: 0; }
 
