@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
@@ -262,21 +263,31 @@ def _load_anomalies(today: date, fetched: dict | None = None) -> dict:
 def _load_quality(month: str) -> dict:
     """各产品的 QC 表，按会议规则（2026-10-19）算当月质量合格率。
 
-    ⚠️ **不并进 `_fetch_all` 的并发批次**：QC Base 是另一套权限
-    （实测服务账号读它返回 `1254302 RolePermNotAllow`），一旦并进去，
-    `list_records_many` 会整体抛错 → 整个看板 502，连产量都看不到。
-    质量数据取不到是「这一格没数」，不该拖垮整张看板。
+    **4 张表并发拉**（2026-10-20）：这 4 张是 1000~1200 行的大表，串行实测
+    **94.8 秒**，并发 5~8 路后 ~52 秒。它们是冷缓存总时长的主要来源。
 
-    与异常表同样的容错：逐源 try/except，取不到的产品记进 `failedLabels`，
-    前端据此显示「暂无数据」，而不是拿一个像样的数字填上。
+    为什么不并进 `_fetch_all`：QC Base 的权限与营运 Base 不同源，历史上
+    应用身份读它一直 403。把它并进 `list_records_many` 的话，**一张表失败
+    会让整批抛错** → 整个看板 502，连产量都看不到。所以这里单独一批，
+    并且**逐源 try/except**：取不到的产品记进 `failedLabels`，前端显示
+    「暂不可用」，其余产品照常出数。
     """
     stats: list[contract.QualityStats] = []
     failed: list[str] = []
-    for src in contract.QC_SOURCES:
+
+    def fetch(src: contract.QcSource) -> Optional[list[dict]]:
         try:
-            raw = feishu.list_records(contract.QC_BASE, src.table_id)
+            return feishu.list_records(contract.QC_BASE, src.table_id)
         except feishu.FeishuError as exc:
             log.warning("QC 表取数失败 %s code=%s", src.label, exc.code)
+            return None
+
+    workers = min(config.FETCH_WORKERS, len(contract.QC_SOURCES)) or 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        raw_by_src = list(pool.map(fetch, contract.QC_SOURCES))
+
+    for src, raw in zip(contract.QC_SOURCES, raw_by_src):
+        if raw is None:
             failed.append(src.label)
             continue
         rows = [sources.to_anomaly_record(r) for r in raw]

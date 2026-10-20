@@ -32,13 +32,15 @@ CACHE_TTL_SECONDS = int(os.environ.get("HBOS_PRODUCTION_CACHE_TTL", "300"))
 
 #: 并发拉表的线程数。
 #:
-#: 看板要拉 13 张表，其中 7 张明细表各有 1500~2000 行（翻 3~4 页，单张 8~10 秒）。
+#: 看板要拉 14 张表，其中 7 张明细表各有 1500~2000 行（翻 3~4 页，单张 8~10 秒）。
 #: **串行实测 57 秒**（点一次刷新要等这么久），并发后压到 ~19 秒。
 #:
-#: 定 5 而不是更高：实测 5 与 8 的用时几乎一样（18.9s vs 18.0s）—— 总时长由
-#: 最慢的那张表决定，再高的并发不缩短它，白白多撞飞书节流。
+#: 2026-10-20 从 5 提到 8：接入 QC 表后 `_fetch_all` 实测 39.2s(5) vs 41.1s(8) ——
+#: **没有改善**，差异在噪声范围内。原因是总时长由最慢的那几张明细表决定，
+#: 再加并发不缩短它们，只会多撞飞书节流（1254607）。留着 8 是因为它不更差，
+#: 且表数从 13 涨到 14 后并行度稍高一点更稳；真要提速得减表或做分层缓存。
 #: 设 1 = 退回串行（保留开关，便于排查是不是并发引起的问题）。
-FETCH_WORKERS = int(os.environ.get("HBOS_PRODUCTION_FETCH_WORKERS", "5"))
+FETCH_WORKERS = int(os.environ.get("HBOS_PRODUCTION_FETCH_WORKERS", "8"))
 
 #: 日志级别。日志**不记录凭据**。
 LOG_LEVEL = os.environ.get("HBOS_PRODUCTION_LOG_LEVEL", "INFO")
