@@ -68,13 +68,17 @@ _CACHE_LOCK = threading.Lock()
 _REFRESH_LOCK = threading.Lock()
 
 
-def _cached(key: str, producer, *, built_on: date | None = None):
+def _cached(key: str, producer, *, built_on: date | None = None, ttl: float | None = None):
     """stale-while-revalidate：**先给旧的、后台刷新**。
 
     `built_on` 是这批数据算出来时的日期。**跨天即视为过期** —— 缓存里的 rows
     是用「今天」算的（当月目标、昨日入库），过了零点再用就不是今天的数据了。
     不判跨天的话，10 号建的缓存 12 号打开会原样返回，页面上「昨日入库」显示的是
     前天的量（实测踩到过）。
+
+    `ttl` 覆盖全局 TTL（秒）。质量数据用一天，见 `config.QUALITY_CACHE_TTL_SECONDS`。
+    后台刷新走的是同一个 producer，所以必须把 ttl 一起传下去 —— 否则后台刷新
+    会把长 TTL 悄悄改回 5 分钟（那正是要避免的）。
     """
     now = time.time()
     with _CACHE_LOCK:
@@ -89,21 +93,25 @@ def _cached(key: str, producer, *, built_on: date | None = None):
 
     if hit is not None:
         if stale:
-            _background_refresh(key, producer, built_on)
+            _background_refresh(key, producer, built_on, ttl)
         return hit["value"]
 
     # 冷启动：只能同步拉一次
     value = producer()
     with _CACHE_LOCK:
-        _store(key, value, built_on)
+        _store(key, value, built_on, ttl)
     return value
 
 
-def _store(key: str, value, built_on: date | None) -> None:
-    """写入缓存（调用方需持有 `_CACHE_LOCK`）。"""
+def _store(key: str, value, built_on: date | None, ttl: float | None = None) -> None:
+    """写入缓存（调用方需持有 `_CACHE_LOCK`）。
+
+    `ttl` 为 None 时用全局 `CACHE_TTL_SECONDS`。质量数据单独用更长的 TTL，
+    见 `config.QUALITY_CACHE_TTL_SECONDS`。
+    """
     _CACHE[key] = {
         "value": value,
-        "stale_at": time.time() + config.CACHE_TTL_SECONDS,
+        "stale_at": time.time() + (config.CACHE_TTL_SECONDS if ttl is None else ttl),
         "built_at": time.time(),
         "built_on": built_on,
     }
@@ -119,7 +127,7 @@ def _cached_at(key: str) -> float | None:
     return hit["built_at"] if hit else None
 
 
-def _refresh_now(key: str, producer, built_on: date | None):
+def _refresh_now(key: str, producer, built_on: date | None, ttl: float | None = None):
     """**同步**重新取数并更新缓存（前端点「刷新」时用）。
 
     与 `_cached` 的区别：这里真的等它拉完（几十秒）再返回，而不是先给旧值 ——
@@ -141,19 +149,21 @@ def _refresh_now(key: str, producer, built_on: date | None):
 
         value = producer()
         with _CACHE_LOCK:
-            _store(key, value, built_on)
+            _store(key, value, built_on, ttl)
         log.info("强制刷新 %s 完成", key)
     return value
 
 
-def _background_refresh(key: str, producer, built_on: date | None = None) -> None:
+def _background_refresh(
+    key: str, producer, built_on: date | None = None, ttl: float | None = None
+) -> None:
     """后台刷新 —— 失败保留旧值（旧数据好过没有），只记日志。"""
 
     def run():
         try:
             value = producer()
             with _CACHE_LOCK:
-                _store(key, value, built_on)
+                _store(key, value, built_on, ttl)
             log.info("后台刷新 %s 完成", key)
         except Exception as exc:  # noqa: BLE001 - 刷新失败不该影响正在看的人
             log.warning("后台刷新 %s 失败，继续用旧值：%s", key, str(exc)[:120])
@@ -331,8 +341,27 @@ def _board_data(today: date) -> dict:
     return {
         "rows": [contract.asdict_row(r) for r in rows],
         "anomaly": _load_anomalies(today, fetched),
-        "quality": _load_quality(month),
+        "quality": _quality_cached(month, today),
     }
+
+
+def _quality_cached(month: str, today: date) -> dict:
+    """质量合格率**单独缓存一天**（Owner 2026-10-20 定）。
+
+    为什么要单独一层缓存：QC 那 4 张表 1000~1200 行，并发拉也要 ~50 秒，
+    是冷缓存总时长的大头；而**质量结论一天最多变一次**（QC 按天录入）。
+
+    为什么**不看刷新按钮**：用户点「刷新」要的是产量/收率/异常的最新值，
+    为了一次刷新多等 50 秒去拉 4000 行几个月都不变的 QC 数据不划算。
+    当天新录入的 QC 结果会在缓存过期后出现 —— `built_on` 保证**跨天必重拉**，
+    所以最长滞后 24 小时，不会连着两天用同一份。
+    """
+    return _cached(
+        "quality",
+        lambda: _load_quality(month),
+        built_on=today,
+        ttl=config.QUALITY_CACHE_TTL_SECONDS,
+    )
 
 
 # ---------------------------------------------------------------------------

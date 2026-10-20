@@ -23,7 +23,7 @@
               会让人以为没生效。 -->
           <span v-if="justRefreshed" class="pb-updated">已更新</span>
           <span v-else-if="refreshFailed" class="pb-refresh-failed">刷新失败，仍是旧数据</span>
-          <button class="pb-refresh" :disabled="refreshing" title="重新从飞书多维表格取数（约 15 秒）" @click="refreshBoard">
+          <button class="pb-refresh" :disabled="refreshing" title="重新从飞书多维表格取数（约 1 分钟）" @click="refreshBoard">
             <ReloadOutlined :spin="refreshing" />
             {{ refreshing ? `取数中 ${refreshElapsed}s` : '刷新' }}
           </button>
@@ -31,14 +31,17 @@
       </div>
     </header>
 
-    <!-- 加载中。**必须与「未接入」分开** —— 冷缓存时服务端要并发拉 13 张飞书表，
-         约 15 秒。不加这个态的话，这段时间页面会显示「未接入」，用户以为坏了。 -->
+    <!-- 加载中。**必须与「未接入」分开** —— 冷缓存时服务端要并发拉 18 张飞书表，
+         实测约 100 秒（撞限流时更久）。不加这个态的话，这段时间页面会显示
+         「未接入」，用户以为坏了。
+         注意：这只会在**服务刚启动 / 跨天后的第一次访问**出现 —— 缓存按天，
+         正常打开是毫秒级。 -->
     <section v-if="phase === 'loading'" class="pb-panel pb-skeleton" aria-busy="true" aria-live="polite">
       <div class="pb-skel pb-skel-kpi"></div>
       <div class="pb-skel pb-skel-row"></div>
       <div class="pb-skel pb-skel-row"></div>
       <div class="pb-skel pb-skel-row"></div>
-      <p class="pb-skel-note">正在取生产数据…（首次打开约需 15 秒）</p>
+      <p class="pb-skel-note">正在取生产数据…（首次打开约需 1~2 分钟，之后当天打开是秒开）</p>
     </section>
 
     <!-- 未接入：**取不到**才显示。数据接通前不显示任何数字 -->
