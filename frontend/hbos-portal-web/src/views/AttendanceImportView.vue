@@ -3,8 +3,8 @@
     <header class="up-head">
       <div>
         <span class="page-kicker">ATTENDANCE · 数据与导入</span>
-        <h1>导入考勤机导出表</h1>
-        <p>上传考勤机月度导出表，先识别、再确认导入。识别不会写入任何数据。</p>
+        <h1>考勤与排班导入</h1>
+        <p>先核对文件范围，再确认导入。预览只保存私有来源和批次，不写入业务记录。</p>
       </div>
     </header>
 
@@ -19,14 +19,15 @@
       type="error"
       show-icon
       :message="error"
-      description="若持续失败，请改用侧栏底部的「管理后台」直接导入。"
+      description="核对文件、员工建档及当前授权范围后重试。"
       class="up-alert"
     />
 
     <div class="up-grid">
       <section class="up-panel glass-surface">
         <h2>文件与识别</h2>
-        <p class="up-hint">只接受考勤机导出的月度汇总表（.xlsx）。</p>
+        <p class="up-hint">支持原始 IN/OUT 流水与月度汇总表（.xlsx）；月度汇总只作暂存对账。</p>
+        <a-select v-if="managed" v-model:value="kind" :options="importKinds" aria-label="导入类型" :disabled="busy" @change="onRemove" />
 
         <a-upload-dragger
           :file-list="fileList"
@@ -57,7 +58,8 @@
         </div>
 
         <div v-if="preview" class="up-defs">
-          <div class="up-def"><span class="k">批次号</span><span class="v">{{ preview.log_name }}</span></div>
+          <div class="up-def"><span class="k">批次号</span><span class="v">{{ preview.log_name || scopedPreview?.event_name }}</span></div>
+          <div v-if="scopedPreview" class="up-def"><span class="k">核验范围</span><span class="v">{{scopedPreview.scope}}</span></div>
           <div class="up-def"><span class="k">识别类型</span><span class="v">{{ preview.import_type || '—' }}</span></div>
           <div class="up-def"><span class="k">日期范围</span><span class="v">{{ preview.period_start || '—' }} 至 {{ preview.period_end || '—' }}</span></div>
           <div class="up-def"><span class="k">员工行数</span><span class="v">{{ preview.identity_rows ?? 0 }}</span></div>
@@ -68,7 +70,7 @@
 
       <section class="up-panel glass-surface">
         <h2>导入结果</h2>
-        <p class="up-hint">确认导入后才会写入打卡流水与考勤结果。</p>
+        <p class="up-hint">月度汇总只写对账暂存；原始流水和排班按所选文件类型处理。整批失败会回滚。</p>
 
         <div v-if="!result" class="up-empty">完成预览后可确认导入。</div>
         <template v-else>
@@ -83,10 +85,12 @@
             <div class="up-def"><span class="k">自动考勤</span><span class="v">{{ result.auto_attendance_used ? '已触发' : '未触发' }}</span></div>
           </div>
           <p class="up-note">{{ result.notes }}</p>
+          <p v-if="kind==='schedule'" class="up-note">排班新增 {{result.created || 0}} 条；保留人工及历史排班 {{result.protected || 0}} 条。</p>
           <div class="up-links">
             <a-button size="small" @click="goto('list', 'import-log')">查看考勤导入日志</a-button>
             <a-button size="small" @click="goto('report', 'checkins')">查看打卡流水</a-button>
             <a-button size="small" @click="goto('report', 'results')">查看考勤结果</a-button>
+            <a-button size="small" @click="goto('report', 'staging')">查看月度对账暂存</a-button>
           </div>
         </template>
       </section>
@@ -101,14 +105,26 @@ import { InboxOutlined } from '@ant-design/icons-vue'
 import type { UploadFile } from 'ant-design-vue'
 import { callFrappeMethod } from '@/services/frappeClient'
 import { uploadToFrappe } from '@/services/frappeUpload'
+import { usePortalStore } from '@/stores/portal'
+import { previewScopedImport, executeScopedImport, type ImportArtifact } from '@/services/attendanceImports'
 
 const router = useRouter()
+const portal=usePortalStore()
+const capabilities=computed(()=>portal.apps.find(app=>app.id==='attendance')?.accessCapabilities||[])
+const managed=computed(()=>capabilities.value.includes('attendance.role.managed'))
+const importKinds=computed(()=>[
+  {value:'attendance',label:'考勤流水 / 月度对账',operation:'attendance.import.preview'},
+  {value:'schedule',label:'员工排班表',operation:'attendance.schedule.import'},
+].filter(item=>capabilities.value.includes(item.operation)))
+const kind=ref(importKinds.value[0]?.value||'attendance')
+const source=ref(''), filename=ref(''), scopedPreview=ref<ImportArtifact|null>(null)
+const previewRequest=ref(''),executeRequest=ref('')
 
 const IMPORT_LOG_ENDPOINT =
   'hb_attendance_app.hbos_attendance.doctype.hbos_attendance_import_log.hbos_attendance_import_log'
 
 interface PreviewResult {
-  log_name: string
+  log_name?: string
   import_type?: string
   period_start?: string
   period_end?: string
@@ -117,6 +133,8 @@ interface PreviewResult {
 }
 
 interface ImportResult {
+  created?:number
+  protected?:number
   log_name?: string
   matched_rows?: number
   success_rows?: number
@@ -162,6 +180,7 @@ function onRemove() {
   preview.value = null
   result.value = null
   error.value = ''
+  source.value='';filename.value='';scopedPreview.value=null;fileList.value=[]
   return true
 }
 
@@ -175,6 +194,14 @@ async function upload(file: File) {
   preview.value = null
   result.value = null
   try {
+    if(managed.value){
+      if(file.size>10*1024*1024)throw new Error('文件须小于等于10MB。')
+      const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');reader.onerror=reject;reader.readAsDataURL(file)})
+      source.value=data;filename.value=file.name;fileUrl.value='selected'
+      fileList.value=[{uid:'-1',name:file.name,status:'done'} as UploadFile]
+      previewRequest.value=crypto.randomUUID();scopedPreview.value=null
+      return
+    }
     const uploaded = await uploadToFrappe(file, {
       doctype: 'HBOS Attendance Import Log',
       isPrivate: true,
@@ -195,6 +222,13 @@ async function doPreview() {
   previewing.value = true
   error.value = ''
   try {
+    if(managed.value){
+      const artifact=await previewScopedImport({kind:kind.value,filename:filename.value,file_content:source.value,request_id:previewRequest.value})
+      scopedPreview.value=artifact
+      preview.value={...artifact.summary,log_name:artifact.log_name,identity_rows:artifact.summary.matched_rows}
+      executeRequest.value=crypto.randomUUID()
+      return
+    }
     preview.value = await callFrappeMethod<PreviewResult>(`${IMPORT_LOG_ENDPOINT}.preview_import`, {
       source_file: fileUrl.value,
     })
@@ -211,6 +245,12 @@ async function doImport() {
   importing.value = true
   error.value = ''
   try {
+    if(managed.value){
+      if(!scopedPreview.value)return
+      const artifact=await executeScopedImport({event_name:scopedPreview.value.event_name,expected_inputs:scopedPreview.value.expected_inputs,request_id:executeRequest.value})
+      result.value={...artifact.summary};preview.value=null
+      return
+    }
     result.value = await callFrappeMethod<ImportResult>(`${IMPORT_LOG_ENDPOINT}.run_import`, {
       source_file: fileUrl.value,
       log_name: preview.value?.log_name || '',

@@ -17,8 +17,8 @@
       <ArrowLeftOutlined /><span>返回 HBOS 工作台</span>
     </button>
 
-    <nav>
-      <template v-for="group in attendanceNavGroups" :key="group.label">
+    <nav><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.export.'))" class="local-nav" to="/hbos/attendance/exports">考勤导出</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.rules.')||op==='attendance.schedule.generate')" class="local-nav" to="/hbos/attendance/rules">规则与重算</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.shift.')||op==='attendance.schedule.read'||op==='attendance.schedule.bind')" class="local-nav" to="/hbos/attendance/shifts">班次与排班</RouterLink><RouterLink v-if="managed && access.some(op=>op.startsWith('attendance.correction.'))" class="local-nav" to="/hbos/attendance/corrections">考勤更正</RouterLink><RouterLink v-if="managed && access.includes('attendance.read')" class="local-nav" to="/hbos/attendance/me">我的考勤</RouterLink>
+      <template v-for="group in visibleGroups" :key="group.label">
         <div class="nav-section-label">{{ group.label }}</div>
         <RouterLink
           v-for="item in group.items"
@@ -40,6 +40,7 @@
          不与门户逐像素一致，故这里不内嵌，直接新开页签。 -->
     <button
       type="button"
+      v-if="!managed"
       class="local-nav management"
       title="打开管理后台"
       @click="openManagementConsole"
@@ -71,8 +72,13 @@ import {
   TeamOutlined,
   UploadOutlined,
 } from '@ant-design/icons-vue'
-import { activeNavForPath, attendanceNavGroups, navTarget } from '@/services/attendanceNav'
+import { activeNavForPath, attendanceNavGroups, navTarget, attendancePathCapability, attendanceCapabilityAllowed } from '@/services/attendanceNav'
 
+import { usePortalStore } from '@/stores/portal'
+const portal=usePortalStore()
+const access=computed(()=>portal.apps.find(app=>app.id==='attendance')?.accessCapabilities || [])
+const managed=computed(()=>access.value.includes('attendance.role.managed'))
+const visibleGroups=computed(()=>managed.value ? attendanceNavGroups.map(group=>({...group,items:group.items.filter(item=>attendanceCapabilityAllowed(attendancePathCapability(navTarget(item)),access.value))})).filter(group=>group.items.length) : attendanceNavGroups)
 const route = useRoute()
 
 // 图标按名字查表：导航数据里只存字符串，避免把组件实例塞进纯数据模块

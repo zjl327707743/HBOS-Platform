@@ -93,19 +93,80 @@ def _bounds(limit, start) -> tuple[int, int]:
 
 
 def _run(report_key: str, filters, limit=MAX_ROWS, start=0) -> dict[str, object]:
+    # Retry only a read closure. Legacy AI/external work keeps its own lifecycle.
+    if getattr(frappe,'conf',{}).get('hbos_iam_roles_enabled') in (True,1,'1') and not _clean_filters(filters).get('enable_ai'):
+        from hbos_portal.iam import policy
+        try:
+            return policy.current_read(lambda:_run_once(report_key,filters,limit,start))
+        except (frappe.QueryDeadlockError,frappe.QueryTimeoutError):
+            frappe.local.response['http_status_code']=409
+            return {'ok':False,'error':{'code':'READ_CONFLICT','message':'报表读取遇到暂时冲突，请重试查询。','retryable':True}}
+    return _run_once(report_key,filters,limit,start)
+
+
+def _run_once(report_key: str, filters, limit=MAX_ROWS, start=0) -> dict[str, object]:
     """调用报表本体的 execute()，截取一段返回。
 
     报表的 execute() 没有分页参数（它是 Frappe 的脚本报表约定，返回全量），
     所以这里**算全量、只回一段**。真正的代价在 execute() 内部，截断只是防止
     把整份结果序列化给浏览器。
     """
-    _require_read()
+    from hb_attendance_app.hbos_attendance.portal.role_scope import context, historical_employees, report_execution
+    from hb_attendance_app.hbos_attendance.portal.personal import bounded_request
+    from datetime import timedelta
+    clean = _clean_filters(filters)
+    bound = context('attendance.report.' + report_key + '.read', department=clean.get('department'))
+    employees = None
+    coverage = None
+    if bound is not None:
+        from hb_attendance_app.hbos_attendance.portal.role_scope import check_fields
+        check_fields({'filters','limit','start'})
+        if report_key=='staging':
+            from hb_attendance_app.hbos_attendance.portal.import_records import staging
+            limit,start=_bounds(limit,start)
+            return staging(clean,limit,start)
+        allowed = {'from_date','to_date','department','employee','month','year','source_device','hbos_only','source_type','import_log'}
+        if set(clean) - allowed:
+            frappe.throw('角色报表不接受未知筛选或外部服务选项。', frappe.PermissionError)
+        if report_key not in {'monthly','checkins','results'}:
+            frappe.throw('此报表尚未接入角色范围。', frappe.PermissionError)
+        if clean.get('month') or clean.get('year'):
+            from calendar import monthrange
+            from datetime import date
+            first=date(int(clean.get('year')),int(clean.get('month')),1)
+            clean['from_date']=first.isoformat()
+            clean['to_date']=first.replace(day=monthrange(first.year,first.month)[1]).isoformat()
+        start_date,end_date,_,_=bounded_request(clean.get('from_date'),clean.get('to_date'))
+        clean.update(from_date=start_date.isoformat(),to_date=end_date.isoformat())
+        # Checkin direction uses two days of pairing context on either side.
+        pad=timedelta(days=2) if report_key=='checkins' else timedelta(0)
+        employees=historical_employees(bound,start_date-pad,end_date+pad)
+        coverage=employees.coverage
+        if clean.get('employee'):
+            if clean['employee'] not in {row.name for row in employees}:
+                frappe.throw('该员工不在此历史期间的负责范围内。', frappe.PermissionError)
+            employees=[row for row in employees if row.name==clean['employee']]
+        # History was attributed above; never filter it using today's HR department.
+        clean.pop('department',None)
+    else:
+        _require_read()
 
     module_path = _REPORTS[report_key]
     execute = frappe.get_attr(module_path + ".execute")
 
     try:
-        result = execute(_clean_filters(filters))
+        if bound is not None:
+            with report_execution(report_key,employees,bound=bound,date_from=start_date,date_to=end_date,coverage=coverage):
+                result=execute(clean)
+            by_name={row.name:row.department for row in employees}
+            if isinstance(result,(tuple,list)) and len(result)>1:
+                for row in result[1]:
+                    if isinstance(row,dict) and row.get('employee') in by_name:
+                        row['department']=by_name[row['employee']]
+            # Recheck all named scopes after execution, before serialization.
+            context('attendance.report.' + report_key + '.read')
+        else:
+            result = execute(clean)
     except frappe.ValidationError:
         raise
     except (TypeError, ValueError) as exc:
@@ -117,6 +178,7 @@ def _run(report_key: str, filters, limit=MAX_ROWS, start=0) -> dict[str, object]
     limit, start = _bounds(limit, start)
 
     return {
+        "coverage": coverage,
         "report": report_key,
         "columns": columns,
         "data": data[start:start + limit],

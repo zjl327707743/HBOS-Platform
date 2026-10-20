@@ -12,6 +12,8 @@ import LoginView from '@/views/FeishuLoginView.vue'
 const api = vi.hoisted(() => ({ getSecurity: vi.fn(), reauthenticate: vi.fn(), requestFeishuCode: vi.fn(), verifyFeishuCode: vi.fn(), setPassword: vi.fn(), unlinkFeishu: vi.fn(), startLink: vi.fn(), adminIssueRecovery: vi.fn() }))
 const changes = vi.hoisted(() => ({ changeActions: vi.fn(), recentChanges: vi.fn(), getChange: vi.fn(), getParticipant: vi.fn(), changePost: vi.fn() }))
 const session = vi.hoisted(() => ({ bootstrap: vi.fn(), clearSession: vi.fn() }))
+const coordinator = vi.hoisted(()=>({ensurePortalSession:vi.fn(async()=>({})),resetPortalSession:vi.fn(),refreshAccountProof:vi.fn()}))
+vi.mock('@/services/portalSessionCoordinator',()=>coordinator)
 const login = vi.hoisted(() => vi.fn())
 vi.mock('@/services/accountApi', () => api)
 vi.mock('@/services/accountChanges', () => ({ ...changes, kindLabel: (kind: string) => kind, stateLabel: (state: string) => state }))
@@ -37,6 +39,7 @@ async function clickText(wrapper: VueWrapper, text: string) {
   await button!.trigger('click'); await flushPromises()
 }
 beforeEach(() => {
+  coordinator.refreshAccountProof.mockImplementation(()=>api.getSecurity());
   api.getSecurity.mockResolvedValue(structuredClone(security)); api.reauthenticate.mockResolvedValue({ verified: true, expires_in: 1 })
   changes.changeActions.mockResolvedValue(permitted); changes.recentChanges.mockResolvedValue({ changes: [] })
   changes.getChange.mockImplementation(async (operation: string) => ({ operation, kind: 'rebind', expires_in: 600, state: 'Pending' }))
@@ -45,6 +48,16 @@ beforeEach(() => {
 afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; document.body.innerHTML = ''; vi.useRealTimers() })
 
 describe('confirmed account UI regressions', () => {
+  it('R2-05: the previous logout notice is consumed when a new password login starts', async()=>{
+    let finish!:(v:unknown)=>void; login.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+    const {wrapper}=await render(LoginView,'/hbos/login?status=signed_out')
+    expect(wrapper.text()).toContain('已安全退出当前账号')
+    await wrapper.find('input[autocomplete="username"]').setValue('synthetic')
+    await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic password')
+    await wrapper.find('form').trigger('submit');await flushPromises()
+    expect(wrapper.text()).not.toContain('已安全退出当前账号')
+    finish({message:'Logged In'});await flushPromises();expect(wrapper.text()).not.toContain('已安全退出当前账号')
+  })
   it('F03: a minimal participant response without TTL is not treated as expired', async () => {
     vi.useFakeTimers()
     changes.getParticipant.mockResolvedValue({operation:'synthetic-invited',kind:'rebind',requires_feishu_verification:true})

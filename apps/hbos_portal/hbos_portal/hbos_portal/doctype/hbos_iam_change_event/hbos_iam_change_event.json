@@ -1,0 +1,118 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS IAM Change Event",
+ "module": "HBOS Portal",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "actor",
+  "request_id",
+  "request_hash",
+  "subject_type",
+  "subject_name",
+  "operation",
+  "before_json",
+  "after_json",
+  "version",
+  "result",
+  "reason",
+  "occurred_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "Actor",
+   "reqd": 1,
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_id",
+   "fieldtype": "Data",
+   "label": "Request Id",
+   "reqd": 1,
+   "unique": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "request_hash",
+   "fieldtype": "Data",
+   "label": "Request Hash",
+   "reqd": 1,
+   "length": 64,
+   "read_only": 1
+  },
+  {
+   "fieldname": "subject_type",
+   "fieldtype": "Select",
+   "label": "Subject Type",
+   "reqd": 1,
+   "options": "User\nDepartment\nEmployee\nHBOS IAM App Role",
+   "read_only": 1
+  },
+  {
+   "fieldname": "subject_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Subject Name",
+   "reqd": 1,
+   "options": "subject_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Data",
+   "label": "Operation",
+   "reqd": 1,
+   "length": 96,
+   "read_only": 1
+  },
+  {
+   "fieldname": "before_json",
+   "fieldtype": "Code",
+   "label": "Before Json",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "after_json",
+   "fieldtype": "Code",
+   "label": "After Json",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Version",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "label": "Result",
+   "reqd": 1,
+   "options": "success\nrefused\nconflict",
+   "default": "success",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "occurred_at",
+   "fieldtype": "Datetime",
+   "label": "Occurred At",
+   "reqd": 1,
+   "read_only": 1
+  }
+ ],
+ "permissions": []
+}

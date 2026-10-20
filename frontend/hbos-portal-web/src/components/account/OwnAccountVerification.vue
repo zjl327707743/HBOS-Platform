@@ -1,6 +1,6 @@
 <template>
   <section class="proof-form" aria-label="本人身份验证" @keydown.enter="onEnter">
-    <p>{{ passwordOnly ? '验证当前负责人的密码与已有二次认证。' : '安全操作前，请验证本人身份。' }}</p>
+    <p>{{ passwordOnly ? '使用当前账号的密码与已有二次认证核验本人身份。' : '安全操作前，请验证本人身份。' }}</p>
     <a-skeleton v-if="loading" active :paragraph="{ rows: 1 }" />
     <template v-else-if="status">
       <a-radio-group v-if="!passwordOnly && status.has_password && status.feishu_bound" v-model:value="useInbox" :disabled="busy" @change="reset"><a-radio :value="false">当前密码</a-radio><a-radio :value="true" :disabled="!status.feishu_stepup_available">本人飞书验证码</a-radio></a-radio-group>

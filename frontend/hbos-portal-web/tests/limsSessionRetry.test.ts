@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { resetPortalSession, ensurePortalSession } from '@/services/portalSessionCoordinator'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
-import { createPinia } from 'pinia'
+import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import LimsLayout from '@/components/layout/LimsLayout.vue'
+
+
+vi.mock('@/services/iamAccount', () => ({ getIamSecurity: vi.fn(async () => ({ user: 'synthetic-user', session_context: 'a'.repeat(64), first_password_required: false, proof: {} })) }))
+vi.mock('@/services/iamAccess', () => ({ iamSession: { revision: 'r1', appRevisions: {} }, fetchIamAccess: vi.fn(async () => ({ subject_user: 'synthetic-user', session_context: 'a'.repeat(64), policy_revision: 'r1', capabilities: [] })), applyIamAccess: vi.fn(), clearIamAccess: vi.fn() }))
 
 const provider = vi.hoisted(() => ({ getPortalData: vi.fn(), getPortalTasks: vi.fn(), getPortalSummaries: vi.fn() }))
 vi.mock('@/services/portalProvider', () => ({ ...provider, portalDataSource: 'frappe' }))
@@ -29,19 +34,20 @@ async function render() {
   await router.push('/hbos/lims'); await router.isReady()
   const alert = defineComponent({ props: ['message'], setup(props, { slots }) { return () => h('div', [props.message, slots.action?.()]) } })
   const button = defineComponent({ setup(_, { slots, attrs }) { return () => h('button', attrs, slots.default?.()) } })
+  const pinia = createPinia(); setActivePinia(pinia); resetPortalSession(false)
   wrapper = mount(defineComponent({ template: '<RouterView />' }), { global: {
-    plugins: [createPinia(), router],
+    plugins: [pinia, router],
     stubs: { GlobalHeader: true, PointerAtmosphere: true, AppLocalSidebar: true, MobileAppNav: true, CommandPalette: true, 'a-alert': alert, 'a-button': button, 'a-skeleton': true },
   } })
-  await flushPromises()
+  await ensurePortalSession().catch(()=>undefined); await flushPromises()
   return { router, wrapper }
 }
 
 it('a successful retry clears the old error and displays the LIMS route', async () => {
   provider.getPortalData.mockResolvedValue(data())
   const { wrapper } = await render()
-  expect(wrapper.text()).toContain('Synthetic bootstrap outage')
-  await wrapper.get('button').trigger('click'); await flushPromises()
+  expect(wrapper.text()).toContain('暂时无法核对')
+  await wrapper.get('button').trigger('click'); await ensurePortalSession().catch(()=>undefined); await flushPromises()
   expect(wrapper.text()).toContain('SYNTHETIC-LIMS-CONTENT')
   expect(wrapper.text()).not.toContain('Synthetic bootstrap outage')
 })
@@ -49,7 +55,7 @@ it('a successful retry clears the old error and displays the LIMS route', async 
 it('retry rechecks application access before displaying business content', async () => {
   provider.getPortalData.mockResolvedValue(data([]))
   const { router, wrapper } = await render()
-  await wrapper.get('button').trigger('click'); await flushPromises()
+  await wrapper.get('button').trigger('click'); await ensurePortalSession().catch(()=>undefined); await flushPromises()
   expect(router.currentRoute.value.path).toBe('/hbos/403')
   expect(wrapper.text()).not.toContain('SYNTHETIC-LIMS-CONTENT')
 })

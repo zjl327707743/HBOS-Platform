@@ -9,9 +9,10 @@ export async function checkPortalAccess(
   to: Pick<RouteLocationNormalized, 'meta' | 'fullPath'>,
   portal: PortalSession,
   dataSource: PortalDataSource,
+  sessionConfirmed = false,
 ) {
   if (!to.meta.requiresAuth) return true
-  if (!(await portal.ensureSession())) {
+  if (!sessionConfirmed && !(await portal.ensureSession())) {
     return { path: '/hbos/login', query: { redirect_to: to.fullPath } }
   }
 

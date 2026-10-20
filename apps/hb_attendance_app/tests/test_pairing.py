@@ -583,4 +583,3 @@ class LongDutyPairingTest(unittest.TestCase):
         atts = pair_employee_checkins(self._cards(), "E1", "11008001", fake_shift_fn,
                                       terminal_aware=True, long_duty=False)
         self.assertIn(("2026-09-25", "Absent", "", 0, 0), statuses(atts))
-

@@ -7,28 +7,19 @@
 
     <div class="portal-shell">
       <GlobalHeader
-        :avatar-text="portal.user?.avatarText || 'HB'"
-        :avatar-url="portal.user?.avatarUrl"
+        :avatar-text="sessionBlocked ? '?' : portal.user?.avatarText || 'HB'"
+        :avatar-url="sessionBlocked ? undefined : portal.user?.avatarUrl"
         :company-logo-url="portal.branding?.logoUrl"
         :apps="portal.apps"
+        :session-blocked="sessionBlocked"
         context-label="仓储库存"
-        @open-command="commandOpen = true"
+        @open-command="!sessionBlocked && (commandOpen = true)"
       />
 
       <div class="app-layout-grid">
-        <InventoryLocalSidebar />
+        <InventoryLocalSidebar :style="sessionBlocked ? { visibility: 'hidden' } : undefined" :inert="sessionBlocked || undefined" />
         <main id="inventory-main-content" class="app-route-content" tabindex="-1">
-          <!-- 复核会话时卸载旧业务视图；失败时保留归一化的中文错误。 -->
-          <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
-          <ForbiddenView v-else-if="portal.bootstrapErrorStatus === 403" />
-          <a-alert
-            v-else-if="portal.bootstrapError || sessionError"
-            type="error"
-            show-icon
-            class="portal-bootstrap-error"
-            :message="portal.bootstrapError || sessionError"
-          />
-          <RouterView v-else :key="portal.user?.id" />
+          <SessionContent :pending="sessionPending" :ready="sessionReady" :blocked="sessionBlocked" :generation="sessionGeneration" :error="sessionError" @retry="synchronize"><RouterView /></SessionContent>
         </main>
       </div>
     </div>
@@ -52,6 +43,7 @@ import { CameraOutlined } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
 import { usePortalSession } from '@/composables/usePortalSession'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
+import SessionContent from '@/components/layout/SessionContent.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import InventoryLocalSidebar from '@/components/layout/InventoryLocalSidebar.vue'
 import MobileAppNav, { type MobileNavGroup } from '@/components/layout/MobileDomainNav.vue'
@@ -66,7 +58,7 @@ import { businessNavigationTarget } from '@/services/businessNavigation'
 
 const portal = usePortalStore()
 const commandOpen = ref(false)
-const { sessionPending, sessionError } = usePortalSession()
+const { sessionPending, sessionError, sessionReady, sessionBlocked, sessionGeneration, synchronize } = usePortalSession()
 
 /**
  * 移动端「入库」快捷动作的目标。

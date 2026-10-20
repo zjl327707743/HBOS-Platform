@@ -4,7 +4,7 @@
       <div>
         <span class="page-kicker">ATTENDANCE · 考勤管理</span>
         <h1>考勤异常仪表盘</h1>
-        <p>{{ data?.date_range || '本周' }} · 数据来自考勤判定引擎的落库结果，本页只做展示投影</p>
+        <p>{{ data?.date_range || '本周' }} · {{ data?.scope ? data.scope + ' · ' : '' }}数据来自考勤判定引擎的落库结果，本页只做展示投影</p>
       </div>
       <a-space>
         <a-range-picker
@@ -16,6 +16,7 @@
       </a-space>
     </div>
 
+    <a-alert v-if="!error && data?.coverage && !data.coverage.complete" type="warning" show-icon message="部分历史归属待核对，对应记录已拒绝读取。当前统计仅含可证范围，不代表完整部门或公司结果。" style="margin-bottom:16px" />
     <a-alert v-if="error" type="error" show-icon :message="error" class="att-error" />
     <a-spin v-else :spinning="loading">
       <div class="att-metrics">
@@ -30,7 +31,7 @@
       <div class="att-grid">
         <section class="section-panel glass-surface">
           <div class="section-head">
-            <div><h2>迟到 Top 15</h2><p>按本月迟到次数排序</p></div>
+            <div><h2>迟到 Top 15</h2><p>按所选区间迟到次数排序</p></div>
           </div>
           <div v-if="!topLate.length" class="att-empty">本区间无迟到记录</div>
           <ol v-else class="att-rank">
@@ -45,7 +46,7 @@
 
         <section class="section-panel glass-surface">
           <div class="section-head">
-            <div><h2>缺勤 Top 15</h2><p>按本月缺勤天数排序</p></div>
+            <div><h2>缺勤 Top 15</h2><p>按所选区间缺勤天数排序</p></div>
           </div>
           <div v-if="!topAbsent.length" class="att-empty">本区间无缺勤记录</div>
           <ol v-else class="att-rank">

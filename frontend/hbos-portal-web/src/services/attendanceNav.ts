@@ -28,6 +28,42 @@ export interface AttendanceNavGroup {
   items: AttendanceNavItem[]
 }
 
+/** A fresh managed-role manifest supplies these semantic capabilities. */
+export function attendancePathCapability(path: string): string | null {
+  const normalized=path.replace(/\/+$/,'')
+  const paths:Record<string,string>={
+    '/hbos/attendance/import':'attendance.import',
+    '/hbos/attendance/monthly-upload':'attendance.import.monthly',
+    '/hbos/attendance/report/staging':'attendance.report.staging.read',
+    '/hbos/attendance/list/import-log':'attendance.record.import_log.read',
+    '/hbos/attendance':'attendance.company.read',
+    '/hbos/attendance/dashboard':'attendance.company.read',
+    '/hbos/attendance/me':'attendance.read',
+    '/hbos/attendance/board':'attendance.department.board.read',
+    '/hbos/attendance/employees':'attendance.department.records.read',
+    '/hbos/attendance/report/monthly':'attendance.report.monthly.read',
+    '/hbos/attendance/report/checkins':'attendance.report.checkins.read',
+    '/hbos/attendance/report/results':'attendance.report.results.read',
+    '/hbos/attendance/corrections':'attendance.correction',
+    '/hbos/attendance/shifts':'attendance.shift',
+    '/hbos/attendance/rules':'attendance.rules',
+    '/hbos/attendance/exports':'attendance.export',
+    '/hbos/attendance/list/feishu-leave':'attendance.record.leave.read',
+    '/hbos/attendance/list/feishu-overtime':'attendance.record.overtime.read',
+    '/hbos/attendance/list/feishu-rest-leave':'attendance.record.rest_leave.read',
+  }
+  return paths[normalized] || null
+}
+
+export function attendanceCapabilityAllowed(required:string|null, capabilities:string[]):boolean {
+  if(required==='attendance.import')return capabilities.includes('attendance.import.preview')||capabilities.includes('attendance.schedule.import')
+  if(required==='attendance.export')return capabilities.some(op=>op.startsWith(required+'.'))
+  if(required==='attendance.correction')return capabilities.some(op=>op.startsWith(required+'.'))
+  if(required==='attendance.shift')return capabilities.some(op=>op.startsWith('attendance.shift.')||op==='attendance.schedule.read'||op==='attendance.schedule.bind')
+  if(required==='attendance.rules')return capabilities.some(op=>op.startsWith('attendance.rules.')||op==='attendance.schedule.generate')
+  return Boolean(required&&capabilities.includes(required))
+}
+
 export const attendanceNavGroups: AttendanceNavGroup[] = [
   {
     label: '概览',

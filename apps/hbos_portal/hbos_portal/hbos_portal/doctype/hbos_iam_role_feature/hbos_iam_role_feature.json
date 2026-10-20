@@ -1,0 +1,31 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS IAM Role Feature",
+ "module": "HBOS Portal",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "operation_id",
+  "scope_binding"
+ ],
+ "fields": [
+  {
+   "fieldname": "operation_id",
+   "fieldtype": "Data",
+   "label": "Operation Id",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scope_binding",
+   "fieldtype": "Select",
+   "label": "Scope Binding",
+   "options": "SELF\nRESPONSIBLE_DEPARTMENTS\nRESPONSIBLE_COMPANIES",
+   "reqd": 1
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

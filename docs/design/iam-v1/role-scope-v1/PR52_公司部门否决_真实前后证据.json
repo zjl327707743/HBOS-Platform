@@ -1,0 +1,190 @@
+{
+  "baseline_head": "efe1874b13560c07306b595096692c860108e32a",
+  "product_base": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+  "strategy": "REJECT_WHOLE_COMPANY_BEFORE_BUSINESS_SQL",
+  "site": "iam-r4-b.localhost",
+  "before": {
+    "business_http_requests": 21,
+    "all_returned_200": true,
+    "vulnerable": true
+  },
+  "after": {
+    "business_http_requests": 34,
+    "status_counts": {
+      "200": 18,
+      "403": 16
+    },
+    "all_expectations_passed": true,
+    "independent_D2_allowed_rows": [
+      2,
+      2
+    ],
+    "SELF_preserved_under_department_veto": true
+  },
+  "query_trace": {
+    "User": {
+      "before_allowed": true,
+      "before_business_queries": 19,
+      "before_company_board_count": 17,
+      "after_allowed": false,
+      "after_business_queries": 0
+    },
+    "Department": {
+      "before_allowed": true,
+      "before_business_queries": 19,
+      "before_company_board_count": 17,
+      "after_allowed": false,
+      "after_business_queries": 0
+    }
+  },
+  "denied_mixed_write_and_export_fingerprints": [
+    {
+      "case": "User_mixed_write_and_export_exact_fingerprint_unchanged",
+      "unchanged": true,
+      "before": {
+        "Attendance": {
+          "count": 15,
+          "hash": "48078e57cd1928a3f3e366ba939550bc0245e95907233bb180e38c6b08627c66"
+        },
+        "Employee Checkin": {
+          "count": 48,
+          "hash": "7643f995cd72a884677aa3df330cd68162c84b925d03fe462d7111ee63d8ecf3"
+        },
+        "HBOS Employee Schedule": {
+          "count": 5,
+          "hash": "f15eff395bebe89723a144d2e2878b2ef45f7f10ee0de57267aede3213fbef82"
+        },
+        "HBOS Attendance Policy Assignment": {
+          "count": 1,
+          "hash": "7220a540071185ca26c5b8f94ab173bec7f4b67331cff8ba5d0496cd42648291"
+        },
+        "HBOS IAM Change Event": {
+          "count": 313,
+          "hash": "884497e6a5c09650bc26e4c95bfc03b13a189922c62e146e0c2738b5cc3bde37"
+        },
+        "File": {
+          "count": 37,
+          "hash": "c77c69a9320d6274f3f2cca8aa4109fb718e2e9efb385c8c8a405dc0be419b62"
+        }
+      },
+      "after": {
+        "Attendance": {
+          "count": 15,
+          "hash": "48078e57cd1928a3f3e366ba939550bc0245e95907233bb180e38c6b08627c66"
+        },
+        "Employee Checkin": {
+          "count": 48,
+          "hash": "7643f995cd72a884677aa3df330cd68162c84b925d03fe462d7111ee63d8ecf3"
+        },
+        "HBOS Employee Schedule": {
+          "count": 5,
+          "hash": "f15eff395bebe89723a144d2e2878b2ef45f7f10ee0de57267aede3213fbef82"
+        },
+        "HBOS Attendance Policy Assignment": {
+          "count": 1,
+          "hash": "7220a540071185ca26c5b8f94ab173bec7f4b67331cff8ba5d0496cd42648291"
+        },
+        "HBOS IAM Change Event": {
+          "count": 313,
+          "hash": "884497e6a5c09650bc26e4c95bfc03b13a189922c62e146e0c2738b5cc3bde37"
+        },
+        "File": {
+          "count": 37,
+          "hash": "c77c69a9320d6274f3f2cca8aa4109fb718e2e9efb385c8c8a405dc0be419b62"
+        }
+      }
+    },
+    {
+      "case": "Department_mixed_write_and_export_exact_fingerprint_unchanged",
+      "unchanged": true,
+      "before": {
+        "Attendance": {
+          "count": 15,
+          "hash": "48078e57cd1928a3f3e366ba939550bc0245e95907233bb180e38c6b08627c66"
+        },
+        "Employee Checkin": {
+          "count": 48,
+          "hash": "7643f995cd72a884677aa3df330cd68162c84b925d03fe462d7111ee63d8ecf3"
+        },
+        "HBOS Employee Schedule": {
+          "count": 5,
+          "hash": "f15eff395bebe89723a144d2e2878b2ef45f7f10ee0de57267aede3213fbef82"
+        },
+        "HBOS Attendance Policy Assignment": {
+          "count": 1,
+          "hash": "7220a540071185ca26c5b8f94ab173bec7f4b67331cff8ba5d0496cd42648291"
+        },
+        "HBOS IAM Change Event": {
+          "count": 313,
+          "hash": "884497e6a5c09650bc26e4c95bfc03b13a189922c62e146e0c2738b5cc3bde37"
+        },
+        "File": {
+          "count": 37,
+          "hash": "c77c69a9320d6274f3f2cca8aa4109fb718e2e9efb385c8c8a405dc0be419b62"
+        }
+      },
+      "after": {
+        "Attendance": {
+          "count": 15,
+          "hash": "48078e57cd1928a3f3e366ba939550bc0245e95907233bb180e38c6b08627c66"
+        },
+        "Employee Checkin": {
+          "count": 48,
+          "hash": "7643f995cd72a884677aa3df330cd68162c84b925d03fe462d7111ee63d8ecf3"
+        },
+        "HBOS Employee Schedule": {
+          "count": 5,
+          "hash": "f15eff395bebe89723a144d2e2878b2ef45f7f10ee0de57267aede3213fbef82"
+        },
+        "HBOS Attendance Policy Assignment": {
+          "count": 1,
+          "hash": "7220a540071185ca26c5b8f94ab173bec7f4b67331cff8ba5d0496cd42648291"
+        },
+        "HBOS IAM Change Event": {
+          "count": 313,
+          "hash": "884497e6a5c09650bc26e4c95bfc03b13a189922c62e146e0c2738b5cc3bde37"
+        },
+        "File": {
+          "count": 37,
+          "hash": "c77c69a9320d6274f3f2cca8aa4109fb718e2e9efb385c8c8a405dc0be419b62"
+        }
+      }
+    }
+  ],
+  "lifecycle_http_requests": 42,
+  "transfer_cases": 2,
+  "flag_rollback_cases": 2,
+  "migration_default": {
+    "layer": "REAL_ORIGINAL_SITE_MIGRATION_HOOK_WITH_ABSENT_PROCESS_FLAG",
+    "effective_default": 0,
+    "role_rows_unchanged": true,
+    "no_role_resolution_queries": true,
+    "persisted_candidate_flag": 1
+  },
+  "migration_persisted_off": {
+    "actual_persisted_flag": 0,
+    "role_rows_unchanged": true
+  },
+  "background": {
+    "layer": "REAL_SITE_BEFORE_JOB_GUARD_NOT_RQ_WORKER",
+    "stored_managed_actor_denied_under_administrator_worker": true
+  },
+  "local_checks": {
+    "portal_pass": 197,
+    "portal_total": 198,
+    "portal_failure": "UNCHANGED_EXACT_SEVEN_MODEL_GATE_PENDING_PLATFORM_WRITER",
+    "attendance_pass": 577,
+    "frontend_pass": 267,
+    "frontend_files": 34,
+    "typecheck": "PASS",
+    "production_build": "PASS",
+    "ci_candidate_synthetic_fixture": "4/4_NOT_REAL_CI"
+  },
+  "owner_checks": [
+    "NOT_RUN",
+    "NOT_RUN",
+    "NOT_RUN"
+  ],
+  "merge_ready": false,
+  "model_api_calls": 0
+}

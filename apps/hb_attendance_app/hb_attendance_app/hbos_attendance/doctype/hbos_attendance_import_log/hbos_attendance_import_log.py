@@ -236,9 +236,8 @@ class MonthlyWorkbook:
 				"daily_columns": [item["header"] for item in self.daily_columns],
 				"identity_rows": self.identity_rows,
 				"classification": "考勤机月度导出表 / 适配导入",
-				"source_note": "该文件不是一行一条原始打卡流水；导入会按月度汇总表适配生成打卡流水与考勤结果。",
-				"supported_routes": ["考勤机月度导出表", "逐条原始打卡流水表（后续适配）"],
-				"default_shift": "白班/行政班 08:30-17:30；中班 16:00-00:00；夜班 00:00-08:00；跨夜班 20:00-04:00",
+				"source_note": "月度汇总只用于暂存与对账，不写入打卡流水，不生成考勤结果。",
+				"supported_routes": ["考勤机月度导出表（仅暂存）", "逐条原始打卡流水表"],
 			},
 			"exception_summary": {},
 			"failure_details": [],
@@ -441,13 +440,13 @@ def _stage_monthly_summary(parsed, log):
 		"notes": "月度汇总仅已暂存用于对账/演示；未写入 Employee Checkin，未触发 Auto Attendance。"}
 
 
-def _execute_raw_checkins(parsed, create_missing_employees, limit_rows, log):
-	company, holiday_list = _default_company(), _default_holiday_list()
+def _execute_raw_checkins(parsed, create_missing_employees, limit_rows, log, *, employee_map=None):
+	company, holiday_list = (None, None) if employee_map is not None else (_default_company(), _default_holiday_list())
 	records = parsed.records[:limit_rows] if limit_rows else parsed.records
 	stats, failures, impacted, daily_types = Counter(), [], set(), defaultdict(list)
 	for record in records:
 		try:
-			employee, created = _match_or_create_employee(record, company, holiday_list, create_missing_employees)
+			employee, created = (employee_map[record['row']], False) if employee_map is not None else _match_or_create_employee(record, company, holiday_list, create_missing_employees)
 			stats["matched_rows"] += 1; stats["created_employees"] += int(created)
 			if frappe.db.exists("Employee Checkin", {"employee": employee, "time": record["checkin_time"], "log_type": record["log_type"]}):
 				stats["skipped_duplicates"] += 1
@@ -460,8 +459,15 @@ def _execute_raw_checkins(parsed, create_missing_employees, limit_rows, log):
 			impacted.add((employee, getdate(record["checkin_time"])))
 			daily_types[(employee, getdate(record["checkin_time"]))].append(record["log_type"])
 		except Exception as exc:
+			if employee_map is not None:
+				raise  # Controlled batches roll back completely; no partial imports.
 			stats["failed_rows"] += 1; failures.append({"row": record["row"], "reason": str(exc), "suggestion": "检查工号、员工和排班后重试"})
+	if employee_map is not None:
+		from hb_attendance_app.hbos_attendance.portal.import_attendance import process_checkins
+		stats.update(process_checkins(impacted, log.name))
 	for employee, date_value in impacted:
+		if employee_map is not None:
+			continue
 		assignment = frappe.db.get_value("Shift Assignment", {"employee": employee, "start_date": ("<=", date_value), "end_date": (">=", date_value), "docstatus": 1}, "shift_type")
 		if assignment:
 			frappe.get_doc("Shift Type", assignment).process_auto_attendance(is_manually_triggered=False)
@@ -472,9 +478,10 @@ def _execute_raw_checkins(parsed, create_missing_employees, limit_rows, log):
 	return {**parsed.preview_summary(), "matched_rows": stats["matched_rows"],
 		"success_rows": stats["matched_rows"] - stats["failed_rows"], "failed_rows": stats["failed_rows"],
 		"created_employees": stats["created_employees"], "created_checkins": stats["created_checkins"],
+		"created_attendance": stats["created_attendance"], "existing_attendance": stats["existing_attendance"],
 		"skipped_duplicates": stats["skipped_duplicates"], "auto_attendance_used": bool(stats["auto_attendance_used"]),
 		"fallback_used": False, "exception_summary": dict(exceptions), "failure_details": failures[:50],
-		"notes": "原始流水已写入 Employee Checkin；单边打卡只标记缺卡，不合成虚假 IN/OUT；未使用本地兜底。"}
+		"notes": "原始流水已写入 Employee Checkin；单边打卡不合成虚假 IN/OUT；未使用本地兜底。" + (" 自动考勤仅处理源文件涉及的员工与班次日；已有结果保留，配置未齐不触发，不回填其他无卡日。" if employee_map is not None else "")}
 
 
 def _mark_attendance_source(attendance_name, log_name, source_type):

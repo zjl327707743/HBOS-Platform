@@ -8,29 +8,19 @@
 
     <div class="portal-shell">
       <GlobalHeader
-        :avatar-text="portal.user?.avatarText || 'HB'"
-        :avatar-url="portal.user?.avatarUrl"
+        :avatar-text="sessionBlocked ? '?' : portal.user?.avatarText || 'HB'"
+        :avatar-url="sessionBlocked ? undefined : portal.user?.avatarUrl"
         :company-logo-url="portal.branding?.logoUrl"
         :apps="portal.apps"
+        :session-blocked="sessionBlocked"
         context-label="生产看板"
-        @open-command="commandOpen = true"
+        @open-command="!sessionBlocked && (commandOpen = true)"
       />
 
       <div class="app-layout-grid">
-        <ProductionLocalSidebar />
+        <ProductionLocalSidebar :style="sessionBlocked ? { visibility: 'hidden' } : undefined" :inert="sessionBlocked || undefined" />
         <main id="production-main-content" class="app-route-content" tabindex="-1">
-          <!-- 会话态与 KnowledgeTwinLayout / LimsLayout 同款：交给 usePortalSession ——
-               它负责未登录跳登录页、无权限跳 403、其余渲染错误条。
-               不在这里自己读 store 内部字段拼错误态（旧写法，会和会话逻辑打架）。 -->
-          <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
-          <a-alert
-            v-else-if="sessionError"
-            type="error"
-            show-icon
-            class="portal-bootstrap-error"
-            :message="sessionError"
-          />
-          <RouterView v-else :key="portal.user?.id" />
+          <SessionContent :pending="sessionPending" :ready="sessionReady" :blocked="sessionBlocked" :generation="sessionGeneration" :error="sessionError" @retry="synchronize"><RouterView /></SessionContent>
         </main>
       </div>
     </div>
@@ -53,6 +43,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { LineChartOutlined } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
+import SessionContent from '@/components/layout/SessionContent.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import ProductionLocalSidebar from '@/components/layout/ProductionLocalSidebar.vue'
 import MobileDomainNav, { type MobileNavGroup } from '@/components/layout/MobileDomainNav.vue'
@@ -62,7 +53,7 @@ import { PRODUCTION_NAV_GROUPS, PRODUCTION_CENTER_PATH } from '@/data/production
 
 const portal = usePortalStore()
 const commandOpen = ref(false)
-const { sessionPending, sessionError } = usePortalSession()
+const { sessionPending, sessionError, sessionReady, sessionBlocked, sessionGeneration, synchronize } = usePortalSession()
 
 // 移动端菜单与桌面侧边栏同源，避免两处清单漂移（同 InventoryLayout 的做法）
 const mobileGroups = computed<MobileNavGroup[]>(() =>

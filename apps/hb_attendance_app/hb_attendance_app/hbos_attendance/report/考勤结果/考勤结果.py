@@ -1,4 +1,5 @@
 import frappe
+from hb_attendance_app.hbos_attendance.portal.role_scope import report_sql
 
 
 STATUS_LABELS = {
@@ -15,6 +16,10 @@ def execute(filters=None):
 	filters = filters or {}
 	conditions = ["a.docstatus < 2"]
 	values = {}
+	from hb_attendance_app.hbos_attendance.portal.role_scope import report_predicate
+	iam_predicate = report_predicate('a', values)
+	if iam_predicate:
+		conditions.append(iam_predicate)
 	if filters.get("from_date"):
 		conditions.append("a.attendance_date >= %(from_date)s")
 		values["from_date"] = filters["from_date"]
@@ -41,7 +46,7 @@ def execute(filters=None):
 		quoted = ",".join("'%s'" % v.replace("'", "") for v in sorted(EXEMPT_NUMS))
 		conditions.append("emp.employee_number NOT IN (%s)" % quoted)
 	where = " and ".join(conditions)
-	rows = frappe.db.sql(
+	rows = report_sql(
 		f"""
 		select
 			a.name,

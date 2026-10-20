@@ -6,6 +6,7 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import PortalLayout from '@/components/layout/PortalLayout.vue'
 import KnowledgeTwinLayout from '@/components/layout/KnowledgeTwinLayout.vue'
 import { usePortalStore } from '@/stores/portal'
+vi.mock('@/services/portalProvider', () => ({ portalDataSource: 'mock' }))
 vi.mock('@/composables/usePortalSession', () => ({usePortalSession: () => ({sessionPending:ref(false),sessionError:ref(null)})}))
 const SubjectView = defineComponent({setup() { const mountedFor = usePortalStore().user?.id; return {mountedFor} },template:'<p data-test="subject-view">{{mountedFor}}</p>'})
 it.each([['Portal',PortalLayout],['Knowledge/Twin',KnowledgeTwinLayout]])('A07: %s remounts route-local evidence when the authenticated user changes', async (_name,Layout) => {

@@ -61,6 +61,9 @@ def require_unrestricted_employee_read(*source_doctypes: str) -> None:
     The source names are internal constants, never request filters. Genuinely
     unrestricted HR may still read history when the Employee table is empty.
     """
+    from hb_attendance_app.hbos_attendance.portal.role_scope import scoped_report_sources
+    if scoped_report_sources(('Employee',) + tuple(source_doctypes)):
+        return
     if getattr(getattr(frappe, "session", None), "user", None) in (None, "", "Guest"):
         frappe.throw("考勤报表需要有效登录会话。", frappe.PermissionError)
     sources = ("Employee",) + tuple(source_doctypes)

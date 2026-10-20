@@ -1,4 +1,5 @@
 import frappe
+from hb_attendance_app.hbos_attendance.portal.role_scope import report_sql
 
 
 def _role_map_for_rows(rows):
@@ -26,7 +27,7 @@ def _role_map_for_rows(rows):
     fetch_end = (max(times).date() + timedelta(days=2)).strftime("%Y-%m-%d")
     employees = sorted({r.employee for r in rows})
 
-    all_rows = frappe.db.sql(
+    all_rows = report_sql(
         """
         select ec.name, ec.employee, ec.time
         from `tabEmployee Checkin` ec
@@ -72,6 +73,10 @@ def execute(filters=None):
 	has_source_type = frappe.db.has_column("Employee Checkin", "hbos_source_type")
 	conditions = []
 	values = {}
+	from hb_attendance_app.hbos_attendance.portal.role_scope import report_predicate
+	iam_predicate = report_predicate('ec', values)
+	if iam_predicate:
+		conditions.append(iam_predicate)
 	if filters.get("from_date"):
 		conditions.append("date(ec.time) >= %(from_date)s")
 		values["from_date"] = filters["from_date"]
@@ -105,7 +110,7 @@ def execute(filters=None):
 	source_type_field = "ec.hbos_source_type" if has_source_type else "null"
 	has_terminal_sn = frappe.db.has_column("Employee Checkin", "hbos_terminal_sn")
 	terminal_sn_field = "ec.hbos_terminal_sn" if has_terminal_sn else "null"
-	rows = frappe.db.sql(
+	rows = report_sql(
 		f"""
 		select
 			ec.name,

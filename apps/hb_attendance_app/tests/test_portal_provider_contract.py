@@ -184,6 +184,7 @@ class AttendancePortalProviderRuntimeBoundaryTest(unittest.TestCase):
 
     def test_provider_uses_frappe_session_identity(self):
         fake_frappe = types.SimpleNamespace(
+            conf={},  # Legacy provider fixture: IAM remains disabled.
             session=types.SimpleNamespace(user="hr@example.com"),
             get_roles=lambda user: ["HR User"] if user == "hr@example.com" else [],
             # summary 会落到 dashboard_data.get_data()：给出空 db 存根，

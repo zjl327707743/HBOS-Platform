@@ -4,14 +4,14 @@
       <div>
         <span class="page-kicker">ATTENDANCE · 记录</span>
         <h1>{{ payload?.title || navLabel }}</h1>
-        <p>{{ payload?.hint }}</p>
+        <p>{{ payload?.hint }}</p><p v-if="payload?.scope">{{payload.scope}} · 实际范围 {{payload.date_from}} 至 {{payload.date_to}}</p>
       </div>
       <span class="lst-count" v-if="!loading && !error">
         共 <b>{{ payload?.total ?? 0 }}</b> 条
       </span>
     </header>
 
-    <div class="lst-toolbar glass-surface">
+    <div class="lst-toolbar glass-surface"><template v-if="managed"><a-input v-model:value="dateFrom" type="date" aria-label="记录开始日期"/><a-input v-model:value="dateTo" type="date" aria-label="记录结束日期"/></template>
       <template v-for="field in filterFields" :key="field">
         <a-select
           v-model:value="filters[field]"
@@ -29,7 +29,7 @@
       <a-button :disabled="loading" @click="reset">重置</a-button>
     </div>
 
-    <a-alert v-if="error" type="error" show-icon :message="error" class="lst-alert" />
+    <a-alert v-if="payload?.coverage && !payload.coverage.complete" type="warning" show-icon message="部分历史或引用归属待核对，当前列表及总数只含可证记录。"/><a-alert v-if="error" type="error" show-icon :message="error" class="lst-alert" />
 
     <div v-else class="lst-panel glass-surface">
       <a-table
@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   fetchFilterOptions,
@@ -77,9 +77,14 @@ import {
   type ListColumn,
   type ListPayload,
 } from '@/services/attendanceLists'
+import { usePortalStore } from '@/stores/portal'
 import { findNavBySlug } from '@/services/attendanceNav'
 
 const route = useRoute()
+const portal=usePortalStore()
+const managed=computed(()=>portal.apps.find(app=>app.id==='attendance')?.accessCapabilities?.includes('attendance.role.managed'))
+const dateFrom=ref(''),dateTo=ref('')
+let loadVersion=0
 
 const payload = ref<ListPayload | null>(null)
 const loading = ref(false)
@@ -175,12 +180,13 @@ function rowKey(record: Record<string, unknown>, index: number): string {
   return String(record.name ?? `${index}:${JSON.stringify(record)}`)
 }
 
-async function loadOptions() {
+async function loadOptions(version=loadVersion) {
   for (const field of filterFields.value) {
     if (options.value[field]) continue
     optionsLoading.value[field] = true
     try {
-      options.value[field] = await fetchFilterOptions(slug.value, field)
+      const values=await fetchFilterOptions(slug.value, field, activeFilters())
+      if(version===loadVersion)options.value[field]=values
     } catch {
       options.value[field] = []
     } finally {
@@ -195,36 +201,45 @@ function activeFilters(): Record<string, string> {
     const v = filters.value[field]
     if (v) out[field] = v
   }
+  if(managed.value){if(dateFrom.value)out.from_date=dateFrom.value;if(dateTo.value)out.to_date=dateTo.value}
   return out
 }
 
 async function load() {
+  const version=++loadVersion
   loading.value = true
   error.value = ''
   try {
-    payload.value = await fetchList(
+    const result = await fetchList(
       slug.value,
       activeFilters(),
       (page.value - 1) * LIST_PAGE_SIZE,
       LIST_PAGE_SIZE,
     )
+    if(version!==loadVersion)return
+    payload.value=result
+    if(!dateFrom.value)dateFrom.value=result.date_from||''
+    if(!dateTo.value)dateTo.value=result.date_to||''
     // 筛选字段由后端给出（白名单），首屏拿到后即可渲染筛选条
-    await loadOptions()
+    await loadOptions(version)
   } catch (cause) {
+    if(version!==loadVersion)return
     payload.value = null
     error.value = (cause instanceof Error && cause.message) || '列表加载失败'
   } finally {
-    loading.value = false
+    if(version===loadVersion)loading.value = false
   }
 }
 
 function reloadFromFirstPage() {
   page.value = 1
+  options.value={}
   load()
 }
 
 function reset() {
   filters.value = {}
+  dateFrom.value='';dateTo.value=''
   reloadFromFirstPage()
 }
 
@@ -236,6 +251,7 @@ function onTableChange(pag: { current?: number }) {
 }
 
 onMounted(load)
+onBeforeUnmount(()=>{loadVersion++})
 
 // 侧栏切到另一个列表：重置筛选与页码（否则会带着上一张表的条件去查）
 watch(slug, (value) => {
@@ -244,6 +260,7 @@ watch(slug, (value) => {
   filters.value = {}
   page.value = 1
   options.value = {}
+  dateFrom.value='';dateTo.value=''
   load()
 })
 </script>

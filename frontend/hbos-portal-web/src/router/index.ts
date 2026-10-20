@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import PortalLayout from '@/components/layout/PortalLayout.vue'
 import LimsLayout from '@/components/layout/LimsLayout.vue'
+import { canIam } from '@/services/iamAccess'
+import { ensurePortalSession } from '@/services/portalSessionCoordinator'
+import { accountRedirect } from '@/services/accountNavigation'
+import { isUnauthenticatedError } from '@/services/frappeClient'
 import { portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 import { checkPortalAccess } from '@/router/portalGuard'
@@ -56,6 +60,16 @@ const router = createRouter({
         { path: 'apps', name: 'apps', component: () => import('@/views/AppCenterView.vue'), meta: { title: '应用中心' } },
         { path: 'profile', name: 'profile', component: () => import('@/views/ProfileSettingsView.vue'), meta: { title: '我的与设置' } },
         { path: 'inventory/item/:itemCode?', name: 'inventory-item-readonly', component: () => import('@/views/InventoryItemReadOnlyView.vue'), meta: { title: '仓储 · 物料只读浏览' } },
+        { path: 'attendance/me', component: () => import('@/views/attendance/MyAttendanceView.vue'), meta: { title: '我的考勤', attendanceSelf: true } },
+        { path: 'admin', component: () => import('@/views/admin/AdminWorkspaceView.vue'), meta: { title: '管理中心', iam: true }, children: [
+          { path: '', component: () => import('@/views/admin/AdminAccessUnavailableView.vue') },
+          { path: 'people', component: () => import('@/views/admin/PeopleAdminView.vue'), meta: { title: '员工管理', iamCapability: 'iam.people.read' } },
+          { path: 'departments', component: () => import('@/views/admin/DepartmentsAdminView.vue'), meta: { title: '部门管理', iamCapability: 'iam.departments.read' } },
+          { path: 'access', component: () => import('@/views/admin/AccessAdminView.vue'), meta: { title: '应用权限', iamCapability: 'iam.access.read' } },
+          { path: 'roles', component: () => import('@/views/admin/RolesAdminView.vue'), meta: { title: '角色与权限', iamCapability: 'iam.roles.read' } },
+          { path: 'audit', component: () => import('@/views/admin/AuditAdminView.vue'), meta: { title: '变更审计', iamCapability: 'iam.audit.read' } },
+          { path: 'unavailable', component: () => import('@/views/admin/AdminAccessUnavailableView.vue'), meta: { title: '管理功能暂不可用' } },
+        ] },
         { path: '403', name: 'forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { title: '无权限' } },
       ],
     },
@@ -71,6 +85,10 @@ const router = createRouter({
       children: [
         { path: '', name: 'attendance-dashboard', component: AttendanceDashboardView, meta: { title: '考勤管理' } },
         { path: 'employees', name: 'attendance-employees', component: AttendanceEmployeesView, meta: { title: '人员管理' } },
+        { path: 'exports', component: () => import('@/views/AttendanceExportsView.vue'), meta: { title: '考勤导出' } },
+        { path: 'rules', component: () => import('@/views/AttendanceRulesView.vue'), meta: { title: '规则与重算' } },
+        { path: 'shifts', component: () => import('@/views/AttendanceShiftsView.vue'), meta: { title: '班次与排班' } },
+        { path: 'corrections', name: 'attendance-corrections', component: () => import('@/views/AttendanceCorrectionsView.vue'), meta: { title: '考勤更正' } },
         { path: 'board', name: 'attendance-board', component: AttendanceBoardView, meta: { title: '部门看板' } },
         { path: 'report/:slug', name: 'attendance-report', component: AttendanceReportView, meta: { title: '考勤报表' } },
         { path: 'list/:slug', name: 'attendance-list', component: AttendanceListView, meta: { title: '考勤记录' } },
@@ -105,7 +123,8 @@ const router = createRouter({
         { path: 'stability/samples', name: 'lims-stability-samples', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 样品入箱台账', limsCapability: 'stability' } },
         { path: 'stability/results', name: 'lims-stability-results', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 稳定性结果', limsCapability: 'stability' } },
         { path: 'stability/trend', name: 'lims-stability-trend', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 趋势分析', limsCapability: 'stability' } },
-        { path: 'audit', name: 'lims-audit', component: () => import('@/views/LimsAuditView.vue'), meta: { title: 'LIMS · 合规审计', limsCapability: 'audit' } },
+        { path: 'roles', component: () => import('@/views/admin/RolesAdminView.vue'), meta: { title: '角色与权限', iamCapability: 'iam.roles.read' } },
+          { path: 'audit', name: 'lims-audit', component: () => import('@/views/LimsAuditView.vue'), meta: { title: 'LIMS · 合规审计', limsCapability: 'audit' } },
         { path: 'samples/new', name: 'lims-sample-new', component: () => import('@/views/LimsPendingView.vue'), meta: { title: 'LIMS · 登记样品', limsCapability: 'samples' } },
         { path: 'samples', name: 'lims-samples', component: () => import('@/views/LimsPendingView.vue'), meta: { title: 'LIMS · 样品与检验', limsCapability: 'samples' } },
         { path: 'results/:resultId/review', name: 'lims-result-review', component: () => import('@/views/LimsResultEntryView.vue'), meta: { title: 'LIMS · 结果复核', limsCapability: 'results' } },
@@ -226,7 +245,28 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.beforeEach((to) => checkPortalAccess(to, usePortalStore(), portalDataSource))
+router.beforeEach(async (to) => {
+  const portal = usePortalStore()
+  if (portalDataSource === 'mock') return checkPortalAccess(to, portal, portalDataSource)
+  const protectedRoute = to.meta.requiresAuth || to.meta.iam || to.meta.attendanceSelf || /^\/hbos\/(attendance|inventory|production|lims)(?:\/|$)/.test(to.path)
+  if (!protectedRoute) return true
+  try {
+    const security = await ensurePortalSession()
+    if (security.first_password_required) return to.meta.iam || to.meta.attendanceSelf || to.path === '/hbos/profile' ? true : '/hbos/profile'
+    if (to.meta.iam) {
+      if (to.path === '/hbos/admin/unavailable') return true
+      if (to.path === '/hbos/admin' || to.path === '/hbos/admin/') {
+        const entry = [['iam.people.read','people'],['iam.departments.read','departments'],['iam.access.read','access'],['iam.audit.read','audit']].find(([cap]) => canIam(cap!))
+        return entry ? '/hbos/admin/' + entry[1] : '/hbos/admin/unavailable'
+      }
+      if (typeof to.meta.iamCapability !== 'string' || !canIam(to.meta.iamCapability)) return '/hbos/admin/unavailable'
+    }
+    return checkPortalAccess(to, portal, portalDataSource, true)
+  } catch (error) {
+    if (isUnauthenticatedError(error)) return { path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(to.fullPath) } }
+    return to.meta.iam && to.path !== '/hbos/admin/unavailable' ? '/hbos/admin/unavailable' : true
+  }
+})
 
 router.afterEach((to) => {
   const title = typeof to.meta.title === 'string' ? to.meta.title : 'HBOS'

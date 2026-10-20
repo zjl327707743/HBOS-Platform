@@ -10,12 +10,13 @@
 
     <div class="portal-shell">
       <GlobalHeader
-        :avatar-text="portal.user?.avatarText || 'HB'"
-        :avatar-url="portal.user?.avatarUrl"
+        :avatar-text="sessionBlocked ? '?' : portal.user?.avatarText || 'HB'"
+        :avatar-url="sessionBlocked ? undefined : portal.user?.avatarUrl"
         :company-logo-url="portal.branding?.logoUrl"
         :apps="portal.apps"
+        :session-blocked="sessionBlocked"
         context-label="ATTENDANCE"
-        @open-command="commandOpen = true"
+        @open-command="!sessionBlocked && (commandOpen = true)"
       />
 
       <!-- 应用内导航：分组左侧栏。
@@ -24,9 +25,9 @@
            一致，用户在两个应用间往返时不用重新学导航。
            Owner 2026-10-08 决定。 -->
       <div class="app-layout-grid">
-        <AttendanceSidebar />
+        <AttendanceSidebar :style="sessionBlocked ? { visibility: 'hidden' } : undefined" :inert="sessionBlocked || undefined" />
         <main id="attendance-main-content" class="app-route-content" tabindex="-1">
-          <RouterView />
+          <SessionContent :pending="sessionPending" :ready="sessionReady" :blocked="sessionBlocked" :generation="attendanceGeneration" :error="sessionError" @retry="synchronize"><RouterView /></SessionContent>
         </main>
       </div>
     </div>
@@ -38,9 +39,12 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { iamSession } from '@/services/iamAccess'
+import { usePortalSession } from '@/composables/usePortalSession'
 import { usePortalStore } from '@/stores/portal'
 import GlobalHeader from '@/components/layout/GlobalHeader.vue'
+import SessionContent from '@/components/layout/SessionContent.vue'
 import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import AttendanceSidebar from '@/components/layout/AttendanceSidebar.vue'
 import MobileAppNav from '@/components/layout/MobileAppNav.vue'
@@ -48,6 +52,8 @@ import CommandPalette from '@/components/portal/CommandPalette.vue'
 
 const portal = usePortalStore()
 const commandOpen = ref(false)
+const { sessionPending, sessionError, sessionReady, sessionBlocked, sessionGeneration, synchronize } = usePortalSession()
+const attendanceGeneration=computed(()=>`${sessionGeneration.value}:${iamSession.appRevisions.attendance || ''}`)
 
 function shortcut(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -57,15 +63,6 @@ function shortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') commandOpen.value = false
 }
 
-onMounted(async () => {
-  if (!portal.user) {
-    try {
-      await portal.bootstrap()
-    } catch {
-      // Portal shell owns the sanitized bootstrap error state.
-    }
-  }
-  window.addEventListener('keydown', shortcut)
-})
+onMounted(() => window.addEventListener('keydown', shortcut))
 onBeforeUnmount(() => window.removeEventListener('keydown', shortcut))
 </script>

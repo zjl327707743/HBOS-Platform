@@ -1,12 +1,16 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 
+
 interface FrappeMethodResponse<T> {
   message: T
 }
 
+
 interface SessionGuardedRequestConfig extends AxiosRequestConfig {
   hbosCsrfGeneration?: number
+  hbosRequestEpoch?: number
 }
+
 
 /* ------------------------------------------------------------------ *
  * Portal provider method envelope (LIMS / Portal read APIs)
@@ -19,11 +23,13 @@ export interface PortalMethodErrorPayload {
   trace_id?: string | null
 }
 
+
 export interface PortalMethodEnvelope<T> {
   ok: boolean
   data?: T
   error?: PortalMethodErrorPayload
 }
+
 
 export class PortalMethodError extends Error {
   code: string
@@ -39,11 +45,13 @@ export class PortalMethodError extends Error {
   }
 }
 
+
 export function unwrapPortalMethod<T>(envelope: PortalMethodEnvelope<T>): T {
   if (!envelope?.ok) throw new PortalMethodError(envelope?.error)
   if (envelope.data === undefined) throw new PortalMethodError({ code: 'INVALID_RESPONSE', message: 'LIMS 服务返回了无效响应。' })
   return envelope.data
 }
+
 
 /* ------------------------------------------------------------------ *
  * Frappe request error contract (统一账号 / 知识 / 孪生 / P1 APIs)
@@ -66,6 +74,7 @@ export class FrappeHttpError extends Error {
   }
 }
 
+
 /** 独立 fetch 请求的失败清理只作用于发起请求时的会话。 */
 export function createFrappeCsrfInvalidator(): () => void {
   const generation = csrfGeneration
@@ -73,6 +82,7 @@ export function createFrappeCsrfInvalidator(): () => void {
     if (generation === csrfGeneration) clearFrappeCsrfToken()
   }
 }
+
 
 export type FrappeRequestErrorCode =
   | 'UNAUTHENTICATED'
@@ -83,17 +93,19 @@ export type FrappeRequestErrorCode =
   | 'NETWORK_ERROR'
   | 'SERVICE_ERROR'
   | 'VALIDATION_ERROR'
-  | 'RATE_LIMITED'
+  | 'RATE_LIMITED' | 'PROOF_REQUIRED' | 'SESSION_UNCONFIRMED' | 'STALE_RESPONSE' | 'READ_CONFLICT'
+
 
 export class FrappeRequestError extends FrappeHttpError {
   readonly code: FrappeRequestErrorCode
 
-  constructor(code: FrappeRequestErrorCode, message: string, status?: number) {
+  constructor(code: FrappeRequestErrorCode, message: string, status?: number, public diagnosticId?: string) {
     super(status ?? 0, message)
     this.name = 'FrappeRequestError'
     this.code = code
   }
 }
+
 
 function responseText(data: unknown): string {
   if (!data || typeof data !== 'object') return String(data || '')
@@ -107,6 +119,7 @@ function responseText(data: unknown): string {
   ].filter(Boolean).join(' ')
 }
 
+
 // `frappe.CSRFTokenError` 是一个笼统的异常类型：来源被拒、请求方式异常、令牌轮换都走它。
 // 只按异常类型统一提示「安全会话已更新」会把「来源被拒」误导成刷新即可恢复，故按后端消息细分。
 const CSRF_REASON_MESSAGES: Record<string, string> = {
@@ -115,7 +128,9 @@ const CSRF_REASON_MESSAGES: Record<string, string> = {
   '安全会话已更新，请刷新后重试。': '安全会话已更新，请刷新页面后重试。',
   '待绑定请求安全校验失败。': '操作安全校验失败，请重新发起。',
 }
+
 const CSRF_DEFAULT_MESSAGE = '安全会话已更新，请刷新页面后重试。'
+
 
 function firstServerMessage(data: unknown): string {
   try {
@@ -125,60 +140,41 @@ function firstServerMessage(data: unknown): string {
   } catch { /* 后端未带可读消息时回退到默认提示。 */ }
   return ''
 }
-
-export function normalizeFrappeError(error: unknown, method?: string): FrappeRequestError {
+export function normalizeFrappeError(error: unknown, method?: string, fact?: Pick<SessionFact, 'authenticated'>): FrappeRequestError {
   if (error instanceof FrappeRequestError) return error
-  if (!axios.isAxiosError(error)) {
-    return new FrappeRequestError('SERVICE_ERROR', 'HBOS 服务暂时不可用，请稍后重试。')
+  if (!axios.isAxiosError(error)) return diagnostic()
+  if (!error.response) return new FrappeRequestError('NETWORK_ERROR', '网络连接中断，操作结果尚未确认。请恢复连接后重试。')
+  const status = error.response.status, detail = responseText(error.response.data)
+  const credentialMethod = method === 'login' || method === 'login_mfa' || method?.endsWith('.password_login') || method?.endsWith('.reauthenticate') || method?.endsWith('.verify_feishu_code')
+  const loginStep = method === 'login' || method === 'login_mfa' || method?.endsWith('.password_login')
+  if (/account has been locked|账号.*锁定/i.test(detail)) return new FrappeRequestError('RATE_LIMITED', '验证尝试较多，当前暂不可用。请稍后重试。', status)
+  if (status === 429 || /RateLimitExceededError/i.test(detail)) return new FrappeRequestError('RATE_LIMITED', '验证或请求较频繁，请稍后再试。', status)
+  if (/CSRFTokenError|csrf token/i.test(detail)) { if (/请求来源无效/.test(detail)) return new FrappeRequestError('INVALID_ORIGIN', CSRF_REASON_MESSAGES['请求来源无效。']!, status); clearFrappeCsrfToken(); return new FrappeRequestError('CSRF_MISMATCH', CSRF_REASON_MESSAGES[firstServerMessage(error.response.data)] || '安全会话已更新，请重新核对后再提交。', status) }
+  if (fact?.authenticated === false && !loginStep) return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
+  if (credentialMethod && /AuthenticationError|ExpiredLoginException|incorrect password|invalid login/i.test(detail)) return new FrappeRequestError('INVALID_CREDENTIALS', method === 'login_mfa' ? '二次认证未通过或已过期。请重新登录并输入当前验证码。' : (method === 'login' || method?.endsWith('.password_login') ? '账号或密码不正确。' : '密码或验证码不正确，请重新核对。'), status)
+  // Account validation messages must never hide a confirmed Guest boundary.
+  if (fact?.authenticated === false || (status === 401 && !credentialMethod && fact?.authenticated !== true)) return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
+  const wire = (error.response.data as {message?: {error?: {code?:string;message?:string}}})?.message?.error
+  if (status === 409 && wire?.code === 'READ_CONFLICT') return new FrappeRequestError('READ_CONFLICT', '读取遇到暂时冲突，请重试查询。', status)
+  if (wire?.code === 'PROOF_REQUIRED') return new FrappeRequestError('PROOF_REQUIRED', '本人身份验证已过期，请重新验证后再保存。', status)
+  if (/not whitelisted|not permitted to access this method|Failed to get method/i.test(detail)) return fact?.authenticated ? diagnostic(status) : new FrappeRequestError('SESSION_UNCONFIRMED', '暂时无法确认登录状态，请重试核验或退出登录。', status)
+  if (/AuthenticationError/.test(detail) && fact?.authenticated) return new FrappeRequestError('PROOF_REQUIRED', '本人身份验证已过期，请重新验证后再保存。', status)
+  const accountMethod = method?.startsWith('hbos_portal.auth.') && !credentialMethod
+  if (accountMethod && /ValidationError|AuthenticationError|PermissionError/.test(detail)) {
+    const safe = safeAccountMessage(error.response.data)
+    if (safe) return new FrappeRequestError('VALIDATION_ERROR', safe, status)
   }
-  if (!error.response) {
-    return new FrappeRequestError('NETWORK_ERROR', '无法连接 HBOS 服务，请检查本机服务状态。')
-  }
-
-  const status = error.response.status
-  const detail = responseText(error.response.data)
-  const isBootstrap = method === 'hbos_portal.api.bootstrap.get_bootstrap'
-  const isGuestPermission = /\bGuest\b|not permitted to access this method|login to access/i.test(detail)
-  if (status === 429 || /RateLimitExceededError/.test(detail)) return new FrappeRequestError('RATE_LIMITED', '请求较频繁，请稍后再试。', status)
-  if (/SecurityException/.test(detail) && /account has been locked|账号.*锁定/i.test(detail)) {
-    return new FrappeRequestError('RATE_LIMITED', '验证尝试较多，当前暂不可用。请稍后重试。', status)
-  }
-  if (method === 'login_mfa' && /AuthenticationError|ExpiredLoginException/.test(detail)) {
-    return new FrappeRequestError('INVALID_CREDENTIALS', '二次认证未通过或已过期。请重新登录并输入当前验证码。', status)
-  }
-  const accountMethod = method?.startsWith('hbos_portal.auth.') && !method.endsWith('password_login')
-  if (accountMethod && /ValidationError|AuthenticationError|PermissionError/.test(String((error.response.data as Record<string, unknown>)?.exc_type))) {
-    try {
-      const data = error.response.data as Record<string, unknown>
-      const messages = JSON.parse(String(data._server_messages || '[]'))
-      const first = JSON.parse(messages[0] || '{}')
-      if (typeof first.message === 'string') return new FrappeRequestError('VALIDATION_ERROR', first.message.replace(/<[^>]*>/g, '').slice(0, 500), status)
-    } catch { /* Never show framework exceptions or request metadata. */ }
-  }
-  if (/AuthenticationError|invalid login|incorrect password/i.test(detail)) {
-    return new FrappeRequestError('INVALID_CREDENTIALS', '账号或密码不正确。', status)
-  }
-  if (status === 401 || ((status === 403 || status === 417) && (isBootstrap || isGuestPermission))) {
-    return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
-  }
-  if (/CSRFTokenError|csrf token/i.test(detail)) {
-    const serverMessage = firstServerMessage(error.response.data)
-    const message = CSRF_REASON_MESSAGES[serverMessage] || CSRF_DEFAULT_MESSAGE
-    if (/请求来源无效/.test(detail)) {
-      return new FrappeRequestError('INVALID_ORIGIN', CSRF_REASON_MESSAGES['请求来源无效。'] ?? CSRF_DEFAULT_MESSAGE, status)
-    }
-    clearCachedCsrfToken()
-    return new FrappeRequestError('CSRF_MISMATCH', message, status)
-  }
-  if (status === 403 || status === 417) {
-    return new FrappeRequestError('FORBIDDEN', '当前账号没有执行此操作的权限。', status)
-  }
-  return new FrappeRequestError('SERVICE_ERROR', 'HBOS 服务请求失败，请稍后重试。', status)
+  if (status === 403 || status === 417) return new FrappeRequestError('FORBIDDEN', safeAccountMessage(error.response.data) || '当前账号没有执行此操作的权限。', status)
+  if (wire && ['INVALID_REQUEST','CONFLICT','VERSION_CONFLICT','STALE_PREVIEW','INVALID_RULE'].includes(wire.code || '') && typeof wire.message === 'string' && /[\u3400-\u9fff]/.test(wire.message) && !/Traceback|frappe\.|hbos_portal\.|<script/i.test(wire.message)) return new FrappeRequestError('VALIDATION_ERROR', wire.message.replace(/<[^>]*>/g, '').slice(0, 200), status)
+  if (status === 400 && /ValidationError/.test(detail)) return new FrappeRequestError('VALIDATION_ERROR', '提交内容未通过核验，请检查填写内容。', status)
+  return diagnostic(status)
 }
+
 
 export function isUnauthenticatedError(error: unknown): boolean {
   return error instanceof FrappeRequestError && error.code === 'UNAUTHENTICATED'
 }
+
 
 /* ------------------------------------------------------------------ *
  * HTTP client + CSRF + session guards
@@ -193,10 +189,15 @@ const http = axios.create({
   },
 })
 
+
 let csrfToken: string | null = null
+
 let csrfRequest: Promise<string> | null = null
+
 let csrfGeneration = 0
+
 let allowInjectedCsrf = true
+
 
 export function clearCachedCsrfToken() {
   csrfGeneration += 1
@@ -206,7 +207,9 @@ export function clearCachedCsrfToken() {
   allowInjectedCsrf = false
 }
 
+
 export const clearFrappeCsrfToken = clearCachedCsrfToken
+
 
 function bootstrapCsrfToken(): string | null {
   if (typeof window === 'undefined') return null
@@ -217,6 +220,7 @@ function bootstrapCsrfToken(): string | null {
   const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
   return runtime.frappe?.csrf_token || runtime.csrf_token || meta || null
 }
+
 
 async function getCsrfToken(): Promise<string> {
   if (allowInjectedCsrf) {
@@ -256,10 +260,13 @@ async function getCsrfToken(): Promise<string> {
   }
 }
 
+
 let unauthorizedHandler: (() => void) | null = null
+
 // Preserve the current auth failure after its own sign-out clears the token.
 // A subsequent session change still makes that failure stale.
 const sessionEndedErrors = new WeakMap<object, number>()
+
 
 /**
  * 注册「会话失效」回调。由 main.ts 在 pinia / router 就绪后注入，
@@ -268,6 +275,7 @@ const sessionEndedErrors = new WeakMap<object, number>()
 export function setUnauthorizedHandler(handler: (() => void) | null) {
   unauthorizedHandler = handler
 }
+
 
 /** Frappe 对 Guest 访问受保护方法返回 403，会话过期可能返回 401。 */
 export function isAuthError(error: unknown): boolean {
@@ -279,12 +287,15 @@ export function isAuthError(error: unknown): boolean {
   const payload = error.response?.data as { code?: string; error?: { code?: string }; exc_type?: string } | undefined
   return payload?.code === 'UNAUTHENTICATED'
     || payload?.error?.code === 'UNAUTHENTICATED'
-    || payload?.exc_type === 'AuthenticationError'
+
 }
+
 
 http.interceptors.request.use(async (config) => {
   const guarded = config as typeof config & SessionGuardedRequestConfig
   guarded.hbosCsrfGeneration ??= csrfGeneration
+  guarded.hbosRequestEpoch ??= requestEpoch
+  if (config.method?.toLowerCase() !== 'get' && writesBlocked && !/\/(logout|login|hbos_portal.auth.accounts.password_login)$/.test(String(config.url))) throw new FrappeRequestError('SESSION_UNCONFIRMED', '正在核对当前登录状态，请稍后再提交。')
   if (config.method?.toLowerCase() === 'get') return config
   // A fresh login/security token must never be replaced by an older cache.
   if (config.headers.has('X-Frappe-CSRF-Token')) return config
@@ -295,9 +306,12 @@ http.interceptors.request.use(async (config) => {
   return config
 })
 
+
 http.interceptors.response.use(
-  (response) => response,
+  (response) => { const epoch = (response.config as SessionGuardedRequestConfig).hbosRequestEpoch; if (epoch !== undefined) assertEpoch(epoch); return response },
   (error) => {
+    const epoch = (error?.config as SessionGuardedRequestConfig | undefined)?.hbosRequestEpoch
+    if (epoch !== undefined && epoch !== requestEpoch) return Promise.reject(new FrappeRequestError('STALE_RESPONSE', '会话已改变，已丢弃先前请求的结果。'))
     const generation = (error?.config as SessionGuardedRequestConfig | undefined)?.hbosCsrfGeneration
     if (generation !== undefined && generation !== csrfGeneration) {
       // A previous session's read must not clear the new token or sign it out.
@@ -306,22 +320,12 @@ http.interceptors.response.use(
     if (axios.isAxiosError(error) && /CSRFTokenError|csrf token/i.test(responseText(error.response?.data))) {
       clearCachedCsrfToken()
     }
-    const url = String(error?.config?.url || '')
-    if (isAuthError(error)) {
-      const method = url.startsWith('/api/method/') ? url.slice('/api/method/'.length) : ''
-      const loginRequest = method === 'login' || method === 'hbos_portal.auth.accounts.password_login'
-      if (!loginRequest) {
-        // Frappe clears cookies on AuthenticationError, including proof errors.
-        const normalized = normalizeFrappeError(error, method)
-        const beforeSignOut = csrfGeneration
-        unauthorizedHandler?.()
-        if (csrfGeneration !== beforeSignOut) sessionEndedErrors.set(normalized, csrfGeneration)
-        return Promise.reject(normalized)
-      }
-    }
+    // AuthenticationError may mean expired proof; wrappers probe the current session
+    // before dispatching a confirmed session boundary.
     return Promise.reject(error)
   },
 )
+
 
 function assertCsrfGeneration(generation: number, error?: unknown) {
   const endedAt = error && typeof error === 'object' ? sessionEndedErrors.get(error) : undefined
@@ -330,11 +334,14 @@ function assertCsrfGeneration(generation: number, error?: unknown) {
   }
 }
 
+
 export async function callFrappeMethod<T>(
   method: string,
   params?: Record<string, unknown>,
   options?: { requireCsrf?: boolean },
 ): Promise<T> {
+  const epoch = requestEpoch
+  recordRead(method)
   const generation = options?.requireCsrf === true ? csrfGeneration : undefined
   try {
     let headers: Record<string, string> | undefined
@@ -350,14 +357,15 @@ export async function callFrappeMethod<T>(
     if (generation !== undefined && generation !== csrfGeneration) {
       throw new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请重试。')
     }
-    return response.data.message
+    assertEpoch(epoch); return response.data.message
   } catch (error) {
     // 走 normalizeFrappeError：既保留服务端中文业务提示、又带上 `code` 供
     // 账号 / 孪生线分流。它产出的 `FrappeRequestError` 是 `FrappeHttpError`
     // 的子类，库存线判 `instanceof FrappeHttpError` 同样命中。
-    throw normalizeFrappeError(error, method)
+    throw await requestError(error, method, epoch)
   }
 }
+
 
 /** 调用 LIMS 领域写操作；CSRF 与会话由同一 Portal 客户端统一处理。 */
 export async function callFrappeAction<T>(
@@ -366,6 +374,7 @@ export async function callFrappeAction<T>(
 ): Promise<T> {
   return callFrappePostMethod<T>(method, params)
 }
+
 
 // ---------------------------------------------------------------------------
 // CSRF（库存与账号共用 Portal 当前会话生命周期）
@@ -380,6 +389,7 @@ export async function ensureCsrfToken(): Promise<string> {
   return getCsrfToken()
 }
 
+
 async function withCsrf(): Promise<Record<string, string>> {
   const generation = csrfGeneration
   const token = await ensureCsrfToken()
@@ -387,10 +397,12 @@ async function withCsrf(): Promise<Record<string, string>> {
   return { 'X-Frappe-CSRF-Token': token }
 }
 
+
 /** 报表等现有调用方保留同一接口，凭据来源与其他 Portal 请求一致。 */
 export async function csrfHeaders(): Promise<Record<string, string>> {
   return withCsrf()
 }
+
 
 // ---------------------------------------------------------------------------
 // 单据读写（库存线）
@@ -406,6 +418,7 @@ export async function csrfHeaders(): Promise<Record<string, string>> {
 export interface FrappeDocPayload {
   name: string
 }
+
 
 /**
  * 读一份文档的**当前完整内容**，用于「改」与「提交」。
@@ -433,6 +446,7 @@ export async function getDocument<T extends FrappeDocPayload = FrappeDocPayload>
 }
 
 
+
 /**
  * 提交一份单据。
  *
@@ -443,6 +457,7 @@ export async function submitDocument(doctype: string, name: string): Promise<voi
   const doc = await getDocument(doctype, name)
   await postFrappeMethod('frappe.client.submit', { doc: JSON.stringify(doc) })
 }
+
 
 /**
  * 取消一份已提交的单据（`docstatus` 1 → 2）。账面会反向过账。
@@ -463,6 +478,7 @@ export async function cancelDocument(doctype: string, name: string): Promise<voi
   await postFrappeMethod('frappe.client.cancel', { doctype, name })
 }
 
+
 /**
  * 保存一份单据。
  *
@@ -479,6 +495,7 @@ export async function saveDocument(
     doc: JSON.stringify({ ...doc, ...changes }),
   })
 }
+
 
 /**
  * 调一个单据的**控制器方法**（ERPNext 里那些挂在表单上的按钮）。
@@ -505,11 +522,13 @@ export async function runDocMethod<T = unknown>(
   })
 }
 
+
 // ---------------------------------------------------------------------------
 // 地址与主机名
 // ---------------------------------------------------------------------------
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+
 
 /**
  * Frappe 下发的 `sid` 是 host-only Cookie（没有 Domain 属性），所以
@@ -538,6 +557,7 @@ export function alignLoopbackHost(origin: string): string {
   }
 }
 
+
 /**
  * 把 Frappe 返回的相对地址（如 `/private/files/xxx.png`）拼成可用的绝对地址。
  *
@@ -564,10 +584,13 @@ export function frappeAssetUrl(path: string): string {
   return `${alignLoopbackHost(origin)}${value.startsWith('/') ? value : `/${value}`}`
 }
 
+
 export async function postFrappeMethod<T>(
   method: string,
   params?: Record<string, unknown>,
 ): Promise<T> {
+  if (writesBlocked) throw new FrappeRequestError('SESSION_UNCONFIRMED', '正在核对当前登录状态，请稍后再提交。')
+  const epoch = requestEpoch
   const generation = csrfGeneration
   try {
     const headers = await withCsrf()
@@ -577,12 +600,13 @@ export async function postFrappeMethod<T>(
       params,
       { headers, hbosCsrfGeneration: generation } as SessionGuardedRequestConfig,
     )
-    return response.data.message
+    assertEpoch(epoch); return response.data.message
   } catch (error) {
     assertCsrfGeneration(generation, error)
-    throw toFrappeError(error)
+    throw await requestError(error, method, epoch)
   }
 }
+
 
 /**
  * 上传文件（multipart）。`upload_file` 同样是 POST，需要 CSRF。
@@ -595,6 +619,8 @@ export async function uploadFrappeFile(
   file: File,
   fields: Record<string, string> = {},
 ): Promise<Record<string, unknown>> {
+  if (writesBlocked) throw new FrappeRequestError('SESSION_UNCONFIRMED', '正在核对当前登录状态，请稍后再提交。')
+  const epoch = requestEpoch
   const generation = csrfGeneration
   const form = new FormData()
   form.append('file', file)
@@ -608,12 +634,13 @@ export async function uploadFrappeFile(
       form,
       { headers, hbosCsrfGeneration: generation } as SessionGuardedRequestConfig,
     )
-    return response.data.message || {}
+    assertEpoch(epoch); return response.data.message || {}
   } catch (error) {
     assertCsrfGeneration(generation, error)
-    throw toFrappeError(error)
+    throw await requestError(error, 'upload_file', epoch)
   }
 }
+
 
 function toFrappeError(error: unknown): FrappeHttpError {
   if (error instanceof FrappeRequestError) return error
@@ -628,6 +655,7 @@ function toFrappeError(error: unknown): FrappeHttpError {
   }
   return new FrappeHttpError(0, 'HBOS 服务不可达')
 }
+
 
 /** Frappe 把业务错误塞在 `_server_messages` 里，结构是「JSON 数组的 JSON 字符串」 */
 function extractServerMessage(data: unknown): string | null {
@@ -656,6 +684,7 @@ function extractServerMessage(data: unknown): string | null {
   }
 }
 
+
 /**
  * 会话是否仍然有效。
  *
@@ -674,6 +703,7 @@ export async function hasFrappeSession(): Promise<boolean> {
   }
 }
 
+
 // ---------------------------------------------------------------------------
 // 账号 / 会话（账号线：统一账号发布带入）
 // ---------------------------------------------------------------------------
@@ -683,6 +713,8 @@ export async function callFrappePostMethod<T>(
   data?: Record<string, unknown>,
   extraHeaders?: Record<string, string>,
 ): Promise<T> {
+  if (writesBlocked) throw new FrappeRequestError('SESSION_UNCONFIRMED', '正在核对当前登录状态，请稍后再提交。')
+  const epoch = requestEpoch
   const generation = csrfGeneration
   try {
     const token = await getCsrfToken()
@@ -699,32 +731,23 @@ export async function callFrappePostMethod<T>(
         },
       } as SessionGuardedRequestConfig,
     )
-    return response.data.message
+    assertEpoch(epoch); return response.data.message
   } catch (error) {
     assertCsrfGeneration(generation, error)
-    throw normalizeFrappeError(error, method)
+    throw await requestError(error, method, epoch)
   }
 }
 
+
 export interface PasswordLoginResult { tmp_id?: string; verification?: unknown; message?: string }
 export async function loginWithPassword(username: string, password: string, otp = '', tmpId = ''): Promise<PasswordLoginResult> {
-  clearFrappeCsrfToken()
-  const generation = csrfGeneration
   try {
-    const security = await http.get<{message: {csrf_token?: string}}>('/api/method/hbos_portal.auth.accounts.get_request_security', { hbosCsrfGeneration: generation } as SessionGuardedRequestConfig)
-    assertCsrfGeneration(generation)
-    const result = await http.post<{message: PasswordLoginResult}>('/api/method/hbos_portal.auth.accounts.password_login', { username, password, otp, tmp_id: tmpId }, {
-      hbosCsrfGeneration: generation,
-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(security.data.message.csrf_token ? {'X-Frappe-CSRF-Token': security.data.message.csrf_token} : {}) },
-    } as SessionGuardedRequestConfig)
-    return result.data.message
-  } catch (error) {
-    assertCsrfGeneration(generation, error)
-    throw normalizeFrappeError(error, tmpId ? 'login_mfa' : 'login')
-  } finally {
-    if (generation === csrfGeneration) clearFrappeCsrfToken()
-  }
+    const security = await probeFrappeSession()
+    const result = await http.post<{message: PasswordLoginResult}>('/api/method/hbos_portal.auth.accounts.password_login', { username, password, otp, tmp_id: tmpId }, { headers: { 'Content-Type': 'application/json', ...(security.csrf_token ? { 'X-Frappe-CSRF-Token': security.csrf_token } : {}) } })
+    invalidateFrappeRequests(); return result.data.message
+  } catch (error) { throw normalizeFrappeError(error, tmpId ? 'login_mfa' : 'login') }
 }
+
 
 /**
  * 经当前 origin 登录 Frappe（开发环境由 Vite 代理到 Frappe）。
@@ -736,28 +759,83 @@ export async function login(usr: string, pwd: string): Promise<void> {
   clearCachedCsrfToken()
 }
 
+
 /** Frappe 标准登出：服务端结束会话成功后才清除本地会话。 */
 export async function logout(): Promise<void> {
   await http.post('/api/method/logout')
   clearCachedCsrfToken()
 }
-
 export async function logoutFrappeSession(): Promise<void> {
-  const generation = csrfGeneration
-  try {
-    const token = await getCsrfToken()
-    assertCsrfGeneration(generation)
-    await http.post('/api/method/logout', {}, {
-      hbosCsrfGeneration: generation,
-      headers: {
-        'X-Frappe-CSRF-Token': token,
-        'Content-Type': 'application/json',
-      },
-    } as SessionGuardedRequestConfig)
-  } catch (error) {
-    assertCsrfGeneration(generation, error)
-    throw normalizeFrappeError(error, 'logout')
-  } finally {
-    if (generation === csrfGeneration) clearFrappeCsrfToken()
+  // Only logout may retry once after a native CSRF rotation. Business writes
+  // are never replayed, even if their outcome is uncertain.
+  const epoch = requestEpoch
+  let fact = await probeFrappeSession(); assertEpoch(epoch)
+  const originalContext = fact.session_context
+  if (!fact.authenticated) { clearFrappeCsrfToken(); return }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await http.post('/api/method/logout', {}, { headers: { 'X-Frappe-CSRF-Token': fact.csrf_token || '', 'Content-Type': 'application/json' } })
+      assertEpoch(epoch)
+      const after = await probeFrappeSession(); assertEpoch(epoch)
+      if (after.authenticated) throw new FrappeRequestError('SESSION_UNCONFIRMED', '服务端尚未确认退出，请重试退出。')
+      clearFrappeCsrfToken(); return
+    } catch (error) {
+      const normalized = normalizeFrappeError(error, 'logout')
+      assertEpoch(epoch)
+      if (attempt === 0 && normalized.code === 'CSRF_MISMATCH') {
+        fact = await probeFrappeSession(); assertEpoch(epoch)
+        if (!fact.authenticated) return
+        if (fact.session_context !== originalContext) throw new FrappeRequestError('SESSION_UNCONFIRMED', '当前登录会话已变化，请核对身份后重新退出。')
+        continue
+      }
+      throw normalized
+    }
   }
 }
+let requestEpoch = 0
+let writesBlocked = false
+function recordRead(method: string) {
+  if (!import.meta.env.DEV) return
+  if (method === 'hbos_portal.auth.accounts.get_security') frappeDiagnostics.security++
+  if (method === 'hbos_portal.api.iam_access.get_capabilities') frappeDiagnostics.capabilities++
+  if (method === 'hbos_portal.api.bootstrap.get_bootstrap') frappeDiagnostics.bootstrap++
+}
+function diagnostic(status?: number) {
+  const id = globalThis.crypto?.randomUUID?.().slice(0, 8) || Math.random().toString(16).slice(2, 10)
+  // Log metadata only: never framework payloads, URLs, identities or credentials.
+  console.warn('[HBOS 服务诊断]', { id, status })
+  return new FrappeRequestError('SERVICE_ERROR', `服务暂时无法完成请求，请重试或联系管理员。诊断编号：${id}`, status, id)
+}
+function safeAccountMessage(data: unknown): string | null {
+  try {
+    const messages = JSON.parse(String((data as Record<string, unknown>)._server_messages || '[]'))
+    const message = JSON.parse(messages[0] || '{}').message
+    if (typeof message === 'string' && /[\u3400-\u9fff]/.test(message) && !/Traceback|File \\"|hbos_portal\.|frappe\.|<script|exception/i.test(message)) return message.replace(/<[^>]*>/g, '').slice(0, 200)
+  } catch { /* Only a bounded, user-facing Chinese message may leave this boundary. */ }
+  return null
+}
+interface SessionFact { authenticated: boolean; session_context: string | null; csrf_token?: string | null }
+export async function probeFrappeSession(): Promise<SessionFact> {
+  try {
+    const response = await http.get<FrappeMethodResponse<SessionFact>>('/api/method/hbos_portal.auth.accounts.get_request_security', { headers: { 'Cache-Control': 'no-cache' } })
+    const value = response.data.message
+    if (typeof value?.authenticated !== 'boolean' || (value.authenticated && (typeof value.session_context !== 'string' || value.session_context.length !== 64))) throw new FrappeRequestError('SESSION_UNCONFIRMED', '暂时无法确认登录状态，请重试核验。')
+    return value
+  } catch (error) { throw normalizeFrappeError(error, 'session_probe') }
+}
+async function requestError(error: unknown, method: string, epoch: number): Promise<FrappeRequestError> {
+  assertEpoch(epoch)
+  let fact: SessionFact | undefined
+  if (axios.isAxiosError(error) && error.response && (error.response.status === 401 || [403, 417].includes(error.response.status) && /AuthenticationError|not whitelisted|not permitted to access this method|login to access|Failed to get method/i.test(responseText(error.response.data))) && !['login', 'login_mfa'].includes(method)) {
+    try { fact = await probeFrappeSession() } catch { /* An inconclusive probe cannot establish Guest. */ }
+  }
+  const normalized = normalizeFrappeError(error, method, fact)
+  assertEpoch(epoch)
+  if (normalized.code === 'UNAUTHENTICATED') { unauthorizedHandler?.(); if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('hbos:session-expired')); if (typeof normalized === 'object') sessionEndedErrors.set(normalized, csrfGeneration) }
+  return normalized
+}
+function assertEpoch(epoch: number) { if (epoch !== requestEpoch) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变，已丢弃先前请求的结果。') }
+export function blockFrappeWrites(blocked: boolean) { writesBlocked = blocked }
+export function invalidateFrappeRequests() { requestEpoch++; clearFrappeCsrfToken() }
+export const frappeDiagnostics = { document: import.meta.env.DEV ? crypto.randomUUID() : '', security: 0, capabilities: 0, bootstrap: 0 }
+export const developmentObservation = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('iam_uat') === '1'

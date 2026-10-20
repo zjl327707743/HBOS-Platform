@@ -1,6 +1,7 @@
 import calendar
 
 import frappe
+from hb_attendance_app.hbos_attendance.portal.role_scope import report_sql
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -19,10 +20,17 @@ def execute(filters=None):
     # Fail closed until scoped legacy Script Reports are query-time filtered.
     from hb_attendance_app.hbos_attendance.report_scope import require_unrestricted_employee_read
     require_unrestricted_employee_read("Attendance", "Employee Checkin", "HBOS Leave Record")
+    from hb_attendance_app.hbos_attendance.portal.role_scope import report_predicate
     filters = filters or {}
+    if report_predicate('a', {}) and filters.get('enable_ai'):
+        frappe.throw('角色考勤范围不包含 AI 数据外发。', frappe.PermissionError)
     enable_ai = bool(filters.get("enable_ai"))
     conditions = []
     values = {}
+    from hb_attendance_app.hbos_attendance.portal.role_scope import report_predicate
+    iam_predicate = report_predicate('a', values)
+    if iam_predicate:
+        conditions.append(iam_predicate)
 
     # 日期范围过滤：仅当 from_date 与 to_date 都提供且 from<=to 时才生效，
     # 避免「只填开始/结束日期」「起止倒置」等输入产生空结果、界面消失
@@ -54,7 +62,7 @@ def execute(filters=None):
     where = " AND ".join(conditions) if conditions else "1=1"
 
     # Get all attendance records
-    attendance = frappe.db.sql(
+    attendance = report_sql(
         f"""
         SELECT
             a.name, a.employee, a.attendance_date, a.status,
@@ -72,6 +80,9 @@ def execute(filters=None):
     # Get leave records for the same period
     leave_conditions = ["lr.approval_status = '已通过'", "lr.docstatus < 2"]
     leave_values = {}
+    iam_leave = report_predicate('lr', leave_values)
+    if iam_leave:
+        leave_conditions.append(iam_leave)
     if filters.get("month") and filters.get("year"):
         leave_conditions.append(
             "MONTH(lr.start_date) <= %(month)s AND MONTH(lr.end_date) >= %(month)s"
@@ -87,7 +98,7 @@ def execute(filters=None):
         leave_values["to_date"] = filters["to_date"]
 
     leave_where = " AND ".join(leave_conditions) if leave_conditions else "1=1"
-    leave_records = frappe.db.sql(
+    leave_records = report_sql(
         f"""
         SELECT lr.employee, lr.start_date, lr.end_date, lr.leave_type, lr.leave_days
         FROM `tabHBOS Leave Record` lr
@@ -349,7 +360,7 @@ def _attach_ai_review(data, filters, emp_leave_dates):
     checkin_map = {}
     if emp_ids:
         q = ",".join("'%s'" % e.replace("'", "") for e in emp_ids)
-        rows = frappe.db.sql(
+        rows = report_sql(
             f"SELECT employee, time, log_type, device_id FROM `tabEmployee Checkin` "
             f"WHERE employee IN ({q}) AND DATE(time) BETWEEN %(s)s AND %(e)s "
             f"ORDER BY employee, time",

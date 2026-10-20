@@ -27,6 +27,10 @@ export interface ListPayload {
   total: number
   limit: number
   start: number
+  scope?:string
+  date_from?:string
+  date_to?:string
+  coverage?:{complete:boolean}
 }
 
 const BASE = 'hb_attendance_app.hbos_attendance.list_data'
@@ -51,6 +55,7 @@ export async function fetchList(
 export async function fetchFilterOptions(
   key: string,
   fieldname: string,
+  filters: Record<string,string> = {},
 ): Promise<{ value: string; label: string }[]> {
-  return callFrappeMethod(`${BASE}.get_filter_options`, { key, fieldname })
+  return callFrappeMethod(`${BASE}.get_filter_options`, { key, fieldname, filters:JSON.stringify(filters) })
 }

@@ -1,5 +1,6 @@
 <template>
-  <section class="mu-page">
+  <AttendanceImportView v-if="managed" />
+  <section v-else class="mu-page">
     <header class="mu-head">
       <div>
         <span class="page-kicker">ATTENDANCE · 数据与导入</span>
@@ -78,7 +79,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed,ref } from 'vue'
+import AttendanceImportView from './AttendanceImportView.vue'
+import { usePortalStore } from '@/stores/portal'
 import { useRouter } from 'vue-router'
 import { CloudUploadOutlined } from '@ant-design/icons-vue'
 import type { UploadFile } from 'ant-design-vue'
@@ -86,6 +89,8 @@ import { callFrappeMethod } from '@/services/frappeClient'
 import { forgetCsrfToken } from '@/services/frappeUpload'
 
 const router = useRouter()
+const portal=usePortalStore()
+const managed=computed(()=>portal.apps.find(app=>app.id==='attendance')?.accessCapabilities?.includes('attendance.role.managed'))
 
 const ENDPOINT = 'hb_attendance_app.hbos_attendance.page.hbos_monthly_upload.upload.process_excel'
 

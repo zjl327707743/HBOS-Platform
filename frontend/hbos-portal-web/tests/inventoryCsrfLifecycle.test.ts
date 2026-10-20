@@ -12,6 +12,7 @@ vi.mock('axios', async importOriginal => {
 let client: typeof import('@/services/frappeClient')
 const csrfResponse = (token: string) => ({ data: { message: { ok: true, data: { csrf_token: token } } } })
 const csrfError = () => ({ isAxiosError: true, response: { status: 400, data: { exc_type: 'CSRFTokenError' } } })
+const sessionFact = (authenticated: boolean, token='CURRENT-TOKEN') => ({data:{message:{authenticated,session_context:authenticated ? 'a'.repeat(64) : null, csrf_token:token}}})
 const tokenEndpoint = '/api/method/hbos_portal.api.csrf.get_token'
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -57,10 +58,11 @@ it('never restores the original page token after session clear', async () => {
 it('invalidates the shared token on native login and logout', async () => {
   http.get.mockResolvedValueOnce(csrfResponse('PRE-LOGIN'))
   await client.ensureCsrfToken()
-  http.get.mockResolvedValueOnce({ data: { message: { csrf_token: 'LOGIN-SECURITY' } } })
+  http.get.mockResolvedValueOnce(sessionFact(true,'LOGIN-SECURITY'))
   await client.loginWithPassword('synthetic-user', 'synthetic-password')
   http.get.mockResolvedValueOnce(csrfResponse('POST-LOGIN'))
   expect(await client.ensureCsrfToken()).toBe('POST-LOGIN')
+  http.get.mockResolvedValueOnce(sessionFact(true,'POST-LOGIN')).mockResolvedValueOnce(sessionFact(false))
   await client.logoutFrappeSession()
   http.get.mockResolvedValueOnce(csrfResponse('AFTER-LOGOUT'))
   expect(await client.ensureCsrfToken()).toBe('AFTER-LOGOUT')
@@ -167,13 +169,12 @@ it.each([
     exc_type: 'AuthenticationError',
     _server_messages: JSON.stringify([JSON.stringify({ message: '本人验证未通过，请重新验证。' })]),
   } } })
-  await expect(client.callFrappePostMethod(method, {})).rejects.toMatchObject({
-    code: 'VALIDATION_ERROR', status: 401, message: '本人验证未通过，请重新验证。',
-  })
+  http.get.mockResolvedValueOnce(sessionFact(false))
+  await expect(client.callFrappePostMethod(method, {})).rejects.toMatchObject({code:'UNAUTHENTICATED',status:401})
   expect(unauthorized).toHaveBeenCalledTimes(1)
   http.get.mockResolvedValueOnce(csrfResponse('REISSUED-TOKEN'))
   expect(await client.ensureCsrfToken()).toBe('REISSUED-TOKEN')
-  expect(http.get).toHaveBeenCalledTimes(2)
+  expect(http.get).toHaveBeenCalledTimes(3)
   expect(http.post).toHaveBeenCalledTimes(1)
 })
 
@@ -190,13 +191,12 @@ it.each([
     exc_type: 'AuthenticationError',
     _server_messages: JSON.stringify([JSON.stringify({ message })]),
   } } })
-  await expect(client.callFrappePostMethod('hbos_portal.auth.accounts.reauthenticate', {})).rejects.toMatchObject({
-    code: 'VALIDATION_ERROR', status: 401, message,
-  })
+  http.get.mockResolvedValueOnce(sessionFact(false))
+  await expect(client.callFrappePostMethod('hbos_portal.auth.accounts.reauthenticate', {})).rejects.toMatchObject({code:'UNAUTHENTICATED',status:401})
   expect(unauthorized).toHaveBeenCalledTimes(1)
   http.get.mockResolvedValueOnce(csrfResponse('REISSUED-TOKEN'))
   expect(await client.ensureCsrfToken()).toBe('REISSUED-TOKEN')
-  expect(http.get).toHaveBeenCalledTimes(2)
+  expect(http.get).toHaveBeenCalledTimes(3)
   expect(http.post).toHaveBeenCalledTimes(1)
 })
 
@@ -235,10 +235,20 @@ it.each([
     exc_type: excType,
     ...(message === undefined ? {} : { _server_messages: JSON.stringify([JSON.stringify({ message })]) }),
   } } })
+  http.get.mockResolvedValueOnce(sessionFact(false))
   await expect(client.callFrappeMethod(method!)).rejects.toBeInstanceOf(client.FrappeHttpError)
   expect(unauthorized).toHaveBeenCalledTimes(1)
   http.get.mockResolvedValueOnce(csrfResponse('REISSUED-TOKEN'))
   expect(await client.ensureCsrfToken()).toBe('REISSUED-TOKEN')
-  expect(http.get).toHaveBeenCalledTimes(3)
+  expect(http.get).toHaveBeenCalledTimes(4)
   expect(http.post).not.toHaveBeenCalled()
+})
+
+it('keeps authenticated proof and credential failures local when the current session probe succeeds', async () => {
+  const unauthorized = vi.fn(); client.setUnauthorizedHandler(unauthorized)
+  http.get.mockResolvedValueOnce(csrfResponse('CURRENT-TOKEN'))
+  http.post.mockRejectedValueOnce({isAxiosError:true,response:{status:401,data:{exc_type:'AuthenticationError'}}})
+  http.get.mockResolvedValueOnce(sessionFact(true))
+  await expect(client.callFrappePostMethod('hbos_portal.auth.accounts.reauthenticate',{})).rejects.toMatchObject({code:'INVALID_CREDENTIALS'})
+  expect(unauthorized).not.toHaveBeenCalled()
 })
