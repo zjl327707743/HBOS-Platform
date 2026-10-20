@@ -67,9 +67,12 @@
           <div class="pb-kpi-fn">{{ yieldRateNote }}</div>
         </div>
         <div class="pb-panel pb-kpi">
-          <div class="pb-kpi-top"><span class="pb-kpi-lb">质量合格率</span><span class="pb-kpi-vl">{{ qualityRateText }}</span></div>
-          <div class="pb-bar"><i :style="{ width: qualityRatePct + '%' }" /></div>
-          <div class="pb-kpi-fn">沿用既有看板口径 · 成品质量数据源接入前</div>
+          <div class="pb-kpi-top">
+            <span class="pb-kpi-lb">质量合格率</span>
+            <span class="pb-kpi-vl" :class="{ 'pb-tbd': qualityRateText === null }">{{ qualityRateText ?? '暂无数据' }}</span>
+          </div>
+          <div v-if="qualityRatePct !== null" class="pb-bar"><i :style="{ width: qualityRatePct + '%' }" /></div>
+          <div class="pb-kpi-fn" :class="{ 'pb-kpi-fn-gap': qualityRatePct === null }">{{ qualityNote }}</div>
         </div>
         <div class="pb-panel pb-kpi">
           <div class="pb-kpi-top">
@@ -415,13 +418,44 @@ const biggestTarget = computed(() =>
   [...targetRows.value].sort((a, b) => b.target - a.target)[0] || null,
 )
 
-// 质量合格率：**沿用既有 openclaw 看板的固定口径 99.9%**（Owner 2026-10-10 定）。
-// 现有《产品质量数据汇总》是合格放行台账，不收录不合格批，算出来恒为 100%，
-// 不如沿用既有口径。成品质量数据源接入后再改成实算。取数服务暂不返回该值，
-// 故先写死；将来接了服务端可用 `board.qualityRate ?? 0.999`。
-const QUALITY_RATE = 0.999
-const qualityRatePct = computed(() => QUALITY_RATE * 100)
-const qualityRateText = computed(() => `${(QUALITY_RATE * 100).toFixed(1)}%`)
+// 质量合格率：**实算**（会议 2026-10-19 定的取数规则，服务端 `contract.quality_stats`）。
+//
+// 口径一句话：从「同步 QC 数据-产品」按 `生产日期` 取当月行，**已登记即合格**
+// （不合格批次根本不录入）；两个已检批次之间的空档 = 不合格，
+// 最后一个已检批次之后的空档 = 还没检测（不进分母）。
+//
+// ⚠️ 分母是「已检批次」，不是当月全部批次 —— 所以 `tested / (tested+failed)`
+// 和「未检 N 批」必须一起显示。只写一个 100% 会被读成「全批全检全合格」，
+// 那是会议里李洋担心的误读。
+//
+// 无菌两行在 QC Base 里没有对应表（国内规范粗品也没有），如实显示「暂无数据」，
+// 不拿 99.9% 或 100% 填上 —— 那正是这轮要替换掉的东西。
+const quality = computed(() => board.value?.quality ?? null)
+const qualityRatePct = computed(() =>
+  quality.value && quality.value.rate !== null ? quality.value.rate * 100 : null,
+)
+const qualityRateText = computed(() =>
+  qualityRatePct.value === null ? null : `${qualityRatePct.value.toFixed(1)}%`,
+)
+const qualityNote = computed(() => {
+  const q = quality.value
+  if (!q) return '质量数据暂不可用'
+  // 取数失败 ≠ 没有已检批次 —— 前者是「没取到」，后者是「真没检」，不能混为一谈
+  if (q.failedLabels.length && !q.coveredLabels.length) {
+    return `QC 表取数失败（${q.failedLabels.join('、')}）· 服务账号需授权`
+  }
+  if (q.rate === null) return '本月尚无已检批次'
+  const checked = `${q.tested} / ${q.tested + q.failed} 批已检`
+  const parts = [checked]
+  if (q.failed > 0) parts.push(`不合格 ${q.failed} 批`)
+  if (q.untested > 0) parts.push(`未检 ${q.untested} 批`)
+  // 哪几行没有数据源，说清楚 —— 否则看板顶部一个总数会盖住「有两行根本没算」
+  const missing = (board.value?.rows ?? [])
+    .map((r) => r.label)
+    .filter((l) => !q.coveredLabels.includes(l))
+  if (missing.length) parts.push(`${missing.join('、')} 无数据源`)
+  return parts.join(' · ')
+})
 
 const anomalyRatePct = computed(() =>
   anomaly.value && anomaly.value.rate !== null ? anomaly.value.rate * 100 : null,

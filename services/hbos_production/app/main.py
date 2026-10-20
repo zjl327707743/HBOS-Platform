@@ -259,6 +259,34 @@ def _load_anomalies(today: date, fetched: dict | None = None) -> dict:
     return result
 
 
+def _load_quality(month: str) -> dict:
+    """各产品的 QC 表，按会议规则（2026-10-19）算当月质量合格率。
+
+    ⚠️ **不并进 `_fetch_all` 的并发批次**：QC Base 是另一套权限
+    （实测服务账号读它返回 `1254302 RolePermNotAllow`），一旦并进去，
+    `list_records_many` 会整体抛错 → 整个看板 502，连产量都看不到。
+    质量数据取不到是「这一格没数」，不该拖垮整张看板。
+
+    与异常表同样的容错：逐源 try/except，取不到的产品记进 `failedLabels`，
+    前端据此显示「暂无数据」，而不是拿一个像样的数字填上。
+    """
+    stats: list[contract.QualityStats] = []
+    failed: list[str] = []
+    for src in contract.QC_SOURCES:
+        try:
+            raw = feishu.list_records(contract.QC_BASE, src.table_id)
+        except feishu.FeishuError as exc:
+            log.warning("QC 表取数失败 %s code=%s", src.label, exc.code)
+            failed.append(src.label)
+            continue
+        rows = [sources.to_anomaly_record(r) for r in raw]
+        stats.append(contract.quality_stats(src, rows, month))
+
+    result = contract.overall_quality(stats, month)
+    result["failedLabels"] = failed
+    return result
+
+
 def _board_data(today: date) -> dict:
     """**进入缓存的部分** —— 只有「要查飞书才拿得到」的行与异常。
 
@@ -292,6 +320,7 @@ def _board_data(today: date) -> dict:
     return {
         "rows": [contract.asdict_row(r) for r in rows],
         "anomaly": _load_anomalies(today, fetched),
+        "quality": _load_quality(month),
     }
 
 
@@ -344,6 +373,7 @@ def monthly(refresh: bool = False) -> dict:
         "dataAsOf": _iso_local(built_at),
         "rows": data["rows"],
         "anomaly": data["anomaly"],
+        "quality": data.get("quality"),
     }
 
 

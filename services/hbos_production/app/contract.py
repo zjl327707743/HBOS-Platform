@@ -67,6 +67,199 @@ EXCLUDE_EXACT = ("碳酸氢钠", "碳酸钠（EP）", "比阿培南")
 
 
 # ---------------------------------------------------------------------------
+# 质量合格率
+# ---------------------------------------------------------------------------
+#
+# 会议（2026-10-19 产品质量数据专题会）定的规则：
+#
+#     从「同步 QC 数据-产品」的各产品表取数，按 `生产日期` 列取当月的行。
+#     已登记的批次**就是合格**（不合格批次根本不录入）。缺值分两种：
+#
+#         1001~1005、1007~1010 有值，1006 没有  → 1006 **不合格**
+#         1001~1002 有值，1003~1010 没有        → 后 8 批**还没检测**
+#
+#     即：**最后一个有值的批次之后**的空 = 未检测（不计入分母）；
+#         **两个有值批次之间**的空 = 不合格。
+#
+# ⚠️ 这条口径有两个必须知道的边界（2026-10-19 实测）：
+#
+#   1. 只有 5 张表有「检验结论」列（F13 B/F/C/G、A9）。4BMA、F9、F12 三张
+#      **没有结论列**，但有完整检测值 —— 这类表按「任一检测值非空 = 已登记」判。
+#   2. 分母只是**已检批次**，不是当月全部批次。设备调试期或月初时，
+#      可能只检了 2 批就有 100%。前端必须把 `tested / total` 一并显示出来，
+#      否则「100%」会被读成「全批全检全合格」。
+#
+# 另一个已知数据缺口：**无菌两个产品在 QC Base 里没有对应的表**，
+# 且「国内规范粗品」（F13 的三个成员之一）也没有 —— 这些无法计算，如实为 None。
+
+QC_BASE = "WgC6bFE6TajqmjsBttYcHvcLn1c"   # 新乡海滨产品质量数据汇总
+
+
+@dataclass
+class QcSource:
+    """一个看板行对应的 QC 数据源。"""
+
+    label: str                        # 看板行名，须与 ROW_MEMBERS 的键一致
+    table_id: str
+    conclusion_field: Optional[str]   # 有「检验结论」列就用它
+    test_fields: tuple[str, ...]      # 没有结论列时：任一非空即视为已登记
+    #: 本行覆盖了哪些产品；空表示整行覆盖
+    products: tuple[str, ...] = ()
+
+
+QC_SOURCES: list[QcSource] = [
+    QcSource(
+        label="4BMA",
+        table_id="tblQNERunR133S7O",     # 4BMA（M3工艺）
+        conclusion_field=None,
+        test_fields=("性状", "鉴别", "水分", "色谱纯度", "比旋度",
+                     "RRT0.6", "RRT0.7杂质", "RRT0.9杂质", "RRT1.1杂质", "干燥失重"),
+    ),
+    QcSource(
+        label="F9",
+        table_id="tblBGAPrdo3XeQ2w",     # F9 (二氯甲烷)
+        conclusion_field=None,
+        test_fields=("性状", "鉴别", "含量测定≥98.0%", "总杂≤1.5%",
+                     "水分≤0.05%", "干燥失重≤0.5%", "比旋 -48.0°～-53.0°"),
+    ),
+    QcSource(
+        label="F12",
+        table_id="tblSrMCabOpC2WhU",     # F12(C、D)
+        conclusion_field=None,
+        test_fields=("性状", "鉴别", "含量≥98.5%", "总杂≤3.0%",
+                     "干燥失重≤1.0%", "熔点 不低于160.0℃"),
+    ),
+    QcSource(
+        label="F13",
+        table_id="tbl8PzCoXwLuzjou",     # F13（B）
+        conclusion_field="检验结论",
+        test_fields=(),
+        # QC 表只覆盖「美罗培南粗品B」。国内规范粗品、美罗培南粗品C 无对应表。
+        products=("美罗培南粗品B",),
+    ),
+]
+
+
+def _batch_key(batch: str) -> Optional[tuple[str, int]]:
+    """批号 → `(前缀, 序号)`，用于判断「中间断档」。
+
+    `4B-B261005` → `("4B-B", 261005)`；`F13-A260985` → `("F13-A", 260985)`。
+    解析不了返回 None（该批次不参与断档判断，但仍计入已检）。
+    """
+    m = re.match(r"^(.*?)(\d+)$", str(batch or ""))
+    return (m.group(1), int(m.group(2))) if m else None
+
+
+def _qc_row_filled(record: dict, src: QcSource) -> bool:
+    """这一行算不算「已登记」。
+
+    有结论列的表：结论非空即已登记（会议口径：登记即合格，不合格不录入）。
+    没有结论列的表：任一检测值非空即已登记。
+    """
+    if src.conclusion_field:
+        return bool(_as_text(record.get(src.conclusion_field)))
+    return any(_as_text(record.get(f)) for f in src.test_fields)
+
+
+@dataclass
+class QualityStats:
+    """一个看板行的质量统计（**当月**）。"""
+
+    label: str
+    tested: int          # 已检 = 合格（会议口径）
+    failed: int          # 判定不合格（夹在两个已检批次之间）
+    untested: int        # 未检测（最后一个已检批次之后）
+    failed_batches: list[str]
+
+    @property
+    def total(self) -> int:
+        return self.tested + self.failed
+
+    @property
+    def rate(self) -> Optional[float]:
+        """**没有已检批次返回 None**（不是 100%）—— 「没数据」和「全合格」是两回事。"""
+        return self.tested / self.total if self.total else None
+
+
+def quality_stats(src: QcSource, records: Iterable[dict], month: str) -> QualityStats:
+    """按会议规则算一个产品当月质量。
+
+    `records` 是**平铺**的字段 dict（`sources.to_anomaly_record` 已拆过）。
+    """
+    by_segment: dict[str, list[tuple[int, bool, str]]] = {}
+    loose_tested = 0     # 批号解析不了、但已登记的（无法判断档，只计入已检）
+
+    for r in records:
+        d = parse_month_day(r.get("生产日期"))
+        if not d or month_of(d) != month:
+            continue          # 不是当月的行，整条跳过（会议：按生产日期取当月）
+        batch = _as_text(r.get("批号"))
+        filled = _qc_row_filled(r, src)
+        key = _batch_key(batch)
+        if key is None:
+            if filled:
+                loose_tested += 1
+            continue
+        by_segment.setdefault(key[0], []).append((key[1], filled, batch))
+
+    tested = loose_tested
+    failed = 0
+    untested = 0
+    failed_batches: list[str] = []
+
+    for _prefix, items in by_segment.items():
+        items.sort(key=lambda x: x[0])
+        seq = [f for _, f, _ in items]
+        if not any(seq):                 # 整段都没登记 → 全未检测
+            untested += len(items)
+            continue
+        last_filled = len(seq) - 1 - seq[::-1].index(True)
+        for i, (_, filled, batch) in enumerate(items):
+            if filled:
+                tested += 1
+            elif i < last_filled:
+                failed += 1              # 中间断档 → 不合格
+                failed_batches.append(batch)
+            else:
+                untested += 1            # 尾部断档 → 还没检测
+
+    return QualityStats(
+        label=src.label,
+        tested=tested,
+        failed=failed,
+        untested=untested,
+        failed_batches=failed_batches,
+    )
+
+
+def overall_quality(stats: list[QualityStats], month: str) -> dict:
+    """全厂质量汇总 —— 与异常闭环同一条原则：**合计后再算率**，不是各产品率的平均。"""
+    tested = sum(s.tested for s in stats)
+    failed = sum(s.failed for s in stats)
+    total = tested + failed
+    return {
+        "month": month,
+        "tested": tested,
+        "failed": failed,
+        "untested": sum(s.untested for s in stats),
+        "rate": (tested / total) if total else None,
+        "byLabel": [
+            {
+                "label": s.label,
+                "tested": s.tested,
+                "failed": s.failed,
+                "untested": s.untested,
+                "rate": s.rate,
+                "failedBatches": s.failed_batches,
+            }
+            for s in stats
+        ],
+        #: 有 QC 数据源的行；其余行的质量率无法计算
+        "coveredLabels": [s.label for s in stats],
+    }
+
+
+# ---------------------------------------------------------------------------
 # 异常闭环率
 # ---------------------------------------------------------------------------
 #
@@ -356,7 +549,14 @@ def parse_month_day(value) -> Optional[str]:
             return datetime.strptime(s[: len(fmt) + 4], fmt).strftime("%Y-%m-%d")
         except ValueError:
             continue
-    return None
+    # ISO 串（`2026-10-05T00:00:00.000+08:00`）—— 上面按 `%Y-%m-%d` 切 14 个字符
+    # 会得到 `2026-10-05T00:`，解析失败后落进 None，记录被静默丢出当月。
+    # 飞书 API 直接返回的是毫秒时间戳（走上面的 int 分支），但 lark-cli 与
+    # 手工导入的数据是 ISO 串 —— 两种来源都见过，故一并认。
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
 
 
 def month_of(day: str) -> str:

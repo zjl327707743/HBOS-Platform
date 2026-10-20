@@ -71,6 +71,40 @@ export interface AnomalyInfo {
   failedWorkshops: string[]
 }
 
+/** 一个看板行的质量统计（当月）。 */
+export interface QualityRow {
+  label: string
+  /** 已检批次 —— 会议口径下「登记即合格」。 */
+  tested: number
+  /** 判定不合格（夹在两个已检批次之间的空档）。 */
+  failed: number
+  /** 未检测（最后一个已检批次之后）—— **不进分母**。 */
+  untested: number
+  /** 合格率；没有已检批次时为 null（不是 100%）。 */
+  rate: number | null
+  failedBatches: string[]
+}
+
+/**
+ * 质量合格率（会议 2026-10-19 定的取数规则）。
+ *
+ * **分母只是已检批次，不是当月全部批次。** 月初设备调试或刚开产时
+ * 可能只检了 2 批就是 100% —— 页面必须把 `tested / (tested + failed)`
+ * 和 `untested` 一并显示，否则「100%」会被读成「全批全检全合格」。
+ */
+export interface QualityInfo {
+  month: string
+  tested: number
+  failed: number
+  untested: number
+  rate: number | null
+  byLabel: QualityRow[]
+  /** 有 QC 数据源的行。不在这个列表里的行**没有质量数据源**（如无菌两行）。 */
+  coveredLabels: string[]
+  /** 取数失败的 QC 表（该行本轮没有质量数据）。 */
+  failedLabels: string[]
+}
+
 export interface ProductionBoardData {
   /** 数据月份，如 "2026-10"。 */
   month: string
@@ -88,6 +122,7 @@ export interface ProductionBoardData {
   dataAsOf: string | null
   rows: ProductionRow[]
   anomaly?: AnomalyInfo
+  quality?: QualityInfo | null
 }
 
 export interface AiAnalysisRow {

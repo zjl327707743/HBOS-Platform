@@ -58,7 +58,7 @@ def test_board_data_does_not_carry_time_fields(monkeypatch):
     monkeypatch.setattr(main, "_fetch_all", lambda: _empty_fetch(main))
 
     data = main._board_data(date(2026, 10, 12))
-    assert set(data) == {"rows", "anomaly"}
+    assert set(data) == {"rows", "anomaly", "quality"}
 
 
 def test_fetch_all_requests_every_table_the_board_needs(monkeypatch):
