@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  生产看板缓存预热 —— 每天两次（07:10 / 16:40），跑完即退。
+
+  ## 为什么需要它
+
+  服务是**懒加载**：缓存过期后第一个访问的人要等 100 秒拉 18 张飞书表。
+  落盘缓存解决了「服务重启」，但跨天那一次仍然是谁先来谁等。
+  本任务按计划提前把缓存建好，用户打开永远秒开。
+
+  时间为 Owner 2026-10-20 定的「一天更新一两次」：
+    07:10 —— 上班前，补上昨晚录入的数据
+    16:40 —— 下班前，补上当天录入的 QC / 产量
+
+  ## 安装
+
+    # 1) 确认路径（venv 的 python 必须是绝对路径）
+    cp launchd/com.haibin.hbos.production-warm.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.haibin.hbos.production-warm.plist
+
+    # 查看
+    launchctl list | grep hbos
+
+    # 手动跑一次（不等 07:10）
+    launchctl start com.haibin.hbos.production-warm
+
+    # 卸载
+    launchctl unload ~/Library/LaunchAgents/com.haibin.hbos.production-warm.plist
+
+  ## 行为
+
+  脚本**先试服务**（GET /production/monthly?refresh=1）：
+    - 服务在跑 → 走完全相同的代码路径，内存与磁盘缓存一起更新
+    - 服务没跑 → 自己算一遍并直接落盘；下次服务启动时读回
+
+  不依赖 uvicorn 是否恰好活着 —— 定时任务不该因为服务重启就失效。
+
+  ⚠️ 与 `com.haibin.hbos.production-ai` 的区别：那个是 **AI 分析**（16:30
+     写飞书结果表），这个是**取数预热**（只读飞书、只写本地缓存）。两者独立。
+
+  ⚠️ 本机睡眠时 launchd 会在唤醒后补跑一次（StartCalendarInterval 的合并
+     语义）—— 这是要的：醒来后缓存立刻是新的。
+
+  ⚠️ 部署到服务器时不要用这个 plist —— 换 systemd timer 或 cron（见 README）。
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.haibin.hbos.production-warm</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/xinxianghaibinzhiliang/test/HBOS-Platform/services/hbos_production/.venv/bin/python</string>
+        <string>-m</string>
+        <string>app.warm</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/xinxianghaibinzhiliang/test/HBOS-Platform/services/hbos_production</string>
+
+    <!-- 每天 07:10 与 16:40 -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>7</integer>
+            <key>Minute</key>
+            <integer>10</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>16</integer>
+            <key>Minute</key>
+            <integer>40</integer>
+        </dict>
+    </array>
+
+    <!-- 跑完即退，不常驻；日志追加到同一文件（不覆盖历史） -->
+    <key>StandardOutPath</key>
+    <string>/tmp/hbos-production-warm.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/hbos-production-warm.err</string>
+
+    <!-- 不在加载时立刻跑；要立即验证用 launchctl start -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

@@ -11,6 +11,33 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+
+def _load_dotenv() -> None:
+    """自动加载服务目录下的 `.env`（若存在）。
+
+    同 `services/hbos_production_ai/app/config.py` 的做法。加这个是因为定时
+    预热脚本 `python -m app.warm` 里没有人给它传 `--env-file` —— 没有它就会
+    报「飞书凭据未配置」，看起来像配置写错了，实际是环境没进来。
+
+    **已存在的环境变量优先**（真实环境 > .env），所以 uvicorn 的
+    `--env-file` 或外面 export 都能覆盖它。不引第三方依赖。
+    """
+    path = Path(__file__).resolve().parent.parent / ".env"
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_dotenv()
+
 #: 监听地址与端口。
 #: 默认绑 **127.0.0.1** —— 只允许本机访问，不开外网。
 #: 8100 已被 hbos_ocr 占用，本服务用 8101。

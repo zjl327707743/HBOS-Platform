@@ -197,13 +197,22 @@ def _cached(key: str, producer, *, built_on: date | None = None, ttl: float | No
     return value
 
 
-def _store(key: str, value, built_on: date | None, ttl: float | None = None) -> None:
+def _store(
+    key: str,
+    value,
+    built_on: date | None,
+    ttl: float | None = None,
+    *,
+    persist_async: bool = True,
+) -> None:
     """写入缓存（调用方需持有 `_CACHE_LOCK`）。
 
     `ttl` 为 None 时用全局 `CACHE_TTL_SECONDS`。质量数据单独用更长的 TTL，
     见 `config.QUALITY_CACHE_TTL_SECONDS`。
 
     **落盘在锁外异步做** —— 在锁里写磁盘会卡住所有并发的缓存读取。
+    `persist_async=False` 供**跑完就退**的定时任务用（`app/warm.py`）：
+    daemon 线程来不及写完进程就没了，那时要自己同步调 `_persist`。
     """
     _CACHE[key] = {
         "value": value,
@@ -211,7 +220,8 @@ def _store(key: str, value, built_on: date | None, ttl: float | None = None) -> 
         "built_at": time.time(),
         "built_on": built_on,
     }
-    threading.Thread(target=_persist, args=(key,), name=f"persist-{key}", daemon=True).start()
+    if persist_async:
+        threading.Thread(target=_persist, args=(key,), name=f"persist-{key}", daemon=True).start()
 
 
 def _cached_at(key: str) -> float | None:

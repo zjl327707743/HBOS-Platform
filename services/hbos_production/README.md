@@ -60,6 +60,37 @@ app/main.py        FastAPI 接口 + 缓存（12 小时，落盘持久化）
 tests/             口径单测 + 服务冒烟测（都不联网）
 ```
 
+## 缓存与预热
+
+三层，都是为了「打开就是秒开」：
+
+| 层 | 作用 | 失效 |
+|---|---|---|
+| 内存 | 正常请求命中 | `CACHE_TTL_SECONDS`（12 小时）/ 跨天 |
+| 磁盘 `.cache/` | 服务重启后读回 | 同上；跨天的也读回，靠后台刷新补新值 |
+| **定时预热** `app/warm.py` | **提前把缓存建好**，用户永远不是第一个 | launchd 每天 07:10 / 16:40 |
+
+**为什么要有预热**：缓存过期后第一个访问的人要等 100 秒拉 18 张飞书表。
+落盘解决了「服务重启」，但跨天那一次仍是谁先来谁等。预热脚本按计划提前建好，
+用户打开时缓存必然是热的。
+
+```bash
+# 手动跑一次（先试服务，服务没跑就自己算）
+.venv/bin/python -m app.warm
+```
+
+安装定时任务：
+
+```bash
+cp launchd/com.haibin.hbos.production-warm.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.haibin.hbos.production-warm.plist
+launchctl list | grep hbos          # 查看
+launchctl start com.haibin.hbos.production-warm   # 立刻跑一次
+```
+
+⚠️ 与本服务的 **AI 分析定时任务**（`com.haibin.hbos.production-ai`，每天 16:30）
+是两个独立的活：那个写飞书结果表，这个只读飞书 + 写本地缓存。
+
 ## 测试
 
 ```bash
