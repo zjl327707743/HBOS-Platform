@@ -4,6 +4,7 @@
 ._*
 logs/
 tmp/
+.cache/
 .frappe/
 sites/
 volumes/

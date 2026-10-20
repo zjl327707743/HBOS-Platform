@@ -16,10 +16,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
@@ -31,10 +33,19 @@ from . import config, contract, feishu, sources
 logging.basicConfig(level=config.LOG_LEVEL)
 log = logging.getLogger("hbos_production")
 
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """启动时把磁盘上的缓存读回来 —— 否则重启后第一次访问要等 100 秒。"""
+    _restore("board", "quality", "ai")
+    yield
+
+
 app = FastAPI(
     title="HBOS 生产看板取数服务",
     version="0.1.0",
     description="独立取数服务，飞书凭据只在服务端。见 docs/frontend/P4_生产看板_取数架构方案对比.md",
+    lifespan=_lifespan,
 )
 
 # 允许前端访问。开发默认只放本机 Vite 端口；
@@ -66,6 +77,89 @@ _REFRESHING: set[str] = set()
 _CACHE_LOCK = threading.Lock()
 #: 串行化「强制刷新」（前端点刷新按钮时走这条）。见 `_refresh_now`。
 _REFRESH_LOCK = threading.Lock()
+
+
+# --- 缓存落盘 -------------------------------------------------------------
+#
+# 内存缓存在**服务重启后就没了**。重启是常事（改代码、休眠唤醒、机器重启），
+# 而每次重启后的第一次访问都要重拉 18 张飞书表、等 100 秒 —— 这是目前最大
+# 的体验问题。
+#
+# 落盘后：
+#   - 服务重启 → 从磁盘读回，**还新鲜就秒开**（连后台刷新都不用）
+#   - 跨天 → 读到昨天的缓存，**先给旧值秒开**，同时后台刷新（_cached 的既有逻辑）
+#
+# 写盘是**异步**的：不能因为磁盘慢拖慢请求。失败只记日志，不影响取数
+# （磁盘满 / 权限不对时，退化成纯内存缓存，行为与之前一致）。
+
+def _cache_path(key: str):
+    if not config.CACHE_DIR or not str(config.CACHE_DIR):
+        return None
+    return config.CACHE_DIR / f"{key}.json"
+
+
+def _persist(key: str) -> None:
+    """把某条缓存写到磁盘（调用方不应持有 `_CACHE_LOCK`）。"""
+    path = _cache_path(key)
+    if path is None:
+        return
+    with _CACHE_LOCK:
+        hit = _CACHE.get(key)
+    if hit is None:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(
+            json.dumps(
+                {
+                    "value": hit["value"],
+                    "stale_at": hit["stale_at"],
+                    "built_at": hit["built_at"],
+                    # 日期存成 ISO 串 —— JSON 里没有 date 类型
+                    "built_on": hit["built_on"].isoformat() if hit["built_on"] else None,
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        tmp.replace(path)      # 原子替换，避免读到写了一半的文件
+    except OSError as exc:
+        log.warning("缓存落盘失败 %s：%s", key, str(exc)[:100])
+
+
+def _restore(*keys: str) -> None:
+    """服务启动时把磁盘上的缓存读回内存 —— **跨天的也恢复**。
+
+    这是「跨天第一次打开要等 100 秒」的解法：`_cached` 对「跨天」的判据是
+    `built_on != today`，命中时**先返回旧值、后台再刷新**。恢复昨天的缓存就等于
+    把这条路径打开，用户秒开，几秒后后台把新数据补上。
+
+    ⚠️ 代价：跨天第一次打开会**先看到昨天的数字**。受影响的是 `yesterdayInbound`
+    （「昨日入库」是按昨天算的）—— 其余（产量、收率、目标、异常、质量）与日期
+    无关，跨天不变。前端会检测 `dataAsOf` 不是今天并自动重取一次，见
+    `ProductionDashboardView.vue` 的 `autoRefreshIfStale`。
+
+    不恢复的话，跨天第一次访问要走「冷启动同步拉」，实测 100 秒 ——
+    那正是这套落盘要解决的问题。
+    """
+    for key in keys:
+        path = _cache_path(key)
+        if path is None or not path.is_file():
+            continue
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            built_on = date.fromisoformat(raw["built_on"]) if raw.get("built_on") else None
+            with _CACHE_LOCK:
+                _CACHE[key] = {
+                    "value": raw["value"],
+                    "stale_at": raw["stale_at"],
+                    "built_at": raw["built_at"],
+                    "built_on": built_on,
+                }
+            log.info("缓存 %s 已从磁盘恢复（%s）", key, built_on)
+        except (OSError, ValueError, KeyError) as exc:
+            log.warning("读取缓存 %s 失败：%s", key, str(exc)[:100])
 
 
 def _cached(key: str, producer, *, built_on: date | None = None, ttl: float | None = None):
@@ -108,6 +202,8 @@ def _store(key: str, value, built_on: date | None, ttl: float | None = None) -> 
 
     `ttl` 为 None 时用全局 `CACHE_TTL_SECONDS`。质量数据单独用更长的 TTL，
     见 `config.QUALITY_CACHE_TTL_SECONDS`。
+
+    **落盘在锁外异步做** —— 在锁里写磁盘会卡住所有并发的缓存读取。
     """
     _CACHE[key] = {
         "value": value,
@@ -115,6 +211,7 @@ def _store(key: str, value, built_on: date | None, ttl: float | None = None) -> 
         "built_at": time.time(),
         "built_on": built_on,
     }
+    threading.Thread(target=_persist, args=(key,), name=f"persist-{key}", daemon=True).start()
 
 
 def _cached_at(key: str) -> float | None:

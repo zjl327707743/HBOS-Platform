@@ -56,7 +56,7 @@ app/config.py      环境变量（凭据只在这里）
 app/feishu.py      飞书 OpenAPI 客户端（取 token + 分页拉记录）
 app/sources.py     飞书记录 → 内部结构（类型归一化）
 app/contract.py    口径实现（**纯函数，不依赖 FastAPI/飞书，可离线测**）
-app/main.py        FastAPI 接口 + 5 分钟进程内缓存
+app/main.py        FastAPI 接口 + 缓存（12 小时，落盘持久化）
 tests/             口径单测 + 服务冒烟测（都不联网）
 ```
 
@@ -91,6 +91,7 @@ uv run --with pytest pytest tests/ -q
 | `HBOS_PRODUCTION_HOST` | `127.0.0.1` | 看服务器拓扑定；若前面有 nginx 反代，仍绑 `127.0.0.1` 最安全 |
 | `HBOS_PRODUCTION_CORS_ORIGINS` | 本机 Vite 端口 | **看板的实际域名**（例 `https://hbos.example.com`）。不改的话浏览器会因 CORS 拦掉请求 |
 | `HBOS_FEISHU_APP_ID` / `_SECRET` | 本地 `.env` | 服务器的密钥管理（环境变量 / 密钥服务），**不写进镜像** |
+| `HBOS_PRODUCTION_CACHE_DIR` | `.cache` | 缓存落盘目录。**要持久化**（挂卷），否则容器重建后又得重拉 100 秒 |
 
 前端侧对应改 `VITE_PRODUCTION_SERVICE_ORIGIN` 为服务器上的服务地址。
 

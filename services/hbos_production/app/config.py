@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 #: 监听地址与端口。
 #: 默认绑 **127.0.0.1** —— 只允许本机访问，不开外网。
@@ -86,3 +87,16 @@ CORS_ORIGINS = [
 def feishu_configured() -> bool:
     """凭据是否齐备。未配置时接口返回 503 —— 而不是编造数据。"""
     return bool(FEISHU_APP_ID and FEISHU_APP_SECRET)
+
+
+#: 缓存落盘目录。
+#:
+#: 内存缓存在**服务重启后就没了** —— 而重启是常事（改代码、机器休眠唤醒）。
+#: 每次重启后的第一次访问都要重新拉 18 张飞书表、等 100 秒，这是目前最大的
+#: 体验问题。把缓存写一份到磁盘，重启后直接读回来：
+#:
+#:   - 缓存还新鲜 → 秒开，连后台刷新都不用
+#:   - 已过期（跨天）→ **先给旧值秒开**，同时后台刷新（见 `_cached`）
+#:
+#: 目录默认 `.cache/`（在服务目录下，已在 .gitignore 里）。设空字符串可关闭落盘。
+CACHE_DIR = Path(os.environ.get("HBOS_PRODUCTION_CACHE_DIR", ".cache"))

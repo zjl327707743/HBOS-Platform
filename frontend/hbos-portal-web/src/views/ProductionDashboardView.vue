@@ -519,11 +519,52 @@ onMounted(async () => {
   if (data) {
     board.value = data
     phase.value = 'ready'
+    void autoRefreshIfStale(data)
   } else {
     phase.value = 'unavailable'
   }
   if (isCenter.value) await loadAiAnalysis()
 })
+
+/**
+ * 数据不是今天的 → 静默重取一次。
+ *
+ * 服务端缓存会落盘，服务重启/跨天后**先返回上次那份**（否则第一次打开要等
+ * 100 秒）。那份数据里 `yesterdayInbound`（昨日入库）是按当时那天算的，
+ * 跨天后就不对了；其余指标（产量、收率、目标、异常）与日期无关，不受影响。
+ *
+ * 所以这里不等用户手动刷新：发现 `dataAsOf` 不是今天就自己补一次，
+ * 期间页面照常显示旧值（不切回骨架屏），取回来再无声替换。
+ * 失败就保持原样 —— 用户仍可点刷新。
+ */
+async function autoRefreshIfStale(first: ProductionBoardData) {
+  const iso = first.dataAsOf
+  if (!iso) return
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  if (sameDay) return
+
+  // 后台补数据期间页面显示的是**旧数字**，不加提示的话看不出在更新。
+  // 复用刷新按钮的转圈（refreshing），用户看到「取数中 Ns」就知道在补。
+  if (refreshing.value) return
+  refreshing.value = true
+  refreshElapsed.value = 0
+  refreshTimer = setInterval(() => { refreshElapsed.value += 1 }, 1000)
+  try {
+    const fresh = await fetchProductionBoard({ refresh: true })
+    // 失败就保持原样：页面上「数据截至 10-19」本身就是提示，用户可以手动刷新
+    if (fresh) board.value = fresh
+  } finally {
+    if (refreshTimer) clearInterval(refreshTimer)
+    refreshTimer = null
+    refreshing.value = false
+  }
+}
 
 // 两张看板是**同一个组件**的两条路由，从基层版切到管理中心时 Vue 会复用
 // 组件实例 —— `onMounted` **不会重跑**，AI 面板就一直停在「暂无结果」，
