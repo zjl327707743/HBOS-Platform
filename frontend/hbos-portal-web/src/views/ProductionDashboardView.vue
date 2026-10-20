@@ -428,8 +428,8 @@ const biggestTarget = computed(() =>
 // 和「未检 N 批」必须一起显示。只写一个 100% 会被读成「全批全检全合格」，
 // 那是会议里李洋担心的误读。
 //
-// 无菌两行在 QC Base 里没有对应表（国内规范粗品也没有），如实显示「暂无数据」，
-// 不拿 99.9% 或 100% 填上 —— 那正是这轮要替换掉的东西。
+// 无菌两行、F13 的「国内规范粗品」在 QC Base 里没有对应表 —— 按 Owner 口径
+// **直接忽略**，不在面板上点名，也不拿 99.9% / 100% 填上。
 const quality = computed(() => board.value?.quality ?? null)
 const qualityRatePct = computed(() =>
   quality.value && quality.value.rate !== null ? quality.value.rate * 100 : null,
@@ -440,20 +440,14 @@ const qualityRateText = computed(() =>
 const qualityNote = computed(() => {
   const q = quality.value
   if (!q) return '质量数据暂不可用'
-  // 取数失败 ≠ 没有已检批次 —— 前者是「没取到」，后者是「真没检」，不能混为一谈
-  if (q.failedLabels.length && !q.coveredLabels.length) {
-    return `QC 表取数失败（${q.failedLabels.join('、')}）· 服务账号需授权`
+  if (q.rate === null) {
+    // 取数失败 ≠ 没检测。前者是「没取到」，后者是「真没检」，文案要分开，
+    // 但都不点产品名 —— 没有质量数据的产品按 Owner 口径直接忽略，不列出来。
+    return q.failedLabels.length ? '质量数据暂不可用' : '本月尚无已检批次'
   }
-  if (q.rate === null) return '本月尚无已检批次'
-  const checked = `${q.tested} / ${q.tested + q.failed} 批已检`
-  const parts = [checked]
+  const parts = [`${q.tested} / ${q.tested + q.failed} 批已检`]
   if (q.failed > 0) parts.push(`不合格 ${q.failed} 批`)
   if (q.untested > 0) parts.push(`未检 ${q.untested} 批`)
-  // 哪几行没有数据源，说清楚 —— 否则看板顶部一个总数会盖住「有两行根本没算」
-  const missing = (board.value?.rows ?? [])
-    .map((r) => r.label)
-    .filter((l) => !q.coveredLabels.includes(l))
-  if (missing.length) parts.push(`${missing.join('、')} 无数据源`)
   return parts.join(' · ')
 })
 
