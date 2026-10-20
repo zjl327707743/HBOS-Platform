@@ -391,8 +391,12 @@ def publish(batch_id,document_ids,operation='publish',expected_version=None,reas
         [actor,batch_id,sorted(document_ids),operation,expected_version,reason]).encode()).hexdigest()
     if operation!='publish' and len(document_ids)==1:
         _,_,state=_row(batch_id)
+        # A batch may hold a second item for the same document recorded as
+        # SAME_CONTENT_SKIP when identical content was seen again. That item is a
+        # duplicate record, not an alternative target, so counting it made
+        # restore/replace fail with INVALID_REQUEST for such documents.
         targets=[i['version_id'] for i in state['items'] if i['canonical_document_id']==document_ids[0]
-                 and i.get('disposition')!='ALIAS']
+                 and i.get('disposition') not in ('ALIAS','SAME_CONTENT_SKIP')]
         if len(targets)!=1:raise KnowledgeError('INVALID_REQUEST')
         committed=frappe.get_all('HBOS Knowledge Publication',filters={
             'canonical_document_id':document_ids[0],'target_version':targets[0],

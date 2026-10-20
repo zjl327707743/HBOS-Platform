@@ -14,6 +14,15 @@ class PublicationTests(unittest.TestCase):
         for selected in [[],['B'],['UNKNOWN'],['C','C']]:
             with self.subTest(selected=selected),self.assertRaises(PublicationConflict):select_publication_items(state,selected)
 
+    def test_same_content_skip_is_not_an_eligible_target(self):
+        # A batch records a seen-again duplicate as SAME_CONTENT_SKIP. It is a
+        # duplicate record, not an alternative target: counting it made restore
+        # and replace fail with INVALID_REQUEST for such documents.
+        ok={'canonical_document_id':'A','status':'parsed/indexed',
+            'owner_inclusion_confirmed':True,'internal_sharing_confirmed':True}
+        state={'items':[dict(ok),{**ok,'disposition':'SAME_CONTENT_SKIP'}]}
+        self.assertEqual(len(select_publication_items(state,['A'])),1)
+
     def test_subset_does_not_select_a_duplicate_alias_as_another_publication(self):
         state={'items':[{'canonical_document_id':'A','status':'parsed/indexed','owner_inclusion_confirmed':True,'internal_sharing_confirmed':True},
                         {'canonical_document_id':'A','status':'parsed/indexed','owner_inclusion_confirmed':True,'internal_sharing_confirmed':True,'disposition':'ALIAS'}]}
