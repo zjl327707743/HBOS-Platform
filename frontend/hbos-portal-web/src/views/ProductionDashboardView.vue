@@ -72,7 +72,6 @@
             <span class="pb-kpi-vl">{{ qualityRateText }}</span>
           </div>
           <div class="pb-bar"><i :style="{ width: qualityRatePct + '%' }" /></div>
-          <div class="pb-kpi-fn">{{ qualityNote }}</div>
         </div>
         <div class="pb-panel pb-kpi">
           <div class="pb-kpi-top">
@@ -432,13 +431,9 @@ const biggestTarget = computed(() =>
 //     const quality = computed(() => board.value?.quality ?? null)
 //     qualityRatePct = quality.rate * 100
 //     脚注 = `${tested} / ${tested + failed} 批已检` + 未检批数
-//
-// ⚠️ 脚注必须写明这是「登记口径」，不能只挂一个光秃秃的 100% ——
-// 否则读的人会以为「当月全部批次都检了且全合格」。
 const QUALITY_RATE = 1.0
 const qualityRatePct = computed(() => QUALITY_RATE * 100)
 const qualityRateText = computed(() => `${(QUALITY_RATE * 100).toFixed(1)}%`)
-const qualityNote = computed(() => '按 QC 登记口径 · 不合格批次不录入')
 
 const anomalyRatePct = computed(() =>
   anomaly.value && anomaly.value.rate !== null ? anomaly.value.rate * 100 : null,
