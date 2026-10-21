@@ -2,10 +2,10 @@
 
 Run with the bench CLI, for example::
 
-    bench --site owner-uat.localhost hbos_portal init-roles \
+    bench --site owner-uat.localhost init-roles \
         --company "UAT-测试公司" --actor "ops:agent" --reason "初始化考勤三角色定义"
 
-    bench --site owner-uat.localhost hbos_portal delegate-admin \
+    bench --site owner-uat.localhost delegate-admin \
         --user uat-iam-admin@example.invalid --company "UAT-测试公司" \
         --actor "ops:agent" --reason "为合成 UAT 管理账号建立首个受限委派"
 
