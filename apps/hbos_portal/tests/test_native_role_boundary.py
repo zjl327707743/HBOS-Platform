@@ -140,7 +140,7 @@ class NativeRoleBoundaryTest(unittest.TestCase):
 
     def test_replay_runs_after_authorization_when_scope_still_valid(self):
         employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active", "modified": "v1"}
-        fake = FakeFrappe(grantors=["site-grantor"])
+        fake = FakeFrappe(grantors=["site-grantor"], permissions=[{"name": "UP1", "allow": "Company", "for_value": "C1", "applicable_for": None}])
         with patch.object(app_roles, "frappe", fake), patch.object(app_roles.guards, "require_post"), \
              patch.object(app_roles, "serialize", lambda *a, **k: contextlib.nullcontext()), \
              patch.object(app_roles, "_employee", return_value=employee), \
