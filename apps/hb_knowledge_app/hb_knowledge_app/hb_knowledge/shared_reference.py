@@ -23,6 +23,73 @@ def configuration():
         raise KnowledgeError('POLICY_UNAVAILABLE')
     return cfg
 
+# The registry projection (which version, dataset and binding revision were
+# quality-passed and share-confirmed) is the same for every reader, and it was
+# rebuilt on every request by parsing all import batches. That work belongs to
+# the registry, not to a reader: it is cached under a key made of the site, the
+# projection schema, the approved-config revision and the batch table's own
+# revision (count plus newest modification). A batch write updates `modified`,
+# so a new registration cannot be served from a stale key. The cache holds no
+# per-actor conclusion - bindings, withdrawals and roles are still read from the
+# database on every request and every accepted binding is matched against these
+# pairs.
+_REGISTRY_SCHEMA='registry-v1'
+
+def _registry_revision(cur):
+    from .shared_reference import rows as _rows  # module-level helper
+    try:
+        probe=_rows(cur,'SELECT COUNT(*) AS n,COALESCE(MAX(modified),\'\') AS m FROM `tabHBOS Knowledge Import Batch`')[0]
+        return f"{probe['n']}:{probe['m']}"
+    except Exception:
+        return None
+
+def _registry_pairs(cur,config,rows_fn):
+    """Registry pairs for this site, reusing a cached projection when possible."""
+    from .maintenance_contract import registered
+    import frappe
+    site=getattr(frappe.local,'site',None) or 'default'
+    revision=_registry_revision(cur)
+    key=f'hbos:registry:{site}:{_REGISTRY_SCHEMA}:{config.get("policy_revision")}:{revision}'
+    # A per-request memo keeps two calls in one request from doing the work twice.
+    memo=getattr(frappe.local,'_hbos_registry_memo',None)
+    if memo is None:
+        memo={}; frappe.local._hbos_registry_memo=memo
+    if key in memo:
+        return memo[key]
+    pairs=None;datasets=set()
+    try:
+        cached=frappe.cache().get_value(key)
+    except Exception:
+        cached=None
+    if cached:
+        pairs={tuple(p) for p in cached['pairs']};datasets=set(cached['datasets'])
+    else:
+        if revision is None:
+            return set(),set()
+        pairs=set();batches=rows_fn(cur,'SELECT frozen_json,state_json,quality_json FROM `tabHBOS Knowledge Import Batch`')
+        for entry in batches:
+            try:
+                frozen=json.loads(entry['frozen_json']);batch_state=json.loads(entry['state_json']);quality=json.loads(entry['quality_json'] or '{}')
+                registered(frozen,batch_state)
+                for item in batch_state['items']:
+                    q=quality.get(item['version_id'],{})
+                    if (item['status']=='parsed/indexed' and item.get('disposition')!='SAME_CONTENT_SKIP' and
+                        item.get('internal_sharing_confirmed') is True and item.get('owner_inclusion_confirmed') is True and
+                        q.get('status')=='Passed' and q.get('source_sha256')==item['sha256'] and
+                        q.get('upload_sha256')==item.get('upload_sha256')):
+                        pairs.add((item['canonical_document_id'],item['version_id'],item['dataset_id'],item['ragflow_document_id'],item['binding_revision']))
+                        datasets.add(item['dataset_id'])
+            except (ValueError,KeyError,TypeError,KnowledgeError):
+                continue
+        try:
+            # TTL only reclaims space; the revision in the key decides validity.
+            frappe.cache().set_value(key,{'pairs':[list(p) for p in pairs],'datasets':sorted(datasets)},expires_in_sec=600)
+        except Exception:
+            pass
+    memo[key]=(pairs,datasets)
+    return pairs,datasets
+
+
 class InternalSharedAuthority(FrappePairedAuthority):
     test_only=False
     def client_for(self,actor):
@@ -50,22 +117,8 @@ class InternalSharedAuthority(FrappePairedAuthority):
             allowed_documents=set(self.config['approved_document_ids'])
             registered_pairs=set()
             if self.config.get('maintenance_registry_enabled'):
-                from .maintenance_contract import registered
-                batches=rows(cur,'SELECT frozen_json,state_json,quality_json FROM `tabHBOS Knowledge Import Batch`')
-                for entry in batches:
-                    try:
-                        frozen=json.loads(entry['frozen_json']);batch_state=json.loads(entry['state_json']);quality=json.loads(entry['quality_json'] or '{}')
-                        registered(frozen,batch_state)
-                        for item in batch_state['items']:
-                            q=quality.get(item['version_id'],{})
-                            if (item['status']=='parsed/indexed' and item.get('disposition')!='SAME_CONTENT_SKIP' and
-                                item.get('internal_sharing_confirmed') is True and item.get('owner_inclusion_confirmed') is True and
-                                q.get('status')=='Passed' and q.get('source_sha256')==item['sha256'] and
-                                q.get('upload_sha256')==item.get('upload_sha256')):
-                                registered_pairs.add((item['canonical_document_id'],item['version_id'],item['dataset_id'],item['ragflow_document_id'],item['binding_revision']))
-                                allowed_datasets.add(item['dataset_id'])
-                    except (ValueError,KeyError,TypeError,KnowledgeError):
-                        continue
+                registered_pairs,registry_datasets=_registry_pairs(cur,self.config,rows)
+                allowed_datasets.update(registry_datasets)
             accepted=[]
             for row in data:
                 try:b=binding_from_row(row)
