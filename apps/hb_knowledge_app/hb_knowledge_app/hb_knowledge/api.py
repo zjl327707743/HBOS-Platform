@@ -183,14 +183,54 @@ def _ask_enabled(runtime):
     from .shared_reference import configuration
     return configuration().get('ask_enabled') is True
 
+def _ask_timing_enabled():
+    import os
+    return os.environ.get('HBOS_ASK_TIMING')=='1'
+
+def _ask_marks(request_id):
+    """Phase marks for one real ask request, written only when enabled.
+
+    The in-process profile cannot represent a request: it returns early with no
+    answer, so its timings are void. These marks are taken in the actual HTTP
+    handler so the numbers describe the path a user waits on.
+    """
+    import contextlib, json, os, time, pathlib
+    started=time.perf_counter(); marks=[]
+    @contextlib.contextmanager
+    def phase(label):
+        t0=time.perf_counter()
+        try:
+            yield
+        finally:
+            marks.append({'phase':label,'ms':round((time.perf_counter()-t0)*1000)})
+    def flush():
+        if not _ask_timing_enabled():return
+        try:
+            path=pathlib.Path(os.environ.get('HBOS_ASK_TIMING_FILE','/tmp/hbos-ask-timing.jsonl'))
+            total=round((time.perf_counter()-started)*1000)
+            path.open('a').write(json.dumps({'request_id':request_id,'total_ms':total,'marks':marks})+ '\n')
+        except Exception:
+            pass
+    return phase,flush
+
 @frappe.whitelist(methods=['POST'])
 def ask(**business_fields):
     def current(request_id):
-        raw=_framework_business(business_fields,'ask');validate_structure('AskRequest',raw)
-        runtime=load_runtime();actor=runtime.actor()
+        phase,flush=_ask_marks(request_id)
+        try:
+            return _current_body(request_id,phase)
+        finally:
+            flush()
+
+    def _current_body(request_id,phase):
+        with phase('validate_structure'):
+            raw=_framework_business(business_fields,'ask');validate_structure('AskRequest',raw)
+        with phase('load_runtime_actor'):
+            runtime=load_runtime();actor=runtime.actor()
         from .answer_policy import model_alias,DEFAULT_MODEL
         import frappe
-        selected=model_alias(raw.get('model_alias') or (DEFAULT_MODEL if getattr(frappe.local,'hbos_mcp_connection',None) else _personal_models(runtime,actor)['selected_alias']))
+        with phase('personal_models'):
+            selected=model_alias(raw.get('model_alias') or (DEFAULT_MODEL if getattr(frappe.local,'hbos_mcp_connection',None) else _personal_models(runtime,actor)['selected_alias']))
         options={'model_alias':selected,'knowledge_only':raw.get('knowledge_only',False),
                  'answer_caller':'MCP' if getattr(frappe.local,'hbos_mcp_connection',None) else 'PORTAL'}
         if not _ask_enabled(runtime):raise KnowledgeError('MODEL_NOT_APPROVED')
@@ -247,14 +287,19 @@ def ask(**business_fields):
             runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
             return data
         from .spaces import list_spaces
-        titles={s['space_id']:s['title'] for s in list_spaces(runtime,actor)['spaces']}
+        with phase('list_spaces'):
+            titles={s['space_id']:s['title'] for s in list_spaces(runtime,actor)['spaces']}
         request=normalize_search({'query':question,'space_titles':titles,
             **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
-        ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
+        with phase('plan_issue'):
+            ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
         runtime.publication.plan=ticket.plan
-        answer,labels,records,origin,actual_alias,answer_status=runtime.gateway.ask(ticket=ticket)
-        if records:runtime.gateway.authorize_evidence(ticket,records,phase='pre_issue')
-        runtime.provider.revalidate(ticket.plan)
+        with phase('gateway_ask'):
+            answer,labels,records,origin,actual_alias,answer_status=runtime.gateway.ask(ticket=ticket)
+        with phase('authorize_evidence'):
+            if records:runtime.gateway.authorize_evidence(ticket,records,phase='pre_issue')
+        with phase('provider_revalidate'):
+            runtime.provider.revalidate(ticket.plan)
         from knowledge_service.hbos_gateway.response_projection import public_evidence
         citations=[]
         runtime.quota.reserve_output(actor.user_ref,len(answer)+sum(len(r.excerpt) for r in records))
@@ -266,13 +311,17 @@ def ask(**business_fields):
         data={'request_id':request_id,'turn_id':request_id,**answer_presentation(answer,bool(citations),origin=='GENERAL',state=answer_status),
             'answer':answer,'citations':citations,
             'answer_origin':origin,'model_alias':actual_alias}
-        validate_ask_data(data,environment=runtime.profile)
-        turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context,
+        with phase('validate_ask_data'):
+            validate_ask_data(data,environment=runtime.profile)
+        with phase('write_history'):
+            turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context,
             answer=answer,labels=labels,question=raw['question'],search_mode=request.search_mode,
             answer_origin=origin,model_alias=actual_alias)
         data['turn_id']=turn;data['conversation_id']=turn
-        runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
-        runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
+        with phase('final_online'):
+            runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
+        with phase('audit'):
+            runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
         return data
     return _run(current)
 

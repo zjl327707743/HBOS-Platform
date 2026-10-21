@@ -44,50 +44,40 @@ def _registry_revision(cur):
         return None
 
 def _registry_pairs(cur,config,rows_fn):
-    """Registry pairs for this site, reusing a cached projection when possible."""
+    """Registry pairs for this request.
+
+    The cross-request cache was removed rather than tuned: COUNT(*) plus
+    MAX(modified) cannot prove that a registry row changed from Passed to
+    Rejected or lost its sharing confirmation, because such an update can keep
+    both aggregates identical, and the registry does take part in authorization.
+    Until a revision maintained in the same transaction as every registry write
+    exists, the projection is rebuilt once per request - which measured 107 ms
+    and therefore was never the source of the six-second wait.
+    """
     from .maintenance_contract import registered
     import frappe
-    site=getattr(frappe.local,'site',None) or 'default'
-    revision=_registry_revision(cur)
-    key=f'hbos:registry:{site}:{_REGISTRY_SCHEMA}:{config.get("policy_revision")}:{revision}'
-    # A per-request memo keeps two calls in one request from doing the work twice.
-    memo=getattr(frappe.local,'_hbos_registry_memo',None)
-    if memo is None:
-        memo={}; frappe.local._hbos_registry_memo=memo
-    if key in memo:
-        return memo[key]
-    pairs=None;datasets=set()
-    try:
-        cached=frappe.cache().get_value(key)
-    except Exception:
-        cached=None
-    if cached:
-        pairs={tuple(p) for p in cached['pairs']};datasets=set(cached['datasets'])
-    else:
-        if revision is None:
-            return set(),set()
-        pairs=set();batches=rows_fn(cur,'SELECT frozen_json,state_json,quality_json FROM `tabHBOS Knowledge Import Batch`')
-        for entry in batches:
-            try:
-                frozen=json.loads(entry['frozen_json']);batch_state=json.loads(entry['state_json']);quality=json.loads(entry['quality_json'] or '{}')
-                registered(frozen,batch_state)
-                for item in batch_state['items']:
-                    q=quality.get(item['version_id'],{})
-                    if (item['status']=='parsed/indexed' and item.get('disposition')!='SAME_CONTENT_SKIP' and
-                        item.get('internal_sharing_confirmed') is True and item.get('owner_inclusion_confirmed') is True and
-                        q.get('status')=='Passed' and q.get('source_sha256')==item['sha256'] and
-                        q.get('upload_sha256')==item.get('upload_sha256')):
-                        pairs.add((item['canonical_document_id'],item['version_id'],item['dataset_id'],item['ragflow_document_id'],item['binding_revision']))
-                        datasets.add(item['dataset_id'])
-            except (ValueError,KeyError,TypeError,KnowledgeError):
-                continue
+    cached=getattr(frappe.local,'_hbos_registry_value',None)
+    if cached is not None:
+        return cached
+    pairs=set();datasets=set()
+    batches=rows_fn(cur,'SELECT frozen_json,state_json,quality_json FROM `tabHBOS Knowledge Import Batch`')
+    for entry in batches:
         try:
-            # TTL only reclaims space; the revision in the key decides validity.
-            frappe.cache().set_value(key,{'pairs':[list(p) for p in pairs],'datasets':sorted(datasets)},expires_in_sec=600)
-        except Exception:
-            pass
-    memo[key]=(pairs,datasets)
-    return pairs,datasets
+            frozen=json.loads(entry['frozen_json']);batch_state=json.loads(entry['state_json']);quality=json.loads(entry['quality_json'] or '{}')
+            registered(frozen,batch_state)
+            for item in batch_state['items']:
+                q=quality.get(item['version_id'],{})
+                if (item['status']=='parsed/indexed' and item.get('disposition')!='SAME_CONTENT_SKIP' and
+                    item.get('internal_sharing_confirmed') is True and item.get('owner_inclusion_confirmed') is True and
+                    q.get('status')=='Passed' and q.get('source_sha256')==item['sha256'] and
+                    q.get('upload_sha256')==item.get('upload_sha256')):
+                    pairs.add((item['canonical_document_id'],item['version_id'],item['dataset_id'],item['ragflow_document_id'],item['binding_revision']))
+                    datasets.add(item['dataset_id'])
+        except (ValueError,KeyError,TypeError,KnowledgeError):
+            continue
+    value=(pairs,datasets)
+    frappe.local._hbos_registry_value=value
+    return value
 
 
 class InternalSharedAuthority(FrappePairedAuthority):
