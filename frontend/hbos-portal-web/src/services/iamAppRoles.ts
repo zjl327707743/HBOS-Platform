@@ -27,6 +27,7 @@ export interface AppRoleState {
   is_grantor: boolean
   can_grant: boolean
   grant_requirement: string
+  scope_envelope: { company: string; source: string; name: string } | null
 }
 export interface AppRolePreview {
   employee: string

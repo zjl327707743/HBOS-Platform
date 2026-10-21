@@ -48,7 +48,7 @@ ASSIGNMENT = "HBOS IAM Role Assignment"
 REGISTRY = {
     "inventory": {
         "title": "仓储库存",
-        "scope_note": "ERPNext 原生角色本身不区分公司或仓库；本命令只在员工所属公司内授权，但角色生效后仍按 Frappe 原生权限判断，公司/仓库级数据范围尚未在该角色内实现。",
+        "scope_note": "ERPNext 原生角色本身不区分公司或仓库。实际数据包络由该员工既有的 Company User Permission 限定在公司级；仓库级包络未实现。授予前必须能证明这一公司包络，否则拒绝。",
         "roles": {
             "Stock User": {
                 "title": "仓储经办",
@@ -100,7 +100,30 @@ def _has_global_role(app: dict) -> bool:
     return any(meta.get("native_scope") == "GLOBAL" for meta in app["roles"].values())
 
 
-def _assert_grant_authority(app: dict, acknowledged: bool):
+def company_envelope(employee: dict) -> dict | None:
+    """Return the exact company envelope proven by a native User Permission.
+
+    A GLOBAL native role is only acceptable when the target user already has one
+    unambiguous Company User Permission for the employee's company. This does not
+    create or widen that permission; missing/ambiguous scope means no grant.
+    """
+    user = policy.value(employee, "user_id")
+    company = policy.value(employee, "company")
+    rows = frappe.db.sql(
+        "select name, allow, for_value, applicable_for, apply_to_all_doctypes "
+        "from `tabUser Permission` where user=%s and allow='Company' order by name limit 3 for update",
+        (user,),
+        as_dict=True,
+    )
+    if len(rows) != 1:
+        return None
+    row = rows[0]
+    if policy.value(row, "for_value") != company or policy.value(row, "applicable_for"):
+        return None
+    return {"company": company, "source": "User Permission", "name": policy.value(row, "name")}
+
+
+def _assert_grant_authority(app: dict, acknowledged: bool, employee: dict | None = None):
     """GLOBAL native roles cannot be bounded; only a site-level grantor may grant."""
     if not _has_global_role(app):
         return
@@ -113,6 +136,12 @@ def _assert_grant_authority(app: dict, acknowledged: bool):
         frappe.throw(
             "受限管理员不能授予 GLOBAL 原生角色：它覆盖本部门员工之外的公司/仓库数据。"
             "请联系站点级授权人（hbos_native_role_grantors）处理。",
+            frappe.PermissionError,
+        )
+    if employee is not None and company_envelope(employee) is None:
+        frappe.throw(
+            "无法证明该员工的公司范围包络（需唯一、明确的 Company User Permission）。"
+            "在补齐可核验范围前，拒绝授予 GLOBAL 原生角色。",
             frappe.PermissionError,
         )
 
@@ -205,7 +234,8 @@ def describe(employee_id: str) -> dict:
         "apps": apps,
         "is_grantor": is_site_grantor(),
         "can_grant": is_site_grantor(),
-        "grant_requirement": "本轮登记的原生角色均为 GLOBAL，不能按公司/仓库限定。页面仅在站点级授权人显式确认后允许授予；否则请使用受控运维流程。",
+        "grant_requirement": "本轮登记的原生角色均为 GLOBAL；只有站点级授权人显式确认、且员工已有唯一 Company User Permission 时才能授予。仓库级范围仍未实现。",
+        "scope_envelope": company_envelope(employee),
     }
 
 
@@ -232,7 +262,7 @@ def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowled
     app = _app(app_id)
     employee = _employee(employee_id)
     _authorize(employee, write=True)
-    _assert_grant_authority(app, acknowledged_global_scope)
+    _assert_grant_authority(app, acknowledged_global_scope, employee)
     target = _normalize(app_id, roles)
     user = policy.value(employee, "user_id")
     native = _native_roles(user)
@@ -268,6 +298,7 @@ def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowled
         "version": version,
         "context_revision": context,
         "scope_note": app["scope_note"],
+        "scope_envelope": company_envelope(employee),
     }
 
 
@@ -298,7 +329,7 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
         # return historical success after the actor lost scope or grantor status.
         employee = _employee(employee_id)
         _authorize(employee, write=True)
-        _assert_grant_authority(app, acknowledged_global_scope)
+        _assert_grant_authority(app, acknowledged_global_scope, employee)
         replayed = audit.replay(request_id, "app_role.save", "Employee", employee_id, payload)
         if replayed is not None:
             return {**replayed, "replayed": True}

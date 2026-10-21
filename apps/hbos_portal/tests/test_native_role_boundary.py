@@ -17,11 +17,20 @@ import frappe
 from hbos_portal.iam import app_roles, audit, policy
 
 
+class FakeDB:
+    def __init__(self, rows=None):
+        self.rows = rows or []
+
+    def sql(self, *args, **kwargs):
+        return self.rows
+
+
 class FakeFrappe:
-    def __init__(self, grantors=()):
+    def __init__(self, grantors=(), permissions=None):
         self.conf = {"hbos_native_role_grantors": list(grantors)}
         self.PermissionError = frappe.PermissionError
         self.ValidationError = frappe.ValidationError
+        self.db = FakeDB(permissions)
 
     def throw(self, message, exc=None):
         raise (exc or frappe.ValidationError)(message)
@@ -65,6 +74,22 @@ class NativeRoleBoundaryTest(unittest.TestCase):
         app = app_roles.REGISTRY["inventory"]
         with patch.object(app_roles, "frappe", fake), patch.object(policy, "get_current_user", return_value="site-grantor"):
             app_roles._assert_grant_authority(app, True)
+
+    def test_company_envelope_requires_one_exact_permission(self):
+        employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active"}
+        matching = {"name": "UP1", "allow": "Company", "for_value": "C1", "applicable_for": None}
+        with patch.object(app_roles, "frappe", FakeFrappe(permissions=[matching])):
+            self.assertEqual(app_roles.company_envelope(employee)["company"], "C1")
+        for rows in ([], [matching, dict(matching, name="UP2")], [dict(matching, for_value="C2")], [dict(matching, applicable_for="Warehouse")]):
+            with self.subTest(rows=rows), patch.object(app_roles, "frappe", FakeFrappe(permissions=rows)):
+                self.assertIsNone(app_roles.company_envelope(employee))
+
+    def test_grantor_without_company_envelope_is_refused(self):
+        employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active"}
+        fake = FakeFrappe(grantors=["site-grantor"], permissions=[])
+        with patch.object(app_roles, "frappe", fake), patch.object(policy, "get_current_user", return_value="site-grantor"):
+            with self.assertRaises(frappe.PermissionError):
+                app_roles._assert_grant_authority(app_roles.REGISTRY["inventory"], True, employee)
 
     def test_audit_keeps_role_changes_and_drops_secrets(self):
         fake = FakeFrappe()

@@ -63,6 +63,7 @@ watch(() => props.employeeId, () => load(), { immediate: true })
         </header>
         <p class="current">当前：{{ app.current.length ? app.current.join('、') : '无' }}</p>
         <a-alert v-if="!state.can_grant" type="info" show-icon :message="state.grant_requirement" />
+        <p class="envelope">范围包络：{{ state.scope_envelope ? `公司 ${state.scope_envelope.company}（来自 ${state.scope_envelope.source}）` : '无法证明唯一公司包络，页面不会允许授予' }}</p>
         <template v-if="editing === app.app_id">
           <a-alert type="warning" show-icon message="本轮登记角色均为 GLOBAL：进入仓储后按 Frappe 原生权限判断，不能在本页限定公司或仓库范围。" />
           <OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" />
@@ -102,6 +103,7 @@ watch(() => props.employeeId, () => load(), { immediate: true })
 .role-option,.acknowledge{display:grid;gap:4px;margin:8px 0}
 .role-option small{color:var(--hbos-text-secondary);font-size:14px}
 .role-option .warn{color:var(--hbos-warning-text,#a15c00)}
+.envelope{font-size:14px;color:var(--hbos-text-secondary)}
 .actions{display:flex;gap:12px}
 .preview{border:1px solid var(--hbos-border-strong);border-radius:10px;padding:16px}
 .preview h4{margin:0 0 8px}
