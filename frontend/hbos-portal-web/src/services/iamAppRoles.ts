@@ -24,6 +24,9 @@ export interface AppRoleState {
   version: string
   native_roles: string[]
   apps: AppRoleApp[]
+  is_grantor: boolean
+  can_grant: boolean
+  grant_requirement: string
 }
 export interface AppRolePreview {
   employee: string
@@ -42,7 +45,7 @@ export interface AppRolePreview {
 }
 const prefix = 'hbos_portal.api.iam_app_roles.'
 export const describeAppRoles = (employee_id: string) => iamQuery<AppRoleState>(prefix + 'describe', { employee_id })
-export const previewAppRoles = (employee_id: string, app_id: string, roles: string[], expected_version: string) =>
-  iamCommand<AppRolePreview>(prefix + 'preview', { employee_id, app_id, roles, expected_version })
-export const saveAppRoles = (employee_id: string, app_id: string, roles: string[], expected_version: string, context_revision: string, request_id: string) =>
-  iamCommand<AppRolePreview>(prefix + 'save', { employee_id, app_id, roles, expected_version, context_revision, request_id })
+export const previewAppRoles = (employee_id: string, app_id: string, roles: string[], expected_version: string, acknowledged_global_scope: boolean) =>
+  iamCommand<AppRolePreview>(prefix + 'preview', { employee_id, app_id, roles, expected_version, acknowledged_global_scope })
+export const saveAppRoles = (employee_id: string, app_id: string, roles: string[], expected_version: string, context_revision: string, request_id: string, acknowledged_global_scope: boolean) =>
+  iamCommand<AppRolePreview>(prefix + 'save', { employee_id, app_id, roles, expected_version, context_revision, request_id, acknowledged_global_scope })
