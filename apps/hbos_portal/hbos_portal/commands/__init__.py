@@ -61,6 +61,24 @@ def init_roles(context, companies, role_keys, actor, reason, apply):
     _run(context, callback)
 
 
+@click.command("native-role-grantor")
+@click.option("--user", "user", required=True, help="具名、非 Administrator 的站点级授权账号。")
+@click.option("--actor", required=True, help="本机操作者标识，写入审计。")
+@click.option("--reason", required=True, help="执行原因，写入审计。")
+@click.option("--revoke", is_flag=True, default=False, help="移除该账号的站点级授权人身份。")
+@click.option("--apply", is_flag=True, default=False, help="真正执行；不加时只输出预览计划。")
+@pass_context
+def native_role_grantor(context, user, actor, reason, revoke, apply):
+    """Add/remove a site-level grantor for GLOBAL native roles."""
+
+    def callback():
+        from hbos_portal.iam import role_init
+
+        return role_init.set_native_role_grantor(user, actor=actor, reason=reason, revoke=revoke, dry_run=not apply)
+
+    _run(context, callback)
+
+
 @click.command("delegate-admin")
 @click.option("--user", "user", required=True, help="具名、非 Administrator 的合成管理账号。")
 @click.option("--company", "company", required=True, help="该委派明确覆盖的一个公司。")
@@ -79,4 +97,4 @@ def delegate_admin(context, user, company, actor, reason, apply):
     _run(context, callback)
 
 
-commands = [init_roles, delegate_admin]
+commands = [init_roles, delegate_admin, native_role_grantor]

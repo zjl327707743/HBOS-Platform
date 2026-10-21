@@ -14,8 +14,13 @@ What this command does (and does not)
   Profiles, System Manager / HR Manager and other high-privilege roles are
   rejected by construction; there is no generic "set any role" API.
 * The operator needs ``iam.access.manage`` in the target employee's department
-  and company, must pass the real password proof required by the existing
-  command layer, and may not grant to their own account.
+  and company. Because every registered role is native-GLOBAL (it cannot be
+  bounded to a company/warehouse inside ERPNext), a page/API grant additionally
+  requires an explicitly designated site-level grantor and an explicit
+  ``acknowledged_global_scope`` confirmation. A restricted HR administrator can
+  never grant a GLOBAL role merely because they manage that employee.
+* The operator must pass the real password proof required by the existing
+  command layer and may not grant to their own account.
 * Only the registered roles are added/removed. Every other native role,
   account state and identity association is preserved.
 * The write happens inside ``guards.controlled_write()`` so ``guard_user()``
@@ -72,6 +77,44 @@ def _app(app_id: str) -> dict:
     if not app:
         _fail("应用未登记可授予的原生角色。")
     return app
+
+
+GRANTORS_KEY = "hbos_native_role_grantors"
+
+
+def _grantors() -> list[str]:
+    raw = frappe.conf.get(GRANTORS_KEY) or []
+    if isinstance(raw, str):
+        raw = [item.strip() for item in raw.split(",")]
+    if not isinstance(raw, (list, tuple)):
+        return []
+    return sorted({str(item).strip() for item in raw if str(item).strip()})
+
+
+def is_site_grantor(user: str | None = None) -> bool:
+    current = user or policy.get_current_user()
+    return bool(current) and current in _grantors()
+
+
+def _has_global_role(app: dict) -> bool:
+    return any(meta.get("native_scope") == "GLOBAL" for meta in app["roles"].values())
+
+
+def _assert_grant_authority(app: dict, acknowledged: bool):
+    """GLOBAL native roles cannot be bounded; only a site-level grantor may grant."""
+    if not _has_global_role(app):
+        return
+    if acknowledged is not True:
+        frappe.throw(
+            "该原生角色是 GLOBAL：无法限定在公司或仓库范围内。必须由站点级授权人显式确认后才能继续。",
+            frappe.PermissionError,
+        )
+    if not is_site_grantor():
+        frappe.throw(
+            "受限管理员不能授予 GLOBAL 原生角色：它覆盖本部门员工之外的公司/仓库数据。"
+            "请联系站点级授权人（hbos_native_role_grantors）处理。",
+            frappe.PermissionError,
+        )
 
 
 def _employee(employee_id: str) -> dict:
@@ -160,6 +203,9 @@ def describe(employee_id: str) -> dict:
         "version": _version(employee),
         "native_roles": sorted(native),
         "apps": apps,
+        "is_grantor": is_site_grantor(),
+        "can_grant": is_site_grantor(),
+        "grant_requirement": "本轮登记的原生角色均为 GLOBAL，不能按公司/仓库限定。页面仅在站点级授权人显式确认后允许授予；否则请使用受控运维流程。",
     }
 
 
@@ -182,10 +228,11 @@ def _normalize(app_id: str, roles) -> list[str]:
     return sorted(result)
 
 
-def _plan(employee_id: str, app_id: str, roles, expected_version: str) -> dict:
+def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowledged_global_scope: bool = False) -> dict:
     app = _app(app_id)
     employee = _employee(employee_id)
     _authorize(employee, write=True)
+    _assert_grant_authority(app, acknowledged_global_scope)
     target = _normalize(app_id, roles)
     user = policy.value(employee, "user_id")
     native = _native_roles(user)
@@ -224,14 +271,16 @@ def _plan(employee_id: str, app_id: str, roles, expected_version: str) -> dict:
     }
 
 
-def preview(employee_id: str, app_id: str, roles, expected_version: str) -> dict:
-    return _plan(employee_id, app_id, roles, expected_version)
+def preview(employee_id: str, app_id: str, roles, expected_version: str, acknowledged_global_scope: bool = False) -> dict:
+    return _plan(employee_id, app_id, roles, expected_version, acknowledged_global_scope)
 
 
-def save(employee_id: str, app_id: str, roles, expected_version: str, context_revision: str, request_id: str) -> dict:
+def save(employee_id: str, app_id: str, roles, expected_version: str, context_revision: str, request_id: str, acknowledged_global_scope: bool = False) -> dict:
     guards.require_post()
     if not isinstance(request_id, str) or not request_id:
         _fail("缺少请求编号。")
+    if acknowledged_global_scope not in (True, False):
+        _fail("确认字段格式无效。")
     app = _app(app_id)
     payload = {
         "employee": employee_id,
@@ -239,17 +288,21 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
         "roles": _normalize(app_id, roles),
         "expected_version": str(expected_version),
         "context_revision": str(context_revision or ""),
+        "acknowledged_global_scope": acknowledged_global_scope is True,
     }
-    replayed = audit.replay(request_id, "app_role.save", "Employee", employee_id, payload)
-    if replayed is not None:
-        return {**replayed, "replayed": True}
 
     from hbos_portal.iam.role_commands import _proof
 
     with serialize("iam-work", "site"):
+        # Authorization is a precondition of replay: a repeated request must not
+        # return historical success after the actor lost scope or grantor status.
         employee = _employee(employee_id)
         _authorize(employee, write=True)
-        plan = _plan(employee_id, app_id, roles, expected_version)
+        _assert_grant_authority(app, acknowledged_global_scope)
+        replayed = audit.replay(request_id, "app_role.save", "Employee", employee_id, payload)
+        if replayed is not None:
+            return {**replayed, "replayed": True}
+        plan = _plan(employee_id, app_id, roles, expected_version, acknowledged_global_scope)
         if not context_revision or context_revision != plan["context_revision"]:
             frappe.throw("预览内容已变化，请重新预览。", frappe.TimestampMismatchError)
         _proof(consume=True)
@@ -282,8 +335,8 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
                 employee_id,
                 payload,
                 before={"app_roles": plan["current"], "other_roles": plan["other_roles_preserved"]},
-                after=after,
+                after={**after, "acknowledged_global_scope": acknowledged_global_scope is True},
                 version=1,
-                reason="受控跨应用原生角色调整",
+                reason="受控跨应用原生角色调整（GLOBAL 范围已由站点级授权人确认）" if acknowledged_global_scope else "受控跨应用原生角色调整",
             )
     return {**plan, "changed": True, "after": plan["target"], "replayed": False}

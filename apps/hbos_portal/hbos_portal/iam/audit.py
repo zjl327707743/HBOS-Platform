@@ -23,6 +23,7 @@ SAFE_KEYS = {
     "suspended", "before", "after", "before_version", "after_version", "revision", "target", "linked", "created", "reused", "first_password_required",
     "temporary_password_state", "pending", "temporary", "expires_at", "generation", "can_claim", "following_changed", "personal_unchanged", "unavailable",
     "impact", "count", "request_id", "request_hash", "message", "code", "error", "success", "employee_status", "account_created", "policy_name", "summary", "replayed",
+    "app_roles", "other_roles", "roles", "added", "removed", "grantors", "acknowledged_global_scope",
 }
 SECRET_KEY = re.compile(r"password(?!_state)|token|proof|secret|cookie|authorization|(^|_)sid($|_)|checkin|attendance_records", re.I)
 

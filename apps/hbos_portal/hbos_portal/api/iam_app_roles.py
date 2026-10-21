@@ -47,18 +47,18 @@ def describe(employee_id, **kwargs):
 
 
 @frappe.whitelist(methods=["POST"])
-def preview(employee_id, app_id, roles, expected_version, **kwargs):
+def preview(employee_id, app_id, roles, expected_version, acknowledged_global_scope=False, **kwargs):
     def run():
-        _only(kwargs, ("employee_id", "app_id", "roles", "expected_version"))
-        return app_roles.preview(employee_id, app_id, roles, expected_version)
+        _only(kwargs, ("employee_id", "app_id", "roles", "expected_version", "acknowledged_global_scope"))
+        return app_roles.preview(employee_id, app_id, roles, expected_version, acknowledged_global_scope is True)
 
     return _call(run, read_only=True)
 
 
 @frappe.whitelist(methods=["POST"])
-def save(employee_id, app_id, roles, expected_version, context_revision, request_id, **kwargs):
+def save(employee_id, app_id, roles, expected_version, context_revision, request_id, acknowledged_global_scope=False, **kwargs):
     def run():
-        _only(kwargs, ("employee_id", "app_id", "roles", "expected_version", "context_revision", "request_id"))
-        return app_roles.save(employee_id, app_id, roles, expected_version, context_revision, request_id)
+        _only(kwargs, ("employee_id", "app_id", "roles", "expected_version", "context_revision", "request_id", "acknowledged_global_scope"))
+        return app_roles.save(employee_id, app_id, roles, expected_version, context_revision, request_id, acknowledged_global_scope is True)
 
     return _call(run)

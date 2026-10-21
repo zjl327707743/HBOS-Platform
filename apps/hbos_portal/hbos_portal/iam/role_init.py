@@ -22,6 +22,8 @@ of published content) and is safe to run again.
 """
 from __future__ import annotations
 
+import json
+import os
 import re
 
 import frappe
@@ -296,4 +298,84 @@ def delegate_admin(user: str, company: str, *, actor: str, reason: str, dry_run:
             )
             frappe.db.commit()
     plan.update(dry_run=False, changed=True, version=doc.version, added=len(missing), actor=actor)
+    return plan
+
+
+GRANTORS_KEY = "hbos_native_role_grantors"
+
+
+def _grantors() -> list[str]:
+    raw = frappe.conf.get(GRANTORS_KEY) or []
+    if isinstance(raw, str):
+        raw = [item.strip() for item in raw.split(",")]
+    if not isinstance(raw, (list, tuple)):
+        return []
+    return sorted({str(item).strip() for item in raw if str(item).strip()})
+
+
+def _write_site_config(values: dict) -> None:
+    path = frappe.get_site_path("site_config.json")
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(values, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    os.chmod(tmp, os.stat(path).st_mode & 0o777)
+    os.replace(tmp, path)
+
+
+def plan_native_role_grantor(user: str, *, revoke: bool = False) -> dict:
+    if not isinstance(user, str) or not user or user == "Administrator":
+        _fail("必须指定一个非 Administrator 的具名站点级授权账号。")
+    if not frappe.db.exists("User", user) or not frappe.db.get_value("User", user, "enabled"):
+        _fail("指定账号不存在或已停用。")
+    current = _grantors()
+    target = [item for item in current if item != user] if revoke else sorted(set(current) | {user})
+    return {
+        "site": frappe.local.site,
+        "operation": "native_role.grantor",
+        "dry_run": True,
+        "user": user,
+        "revoke": bool(revoke),
+        "before": current,
+        "after": target,
+        "changed": target != current,
+    }
+
+
+def set_native_role_grantor(user: str, *, actor: str, reason: str, revoke: bool = False, dry_run: bool = True) -> dict:
+    """Add/remove a named site-level grantor for GLOBAL native roles.
+
+    Site-level grantor status is deliberately separate from iam.access.manage:
+    a department/company manager must never gain authority over GLOBAL native
+    roles merely because they can manage an employee.
+    """
+    actor, reason = _validate_actor(actor, reason)
+    plan = plan_native_role_grantor(user, revoke=revoke)
+    if dry_run or not plan["changed"]:
+        plan.update(dry_run=True if dry_run else False, actor=actor)
+        return plan
+    path = frappe.get_site_path("site_config.json")
+    with open(path, encoding="utf-8") as handle:
+        config = json.load(handle)
+    before_file = dict(config)
+    config[GRANTORS_KEY] = plan["after"] or []
+    _write_site_config(config)
+    try:
+        audit.append_event(
+            f"cli-grantor-{frappe.utils.now_datetime().strftime('%Y%m%d%H%M%S')}-{frappe.generate_hash(length=6)}",
+            "native_role.grantor",
+            "User",
+            user,
+            {"site": frappe.local.site, "operator": actor, "revoke": bool(revoke), "after": plan["after"]},
+            before={"grantors": plan["before"]},
+            after={"grantors": plan["after"]},
+            version=1,
+            reason=f"{actor}: {reason}",
+        )
+        frappe.db.commit()
+    except Exception:
+        _write_site_config(before_file)
+        raise
+    frappe.conf[GRANTORS_KEY] = plan["after"]
+    plan.update(dry_run=False, actor=actor, changed=True)
     return plan
