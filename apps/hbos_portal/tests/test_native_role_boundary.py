@@ -12,9 +12,15 @@ import contextlib
 import unittest
 from unittest.mock import patch
 
-import frappe
-
 from hbos_portal.iam import app_roles, audit, policy
+
+
+class FakePermissionError(Exception):
+    pass
+
+
+class FakeValidationError(Exception):
+    pass
 
 
 class FakeDB:
@@ -28,12 +34,12 @@ class FakeDB:
 class FakeFrappe:
     def __init__(self, grantors=(), permissions=None):
         self.conf = {"hbos_native_role_grantors": list(grantors)}
-        self.PermissionError = frappe.PermissionError
-        self.ValidationError = frappe.ValidationError
+        self.PermissionError = FakePermissionError
+        self.ValidationError = FakeValidationError
         self.db = FakeDB(permissions)
 
     def throw(self, message, exc=None):
-        raise (exc or frappe.ValidationError)(message)
+        raise (exc or FakeValidationError)(message)
 
 
 class NativeRoleBoundaryTest(unittest.TestCase):
@@ -52,21 +58,21 @@ class NativeRoleBoundaryTest(unittest.TestCase):
         with patch.object(app_roles, "frappe", fake):
             self.assertEqual(app_roles._normalize("inventory", ["Stock User", "Stock User"]), ["Stock User"])
             for bad in (["Stock Manager"], ["System Manager"], ["Unknown"], "not-json"):
-                with self.subTest(bad=bad), self.assertRaises(frappe.ValidationError):
+                with self.subTest(bad=bad), self.assertRaises(FakeValidationError):
                     app_roles._normalize("inventory", bad)
 
     def test_restricted_admin_cannot_grant_global_role(self):
         fake = FakeFrappe()
         app = app_roles.REGISTRY["inventory"]
         with patch.object(app_roles, "frappe", fake), patch.object(policy, "get_current_user", return_value="hr-admin"):
-            with self.assertRaises(frappe.PermissionError):
+            with self.assertRaises(FakePermissionError):
                 app_roles._assert_grant_authority(app, True)
 
     def test_no_acknowledgement_is_refused_even_for_grantor(self):
         fake = FakeFrappe(grantors=["site-grantor"])
         app = app_roles.REGISTRY["inventory"]
         with patch.object(app_roles, "frappe", fake), patch.object(policy, "get_current_user", return_value="site-grantor"):
-            with self.assertRaises(frappe.PermissionError):
+            with self.assertRaises(FakePermissionError):
                 app_roles._assert_grant_authority(app, False)
 
     def test_site_grantor_with_acknowledgement_passes(self):
@@ -88,7 +94,7 @@ class NativeRoleBoundaryTest(unittest.TestCase):
         employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active"}
         fake = FakeFrappe(grantors=["site-grantor"], permissions=[])
         with patch.object(app_roles, "frappe", fake), patch.object(policy, "get_current_user", return_value="site-grantor"):
-            with self.assertRaises(frappe.PermissionError):
+            with self.assertRaises(FakePermissionError):
                 app_roles._assert_grant_authority(app_roles.REGISTRY["inventory"], True, employee)
 
     def test_audit_keeps_role_changes_and_drops_secrets(self):
@@ -119,9 +125,9 @@ class NativeRoleBoundaryTest(unittest.TestCase):
         with patch.object(app_roles, "frappe", fake), patch.object(app_roles.guards, "require_post"), \
              patch.object(app_roles, "serialize", lambda *a, **k: contextlib.nullcontext()), \
              patch.object(app_roles, "_employee", return_value=employee), \
-             patch.object(app_roles, "_authorize", side_effect=frappe.PermissionError("no scope")), \
+             patch.object(app_roles, "_authorize", side_effect=FakePermissionError("no scope")), \
              patch.object(app_roles.audit, "replay") as replay:
-            with self.assertRaises(frappe.PermissionError):
+            with self.assertRaises(FakePermissionError):
                 app_roles.save("E1", "inventory", ["Stock User"], "v1", "ctx", "req-12345678", True)
             replay.assert_not_called()
 
@@ -134,7 +140,7 @@ class NativeRoleBoundaryTest(unittest.TestCase):
              patch.object(app_roles, "_authorize"), \
              patch.object(app_roles.audit, "replay") as replay, \
              patch.object(policy, "get_current_user", return_value="former-grantor"):
-            with self.assertRaises(frappe.PermissionError):
+            with self.assertRaises(FakePermissionError):
                 app_roles.save("E1", "inventory", ["Stock User"], "v1", "ctx", "req-87654321", True)
             replay.assert_not_called()
 
