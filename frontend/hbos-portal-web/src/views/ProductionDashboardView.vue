@@ -90,7 +90,7 @@
 
       <div class="pb-cols">
         <!-- 当月生产累计完成情况 -->
-        <section class="pb-panel">
+        <section class="pb-panel pb-col-main">
           <div class="pb-sec-head">
             <i /><h2>当月生产累计完成情况</h2>
             <span class="pb-note">{{ board.month }} · 在产 {{ board.rows.length }} 个产品</span>
@@ -627,8 +627,16 @@ watch(isCenter, (now) => {
 .pb-kpi-fn { margin-top: 10px; font-size: 11px; line-height: 1.5; color: var(--hbos-text-muted); }
 .pb-kpi-fn-gap { margin-top: 14px; }
 
-.pb-cols { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); gap: 16px; align-items: start; }
-.pb-stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* 两栏**底部对齐**：`stretch` 让两个 grid item 等高（行高 = 较高那栏）。
+   里面再各自长到 100%，否则面板还是按内容收缩、底边参差不齐（截图踩到过）。 */
+.pb-cols { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); gap: 16px; align-items: stretch; }
+/* 左栏是**单块面板**：撑满后把脚注压到底 —— 空白留在表格与脚注之间，
+   看起来像「面板本来就这么高」，而不是底部缺一块。 */
+.pb-col-main { display: flex; flex-direction: column; }
+.pb-col-main .pb-foot-note { margin-top: auto; }
+.pb-stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; height: 100%; }
+/* 右栏**最后一块**吃掉剩余高度 —— 两块面板各自等高不会让底边对齐。 */
+.pb-stack > :last-child { flex: 1 1 auto; }
 
 .pb-sec-head { display: flex; align-items: center; gap: 10px; padding: 20px 24px 14px; }
 .pb-sec-head i { width: 3px; height: 14px; border-radius: 2px; background: linear-gradient(90deg,#6c63ff,#42b9d1); }
