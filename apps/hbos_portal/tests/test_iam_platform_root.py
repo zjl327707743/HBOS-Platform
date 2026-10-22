@@ -123,6 +123,17 @@ class CapabilityAggregationTest(unittest.TestCase):
         self.assertTrue(self._can_manage("employee", "iam.people.read", rules, permitted))
         self.assertEqual(visited, ["D1"])
 
+    def test_unregistered_app_is_not_manageable_even_through_the_iam_delegation(self):
+        with patch.object(guards, "frappe", FakeFrappe()), \
+             patch.object(policy, "get_current_user", return_value="Administrator"), \
+             patch.object(policy, "enabled_flag", return_value=True), \
+             patch.object(policy, "registration", side_effect=lambda app, op: None if app != "iam" else object()):
+            # A non-integrated app is reachable through the explicit platform
+            # delegation on the IAM app, exactly like _permitted().
+            self.assertTrue(guards.can_manage_any("iam.access.read", app_id="inventory", departments=DEPARTMENTS))
+            # An operation registered nowhere must never be manageable.
+            self.assertFalse(guards.can_manage_any("iam.unregistered.operation", app_id="inventory", departments=DEPARTMENTS))
+
     def test_platform_root_keeps_authority_before_the_first_department_exists(self):
         # A fresh site has no Department rows yet; the root must still be able to
         # initialize IAM instead of being locked out by an empty target set.

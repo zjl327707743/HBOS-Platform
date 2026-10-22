@@ -114,9 +114,11 @@ def can_manage_any(operation_id, app_id="iam", departments=None) -> bool:
     user = policy.get_current_user()
     if not policy.enabled_flag("hbos_iam_enabled") or operation_id not in policy.MANAGEMENT:
         return False
-    # The root shortcut must not skip registration: a non-integrated app has no
-    # registered operation and cannot actually be managed.
-    if not policy.registration(app_id, operation_id):
+    # The root shortcut must not skip registration: an app with no registered
+    # operation cannot be managed. A non-IAM app is reachable through the
+    # explicit platform delegation on the IAM app, exactly like _permitted().
+    routable = [app_id] if app_id == "iam" else [app_id, "iam"]
+    if not any(policy.registration(app, operation_id) for app in routable):
         return False
     rows = departments if departments is not None else site_departments()
     # platform_root() re-resolves the session user; the caller already did it.
