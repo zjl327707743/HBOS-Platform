@@ -238,3 +238,17 @@ it('drops the retained request id when a conflict reload re-syncs the editor', a
   expect(first).not.toBe(second)
   wrapper.unmount()
 })
+
+it('keeps the draft when a retryable read conflict is returned', async () => {
+  api.preview.mockRejectedValueOnce(Object.assign(new Error('暂时冲突'), { status: 409, code: 'READ_CONFLICT' }))
+  const wrapper = mountPanel()
+  await flushPromises()
+  await click(wrapper, '调整原生角色')
+  await checkbox(wrapper, 0).setValue(true)
+  await checkbox(wrapper, 1).setValue(true)
+  await click(wrapper, '预览变更')
+  // The selection survives a retryable conflict, so the operator can retry.
+  expect((wrapper.findAll('input[type="checkbox"]')[0]!.element as HTMLInputElement).checked).toBe(true)
+  expect(wrapper.text()).not.toContain('未保存选择已作废')
+  wrapper.unmount()
+})

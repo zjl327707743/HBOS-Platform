@@ -166,13 +166,14 @@ const metrics = computed(() => {
   // A value outside [0,100] is a backend anomaly (its capacity basis can make a
   // heavily absent range negative), not a healthy 0%/100%: show it as not
   // measurable instead of normalising it into a misleading success figure.
-  const rate: number | null = rawRate === null || rawRate < 0 || rawRate > 100 ? null : rawRate
+  const rateAnomaly = rawRate !== null && (rawRate < 0 || rawRate > 100)
+  const rate: number | null = rawRate === null || rateAnomaly ? null : rawRate
   return [
     { id: 'late', label: '迟到', value: d.total_late, color: C_WARNING, hint: '人次' },
     { id: 'early', label: '早退', value: d.total_early, color: C_TEXT, hint: '人次' },
     { id: 'absent', label: '缺勤', value: d.total_absent, color: C_CRITICAL, hint: '人天' },
     { id: 'people', label: '异常人员', value: d.anomaly_people, color: C_TEXT, hint: '人' },
-    { id: 'rate', label: '出勤率', value: rate === null ? '—' : `${rate}%`, color: rate === null ? C_TEXT : C_SUCCESS, hint: rate === null ? '当前区间暂无数据' : '区间内' },
+    { id: 'rate', label: '出勤率', value: rate === null ? '—' : `${rate}%`, color: rate === null ? C_TEXT : C_SUCCESS, hint: rate === null ? (rateAnomaly ? '数据异常，暂不可计算' : '当前区间暂无数据') : '区间内' },
     { id: 'total', label: '总人数', value: d.total_employees, color: C_TEXT, hint: '在职' },
   ]
 })

@@ -257,7 +257,9 @@ def on_native_user_update(doc, method=None):
     approved_write = frappe.flags.get('hbos_iam_native_role_authority') == (doc.name, frozenset(new_roles))
     if not approved_write:
         old_roles = {row.role for row in before.get('roles', [])}
-        if new_roles - old_roles - {'Employee'}:
+        # 'Employee Self Service' is added by the native Employee hook and is
+        # tolerated by people._check_side_effects on the same controlled paths.
+        if new_roles - old_roles - {'Employee', 'Employee Self Service'}:
             reject('原生保存产生非预期角色变化，未授予后台权限。', 409)
     updates = {}
     if doc.user_type != 'Website User':

@@ -98,7 +98,8 @@ async function prepare() {
   } catch (e) {
     actionError.value = iamMessage(e); preview.value = null
     const conflict = e as { status?: number; code?: string }
-    if (conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')) {
+    const retryable = conflict.code === 'READ_CONFLICT' || /正在完成另一项管理操作|稍后重试/.test(String((e as Error)?.message || ''))
+    if (conflict.status === 409 && !retryable) {
       // The preview context can only be rebuilt from a fresh read; the retained
       // request id no longer matches the new payload anyway.
       requestId.value = ''
@@ -118,23 +119,25 @@ async function commit() {
     await saveAppRoles(props.employeeId, editing.value, selected.value, preview.value.version, preview.value.context_revision, requestId.value, needsAck() ? acknowledged.value : false)
     proof.invalidate(); editing.value = null; selected.value = []; preview.value = null; acknowledged.value = false; requestId.value = ''
     message.success('应用角色已保存，其他应用权限和账号状态保持不变。')
-    // The drawer owns the refresh (@saved -> load); reloading here too would
-    // issue a duplicated describe and flash the drawer skeleton.
-    emit('saved')
+    // Reload the panel's own read model so `current`/`version` are fresh even if
+    // the parent keeps this mounted; emit for the drawer's own refresh.
+    await load(); emit('saved')
   } catch (e) {
     const conflict = e as { status?: number; code?: string }
-    const isConflict = conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')
-    const inconclusive = !isConflict && (!conflict.status || conflict.status >= 500 || ['NETWORK_ERROR', 'SERVICE_ERROR', 'RATE_LIMITED'].includes(conflict.code || ''))
-    actionError.value = isConflict
-      ? iamMessage(e)
-      : inconclusive ? `${iamMessage(e)}（结果尚未确认：可直接重试“确认保存”，会复用同一请求编号以免重复授权。）` : iamMessage(e)
-    if (inconclusive) {
-      // Keep preview + id so an identical retry can be collapsed by the server.
+    // A retryable 409 (contention / read conflict) is not a stale intent: keep
+    // the draft. Only a real version/preview mismatch invalidates the selection.
+    const retryable = conflict.code === 'READ_CONFLICT' || /正在完成另一项管理操作|稍后重试/.test(String((e as Error)?.message || ''))
+    const stale = conflict.status === 409 && !retryable && !conflict.code || ['VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')
+    const inconclusive = !stale && !retryable && (!conflict.status || conflict.status >= 500 || ['NETWORK_ERROR', 'SERVICE_ERROR', 'RATE_LIMITED'].includes(conflict.code || ''))
+    actionError.value = inconclusive
+      ? `${iamMessage(e)}（结果尚未确认：请重新验证本人密码后再次预览并提交，同一请求编号会被复用以免重复授权。）`
+      : iamMessage(e)
+    if (inconclusive || retryable) {
+      // Keep preview + id: an identical retry can be collapsed by the server.
+      if (inconclusive) proof.invalidate()
     } else {
       preview.value = null; requestId.value = ''
-      // Keep the editor and the chosen roles; a version/context conflict can
-      // only be cleared by re-reading describe().
-      if (isConflict) await load({ resync: true })
+      if (stale) await load({ resync: true })
     }
   } finally { busy.value = false }
 }

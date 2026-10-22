@@ -208,15 +208,26 @@ def _current_app_roles(app: dict, native: list[str]) -> list[str]:
 
 
 def _coarse_gate(write: bool):
-    """Refuse a caller with no IAM scope before any target row is read.
+    """Refuse a caller with no IAM delegation at all before any target row read.
 
-    Cheap pruned probe (no site-wide department scan); it keeps the endpoints
-    from becoming an employee-existence oracle for sessions that have no IAM
-    delegation at all.
+    This is only an oracle shield, never the authorization decision: a caller
+    holding any COMPANY/ALL delegation for the operation passes through and the
+    authoritative target check in _authorize() still decides. It deliberately
+    fails open for such callers so a company-scoped manager is not denied when
+    the target has no Department row.
     """
     operation = "iam.access.manage" if write else "iam.access.read"
-    if not guards.can_manage_any(operation, app_id="iam"):
-        frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
+    if guards.can_manage_any(operation, app_id="iam"):
+        return
+    own, _ = policy._rules("User", policy.get_current_user(), lock=False)
+    if any(
+        policy.value(row, "effect") == "allow"
+        and policy.value(row, "operation_id") in {operation, "app.enter"}
+        and policy.value(row, "scope_type") in {"COMPANY", "ALL"}
+        for row in own
+    ):
+        return
+    frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
 
 
 def _authorize(employee: dict, *, write: bool):
@@ -302,9 +313,10 @@ def _normalize(app_id: str, roles) -> list[str]:
     return sorted(result)
 
 
-def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowledged_global_scope: bool = False) -> dict:
+def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowledged_global_scope: bool = False, *, gate: bool = True) -> dict:
     app = _app(app_id)
-    _coarse_gate(write=True)
+    if gate:
+        _coarse_gate(write=True)
     employee = _employee(employee_id)
     _authorize(employee, write=True)
     target = _normalize(app_id, roles)
@@ -388,7 +400,7 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
         replayed = audit.replay(request_id, "app_role.save", "Employee", employee_id, payload)
         if replayed is not None:
             return {**replayed, "replayed": True}
-        plan = _plan(employee_id, app_id, roles, expected_version, acknowledged_global_scope)
+        plan = _plan(employee_id, app_id, roles, expected_version, acknowledged_global_scope, gate=False)
         if not context_revision or context_revision != plan["context_revision"]:
             frappe.throw("预览内容已变化，请重新预览。", frappe.TimestampMismatchError)
         _proof(consume=True)
