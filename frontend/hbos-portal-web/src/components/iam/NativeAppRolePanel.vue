@@ -43,9 +43,12 @@ const needsAck = () => {
 const ackText = () => {
   const app = editingApp()
   const global = (app?.roles || []).filter(role => role.native_scope === 'GLOBAL').map(role => role.role)
-  return `我确认本次授权涉及 ${global.join('、')} 等 GLOBAL 原生角色范围：它们无法按公司/仓库限制；本次授予由站点级授权人显式承担范围风险。`
+  const granted = selectedGrants().filter(role => role.native_scope === 'GLOBAL').map(role => role.role)
+  return granted.length
+    ? `我确认 ${granted.join('、')} 为 GLOBAL 原生角色，无法按公司/仓库限制；本次授予由站点级授权人显式承担范围风险。`
+    : `我知悉该应用登记了 ${global.join('、')} 等 GLOBAL 原生角色（无法按公司/仓库限制）；本次新增角色随该应用一并生效，范围风险由站点级授权人显式承担。`
 }
-async function load() {
+async function load(options: { resync?: boolean } = {}) {
   const run = ++generation
   loading.value = true; loadError.value = ''
   try {
@@ -54,12 +57,13 @@ async function load() {
     state.value = next
     const edited = next.apps.find(app => app.app_id === editing.value)
     if (editing.value && !edited) cancel()
-    else if (edited) {
-      // A refresh invalidates a selection captured against the previous
-      // current/version (the 409 recovery path calls load()). Re-sync instead of
-      // keeping a stale intent that silently becomes a removal.
+    else if (edited && options.resync) {
+      // Only a conflict reload invalidates the intent: the selection was captured
+      // against the previous current/version, and keeping it would silently turn
+      // a concurrent grant into a removal. A plain retry keeps the draft.
       selected.value = [...edited.current]; preview.value = null
       acknowledged.value = false; requestId.value = ''
+      actionError.value = '已重新读取最新角色状态，此前的未保存选择已作废，请重新勾选并预览。'
     }
   } catch (e) {
     // Keep the last good state (and the open editor) for rendering; surface the
@@ -98,7 +102,7 @@ async function prepare() {
       // The preview context can only be rebuilt from a fresh read; the retained
       // request id no longer matches the new payload anyway.
       requestId.value = ''
-      await load()
+      await load({ resync: true })
     }
   } finally { busy.value = false }
 }
@@ -114,13 +118,24 @@ async function commit() {
     await saveAppRoles(props.employeeId, editing.value, selected.value, preview.value.version, preview.value.context_revision, requestId.value, needsAck() ? acknowledged.value : false)
     proof.invalidate(); editing.value = null; selected.value = []; preview.value = null; acknowledged.value = false; requestId.value = ''
     message.success('应用角色已保存，其他应用权限和账号状态保持不变。')
-    await load(); emit('saved')
+    // The drawer owns the refresh (@saved -> load); reloading here too would
+    // issue a duplicated describe and flash the drawer skeleton.
+    emit('saved')
   } catch (e) {
-    // Keep the editor and the chosen roles; a version/context conflict can only
-    // be cleared by re-reading describe().
-    actionError.value = iamMessage(e); preview.value = null
     const conflict = e as { status?: number; code?: string }
-    if (conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')) { requestId.value = ''; await load() }
+    const isConflict = conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')
+    const inconclusive = !isConflict && (!conflict.status || conflict.status >= 500 || ['NETWORK_ERROR', 'SERVICE_ERROR', 'RATE_LIMITED'].includes(conflict.code || ''))
+    actionError.value = isConflict
+      ? iamMessage(e)
+      : inconclusive ? `${iamMessage(e)}（结果尚未确认：可直接重试“确认保存”，会复用同一请求编号以免重复授权。）` : iamMessage(e)
+    if (inconclusive) {
+      // Keep preview + id so an identical retry can be collapsed by the server.
+    } else {
+      preview.value = null; requestId.value = ''
+      // Keep the editor and the chosen roles; a version/context conflict can
+      // only be cleared by re-reading describe().
+      if (isConflict) await load({ resync: true })
+    }
   } finally { busy.value = false }
 }
 function dirty () {

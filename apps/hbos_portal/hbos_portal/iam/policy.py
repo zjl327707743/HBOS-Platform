@@ -465,7 +465,7 @@ def effective_work(subject_type, subject_name, app_id, policy_overrides=None, em
             pass
     suspended = any(r["app_id"] == app_id and r["operation_id"] == "app.enter" and r["effect"] == "deny" and r["scope_type"] == "ALL" and r["scope_ref"] == "*" and active(r, now) for r in suspension_rules)
     ordinary_ids = {op["id"] for op in app["operations"] if op["ordinary"] and op["integrated"]} if app else set()
-    return {"subject_type": subject_type, "subject_name": subject_name, "app_id": app_id, "version": value(doc, "version", 0), "context_revision": _target_context(subject_type, subject_name, app_id), "operations": operations, "suspended": suspended, 'role_summary': role_summary, "permission_mode": ("personal" if role_assignment['source_mode'] == 'direct' else "department") if role_assignment is not None else "personal" if subject_type == "Department" or any(r["app_id"] == app_id and r["operation_id"] in ordinary_ids for r in rules) else "department"}
+    return {"subject_type": subject_type, "subject_name": subject_name, "app_id": app_id, "version": value(doc, "version", 0), "context_revision": _target_context(subject_type, subject_name, app_id, lock=lock), "operations": operations, "suspended": suspended, 'role_summary': role_summary, "permission_mode": ("personal" if role_assignment['source_mode'] == 'direct' else "department") if role_assignment is not None else "personal" if subject_type == "Department" or any(r["app_id"] == app_id and r["operation_id"] in ordinary_ids for r in rules) else "department"}
 
 
 def preview_effective_work(subject_type, subject_name, app_id, rules):

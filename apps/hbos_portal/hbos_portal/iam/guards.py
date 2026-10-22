@@ -44,6 +44,22 @@ def require_post():
 
 
 @contextmanager
+def native_role_authority(user, roles):
+    """Request-local authority to change exactly these roles on this user.
+
+    A bare "some controlled write is running" flag would let any command that
+    saves a User doc borrow the role bypass. The tuple binds the exemption to
+    the target and to the final role set the command itself verified.
+    """
+    previous = frappe.flags.get("hbos_iam_native_role_authority")
+    frappe.flags.hbos_iam_native_role_authority = (user, frozenset(roles))
+    try:
+        yield
+    finally:
+        frappe.flags.hbos_iam_native_role_authority = previous
+
+
+@contextmanager
 def controlled_write():
     """Internal request-local authority; document flags or API payloads cannot set it."""
     previous = frappe.flags.get("hbos_iam_write_depth", 0)

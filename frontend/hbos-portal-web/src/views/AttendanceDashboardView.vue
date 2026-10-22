@@ -163,7 +163,10 @@ const metrics = computed(() => {
   // heavily absent range can even return a negative value: clamp to [0, 100] so
   // an out-of-range backend result cannot be rendered in success-green.
   const rawRate = typeof d.attendance_rate === 'number' && Number.isFinite(d.attendance_rate) ? d.attendance_rate : null
-  const rate: number | null = rawRate === null ? null : Math.min(100, Math.max(0, rawRate))
+  // A value outside [0,100] is a backend anomaly (its capacity basis can make a
+  // heavily absent range negative), not a healthy 0%/100%: show it as not
+  // measurable instead of normalising it into a misleading success figure.
+  const rate: number | null = rawRate === null || rawRate < 0 || rawRate > 100 ? null : rawRate
   return [
     { id: 'late', label: '迟到', value: d.total_late, color: C_WARNING, hint: '人次' },
     { id: 'early', label: '早退', value: d.total_early, color: C_TEXT, hint: '人次' },

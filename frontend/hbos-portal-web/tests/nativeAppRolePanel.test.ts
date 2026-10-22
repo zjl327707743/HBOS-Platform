@@ -103,7 +103,9 @@ it('keeps the editor after a 409 conflict and never reports success', async () =
   await click(wrapper, '预览变更')
   await click(wrapper, '确认保存')
   expect(api.save).toHaveBeenCalledTimes(1)
-  expect(wrapper.text()).toContain('草稿已保留')
+  // A conflict reload re-syncs the editor with the fresh server state and says so;
+  // the old selection is intentionally discarded rather than silently kept.
+  expect(wrapper.text()).toContain('未保存选择已作废')
   expect(wrapper.text()).toContain('仓储库存')
   expect(wrapper.find('.session-recovery').exists()).toBe(false)
   expect(wrapper.findAll('button').some(row => row.text() === '确认保存')).toBe(false)
@@ -188,5 +190,51 @@ it('does not offer editing on the operator own employee record', async () => {
   await flushPromises()
   expect(wrapper.text()).toContain('不能为自己的账号调整原生角色')
   expect(wrapper.findAll('button').some(row => row.text() === '调整原生角色')).toBe(false)
+  wrapper.unmount()
+})
+
+it('requires the acknowledgement when granting a scoped role into an app that registers a GLOBAL role', async () => {
+  api.describe.mockResolvedValue({
+    ...state(),
+    apps: [{
+      ...state().apps[0],
+      current: [],
+      roles: [
+        { role: 'Stock User', title: '仓储经办', native_scope: 'GLOBAL', risk: 'medium', summary: 'g', permissions_note: 'g' },
+        { role: 'Stock Viewer', title: '库存只读', native_scope: 'SCOPED', risk: 'low', summary: 's', permissions_note: 's' },
+      ],
+    }],
+  })
+  api.preview.mockResolvedValue({ ...preview(), add: ['Stock Viewer'], target: ['Stock Viewer'] })
+  const wrapper = mountPanel()
+  await flushPromises()
+  await click(wrapper, '调整原生角色')
+  await checkbox(wrapper, 1).setValue(true) // the scoped role only
+  const prepare = wrapper.findAll('button').find(row => row.text() === '预览变更')!
+  expect(prepare.attributes('disabled')).toBeDefined()
+  await checkbox(wrapper, 2).setValue(true) // acknowledgement
+  await click(wrapper, '预览变更')
+  expect(api.preview).toHaveBeenCalledWith('E1', 'inventory', ['Stock Viewer'], 'v1', true)
+  wrapper.unmount()
+})
+
+it('drops the retained request id when a conflict reload re-syncs the editor', async () => {
+  api.save.mockRejectedValueOnce(Object.assign(new Error('conflict'), { status: 409 })).mockResolvedValueOnce(preview())
+  const wrapper = mountPanel()
+  await flushPromises()
+  await click(wrapper, '调整原生角色')
+  await checkbox(wrapper, 0).setValue(true)
+  await checkbox(wrapper, 1).setValue(true)
+  await click(wrapper, '预览变更')
+  await click(wrapper, '确认保存')
+  // After the resync the editor is back to the server state; a fresh grant must
+  // use a new request id instead of replaying the rejected payload basis.
+  await checkbox(wrapper, 0).setValue(true)
+  await checkbox(wrapper, 1).setValue(true)
+  await click(wrapper, '预览变更')
+  await click(wrapper, '确认保存')
+  const first = api.save.mock.calls[0]![5]
+  const second = api.save.mock.calls[1]![5]
+  expect(first).not.toBe(second)
   wrapper.unmount()
 })

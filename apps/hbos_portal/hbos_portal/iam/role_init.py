@@ -392,7 +392,7 @@ def set_native_role_grantor(user: str, *, actor: str, reason: str, revoke: bool 
         current = sorted({str(item).strip() for item in raw if str(item).strip()})
         target = [item for item in current if item != user] if revoke else sorted(set(current) | {user})
         if target == current:
-            plan.update(dry_run=False, actor=actor, changed=False, after=current)
+            plan.update(dry_run=False, actor=actor, changed=False, before=current, after=current)
             return plan
         before_file = dict(config)
         plan["before"], plan["after"] = current, target

@@ -250,10 +250,13 @@ def on_native_user_update(doc, method=None):
     # A reviewed IAM command (guards.controlled_write) may change exactly the
     # roles it authorized and audited; Desk/REST/Employee-save paths never set
     # this request-local flag. The type/enable constraints below still apply.
-    approved_write = bool(frappe.flags.get('hbos_iam_write_depth', 0))
+    new_roles = {row.role for row in doc.get('roles', [])}
+    # The exemption is bound to the exact target and final role set that an
+    # approved IAM command verified; a request-wide "some write is running" flag
+    # must not let unrelated commands borrow the bypass.
+    approved_write = frappe.flags.get('hbos_iam_native_role_authority') == (doc.name, frozenset(new_roles))
     if not approved_write:
         old_roles = {row.role for row in before.get('roles', [])}
-        new_roles = {row.role for row in doc.get('roles', [])}
         if new_roles - old_roles - {'Employee'}:
             reject('原生保存产生非预期角色变化，未授予后台权限。', 409)
     updates = {}

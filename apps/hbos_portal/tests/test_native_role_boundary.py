@@ -142,7 +142,7 @@ class NativeRoleBoundaryTest(unittest.TestCase):
         with patch.object(app_roles, "frappe", fake), patch.object(app_roles.guards, "require_post"), \
              patch.object(app_roles, "serialize", lambda *a, **k: contextlib.nullcontext()), \
              patch.object(app_roles, "_employee", return_value=employee), \
-             patch.object(app_roles, "_authorize", side_effect=FakePermissionError("no scope")), \
+             patch.object(app_roles, "_coarse_gate"), patch.object(app_roles, "_authorize", side_effect=FakePermissionError("no scope")), \
              patch.object(app_roles.audit, "replay") as replay:
             with self.assertRaises(FakePermissionError):
                 app_roles.save("E1", "inventory", ["Stock User"], "v1", "ctx", "req-12345678", True)
@@ -154,7 +154,7 @@ class NativeRoleBoundaryTest(unittest.TestCase):
         with patch.object(app_roles, "frappe", fake), patch.object(app_roles.guards, "require_post"), \
              patch.object(app_roles, "serialize", lambda *a, **k: contextlib.nullcontext()), \
              patch.object(app_roles, "_employee", return_value=employee), \
-             patch.object(app_roles, "_authorize"), \
+             patch.object(app_roles, "_coarse_gate"), patch.object(app_roles, "_authorize"), \
              patch.object(app_roles.audit, "replay") as replay, \
              patch.object(policy, "get_current_user", return_value="former-grantor"):
             with self.assertRaises(FakePermissionError):
@@ -180,6 +180,7 @@ class NativeRoleBoundaryTest(unittest.TestCase):
     def test_company_envelope_is_a_grant_condition_not_a_revocation_gate(self):
         employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active"}
         with patch.object(app_roles, "frappe", FakeFrappe()), \
+             patch.object(app_roles, "_coarse_gate"), \
              patch.object(app_roles, "_employee", return_value=employee), \
              patch.object(app_roles, "_authorize"), \
              patch.object(app_roles, "is_site_grantor", return_value=True), \
@@ -227,12 +228,23 @@ class NativeRoleBoundaryTest(unittest.TestCase):
             with self.assertRaises(FakeValidationError):
                 people.on_native_user_update(after)
             self.assertEqual(fake.local.response.get("http_status_code"), 409)
+            # A bare write-depth flag is NOT enough: the exemption is bound to
+            # the target user and the exact final role set.
             fake.flags["hbos_iam_write_depth"] = 1
+            with self.assertRaises(FakeValidationError):
+                people.on_native_user_update(after)
+            fake.flags["hbos_iam_native_role_authority"] = (after.name, frozenset({"Stock User", "Employee"}))
             people.on_native_user_update(after)
+            # A different (wider) role set than the one the command verified is
+            # rejected again even inside a controlled write.
+            fake.flags["hbos_iam_native_role_authority"] = (after.name, frozenset({"Employee"}))
+            with self.assertRaises(FakeValidationError):
+                people.on_native_user_update(after)
 
-    def test_save_uses_the_approved_controlled_write_for_the_user_update(self):
+    def test_save_binds_the_native_role_authority_to_the_verified_role_set(self):
         source = inspect.getsource(app_roles.save)
         self.assertIn("guards.controlled_write()", source)
+        self.assertIn("guards.native_role_authority(user, after_roles)", source)
         self.assertNotIn("ignore_permissions=False", source)
 
 
@@ -242,7 +254,7 @@ class NativeRoleBoundaryTest(unittest.TestCase):
         with patch.object(app_roles, "frappe", fake), patch.object(app_roles.guards, "require_post"), \
              patch.object(app_roles, "serialize", lambda *a, **k: contextlib.nullcontext()), \
              patch.object(app_roles, "_employee", return_value=employee), \
-             patch.object(app_roles, "_authorize"), \
+             patch.object(app_roles, "_coarse_gate"), patch.object(app_roles, "_authorize"), \
              patch.object(policy, "get_current_user", return_value="site-grantor"), \
              patch.object(app_roles.audit, "replay", return_value={"changed": True, "after": ["Stock User"]}) as replay:
             result = app_roles.save("E1", "inventory", ["Stock User"], "v1", "ctx", "req-abcdefgh", True)

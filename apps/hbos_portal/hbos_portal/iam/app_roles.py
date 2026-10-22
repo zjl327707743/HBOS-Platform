@@ -207,11 +207,20 @@ def _current_app_roles(app: dict, native: list[str]) -> list[str]:
     return [role for role in _app_roles(app) if role in set(native)]
 
 
+def _coarse_gate(write: bool):
+    """Refuse a caller with no IAM scope before any target row is read.
+
+    Cheap pruned probe (no site-wide department scan); it keeps the endpoints
+    from becoming an employee-existence oracle for sessions that have no IAM
+    delegation at all.
+    """
+    operation = "iam.access.manage" if write else "iam.access.read"
+    if not guards.can_manage_any(operation, app_id="iam"):
+        frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
+
+
 def _authorize(employee: dict, *, write: bool):
     operation = "iam.access.manage" if write else "iam.access.read"
-    # Coarse gate first: a caller with no IAM management scope is refused before
-    # the target row is interpreted any further.
-    guards.require_capability(operation, app_id="iam")
     try:
         guards.require_capability(
             operation,
@@ -240,6 +249,7 @@ def _digest(payload: dict) -> str:
 
 
 def describe(employee_id: str) -> dict:
+    _coarse_gate(write=False)
     employee = _employee(employee_id, lock=False)
     _authorize(employee, write=False)
     native = _native_roles(policy.value(employee, "user_id"), lock=False)
@@ -294,6 +304,7 @@ def _normalize(app_id: str, roles) -> list[str]:
 
 def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowledged_global_scope: bool = False) -> dict:
     app = _app(app_id)
+    _coarse_gate(write=True)
     employee = _employee(employee_id)
     _authorize(employee, write=True)
     target = _normalize(app_id, roles)
@@ -369,6 +380,7 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
     with serialize("iam-work", "site"):
         # Authorization is a precondition of replay: a repeated request must not
         # return historical success after the actor lost scope or grantor status.
+        _coarse_gate(write=True)
         employee = _employee(employee_id)
         _authorize(employee, write=True)
         if _additions(employee, app_id, payload["roles"]):
@@ -392,6 +404,7 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
         keep = [{"role": row.role} for row in user_doc.roles if row.role not in set(plan["remove"])]
         added = [{"role": role} for role in plan["add"] if role not in current]
         user_doc.set("roles", keep + added)
+        after_roles = {row["role"] for row in keep + added}
         # The native User save runs in its own savepoint: if any later step of
         # this command fails (native hook, audit, replay), the role change must
         # not survive as a silent partial grant. A rejected grant that still
@@ -404,7 +417,7 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
             # User on_update hook honour it; without it, every grant to a
             # managed Website User is rejected as an unexpected native role
             # change (HTTP 409).
-            with guards.controlled_write():
+            with guards.controlled_write(), guards.native_role_authority(user, after_roles):
                 user_doc.save(ignore_permissions=True)
                 persisted = set(_native_roles(user))
                 if persisted != set(plan["target"]) | set(plan["other_roles_preserved"]):

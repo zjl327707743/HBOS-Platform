@@ -42,11 +42,13 @@ it('keeps a real 0% distinguishable from an unmeasurable rate', async () => {
   wrapper.unmount()
 })
 
-it('clamps an out-of-range backend rate instead of rendering a negative success value', async () => {
-  api.fetch.mockResolvedValue({ ...base, attendance_rate: -16.7 })
-  const wrapper = mountView()
-  await flushPromises()
-  expect(wrapper.text()).not.toContain('-16.7%')
-  expect(wrapper.text()).toContain('0%')
-  wrapper.unmount()
+it('treats an out-of-range backend rate as not measurable instead of a healthy figure', async () => {
+  for (const value of [-16.7, 101]) {
+    api.fetch.mockResolvedValue({ ...base, attendance_rate: value })
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain(`${value}%`)
+    expect(wrapper.text()).toContain('—')
+    wrapper.unmount()
+  }
 })
