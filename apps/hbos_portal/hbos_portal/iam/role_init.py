@@ -22,14 +22,17 @@ of published content) and is safe to run again.
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
+from contextlib import contextmanager
 
 import frappe
 
 from hbos_portal.auth.onboarding import serialize
 from hbos_portal.iam import audit, guards, policy, role_access as roles
+from hbos_portal.iam.app_roles import GRANTORS_KEY, grantors as _site_grantors
 
 TARGET_ROLES = ("staff", "clerk", "admin")
 ACTOR_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.@:-]{2,139}")
@@ -170,6 +173,8 @@ def initialize(companies, role_keys=TARGET_ROLES, *, actor: str, reason: str, dr
                         "draft_version": role.draft_version,
                         "published_release": role.published_release or "",
                         "companies": sorted(set(companies)),
+                        "operator": actor,
+                        "site": frappe.local.site,
                     },
                     version=role.draft_version,
                     reason=f"{actor}: {reason}",
@@ -292,7 +297,7 @@ def delegate_admin(user: str, company: str, *, actor: str, reason: str, dry_run:
                 user,
                 {"site": frappe.local.site, "company": company, "operator": actor, "added": len(missing)},
                 before={"rules": len(before)},
-                after={"policy": doc.name, "version": doc.version, "rules": len(doc.rules), "company": company},
+                after={"policy": doc.name, "version": doc.version, "rules": len(doc.rules), "company": company, "operator": actor, "site": frappe.local.site},
                 version=doc.version,
                 reason=f"{actor}: {reason}",
             )
@@ -301,20 +306,29 @@ def delegate_admin(user: str, company: str, *, actor: str, reason: str, dry_run:
     return plan
 
 
-GRANTORS_KEY = "hbos_native_role_grantors"
-
-
 def _grantors() -> list[str]:
-    raw = frappe.conf.get(GRANTORS_KEY) or []
-    if isinstance(raw, str):
-        raw = [item.strip() for item in raw.split(",")]
-    if not isinstance(raw, (list, tuple)):
-        return []
-    return sorted({str(item).strip() for item in raw if str(item).strip()})
+    # Shared parser with the runtime authorization check in iam.app_roles.
+    return _site_grantors()
 
 
-def _write_site_config(values: dict) -> None:
+@contextmanager
+def _site_config_lock():
+    """Serialize read-modify-write of site_config.json across CLI runs.
+
+    Two concurrent operators would otherwise each read the old file and the
+    second ``os.replace`` would silently drop the first grantor change.
+    """
     path = frappe.get_site_path("site_config.json")
+    with open(path + ".lock", "a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield path
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _write_site_config(values: dict, path: str | None = None) -> None:
+    path = path or frappe.get_site_path("site_config.json")
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(values, handle, ensure_ascii=False, indent=2)
@@ -354,28 +368,39 @@ def set_native_role_grantor(user: str, *, actor: str, reason: str, revoke: bool 
     if dry_run or not plan["changed"]:
         plan.update(dry_run=True if dry_run else False, actor=actor)
         return plan
-    path = frappe.get_site_path("site_config.json")
-    with open(path, encoding="utf-8") as handle:
-        config = json.load(handle)
-    before_file = dict(config)
-    config[GRANTORS_KEY] = plan["after"] or []
-    _write_site_config(config)
-    try:
-        audit.append_event(
-            f"cli-grantor-{frappe.utils.now_datetime().strftime('%Y%m%d%H%M%S')}-{frappe.generate_hash(length=6)}",
-            "native_role.grantor",
-            "User",
-            user,
-            {"site": frappe.local.site, "operator": actor, "revoke": bool(revoke), "after": plan["after"]},
-            before={"grantors": plan["before"]},
-            after={"grantors": plan["after"]},
-            version=1,
-            reason=f"{actor}: {reason}",
-        )
-        frappe.db.commit()
-    except Exception:
-        _write_site_config(before_file)
-        raise
+    with _site_config_lock() as path:
+        with open(path, encoding="utf-8") as handle:
+            config = json.load(handle)
+        # Re-read under the lock so a concurrent writer cannot be overwritten.
+        current = _grantors()
+        target = [item for item in current if item != user] if revoke else sorted(set(current) | {user})
+        if target == current:
+            plan.update(dry_run=False, actor=actor, changed=False, after=current)
+            return plan
+        before_file = dict(config)
+        plan["before"], plan["after"] = current, target
+        config[GRANTORS_KEY] = target
+        try:
+            # The audit row is inserted before the file is replaced, so an
+            # active grantor can never exist without a matching record; a file
+            # failure rolls the row back with the transaction.
+            audit.append_event(
+                f"cli-grantor-{frappe.utils.now_datetime().strftime('%Y%m%d%H%M%S')}-{frappe.generate_hash(length=6)}",
+                "native_role.grantor",
+                "User",
+                user,
+                {"site": frappe.local.site, "operator": actor, "revoke": bool(revoke), "after": target},
+                before={"grantors": current},
+                after={"grantors": target, "operator": actor, "site": frappe.local.site, "revoke": bool(revoke)},
+                version=1,
+                reason=f"{actor}: {reason}",
+            )
+            _write_site_config(config, path)
+            frappe.db.commit()
+        except Exception:
+            _write_site_config(before_file, path)
+            frappe.db.rollback()
+            raise
     frappe.conf[GRANTORS_KEY] = plan["after"]
     plan.update(dry_run=False, actor=actor, changed=True)
     return plan

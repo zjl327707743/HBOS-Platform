@@ -9,10 +9,18 @@ current authorization checks.
 from __future__ import annotations
 
 import contextlib
+import inspect
+import sys
+import types
 import unittest
 from unittest.mock import patch
 
-from hbos_portal.iam import app_roles, audit, policy
+# Same lightweight module stub the other database-free suites install, so this
+# file can also run on its own.
+sys.modules.setdefault("frappe", types.SimpleNamespace(whitelist=lambda **kw: lambda fn: fn))
+sys.modules.setdefault("frappe.rate_limiter", types.SimpleNamespace(rate_limit=lambda **kw: lambda fn: fn))
+
+from hbos_portal.iam import app_roles, audit, people, policy
 
 
 class FakePermissionError(Exception):
@@ -143,6 +151,81 @@ class NativeRoleBoundaryTest(unittest.TestCase):
             with self.assertRaises(FakePermissionError):
                 app_roles.save("E1", "inventory", ["Stock User"], "v1", "ctx", "req-87654321", True)
             replay.assert_not_called()
+
+    def test_audit_keeps_cli_company_scope_policy_and_operator(self):
+        """The most privileged events must not lose what they changed."""
+        value = {
+            "companies": ["UAT-测试公司"],
+            "published_release": "rel-1",
+            "policy": "HBOS IAM Policy/abc",
+            "operator": "local-operator",
+            "site": "owner-uat.localhost",
+            "revoke": False,
+            "dry_run": False,
+            "grantors": ["grantor@example.invalid"],
+        }
+        with patch.object(audit, "frappe", FakeFrappe()):
+            snapshot = audit.safe_snapshot(value)
+        self.assertEqual(snapshot, value)
+
+    def test_company_envelope_is_a_grant_condition_not_a_revocation_gate(self):
+        employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active"}
+        with patch.object(app_roles, "frappe", FakeFrappe()), \
+             patch.object(app_roles, "_employee", return_value=employee), \
+             patch.object(app_roles, "_authorize"), \
+             patch.object(app_roles, "is_site_grantor", return_value=True), \
+             patch.object(app_roles, "_native_roles", side_effect=[["Stock User", "Employee"], ["Employee"]]), \
+             patch.object(app_roles, "_version", return_value="v1"), \
+             patch.object(app_roles, "company_envelope", return_value=None):
+            # Revocation must stay possible even when the company envelope is
+            # no longer provable; that is exactly when it is most urgent.
+            plan = app_roles._plan("E1", "inventory", [], "v1", False)
+            self.assertEqual(plan["remove"], ["Stock User"])
+            self.assertEqual(plan["add"], [])
+            with self.assertRaises(FakePermissionError):
+                app_roles._plan("E1", "inventory", ["Stock User"], "v1", True)
+
+    def test_managed_website_user_grant_needs_the_approved_controlled_write(self):
+        """The on_update hook rejects native role additions outside an approved write."""
+        class Role:
+            def __init__(self, role): self.role = role
+
+        class UserDoc:
+            def __init__(self, roles, user_type="Website User", enabled=True, before=None):
+                self.name = "managed@example.invalid"
+                self.roles = [Role(role) for role in roles]
+                self.user_type = user_type
+                self.enabled = enabled
+                self._before = before
+                self.changes = {}
+
+            def get_doc_before_save(self): return self._before
+            def get(self, key, default=None): return getattr(self, key, default)
+
+        class FakePeopleFrappe(FakeFrappe):
+            def __init__(self):
+                super().__init__()
+                self.conf = {"hbos_iam_enabled": 1}
+                self.flags = {}
+                self.local = type("Local", (), {"response": {}})()
+                self.db = type("DB", (), {"set_value": lambda *a, **k: None})()
+                self.clear_cache = lambda **kwargs: None
+
+        before = UserDoc(["Employee"])
+        after = UserDoc(["Employee", "Stock User"], before=before)
+        fake = FakePeopleFrappe()
+        with patch.object(people, "frappe", fake), patch.object(people.guards, "_managed_user", return_value=True):
+            with self.assertRaises(FakeValidationError):
+                people.on_native_user_update(after)
+            self.assertEqual(fake.local.response.get("http_status_code"), 409)
+            fake.flags["hbos_iam_write_depth"] = 1
+            people.on_native_user_update(after)
+
+    def test_save_uses_the_approved_controlled_write_for_the_user_update(self):
+        source = inspect.getsource(app_roles.save)
+        self.assertIn("guards.controlled_write()", source)
+        self.assertNotIn("ignore_permissions=False", source)
+
 
     def test_replay_runs_after_authorization_when_scope_still_valid(self):
         employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active", "modified": "v1"}

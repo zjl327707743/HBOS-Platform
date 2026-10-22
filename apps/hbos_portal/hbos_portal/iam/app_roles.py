@@ -37,7 +37,6 @@ import json
 
 import frappe
 
-from hbos_portal.auth import accounts
 from hbos_portal.auth.onboarding import serialize
 from hbos_portal.iam import audit, guards, policy
 
@@ -82,13 +81,23 @@ def _app(app_id: str) -> dict:
 GRANTORS_KEY = "hbos_native_role_grantors"
 
 
-def _grantors() -> list[str]:
+def grantors() -> list[str]:
+    """Single source of truth for the site-level GLOBAL grantor list.
+
+    The CLI writer in ``role_init`` imports this function; a divergent parser
+    would either grant authority nobody can audit or silently ignore a
+    configured grantor.
+    """
     raw = frappe.conf.get(GRANTORS_KEY) or []
     if isinstance(raw, str):
         raw = [item.strip() for item in raw.split(",")]
     if not isinstance(raw, (list, tuple)):
         return []
     return sorted({str(item).strip() for item in raw if str(item).strip()})
+
+
+def _grantors() -> list[str]:
+    return grantors()
 
 
 def is_site_grantor(user: str | None = None) -> bool:
@@ -163,6 +172,13 @@ def _employee(employee_id: str) -> dict:
     if not policy.value(employee, "user_id"):
         _fail("员工尚未开通账号，不能授予原生应用角色。")
     return employee
+
+
+def _additions(employee: dict, app_id: str, roles) -> list[str]:
+    app = _app(app_id)
+    target = _normalize(app_id, roles)
+    current = _current_app_roles(app, _native_roles(policy.value(employee, "user_id")))
+    return sorted(set(target) - set(current))
 
 
 def _native_roles(user: str) -> list[str]:
@@ -262,13 +278,17 @@ def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowled
     app = _app(app_id)
     employee = _employee(employee_id)
     _authorize(employee, write=True)
-    _assert_grant_authority(app, acknowledged_global_scope, employee)
     target = _normalize(app_id, roles)
     user = policy.value(employee, "user_id")
     native = _native_roles(user)
     current = _current_app_roles(app, native)
     add = sorted(set(target) - set(current))
     remove = sorted(set(current) - set(target))
+    # The company-envelope precondition is a *grant* condition. Applying it to
+    # a removal would make a GLOBAL role impossible to revoke exactly when the
+    # target's Company User Permission changed and revocation is most urgent.
+    if add:
+        _assert_grant_authority(app, acknowledged_global_scope, employee)
     version = _version(employee)
     if str(expected_version) != version:
         frappe.throw("员工资料或账号已变化，请重新读取后再预览。", frappe.TimestampMismatchError)
@@ -329,7 +349,8 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
         # return historical success after the actor lost scope or grantor status.
         employee = _employee(employee_id)
         _authorize(employee, write=True)
-        _assert_grant_authority(app, acknowledged_global_scope, employee)
+        if _additions(employee, app_id, payload["roles"]):
+            _assert_grant_authority(app, acknowledged_global_scope, employee)
         replayed = audit.replay(request_id, "app_role.save", "Employee", employee_id, payload)
         if replayed is not None:
             return {**replayed, "replayed": True}
@@ -349,6 +370,10 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
         keep = [{"role": row.role} for row in user_doc.roles if row.role not in set(plan["remove"])]
         added = [{"role": role} for role in plan["add"] if role not in current]
         user_doc.set("roles", keep + added)
+        # controlled_write() is the single request-local authority for an
+        # approved IAM command. Both guard_user() (before_validate) and the User
+        # on_update hook honour it; without it, every grant to a managed Website
+        # User is rejected as an unexpected native role change (HTTP 409).
         with guards.controlled_write():
             user_doc.save(ignore_permissions=True)
             after = {
