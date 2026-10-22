@@ -166,7 +166,11 @@ const metrics = computed(() => {
     { id: 'early', label: '早退', value: d.total_early, color: C_TEXT, hint: '人次' },
     { id: 'absent', label: '缺勤', value: d.total_absent, color: C_CRITICAL, hint: '人天' },
     { id: 'people', label: '异常人员', value: d.anomaly_people, color: C_TEXT, hint: '人' },
-    { id: 'rate', label: '出勤率', value: rate === null ? '暂无可计算数据' : `${rate}%`, color: C_SUCCESS, hint: rate === null ? '区间内无应出勤' : '区间内' },
+    // `null` means "not measurable in this range" (no schedule rows or no
+    // attendance rows), not "0%" and not necessarily "no scheduled workdays".
+    // Use a short neutral placeholder: a long sentence in a 30px card wraps and
+    // breaks the metric row, and success-green would read as "target met".
+    { id: 'rate', label: '出勤率', value: rate === null ? '—' : `${rate}%`, color: rate === null ? C_TEXT : C_SUCCESS, hint: rate === null ? '当前区间暂无数据' : '区间内' },
     { id: 'total', label: '总人数', value: d.total_employees, color: C_TEXT, hint: '在职' },
   ]
 })

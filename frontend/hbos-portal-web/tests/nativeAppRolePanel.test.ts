@@ -73,18 +73,21 @@ it('never submits without an acknowledged, freshly previewed change', async () =
   const wrapper = mountPanel()
   await flushPromises()
   await click(wrapper, '调整原生角色')
+  // Selecting a GLOBAL role is a grant: it must not be previewable until the
+  // operator has acknowledged the unscoped native authority.
+  await checkbox(wrapper, 0).setValue(true)
   const prepare = await click(wrapper, '预览变更')
   expect(api.preview).not.toHaveBeenCalled()
   expect(prepare.attributes('disabled')).toBeDefined()
 
   await checkbox(wrapper, 1).setValue(true)
   await click(wrapper, '预览变更')
-  expect(api.preview).toHaveBeenCalledWith('E1', 'inventory', [], 'v1', true)
+  expect(api.preview).toHaveBeenCalledWith('E1', 'inventory', ['Stock User'], 'v1', true)
   expect(wrapper.text()).toContain('保存后的差异')
 
   // Changing the selected role after a preview must invalidate it, otherwise
   // the commit would carry an unpreviewed role set with a stale revision.
-  await checkbox(wrapper, 0).setValue(true)
+  await checkbox(wrapper, 0).setValue(false)
   expect(wrapper.text()).not.toContain('保存后的差异')
   expect(api.save).not.toHaveBeenCalled()
   wrapper.unmount()
@@ -137,5 +140,42 @@ it('reuses one request id across retries of the same edit intent', async () => {
   await click(wrapper, '确认保存')
   expect(api.save).toHaveBeenCalledTimes(2)
   expect(api.save.mock.calls[0]![5]).toBe(api.save.mock.calls[1]![5])
+  wrapper.unmount()
+})
+
+it('keeps an existing GLOBAL role revocable without grantor rights or envelope', async () => {
+  api.describe.mockResolvedValue({
+    ...state(),
+    can_grant: false,
+    is_grantor: false,
+    scope_envelope: null,
+    apps: [{ ...state().apps[0], current: ['Stock User'] }],
+  })
+  api.preview.mockResolvedValue({ ...preview(), add: [], remove: ['Stock User'], target: [], changed: true })
+  const wrapper = mountPanel()
+  await flushPromises()
+  // Removing a role must stay reachable exactly when the envelope is gone —
+  // otherwise a privilege could no longer be taken away through the portal.
+  const edit = wrapper.findAll('button').find(row => row.text() === '调整原生角色')
+  expect(edit).toBeDefined()
+  await edit!.trigger('click'); await flushPromises()
+  await click(wrapper, '预览变更')
+  expect(api.preview).toHaveBeenCalledWith('E1', 'inventory', ['Stock User'], 'v1', false)
+  wrapper.unmount()
+})
+
+it('does not require a GLOBAL acknowledgement when no GLOBAL role is being granted', async () => {
+  api.describe.mockResolvedValue({
+    ...state(),
+    apps: [{ ...state().apps[0], current: ['Stock User'], roles: [{ ...state().apps[0].roles[0], native_scope: 'SCOPED' }] }],
+  })
+  api.preview.mockResolvedValue({ ...preview(), add: [], remove: ['Stock User'], target: [], changed: true })
+  const wrapper = mountPanel()
+  await flushPromises()
+  await click(wrapper, '调整原生角色')
+  await checkbox(wrapper, 0).setValue(false)
+  await click(wrapper, '预览变更')
+  expect(api.preview).toHaveBeenCalledWith('E1', 'inventory', [], 'v1', false)
+  expect(wrapper.text()).not.toContain('我确认 Stock User 为 GLOBAL')
   wrapper.unmount()
 })

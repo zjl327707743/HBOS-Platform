@@ -8,8 +8,8 @@ import { useAccountProof } from '@/composables/useAccountProof'
 const props = defineProps<{ employeeId: string }>()
 const emit = defineEmits<{ saved: [] }>()
 const state = ref<AppRoleState | null>(null), loading = ref(true), busy = ref(false)
-// A failed read must not replace an open editor, and a failed preview/save must
-// not replace the whole panel: keep the two failure surfaces separate.
+// A failed read must not destroy an open editor; a failed preview/save must not
+// replace the whole panel. Keep the two failure surfaces separate.
 const loadError = ref(''), actionError = ref('')
 const editing = ref<string | null>(null), selected = ref<string[]>([]), preview = ref<AppRolePreview | null>(null)
 const acknowledged = ref(false)
@@ -17,8 +17,25 @@ const proof = useAccountProof(() => { preview.value = null })
 // One request id per edit intent: a retry after a timeout must be replayable.
 const requestId = ref('')
 let generation = 0
-const canEdit = () => canIam('iam.access.manage') && state.value?.can_grant === true && Boolean(state.value?.scope_envelope)
+const canManage = () => canIam('iam.access.manage')
+const canGrant = () => state.value?.can_grant === true && Boolean(state.value?.scope_envelope)
+/** Grant needs an explicit grantor + proven envelope; revocation never does. */
+const canEdit = (app: AppRoleApp) => canManage() && (canGrant() || app.current.length > 0)
 const passwordProof = () => proof.valid.value && proof.method.value === 'password'
+const editingApp = () => state.value?.apps.find(app => app.app_id === editing.value) || null
+const selectedGrants = () => {
+  const app = editingApp()
+  if (!app) return []
+  return app.roles.filter(role => selected.value.includes(role.role) && !app.current.includes(role.role))
+}
+/** The acknowledgement is only true for roles that are actually GLOBAL. */
+const needsAck = () => selectedGrants().some(role => role.native_scope === 'GLOBAL')
+const ackText = () => {
+  const global = selectedGrants().filter(role => role.native_scope === 'GLOBAL').map(role => role.role)
+  return global.length
+    ? `我确认 ${global.join('、')} 为 GLOBAL 原生角色，无法按公司/仓库限制；本次授予由站点级授权人显式承担范围风险。`
+    : '本次仅调整已登记的原生角色，不涉及 GLOBAL 范围授予。'
+}
 async function load() {
   const run = ++generation
   loading.value = true; loadError.value = ''
@@ -27,8 +44,11 @@ async function load() {
     if (run !== generation) return
     state.value = next
     if (editing.value && !next.apps.some(app => app.app_id === editing.value)) cancel()
-  } catch (e) { if (run === generation) { state.value = null; loadError.value = iamMessage(e) } }
-  finally { if (run === generation) loading.value = false }
+  } catch (e) {
+    // Keep the last good state (and the open editor) for rendering; surface the
+    // failure without pretending the editor is still based on fresh data.
+    if (run === generation) loadError.value = iamMessage(e)
+  } finally { if (run === generation) loading.value = false }
 }
 function start(app: AppRoleApp) {
   editing.value = app.app_id; selected.value = [...app.current]; preview.value = null
@@ -40,45 +60,50 @@ function cancel() {
 }
 function toggleRole(role: string) {
   selected.value = selected.value.includes(role) ? selected.value.filter(item => item !== role) : [...selected.value, role]
-  // The preview context is computed for an exact role set; keeping it would
-  // submit an unpreviewed change with a stale context_revision.
-  preview.value = null; actionError.value = ''
+  // A different role set is a different intent: drop the stale preview and the
+  // idempotency key, otherwise a replay of the previous payload is rejected.
+  preview.value = null; requestId.value = ''; actionError.value = ''
+  if (!needsAck()) acknowledged.value = false
 }
 async function prepare() {
-  if (busy.value || !state.value || !editing.value || !acknowledged.value) return
+  if (busy.value || !state.value || !editing.value) return
+  if (needsAck() && !acknowledged.value) { actionError.value = '授予 GLOBAL 原生角色前，需要显式确认范围风险。'; return }
   busy.value = true; actionError.value = ''
   try {
-    preview.value = await previewAppRoles(props.employeeId, editing.value, selected.value, state.value.version, acknowledged.value)
+    preview.value = await previewAppRoles(props.employeeId, editing.value, selected.value, state.value.version, needsAck() ? acknowledged.value : false)
     if (!preview.value.changed) actionError.value = '所选角色与当前一致，无需保存。'
   } catch (e) { actionError.value = iamMessage(e); preview.value = null }
   finally { busy.value = false }
 }
 async function commit() {
-  if (busy.value || !state.value || !editing.value || !preview.value || !acknowledged.value) return
+  if (busy.value || !state.value || !editing.value || !preview.value) return
+  if (needsAck() && !acknowledged.value) { actionError.value = '授予 GLOBAL 原生角色前，需要显式确认范围风险。'; return }
   if (!passwordProof()) { actionError.value = '保存需要本人数密码验证（飞书验证不能替代），请在上方重新验证。'; return }
   busy.value = true; actionError.value = ''
   try {
     requestId.value ||= crypto.randomUUID()
-    await saveAppRoles(props.employeeId, editing.value, selected.value, state.value.version, preview.value.context_revision, requestId.value, acknowledged.value)
+    // The preview is the authoritative read: use its version, not the one read
+    // when the drawer opened.
+    await saveAppRoles(props.employeeId, editing.value, selected.value, preview.value.version, preview.value.context_revision, requestId.value, needsAck() ? acknowledged.value : false)
     proof.invalidate(); editing.value = null; selected.value = []; preview.value = null; acknowledged.value = false; requestId.value = ''
     message.success('应用角色已保存，其他应用权限和账号状态保持不变。')
     await load(); emit('saved')
   } catch (e) {
-    // Keep the editor and the chosen roles so the operator can re-preview
-    // instead of being dropped back to the read state.
+    // Keep the editor and the chosen roles; a version/context conflict can only
+    // be cleared by re-reading describe().
     actionError.value = iamMessage(e); preview.value = null
+    const conflict = e as { status?: number; code?: string }
+    if (conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')) await load()
   } finally { busy.value = false }
 }
 watch(() => props.employeeId, () => { cancel(); void load() }, { immediate: true })
 </script>
 <template>
   <section class="native-app-roles">
-    <a-skeleton v-if="loading" active />
-    <template v-else-if="loadError">
-      <a-alert :message="loadError" type="warning" show-icon />
-      <a-button :disabled="busy" @click="load()">重新读取</a-button>
-    </template>
-    <template v-else-if="state">
+    <a-alert v-if="loadError" class="load-error" type="warning" show-icon :message="loadError" />
+    <a-button v-if="loadError" :disabled="busy" @click="load()">重新读取</a-button>
+    <a-skeleton v-if="loading && !state" active />
+    <template v-if="state">
       <p class="aux">这里只调整已登记的跨应用原生角色；考勤角色、账号状态和其他应用授权不受影响。</p>
       <article v-for="app in state.apps" :key="app.app_id" class="app-role-card">
         <header>
@@ -86,10 +111,10 @@ watch(() => props.employeeId, () => { cancel(); void load() }, { immediate: true
             <h3>{{ app.title }} <a-tag>{{ app.app_id }}</a-tag></h3>
             <p>{{ app.scope_note }}</p>
           </div>
-          <a-button v-if="canEdit() && editing !== app.app_id" :disabled="busy" @click="start(app)">调整原生角色</a-button>
+          <a-button v-if="canEdit(app) && editing !== app.app_id" :disabled="busy" @click="start(app)">调整原生角色</a-button>
         </header>
         <p class="current">当前：{{ app.current.length ? app.current.join('、') : '无' }}</p>
-        <a-alert v-if="!state.can_grant || !state.scope_envelope" type="info" show-icon :message="state.scope_envelope ? state.grant_requirement : '当前员工没有唯一、可核验的公司范围包络（Company User Permission），本轮不能授予 GLOBAL 原生角色。'" />
+        <a-alert v-if="!state.can_grant || !state.scope_envelope" type="info" show-icon :message="state.scope_envelope ? state.grant_requirement : '当前员工没有唯一、可核验的公司范围包络（Company User Permission）；可以撤销既有角色，但不能新增 GLOBAL 原生角色。'" />
         <p class="envelope">范围包络：{{ state.scope_envelope ? `公司 ${state.scope_envelope.company}（来自 ${state.scope_envelope.source}）` : '未取得唯一公司包络' }}</p>
         <template v-if="editing === app.app_id">
           <a-alert v-if="app.roles.some(role => role.native_scope === 'GLOBAL')" type="warning" show-icon message="本轮登记角色均为 GLOBAL：进入仓储后按 Frappe 原生权限判断，不能在本页限定公司或仓库范围。" />
@@ -101,21 +126,21 @@ watch(() => props.employeeId, () => { cancel(); void load() }, { immediate: true
             <small>{{ role.summary }}</small>
             <small class="warn">原生范围：{{ role.native_scope }}。{{ role.permissions_note }}</small>
           </div>
-          <div class="acknowledge">
-            <a-checkbox v-model:checked="acknowledged" :disabled="busy">我确认该原生角色为 GLOBAL，无法按公司/仓库限制；本次授予由站点级授权人显式承担范围风险。</a-checkbox>
+          <div v-if="needsAck()" class="acknowledge">
+            <a-checkbox v-model:checked="acknowledged" :disabled="busy">{{ ackText() }}</a-checkbox>
           </div>
           <details v-if="app.blocked.length"><summary>本轮不开放的角色</summary><p v-for="row in app.blocked" :key="row.role">{{ row.role }}：{{ row.reason }}</p></details>
           <a-alert v-if="actionError" class="action-error" type="warning" show-icon :message="actionError" />
           <div class="actions">
             <a-button :disabled="busy" @click="cancel">取消</a-button>
-            <a-button type="primary" :loading="busy" :disabled="busy || !acknowledged" @click="prepare">预览变更</a-button>
+            <a-button type="primary" :loading="busy" :disabled="busy || (needsAck() && !acknowledged)" @click="prepare">预览变更</a-button>
           </div>
           <section v-if="preview" class="preview" aria-live="polite">
             <h4>保存后的差异</h4>
             <p>新增：{{ preview.add.length ? preview.add.join('、') : '无' }}；撤销：{{ preview.remove.length ? preview.remove.join('、') : '无' }}；保留其他角色 {{ preview.other_roles_preserved.length }} 项。</p>
             <p>{{ preview.scope_note }}</p>
             <a-button :disabled="busy" @click="preview = null">返回修改</a-button>
-            <a-button type="primary" :loading="busy" :disabled="!passwordProof() || !preview.changed || !acknowledged" @click="commit">确认保存</a-button>
+            <a-button type="primary" :loading="busy" :disabled="!passwordProof() || !preview.changed || (needsAck() && !acknowledged)" @click="commit">确认保存</a-button>
             <p v-if="!passwordProof()" class="aux">保存需要本人数密码验证；飞书验证不能替代。</p>
           </section>
         </template>
@@ -125,6 +150,7 @@ watch(() => props.employeeId, () => { cancel(); void load() }, { immediate: true
 </template>
 <style scoped>
 .native-app-roles{display:grid;gap:16px;font-size:16px}
+.load-error{margin-bottom:4px}
 .app-role-card{border:1px solid var(--hbos-border-subtle);border-radius:12px;padding:16px;display:grid;gap:12px}
 .app-role-card header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
 .app-role-card h3{margin:0 0 6px;font-size:16px}
