@@ -370,29 +370,43 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
         keep = [{"role": row.role} for row in user_doc.roles if row.role not in set(plan["remove"])]
         added = [{"role": role} for role in plan["add"] if role not in current]
         user_doc.set("roles", keep + added)
-        # controlled_write() is the single request-local authority for an
-        # approved IAM command. Both guard_user() (before_validate) and the User
-        # on_update hook honour it; without it, every grant to a managed Website
-        # User is rejected as an unexpected native role change (HTTP 409).
-        with guards.controlled_write():
-            user_doc.save(ignore_permissions=True)
-            after = {
-                "employee": employee_id,
-                "user": user,
-                "app_id": app_id,
-                "roles": plan["target"],
-                "added": plan["add"],
-                "removed": plan["remove"],
-            }
-            audit.append_event(
-                request_id,
-                "app_role.save",
-                "Employee",
-                employee_id,
-                payload,
-                before={"app_roles": plan["current"], "other_roles": plan["other_roles_preserved"]},
-                after={**after, "acknowledged_global_scope": acknowledged_global_scope is True},
-                version=1,
-                reason="受控跨应用原生角色调整（GLOBAL 范围已由站点级授权人确认）" if acknowledged_global_scope else "受控跨应用原生角色调整",
-            )
+        # The native User save runs in its own savepoint: if any later step of
+        # this command fails (native hook, audit, replay), the role change must
+        # not survive as a silent partial grant. A rejected grant that still
+        # writes is a privilege change without an audit record.
+        savepoint = "hbos_app_role_write"
+        frappe.db.savepoint(savepoint)
+        try:
+            # controlled_write() is the single request-local authority for an
+            # approved IAM command. Both guard_user() (before_validate) and the
+            # User on_update hook honour it; without it, every grant to a
+            # managed Website User is rejected as an unexpected native role
+            # change (HTTP 409).
+            with guards.controlled_write():
+                user_doc.save(ignore_permissions=True)
+                persisted = set(_native_roles(user))
+                if persisted != set(plan["target"]) | set(plan["other_roles_preserved"]):
+                    frappe.throw("原生角色保存结果与预览不一致，本次未生效，请重新读取。", frappe.ValidationError)
+                after = {
+                    "employee": employee_id,
+                    "user": user,
+                    "app_id": app_id,
+                    "roles": plan["target"],
+                    "added": plan["add"],
+                    "removed": plan["remove"],
+                }
+                audit.append_event(
+                    request_id,
+                    "app_role.save",
+                    "Employee",
+                    employee_id,
+                    payload,
+                    before={"app_roles": plan["current"], "other_roles": plan["other_roles_preserved"]},
+                    after={**after, "acknowledged_global_scope": acknowledged_global_scope is True},
+                    version=1,
+                    reason="受控跨应用原生角色调整（GLOBAL 范围已由站点级授权人确认）" if acknowledged_global_scope else "受控跨应用原生角色调整",
+                )
+        except Exception:
+            frappe.db.rollback(save_point=savepoint)
+            raise
     return {**plan, "changed": True, "after": plan["target"], "replayed": False}
