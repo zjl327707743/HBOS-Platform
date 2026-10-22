@@ -9,7 +9,7 @@ export interface AttendanceDashboardData {
   total_absent: number
   anomaly_people: number
   total_employees: number
-  attendance_rate: number
+  attendance_rate: number | null
   daily_avg_late: number
   date_range: string
   top_late_names: string[]

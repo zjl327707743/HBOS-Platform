@@ -158,12 +158,15 @@ const C_TEXT = 'var(--hbos-text-primary)'
 const metrics = computed(() => {
   const d = data.value
   if (!d) return []
+  // A null rate means "no scheduled workdays in range", not "0%". Rendering
+  // `null%` looks like a broken metric and is not a statistic.
+  const rate: number | null = typeof d.attendance_rate === 'number' && Number.isFinite(d.attendance_rate) ? d.attendance_rate : null
   return [
     { id: 'late', label: '迟到', value: d.total_late, color: C_WARNING, hint: '人次' },
     { id: 'early', label: '早退', value: d.total_early, color: C_TEXT, hint: '人次' },
     { id: 'absent', label: '缺勤', value: d.total_absent, color: C_CRITICAL, hint: '人天' },
     { id: 'people', label: '异常人员', value: d.anomaly_people, color: C_TEXT, hint: '人' },
-    { id: 'rate', label: '出勤率', value: d.attendance_rate + '%', color: C_SUCCESS, hint: '区间内' },
+    { id: 'rate', label: '出勤率', value: rate === null ? '暂无可计算数据' : `${rate}%`, color: C_SUCCESS, hint: rate === null ? '区间内无应出勤' : '区间内' },
     { id: 'total', label: '总人数', value: d.total_employees, color: C_TEXT, hint: '在职' },
   ]
 })
