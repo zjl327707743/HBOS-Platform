@@ -21,6 +21,6 @@ def get_demo_object(scope_ref="synthetic-equipment", operation_id="iam_demo.read
     user = policy.get_current_user()
     definition = policy.registration("iam_demo", operation_id)
     obj = next((item for item in (definition or {}).get("objects", []) if item["scope_ref"] == scope_ref), None)
-    if not obj or not definition.get("ordinary") or not policy.evaluate(user, "iam_demo", operation_id, obj["scope_type"], scope_ref)["allowed"]:
+    if not obj or not definition.get("ordinary") or not policy.allows(user, "iam_demo", operation_id, obj["scope_type"], scope_ref):
         frappe.throw("The current account has no access to this synthetic object.", frappe.PermissionError)
     return {"synthetic": True, "id": obj["scope_ref"], "operation_id": operation_id, "label": obj["label"]}

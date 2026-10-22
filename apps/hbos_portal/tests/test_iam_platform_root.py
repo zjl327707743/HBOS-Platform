@@ -104,7 +104,7 @@ class CapabilityAggregationTest(unittest.TestCase):
     def test_candidates_are_pruned_by_company_scope(self):
         visited = []
 
-        def permitted(user, operation, kind, ref, app_id):
+        def permitted(user, operation, kind, ref, app_id, company=None):
             visited.append(ref)
             return True
 
@@ -115,7 +115,7 @@ class CapabilityAggregationTest(unittest.TestCase):
     def test_first_authorized_target_stops_the_scan(self):
         visited = []
 
-        def permitted(user, operation, kind, ref, app_id):
+        def permitted(user, operation, kind, ref, app_id, company=None):
             visited.append(ref)
             return True
 

@@ -155,7 +155,7 @@ def get_capabilities(**kwargs):
             apps = [app["id"] for app in policy.registered_apps() if app["integrated"]] if operation in {"iam.access.read", "iam.access.manage", "iam.departments.manage"} or operation.startswith('iam.roles.') else ["iam"]
             if any(guards.can_manage_any(operation, app_id=app_id, departments=departments) for app_id in apps):
                 capabilities.append(operation)
-        if policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
+        if policy.allows(user, "attendance", "attendance.read", "SELF", ""):
             capabilities.append("attendance.read")
         from hbos_portal.auth.accounts import browser_session_context
         return {"schema_version": 1, "subject_user": user, "session_context": browser_session_context(), "app_roles_enabled": policy.enabled_flag('hbos_iam_roles_enabled'), **policy.revision_digests(user), "capabilities": capabilities}

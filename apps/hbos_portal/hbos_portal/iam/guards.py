@@ -59,10 +59,12 @@ def require_controlled_write():
         frappe.throw("请使用受控管理服务，不能直接修改权限记录。", frappe.PermissionError)
 
 
-def _permitted(user, operation, kind, ref, app_id):
-    # An explicit platform delegation may cover a business app. A native role never does.
+def _permitted(user, operation, kind, ref, app_id, company=None):
+    # An explicit platform delegation may cover a business app. A native role
+    # never does. This is a decision, not a response: no revision digest, and a
+    # caller-known company is reused instead of re-reading the department row.
     apps = [app_id] if app_id == "iam" else [app_id, "iam"]
-    return any(policy.evaluate(user, app, operation, kind, ref)["allowed"] for app in apps)
+    return any(policy.allows(user, app, operation, kind, ref) if company is None else policy.allows(user, app, operation, kind, ref, company=company) for app in apps)
 
 
 def site_departments() -> list[dict]:
@@ -116,7 +118,7 @@ def can_manage_any(operation_id, app_id="iam", departments=None) -> bool:
     if platform_root():
         return any(not policy.value(row, "disabled") for row in rows)
     for row in _candidate_departments(user, rows, app_id):
-        if _permitted(user, operation_id, "DEPARTMENT", policy.value(row, "name"), app_id):
+        if _permitted(user, operation_id, "DEPARTMENT", policy.value(row, "name"), app_id, policy.value(row, "company")):
             return True
     return False
 
@@ -128,7 +130,7 @@ def managed_departments(operation_id, app_id="iam") -> list[str]:
     rows = frappe.get_all("Department", fields=["name", "company"], order_by="name", limit_page_length=0)
     if platform_root():
         return [policy.value(row, "name") for row in rows]
-    return [policy.value(row, "name") for row in rows if _permitted(user, operation_id, "DEPARTMENT", policy.value(row, "name"), app_id)]
+    return [policy.value(row, "name") for row in rows if _permitted(user, operation_id, "DEPARTMENT", policy.value(row, "name"), app_id, policy.value(row, "company"))]
 
 
 def require_capability(operation_id, department=None, company=None, app_id="iam", target_user=None):
@@ -147,7 +149,7 @@ def require_capability(operation_id, department=None, company=None, app_id="iam"
         actual_company = frappe.db.get_value("Department", department, "company", for_update=operation_id in WRITE_CAPABILITIES)
         if not actual_company or (company and company != actual_company):
             frappe.throw("部门或公司范围不一致。", frappe.PermissionError)
-        if root or _permitted(user, operation_id, "DEPARTMENT", department, app_id):
+        if root or _permitted(user, operation_id, "DEPARTMENT", department, app_id, actual_company):
             return
     elif company:
         if frappe.db.exists("Company", company) and (root or _permitted(user, operation_id, "COMPANY", company, app_id)):

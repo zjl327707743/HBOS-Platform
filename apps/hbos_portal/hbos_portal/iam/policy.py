@@ -249,7 +249,10 @@ def _decide(personal, department, app_id, operation_id, scope_type, scope_ref, n
     return True, "", "个人设置" if allows is own_rules else "部门安排"
 
 
-def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overrides=None, employee_context=None):
+_MISSING = object()
+
+
+def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overrides=None, employee_context=None, *, company=_MISSING):
     rejected = lambda reason: {"allowed": False, "reason": reason, "source": "未开放"}
     if not isinstance(scope_type, str) or not isinstance(scope_ref, str):
         return rejected("对象范围格式无效。")
@@ -292,13 +295,28 @@ def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overr
         decision = decide(employee, operation_id, scope_type, scope_ref)
         if decision is not None:
             return decision
-    company = frappe.db.get_value("Department", scope_ref, "company", for_update=True) if scope_type == "DEPARTMENT" else None
+    if company is _MISSING:
+        # Authorization never needs to freeze the organization row: a read uses
+        # the current snapshot, and every write path locks the target first in
+        # guards.require_capability(). Locking here made one management read
+        # take 88 department row locks.
+        company = frappe.db.get_value("Department", scope_ref, "company") if scope_type == "DEPARTMENT" else None
     allowed, reason, source = _decide(own, inherited, app_id, operation_id, scope_type, scope_ref or "", now or _now(), company)
     return {"allowed": allowed, "reason": reason, "source": source}
 
 
-def evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None):
-    result = _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now)
+def allows(user, app_id, operation_id, scope_type, scope_ref, now=None, *, company=_MISSING) -> bool:
+    """Authorization decision only.
+
+    ``evaluate()`` additionally hashes the whole policy revision (~13ms of DB
+    reads and row locks) on every call. That value is a response field, never
+    part of the decision, so authorization hot paths must not pay for it.
+    """
+    return bool(_evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now, company=company)["allowed"])
+
+
+def evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, *, company=_MISSING):
+    result = _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now, company=company)
     result["policy_revision"] = current_revision(user) if enabled_flag("hbos_iam_enabled") else ""
     return result
 
