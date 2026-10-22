@@ -263,11 +263,6 @@ def describe(employee_id: str) -> dict:
     }
 
 
-def _can_grant_removal(employee) -> bool:
-    """Removal never needs the grant precondition (kept for API symmetry)."""
-    return True
-
-
 def _normalize(app_id: str, roles) -> list[str]:
     app = _app(app_id)
     if isinstance(roles, str):
@@ -333,11 +328,6 @@ def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowled
         "scope_note": app["scope_note"],
         "scope_envelope": company_envelope(employee),
     }
-
-
-def _can_grant_removal(employee) -> bool:
-    """Removal never needs the grant precondition (kept for API symmetry)."""
-    return True
 
 
 def preview(employee_id: str, app_id: str, roles, expected_version: str, acknowledged_global_scope: bool = False) -> dict:
