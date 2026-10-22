@@ -77,7 +77,7 @@ def _readable_app(app_id, *, lock=False):
 EMPLOYEE_SELECT = "name,employee_name,employee_number,department,company,designation,user_id,status,modified"
 
 
-def _current_employees(departments, *, employee_id=None, user_id=None, search="", lock=True):
+def _current_employees(departments, *, employee_id=None, user_id=None, search="", lock=False):
     if not departments:
         return []
     where = ["department in %(departments)s"]
@@ -144,9 +144,10 @@ def get_capabilities(**kwargs):
         # a registered personal operation can safely narrow candidates; every
         # candidate still receives the existing fresh target authorization.
         candidates = set(policy.MANAGEMENT) if guards.platform_root() else {row["operation_id"] for row in own if row["operation_id"] in policy.MANAGEMENT and policy.registration(row["app_id"], row["operation_id"])}
-        # This read runs on every session resume, so the department set is
-        # loaded once and each operation stops at its first authorized target.
-        departments = guards.site_departments()
+        # This read runs on every session resume. Ordinary employees have no
+        # management candidate rule at all, so the site organization must stay
+        # unloaded for them (a large site has thousands of departments).
+        departments = guards.site_departments() if candidates else []
         for operation in policy.MANAGEMENT:
             if operation.startswith('iam.roles.') and not policy.enabled_flag('hbos_iam_roles_enabled'):
                 continue
@@ -237,7 +238,7 @@ def get_effective_access(subject_type, subject_name, app_id, **kwargs):
             department_id = policy.value(employee, "department") if employee else None
             if department_id:
                 department = frappe.db.get_value("Department", department_id, ["department_name", "company"], as_dict=True)
-                default = policy.effective_work("Department", department_id, app_id)
+                default = policy.effective_work("Department", department_id, app_id, lock=False)
                 can_open = False
                 try:
                     guards.require_capability("iam.departments.read", department=department_id, company=policy.value(department, "company"))

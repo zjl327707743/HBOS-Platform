@@ -251,7 +251,7 @@ def on_native_user_update(doc, method=None):
     # roles it authorized and audited; Desk/REST/Employee-save paths never set
     # this request-local flag. The type/enable constraints below still apply.
     approved_write = bool(frappe.flags.get('hbos_iam_write_depth', 0))
-    if not approved_write and frappe.flags.get('hbos_iam_user_type_upgrade_authority') != doc.name:
+    if not approved_write:
         old_roles = {row.role for row in before.get('roles', [])}
         new_roles = {row.role for row in doc.get('roles', [])}
         if new_roles - old_roles - {'Employee'}:

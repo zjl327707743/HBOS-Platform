@@ -51,16 +51,21 @@ def enabled_flag(name):
 
 
 def get_current_user() -> str:
+    # Session-derived identity. Every request already re-validates the account in
+    # auth_hooks (accounts.check_request -> require_user), so a row lock here
+    # only serialized all concurrent reads of the same account.
     user = getattr(frappe.session, "user", None)
-    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled", for_update=True):
+    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled"):
         _fail("请使用有效账号登录。")
     return user
 
 
-def resolve_employee(user: str, required: bool = True):
-    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled", for_update=True):
+def resolve_employee(user: str, required: bool = True, *, lock: bool = False):
+    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled"):
         _fail("账号未开通或已停用。")
-    rows = frappe.db.sql("select name,user_id,department,company,status,employee_number,modified from `tabEmployee` where user_id=%s order by name limit 2 for update", (user,), as_dict=True)
+    rows = frappe.db.sql(
+        "select name,user_id,department,company,status,employee_number,modified from `tabEmployee` where user_id=%s order by name limit 2"
+        + (" for update" if lock else ""), (user,), as_dict=True)
     if len(rows) > 1:
         _fail("员工关联存在冲突，请联系管理员核对。")
     if not rows:
@@ -259,7 +264,7 @@ def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overr
     meta = registration(app_id, operation_id)
     if not meta or operation_id == "app.enter" or scope_type not in meta["scope_types"]:
         return rejected("工作或对象范围尚未开放。")
-    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled", for_update=True):
+    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled"):
         return rejected("账号未开通或已停用。")
     from hbos_portal.iam.temporary_passwords import status as password_status
     if password_status(user).get("pending"):

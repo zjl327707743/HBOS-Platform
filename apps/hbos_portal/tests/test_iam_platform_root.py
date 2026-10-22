@@ -123,6 +123,20 @@ class CapabilityAggregationTest(unittest.TestCase):
         self.assertTrue(self._can_manage("employee", "iam.people.read", rules, permitted))
         self.assertEqual(visited, ["D1"])
 
+    def test_platform_root_keeps_authority_before_the_first_department_exists(self):
+        # A fresh site has no Department rows yet; the root must still be able to
+        # initialize IAM instead of being locked out by an empty target set.
+        with patch.object(guards, "frappe", FakeFrappe()), \
+             patch.object(policy, "get_current_user", return_value="Administrator"), \
+             patch.object(policy, "enabled_flag", return_value=True):
+            self.assertTrue(guards.can_manage_any("iam.people.read", app_id="iam", departments=[]))
+        with patch.object(guards, "frappe", FakeFrappe()), \
+             patch.object(policy, "get_current_user", return_value="delegated-admin"), \
+             patch.object(policy, "enabled_flag", return_value=True), \
+             patch.object(policy, "_rules", return_value=([], None)), \
+             patch.object(policy, "_now", return_value=datetime(2026, 1, 1)):
+            self.assertFalse(guards.can_manage_any("iam.people.read", app_id="iam", departments=[]))
+
     def test_platform_root_covers_every_department_without_evaluation(self):
         calls = []
 

@@ -79,7 +79,7 @@ def _candidate_departments(user, departments, app_id):
     skipping a row is only safe because a non-matching scope can never yield an
     allow decision in ``policy._decide`` for an IAM management operation.
     """
-    own, _ = policy._rules("User", user)
+    own, _ = policy._rules("User", user, lock=False)
     now = policy._now()
     scopes = set()
     for row in own:
@@ -115,8 +115,12 @@ def can_manage_any(operation_id, app_id="iam", departments=None) -> bool:
     if not policy.enabled_flag("hbos_iam_enabled") or operation_id not in policy.MANAGEMENT:
         return False
     rows = departments if departments is not None else site_departments()
-    if platform_root():
-        return any(not policy.value(row, "disabled") for row in rows)
+    # platform_root() re-resolves the session user; the caller already did it.
+    if user == "Administrator" and (policy.enabled_flag("hbos_iam_enabled") or policy.enabled_flag("hbos_iam_test_site")):
+        # Authority exists even before the first Department is created: a fresh
+        # site must be initializable by the platform root, otherwise nobody can
+        # bootstrap IAM. Target-level checks still reject a missing target.
+        return True
     for row in _candidate_departments(user, rows, app_id):
         if _permitted(user, operation_id, "DEPARTMENT", policy.value(row, "name"), app_id, policy.value(row, "company")):
             return True

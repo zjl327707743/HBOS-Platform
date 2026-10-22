@@ -12,6 +12,10 @@ def list_departments(view_group="daily", target_department=None, company=None, *
         _only(kwargs, {"view_group", "target_department", "company"})
         rows = _current_departments("iam.departments.read")
         if not rows:
+            if guards.platform_root():
+                # A brand-new site has no organization yet; the platform root
+                # must still see an empty (not forbidden) management view.
+                return {"groups_available": False, "items": [], "companies": [], "selected_company": None}
             frappe.throw("没有可读取的部门管理范围。", frappe.PermissionError)
         from hbos_portal.iam.organization import department_view, group_filter
         grouped = group_filter("Department", view_group, frappe.conf)[1]
