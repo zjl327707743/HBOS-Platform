@@ -294,34 +294,6 @@ def ask(**business_fields):
         with phase('plan_issue'):
             ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
         runtime.publication.plan=ticket.plan
-        # Metadata questions do not need retrieval or generation. They are
-        # answered from the authorized plan this request already holds, so the
-        # portal and MCP share one rule and no gateway round trip is paid.
-        from .answer_policy import route_question
-        from .catalog_direct import render as render_catalog
-        direct=None
-        if route_question(question,knowledge_only=options['knowledge_only'],context=request.context,history=())=='CATALOG':
-            with phase('catalog_direct'):
-                direct=render_catalog(ticket.plan,titles,question)
-        if direct is not None:
-            runtime.provider.revalidate(ticket.plan)
-            from .r1_contract import validate_ask_data
-            from .answer_policy import answer_presentation
-            data={'request_id':request_id,'turn_id':request_id,
-                **answer_presentation(direct,False,state='CATALOG_RESULTS'),
-                'answer':direct,'citations':[],'answer_origin':'KNOWLEDGE','model_alias':'deepseek-flash'}
-            with phase('validate_ask_data'):
-                validate_ask_data(data,environment=runtime.profile)
-            with phase('write_history'):
-                turn=write('History',request.query,request.space_ids,(),runtime,conversation_id=raw.get('conversation_id'),
-                    context=request.context,answer=direct,labels=(),question=raw['question'],
-                    search_mode=request.search_mode,answer_origin='KNOWLEDGE',model_alias='deepseek-flash')
-            data['turn_id']=turn;data['conversation_id']=turn
-            with phase('final_online'):
-                runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
-            with phase('audit'):
-                runtime.audit.record(actor.user_ref,'ask','SUCCESS',0)
-            return data
         with phase('gateway_ask'):
             answer,labels,records,origin,actual_alias,answer_status=runtime.gateway.ask(ticket=ticket)
         with phase('authorize_evidence'):
