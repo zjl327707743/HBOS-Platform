@@ -77,7 +77,7 @@ def _readable_app(app_id, *, lock=False):
 EMPLOYEE_SELECT = "name,employee_name,employee_number,department,company,designation,user_id,status,modified"
 
 
-def _current_employees(departments, *, employee_id=None, user_id=None, search=""):
+def _current_employees(departments, *, employee_id=None, user_id=None, search="", lock=True):
     if not departments:
         return []
     where = ["department in %(departments)s"]
@@ -93,7 +93,7 @@ def _current_employees(departments, *, employee_id=None, user_id=None, search=""
         values["search"] = "%" + search + "%"
     return frappe.db.sql(
         "select " + EMPLOYEE_SELECT + " from `tabEmployee` where " + " and ".join(where)
-        + " order by employee_name,name for update", values, as_dict=True,
+        + " order by employee_name,name" + (" for update" if lock else ""), values, as_dict=True,
     )
 
 
@@ -108,8 +108,10 @@ def _authorized_employees(rows, operation, app_id="iam"):
     return result
 
 
-def _lock_work_target(subject_type, subject_name, app_id):
-    departments = _readable_app(app_id, lock=True)
+def _lock_work_target(subject_type, subject_name, app_id, *, lock=True):
+    # get_effective_access is a read endpoint; holding row locks there made the
+    # per-app reads queue (0.8s each, 4.2s for the last of seven).
+    departments = _readable_app(app_id, lock=lock)
     if subject_type == "Department":
         row = departments.get(subject_name)
         if not row or row.disabled:
@@ -117,7 +119,7 @@ def _lock_work_target(subject_type, subject_name, app_id):
         return
     if subject_type != "User":
         frappe.throw("配置目标类型无效。", frappe.ValidationError)
-    rows = _authorized_employees(_current_employees(departments, user_id=subject_name), "iam.access.read", app_id)
+    rows = _authorized_employees(_current_employees(departments, user_id=subject_name, lock=lock), "iam.access.read", app_id)
     if len(rows) != 1:
         frappe.throw("没有该目标的配置读取权限，或员工关联尚未确认。", frappe.PermissionError)
     # A second association outside the managed department must not be selected
@@ -225,7 +227,7 @@ def get_registered_apps(**kwargs):
 def get_effective_access(subject_type, subject_name, app_id, **kwargs):
     def load():
         _only(kwargs, {"subject_type", "subject_name", "app_id"})
-        _lock_work_target(subject_type, subject_name, app_id)
+        _lock_work_target(subject_type, subject_name, app_id, lock=False)
         result = work_commands.describe(policy.effective_work(subject_type, subject_name, app_id))
         rows = work_commands._rules(policy.get_policy(subject_type, subject_name, for_update=True))
         for operation in result["operations"]:
@@ -234,7 +236,7 @@ def get_effective_access(subject_type, subject_name, app_id, **kwargs):
             employee = policy.resolve_employee(subject_name, required=False)
             department_id = policy.value(employee, "department") if employee else None
             if department_id:
-                department = frappe.db.get_value("Department", department_id, ["department_name", "company"], as_dict=True, for_update=True)
+                department = frappe.db.get_value("Department", department_id, ["department_name", "company"], as_dict=True)
                 default = policy.effective_work("Department", department_id, app_id)
                 can_open = False
                 try:
