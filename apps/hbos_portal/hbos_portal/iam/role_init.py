@@ -52,7 +52,9 @@ def _validate_actor(actor: str, reason: str) -> tuple[str, str]:
 
 def _validate_scope(companies, role_keys) -> tuple[list[str], list[str]]:
     companies = list(companies or [])
-    role_keys = list(role_keys or TARGET_ROLES)
+    # An explicit empty list means "no roles" and must fail the check below; only
+    # an omitted (None) argument falls back to the default set.
+    role_keys = list(TARGET_ROLES if role_keys is None else role_keys)
     if not companies:
         _fail("必须显式指定至少一个公司。")
     if len(set(companies)) != len(companies):
@@ -371,8 +373,12 @@ def set_native_role_grantor(user: str, *, actor: str, reason: str, revoke: bool 
     with _site_config_lock() as path:
         with open(path, encoding="utf-8") as handle:
             config = json.load(handle)
-        # Re-read under the lock so a concurrent writer cannot be overwritten.
-        current = _grantors()
+        # Re-read under the lock from the file itself. frappe.conf was loaded at
+        # connect time and cannot see a grantor written by another CLI process.
+        raw = config.get(GRANTORS_KEY) or []
+        if isinstance(raw, str):
+            raw = raw.split(",")
+        current = sorted({str(item).strip() for item in raw if str(item).strip()})
         target = [item for item in current if item != user] if revoke else sorted(set(current) | {user})
         if target == current:
             plan.update(dry_run=False, actor=actor, changed=False, after=current)
@@ -381,9 +387,10 @@ def set_native_role_grantor(user: str, *, actor: str, reason: str, revoke: bool 
         plan["before"], plan["after"] = current, target
         config[GRANTORS_KEY] = target
         try:
-            # The audit row is inserted before the file is replaced, so an
-            # active grantor can never exist without a matching record; a file
-            # failure rolls the row back with the transaction.
+            # Order matters: the audit row is committed before the authority is
+            # written to disk. A crash can leave a recorded grant that did not
+            # take effect (safe, reviewable), never an active grantor with no
+            # record. A file failure rolls the audit row back.
             audit.append_event(
                 f"cli-grantor-{frappe.utils.now_datetime().strftime('%Y%m%d%H%M%S')}-{frappe.generate_hash(length=6)}",
                 "native_role.grantor",
@@ -395,11 +402,28 @@ def set_native_role_grantor(user: str, *, actor: str, reason: str, revoke: bool 
                 version=1,
                 reason=f"{actor}: {reason}",
             )
-            _write_site_config(config, path)
             frappe.db.commit()
+            try:
+                _write_site_config(config, path)
+            except Exception:
+                # The authority change did not reach disk: record that the
+                # operation failed instead of leaving a success-only trail.
+                audit.append_event(
+                    f"cli-grantor-failed-{frappe.utils.now_datetime().strftime('%Y%m%d%H%M%S')}-{frappe.generate_hash(length=6)}",
+                    "native_role.grantor",
+                    "User",
+                    user,
+                    {"site": frappe.local.site, "operator": actor, "revoke": bool(revoke), "after": target},
+                    before={"grantors": current},
+                    after={"grantors": current, "operator": actor, "site": frappe.local.site},
+                    version=2,
+                    result="failed",
+                    reason=f"{actor}: {reason}（写入 site_config 失败，未生效）",
+                )
+                frappe.db.commit()
+                raise
         except Exception:
             _write_site_config(before_file, path)
-            frappe.db.rollback()
             raise
     frappe.conf[GRANTORS_KEY] = plan["after"]
     plan.update(dry_run=False, actor=actor, changed=True)

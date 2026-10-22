@@ -91,10 +91,19 @@ class NativeRoleBoundaryTest(unittest.TestCase):
 
     def test_company_envelope_requires_one_exact_permission(self):
         employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active"}
-        matching = {"name": "UP1", "allow": "Company", "for_value": "C1", "applicable_for": None}
+        matching = {"name": "UP1", "allow": "Company", "for_value": "C1", "applicable_for": None, "apply_to_all_doctypes": 1}
         with patch.object(app_roles, "frappe", FakeFrappe(permissions=[matching])):
             self.assertEqual(app_roles.company_envelope(employee)["company"], "C1")
-        for rows in ([], [matching, dict(matching, name="UP2")], [dict(matching, for_value="C2")], [dict(matching, applicable_for="Warehouse")]):
+        for rows in (
+            [],
+            [matching, dict(matching, name="UP2")],
+            [dict(matching, for_value="C2")],
+            [dict(matching, applicable_for="Warehouse")],
+            # A Company permission limited to a doctype list does not bound the
+            # inventory doctypes a GLOBAL Stock User opens.
+            [dict(matching, apply_to_all_doctypes=0)],
+            [dict(matching, apply_to_all_doctypes=None)],
+        ):
             with self.subTest(rows=rows), patch.object(app_roles, "frappe", FakeFrappe(permissions=rows)):
                 self.assertIsNone(app_roles.company_envelope(employee))
 
@@ -229,7 +238,7 @@ class NativeRoleBoundaryTest(unittest.TestCase):
 
     def test_replay_runs_after_authorization_when_scope_still_valid(self):
         employee = {"name": "E1", "user_id": "u1", "department": "D1", "company": "C1", "status": "Active", "modified": "v1"}
-        fake = FakeFrappe(grantors=["site-grantor"], permissions=[{"name": "UP1", "allow": "Company", "for_value": "C1", "applicable_for": None}])
+        fake = FakeFrappe(grantors=["site-grantor"], permissions=[{"name": "UP1", "allow": "Company", "for_value": "C1", "applicable_for": None, "apply_to_all_doctypes": 1}])
         with patch.object(app_roles, "frappe", fake), patch.object(app_roles.guards, "require_post"), \
              patch.object(app_roles, "serialize", lambda *a, **k: contextlib.nullcontext()), \
              patch.object(app_roles, "_employee", return_value=employee), \

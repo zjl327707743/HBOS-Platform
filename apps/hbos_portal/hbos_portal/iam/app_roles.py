@@ -40,8 +40,6 @@ import frappe
 from hbos_portal.auth.onboarding import serialize
 from hbos_portal.iam import audit, guards, policy
 
-ASSIGNMENT = "HBOS IAM Role Assignment"
-
 # Server-owned registry. Every grantable native role must be listed here with
 # its real backend meaning. Adding a role is a reviewed code change.
 REGISTRY = {
@@ -109,18 +107,23 @@ def _has_global_role(app: dict) -> bool:
     return any(meta.get("native_scope") == "GLOBAL" for meta in app["roles"].values())
 
 
-def company_envelope(employee: dict) -> dict | None:
+def company_envelope(employee: dict, *, lock: bool = False) -> dict | None:
     """Return the exact company envelope proven by a native User Permission.
 
     A GLOBAL native role is only acceptable when the target user already has one
-    unambiguous Company User Permission for the employee's company. This does not
-    create or widen that permission; missing/ambiguous scope means no grant.
+    unambiguous Company User Permission for the employee's company *and* that
+    permission is actually applied to all doctypes. A permission restricted to a
+    different doctype list (``apply_to_all_doctypes = 0`` with an
+    ``applicable_for``), or one that applies to nothing, does not bound the
+    inventory doctypes this role opens, so it must not count as a proven
+    envelope. Missing/ambiguous/partial scope means no grant.
     """
     user = policy.value(employee, "user_id")
     company = policy.value(employee, "company")
     rows = frappe.db.sql(
         "select name, allow, for_value, applicable_for, apply_to_all_doctypes "
-        "from `tabUser Permission` where user=%s and allow='Company' order by name limit 3 for update",
+        "from `tabUser Permission` where user=%s and allow='Company' order by name limit 3"
+        + (" for update" if lock else ""),
         (user,),
         as_dict=True,
     )
@@ -128,6 +131,10 @@ def company_envelope(employee: dict) -> dict | None:
         return None
     row = rows[0]
     if policy.value(row, "for_value") != company or policy.value(row, "applicable_for"):
+        return None
+    if not int(policy.value(row, "apply_to_all_doctypes") or 0):
+        # A company permission that only applies to a hand-picked doctype list
+        # does not constrain Warehouse/Bin/Stock Ledger Entry.
         return None
     return {"company": company, "source": "User Permission", "name": policy.value(row, "name")}
 
@@ -155,12 +162,12 @@ def _assert_grant_authority(app: dict, acknowledged: bool, employee: dict | None
         )
 
 
-def _employee(employee_id: str) -> dict:
+def _employee(employee_id: str, *, lock: bool = True) -> dict:
     if not isinstance(employee_id, str) or not employee_id:
         _fail("必须指定员工。")
     rows = frappe.db.sql(
         "select name, employee_name, employee_number, user_id, department, company, status, modified "
-        "from `tabEmployee` where name=%s limit 2 for update",
+        "from `tabEmployee` where name=%s limit 2" + (" for update" if lock else ""),
         (employee_id,),
         as_dict=True,
     )
@@ -181,9 +188,9 @@ def _additions(employee: dict, app_id: str, roles) -> list[str]:
     return sorted(set(target) - set(current))
 
 
-def _native_roles(user: str) -> list[str]:
+def _native_roles(user: str, *, lock: bool = True) -> list[str]:
     rows = frappe.db.sql(
-        "select role from `tabHas Role` where parenttype='User' and parent=%s order by role for update",
+        "select role from `tabHas Role` where parenttype='User' and parent=%s order by role" + (" for update" if lock else ""),
         (user,),
         as_dict=True,
     )
@@ -211,10 +218,11 @@ def _authorize(employee: dict, *, write: bool):
         frappe.throw("不能给自己授予或撤销应用角色。", frappe.PermissionError)
 
 
-def _version(employee: dict) -> str:
+def _version(employee: dict, *, lock: bool = True) -> str:
     # Role changes are written to the User, so the optimistic version is the
-    # User.modified value (locked for update) rather than Employee.modified.
-    return str(frappe.db.get_value("User", policy.value(employee, "user_id"), "modified", for_update=True))
+    # User.modified value rather than Employee.modified. Only the optimistic
+    # write path (and save()'s in-transaction re-check) needs the row lock.
+    return str(frappe.db.get_value("User", policy.value(employee, "user_id"), "modified", for_update=lock))
 
 
 def _digest(payload: dict) -> str:
@@ -222,9 +230,9 @@ def _digest(payload: dict) -> str:
 
 
 def describe(employee_id: str) -> dict:
-    employee = _employee(employee_id)
+    employee = _employee(employee_id, lock=False)
     _authorize(employee, write=False)
-    native = _native_roles(policy.value(employee, "user_id"))
+    native = _native_roles(policy.value(employee, "user_id"), lock=False)
     apps = []
     for app_id, app in REGISTRY.items():
         apps.append(
@@ -245,7 +253,7 @@ def describe(employee_id: str) -> dict:
         "user": policy.value(employee, "user_id"),
         "company": policy.value(employee, "company"),
         "department": policy.value(employee, "department"),
-        "version": _version(employee),
+        "version": _version(employee, lock=False),
         "native_roles": sorted(native),
         "apps": apps,
         "is_grantor": is_site_grantor(),
@@ -253,6 +261,11 @@ def describe(employee_id: str) -> dict:
         "grant_requirement": "本轮登记的原生角色均为 GLOBAL；只有站点级授权人显式确认、且员工已有唯一 Company User Permission 时才能授予。仓库级范围仍未实现。",
         "scope_envelope": company_envelope(employee),
     }
+
+
+def _can_grant_removal(employee) -> bool:
+    """Removal never needs the grant precondition (kept for API symmetry)."""
+    return True
 
 
 def _normalize(app_id: str, roles) -> list[str]:
@@ -320,6 +333,11 @@ def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowled
         "scope_note": app["scope_note"],
         "scope_envelope": company_envelope(employee),
     }
+
+
+def _can_grant_removal(employee) -> bool:
+    """Removal never needs the grant precondition (kept for API symmetry)."""
+    return True
 
 
 def preview(employee_id: str, app_id: str, roles, expected_version: str, acknowledged_global_scope: bool = False) -> dict:

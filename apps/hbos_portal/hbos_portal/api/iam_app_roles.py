@@ -25,7 +25,7 @@ def _call(function, *, read_only=False):
             status, code, message = 403, "PROOF_REQUIRED", "请重新验证本人密码及已有二次认证。"
         elif isinstance(exc, frappe.PermissionError):
             status, code, message = 403, "FORBIDDEN", str(exc)
-        elif isinstance(exc, frappe.TimestampMismatchError) or status == 409:
+        elif isinstance(exc, (frappe.QueryDeadlockError, frappe.QueryTimeoutError, frappe.TimestampMismatchError)) or status == 409:
             status, code, message = 409, "CONFLICT", "资料或权限已变化，本次未保存，请重新读取。"
         elif isinstance(exc, (frappe.ValidationError, ValueError, TypeError)):
             status, code, message = 400, "INVALID_REQUEST", str(exc)
