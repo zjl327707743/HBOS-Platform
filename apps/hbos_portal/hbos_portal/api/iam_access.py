@@ -139,14 +139,17 @@ def get_capabilities(**kwargs):
         # Management never inherits from department defaults. The absence of
         # a registered personal operation can safely narrow candidates; every
         # candidate still receives the existing fresh target authorization.
-        candidates = set(policy.MANAGEMENT) if guards.isolated_root() else {row["operation_id"] for row in own if row["operation_id"] in policy.MANAGEMENT and policy.registration(row["app_id"], row["operation_id"])}
+        candidates = set(policy.MANAGEMENT) if guards.platform_root() else {row["operation_id"] for row in own if row["operation_id"] in policy.MANAGEMENT and policy.registration(row["app_id"], row["operation_id"])}
+        # This read runs on every session resume, so the department set is
+        # loaded once and each operation stops at its first authorized target.
+        departments = guards.site_departments()
         for operation in policy.MANAGEMENT:
             if operation.startswith('iam.roles.') and not policy.enabled_flag('hbos_iam_roles_enabled'):
                 continue
             if operation not in candidates:
                 continue
             apps = [app["id"] for app in policy.registered_apps() if app["integrated"]] if operation in {"iam.access.read", "iam.access.manage", "iam.departments.manage"} or operation.startswith('iam.roles.') else ["iam"]
-            if any(_current_departments(operation, app_id=app_id) for app_id in apps):
+            if any(guards.can_manage_any(operation, app_id=app_id, departments=departments) for app_id in apps):
                 capabilities.append(operation)
         if policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
             capabilities.append("attendance.read")

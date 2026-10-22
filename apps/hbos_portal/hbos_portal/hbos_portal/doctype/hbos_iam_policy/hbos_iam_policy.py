@@ -33,7 +33,7 @@ class HBOSIAMPolicy(Document):
                 # Such rows remain unavailable to evaluation; only an exact
                 # pre-existing row is preserved, never a new unknown grant.
                 try:
-                    normalized = policy.validate_rule(row, root=guards.isolated_root() or unchanged)
+                    normalized = policy.validate_rule(row, root=guards.platform_root() or unchanged)
                 except ValueError:
                     if not unchanged:
                         raise

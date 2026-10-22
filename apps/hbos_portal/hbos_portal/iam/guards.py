@@ -11,7 +11,29 @@ from hbos_portal.iam import policy
 WRITE_CAPABILITIES = {"iam.people.link", "iam.people.provision", "iam.people.create", "iam.people.transfer", "iam.people.disable", "iam.people.reset", "iam.departments.manage", "iam.access.manage", "iam.roles.edit", "iam.roles.publish", "iam.roles.assign"}
 
 
+def platform_root() -> bool:
+    """The built-in Administrator is the IAM platform root on an enabled site.
+
+    This is an explicit authorization relationship, not a test convenience: a
+    site that turns IAM on must let its operator configure IAM, otherwise the
+    only supported initialization path would be a test-site flag or a manual
+    database edit. The relationship is deliberately narrow:
+
+    * it only covers IAM platform configuration (people, departments, app
+      access, roles, audit) - never business records and never a blanket
+      ``ALL`` business data grant;
+    * every write still needs POST + CSRF, a live password proof and produces
+      an audit event, exactly like a delegated administrator;
+    * delegated administrators keep their explicit company/department scope and
+      can never widen it through this path.
+    """
+    return policy.get_current_user() == "Administrator" and (
+        policy.enabled_flag("hbos_iam_enabled") or policy.enabled_flag("hbos_iam_test_site")
+    )
+
+
 def isolated_root() -> bool:
+    """Test-site convenience used by demo data and synthetic fixtures only."""
     return policy.get_current_user() == "Administrator" and policy.enabled_flag("hbos_iam_test_site")
 
 
@@ -43,12 +65,68 @@ def _permitted(user, operation, kind, ref, app_id):
     return any(policy.evaluate(user, app, operation, kind, ref)["allowed"] for app in apps)
 
 
+def site_departments() -> list[dict]:
+    """Read the site organization once for a capability aggregation read."""
+    return frappe.get_all("Department", fields=["name", "company", "disabled"], order_by="name", limit_page_length=0)
+
+
+def _candidate_departments(user, departments, app_id):
+    """Narrow the targets a delegation can possibly reach. Never an authorization.
+
+    Every returned row still goes through the authoritative per-target check;
+    skipping a row is only safe because a non-matching scope can never yield an
+    allow decision in ``policy._decide`` for an IAM management operation.
+    """
+    own, _ = policy._rules("User", user)
+    now = policy._now()
+    scopes = set()
+    for row in own:
+        if policy.value(row, "effect") != "allow" or not policy.active(row, now):
+            continue
+        if policy.value(row, "app_id") not in {app_id, "iam"}:
+            continue
+        if policy.value(row, "operation_id") not in set(policy.MANAGEMENT) | {"app.enter"}:
+            continue
+        scopes.add((policy.value(row, "scope_type"), policy.value(row, "scope_ref") or ""))
+    if not scopes:
+        return []
+    if ("ALL", "*") in scopes:
+        return list(departments)
+    return [
+        row
+        for row in departments
+        if ("DEPARTMENT", policy.value(row, "name")) in scopes
+        or ("COMPANY", policy.value(row, "company") or "") in scopes
+    ]
+
+
+def can_manage_any(operation_id, app_id="iam", departments=None) -> bool:
+    """True when the current user can manage at least one target for an operation.
+
+    Same decision as ``managed_departments`` but stops at the first authorized
+    target and prunes targets that no allow rule can reach. It exists because
+    the session bootstrap asks "which management capabilities exist?" on every
+    resume; materializing the full department list for every operation made
+    that read take seconds while holding row locks.
+    """
+    user = policy.get_current_user()
+    if not policy.enabled_flag("hbos_iam_enabled") or operation_id not in policy.MANAGEMENT:
+        return False
+    rows = departments if departments is not None else site_departments()
+    if platform_root():
+        return any(not policy.value(row, "disabled") for row in rows)
+    for row in _candidate_departments(user, rows, app_id):
+        if _permitted(user, operation_id, "DEPARTMENT", policy.value(row, "name"), app_id):
+            return True
+    return False
+
+
 def managed_departments(operation_id, app_id="iam") -> list[str]:
     user = policy.get_current_user()
     if not policy.enabled_flag("hbos_iam_enabled") or operation_id not in policy.MANAGEMENT:
         return []
     rows = frappe.get_all("Department", fields=["name", "company"], order_by="name", limit_page_length=0)
-    if isolated_root():
+    if platform_root():
         return [policy.value(row, "name") for row in rows]
     return [policy.value(row, "name") for row in rows if _permitted(user, operation_id, "DEPARTMENT", policy.value(row, "name"), app_id)]
 
@@ -59,7 +137,7 @@ def require_capability(operation_id, department=None, company=None, app_id="iam"
         frappe.throw("此站点尚未启用IAM管理。", frappe.PermissionError)
     if operation_id not in policy.MANAGEMENT or app_id not in {app["id"] for app in policy.registered_apps()}:
         frappe.throw("管理能力未注册。", frappe.PermissionError)
-    root = isolated_root()
+    root = platform_root()
     if target_user == user and operation_id in WRITE_CAPABILITIES and not root:
         frappe.throw("不能为自己审批或修改授权与账号状态。", frappe.PermissionError)
     if department:
