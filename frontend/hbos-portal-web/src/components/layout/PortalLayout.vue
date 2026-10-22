@@ -113,7 +113,7 @@ onMounted(() => { window.addEventListener('keydown', onShortcut); window.addEven
 onBeforeUnmount(() => { window.removeEventListener('keydown', onShortcut); window.removeEventListener('hbos:session-boundary', closeSecurityDialogs); document.body.classList.remove('hbos-session-shield'); detach?.() })
 </script>
 <style scoped>
-.session-content{min-width:0;width:100%}.session-checking{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:14px;color:var(--hbos-text-secondary);background:var(--hbos-surface-muted,rgba(0,0,0,.03))}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}
+.session-content{min-width:0;width:100%}.session-checking{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:14px;color:var(--hbos-text-secondary);background:var(--hbos-bg-surface)}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}
 .development-observation{position:fixed;bottom:0;left:8px;z-index:2000;max-width:min(700px,90vw);padding:4px 8px;background:#fff;border:1px solid #ccd5e0;font-size:12px;max-height:35vh;overflow:auto}.development-observation output{display:block;overflow-wrap:anywhere}
 :global(body.hbos-session-shield .ant-drawer),:global(body.hbos-session-shield .ant-modal-root),:global(body.hbos-session-shield .ant-popover){visibility:hidden!important;pointer-events:none!important}
 </style>

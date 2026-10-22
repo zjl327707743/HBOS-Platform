@@ -375,9 +375,12 @@ def set_native_role_grantor(user: str, *, actor: str, reason: str, revoke: bool 
     """
     actor, reason = _validate_actor(actor, reason)
     plan = plan_native_role_grantor(user, revoke=revoke)
-    if dry_run or not plan["changed"]:
-        plan.update(dry_run=True if dry_run else False, actor=actor)
+    if dry_run:
+        plan.update(dry_run=True, actor=actor)
         return plan
+    # The plan above is derived from frappe.conf, a connect-time snapshot. The
+    # authoritative unchanged/changed decision is taken under the file lock
+    # below, where a concurrent CLI writer is visible.
     with _site_config_lock() as path:
         with open(path, encoding="utf-8") as handle:
             config = json.load(handle)

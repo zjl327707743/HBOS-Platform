@@ -33,13 +33,17 @@ const selectedGrants = () => {
   if (!app) return []
   return app.roles.filter(role => selected.value.includes(role.role) && !app.current.includes(role.role))
 }
-/** The acknowledgement is only true for roles that are actually GLOBAL. */
-const needsAck = () => selectedGrants().some(role => role.native_scope === 'GLOBAL')
+/** Mirrors the server gate: any grant in an app that registers a GLOBAL role
+ *  needs the explicit scope acknowledgement, even when the added role is scoped. */
+const needsAck = () => {
+  const app = editingApp()
+  if (!app || !selectedGrants().length) return false
+  return app.roles.some(role => role.native_scope === 'GLOBAL')
+}
 const ackText = () => {
-  const global = selectedGrants().filter(role => role.native_scope === 'GLOBAL').map(role => role.role)
-  return global.length
-    ? `我确认 ${global.join('、')} 为 GLOBAL 原生角色，无法按公司/仓库限制；本次授予由站点级授权人显式承担范围风险。`
-    : '本次仅调整已登记的原生角色，不涉及 GLOBAL 范围授予。'
+  const app = editingApp()
+  const global = (app?.roles || []).filter(role => role.native_scope === 'GLOBAL').map(role => role.role)
+  return `我确认本次授权涉及 ${global.join('、')} 等 GLOBAL 原生角色范围：它们无法按公司/仓库限制；本次授予由站点级授权人显式承担范围风险。`
 }
 async function load() {
   const run = ++generation
@@ -48,7 +52,15 @@ async function load() {
     const next = await describeAppRoles(props.employeeId)
     if (run !== generation) return
     state.value = next
-    if (editing.value && !next.apps.some(app => app.app_id === editing.value)) cancel()
+    const edited = next.apps.find(app => app.app_id === editing.value)
+    if (editing.value && !edited) cancel()
+    else if (edited) {
+      // A refresh invalidates a selection captured against the previous
+      // current/version (the 409 recovery path calls load()). Re-sync instead of
+      // keeping a stale intent that silently becomes a removal.
+      selected.value = [...edited.current]; preview.value = null
+      acknowledged.value = false; requestId.value = ''
+    }
   } catch (e) {
     // Keep the last good state (and the open editor) for rendering; surface the
     // failure without pretending the editor is still based on fresh data.
@@ -108,7 +120,7 @@ async function commit() {
     // be cleared by re-reading describe().
     actionError.value = iamMessage(e); preview.value = null
     const conflict = e as { status?: number; code?: string }
-    if (conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')) await load()
+    if (conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')) { requestId.value = ''; await load() }
   } finally { busy.value = false }
 }
 function dirty () {

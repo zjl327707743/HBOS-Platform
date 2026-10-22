@@ -407,9 +407,11 @@ def _target_context(subject_type, subject_name, app_id, *, lock=True):
     if subject_type == "User":
         payload["target"] = user_context(subject_name)
     else:
-        payload["department"] = frappe.db.get_value("Department", subject_name, ["name", "company", "modified"], as_dict=True, for_update=True)
+        payload["department"] = frappe.db.get_value("Department", subject_name, ["name", "company", "modified"], as_dict=True, for_update=lock)
         payload["policy"] = fingerprint("Department", subject_name)
-        employees = frappe.db.sql("select name,user_id,department,company,status,modified from `tabEmployee` where department=%s order by name for update", (subject_name,), as_dict=True)
+        employees = frappe.db.sql(
+            "select name,user_id,department,company,status,modified from `tabEmployee` where department=%s order by name"
+            + (" for update" if lock else ""), (subject_name,), as_dict=True)
         payload["members"] = employees
         payload["users"] = {user: user_context(user) for user in sorted({value(row, "user_id") for row in employees if value(row, "user_id")})}
     payload["demo"] = enabled_flag("hbos_iam_test_site") and enabled_flag("hbos_iam_demo_enabled")
@@ -457,7 +459,7 @@ def effective_work(subject_type, subject_name, app_id, policy_overrides=None, em
     if subject_type == "User":
         try:
             employee = employee_context or resolve_employee(subject_name, required=False)
-            inherited, _ = _rules("Department", value(employee, "department"), policy_overrides) if employee else ([], None)
+            inherited, _ = _rules("Department", value(employee, "department"), policy_overrides, lock=lock) if employee else ([], None)
             suspension_rules.extend(inherited)
         except frappe.PermissionError:
             pass

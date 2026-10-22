@@ -154,7 +154,7 @@ def _assert_grant_authority(app: dict, acknowledged: bool, employee: dict | None
             "请联系站点级授权人（hbos_native_role_grantors）处理。",
             frappe.PermissionError,
         )
-    if employee is not None and company_envelope(employee) is None:
+    if employee is not None and company_envelope(employee, lock=True) is None:
         frappe.throw(
             "无法证明该员工的公司范围包络（需唯一、明确的 Company User Permission）。"
             "在补齐可核验范围前，拒绝授予 GLOBAL 原生角色。",
@@ -162,7 +162,7 @@ def _assert_grant_authority(app: dict, acknowledged: bool, employee: dict | None
         )
 
 
-def _employee(employee_id: str, *, lock: bool = True, allow_inactive: bool = True) -> dict:
+def _employee(employee_id: str, *, lock: bool = True) -> dict:
     if not isinstance(employee_id, str) or not employee_id:
         frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
     rows = frappe.db.sql(
@@ -177,9 +177,9 @@ def _employee(employee_id: str, *, lock: bool = True, allow_inactive: bool = Tru
         frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
     employee = rows[0]
     if not policy.value(employee, "user_id"):
-        _fail("员工尚未开通账号，不能授予原生应用角色。")
-    if not allow_inactive and policy.value(employee, "status") != "Active":
-        _fail("员工档案已失效。")
+        # Same generic failure as "not found": the error shape must not reveal
+        # whether a guessed Employee exists / is linked.
+        frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
     return employee
 
 
@@ -212,13 +212,18 @@ def _authorize(employee: dict, *, write: bool):
     # Coarse gate first: a caller with no IAM management scope is refused before
     # the target row is interpreted any further.
     guards.require_capability(operation, app_id="iam")
-    guards.require_capability(
-        operation,
-        department=policy.value(employee, "department"),
-        company=policy.value(employee, "company"),
-        app_id="iam",
-        target_user=policy.value(employee, "user_id"),
-    )
+    try:
+        guards.require_capability(
+            operation,
+            department=policy.value(employee, "department"),
+            company=policy.value(employee, "company"),
+            app_id="iam",
+            target_user=policy.value(employee, "user_id"),
+        )
+    except frappe.PermissionError:
+        # One generic message for every target-level refusal, so the endpoint is
+        # not an employee-existence / scope oracle.
+        frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
     if write and policy.get_current_user() == policy.value(employee, "user_id"):
         frappe.throw("不能给自己授予或撤销应用角色。", frappe.PermissionError)
 
@@ -403,7 +408,7 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
                 user_doc.save(ignore_permissions=True)
                 persisted = set(_native_roles(user))
                 if persisted != set(plan["target"]) | set(plan["other_roles_preserved"]):
-                    frappe.throw("原生角色保存结果与预览不一致，本次未生效，请重新读取。", frappe.ValidationError)
+                    frappe.throw("原生角色保存结果与预览不一致，本次未生效，请重新读取。", frappe.TimestampMismatchError)
                 after = {
                     "employee": employee_id,
                     "user": user,
@@ -424,6 +429,11 @@ def save(employee_id: str, app_id: str, roles, expected_version: str, context_re
                     reason="受控跨应用原生角色调整（GLOBAL 范围已由站点级授权人确认）" if acknowledged_global_scope else "受控跨应用原生角色调整",
                 )
         except Exception:
-            frappe.db.rollback(save_point=savepoint)
+            try:
+                frappe.db.rollback(save_point=savepoint)
+            except Exception:
+                # A deadlock / dropped connection already discarded the whole
+                # transaction (and the savepoint). Never mask the real error.
+                frappe.db.rollback()
             raise
     return {**plan, "changed": True, "after": plan["target"], "replayed": False}

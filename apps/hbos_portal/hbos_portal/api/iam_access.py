@@ -70,6 +70,10 @@ def _readable_app(app_id, *, lock=False):
         frappe.throw("应用未注册。", frappe.ValidationError)
     rows = _current_departments("iam.access.read", app_id, lock=lock)
     if not rows:
+        if guards.platform_root():
+            # A site without any Department has nothing to configure yet: show
+            # an empty view instead of a misleading 403 on the access page.
+            return {}
         frappe.throw("没有该应用范围的配置读取权限。", frappe.PermissionError)
     return {row.name: row for row in rows}
 
