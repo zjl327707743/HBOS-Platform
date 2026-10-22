@@ -162,9 +162,9 @@ def _assert_grant_authority(app: dict, acknowledged: bool, employee: dict | None
         )
 
 
-def _employee(employee_id: str, *, lock: bool = True) -> dict:
+def _employee(employee_id: str, *, lock: bool = True, allow_inactive: bool = True) -> dict:
     if not isinstance(employee_id, str) or not employee_id:
-        _fail("必须指定员工。")
+        frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
     rows = frappe.db.sql(
         "select name, employee_name, employee_number, user_id, department, company, status, modified "
         "from `tabEmployee` where name=%s limit 2" + (" for update" if lock else ""),
@@ -172,12 +172,14 @@ def _employee(employee_id: str, *, lock: bool = True) -> dict:
         as_dict=True,
     )
     if len(rows) != 1:
-        _fail("员工不存在或存在冲突。")
+        # Fail closed: "not found" and "out of scope" must be indistinguishable,
+        # otherwise the error shape is an employee-existence oracle.
+        frappe.throw("没有该员工的原生角色管理权限。", frappe.PermissionError)
     employee = rows[0]
-    if policy.value(employee, "status") != "Active":
-        _fail("员工档案已失效。")
     if not policy.value(employee, "user_id"):
         _fail("员工尚未开通账号，不能授予原生应用角色。")
+    if not allow_inactive and policy.value(employee, "status") != "Active":
+        _fail("员工档案已失效。")
     return employee
 
 
@@ -207,6 +209,9 @@ def _current_app_roles(app: dict, native: list[str]) -> list[str]:
 
 def _authorize(employee: dict, *, write: bool):
     operation = "iam.access.manage" if write else "iam.access.read"
+    # Coarse gate first: a caller with no IAM management scope is refused before
+    # the target row is interpreted any further.
+    guards.require_capability(operation, app_id="iam")
     guards.require_capability(
         operation,
         department=policy.value(employee, "department"),
@@ -296,6 +301,10 @@ def _plan(employee_id: str, app_id: str, roles, expected_version: str, acknowled
     # a removal would make a GLOBAL role impossible to revoke exactly when the
     # target's Company User Permission changed and revocation is most urgent.
     if add:
+        # A grant needs a live employee record; a removal must stay possible
+        # during offboarding even after the employee is no longer Active.
+        if policy.value(employee, "status") != "Active":
+            _fail("员工档案已失效，不能再授予角色；如只需撤销请联系平台管理员。")
         _assert_grant_authority(app, acknowledged_global_scope, employee)
     version = _version(employee)
     if str(expected_version) != version:

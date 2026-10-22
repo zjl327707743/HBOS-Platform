@@ -26,7 +26,6 @@
           <template v-else>
             <div v-if="portalSession.phase === 'checking' && portalSession.slow && !masked" class="session-checking" role="status">
               <a-spin size="small" /> 正在核对登录状态：可继续浏览，草稿、筛选与滚动位置不会丢失；提交将在核验完成后恢复。
-              <a-button size="small" @click="retrySession">重新核验</a-button>
             </div>
             <div v-if="masked" class="session-recovery" role="status">
               <a-alert type="warning" show-icon :message="routeDenied ? '当前账号已无此页面的管理权限，不能继续办理。可返回工作台或退出登录。' : portalSession.error || '正在重新核对登录状态，页面内容暂时隐藏，草稿仍保留。'" />

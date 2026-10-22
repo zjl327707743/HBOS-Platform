@@ -125,10 +125,10 @@ def _lock_work_target(subject_type, subject_name, app_id, *, lock=True):
     # A second association outside the managed department must not be selected
     # away and silently treated as a unique employee. No other employee leaves here.
     associations = frappe.db.sql(
-        "select name from `tabEmployee` where user_id=%s order by name limit 2 for update",
+        "select name from `tabEmployee` where user_id=%s order by name limit 2" + (" for update" if lock else ""),
         (subject_name,), as_dict=True,
     )
-    users = frappe.db.sql("select name,enabled from `tabUser` where name=%s for update", (subject_name,), as_dict=True)
+    users = frappe.db.sql("select name,enabled from `tabUser` where name=%s" + (" for update" if lock else ""), (subject_name,), as_dict=True)
     if len(associations) != 1 or not users:
         frappe.throw("员工账号关联尚未确认，请核验后重试。", frappe.PermissionError)
 
@@ -139,7 +139,7 @@ def get_capabilities(**kwargs):
         _only(kwargs)
         user = policy.get_current_user()
         capabilities = []
-        own, _ = policy._rules("User", user)
+        own, _ = policy._rules("User", user, lock=False)
         # Management never inherits from department defaults. The absence of
         # a registered personal operation can safely narrow candidates; every
         # candidate still receives the existing fresh target authorization.
@@ -147,7 +147,9 @@ def get_capabilities(**kwargs):
         # This read runs on every session resume. Ordinary employees have no
         # management candidate rule at all, so the site organization must stay
         # unloaded for them (a large site has thousands of departments).
-        departments = guards.site_departments() if candidates else []
+        # The platform root never needs the target list to know it may manage,
+        # and ordinary employees have no management candidate at all.
+        departments = [] if (not candidates or guards.platform_root()) else guards.site_departments()
         for operation in policy.MANAGEMENT:
             if operation.startswith('iam.roles.') and not policy.enabled_flag('hbos_iam_roles_enabled'):
                 continue

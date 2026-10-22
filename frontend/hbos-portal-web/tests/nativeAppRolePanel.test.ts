@@ -179,3 +179,14 @@ it('does not require a GLOBAL acknowledgement when no GLOBAL role is being grant
   expect(wrapper.text()).not.toContain('我确认 Stock User 为 GLOBAL')
   wrapper.unmount()
 })
+
+it('does not offer editing on the operator own employee record', async () => {
+  api.describe.mockResolvedValue({ ...state(), user: 'grantor' })
+  const wrapper = mountPanel()
+  await flushPromises()
+  Object.assign((await import('@/services/iamAccess')).iamSession, { ready: true, user: 'grantor', capabilities: ['iam.access.manage'] })
+  await flushPromises()
+  expect(wrapper.text()).toContain('不能为自己的账号调整原生角色')
+  expect(wrapper.findAll('button').some(row => row.text() === '调整原生角色')).toBe(false)
+  wrapper.unmount()
+})

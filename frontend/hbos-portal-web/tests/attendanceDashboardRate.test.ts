@@ -41,3 +41,12 @@ it('keeps a real 0% distinguishable from an unmeasurable rate', async () => {
   expect(wrapper.text()).not.toContain('当前区间暂无数据')
   wrapper.unmount()
 })
+
+it('clamps an out-of-range backend rate instead of rendering a negative success value', async () => {
+  api.fetch.mockResolvedValue({ ...base, attendance_rate: -16.7 })
+  const wrapper = mountView()
+  await flushPromises()
+  expect(wrapper.text()).not.toContain('-16.7%')
+  expect(wrapper.text()).toContain('0%')
+  wrapper.unmount()
+})

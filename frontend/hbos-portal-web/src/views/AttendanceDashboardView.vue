@@ -158,18 +158,17 @@ const C_TEXT = 'var(--hbos-text-primary)'
 const metrics = computed(() => {
   const d = data.value
   if (!d) return []
-  // A null rate means "no scheduled workdays in range", not "0%". Rendering
-  // `null%` looks like a broken metric and is not a statistic.
-  const rate: number | null = typeof d.attendance_rate === 'number' && Number.isFinite(d.attendance_rate) ? d.attendance_rate : null
+  // `null` means "not measurable in this range" (no attendance rows or no
+  // employees), not "0%". The backend capacity uses (end - start).days, so a
+  // heavily absent range can even return a negative value: clamp to [0, 100] so
+  // an out-of-range backend result cannot be rendered in success-green.
+  const rawRate = typeof d.attendance_rate === 'number' && Number.isFinite(d.attendance_rate) ? d.attendance_rate : null
+  const rate: number | null = rawRate === null ? null : Math.min(100, Math.max(0, rawRate))
   return [
     { id: 'late', label: '迟到', value: d.total_late, color: C_WARNING, hint: '人次' },
     { id: 'early', label: '早退', value: d.total_early, color: C_TEXT, hint: '人次' },
     { id: 'absent', label: '缺勤', value: d.total_absent, color: C_CRITICAL, hint: '人天' },
     { id: 'people', label: '异常人员', value: d.anomaly_people, color: C_TEXT, hint: '人' },
-    // `null` means "not measurable in this range" (no schedule rows or no
-    // attendance rows), not "0%" and not necessarily "no scheduled workdays".
-    // Use a short neutral placeholder: a long sentence in a 30px card wraps and
-    // breaks the metric row, and success-green would read as "target met".
     { id: 'rate', label: '出勤率', value: rate === null ? '—' : `${rate}%`, color: rate === null ? C_TEXT : C_SUCCESS, hint: rate === null ? '当前区间暂无数据' : '区间内' },
     { id: 'total', label: '总人数', value: d.total_employees, color: C_TEXT, hint: '在职' },
   ]

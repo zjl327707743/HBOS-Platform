@@ -25,7 +25,13 @@ def _call(function, *, read_only=False):
             status, code, message = 403, "PROOF_REQUIRED", "请重新验证本人密码及已有二次认证。"
         elif isinstance(exc, frappe.PermissionError):
             status, code, message = 403, "FORBIDDEN", str(exc)
-        elif isinstance(exc, (frappe.QueryDeadlockError, frappe.QueryTimeoutError, frappe.TimestampMismatchError)) or status == 409:
+        elif getattr(exc, "code", "") == "account_busy":
+            # serialize() reports a 10s GET_LOCK timeout as this sentinel; it is
+            # contention, not an invalid request.
+            status, code, message = 409, "CONFLICT", "该账号正在完成另一项管理操作，请稍后重试。"
+        elif isinstance(exc, (frappe.QueryDeadlockError, frappe.QueryTimeoutError)):
+            status, code, message = (409, "READ_CONFLICT", "读取遇到暂时冲突，请重试查询。") if read_only else (409, "CONFLICT", "并发操作使当前事务失效，改动未保存，请刷新后重新核对。")
+        elif isinstance(exc, frappe.TimestampMismatchError) or status == 409:
             status, code, message = 409, "CONFLICT", "资料或权限已变化，本次未保存，请重新读取。"
         elif isinstance(exc, (frappe.ValidationError, ValueError, TypeError)):
             status, code, message = 400, "INVALID_REQUEST", str(exc)

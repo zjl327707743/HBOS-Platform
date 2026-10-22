@@ -33,7 +33,11 @@ class HBOSIAMPolicy(Document):
                 # Such rows remain unavailable to evaluation; only an exact
                 # pre-existing row is preserved, never a new unknown grant.
                 try:
-                    normalized = policy.validate_rule(row, root=guards.platform_root() or unchanged)
+                    # Root framing may widen IAM management rules only. A root
+                    # bypass on a business operation could persist an ALL-scope
+                    # blanket grant, which platform_root() explicitly excludes.
+                    root = guards.platform_root() and policy.value(row, "operation_id") in policy.MANAGEMENT
+                    normalized = policy.validate_rule(row, root=root or unchanged)
                 except ValueError:
                     if not unchanged:
                         raise

@@ -257,7 +257,7 @@ def _decide(personal, department, app_id, operation_id, scope_type, scope_ref, n
 _MISSING = object()
 
 
-def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overrides=None, employee_context=None, *, company=_MISSING):
+def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overrides=None, employee_context=None, *, company=_MISSING, lock=False):
     rejected = lambda reason: {"allowed": False, "reason": reason, "source": "未开放"}
     if not isinstance(scope_type, str) or not isinstance(scope_ref, str):
         return rejected("对象范围格式无效。")
@@ -285,8 +285,8 @@ def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overr
         return rejected("组织对象不存在。")
     if scope_type not in {"SELF", "DEPARTMENT", "COMPANY"} and not any(obj["scope_type"] == scope_type and obj["scope_ref"] == scope_ref for obj in meta["objects"]):
         return rejected("未知对象，已拒绝访问。")
-    own, _ = _rules("User", user, overrides)
-    inherited, _ = _rules("Department", value(employee, "department"), overrides) if employee else ([], None)
+    own, _ = _rules("User", user, overrides, lock=lock)
+    inherited, _ = _rules("Department", value(employee, "department"), overrides, lock=lock) if employee else ([], None)
     if operation_id.startswith("iam."):
         inherited = []  # Management delegation never comes from ordinary departmental defaults.
     try:
@@ -310,18 +310,18 @@ def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overr
     return {"allowed": allowed, "reason": reason, "source": source}
 
 
-def allows(user, app_id, operation_id, scope_type, scope_ref, now=None, *, company=_MISSING) -> bool:
+def allows(user, app_id, operation_id, scope_type, scope_ref, now=None, *, company=_MISSING, lock=False) -> bool:
     """Authorization decision only.
 
     ``evaluate()`` additionally hashes the whole policy revision (~13ms of DB
     reads and row locks) on every call. That value is a response field, never
     part of the decision, so authorization hot paths must not pay for it.
     """
-    return bool(_evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now, company=company)["allowed"])
+    return bool(_evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now, company=company, lock=lock)["allowed"])
 
 
-def evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, *, company=_MISSING):
-    result = _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now, company=company)
+def evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, *, company=_MISSING, lock=False):
+    result = _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now, company=company, lock=lock)
     result["policy_revision"] = current_revision(user) if enabled_flag("hbos_iam_enabled") else ""
     return result
 
@@ -377,22 +377,29 @@ def current_revision(user=None) -> str:
     return revision_digests(user)["policy_revision"]
 
 
-def _target_context(subject_type, subject_name, app_id):
-    """A command context locks only its target and related members, never all Site users."""
+def _target_context(subject_type, subject_name, app_id, *, lock=True):
+    """A command context looks at its target and related members, never all Site users.
+
+    ``lock=False`` produces the same context value for read endpoints without
+    taking row locks; the write path recomputes it under lock inside its own
+    transaction and rejects a mismatch.
+    """
     now = _now()
     payload = {"schema": 1, "subject_type": subject_type, "subject_name": subject_name, "app_id": app_id,
                "registration": next((app for app in registered_apps() if app["id"] == app_id), None)}
     def fingerprint(kind, name):
-        doc = get_policy(kind, name, for_update=True) if name else None
+        doc = get_policy(kind, name, for_update=lock) if name else None
         return {"version": value(doc, "version", 0), "enabled": value(doc, "enabled", 1), "rules": [{**rule_dict(row), "active": active(row, now)} for row in value(doc, "rules", []) if value(row, "app_id") == app_id]}
     def user_context(user):
-        state = frappe.db.get_value("User", user, ["name", "enabled", "modified"], as_dict=True, for_update=True)
-        rows = frappe.db.sql("select name,user_id,department,company,status,modified from `tabEmployee` where user_id=%s order by name limit 2 for update", (user,), as_dict=True)
+        state = frappe.db.get_value("User", user, ["name", "enabled", "modified"], as_dict=True, for_update=lock)
+        rows = frappe.db.sql(
+            "select name,user_id,department,company,status,modified from `tabEmployee` where user_id=%s order by name limit 2"
+            + (" for update" if lock else ""), (user,), as_dict=True)
         context = {"user": state, "employees": rows, "personal": fingerprint("User", user), "departments": {}}
         for row in rows:
             department = value(row, "department")
             if department:
-                context["departments"][department] = {"state": frappe.db.get_value("Department", department, ["name", "company", "modified"], as_dict=True, for_update=True), "policy": fingerprint("Department", department)}
+                context["departments"][department] = {"state": frappe.db.get_value("Department", department, ["name", "company", "modified"], as_dict=True, for_update=lock), "policy": fingerprint("Department", department)}
         if app_id == 'attendance' and enabled_flag('hbos_iam_roles_enabled'):
             from hbos_portal.iam.role_access import revision_dependencies
             context['role_source'] = revision_dependencies(user)

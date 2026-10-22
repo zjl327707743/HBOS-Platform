@@ -114,9 +114,13 @@ def can_manage_any(operation_id, app_id="iam", departments=None) -> bool:
     user = policy.get_current_user()
     if not policy.enabled_flag("hbos_iam_enabled") or operation_id not in policy.MANAGEMENT:
         return False
+    # The root shortcut must not skip registration: a non-integrated app has no
+    # registered operation and cannot actually be managed.
+    if not policy.registration(app_id, operation_id):
+        return False
     rows = departments if departments is not None else site_departments()
     # platform_root() re-resolves the session user; the caller already did it.
-    if user == "Administrator" and (policy.enabled_flag("hbos_iam_enabled") or policy.enabled_flag("hbos_iam_test_site")):
+    if user == "Administrator" and policy.enabled_flag("hbos_iam_enabled"):
         # Authority exists even before the first Department is created: a fresh
         # site must be initializable by the platform root, otherwise nobody can
         # bootstrap IAM. Target-level checks still reject a missing target.

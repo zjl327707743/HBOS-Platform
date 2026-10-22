@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { canIam, iamMessage } from '@/services/iamAccess'
+import { Modal } from 'ant-design-vue'
+import { canIam, iamMessage, iamSession } from '@/services/iamAccess'
 import { describeAppRoles, previewAppRoles, saveAppRoles, type AppRoleApp, type AppRolePreview, type AppRoleState } from '@/services/iamAppRoles'
 import OwnAccountVerification from '@/components/account/OwnAccountVerification.vue'
 import { useAccountProof } from '@/composables/useAccountProof'
@@ -19,8 +20,12 @@ const requestId = ref('')
 let generation = 0
 const canManage = () => canIam('iam.access.manage')
 const canGrant = () => state.value?.can_grant === true && Boolean(state.value?.scope_envelope)
+/** Self-targeting is refused by the write path, so it must not look editable. */
+const isSelf = () => Boolean(state.value?.user) && state.value?.user === iamSession.user
 /** Grant needs an explicit grantor + proven envelope; revocation never does. */
-const canEdit = (app: AppRoleApp) => canManage() && (canGrant() || app.current.length > 0)
+const canEdit = (app: AppRoleApp) => canManage() && !isSelf() && (canGrant() || app.current.length > 0)
+const canSelect = (app: AppRoleApp, role: { role: string; native_scope: string }) =>
+  canGrant() || app.current.includes(role.role)
 const passwordProof = () => proof.valid.value && proof.method.value === 'password'
 const editingApp = () => state.value?.apps.find(app => app.app_id === editing.value) || null
 const selectedGrants = () => {
@@ -63,7 +68,9 @@ function toggleRole(role: string) {
   // A different role set is a different intent: drop the stale preview and the
   // idempotency key, otherwise a replay of the previous payload is rejected.
   preview.value = null; requestId.value = ''; actionError.value = ''
-  if (!needsAck()) acknowledged.value = false
+  // Any change of the selected role set invalidates the previous consent (the
+  // text names the roles). Re-tick the box for the new intent.
+  acknowledged.value = false
 }
 async function prepare() {
   if (busy.value || !state.value || !editing.value) return
@@ -72,8 +79,16 @@ async function prepare() {
   try {
     preview.value = await previewAppRoles(props.employeeId, editing.value, selected.value, state.value.version, needsAck() ? acknowledged.value : false)
     if (!preview.value.changed) actionError.value = '所选角色与当前一致，无需保存。'
-  } catch (e) { actionError.value = iamMessage(e); preview.value = null }
-  finally { busy.value = false }
+  } catch (e) {
+    actionError.value = iamMessage(e); preview.value = null
+    const conflict = e as { status?: number; code?: string }
+    if (conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')) {
+      // The preview context can only be rebuilt from a fresh read; the retained
+      // request id no longer matches the new payload anyway.
+      requestId.value = ''
+      await load()
+    }
+  } finally { busy.value = false }
 }
 async function commit() {
   if (busy.value || !state.value || !editing.value || !preview.value) return
@@ -96,7 +111,23 @@ async function commit() {
     if (conflict.status === 409 || ['CONFLICT', 'VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')) await load()
   } finally { busy.value = false }
 }
+function dirty () {
+  const app = editingApp()
+  if (!app) return false
+  return preview.value !== null || acknowledged.value || JSON.stringify([...selected.value].sort()) !== JSON.stringify([...app.current].sort())
+}
+async function requestLeave () {
+  if (busy.value) return false
+  if (!dirty()) return true
+  return new Promise<boolean>(resolve => Modal.confirm({
+    title: '放弃尚未保存的原生角色调整？',
+    content: '已保存的角色和其他应用权限不受影响。',
+    okText: '放弃调整', cancelText: '继续编辑',
+    onOk: () => resolve(true), onCancel: () => resolve(false),
+  }))
+}
 watch(() => props.employeeId, () => { cancel(); void load() }, { immediate: true })
+defineExpose({ requestLeave, busy })
 </script>
 <template>
   <section class="native-app-roles">
@@ -114,13 +145,14 @@ watch(() => props.employeeId, () => { cancel(); void load() }, { immediate: true
           <a-button v-if="canEdit(app) && editing !== app.app_id" :disabled="busy" @click="start(app)">调整原生角色</a-button>
         </header>
         <p class="current">当前：{{ app.current.length ? app.current.join('、') : '无' }}</p>
-        <a-alert v-if="!state.can_grant || !state.scope_envelope" type="info" show-icon :message="state.scope_envelope ? state.grant_requirement : '当前员工没有唯一、可核验的公司范围包络（Company User Permission）；可以撤销既有角色，但不能新增 GLOBAL 原生角色。'" />
+        <a-alert v-if="isSelf()" type="info" show-icon message="不能为自己的账号调整原生角色；此页对本人只读。" />
+        <a-alert v-else-if="!state.can_grant || !state.scope_envelope" type="info" show-icon :message="state.scope_envelope ? state.grant_requirement : '当前员工没有唯一、可核验的公司范围包络（Company User Permission）；可以撤销既有角色，但不能新增 GLOBAL 原生角色。'" />
         <p class="envelope">范围包络：{{ state.scope_envelope ? `公司 ${state.scope_envelope.company}（来自 ${state.scope_envelope.source}）` : '未取得唯一公司包络' }}</p>
         <template v-if="editing === app.app_id">
           <a-alert v-if="app.roles.some(role => role.native_scope === 'GLOBAL')" type="warning" show-icon message="本轮登记角色均为 GLOBAL：进入仓储后按 Frappe 原生权限判断，不能在本页限定公司或仓库范围。" />
           <OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" />
           <div v-for="role in app.roles" :key="role.role" class="role-option">
-            <a-checkbox :checked="selected.includes(role.role)" :disabled="busy" @change="toggleRole(role.role)">
+            <a-checkbox :checked="selected.includes(role.role)" :disabled="busy || !canSelect(app, role)" @change="toggleRole(role.role)">
               {{ role.title }}（{{ role.role }}）
             </a-checkbox>
             <small>{{ role.summary }}</small>

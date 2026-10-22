@@ -340,7 +340,9 @@ class CurrentReadDB(FakeDB):
                 text = params['search'].strip('%').lower()
                 rows = [row for row in rows if text in (row.employee_name + row.employee_number).lower()]
             return [Attr(row) for row in sorted(rows, key=lambda row: (row.employee_name, row.name))]
-        if 'select name,enabled from `tabUser` where name=%s for update' == query:
+        # Reads are a non-locking snapshot (Owner decision), writes lock; the
+        # fixture matches both shapes so the assertion stays about behaviour.
+        if query.startswith('select name,enabled from `tabUser` where name=%s'):
             self.sql_calls.append((query, params))
             return [Attr(self.users[params[0]])] if params[0] in self.users else []
         return super().sql(query, params, **kwargs)

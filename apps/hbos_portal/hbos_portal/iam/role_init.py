@@ -206,6 +206,10 @@ def _management_rules(company: str) -> list[dict]:
     app_id = "iam"
     rules = [{"app_id": app_id, "operation_id": "app.enter", "effect": "allow", "scope_type": "COMPANY", "scope_ref": company, "include_descendants": 0, "valid_from": None, "valid_until": None, "qualification_ref": None}]
     for operation in policy.MANAGEMENT:
+        # Role operations are not registered while the role feature is off, so
+        # planning them would make --apply fail its own validation.
+        if operation.startswith("iam.roles.") and not policy.enabled_flag("hbos_iam_roles_enabled"):
+            continue
         rules.append(
             {
                 "app_id": app_id,
@@ -332,7 +336,11 @@ def _site_config_lock():
 def _write_site_config(values: dict, path: str | None = None) -> None:
     path = path or frappe.get_site_path("site_config.json")
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as handle:
+    # site_config.json holds DB credentials: create the temporary copy already
+    # private instead of chmod'ing it after the whole document was written.
+    flags = getattr(os, "O_NOFOLLOW", 0) | os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    descriptor = os.open(tmp, flags, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         json.dump(values, handle, ensure_ascii=False, indent=2)
         handle.write("\n")
     os.chmod(tmp, os.stat(path).st_mode & 0o777)
@@ -417,7 +425,7 @@ def set_native_role_grantor(user: str, *, actor: str, reason: str, revoke: bool 
                     before={"grantors": current},
                     after={"grantors": current, "operator": actor, "site": frappe.local.site},
                     version=2,
-                    result="failed",
+                    result="refused",
                     reason=f"{actor}: {reason}（写入 site_config 失败，未生效）",
                 )
                 frappe.db.commit()
