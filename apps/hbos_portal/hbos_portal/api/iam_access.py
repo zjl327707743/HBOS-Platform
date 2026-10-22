@@ -39,7 +39,7 @@ def _only(kwargs, fields=()):
         frappe.throw("请求含有未允许的字段。", frappe.ValidationError)
 
 
-def _current_departments(operation, app_id="iam"):
+def _current_departments(operation, app_id="iam", *, lock=False):
     """Narrow by delegation first, then use locking reads and current authorization.
 
     managed_departments is a candidate list, never proof that a stale organization
@@ -48,9 +48,11 @@ def _current_departments(operation, app_id="iam"):
     candidates = sorted(set(guards.managed_departments(operation, app_id=app_id)))
     if not candidates:
         return []
+    # Locks are for commands that then mutate the target. Reads re-authorize
+    # every row anyway, and FOR UPDATE here serialized parallel page reads.
     rows = frappe.db.sql(
         "select name,department_name,parent_department,company,disabled,lft "
-        "from `tabDepartment` where name in %(departments)s order by name for update",
+        "from `tabDepartment` where name in %(departments)s order by name" + (" for update" if lock else ""),
         {"departments": tuple(candidates)}, as_dict=True,
     )
     result = []
@@ -63,10 +65,10 @@ def _current_departments(operation, app_id="iam"):
     return result
 
 
-def _readable_app(app_id):
+def _readable_app(app_id, *, lock=False):
     if not isinstance(app_id, str) or not any(app["id"] == app_id for app in policy.registered_apps()):
         frappe.throw("应用未注册。", frappe.ValidationError)
-    rows = _current_departments("iam.access.read", app_id)
+    rows = _current_departments("iam.access.read", app_id, lock=lock)
     if not rows:
         frappe.throw("没有该应用范围的配置读取权限。", frappe.PermissionError)
     return {row.name: row for row in rows}
@@ -107,7 +109,7 @@ def _authorized_employees(rows, operation, app_id="iam"):
 
 
 def _lock_work_target(subject_type, subject_name, app_id):
-    departments = _readable_app(app_id)
+    departments = _readable_app(app_id, lock=True)
     if subject_type == "Department":
         row = departments.get(subject_name)
         if not row or row.disabled:
