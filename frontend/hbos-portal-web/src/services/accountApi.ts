@@ -19,7 +19,6 @@ export interface RecoveryLink { recovery_url: string; target: RecoveryTarget; ex
 export interface CompletedAccount extends MfaResult { completed?: boolean; redirect_to?: string; login_name?: string; created?: boolean; password_optional?: boolean; error?: { code: string; message: string } }
 const prefix = 'hbos_portal.auth.accounts.'
 export const getSecurity = (request_id = '') => callFrappeMethod<SecurityStatus>(prefix + 'get_security', request_id ? { request_id } : undefined)
-export const getRequestSecurity = () => callFrappeMethod<{ authenticated: boolean; session_context?: string | null; csrf_token?: string | null }>(prefix + 'get_request_security')
 export const reauthenticate = (password: string, otp: string, tmp_id: string) => callFrappePostMethod<MfaResult>(prefix + 'reauthenticate', { password, otp, tmp_id })
 export const requestFeishuCode = () => callFrappePostMethod<{sent: boolean; error?: string}>(prefix + 'request_feishu_code')
 export const verifyFeishuCode = (code: string, otp: string, tmp_id: string) => callFrappePostMethod<MfaResult>(prefix + 'verify_feishu_code', { code, otp, tmp_id })

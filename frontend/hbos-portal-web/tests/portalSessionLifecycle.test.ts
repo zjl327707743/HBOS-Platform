@@ -36,12 +36,19 @@ it('R01/R02: actual PortalLayout retains one route instance and draft through te
   expect(api.mounted).toHaveBeenCalledTimes(1); expect(api.unmounted).not.toHaveBeenCalled()
   expect(w.find('input').element).toBe(input); expect((input as HTMLInputElement).value).toBe('0001'); expect((area as HTMLTextAreaElement).value).toBe('尚未保存的安排')
 })
-it('R02: slow and failed checks mask sensitive content and block writes while retaining the draft subtree',async()=>{
+it('R02: a slow check keeps the workspace usable and blocked for writes; only a confirmed failure masks it',async()=>{
   const w=await render(); await w.find('textarea').setValue('保留我'); const area=w.find('textarea').element; (area as HTMLElement).focus()
   let reject!:(reason:unknown)=>void; api.security.mockImplementationOnce(()=>new Promise((_,r)=>{reject=r}))
-  const check=ensurePortalSession({force:true}).catch(()=>undefined); await vi.advanceTimersByTimeAsync(801); await flushPromises()
-  expect(w.find('.session-content').attributes('inert')).toBeDefined(); expect(w.find('.session-content').classes()).toContain('session-content-hidden')
-  reject(new Error('offline')); await check; await flushPromises(); expect(portalSession.phase).toBe('unconfirmed'); expect(w.find('textarea').element).toBe(area); expect((area as HTMLTextAreaElement).value).toBe('保留我'); expect(api.block).toHaveBeenLastCalledWith(true)
+  const check=ensurePortalSession({force:true}).catch(()=>undefined)
+  // Slowness is not evidence of revocation: content stays visible and drafts
+  // stay editable, while every mutation remains blocked until confirmation.
+  await vi.advanceTimersByTimeAsync(2001); await flushPromises()
+  expect(w.find('.session-content').classes()).not.toContain('session-content-hidden')
+  expect(portalSession.phase).toBe('checking'); expect(portalSession.slow).toBe(true)
+  expect(api.block).toHaveBeenLastCalledWith(true)
+  reject(new Error('offline')); await check; await flushPromises()
+  expect(portalSession.phase).toBe('unconfirmed'); expect(w.find('.session-content').classes()).toContain('session-content-hidden')
+  expect(w.find('textarea').element).toBe(area); expect((area as HTMLTextAreaElement).value).toBe('保留我')
   await ensurePortalSession({force:true}); await flushPromises(); expect(w.find('.session-content').classes()).not.toContain('session-content-hidden'); expect(api.unmounted).not.toHaveBeenCalled(); expect(document.activeElement).toBe(area)
 })
 it('R05: a new native session for the same User clears the old view and rejects a previous coordinator response',async()=>{

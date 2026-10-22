@@ -24,6 +24,9 @@
             <a-skeleton v-if="sessionPending" active /><a-alert v-else-if="sessionError" type="error" :message="sessionError" /><RouterView v-else :key="portal.user?.id" />
           </template>
           <template v-else>
+            <div v-if="portalSession.phase === 'checking' && portalSession.slow && !masked" class="session-checking" role="status">
+              <a-spin size="small" /> 正在核对登录状态，当前页面保持可用；草稿、筛选与滚动位置不会丢失。
+            </div>
             <div v-if="masked" class="session-recovery" role="status">
               <a-alert type="warning" show-icon :message="routeDenied ? '当前账号已无此页面的管理权限，不能继续办理。可返回工作台或退出登录。' : portalSession.error || '正在重新核对登录状态，页面内容暂时隐藏，草稿仍保留。'" />
               <RouterLink v-if="routeDenied" to="/hbos">返回工作台</RouterLink>
@@ -110,7 +113,7 @@ onMounted(() => { window.addEventListener('keydown', onShortcut); window.addEven
 onBeforeUnmount(() => { window.removeEventListener('keydown', onShortcut); window.removeEventListener('hbos:session-boundary', closeSecurityDialogs); document.body.classList.remove('hbos-session-shield'); detach?.() })
 </script>
 <style scoped>
-.session-content{min-width:0;width:100%}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}
+.session-content{min-width:0;width:100%}.session-checking{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:14px;color:var(--hbos-text-secondary);background:var(--hbos-surface-muted,rgba(0,0,0,.03))}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}
 .development-observation{position:fixed;bottom:0;left:8px;z-index:2000;max-width:min(700px,90vw);padding:4px 8px;background:#fff;border:1px solid #ccd5e0;font-size:12px;max-height:35vh;overflow:auto}.development-observation output{display:block;overflow-wrap:anywhere}
 :global(body.hbos-session-shield .ant-drawer),:global(body.hbos-session-shield .ant-modal-root),:global(body.hbos-session-shield .ant-popover){visibility:hidden!important;pointer-events:none!important}
 </style>

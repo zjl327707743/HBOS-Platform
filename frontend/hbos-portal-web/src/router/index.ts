@@ -2,10 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import PortalLayout from '@/components/layout/PortalLayout.vue'
 import LimsLayout from '@/components/layout/LimsLayout.vue'
 import { canIam } from '@/services/iamAccess'
-import { getRequestSecurity } from '@/services/accountApi'
 import { ensurePortalSession } from '@/services/portalSessionCoordinator'
 import { accountRedirect } from '@/services/accountNavigation'
-import { isUnauthenticatedError } from '@/services/frappeClient'
+import { isUnauthenticatedError, probeFrappeSession } from '@/services/frappeClient'
 import { portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 import { checkPortalAccess } from '@/router/portalGuard'
@@ -269,7 +268,9 @@ router.beforeEach(async (to) => {
     // UNAUTHENTICATED code). Ask the guest-safe endpoint before deciding, so an
     // unauthenticated visitor always reaches the HBOS enterprise login page.
     try {
-      const request = await getRequestSecurity()
+      // Reuse the validating probe: it rejects a malformed payload instead of
+      // treating a missing `authenticated` flag as "Guest".
+      const request = await probeFrappeSession()
       if (!request.authenticated) return { path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(to.fullPath) } }
     } catch {
       // Keep the existing bounded fallback when the session probe itself fails.
