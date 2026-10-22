@@ -208,7 +208,11 @@ def get_work_subject(employee_id, app_id, **kwargs):
 def get_registered_apps(**kwargs):
     def load():
         _only(kwargs)
-        apps = [app for app in policy.registered_apps() if _current_departments("iam.access.read", app_id=app["id"])]
+        # One organization read and one pruned authorization probe per app.
+        # The previous per-app full department scan with row locks made this
+        # list take ~5.6s and every management page waited for it.
+        departments = guards.site_departments()
+        apps = [app for app in policy.registered_apps() if guards.can_manage_any("iam.access.read", app_id=app["id"], departments=departments)]
         if not apps:
             frappe.throw("没有可读取的应用管理范围。", frappe.PermissionError)
         return {"apps": apps}
