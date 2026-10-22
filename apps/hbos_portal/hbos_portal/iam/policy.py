@@ -207,8 +207,10 @@ def validate_rule(rule, *, root=False) -> dict:
     return item
 
 
-def _rules(kind, name, overrides=None):
-    doc = get_policy(kind, name, for_update=True) if name else None
+def _rules(kind, name, overrides=None, *, lock=True):
+    # Read-only callers pass lock=False: the policy row lock serialized every
+    # parallel management read on the same subject.
+    doc = get_policy(kind, name, for_update=lock) if name else None
     override = overrides is not None and (kind, name) in overrides
     if doc and not value(doc, "enabled"):
         return [], doc
@@ -384,9 +386,9 @@ def _target_context(subject_type, subject_name, app_id):
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False).encode()).hexdigest()
 
 
-def effective_work(subject_type, subject_name, app_id, policy_overrides=None, employee_context=None):
+def effective_work(subject_type, subject_name, app_id, policy_overrides=None, employee_context=None, *, lock=True):
     app = next((item for item in registered_apps() if item["id"] == app_id), None)
-    rules, doc = _rules(subject_type, subject_name, policy_overrides)
+    rules, doc = _rules(subject_type, subject_name, policy_overrides, lock=lock)
     now = _now()
     operations = []
     role_assignment = None

@@ -228,8 +228,8 @@ def get_effective_access(subject_type, subject_name, app_id, **kwargs):
     def load():
         _only(kwargs, {"subject_type", "subject_name", "app_id"})
         _lock_work_target(subject_type, subject_name, app_id, lock=False)
-        result = work_commands.describe(policy.effective_work(subject_type, subject_name, app_id))
-        rows = work_commands._rules(policy.get_policy(subject_type, subject_name, for_update=True))
+        result = work_commands.describe(policy.effective_work(subject_type, subject_name, app_id, lock=False))
+        rows = work_commands._rules(policy.get_policy(subject_type, subject_name, for_update=False))
         for operation in result["operations"]:
             operation["editable"] = operation["ordinary"] and operation["available"] and not any(work_commands._complex(row) for row in rows if row["app_id"] == app_id and row["operation_id"] == operation["operation_id"])
         if subject_type == "User":
