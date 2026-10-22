@@ -304,13 +304,6 @@ def ask(**business_fields):
             with phase('catalog_direct'):
                 direct=render_catalog(ticket.plan,titles,question)
         if direct is not None:
-            # The decision store accepts cache_read only after introspect and
-            # final_publish only after pre_projection. A metadata answer skips
-            # retrieval, so it completes that same phase path explicitly - the
-            # sequence activity.py uses for its own metadata reads.
-            _principal=ServicePrincipal(runtime.client,True)
-            runtime.decisions.online(_principal,ticket.call('introspect','cache_read'))
-            runtime.decisions.online(_principal,ticket.call('revalidate','pre_projection'))
             runtime.provider.revalidate(ticket.plan)
             from .r1_contract import validate_ask_data
             from .answer_policy import answer_presentation
