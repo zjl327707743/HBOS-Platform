@@ -65,14 +65,43 @@ async function confirmQuality(){const item=qualityItem.value;if(!item||checks.va
 async function publish(item:ImportItem){const operation=item.publication_status==='Withdrawn'?'restore':item.current_version&&item.current_version!==item.version_id?'replace':'publish';if(operation!=='publish'&&operationReason.value.trim().length<3){error.value='换版或恢复前请填写至少三个字的操作原因。';return}await act(()=>maintenanceAction('publish_import',{batch_id:selectedBatch.value,document_ids:[item.document_id],operation,expected_version:item.current_version,reason:operationReason.value.trim()||undefined}),'发布状态已更新，员工可按当前授权版本查询。')}
 async function withdraw(item:ImportItem){if(operationReason.value.trim().length<3){error.value='下架前请填写至少三个字的操作原因。';return}await act(()=>maintenanceAction('withdraw_import',{...args(item),expected_version:item.current_version,reason:operationReason.value.trim()}),'资料已下架，旧来源与收藏将立即重新核验。')}
 async function queue(item:ImportItem){await act(()=>maintenanceAction('queue_import',{batch_id:selectedBatch.value,document_ids:[item.document_id],operation:item.parse_status==='parse_failed'?'retry':'parse'}),'解析已排队，请刷新查看实际处理进度。')}
+// A document opened from the published list may live in another batch, so the
+// lookup still spans batches. What changes is the cost: the old sweep walked
+// every page of every batch, each request rebuilding the whole dashboard, and
+// measured 63 requests / 42 s end to end. The search stops after a fixed page
+// budget and says so rather than walking to the end of the catalogue.
+const DETAIL_SCAN_MAX_PAGES=5
+function matchesDoc(item:ImportItem,doc:{document_id:string;version_id?:string}){
+ return item.document_id===doc.document_id&&(!doc.version_id||item.version_id===doc.version_id)&&item.relationship!=='SAME_CONTENT_SKIP'
+}
+function findLoaded(doc:{document_id:string;version_id?:string}){
+ return (data.value?.selected?.items||[]).find(i=>matchesDoc(i,doc))||null
+}
+async function findAcrossBatches(doc:{document_id:string;version_id?:string},current:number){
+ let budget=DETAIL_SCAN_MAX_PAGES
+ const batches=data.value?.batches||[]
+ for(const candidate of batches){
+  for(let n=1;budget>0;n++,budget--){
+   const result=await getMaintenance(candidate.name,n)
+   if(current!==epoch||!detailOpen.value)return null
+   const item=result.selected?.items.find(i=>matchesDoc(i,doc))
+   if(item){selectedBatch.value=candidate.name;page.value=n;data.value=result;return item}
+   if(!result.selected||n*result.selected.page_size>=result.selected.total)break
+  }
+  if(budget<=0)break
+ }
+ return null
+}
 async function openDetails(doc:{title:string;document_id:string;version_id?:string;item?:ImportItem}){
  detailOpen.value=true;detail.value=null;detailTitle.value=doc.title;detailLoading.value=true;operationReason.value='';const current=epoch
  try{
   if(doc.item){detail.value=doc.item;return}
-  for(const candidate of data.value?.batches||[]){
-   let n=1
-   while(true){const result=await getMaintenance(candidate.name,n);if(current!==epoch||!detailOpen.value)return;const item=result.selected?.items.find(i=>i.document_id===doc.document_id&&(!doc.version_id||i.version_id===doc.version_id)&&i.relationship!=='SAME_CONTENT_SKIP');if(item){selectedBatch.value=candidate.name;page.value=n;data.value=result;detail.value=item;return}if(!result.selected||n*result.selected.page_size>=result.selected.total)break;n++}
-  }
+  // A document opened from the page it is already listed on needs no request.
+  // The old sweep re-read the whole dashboard once per page of every batch to
+  // find a row that was, in most cases, already in hand.
+  const loaded=findLoaded(doc);if(loaded){detail.value=loaded;return}
+  const found=await findAcrossBatches(doc,current)
+  if(found){detail.value=found;return}
  }catch(e){if(current===epoch)failure(e)}finally{if(current===epoch)detailLoading.value=false}
 }
 async function newRevision(){const target=data.value?.published_documents.find(d=>d.document_id===detail.value?.document_id);if(!target)return;department.value=target.department;await nextTick();replacement.value=target;uploadStage.value=0;detailOpen.value=false;await router.push('/hbos/knowledge/maintenance/upload')}
