@@ -16,6 +16,7 @@ const selectedIds=ref<string[]>([]),bulkQualityOpen=ref(false),bulkChecks=ref<st
 const detailOpen=ref(false),detail=ref<ImportItem|null>(null),detailLoading=ref(false),detailTitle=ref('')
 const feedbackOpen=ref(false),selectedFeedback=ref<MaintenanceFeedback|null>(null),reply=ref(''),feedbackItems=ref<MaintenanceFeedback[]>([]),feedbackPage=ref(1),feedbackHasMore=ref(false),feedbackStatus=ref(''),feedbackQuery=ref('')
 let epoch=0,readSequence=0,feedbackSequence=0
+let feedbackTimer:ReturnType<typeof setTimeout>|null=null
 const batch=computed(()=>data.value?.selected)
 const selectable=computed(()=>batch.value?.items.filter(i=>i.parse_status==='parsed/indexed'&&i.relationship!=='SAME_CONTENT_SKIP'&&i.publication_status==='Unpublished'&&(!i.current_version||i.current_version===i.version_id))||[])
 const selectedItems=computed(()=>selectable.value.filter(i=>selectedIds.value.includes(i.document_id)))
@@ -46,7 +47,7 @@ async function refreshFeedback(){const current=epoch,seq=++feedbackSequence;load
  const query=feedbackQuery.value.trim().toLowerCase(),filtered=all.filter(item=>(item.note+' '+item.category).toLowerCase().includes(query))
  if(current===epoch&&seq===feedbackSequence){feedbackItems.value=filtered.slice((feedbackPage.value-1)*6,feedbackPage.value*6);feedbackHasMore.value=feedbackPage.value*6<filtered.length}
  }else{const result=await getMaintenanceFeedbackPage(feedbackPage.value,feedbackStatus.value);if(current===epoch&&seq===feedbackSequence){feedbackItems.value=result.items;feedbackHasMore.value=result.has_more}}}catch(e){if(current===epoch&&seq===feedbackSequence)failure(e)}finally{if(current===epoch&&seq===feedbackSequence)loading.value=false}}
-watch(feedbackPage,refreshFeedback);watch(feedbackQuery,()=>{feedbackPage.value=1;void refreshFeedback()});watch(feedbackStatus,()=>{feedbackPage.value=1;void refreshFeedback()})
+watch(feedbackPage,refreshFeedback);watch(feedbackQuery,()=>{feedbackPage.value=1;if(feedbackTimer)clearTimeout(feedbackTimer);feedbackTimer=setTimeout(()=>{feedbackTimer=null;void refreshFeedback()},200)});watch(feedbackStatus,()=>{feedbackPage.value=1;void refreshFeedback()})
 async function act(work:()=>Promise<unknown>,success:string){if(busy.value)return;const current=epoch;busy.value=true;error.value='';notice.value='';try{await work();if(current!==epoch)return;notice.value=success;await refresh();if(detail.value){const item=batch.value?.items.find(i=>i.version_id===detail.value?.version_id);if(item)detail.value=item}}catch(e){if(current===epoch)failure(e)}finally{if(current===epoch)busy.value=false}}
 function chooseFile(event:Event){file.value=(event.target as HTMLInputElement).files?.[0]||null;notice.value=''}
 async function upload(){if(!file.value||!sharing.value)return;await act(async()=>{const result=await uploadKnowledge(file.value!,department.value,sharing.value,replacement.value||undefined);selectedBatch.value=result.batch_id;data.value=null;page.value=1;file.value=null;sharing.value=false;replacement.value=null;uploadStage.value=1},'上传已保存，请核对重复与版本关系后开始解析。')}
