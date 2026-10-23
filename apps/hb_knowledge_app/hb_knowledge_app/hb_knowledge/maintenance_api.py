@@ -43,6 +43,11 @@ def controller(**ignored):
             for before,after in zip(old['items'],raw['state']['items']):
                 if before['canonical_document_id'] not in selected and before!=after:raise KnowledgeError('INVALID_REQUEST')
             job['status']=raw['outcome']
+            # The lease was set once at claim, so a parse that outlived it could
+            # never report again and the batch stayed Running forever. Progress
+            # while still Running renews it by the same 30 minutes; a terminal
+            # outcome keeps the original lease so nothing looks live afterwards.
+            if raw['outcome']=='Running':job['lease_expires_at']=time.time()+1800
             safe=raw['error'] if raw['error'] in ('BUDGET_BLOCKED','PARSE_FAILED','SOURCE_CHANGED','EXECUTOR_STOPPED','RECONCILIATION_REQUIRED') else None
             frappe.db.set_value(m.TABLE,row['name'],{'state_json':canonical(raw['state']),'job_json':canonical(job),'status':raw['outcome'],'last_error':safe})
             result={'updated':True}
