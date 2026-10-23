@@ -108,36 +108,53 @@ def get_retrieval_diagnostics(**business_fields):
 def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, component_id=_UNSET,
            context=_UNSET, space_ids=_UNSET, search_mode=_UNSET, **business_fields):
     def current(request_id):
+        phase,flush=_ask_marks(request_id)
+        try:
+            return _search_current(business_fields,query,limit,equipment_id,asset_id,component_id,
+                                   context,space_ids,search_mode,request_id,phase)
+        finally:
+            flush()
+
+    def _search_current(business_fields,query,limit,equipment_id,asset_id,component_id,
+                        context,space_ids,search_mode,request_id,phase):
         raw=_framework_business(business_fields,"search")
         raw["query"]=query
         if limit is not _UNSET: raw["limit"]=limit
         for key,value in (("equipment_id",equipment_id),("asset_id",asset_id),("component_id",component_id),
                           ("context",context),("space_ids",space_ids),("search_mode",search_mode)):
             if value is not _UNSET: raw[key]=value
-        request=normalize_search(raw,legacy=True)
-        runtime=load_runtime(); actor=runtime.actor()
+        with phase('normalize_search'):
+            request=normalize_search(raw,legacy=True)
+        with phase('load_runtime_actor'):
+            runtime=load_runtime(); actor=runtime.actor()
         # Caller attribution is derived from the authenticated server connection.
         # Browsers cannot nominate another caller or a model for retrieval.
         if any(k in raw for k in ('model_alias','knowledge_only','answer_caller')):
             raise KnowledgeError('INVALID_REQUEST')
         from dataclasses import replace
         request=replace(request,answer_caller='MCP' if getattr(frappe.local,'hbos_mcp_connection',None) else 'PORTAL')
-        ticket=runtime.decisions.issue(actor,runtime.client,"knowledge.search",request,request_id)
+        with phase('plan_issue'):
+            ticket=runtime.decisions.issue(actor,runtime.client,"knowledge.search",request,request_id)
         if getattr(runtime,"publication",None): runtime.publication.plan=ticket.plan
-        records=load_gateway_client().search(ticket=ticket)
+        with phase('service_search'):
+            records=load_gateway_client().search(ticket=ticket)
         runtime.checkpoint("before_evidence_issue")
-        if records:
-            runtime.gateway.authorize_evidence(ticket,records,phase="pre_issue")
-        runtime.provider.revalidate(ticket.plan)
+        with phase('authorize_evidence'):
+            if records:
+                runtime.gateway.authorize_evidence(ticket,records,phase="pre_issue")
+        with phase('provider_revalidate'):
+            runtime.provider.revalidate(ticket.plan)
         output=[]
         # Entire response quota reserved by HBOS once; Gateway never double charges.
         runtime.quota.reserve_output(actor.user_ref,sum(len(r.excerpt) for r in records))
         from knowledge_service.hbos_gateway.response_projection import public_evidence
-        for record in records:
-            evidence_id=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
-            output.append(public_evidence(record,evidence_id,environment=runtime.profile))
+        with phase('issue_evidence'):
+            for record in records:
+                evidence_id=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
+                output.append(public_evidence(record,evidence_id,environment=runtime.profile))
         runtime.checkpoint("before_search_publication")
-        runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call("revalidate","final_publish"))
+        with phase('final_online'):
+            runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call("revalidate","final_publish"))
         data={"request_id":request_id,"mode":"retrieval","search_mode":request.search_mode,"results":output}
         if request.context: data["context"]=dict(request.context)
         validate_structure("SearchData",data)
