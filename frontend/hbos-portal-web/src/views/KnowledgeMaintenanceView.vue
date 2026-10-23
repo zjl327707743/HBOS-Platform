@@ -70,7 +70,7 @@ async function queue(item:ImportItem){await act(()=>maintenanceAction('queue_imp
 // every page of every batch, each request rebuilding the whole dashboard, and
 // measured 63 requests / 42 s end to end. The search stops after a fixed page
 // budget and says so rather than walking to the end of the catalogue.
-const DETAIL_SCAN_MAX_PAGES=5
+const DETAIL_SCAN_MAX_PAGES=3
 function matchesDoc(item:ImportItem,doc:{document_id:string;version_id?:string}){
  return item.document_id===doc.document_id&&(!doc.version_id||item.version_id===doc.version_id)&&item.relationship!=='SAME_CONTENT_SKIP'
 }
