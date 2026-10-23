@@ -128,10 +128,17 @@ function validateKnowledgeSearch(value: KnowledgeSearchResult): KnowledgeSearchR
   }
   return projected
 }
+// Mirrors the backend CONTEXT_KEYS whitelist. Each key is independent: a scope
+// may carry only an asset or only a component, which the backend accepts, so
+// requiring equipment_id whenever the context is non-empty rejected valid
+// scopes before the request was even sent.
 function validateKnowledgeContext(context: KnowledgeSearchContext): void {
   const keys = Object.keys(context).filter(key => (context as Record<string, unknown>)[key] !== undefined)
-  if (keys.some(key => !['equipment_id','asset_id','component_id'].includes(key)) ||
-      (keys.length > 0 && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(context.equipment_id || ''))) {
+  if (keys.some(key => !['equipment_id','asset_id','component_id'].includes(key))) {
+    throw new DomainApiError('INVALID_REQUEST','设备检索上下文无效。')
+  }
+  if (context.equipment_id !== undefined && context.equipment_id !== null &&
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(context.equipment_id)) {
     throw new DomainApiError('INVALID_REQUEST','设备检索上下文无效。')
   }
   for (const value of Object.values(context)) if (value !== undefined) safeKnowledgeString(value,200)

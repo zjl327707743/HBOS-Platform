@@ -138,12 +138,23 @@ describe('N1 current-user feedback and paginated catalog projections', () => {
   it.each([
     { equipment_id: 'EQ_N1_DEMO', dataset_id: 'PHYSICAL_ID' },
     { equipment_id: 42 },
-    { asset_id: 'ASSET_WITHOUT_EQUIPMENT_DEMO' },
+    { equipment_id: 'bad id!' },
     null,
   ])('rejects an unsafe optional saved context case %#', async context => {
     const { openKnowledgeSaved } = await import('@/services/p1Api')
     transport.post.mockResolvedValue({ ok: true, data: { search_mode:'STANDARD', query: '合成旧问题', space_ids: ['SPACE_N1_DEMO'], context } })
     await expect(openKnowledgeSaved('SAVED_N1_DEMO')).rejects.toBeInstanceOf(DomainApiError)
+  })
+  // The backend CONTEXT_KEYS whitelist treats each context key as independent:
+  // an asset- or component-only scope is a valid saved context.
+  it.each([
+    { asset_id: 'ASSET_WITHOUT_EQUIPMENT_DEMO' },
+    { component_id: 'COMPONENT_WITHOUT_EQUIPMENT_DEMO' },
+  ])('accepts an independent whitelisted saved context %#', async context => {
+    const { openKnowledgeSaved } = await import('@/services/p1Api')
+    const saved = { query: '合成旧问题', space_ids: ['SPACE_N1_DEMO'], context }
+    transport.post.mockResolvedValue({ ok: true, data: saved })
+    expect(await openKnowledgeSaved('SAVED_N1_DEMO')).toEqual(saved)
   })
   it('rejects duplicate saved departments and unprojected response fields', async () => {
     const { openKnowledgeSaved } = await import('@/services/p1Api')
