@@ -43,12 +43,10 @@ export function usePortalSession() {
   // only by a real authentication failure, so a later transient error cannot
   // promote itself into a "you were logged out" screen.
   let established = false
-  // Freshness window for the soft re-check. Rapid focus/pageshow/visibility
-  // events used to fan out into repeated bootstrap calls within a second of
-  // each other; inside this window the identity cannot have changed, and every
-  // new real request is still authorized by the server.
-  const SOFT_WINDOW_MS = 15000
-  let lastSyncAt = 0
+  // Signature of the last successfully verified identity and app set. It is
+  // the ONLY thing that advances ``sessionRevision``: a resume that returns the
+  // same user and the same apps has nothing new for the views to read, and
+  // bumping it anyway made every focus re-pull the knowledge catalogue.
   let identitySignature = ''
 
   const resume = () => {
@@ -72,12 +70,14 @@ export function usePortalSession() {
         return
       }
       established = true
-      lastSyncAt = Date.now()
       // Only a changed identity or app set needs the views to re-read state.
       // Bumping this unconditionally made every resume look like a refresh to
       // KnowledgeView, which then re-pulled the catalogue and lost scroll.
-      identitySignature = `${portal.user?.id ?? ''}|${portal.apps.map(app => app.id).join(',')}`
-      sessionRevision.value++
+      // The first successful load records the signature without a bump: the
+      // views are mounting for the first time and read their state themselves.
+      const nextSignature = `${portal.user?.id ?? ''}|${portal.apps.map(app => app.id).join(',')}`
+      if (identitySignature && nextSignature !== identitySignature) sessionRevision.value++
+      identitySignature = nextSignature
     } catch (error) {
       if (disposed) return
       if (isUnauthenticatedError(error)) {

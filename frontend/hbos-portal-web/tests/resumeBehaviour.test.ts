@@ -109,9 +109,47 @@ describe('tab resume keeps the working state', () => {
 
     window.dispatchEvent(new Event('focus')); await flushPromises()
     expect(revision(w)).toBe(before)
+  })
 
-    pending.resolve(data()); await flushPromises()
+  it('does not bump the revision when the identity and app set are unchanged', async () => {
+    const w = await render()
+    const before = revision(w)
+    provider.getPortalData.mockResolvedValue(data())
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    expect(revision(w)).toBe(before)
+  })
+
+  it('bumps the revision when the signed-in identity changes', async () => {
+    const w = await render()
+    const before = revision(w)
+    provider.getPortalData.mockResolvedValue({ ...data(), user: { id: 'synthetic-successor' } })
+    window.dispatchEvent(new Event('focus')); await flushPromises()
     expect(revision(w)).toBeGreaterThan(before)
+  })
+
+  it('bumps the revision when the authorized app set changes', async () => {
+    const w = await render()
+    const before = revision(w)
+    provider.getPortalData.mockResolvedValue(data(['knowledge', 'lims']))
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    expect(revision(w)).toBeGreaterThan(before)
+  })
+
+  it('does not bump the revision on the first successful load, so the view is not re-read twice', async () => {
+    const w = await render()
+    expect(revision(w)).toBe(0)
+  })
+
+  it('re-verifies on every resume instead of skipping inside a freshness window', async () => {
+    const w = await render()
+    provider.getPortalData.mockClear()
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    window.dispatchEvent(new Event('focus')); await flushPromises()
+    // Two resumes seconds apart must each reach the server: a revoked account
+    // cannot be hidden behind a local timer.
+    expect(provider.getPortalData).toHaveBeenCalledTimes(2)
+    expect(w.get('[data-test="content"]').isVisible()).toBe(true)
   })
 
   it.each([
@@ -204,8 +242,12 @@ describe('resume distinguishes transient failure from real revocation', () => {
 
     const before = revision(w)
     provider.getPortalData.mockResolvedValue(data())
+    provider.getPortalData.mockClear()
     window.dispatchEvent(new Event('focus')); await flushPromises()
-    expect(revision(w)).toBeGreaterThan(before)
+    // Recovery must reach the server; the revision stays put because the
+    // identity did not change, so the page is not re-read underneath the user.
+    expect(provider.getPortalData).toHaveBeenCalledTimes(1)
+    expect(revision(w)).toBe(before)
     expect(w.get('[data-test="content"]').isVisible()).toBe(true)
     expect(w.find('[data-test="skeleton"]').exists()).toBe(false)
   })
