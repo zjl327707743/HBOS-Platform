@@ -244,7 +244,8 @@ def ask(**business_fields):
             _,previous=owned(raw['conversation_id'],actor,kinds=('History',))
             bindings_for(previous,mapping)
             from .spaces import list_spaces
-            titles={s['space_id']:s['title'] for s in list_spaces(runtime,actor)['spaces']}
+            spaces=list_spaces(runtime,actor)['spaces']
+            titles=_space_titles(spaces,raw.get('space_ids'))
             requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
             from .followup import validate_followup_scope
             validate_followup_scope(previous,requested.space_ids,requested.context)
@@ -260,7 +261,7 @@ def ask(**business_fields):
             history=conversation_history(previous,older=older)
             question=raw['question'].strip()[:500]
             search_query=retrieval_query(question,previous)
-            request=normalize_search({'query':search_query,'history':list(history),'space_titles':titles,
+            request=normalize_search({'query':search_query,'history':list(history),**_with_titles(titles),
                 **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
             ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
             runtime.publication.plan=ticket.plan
@@ -288,8 +289,8 @@ def ask(**business_fields):
             return data
         from .spaces import list_spaces
         with phase('list_spaces'):
-            titles={s['space_id']:s['title'] for s in list_spaces(runtime,actor)['spaces']}
-        request=normalize_search({'query':question,'space_titles':titles,
+            titles=_space_titles(list_spaces(runtime,actor)['spaces'],raw.get('space_ids'))
+        request=normalize_search({'query':question,**_with_titles(titles),
             **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
         with phase('plan_issue'):
             ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
@@ -326,6 +327,35 @@ def ask(**business_fields):
     return _run(current)
 
 
+def _with_titles(titles):
+    """``space_titles`` for a request, omitted entirely when there are none.
+
+    Passing ``space_titles=None`` would still be a present key, and the
+    contract rejects a present-but-empty map.
+    """
+    return {'space_titles': titles} if titles else {}
+
+
+def _space_titles(spaces, requested=None):
+    """Display names for the spaces this request may name, or None.
+
+    The SearchRequest contract admits 1..20 titles, but ``list_spaces`` may
+    return up to 100 authorized spaces. Sending the whole map made every ask
+    fail with INVALID_REQUEST for a caller with 21+ spaces, and sending an
+    empty one made a caller with no grants fail the same way instead of
+    reaching EMPTY_SCOPE. The map is display data only: it never widens the
+    grant set, so narrowing it to the requested spaces (when the caller named
+    some) and omitting it when there are none is exact.
+    """
+    known = {s['space_id']: s['title'] for s in spaces or () if s.get('space_id')}
+    if requested is not None:
+        known = {k: v for k, v in known.items() if k in set(requested)}
+    if not known:
+        return None
+    # Deterministic order keeps the signed request fingerprint stable.
+    return dict(sorted(known.items())[:20])
+
+
 def _personal_models(runtime,actor):
     import frappe
     from .answer_policy import ALIASES,DEFAULT_MODEL
@@ -337,7 +367,14 @@ def _personal_models(runtime,actor):
         raise KnowledgeError('UPSTREAM_INVALID_RESULT')
     selected=frappe.defaults.get_user_default('hbos_knowledge_model',user=actor.user_ref)
     available={m['alias'] for m in data['models'] if m['available']}
-    if selected not in available:selected=DEFAULT_MODEL
+    if selected not in available:
+        # The default is only a fallback when it is itself verified. Picking it
+        # blindly made every ask fail with MODEL_UNAVAILABLE on a deployment
+        # where only another alias had been verified. The stored user
+        # preference is never rewritten here.
+        if DEFAULT_MODEL in available:selected=DEFAULT_MODEL
+        else:selected=next((m['alias'] for m in data['models'] if m['available']),None)
+        if selected is None:raise KnowledgeError('MODEL_UNAVAILABLE')
     runtime.provider._current(actor,runtime.client)
     return {**data,'selected_alias':selected}
 
