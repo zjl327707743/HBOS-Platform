@@ -66,11 +66,10 @@ async function publish(item:ImportItem){const operation=item.publication_status=
 async function withdraw(item:ImportItem){if(operationReason.value.trim().length<3){error.value='下架前请填写至少三个字的操作原因。';return}await act(()=>maintenanceAction('withdraw_import',{...args(item),expected_version:item.current_version,reason:operationReason.value.trim()}),'资料已下架，旧来源与收藏将立即重新核验。')}
 async function queue(item:ImportItem){await act(()=>maintenanceAction('queue_import',{batch_id:selectedBatch.value,document_ids:[item.document_id],operation:item.parse_status==='parse_failed'?'retry':'parse'}),'解析已排队，请刷新查看实际处理进度。')}
 // A document opened from the published list may live in another batch, so the
-// lookup still spans batches. What changes is the cost: the old sweep walked
-// every page of every batch, each request rebuilding the whole dashboard, and
-// measured 63 requests / 42 s end to end. The search stops after a fixed page
-// budget and says so rather than walking to the end of the catalogue.
-const DETAIL_SCAN_MAX_PAGES=3
+// lookup still spans batches. Each request names the document and the server
+// returns the page it sits on, so a batch costs one request instead of one per
+// page: the old sweep measured 63 requests / 42 s end to end.
+const DETAIL_SCAN_MAX_BATCHES=6
 function matchesDoc(item:ImportItem,doc:{document_id:string;version_id?:string}){
  return item.document_id===doc.document_id&&(!doc.version_id||item.version_id===doc.version_id)&&item.relationship!=='SAME_CONTENT_SKIP'
 }
@@ -78,17 +77,13 @@ function findLoaded(doc:{document_id:string;version_id?:string}){
  return (data.value?.selected?.items||[]).find(i=>matchesDoc(i,doc))||null
 }
 async function findAcrossBatches(doc:{document_id:string;version_id?:string},current:number){
- let budget=DETAIL_SCAN_MAX_PAGES
- const batches=data.value?.batches||[]
+ const batches=(data.value?.batches||[]).slice(0,DETAIL_SCAN_MAX_BATCHES)
  for(const candidate of batches){
-  for(let n=1;budget>0;n++,budget--){
-   const result=await getMaintenance(candidate.name,n)
-   if(current!==epoch||!detailOpen.value)return null
-   const item=result.selected?.items.find(i=>matchesDoc(i,doc))
-   if(item){selectedBatch.value=candidate.name;page.value=n;data.value=result;return item}
-   if(!result.selected||n*result.selected.page_size>=result.selected.total)break
-  }
-  if(budget<=0)break
+  let result
+  try{result=await getMaintenance(candidate.name,1,doc.document_id)}catch{continue}
+  if(current!==epoch||!detailOpen.value)return null
+  const item=result.selected?.items.find(i=>matchesDoc(i,doc))
+  if(item){selectedBatch.value=candidate.name;page.value=result.selected?.page||1;data.value=result;return item}
  }
  return null
 }

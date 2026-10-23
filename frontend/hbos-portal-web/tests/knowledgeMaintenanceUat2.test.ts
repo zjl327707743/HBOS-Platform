@@ -17,7 +17,7 @@ const dashboard = (selected: any = null) => ({ departments: [{ key: 'production'
 beforeEach(() => {
   vi.resetAllMocks()
   api.status.mockResolvedValue({ can_maintain: true })
-  api.maintenance.mockImplementation((batch?: string) => Promise.resolve(dashboard(batch === 'DUPLICATE' ? { ...original, relationship: 'SAME_CONTENT_SKIP', parse_status: 'skipped_duplicate', quality_status: 'Pending' } : batch === 'ORIGINAL' ? original : null)))
+  api.maintenance.mockImplementation((batch?: string, _page = 1, locate?: string) => Promise.resolve(dashboard(batch === 'DUPLICATE' ? { ...original, relationship: 'SAME_CONTENT_SKIP', parse_status: 'skipped_duplicate', quality_status: 'Pending' } : batch === 'ORIGINAL' || locate ? original : null)))
 })
 
 it('opens the reviewed current version rather than duplicate upload metadata — synthetic contract', async () => {
@@ -25,7 +25,7 @@ it('opens the reviewed current version rather than duplicate upload metadata —
   await flushPromises()
   await w.findAll('button').find(b => b.text() === '查看版本')!.trigger('click')
   await flushPromises()
-  expect(api.maintenance).toHaveBeenCalledWith('ORIGINAL', 1)
+  expect(api.maintenance).toHaveBeenCalledWith('ORIGINAL', 1, 'DOC_SYNTHETIC')
   expect(w.text()).toContain('解析完成 · 质量已核对')
   expect(w.text()).not.toContain('重复，保留原版本 · 质量待核对')
   w.unmount()

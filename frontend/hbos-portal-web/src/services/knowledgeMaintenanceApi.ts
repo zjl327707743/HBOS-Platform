@@ -11,7 +11,7 @@ export interface QualityPreview { title:string; fragments:{text:string;location:
 const method=(name:string)=>`hb_knowledge_app.hb_knowledge.api.${name}`
 const messages:Record<string,string>={SCOPE_REJECTED:'当前账号没有知识维护权限。',AUTHENTICATION_REQUIRED:'登录已失效，请重新登录。',INVALID_REQUEST:'文件或操作无效，请核对格式、大小和当前状态。',IDENTITY_CONFLICT:'身份或当前版本冲突，请选择明确的换版关系。',IMPORT_BUSY:'该批次正在处理，请等待本次完成。',QUALITY_REQUIRED:'请先完成本版本的质量核对。',IMPORT_BUDGET_BLOCKED:'解析费用待核验或预算不可用，解析已暂停。'}
 function unwrap<T>(value:DomainEnvelope<T>):T { if(!value.ok||value.data===undefined) { const code=value.error?.code||'SERVICE_ERROR';throw new DomainApiError(code,messages[code]||'维护服务暂不可用。',Boolean(value.error?.retryable)) } return value.data }
-export async function getMaintenance(batch_id?:string,page=1):Promise<MaintenanceDashboard> { return unwrap(await callFrappeMethod<DomainEnvelope<MaintenanceDashboard>>(method('get_maintenance'),{batch_id,page,page_size:12})) }
+export async function getMaintenance(batch_id?:string,page=1,locate?:string):Promise<MaintenanceDashboard> { return unwrap(await callFrappeMethod<DomainEnvelope<MaintenanceDashboard>>(method('get_maintenance'),{batch_id,page,page_size:12,...(locate?{locate}:{})})) }
 export async function maintenanceAction(name:string,args:Record<string,unknown>):Promise<unknown> { return unwrap(await callFrappePostMethod<DomainEnvelope<unknown>>(method(name),args)) }
 export async function getMaintenanceFeedbackPage(page=1,status=''):Promise<{items:MaintenanceFeedback[];page:number;page_size:number;has_more:boolean}> {
   const data=unwrap(await callFrappeMethod<DomainEnvelope<{items:MaintenanceFeedback[];page:number;page_size:number;has_more:boolean}>>(method('get_feedback_queue'),{page,page_size:6,status}))

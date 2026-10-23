@@ -606,9 +606,9 @@ def _maintenance_action(method,fields,fn):
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])
-def get_maintenance(batch_id=None,page=1,page_size=12,**fields):
+def get_maintenance(batch_id=None,page=1,page_size=12,locate=None,**fields):
     from .maintenance import dashboard
-    return _maintenance_action('get_maintenance',fields,lambda:dashboard(batch_id,page,page_size))
+    return _maintenance_action('get_maintenance',fields,lambda:dashboard(batch_id,page,page_size,locate))
 
 @frappe.whitelist(methods=['POST'])
 def upload_knowledge(department=None,label=None,sharing=None,replace_document=None,expected_version=None,**fields):

@@ -91,9 +91,19 @@ def upload(department,label,sharing,replace_document=None,expected_version=None)
     frappe.db.commit()
     return {'batch_id':batch_id,'sha256':sha,'relationship':frozen['items'][0]['disposition'],'status':'待解析' if frozen['items'][0]['disposition']!='SAME_CONTENT_SKIP' else '重复内容，保留原版本'}
 
-def _projection(row,frozen,state,page,page_size):
+def _projection(row,frozen,state,page,page_size,locate=None):
     quality=_json(row,'quality_json',{});items=[]
-    for item in state['items'][(page-1)*page_size:page*page_size]:
+    window=state['items']
+    if locate:
+        # A detail request names one logical document. Locating it here keeps the
+        # page it happens to sit on, so the caller learns the page instead of
+        # walking every page of every batch through the whole dashboard.
+        index=next((n for n,item in enumerate(window)
+                    if item['canonical_document_id']==locate
+                    and item['disposition']!='SAME_CONTENT_SKIP'),None)
+        if index is not None:
+            page=index//page_size+1
+    for item in window[(page-1)*page_size:page*page_size]:
         doc=item['canonical_document_id'];published=frappe.db.get_value('HBOS Knowledge Document',doc,['current_version','withdrawn','ingestion_status'],as_dict=True)
         review=quality.get(item['version_id'],{})
         items.append({'document_id':doc,'version_id':item['version_id'],'title':item['title'][:240],
@@ -111,14 +121,17 @@ def _projection(row,frozen,state,page,page_size):
             'failed':sum(i['status']=='parse_failed' for i in state['items']),
             'quality_passed':sum(v.get('status')=='Passed' for v in quality.values())}}
 
-def dashboard(batch_id=None,page=1,page_size=12):
+def dashboard(batch_id=None,page=1,page_size=12,locate=None):
     require()
     from .reference_admin import _page_number
     page=_page_number(page,100000);page_size=_page_number(page_size,50)
+    if locate is not None:
+        from .public_strings import safe_string
+        locate=safe_string(locate,120)
     batches=frappe.get_all(TABLE,fields=['name','label','department_key','status','modified'],order_by='modified desc',limit_page_length=100)
     selected=None
     if batch_id:
-        row,frozen,state=_row(batch_id);selected=_projection(row,frozen,state,page,page_size)
+        row,frozen,state=_row(batch_id);selected=_projection(row,frozen,state,page,page_size,locate)
     from .activity import feedback_queue
     from .runtime import load_runtime
     runtime=load_runtime()
