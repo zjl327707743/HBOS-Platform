@@ -261,6 +261,37 @@ class NativeRoleBoundaryTest(unittest.TestCase):
             self.assertTrue(result["replayed"])
             replay.assert_called_once()
 
+    def test_coarse_gate_requires_an_active_iam_rule_for_the_operation(self):
+        """The pre-read shield must not fail open for app-entry-only or expired rules."""
+        now = __import__("datetime").datetime(2026, 10, 23, 12)
+
+        def gate(rules):
+            with patch.object(app_roles, "frappe", FakeFrappe()), \
+                 patch.object(app_roles.policy, "get_current_user", return_value="user@example.invalid"), \
+                 patch.object(app_roles.guards, "can_manage_any", return_value=False), \
+                 patch.object(app_roles.policy, "_rules", return_value=(rules, None)), \
+                 patch.object(app_roles.policy, "_now", return_value=now):
+                try:
+                    app_roles._coarse_gate(write=True)
+                    return "allowed"
+                except FakePermissionError:
+                    return "denied"
+
+        def rule(**kw):
+            base = {"app_id": "iam", "operation_id": "iam.access.manage", "effect": "allow",
+                    "scope_type": "COMPANY", "scope_ref": "C1", "valid_from": None, "valid_until": None,
+                    "qualification_ref": None, "include_descendants": 0}
+            base.update(kw)
+            return base
+
+        self.assertEqual(gate([rule()]), "allowed")
+        # app.enter alone never carries IAM management authority
+        self.assertEqual(gate([rule(operation_id="app.enter")]), "denied")
+        # an expired delegation is not a delegation
+        self.assertEqual(gate([rule(valid_until="2026-01-01")]), "denied")
+        self.assertEqual(gate([rule(app_id="attendance")]), "denied")
+        self.assertEqual(gate([rule(effect="deny")]), "denied")
+
 
 if __name__ == "__main__":
     unittest.main()

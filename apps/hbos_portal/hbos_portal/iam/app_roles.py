@@ -219,11 +219,14 @@ def _coarse_gate(write: bool):
     operation = "iam.access.manage" if write else "iam.access.read"
     if guards.can_manage_any(operation, app_id="iam"):
         return
+    now = policy._now()
     own, _ = policy._rules("User", policy.get_current_user(), lock=False)
     if any(
-        policy.value(row, "effect") == "allow"
-        and policy.value(row, "operation_id") in {operation, "app.enter"}
+        policy.value(row, "app_id") == "iam"
+        and policy.value(row, "operation_id") == operation
+        and policy.value(row, "effect") == "allow"
         and policy.value(row, "scope_type") in {"COMPANY", "ALL"}
+        and policy.active(row, now)
         for row in own
     ):
         return

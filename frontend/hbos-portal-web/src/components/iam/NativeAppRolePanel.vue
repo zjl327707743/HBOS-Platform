@@ -127,7 +127,9 @@ async function commit() {
     // A retryable 409 (contention / read conflict) is not a stale intent: keep
     // the draft. Only a real version/preview mismatch invalidates the selection.
     const retryable = conflict.code === 'READ_CONFLICT' || /正在完成另一项管理操作|稍后重试/.test(String((e as Error)?.message || ''))
-    const stale = conflict.status === 409 && !retryable && !conflict.code || ['VERSION_CONFLICT', 'STALE_PREVIEW'].includes(conflict.code || '')
+    // The transport rewrites CONFLICT to VALIDATION_ERROR while keeping 409, so
+    // "non-retryable 409" is the reliable staleness signal here (same rule as prepare()).
+    const stale = conflict.status === 409 && !retryable
     const inconclusive = !stale && !retryable && (!conflict.status || conflict.status >= 500 || ['NETWORK_ERROR', 'SERVICE_ERROR', 'RATE_LIMITED'].includes(conflict.code || ''))
     actionError.value = inconclusive
       ? `${iamMessage(e)}（结果尚未确认：请重新验证本人密码后再次预览并提交，同一请求编号会被复用以免重复授权。）`
