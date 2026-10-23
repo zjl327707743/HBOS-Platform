@@ -11,6 +11,9 @@ export const portalSession = reactive({
   phase: 'initial' as 'initial' | 'ready' | 'password_required' | 'checking' | 'unconfirmed' | 'guest' | 'logging_out',
   security: null as IamSecurity | null, error: '', generation: 0, checkedAt: 0, mounted: false,
   resumeEvents: 0,
+  // A background revalidation that is merely slow must not hide the workspace.
+  // This flag only drives a quiet, non-blocking indicator.
+  slow: false,
 })
 let flight: Promise<IamSecurity> | null = null, revision = 0
 let resumeTimer: ReturnType<typeof setTimeout> | undefined, slowTimer: ReturnType<typeof setTimeout> | undefined
@@ -45,7 +48,7 @@ function boundary() {
 export function resetPortalSession(notify = true) {
   forgetAttendanceState()
   revision++; flight = null; if (slowTimer) clearTimeout(slowTimer); if (resumeTimer) clearTimeout(resumeTimer)
-  boundary(); portalSession.phase = 'initial'; portalSession.error = ''
+  boundary(); portalSession.phase = 'initial'; portalSession.error = ''; portalSession.slow = false
   if (notify) channel?.postMessage('changed')
 }
 export function requirePortalRecheck() { portalSession.checkedAt = 0 }
@@ -54,10 +57,12 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
   if (!options.force && portalSession.security && ['ready', 'password_required'].includes(portalSession.phase) && Date.now() - portalSession.checkedAt < FRESH_MS) return portalSession.security
   const run = revision, previous = portalSession.security, previousRevision = iamSession.revision, previousApps = { ...iamSession.appRevisions }
   const background = !!previous && (portalSession.mounted || previous.first_password_required), uncertain = portalSession.phase === 'unconfirmed'
-  portalSession.error = ''; portalSession.phase = background ? (uncertain ? 'unconfirmed' : 'checking') : 'initial'; blockFrappeWrites(true)
+  portalSession.error = ''; portalSession.phase = background ? (uncertain ? 'unconfirmed' : 'checking') : 'initial'; portalSession.slow = false; blockFrappeWrites(true)
   if (slowTimer) clearTimeout(slowTimer)
-  // A slow/failed check masks retained data without destroying the draft subtree.
-  slowTimer = setTimeout(() => { if (run === revision && portalSession.phase === 'checking') portalSession.phase = 'unconfirmed' }, 800)
+  // A background revalidation never masks retained data: it only raises a quiet
+  // indicator after 2s. Masking is reserved for a *confirmed* failure below,
+  // because a slow round trip is not evidence that the session was revoked.
+  slowTimer = setTimeout(() => { if (run === revision && portalSession.phase === 'checking') portalSession.slow = true }, 2000)
   const pending = (async () => {
     try {
       const security = await getIamSecurity()
@@ -90,7 +95,7 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
           event('hbos:permissions-changed', { apps })
         }
       }
-      portalSession.checkedAt = Date.now(); event('hbos:security-confirmed', security.proof)
+      portalSession.checkedAt = Date.now(); portalSession.slow = false; event('hbos:security-confirmed', security.proof)
       return security
     } catch (error) {
       if (run !== revision) throw error
@@ -98,7 +103,7 @@ export async function ensurePortalSession(options: { force?: boolean } = {}): Pr
       if (isUnauthenticatedError(error)) { forgetAttendanceState(); boundary(); portalSession.phase = 'guest' }
       else { portalSession.phase = 'unconfirmed'; portalSession.error = error instanceof FrappeRequestError || error instanceof Error && 'status' in error ? error.message : '暂时无法核对当前登录状态。草稿已保留，请重试核验或退出登录。' }
       throw error
-    } finally { if (run === revision && slowTimer) clearTimeout(slowTimer) }
+    } finally { if (run === revision) { portalSession.slow = false; if (slowTimer) clearTimeout(slowTimer) } }
   })()
   flight = pending
   try { return await pending } finally { if (flight === pending) flight = null }

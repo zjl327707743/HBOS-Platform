@@ -158,12 +158,22 @@ const C_TEXT = 'var(--hbos-text-primary)'
 const metrics = computed(() => {
   const d = data.value
   if (!d) return []
+  // `null` means "not measurable in this range" (no attendance rows or no
+  // employees), not "0%". The backend capacity uses (end - start).days, so a
+  // heavily absent range can even return a negative value: clamp to [0, 100] so
+  // an out-of-range backend result cannot be rendered in success-green.
+  const rawRate = typeof d.attendance_rate === 'number' && Number.isFinite(d.attendance_rate) ? d.attendance_rate : null
+  // A value outside [0,100] is a backend anomaly (its capacity basis can make a
+  // heavily absent range negative), not a healthy 0%/100%: show it as not
+  // measurable instead of normalising it into a misleading success figure.
+  const rateAnomaly = rawRate !== null && (rawRate < 0 || rawRate > 100)
+  const rate: number | null = rawRate === null || rateAnomaly ? null : rawRate
   return [
     { id: 'late', label: '迟到', value: d.total_late, color: C_WARNING, hint: '人次' },
     { id: 'early', label: '早退', value: d.total_early, color: C_TEXT, hint: '人次' },
     { id: 'absent', label: '缺勤', value: d.total_absent, color: C_CRITICAL, hint: '人天' },
     { id: 'people', label: '异常人员', value: d.anomaly_people, color: C_TEXT, hint: '人' },
-    { id: 'rate', label: '出勤率', value: d.attendance_rate + '%', color: C_SUCCESS, hint: '区间内' },
+    { id: 'rate', label: '出勤率', value: rate === null ? '—' : `${rate}%`, color: rate === null ? C_TEXT : C_SUCCESS, hint: rate === null ? (rateAnomaly ? '数据异常，暂不可计算' : '当前区间暂无数据') : '区间内' },
     { id: 'total', label: '总人数', value: d.total_employees, color: C_TEXT, hint: '在职' },
   ]
 })

@@ -132,7 +132,7 @@ def _employee(employee_id, operation, lock=False):
 def get_person(employee_id):
     if not frappe.db.get_value('Employee', employee_id, 'name', for_update=True):
         guards.require_capability('iam.people.read')
-        if not guards.isolated_root():
+        if not guards.platform_root():
             frappe.throw('未确认员工归属的账号不在当前部门管理范围内。', frappe.PermissionError)
         user = _user(employee_id)
         if not user or user.name == 'Guest':
@@ -247,12 +247,20 @@ def on_native_user_update(doc, method=None):
     controlled = frappe.flags.get('hbos_iam_website_compatibility') == doc.name
     if not controlled and not guards._managed_user(doc.name):
         return
-    if frappe.flags.get('hbos_iam_user_type_upgrade_authority') == doc.name:
-        return
-    old_roles = {row.role for row in before.get('roles', [])}
+    # A reviewed IAM command (guards.controlled_write) may change exactly the
+    # roles it authorized and audited; Desk/REST/Employee-save paths never set
+    # this request-local flag. The type/enable constraints below still apply.
     new_roles = {row.role for row in doc.get('roles', [])}
-    if new_roles - old_roles - {'Employee'}:
-        reject('原生保存产生非预期角色变化，未授予后台权限。', 409)
+    # The exemption is bound to the exact target and final role set that an
+    # approved IAM command verified; a request-wide "some write is running" flag
+    # must not let unrelated commands borrow the bypass.
+    approved_write = frappe.flags.get('hbos_iam_native_role_authority') == (doc.name, frozenset(new_roles))
+    if not approved_write:
+        old_roles = {row.role for row in before.get('roles', [])}
+        # 'Employee Self Service' is added by the native Employee hook and is
+        # tolerated by people._check_side_effects on the same controlled paths.
+        if new_roles - old_roles - {'Employee', 'Employee Self Service'}:
+            reject('原生保存产生非预期角色变化，未授予后台权限。', 409)
     updates = {}
     if doc.user_type != 'Website User':
         doc.user_type = 'Website User'

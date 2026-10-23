@@ -39,7 +39,7 @@ def _only(kwargs, fields=()):
         frappe.throw("请求含有未允许的字段。", frappe.ValidationError)
 
 
-def _current_departments(operation, app_id="iam"):
+def _current_departments(operation, app_id="iam", *, lock=False):
     """Narrow by delegation first, then use locking reads and current authorization.
 
     managed_departments is a candidate list, never proof that a stale organization
@@ -48,9 +48,11 @@ def _current_departments(operation, app_id="iam"):
     candidates = sorted(set(guards.managed_departments(operation, app_id=app_id)))
     if not candidates:
         return []
+    # Locks are for commands that then mutate the target. Reads re-authorize
+    # every row anyway, and FOR UPDATE here serialized parallel page reads.
     rows = frappe.db.sql(
         "select name,department_name,parent_department,company,disabled,lft "
-        "from `tabDepartment` where name in %(departments)s order by name for update",
+        "from `tabDepartment` where name in %(departments)s order by name" + (" for update" if lock else ""),
         {"departments": tuple(candidates)}, as_dict=True,
     )
     result = []
@@ -63,11 +65,15 @@ def _current_departments(operation, app_id="iam"):
     return result
 
 
-def _readable_app(app_id):
+def _readable_app(app_id, *, lock=False):
     if not isinstance(app_id, str) or not any(app["id"] == app_id for app in policy.registered_apps()):
         frappe.throw("应用未注册。", frappe.ValidationError)
-    rows = _current_departments("iam.access.read", app_id)
+    rows = _current_departments("iam.access.read", app_id, lock=lock)
     if not rows:
+        if guards.platform_root():
+            # A site without any Department has nothing to configure yet: show
+            # an empty view instead of a misleading 403 on the access page.
+            return {}
         frappe.throw("没有该应用范围的配置读取权限。", frappe.PermissionError)
     return {row.name: row for row in rows}
 
@@ -75,7 +81,7 @@ def _readable_app(app_id):
 EMPLOYEE_SELECT = "name,employee_name,employee_number,department,company,designation,user_id,status,modified"
 
 
-def _current_employees(departments, *, employee_id=None, user_id=None, search=""):
+def _current_employees(departments, *, employee_id=None, user_id=None, search="", lock=False):
     if not departments:
         return []
     where = ["department in %(departments)s"]
@@ -91,7 +97,7 @@ def _current_employees(departments, *, employee_id=None, user_id=None, search=""
         values["search"] = "%" + search + "%"
     return frappe.db.sql(
         "select " + EMPLOYEE_SELECT + " from `tabEmployee` where " + " and ".join(where)
-        + " order by employee_name,name for update", values, as_dict=True,
+        + " order by employee_name,name" + (" for update" if lock else ""), values, as_dict=True,
     )
 
 
@@ -106,8 +112,10 @@ def _authorized_employees(rows, operation, app_id="iam"):
     return result
 
 
-def _lock_work_target(subject_type, subject_name, app_id):
-    departments = _readable_app(app_id)
+def _lock_work_target(subject_type, subject_name, app_id, *, lock=True):
+    # get_effective_access is a read endpoint; holding row locks there made the
+    # per-app reads queue (0.8s each, 4.2s for the last of seven).
+    departments = _readable_app(app_id, lock=lock)
     if subject_type == "Department":
         row = departments.get(subject_name)
         if not row or row.disabled:
@@ -115,16 +123,16 @@ def _lock_work_target(subject_type, subject_name, app_id):
         return
     if subject_type != "User":
         frappe.throw("配置目标类型无效。", frappe.ValidationError)
-    rows = _authorized_employees(_current_employees(departments, user_id=subject_name), "iam.access.read", app_id)
+    rows = _authorized_employees(_current_employees(departments, user_id=subject_name, lock=lock), "iam.access.read", app_id)
     if len(rows) != 1:
         frappe.throw("没有该目标的配置读取权限，或员工关联尚未确认。", frappe.PermissionError)
     # A second association outside the managed department must not be selected
     # away and silently treated as a unique employee. No other employee leaves here.
     associations = frappe.db.sql(
-        "select name from `tabEmployee` where user_id=%s order by name limit 2 for update",
+        "select name from `tabEmployee` where user_id=%s order by name limit 2" + (" for update" if lock else ""),
         (subject_name,), as_dict=True,
     )
-    users = frappe.db.sql("select name,enabled from `tabUser` where name=%s for update", (subject_name,), as_dict=True)
+    users = frappe.db.sql("select name,enabled from `tabUser` where name=%s" + (" for update" if lock else ""), (subject_name,), as_dict=True)
     if len(associations) != 1 or not users:
         frappe.throw("员工账号关联尚未确认，请核验后重试。", frappe.PermissionError)
 
@@ -135,20 +143,26 @@ def get_capabilities(**kwargs):
         _only(kwargs)
         user = policy.get_current_user()
         capabilities = []
-        own, _ = policy._rules("User", user)
+        own, _ = policy._rules("User", user, lock=False)
         # Management never inherits from department defaults. The absence of
         # a registered personal operation can safely narrow candidates; every
         # candidate still receives the existing fresh target authorization.
-        candidates = set(policy.MANAGEMENT) if guards.isolated_root() else {row["operation_id"] for row in own if row["operation_id"] in policy.MANAGEMENT and policy.registration(row["app_id"], row["operation_id"])}
+        candidates = set(policy.MANAGEMENT) if guards.platform_root() else {row["operation_id"] for row in own if row["operation_id"] in policy.MANAGEMENT and policy.registration(row["app_id"], row["operation_id"])}
+        # This read runs on every session resume. Ordinary employees have no
+        # management candidate rule at all, so the site organization must stay
+        # unloaded for them (a large site has thousands of departments).
+        # The platform root never needs the target list to know it may manage,
+        # and ordinary employees have no management candidate at all.
+        departments = [] if (not candidates or guards.platform_root()) else guards.site_departments()
         for operation in policy.MANAGEMENT:
             if operation.startswith('iam.roles.') and not policy.enabled_flag('hbos_iam_roles_enabled'):
                 continue
             if operation not in candidates:
                 continue
             apps = [app["id"] for app in policy.registered_apps() if app["integrated"]] if operation in {"iam.access.read", "iam.access.manage", "iam.departments.manage"} or operation.startswith('iam.roles.') else ["iam"]
-            if any(_current_departments(operation, app_id=app_id) for app_id in apps):
+            if any(guards.can_manage_any(operation, app_id=app_id, departments=departments) for app_id in apps):
                 capabilities.append(operation)
-        if policy.evaluate(user, "attendance", "attendance.read", "SELF", "")["allowed"]:
+        if policy.allows(user, "attendance", "attendance.read", "SELF", ""):
             capabilities.append("attendance.read")
         from hbos_portal.auth.accounts import browser_session_context
         return {"schema_version": 1, "subject_user": user, "session_context": browser_session_context(), "app_roles_enabled": policy.enabled_flag('hbos_iam_roles_enabled'), **policy.revision_digests(user), "capabilities": capabilities}
@@ -205,7 +219,11 @@ def get_work_subject(employee_id, app_id, **kwargs):
 def get_registered_apps(**kwargs):
     def load():
         _only(kwargs)
-        apps = [app for app in policy.registered_apps() if _current_departments("iam.access.read", app_id=app["id"])]
+        # One organization read and one pruned authorization probe per app.
+        # The previous per-app full department scan with row locks made this
+        # list take ~5.6s and every management page waited for it.
+        departments = guards.site_departments()
+        apps = [app for app in policy.registered_apps() if guards.can_manage_any("iam.access.read", app_id=app["id"], departments=departments)]
         if not apps:
             frappe.throw("没有可读取的应用管理范围。", frappe.PermissionError)
         return {"apps": apps}
@@ -216,17 +234,17 @@ def get_registered_apps(**kwargs):
 def get_effective_access(subject_type, subject_name, app_id, **kwargs):
     def load():
         _only(kwargs, {"subject_type", "subject_name", "app_id"})
-        _lock_work_target(subject_type, subject_name, app_id)
-        result = work_commands.describe(policy.effective_work(subject_type, subject_name, app_id))
-        rows = work_commands._rules(policy.get_policy(subject_type, subject_name, for_update=True))
+        _lock_work_target(subject_type, subject_name, app_id, lock=False)
+        result = work_commands.describe(policy.effective_work(subject_type, subject_name, app_id, lock=False))
+        rows = work_commands._rules(policy.get_policy(subject_type, subject_name, for_update=False))
         for operation in result["operations"]:
             operation["editable"] = operation["ordinary"] and operation["available"] and not any(work_commands._complex(row) for row in rows if row["app_id"] == app_id and row["operation_id"] == operation["operation_id"])
         if subject_type == "User":
             employee = policy.resolve_employee(subject_name, required=False)
             department_id = policy.value(employee, "department") if employee else None
             if department_id:
-                department = frappe.db.get_value("Department", department_id, ["department_name", "company"], as_dict=True, for_update=True)
-                default = policy.effective_work("Department", department_id, app_id)
+                department = frappe.db.get_value("Department", department_id, ["department_name", "company"], as_dict=True)
+                default = policy.effective_work("Department", department_id, app_id, lock=False)
                 can_open = False
                 try:
                     guards.require_capability("iam.departments.read", department=department_id, company=policy.value(department, "company"))

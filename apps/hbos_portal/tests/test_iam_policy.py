@@ -340,7 +340,9 @@ class CurrentReadDB(FakeDB):
                 text = params['search'].strip('%').lower()
                 rows = [row for row in rows if text in (row.employee_name + row.employee_number).lower()]
             return [Attr(row) for row in sorted(rows, key=lambda row: (row.employee_name, row.name))]
-        if 'select name,enabled from `tabUser` where name=%s for update' == query:
+        # Reads are a non-locking snapshot (Owner decision), writes lock; the
+        # fixture matches both shapes so the assertion stays about behaviour.
+        if query.startswith('select name,enabled from `tabUser` where name=%s'):
             self.sql_calls.append((query, params))
             return [Attr(self.users[params[0]])] if params[0] in self.users else []
         return super().sql(query, params, **kwargs)
@@ -440,7 +442,11 @@ class IAMCurrentReadAPITest(unittest.TestCase):
         self.assertEqual(result['data']['items'][0]['account_status'], 'disabled')
         queries = [(query, params) for query, params in self.db.sql_calls if 'from `tabEmployee` where department in' in query]
         self.assertTrue(queries)
-        self.assertTrue(all(query.endswith('for update') and params['departments'] == ('D1',) for query, params in queries))
+        # Owner decision (PR60 final gate): management reads use a non-locking
+        # snapshot and every row is re-authorized; write commands lock and
+        # re-check inside their own transaction. The invariant that still must
+        # hold is one current, scoped population for count/page/status.
+        self.assertTrue(all(not query.endswith('for update') and params['departments'] == ('D1',) for query, params in queries))
         self.assertNotIn('EMP-002', json.dumps(result))
 
     def test_out_of_scope_filter_and_moved_employee_do_not_disclose_existence(self):

@@ -51,16 +51,21 @@ def enabled_flag(name):
 
 
 def get_current_user() -> str:
+    # Session-derived identity. Every request already re-validates the account in
+    # auth_hooks (accounts.check_request -> require_user), so a row lock here
+    # only serialized all concurrent reads of the same account.
     user = getattr(frappe.session, "user", None)
-    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled", for_update=True):
+    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled"):
         _fail("请使用有效账号登录。")
     return user
 
 
-def resolve_employee(user: str, required: bool = True):
-    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled", for_update=True):
+def resolve_employee(user: str, required: bool = True, *, lock: bool = False):
+    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled"):
         _fail("账号未开通或已停用。")
-    rows = frappe.db.sql("select name,user_id,department,company,status,employee_number,modified from `tabEmployee` where user_id=%s order by name limit 2 for update", (user,), as_dict=True)
+    rows = frappe.db.sql(
+        "select name,user_id,department,company,status,employee_number,modified from `tabEmployee` where user_id=%s order by name limit 2"
+        + (" for update" if lock else ""), (user,), as_dict=True)
     if len(rows) > 1:
         _fail("员工关联存在冲突，请联系管理员核对。")
     if not rows:
@@ -207,8 +212,10 @@ def validate_rule(rule, *, root=False) -> dict:
     return item
 
 
-def _rules(kind, name, overrides=None):
-    doc = get_policy(kind, name, for_update=True) if name else None
+def _rules(kind, name, overrides=None, *, lock=True):
+    # Read-only callers pass lock=False: the policy row lock serialized every
+    # parallel management read on the same subject.
+    doc = get_policy(kind, name, for_update=lock) if name else None
     override = overrides is not None and (kind, name) in overrides
     if doc and not value(doc, "enabled"):
         return [], doc
@@ -247,14 +254,17 @@ def _decide(personal, department, app_id, operation_id, scope_type, scope_ref, n
     return True, "", "个人设置" if allows is own_rules else "部门安排"
 
 
-def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overrides=None, employee_context=None):
+_MISSING = object()
+
+
+def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overrides=None, employee_context=None, *, company=_MISSING, lock=False):
     rejected = lambda reason: {"allowed": False, "reason": reason, "source": "未开放"}
     if not isinstance(scope_type, str) or not isinstance(scope_ref, str):
         return rejected("对象范围格式无效。")
     meta = registration(app_id, operation_id)
     if not meta or operation_id == "app.enter" or scope_type not in meta["scope_types"]:
         return rejected("工作或对象范围尚未开放。")
-    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled", for_update=True):
+    if not user or user == "Guest" or not frappe.db.get_value("User", user, "enabled"):
         return rejected("账号未开通或已停用。")
     from hbos_portal.iam.temporary_passwords import status as password_status
     if password_status(user).get("pending"):
@@ -275,8 +285,8 @@ def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overr
         return rejected("组织对象不存在。")
     if scope_type not in {"SELF", "DEPARTMENT", "COMPANY"} and not any(obj["scope_type"] == scope_type and obj["scope_ref"] == scope_ref for obj in meta["objects"]):
         return rejected("未知对象，已拒绝访问。")
-    own, _ = _rules("User", user, overrides)
-    inherited, _ = _rules("Department", value(employee, "department"), overrides) if employee else ([], None)
+    own, _ = _rules("User", user, overrides, lock=lock)
+    inherited, _ = _rules("Department", value(employee, "department"), overrides, lock=lock) if employee else ([], None)
     if operation_id.startswith("iam."):
         inherited = []  # Management delegation never comes from ordinary departmental defaults.
     try:
@@ -290,13 +300,28 @@ def _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, overr
         decision = decide(employee, operation_id, scope_type, scope_ref)
         if decision is not None:
             return decision
-    company = frappe.db.get_value("Department", scope_ref, "company", for_update=True) if scope_type == "DEPARTMENT" else None
+    if company is _MISSING:
+        # Authorization never needs to freeze the organization row: a read uses
+        # the current snapshot, and every write path locks the target first in
+        # guards.require_capability(). Locking here made one management read
+        # take 88 department row locks.
+        company = frappe.db.get_value("Department", scope_ref, "company") if scope_type == "DEPARTMENT" else None
     allowed, reason, source = _decide(own, inherited, app_id, operation_id, scope_type, scope_ref or "", now or _now(), company)
     return {"allowed": allowed, "reason": reason, "source": source}
 
 
-def evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None):
-    result = _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now)
+def allows(user, app_id, operation_id, scope_type, scope_ref, now=None, *, company=_MISSING, lock=False) -> bool:
+    """Authorization decision only.
+
+    ``evaluate()`` additionally hashes the whole policy revision (~13ms of DB
+    reads and row locks) on every call. That value is a response field, never
+    part of the decision, so authorization hot paths must not pay for it.
+    """
+    return bool(_evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now, company=company, lock=lock)["allowed"])
+
+
+def evaluate(user, app_id, operation_id, scope_type, scope_ref, now=None, *, company=_MISSING, lock=False):
+    result = _evaluate(user, app_id, operation_id, scope_type, scope_ref, now=now, company=company, lock=lock)
     result["policy_revision"] = current_revision(user) if enabled_flag("hbos_iam_enabled") else ""
     return result
 
@@ -352,22 +377,29 @@ def current_revision(user=None) -> str:
     return revision_digests(user)["policy_revision"]
 
 
-def _target_context(subject_type, subject_name, app_id):
-    """A command context locks only its target and related members, never all Site users."""
+def _target_context(subject_type, subject_name, app_id, *, lock=True):
+    """A command context looks at its target and related members, never all Site users.
+
+    ``lock=False`` produces the same context value for read endpoints without
+    taking row locks; the write path recomputes it under lock inside its own
+    transaction and rejects a mismatch.
+    """
     now = _now()
     payload = {"schema": 1, "subject_type": subject_type, "subject_name": subject_name, "app_id": app_id,
                "registration": next((app for app in registered_apps() if app["id"] == app_id), None)}
     def fingerprint(kind, name):
-        doc = get_policy(kind, name, for_update=True) if name else None
+        doc = get_policy(kind, name, for_update=lock) if name else None
         return {"version": value(doc, "version", 0), "enabled": value(doc, "enabled", 1), "rules": [{**rule_dict(row), "active": active(row, now)} for row in value(doc, "rules", []) if value(row, "app_id") == app_id]}
     def user_context(user):
-        state = frappe.db.get_value("User", user, ["name", "enabled", "modified"], as_dict=True, for_update=True)
-        rows = frappe.db.sql("select name,user_id,department,company,status,modified from `tabEmployee` where user_id=%s order by name limit 2 for update", (user,), as_dict=True)
+        state = frappe.db.get_value("User", user, ["name", "enabled", "modified"], as_dict=True, for_update=lock)
+        rows = frappe.db.sql(
+            "select name,user_id,department,company,status,modified from `tabEmployee` where user_id=%s order by name limit 2"
+            + (" for update" if lock else ""), (user,), as_dict=True)
         context = {"user": state, "employees": rows, "personal": fingerprint("User", user), "departments": {}}
         for row in rows:
             department = value(row, "department")
             if department:
-                context["departments"][department] = {"state": frappe.db.get_value("Department", department, ["name", "company", "modified"], as_dict=True, for_update=True), "policy": fingerprint("Department", department)}
+                context["departments"][department] = {"state": frappe.db.get_value("Department", department, ["name", "company", "modified"], as_dict=True, for_update=lock), "policy": fingerprint("Department", department)}
         if app_id == 'attendance' and enabled_flag('hbos_iam_roles_enabled'):
             from hbos_portal.iam.role_access import revision_dependencies
             context['role_source'] = revision_dependencies(user)
@@ -375,18 +407,20 @@ def _target_context(subject_type, subject_name, app_id):
     if subject_type == "User":
         payload["target"] = user_context(subject_name)
     else:
-        payload["department"] = frappe.db.get_value("Department", subject_name, ["name", "company", "modified"], as_dict=True, for_update=True)
+        payload["department"] = frappe.db.get_value("Department", subject_name, ["name", "company", "modified"], as_dict=True, for_update=lock)
         payload["policy"] = fingerprint("Department", subject_name)
-        employees = frappe.db.sql("select name,user_id,department,company,status,modified from `tabEmployee` where department=%s order by name for update", (subject_name,), as_dict=True)
+        employees = frappe.db.sql(
+            "select name,user_id,department,company,status,modified from `tabEmployee` where department=%s order by name"
+            + (" for update" if lock else ""), (subject_name,), as_dict=True)
         payload["members"] = employees
         payload["users"] = {user: user_context(user) for user in sorted({value(row, "user_id") for row in employees if value(row, "user_id")})}
     payload["demo"] = enabled_flag("hbos_iam_test_site") and enabled_flag("hbos_iam_demo_enabled")
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False).encode()).hexdigest()
 
 
-def effective_work(subject_type, subject_name, app_id, policy_overrides=None, employee_context=None):
+def effective_work(subject_type, subject_name, app_id, policy_overrides=None, employee_context=None, *, lock=True):
     app = next((item for item in registered_apps() if item["id"] == app_id), None)
-    rules, doc = _rules(subject_type, subject_name, policy_overrides)
+    rules, doc = _rules(subject_type, subject_name, policy_overrides, lock=lock)
     now = _now()
     operations = []
     role_assignment = None
@@ -425,13 +459,13 @@ def effective_work(subject_type, subject_name, app_id, policy_overrides=None, em
     if subject_type == "User":
         try:
             employee = employee_context or resolve_employee(subject_name, required=False)
-            inherited, _ = _rules("Department", value(employee, "department"), policy_overrides) if employee else ([], None)
+            inherited, _ = _rules("Department", value(employee, "department"), policy_overrides, lock=lock) if employee else ([], None)
             suspension_rules.extend(inherited)
         except frappe.PermissionError:
             pass
     suspended = any(r["app_id"] == app_id and r["operation_id"] == "app.enter" and r["effect"] == "deny" and r["scope_type"] == "ALL" and r["scope_ref"] == "*" and active(r, now) for r in suspension_rules)
     ordinary_ids = {op["id"] for op in app["operations"] if op["ordinary"] and op["integrated"]} if app else set()
-    return {"subject_type": subject_type, "subject_name": subject_name, "app_id": app_id, "version": value(doc, "version", 0), "context_revision": _target_context(subject_type, subject_name, app_id), "operations": operations, "suspended": suspended, 'role_summary': role_summary, "permission_mode": ("personal" if role_assignment['source_mode'] == 'direct' else "department") if role_assignment is not None else "personal" if subject_type == "Department" or any(r["app_id"] == app_id and r["operation_id"] in ordinary_ids for r in rules) else "department"}
+    return {"subject_type": subject_type, "subject_name": subject_name, "app_id": app_id, "version": value(doc, "version", 0), "context_revision": _target_context(subject_type, subject_name, app_id, lock=lock), "operations": operations, "suspended": suspended, 'role_summary': role_summary, "permission_mode": ("personal" if role_assignment['source_mode'] == 'direct' else "department") if role_assignment is not None else "personal" if subject_type == "Department" or any(r["app_id"] == app_id and r["operation_id"] in ordinary_ids for r in rules) else "department"}
 
 
 def preview_effective_work(subject_type, subject_name, app_id, rules):

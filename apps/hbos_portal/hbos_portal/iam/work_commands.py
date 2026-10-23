@@ -129,7 +129,7 @@ def _grant_deadline(subject_type, target, app_id):
     personal paths participate; future allows cannot extend a grant. An already
     scheduled matching deny bounds every path even if its start is still ahead.
     """
-    if guards.isolated_root():
+    if guards.platform_root():
         return None
     actor = policy.get_current_user()
     document = policy.get_policy("User", actor, for_update=True)

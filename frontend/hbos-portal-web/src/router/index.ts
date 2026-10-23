@@ -4,7 +4,7 @@ import LimsLayout from '@/components/layout/LimsLayout.vue'
 import { canIam } from '@/services/iamAccess'
 import { ensurePortalSession } from '@/services/portalSessionCoordinator'
 import { accountRedirect } from '@/services/accountNavigation'
-import { isUnauthenticatedError } from '@/services/frappeClient'
+import { isUnauthenticatedError, probeFrappeSession } from '@/services/frappeClient'
 import { portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 import { checkPortalAccess } from '@/router/portalGuard'
@@ -264,6 +264,22 @@ router.beforeEach(async (to) => {
     return checkPortalAccess(to, portal, portalDataSource, true)
   } catch (error) {
     if (isUnauthenticatedError(error)) return { path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(to.fullPath) } }
+    // A guest hitting a protected route may receive a generic 403 (not the
+    // UNAUTHENTICATED code). Ask the guest-safe endpoint before deciding, so an
+    // unauthenticated visitor always reaches the HBOS enterprise login page.
+    // Only an authorization ambiguity is worth a guest probe. A 429, a 5xx or a
+    // network failure cannot prove anything about the visitor and would burn
+    // another timeout (and another rate-limit token).
+    if ((error as { status?: number } | null)?.status === 403) {
+      try {
+        // Reuse the validating probe: it rejects a malformed payload instead of
+        // treating a missing `authenticated` flag as "Guest".
+        const request = await probeFrappeSession()
+        if (!request.authenticated) return { path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(to.fullPath) } }
+      } catch {
+        // Keep the existing bounded fallback when the session probe itself fails.
+      }
+    }
     return to.meta.iam && to.path !== '/hbos/admin/unavailable' ? '/hbos/admin/unavailable' : true
   }
 })

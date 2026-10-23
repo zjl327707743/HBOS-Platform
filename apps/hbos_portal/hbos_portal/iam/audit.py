@@ -23,6 +23,11 @@ SAFE_KEYS = {
     "suspended", "before", "after", "before_version", "after_version", "revision", "target", "linked", "created", "reused", "first_password_required",
     "temporary_password_state", "pending", "temporary", "expires_at", "generation", "can_claim", "following_changed", "personal_unchanged", "unavailable",
     "impact", "count", "request_id", "request_hash", "message", "code", "error", "success", "employee_status", "account_created", "policy_name", "summary", "replayed",
+    "app_roles", "other_roles", "roles", "added", "removed", "grantors", "acknowledged_global_scope",
+    # CLI bootstrap events: the company scope, target policy and the real
+    # operator must survive the snapshot filter, otherwise the audit trail of
+    # the most privileged operations loses exactly what they changed.
+    "companies", "published_release", "policy", "operator", "site", "revoke", "dry_run",
 }
 SECRET_KEY = re.compile(r"password(?!_state)|token|proof|secret|cookie|authorization|(^|_)sid($|_)|checkin|attendance_records", re.I)
 
@@ -122,13 +127,13 @@ def list_events(subject_type=None, subject_name=None, page=1, page_size=20):
             allowed.add((roles.ROLE,role.name))
     if subject_type or subject_name:
         if not subject_type or not subject_name or (subject_type, subject_name) not in allowed:
-            if not guards.isolated_root():
+            if not guards.platform_root():
                 frappe.throw("没有该对象的审计读取权限。", frappe.PermissionError)
         allowed = {(subject_type, subject_name)}
-    if not allowed and not guards.isolated_root():
+    if not allowed and not guards.platform_root():
         return {"items": [], "total": 0, "page": page, "page_size": page_size}
     conditions, params = [], {}
-    if not guards.isolated_root() or subject_type:
+    if not guards.platform_root() or subject_type:
         for index, (kind, name) in enumerate(sorted(allowed)):
             conditions.append(f"(subject_type=%(kind{index})s and subject_name=%(name{index})s)")
             params[f"kind{index}"], params[f"name{index}"] = kind, name
