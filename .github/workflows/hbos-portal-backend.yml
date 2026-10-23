@@ -6,6 +6,7 @@ on:
       - feature/hbos-portal-product
     paths:
       - 'apps/hbos_portal/**'
+      - 'apps/hb_knowledge_app/**'
       - 'apps/hb_lims_app/hb_lims_app/hooks.py'
       - 'apps/hb_lims_app/hb_lims_app/hbos_lims/portal/**'
       - 'apps/hb_lims_app/tests/test_portal_provider_contract.py'
@@ -23,6 +24,7 @@ on:
       - feature/hbos-portal-product
     paths:
       - 'apps/hbos_portal/**'
+      - 'apps/hb_knowledge_app/**'
       - 'apps/hb_lims_app/hb_lims_app/hooks.py'
       - 'apps/hb_lims_app/hb_lims_app/hbos_lims/portal/**'
       - 'apps/hb_lims_app/tests/test_portal_provider_contract.py'
