@@ -60,7 +60,30 @@ export const usePortalStore = defineStore('portal', () => {
   // A resume re-check (tab focus, pageshow, visibilitychange) does not need the
   // home tasks, summaries or twin overview. Those are unrelated to the page the
   // user is on, and fetching them made every tab switch look like a full reload.
+  //
+  // The Frappe bootstrap returns empty arrays for exactly those sections (it is
+  // the manifest endpoint, not the home feed). Writing them through on a light
+  // resume therefore blanked the home page on every tab switch, so the light
+  // path keeps what it already has and only the identity-derived parts change.
+  function adoptHomeData(data: Awaited<ReturnType<typeof getPortalData>>, light: boolean) {
+    // The mock provider is the home feed itself, so its values are always real.
+    const fromFrappe = dataSource.value === 'frappe'
+    const sections = [
+      [heroMetrics, data.heroMetrics],
+      [tasks, data.tasks],
+      [businessPulse, data.businessPulse],
+      [twinStatuses, data.twinStatuses],
+      [limsQueue, data.limsQueue],
+    ] as const
+    for (const [target, incoming] of sections) {
+      if (incoming.length || !fromFrappe || !light) (target as { value: unknown[] }).value = incoming
+      // A Frappe payload's empty array on a light resume is "not fetched",
+      // never "cleared".
+    }
+  }
+
   async function bootstrap(options?: { light?: boolean }) {
+    const light = Boolean(options?.light)
     let generation = ++sessionGeneration
     loading.value = true
     bootstrapError.value = null
@@ -73,12 +96,8 @@ export const usePortalStore = defineStore('portal', () => {
       user.value = data.user
       branding.value = data.branding
       apps.value = data.apps
-      heroMetrics.value = data.heroMetrics
-      tasks.value = data.tasks
-      businessPulse.value = data.businessPulse
-      twinStatuses.value = data.twinStatuses
-      limsQueue.value = data.limsQueue
-      if (dataSource.value === 'frappe' && !options?.light) {
+      adoptHomeData(data, light)
+      if (dataSource.value === 'frappe' && !light) {
         void refreshTasks().catch(() => undefined)
         void refreshSummaries().catch(() => undefined)
         void refreshTwinOverview().catch(() => undefined)
