@@ -1,0 +1,80 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS IAM Role Release",
+ "module": "HBOS Portal",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "role",
+  "revision",
+  "features",
+  "native_mapping_json",
+  "content_hash",
+  "source_draft_version",
+  "published_by",
+  "published_at",
+  "request_id"
+ ],
+ "fields": [
+  {
+   "fieldname": "role",
+   "fieldtype": "Link",
+   "label": "Role",
+   "options": "HBOS IAM App Role",
+   "reqd": 1
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "reqd": 1
+  },
+  {
+   "fieldname": "features",
+   "fieldtype": "Table",
+   "label": "Features",
+   "options": "HBOS IAM Role Feature"
+  },
+  {
+   "fieldname": "native_mapping_json",
+   "fieldtype": "Code",
+   "label": "Native Mapping Json",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "content_hash",
+   "fieldtype": "Data",
+   "label": "Content Hash",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_draft_version",
+   "fieldtype": "Int",
+   "label": "Source Draft Version",
+   "reqd": 1
+  },
+  {
+   "fieldname": "published_by",
+   "fieldtype": "Link",
+   "label": "Published By",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "published_at",
+   "fieldtype": "Datetime",
+   "label": "Published At",
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_id",
+   "fieldtype": "Data",
+   "label": "Request Id",
+   "reqd": 1
+  }
+ ],
+ "permissions": []
+}

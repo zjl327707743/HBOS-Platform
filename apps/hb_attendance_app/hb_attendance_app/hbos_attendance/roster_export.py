@@ -13,6 +13,8 @@ EXPORT_ROLES = {"HR User", "HR Manager", "System Manager"}
 
 
 def _require_export_permission():
+    from hb_attendance_app.hbos_attendance.portal import export_scope
+    if export_scope.active('roster'):return
     if not (set(frappe.get_roles()) & EXPORT_ROLES):
         frappe.throw("你无权导出考勤数据。", frappe.PermissionError)
 
@@ -63,7 +65,8 @@ def _fmt(t):
 
 def _rule_time_for(shift_type, department, rules_by_dept):
     """Resolve the effective version for display without treating superseded history as current."""
-    today = frappe.utils.today()
+    from hb_attendance_app.hbos_attendance.portal import export_scope
+    today = export_scope.today(frappe.utils.today())
     pools = [rules_by_dept.get(department, [])]
     pools.extend(rules_by_dept.get(g, []) for g in ("全部部门 - HD", "全部部门"))
     for pool in pools:
@@ -96,20 +99,22 @@ def export_shift_roster():
     except ImportError:
         frappe.throw("请安装 openpyxl: pip install openpyxl")
 
-    today = frappe.utils.today()
+    from hb_attendance_app.hbos_attendance.portal import export_scope
+    today = export_scope.today(frappe.utils.today())
 
     # ---- 数据收集 ----
-    emps = frappe.db.get_all(
+    emps = export_scope.rows(
         "Employee",
-        filters={"status": "Active"},
+        filters=export_scope.filters("Employee",{"status": "Active"}),
         fields=["name", "employee_number", "employee_name", "department",
                 "hbos_fixed_shift", "hbos_fixed_shift_code"],
     )
     if not emps:
         frappe.throw("没有在职员工可导出")
 
-    all_rules = frappe.db.get_all(
+    all_rules = export_scope.rows(
         "HBOS Shift Rule",
+        filters=export_scope.filters("HBOS Shift Rule"),
         fields=["name", "rule_code", "rule_name", "department", "shift_type",
                 "status", "start_time", "end_time", "late_after", "effective_from"],
         order_by="rule_code, effective_from, creation",
@@ -132,8 +137,9 @@ def export_shift_roster():
         return chosen if chosen.status == "生效" else None
 
     bound_map = {}
-    binds = frappe.db.get_all(
+    binds = export_scope.rows(
         "HBOS Employee Shift",
+        filters=export_scope.filters("HBOS Employee Shift"),
         fields=["employee", "rule_code", "shift_rule", "is_primary"],
     )
     for binding in sorted(binds, key=lambda x: not x.is_primary):
@@ -160,9 +166,9 @@ def export_shift_roster():
     emp_num_by_id = {e.name: (e.employee_number or "") for e in emps}
     exempt_reason_by_num = {}
     today_str = str(today)
-    for p in frappe.db.get_all(
+    for p in export_scope.rows(
         "HBOS Attendance Policy Assignment",
-        filters={"policy_type": "EXEMPT", "enabled": 1},
+        filters=export_scope.filters("HBOS Attendance Policy Assignment",{"policy_type": "EXEMPT", "enabled": 1}),
         fields=["employee", "remarks", "effective_from", "effective_to"],
     ):
         start = str(p.effective_from or "")[:10]
@@ -334,6 +340,7 @@ def export_shift_roster():
     tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
     tmp.close()
     try:
+        export_scope.annotate(wb)
         wb.save(tmp.name)
         with open(tmp.name, "rb") as f:
             file_content = f.read()
@@ -350,5 +357,5 @@ def export_shift_roster():
         "attached_to_name": "hbos-shift-management",
     })
     file_doc.insert(ignore_permissions=True)
-    frappe.db.commit()
+    if not export_scope.active():frappe.db.commit()
     return file_doc.file_url

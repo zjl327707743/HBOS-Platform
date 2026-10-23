@@ -193,7 +193,7 @@
           <div class="drawer-row"><span class="k">检验编号</span><span class="v">{{ drawerResult.name }}</span></div>
         </div>
         <div class="drawer-sec">
-          <div class="ds-title">电子签名</div>
+          <div class="ds-title">操作签署</div>
           <div class="sig-card" :class="{ pending: !drawerResult.submitted_at }">
             <div class="sig-top"><span class="sig-role">检验人</span><span class="sig-sign">{{ drawerResult.analyst || '待检验' }}</span></div>
             <div class="sig-who">{{ drawerResult.analyst || '—' }}</div>

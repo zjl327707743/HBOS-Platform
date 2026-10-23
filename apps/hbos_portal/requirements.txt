@@ -1,0 +1,3 @@
+# Portal-specific dependency; install into the existing Frappe environment.
+# Wheel only, checked against PyPI's published SHA-256.
+pypinyin==0.55.0 --hash=sha256:d53b1e8ad2cdb815fb2cb604ed3123372f5a28c6f447571244aca36fc62a286f

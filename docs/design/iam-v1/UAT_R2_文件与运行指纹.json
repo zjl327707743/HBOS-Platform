@@ -1,0 +1,960 @@
+{
+  "recorded_at": "2026-10-18T07:20:57.535322+00:00",
+  "source_head": "e59292e6136b2bc05fdfbb9e8024c31230a602b4",
+  "frontend_run_mode": "Vite DEV source on 5198; production dist separately built, not claimed as served on 5198",
+  "frontend_source_files": [
+    {
+      "path": "frontend/hbos-portal-web/src/App.vue",
+      "sha256": "9c02034c656bc38f763e8d5130919f08a74fe2fcf4e272c8122ebaa03b7412c1"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/AccountChangeActions.vue",
+      "sha256": "00a09390d3707c3293eb994aa915b5e559e038bc1d2152d651be8473eac6387e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/AccountLayout.vue",
+      "sha256": "038e0115bc955f06983874b503b11a3a04229b37ddb548719f66ec3b525bdd18"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/AccountSecurity.vue",
+      "sha256": "89aedcdbfe3bf80473c6a2f6a5f48ef4a439f3eead433af029f9f170158ea142"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/AppDiagnostics.vue",
+      "sha256": "05fd6879c726b9e967cf8e870ee20be656887cd25f4ca6af4ff610427c1923c8"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/EmployeeIdentityStatus.vue",
+      "sha256": "402b3b28dd809557a7fa6cda038cd2d7306b58d85e9fd429fb0fd2983a912e93"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/FirstPasswordGate.vue",
+      "sha256": "afdd286413ea2e2ddd669fda97e1eb8a2d6a7113a84d7d96637d5ad0b815535f"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/InitialPasswordDelivery.vue",
+      "sha256": "08719428ffed385351ca5b0e471698b371fd02ed8433b8e640713aac5d3d0b82"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/account/OwnAccountVerification.vue",
+      "sha256": "20c9414961a2fb84a1cee3c5fcefcf2e45b18eda16fa1d03cf23d5b85f19422a"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/global/AppSwitcher.vue",
+      "sha256": "b7bd9c4740a04a3874d2dfd702f0ef76b9dea9b02c8dac2ef756f8279b2a64f6"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/global/NotificationCenter.vue",
+      "sha256": "d4f15ff0c2bc6a81b596440d035335ad2c06be8a5a64c7baabf42da3921b0ae4"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/iam/AppUsageList.vue",
+      "sha256": "8cea02cc12b5c218fe38b80b464cdde82592797b0422f736e2738fde822bf05a"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/iam/AttendanceAccessSummary.vue",
+      "sha256": "ef141ea401f0c240090b5277272aa2a07d7092419cc19eff85c228aef009d538"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/iam/EmployeeDrawer.vue",
+      "sha256": "e9971a06335259305630d5e6f34196171f2194ea33edd439b888b3de48f93032"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/iam/WorkSettings.vue",
+      "sha256": "0b1ce326624d3e981aaa1daa98b0574a0de666de5d2347395cef8814d8373083"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/knowledge/EvidenceDrawer.vue",
+      "sha256": "18a2cc041beede25061e73fc6c38d2db5e241071d89e6b29981ca340e0f2ade8"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/AppLocalSidebar.vue",
+      "sha256": "fd2056873a215507a8e0c7dbefb83ab362f85fd82e1086e362d81a7bad1815af"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue",
+      "sha256": "90259b4f23501c0da82c530cd50ba38af7ad60d00bfd6c0550be6bb533003556"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/KnowledgeTwinLayout.vue",
+      "sha256": "9cfa81c0d24e49bc787f0e3061f08ee87c799be36c871512771a027d5dc2296b"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/KnowledgeTwinSidebar.vue",
+      "sha256": "23382d5e7a6acf89de9e9c494ef91cbe2ba2613c7ab0fd467573b2a737fc3bd1"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/LimsLayout.vue",
+      "sha256": "137c013047221f990c8dd0b7a4ebae865a32652df25814dd6ba78ab7ed253a48"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/MobileAppNav.vue",
+      "sha256": "02c238d87d8660b9e4f2274a2891b62706c446ffebfeb013fe60b21f630b11f9"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/MobilePortalNav.vue",
+      "sha256": "042debaf95081d6d01e015e06f1314aed6e2fbbf01a421a4ad65b6cd9d45ac3a"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/PointerAtmosphere.vue",
+      "sha256": "cf45af451c36b4bac31c37175c88dc05e11f89a34d84dcbeb95bc50b28b87990"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/PortalLayout.vue",
+      "sha256": "dd4078679adfe21613697d3c14487745b0d2f43eb4d539c1c3d243fe690f2e28"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue",
+      "sha256": "e6934d3cc79450b9ce0781c320f8e9b40f8130e0ffa0bdc56f41906f859419ea"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/portal/AppCenter.vue",
+      "sha256": "a5c2d3df51600063aea9b4915acb15f6782b73c6de93259bdab92a345204ebaf"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/portal/BusinessPulse.vue",
+      "sha256": "d5b695e04612cca2aee742da836a101bc243e93b1c9b553bfb0270ad2c27d412"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/portal/CommandPalette.vue",
+      "sha256": "b39b9a396f6fa7d90174074f7c8911f13d83d0cab01fde158574a6019bcea398"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/portal/DigitalTwinPanel.vue",
+      "sha256": "b5e1a5f5e817ee59b8b58d4c133cf810a1d3abe2805b91b7e52f11316748f397"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/portal/HeroWorkspace.vue",
+      "sha256": "fd4c70f98239642bc0be724840b208cc27a050430117c08bbdaa70f4205f1516"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/portal/MyWorkPanel.vue",
+      "sha256": "8364abb21b2ac2e4cec79dfa76075568303910fd0ad971420f720d28f866467d"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/TwinCatalog.vue",
+      "sha256": "6ad0eb412a48f4d250bb00b6c37e76fb17fe5cb2a48cc43249b22583c32a0efd"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/TwinProcessPanel.vue",
+      "sha256": "d194285833d39f218fa9e2860766637806c5ad1f9718625118423d8853cf34e0"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/TwinViewer.vue",
+      "sha256": "84e9c25070a9e2d3481f340a4e7ab88dd929e13f69393881a45161c4dd84f3f7"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/display-names.ts",
+      "sha256": "2bf61ac925a337024605bc344fd94529c4869ac3e779baf169b527095d11391a"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/filtration-binding.ts",
+      "sha256": "0b9000d55970da6570b5f6bf289fab806d482586b1128d50bbcbc9ab9d477727"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/filtration-state.ts",
+      "sha256": "f397544218f0c0b932bf1d98e9288b2c78f85d2eebe4b319d5f021fbf7efad21"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/filtration-view.ts",
+      "sha256": "ae3f6b5b71a5d3a6dda0a4d2695b56b017de57bf9bb638a387c85342ab1d5e99"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/lessons.ts",
+      "sha256": "7618ec963782b5e2df9ed1b14044c1aaeb967b97f3f1913bc52d0a801c9bfa01"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/procedure.ts",
+      "sha256": "ce6beaae38dbc3bd70bef0d32235cd95148703d75f04336f442a1c7039858ffd"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/process-hardware.ts",
+      "sha256": "7e27e8b220857ff755cf56932646dff30adf00e7cc74b2157a43b654d201482f"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/process-network.ts",
+      "sha256": "52d0a136f1f59fed66773a1c6e5e1eb5904eca1a5c9f972ba47bab9694e3c07c"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/process/runtime.ts",
+      "sha256": "11771ff956a77815bb280fedf0b0f8246d7eb7c2e3d4ccde08264e496c8111c0"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/components/twin/resources.ts",
+      "sha256": "700e623efad458dd657e5f61901013702cea0eecdbc99389f15c359bca0378db"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/composables/twin/fullscreen.ts",
+      "sha256": "d8c2c7c9c6b702b4a1e31cceb0e19b401b3188fc86fe4a4eb5b7e7f2f79540ea"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/composables/twin/reviewMetrics.ts",
+      "sha256": "e4514ce8fff8abd434b254de00a81fd2ee8a00894ccff44c680e71aec9ff5e24"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/composables/twin/scheduler.ts",
+      "sha256": "4eb612c26ac8f8d64f8d42f2625b98b921098b253e5e98d148723d4589a48ab5"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/composables/twin/session.ts",
+      "sha256": "9b24ba48b6d864d18fd6164a7670a74831891efb6697af694e348a02ccc976a7"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/composables/useAccountProof.ts",
+      "sha256": "2a03f5bc0d418e558b8cd6630c6454aae469f2c8c0e23e5be191f87c7297299e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/composables/usePortalSession.ts",
+      "sha256": "ff7d2c3c40d201cf2ce02b0b06cd1ced0fe63309656ffc8ca5b8a5f65f38f495"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/contracts/p1.ts",
+      "sha256": "014f42501b520e1dfd69177ce38a77df10cc38aa1a59b9754613e2dbb4fc26da"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/contracts/portal.ts",
+      "sha256": "e1997c925c59ca6fe2d39024add6c95d5ad60abf4955a5361f704f00a75aff07"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/data/mockPortal.ts",
+      "sha256": "2ac6a6ee5572d4d348eeeb3f3cf1cdad12266de01f320fe778a20b45ce351842"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/main.ts",
+      "sha256": "a4ff643e74384e5db95f0c335a54e92a591648d23dd30e25bb0036d63e02a970"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/router/index.ts",
+      "sha256": "a2ed29eedd946e03d3b66543d155023513dd55bb8bd9e57ea04f7bcea870d288"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/accountApi.ts",
+      "sha256": "0c33fe9751e5ad5ace49032364d187858dbdbe0dd2c82ef3fae3e3202c361571"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/accountChanges.ts",
+      "sha256": "c20d27c019f31a36eee993e3714dbe4c076fc92321de0e3f4e835fe869a1d2a0"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/accountErrors.ts",
+      "sha256": "425a9c57e3e128fd090cbdeb0a1ed922c6c1c4d76a198b2b5f5436760c3dbbc6"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/accountNavigation.ts",
+      "sha256": "aacb9e925fc2d0614f64a7ab513c37e5b9814ac6177f3d02f6c8b822e23137ed"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/accountStatus.ts",
+      "sha256": "b65385fa15abd23e35bac2303fb28e516bf75a22383d68d4b5a8fd8cfcf90adf"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/attendanceObservation.ts",
+      "sha256": "631440f0bb3725cd48bca597bb4662a050c661b2671e3c4b237be2ee446c8825"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/attendancePageState.ts",
+      "sha256": "14b2aa509e8e135b84b2a89c6047b56f8f779c41ebd3c3a69aaedaf5cb57a8d4"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/attendancePersonal.ts",
+      "sha256": "577657cc30568408bed8df6881fff8d64075c9c4636738c7a6898ec3e667f17d"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/businessNavigation.ts",
+      "sha256": "dedc9c34d6f0b40d2645e5588d0d9024895d40428a2699a98d03f346e11a3394"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/frappeClient.ts",
+      "sha256": "80343e1ee0ad4ac82d698502c0f58d5013e6235e8f570ee03e2d079475e4268d"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamAccess.ts",
+      "sha256": "1407e0ab82b030dd96b93ba512b2ad9ab39b5614102566a1cf28b9636887455f"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamAccount.ts",
+      "sha256": "e73209a8fa2050ec80f9f75360a99840884c4754bf47d0763e69908fc0a5599b"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamAudit.ts",
+      "sha256": "cdf8d15f806caa7faf8d2b2f083b9bb3cf2a1ace534fc6efd88628f18a8a4289"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamDepartments.ts",
+      "sha256": "8a2d98b5a15c59bc3dfb680800caf502a992fcbf611153d98e3904b25258893e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamPeople.ts",
+      "sha256": "47e80afa2942ee541f4f4d173dccc51058a000309be541a7e6caad460cc07a78"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/iamWork.ts",
+      "sha256": "7e67e5706b05734e125480b7e863c097bd2f3efdcbcd6cf128a88332880974a7"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/p1Api.ts",
+      "sha256": "76b07fabe40b7d8aa3c16b77aadb6872b6bb52f8bdb8327214b22a874b3c0394"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/portalApi.ts",
+      "sha256": "75b2a02c4d494b8f0f414298d65d73c1310d0e87878d33087b840b9d485f51f6"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/portalProvider.ts",
+      "sha256": "34d07db299d4fb5d9b253f2579859abe547541716c37555762b6526a832f366f"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/portalSessionCoordinator.ts",
+      "sha256": "9241362af87f8aed52b03f5c7ccd06fe672a72cc9b1664f4979954289f004da6"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/services/twin/twinApi.ts",
+      "sha256": "85aa74ac631132a349a4b4d3752c92fc4c656f79444a5d0292039cb03ffb67e5"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/stores/portal.ts",
+      "sha256": "16268d3d9e2f04f50798bc58874acb2298e580c897d16d5aa5b3cace33bf4f6b"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/styles/global.css",
+      "sha256": "feb16aed8ffe6d0d8196e752d1b8024b691458b45345d1af7336465edc8bcd94"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/theme/account.css",
+      "sha256": "7efa93f52a846aa53c10e3e9c7161c80e91cb9eba5ee3dd9ad91aa5586e7b3d1"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/theme/antdTheme.ts",
+      "sha256": "390071c0f0a3730c53e2bf0269c1fabe07e906633bce7f827b568406c46f0834"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/theme/tokens.css",
+      "sha256": "e3c419fd8a4271e739b0fb14677c16f64f3093ef86a75376d6782f7252e130f8"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/theme/typography.css",
+      "sha256": "3bec7e3f59a814070901e3d644516447631a78f4341ba8e47f1574a4a1ece958"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/types/iam.ts",
+      "sha256": "089ccb155019b2d7b2d37d9ba38bf199e62bad80ca1e0190660a91c004e2ca2c"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/types/twin/index.ts",
+      "sha256": "cf39eef367a9f01421f99d803e3fdc11896e7af483fff484526481bad3f48376"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/AccountChangeView.vue",
+      "sha256": "d0efca942e9676e9898800d9f8ab752b156f1bc0d4f86184b82da4a5e1d68eba"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/AccountConnectView.vue",
+      "sha256": "fb5a49439eb3e229b658da4046c4200387f8d4713c6a1ff44dac94cb564dfa02"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/AppCenterView.vue",
+      "sha256": "1be6c903ede9b95c710320489a725e841ca516323ccc2879c11ccde71c26701e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/FeishuLoginView.vue",
+      "sha256": "a24cc092405972ab648bb6fdfe18abd966f4db9c677e6e618df84f25157e2a94"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/ForbiddenView.vue",
+      "sha256": "9a06716da5a75d69c726079d048f3a82fd9c194d9f422bad0cd47a812a5b490e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/KnowledgeView.vue",
+      "sha256": "5f1092d5e6251e65f708fa85cb026f9535bce31b9cd6711dfb7d25dce48832ed"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/LimsHomeView.vue",
+      "sha256": "d956f9bd32202ca7af9e74508b48e9ca374b2aba5aa310e237bef0f60238d6cb"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/LimsResultReviewView.vue",
+      "sha256": "fde24090389704baf9d4e999a1b11908c5103040418c05a572aaebd6493f5183"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/MyWorkView.vue",
+      "sha256": "bea63ed1e26766939394818b8f8d43ef80a546dad9d8177f8a620144ff70d54d"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/NotFoundView.vue",
+      "sha256": "1fc124239e00b6700c7dfdebe9d61d10ad0f763b4be483ea7eca2e8ba35600b1"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/PortalHome.vue",
+      "sha256": "584a91d02dec7c2d063957d173ed9ee12051cf83e6d7aad68e2a1eb7e260e326"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/ProfileSettingsView.vue",
+      "sha256": "b54d75368804e0e99cf39b0d09b0c154db8773e6b95a293c2c878bbaf0e68ed8"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/ResetPasswordView.vue",
+      "sha256": "1dc432871b0bf612f93daf54479c5292dbac19d5d81f413684cdf5f9eb57befe"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/TwinView.vue",
+      "sha256": "3e003a832af5a5edd4bed7adf6aa8cf2df23ab0a4c5ee9b1002530810f57a903"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/AccessAdminView.vue",
+      "sha256": "859dd578a5e354cabf5ea582fee6f4d2e32500f1c1c3cee04a2fab26b9c958ee"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/AdminAccessUnavailableView.vue",
+      "sha256": "244f32fe7514415f0403ce420cb7d4d3612d1cb0c1c9851911149b6f88fa6db8"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/AdminWorkspaceView.vue",
+      "sha256": "11b4d9cbd1f76206e22560b0b0f39b20c9df6e24885d3fdb90b83cb4eed7960e"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/AuditAdminView.vue",
+      "sha256": "16d0e1d3046291c21102e8037868921582e9c3116fd6220f0052e561a9406000"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/DepartmentsAdminView.vue",
+      "sha256": "a878a8d42a5dc7937ed3871f1f97bbf3933a62cb30ed5b5bb9fae116ad9d4df6"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/admin/PeopleAdminView.vue",
+      "sha256": "56ba9a254b17f1255955289d9c029c174caa0e70b1fe7f6f5f538e3067189dc5"
+    },
+    {
+      "path": "frontend/hbos-portal-web/src/views/attendance/MyAttendanceView.vue",
+      "sha256": "a92a0ec846a7d819bbe501efb2b6f062220b4c6c6e31070f832307f6342ecdcc"
+    }
+  ],
+  "served_modules": [
+    {
+      "path": "src/components/layout/PortalLayout.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "dd4078679adfe21613697d3c14487745b0d2f43eb4d539c1c3d243fe690f2e28",
+      "served_module_sha256": "d5f093ddf1e6b2be0496bcbcc41f679e3ca3292e14a595eada3ce2b61741c983",
+      "etag": "W/\"4969-WgP1ghBOlBgFX3q2XYhbHbpP9mQ\""
+    },
+    {
+      "path": "src/components/layout/GlobalHeader.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "90259b4f23501c0da82c530cd50ba38af7ad60d00bfd6c0550be6bb533003556",
+      "served_module_sha256": "ad3c997a6c5c6bf92c0677170ccc992b9255c1eeaabfe7067d7cdeb2c4c1012a",
+      "etag": "W/\"389c-zWB3jn40TntZdJ8ryzyESwyqi+8\""
+    },
+    {
+      "path": "src/services/frappeClient.ts",
+      "raw_source_matches_head": true,
+      "source_sha256": "80343e1ee0ad4ac82d698502c0f58d5013e6235e8f570ee03e2d079475e4268d",
+      "served_module_sha256": "2d2d3b48c83c4b5594c0b1ab36b1da86a31b2ed054e399ef37a2bd5590aeeb68",
+      "etag": "W/\"2e11-T4p7U9TvNd+ZzFVUSKENcUn4g/4\""
+    },
+    {
+      "path": "src/services/portalSessionCoordinator.ts",
+      "raw_source_matches_head": true,
+      "source_sha256": "9241362af87f8aed52b03f5c7ccd06fe672a72cc9b1664f4979954289f004da6",
+      "served_module_sha256": "29557140fa92bbf0ded5567b9974d911d379e3e5ba6ed2451777ebcae78a778a",
+      "etag": "W/\"21da-YpGQhTJwNneI5YZVYG3oBF1VZok\""
+    },
+    {
+      "path": "src/views/admin/PeopleAdminView.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "56ba9a254b17f1255955289d9c029c174caa0e70b1fe7f6f5f538e3067189dc5",
+      "served_module_sha256": "9f025fe53d7635938851da3edd94b33acf0948433b88960a68a564b82d59371f",
+      "etag": "W/\"643e-4Susco9dURT44iQ2NOHy3TPxBbc\""
+    },
+    {
+      "path": "src/components/iam/EmployeeDrawer.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "e9971a06335259305630d5e6f34196171f2194ea33edd439b888b3de48f93032",
+      "served_module_sha256": "aa4486542c07e09ce12699b035a96deb9b0ca569ec2ca650f97d3b3c70bbf397",
+      "etag": "W/\"a80c-gGPbVXu4UWPVTPTW4AAkAzJ4AGU\""
+    },
+    {
+      "path": "src/components/iam/WorkSettings.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "0b1ce326624d3e981aaa1daa98b0574a0de666de5d2347395cef8814d8373083",
+      "served_module_sha256": "af6ca1d1b7a436e9e06111af4fa3841c50f8f5aafcf34a54dbe0e917d646e2c9",
+      "etag": "W/\"860f-31CPfqNAREbrx/+5noUIsQ7W5o0\""
+    },
+    {
+      "path": "src/views/attendance/MyAttendanceView.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "a92a0ec846a7d819bbe501efb2b6f062220b4c6c6e31070f832307f6342ecdcc",
+      "served_module_sha256": "f9cfcb8d005420f6c29eb9530f9cbc82de049e71676de4719e98f18a3b13547d",
+      "etag": "W/\"3f54-DGb3YgN9AWPotMPNBBctFSnVvAA\""
+    },
+    {
+      "path": "src/views/FeishuLoginView.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "a24cc092405972ab648bb6fdfe18abd966f4db9c677e6e618df84f25157e2a94",
+      "served_module_sha256": "21c7195333b6a2e8770ecc1611ad774fb405305445d83a44386cc8cc3f9f3f7f",
+      "etag": "W/\"4c13-rYgwy6gTurKMem5GZ08I0KUkJWA\""
+    }
+  ],
+  "backend": {
+    "site": "iam-r4-b.localhost",
+    "frappe_version": "16.26.3",
+    "imports": {
+      "hbos_portal.auth.accounts": "/home/frappe/frappe-bench/apps/hbos_portal/hbos_portal/auth/accounts.py",
+      "hbos_portal.iam.work_commands": "/home/frappe/frappe-bench/apps/hbos_portal/hbos_portal/iam/work_commands.py",
+      "hbos_portal.iam.policy": "/home/frappe/frappe-bench/apps/hbos_portal/hbos_portal/iam/policy.py",
+      "hbos_portal.api.iam_access": "/home/frappe/frappe-bench/apps/hbos_portal/hbos_portal/api/iam_access.py"
+    },
+    "hashes": {
+      "apps/hbos_portal/hbos_portal/__init__.py": "91447944015cec709e8aa7655f7e9d64e1e4508e7023a57fe3746911c0fc6fed",
+      "apps/hbos_portal/hbos_portal/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/api/_utils.py": "3e480bcb5ac8fffe5efe03eb4aefe96349cb35ca30325e8acd8da996117b2b06",
+      "apps/hbos_portal/hbos_portal/api/apps.py": "05a12fc80354d54f410ea712db33993014d4faff3def72d09e72d3b0be03449d",
+      "apps/hbos_portal/hbos_portal/api/bootstrap.py": "9b632f49211f53291c2e6a4c508f0447d41f98d77daadd7cc04414db45fe0955",
+      "apps/hbos_portal/hbos_portal/api/csrf.py": "5ed662913a14ba9c3cbb2b34a7d4432d82198493b51516537399cf601da6c1ab",
+      "apps/hbos_portal/hbos_portal/api/diagnostics.py": "fd42602fccf935e6f35e23681ac98c93d20f190236b71b9b722ca952b85fa22e",
+      "apps/hbos_portal/hbos_portal/api/iam_access.py": "4e587e3c7242db317f2388d8f01fb457e45e0cf4cf1fdddd8ed4025f478d8e29",
+      "apps/hbos_portal/hbos_portal/api/iam_audit.py": "cbc23b160d0c11ec4b81288f32767305b54fce36f774765740e396d01a3aac53",
+      "apps/hbos_portal/hbos_portal/api/iam_departments.py": "d4bb7a53db9b810e09e4a552d6b48b105a60ae91307e2470d08cc793cf2624f3",
+      "apps/hbos_portal/hbos_portal/api/iam_people.py": "6353c8eaebf8f2bc7f28c159081cf31a6c7209ee9ff6fa7a21cda808bc83a1aa",
+      "apps/hbos_portal/hbos_portal/api/routes.py": "b7fc9da460c3252e5ab6a2a8875e32ceb2910ab9bc11544a478d281a5f0847e0",
+      "apps/hbos_portal/hbos_portal/api/search.py": "e5cd37d397afdc9bf95d17104369202cbf533b24ef59a496e1e075c449e545d8",
+      "apps/hbos_portal/hbos_portal/api/summary.py": "80b5736abfb18995d80a2406fea57be6ca0fb8d850838e16ce3d930a4938ea4d",
+      "apps/hbos_portal/hbos_portal/api/tasks.py": "6b9f117d679aeb6c49e8fbd872edd64af734600f4c178fd492af9b5821f95467",
+      "apps/hbos_portal/hbos_portal/auth/__init__.py": "e0af5930aee0dca1601596c85d4d25c41ff22886199fa5d448ec6a157f17b45e",
+      "apps/hbos_portal/hbos_portal/auth/account_integration.py": "a88bad41ac5ccd0723fe2a8b085cd4bbfd1e463f955d6ec13075589d66ef6d2a",
+      "apps/hbos_portal/hbos_portal/auth/accounts.py": "9d3fc241a3b5ea68cb849a33a6c3bff99c4c922c3a7960c02618b620f27ff6d5",
+      "apps/hbos_portal/hbos_portal/auth/change_integration.py": "1ef40d63c3f14bcbac89ce2187d4f226282e0fec163f0eece075a99a5419a9ba",
+      "apps/hbos_portal/hbos_portal/auth/concurrency_integration.py": "ccb8461da1a717e2d02258518f5005fd0d78f7c9d820090468653eba1305c4cf",
+      "apps/hbos_portal/hbos_portal/auth/diagnostics.py": "e19f90b5369a91e198bf08c440aea3697176fcab8b6b0828d628d15ce148242f",
+      "apps/hbos_portal/hbos_portal/auth/export_policy.py": "7598dd8a2d53d2d249b0b471cf4804e75c9c55185e4f4899c77814cdc1bf5f26",
+      "apps/hbos_portal/hbos_portal/auth/feishu.py": "eb03764f816d248085bc44bba18777c26e8dc06cde0fc99a66c75092fdc0f77f",
+      "apps/hbos_portal/hbos_portal/auth/http_integration.py": "d94177660456d706e8292767bd56136cd4cad4d57e3ceccc8a387e1f5bc4c8f9",
+      "apps/hbos_portal/hbos_portal/auth/lifecycle.py": "386d7115123b3937672476c5d470bc64766c9c15fbd673495e23ed3df81d0727",
+      "apps/hbos_portal/hbos_portal/auth/migration.py": "9358a0ec3d1434ad0a1da3f7f2cd778c501c95b18c9afa3f87cd6b3940473ee6",
+      "apps/hbos_portal/hbos_portal/auth/onboarding.py": "4049460f860f60a340f3553c2580678a17835481327359498ac0411cd86c2f83",
+      "apps/hbos_portal/hbos_portal/auth/operations.py": "35d23eb6d32f3661a7ff9a38d21621d328ccf22e23ab88517eef9de5075b668f",
+      "apps/hbos_portal/hbos_portal/auth/profile.py": "28810c14350a06ce67a5a3aca0a3af5a8122d5938d1c4b645eff10e9838510dc",
+      "apps/hbos_portal/hbos_portal/auth/security.py": "2d1f3029a5e26176e34cd81af4c06581dbdbb6bb4d0c8382282a3934dde3c562",
+      "apps/hbos_portal/hbos_portal/auth/site_inventory.py": "28507d91a838158acad9839baa0bf2fa015f21d982400917523572a04f7bf73d",
+      "apps/hbos_portal/hbos_portal/auth/state.py": "5a830a93fd48ba9fa3785e11d1ff8fdb849d0bd0ddeb319730267ae632457ab4",
+      "apps/hbos_portal/hbos_portal/contracts/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/contracts/access.py": "36175496c8c380ddb26dca329848d5fb57e7ed856a6d9cc232e9c13eb0f563f4",
+      "apps/hbos_portal/hbos_portal/contracts/errors.py": "f8ae707648c999eefc70074a51b24c9445a37a60b908aa4af9ae3434fbb9877f",
+      "apps/hbos_portal/hbos_portal/contracts/manifest.py": "f90f3fd1843339d45c130fb3b756799219cdcf9224ba808b18b2cf7386b01738",
+      "apps/hbos_portal/hbos_portal/hbos_portal/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/__init__.py": "764f68a1ed44037ccbceb307d9cb0e2e01672fd005b8823dd1123c6831afa5d4",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_change_event/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_change_event/hbos_account_change_event.json": "0c7d8cb236a44bcfb8165dcb5a0c8698d0575f150ebe43a6922e332cca57e4f0",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_change_event/hbos_account_change_event.py": "2c21b7ee64c66c6adb66e0891646b928e68eb5bbddeea9822658269213c80a23",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_operation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_operation/hbos_account_operation.json": "386789490990727157ece49ca7104d2e341641311855d66c43f87304fcbac164",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_operation/hbos_account_operation.py": "26aa4a0cfc168059b2d1c2b30aafcbe8d736c9265ee6c2380db2f75eb3288e83",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_security/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_security/hbos_account_security.json": "3fe501bcb55fe019a6ac37b055f1a56b6ec9ca4f37d22a557f4a2a1f2a4676bd",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_security/hbos_account_security.py": "22b8a65f040991d2aa7792f73490531dc7803e3d203d47a7c56840b00cc67e19",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_external_identity/__init__.py": "a8f679823559ea1e57eb07d2897fb69cd80af168a35b15e443e4190aa3ff6766",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_external_identity/hbos_external_identity.json": "7b5073f0d47e9e99063c9899cecae67a6424fb252391aa16facf127b98f2ddb0",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_external_identity/hbos_external_identity.py": "bd32506103c75da84bd63de9d630d8d6a09e298a5f1a3fac72d1e92a69104a57",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_change_event/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_change_event/hbos_iam_change_event.json": "93f3fe02398a1574eeb45dd940f5165da4824289be135d3d2e78204ee0a370ee",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_change_event/hbos_iam_change_event.py": "6c17808d5de5923629cd614cbed8dfd266b8ba7144460d2d69384ed241d36a2f",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_policy/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_policy/hbos_iam_policy.json": "64529280f6147200d650e0610e2063bdd87c7cb671d31a9b935a073489ea7f13",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_policy/hbos_iam_policy.py": "70972b45166136040240eb778e21adf8b1d1ebe13d069d81ccd4c38a87180202",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_rule/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_rule/hbos_iam_rule.json": "98491796892edf7dbcc00db9a8653f4fe99b6199fb2e893754289fdc2a0df0a8",
+      "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_rule/hbos_iam_rule.py": "a9741a2343db9c46b84a129ed986865c995ca499c86be7118968ef2c76f40e8e",
+      "apps/hbos_portal/hbos_portal/hooks.py": "a4e77bb5305b3d7eaceb0db726aa14ae694a671f1499d816559a6906cf52b40a",
+      "apps/hbos_portal/hbos_portal/iam/__init__.py": "99ab8f9da67fad36fea3b2d669394cabf96911139c7a30733962f44e2c60358d",
+      "apps/hbos_portal/hbos_portal/iam/audit.py": "ae56d867a381e14e161fbd333f8e844e9a3a15b460959e45a9a17f482ebc429a",
+      "apps/hbos_portal/hbos_portal/iam/demo_provider.py": "51b34e405e047237201e68a1b3adbd140c2d4affaab43cc1f81b37a941e06579",
+      "apps/hbos_portal/hbos_portal/iam/guards.py": "543104177c5dc22e9ef0001c21ea33e5b7625bcad8cfa25a74416b0294a2c816",
+      "apps/hbos_portal/hbos_portal/iam/migration.py": "7721345a765862b35c3f59c81b9c339c8114c3e562dad8f37b331f0fa2d83cd6",
+      "apps/hbos_portal/hbos_portal/iam/onboarding.py": "a5b6daaf138722b1ba762a70495f0ec4a9a6083a4ffa18530eaca721e211736d",
+      "apps/hbos_portal/hbos_portal/iam/organization.py": "a4432984db14aaf7079aa797a52e6126110a03f2eb368d7a59b2b85286167177",
+      "apps/hbos_portal/hbos_portal/iam/people.py": "fe907527ec672df113eccff158b179a354d8e2bb4b27d8eecfb60786f1290858",
+      "apps/hbos_portal/hbos_portal/iam/policy.py": "357677c8403e1d91959f69330efd4dc978e170a29690b54c1f6b169db9197948",
+      "apps/hbos_portal/hbos_portal/iam/temporary_passwords.py": "b3e97087008586e6d50312395e64be11260556fa9cacc8db2fecf1d78c8122d4",
+      "apps/hbos_portal/hbos_portal/iam/work_commands.py": "2cc02a8e156f4d05f7ed29aa8233bea5756fa47339f452c083e1d64b11efed1b",
+      "apps/hbos_portal/hbos_portal/integration_checks.py": "e9fb6380965be99d7c02adc82af09b8605586009b754594bcf60fae59e280ad6",
+      "apps/hbos_portal/hbos_portal/modules.txt": "c1c8e5a7975b8d18c07beed9f4b581d0b2e1520eb4762a2d4a474b52405ed75a",
+      "apps/hbos_portal/hbos_portal/portal/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/portal/constants.py": "541263ae45eddf4e2833372ec73c2f0c3040eeab6858cfb36acf997d8f3f7546",
+      "apps/hbos_portal/hbos_portal/portal/provider_protocol.py": "30d0a2dc6c043eff92c0e2aab0dafe22ce2bb547ca3c96b7d27e3271359f8e43",
+      "apps/hbos_portal/hbos_portal/services/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/services/access.py": "f9a089f9c0667d750d2a83699890c836738ac1f01af7f5a1c345c3c60d9a8870",
+      "apps/hbos_portal/hbos_portal/services/bootstrap.py": "9374087e36c37ec8c168e61cfa57c342d9baeb3957f0ad2d262e5cd11505d003",
+      "apps/hbos_portal/hbos_portal/services/branding.py": "1d8dd38cdd27326a113b8489701b18021a7902d557a7f73c630356dc563900da",
+      "apps/hbos_portal/hbos_portal/services/diagnostic_context.py": "9f968092fb535692d9222b5bedf2ae3938214980bcb73fd3fab1cedd4aec57ab",
+      "apps/hbos_portal/hbos_portal/services/dispatcher.py": "c99fb722cad17f751cd5d5548be833eea0c19270c3fdaab79fd7a4eeff84b072",
+      "apps/hbos_portal/hbos_portal/services/internal_users.py": "33049e66cb51cd4222d3b8fe723130fb9a16acad4140eaa550f2fd33f7bd9c36",
+      "apps/hbos_portal/hbos_portal/services/registry.py": "32df29caf9e669120c72e0acc2e2637b4db55762af1747bf23b480ab8acda098",
+      "apps/hbos_portal/hbos_portal/services/routes.py": "fa6ea8c09cef166abf8a05fcf20fde661eb302241e74cf6267de0ed91861811f",
+      "apps/hbos_portal/hbos_portal/www/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hbos_portal/hbos_portal/www/hbos.html": "9128d5da35fe83989dd37062d52f2aede151f213dc47e7ff536f2ad9b08d615b",
+      "apps/hbos_portal/hbos_portal/www/hbos.py": "9b41b3f1f392fdb91e9d7377371a6056c8ba3ebc5b322456ca9d65789e8babd3",
+      "apps/hb_attendance_app/hb_attendance_app/__init__.py": "b172e1ee0dca0b84021717191814e91b6b1c47b866981b0c8eae8ba91a6d9118",
+      "apps/hb_attendance_app/hb_attendance_app/config/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "apps/hb_attendance_app/hb_attendance_app/config/desktop.py": "e42cbc469c1db8173f5eac74981412ea5062f815280b8ee32cc40034bd1d693b",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/__init__.py": "b0f441349367753bdc22609ae85f15c1f8fd06f8178cab055f5cd4b5a17a6c29",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/add_custom_fields.py": "515a02269df1c72addce769751f24cb31b72b0cc169b4d89167a21025753d6dc",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/ai_review.py": "25ce9525f85d85cdc09b210634e9225fafbd5501d3c6d9d50398eaea86c320f3",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/analyze_single_ck.py": "dfbd7567d62590c27fcc2bdc08f9557d94485012b323ca0c9264968ee06ea05f",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/api.py": "0fffe5def2f8c8777ad2a1ef1723b96d6e0371838e430f8b5f6a58abc1b85fd3",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/attendance_notify.py": "bdd43753d09b28374e037056f7b81b9b7ed66c383f3088e40c09152b8124acca",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/audit_misjudgments.py": "d37f9656dc3c0738b31b3c59f4fce12fdaf7c9b1370a83c4c53e09c517776f19",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/board_stats.py": "9157102b9094f0cee303339eae592e59f19e1d858b66fd1b04cb5e57f8b6d2cd",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/check_fields.py": "07891e80ed27e4614a70e90beb51cf8377f5cf38c47c8aa1952a036c53fa01d4",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/create_missing_employees.py": "733472ba050cafef6f453d59c248000953b0393a2811b7d8e6f01a081ddf4bff",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/department_board.py": "01ef47dc4461769cb7b76e7194e78ad58e5735ee9b2342c53a2c737aae73f6ed",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_attendance_import_log/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_attendance_import_log/hbos_attendance_import_log.json": "8f42a51dc9ab3e5a69a0437ec4626b2237d0a2d9aad405cf70052ba1445ebd1f",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_attendance_import_log/hbos_attendance_import_log.py": "ee023b4445c75a3917e6bfc64c78ed01cc7d5591dca7843ce8d9c68035cf673b",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_attendance_policy_assignment/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_attendance_policy_assignment/hbos_attendance_policy_assignment.json": "3157d0772e227394882ff587d107de097f5385b55e461a858d2926ac54520d45",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_attendance_policy_assignment/hbos_attendance_policy_assignment.py": "f36eb746557500fc35a6013dea76dc0b7799ffad2933ee4b7312610f2befb0cf",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_employee_schedule/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_employee_schedule/hbos_employee_schedule.json": "8265b17507b93611c225dc192ecac7e08a278aa8a2f738e9aea13ec7c455c0bd",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_employee_schedule/hbos_employee_schedule.py": "931d2cdd3551e6d1f30ae9ff576d2e471076e7e93a420b77e5678213ef8e21fc",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_employee_shift/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_employee_shift/hbos_employee_shift.json": "b833d64e9b03bbf3a49dc52c4c86a815836245352ad630e2394edea1bb4202a9",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_employee_shift/hbos_employee_shift.py": "2f8e155314447f616f8dce036c76ce0a26ba685596a56829c558bb26a73beb54",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_leave_record/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_leave_record/hbos_leave_record.js": "eb70230861ca2921a8a84ff259d81dc8ed3cd3b0212d98a3d813cea7e104d894",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_leave_record/hbos_leave_record.json": "ffda03542c95ba73d62214032407dbc758e86992e3bdc2d7afad8f46b741974e",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_leave_record/hbos_leave_record.py": "5a45ddcd276c5f6619b84e729b60d9090a1c92bedbf8bc4109bee7d261ff5861",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_leave_record/test_hbos_leave_record.py": "f0205b8814da24b8a9483a179a65ad25c8810d9e12f1fcd98d48d61eb5958686",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_overtime_record/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_overtime_record/hbos_overtime_record.js": "4415a4ec1691731189f19d702c23ceaeebb8be2cb9f128310d4e0cb78c9ff496",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_overtime_record/hbos_overtime_record.json": "573aa48fc66a553e8bb7f5eff6666f5af9bca9cd1e27c1b7d9149947376832de",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_overtime_record/hbos_overtime_record.py": "7988b7f8c3f1ae432e1382cdda4a64ca27d5dcd138ce2c3dd4b06ca195f4f31a",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_overtime_record/test_hbos_overtime_record.py": "000ebcce43dceba3a9c1c98ab4a7195f8292a6307d6ff845c408f9ed79a17955",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_rest_leave_record/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_rest_leave_record/hbos_rest_leave_record.json": "747d44fc4bfb923b3f0d2bd564700a76c7840c514cfb766e1593afa3831113b6",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_rest_leave_record/hbos_rest_leave_record.py": "4865c28a2eba00547373fd984223234a768af03386c321287dea479a002490f9",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_shift_rule/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_shift_rule/hbos_shift_rule.json": "30c634c97f4a2bbb267b9d9de146d19d104f576daac3867af95f8467d1a54930",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/doctype/hbos_shift_rule/hbos_shift_rule.py": "b118fcf0787f631c93864b0d4de5db82fcd465d217ec70bdc1dbf7f835110c1b",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/fix_doctype.py": "ffed55390c67fdae96d7545bbc62427ede11c382f314a5ba7e8e7ab128712125",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/fix_frontend.py": "c74b9ae0648eab9d0f356beb1ad8f406b0cdb93c103f1a4b2dfef7a358230e09",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/fix_inout.py": "8052902cd2888d215377105dcd9f6380d1012760b6672111bf783ad6994226fd",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/fix_working_hours.py": "5b739e92b538ff524aa2ceea1ff19dfa38b1abd092159f19a7b40db465d813b0",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/g1_integration_checks.py": "b32da57f1011eb90742fa13a90834ab27456f0db256f18f22a560c67c5b9cfb2",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/import_contract.py": "ad78941a830317bfeffabc2073279361f397d745b00d3a9ca35402bbe4555204",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/import_delicloud.py": "4130ae0719abb64dc067da80bb7299b4aef527b43b9e51d110bef03ec3b4ab2f",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/import_delicloud_bulk.py": "b8dff5e832947ef9b0fcf201cf8cea2ffb05c2e4412cf87c7681462430a8e23b",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/match_employee.py": "547a900747682876da68c6e06d9ee6ad7ee737724eafe5d62c3cc8e33566a85e",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/match_shifts.py": "f3e708e5f74d758ad70fa57e2ca345d3828bea68dafff8defdfea2f2f4b75992",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_attendance_dashboard/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_attendance_dashboard/dashboard_data.py": "a5e565519eb3e89ffbb67aa0c96578e9fe7804c75455247322dee40a0016f8b9",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_attendance_dashboard/hbos_attendance_dashboard.js": "13ea4a86312b7f02c9104fd8c102f74abbde141304d183e225016e2d9cd9cc44",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_attendance_dashboard/hbos_attendance_dashboard.json": "dddbac155bcd6ae8f9ffecf155b0d96c0c2a1d2c93d371204c8a0f3f518a8d26",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_attendance_import/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_attendance_import/hbos_attendance_import.js": "fa8d25edece75de06ef9c6657e5f1ff57d6c74e86881caa30813cf0de310fe20",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_attendance_import/hbos_attendance_import.json": "568133578afca77378032b3852e118fd3491dc11fc087d43dea64e38c25b4d57",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_department_board/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_department_board/department_board_data.py": "054668a5050d823b988914ff17866c08b32f588a459d7aaa2790f0035ab461a3",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.js": "88dd6846809551728076ae9895e8af82e882582f917204af8572b993c6850428",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_department_board/hbos_department_board.json": "b4d20e4480d36b3b46b3267cb956504550bd6568fded1ec76233cd034e1a15c5",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_employee_management/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_employee_management/employee_management_data.py": "4afeceb1ee071d02d5a27f973f52cbfe76377d8dda66d591cd3c9dcea1c465eb",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_employee_management/hbos_employee_management.js": "79a8edcd97d6cc548658dbe38b4f07aa715644e4d837ed0decfa4c7c7046ee79",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_employee_management/hbos_employee_management.json": "f231f135c216fef6e0844cf442f6da0c76c202ca31f3289417c3b71093e7232a",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_monthly_upload/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_monthly_upload/hbos_monthly_upload.js": "3e687f387e001c048118b5ab17fbd62becda6a7da7581ce272e3cd974740f3b6",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_monthly_upload/hbos_monthly_upload.json": "b0acce728ee434f1118aa210208d0f12fbeb9716e4b07b10c3a1ead7202873c3",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_monthly_upload/upload.py": "4c771b827bcbc9ea825198cc44b0c8f01c25dec471be5a79bb823b35fd41ab1d",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_shift_management/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_shift_management/hbos_shift_management.js": "600c43fae65820d6492f7b32ee1f0bf3741e88f6bc2c920cceb6e6115f13de67",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_shift_management/hbos_shift_management.json": "0b0ce68f537a08d4c7734b6ccfc2c7ea3d16430931a316fd9fb146173d0aac97",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/page/hbos_shift_management/shift_management_data.py": "0c0d50be4cd6de89c510dbb3363c18c8ad052edea47c2b7e259b830ffe99a943",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/pairing.py": "28a54cbb57e25c9cee331c70834a9bc096958023be1673a03c8cf4ab7522249f",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/patch_doctype.py": "c4cfc7f2efd2da548d6ee72b36de366a5beeaa3c5ba5e4017d10e3c753ee9035",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/pilot_delicloud_department.py": "e4cdfa27e7608c561ab3b45fbbe948658e377c8eec85e5fe89252cbe4e8ec62c",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/policy_migration.py": "c066c6c5a7955a74e509c696eb98f2a62803f011413365826c4d7095403ed588",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/policy_registry.py": "61eba10ac4446b0ec5d8b6f55aa963c1b918f092e06dda2b8b760aebe44088d5",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/access.py": "397646abe7e7cb80c13a0b03af3e0e2695b3915307f40a500c1d384e9d85e1ba",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/integration_checks.py": "d83799175d9ccc870c135babacdbd3751b5cce7b57dba9d296ecee58f26abc90",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/manifest.py": "d880d6d12146fee1a29cce0fee92b6b9ac60da5bcb5aea26059dcea9d9d912ed",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/permissions.py": "425d30d6d2a645901757a895e17efc8519372a5527f37f5cb597af0ea925723c",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/personal.py": "8c97aaa0ff1d2f25e15ba928854b2594e8c46bb5485f0bcbfb8aa293e5b9dde9",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/provider.py": "69f0ff869af0ed4c8ade25f2eb89d1316b1213cc8fca5bcbc8dc5637af299eed",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/routes.py": "b09a06fbbf5ee5df60eb199f47f379e0bb8090a1c2b941ace0454dee7923d518",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/summary.py": "9efd418fcf52cd51db8de23c3792d54f07f518086f0d6aa93d019a3abd38da83",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/report/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/rest_leave.py": "e0e7cea0715c8bb52dd9edd2b4eb1a2b6431e3e0830ef858bbd6504c8768383c",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/rest_leave_apply.py": "e37de9c44a6df44dd354363a4fdc19352db975b4803b5b480636ca0af71231ff",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/roster_classify.py": "3d83170da6c156f58bcb205796e307c3ae1a9fa3af9a3bc5e9279396fc706170",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/roster_export.py": "93eb90347606ca2e03b90c483bfb0c5b1b62030d496af0beba291c357b9e6604",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/rotation_schedule.py": "5cbd248370cc4ae7aaa157304d7d24d2fd1dca09da0f991032ac9e64cbc603c4",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/rule_lists.py": "7d4aa97ac144eca8f828edf32be85df64cd9d8fb7c2b2b33996cddc07edb5b50",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/rules_board.py": "12d3c1fe1d665d05a310fcab64b8599d8dc310a33c15abe868a67b8636ff6e46",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/schedule_import.py": "b7b303193c196105c5b8ae50e184fd4cf46cc3eb988ba3a1208377b6b54c1596",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/setup.py": "ee5dc99a8ef49d102fa76369b921916493538d23f6c401fcf7a473e3b2cce01e",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/shift_rules.py": "616ffc64f9ffec6e2fb61ee58de7fff7eaa508cc513cfedee1e2200250b78b30",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/sync_delicloud.py": "737b8c739c3c8baa1594bdfb663a38fc0b38199f2e6f488f26d2382e754f30be",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/sync_delicloud_department.py": "e9d41b41ba263582c754af850a7170aa90e78c84a02446bc52284632ce5c878a",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/sync_exceptions_to_bitable.py": "ac1325d357cb3097194ee823e4712fd8df43347cd8ca76cea2f57f076b272267",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/sync_leaves.py": "ebaa602ce82b3718dbbd24932f2fc909389d64c7c2b515e4e86ed087f874c7e7",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/sync_rest_leave.py": "6644f3bd7424ab560a415a0117a136ff413525022543b781da933bf1afd5807a",
+      "apps/hb_attendance_app/hb_attendance_app/hbos_attendance/update_hrms_department.py": "43ddf5bbc477f8af0a37a5019762dfce455b3fad8cbaef837be60083a175ba6f",
+      "apps/hb_attendance_app/hb_attendance_app/hooks.py": "fa66d6e60a4fe486b9e5704b1af243e37ade7babc93630beb8d611d594ed1fe7",
+      "apps/hb_attendance_app/hb_attendance_app/modules.txt": "d1c5da1ac1521367a578fd2220dbdfde87c8bb0ba2d2eca8779e8691cd867f84",
+      "apps/hb_attendance_app/hb_attendance_app/patches.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "apps/hb_attendance_app/hb_attendance_app/public/build.json": "5ac30510f41403b38c7b885a09505aac25727c967f38487e9e8fc57119f1cf52",
+      "apps/hb_attendance_app/hb_attendance_app/public/hbos-attendance-logo.svg": "02595290075935a75a286000c056428799f0b9f93fa9453d728595426d002c7b",
+      "apps/hb_attendance_app/hb_attendance_app/translations/zh.csv": "097ff0ebf8e3bab5b25ab7e76eb1ff271e0ea67ba9928762d25f84cf485f9d86"
+    },
+    "demo_enabled": false,
+    "new_demo_object": false,
+    "scheduler_enabled": false,
+    "core_init_sha256": "745dc5ecb26a58af361887fc9a096f7beb01aeef78f9a8cf2484c6550eda0371"
+  },
+  "backend_started_at": "2026-10-18T07:17:38.544366587Z",
+  "own_running_containers": [
+    "hbos-iam-r4-b-20261015-backend-1 | 127.0.0.1:8198->8000/tcp",
+    "hbos-iam-r4-b-20261015-websocket-1 | 127.0.0.1:9198->9000/tcp",
+    "hbos-iam-r4-b-20261015-redis-queue-1 | 6379/tcp",
+    "hbos-iam-r4-b-20261015-redis-cache-1 | 6379/tcp",
+    "hbos-iam-r4-b-20261015-db-1 | 3306/tcp"
+  ],
+  "production_dist": [
+    {
+      "path": "assets/AccessAdminView-DOQ9Ivv9.js",
+      "sha256": "52183159d3fd06bd7f3f4debefbd89b5719a472569cb5f3946304da7f87e7552"
+    },
+    {
+      "path": "assets/AccessAdminView-DtnVAJ9q.css",
+      "sha256": "60fb044e13ccf91259c88325bbae74ec1017ca5c6a07a82742d4c13b5b5683ce"
+    },
+    {
+      "path": "assets/AccountChangeView-D7HjLVaO.js",
+      "sha256": "c6888daae1672478224ca1c32dcdc60824cbd9921003a5b54128500f4919d20b"
+    },
+    {
+      "path": "assets/AccountChangeView-Nfq-aQVL.css",
+      "sha256": "b424b76ad28ced7cb25b2b55c7f088718180dc4caf2a77ebc0e4b274ef967602"
+    },
+    {
+      "path": "assets/AccountConnectView-dg-cgsOF.js",
+      "sha256": "1479f430a332d5543fce9de1e73188432045942a83785c78e42fe79729fcf6a4"
+    },
+    {
+      "path": "assets/AccountLayout.vue_vue_type_script_setup_true_lang-C_7A1dJH.js",
+      "sha256": "daabe16766396f137aa5337a7786537fc778c4897f59227e8d638114248186c7"
+    },
+    {
+      "path": "assets/AdminAccessUnavailableView-CsF5g6_f.js",
+      "sha256": "d28ce02b2193257e8bc98a7cb876c939837f29da2133c1be5405668d5ac5dc32"
+    },
+    {
+      "path": "assets/AdminWorkspaceView--vdTZGgX.css",
+      "sha256": "8ef4daeace92c440058bdadd8cc7df5e27a9d0f45a448ec825bec9030d7f6189"
+    },
+    {
+      "path": "assets/AdminWorkspaceView-INAhGZ_P.js",
+      "sha256": "08393a8142bd810585f5e20a061ed9b68af09626a695e55fcc9b1d02a063919e"
+    },
+    {
+      "path": "assets/AuditAdminView-ClsbVqYo.js",
+      "sha256": "398158a701a0bd04f3ed002e47b38491463cde82d20d48c9fc78865674760254"
+    },
+    {
+      "path": "assets/DepartmentsAdminView-CQ8SVgI1.js",
+      "sha256": "0d79d51b6f1e3180d10f6cc093775e96aba568b3691ff061733f49a348ca823b"
+    },
+    {
+      "path": "assets/DepartmentsAdminView-DYqmEx5r.css",
+      "sha256": "a761e9c4f19a05048cd385d352537101ec76509e45146e686021e322aadb18a3"
+    },
+    {
+      "path": "assets/EmployeeDrawer-Bs0cAqbS.css",
+      "sha256": "57fa5554b4d401d0006a203d113f9514cf28b18af7692c63e5d63fa0c6045d22"
+    },
+    {
+      "path": "assets/EmployeeDrawer-T0GO7QP4.js",
+      "sha256": "e225df4264f0d1e39ca62c477041b105528539f4fc17772acb6ec170ed23c263"
+    },
+    {
+      "path": "assets/FeishuLoginView-CZvVcRzC.js",
+      "sha256": "09966ee027476f51abb45ab65b20bf1238732d4609502a6f69d3657ca21824dd"
+    },
+    {
+      "path": "assets/KnowledgeTwinLayout-B7MqKhZ8.js",
+      "sha256": "1a2b9b55c5a851bd161034b9c9e5502dce48fb194a23a2dcca236b499ff01774"
+    },
+    {
+      "path": "assets/KnowledgeTwinLayout-XnX5e2si.css",
+      "sha256": "b55b4c2baf6b868f1f45df2d6a5147405a5e8514a1dec0876556f924df9d8167"
+    },
+    {
+      "path": "assets/KnowledgeView-B6XBhbNh.css",
+      "sha256": "1753b22ad9327ffe885c466f0dfefbf7875f7d5ac8a9d0b3f4632a2ca21624f1"
+    },
+    {
+      "path": "assets/KnowledgeView-BN138W2J.js",
+      "sha256": "14c647ae9bc5b89382e242ad00f83a298d29a2dde9b7ba9b47ce8eb6a1cc026c"
+    },
+    {
+      "path": "assets/MyAttendanceView-BH_FMCmF.js",
+      "sha256": "3d35e9ab1e39b3ade0789aa0df7352d3bc4cfeb1b4d0a964c42df581942d3d13"
+    },
+    {
+      "path": "assets/MyAttendanceView-CPaw7o45.css",
+      "sha256": "3d95b1385ce091577606dab8c4d105a785ccc9c5d64b5928a1d77dacf104fe8a"
+    },
+    {
+      "path": "assets/PeopleAdminView-BmMto5Rf.js",
+      "sha256": "1539aea055e2647d5f03a3e1118dcac5b2f9d2b2f043d65a8236240f66205430"
+    },
+    {
+      "path": "assets/ResetPasswordView-nSJ04gk4.js",
+      "sha256": "73956d6c4f5b6833211eafcf911c4483e2e8c69a3e492478cec5790e0b21b997"
+    },
+    {
+      "path": "assets/TwinView-DQKTbqps.css",
+      "sha256": "676ae1ab2a34769846bc42efdd30f28dd267f2221eb5e99f9246cc568bd105c6"
+    },
+    {
+      "path": "assets/TwinView-_UmOv3IY.js",
+      "sha256": "86bc2d9375851e9733b3c1a6460c9dc78e3fb8fd542a7fcf807934aa33a2ff27"
+    },
+    {
+      "path": "assets/index-BCnTRcg6.css",
+      "sha256": "6aeb237c94c067f827faad5c4c3d5a05989f2665ba1ab61457a6a4d7beafc37b"
+    },
+    {
+      "path": "assets/index-BIvReQfv.js",
+      "sha256": "290708064901b7f7a4679bf3ab2c632cdaa16f44a85852763e1f7c2e1ae83d66"
+    },
+    {
+      "path": "index.html",
+      "sha256": "5ddcfc530b322b44e4e22bf942671ece6cf9ab8a0e1635495b8a6e7c03228bce"
+    }
+  ],
+  "all_frontend_matches_committed_head": true,
+  "all_backend_matches_host_and_committed_head": true,
+  "frozen_frappe_source_init_matches": true,
+  "base": "39366822a5b5d6041b9eea94da4f77255ad26761",
+  "starting_local_and_remote_head": "a6e175d653c46ef96973536a3f55296d8a809b06",
+  "draft_pr": 52,
+  "status": "IAM_UAT_R2_PARTIAL",
+  "role_definitions": {
+    "tabRole": {
+      "before": 53,
+      "after": 53,
+      "exact_native_rows_unchanged": true,
+      "sha256": "b2b8c747bc50a05af42a3d85e887c8d3a3a0625507287fc7ac70b54aa524cae1"
+    },
+    "tabRole Profile": {
+      "before": 6,
+      "after": 6,
+      "exact_native_rows_unchanged": true,
+      "sha256": "548461ef0f43db7781ed00d40e23bdb0b6862332dc1ce575c4280d477c1847c4"
+    },
+    "new_role_assignment_doctype_exists": false
+  },
+  "schema_change": "NONE; no migrate; no new Role/Profile/RoleAssignment or departmental business endpoint",
+  "frontend_aggregate_sha256": "84956ddde2a8012d3cefe98986068c81b748a9c87c3510f924af29b861cf1486",
+  "frontend_test_source_inputs_identical_to_26ad544": true,
+  "native_observed_module_paths": {
+    "Chrome_最终原生已加载Vue模块.txt": [
+      "/src/components/account/AccountChangeActions.vue",
+      "/src/components/account/AccountSecurity.vue",
+      "/src/components/account/AppDiagnostics.vue",
+      "/src/components/account/EmployeeIdentityStatus.vue",
+      "/src/components/account/FirstPasswordGate.vue",
+      "/src/components/account/InitialPasswordDelivery.vue",
+      "/src/components/account/OwnAccountVerification.vue",
+      "/src/components/global/AppSwitcher.vue",
+      "/src/components/global/NotificationCenter.vue",
+      "/src/components/layout/GlobalHeader.vue",
+      "/src/components/layout/PortalSidebar.vue",
+      "/src/components/portal/AppCenter.vue",
+      "/src/components/portal/BusinessPulse.vue",
+      "/src/components/portal/DigitalTwinPanel.vue",
+      "/src/components/portal/HeroWorkspace.vue",
+      "/src/components/portal/MyWorkPanel.vue",
+      "/src/views/ProfileSettingsView.vue",
+      "/src/views/attendance/MyAttendanceView.vue"
+    ],
+    "Chrome_最终原生已加载TS模块.txt": [
+      "/src/composables/useAccountProof.ts",
+      "/src/composables/usePortalSession.ts",
+      "/src/data/mockPortal.ts",
+      "/src/main.ts",
+      "/src/router/index.ts",
+      "/src/services/accountApi.ts",
+      "/src/services/accountChanges.ts",
+      "/src/services/accountErrors.ts",
+      "/src/services/accountNavigation.ts",
+      "/src/services/accountStatus.ts",
+      "/src/services/attendanceObservation.ts",
+      "/src/services/attendancePageState.ts",
+      "/src/services/attendancePersonal.ts",
+      "/src/services/businessNavigation.ts",
+      "/src/services/frappeClient.ts",
+      "/src/services/iamAccess.ts",
+      "/src/services/iamAccount.ts",
+      "/src/services/p1Api.ts",
+      "/src/services/portalApi.ts",
+      "/src/services/portalProvider.ts",
+      "/src/services/portalSessionCoordinator.ts",
+      "/src/stores/portal.ts",
+      "/src/theme/antdTheme.ts"
+    ]
+  },
+  "owner_baseline": {
+    "A_original_employee_user_number_and_history_preserved": true,
+    "A_date": "2026-10-14",
+    "A_checkin_times": [
+      "08:11",
+      "17:21"
+    ],
+    "A_native_attendance_result": "Present",
+    "A_rules": "first verification department default, normal, SELF",
+    "B_rules": "personal, normal, SELF",
+    "original_pending_employee_no_user": true,
+    "all_old_technical_fixtures_preserved": true,
+    "identity_table": "private local only; not copied here"
+  },
+  "ci": "exact final delivery SHA check runs recorded in PR52 and local outputs/UAT_R2/最终交付快照.json; no reuse of R1 checks",
+  "final_baseline_and_flags": {
+    "times": [
+      "08:11",
+      "17:21"
+    ],
+    "log_types": [
+      "IN",
+      "OUT"
+    ],
+    "attendance_status": [
+      "Present"
+    ],
+    "scheduler_paused": true,
+    "demo_off": true,
+    "new_demo_object_off": true,
+    "queue_common_config_restored_exactly": true
+  },
+  "services": {
+    "frontend": {
+      "pid": 93506,
+      "bind": "127.0.0.1:5198",
+      "mode": "Vite DEV"
+    },
+    "design": {
+      "pid": 64429,
+      "bind": "127.0.0.1:5199",
+      "mode": "static isolated design"
+    },
+    "backend": "own container 8198 only",
+    "socket": "own container 9198 only"
+  },
+  "prototype": {
+    "directory": "/Users/hb/Projects/HBOS-IAM-V1",
+    "head": "35a778afa383a8f6d07531b8c048b79e4f6c2ba3",
+    "worktree": "clean",
+    "this_round": "no change or restart"
+  }
+}

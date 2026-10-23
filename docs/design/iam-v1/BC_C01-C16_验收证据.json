@@ -1,0 +1,1612 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-10-15T16:05:46.536806+00:00",
+  "report_scope": "Evidence selection only; no raw responses, credentials, proof, sid, password hashes, private logs or SQL dumps copied.",
+  "task_source": {
+    "basename": "HBOS_IAM_V1_BC_正式实施与验收_唯一Agent任务.md",
+    "sha256": "eab611d2f1cddd10ec2647f722a8e106eb82b8fc8b1727f8580ea4e12b3d5419",
+    "section": "6 C01-C16"
+  },
+  "approved_product_base": "39366822a5b5d6041b9eea94da4f77255ad26761",
+  "design_r5_base": "35a778afa383a8f6d07531b8c048b79e4f6c2ba3",
+  "status_meaning": {
+    "PASS": "Evidence for the explicitly described isolated supported scope; not production release.",
+    "PARTIAL": "At least one required sub-scenario or final current-run evidence remains open.",
+    "NOT_RUN": "No execution evidence; never inferred from mocks or screenshots.",
+    "PENDING_CURRENT_RUN": "Another assigned agent/root is still running or must attach final evidence; do not claim completion yet.",
+    "PASS_UNIT_SERVICE_ONLY": "Unit/service fault injection only; not live HTTP/MariaDB concurrency proof."
+  },
+  "current_delivery_decision": "IAM_V1_BC_ISOLATED_REVIEW_READY; isolated core supported scope proven; real OAuth and real 200% remain NOT_RUN; CI status separately recorded",
+  "non_authorized_or_not_proven": [
+    "real enterprise OAuth exchange",
+    "real employee import/source reconciliation/history backfill",
+    "department historical attendance read/export",
+    "other applications business IAM integration",
+    "production deployment/merge",
+    "trusted arbitrary server Python/SQL sandboxing",
+    "historical physical public-file inventory",
+    "production concurrency performance"
+  ],
+  "items": [
+    {
+      "id": "C01",
+      "requirement": "固定版本、精确文件范围、隔离资源与已有成果保留",
+      "status": "PASS",
+      "actors": [
+        "read-only repository/resource audit"
+      ],
+      "expected": "实现来自固定产品SHA；只改批准文件和自有隔离资源；原R5及其他项目保留。",
+      "actual": {
+        "base_sha": "39366822a5b5d6041b9eea94da4f77255ad26761",
+        "observed_head_before_finalization": "c7d43df9c176e771c09b355faae3d9cac07f3f0d",
+        "branch": "feature/iam-v1",
+        "original_r5_head": "35a778afa383a8f6d07531b8c048b79e4f6c2ba3",
+        "original_r5_worktree_clean": true,
+        "existing_containers_checked": 41,
+        "changed_existing_container_metadata": [],
+        "missing_existing_volumes": [],
+        "prototype_http": 200,
+        "formal_http": 200,
+        "frappe_tracked_match": "3320/3320",
+        "erpnext_tracked_match": "5123/5124; only banking/yarn.lock build difference",
+        "implementation_source_head": "8554b3b3485d5298030c2658cf21d2e51f018976",
+        "draft_pr": "https://github.com/zjl327707743/HBOS-Platform/pull/52",
+        "final_isolation_audit": {
+          "existing_containers_checked": 41,
+          "changed_existing_container_metadata": [],
+          "missing_existing_volumes": [],
+          "owned_running_services": [
+            "hbos-iam-r4-b-20261015-backend-1",
+            "hbos-iam-r4-b-20261015-websocket-1",
+            "hbos-iam-r4-b-20261015-redis-queue-1",
+            "hbos-iam-r4-b-20261015-redis-cache-1",
+            "hbos-iam-r4-b-20261015-db-1"
+          ],
+          "prototype_http": 200,
+          "formal_http": 200,
+          "prototype_head": "35a778afa383a8f6d07531b8c048b79e4f6c2ba3",
+          "prototype_clean": true
+        },
+        "final_site_state": {
+          "auth_hooks": [
+            "hbos_portal.auth.accounts.check_request"
+          ],
+          "iam_enabled": true,
+          "test_site": true,
+          "demo_enabled": false,
+          "new_object_enabled": false,
+          "owner_unopened": true
+        }
+      },
+      "db_minimal": {
+        "no_real_employee_import": true,
+        "resource_audit_is_metadata_only": true
+      },
+      "layers": [
+        {
+          "layer": "fixed repository/file whitelist and isolated resources",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "git branch --show-current; git rev-parse HEAD; git diff --name-only <approved-base>",
+        "git -C <preserved-R5-directory> status --short",
+        "compare before_resources.json with owned resource metadata"
+      ],
+      "evidence": [
+        {
+          "basename": "isolation-after-evidence.json",
+          "sha256": "e44de53579f251ef54dcb113173102c11eb0d21e102eb923da1c0a7b94f0497a",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "core-source-match.json",
+          "sha256": "fa4a08d6c97bdb8cbebab9606a82872908f833a4092097c874f4866703343728",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "write-whitelist.json",
+          "sha256": "c31787142306cc0781c5428a5d5eadb7f566a0de65f2b1d189ec67d1d66567ba",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "isolation-final-C-evidence.json",
+          "sha256": "bcd623172a73366f391ba48ba1f70da4756d8a2348544a7091ff35b970041145",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "site-final-state-evidence.json",
+          "sha256": "22f452e8c96c5b2eb0d0d9ecea007e2ced41a417248dae8a63dc267e4ad4fe90",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "Source SHA freezes all implementation code; the later documentation commit is identified by the PR head and local delivery-version record."
+      ]
+    },
+    {
+      "id": "C02",
+      "requirement": "开户不复制Employee，明确唯一关联与工号字符串",
+      "status": "PASS",
+      "actors": [
+        "scoped administrator",
+        "synthetic unlinked Employee",
+        "synthetic existing User",
+        "two independent administrator sessions"
+      ],
+      "expected": "复用原Employee/User；占用、同号、并发不误并；0001等前导零保留；新员工必填资料由明确输入提供。",
+      "actual": {
+        "checks": "leading-zero ownership, existing-user link, occupied rejection, no duplicate Employee, concurrent provision uniqueness, required-date rejection, explicit native create, duplicate company/employee-number rejection all PASS"
+      },
+      "db_minimal": {
+        "existing_employee_count_before_after": 1,
+        "linked_employee_count_after_concurrent_provision": 1,
+        "employee_primary_key_preserved": true,
+        "employee_number_is_string": true
+      },
+      "layers": [
+        {
+          "layer": "actual HTTP + native Frappe documents + DB before/after",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/account-C.py",
+        "python .local/iam-v1/account-C-retest.py"
+      ],
+      "evidence": [
+        {
+          "basename": "account-C-evidence.json",
+          "sha256": "f13d31e15dcde5d622ef89ff089a12d837ae0ac987bea54c2b5e5d891018cbd9",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C02-leading-zero-ownership",
+            "C02-link-existing-native-user",
+            "C02-account-occupied-rejected",
+            "C02-provision-no-duplicate-employee",
+            "C02-concurrent-provision-unique",
+            "C02-required-dates-not-invented",
+            "C02-native-employee-create-explicit-dates",
+            "C02-duplicate-company-employee-number"
+          ]
+        }
+      ],
+      "limitations": [
+        "Synthetic fixtures only; no original spreadsheet import or live association-rate assertion."
+      ]
+    },
+    {
+      "id": "C03",
+      "requirement": "密码与企业身份同User，新旧/未关联/停用分流",
+      "status": "PARTIAL",
+      "actors": [
+        "synthetic password session",
+        "private trusted enterprise identity adapter",
+        "unknown/same-name/foreign/occupied identities"
+      ],
+      "expected": "身份经可信验证后复用同一User；不按姓名认领；未关联不猜Employee；停用不复活。真实OAuth与适配分列。",
+      "actual": {
+        "trusted_service_new_reuse_unknown_same_name_foreign_occupied": "PASS",
+        "password_and_bound_identity_same_user": "PASS; two real HTTP successes",
+        "disabled_reprovision": "rejected; actual password login 401 and trusted service rejection",
+        "real_oauth": "NOT_RUN"
+      },
+      "db_minimal": {
+        "employee_count": 1,
+        "unique_employee_link": true,
+        "unknown_identity_stays_unlinked": true,
+        "same_name_not_merged": true,
+        "disabled_state_preserved": true
+      },
+      "layers": [
+        {
+          "layer": "real native Session/HTTP + persisted identity service with private adapter",
+          "status": "PASS"
+        },
+        {
+          "layer": "real enterprise OAuth code exchange/console/callback",
+          "status": "NOT_RUN"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/account-C-oauth-adapter.py",
+        "python .local/iam-v1/account-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "account-C-evidence.json",
+          "sha256": "f13d31e15dcde5d622ef89ff089a12d837ae0ac987bea54c2b5e5d891018cbd9",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C03-trusted-enterprise-stable-service",
+            "C03-unknown-same-name-foreign-occupied-service",
+            "C03-password-and-bound-identity-same-user",
+            "C03-disabled-no-reprovision"
+          ]
+        }
+      ],
+      "limitations": [
+        "No external enterprise credentials or real OAuth exchange. The private adapter is not a whitelisted identity injection endpoint."
+      ]
+    },
+    {
+      "id": "C04",
+      "requirement": "临时口令一次交付、改密/重置/MFA与原生事务",
+      "status": "PASS",
+      "actors": [
+        "verified synthetic enterprise session adapter",
+        "employee native/Portal password sessions",
+        "administrator with proof",
+        "dedicated custody MFA fixture"
+      ],
+      "expected": "一次随机交付；重放无旧明文；首次改密、过期、重置、proof/MFA、原生密码入口及失败回滚正确；无口令日志/普通审计/明文缓存。",
+      "actual": {
+        "account_current_checks": "25 PASS including C02/C03; selected C04 checks PASS",
+        "claim_replay": "200 then redacted response",
+        "reset_old_sid": "403",
+        "native_and_portal_expiry": "401/401",
+        "mfa_login": "challenge, wrong OTP rejected, current OTP accepted",
+        "recovery_inflight": "real RR two-process full recovery service rejected with AuthenticationError",
+        "final_initial_delivery": [
+          {
+            "case": "initial-state-is-not-delivery-eligibility",
+            "result": "PASS",
+            "http_codes": [],
+            "details": {
+              "created": true,
+              "pending_before_session": true,
+              "before_session_can_claim": false
+            }
+          },
+          {
+            "case": "unverified-current-session-cannot-claim",
+            "result": "PASS",
+            "http_codes": [
+              200
+            ],
+            "details": {}
+          },
+          {
+            "case": "other-current-user-cannot-borrow-delivery",
+            "result": "PASS",
+            "http_codes": [],
+            "details": {}
+          },
+          {
+            "case": "verified-native-current-session-can-claim",
+            "result": "PASS",
+            "http_codes": [
+              200
+            ],
+            "details": {}
+          },
+          {
+            "case": "one-delivery-native-proof-with-rotated-session",
+            "result": "PASS",
+            "http_codes": [
+              200,
+              200,
+              200,
+              200
+            ],
+            "details": {
+              "sid_rotated": true,
+              "new_csrf_loaded": true,
+              "initial_password_verified_via_native_credentials": true,
+              "repeat_has_no_plaintext": true
+            }
+          }
+        ]
+      },
+      "db_minimal": {
+        "native_hash_and_four_state_rollback": true,
+        "password_generation_advances": true,
+        "pending_and_temporary_clear_on_settlement": true,
+        "new_reset_hash_preserved_after_stale_recovery": true,
+        "plaintext_log_audit_hbos_string_cache_scan": "absent in tested surfaces; four tables checked"
+      },
+      "layers": [
+        {
+          "layer": "actual HTTP/native hash/state/MFA",
+          "status": "PASS"
+        },
+        {
+          "layer": "actual MariaDB RR in-flight recovery revocation",
+          "status": "PASS"
+        },
+        {
+          "layer": "final verified standard Session entitlement, HTTP one-time claim, rotated CSRF and native password proof",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/account-C-retest.py",
+        "python .local/iam-v1/account-C-mfa.py",
+        "python .local/iam-v1/account-C-expiry-final.py",
+        "python .local/iam-v1/recovery-current-C.py",
+        "python3 .local/iam-v1/initial-delivery-current-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "account-C-evidence.json",
+          "sha256": "f13d31e15dcde5d622ef89ff089a12d837ae0ac987bea54c2b5e5d891018cbd9",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C04-provision-replay-never-delivers-secret",
+            "C04-reset-revokes-and-replay-redacted",
+            "C04-first-password-exact-gate",
+            "C04-native-hash-state-transaction-rollback",
+            "C04-proof-password-change-rotates-and-revokes",
+            "C04-trusted-session-claim-once",
+            "C04-real-custody-mfa-login",
+            "C04-native-password-path-preserves-mfa-and-atomic-settlement",
+            "C04-token-not-persisted-in-log-audit-hbos-cache",
+            "C04-expired-temporary-both-login-paths"
+          ]
+        },
+        {
+          "basename": "recovery-current-C-evidence.json",
+          "sha256": "22a6c08f398906321062bb8fcb77276e360580489d59449179cdb710f6b0d8ae",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "initial-delivery-current-C-evidence.json",
+          "sha256": "5b7e4cdfd084104e8d3f615162abb23ba54d857286063c1b36819f135cc852cf",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "Real OAuth remains NOT_RUN under C03. Absence scan is limited to named logs/audit/cache surfaces, not an unrestricted forensic claim."
+      ],
+      "history": [
+        {
+          "issue": "in-flight recovery used old RR key/context",
+          "historical_result": "FAIL by source/fault-injection review",
+          "fix": "current key lock result + current record + bound epoch verification",
+          "current_verification": "recovery-current-C-evidence.json PASS; history not deleted"
+        }
+      ]
+    },
+    {
+      "id": "C05",
+      "requirement": "真实本人考勤与原生旁路拒绝",
+      "status": "PASS",
+      "actors": [
+        "employee A real session",
+        "limited management session",
+        "managed residual-HR-role session",
+        "unmanaged legacy HR session"
+      ],
+      "expected": "本人列表/total/summary只取自己的Employee；替换主体、原生REST/list/detail/report/export/print/attachment/后台不能泄漏B。",
+      "actual": {
+        "self_http": 200,
+        "self_total": 3,
+        "self_summary": {
+          "records": 3,
+          "days": 1
+        },
+        "wire_subject_filter_denial": "403; invalid pagination rejected",
+        "bypass_http": "64/64 PASS: restricted subjects 60x403 + SQL-unavailable 2x417, legacy login/report 2x200",
+        "real_rq_csv_revocation": "FAILED at authorization guard; no CSV output"
+      },
+      "db_minimal": {
+        "self_foreign_employee_rows": 0,
+        "worker_attachment_count_before": 1,
+        "worker_attachment_count_after": 1,
+        "worker_csv_after": 0
+      },
+      "layers": [
+        {
+          "layer": "actual HTTP/native REST/report/private file/zip",
+          "status": "PASS"
+        },
+        {
+          "layer": "real dedicated RQ worker after owner revocation",
+          "status": "PASS"
+        },
+        {
+          "layer": "privileged server SQL/get_all sandboxing",
+          "status": "NOT_APPLICABLE_TRUSTED_SERVER"
+        },
+        {
+          "layer": "actual native API-token authentication after initial Guest phase: fixed identity and attendance guards reject before controller",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/bypass-C.py",
+        "bench worker --queue iam_c_bypass --burst",
+        "scripts/ci/iam_r4_isolated_smoke.sh",
+        "python3 .local/iam-v1/token-guards-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C05 real self rows/count/summary",
+            "C05 subject/filter/pagination rejection"
+          ]
+        },
+        {
+          "basename": "bypass-C-evidence.json",
+          "sha256": "6904828d35456d996c70f7ed1fbefd07d0f08694bf8f7b649937a33db280cd4f",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "checks",
+            "real_background_revocation"
+          ]
+        },
+        {
+          "basename": "repeatable-smoke-evidence.json",
+          "sha256": "318bb697d7ea63efe305eaa09585b65cb144d725a2fcdcfe25d07b2340746492",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "self rows/count/summary",
+            "foreign subject parameter denied"
+          ]
+        },
+        {
+          "basename": "token-guards-current-C-evidence.json",
+          "sha256": "498f42059423679226b14fd2c19d4a0a99206c19b8af70935a2f5f6651296c4e",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "Historical physical public files outside the new private-file path are not proven safe; live rollout requires a separate inventory.",
+        "Direct trusted Administrator Python SQL/get_all can read business tables; not an HTTP endpoint or a claimed Python sandbox.",
+        "No real external attendance sync/history backfill ran."
+      ]
+    },
+    {
+      "id": "C06",
+      "requirement": "授权管理权与业务读取分离",
+      "status": "PASS",
+      "actors": [
+        "manager with settings delegation only",
+        "attendance-app-only manager",
+        "employee session"
+      ],
+      "expected": "设置管理员不借目标Employee执行；配置只含权限/关联/来源；人员和审计能力独立。",
+      "actual": {
+        "manager_self_attendance": 403,
+        "configuration_preview": 200,
+        "preview_contains_rows_records_times": false,
+        "app_only_registry": [
+          "attendance"
+        ],
+        "app_only_people": 403,
+        "manager_without_audit": 403
+      },
+      "db_minimal": {
+        "configuration_does_not_query_or_return_attendance_payload": true
+      },
+      "layers": [
+        {
+          "layer": "actual HTTP and response-field inspection",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/work-C.py",
+        "scripts/ci/iam_r4_isolated_smoke.sh"
+      ],
+      "evidence": [
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C06 settings authority is not attendance read",
+            "C06 independent app-only administration"
+          ]
+        },
+        {
+          "basename": "repeatable-smoke-evidence.json",
+          "sha256": "318bb697d7ea63efe305eaa09585b65cb144d725a2fcdcfe25d07b2340746492",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "management does not grant attendance",
+            "configuration has no attendance payload"
+          ]
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "id": "C07",
+      "requirement": "成对动作/对象、有限禁止、未知/未接入拒绝",
+      "status": "PASS",
+      "actors": [
+        "scoped manager",
+        "employee A real session",
+        "isolated synthetic warehouse registry"
+      ],
+      "expected": "操作与对象成对；有限deny不等于全域deny；新对象不扩显式allow；未知/空/未接入拒绝。",
+      "actual": {
+        "query_A_query_B_update_A_update_B": [
+          200,
+          403,
+          403,
+          200
+        ],
+        "new_C_not_in_personal_allow": 403,
+        "finite_cancel_before_new_C": [
+          403,
+          403
+        ],
+        "finite_cancel_after_new_C": [
+          403,
+          403,
+          200
+        ],
+        "unknown_object": 403,
+        "unintegrated_inventory_lims_knowledge_twin_save": 403,
+        "invalid_scope_live_http": [
+          {
+            "name": "empty enabled scope",
+            "http": 400,
+            "status": "PASS"
+          },
+          {
+            "name": "unknown scope object",
+            "http": 400,
+            "status": "PASS"
+          },
+          {
+            "name": "unknown operation",
+            "http": 403,
+            "status": "PASS"
+          }
+        ]
+      },
+      "db_minimal": {
+        "persisted_synthetic_rules_are_paired": true,
+        "new_object_test_flag_isolated": true
+      },
+      "layers": [
+        {
+          "layer": "real HTTP + persisted rules in synthetic module",
+          "status": "PASS"
+        },
+        {
+          "layer": "real inventory/LIMS/knowledge/twin business integration",
+          "status": "NOT_RUN"
+        },
+        {
+          "layer": "actual HTTP empty/unknown scope and unknown operation rejection plus unit/service validation",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/scope-C.py",
+        "python -m unittest apps.hbos_portal.tests.test_iam_work_commands",
+        "private HTTP preview_work negative requests: empty/unknown scope and unknown operation"
+      ],
+      "evidence": [
+        {
+          "basename": "scope-C-evidence.json",
+          "sha256": "80f43538fede16aaef81ecc858b9aa1b15a18e675280a4a3bd8e0c1a00ed312e",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C07 operation/object pairing no Cartesian expansion",
+            "C07 explicit personal allow does not include new object",
+            "C07 finite cancellation remains finite on new objects"
+          ]
+        },
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C07 unintegrated inventory cannot save",
+            "C07 unintegrated lims cannot save",
+            "C07 unintegrated knowledge cannot save",
+            "C07 unintegrated twin cannot save"
+          ]
+        },
+        {
+          "basename": "invalid-scope-current-C-evidence.json",
+          "sha256": "b0caf43eccf9ca5ae3dab9d681b433b8bc98aaddd505cea1434dbe76fb64fa1a",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "WAREHOUSE A/B/C are synthetic policy-domain tests, not real inventory read/write."
+      ]
+    },
+    {
+      "id": "C08",
+      "requirement": "未改不写、最小触碰、取消与恢复",
+      "status": "PASS",
+      "actors": [
+        "scoped administrator",
+        "employee A"
+      ],
+      "expected": "未改不写个人Policy/版本/审计；只触碰本次工作；取消/恢复不覆盖其他应用或意外恢复部门默认。",
+      "actual": {
+        "unchanged_save": 200,
+        "changed_flag": false,
+        "cancellation_and_explicit_restore": "PASS",
+        "off_app_opaque_rows_preserved_during_attendance_save": "PASS"
+      },
+      "db_minimal": {
+        "nochange_rules_version_events_unchanged": true,
+        "stored_disabled_app_rows_before_after_equal": true
+      },
+      "layers": [
+        {
+          "layer": "actual HTTP + persisted rules/version/audit comparisons",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/work-C.py",
+        "python .local/iam-v1/scope-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C08 unchanged save keeps rules/version/audit",
+            "C08 cancellation and explicit restore"
+          ]
+        },
+        {
+          "basename": "scope-C-evidence.json",
+          "sha256": "80f43538fede16aaef81ecc858b9aa1b15a18e675280a4a3bd8e0c1a00ed312e",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C08 disabled integration rows are retained across other-app save",
+            "C07 finite cancellation remains finite on new objects"
+          ]
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "id": "C09",
+      "requirement": "单人单应用停用及恢复时重算",
+      "status": "PASS",
+      "actors": [
+        "employee A existing session",
+        "scoped administrator"
+      ],
+      "expected": "只停用当前人当前应用；恢复重算当前来源、期限、范围，不能重放旧快照。",
+      "actual": {
+        "stored_stop_gate": "explicit app.enter deny ALL *",
+        "stop_attendance_read": 403,
+        "expired_source_stale_preview": 409,
+        "fresh_reenable": 200,
+        "expired_business_read": 403,
+        "new_synthetic_objects_while_stopped": [
+          403,
+          403,
+          403
+        ],
+        "other_attendance_app": 200
+      },
+      "db_minimal": {
+        "app_rules_retained_while_stopped": true,
+        "no_snapshot_restore_store": true,
+        "reenable_recomputes_current_pairs": true
+      },
+      "layers": [
+        {
+          "layer": "actual HTTP + DB stop/source/expiry changes",
+          "status": "PASS"
+        },
+        {
+          "layer": "qualification executor integration",
+          "status": "NOT_RUN_NOT_INTEGRATED"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/work-C.py",
+        "python .local/iam-v1/scope-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C09 one-user application stop persists exact gate",
+            "C09 expiry during stop cannot replay prior grant",
+            "C09 current source restored, old session recomputes"
+          ]
+        },
+        {
+          "basename": "scope-C-evidence.json",
+          "sha256": "80f43538fede16aaef81ecc858b9aa1b15a18e675280a4a3bd8e0c1a00ed312e",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C09 full application stop covers new objects only in this app",
+            "C09 reenable recomputes current finite arrangement"
+          ]
+        }
+      ],
+      "limitations": [
+        "Nonempty qualification references are rejected by the current service; no qualification executor or qualified business operation is claimed verified."
+      ]
+    },
+    {
+      "id": "C10",
+      "requirement": "独立管理能力/目标范围、自批、CSRF、原生生命周期",
+      "status": "PASS",
+      "actors": [
+        "ordinary employee",
+        "scoped manager",
+        "managed System Manager fixture",
+        "Administrator",
+        "scoped auditor pending"
+      ],
+      "expected": "人员/部门/业务/审计分别授权；自批、跨范围、CSRF与原生旁路拒绝。",
+      "actual": {
+        "cross_scope_ordinary_self_approval": [
+          403,
+          403,
+          403
+        ],
+        "missing_csrf": "400/403",
+        "native_managed_delete_rename": "20/20 HTTP PASS",
+        "old_admin_bulk_delete_job": "FAILED before native controller; stored actor cannot lend authority",
+        "auditor_positive_scope": {
+          "explicit_D1_http": 200,
+          "explicit_D1_audit_total": 12,
+          "default_audit_total": 52,
+          "observed_pages": 2,
+          "observed_items": 52,
+          "D2_department_employee_user_denial": [
+            403,
+            403,
+            403
+          ],
+          "ordinary_A_denial": 403,
+          "no_business_data": true
+        }
+      },
+      "db_minimal": {
+        "native_lifecycle_pk_link_counts_unchanged": true,
+        "target_sessions_before_after": 1,
+        "target_old_session_after_denials": 200,
+        "audit_full_population_and_total_scope_consistent": true
+      },
+      "layers": [
+        {
+          "layer": "actual HTTP management denial + native lifecycle + actual dedicated RQ",
+          "status": "PASS"
+        },
+        {
+          "layer": "authorized auditor list/count and cross-department denial",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/work-C.py",
+        "python .local/iam-v1/lifecycle-C.py",
+        "bench worker --queue iam_c_bypass --burst",
+        "actual HTTP hbos_portal.api.iam_audit.list_events; scoped auditor pages 1/2 and D2 subject probes"
+      ],
+      "evidence": [
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C10 target scope/ordinary/self/CSRF deny",
+            "C06 independent app-only administration"
+          ]
+        },
+        {
+          "basename": "lifecycle-C-evidence.json",
+          "sha256": "1dbf12dc41f209491bba2ce02313cbcecaf6a7bec998041d31ea227c2da5cd3b",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "audit-scope-current-C-evidence.json",
+          "sha256": "e736d4e5269e552c16abaec2090232c53dd07334fd8e92d7f14d97bd8da096d7",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "id": "C11",
+      "requirement": "部门默认、调岗、个人设置来源及历史外键",
+      "status": "PASS",
+      "actors": [
+        "scoped administrator",
+        "employee A existing session"
+      ],
+      "expected": "默认与调岗实际写库；旧继承撤销、新普通继承生效；个人设置保留；历史Employee外键不改；失败回滚。",
+      "actual": {
+        "department_preview_save": 200,
+        "server_impact_changed": 5,
+        "server_impact_personal_preserved": 0,
+        "transfer_and_old_session_codes": [
+          200,
+          403,
+          200,
+          403,
+          200
+        ],
+        "personal_explicit_scope_preservation": "synthetic scope C07 real HTTP; not a nonzero personal_preserved impact example",
+        "additional_personal_preservation": {
+          "http": [
+            200,
+            200,
+            200,
+            200,
+            403
+          ],
+          "impact": {
+            "changed": 6,
+            "personal_preserved": 1,
+            "unavailable": 5
+          },
+          "personal_policy_equal_before_after": true,
+          "explicit_denial_still_effective_after_department_restored": true,
+          "fixture_restored": {
+            "name": "fixture restored to current department attendance",
+            "status": "PASS",
+            "http": [
+              200,
+              200
+            ],
+            "total": 3
+          }
+        }
+      },
+      "db_minimal": {
+        "employee_primary_key_unchanged": true,
+        "user_link_unchanged": true,
+        "employee_number": "string leading zeros retained",
+        "historical_checkin_foreign_key_counts_before_transfer_after_equal": true
+      },
+      "layers": [
+        {
+          "layer": "real department/transfer HTTP and native Employee history counts",
+          "status": "PASS"
+        },
+        {
+          "layer": "additional actual department saves with a nonzero personal-preserved exclusion and identical persisted User policy",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/transfer-C.py",
+        "python .local/iam-v1/work-C.py",
+        "python .local/iam-v1/fault-C.py",
+        "python3 .local/iam-v1/department-preserve-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C11 department write and server member impact"
+          ]
+        },
+        {
+          "basename": "transfer-C-evidence.json",
+          "sha256": "197d6fa591e16ce2d81dcef5092c37871b057f265e0283c6f92b0fe37cc792c3",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "scope-C-evidence.json",
+          "sha256": "80f43538fede16aaef81ecc858b9aa1b15a18e675280a4a3bd8e0c1a00ed312e",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C07 explicit personal allow does not include new object"
+          ]
+        },
+        {
+          "basename": "fault-C-evidence.json",
+          "sha256": "41ce41e5a0935f5057f8fa7200b0cd8c51bcdacac9ea913260cc509b38cb839f",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "department-preserve-C-evidence.json",
+          "sha256": "f4bca18fb8d1f2002d828099b8cf5db9c857410393f493e1af987e87d0433e40",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "id": "C12",
+      "requirement": "旧会话、在途提交和后台任务撤权",
+      "status": "PASS",
+      "actors": [
+        "old employee session",
+        "old administrator session",
+        "previously authorized synthetic HR queued actor",
+        "old Administrator queued actor",
+        "in-flight recovery process"
+      ],
+      "expected": "停用/撤权下一请求生效；旧缓存/队列/关键提交不得借旧权限继续；重新登录与刷新一致。",
+      "actual": {
+        "old_employee_after_policy_revoke": 403,
+        "old_admin_after_delegation_revoke": 403,
+        "old_session_after_reset_or_password_change": 403,
+        "old_session_after_transfer_out_of_arrangement": 403,
+        "rq_csv_after_revocation": "FAILED at before_job",
+        "rq_admin_delete_after_target_managed": "FAILED before controller",
+        "inflight_recovery_after_reset": "AuthenticationError",
+        "formal_disable_then_same_old_session": {
+          "case": "C12-formal-disable-revokes-the-same-old-session",
+          "result": "PASS",
+          "http_codes": [
+            200,
+            200,
+            200,
+            200,
+            200,
+            403
+          ],
+          "details": {
+            "only_new_synthetic_subject": true,
+            "employee_id": "HR-EMP-00014",
+            "old_cookie_sid_unchanged_in_client": true,
+            "new_standard_session_after_native_link": true,
+            "enabled_before": true,
+            "sessions_before": 1,
+            "enabled_after": false,
+            "sessions_after": 0,
+            "old_sid_row_removed": true
+          }
+        }
+      },
+      "db_minimal": {
+        "rq_attachments_unchanged": true,
+        "native_identity_and_sessions_unchanged_after_denied_queue": true,
+        "reset_hash_state_preserved_after_rr_recovery": true,
+        "formal_disable": {
+          "only_new_synthetic_subject": true,
+          "employee_id": "HR-EMP-00014",
+          "old_cookie_sid_unchanged_in_client": true,
+          "new_standard_session_after_native_link": true,
+          "enabled_before": true,
+          "sessions_before": 1,
+          "enabled_after": false,
+          "sessions_after": 0,
+          "old_sid_row_removed": true
+        }
+      },
+      "layers": [
+        {
+          "layer": "actual HTTP + native sessions + real RQ + real RR recovery",
+          "status": "PASS"
+        },
+        {
+          "layer": "formal disable_user HTTP then unchanged old cookie next request denied; enabled 1 to 0 and Sessions 1 to 0",
+          "status": "PASS"
+        },
+        {
+          "layer": "actual native API-token authentication after initial Guest phase: fixed identity and attendance guards reject before controller",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/work-C.py",
+        "python .local/iam-v1/transfer-C.py",
+        "python .local/iam-v1/lifecycle-C.py",
+        "python .local/iam-v1/recovery-current-C.py",
+        "python3 .local/iam-v1/token-guards-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C12 old employee session immediately sees revoke",
+            "C12 old administrator session rechecks revoked delegation"
+          ]
+        },
+        {
+          "basename": "account-C-evidence.json",
+          "sha256": "f13d31e15dcde5d622ef89ff089a12d837ae0ac987bea54c2b5e5d891018cbd9",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C04-reset-revokes-and-replay-redacted",
+            "C04-proof-password-change-rotates-and-revokes"
+          ]
+        },
+        {
+          "basename": "transfer-C-evidence.json",
+          "sha256": "197d6fa591e16ce2d81dcef5092c37871b057f265e0283c6f92b0fe37cc792c3",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "bypass-C-evidence.json",
+          "sha256": "6904828d35456d996c70f7ed1fbefd07d0f08694bf8f7b649937a33db280cd4f",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "real_background_revocation"
+          ]
+        },
+        {
+          "basename": "lifecycle-C-evidence.json",
+          "sha256": "1dbf12dc41f209491bba2ce02313cbcecaf6a7bec998041d31ea227c2da5cd3b",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "worker"
+          ]
+        },
+        {
+          "basename": "recovery-current-C-evidence.json",
+          "sha256": "22a6c08f398906321062bb8fcb77276e360580489d59449179cdb710f6b0d8ae",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "initial-delivery-current-C-evidence.json",
+          "sha256": "5b7e4cdfd084104e8d3f615162abb23ba54d857286063c1b36819f135cc852cf",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "token-guards-current-C-evidence.json",
+          "sha256": "498f42059423679226b14fd2c19d4a0a99206c19b8af70935a2f5f6651296c4e",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "Mixed User/Employee lock order remains a throughput limitation; lock conflict rollback is safe."
+      ]
+    },
+    {
+      "id": "C13",
+      "requirement": "真实并发、幂等、失败事务与界面草稿",
+      "status": "PASS",
+      "actors": [
+        "two independent administrator sessions",
+        "actual event-write fault process",
+        "UI stale-draft run pending"
+      ],
+      "expected": "旧version/context失败保草稿；相同请求幂等；失败无成功审计/部分权限。",
+      "actual": {
+        "indexed_race_attempts": 3,
+        "each_race_http": [
+          200,
+          409
+        ],
+        "idempotent_replay_and_changed_payload": [
+          200,
+          409
+        ],
+        "registry_only_change_invalidates_preview": 409,
+        "actual_post_event_insert_fault": "rolled back",
+        "ui_draft_preservation": {
+          "conflict_text_visible": true,
+          "draft_checkbox_remained_unchecked": true,
+          "checkbox_remained_enabled": true,
+          "screenshot": "ui-conflict-draft.png"
+        }
+      },
+      "db_minimal": {
+        "each_race_target_version_delta": 1,
+        "each_race_success_event_delta": 1,
+        "fault_before_after_rules_version_event_equal": true,
+        "registry_stale_rejection_version_unchanged": true
+      },
+      "layers": [
+        {
+          "layer": "actual independent HTTP concurrency + SQL rollback",
+          "status": "PASS"
+        },
+        {
+          "layer": "actual stale-conflict UI draft retained",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/race-C.py",
+        "python .local/iam-v1/fault-C.py",
+        "python .local/iam-v1/registry-context-C.py",
+        "actual browser old-preview save while second administrator updates the same policy"
+      ],
+      "evidence": [
+        {
+          "basename": "race-C-evidence.json",
+          "sha256": "042c3b33342fe27d76e029088a6f26168983493db9981b8870b381bf517e5405",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "work-C-evidence.json",
+          "sha256": "ea2c50da96f1586eb2f542768a38f8063ac09494c0550c2709e19f69d8cbb516",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C13 idempotent exact replay/content conflict"
+          ]
+        },
+        {
+          "basename": "fault-C-evidence.json",
+          "sha256": "41ce41e5a0935f5057f8fa7200b0cd8c51bcdacac9ea913260cc509b38cb839f",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "registry-context-C-evidence.json",
+          "sha256": "967e0e051f63bffa971146ff9889989f786651235bba6746d0da9779e82847a8",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "ui-conflict-current-C-evidence.json",
+          "sha256": "93d319ce5a1582e49ea1d04ca62a1884de840fcb050f251e409bf537c0132cf7",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "Race 409 is a safely mapped lock conflict, not proof that all workloads share a uniform lock order or meet production performance targets."
+      ],
+      "history": [
+        {
+          "evidence": "work-C-evidence.json: C13 two real administrators same version",
+          "status": "FAIL",
+          "actual_http": [
+            500,
+            200
+          ],
+          "repair": "safe QueryDeadlockError/QueryTimeoutError conflict mapping; Employee nonunique lookup indexes",
+          "current_evidence": [
+            "race-C-evidence.json",
+            "race-indexed-C-run.txt"
+          ],
+          "current_result": "three indexed races [200,409], each exactly one version and event persisted"
+        }
+      ]
+    },
+    {
+      "id": "C14",
+      "requirement": "隔离合成模块注册、默认关闭与服务端拒绝",
+      "status": "PASS",
+      "actors": [
+        "scoped management registry caller",
+        "ungranted employee",
+        "synthetic app flag toggles"
+      ],
+      "expected": "管理页可识别模块注册；注册不授权；无权API拒绝；其他Site默认关闭；不冒充真实业务。",
+      "actual": {
+        "disabled_api": 403,
+        "enabled_registry": 200,
+        "enabled_but_ungranted_api": 403,
+        "unknown_object_api": 403,
+        "disabled_again_with_stored_rules": 403,
+        "synthetic_metadata": true
+      },
+      "db_minimal": {
+        "stored_rules_do_not_grant_when_integration_off": true,
+        "only_named_isolated_site_allowed": true
+      },
+      "layers": [
+        {
+          "layer": "actual registry/API HTTP + stored policy state",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/scope-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "scope-C-evidence.json",
+          "sha256": "80f43538fede16aaef81ecc858b9aa1b15a18e675280a4a3bd8e0c1a00ed312e",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C14 module defaults disabled",
+            "C14 enabled registry does not grant backend access",
+            "C14 module disabled again, stored rules grant nothing"
+          ]
+        },
+        {
+          "basename": "repeatable-smoke-evidence.json",
+          "sha256": "318bb697d7ea63efe305eaa09585b65cb144d725a2fcdcfe25d07b2340746492",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "only approved real business integrated"
+          ]
+        },
+        {
+          "basename": "site-final-state-evidence.json",
+          "sha256": "22f452e8c96c5b2eb0d0d9ecea007e2ced41a417248dae8a63dc267e4ad4fe90",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "Uses IAM server-owned registry and controlled synthetic API; no Portal business provider/home task/summary registration is claimed. No real inventory business integration."
+      ]
+    },
+    {
+      "id": "C15",
+      "requirement": "原生副作用、双migrate、旧功能与隔离回滚",
+      "status": "PASS",
+      "actors": [
+        "native Employee/User services",
+        "unmanaged legacy HR",
+        "owned synthetic Site migration/restore operator"
+      ],
+      "expected": "原生角色/UserType/UserPermission无非预期提权；同Site migrate两次幂等；旧合法HR保留；自有快照实际可恢复。",
+      "actual": {
+        "native_link_profile_resave": "Website User, Employee role only; personal UserPermissions retained",
+        "double_migration_snapshots_identical": true,
+        "native_snapshot_restore_identical": true,
+        "probe_committed_then_removed_by_restore": true,
+        "temporary_field_count": 4,
+        "legacy_hr_query_report": 200
+      },
+      "db_minimal": {
+        "counts_before_after_equal": true,
+        "roles_unchanged": true,
+        "employee_keys_unchanged": true,
+        "snapshot_tables": [
+          "User",
+          "Employee",
+          "Department",
+          "Policy",
+          "Rule",
+          "Event",
+          "Checkin",
+          "Attendance",
+          "External Identity"
+        ]
+      },
+      "layers": [
+        {
+          "layer": "actual native document side effects + same-Site migrate + native DB/files backup/restore",
+          "status": "PASS"
+        },
+        {
+          "layer": "all other business apps live regression",
+          "status": "NOT_RUN_NOT_AUTHORIZED"
+        },
+        {
+          "layer": "actual native API-token authentication after initial Guest phase: fixed identity and attendance guards reject before controller",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "python .local/iam-v1/migrate-rollback-C.py",
+        "bench --site iam-r4-b.localhost migrate (twice)",
+        "native owned-Site backup/restore; commands contain no public credentials",
+        "python3 .local/iam-v1/token-guards-C.py"
+      ],
+      "evidence": [
+        {
+          "basename": "migrate-rollback-C-evidence.json",
+          "sha256": "a8cc8e5c083c4562924ea2f27c1837f514d2ebf881b8442f44d7d5417dbbbbc7",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "account-C-evidence.json",
+          "sha256": "f13d31e15dcde5d622ef89ff089a12d837ae0ac987bea54c2b5e5d891018cbd9",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "C04-native-profile-resave-keeps-no-desk"
+          ]
+        },
+        {
+          "basename": "bypass-C-evidence.json",
+          "sha256": "6904828d35456d996c70f7ed1fbefd07d0f08694bf8f7b649937a33db280cd4f",
+          "location": "private .local/iam-v1; excluded from Git",
+          "selected_checks": [
+            "unmanaged HR existing query report"
+          ]
+        },
+        {
+          "basename": "token-guards-current-C-evidence.json",
+          "sha256": "498f42059423679226b14fd2c19d4a0a99206c19b8af70935a2f5f6651296c4e",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "Only the owned synthetic Site database/files and owned backend pause/restart are covered; not a production disaster-recovery claim. Other business apps were not reimplemented or migrated."
+      ]
+    },
+    {
+      "id": "C16",
+      "requirement": "正式Portal交互、宽度/键盘/200%及构建测试CI",
+      "status": "PARTIAL",
+      "actors": [
+        "real Portal manager",
+        "real employee A",
+        "root current browser run"
+      ],
+      "expected": "三页/登录/本人真实点击；UI-01宽度对齐、UI-02一次提示、UI-03真实缩放；构建/后端/CI分别记录。",
+      "actual": {
+        "real_stop_save_ui": "PASS: drawer -> stop -> preview -> confirm once; one toast and server stop persisted",
+        "screenshots": [
+          "people.png",
+          "departments.png",
+          "access.png",
+          "ui-save-stop.png",
+          "my-attendance.png",
+          "login.png",
+          "department-impact.png",
+          "existing-employee-account.png",
+          "ui-conflict-draft.png"
+        ],
+        "observed_test_logs": {
+          "portal_backend": 154,
+          "attendance_backend": 498,
+          "frontend": 157,
+          "frontend_test_files": 19,
+          "frontend_build": "PASS; existing chunk-size advisory"
+        },
+        "current_full_browser_run": "PASS: manager login/people/departments/access, existing-employee account form, impact preview, real conflict draft, A password login to real self attendance; no browser credential changes",
+        "actual_browser_zoom_200_percent": "NOT_RUN: unsupported real browser zoom control; viewport changes are not zoom evidence",
+        "remote_applicable_ci": {
+          "head": "8554b3b3485d5298030c2658cf21d2e51f018976",
+          "recorded_utc": "2026-10-15T16:05:28.265809+00:00",
+          "checks": [
+            {
+              "link": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/38765149971/job/116526315283",
+              "name": "Portal 后端骨架",
+              "state": "SUCCESS"
+            },
+            {
+              "link": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/38765149529/job/116526312849",
+              "name": "Portal 前端构建",
+              "state": "SUCCESS"
+            },
+            {
+              "link": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/38765149500/job/116526312204",
+              "name": "lims-frontend",
+              "state": "SUCCESS"
+            },
+            {
+              "link": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/38765149553/job/116526313827",
+              "name": "production-bundle",
+              "state": "SUCCESS"
+            },
+            {
+              "link": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/38765149500/job/116526312670",
+              "name": "platform-clean-site",
+              "state": "SUCCESS"
+            },
+            {
+              "link": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/38765149553/job/116526313018",
+              "name": "contracts",
+              "state": "SUCCESS"
+            }
+          ]
+        },
+        "recorded_department_widths": [
+          1280,
+          1440,
+          1920,
+          900
+        ],
+        "recorded_body_font": "16px",
+        "narrow_table": "local table width 620 while main is 487 at viewport900; separate from real zoom",
+        "responsive_details": {
+          "departmentMeasurements": [
+            {
+              "bodyFont": "16px",
+              "document": 1265,
+              "main": 651,
+              "search": 601,
+              "table": 620,
+              "viewport": 1280
+            },
+            {
+              "bodyFont": "16px",
+              "document": 1425,
+              "main": 811,
+              "search": 761,
+              "table": 761,
+              "viewport": 1440
+            },
+            {
+              "bodyFont": "16px",
+              "document": 1905,
+              "main": 966,
+              "search": 916,
+              "table": 916,
+              "viewport": 1920
+            },
+            {
+              "bodyFont": "16px",
+              "document": 885,
+              "main": 487,
+              "search": 437,
+              "table": 620,
+              "viewport": 900
+            }
+          ],
+          "real200Percent": {
+            "status": "NOT_RUN",
+            "reason": "IAB Super+plus did not change viewport or devicePixelRatio; no supported real browser zoom control. Viewport tests are not zoom tests."
+          }
+        },
+        "navigation_details": {
+          "status": "PASS",
+          "actor": "manager1 real browser",
+          "pages": [
+            "/hbos/login",
+            "/hbos/admin/people",
+            "/hbos/admin/departments",
+            "/hbos/admin/access",
+            "/hbos/attendance/me"
+          ],
+          "department": {
+            "longName": {
+              "cellWidth": 228.296875,
+              "clamp": "",
+              "font": "16px",
+              "scrollWidth": 196,
+              "width": 196.296875
+            },
+            "pageTwoOwnerRow": 1,
+            "emptyState": 1,
+            "keyboardFocus": {
+              "label": "查看待开户员工（合成），工号OWNER-TRY-001",
+              "text": "待开户员工（合成）"
+            }
+          },
+          "departmentImpactPreview": "Actual preview showed server member impacts; returned/cancelled without saving.",
+          "saveFeedback": "Actual stop save showed one toast; see ui-save-C-evidence.json",
+          "conflict": "Real second administrator changed server version; see ui-conflict-current-C-evidence.json"
+        },
+        "self_ui": {
+          "status": "PASS",
+          "actor": "A real password session",
+          "route": "http://iam-r4-b.localhost:5198/hbos/attendance/me",
+          "visible": {
+            "heading": 1,
+            "ownIn": 1,
+            "ownOut": 1,
+            "foreignField": 0,
+            "managementLink": 0
+          },
+          "screenshot": "my-attendance.png"
+        }
+      },
+      "db_minimal": {
+        "ui_save_server_stop_verified": true,
+        "api_reenable_after_ui": 200,
+        "final_self_allowed": true
+      },
+      "layers": [
+        {
+          "layer": "actual UI save + HTTP persisted result",
+          "status": "PASS"
+        },
+        {
+          "layer": "real 200% browser zoom",
+          "status": "NOT_RUN"
+        },
+        {
+          "layer": "actual browser three-page/login/self/empty-state/pagination/long-name/keyboard run",
+          "status": "PASS"
+        },
+        {
+          "layer": "final source-matched local suites/build",
+          "status": "PASS"
+        },
+        {
+          "layer": "remote applicable CI at frozen implementation source",
+          "status": "PASS"
+        }
+      ],
+      "commands": [
+        "npm test -- --run",
+        "npm run build",
+        "docker exec (owned backend, app cwd) env/bin/python -m unittest discover -s tests -t . -q [Portal]",
+        "docker exec (owned backend, bench cwd) env/bin/python -m unittest discover -s apps/hb_attendance_app/tests -q [Attendance]",
+        "actual CUA browser interaction on isolated Site only"
+      ],
+      "evidence": [
+        {
+          "basename": "ui-save-C-evidence.json",
+          "sha256": "90170e9468182e72fd3f7650509776a8aadfda7419556987830839e31e748cad",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "portal-tests.txt",
+          "sha256": "f9d4e6d5d1bfbb80bd503135d50b9438fe3d9cc4087b1c5cc8827ad7c742cace",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "attendance-tests.txt",
+          "sha256": "ae9abff6eb93bc421acf73607b5977ca64e5d14ba0ba35a0a6b3a31e63561964",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "frontend-tests.txt",
+          "sha256": "80adf3fe0686545ca593b92dcaf3c07de6fb8ded4176561396fcc2840e6eaa6e",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "frontend-build.txt",
+          "sha256": "4edb77033d9db882ce0b33badde59680feb82e30f2ea3eb492b52daf6f60a77d",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "ui-responsive-C-evidence.json",
+          "sha256": "61b8e68518944cad8219ea71064a501296f1b3d96d23db77f127e35d51bed473",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "ui-navigation-current-C-evidence.json",
+          "sha256": "2ee0a3f01807cdd9c7420736e5a8aa527c67a44d77454ed50dc07021e6da977b",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "ui-personal-current-C-evidence.json",
+          "sha256": "88725ba700054cd615e054af8898a23c2b42b47d4393c86503a28e54e57aa3c1",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "frontend-final-tests.txt",
+          "sha256": "f83012da44cd4e54048d85d9a4811f9de5d13e86002ecf78b9184445c296064b",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "frontend-final-build.txt",
+          "sha256": "41a3df58194fe85773c872e5a0fe67a97f3b491a6e9ecd158e8ca79312ffc8b0",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "portal-final-tests.txt",
+          "sha256": "bb66f3269b83bb8c460a6bd7197ced03880dee9f6e84fbbd603e80d8bd0ed6b2",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "attendance-final-tests.txt",
+          "sha256": "86a0efe017991fde982efbdcb6b2f28dfdb2cceb7ef3d04e64c1607a9da15160",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "initial-delivery-current-C-evidence.json",
+          "sha256": "5b7e4cdfd084104e8d3f615162abb23ba54d857286063c1b36819f135cc852cf",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "token-guards-current-C-evidence.json",
+          "sha256": "498f42059423679226b14fd2c19d4a0a99206c19b8af70935a2f5f6651296c4e",
+          "location": "private .local/iam-v1; excluded from Git"
+        },
+        {
+          "basename": "ci-current-evidence.json",
+          "sha256": "600d5ed6c4232e23e0689bcaa69fd2ff81e5f2b256b193c09c1e99a8b23d5d2d",
+          "location": "private .local/iam-v1; excluded from Git"
+        }
+      ],
+      "limitations": [
+        "Real browser 200% remains NOT_RUN; viewport changes are not zoom evidence.",
+        "Screenshots contain only synthetic data and are delivered locally in chat outputs/BC; private credentials and raw runtime logs are not public artifacts."
+      ]
+    }
+  ],
+  "evidence_hashes_are_point_in_time": true,
+  "implementation_source_head": "8554b3b3485d5298030c2658cf21d2e51f018976",
+  "draft_pr": "https://github.com/zjl327707743/HBOS-Platform/pull/52",
+  "ci_history": [
+    {
+      "head": "ee488cd715214b25d82a3f04f071a19dff1fcc2f",
+      "job": "platform-clean-site",
+      "result": "FAIL",
+      "reason": "existing custody inventory rejected additional auth_hooks",
+      "fix": "sole original accounts hook retained; fixed post-auth guards; no inventory/operations/CI relaxation",
+      "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/38763153383/job/116519406573"
+    }
+  ],
+  "transient_history": [
+    {
+      "evidence": "repeatable-smoke-session-initial-history.json",
+      "result": "FAIL",
+      "actual": "native A login200 then csrf401 during concurrent same-account test login",
+      "followup": "repeatable smoke10 PASS; native simultaneous_sessions2, precise cause not traced; concurrent session cleanup is an inference only"
+    }
+  ],
+  "summary": {
+    "PASS": 14,
+    "PARTIAL": 2,
+    "FAIL": 0,
+    "NOT_RUN": 0
+  }
+}

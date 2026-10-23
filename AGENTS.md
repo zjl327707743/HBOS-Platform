@@ -12,6 +12,10 @@
 
 主技术栈：Frappe Framework、ERPNext、Frappe HR、Python、JavaScript、MariaDB/MySQL 兼容体系、Redis、Docker、Docker Compose、Vue/React、ECharts、FastAPI。
 
+## 多 APP 并行集成基线
+
+所有 Agent 开始 Portal 或业务 APP 任务前必须读取 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md`：以最新 `feature/hbos-portal-product` 为产品 PR 基线、每 PR 单一领域、平台共享文件单写、后端授权不可绕过、合并后重新核验 SHA/CI。长期分支禁止全量 `--ours/--theirs` 覆盖，禁止因拉取代码自动迁移真实 Site。该规定是协作覆盖层，不解除原有 IAM 和发布门禁。
+
 ## 协作规则与进度来源
 
 `CLAUDE.md` 和 `AGENTS.md` 是协作规则文件，不承载具体项目进度。
@@ -27,6 +31,9 @@
 所有 Agent 必须以用户当前指令和上述进度文件为准。
 
 ## 当前里程碑边界
+
+默认边界服从用户当轮明确授权。Owner 已授权的 Portal v3 覆盖旧的“不实现 SSO / 不 push / 不创建 PR”限制，范围以 `docs/CURRENT_MILESTONE.md` 与对应主文档为准；原账号目标、备份恢复、安全检查和 Owner 真实验收门禁继续适用。这是协作规则，不在本文件维护轮次进度。
+
 
 每轮任务必须按当前里程碑工作，不得擅自扩大范围或提前进入下一里程碑。
 

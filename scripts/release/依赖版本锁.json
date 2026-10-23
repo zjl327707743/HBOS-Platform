@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "erpnext_image": "frappe/erpnext:v16.26.2@sha256:d349cceb89693d54525ef9696c29af772c05ad4f42af723742cbee4e62420583",
+  "frappe_version": "16.26.3",
+  "erpnext_version": "16.26.2",
+  "hrms": {
+    "source": "https://github.com/frappe/hrms.git",
+    "commit": "c0a04b80eeb721417b75cea758e831464d0da041",
+    "version": "16.20.0",
+    "role": "verified compatibility baseline; preserve an existing target version until separately reviewed"
+  },
+  "node_major": 22,
+  "portal_python_lock": "apps/hbos_portal/requirements.txt",
+  "portal_runtime_dockerfile": "scripts/release/Dockerfile.portal",
+  "frontend_lock": "frontend/hbos-portal-web/package-lock.json",
+  "portable_gateway_version": "1.2.0",
+  "portable_gateway_lock": "services/hbos_gateway/requirements.txt",
+  "portable_gateway_base_image": "python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f",
+  "approved_index_import_lock": "services/hbos_gateway/requirements-index.txt",
+  "lims_frontend_lock": "frontend/hbos-lims-web/package-lock.json",
+  "restore_check_image": "mariadb:11.8@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4"
+}

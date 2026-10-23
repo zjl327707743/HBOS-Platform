@@ -54,6 +54,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 FONT_DIR="${REPO_ROOT}/runtime/fonts"
 CHECK_ONLY=0
 INSTALL=0
+NO_CONTAINER_CHECK=0
 # 默认装到**用户级**字体目录：fontconfig 默认就扫它，且不需要 root。
 INSTALL_DIR="${HOME}/.local/share/fonts"
 
@@ -77,6 +78,7 @@ while [[ $# -gt 0 ]]; do
 		--install | -i) INSTALL=1; shift ;;
 		--install-dir) INSTALL=1; INSTALL_DIR="${2:?--install-dir 需要一个路径}"; shift 2 ;;
 		--dir) FONT_DIR="${2:?--dir 需要一个路径}"; shift 2 ;;
+		--no-container-check) NO_CONTAINER_CHECK=1; shift ;;
 		--help | -h) sed -n '3,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		*) err "未知参数：$1（用 --help 看用法）"; exit 2 ;;
 	esac
@@ -205,8 +207,11 @@ if [[ "${INSTALL}" == "1" ]]; then
 	fi
 fi
 
-# ── 3. 容器侧冒烟（发现容器就验；失败即报错，因为那说明挂载没生效）──
-if command -v docker >/dev/null 2>&1; then
+# ── 4. 容器侧冒烟（发现容器就验；失败即报错，因为那说明挂载没生效）──
+#
+# 隔离 Preview / CI 可以显式传 --no-container-check。该模式只准备 FONT_DIR，
+# 不扫描全局 Docker 容器，更不会对任何既有 backend 执行 fc-cache。
+if [[ "${NO_CONTAINER_CHECK}" != "1" ]] && command -v docker >/dev/null 2>&1; then
 	container="$(docker ps --format '{{.Names}}' | grep -E 'backend' | head -1 || true)"
 	if [[ -n "${container}" ]]; then
 		echo "容器侧验证（${container}）…"

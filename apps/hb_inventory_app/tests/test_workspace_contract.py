@@ -372,17 +372,30 @@ class WorkspaceContractTest(unittest.TestCase):
 			self.assertIn("返回仓库工作台", content, f"{path.name} 缺少返回出口")
 			self.assertIn(f'frappe.set_route("Workspaces", "{title}")', content)
 
-	def test_photo_intake_page_has_a_way_back_to_the_workspace(self):
-		"""拍照识别页要给「返回工作台」的出口，且指向**当前**工作台名。
+	def test_photo_intake_page_no_longer_carries_a_back_button(self):
+		"""拍照识别页**刻意移除**了「返回仓库工作台」按钮（2026-09-25）。
 
-		原生库存模块没有本 App 的侧边栏，用户进去就回不来；
-		本 App 自己的页面必须至少有一条回路。改名后这条路由要跟着改，
-		否则按钮会 404。
+		## 为什么删
+
+		Owner 口径：仓管的操作全部在前端完成，**不跳 Frappe 后台**。旧页面里那个
+		按钮把用户往 Desk 环境带，与口径相反；而且实测它**根本不可点**——
+		`data-route` 是无人消费的命名，页面没有任何 click 处理，也没有 Frappe 全局
+		处理器认它。一个失效且反口径的按钮不该留着。
+
+		## 上一次那条「必须有回路」的要求怎么办
+
+		仍然成立，只是**回路的提供者变了**：该页在 Desk 环境里总是嵌在
+		`仓库工作台` 的侧边栏与面包屑之下（它同时是本工作台的 Sidebar Item 与
+		Shortcut，由 `workspace_setup.py` 保证），所以出口由 Desk 自身的 chrome 提供，
+		不需要页面自备一个按钮。`test_sidebar_items_*` 与 `test_workspace_shortcuts_*`
+		已经在守这两处注册。
+
+		前端版本（`InventoryIntakeView.vue`）则另有「← 返回 HBOS 工作台」，
+		由库存侧边栏统一提供。
 		"""
-		title = _assign("WORKSPACE_TITLE")
 		content = PHOTO_INTAKE.read_text()
-		self.assertIn("返回仓库工作台", content)
-		self.assertIn(f'data-route="Workspaces/{title}"', content)
+		self.assertNotIn("返回仓库工作台", content)
+		self.assertNotIn('data-route="Workspaces/', content)
 
 	def test_workspace_content_is_valid_json(self):
 		"""`WORKSPACE_CONTENT` 是塞进 JSON 字段的字符串，拼错会静默坏版式。

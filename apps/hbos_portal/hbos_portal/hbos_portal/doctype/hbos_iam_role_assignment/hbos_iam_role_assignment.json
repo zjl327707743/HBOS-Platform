@@ -1,0 +1,88 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS IAM Role Assignment",
+ "module": "HBOS Portal",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "app_id",
+  "subject_type",
+  "subject_name",
+  "mode",
+  "role",
+  "enabled",
+  "version",
+  "review_required",
+  "review_reason",
+  "responsibilities"
+ ],
+ "fields": [
+  {
+   "fieldname": "app_id",
+   "fieldtype": "Data",
+   "label": "App Id",
+   "reqd": 1
+  },
+  {
+   "fieldname": "subject_type",
+   "fieldtype": "Select",
+   "label": "Subject Type",
+   "options": "Employee\nDepartment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "subject_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Subject Name",
+   "options": "subject_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "label": "Mode",
+   "options": "FOLLOW_DEPARTMENT\nDIRECT\nNONE",
+   "reqd": 1
+  },
+  {
+   "fieldname": "role",
+   "fieldtype": "Link",
+   "label": "Role",
+   "options": "HBOS IAM App Role"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Version",
+   "default": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "review_required",
+   "fieldtype": "Check",
+   "label": "Review Required",
+   "default": "0"
+  },
+  {
+   "fieldname": "review_reason",
+   "fieldtype": "Small Text",
+   "label": "Review Reason"
+  },
+  {
+   "fieldname": "responsibilities",
+   "fieldtype": "Table",
+   "label": "Responsibilities",
+   "options": "HBOS IAM Role Scope"
+  }
+ ],
+ "permissions": []
+}

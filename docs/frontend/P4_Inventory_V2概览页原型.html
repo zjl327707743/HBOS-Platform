@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HBOS 仓储库存 · V2 概览页原型</title>
+<style>
+/* ============================================================
+   HBOS 仓储库存 V2 概览页 — 原型
+   Authority:
+   - EA-4 Design System v1（V2 = Application Dashboard 视觉强度）
+   - EA-5.4 §44 Typography Contract v2.0（只允许 52/30/20/16/14/12）
+   - EA-5.4 §10 App Local Sidebar / §13 App Center / §24 Status Tag
+   - tokens.css / typography.css（本原型内联同值，正式实现必须改用 token）
+   ============================================================ */
+
+:root{
+  /* foundation */
+  --hbos-bg-canvas:#F4F8FD;
+  --hbos-text-primary:#17253C;
+  --hbos-text-secondary:#425675;
+  --hbos-text-muted:#72829D;
+  --hbos-border-default:rgba(65,91,138,.10);
+  --hbos-border-strong:rgba(65,91,138,.16);
+
+  /* glass G2 — V2 dashboard 级，不用 G3 */
+  --hbos-glass-g2-bg:rgba(255,255,255,.64);
+  --hbos-glass-g2-blur:20px;
+  --hbos-glass-g2-border:rgba(255,255,255,.78);
+
+  --hbos-radius-card:18px;
+  --hbos-radius-panel:24px;
+  --hbos-radius-control:12px;
+  --hbos-radius-pill:999px;
+
+  --hbos-shadow-card:0 18px 56px rgba(47,72,117,.09);
+
+  /* spacing 4px 基数 */
+  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px;
+  --sp6:24px; --sp8:32px; --sp10:40px; --sp12:48px;
+
+  /* typography — v2.0 只允许 30/20/16/14/12 */
+  --f-page:30px;  --lh-page:38px;
+  --f-section:20px; --lh-section:28px;
+  --f-card:16px; --lh-card:24px;
+  --f-body:14px; --lh-body:22px;
+  --f-meta:12px; --lh-meta:20px;
+  --f-kpi:30px;  --lh-kpi:38px;
+  --w-reg:400; --w-med:500; --w-str:600;
+
+  /* domain — Inventory = Amber / Orange（EA-4 §7）
+     注意：域色只用于「应用身份」处（App Center 卡片、应用图标）。
+     Global Header 左上角那个 40×40 是 **HBOS 品牌标记**，不是应用图标，
+     所以走品牌渐变、内容为品牌字，不染域色——与 Portal GlobalHeader 一致。 */
+  --hbos-domain-inventory:linear-gradient(135deg,#F5A821,#FF7F4E);
+  --hbos-brand-mark:linear-gradient(135deg,#6C63FF,#49A9FF 65%,#4BD8BF);
+
+  /* status（EA-5.4 §24） */
+  --st-neutral:#72829D;
+  --st-info:#4B9CFF;
+  --st-success:#1BBC86;
+  --st-warning:#F4A523;
+  --st-critical:#ED5A72;
+
+  --font-sans:Inter,"SF Pro Display","PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --font-mono:"SFMono-Regular","JetBrains Mono",Consolas,ui-monospace,monospace;
+
+  --motion-panel:260ms;
+  --ease-standard:cubic-bezier(.2,0,0,1);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--hbos-bg-canvas);
+  color:var(--hbos-text-primary);
+  font-family:var(--font-sans);
+  font-size:var(--f-body);
+  line-height:var(--lh-body);
+  font-weight:var(--w-reg);
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:2px solid rgba(73,168,255,.85);outline-offset:2px}
+
+/* V2：局部 aurora，弱于 V3。仅两处，不做全页饱和渐变（EA-4 §39）。 */
+.canvas{min-height:100vh;position:relative;overflow-x:hidden}
+.canvas::before,.canvas::after{
+  content:"";position:fixed;border-radius:50%;filter:blur(90px);
+  pointer-events:none;z-index:0;
+}
+.canvas::before{width:620px;height:620px;top:-260px;left:-140px;background:rgba(245,168,33,.13)}
+.canvas::after{width:520px;height:520px;top:32%;right:-180px;background:rgba(73,168,255,.10)}
+
+/* ---------- header：V2 用较小高度，不走 V3 的 80px 强玻璃 ---------- */
+.hb-header{
+  position:sticky;top:0;z-index:20;
+  height:72px;display:flex;align-items:center;gap:var(--sp4);
+  padding:0 var(--sp6);
+  background:var(--hbos-glass-g2-bg);
+  backdrop-filter:blur(var(--hbos-glass-g2-blur)) saturate(130%);
+  -webkit-backdrop-filter:blur(var(--hbos-glass-g2-blur)) saturate(130%);
+  border-bottom:1px solid var(--hbos-glass-g2-border);
+}
+.hb-mark{
+  width:40px;height:40px;border-radius:14px;
+  background:var(--hbos-brand-mark);
+  box-shadow:0 10px 26px rgba(91,99,255,.24);
+  display:grid;place-items:center;color:#fff;
+  font-weight:var(--w-str);font-size:var(--f-card);line-height:1;
+  flex:0 0 40px;
+}
+.hb-brand{display:flex;flex-direction:column;gap:var(--sp1);min-width:0}
+.hb-brand b{font-size:var(--f-card);line-height:var(--lh-card);font-weight:var(--w-str)}
+.hb-brand span{font-size:var(--f-meta);line-height:var(--lh-meta);color:var(--hbos-text-muted)}
+.hb-header-gap{flex:1}
+.hb-search{
+  height:44px;min-width:280px;max-width:420px;flex:1 1 320px;
+  display:flex;align-items:center;gap:var(--sp2);
+  padding:0 var(--sp4);
+  border:1px solid var(--hbos-border-default);
+  border-radius:var(--hbos-radius-pill);
+  background:rgba(255,255,255,.72);
+  color:var(--hbos-text-muted);
+  font-size:var(--f-body);
+}
+.hb-search svg{width:18px;height:18px;flex:0 0 18px;stroke:currentColor;fill:none;stroke-width:2}
+.hb-icon{
+  width:44px;height:44px;flex:0 0 44px;
+  display:grid;place-items:center;
+  border:0;border-radius:var(--hbos-radius-control);
+  background:transparent;color:var(--hbos-text-secondary);
+  transition:transform var(--motion-panel) var(--ease-standard),background var(--motion-panel) var(--ease-standard);
+}
+.hb-icon:hover{background:rgba(255,255,255,.85);transform:translateY(-1px)}
+.hb-icon svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9}
+.hb-avatar{
+  width:44px;height:44px;flex:0 0 44px;border-radius:50%;
+  background:rgba(245,168,33,.16);color:#9A6410;
+  display:grid;place-items:center;
+  font-size:var(--f-body);font-weight:var(--w-str);
+}
+
+/* ---------- app layout ---------- */
+.hb-shell{position:relative;z-index:1;display:grid;grid-template-columns:240px minmax(0,1fr);gap:var(--sp6);padding:var(--sp6);max-width:1600px;margin:0 auto}
+
+/* ---------- App Local Sidebar（EA-5.4 §10：232–248px，item 42–44px） ---------- */
+.hb-side{
+  align-self:start;position:sticky;top:88px;
+  display:flex;flex-direction:column;gap:var(--sp2);
+  padding:var(--sp4) var(--sp3);
+  border-radius:var(--hbos-radius-panel);
+  background:var(--hbos-glass-g2-bg);
+  backdrop-filter:blur(var(--hbos-glass-g2-blur));
+  -webkit-backdrop-filter:blur(var(--hbos-glass-g2-blur));
+  border:1px solid var(--hbos-glass-g2-border);
+  box-shadow:var(--hbos-shadow-card);
+}
+/* 「返回 HBOS 工作台」必须存在，但不得比业务导航更显眼（EA-5.4 §10） */
+.hb-back{
+  display:flex;align-items:center;gap:var(--sp2);
+  padding:var(--sp2) var(--sp3);margin-bottom:var(--sp2);
+  border-radius:var(--hbos-radius-control);
+  color:var(--hbos-text-muted);text-decoration:none;
+  font-size:var(--f-meta);line-height:var(--lh-meta);
+}
+.hb-back:hover{background:rgba(255,255,255,.7);color:var(--hbos-text-secondary)}
+.hb-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.hb-navlabel{padding:var(--sp3) var(--sp3) var(--sp1);font-size:var(--f-meta);line-height:var(--lh-meta);color:var(--hbos-text-muted)}
+.hb-navitem{
+  display:flex;align-items:center;gap:var(--sp3);
+  width:100%;min-height:42px;padding:0 var(--sp3);
+  border:0;border-radius:var(--hbos-radius-control);
+  background:transparent;text-align:left;
+  color:var(--hbos-text-secondary);
+  font-size:var(--f-body);line-height:var(--lh-body);
+  text-decoration:none;
+}
+.hb-navitem:hover{background:rgba(255,255,255,.72);color:var(--hbos-text-primary)}
+.hb-navitem[aria-current="page"]{background:rgba(245,168,33,.14);color:#8F5E0C;font-weight:var(--w-med)}
+.hb-navitem svg{width:18px;height:18px;flex:0 0 18px;stroke:currentColor;fill:none;stroke-width:1.8}
+.hb-navitem span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-navdiv{height:1px;margin:var(--sp3) var(--sp3);background:var(--hbos-border-default)}
+
+/* ---------- main ---------- */
+.hb-main{min-width:0;display:flex;flex-direction:column;gap:var(--sp6)}
+
+.hb-pagehead{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp4)}
+.hb-pagehead h1{margin:0 0 var(--sp1);font-size:var(--f-page);line-height:var(--lh-page);font-weight:var(--w-str);letter-spacing:-.4px}
+.hb-pagehead p{margin:0;color:var(--hbos-text-secondary);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-pagehead .hb-of{color:var(--hbos-text-muted);font-size:var(--f-meta);line-height:var(--lh-meta);white-space:nowrap}
+
+.hb-sectionhead{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp4);margin-bottom:var(--sp4)}
+.hb-sectionhead h2{margin:0;font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-str)}
+.hb-sectionhead .hb-hint{color:var(--hbos-text-muted);font-size:var(--f-meta);line-height:var(--lh-meta)}
+
+/* ---------- 异常核对面板（本页唯一强视觉元素） ---------- */
+.hb-ledger{
+  display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.95fr);
+  gap:0;
+  border-radius:var(--hbos-radius-panel);
+  background:var(--hbos-glass-g2-bg);
+  backdrop-filter:blur(var(--hbos-glass-g2-blur)) saturate(130%);
+  -webkit-backdrop-filter:blur(var(--hbos-glass-g2-blur)) saturate(130%);
+  border:1px solid var(--hbos-glass-g2-border);
+  box-shadow:var(--hbos-shadow-card);
+  overflow:hidden;
+}
+/* 域色只做身份标识：一条细边，不进数字 */
+.hb-ledger-main{padding:var(--sp6);border-left:3px solid transparent;border-image:var(--hbos-domain-inventory) 1;min-width:0}
+
+.hb-ledger-title{display:flex;align-items:center;gap:var(--sp3);margin-bottom:var(--sp5)}
+.hb-ledger-title h2{margin:0;font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-str)}
+.hb-ledger-title .hb-tagline{font-size:var(--f-meta);line-height:var(--lh-meta);color:var(--hbos-text-muted)}
+
+/* 对账行：标签左、数值右，中间一条细线——像账页，不像 KPI 卡 */
+.hb-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  align-items:baseline;gap:var(--sp4);
+  padding:var(--sp4) 0;
+  border-top:1px solid var(--hbos-border-default);
+}
+.hb-row:first-of-type{border-top:0}
+.hb-row-label{min-width:0}
+.hb-row-label b{display:block;font-size:var(--f-card);line-height:var(--lh-card);font-weight:var(--w-med)}
+.hb-row-label small{display:block;margin-top:var(--sp1);color:var(--hbos-text-secondary);font-size:var(--f-meta);line-height:var(--lh-meta)}
+.hb-num{
+  font-size:var(--f-kpi);line-height:var(--lh-kpi);font-weight:var(--w-str);
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+  letter-spacing:-.5px;
+}
+.hb-num.zero{color:var(--hbos-text-muted);font-weight:var(--w-reg)}
+.hb-num.critical{color:var(--st-critical)}
+.hb-num.warning{color:var(--st-warning)}
+
+.hb-verdict{
+  margin-top:var(--sp5);padding:var(--sp4);
+  border-radius:var(--hbos-radius-card);
+  font-size:var(--f-body);line-height:var(--lh-body);
+  display:flex;gap:var(--sp3);align-items:flex-start;
+}
+.hb-verdict svg{width:20px;height:20px;flex:0 0 20px;margin-top:1px;stroke:currentColor;fill:none;stroke-width:1.9}
+.hb-verdict.critical{background:rgba(237,90,114,.08);border:1px solid rgba(237,90,114,.24);color:#96334A}
+.hb-verdict.warning{background:rgba(244,165,35,.10);border:1px solid rgba(244,165,35,.28);color:#8A5A0B}
+.hb-verdict.success{background:rgba(27,188,134,.09);border:1px solid rgba(27,188,134,.26);color:#0C6B4C}
+
+/* 账面规模：安静的一侧。刻意不给它和异常同等的视觉重量。 */
+.hb-ledger-scale{
+  padding:var(--sp6);
+  border-left:1px solid var(--hbos-border-default);
+  display:flex;flex-direction:column;gap:var(--sp4);
+  min-width:0;
+}
+.hb-scale-title{font-size:var(--f-card);line-height:var(--lh-card);font-weight:var(--w-med);color:var(--hbos-text-secondary)}
+.hb-scale-item{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp3);padding-bottom:var(--sp4);border-bottom:1px solid var(--hbos-border-default)}
+.hb-scale-item:last-of-type{border-bottom:0;padding-bottom:0}
+.hb-scale-item dt{color:var(--hbos-text-secondary);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-scale-item dd{margin:0;font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-med);font-variant-numeric:tabular-nums}
+.hb-ledger-scale dl{margin:0;display:flex;flex-direction:column;gap:var(--sp4)}
+.hb-scale-note{
+  margin-top:auto;padding-top:var(--sp4);
+  color:var(--hbos-text-muted);font-size:var(--f-meta);line-height:1.6;
+  border-top:1px dashed var(--hbos-border-default);
+}
+
+/* ---------- 去哪办事 ---------- */
+/* 用行列表而非图标宫格：EA-5.4 §13 禁止手机桌面式铺满 Icon；
+   行式也更适合承载「Portal / Desk」来源标签。 */
+.hb-dest{
+  border-radius:var(--hbos-radius-panel);
+  background:var(--hbos-glass-g2-bg);
+  backdrop-filter:blur(var(--hbos-glass-g2-blur));
+  -webkit-backdrop-filter:blur(var(--hbos-glass-g2-blur));
+  border:1px solid var(--hbos-glass-g2-border);
+  box-shadow:var(--hbos-shadow-card);
+  overflow:hidden;
+}
+.hb-destgroup{padding:var(--sp5) var(--sp6) var(--sp3);border-top:1px solid var(--hbos-border-default)}
+.hb-destgroup:first-child{border-top:0}
+.hb-destgroup > h3{margin:0 0 var(--sp3);font-size:var(--f-card);line-height:var(--lh-card);font-weight:var(--w-med);color:var(--hbos-text-secondary)}
+.hb-destlist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp2)}
+.hb-destitem{
+  display:flex;align-items:center;gap:var(--sp3);
+  min-height:56px;padding:var(--sp3) var(--sp4);
+  border:1px solid var(--hbos-border-default);
+  border-radius:var(--hbos-radius-card);
+  background:rgba(255,255,255,.62);
+  text-decoration:none;
+  transition:border-color var(--motion-panel) var(--ease-standard),background var(--motion-panel) var(--ease-standard);
+}
+.hb-destitem:hover{border-color:var(--hbos-border-strong);background:rgba(255,255,255,.92)}
+.hb-destitem svg.hb-ic{width:20px;height:20px;flex:0 0 20px;stroke:currentColor;fill:none;stroke-width:1.8;color:var(--hbos-text-muted)}
+.hb-desttext{min-width:0;flex:1}
+.hb-desttext b{display:block;font-size:var(--f-body);line-height:var(--lh-body);font-weight:var(--w-med);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-desttext small{display:block;color:var(--hbos-text-muted);font-size:var(--f-meta);line-height:var(--lh-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.hb-destitem .hb-go{width:16px;height:16px;flex:0 0 16px;stroke:currentColor;fill:none;stroke-width:2;color:var(--hbos-text-muted)}
+
+/* ---------- Skeleton / Empty / Error（EA-5.4 §26–29） ---------- */
+.hb-skel{border-radius:var(--hbos-radius-card);background:rgba(114,130,157,.10);animation:hb-pulse 1.4s var(--ease-standard) infinite}
+@keyframes hb-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.hb-skel-row{height:38px;margin-bottom:var(--sp4)}
+.hb-skel-line{height:20px;width:70%}
+
+.hb-state{
+  padding:var(--sp10) var(--sp6);
+  text-align:left;
+  display:flex;flex-direction:column;gap:var(--sp2);
+  align-items:flex-start;
+}
+.hb-state .hb-state-ic{width:32px;height:32px;stroke:currentColor;fill:none;stroke-width:1.7;margin-bottom:var(--sp2)}
+.hb-state h3{margin:0;font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-str)}
+.hb-state p{margin:0;max-width:56ch;color:var(--hbos-text-secondary);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-state .hb-state-actions{display:flex;gap:var(--sp3);margin-top:var(--sp4);flex-wrap:wrap}
+.hb-btn{
+  min-height:40px;padding:0 var(--sp5);
+  display:inline-flex;align-items:center;gap:var(--sp2);
+  border-radius:var(--hbos-radius-control);
+  border:1px solid var(--hbos-border-strong);
+  background:rgba(255,255,255,.9);
+  color:var(--hbos-text-primary);
+  font-size:var(--f-body);line-height:var(--lh-body);
+  text-decoration:none;
+}
+.hb-btn:hover{background:#fff}
+.hb-btn.primary{background:#8F5E0C;border-color:#8F5E0C;color:#fff}
+.hb-btn.primary:hover{background:#7A5009}
+.hb-state.ok .hb-state-ic{color:var(--st-success)}
+.hb-state.err .hb-state-ic{color:var(--st-critical)}
+
+/* ---------- 原型脚手架（不得进入正式实现） ---------- */
+.hb-scaffold{
+  position:sticky;top:72px;z-index:19;
+  display:flex;align-items:center;gap:var(--sp3);flex-wrap:wrap;
+  padding:var(--sp3) var(--sp6);
+  background:#17253C;color:#E7EEF9;
+  font-size:var(--f-meta);line-height:var(--lh-meta);
+}
+.hb-scaffold b{font-weight:var(--w-str)}
+.hb-scaffold button{
+  min-height:32px;padding:0 var(--sp3);
+  border:1px solid rgba(255,255,255,.28);
+  border-radius:var(--hbos-radius-pill);
+  background:transparent;color:#E7EEF9;
+  font-size:var(--f-meta);line-height:var(--lh-meta);
+}
+.hb-scaffold button[aria-pressed="true"]{background:#FFF;color:#17253C;border-color:#FFF;font-weight:var(--w-med)}
+
+[hidden]{display:none !important}
+
+/* ---------- Responsive：断点 1600 / 1200 / 768 ---------- */
+@media (max-width:1599px){
+  .hb-shell{max-width:none}
+}
+@media (max-width:1199px){
+  .hb-shell{grid-template-columns:76px minmax(0,1fr);gap:var(--sp4)}
+  .hb-side{padding:var(--sp3) var(--sp2);align-items:center}
+  .hb-back span,.hb-navlabel,.hb-navitem span{display:none}
+  .hb-back,.hb-navitem{justify-content:center;padding:0}
+  .hb-navitem{width:100%}
+  /* 折叠态下提示文案无处安放，必须一并隐藏——否则会在窄栏里挤成竖排 */
+  .hb-sidenote{display:none}
+  .hb-ledger{grid-template-columns:minmax(0,1fr)}
+  .hb-ledger-scale{border-left:0;border-top:1px solid var(--hbos-border-default)}
+  .hb-destlist{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:767px){
+  .hb-header{height:64px;padding:0 var(--sp4);gap:var(--sp2)}
+  .hb-brand span,.hb-search{display:none}
+  .hb-scaffold{top:64px}
+  .hb-shell{grid-template-columns:minmax(0,1fr);padding:var(--sp4)}
+  .hb-side{display:none}
+  .hb-pagehead{flex-direction:column;gap:var(--sp2)}
+  .hb-ledger-main,.hb-ledger-scale{padding:var(--sp5)}
+  .hb-num{font-size:var(--f-section);line-height:var(--lh-section)}
+  .hb-destgroup{padding:var(--sp4) var(--sp5) var(--sp2)}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:1ms !important;animation-iteration-count:1 !important;transition-duration:1ms !important}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+<symbol id="i-apps" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7v.3"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+<symbol id="i-go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l3.5-3.5"/><path d="M20.5 16a9 9 0 1 0-17 0"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.2"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4M9 12h6M9 16h4"/></symbol>
+<symbol id="i-in" viewBox="0 0 24 24"><path d="M12 3v10"/><path d="M8.5 9.5L12 13l3.5-3.5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M12 13V3"/><path d="M8.5 6.5L12 3l3.5 3.5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-batch" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4-8 4z"/><path d="M4 8v8l8 4 8-4V8"/><path d="M12 12v8"/></symbol>
+<symbol id="i-shelf" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="15" width="18" height="5" rx="1"/><path d="M6 9v6M18 9v6"/></symbol>
+<symbol id="i-item" viewBox="0 0 24 24"><path d="M20 7.5L12 3 4 7.5v9L12 21l8-4.5z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+<symbol id="i-report" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 15l3-4 3 3 4-6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l8.5 15H3.5z"/><path d="M12 10v4M12 17h.01"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></symbol>
+<symbol id="i-off" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+</defs></svg>
+
+<div class="canvas">
+
+<!-- ============ 原型脚手架：仅供 Owner 审查切换状态，正式实现必须删除 ============ -->
+<div class="hb-scaffold">
+  <b>原型脚手架</b>
+  <span>以下数字为<b>示意值</b>，用于检验信息层级；接入时以 Provider 真实返回为准，不得沿用。</span>
+  <span style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+    <button type="button" data-state="ready" aria-pressed="true">正常</button>
+    <button type="button" data-state="void" aria-pressed="false">空态</button>
+    <button type="button" data-state="loading" aria-pressed="false">加载</button>
+    <button type="button" data-state="denied" aria-pressed="false">错误</button>
+  </span>
+</div>
+
+<header class="hb-header">
+  <div class="hb-mark" aria-hidden="true">H</div>
+  <div class="hb-brand">
+    <b>HBOS</b>
+    <span>仓储库存工作台</span>
+  </div>
+  <div class="hb-header-gap"></div>
+  <div class="hb-search" role="search">
+    <svg aria-hidden="true"><use href="#i-search"/></svg>
+    <span>搜索物料、批次、货位…</span>
+  </div>
+  <button class="hb-icon" type="button" aria-label="应用切换器"><svg aria-hidden="true"><use href="#i-apps"/></svg></button>
+  <button class="hb-icon" type="button" aria-label="通知"><svg aria-hidden="true"><use href="#i-bell"/></svg></button>
+  <button class="hb-icon" type="button" aria-label="帮助"><svg aria-hidden="true"><use href="#i-help"/></svg></button>
+  <div class="hb-avatar" aria-label="当前用户 Administrator">AD</div>
+</header>
+
+<div class="hb-shell">
+
+  <!-- ============ App Local Sidebar ============ -->
+  <aside class="hb-side">
+    <a class="hb-back" href="#" aria-label="返回 HBOS 工作台">
+      <svg aria-hidden="true"><use href="#i-back"/></svg><span>返回 HBOS 工作台</span>
+    </a>
+
+    <div class="hb-navlabel">工作台</div>
+    <a class="hb-navitem" href="#" aria-current="page">
+      <svg aria-hidden="true"><use href="#i-gauge"/></svg><span>库存概览</span>
+    </a>
+
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">入库作业</div>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-camera"/></svg><span>入库拍照识别</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-doc"/></svg><span>库存单据</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-in"/></svg><span>采购入库</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-check"/></svg><span>待检与放行</span>
+    </a>
+
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">出库作业</div>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-out"/></svg><span>销售出库</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-report"/></svg><span>拣货单</span>
+    </a>
+
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">盘点与对账</div>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-report"/></svg><span>库存对账</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-report"/></svg><span>库级盘点三对账</span>
+    </a>
+
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">主数据</div>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-batch"/></svg><span>批次</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-shelf"/></svg><span>货位</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-item"/></svg><span>物料</span>
+    </a>
+
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">报表</div>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-report"/></svg><span>库存余额</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-clock"/></svg><span>效期预警</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-search"/></svg><span>按批号查货位</span>
+    </a>
+    <a class="hb-navitem" href="#">
+      <svg aria-hidden="true"><use href="#i-report"/></svg><span>货位明细表</span>
+    </a>
+  </aside>
+
+  <!-- ============ Main ============ -->
+  <main class="hb-main">
+
+    <div class="hb-pagehead">
+      <div>
+        <h1>仓储库存</h1>
+        <p>入库、出库、批次、货位、盘点与效期管理</p>
+      </div>
+      <div class="hb-of">数据截至刚刚刷新</div>
+    </div>
+
+    <!-- ---------- 异常核对 + 账面规模 ---------- -->
+    <section aria-labelledby="ledger-h">
+      <div class="hb-ledger">
+
+        <!-- 左：需要核对什么 -->
+        <div class="hb-ledger-main">
+          <div class="hb-ledger-title">
+            <h2 id="ledger-h">需要核对的库存异常</h2>
+            <span class="hb-tagline">按货位计</span>
+          </div>
+
+          <!-- 正常态 -->
+          <div data-view="ready">
+            <div class="hb-row">
+              <div class="hb-row-label">
+                <b>负库存项</b>
+                <small>账面数量小于零。通常是漏记出库或盘点未对齐，须优先处理。</small>
+              </div>
+              <div class="hb-num critical">3</div>
+            </div>
+            <div class="hb-row">
+              <div class="hb-row-label">
+                <b>预计短缺项</b>
+                <small>已被订单占用，可动用数量将不足。</small>
+              </div>
+              <div class="hb-num warning">7</div>
+            </div>
+            <div class="hb-verdict critical">
+              <svg aria-hidden="true"><use href="#i-alert"/></svg>
+              <div>
+                <b>存在负库存，建议先处理。</b><br>
+                负库存会让后续出入库的数量核对失去基准。请到「库存对账」按实际盘点数调整。
+              </div>
+            </div>
+          </div>
+
+          <!-- 空态：这不是错误，是好消息 -->
+          <div data-view="void" hidden>
+            <div class="hb-state ok" style="padding:0">
+              <svg class="hb-state-ic" aria-hidden="true"><use href="#i-check"/></svg>
+              <h3>没有需要核对的异常</h3>
+              <p>当前没有负库存项，也没有预计短缺项。这不代表账实已经核对一致——只是没有这两类异常。</p>
+              <div class="hb-state-actions">
+                <a class="hb-btn" href="#">查看库存余额报表</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- 加载态：骨架，不用整页 spinner（EA-5.4 §27） -->
+          <div data-view="loading" hidden>
+            <div class="hb-skel hb-skel-row"></div>
+            <div class="hb-skel hb-skel-row"></div>
+            <div class="hb-skel hb-skel-line" style="margin-top:24px"></div>
+          </div>
+
+          <!-- 错误态 -->
+          <div data-view="denied" hidden>
+            <div class="hb-state err" style="padding:0">
+              <svg class="hb-state-ic" aria-hidden="true"><use href="#i-off"/></svg>
+              <h3>暂时取不到概览数据</h3>
+              <p>这一页的异常数字依赖库存数据服务，它暂时没有响应。<b>请勿把这里当作「库存没有问题」</b>——只是现在算不出来。</p>
+              <div class="hb-state-actions">
+                <button class="hb-btn primary" type="button">重试</button>
+                <a class="hb-btn" href="#">打开库存单据</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右：账面规模。安静的一侧 -->
+        <div class="hb-ledger-scale">
+          <div class="hb-scale-title">账面规模</div>
+          <dl>
+            <div data-view="ready void" style="display:contents">
+              <div class="hb-scale-item"><dt>可见货位</dt><dd>12</dd></div>
+              <div class="hb-scale-item"><dt>有库存物料</dt><dd>148</dd></div>
+            </div>
+            <div data-view="loading" hidden><div class="hb-skel hb-skel-row"></div><div class="hb-skel hb-skel-row"></div></div>
+            <div data-view="denied" hidden style="color:var(--hbos-text-muted);font-size:var(--f-meta);line-height:1.6">
+              数据不可用
+            </div>
+          </dl>
+          <p class="hb-scale-note">
+            不显示库存合计：不同物料的计量单位不同，相加没有意义。这里只按项数反映规模。
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ---------- 去哪办事 ---------- -->
+    <section aria-labelledby="dest-h">
+      <div class="hb-sectionhead">
+        <h2 id="dest-h">去哪办事</h2>
+        <span class="hb-hint">全部在本工作台内完成</span>
+      </div>
+
+      <div class="hb-dest">
+        <div class="hb-destgroup">
+          <h3>入库作业</h3>
+          <div class="hb-destlist">
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-camera"/></svg>
+              <span class="hb-desttext">
+                <b>入库拍照识别</b>
+                <small>拍标签 → 识别 → 人工校对 → 生成草稿</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-doc"/></svg>
+              <span class="hb-desttext">
+                <b>库存单据</b>
+                <small>入库 / 出库 / 移库</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-in"/></svg>
+              <span class="hb-desttext">
+                <b>采购入库</b>
+                <small>采购收货</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-check"/></svg>
+              <span class="hb-desttext">
+                <b>待检与放行</b>
+                <small>到货检验结论与 QA 放行</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="hb-destgroup">
+          <h3>出库作业</h3>
+          <div class="hb-destlist">
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-out"/></svg>
+              <span class="hb-desttext">
+                <b>销售出库</b>
+                <small>须先取得 QA 放行</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-report"/></svg>
+              <span class="hb-desttext">
+                <b>拣货单</b>
+                <small>按需求拣货</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="hb-destgroup">
+          <h3>盘点与对账</h3>
+          <div class="hb-destlist">
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-report"/></svg>
+              <span class="hb-desttext">
+                <b>库存对账</b>
+                <small>按实际盘点数调整系统账</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-report"/></svg>
+              <span class="hb-desttext">
+                <b>库级盘点三对账</b>
+                <small>导出后现场盘点</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="hb-destgroup">
+          <h3>主数据</h3>
+          <div class="hb-destlist">
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-batch"/></svg>
+              <span class="hb-desttext">
+                <b>批次</b>
+                <small>可打印待检证与货位卡</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-shelf"/></svg>
+              <span class="hb-desttext">
+                <b>货位</b>
+                <small>可打印货位二维码</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-item"/></svg>
+              <span class="hb-desttext">
+                <b>物料</b>
+                <small>物料主数据由 SAP 分配代码</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="hb-destgroup">
+          <h3>库存报表</h3>
+          <div class="hb-destlist">
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-report"/></svg>
+              <span class="hb-desttext">
+                <b>库存余额</b>
+                <small>按货位与物料</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-clock"/></svg>
+              <span class="hb-desttext">
+                <b>效期预警</b>
+                <small>临近效期批次</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-search"/></svg>
+              <span class="hb-desttext">
+                <b>按批号查货位</b>
+                <small>扫码或输批号定位</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+            <a class="hb-destitem" href="#">
+              <svg class="hb-ic" aria-hidden="true"><use href="#i-report"/></svg>
+              <span class="hb-desttext">
+                <b>货位明细表</b>
+                <small>按货位逐项列出</small>
+              </span>
+              <svg class="hb-go" aria-hidden="true"><use href="#i-go"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</div>
+
+<script>
+// 原型脚手架：切换 ready / void / loading / denied 四种状态。
+// 正式实现不得包含本段——真实状态由 Provider 结果驱动。
+(function () {
+  var root = document.querySelector('.canvas');
+  var buttons = document.querySelectorAll('.hb-scaffold button');
+  function show(state) {
+    // data-view 可以是空格分隔的多个状态，例如「空态与正常态都要显示账面规模」
+    root.querySelectorAll('[data-view]').forEach(function (el) {
+      el.hidden = (el.dataset.view || '').split(/\s+/).indexOf(state) === -1;
+    });
+    buttons.forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.state === state));
+    });
+  }
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () { show(b.dataset.state); });
+  });
+})();
+</script>
+</body>
+</html>

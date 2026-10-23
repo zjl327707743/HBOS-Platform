@@ -1,127 +1,67 @@
 # 新乡海滨智能运营管理平台
 
-新乡海滨智能运营管理平台面向企业级智能运营管理，长期目标是在 Frappe/ERPNext 开源底座上建设海滨自定义业务 App、外部 AI/视频/算法服务、Vue/React 驾驶舱、飞书集成与 Docker 部署体系。
+## 当前集成状态 — 2026-10-19
 
-准确架构叫法：Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
+**四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](docs/PROJECT_STATUS.md)。
 
-## 当前阶段
+**合并前精确组合：PASS。** [R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 全部 10 jobs SUCCESS，五个原生域与离线／契约／构建在本次 #43 来源和产品基线的真实组合上通过；该组合树与实际 Squash 树相同。
 
-当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 **M1-FIX-F（REVIEWING / 两阶段均已上线）**：调休模块——一阶段把飞书调休审批接入并按「加班日提取 → 打卡核实」产出结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败）；二阶段把已核实调休日**接入考勤判定豁免与看板**（不再判缺勤、看板显示「请假（调休）」）。2026-09-24 追加完成名单单一来源收敛（行政班、无菌各收敛为一份）与 PR 审查 5 项修复。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`，主文档 `docs/milestones/M2_STOCK_R1_库存模块隔离实施记录.md`；M2 其余轮次未启动。
+**实际产品合并后回归：PASS。** [R11 39195037712](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 全部 10 jobs SUCCESS；五个原生域均直接运行业务合并基线 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，无额外 merge，实际单父与树一致，双 migrate 与清理均成功。LIMS 原有 32 项、新增审计 9 项、独立 Todo 1 项合计 42 项原生测试全部通过；Todo 只有 1 项，归属 LIMS。
 
-当前真实进度以以下文件为准：
+四项完整业务 PR 已形成统一产品开发基线。IAM #52 保持独立，#37 不在任务范围；OCR、真实样本、实体打印和生产 UAT／部署未由本轮代码集成完成。库存单据取消与账务反转不等于 LIMS 质量放行撤回。本轮仅使用远端源码和云端合成 Site，未操作 Owner Mac 项目或真实业务库。 既有 Draft #15 自动质量门禁暴露的 Python 3.10 测试夹具兼容问题单独收口，两处仅测试修复须在固定候选 SHA 的 Python 3.10／3.12 检查通过后方可合并，实际结果以收尾 PR 最新 Owner 裁定及最终报告所列 SHA／Job 为准，见[项目状态](docs/PROJECT_STATUS.md)。
 
-- `docs/PROJECT_STATUS.md`
-- `docs/CURRENT_MILESTONE.md`
-- `docs/milestones/README.md`
-- `docs/milestones/M0.md`
+业务合并基线与文档保存后的 HEAD 分开记录。Run1–9 的历史失败、未合并及 `NOT_PRODUCT_COMPOSITION` 均按各自日期、来源和作业保留，详见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；最新业务与回归状态以本节和项目状态为准。
 
-当前状态摘要：
+### 历史回归 — 2026-10-18 Run8（#39 合并后）
 
-- M0-R1 工程骨架与 AI 上下文治理已完成
-- M0-R2 环境设计、里程碑治理与 Skill 路由规范已完成
-- M0-R2E 公共入口文件收尾规则补强已完成
-- M0-R3A Frappe / Docker 最小环境落地已完成，Docker 镜像已拉取，容器已启动，测试 site 已初始化，Frappe Desk 登录页已验证
-- M0-R3B Frappe HR / HRMS 安装前评估已完成并通过 Codex 审查
-- M0-R3C Frappe HR / HRMS 安装验证已完成，HRMS 已安装到本地 `frontend` site，基础 HR 模块可访问
-- M0-R3C-FIX HRMS 前端资源与 Roster 白屏诊断修复已完成，Frappe HR 图标、基础 HR 模块和 Roster 页面已验证可访问
-- M0-R3D HRMS 能力盘点与 M1 考勤一期边界设计已完成
-- M0-R3E HRMS 环境可复现性收口已完成，并已通过 Codex 审查
-- M0 整体已完成并封板
-- M0-REMOTE GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push 已完成
-- M1-R0 平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案已完成，并已通过 Codex 独立审查
-- M1-R1 HRMS 原生考勤对象模型验证记录已完成，并已通过 Codex 独立审查，状态为 COMPLETED
-- M1-R2 HRMS 原生考勤配置试运行方案已完成文档交付，并已通过 Codex 独立审查，状态为 COMPLETED
-- M1-R3 HRMS 原生考勤最小测试数据试运行已执行并通过 Codex 审查，最终状态为 BLOCKED；本轮未完成 14 场景闭环
-- M1-R3A 运行态阻断诊断与 TEST 数据隔离 / 清理方案已通过 Codex 审查并收口为 COMPLETED
-- M1-R3B 运行态最小修复方案已通过 Codex 审查并收口为 COMPLETED；本轮未执行修复、未清理 TEST 数据、未继续试运行
-- M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；该轮只执行 `docker compose up -d redis-cache redis-queue`，Redis / worker / scheduler / bench doctor / login 已恢复或改善
-- M1-R3C HRMS 原生考勤最小试运行复测已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；14 个场景中 8 个通过，6 个为 GAP / PARTIAL；Attendance 可由 HRMS 原生生成，但迟到 / 早退未置位、缺卡 / 缺勤口径、请假 Leave Allocation、加班业务口径仍需 M1-R3D 诊断
-- M1-R3D HRMS 原生考勤异常口径与配置 Gap 诊断已通过 Codex 审查并收口为 COMPLETED；结论为 Gap 四类分类、均不需要立即创建 `hb_attendance_app`
-- M1-R3E 配置复核清单与业务口径确认表已通过 Codex 审查并收口为 COMPLETED；配置清单已覆盖 8 类配置复核项，业务口径表已确认 8/10 项阻塞 M1-R4
-- M1-R3F 业务口径确认包已通过 Codex 审查并收口为 COMPLETED；9 项确认主题中 7 项必须确认，2 项可先按默认值推进
-- M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；四份设计文档交付完成
-- M1-R4 Demo 技术方案与实施路线拆分已通过 Codex 审查并收口为 COMPLETED
-- M1-R5 HRMS 配置基线、考勤工作台与月度汇总 Demo 已通过 Codex 审查并收口为 COMPLETED；本轮未创建 App / DocType，未写入站点数据库，未启动 R6/R7
-- M1-R6A Excel 导入与异常流程落地方案 / Gate 判定已通过 Codex 审查并收口为 COMPLETED
-- M1-R6B 脱敏打卡流水导入最小实现已通过 Codex 审查并收口为 COMPLETED；本轮未提交 Excel / CSV，未创建 App / DocType，未启动 R6C/R7
-- M1-R6C 异常识别与异常说明流程最小实现当前为 COMPLETED；已通过 Codex 审查并 closeout
-- M1-FIX-B 已按 Owner 授权创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐 `导入考勤机导出表` 浏览器入口、中文 `打卡流水` / `考勤结果` 报表、重复导入可读日志和默认白班/行政班 08:30-17:30；M1-FIX-B4 已收敛桌面入口、Workspace Sidebar、导入页归属和 HBOS / HRMS 入口口径；M1-FIX-B5 已核查真实 Employee / Checkin / Attendance / 月度暂存链路，并收敛 HBOS 报表和 HRMS 技术核查入口；2026-08-21 后续修正：四车间 10 人行政班误判迟到修复、质量控制部四班次人员「满 8 小时算正常」口径收敛、配对上限 13h→14h（李明 8/19 无菌班 13.17h 案例）、分机孤立卡误判缺勤修复（陈雨欣 8/19 案例：方向不同的相邻卡不合并 + 当天已有完整上下班结构时孤立卡不判缺勤）、跨天夜班下班误刷上班机修复（吕玉升/庞冠军 8/16 案例）；2026-08-27 后续修正：配对上限 14h→16h、有卡就不判缺勤、连续无打卡 1-2 天不判缺勤 3 天起判（8/15-26 缺勤 489→134 误判率大幅下降）、月度考勤汇总新增「导出异常考勤」按钮、2026 年度离职名单批量处理；真实 Excel、真实员工清单和导入产物不提交 Git
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
 
-M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计、HRMS 环境可复现性收口、GitHub Private remote 首次同步、M1-R0 规划诊断收口、M1-R1 对象模型验证记录、M1-R2 配置试运行方案设计、M1-R3 局部试运行记录、M1-R3A 阻断诊断方案、M1-R3B 运行态最小修复方案、M1-R3B-FIX 运行态最小修复执行记录、M1-R3C 原生考勤最小试运行复测记录、M1-R3D 异常口径与 Gap 诊断、M1-R3E 配置复核与业务口径确认表、M1-R3F 业务口径确认包、M1 需求设计四份文档、M1-R4 Demo 技术方案与实施路线拆分、M1-R5 HRMS 配置基线、考勤工作台与月度汇总 Demo、M1-R6A Gate 判定和 M1-R6B 脱敏打卡流水导入最小验证；M1 仍未进入完整考勤业务开发。
+## 验证历史 — 2026-10-18 Run6
 
-## 仓库定位
+[报表、扫码及附件验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810152) **74 PASS / 0 FAIL**；[事务验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810103) **6 PASS / 2 FAIL**。余两项失败为按单一 URL 误选 Batch File 的测试定位错误，LIMS 放行后两种外发 submit/cancel 仍 **NOT_REACHED**，完整仓储门禁未通过。
 
-当前仓库用于承载 M0 工程启动文档、AI 协作规则、里程碑状态、阅读指南、计划文档、架构决策记录、最小 Docker 环境配置和经 Owner 授权创建的 M1-FIX 轻量自定义 App。
+## 验证历史 — 2026-10-18 Run5
 
-当前已包含 `apps/hb_attendance_app`。该 App 仅用于考勤导入入口、导入日志和 M1-FIX 必需扩展，不代表启动大而全 HR App。
+以下保留 Run5 当时的观察与判断，其中“当前”“尚未通过”“原因待定位”均指该次验证；后续状态以页首“当前集成状态”和实际 PR 记录为准。
 
-## 主技术栈
+完整 [#42 考勤](https://github.com/zjl327707743/HBOS-Platform/pull/42) 与 [#46 生产](https://github.com/zjl327707743/HBOS-Platform/pull/46) 已实际合并到唯一目标 `feature/hbos-portal-product`；本记录已核对产品为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。[#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) 仍在技术门禁中，尚未合并；[#56](https://github.com/zjl327707743/HBOS-Platform/pull/56) 保存固定源码组合的隔离验证，不能以 CI 候选替代实际产品合并。
 
-- Frappe Framework
-- ERPNext
-- Frappe HR
-- Python
-- JavaScript
-- MariaDB/MySQL 兼容体系
-- Redis
-- Docker
-- Docker Compose
-- Vue/React
-- ECharts
-- FastAPI
+后续来源、CI、审批、合并与回归以 [项目状态](docs/PROJECT_STATUS.md)、[当前里程碑](docs/CURRENT_MILESTONE.md) 及上述 PR 最新记录为准。#43 LIMS 独立增量后置；本次仅使用远端源码与云端合成环境，未更新 Owner 的 Mac 项目、真实数据库或生产部署。IAM #52 保持独立，#37 不在本任务范围。
 
-## 长期仓库规划
+## 历史阶段记录
 
-长期建议按职责拆分仓库，当前仅记录规划，不在未批准轮次创建这些仓库：
+下方 PR #55、PR #21 的 SHA、账号验收与各阶段“本轮”描述保留其原日期的含义，不代表当前产品 HEAD 或本次部署。
 
-- `haibin-hbos-infra`：基础设施、部署、环境编排与运维脚本
-- `hb_core_app`：海滨核心主数据、权限、组织与平台扩展
-- `hb_attendance_app`：考勤业务扩展
-- `hb_feishu_app`：飞书集成扩展
-- `hb_production_app`：生产运营扩展
-- `hb_quality_app`：质量管理扩展
-- `hb_safety_app`：安全管理扩展
-- `hb_ai_ops_app`：AI 运营、视频、算法服务对接扩展
-- `hbos-dashboard-web`：Vue/React 驾驶舱与大屏前端
+> 2026-10-18 代码集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
 
-## 当前禁止事项
+## 并行权限治理 IAM-0 — 2026-10-01
 
-当前 M1-FIX 仍处于功能补漏阶段。继续禁止：
+Owner 已批准进入统一身份与权限治理。当前仅交付设计、角色—动作—范围矩阵、只读源码盘点工具与本机任务书；实际 Site 盘点和隔离验收仍为 NOT_RUN，不修改账号、角色或业务数据，不替代原账号收尾。入口：[IAM-0 治理资料](docs/governance/iam/README.md)。
 
-- 未经 Owner 明确授权，不创建新的自定义 Frappe App
-- 不创建 `hb_core_app`、`hb_feishu_app`
-- 不把 `hb_attendance_app` 扩大为大而全 HR App
-- 不把 HRMS 安装验证等同于考勤业务开发完成
-- 不提交真实 `.env` 或真实密钥
-- 不提交备份文件、数据库、Docker volume 或运行时数据
-- 不开发业务
-- 不接飞书真实写入
-- 不做前端驾驶舱
-- 不浏览或搬运大量 Obsidian 长文
-- 不执行 `docker compose down -v`
-- 不删除 volume
-- 不重建 `frontend` site
+历史账号验收基线（2026-10-01）：PR #21 已在 FINAL_REVIEW_PASS 后 squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS、浏览器设密/改密/恢复 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。IAM-0 已由 clean Draft PR #23 承接，旧 #22 已关闭且未合并；PR #15 仍为 Draft，main 未变化。[当前 Gate](docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 记录本轮收口事实。
 
-**独立前端开发规则**：凡涉及独立前端、驾驶舱、AI 工作台、复杂交互页面，必须先完成原型设计/视觉方案，经 Owner 人工审查通过后再进行前端复刻开发，最后接入真实页面功能和数据。详见 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`。
+Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
 
-后续路线只记录，不代表已启动：
+## 历史交付 — 2026-10-01
 
-1. M1-R3C 已通过 Codex 审查并收口，试运行完成但业务闭环未完成。
-2. M1-R3D 已通过 Codex 审查并收口，Gap 已四类分类，均不需要立即创建 App。
-3. M1-R3E 已通过 Codex 审查并收口，配置复核清单与业务口径确认表已交付。
-4. M1-R3F 已通过 Codex 审查并收口，业务口径确认包已交付。
-5. M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口，需求设计四份文档全部完成。
-6. M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R4 定位为 Demo 技术方案与实施路线拆分，后续 R5/R6/R7 按递进拆分。
-7. M1-R5 已通过 Codex 审查并收口为 COMPLETED；本轮定位为 HRMS 配置基线、考勤工作台与月度汇总 Demo，未启动 R6/R7。
-8. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；本轮定位为 Excel 导入与异常流程落地方案 / Gate 判定，已 closeout。
-9. M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 为 COMPLETED。M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED。
-10. M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现，M1-FIX-B-FIX 已补齐浏览器导入与中文体验修复，M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS 但数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING。
+本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；团队后续 Portal 代码以产品分支为准。PR #15 仍 Draft，不推 main；IAM 由 Draft PR #23 单独承接。
 
-## AI 协作方式
+平台已包含考勤、仓储库存、LIMS、Portal、知识助理与设备/数字孪生自定义 App。密码和飞书使用同一 Frappe User；原有业务权限仍由原 App 约束。业务通知、生成式知识回答、现场遥测、工艺动画及偏好同步尚未实现，具体状态见前端完整性矩阵。安全变更通知单独记录真实发送状态，不能等同业务通知能力完成。
 
-- ChatGPT：负责规划、拆解、上下文整理与方案边界确认
-- Claude：负责按计划执行文档或代码变更
-- Codex：负责工程审查、边界检查、验证与交付复核
-- 用户：负责最终验收、取舍确认与里程碑放行
+- [项目状态](docs/PROJECT_STATUS.md)
+- [当前里程碑](docs/CURRENT_MILESTONE.md)
+- [Mac 常用启动与团队同步](docs/deployment/Mac本地运行与团队同步.md)
+- [团队部署、备份与回退](docs/deployment/统一账号与Portal正式部署说明.md)
+- [前端完整性矩阵](docs/frontend/统一账号发布与前端完整性矩阵.md)
 
-每轮任务开始前，AI 必须说明本轮读取了哪些文档。默认只读 `CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`，禁止默认递归读取整个 `docs/`。
+## 团队构建
+
+在已审查的 clean checkout 使用 Node 22 执行 `bash scripts/release/build_bundle.sh`，生成同源 Portal 和 LIMS 编译资产及六 App 部署包。通用 Gateway 位于 `services/hbos_gateway`，依赖、基线与 HRMS commit 见 `scripts/release/依赖版本锁.json`。既有目标版本不得为了匹配基线而降级。
+
+升级必须保留已确认原 Site/数据库，先备份并验证恢复，再迁移及核对原账号/角色/权限/业务关联。制品或 PR 不包含账号数据库、Secret、私有知识索引/原文或真实模型；这些经批准私下部署。
+
+## 协作与边界
+
+`AGENTS.md`、`CLAUDE.md` 为规则入口；进度以状态台账与对应里程碑为准。Portal 本轮不改变其他考勤/库存里程碑的 Owner 验收状态。禁止创建未知替代库、覆盖未知数据库、重置原密码/角色、发布凭据或私有资料。
+
+团队后续 Portal 代码来源：远端最新 `feature/hbos-portal-product`；固定 SHA 见本轮 PR 实际合并记录。PR #21 保留为已合并的审查与发布证据；Mac 本地运行与本人验收分开记录，公司生产尚未部署。

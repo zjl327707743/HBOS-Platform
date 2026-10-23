@@ -1,0 +1,93 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Account Change Event",
+ "module": "HBOS Portal",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "operation",
+  "event",
+  "actor",
+  "target_user",
+  "source_user",
+  "old_identity_key",
+  "new_identity_key",
+  "details_json",
+  "occurred_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "operation",
+   "fieldtype": "Link",
+   "label": "Operation",
+   "read_only": 1,
+   "options": "HBOS Account Operation",
+   "reqd": 1
+  },
+  {
+   "fieldname": "event",
+   "fieldtype": "Data",
+   "label": "Event",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "Actor",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "target_user",
+   "fieldtype": "Link",
+   "label": "Target User",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "source_user",
+   "fieldtype": "Link",
+   "label": "Source User",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "old_identity_key",
+   "fieldtype": "Data",
+   "label": "Old Identity Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "new_identity_key",
+   "fieldtype": "Data",
+   "label": "New Identity Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "details_json",
+   "fieldtype": "Long Text",
+   "label": "Details Json",
+   "read_only": 1
+  },
+  {
+   "fieldname": "occurred_at",
+   "fieldtype": "Datetime",
+   "label": "Occurred At",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "HBOS Account Handover Manager",
+   "read": 1
+  }
+ ],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "creation": "2026-09-30 00:00:00.000000",
+ "modified": "2026-09-30 00:00:00.000000",
+ "owner": "Administrator",
+ "modified_by": "Administrator"
+}
