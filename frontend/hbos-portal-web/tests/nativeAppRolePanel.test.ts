@@ -252,3 +252,18 @@ it('keeps the draft when a retryable read conflict is returned', async () => {
   expect(wrapper.text()).not.toContain('未保存选择已作废')
   wrapper.unmount()
 })
+
+it('keeps the draft when a save fails with retryable write contention', async () => {
+  api.save.mockRejectedValueOnce(Object.assign(new Error('并发操作使当前事务失效，改动未保存，请刷新后重新核对。'), { status: 409, retryable: true }))
+  const wrapper = mountPanel()
+  await flushPromises()
+  await click(wrapper, '调整原生角色')
+  await checkbox(wrapper, 0).setValue(true)
+  await checkbox(wrapper, 1).setValue(true)
+  await click(wrapper, '预览变更')
+  await click(wrapper, '确认保存')
+  expect(api.save).toHaveBeenCalledTimes(1)
+  expect(wrapper.text()).not.toContain('未保存选择已作废')
+  expect((wrapper.findAll('input[type="checkbox"]')[0]!.element as HTMLInputElement).checked).toBe(true)
+  wrapper.unmount()
+})

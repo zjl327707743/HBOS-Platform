@@ -98,7 +98,12 @@ async function prepare() {
   } catch (e) {
     actionError.value = iamMessage(e); preview.value = null
     const conflict = e as { status?: number; code?: string }
-    const retryable = conflict.code === 'READ_CONFLICT' || /正在完成另一项管理操作|稍后重试/.test(String((e as Error)?.message || ''))
+    // Server-declared retryable 409s are contention, not a stale intent. The
+    // transport keeps the status but rewrites the code, so the message/flag is
+    // the reliable signal (read conflict, account busy, lock-wait/deadlock).
+    const retryable = conflict.code === 'READ_CONFLICT'
+      || (e as { retryable?: boolean }).retryable === true
+      || /正在完成另一项管理操作|稍后重试|并发操作使当前事务失效/.test(String((e as Error)?.message || ''))
     if (conflict.status === 409 && !retryable) {
       // The preview context can only be rebuilt from a fresh read; the retained
       // request id no longer matches the new payload anyway.
@@ -126,7 +131,12 @@ async function commit() {
     const conflict = e as { status?: number; code?: string }
     // A retryable 409 (contention / read conflict) is not a stale intent: keep
     // the draft. Only a real version/preview mismatch invalidates the selection.
-    const retryable = conflict.code === 'READ_CONFLICT' || /正在完成另一项管理操作|稍后重试/.test(String((e as Error)?.message || ''))
+    // Server-declared retryable 409s are contention, not a stale intent. The
+    // transport keeps the status but rewrites the code, so the message/flag is
+    // the reliable signal (read conflict, account busy, lock-wait/deadlock).
+    const retryable = conflict.code === 'READ_CONFLICT'
+      || (e as { retryable?: boolean }).retryable === true
+      || /正在完成另一项管理操作|稍后重试|并发操作使当前事务失效/.test(String((e as Error)?.message || ''))
     // The transport rewrites CONFLICT to VALIDATION_ERROR while keeping 409, so
     // "non-retryable 409" is the reliable staleness signal here (same rule as prepare()).
     const stale = conflict.status === 409 && !retryable
