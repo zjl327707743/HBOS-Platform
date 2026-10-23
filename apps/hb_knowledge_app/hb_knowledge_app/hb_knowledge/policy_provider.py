@@ -126,6 +126,7 @@ class LegacyHbosPolicyProvider:
     def revalidate(self, plan: AuthorizedExecutionPlan):
         validate_plan(plan, now=self.clock())
         current = self._current(plan.subject, plan.client)
+        current_bindings = set(current.bindings)
         if not current.query_embedding_admitted or current.model_policy_ref != plan.model_policy_ref:
             raise KnowledgeError("MODEL_NOT_APPROVED")
         if (current.policy_revision != plan.policy_revision
@@ -144,7 +145,13 @@ class LegacyHbosPolicyProvider:
         if any(g not in current.grants or g.role_ref not in current.actor_state.roles for g in plan.grant_pairs):
             raise KnowledgeError("SCOPE_REJECTED")
         for b in plan.bindings:
-            if b not in current.bindings or b.dataset_id not in current.allowed_datasets:
+            # Membership against a set, not a scan of a tuple. A shared-reference
+            # plan carries every binding the caller may see (918 here), so the
+            # tuple form was 918 x 918 comparisons of a 23-field frozen record:
+            # measured 255 ms per revalidate on the real payload, and a search
+            # revalidates three times. The check is identical - same dataclass,
+            # same equality, same rejection - only the lookup is indexed.
+            if b not in current_bindings or b.dataset_id not in current.allowed_datasets:
                 raise KnowledgeError("SCOPE_REJECTED")
             validate_admission(b, self.environment, self.clock())
         return plan
