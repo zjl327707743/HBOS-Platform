@@ -52,6 +52,23 @@ def committed_view():
 def rows(cur,sql,args=()):
     cur.execute(sql,args); return cur.fetchall()
 
+def site_timezone():
+    """The zone Frappe used when it wrote a naive timestamp.
+
+    ``tabSessions.lastupdate`` comes from ``frappe.utils.data.now()``, which is
+    ``datetime.now(site_time_zone).replace(tzinfo=None)``: already converted to
+    the System Settings time zone, not UTC. The only correct inverse is that
+    same site zone, read through the same accessor Frappe uses to write it
+    (``get_system_timezone`` also defaults to Asia/Kolkata). An optional
+    config key cannot substitute: the reference profile carried
+    ``Asia/Shanghai`` while this container's site reads UTC.
+    """
+    import frappe
+    from zoneinfo import ZoneInfo
+    try:
+        return ZoneInfo(frappe.get_system_settings('time_zone') or 'Asia/Kolkata')
+    except Exception: raise KnowledgeError('POLICY_UNAVAILABLE') from None
+
 class SessionProofs:
     test_only=False
     def __init__(self,state,config): self.state,self.config=state,config
@@ -69,10 +86,12 @@ class SessionProofs:
         if security and (security[0]['blocked'] or int(data.get('hbos_security_version') or 0)!=version):
             raise KnowledgeError('AUTHENTICATION_REQUIRED')
         updated=sessions[0]['lastupdate']
-        # Site is explicitly UTC; native DB dates are naive UTC in this synthetic Site.
+        # Naive site-local wall time (see site_timezone); never assume UTC and
+        # never take the zone from the profile file.
         if updated.tzinfo is None:
-            from zoneinfo import ZoneInfo
-            updated=updated.replace(tzinfo=ZoneInfo(self.config.get('timezone','UTC')))
+            updated=updated.replace(tzinfo=site_timezone())
+        elif updated.tzinfo is not timezone.utc:
+            updated=updated.astimezone(timezone.utc)
         expiry=get_expiry_in_seconds(data.get('session_expiry'))
         if time.time()-updated.timestamp()>expiry or (data.get('session_end') and timestamp(data['session_end'])<=time.time()):
             raise KnowledgeError('AUTHENTICATION_REQUIRED')

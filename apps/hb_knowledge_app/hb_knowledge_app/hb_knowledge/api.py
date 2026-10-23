@@ -229,8 +229,21 @@ def ask(**business_fields):
             runtime=load_runtime();actor=runtime.actor()
         from .answer_policy import model_alias,DEFAULT_MODEL
         import frappe
+        from .catalog_direct import is_catalog_question
         with phase('personal_models'):
-            selected=model_alias(raw.get('model_alias') or (DEFAULT_MODEL if getattr(frappe.local,'hbos_mcp_connection',None) else _personal_models(runtime,actor)['selected_alias']))
+            # A directory question needs no generation, so an unverified model
+            # must not block it. It is still recorded as the plan's alias when
+            # one is known; a null alias is refused by the phase store for the
+            # generation phases, which this path never reaches.
+            if isinstance(raw.get('question'),str) and is_catalog_question(
+                    raw['question'],knowledge_only=bool(raw.get('knowledge_only')),
+                    context=raw.get('context') or (),history=()):
+                try:selected=model_alias(raw.get('model_alias') or (DEFAULT_MODEL if getattr(frappe.local,'hbos_mcp_connection',None) else _personal_models(runtime,actor)['selected_alias']))
+                except KnowledgeError as error:
+                    if error.code not in {'MODEL_UNAVAILABLE','UPSTREAM_INVALID_RESULT'}:raise
+                    selected=None
+            else:
+                selected=model_alias(raw.get('model_alias') or (DEFAULT_MODEL if getattr(frappe.local,'hbos_mcp_connection',None) else _personal_models(runtime,actor)['selected_alias']))
         options={'model_alias':selected,'knowledge_only':raw.get('knowledge_only',False),
                  'answer_caller':'MCP' if getattr(frappe.local,'hbos_mcp_connection',None) else 'PORTAL'}
         if not _ask_enabled(runtime):raise KnowledgeError('MODEL_NOT_APPROVED')
@@ -244,7 +257,8 @@ def ask(**business_fields):
             _,previous=owned(raw['conversation_id'],actor,kinds=('History',))
             bindings_for(previous,mapping)
             from .spaces import list_spaces
-            titles={s['space_id']:s['title'] for s in list_spaces(runtime,actor)['spaces']}
+            spaces=list_spaces(runtime,actor)['spaces']
+            titles=_space_titles(spaces,raw.get('space_ids'))
             requested=normalize_search({'query':question,**{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
             from .followup import validate_followup_scope
             validate_followup_scope(previous,requested.space_ids,requested.context)
@@ -260,7 +274,7 @@ def ask(**business_fields):
             history=conversation_history(previous,older=older)
             question=raw['question'].strip()[:500]
             search_query=retrieval_query(question,previous)
-            request=normalize_search({'query':search_query,'history':list(history),'space_titles':titles,
+            request=normalize_search({'query':search_query,'history':list(history),**_with_titles(titles),
                 **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
             ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
             runtime.publication.plan=ticket.plan
@@ -288,12 +302,14 @@ def ask(**business_fields):
             return data
         from .spaces import list_spaces
         with phase('list_spaces'):
-            titles={s['space_id']:s['title'] for s in list_spaces(runtime,actor)['spaces']}
-        request=normalize_search({'query':question,'space_titles':titles,
+            titles=_space_titles(list_spaces(runtime,actor)['spaces'],raw.get('space_ids'))
+        request=normalize_search({'query':question,**_with_titles(titles),
             **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
         with phase('plan_issue'):
             ticket=runtime.decisions.issue(actor,runtime.client,'knowledge.search',request,request_id)
         runtime.publication.plan=ticket.plan
+        direct=_catalog_direct(runtime,phase,ticket,titles,question,request,options,request_id)
+        if direct is not None:return direct
         with phase('gateway_ask'):
             answer,labels,records,origin,actual_alias,answer_status=runtime.gateway.ask(ticket=ticket)
         with phase('authorize_evidence'):
@@ -326,6 +342,85 @@ def ask(**business_fields):
     return _run(current)
 
 
+def _catalog_direct(runtime,phase,ticket,titles,question,request,options,request_id):
+    """Answer a directory question from the authorized plan, or return None.
+
+    The plan this request already holds is the authorization: same ticket,
+    same fingerprint, same identity, same bindings as the gateway path. What
+    is skipped is only the round trip and the generation, which a count does
+    not need. Every phase still goes through the decision store, in the same
+    order ``activity.restore`` uses for its metadata reads, and the same
+    history, quota and audit calls run as on the normal path.
+    """
+    from .catalog_direct import is_catalog_question, render
+    if not is_catalog_question(question,knowledge_only=options.get('knowledge_only',False),
+                               context=request.context,history=request.history or ()):
+        return None
+    with phase('catalog_direct'):
+        answer,found=render(ticket.plan,titles,question)
+    if not found:
+        # Nothing matched inside this scope. The catalogue gateway would say the
+        # same thing in a full round trip; returning None keeps that single
+        # wording rather than growing a second one.
+        return None
+    from .activity import write
+    principal=ServicePrincipal(runtime.client,True)
+    with phase('metadata_phases'):
+        # Same sequence as activity.restore: cache_read needs introspect first,
+        # and final_publish needs pre_projection. Each call revalidates.
+        runtime.decisions.online(principal,ticket.call('introspect','introspect'))
+        runtime.decisions.online(principal,ticket.call('introspect','cache_read'))
+        runtime.decisions.online(principal,ticket.call('revalidate','pre_projection'))
+    from .r1_contract import validate_ask_data
+    from .answer_policy import answer_presentation
+    alias=ticket.plan.model_alias
+    data={'request_id':request_id,'turn_id':request_id,
+        **answer_presentation(answer,False,state='CATALOG_RESULTS'),
+        'answer':answer,'citations':[],'answer_origin':'KNOWLEDGE'}
+    if alias:data['model_alias']=alias
+    with phase('validate_ask_data'):
+        validate_ask_data(data,environment=runtime.profile)
+    with phase('write_history'):
+        turn=write('History',request.query,request.space_ids,(),runtime,
+            conversation_id=None,context=request.context,answer=answer,labels=(),question=question,
+            search_mode=request.search_mode,answer_origin='KNOWLEDGE',model_alias=alias)
+    data['turn_id']=turn;data['conversation_id']=turn
+    with phase('final_online'):
+        runtime.decisions.online(principal,ticket.call('revalidate','final_publish'))
+    with phase('audit'):
+        runtime.audit.record(ticket.plan.subject.user_ref,'ask','SUCCESS',0)
+    return data
+
+
+def _with_titles(titles):
+    """``space_titles`` for a request, omitted entirely when there are none.
+
+    Passing ``space_titles=None`` would still be a present key, and the
+    contract rejects a present-but-empty map.
+    """
+    return {'space_titles': titles} if titles else {}
+
+
+def _space_titles(spaces, requested=None):
+    """Display names for the spaces this request may name, or None.
+
+    The SearchRequest contract admits 1..20 titles, but ``list_spaces`` may
+    return up to 100 authorized spaces. Sending the whole map made every ask
+    fail with INVALID_REQUEST for a caller with 21+ spaces, and sending an
+    empty one made a caller with no grants fail the same way instead of
+    reaching EMPTY_SCOPE. The map is display data only: it never widens the
+    grant set, so narrowing it to the requested spaces (when the caller named
+    some) and omitting it when there are none is exact.
+    """
+    known = {s['space_id']: s['title'] for s in spaces or () if s.get('space_id')}
+    if requested is not None:
+        known = {k: v for k, v in known.items() if k in set(requested)}
+    if not known:
+        return None
+    # Deterministic order keeps the signed request fingerprint stable.
+    return dict(sorted(known.items())[:20])
+
+
 def _personal_models(runtime,actor):
     import frappe
     from .answer_policy import ALIASES,DEFAULT_MODEL
@@ -337,7 +432,14 @@ def _personal_models(runtime,actor):
         raise KnowledgeError('UPSTREAM_INVALID_RESULT')
     selected=frappe.defaults.get_user_default('hbos_knowledge_model',user=actor.user_ref)
     available={m['alias'] for m in data['models'] if m['available']}
-    if selected not in available:selected=DEFAULT_MODEL
+    if selected not in available:
+        # The default is only a fallback when it is itself verified. Picking it
+        # blindly made every ask fail with MODEL_UNAVAILABLE on a deployment
+        # where only another alias had been verified. The stored user
+        # preference is never rewritten here.
+        if DEFAULT_MODEL in available:selected=DEFAULT_MODEL
+        else:selected=next((m['alias'] for m in data['models'] if m['available']),None)
+        if selected is None:raise KnowledgeError('MODEL_UNAVAILABLE')
     runtime.provider._current(actor,runtime.client)
     return {**data,'selected_alias':selected}
 
