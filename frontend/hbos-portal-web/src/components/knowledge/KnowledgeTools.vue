@@ -160,6 +160,7 @@ const note = ref('')
 let generation = 0
 let recordsGeneration = 0
 let feedbackGeneration = 0
+let favoriteTimer: ReturnType<typeof setTimeout> | null = null
 let feedbackTrigger: HTMLElement | null = null
 const accessFailureCodes = ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED', 'EMPTY_SCOPE']
 
@@ -172,11 +173,13 @@ watch(() => props.view, () => {
 }, { flush: 'sync' })
 watch(() => [props.mode, props.modelAlias, props.knowledgeOnly], () => { cancelPending(false); composing.value = false; error.value = ''; notice.value = ''; closeFeedback(false) }, { flush: 'sync' })
 watch(savedPage,()=>{if(props.view==='favorites'&&favoriteFilterActive.value)savedHasMore.value=savedPage.value*4<filteredFavorites.value.length;else if(props.view)void refresh()})
-watch([favoriteQuery,favoriteSpace],()=>{savedPage.value=1;void refresh()})
+watch([favoriteQuery,favoriteSpace],()=>{savedPage.value=1;if(favoriteTimer)clearTimeout(favoriteTimer);favoriteTimer=setTimeout(()=>{favoriteTimer=null;void refresh()},200)})
 watch(kind, () => { savedPage.value = 1; if (kind.value === 'Feedback') void refreshFeedback() })
 watch([history, bookmarks, feedbackItems], () => { if (props.view) return; const total = kind.value === 'Feedback' ? feedbackItems.value.length : shown.value.length; savedPage.value = Math.min(savedPage.value, Math.max(1, Math.ceil(total / savedPageSize))) })
 watch(() => props.subject, () => {
   generation++; recordsGeneration++; feedbackGeneration++
+  if (favoriteTimer) { clearTimeout(favoriteTimer); favoriteTimer = null }
+  favoritePageKeys.clear()
   history.value = []; bookmarks.value = []; bookmarkIndex.value=[]; feedbackItems.value = []; turns.value = []
   favoriteDocuments.value=[];filterFavorites.value=[];favoriteQuery.value='';favoriteSpace.value=''
   conversation.value = ''; question.value = ''; notice.value = ''; error.value = ''; recordsError.value = ''; feedbackError.value = ''; queryState.value = 'idle'
@@ -191,6 +194,28 @@ watch(() => [props.selectedSpace,props.searchMode], () => {
 onBeforeUnmount(() => { generation++; recordsGeneration++; feedbackGeneration++; closeFeedback(false) })
 
 function displayDate(value: string) { return value.slice(0, 16).replace('T', ' ') }
+// Favorite decoration used to walk the whole catalog (up to 100 pages) on every
+// favorites refresh and on every keystroke in the filter box. The catalog page
+// endpoint takes no document-id filter, so the metadata is fetched once per
+// view and every keystroke only re-filters what is already in memory.
+const FAVORITE_CATALOG_PAGE = 50
+const favoritePageKeys = new Set<string>()
+
+async function loadFavoriteDocuments(current: number, subject: string) {
+  const pageKey = `page:${savedPage.value}`
+  if (favoritePageKeys.has(pageKey)) return
+  favoritePageKeys.add(pageKey)
+  try {
+    const page = await getKnowledgeDocumentsPage('', '', savedPage.value, FAVORITE_CATALOG_PAGE)
+    if (current !== recordsGeneration || subject !== props.subject) return
+    const merged = new Map(favoriteDocuments.value.map(doc => [doc.document_id, doc]))
+    for (const doc of page.documents) merged.set(doc.document_id, doc)
+    favoriteDocuments.value = [...merged.values()]
+  } catch (error) {
+    favoritePageKeys.delete(pageKey)
+    throw error
+  }
+}
 // Explicit answer states from the service; the UI never infers success from
 // the presence of citations alone.
 const ANSWER_LABELS: Record<string, string> = {
@@ -272,9 +297,8 @@ async function refresh() {
         history.value=props.view==='history'?page.items:[];bookmarks.value=props.view==='favorites'?page.items:[];if(props.view==='favorites')bookmarkIndex.value=page.items;savedHasMore.value=page.has_more
       }
       if(props.view==='favorites'){
-        const docs:KnowledgeDocument[]=[]
-        for(let n=1;n<=100;n++){const page=await getKnowledgeDocumentsPage('','',n,50);if(current!==recordsGeneration||subject!==props.subject)return;docs.push(...page.documents);if(n*page.page_size>=page.total)break;if(n===100)throw new DomainApiError('SERVICE_ERROR','资料过多，请联系维护人。')}
-        favoriteDocuments.value=docs
+        await loadFavoriteDocuments(current, subject)
+        if(current!==recordsGeneration||subject!==props.subject)return
         if(favoriteFilterActive.value)savedHasMore.value=savedPage.value*4<filteredFavorites.value.length
       }
     } else {
