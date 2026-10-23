@@ -254,7 +254,8 @@ it('keeps the draft when a retryable read conflict is returned', async () => {
 })
 
 it('keeps the draft when a save fails with retryable write contention', async () => {
-  api.save.mockRejectedValueOnce(Object.assign(new Error('并发操作使当前事务失效，改动未保存，请刷新后重新核对。'), { status: 409, retryable: true }))
+  // Production error shape: FrappeRequestError with status + message only.
+  api.save.mockRejectedValueOnce(Object.assign(new Error('并发操作使当前事务失效，改动未保存，请刷新后重新核对。'), { status: 409 }))
   const wrapper = mountPanel()
   await flushPromises()
   await click(wrapper, '调整原生角色')
