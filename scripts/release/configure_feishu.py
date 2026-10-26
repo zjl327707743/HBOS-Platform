@@ -41,6 +41,7 @@ try:
     if not _validate_redirect_uri(callback):
         raise RuntimeError("服务器入口必须为 HTTPS；本机仅允许 loopback HTTP")
     from frappe.installer import update_site_config
+    prior_settings = load_settings()
     # Close first: any interruption while replacing credentials/policy fails closed.
     update_site_config("hbos_feishu_app_published", 0)
     frappe.conf.hbos_feishu_app_published = 0
@@ -60,7 +61,9 @@ try:
     print("程序从当前应用核验的企业：", company["name"])
     print("请确认控制台已添加精确回调：", callback)
     print("请确认发布范围仅为本企业内部成员，登录及成员核验权限已批准。")
-    already_confirmed = settings.configured and settings.tenant_key == company["tenant_key"] and settings.redirect_uri == callback
+    already_confirmed = (not args.replace_secret and prior_settings.configured
+        and prior_settings.app_id == args.app_id and prior_settings.tenant_key == company["tenant_key"]
+        and prior_settings.redirect_uri == callback)
     if not already_confirmed and input("输入企业全称确认以上配置：").strip() != company["name"]:
         raise RuntimeError("未确认企业，登录入口仍保持关闭")
     _store_protected_text(_site_private_path(TENANT_FILENAME), company["tenant_key"])

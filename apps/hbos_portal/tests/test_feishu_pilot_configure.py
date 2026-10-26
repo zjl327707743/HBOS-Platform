@@ -14,9 +14,9 @@ CANONICAL = 'pilot@example.invalid'
 
 
 class PilotConfigureTest(unittest.TestCase):
-    def run_configure(self, fail_key=None):
+    def run_configure(self, fail_key=None, initial_published=1):
         writes = []
-        values = {'hbos_feishu_app_published': 1, 'hbos_feishu_auto_provision_internal': 1}
+        values = {'hbos_feishu_app_published': initial_published, 'hbos_feishu_auto_provision_internal': 1}
         fake = SimpleNamespace(init=Mock(), connect=Mock(), destroy=Mock(), conf=SimpleNamespace(), db=SimpleNamespace(get_value=Mock(return_value=CANONICAL)))
         def update(key, value):
             if key == fail_key:
@@ -32,9 +32,9 @@ class PilotConfigureTest(unittest.TestCase):
             stack.enter_context(patch.object(sys, 'argv', [str(SCRIPT), '--site', 'synthetic', '--bench', '/synthetic', '--app-id', 'cli_test', '--origin', 'https://hbos.example.test', '--pilot-user', 'Pilot@Example.Invalid']))
             stack.enter_context(patch('os.chdir'))
             stack.enter_context(patch('builtins.print'))
-            stack.enter_context(patch('builtins.input', return_value='Synthetic Company'))
+            confirm = stack.enter_context(patch('builtins.input', return_value='Synthetic Company'))
             stack.enter_context(patch.object(accounts, 'require_user'))
-            stack.enter_context(patch.object(feishu, 'load_settings', return_value=settings()))
+            stack.enter_context(patch.object(feishu, 'load_settings', side_effect=lambda: settings(published=bool(values['hbos_feishu_app_published']))))
             stack.enter_context(patch.object(feishu, 'discover_enterprise', return_value={'name': 'Synthetic Company', 'tenant_key': 'tenant-approved'}))
             stack.enter_context(patch.object(feishu, '_site_private_path', return_value=Path('/synthetic')))
             stack.enter_context(patch.object(feishu, '_store_protected_text'))
@@ -46,6 +46,10 @@ class PilotConfigureTest(unittest.TestCase):
             else:
                 if fail_key:
                     self.fail('expected storage interruption')
+        if initial_published:
+            confirm.assert_not_called()
+        elif not fail_key:
+            confirm.assert_called_once()
         fake.destroy.assert_called_once()
         return writes, values
 
@@ -59,3 +63,6 @@ class PilotConfigureTest(unittest.TestCase):
         writes, values = self.run_configure('hbos_feishu_oauth_scopes')
         self.assertEqual(0, values['hbos_feishu_app_published'])
         self.assertNotIn(('hbos_feishu_app_published', 1), writes)
+
+    def test_first_configuration_still_requires_enterprise_confirmation(self):
+        self.run_configure(initial_published=0)
