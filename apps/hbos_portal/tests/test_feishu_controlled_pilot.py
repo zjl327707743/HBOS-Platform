@@ -63,7 +63,8 @@ class ControlledPilotTest(unittest.TestCase):
              patch.object(accounts, 'require_proof', return_value={'method':'password','verified_at':1}), \
              patch.object(feishu, 'load_settings', return_value=settings(pilot_mode=True,pilot_users=(PILOT,))), \
              patch.object(feishu.RedisOAuthStateStore, 'create') as issue:
-            with self.assertRaises(FeishuLoginError): feishu.start_link()
+            with patch.object(feishu.frappe, 'PermissionError', PermissionError, create=True), patch.object(feishu.frappe, 'throw', side_effect=PermissionError, create=True):
+                with self.assertRaises(PermissionError): feishu.start_link()
             issue.assert_not_called()
 
     def test_callback_rechecks_live_policy_for_previously_issued_link(self):
@@ -84,3 +85,21 @@ class ControlledPilotTest(unittest.TestCase):
              patch.object(accounts,'require_user',return_value=record['user']),patch.object(accounts,'consume_pending') as consume:
             result=accounts.complete_pending('confirm_link')
             self.assertFalse(result['completed']);self.assertEqual('member_scope_denied',result['error']['code']);consume.assert_not_called();fake.db.rollback.assert_called_once()
+
+    def test_pending_mfa_live_removal_is_structured_before_challenge_or_login(self):
+        record={'intent':'login_mfa','user':'other@example.invalid','identity':IDENTITY}
+        fake=SimpleNamespace(db=Mock(),UniqueValidationError=type('Unique', (Exception,), {}),DuplicateEntryError=type('Duplicate', (Exception,), {}))
+        with patch.object(accounts,'frappe',fake),patch.object(accounts,'pending',return_value=('synthetic',record)), \
+             patch.object(feishu,'load_settings',return_value=settings(pilot_mode=True,pilot_users=(PILOT,))), \
+             patch.object(accounts,'require_user',return_value=record['user']),patch.object(accounts,'verify_mfa') as mfa,patch.object(accounts,'consume_pending') as consume:
+            result=accounts.complete_pending('login_mfa')
+            self.assertEqual('member_scope_denied',result['error']['code']);mfa.assert_not_called();consume.assert_not_called()
+
+    def test_legacy_pending_create_cannot_bypass_disabled_enrollment(self):
+        record={'intent':'choose','identity':IDENTITY}
+        fake=SimpleNamespace(db=Mock(),UniqueValidationError=type('Unique', (Exception,), {}),DuplicateEntryError=type('Duplicate', (Exception,), {}))
+        with patch.object(accounts,'frappe',fake),patch.object(accounts,'pending',return_value=('synthetic',record)), \
+             patch.object(feishu,'load_settings',return_value=settings(auto_provision_internal=False,pilot_mode=True,pilot_users=(PILOT,))), \
+             patch.object(onboarding,'resolve_verified_login',side_effect=FeishuLoginError('identity_unmapped','synthetic denial')),patch.object(accounts,'consume_pending') as consume:
+            result=accounts.complete_pending('create_new')
+            self.assertEqual('identity_unmapped',result['error']['code']);consume.assert_not_called();fake.db.rollback.assert_called_once()

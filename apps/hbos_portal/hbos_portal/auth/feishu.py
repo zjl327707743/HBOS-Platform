@@ -501,7 +501,10 @@ def start_link() -> dict:
     if user == "Administrator" and proof["method"] != "password":
         frappe.throw("Administrator 绑定须验证管理员密码及原有二次认证。", frappe.AuthenticationError)
     settings = load_settings()
-    require_pilot_user(settings, user)
+    try:
+        require_pilot_user(settings, user)
+    except FeishuLoginError as exc:
+        frappe.throw(exc.public_message, frappe.PermissionError)
     if not settings.configured:
         frappe.throw("飞书配置尚未完成。", frappe.AuthenticationError)
     verifier = challenge = None
