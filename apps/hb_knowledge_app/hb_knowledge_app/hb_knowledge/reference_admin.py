@@ -262,6 +262,9 @@ def _catalog_projection(runtime, snapshot):
         if download.allowed:raise KnowledgeError('POLICY_UNAVAILABLE')
         from .legal_metadata import LAW_SPACE,for_version
         if b.space_id==LAW_SPACE:item['legal_metadata']=for_version(b.version_id)
+        from .source_directory import directories
+        source_directories=directories(b)
+        if source_directories:item['source_directories']=source_directories
         out.append(item)
     return sorted(out,key=lambda d:(d['department'],d['title'] or '',d['document_id'],d['space_id']))
 
@@ -284,7 +287,7 @@ def _page_number(value,maximum):
     return value
 
 
-def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=12,law_category=None):
+def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=12,law_category=None,folder_id=None):
     from .public_strings import safe_string
     page=_page_number(page,100000);page_size=_page_number(page_size,50)
     if query is not None:query=safe_string(query,240).strip().casefold()
@@ -293,10 +296,16 @@ def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=1
         from .legal_metadata import LAW_CATEGORIES
         if law_category not in LAW_CATEGORIES:raise KnowledgeError('INVALID_REQUEST')
     def project(docs):
+        directory=None
+        if folder_id is not None:
+            from .source_directory import select
+            docs,directory=select(docs,folder_id)
         selected=[d for d in docs if (not space_id or d['space_id']==space_id)
                   and (not law_category or d.get('legal_metadata',{}).get('category')==law_category)
                   and (not query or any(query in (d[k] or '').casefold()
                                        for k in ('title','document_number','department')))]
         start=(page-1)*page_size
-        return {'documents':selected[start:start+page_size],'total':len(selected),'page':page,'page_size':page_size}
+        value={'documents':selected[start:start+page_size],'total':len(selected),'page':page,'page_size':page_size}
+        if directory is not None:value['source_directory']=directory
+        return value
     return _catalog_read(runtime,actor,project)

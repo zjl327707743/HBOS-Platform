@@ -1,15 +1,6 @@
 #!/bin/sh
-# Return bff/service to the image ids recorded by the last apply.sh.
+# Restores verified images and static mounts through all seven Compose files.
+# It never restores business data, publication state, account state or tokens.
 set -eu
-HERE=$(cd "$(dirname "$0")" && pwd)
-RB="$HERE/rollback.json"
-[ -f "$RB" ] || { echo "no rollback.json; nothing to return to"; exit 1; }
-python3 - "$RB" <<'PY'
-import json,sys
-d=json.load(open(sys.argv[1]))
-for name,image in d.items():
-    if not image: continue
-    print(f'{name}={image}')
-PY
-echo "Restore manually with: docker run --name <container> <image> ... (mounts from the override)"
-echo "Rollback is deliberately manual: an automated re-create from a stale image id is what caused the outage."
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec python3 "$HERE/../release_candidate.py" --task-root "${HBOS_KNOWLEDGE_TASK_ROOT:?set isolated task root}" --evidence-root "${HBOS_RC1_EVIDENCE_ROOT:?set private RC1 evidence root}" rollback "$@"

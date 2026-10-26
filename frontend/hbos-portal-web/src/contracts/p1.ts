@@ -145,12 +145,20 @@ export interface KnowledgeDocument {
   status_note: string
   version_id?: string
   legal_metadata?: KnowledgeLegalMetadata
+  source_directories?: string[][]
   download_state?: 'permission_required'
   download_note?: string
 }
 
+export interface KnowledgeSourceDirectory {
+  folder_id: string
+  breadcrumbs: {folder_id: string; name: string}[]
+  children: {folder_id: string; name: string; count: number}[]
+}
+
 export interface KnowledgeDocumentPage {
   documents: KnowledgeDocument[]
+  source_directory?: KnowledgeSourceDirectory
   total: number
   page: number
   page_size: number

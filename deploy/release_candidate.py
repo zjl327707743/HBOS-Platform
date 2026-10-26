@@ -1,0 +1,142 @@
+"""Single-owner RC1 prepare/apply/verify/rollback using the complete seven files.
+
+Only candidate containers/configuration are changed. Rollback restores code and
+static assets; current publication, withdrawal, account and token data survive.
+"""
+from __future__ import annotations
+import argparse, copy, datetime, fcntl, hashlib, json, os, pathlib, shutil, subprocess, tarfile, time
+import requests
+
+PROJECT='hbos-knowledge-r2-20261008'
+BFF_STATIC='/home/frappe/frappe-bench/apps/hbos_portal/hbos_portal/public/portal'
+FRONT_STATIC='/var/www/hbos/portal'
+
+def run(args,**kw):return subprocess.check_output(args,text=True,**kw).strip()
+def sha(path):
+    h=hashlib.sha256()
+    with path.open('rb') as f:
+        for part in iter(lambda:f.read(1048576),b''):h.update(part)
+    return h.hexdigest()
+def save(path,value):
+    temporary=path.with_suffix(path.suffix+'.tmp');temporary.write_text(json.dumps(value,ensure_ascii=False,indent=1)+'\n');temporary.chmod(0o600);os.replace(temporary,path)
+def inspect(role):return json.loads(run(['docker','inspect',f'{PROJECT}-{role}-1']))[0]
+def compose(manifest,*args):
+    command=['docker','compose','--project-directory',manifest['working_dir'],'-p',PROJECT]
+    for p in manifest['compose_files']:command+=['-f',p]
+    return subprocess.run(command+list(args),cwd=manifest['working_dir'],check=True,capture_output=True,text=True)
+def static_manifest(root):return {str(p.relative_to(root)):sha(p) for p in sorted(root.rglob('*')) if p.is_file()}
+def archive_check(path,images):
+    with tarfile.open(path) as stream:
+        index=json.load(stream.extractfile('index.json'));present={m['digest'] for m in index['manifests']}
+        if not set(images)<=present:raise RuntimeError('Rollback archive does not include every running image')
+        count=0
+        for member in stream:
+            if not member.isfile() or not member.name.startswith('blobs/sha256/'):continue
+            blob=hashlib.sha256();source=stream.extractfile(member)
+            for block in iter(lambda:source.read(1048576),b''):blob.update(block)
+            if blob.hexdigest()!=member.name.rsplit('/',1)[-1]:raise RuntimeError('Rollback archive blob checksum mismatch')
+            count+=1
+    return {'path':str(path),'sha256':sha(path),'verified_blob_count':count,'image_ids':images,'readable':True}
+def override(path,original,images,static):
+    import yaml
+    value=yaml.safe_load(original.read_text());services=value.setdefault('services',{})
+    for role in ('bff','service'):services.setdefault(role,{})['image']=images[role]
+    services.setdefault('bff',{}).setdefault('volumes',[]).append(str(static)+':'+BFF_STATIC+':ro')
+    front=services.setdefault('frontend',{});front['image']=images['frontend'];front.setdefault('volumes',[]).append(str(static)+':'+FRONT_STATIC+':ro')
+    path.write_text(yaml.safe_dump(value,allow_unicode=True,sort_keys=False))
+def composition(files):return {'total':len(files),'files':[{'path':str(p),'sha256':sha(pathlib.Path(p)),'exists':True} for p in files]}
+def mount_map(evidence,base_image):
+    source=evidence/'source-directory.json'
+    subprocess.run(['docker','run','--rm','--network','none','--user','0','--entrypoint','sh','-v',PROJECT+'-configuration:/target','--mount','type=bind,source='+str(source)+',target=/input.json,readonly',base_image,'-c','cp /input.json /target/source-directory.json.proposed && chmod 644 /target/source-directory.json.proposed && mv /target/source-directory.json.proposed /target/source-directory.json'],capture_output=True,check=True)
+
+def prepare(task,evidence):
+    here=task/'work/deploy/candidate';manifest=json.loads((here/'manifest.json').read_text());build=json.loads((task/'work/build-info-rc1.json').read_text())
+    baseline=json.loads((evidence/'baseline.json').read_text());old={role:inspect(role) for role in ('bff','service','frontend')}
+    if any(old[role]['Image']!=baseline['containers'][role]['image_id'] for role in old):raise RuntimeError('Candidate changed since the frozen baseline')
+    backup=evidence/'rollback';backup.mkdir(exist_ok=True,parents=True)
+    archive=archive_check(backup/'previous-images.tar',[old[r]['Image'] for r in old]);save(backup/'archive-verification.json',archive)
+    original=here/'compose.override.yml'
+    if not (backup/'compose.override.before.yml').exists():shutil.copy2(original,backup/'compose.override.before.yml')
+    if not (backup/'static').exists():shutil.copytree(task/'work/hbos/apps/hbos_portal/hbos_portal/public/portal',backup/'static')
+    previous_static=static_manifest(backup/'static')
+    if not (backup/'configuration.tar').exists():
+        with (backup/'configuration.tar').open('wb') as f:
+            subprocess.run(['docker','exec',f'{PROJECT}-service-1','tar','-C','/run/hbos-uat4-config','-cf','-','.'],stdout=f,stderr=subprocess.PIPE,check=True)
+    previous_override=backup/'compose.rollback.yml';override(previous_override,backup/'compose.override.before.yml',{role:old[role]['Image'] for role in old},backup/'static')
+    previous_files=[*manifest['compose_files'][:-1],str(previous_override)]
+    previous={'release_id':'PREVIOUS_VERIFIED_'+baseline['sources']['hbos']['head'][:12],'project':PROJECT,'purpose':'Actual previous runtime, not the stale Stage3 lock','source':baseline['sources'],'containers':{role:{'image_id':x['Image'],'container_id':x['Id']} for role,x in old.items()},'composition':composition(previous_files),'manifest':dict(manifest,compose_files=previous_files),'static':{'path':str(backup/'static'),'files':previous_static},'rollback_archive':archive,'configuration_backup':{'path':str(backup/'configuration.tar'),'sha256':sha(backup/'configuration.tar')},'business_data_rollback':False}
+    save(here/'DEPLOY_LOCK_PREVIOUS.json',previous);save(here/'rollback.json',{role:x['Image'] for role,x in old.items()})
+    # Record the actual baseline as CURRENT before proposing any configuration
+    # change. The received stale lock remains in the private history.
+    if not (backup/'CURRENT.received.json').exists():shutil.copy2(here/'DEPLOY_LOCK_CURRENT.json',backup/'CURRENT.received.json')
+    baseline_current=dict(previous,composition=composition(manifest['compose_files']),purpose='Verified running baseline before RC1 proposal')
+    save(here/'DEPLOY_LOCK_CURRENT.json',baseline_current)
+    candidate_images={'bff':build['images']['frappe']['reference'],'service':build['images']['service']['reference'],'frontend':old['frontend']['Image']}
+    override(original,backup/'compose.override.before.yml',candidate_images,pathlib.Path(build['static']))
+    proposed={'release_id':build['release_id'],'project':PROJECT,'state':'PROPOSED','source':build['source_commits'],'build_info':str(task/'work/build-info-rc1.json'),'build_info_sha256':sha(task/'work/build-info-rc1.json'),'containers':{'bff':{'image_id':build['images']['frappe']['image_id']},'service':{'image_id':build['images']['service']['image_id']},'frontend':{'image_id':old['frontend']['Image']}},'composition':composition(manifest['compose_files']),'manifest':manifest,'static':{'path':build['static'],'files':build['static_manifest']},'configuration_change':{'reason':'Immutable image references, verified release-specific static mounts and original-directory metadata','source_directory_sha256':sha(evidence/'source-directory.json')},'rollback_archive':archive,'rollback_lock':str(here/'DEPLOY_LOCK_PREVIOUS.json'),'business_data_rollback':False}
+    save(here/'DEPLOY_LOCK_PROPOSED.json',proposed)
+    print(json.dumps({'state':'PROPOSED','release_id':build['release_id'],'rollback_archive_verified':True,'compose_files':7}))
+
+def verify(lock):
+    manifest=lock['manifest'];checks={}
+    for role in ('bff','service','frontend'):
+        current=inspect(role);checks[role+'_image']=current['Image']==lock['containers'][role]['image_id']
+        if not checks[role+'_image']:raise RuntimeError('Running image differs: '+role)
+    static=pathlib.Path(lock['static']['path'])
+    if static_manifest(static)!=lock['static']['files']:raise RuntimeError('Static host manifest changed')
+    for role,destination in [('bff',BFF_STATIC),('frontend',FRONT_STATIC)]:
+        for filename in ('index.html','release.json'):
+            if filename not in lock['static']['files']:continue
+            value=subprocess.check_output(['docker','exec',f'{PROJECT}-{role}-1','cat',destination+'/'+filename])
+            if hashlib.sha256(value).hexdigest()!=lock['static']['files'][filename]:raise RuntimeError('Container static mount stale: '+role+'/'+filename)
+        checks[role+'_actual_static']=True
+    session=requests.Session();session.trust_env=False;session.headers['Host']='knowledge-r2.localhost:18350'
+    login=session.get('http://127.0.0.1:18350/hbos/login',timeout=15);checks['login_200']=login.status_code==200
+    for filename in ('index.html','release.json'):
+        if filename not in lock['static']['files']:continue
+        result=session.get('http://127.0.0.1:18350/assets/hbos_portal/portal/'+filename,timeout=15)
+        checks['http_'+filename]=result.status_code==200 and hashlib.sha256(result.content).hexdigest()==lock['static']['files'][filename]
+    if not all(checks.values()):raise RuntimeError('Readiness/static checks failed')
+    return {'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'release_id':lock['release_id'],'checks':checks,'business_readiness':'REQUIRES_AUTHENTICATED_EVALUATION'}
+
+def switch(task,evidence,rollback=False,check_only=False):
+    here=task/'work/deploy/candidate';path=here/('DEPLOY_LOCK_PREVIOUS.json' if rollback else 'DEPLOY_LOCK_PROPOSED.json');lock=json.loads(path.read_text())
+    for entry in lock['composition']['files']:
+        if sha(pathlib.Path(entry['path']))!=entry['sha256']:raise RuntimeError('Pinned composition changed')
+    for role,item in lock['containers'].items():
+        if run(['docker','image','inspect','--format','{{.Id}}',item['image_id']])!=item['image_id']:raise RuntimeError('Required image missing')
+    if check_only:
+        print(json.dumps({'mode':'ROLLBACK_CHECK' if rollback else 'APPLY_CHECK','release_id':lock['release_id'],'images_available':True,'static_readable':static_manifest(pathlib.Path(lock['static']['path']))==lock['static']['files'],'archive_verified':lock['rollback_archive']['readable']}));return
+    if not rollback:
+        count_file=here/'RC1_SWITCH_RECEIPTS.json';receipts=json.loads(count_file.read_text()) if count_file.exists() else []
+        if len(receipts)>=2:raise RuntimeError('One planned switch and one evidence-based patch already consumed')
+        for name,relative in [('hbos','hbos'),('service','knowledge_service'),('frontend','frontend_runtime')]:
+            root=task/'work'/relative
+            if run(['git','-C',str(root),'rev-parse','HEAD'])!=lock['source'][name] or run(['git','-C',str(root),'status','--porcelain']):raise RuntimeError('Source moved or became dirty')
+        mount_map(evidence,lock['containers']['bff']['image_id'])
+        env=dict(os.environ,HBOS_DEPLOY_STATE_DIR=str(here),HBOS_KNOWLEDGE_TASK_ROOT=str(task))
+        subprocess.run([str(task/'work/knowledge_service/.venv-dsh/bin/python'),str(task/'work/hbos/deploy/candidate/preflight.py'),'--lock',str(path)],env=env,check=True)
+        receipts.append({'release_id':lock['release_id'],'started_at':time.time(),'status':'SWITCH_STARTED'});save(count_file,receipts)
+    compose(lock['manifest'],'up','-d','--no-deps','bff','service')
+    # Load the committed hooks through the site's normal cache invalidation.
+    code="import os;os.chdir('/home/frappe/frappe-bench/sites');import frappe;frappe.init(site='knowledge-r2.localhost');frappe.connect();frappe.clear_cache();frappe.destroy()"
+    subprocess.run(['docker','exec',f'{PROJECT}-bff-1','/home/frappe/frappe-bench/env/bin/python','-c',code],capture_output=True,check=True)
+    compose(lock['manifest'],'up','-d','--no-deps','--force-recreate','frontend')
+    last=None
+    for _ in range(36):
+        try:receipt=verify(lock);break
+        except (RuntimeError,requests.RequestException,subprocess.CalledProcessError) as error:last=type(error).__name__;time.sleep(2)
+    else:raise RuntimeError('Readiness failed; execute rollback using the verified lock: '+str(last))
+    lock.update(state='CURRENT',verification=receipt);save(here/'DEPLOY_LOCK_CURRENT.json',lock)
+    save(evidence/('rollback-executed.json' if rollback else 'deployment-verification.json'),receipt)
+    if not rollback:receipts[-1].update(status='VERIFIED',finished_at=time.time());save(count_file,receipts)
+    print(json.dumps(receipt,ensure_ascii=False))
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');args=parser.parse_args()
+    task=args.task_root.resolve();evidence=args.evidence_root.resolve()
+    with (task/'work/deploy/candidate/MAIN_AGENT_RELEASE.lock').open('a') as guard:
+        fcntl.flock(guard,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        if args.action=='prepare':prepare(task,evidence)
+        elif args.action=='verify':print(json.dumps(verify(json.loads((task/'work/deploy/candidate/DEPLOY_LOCK_CURRENT.json').read_text()))))
+        else:switch(task,evidence,rollback=args.action=='rollback',check_only=args.check)

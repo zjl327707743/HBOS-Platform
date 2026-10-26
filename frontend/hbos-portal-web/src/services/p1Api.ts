@@ -243,9 +243,16 @@ export async function getFeishuLoginStatus(): Promise<FeishuLoginStatus> {
 }
 
 function validateKnowledgeDocument(doc: KnowledgeDocument): void {
-  if (!doc || typeof doc !== 'object' || Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note','version_id','download_state','download_note','legal_metadata'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  if (!doc || typeof doc !== 'object' || Object.keys(doc).some(k => !['document_id','title','space_id','department','document_number','version','status_note','version_id','download_state','download_note','legal_metadata','source_directories'].includes(k))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
   for (const key of ['document_id','space_id','department','status_note'] as const) safeKnowledgeString(doc[key],320)
   safeKnowledgeString(doc.title,240,true); safeKnowledgeString(doc.document_number,120,true); safeKnowledgeString(doc.version,80,true)
+  if (doc.source_directories !== undefined) {
+    if (!Array.isArray(doc.source_directories) || doc.source_directories.length > 50) throw new DomainApiError('SERVICE_ERROR','原目录响应无效。')
+    for (const path of doc.source_directories) {
+      if (!Array.isArray(path) || !path.length || path.length > 30) throw new DomainApiError('SERVICE_ERROR','原目录响应无效。')
+      path.forEach(segment => safeKnowledgeString(segment,240))
+    }
+  }
   if (doc.version_id !== undefined) safeKnowledgeString(doc.version_id,128)
   if (doc.download_state !== undefined && doc.download_state !== 'permission_required') throw new DomainApiError('SERVICE_ERROR','资料下载权限尚未上线。')
   if (doc.download_note !== undefined) safeKnowledgeString(doc.download_note,320)
@@ -266,14 +273,23 @@ export async function getKnowledgeDocuments(): Promise<KnowledgeDocument[]> {
   return data.documents
 }
 
-export async function getKnowledgeDocumentsPage(query = '', spaceId = '', page = 1, pageSize = 12, lawCategory?: import('@/contracts/p1').KnowledgeLawCategory): Promise<KnowledgeDocumentPage> {
+export async function getKnowledgeDocumentsPage(query = '', spaceId = '', page = 1, pageSize = 12, lawCategory?: import('@/contracts/p1').KnowledgeLawCategory, folderId?: string): Promise<KnowledgeDocumentPage> {
   if (typeof query !== 'string' || [...query].length > 240 || typeof spaceId !== 'string' || spaceId !== spaceId.trim() || !Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 50) throw new DomainApiError('INVALID_REQUEST','目录筛选格式无效。')
   if (spaceId) safeKnowledgeString(spaceId,120)
   if (lawCategory !== undefined && !knowledgeLawCategories.includes(lawCategory)) throw new DomainApiError('INVALID_REQUEST','法规分类格式无效。')
   const data = unwrapKnowledge(await callFrappeMethod<DomainEnvelope<KnowledgeDocumentPage>>(
-    'hb_knowledge_app.hb_knowledge.api.get_documents_page', { query: query.trim(), space_id: spaceId, page, page_size: pageSize, ...(lawCategory ? { law_category: lawCategory } : {}) },
+    'hb_knowledge_app.hb_knowledge.api.get_documents_page', { query: query.trim(), space_id: spaceId, page, page_size: pageSize, ...(lawCategory ? { law_category: lawCategory } : {}), ...(folderId !== undefined ? { folder_id: folderId } : {}) },
   ))
-  if (!data || Object.keys(data).some(k => !['documents','total','page','page_size'].includes(k)) || !Array.isArray(data.documents) || data.documents.length > pageSize || !Number.isSafeInteger(data.total) || data.total < 0 || data.total < data.documents.length || data.page !== page || data.page_size !== pageSize) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  if (!data || Object.keys(data).some(k => !['documents','total','page','page_size','source_directory'].includes(k)) || !Array.isArray(data.documents) || data.documents.length > pageSize || !Number.isSafeInteger(data.total) || data.total < 0 || data.total < data.documents.length || data.page !== page || data.page_size !== pageSize) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
+  if (data.source_directory !== undefined) {
+    const tree=data.source_directory
+    if (!tree || tree.folder_id !== folderId || !Array.isArray(tree.breadcrumbs) || !Array.isArray(tree.children)) throw new DomainApiError('SERVICE_ERROR','原目录响应无效。')
+    for (const item of [...tree.breadcrumbs,...tree.children]) {
+      safeKnowledgeString(item.name,240)
+      if (!/^FOLDER_[a-f0-9]{24}$/.test(item.folder_id)) throw new DomainApiError('SERVICE_ERROR','原目录响应无效。')
+    }
+    if (tree.children.some(item => !Number.isSafeInteger(item.count) || item.count < 1)) throw new DomainApiError('SERVICE_ERROR','原目录计数无效。')
+  }
   data.documents.forEach(validateKnowledgeDocument)
   if (new Set(data.documents.map(doc => doc.document_id)).size !== data.documents.length || (spaceId && data.documents.some(doc => doc.space_id !== spaceId)) || (lawCategory && data.documents.some(doc => doc.legal_metadata?.category !== lawCategory))) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
   return data

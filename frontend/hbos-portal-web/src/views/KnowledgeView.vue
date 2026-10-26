@@ -23,7 +23,9 @@
         <section class="kb-panel hbos-glass-g1">
           <form class="kb-list-toolbar catalog-filter" @submit.prevent="refreshCatalog"><label class="sr-only" for="catalog-query">查找标题或文号</label><a-input-search id="catalog-query" v-model:value="catalogQuery" placeholder="查找标题或文号" aria-label="查找标题或文号" @search="refreshCatalog" /><label class="sr-only" for="catalog-department">筛选部门</label><select id="catalog-department" v-model="selectedSpace" class="kb-scope-select"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select><template v-if="showLawFilter"><label class="sr-only" for="catalog-law-category">筛选公共法规类别</label><select id="catalog-law-category" v-model="lawCategory" class="kb-scope-select"><option value="">全部法规类别</option><option v-for="category in knowledgeLawCategories" :key="category" :value="category">{{ category }}</option></select></template></form>
           <div class="kb-list-caption catalog-heading"><span>{{ catalogLoading ? '更新中' : `${catalogTotal} 份资料` }}</span><span>下载待部门权限上线</span></div>
-          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" /><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small v-if="doc.legal_metadata" class="kb-law-meta">{{ doc.legal_metadata.category }} · {{ doc.legal_metadata.issuer || '发布机构待核' }}<a-tag :color="doc.legal_metadata.effective_status === '现行有效' ? 'green' : doc.legal_metadata.effective_status === '已废止' ? 'red' : 'orange'">效力{{ doc.legal_metadata.effective_status }}</a-tag></small><small>{{ doc.document_number || '文号待核' }} · {{ doc.department }} · {{ doc.version || '版本待核' }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-tooltip title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined /></a-button></a-tooltip></div></article></template></div>
+          <nav class="kb-source-breadcrumb" aria-label="资料原目录"><a-button type="link" size="small" @click="sourceFolder = 'SOURCE_ROOT'">全部原目录</a-button><template v-for="crumb in sourceDirectory?.breadcrumbs || []" :key="crumb.folder_id"><span aria-hidden="true"> / </span><a-button type="link" size="small" @click="sourceFolder = crumb.folder_id">{{ crumb.name }}</a-button></template></nav>
+          <div v-if="sourceDirectory?.children.length" class="kb-source-folders"><a-button v-for="folder in sourceDirectory.children" :key="folder.folder_id" @click="sourceFolder = folder.folder_id">{{ folder.name }}（{{ folder.count }}）</a-button></div>
+          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" /><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small v-for="(path, pathIndex) in doc.source_directories || []" :key="pathIndex" class="kb-muted">{{ path.join(' / ') }}</small><small v-if="doc.legal_metadata" class="kb-law-meta">{{ doc.legal_metadata.category }} · {{ doc.legal_metadata.issuer || '发布机构待核' }}<a-tag :color="doc.legal_metadata.effective_status === '现行有效' ? 'green' : doc.legal_metadata.effective_status === '已废止' ? 'red' : 'orange'">效力{{ doc.legal_metadata.effective_status }}</a-tag></small><small>{{ doc.document_number || '文号待核' }} · {{ doc.department }} · {{ doc.version || '版本待核' }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-tooltip title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined /></a-button></a-tooltip></div></article></template></div>
           <div class="kb-pagination"><a-pagination v-model:current="catalogPage" :page-size="catalogPageSize" :total="catalogTotal" :show-size-changer="false" :disabled="catalogLoading" :show-less-items="true" /></div>
         </section>
       </template>
@@ -123,6 +125,8 @@ const composerNotice = ref('')
 const catalog = ref<KnowledgeDocument[]>([])
 const catalogTotal = ref(0)
 const catalogQuery = ref('')
+const sourceFolder = ref('SOURCE_ROOT')
+const sourceDirectory = ref<import('@/contracts/p1').KnowledgeSourceDirectory | null>(null)
 const lawCategory = ref<import('@/contracts/p1').KnowledgeLawCategory | ''>('')
 const showLawFilter = computed(() => spaces.value.some(space => space.space_id === 'DEPT_PUBLIC_LAW') && (!selectedSpace.value || selectedSpace.value === 'DEPT_PUBLIC_LAW'))
 const legalDetailFields = [{ key: 'category', label: '法规类别' }, { key: 'level', label: '层级' }, { key: 'issuer', label: '发布机构' }, { key: 'published_date', label: '发布或修订日期' }, { key: 'region', label: '地区' }, { key: 'applicability', label: '适用范围' }, { key: 'effective_status', label: '现行有效状态' }] as const
@@ -152,6 +156,7 @@ watch(subjectKey, () => {
   selectedModel.value='gpt-6-luna';modelSaving.value=false;knowledgeOnly.value=false; status.value = null; statusLoading.value = false; statusError.value = ''; results.value = []; query.value = ''; composing.value = false
   searching.value = false; searchState.value = 'idle'; askBusy.value = false; hasConversation.value = false; composerNotice.value = ''; globalError.value = null; globalErrorCode.value = null
   savedContext.value = null; savedScopeNeedsSelection.value = false
+  sourceFolder.value = 'SOURCE_ROOT'; sourceDirectory.value = null
   spaces.value = []; catalog.value = []; catalogTotal.value = 0; selectedSpace.value = ''; catalogQuery.value = ''; lawCategory.value = ''; catalogPage.value = 1
   catalogLoading.value = false; catalogError.value = ''; pageError.value = null; pageErrorCode.value = null; hasSearched.value = false
   if (subjectKey.value) void refreshStatus()
@@ -167,7 +172,7 @@ watch([equipmentId, assetId, componentId], () => {
   searchGeneration++; drawer.close(false); results.value = []; hasSearched.value = false; searching.value = false; searchState.value = 'idle'
   tools.value?.newConversation(); pageError.value = null; pageErrorCode.value = null
 }, { flush: 'sync' })
-watch([catalogQuery, selectedSpace, lawCategory], () => {
+watch([catalogQuery, selectedSpace, lawCategory, sourceFolder], () => {
   catalogPage.value = 1; catalogGeneration++; catalog.value = []; catalogTotal.value = 0; catalogError.value = ''; catalogLoading.value = true
   if (catalogTimer) clearTimeout(catalogTimer)
   catalogTimer = setTimeout(() => { catalogTimer = null; void refreshCatalog() }, 200)
@@ -277,9 +282,9 @@ async function refreshCatalog() {
   const subject = subjectKey.value
   catalogLoading.value = true; catalogError.value = ''
   try {
-    const data = lawCategory.value ? await getKnowledgeDocumentsPage(catalogQuery.value, selectedSpace.value, catalogPage.value, catalogPageSize, lawCategory.value) : await getKnowledgeDocumentsPage(catalogQuery.value, selectedSpace.value, catalogPage.value, catalogPageSize)
+    const data = await getKnowledgeDocumentsPage(catalogQuery.value, selectedSpace.value, catalogPage.value, catalogPageSize, lawCategory.value || undefined, sourceFolder.value)
     if (generation !== catalogGeneration || subject !== subjectKey.value) return
-    catalog.value = data.documents; catalogTotal.value = data.total
+    sourceDirectory.value = data.source_directory || null; catalog.value = data.documents; catalogTotal.value = data.total
     const lastPage = Math.max(1, Math.ceil(data.total / catalogPageSize))
     if (catalogPage.value > lastPage) catalogPage.value = lastPage
   } catch (error) {
@@ -319,3 +324,7 @@ async function refreshStatus() {
 watch(() => props.sessionRevision, () => { void refreshStatus() })
 onMounted(refreshStatus)
 </script>
+
+<style scoped>
+.kb-source-breadcrumb{display:flex;flex-wrap:wrap;align-items:center;margin:8px 0}.kb-source-folders{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 16px}.kb-source-folders button{height:auto;white-space:normal;text-align:left;max-width:100%}
+</style>

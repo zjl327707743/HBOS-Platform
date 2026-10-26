@@ -21,12 +21,12 @@ the override matched the current lock byte for byte.
   python3 work/deploy/candidate/preflight.py --fault mount-missing
 """
 from __future__ import annotations
-import argparse, hashlib, json, pathlib, subprocess, sys
+import argparse, hashlib, json, os, pathlib, subprocess, sys
 
-HERE = pathlib.Path(__file__).resolve().parent
+HERE = pathlib.Path(os.environ.get('HBOS_DEPLOY_STATE_DIR') or pathlib.Path(__file__).resolve().parent)
 DEFAULT_LOCK = HERE / 'DEPLOY_LOCK_CURRENT.json'
 # The task root: <root>/work/deploy/candidate
-ROOT = HERE.parents[2]
+ROOT = pathlib.Path(os.environ.get('HBOS_KNOWLEDGE_TASK_ROOT') or HERE.parents[2])
 REQUIRED_ENV = {
     'bff': ('HBOS_KNOWLEDGE_REFERENCE_CONFIG', 'HBOS_MODEL_EGRESS_CONFIG', 'HBOS_MODEL_EGRESS_REQUIRED'),
     'service': ('HBOS_KNOWLEDGE_SERVICE_CONFIG', 'HBOS_MODEL_EGRESS_CONFIG', 'HBOS_MODEL_REGISTRY',
@@ -118,7 +118,7 @@ def docker_image_id(reference):
 
 
 def compose(manifest, *args):
-    cmd = ['docker', 'compose', '-p', manifest['project']]
+    cmd = ['docker', 'compose', '--project-directory', manifest['working_dir'], '-p', manifest['project']]
     for f in manifest['compose_files']:
         cmd += ['-f', f]
     cmd += list(args)

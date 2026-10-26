@@ -67,8 +67,8 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     session.user = { id: 'USER_N1_OTHER' }; await flushPromises(); pending.resolve({ ...answer, answer: 'OLD_USER_PRIVATE' }); await flushPromises(); expect(w.text()).not.toContain('OLD_USER_PRIVATE'); expect(w.get('#knowledge-query').element).toHaveProperty('value', '')
   })
   it('reads catalog pages from the server without model calls and resets filters to page one', async () => {
-    const w = await view(); await clickText(w,'资料目录'); await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 4)
-    vi.useFakeTimers(); await w.get('#catalog-query').setValue('合成标题'); await vi.advanceTimersByTimeAsync(200); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('合成标题', '', 1, 4); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
+    const w = await view(); await clickText(w,'资料目录'); await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 4, undefined, 'SOURCE_ROOT')
+    vi.useFakeTimers(); await w.get('#catalog-query').setValue('合成标题'); await vi.advanceTimersByTimeAsync(200); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('合成标题', '', 1, 4, undefined, 'SOURCE_ROOT'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
   })
   it.each(['department', 'filter'])('catalog %s changes show pending state through debounce and only show empty after completion', async change => {
     const w = await view(); await clickText(w,'资料目录'); const pending = deferred(); api.documents.mockReturnValueOnce(pending.promise); vi.useFakeTimers()
@@ -256,11 +256,11 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     const law = { ...doc, document_id: 'DOC_LAW_SYNTHETIC', space_id: 'DEPT_PUBLIC_LAW', title: '合成法规', legal_metadata: { category: '国家法律法规', level: null, issuer: null, published_date: null, region: null, applicability: null, effective_status: '待核' } }
     api.documents.mockImplementation((_q: string, space: string, page: number, size: number) => Promise.resolve({ documents: space === 'SPACE_N1_DEMO' ? [doc] : [law], total: 25, page, page_size: size }))
     const w = await view(); await clickText(w, '资料目录'); expect(w.text()).toContain('效力待核'); expect(w.text()).toContain('发布机构待核')
-    await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 4)
+    await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 4, undefined, 'SOURCE_ROOT')
     vi.useFakeTimers(); await w.get('#catalog-law-category').setValue('国家法律法规'); await vi.advanceTimersByTimeAsync(200); await flushPromises()
-    expect(api.documents).toHaveBeenLastCalledWith('', '', 1, 4, '国家法律法规'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
+    expect(api.documents).toHaveBeenLastCalledWith('', '', 1, 4, '国家法律法规', 'SOURCE_ROOT'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
     await w.get('#catalog-department').setValue('SPACE_N1_DEMO'); await vi.advanceTimersByTimeAsync(200); await flushPromises()
-    expect(w.find('#catalog-law-category').exists()).toBe(false); expect(api.documents).toHaveBeenLastCalledWith('', 'SPACE_N1_DEMO', 1, 4)
+    expect(w.find('#catalog-law-category').exists()).toBe(false); expect(api.documents).toHaveBeenLastCalledWith('', 'SPACE_N1_DEMO', 1, 4, undefined, 'SOURCE_ROOT')
   })
 
   it('UAT5 restores an authorized answer after route, mode and department props settle without generation', async () => {

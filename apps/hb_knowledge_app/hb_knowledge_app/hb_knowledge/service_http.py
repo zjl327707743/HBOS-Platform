@@ -58,6 +58,9 @@ class SignedHttp:
             with requests.Session() as session:
                 session.trust_env = False
                 headers=sign(self.key,self.caller,path,origin,body)
+                request_id=payload.get('request_id') if isinstance(payload,dict) else None
+                if isinstance(request_id,str) and __import__('re').fullmatch(r'[A-Za-z0-9_-]{1,128}',request_id):
+                    headers['X-HBOS-Request-ID']=request_id
                 if getattr(self,'site',None): headers['X-Frappe-Site-Name']=self.site
                 with session.post(self.url+path, data=body,
                      headers=headers,timeout=(2,getattr(self,"read_timeout",6)),stream=True,

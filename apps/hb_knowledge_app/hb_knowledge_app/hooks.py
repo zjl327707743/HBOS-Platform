@@ -5,7 +5,8 @@ app_description = "Controlled knowledge access and evidence delivery"
 app_email = "admin@example.com"
 app_license = "MIT"
 required_apps = ["frappe", "hbos_portal"]
-before_request = ["hb_knowledge_app.hb_knowledge.frappe_factory.setup_request"]
+before_request = ["hb_knowledge_app.hb_knowledge.request_profile.begin", "hb_knowledge_app.hb_knowledge.frappe_factory.setup_request"]
+after_request = ["hb_knowledge_app.hb_knowledge.request_profile.finish"]
 after_migrate = ["hb_knowledge_app.hb_knowledge.k1c2_migration.add_indexes"]
 
 hbos_portal_provider = [
