@@ -235,9 +235,12 @@ def _pilot_users(value: object, *, allow_administrator: bool = False) -> tuple[s
 
 def require_pilot_user(settings: FeishuSettings, user: str) -> None:
     """Apply live target-account policy to login and every binding write path."""
+    # Outside pilot mode, the existing require_user(external=True) guard
+    # remains authoritative for the separately approved Administrator path.
+    if not settings.pilot_mode:
+        return
     allowed = user != "Administrator" or settings.allow_administrator_link
-    if settings.pilot_mode:
-        allowed = allowed and user in _pilot_users(settings.pilot_users, allow_administrator=settings.allow_administrator_link)
+    allowed = allowed and user in _pilot_users(settings.pilot_users, allow_administrator=settings.allow_administrator_link)
     if not allowed:
         raise FeishuLoginError("member_scope_denied", "当前账号不在本次飞书试点范围内，请联系系统管理员。")
 

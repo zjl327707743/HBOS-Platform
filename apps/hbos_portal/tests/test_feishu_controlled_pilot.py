@@ -113,7 +113,7 @@ class ControlledPilotTest(unittest.TestCase):
         permitted = settings(auto_provision_internal=False, pilot_mode=True, pilot_users=('Administrator',), allow_administrator_link=True)
         self.assertTrue(permitted.configured)
         require_pilot_user(permitted, 'Administrator')
-        for policy in [settings(pilot_mode=True, pilot_users=(PILOT,), allow_administrator_link=True), settings(pilot_users=('Administrator',))]:
+        for policy in [settings(pilot_mode=True, pilot_users=(PILOT,), allow_administrator_link=True), settings(pilot_mode=True,pilot_users=('Administrator',))]:
             with self.assertRaises(FeishuLoginError): require_pilot_user(policy, 'Administrator')
         with self.assertRaises(FeishuLoginError): require_pilot_user(permitted, PILOT)
 
@@ -129,3 +129,10 @@ class ControlledPilotTest(unittest.TestCase):
              patch.object(feishu.frappe,'AuthenticationError',PermissionError,create=True),patch.object(feishu.frappe,'throw',side_effect=PermissionError,create=True):
             with self.assertRaises(PermissionError):feishu.start_link()
             issue.assert_not_called()
+
+    def test_nonpilot_binding_still_uses_original_external_account_gate(self):
+        policy=settings(pilot_mode=False,allow_administrator_link=False)
+        require_pilot_user(policy,'Administrator')
+        with patch.object(accounts,'require_user',side_effect=PermissionError) as gate:
+            with self.assertRaises(PermissionError): accounts.bind_identity(policy,IDENTITY,'Administrator')
+            gate.assert_called_once_with('Administrator',external=True)
