@@ -1,5 +1,5 @@
 <template>
-  <main class="account-page" :class="{ 'account-r5': variant, 'account-login': variant === 'login' }" :style="variant === 'login' ? loginBackgroundStyle : undefined">
+  <main class="account-page" :class="{ 'account-r5': variant === 'r5' || variant === 'login', 'account-login': variant === 'login', 'has-login-background': variant === 'login' && Boolean(loginBackgroundStyle) }" :style="variant === 'login' ? loginBackgroundStyle : undefined">
     <div v-if="variant === 'login'" class="account-login-main">
       <section class="account-story" aria-labelledby="login-story-title">
         <RouterLink class="account-brand" to="/hbos" aria-label="HBOS 工作台"><span class="brand-mark" aria-hidden="true">H</span><span><strong class="brand-name">HBOS</strong><small class="brand-caption">新乡海滨药业 · 智能运营工作台</small></span></RouterLink>
@@ -24,8 +24,9 @@
 <script setup lang="ts">
 import { SafetyCertificateOutlined } from '@ant-design/icons-vue'
 // UAT may serve the Owner asset privately; the normal bundle has no external image dependency.
-const loginBackgroundStyle = import.meta.env.VITE_LOGIN_BACKGROUND_URL === '/assets/hbos_portal/portal/hbos-login-background.webp'
-  ? { '--account-login-background': "url('/assets/hbos_portal/portal/hbos-login-background.webp')" } : undefined
+const loginBackgroundUrl = import.meta.env.VITE_LOGIN_BACKGROUND_URL || ''
+const loginBackgroundStyle = /^\/assets\/hbos_portal\/portal\/[A-Za-z0-9_-][A-Za-z0-9._/-]*\.(webp|avif|png|jpe?g)$/i.test(loginBackgroundUrl) && !loginBackgroundUrl.includes('..')
+  ? { '--account-login-background': `url("${loginBackgroundUrl}")` } : undefined
 defineProps<{ title: string; description?: string; eyebrow?: string; wide?: boolean; variant?: 'login' | 'r5' }>()
 </script>
 <style src="@/theme/account.css"></style>

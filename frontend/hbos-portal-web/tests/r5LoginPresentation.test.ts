@@ -12,16 +12,16 @@ vi.mock('@/services/frappeClient', async original => ({ ...await original<typeof
 vi.mock('@/services/portalSessionCoordinator', () => ({ ensurePortalSession: mocks.ensure, resetPortalSession: mocks.reset, signOutPortalSession: mocks.logout }))
 vi.mock('@/stores/portal', () => ({ usePortalStore: () => ({ clearSession: mocks.clear }) }))
 let wrappers: VueWrapper[] = []
-async function render(component: object = Login) {
+async function render(component: object = Login, props: Record<string, unknown> = {}) {
  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: defineComponent({ template: '<div />' }) }] })
  await router.push('/hbos/login'); await router.isReady()
- const wrapper = mount(component, { attachTo: document.body, props: component === AccountLayout ? { title: '账号恢复' } : {}, global: { plugins: [Antd, router] } })
+ const wrapper = mount(component, { attachTo: document.body, props: component === AccountLayout ? { title: '账号恢复', ...props } : {}, slots: component === AccountLayout ? { version: '测试候选' } : {}, global: { plugins: [Antd, router] } })
  wrappers.push(wrapper); await flushPromises(); return { wrapper, router }
 }
 async function click(w: VueWrapper, text: string) { await w.findAll('button').find(b => b.text().includes(text))!.trigger('click'); await flushPromises() }
 async function submit(w: VueWrapper) { await w.find('#hbos-username').setValue('synthetic'); await w.find('#hbos-password').setValue('synthetic-password'); await w.find('form').trigger('submit'); await flushPromises() }
 beforeEach(() => { vi.resetAllMocks(); mocks.status.mockResolvedValue({ configured: false }); mocks.login.mockResolvedValue({ message: 'Logged In' }); mocks.ensure.mockResolvedValue({}); mocks.logout.mockResolvedValue(undefined) })
-afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; document.body.innerHTML = '' })
+afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; document.body.innerHTML = ''; vi.unstubAllEnvs() })
 it('configured login has one primary method group; fallback opens and focuses the real form', async () => {
  mocks.status.mockResolvedValue({ configured: true }); const { wrapper } = await render()
  expect(wrapper.find('form').exists()).toBe(false)
@@ -94,4 +94,33 @@ it('confirmed exit on the same signed_out URL restores its notice and Feishu-fir
  await click(wrapper, '使用账号密码'); await submit(wrapper); expect(wrapper.text()).not.toContain('已安全退出当前账号')
  await click(wrapper, '退出并换一个账号'); expect(wrapper.text()).toContain('已安全退出当前账号')
  expect(wrapper.find('form').exists()).toBe(false); expect(wrapper.find('.ant-btn-primary').text()).toContain('使用飞书登录')
+})
+
+it('password entry remains available before the login-method request settles', async () => {
+ let finish!: (value: unknown) => void; mocks.status.mockImplementationOnce(() => new Promise(r => { finish = r }))
+ const { wrapper } = await render(); expect(wrapper.text()).toContain('正在读取')
+ await click(wrapper, '使用账号密码'); await wrapper.find('#hbos-username').setValue('synthetic-draft')
+ expect(document.activeElement?.id).toBe('hbos-username')
+ finish({ configured: true }); await flushPromises()
+ expect((wrapper.find('#hbos-username').element as HTMLInputElement).value).toBe('synthetic-draft')
+})
+it('a navigation rejection after server logout still clears identity and confirms logout', async () => {
+ mocks.ensure.mockRejectedValue(new Error('read failed')); const { wrapper, router } = await render(); await submit(wrapper)
+ vi.spyOn(router, 'replace').mockRejectedValueOnce(new Error('navigation unavailable'))
+ await click(wrapper, '退出并换一个账号')
+ expect(wrapper.text()).toContain('已安全退出当前账号'); expect(wrapper.text()).not.toContain('退出尚未确认')
+ expect((wrapper.find('#hbos-username').element as HTMLInputElement).value).toBe('')
+ expect(mocks.logout).toHaveBeenCalledTimes(1)
+})
+it.each([['', false], ['/assets/hbos_portal/portal/brand-v2.webp', true], ['https://example.test/image.webp', false], ['/assets/hbos_portal/portal/../secret.png', false]])('login layout applies only approved same-origin asset path %s', async (url, expected) => {
+ vi.stubEnv('VITE_LOGIN_BACKGROUND_URL', url)
+ const { wrapper } = await render(AccountLayout, { variant: 'login', wide: true })
+ expect(wrapper.find('.has-login-background').exists()).toBe(expected)
+ expect(wrapper.find('h1').text()).toBe('欢迎使用 HBOS'); expect(wrapper.find('#login-card-title').element.tagName).toBe('H2')
+ expect(wrapper.find('.login-foot').text()).toContain('测试候选'); expect(wrapper.find('.account-card-wide').exists()).toBe(false)
+})
+it('the security variant keeps its own single-card heading', async () => {
+ const { wrapper } = await render(AccountLayout, { variant: 'r5' })
+ expect(wrapper.find('.account-r5').exists()).toBe(true); expect(wrapper.find('.account-login-main').exists()).toBe(false)
+ expect(wrapper.find('h1').text()).toBe('账号恢复')
 })
