@@ -2,9 +2,9 @@
   <AccountLayout variant="login" title="登录 HBOS" eyebrow="欢迎回来" description="新乡海滨药业 · 企业成员专用">
     <a-alert v-if="callbackMessage" id="login-feedback" :type="callbackTone" show-icon :message="callbackMessage" role="alert" />
     <template v-if="authenticated">
-      <a-alert :message="submitting ? '登录已完成，正在加载工作台…' : '登录已完成，工作台暂未加载。请重试加载，无需再次输入密码。'" type="info" show-icon role="status" />
+      <a-alert :message="exiting ? '正在退出当前账号，请稍候…' : submitting ? '登录已完成，正在加载工作台…' : '登录已完成，工作台暂未加载。请重试加载，无需再次输入密码。'" type="info" show-icon role="status" />
       <a-button v-if="!submitting" size="large" type="primary" block @click="resumeWorkspace">重试加载工作台</a-button>
-      <a-button size="large" block :loading="submitting" @click="exitCurrentAccount">退出并换一个账号</a-button>
+      <a-button size="large" block :loading="exiting" :disabled="submitting && !exiting" @click="exitCurrentAccount">退出并换一个账号</a-button>
     </template>
     <template v-else>
       <div v-if="loading" role="status" aria-live="polite"><a-skeleton active :paragraph="{ rows: 1 }" /><p class="account-meta">正在读取可用的登录方式…</p></div>
@@ -13,11 +13,11 @@
           <a-button size="large" :type="showPassword ? 'default' : 'primary'" block :disabled="submitting" @click="beginFeishuLogin"><MessageOutlined />使用飞书登录</a-button>
           <p class="account-meta">在飞书 App 或网页版中确认本人身份后继续。</p>
           <div class="account-divider"><span>或</span></div>
-          <a-button v-if="!showPassword" size="large" block aria-controls="password-login-form" :aria-expanded="showPassword" @click="revealPassword"><KeyOutlined />使用账号密码登录</a-button>
+          <a-button v-if="!showPassword" size="large" block @click="revealPassword"><KeyOutlined />使用账号密码登录</a-button>
         </template>
         <a-alert v-else-if="statusError" :message="statusError" description="账号密码仍可使用；重试成功前不会启用飞书入口。" type="warning" show-icon role="alert" />
-        <a-alert v-else message="飞书登录暂时不可用。" description="您仍可使用已有账号密码，账号、权限和资料不受影响。" type="info" show-icon role="status" />
-        <a-button v-if="statusError" class="status-retry" :disabled="submitting" @click="loadStatus">重试读取登录方式</a-button>
+        <a-alert v-else message="飞书登录暂时不可用。" description="已设置密码的账号仍可登录，账号、权限和资料不受影响。" type="info" show-icon role="status" />
+        <a-button v-if="statusError" class="status-retry" :disabled="submitting" @click="retryLoginStatus">重试读取登录方式</a-button>
       </template>
       <a-form v-if="showPassword" id="password-login-form" class="account-form" layout="vertical" :aria-describedby="callbackMessage ? 'login-feedback' : undefined" @submit.prevent="submitAccountLogin" @keydown.enter="guardComposition">
         <a-form-item label="账号" html-for="hbos-username"><a-input id="hbos-username" v-model:value="username" size="large" autocomplete="username" placeholder="请输入登录名" :disabled="submitting" /></a-form-item>
@@ -47,15 +47,17 @@ const loading = ref(true), submitting = ref(false), authenticated = ref(false), 
 const username = ref(''), password = ref(''), otp = ref(''), tmpId = ref('')
 const candidateLabel = import.meta.env.VITE_ACCOUNT_PREVIEW_LABEL || ''
 const callbackConsumed = ref(false)
-const passwordExpanded = ref(false)
+const passwordExpanded = ref(false), exiting = ref(false)
+function retryLoginStatus() { if (showPassword.value) passwordExpanded.value = true; void loadStatus() }
 const showPassword = computed(() => passwordExpanded.value || (!loading.value && (!status.value?.configured || Boolean(statusError.value))) || Boolean(tmpId.value))
 async function revealPassword() { passwordExpanded.value = true; await nextTick(); document.getElementById('hbos-username')?.focus() }
 async function exitCurrentAccount() {
  if (submitting.value) return
- submitting.value = true; error.value = ''
- try { await signOutPortalSession(); if (!disposed) { authenticated.value = false; cancelMfa(); username.value = ''; await router.replace({ path: '/hbos/login', query: { status: 'signed_out' } }) } }
+ submitting.value = true; exiting.value = true; error.value = ''
+ const redirect = accountRedirect(route.query.redirect_to)
+ try { await signOutPortalSession(); if (!disposed) { authenticated.value = false; cancelMfa(); username.value = ''; await router.replace({ path: '/hbos/login', query: { status: 'signed_out', redirect_to: redirect } }) } }
  catch (e) { if (!disposed) error.value = e instanceof Error ? e.message : '服务端退出尚未确认，请重试退出。' }
- finally { if (!disposed) submitting.value = false }
+ finally { if (!disposed) { submitting.value = false; exiting.value = false } }
 }
 let disposed = false
 const statusMessages: Record<string,string> = {

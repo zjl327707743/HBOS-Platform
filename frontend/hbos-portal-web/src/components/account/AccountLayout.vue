@@ -9,7 +9,7 @@
         <ul class="story-points">
           <li><SafetyCertificateOutlined aria-hidden="true" /><span><b>用飞书识别本人</b><span>在飞书里确认一次，进入与本人绑定的账号。</span></span></li>
           <li><HistoryOutlined aria-hidden="true" /><span><b>回到原来的页面</b><span>从应用或待办打开时，登录后仍回到该页面。</span></span></li>
-          <li><LockOutlined aria-hidden="true" /><span><b>密码作为备用</b><span>飞书暂不可用时，已开通的账号可改用密码登录。</span></span></li>
+          <li><LockOutlined aria-hidden="true" /><span><b>密码作为备用</b><span>飞书暂不可用时，已设置密码的账号可改用密码登录。</span></span></li>
         </ul>
         <p class="identity-note"><InfoCircleOutlined aria-hidden="true" /><span><strong>一个身份，一个账号。</strong>已有 HBOS 账号的同事，可在“账号与安全”验证本人后绑定飞书，密码、角色与资料保持不变。</span></p>
       </section>
