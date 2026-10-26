@@ -42,9 +42,18 @@ def _write(cache_dir, key, *, built_on: date, stale_in: float, value: dict):
     )
 
 
+def _board_value(rows: list[dict]) -> dict:
+    """一份**形状真实**的 board 缓存 —— `rows` 是列表、`anomaly` 是 dict。
+
+    形状不对的会被 `_restore` 的 `_plausible` 校验挡掉（那正是要测的），
+    所以这里不能用 `{"rows": [...]}` 这种简化结构。
+    """
+    return {"rows": rows, "anomaly": {"byWorkshop": [], "windowStart": "2026-10-01"}}
+
+
 def test_fresh_cache_from_today_is_restored(cache_dir):
     _write(cache_dir, "board", built_on=date.today(), stale_in=3600,
-           value={"rows": [{"label": "4BMA", "done": 36}]})
+           value=_board_value([{"label": "4BMA", "done": 36}]))
     main._restore("board")
     assert "board" in main._CACHE
     assert main._CACHE["board"]["value"]["rows"][0]["done"] == 36
@@ -56,7 +65,7 @@ def test_expired_but_same_day_cache_is_still_restored(cache_dir):
     丢掉它就等于冷启动，用户要等 100 秒；而那份数据只是旧了几小时。
     """
     _write(cache_dir, "board", built_on=date.today(), stale_in=-3600,
-           value={"rows": [{"label": "old"}]})
+           value=_board_value([{"label": "old"}]))
     main._restore("board")
     assert "board" in main._CACHE, "当天过期缓存应当恢复，靠 _cached 后台刷新"
 
@@ -71,7 +80,7 @@ def test_yesterdays_cache_is_restored_so_cross_day_is_fast(cache_dir):
     `dataAsOf` 不是今天就自动重取一次。
     """
     _write(cache_dir, "board", built_on=date.today() - timedelta(days=1),
-           stale_in=-99999, value={"rows": [{"label": "yesterday"}]})
+           stale_in=-99999, value=_board_value([{"label": "yesterday"}]))
     main._restore("board")
     assert "board" in main._CACHE
     # built_on 必须原样保留 —— `_cached` 靠它判断「跨天了，该刷新」
@@ -93,7 +102,7 @@ def test_corrupt_file_is_ignored_not_raised(cache_dir):
 def test_persist_writes_atomically(cache_dir):
     """落盘走临时文件 + 原子替换，避免读到写了一半的内容。"""
     main._CACHE["board"] = {
-        "value": {"rows": []},
+        "value": _board_value([]),
         "stale_at": time.time() + 60,
         "built_at": time.time(),
         "built_on": date.today(),

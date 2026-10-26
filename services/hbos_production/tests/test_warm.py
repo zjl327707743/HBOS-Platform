@@ -77,8 +77,10 @@ def test_direct_mode_persists_synchronously(monkeypatch, cache_dir):
         "_board_data",
         lambda today: {
             "rows": [{"label": "4BMA", "done": 36}],
-            "anomaly": {"closed": 1, "total": 2},
-            "quality": {"rate": 1.0, "tested": 10},
+            # 形状要真实 —— `_persist` 会过 `_plausible` 校验，缺 byWorkshop / byLabel
+            # 会被判成结构异常而不落盘（那正是这道校验要挡的东西）
+            "anomaly": {"byWorkshop": [], "windowStart": "2026-10-01", "closed": 1, "total": 2},
+            "quality": {"byLabel": [], "rate": 1.0, "tested": 10},
         },
     )
     assert warm._warm_direct() is True

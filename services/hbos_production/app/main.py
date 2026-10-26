@@ -107,6 +107,10 @@ def _persist(key: str) -> None:
         hit = _CACHE.get(key)
     if hit is None:
         return
+    # 形状不对就别落盘 —— 写进去下次启动会读回来，白屏就是这么来的
+    if not _plausible(key, hit["value"]):
+        log.warning("缓存 %s 结构异常，不落盘", key)
+        return
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
@@ -128,6 +132,31 @@ def _persist(key: str) -> None:
         log.warning("缓存落盘失败 %s：%s", key, str(exc)[:100])
 
 
+def _plausible(key: str, value) -> bool:
+    """落盘/恢复前的**结构校验** —— 缓存文件里可能是任何东西。
+
+    踩过（2026-10-26）：测试造的假数据 `{"rows": [], "anomaly": {}}` 被写进了
+    `.cache/board.json`。服务启动时 `_restore()` 照单全收，于是：
+      - `rows` 空数组 → 看板 0 个产品
+      - `anomaly` 是 `{}` → 前端 `anomaly.windowStart.slice(0,7)` 抛异常
+        → 整页卡在「正在取生产数据」，**重启也不恢复**（缓存从磁盘读回来）
+    排查方向被带偏很久 —— 它看起来完全是服务的问题。
+
+    所以：形状不对就当没有缓存，重新取一次。宁可慢 100 秒，不要白屏。
+    """
+    if not isinstance(value, dict):
+        return False
+    if key == "board":
+        return isinstance(value.get("rows"), list) and isinstance(
+            value.get("anomaly"), dict
+        )
+    if key == "quality":
+        return isinstance(value.get("byLabel"), list)
+    if key == "ai":
+        return isinstance(value, list)
+    return True
+
+
 def _restore(*keys: str) -> None:
     """服务启动时把磁盘上的缓存读回内存 —— **跨天的也恢复**。
 
@@ -142,6 +171,8 @@ def _restore(*keys: str) -> None:
 
     不恢复的话，跨天第一次访问要走「冷启动同步拉」，实测 100 秒 ——
     那正是这套落盘要解决的问题。
+
+    ⚠️ 恢复前走 `_plausible()` 校验结构 —— 形状不对就当没有（见那里的说明）。
     """
     for key in keys:
         path = _cache_path(key)
@@ -150,6 +181,9 @@ def _restore(*keys: str) -> None:
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
             built_on = date.fromisoformat(raw["built_on"]) if raw.get("built_on") else None
+            if not _plausible(key, raw.get("value")):
+                log.warning("缓存 %s 结构异常，丢弃并重取", key)
+                continue
             with _CACHE_LOCK:
                 _CACHE[key] = {
                     "value": raw["value"],

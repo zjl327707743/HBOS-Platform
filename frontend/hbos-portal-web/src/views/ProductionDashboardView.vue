@@ -214,7 +214,7 @@
                 </div>
                 <div class="pb-foot-note">
                   <b>闭环 = <code>事件原因</code> 非空</b>（全车间统一口径）。<br>
-                  <b>窗口</b>：只看<b>当月</b>（{{ anomaly.windowStart.slice(0, 7) }}）—— 月初样本少，
+                  <b>窗口</b>：只看<b>当月</b>（{{ anomaly.windowStart?.slice(0, 7) || monthLabel(board.month) }}）—— 月初样本少，
                   显示 <code>—</code> 或 0%/100% 都属正常。
                   <template v-if="anomaly.undated > 0">
                     <br><b>{{ anomaly.undated }} 条</b>记录没有日期，未计入。
@@ -250,6 +250,12 @@
             <span class="pb-grade lack">数据不足 {{ aiCounts.lack }}</span>
             <span class="pb-grade ok">已达标 {{ aiCounts.ok }}</span>
             <span class="pb-dim">按严重度排序 · 数据不足＝台账缺参数，AI 不臆测</span>
+            <!-- 用法提示放**表头上方**：原先塞在面板最底下的脚注里，
+                 要先滚过 12 行才看得到 —— 等于没有（Owner 反馈）。 -->
+            <span class="pb-ai-hint">
+              <ThunderboltOutlined />
+              点<b>工序名</b>看完整报告：参数影响、改进建议与依据
+            </span>
           </div>
           <div class="pb-tbl-wrap pb-ai-scroll" :class="{ 'is-open': aiShowAll }">
             <table class="pb-tbl">
@@ -279,8 +285,7 @@
             </button>
           </div>
           <div class="pb-foot-note">
-            结果表 <code>AI工艺分析结果</code> · 每天 16:30 自动生成 · 按工序幂等覆盖，不追加。<br>
-            点<b>工序名</b>看完整报告（参数影响、改进建议与依据）。
+            结果表 <code>AI工艺分析结果</code> · 每天 16:30 自动生成 · 按工序幂等覆盖，不追加。
           </div>
         </template>
       </section>
@@ -303,11 +308,18 @@
         <div v-else class="pb-report">
           <div v-for="(blk, i) in reportBlocks" :key="i">
             <h3 v-if="blk.type === 'h'">{{ blk.text }}</h3>
-            <p v-else-if="blk.type === 'p'">{{ blk.text }}</p>
+            <p v-else-if="blk.type === 'p'"><InlineText :spans="blk.spans" /></p>
             <ul v-else-if="blk.type === 'ul'">
-              <li v-for="(li, j) in blk.items" :key="j">{{ li }}</li>
+              <li v-for="(li, j) in blk.items" :key="j"><InlineText :spans="li" /></li>
             </ul>
-            <p v-else class="pb-report-sug">{{ blk.text }}</p>
+            <p
+              v-else
+              class="pb-report-sug"
+              :class="blk.priority ? `is-${priorityClass(blk.priority)}` : 'is-sub'"
+            >
+              <span v-if="blk.priority" class="pb-sug-tag">{{ blk.priority }}</span>
+              <InlineText :spans="blk.spans" />
+            </p>
           </div>
         </div>
       </a-modal>
@@ -321,6 +333,7 @@ import { useRoute } from 'vue-router'
 import { ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { PRODUCTION_CENTER_PATH } from '@/data/productionNav'
 import { parseReport } from '@/services/reportMarkdown'
+import InlineText from '@/components/production/InlineText.vue'
 import {
   fetchProductionBoard,
   fetchAiAnalysis,
@@ -337,7 +350,16 @@ const isCenter = computed(() => route.path === PRODUCTION_CENTER_PATH)
 const phase = ref<'loading' | 'unavailable' | 'ready'>('loading')
 const board = ref<ProductionBoardData | null>(null)
 const aiRows = ref<AiAnalysisRow[]>([])
-const anomaly = computed(() => board.value?.anomaly ?? null)
+/**
+ * 异常汇总。**形状不对就当没有** —— 服务端缓存里可能是一份结构异常的旧数据
+ * （实测：测试造的 `{}` 被落盘，`windowStart.slice` 抛异常导致整页白屏）。
+ * 宁可显示「异常数据暂不可用」，也不要整页卡在加载态。
+ */
+const anomaly = computed(() => {
+  const a = board.value?.anomaly
+  if (!a || !Array.isArray(a.byWorkshop) || !a.windowStart) return null
+  return a
+})
 const aiLoading = ref(false)
 
 // --- AI 工艺分析面板：排序 + 计数 + 折叠 ---
@@ -345,12 +367,26 @@ const aiLoading = ref(false)
 const AI_PREVIEW = 12
 const aiShowAll = ref(false)
 
-/** 评级严重度：未达标最前，已达标最后（先看该处理的）。 */
+/**
+ * 排序：**评级严重度优先，同级内按分析日期倒序**（新的在前）。
+ *
+ * 只按评级排的话，同级里先谁后谁是不确定的（依赖接口返回顺序），
+ * 重新分析过的行不会「浮」到前面 —— 用户看不出这次跑的新结论是哪几条。
+ * 加一级按日期的稳定排序，最新分析的排前；日期相同再按产品/工序名定序，
+ * 保证每次打开顺序一致（否则同一批数据两次打开顺序不同，像是数据在变）。
+ */
 const GRADE_RANK: Record<string, number> = { 未达标: 0, 部分达到: 1, 数据不足: 2, 已达标: 3 }
 const sortedAiRows = computed(() =>
-  [...aiRows.value].sort(
-    (a, b) => (GRADE_RANK[a.grade] ?? 9) - (GRADE_RANK[b.grade] ?? 9),
-  ),
+  [...aiRows.value].sort((a, b) => {
+    const byGrade = (GRADE_RANK[a.grade] ?? 9) - (GRADE_RANK[b.grade] ?? 9)
+    if (byGrade !== 0) return byGrade
+    // 日期是 `YYYY-MM-DD`（或 null）—— 字符串倒序比较即可
+    const byDate = (b.analyzedAt || '').localeCompare(a.analyzedAt || '')
+    if (byDate !== 0) return byDate
+    // 最后按名字定序，保证顺序稳定（Array.sort 在 V8 里虽已稳定，
+    // 但显式定序能让「改了评级会不会换位置」这类行为可预期）
+    return `${a.product}${a.process}`.localeCompare(`${b.product}${b.process}`)
+  }),
 )
 const visibleAiRows = computed(() =>
   aiShowAll.value ? sortedAiRows.value : sortedAiRows.value.slice(0, AI_PREVIEW),
@@ -392,6 +428,11 @@ async function openReport(row: AiAnalysisRow) {
  * 模型输出里若混入 HTML 标签也只会显示成文字。
  */
 const reportBlocks = computed(() => parseReport(reportText.value))
+
+/** 建议优先级 → 样式档。与 `parse.PRIORITIES`（高/中/低）对应。 */
+function priorityClass(p: string): string {
+  return p === '高' ? 'high' : p === '低' ? 'low' : 'mid'
+}
 
 const monthLabel = (m: string) => {
   const [y, mo] = m.split('-')
@@ -679,9 +720,28 @@ watch(isCenter, (now) => {
 .pb-report li { margin-bottom: 4px; }
 /* 改进建议段：与正文区分开，扫读时能一眼找到 */
 .pb-report-sug {
-  margin: 0 0 6px; padding: 5px 10px; border-radius: 8px;
+  margin: 0 0 6px; padding: 6px 10px; border-radius: 8px;
   background: rgba(108,99,255,.05); border-left: 2px solid rgba(108,99,255,.45);
 }
+/* 从属行（依据 / 预期）不重复左侧色条，缩进一点表示归属上面那条建议 */
+.pb-report-sug.is-sub {
+  margin-top: -2px; margin-left: 10px; background: none;
+  border-left: 1px dashed rgba(65,91,138,.18); font-size: 12.5px;
+  color: var(--hbos-text-muted);
+}
+.pb-report-sug.is-high { border-left-color: #e2605f; }
+.pb-report-sug.is-mid { border-left-color: #e09b34; }
+.pb-report-sug.is-low { border-left-color: #42b9d1; }
+/* 优先级标记：原来是正文里的 `**[高]**`，现在是独立色块 */
+.pb-sug-tag {
+  display: inline-block; margin-right: 7px; padding: 0 6px;
+  border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 18px;
+  background: rgba(108,99,255,.12); color: var(--hbos-brand-violet);
+  vertical-align: 1px;
+}
+.pb-report-sug.is-high .pb-sug-tag { background: rgba(226,96,95,.14); color: #c94b4a; }
+.pb-report-sug.is-mid .pb-sug-tag { background: rgba(224,155,52,.16); color: #b97c1d; }
+.pb-report-sug.is-low .pb-sug-tag { background: rgba(66,185,209,.16); color: #2b8fa6; }
 
 .pb-panel { background: rgba(255,255,255,.74); border: 1px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 10px 34px rgba(61,88,136,.08); backdrop-filter: blur(20px); min-width: 0; }
 
@@ -794,6 +854,16 @@ watch(isCenter, (now) => {
 /* 工艺提升与改进方案（AI）—— 独占整行的下区面板 */
 .pb-ai-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 24px 12px; font-size: 12px; color: var(--hbos-text-secondary); }
 .pb-ai-bar .pb-dim { margin-left: 4px; }
+/* 用法提示：整条推到右侧并加底色 —— 原先只是脚注里的一行小字，
+   用户滚到底才看到，等于没提示（Owner 反馈）。 */
+.pb-ai-hint {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(108,99,255,.08); color: var(--hbos-brand-violet);
+  font-size: 11.5px; white-space: nowrap;
+}
+.pb-ai-hint b { font-weight: 600; }
+.pb-ai-hint :deep(svg) { opacity: .75; }
 
 /* 表体限高滚动：展开全部 62 条时**面板本身不变高**，只在内部滚动 ——
    否则整页会被拉到 2700px，正是「页面太长、不平衡」的元凶。 */
