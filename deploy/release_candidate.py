@@ -122,8 +122,9 @@ def verify(lock):
     if not all(checks.values()):raise RuntimeError('Readiness/static checks failed')
     return {'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'release_id':lock['release_id'],'checks':checks,'business_readiness':'REQUIRES_AUTHENTICATED_EVALUATION'}
 
-def switch(task,evidence,rollback=False,check_only=False,cycle="RC1"):
-    here=task/'work/deploy/candidate';path=here/('DEPLOY_LOCK_PREVIOUS.json' if rollback else 'DEPLOY_LOCK_PROPOSED.json');lock=json.loads(path.read_text())
+def switch(task,evidence,rollback=False,check_only=False,cycle="RC1",rollback_lock=None):
+    if rollback_lock is not None and not rollback:raise RuntimeError('Explicit rollback lock is only valid for rollback')
+    here=task/'work/deploy/candidate';path=pathlib.Path(rollback_lock) if rollback_lock is not None else here/('DEPLOY_LOCK_PREVIOUS.json' if rollback else 'DEPLOY_LOCK_PROPOSED.json');lock=json.loads(path.read_text())
     for entry in lock['composition']['files']:
         if sha(pathlib.Path(entry['path']))!=entry['sha256']:raise RuntimeError('Pinned composition changed')
     for role,item in lock['containers'].items():
@@ -157,10 +158,10 @@ def switch(task,evidence,rollback=False,check_only=False,cycle="RC1"):
     print(json.dumps(receipt,ensure_ascii=False))
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');parser.add_argument('--cycle',choices=['RC1','RC11'],default='RC1');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');parser.add_argument('--cycle',choices=['RC1','RC11'],default='RC1');parser.add_argument('--rollback-lock',type=pathlib.Path);args=parser.parse_args()
     task=args.task_root.resolve();evidence=args.evidence_root.resolve()
     with (task/'work/deploy/candidate/MAIN_AGENT_RELEASE.lock').open('a') as guard:
         fcntl.flock(guard,fcntl.LOCK_EX|fcntl.LOCK_NB)
         if args.action=='prepare':prepare(task,evidence,args.cycle)
         elif args.action=='verify':print(json.dumps(verify(json.loads((task/'work/deploy/candidate/DEPLOY_LOCK_CURRENT.json').read_text()))))
-        else:switch(task,evidence,rollback=args.action=='rollback',check_only=args.check,cycle=args.cycle)
+        else:switch(task,evidence,rollback=args.action=='rollback',check_only=args.check,cycle=args.cycle,rollback_lock=args.rollback_lock)
