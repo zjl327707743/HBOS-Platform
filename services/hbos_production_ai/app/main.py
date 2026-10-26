@@ -34,12 +34,17 @@ log = logging.getLogger("hbos_production_ai")
 
 
 def _fingerprint(product: str, craft, ledger) -> str:
-    """数据指纹 —— 源数据变了才重跑。
+    """数据指纹 —— 源数据**或分析规格**变了才重跑。
 
-    取「产品 + 工艺描述全文 + 台账内容」的哈希（用**已加载**的数据，不重复拉表）。
+    取「产品 + 工艺描述全文 + 台账内容 + 提示词版本」的哈希。
     **刻意不含运行时间** —— 否则每次跑指纹都不同，幂等就失效了。
+
+    ⚠️ `prompt.PROMPT_VERSION` 必须参与 —— 踩过：2026-10-26 改了提示词和
+    报告结构，但指纹只看源数据；那几个产品当天台账没变，指纹相同 → 全部
+    `skipped`，结果表里 55 行仍是旧格式（没有「改进建议」段）。
+    改提示词却不改版本号 = 新逻辑只对新数据生效，老行永远停在旧格式。
     """
-    parts = sources.fingerprint_parts(product, craft, ledger)
+    parts = [prompt.PROMPT_VERSION, *sources.fingerprint_parts(product, craft, ledger)]
     h = hashlib.sha256()
     for p in parts:
         h.update(p.encode("utf-8"))
@@ -136,8 +141,18 @@ def main() -> int:
         return 3
     log.info("模型探活通过：%s", probe.get("model"))
 
-    # 3) 逐产品
-    results = [analyze_product(p) for p in config.AI_PRODUCTS]
+    # 3) 逐产品 —— **单个产品失败不能中断整轮**。
+    #
+    # 踩过：早先是 `[analyze_product(p) for p in ...]`，4BMA 一次超时抛异常就把
+    # 后面 5 个产品全带走，等于整轮白跑（一次调用要 300+ 秒，代价很高）。
+    # 现在逐个 try/except，失败的记进结果表继续下一个。
+    results: list[dict] = []
+    for p in config.AI_PRODUCTS:
+        try:
+            results.append(analyze_product(p))
+        except Exception as exc:  # noqa: BLE001 - 一个产品失败不该拖垮其余
+            log.error("%s 分析失败：%s", p, str(exc)[:200])
+            results.append({"product": p, "status": "error", "reason": str(exc)[:200]})
 
     log.info("=== 汇总 ===")
     for r in results:

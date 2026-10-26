@@ -55,8 +55,15 @@ AI_API_KEY = os.environ.get("HBOS_AI_API_KEY") or ""
 #: （见 docs/milestones/M1_FIX_F_调休模块第一阶段落地记录.md:218）。
 AI_MODEL = os.environ.get("HBOS_AI_MODEL") or ""
 
-#: 单次请求超时（秒）。台账可能上百字段，prompt 很长，给足。
-AI_TIMEOUT = int(os.environ.get("HBOS_AI_TIMEOUT", "180"))
+#: 单次请求超时（秒）。
+#:
+#: 2026-10-26 从 180 提到 600：提示词加了「参数与收率统计」后明显变长
+#: （F13 单产品 14723 字符），模型是推理型的，实测**一次调用要 323 秒** ——
+#: 180 秒会让每一道工序都超时重试三次再失败，整轮跑不完。
+#:
+#: 这个值不是「给足就行」：太短会白跑三遍（每遍 180s），太长则上游真挂住时
+#: 要等很久才放弃。323s 实测 × 约 1.8 倍余量 ≈ 600s。
+AI_TIMEOUT = int(os.environ.get("HBOS_AI_TIMEOUT", "600"))
 
 #: 单产品分析的最大重试次数。
 AI_RETRIES = int(os.environ.get("HBOS_AI_RETRIES", "2"))
