@@ -14,10 +14,11 @@ CANONICAL = 'pilot@example.invalid'
 
 
 class PilotConfigureTest(unittest.TestCase):
-    def run_configure(self, fail_key=None, initial_published=1):
+    def run_configure(self, fail_key=None, initial_published=1, administrator=False):
+        target = "Administrator" if administrator else CANONICAL
         writes = []
         values = {'hbos_feishu_app_published': initial_published, 'hbos_feishu_auto_provision_internal': 1}
-        fake = SimpleNamespace(init=Mock(), connect=Mock(), destroy=Mock(), conf=SimpleNamespace(), db=SimpleNamespace(get_value=Mock(return_value=CANONICAL)))
+        fake = SimpleNamespace(init=Mock(), connect=Mock(), destroy=Mock(), conf=SimpleNamespace(), db=SimpleNamespace(get_value=Mock(return_value=target)))
         def update(key, value):
             if key == fail_key:
                 raise OSError('synthetic storage interruption')
@@ -25,11 +26,12 @@ class PilotConfigureTest(unittest.TestCase):
             writes.append((key, value))
             if values['hbos_feishu_app_published']:
                 self.assertEqual(1, values.get('hbos_feishu_pilot_enabled'))
-                self.assertEqual([CANONICAL], values.get('hbos_feishu_pilot_users'))
+                self.assertEqual([target], values.get('hbos_feishu_pilot_users'))
+                self.assertEqual(int(administrator), values.get('hbos_feishu_allow_administrator_link'))
                 self.assertEqual(0, values.get('hbos_feishu_auto_provision_internal'))
         with ExitStack() as stack:
             stack.enter_context(patch.dict(sys.modules, {'frappe': fake, 'frappe.installer': SimpleNamespace(update_site_config=update)}))
-            stack.enter_context(patch.object(sys, 'argv', [str(SCRIPT), '--site', 'synthetic', '--bench', '/synthetic', '--app-id', 'cli_test', '--origin', 'https://hbos.example.test', '--pilot-user', 'Pilot@Example.Invalid']))
+            stack.enter_context(patch.object(sys, 'argv', [str(SCRIPT), '--site', 'synthetic', '--bench', '/synthetic', '--app-id', 'cli_test', '--origin', 'https://hbos.example.test', '--pilot-user', target if administrator else 'Pilot@Example.Invalid'] + (['--allow-administrator-link'] if administrator else [])))
             stack.enter_context(patch('os.chdir'))
             stack.enter_context(patch('builtins.print'))
             confirm = stack.enter_context(patch('builtins.input', return_value='Synthetic Company'))
@@ -66,3 +68,10 @@ class PilotConfigureTest(unittest.TestCase):
 
     def test_first_configuration_still_requires_enterprise_confirmation(self):
         self.run_configure(initial_published=0)
+
+    def test_explicit_administrator_configuration_is_gated_and_keeps_auto_provision_off(self):
+        writes,values=self.run_configure(administrator=True)
+        self.assertEqual(('hbos_feishu_app_published',0),writes[0])
+        self.assertEqual(['Administrator'],values['hbos_feishu_pilot_users'])
+        self.assertEqual(1,values['hbos_feishu_allow_administrator_link'])
+        self.assertEqual(0,values['hbos_feishu_auto_provision_internal'])

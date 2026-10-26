@@ -57,6 +57,7 @@ class FeishuSettings:
     account_domain: str = "feishu.hbos.internal"
     pilot_mode: bool = False
     pilot_users: tuple[str, ...] = ()
+    allow_administrator_link: bool = False
 
     @property
     def configured(self) -> bool:
@@ -69,7 +70,7 @@ class FeishuSettings:
             and self.authorize_id_parameter in {"client_id", "app_id"}
             and self.published
             and self.redirect_registered
-            and (not self.pilot_mode or bool(self.pilot_users))
+            and (not self.pilot_mode or bool(_pilot_users(self.pilot_users, allow_administrator=self.allow_administrator_link)))
             and bool(ACCOUNT_DOMAIN_PATTERN.fullmatch(self.account_domain))
         )
 
@@ -91,7 +92,7 @@ class FeishuSettings:
             missing.append("authorize_id_parameter")
         if not self.published:
             missing.append("internal_member_publication")
-        if self.pilot_mode and not self.pilot_users:
+        if self.pilot_mode and not _pilot_users(self.pilot_users, allow_administrator=self.allow_administrator_link):
             missing.append("approved_pilot_users")
         return {
             "configured": self.configured,
@@ -215,7 +216,7 @@ def bind_open_id_from_stdin(user: str) -> dict[str, object]:
     raise RuntimeError("Manual identity binding is retired; verify both identities in Account Security")
 
 
-def _pilot_users(value: object) -> tuple[str, ...]:
+def _pilot_users(value: object, *, allow_administrator: bool = False) -> tuple[str, ...]:
     """A malformed intended allowlist must never turn into unrestricted access."""
     if isinstance(value, str):
         try:
@@ -225,7 +226,8 @@ def _pilot_users(value: object) -> tuple[str, ...]:
     if not isinstance(value, (list, tuple)) or not value or len(value) > 2:
         return ()
     if any(not isinstance(user, str) or not user.strip() or user != user.strip()
-           or len(user) > 140 or user.casefold() in {"administrator", "guest"}
+           or len(user) > 140 or user.casefold() == "guest"
+           or (user.casefold() == "administrator" and (not allow_administrator or user != "Administrator"))
            for user in value):
         return ()
     return tuple(dict.fromkeys(value))
@@ -233,7 +235,10 @@ def _pilot_users(value: object) -> tuple[str, ...]:
 
 def require_pilot_user(settings: FeishuSettings, user: str) -> None:
     """Apply live target-account policy to login and every binding write path."""
-    if settings.pilot_mode and (user in {"Administrator", "Guest"} or user not in settings.pilot_users):
+    allowed = user != "Administrator" or settings.allow_administrator_link
+    if settings.pilot_mode:
+        allowed = allowed and user in _pilot_users(settings.pilot_users, allow_administrator=settings.allow_administrator_link)
+    if not allowed:
         raise FeishuLoginError("member_scope_denied", "当前账号不在本次飞书试点范围内，请联系系统管理员。")
 
 
@@ -264,7 +269,8 @@ def load_settings() -> FeishuSettings:
         ),
         account_domain=account_domain,
         pilot_mode=_truthy(frappe.conf.get("hbos_feishu_pilot_enabled")),
-        pilot_users=_pilot_users(frappe.conf.get("hbos_feishu_pilot_users")),
+        pilot_users=_pilot_users(frappe.conf.get("hbos_feishu_pilot_users"), allow_administrator=_truthy(frappe.conf.get("hbos_feishu_allow_administrator_link"))),
+        allow_administrator_link=_truthy(frappe.conf.get("hbos_feishu_allow_administrator_link")),
     )
 
 

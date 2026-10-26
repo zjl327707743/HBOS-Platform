@@ -15,14 +15,17 @@ parser.add_argument("--site", required=True)
 parser.add_argument("--bench", required=True)
 parser.add_argument("--app-id", required=True)
 parser.add_argument("--origin", required=True)
-parser.add_argument("--pilot-user", required=True, action="append", help="显式批准的具名现有 HBOS 账号，最多两人；禁止内置 Administrator")
+parser.add_argument("--pilot-user", required=True, action="append", help="显式批准的具名现有 HBOS 账号，最多两人；Administrator 另需明确例外开关")
+parser.add_argument("--allow-administrator-link", action="store_true", help="仅在 Owner 明确指定本人绑定内置 Administrator 后使用；仍须密码/MFA proof")
 parser.add_argument("--replace-secret", action="store_true")
 parser.add_argument("--enable-inbox-stepup", action="store_true", help="仅在应用机器人及发消息权限批准后启用本人验证码")
 parser.add_argument("--enable-disable-sync", action="store_true", help="启用每 5 分钟明确离职/停用状态同步")
 args = parser.parse_args()
-pilot_users = _pilot_users(args.pilot_user)
+pilot_users = _pilot_users(args.pilot_user, allow_administrator=args.allow_administrator_link)
 if not pilot_users:
-    parser.error("必须指定一至两个非保留的具名试点账号")
+    parser.error("必须指定一至两个获准账号；Administrator 必须显式启用例外")
+if args.allow_administrator_link and "Administrator" not in pilot_users:
+    parser.error("管理员例外仅与显式 --pilot-user Administrator 一起使用")
 os.chdir(Path(args.bench) / "sites")
 frappe.init(site=args.site); frappe.connect()
 try:
@@ -32,9 +35,11 @@ try:
         canonical = frappe.db.get_value("User", user, "name")
         if not canonical:
             raise RuntimeError("试点账号必须已存在")
-        require_user(canonical, external=True)
+        # The CLI selects policy only; Administrator binding still needs live
+        # password/MFA proof in start_link and explicit browser confirmation.
+        require_user(canonical, external=canonical != "Administrator")
         canonical_users.append(canonical)
-    pilot_users = _pilot_users(canonical_users)
+    pilot_users = _pilot_users(canonical_users, allow_administrator=args.allow_administrator_link)
     if not pilot_users:
         raise RuntimeError("试点账号无法解析为启用的具名账号")
     callback = args.origin.rstrip("/") + "/api/method/hbos_portal.auth.feishu.callback"
@@ -45,6 +50,7 @@ try:
     # Close first: any interruption while replacing credentials/policy fails closed.
     update_site_config("hbos_feishu_app_published", 0)
     frappe.conf.hbos_feishu_app_published = 0
+    update_site_config("hbos_feishu_allow_administrator_link", int(args.allow_administrator_link))
     update_site_config("hbos_feishu_pilot_enabled", 1)
     update_site_config("hbos_feishu_pilot_users", list(pilot_users))
     update_site_config("hbos_feishu_auto_provision_internal", 0)

@@ -90,3 +90,9 @@ Gateway 挂载私有 `gateway_token`、`gateway_policy.json`、`index.jsonl`，�
 ## 接口依据
 
 企业查询使用应用 tenant token，返回企业名称及 tenant_key；成员核验使用明确 UserStatus 字段。契约已对照[飞书官方 SDK 企业模型](https://github.com/larksuite/oapi-sdk-python/blob/0b9e6e48b74bb4b34462fc67b7e738b27e73e697/lark_oapi/api/tenant/v2/model/tenant.py)及[官方成员状态模型](https://github.com/larksuite/oapi-sdk-python/blob/0b9e6e48b74bb4b34462fc67b7e738b27e73e697/lark_oapi/api/contact/v3/model/user_status.py)。这只证明接口字段依据，不代替该应用真实权限/OAuth/PKCE 现场验证。
+
+### Owner 明确指定本人绑定 Administrator 的例外
+
+默认仍禁止保留账户。只有 Owner 明确指定其本人飞书绑定当前内置 Administrator 时，操作员才使用 `--pilot-user Administrator --allow-administrator-link`（本地 `feishu-config` 也传同名选项）。此开关仅批准该现有 User 的绑定目标，不创建/授予 Administrator，不读取或重置其密码，不批准其他人员。名单不含 Administrator 或未显式启用时仍拒绝；Guest 始终禁止。自动开户保持关闭。
+
+本人须使用当前有效管理员密码及已有 MFA 完成 proof，授权真实企业身份，核对并确认绑定。仅 OAuth 登录不替代管理写入所需的密码 proof。停用此例外时同时关闭开关或移除试点名单；已有绑定的处置使用正式解绑与会话撤销流程，保留审计。

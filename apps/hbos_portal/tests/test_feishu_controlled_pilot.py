@@ -103,3 +103,29 @@ class ControlledPilotTest(unittest.TestCase):
              patch.object(onboarding,'resolve_verified_login',side_effect=FeishuLoginError('identity_unmapped','synthetic denial')),patch.object(accounts,'consume_pending') as consume:
             result=accounts.complete_pending('create_new')
             self.assertEqual('identity_unmapped',result['error']['code']);consume.assert_not_called();fake.db.rollback.assert_called_once()
+
+    def test_owner_administrator_exception_requires_flag_and_explicit_pilot_entry(self):
+        self.assertEqual((), _pilot_users(['Administrator']))
+        self.assertEqual(('Administrator',), _pilot_users(['Administrator'], allow_administrator=True))
+        for value in [['Guest'], ['administrator'], ['Administrator', 'a', 'b']]:
+            self.assertEqual((), _pilot_users(value, allow_administrator=True))
+        self.assertFalse(settings(pilot_mode=True, pilot_users=('Administrator',)).configured)
+        permitted = settings(auto_provision_internal=False, pilot_mode=True, pilot_users=('Administrator',), allow_administrator_link=True)
+        self.assertTrue(permitted.configured)
+        require_pilot_user(permitted, 'Administrator')
+        for policy in [settings(pilot_mode=True, pilot_users=(PILOT,), allow_administrator_link=True), settings(pilot_users=('Administrator',))]:
+            with self.assertRaises(FeishuLoginError): require_pilot_user(policy, 'Administrator')
+        with self.assertRaises(FeishuLoginError): require_pilot_user(permitted, PILOT)
+
+    def test_approved_existing_administrator_binding_reuses_user_without_provisioning(self):
+        result,create,fake=self.resolve(settings(auto_provision_internal=False,pilot_mode=True,pilot_users=('Administrator',),allow_administrator_link=True),SimpleNamespace(user='Administrator',enabled=True))
+        self.assertEqual(('Administrator',False),result);create.assert_not_called()
+
+    def test_administrator_exception_still_requires_password_proof_before_oauth(self):
+        policy=settings(pilot_mode=True,pilot_users=('Administrator',),allow_administrator_link=True)
+        with patch.object(accounts,'require_post'),patch.object(accounts,'require_user',return_value='Administrator'), \
+             patch.object(accounts,'require_proof',return_value={'method':'feishu_inbox','verified_at':1}), \
+             patch.object(feishu,'load_settings',return_value=policy),patch.object(feishu.RedisOAuthStateStore,'create') as issue, \
+             patch.object(feishu.frappe,'AuthenticationError',PermissionError,create=True),patch.object(feishu.frappe,'throw',side_effect=PermissionError,create=True):
+            with self.assertRaises(PermissionError):feishu.start_link()
+            issue.assert_not_called()
