@@ -161,6 +161,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: 安装锁定测试依赖
-        run: pip install --only-binary=:all: --require-hashes -r apps/hb_knowledge_app/requirements-test.lock
+        run: |
+          pip install --only-binary=:all: --require-hashes -r apps/hb_knowledge_app/requirements-test.lock
       - name: 知识领域离线权限与目录回归
         run: python apps/hb_knowledge_app/run_tests.py apps/hb_knowledge_app/tests -q

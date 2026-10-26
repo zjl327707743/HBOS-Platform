@@ -38,12 +38,14 @@ def archive_check(path,images):
             count+=1
     return {'path':str(path),'sha256':sha(path),'verified_blob_count':count,'image_ids':images,'readable':True}
 def override(path,original,images,static):
-    import yaml
-    value=yaml.safe_load(original.read_text());services=value.setdefault('services',{})
+    # The existing system Python owns PyYAML; the isolated service Python owns
+    # requests. Keep that dependency boundary explicit without installing more.
+    result=subprocess.run(['python3','-c','import json,sys,yaml;print(json.dumps(yaml.safe_load(sys.stdin)))'],input=original.read_text(),capture_output=True,text=True,check=True)
+    value=json.loads(result.stdout);services=value.setdefault('services',{})
     for role in ('bff','service'):services.setdefault(role,{})['image']=images[role]
     services.setdefault('bff',{}).setdefault('volumes',[]).append(str(static)+':'+BFF_STATIC+':ro')
     front=services.setdefault('frontend',{});front['image']=images['frontend'];front.setdefault('volumes',[]).append(str(static)+':'+FRONT_STATIC+':ro')
-    path.write_text(yaml.safe_dump(value,allow_unicode=True,sort_keys=False))
+    path.write_text(json.dumps(value,ensure_ascii=False,indent=1)+'\n')
 def composition(files):return {'total':len(files),'files':[{'path':str(p),'sha256':sha(pathlib.Path(p)),'exists':True} for p in files]}
 def mount_map(evidence,base_image):
     source=evidence/'source-directory.json'
