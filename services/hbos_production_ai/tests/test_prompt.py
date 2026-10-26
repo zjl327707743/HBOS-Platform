@@ -60,3 +60,48 @@ def test_system_prompt_states_the_hard_rules():
     # 评级枚举要在
     for g in prompt.GRADES:
         assert g in s
+
+
+# ---------------------------------------------------------------------------
+# 2026-10-20 改版：要求给出可执行的改进建议
+# ---------------------------------------------------------------------------
+
+
+def test_system_prompt_demands_specific_actions():
+    """「建议优化工艺参数」这类废话必须被明令禁止。
+
+    Owner 反馈原输出太单薄 —— 62 条里只有 6 条给了具体动作。
+    """
+    s = prompt.SYSTEM_PROMPT
+    assert "suggestions" in s
+    assert "action" in s and "basis" in s
+    # 正例与反例都要给 —— 只说「要具体」模型不知道什么叫具体
+    assert "合格的建议" in s
+    assert "不合格的建议" in s
+    assert "建议优化工艺参数" in s       # 反例原文
+    # 数据不足时也要给动作（补录），不是甩一句「数据不足」了事
+    assert "补录" in s
+
+
+def test_prompt_includes_stats_block():
+    """统计必须在提示词里，且明确告诉模型「不要自己重算」。"""
+    st = _stats()
+    p = prompt.build_user_prompt("4BMA", _craft(), _ledger(), st)
+    assert "参数与收率" in p
+    assert "不要自己重算" in p
+    assert "水分" in p          # 统计里的字段名要能看到
+
+
+def test_prompt_without_stats_says_so():
+    # 没传统计时要说清楚，不能让模型以为「没有参数影响」= 没有关系
+    p = prompt.build_user_prompt("4BMA", _craft(), _ledger())
+    assert "本轮未提供统计" in p
+
+
+def _stats():
+    from app import sources as src_mod
+    from app import stats as s
+
+    rows = [{"入库收率": str(88 + i * 0.1), "水分": str(0.03 + i * 0.002)} for i in range(50)]
+    batches = [src_mod.LedgerBatch(batch=f"B{i}", values=v) for i, v in enumerate(rows)]
+    return s.analyze("4BMA", batches)

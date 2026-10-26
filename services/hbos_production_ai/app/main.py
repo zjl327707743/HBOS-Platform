@@ -24,7 +24,7 @@ import logging
 import sys
 from datetime import date
 
-from . import config, llm, parse, prompt, sources, writer
+from . import config, llm, parse, prompt, sources, stats, writer
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -55,10 +55,23 @@ def analyze_product(product: str) -> dict:
     if not craft.processes:
         log.warning("%s 没有读到工序清单，跳过", product)
         return {"product": product, "status": "skipped", "reason": "无工序清单"}
-    log.info("  工序 %d 道；台账 %d 批", len(craft.processes), len(ledger))
+
+    # 参数↔收率的统计在这里算，**不让模型自己算** —— 模型看几十批原始数字
+    # 算不出相关系数，只会给出「可能有关」这类没法用的描述。
+    # 算它需要全年数据（近 30 批供不上统计样本），所以单独读一批更长的。
+    stat_ledger = sources.fetch_ledger(product, config.AI_STATS_BATCHES)
+    ledger_stats = stats.analyze(product, stat_ledger)
+    log.info(
+        "  工序 %d 道；台账 %d 批（统计用 %d 批，有收率 %d 批，可用参数 %d 个）",
+        len(craft.processes),
+        len(ledger),
+        ledger_stats.total_batches,
+        ledger_stats.yield_batches,
+        len(ledger_stats.effects),
+    )
 
     fp = _fingerprint(product, craft, ledger)
-    user = prompt.build_user_prompt(product, craft, ledger)
+    user = prompt.build_user_prompt(product, craft, ledger, ledger_stats)
 
     raw = llm.complete(prompt.SYSTEM_PROMPT, user)
     try:
@@ -69,11 +82,18 @@ def analyze_product(product: str) -> dict:
         return {"product": product, "status": "invalid", "reason": str(exc), "raw": raw[:500]}
 
     records = parse.to_records(product, analyses, date.today().isoformat(), fp)
-    stats = writer.write_results(records, fp, dry_run=config.DRY_RUN)
+    stats_ = writer.write_results(records, fp, dry_run=config.DRY_RUN)
     grades = [a.grade for a in analyses]
-    log.info("  评级分布：%s", {g: grades.count(g) for g in set(grades)})
+    n_sug = sum(len(a.suggestions) for a in analyses)
+    log.info("  评级分布：%s；建议 %d 条", {g: grades.count(g) for g in set(grades)}, n_sug)
 
-    return {"product": product, "status": "ok", "processes": len(analyses), **stats}
+    return {
+        "product": product,
+        "status": "ok",
+        "processes": len(analyses),
+        "suggestions": n_sug,
+        **stats_,
+    }
 
 
 def main() -> int:

@@ -18,9 +18,28 @@ def _resp(processes):
     return json.dumps({"processes": processes}, ensure_ascii=False)
 
 
+SUGGESTION = {
+    "action": "锌粉粒度补录到 800 目并记录批号",
+    "basis": "近 30 批无粒度记录",
+    "expected": "待验证",
+    "priority": "中",
+}
+
 GOOD = [
-    {"name": "锌粉活化", "grade": "数据不足", "summary": "台账缺锌粉粒度记录", "report": "## 当前现状\n..."},
-    {"name": "7eβ合成", "grade": "部分达到", "summary": "温度达标，时长偏短", "report": "## 当前现状\n..."},
+    {
+        "name": "锌粉活化",
+        "grade": "数据不足",
+        "summary": "台账缺锌粉粒度记录，先补录粒度",
+        "report": "## 当前现状\n...",
+        "suggestions": [SUGGESTION],
+    },
+    {
+        "name": "7eβ合成",
+        "grade": "部分达到",
+        "summary": "温度达标，时长偏短，建议延长至 90min",
+        "report": "## 当前现状\n...",
+        "suggestions": [dict(SUGGESTION, action="保温时间由 75min 调整到 90min")],
+    },
 ]
 
 
