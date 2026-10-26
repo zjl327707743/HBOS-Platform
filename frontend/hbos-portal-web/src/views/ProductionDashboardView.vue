@@ -632,10 +632,20 @@ watch(isCenter, (now) => {
 /* 两栏**底部对齐**：`stretch` 让两个 grid item 等高（行高 = 较高那栏）。
    里面再各自长到 100%，否则面板还是按内容收缩、底边参差不齐（截图踩到过）。 */
 .pb-cols { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); gap: 16px; align-items: stretch; }
-/* 左栏是**单块面板**：撑满后把脚注压到底 —— 空白留在表格与脚注之间，
-   看起来像「面板本来就这么高」，而不是底部缺一块。 */
-.pb-col-main { display: flex; flex-direction: column; }
-.pb-col-main .pb-foot-note { margin-top: auto; }
+/* 两块主面板都做成纵列：**表格区吃掉剩余高度，脚注作为底栏**。
+   这样内容少的那栏（右栏 5 行 vs 左栏 6 行）多出来的空白落在表格下方，
+   而不是在脚注上方悬一块 —— 两栏的脚注都贴底、都有同一条分界线，
+   看起来才是一套版式，而不是「一边没对齐」（截图踩到过两次）。 */
+.pb-col-main,
+.pb-stack > :last-child { display: flex; flex-direction: column; }
+.pb-col-main .pb-tbl-wrap,
+.pb-stack > :last-child .pb-tbl-wrap { flex: 1 1 auto; }
+.pb-col-main .pb-foot-note,
+.pb-stack > :last-child .pb-foot-note {
+  margin-top: 0;
+  border-top: 1px solid rgba(65,91,138,.08);
+  padding-top: 14px;
+}
 .pb-stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; height: 100%; }
 /* 右栏**最后一块**吃掉剩余高度 —— 两块面板各自等高不会让底边对齐。 */
 .pb-stack > :last-child { flex: 1 1 auto; }
