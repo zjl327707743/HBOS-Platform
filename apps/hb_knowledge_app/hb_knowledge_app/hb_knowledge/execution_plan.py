@@ -5,7 +5,7 @@ import math
 from .errors import KnowledgeError
 from .r1_contract import validate_structure, CONTRACT_VERSION
 
-ACTIONS = ("knowledge.search", "knowledge.evidence", "knowledge.spaces")
+ACTIONS = ("knowledge.search", "knowledge.evidence", "knowledge.spaces", "document.read")
 ADMISSION = {
     "COMPANY_CONTROLLED": "CONTROLLED_APPROVED",
     "EXTERNAL_REFERENCE": "EXTERNAL_REFERENCE_REVIEWED",

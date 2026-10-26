@@ -64,3 +64,29 @@ def safe_string(value, maximum=None, *, physical_ids=(), nullable=False):
     if maximum is not None and len(value)>maximum:
         raise KnowledgeError("UPSTREAM_INVALID_RESULT")
     return value
+
+
+def source_display_string(value, maximum=None, *, physical_ids=(), nullable=False):
+    """Hygiene gate for already-sanitized document *display* text.
+
+    Reader blocks are made inert before they reach this gate: accepted native
+    table text is flattened by ``native_text`` and anything rejected there is
+    HTML-entity-escaped (``&``/``<``/``>`` only) and returned as ordinary text.
+    That escaped text must stay inert, so unlike ``safe_string`` this gate does
+    NOT unescape entities in its check - unescaping ``&lt;product&gt;`` would
+    turn inert display text back into markup and reject exactly the block the
+    controlled fallback exists for. It keeps the same credential, encoded
+    traversal and markup gate on the text as it will be displayed.
+    """
+    if value is None and nullable:
+        return None
+    if not isinstance(value,str):
+        raise KnowledgeError("UPSTREAM_INVALID_RESULT")
+    normalized=unicodedata.normalize("NFKC",value)
+    if DANGER_SOURCE.search(normalized) or any(identity and identity in value for identity in physical_ids):
+        raise KnowledgeError("UPSTREAM_INVALID_RESULT")
+    if CONTROL.search(normalized):
+        raise KnowledgeError("UPSTREAM_INVALID_RESULT")
+    if maximum is not None and len(value)>maximum:
+        raise KnowledgeError("UPSTREAM_INVALID_RESULT")
+    return value

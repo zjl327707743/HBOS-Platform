@@ -155,7 +155,7 @@ class FrappePairedAuthority:
             spaces=rows(cur,'SELECT name,required_role,title FROM `tabHBOS Knowledge Space` WHERE enabled=1')
             active=tuple(s['name'] for s in spaces)
             grants=tuple(GrantPair(s['required_role'],s['name'],a,'PAIR_'+s['name']+'_'+a.split('.')[-1])
-                       for s in spaces for a in ('knowledge.search','knowledge.evidence','knowledge.spaces'))
+                       for s in spaces for a in ('knowledge.search','knowledge.evidence','knowledge.spaces','document.read'))
             data=rows(cur,'SELECT b.*,s.name as space_record_id,s.enabled as space_enabled, '
               'v.name as version_record_id,v.version_id as version_record_identity, '
               'v.canonical_document_id as version_document_id, '

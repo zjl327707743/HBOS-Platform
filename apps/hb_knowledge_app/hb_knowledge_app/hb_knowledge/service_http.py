@@ -72,7 +72,10 @@ class SignedHttp:
                     raw=json.loads(data)
                     if response.status_code != 200:
                         if isinstance(raw,dict) and isinstance(raw.get('error'),dict):
-                            raise KnowledgeError(raw['error'].get('code','UPSTREAM_UNAVAILABLE'))
+                            from .document_reader_contract import READ_STATES
+                            state=raw['error'].get('state')
+                            raise KnowledgeError(raw['error'].get('code','UPSTREAM_UNAVAILABLE'),
+                                state=state if state in READ_STATES else None)
                         raise ValueError()
                     return raw
         except KnowledgeError: raise

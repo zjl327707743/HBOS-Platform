@@ -7,6 +7,7 @@ from .decision_store import DecisionTicket
 from .execution_plan import plan_from_wire, iso, timestamp
 from .r1_contract import normalize_search, CONTRACT_VERSION
 from .internal_contract import InternalResponse, PHASES
+from .document_reader_contract import BODY_READ_SENTINEL
 
 class RedisState:
     test_only=False
@@ -93,13 +94,13 @@ if redis.call('GET',KEYS[1])~=ARGV[1] then return -9 end
 if redis.call('EXISTS',KEYS[2])==0 then return -1 end
 local p=ARGV[2]; local function has(x) return redis.call('SISMEMBER',KEYS[3],x)==1 end
 local allowed=p=='introspect' or
- ((p=='cache_read' or p=='pre_retrieval' or p=='evidence_read' or p=='document_read') and has('introspect')) or
+ ((p=='cache_read' or p=='pre_retrieval' or p=='evidence_read' or p=='document_read' or p=='document_body_read') and has('introspect')) or
  (p=='post_retrieval' and has('pre_retrieval')) or
  (p=='pre_projection' and (has('post_retrieval') or has('cache_read'))) or
  (p=='pre_issue' and has('pre_projection')) or
  (p=='pre_general_generation' and has('introspect')) or
  (p=='post_general_generation' and has('pre_general_generation')) or
- (p=='final_publish' and (has('pre_projection') or has('pre_issue') or has('evidence_read') or has('document_read') or has('post_general_generation')))
+ (p=='final_publish' and (has('pre_projection') or has('pre_issue') or has('evidence_read') or has('document_read') or has('document_body_read') or has('post_general_generation')))
 if not allowed then return -2 end
 redis.call('SADD',KEYS[3],p)
 redis.call('EXPIREAT',KEYS[3],ARGV[3]); return 1
@@ -119,7 +120,15 @@ class RedisDecisions:
         if not value: raise KnowledgeError('DECISION_EXPIRED')
         try:
             row=json.loads(value); plan=plan_from_wire(row['plan'],now=time.time())
-            ticket=DecisionTicket(ref,plan,normalize_search(row['request']),row['fingerprint'],row['digest'],row['deadline'])
+            # A document-body plan names only the logical document/version; the
+            # stored request wire shape differs from a SearchRequest and is
+            # reconstructed by its own strict normalizer.
+            if plan.action=='document.read':
+                from .document_reader_contract import document_read_request_from_wire
+                request=document_read_request_from_wire(row['request'])
+            else:
+                request=normalize_search(row['request'])
+            ticket=DecisionTicket(ref,plan,request,row['fingerprint'],row['digest'],row['deadline'])
             if time.time()>=timestamp(ticket.deadline_at): raise KnowledgeError('DECISION_EXPIRED')
             return ticket
         except KnowledgeError: raise
@@ -157,7 +166,8 @@ class RedisDecisions:
              plan.request_id,plan.action,ticket.request_fingerprint,ticket.plan_digest,ticket.deadline_at):
             raise KnowledgeError('REPLAY_REJECTED')
         expected={'introspect':'introspect','cache_read':'introspect','pre_issue':'authorize-evidence',
-                  'evidence_read':'authorize-evidence','document_read':'authorize-evidence'} .get(call.phase,'revalidate')
+                  'evidence_read':'authorize-evidence','document_read':'authorize-evidence',
+                  'document_body_read':'authorize-evidence'} .get(call.phase,'revalidate')
         if call.operation!=expected: raise KnowledgeError('INVALID_REQUEST')
         if call.phase in ('pre_general_generation','post_general_generation'):
             from .answer_policy import route_question
@@ -165,6 +175,17 @@ class RedisDecisions:
                 raise KnowledgeError('SCOPE_REJECTED')
         if expected=='authorize-evidence' and not call.references: raise KnowledgeError('EMPTY_SCOPE')
         if call.phase=='document_read' and (len(call.references)!=1 or call.references[0].chunk_id!='CATALOG_METADATA_ONLY'):
+            raise KnowledgeError('SCOPE_REJECTED')
+        # The body-read phase belongs to the document.read action only, and a
+        # document.read plan can only walk introspect/body-read/final-publish.
+        # A search/evidence ticket therefore cannot be reused to read a body,
+        # and a body plan cannot be reused as a search/evidence authorization.
+        if call.phase=='document_body_read' and (
+                plan.action!='document.read' or len(call.references)!=1
+                or call.references[0].chunk_id!=BODY_READ_SENTINEL):
+            raise KnowledgeError('SCOPE_REJECTED')
+        if plan.action=='document.read' and call.phase not in {
+                'introspect','document_body_read','final_publish'}:
             raise KnowledgeError('SCOPE_REJECTED')
         authorized={(b.binding_ref,b.version_id) for b in plan.bindings}
         if any((p.binding_ref,p.version_id) not in authorized or not p.chunk_id or len(p.chunk_id)>128 for p in call.references):

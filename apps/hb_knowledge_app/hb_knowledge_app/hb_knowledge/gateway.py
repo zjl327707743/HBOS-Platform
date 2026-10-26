@@ -40,6 +40,24 @@ def search_body(ticket):
         "request_fingerprint":ticket.request_fingerprint, "plan_digest":ticket.plan_digest,
         "deadline_at":ticket.deadline_at}
 
+
+def document_call(ticket):
+    """The one signed internal call shape for a document-body read.
+
+    The proof names the single binding this plan authorizes plus a fixed
+    sentinel instead of a native chunk id. Page numbers are read parameters of
+    the service route, not authorization material, and the request body never
+    carries a dataset/document id or a filesystem path.
+    """
+    from .document_reader_contract import BODY_READ_SENTINEL
+    plan = ticket.plan
+    if getattr(plan, "action", None) != "document.read" or len(plan.bindings) != 1:
+        raise KnowledgeError("SCOPE_REJECTED")
+    binding = plan.bindings[0]
+    return ticket.call("authorize-evidence", "document_body_read",
+                       (ReferenceProof(binding.binding_ref, binding.version_id,
+                                       BODY_READ_SENTINEL),))
+
 class GatewayClient:
     """Trusted BFF boundary to the ONE service core. No legacy/static fallback."""
     def __init__(self, service):

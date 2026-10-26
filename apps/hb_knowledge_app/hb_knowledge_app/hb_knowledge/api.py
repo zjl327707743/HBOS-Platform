@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hashlib,json,logging
 import secrets,re
 import frappe
 from .errors import KnowledgeError, error_payload
@@ -13,6 +14,28 @@ _UNSET=object()
 def _private_no_store():
     frappe.local.response_headers["Cache-Control"]="private, no-store, max-age=0"
     frappe.local.response_headers["Pragma"]="no-cache"
+
+def _omit_diagnostic(request_id,omitted,total,documents):
+    """Private metadata only: counts, reason and hashed logical document ids.
+
+    Never logs the excerpt, a title, a physical id or an upstream detail.
+    """
+    if type(omitted) is not int or omitted<=0:return
+    safe_request=request_id if isinstance(request_id,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',request_id) else 'UNAVAILABLE'
+    document_hashes=sorted({hashlib.sha256(str(value).encode()).hexdigest()
+                            for value in documents if isinstance(value,str)})[:5]
+    row={'event':'SEARCH_RESULT_OMITTED','request_id':safe_request,
+         'reason':'CONTENT_SAFETY_REJECTED','omitted':omitted,'total':total,
+         'document_sha256':document_hashes}
+    logging.getLogger('hbos.knowledge.source_diagnostics').warning(json.dumps(row,sort_keys=True))
+    try:
+        from knowledge_service.hbos_gateway.diagnostics import persist_diagnostic
+        persist_diagnostic({'stage':'SEARCH_RESULT_OMITTED','request_id':safe_request,
+            'reason':'CONTENT_SAFETY_REJECTED','counts':{'omitted':omitted,'total':total},
+            'document_hashes':document_hashes})
+    except Exception:
+        # Diagnostics are best-effort; the search result is unaffected.
+        pass
 
 def _run(action):
     _private_no_store()
@@ -45,8 +68,15 @@ def _abort_publication():
 def _framework_business(fields, method):
     fields=dict(fields)
     cmd=fields.pop("cmd",None)
-    if cmd is not None and cmd!="hb_knowledge_app.hb_knowledge.api."+method:
-        raise KnowledgeError("INVALID_REQUEST")
+    # Frappe forwards the dispatched method path as ``cmd``. The maintenance
+    # batch module ships its own whitelisted entry points, so the guard must
+    # accept any module inside this app whose final segment is exactly the
+    # called method, not only the historical ``api.`` prefix.
+    if cmd is not None:
+        if (not isinstance(cmd,str)
+                or not cmd.startswith('hb_knowledge_app.hb_knowledge.')
+                or not cmd.endswith('.'+method)):
+            raise KnowledgeError("INVALID_REQUEST")
     # Frappe validates Session/CSRF BEFORE invoking a whitelisted method. This is
     # its reserved form field, not an identity/business field. Header flow unchanged.
     fields.pop("csrf_token",None)
@@ -144,26 +174,92 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
                 runtime.gateway.authorize_evidence(ticket,records,phase="pre_issue")
         with phase('provider_revalidate'):
             runtime.provider.revalidate(ticket.plan)
-        output=[]
-        # Entire response quota reserved by HBOS once; Gateway never double charges.
-        runtime.quota.reserve_output(actor.user_ref,sum(len(r.excerpt) for r in records))
         from knowledge_service.hbos_gateway.response_projection import public_evidence
+        # Per-record projection isolation (RC13 b07 defect): one authorized
+        # excerpt that cannot be displayed safely is skipped and counted; it
+        # must not fail the other returned sources. ONLY the content-hygiene
+        # rejection is isolated - scope, currency, revocation and protocol
+        # errors still abort the whole search in the same phase.
+        safe_records=[]; omitted=0; omitted_documents=[]
+        for record in records:
+            try:
+                public_evidence(record,"PROJECTION_GATE",environment=runtime.profile)
+            except KnowledgeError as error:
+                if error.code!="UPSTREAM_INVALID_RESULT":raise
+                omitted+=1;omitted_documents.append(record.binding.canonical_document_id)
+                continue
+            safe_records.append(record)
+        if records and not safe_records:
+            _omit_diagnostic(request_id,omitted,len(records),omitted_documents)
+            raise KnowledgeError("SOURCE_CONTENT_UNSAFE")
+        output=[]; issued_records=[]
+        # Entire response quota reserved by HBOS once; Gateway never double charges.
+        runtime.quota.reserve_output(actor.user_ref,sum(len(r.excerpt) for r in safe_records))
         with phase('issue_evidence'):
-            for record in records:
-                evidence_id=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
-                output.append(public_evidence(record,evidence_id,environment=runtime.profile))
+            for record in safe_records:
+                try:
+                    evidence_id=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
+                    card=public_evidence(record,evidence_id,environment=runtime.profile)
+                except KnowledgeError as error:
+                    if error.code!="UPSTREAM_INVALID_RESULT":raise
+                    omitted+=1;omitted_documents.append(record.binding.canonical_document_id)
+                    continue
+                output.append(card);issued_records.append(record)
+        if records and not output:
+            _omit_diagnostic(request_id,omitted,len(records),omitted_documents)
+            raise KnowledgeError("SOURCE_CONTENT_UNSAFE")
+        if omitted:_omit_diagnostic(request_id,omitted,len(records),omitted_documents)
         runtime.checkpoint("before_search_publication")
         with phase('final_online'):
             runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call("revalidate","final_publish"))
         data={"request_id":request_id,"mode":"retrieval","search_mode":request.search_mode,"results":output}
+        if omitted: data["omitted_results"]=omitted
         if request.context: data["context"]=dict(request.context)
         validate_structure("SearchData",data)
         if runtime.profile=="production":
             from .activity import write
-            write("History",request.query,request.space_ids,records,runtime,context=request.context,search_mode=request.search_mode)
+            write("History",request.query,request.space_ids,issued_records,runtime,context=request.context,search_mode=request.search_mode)
         runtime.audit.record(actor.user_ref,"search","SUCCESS",len(output))
         return data
     return _run(current)
+
+@frappe.whitelist(methods=["POST"])
+def open_document(document_id=None, version_id=None, **business_fields):
+    """Open the controlled reader on a current authorized document body.
+
+    ``version_id`` is optional: the citation/search/catalog DTOs only carry the
+    logical document id. The server resolves the one current published binding
+    in the same authorization snapshot; a supplied stale version is refused.
+    """
+    def current(request_id):
+        if _framework_business(business_fields, "open_document"):
+            raise KnowledgeError("INVALID_REQUEST")
+        from .document_reader import open_document as open_current
+        return open_current(load_runtime(), document_id, version_id, request_id)
+    return _run(current)
+
+
+@frappe.whitelist(methods=["POST"])
+def read_document_page(document_id=None, version_id=None, page=None, **business_fields):
+    def current(request_id):
+        if _framework_business(business_fields, "read_document_page"):
+            raise KnowledgeError("INVALID_REQUEST")
+        from .document_reader import read_document_page as read_page
+        return read_page(load_runtime(), document_id, version_id, page, request_id)
+    return _run(current)
+
+
+@frappe.whitelist(methods=["POST"])
+def search_document(document_id=None, version_id=None, query=None, limit=None,
+                    **business_fields):
+    def current(request_id):
+        if _framework_business(business_fields, "search_document"):
+            raise KnowledgeError("INVALID_REQUEST")
+        from .document_reader import search_document as search_current
+        return search_current(load_runtime(), document_id, version_id, query, limit,
+                              request_id)
+    return _run(current)
+
 
 @frappe.whitelist(methods=["GET"])
 def get_spaces(**business_fields):
@@ -229,6 +325,14 @@ def _ask_marks(request_id):
         except Exception:
             pass
     return phase,flush
+
+def _ask_diag(request_id,stage,*,code=None,error_type=None):
+    """Sanitized ask-stage diagnostic: stage/code/type only, never content."""
+    import json as _json,sys as _sys
+    _sys.stdout.write(_json.dumps({'hbos_ask_diag':True,'request_id':request_id,'stage':stage,
+                                   'code':code,'error_type':error_type})+ '\n')
+    _sys.stdout.flush()
+
 
 @frappe.whitelist(methods=['POST'])
 def ask(**business_fields):
@@ -302,14 +406,20 @@ def ask(**business_fields):
             citations=[]
             runtime.quota.reserve_output(actor.user_ref,len(answer)+sum(len(r.excerpt) for r in records))
             for label,record in zip(labels,records):
-                handle=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
-                citations.append(dict(public_evidence(record,handle,environment=runtime.profile),citation_label=label))
+                try:
+                    handle=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
+                    citations.append(dict(public_evidence(record,handle,environment=runtime.profile),citation_label=label))
+                except KnowledgeError as error:
+                    _ask_diag(request_id,'ASK_CITATION_PROJECTION',code=error.code);raise
             from .r1_contract import validate_ask_data
             from .answer_policy import answer_presentation
             data={'request_id':request_id,'turn_id':request_id,**answer_presentation(answer,bool(citations),origin=='GENERAL',state=answer_status),
                 'answer':answer,'citations':citations,
                 'answer_origin':origin,'model_alias':actual_alias}
-            validate_ask_data(data,environment=runtime.profile)
+            try:
+                validate_ask_data(data,environment=runtime.profile)
+            except Exception as error:
+                _ask_diag(request_id,'ASK_VALIDATE',error_type=type(error).__name__);raise
             turn=write('History',request.query,request.space_ids,records,runtime,conversation_id=raw.get('conversation_id'),context=request.context,
                 answer=answer,labels=labels,question=raw['question'],search_mode=request.search_mode,
                 answer_origin=origin,model_alias=actual_alias)

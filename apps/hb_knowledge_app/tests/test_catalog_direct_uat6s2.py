@@ -57,13 +57,15 @@ class PhaseStore:
         'pre_issue': lambda seen: 'pre_projection' in seen,
         'evidence_read': lambda seen: 'introspect' in seen,
         'document_read': lambda seen: 'introspect' in seen,
+        'document_body_read': lambda seen: 'introspect' in seen,
         'pre_general_generation': lambda seen: 'introspect' in seen,
         'post_general_generation': lambda seen: 'pre_general_generation' in seen,
         'final_publish': lambda seen: bool(seen & {'pre_projection', 'pre_issue', 'evidence_read',
-                                                   'document_read', 'post_general_generation'}),
+                                                   'document_read', 'document_body_read', 'post_general_generation'}),
     }
     OPERATION = {'introspect': 'introspect', 'cache_read': 'introspect', 'pre_issue': 'authorize-evidence',
-                 'evidence_read': 'authorize-evidence', 'document_read': 'authorize-evidence'}
+                 'evidence_read': 'authorize-evidence', 'document_read': 'authorize-evidence',
+                 'document_body_read': 'authorize-evidence'}
 
     def __init__(self):
         self.calls = []

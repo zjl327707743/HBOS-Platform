@@ -451,6 +451,11 @@
       "PRECISE"
      ],
      "default": "STANDARD"
+    },
+    "omitted_results": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 5
     }
    },
    "required": [
@@ -1368,7 +1373,8 @@
      "enum": [
       "knowledge.search",
       "knowledge.evidence",
-      "knowledge.spaces"
+      "knowledge.spaces",
+      "document.read"
      ]
     },
     "phase": {
@@ -1381,6 +1387,7 @@
       "pre_issue",
       "evidence_read",
       "document_read",
+      "document_body_read",
       "final_publish",
       "pre_general_generation",
       "post_general_generation"
@@ -1515,7 +1522,8 @@
       "knowledge.search",
       "knowledge.ask",
       "knowledge.evidence",
-      "knowledge.spaces"
+      "knowledge.spaces",
+      "document.read"
      ]
     },
     "environment": {
@@ -1555,7 +1563,8 @@
          "knowledge.search",
          "knowledge.ask",
          "knowledge.evidence",
-         "knowledge.spaces"
+         "knowledge.spaces",
+         "document.read"
         ]
        },
        "grant_ref": {
@@ -2042,6 +2051,7 @@
       "pre_issue",
       "evidence_read",
       "document_read",
+      "document_body_read",
       "final_publish",
       "pre_general_generation",
       "post_general_generation"

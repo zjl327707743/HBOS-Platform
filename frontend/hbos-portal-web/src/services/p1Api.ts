@@ -113,13 +113,17 @@ function validateKnowledgeEvidence(value: unknown): KnowledgeEvidence {
 }
 function validateKnowledgeSearch(value: KnowledgeSearchResult): KnowledgeSearchResult {
   const invalid = () => new DomainApiError('SERVICE_ERROR', '知识服务返回了无效响应。')
-  if (!value || Object.keys(value).some(key => !['request_id','mode','results','context','search_mode'].includes(key)) ||
+  if (!value || Object.keys(value).some(key => !['request_id','mode','results','context','search_mode','omitted_results'].includes(key)) ||
       value.mode !== 'retrieval' || !Array.isArray(value.results) || value.results.length > 5) throw invalid()
   safeKnowledgeString(value.request_id,128)
   const projected: KnowledgeSearchResult = { request_id:value.request_id, mode:'retrieval', results:value.results.map(validateKnowledgeEvidence) }
   if (value.search_mode !== undefined) {
     if (!['STANDARD','PRECISE'].includes(value.search_mode)) throw invalid()
     projected.search_mode = value.search_mode
+  }
+  if (value.omitted_results !== undefined) {
+    if (!Number.isInteger(value.omitted_results) || (value.omitted_results as number) < 1 || (value.omitted_results as number) > 5) throw invalid()
+    projected.omitted_results = value.omitted_results
   }
   // Current P1 legacy DTO may have context={}; canonical R1.1 omits it.
   if (value.context && Object.keys(value.context).length) {

@@ -111,15 +111,25 @@ class DecisionStore:
                 "pre_issue": call.operation == "authorize-evidence" and "pre_projection" in phases,
                 "evidence_read": call.operation == "authorize-evidence" and "introspect" in phases,
                 "document_read": call.operation == "authorize-evidence" and "introspect" in phases,
+                "document_body_read": call.operation == "authorize-evidence" and "introspect" in phases,
                 "pre_general_generation": call.operation == "revalidate" and "introspect" in phases,
                 "post_general_generation": call.operation == "revalidate" and "pre_general_generation" in phases,
-                "final_publish": call.operation == "revalidate" and bool({"pre_projection","pre_issue","evidence_read","document_read","post_general_generation"} & phases),
+                "final_publish": call.operation == "revalidate" and bool({"pre_projection","pre_issue","evidence_read","document_read","document_body_read","post_general_generation"} & phases),
             }
             if not valid[call.phase]:
                 raise KnowledgeError("INVALID_REQUEST")
             if call.operation == "authorize-evidence" and not call.references:
                 raise KnowledgeError("EMPTY_SCOPE")
             if call.phase=='document_read' and (len(call.references)!=1 or call.references[0].chunk_id!='CATALOG_METADATA_ONLY'):
+                raise KnowledgeError('SCOPE_REJECTED')
+            # Phase and action are bound together: a body-read proof cannot ride
+            # on a search/evidence plan and a body plan cannot authorize search.
+            if call.phase=='document_body_read' and (
+                    plan.action!='document.read' or len(call.references)!=1
+                    or call.references[0].chunk_id!='CATALOG_BODY_READ'):
+                raise KnowledgeError('SCOPE_REJECTED')
+            if plan.action=='document.read' and call.phase not in {
+                    'introspect','document_body_read','final_publish'}:
                 raise KnowledgeError('SCOPE_REJECTED')
             authorized = {(b.binding_ref,b.version_id) for b in plan.bindings}
             for proof in call.references:

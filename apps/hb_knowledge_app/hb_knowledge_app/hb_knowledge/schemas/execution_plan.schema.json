@@ -70,7 +70,8 @@
         "knowledge.search",
         "knowledge.ask",
         "knowledge.evidence",
-        "knowledge.spaces"
+        "knowledge.spaces",
+        "document.read"
       ]
     },
     "environment": {
@@ -110,7 +111,8 @@
               "knowledge.search",
               "knowledge.ask",
               "knowledge.evidence",
-              "knowledge.spaces"
+              "knowledge.spaces",
+              "document.read"
             ]
           },
           "grant_ref": {

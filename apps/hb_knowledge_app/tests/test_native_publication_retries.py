@@ -2,7 +2,13 @@ import importlib,sys
 from types import SimpleNamespace
 
 def setup(monkeypatch,legacy=None):
-    fake=SimpleNamespace(session=SimpleNamespace(user='maintainer@example.invalid'))
+    # ``maintenance.publish`` best-effort imports the batch module after the
+    # publication commit; expose the same framework surface every real request
+    # has (whitelist registration + rollback) without changing this test's
+    # intent or its assertions.
+    fake=SimpleNamespace(session=SimpleNamespace(user='maintainer@example.invalid'),
+        whitelist=lambda **kwargs:(lambda fn:fn),
+        db=SimpleNamespace(rollback=lambda:None))
     monkeypatch.setitem(sys.modules,'frappe',fake)
     monkeypatch.setitem(sys.modules,'hb_knowledge_app.hb_knowledge.shared_reference',
                         SimpleNamespace(configuration=lambda:{}))

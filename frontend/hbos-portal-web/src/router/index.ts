@@ -50,6 +50,9 @@ const router = createRouter({
         { path: 'catalog', name: 'knowledge-catalog', component: KnowledgeView, meta: { title: '资料目录' } },
         { path: 'favorites', name: 'knowledge-favorites', component: KnowledgeView, meta: { title: '我的收藏' } },
         { path: 'history', name: 'knowledge-history', component: KnowledgeView, meta: { title: '我的记录' } },
+        // One controlled reader for the answer citation, search result and
+        // catalogue entry points. Query: optional version_id, from and turn.
+        { path: 'document/:documentId', name: 'knowledge-document', component: () => import('@/views/KnowledgeDocumentView.vue'), meta: { title: '资料阅读' } },
         ...['upload', 'versions', 'feedback'].map(view => ({ path: `maintenance/${view}`, component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '知识维护' } })),
         { path: 'maintenance', name: 'knowledge-maintenance', component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '知识维护' } },
       ],
@@ -63,8 +66,13 @@ const router = createRouter({
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: { title: '页面不存在' } },
   ],
-  // KnowledgeView retains the current user's catalogue position across its views.
-  scrollBehavior: (to, from) => to.path.startsWith('/hbos/knowledge') && from.path.startsWith('/hbos/knowledge') ? false : ({ top: 0 }),
+  // KnowledgeView retains the current user's catalogue position across its own
+  // views. The reader route is a separate document surface, so it always starts
+  // at the top; returning to the workspace restores its own saved position.
+  scrollBehavior: (to, from) => {
+    const workspace = (path: string) => path.startsWith('/hbos/knowledge') && !path.startsWith('/hbos/knowledge/document')
+    return workspace(to.path) && workspace(from.path) ? false : ({ top: 0 })
+  },
 })
 
 router.afterEach((to, _from, failure) => {

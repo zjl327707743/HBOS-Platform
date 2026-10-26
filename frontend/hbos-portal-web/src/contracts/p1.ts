@@ -58,6 +58,10 @@ export interface KnowledgeSearchResult {
   search_mode?: 'STANDARD' | 'PRECISE'
   context?: KnowledgeSearchContext
   results: KnowledgeEvidence[]
+  /** Authorized sources skipped by the server because a single excerpt failed
+   *  the public-display check. The response itself still succeeds; the UI must
+   *  say so instead of pretending the corpus held nothing. */
+  omitted_results?: number
 }
 
 export interface KnowledgeSearchContext {

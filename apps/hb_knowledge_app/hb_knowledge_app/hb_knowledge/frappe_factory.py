@@ -65,19 +65,21 @@ class HttpGateway:
         if not isinstance(raw,dict) or set(raw)!={'status','results'} or raw['status']!='SUCCESS' or not isinstance(raw['results'],list) or len(raw['results'])>5:
             raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         selected={b.binding_ref:b for b in ticket.plan.bindings}; result=[]
-        from knowledge_service.hbos_gateway.response_projection import public_evidence
         for fragment in raw['results']:
+            # Protocol and identity/scope checks stay here and fail closed: a
+            # fragment must name a binding this plan authorizes.
             if not isinstance(fragment,dict) or set(fragment)!={'binding_ref','version_id','chunk_id','excerpt','page_number','score'}:
                 raise KnowledgeError('UPSTREAM_INVALID_RESULT')
             b=selected.get(fragment['binding_ref'])
             if not b or b.version_id!=fragment['version_id'] or not isinstance(fragment['chunk_id'],str):
                 raise KnowledgeError('UPSTREAM_SCOPE_VIOLATION')
-            record=EvidenceRecord(b.canonical_document_id,b.title,b.business_version,
+            result.append(EvidenceRecord(b.canonical_document_id,b.title,b.business_version,
                  'SYNTHETIC_ONLY' if b.source_type=='SYNTHETIC_TEST' else '内部参考／有效性待核' if b.authority_status=='CONTROLLED_REFERENCE_REVIEWED' else b.authority_status,
                  b.section,fragment['page_number'],fragment['excerpt'],fragment['chunk_id'],b.dataset_alias,
-                 b.space_id,b.version_id,b.binding_ref,b)
-            public_evidence(record,'CHECK_PROJECTION',environment=cfg_environment(self))
-            result.append(record)
+                 b.space_id,b.version_id,b.binding_ref,b))
+        # Public display hygiene is isolated per record in the search use case
+        # (api.search): one unsafe excerpt must not fail the whole authorized
+        # search. It is validated there before any handle is issued or returned.
         return result
     def authorize_evidence(self,ticket,records,*,phase):
         from .internal_contract import ReferenceProof
@@ -85,6 +87,24 @@ class HttpGateway:
         raw=self.http.post('/v1/knowledge/authorize-evidence',call.to_wire(),ticket.plan.client.client_id)
         if raw!={'allowed':True,'budget_owner':'HBOS'}: raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         return True
+
+    def document_page(self,*,ticket,page):
+        from .gateway import document_call
+        call=document_call(ticket)
+        raw=self.http.post('/v1/knowledge/document-page',
+            {'call':call.to_wire(),'page':page},ticket.plan.client.client_id)
+        if not isinstance(raw,dict) or raw.get('status')!='SUCCESS':
+            raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        return raw
+
+    def document_search(self,*,ticket,query,limit):
+        from .gateway import document_call
+        call=document_call(ticket)
+        raw=self.http.post('/v1/knowledge/document-search',
+            {'call':call.to_wire(),'query':query,'limit':limit},ticket.plan.client.client_id)
+        if not isinstance(raw,dict) or raw.get('status')!='SUCCESS':
+            raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        return raw
 
     def ask(self,*,ticket):
         if getattr(self,'profile',None)!='production':raise KnowledgeError('MODEL_NOT_APPROVED')

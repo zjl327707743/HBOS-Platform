@@ -11,7 +11,7 @@ class SafeAudit:
         self.events = []
 
     def record(self, subject: str, operation: str, code: str, count: int = 0):
-        if operation not in {"search", "evidence", "contract", "ask"} or type(count) is not int:
+        if operation not in {"search", "evidence", "contract", "ask", "document_read"} or type(count) is not int:
             raise ValueError("audit shape")
         actor_key = hmac.new(self._key, subject.encode(), hashlib.sha256).hexdigest()[:16]
         self.events.append({"actor_key": actor_key, "operation": operation, "code": code, "count": count})

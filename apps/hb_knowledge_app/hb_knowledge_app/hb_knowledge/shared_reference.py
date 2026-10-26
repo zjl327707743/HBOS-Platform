@@ -121,7 +121,7 @@ class InternalSharedAuthority(FrappePairedAuthority):
         bindings=tuple(accepted)
         revision=hashlib.sha256(json.dumps(sorted((b.binding_ref,b.binding_revision,b.version_id) for b in bindings)).encode()).hexdigest()
         grants=tuple(GrantPair(self.config['reader_role'],s['name'],a,'SHARED_'+s['name']+'_'+a.split('.')[-1])
-            for s in spaces for a in ('knowledge.search','knowledge.evidence','knowledge.spaces'))
+            for s in spaces for a in ('knowledge.search','knowledge.evidence','knowledge.spaces','document.read'))
         return AuthoritySnapshot(state,(Client(self.config['portal_client_id']),),grants,tuple(s['name'] for s in spaces),
             bindings,tuple(sorted(allowed_datasets)),(),self.config['policy_revision'],revision,
             ProviderStamp('INTERNAL_SHARED_REFERENCE',self.config['policy_revision'],None),

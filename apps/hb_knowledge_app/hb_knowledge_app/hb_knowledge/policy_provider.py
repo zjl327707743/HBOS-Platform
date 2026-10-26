@@ -13,6 +13,24 @@ class PolicyProvider(Protocol):
     def evaluate(self, actor, client, action, request, request_id): ...
     def revalidate(self, plan): ...
 
+def _document_read_failure_state(bindings, *, version_id=None):
+    """Enumerated, non-sensitive reason a logical document body is unreadable.
+
+    Only binding-level facts from the current authorization snapshot are used;
+    no path, physical id or upstream detail is ever derived here.
+    """
+    if not bindings:
+        return "NOT_AUTHORIZED"
+    if any(bool(getattr(b, "withdrawn", False)) for b in bindings):
+        return "WITHDRAWN"
+    if version_id is not None and all(b.version_id != version_id for b in bindings):
+        return "VERSION_STALE"
+    if all(getattr(b, "publication_state", "") != "published" for b in bindings):
+        return "NOT_PUBLISHED"
+    if len({b.version_id for b in bindings}) > 1:
+        return "VERSION_AMBIGUOUS"
+    return "NOT_AUTHORIZED"
+
 class HbosReadOnlyAuthority:
     """Read-through HBOS-owned port, never accepts a request-body authority snapshot.
 
@@ -75,10 +93,29 @@ class LegacyHbosPolicyProvider:
         return snapshot
 
     def evaluate(self, actor: Actor, client: Client, action: str,
-                 request: SearchRequest, request_id: str) -> AuthorizedExecutionPlan:
+                 request, request_id: str) -> AuthorizedExecutionPlan:
+        now = self.clock()
+        if action == "document.read":
+            # Body reading is a separate controlled use case: the request names
+            # only the logical document/version, and the plan is narrowed to the
+            # one binding that snapshot currently authorizes.
+            from .document_reader_contract import DocumentReadRequest, normalize_document_read
+            if isinstance(request, DocumentReadRequest):
+                request = normalize_document_read(request.to_wire())
+            elif isinstance(request, dict):
+                request = normalize_document_read(request)
+            else:
+                raise KnowledgeError("INVALID_REQUEST")
+            snapshot = self._current(actor, client)
+            grants = tuple(g for g in snapshot.grants if g.action == action
+                           and g.role_ref in snapshot.actor_state.roles
+                           and g.space_id in snapshot.active_spaces
+                           and g.space_id not in snapshot.denied_spaces)
+            spaces = tuple(sorted({g.space_id for g in grants}))
+            return self._document_read_plan(snapshot, actor, client, request,
+                                            request_id, now, grants, spaces)
         if not isinstance(request,SearchRequest) or normalize_search(request.to_wire())!=request:
             raise KnowledgeError("INVALID_REQUEST")
-        now = self.clock()
         snapshot = self._current(actor, client)
         if action not in {"knowledge.search", "knowledge.evidence", "knowledge.spaces"}:
             raise KnowledgeError("MODEL_NOT_APPROVED")
@@ -111,23 +148,71 @@ class LegacyHbosPolicyProvider:
             raise KnowledgeError("EMPTY_SCOPE")
         if not snapshot.query_embedding_admitted:
             raise KnowledgeError("MODEL_NOT_APPROVED")
+        return self._issue_plan(snapshot, actor, client, action, request_id, now,
+                                spaces, grants, selected,
+                                search_mode=request.search_mode,
+                                model_alias=request.model_alias,
+                                knowledge_only=request.knowledge_only,
+                                answer_caller=request.answer_caller)
+
+    def _document_read_plan(self, snapshot, actor, client, request, request_id, now,
+                            grants, spaces):
+        """Narrow a document-body plan to exactly the requested current binding.
+
+        The same snapshot that authorizes search/evidence decides: space role,
+        current version, withdrawal and publication state. The plan carries one
+        binding only, so it can never address another document or version.
+        """
+        if not spaces:
+            raise KnowledgeError("DOCUMENT_READ_UNAVAILABLE", state="NOT_AUTHORIZED")
+        document_bindings = [b for b in snapshot.bindings
+                             if b.canonical_document_id == request.document_id]
+        scoped = [b for b in document_bindings
+                  if b.space_id in spaces and b.dataset_id in snapshot.allowed_datasets]
+        admitted = []
+        for binding in scoped:
+            try:
+                validate_admission(binding, self.environment, now)
+            except KnowledgeError:
+                continue
+            admitted.append(binding)
+        if not admitted:
+            raise KnowledgeError(
+                "DOCUMENT_READ_UNAVAILABLE",
+                state=_document_read_failure_state(
+                    scoped or document_bindings, version_id=request.version_id))
+        versions = sorted({b.version_id for b in admitted})
+        if request.version_id is None and len(versions) > 1:
+            raise KnowledgeError("DOCUMENT_READ_UNAVAILABLE", state="VERSION_AMBIGUOUS")
+        if request.version_id is not None and versions != [request.version_id]:
+            raise KnowledgeError("DOCUMENT_READ_UNAVAILABLE", state="VERSION_STALE")
+        target = versions[0]
+        selected = sorted((b for b in admitted if b.version_id == target),
+                          key=lambda b: (b.space_id, b.binding_ref))[0]
+        return self._issue_plan(snapshot, actor, client, "document.read", request_id, now,
+                                spaces, grants, (selected,))
+
+    def _issue_plan(self, snapshot, actor, client, action, request_id, now,
+                    spaces, grants, bindings, *, search_mode="STANDARD",
+                    model_alias=None, knowledge_only=False, answer_caller=None):
         # Wire datetimes round to microseconds. Flooring the issue second avoids a
         # rounded timestamp being fractionally later than the validation clock;
         # the authorization lifetime is shortened, never extended past 120s.
         issued = float(int(now))
         expires = min(issued + 120, timestamp(snapshot.provider.compatibility_expires_at)) if snapshot.provider.compatibility_expires_at else issued + 120
         plan = AuthorizedExecutionPlan(CONTRACT_VERSION, secrets.token_urlsafe(24), actor, client,
-            action, self.environment, tuple(spaces), grants, tuple(selected),
+            action, self.environment, tuple(spaces), grants, tuple(bindings),
             snapshot.policy_revision, snapshot.corpus_revision, snapshot.provider,
-            request_id, iso(issued), iso(expires), Limits(), snapshot.model_policy_ref, request.search_mode,
-            request.model_alias,request.knowledge_only,request.answer_caller)
+            request_id, iso(issued), iso(expires), Limits(), snapshot.model_policy_ref,
+            search_mode, model_alias, knowledge_only, answer_caller)
         return validate_plan(plan, now=now)
 
     def revalidate(self, plan: AuthorizedExecutionPlan):
         validate_plan(plan, now=self.clock())
         current = self._current(plan.subject, plan.client)
-        current_bindings = set(current.bindings)
-        if not current.query_embedding_admitted or current.model_policy_ref != plan.model_policy_ref:
+        if plan.action != "document.read" and (
+                not current.query_embedding_admitted
+                or current.model_policy_ref != plan.model_policy_ref):
             raise KnowledgeError("MODEL_NOT_APPROVED")
         if (current.policy_revision != plan.policy_revision
                 or (current.corpus_revision != plan.corpus_revision
@@ -144,6 +229,20 @@ class LegacyHbosPolicyProvider:
         # Exact grant pairs plus current roles, not independent role/space sets.
         if any(g not in current.grants or g.role_ref not in current.actor_state.roles for g in plan.grant_pairs):
             raise KnowledgeError("SCOPE_REJECTED")
+        current_bindings = set(current.bindings)
+        if plan.action == "document.read":
+            for b in plan.bindings:
+                if b not in current_bindings or b.dataset_id not in current.allowed_datasets:
+                    # A page must fail closed once the source is withdrawn,
+                    # bumped or no longer published. Only an enumerated safe
+                    # reason crosses the boundary.
+                    matches = [x for x in current.bindings
+                               if x.canonical_document_id == b.canonical_document_id]
+                    raise KnowledgeError(
+                        "DOCUMENT_READ_UNAVAILABLE",
+                        state=_document_read_failure_state(matches, version_id=b.version_id))
+                validate_admission(b, self.environment, self.clock())
+            return plan
         for b in plan.bindings:
             # Membership against a set, not a scan of a tuple. A shared-reference
             # plan carries every binding the caller may see (918 here), so the

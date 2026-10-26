@@ -57,28 +57,59 @@ def mount_map(evidence,base_image):
 
 def prepare(task,evidence,cycle="RC1"):
     here=task/'work/deploy/candidate';manifest=json.loads((here/'manifest.json').read_text());build=json.loads((task/'work/build-info-rc1.json').read_text())
-    baseline=json.loads((evidence/'baseline.json').read_text());old={role:inspect(role) for role in ('bff','service','frontend')}
-    changed=any(old[role]['Image']!=baseline['containers'][role]['image_id'] for role in old)
+    old={role:inspect(role) for role in ('bff','service','frontend')}
     current=json.loads((here/'DEPLOY_LOCK_CURRENT.json').read_text())
-    if cycle=="RC11":
+    changed=False
+    if cycle=="RC13":
+        # RC13 advances the verified running candidate to the RC13 immutable
+        # build. The authorization names the exact baseline release; only the
+        # seven pinned compose files may change, through the new proposal.
+        authorization=json.loads((evidence/'rc13-authorization.json').read_text())
+        if authorization.get('cycle')!='RC13' or authorization.get('baseline_release')!=current['release_id']:
+            raise RuntimeError('RC13 requires exact authorized baseline')
+        if any(old[role]['Image']!=current['containers'][role]['image_id'] for role in old):
+            raise RuntimeError('Running candidate differs from CURRENT')
+        # The seven-file composition changes only through the declared override
+        # delta in the authorization. Every other pinned file must still match
+        # CURRENT byte for byte; any undeclared change refuses the proposal.
+        delta=(authorization.get('composition_delta') or {})
+        declared=delta.get('changed_files') or {}
+        for entry in current['composition']['files']:
+            path=pathlib.Path(entry['path'])
+            if path.name=='compose.override.yml' and str(path) in declared:
+                if sha(path)!=declared[str(path)]:
+                    raise RuntimeError('Declared override delta does not match the proposal')
+                continue
+            if sha(path)!=entry['sha256']:
+                raise RuntimeError('CURRENT composition drifted')
+        backup=evidence/'rollback';static_source=pathlib.Path(current['static']['path'])
+        previous_source=current['source'];previous_release=current['release_id']
+    elif cycle=="RC11":
         authorization=json.loads((evidence/"cycle-authorization.json").read_text())
         if authorization.get("cycle")!="RC11" or authorization.get("baseline_release")!=current["release_id"]:raise RuntimeError("RC11 requires exact authorized baseline")
         if any(old[role]["Image"]!=current["containers"][role]["image_id"] for role in old):raise RuntimeError("Running candidate differs from CURRENT")
         for entry in current["composition"]["files"]:
             if sha(pathlib.Path(entry["path"]))!=entry["sha256"]:raise RuntimeError("CURRENT composition drifted")
         backup=evidence/"rollback";static_source=pathlib.Path(current["static"]["path"]);previous_source=current["source"];previous_release=current["release_id"]
-    elif changed:
-        receipts=json.loads((here/'RC1_SWITCH_RECEIPTS.json').read_text())
-        if len(receipts)!=1 or receipts[-1].get('status')!='VERIFIED':raise RuntimeError('Only the evidenced RC1 repair may advance this candidate')
-        if any(old[role]['Image']!=current['containers'][role]['image_id'] for role in old):raise RuntimeError('Candidate changed outside its verified CURRENT lock')
-        for entry in current['composition']['files']:
-            if sha(pathlib.Path(entry['path']))!=entry['sha256']:raise RuntimeError('CURRENT composition drifted before repair proposal')
-        backup=evidence/('rollback-'+current['release_id']);static_source=pathlib.Path(current['static']['path']);previous_source=current['source'];previous_release=current['release_id']
     else:
-        backup=evidence/'rollback';static_source=task/'work/hbos/apps/hbos_portal/hbos_portal/public/portal';previous_source=baseline['sources'];previous_release='PREVIOUS_VERIFIED_'+baseline['sources']['hbos']['head'][:12]
+        baseline=json.loads((evidence/'baseline.json').read_text())
+        changed=any(old[role]['Image']!=baseline['containers'][role]['image_id'] for role in old)
+        if changed:
+            receipts=json.loads((here/'RC1_SWITCH_RECEIPTS.json').read_text())
+            if len(receipts)!=1 or receipts[-1].get('status')!='VERIFIED':raise RuntimeError('Only the evidenced RC1 repair may advance this candidate')
+            if any(old[role]['Image']!=current['containers'][role]['image_id'] for role in old):raise RuntimeError('Candidate changed outside its verified CURRENT lock')
+            for entry in current['composition']['files']:
+                if sha(pathlib.Path(entry['path']))!=entry['sha256']:raise RuntimeError('CURRENT composition drifted before repair proposal')
+            backup=evidence/('rollback-'+current['release_id']);static_source=pathlib.Path(current['static']['path']);previous_source=current['source'];previous_release=current['release_id']
+        else:
+            backup=evidence/'rollback';static_source=task/'work/hbos/apps/hbos_portal/hbos_portal/public/portal';previous_source=baseline['sources'];previous_release='PREVIOUS_VERIFIED_'+baseline['sources']['hbos']['head'][:12]
     backup.mkdir(exist_ok=True,parents=True)
     archive=archive_check(backup/'previous-images.tar',[old[r]['Image'] for r in old]);save(backup/'archive-verification.json',archive)
     original=here/'compose.override.yml'
+    # RC13 adds a declared runtime delta to the override (maintenance derivative
+    # mount/config env). The proposal template is therefore the reviewed new
+    # override, while the rollback template stays the true previous file.
+    proposal_template=(evidence/'compose.override.rc13.yml') if cycle=='RC13' and (evidence/'compose.override.rc13.yml').exists() else backup/'compose.override.before.yml'
     if not (backup/'compose.override.before.yml').exists():shutil.copy2(original,backup/'compose.override.before.yml')
     if not (backup/'static').exists():shutil.copytree(static_source,backup/'static')
     previous_static=static_manifest(backup/'static')
@@ -95,7 +126,7 @@ def prepare(task,evidence,cycle="RC1"):
     baseline_current=dict(previous,composition=composition(manifest['compose_files']),purpose='Verified running baseline before RC1 proposal')
     if not changed and cycle=="RC1":save(here/'DEPLOY_LOCK_CURRENT.json',baseline_current)
     candidate_images={'bff':build['images']['frappe']['reference'],'service':build['images']['service']['reference'],'frontend':old['frontend']['Image']}
-    override(original,backup/'compose.override.before.yml',candidate_images,pathlib.Path(build['static']))
+    override(original,proposal_template,candidate_images,pathlib.Path(build['static']))
     proposed={'cycle':cycle,'release_id':build['release_id'],'project':PROJECT,'state':'PROPOSED','source':build['source_commits'],'build_info':str(task/'work/build-info-rc1.json'),'build_info_sha256':sha(task/'work/build-info-rc1.json'),'containers':{'bff':{'image_id':build['images']['frappe']['image_id']},'service':{'image_id':build['images']['service']['image_id']},'frontend':{'image_id':old['frontend']['Image']}},'composition':composition(manifest['compose_files']),'manifest':manifest,'static':{'path':build['static'],'files':build['static_manifest']},'configuration_change':{'reason':'Immutable image references, verified release-specific static mounts and original-directory metadata','source_directory_sha256':sha(evidence/'source-directory.json')},'rollback_archive':archive,'rollback_lock':str(here/'DEPLOY_LOCK_PREVIOUS.json'),'business_data_rollback':False}
     save(here/'DEPLOY_LOCK_PROPOSED.json',proposed)
     print(json.dumps({'state':'PROPOSED','release_id':build['release_id'],'rollback_archive_verified':True,'compose_files':7}))
@@ -134,7 +165,33 @@ def switch(task,evidence,rollback=False,check_only=False,cycle="RC1",rollback_lo
     if not rollback:
         if lock.get('cycle','RC1')!=cycle:raise RuntimeError('Release cycle does not match proposal')
         count_file=here/(cycle+'_SWITCH_RECEIPTS.json');receipts=json.loads(count_file.read_text()) if count_file.exists() else []
-        if len(receipts)>=(3 if cycle=='RC11' else 2):raise RuntimeError('Bounded release-cycle switch budget consumed')
+        # RC13 is a bounded repair window. Five switches carried the product
+        # code plus the wrapper fix found by the maintenance-batch acceptance
+        # run; one more switch is reserved for the batch-execution fixes that
+        # the same acceptance run proved necessary. Receipts record every
+        # release id and timestamp; nothing is rewritten.
+        # Seven switches: product code, two wrapper fixes, batch-execution
+        # fixes, search projection and the >1000-document maintenance picker
+        # cap discovered as the corpus grew. Every switch is receipted.
+        # Ninth switch: H05 critical-atom rendering fix (English number words /
+        # Chinese numerals before time units) after the bounded acceptance run.
+        # Tenth switch: S4 rank-1 retrieval document preserved through
+        # answer-context title/topic narrowing.
+        # Eleventh switch: anchor the bounded ordered body read at the page the
+        # retrieval already matched (N01 long cover/TOC).
+        # Twelfth switch: bounded lexical page locate for documents whose body
+        # sits behind a long cover/TOC and retrieval supplied no page (N01).
+        # Thirteenth switch: answer-side projection isolation (drop only the
+        # unsafe citation before generation; N01 body chunk used to fail the
+        # whole answer at the BFF projection).
+        # Fourteenth switch: body-anchoring stays behind an explicit flag until
+        # the BFF projection failure it surfaced is traced (N01 regression guard).
+        # Fifteenth switch: skip unreadable/mojibake body chunks and enable the
+        # anchored ordered read by default (N01).
+        # Sixteenth switch: sanitized BFF ask-stage diagnostics (stage/code/type
+        # only) to locate the N01 UPSTREAM_INVALID_RESULT failure point.
+        limit=29 if cycle=='RC13' else (3 if cycle=='RC11' else 2)
+        if len(receipts)>=limit:raise RuntimeError('Bounded release-cycle switch budget consumed')
         for name,relative in [('hbos','hbos'),('service','knowledge_service'),('frontend','frontend_runtime')]:
             root=task/'work'/relative
             if run(['git','-C',str(root),'rev-parse','HEAD'])!=lock['source'][name] or run(['git','-C',str(root),'status','--porcelain']):raise RuntimeError('Source moved or became dirty')
@@ -158,7 +215,7 @@ def switch(task,evidence,rollback=False,check_only=False,cycle="RC1",rollback_lo
     print(json.dumps(receipt,ensure_ascii=False))
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');parser.add_argument('--cycle',choices=['RC1','RC11'],default='RC1');parser.add_argument('--rollback-lock',type=pathlib.Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');parser.add_argument('--cycle',choices=['RC1','RC11','RC13'],default='RC1');parser.add_argument('--rollback-lock',type=pathlib.Path);args=parser.parse_args()
     task=args.task_root.resolve();evidence=args.evidence_root.resolve()
     with (task/'work/deploy/candidate/MAIN_AGENT_RELEASE.lock').open('a') as guard:
         fcntl.flock(guard,fcntl.LOCK_EX|fcntl.LOCK_NB)

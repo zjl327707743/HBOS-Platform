@@ -114,6 +114,7 @@
 import { ArrowRightOutlined, FileTextOutlined, StarFilled, StarOutlined, HistoryOutlined, MessageOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useSlots, watch } from 'vue'
 import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFeedback, KnowledgeSearchContext, KnowledgeSavedQuery, KnowledgeDocument, KnowledgeSpace } from '@/contracts/p1'
+import type { KnowledgeToolsReturnState } from '@/contracts/knowledgeReturn'
 import { askKnowledgeReference, getKnowledgeActivity, getKnowledgeFeedback, openKnowledgeSaved, removeKnowledgeSaved, saveKnowledgeBookmark, sendKnowledgeFeedback, DomainApiError, getKnowledgeActivityPage, getKnowledgeFeedbackPage, saveKnowledgeDocumentBookmark, getKnowledgeDocumentsPage } from '@/services/p1Api'
 
 type RecordKind = 'Catalog' | 'History' | 'Bookmark' | 'Feedback'
@@ -394,6 +395,29 @@ function restoreSnapshot(snapshot: import('@/contracts/p1').KnowledgeRestored) {
   queryState.value = turns.value.length ? ((turns.value[turns.value.length - 1]!.answerable || turns.value[turns.value.length - 1]!.citations.length>0) ? 'success' : 'no_evidence') : 'idle'
   emit('conversation', Boolean(conversation.value))
 }
+// The document reader replaces this view for a moment. Snapshot the read-only
+// conversation state and restore it on return without re-sending a question or
+// reloading history.
+function snapshotState(): KnowledgeToolsReturnState {
+  return {
+    question: question.value,
+    conversation: conversation.value,
+    turns: turns.value.map(turn => ({ ...turn, citations: [...turn.citations] })),
+    queryState: queryState.value,
+  }
+}
+function restoreState(state: KnowledgeToolsReturnState) {
+  generation++
+  turns.value = state.turns.map(turn => ({ ...turn, citations: [...turn.citations] }))
+  conversation.value = state.conversation
+  question.value = state.question
+  queryState.value = state.queryState
+  busy.value = false
+  askPending.value = false
+  error.value = ''
+  closeFeedback(false)
+  emit('conversation', Boolean(conversation.value))
+}
 function cancelPending(cancelRecords = true) {
   generation++
   if (cancelRecords) { recordsGeneration++; refreshing.value = false }
@@ -438,7 +462,7 @@ function tabKeydown(event: KeyboardEvent, current: RecordKind) {
   void nextTick(() => document.getElementById(`knowledge-tab-${kind.value}`)?.focus())
 }
 
-defineExpose({ restoreSnapshot, hasQueryError, queryState, refresh, bookmark, feedback, generalFeedback, ask, newConversation, cancelPending, invalidateSources, isBookmarked, toggleDocumentBookmark })
+defineExpose({ restoreSnapshot, hasQueryError, queryState, refresh, bookmark, feedback, generalFeedback, ask, newConversation, cancelPending, invalidateSources, isBookmarked, toggleDocumentBookmark, snapshotState, restoreState })
 onMounted(refresh)
 </script>
 

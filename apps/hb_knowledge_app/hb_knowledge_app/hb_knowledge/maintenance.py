@@ -114,6 +114,7 @@ def _projection(row,frozen,state,page,page_size,locate=None):
             'chunk_count':int(item.get('chunk_count') or 0),'quality_status':review.get('status','Pending'),
             'shared_approved':bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed')),
             'quality_note':review.get('note',''),'current_version':published.get('current_version') if published else None,
+            'retrieval_verified':review.get('retrieval_verified'),
             'publication_status':'Withdrawn' if published and published['withdrawn'] else ('Published' if published and published['current_version']==item['version_id'] and published['ingestion_status']=='published' else 'Unpublished')})
     return {'batch_id':row['name'],'label':row['label'],'department':row['department_key'],'status':row['status'],
         'last_error':row.get('last_error'),'items':items,'total':len(state['items']),'page':page,'page_size':page_size,
@@ -140,13 +141,32 @@ def dashboard(batch_id=None,page=1,page_size=12,locate=None):
         'current_version':b.version_id,'title':b.title or b.canonical_document_id,
         'department':normalized_department(b.space_id.removeprefix('DEPT_')).lower()}
         for b in snapshot.bindings if b.dataset_id in snapshot.allowed_datasets}
-    if len(published)>1000:raise KnowledgeError('POLICY_UNAVAILABLE')
+    published_list,published_total=_published_documents_for_dashboard(published)
     availability=__import__(__package__+'.api',fromlist=['_availability'])._availability(runtime)
     availability['can_parse']=bool(availability['configured'] and not availability['blocked'])
+    try:
+        from .maintenance_batch import batch_available
+        availability['can_batch']=batch_available()
+    except Exception:
+        availability['can_batch']=False
     return {'departments':[{'key':k,'title':v} for k,v in DEPARTMENTS.items()],
             'batches':batches,'selected':selected,'feedback':feedback_queue(load_runtime()),
-            'published_documents':sorted(published.values(),key=lambda i:i['title']),
+            'published_documents':published_list,
+            'published_total':published_total,
+            'published_truncated':published_total>len(published_list),
             'import_availability':availability,'department_funnel':department_funnel(published)}
+
+def _published_documents_for_dashboard(published,limit=1000):
+    """Bounded catalogue for the maintenance picker; the corpus may exceed 1000.
+
+    The dashboard previously raised POLICY_UNAVAILABLE once more than 1000
+    documents were published, which made the whole maintenance page unusable as
+    the corpus grew. The picker is a bounded projection: return the first 1000
+    by title together with the real total and an explicit truncation flag.
+    """
+    values=sorted(published.values(),key=lambda i:i['title'])
+    return values[:limit],len(values)
+
 
 def department_funnel(published):
     """Counts only, with a private discovery baseline and live native states."""
@@ -292,6 +312,8 @@ def hold_quality(batch_id,document_ids,note):
         record={'status':'Pending','note':safe_string(note.strip(),500),'source_sha256':item['sha256'],
                 'upload_sha256':item.get('upload_sha256'),'version_id':item['version_id'],
                 'reviewed_by':frappe.session.user,'reviewed_at':time.time()}
+        prior=quality.get(item['version_id'],{})
+        if isinstance(prior.get('retrieval_verified'),dict):record['retrieval_verified']=prior['retrieval_verified']
         record['evidence_sha256']=hashlib.sha256(canonical(record).encode()).hexdigest()
         quality[item['version_id']]=record
     frappe.db.set_value(TABLE,batch_id,'quality_json',canonical(quality));frappe.db.commit()
@@ -314,6 +336,8 @@ def review_batch(batch_id,document_ids,checks,note):
         record={'status':'Passed','note':note.strip(),'checks':sorted(checks),
             'source_sha256':item['sha256'],'upload_sha256':item['upload_sha256'],'version_id':item['version_id'],
             'reviewed_by':frappe.session.user,'reviewed_at':time.time()}
+        prior=quality.get(item['version_id'],{})
+        if isinstance(prior.get('retrieval_verified'),dict):record['retrieval_verified']=prior['retrieval_verified']
         record['evidence_sha256']=hashlib.sha256(canonical(record).encode()).hexdigest()
         quality[item['version_id']]=record;records.append(record)
     frappe.db.set_value(TABLE,batch_id,'quality_json',canonical(quality));frappe.db.commit()
@@ -419,7 +443,22 @@ def publish(batch_id,document_ids,operation='publish',expected_version=None,reas
         owned=[r['approval_ref'] for r in committed if r['approval_ref']==approval
                or (r.get('approval_ref') or '').startswith('NATIVE_MAINTENANCE:'+actor+':')]
         if owned:approval=owned[0]
-    return existing(None,operation,expected_version,reason,approval,document_ids,registered_batch_id=batch_id)
+    result=existing(None,operation,expected_version,reason,approval,document_ids,registered_batch_id=batch_id)
+    # Publication alone is not employee retrieval verification. Keep a durable
+    # PENDING marker (best effort: the publication already committed) so the
+    # maintainer UI can show an honest badge until a real employee search and
+    # evidence resolution receipt arrives.
+    try:
+        from .maintenance_batch import mark_retrieval_pending
+        mark_retrieval_pending(batch_id,result)
+    except Exception:
+        # Best-effort post-publication marker: the publication already committed
+        # and must not be reported as failed. Roll back only the marker write.
+        rollback=getattr(getattr(frappe,'db',None),'rollback',None)
+        if callable(rollback):
+            try:rollback()
+            except Exception:pass
+    return result
 
 def withdraw(batch_id,document_id,expected_version,reason):
     require();row,frozen,state=_row(batch_id,True)

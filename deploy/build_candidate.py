@@ -15,7 +15,13 @@ def build(task):
     for root in (hbos,service,frontend):
         if git(root,'status','--porcelain'):raise RuntimeError('Build requires clean committed source: '+root.name)
     heads={k:git(p,'rev-parse','HEAD') for k,p in [('hbos',hbos),('service',service),('frontend',frontend)]}
-    owned=['frontend/hbos-portal-web/src/components/knowledge','frontend/hbos-portal-web/src/views/KnowledgeView.vue','frontend/hbos-portal-web/src/views/KnowledgeMaintenanceView.vue','frontend/hbos-portal-web/src/services/knowledgeMaintenanceApi.ts','frontend/hbos-portal-web/src/composables/useEvidenceResolution.ts','frontend/hbos-portal-web/src/contracts/p1.ts','frontend/hbos-portal-web/src/services/p1Api.ts']
+    owned=['frontend/hbos-portal-web/src/components/knowledge','frontend/hbos-portal-web/src/views/KnowledgeView.vue',
+           'frontend/hbos-portal-web/src/views/KnowledgeMaintenanceView.vue','frontend/hbos-portal-web/src/views/KnowledgeDocumentView.vue',
+           'frontend/hbos-portal-web/src/services/knowledgeMaintenanceApi.ts','frontend/hbos-portal-web/src/services/documentReaderApi.ts',
+           'frontend/hbos-portal-web/src/composables/useEvidenceResolution.ts','frontend/hbos-portal-web/src/composables/useDocumentReader.ts',
+           'frontend/hbos-portal-web/src/contracts/p1.ts','frontend/hbos-portal-web/src/contracts/documentReader.ts',
+           'frontend/hbos-portal-web/src/services/p1Api.ts','frontend/hbos-portal-web/src/stores/knowledgeReturn.ts',
+           'frontend/hbos-portal-web/src/router/index.ts']
     if git(hbos,'diff',heads['frontend'],heads['hbos'],'--',*owned):raise RuntimeError('Knowledge frontend differs from the PR source')
     bases={kind:output(['docker','image','inspect','--format','{{.Id}}',f'hbos-knowledge-r2-20261008-{kind}:uat4']) for kind in ('frappe','service')}
     inputs={'source_commits':heads,'base_images':bases,'builder_sha256':sha(pathlib.Path(__file__)),

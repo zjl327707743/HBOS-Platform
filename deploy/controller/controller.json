@@ -1,0 +1,28 @@
+{
+  "schema": "rc13-controller-config-template-v1",
+  "authority_url": "${HBOS_CONTROLLER_AUTHORITY_URL}",
+  "gateway_config": "${HBOS_KNOWLEDGE_GATEWAY_CONFIG}",
+  "native_budget_config": "${HBOS_NATIVE_BUDGET_CONFIG}",
+  "model_egress_config": "${HBOS_MODEL_EGRESS_CONFIG}",
+  "ragflow_auth": "${HBOS_RAGFLOW_AUTH_FILE}",
+  "embedding_model": "${HBOS_EMBEDDING_MODEL}",
+  "private_work": "${HBOS_CONTROLLER_PRIVATE_WORK}",
+  "registered_worker_record": "${HBOS_REGISTERED_WORKER_RECORD}",
+  "native_worker_log": "${HBOS_NATIVE_WORKER_LOG}",
+  "native_source": "${HBOS_NATIVE_SOURCE}",
+  "native_python": "${HBOS_NATIVE_PYTHON}",
+  "native_env_file": "${HBOS_NATIVE_ENV_FILE}",
+  "native_project_base": "${HBOS_NATIVE_PROJECT_BASE}",
+  "native_deploy_base": "${HBOS_NATIVE_DEPLOY_BASE}",
+  "python_paths": [
+    "${HBOS_CONTROLLER_PYTHON_PATH_1}",
+    "${HBOS_CONTROLLER_PYTHON_PATH_2}",
+    "${HBOS_CONTROLLER_PYTHON_PATH_3}"
+  ],
+  "native_library_path": "${HBOS_NATIVE_LIBRARY_PATH}",
+  "heartbeat_path": "${HBOS_CONTROLLER_PRIVATE_WORK}/controller-heartbeat.json",
+  "heartbeat_interval": 15,
+  "idle_backoff_start": 2,
+  "idle_backoff_max": 30,
+  "idle_backoff_factor": 1.5
+}
