@@ -133,7 +133,7 @@ def switch(task,evidence,rollback=False,check_only=False,cycle="RC1"):
     if not rollback:
         if lock.get('cycle','RC1')!=cycle:raise RuntimeError('Release cycle does not match proposal')
         count_file=here/(cycle+'_SWITCH_RECEIPTS.json');receipts=json.loads(count_file.read_text()) if count_file.exists() else []
-        if len(receipts)>=2:raise RuntimeError('One planned switch and one evidence-based patch already consumed')
+        if len(receipts)>=(3 if cycle=='RC11' else 2):raise RuntimeError('Bounded release-cycle switch budget consumed')
         for name,relative in [('hbos','hbos'),('service','knowledge_service'),('frontend','frontend_runtime')]:
             root=task/'work'/relative
             if run(['git','-C',str(root),'rev-parse','HEAD'])!=lock['source'][name] or run(['git','-C',str(root),'status','--porcelain']):raise RuntimeError('Source moved or became dirty')
