@@ -298,8 +298,9 @@ def identity_row(settings, identity: dict, *, lock: bool = False):
 
 
 def bind_identity(settings, identity: dict, user: str) -> str:
-    from hbos_portal.auth.feishu import FeishuLoginError
+    from hbos_portal.auth.feishu import FeishuLoginError, require_pilot_user
 
+    require_pilot_user(settings, user)
     require_user(user, external=True)
     # Serialize competing bindings to one User, then let DB unique constraints
     # arbitrate the same external identity requested by two different Users.
@@ -450,7 +451,7 @@ def get_pending() -> dict:
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 @rate_limit(limit=8, seconds=300)
 def complete_pending(action: str, username: str = "", password: str = "", otp: str = "", tmp_id: str = "") -> dict:
-    from hbos_portal.auth.feishu import FeishuLoginError, load_settings
+    from hbos_portal.auth.feishu import FeishuLoginError, load_settings, require_pilot_user
 
     nonce, record = pending(write=True)
     if action == "cancel":
@@ -468,6 +469,7 @@ def complete_pending(action: str, username: str = "", password: str = "", otp: s
         if action != "login_mfa":
             frappe.throw("请完成二次认证。", frappe.PermissionError)
         user = require_user(record["user"], external=True)
+        require_pilot_user(settings, user)
         row = identity_row(settings, record["identity"])
         if not row or not row.enabled or row.user != user:
             frappe.throw("飞书绑定已撤销。", frappe.AuthenticationError)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 import re
 import secrets
@@ -54,6 +55,8 @@ class FeishuSettings:
     app_secret: str = field(repr=False)
     auto_provision_internal: bool = False
     account_domain: str = "feishu.hbos.internal"
+    pilot_mode: bool = False
+    pilot_users: tuple[str, ...] = ()
 
     @property
     def configured(self) -> bool:
@@ -66,7 +69,7 @@ class FeishuSettings:
             and self.authorize_id_parameter in {"client_id", "app_id"}
             and self.published
             and self.redirect_registered
-            and self.auto_provision_internal
+            and (not self.pilot_mode or bool(self.pilot_users))
             and bool(ACCOUNT_DOMAIN_PATTERN.fullmatch(self.account_domain))
         )
 
@@ -88,14 +91,15 @@ class FeishuSettings:
             missing.append("authorize_id_parameter")
         if not self.published:
             missing.append("internal_member_publication")
-        if not self.auto_provision_internal:
-            missing.append("internal_member_auto_provision")
+        if self.pilot_mode and not self.pilot_users:
+            missing.append("approved_pilot_users")
         return {
             "configured": self.configured,
             "provider": IDENTITY_PROVIDER,
             "pkce_enabled": self.pkce_enabled,
             "audience": "enterprise_internal_members",
-            "auto_provision_internal": self.auto_provision_internal,
+            "auto_provision_internal": self.auto_provision_internal and not self.pilot_mode,
+            "pilot_restricted": self.pilot_mode,
             "missing": missing,
         }
 
@@ -211,6 +215,28 @@ def bind_open_id_from_stdin(user: str) -> dict[str, object]:
     raise RuntimeError("Manual identity binding is retired; verify both identities in Account Security")
 
 
+def _pilot_users(value: object) -> tuple[str, ...]:
+    """A malformed intended allowlist must never turn into unrestricted access."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (ValueError, TypeError):
+            return ()
+    if not isinstance(value, (list, tuple)) or not value or len(value) > 2:
+        return ()
+    if any(not isinstance(user, str) or not user.strip() or user != user.strip()
+           or len(user) > 140 or user.casefold() in {"administrator", "guest"}
+           for user in value):
+        return ()
+    return tuple(dict.fromkeys(value))
+
+
+def require_pilot_user(settings: FeishuSettings, user: str) -> None:
+    """Apply live target-account policy to login and every binding write path."""
+    if settings.pilot_mode and (user in {"Administrator", "Guest"} or user not in settings.pilot_users):
+        raise FeishuLoginError("member_scope_denied", "当前账号不在本次飞书试点范围内，请联系系统管理员。")
+
+
 def load_settings() -> FeishuSettings:
     raw_scope = str(frappe.conf.get("hbos_feishu_oauth_scopes") or "").strip()
     if raw_scope and not SCOPE_PATTERN.fullmatch(raw_scope):
@@ -237,6 +263,8 @@ def load_settings() -> FeishuSettings:
             frappe.conf.get("hbos_feishu_auto_provision_internal")
         ),
         account_domain=account_domain,
+        pilot_mode=_truthy(frappe.conf.get("hbos_feishu_pilot_enabled")),
+        pilot_users=_pilot_users(frappe.conf.get("hbos_feishu_pilot_users")),
     )
 
 
@@ -473,6 +501,7 @@ def start_link() -> dict:
     if user == "Administrator" and proof["method"] != "password":
         frappe.throw("Administrator 绑定须验证管理员密码及原有二次认证。", frappe.AuthenticationError)
     settings = load_settings()
+    require_pilot_user(settings, user)
     if not settings.configured:
         frappe.throw("飞书配置尚未完成。", frappe.AuthenticationError)
     verifier = challenge = None
@@ -520,6 +549,10 @@ def callback(
         )
         from hbos_portal.auth.accounts import create_pending, identity_row, require_user, session_digest, epoch, PROOF_TTL
         import time
+        if settings.pilot_mode and state_record.intent not in {'login', 'link'}:
+            raise FeishuLoginError('member_scope_denied', '本次飞书试点仅支持登录与本人账号绑定。')
+        if state_record.intent == 'link':
+            require_pilot_user(settings, state_record.user)
         if state_record.intent in {'rebind', 'handover'}:
             from hbos_portal.auth.operations import authorized_callback
             authorized_callback(state_record, identity)

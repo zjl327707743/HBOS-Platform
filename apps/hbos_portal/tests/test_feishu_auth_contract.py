@@ -187,7 +187,7 @@ class FeishuFlowContractTest(unittest.TestCase):
         self.assertFalse(settings(published=False).configured)
         self.assertFalse(settings(redirect_registered=False).configured)
         self.assertFalse(settings(tenant_key="").configured)
-        self.assertFalse(settings(auto_provision_internal=False).configured)
+        self.assertTrue(settings(auto_provision_internal=False).configured)
 
     def test_exchange_enforces_tenant_and_does_not_return_token(self):
         calls = []

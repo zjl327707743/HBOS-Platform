@@ -1,5 +1,8 @@
 # AI Context
 
+> **2026-10-26 R5-B 受控登录候选（实施中）**：产品基线为 `1a0d44de1399afca513855f3688eb06c1978429e`（PR #60 已合并）；视觉继续 Draft #61，认证策略独立候选修复。仅非生产 UAT、最多两个显式具名账号，自动开户关闭；真实 OAuth 仍待本人完成，不代表上线或合并。见 [本轮记录](milestones/Portal_R5B_受控飞书登录候选.md)。以下各日期记录保留历史含义。
+
+
 ## 当前集成状态 — 2026-10-19
 
 **四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](PROJECT_STATUS.md)。
