@@ -137,6 +137,8 @@ export interface AiAnalysisRow {
   summary: string
   grade: string
   analyzedAt: string | null
+  /** 完整报告（Markdown）。**只在 `full=true` 的请求里出现**。 */
+  report?: string
 }
 
 /**
@@ -171,17 +173,45 @@ export async function fetchProductionBoard(
  *
  * 同样：取不到就返回空数组，页面显示「待分析」，
  * 而不是伪造一条结论 —— AI 结论直接影响生产判断，宁可不给。
+ *
+ * **`full=true` 才带完整报告**，默认只取摘要：
+ * 62 道工序 × 每份 800~2000 字 = 十几万字符。看板列表一屏只用得上摘要，
+ * 全文留给「查看详情」按需取（见 `fetchAiReport`）。
  */
-export async function fetchAiAnalysis(): Promise<AiAnalysisRow[]> {
+export async function fetchAiAnalysis(opts: { full?: boolean } = {}): Promise<AiAnalysisRow[]> {
   if (!productionServiceConfigured) return []
   try {
-    const res = await fetch(`${SERVICE_ORIGIN}/production/ai-analysis`, {
-      headers: { Accept: 'application/json' },
-    })
+    const url = `${SERVICE_ORIGIN}/production/ai-analysis${opts.full ? '?full=1' : ''}`
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
     if (!res.ok) return []
     const data = (await res.json()) as { rows?: AiAnalysisRow[] }
     return data.rows || []
   } catch {
     return []
   }
+}
+
+/**
+ * 取某一工序的**完整报告**。
+ *
+ * 一次拉全表再挑 —— 服务端没有「按工序查」的接口（飞书那边也只能全表拉再筛），
+ * 加一个只会多一层逻辑、快不了多少。这里拉一次缓存在模块级，
+ * 用户连点几条不同工序时不重复请求。
+ *
+ * 返回 `null` 表示没取到（网络 / 服务不可用），调用方显示重试提示，
+ * **不要**用摘要顶替 —— 打开详情却看到摘要会被当成「报告就是这几句」。
+ */
+let reportCache: AiAnalysisRow[] | null = null
+
+export async function fetchAiReport(product: string, process: string): Promise<string | null> {
+  if (!productionServiceConfigured) return null
+  if (!reportCache) {
+    reportCache = await fetchAiAnalysis({ full: true })
+    if (!reportCache.length) {
+      reportCache = null
+      return null
+    }
+  }
+  const hit = reportCache.find((r) => r.product === product && r.process === process)
+  return hit?.report ?? null
 }

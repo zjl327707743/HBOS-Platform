@@ -542,11 +542,17 @@ def yesterday() -> dict:
 
 
 @app.get("/production/ai-analysis")
-def ai_analysis() -> dict:
+def ai_analysis(full: bool = False) -> dict:
     """AI 工艺分析结论（读「AI工艺分析结果」表）。
 
     表空时返回 `{"rows": []}` —— 前端显示「待分析」，
     而不是伪造一条结论（AI 结论直接影响生产判断）。
+
+    **`完整报告` 默认不返回**（`full=false`）：
+      62 道工序 × 每份 800~2000 字 = 十几万字符，而看板一屏只用得上摘要。
+      要读全文的调用方（看板的「查看详情」弹窗）显式传 `?full=1`。
+      这条不是性能优化，是**避免把整张表的内容一次性塞进页面** ——
+      实测 62 条全文 ~110KB，移动端打开会明显卡。
     """
     _require_feishu()
     try:
@@ -565,13 +571,14 @@ def ai_analysis() -> dict:
         process = sources.text(f.get("工序"))
         if not product or not process:
             continue
-        rows.append(
-            {
-                "product": product,
-                "process": process,
-                "summary": sources.text(f.get("结论摘要")),
-                "grade": sources.text(f.get("评级")),
-                "analyzedAt": contract.parse_month_day(f.get("分析日期")),
-            }
-        )
+        item = {
+            "product": product,
+            "process": process,
+            "summary": sources.text(f.get("结论摘要")),
+            "grade": sources.text(f.get("评级")),
+            "analyzedAt": contract.parse_month_day(f.get("分析日期")),
+        }
+        if full:
+            item["report"] = sources.text(f.get("完整报告"))
+        rows.append(item)
     return {"rows": rows}

@@ -259,7 +259,13 @@
               <tbody>
                 <tr v-for="(r, i) in visibleAiRows" :key="i">
                   <td class="pb-name">{{ r.product }}</td>
-                  <td>{{ r.process }}</td>
+                  <td>
+                    <!-- 整行可点：报告全文是这一栏唯一的出口，
+                         做一个「详情」小按钮点击面积反而太小 -->
+                    <button type="button" class="pb-ai-open" :title="`查看「${r.process}」完整报告`" @click="openReport(r)">
+                      {{ r.process }}
+                    </button>
+                  </td>
                   <td class="pb-dim">{{ r.summary }}</td>
                   <td><span class="pb-grade" :class="gradeClass(r.grade)">{{ r.grade }}</span></td>
                   <td class="pb-dim">{{ r.analyzedAt ? r.analyzedAt.slice(0, 10) : '—' }}</td>
@@ -273,10 +279,38 @@
             </button>
           </div>
           <div class="pb-foot-note">
-            结果表 <code>AI工艺分析结果</code> · 每天 16:30 自动生成 · 按工序幂等覆盖，不追加。
+            结果表 <code>AI工艺分析结果</code> · 每天 16:30 自动生成 · 按工序幂等覆盖，不追加。<br>
+            点<b>工序名</b>看完整报告（参数影响、改进建议与依据）。
           </div>
         </template>
       </section>
+
+      <!-- 完整报告弹窗。报告是 Markdown（## 标题 / 列表 / 表格），
+           这里不引 markdown 渲染库 —— 62 份报告只用到标题和列表两种语法，
+           自己转一遍比多一个依赖划算，也不会因为模型偶尔输出的原样 HTML 被注入。 -->
+      <a-modal
+        :open="reportOpen"
+        :footer="null"
+        :width="760"
+        :title="reportTitle"
+        wrap-class-name="pb-report-modal"
+        @cancel="reportOpen = false"
+      >
+        <div v-if="reportLoading" class="pb-report-state">正在读取完整报告…</div>
+        <div v-else-if="reportText === null" class="pb-report-state">
+          报告读取失败，请稍后重试。
+        </div>
+        <div v-else class="pb-report">
+          <div v-for="(blk, i) in reportBlocks" :key="i">
+            <h3 v-if="blk.type === 'h'">{{ blk.text }}</h3>
+            <p v-else-if="blk.type === 'p'">{{ blk.text }}</p>
+            <ul v-else-if="blk.type === 'ul'">
+              <li v-for="(li, j) in blk.items" :key="j">{{ li }}</li>
+            </ul>
+            <p v-else class="pb-report-sug">{{ blk.text }}</p>
+          </div>
+        </div>
+      </a-modal>
     </template>
   </div>
 </template>
@@ -286,9 +320,11 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { PRODUCTION_CENTER_PATH } from '@/data/productionNav'
+import { parseReport } from '@/services/reportMarkdown'
 import {
   fetchProductionBoard,
   fetchAiAnalysis,
+  fetchAiReport,
   type ProductionBoardData,
   type ProductionRow,
   type AiAnalysisRow,
@@ -330,6 +366,32 @@ const aiCounts = computed(() => {
   return c
 })
 const aiProductCount = computed(() => new Set(aiRows.value.map((r) => r.product)).size)
+
+// --- 完整报告弹窗 ---
+const reportOpen = ref(false)
+const reportLoading = ref(false)
+/** `null` = 没取到（区别于「取到了但是空」）—— 显示重试提示，不拿摘要顶替。 */
+const reportText = ref<string | null>(null)
+const reportTitle = ref('')
+
+async function openReport(row: AiAnalysisRow) {
+  reportTitle.value = `${row.product} · ${row.process}`
+  reportText.value = null
+  reportLoading.value = true
+  reportOpen.value = true
+  try {
+    reportText.value = await fetchAiReport(row.product, row.process)
+  } finally {
+    reportLoading.value = false
+  }
+}
+
+/**
+ * 把报告 Markdown 拆成块 —— 解析逻辑在 `services/reportMarkdown.ts`（有单测）。
+ * 这里只负责接数据：文本本身**用插值渲染**，不用 `v-html`，
+ * 模型输出里若混入 HTML 标签也只会显示成文字。
+ */
+const reportBlocks = computed(() => parseReport(reportText.value))
 
 const monthLabel = (m: string) => {
   const [y, mo] = m.split('-')
@@ -598,6 +660,28 @@ watch(isCenter, (now) => {
 .pb-updated { color: #0e9f6e; font-weight: 600; }
 /* 刷新失败用告警色，但**不是红色错误** —— 数据还在，只是这一下没刷上 */
 .pb-refresh-failed { color: var(--hbos-text-muted); font-weight: 600; }
+
+/* --- 完整报告弹窗 --- */
+/* 工序名做成按钮：整行不可点（表格里点空白处没反馈会让人以为坏了），
+   但字面上要看起来「可点」—— 下划虚线是链接的通用暗示。 */
+.pb-ai-open {
+  border: 0; padding: 0; background: none; cursor: pointer;
+  font: inherit; color: var(--hbos-brand-violet);
+  border-bottom: 1px dashed rgba(108,99,255,.45);
+}
+.pb-ai-open:hover { border-bottom-style: solid; }
+.pb-report-state { padding: 32px 0; text-align: center; color: var(--hbos-text-muted); font-size: 13px; }
+.pb-report { max-height: 62vh; overflow-y: auto; padding-right: 6px; font-size: 13px; line-height: 1.85; color: var(--hbos-text-secondary); }
+.pb-report h3 { margin: 18px 0 8px; font-size: 14px; font-weight: 600; color: var(--hbos-text-primary); }
+.pb-report h3:first-child { margin-top: 0; }
+.pb-report p { margin: 0 0 8px; }
+.pb-report ul { margin: 0 0 8px; padding-left: 20px; }
+.pb-report li { margin-bottom: 4px; }
+/* 改进建议段：与正文区分开，扫读时能一眼找到 */
+.pb-report-sug {
+  margin: 0 0 6px; padding: 5px 10px; border-radius: 8px;
+  background: rgba(108,99,255,.05); border-left: 2px solid rgba(108,99,255,.45);
+}
 
 .pb-panel { background: rgba(255,255,255,.74); border: 1px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 10px 34px rgba(61,88,136,.08); backdrop-filter: blur(20px); min-width: 0; }
 
