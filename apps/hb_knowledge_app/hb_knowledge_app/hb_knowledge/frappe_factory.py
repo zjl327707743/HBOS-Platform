@@ -18,8 +18,18 @@ def setup_request():
     import frappe
     path=getattr(getattr(frappe.local,'request',None),'path','')
     if '/hb_knowledge_app.hb_knowledge.' in path:
+        from .r1_contract import begin_validation_scope
+        frappe.local.hbos_structure_scope=begin_validation_scope()
         frappe.flags.disable_traceback=True
         frappe.local.response_headers['Cache-Control']='private, no-store, max-age=0'
+
+def finish_request(response=None):
+    import frappe
+    token=getattr(frappe.local,'hbos_structure_scope',None)
+    if token is not None:
+        from .r1_contract import end_validation_scope
+        end_validation_scope(token)
+        del frappe.local.hbos_structure_scope
 
 def components():
     cfg=configuration()

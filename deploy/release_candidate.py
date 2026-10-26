@@ -43,8 +43,12 @@ def override(path,original,images,static):
     result=subprocess.run(['python3','-c','import json,sys,yaml;print(json.dumps(yaml.safe_load(sys.stdin)))'],input=original.read_text(),capture_output=True,text=True,check=True)
     value=json.loads(result.stdout);services=value.setdefault('services',{})
     for role in ('bff','service'):services.setdefault(role,{})['image']=images[role]
-    services.setdefault('bff',{}).setdefault('volumes',[]).append(str(static)+':'+BFF_STATIC+':ro')
-    front=services.setdefault('frontend',{});front['image']=images['frontend'];front.setdefault('volumes',[]).append(str(static)+':'+FRONT_STATIC+':ro')
+    for role,target in [('bff',BFF_STATIC),('frontend',FRONT_STATIC)]:
+        service=services.setdefault(role,{})
+        service['volumes']=[v for v in service.get('volumes',[]) if
+            (v.get('target') if isinstance(v,dict) else v.split(':')[1] if ':' in v else None)!=target]
+        service['volumes'].append(str(static)+':'+target+':ro')
+    services['frontend']['image']=images['frontend']
     path.write_text(json.dumps(value,ensure_ascii=False,indent=1)+'\n')
 def composition(files):return {'total':len(files),'files':[{'path':str(p),'sha256':sha(pathlib.Path(p)),'exists':True} for p in files]}
 def mount_map(evidence,base_image):
@@ -54,25 +58,35 @@ def mount_map(evidence,base_image):
 def prepare(task,evidence):
     here=task/'work/deploy/candidate';manifest=json.loads((here/'manifest.json').read_text());build=json.loads((task/'work/build-info-rc1.json').read_text())
     baseline=json.loads((evidence/'baseline.json').read_text());old={role:inspect(role) for role in ('bff','service','frontend')}
-    if any(old[role]['Image']!=baseline['containers'][role]['image_id'] for role in old):raise RuntimeError('Candidate changed since the frozen baseline')
-    backup=evidence/'rollback';backup.mkdir(exist_ok=True,parents=True)
+    changed=any(old[role]['Image']!=baseline['containers'][role]['image_id'] for role in old)
+    current=json.loads((here/'DEPLOY_LOCK_CURRENT.json').read_text())
+    if changed:
+        receipts=json.loads((here/'RC1_SWITCH_RECEIPTS.json').read_text())
+        if len(receipts)!=1 or receipts[-1].get('status')!='VERIFIED':raise RuntimeError('Only the evidenced RC1 repair may advance this candidate')
+        if any(old[role]['Image']!=current['containers'][role]['image_id'] for role in old):raise RuntimeError('Candidate changed outside its verified CURRENT lock')
+        for entry in current['composition']['files']:
+            if sha(pathlib.Path(entry['path']))!=entry['sha256']:raise RuntimeError('CURRENT composition drifted before repair proposal')
+        backup=evidence/('rollback-'+current['release_id']);static_source=pathlib.Path(current['static']['path']);previous_source=current['source'];previous_release=current['release_id']
+    else:
+        backup=evidence/'rollback';static_source=task/'work/hbos/apps/hbos_portal/hbos_portal/public/portal';previous_source=baseline['sources'];previous_release='PREVIOUS_VERIFIED_'+baseline['sources']['hbos']['head'][:12]
+    backup.mkdir(exist_ok=True,parents=True)
     archive=archive_check(backup/'previous-images.tar',[old[r]['Image'] for r in old]);save(backup/'archive-verification.json',archive)
     original=here/'compose.override.yml'
     if not (backup/'compose.override.before.yml').exists():shutil.copy2(original,backup/'compose.override.before.yml')
-    if not (backup/'static').exists():shutil.copytree(task/'work/hbos/apps/hbos_portal/hbos_portal/public/portal',backup/'static')
+    if not (backup/'static').exists():shutil.copytree(static_source,backup/'static')
     previous_static=static_manifest(backup/'static')
     if not (backup/'configuration.tar').exists():
         with (backup/'configuration.tar').open('wb') as f:
-            subprocess.run(['docker','exec',f'{PROJECT}-service-1','tar','-C','/run/hbos-uat4-config','-cf','-','.'],stdout=f,stderr=subprocess.PIPE,check=True)
+            subprocess.run(['docker','exec',f'{PROJECT}-service-1','tar','-C','/run','-cf','-','hbos-reference','hbos-uat4-config'],stdout=f,stderr=subprocess.PIPE,check=True)
     previous_override=backup/'compose.rollback.yml';override(previous_override,backup/'compose.override.before.yml',{role:old[role]['Image'] for role in old},backup/'static')
     previous_files=[*manifest['compose_files'][:-1],str(previous_override)]
-    previous={'release_id':'PREVIOUS_VERIFIED_'+baseline['sources']['hbos']['head'][:12],'project':PROJECT,'purpose':'Actual previous runtime, not the stale Stage3 lock','source':baseline['sources'],'containers':{role:{'image_id':x['Image'],'container_id':x['Id']} for role,x in old.items()},'composition':composition(previous_files),'manifest':dict(manifest,compose_files=previous_files),'static':{'path':str(backup/'static'),'files':previous_static},'rollback_archive':archive,'configuration_backup':{'path':str(backup/'configuration.tar'),'sha256':sha(backup/'configuration.tar')},'business_data_rollback':False}
+    previous={'release_id':previous_release,'project':PROJECT,'purpose':'Actual previous runtime, not the stale Stage3 lock','source':previous_source,'containers':{role:{'image_id':x['Image'],'container_id':x['Id']} for role,x in old.items()},'composition':composition(previous_files),'manifest':dict(manifest,compose_files=previous_files),'static':{'path':str(backup/'static'),'files':previous_static},'rollback_archive':archive,'configuration_backup':{'path':str(backup/'configuration.tar'),'sha256':sha(backup/'configuration.tar')},'business_data_rollback':False}
     save(here/'DEPLOY_LOCK_PREVIOUS.json',previous);save(here/'rollback.json',{role:x['Image'] for role,x in old.items()})
     # Record the actual baseline as CURRENT before proposing any configuration
     # change. The received stale lock remains in the private history.
     if not (backup/'CURRENT.received.json').exists():shutil.copy2(here/'DEPLOY_LOCK_CURRENT.json',backup/'CURRENT.received.json')
     baseline_current=dict(previous,composition=composition(manifest['compose_files']),purpose='Verified running baseline before RC1 proposal')
-    save(here/'DEPLOY_LOCK_CURRENT.json',baseline_current)
+    if not changed:save(here/'DEPLOY_LOCK_CURRENT.json',baseline_current)
     candidate_images={'bff':build['images']['frappe']['reference'],'service':build['images']['service']['reference'],'frontend':old['frontend']['Image']}
     override(original,backup/'compose.override.before.yml',candidate_images,pathlib.Path(build['static']))
     proposed={'release_id':build['release_id'],'project':PROJECT,'state':'PROPOSED','source':build['source_commits'],'build_info':str(task/'work/build-info-rc1.json'),'build_info_sha256':sha(task/'work/build-info-rc1.json'),'containers':{'bff':{'image_id':build['images']['frappe']['image_id']},'service':{'image_id':build['images']['service']['image_id']},'frontend':{'image_id':old['frontend']['Image']}},'composition':composition(manifest['compose_files']),'manifest':manifest,'static':{'path':build['static'],'files':build['static_manifest']},'configuration_change':{'reason':'Immutable image references, verified release-specific static mounts and original-directory metadata','source_directory_sha256':sha(evidence/'source-directory.json')},'rollback_archive':archive,'rollback_lock':str(here/'DEPLOY_LOCK_PREVIOUS.json'),'business_data_rollback':False}

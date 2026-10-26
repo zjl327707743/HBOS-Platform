@@ -1,6 +1,11 @@
 """R1.1 shared public/transport structure. Structure is never authority."""
 from __future__ import annotations
 import json
+import contextlib
+import contextvars
+import copy
+import functools
+import hashlib
 import re
 import html
 from urllib.parse import unquote
@@ -17,14 +22,61 @@ REFERENCE_TEXT = "已找到并核实以下资料，但本次未形成可核验�
 SYNTHETIC_TEXT = "SYNTHETIC_ONLY：仅供隔离测试。"
 CONTEXT_KEYS = ("equipment_id", "asset_id", "component_id")
 
-def validate_structure(name: str, value, *, plan: bool = False):
-    file = "execution_plan.schema.json" if plan else "api.schema.json"
-    schema = json.loads((SCHEMA_ROOT / file).read_text())
+_binding_shapes=contextvars.ContextVar('hbos_request_binding_shapes',default=None)
+
+@contextlib.contextmanager
+def validation_scope():
+    """Cache successful immutable *structure* checks within one request only.
+
+    Identity, current publication, version, expiry and authority snapshots are
+    never cached here. Every cache key includes the complete binding value and
+    the exact binding schema. An edited value is validated again.
+    """
+    if _binding_shapes.get() is not None:
+        yield;return
+    token=_binding_shapes.set(set())
+    try:yield
+    finally:_binding_shapes.reset(token)
+
+def begin_validation_scope():
+    return _binding_shapes.set(set())
+
+def end_validation_scope(token):
+    _binding_shapes.reset(token)
+
+@functools.lru_cache(maxsize=96)
+def _validators(root,name,plan,split):
+    file='execution_plan.schema.json' if plan else 'api.schema.json'
+    schema=json.loads((Path(root)/file).read_text())
     if not plan:
-        schema = {**schema, "$ref": "#/$defs/" + name}
-        schema.pop("oneOf", None)
-    if next(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(value), None):
+        schema={**schema,'$ref':'#/$defs/'+name};schema.pop('oneOf',None)
+    binding=None;fingerprint=None
+    if split:
+        schema=copy.deepcopy(schema)
+        owner=schema if plan else schema['$defs']['AuthorizedExecutionPlan']
+        binding=owner['properties']['bindings']['items']
+        # Preserve every array bound and every outer/cross-field constraint.
+        # Only item traversal is factored into the exact same item validator.
+        owner['properties']['bindings']['items']={}
+        fingerprint=hashlib.sha256(json.dumps(binding,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    checker=FormatChecker()
+    return Draft202012Validator(schema,format_checker=checker), (Draft202012Validator(binding,format_checker=checker) if binding is not None else None),fingerprint
+
+def validate_structure(name: str, value, *, plan: bool = False):
+    cache=_binding_shapes.get()
+    split=cache is not None and (plan or name=='InternalDecisionResponse')
+    validator,binding_validator,fingerprint=_validators(str(SCHEMA_ROOT),name,plan,split)
+    if next(validator.iter_errors(value), None):
         raise KnowledgeError("INVALID_REQUEST")
+    if split:
+        owner=value if plan else value.get('plan')
+        bindings=owner.get('bindings',[]) if isinstance(owner,dict) else []
+        for binding in bindings:
+            try:key=(fingerprint,json.dumps(binding,sort_keys=True,ensure_ascii=True,separators=(',',':'),allow_nan=False))
+            except (TypeError,ValueError):raise KnowledgeError('INVALID_REQUEST') from None
+            if key in cache:continue
+            if next(binding_validator.iter_errors(binding),None):raise KnowledgeError('INVALID_REQUEST')
+            if len(cache)<4096:cache.add(key)
     return value
 
 @dataclass(frozen=True)
