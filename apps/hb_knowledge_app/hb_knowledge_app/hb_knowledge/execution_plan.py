@@ -145,7 +145,14 @@ def validate_plan(plan: AuthorizedExecutionPlan, *, now: float,
     for field in ("space_ids", "grant_pairs", "bindings"):
         if not isinstance(getattr(plan, field), tuple):
             raise KnowledgeError("INVALID_REQUEST")
-    validate_structure("", plan.to_wire(), plan=True)
+    wire=plan.to_wire()
+    validate_structure("", wire, plan=True)
+    return _validate_plan_semantics(plan,wire,now=now,client=client,actor=actor,action=action,request_id=request_id)
+
+
+def _validate_plan_semantics(plan,wire,*,now,client=None,actor=None,action=None,request_id=None):
+    # Private continuation after the caller validates the exact complete wire.
+    # No authority, admission or time checks are skipped or memoized.
     def identifiers(value):
         if isinstance(value,dict):
             for key,item in value.items():
@@ -155,7 +162,7 @@ def validate_plan(plan: AuthorizedExecutionPlan, *, now: float,
             for item in value: identifiers(item)
         elif isinstance(value,str) and (not value.strip() or value!=value.strip()):
             raise KnowledgeError("INVALID_REQUEST")
-    identifiers(plan.to_wire())
+    identifiers(wire)
     issued, expires = timestamp(plan.issued_at), timestamp(plan.expires_at)
     if expires <= issued or expires - issued > 120 or issued > now:
         raise KnowledgeError("INVALID_REQUEST")
@@ -200,4 +207,4 @@ def plan_from_wire(value: dict, *, now: float):
     raw["space_ids"] = tuple(raw["space_ids"])
     raw["grant_pairs"] = tuple(GrantPair(**g) for g in raw["grant_pairs"])
     raw["bindings"] = tuple(Binding(**b) for b in raw["bindings"])
-    return validate_plan(AuthorizedExecutionPlan(**raw), now=now)
+    return _validate_plan_semantics(AuthorizedExecutionPlan(**raw),value,now=now)

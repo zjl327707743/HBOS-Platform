@@ -55,12 +55,19 @@ def mount_map(evidence,base_image):
     source=evidence/'source-directory.json'
     subprocess.run(['docker','run','--rm','--network','none','--user','0','--entrypoint','sh','-v',PROJECT+'-configuration:/target','--mount','type=bind,source='+str(source)+',target=/input.json,readonly',base_image,'-c','cp /input.json /target/source-directory.json.proposed && chmod 644 /target/source-directory.json.proposed && mv /target/source-directory.json.proposed /target/source-directory.json'],capture_output=True,check=True)
 
-def prepare(task,evidence):
+def prepare(task,evidence,cycle="RC1"):
     here=task/'work/deploy/candidate';manifest=json.loads((here/'manifest.json').read_text());build=json.loads((task/'work/build-info-rc1.json').read_text())
     baseline=json.loads((evidence/'baseline.json').read_text());old={role:inspect(role) for role in ('bff','service','frontend')}
     changed=any(old[role]['Image']!=baseline['containers'][role]['image_id'] for role in old)
     current=json.loads((here/'DEPLOY_LOCK_CURRENT.json').read_text())
-    if changed:
+    if cycle=="RC11":
+        authorization=json.loads((evidence/"cycle-authorization.json").read_text())
+        if authorization.get("cycle")!="RC11" or authorization.get("baseline_release")!=current["release_id"]:raise RuntimeError("RC11 requires exact authorized baseline")
+        if any(old[role]["Image"]!=current["containers"][role]["image_id"] for role in old):raise RuntimeError("Running candidate differs from CURRENT")
+        for entry in current["composition"]["files"]:
+            if sha(pathlib.Path(entry["path"]))!=entry["sha256"]:raise RuntimeError("CURRENT composition drifted")
+        backup=evidence/"rollback";static_source=pathlib.Path(current["static"]["path"]);previous_source=current["source"];previous_release=current["release_id"]
+    elif changed:
         receipts=json.loads((here/'RC1_SWITCH_RECEIPTS.json').read_text())
         if len(receipts)!=1 or receipts[-1].get('status')!='VERIFIED':raise RuntimeError('Only the evidenced RC1 repair may advance this candidate')
         if any(old[role]['Image']!=current['containers'][role]['image_id'] for role in old):raise RuntimeError('Candidate changed outside its verified CURRENT lock')
@@ -86,10 +93,10 @@ def prepare(task,evidence):
     # change. The received stale lock remains in the private history.
     if not (backup/'CURRENT.received.json').exists():shutil.copy2(here/'DEPLOY_LOCK_CURRENT.json',backup/'CURRENT.received.json')
     baseline_current=dict(previous,composition=composition(manifest['compose_files']),purpose='Verified running baseline before RC1 proposal')
-    if not changed:save(here/'DEPLOY_LOCK_CURRENT.json',baseline_current)
+    if not changed and cycle=="RC1":save(here/'DEPLOY_LOCK_CURRENT.json',baseline_current)
     candidate_images={'bff':build['images']['frappe']['reference'],'service':build['images']['service']['reference'],'frontend':old['frontend']['Image']}
     override(original,backup/'compose.override.before.yml',candidate_images,pathlib.Path(build['static']))
-    proposed={'release_id':build['release_id'],'project':PROJECT,'state':'PROPOSED','source':build['source_commits'],'build_info':str(task/'work/build-info-rc1.json'),'build_info_sha256':sha(task/'work/build-info-rc1.json'),'containers':{'bff':{'image_id':build['images']['frappe']['image_id']},'service':{'image_id':build['images']['service']['image_id']},'frontend':{'image_id':old['frontend']['Image']}},'composition':composition(manifest['compose_files']),'manifest':manifest,'static':{'path':build['static'],'files':build['static_manifest']},'configuration_change':{'reason':'Immutable image references, verified release-specific static mounts and original-directory metadata','source_directory_sha256':sha(evidence/'source-directory.json')},'rollback_archive':archive,'rollback_lock':str(here/'DEPLOY_LOCK_PREVIOUS.json'),'business_data_rollback':False}
+    proposed={'cycle':cycle,'release_id':build['release_id'],'project':PROJECT,'state':'PROPOSED','source':build['source_commits'],'build_info':str(task/'work/build-info-rc1.json'),'build_info_sha256':sha(task/'work/build-info-rc1.json'),'containers':{'bff':{'image_id':build['images']['frappe']['image_id']},'service':{'image_id':build['images']['service']['image_id']},'frontend':{'image_id':old['frontend']['Image']}},'composition':composition(manifest['compose_files']),'manifest':manifest,'static':{'path':build['static'],'files':build['static_manifest']},'configuration_change':{'reason':'Immutable image references, verified release-specific static mounts and original-directory metadata','source_directory_sha256':sha(evidence/'source-directory.json')},'rollback_archive':archive,'rollback_lock':str(here/'DEPLOY_LOCK_PREVIOUS.json'),'business_data_rollback':False}
     save(here/'DEPLOY_LOCK_PROPOSED.json',proposed)
     print(json.dumps({'state':'PROPOSED','release_id':build['release_id'],'rollback_archive_verified':True,'compose_files':7}))
 
@@ -115,7 +122,7 @@ def verify(lock):
     if not all(checks.values()):raise RuntimeError('Readiness/static checks failed')
     return {'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'release_id':lock['release_id'],'checks':checks,'business_readiness':'REQUIRES_AUTHENTICATED_EVALUATION'}
 
-def switch(task,evidence,rollback=False,check_only=False):
+def switch(task,evidence,rollback=False,check_only=False,cycle="RC1"):
     here=task/'work/deploy/candidate';path=here/('DEPLOY_LOCK_PREVIOUS.json' if rollback else 'DEPLOY_LOCK_PROPOSED.json');lock=json.loads(path.read_text())
     for entry in lock['composition']['files']:
         if sha(pathlib.Path(entry['path']))!=entry['sha256']:raise RuntimeError('Pinned composition changed')
@@ -124,7 +131,8 @@ def switch(task,evidence,rollback=False,check_only=False):
     if check_only:
         print(json.dumps({'mode':'ROLLBACK_CHECK' if rollback else 'APPLY_CHECK','release_id':lock['release_id'],'images_available':True,'static_readable':static_manifest(pathlib.Path(lock['static']['path']))==lock['static']['files'],'archive_verified':lock['rollback_archive']['readable']}));return
     if not rollback:
-        count_file=here/'RC1_SWITCH_RECEIPTS.json';receipts=json.loads(count_file.read_text()) if count_file.exists() else []
+        if lock.get('cycle','RC1')!=cycle:raise RuntimeError('Release cycle does not match proposal')
+        count_file=here/(cycle+'_SWITCH_RECEIPTS.json');receipts=json.loads(count_file.read_text()) if count_file.exists() else []
         if len(receipts)>=2:raise RuntimeError('One planned switch and one evidence-based patch already consumed')
         for name,relative in [('hbos','hbos'),('service','knowledge_service'),('frontend','frontend_runtime')]:
             root=task/'work'/relative
@@ -149,10 +157,10 @@ def switch(task,evidence,rollback=False,check_only=False):
     print(json.dumps(receipt,ensure_ascii=False))
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');parser.add_argument('--cycle',choices=['RC1','RC11'],default='RC1');args=parser.parse_args()
     task=args.task_root.resolve();evidence=args.evidence_root.resolve()
     with (task/'work/deploy/candidate/MAIN_AGENT_RELEASE.lock').open('a') as guard:
         fcntl.flock(guard,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        if args.action=='prepare':prepare(task,evidence)
+        if args.action=='prepare':prepare(task,evidence,args.cycle)
         elif args.action=='verify':print(json.dumps(verify(json.loads((task/'work/deploy/candidate/DEPLOY_LOCK_CURRENT.json').read_text()))))
-        else:switch(task,evidence,rollback=args.action=='rollback',check_only=args.check)
+        else:switch(task,evidence,rollback=args.action=='rollback',check_only=args.check,cycle=args.cycle)

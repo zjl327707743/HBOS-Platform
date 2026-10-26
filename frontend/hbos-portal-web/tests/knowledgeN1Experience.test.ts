@@ -79,6 +79,18 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     pending.resolve({ documents: [], total: 0, page: 1, page_size: 4 }); await flushPromises()
     expect(w.get('.catalog-heading').text()).toContain('0 份'); expect(w.find('.catalog-content [data-loading]').exists()).toBe(false); expect(w.get('.catalog-content [data-empty]').text()).toContain(change === 'department' ? '当前范围暂无' : '没有匹配的资料')
   })
+  it('returning to the catalogue retains rows during a fresh authorization refresh', async () => {
+    const w = await view(); await clickText(w,'资料目录'); expect(w.find('.catalog-row').exists()).toBe(true)
+    route.path='/hbos/knowledge'; await flushPromises()
+    const pending=deferred(); api.documents.mockReturnValueOnce(pending.promise)
+    await clickText(w,'资料目录')
+    expect(w.get('.catalog-content').attributes('aria-busy')).toBe('true')
+    expect(w.find('.catalog-row').exists()).toBe(true)
+    expect(w.find('.catalog-content [data-loading]').exists()).toBe(false)
+    pending.resolve({documents:[doc],total:1,page:1,page_size:4}); await flushPromises()
+    expect(w.get('.catalog-content').attributes('aria-busy')).toBe('false')
+    expect(api.ask).not.toHaveBeenCalled()
+  })
   it('late old catalog responses cannot refill a newly selected department', async () => {
     const old = deferred(); api.documents.mockReturnValueOnce(old.promise); const w = await view(); await clickText(w,'资料目录'); vi.useFakeTimers(); await w.get('#catalog-department').setValue('SPACE_N1_SECOND'); api.documents.mockResolvedValue({ documents: [], total: 0, page: 1, page_size: 4 }); await vi.advanceTimersByTimeAsync(200); await flushPromises()
     old.resolve({ documents: [{ ...doc, title: 'OLD_SCOPE_CATALOG' }], total: 1, page: 1, page_size: 4 }); await flushPromises(); expect(w.text()).not.toContain('OLD_SCOPE_CATALOG'); expect(w.text()).toContain('当前范围暂无可查阅')

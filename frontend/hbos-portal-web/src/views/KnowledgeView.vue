@@ -25,7 +25,7 @@
           <div class="kb-list-caption catalog-heading"><span>{{ catalogLoading ? '更新中' : `${catalogTotal} 份资料` }}</span><span>下载待部门权限上线</span></div>
           <nav class="kb-source-breadcrumb" aria-label="资料原目录"><a-button type="link" size="small" @click="sourceFolder = 'SOURCE_ROOT'">全部原目录</a-button><template v-for="crumb in sourceDirectory?.breadcrumbs || []" :key="crumb.folder_id"><span aria-hidden="true"> / </span><a-button type="link" size="small" @click="sourceFolder = crumb.folder_id">{{ crumb.name }}</a-button></template></nav>
           <div v-if="sourceDirectory?.children.length" class="kb-source-folders"><a-button v-for="folder in sourceDirectory.children" :key="folder.folder_id" @click="sourceFolder = folder.folder_id">{{ folder.name }}（{{ folder.count }}）</a-button></div>
-          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" /><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small v-for="(path, pathIndex) in doc.source_directories || []" :key="pathIndex" class="kb-muted">{{ path.join(' / ') }}</small><small v-if="doc.legal_metadata" class="kb-law-meta">{{ doc.legal_metadata.category }} · {{ doc.legal_metadata.issuer || '发布机构待核' }}<a-tag :color="doc.legal_metadata.effective_status === '现行有效' ? 'green' : doc.legal_metadata.effective_status === '已废止' ? 'red' : 'orange'">效力{{ doc.legal_metadata.effective_status }}</a-tag></small><small>{{ doc.document_number || '文号待核' }} · {{ doc.department }} · {{ doc.version || '版本待核' }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-tooltip title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined /></a-button></a-tooltip></div></article></template></div>
+          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading && !catalog.length" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" /><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small v-for="(path, pathIndex) in doc.source_directories || []" :key="pathIndex" class="kb-muted">{{ path.join(' / ') }}</small><small v-if="doc.legal_metadata" class="kb-law-meta">{{ doc.legal_metadata.category }} · {{ doc.legal_metadata.issuer || '发布机构待核' }}<a-tag :color="doc.legal_metadata.effective_status === '现行有效' ? 'green' : doc.legal_metadata.effective_status === '已废止' ? 'red' : 'orange'">效力{{ doc.legal_metadata.effective_status }}</a-tag></small><small>{{ doc.document_number || '文号待核' }} · {{ doc.department }} · {{ doc.version || '版本待核' }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-tooltip title="待部门文档下载权限上线"><a-button type="text" disabled aria-label="下载，待部门权限上线"><DownloadOutlined /></a-button></a-tooltip></div></article></template></div>
           <div class="kb-pagination"><a-pagination v-model:current="catalogPage" :page-size="catalogPageSize" :total="catalogTotal" :show-size-changer="false" :disabled="catalogLoading" :show-less-items="true" /></div>
         </section>
       </template>
@@ -73,11 +73,17 @@ async function openDocumentSummary(doc: KnowledgeDocument) {
   finally { if (generation===summaryGeneration) summaryLoading.value=false }
 }
 function useExample(value:string) { query.value=value; void submitComposer() }
-watch(view, () => {
+let catalogScrollTop = 0
+function catalogScrollElement() { const main = document.querySelector<HTMLElement>('#kt-main-content'); return main && main.scrollHeight > main.clientHeight + 1 ? main : document.scrollingElement }
+watch(view, (next, previous) => {
+  if (previous === 'catalog') catalogScrollTop = catalogScrollElement()?.scrollTop || 0
   viewGeneration++; searchGeneration++; searching.value = false; composing.value = false; statusError.value = ''; pageError.value = null; pageErrorCode.value = null; composerNotice.value = ''
   if (searchState.value === 'loading' || searchState.value === 'error') { searchState.value = searchState.value === 'loading' ? 'cancelled' : 'idle'; hasSearched.value = false; results.value = [] }
   drawer.close(false); closeSummary()
-  if (view.value === 'catalog') void refreshCatalog()
+  if (next === 'catalog') {
+    void nextTick(() => { const el = catalogScrollElement(); if (el) el.scrollTop = catalogScrollTop })
+    void refreshStatus()
+  }
 }, { flush: 'sync' })
 const portal = usePortalStore()
 const subjectKey = computed(() => portal.user?.id || null)
@@ -158,6 +164,7 @@ watch(subjectKey, () => {
   savedContext.value = null; savedScopeNeedsSelection.value = false
   sourceFolder.value = 'SOURCE_ROOT'; sourceDirectory.value = null
   spaces.value = []; catalog.value = []; catalogTotal.value = 0; selectedSpace.value = ''; catalogQuery.value = ''; lawCategory.value = ''; catalogPage.value = 1
+  catalogScrollTop = 0
   catalogLoading.value = false; catalogError.value = ''; pageError.value = null; pageErrorCode.value = null; hasSearched.value = false
   if (subjectKey.value) void refreshStatus()
 }, { flush: 'sync' })
@@ -305,7 +312,7 @@ async function refreshStatus() {
     if (!current.can_enter || !current.can_search || (status.value?.policy_revision && status.value.policy_revision !== current.policy_revision)) {
       searchGeneration++; results.value = []; hasSearched.value = false; searching.value = false; drawer.close(false); tools.value?.newConversation()
     }
-    if (!current.can_enter) { catalogGeneration++; catalog.value = []; catalogTotal.value = 0 }
+    if (!current.can_enter || (status.value?.policy_revision && status.value.policy_revision !== current.policy_revision)) { catalogGeneration++; catalog.value = []; catalogTotal.value = 0; catalogScrollTop = 0 }
     globalError.value = null; globalErrorCode.value = null; statusError.value = ''
     status.value = current
     if(current.model_catalog)selectedModel.value=current.model_catalog.selected_alias; spaces.value = current.can_enter ? currentSpaces : []
