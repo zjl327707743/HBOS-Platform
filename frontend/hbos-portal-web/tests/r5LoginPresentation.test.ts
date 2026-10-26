@@ -87,3 +87,11 @@ it('logout progress describes logout and keeps only a sanitized return target af
  expect(wrapper.text()).toContain('正在退出当前账号'); expect(wrapper.text()).not.toContain('正在加载工作台')
  finish(); await flushPromises(); expect(router.currentRoute.value.query.redirect_to).toBe('/hbos/work')
 })
+
+it('confirmed exit on the same signed_out URL restores its notice and Feishu-first presentation', async () => {
+ mocks.status.mockResolvedValue({ configured: true }); mocks.ensure.mockRejectedValue(new Error('read failed'))
+ const { wrapper, router } = await render(); await router.push('/hbos/login?status=signed_out&redirect_to=%2Fhbos%2Fapps')
+ await click(wrapper, '使用账号密码登录'); await submit(wrapper); expect(wrapper.text()).not.toContain('已安全退出当前账号')
+ await click(wrapper, '退出并换一个账号'); expect(wrapper.text()).toContain('已安全退出当前账号')
+ expect(wrapper.find('form').exists()).toBe(false); expect(wrapper.find('.ant-btn-primary').text()).toContain('使用飞书登录')
+})

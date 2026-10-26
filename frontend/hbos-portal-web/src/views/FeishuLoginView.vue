@@ -55,8 +55,8 @@ async function exitCurrentAccount() {
  if (submitting.value) return
  submitting.value = true; exiting.value = true; error.value = ''
  const redirect = accountRedirect(route.query.redirect_to)
- try { await signOutPortalSession(); if (!disposed) { authenticated.value = false; cancelMfa(); username.value = ''; await router.replace({ path: '/hbos/login', query: { status: 'signed_out', redirect_to: redirect } }) } }
- catch (e) { if (!disposed) error.value = e instanceof Error ? e.message : '服务端退出尚未确认，请重试退出。' }
+ try { await signOutPortalSession(); if (!disposed) { authenticated.value = false; callbackConsumed.value = false; passwordExpanded.value = false; cancelMfa(); username.value = ''; await router.replace({ path: '/hbos/login', query: { status: 'signed_out', redirect_to: redirect } }) } }
+ catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '服务端退出尚未确认，请重试退出。' }
  finally { if (!disposed) { submitting.value = false; exiting.value = false } }
 }
 let disposed = false
