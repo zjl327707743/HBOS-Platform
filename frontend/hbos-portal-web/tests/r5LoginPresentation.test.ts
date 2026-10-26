@@ -111,6 +111,8 @@ it('a navigation rejection after server logout still clears identity and confirm
  expect(wrapper.text()).toContain('已安全退出当前账号'); expect(wrapper.text()).not.toContain('退出尚未确认')
  expect((wrapper.find('#hbos-username').element as HTMLInputElement).value).toBe('')
  expect(mocks.logout).toHaveBeenCalledTimes(1)
+ await router.push('/hbos/login?status=session_required'); await flushPromises()
+ expect(wrapper.text()).toContain('请先登录'); expect(wrapper.text()).not.toContain('已安全退出当前账号')
 })
 it.each([['', false], ['/assets/hbos_portal/portal/brand-v2.webp', true], ['https://example.test/image.webp', false], ['/assets/hbos_portal/portal/../secret.png', false]])('login layout applies only approved same-origin asset path %s', async (url, expected) => {
  vi.stubEnv('VITE_LOGIN_BACKGROUND_URL', url)
@@ -123,4 +125,11 @@ it('the security variant keeps its own single-card heading', async () => {
  const { wrapper } = await render(AccountLayout, { variant: 'r5' })
  expect(wrapper.find('.account-r5').exists()).toBe(true); expect(wrapper.find('.account-login-main').exists()).toBe(false)
  expect(wrapper.find('h1').text()).toBe('账号恢复')
+})
+
+it('a failed password attempt after sign-out is a warning rather than an informational notice', async () => {
+ const { wrapper, router } = await render(); await router.push('/hbos/login?status=signed_out')
+ mocks.login.mockRejectedValueOnce(new FrappeRequestError('UNAUTHENTICATED', '账号或密码不正确。'))
+ await submit(wrapper); expect(wrapper.find('[role="alert"]').classes()).toContain('ant-alert-warning')
+ expect(wrapper.text()).not.toContain('已安全退出当前账号')
 })

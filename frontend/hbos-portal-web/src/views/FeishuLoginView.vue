@@ -7,7 +7,7 @@
       <a-button size="large" block :loading="exiting" :disabled="submitting && !exiting" @click="exitCurrentAccount">退出并换一个账号</a-button>
     </template>
     <template v-else>
-      <div v-if="loading" role="status" aria-live="polite"><a-skeleton active :paragraph="{ rows: 1 }" /><p class="account-meta">正在读取可用的登录方式…</p><a-button v-if="!showPassword" size="large" block @click="revealPassword">使用账号密码</a-button></div>
+      <template v-if="loading"><div role="status" aria-live="polite"><a-skeleton active :paragraph="{ rows: 1 }" /><p class="account-meta">正在读取可用的登录方式…</p></div><a-button v-if="!showPassword" size="large" block @click="revealPassword"><KeyOutlined aria-hidden="true" />使用账号密码</a-button></template>
       <template v-else>
         <template v-if="status?.configured && !statusError">
           <a-button size="large" :type="showPassword ? 'default' : 'primary'" block :disabled="submitting" @click="beginFeishuLogin"><MessageOutlined aria-hidden="true" />使用飞书登录</a-button>
@@ -71,11 +71,12 @@ const statusMessages: Record<string,string> = {
  cancelled:'已取消飞书授权，您可以重新选择登录方式。', config_required:'飞书登录暂不可用，请改用账号密码或稍后重试。', invalid_state:'授权已过期、已使用或与当前浏览器不匹配，请重新发起。', identity_unmapped:'该飞书身份尚未关联 HBOS 账号，请联系系统管理员。', existing_account_requires_link:'当前浏览器已有账号，请在账号与安全中验证本人后绑定飞书。', identity_conflict:'此飞书身份与账号存在冲突，请联系管理员核对。', identity_revoked:'旧飞书绑定已撤销或更换，请使用原账号密码或联系管理员恢复。', account_busy:'账号正在完成另一项操作，请稍后重新授权。', same_identity:'新旧飞书身份相同，无需更换绑定。', personal_account_required:'接任者请先使用本人永久账号。', operation_invalid:'账号变更验证已失效，请重新发起。', account_changed:'账号登录方式已更换，请重新登录。', onboarding_dependency_missing:'开户服务暂不可用，请联系管理员。', member_scope_denied:'您尚未在此应用的获准成员范围内，请联系管理员。', account_disabled:'此账号当前不可用，请联系管理员。', tenant_rejected:'此企业身份未获准使用 HBOS。', tenant_evidence_missing:'暂时无法核验企业身份，请联系管理员。', application_tenant_mismatch:'企业身份核验未完成，请联系管理员。', member_identity_mismatch:'本人身份核验未通过，请重新授权。', member_status_missing:'无法核验当前成员状态，请联系管理员并提供诊断编号。', member_status_invalid:'无法核验当前成员状态，请联系管理员。', member_inactive:'您的飞书账号尚未激活。', member_disabled:'您的飞书账号已停用，请联系管理员。', member_departed:'此成员已离职或退出，无法登录。', member_department_missing:'成员准入信息不完整，请联系管理员。', member_api_failed:'暂时无法核验成员信息，请稍后重试或联系管理员。', external_member_rejected:'此入口仅供获准企业成员使用。', exchange_failed:'飞书身份核验未完成，请重新授权。', session_required:'请先登录，再继续访问原页面。', signed_out:'已安全退出当前账号。',
 }
 const callbackMessage = computed(() => { const message = error.value || (!callbackConsumed.value && !authenticated.value && (confirmedSignedOut.value ? statusMessages.signed_out : statusMessages[String(route.query.status || '')])); const trace = typeof route.query.trace === 'string' && /^[a-f0-9]{16}$/.test(route.query.trace) ? route.query.trace : ''; return message && trace ? `${message} 诊断编号：${trace}` : message })
-const callbackTone = computed(() => (confirmedSignedOut.value && !error.value) || ['cancelled','signed_out'].includes(String(route.query.status || '')) ? 'info' : 'warning')
+const callbackTone = computed(() => error.value ? 'warning' : (confirmedSignedOut.value || ['cancelled','signed_out'].includes(String(route.query.status || ''))) ? 'info' : 'warning')
 const canSubmit = computed(() => Boolean(username.value.trim() && password.value && (!tmpId.value || otp.value) && !submitting.value))
 function cancelMfa() { password.value = ''; otp.value = ''; tmpId.value = ''; error.value = '' }
 function guardComposition(e: KeyboardEvent) { if (e.isComposing || e.keyCode === 229) { e.preventDefault(); e.stopPropagation() } }
 watch(username, () => { if (tmpId.value) cancelMfa() })
+watch(() => route.fullPath, () => { if (route.query.status !== 'signed_out') confirmedSignedOut.value = false })
 watch(() => route.query.status, () => { cancelMfa(); authenticated.value = false; callbackConsumed.value = false })
 async function resumeWorkspace() { if (submitting.value) return; submitting.value = true; error.value = ''; try { await ensurePortalSession({ force: true }); if (!disposed) await router.replace(accountRedirect(route.query.redirect_to)) } catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '工作台暂时无法加载，请重试。' } finally { if (!disposed) submitting.value = false } }
 async function submitAccountLogin() {
