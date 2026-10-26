@@ -640,9 +640,16 @@ watch(isCenter, (now) => {
 .pb-stack > :last-child { display: flex; flex-direction: column; }
 .pb-col-main .pb-tbl-wrap,
 .pb-stack > :last-child .pb-tbl-wrap { flex: 1 1 auto; }
+/* ⚠️ `min-height` 是必须的，不能省。
+   两块脚注都是「贴底 + 顶部分界线」，**只有高度相同时顶边才会齐**。
+   左栏那段文字 3 行、右栏 2 行 —— 高度不等时右栏那条线就低 21px，
+   看着还是没对齐（截图反馈过第二次）。
+   98px = 3 行文字 63px（12px 字号 × 1.75 行高）+ 上下内边距 34px + 分界线 1px。
+   改字号/行高/文案行数时，这个值要一起改。 */
 .pb-col-main .pb-foot-note,
 .pb-stack > :last-child .pb-foot-note {
   margin-top: 0;
+  min-height: 98px;
   border-top: 1px solid rgba(65,91,138,.08);
   padding-top: 14px;
 }
