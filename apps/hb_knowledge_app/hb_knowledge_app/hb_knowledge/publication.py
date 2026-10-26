@@ -96,7 +96,7 @@ def validate_technical_repair(item,parent,expected):
     proof=item.get('technical_correction')
     if not isinstance(proof,dict) or set(proof)!=TECHNICAL_REPAIR_FIELDS:
         raise PublicationConflict('Exact technical recovery proof is required')
-    if (proof['reason_code']!='PARSE_DELIMITER_PRESERVATION'
+    if (proof['reason_code'] not in {'PARSE_DELIMITER_PRESERVATION','MISSING_IMAGE_BODY_RECOVERY'}
         or not isinstance(proof['approval_ref'],str) or not proof['approval_ref'].strip()
         or proof['parent_version_id']!=expected or parent.get('version_id')!=expected
         or item.get('version_id')==expected
@@ -116,9 +116,10 @@ def validate_technical_repair(item,parent,expected):
         raise PublicationConflict('Technical repair cannot acquire sharing approval')
     if not parent.get('approval_ref') or not item.get('approval_ref'):
         raise PublicationConflict('Technical repair requires original and current sharing approval')
-    from knowledge_service.ingestion import approved_parser_profile,NATIVE_TEXT_NEWLINE_PROFILE
+    from knowledge_service.ingestion import approved_parser_profile,NATIVE_TEXT_NEWLINE_PROFILE,LOCAL_FULLTEXT_NEWLINE_PROFILE
     try:profile=approved_parser_profile(item)
     except (TypeError,ValueError):raise PublicationConflict('Technical repair parser proof is invalid') from None
-    if profile!=NATIVE_TEXT_NEWLINE_PROFILE:
-        raise PublicationConflict('Technical repair requires the verified new text profile')
+    expected_profile={'PARSE_DELIMITER_PRESERVATION':NATIVE_TEXT_NEWLINE_PROFILE,'MISSING_IMAGE_BODY_RECOVERY':LOCAL_FULLTEXT_NEWLINE_PROFILE}[proof['reason_code']]
+    if profile!=expected_profile:
+        raise PublicationConflict('Technical repair requires the exact verified correction profile')
     return proof

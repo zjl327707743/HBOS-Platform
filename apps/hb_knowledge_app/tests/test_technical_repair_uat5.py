@@ -23,7 +23,7 @@ def separate_parser_profile_port(monkeypatch):
             raise ValueError('Synthetic parser profile rejected')
         return NATIVE_TEXT_NEWLINE_PROFILE
     port=ModuleType('knowledge_service.ingestion')
-    port.approved_parser_profile=approved;port.NATIVE_TEXT_NEWLINE_PROFILE=NATIVE_TEXT_NEWLINE_PROFILE
+    port.approved_parser_profile=approved;port.NATIVE_TEXT_NEWLINE_PROFILE=NATIVE_TEXT_NEWLINE_PROFILE;port.LOCAL_FULLTEXT_NEWLINE_PROFILE='VERIFIED_LOCAL_FULLTEXT_NEWLINE_V1'
     monkeypatch.setitem(sys.modules,'knowledge_service.ingestion',port)
 
 
@@ -180,3 +180,20 @@ def test_registered_repair_requires_new_passed_and_exact_old_pending_quality(mon
     else:
         cfg,_=maintenance.publication_config('SYN_NEW',[target['canonical_document_id']],'repair','VER_OLD','Synthetic repair','SYN_INTENT')
         assert cfg['approved_technical_repairs'][target['canonical_document_id']]['proof']==proof
+
+
+def test_image_body_repair_requires_local_full_source_profile_and_same_original(monkeypatch):
+ parent,target=items();port=sys.modules['knowledge_service.ingestion'];local=port.LOCAL_FULLTEXT_NEWLINE_PROFILE
+ target['technical_correction']['reason_code']='MISSING_IMAGE_BODY_RECOVERY'
+ # A new reason does not admit the old/native profile by itself.
+ with pytest.raises(PublicationConflict):validate_technical_repair(target,parent,'VER_OLD')
+ monkeypatch.setattr(port,'approved_parser_profile',lambda item:local)
+ assert validate_technical_repair(target,parent,'VER_OLD')['parent_source_sha256']==parent['sha256']
+ for mutation in ['source','authority','department','identity','reason']:
+  trial=copy.deepcopy(target)
+  if mutation=='source':trial['sha256']='f'*64
+  if mutation=='authority':trial['authority_status']='CONTROLLED_APPROVED'
+  if mutation=='department':trial['department_key']='safety'
+  if mutation=='identity':trial['canonical_document_id']='OTHER'
+  if mutation=='reason':trial['technical_correction']['reason_code']='UNBOUNDED_REPLACEMENT'
+  with pytest.raises(PublicationConflict):validate_technical_repair(trial,parent,'VER_OLD')
