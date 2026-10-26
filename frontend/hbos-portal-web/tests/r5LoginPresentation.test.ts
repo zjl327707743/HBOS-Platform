@@ -133,3 +133,10 @@ it('a failed password attempt after sign-out is a warning rather than an informa
  await submit(wrapper); expect(wrapper.find('[role="alert"]').classes()).toContain('ant-alert-warning')
  expect(wrapper.text()).not.toContain('已安全退出当前账号')
 })
+
+it('the published Owner asset is the default login background without environment setup', async () => {
+ vi.stubEnv('VITE_LOGIN_BACKGROUND_URL', undefined)
+ const { wrapper } = await render(AccountLayout, { variant: 'login' })
+ expect(wrapper.find('.has-login-background').exists()).toBe(true)
+ expect(wrapper.find('main').attributes('style')).toContain('hbos-login-background')
+})

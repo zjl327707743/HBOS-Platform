@@ -23,9 +23,12 @@
 </template>
 <script setup lang="ts">
 import { SafetyCertificateOutlined } from '@ant-design/icons-vue'
-// UAT may serve the Owner asset privately; the normal bundle has no external image dependency.
-const loginBackgroundUrl = import.meta.env.VITE_LOGIN_BACKGROUND_URL || ''
-const loginBackgroundStyle = /^\/assets\/hbos_portal\/portal\/[A-Za-z0-9_-][A-Za-z0-9._/-]*\.(webp|avif|png|jpe?g)$/i.test(loginBackgroundUrl) && !loginBackgroundUrl.includes('..')
+import brandBackground from '@/assets/hbos-login-background.webp'
+// The Owner approved this bundled asset for publication. An explicit empty override disables it.
+const backgroundOverride = import.meta.env.VITE_LOGIN_BACKGROUND_URL
+const loginBackgroundUrl = backgroundOverride ?? brandBackground
+const validOverride = /^\/assets\/hbos_portal\/portal\/[A-Za-z0-9_-][A-Za-z0-9._/-]*\.(webp|avif|png|jpe?g)$/i.test(loginBackgroundUrl) && !loginBackgroundUrl.includes('..')
+const loginBackgroundStyle = backgroundOverride === undefined || validOverride
   ? { '--account-login-background': `url("${loginBackgroundUrl}")` } : undefined
 defineProps<{ title: string; description?: string; eyebrow?: string; wide?: boolean; variant?: 'login' | 'r5' }>()
 </script>
