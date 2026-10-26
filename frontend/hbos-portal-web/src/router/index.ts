@@ -63,7 +63,8 @@ const router = createRouter({
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: { title: '页面不存在' } },
   ],
-  scrollBehavior: () => ({ top: 0 }),
+  // KnowledgeView retains the current user's catalogue position across its views.
+  scrollBehavior: (to, from) => to.path.startsWith('/hbos/knowledge') && from.path.startsWith('/hbos/knowledge') ? false : ({ top: 0 }),
 })
 
 router.afterEach((to, _from, failure) => {
