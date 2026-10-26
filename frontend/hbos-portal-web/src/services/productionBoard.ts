@@ -58,11 +58,17 @@ export interface AnomalyWorkshop {
 
 /** 异常闭环（各车间独立 Base 汇总）。 */
 export interface AnomalyInfo {
+  /** 窗口跨度（月）。当前口径 = 1，即**只看当月**（Owner 2026-10-20）。 */
   windowMonths: number
+  /** 窗口起点（含），`YYYY-MM-01`。 */
   windowStart: string
+  /** 窗口终点（**不含**），`YYYY-MM-01`；不设上限时为 null。 */
+  windowEnd: string | null
   total: number
   closed: number
   rate: number | null
+  /** 解析不出日期、未纳入窗口的条数合计（源表有洞时 > 0，脚注要如实说）。 */
+  undated: number
   /** 全部已配置的车间（含窗口内无异常的）。 */
   workshops: string[]
   /** 窗口内有记录、真正参与计算的车间。 */

@@ -269,13 +269,19 @@ def overall_quality(stats: list[QualityStats], month: str) -> dict:
 # 但各车间的表是**各自独立的 Base**（车间自己维护），字段并不完全一致 ——
 # 见下面每个源的 `closure_field` 与 `date_field`。
 #
-# 取数窗口（Owner 2026-10-08 定）：**滚动 12 个自然月**。
-# 不按当月 —— 异常是稀疏事件，二车间月均 3 条、三车间月均 1 条，
-# 按当月取分母经常是 0 或 1，比率会在 0%/100%/无值之间跳，没有信息量。
-# 也不按全部历史 —— 各车间表的起始时间不齐（二车间 2025-11 起、
-# 三车间 2026-01 起），且一年前的异常不该影响今天的判断。
+# 取数窗口（Owner 2026-10-20 定）：**只统计当月**。
+#
+# 早先是滚动 12 个自然月，理由是「异常是稀疏事件，按当月取分母常为 0 或 1，
+# 比率会在 0%/100%/无值之间跳」。Owner 现在明确要求只看当月 ——
+# 「这个月出了多少异常、关了几个」才是车间当月要盯的事；
+# 一年前的异常挂在看板上没有行动价值。
+#
+# 代价要知道：月初（1~3 号）分母常常是 0（显示 `—`）或 1（0% 或 100%），
+# 那个数是**真的**，只是样本少 —— 面板已注明「当月」，读的人能对上。
+#
+# ⚠️ 「异常汇报」表格也走同一个窗口（同一份数据），两处口径必须一致。
 
-ANOMALY_WINDOW_MONTHS = 12
+ANOMALY_WINDOW_MONTHS = 1
 
 
 @dataclass
@@ -355,9 +361,9 @@ ANOMALY_SOURCES: list[AnomalySource] = [
 
 
 def anomaly_window_start(today: date, months: int = ANOMALY_WINDOW_MONTHS) -> str:
-    """近 N 个自然月的起点（含当月），返回 `YYYY-MM-01`。
+    """窗口起点（含），返回 `YYYY-MM-01`。
 
-    `2026-10` + 12 个月 → `2025-11-01`。
+    `months=1`（当前口径）→ 当月 1 号。
     """
     y, m = today.year, today.month
     m -= months - 1
@@ -365,6 +371,21 @@ def anomaly_window_start(today: date, months: int = ANOMALY_WINDOW_MONTHS) -> st
         m += 12
         y -= 1
     return f"{y:04d}-{m:02d}-01"
+
+
+def anomaly_window_end(today: date, months: int = ANOMALY_WINDOW_MONTHS) -> Optional[str]:
+    """窗口终点（**不含**），返回 `YYYY-MM-01`；不设上限时返回 None。
+
+    `months=1` → 下月 1 号，即「只算当月」。**必须加上界** ——
+    只判 `d >= start` 的话，表里若有未来日期的记录（手工填错、提前录）
+    也会被算进当月，比率莫名其妙地变。
+    """
+    if months <= 1:
+        y, m = today.year, today.month + 1
+        if m > 12:
+            y, m = y + 1, 1
+        return f"{y:04d}-{m:02d}-01"
+    return None
 
 
 def _as_text(value) -> str:
@@ -402,7 +423,7 @@ def resolve_anomaly_date(record: dict, src: "AnomalySource") -> Optional[str]:
         ② 从 `异常事件内容` 里找 `YYYY.MM.DD` / `YYYY-MM-DD` / `YYYY 年 MM 月 DD 日`
         ③ `调查完成时间` 字段（近似 —— 调查通常在发生后几天，可接受）
 
-    不兜的话那 22 条会因「没有日期」被 12 个月窗口排除，
+    不兜的话那 22 条会因「没有日期」被窗口排除，
     无菌的闭环率就只按 10 条算 —— 那是错的。
 
     ⚠️ ② 和 ③ 各踩过一个坑，改动前先看这两条：
@@ -444,12 +465,16 @@ class AnomalyStats:
 
 
 def anomaly_stats(
-    src: "AnomalySource", records: Iterable[dict], start: str
+    src: "AnomalySource",
+    records: Iterable[dict],
+    start: str,
+    end: Optional[str] = None,
 ) -> AnomalyStats:
     """按窗口统计一个车间。
 
     `records` 是**平铺**的字段 dict（不是 `{"fields": …}`）。
-    窗口 = `resolve_anomaly_date(r) >= start`（`YYYY-MM-DD` 字符串比较即可）。
+    窗口 = `start <= resolve_anomaly_date(r) < end`（`YYYY-MM-DD` 字符串比较即可）。
+    `end` 为 None 表示不设上界（老行为）。
     """
     total = closed = undated = 0
     for r in records:
@@ -460,6 +485,8 @@ def anomaly_stats(
             undated += 1
             continue
         if d < start:
+            continue
+        if end is not None and d >= end:
             continue
         total += 1
         if _as_text(r.get(src.closure_field)):
@@ -473,7 +500,9 @@ def anomaly_stats(
     )
 
 
-def overall_closure(stats: list[AnomalyStats], start: str, months: int) -> dict:
+def overall_closure(
+    stats: list[AnomalyStats], start: str, months: int, end: Optional[str] = None
+) -> dict:
     """全厂汇总 —— **合计后再算率**，不是各车间率的平均。
 
     两者差别很大：二车间 9/31（29%）、三车间 8/9（89%），
@@ -485,9 +514,13 @@ def overall_closure(stats: list[AnomalyStats], start: str, months: int) -> dict:
     return {
         "windowMonths": months,
         "windowStart": start,
+        "windowEnd": end,
         "total": total,
         "closed": closed,
         "rate": (closed / total) if total else None,
+        # 解析不出日期的条数 —— 当月窗口下不进分母（不知道是不是当月的），
+        # 但如果 > 0 说明源表数据有洞，前端脚注要如实说出来
+        "undated": sum(s.undated for s in stats),
         "workshops": [s.name for s in stats],
         # 有记录、真正参与计算的车间；其余是「表在但窗口内无异常」
         "activeWorkshops": [s.name for s in active],

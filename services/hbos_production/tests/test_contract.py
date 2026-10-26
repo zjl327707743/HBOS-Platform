@@ -218,11 +218,27 @@ def _anom(date="2026-03-01", content="设备异响", closure="轴套磨损", fie
     return r
 
 
-def test_window_start_is_12_natural_months_inclusive():
-    # 近 12 个自然月含当月：2026-10 → 2025-11-01
+def test_window_is_current_month_only():
+    """Owner 2026-10-20：异常只看**当月**，不再是滚动 12 个月。"""
     from datetime import date as _d
-    assert contract.anomaly_window_start(_d(2026, 10, 8)) == "2025-11-01"
-    assert contract.anomaly_window_start(_d(2026, 1, 15)) == "2025-02-01"
+    assert contract.ANOMALY_WINDOW_MONTHS == 1
+    assert contract.anomaly_window_start(_d(2026, 10, 8)) == "2026-10-01"
+    assert contract.anomaly_window_start(_d(2026, 1, 15)) == "2026-01-01"
+    # 上界 = 下月 1 号（不含），跨年要进位
+    assert contract.anomaly_window_end(_d(2026, 10, 8)) == "2026-11-01"
+    assert contract.anomaly_window_end(_d(2026, 12, 31)) == "2027-01-01"
+
+
+def test_monthly_window_excludes_last_month_and_future():
+    """只留当月：上月的不算，未来日期（手工填错）也不算。"""
+    recs = [
+        _anom(date="2026-09-30"),      # 上月 → 排除
+        _anom(date="2026-10-01"),      # 当月第一天 → 算
+        _anom(date="2026-10-31"),      # 当月末 → 算
+        _anom(date="2026-11-01"),      # 下月 → 排除
+    ]
+    st = contract.anomaly_stats(_src(), recs, "2026-10-01", "2026-11-01")
+    assert st.total == 2
 
 
 def test_empty_placeholder_row_is_not_counted():

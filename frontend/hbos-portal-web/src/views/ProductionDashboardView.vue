@@ -187,7 +187,7 @@
                2700px，故移到下方独占整行（见本块结束后那个 section）。 -->
           <template v-else>
             <section class="pb-panel">
-              <div class="pb-sec-head"><i class="crit" /><h2>异常汇报</h2><span class="pb-note">管理层向 · 近 12 个月</span></div>
+              <div class="pb-sec-head"><i class="crit" /><h2>异常汇报</h2><span class="pb-note">管理层向 · 当月</span></div>
               <div v-if="!anomaly" class="pb-foot-note">异常数据暂不可用。</div>
               <template v-else>
                 <div class="pb-tbl-wrap">
@@ -215,8 +215,11 @@
                 <div class="pb-foot-note">
                   <b>闭环 = <code>事件原因</code> 非空</b>（全车间统一口径）。<br>
                   六车间空表 + 日报「未发生」= <b>该车间没有异常事件</b>，不计入比率（显示 <code>—</code>，不是 0%）。<br>
-                  <b>窗口</b>：近 {{ anomaly.windowMonths }} 个自然月（{{ anomaly.windowStart.slice(0, 7) }} 起）——
-                  异常是稀疏事件，按当月取分母常为 0，比率会失真。
+                  <b>窗口</b>：只看<b>当月</b>（{{ anomaly.windowStart.slice(0, 7) }}）—— 月初样本少，
+                  显示 <code>—</code> 或 0%/100% 都属正常。
+                  <template v-if="anomaly.undated > 0">
+                    <br><b>{{ anomaly.undated }} 条</b>记录没有日期，未计入。
+                  </template>
                 </div>
               </template>
             </section>

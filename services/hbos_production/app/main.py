@@ -346,7 +346,7 @@ def _fetch_all() -> dict:
 
 
 def _load_anomalies(today: date, fetched: dict | None = None) -> dict:
-    """各车间的异常表，按滚动窗口算闭环率。
+    """各车间的异常表，按**当月**窗口算闭环率（Owner 2026-10-20）。
 
     每个车间一个独立 Base。**一个失败不该拖垮其余**，所以逐源 try/except ——
     但**整批拉表**（`list_records_many`）时若某张表抛错，`_fetch_all` 会整体失败。
@@ -355,6 +355,8 @@ def _load_anomalies(today: date, fetched: dict | None = None) -> dict:
     也不给一个偏低的合计数）。
     """
     start = contract.anomaly_window_start(today)
+    # 上界：当月口径下是下月 1 号。不加的话未来日期的记录（手工填错）会被算进当月
+    end = contract.anomaly_window_end(today)
     stats: list[contract.AnomalyStats] = []
     failed: list[str] = []
     for src in contract.ANOMALY_SOURCES:
@@ -370,9 +372,11 @@ def _load_anomalies(today: date, fetched: dict | None = None) -> dict:
         # 飞书 API 是 {"record_id":…, "fields":{…}} 嵌套结构 —— 必须拆，
         # 否则字段全取不到、闭环率静默变 0/0（见 sources.to_anomaly_record）
         rows = [sources.to_anomaly_record(r) for r in raw]
-        stats.append(contract.anomaly_stats(src, rows, start))
+        stats.append(contract.anomaly_stats(src, rows, start, end))
 
-    result = contract.overall_closure(stats, start, contract.ANOMALY_WINDOW_MONTHS)
+    result = contract.overall_closure(
+        stats, start, contract.ANOMALY_WINDOW_MONTHS, end
+    )
     result["failedWorkshops"] = failed
     return result
 
