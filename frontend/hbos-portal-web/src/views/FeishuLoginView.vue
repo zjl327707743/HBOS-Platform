@@ -1,37 +1,62 @@
 <template>
-  <AccountLayout title="登录 HBOS" eyebrow="企业内部使用" description="使用本人飞书或已有账号密码，进入海滨工作台。">
-    <a-alert v-if="callbackMessage" :type="callbackTone" show-icon :message="callbackMessage" role="alert" />
-    <template v-if="authenticated"><a-alert :message="submitting ? '登录已完成，正在加载工作台…' : '登录已完成，工作台暂未加载。请重试加载，无需再次输入密码。'" type="info" show-icon role="status" /><a-button v-if="!submitting" size="large" type="primary" block @click="resumeWorkspace">重试加载工作台</a-button></template>
+  <AccountLayout variant="login" title="登录 HBOS" eyebrow="欢迎回来" description="新乡海滨药业 · 企业成员专用">
+    <a-alert v-if="callbackMessage" id="login-feedback" :type="callbackTone" show-icon :message="callbackMessage" role="alert" />
+    <template v-if="authenticated">
+      <a-alert :message="submitting ? '登录已完成，正在加载工作台…' : '登录已完成，工作台暂未加载。请重试加载，无需再次输入密码。'" type="info" show-icon role="status" />
+      <a-button v-if="!submitting" size="large" type="primary" block @click="resumeWorkspace">重试加载工作台</a-button>
+      <a-button size="large" block :loading="submitting" @click="exitCurrentAccount">退出并换一个账号</a-button>
+    </template>
     <template v-else>
-      <a-skeleton v-if="loading" active :paragraph="{rows:1}" />
-      <template v-else><a-button size="large" type="primary" block :disabled="submitting || !status?.configured || Boolean(statusError)" @click="beginFeishuLogin"><MessageOutlined /> 使用飞书登录</a-button><p v-if="status?.configured && !statusError" class="account-meta">已启用企业成员登录，新成员可按授权自动开通普通账号。</p><a-alert v-else-if="statusError" :message="statusError" type="warning" show-icon /><p v-else class="account-meta">飞书入口暂不可用，您仍可使用已有账号密码。</p><a-button v-if="statusError" @click="loadStatus">重试读取登录方式</a-button></template>
-      <div class="account-divider"><span>账号密码登录</span></div>
-      <a-form class="account-form" layout="vertical" @submit.prevent="submitAccountLogin" @keydown.enter="guardComposition">
+      <div v-if="loading" role="status" aria-live="polite"><a-skeleton active :paragraph="{ rows: 1 }" /><p class="account-meta">正在读取可用的登录方式…</p></div>
+      <template v-else>
+        <template v-if="status?.configured && !statusError">
+          <a-button size="large" :type="showPassword ? 'default' : 'primary'" block :disabled="submitting" @click="beginFeishuLogin"><MessageOutlined />使用飞书登录</a-button>
+          <p class="account-meta">在飞书 App 或网页版中确认本人身份后继续。</p>
+          <div class="account-divider"><span>或</span></div>
+          <a-button v-if="!showPassword" size="large" block aria-controls="password-login-form" :aria-expanded="showPassword" @click="revealPassword"><KeyOutlined />使用账号密码登录</a-button>
+        </template>
+        <a-alert v-else-if="statusError" :message="statusError" description="账号密码仍可使用；重试成功前不会启用飞书入口。" type="warning" show-icon role="alert" />
+        <a-alert v-else message="飞书登录暂时不可用。" description="您仍可使用已有账号密码，账号、权限和资料不受影响。" type="info" show-icon role="status" />
+        <a-button v-if="statusError" class="status-retry" :disabled="submitting" @click="loadStatus">重试读取登录方式</a-button>
+      </template>
+      <a-form v-if="showPassword" id="password-login-form" class="account-form" layout="vertical" :aria-describedby="callbackMessage ? 'login-feedback' : undefined" @submit.prevent="submitAccountLogin" @keydown.enter="guardComposition">
         <a-form-item label="账号" html-for="hbos-username"><a-input id="hbos-username" v-model:value="username" size="large" autocomplete="username" placeholder="请输入登录名" :disabled="submitting" /></a-form-item>
         <a-form-item label="密码" html-for="hbos-password"><a-input-password id="hbos-password" v-model:value="password" size="large" autocomplete="current-password" placeholder="请输入密码" :disabled="submitting" /></a-form-item>
         <a-form-item v-if="tmpId" label="二次认证验证码" html-for="login-otp" help="请输入当前账号已有认证器或已授权渠道的验证码。"><a-input-password id="login-otp" v-model:value="otp" size="large" inputmode="numeric" autocomplete="one-time-code" :disabled="submitting" /><a-button html-type="button" :disabled="submitting" @click="cancelMfa">取消二次认证</a-button></a-form-item>
-        <a-button size="large" block html-type="submit" :loading="submitting" :disabled="!canSubmit">{{ tmpId ? '验证并进入工作台' : '使用密码登录' }}</a-button>
+        <a-button size="large" type="primary" block html-type="submit" :loading="submitting" :disabled="!canSubmit">{{ tmpId ? '验证并进入工作台' : '使用密码登录' }}</a-button>
       </a-form>
       <div class="account-buttons"><RouterLink :to="username.trim().toLowerCase() === 'administrator' ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password'">忘记密码或账号恢复</RouterLink></div>
     </template>
-    <template #footer>密码和飞书使用同一个账号。已有账号可在“账号与安全”验证本人后绑定飞书；新账号的独立初始密码仅在验证本人后领取一次，首次使用须修改。</template>
+    <template #footer>密码和飞书使用同一个账号。已有账号可在“账号与安全”验证本人后绑定飞书；新账号的初始密码仅在验证本人后领取一次，首次使用须修改。无法登录时请联系管理员。</template>
+    <template #version><span v-if="candidateLabel">{{ candidateLabel }}</span></template>
   </AccountLayout>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { MessageOutlined } from '@ant-design/icons-vue'
+import { KeyOutlined, MessageOutlined } from '@ant-design/icons-vue'
 import AccountLayout from '@/components/account/AccountLayout.vue'
 import type { FeishuLoginStatus } from '@/contracts/p1'
 import { FrappeRequestError, loginWithPassword } from '@/services/frappeClient'
 import { getFeishuLoginStatus } from '@/services/p1Api'
 import { usePortalStore } from '@/stores/portal'
 import { accountRedirect } from '@/services/accountNavigation'
-import { ensurePortalSession, resetPortalSession } from '@/services/portalSessionCoordinator'
+import { ensurePortalSession, resetPortalSession, signOutPortalSession } from '@/services/portalSessionCoordinator'
 const route = useRoute(), router = useRouter(), portal = usePortalStore()
 const loading = ref(true), submitting = ref(false), authenticated = ref(false), status = ref<FeishuLoginStatus|null>(null), statusError = ref(''), error = ref('')
 const username = ref(''), password = ref(''), otp = ref(''), tmpId = ref('')
+const candidateLabel = import.meta.env.VITE_ACCOUNT_PREVIEW_LABEL || ''
 const callbackConsumed = ref(false)
+const passwordExpanded = ref(false)
+const showPassword = computed(() => passwordExpanded.value || (!loading.value && (!status.value?.configured || Boolean(statusError.value))) || Boolean(tmpId.value))
+async function revealPassword() { passwordExpanded.value = true; await nextTick(); document.getElementById('hbos-username')?.focus() }
+async function exitCurrentAccount() {
+ if (submitting.value) return
+ submitting.value = true; error.value = ''
+ try { await signOutPortalSession(); if (!disposed) { authenticated.value = false; cancelMfa(); username.value = ''; await router.replace({ path: '/hbos/login', query: { status: 'signed_out' } }) } }
+ catch (e) { if (!disposed) error.value = e instanceof Error ? e.message : '服务端退出尚未确认，请重试退出。' }
+ finally { if (!disposed) submitting.value = false }
+}
 let disposed = false
 const statusMessages: Record<string,string> = {
  logout_unconfirmed:'本机内容已清理，服务端退出尚未确认。连接恢复后请重新登录，或返回后重试退出。',
