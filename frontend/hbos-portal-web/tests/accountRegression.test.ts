@@ -12,7 +12,7 @@ import LoginView from '@/views/FeishuLoginView.vue'
 const api = vi.hoisted(() => ({ getSecurity: vi.fn(), reauthenticate: vi.fn(), requestFeishuCode: vi.fn(), verifyFeishuCode: vi.fn(), setPassword: vi.fn(), unlinkFeishu: vi.fn(), startLink: vi.fn(), adminIssueRecovery: vi.fn() }))
 const changes = vi.hoisted(() => ({ changeActions: vi.fn(), recentChanges: vi.fn(), getChange: vi.fn(), getParticipant: vi.fn(), changePost: vi.fn() }))
 const session = vi.hoisted(() => ({ bootstrap: vi.fn(), clearSession: vi.fn() }))
-const coordinator = vi.hoisted(()=>({ensurePortalSession:vi.fn(async()=>({})),resetPortalSession:vi.fn(),refreshAccountProof:vi.fn()}))
+const coordinator = vi.hoisted(()=>({ensurePortalSession:vi.fn(async()=>({})),resetPortalSession:vi.fn(),signOutPortalSession:vi.fn(),refreshAccountProof:vi.fn()}))
 vi.mock('@/services/portalSessionCoordinator',()=>coordinator)
 const login = vi.hoisted(() => vi.fn())
 vi.mock('@/services/accountApi', () => api)
@@ -31,6 +31,7 @@ async function render(component: object, path = '/hbos/profile') {
   await router.push(path); await router.isReady()
   const wrapper = mount(component, { attachTo: document.body, global: { plugins: [Antd, router] } })
   wrappers.push(wrapper); await flushPromises()
+  if (component === LoginView) { const fallback = wrapper.findAll("button").find(b => b.text().includes("使用账号密码")); if (fallback) { await fallback.trigger("click"); await flushPromises() } }
   return { wrapper, router }
 }
 async function clickText(wrapper: VueWrapper, text: string) {
@@ -233,7 +234,7 @@ describe('confirmed account UI regressions', () => {
     await wrapper.find('input[autocomplete="username"]').setValue('synthetic')
     await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic password')
     await wrapper.find('form').trigger('submit'); await flushPromises()
-    expect(wrapper.text()).toMatch(/已登录|登录已完成/)
+    expect(wrapper.text()).toMatch(/已登录|已登录/)
     expect(wrapper.text()).toMatch(/重试/)
     expect(login).toHaveBeenCalledTimes(1)
   })
