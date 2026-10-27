@@ -70,6 +70,8 @@ class FeishuSettings:
             and self.authorize_id_parameter in {"client_id", "app_id"}
             and self.published
             and self.redirect_registered
+            # Preserve legacy closed state unless a controlled pilot is explicit.
+            and (self.auto_provision_internal or self.pilot_mode)
             and (not self.pilot_mode or bool(_pilot_users(self.pilot_users, allow_administrator=self.allow_administrator_link)))
             and bool(ACCOUNT_DOMAIN_PATTERN.fullmatch(self.account_domain))
         )
@@ -94,6 +96,8 @@ class FeishuSettings:
             missing.append("internal_member_publication")
         if self.pilot_mode and not _pilot_users(self.pilot_users, allow_administrator=self.allow_administrator_link):
             missing.append("approved_pilot_users")
+        elif not self.pilot_mode and not self.auto_provision_internal:
+            missing.append("internal_member_auto_provision")
         return {
             "configured": self.configured,
             "provider": IDENTITY_PROVIDER,

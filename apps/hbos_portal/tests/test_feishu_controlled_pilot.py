@@ -18,6 +18,32 @@ class ControlledPilotTest(unittest.TestCase):
         self.assertNotIn(PILOT,str(s.public_status()))
         self.assertFalse(settings(pilot_mode=True,pilot_users=()).configured)
 
+    def test_legacy_closed_site_cannot_start_oauth(self):
+        policy = settings(auto_provision_internal=False, pilot_mode=False)
+        fake = SimpleNamespace(cache=Mock(), local=SimpleNamespace(cookie_manager=Mock()))
+        with patch.object(feishu, 'frappe', fake), patch.object(feishu, 'load_settings', return_value=policy), \
+             patch.object(feishu, '_error_redirect') as error, patch.object(feishu, '_redirect'), \
+             patch.object(feishu, '_pkce_pair', return_value=('verifier', 'challenge')), \
+             patch.object(feishu, 'build_authorize_url', return_value='https://example.invalid'), \
+             patch.object(feishu.RedisOAuthStateStore, 'create', return_value=('state', 'nonce')) as issue:
+            feishu.start()
+            error.assert_called_once_with('config_required')
+            issue.assert_not_called()
+
+    def test_legacy_closed_site_rejects_previously_issued_callback(self):
+        policy = settings(auto_provision_internal=False, pilot_mode=False)
+        local = SimpleNamespace(form_dict={'code': 'synthetic'}, request=SimpleNamespace(cookies={}), cookie_manager=Mock())
+        fake = SimpleNamespace(local=local, flags=SimpleNamespace(), cache=Mock(), db=Mock())
+        with patch.object(feishu, 'frappe', fake), patch.object(feishu, 'load_settings', return_value=policy), \
+             patch('hbos_portal.auth.diagnostics.new_trace', return_value={'id': 'synthetic', 'facts': {}, 'result': 'pending'}), \
+             patch('hbos_portal.auth.diagnostics.persist'), patch.object(feishu, '_error_redirect') as error, \
+             patch.object(feishu.RedisOAuthStateStore, 'consume', side_effect=feishu.OAuthStateError('synthetic')) as consume, \
+             patch.object(feishu, 'exchange_identity') as exchange:
+            feishu.callback(code='synthetic', state='synthetic')
+            error.assert_called_once_with('config_required')
+            consume.assert_not_called()
+            exchange.assert_not_called()
+
     def test_pilot_allowlist_is_small_and_fails_closed(self):
         for v in [None,'garbage','["Administrator"]',['Guest'],[''],[' '+PILOT],['a','b','c'],{'a':PILOT},[1]]:
             with self.subTest(v=v): self.assertEqual((),_pilot_users(v))

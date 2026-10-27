@@ -187,7 +187,11 @@ class FeishuFlowContractTest(unittest.TestCase):
         self.assertFalse(settings(published=False).configured)
         self.assertFalse(settings(redirect_registered=False).configured)
         self.assertFalse(settings(tenant_key="").configured)
-        self.assertTrue(settings(auto_provision_internal=False).configured)
+        legacy_closed = settings(auto_provision_internal=False, pilot_mode=False)
+        self.assertFalse(legacy_closed.configured)
+        self.assertIn("internal_member_auto_provision", legacy_closed.public_status()["missing"])
+        pilot = settings(auto_provision_internal=False, pilot_mode=True, pilot_users=("pilot@example.invalid",))
+        self.assertTrue(pilot.configured)
 
     def test_exchange_enforces_tenant_and_does_not_return_token(self):
         calls = []
