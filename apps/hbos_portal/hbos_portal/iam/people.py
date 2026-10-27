@@ -169,8 +169,11 @@ def get_my_employee_status():
     try:
         employee = policy.resolve_employee(user, required=False)
     except frappe.PermissionError:
-        return dict(status='conflict', employee_id=None, employee_number=None, department=None, initial_password_pending=temporary_passwords.status(user)['pending'])
-    return dict(status='linked' if employee else 'unlinked', employee_id=employee.name if employee else None, employee_number=employee.employee_number if employee else None, department=employee.department if employee else None, initial_password_pending=temporary_passwords.status(user)['pending'])
+        return dict(status='conflict', employee_id=None, employee_number=None, department=None, position=None, initial_password_pending=temporary_passwords.status(user)['pending'])
+    # The shared authorization resolver returns identity fields, not designation.
+    # Read this display field only after resolving the current user's own record.
+    position = frappe.db.get_value('Employee', employee.name, 'designation') if employee else None
+    return dict(status='linked' if employee else 'unlinked', employee_id=employee.name if employee else None, employee_number=employee.employee_number if employee else None, department=employee.department if employee else None, position=position, initial_password_pending=temporary_passwords.status(user)['pending'])
 
 
 def check_evidence(employee, user_id, evidence):

@@ -102,7 +102,31 @@ def append_event(request_id, operation, subject_type, subject_name, payload, bef
     return doc
 
 
-def list_events(subject_type=None, subject_name=None, page=1, page_size=20):
+def _read_filters(date_from=None, date_to=None, operation=None, result=None):
+    from datetime import date
+    values = {}
+    for key, value in (("date_from", date_from), ("date_to", date_to)):
+        if value in (None, ""):
+            continue
+        try:
+            if not isinstance(value, str) or len(value) != 10:
+                raise ValueError
+            values[key] = date.fromisoformat(value).isoformat()
+        except (ValueError, TypeError):
+            frappe.throw("审计日期格式无效。", frappe.ValidationError)
+    if values.get("date_from", "") > values.get("date_to", "9999-12-31"):
+        frappe.throw("开始日期不能晚于结束日期。", frappe.ValidationError)
+    for key, value in (("operation", operation), ("result", result)):
+        if value in (None, ""):
+            continue
+        if not isinstance(value, str) or len(value) > 140 or any(ord(c) < 32 for c in value):
+            frappe.throw("审计筛选值无效。", frappe.ValidationError)
+        values[key] = value
+    return values
+
+
+def list_events(subject_type=None, subject_name=None, page=1, page_size=20,
+                date_from=None, date_to=None, operation=None, result=None):
     guards.require_capability("iam.audit.read")
     try:
         page, page_size = int(page), int(page_size)
@@ -110,6 +134,12 @@ def list_events(subject_type=None, subject_name=None, page=1, page_size=20):
             raise ValueError
     except (ValueError, TypeError):
         frappe.throw("分页参数无效。", frappe.ValidationError)
+    if bool(subject_type) != bool(subject_name):
+        frappe.throw("请同时提供准确的审计对象类型和标识。", frappe.ValidationError)
+    if subject_type and any(not isinstance(value, str) or len(value) > 140 or any(ord(c) < 32 for c in value)
+                            for value in (subject_type, subject_name)):
+        frappe.throw("审计对象参数无效。", frappe.ValidationError)
+    filters = _read_filters(date_from, date_to, operation, result)
     departments = guards.managed_departments("iam.audit.read")
     # Resolve authorized subjects before list and count; never count the unscoped log.
     employees = frappe.db.sql("select name,user_id from `tabEmployee` where department in %(departments)s order by name for update", {"departments": tuple(departments)}, as_dict=True) if departments else []
@@ -137,9 +167,38 @@ def list_events(subject_type=None, subject_name=None, page=1, page_size=20):
         for index, (kind, name) in enumerate(sorted(allowed)):
             conditions.append(f"(subject_type=%(kind{index})s and subject_name=%(name{index})s)")
             params[f"kind{index}"], params[f"name{index}"] = kind, name
-    where = " where " + " or ".join(conditions) if conditions else ""
+    predicates = ["(" + " or ".join(conditions) + ")"] if conditions else []
+    for key, expression in (("date_from", "occurred_at >= %(date_from)s"),
+                            ("date_to", "occurred_at < date_add(%(date_to)s, interval 1 day)"),
+                            ("operation", "operation=%(operation)s"),
+                            ("result", "result=%(result)s")):
+        if key in filters:
+            predicates.append(expression)
+            params[key] = filters[key]
+    where = " where " + " and ".join(predicates) if predicates else ""
     count = frappe.db.sql("select count(*) from `tabHBOS IAM Change Event`" + where, params)[0][0]
     params.update(limit=page_size, offset=(page - 1) * page_size)
     fields = "name, actor, request_id, subject_type, subject_name, operation, version, result, reason, occurred_at"
     rows = frappe.db.sql("select " + fields + " from `tabHBOS IAM Change Event`" + where + " order by occurred_at desc, name desc limit %(limit)s offset %(offset)s", params, as_dict=True)
     return {"items": rows, "total": count, "page": page, "page_size": page_size}
+
+
+def get_event(name):
+    guards.require_capability("iam.audit.read")
+    if not isinstance(name, str) or not name or len(name) > 140:
+        frappe.throw("没有该记录的审计读取权限。", frappe.PermissionError)
+    fields = "name, actor, subject_type, subject_name, operation, version, result, reason, occurred_at, before_json, after_json"
+    rows = frappe.db.sql("select " + fields + " from `tabHBOS IAM Change Event` where name=%s limit 1 for update", (name,), as_dict=True)
+    if not rows or not policy.value(rows[0], "subject_type") or not policy.value(rows[0], "subject_name"):
+        frappe.throw("没有该记录的审计读取权限。", frappe.PermissionError)
+    row = rows[0]
+    # Reuse the exact list visibility check, including role-company and role-read
+    # gates. A people-read capability does not authorize an audit read.
+    list_events(policy.value(row, "subject_type"), policy.value(row, "subject_name"), 1, 1)
+    visible = {key: policy.value(row, key) for key in fields.split(", ") if not key.endswith("_json")}
+    try:
+        visible["before"] = safe_snapshot(json.loads(policy.value(row, "before_json") or "{}"))
+        visible["after"] = safe_snapshot(json.loads(policy.value(row, "after_json") or "{}"))
+    except (ValueError, TypeError):
+        frappe.throw("变更内容暂时无法读取，请联系负责人核对。", frappe.ValidationError)
+    return visible
