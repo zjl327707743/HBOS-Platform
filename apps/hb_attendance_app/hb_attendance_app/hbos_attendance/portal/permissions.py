@@ -304,6 +304,13 @@ def _check_widget_source(kind, name=None, raw=None):
 
 
 def check_request():
+    # This pre-dispatch guard only reads authorization. A retry starts a fresh
+    # transaction and re-runs every guard before any endpoint command can run.
+    from hbos_portal.iam import policy
+    return policy.current_read(_check_request)
+
+
+def _check_request():
     request = getattr(frappe.local, "request", None)
     user = getattr(frappe.session, "user", None)
     if not iam_enabled() or not request or not user or user == "Guest" or legacy_hr(user):

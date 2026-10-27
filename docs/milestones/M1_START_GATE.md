@@ -1,3 +1,5 @@
+> **2026-10-27 R6 独立安全修复 / G4_IMPLEMENTING**：请求前只读guard复用current_read，最多4次、回滚后全量重鉴权；拒绝及非读取错误不重试，业务命令不重放。基线实际产品22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b；Owner本轮明确授权独立安全修复与18191合成验证，提案补丁567d2f8fb2180db60edb72d1fb7acf798011dde0d251b165355ba9fa12bb6b7b。本分支未合并、真实UAT未部署、标签及团队发布未获授权，TEAM_PULL_READY=PENDING。详见 `docs/milestones/Portal_R6_请求前鉴权读取并发修复.md`。下列带日期的状态保留历史含义。
+
 # M1 启动门禁
 
 ## PR #21 最终 Gate — 2026-10-01
