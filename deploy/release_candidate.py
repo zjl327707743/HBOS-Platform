@@ -114,8 +114,16 @@ def prepare(task,evidence,cycle="RC1"):
     if not (backup/'static').exists():shutil.copytree(static_source,backup/'static')
     previous_static=static_manifest(backup/'static')
     if not (backup/'configuration.tar').exists():
-        with (backup/'configuration.tar').open('wb') as f:
-            subprocess.run(['docker','exec',f'{PROJECT}-service-1','tar','-C','/run','-cf','-','hbos-reference','hbos-uat4-config'],stdout=f,stderr=subprocess.PIPE,check=True)
+        temporary=backup/'configuration.tar.tmp'
+        try:
+            with temporary.open('wb') as f:
+                subprocess.run(['docker','exec','--user','0',f'{PROJECT}-bff-1','tar','-C','/run','-cf','-','hbos-reference','hbos-uat4-config'],stdout=f,stderr=subprocess.PIPE,check=True)
+            with tarfile.open(temporary) as archive_stream:
+                if not {'hbos-reference/source-directory.json','hbos-uat4-config/hbos-reference.json'}<=set(archive_stream.getnames()):
+                    raise RuntimeError('Configuration backup is incomplete')
+            temporary.chmod(0o600);os.replace(temporary,backup/'configuration.tar')
+        finally:
+            if temporary.exists():temporary.unlink()
     previous_override=backup/'compose.rollback.yml';override(previous_override,backup/'compose.override.before.yml',{role:old[role]['Image'] for role in old},backup/'static')
     previous_files=[*manifest['compose_files'][:-1],str(previous_override)]
     previous={'release_id':previous_release,'project':PROJECT,'purpose':'Actual previous runtime, not the stale Stage3 lock','source':previous_source,'containers':{role:{'image_id':x['Image'],'container_id':x['Id']} for role,x in old.items()},'composition':composition(previous_files),'manifest':dict(manifest,compose_files=previous_files),'static':{'path':str(backup/'static'),'files':previous_static},'rollback_archive':archive,'configuration_backup':{'path':str(backup/'configuration.tar'),'sha256':sha(backup/'configuration.tar')},'business_data_rollback':False}
@@ -199,6 +207,13 @@ def switch(task,evidence,rollback=False,check_only=False,cycle="RC1",rollback_lo
         env=dict(os.environ,HBOS_DEPLOY_STATE_DIR=str(here),HBOS_KNOWLEDGE_TASK_ROOT=str(task))
         subprocess.run([str(task/'work/knowledge_service/.venv-dsh/bin/python'),str(task/'work/hbos/deploy/candidate/preflight.py'),'--lock',str(path)],env=env,check=True)
         receipts.append({'release_id':lock['release_id'],'started_at':time.time(),'status':'SWITCH_STARTED'});save(count_file,receipts)
+    if rollback and lock.get('configuration_backup'):
+        config=lock['configuration_backup'];archive_path=pathlib.Path(config['path'])
+        if sha(archive_path)!=config['sha256']:raise RuntimeError('Rollback configuration checksum mismatch')
+        subprocess.run(['docker','run','--rm','--network','none','--user','0','--entrypoint','sh',
+            '-v',PROJECT+'-configuration:/run/hbos-reference','-v',PROJECT+'-uat5-config:/run/hbos-uat4-config',
+            '--mount','type=bind,source='+str(archive_path)+',target=/backup.tar,readonly',
+            lock['containers']['bff']['image_id'],'-c','tar -xpf /backup.tar -C /run'],capture_output=True,check=True)
     compose(lock['manifest'],'up','-d','--no-deps','bff','service')
     # Load the committed hooks through the site's normal cache invalidation.
     code="import os;os.chdir('/home/frappe/frappe-bench/sites');import frappe;frappe.init(site='knowledge-r2.localhost');frappe.connect();frappe.clear_cache();frappe.destroy()"
