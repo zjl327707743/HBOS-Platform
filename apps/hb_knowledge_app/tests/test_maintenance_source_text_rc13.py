@@ -230,3 +230,12 @@ def test_invalid_pages_input_is_rejected():
         rules.convert_pages([])
     with pytest.raises(KnowledgeError):
         rules.convert_pages(['ok', 3])
+
+
+def test_audited_wingdings_point_markers_map_to_circled_numbers():
+    from hb_knowledge_app.hb_knowledge.maintenance_source_text import convert_pages, derived_source_findings
+    converted, changes = convert_pages(['Figure 3.1 points \uf081 and \uf082; step \uf083; row \uf084.'])
+    text = converted[0]
+    assert '①' in text and '②' in text and '③' in text and '④' in text
+    assert not derived_source_findings('\n'.join(converted))
+    assert changes

@@ -43,6 +43,9 @@ MIN_HEADER_PAGES = 3
 KNOWN_GLYPHS = {
     '\uf0b7': '•', '\uf0a7': '▪', '\uf06e': '■', '\uf075': '●', '\uf0d8': '•',
     '\uf0fc': '✓', '\uf0a8': '◆', '\uf02d': '-', '\uf0e0': '>', '\uf020': ' ',
+    # Audited Wingdings point markers (rendered from the embedded subset font:
+    # diamond-framed 1..4); they label figure/table points, not hidden digits.
+    '\uf081': '①', '\uf082': '②', '\uf083': '③', '\uf084': '④',
 }
 PUA = re.compile(r'[\ue000-\uf8ff]')
 REPLACEMENT = '\ufffd'
