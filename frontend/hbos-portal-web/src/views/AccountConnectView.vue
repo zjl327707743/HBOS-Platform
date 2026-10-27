@@ -1,5 +1,5 @@
 <template>
-  <AccountLayout :title="completed ? '账号已就绪' : pending?.intent === 'link' ? '确认绑定本人飞书' : pending?.intent === 'login_mfa' ? '完成二次认证' : '确认账号归属'" description="核对本人身份和目标账号，再继续。">
+  <AccountLayout variant="r5" :title="completed ? '账号已就绪' : pending?.intent === 'link' ? '确认绑定本人飞书' : pending?.intent === 'login_mfa' ? '完成二次认证' : '确认账号归属'" description="核对本人身份和目标账号，再继续。">
     <a-alert v-if="error" :message="error" type="warning" show-icon role="alert" /><a-skeleton v-if="loading" active />
     <template v-else-if="completed"><a-result status="success" :title="completed.created ? '普通账号已开通' : '账号验证已完成'" sub-title="密码和飞书进入同一个账号。" /><p>登录名：<strong>{{ completed.login_name }}</strong></p><p v-if="completed.password_optional">可直接使用飞书工作。需要密码时，在账号与安全中按需设置。</p><a-alert v-if="workspaceError" :message="workspaceError" type="info" show-icon /><a-button size="large" type="primary" block :loading="busy" @click="enterWorkspace">{{ workspaceError ? '重试加载工作台' : '进入工作台' }}</a-button></template>
     <template v-else-if="uncertain"><a-alert message="账号操作的结果尚未确认。请先查询当前账号，避免重复绑定或开户。" type="warning" show-icon /><a-button size="large" :loading="busy" @click="checkOutcome">查询当前账号状态</a-button><div class="account-buttons"><RouterLink to="/hbos/profile">查看账号与安全</RouterLink><RouterLink to="/hbos/login">返回登录</RouterLink></div></template>
