@@ -16,7 +16,7 @@ const identityLoading = ref(true), identityError = ref(''), employeeDialog = ref
 let generation = 0
 const system = computed(() => portal.user?.id === 'Administrator')
 const linked = computed(() => !system.value && employee.value?.status === 'linked')
-const roleTag = computed(() => system.value ? '系统管理账号' : portal.user?.roleLabel || '工作账号')
+const roleTag = computed(() => system.value ? '系统管理账号' : linked.value ? '员工账号' : '工作账号')
 const loginMethods = computed(() => describeLoginMethods(security.value))
 const deskTarget = computed(() => businessNavigationTarget('/desk'))
 const profileTarget = computed(() => portal.user ? businessNavigationTarget(`/desk/user/${encodeURIComponent(portal.user.id)}`) : null)

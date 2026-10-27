@@ -547,6 +547,7 @@
 }
 .r6-identity-card {
   position: relative;
+  top: auto;
   overflow: hidden;
   padding: 24px 28px;
   background: linear-gradient(120deg,#fff 55%,#f5f3ff);
