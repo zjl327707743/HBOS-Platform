@@ -234,3 +234,14 @@ class AttendanceBypassTest(unittest.TestCase):
         delay.assert_not_called()
         self.fake.db.rollback.assert_not_called()
 
+    def test_disabled_iam_does_not_import_optional_portal_package(self):
+        import builtins
+        original = builtins.__import__
+        def without_portal(name, *args, **kwargs):
+            if name.startswith('hbos_portal'):
+                raise ModuleNotFoundError('optional Portal is not installed')
+            return original(name, *args, **kwargs)
+        self.fake.conf.hbos_iam_enabled = 0
+        with patch('builtins.__import__', side_effect=without_portal):
+            self.request('/api/resource/Attendance/ATT-B')
+

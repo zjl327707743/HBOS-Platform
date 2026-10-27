@@ -1,3 +1,5 @@
+> **2026-10-27 #65 旧站点兼容性回归**：IAM未启用时在导入可选Portal包前返回；启用IAM后的请求前读取重试和权限语义保留。Python3.11/3.12各582考勤测试PASS。尚未合并，最新组合及最终产品SHA验收分别记录；TEAM_PULL_READY=PENDING。下列状态按日期保留历史含义。
+
 > **2026-10-27 R6 独立安全修复 / G4_IMPLEMENTING**：请求前只读guard复用current_read，最多4次、回滚后全量重鉴权；拒绝及非读取错误不重试，业务命令不重放。基线实际产品22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b；Owner本轮明确授权独立安全修复与18191合成验证，提案补丁567d2f8fb2180db60edb72d1fb7acf798011dde0d251b165355ba9fa12bb6b7b。本分支未合并、真实UAT未部署、标签及团队发布未获授权，TEAM_PULL_READY=PENDING。详见 `docs/milestones/Portal_R6_请求前鉴权读取并发修复.md`。下列带日期的状态保留历史含义。
 
 # 新乡海滨智能运营管理平台
