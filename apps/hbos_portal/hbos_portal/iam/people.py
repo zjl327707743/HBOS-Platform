@@ -291,8 +291,23 @@ def link_native_employee(employee, user):
         employee.create_user_permission = 1
     employee.user_id = user
     with guards.controlled_write(), website_compatibility(user):
+        if target.user_type == 'Website User':
+            # The native Employee hook otherwise requires the actor to hold
+            # global User Permission creation rights. This command already
+            # authorized this exact Employee/User/company and consumed proof.
+            # Prepare only the two restrictions the native hook would create;
+            # keep the native save/hooks and side-effect validation in full.
+            from frappe.permissions import add_user_permission
+            add_user_permission('Employee', employee.name, user, ignore_permissions=True)
+            add_user_permission('Company', employee.company, user, ignore_permissions=True)
         employee.save(ignore_permissions=True)
     after = _check_side_effects(user, before)
+    if target.user_type == 'Website User':
+        previous_permissions = set(before['user_permissions'])
+        current_permissions = set(after['user_permissions'])
+        expected_permissions = {('Employee', employee.name), ('Company', employee.company)}
+        if not previous_permissions <= current_permissions or current_permissions - previous_permissions - expected_permissions:
+            reject('原生关联产生非预期范围变化，事务未保存。', 409)
     if after['enabled'] != before['enabled']:
         reject('关联产生非预期账号状态变化，事务未保存。', 409)
     return dict(before=before, after=after)
