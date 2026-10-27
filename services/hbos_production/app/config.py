@@ -81,21 +81,47 @@ QUALITY_CACHE_TTL_SECONDS = int(
     os.environ.get("HBOS_PRODUCTION_QUALITY_CACHE_TTL", str(24 * 3600))
 )
 
-#: AI 分析结果的缓存秒数。**默认 30 分钟**（Owner 2026-10-26 定）。
+#: AI 分析结果的**缓存过期时刻**（每天几点几分），不是 TTL 秒数。
 #:
-#: AI 结果表由定时任务**每天 16:30 写一次**，不随取随变。所以：
+#: AI 结果表由定时任务每天 **16:30** 写一次，除此之外**数据不会变**。
+#: 所以缓存不该按固定间隔过期 —— 那样纯粹是白拉：
 #:
-#:   - **不做跨天自动刷新** —— 跨天重拉没意义，16:30 之前重拉还是昨天那份
-#:   - 也不能缓存太久 —— 缓存若比「16:30 到用户下次打开」的间隔长，
-#:     当天 16:30 写进去的新结论就看不到，看板会一直显示旧结论
+#:     30 分钟 TTL  → 一天过期 48 次，其中 47 次拿到的是一模一样的数据
+#:     固定 12 小时 → 16:30 写进去的新结论当天看不到（要等次日凌晨）
 #:
-#: 30 分钟是个折中：16:30 跑完之后，最迟 17:00 页面上就是新结论；
-#: 代价是每半小时后台拉一次 AI 表（62 行、~110KB），可以忽略。
+#: 正确做法是**在写入时刻之后立刻过期一次**，其余时间一直用缓存：
 #:
-#: ⚠️ 别改成「一天」或更长 —— 那会让每天的 16:30 更新在当天看不见。
-AI_CACHE_TTL_SECONDS = int(
-    os.environ.get("HBOS_PRODUCTION_AI_CACHE_TTL", str(30 * 60))
-)
+#:     10:00 建的缓存 → 16:35 过期（6.5 小时不动）
+#:     16:40 建的缓存 → 次日 16:35 过期（24 小时不动）
+#:
+#: 留 5 分钟余量：定时任务跑一轮要 20 多分钟（62 道工序、每轮 ~24 分钟），
+#: 16:30 开始写、16:35 才基本写完。定在 16:30 会读到写了一半的表。
+#:
+#: ⚠️ 定时任务改成别的时刻时，这两个值要一起改（`services/hbos_production_ai`
+#:    的 launchd plist 和 `app.main` 的 prompt 版本记录）。
+AI_REFRESH_HOUR = int(os.environ.get("HBOS_PRODUCTION_AI_REFRESH_HOUR", "16"))
+AI_REFRESH_MINUTE = int(os.environ.get("HBOS_PRODUCTION_AI_REFRESH_MINUTE", "35"))
+
+
+def seconds_until_ai_refresh(now: float) -> float:
+    """距离**下一次** AI 结果刷新时刻还有多少秒（至少 60）。
+
+    `now` 是 epoch 秒；用本地时区解释 —— 定时任务跑在这台机器上，
+    launchd 的 `StartCalendarInterval` 也是本地时间，两边必须同一口径。
+
+    返回值直接当 TTL 用：缓存会在「下一个 16:35」失效，其余时间一直有效。
+    """
+    from datetime import datetime, timedelta  # 局部导入：config 其余部分不需要
+
+    cur = datetime.fromtimestamp(now)
+    target = cur.replace(
+        hour=AI_REFRESH_HOUR, minute=AI_REFRESH_MINUTE, second=0, microsecond=0
+    )
+    if target <= cur:
+        target += timedelta(days=1)
+    # 至少 60 秒 —— 否则「刚好在 16:35:00 建缓存」会算出 0 秒，
+    # 变成建完立刻过期、每次请求都重拉。
+    return max(60.0, (target - cur).total_seconds())
 
 #: 并发拉表的线程数。
 #:

@@ -23,7 +23,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -208,7 +208,14 @@ def _restore(*keys: str) -> None:
             log.warning("读取缓存 %s 失败：%s", key, str(exc)[:100])
 
 
-def _cached(key: str, producer, *, built_on: date | None = None, ttl: float | None = None):
+def _cached(
+    key: str,
+    producer,
+    *,
+    built_on: date | None = None,
+    ttl: float | None = None,
+    stale_at_fn: Callable[[], float] | None = None,
+):
     """stale-while-revalidate：**先给旧的、后台刷新**。
 
     `built_on` 是这批数据算出来时的日期。**跨天即视为过期** —— 缓存里的 rows
@@ -217,8 +224,11 @@ def _cached(key: str, producer, *, built_on: date | None = None, ttl: float | No
     前天的量（实测踩到过）。
 
     `ttl` 覆盖全局 TTL（秒）。质量数据用一天，见 `config.QUALITY_CACHE_TTL_SECONDS`。
-    后台刷新走的是同一个 producer，所以必须把 ttl 一起传下去 —— 否则后台刷新
-    会把长 TTL 悄悄改回 5 分钟（那正是要避免的）。
+    `stale_at_fn` 是**过期时刻函数**，每次写缓存时求值一次 —— AI 结果用
+    （下一个 16:35 才失效，见 `config.seconds_until_ai_refresh`）。
+    用函数而不是固定值：缓存可能在任何时刻被重建，过期点要跟着重建时刻走。
+
+    ttl / stale_at_fn 都要传给后台刷新 —— 否则后台刷新会把长 TTL 悄悄改回默认值。
     """
     now = time.time()
     with _CACHE_LOCK:
@@ -233,13 +243,19 @@ def _cached(key: str, producer, *, built_on: date | None = None, ttl: float | No
 
     if hit is not None:
         if stale:
-            _background_refresh(key, producer, built_on, ttl)
+            _background_refresh(key, producer, built_on, ttl, stale_at_fn)
         return hit["value"]
 
     # 冷启动：只能同步拉一次
     value = producer()
     with _CACHE_LOCK:
-        _store(key, value, built_on, ttl)
+        _store(
+            key,
+            value,
+            built_on,
+            ttl,
+            stale_at=stale_at_fn() if stale_at_fn else None,
+        )
     return value
 
 
@@ -250,11 +266,16 @@ def _store(
     ttl: float | None = None,
     *,
     persist_async: bool = True,
+    stale_at: float | None = None,
 ) -> None:
     """写入缓存（调用方需持有 `_CACHE_LOCK`）。
 
     `ttl` 为 None 时用全局 `CACHE_TTL_SECONDS`。质量数据单独用更长的 TTL，
     见 `config.QUALITY_CACHE_TTL_SECONDS`。
+
+    `stale_at` 直接给**绝对过期时刻**（epoch 秒），优先于 `ttl`。
+    AI 结果用它 —— 那种「每天固定时刻更新一次」的数据，按间隔算 TTL 是错的
+    （见 `config.seconds_until_ai_refresh` 的说明）。
 
     **落盘在锁外异步做** —— 在锁里写磁盘会卡住所有并发的缓存读取。
     `persist_async=False` 供**跑完就退**的定时任务用（`app/warm.py`）：
@@ -262,7 +283,9 @@ def _store(
     """
     _CACHE[key] = {
         "value": value,
-        "stale_at": time.time() + (config.CACHE_TTL_SECONDS if ttl is None else ttl),
+        "stale_at": stale_at if stale_at is not None else time.time() + (
+            config.CACHE_TTL_SECONDS if ttl is None else ttl
+        ),
         "built_at": time.time(),
         "built_on": built_on,
     }
@@ -280,13 +303,22 @@ def _cached_at(key: str) -> float | None:
     return hit["built_at"] if hit else None
 
 
-def _refresh_now(key: str, producer, built_on: date | None, ttl: float | None = None):
+def _refresh_now(
+    key: str,
+    producer,
+    built_on: date | None,
+    ttl: float | None = None,
+    stale_at_fn: Callable[[], float] | None = None,
+):
     """**同步**重新取数并更新缓存（前端点「刷新」时用）。
 
     与 `_cached` 的区别：这里真的等它拉完（几十秒）再返回，而不是先给旧值 ——
     点了刷新还拿到同一份旧数据，那个按钮就没有意义。
 
     并发保护：拿不到锁就说明已经有人在刷，等他刷完直接用结果，不重复拉。
+
+    `stale_at_fn` 是**每次重新求值**的过期时刻函数（AI 用）—— 不能传固定值：
+    刷新发生在 16:30 前后时，算出来的下一个失效点是不同的。
     """
     started = time.time()
     with _REFRESH_LOCK:
@@ -302,13 +334,23 @@ def _refresh_now(key: str, producer, built_on: date | None, ttl: float | None = 
 
         value = producer()
         with _CACHE_LOCK:
-            _store(key, value, built_on, ttl)
+            _store(
+                key,
+                value,
+                built_on,
+                ttl,
+                stale_at=stale_at_fn() if stale_at_fn else None,
+            )
         log.info("强制刷新 %s 完成", key)
     return value
 
 
 def _background_refresh(
-    key: str, producer, built_on: date | None = None, ttl: float | None = None
+    key: str,
+    producer,
+    built_on: date | None = None,
+    ttl: float | None = None,
+    stale_at_fn: Callable[[], float] | None = None,
 ) -> None:
     """后台刷新 —— 失败保留旧值（旧数据好过没有），只记日志。"""
 
@@ -316,7 +358,13 @@ def _background_refresh(
         try:
             value = producer()
             with _CACHE_LOCK:
-                _store(key, value, built_on, ttl)
+                _store(
+                    key,
+                    value,
+                    built_on,
+                    ttl,
+                    stale_at=stale_at_fn() if stale_at_fn else None,
+                )
             log.info("后台刷新 %s 完成", key)
         except Exception as exc:  # noqa: BLE001 - 刷新失败不该影响正在看的人
             log.warning("后台刷新 %s 失败，继续用旧值：%s", key, str(exc)[:120])
@@ -602,13 +650,17 @@ def ai_analysis(full: bool = False) -> dict:
     """
     _require_feishu()
     try:
-        # AI 结果由定时任务每天 16:30 写一次，不随取随变 —— 缓存按
-        # `AI_CACHE_TTL_SECONDS`（3 天）走，不跟看板的 12 小时节奏。
-        # 见 config 里那段说明：为什么不永久（任务可能连续失败）。
+        # AI 结果表**只在每天 16:30 那轮定时任务里变**，除此之外一动不动。
+        #
+        # 所以不能用「固定间隔 TTL」：间隔短了（如 30 分钟）一天白拉 47 次；
+        # 间隔长了（如 12 小时）16:30 写进去的新结论当天看不到。
+        #
+        # 用**过期时刻函数**：缓存活到「下一个 16:35」为止。见
+        # `config.seconds_until_ai_refresh()` 的说明。
         raw = _cached(
             "ai",
             lambda: feishu.list_records(contract.BASE_AI, contract.AI_TABLE),
-            ttl=config.AI_CACHE_TTL_SECONDS,
+            stale_at_fn=lambda: time.time() + config.seconds_until_ai_refresh(time.time()),
         )
     except feishu.FeishuError as exc:
         log.error("AI 结果读取失败 code=%s", exc.code)
