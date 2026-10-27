@@ -8,24 +8,52 @@ from pathlib import Path
 
 import frappe
 
-from hbos_portal.auth.feishu import discover_enterprise, load_settings, probe_inbox_bot, _site_private_path, _store_protected_text, SECRET_FILENAME, TENANT_FILENAME, _validate_redirect_uri
+from hbos_portal.auth.feishu import discover_enterprise, load_settings, probe_inbox_bot, _pilot_users, _site_private_path, _store_protected_text, SECRET_FILENAME, TENANT_FILENAME, _validate_redirect_uri
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--site", required=True)
 parser.add_argument("--bench", required=True)
 parser.add_argument("--app-id", required=True)
 parser.add_argument("--origin", required=True)
+parser.add_argument("--pilot-user", required=True, action="append", help="显式批准的具名现有 HBOS 账号，最多两人；Administrator 另需明确例外开关")
+parser.add_argument("--allow-administrator-link", action="store_true", help="仅在 Owner 明确指定本人绑定内置 Administrator 后使用；仍须密码/MFA proof")
 parser.add_argument("--replace-secret", action="store_true")
 parser.add_argument("--enable-inbox-stepup", action="store_true", help="仅在应用机器人及发消息权限批准后启用本人验证码")
 parser.add_argument("--enable-disable-sync", action="store_true", help="启用每 5 分钟明确离职/停用状态同步")
 args = parser.parse_args()
+pilot_users = _pilot_users(args.pilot_user, allow_administrator=args.allow_administrator_link)
+if not pilot_users:
+    parser.error("必须指定一至两个获准账号；Administrator 必须显式启用例外")
+if args.allow_administrator_link and "Administrator" not in pilot_users:
+    parser.error("管理员例外仅与显式 --pilot-user Administrator 一起使用")
 os.chdir(Path(args.bench) / "sites")
 frappe.init(site=args.site); frappe.connect()
 try:
+    from hbos_portal.auth.accounts import require_user
+    canonical_users = []
+    for user in pilot_users:
+        canonical = frappe.db.get_value("User", user, "name")
+        if not canonical:
+            raise RuntimeError("试点账号必须已存在")
+        # The CLI selects policy only; Administrator binding still needs live
+        # password/MFA proof in start_link and explicit browser confirmation.
+        require_user(canonical, external=canonical != "Administrator")
+        canonical_users.append(canonical)
+    pilot_users = _pilot_users(canonical_users, allow_administrator=args.allow_administrator_link)
+    if not pilot_users:
+        raise RuntimeError("试点账号无法解析为启用的具名账号")
     callback = args.origin.rstrip("/") + "/api/method/hbos_portal.auth.feishu.callback"
     if not _validate_redirect_uri(callback):
         raise RuntimeError("服务器入口必须为 HTTPS；本机仅允许 loopback HTTP")
     from frappe.installer import update_site_config
+    prior_settings = load_settings()
+    # Close first: any interruption while replacing credentials/policy fails closed.
+    update_site_config("hbos_feishu_app_published", 0)
+    frappe.conf.hbos_feishu_app_published = 0
+    update_site_config("hbos_feishu_allow_administrator_link", int(args.allow_administrator_link))
+    update_site_config("hbos_feishu_pilot_enabled", 1)
+    update_site_config("hbos_feishu_pilot_users", list(pilot_users))
+    update_site_config("hbos_feishu_auto_provision_internal", 0)
     update_site_config("hbos_feishu_app_id", args.app_id)
     frappe.conf.hbos_feishu_app_id = args.app_id
     settings = load_settings()
@@ -39,11 +67,15 @@ try:
     print("程序从当前应用核验的企业：", company["name"])
     print("请确认控制台已添加精确回调：", callback)
     print("请确认发布范围仅为本企业内部成员，登录及成员核验权限已批准。")
-    already_confirmed = settings.configured and settings.tenant_key == company["tenant_key"] and settings.redirect_uri == callback
+    already_confirmed = (not args.replace_secret and prior_settings.configured
+        and prior_settings.app_id == args.app_id and prior_settings.tenant_key == company["tenant_key"]
+        and prior_settings.redirect_uri == callback)
     if not already_confirmed and input("输入企业全称确认以上配置：").strip() != company["name"]:
         raise RuntimeError("未确认企业，登录入口仍保持关闭")
     _store_protected_text(_site_private_path(TENANT_FILENAME), company["tenant_key"])
-    fields = {"hbos_portal_origin": args.origin.rstrip("/"), "hbos_feishu_redirect_uri": callback, "hbos_feishu_authorize_id_parameter": "client_id", "hbos_feishu_oauth_scopes": "contact:user.base:readonly", "hbos_feishu_app_published": 1, "hbos_feishu_redirect_registered": 1, "hbos_feishu_auto_provision_internal": 1}
+    fields = {"hbos_portal_origin": args.origin.rstrip("/"), "hbos_feishu_redirect_uri": callback, "hbos_feishu_authorize_id_parameter": "client_id", "hbos_feishu_oauth_scopes": "contact:user.base:readonly", "hbos_feishu_redirect_registered": 1, "hbos_feishu_auto_provision_internal": 0, "hbos_feishu_pilot_enabled": 1, "hbos_feishu_pilot_users": list(pilot_users)}
+    # Login eligibility is independent of enrollment; this helper never opens
+    # enterprise-wide automatic account creation or role assignment.
     for key, value in fields.items():
         update_site_config(key, value)
     if args.enable_inbox_stepup:
@@ -57,6 +89,7 @@ try:
         update_site_config("hbos_feishu_disable_sync_enabled", 1)
     # Inbox step-up is separately enabled after the bot/send permission works;
     # a new OAuth code alone must never enable password setting.
-    print("企业配置已保存；请重启服务，再执行真实网页登录与成员核验。")
+    update_site_config("hbos_feishu_app_published", 1)
+    print("受控试点配置已保存（自动开户关闭）；请有界重载服务，再执行真实网页登录与成员核验。")
 finally:
     frappe.destroy()

@@ -100,11 +100,11 @@ def resolve_verified_login(settings, identity: dict) -> tuple[str, bool]:
     are tombstones and require a separate explicitly authorized recovery.
     """
     from hbos_portal.auth import accounts
-    from hbos_portal.auth.feishu import FeishuLoginError, identity_key, _validate_login_account
+    from hbos_portal.auth.feishu import FeishuLoginError, identity_key, _validate_login_account, require_pilot_user
 
     key = identity_key(provider='feishu', tenant_key=identity['tenant_key'], app_id=settings.app_id,
         id_type='open_id', external_id=identity['open_id'])
-    if identity['tenant_key'] != settings.tenant_key or not settings.auto_provision_internal:
+    if identity['tenant_key'] != settings.tenant_key:
         raise FeishuLoginError('tenant_rejected', '当前企业身份不符合本 Site 的准入条件。')
     with serialize('identity', key):
         try:
@@ -114,9 +114,12 @@ def resolve_verified_login(settings, identity: dict) -> tuple[str, bool]:
                     raise FeishuLoginError('account_disabled', '对应 HBOS 账号已停用。')
                 if not row.enabled:
                     raise FeishuLoginError('identity_revoked', '此身份的旧绑定已撤销或更换；请验证原账号或通过受控归属流程恢复。')
+                require_pilot_user(settings, row.user)
                 user = _validate_login_account(row.user)
                 frappe.flags.hbos_iam_verified_oauth_login = user
                 return user, False
+            if not settings.auto_provision_internal or settings.pilot_mode:
+                raise FeishuLoginError('identity_unmapped', '该飞书身份尚未关联 HBOS 账号，请联系系统管理员。')
             from hbos_portal.iam.onboarding import before_create, prepare_new_user
             before_create(settings, identity)
             user = insert_ordinary_user(settings, identity)

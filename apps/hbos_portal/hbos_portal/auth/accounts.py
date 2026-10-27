@@ -298,8 +298,9 @@ def identity_row(settings, identity: dict, *, lock: bool = False):
 
 
 def bind_identity(settings, identity: dict, user: str) -> str:
-    from hbos_portal.auth.feishu import FeishuLoginError
+    from hbos_portal.auth.feishu import FeishuLoginError, require_pilot_user
 
+    require_pilot_user(settings, user)
     require_user(user, external=True)
     # Serialize competing bindings to one User, then let DB unique constraints
     # arbitrate the same external identity requested by two different Users.
@@ -450,7 +451,7 @@ def get_pending() -> dict:
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 @rate_limit(limit=8, seconds=300)
 def complete_pending(action: str, username: str = "", password: str = "", otp: str = "", tmp_id: str = "") -> dict:
-    from hbos_portal.auth.feishu import FeishuLoginError, load_settings
+    from hbos_portal.auth.feishu import FeishuLoginError, load_settings, require_pilot_user
 
     nonce, record = pending(write=True)
     if action == "cancel":
@@ -460,34 +461,35 @@ def complete_pending(action: str, username: str = "", password: str = "", otp: s
     settings = load_settings()
     if not settings.configured:
         frappe.throw("飞书配置尚未完成。", frappe.AuthenticationError)
-    if record["intent"] == "link":
-        if action != "confirm_link":
-            frappe.throw("请确认绑定当前账号。", frappe.PermissionError)
-        user = require_user(record["user"], external=True)
-    elif record["intent"] == "login_mfa":
-        if action != "login_mfa":
-            frappe.throw("请完成二次认证。", frappe.PermissionError)
-        user = require_user(record["user"], external=True)
-        row = identity_row(settings, record["identity"])
-        if not row or not row.enabled or row.user != user:
-            frappe.throw("飞书绑定已撤销。", frappe.AuthenticationError)
-        challenge = verify_mfa(user, otp=otp, tmp_id=tmp_id)
-        if challenge:
-            return challenge
-    elif action == "bind_existing":
-        user, challenge = verify_credentials(username, password, otp=otp, tmp_id=tmp_id)
-        if challenge:
-            return challenge
-        require_user(user, external=True)
-    elif action == "create_new":
-        # Compatibility for an already issued pre-upgrade pending cookie.
-        # The same service handles current automatic onboarding, tombstones,
-        # concurrency and permanent ordinary Users; there is no second path.
-        from hbos_portal.auth.onboarding import resolve_verified_login
-        user, created = resolve_verified_login(settings, record["identity"])
-    else:
-        frappe.throw("请明确选择绑定已有账号或新开户。", frappe.PermissionError)
     try:
+        if record["intent"] == "link":
+            if action != "confirm_link":
+                frappe.throw("请确认绑定当前账号。", frappe.PermissionError)
+            user = require_user(record["user"], external=True)
+        elif record["intent"] == "login_mfa":
+            if action != "login_mfa":
+                frappe.throw("请完成二次认证。", frappe.PermissionError)
+            user = require_user(record["user"], external=True)
+            require_pilot_user(settings, user)
+            row = identity_row(settings, record["identity"])
+            if not row or not row.enabled or row.user != user:
+                frappe.throw("飞书绑定已撤销。", frappe.AuthenticationError)
+            challenge = verify_mfa(user, otp=otp, tmp_id=tmp_id)
+            if challenge:
+                return challenge
+        elif action == "bind_existing":
+            user, challenge = verify_credentials(username, password, otp=otp, tmp_id=tmp_id)
+            if challenge:
+                return challenge
+            require_user(user, external=True)
+        elif action == "create_new":
+            # Compatibility for an already issued pre-upgrade pending cookie.
+            # The same service handles current automatic onboarding, tombstones,
+            # concurrency and permanent ordinary Users; there is no second path.
+            from hbos_portal.auth.onboarding import resolve_verified_login
+            user, created = resolve_verified_login(settings, record["identity"])
+        else:
+            frappe.throw("请明确选择绑定已有账号或新开户。", frappe.PermissionError)
         if record["intent"] != "login_mfa" and action != "create_new":
             bind_identity(settings, record["identity"], user)
         from hbos_portal.auth.profile import sync_verified_avatar

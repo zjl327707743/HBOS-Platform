@@ -347,8 +347,10 @@ print("当前 Site 的 Administrator 密码已更新；旧会话已撤销，密�
     print(result.stdout.strip())
 
 
-def feishu_config(c, enable_inbox=False):
+def feishu_config(c, enable_inbox=False, pilot_users=(), allow_administrator=False):
     require_site(c)
+    if not pilot_users:
+        raise ValueError("PILOT_USERS_REQUIRED: 请显式指定 --pilot-user，最多两个具名已有账号")
     if not sys.stdin.isatty():
         raise ValueError("INTERACTIVE_TERMINAL_REQUIRED")
     raw = json.loads(capture(["docker", "exec", backend(c), "cat", f"{BENCH}/sites/{c['site']}/site_config.json"]))
@@ -358,6 +360,10 @@ def feishu_config(c, enable_inbox=False):
     # The bench helper reuses an existing Secret; otherwise getpass is on the
     # user's local TTY. Enterprise identity is discovered by the official API.
     args = ["docker", "exec", "-it", backend(c), f"{BENCH}/env/bin/python", "/opt/hbos-release/scripts/release/configure_feishu.py", "--site", c["site"], "--bench", BENCH, "--app-id", app_id, "--origin", c["origin"]]
+    if allow_administrator:
+        args.append("--allow-administrator-link")
+    for user in pilot_users:
+        args.extend(["--pilot-user", user])
     if enable_inbox:
         args.append("--enable-inbox-stepup")
     run(args)
@@ -370,6 +376,8 @@ def main():
     p.add_argument("--config", default=os.environ.get("HBOS_LOCAL_CONFIG", str(Path.home() / "Library/Application Support/HBOS/local/config.json")))
     p.add_argument("--no-open", action="store_true")
     p.add_argument("--enable-inbox-stepup", action="store_true", help="feishu-config：已批准并发布机器人发送权限后启用本人验证码")
+    p.add_argument("--pilot-user", action="append", default=[], help="feishu-config：显式批准的具名已有账号，最多两个")
+    p.add_argument("--allow-administrator-link", action="store_true", help="feishu-config：Owner 明确批准的本人 Administrator 绑定例外")
     args = p.parse_args()
     os.umask(0o077)
     c = config(args.config)
@@ -387,7 +395,7 @@ def main():
     elif args.action == "admin-password":
         administrator_password(c)
     elif args.action == "feishu-config":
-        feishu_config(c, args.enable_inbox_stepup)
+        feishu_config(c, args.enable_inbox_stepup, args.pilot_user, args.allow_administrator_link)
     else:
         ids = [i for service in SERVICES for i in containers(c, service, False)]
         if ids:
