@@ -1538,3 +1538,4 @@
     scrollbar-gutter: auto;
   }
 }
+.r6-audit-query{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 16px}.r6-audit-query .ant-form-item{margin:0;min-width:0}.r6-audit-query .ant-input,.r6-audit-query .ant-input-affix-wrapper,.r6-audit-query .ant-select{width:100%;max-width:none;min-width:0}.r6-audit-query>.ant-space{grid-column:1/-1}.r6-review-dialog .ant-modal-body{max-height:calc(100dvh - 180px);overflow-y:auto}.r6-assignment-compare>section{min-width:0;overflow-wrap:anywhere}@media(max-width:760px){.r6-audit-query{grid-template-columns:1fr}.r6-audit-query>.ant-space{grid-column:auto}}

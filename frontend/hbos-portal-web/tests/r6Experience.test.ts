@@ -31,7 +31,7 @@ async function click(w: VueWrapper, text: string) { const native = Array.from(do
 beforeEach(() => {
   vi.resetAllMocks(); permissions.clear(); permissions.add('iam.roles.read'); permissions.add('iam.roles.edit'); permissions.add('iam.roles.publish')
   actor.id = 'hr@example.test'; api.loadRoles.mockResolvedValue([structuredClone(baseRole)])
-  api.getMyEmployeeStatus.mockResolvedValue({ status: 'linked', employee_id: 'EMP-1', employee_number: 'T001', department: '合成人事部' })
+  api.getMyEmployeeStatus.mockResolvedValue({ status: 'linked', employee_id: 'EMP-1', employee_number: 'T001', department: '合成人事部', position: '合成人事主管' })
   api.listPeople.mockResolvedValue({ items: [{ id: 'EMP-1', name: '合成测试员工', employee_number: 'T001', department: 'D1', department_name: '合成部门', position: '测试岗位', account_status: 'unopened', attendance_status: 'pending', user_id: null }], total: 57, page: 1, page_size: 20 })
   api.getEmployeeMetadata.mockResolvedValue({ version: 'meta-1', required_fields: [], companies: [], departments: [{ value: 'D1', label: '合成部门', company: 'C1' }], genders: [] })
 })
@@ -74,11 +74,11 @@ describe('R6 formal data and role contracts', () => {
     permissions.delete('iam.roles.edit'); permissions.delete('iam.roles.publish'); const w = await render(Roles, '/hbos/admin/roles'); expect(w.text()).not.toContain('编辑功能'); expect(w.text()).not.toContain('预览发布影响'); expect(w.find('input[type=checkbox]').exists()).toBe(false)
   })
   it('treats only the built-in Administrator as Employee not applicable', async () => {
-    const hr = await render(Profile, '/hbos/profile'); expect(hr.text()).toContain('合成人事部'); expect(hr.text()).toContain('T001'); expect(hr.text()).not.toContain('员工档案不适用')
+    const hr = await render(Profile, '/hbos/profile'); expect(hr.text()).toContain('合成人事部'); expect(hr.text()).toContain('T001'); expect(hr.text()).toContain('合成人事主管'); expect(hr.text()).not.toContain('员工档案不适用')
     actor.id = 'Administrator'; const admin = await render(Profile, '/hbos/profile'); expect(admin.text()).toContain('员工档案不适用'); expect(api.getMyEmployeeStatus).toHaveBeenCalledTimes(1)
   })
   it('does not present a missing/conflicted Employee as linked or fabricate a position', async () => {
-    api.getMyEmployeeStatus.mockResolvedValue({ status: 'conflict' }); const w = await render(Profile, '/hbos/profile'); expect(w.text()).toContain('员工归属存在冲突'); expect(w.text()).not.toContain('员工档案已关联'); expect(w.text()).toContain('请在人事资料核对')
+    api.getMyEmployeeStatus.mockResolvedValue({ status: 'conflict' }); const w = await render(Profile, '/hbos/profile'); expect(w.text()).toContain('员工归属存在冲突'); expect(w.text()).not.toContain('员工档案已关联'); expect(w.text()).toContain('待核对')
   })
   it('shows server total independently from current-page todo counts', async () => {
     const w = await render(People, '/hbos/admin/people'); const cards = w.findAll('.r6-overview'); expect(cards[0]!.text()).toContain('57'); expect(cards[1]!.text()).toContain('本页待开通账号1'); expect(cards[2]!.text()).toContain('本页待核对关联1'); expect(api.listPeople).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, category: 'employees', view_group: 'daily' }))

@@ -1,9 +1,14 @@
 import {expect,it,vi} from 'vitest'
 vi.mock('@/services/frappeClient',()=>({callFrappeMethod:vi.fn(),callFrappePostMethod:vi.fn()}))
 import {callFrappeMethod} from '@/services/frappeClient'
-import {listAuditEvents} from '@/services/iamAudit'
+import {listAuditEvents,getAuditEvent} from '@/services/iamAudit'
 it('uses the separately authorised audit endpoint and bounded pagination',async()=>{vi.mocked(callFrappeMethod).mockResolvedValue({ok:true,data:{items:[],total:0,page:2,page_size:20}});expect((await listAuditEvents(2)).total).toBe(0);expect(callFrappeMethod).toHaveBeenCalledWith('hbos_portal.api.iam_audit.list_events',{page:2,page_size:20})})
 it('surfaces denied audit access rather than deriving it from people access',async()=>{vi.mocked(callFrappeMethod).mockResolvedValue({ok:false,error:{code:'FORBIDDEN',message:'审计未授权'}});await expect(listAuditEvents()).rejects.toThrow('审计未授权')})
 
 it('passes exact subject filters to the server rather than filtering only the current page', async()=>{vi.mocked(callFrappeMethod).mockResolvedValue({ok:true,data:{items:[],total:0,page:1,page_size:20}});await listAuditEvents(1,20,{subject_type:'Employee',subject_name:'EMP-1'});expect(callFrappeMethod).toHaveBeenLastCalledWith('hbos_portal.api.iam_audit.list_events',{page:1,page_size:20,subject_type:'Employee',subject_name:'EMP-1'})})
 it('rejects incomplete subject filters before making a server request', async()=>{vi.mocked(callFrappeMethod).mockClear();await expect(listAuditEvents(1,20,{subject_type:'Employee'})).rejects.toThrow('同时');expect(callFrappeMethod).not.toHaveBeenCalled()})
+
+it('passes date, exact operation and result filters to the server with pagination', async()=>{vi.mocked(callFrappeMethod).mockResolvedValue({ok:true,data:{items:[],total:0,page:2,page_size:20}});await listAuditEvents(2,20,{date_from:'2026-10-01',date_to:'2026-10-27',operation:'role.publish',result:'conflict'});expect(callFrappeMethod).toHaveBeenLastCalledWith('hbos_portal.api.iam_audit.list_events',{page:2,page_size:20,date_from:'2026-10-01',date_to:'2026-10-27',operation:'role.publish',result:'conflict'})})
+it('loads detail through the separately protected endpoint rather than synthesizing before/after',async()=>{vi.mocked(callFrappeMethod).mockResolvedValue({ok:true,data:{name:'event-1',before:{role_key:'staff'},after:{role_key:'clerk'}}});expect((await getAuditEvent('event-1')).before).toEqual({role_key:'staff'});expect(callFrappeMethod).toHaveBeenLastCalledWith('hbos_portal.api.iam_audit.get_event',{name:'event-1'})})
+it('rejects a mismatched or incomplete detail response',async()=>{vi.mocked(callFrappeMethod).mockResolvedValue({ok:true,data:{name:'other',before:{},after:{}}});await expect(getAuditEvent('event-1')).rejects.toThrow('详情无法确认');vi.mocked(callFrappeMethod).mockResolvedValue({ok:true,data:{name:'event-1'}});await expect(getAuditEvent('event-1')).rejects.toThrow('详情无法确认')})
+it('surfaces denied detail access without returning a list-row fallback',async()=>{vi.mocked(callFrappeMethod).mockResolvedValue({ok:false,error:{code:'FORBIDDEN',message:'审计详情未授权'}});await expect(getAuditEvent('event-1')).rejects.toThrow('审计详情未授权')})
