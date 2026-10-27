@@ -1,0 +1,285 @@
+{
+  "source": "Original R6-A registry and published-role snapshot; source worktree e1e3c9912913fbdd56706a0800e813d8d666626e; not a new business API read",
+  "pairs": [
+    {
+      "operation_id": "attendance.read",
+      "title": "查看自己的考勤",
+      "group": "self",
+      "role_key": "staff",
+      "scope_binding": "SELF"
+    },
+    {
+      "operation_id": "attendance.read",
+      "title": "查看自己的考勤",
+      "group": "self",
+      "role_key": "clerk",
+      "scope_binding": "SELF"
+    },
+    {
+      "operation_id": "attendance.read",
+      "title": "查看自己的考勤",
+      "group": "self",
+      "role_key": "admin",
+      "scope_binding": "SELF"
+    },
+    {
+      "operation_id": "attendance.department.board.read",
+      "title": "查看部门考勤面板",
+      "group": "board",
+      "role_key": "clerk",
+      "scope_binding": "RESPONSIBLE_DEPARTMENTS"
+    },
+    {
+      "operation_id": "attendance.department.board.read",
+      "title": "查看部门考勤面板",
+      "group": "board",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.department.records.read",
+      "title": "查看部门员工考勤",
+      "group": "records",
+      "role_key": "clerk",
+      "scope_binding": "RESPONSIBLE_DEPARTMENTS"
+    },
+    {
+      "operation_id": "attendance.department.records.read",
+      "title": "查看部门员工考勤",
+      "group": "records",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.company.read",
+      "title": "查看全公司考勤",
+      "group": "company",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.shift.read",
+      "title": "查看班次与规则",
+      "group": "schedule",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.shift.manage",
+      "title": "维护班次规则",
+      "group": "schedule",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.shift.status",
+      "title": "停用班次规则",
+      "group": "schedule",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.shift.delete",
+      "title": "删除班次规则",
+      "group": "schedule",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.schedule.read",
+      "title": "查看员工排班",
+      "group": "schedule",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.schedule.bind",
+      "title": "安排员工班次",
+      "group": "schedule",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.schedule.import",
+      "title": "导入员工排班",
+      "group": "import",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.schedule.generate",
+      "title": "生成轮班排班",
+      "group": "rules",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.import.preview",
+      "title": "预览考勤导入",
+      "group": "import",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.import.execute",
+      "title": "提交考勤导入",
+      "group": "import",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.import.monthly",
+      "title": "导入月度考勤",
+      "group": "import",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.correction.create",
+      "title": "登记考勤更正",
+      "group": "correction",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.correction.submit",
+      "title": "提交考勤更正",
+      "group": "correction",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.correction.cancel",
+      "title": "取消考勤更正",
+      "group": "correction",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.correction.amend",
+      "title": "修订考勤更正",
+      "group": "correction",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.rules.recalculate",
+      "title": "重新计算考勤",
+      "group": "rules",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.rules.manage",
+      "title": "配置员工考勤规则",
+      "group": "rules",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.report.checkins.read",
+      "title": "查看打卡流水报表",
+      "group": "reports",
+      "role_key": "clerk",
+      "scope_binding": "RESPONSIBLE_DEPARTMENTS"
+    },
+    {
+      "operation_id": "attendance.report.checkins.read",
+      "title": "查看打卡流水报表",
+      "group": "reports",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.report.results.read",
+      "title": "查看考勤结果报表",
+      "group": "reports",
+      "role_key": "clerk",
+      "scope_binding": "RESPONSIBLE_DEPARTMENTS"
+    },
+    {
+      "operation_id": "attendance.report.results.read",
+      "title": "查看考勤结果报表",
+      "group": "reports",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.report.monthly.read",
+      "title": "查看月度考勤汇总",
+      "group": "reports",
+      "role_key": "clerk",
+      "scope_binding": "RESPONSIBLE_DEPARTMENTS"
+    },
+    {
+      "operation_id": "attendance.report.monthly.read",
+      "title": "查看月度考勤汇总",
+      "group": "reports",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.report.staging.read",
+      "title": "查看月度对账暂存",
+      "group": "reports",
+      "role_key": "clerk",
+      "scope_binding": "RESPONSIBLE_DEPARTMENTS"
+    },
+    {
+      "operation_id": "attendance.report.staging.read",
+      "title": "查看月度对账暂存",
+      "group": "reports",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.record.import_log.read",
+      "title": "查看导入日志",
+      "group": "reports",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.record.leave.read",
+      "title": "查看请假记录",
+      "group": "reports",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.record.overtime.read",
+      "title": "查看加班记录",
+      "group": "reports",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.record.rest_leave.read",
+      "title": "查看调休记录",
+      "group": "reports",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.export.monthly",
+      "title": "导出月度考勤",
+      "group": "export",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.export.exceptions",
+      "title": "导出考勤异常",
+      "group": "export",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    },
+    {
+      "operation_id": "attendance.export.roster",
+      "title": "导出班次人员表",
+      "group": "export",
+      "role_key": "admin",
+      "scope_binding": "RESPONSIBLE_COMPANIES"
+    }
+  ]
+}
