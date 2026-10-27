@@ -130,18 +130,24 @@ class AuditReadDTOTest(unittest.TestCase):
 
 class OwnEmployeeDTOTest(unittest.TestCase):
     def test_position_comes_only_from_current_users_resolved_employee(self):
-        employee = types.SimpleNamespace(name='E1', employee_number='00101', department='D1', designation='合成检验员')
-        with patch.object(people.policy, 'get_current_user', return_value='current-user'), patch.object(people.policy, 'resolve_employee', return_value=employee) as resolve, patch.object(people.temporary_passwords, 'status', return_value={'pending': False}):
+        # The authorization resolver intentionally selects identity fields only.
+        employee = types.SimpleNamespace(name='E1', employee_number='00101', department='D1')
+        designation = Mock(return_value='合成检验员')
+        fake = types.SimpleNamespace(PermissionError=Denied, db=types.SimpleNamespace(get_value=designation))
+        with patch.object(people, 'frappe', fake), patch.object(people.policy, 'get_current_user', return_value='current-user'), patch.object(people.policy, 'resolve_employee', return_value=employee) as resolve, patch.object(people.temporary_passwords, 'status', return_value={'pending': False}):
             result = people.get_my_employee_status()
         resolve.assert_called_once_with('current-user', required=False)
+        designation.assert_called_once_with('Employee', 'E1', 'designation')
         self.assertEqual('合成检验员', result['position'])
         self.assertEqual('00101', result['employee_number'])
         self.assertEqual('E1', result['employee_id'])
 
     def test_unlinked_and_conflicted_identity_do_not_expose_position(self):
-        fake = types.SimpleNamespace(PermissionError=Denied)
+        designation = Mock()
+        fake = types.SimpleNamespace(PermissionError=Denied, db=types.SimpleNamespace(get_value=designation))
         for value, status in [(None, 'unlinked'), (Denied('conflict'), 'conflict')]:
             with self.subTest(status=status), patch.object(people, 'frappe', fake), patch.object(people.policy, 'get_current_user', return_value='current-user'), patch.object(people.policy, 'resolve_employee', side_effect=value if isinstance(value, Exception) else None, return_value=value), patch.object(people.temporary_passwords, 'status', return_value={'pending': False}):
                 result = people.get_my_employee_status()
                 self.assertEqual(status, result['status'])
                 self.assertIsNone(result['position'])
+        designation.assert_not_called()
