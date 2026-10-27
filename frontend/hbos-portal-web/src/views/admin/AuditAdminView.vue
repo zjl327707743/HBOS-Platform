@@ -28,6 +28,10 @@ async function apply() {
   appliedType.value = subjectType.value; appliedName.value = subjectName.value.trim(); appliedFrom.value = dateFrom.value; appliedTo.value = dateTo.value; appliedOperation.value = operation.value; appliedResult.value = resultFilter.value; page.value = 1; await load()
 }
 function clear() { subjectType.value = undefined; subjectName.value = ''; dateFrom.value = ''; dateTo.value = ''; operation.value = undefined; resultFilter.value = undefined; void apply() }
+function changePage(next: number) {
+  if (loading.value || !Number.isInteger(next) || next < 1 || next > Math.ceil(total.value / 20)) return
+  page.value = next; void load()
+}
 async function openDetail(row: AuditEvent) {
   const run = ++detailGeneration; selected.value = row; detail.value = null; detailError.value = ''; detailLoading.value = true
   if (!row.name) { detailError.value = '记录标识缺失，请重新读取列表。'; detailLoading.value = false; return }
@@ -57,7 +61,7 @@ onBeforeUnmount(() => { disposed = true; generation++; rows.value = []; closeDet
       <ResourceState :loading="loading" :error="error" @retry="load">
         <a-table class="r6-desktop-people" :columns="columns" :data-source="rows" row-key="name" :scroll="{x:920}" :pagination="false"><template #bodyCell="{column,record}"><template v-if="column.key==='subject'">{{record.subject_name}}<span class="iam-code">{{record.subject_type}}</span></template><template v-else-if="column.key==='operation'">{{auditOperationLabel(record.operation)}}</template><template v-else-if="column.key==='result'"><StatusTag :tone="record.result==='success'?'success':'warning'">{{auditResultLabel(record.result)}}</StatusTag></template><template v-else-if="column.key==='detail'"><button class="r6-audit-row-button" :aria-label="`查看${record.occurred_at}的变更记录`" @click="openDetail(record)">查看详情</button></template></template></a-table>
         <div class="r6-mobile-people"><a-empty v-if="!rows.length" description="暂无可见变更记录" /><article v-for="row in rows" :key="row.name" class="r6-mobile-person"><strong>{{auditOperationLabel(row.operation)}}</strong><p>{{row.subject_name}}</p><p>{{row.occurred_at}} · {{row.actor}}</p><a-button @click="openDetail(row)">查看详情</a-button></article></div>
-        <footer class="r6-people-foot"><span class="aux">共 {{total}} 条可见记录</span><a-pagination v-model:current="page" :total="total" :page-size="20" :show-size-changer="false" @change="load" /></footer>
+        <footer class="r6-people-foot"><span class="aux">共 {{total}} 条可见记录</span><a-pagination :current="page" :total="total" :page-size="20" :disabled="loading || !total" :show-size-changer="false" @change="changePage" /></footer>
       </ResourceState>
     </section>
     <a-modal :open="Boolean(selected)" title="变更记录详情" :width="880" :footer="null" @cancel="closeDetail">

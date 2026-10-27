@@ -104,6 +104,28 @@ describe('R6 formal data and role contracts', () => {
   it('shows server total independently from current-page todo counts', async () => {
     const w = await render(People, '/hbos/admin/people'); const cards = w.findAll('.r6-overview'); expect(cards[0]!.text()).toContain('57'); expect(cards[1]!.text()).toContain('本页待开通账号1'); expect(cards[2]!.text()).toContain('本页待核对关联1'); expect(api.listPeople).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, category: 'employees', view_group: 'daily' }))
   })
+  it('keeps pagination bounded while loading or empty and accepts a real second page', async () => {
+    let resolve!: (value: unknown) => void
+    api.listPeople.mockReturnValueOnce(new Promise(done => { resolve = done }))
+    const w = await render(People, '/hbos/admin/people')
+    const pager = w.findComponent({ name: 'APagination' })
+    expect(pager.props('disabled')).toBe(true)
+    pager.vm.$emit('change', 0); await flushPromises()
+    expect(api.listPeople).toHaveBeenCalledTimes(1)
+    resolve({ items: [], total: 27, page: 1, page_size: 20 }); await flushPromises()
+    expect(pager.props('disabled')).toBe(false)
+    for (const invalid of [0, -1, 1.5, 3]) pager.vm.$emit('change', invalid)
+    await flushPromises(); expect(api.listPeople).toHaveBeenCalledTimes(1)
+    pager.vm.$emit('change', 2); await flushPromises()
+    expect(api.listPeople).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }))
+    api.listPeople.mockResolvedValueOnce({ items: [], total: 0, page: 1, page_size: 20 })
+    await w.get('input[aria-label="搜索人员"]').setValue('不存在的合成员工')
+    await new Promise(done => setTimeout(done, 320)); await flushPromises()
+    expect(pager.props('current')).toBe(1); expect(pager.props('disabled')).toBe(true)
+    const count = api.listPeople.mock.calls.length
+    pager.vm.$emit('change', 0); await flushPromises()
+    expect(api.listPeople).toHaveBeenCalledTimes(count)
+  })
   it('collects business employee fields with local labels while native creation owns its numbering series', async () => {
     permissions.add('iam.people.create')
     api.getEmployeeMetadata.mockResolvedValue({ version: 'meta-1', required_fields: [
