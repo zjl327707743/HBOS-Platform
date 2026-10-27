@@ -10,7 +10,39 @@ DEPARTMENTS={'production':'生产','hr':'人事','safety':'安全','engineering'
              'public_law':'公司公共法律法规知识'}
 DEPARTMENT_ALIASES={'ASEPTIC_WORKSHOP':'production','PRODUCTION':'production'}
 def normalized_department(value):return DEPARTMENT_ALIASES.get(value,value)
+# The old constant stays a legacy alias for existing importers/tests. The
+# normal maintenance path resolves its per-deployment limit from private config
+# (``maintenance_max_source_bytes``), defaulting to 64 MiB and staying inside the
+# approved 20..64 MiB normal range. This is a source-file limit only: it does not
+# raise any reverse-proxy/API body limit and it does not replace the separate
+# manifest-size limit in the batch planner.
 MAX_FILE=20*1024*1024
+DEFAULT_MAX_SOURCE_BYTES=64*1024*1024
+MIN_CONFIGURED_SOURCE_BYTES=20*1024*1024
+MAX_CONFIGURED_SOURCE_BYTES=64*1024*1024
+
+
+def configured_max_source_bytes(cfg):
+    """Per-file normal-path limit from private configuration, fail closed."""
+    if not isinstance(cfg,dict):raise KnowledgeError('POLICY_UNAVAILABLE')
+    value=cfg.get('maintenance_max_source_bytes')
+    if value is None:return DEFAULT_MAX_SOURCE_BYTES
+    if (type(value) is not int or not MIN_CONFIGURED_SOURCE_BYTES<=value<=MAX_CONFIGURED_SOURCE_BYTES):
+        raise KnowledgeError('POLICY_UNAVAILABLE')
+    return value
+
+
+def source_size_budget(cfg):
+    """Derived budgets: per item, per <=4-document submission batch, per plan."""
+    per_file=configured_max_source_bytes(cfg)
+    return {'per_file':per_file,'per_batch':per_file*4,'per_manifest':per_file*16}
+
+
+def require_source_size(size,maximum):
+    if type(size) is not int or size<0:raise KnowledgeError('INVALID_REQUEST')
+    if size==0:raise KnowledgeError('INVALID_REQUEST')
+    if size>maximum:raise KnowledgeError('SOURCE_SIZE_LIMIT_EXCEEDED')
+    return size
 
 def initial_state(frozen):
     state={**copy.deepcopy(frozen),'mode':'apply','run_id':'R21_'+frozen['batch_sha256'][:20]}
@@ -18,12 +50,20 @@ def initial_state(frozen):
         if item['disposition']=='SAME_CONTENT_SKIP':item['status']='skipped_duplicate'
     return state
 
-def admit_file(name,data):
+def admit_file(name,data,max_bytes=None):
+    """Bounded content admission; ``max_bytes`` is the configured source limit.
+
+    Default keeps the legacy 20 MiB admission for old callers/tests; the normal
+    maintenance upload path always passes the configured limit explicitly.
+    """
     if (not isinstance(name,str) or not name.strip() or len(name)>240 or
         PurePath(name).name!=name or '/' in name or '\\' in name or
         any(ord(c)<32 for c in name) or name.startswith(('.', '~$')) or
-        not isinstance(data,bytes) or not 0<len(data)<=MAX_FILE):
+        not isinstance(data,bytes)):
         raise KnowledgeError('INVALID_REQUEST')
+    limit=MAX_FILE if max_bytes is None else max_bytes
+    if not 0<len(data):raise KnowledgeError('INVALID_REQUEST')
+    if len(data)>limit:raise KnowledgeError('SOURCE_SIZE_LIMIT_EXCEEDED')
     ext=PurePath(name).suffix.lower()
     if ext=='.pdf':
         if not data.startswith(b'%PDF-'):raise KnowledgeError('INVALID_REQUEST')
@@ -64,6 +104,7 @@ def admit_file(name,data):
         except UnicodeDecodeError:raise KnowledgeError('INVALID_REQUEST') from None
     else:raise KnowledgeError('INVALID_REQUEST')
     return ext,hashlib.sha256(data).hexdigest()
+
 
 def registered(frozen,state):
     from knowledge_service.ingestion import canonical,verify_state,processing_approved

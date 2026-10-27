@@ -43,7 +43,9 @@ from pathlib import Path, PurePosixPath
 import frappe
 
 from .errors import KnowledgeError
-from .maintenance_contract import DEPARTMENTS, MAX_FILE, normalized_department
+from .maintenance_contract import (DEPARTMENTS, configured_max_source_bytes,
+                                   normalized_department, require_source_size,
+                                   source_size_budget)
 from .service_http import canonical
 from . import maintenance as m
 
@@ -59,7 +61,8 @@ MAX_APPROVAL = 200
 MAX_PAGE_METHODS = 200
 MAX_PAGE_TEXT = 20000
 MAX_TOTAL_TEXT = 8_000_000
-MAX_SOURCE_BYTES = MAX_FILE
+MAX_PLAN_MANIFEST_BYTES = 32 * 1024 * 1024
+MAX_ITEM_PAGES = 10000
 LEASE_SECONDS = 1800
 MAX_RECLAIM_HISTORY = 20
 VERIFICATION_WINDOW_SECONDS = 1800
@@ -158,6 +161,15 @@ def batch_available():
 
 
 # ---------------------------------------------------------------------- helpers
+def require_manifest_source_budget(total, cfg):
+    budget = source_size_budget(cfg)
+    if type(total) is not int or total < 0:
+        raise KnowledgeError('INVALID_REQUEST')
+    if total > budget['per_manifest']:
+        raise KnowledgeError('BATCH_SOURCE_SIZE_LIMIT_EXCEEDED')
+    return total
+
+
 def _require(condition, code='INVALID_REQUEST'):
     if not condition:
         raise KnowledgeError(code)
@@ -311,7 +323,7 @@ def _symlink_free(real, relative):
             raise KnowledgeError('INVALID_REQUEST')
 
 
-def _resolve_source(value, roots):
+def _resolve_source(value, roots, max_bytes):
     """Resolve one owner path inside the configured approved roots only."""
     if not isinstance(value, str) or not 1 <= len(value) <= 4096 or '\x00' in value:
         raise KnowledgeError('INVALID_REQUEST')
@@ -337,7 +349,7 @@ def _resolve_source(value, roots):
     _require(len(unique) == 1)
     index, real, relative = next(iter(unique.values()))
     size = real.stat().st_size
-    _require(1 <= size <= MAX_SOURCE_BYTES)
+    require_source_size(size, max_bytes)
     return index, real, relative
 
 
@@ -366,12 +378,16 @@ def _validate_page_checks(value, page_count):
 
 def _normalize_manifest(raw, cfg):
     if isinstance(raw, str):
-        _require(len(raw) <= 32 * 1024 * 1024)
+        if len(raw) > MAX_PLAN_MANIFEST_BYTES:
+            raise KnowledgeError('MANIFEST_SIZE_LIMIT_EXCEEDED')
         try:
             raw = json.loads(raw)
         except ValueError:
             raise KnowledgeError('INVALID_REQUEST') from None
     _require(isinstance(raw, dict))
+    if len(canonical(raw)) > MAX_PLAN_MANIFEST_BYTES:
+        raise KnowledgeError('MANIFEST_SIZE_LIMIT_EXCEEDED')
+    budget = source_size_budget(cfg)
     _require(set(raw) <= MANIFEST_KEYS)
     if 'schema_version' in raw:
         _require(type(raw.get('schema_version')) is int and raw['schema_version'] == MANIFEST_SCHEMA)
@@ -390,13 +406,15 @@ def _normalize_manifest(raw, cfg):
     runtime_items = []
     seen_relative = set()
     total_text = 0
+    total_source_bytes = 0
     for index, item in enumerate(items):
         _require(isinstance(item, dict))
         _require(set(item) <= ITEM_KEYS)
         source_sha256 = item.get('source_sha256')
         _require(isinstance(source_sha256, str) and HEX64.fullmatch(source_sha256) is not None)
         source_sha256 = source_sha256.lower()
-        root_index, real, source_relative = _resolve_source(item.get('canonical_source_path'), roots)
+        root_index, real, source_relative = _resolve_source(
+            item.get('canonical_source_path'), roots, budget['per_file'])
         relative_value = item.get('relative_path')
         relative_path = (_safe_relative_path(source_relative.as_posix()) if relative_value is None
                          else _safe_relative_path(relative_value))
@@ -409,7 +427,7 @@ def _normalize_manifest(raw, cfg):
         _require((department, relative_path) not in seen_relative)
         seen_relative.add((department, relative_path))
         pages = item.get('pages')
-        _require(isinstance(pages, list) and 1 <= len(pages) <= 10000)
+        _require(isinstance(pages, list) and 1 <= len(pages) <= MAX_ITEM_PAGES)
         for text in pages:
             _require(isinstance(text, str) and len(text) <= MAX_PAGE_TEXT)
         page_methods = item.get('page_methods')
@@ -444,6 +462,8 @@ def _normalize_manifest(raw, cfg):
         else:
             _require(repair is None)
         _require(_sha256_file(real) == source_sha256)
+        total_source_bytes += real.stat().st_size
+        require_manifest_source_budget(total_source_bytes, cfg)
         version_id = _version_identity(source_sha256, text_sha256, department)
         source_ref = f'{root_index}:{PurePosixPath(source_relative.as_posix())}'
         normalized = {'source_sha256': source_sha256, 'source_ref': source_ref,
@@ -988,6 +1008,11 @@ def _freeze_group(plan_dir, plan_sha256, normalized, group, approval_ref, contex
         source_root = None
         expected_dataset = None
     else:
+        budget = source_size_budget(context['cfg'])
+        batch_source_bytes = sum(int(item.get('source_size') or 0)
+                                 for item, _classification in group['items'])
+        if batch_source_bytes > budget['per_batch']:
+            raise KnowledgeError('BATCH_SOURCE_SIZE_LIMIT_EXCEEDED')
         source_root = derivative_root / 'sources' / content_key / 'source'
         for item, _classification in group['items']:
             staged = _stage_file(item['source_path'], source_root / item['relative_path'],

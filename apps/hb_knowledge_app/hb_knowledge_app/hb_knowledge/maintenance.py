@@ -4,7 +4,7 @@ from pathlib import Path
 import frappe
 from .errors import KnowledgeError
 from .maintenance_access import require
-from .maintenance_contract import DEPARTMENTS,MAX_FILE,admit_file,registered,normalized_department,initial_state
+from .maintenance_contract import DEPARTMENTS,MAX_FILE,admit_file,registered,normalized_department,initial_state,configured_max_source_bytes
 from .service_http import canonical
 from .shared_reference import configuration
 TABLE='HBOS Knowledge Import Batch'
@@ -61,9 +61,14 @@ def upload(department,label,sharing,replace_document=None,expected_version=None)
     if department not in DEPARTMENTS or sharing not in (True,1,'1','true'):raise KnowledgeError('INVALID_REQUEST')
     request=frappe.local.request
     if len(request.files)!=1 or 'file' not in request.files:raise KnowledgeError('INVALID_REQUEST')
-    uploaded=request.files['file'];name=uploaded.filename;data=uploaded.stream.read(MAX_FILE+1)
-    ext,sha=admit_file(name,data)
-    cfg=configuration();base=Path(cfg['maintenance_upload_root']);base.mkdir(parents=True,exist_ok=True,mode=0o700)
+    cfg=configuration();limit=configured_max_source_bytes(cfg)
+    uploaded=request.files['file'];name=uploaded.filename
+    # Read one byte past the configured limit so oversized input fails on the
+    # source-size code instead of being silently truncated. The web server's own
+    # request-body limit is a separate deployment decision.
+    data=uploaded.stream.read(limit+1)
+    ext,sha=admit_file(name,data,max_bytes=limit)
+    base=Path(cfg['maintenance_upload_root']);base.mkdir(parents=True,exist_ok=True,mode=0o700)
     if base.is_symlink():raise KnowledgeError('POLICY_UNAVAILABLE')
     directory=base/secrets.token_hex(16);directory.mkdir(mode=0o2770);source=directory/name
     with source.open('xb') as file:file.write(data)
@@ -122,14 +127,127 @@ def _projection(row,frozen,state,page,page_size,locate=None):
             'failed':sum(i['status']=='parse_failed' for i in state['items']),
             'quality_passed':sum(v.get('status')=='Passed' for v in quality.values())}}
 
-def dashboard(batch_id=None,page=1,page_size=12,locate=None):
+# Server-side maintenance lookup bounds. The dashboard must stay a bounded
+# projection for a corpus far larger than one page: search/pagination/locate are
+# computed over the already-loaded published snapshot or a bounded batch scan,
+# never by walking the whole corpus from the browser or by unbounded DB scans.
+PUBLISHED_LIMIT=1000
+PUBLISHED_PAGE_SIZE=50
+MAX_PUBLISHED_PAGE_SIZE=50
+BATCH_PAGE_SIZE=100
+MAX_BATCH_PAGE_SIZE=100
+BATCH_SCAN_MAX=1000
+_BATCH_QUERY_FIELDS=('name','label','department_key')
+_DOCUMENT_ID=re.compile(r'DOC_[A-Za-z0-9_-]{1,96}')
+
+def _lookup_query(value):
+    """Optional bounded free-text filter; malformed input is INVALID_REQUEST."""
+    if value is None:return None
+    from .public_strings import safe_string
+    if not isinstance(value,str):raise KnowledgeError('INVALID_REQUEST')
+    try:safe_string(value,120)
+    except KnowledgeError:raise KnowledgeError('INVALID_REQUEST') from None
+    value=value.strip()
+    return value or None
+
+def _lookup_document_id(value):
+    if value is None:return None
+    if not isinstance(value,str) or not _DOCUMENT_ID.fullmatch(value):
+        raise KnowledgeError('INVALID_REQUEST')
+    return value
+
+def _published_projection(published,*,query=None,document_id=None,page=1,page_size=None,limit=PUBLISHED_LIMIT):
+    values=sorted(published.values(),key=lambda i:i['title'])
+    total=len(values)
+    filtered=values
+    if document_id is not None:
+        filtered=[item for item in filtered if item['document_id']==document_id]
+    elif query is not None:
+        needle=query.casefold()
+        filtered=[item for item in filtered
+                  if needle in (item.get('title') or '').casefold()
+                  or needle in (item.get('document_number') or '').casefold()
+                  or needle in (item.get('document_id') or '').casefold()
+                  or needle in (item.get('department') or '').casefold()]
+    matched=len(filtered)
+    paging=document_id is not None or query is not None or page!=1 or page_size is not None
+    size=page_size if page_size is not None else (PUBLISHED_PAGE_SIZE if paging else limit)
+    if not paging:
+        start=0;documents=filtered[:limit];size=limit
+    else:
+        start=(page-1)*size;documents=filtered[start:start+size]
+    return {'documents':documents,'total':total,'matched':matched,'page':page,'page_size':size,
+            'has_more':start+len(documents)<matched,'query':query,'document_id':document_id,
+            'lookup_state':None if document_id is None else ('FOUND' if matched else 'NOT_FOUND')}
+
+def _batch_rows(fields,*,limit=None,start=0):
+    kwargs={'fields':fields,'order_by':'modified desc'}
+    if limit is not None:kwargs['limit_page_length']=limit
+    if start:kwargs['limit_start']=start
+    return frappe.get_all(TABLE,**kwargs)
+
+def _batch_projection(*,query=None,document_id=None,page=1,page_size=BATCH_PAGE_SIZE,detail_page_size=12):
+    total=frappe.db.count(TABLE)
+    scan_truncated=total>BATCH_SCAN_MAX
+    if document_id is not None or query is not None:
+        rows=_batch_rows(['name','label','department_key','status','modified','state_json'],
+                         limit=BATCH_SCAN_MAX)
+        matches=[]
+        for row in rows:
+            if document_id is not None:
+                try:state=json.loads(row.get('state_json') or '{}')
+                except (ValueError,TypeError):continue
+                found=None
+                for index,item in enumerate(state.get('items') or []):
+                    if (item.get('canonical_document_id')==document_id
+                            and item.get('disposition') not in ('SAME_CONTENT_SKIP','ALIAS')):
+                        found=index;break
+                if found is None:continue
+                entry={key:row.get(key) for key in ('name','label','department_key','status','modified')}
+                entry['document_page']=found//detail_page_size+1
+                matches.append(entry)
+            else:
+                needle=query.casefold()
+                if any(needle in (row.get(key) or '').casefold() for key in _BATCH_QUERY_FIELDS):
+                    matches.append({key:row.get(key) for key in ('name','label','department_key','status','modified')})
+        matched=len(matches)
+        start=(page-1)*page_size
+        return {'batches':matches[start:start+page_size],'total':total,'matched':matched,
+                'page':page,'page_size':page_size,'has_more':start+page_size<matched,
+                'query':query,'document_id':document_id,
+                'lookup_state':None if document_id is None else ('FOUND' if matched else 'NOT_FOUND'),
+                'scan_truncated':scan_truncated}
+    start=(page-1)*page_size
+    rows=_batch_rows(['name','label','department_key','status','modified'],
+                     limit=page_size,start=start)
+    return {'batches':rows,'total':total,'matched':total,'page':page,'page_size':page_size,
+            'has_more':start+len(rows)<total,'query':None,'document_id':None,
+            'lookup_state':None,'scan_truncated':scan_truncated}
+
+def dashboard(batch_id=None,page=1,page_size=12,locate=None,*,published_query=None,
+              published_document_id=None,published_page=1,published_page_size=None,
+              batch_query=None,batch_page=1,batch_page_size=None,batch_document_id=None):
     require()
     from .reference_admin import _page_number
     page=_page_number(page,100000);page_size=_page_number(page_size,50)
+    published_page=_page_number(published_page,100000)
+    published_page_size=(_page_number(published_page_size,MAX_PUBLISHED_PAGE_SIZE)
+                         if published_page_size is not None else None)
+    batch_page=_page_number(batch_page,100000)
+    batch_page_size=_page_number(batch_page_size,MAX_BATCH_PAGE_SIZE) if batch_page_size is not None else BATCH_PAGE_SIZE
+    published_query=_lookup_query(published_query)
+    published_document_id=_lookup_document_id(published_document_id)
+    batch_query=_lookup_query(batch_query)
+    batch_document_id=_lookup_document_id(batch_document_id)
+    if published_query is not None and published_document_id is not None:
+        raise KnowledgeError('INVALID_REQUEST')
+    if batch_query is not None and batch_document_id is not None:
+        raise KnowledgeError('INVALID_REQUEST')
     if locate is not None:
         from .public_strings import safe_string
         locate=safe_string(locate,120)
-    batches=frappe.get_all(TABLE,fields=['name','label','department_key','status','modified'],order_by='modified desc',limit_page_length=100)
+    batch_view=_batch_projection(query=batch_query,document_id=batch_document_id,
+                                 page=batch_page,page_size=batch_page_size,detail_page_size=page_size)
     selected=None
     if batch_id:
         row,frozen,state=_row(batch_id);selected=_projection(row,frozen,state,page,page_size,locate)
@@ -139,9 +257,11 @@ def dashboard(batch_id=None,page=1,page_size=12,locate=None):
     snapshot=runtime.provider._current(runtime.actor(),runtime.client)
     published={b.canonical_document_id:{'document_id':b.canonical_document_id,'version_id':b.version_id,
         'current_version':b.version_id,'title':b.title or b.canonical_document_id,
+        'document_number':getattr(b,'document_number',None),
         'department':normalized_department(b.space_id.removeprefix('DEPT_')).lower()}
         for b in snapshot.bindings if b.dataset_id in snapshot.allowed_datasets}
-    published_list,published_total=_published_documents_for_dashboard(published)
+    published_view=_published_projection(published,query=published_query,
+        document_id=published_document_id,page=published_page,page_size=published_page_size)
     availability=__import__(__package__+'.api',fromlist=['_availability'])._availability(runtime)
     availability['can_parse']=bool(availability['configured'] and not availability['blocked'])
     try:
@@ -150,10 +270,24 @@ def dashboard(batch_id=None,page=1,page_size=12,locate=None):
     except Exception:
         availability['can_batch']=False
     return {'departments':[{'key':k,'title':v} for k,v in DEPARTMENTS.items()],
-            'batches':batches,'selected':selected,'feedback':feedback_queue(load_runtime()),
-            'published_documents':published_list,
-            'published_total':published_total,
-            'published_truncated':published_total>len(published_list),
+            'batches':batch_view['batches'],'selected':selected,
+            'batches_total':batch_view['total'],'batches_matched':batch_view['matched'],
+            'batches_page':batch_view['page'],'batches_page_size':batch_view['page_size'],
+            'batches_has_more':batch_view['has_more'],
+            'batch_query':batch_view['query'],'batch_document_id':batch_view['document_id'],
+            'batch_lookup_state':batch_view['lookup_state'],
+            'batch_scan_truncated':batch_view['scan_truncated'],
+            'feedback':feedback_queue(load_runtime()),
+            'published_documents':published_view['documents'],
+            'published_total':published_view['total'],
+            'published_matched':published_view['matched'],
+            'published_truncated':published_view['has_more'],
+            'published_page':published_view['page'],
+            'published_page_size':published_view['page_size'],
+            'published_has_more':published_view['has_more'],
+            'published_query':published_view['query'],
+            'published_document_id':published_view['document_id'],
+            'published_lookup_state':published_view['lookup_state'],
             'import_availability':availability,'department_funnel':department_funnel(published)}
 
 def _published_documents_for_dashboard(published,limit=1000):

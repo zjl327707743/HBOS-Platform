@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { PlusOutlined, FileTextOutlined, UploadOutlined, ArrowRightOutlined, MessageOutlined, HistoryOutlined } from '@ant-design/icons-vue'
 import { DomainApiError, getKnowledgeStatus } from '@/services/p1Api'
-import { getMaintenance, getMaintenanceFeedbackPage, maintenanceAction, previewImport, uploadKnowledge, planImport, submitImport, getBatchProgress, pauseImport, resumeImport, reclaimImport, type ImportItem, type MaintenanceDashboard, type QualityPreview, type MaintenanceFeedback, type VersionTarget, type BatchPlan, type BatchSubmitReceipt, type BatchProgress, type BatchRetrievalVerified } from '@/services/knowledgeMaintenanceApi'
+import { getMaintenance, getMaintenanceFeedbackPage, maintenanceAction, previewImport, uploadKnowledge, planImport, submitImport, getBatchProgress, pauseImport, resumeImport, reclaimImport, type ImportItem, type MaintenanceDashboard, type QualityPreview, type MaintenanceFeedback, type VersionTarget, type BatchPlan, type BatchSubmitReceipt, type BatchProgress, type BatchRetrievalVerified, type MaintenanceBatchEntry, type MaintenanceLookupState } from '@/services/knowledgeMaintenanceApi'
 const route=useRoute(),router=useRouter()
 const props=defineProps<{sessionRevision?:number}>()
 const view=computed(()=>route.path.endsWith('/upload')?'upload':route.path.endsWith('/versions')?'versions':route.path.endsWith('/feedback')?'feedback':'manage')
@@ -19,6 +19,17 @@ const batchManifestText=ref(''),batchManifestName=ref(''),batchManifestOpen=ref(
 const batchPlan=ref<BatchPlan|null>(null),batchPlanError=ref(''),batchApproval=ref(''),batchLabel=ref('')
 const batchSubmitting=ref(false),batchReceipt=ref<BatchSubmitReceipt|null>(null),batchProgress=ref<BatchProgress|null>(null)
 const progressBatchId=ref(''),batchReclaimReason=ref(''),batchActionBusy=ref(false),batchRetryId=ref('')
+// WP6: bounded server-side lookup over the two maintenance projections. The
+// default dashboard still renders the legacy first-1000/first-100 window; these
+// states only hold an explicit server search result so the browser never scans
+// pages or widens the projection itself.
+interface PublishedLookupView { term:string; documents:VersionTarget[]; matched:number; total:number; page:number; pageSize:number; hasMore:boolean; state:MaintenanceLookupState }
+interface BatchLookupView { term:string; batches:MaintenanceBatchEntry[]; matched:number; total:number; page:number; pageSize:number; hasMore:boolean; scanTruncated:boolean; state:MaintenanceLookupState }
+const publishedSearch=ref(''),publishedLookup=ref<PublishedLookupView|null>(null),publishedLookupLoading=ref(false),publishedLookupError=ref('')
+const batchSearch=ref(''),batchLookup=ref<BatchLookupView|null>(null),batchLookupLoading=ref(false),batchLookupError=ref('')
+const replacementSearch=ref(''),replacementLookupDocs=ref<VersionTarget[]>([]),replacementLookupLoading=ref(false),replacementLookupError=ref('')
+const detailLookupState=ref<MaintenanceLookupState>(null),detailTarget=ref<VersionTarget|null>(null),selectedPublished=ref<VersionTarget|null>(null)
+const DOCUMENT_ID_TERM=/^DOC_[A-Za-z0-9_-]{1,96}$/
 const planNames:Record<string,string>={NEW:'新文件（已登记原件）',DUPLICATE:'重复，保留已处理版本',BUSINESS_UPDATE:'业务换版（需原件解析流程）',TECHNICAL_REPAIR:'技术修复（需既有 native 流程）',NEW_UPLOAD_REQUIRED:'需先单文件上传原件',ANOMALY:'异常，需修正清单'}
 const planColors:Record<string,string>={NEW:'green',DUPLICATE:'blue',BUSINESS_UPDATE:'orange',TECHNICAL_REPAIR:'purple',NEW_UPLOAD_REQUIRED:'gold',ANOMALY:'red'}
 const parseNamesForBatch:Record<string,string>={'planned':'待解析','uploaded':'已上传待解析','parse_queued':'解析中','parse_intent':'请求待核验','parsed/indexed':'解析完成','parse_failed':'解析失败','quarantined':'身份待核对','skipped_duplicate':'重复跳过'}
@@ -34,6 +45,30 @@ const canPublishSelected=computed(()=>selectedItems.value.length>0&&selectedItem
 const canApproveSharing=computed(()=>selectedItems.value.length>0&&selectedItems.value.every(i=>i.quality_status==='Passed'&&i.shared_approved===false))
 const canParse=computed(()=>data.value?.import_availability.can_parse===true)
 const replacements=computed(()=>data.value?.published_documents.filter(i=>i.department===department.value)||[])
+const replacementOptions=computed(()=>{
+  const seen=new Set<string>(),merged:VersionTarget[]=[]
+  // A replacement target chosen from a lookup (or via 上传新修订版) must stay
+  // visible even when it is outside the currently loaded projection.
+  if(replacement.value&&replacement.value.department===department.value){seen.add(replacement.value.document_id);merged.push(replacement.value)}
+  for(const item of [...replacements.value,...replacementLookupDocs.value]){
+    if(item.department!==department.value||seen.has(item.document_id))continue
+    seen.add(item.document_id);merged.push(item)
+  }
+  return merged
+})
+const publishedTotal=computed(()=>data.value?.published_total??data.value?.published_documents.length??0)
+const publishedTruncated=computed(()=>Boolean(data.value?.published_truncated))
+const batchesTotal=computed(()=>data.value?.batches_total??data.value?.batches.length??0)
+// A server lookup result replaces only the selector's option list; the dashboard
+// itself is left untouched so detail/withdraw/publish flows keep their state.
+const batchOptions=computed(()=>{
+  const base=batchLookup.value?batchLookup.value.batches:(data.value?.batches||[])
+  if(!selectedBatch.value||base.some(entry=>entry.name===selectedBatch.value))return base
+  // Keep the located/selected batch visible after a bounded lookup, even when
+  // it is not part of the legacy first-100 projection.
+  const current=data.value?.selected
+  return [{name:selectedBatch.value,label:current?.label||selectedBatch.value,department_key:current?.department||'',status:current?.status||''},...base]
+})
 const parseNames:Record<string,string>={'planned':'待解析','uploaded':'待解析','original_stored':'原件已保留（全文另验）','parse_intent':'请求待核验','parse_queued':'解析中','parsed/indexed':'解析完成','parse_failed':'解析失败','quarantined':'身份待核对','skipped_duplicate':'重复，保留原版本'}
 const relationships:Record<string,string>={NEW:'新增资料',UPDATE_CONFIRMED:'已确认换版',SAME_CONTENT_SKIP:'相同内容，保留原身份',UPDATE_CANDIDATE:'换版关系待确认',CONFLICT:'身份冲突'}
 const departmentName=(key:string)=>data.value?.departments.find(d=>d.key===key)?.title||key
@@ -42,15 +77,88 @@ const managed=computed(()=>{
   for(const item of batch.value?.items||[])if(!docs.some(d=>d.version_id===item.version_id))docs.unshift({document_id:item.document_id,title:item.title,version_id:item.version_id,current_version:item.current_version||'',department:batch.value?.department||'',status:item.publication_status==='Withdrawn'?'已下架':parseNames[item.parse_status]||'待核对',item})
   return docs.filter(d=>(!filter.value||(d.title).toLowerCase().includes(filter.value.trim().toLowerCase()))&&(!departmentFilter.value||d.department===departmentFilter.value))
 })
-const visibleDocs=computed(()=>managed.value.slice((listPage.value-1)*4,listPage.value*4))
+const publishedLookupRows=computed(()=>{
+  const documents=publishedLookup.value?.documents||[]
+  return documents.map(d=>({...d,status:'已发布',item:undefined as ImportItem|undefined}))
+})
+const visibleDocs=computed(()=>publishedLookup.value?publishedLookupRows.value:managed.value.slice((listPage.value-1)*4,listPage.value*4))
 watch([filter,departmentFilter],()=>{listPage.value=1})
 watch([selectedBatch,page],()=>{selectedIds.value=[];bulkQualityOpen.value=false})
 watch(data,()=>{selectedIds.value=selectedIds.value.filter(id=>selectable.value.some(i=>i.document_id===id))})
-watch(department,()=>{replacement.value=null})
+watch(department,()=>{replacement.value=null;replacementLookupDocs.value=[];replacementLookupError.value=''})
 watch(view,()=>{error.value='';notice.value='';detailOpen.value=false;feedbackOpen.value=false;if(view.value==='feedback')void refreshFeedback()})
 function message(e:unknown){return e instanceof Error?e.message:'维护服务暂不可用。'}
-function failure(e:unknown){error.value=message(e);if(e instanceof DomainApiError&&['SCOPE_REJECTED','FORBIDDEN','AUTHENTICATION_REQUIRED','CLIENT_AUTH_FAILED'].includes(e.code)){epoch++;data.value=null;preview.value=null;detail.value=null;feedbackItems.value=[];allowed.value=false;qualityOpen.value=false;bulkQualityOpen.value=false;selectedIds.value=[];detailOpen.value=false;feedbackOpen.value=false}}
+function failure(e:unknown){error.value=message(e);if(e instanceof DomainApiError&&['SCOPE_REJECTED','FORBIDDEN','AUTHENTICATION_REQUIRED','CLIENT_AUTH_FAILED'].includes(e.code)){epoch++;data.value=null;preview.value=null;detail.value=null;feedbackItems.value=[];allowed.value=false;qualityOpen.value=false;bulkQualityOpen.value=false;selectedIds.value=[];detailOpen.value=false;feedbackOpen.value=false;publishedLookup.value=null;publishedLookupError.value='';batchLookup.value=null;batchLookupError.value='';replacementLookupDocs.value=[];replacementLookupError.value='';detailLookupState.value=null;selectedPublished.value=null}}
 async function refresh(){const current=epoch,seq=++readSequence;loading.value=true;error.value='';try{let result=await getMaintenance(selectedBatch.value||undefined,page.value);if(current!==epoch||seq!==readSequence)return;if(!selectedBatch.value&&result.batches.length){selectedBatch.value=result.batches[0]!.name;result=await getMaintenance(selectedBatch.value,1)}if(current===epoch&&seq===readSequence)data.value=result}catch(e){if(current===epoch&&seq===readSequence)failure(e)}finally{if(current===epoch&&seq===readSequence)loading.value=false}}
+function accessDenied(e:unknown){return e instanceof DomainApiError&&['SCOPE_REJECTED','FORBIDDEN','AUTHENTICATION_REQUIRED','CLIENT_AUTH_FAILED'].includes(e.code)}
+function clearPublishedLookup(){publishedLookup.value=null;publishedLookupError.value='';publishedSearch.value='';selectedPublished.value=null}
+function clearBatchLookup(){batchLookup.value=null;batchLookupError.value='';batchSearch.value=''}
+async function searchPublished(pageNumber=1){
+ const term=publishedSearch.value.trim()
+ if(!term){publishedLookupError.value='请输入标题、文号、部门，或精确文档 ID（DOC_…）。';return}
+ const current=epoch;publishedLookupLoading.value=true;publishedLookupError.value=''
+ try{
+  const byDocument=DOCUMENT_ID_TERM.test(term)
+  const result=await getMaintenance(selectedBatch.value||undefined,page.value,undefined,{...(byDocument?{published_document_id:term}:{published_query:term}),published_page:Math.max(1,pageNumber),published_page_size:50})
+  if(current!==epoch)return
+  const documents=result.published_documents||[]
+  const matched=result.published_matched??documents.length
+  const state=result.published_lookup_state??(byDocument?(matched?'FOUND':'NOT_FOUND'):null)
+  publishedLookup.value={term,documents,matched,total:result.published_total??publishedTotal.value,page:result.published_page??Math.max(1,pageNumber),pageSize:result.published_page_size??50,hasMore:Boolean(result.published_has_more),state}
+  if(byDocument&&documents[0]){selectedPublished.value=documents[0];detailTarget.value=documents[0]}
+ }catch(e){if(current!==epoch)return;publishedLookupError.value=message(e);if(accessDenied(e))failure(e)}
+ finally{if(current===epoch)publishedLookupLoading.value=false}
+}
+async function changePublishedPage(next:number){if(publishedLookupLoading.value||!publishedLookup.value||next<1)return;await searchPublished(next)}
+async function enterLocatedBatch(entry:MaintenanceBatchEntry,term:string,current:number){
+ selectedBatch.value=entry.name
+ page.value=entry.document_page&&entry.document_page>0?entry.document_page:1
+ const result=await getMaintenance(entry.name,page.value,term)
+ if(current!==epoch)return
+ data.value=result
+ detailLookupState.value=result.selected?'FOUND':'NOT_FOUND'
+}
+async function searchBatches(pageNumber=1){
+ const term=batchSearch.value.trim()
+ // Empty term is allowed only to page the default batch projection; a first-page
+ // empty search would just duplicate the dashboard's own bounded read.
+ if(!term&&pageNumber<=1){batchLookupError.value='请输入批次名称、部门，或精确文档 ID（DOC_…）。';return}
+ const current=epoch;batchLookupLoading.value=true;batchLookupError.value=''
+ try{
+  const byDocument=term?DOCUMENT_ID_TERM.test(term):false
+  const result=await getMaintenance(selectedBatch.value||undefined,page.value,undefined,{...(byDocument?{batch_document_id:term}:term?{batch_query:term}:{}),batch_page:Math.max(1,pageNumber),batch_page_size:100})
+  if(current!==epoch)return
+  const batches=result.batches||[]
+  const matched=result.batches_matched??batches.length
+  const state=result.batch_lookup_state??(byDocument?(matched?'FOUND':'NOT_FOUND'):null)
+  batchLookup.value={term,batches,matched,total:result.batches_total??batchesTotal.value,page:result.batches_page??Math.max(1,pageNumber),pageSize:result.batches_page_size??100,hasMore:Boolean(result.batches_has_more),scanTruncated:Boolean(result.batch_scan_truncated),state}
+  if(byDocument&&state==='FOUND'&&batches[0])await enterLocatedBatch(batches[0],term,current)
+ }catch(e){if(current!==epoch)return;batchLookupError.value=message(e);if(accessDenied(e))failure(e)}
+ finally{if(current===epoch)batchLookupLoading.value=false}
+}
+async function changeBatchPage(next:number){if(batchLookupLoading.value||!batchLookup.value||next<1)return;await searchBatches(next)}
+async function locateBatchFromInput(){
+ const term=batchSearch.value.trim()
+ if(!DOCUMENT_ID_TERM.test(term)){batchLookupError.value='按文档定位批次请输入精确文档 ID（DOC_…）；已知批次名称请用上方搜索。';return}
+ await searchBatches(1)
+}
+async function searchReplacementDocs(){
+ const term=replacementSearch.value.trim()
+ if(!term){replacementLookupError.value='请输入标题、文号或精确文档 ID。';return}
+ const current=epoch;replacementLookupLoading.value=true;replacementLookupError.value='';replacementLookupDocs.value=[]
+ try{
+  const byDocument=DOCUMENT_ID_TERM.test(term)
+  const result=await getMaintenance(undefined,1,undefined,{...(byDocument?{published_document_id:term}:{published_query:term}),published_page:1,published_page_size:50})
+  if(current!==epoch)return
+  const matches=result.published_documents||[]
+  replacementLookupDocs.value=matches.filter(item=>item.department===department.value)
+  if(!replacementLookupDocs.value.length)replacementLookupError.value=matches.length?`找到 ${matches.length} 份已发布资料，但都不属于当前所选部门；请调整部门或改用精确文档 ID。`:'未找到匹配的已发布资料。'
+  // An exact document-id lookup names exactly one target: select it directly.
+  if(byDocument&&replacementLookupDocs.value.length===1)replacement.value=replacementLookupDocs.value[0]!
+ }catch(e){if(current!==epoch)return;replacementLookupError.value=message(e);if(accessDenied(e))failure(e)}
+ finally{if(current===epoch)replacementLookupLoading.value=false}
+}
+function selectReplacement(documentId:string){replacement.value=replacementOptions.value.find(i=>i.document_id===documentId)||replacementLookupDocs.value.find(i=>i.document_id===documentId)||null}
 async function refreshFeedback(){const current=epoch,seq=++feedbackSequence;loading.value=true;try{if(feedbackQuery.value.trim()){
  const all:MaintenanceFeedback[]=[]
  for(let n=1;n<=100;n++){const result=await getMaintenanceFeedbackPage(n,feedbackStatus.value);if(current!==epoch||seq!==feedbackSequence)return;all.push(...result.items);if(!result.has_more)break;if(n===100)throw new DomainApiError('SERVICE_ERROR','反馈过多，请缩小状态范围。')}
@@ -104,7 +212,35 @@ function matchesDoc(item:ImportItem,doc:{document_id:string;version_id?:string})
 function findLoaded(doc:{document_id:string;version_id?:string}){
  return (data.value?.selected?.items||[]).find(i=>matchesDoc(i,doc))||null
 }
+function batchLookupMetadataPresent(result:MaintenanceDashboard){
+ return result.batch_lookup_state!==undefined||result.batches_matched!==undefined||result.batch_query!==undefined||result.batch_document_id!==undefined
+}
+/**
+ * Bounded server locate: one `batch_document_id` query names the batch and the
+ * page inside it, then the existing `batch_id + locate=document_id` request
+ * opens that page. Only an older response without lookup metadata falls back to
+ * the previous 6-batch scan, so legacy behaviour stays compatible.
+ */
+async function locateBatchForDocument(doc:{document_id:string;version_id?:string},current:number){
+ let located:MaintenanceDashboard|null=null
+ try{located=await getMaintenance(undefined,1,undefined,{batch_document_id:doc.document_id,batch_page:1,batch_page_size:100})}
+ catch(e){if(accessDenied(e))throw e;return undefined}
+ if(current!==epoch||!detailOpen.value)return null
+ if(!batchLookupMetadataPresent(located))return undefined
+ if(located.batch_lookup_state==='NOT_FOUND'){detailLookupState.value='NOT_FOUND';return null}
+ const entry=located.batches[0]
+ if(located.batch_lookup_state!=='FOUND'||!entry)return null
+ const targetPage=entry.document_page&&entry.document_page>0?entry.document_page:1
+ const result=await getMaintenance(entry.name,targetPage,doc.document_id)
+ if(current!==epoch||!detailOpen.value)return null
+ const item=result.selected?.items.find(i=>matchesDoc(i,doc))
+ if(!item)return null
+ selectedBatch.value=entry.name;page.value=result.selected?.page||targetPage;data.value=result;detailLookupState.value='FOUND'
+ return item
+}
 async function findAcrossBatches(doc:{document_id:string;version_id?:string},current:number){
+ const located=await locateBatchForDocument(doc,current)
+ if(located!==undefined)return located
  const batches=(data.value?.batches||[]).slice(0,DETAIL_SCAN_MAX_BATCHES)
  for(const candidate of batches){
   let result
@@ -115,8 +251,9 @@ async function findAcrossBatches(doc:{document_id:string;version_id?:string},cur
  }
  return null
 }
-async function openDetails(doc:{title:string;document_id:string;version_id?:string;item?:ImportItem}){
- detailOpen.value=true;detail.value=null;detailTitle.value=doc.title;detailLoading.value=true;operationReason.value='';const current=epoch
+async function openDetails(doc:{title:string;document_id:string;version_id?:string;current_version?:string;department?:string;document_number?:string|null;item?:ImportItem}){
+ detailOpen.value=true;detail.value=null;detailTitle.value=doc.title;detailLoading.value=true;operationReason.value='';detailLookupState.value=null;const current=epoch
+ detailTarget.value={document_id:doc.document_id,version_id:doc.version_id||'',current_version:doc.current_version||'',title:doc.title,department:doc.department||'',document_number:doc.document_number}
  try{
   if(doc.item){detail.value=doc.item;return}
   // A document opened from the page it is already listed on needs no request.
@@ -127,10 +264,18 @@ async function openDetails(doc:{title:string;document_id:string;version_id?:stri
   if(found){detail.value=found;return}
  }catch(e){if(current===epoch)failure(e)}finally{if(current===epoch)detailLoading.value=false}
 }
-async function newRevision(){const target=data.value?.published_documents.find(d=>d.document_id===detail.value?.document_id);if(!target)return;department.value=target.department;await nextTick();replacement.value=target;uploadStage.value=0;detailOpen.value=false;await router.push('/hbos/knowledge/maintenance/upload')}
+async function newRevision(){
+ const documentId=detail.value?.document_id
+ const target=data.value?.published_documents.find(d=>d.document_id===documentId)
+  ||(detailTarget.value?.document_id===documentId?detailTarget.value:undefined)
+  ||publishedLookup.value?.documents.find(d=>d.document_id===documentId)
+  ||(selectedPublished.value?.document_id===documentId?selectedPublished.value:undefined)
+ if(!target)return
+ department.value=target.department;await nextTick();replacement.value=target;uploadStage.value=0;detailOpen.value=false;await router.push('/hbos/knowledge/maintenance/upload')
+}
 function openFeedback(item:MaintenanceFeedback){selectedFeedback.value=item;reply.value=item.maintenance_reply||item.reply||'';feedbackOpen.value=true}
 async function reviewFeedback(status:string){const item=selectedFeedback.value;if(!item)return;await act(()=>maintenanceAction('review_feedback',{activity_id:item.id,status,reply:reply.value}),'反馈处理已保存，提交人可查看状态和回复。');if(!error.value){feedbackOpen.value=false;await refreshFeedback()}}
-async function revalidate(){const current=epoch;try{const status=await getKnowledgeStatus();if(current!==epoch)return;allowed.value=Boolean(status.can_maintain);if(!allowed.value){failure(new DomainApiError('FORBIDDEN','当前账号没有知识维护权限。'));return}await refresh();if(view.value==='feedback')await refreshFeedback()}catch(e){failure(e)}finally{if(current===epoch)initialized.value=true}}
+async function revalidate(){const current=epoch;try{const status=await getKnowledgeStatus();if(current!==epoch)return;allowed.value=Boolean(status.can_maintain);if(!allowed.value){failure(new DomainApiError('FORBIDDEN','当前账号没有知识维护权限。'));return}clearPublishedLookup();clearBatchLookup();replacementLookupDocs.value=[];replacementLookupError.value='';detailLookupState.value=null;await refresh();if(view.value==='feedback')await refreshFeedback()}catch(e){failure(e)}finally{if(current===epoch)initialized.value=true}}
 watch(()=>props.sessionRevision,()=>{void revalidate()})
 onMounted(revalidate)
 onBeforeUnmount(()=>{epoch++;readSequence++;feedbackSequence++;stopProgressTimer()})
@@ -175,28 +320,40 @@ onBeforeUnmount(()=>{epoch++;readSequence++;feedbackSequence++;stopProgressTimer
     </template>
    </section>
    <section v-if="view==='manage'||view==='versions'" class="kb-panel hbos-glass-g1">
-    <div class="kb-status-filters"><a-tag color="green">已发布 {{data?.published_documents.length||0}}</a-tag><a-button type="text" :loading="loading" @click="refresh">刷新资料</a-button></div>
-    <div class="kb-list-toolbar"><a-input-search v-model:value="filter" placeholder="查找资料标题" aria-label="查找维护资料"/><a-select v-model:value="departmentFilter" :options="[{label:'全部部门',value:''},...(data?.departments.map(d=>({label:d.title,value:d.key}))||[])]" aria-label="筛选维护部门"/></div>
-    <div class="kb-list-caption"><span>{{managed.length}} 份资料</span><span>{{view==='versions'?'查看当前版本和处理记录':'发布前核对质量与共享范围'}}</span></div>
-    <a-skeleton v-if="loading" active :paragraph="{rows:4}"/><template v-else><article v-for="doc in visibleDocs" :key="doc.document_id" class="kb-doc-row"><div class="kb-doc-icon"><FileTextOutlined/></div><button class="kb-doc-main" @click="openDetails(doc)"><strong>{{doc.title}}</strong><p>{{doc.item?relationships[doc.item.relationship]||'资料处理记录':'当前已共享资料，查看解析质量与版本状态。'}}</p><small>{{departmentName(doc.department)}}<a-tag :color="doc.status==='已发布'?'green':'default'">{{doc.status}}</a-tag></small></button><a-button @click="openDetails(doc)">{{view==='versions'?'查看版本':'查看资料'}}</a-button></article><a-empty v-if="!managed.length" description="当前筛选没有资料。"/></template>
-    <div class="kb-pagination"><a-pagination v-model:current="listPage" :total="managed.length" :page-size="4" :show-size-changer="false"/></div>
-    <a-collapse ghost><a-collapse-panel key="batch" header="批次审核与发布"><p class="kb-muted">选择同一批次的解析完成资料核对质量。共享待批资料需另行确认，未解析、隔离或换版资料需分别处理。</p><a-select v-model:value="selectedBatch" :disabled="busy" style="width:100%" placeholder="选择处理任务" :options="data?.batches.map(b=>({value:b.name,label:b.label}))" @change="changeBatch"/><p v-if="batch" class="kb-muted">{{batch.total}} 项 · 解析完成 {{batch.counts.parsed}} · 待核对 {{batch.total-batch.counts.quality_passed}}</p><div v-if="batch" class="bulk-toolbar"><a-button :disabled="busy||!selectable.length" @click="selectedIds=selectable.map(i=>i.document_id)">选择本页解析完成候选</a-button><span>已选 {{selectedItems.length}} 项</span><a-button :disabled="busy||!selectedItems.length" @click="openBulkQuality">批量核对质量</a-button><a-popconfirm v-if="canApproveSharing" title="确认所选资料已获准内部共享，且不含未批准的个人、保密或受限内容？本操作保留原待批记录。" ok-text="确认获准共享" cancel-text="取消" @confirm="approveSharingSelected"><a-button :disabled="busy||!canApproveSharing">确认所选已获准共享</a-button></a-popconfirm><a-popconfirm :title="'确认所选 '+selectedItems.length+' 份已获准共享且质量合格，发布到当前候选？'" ok-text="确认发布" cancel-text="取消" @confirm="publishSelected"><a-button type="primary" :disabled="busy||!canPublishSelected">发布所选资料</a-button></a-popconfirm></div><article v-for="item in batch?.items" :key="item.version_id" class="advanced-row"><a-checkbox v-if="selectable.some(i=>i.document_id===item.document_id)" :checked="selectedIds.includes(item.document_id)" :disabled="busy" :aria-label="'选择资料：'+item.title" @change="(event:any)=>toggleSelected(item.document_id,event.target.checked)"/><span>{{item.title}} · {{parseNames[item.parse_status]}}{{item.shared_approved===false?' · 共享待批':''}}</span><a-button @click="detail=item;detailTitle=item.title;detailOpen=true">查看</a-button></article><a-pagination v-if="batch" v-model:current="page" :total="batch.total" :page-size="12" :show-size-changer="false" @change="refresh"/></a-collapse-panel></a-collapse>
+    <div class="kb-status-filters"><a-tag color="green">已发布 {{publishedTotal}}</a-tag><span class="kb-muted" data-published-projection>当前显示 {{data?.published_documents.length||0}} 份 · 第 {{data?.published_page||1}} 页<template v-if="data?.published_has_more"> · 还有更多</template><template v-if="publishedTruncated"> · 服务端仅投影前 {{data?.published_page_size||data?.published_documents.length||0}} 份，可在下方查找定位</template></span><a-button type="text" :loading="loading" @click="refresh">刷新资料</a-button></div>
+    <div class="kb-maintenance-lookup"><a-input-search v-model:value="publishedSearch" placeholder="服务端查找：标题、文号、部门，或精确文档 ID（DOC_…）" aria-label="服务端查找已发布资料" data-published-query @search="searchPublished(1)"/><a-button :loading="publishedLookupLoading" data-published-search @click="searchPublished(1)">查找</a-button><a-button v-if="publishedLookup" :disabled="publishedLookupLoading" data-published-reset @click="clearPublishedLookup">返回默认列表</a-button></div>
+    <a-alert v-if="publishedLookupError" type="warning" show-icon :message="publishedLookupError" class="kb-alert"/>
+    <p v-if="publishedLookup" class="kb-muted" data-published-lookup-meta>服务端匹配 {{publishedLookup.matched}} 份 / 共 {{publishedLookup.total}} 份 · 第 {{publishedLookup.page}} 页 · 每页 {{publishedLookup.pageSize}} 条<template v-if="publishedLookup.hasMore"> · 还有更多</template></p>
+    <div v-if="!publishedLookup" class="kb-list-toolbar"><a-input-search v-model:value="filter" placeholder="查找已加载资料标题" aria-label="查找维护资料"/><a-select v-model:value="departmentFilter" :options="[{label:'全部部门',value:''},...(data?.departments.map(d=>({label:d.title,value:d.key}))||[])]" aria-label="筛选维护部门"/></div>
+    <div class="kb-list-caption"><span v-if="publishedLookup">{{publishedLookup.documents.length}} 条服务端结果</span><span v-else>{{managed.length}} 份资料</span><span>{{view==='versions'?'查看当前版本和处理记录':'发布前核对质量与共享范围'}}</span></div>
+    <a-skeleton v-if="loading" active :paragraph="{rows:4}"/><template v-else><a-alert v-if="publishedLookup?.state==='NOT_FOUND'" type="warning" show-icon class="kb-alert" data-published-not-found message="没有找到该文档 ID 对应的已发布资料；请核对文档标识，或改用标题/文号搜索。"/><a-alert v-else-if="publishedLookup&&!publishedLookup.documents.length" type="info" show-icon class="kb-alert" data-published-empty message="没有匹配的已发布资料，请调整关键词或改用精确文档 ID。"/><article v-for="doc in visibleDocs" :key="doc.document_id" class="kb-doc-row"><div class="kb-doc-icon"><FileTextOutlined/></div><button class="kb-doc-main" @click="openDetails(doc)"><strong>{{doc.title}}</strong><p>{{doc.item?relationships[doc.item.relationship]||'资料处理记录':'当前已共享资料，查看解析质量与版本状态。'}}</p><small>{{departmentName(doc.department)}}<a-tag :color="doc.status==='已发布'?'green':'default'">{{doc.status}}</a-tag></small></button><a-button @click="openDetails(doc)">{{view==='versions'?'查看版本':'查看资料'}}</a-button></article><a-empty v-if="!visibleDocs.length&&!publishedLookup" description="当前筛选没有资料。"/></template>
+    <div v-if="publishedLookup" class="kb-pagination"><a-button :disabled="publishedLookup.page<=1||publishedLookupLoading" data-published-prev @click="changePublishedPage(publishedLookup.page-1)">上一页</a-button><span>第 {{publishedLookup.page}} 页 · 共 {{publishedLookup.matched}} 份匹配</span><a-button :disabled="!publishedLookup.hasMore||publishedLookupLoading" data-published-next @click="changePublishedPage(publishedLookup.page+1)">下一页</a-button></div>
+    <div v-else class="kb-pagination"><a-pagination v-model:current="listPage" :total="managed.length" :page-size="4" :show-size-changer="false"/></div>
+    <a-collapse ghost><a-collapse-panel key="batch" header="批次审核与发布"><p class="kb-muted">选择同一批次的解析完成资料核对质量。共享待批资料需另行确认，未解析、隔离或换版资料需分别处理。</p>
+     <div class="kb-maintenance-lookup"><a-input-search v-model:value="batchSearch" placeholder="服务端查找：批次名称、部门，或按精确文档 ID 定位" aria-label="服务端查找批次" data-batch-query @search="searchBatches(1)"/><a-button :loading="batchLookupLoading" data-batch-search @click="searchBatches(1)">查找</a-button><a-button :loading="batchLookupLoading" data-batch-locate @click="locateBatchFromInput">按文档定位</a-button><a-button v-if="batchLookup" :disabled="batchLookupLoading" data-batch-reset @click="clearBatchLookup">恢复默认列表</a-button></div>
+     <a-alert v-if="batchLookupError" type="warning" show-icon :message="batchLookupError" class="kb-alert"/>
+     <p class="kb-muted" data-batch-meta>共 {{batchesTotal}} 个批次 · 当前显示 {{batchOptions.length}} 个<template v-if="batchLookup"> · 服务端匹配 {{batchLookup.matched}} 个 · 第 {{batchLookup.page}} 页<template v-if="batchLookup.hasMore"> · 还有更多</template><template v-if="batchLookup.scanTruncated"> · 服务端仅扫描前 1000 个批次</template></template><template v-else> · 第 {{data?.batches_page||1}} 页<template v-if="data?.batches_has_more"> · 还有更多（可用上方查找或下一页）</template><template v-if="data?.batch_scan_truncated"> · 服务端仅扫描前 1000 个批次</template></template></p>
+     <a-alert v-if="batchLookup?.state==='NOT_FOUND'" type="warning" show-icon class="kb-alert" data-batch-not-found message="没有找到包含该文档的处理批次；该资料可能来自历史批次，仍可查看当前版本。"/>
+     <a-select v-model:value="selectedBatch" :disabled="busy" style="width:100%" placeholder="选择处理任务" :options="batchOptions.map(b=>({value:b.name,label:b.label}))" @change="changeBatch"/>
+     <div v-if="batchLookup" class="kb-pagination"><a-button :disabled="batchLookup.page<=1||batchLookupLoading" data-batch-prev @click="changeBatchPage(batchLookup.page-1)">上一页</a-button><span>第 {{batchLookup.page}} 页 · 共 {{batchLookup.matched}} 个匹配</span><a-button :disabled="!batchLookup.hasMore||batchLookupLoading" data-batch-next @click="changeBatchPage(batchLookup.page+1)">下一页</a-button></div>
+     <div v-else-if="data?.batches_has_more" class="kb-pagination"><a-button disabled data-batch-default-prev>上一页</a-button><span>第 {{data?.batches_page||1}} 页 · 共 {{batchesTotal}} 个批次</span><a-button :disabled="batchLookupLoading||!data?.batches_has_more" data-batch-default-next @click="searchBatches((data?.batches_page||1)+1)">下一页</a-button></div>
+     <p v-if="batch" class="kb-muted">{{batch.total}} 项 · 解析完成 {{batch.counts.parsed}} · 待核对 {{batch.total-batch.counts.quality_passed}}</p><div v-if="batch" class="bulk-toolbar"><a-button :disabled="busy||!selectable.length" @click="selectedIds=selectable.map(i=>i.document_id)">选择本页解析完成候选</a-button><span>已选 {{selectedItems.length}} 项</span><a-button :disabled="busy||!selectedItems.length" @click="openBulkQuality">批量核对质量</a-button><a-popconfirm v-if="canApproveSharing" title="确认所选资料已获准内部共享，且不含未批准的个人、保密或受限内容？本操作保留原待批记录。" ok-text="确认获准共享" cancel-text="取消" @confirm="approveSharingSelected"><a-button :disabled="busy||!canApproveSharing">确认所选已获准共享</a-button></a-popconfirm><a-popconfirm :title="'确认所选 '+selectedItems.length+' 份已获准共享且质量合格，发布到当前候选？'" ok-text="确认发布" cancel-text="取消" @confirm="publishSelected"><a-button type="primary" :disabled="busy||!canPublishSelected">发布所选资料</a-button></a-popconfirm></div><article v-for="item in batch?.items" :key="item.version_id" class="advanced-row"><a-checkbox v-if="selectable.some(i=>i.document_id===item.document_id)" :checked="selectedIds.includes(item.document_id)" :disabled="busy" :aria-label="'选择资料：'+item.title" @change="(event:any)=>toggleSelected(item.document_id,event.target.checked)"/><span>{{item.title}} · {{parseNames[item.parse_status]}}{{item.shared_approved===false?' · 共享待批':''}}</span><a-button @click="detail=item;detailTitle=item.title;detailOpen=true">查看</a-button></article><a-pagination v-if="batch" v-model:current="page" :total="batch.total" :page-size="12" :show-size-changer="false" @change="refresh"/></a-collapse-panel></a-collapse>
    </section>
    <section v-if="view==='upload'" class="kb-upload-panel kb-panel hbos-glass-g1"><a-steps :current="uploadStage" :items="[{title:'选择资料'},{title:'处理进度'},{title:'核对与发布'}]"/>
-    <div v-if="uploadStage===0" class="kb-upload-body"><h2>新增一份资料</h2><p>先确认资料可在公司内部共享，再选择部门与文件。</p><label for="upload-department">所属部门</label><a-select id="upload-department" v-model:value="department" :options="data?.departments.map(d=>({value:d.key,label:d.title}))" aria-label="上传资料所属部门"/><label class="kb-file-picker"><UploadOutlined/><strong>{{file?.name||'选择文件'}}</strong><span>PDF、Word、Excel、PPT、文本 · 单份最多20 MB</span><input type="file" accept=".doc,.docx,.pdf,.xlsx,.pptx,.txt,.md" aria-label="选择资料文件" @change="chooseFile"/></label><label class="version-label">版本关系<a-select show-search :filter-option="(input:string,option:any)=>String(option.label).toLowerCase().includes(input.toLowerCase())" :value="replacement?.document_id||''" :options="[{value:'',label:'新增或自动识别同内容'},...replacements.map(i=>({value:i.document_id,label:'替换：'+i.title}))]" @change="(value:string)=>replacement=replacements.find(i=>i.document_id===value)||null"/></label><a-checkbox v-model:checked="sharing">已确认本资料获准内部共享</a-checkbox><a-button type="primary" :loading="busy" :disabled="!file||!sharing" @click="upload">上传并检查重复<ArrowRightOutlined/></a-button></div>
+    <div v-if="uploadStage===0" class="kb-upload-body"><h2>新增一份资料</h2><p>先确认资料可在公司内部共享，再选择部门与文件。</p><label for="upload-department">所属部门</label><a-select id="upload-department" v-model:value="department" :options="data?.departments.map(d=>({value:d.key,label:d.title}))" aria-label="上传资料所属部门"/><label class="kb-file-picker"><UploadOutlined/><strong>{{file?.name||'选择文件'}}</strong><span>PDF、Word、Excel、PPT、文本 · 单份最多20 MB</span><input type="file" accept=".doc,.docx,.pdf,.xlsx,.pptx,.txt,.md" aria-label="选择资料文件" @change="chooseFile"/></label><label class="version-label">版本关系<a-select show-search :filter-option="(input:string,option:any)=>String(option.label).toLowerCase().includes(input.toLowerCase())" :value="replacement?.document_id||''" :options="[{value:'',label:'新增或自动识别同内容'},...replacementOptions.map(i=>({value:i.document_id,label:'替换：'+i.title}))]" @change="(value:string)=>selectReplacement(value)"/></label><div class="kb-maintenance-lookup" data-replacement-lookup><a-input-search v-model:value="replacementSearch" placeholder="服务端查找更多已发布资料作为换版目标（标题/文号，或精确文档 ID）" aria-label="服务端查找换版目标" @search="searchReplacementDocs"/><a-button :loading="replacementLookupLoading" data-replacement-search @click="searchReplacementDocs">查找</a-button></div><p v-if="replacementLookupError" class="kb-muted" data-replacement-error>{{replacementLookupError}}</p><p v-else-if="replacementLookupDocs.length" class="kb-muted" data-replacement-hint>找到 {{replacementLookupDocs.length}} 份本部门已发布资料，已加入上方“版本关系”选项。</p><a-checkbox v-model:checked="sharing">已确认本资料获准内部共享</a-checkbox><a-button type="primary" :loading="busy" :disabled="!file||!sharing" @click="upload">上传并检查重复<ArrowRightOutlined/></a-button></div>
     <div v-else class="kb-upload-body"><h2>{{uploadStage===1?'处理进度':'发布前核对'}}</h2><p>只有完成质量核对并明确发布后，员工才能检索。</p><a-alert v-if="!canParse" type="warning" message="解析服务暂不可用，已上传资料保留，可核对已有结果。"/><a-button :loading="loading" :disabled="busy" @click="refresh">刷新进度</a-button><article v-for="item in batch?.items" :key="item.version_id" class="progress-item"><strong>{{item.title}}</strong><div class="kb-progress-record"><span>重复与版本关系</span><a-tag>{{relationships[item.relationship]}}</a-tag><span>解析与索引</span><a-tag>{{parseNames[item.parse_status]}}</a-tag><span>质量核对</span><a-tag :color="item.quality_status==='Passed'?'green':'default'">{{item.relationship==='SAME_CONTENT_SKIP'?'沿用当前版本':item.quality_status==='Passed'?'已核对':'待核对'}}</a-tag><span>员工查阅</span><a-tag :color="item.publication_status==='Published'?'green':'default'">{{item.publication_status==='Published'?'已发布':item.publication_status==='Withdrawn'?'已下架':'未发布'}}</a-tag></div><a-progress v-if="item.parse_status==='parse_queued'" :percent="Math.round(item.progress*100)"/><label v-if="item.publication_status==='Withdrawn'||(item.current_version&&item.current_version!==item.version_id)" class="operation-reason">操作原因<a-input v-model:value="operationReason" :maxlength="500" placeholder="换版或恢复发布前填写原因"/></label><div class="kb-drawer-actions"><a-button v-if="['planned','uploaded','parse_failed'].includes(item.parse_status)&&item.relationship!=='SAME_CONTENT_SKIP'" type="primary" :disabled="busy||!canParse" @click="queue(item)">开始解析</a-button><a-button v-if="item.parse_status==='parsed/indexed'" :disabled="busy" @click="openQuality(item)">核对质量</a-button><a-popconfirm v-if="item.parse_status==='parsed/indexed'&&item.quality_status==='Passed'&&item.shared_approved===true&&item.publication_status!=='Published'" title="确认本版本已核对并获准共享，发布给员工？" ok-text="确认发布" cancel-text="取消" @confirm="publish(item)"><a-button type="primary" :disabled="busy">发布资料</a-button></a-popconfirm><a-button v-if="item.relationship==='SAME_CONTENT_SKIP'" @click="router.push('/hbos/knowledge/maintenance/versions')">查看当前版本</a-button></div></article></div>
    </section>
    <section v-if="view==='feedback'" class="kb-panel hbos-glass-g1"><div class="kb-list-toolbar"><a-input-search v-model:value="feedbackQuery" placeholder="搜索反馈内容" aria-label="搜索员工反馈"/><a-select v-model:value="feedbackStatus" :options="[{label:'全部状态',value:''},{label:'待处理',value:'Pending'},{label:'处理中',value:'In Review'},{label:'已回复',value:'Resolved'}]" aria-label="筛选反馈状态"/><a-button :loading="loading" @click="refreshFeedback">刷新</a-button></div><a-skeleton v-if="loading" active/><template v-else><article v-for="item in feedbackItems" :key="item.id" class="kb-feedback-row"><MessageOutlined/><div><strong>{{item.note||item.category}}</strong><p>{{item.category}} · 员工反馈</p></div><a-tag :color="item.status==='Resolved'?'green':'default'">{{item.status==='Resolved'?'已回复':item.status==='In Review'?'处理中':'待处理'}}</a-tag><a-button @click="openFeedback(item)">处理</a-button></article><a-empty v-if="!feedbackItems.length" description="当前没有反馈。"/></template><div class="kb-pagination"><a-button :disabled="feedbackPage<=1||loading" @click="feedbackPage--">上一页</a-button><span>第 {{feedbackPage}} 页</span><a-button :disabled="!feedbackHasMore||loading" @click="feedbackPage++">下一页</a-button></div></section>
   </template>
   <p class="kb-page-footnote">发布与版本操作均保留审核记录，旧来源会重新核验。</p>
-  <a-drawer :open="detailOpen" title="资料与版本" width="min(560px, 100vw)" root-class-name="kb-drawer kb-scope" @close="detailOpen=false"><h2>{{detailTitle}}</h2><a-skeleton v-if="detailLoading" active/><template v-else-if="detail"><div class="kb-version-card"><a-tag :color="detail.publication_status==='Published'?'green':'default'">{{detail.publication_status==='Published'?'当前已发布':detail.publication_status==='Withdrawn'?'已下架':'未发布'}}</a-tag><strong>{{parseNames[detail.parse_status]}} · {{detail.quality_status==='Passed'?'质量已核对':'质量待核对'}}</strong></div><p class="kb-muted">{{relationships[detail.relationship]}}。替换或下架后，旧来源与收藏需重新核验。</p><label>操作原因<a-input v-model:value="operationReason" :maxlength="500" placeholder="换版、下架或恢复前填写原因"/></label><div class="kb-drawer-actions"><a-button v-if="detail.parse_status==='parsed/indexed'" @click="openQuality(detail)">查看与核对质量</a-button><a-button v-if="['planned','uploaded','parse_failed'].includes(detail.parse_status)" :disabled="!canParse||busy" @click="queue(detail)">开始解析</a-button><a-popconfirm v-if="detail.quality_status==='Passed'&&detail.shared_approved===true&&detail.publication_status!=='Published'" title="确认核对质量并获准共享，执行发布操作？" ok-text="确认操作" cancel-text="取消" @confirm="publish(detail)"><a-button type="primary" :disabled="busy">{{detail.publication_status==='Withdrawn'?'恢复发布':'确认发布 / 换版'}}</a-button></a-popconfirm><a-popconfirm v-if="detail.publication_status==='Published'" title="下架后员工不能展开该版本来源，确认下架？" ok-text="确认下架" cancel-text="取消" @confirm="withdraw(detail)"><a-button danger :disabled="busy">下架资料</a-button></a-popconfirm><a-button @click="newRevision"><UploadOutlined/>上传新修订版</a-button></div><a-alert v-if="error" type="error" :message="error"/><a-collapse ghost><a-collapse-panel key="advanced" header="高级：处理任务记录"><p class="kb-muted">任务 {{selectedBatch}} · 版本 {{detail.version_id}}</p></a-collapse-panel></a-collapse></template><p v-else class="kb-muted">当前版本可由员工查阅。未找到本页可维护的处理记录，请选择已登记任务。</p></a-drawer>
+  <a-drawer :open="detailOpen" title="资料与版本" width="min(560px, 100vw)" root-class-name="kb-drawer kb-scope" @close="detailOpen=false"><h2>{{detailTitle}}</h2><a-alert v-if="detailLookupState==='NOT_FOUND'" type="warning" show-icon class="kb-alert" data-detail-lookup-not-found message="服务端未找到该资料对应的处理批次；该资料可能来自历史批次，仍可查看当前已发布版本。"/><a-skeleton v-if="detailLoading" active/><template v-else-if="detail"><div class="kb-version-card"><a-tag :color="detail.publication_status==='Published'?'green':'default'">{{detail.publication_status==='Published'?'当前已发布':detail.publication_status==='Withdrawn'?'已下架':'未发布'}}</a-tag><strong>{{parseNames[detail.parse_status]}} · {{detail.quality_status==='Passed'?'质量已核对':'质量待核对'}}</strong></div><p class="kb-muted">{{relationships[detail.relationship]}}。替换或下架后，旧来源与收藏需重新核验。</p><label>操作原因<a-input v-model:value="operationReason" :maxlength="500" placeholder="换版、下架或恢复前填写原因"/></label><div class="kb-drawer-actions"><a-button v-if="detail.parse_status==='parsed/indexed'" @click="openQuality(detail)">查看与核对质量</a-button><a-button v-if="['planned','uploaded','parse_failed'].includes(detail.parse_status)" :disabled="!canParse||busy" @click="queue(detail)">开始解析</a-button><a-popconfirm v-if="detail.quality_status==='Passed'&&detail.shared_approved===true&&detail.publication_status!=='Published'" title="确认核对质量并获准共享，执行发布操作？" ok-text="确认操作" cancel-text="取消" @confirm="publish(detail)"><a-button type="primary" :disabled="busy">{{detail.publication_status==='Withdrawn'?'恢复发布':'确认发布 / 换版'}}</a-button></a-popconfirm><a-popconfirm v-if="detail.publication_status==='Published'" title="下架后员工不能展开该版本来源，确认下架？" ok-text="确认下架" cancel-text="取消" @confirm="withdraw(detail)"><a-button danger :disabled="busy">下架资料</a-button></a-popconfirm><a-button @click="newRevision"><UploadOutlined/>上传新修订版</a-button></div><a-alert v-if="error" type="error" :message="error"/><a-collapse ghost><a-collapse-panel key="advanced" header="高级：处理任务记录"><p class="kb-muted">任务 {{selectedBatch}} · 版本 {{detail.version_id}}</p></a-collapse-panel></a-collapse></template><p v-else class="kb-muted">当前版本可由员工查阅。未找到本页可维护的处理记录，请选择已登记任务。</p></a-drawer>
   <a-drawer :open="qualityOpen" title="核对本版本质量" width="min(700px, 100vw)" root-class-name="kb-drawer kb-scope" :mask-closable="!busy" :closable="!busy" @close="closeQuality"><template v-if="preview"><h2>{{preview.title}}</h2><p class="kb-muted">对照获准原资料核对数字、单位、否定语和表格关系。片段顺序不能当作原页码。</p><blockquote v-for="(fragment,index) in preview.fragments" :key="index" class="quality-fragment">{{fragment.text}}<small>{{fragment.location}}</small></blockquote><a-checkbox-group v-model:value="checks" class="quality-checks"><a-checkbox value="text">正文与否定语</a-checkbox><a-checkbox value="numbers">数字、单位和条件</a-checkbox><a-checkbox value="tables">表格与条款关系</a-checkbox><a-checkbox value="identity">文件和版本身份</a-checkbox></a-checkbox-group><a-textarea v-model:value="qualityNote" :maxlength="500" :auto-size="{minRows:3,maxRows:7}" placeholder="记录核对结果与限制"/><a-button type="primary" :disabled="checks.length!==4||qualityNote.trim().length<3" :loading="busy" @click="confirmQuality">保存质量核对</a-button></template><a-alert v-else-if="error" type="error" :message="error"/><a-skeleton v-else active/></a-drawer>
   <a-drawer :open="bulkQualityOpen" title="核对所选资料质量" width="min(620px, 100vw)" root-class-name="kb-drawer kb-scope" :mask-closable="!busy" :closable="!busy" @close="bulkQualityOpen=false"><p>本次仅核对所选 {{selectedItems.length}} 份。请先对照原资料和来源预览，例外项可取消选择。</p><article v-for="item in selectedItems" :key="item.document_id" class="advanced-row"><span>{{item.title}}</span><a-button :disabled="busy" @click="openQuality(item)">查看来源</a-button></article><a-checkbox-group v-model:value="bulkChecks" class="quality-checks"><a-checkbox value="text">正文与否定语已逐项核对</a-checkbox><a-checkbox value="numbers">数字、单位和条件已逐项核对</a-checkbox><a-checkbox value="tables">表格与条款关系已逐项核对</a-checkbox><a-checkbox value="identity">身份、版本和共享范围已逐项核对</a-checkbox></a-checkbox-group><a-textarea v-model:value="bulkNote" :maxlength="500" :auto-size="{minRows:3,maxRows:7}" placeholder="记录本批准批次的质量核对结果与限制"/><a-button type="primary" :disabled="busy||bulkChecks.length!==4||bulkNote.trim().length<3||!selectedItems.length" :loading="busy" @click="confirmBulkQuality">保存所选质量核对</a-button><a-button :disabled="busy||bulkNote.trim().length<3||!selectedItems.length" @click="holdBulkQuality">保留所选待复核</a-button><a-alert v-if="error" type="error" :message="error"/></a-drawer>
   <a-drawer :open="feedbackOpen" title="处理员工反馈" width="min(520px, 100vw)" root-class-name="kb-drawer kb-scope" @close="feedbackOpen=false"><template v-if="selectedFeedback"><h2>{{selectedFeedback.category}}</h2><p>{{selectedFeedback.note}}</p><p class="kb-muted">回复只向提交人和维护人展示。</p><a-textarea v-model:value="reply" :rows="5" :maxlength="500" placeholder="填写处理结果或回复…"/><div class="kb-drawer-actions"><a-button :disabled="busy" @click="reviewFeedback('In Review')">标记处理中</a-button><a-button type="primary" :disabled="busy||!reply.trim()" :loading="busy" @click="reviewFeedback('Resolved')">回复并完成</a-button></div><a-alert v-if="error" type="error" :message="error"/></template></a-drawer>
  </div>
 </template>
 <style scoped>
-.funnel-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:24px}.funnel-grid h2{font-size:20px;margin:0 0 16px}.funnel-grid dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0}.funnel-grid dl>div{min-width:0}.funnel-grid dt{font-size:12px;color:var(--hbos-text-muted)}.funnel-grid dd{font-size:22px;margin:4px 0 0}.bulk-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0}.maintenance-page{min-width:0}.operation-reason{display:grid;gap:8px;margin:20px 0;font-size:14px}.version-label{display:grid;gap:8px;margin:20px 0}.advanced-row{display:flex;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--hbos-border-default);font-size:14px}.advanced-row>span{min-width:0;overflow-wrap:anywhere}.kb-progress-record{display:grid;grid-template-columns:1fr auto;gap:16px;padding:24px;background:#f4f8fa;border-radius:16px;margin-top:24px;font-size:14px}.progress-item{margin:24px 0}.quality-fragment{border-left:3px solid var(--hbos-brand-aqua);padding:16px;margin:16px 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px;line-height:28px;background:#f7f9fc}.quality-fragment small{display:block;color:var(--hbos-text-muted);font-size:12px;margin-top:8px}.quality-checks{display:flex;flex-direction:column;gap:12px;margin:24px 0}.quality-checks+.ant-input{margin-bottom:24px}.kb-upload-body>.ant-checkbox-wrapper{margin-top:20px}.kb-upload-body>label{font-size:14px}.kb-file-picker:focus-within{outline:2px solid var(--hbos-brand-aqua);outline-offset:3px}.kb-drawer label .ant-input{margin-top:12px}.kb-list-toolbar h2{font-size:20px;line-height:28px;margin:0}
+.funnel-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:24px}.funnel-grid h2{font-size:20px;margin:0 0 16px}.funnel-grid dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0}.funnel-grid dl>div{min-width:0}.funnel-grid dt{font-size:12px;color:var(--hbos-text-muted)}.funnel-grid dd{font-size:22px;margin:4px 0 0}.bulk-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0}.maintenance-page{min-width:0}.kb-maintenance-lookup{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 12px}.kb-maintenance-lookup>.ant-input-search{flex:1 1 320px;min-width:0}.operation-reason{display:grid;gap:8px;margin:20px 0;font-size:14px}.version-label{display:grid;gap:8px;margin:20px 0}.advanced-row{display:flex;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--hbos-border-default);font-size:14px}.advanced-row>span{min-width:0;overflow-wrap:anywhere}.kb-progress-record{display:grid;grid-template-columns:1fr auto;gap:16px;padding:24px;background:#f4f8fa;border-radius:16px;margin-top:24px;font-size:14px}.progress-item{margin:24px 0}.quality-fragment{border-left:3px solid var(--hbos-brand-aqua);padding:16px;margin:16px 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px;line-height:28px;background:#f7f9fc}.quality-fragment small{display:block;color:var(--hbos-text-muted);font-size:12px;margin-top:8px}.quality-checks{display:flex;flex-direction:column;gap:12px;margin:24px 0}.quality-checks+.ant-input{margin-bottom:24px}.kb-upload-body>.ant-checkbox-wrapper{margin-top:20px}.kb-upload-body>label{font-size:14px}.kb-file-picker:focus-within{outline:2px solid var(--hbos-brand-aqua);outline-offset:3px}.kb-drawer label .ant-input{margin-top:12px}.kb-list-toolbar h2{font-size:20px;line-height:28px;margin:0}
 .batch-import-panel h2{font-size:20px;margin:0 0 8px}.batch-import-panel h3{font-size:16px;margin:24px 0 8px}.batch-manifest-picker{display:flex;flex-direction:column;gap:4px;padding:20px;border:1px dashed var(--hbos-border-default);border-radius:16px;cursor:pointer;margin:16px 0}.batch-manifest-picker:focus-within{outline:2px solid var(--hbos-brand-aqua);outline-offset:3px}.batch-manifest-picker input{position:absolute;width:1px;height:1px;opacity:0}.batch-manifest-picker span{font-size:12px;color:var(--hbos-text-muted)}.batch-manifest-text{margin:8px 0 16px}.batch-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}.batch-summary{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:16px;background:#f4f8fa;border-radius:16px;margin:12px 0;font-size:13px}.batch-digest{overflow-wrap:anywhere;font-size:11px;color:var(--hbos-text-muted);width:100%}.batch-count{white-space:nowrap}.batch-plan-row,.batch-progress-row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--hbos-border-default)}.batch-plan-main{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}.batch-block{color:#b44}.batch-submit{display:grid;gap:12px;margin:20px 0;max-width:520px}.batch-submit label,.batch-actions label{display:grid;gap:6px;font-size:13px}.batch-receipt article{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:13px}.batch-receipt code{overflow-wrap:anywhere}.batch-progress-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:20px}.batch-progress-head h3{margin:0}.batch-progress-head span{font-size:13px;color:var(--hbos-text-muted);overflow-wrap:anywhere}.batch-actions{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:16px 0}.batch-actions label{min-width:220px}
 @media(max-width:900px){.funnel-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.kb-progress-record{padding:16px;gap:12px}.advanced-row{flex-wrap:wrap}}

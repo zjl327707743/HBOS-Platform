@@ -25,6 +25,11 @@ ERRORS = {
     "BATCH_PLAN_BLOCKED": (409,"预演清单仍有冲突、异常或不可编排项，请修正后重新预演。",False),
     "BATCH_PLAN_STALE": (409,"预演与当前资料状态已不一致，请重新预演后再提交。",True),
     "BATCH_DERIVATIVE_ROOT_UNCONFIGURED": (503,"批量入库的派生文件共享目录尚未配置，提交未执行。",False),
+    # File/plan size limits are separate decisions: a source-file limit is not
+    # a reverse-proxy body limit and not the manifest body limit.
+    "SOURCE_SIZE_LIMIT_EXCEEDED": (413,"资料原件超过当前允许的单文件上限，请按配置上限处理后重试。",False),
+    "BATCH_SOURCE_SIZE_LIMIT_EXCEEDED": (413,"本批原件的总字节数超过批量上限，请拆分为更小的批次。",False),
+    "MANIFEST_SIZE_LIMIT_EXCEEDED": (413,"清单文件体量超过独立上限，请拆分清单；该上限与原件尺寸无关。",False),
     "IDENTITY_CONFLICT": (409,"文件与现有身份或当前版本冲突，请选择明确的换版关系。",False),
     "QUALITY_REQUIRED": (409,"请先完成本版本的质量核对。",False),
     "IMPORT_BUDGET_BLOCKED": (503,"解析费用待核验或预算不可用，解析已暂停；质量核对、发布和下架仍可操作。",False),
