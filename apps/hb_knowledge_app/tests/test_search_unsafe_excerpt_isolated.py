@@ -14,7 +14,13 @@ import logging
 import sys
 from types import ModuleType, SimpleNamespace
 
+import importlib.util
+
 import pytest
+
+if importlib.util.find_spec('knowledge_service') is None:
+    pytest.skip('requires hbos_knowledge_service package; the app-only gate has no service wheel (integration run covers it)',
+                allow_module_level=True)
 
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
 from hb_knowledge_app.hb_knowledge.execution_plan import Binding, Client

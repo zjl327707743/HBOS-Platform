@@ -9,6 +9,13 @@ import pytest
 
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
 
+import importlib.util
+
+
+def _requires_service():
+    if importlib.util.find_spec('knowledge_service') is None:
+        pytest.skip('requires hbos_knowledge_service package; covered by the joint service integration run')
+
 
 def install_framework(monkeypatch, user='maintainer@example.test'):
     monkeypatch.setitem(sys.modules, 'pymysql', ModuleType('pymysql'))
@@ -110,6 +117,7 @@ def registry_for(items, *, department='production', status='uploaded'):
 
 
 def test_replaying_one_digest_never_registers_or_enqueues_twice(monkeypatch, tmp_path):
+    _requires_service()
     source, cfg = workspace(tmp_path)
     batch, maintenance, frappe, state, calls = load_modules(monkeypatch, cfg)
     entries = [('批量%02d.md' % index, ['第%d页正文' % index], {}) for index in range(5)]
@@ -168,6 +176,7 @@ def test_replaying_one_digest_never_registers_or_enqueues_twice(monkeypatch, tmp
 
 
 def test_duplicate_items_register_an_audit_batch_without_a_job(monkeypatch, tmp_path):
+    _requires_service()
     source, cfg = workspace(tmp_path)
     batch, maintenance, frappe, state, calls = load_modules(monkeypatch, cfg)
     pages = ['重复正文']
