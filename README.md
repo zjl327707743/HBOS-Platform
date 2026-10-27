@@ -1,5 +1,8 @@
 # 新乡海滨智能运营管理平台
 
+> **2026-10-27 R6 只读 DTO / CODE_REVIEW_CANDIDATE**：#62/#61 已正常集成，实际产品基线 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。Owner 已授权独立补齐本人岗位、审计筛选和脱敏详情；本分支仅含三个后端文件、合同测试及文档，前端另在 PR #63。Python 3.11/3.12 各 261 测试 PASS；真实 Site/HTTP 联调与固定 SHA 合并仍待完成。未生产上线，`TEAM_PULL_READY=PENDING`。见 [本轮主记录](docs/milestones/Portal_R6_只读DTO合同补齐.md)。下列旧状态按日期保留历史含义。
+
+
 ## 当前集成状态 — 2026-10-19
 
 **四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](docs/PROJECT_STATUS.md)。

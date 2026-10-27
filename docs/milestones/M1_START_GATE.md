@@ -1,5 +1,8 @@
 # M1 启动门禁
 
+> **2026-10-27 R6 只读 DTO / CODE_REVIEW_CANDIDATE**：#62/#61 已正常集成，实际产品基线 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。Owner 已授权独立补齐本人岗位、审计筛选和脱敏详情；本分支仅含三个后端文件、合同测试及文档，前端另在 PR #63。Python 3.11/3.12 各 261 测试 PASS；真实 Site/HTTP 联调与固定 SHA 合并仍待完成。未生产上线，`TEAM_PULL_READY=PENDING`。见 [本轮主记录](Portal_R6_只读DTO合同补齐.md)。下列旧状态按日期保留历史含义。
+
+
 ## PR #21 最终 Gate — 2026-10-01
 
 FINAL_REVIEW_BLOCKED：既有原生 MFA 跨请求证明 blocker 已最小修复；新 HEAD 的全部 CI/构建/历史扫描仍须最终核对。Browser final-submit 三项尚未实际完成，Owner 最新无破坏验收为 WAITING_OWNER_ACCEPTANCE。只有两项实际 PASS 且其余 Gate 全通过才 squash #21 到产品分支；#22 已冻结待安全承接，#15/main 不合并。真人验证码/新员工开户/高风险交接/实体手机软键盘未执行仍 NOT_RUN，按本轮授权不统一阻塞产品分支合入。
