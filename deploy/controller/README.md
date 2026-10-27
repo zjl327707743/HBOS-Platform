@@ -43,7 +43,8 @@ environment variables.
 `native_python`, `native_env_file`, `python_paths`. Optional:
 `native_project_base`, `native_deploy_base`, `nltk_data`, `native_library_path`,
 `heartbeat_path`, `heartbeat_interval` (5..300 s), `idle_backoff_start`,
-`idle_backoff_max`, `idle_backoff_factor`.
+`idle_backoff_max`, `idle_backoff_factor`, `max_job_seconds` (default 1500, bounded
+300..14400; raise only for the reviewed >64MiB controlled local derivative path).
 
 `private_work` must be a directory the controller host owns (mode `0700`). It is
 **also the shared derivative root** (`maintenance_derivative_root` on the BFF
