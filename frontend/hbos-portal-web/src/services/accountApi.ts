@@ -4,6 +4,7 @@ import { callFrappeMethod, callFrappePostMethod } from './frappeClient'
 export interface ProofStatus { valid: boolean; expires_in: number; method: string | null }
 export interface SecurityStatus {
   user: string; login_name: string; has_password: boolean; password_login_available?: boolean; feishu_bound: boolean
+  identity?: { display_name: string; employee_number: string; department: string; login_name: string }
   feishu_configured: boolean; feishu_stepup_available: boolean; desk_access: boolean
   administrator: boolean; administrator_link_enabled: boolean; mail_recovery_available: boolean
   can_admin_recover: boolean

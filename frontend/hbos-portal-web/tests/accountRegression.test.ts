@@ -46,9 +46,19 @@ beforeEach(() => {
   changes.getChange.mockImplementation(async (operation: string) => ({ operation, kind: 'rebind', expires_in: 600, state: 'Pending' }))
   session.bootstrap.mockResolvedValue(undefined); login.mockResolvedValue({ message: 'Logged In' })
 })
-afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; document.body.innerHTML = ''; vi.useRealTimers() })
+afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; document.body.innerHTML = ''; sessionStorage.clear(); vi.useRealTimers() })
 
 describe('confirmed account UI regressions', () => {
+  it('requires a new verification when an action opts out of adopting an existing server proof', async () => {
+    api.getSecurity.mockResolvedValue({ ...security, proof: { valid: true, expires_in: 250, method: 'password' } })
+    api.reauthenticate.mockResolvedValue({ verified: true, expires_in: 300 })
+    const wrapper = mount(OwnAccountVerification, { props: { adoptExisting: false }, global: { plugins: [Antd] } })
+    wrappers.push(wrapper); await flushPromises()
+    expect(wrapper.emitted('verified')).toBeUndefined()
+    await wrapper.get('input[autocomplete="current-password"]').setValue('synthetic current password')
+    await clickText(wrapper, '验证本人身份')
+    expect(wrapper.emitted('verified')).toEqual([[{ valid: true, expires_in: 300, method: 'password' }]])
+  })
   it('R2-05: the previous logout notice is consumed when a new password login starts', async()=>{
     let finish!:(v:unknown)=>void; login.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
     const {wrapper}=await render(LoginView,'/hbos/login?status=signed_out')
