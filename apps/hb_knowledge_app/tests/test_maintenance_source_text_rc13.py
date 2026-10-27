@@ -144,10 +144,10 @@ def test_known_private_use_glyph_is_mapped_with_an_audit_record():
 
 
 def test_unknown_private_use_glyph_is_held_not_deleted():
-    result = run(['符号\uf081未知含义'])
+    result = run(['符号\uf0ff未知含义'])
     assert result['class'] == 'HOLD_REVIEW'
     assert result['holds'][0]['rule'] in ('PUA_GLYPH_UNMAPPED', 'INVARIANT_DIGITS_CHANGED')
-    assert result['pages'] == ['符号\uf081未知含义']
+    assert result['pages'] == ['符号\uf0ff未知含义']
 
 
 def test_replacement_character_is_held_even_when_gate_would_otherwise_pass():
@@ -234,8 +234,9 @@ def test_invalid_pages_input_is_rejected():
 
 def test_audited_wingdings_point_markers_map_to_circled_numbers():
     from hb_knowledge_app.hb_knowledge.maintenance_source_text import convert_pages, derived_source_findings
-    converted, changes = convert_pages(['Figure 3.1 points \uf081 and \uf082; step \uf083; row \uf084.'])
-    text = converted[0]
+    result = convert_pages(['Figure 3.1 points \uf081 and \uf082; step \uf083; row \uf084.'],
+                           page_checks={'quality_pass': True})
+    text = result['pages'][0]
     assert '①' in text and '②' in text and '③' in text and '④' in text
-    assert not derived_source_findings('\n'.join(converted))
-    assert changes
+    assert not derived_source_findings(text)
+    assert result['changes']
