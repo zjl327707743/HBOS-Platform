@@ -144,16 +144,28 @@ def _plausible(key: str, value) -> bool:
 
     所以：形状不对就当没有缓存，重新取一次。宁可慢 100 秒，不要白屏。
     """
+    # ⚠️ 先判 `ai` 再判 dict —— `ai` 的缓存值是**列表**（飞书记录数组），
+    #    如果先写 `if not isinstance(value, dict): return False`，
+    #    它永远到不了自己的分支，每轮都判「结构异常」→ 既不恢复也不落盘，
+    #    等于这个缓存从来没生效过（实测踩到，日志里反复刷「结构异常」）。
+    if key == "ai":
+        return isinstance(value, list)
     if not isinstance(value, dict):
         return False
     if key == "board":
-        return isinstance(value.get("rows"), list) and isinstance(
-            value.get("anomaly"), dict
+        # ⚠️ `anomaly` 不能只判 `isinstance(dict)` —— **`{}` 也是 dict**，
+        #    而那次白屏的缓存正是 `{"rows": [], "anomaly": {}}`：
+        #    过了 dict 检查，前端 `windowStart.slice()` 却炸了。
+        #    必须验到前端真正用到的两个字段。
+        anomaly = value.get("anomaly")
+        return (
+            isinstance(value.get("rows"), list)
+            and isinstance(anomaly, dict)
+            and isinstance(anomaly.get("byWorkshop"), list)
+            and isinstance(anomaly.get("windowStart"), str)
         )
     if key == "quality":
         return isinstance(value.get("byLabel"), list)
-    if key == "ai":
-        return isinstance(value, list)
     return True
 
 
@@ -590,9 +602,13 @@ def ai_analysis(full: bool = False) -> dict:
     """
     _require_feishu()
     try:
+        # AI 结果由定时任务每天 16:30 写一次，不随取随变 —— 缓存按
+        # `AI_CACHE_TTL_SECONDS`（3 天）走，不跟看板的 12 小时节奏。
+        # 见 config 里那段说明：为什么不永久（任务可能连续失败）。
         raw = _cached(
             "ai",
             lambda: feishu.list_records(contract.BASE_AI, contract.AI_TABLE),
+            ttl=config.AI_CACHE_TTL_SECONDS,
         )
     except feishu.FeishuError as exc:
         log.error("AI 结果读取失败 code=%s", exc.code)
