@@ -18,7 +18,7 @@
 
 保留合同：User/Employee 区分；FOLLOW_DEPARTMENT/DIRECT/NONE；SELF/RESPONSIBLE_DEPARTMENTS/RESPONSIBLE_COMPANIES 配对；个人 deny、应用暂停与账号停用分开；原 CSRF、MFA、proof、版本/context、request_id、服务端管理范围与会话清理。
 
-开发前 Portal 37 文件 / 302 测试全部 PASS。开发后 Portal 39 文件 / 321 测试 PASS；包含真实 Ant Modal 发布确认合同测试及身份边界缓存清理测试。32 个本轮改动的 TS/Vue 文件 ESLint PASS，TypeScript 与生产模式 Vite 初构建 PASS；最终固定提交的完整构建及 CI 另行核对，不能用组件测试替代权限 UAT。全库 lint 仍有 7 个既有 unused-vars 错误，涉及未修改的库存/客户端/旧权限文件，未以此声称全库 lint PASS。
+开发前 Portal 37 文件 / 302 测试全部 PASS。开发后 Portal 39 文件 / 321 测试 PASS；包含真实 Ant Modal 发布确认合同测试及身份边界缓存清理测试。33 个本轮改动的 TS/Vue 文件 ESLint PASS，TypeScript 与生产模式 Vite 初构建 PASS；最终固定提交的完整构建及 CI 另行核对，不能用组件测试替代权限 UAT。全库 lint 仍有 7 个既有 unused-vars 错误，涉及未修改的库存/客户端/旧权限文件，未以此声称全库 lint PASS。
 
 ## 只读接口接入与剩余边界
 
