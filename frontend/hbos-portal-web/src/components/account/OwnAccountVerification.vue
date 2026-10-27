@@ -17,7 +17,7 @@
   </section>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref, useId, onBeforeUnmount } from 'vue'
+import { computed, onMounted, ref, useId, onBeforeUnmount, onDeactivated } from 'vue'
 import { getSecurity, reauthenticate, requestFeishuCode, verifyFeishuCode, type SecurityStatus, type ProofStatus } from '@/services/accountApi'
 import { useAccountProof } from '@/composables/useAccountProof'
 import { accountErrorMessage } from '@/services/accountErrors'
@@ -44,6 +44,7 @@ async function verify() {
   } catch (e) { if (!disposed && version === generation) { clearSecrets(); proof.invalidate(); error.value = accountErrorMessage(e, '本人验证未通过，请核对当前密码或验证码。') } }
   finally { if (!disposed && version === generation) busy.value = false }
 }
+onDeactivated(() => { generation++; clearSecrets(); proof.invalidate(); busy.value = false; emit('invalidated') })
 onMounted(load)
 onBeforeUnmount(() => { disposed = true; generation++; clearSecrets() })
 </script>

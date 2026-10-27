@@ -11,13 +11,24 @@
       </div>
     </button>
 
-    <button class="global-search" type="button" aria-label="打开全局搜索" :disabled="sessionBlocked" @click="$emit('open-command')">
+    <nav v-if="managementExperience" class="r6-global-nav" aria-label="工作台导航" :inert="sessionBlocked || undefined">
+      <RouterLink to="/hbos" :class="{ active: route.path === '/hbos' }"><HomeOutlined />首页</RouterLink>
+      <RouterLink to="/hbos/work"><UnorderedListOutlined />我的工作</RouterLink>
+      <RouterLink to="/hbos/apps"><AppstoreOutlined />应用中心</RouterLink>
+      <RouterLink v-if="hasManagementAccess()" to="/hbos/admin" :class="{ active: route.path.startsWith('/hbos/admin') }"><SafetyCertificateOutlined />管理中心</RouterLink>
+    </nav>
+    <button v-else class="global-search" type="button" aria-label="打开全局搜索" :disabled="sessionBlocked" @click="$emit('open-command')">
       <SearchOutlined />
       <span>搜索应用与业务事项…</span>
       <kbd>⌘ K</kbd>
     </button>
 
     <div class="header-actions">
+      <a-dropdown v-if="managementExperience" :trigger="['click']" class="r6-mobile-global">
+        <a-button aria-label="打开工作台导航"><MenuOutlined /></a-button>
+        <template #overlay><a-menu><a-menu-item @click="router.push('/hbos')">首页</a-menu-item><a-menu-item @click="router.push('/hbos/work')">我的工作</a-menu-item><a-menu-item @click="router.push('/hbos/apps')">应用中心</a-menu-item><a-menu-item v-if="hasManagementAccess()" @click="router.push('/hbos/admin')">管理中心</a-menu-item></a-menu></template>
+      </a-dropdown>
+      <a-button v-if="managementExperience" class="r6-motion-toggle" type="text" :aria-pressed="motionPaused" :aria-label="motionPaused ? '恢复背景动效' : '暂停背景动效'" @click="$emit('toggle-motion')"><PlayCircleOutlined v-if="motionPaused" /><PauseCircleOutlined v-else /></a-button>
       <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" /><NotificationCenter v-if="portalDataSource === 'mock'" /></div>
 
       <div v-if="groupLogoUrl" class="group-brand" aria-label="健康元集团标识">
@@ -48,7 +59,7 @@
           <a-menu>
             <a-menu-item disabled>{{ currentIdentity?.login_name || '当前登录账号' }}</a-menu-item>
             <a-menu-item v-if="currentIdentity?.department" disabled>{{ currentIdentity.department }}</a-menu-item>
-            <a-menu-item @click="$router.push('/hbos/profile')">我的与设置</a-menu-item>
+            <a-menu-item @click="$router.push('/hbos/profile')">个人中心</a-menu-item>
             <a-menu-divider />
             <a-menu-item :disabled="signingOut" @click="handleLogout">退出登录</a-menu-item>
           </a-menu>
@@ -66,9 +77,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { QuestionCircleOutlined, SearchOutlined, HomeOutlined, UnorderedListOutlined, AppstoreOutlined, SafetyCertificateOutlined, MenuOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons-vue'
 import AppSwitcher from '@/components/global/AppSwitcher.vue'
 import NotificationCenter from '@/components/global/NotificationCenter.vue'
 import type { AppManifestDTO } from '@/contracts/portal'
@@ -78,6 +89,7 @@ import { portalDataSource } from '@/services/portalProvider'
 import { usePortalStore } from '@/stores/portal'
 
 const router = useRouter()
+const route = useRoute()
 const portal = usePortalStore()
 const signingOut = ref(false)
 const helpOpen = ref(false)
@@ -106,9 +118,11 @@ defineProps<{
   apps: AppManifestDTO[]
   contextLabel?: string
   sessionBlocked?: boolean
+  managementExperience?: boolean
+  motionPaused?: boolean
 }>()
 
-defineEmits<{ (e: 'open-command'): void }>()
+defineEmits<{ (e: 'open-command'): void; (e: 'toggle-motion'): void }>()
 </script>
 
 <style scoped>.current-identity{display:grid;gap:2px;text-align:right;font-size:14px}.current-identity strong{font-size:16px}.current-identity span{color:var(--hbos-text-secondary)}@media(max-width:700px){.current-identity{max-width:120px}.current-identity strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}</style>
