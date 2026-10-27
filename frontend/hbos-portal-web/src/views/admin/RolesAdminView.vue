@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { Modal, message } from 'ant-design-vue'
 import { TeamOutlined, UserOutlined, CalendarOutlined, CheckCircleFilled, MinusCircleOutlined, SearchOutlined, EditOutlined } from '@ant-design/icons-vue'
@@ -67,7 +67,10 @@ async function restoreDraft() {
   catch (e) { error.value = iamMessage(e); mustRead.value = true; proof.invalidate() }
   finally { busy.value = false }
 }
-onBeforeRouteLeave(leave)
+// KeepAlive retains the same subject's unsaved draft across workspace/app tabs.
+// A role change or explicit cancel still asks before discarding it.
+onBeforeRouteLeave(() => !busy.value)
+onDeactivated(() => { proof.invalidate(); preview.value = null; requestId = '' })
 onMounted(() => load())
 onBeforeUnmount(() => { disposed = true; generation++; proof.invalidate(); checked.value = []; preview.value = null })
 useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })

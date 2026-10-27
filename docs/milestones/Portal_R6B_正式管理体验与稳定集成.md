@@ -18,7 +18,7 @@
 
 保留合同：User/Employee 区分；FOLLOW_DEPARTMENT/DIRECT/NONE；SELF/RESPONSIBLE_DEPARTMENTS/RESPONSIBLE_COMPANIES 配对；个人 deny、应用暂停与账号停用分开；原 CSRF、MFA、proof、版本/context、request_id、服务端管理范围与会话清理。
 
-开发前 Portal 37 文件 / 302 测试全部 PASS。开发后 Portal 39 文件 / 321 测试 PASS；包含真实 Ant Modal 发布确认合同测试及身份边界缓存清理测试。33 个本轮改动的 TS/Vue 文件 ESLint PASS，TypeScript 与生产模式 Vite 初构建 PASS；最终固定提交的完整构建及 CI 另行核对，不能用组件测试替代权限 UAT。全库 lint 仍有 7 个既有 unused-vars 错误，涉及未修改的库存/客户端/旧权限文件，未以此声称全库 lint PASS。
+开发前 Portal 37 文件 / 302 测试全部 PASS。开发后 Portal 39 文件 / 322 测试 PASS；包含真实 Ant Modal 发布确认合同测试及身份边界缓存清理测试。33 个本轮改动的 TS/Vue 文件 ESLint PASS，TypeScript 与生产模式 Vite 初构建 PASS；最终固定提交的完整构建及 CI 另行核对，不能用组件测试替代权限 UAT。全库 lint 仍有 7 个既有 unused-vars 错误，涉及未修改的库存/客户端/旧权限文件，未以此声称全库 lint PASS。
 
 ## 只读接口接入与剩余边界
 
@@ -39,10 +39,24 @@ G4 需要对新的固定 R6 提交重新准备隔离验收与部署授权；此�
 
 授权来源为正式任务书 E1/E2/F1：新增安全后端合同须独立受控 PR；部署、Site 迁移或改数据前须核对保全、恢复和许可。上述两个事项均不包含 R6 合并、RC 标签或团队发布。
 
-前端在当前源分支完成 321 项离线测试和 TypeScript 检查；受控角色/审计 Site 测试尚未执行。未来组合分支只是测试输入，不能当作实际产品合并 SHA。
+前端在当前源分支完成 322 项离线测试和 TypeScript 检查；受控角色/审计 Site 测试尚未执行。未来组合分支只是测试输入，不能当作实际产品合并 SHA。
 
 ## G4 真实浏览器缺陷与修复
 
 `97e0272` 在 1920×898 / DPR 1 的真实 Chrome 页面发现个人中心身份卡片继承旧 .profile-card 的 top:98px，导致与账号安全卡片重叠。R6 卡片显式 top:auto，保留正常文档流；同时将普通工作身份标签从原生 HBOS User 改为真实关联状态对应的员工账号/工作账号。固定系统 Administrator 标签和能力判断保持原样。需用新 bundle 在同一浏览器尺寸核对边界、卡片不重叠及岗位文字，CSS 单测不能代替该验收。
 
 真实 HTTP 初始检查中，普通员工管理能力缺省拒绝、公司外员工/审计列表/详情 403、人事公司内范围与分页 total、审计日期操作结果组合筛选均通过。本人和人事岗位为空已定位为独立 PR #64 的真实解析投影缺陷；修复在该后端分支完成。当前旧组合仍为 FAIL，不计完整 G4 PASS。
+
+## G4 组合 af0434e 的实际证据与第二次修复
+
+测试组合 `af0434e4b997507277eb2fd8a0dbb79dcdabd449`，build `08ed960ef3fc8733af15`，968 文件 manifest 和 777 源码文件逐字匹配提交。四个 workflow 共 7 jobs SUCCESS；实际产品仍 22，af 是隔离测试组合。个人中心岗位与卡片不重叠复测通过。20 项真实 HTTP 身份/读取/拒绝通过；角色写测合计 38 项通过，包含真实 password proof、发布、SELF、D2/C1 正向及 D1/C2 拒绝、部门默认、本人修改禁止、409、草稿不生效、发布撤权、恢复草稿不自动发布、重新发布恢复。
+
+首轮部门历史 403 是合成条件缺失：原生时区 Asia/Kolkata 未冻结，员工刚创建不能证明此前期间。保留负例后仅对 10 个 R6UAT fixture 显式设置合成历史创建时间 2026-09-01，并冻结现有原生时区用于归属；未切换时区、未变授权或真实数据。该合成历史不冒充真实员工历史证据。
+
+39 个真实 Chrome CSS 视口检查覆盖三管理页面的宽度/高度边界及 390 手机视口，截图/DOM 留存，无文档横向溢出、宽屏 1440 工作区、可用高度内等高面板；该检查不等于原生 200% 或物理手机。测试脚本自然流标志需使用实际 .r6-natural（首次写成 .r6-natural-flow），几何与截图有效，标志另行修正复测。
+
+浏览器实际发现 T08 未保存角色草稿切换时被丢弃确认阻挡。修复为 KeepAlive 同主体内保留草稿，写入中禁止离开；切换角色和显式取消仍确认放弃。deactivated 清 proof、预览和 request_id，返回需重新验证。新增实际 Router/KeepAlive 回归，322 tests / TypeScript / 受影响文件 ESLint PASS；须新 SHA bundle 复测 10 次标签和应用往返。
+
+G4 原始备份已恢复到 network:none 的全新专属数据库和站点卷：947 base tables、3 Users、2 标准密码记录、17 站点文件哈希一致，恢复密钥存在。首次脚本将 6 个 views 误计为 base table 已校准；保留失败记录。恢复卷停服保留，未在该恢复对启动应用。
+
+曾在角色并发写入时一次硬刷新出现 Frappe QueryDeadlockError 1020 页面 500，重试恢复；仍需定位和重建/并发复核，不以刷新成功宣称完全闭环。其他未执行项继续 NOT_RUN，不宣布 G4 全量通过。
