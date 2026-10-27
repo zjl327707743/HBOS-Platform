@@ -190,7 +190,7 @@ def switch(task,evidence,rollback=False,check_only=False,cycle="RC1",rollback_lo
         # anchored ordered read by default (N01).
         # Sixteenth switch: sanitized BFF ask-stage diagnostics (stage/code/type
         # only) to locate the N01 UPSTREAM_INVALID_RESULT failure point.
-        limit=29 if cycle=='RC13' else (3 if cycle=='RC11' else 2)
+        limit=31 if cycle=='RC13' else (3 if cycle=='RC11' else 2)
         if len(receipts)>=limit:raise RuntimeError('Bounded release-cycle switch budget consumed')
         for name,relative in [('hbos','hbos'),('service','knowledge_service'),('frontend','frontend_runtime')]:
             root=task/'work'/relative
