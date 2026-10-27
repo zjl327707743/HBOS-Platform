@@ -1,5 +1,10 @@
 # 新乡海滨智能运营管理平台
 
+> **仅供隔离组合测试，非产品合并**：前端 b6985cbaa50c33f8cfb09f760281f3e80a267a4e + 只读后端 024a7a7cb46ab36a4e1cbb6ba91ebcc38146ffa6。实际产品仍为 22b47dc；两个 PR 均未合并。
+
+> **2026-10-27 R6 只读 DTO / CODE_REVIEW_CANDIDATE**：#62/#61 已正常集成，实际产品基线 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。Owner 已授权独立补齐本人岗位、审计筛选和脱敏详情；只读来源分支仅含三个后端文件、合同测试及文档，前端另在 PR #63。Python 3.11/3.12 各 261 测试 PASS；真实 Site/HTTP 联调与固定 SHA 合并仍待完成。未生产上线，`TEAM_PULL_READY=PENDING`。见 [本轮主记录](docs/milestones/Portal_R6_只读DTO合同补齐.md)。下列旧状态按日期保留历史含义。
+
+
 > **2026-10-27 R6-B / G3_IMPLEMENTING**：#62 与 #61 已分别按 Owner 精确授权正常 Squash，实际产品基线为 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。实际提交四个 CI 作业通过。R6 从该 SHA 的 `feat/hbos-r6b-experience-v1` 实施，固定设计依据 R6-A2.2 / v1.3；G4 真实权限与浏览器验收、G5 独立审查及固定 SHA 合并、G6 统一构建/标签/团队发布尚未完成。`TEAM_PULL_READY=PENDING`，未生产上线。详见 [本轮主记录](docs/milestones/Portal_R6B_正式管理体验与稳定集成.md)。以下按日期保留的旧状态为历史。
 
 
