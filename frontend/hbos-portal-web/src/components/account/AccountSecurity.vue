@@ -1,13 +1,16 @@
 <template>
   <section class="setting-card glass-surface account-security">
-    <h3>账号与安全</h3><p>密码和飞书进入同一个账号，安全操作保留原有角色与业务资料。</p>
+    <h3>登录与安全</h3><p>选择适合你的登录方式，保护工作账号。</p>
     <a-alert v-if="error" :message="error" type="warning" show-icon role="alert" />
     <a-alert v-if="notice" :message="notice" type="success" show-icon role="status" />
     <a-skeleton v-if="loading && !status" active />
     <a-button v-if="!loading && (!status || stale)" size="large" :loading="busy" @click="load">重试读取账号状态</a-button>
     <template v-if="status">
-      <a-descriptions :column="1" size="small"><a-descriptions-item label="登录名">{{ status.login_name }}</a-descriptions-item><a-descriptions-item label="密码">{{ status.has_password ? (status.password_login_available === false ? '已设置 · 密码登录暂不可用' : '已设置') : '尚未设置' }}</a-descriptions-item><a-descriptions-item label="飞书">{{ status.feishu_bound ? (status.feishu_configured ? '已绑定' : '已绑定 · 渠道暂不可用') : '未绑定' }}</a-descriptions-item><a-descriptions-item label="邮箱恢复">{{ status.mail_recovery_available ? '可用' : '暂无可用恢复邮箱' }}</a-descriptions-item></a-descriptions>
-      <div class="account-buttons"><a-button size="large" :disabled="busy" @click="open('password')">{{ status.has_password ? '修改密码' : '设置密码' }}</a-button><a-button size="large" :disabled="busy" @click="open('feishu')">{{ status.feishu_bound ? '管理飞书绑定' : '绑定本人飞书' }}</a-button><a-button size="large" @click="router.push(status.administrator ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password')">找回密码与恢复</a-button></div>
+      <div class="r6-security-rows">
+        <div class="r6-security-row"><span class="r6-security-icon"><LockOutlined /></span><div class="r6-security-content"><div class="r6-security-title"><h4>登录密码</h4><StatusTag :tone="status.has_password && status.password_login_available !== false ? 'success' : 'warning'">{{ status.has_password ? status.password_login_available === false ? '密码登录暂不可用' : '已设置' : '尚未设置' }}</StatusTag></div><p>使用账号和密码登录；修改前需验证本人，并确认可用的恢复渠道。</p></div><a-button :disabled="busy || stale" @click="open('password')">{{ status.has_password ? '修改密码' : '设置密码' }} <RightOutlined /></a-button></div>
+        <div class="r6-security-row"><span class="r6-security-icon blue"><LinkOutlined /></span><div class="r6-security-content"><div class="r6-security-title"><h4>飞书登录</h4><StatusTag :tone="status.feishu_bound && status.feishu_configured ? 'success' : 'neutral'">{{ status.feishu_bound ? status.feishu_configured ? '已绑定' : '已绑定 · 渠道暂不可用' : status.feishu_configured ? '未绑定' : '暂未开放' }}</StatusTag></div><p>{{ status.feishu_bound ? '已绑定本人的飞书。可用渠道由站点的受控登录范围决定。' : '当前可用方式以账号状态为准；飞书仅在已开放的范围内可用。' }}</p></div><a-button :disabled="busy || stale" @click="open('feishu')">{{ status.feishu_bound ? '管理飞书绑定' : '查看登录方式' }} <RightOutlined /></a-button></div>
+        <div class="r6-security-row"><span class="r6-security-icon amber"><KeyOutlined /></span><div class="r6-security-content"><div class="r6-security-title"><h4>账号恢复</h4><StatusTag :tone="status.mail_recovery_available ? 'success' : 'warning'">{{ status.mail_recovery_available ? '恢复邮箱可用' : '暂无恢复邮箱' }}</StatusTag></div><p>忘记密码时，可使用已验证渠道，或联系管理员核对账号归属并协助恢复。</p></div><a-button @click="router.push(status.administrator ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password')">查看恢复方式 <RightOutlined /></a-button></div>
+      </div>
       <section v-if="panel" class="account-section" :aria-label="panelTitle">
         <div class="panel-heading"><h4>{{ panelTitle }}</h4><a-button :disabled="busy" @click="close">取消</a-button></div>
         <a-alert v-if="panel === 'feishu' && !status.feishu_configured" message="飞书登录服务当前不可用，请稍后重试；已有密码仍可使用。" type="info" show-icon />
@@ -28,6 +31,8 @@
   </section>
 </template>
 <script setup lang="ts">
+import { LockOutlined, LinkOutlined, KeyOutlined, RightOutlined } from '@ant-design/icons-vue'
+import StatusTag from '@/components/iam/StatusTag.vue'
 import { computed, onMounted, onBeforeUnmount, ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { getSecurity, startLink, setPassword, unlinkFeishu, adminIssueRecovery, type SecurityStatus, type RecoveryLink } from '@/services/accountApi'
