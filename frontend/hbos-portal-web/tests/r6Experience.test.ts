@@ -8,12 +8,12 @@ import Profile from '@/views/ProfileSettingsView.vue'
 import People from '@/views/admin/PeopleAdminView.vue'
 import { roleFeatureKey, roleScopeLabel, sameRoleFeatures } from '@/services/rolePresentation'
 import type { AppRole } from '@/services/iamRoles'
-const api = vi.hoisted(() => ({ loadRoles: vi.fn(), roleCommand: vi.fn(), getMyEmployeeStatus: vi.fn(), listPeople: vi.fn(), getEmployeeMetadata: vi.fn() }))
+const api = vi.hoisted(() => ({ loadRoles: vi.fn(), roleCommand: vi.fn(), getMyEmployeeStatus: vi.fn(), listPeople: vi.fn(), getEmployeeMetadata: vi.fn(), createEmployee: vi.fn() }))
 const actor = vi.hoisted(() => ({ id: 'hr@example.test', displayName: '合成人事管理员', avatarText: '合', roleLabel: '人事管理员' }))
 const permissions = vi.hoisted(() => new Set<string>())
 vi.mock('@/services/iamRoles', () => ({ loadRoles: api.loadRoles, roleCommand: api.roleCommand, assertRolePreview: (value: unknown) => value }))
 vi.mock('@/services/iamAccount', () => ({ getMyEmployeeStatus: api.getMyEmployeeStatus }))
-vi.mock('@/services/iamPeople', () => ({ listPeople: api.listPeople, getEmployeeMetadata: api.getEmployeeMetadata }))
+vi.mock('@/services/iamPeople', () => ({ listPeople: api.listPeople, getEmployeeMetadata: api.getEmployeeMetadata, createEmployee: api.createEmployee }))
 vi.mock('@/stores/portal', () => ({ usePortalStore: () => ({ user: actor, apps: [] }) }))
 vi.mock('@/services/iamAccess', () => ({ canIam: (cap: string) => permissions.has(cap), hasManagementAccess: () => true, iamMessage: (error: Error) => error.message }))
 const Verify = defineComponent({ emits: ['verified', 'invalidated'], template: '<button class="verify-test" @click="$emit(\'verified\', {valid:true,expires_in:120,method:\'password\'})">完成测试核验</button>' })
@@ -27,7 +27,15 @@ async function render(component: object, path: string) {
   const wrapper = mount(component, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify, AccountSecurity: true, AppDiagnostics: true, EmployeeDrawer: true } } })
   wrappers.push(wrapper); await flushPromises(); return wrapper
 }
-async function click(w: VueWrapper, text: string) { const native = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.includes(text)); const button = w.findAll('button').find(item => item.text().includes(text)) || (native ? new DOMWrapper(native) : undefined); expect(button, text).toBeDefined(); await button!.trigger('click'); await flushPromises() }
+function action(w: VueWrapper, text: string) {
+  const modal = [...document.querySelectorAll<HTMLElement>('.ant-modal-wrap')].reverse().find(item => item.style.display !== 'none')
+  const native = modal ? [...modal.querySelectorAll('button')].find(item => item.textContent?.includes(text)) : undefined
+  return native ? new DOMWrapper(native) : w.findAll('button').find(item => item.text().includes(text))
+}
+async function click(w: VueWrapper, text: string) {
+  await vi.waitFor(() => expect(action(w, text), text).toBeDefined())
+  await action(w, text)!.trigger('click'); await flushPromises()
+}
 beforeEach(() => {
   vi.resetAllMocks(); permissions.clear(); permissions.add('iam.roles.read'); permissions.add('iam.roles.edit'); permissions.add('iam.roles.publish')
   actor.id = 'hr@example.test'; api.loadRoles.mockResolvedValue([structuredClone(baseRole)])
@@ -62,37 +70,39 @@ describe('R6 formal data and role contracts', () => {
     wrappers.push(w); await flushPromises()
     await click(w, '编辑功能'); await w.findAll('input[type=checkbox]')[0]!.setValue(false)
     await w.get('input[aria-label="搜索角色功能"]').setValue('查看')
-    await click(w, '完成测试核验')
-    expect(w.findAll('button').find(item => item.text() === '保存草稿')!.attributes('disabled')).toBeUndefined()
+    await click(w, '保存草稿'); await click(w, '完成测试核验')
+    expect(action(w, '确认保存草稿')!.attributes('disabled')).toBeUndefined()
     await router.push('/other'); await flushPromises(); expect(w.text()).toContain('其他工作')
     await router.push('/roles'); await flushPromises()
     expect((w.findAll('input[type=checkbox]')[0]!.element as HTMLInputElement).checked).toBe(false)
     expect((w.get('input[aria-label="搜索角色功能"]').element as HTMLInputElement).value).toBe('查看')
-    expect(w.findAll('button').find(item => item.text() === '保存草稿')!.attributes('disabled')).toBeDefined()
+    await click(w, '保存草稿')
+    expect(action(w, '确认保存草稿')!.attributes('disabled')).toBeDefined()
     expect(api.loadRoles).toHaveBeenCalledTimes(1)
     expect(api.roleCommand).not.toHaveBeenCalled()
   })
   it('saves only registered selected pairs with the current draft version, without publishing', async () => {
     const w = await render(Roles, '/hbos/admin/roles'); await click(w, '编辑功能')
-    await w.findAll('input[type=checkbox]')[0]!.setValue(false); await click(w, '完成测试核验'); await click(w, '保存草稿')
+    await w.findAll('input[type=checkbox]')[0]!.setValue(false); await click(w, '保存草稿'); await click(w, '完成测试核验'); await click(w, '确认保存草稿')
     expect(api.roleCommand).toHaveBeenCalledExactlyOnceWith('save_role_draft', { role_key: 'clerk', expected_draft_version: 4, features: [board], request_id: expect.any(String) })
   })
   it.each([409, 500])('preserves draft and requires a read plus new proof after a %i write failure', async status => {
     api.roleCommand.mockRejectedValueOnce(Object.assign(new Error('需核对服务端结果'), { status }))
-    const w = await render(Roles, '/hbos/admin/roles'); await click(w, '编辑功能'); await w.findAll('input[type=checkbox]')[0]!.setValue(false); await click(w, '完成测试核验'); await click(w, '保存草稿')
+    const w = await render(Roles, '/hbos/admin/roles'); await click(w, '编辑功能'); await w.findAll('input[type=checkbox]')[0]!.setValue(false); await click(w, '保存草稿'); await click(w, '完成测试核验'); await click(w, '确认保存草稿')
     expect((w.findAll('input[type=checkbox]')[0]!.element as HTMLInputElement).checked).toBe(false)
     expect(w.findAll('button').find(item => item.text() === '保存草稿')!.attributes('disabled')).toBeDefined()
-    await click(w, '核对服务端结果'); expect((w.findAll('input[type=checkbox]')[0]!.element as HTMLInputElement).checked).toBe(false)
-    expect(w.findAll('button').find(item => item.text() === '保存草稿')!.attributes('disabled')).toBeDefined()
+    await click(w, '核对最新结果'); expect((w.findAll('input[type=checkbox]')[0]!.element as HTMLInputElement).checked).toBe(false)
+    await click(w, '保存草稿')
+    expect(action(w, '确认保存草稿')!.attributes('disabled')).toBeDefined()
     expect(api.roleCommand).toHaveBeenCalledTimes(1)
   })
   it('publishes only after server preview, using the exact release, context and draft version', async () => {
     const context = 'a'.repeat(64); api.roleCommand.mockResolvedValueOnce({ changed: true, context_revision: context, reference_count: 2, effective_changed_count: 1, members: [] }).mockResolvedValueOnce({})
-    const w = await render(Roles, '/hbos/admin/roles'); await click(w, '预览发布影响'); expect(w.findComponent({name:'ChangeReview'}).props('open')).toBe(true); await new Promise(resolve => setTimeout(resolve, 80)); await flushPromises(); const button = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '确认发布')!; expect(button).toBeDefined(); expect(button.disabled).toBe(true); await click(w, '完成测试核验'); await click(w, '确认发布')
+    const w = await render(Roles, '/hbos/admin/roles'); await click(w, '核对发布影响'); expect(w.findComponent({name:'ChangeReview'}).props('open')).toBe(true); await new Promise(resolve => setTimeout(resolve, 80)); await flushPromises(); const button = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '确认发布')!; expect(button).toBeDefined(); expect(button.disabled).toBe(true); await click(w, '完成测试核验'); await click(w, '确认发布')
     expect(api.roleCommand).toHaveBeenNthCalledWith(2, 'publish_role', { role_key: 'clerk', expected_draft_version: 4, expected_release: 'release-3', context_revision: context, request_id: expect.any(String) })
   })
   it('hides editing and publishing actions for a read-only role viewer', async () => {
-    permissions.delete('iam.roles.edit'); permissions.delete('iam.roles.publish'); const w = await render(Roles, '/hbos/admin/roles'); expect(w.text()).not.toContain('编辑功能'); expect(w.text()).not.toContain('预览发布影响'); expect(w.find('input[type=checkbox]').exists()).toBe(false)
+    permissions.delete('iam.roles.edit'); permissions.delete('iam.roles.publish'); const w = await render(Roles, '/hbos/admin/roles'); expect(w.text()).not.toContain('编辑功能'); expect(w.findAll('button').some(button => button.text().includes('核对发布影响'))).toBe(false); expect(w.find('input[type=checkbox]').exists()).toBe(false)
   })
   it('treats only the built-in Administrator as Employee not applicable', async () => {
     const hr = await render(Profile, '/hbos/profile'); expect(hr.text()).toContain('合成人事部'); expect(hr.text()).toContain('T001'); expect(hr.text()).toContain('合成人事主管'); expect(hr.text()).not.toContain('员工档案不适用')
@@ -125,6 +135,49 @@ describe('R6 formal data and role contracts', () => {
     const count = api.listPeople.mock.calls.length
     pager.vm.$emit('change', 0); await flushPromises()
     expect(api.listPeople).toHaveBeenCalledTimes(count)
+  })
+  it('does not replace the current employee group metadata with a late response for the previous group', async () => {
+    let finishDaily!: (value: unknown) => void, finishTechnical!: (value: unknown) => void
+    api.getEmployeeMetadata.mockReturnValueOnce(new Promise(resolve => { finishDaily = resolve }))
+      .mockReturnValueOnce(new Promise(resolve => { finishTechnical = resolve }))
+    api.listPeople.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, groups_available: true })
+    const w = await render(People, '/hbos/admin/people')
+    const group = w.findAllComponents({ name: 'ASelect' }).find(item => item.attributes('aria-label') === '员工分组')!
+    expect(group.exists()).toBe(true)
+    group.vm.$emit('update:value', 'technical'); await flushPromises()
+    finishTechnical({ version: 'technical', companies: [], genders: [], required_fields: [], departments: [{ value: 'TECH', label: '当前分组部门', company: 'C1' }] })
+    await flushPromises()
+    finishDaily({ version: 'daily', companies: [], genders: [], required_fields: [], departments: [{ value: 'OLD', label: '旧分组部门', company: 'C1' }] })
+    await flushPromises()
+    const department = w.findAllComponents({ name: 'ASelect' }).find(item => item.attributes('aria-label') === '筛选部门')!
+    expect(department.props('options')).toEqual([{ value: 'TECH', label: '当前分组部门 · C1' }])
+  })
+  it('uses a new submission identity when a rechecked employee draft changes, while preserving its original uncertain request', async () => {
+    permissions.add('iam.people.create')
+    api.getEmployeeMetadata.mockResolvedValue({ version: 'meta-1', required_fields: [],
+      companies: [{ value: 'C1', label: '公司甲' }], departments: [{ value: 'D1', label: '部门甲', company: 'C1' }], genders: [{ value: 'Female', label: '女' }] })
+    api.createEmployee.mockRejectedValue(Object.assign(new Error('提交结果待核对'), { status: 500 }))
+    const w = await render(People, '/hbos/admin/people'); await click(w, '新增员工档案')
+    const item = (label: string) => w.findAllComponents({ name: 'AFormItem' }).find(row => row.props('label') === label)!
+    for (const [label, value] of [['公司', 'C1'], ['主部门', 'D1'], ['性别', 'Female']]) {
+      item(label!).findComponent({ name: 'ASelect' }).vm.$emit('update:value', value); await flushPromises()
+    }
+    for (const [label, value] of [['姓名', '合成建档一'], ['工号', 'CREATE-01'], ['出生日期', '1990-01-01'], ['入职日期', '2026-10-01']]) await item(label!).get('input').setValue(value)
+    await click(w, '完成测试核验')
+    await new DOMWrapper(document.querySelector('.ant-modal form')!).trigger('submit'); await flushPromises()
+    expect(api.createEmployee).toHaveBeenCalledTimes(1)
+    const firstId = api.createEmployee.mock.calls[0]![2]
+    await click(w, '核对最新结果'); await click(w, '完成测试核验')
+    await new DOMWrapper(document.querySelector('.ant-modal form')!).trigger('submit'); await flushPromises()
+    expect(api.createEmployee).toHaveBeenCalledTimes(2)
+    expect(api.createEmployee.mock.calls[1]![2]).toBe(firstId)
+    await click(w, '核对最新结果')
+    await item('工号').get('input').setValue('CREATE-02')
+    await click(w, '完成测试核验')
+    await new DOMWrapper(document.querySelector('.ant-modal form')!).trigger('submit'); await flushPromises()
+    expect(api.createEmployee).toHaveBeenCalledTimes(3)
+    expect(api.createEmployee.mock.calls[2]![0]).toMatchObject({ employee_number: 'CREATE-02' })
+    expect(api.createEmployee.mock.calls[2]![2]).not.toBe(firstId)
   })
   it('collects business employee fields with local labels while native creation owns its numbering series', async () => {
     permissions.add('iam.people.create')
