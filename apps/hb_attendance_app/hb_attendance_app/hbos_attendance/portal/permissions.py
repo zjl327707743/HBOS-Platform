@@ -304,6 +304,10 @@ def _check_widget_source(kind, name=None, raw=None):
 
 
 def check_request():
+    # Non-opted-in attendance Sites keep the original native path without
+    # requiring the optional Portal package just to serve a request.
+    if not iam_enabled():
+        return
     # This pre-dispatch guard only reads authorization. A retry starts a fresh
     # transaction and re-runs every guard before any endpoint command can run.
     from hbos_portal.iam import policy

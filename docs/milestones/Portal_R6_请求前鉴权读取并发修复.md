@@ -11,3 +11,8 @@ Owner本轮明确授权独立安全修复与18191合成验证，提案补丁567d
 生产及18090/8080不变；当前运行使用不可变快照，product工作位没有服务挂载。回退到实际产品22源码；未安装新schema，无数据库回退要求。安全修复可单独撤销，但不得以恢复旧缺陷版本当作已通过验收。
 
 已检查CLAUDE.md/AGENTS.md（规则无状态，不改）；已同步README、AI_CONTEXT、READING_GUIDE、PROJECT_STATUS、CURRENT_MILESTONE和M1_START_GATE。TEAM_PULL_READY=PENDING；未生产上线。
+
+
+## 旧站点可选依赖保护
+
+复核发现未启用IAM时也导入Portal，将对仅安装考勤App的旧Site增加不必要依赖。入口现先检查原hbos_iam_enabled开关，关闭时保持旧原生路径；启用时仍完整进入有界重试和原guard。新增实际import trap合同，Portal不可导入且IAM关闭时不得失败。Python3.11/3.12各582考勤测试PASS。753启用IAMSite的36并发读取+12草稿命令已PASS；新head的CI和组合另记，不冒充753已包含新早退代码。
