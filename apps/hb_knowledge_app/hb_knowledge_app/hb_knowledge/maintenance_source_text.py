@@ -46,6 +46,7 @@ KNOWN_GLYPHS = {
     # Audited Wingdings point markers (rendered from the embedded subset font:
     # diamond-framed 1..4); they label figure/table points, not hidden digits.
     '\uf081': '①', '\uf082': '②', '\uf083': '③', '\uf084': '④',
+    '\uf0fb': '✗',
 }
 PUA = re.compile(r'[\ue000-\uf8ff]')
 REPLACEMENT = '\ufffd'
