@@ -23,8 +23,42 @@
         <p v-if="document.status_note" class="kb-reader-status">{{ document.status_note }}</p>
         <a-alert v-if="disclosure" class="kb-reader-disclosure" type="info" show-icon :message="disclosure" />
         <p class="kb-reader-origin">
-          原件下载未开放；当前展示为已授权索引文本的安全净化派生阅读版，<template v-if="body && body.page_numbering !== 'AVAILABLE'">页码尚未与原件核验，仅供定位参考，</template>引用请以原件为准。
+          正文为已授权索引文本的安全净化派生阅读版，<template v-if="body && body.page_numbering !== 'AVAILABLE'">页码尚未与原件核验，仅供定位参考，</template>引用请以原件为准。
+          <template v-if="deliveryState.capabilities?.can_preview">原版式预览为{{ deliveryState.capabilities.preview_kind === 'DERIVED_PDF' ? '派生预览版（非原件）' : '原件 PDF' }}。</template>
+          <template v-else-if="deliveryState.capabilities && deliveryState.capabilities.preview_reason">{{ deliveryReasonMessage(deliveryState.capabilities.preview_reason) }}</template>
+          <template v-else>原版式预览与原件下载是否可用，以服务端核验结果为准。</template>
         </p>
+        <div v-if="!loading && !failure && document" class="kb-reader-delivery" data-reader-delivery>
+          <a-button v-if="deliveryState.capabilities?.can_preview" :loading="deliveryState.preview.busy" :disabled="deliveryState.preview.busy || deliveryState.download.busy" data-reader-preview @click="$emit('prepare-preview')">
+            <FilePdfOutlined />{{ deliveryState.capabilities.preview_kind === 'DERIVED_PDF' ? '原版式预览（预览版）' : '原版式预览' }}
+          </a-button>
+          <a-button v-if="deliveryState.capabilities && !deliveryState.capabilities.can_preview" type="text" disabled data-reader-preview-unavailable>
+            原版式预览不可用
+          </a-button>
+          <a-button v-if="deliveryState.capabilities?.can_download" :loading="deliveryState.download.busy" :disabled="deliveryState.download.busy || deliveryState.preview.busy" data-reader-download @click="$emit('prepare-download')">
+            <DownloadOutlined />下载原件
+          </a-button>
+          <a-button v-else-if="deliveryState.capabilities" type="text" disabled data-reader-download-unavailable>
+            <DownloadOutlined />下载未获授权
+          </a-button>
+          <a-button v-else type="text" :loading="deliveryState.loadingCapabilities" disabled data-reader-delivery-pending>
+            正在核验预览与下载权限…
+          </a-button>
+        </div>
+        <p v-if="deliveryState.capabilities && !deliveryState.capabilities.can_download" class="kb-muted">{{ deliveryReasonMessage(deliveryState.capabilities.download_reason) }}</p>
+        <p v-if="deliveryState.notice" class="kb-reader-delivery-notice" role="status" data-delivery-notice>{{ deliveryState.notice }}</p>
+        <a-alert
+          v-if="deliveryState.error"
+          type="warning"
+          show-icon
+          class="kb-reader-delivery-error"
+          data-delivery-error
+          :message="deliveryState.error"
+        >
+          <template #action>
+            <a-button v-if="deliveryState.retryable" size="small" data-delivery-retry @click="$emit('prepare-retry')">重新准备</a-button>
+          </template>
+        </a-alert>
       </template>
     </header>
 
@@ -87,7 +121,17 @@
       </details>
 
       <section class="kb-reader-body kb-panel hbos-glass-g1" :aria-busy="pageLoading ? 'true' : 'false'" data-reader-body>
-        <div v-if="body.blocks.length === 0" class="kb-reader-empty" data-reader-empty>
+        <div v-if="previewActive" class="kb-preview-frame" data-reader-preview-frame role="region" aria-label="原版式预览">
+          <div class="kb-preview-head">
+            <span>{{ previewKindLabel }} · {{ previewFilename }}</span>
+            <span class="kb-preview-expiry" data-preview-expiry>预览票据 {{ previewExpiryLabel }} 到期，过期后需重新准备</span>
+            <a-button size="small" data-preview-close @click="$emit('close-preview')"><CloseOutlined />关闭预览，回到正文</a-button>
+            <a-button size="small" :disabled="deliveryState.preview.busy" @click="$emit('prepare-preview')">重新准备预览</a-button>
+          </div>
+          <iframe v-if="previewUrl" :src="previewUrl" :title="previewKindLabel" data-preview-iframe sandbox="allow-same-origin"></iframe>
+          <p class="kb-muted">预览失败或空白时，可关闭预览继续阅读下方正文。</p>
+        </div>
+        <div v-if="body.blocks.length === 0 && !previewActive" class="kb-reader-empty" data-reader-empty>
           <a-empty v-if="body.block_total === 0" description="该资料暂无可读正文（索引正文不可用）。" />
           <a-empty v-else description="本页暂无可展示正文（本页索引文本未通过安全净化）；可翻页或使用文内查找。" />
         </div>
@@ -127,7 +171,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { ArrowLeftOutlined, LeftOutlined, RightOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { ArrowLeftOutlined, LeftOutlined, RightOutlined, ReloadOutlined, FilePdfOutlined, DownloadOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import type {
   ReaderBody,
   ReaderDocument,
@@ -136,6 +180,8 @@ import type {
   ReaderSearchMatch,
   ReaderSource,
 } from '@/contracts/documentReader'
+import type { DocumentCapabilities } from '@/services/knowledgeDelivery'
+import { deliveryReasonMessage } from '@/services/knowledgeDelivery'
 
 const props = defineProps<{
   from: ReaderSource
@@ -159,6 +205,16 @@ const props = defineProps<{
   matches: ReaderSearchMatch[]
   highlightBlockId: string | null
   highlightQuery: string
+  /** Frozen delivery contract state, owned by the view. */
+  deliveryState: {
+    capabilities: DocumentCapabilities | null
+    loadingCapabilities: boolean
+    preview: { busy: boolean; url: string | null; filename: string; expiresAt: number | null; kind: string }
+    download: { busy: boolean; url: string | null; filename: string }
+    error: string
+    retryable: boolean
+    notice: string
+  }
 }>()
 
 const emit = defineEmits<{
@@ -172,10 +228,33 @@ const emit = defineEmits<{
   'clear-search': []
   'jump-match': [match: ReaderSearchMatch]
   'update:searchQuery': [value: string]
+  'prepare-preview': []
+  'prepare-download': []
+  'prepare-retry': []
+  'close-preview': []
 }>()
 
 const pageInput = ref(String(props.page))
 watch(() => props.page, value => { pageInput.value = String(value) })
+
+const EMPTY_DELIVERY = {
+  capabilities: null,
+  loadingCapabilities: false,
+  preview: { busy: false, url: null as string | null, filename: '', expiresAt: null as number | null, kind: '' },
+  download: { busy: false, url: null as string | null, filename: '' },
+  error: '',
+  retryable: false,
+  notice: '',
+}
+const deliveryState = computed(() => props.deliveryState ?? EMPTY_DELIVERY)
+const previewUrl = computed(() => deliveryState.value.preview.url)
+const previewActive = computed(() => Boolean(deliveryState.value.preview.url))
+const previewKindLabel = computed(() => (deliveryState.value.preview.kind === 'DERIVED_PDF' ? '派生预览版（非原件）' : '原件 PDF 预览'))
+const previewExpiryLabel = computed(() => {
+  const value = deliveryState.value.preview.expiresAt
+  return typeof value === 'number' && Number.isFinite(value) ? new Date(value * 1000).toLocaleTimeString() : '稍后'
+})
+const previewFilename = computed(() => deliveryState.value.preview.filename || '资料')
 
 const backLabel = computed(() => ({ ask: '返回回答', search: '返回搜索结果', catalog: '返回资料目录' }[props.from] || '返回'))
 const sourceLabel = computed(() => ({ ask: '回答来源', search: '搜索结果', catalog: '资料目录' }[props.from] || '资料'))
@@ -274,6 +353,13 @@ watch([() => props.highlightBlockId, () => props.page], async () => {
 .kb-reader-status { margin: 0; font-size: 13px; line-height: 20px; color: var(--hbos-text-secondary); }
 .kb-reader-disclosure { margin: 4px 0 0; }
 .kb-reader-origin { margin: 0; font-size: 12px; line-height: 20px; color: var(--hbos-text-muted); }
+.kb-reader-delivery { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.kb-reader-delivery-notice { margin: 0; font-size: 12px; line-height: 20px; color: #147e70; overflow-wrap: anywhere; }
+.kb-reader-delivery-error { margin: 0; }
+.kb-preview-frame { grid-column: 1 / -1; display: grid; gap: 8px; border: 1px solid var(--hbos-border-strong); border-radius: 12px; padding: 12px; background: rgba(255,255,255,.6); }
+.kb-preview-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; color: var(--hbos-text-secondary); }
+.kb-preview-expiry { font-size: 12px; color: var(--hbos-text-muted); margin-left: auto; }
+.kb-preview-frame iframe { width: 100%; height: 70vh; min-height: 320px; border: 1px solid var(--hbos-border-strong); border-radius: 8px; background: #fff; }
 .kb-reader-toolbar { padding: 16px 20px; border-radius: 20px; display: grid; gap: 12px; min-width: 0; }
 .kb-reader-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .kb-reader-page-count { font-size: 14px; color: var(--hbos-text-secondary); white-space: nowrap; }
@@ -306,6 +392,10 @@ watch([() => props.highlightBlockId, () => props.page], async () => {
 .kb-reader-failure h2 { margin: 0; font-size: 20px; line-height: 28px; color: #203b66; }
 .kb-reader-failure-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .kb-reader-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 20px; color: var(--hbos-text-muted); padding: 0 4px; }
+@media (max-width: 390px) {
+  .kb-reader-delivery { flex-direction: column; align-items: stretch; }
+  .kb-reader-delivery .ant-btn { width: 100%; }
+}
 @media (max-width: 900px) {
   .kb-reader-header, .kb-reader-body { padding: 20px; }
   .kb-reader-jump { margin-left: 0; }
@@ -316,9 +406,13 @@ watch([() => props.highlightBlockId, () => props.page], async () => {
   .kb-reader-title { font-size: 21px; line-height: 29px; }
   .kb-reader-toolbar { padding: 14px; border-radius: 16px; }
   .kb-reader-pager { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kb-reader-delivery { flex-direction: column; align-items: stretch; }
+  .kb-reader-delivery .ant-btn { width: 100%; }
   .kb-reader-page-count { grid-column: 1 / -1; grid-row: 1; text-align: center; }
   .kb-reader-jump { grid-column: 1 / -1; margin-left: 0; }
   .kb-reader-search input { flex-basis: 100%; }
+  .kb-preview-frame iframe { height: 56vh; }
+  .kb-preview-expiry { margin-left: 0; }
   .kb-reader-body { padding: 16px; border-radius: 18px; gap: 14px; }
   .kb-reader-text { font-size: 16px; line-height: 27px; }
   .kb-reader-footer { flex-direction: column; }

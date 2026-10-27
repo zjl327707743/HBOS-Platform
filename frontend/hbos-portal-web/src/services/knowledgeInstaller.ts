@@ -1,10 +1,11 @@
 /** Local-only installer. Tokens are file configuration, never model instructions. */
-export const knowledgeUsageRules='涉及新乡海滨公司制度、SOP、生产、质量、安全或人事问题时，先调用 HBOS 的 list_knowledge_spaces、search_knowledge，再用 get_evidence 核对来源。列出真实标题和版本状态；资料不足时说明没有可核验的企业依据，不编造内部事实。不调用 get_source、原件下载或全文枚举。只有用户明确要求 HBOS 生成回答时才调用 ask_knowledge，默认 gpt-6-luna。客户端自己的模型由用户自己的设置控制。禁止将 MCP 凭据或配置文件提交给 LLM。'
-export function localInstaller(client:'OpenClaw'|'Hermes',endpoint:string,token:string,connection:string,_legacyChallenge?:string):string {
+export const knowledgeUsageRules='涉及新乡海滨公司制度、SOP、生产、质量、安全或人事问题时，先调用 HBOS 的 list_knowledge_spaces、search_knowledge，再用 get_evidence 核对来源。列出真实标题和版本状态；资料不足时说明没有可核验的企业依据，不编造内部事实。不调用 get_source、原件下载或全文枚举。只有用户明确要求 HBOS 生成回答时才调用 ask_knowledge。回答使用哪个对话模型由用户自己的客户端设置决定，HBOS 不指定默认模型。禁止将 MCP 凭据、连接令牌或配置文件提交给任何模型。'
+export function localInstaller(client:'OpenClaw'|'Hermes',endpoint:string,token:string,connection:string,prompt:string=knowledgeUsageRules):string {
   if (!/^hbos_mcp_[0-9a-f]{32}\.[A-Za-z0-9_-]{43}$/.test(token) || !/^[0-9a-f]{32}$/.test(connection)) throw new Error('连接安装凭据不完整，请重新创建本人连接。')
+  if (!prompt || prompt.includes('hbos_mcp_') || /[A-Za-z0-9_-]{40,}/.test(token.slice(9,41)) && prompt.includes(token.slice(9,41))) throw new Error('提示词不得包含连接凭据。')
   const u=new URL(endpoint)
   if (u.pathname!=='/mcp' || u.search || u.hash || u.username || u.password || !['http:','https:'].includes(u.protocol) || (u.protocol!=='https:'&&!['knowledge-r2.localhost','127.0.0.1','localhost'].includes(u.hostname))) throw new Error('安装地址不受支持。')
-  const payload=JSON.stringify({client,endpoint,token,connection,rules:knowledgeUsageRules})
+  const payload=JSON.stringify({client,endpoint,token,connection,rules:prompt})
   return `#!/usr/bin/env python3
 # HBOS controlled local import. No network/model request and no credential printing.
 import argparse,json,os,pathlib,re,shutil,tempfile

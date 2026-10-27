@@ -103,6 +103,15 @@ function readerProps(overrides: Record<string, unknown> = {}) {
     matches: [],
     highlightBlockId: null,
     highlightQuery: '',
+    deliveryState: {
+      capabilities: null,
+      loadingCapabilities: false,
+      preview: { busy: false, url: null, filename: '', expiresAt: null, kind: '' },
+      download: { busy: false, url: null, filename: '' },
+      error: '',
+      retryable: false,
+      notice: '',
+    },
     ...overrides,
   }
 }
@@ -158,7 +167,7 @@ describe('DocumentReader rendering', () => {
     expect(text).toContain('派生阅读版')
     expect(text).toContain('页码未核验')
     expect(text).toContain('正文来自已授权当前版本的索引文本')
-    expect(text).toContain('原件下载未开放')
+    expect(text).toContain('以服务端核验结果为准')
     // The 500 cp evidence-excerpt projection must not truncate reader text.
     expect(wrapper.find('[data-reader-block="b1"]').text()).toContain('甲'.repeat(1200))
     expect(wrapper.find('[data-reader-block="b1"]').attributes('data-highlight')).toBeUndefined()
