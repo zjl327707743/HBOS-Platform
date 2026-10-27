@@ -224,6 +224,61 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
     return _run(current)
 
 @frappe.whitelist(methods=["POST"])
+def document_capabilities(document_id=None, version_id=None, **business_fields):
+    def current(request_id):
+        if _framework_business(business_fields, 'document_capabilities'):
+            raise KnowledgeError('INVALID_REQUEST')
+        runtime = load_runtime()
+        return runtime.delivery.capabilities(document_id, version_id, request_id)
+    return _run(current)
+
+
+@frappe.whitelist(methods=["POST"])
+def create_document_delivery(document_id=None, version_id=None, purpose=None, **business_fields):
+    def current(request_id):
+        if _framework_business(business_fields, 'create_document_delivery'):
+            raise KnowledgeError('INVALID_REQUEST')
+        runtime = load_runtime()
+        return runtime.delivery.prepare(document_id, version_id, purpose, request_id)
+    return _run(current)
+
+
+@frappe.whitelist(methods=["GET"])
+def document_content(ticket=None, **business_fields):
+    """A native-session binary endpoint; every range reauthorizes the ticket."""
+    from werkzeug.wrappers import Response
+    request_id = secrets.token_urlsafe(18)
+    _private_no_store()
+    try:
+        if _framework_business(business_fields, 'document_content'):
+            raise KnowledgeError('INVALID_REQUEST')
+        request = frappe.local.request
+        if request.headers.get('Sec-Fetch-Site') not in {None, 'same-origin', 'none'}:
+            raise KnowledgeError('SCOPE_REJECTED')
+        origin = request.headers.get('Origin')
+        if origin and origin != request.host_url.rstrip('/'):
+            raise KnowledgeError('SCOPE_REJECTED')
+        runtime = load_runtime()
+        result = runtime.delivery.content(ticket, request.headers.get('Range'), request_id)
+        publication = getattr(runtime, 'publication', None)
+        if publication:
+            publication.finish()
+        return Response(result.body, status=result.status, headers=result.headers)
+    except KnowledgeError as error:
+        _abort_publication()
+        return Response(json.dumps(error_payload(error, request_id)), status=error.status,
+                        content_type='application/json', headers={
+                            'Cache-Control':'private, no-store, max-age=0',
+                            'X-Content-Type-Options':'nosniff'})
+    except Exception:
+        _abort_publication()
+        return Response(json.dumps(error_payload(KnowledgeError('SERVICE_ERROR'), request_id)),
+                        status=503, content_type='application/json',
+                        headers={'Cache-Control':'private, no-store, max-age=0',
+                                 'X-Content-Type-Options':'nosniff'})
+
+
+@frappe.whitelist(methods=["POST"])
 def open_document(document_id=None, version_id=None, **business_fields):
     """Open the controlled reader on a current authorized document body.
 

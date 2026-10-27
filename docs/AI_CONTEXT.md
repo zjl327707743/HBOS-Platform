@@ -1,5 +1,7 @@
 # AI Context
 
+当前知识专项：[RC14 V2 员工体验候选](milestones/M1_KB_RC14_员工体验候选.md)。仅隔离验收，Owner 未验收，PR #30 保持 Draft；旧轮次记录为历史，不代表当前通过。
+
 ## 2026-10-26 Knowledge UAT6 RC1 当前候选
 
 Owner 已授权在现有隔离 UAT6 上收敛 RC1。保留模型配置、原千问 1024 维、零 rerank、融合后排序修复、MCP 负向和页面软复核；本轮补充真实 ID/版本评测、普通资料实际处理、原目录浏览及不可变制品/可执行回退。最终实际版本、质量、时延、资料净增与远端 CI 只认 Owner 私有 `RELEASE_LOCK.json` 与 `OWNER_RC1_RESULT.md`，不继承旧报告的 PASS。

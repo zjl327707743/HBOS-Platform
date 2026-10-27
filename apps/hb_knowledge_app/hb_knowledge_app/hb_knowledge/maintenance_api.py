@@ -43,8 +43,25 @@ def controller(**ignored):
             # already expired is requeued, and only that row is touched. A live
             # Running batch is never reset here.
             from .maintenance_batch import reclaim_expired
-            reclaimed=reclaim_expired(actor=cfg['maintenance_coordinator_user'],reason='LEASE_EXPIRED')
-            rows=frappe.db.sql('SELECT name FROM `tabHBOS Knowledge Import Batch` WHERE status=%s ORDER BY modified ASC LIMIT 1 FOR UPDATE',('Queued',),as_dict=True)
+            from .maintenance_permit import controller_permit,permit_matches
+            permit=controller_permit(cfg)
+            if permit is None:
+                reclaimed=reclaim_expired(actor=cfg['maintenance_coordinator_user'],reason='LEASE_EXPIRED')
+                rows=frappe.db.sql('SELECT name FROM `tabHBOS Knowledge Import Batch` WHERE status=%s ORDER BY modified ASC LIMIT 1 FOR UPDATE',('Queued',),as_dict=True)
+            else:
+                reclaimed=[]
+                for batch_id in permit['by_batch']:
+                    permit_row,permit_frozen,_=m._row(batch_id)
+                    if permit_matches(permit,batch_id,m._json(permit_row,'job_json',{}),permit_frozen):
+                        reclaimed.extend(reclaim_expired(actor=cfg['maintenance_coordinator_user'],
+                            batch_id=batch_id,reason='LEASE_EXPIRED'))
+                identifiers=tuple(permit['by_batch'])
+                placeholders=','.join(['%s']*len(identifiers))
+                rows=frappe.db.sql('SELECT name FROM `tabHBOS Knowledge Import Batch` WHERE status=%s '
+                    'AND name IN ('+placeholders+') ORDER BY modified ASC LIMIT 60 FOR UPDATE',
+                    ('Queued',*identifiers),as_dict=True)
+                rows=[entry for entry in rows if permit_matches(permit,entry['name'],
+                    m._json(m._row(entry['name'])[0],'job_json',{}),m._row(entry['name'])[1])]
             if not rows:return {'job':None,'reclaimed':len(reclaimed)}
             row,frozen,state=m._row(rows[0]['name'],True);job=m._json(row,'job_json',{})
             if job.get('status')!='Queued':raise KnowledgeError('IMPORT_BUSY')

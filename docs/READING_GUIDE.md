@@ -1,5 +1,7 @@
 # Reading Guide
 
+当前知识专项：[RC14 V2 员工体验候选](milestones/M1_KB_RC14_员工体验候选.md)。仅隔离验收，Owner 未验收，PR #30 保持 Draft；旧轮次记录为历史，不代表当前通过。
+
 ## 当前知识专项：HBOS Knowledge UAT5 — 2026-10-15
 
 **UAT5_PARTIAL / LOCAL_UAT / OWNER_NOT_RUN / ROLLOUT_PENDING。** 本轮以真实检索、回答和来源质量为验收依据。已修复跨部门候选汇总、单个异常片段拖垮检索、在线来源/会话续租及问答错误跨页面显示；增加公共法规分类和独立原文下载决策点，原件下载仍关闭。真实回答的自然归纳支持率、更多资料的逐份质量与授权仍有缺口，不能据 CI 或 HTTP200 宣布 READY。

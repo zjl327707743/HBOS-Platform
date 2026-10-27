@@ -60,13 +60,13 @@ def prepare(task,evidence,cycle="RC1"):
     old={role:inspect(role) for role in ('bff','service','frontend')}
     current=json.loads((here/'DEPLOY_LOCK_CURRENT.json').read_text())
     changed=False
-    if cycle=="RC13":
+    if cycle in {"RC13", "RC14"}:
         # RC13 advances the verified running candidate to the RC13 immutable
         # build. The authorization names the exact baseline release; only the
         # seven pinned compose files may change, through the new proposal.
-        authorization=json.loads((evidence/'rc13-authorization.json').read_text())
-        if authorization.get('cycle')!='RC13' or authorization.get('baseline_release')!=current['release_id']:
-            raise RuntimeError('RC13 requires exact authorized baseline')
+        authorization=json.loads((evidence/(cycle.lower()+'-authorization.json')).read_text())
+        if authorization.get('cycle')!=cycle or authorization.get('baseline_release')!=current['release_id']:
+            raise RuntimeError(cycle+' requires exact authorized baseline')
         if any(old[role]['Image']!=current['containers'][role]['image_id'] for role in old):
             raise RuntimeError('Running candidate differs from CURRENT')
         # The seven-file composition changes only through the declared override
@@ -109,7 +109,7 @@ def prepare(task,evidence,cycle="RC1"):
     # RC13 adds a declared runtime delta to the override (maintenance derivative
     # mount/config env). The proposal template is therefore the reviewed new
     # override, while the rollback template stays the true previous file.
-    proposal_template=(evidence/'compose.override.rc13.yml') if cycle=='RC13' and (evidence/'compose.override.rc13.yml').exists() else backup/'compose.override.before.yml'
+    proposal_template=(evidence/('compose.override.'+cycle.lower()+'.yml')) if cycle in {'RC13','RC14'} and (evidence/('compose.override.'+cycle.lower()+'.yml')).exists() else backup/'compose.override.before.yml'
     if not (backup/'compose.override.before.yml').exists():shutil.copy2(original,backup/'compose.override.before.yml')
     if not (backup/'static').exists():shutil.copytree(static_source,backup/'static')
     previous_static=static_manifest(backup/'static')
@@ -215,7 +215,7 @@ def switch(task,evidence,rollback=False,check_only=False,cycle="RC1",rollback_lo
     print(json.dumps(receipt,ensure_ascii=False))
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');parser.add_argument('--cycle',choices=['RC1','RC11','RC13'],default='RC1');parser.add_argument('--rollback-lock',type=pathlib.Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--task-root',type=pathlib.Path,required=True);parser.add_argument('--evidence-root',type=pathlib.Path,required=True);parser.add_argument('action',choices=['prepare','apply','verify','rollback']);parser.add_argument('--check',action='store_true');parser.add_argument('--cycle',choices=['RC1','RC11','RC13','RC14'],default='RC1');parser.add_argument('--rollback-lock',type=pathlib.Path);args=parser.parse_args()
     task=args.task_root.resolve();evidence=args.evidence_root.resolve()
     with (task/'work/deploy/candidate/MAIN_AGENT_RELEASE.lock').open('a') as guard:
         fcntl.flock(guard,fcntl.LOCK_EX|fcntl.LOCK_NB)

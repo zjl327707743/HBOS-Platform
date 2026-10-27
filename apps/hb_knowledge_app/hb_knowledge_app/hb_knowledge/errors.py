@@ -58,6 +58,8 @@ ERRORS = {
     # enumerated, non-sensitive reason (never an id, path or upstream address).
     "DOCUMENT_READ_UNAVAILABLE": (404, "该资料暂不可阅读或授权已变化，请重新检索。", False),
     "DOCUMENT_READ_PAGE_OUT_OF_RANGE": (400, "页码超出该资料的可阅读范围。", False),
+    "DOCUMENT_DELIVERY_UNAVAILABLE": (403, "该资料暂不可预览或下载，请核对权限、版本或稍后重试。", False),
+    "DOCUMENT_RANGE_NOT_SATISFIABLE": (416, "请求的文件范围无效或超过单次上限。", False),
 }
 
 class KnowledgeError(Exception):

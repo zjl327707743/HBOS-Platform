@@ -21,7 +21,9 @@ def build(task):
            'frontend/hbos-portal-web/src/composables/useEvidenceResolution.ts','frontend/hbos-portal-web/src/composables/useDocumentReader.ts',
            'frontend/hbos-portal-web/src/contracts/p1.ts','frontend/hbos-portal-web/src/contracts/documentReader.ts',
            'frontend/hbos-portal-web/src/services/p1Api.ts','frontend/hbos-portal-web/src/stores/knowledgeReturn.ts',
-           'frontend/hbos-portal-web/src/router/index.ts']
+           'frontend/hbos-portal-web/src/router/index.ts',
+           'frontend/hbos-portal-web/src/services/knowledgeDelivery.ts','frontend/hbos-portal-web/src/services/knowledgeHelp.ts',
+           'frontend/hbos-portal-web/src/services/knowledgeInstaller.ts','frontend/hbos-portal-web/src/styles/knowledge.css']
     if git(hbos,'diff',heads['frontend'],heads['hbos'],'--',*owned):raise RuntimeError('Knowledge frontend differs from the PR source')
     bases={kind:output(['docker','image','inspect','--format','{{.Id}}',f'hbos-knowledge-r2-20261008-{kind}:uat4']) for kind in ('frappe','service')}
     inputs={'source_commits':heads,'base_images':bases,'builder_sha256':sha(pathlib.Path(__file__)),

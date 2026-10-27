@@ -174,6 +174,8 @@ def build_runtime(client=None,*,actor_resolver=None):
          HandleCache(state,publication),ReferenceHttpGateway(cfg) if real else HttpGateway(cfg),quota,DatabaseAudit(publication,cfg['audit_key']),
          actor_resolver or (lambda:proofs.from_native_request(client)),client,checkpoint)
     runtime.publication=publication
+    from .document_delivery import build_delivery
+    runtime.delivery=build_delivery(runtime,cfg,state)
     return runtime
 
 def _service_request(*,max_body=MAX_BODY):
