@@ -128,7 +128,7 @@
             <a-button size="small" data-preview-close @click="$emit('close-preview')"><CloseOutlined />关闭预览，回到正文</a-button>
             <a-button size="small" :disabled="deliveryState.preview.busy" @click="$emit('prepare-preview')">重新准备预览</a-button>
           </div>
-          <iframe v-if="previewUrl" :src="previewUrl" :title="previewKindLabel" data-preview-iframe sandbox="allow-same-origin"></iframe>
+          <PdfPreview v-if="previewUrl" :url="previewUrl" @access-lost="$emit('delivery-denied')"/>
           <p class="kb-muted">预览失败或空白时，可关闭预览继续阅读下方正文。</p>
         </div>
         <div v-if="body.blocks.length === 0 && !previewActive" class="kb-reader-empty" data-reader-empty>
@@ -182,6 +182,7 @@ import type {
 } from '@/contracts/documentReader'
 import type { DocumentCapabilities } from '@/services/knowledgeDelivery'
 import { deliveryReasonMessage } from '@/services/knowledgeDelivery'
+import PdfPreview from './PdfPreview.vue'
 
 const props = defineProps<{
   from: ReaderSource
@@ -232,6 +233,7 @@ const emit = defineEmits<{
   'prepare-download': []
   'prepare-retry': []
   'close-preview': []
+  'delivery-denied': []
 }>()
 
 const pageInput = ref(String(props.page))

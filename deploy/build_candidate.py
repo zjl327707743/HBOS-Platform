@@ -23,7 +23,8 @@ def build(task):
            'frontend/hbos-portal-web/src/services/p1Api.ts','frontend/hbos-portal-web/src/stores/knowledgeReturn.ts',
            'frontend/hbos-portal-web/src/router/index.ts',
            'frontend/hbos-portal-web/src/services/knowledgeDelivery.ts','frontend/hbos-portal-web/src/services/knowledgeHelp.ts',
-           'frontend/hbos-portal-web/src/services/knowledgeInstaller.ts','frontend/hbos-portal-web/src/styles/knowledge.css']
+           'frontend/hbos-portal-web/src/services/knowledgeInstaller.ts','frontend/hbos-portal-web/src/styles/knowledge.css','frontend/hbos-portal-web/package.json',
+           'frontend/hbos-portal-web/package-lock.json']
     if git(hbos,'diff',heads['frontend'],heads['hbos'],'--',*owned):raise RuntimeError('Knowledge frontend differs from the PR source')
     bases={kind:output(['docker','image','inspect','--format','{{.Id}}',f'hbos-knowledge-r2-20261008-{kind}:uat4']) for kind in ('frappe','service')}
     inputs={'source_commits':heads,'base_images':bases,'builder_sha256':sha(pathlib.Path(__file__)),
@@ -39,6 +40,10 @@ def build(task):
     with (stage/'frontend-build.log').open('w') as log:
         subprocess.run(['npm','run','build'],cwd=front,env=dict(os.environ,VITE_PORTAL_DATA_MODE='frappe',VITE_BASE='/assets/hbos_portal/portal/',VITE_FRAPPE_BASE_URL='',VITE_FRAPPE_APP_ORIGIN=''),stdout=log,stderr=subprocess.STDOUT,check=True)
     static=stage/'static';shutil.copytree(front/'dist',static)
+    pdf_assets=front/'node_modules/pdfjs-dist'
+    for name in ('cmaps','standard_fonts','wasm'):
+        shutil.copytree(pdf_assets/name,static/'pdfjs'/name)
+    shutil.copy2(pdf_assets/'LICENSE',static/'pdfjs/LICENSE')
     save(static/'release.json',{'release_id':release,'source_commits':heads})
     index=static/'index.html';index.write_text(index.read_text().replace('<head>','<head><meta name="hbos-build-id" content="'+release+'">',1))
     domain=stage/'domain';domain.mkdir()

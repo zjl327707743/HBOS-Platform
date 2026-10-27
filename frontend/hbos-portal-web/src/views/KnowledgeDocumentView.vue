@@ -35,6 +35,7 @@
       @prepare-download="prepareDownload"
       @prepare-retry="prepareRetry"
       @close-preview="closePreview"
+      @delivery-denied="readerRetryFromFailure(new DomainApiError('FORBIDDEN','资料授权已变化，请返回后重新检索。'))"
     />
   </div>
 </template>
