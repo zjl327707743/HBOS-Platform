@@ -18,7 +18,7 @@
 
 保留合同：User/Employee 区分；FOLLOW_DEPARTMENT/DIRECT/NONE；SELF/RESPONSIBLE_DEPARTMENTS/RESPONSIBLE_COMPANIES 配对；个人 deny、应用暂停与账号停用分开；原 CSRF、MFA、proof、版本/context、request_id、服务端管理范围与会话清理。
 
-开发前 Portal 37 文件 / 302 测试全部 PASS。开发后 Portal 39 文件 / 322 测试 PASS；包含真实 Ant Modal 发布确认合同测试及身份边界缓存清理测试。33 个本轮改动的 TS/Vue 文件 ESLint PASS，TypeScript 与生产模式 Vite 初构建 PASS；最终固定提交的完整构建及 CI 另行核对，不能用组件测试替代权限 UAT。全库 lint 仍有 7 个既有 unused-vars 错误，涉及未修改的库存/客户端/旧权限文件，未以此声称全库 lint PASS。
+开发前 Portal 37 文件 / 302 测试全部 PASS。开发后 Portal 39 文件 / 323 测试 PASS；包含真实 Ant Modal 发布确认合同测试及身份边界缓存清理测试。33 个本轮改动的 TS/Vue 文件 ESLint PASS，TypeScript 与生产模式 Vite 初构建 PASS；最终固定提交的完整构建及 CI 另行核对，不能用组件测试替代权限 UAT。全库 lint 仍有 7 个既有 unused-vars 错误，涉及未修改的库存/客户端/旧权限文件，未以此声称全库 lint PASS。
 
 ## 只读接口接入与剩余边界
 
@@ -39,7 +39,7 @@ G4 需要对新的固定 R6 提交重新准备隔离验收与部署授权；此�
 
 授权来源为正式任务书 E1/E2/F1：新增安全后端合同须独立受控 PR；部署、Site 迁移或改数据前须核对保全、恢复和许可。上述两个事项均不包含 R6 合并、RC 标签或团队发布。
 
-前端在当前源分支完成 322 项离线测试和 TypeScript 检查；受控角色/审计 Site 测试尚未执行。未来组合分支只是测试输入，不能当作实际产品合并 SHA。
+前端在当前源分支完成 323 项离线测试和 TypeScript 检查；受控角色/审计 Site 测试尚未执行。未来组合分支只是测试输入，不能当作实际产品合并 SHA。
 
 ## G4 真实浏览器缺陷与修复
 
@@ -60,3 +60,9 @@ G4 需要对新的固定 R6 提交重新准备隔离验收与部署授权；此�
 G4 原始备份已恢复到 network:none 的全新专属数据库和站点卷：947 base tables、3 Users、2 标准密码记录、17 站点文件哈希一致，恢复密钥存在。首次脚本将 6 个 views 误计为 base table 已校准；保留失败记录。恢复卷停服保留，未在该恢复对启动应用。
 
 曾在角色并发写入时一次硬刷新出现 Frappe QueryDeadlockError 1020 页面 500，重试恢复；仍需定位和重建/并发复核，不以刷新成功宣称完全闭环。其他未执行项继续 NOT_RUN，不宣布 G4 全量通过。
+
+### T04 表单实测补充
+
+实际 create_employee 在不携带 naming_series 时成功创建白名单工号 R6UAT-20261027-011 / 主键 HR-EMP-00001，原生默认编号有效且未开户；重复工号409。原 R6 表单却要求填写内部 Series，并直接展示英文元数据标签。前端移除内部编号输入，保留业务工号和原生默认值；已知业务字段映射中文标签，新增回归后323测试、类型和受影响文件lint通过。尚需新前端构建上的 UI 创建、开户与关联验收。
+
+一次并发鉴权页面500另形成输出提案：只复用既有有界 current_read 包装原 Attendance 请求前只读 guard。该范围超出#64的只读DTO三文件授权，尚未应用补丁，已单独报Owner确认。不得在该问题未闭环时宣称最终发布可用。

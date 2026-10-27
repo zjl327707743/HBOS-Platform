@@ -104,4 +104,17 @@ describe('R6 formal data and role contracts', () => {
   it('shows server total independently from current-page todo counts', async () => {
     const w = await render(People, '/hbos/admin/people'); const cards = w.findAll('.r6-overview'); expect(cards[0]!.text()).toContain('57'); expect(cards[1]!.text()).toContain('本页待开通账号1'); expect(cards[2]!.text()).toContain('本页待核对关联1'); expect(api.listPeople).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, category: 'employees', view_group: 'daily' }))
   })
+  it('collects business employee fields with local labels while native creation owns its numbering series', async () => {
+    permissions.add('iam.people.create')
+    api.getEmployeeMetadata.mockResolvedValue({ version: 'meta-1', required_fields: [
+      { fieldname: 'naming_series', label: 'Series', fieldtype: 'Select', options: 'HR-EMP-' },
+      { fieldname: 'first_name', label: 'First Name', fieldtype: 'Data' },
+      { fieldname: 'gender', label: 'Gender', fieldtype: 'Link' },
+    ], companies: [], departments: [], genders: [] })
+    const w = await render(People, '/hbos/admin/people'); await click(w, '新增员工档案')
+    const labels = Array.from(document.querySelectorAll('.ant-modal label')).map(item => item.textContent)
+    expect(labels).toContain('姓名'); expect(labels).toContain('工号'); expect(labels).toContain('性别')
+    expect(labels).not.toContain('Series'); expect(labels).not.toContain('First Name')
+    expect(api.roleCommand).not.toHaveBeenCalled()
+  })
 })

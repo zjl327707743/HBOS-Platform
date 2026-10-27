@@ -25,11 +25,13 @@ const pending = computed(() => rows.value.filter(row => row.attendance_status !=
 const departmentOptions = computed(() => metadata.value?.departments.map(row => ({ value: row.value, label: `${row.label} · ${row.company}` })) || [])
 const filtered = computed(() => Boolean(search.value || department.value || accountStatus.value))
 const columns = computed(() => category.value === 'employees' ? [{ title: '员工 / 工号', key: 'name', width: '25%' }, { title: '部门 / 岗位', key: 'department', width: '25%' }, { title: '账号状态', key: 'account', width: '15%' }, { title: '需要处理', key: 'task', width: '18%' }, { title: '操作', key: 'action', width: '17%' }] : [{ title: '账号名称', key: 'name', width: '30%' }, { title: '账号主键', dataIndex: 'user_id', width: '45%' }, { title: '分类', key: 'category', width: '25%' }])
-const required = [ ['first_name', '名字', 'Data'], ['employee_number', '工号', 'Data'], ['company', '公司', 'Link'], ['department', '主部门', 'Link'], ['gender', '性别', 'Link'], ['date_of_birth', '出生日期', 'Date'], ['date_of_joining', '入职日期', 'Date'] ]
+const required = [ ['first_name', '姓名', 'Data'], ['employee_number', '工号', 'Data'], ['company', '公司', 'Link'], ['department', '主部门', 'Link'], ['gender', '性别', 'Link'], ['date_of_birth', '出生日期', 'Date'], ['date_of_joining', '入职日期', 'Date'] ]
 const formFields = computed(() => {
-  const result = [...(metadata.value?.required_fields || [])].filter(row => !['name', 'user_id', 'create_user_automatically', 'status'].includes(row.fieldname))
+  // The native Employee insert applies its locked-version naming-series default.
+  // Operators provide the business employee number, never an internal series.
+  const result = [...(metadata.value?.required_fields || [])].filter(row => !['name', 'naming_series', 'user_id', 'create_user_automatically', 'status'].includes(row.fieldname))
   for (const [fieldname, label, fieldtype] of required) if (!result.some(row => row.fieldname === fieldname)) result.push({ fieldname: fieldname!, label: label!, fieldtype: fieldtype! })
-  return result
+  return result.map(row => ({ ...row, label: required.find(([fieldname]) => fieldname === row.fieldname)?.[1] || row.label }))
 })
 function accountLabel(row: EmployeeSummary) { return row.account_status === 'active' ? '已开通' : row.account_status === 'disabled' ? '已停用' : '待开通' }
 function taskLabel(row: EmployeeSummary) { return row.account_status === 'unopened' ? '开户 / 关联' : row.attendance_status !== 'confirmed' ? '核对员工关联' : '无需处理' }
