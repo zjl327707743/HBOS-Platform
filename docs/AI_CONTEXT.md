@@ -1,3 +1,5 @@
+> **G4 分页边界修复（2026-10-27）**：真实浏览器在初次读取前点击分页曾发出page=0并进入400；人员/审计分页现仅接受已加载范围内的正整数页，加载及空态禁用。40文件326测试、typecheck及改动lint通过，须新组合复测。Owner已批准的两项独立后端修复在#65/#66实施，当前测试7a的HR开户/首次改密/关联14项及副作用核验PASS，未合并。TEAM_PULL_READY=PENDING。下列按日期保留历史。
+
 # AI Context
 
 > **2026-10-27 R6-B / G4_UAT_IN_PROGRESS**：#62 与 #61 已分别按 Owner 精确授权正常 Squash，实际产品基线为 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。实际提交四个 CI 作业通过。R6 从该 SHA 的 `feat/hbos-r6b-experience-v1` 实施，固定设计依据 R6-A2.2 / v1.3；G4 真实权限与浏览器验收、G5 独立审查及固定 SHA 合并、G6 统一构建/标签/团队发布尚未完成。`TEAM_PULL_READY=PENDING`，未生产上线。详见 [本轮主记录](milestones/Portal_R6B_正式管理体验与稳定集成.md)。以下按日期保留的旧状态为历史。
