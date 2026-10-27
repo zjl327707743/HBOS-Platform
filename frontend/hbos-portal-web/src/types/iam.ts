@@ -24,7 +24,7 @@ export interface DepartmentSummary {
   id: string; name: string; parent_department?: string | null; company: string; confirmed: boolean; version?: string
   members?: EmployeeSummary[]
 }
-export interface AuditEvent { name?: string; actor: string; operation: string; subject_name: string; result: string; reason?: string; occurred_at: string }
+export interface AuditEvent { subject_type?: string; version?: number; request_id?: string; name?: string; actor: string; operation: string; subject_name: string; result: string; reason?: string; occurred_at: string }
 export interface WorkScope { scope_type: string; scope_ref: string; label?: string }
 export interface WorkOperation {
   available?: boolean
