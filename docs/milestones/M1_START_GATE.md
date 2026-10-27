@@ -1,5 +1,8 @@
 # M1 启动门禁
 
+> **2026-10-27 R6-B / G3_IMPLEMENTING**：#62 与 #61 已分别按 Owner 精确授权正常 Squash，实际产品基线为 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。实际提交四个 CI 作业通过。R6 从该 SHA 的 `feat/hbos-r6b-experience-v1` 实施，固定设计依据 R6-A2.2 / v1.3；G4 真实权限与浏览器验收、G5 独立审查及固定 SHA 合并、G6 统一构建/标签/团队发布尚未完成。`TEAM_PULL_READY=PENDING`，未生产上线。详见 [本轮主记录](Portal_R6B_正式管理体验与稳定集成.md)。以下按日期保留的旧状态为历史。
+
+
 ## PR #21 最终 Gate — 2026-10-01
 
 FINAL_REVIEW_BLOCKED：既有原生 MFA 跨请求证明 blocker 已最小修复；新 HEAD 的全部 CI/构建/历史扫描仍须最终核对。Browser final-submit 三项尚未实际完成，Owner 最新无破坏验收为 WAITING_OWNER_ACCEPTANCE。只有两项实际 PASS 且其余 Gate 全通过才 squash #21 到产品分支；#22 已冻结待安全承接，#15/main 不合并。真人验证码/新员工开户/高风险交接/实体手机软键盘未执行仍 NOT_RUN，按本轮授权不统一阻塞产品分支合入。

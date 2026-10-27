@@ -1,0 +1,43 @@
+# R6-B 正式管理体验与稳定集成
+
+状态：`G3_CODE_CANDIDATE / G4_PENDING_OWNER_WINDOW / NOT_RELEASED`，2026-10-27。本轮按 Owner 明确指定的 R6-A2.2 与 HBOS Design System v1.3 实施正式 Vue 页面，历史设计文件中的待确认备注不替代当轮实施授权。尚未完成 G4–G6，不能宣称生产上线或团队可拉取。
+
+## 已完成的登录集成与基线
+
+- #62 source `d4c3cadb0b63b335a7df0797f3dde80ff86d2230` 正常 Squash 为 `212d435feacfb9d121c8f31d670a63a49ee417ef`，保留非试点旧站点的飞书关闭语义。
+- #61 source `5266651a5b82c4f2cf26792d1827cbc2194ae050` 正常 Squash 为实际产品 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`，单父 212，tree `7089faf7dbdd23e94e404ea2d75c6502e193e8bc` 与候选 b33 相同。
+- 两项各自获得 Owner 固定 source/base 的一次性治理偏差接受。GitHub 非作者 Approve 均为 0，没有伪造或绕过保护；该接受不传递到 R6、main/#15、标签或发布。
+- 实际 22 提交的前端 40468512457、后端 40468666841、统一账号/构建 40468700038 共 4 jobs SUCCESS。候选测试与实际产品检查分别记录。
+- 合成站点完成密码、首次改密、MFA、真实 HTTP 拒绝与部分故障/布局验证后停服留卷。Owner 在 b33 完成真实 Administrator 飞书登录、同 User、管理入口和退出旧会话 403。18090 已恢复原 e1 源码与 526 前端，未迁移或恢复真实数据库。这不是 R6 的验收。
+
+## G3 实施窗口
+
+唯一源码写位 `workspaces/product`，分支 `feat/hbos-r6b-experience-v1` 从实际 22 建立。会话登记在 HBOS 根目录 WORKSPACES.local.json / INTEGRATION_LOCK.md，后者为协调登记而非 OS 排他锁。不改 IAM 独立工作位、HRMS、现有 UAT、生产、真实账号或试点配置。
+
+模块：共享页面标题/标签/面板/状态、管理侧栏与个人空间、个人身份与原安全流程、真实分页员工列表及详情、角色来源/精确范围、部门安排、发布/恢复、脱敏审计与旧入口。
+
+保留合同：User/Employee 区分；FOLLOW_DEPARTMENT/DIRECT/NONE；SELF/RESPONSIBLE_DEPARTMENTS/RESPONSIBLE_COMPANIES 配对；个人 deny、应用暂停与账号停用分开；原 CSRF、MFA、proof、版本/context、request_id、服务端管理范围与会话清理。
+
+开发前 Portal 37 文件 / 302 测试全部 PASS。开发后 Portal 39 文件 / 317 测试 PASS；包含真实 Ant Modal 发布确认合同测试及身份边界缓存清理测试。30 个本轮改动的 TS/Vue 文件 ESLint PASS，TypeScript 与生产模式 Vite 初构建 PASS；最终固定提交的完整构建及 CI 另行核对，不能用组件测试替代权限 UAT。全库 lint 仍有 7 个既有 unused-vars 错误，涉及未修改的库存/客户端/旧权限文件，未以此声称全库 lint PASS。
+
+## 接口差距
+
+| 项 | 实际接口 | 当前处理 |
+| --- | --- | --- |
+| 本人员工岗位 | `get_my_employee_status` 仅提供 status、Employee、工号、部门和初始密码状态；bootstrap 无岗位 | `BLOCKED_API`：不推断岗位；页面明确请在人事资料核对。补字段须独立受控后端变更后再接入。 |
+| 审计筛选 | `iam_audit.list_events` 支持准确 subject_type + subject_name、分页和 total | 已接入真实对象筛选；日期、操作类型、结果筛选 `BLOCKED_API`，没有用前端当前页筛选冒充全量查询。 |
+| 审计详情 | 仅有时间、操作者、对象、操作、结果、原因、版本等元数据，无读取 before/after 的接口 | 详情呈现真实脱敏元数据；变更前后内容 `BLOCKED_API`，没有自行读取数据库或编造。 |
+| 全员待办总数/来源期限 | 列表只给当前查询 total；分项全局计数与逐条期限摘要不完整 | 显式显示本页待办数量，不声称全局统计或永久有效。 |
+
+## 后续门禁与恢复点
+
+G4 需要对新的固定 R6 提交重新准备隔离验收与部署授权；此前 b33 临时维护授权已执行结束。真实 UAT、数据库/生产变更、R6 固定 SHA 合并、RC 标签、团队正式发布均保留各自 Owner 门禁。原生浏览器 200%、移动设备、真人理解及跨应用真实允许/403 必须按实际结果记录，未运行不写 PASS。
+
+代码恢复点为产品 22 和其 source 归档；R6 采用独立短分支及按模块提交。真实 UAT 的原状与私有备份保留在根目录 G2 证据中，不能自动回退真实数据。
+
+## 待 Owner 确认的受控事项
+
+1. 三文件只读 DTO 补齐提案已准备但未应用；不含 schema、角色授予、迁移或生产变更。只返回当前 User 已明确解析的 Employee 岗位；审计日期/操作/结果查询仍在同一对象可见性过滤内；详情复用现有审计读取与角色公司边界，再次脱敏 before/after。需要授权后独立 PR 和允许/拒绝测试，固定 SHA 合并仍需另行决定。
+2. 已有 18191 合成 Site 的 R6 专用联调窗口，需先备份合成数据，使用固定候选的只读 source/assets 快照，所有写入限定新增 R6UAT 白名单对象，停服留卷；不修改 18090、8080 或真实飞书。
+
+授权来源为正式任务书 E1/E2/F1：新增安全后端合同须独立受控 PR；部署、Site 迁移或改数据前须核对保全、恢复和许可。上述两个事项均不包含 R6 合并、RC 标签或团队发布。
