@@ -349,7 +349,16 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
         <template #footer>部门默认与个人单独安排分别核对。</template>
       </PanelFrame>
       <PanelFrame region="department-detail" label="部门默认安排与成员">
-        <template v-if="current" #header><div class="r6-department-title"><h2>{{ current.name }}</h2><p>{{ current.company }} · 当前可见主部门成员 {{ current.members?.length || 0 }} 人（仅当前部门）</p></div><StatusTag v-if="!current.confirmed" tone="warning">尚未确认，暂不安排人员或权限</StatusTag><a-radio-group :value="activeTab" @change="(event: { target: { value: string } }) => changeTab(event.target.value)" button-style="solid" style="margin-top:16px"><a-radio-button v-if="canReadApps" value="apps">默认角色与应用</a-radio-button><a-radio-button value="members">部门成员</a-radio-button></a-radio-group></template>
+        <template v-if="current" #header>
+          <div class="r6-department-panel-heading">
+            <div class="r6-department-title"><h2>{{ current.name }}</h2><p>{{ current.company }} · 当前可见主部门成员 {{ current.members?.length || 0 }} 人（仅当前部门）</p></div>
+            <div class="r6-department-view-toggle">
+              <StatusTag v-if="!current.confirmed" tone="warning">尚未确认，暂不安排人员或权限</StatusTag>
+              <a-button v-if="activeTab === 'apps' && canReadApps" type="text" @click="changeTab('members')">查看部门成员</a-button>
+              <a-button v-else-if="activeTab === 'members' && canReadApps" type="text" @click="changeTab('apps')">返回默认角色与应用</a-button>
+            </div>
+          </div>
+        </template>
         <div v-if="error" class="r6-resource-error r6-resource-error-inline"><a-alert :message="error" type="warning" show-icon /><a-button @click="load">重试读取</a-button></div>
         <div v-show="activeTab === 'apps' && canReadApps && current">
           <WorkSettings v-if="editingApp && current?.confirmed" :key="selected + ':' + editingApp" ref="settings" subject-kind="department" :subject-id="selected" :app-id="editingApp" @back="editingApp = null" @saved="loadApps" />
@@ -369,9 +378,8 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
                   <strong>{{ currentDepartmentText }}</strong>
                   <StatusTag :tone="baselineStatus === 'ready' ? 'neutral' : 'warning'">{{ baselineStatus === 'loading' ? '正在核对' : baselineStatus === 'error' ? '待重试' : '只读' }}</StatusTag>
                   <p>{{ departmentReadOnlyMessage }}</p>
-                  <div class="r6-dept-baseline-actions">
-                    <a-button v-if="baselineStatus === 'error'" :disabled="departmentBusy" @click="loadDepartmentRole(true)">重试核对</a-button>
-                    <a-button @click="changeTab('members')">查看部门成员</a-button>
+                  <div v-if="baselineStatus === 'error'" class="r6-dept-baseline-actions">
+                    <a-button :disabled="departmentBusy" @click="loadDepartmentRole(true)">重试核对</a-button>
                   </div>
                 </div>
 
@@ -381,14 +389,14 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
                 </div>
                 <p v-if="baselineLoading" class="r6-dept-note" role="status">正在读取当前跟随范围…</p>
                 <template v-else-if="baselineStatus === 'ready'">
-                  <div class="r6-dept-follow-head"><h4>跟随此安排的同事</h4><a-button type="link" @click="changeTab('members')">查看部门成员</a-button></div>
+                  <div class="r6-dept-follow-head"><h4>跟随此安排的同事</h4></div>
                   <ul v-if="baselineMembers.length" class="r6-dept-followers"><li v-for="member in baselineMembers" :key="member.employee">
                     <div class="r6-dept-follower-main"><a-avatar :size="34">{{ member.name?.slice(-1) || '员' }}</a-avatar><div><strong>{{ member.name }}</strong><small>{{ member.employee_number || '员工档案' }}</small></div></div>
                     <span>{{ member.changed ? '随部门默认变化' : member.before_allowed ? '现有权限保持' : '当前暂不可用' }}</span>
                     <a-button v-if="canIam('iam.people.read')" type="link" @click="viewEmployeeAssignment(member.employee)">查看安排</a-button>
                   </li></ul>
                   <p v-else-if="(baselineImpact?.reference_count || 0) === 0" class="r6-dept-note">当前没有跟随者。</p>
-                  <div v-else class="r6-dept-baseline-error"><p class="r6-dept-note">核对结果未返回跟随成员名单。</p><a-button @click="changeTab('members')">查看部门成员</a-button></div>
+                  <div v-else class="r6-dept-baseline-error"><p class="r6-dept-note">核对结果未返回跟随成员名单。</p></div>
                   <details v-if="baselineRestrictions.length" class="r6-dept-restrictions"><summary>已有限制详情（{{ baselineRestrictions.length }}）</summary><p v-for="member in baselineRestrictions" :key="member.employee"><strong>{{ member.name }}</strong>：{{ member.reason }}</p></details>
                 </template>
               </template>
@@ -396,10 +404,10 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
                 <a-alert type="info" show-icon message="应用角色功能尚未启用" description="以下保留原有应用权限兼容入口，不新增角色选择。" />
                 <article v-for="app in apps" :key="app.app_id" class="r6-department-app"><div><strong>{{ app.title }}</strong><p>{{ app.integrated ? app.summary : '尚未接入此管理功能，暂不能在此调整。' }}</p></div><a-button v-if="app.integrated" :disabled="!current.confirmed" @click="openOtherApp(app.app_id)">{{ canIam('iam.departments.manage') ? '设置安排' : '查看安排' }}</a-button></article>
               </template>
-              <section v-if="iamSession.rolesEnabled && otherApps.length" class="r6-dept-other-apps">
-                <div class="field-section-title"><h3>其他应用安排</h3><span>不改变考勤默认</span></div>
+              <details v-if="iamSession.rolesEnabled && otherApps.length" class="r6-dept-other-apps">
+                <summary><strong>其他应用安排</strong><span>不改变考勤默认</span></summary>
                 <article v-for="app in otherApps" :key="app.app_id" class="r6-department-app"><div><strong>{{ app.title }}</strong><p>{{ app.integrated ? app.summary : '尚未接入此管理功能，暂不能在此调整。' }}</p></div><a-button v-if="app.integrated" :disabled="!current.confirmed" @click="openOtherApp(app.app_id)">{{ canIam('iam.departments.manage') ? '设置安排' : '查看安排' }}</a-button></article>
-              </section>
+              </details>
             </template>
             <a-alert v-else type="warning" show-icon message="部门尚未确认，暂不安排默认角色或人员" description="请先完成部门确认；部门成员仍可在下方查看。" />
           </template>
@@ -442,6 +450,7 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 <style scoped>
 .r6-dept-lead{margin:0 0 16px;color:var(--r6-secondary,#566780);font-size:13px;line-height:21px}.department-default-options{display:grid;gap:10px;width:100%;margin-bottom:18px}.department-default-options :deep(.ant-radio-wrapper){display:flex;align-items:flex-start;margin:0;padding:15px 16px;border:1px solid #e5e9f2;border-radius:11px;min-height:76px;white-space:normal}.department-default-options :deep(.ant-radio-wrapper-checked){border-color:#bab5ea;background:#f7f6ff}.department-default-options :deep(.ant-radio-wrapper-disabled){background:#f8f9fc;border-color:#e5e9f2}.department-default-options :deep(.ant-radio){margin-top:4px;flex:none}.department-default-options strong,.department-default-options small{display:block}.department-default-options strong{font-size:14px}.department-default-options small{margin-top:4px;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.department-default-options .r6-status-tag{margin-left:8px}.r6-dept-readonly{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border:1px solid #e5e9f2;border-radius:10px;background:#f8f9fc}.r6-dept-readonly p{margin:0;color:var(--r6-muted,#5f6e86);font-size:12px;flex-basis:100%}.r6-dept-counts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}.r6-dept-counts>div{padding:16px 18px;border:1px solid #e5e9f2;border-radius:12px;background:#f8f9fc}.r6-dept-counts strong{display:block;font-size:26px;line-height:34px}.r6-dept-counts span{display:block;margin-top:4px;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px}.r6-dept-follow-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 6px}.r6-dept-follow-head h4{margin:0;font-size:14px}.r6-dept-followers{list-style:none;margin:0;padding:0;display:grid;gap:8px}.r6-dept-followers li{display:flex;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid #e5e9f2;border-radius:9px;font-size:13px}.r6-dept-followers span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-note{margin:10px 0 0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.r6-dept-baseline-error{display:grid;gap:10px;justify-items:start;margin-top:12px}.r6-dept-baseline-actions{display:flex;gap:8px;flex-wrap:wrap}.r6-dept-restrictions{margin-top:14px;border-top:1px solid #e5e9f2;padding-top:10px}.r6-dept-restrictions summary{cursor:pointer;font-size:12px;color:var(--r6-muted,#5f6e86);min-height:34px;display:flex;align-items:center}.r6-dept-restrictions p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.r6-dept-role-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.r6-dept-role-actions>span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-role-actions>div{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.r6-dept-other-apps{margin-top:22px;border-top:1px solid #e5e9f2;padding-top:6px}.r6-dept-other-apps .field-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:16px 0 6px}.r6-dept-other-apps .field-section-title h3{margin:0;font-size:15px}.r6-dept-other-apps .field-section-title span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-other-apps .r6-department-app:last-child{border-bottom:0}.r6-department-app>div{min-width:0}.r6-department-app strong{font-size:14px}.r6-department-app p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.r6-department-app .ant-btn{flex:none}.role-preview{display:grid;gap:14px}.role-preview-subject{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}.role-preview-subject strong{font-size:16px}.role-preview-subject span{color:var(--r6-muted,#5f6e86);font-size:12px}.role-department-impact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.role-department-impact>div{padding:12px;border:1px solid #e5e9f2;border-radius:10px;background:#f8f9fc}.role-department-impact strong{display:block;font-size:22px;line-height:30px}.role-department-impact span{display:block;margin-top:4px;color:var(--r6-muted,#5f6e86);font-size:11px;line-height:18px}.role-member-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.role-member-list li{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;padding:10px 12px;border:1px solid #e5e9f2;border-radius:8px;font-size:12px}.role-member-list span{color:var(--r6-secondary,#566780)}.role-scope-caption{margin:0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.role-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid #e5e9f2}@media(max-width:760px){.r6-dept-counts,.role-department-impact{grid-template-columns:1fr}.r6-dept-follow-head{align-items:flex-start}.r6-dept-followers li{flex-wrap:wrap}.r6-dept-role-actions{align-items:flex-start}.r6-dept-role-actions>div{width:100%;justify-content:flex-end}}
 .r6-dept-followers li{align-items:center}.r6-dept-followers li>span{text-align:right}.r6-dept-follower-main{display:flex;align-items:center;gap:10px;min-width:160px;flex:1}.r6-dept-follower-main>div{min-width:0}.r6-dept-follower-main strong,.r6-dept-follower-main small{display:block;overflow-wrap:anywhere}.r6-dept-follower-main small{margin-top:2px;color:var(--r6-muted,#5f6e86);font-size:11px;line-height:18px}.r6-dept-followers li>.ant-btn{flex:none}.r6-dept-permission-state .r6-dept-baseline-actions{margin-top:2px}
+.r6-department-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.r6-department-title{min-width:0}.r6-department-title h2{margin:0;font-size:20px;line-height:28px;font-weight:600}.r6-department-title p{margin:4px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:19px;overflow-wrap:anywhere}.r6-department-view-toggle{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none}.r6-department-view-toggle .ant-btn{padding-inline:10px}.r6-dept-other-apps{margin-top:18px;border-top:1px solid #e5e9f2;padding:0 0 2px}.r6-dept-other-apps summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;cursor:pointer;list-style:none}.r6-dept-other-apps summary::-webkit-details-marker{display:none}.r6-dept-other-apps summary strong{font-size:14px}.r6-dept-other-apps summary span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-other-apps[open]{padding-bottom:8px}@media(max-width:760px){.r6-department-panel-heading{flex-direction:column;gap:8px}.r6-department-view-toggle{width:100%;justify-content:flex-end}}
 </style>
 
 <style scoped>

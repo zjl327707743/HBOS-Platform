@@ -180,6 +180,8 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     expect(w.findAll('button.r6-department-row')).toHaveLength(2)
     expect(w.find('button.r6-department-row[aria-current="page"]').text()).toContain('生产一部')
     expect(w.find('.r6-dept-info').exists()).toBe(true)
+    expect(w.find('.r6-department-view-toggle').exists()).toBe(true)
+    expect(w.find('.r6-department-view-toggle .ant-radio-group').exists()).toBe(false)
     expect(w.find('[aria-label="搜索组织部门"]').exists()).toBe(false)
 
     await click(w, '筛选部门')
@@ -383,10 +385,10 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     expect(api.command.mock.calls.some(call => call[0] === 'save_department_role')).toBe(false)
 
     await setRadio(w, 'staff')
-    await setRadio(w, 'members')
+    await click(w, '查看部门成员')
     await flushPromises()
     expect((w.find('input[type="radio"][value="staff"]').element as HTMLInputElement).checked).toBe(true)
-    await setRadio(w, 'apps')
+    await click(w, '返回默认角色与应用')
     await flushPromises()
     expect((w.find('input[type="radio"][value="staff"]').element as HTMLInputElement).checked).toBe(true)
     expect(w.text()).toContain('有未保存的修改')
