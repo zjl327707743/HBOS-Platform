@@ -150,7 +150,10 @@ async function load() {
       maxImageSize: 16_000_000, canvasMaxAreaInBytes: 16_000_000, verbosity: 0 })
     const value = await task.promise
     if (epoch !== generation) return
-    if (value.numPages < 1 || value.numPages > 2000) throw new Error('PAGE_LIMIT')
+    // The same ceiling the server uses for a preview: a published scanned book
+    // in the corpus runs to 2032 pages, and this cap used to refuse it after
+    // the bytes had already been fetched and parsed.
+    if (value.numPages < 1 || value.numPages > 4000) throw new Error('PAGE_LIMIT')
     pdf = value; pages.value = value.numPages
     if (page.value > value.numPages) page.value = value.numPages
     await nextTick(); await draw()
