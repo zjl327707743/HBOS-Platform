@@ -784,7 +784,11 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 18px 22px;
+  padding: 19px 22px;
+}
+.r6-overview-label-row {
+  line-height: 22px;
+  margin-bottom: 4px;
 }
 .r6-overview strong {
   display: block;
@@ -1690,8 +1694,9 @@
     line-height: 18px;
   }
   .r6-personal .r6-identity-main {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: flex-start;
+    gap: 13px;
   }
   .r6-personal .r6-identity-name {
     flex: 1 1 0;
@@ -1712,10 +1717,10 @@
   .r6-people-page .r6-overview {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 6px;
     min-height: 132px;
     align-content: start;
-    padding: 14px 16px;
+    padding: 12px 16px;
   }
   .r6-people-page .r6-overview-trail {
     display: none;

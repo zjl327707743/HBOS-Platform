@@ -64,7 +64,7 @@ const departmentFooterStateText = computed(() => {
   if (baselineStatus.value === 'loading') return '正在核对当前部门安排…'
   if (departmentDirty.value) return '有未保存的修改'
   if (departmentPreview.value) return '已打开影响预览'
-  return '与当前部门默认一致 · 没有未保存的修改'
+  return '与当前部门默认一致 · 未修改'
 })
 const departmentPrimaryDisabledReason = computed(() => {
   if (!departmentCanEdit.value) return ''
