@@ -26,7 +26,7 @@
     <div class="header-actions">
       <a-dropdown v-if="managementExperience" :trigger="['click']" class="r6-mobile-global">
         <a-button aria-label="打开工作台导航"><MenuOutlined /></a-button>
-        <template #overlay><a-menu><a-menu-item @click="router.push('/hbos')">首页</a-menu-item><a-menu-item @click="router.push('/hbos/work')">我的工作</a-menu-item><a-menu-item @click="router.push('/hbos/apps')">应用中心</a-menu-item><a-menu-item v-if="hasManagementAccess()" @click="router.push('/hbos/admin')">管理中心</a-menu-item></a-menu></template>
+        <template #overlay><a-menu><a-menu-item @click="router.push('/hbos')">首页</a-menu-item><a-menu-item @click="router.push('/hbos/work')">我的工作</a-menu-item><a-menu-item @click="router.push('/hbos/apps')">应用中心</a-menu-item><a-menu-item :disabled="sessionBlocked" @click="$emit('open-command')">搜索</a-menu-item><a-menu-item v-if="hasManagementAccess()" @click="router.push('/hbos/admin')">管理中心</a-menu-item></a-menu></template>
       </a-dropdown>
       <a-button v-if="managementExperience" class="r6-motion-toggle" type="text" :aria-pressed="motionPaused" :aria-label="motionPaused ? '恢复背景动效' : '暂停背景动效'" @click="$emit('toggle-motion')"><PlayCircleOutlined v-if="motionPaused" /><PauseCircleOutlined v-else /></a-button>
       <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" /><NotificationCenter v-if="portalDataSource === 'mock'" /></div>

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, nextTick, ref } from 'vue'
 import { flushPromises, mount, DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import Antd, { Modal } from 'ant-design-vue'
@@ -172,6 +172,27 @@ afterEach(() => {
 })
 
 describe('R6-A2.2 employee apps and assignment fidelity', () => {
+  it('refreshes the department directory after returning to its cached view', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: defineComponent({ template: '<div />' }) }] })
+    await router.push('/hbos/admin/departments')
+    await router.isReady()
+    const active = ref(true)
+    const Empty = defineComponent({ template: '<div />' })
+    const Host = defineComponent({
+      setup: () => ({ active, DepartmentsAdminView, Empty }),
+      template: '<KeepAlive><component :is="active ? DepartmentsAdminView : Empty" /></KeepAlive>',
+    })
+    const w = mount(Host, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify } } })
+    wrappers.push(w)
+    await flushPromises()
+    expect(api.listDepartments).toHaveBeenCalledTimes(1)
+    active.value = false
+    await flushPromises()
+    active.value = true
+    await flushPromises()
+    expect(api.listDepartments).toHaveBeenCalledTimes(2)
+  })
+
   it('matches the department prototype with selectable directory rows and tucked-away scope filters', async () => {
     const w = await render(DepartmentsAdminView)
     await flushPromises()
@@ -661,6 +682,93 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     await click(w, '确认关联')
     expect(api.previewLink).toHaveBeenCalledWith('E1', 'user-existing', expect.objectContaining({ employee_number: 'T001', company: 'C1', account_user_id: 'user-existing', reference: expect.stringContaining('T001') }))
     expect(api.linkUser).toHaveBeenCalledWith('E1', 'user-existing', expect.objectContaining({ employee_number: 'T001', company: 'C1', account_user_id: 'user-existing' }), 'preview-v1', expect.any(String))
+  })
+
+  it('preserves the selected account-link mode and re-previews the current employee version after a conflict', async () => {
+    const latestPerson = (version: string) => ({
+      ...structuredClone(person),
+      employee: { ...structuredClone(person.employee), version },
+    })
+    api.getPerson.mockResolvedValueOnce(latestPerson('v1')).mockResolvedValueOnce(latestPerson('v2')).mockResolvedValue(latestPerson('v2'))
+    api.previewLink.mockResolvedValueOnce({ version: 'preview-v1', summary: '首次核对' }).mockResolvedValueOnce({ version: 'preview-v2', summary: '最新核对' })
+    api.linkUser.mockRejectedValueOnce(Object.assign(new Error('员工档案已变化'), { status: 409 })).mockResolvedValueOnce({ employee: { ...person.employee, user_id: 'user-existing', account_status: 'active' } })
+    const w = await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'account' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    await setRadio(w, 'link')
+    const accountInput = Array.from(document.body.querySelectorAll<HTMLInputElement>('input')).find(row => (row.placeholder || '').includes('账号'))
+    expect(accountInput).toBeDefined()
+    await new DOMWrapper(accountInput!).setValue('user-existing')
+    const textarea = document.body.querySelector<HTMLTextAreaElement>('textarea')
+    expect(textarea).not.toBeNull()
+    await new DOMWrapper(textarea!).setValue('已核对工号 T001、公司与账号 user-existing 的归属')
+    const checkbox = document.body.querySelector<HTMLInputElement>('.employee-drawer input[type="checkbox"]')
+    expect(checkbox).not.toBeNull()
+    checkbox!.click()
+    await nextTick()
+    await click(w, '核对并关联')
+    await click(w, '完成测试核验')
+    await click(w, '确认关联')
+    expect(bodyText()).toContain('读取最新资料，保留选择')
+    await click(w, '读取最新资料，保留选择')
+    await flushPromises()
+
+    const linkRadio = Array.from(document.body.querySelectorAll<HTMLInputElement>('input[type="radio"]')).find(row => row.value === 'link')
+    expect(linkRadio?.checked).toBe(true)
+    const latestAccountInput = Array.from(document.body.querySelectorAll<HTMLInputElement>('input')).find(row => (row.placeholder || '').includes('账号'))
+    expect(latestAccountInput?.value).toBe('user-existing')
+    await click(w, '核对并关联')
+    await click(w, '完成测试核验')
+    await click(w, '确认关联')
+
+    expect(api.previewLink).toHaveBeenCalledTimes(2)
+    expect(api.linkUser.mock.calls[0]?.[3]).toBe('preview-v1')
+    expect(api.linkUser.mock.calls[1]?.[3]).toBe('preview-v2')
+    expect(api.linkUser.mock.calls[1]?.[4]).toBe(api.linkUser.mock.calls[0]?.[4])
+    expect(api.createUser).not.toHaveBeenCalled()
+  })
+
+  it('does not ask link-only operators to discard a form they never changed', async () => {
+    caps.delete('iam.people.provision')
+    const confirm = vi.spyOn(Modal, 'confirm')
+    const w = await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'account' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    await click(w, '关闭详情')
+    expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it('reuses the same assist request id after an unknown result and a fresh state read', async () => {
+    const activePerson = {
+      ...structuredClone(person),
+      employee: { ...structuredClone(person.employee), user_id: 'user-a', account_status: 'active', attendance_status: 'confirmed' },
+      account: { user_id: 'user-a', username: 'user-a', feishu_bound: false, initial_password_pending: false },
+      association: { employee_id: 'E1', user_id: 'user-a' },
+    }
+    api.getPerson.mockResolvedValue(activePerson)
+    api.resetTemporaryPassword.mockRejectedValueOnce(new Error('网络响应丢失')).mockResolvedValueOnce({ temporary_password: 'new-temporary-password' })
+    const w = await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'account' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    const assistDetails = Array.from(document.body.querySelectorAll<HTMLDetailsElement>('details')).find(row => row.querySelector('summary')?.textContent?.includes('更多账号协助'))
+    expect(assistDetails).toBeDefined()
+    assistDetails!.open = true
+    await nextTick()
+    await click(w, '受控重置临时密码')
+    await click(w, '完成测试核验')
+    await click(w, '确认重置')
+    expect(api.resetTemporaryPassword).toHaveBeenCalledTimes(1)
+    expect(bodyText()).toContain('读取最新资料，保留选择')
+
+    await click(w, '读取最新资料，保留选择')
+    await flushPromises()
+    const reopenedAssistDetails = Array.from(document.body.querySelectorAll<HTMLDetailsElement>('details')).find(row => row.querySelector('summary')?.textContent?.includes('更多账号协助'))
+    expect(reopenedAssistDetails).toBeDefined()
+    reopenedAssistDetails!.open = true
+    await nextTick()
+    await click(w, '受控重置临时密码')
+    await click(w, '完成测试核验')
+    await click(w, '确认重置')
+
+    expect(api.resetTemporaryPassword).toHaveBeenCalledTimes(2)
+    expect(api.resetTemporaryPassword.mock.calls[1]?.[2]).toBe(api.resetTemporaryPassword.mock.calls[0]?.[2])
   })
 
   it('does not emit a pending save result after the subject changes', async () => {

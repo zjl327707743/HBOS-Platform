@@ -62,10 +62,10 @@ describe('R6 formal data and role contracts', () => {
   })
   it('retains an unsaved role draft across cached route changes and requires fresh proof on return', async () => {
     const router = createRouter({ history: createMemoryHistory(), routes: [
-      { path: '/roles', component: Roles },
-      { path: '/other', component: defineComponent({ template: '<p>其他工作</p>' }) },
+      { path: '/hbos/admin/roles', component: Roles },
+      { path: '/hbos/admin/other', component: defineComponent({ template: '<p>其他工作</p>' }) },
     ] })
-    await router.push('/roles'); await router.isReady()
+    await router.push('/hbos/admin/roles'); await router.isReady()
     const Root = defineComponent({ template: '<RouterView v-slot="{ Component }"><KeepAlive><component :is="Component" /></KeepAlive></RouterView>' })
     const w = mount(Root, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify } } })
     wrappers.push(w); await flushPromises()
@@ -73,8 +73,8 @@ describe('R6 formal data and role contracts', () => {
     await w.get('input[aria-label="搜索角色功能"]').setValue('查看')
     await click(w, '保存草稿'); await click(w, '完成测试核验')
     expect(action(w, '确认保存草稿')!.attributes('disabled')).toBeUndefined()
-    await router.push('/other'); await flushPromises(); expect(w.text()).toContain('其他工作')
-    await router.push('/roles'); await flushPromises()
+    await router.push('/hbos/admin/other'); await flushPromises(); expect(w.text()).toContain('其他工作')
+    await router.push('/hbos/admin/roles'); await flushPromises()
     expect((w.findAll('input[type=checkbox]')[0]!.element as HTMLInputElement).checked).toBe(false)
     expect((w.get('input[aria-label="搜索角色功能"]').element as HTMLInputElement).value).toBe('查看')
     await click(w, '保存草稿')

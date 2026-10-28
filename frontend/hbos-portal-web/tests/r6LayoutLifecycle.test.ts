@@ -19,6 +19,40 @@ describe('R6 layout and identity lifecycle', () => {
     const clean = render(); expect((clean.get('input').element as HTMLInputElement).value).toBe(''); await clean.get('input').setValue('must not be reinserted'); window.dispatchEvent(new Event('hbos:session-boundary')); clean.unmount()
     const final = render(); expect((final.get('input').element as HTMLInputElement).value).toBe(''); final.unmount()
   })
+
+  it('does not overwrite a cached page scroll snapshot when KeepAlive evicts that page', async () => {
+    const Page = defineComponent({
+      setup() { const search = ref(''); const page = ref(1); useManagementViewMemory('eviction-page', { search, page }); return { search, page } },
+      template: '<div><input v-model="search" /><output>{{ page }}</output></div>',
+    })
+    const Other = defineComponent({ template: '<div>其他页面</div>' })
+    const router = createRouter({ history: createMemoryHistory(), routes: [
+      { path: '/a', component: Page },
+      ...['b', 'c', 'd', 'e', 'f'].map(path => ({ path: `/${path}`, component: Other })),
+    ] })
+    await router.push('/a')
+    await router.isReady()
+    const content = document.createElement('main')
+    content.className = 'portal-route-content'
+    document.body.appendChild(content)
+    const Host = defineComponent({ template: '<RouterView v-slot="{ Component }"><KeepAlive :max="5"><component :is="Component" :key="$route.path" /></KeepAlive></RouterView>' })
+    const wrapper = mount(Host, { attachTo: content, global: { plugins: [router] } })
+    await wrapper.get('input').setValue('remembered filter')
+    content.scrollTop = 42
+    await router.push('/b')
+    await flushPromises()
+    content.scrollTop = 101
+    for (const path of ['/c', '/d', '/e', '/f']) {
+      await router.push(path)
+      await flushPromises()
+      content.scrollTop += 1
+    }
+    await router.push('/a')
+    await flushPromises()
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('remembered filter')
+    expect(content.scrollTop).toBe(42)
+    wrapper.unmount()
+  })
   it('uses natural scrolling when actual headers leave less than 260px, without oscillating', async () => {
     let height = 710
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 }); Object.defineProperty(window, 'innerHeight', { configurable: true, get: () => height })

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
-import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { Modal, message } from 'ant-design-vue'
 import { SearchOutlined, PlusOutlined, TeamOutlined, KeyOutlined, LinkOutlined, ColumnHeightOutlined } from '@ant-design/icons-vue'
@@ -20,7 +20,7 @@ const rows = ref<EmployeeSummary[]>([]), total = ref(0), page = ref(1), category
 const selected = ref(''), selectedTab = ref('basic'), drawerOpen = ref(false), createOpen = ref(false), metadata = ref<EmployeeMetadata | null>(null), creating = ref(false), createError = ref(''), recheck = ref(false)
 const overviewNotice = ref('')
 const fields = reactive<Record<string, string>>({}), proof = useAccountProof(() => undefined)
-let generation = 0, metadataGeneration = 0, disposed = false, timer: ReturnType<typeof setTimeout> | undefined, requestId = '', requestSignature = ''
+let generation = 0, metadataGeneration = 0, disposed = false, refreshOnActivation = false, timer: ReturnType<typeof setTimeout> | undefined, requestId = '', requestSignature = ''
 const unopened = computed(() => rows.value.filter(row => row.account_status === 'unopened').length)
 const pending = computed(() => rows.value.filter(needsAssociationReview).length)
 const departmentOptions = computed(() => metadata.value?.departments.map(row => ({ value: row.value, label: `${row.label} · ${row.company}` })) || [])
@@ -113,14 +113,20 @@ async function saveEmployee() {
   finally { creating.value = false }
 }
 async function recheckCreate() { await Promise.all([load(), loadMetadata()]); if (!error.value && !metadataError.value) { recheck.value = false; createError.value = '已读取最新列表。请先核对工号：已建档请回到列表处理，未建档再确认内容并重新验证本人。' } }
+useManagementViewMemory('PeopleAdminView.vue', { search, department, accountStatus, page, category, viewGroup, compact })
 watch([category, department, accountStatus, viewGroup], () => { page.value = 1; void load() })
 watch(viewGroup, loadMetadata)
 watch(search, () => { page.value = 1; clearTimeout(timer); timer = setTimeout(load, 300) })
 watch(() => fields.company, () => { fields.department = '' })
 onMounted(() => { void load(); void loadMetadata() })
+onDeactivated(() => { refreshOnActivation = true })
+onActivated(() => {
+  if (!refreshOnActivation) return
+  refreshOnActivation = false
+  void load(); void loadMetadata()
+})
 onBeforeRouteLeave(() => createOpen.value ? closeCreate() : true)
 onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; clearTimeout(timer); proof.invalidate() })
-useManagementViewMemory('PeopleAdminView.vue', { search, department, accountStatus, page, category, viewGroup, compact })
 </script>
 <template>
   <section class="r6-page r6-people-page" :data-view-instance="viewInstance">

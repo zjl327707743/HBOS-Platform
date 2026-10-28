@@ -30,7 +30,7 @@ const accountMode = ref<'create' | 'link'>('create'), belongs = ref(false), acco
 const roleDirty = ref(false), lowToolsOpen = ref(false), appsVisited = ref(false)
 const work = ref<WorkSummary | null>(null), workLoading = ref(false), workError = ref('')
 const proof = useAccountProof(() => { secret.value = '' })
-let generation = 0, workGeneration = 0, accountRequestId = '', accountPreviewVersion = '', assistRequestId = ''
+let generation = 0, workGeneration = 0, accountRequestId = '', accountPreviewVersion = '', assistRequestId = '', assistRequestAction = ''
 let returnFocus: HTMLElement | null = null
 const drawerBody = ref<HTMLElement | null>(null)
 let focusRoot: HTMLElement | null = null
@@ -118,7 +118,7 @@ async function load() {
     if (!detail.employee.user_id) {
       editingApp.value = null
       if (!canProvisionAccount.value && canLinkAccount.value) accountMode.value = 'link'
-      else if (canProvisionAccount.value) accountMode.value = 'create'
+      else if (canProvisionAccount.value && !canLinkAccount.value) accountMode.value = 'create'
     }
     if (canReadAccess.value) void loadWork()
   } catch (e) {
@@ -129,6 +129,7 @@ async function load() {
 }
 async function readLatest() {
   transferPreview.value = null
+  accountPreviewVersion = ''
   proof.invalidate()
   await load()
 }
@@ -189,7 +190,8 @@ async function runAccount() {
 async function openAssist(kind: string) {
   if (mustRead.value) { message.info('请先读取最新资料并核对上次操作结果。'); return }
   if (nativeRoleBusy()) { message.info('原生角色正在保存，请等待完成后再执行账号操作。'); return }
-  action.value = kind; assistOpen.value = true; transferPreview.value = null; department.value = ''; error.value = ''; proof.invalidate(); assistRequestId = ''
+  if (assistRequestAction !== kind) { assistRequestId = ''; assistRequestAction = kind }
+  action.value = kind; assistOpen.value = true; transferPreview.value = null; department.value = ''; error.value = ''; proof.invalidate()
   if (kind === 'transfer') {
     try { metadata.value = await getEmployeeMetadata(employee.value?.verification_group === 'technical' ? 'technical' : 'daily') }
     catch (e) { error.value = iamMessage(e) }
@@ -216,7 +218,7 @@ async function executeAssist() {
       ? await transferEmployee(row.id, department.value, row.version, assistRequestId, transferPreview.value!.context_revision)
       : action.value === 'disable' ? await disableUser(row.id, row.version, assistRequestId) : await resetTemporaryPassword(row.id, row.version, assistRequestId)
     proof.invalidate(); secret.value = result.temporary_password || ''
-    assistOpen.value = false; action.value = ''; assistRequestId = ''
+    assistOpen.value = false; action.value = ''; assistRequestId = ''; assistRequestAction = ''
     await load()
     message.success('员工账号操作已完成。')
     emit('changed')
@@ -239,7 +241,7 @@ async function onRoleSaved() { roleDirty.value = false; await loadWork(); emit('
 function onRoleDirty(value: boolean) { roleDirty.value = value }
 async function close() {
   if (busy.value || (roleSettings.value && !await roleSettings.value.requestLeave()) || (settings.value && !await settings.value.requestLeave()) || (nativeRoles.value && !await nativeRoles.value.requestLeave())) return false
-  if (accountReview.value || (!employee.value?.user_id && (belongs.value || evidence.value || targetUser.value || accountMode.value !== 'create'))) {
+  if (accountReview.value || (!employee.value?.user_id && (belongs.value || evidence.value || targetUser.value))) {
     const leave = await new Promise<boolean>(resolve => Modal.confirm({ title: '放弃尚未提交的账号核对？', content: '员工档案与其他应用安排不受影响。', okText: '放弃', cancelText: '继续填写', onOk: () => resolve(true), onCancel: () => resolve(false) }))
     if (!leave) return false
   }
@@ -252,7 +254,7 @@ async function close() {
 watch(tab, value => { if (value === 'apps') appsVisited.value = true })
 watch(() => [props.open, props.employeeId], () => {
   generation++; workGeneration++; person.value = null; secret.value = ''; action.value = ''; assistOpen.value = false; error.value = ''
-  accountReview.value = false; accountDone.value = false; belongs.value = false; evidence.value = ''; targetUser.value = ''; accountMode.value = 'create'; accountRequestId = ''; accountPreviewVersion = ''; assistRequestId = ''
+  accountReview.value = false; accountDone.value = false; belongs.value = false; evidence.value = ''; targetUser.value = ''; accountMode.value = 'create'; accountRequestId = ''; accountPreviewVersion = ''; assistRequestId = ''; assistRequestAction = ''
   transferPreview.value = null; department.value = ''; metadata.value = null; roleDirty.value = false; work.value = null; workError.value = ''; mustRead.value = false; appsVisited.value = false
   proof.invalidate()
   if (props.open && props.employeeId) {

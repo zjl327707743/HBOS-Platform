@@ -61,6 +61,7 @@ const role = computed(() => items.value.find(row => row.role_key === selected.va
 const proof = useAccountProof()
 const canEdit = computed(() => canIam('iam.roles.edit'))
 const canPublish = computed(() => canIam('iam.roles.publish'))
+const hasPasswordProof = computed(() => proof.valid.value && proof.method.value === 'password')
 const dirty = computed(() => editing.value && JSON.stringify([...checked.value].sort()) !== JSON.stringify(role.value?.draft_features.map(roleFeatureKey).sort()))
 const unpublished = computed(() => Boolean(role.value && !sameRoleFeatures(role.value.draft_features, role.value.published_features)))
 const displayed = computed(() => role.value ? editing.value ? checked.value : (versionTab.value === 'draft' ? role.value.draft_features : role.value.published_features).map(roleFeatureKey) : [])
@@ -227,7 +228,7 @@ function openPublishReview() {
   void prepare()
 }
 async function saveDraft() {
-  if (!role.value || !draftReviewOpen.value || busy.value || mustRead.value || !proof.valid.value || !canEdit.value || !dirty.value || !editing.value) return
+  if (!role.value || !draftReviewOpen.value || busy.value || mustRead.value || !hasPasswordProof.value || !canEdit.value || !dirty.value || !editing.value) return
   const run = viewEpoch, roleKey = selected.value, expected = role.value.draft_version
   const features = role.value.registry.filter(row => checked.value.includes(roleFeatureKey(row))).map(({ operation_id, scope_binding }) => ({ operation_id, scope_binding }))
   busy.value = true
@@ -293,7 +294,7 @@ async function prepare() {
   }
 }
 async function publish() {
-  if (!role.value || !preview.value || !preview.value.changed || busy.value || mustRead.value || !proof.valid.value || !canPublish.value) return
+  if (!role.value || !preview.value || !preview.value.changed || busy.value || mustRead.value || !hasPasswordProof.value || !canPublish.value) return
   const run = viewEpoch, contextRevision = preview.value.context_revision
   busy.value = true
   busyWrite.value = true
@@ -338,7 +339,7 @@ async function publish() {
 }
 async function restoreDraft() {
   if (editing.value || dirty.value) return
-  if (!role.value || !restore.value || busy.value || mustRead.value || !proof.valid.value || !canEdit.value) return
+  if (!role.value || !restore.value || busy.value || mustRead.value || !hasPasswordProof.value || !canEdit.value) return
   const run = viewEpoch
   busy.value = true
   busyWrite.value = true
@@ -380,7 +381,11 @@ async function recheckAfterError() {
 }
 // KeepAlive retains the same subject's unsaved draft across workspace/app tabs.
 // A role change or explicit cancel still asks before discarding it.
-onBeforeRouteLeave(() => !busyWrite.value)
+onBeforeRouteLeave(async to => {
+  if (busyWrite.value) return false
+  if (to.path.startsWith('/hbos/admin')) return true
+  return leave()
+})
 onDeactivated(() => {
   active.value = false
   viewEpoch++
@@ -519,11 +524,11 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
           <p v-if="reviewMode === 'publish' && !canPublish" class="aux">当前账号没有发布能力，不能确认发布。</p>
           <div v-if="reviewMode" class="r6-modal-actions">
             <a-button :disabled="busy" @click="closeReview">{{ reviewMode === 'draft' ? '返回修改' : '返回角色' }}</a-button>
-            <a-button v-if="reviewMode === 'draft'" type="primary" :loading="busy" :disabled="!proof.valid.value || busy || mustRead" @click="saveDraft">确认保存草稿</a-button>
-            <a-button v-else-if="reviewMode === 'publish'" type="primary" :loading="busy" :disabled="!preview?.changed || !proof.valid.value || busy || mustRead || !canPublish" @click="publish">{{ publishButtonLabel }}</a-button>
+            <a-button v-if="reviewMode === 'draft'" type="primary" :loading="busy" :disabled="!hasPasswordProof || busy || mustRead" @click="saveDraft">确认保存草稿</a-button>
+            <a-button v-else-if="reviewMode === 'publish'" type="primary" :loading="busy" :disabled="!preview?.changed || !hasPasswordProof || busy || mustRead || !canPublish" @click="publish">{{ publishButtonLabel }}</a-button>
           </div>
         </ChangeReview>
-        <details v-if="role.releases.length && canEdit && !editing" class="r6-profile-tools"><summary>从历史发布内容恢复草稿</summary><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-select v-model:value="restore" aria-label="历史发布版本" style="width:100%" @change="requestId = ''"><a-select-option v-for="release in role.releases" :key="release.name" :value="release.name">v{{ release.revision }} · {{ release.published_at }}</a-select-option></a-select><a-button :disabled="!restore || !proof.valid.value || busy || mustRead" @click="restoreDraft">恢复为草稿</a-button><p class="aux">恢复只写入草稿，不会自动发布；还需查看发布影响、本人验证并确认发布。</p></details>
+        <details v-if="role.releases.length && canEdit && !editing" class="r6-profile-tools"><summary>从历史发布内容恢复草稿</summary><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-select v-model:value="restore" aria-label="历史发布版本" style="width:100%" @change="requestId = ''"><a-select-option v-for="release in role.releases" :key="release.name" :value="release.name">v{{ release.revision }} · {{ release.published_at }}</a-select-option></a-select><a-button :disabled="!restore || !hasPasswordProof || busy || mustRead" @click="restoreDraft">恢复为草稿</a-button><p class="aux">恢复只写入草稿，不会自动发布；还需查看发布影响、本人验证并确认发布。</p></details>
         <template #footer>
           <div class="r6-role-foot">
             <StatusTag :tone="statusTone">{{ statusLabel }}</StatusTag>

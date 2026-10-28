@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { ApartmentOutlined, FilterOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
@@ -35,6 +35,7 @@ const baselineImpact = ref<RolePreview | null>(null), baselineStatus = ref<'idle
 const departmentBusy = ref(false), departmentError = ref(''), departmentMustRead = ref(false)
 const departmentProof = useAccountProof(() => { departmentPreview.value = null })
 let departmentReadGeneration = 0, departmentActionGeneration = 0, departmentRequestId = '', departmentRequestPayload = ''
+let refreshOnActivation = false
 
 const departmentDirty = computed(() => Boolean(departmentCurrent.value) && departmentChoice.value !== currentDepartmentChoice())
 const baselineLoading = computed(() => baselineStatus.value === 'loading')
@@ -321,6 +322,12 @@ watch(() => route.query, () => { routeRevision++; if (!loading.value) void apply
 useManagementViewMemory('DepartmentsAdminView.vue', { viewGroup, company, treeSearch, selected, activeTab, search, page })
 if (treeSearch.value) directoryFiltersOpen.value = true
 onMounted(load)
+onDeactivated(() => { refreshOnActivation = true })
+onActivated(() => {
+  if (!refreshOnActivation) return
+  refreshOnActivation = false
+  void load()
+})
 onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; departmentReadGeneration++; departmentActionGeneration++; apps.value = []; departments.value = [] })
 </script>
 

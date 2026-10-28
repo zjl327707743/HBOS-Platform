@@ -1,4 +1,4 @@
-import { nextTick, onActivated, onBeforeUnmount, onMounted, type Ref } from 'vue'
+import { nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, type Ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { portalSession } from '@/services/portalSessionCoordinator'
 
@@ -14,9 +14,10 @@ export function useManagementViewMemory(name: string, fields: Record<string, Ref
   const previous = key ? saved.get(key) : undefined
   for (const [field, value] of Object.entries(previous?.fields || {})) if (fields[field]) fields[field].value = value
   let scroll = previous?.scroll || 0
+  let active = true
   const container = () => document.querySelector<HTMLElement>('.portal-route-content')
   function capture() {
-    if (!key || atEpoch !== epoch || portalSession.security?.user !== user) return
+    if (!active || !key || atEpoch !== epoch || portalSession.security?.user !== user) return
     scroll = container()?.scrollTop || 0
     saved.set(key, { fields: Object.fromEntries(Object.entries(fields).map(([field, value]) => [field, value.value])), scroll })
   }
@@ -24,5 +25,6 @@ export function useManagementViewMemory(name: string, fields: Record<string, Ref
   onBeforeRouteLeave(capture)
   onBeforeUnmount(capture)
   onMounted(restore)
-  onActivated(restore)
+  onDeactivated(() => { active = false })
+  onActivated(() => { active = true; restore() })
 }

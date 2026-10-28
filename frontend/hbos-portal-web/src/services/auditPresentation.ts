@@ -10,6 +10,12 @@ export const auditOperations = [
   { value: 'role.department_default', label: '调整部门默认角色' },
   { value: 'role.draft', label: '保存或恢复角色草稿' },
   { value: 'role.publish', label: '发布角色功能' },
+  { value: 'work.save', label: '保存工作安排' },
+  { value: 'work.configure', label: '调整应用权限' },
+  { value: 'work.suspend', label: '暂停应用访问' },
+  { value: 'work.reenable', label: '恢复应用访问' },
+  { value: 'work.restore', label: '恢复部门安排' },
+  { value: 'app_role.save', label: '保存原生应用角色' },
 ]
 export const auditOperationLabel = (value: string) => auditOperations.find(row => row.value === value)?.label || value
 

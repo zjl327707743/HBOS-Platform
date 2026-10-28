@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
 import { listAuditEvents, getAuditEvent, type AuditSubjectFilter } from '@/services/iamAudit'
 import { auditOperations, auditOperationLabel, auditResultLabel } from '@/services/auditPresentation'
@@ -34,7 +34,7 @@ function safeSnapshot(value: unknown, depth = 0): unknown {
 }
 const redactedDetail = computed(() => detail.value ? { ...detail.value, before: safeSnapshot(detail.value.before), after: safeSnapshot(detail.value.after) } : null)
 const columns = [{ title:'时间',dataIndex:'occurred_at',width:170 }, { title:'操作者',dataIndex:'actor',width:170 }, { title:'对象',key:'subject',width:200 }, { title:'操作',key:'operation',width:190 }, { title:'结果',key:'result',width:100 }, { title:'详情',key:'detail',width:90 }]
-let generation = 0, detailGeneration = 0, disposed = false
+let generation = 0, detailGeneration = 0, disposed = false, refreshOnActivation = false
 function query(): AuditSubjectFilter { return { subject_type:appliedType.value, subject_name:appliedName.value, date_from:appliedFrom.value, date_to:appliedTo.value, operation:appliedOperation.value, result:appliedResult.value } }
 async function load() {
   const run = ++generation; loading.value = true; error.value = ''
@@ -62,6 +62,12 @@ async function openDetail(row: AuditEvent) {
 function closeDetail() { detailGeneration++; selected.value = null; detail.value = null; detailError.value = ''; detailLoading.value = false }
 useManagementViewMemory('AuditAdminView.vue', { subjectType,subjectName,dateFrom,dateTo,operation,resultFilter,appliedType,appliedName,appliedFrom,appliedTo,appliedOperation,appliedResult,page })
 onMounted(load)
+onDeactivated(() => { refreshOnActivation = true; closeDetail() })
+onActivated(() => {
+  if (!refreshOnActivation) return
+  refreshOnActivation = false
+  void load()
+})
 onBeforeUnmount(() => { disposed = true; generation++; rows.value = []; closeDetail() })
 </script>
 <template>

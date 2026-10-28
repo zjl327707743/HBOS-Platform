@@ -299,6 +299,18 @@ describe('R6-A2.2 个人中心完整弹窗', () => {
     setItem.mockRestore()
   })
 
+  it('浏览器不能生成请求编号时显示错误且不发送安全写', async () => {
+    const { wrapper } = await render(AccountSecurity, '/hbos/profile', { identity: actor.user.id })
+    await advanceToPasswordForm(wrapper)
+    await fillNewPassword(wrapper)
+    vi.spyOn(crypto, 'randomUUID').mockImplementation(() => { throw new TypeError('secure random unavailable') })
+
+    await submitPasswordForm(wrapper)
+
+    expect(api.setPassword).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('当前浏览器无法建立安全提交记录')
+  })
+
   it('明确 4xx 拒绝后清除 pending marker，不进入查询', async () => {
     api.setPassword.mockRejectedValueOnce(new FrappeRequestError('VALIDATION_ERROR', '密码不符合要求。', 400))
     const { wrapper } = await render(AccountSecurity, '/hbos/profile', { identity: actor.user.id })
@@ -351,8 +363,22 @@ describe('R6-A2.2 个人中心完整弹窗', () => {
     expect(readPendingAccountWrite(actor.user.id)).not.toBeNull()
     window.dispatchEvent(new Event('hbos:session-boundary'))
     await flushPromises()
-    expect(readPendingAccountWrite(actor.user.id)).toBeNull()
+    expect(readPendingAccountWrite(actor.user.id)).not.toBeNull()
     expect(modal(wrapper).props('open')).toBe(false)
+  })
+
+  it('identity 暂时变为未知时保留同一账号的 pending marker', async () => {
+    api.setPassword.mockRejectedValueOnce(new FrappeRequestError('SERVICE_ERROR', '服务暂时不可用。', 502))
+    const { wrapper } = await render(AccountSecurity, '/hbos/profile', { identity: actor.user.id })
+    await advanceToPasswordForm(wrapper)
+    await fillNewPassword(wrapper)
+    await submitPasswordForm(wrapper)
+    const requestId = readPendingAccountWrite(actor.user.id)?.requestId
+    expect(requestId).toBeTruthy()
+
+    await wrapper.setProps({ identity: undefined })
+    await flushPromises()
+    expect(readPendingAccountWrite(actor.user.id)?.requestId).toBe(requestId)
   })
 
   it('实际 identity 换人清除旧 User 的 pending marker', async () => {
@@ -438,6 +464,7 @@ describe('R6-A2.2 个人中心完整弹窗', () => {
   })
 
   it('未知写入结果在关闭重开后仍保留，阻止重发并允许查询收据', async () => {
+    vi.mocked(clearFrappeCsrfToken).mockClear()
     api.setPassword.mockRejectedValue(new Error('response lost'))
     const { wrapper } = await render(AccountSecurity)
     await advanceToPasswordForm(wrapper)
@@ -461,6 +488,7 @@ describe('R6-A2.2 个人中心完整弹窗', () => {
     expect(api.getSecurity).toHaveBeenLastCalledWith(expect.stringMatching(/^[0-9a-f-]{36}$/))
     expect(wrapper.text()).toContain('密码设置完成')
     expect(api.setPassword).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(clearFrappeCsrfToken)).toHaveBeenCalledOnce()
   })
 
   it('已绑定的普通账号解绑须原密码、MFA proof 和明确 checkbox', async () => {

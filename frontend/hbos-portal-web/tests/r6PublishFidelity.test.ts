@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, DOMWrapper, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, nextTick } from 'vue'
+import { defineComponent, nextTick, ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import Antd, { Modal } from 'ant-design-vue'
 import Roles from '@/views/admin/RolesAdminView.vue'
 import People from '@/views/admin/PeopleAdminView.vue'
 import Audit from '@/views/admin/AuditAdminView.vue'
+import { portalSession } from '@/services/portalSessionCoordinator'
 import type { AppRole } from '@/services/iamRoles'
 import type { EmployeeSummary } from '@/types/iam'
 
@@ -18,6 +19,7 @@ const api = vi.hoisted(() => ({
   getAuditEvent: vi.fn(),
 }))
 const permissions = vi.hoisted(() => new Set<string>())
+const portal = vi.hoisted(() => ({ generation: 1, security: null as { user: string } | null }))
 
 vi.mock('@/services/iamRoles', () => ({
   loadRoles: api.loadRoles,
@@ -33,6 +35,7 @@ vi.mock('@/services/iamAudit', () => ({
   listAuditEvents: api.listAuditEvents,
   getAuditEvent: api.getAuditEvent,
 }))
+vi.mock('@/services/portalSessionCoordinator', () => ({ portalSession: portal, refreshAccountProof: vi.fn() }))
 vi.mock('@/services/iamAccess', () => ({
   canIam: (capability: string) => permissions.has(capability),
   hasManagementAccess: () => true,
@@ -64,7 +67,7 @@ const adminRole = role({
 
 const Verify = defineComponent({
   emits: ['verified', 'invalidated'],
-  template: '<button class="verify-test" @click="$emit(\'verified\', {valid:true,expires_in:120,method:\'password\'})">完成测试核验</button>',
+  template: '<div><button class="verify-test" @click="$emit(\'verified\', {valid:true,expires_in:120,method:\'password\'})">完成测试核验</button><button class="verify-feishu-test" @click="$emit(\'verified\', {valid:true,expires_in:120,method:\'feishu_inbox\'})">完成非密码测试核验</button></div>',
 })
 const DrawerStub = defineComponent({
   name: 'EmployeeDrawerStub',
@@ -112,6 +115,8 @@ function employee(overrides: Partial<EmployeeSummary>): EmployeeSummary {
 beforeEach(() => {
   vi.resetAllMocks()
   permissions.clear()
+  portal.generation = 1
+  portal.security = null
   permissions.add('iam.roles.read')
   permissions.add('iam.roles.edit')
   permissions.add('iam.roles.publish')
@@ -140,6 +145,91 @@ afterEach(() => {
 })
 
 describe('R6 role draft to publish fidelity', () => {
+  it('asks before dropping unsaved role changes when leaving the management route', async () => {
+    let asked: { onOk?: () => void; onCancel?: () => void } | null = null
+    const confirm = vi.spyOn(Modal, 'confirm').mockImplementation((config: Record<string, unknown>) => { asked = config as typeof asked; return {} as never })
+    const Home = defineComponent({ template: '<div>工作台</div>' })
+    const router = createRouter({ history: createMemoryHistory(), routes: [
+      { path: '/hbos/admin/roles', component: Roles },
+      { path: '/hbos', component: Home },
+    ] })
+    await router.push('/hbos/admin/roles')
+    await router.isReady()
+    const Host = defineComponent({ template: '<RouterView />' })
+    const w = mount(Host, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify } } })
+    wrappers.push(w)
+    await flushPromises()
+    await click(w, '编辑功能')
+    await w.findAll('input[type=checkbox]')[0]!.setValue(false)
+
+    const cancelledNavigation = router.push('/hbos')
+    await vi.waitFor(() => expect(asked).not.toBeNull())
+    expect(router.currentRoute.value.path).toBe('/hbos/admin/roles')
+    asked!.onCancel!()
+    await cancelledNavigation
+    expect(router.currentRoute.value.path).toBe('/hbos/admin/roles')
+
+    asked = null
+    const confirmedNavigation = router.push('/hbos')
+    await vi.waitFor(() => expect(asked).not.toBeNull())
+    asked!.onOk!()
+    await confirmedNavigation
+    expect(router.currentRoute.value.path).toBe('/hbos')
+    confirm.mockRestore()
+  })
+
+  it('refreshes people and audit lists after returning to cached admin views', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: defineComponent({ template: '<div />' }) }] })
+    await router.push('/hbos/admin/people')
+    await router.isReady()
+    const active = ref<'people' | 'audit'>('people')
+    const Host = defineComponent({
+      setup: () => ({ active, People, Audit }),
+      template: '<KeepAlive><component :is="active === \'people\' ? People : Audit" /></KeepAlive>',
+    })
+    const w = mount(Host, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify, EmployeeDrawer: DrawerStub } } })
+    wrappers.push(w)
+    await flushPromises()
+    expect(api.listPeople).toHaveBeenCalledTimes(1)
+    expect(api.listAuditEvents).not.toHaveBeenCalled()
+
+    active.value = 'audit'
+    await flushPromises()
+    expect(api.listAuditEvents).toHaveBeenCalledTimes(1)
+    active.value = 'people'
+    await flushPromises()
+    expect(api.listPeople).toHaveBeenCalledTimes(2)
+    active.value = 'audit'
+    await flushPromises()
+    expect(api.listAuditEvents).toHaveBeenCalledTimes(2)
+  })
+
+  it('restores the remembered People page after restoring filters', async () => {
+    Object.assign(portalSession, { generation: 77, security: { user: 'synthetic-HR-A' } })
+    const Home = defineComponent({ template: '<div>工作台</div>' })
+    const router = createRouter({ history: createMemoryHistory(), routes: [
+      { path: '/hbos/admin/people', component: People },
+      { path: '/hbos', component: Home },
+    ] })
+    await router.push('/hbos/admin/people')
+    await router.isReady()
+    const Host = defineComponent({ template: '<RouterView />' })
+    const wrapper = mount(Host, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify, EmployeeDrawer: DrawerStub } } })
+    wrappers.push(wrapper)
+    await flushPromises()
+    const first = wrapper.findComponent(People).vm as unknown as { search: string; page: number }
+    first.search = '记忆中的筛选'
+    await flushPromises()
+    first.page = 3
+    await nextTick()
+    await router.push('/hbos')
+    await flushPromises()
+    await router.push('/hbos/admin/people')
+    await flushPromises()
+    const restored = wrapper.findComponent(People).vm as unknown as { page: number }
+    expect(restored.page).toBe(3)
+  })
+
   it('states the live version, unpublished draft, and next step in plain language', async () => {
     const w = await render(Roles, '/hbos/admin/roles')
     const banner = w.find('.r6-pending-banner')
@@ -162,6 +252,22 @@ describe('R6 role draft to publish fidelity', () => {
     expect(text).toContain('已安排 3 人使用此角色')
     expect(text).toContain('其中 2 人的实际权限会改变')
     expect(Array.from(document.body.querySelectorAll('button')).some(item => item.textContent?.trim() === '发布草稿 v4 并生效')).toBe(true)
+    expect(api.roleCommand).not.toHaveBeenCalledWith('publish_role', expect.anything())
+  })
+
+  it('refuses role publication when the current proof method is not password', async () => {
+    api.roleCommand.mockResolvedValueOnce({
+      role_key: 'clerk', draft_version: 4, published_release: 'release-3', changed: true,
+      context_revision: 'f'.repeat(64), reference_count: 1, effective_changed_count: 1, members: [], features: [self, board],
+    })
+    const w = await render(Roles, '/hbos/admin/roles')
+    await click(w, '查看发布影响')
+    await click(w, '完成非密码测试核验')
+    const confirm = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '发布草稿 v4 并生效') as HTMLButtonElement | undefined
+    expect(confirm).toBeDefined()
+    expect(confirm!.disabled).toBe(true)
+    confirm!.click()
+    await flushPromises()
     expect(api.roleCommand).not.toHaveBeenCalledWith('publish_role', expect.anything())
   })
 
@@ -225,6 +331,8 @@ describe('R6 role draft to publish fidelity', () => {
     expect(text).toContain('还需查看员工影响并确认发布')
     const confirm = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '确认保存草稿') as HTMLButtonElement | undefined
     expect(confirm).toBeDefined()
+    expect(confirm!.disabled).toBe(true)
+    await click(w, '完成非密码测试核验')
     expect(confirm!.disabled).toBe(true)
     await click(w, '完成测试核验')
     expect(confirm!.disabled).toBe(false)
@@ -392,15 +500,18 @@ describe('R6 role draft to publish fidelity', () => {
     api.loadRoles.mockResolvedValue([structuredClone(role({ releases: [{ name: 'release-2', revision: 2, published_at: '2026-10-01 10:00' }] }))])
     const w = await render(Roles, '/hbos/admin/roles')
     expect(w.text()).toContain('从历史发布内容恢复草稿')
-    await click(w, '完成测试核验')
+    await click(w, '完成非密码测试核验')
     const vm = w.vm as unknown as {
       editing: boolean; checked: string[]; restore: string; role: AppRole
       restoreDraft: () => Promise<void>; cancelEdit: () => Promise<void>
     }
-    vm.editing = true
-    vm.checked = []
     vm.restore = 'release-2'
     await nextTick()
+    await vm.restoreDraft()
+    await flushPromises()
+    expect(api.roleCommand).not.toHaveBeenCalledWith('restore_role_release', expect.anything())
+    vm.editing = true
+    vm.checked = []
     await vm.restoreDraft()
     await flushPromises()
     expect(api.roleCommand).not.toHaveBeenCalledWith('restore_role_release', expect.anything())

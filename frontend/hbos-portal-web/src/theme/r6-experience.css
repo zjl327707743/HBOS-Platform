@@ -6,6 +6,19 @@
   --r6-line: #e5e9f2;
   --r6-control: #8793aa;
 }
+.r6-review-dialog {
+  --r6-brand: #5754df;
+  --r6-ink: #192a45;
+  --r6-secondary: #566780;
+  --r6-muted: #5f6e86;
+  --r6-line: #e5e9f2;
+  --r6-control: #8793aa;
+  --hbos-text-primary: var(--r6-ink);
+  --hbos-text-secondary: var(--r6-secondary);
+  --hbos-text-muted: var(--r6-muted);
+  --hbos-brand-violet: var(--r6-brand);
+  color: var(--r6-ink);
+}
 /* Formal R6-A2.2 / Design System v1.3. Scoped to the management and personal surfaces. */
 .r6-experience {
   --r6-brand: #5754df;
@@ -389,6 +402,11 @@
   justify-self: start;
 }
 .r6-experience .aux {
+  font-size: 12px;
+  color: var(--r6-muted);
+  line-height: 1.7;
+}
+.r6-review-dialog .aux {
   font-size: 12px;
   color: var(--r6-muted);
   line-height: 1.7;

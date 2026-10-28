@@ -89,6 +89,7 @@ const fitPage = computed(() => ['/hbos/admin/departments', '/hbos/admin/roles'].
 const motionPaused = ref(false)
 const mainContent = ref<HTMLElement | null>(null)
 const naturalPanels = useReadablePanels(fitPage, mainContent)
+watch(() => route.path, () => { if (mainContent.value) mainContent.value.scrollTop = 0 }, { flush: 'sync' })
 const routeDenied = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !canIam(route.meta.iamCapability))
 const masked = computed(() => ['unconfirmed', 'guest', 'logging_out'].includes(portalSession.phase) || routeDenied.value)
 let maskedFocus: {element:HTMLElement;generation:number}|null = null

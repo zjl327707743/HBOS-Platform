@@ -216,7 +216,9 @@ function reserveWrite(kind: AccountWriteKind): { id: string; user: string } | nu
   if (existing) {
     restorePending(existing); error.value = '上次操作待核对。请先查询结果，避免重复提交。'; return null
   }
-  const id = crypto.randomUUID()
+  let id: string
+  try { id = crypto.randomUUID() }
+  catch { error.value = '当前浏览器无法建立安全提交记录，请在安全连接下重试。'; return null }
   if (!rememberPendingAccountWrite(user, kind, id)) {
     const raced = readPendingAccountWrite(user)
     if (raced) { restorePending(raced); error.value = '上次操作待核对。请先查询结果，避免重复提交。' }
@@ -399,7 +401,7 @@ async function checkOutcome() {
     const unlinkStateConfirmed = action === 'unlink' && !receipt && !loaded.feishu_bound
     if (receiptConfirmed || unlinkStateConfirmed) {
       proof.invalidate(); settlePendingFor(currentUserId() || loaded.user)
-      if (action === 'password') { resolvedLoginName.value = loaded.login_name || ''; passwordStage.value = 2; notice.value = '密码已保存，服务器已确认上次提交。' }
+      if (action === 'password') { clearFrappeCsrfToken(); resolvedLoginName.value = loaded.login_name || ''; passwordStage.value = 2; notice.value = '密码已保存，服务器已确认上次提交。' }
       else if (action === 'unlink') { feishuNeedsReverify.value = true; unlinkConfirmed.value = false; notice.value = '飞书已解绑，服务器已确认上次提交。' }
       else { panel.value = null; notice.value = '服务器已确认上次重置链接已签发。原链接无法再次读取；请与员工本人核对后，重新验证并明确签发新链接。新签发会替换此前恢复密钥。' }
     } else error.value = '上次操作尚未确认。请核对账号实际状态；收据可能尚未生成或已过期，不要重复提交。'
@@ -449,10 +451,10 @@ async function openRecoveryFlow() {
   await router.push(recoveryTarget.value)
 }
 function onSessionBoundary() {
-  resetAfterSessionLoss()
+  resetAfterSessionLoss(null)
   error.value = '登录状态已变化，请重新登录或重新验证。'
 }
-watch(() => props.identity, (next, previous) => { if (next !== previous) { if (previous) clearPendingAccountWrite(previous); resetAfterSessionLoss(null); if (next) void load() } })
+watch(() => props.identity, (next, previous) => { if (next !== previous) { if (previous && next) clearPendingAccountWrite(previous); resetAfterSessionLoss(null); if (next) void load() } })
 watch(proof.valid, valid => {
   if (!valid) { onProofInvalidated(); proofKey.value++ }
 })
