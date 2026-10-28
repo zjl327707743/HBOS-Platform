@@ -190,14 +190,14 @@ describe('N1 bounded follow-up responses', () => {
 })
 
 describe('UAT2 signed-service compatibility in the existing Portal layout', () => {
-  const doc={document_id:'DOC_UAT2_DEMO',title:'合成资料',space_id:'SPACE_UAT2_DEMO',department:'合成部门',document_number:null,version:null,status_note:'内部参考／有效性待核',version_id:'VER_UAT2_DEMO',download_state:'permission_required',download_note:'待部门文档下载权限上线'}
-  it('shows current-version catalog metadata without granting original access', async () => {
+  const doc={document_id:'DOC_UAT2_DEMO',title:'合成资料',space_id:'SPACE_UAT2_DEMO',department:'合成部门',document_number:null,version:null,status_note:'内部参考',version_id:'VER_UAT2_DEMO',download_state:'available'}
+  it('shows current-version catalog metadata and the server download decision without a channel', async () => {
     const {getKnowledgeDocumentsPage}=await import('@/services/p1Api')
     transport.get.mockResolvedValue({ok:true,data:{documents:[doc],total:1,page:1,page_size:12}})
     expect((await getKnowledgeDocumentsPage()).documents).toEqual([doc])
     expect(transport.post).not.toHaveBeenCalled()
   })
-  it.each([{...doc,download_state:'available'},{...doc,download_url:'https://example.invalid/original'}])('rejects an original-download channel %#',async unsafe=>{
+  it.each([{...doc,download_state:'granted_by_client'},{...doc,download_url:'https://example.invalid/original'}])('rejects an unknown decision or any original-download channel %#',async unsafe=>{
     const {getKnowledgeDocumentsPage}=await import('@/services/p1Api')
     transport.get.mockResolvedValue({ok:true,data:{documents:[unsafe],total:1,page:1,page_size:12}})
     await expect(getKnowledgeDocumentsPage()).rejects.toBeInstanceOf(DomainApiError)

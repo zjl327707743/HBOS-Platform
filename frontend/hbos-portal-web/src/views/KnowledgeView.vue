@@ -507,7 +507,11 @@ async function refreshStatus() {
 }
 watch(() => props.sessionRevision, () => { void refreshStatus() })
 onMounted(async () => {
+  // Wait for the session, then load whatever this route actually shows. The
+  // catalogue route used to render its caption with no rows until a filter
+  // changed, because only refreshStatus() ran here.
   await refreshStatus()
+  if (view.value === 'catalog' && subjectKey.value) await refreshCatalog()
   await applyReturnedScroll()
   saveWorkspaceNow(workspaceState())
 })

@@ -150,7 +150,7 @@ export interface KnowledgeDocument {
   version_id?: string
   legal_metadata?: KnowledgeLegalMetadata
   source_directories?: string[][]
-  download_state?: 'permission_required'
+  download_state?: 'available' | 'unavailable'
   download_note?: string
 }
 

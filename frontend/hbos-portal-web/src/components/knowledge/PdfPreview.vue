@@ -11,7 +11,7 @@
       <a-button :disabled="page>=pages || painting" data-pdf-next @click="page++">下一页</a-button>
       <span class="kb-pdf-zoom" role="group" aria-label="缩放">
         <a-button :disabled="scale<=0.5 || painting" data-pdf-zoom-out @click="setScale(scale-0.25)">缩小</a-button>
-        <button type="button" class="kb-pdf-scale" data-pdf-fit @click="fitWidth" :title="'适宽显示'">{{Math.round(scale*100)}}%</button>
+        <button type="button" class="kb-pdf-scale" data-pdf-fit @click="fitWidth" title="按栏宽显示">{{scale ? Math.round(scale*100) + '%' : '适宽'}}</button>
         <a-button :disabled="scale>=3 || painting" data-pdf-zoom-in @click="setScale(scale+0.25)">放大</a-button>
       </span>
     </div>
@@ -67,9 +67,10 @@ function setScale(next: number) {
 }
 
 function fitWidth() {
-  // 100% means "fit the column"; a stored 0 means the same. This keeps the
-  // control honest on every screen size without inventing a physical DPI.
-  scale.value = 1
+  // 0 means "fit the column" and is what a fresh open shows; pressing the
+  // control returns to that fit without inventing a physical DPI.
+  scale.value = 0
+  emit('update:zoom', 0)
   void draw()
 }
 

@@ -258,7 +258,10 @@ function validateKnowledgeDocument(doc: KnowledgeDocument): void {
     }
   }
   if (doc.version_id !== undefined) safeKnowledgeString(doc.version_id,128)
-  if (doc.download_state !== undefined && doc.download_state !== 'permission_required') throw new DomainApiError('SERVICE_ERROR','资料下载权限尚未上线。')
+  // The server states its own decision for this binding; the client only checks
+  // the shape, never widens it. 'unavailable' is a real answer (for example an
+  // original that could not be mapped), not a defect in the response.
+  if (doc.download_state !== undefined && !['available','unavailable'].includes(doc.download_state)) throw new DomainApiError('SERVICE_ERROR','资料目录响应无效。')
   if (doc.download_note !== undefined) safeKnowledgeString(doc.download_note,320)
   if (doc.legal_metadata !== undefined) {
     const legal = doc.legal_metadata
