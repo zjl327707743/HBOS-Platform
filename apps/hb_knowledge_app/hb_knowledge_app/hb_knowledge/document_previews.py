@@ -235,6 +235,19 @@ def _active_field(xml):
 
 
 
+def _conversion_filter(source):
+    """Spreadsheets export one sheet per page, so a wide sheet is not cut off.
+
+    A Word or slide file keeps its own page layout. A workbook has no page
+    layout to preserve; exporting it page-split dropped every column past the
+    first printed page width, and the preview then showed only half of each row.
+    """
+    if Path(source).suffix.lower() in {'.xlsx', '.xls'}:
+        return ('pdf:calc_pdf_Export:'
+                '{"SinglePageSheets":{"type":"boolean","value":"true"}}')
+    return 'pdf'
+
+
 def prepare_office(source, destination, *, soffice, allow_legacy=False, allow_external_links=False):
     source=Path(source)
     if allow_legacy and source.suffix.lower() in LEGACY_OFFICE:
@@ -270,7 +283,8 @@ def prepare_office(source, destination, *, soffice, allow_legacy=False, allow_ex
                    '(allow file-read-metadata)')
         result=subprocess.run(['/usr/bin/sandbox-exec','-p',policy,str(soffice),
             '-env:UserInstallation='+profile.as_uri(),'--headless','--nologo','--nodefault',
-            '--nofirststartwizard','--convert-to','pdf','--outdir',str(work),str(original)],
+            '--nofirststartwizard','--convert-to',_conversion_filter(source),
+            '--outdir',str(work),str(original)],
             cwd=work,capture_output=True,timeout=90)
         generated=work/'source.pdf'
         if result.returncode or not generated.is_file():raise ValueError('OFFICE_CONVERSION_FAILED')
