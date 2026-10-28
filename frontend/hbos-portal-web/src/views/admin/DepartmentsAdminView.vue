@@ -219,7 +219,7 @@ function routeLinkTarget() {
     company: company.value,
   }
 }
-async function applyLink() {
+async function applyLink(refreshRole = false) {
   const target = routeLinkTarget()
   const run = ++linkRead
   if (!target.department) return
@@ -231,9 +231,15 @@ async function applyLink() {
   }
   if (!currentTarget()) return
   if (!departments.value.some(row => row.id === target.department)) { editingApp.value = null; activeTab.value = 'members'; error.value = '该部门或应用当前不可查看，已返回可用部门。'; return }
-  selected.value = target.department
+  const selectionChanged = selected.value !== target.department
+  if (selectionChanged) {
+    selected.value = target.department
+    clearDepartmentState()
+  }
   activeTab.value = target.tab === 'apps' && canReadApps.value ? 'apps' : 'members'
   await loadApps()
+  if (!currentTarget()) return
+  if (selectionChanged || refreshRole) await loadDepartmentRole()
   if (!currentTarget()) return
   if (iamSession.rolesEnabled) {
     editingApp.value = current.value?.confirmed && activeTab.value === 'apps' && target.app && target.app !== 'attendance' && apps.value.some(row => row.app_id === target.app && row.integrated) ? target.app : null
@@ -251,23 +257,29 @@ async function load() {
     if (disposed || run !== generation || routeAtStart !== routeRevision) return
     departments.value = data.items; companies.value = data.companies; company.value = data.selected_company || ''; groupsAvailable.value = data.groups_available === true
     if (!departments.value.some(row => row.id === selected.value)) selected.value = (departments.value.find(row => row.confirmed && row.members?.length) || departments.value.find(row => row.members?.length) || departments.value[0])?.id || ''
-    await loadApps(); if (disposed || run !== generation || routeAtStart !== routeRevision) return; await applyLink()
+    clearDepartmentState()
+    if (linkTarget()) await applyLink(true)
+    else {
+      const id = selected.value
+      await loadApps()
+      if (disposed || run !== generation || routeAtStart !== routeRevision || selected.value !== id) return
+      await loadDepartmentRole()
+    }
   } catch (e) { if (!disposed && run === generation && routeAtStart === routeRevision) error.value = iamMessage(e) }
   finally { if (!disposed && run === generation) loading.value = false }
 }
 async function selectDepartment(id: string) {
   if (!id || id === selected.value || !await requestLeave()) return
-  selected.value = id; editingApp.value = null; search.value = ''; page.value = 1; error.value = ''
-  try { await loadApps() } catch (e) { if (!disposed) error.value = iamMessage(e) }
+  selected.value = id; clearDepartmentState(); editingApp.value = null; search.value = ''; page.value = 1; error.value = ''
+  try {
+    await loadApps()
+    if (!disposed && selected.value === id) await loadDepartmentRole()
+  } catch (e) { if (!disposed) error.value = iamMessage(e) }
 }
 async function changeCompany(value: string) { if (!await requestLeave()) return; company.value = value; selected.value = ''; editingApp.value = null; await load() }
 async function changeGroup(value: string) { if (!await requestLeave()) return; viewGroup.value = value; selected.value = ''; editingApp.value = null; await load() }
 function changeTab(value: string) { activeTab.value = value }
 function openOtherApp(appId: string) { editingApp.value = appId }
-watch(selected, () => {
-  clearDepartmentState()
-  if (selected.value && iamSession.rolesEnabled && canReadApps.value) void loadDepartmentRole()
-}, { flush: 'post' })
 onBeforeRouteLeave(() => requestLeave())
 onBeforeRouteUpdate(() => requestLeave())
 watch(() => route.query, () => { routeRevision++; if (!loading.value) void applyLink().catch(e => { if (!disposed) error.value = iamMessage(e) }) })

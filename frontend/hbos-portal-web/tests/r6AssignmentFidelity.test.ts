@@ -201,6 +201,21 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     expect(w.findAll('.r6-panel-frame')).toHaveLength(2)
   })
 
+  it('waits for department app access reads before loading the department role baseline', async () => {
+    let finishApps!: (value: unknown) => void
+    api.getDepartmentWork.mockReturnValue(new Promise(resolve => { finishApps = resolve }))
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+
+    expect(api.query.mock.calls.some(call => call[0] === 'get_department_role')).toBe(false)
+    expect(api.command.mock.calls.some(call => call[0] === 'preview_department_role')).toBe(false)
+    finishApps({ subject_type: 'Department', subject_name: 'D1', apps: [] })
+    await flushPromises()
+    expect(api.query).toHaveBeenCalledWith('get_department_role', expect.objectContaining({ department: 'D1' }))
+    expect(api.command).toHaveBeenCalledWith('preview_department_role', expect.objectContaining({ department: 'D1' }))
+    w.unmount()
+  })
+
   it('shows role cards only for a direct assignment and keeps real effective functions separate', async () => {
     const w = await render(RoleSettings, { props: { subjectKind: 'employee', subjectId: 'E1', embedded: true, subjectLabel: '合成员工' } })
     await flushPromises()
