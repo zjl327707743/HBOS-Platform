@@ -8,7 +8,7 @@ import sys
 import pytest
 
 from hb_knowledge_app.hb_knowledge.document_assets import (
-    MAX_FILE_BYTES, MAX_RANGE_BYTES, LocalDocumentAssets, byte_range,
+    MAX_DOWNLOAD_BYTES, MAX_FILE_BYTES, MAX_RANGE_BYTES, LocalDocumentAssets, byte_range,
 )
 from hb_knowledge_app.hb_knowledge.document_delivery import DocumentDelivery
 from hb_knowledge_app.hb_knowledge.download_policy import document_download_decision
@@ -190,10 +190,32 @@ def test_symlink_and_hash_mismatch_are_refused(setup):
     assert_code(lambda:s.delivery.content(t,None,'REQ_HASH'),'DOCUMENT_DELIVERY_UNAVAILABLE','ASSET_HASH_MISMATCH')
 
 
-def test_large_source_is_refused_before_read(setup):
+def test_source_above_the_delivery_ceiling_is_refused_before_read(setup):
     s=setup
-    with s.original.open('wb') as f:f.truncate(MAX_FILE_BYTES+1)
+    with s.original.open('wb') as f:f.truncate(MAX_DOWNLOAD_BYTES+1)
     assert_code(lambda:ticket(s),'DOCUMENT_DELIVERY_UNAVAILABLE','ASSET_TOO_LARGE')
+
+
+def test_a_large_but_in_range_original_is_still_served(setup):
+    # A published standard can be far above the 32 MiB in-memory preview cap.
+    # The delivery ceiling admits it, and the bytes are still hash-verified.
+    s=setup;s.permission[0]=True
+    with s.original.open('wb') as f:
+        f.write(b'%PDF-1.4\n');f.truncate(MAX_FILE_BYTES+1024)
+    body=s.original.read_bytes()
+    sha=hashlib.sha256(body).hexdigest()
+    data=json.loads(s.mapping.read_text())
+    row=data['by_version'][s.binding.version_id]
+    row['source_sha256']=sha
+    row['original'].update(relative_path=s.original.name,filename=s.original.name)
+    row['preview']={'root_id':'source','relative_path':s.original.name,'filename':s.original.name,
+                    'sha256':sha,'kind':'ORIGINAL_PDF'}
+    s.mapping.write_text(json.dumps(data))
+    assets=LocalDocumentAssets(s.mapping,{'source':s.original.parent},lambda b:sha)
+    delivery=DocumentDelivery(s.app,assets,SimpleNamespace(set=lambda k,v,**o:True,get=lambda k:None),
+                              clock=lambda:100.0)
+    prepared=delivery.prepare(s.binding.canonical_document_id,s.binding.version_id,'download','REQ_LARGE')
+    assert prepared['sha256']==sha
 
 
 def test_capabilities_keep_text_reading_when_preview_or_original_missing(setup):

@@ -75,9 +75,12 @@ class DocumentDelivery:
                 # moment, while the content request will check everything again.
                 # The check is structural only: hashing a 400 MB original just
                 # to answer "can this be downloaded" would stall the reader.
-                original.probe(limit=MAX_DOWNLOAD_BYTES if purpose == 'download' else MAX_FILE_BYTES)
+                # A file that is served to the browser may be larger than the
+                # in-memory preview cap: previews and originals share the wider
+                # delivery limit, and both are still verified before sending.
+                original.probe(limit=MAX_DOWNLOAD_BYTES)
                 if asset.path != original.path:
-                    asset.probe()
+                    asset.probe(limit=MAX_DOWNLOAD_BYTES)
                 data['can_' + purpose] = True
                 data[purpose + '_reason'] = None
                 if purpose == 'preview':
@@ -99,9 +102,9 @@ class DocumentDelivery:
         asset, original = self.assets.resolve(binding, purpose)
         if purpose == 'download' and not self._download_allowed(actor, binding, original.sha256):
             raise unavailable('DOWNLOAD_NOT_AUTHORIZED')
-        original.probe(limit=MAX_DOWNLOAD_BYTES if purpose == 'download' else MAX_FILE_BYTES)
+        original.probe(limit=MAX_DOWNLOAD_BYTES)
         if asset.path != original.path:
-            asset.probe()
+            asset.probe(limit=MAX_DOWNLOAD_BYTES)
         self.runtime.provider.revalidate(plan)
         if purpose == 'download' and not self._download_allowed(actor, binding, original.sha256):
             raise unavailable('DOWNLOAD_NOT_AUTHORIZED')
@@ -157,7 +160,7 @@ class DocumentDelivery:
             # A bounded range or a normally sized file is verified and returned
             # in one piece; the range path still verifies the whole file first
             # and still re-checks the current authorization before any byte.
-            body, status, start, end, size = asset.read(range_header)
+            body, status, start, end, size = asset.read(range_header, limit=MAX_DOWNLOAD_BYTES)
             self.runtime.checkpoint('document_delivery_before_final')
             self.runtime.provider.revalidate(plan)
             if purpose == 'download' and not self._download_allowed(actor, binding, original.sha256):

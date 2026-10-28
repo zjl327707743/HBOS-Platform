@@ -102,20 +102,21 @@ class Asset:
         except (OSError, ValueError):
             raise unavailable('ASSET_UNAVAILABLE') from None
 
-    def read(self, range_header=None):
+    def read(self, range_header=None, limit=None):
         """One O_NOFOLLOW handle, bounded bytes, full hash before any response.
 
         A range does not skip source verification. File replacement during the
         read is refused, and no bytes are returned until the entire digest and
         stable file metadata have been checked.
         """
+        cap = MAX_FILE_BYTES if limit is None else limit
         try:
             fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
             with os.fdopen(fd, 'rb') as stream:
                 before = os.fstat(stream.fileno())
                 if not stat.S_ISREG(before.st_mode) or before.st_size < 1:
                     raise unavailable('ASSET_UNAVAILABLE')
-                if before.st_size > MAX_FILE_BYTES:
+                if before.st_size > cap:
                     raise unavailable('ASSET_TOO_LARGE')
                 start, end, status = byte_range(range_header, before.st_size)
                 hasher, output, offset = hashlib.sha256(), bytearray(), 0
@@ -126,7 +127,7 @@ class Asset:
                         break
                     if offset == 0:
                         first = block[:8]
-                    if offset + len(block) > MAX_FILE_BYTES:
+                    if offset + len(block) > cap:
                         raise unavailable('ASSET_TOO_LARGE')
                     hasher.update(block)
                     left, right = max(start - offset, 0), min(end + 1 - offset, len(block))
