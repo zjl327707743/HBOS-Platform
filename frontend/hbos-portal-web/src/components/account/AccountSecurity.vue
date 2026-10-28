@@ -1,6 +1,6 @@
 <template>
   <section class="setting-card glass-surface account-security">
-    <h3>登录与安全</h3><p>选择适合你的登录方式，保护工作账号。</p>
+    <div class="account-security-heading"><div><h3>登录与安全</h3><p>选择适合你的登录方式，保护工作账号。</p></div><span>账号保护</span></div>
     <a-alert v-if="error && !modalOpen" :message="error" type="warning" show-icon role="alert" />
     <a-alert v-if="uncertain && !modalOpen" message="上次操作待核对。请先查询结果，避免重复提交。" type="warning" show-icon role="alert" />
     <a-button v-if="uncertain && !modalOpen && requestId" :loading="busy" @click="checkOutcome()">查询上次提交结果</a-button>
@@ -466,7 +466,10 @@ onBeforeUnmount(() => {
 <style src="@/theme/account.css"></style>
 <style scoped>
 .account-security{padding:var(--hbos-space-6)}
-.account-security h3{margin:0 0 var(--hbos-space-2)}
+.account-security-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--hbos-space-4);padding-bottom:var(--hbos-space-4);border-bottom:1px solid var(--hbos-border-default)}
+.account-security-heading h3{margin:0 0 var(--hbos-space-2)}
+.account-security-heading p{margin:0;color:var(--hbos-text-secondary)}
+.account-security-heading>span{flex:none;padding:4px 10px;border-radius:999px;background:var(--hbos-bg-subtle,#f4f2ff);color:var(--hbos-text-secondary);font-size:var(--hbos-font-meta)}
 .r6-security-rows>.r6-security-row:first-child{border-top:0}
 .panel-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--hbos-space-3)}
 .panel-heading h4{margin:0}

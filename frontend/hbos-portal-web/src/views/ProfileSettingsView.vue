@@ -6,7 +6,6 @@ import AppDiagnostics from '@/components/account/AppDiagnostics.vue'
 import PageHeading from '@/components/iam/PageHeading.vue'
 import StatusTag from '@/components/iam/StatusTag.vue'
 import type { SecurityStatus } from '@/services/accountApi'
-import { describeLoginMethods } from '@/services/accountStatus'
 import { getMyEmployeeStatus, type MyEmployeeStatus } from '@/services/iamAccount'
 import { iamMessage, hasManagementAccess } from '@/services/iamAccess'
 import { usePortalStore } from '@/stores/portal'
@@ -40,7 +39,6 @@ const identityDescription = computed(() => {
   return conflicted.value ? '员工档案归属待核对' : '员工档案待核对'
 })
 const employeeDialogTitle = computed(() => linked.value ? '我的员工资料' : conflicted.value ? '核对员工档案归属' : '核对员工档案关联')
-const loginMethods = computed(() => describeLoginMethods(security.value))
 const deskTarget = computed(() => businessNavigationTarget('/desk'))
 const profileTarget = computed(() => portal.user ? businessNavigationTarget(`/desk/user/${encodeURIComponent(portal.user.id)}`) : null)
 const fact = (value?: string) => system.value ? '不适用' : linked.value ? value || '待核对' : '待核对'
@@ -70,7 +68,6 @@ onBeforeUnmount(() => { generation++; employee.value = null; security.value = nu
       <a-alert v-if="identityError" :message="identityError" type="warning" show-icon /><a-button v-if="identityError" @click="loadIdentity">重新核对员工档案</a-button>
       <div class="r6-identity-facts"><div><span>工号</span><strong>{{ fact(employee?.employee_number) }}</strong></div><div><span>所属部门</span><strong>{{ fact(archiveDepartment) }}</strong></div><div><span>岗位</span><strong>{{ system ? '不适用' : linked ? employee?.position || '待补充' : '待核对' }}</strong></div><a-button v-if="!system" type="text" :disabled="identityLoading || Boolean(identityError)" @click="employeeDialog = true">{{ identityLoading ? '正在核对' : linked ? '查看员工资料' : '核对关联' }}</a-button></div>
       <p v-if="system" class="r6-system-note"><InfoCircleOutlined />内置系统管理账号不关联员工档案。飞书绑定仅用于本人登录。</p>
-      <p class="r6-system-note">已启用的登录方式：{{ loginMethods.enabled }} · {{ loginMethods.detail }}</p>
     </section>
     <AccountSecurity :identity="portal.user?.id" @status-change="updateSecurity" />
     <details class="r6-profile-tools"><summary>更多个人与管理工具</summary><a-button v-if="security?.desk_access" :href="profileTarget || undefined">管理个人资料</a-button><a-button v-if="security?.desk_access" :href="deskTarget || undefined">进入管理后台</a-button><AppDiagnostics v-if="security?.can_admin_recover" /></details>

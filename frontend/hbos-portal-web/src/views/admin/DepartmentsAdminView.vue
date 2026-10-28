@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
+import { ApartmentOutlined, FilterOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
 import { listDepartments } from '@/services/iamDepartments'
@@ -18,7 +19,7 @@ import OwnAccountVerification from '@/components/account/OwnAccountVerification.
 import { useAccountProof } from '@/composables/useAccountProof'
 
 const route = useRoute(), activeTab = ref(canIam('iam.access.read') ? 'apps' : 'members')
-const viewGroup = ref('daily'), groupsAvailable = ref(false), companies = ref<Array<{ id: string; name: string }>>([]), company = ref(''), treeSearch = ref(''), expanded = ref<string[]>([])
+const viewGroup = ref('daily'), groupsAvailable = ref(false), companies = ref<Array<{ id: string; name: string }>>([]), company = ref(''), treeSearch = ref(''), directoryFiltersOpen = ref(false)
 const departments = ref<DepartmentSummary[]>([]), selected = ref(''), apps = ref<WorkApp[]>([]), editingApp = ref<string | null>(null), search = ref(''), page = ref(1), loading = ref(true), error = ref(''), employeeId = ref(''), drawerOpen = ref(false)
 const settings = ref<InstanceType<typeof WorkSettings> | null>(null)
 const current = computed(() => departments.value.find(row => row.id === selected.value))
@@ -45,20 +46,27 @@ const baselineMembers = computed(() => baselineImpact.value?.members || [])
 const candidateMembers = computed(() => departmentPreview.value?.members || [])
 const baselineRestrictions = computed(() => baselineLegacy.value ? [] : baselineMembers.value.filter(row => /禁止|暂停|期限|失效|过期|停用|待复核|限制|待确认/.test(row.reason || '')))
 
-const tree = computed(() => {
+type DepartmentTreeNode = { key: string; title: string; children: DepartmentTreeNode[] }
+type DepartmentEntry = { id: string; name: string; depth: number }
+const tree = computed<DepartmentTreeNode[]>(() => {
   const included = new Set<string>(), query = treeSearch.value.trim().toLowerCase()
   for (const row of departments.value.filter(row => !query || row.name.toLowerCase().includes(query))) {
     let item: DepartmentSummary | undefined = row
     while (item && !included.has(item.id)) { included.add(item.id); item = departments.value.find(parent => parent.id === item!.parent_department) }
   }
   const visited = new Set<string>()
-  const build = (parent: string | null): unknown[] => departments.value.filter(row => !visited.has(row.id) && included.has(row.id) && ((row.parent_department || null) === parent || parent === null && row.parent_department && !departments.value.some(item => item.id === row.parent_department))).map(row => { visited.add(row.id); return { key: row.id, title: row.name, children: build(row.id) } })
+  const build = (parent: string | null): DepartmentTreeNode[] => departments.value.filter(row => !visited.has(row.id) && included.has(row.id) && ((row.parent_department || null) === parent || parent === null && row.parent_department && !departments.value.some(item => item.id === row.parent_department))).map(row => { visited.add(row.id); return { key: row.id, title: row.name, children: build(row.id) } })
   return build(null)
 })
-const expandedKeys = computed(() => treeSearch.value ? departments.value.filter(row => departments.value.some(item => item.parent_department === row.id)).map(row => row.id) : expanded.value)
+const departmentEntries = computed<DepartmentEntry[]>(() => {
+  const flatten = (nodes: DepartmentTreeNode[], depth = 0): DepartmentEntry[] => nodes.flatMap(node => [
+    { id: node.key, name: node.title, depth },
+    ...flatten(node.children, depth + 1),
+  ])
+  return flatten(tree.value)
+})
 
 let generation = 0, appRead = 0, linkRead = 0, routeRevision = 0, disposed = false
-function revealSelection() { let row = current.value; const keys = new Set(expanded.value); while (row?.parent_department && !keys.has(row.parent_department)) { keys.add(row.parent_department); row = departments.value.find(item => item.id === row!.parent_department) }; expanded.value = [...keys] }
 function currentDepartmentChoice() {
   if (!departmentCurrent.value) return ''
   return departmentCurrent.value.has_role_default === false ? 'LEGACY' : departmentCurrent.value.role_key === 'staff' ? 'staff' : ''
@@ -223,7 +231,7 @@ async function applyLink() {
   }
   if (!currentTarget()) return
   if (!departments.value.some(row => row.id === target.department)) { editingApp.value = null; activeTab.value = 'members'; error.value = '该部门或应用当前不可查看，已返回可用部门。'; return }
-  selected.value = target.department; revealSelection()
+  selected.value = target.department
   activeTab.value = target.tab === 'apps' && canReadApps.value ? 'apps' : 'members'
   await loadApps()
   if (!currentTarget()) return
@@ -243,17 +251,17 @@ async function load() {
     if (disposed || run !== generation || routeAtStart !== routeRevision) return
     departments.value = data.items; companies.value = data.companies; company.value = data.selected_company || ''; groupsAvailable.value = data.groups_available === true
     if (!departments.value.some(row => row.id === selected.value)) selected.value = (departments.value.find(row => row.confirmed && row.members?.length) || departments.value.find(row => row.members?.length) || departments.value[0])?.id || ''
-    revealSelection(); await loadApps(); if (disposed || run !== generation || routeAtStart !== routeRevision) return; await applyLink()
+    await loadApps(); if (disposed || run !== generation || routeAtStart !== routeRevision) return; await applyLink()
   } catch (e) { if (!disposed && run === generation && routeAtStart === routeRevision) error.value = iamMessage(e) }
   finally { if (!disposed && run === generation) loading.value = false }
 }
-async function select(keys: unknown[]) {
-  const id = String(keys[0] || ''); if (!id || id === selected.value || !await requestLeave()) return
-  selected.value = id; editingApp.value = null; search.value = ''; page.value = 1
+async function selectDepartment(id: string) {
+  if (!id || id === selected.value || !await requestLeave()) return
+  selected.value = id; editingApp.value = null; search.value = ''; page.value = 1; error.value = ''
   try { await loadApps() } catch (e) { if (!disposed) error.value = iamMessage(e) }
 }
-async function changeCompany(value: string) { if (!await requestLeave()) return; company.value = value; selected.value = ''; expanded.value = []; editingApp.value = null; await load() }
-async function changeGroup(value: string) { if (!await requestLeave()) return; viewGroup.value = value; selected.value = ''; expanded.value = []; editingApp.value = null; await load() }
+async function changeCompany(value: string) { if (!await requestLeave()) return; company.value = value; selected.value = ''; editingApp.value = null; await load() }
+async function changeGroup(value: string) { if (!await requestLeave()) return; viewGroup.value = value; selected.value = ''; editingApp.value = null; await load() }
 function changeTab(value: string) { activeTab.value = value }
 function openOtherApp(appId: string) { editingApp.value = appId }
 watch(selected, () => {
@@ -264,6 +272,7 @@ onBeforeRouteLeave(() => requestLeave())
 onBeforeRouteUpdate(() => requestLeave())
 watch(() => route.query, () => { routeRevision++; if (!loading.value) void applyLink().catch(e => { if (!disposed) error.value = iamMessage(e) }) })
 useManagementViewMemory('DepartmentsAdminView.vue', { viewGroup, company, treeSearch, selected, activeTab, search, page })
+if (treeSearch.value) directoryFiltersOpen.value = true
 onMounted(load)
 onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; departmentReadGeneration++; departmentActionGeneration++; apps.value = []; departments.value = [] })
 </script>
@@ -271,16 +280,31 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 <template>
   <section class="r6-page r6-departments-page">
     <PageHeading eyebrow="组织管理" title="部门安排" description="为部门设置基础默认，特殊职责逐人设置。" />
-    <div v-if="error" class="r6-resource-error"><a-alert :message="error" type="warning" show-icon /><a-button @click="load">重试读取</a-button></div>
     <a-skeleton v-if="loading" active />
     <div v-else class="r6-dual-panels">
       <PanelFrame as="aside" region="department-list" label="组织部门目录" class="r6-navigation r6-department-tree">
-        <template #header><h3>选择部门</h3><a-select v-if="groupsAvailable" :value="viewGroup" aria-label="部门分组" style="margin-bottom:12px" @change="changeGroup"><a-select-option value="daily">日常组织</a-select-option><a-select-option value="technical">技术验证夹具</a-select-option><a-select-option value="all">全部部门</a-select-option></a-select><a-select v-if="companies.length > 1" :value="company" aria-label="部门所属公司" style="margin-bottom:12px" @change="changeCompany"><a-select-option v-for="item in companies" :key="item.id" :value="item.id">{{ item.name }}</a-select-option></a-select><a-input v-model:value="treeSearch" placeholder="搜索部门" aria-label="搜索组织部门" allow-clear /></template>
-        <a-tree :tree-data="tree" :selected-keys="[selected]" :expanded-keys="expandedKeys" block-node @expand="(keys: unknown[]) => expanded = keys.map(String)" @select="select"><template #title="{ title }"><span :title="title">{{ title }}</span></template></a-tree>
+        <template #header>
+          <div class="r6-department-directory-heading">
+            <h3>选择部门</h3>
+            <a-button type="text" class="r6-department-filter-toggle" :aria-expanded="directoryFiltersOpen" @click="directoryFiltersOpen = !directoryFiltersOpen"><FilterOutlined />筛选部门</a-button>
+          </div>
+          <div v-if="directoryFiltersOpen" class="r6-department-filters">
+            <a-select v-if="groupsAvailable" :value="viewGroup" aria-label="部门分组" @change="changeGroup"><a-select-option value="daily">日常组织</a-select-option><a-select-option value="technical">技术验证夹具</a-select-option><a-select-option value="all">全部部门</a-select-option></a-select>
+            <a-select v-if="companies.length > 1" :value="company" aria-label="部门所属公司" @change="changeCompany"><a-select-option v-for="item in companies" :key="item.id" :value="item.id">{{ item.name }}</a-select-option></a-select>
+            <a-input v-model:value="treeSearch" placeholder="搜索部门" aria-label="搜索组织部门" allow-clear />
+          </div>
+        </template>
+        <nav class="r6-department-rows" aria-label="部门列表">
+          <button v-for="item in departmentEntries" :key="item.id" type="button" class="r6-department-row" :class="{ selected: selected === item.id }" :aria-current="selected === item.id ? 'page' : undefined" :style="{ '--department-indent': `${Math.min(item.depth, 4) * 14}px` }" @click="selectDepartment(item.id)">
+            <ApartmentOutlined aria-hidden="true" /><span>{{ item.name }}</span><RightOutlined aria-hidden="true" />
+          </button>
+          <a-empty v-if="!departmentEntries.length" description="没有匹配的部门" />
+        </nav>
         <template #footer>部门默认与个人单独安排分别核对。</template>
       </PanelFrame>
       <PanelFrame region="department-detail" label="部门默认安排与成员">
         <template v-if="current" #header><div class="r6-department-title"><h2>{{ current.name }}</h2><p>{{ current.company }} · 当前可见主部门成员 {{ current.members?.length || 0 }} 人（仅当前部门）</p></div><StatusTag v-if="!current.confirmed" tone="warning">尚未确认，暂不安排人员或权限</StatusTag><a-radio-group :value="activeTab" @change="(event: { target: { value: string } }) => changeTab(event.target.value)" button-style="solid" style="margin-top:16px"><a-radio-button v-if="canReadApps" value="apps">默认角色与应用</a-radio-button><a-radio-button value="members">部门成员</a-radio-button></a-radio-group></template>
+        <div v-if="error" class="r6-resource-error r6-resource-error-inline"><a-alert :message="error" type="warning" show-icon /><a-button @click="load">重试读取</a-button></div>
         <div v-show="activeTab === 'apps' && canReadApps && current">
           <WorkSettings v-if="editingApp && current?.confirmed" :key="selected + ':' + editingApp" ref="settings" subject-kind="department" :subject-id="selected" :app-id="editingApp" @back="editingApp = null" @saved="loadApps" />
           <div v-show="!editingApp">
@@ -288,7 +312,7 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
             <template v-if="current.confirmed">
               <template v-if="iamSession.rolesEnabled">
                 <div v-if="departmentError" class="r6-resource-error"><a-alert :message="departmentError" type="warning" show-icon /><a-button :disabled="departmentBusy" @click="loadDepartmentRole(true)">读取最新部门安排，保留草稿</a-button></div>
-                <p class="r6-dept-lead">部门默认只提供普通员工的基础角色，仅影响选择跟随部门安排的员工；个人安排和已有限制保留。</p>
+                <div class="r6-dept-info"><InfoCircleOutlined aria-hidden="true" /><div><strong>部门默认只提供普通员工的基础角色</strong><p>仅影响选择跟随部门安排的员工；个人安排和已有限制保留。</p></div></div>
                 <a-radio-group v-if="canManageDepartmentRole && departmentCurrent" v-model:value="departmentChoice" :disabled="departmentBusy || departmentMustRead || Boolean(departmentPreview)" class="department-default-options" aria-label="部门默认角色">
                   <a-radio v-if="baselineLegacy" value="LEGACY" disabled><span><strong>沿用已有安排</strong><small>当前未设置新的部门默认，保留现有跟随安排。</small></span><StatusTag tone="neutral">只读</StatusTag></a-radio>
                   <a-radio value="staff"><span><strong>普通员工</strong><small>跟随者可查看自己的考勤，不查看同部门其他人。</small></span></a-radio>
@@ -361,4 +385,25 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 
 <style scoped>
 .r6-dept-lead{margin:0 0 16px;color:var(--r6-secondary,#566780);font-size:13px;line-height:21px}.department-default-options{display:grid;gap:10px;width:100%;margin-bottom:18px}.department-default-options :deep(.ant-radio-wrapper){display:flex;align-items:flex-start;margin:0;padding:15px 16px;border:1px solid #e5e9f2;border-radius:11px;min-height:76px;white-space:normal}.department-default-options :deep(.ant-radio-wrapper-checked){border-color:#bab5ea;background:#f7f6ff}.department-default-options :deep(.ant-radio-wrapper-disabled){background:#f8f9fc;border-color:#e5e9f2}.department-default-options :deep(.ant-radio){margin-top:4px;flex:none}.department-default-options strong,.department-default-options small{display:block}.department-default-options strong{font-size:14px}.department-default-options small{margin-top:4px;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.department-default-options .r6-status-tag{margin-left:8px}.r6-dept-readonly{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border:1px solid #e5e9f2;border-radius:10px;background:#f8f9fc}.r6-dept-readonly p{margin:0;color:var(--r6-muted,#5f6e86);font-size:12px;flex-basis:100%}.r6-dept-counts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}.r6-dept-counts>div{padding:16px 18px;border:1px solid #e5e9f2;border-radius:12px;background:#f8f9fc}.r6-dept-counts strong{display:block;font-size:26px;line-height:34px}.r6-dept-counts span{display:block;margin-top:4px;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px}.r6-dept-follow-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 6px}.r6-dept-follow-head h4{margin:0;font-size:14px}.r6-dept-followers{list-style:none;margin:0;padding:0;display:grid;gap:8px}.r6-dept-followers li{display:flex;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid #e5e9f2;border-radius:9px;font-size:13px}.r6-dept-followers span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-note{margin:10px 0 0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.r6-dept-baseline-error{display:grid;gap:10px;justify-items:start;margin-top:12px}.r6-dept-baseline-actions{display:flex;gap:8px;flex-wrap:wrap}.r6-dept-restrictions{margin-top:14px;border-top:1px solid #e5e9f2;padding-top:10px}.r6-dept-restrictions summary{cursor:pointer;font-size:12px;color:var(--r6-muted,#5f6e86);min-height:34px;display:flex;align-items:center}.r6-dept-restrictions p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.r6-dept-role-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.r6-dept-role-actions>span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-role-actions>div{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.r6-dept-other-apps{margin-top:22px;border-top:1px solid #e5e9f2;padding-top:6px}.r6-dept-other-apps .field-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:16px 0 6px}.r6-dept-other-apps .field-section-title h3{margin:0;font-size:15px}.r6-dept-other-apps .field-section-title span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-other-apps .r6-department-app:last-child{border-bottom:0}.r6-department-app>div{min-width:0}.r6-department-app strong{font-size:14px}.r6-department-app p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.r6-department-app .ant-btn{flex:none}.role-preview{display:grid;gap:14px}.role-preview-subject{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}.role-preview-subject strong{font-size:16px}.role-preview-subject span{color:var(--r6-muted,#5f6e86);font-size:12px}.role-department-impact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.role-department-impact>div{padding:12px;border:1px solid #e5e9f2;border-radius:10px;background:#f8f9fc}.role-department-impact strong{display:block;font-size:22px;line-height:30px}.role-department-impact span{display:block;margin-top:4px;color:var(--r6-muted,#5f6e86);font-size:11px;line-height:18px}.role-member-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.role-member-list li{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;padding:10px 12px;border:1px solid #e5e9f2;border-radius:8px;font-size:12px}.role-member-list span{color:var(--r6-secondary,#566780)}.role-scope-caption{margin:0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.role-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid #e5e9f2}@media(max-width:760px){.r6-dept-counts,.role-department-impact{grid-template-columns:1fr}.r6-dept-follow-head{align-items:flex-start}.r6-dept-followers li{flex-wrap:wrap}.r6-dept-role-actions{align-items:flex-start}.r6-dept-role-actions>div{width:100%;justify-content:flex-end}}
+</style>
+
+<style scoped>
+.r6-department-directory-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.r6-department-directory-heading h3{margin:0;font-size:14px}
+.r6-department-filter-toggle{height:32px;padding-inline:8px;color:var(--r6-secondary,#566780);font-size:12px}
+.r6-department-filters{display:grid;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid #e8ebf3}
+.r6-department-filters :deep(.ant-select){width:100%}
+.r6-department-rows{display:grid;align-content:start;gap:5px}
+.r6-department-row{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:11px 12px;padding-inline-start:calc(12px + var(--department-indent,0px));border:1px solid transparent;border-radius:9px;background:transparent;color:var(--r6-secondary,#566780);text-align:left;cursor:pointer;transition:background .16s ease,border-color .16s ease,color .16s ease}
+.r6-department-row:hover{background:#f7f6ff;color:var(--r6-brand,#5b55e7)}
+.r6-department-row.selected{background:#f0ecff;border-color:#e4dcfa;color:#5f53bf}
+.r6-department-row>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.r6-department-row>.anticon:first-child{flex:none;font-size:15px}
+.r6-department-row>.anticon:last-child{flex:none;margin-left:auto;font-size:9px}
+.r6-dept-info{display:flex;align-items:flex-start;gap:12px;margin:0 0 18px;padding:15px 16px;border:1px solid #dfe3fb;border-radius:10px;background:#f5f6ff;color:#5c5bd4}
+.r6-dept-info>.anticon{flex:none;margin-top:3px;font-size:15px}
+.r6-dept-info>div{min-width:0}
+.r6-dept-info strong{display:block;color:#34456e;font-size:13px;font-weight:600;line-height:21px}
+.r6-dept-info p{margin:3px 0 0;color:#566780;font-size:12px;line-height:20px}
+@media(max-width:760px){.r6-department-directory-heading h3{font-size:14px}.r6-department-row{min-height:46px}.r6-dept-info{padding:13px 12px}}
 </style>

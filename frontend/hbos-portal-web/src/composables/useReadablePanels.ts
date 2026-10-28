@@ -14,9 +14,10 @@ export function useReadablePanels(enabled: Ref<boolean>, root: Ref<HTMLElement |
     const main = root.value
     if (!enabled.value || !main || !main.clientHeight || window.innerWidth <= 760 || window.innerHeight <= 700) { natural.value = false; return }
     const css = getComputedStyle(main)
+    const externalError = Array.from(main.querySelectorAll('.r6-resource-error')).find(element => !element.closest('.r6-panel-frame')) || null
     const available = main.clientHeight - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)
       - height(main.querySelector('.r6-context-row')) - height(main.querySelector('.r6-page-heading'))
-      - height(main.querySelector('.r6-page-footer')) - height(main.querySelector('.r6-resource-error'))
+      - height(main.querySelector('.r6-page-footer')) - height(externalError)
     const overhead = Math.max(0, ...Array.from(main.querySelectorAll('.r6-panel-frame')).map(panel => height(panel.querySelector('.r6-panel-header')) + height(panel.querySelector('.r6-panel-footer')) + 2))
     natural.value = overhead > 0 && available - overhead < 260
   }
