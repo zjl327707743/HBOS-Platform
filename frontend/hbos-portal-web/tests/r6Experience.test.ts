@@ -17,6 +17,7 @@ vi.mock('@/services/iamPeople', () => ({ listPeople: api.listPeople, getEmployee
 vi.mock('@/stores/portal', () => ({ usePortalStore: () => ({ user: actor, apps: [] }) }))
 vi.mock('@/services/iamAccess', () => ({ canIam: (cap: string) => permissions.has(cap), hasManagementAccess: () => true, iamMessage: (error: Error) => error.message }))
 const Verify = defineComponent({ emits: ['verified', 'invalidated'], template: '<button class="verify-test" @click="$emit(\'verified\', {valid:true,expires_in:120,method:\'password\'})">完成测试核验</button>' })
+const EmployeeDrawerStub = defineComponent({ name: 'EmployeeDrawer', props: { open: Boolean, employeeId: String, initialTab: String }, template: '<div class="employee-drawer-test" :data-open="open" :data-initial-tab="initialTab" />' })
 const self = { operation_id: 'attendance.read', scope_binding: 'SELF' }
 const board = { operation_id: 'attendance.department.board.read', scope_binding: 'RESPONSIBLE_DEPARTMENTS' }
 const baseRole: AppRole = { id: 'role-clerk', app_id: 'attendance', role_key: 'clerk', title: '部门考勤员', boundary_kind: 'DEPARTMENT', draft_version: 4, draft_features: [self, board], published_release: 'release-3', published_revision: 3, published_features: [self], releases: [], registry: [{ ...self, title: '查看自己的考勤', group: 'self', allowed: true, integrated: true, reason: '' }, { ...board, title: '查看部门考勤面板', group: 'board', allowed: true, integrated: true, reason: '' }] }
@@ -24,7 +25,7 @@ let wrappers: VueWrapper[] = []
 async function render(component: object, path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: defineComponent({ template: '<div />' }) }] })
   await router.push(path); await router.isReady()
-  const wrapper = mount(component, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify, AccountSecurity: true, AppDiagnostics: true, EmployeeDrawer: true } } })
+  const wrapper = mount(component, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify, AccountSecurity: true, AppDiagnostics: true, EmployeeDrawer: EmployeeDrawerStub } } })
   wrappers.push(wrapper); await flushPromises(); return wrapper
 }
 function action(w: VueWrapper, text: string) {
@@ -112,7 +113,23 @@ describe('R6 formal data and role contracts', () => {
     api.getMyEmployeeStatus.mockResolvedValue({ status: 'conflict' }); const w = await render(Profile, '/hbos/profile'); expect(w.text()).toContain('员工归属存在冲突'); expect(w.text()).not.toContain('员工档案已关联'); expect(w.text()).toContain('待核对')
   })
   it('shows server total independently from current-page todo counts', async () => {
+    api.listPeople.mockResolvedValueOnce({ items: [
+      { id: 'EMP-1', name: '待开通员工', employee_number: 'T001', department: 'D1', department_name: '合成部门', position: '测试岗位', account_status: 'unopened', attendance_status: 'pending', user_id: null },
+      { id: 'EMP-2', name: '关联待核对员工', employee_number: 'T002', department: 'D1', department_name: '合成部门', position: '测试岗位', account_status: 'active', attendance_status: 'pending', user_id: 'user-2' },
+    ], total: 57, page: 1, page_size: 20 })
     const w = await render(People, '/hbos/admin/people'); const cards = w.findAll('.r6-overview'); expect(cards[0]!.text()).toContain('57'); expect(cards[1]!.text()).toContain('本页待开通账号1'); expect(cards[2]!.text()).toContain('本页待核对关联1'); expect(api.listPeople).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, category: 'employees', view_group: 'daily' }))
+  })
+  it('opens basic read-only details for an unresolved account instead of suggesting role settings', async () => {
+    api.listPeople.mockResolvedValueOnce({ items: [
+      { id: 'EMP-2', name: '关联待核对员工', employee_number: 'T002', department: 'D1', department_name: '合成部门', position: '测试岗位', account_status: 'active', attendance_status: 'pending', user_id: 'user-2' },
+    ], total: 1, page: 1, page_size: 20 })
+    const w = await render(People, '/hbos/admin/people')
+    const row = w.find('[data-person-id="EMP-2"]')
+    const actions = row.findAll('[data-row-action]')
+    expect(actions.length).toBeGreaterThan(0)
+    expect(actions.every(action => action.text() === '查看关联详情')).toBe(true)
+    await actions[0]!.trigger('click')
+    expect(w.find('.employee-drawer-test').attributes('data-initial-tab')).toBe('basic')
   })
   it('keeps pagination bounded while loading or empty and accepts a real second page', async () => {
     let resolve!: (value: unknown) => void

@@ -326,6 +326,7 @@ async function publish() {
   }
 }
 async function restoreDraft() {
+  if (editing.value || dirty.value) return
   if (!role.value || !restore.value || busy.value || mustRead.value || !proof.valid.value || !canEdit.value) return
   const run = viewEpoch
   busy.value = true
@@ -511,7 +512,7 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
             <a-button v-else-if="reviewMode === 'publish'" type="primary" :loading="busy" :disabled="!preview?.changed || !proof.valid.value || busy || mustRead || !canPublish" @click="publish">确认发布</a-button>
           </div>
         </ChangeReview>
-        <details v-if="role.releases.length && canEdit" class="r6-profile-tools"><summary>从历史发布内容恢复草稿</summary><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-select v-model:value="restore" aria-label="历史发布版本" style="width:100%" @change="requestId = ''"><a-select-option v-for="release in role.releases" :key="release.name" :value="release.name">v{{ release.revision }} · {{ release.published_at }}</a-select-option></a-select><a-button :disabled="!restore || !proof.valid.value || busy || mustRead" @click="restoreDraft">恢复为草稿</a-button><p class="aux">恢复只写入草稿，不会自动发布；仍需核对发布影响、本人验证和确认发布。</p></details>
+        <details v-if="role.releases.length && canEdit && !editing" class="r6-profile-tools"><summary>从历史发布内容恢复草稿</summary><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-select v-model:value="restore" aria-label="历史发布版本" style="width:100%" @change="requestId = ''"><a-select-option v-for="release in role.releases" :key="release.name" :value="release.name">v{{ release.revision }} · {{ release.published_at }}</a-select-option></a-select><a-button :disabled="!restore || !proof.valid.value || busy || mustRead" @click="restoreDraft">恢复为草稿</a-button><p class="aux">恢复只写入草稿，不会自动发布；仍需核对发布影响、本人验证和确认发布。</p></details>
         <template #footer>
           <div class="r6-role-foot">
             <StatusTag :tone="statusTone">{{ statusLabel }}</StatusTag>

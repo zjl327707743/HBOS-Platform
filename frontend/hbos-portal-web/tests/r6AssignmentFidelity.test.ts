@@ -11,7 +11,7 @@ const api = vi.hoisted(() => ({
   query: vi.fn(), command: vi.fn(), listDepartments: vi.fn(), getPerson: vi.fn(), getEmployeeMetadata: vi.fn(),
   getWorkSummary: vi.fn(), getWorkSubject: vi.fn(), previewLink: vi.fn(), linkUser: vi.fn(), createUser: vi.fn(),
   transferEmployee: vi.fn(), previewTransferEmployee: vi.fn(), disableUser: vi.fn(), resetTemporaryPassword: vi.fn(),
-  getDepartmentWork: vi.fn(),
+  getDepartmentWork: vi.fn(), previewWork: vi.fn(), workAction: vi.fn(),
 }))
 const caps = vi.hoisted(() => new Set<string>())
 const session = vi.hoisted(() => ({ rolesEnabled: true }))
@@ -38,7 +38,7 @@ vi.mock('@/services/iamWork', async (importOriginal) => ({
   ...await importOriginal<object>(),
   getWorkSummary: api.getWorkSummary, getWorkSubject: api.getWorkSubject,
   getDepartmentWork: api.getDepartmentWork,
-  getEffectiveWork: vi.fn(), previewAppSettings: vi.fn(), saveAppSettings: vi.fn(), previewWork: vi.fn(), workAction: vi.fn(),
+  getEffectiveWork: vi.fn(), previewAppSettings: vi.fn(), saveAppSettings: vi.fn(), previewWork: api.previewWork, workAction: api.workAction,
 }))
 vi.mock('@/composables/useAccountProof', async () => {
   const { ref } = await import('vue')
@@ -73,6 +73,11 @@ const person = {
   employee: { id: 'E1', name: '合成员工', employee_number: 'T001', department: 'D1', department_name: '生产一部', company: 'C1', position: '操作员', user_id: null, account_status: 'unopened', attendance_status: 'pending', version: 'v1' },
   account: { user_id: null, username: '', feishu_bound: false, initial_password_pending: false }, association: { employee_id: 'E1', user_id: null }, history: [],
 }
+const attendanceWorkApp = (suspended = false) => ({
+  app_id: 'attendance', title: '考勤管理', integrated: true, status: suspended ? '已临时禁用' : '可以使用',
+  summary: '普通员工', source_text: '为此员工单独设置', suspended, permission_mode: 'personal',
+  version: 7, context_revision: 'attendance-r1', operations: [],
+})
 let wrappers: VueWrapper[] = []
 async function render(component: object, options: { props?: Record<string, unknown>; path?: string } = {}) {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: defineComponent({ template: '<div />' }) }] })
@@ -147,7 +152,9 @@ beforeEach(() => {
   api.listDepartments.mockResolvedValue(departmentList())
   api.command.mockResolvedValue(structuredClone(previewAssignment))
   api.getPerson.mockResolvedValue(structuredClone(person))
-  api.getWorkSummary.mockResolvedValue({ subject_type: 'User', subject_name: 'user-a', apps: [] })
+  api.getWorkSummary.mockResolvedValue({ subject_type: 'User', subject_name: 'user-a', apps: [attendanceWorkApp(), { app_id: 'inventory', title: '仓库管理', integrated: true, status: '可以使用', summary: '仓库普通权限', source_text: '', suspended: false, permission_mode: 'department', version: 1, context_revision: 'inventory-r1', operations: [] }] })
+  api.previewWork.mockResolvedValue({ version: 7, context_revision: 'attendance-r1', changed: true, summary: '考勤已临时禁用', after: attendanceWorkApp(true) })
+  api.workAction.mockResolvedValue(attendanceWorkApp(true))
   api.getWorkSubject.mockResolvedValue({ employee: structuredClone(person.employee), account: { status: 'unopened', user_id: '' }, association: { status: 'unlinked' }, configuration_only: true })
   api.previewLink.mockResolvedValue({ version: 'preview-v1', summary: '关联后保留原账号' })
   api.linkUser.mockResolvedValue({ employee: structuredClone(person.employee), version: 'v2' })
@@ -407,6 +414,133 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     appsTab!.click()
     await flushPromises()
     expect((document.body.querySelector('input[type="radio"][value="clerk"]') as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('offers an independent low-frequency attendance pause entry for a real User app and calls preview_work then suspend_app', async () => {
+    api.getPerson.mockResolvedValue({
+      employee: { ...structuredClone(person.employee), user_id: 'user-a', account_status: 'active', attendance_status: 'confirmed' },
+      account: { user_id: 'user-a' }, association: { employee_id: 'E1', user_id: 'user-a' }, history: [],
+    })
+    await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'apps' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    const section = new DOMWrapper(document.body.querySelector<HTMLElement>('.r6-attendance-more')!)
+    expect(section.text()).toContain('更多考勤操作')
+    expect(section.text()).toContain('临时暂停或恢复')
+    expect(section.text()).toContain('不改变角色')
+    await section.get('button[aria-label="考勤管理的更多操作"]').trigger('click')
+    await flushPromises()
+    const suspend = Array.from(document.body.querySelectorAll<HTMLElement>('.ant-dropdown-menu-item')).find(row => row.textContent?.includes('临时禁用考勤'))
+    expect(suspend).toBeDefined()
+    suspend!.click()
+    await flushPromises()
+    expect(api.previewWork).toHaveBeenCalledWith(expect.objectContaining({
+      target: expect.objectContaining({ subject_type: 'User', subject_name: 'user-a', app_id: 'attendance' }),
+      expected_version: 7, context_revision: 'attendance-r1',
+    }), 'suspend')
+    const confirm = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(row => row.textContent?.trim() === '确认临时禁用')
+    expect(confirm).toBeDefined()
+    confirm!.click()
+    await flushPromises()
+    expect(api.workAction).toHaveBeenCalledWith('suspend_app', expect.objectContaining({
+      subject_type: 'User', subject_name: 'user-a', app_id: 'attendance',
+    }), 7, 'attendance-r1', expect.any(String))
+  })
+
+  it('uses reenable_app for a suspended attendance app instead of a separate new command', async () => {
+    api.getPerson.mockResolvedValue({
+      employee: { ...structuredClone(person.employee), user_id: 'user-a', account_status: 'active', attendance_status: 'confirmed' },
+      account: { user_id: 'user-a' }, association: { employee_id: 'E1', user_id: 'user-a' }, history: [],
+    })
+    api.getWorkSummary.mockResolvedValue({ subject_type: 'User', subject_name: 'user-a', apps: [attendanceWorkApp(true)] })
+    api.previewWork.mockResolvedValue({ version: 7, context_revision: 'attendance-r1', changed: true, summary: '考勤已恢复', after: attendanceWorkApp(false) })
+    await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'apps' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    const section = new DOMWrapper(document.body.querySelector<HTMLElement>('.r6-attendance-more')!)
+    expect(section.text()).toContain('已临时禁用')
+    await section.get('button[aria-label="考勤管理的更多操作"]').trigger('click')
+    await flushPromises()
+    const reenable = Array.from(document.body.querySelectorAll<HTMLElement>('.ant-dropdown-menu-item')).find(row => row.textContent?.includes('解除临时禁用'))
+    expect(reenable).toBeDefined()
+    reenable!.click()
+    await flushPromises()
+    expect(api.previewWork).toHaveBeenCalledWith(expect.objectContaining({ target: expect.objectContaining({ app_id: 'attendance' }) }), 'reenable')
+    const confirm = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(row => row.textContent?.trim() === '确认解除临时禁用')
+    expect(confirm).toBeDefined()
+    confirm!.click()
+    await flushPromises()
+    expect(api.workAction).toHaveBeenCalledWith('reenable_app', expect.objectContaining({ app_id: 'attendance' }), 7, 'attendance-r1', expect.any(String))
+  })
+
+  it('keeps the legacy app view and hides the attendance pause entry when roles are disabled or the manage capability is absent', async () => {
+    api.getPerson.mockResolvedValue({
+      employee: { ...structuredClone(person.employee), user_id: 'user-a', account_status: 'active', attendance_status: 'confirmed' },
+      account: { user_id: 'user-a' }, association: { employee_id: 'E1', user_id: 'user-a' }, history: [],
+    })
+    session.rolesEnabled = false
+    const legacy = await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'apps' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    expect(bodyText()).toContain('应用角色功能尚未启用')
+    expect(document.body.querySelector('.r6-attendance-more')).toBeNull()
+    legacy.unmount()
+    wrappers = wrappers.filter(wrapper => wrapper !== legacy)
+    document.body.innerHTML = ''
+
+    session.rolesEnabled = true
+    caps.delete('iam.access.manage')
+    await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'apps' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    expect(bodyText()).toContain('应用角色')
+    expect(document.body.querySelector('.r6-attendance-more')).toBeNull()
+  })
+
+  it('hides the attendance pause entry when the work summary has no real attendance app', async () => {
+    api.getPerson.mockResolvedValue({
+      employee: { ...structuredClone(person.employee), user_id: 'user-a', account_status: 'active', attendance_status: 'confirmed' },
+      account: { user_id: 'user-a' }, association: { employee_id: 'E1', user_id: 'user-a' }, history: [],
+    })
+    api.getWorkSummary.mockResolvedValue({ subject_type: 'User', subject_name: 'user-a', apps: [] })
+    await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'apps' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    expect(document.body.querySelector('.r6-attendance-more')).toBeNull()
+  })
+
+  it('shows the real Employee and User keys as read-only manual review for a linked but unresolved association', async () => {
+    api.getPerson.mockResolvedValue({
+      employee: { ...structuredClone(person.employee), user_id: 'user-a', account_status: 'active', attendance_status: 'pending' },
+      account: { user_id: 'user-a' }, association: { employee_id: 'E1', user_id: 'user-a' }, history: [],
+    })
+    await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'basic' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    expect(bodyText()).toContain('关联异常，需人工核查')
+    expect(bodyText()).toContain('Employee 主键')
+    expect(bodyText()).toContain('E1')
+    expect(bodyText()).toContain('User 主键')
+    expect(bodyText()).toContain('user-a')
+    expect(bodyText()).toContain('本页没有安全确认命令')
+    expect(bodyText()).toContain('人工核查')
+    expect(api.linkUser).not.toHaveBeenCalled()
+    expect(Array.from(document.body.querySelectorAll('button')).some(row => row.textContent?.includes('确认关联'))).toBe(false)
+  })
+
+  it('does not label a configuration-only record as an association error when the status is unavailable', async () => {
+    caps.delete('iam.people.read')
+    api.getWorkSubject.mockResolvedValue({
+      employee: { ...structuredClone(person.employee), user_id: 'user-a', account_status: 'active', attendance_status: 'pending' },
+      account: { status: 'active', user_id: 'user-a' }, association: { employee_id: 'E1', user_id: 'user-a' }, configuration_only: true,
+    })
+    await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'basic' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    expect(bodyText()).toContain('关联状态不可核对')
+    expect(bodyText()).not.toContain('关联异常，人工核查')
+    expect(document.body.querySelector('.r6-association-review')).toBeNull()
+  })
+
+  it('treats an unopened employee only as an account-opening task, not as an association-review todo', async () => {
+    await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'basic' }, path: '/hbos/admin/people' })
+    await flushPromises()
+    expect(bodyText()).toContain('待开通登录账号')
+    expect(bodyText()).not.toContain('关联异常')
+    expect(bodyText()).not.toContain('本页没有安全确认命令')
   })
 
   it('collects explicit existing-account identity, evidence and confirmation before the real link preview and link call', async () => {

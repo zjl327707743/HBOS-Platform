@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, DOMWrapper, type VueWrapper } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import Antd from 'ant-design-vue'
+import Antd, { Modal } from 'ant-design-vue'
 import Roles from '@/views/admin/RolesAdminView.vue'
 import People from '@/views/admin/PeopleAdminView.vue'
 import Audit from '@/views/admin/AuditAdminView.vue'
@@ -363,6 +363,35 @@ describe('R6 role draft to publish fidelity', () => {
     expect(api.loadRoles).toHaveBeenCalledTimes(1)
   })
 
+  it('hides and rejects history restore during dirty editing, then restores the original cancel flow afterwards', async () => {
+    api.loadRoles.mockResolvedValue([structuredClone(role({ releases: [{ name: 'release-2', revision: 2, published_at: '2026-10-01 10:00' }] }))])
+    const w = await render(Roles, '/hbos/admin/roles')
+    expect(w.text()).toContain('从历史发布内容恢复草稿')
+    await click(w, '完成测试核验')
+    const vm = w.vm as unknown as {
+      editing: boolean; checked: string[]; restore: string; role: AppRole
+      restoreDraft: () => Promise<void>; cancelEdit: () => Promise<void>
+    }
+    vm.editing = true
+    vm.checked = []
+    vm.restore = 'release-2'
+    await nextTick()
+    await vm.restoreDraft()
+    await flushPromises()
+    expect(api.roleCommand).not.toHaveBeenCalledWith('restore_role_release', expect.anything())
+    expect(w.text()).not.toContain('从历史发布内容恢复草稿')
+
+    let asked: { title?: string; onOk?: () => void; onCancel?: () => void } | null = null
+    const confirm = vi.spyOn(Modal, 'confirm').mockImplementation((config: Record<string, unknown>) => { asked = config as typeof asked; return {} as never })
+    const cancel = vm.cancelEdit()
+    expect(asked?.title).toContain('放弃尚未保存的角色草稿？')
+    asked!.onOk!()
+    await cancel
+    await flushPromises()
+    expect(w.text()).toContain('从历史发布内容恢复草稿')
+    confirm.mockRestore()
+  })
+
   it('clears a prepared publish preview when another role is selected', async () => {
     api.loadRoles.mockResolvedValue([structuredClone(pendingRole), structuredClone(adminRole)])
     api.roleCommand.mockResolvedValueOnce({
@@ -402,26 +431,70 @@ describe('R6 people entries and page-local overview', () => {
     expect(drawer.props('employeeId')).toBe('EMP-B')
     expect(drawer.props('initialTab')).toBe('account')
 
-    await desktop.findAll('button').find(item => item.text() === '查看详情')!.trigger('click')
+    await desktop.findAll('button').find(item => item.text() === '查看关联详情')!.trigger('click')
     await flushPromises()
     expect(drawer.props('employeeId')).toBe('EMP-C')
     expect(drawer.props('initialTab')).toBe('basic')
     expect(w.text()).not.toContain('查看安排')
   })
 
+  it('renders an explicit unavailable scope state instead of a zero-result empty state', async () => {
+    const employees = { items: [employee({})], total: 1, page: 1, page_size: 20 }
+    api.listPeople.mockImplementation((query: { category?: string }) => Promise.resolve(query.category === 'pending'
+      ? { items: [], total: 0, page: 1, page_size: 20, unavailable: true }
+      : employees))
+    const w = await render(People, '/hbos/admin/people')
+    const pendingTab = Array.from(document.body.querySelectorAll<HTMLElement>('.ant-tabs-tab')).find(row => row.textContent?.includes('待关联账号'))
+    expect(pendingTab).toBeDefined()
+    pendingTab!.click()
+    await flushPromises()
+    expect(api.listPeople).toHaveBeenLastCalledWith(expect.objectContaining({ category: 'pending' }))
+    expect(w.text()).toContain('当前分类暂不可用')
+    expect(w.text()).toContain('具名委派范围')
+    expect(w.text()).not.toContain('没有符合条件的员工或账号')
+    expect(w.text()).not.toContain('这些账号尚未明确关联员工档案')
+  })
+
+  it('names a linked unresolved association as manual review and opens the primary-key detail path instead of a fake confirmation', async () => {
+    const w = await render(People, '/hbos/admin/people')
+    const drawer = w.findComponent(DrawerStub)
+    expect(w.text()).not.toContain('核对账号关联')
+    const unopenedTask = w.find('button[aria-label="开通账号：员工乙"]')
+    expect(unopenedTask.exists()).toBe(true)
+    const anomaly = w.find('button[aria-label^="关联异常，人工核查"]')
+    expect(anomaly.exists()).toBe(true)
+    expect(anomaly.attributes('title')).toContain('本页没有安全确认命令')
+    await anomaly.trigger('click')
+    await flushPromises()
+    expect(drawer.props('employeeId')).toBe('EMP-C')
+    expect(drawer.props('initialTab')).toBe('basic')
+  })
+
   it('keeps the overview counts page-local when directing to the first pending row', async () => {
     const w = await render(People, '/hbos/admin/people')
     const cards = w.findAll('.r6-overview')
     expect(cards[1]!.text()).toContain('1')
-    expect(cards[2]!.text()).toContain('2')
+    expect(cards[2]!.text()).toContain('1')
     const calls = api.listPeople.mock.calls.length
     await cards[1]!.trigger('click')
     await flushPromises()
     expect(api.listPeople).toHaveBeenCalledTimes(calls)
     expect(cards[1]!.text()).toContain('1')
-    expect(cards[2]!.text()).toContain('2')
+    expect(cards[2]!.text()).toContain('1')
     expect(document.activeElement?.textContent).toContain('处理账号')
     expect(JSON.stringify(api.listPeople.mock.calls)).not.toContain('pending')
+  })
+
+  it('counts and jumps only to linked rows whose association is unresolved, never to an unopened account', async () => {
+    const w = await render(People, '/hbos/admin/people')
+    const cards = w.findAll('.r6-overview')
+    expect(cards[2]!.text()).toContain('1')
+    await cards[2]!.trigger('click')
+    await flushPromises()
+    const target = document.activeElement as HTMLElement | null
+    expect(target?.getAttribute('aria-label')).toContain('关联异常，人工核查')
+    expect(target?.getAttribute('aria-label')).toContain('员工丙')
+    expect(target?.getAttribute('aria-label')).not.toContain('员工乙')
   })
 })
 
