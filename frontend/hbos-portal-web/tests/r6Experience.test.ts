@@ -117,7 +117,7 @@ describe('R6 formal data and role contracts', () => {
       { id: 'EMP-1', name: '待开通员工', employee_number: 'T001', department: 'D1', department_name: '合成部门', position: '测试岗位', account_status: 'unopened', attendance_status: 'pending', user_id: null },
       { id: 'EMP-2', name: '关联待核对员工', employee_number: 'T002', department: 'D1', department_name: '合成部门', position: '测试岗位', account_status: 'active', attendance_status: 'pending', user_id: 'user-2' },
     ], total: 57, page: 1, page_size: 20 })
-    const w = await render(People, '/hbos/admin/people'); const cards = w.findAll('.r6-overview'); expect(cards[0]!.text()).toContain('57'); expect(cards[1]!.text()).toContain('本页待开通账号1'); expect(cards[2]!.text()).toContain('本页待核对关联1'); expect(api.listPeople).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, category: 'employees', view_group: 'daily' }))
+    const w = await render(People, '/hbos/admin/people'); const cards = w.findAll('.r6-overview'); expect(cards[0]!.text()).toContain('57'); expect(cards[1]!.text()).toContain('本页待开通账号'); expect(cards[1]!.text()).toContain('1'); expect(cards[2]!.text()).toContain('本页待核对关联'); expect(cards[2]!.text()).toContain('1'); expect(api.listPeople).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, category: 'employees', view_group: 'daily' }))
   })
   it('opens basic read-only details for an unresolved account instead of suggesting role settings', async () => {
     api.listPeople.mockResolvedValueOnce({ items: [
