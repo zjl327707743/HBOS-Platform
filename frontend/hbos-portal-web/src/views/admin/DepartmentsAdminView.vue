@@ -402,6 +402,7 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
               <p class="r6-dept-meta">{{ current.company }} · 主部门可见成员 {{ countText(visibleMemberCount) }} 人（仅当前部门）</p>
             </div>
             <div class="r6-department-view-toggle">
+              <span class="r6-dept-panel-icon" aria-hidden="true"><CalendarOutlined v-if="activeAppId === 'attendance'" /><AppstoreOutlined v-else /></span>
               <StatusTag v-if="!current.confirmed" tone="warning">尚未确认，暂不安排人员或权限</StatusTag>
               <a-button v-if="activeTab === 'apps' && canReadApps" type="text" @click="changeTab('members')">查看部门成员</a-button>
               <a-button v-else-if="activeTab === 'members' && canReadApps" type="text" @click="changeTab('apps')">返回部门应用权限</a-button>
@@ -568,6 +569,7 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 </style>
 
 <style scoped>
+.r6-dept-panel-icon{display:grid;place-items:center;width:40px;height:42px;flex:none;border-radius:12px;background:linear-gradient(145deg,#eee8ff,#f0f3ff);border:1px solid #e4ddf7;color:#7862cd;font-size:20px}
 .r6-dept-app-subtitle{display:flex;align-items:center;gap:7px;margin:5px 0 0;color:#4d5f8a;font-size:14px;line-height:22px;font-weight:600}
 .r6-dept-app-subtitle .anticon{font-size:15px;color:#6f6bd6}
 .r6-dept-meta{margin:3px 0 0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px;overflow-wrap:anywhere}
@@ -606,14 +608,15 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 .r6-dept-app-facts dd{margin:0;color:#34456e;font-size:13px;line-height:20px;overflow-wrap:anywhere}
 @media(max-width:1280px){.r6-dept-counts-four{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){
-  .r6-dept-app-switch{gap:6px;margin-bottom:14px}
-  .r6-dept-app-switch-label{width:100%}
-  .r6-dept-app-chip{min-height:44px;padding:8px 10px}
+  .r6-dept-panel-icon{display:none}
+  .r6-dept-app-switch{gap:6px;margin-bottom:14px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .r6-dept-app-switch-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .r6-dept-app-chip{min-height:44px;padding:8px 10px;flex:none}
   .r6-dept-footer-actions{width:100%;justify-content:flex-start}
   .r6-dept-app-facts>div{grid-template-columns:1fr;gap:3px}
-  .r6-department-tree .r6-panel-scroll{overflow:visible;padding:14px 12px}
-  .r6-department-tree .r6-panel-header{display:none}
-  .r6-department-tree .r6-panel-footer{display:none}
+  .r6-department-tree :deep(.r6-panel-scroll){overflow:visible;padding:14px 12px}
+  .r6-department-tree :deep(.r6-panel-header){display:none}
+  .r6-department-tree :deep(.r6-panel-footer){display:none}
   .r6-department-rows{display:flex;gap:8px;overflow-x:auto;align-content:initial;padding-bottom:2px}
   .r6-department-row{flex:none;width:auto;min-height:44px;padding:9px 11px;white-space:nowrap}
   .r6-department-row>span{flex:none;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal}

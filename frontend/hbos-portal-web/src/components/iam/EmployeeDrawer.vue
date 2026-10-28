@@ -430,12 +430,13 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
                   <strong>{{ entry.title }}</strong>
                   <StatusTag :tone="entry.integrated ? (entry.status === '已暂停' ? 'warning' : entry.status === '待核对' ? 'neutral' : 'success') : 'neutral'">{{ entry.integrated ? entry.status : '尚未接入' }}</StatusTag>
                 </div>
-                <dl class="r6-app-access-facts">
+                <dl v-if="entry.integrated" class="r6-app-access-facts">
                   <div><dt>来源</dt><dd>{{ entry.source }}</dd></div>
                   <div><dt>角色 / 实际能力</dt><dd>{{ entry.role }}</dd></div>
                   <div><dt>数据范围</dt><dd>{{ entry.scopes }}</dd></div>
-                  <div><dt>有效状态与受限原因</dt><dd>{{ entry.reason || (entry.integrated ? '未发现额外限制；以服务端实际结果为准。' : '本页未读取；不能从入口推断已授权。') }}</dd></div>
+                  <div><dt>有效状态与受限原因</dt><dd>{{ entry.reason || '未发现额外限制；以服务端实际结果为准。' }}</dd></div>
                 </dl>
+                <p v-else class="r6-app-access-compact"><span>来源：{{ entry.source }}</span><span>角色/能力：{{ entry.role }}</span><span>数据范围：{{ entry.scopes }}</span><span>状态：{{ entry.reason || '本页未读取；不能从入口推断已授权。' }}</span></p>
                 <p v-if="!entry.integrated" class="app-note">该应用尚未接入统一权限视图；本页不提供开关，也不把考勤角色接口套用到它。</p>
               </article>
               <p class="aux">“不安排该角色”“暂停应用”“停用账号”彼此独立；停用账号在“登录账号”页单独处理。</p>
@@ -530,5 +531,8 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
 .r6-attendance-more{margin-top:18px;border-top:1px solid #e5e9f2;padding-top:14px}
 .r6-association-review{margin-bottom:16px}
 .r6-app-access-overview{display:grid;gap:10px}.r6-app-access-overview .field-section-title{margin:2px 0 0}.r6-app-access-card{padding:13px 15px;border:1px solid #e5e9f2;border-radius:12px;background:#fbfbfe;min-width:0}.r6-app-access-card.not-integrated{background:#f8f9fc}.r6-app-access-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.r6-app-access-head strong{font-size:14px;line-height:22px;color:#192a45}.r6-app-access-facts{display:grid;gap:5px;margin:9px 0 0}.r6-app-access-facts>div{display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px}.r6-app-access-facts dt{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.r6-app-access-facts dd{margin:0;color:#34456e;font-size:12px;line-height:20px;overflow-wrap:anywhere}.r6-app-access-error{margin:0;color:#94600e;font-size:12px;line-height:20px}.r6-app-access-overview .app-note{font-size:11px;line-height:18px;color:var(--r6-muted,#5f6e86)}
+.r6-app-access-card.not-integrated{padding:11px 15px}
+.r6-app-access-compact{display:flex;flex-wrap:wrap;gap:4px 14px;margin:7px 0 0;color:#566780;font-size:12px;line-height:19px}
+.r6-app-access-compact span{min-width:0;overflow-wrap:anywhere}
 @media (max-width:760px){:global(.iam-employee-drawer .ant-drawer-content-wrapper){width:100%!important;max-width:100vw}.r6-app-access-facts>div{grid-template-columns:1fr;gap:2px}.drawer-top{gap:8px}.drawer-identity h2{font-size:19px}.drawer-identity p{font-size:11px}.drawer-close{padding-inline:6px}.detail-link-card{flex-wrap:wrap;align-items:flex-start}.detail-link-card .ant-btn{margin-left:0}.account-status-card{flex-wrap:wrap}.r6-other-app{flex-wrap:wrap}.r6-other-actions{margin-left:0}.r6-drawer-footer{flex-wrap:wrap}}
 </style>
