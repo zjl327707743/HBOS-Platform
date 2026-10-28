@@ -2,7 +2,7 @@
 import hashlib,json,secrets
 from .errors import KnowledgeError
 from .r1_contract import normalize_search
-from .public_strings import safe_string
+from .public_strings import safe_string, source_string
 from .gateway import EvidenceRecord
 from .service_http import canonical
 
@@ -54,8 +54,13 @@ def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None
     if kind in ('History','Bookmark') and not document_bookmark:
         # Only the finite previews already authorized for this response. Never
         # store native full chunks, files, service tokens or evidence handles.
+        # The excerpt is the document's own text and has already passed the
+        # citation display gate (source_string) in this same response. Re-running
+        # the *model-output* gate here rejected a regulation that prints a URL or
+        # an absolute path and failed the whole search with
+        # UPSTREAM_INVALID_RESULT, so the same source gate is applied instead.
         data['previews']=[{'reference':[r.binding.canonical_document_id,r.binding.version_id,r.binding.binding_ref,r.chunk_id],
-                          'excerpt':safe_string(r.excerpt,500),'page_number':r.page_number} for r in records]
+                          'excerpt':source_string(r.excerpt,500),'page_number':r.page_number} for r in records]
         if len(data['previews'])>5:raise KnowledgeError('INVALID_REQUEST')
         data['search_mode']=search_mode
     if answer is not None:
@@ -251,7 +256,7 @@ def restore(runtime,row,data,actor,mapping,request_id):
             document,version,reference,chunk=preview['reference'];b=mapping.get((document,version))
             if not b or b.binding_ref!=reference:raise KnowledgeError('EVIDENCE_UNAVAILABLE')
             records.append(EvidenceRecord(document,b.title,b.business_version,'内部参考／有效性待核',b.section,
-                preview['page_number'],safe_string(preview['excerpt'],500),chunk,b.dataset_alias,b.space_id,b.version_id,reference,b))
+                preview['page_number'],source_string(preview['excerpt'],500),chunk,b.dataset_alias,b.space_id,b.version_id,reference,b))
         runtime.decisions.online(__principal(runtime),ticket.call('introspect','introspect'))
         runtime.decisions.online(__principal(runtime),ticket.call('introspect','cache_read'))
         runtime.decisions.online(__principal(runtime),ticket.call('revalidate','pre_projection'))
