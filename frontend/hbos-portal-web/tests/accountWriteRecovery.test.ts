@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearPendingAccountWrite, readPendingAccountWrite, rememberPendingAccountWrite } from '@/services/accountWriteRecovery'
+import { accountWriteAction, clearPendingAccountWrite, readPendingAccountWrite, rememberPendingAccountWrite } from '@/services/accountWriteRecovery'
 
 const id = '0cce9579-64a0-4b01-b579-c17ae713962a'
 afterEach(() => { sessionStorage.clear(); vi.restoreAllMocks() })
@@ -49,5 +49,13 @@ describe('pending security write receipts', () => {
     rememberPendingAccountWrite('actor@example.test', 'recovery', newer)
     clearPendingAccountWrite('actor@example.test', id)
     expect(readPendingAccountWrite('actor@example.test')?.requestId).toBe(newer)
+  })
+})
+
+describe('durable receipt action mapping', () => {
+  it('maps the UI recovery kind to the administrator recovery_issue action', () => {
+    expect(accountWriteAction('password')).toBe('password')
+    expect(accountWriteAction('unlink')).toBe('unlink')
+    expect(accountWriteAction('recovery')).toBe('recovery_issue')
   })
 })

@@ -1,4 +1,11 @@
 export type AccountWriteKind = 'password' | 'unlink' | 'recovery'
+
+// The marker stores a UI kind; the durable receipt is bound to the server action.
+// `recovery` means an administrator-issued recovery link (recovery_issue).
+const serverActionByKind: Record<AccountWriteKind, string> = {
+  password: 'password', unlink: 'unlink', recovery: 'recovery_issue',
+}
+export function accountWriteAction(kind: AccountWriteKind): string { return serverActionByKind[kind] }
 export interface PendingAccountWrite { user: string; kind: AccountWriteKind; requestId: string; createdAt: number }
 
 // A request identifier is only a reconciliation hint. The server still requires

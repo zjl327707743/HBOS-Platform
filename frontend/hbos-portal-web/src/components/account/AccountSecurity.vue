@@ -4,6 +4,13 @@
     <a-alert v-if="error && !modalOpen" :message="error" type="warning" show-icon role="alert" />
     <a-alert v-if="uncertain && !modalOpen" message="上次操作待核对。请先查询结果，避免重复提交。" type="warning" show-icon role="alert" />
     <a-button v-if="uncertain && !modalOpen && requestId" :loading="busy" @click="checkOutcome()">查询上次提交结果</a-button>
+    <section v-if="uncertain && !modalOpen && unknownOutcome && requestId" class="account-section" aria-label="结束未决安全操作">
+      <h4>结束未决安全操作</h4>
+      <p class="aux">原提交结果已无法确认。结束该请求只会解除本条阻断，不会声称原操作成功，也不会再次执行原提交；不会延长恢复链接或验证有效期。</p>
+      <OwnAccountVerification :key="proofKey" password-only @verified="proof.sync" @invalidated="proof.invalidate" />
+      <a-checkbox v-model:checked="sealConfirm" :disabled="busy">我确认不知道原提交结果，要求安全结束该未决请求</a-checkbox>
+      <div class="r6-modal-actions"><a-button danger :loading="busy" :disabled="busy || !sealConfirm || !proof.valid.value || proof.method.value !== 'password'" @click="sealUnknown">确认结果未知并安全结束</a-button></div>
+    </section>
     <a-alert v-if="notice && !modalOpen" :message="notice" type="success" show-icon role="status" />
     <a-skeleton v-if="loading && !status" active />
     <a-button v-if="!loading && (!status || stale)" size="large" :loading="busy" @click="load">重试读取账号状态</a-button>
@@ -142,11 +149,11 @@ import { LockOutlined, LinkOutlined, KeyOutlined, RightOutlined, MailOutlined, T
 import StatusTag from '@/components/iam/StatusTag.vue'
 import { computed, onMounted, onBeforeUnmount, ref, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getSecurity, startLink, setPassword, unlinkFeishu, adminIssueRecovery, type SecurityStatus, type RecoveryLink, type ProofStatus } from '@/services/accountApi'
+import { getSecurity, startLink, setPassword, unlinkFeishu, adminIssueRecovery, sealUnknownWrite, type SecurityStatus, type RecoveryLink, type ProofStatus } from '@/services/accountApi'
 import { clearFrappeCsrfToken, isUnauthenticatedError } from '@/services/frappeClient'
 import { useAccountProof } from '@/composables/useAccountProof'
 import { accountErrorMessage, isUncertainWrite } from '@/services/accountErrors'
-import { readPendingAccountWrite, rememberPendingAccountWrite, clearPendingAccountWrite, type AccountWriteKind, type PendingAccountWrite } from '@/services/accountWriteRecovery'
+import { readPendingAccountWrite, rememberPendingAccountWrite, clearPendingAccountWrite, accountWriteAction, type AccountWriteKind, type PendingAccountWrite } from '@/services/accountWriteRecovery'
 import OwnAccountVerification from './OwnAccountVerification.vue'
 import AccountChangeActions from './AccountChangeActions.vue'
 
@@ -158,10 +165,19 @@ type TagTone = 'neutral' | 'brand' | 'success' | 'warning' | 'error'
 const status = ref<SecurityStatus | null>(null), panel = ref<Panel>(null), passwordStage = ref(0)
 const newPassword = ref(''), confirmation = ref(''), recoveryUser = ref(''), recoveryReason = ref('')
 const recoveryLink = ref<RecoveryLink | null>(null), linkCopied = ref(false), resolvedLoginName = ref('')
-const loading = ref(true), busy = ref(false), error = ref(''), notice = ref(''), verificationNotice = ref(''), stale = ref(false), uncertain = ref(false)
+const loading = ref(true), busy = ref(false), error = ref(''), notice = ref(''), verificationNotice = ref(''), stale = ref(false), uncertain = ref(false), unknownOutcome = ref(false), sealConfirm = ref(false)
 const proofKey = ref(0), unlinkConfirmed = ref(false), feishuNeedsReverify = ref(false)
 const trigger = ref<HTMLElement | null>(null)
-let disposed = false, requestId = '', pendingKind: AccountWriteKind | '' = '', loadGeneration = 0, autoQueriedRequest = ''
+let disposed = false, requestId = '', pendingKind: AccountWriteKind | '' = '', loadGeneration = 0, autoQueriedRequest = '', busyGeneration = 0
+function beginBusy() { const token = ++busyGeneration; busy.value = true; return token }
+function endBusy(token: number) { if (!disposed && token === busyGeneration) busy.value = false }
+// Definite receipt conflicts must not clear the pending marker: the original
+// request is still unresolved and must be queried or explicitly sealed.
+const RECEIPT_HOLD_PHRASES = ['仍在处理中', '已用于另一项安全操作', '提交过另一组恢复信息', '已按未知结果封存', '结果未知']
+function isReceiptHold(error: unknown): boolean {
+  const message = accountErrorMessage(error, '')
+  return RECEIPT_HOLD_PHRASES.some(phrase => message.includes(phrase))
+}
 const proof = useAccountProof(onProofInvalidated)
 const mismatch = computed(() => Boolean(confirmation.value && newPassword.value !== confirmation.value))
 const passwordTooLong = computed(() => newPassword.value.length > 512)
@@ -207,7 +223,7 @@ function clearRejectedPending(user: string, error: unknown, receiptId: string) {
 }
 function settlePendingFor(user: string) {
   if (user) clearPendingAccountWrite(user, requestId || undefined)
-  requestId = ''; pendingKind = ''; uncertain.value = false; autoQueriedRequest = ''
+  requestId = ''; pendingKind = ''; uncertain.value = false; unknownOutcome.value = false; sealConfirm.value = false; autoQueriedRequest = ''
 }
 function reserveWrite(kind: AccountWriteKind): { id: string; user: string } | null {
   const user = currentUserId()
@@ -225,7 +241,7 @@ function reserveWrite(kind: AccountWriteKind): { id: string; user: string } | nu
     else error.value = '无法保留本次核对记录，未提交安全操作。请检查浏览器存储后重试。'
     return null
   }
-  requestId = id; pendingKind = kind; uncertain.value = false
+  requestId = id; pendingKind = kind; uncertain.value = false; unknownOutcome.value = false; sealConfirm.value = false
   return { id, user }
 }
 function restorePendingFor(user: string) {
@@ -255,12 +271,12 @@ function resetAfterSessionLoss(clearMarkerFor: string | null | undefined = undef
   autoQueriedRequest = ''; feishuNeedsReverify.value = false
   loadGeneration++; proof.invalidate(); proofKey.value++; clearAllSecrets(); panel.value = null; passwordStage.value = 0; requestId = ''; pendingKind = ''
   error.value = ''; notice.value = ''; verificationNotice.value = ''; resolvedLoginName.value = ''
-  uncertain.value = false; loading.value = false; busy.value = false; status.value = null; emit('statusChange', null)
+  uncertain.value = false; unknownOutcome.value = false; sealConfirm.value = false; loading.value = false; busyGeneration++; busy.value = false; status.value = null; emit('statusChange', null)
 }
 async function open(action: Panel, event?: Event) {
   if (busy.value) return
   trigger.value = (event?.currentTarget as HTMLElement | null) ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
-  error.value = ''; notice.value = ''; verificationNotice.value = ''; feishuNeedsReverify.value = false; clearAllSecrets()
+  error.value = ''; notice.value = ''; verificationNotice.value = ''; feishuNeedsReverify.value = false; sealConfirm.value = false; clearAllSecrets()
   passwordStage.value = action === 'password' && passwordUncertain.value ? 1 : 0
   panel.value = action
   invalidateProof()
@@ -296,15 +312,15 @@ async function load() {
 }
 async function run(fn: () => Promise<void>) {
   if (busy.value) return
-  const attempt = loadGeneration
-  busy.value = true; error.value = ''; notice.value = ''
+  const attempt = loadGeneration, busyToken = beginBusy()
+  error.value = ''; notice.value = ''
   try { await fn() }
   catch (e) {
     if (!disposed && attempt === loadGeneration) {
       if (isUnauthenticatedError(e)) { resetAfterSessionLoss(); error.value = accountErrorMessage(e, '会话已失效，请重新登录。') }
       else { invalidateProof(); error.value = accountErrorMessage(e) }
     }
-  } finally { if (!disposed && attempt === loadGeneration) busy.value = false }
+  } finally { endBusy(busyToken) }
 }
 async function refreshAfterWrite() {
   const run = loadGeneration
@@ -319,8 +335,8 @@ async function changePassword() {
   if (busy.value || !canSubmitPassword.value || passwordStage.value !== 1) return
   const reservation = reserveWrite('password')
   if (!reservation) return
-  const id = reservation.id, writeUser = reservation.user, run = loadGeneration
-  busy.value = true; error.value = ''; notice.value = ''
+  const id = reservation.id, writeUser = reservation.user, run = loadGeneration, busyToken = beginBusy()
+  error.value = ''; notice.value = ''
   try {
     const result = await setPassword(newPassword.value, id)
     if (disposed || run !== loadGeneration) return
@@ -338,9 +354,9 @@ async function changePassword() {
     if (disposed || run !== loadGeneration) return
     if (isUnauthenticatedError(e)) { resetAfterSessionLoss(); error.value = accountErrorMessage(e, '会话已失效，请重新登录。'); return }
     invalidateProof(); clearPasswordSecrets()
-    if (isUncertainWrite(e)) { uncertain.value = true; passwordStage.value = 1; error.value = ''; notice.value = '' }
+    if (isUncertainWrite(e) || isReceiptHold(e)) { uncertain.value = true; passwordStage.value = 1; error.value = isReceiptHold(e) ? accountErrorMessage(e) : ''; notice.value = '' }
     else { settlePendingFor(writeUser); passwordStage.value = 0; error.value = accountErrorMessage(e) }
-  } finally { if (!disposed && run === loadGeneration) busy.value = false }
+  } finally { endBusy(busyToken) }
 }
 async function bind() {
   if (busy.value || uncertain.value || !proof.valid.value || !status.value?.feishu_configured) return
@@ -360,8 +376,8 @@ async function unlink() {
   if (!current || busy.value || uncertain.value || !unlinkConfirmed.value || !proof.valid.value || current.administrator || !current.has_password || proof.method.value !== 'password') return
   const reservation = reserveWrite('unlink')
   if (!reservation) return
-  const id = reservation.id, writeUser = reservation.user, run = loadGeneration
-  busy.value = true; error.value = ''; notice.value = ''
+  const id = reservation.id, writeUser = reservation.user, run = loadGeneration, busyToken = beginBusy()
+  error.value = ''; notice.value = ''
   try {
     const result = await unlinkFeishu(id) as { unlinked?: boolean } | null
     if (disposed || run !== loadGeneration) return
@@ -377,9 +393,9 @@ async function unlink() {
     if (disposed || run !== loadGeneration) return
     if (isUnauthenticatedError(e)) { resetAfterSessionLoss(); error.value = accountErrorMessage(e, '会话已失效，请重新登录。'); return }
     invalidateProof(); unlinkConfirmed.value = false
-    if (isUncertainWrite(e)) { uncertain.value = true; error.value = ''; notice.value = '' }
+    if (isUncertainWrite(e) || isReceiptHold(e)) { uncertain.value = true; error.value = isReceiptHold(e) ? accountErrorMessage(e) : ''; notice.value = '' }
     else { settlePendingFor(writeUser); error.value = accountErrorMessage(e) }
-  } finally { if (!disposed && run === loadGeneration) busy.value = false }
+  } finally { endBusy(busyToken) }
 }
 async function checkOutcome() {
   if (busy.value) return
@@ -404,16 +420,62 @@ async function checkOutcome() {
       if (action === 'password') { clearFrappeCsrfToken(); resolvedLoginName.value = loaded.login_name || ''; passwordStage.value = 2; notice.value = '密码已保存，服务器已确认上次提交。' }
       else if (action === 'unlink') { feishuNeedsReverify.value = true; unlinkConfirmed.value = false; notice.value = '飞书已解绑，服务器已确认上次提交。' }
       else { panel.value = null; notice.value = '服务器已确认上次重置链接已签发。原链接无法再次读取；请与员工本人核对后，重新验证并明确签发新链接。新签发会替换此前恢复密钥。' }
-    } else error.value = '上次操作尚未确认。请核对账号实际状态；收据可能尚未生成或已过期，不要重复提交。'
+      return
+    }
+    if (receipt?.state === 'ABORTED' || receipt?.retryable) {
+      settlePendingFor(currentUserId() || loaded.user)
+      notice.value = '服务器已确认上次提交未执行，账号没有因此改变。如需继续，请重新发起安全操作并重新验证本人身份。'
+      return
+    }
+    if (receipt?.sealed) {
+      unknownOutcome.value = false
+      settlePendingFor(currentUserId() || loaded.user)
+      notice.value = '该未决请求此前已安全结束，不会再次执行；未声称原操作成功。'
+      return
+    }
+    if (receipt?.state === 'PENDING' && receipt.processing) {
+      error.value = ''
+      notice.value = '服务器仍在处理上次提交，请稍后再次查询；不要重复提交。'
+      return
+    }
+    unknownOutcome.value = true
+    if (receipt?.state === 'PENDING' && receipt.unknown) {
+      error.value = ''
+      notice.value = '上次提交已超过处理租约，结果无法确认。请完成本人验证后安全结束该未决请求，或使用新密码登录核对。'
+      return
+    }
+    error.value = ''
+    notice.value = '上次操作尚未确认：服务器记录的该提交编号不属于当前操作，也未找到匹配的可读收据。请核对账号实际状态；如结果无法确认，可完成本人验证后安全结束该未决请求。'
+  })
+}
+async function sealUnknown() {
+  if (busy.value || !requestId || !pendingKind || !sealConfirm.value || !proof.valid.value || proof.method.value !== 'password') return
+  const action = accountWriteAction(pendingKind), attempt = loadGeneration
+  await run(async () => {
+    const result = await sealUnknownWrite(requestId, action, 'unknown-outcome')
+    if (disposed || attempt !== loadGeneration) return
+    proof.invalidate(); sealConfirm.value = false
+    if (result?.state === 'COMMITTED' || result?.completed) {
+      unknownOutcome.value = false
+      notice.value = '服务器显示原提交已完成。请重新查询账号状态核对，不会再次执行原提交。'
+      return
+    }
+    if (result?.state === 'ABORTED' || result?.retryable) {
+      settlePendingFor(currentUserId() || status.value?.user || '')
+      notice.value = '服务器已确认原提交未执行，已解除本条阻断。如需继续，请重新发起安全操作并重新验证本人身份。'
+      return
+    }
+    settlePendingFor(currentUserId() || status.value?.user || '')
+    notice.value = '已记录原结果未知并安全结束该未决请求；未声称原操作成功。如需继续，请重新发起并重新验证本人身份。'
   })
 }
 async function issueRecovery() {
   if (busy.value || uncertain.value || !proof.valid.value || proof.method.value !== 'password' || !recoveryUser.value || recoveryReason.value.trim().length < 12) return
   const reservation = reserveWrite('recovery')
   if (!reservation) return
-  const id = reservation.id, writeUser = reservation.user, run = loadGeneration
+  const id = reservation.id, writeUser = reservation.user, run = loadGeneration, busyToken = beginBusy()
   recoveryLink.value = null; linkCopied.value = false
-  busy.value = true; error.value = ''; notice.value = ''
+  error.value = ''; notice.value = ''
   try {
     const result = await adminIssueRecovery(recoveryUser.value, recoveryReason.value, id)
     if (disposed || run !== loadGeneration) return
@@ -436,9 +498,9 @@ async function issueRecovery() {
     if (disposed || run !== loadGeneration) return
     if (isUnauthenticatedError(e)) { resetAfterSessionLoss(); error.value = accountErrorMessage(e, '会话已失效，请重新登录。'); return }
     invalidateProof()
-    if (isUncertainWrite(e)) { uncertain.value = true; error.value = ''; notice.value = '' }
+    if (isUncertainWrite(e) || isReceiptHold(e)) { uncertain.value = true; error.value = isReceiptHold(e) ? accountErrorMessage(e) : ''; notice.value = '' }
     else { settlePendingFor(writeUser); error.value = accountErrorMessage(e) }
-  } finally { if (!disposed && run === loadGeneration) busy.value = false }
+  } finally { endBusy(busyToken) }
 }
 async function copyRecoveryLink() {
   if (!recoveryLink.value) return
@@ -456,7 +518,7 @@ function onSessionBoundary() {
 }
 watch(() => props.identity, (next, previous) => { if (next !== previous) { if (previous && next) clearPendingAccountWrite(previous); resetAfterSessionLoss(null); if (next) void load() } })
 watch(proof.valid, valid => {
-  if (!valid) { onProofInvalidated(); proofKey.value++ }
+  if (!valid) { sealConfirm.value = false; onProofInvalidated(); proofKey.value++ }
 })
 onMounted(() => { window.addEventListener('hbos:session-boundary', onSessionBoundary); void load() })
 onBeforeUnmount(() => {

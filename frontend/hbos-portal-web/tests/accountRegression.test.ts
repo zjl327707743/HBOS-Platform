@@ -8,8 +8,9 @@ import AccountSecurity from '@/components/account/AccountSecurity.vue'
 import AccountChangeActions from '@/components/account/AccountChangeActions.vue'
 import AccountChangeView from '@/views/AccountChangeView.vue'
 import LoginView from '@/views/FeishuLoginView.vue'
+import { readPendingAccountWrite } from '@/services/accountWriteRecovery'
 
-const api = vi.hoisted(() => ({ getSecurity: vi.fn(), reauthenticate: vi.fn(), requestFeishuCode: vi.fn(), verifyFeishuCode: vi.fn(), setPassword: vi.fn(), unlinkFeishu: vi.fn(), startLink: vi.fn(), adminIssueRecovery: vi.fn() }))
+const api = vi.hoisted(() => ({ getSecurity: vi.fn(), reauthenticate: vi.fn(), requestFeishuCode: vi.fn(), verifyFeishuCode: vi.fn(), setPassword: vi.fn(), unlinkFeishu: vi.fn(), startLink: vi.fn(), adminIssueRecovery: vi.fn(), sealUnknownWrite: vi.fn() }))
 const changes = vi.hoisted(() => ({ changeActions: vi.fn(), recentChanges: vi.fn(), getChange: vi.fn(), getParticipant: vi.fn(), changePost: vi.fn() }))
 const session = vi.hoisted(() => ({ bootstrap: vi.fn(), clearSession: vi.fn() }))
 const coordinator = vi.hoisted(()=>({ensurePortalSession:vi.fn(async()=>({})),resetPortalSession:vi.fn(),signOutPortalSession:vi.fn(),refreshAccountProof:vi.fn()}))
@@ -247,5 +248,94 @@ describe('confirmed account UI regressions', () => {
     expect(wrapper.text()).toMatch(/已登录|已登录/)
     expect(wrapper.text()).toMatch(/重试/)
     expect(login).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('durable receipt recovery UI', () => {
+  async function startUncertainPassword(wrapper: VueWrapper) {
+    api.setPassword.mockRejectedValueOnce(new Error('response lost'))
+    await clickText(wrapper, '修改密码')
+    await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic current password')
+    await clickText(wrapper, '验证本人身份')
+    const fields = wrapper.findAll('input[autocomplete="new-password"]')
+    await fields[0]!.setValue('synthetic replacement password')
+    await fields[1]!.setValue('synthetic replacement password')
+    const form = wrapper.find('form')
+    await form.trigger('submit'); await flushPromises()
+    expect(wrapper.text()).toMatch(/查询上次提交结果/)
+    expect(readPendingAccountWrite(security.user)).not.toBeNull()
+  }
+
+  async function closeModal(wrapper: VueWrapper) {
+    const close = wrapper.findAll('button').find(button => button.text().replace(/\s+/g, '') === '关闭')
+    expect(close, 'visible modal close action').toBeTruthy()
+    await close!.trigger('click'); await flushPromises()
+  }
+
+  it('R8: an explicitly aborted request clears the marker without claiming success', async () => {
+    const { wrapper } = await render(AccountSecurity)
+    await startUncertainPassword(wrapper)
+    api.getSecurity.mockResolvedValue({ ...security, write_result: { completed: false, state: 'ABORTED', action: 'password', retryable: true } })
+    await clickText(wrapper, '查询上次提交结果')
+    expect(wrapper.text()).toContain('未执行')
+    expect(wrapper.text()).not.toContain('密码已保存')
+    expect(readPendingAccountWrite(security.user)).toBeNull()
+  })
+
+  it('R3/R5: a processing request stays blocked and never turns into success', async () => {
+    const { wrapper } = await render(AccountSecurity)
+    await startUncertainPassword(wrapper)
+    api.getSecurity.mockResolvedValue({ ...security, write_result: { completed: false, state: 'PENDING', action: 'password', processing: true } })
+    await clickText(wrapper, '查询上次提交结果')
+    await closeModal(wrapper)
+    expect(wrapper.text()).toContain('仍在处理上次提交')
+    expect(wrapper.text()).not.toContain('密码已保存')
+    expect(readPendingAccountWrite(security.user)).not.toBeNull()
+  })
+
+  it('R8: an unknown historical result is sealed only after fresh proof and explicit confirmation', async () => {
+    const { wrapper } = await render(AccountSecurity)
+    await startUncertainPassword(wrapper)
+    api.getSecurity.mockResolvedValue({ ...security })
+    await clickText(wrapper, '查询上次提交结果')
+    await closeModal(wrapper)
+    expect(wrapper.text()).toContain('结束未决安全操作')
+    expect(wrapper.text()).toContain('不会声称原操作成功')
+    const sealButton = wrapper.findAll('button').find(button => button.text().includes('确认结果未知并安全结束'))!
+    expect((sealButton.element as HTMLButtonElement).disabled).toBe(true)
+    await wrapper.find('.account-section[aria-label="结束未决安全操作"] input[autocomplete="current-password"]').setValue('synthetic current password')
+    await clickText(wrapper, '验证本人身份')
+    await wrapper.find('.account-section[aria-label="结束未决安全操作"] input[type="checkbox"]').setValue(true)
+    api.sealUnknownWrite.mockResolvedValue({ sealed: true, state: 'SEALED', message: 'sealed' })
+    await clickText(wrapper, '确认结果未知并安全结束')
+    expect(api.sealUnknownWrite).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f-]{36}$/), 'password', 'unknown-outcome')
+    expect(wrapper.text()).toContain('未声称原操作成功')
+    expect(wrapper.text()).not.toContain('密码已保存')
+    expect(readPendingAccountWrite(security.user)).toBeNull()
+  })
+
+  it('R4/#8: a status reload during an in-flight write releases busy and keeps the marker for query', async () => {
+    let finish!: (value: unknown) => void
+    api.setPassword.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const { wrapper } = await render(AccountSecurity)
+    await clickText(wrapper, '修改密码')
+    await wrapper.find('input[autocomplete="current-password"]').setValue('synthetic current password')
+    await clickText(wrapper, '验证本人身份')
+    const fields = wrapper.findAll('input[autocomplete="new-password"]')
+    await fields[0]!.setValue('synthetic replacement password')
+    await fields[1]!.setValue('synthetic replacement password')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    const setup = (wrapper.vm as unknown as { $: { setupState: Record<string, unknown> } }).$.setupState
+    const load = setup.load as () => Promise<void>
+    await load()
+    finish({ changed: true, login_name: 'synthetic' })
+    await flushPromises()
+    const busy = setup.busy as { value?: boolean } | boolean
+    const uncertain = setup.uncertain as { value?: boolean } | boolean
+    expect(typeof busy === 'boolean' ? busy : busy.value).toBe(false)
+    expect(typeof uncertain === 'boolean' ? uncertain : uncertain.value).toBe(true)
+    expect(readPendingAccountWrite(security.user)).not.toBeNull()
+    expect(api.setPassword).toHaveBeenCalledTimes(1)
   })
 })
