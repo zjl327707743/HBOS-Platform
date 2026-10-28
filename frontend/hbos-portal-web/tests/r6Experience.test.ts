@@ -56,7 +56,7 @@ describe('R6 formal data and role contracts', () => {
     const w = await render(Roles, '/hbos/admin/roles')
     expect(w.findAll('.r6-feature-read').map(row => row.text())).toEqual(expect.arrayContaining(['查看自己的考勤已启用', '查看部门考勤面板未启用']))
     expect(w.find('input[type=checkbox]').exists()).toBe(false)
-    await click(w, '待发布修改')
+    await click(w, '待发布草稿')
     expect(w.findAll('.r6-feature-read').find(row => row.text().includes('部门'))!.text()).toContain('已启用')
     expect(api.roleCommand).not.toHaveBeenCalled()
   })
@@ -99,11 +99,11 @@ describe('R6 formal data and role contracts', () => {
   })
   it('publishes only after server preview, using the exact release, context and draft version', async () => {
     const context = 'a'.repeat(64); api.roleCommand.mockResolvedValueOnce({ changed: true, context_revision: context, reference_count: 2, effective_changed_count: 1, members: [] }).mockResolvedValueOnce({})
-    const w = await render(Roles, '/hbos/admin/roles'); await click(w, '核对发布影响'); expect(w.findComponent({name:'ChangeReview'}).props('open')).toBe(true); await new Promise(resolve => setTimeout(resolve, 80)); await flushPromises(); const button = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '确认发布')!; expect(button).toBeDefined(); expect(button.disabled).toBe(true); await click(w, '完成测试核验'); await click(w, '确认发布')
+    const w = await render(Roles, '/hbos/admin/roles'); await click(w, '查看发布影响'); expect(w.findComponent({name:'ChangeReview'}).props('open')).toBe(true); await new Promise(resolve => setTimeout(resolve, 80)); await flushPromises(); const button = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '发布草稿 v4 并生效')!; expect(button).toBeDefined(); expect(button.disabled).toBe(true); await click(w, '完成测试核验'); await click(w, '发布草稿 v4 并生效')
     expect(api.roleCommand).toHaveBeenNthCalledWith(2, 'publish_role', { role_key: 'clerk', expected_draft_version: 4, expected_release: 'release-3', context_revision: context, request_id: expect.any(String) })
   })
   it('hides editing and publishing actions for a read-only role viewer', async () => {
-    permissions.delete('iam.roles.edit'); permissions.delete('iam.roles.publish'); const w = await render(Roles, '/hbos/admin/roles'); expect(w.text()).not.toContain('编辑功能'); expect(w.findAll('button').some(button => button.text().includes('核对发布影响'))).toBe(false); expect(w.find('input[type=checkbox]').exists()).toBe(false)
+    permissions.delete('iam.roles.edit'); permissions.delete('iam.roles.publish'); const w = await render(Roles, '/hbos/admin/roles'); expect(w.text()).not.toContain('编辑功能'); expect(w.findAll('button').some(button => button.text().includes('查看发布影响'))).toBe(false); expect(w.find('input[type=checkbox]').exists()).toBe(false)
   })
   it('treats only the built-in Administrator as Employee not applicable', async () => {
     const hr = await render(Profile, '/hbos/profile'); expect(hr.text()).toContain('合成人事部'); expect(hr.text()).toContain('T001'); expect(hr.text()).toContain('合成人事主管'); expect(hr.text()).not.toContain('员工档案不适用')

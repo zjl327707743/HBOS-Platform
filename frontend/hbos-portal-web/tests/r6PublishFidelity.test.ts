@@ -140,6 +140,31 @@ afterEach(() => {
 })
 
 describe('R6 role draft to publish fidelity', () => {
+  it('states the live version, unpublished draft, and next step in plain language', async () => {
+    const w = await render(Roles, '/hbos/admin/roles')
+    const banner = w.find('.r6-pending-banner')
+    expect(banner.text()).toContain('当前生效 v3')
+    expect(banner.text()).toContain('待发布草稿 v4 尚未生效')
+    expect(banner.text()).toContain('点击“查看发布影响”只会显示预览，不会改变员工权限')
+    expect(button(w, '查看发布影响')).toBeDefined()
+  })
+
+  it('labels the impact check as a preview and names the versioned publish action', async () => {
+    api.roleCommand.mockResolvedValueOnce({
+      role_key: 'clerk', role: 'role-clerk', draft_version: 4, published_release: 'release-3', changed: true,
+      context_revision: 'd'.repeat(64), reference_count: 3, effective_changed_count: 2, members: [], features: [self, board],
+    })
+    const w = await render(Roles, '/hbos/admin/roles')
+    await click(w, '查看发布影响')
+    const text = modalText()
+    expect(text).toContain('这一步只展示预览，不会改变员工权限')
+    expect(text).toContain('当前生效版本 v3 → 待发布草稿 v4')
+    expect(text).toContain('已安排 3 人使用此角色')
+    expect(text).toContain('其中 2 人的实际权限会改变')
+    expect(Array.from(document.body.querySelectorAll('button')).some(item => item.textContent?.trim() === '发布草稿 v4 并生效')).toBe(true)
+    expect(api.roleCommand).not.toHaveBeenCalledWith('publish_role', expect.anything())
+  })
+
   it('explains a clean draft and offers a real read-only impact check instead of a mute disabled action', async () => {
     api.loadRoles.mockResolvedValue([structuredClone(cleanRole)])
     api.roleCommand.mockResolvedValueOnce({
@@ -148,15 +173,15 @@ describe('R6 role draft to publish fidelity', () => {
     })
     const w = await render(Roles, '/hbos/admin/roles')
     expect(w.text()).toContain('当前草稿与当前生效一致')
-    expect(w.text()).toContain('先保存草稿，再核对发布影响')
+    expect(w.text()).toContain('先保存草稿，再查看发布影响')
     expect(button(w, '预览发布影响')).toBeUndefined()
-    const check = button(w, '核对发布影响')
+    const check = button(w, '查看发布影响')
     expect(check).toBeDefined()
     await check!.trigger('click')
     await flushPromises()
     expect(api.roleCommand).toHaveBeenCalledExactlyOnceWith('preview_role_publish', { role_key: 'clerk', expected_draft_version: 3, expected_release: 'release-3' })
     expect(modalText()).toContain('没有待发布变化')
-    const confirm = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '确认发布') as HTMLButtonElement | undefined
+    const confirm = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '发布草稿 v3 并生效') as HTMLButtonElement | undefined
     expect(confirm?.disabled).toBe(true)
   })
 
@@ -164,10 +189,10 @@ describe('R6 role draft to publish fidelity', () => {
     const w = await render(Roles, '/hbos/admin/roles')
     await click(w, '编辑功能')
     await w.findAll('input[type=checkbox]')[0]!.setValue(false)
-    expect(w.text()).toContain('先保存草稿，不能直接核对发布影响')
+    expect(w.text()).toContain('勾选或取消功能后先保存草稿；保存后查看哪些员工权限会变化，再确认发布')
     expect(w.text()).toContain('本地未保存')
     expect(button(w, '预览发布影响')).toBeUndefined()
-    expect(button(w, '核对发布影响')).toBeUndefined()
+    expect(button(w, '查看发布影响')).toBeUndefined()
     expect(w.findAll('input[type=checkbox]')[0]!.element).toHaveProperty('checked', false)
     expect(api.roleCommand).not.toHaveBeenCalled()
   })
@@ -196,8 +221,8 @@ describe('R6 role draft to publish fidelity', () => {
     expect(text).toContain('仅限员工明确负责的部门，不包含下级')
     expect(text).toContain('移除的功能')
     expect(text).toContain('查看自己的考勤')
-    expect(text).toContain('保存后尚未影响员工')
-    expect(text).toContain('仍需核对发布影响并发布')
+    expect(text).toContain('保存后草稿仍未生效')
+    expect(text).toContain('还需查看员工影响并确认发布')
     const confirm = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '确认保存草稿') as HTMLButtonElement | undefined
     expect(confirm).toBeDefined()
     expect(confirm!.disabled).toBe(true)
@@ -210,9 +235,9 @@ describe('R6 role draft to publish fidelity', () => {
     expect(api.roleCommand).not.toHaveBeenCalledWith('preview_role_publish', expect.anything())
     expect(api.roleCommand).not.toHaveBeenCalledWith('publish_role', expect.anything())
     expect(w.findComponent({ name: 'ChangeReview' }).props('open')).toBe(false)
-    expect(w.text()).toContain('草稿已保存，尚未影响员工')
-    expect(w.text()).toContain('下一步：核对发布影响')
-    expect(button(w, '核对发布影响')).toBeDefined()
+    expect(w.text()).toContain('待发布草稿 v5 已保存，尚未生效')
+    expect(w.text()).toContain('下一步：查看发布影响')
+    expect(button(w, '查看发布影响')).toBeDefined()
     expect(w.text()).toContain('待发布草稿 v5')
   })
 
@@ -252,19 +277,19 @@ describe('R6 role draft to publish fidelity', () => {
       return Promise.resolve({})
     })
     const w = await render(Roles, '/hbos/admin/roles')
-    await click(w, '核对发布影响')
+    await click(w, '查看发布影响')
     expect(api.roleCommand).toHaveBeenCalledWith('preview_role_publish', { role_key: 'clerk', expected_draft_version: 4, expected_release: 'release-3' })
     const text = modalText()
     expect(text).toContain('部门考勤员')
     expect(text).toContain('当前生效版本')
-    expect(text).toContain('本次待发布草稿')
+    expect(text).toContain('待发布草稿（尚未生效）')
     expect(text).toContain('v3')
     expect(text).toContain('v4')
     expect(text).toContain('查看部门考勤面板')
     expect(text).toContain('没有移除功能')
     expect(text).toContain('仅限员工明确负责的部门，不包含下级')
-    expect(text).toContain('引用 3 人')
-    expect(text).toContain('实际权限变化 2 人')
+    expect(text).toContain('已安排 3 人使用此角色')
+    expect(text).toContain('其中 2 人的实际权限会改变')
     expect(text).toContain('员工乙')
     expect(text).toContain('跟随部门安排')
     expect(text).toContain('单独设置')
@@ -272,7 +297,7 @@ describe('R6 role draft to publish fidelity', () => {
     expect(text).toContain('已有个人禁止、暂停与期限仍保留')
     expect(api.roleCommand).not.toHaveBeenCalledWith('save_role_draft', expect.anything())
     await click(w, '完成测试核验')
-    await click(w, '确认发布')
+    await click(w, '发布草稿 v4 并生效')
     expect(api.roleCommand).toHaveBeenLastCalledWith('publish_role', {
       role_key: 'clerk', expected_draft_version: 4, expected_release: 'release-3', context_revision: context, request_id: expect.any(String),
     })
@@ -285,8 +310,8 @@ describe('R6 role draft to publish fidelity', () => {
       context_revision: 'c'.repeat(64), reference_count: 0, effective_changed_count: 0, members: [], features: [self],
     })
     const w = await render(Roles, '/hbos/admin/roles')
-    await click(w, '核对发布影响')
-    const confirm = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '确认发布') as HTMLButtonElement | undefined
+    await click(w, '查看发布影响')
+    const confirm = Array.from(document.body.querySelectorAll('button')).find(item => item.textContent?.trim() === '发布草稿 v3 并生效') as HTMLButtonElement | undefined
     expect(confirm?.disabled).toBe(true)
     expect(document.body.querySelector('.verify-test')).toBeNull()
     confirm?.click()
@@ -345,7 +370,7 @@ describe('R6 role draft to publish fidelity', () => {
     const w = mount(Host, { attachTo: document.body, global: { plugins: [Antd, router], stubs: { OwnAccountVerification: Verify } } })
     wrappers.push(w)
     await flushPromises()
-    const trigger = w.findAll('button').find(item => item.text().trim() === '核对发布影响')
+    const trigger = w.findAll('button').find(item => item.text().trim() === '查看发布影响')
     expect(trigger).toBeDefined()
     await trigger!.trigger('click')
     ;(w.vm as unknown as { show: boolean }).show = false
@@ -399,7 +424,7 @@ describe('R6 role draft to publish fidelity', () => {
       reference_count: 1, effective_changed_count: 1, members: [], features: [self, board],
     })
     const w = await render(Roles, '/hbos/admin/roles')
-    await click(w, '核对发布影响')
+    await click(w, '查看发布影响')
     expect(w.findComponent({ name: 'ChangeReview' }).props('open')).toBe(true)
     const adminNav = w.findAll('button').find(item => item.text().includes('考勤管理员'))
     expect(adminNav).toBeDefined()
