@@ -80,23 +80,34 @@ const roleIcon = computed(() => icons[role.value?.role_key as keyof typeof icons
 const reviewMode = computed<'draft' | 'publish' | null>(() => draftReviewOpen.value ? 'draft' : preview.value ? 'publish' : null)
 const reviewOpen = computed(() => reviewMode.value !== null)
 const statusTone = computed<'brand' | 'warning' | 'success' | 'neutral'>(() => editing.value ? 'brand' : unpublished.value ? 'warning' : role.value?.published_revision ? 'success' : 'neutral')
-const statusLabel = computed(() => editing.value ? '正在修改草稿' : unpublished.value ? '待发布' : role.value?.published_revision ? '当前生效' : '尚未发布')
-const pendingTitle = computed(() => lastDraftAction.value === 'save' ? '草稿已保存，尚未影响员工' : lastDraftAction.value === 'restore' ? '历史内容已恢复为待发布草稿' : '有待发布的修改')
+const statusLabel = computed(() => editing.value ? '正在修改草稿' : unpublished.value ? '草稿尚未生效' : role.value?.published_revision ? '当前生效' : '尚未发布')
+const pendingTitle = computed(() => {
+  const version = role.value?.draft_version
+  if (lastDraftAction.value === 'save') return `待发布草稿 v${version} 已保存，尚未生效`
+  if (lastDraftAction.value === 'restore') return `历史内容已恢复为草稿 v${version}，尚未生效`
+  return `待发布草稿 v${version} 尚未生效`
+})
 const pendingDetail = computed(() => {
-  if (!canPublish.value) return '当前员工仍按当前生效版本使用；请联系有发布权限的负责人核对发布影响。'
-  if (lastDraftAction.value) return '下一步：核对发布影响；确认发布后才改变员工权限。'
-  return '当前员工仍按当前生效版本使用。'
+  const liveVersion = role.value?.published_revision ? `当前生效 v${role.value.published_revision}` : '当前没有已发布版本'
+  if (!canPublish.value) return `${liveVersion}。请联系有发布权限的负责人查看员工影响并发布此草稿。`
+  return `${liveVersion}。点击“查看发布影响”只会显示预览，不会改变员工权限；确认发布草稿 v${role.value?.draft_version} 后，员工才会使用新版本。`
 })
 const cleanCopy = computed(() => {
   if (!role.value?.published_revision) {
-    if (canEdit.value && canPublish.value) return '尚无当前生效版本；先保存草稿，再核对发布影响。'
-    if (canEdit.value) return '尚无当前生效版本；可先保存草稿，发布影响由有发布权限的负责人核对。'
+    if (canEdit.value && canPublish.value) return '尚无当前生效版本；先保存草稿，再查看发布影响。'
+    if (canEdit.value) return '尚无当前生效版本；可先保存草稿，请有发布权限的负责人查看影响。'
     return '尚无当前生效版本。'
   }
-  if (canEdit.value && canPublish.value) return '当前草稿与当前生效一致；先保存草稿，再核对发布影响。'
-  if (canEdit.value) return '当前草稿与当前生效一致；可先保存草稿，发布影响由有发布权限的负责人核对。'
+  if (canEdit.value && canPublish.value) return '当前草稿与当前生效一致；先保存草稿，再查看发布影响。'
+  if (canEdit.value) return '当前草稿与当前生效一致；可先保存草稿，请有发布权限的负责人查看影响。'
   return '当前草稿与当前生效一致。'
 })
+const publishPreviewCopy = computed(() => {
+  if (!preview.value?.changed || !role.value) return ''
+  const liveVersion = role.value.published_revision ? `当前生效版本 v${role.value.published_revision}` : '当前没有已发布版本'
+  return `这一步只展示预览，不会改变员工权限。${liveVersion} → 待发布草稿 v${role.value.draft_version}；本人验证并点击“发布草稿 v${role.value.draft_version} 并生效”后，员工才会使用新版本。`
+})
+const publishButtonLabel = computed(() => role.value ? `发布草稿 v${role.value.draft_version} 并生效` : '确认发布')
 function diffFeatures(before: RoleFeature[], after: RoleFeature[]) {
   return {
     added: after.filter(row => !before.some(old => roleFeatureKey(old) === roleFeatureKey(row))),
@@ -234,7 +245,7 @@ async function saveDraft() {
     if (error.value) { mustRead.value = true; return }
     versionTab.value = 'draft'
     lastDraftAction.value = 'save'
-    if (unpublished.value) message.success('草稿已保存，尚未影响员工。下一步：核对发布影响。')
+    if (unpublished.value) message.success(`待发布草稿 v${role.value?.draft_version} 已保存，尚未生效。下一步：查看发布影响。`)
     else message.info('草稿已保存；当前草稿与当前生效一致，没有待发布变化。')
   } catch (e) {
     if (disposed || run !== viewEpoch) return
@@ -264,7 +275,7 @@ async function prepare() {
     if ((checkedPreview.role_key && checkedPreview.role_key !== selected.value)
       || (checkedPreview.draft_version !== undefined && checkedPreview.draft_version !== role.value.draft_version)
       || (checkedPreview.published_release !== undefined && String(checkedPreview.published_release) !== role.value.published_release)
-      || (checkedPreview.features && !sameRoleFeatures(checkedPreview.features, role.value.draft_features))) throw new Error('当前角色或草稿已变化，请重新读取后再核对发布影响。')
+      || (checkedPreview.features && !sameRoleFeatures(checkedPreview.features, role.value.draft_features))) throw new Error('当前角色或草稿已变化，请重新读取后再查看发布影响。')
     for (const count of [checkedPreview.reference_count, checkedPreview.effective_changed_count, checkedPreview.personal_preserved]) {
       if (count !== undefined && (!Number.isInteger(count) || count < 0)) throw new Error('发布影响人数无法确认，请重新读取后再核对。')
     }
@@ -326,6 +337,7 @@ async function publish() {
   }
 }
 async function restoreDraft() {
+  if (editing.value || dirty.value) return
   if (!role.value || !restore.value || busy.value || mustRead.value || !proof.valid.value || !canEdit.value) return
   const run = viewEpoch
   busy.value = true
@@ -343,7 +355,7 @@ async function restoreDraft() {
     if (error.value) { mustRead.value = true; return }
     versionTab.value = 'draft'
     lastDraftAction.value = 'restore'
-    if (unpublished.value) message.success('历史内容已恢复为待发布草稿，尚未影响员工。下一步：核对发布影响。')
+    if (unpublished.value) message.success(`历史内容已恢复为草稿 v${role.value?.draft_version}，尚未生效。下一步：查看发布影响。`)
     else message.info('历史内容已恢复为草稿；当前草稿与当前生效一致，没有待发布变化。')
   } catch (e) {
     if (disposed || run !== viewEpoch) return
@@ -430,11 +442,11 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
           <div v-if="unpublished && !editing" class="r6-pending-banner">
             <span class="r6-pending-icon"><ClockCircleOutlined /></span>
             <div><strong>{{ pendingTitle }}</strong><p>{{ pendingDetail }}</p></div>
-            <a-button v-if="canPublish" type="primary" :disabled="busy || mustRead || Boolean(error)" @click="openPublishReview">核对发布影响</a-button>
+            <a-button v-if="canPublish" type="primary" :disabled="busy || mustRead || Boolean(error)" @click="openPublishReview">查看发布影响</a-button>
           </div>
-          <div class="r6-role-versions"><a-button :aria-pressed="versionTab === 'published' && !editing" :disabled="editing" @click="showTab('published')">当前生效</a-button><a-button :aria-pressed="versionTab === 'draft' || editing" :disabled="editing" @click="showTab('draft')">待发布修改 <span v-if="unpublished"> · 有变更</span></a-button><span>{{ editing ? `编辑中 · 待发布草稿 v${role.draft_version}` : versionTab === 'published' ? role.published_revision ? `当前生效 v${role.published_revision}` : '尚无当前生效版本' : `待发布草稿 v${role.draft_version} · 尚未影响员工` }}</span></div>
+          <div class="r6-role-versions"><a-button :aria-pressed="versionTab === 'published' && !editing" :disabled="editing" @click="showTab('published')">当前生效版本</a-button><a-button :aria-pressed="versionTab === 'draft' || editing" :disabled="editing" @click="showTab('draft')">待发布草稿 <span v-if="unpublished"> · 有变更</span></a-button><span>{{ editing ? `编辑中 · 待发布草稿 v${role.draft_version}` : versionTab === 'published' ? role.published_revision ? `当前生效 v${role.published_revision}` : '尚无当前生效版本' : `待发布草稿 v${role.draft_version} · 尚未生效` }}</span></div>
         </template>
-        <div v-if="editing" class="r6-editing-guide"><EditOutlined /><span>勾选或取消功能后先保存草稿，不能直接核对发布影响；保存后仍需核对。</span></div>
+        <div v-if="editing" class="r6-editing-guide"><EditOutlined /><span>勾选或取消功能后先保存草稿；保存后查看哪些员工权限会变化，再确认发布。</span></div>
         <div class="r6-feature-toolbar"><h3>功能与职责 <small class="aux">{{ displayed.length }} 项{{ editing ? '已选择' : versionTab === 'published' ? '已启用' : '在草稿' }}</small></h3><a-input v-model:value="search" allow-clear placeholder="搜索功能" aria-label="搜索角色功能"><template #prefix><SearchOutlined /></template></a-input></div>
         <div class="r6-feature-groups"><details v-for="group in featureGroups" :key="group.key" class="r6-feature-group" open><summary><span class="r6-group-icon"><component :is="groupIcon(group.key)" /></span><strong>{{ group.title }}</strong><small>{{ group.rows.filter(row => displayed.includes(roleFeatureKey(row))).length }} / {{ group.rows.length }}</small></summary><div v-for="row in group.rows" :key="roleFeatureKey(row)" class="r6-feature-row"><a-checkbox v-if="editing" :checked="checked.includes(roleFeatureKey(row))" :disabled="busy || mustRead || !row.allowed" @change="toggle(roleFeatureKey(row))">{{ row.title }}</a-checkbox><div v-else class="r6-feature-read" :class="{ 'is-off': !displayed.includes(roleFeatureKey(row)) }"><CheckCircleFilled v-if="displayed.includes(roleFeatureKey(row))" /><MinusCircleOutlined v-else /><span>{{ row.title }}</span><span>{{ displayed.includes(roleFeatureKey(row)) ? '已启用' : '未启用' }}</span></div><small>{{ !row.allowed ? '超过此角色上限' : !row.integrated ? row.reason : roleScopeLabel(row.scope_binding) }}</small></div></details></div>
         <a-empty v-if="!featureGroups.length" description="没有匹配的功能" />
@@ -442,12 +454,12 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
           <span class="r6-summary-title"><SwapOutlined />变更摘要</span>
           <span class="r6-role-diff added">增加 {{ summaryDiff.added.length }} 项</span>
           <span class="r6-role-diff removed">移除 {{ summaryDiff.removed.length }} 项</span>
-          <span class="r6-summary-effect">{{ editing ? '保存后仍需发布' : '尚未影响员工' }}</span>
+          <span class="r6-summary-effect">{{ editing ? '保存后仍需发布' : '尚未生效' }}</span>
           <p v-if="editing" class="aux">当前待发布草稿 v{{ role.draft_version }}（基于当前生效 {{ role.published_revision ? `v${role.published_revision}` : '尚无' }}）；本地未保存 {{ checked.length }} 项。</p>
-          <p v-else class="aux">待发布草稿 v{{ role.draft_version }}；下一步：核对发布影响。</p>
+          <p v-else class="aux">待发布草稿 v{{ role.draft_version }} 尚未生效；下一步：查看发布影响。</p>
         </div>
         <details v-if="role.registry.some(row => !row.allowed)" class="r6-profile-tools"><summary>不在此角色范围内的功能</summary><p v-for="row in role.registry.filter(item => !item.allowed)" :key="roleFeatureKey(row)" class="aux">{{ row.title }} · 超过此角色上限</p></details>
-        <ChangeReview :open="reviewOpen" :busy="busy" :title="reviewMode === 'draft' ? '保存角色修改' : '核对发布影响'" @cancel="closeReview">
+        <ChangeReview :open="reviewOpen" :busy="busy" :title="reviewMode === 'draft' ? '保存角色修改' : '发布前查看影响'" @cancel="closeReview">
           <section v-if="reviewMode === 'draft' && role" class="r6-publish-review" aria-live="polite">
             <div class="r6-publish-subject">
               <span class="r6-publish-hero"><component :is="roleIcon" /></span>
@@ -463,19 +475,19 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
               <section class="r6-publish-diff added"><h4>增加的功能 <span>{{ workingDiff.added.length }}</span></h4><ul v-if="workingDiff.added.length"><li v-for="row in workingDiff.added" :key="roleFeatureKey(row)"><strong>{{ featureName(row) }}</strong><small>{{ roleScopeLabel(row.scope_binding) }}</small></li></ul><p v-else>没有增加功能</p></section>
               <section class="r6-publish-diff removed"><h4>移除的功能 <span>{{ workingDiff.removed.length }}</span></h4><ul v-if="workingDiff.removed.length"><li v-for="row in workingDiff.removed" :key="roleFeatureKey(row)"><strong>{{ featureName(row) }}</strong><small>{{ roleScopeLabel(row.scope_binding) }}</small></li></ul><p v-else>没有移除功能</p></section>
             </div>
-            <a-alert type="info" show-icon message="保存后尚未影响员工，仍需核对发布影响并发布。" />
+            <a-alert type="info" show-icon message="保存后草稿仍未生效。还需查看员工影响并确认发布。" />
             <p class="aux">差异仅比较当前已读取的草稿；确认保存时会重新校验草稿版本。</p>
           </section>
           <section v-else-if="reviewMode === 'publish' && preview && role" class="r6-publish-review" aria-live="polite">
             <div class="r6-publish-subject">
               <span class="r6-publish-hero"><component :is="roleIcon" /></span>
-              <div><p class="aux">考勤管理 · 应用角色</p><h3>{{ role.title }}</h3><p>{{ preview.changed ? '确认发布后，使用此角色的员工将按新设置使用；保存草稿本身不会改变权限。' : '本次只核对影响，没有待发布变化，不会创建新版本。' }}</p></div>
+              <div><p class="aux">考勤管理 · 应用角色</p><h3>{{ role.title }}</h3><p>{{ preview.changed ? publishPreviewCopy : '当前草稿与当前生效版本一致；本次只查看影响，不会创建新版本。' }}</p></div>
               <StatusTag :tone="preview.changed ? 'warning' : 'success'">{{ preview.changed ? '发布前核对' : '没有待发布变化' }}</StatusTag>
             </div>
             <div class="r6-publish-versions">
               <section><span>当前生效版本</span><strong>{{ role.published_revision ? `v${role.published_revision}` : '尚无' }}</strong><small>{{ role.published_features.length }} 项功能</small></section>
               <span class="r6-publish-arrow" aria-hidden="true">→</span>
-              <section class="next"><span>本次待发布草稿</span><strong>v{{ role.draft_version }}</strong><small>{{ role.draft_features.length }} 项功能 · 尚未影响员工</small></section>
+              <section class="next"><span>待发布草稿（尚未生效）</span><strong>v{{ role.draft_version }}</strong><small>{{ role.draft_features.length }} 项功能</small></section>
             </div>
             <template v-if="preview.changed">
               <div class="r6-publish-grid">
@@ -483,8 +495,8 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
                 <section class="r6-publish-diff removed"><h4>移除功能 <span>{{ removed.length }}</span></h4><ul v-if="removed.length"><li v-for="row in removed" :key="roleFeatureKey(row)"><strong>{{ featureName(row) }}</strong><small>{{ roleScopeLabel(row.scope_binding) }}</small></li></ul><p v-else>没有移除功能</p></section>
               </div>
               <section class="r6-publish-impact">
-                <div class="r6-publish-impact-head"><h3>引用与影响</h3><span class="aux">最新核对结果</span></div>
-                <p class="r6-publish-counts"><strong>引用 {{ preview.reference_count ?? '未返回' }} 人</strong><span>；</span><strong>实际权限变化 {{ preview.effective_changed_count ?? '未返回' }} 人</strong>。</p>
+                <div class="r6-publish-impact-head"><h3>员工影响</h3><span class="aux">本次预览</span></div>
+                <p class="r6-publish-counts"><strong>已安排 {{ preview.reference_count ?? '未返回' }} 人使用此角色</strong><span>；</span><strong>其中 {{ preview.effective_changed_count ?? '未返回' }} 人的实际权限会改变</strong>。</p>
                 <p v-if="preview.personal_preserved !== undefined" class="aux">已有个人限制保留 {{ preview.personal_preserved }} 人；个人禁止、暂停与期限不会因本次发布自动解除。</p>
                 <div v-if="preview.members?.length" class="r6-publish-members">
                   <article v-for="person in preview.members" :key="person.employee" class="r6-publish-member">
@@ -492,31 +504,31 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
                     <StatusTag :tone="person.changed ? 'warning' : 'neutral'">{{ person.changed ? '实际权限将变化' : '实际权限保持' }}</StatusTag>
                   </article>
                 </div>
-                <p v-else-if="preview.reference_count === 0" class="aux">当前没有引用此角色的员工。</p>
-                <p v-else-if="!preview.members" class="aux">未返回逐人清单；请以引用人数、实际变化人数和重新核对结果为准。</p>
+                <p v-else-if="preview.reference_count === 0" class="aux">当前没有员工使用此角色。</p>
+                <p v-else-if="!preview.members" class="aux">未返回逐人清单；请查看使用人数与实际权限变化人数，重新查看后再决定是否发布。</p>
               </section>
               <a-alert type="warning" show-icon message="确认发布后生效；已有个人禁止、暂停与期限仍保留。" />
             </template>
             <div v-else class="r6-publish-empty">
               <strong>没有待发布变化</strong>
-              <p>当前草稿与当前生效版本一致，没有可发布差异。请返回功能清单，调整并保存草稿后重新核对发布影响。</p>
+              <p>当前草稿与当前生效版本一致，没有可发布差异。请返回功能清单，调整并保存草稿后重新查看发布影响。</p>
             </div>
           </section>
           <a-alert v-if="error" class="spaced" type="warning" show-icon :message="error" />
           <OwnAccountVerification v-if="reviewMode === 'draft' || (reviewMode === 'publish' && preview?.changed)" password-only @verified="proof.sync" @invalidated="proof.invalidate" />
           <p v-if="reviewMode === 'publish' && !canPublish" class="aux">当前账号没有发布能力，不能确认发布。</p>
           <div v-if="reviewMode" class="r6-modal-actions">
-            <a-button :disabled="busy" @click="closeReview">{{ reviewMode === 'draft' ? '返回修改' : '取消' }}</a-button>
+            <a-button :disabled="busy" @click="closeReview">{{ reviewMode === 'draft' ? '返回修改' : '返回角色' }}</a-button>
             <a-button v-if="reviewMode === 'draft'" type="primary" :loading="busy" :disabled="!proof.valid.value || busy || mustRead" @click="saveDraft">确认保存草稿</a-button>
-            <a-button v-else-if="reviewMode === 'publish'" type="primary" :loading="busy" :disabled="!preview?.changed || !proof.valid.value || busy || mustRead || !canPublish" @click="publish">确认发布</a-button>
+            <a-button v-else-if="reviewMode === 'publish'" type="primary" :loading="busy" :disabled="!preview?.changed || !proof.valid.value || busy || mustRead || !canPublish" @click="publish">{{ publishButtonLabel }}</a-button>
           </div>
         </ChangeReview>
-        <details v-if="role.releases.length && canEdit" class="r6-profile-tools"><summary>从历史发布内容恢复草稿</summary><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-select v-model:value="restore" aria-label="历史发布版本" style="width:100%" @change="requestId = ''"><a-select-option v-for="release in role.releases" :key="release.name" :value="release.name">v{{ release.revision }} · {{ release.published_at }}</a-select-option></a-select><a-button :disabled="!restore || !proof.valid.value || busy || mustRead" @click="restoreDraft">恢复为草稿</a-button><p class="aux">恢复只写入草稿，不会自动发布；仍需核对发布影响、本人验证和确认发布。</p></details>
+        <details v-if="role.releases.length && canEdit && !editing" class="r6-profile-tools"><summary>从历史发布内容恢复草稿</summary><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-select v-model:value="restore" aria-label="历史发布版本" style="width:100%" @change="requestId = ''"><a-select-option v-for="release in role.releases" :key="release.name" :value="release.name">v{{ release.revision }} · {{ release.published_at }}</a-select-option></a-select><a-button :disabled="!restore || !proof.valid.value || busy || mustRead" @click="restoreDraft">恢复为草稿</a-button><p class="aux">恢复只写入草稿，不会自动发布；还需查看发布影响、本人验证并确认发布。</p></details>
         <template #footer>
           <div class="r6-role-foot">
             <StatusTag :tone="statusTone">{{ statusLabel }}</StatusTag>
             <div v-if="editing" class="r6-role-actions"><span class="r6-save-state"><span class="r6-save-dot" :class="{ dirty }" />{{ dirty ? '有未保存的修改' : '尚未修改功能' }}</span><a-button :disabled="busy" @click="cancelEdit">取消修改</a-button><a-button type="primary" :disabled="!dirty || busy || mustRead" @click="openSaveReview">保存草稿</a-button></div>
-            <div v-else class="r6-role-actions"><span v-if="!unpublished" class="aux">{{ cleanCopy }}</span><a-button v-if="!unpublished && canPublish" :disabled="busy || mustRead || Boolean(error)" @click="openPublishReview">核对发布影响</a-button></div>
+            <div v-else class="r6-role-actions"><span v-if="!unpublished" class="aux">{{ cleanCopy }}</span><a-button v-if="!unpublished && canPublish" :disabled="busy || mustRead || Boolean(error)" @click="openPublishReview">查看发布影响</a-button></div>
           </div>
         </template>
       </PanelFrame>
