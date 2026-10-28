@@ -662,7 +662,8 @@ def migrate() -> None:
         pass
     if not frappe.db.table_exists(DOCTYPE):
         return
-    if not frappe.db.get_column_index(DOCTYPE, "request_key", unique=True):
+    table = "tab" + DOCTYPE
+    if not frappe.db.get_column_index(table, "request_key", unique=True):
         # The DocType field already declares unique=1; this is the explicit
         # database guarantee for a Site migrated from an earlier candidate.
         frappe.db.add_unique(DOCTYPE, ["request_key"], constraint_name="request_key")
