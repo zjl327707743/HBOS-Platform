@@ -10,11 +10,39 @@ from hb_knowledge_app.hb_knowledge.document_previews import office_admitted, pre
     ('word/_rels/document.xml.rels',b'<Relationships><Relationship TargetMode="External" Target="file:///private/secret"/></Relationships>','OFFICE_EXTERNAL_LINK'),
     ('word/document.xml',b'<document><instrText>DDEAUTO cmd</instrText></document>','OFFICE_ACTIVE_FIELD'),
     ('word/document.xml',b'<document><instrText>INCLUDETEXT /private/secret</instrText></document>','OFFICE_ACTIVE_FIELD'),
+    # A field code that pulls a remote picture or a live data feed is still a field.
+    ('word/document.xml',b'<document><instrText>INCLUDEPICTURE "http://example.invalid/x"</instrText></document>','OFFICE_ACTIVE_FIELD'),
+    # A spreadsheet formula naming a remote feed, and a defined name using one.
+    ('xl/worksheets/sheet1.xml',b'<sheetData><row r="1"><c r="A1"><f>WEBSERVICE("http://example.invalid/x")</f><v>1</v></c></row></sheetData>','OFFICE_ACTIVE_FIELD'),
+    ('xl/workbook.xml',b'<workbook><definedNames><definedName name="X">RTD("prog","srv")</definedName></definedNames></workbook>','OFFICE_ACTIVE_FIELD'),
 ])
 def test_office_active_content_is_rejected_before_converter_runs(tmp_path,entry,content,reason):
     path=tmp_path/'synthetic.docx'
     with zipfile.ZipFile(path,'w') as archive:archive.writestr(entry,content)
     with pytest.raises(ValueError,match=reason):office_admitted(path)
+
+
+def test_ordinary_prose_that_says_database_is_not_an_active_field(tmp_path):
+    # One published data-integrity workbook was refused only because a cell read
+    # "... retrieved from the database". Prose in a shared string is not a field.
+    path=tmp_path/'prose.xlsx'
+    with zipfile.ZipFile(path,'w') as archive:
+        archive.writestr('xl/sharedStrings.xml',
+            b'<sst><si><t>the data can still be retrieved from the database</t></si>'
+            b'<si><t>Data only saved to an active database by administrators</t></si></sst>')
+        archive.writestr('xl/worksheets/sheet1.xml',
+            b'<sheetData><row r="1"><c r="A1" t="s"><v>0</v></c>'
+            b'<c r="B1"><f>AVERAGE(C1:D1)*E1</f><v>5</v></c></row></sheetData>')
+    office_admitted(path)
+
+
+def test_a_large_stylesheet_is_refused_unless_the_offline_builder_allows_it(tmp_path):
+    path=tmp_path/'big_style.docx'
+    with zipfile.ZipFile(path,'w') as archive:
+        archive.writestr('word/styles.xml', b'<w:styles>' + b'x'*(8*1024*1024+1) + b'</w:styles>')
+    with pytest.raises(ValueError, match='OFFICE_XML_LIMIT'):
+        office_admitted(path)
+    office_admitted(path, allow_large_xml=True)
 
 
 def test_pdf_actions_are_removed_from_a_separate_layout_preserving_copy(tmp_path):

@@ -153,8 +153,10 @@ class DocumentDelivery:
             raise unavailable('DOWNLOAD_NOT_AUTHORIZED')
         if asset.path != original.path:
             # A derived preview never replaces source verification: the original
-            # is still hashed on every content request.
-            original.read('bytes=0-0')
+            # is still hashed on every content request. The hash reads the whole
+            # file, so it carries the delivery ceiling - the preview of a large
+            # original was refused here with the in-memory 32 MiB cap.
+            original.read('bytes=0-0', limit=MAX_DOWNLOAD_BYTES)
         size = asset.probe(limit=MAX_DOWNLOAD_BYTES)
         if range_header is not None or size <= MAX_FILE_BYTES:
             # A bounded range or a normally sized file is verified and returned

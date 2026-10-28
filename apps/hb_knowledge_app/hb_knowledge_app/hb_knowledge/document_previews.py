@@ -17,7 +17,10 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree
 
-MAX_PAGES = 2000
+# Published scanned books run well past two thousand pages (one in the corpus is
+# 2032). The bound still exists; it is now above that, and the copy stays
+# page-preserving so the physical page the browser shows is the printed one.
+MAX_PAGES = 4000
 LEGACY_OFFICE = frozenset({'.doc', '.xls', '.ppt', '.wps'})
 # Some published technical reports carry a per-character structure tree and
 # reach ~880k reachable objects. The walk is bounded and runs offline in the
@@ -211,8 +214,25 @@ def office_admitted(source, *, allow_external_links=False, allow_large_xml=False
             if name.endswith('.xml'):
                 if item.file_size>8*1024*1024 and not allow_large_xml:raise ValueError('OFFICE_XML_LIMIT')
                 text=archive.read(item).decode('utf-8','strict')
-                if re.search(r'\b(?:DDEAUTO|DDE|INCLUDETEXT|INCLUDEPICTURE|WEBSERVICE|DATABASE)\b',text,re.I):
+                if _active_field(text):
                     raise ValueError('OFFICE_ACTIVE_FIELD')
+
+
+# A field code can fetch or run something: a Word field instruction, a
+# spreadsheet formula or a defined name. Ordinary cell text cannot - and one
+# published data-integrity workbook was refused only because a cell happened to
+# contain the English word "database". So the scan reads field content, never
+# the document's prose.
+_FIELD = re.compile(r'<(?:\w+:)?instrText[^>]*>(.*?)</(?:\w+:)?instrText>'
+                    r'|<(?:\w+:)?f(?:\s[^>]*)?>(.*?)</(?:\w+:)?f>'
+                    r'|<(?:\w+:)?definedName[^>]*>(.*?)</(?:\w+:)?definedName>', re.S)
+_ACTIVE_FIELD = re.compile(r'\b(?:DDEAUTO|DDE|INCLUDETEXT|INCLUDEPICTURE|WEBSERVICE|RTD)\b', re.I)
+
+
+def _active_field(xml):
+    return any(_ACTIVE_FIELD.search(next(group for group in match.groups() if group is not None))
+               for match in _FIELD.finditer(xml))
+
 
 
 def prepare_office(source, destination, *, soffice, allow_legacy=False, allow_external_links=False):
