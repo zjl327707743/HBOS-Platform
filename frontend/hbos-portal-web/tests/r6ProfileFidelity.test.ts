@@ -128,6 +128,14 @@ afterEach(() => {
 })
 
 describe('R6-A2.2 个人中心完整弹窗', () => {
+  it('账号安全标题保留原型的保护说明和分隔层级', async () => {
+    const { wrapper } = await render(AccountSecurity)
+    const heading = wrapper.find('.account-security-heading')
+    expect(heading.find('h3').text()).toBe('登录与安全')
+    expect(heading.find('span').text()).toBe('账号保护')
+    expect(heading.find('p').text()).toContain('选择适合你的登录方式')
+  })
+
   it('三行安全操作都在 600px 模态中打开，不直接跳转', async () => {
     const { wrapper, router } = await render(AccountSecurity)
     const dialog = modal(wrapper)

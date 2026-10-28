@@ -1,7 +1,7 @@
 import {expect,it,vi,beforeEach} from 'vitest'
 vi.mock('@/services/frappeClient',()=>({callFrappeMethod:vi.fn(),callFrappePostMethod:vi.fn()}))
 import {callFrappeMethod,callFrappePostMethod} from '@/services/frappeClient'
-import {changedWork,projectWork,saveWork,savedWorkResult,getWorkSubject,getWorkSummary,type EffectiveWork,type RegisteredApp} from '@/services/iamWork'
+import {changedWork,projectWork,saveWork,savedWorkResult,getWorkSubject,getWorkSummary,getDepartmentWork,type EffectiveWork,type RegisteredApp} from '@/services/iamWork'
 const meta:RegisteredApp={id:'attendance',title:'考勤',integrated:true,operations:[{id:'read',title:'本人考勤',ordinary:true,scope_types:['SELF'],objects:[{scope_type:'SELF',scope_ref:'',label:'本人'}]},{id:'export',title:'导出',ordinary:true,scope_types:[],objects:[]}]}
 const raw:EffectiveWork={subject_type:'User',subject_name:'user-a',app_id:'attendance',version:1,context_revision:'ctx',suspended:false,summary:'只能看本人',operations:[{operation_id:'read',label:'查看本人考勤',available:true,allowed:true,scopes:[{scope_type:'SELF',scope_ref:''}],source:'部门安排'},{operation_id:'export',label:'导出',available:false,allowed:false,scopes:[],source:'未接入'}]}
 beforeEach(()=>vi.resetAllMocks())
@@ -27,4 +27,19 @@ it('shows an enabled isolated synthetic app while default-off remains hidden and
   const isolatedOn=await getWorkSummary('EMP-1')
   expect(isolatedOn.apps.find(app=>app.app_id==='iam_demo')).toMatchObject({title:'合成扩展验证',integrated:true,synthetic:true})
   expect(isolatedOn.apps.find(app=>app.app_id==='inventory')?.integrated).toBe(false)
+})
+it('reads department app summaries one at a time so auth checks do not collide',async()=>{
+  const apps=[meta,{...meta,id:'inventory',title:'库存',integrated:false}]
+  let active=0,maxActive=0
+  const track=async(data:unknown)=>{active++;maxActive=Math.max(maxActive,active);await new Promise(resolve=>setTimeout(resolve,0));active--;return {ok:true,data}}
+  vi.mocked(callFrappeMethod).mockImplementation(async(method,params)=>{
+    if(method.endsWith('get_registered_apps'))return track({apps})
+    if(method.endsWith('get_effective_access')){
+      return track({...raw,subject_type:'Department',subject_name:'D1',app_id:params?.app_id})
+    }
+    throw new Error(`unexpected request: ${method}`)
+  })
+  const results=await Promise.all([getDepartmentWork('D1'),getDepartmentWork('D1')])
+  expect(results.map(result=>result.apps.map(app=>app.app_id))).toEqual([['attendance','inventory'],['attendance','inventory']])
+  expect(maxActive).toBe(1)
 })

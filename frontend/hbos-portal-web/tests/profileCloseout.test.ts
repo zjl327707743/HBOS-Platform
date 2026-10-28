@@ -27,13 +27,13 @@ describe('小范围账号收尾', () => {
   [{has_password:true,feishu_bound:false,feishu_configured:true},'密码','飞书未绑定'],
   [{has_password:true,feishu_bound:true,feishu_configured:false},'密码','飞书已绑定 · 渠道暂不可用'],
   [{has_password:true,password_login_available:false,feishu_bound:false},'暂无可用登录方式','密码登录暂不可用'],
- ])('资料页反映真实渠道 %j',async (status,enabled,detail) => {
+ ])('资料页将身份与登录渠道分开展示 %j',async (status) => {
   getSecurity.mockResolvedValue({user:state.user.id,...status});const w=await render(Profile)
-  const card=w.find('.profile-card');expect(card.text()).toContain('已启用的登录方式');expect(card.text()).toContain(enabled);expect(card.text()).toContain(detail);expect(card.text()).not.toMatch(/本次.*飞书|密码 \/ 本人飞书/)
+  const card=w.find('.profile-card');expect(card.text()).not.toContain('已启用的登录方式');expect(card.text()).not.toMatch(/密码、本人飞书|密码 · 飞书/)
  })
- it('读取失败不保留或猜测登录渠道',async () => {getSecurity.mockResolvedValue(null);const w=await render(Profile);expect(w.find('.profile-card').text()).toContain('暂未取得账号状态')})
- it('安全写操作后的状态同步资料摘要',async () => {const w=await render(Profile);w.findComponent(SecurityStub).vm.$emit('statusChange',{user:state.user.id,has_password:true,feishu_bound:true,feishu_configured:true});await flushPromises();expect(w.find('.profile-card').text()).toContain('密码、本人飞书')})
- it('拒绝另一主体的安全状态',async () => {getSecurity.mockResolvedValue({user:'another@example.test',has_password:true,feishu_bound:true,feishu_configured:true});const w=await render(Profile);expect(w.find('.profile-card').text()).toContain('暂未取得账号状态')})
+ it('读取失败时不在身份卡展示登录渠道状态',async () => {getSecurity.mockResolvedValue(null);const w=await render(Profile);expect(w.find('.profile-card').text()).not.toContain('登录方式')})
+ it('个人身份卡不重复呈现登录渠道摘要',async () => {const w=await render(Profile);w.findComponent(SecurityStub).vm.$emit('statusChange',{user:state.user.id,has_password:true,feishu_bound:true,feishu_configured:true});await flushPromises();expect(w.find('.profile-card').text()).not.toContain('已启用的登录方式')})
+ it('拒绝另一主体的安全状态且不回填身份卡',async () => {getSecurity.mockResolvedValue({user:'another@example.test',has_password:true,feishu_bound:true,feishu_configured:true});const w=await render(Profile);expect(w.find('.profile-card').text()).not.toContain('登录方式')})
  it('桌面和移动端各仅有一个个人路由选中项',async () => {for(const component of [Sidebar,MobileNav]){const w=await render(component,{workCount:0});const links=w.findAll('a[href="/hbos/profile"]');expect(links).toHaveLength(1);expect(links[0]!.text()).toBe('个人中心');expect(w.findAll('a[href="/hbos/profile"].router-link-exact-active')).toHaveLength(1)}})
  it('未实现偏好收为默认折叠说明',async () => {const w=await render(Profile);expect(w.findAll('.setting-row button,.setting-row input')).toHaveLength(0);const details=w.find('details');expect(details.exists()).toBe(true);expect(details.attributes('open')).toBeUndefined()})
  it('资料页与菜单头像都加载当前用户图片，失败时回退文字',async () => {

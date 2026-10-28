@@ -73,11 +73,12 @@
   align-items: center;
   margin: auto;
 }
-.r6-global-nav a {
+.r6-experience .r6-global-nav a {
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--r6-secondary);
+  text-decoration: none;
   padding: 11px 16px;
   border-radius: 10px;
   white-space: nowrap;
@@ -244,6 +245,9 @@
   margin-bottom: 18px;
   font-size: 12px;
   color: var(--r6-muted);
+}
+.r6-experience .r6-context-row a {
+  text-decoration: none;
 }
 .r6-context-row>.ant-breadcrumb {
   font-size: 12px;

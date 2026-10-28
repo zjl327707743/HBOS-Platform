@@ -172,6 +172,35 @@ afterEach(() => {
 })
 
 describe('R6-A2.2 employee apps and assignment fidelity', () => {
+  it('matches the department prototype with selectable directory rows and tucked-away scope filters', async () => {
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+
+    expect(w.find('.r6-department-tree .ant-tree').exists()).toBe(false)
+    expect(w.findAll('button.r6-department-row')).toHaveLength(2)
+    expect(w.find('button.r6-department-row[aria-current="page"]').text()).toContain('生产一部')
+    expect(w.find('.r6-dept-info').exists()).toBe(true)
+    expect(w.find('[aria-label="搜索组织部门"]').exists()).toBe(false)
+
+    await click(w, '筛选部门')
+    expect(w.find('[aria-label="搜索组织部门"]').exists()).toBe(true)
+    await w.get<HTMLInputElement>('[aria-label="搜索组织部门"]').setValue('二部')
+    await flushPromises()
+    expect(w.findAll('button.r6-department-row')).toHaveLength(1)
+    expect(w.find('button.r6-department-row').text()).toContain('生产二部')
+  })
+
+  it('keeps department read errors inside the full-height detail card', async () => {
+    api.getDepartmentWork.mockRejectedValueOnce(new Error('部门安排暂时无法读取'))
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+
+    const error = w.find('.r6-resource-error-inline')
+    expect(error.exists()).toBe(true)
+    expect(error.element.closest('.r6-panel-frame')?.querySelector('[data-scroll-region="department-detail"]')?.getAttribute('aria-label')).toBe('部门默认安排与成员')
+    expect(w.findAll('.r6-panel-frame')).toHaveLength(2)
+  })
+
   it('shows role cards only for a direct assignment and keeps real effective functions separate', async () => {
     const w = await render(RoleSettings, { props: { subjectKind: 'employee', subjectId: 'E1', embedded: true, subjectLabel: '合成员工' } })
     await flushPromises()
