@@ -34,6 +34,7 @@ import hashlib
 import hmac
 import json
 import re
+import secrets
 from datetime import datetime, timezone
 from typing import Any
 
@@ -52,6 +53,10 @@ CLAIM_LEASE_SECONDS = 120
 #: payload version distinguishes the durable contract from the old one.
 LEGACY_CACHE_PREFIX = "hbos:account:write-result:"
 CACHE_VERSION = 2
+#: Site-level signing secret for intent fingerprints. It is generated once by
+#: the migration and lives beside the existing db/encryption secrets; it is not
+#: a user credential and never leaves the Site configuration.
+SECRET_CONFIG_KEY = "hbos_account_write_receipt_key"
 RECEIPT_DURABLE_RETENTION = "retained (no automatic purge in this round)"
 REQUEST_UUID = re.compile(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", re.I)
 _SIGNING_DOMAIN = b"hbos-account-write-receipt-v1"
@@ -103,18 +108,54 @@ def sha256(value: str) -> str:
     return hashlib.sha256(str(value).encode()).hexdigest()
 
 
+def _site_conf():
+    return getattr(getattr(frappe, "local", None), "conf", None)
+
+
+def _secret_value(conf: Any = None) -> str:
+    conf = conf if conf is not None else _site_conf()
+    try:
+        return str((conf.get(SECRET_CONFIG_KEY) if conf is not None else "") or "")
+    except Exception:
+        return ""
+
+
+def ensure_signing_key() -> str:
+    """Create the dedicated receipt signing secret once, in the Site config.
+
+    The value is non-user secret material, stored next to the Site's existing
+    database and encryption secrets. Writes fail closed when it is absent and
+    the Site has not been migrated yet.
+    """
+    conf = _site_conf()
+    current = _secret_value(conf)
+    if current:
+        return current
+    value = secrets.token_hex(32)
+    try:
+        from frappe.installer import update_site_config
+        update_site_config(SECRET_CONFIG_KEY, value)
+    except Exception:
+        # Migration/install context: persist through the config cache first so
+        # the same process sees it; the file is written by update_site_config.
+        raise
+    try:
+        frappe.local.conf[SECRET_CONFIG_KEY] = value
+    except Exception:
+        try:
+            frappe.local.conf.update({SECRET_CONFIG_KEY: value})
+        except Exception:
+            pass
+    return value
+
+
 def _signing_key(secret: Any = None) -> bytes:
     if secret:
         return secret if isinstance(secret, bytes) else str(secret).encode()
-    conf = getattr(getattr(frappe, "local", None), "conf", None)
-    key = None
-    try:
-        key = conf.get("encryption_key") if conf is not None else None
-    except Exception:
-        key = None
+    key = _secret_value()
     if not key:
-        _reject(ReceiptConflict("站点缺少安全签名配置，安全操作暂不可用。"))
-    return str(key).encode()
+        _reject(ReceiptConflict("站点尚未完成安全收据迁移，安全操作暂不可用。"))
+    return key.encode()
 
 
 def hmac_hex(secret: Any, *parts: str) -> str:
@@ -652,6 +693,7 @@ def seal(actor: str, request_id: str, action: str = "", *, secret: Any = None) -
 
 def migrate() -> None:
     """Idempotent model sync used by hooks.after_migrate/after_install."""
+    ensure_signing_key()
     if not frappe.db.exists("DocType", DOCTYPE):
         return
     try:
