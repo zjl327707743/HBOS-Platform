@@ -226,10 +226,11 @@ function revealSelectedDepartment() {
   else if (rowRect.bottom > panelRect.bottom) panel.scrollTop += rowRect.bottom - panelRect.bottom
 }
 
-watch([selected, departmentEntries], async () => {
+watch([loading, selected, departmentEntries], async () => {
+  if (loading.value) return
   await nextTick()
   revealSelectedDepartment()
-})
+}, { flush: 'post' })
 
 async function loadApps() {
   const run = ++appRead, id = selected.value; apps.value = []

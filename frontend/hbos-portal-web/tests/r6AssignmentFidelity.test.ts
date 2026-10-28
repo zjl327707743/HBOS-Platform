@@ -246,6 +246,25 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     expect(w.find('button.r6-department-row[aria-current="page"]').text()).toContain('生产二部')
   })
 
+  it('reveals the initially selected department after the loading panel is replaced', async () => {
+    let finishApps!: (value: unknown) => void
+    api.getDepartmentWork.mockReturnValue(new Promise(resolve => { finishApps = resolve }))
+    const getRect = HTMLElement.prototype.getBoundingClientRect
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.matches('.r6-navigation .r6-panel-scroll')) return { x: 0, y: 100, top: 100, bottom: 200, left: 0, right: 240, width: 240, height: 100, toJSON: () => ({}) } as DOMRect
+      if (this.matches('.r6-department-row[aria-current="page"]')) return { x: 0, y: 260, top: 260, bottom: 308, left: 0, right: 240, width: 240, height: 48, toJSON: () => ({}) } as DOMRect
+      return getRect.call(this)
+    })
+
+    const w = await render(DepartmentsAdminView, { path: '/hbos/admin/departments?department=D1' })
+    await vi.waitFor(() => expect(api.getDepartmentWork).toHaveBeenCalled())
+    finishApps({ subject_type: 'Department', subject_name: 'D1', apps: [] })
+    await flushPromises()
+
+    expect(w.get('.r6-navigation .r6-panel-scroll').element.scrollTop).toBeGreaterThan(0)
+    expect(w.find('button.r6-department-row[aria-current="page"]').text()).toContain('生产一部')
+  })
+
   it('shows role cards only for a direct assignment and keeps real effective functions separate', async () => {
     const w = await render(RoleSettings, { props: { subjectKind: 'employee', subjectId: 'E1', embedded: true, subjectLabel: '合成员工' } })
     await flushPromises()
