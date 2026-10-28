@@ -40,6 +40,8 @@ export interface KnowledgeReturnSnapshot {
 
 export interface ReaderPosition {
   page: number
+  /** 0 means "fit the column"; the reader's own scale otherwise. */
+  zoom: number
   searchQuery: string
   updatedAt: number
 }

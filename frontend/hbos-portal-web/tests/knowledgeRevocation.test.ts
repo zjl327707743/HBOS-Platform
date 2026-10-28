@@ -47,6 +47,9 @@ async function view(items=[card()]) {
   return wrapper
 }
 beforeEach(() => {
+  // Each test is a fresh tab: the per-identity workspace store must not
+  // carry a previous case's filters into this one.
+  window.sessionStorage.clear()
   vi.clearAllMocks()
   subject.user = {id:'USER_QA_DEMO'}
   api.status.mockResolvedValue({can_enter:true,can_search:true,gateway_configured:true,ask_enabled:false,mode:'retrieval'})
@@ -160,7 +163,12 @@ describe('A36 real KnowledgeView/EvidenceDrawer component boundary, SYNTHETIC on
   it('unknown business version/page stay explicitly unverified',async () => {
     const wrapper=await view()
     await wrapper.find('.result-card .kb-doc-main').trigger('click'); await flushPromises()
-    expect(wrapper.find('[data-drawer]').text()).toContain('版本待核')
+    // Unknown metadata is omitted, not labelled; the excerpt and the status
+    // note still state exactly what is known.
+    expect(wrapper.find('[data-drawer]').text()).not.toContain('待核')
+    // The known status is shown as recorded; nothing is invented for the
+    // unknown version.
+    expect(wrapper.find('[data-drawer]').text()).toContain('SYNTHETIC_ONLY')
     expect(wrapper.find('[data-drawer]').text()).not.toContain('第 1 页')
     expect(wrapper.find('[data-drawer]').text()).toContain('SYNTHETIC_ONLY')
     expect(wrapper.find('a[href]').exists()).toBe(false)

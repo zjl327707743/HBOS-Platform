@@ -14,6 +14,12 @@ from urllib.parse import quote
 from .errors import KnowledgeError
 
 MAX_FILE_BYTES = 32 * 1024 * 1024
+# A scanned standard or a drawing set is a legitimate shared original. The
+# delivery cap is therefore wider than the preview cap, and a download above the
+# in-memory cap is verified and then streamed so the response never holds the
+# whole file.
+MAX_DOWNLOAD_BYTES = 768 * 1024 * 1024
+STREAM_BLOCK_BYTES = 1024 * 1024
 MAX_RANGE_BYTES = 8 * 1024 * 1024
 MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 HEX64 = re.compile(r'[a-f0-9]{64}')
@@ -72,6 +78,30 @@ class Asset:
     kind: str
     source_sha256: str
 
+    def probe(self, *, limit=None):
+        """Cheap structural check: regular file, size and PDF signature.
+
+        Used where the question is only "is there a mapped file of this kind",
+        not "are these exact bytes". Content delivery still hashes everything.
+        """
+        cap = MAX_FILE_BYTES if limit is None else limit
+        try:
+            fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, 'rb') as stream:
+                before = os.fstat(stream.fileno())
+                if not stat.S_ISREG(before.st_mode) or before.st_size < 1:
+                    raise unavailable('ASSET_UNAVAILABLE')
+                if before.st_size > cap:
+                    raise unavailable('ASSET_TOO_LARGE')
+                if self.content_type == 'application/pdf':
+                    if not stream.read(8).startswith(b'%PDF-'):
+                        raise unavailable('ASSET_HASH_MISMATCH')
+                return before.st_size
+        except KnowledgeError:
+            raise
+        except (OSError, ValueError):
+            raise unavailable('ASSET_UNAVAILABLE') from None
+
     def read(self, range_header=None):
         """One O_NOFOLLOW handle, bounded bytes, full hash before any response.
 
@@ -115,6 +145,73 @@ class Asset:
             raise
         except (OSError, ValueError):
             raise unavailable('ASSET_UNAVAILABLE') from None
+
+    def open_stream(self):
+        """Verify the whole file first, then stream it without holding it.
+
+        A published standard can be a few hundred megabytes. The download path
+        must not put that in memory, and it must not send unverified bytes: this
+        makes one complete hashing pass, then reopens the same inode and yields
+        its blocks. A file replaced between the two opens fails the identity
+        check before the first block leaves.
+        """
+        try:
+            fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, 'rb') as stream:
+                before = os.fstat(stream.fileno())
+                if not stat.S_ISREG(before.st_mode) or before.st_size < 1:
+                    raise unavailable('ASSET_UNAVAILABLE')
+                if before.st_size > MAX_DOWNLOAD_BYTES:
+                    raise unavailable('ASSET_TOO_LARGE')
+                hasher, offset, first = hashlib.sha256(), 0, b''
+                while True:
+                    block = stream.read(STREAM_BLOCK_BYTES)
+                    if not block:
+                        break
+                    if offset == 0:
+                        first = block[:8]
+                    if offset + len(block) > MAX_DOWNLOAD_BYTES:
+                        raise unavailable('ASSET_TOO_LARGE')
+                    hasher.update(block)
+                    offset += len(block)
+                after = os.fstat(stream.fileno())
+                identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+                if (identity(before) != identity(after) or offset != before.st_size
+                        or hasher.hexdigest() != self.sha256):
+                    raise unavailable('ASSET_HASH_MISMATCH')
+                if self.content_type == 'application/pdf' and not first.startswith(b'%PDF-'):
+                    raise unavailable('ASSET_HASH_MISMATCH')
+                expected = identity(before)
+            handle = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            if identity(os.fstat(handle)) != expected:
+                os.close(handle)
+                raise unavailable('ASSET_HASH_MISMATCH')
+            return AssetStream(handle, before.st_size), before.st_size
+        except KnowledgeError:
+            raise
+        except (OSError, ValueError):
+            raise unavailable('ASSET_UNAVAILABLE') from None
+
+
+class AssetStream:
+    """A verified file already opened; iterating it never re-hashes."""
+
+    def __init__(self, handle, size):
+        self.handle, self.size = handle, size
+
+    def close(self):
+        try: os.close(self.handle)
+        except OSError: pass
+
+    def __iter__(self):
+        try:
+            while True:
+                block = os.read(self.handle, STREAM_BLOCK_BYTES)
+                if not block:
+                    return
+                yield block
+        finally:
+            self.close()
 
 
 class LocalDocumentAssets:

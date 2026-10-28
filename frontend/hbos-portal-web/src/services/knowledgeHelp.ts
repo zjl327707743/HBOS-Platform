@@ -1,10 +1,11 @@
 /**
- * Credential-free assistant help content for the four-step connection wizard.
+ * Credential-free assistant help for the connection journey.
  *
- * Help entries are filtered by the live ConnectionInfo.tools list.
- * Copy is model-neutral: the chat model is whatever the user configures in
- * their own assistant, and no default model alias is advertised.
- * Tokens never appear in any copied prompt; they enter only private client configuration.
+ * The text a user copies is safe to paste into their own assistant: it names
+ * the public MCP endpoint, the exact client command, the example question and
+ * the usage rules. It never contains a token, a password or a model key - the
+ * one personal credential is written into the client's own private settings
+ * after the user confirms, and is never part of a prompt.
  */
 
 export const ASSISTANT_TOOLS = ['list_knowledge_spaces', 'search_knowledge', 'get_evidence', 'ask_knowledge'] as const
@@ -16,72 +17,77 @@ export interface AssistantToolHelp {
 }
 
 export const TOOL_HELP: AssistantToolHelp[] = [
-  {
-    name: 'list_knowledge_spaces',
-    purpose: '列出当前账号已授权的资料范围（部门空间），用于确认可查询的边界。',
-    example: '我有哪些部门的知识库可以查询？',
-  },
-  {
-    name: 'search_knowledge',
-    purpose: '在授权范围内检索公司制度、SOP 与生产质量资料，返回依据条目。',
-    example: '搜索培养箱使用前检查的相关 SOP。',
-  },
-  {
-    name: 'get_evidence',
-    purpose: '打开某条依据的核对信息：标题、文号、版本状态与摘录，用于引用前核验。',
-    example: '把刚才第二条依据的版本和文号给我核对一下。',
-  },
-  {
-    name: 'ask_knowledge',
-    purpose: '仅在明确要求由 HBOS 生成回答时调用；回答会附带可展开的来源列表。',
-    example: '请 HBOS 根据公司资料总结一下这部分要求。',
-  },
+  { name: 'list_knowledge_spaces', purpose: '列出当前账号可查阅的资料范围，用来看清可以问到哪一步。', example: '我有哪些部门的知识库可以查询？' },
+  { name: 'search_knowledge', purpose: '在可查阅范围内检索制度、SOP 与生产质量资料，返回依据条目。', example: '搜索培养箱使用前检查的相关 SOP。' },
+  { name: 'get_evidence', purpose: '打开某条依据的核对信息：标题、文号、版本与摘录。', example: '把刚才第二条依据的版本和文号核对一下。' },
+  { name: 'ask_knowledge', purpose: '仅在明确要求由 HBOS 生成回答时调用；回答附带可展开的来源。', example: '请 HBOS 根据公司资料总结这部分要求。' },
 ]
 
-/** Credential-free usage prompt copied into the user's assistant rules. */
+/** Rules the assistant should follow. No endpoint, no credential, no model name. */
 export function credentialFreePrompt(): string {
   return [
-    '涉及新乡海滨公司制度、SOP、生产、质量、安全或人事问题时，先调用 HBOS 的 list_knowledge_spaces、search_knowledge，再用 get_evidence 核对来源。',
-    '列出真实标题和版本状态；资料不足时明确说明没有可核验的企业依据，不编造内部事实。',
-    '不调用 get_source、原件下载或全文枚举。',
-    '只有用户明确要求 HBOS 生成回答时才调用 ask_knowledge；回答使用哪个对话模型由用户自己的客户端设置决定，HBOS 不指定默认模型。',
-    '禁止将 MCP 凭据、配置文件或连接令牌发送给任何模型或写入提示词。',
+    '涉及新乡海滨公司的制度、SOP、生产、质量、安全或人事问题时，先调用 HBOS 的 list_knowledge_spaces 与 search_knowledge，再用 get_evidence 核对来源。',
+    '列出真实标题与版本；资料不足时明确说明没有可核验的企业依据，不编造内部事实。',
+    '不调用原件下载或全文批量导出类操作。',
+    '只有用户明确要求 HBOS 生成回答时才调用 ask_knowledge；对话使用哪个模型由用户自己的客户端决定。',
+    '不要询问、记录或转述 MCP 凭据；凭据只保存在客户端的安全设置里。',
   ].join('\n')
 }
 
-export interface ConnectionStepHelp {
-  step: 1 | 2 | 3 | 4
-  title: string
-  detail: string
+export interface ConnectionGuidance {
+  client: 'OpenClaw' | 'Hermes'
+  endpoint: string
+  /** Exact client command with a placeholder for the personal credential. */
+  command: string
+  rules: string
+  example: string
+  version: string
 }
 
-export const CONNECTION_STEPS: ConnectionStepHelp[] = [
-  { step: 1, title: '选择助手', detail: '选择你使用的助手客户端（OpenClaw 或 Hermes）；版本要求以连接设置中显示的支持版本为准。' },
-  { step: 2, title: '连接知识库', detail: '复制“说明+无密钥提示词”写入助手规则；令牌只填写到助手的私密认证设置，也可通过高级安装文件导入；绝不进入提示词或对话。' },
-  { step: 3, title: '实际试用', detail: '在自己的助手中提一个真实公司知识问题；只有服务端记录到真实工具调用并成功复开来源，才算完成知识查询。' },
-  { step: 4, title: '使用帮助', detail: '查看四个工具的用途、例句与常见问题；没有资料时助手应说明缺少可核验依据，而不是编造。' },
-]
-
-export interface FaqEntry {
-  question: string
-  answer: string
+/**
+ * The one block a user copies. Everything here is public: an endpoint, a command
+ * with an obvious placeholder, rules and an example question.
+ */
+export function connectionGuidance(input: ConnectionGuidance): string {
+  const placeholder = '<你的本人凭据>'
+  return [
+    `# 连接 HBOS 知识库（${input.client}${input.version ? ' ' + input.version : ''}）`,
+    '',
+    '1) 在终端执行下面这条命令，把占位符换成 HBOS 为你本人生成的一次性凭据（只粘贴到终端，不要发给我）：',
+    input.command.replace('{credential}', placeholder),
+    '',
+    `2) 服务器地址：${input.endpoint}（HTTP / Streamable HTTP）。`,
+    '',
+    '3) 在助手中提问这个例句，确认能返回真实来源：',
+    `   ${input.example}`,
+    '',
+    '4) 请遵守以下使用规则：',
+    input.rules.split('\n').map(line => '   - ' + line).join('\n'),
+    '',
+    '完成上面第 3 步并打开一条来源后，回到 HBOS 连接页面即可看到“已连接”。',
+  ].join('\n')
 }
 
-export const CONNECTION_FAQ: FaqEntry[] = [
+/** True when the text is safe to paste anywhere (no credential, no long random token). */
+export function guidanceHasNoSecret(text: string): boolean {
+  return !/hbos_mcp_/.test(text) && !/Bearer\s+[A-Za-z0-9._~+/-]{20,}/.test(text)
+}
+
+export const CONNECTION_FAQ: { question: string; answer: string }[] = [
   {
-    question: '为什么复制内容里没有我的连接令牌？',
-    answer: '令牌只填写到助手的私密 MCP 认证设置（高级安装文件在成功导入后删除）；复制出的说明和提示词永远不含凭据，可以安全粘贴给他人查看或存档。',
+    question: '为什么复制的内容里没有我的凭据？',
+    answer: '凭据等于你的身份，只写进助手自己的安全设置。复制出的说明和规则不含任何凭据，可以安全地发给助手看。',
   },
   {
-    question: '助手回答“没有找到资料”怎么办？',
-    answer: '先确认问题属于已共享的部门范围；用 list_knowledge_spaces 查看可查范围，再换关键词重试。没有可核验依据时，正确的表现是明确告知，而不是给出未经核实的答案。',
+    question: '助手说“没有找到资料”怎么办？',
+    answer: '先用 list_knowledge_spaces 看可查范围，再换一个更具体的说法。没有可核验依据时，助手应明确说明，而不是编造。',
   },
   {
-    question: '怎样撤销助手的访问？',
-    answer: '在“连接管理”中撤销对应连接，撤销后该助手立即无法继续访问公司知识；重新连接需要重新创建连接并导入新的私密安装文件。',
+    question: '怎样停止助手的访问？',
+    answer: '在本页“连接管理”里撤销这条连接，撤销后该助手立即无法继续访问；需要时再创建一条新的。',
   },
   {
-    question: '回答使用什么模型？',
-    answer: '对话模型由你自己在助手中的设置决定，HBOS 不绑定默认模型；公司知识部分始终来自已授权资料并附来源，可以逐条点开核对。',
+    question: '这里显示“已连接”代表什么？',
+    answer: '代表你本人的这条连接真实完成过一次资料检索并打开了其中一条来源。它不代表助手对你所有问题的回答都正确。',
   },
 ]

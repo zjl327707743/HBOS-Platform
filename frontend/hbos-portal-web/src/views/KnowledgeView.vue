@@ -1,6 +1,6 @@
 <template>
   <div class="knowledge-page" :data-query-state="mode === 'ask' ? (tools?.queryState || 'idle') : searchState">
-    <header class="kb-heading"><div><h1>{{ pageTitle }}</h1><p>从已共享资料中查找依据，答案与来源一起呈现。</p></div><a-button :disabled="!subjectKey" @click="connectionOpen = true"><LinkOutlined />连接个人助手</a-button></header>
+    <header class="kb-heading"><div><h1>{{ pageTitle }}</h1><p>查阅已共享资料，答案与来源一起呈现。</p></div><a-button :disabled="!subjectKey" @click="connectionOpen = true"><LinkOutlined />连接个人助手</a-button></header>
     <div v-if="equipmentId || assetId || componentId" class="kb-context"><a-tag v-if="equipmentId">设备上下文 {{ equipmentId }}</a-tag><a-tag v-if="assetId">资产范围 {{ assetId }}</a-tag><a-tag v-if="componentId">组件范围 {{ componentId }}</a-tag></div>
     <a-alert v-if="globalError" :type="globalErrorCode === 'FORBIDDEN' ? 'warning' : 'error'" show-icon :message="globalError" class="kb-alert"><template #action><a-button :loading="statusLoading" @click="refreshStatus">刷新状态</a-button></template></a-alert>
     <a-alert v-if="!globalError && statusError && !pageError && !tools?.hasQueryError && (view !== 'catalog' || !catalogError)" type="error" show-icon :message="statusError" class="kb-alert"><template #action><a-button :loading="statusLoading" @click="refreshStatus">刷新状态</a-button></template></a-alert>
@@ -16,24 +16,24 @@
       </section>
       <div v-if="mode==='ask'" class="kb-model-controls"><label for="knowledge-model">回答模型</label><select id="knowledge-model" :value="selectedModel" :disabled="working||modelSaving" class="kb-scope-select" @change="changeModel"><option v-for="item in modelChoices" :key="item.alias" :value="item.alias" :disabled="!item.available">{{item.alias}}{{item.available?'':' · 暂不可用'}}</option></select><label class="kb-knowledge-only"><input v-model="knowledgeOnly" type="checkbox" :disabled="working">仅使用知识库</label></div>
       <div v-if="!hasConversation && !hasSearched && !working && !tools?.hasQueryError" class="kb-start-grid"><section class="kb-suggestions"><div class="kb-section-title"><h2>从一个问题开始</h2><span>示例问题</span></div><button v-for="q in exampleQuestions" :key="q" type="button" @click="useExample(q)"><span>{{ q }}</span><ArrowRightOutlined /></button></section><section class="kb-help-card hbos-glass-g1"><ReadOutlined /><h2>查找资料，也能继续追问</h2><p>点开回答中的来源核对依据。常用资料可以收藏，方便下次直接查阅。</p><RouterLink to="/hbos/knowledge/catalog">打开资料目录<ArrowRightOutlined /></RouterLink></section></div>
-      <section v-if="mode === 'search' && hasSearched" class="kb-panel knowledge-results hbos-glass-g1"><div class="kb-section-title"><h2>相关资料</h2><span>{{ results.length }} 条依据</span></div><p v-if="omittedResults" class="kb-search-omitted" role="status">部分来源因安全展示检查未显示（{{ omittedResults }} 条），可联系维护者复核。</p><a-skeleton v-if="searching" active :paragraph="{rows:4}" /><a-empty v-else-if="!results.length && !pageError" description="未找到相关依据，请换一个关键词或调整部门范围。" /><article v-for="item in results" :key="item.evidence_id" class="kb-doc-row result-card"><div class="kb-doc-icon"><FileTextOutlined /></div><button type="button" class="kb-doc-main" :aria-label="'查看来源 '+item.title" @click="openEvidence(item)"><strong>{{ item.title || '未标注标题' }}</strong><p>{{ item.excerpt }}</p><small>{{ spaces.find(s => s.space_id === item.space_id)?.title }} · {{ item.document_number || '文号待核' }} · {{ item.version || '版本待核' }}</small></button><div class="kb-doc-actions"><a-button :disabled="working" aria-label="打开文档" data-search-open-document @click="openSearchDocument(item)">打开文档</a-button><a-button type="text" :disabled="working" :aria-label="(tools?.isBookmarked(item) ? '取消收藏 ' : '收藏 ') + item.title" @click="tools?.bookmark(item)"><StarFilled v-if="tools?.isBookmarked(item)" class="kb-star" /><StarOutlined v-else /></a-button><a-button type="text" :disabled="working" aria-label="反馈" @click="tools?.feedback(item)"><MessageOutlined /></a-button><a-tooltip title="下载需单独授权，请在资料详情查看原因"><a-button type="text" disabled aria-label="下载不可用：需单独授权"><DownloadOutlined /></a-button></a-tooltip></div></article></section>
+      <section v-if="mode === 'search' && hasSearched" class="kb-panel knowledge-results hbos-glass-g1"><div class="kb-section-title"><h2>相关资料</h2><span>{{ results.length }} 条依据</span></div><p v-if="omittedResults" class="kb-search-omitted" role="status">部分来源因安全展示检查未显示（{{ omittedResults }} 条），可联系维护者复核。</p><a-skeleton v-if="searching" active :paragraph="{rows:4}" /><a-empty v-else-if="!results.length && !pageError" description="未找到相关依据，请换一个关键词或调整部门范围。" /><article v-for="item in results" :key="item.evidence_id" class="kb-doc-row result-card"><div class="kb-doc-icon"><FileTextOutlined /></div><button type="button" class="kb-doc-main" :aria-label="'查看来源 '+item.title" @click="openEvidence(item)"><strong>{{ item.title || '未标注标题' }}</strong><p>{{ item.excerpt }}</p><small>{{ [spaces.find(s => s.space_id === item.space_id)?.title, item.document_number, item.version].filter(Boolean).join(' · ') }}</small></button><div class="kb-doc-actions"><a-button :disabled="working" aria-label="打开文档" data-search-open-document @click="openSearchDocument(item)">打开文档</a-button><a-button type="text" :disabled="working" :aria-label="(tools?.isBookmarked(item) ? '取消收藏 ' : '收藏 ') + item.title" @click="tools?.bookmark(item)"><StarFilled v-if="tools?.isBookmarked(item)" class="kb-star" /><StarOutlined v-else /></a-button><a-button type="text" :disabled="working" aria-label="反馈" @click="tools?.feedback(item)"><MessageOutlined /></a-button><a-button type="text" :disabled="working" aria-label="阅读或下载 " @click="openSearchDocument(item)"><DownloadOutlined /></a-button></div></article></section>
     </template>
     <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :spaces="spaces" :ask-enabled="Boolean(status?.ask_enabled) && status?.answer_availability?.available !== false" :retrieval-blocked="retrievalBlocked" :model-alias="selectedModel" :knowledge-only="knowledgeOnly" :mode="mode" :search-mode="searchMode" :view="view" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @restored="restoreSaved" @records-view="router.push($event === 'feedback' ? '/hbos/knowledge/history?tab=feedback' : '/hbos/knowledge/history')" @document="showDocumentSummary" @evidence="openCitationEvidence" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
       <template #catalog>
         <section class="kb-panel hbos-glass-g1">
           <form class="kb-list-toolbar catalog-filter" @submit.prevent="refreshCatalog"><label class="sr-only" for="catalog-query">查找标题或文号</label><a-input-search id="catalog-query" v-model:value="catalogQuery" placeholder="查找标题或文号" aria-label="查找标题或文号" @search="refreshCatalog" /><label class="sr-only" for="catalog-department">筛选部门</label><select id="catalog-department" v-model="selectedSpace" class="kb-scope-select"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select><template v-if="showLawFilter"><label class="sr-only" for="catalog-law-category">筛选公共法规类别</label><select id="catalog-law-category" v-model="lawCategory" class="kb-scope-select"><option value="">全部法规类别</option><option v-for="category in knowledgeLawCategories" :key="category" :value="category">{{ category }}</option></select></template></form>
-          <div class="kb-list-caption catalog-heading"><span>{{ catalogLoading ? '更新中' : `${catalogTotal} 份资料` }}</span><span>下载需单独授权，详见资料详情</span></div>
+          <div class="kb-list-caption catalog-heading"><span>{{ catalogLoading ? '更新中' : `${catalogTotal} 份资料` }}</span><span>登录员工可直接阅读与下载已发布资料</span></div>
           <nav class="kb-source-breadcrumb" aria-label="资料原目录"><a-button type="link" size="small" @click="sourceFolder = 'SOURCE_ROOT'">全部原目录</a-button><template v-for="crumb in sourceDirectory?.breadcrumbs || []" :key="crumb.folder_id"><span aria-hidden="true"> / </span><a-button type="link" size="small" @click="sourceFolder = crumb.folder_id">{{ crumb.name }}</a-button></template></nav>
           <div v-if="sourceDirectory?.children.length" class="kb-source-folders"><a-button v-for="folder in sourceDirectory.children" :key="folder.folder_id" @click="sourceFolder = folder.folder_id">{{ folder.name }}（{{ folder.count }}）</a-button></div>
-          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading && !catalog.length" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" /><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small v-for="(path, pathIndex) in doc.source_directories || []" :key="pathIndex" class="kb-muted">{{ path.join(' / ') }}</small><small v-if="doc.legal_metadata" class="kb-law-meta">{{ doc.legal_metadata.category }} · {{ doc.legal_metadata.issuer || '发布机构待核' }}<a-tag :color="doc.legal_metadata.effective_status === '现行有效' ? 'green' : doc.legal_metadata.effective_status === '已废止' ? 'red' : 'orange'">效力{{ doc.legal_metadata.effective_status }}</a-tag></small><small>{{ doc.document_number || '文号待核' }} · {{ doc.department }} · {{ doc.version || '版本待核' }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-tooltip title="下载需单独授权，请在资料详情查看原因"><a-button type="text" disabled aria-label="下载不可用：需单独授权"><DownloadOutlined /></a-button></a-tooltip></div></article></template></div>
-          <div class="kb-pagination"><a-pagination v-model:current="catalogPage" :page-size="catalogPageSize" :total="catalogTotal" :show-size-changer="false" :disabled="catalogLoading" :show-less-items="true" /></div>
+          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading && !catalog.length" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" /><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small v-for="(path, pathIndex) in doc.source_directories || []" :key="pathIndex" class="kb-muted">{{ path.join(' / ') }}</small><small v-if="doc.legal_metadata" class="kb-law-meta">{{ [doc.legal_metadata.category, doc.legal_metadata.issuer].filter(Boolean).join(' · ') }}<a-tag v-if="doc.legal_metadata.effective_status === '现行有效'" color="green">现行有效</a-tag><a-tag v-else-if="doc.legal_metadata.effective_status === '已废止'" color="red">已废止</a-tag></small><small>{{ [doc.document_number, doc.department, doc.version].filter(Boolean).join(' · ') }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-button type="text" :disabled="askBusy || !doc.version_id" aria-label="阅读并下载 " @click="openCatalogReader(doc)"><DownloadOutlined /></a-button></div></article></template></div>
+          <div class="kb-pagination"><a-pagination v-model:current="catalogPage" v-model:page-size="catalogPageSize" :page-size-options="['20', '50']" :total="catalogTotal" :show-size-changer="true" :disabled="catalogLoading" :show-less-items="true" /></div>
         </section>
       </template>
     </KnowledgeTools>
-    <p class="kb-page-footnote">依据可展开核对 · 阅读器内可申请原版式预览与授权下载</p>
+    <p class="kb-page-footnote">依据可展开核对 · 文件按原版式打开，可直接下载原文件</p>
     <KnowledgeConnections :open="connectionOpen" :subject="subjectKey || ''" @close="connectionOpen = false" />
     <EvidenceDrawer :open="drawerOpen" :loading="drawerLoading" :evidence="drawerEvidence" :error="drawerError" :error-code="drawerErrorCode" :version-id="drawerVersionId" :bookmarked="drawerEvidence ? tools?.isBookmarked(drawerEvidence) : false" @close="drawer.close()" @bookmark="tools?.bookmark($event)" @feedback="tools?.feedback($event)" @read="openEvidenceReader" />
-    <a-drawer :open="summaryOpen" title="资料详情" width="min(560px, 100vw)" root-class-name="kb-drawer kb-scope" @close="closeSummary"><a-skeleton v-if="summaryLoading" active /><a-alert v-else-if="summaryError" type="warning" show-icon :message="summaryError" /><template v-else-if="summaryDocument"><h2 class="kb-drawer-title">{{ summaryDocument.title }}</h2><p class="kb-muted">{{ summaryDocument.document_number || '文号待核' }} · {{ summaryDocument.department }} · {{ summaryDocument.version || '版本待核' }}</p><div class="kb-source-status"><CheckCircleOutlined />当前授权共享版本</div><dl v-if="summaryDocument.legal_metadata" class="kb-legal-details"><template v-for="field in legalDetailFields" :key="field.key"><dt>{{ field.label }}</dt><dd>{{ summaryDocument.legal_metadata[field.key] || '待核' }}</dd></template></dl><div class="kb-source-excerpt"><strong>资料状态</strong><p>{{ summaryDocument.status_note }}</p></div><div class="kb-drawer-actions"><a-button type="primary" data-catalog-open-reader @click="openCatalogReader(summaryDocument)"><ReadOutlined />阅读全文</a-button><a-button :disabled="askBusy" @click="tools?.toggleDocumentBookmark(summaryDocument)"><StarOutlined />{{ tools?.isBookmarked(summaryDocument) ? '取消收藏' : '收藏资料' }}</a-button><a-tooltip title="下载需单独授权；在阅读器内核验后可用"><a-button disabled data-summary-download-unavailable><DownloadOutlined />下载不可用：需单独授权</a-button></a-tooltip></div><p class="kb-muted">{{ summaryDocument.version_id ? '阅读全文会重新核验当前授权与版本；在阅读器内可申请原版式预览与授权下载。' : '目录未附版本记录时将按当前授权版本解析，不会静默切换版本；在阅读器内可申请原版式预览与授权下载。' }}</p></template></a-drawer>
+    <a-drawer :open="summaryOpen" title="资料详情" width="min(560px, 100vw)" root-class-name="kb-drawer kb-scope" @close="closeSummary"><a-skeleton v-if="summaryLoading" active /><a-alert v-else-if="summaryError" type="warning" show-icon :message="summaryError" /><template v-else-if="summaryDocument"><h2 class="kb-drawer-title">{{ summaryDocument.title }}</h2><p class="kb-muted">{{ [summaryDocument.document_number, summaryDocument.department, summaryDocument.version].filter(Boolean).join(' · ') }}</p><div class="kb-source-status"><CheckCircleOutlined />当前授权共享版本</div><dl v-if="summaryDocument.legal_metadata" class="kb-legal-details"><template v-for="field in legalDetailFields" :key="field.key"><dt>{{ field.label }}</dt><dd>{{ summaryDocument.legal_metadata[field.key] || '未收录' }}</dd></template></dl><div class="kb-source-excerpt"><strong>资料状态</strong><p>{{ summaryDocument.status_note }}</p></div><div class="kb-drawer-actions"><a-button type="primary" data-catalog-open-reader @click="openCatalogReader(summaryDocument)"><ReadOutlined />阅读全文</a-button><a-button :disabled="askBusy" @click="tools?.toggleDocumentBookmark(summaryDocument)"><StarOutlined />{{ tools?.isBookmarked(summaryDocument) ? '取消收藏' : '收藏资料' }}</a-button><a-button data-summary-open-reader @click="openCatalogReader(summaryDocument)"><DownloadOutlined />阅读并下载</a-button></div><p class="kb-muted">打开后会按当前身份与版本核验；原文件可直接下载。</p></template></a-drawer>
   </div>
 </template>
 
@@ -52,6 +52,7 @@ import KnowledgeConnections from '@/components/knowledge/KnowledgeConnections.vu
 import { useEvidenceResolution } from '@/composables/useEvidenceResolution'
 import { usePortalStore } from '@/stores/portal'
 import { useKnowledgeReturnStore } from '@/stores/knowledgeReturn'
+import { loadWorkspace, saveWorkspace } from '@/services/knowledgeWorkspace'
 
 const route = useRoute()
 const router = useRouter()
@@ -147,9 +148,9 @@ const sourceFolder = ref('SOURCE_ROOT')
 const sourceDirectory = ref<import('@/contracts/p1').KnowledgeSourceDirectory | null>(null)
 const lawCategory = ref<import('@/contracts/p1').KnowledgeLawCategory | ''>('')
 const showLawFilter = computed(() => spaces.value.some(space => space.space_id === 'DEPT_PUBLIC_LAW') && (!selectedSpace.value || selectedSpace.value === 'DEPT_PUBLIC_LAW'))
-const legalDetailFields = [{ key: 'category', label: '法规类别' }, { key: 'level', label: '层级' }, { key: 'issuer', label: '发布机构' }, { key: 'published_date', label: '发布或修订日期' }, { key: 'region', label: '地区' }, { key: 'applicability', label: '适用范围' }, { key: 'effective_status', label: '现行有效状态' }] as const
+const legalDetailFields = [{ key: 'category', label: '法规类别' }, { key: 'level', label: '层级' }, { key: 'issuer', label: '发布机构' }, { key: 'published_date', label: '发布或修订日期' }, { key: 'region', label: '地区' }, { key: 'applicability', label: '适用范围' }, { key: 'effective_status', label: '效力状态' }] as const
 const catalogPage = ref(1)
-const catalogPageSize = 4
+const catalogPageSize = ref(20)
 const catalogLoading = ref(false)
 const catalogError = ref('')
 const tools = ref<InstanceType<typeof KnowledgeTools> | null>(null)
@@ -174,10 +175,28 @@ const drawerVersionId = computed<string | null>(() => {
 // Returning from the reader must put this workspace back exactly where it was
 // without asking again or regenerating an answer. The snapshot is consumed once
 // and dropped when it belongs to another signed-in identity.
+// A reload, a browser discard or a fresh mount inside the same tab restores the
+// last navigation state for this identity. A reader return (below) wins over it.
+const savedWorkspace = loadWorkspace(subjectKey.value)
 const restoredReturn = returnStore.takeFor(subjectKey.value)
 let restoredTools: KnowledgeToolsReturnState | null = null
 let restoredScrollTop = 0
 let scrollRestored = true
+let scrollFromWorkspace = false
+if (!restoredReturn && savedWorkspace) {
+  if (typeof savedWorkspace.query === 'string' && !route.query.q) query.value = [...savedWorkspace.query].slice(0, 500).join('')
+  if (savedWorkspace.mode === 'ask' || savedWorkspace.mode === 'search') mode.value = savedWorkspace.mode
+  if (typeof savedWorkspace.selectedSpace === 'string') selectedSpace.value = savedWorkspace.selectedSpace
+  if (typeof savedWorkspace.catalogQuery === 'string') catalogQuery.value = savedWorkspace.catalogQuery
+  if (Number.isSafeInteger(savedWorkspace.catalogPage) && savedWorkspace.catalogPage >= 1) catalogPage.value = savedWorkspace.catalogPage
+  if ([20, 50].includes(savedWorkspace.catalogPageSize)) catalogPageSize.value = savedWorkspace.catalogPageSize
+  if (typeof savedWorkspace.lawCategory === 'string') lawCategory.value = savedWorkspace.lawCategory as import('@/contracts/p1').KnowledgeLawCategory | ''
+  if (typeof savedWorkspace.sourceFolder === 'string') sourceFolder.value = savedWorkspace.sourceFolder
+  restoredScrollTop = Number.isFinite(savedWorkspace.scrollTop) ? savedWorkspace.scrollTop : 0
+  scrollRestored = restoredScrollTop <= 0
+  scrollFromWorkspace = true
+  catalogScrollTop = savedWorkspace.view === 'catalog' ? restoredScrollTop : 0
+}
 if (restoredReturn && restoredReturn.view === view.value) {
   mode.value = restoredReturn.mode
   searchMode.value = restoredReturn.searchMode
@@ -203,6 +222,7 @@ async function applyReturnedScroll() {
   // An answered conversation renders only after the status check. Wait for that
   // content before measuring, otherwise the saved position is clamped to a short page.
   if (view.value === 'query' && restoredTools) return
+  if (scrollFromWorkspace && view.value === 'catalog' && catalogLoading.value) return
   const element = mainScrollElement()
   if (element) element.scrollTop = restoredScrollTop
   else if (typeof window.scrollTo === 'function') window.scrollTo(0, restoredScrollTop)
@@ -251,6 +271,10 @@ watch([catalogQuery, selectedSpace, lawCategory, sourceFolder], () => {
   catalogTimer = setTimeout(() => { catalogTimer = null; void refreshCatalog() }, 200)
 }, { flush: 'sync' })
 watch(catalogPage, () => { if (catalogTimer) clearTimeout(catalogTimer); catalogTimer = null; void refreshCatalog() })
+watch([query, mode, selectedSpace, catalogQuery, catalogPage, catalogPageSize, lawCategory, sourceFolder], () => {
+  saveWorkspaceNow(workspaceState())
+})
+watch(catalogPageSize, () => { if (catalogPage.value !== 1) catalogPage.value = 1; else void refreshCatalog() })
 onBeforeUnmount(() => {
   subjectGeneration++; searchGeneration++; statusGeneration++; catalogGeneration++; savedRestoreGeneration++; drawer.close(false); closeSummary()
   if (catalogTimer) clearTimeout(catalogTimer)
@@ -359,7 +383,31 @@ async function openEvidence(item: KnowledgeEvidence) {
 // The three entry points all capture the same workspace snapshot and then enter
 // the single controlled reader route. The reader resolves the current authorized
 // version when the entry (citation/search) only carries a document identity.
+function workspaceState(): import('@/services/knowledgeWorkspace').KnowledgeWorkspaceState {
+  return {
+    query: query.value,
+    mode: mode.value,
+    selectedSpace: selectedSpace.value,
+    catalogQuery: catalogQuery.value,
+    catalogPage: catalogPage.value,
+    catalogPageSize: catalogPageSize.value,
+    lawCategory: lawCategory.value,
+    sourceFolder: sourceFolder.value,
+    view: view.value,
+    scrollTop: mainScrollElement()?.scrollTop || 0,
+    positions: {},
+  }
+}
+function saveWorkspaceNow(value: import('@/services/knowledgeWorkspace').KnowledgeWorkspaceState) {
+  const subject = subjectKey.value
+  if (!subject) return
+  // Behaviour state only; the reader positions live in their own store and are
+  // merged back from what is already stored for this identity.
+  const prior = loadWorkspace(subject)
+  saveWorkspace(subject, { ...value, positions: prior?.positions || {} })
+}
 function captureReturnState() {
+  saveWorkspaceNow(workspaceState())
   const snapshot: KnowledgeReturnSnapshot = {
     view: view.value,
     query: query.value,
@@ -418,10 +466,10 @@ async function refreshCatalog() {
   const subject = subjectKey.value
   catalogLoading.value = true; catalogError.value = ''
   try {
-    const data = await getKnowledgeDocumentsPage(catalogQuery.value, selectedSpace.value, catalogPage.value, catalogPageSize, lawCategory.value || undefined, sourceFolder.value)
+    const data = await getKnowledgeDocumentsPage(catalogQuery.value, selectedSpace.value, catalogPage.value, catalogPageSize.value, lawCategory.value || undefined, sourceFolder.value)
     if (generation !== catalogGeneration || subject !== subjectKey.value) return
     sourceDirectory.value = data.source_directory || null; catalog.value = data.documents; catalogTotal.value = data.total
-    const lastPage = Math.max(1, Math.ceil(data.total / catalogPageSize))
+    const lastPage = Math.max(1, Math.ceil(data.total / catalogPageSize.value))
     if (catalogPage.value > lastPage) catalogPage.value = lastPage
   } catch (error) {
     if (generation === catalogGeneration && subject === subjectKey.value) {
@@ -461,6 +509,7 @@ watch(() => props.sessionRevision, () => { void refreshStatus() })
 onMounted(async () => {
   await refreshStatus()
   await applyReturnedScroll()
+  saveWorkspaceNow(workspaceState())
 })
 </script>
 

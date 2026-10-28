@@ -263,6 +263,11 @@ def document_content(ticket=None, **business_fields):
         publication = getattr(runtime, 'publication', None)
         if publication:
             publication.finish()
+        if result.stream is not None:
+            # The file was verified under the current authorization before this
+            # point; the response now streams it without a further hold on memory.
+            return Response(result.stream, status=result.status, headers=result.headers,
+                            direct_passthrough=True)
         return Response(result.body, status=result.status, headers=result.headers)
     except KnowledgeError as error:
         _abort_publication()

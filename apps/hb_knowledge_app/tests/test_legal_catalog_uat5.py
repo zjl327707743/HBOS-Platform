@@ -34,9 +34,13 @@ def test_unverified_legal_status_and_unsafe_extra_fields_rejected(value):
     with pytest.raises(KnowledgeError):legal_metadata(value)
 
 
-def test_download_permission_cannot_be_inferred_from_search_or_public_law_scope():
-    assert not document_download_decision(subject_enabled=True,version_current=True).allowed
+def test_download_scope_is_its_own_decision_not_a_search_side_effect():
+    # Legacy scope flags no longer decide anything on their own: the server-owned
+    # scope does, and an unconfigured delivery channel still denies.
     decision=document_download_decision(subject_enabled=True,version_current=True,iam_allowed=True,public_download_allowed=True)
     assert not decision.allowed and decision.action=='document.download' and decision.reason=='ORIGINAL_DELIVERY_DISABLED'
-    stale=document_download_decision(subject_enabled=True,version_current=False,iam_allowed=True,department_allowed=True)
+    stale=document_download_decision(subject_enabled=True,version_current=False,iam_allowed=True,department_allowed=True,delivery_enabled=True)
     assert not stale.allowed and stale.reason=='SOURCE_VERSION_STALE'
+    # Under the department scope the old per-subject grant is still required.
+    assert not document_download_decision(subject_enabled=True,version_current=True,
+                                          scope='department_scoped',delivery_enabled=True).allowed

@@ -2,14 +2,10 @@
   <div class="knowledge-document-page">
     <DocumentReader
       :from="from"
-      :version-resolved="!versionId"
       :document="document"
       :body="body"
-      :navigation="navigation"
-      :disclosure="disclosure"
       :page="page"
       :page-count="pageCount"
-      :block-total="blockTotal"
       :loading="loading"
       :page-loading="pageLoading"
       :failure="failure"
@@ -21,7 +17,18 @@
       :matches="matches"
       :highlight-block-id="highlightBlockId"
       :highlight-query="highlightQuery"
-      :delivery-state="deliveryState"
+      :preview-url="delivery.previewUrl"
+      :preview-kind="delivery.previewKind"
+      :preview-filename="delivery.previewFilename"
+      :preview-unavailable="delivery.previewUnavailable"
+      :preparing="delivery.preparing"
+      :preparing-message="delivery.preparingMessage"
+      :can-download="delivery.canDownload"
+      :download-busy="delivery.downloadBusy"
+      :download-reason="delivery.downloadReason"
+      :notice="delivery.notice"
+      :position="position"
+      :renew-preview="renewPreview"
       @back="goBack"
       @retry="retry"
       @retry-page="retryPage"
@@ -31,17 +38,16 @@
       @search="runSearch"
       @clear-search="clearSearch"
       @jump-match="jumpToMatch"
-      @prepare-preview="preparePreview"
-      @prepare-download="prepareDownload"
-      @prepare-retry="prepareRetry"
-      @close-preview="closePreview"
-      @delivery-denied="readerRetryFromFailure(new DomainApiError('FORBIDDEN','资料授权已变化，请返回后重新检索。'))"
+      @download="downloadOriginal"
+      @access-lost="accessLost"
+      @page-change="rememberPage"
+      @zoom-change="rememberZoom"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { ReaderSource } from '@/contracts/documentReader'
 import { useDocumentReader } from '@/composables/useDocumentReader'
@@ -57,6 +63,15 @@ import {
 import type { DocumentCapabilities } from '@/services/knowledgeDelivery'
 import { DomainApiError } from '@/services/p1Api'
 
+/**
+ * One file, opened like a file.
+ *
+ * The page asks for a preview the moment it opens - there is no separate
+ * "prepare" step - and silently renews the short-lived ticket when a fetch is
+ * refused. Reading position (file page + zoom) is remembered per document and
+ * version, so coming back to the tab or returning from another page resumes
+ * where the reader was.
+ */
 const route = useRoute()
 const router = useRouter()
 const portal = usePortalStore()
@@ -75,199 +90,217 @@ const from = computed<ReaderSource>(() => {
 
 const reader = useDocumentReader(() => subjectKey.value)
 const {
-  document, body, navigation, disclosure, loading, pageLoading, page, pageCount, blockTotal,
+  document, body, loading, pageLoading, page, pageCount,
   failure, pageFailure, searchQuery, searching, searchRan, searchFailure, matches,
   searchedBlocks, searchCapped, highlightBlockId, highlightQuery,
   open, goToPage, runSearch, clearSearch, jumpToMatch,
 } = reader
 
 const searchMessage = computed(() => {
-  if (searching.value) return '正在查找正文…'
+  if (searching.value) return '正在查找…'
   if (searchFailure.value) return searchFailure.value.message
   if (!searchRan.value) return ''
   const term = searchQuery.value.trim()
-  if (!matches.value.length) return `未在可检索正文中找到“${term}”。`
-  return `找到 ${matches.value.length} 处匹配 · 已检索 ${searchedBlocks.value} 段正文${searchCapped.value ? '（仅检索部分正文）' : ''}`
+  if (!matches.value.length) return `未在检索文本中找到“${term}”。`
+  return `找到 ${matches.value.length} 处 · 已检索 ${searchedBlocks.value} 段${searchCapped.value ? '（仅检索部分）' : ''}`
 })
 
-// ---- frozen delivery contract (capabilities / preview / download) -----------
-// State lives here so the reader stays a pure presenter. Every ticket URL is
-// short-lived and re-validated server-side on each request: even a prepared
-// preview can later be refused, so failures always offer 重新准备, and the
-// body text below the preview frame stays readable in every failure path.
-
-interface DeliveryUiState {
+// ---- file view state --------------------------------------------------------
+interface DeliveryState {
   capabilities: DocumentCapabilities | null
   loadingCapabilities: boolean
-  preview: { busy: boolean; url: string | null; filename: string; expiresAt: number | null; kind: string }
-  download: { busy: boolean; url: string | null; filename: string }
-  error: string
-  retryable: boolean
+  preparing: boolean
+  preparingMessage: string
+  previewUrl: string | null
+  previewKind: 'ORIGINAL_PDF' | 'DERIVED_PDF' | null
+  previewFilename: string
+  previewUnavailable: string
+  downloadBusy: boolean
+  canDownload: boolean
+  downloadReason: string
   notice: string
 }
-
-const deliveryState = ref<DeliveryUiState>({
+const delivery = reactive<DeliveryState>({
   capabilities: null,
   loadingCapabilities: false,
-  preview: { busy: false, url: null, filename: '', expiresAt: null, kind: '' },
-  download: { busy: false, url: null, filename: '' },
-  error: '',
-  retryable: false,
+  preparing: false,
+  preparingMessage: '',
+  previewUrl: null,
+  previewKind: null,
+  previewFilename: '',
+  previewUnavailable: '',
+  downloadBusy: false,
+  canDownload: false,
+  downloadReason: '',
   notice: '',
 })
 let deliveryGeneration = 0
-let lastDeliveryIntent: 'preview' | 'download' | null = null
-let previewObjectUrl: string | null = null
+let previewRequest: Promise<string | null> | null = null
+let lastPreviewKind: 'preview' | 'download' | null = null
 
 function resetDelivery() {
   deliveryGeneration++
-  lastDeliveryIntent = null
-  if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); previewObjectUrl = null }
-  deliveryState.value = {
-    capabilities: null,
-    loadingCapabilities: false,
-    preview: { busy: false, url: null, filename: '', expiresAt: null, kind: '' },
-    download: { busy: false, url: null, filename: '' },
-    error: '',
-    retryable: false,
-    notice: '',
-  }
+  previewRequest = null
+  lastPreviewKind = null
+  Object.assign(delivery, {
+    capabilities: null, loadingCapabilities: false, preparing: false, preparingMessage: '',
+    previewUrl: null, previewKind: null, previewFilename: '', previewUnavailable: '',
+    downloadBusy: false, canDownload: false, downloadReason: '', notice: '',
+  })
 }
 
 function currentVersion(): string | null {
   return document.value?.version_id || versionId.value || null
 }
 
+function humanReason(reason: string | null | undefined): string {
+  if (!reason) return ''
+  if (reason === 'ASSET_TOO_LARGE') return '原文件较大，当前不能在线提供。'
+  if (reason === 'ASSET_UNAVAILABLE') return '原文件暂不可用，可能未完成归档。'
+  if (reason === 'PREVIEW_UNAVAILABLE') return '这份资料还没有可用的原版式预览。'
+  if (reason === 'ASSET_HASH_MISMATCH') return '文件校验不一致，系统已停止提供，请联系维护人复核。'
+  if (reason === 'ORIGINAL_WITHHELD') return '这份原件按资料管理规定不开放下载。'
+  if (reason === 'DOWNLOAD_NOT_AUTHORIZED') return '当前账号不能下载这份原件。'
+  return ''
+}
+
 async function loadCapabilities() {
   if (!documentId.value || !document.value) return
-  const generation = ++deliveryGeneration
-  const subject = subjectKey.value
-  deliveryState.value.loadingCapabilities = true
+  const generation = deliveryGeneration, subject = subjectKey.value
+  delivery.loadingCapabilities = true
   try {
     const capabilities = await fetchDocumentCapabilities(documentId.value, currentVersion())
     if (generation !== deliveryGeneration || subject !== subjectKey.value) return
-    // The server is authoritative; never widen permissions in the UI.
-    deliveryState.value.capabilities = capabilities
-  } catch {
-    if (generation === deliveryGeneration && subject === subjectKey.value) {
-      // Capabilities are advisory; the body stays readable without them and the
-      // reader shows a pending control instead of fake buttons.
-      deliveryState.value.capabilities = null
+    delivery.capabilities = capabilities
+    delivery.canDownload = capabilities.can_download
+    delivery.downloadReason = humanReason(capabilities.download_reason)
+    if (!capabilities.can_preview) {
+      delivery.previewUnavailable = humanReason(capabilities.preview_reason) || '这份资料暂不支持原版式预览，可下载原文件查看。'
     }
+  } catch {
+    if (generation === deliveryGeneration && subject === subjectKey.value) delivery.capabilities = null
   } finally {
-    if (generation === deliveryGeneration && subject === subjectKey.value) deliveryState.value.loadingCapabilities = false
+    if (generation === deliveryGeneration && subject === subjectKey.value) delivery.loadingCapabilities = false
   }
 }
 
-function failureMessage(error: unknown, intent: 'preview' | 'download'): string {
-  const message = deliveryFailureMessage(error)
-  return intent === 'preview' ? `预览未完成：${message} 正文仍可继续阅读。` : `下载未完成：${message}`
+/** Ask for a fresh ticket; never shown to the reader as a ticket. */
+async function requestPreview(): Promise<string | null> {
+  if (!documentId.value || !document.value) return null
+  const generation = deliveryGeneration, subject = subjectKey.value
+  delivery.preparing = true
+  delivery.preparingMessage = '正在准备原版式…'
+  delivery.previewUnavailable = ''
+  try {
+    const value = await createDocumentDelivery(documentId.value, currentVersion(), 'preview')
+    if (generation !== deliveryGeneration || subject !== subjectKey.value) return null
+    delivery.previewUrl = value.content_url
+    delivery.previewKind = value.kind === 'DERIVED_PDF' ? 'DERIVED_PDF' : 'ORIGINAL_PDF'
+    delivery.previewFilename = value.filename
+    delivery.preparing = false
+    delivery.preparingMessage = ''
+    return value.content_url
+  } catch (error) {
+    if (generation !== deliveryGeneration || subject !== subjectKey.value) return null
+    delivery.preparing = false
+    delivery.preparingMessage = ''
+    if (error instanceof DomainApiError && ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED', 'EMPTY_SCOPE'].includes(error.code)) {
+      accessLost()
+      return null
+    }
+    const reason = error instanceof DomainApiError ? error.code : ''
+    delivery.previewUnavailable = humanReason(reason) || deliveryFailureMessage(error)
+    return null
+  }
 }
 
-async function prepareDelivery(intent: 'preview' | 'download') {
-  if (!documentId.value || !document.value) return
-  const generation = ++deliveryGeneration
-  const subject = subjectKey.value
-  lastDeliveryIntent = intent
-  deliveryState.value.error = ''
-  deliveryState.value.retryable = false
-  deliveryState.value.notice = ''
-  if (intent === 'preview') {
-    if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); previewObjectUrl = null }
-    deliveryState.value.preview = { ...deliveryState.value.preview, busy: true, url: null }
-  } else deliveryState.value.download = { ...deliveryState.value.download, busy: true, url: null }
+function ensurePreview() {
+  if (delivery.previewUrl || delivery.preparing) return
+  previewRequest = requestPreview()
+  void previewRequest
+}
+
+/** Called by the file view when its short-lived ticket lapses mid-read. */
+async function renewPreview(): Promise<string | null> {
+  if (delivery.preparing) return previewRequest
+  return requestPreview()
+}
+
+async function downloadOriginal() {
+  if (!documentId.value || !document.value || delivery.downloadBusy) return
+  const generation = deliveryGeneration, subject = subjectKey.value
+  delivery.downloadBusy = true
+  delivery.notice = ''
+  lastPreviewKind = 'download'
   try {
-    const delivery = await createDocumentDelivery(documentId.value, currentVersion(), intent)
+    const value = await createDocumentDelivery(documentId.value, currentVersion(), 'download')
     if (generation !== deliveryGeneration || subject !== subjectKey.value) return
-    if (intent === 'preview') {
-      // Ticket URLs are same-origin and may be iframed directly; fall back to a
-      // controlled blob fetch only if the browser blocks direct navigation.
-      deliveryState.value.preview = {
-        busy: false,
-        url: delivery.content_url,
-        filename: delivery.filename,
-        expiresAt: delivery.expires_at,
-        kind: delivery.kind === 'DERIVED_PDF' ? 'DERIVED_PDF' : 'ORIGINAL_PDF',
-      }
-      deliveryState.value.notice = delivery.kind === 'DERIVED_PDF'
-        ? '已准备派生预览版（非原件）；票据会过期，过期后请重新准备。'
-        : '已准备原件预览；票据会过期，过期后请重新准备。'
-    } else {
-      // Independent can_download gate: the link is created and revoked at once,
-      // so the file saves through the short-lived ticket without a persistent URL.
-      const link = document_anchor(delivery.content_url, delivery.filename)
-      link.click()
-      deliveryState.value.download = { busy: false, url: null, filename: delivery.filename }
-      deliveryState.value.notice = '已开始下载。文件由服务端再次核验授权后提供。'
-    }
+    const link = window.document.createElement('a')
+    link.href = value.content_url
+    link.download = value.filename
+    link.rel = 'noopener'
+    window.document.body.appendChild(link)
+    link.click()
+    setTimeout(() => link.remove(), 0)
+    delivery.notice = value.kind === 'ORIGINAL_FILE'
+      ? '已开始下载原文件，文件由服务端核验当前身份与版本后提供。'
+      : '已开始下载。'
   } catch (error) {
     if (generation !== deliveryGeneration || subject !== subjectKey.value) return
-    deliveryState.value.error = failureMessage(error, intent)
-    deliveryState.value.retryable = isRetryableDelivery(error)
-    if (intent === 'preview') deliveryState.value.preview = { ...deliveryState.value.preview, busy: false, url: null }
-    else deliveryState.value.download = { ...deliveryState.value.download, busy: false, url: null }
-    // Access revocation must clear the whole reader, not only the delivery row.
     if (error instanceof DomainApiError && ['AUTHENTICATION_REQUIRED', 'CLIENT_AUTH_FAILED', 'FORBIDDEN', 'SCOPE_REJECTED', 'EMPTY_SCOPE'].includes(error.code)) {
-      void readerRetryFromFailure(error)
+      accessLost(); return
     }
+    delivery.notice = '下载未完成：' + (humanReason(error instanceof DomainApiError ? error.code : '') || deliveryFailureMessage(error))
+    if (isRetryableDelivery(error)) delivery.notice += ' 可以再点一次下载。'
+  } finally {
+    if (generation === deliveryGeneration && subject === subjectKey.value) delivery.downloadBusy = false
   }
 }
 
-function document_anchor(url: string, filename: string): HTMLAnchorElement {
-  const link = window.document.createElement('a')
-  link.href = url
-  link.download = filename
-  window.document.body.appendChild(link)
-  setTimeout(() => link.remove(), 0)
-  return link
-}
-
-function preparePreview() { void prepareDelivery('preview') }
-function prepareDownload() { void prepareDelivery('download') }
-function prepareRetry() {
-  if (lastDeliveryIntent) { void prepareDelivery(lastDeliveryIntent); return }
-  void loadCapabilities()
-}
-function closePreview() {
+function accessLost() {
   deliveryGeneration++
-  if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); previewObjectUrl = null }
-  deliveryState.value.preview = { ...deliveryState.value.preview, url: null, busy: false }
-  deliveryState.value.notice = '已关闭预览，可继续阅读正文。'
-}
-
-// Access failures raised by delivery are surfaced through the reader's own
-// failure state so the whole view behaves like an unauthorized open.
-function readerRetryFromFailure(error: DomainApiError) {
   reader.reset()
   resetDelivery()
-  failure.value = { kind: 'unavailable', code: error.code, message: error.message, retryable: false }
+  failure.value = { kind: 'unavailable', code: 'SCOPE_REJECTED', message: '当前账号不能继续阅读这份资料，请重新登录或从资料目录重新打开。', retryable: false }
 }
 
-function storedPage(): number {
-  const raw = Number(route.query.page)
-  if (Number.isSafeInteger(raw) && raw >= 1 && raw <= 100000) return raw
+// ---- position ---------------------------------------------------------------
+const position = ref({ page: 1, zoom: 0 })
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+function storedPosition() {
   const subject = subjectKey.value
-  const position = returnStore.positionFor(subject, documentId.value, versionId.value)
+  return returnStore.positionFor(subject, documentId.value, versionId.value)
     || returnStore.positionFor(subject, documentId.value, null)
-  return position && Number.isSafeInteger(position.page) && position.page >= 1 ? position.page : 1
 }
 
-function openCurrent() {
-  void open({
-    documentId: documentId.value,
-    versionId: versionId.value,
-    page: storedPage(),
-  })
+function rememberPage(value: number) {
+  position.value.page = Math.max(1, Math.round(value || 1))
+  scheduleRemember()
+}
+
+function rememberZoom(value: number) {
+  position.value.zoom = value > 0 ? value : 0
+  scheduleRemember()
+}
+
+function scheduleRemember() {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(rememberPosition, 250)
 }
 
 function rememberPosition() {
-  if (!documentId.value || !body.value) return
-  const position = { page: page.value, searchQuery: searchQuery.value.trim() }
+  if (!documentId.value || !document.value) return
+  const value = { page: position.value.page, zoom: position.value.zoom, searchQuery: searchQuery.value.trim() }
   const resolved = document.value?.version_id || versionId.value || null
-  returnStore.rememberPosition(subjectKey.value, documentId.value, resolved, position)
-  // An entry that only knows the document id (citation/search) reopens without
-  // VER_ id; remember the same position under that key too, never inventing one.
-  if (resolved && resolved !== versionId.value) returnStore.rememberPosition(subjectKey.value, documentId.value, null, position)
+  returnStore.rememberPosition(subjectKey.value, documentId.value, resolved, value)
+  if (resolved && resolved !== versionId.value) returnStore.rememberPosition(subjectKey.value, documentId.value, null, value)
+}
+
+function openCurrent() {
+  const saved = storedPosition()
+  position.value = { page: saved && saved.page >= 1 ? saved.page : 1, zoom: saved?.zoom || 0 }
+  void open({ documentId: documentId.value, versionId: versionId.value, page: position.value.page })
 }
 
 function goBack() {
@@ -285,12 +318,19 @@ function prev() { void goToPage(page.value - 1) }
 function next() { void goToPage(page.value + 1) }
 
 watch([documentId, versionId], () => { resetDelivery(); openCurrent() }, { immediate: true })
-// Capabilities load once the open succeeded and follow version changes; they
-// never block or gate the body text.
 watch(() => [document.value?.document_id, document.value?.version_id, loading.value], () => {
-  if (!loading.value && document.value) void loadCapabilities()
+  if (loading.value || !document.value) return
+  void loadCapabilities().then(ensurePreview)
+  if (delivery.capabilities && !delivery.capabilities.can_preview && !delivery.previewUrl) ensurePreview()
 })
-onBeforeUnmount(() => { resetDelivery(); rememberPosition() })
+// The ticket lapses silently while the tab is open; coming back just renews it.
+function onVisible() { if (window.document.visibilityState === 'visible' && !delivery.previewUrl) ensurePreview() }
+onMounted(() => window.document.addEventListener('visibilitychange', onVisible))
+onBeforeUnmount(() => {
+  window.document.removeEventListener('visibilitychange', onVisible)
+  if (saveTimer) clearTimeout(saveTimer)
+  rememberPosition()
+})
 </script>
 
 <style scoped>

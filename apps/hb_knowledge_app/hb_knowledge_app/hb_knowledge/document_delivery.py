@@ -16,10 +16,13 @@ import re
 import secrets
 import time
 
-from .document_assets import disposition, unavailable
+from .document_assets import MAX_DOWNLOAD_BYTES, MAX_FILE_BYTES, disposition, unavailable
 from .document_reader_contract import normalize_document_read
 from .errors import KnowledgeError
 
+# Short-lived by design; the client renews it silently when it lapses, so a
+# reader never has to understand a ticket. The whole fetch starts well inside
+# this window and a stream is never cut off by it.
 TICKET_SECONDS = 60
 _TICKET = re.compile(r'[A-Za-z0-9_-]{40,64}')
 CONTENT_PATH = '/api/method/hb_knowledge_app.hb_knowledge.api.document_content'
@@ -28,9 +31,10 @@ _LOG = logging.getLogger('hbos.knowledge.document_delivery')
 
 @dataclass(frozen=True)
 class Content:
-    body: bytes
+    body: bytes | None
     status: int
     headers: dict
+    stream: object | None = None
 
 
 class DocumentDelivery:
@@ -69,9 +73,11 @@ class DocumentDelivery:
                     continue
                 # A capability is truthful about the mapped bytes at this
                 # moment, while the content request will check everything again.
-                original.read('bytes=0-0')
+                # The check is structural only: hashing a 400 MB original just
+                # to answer "can this be downloaded" would stall the reader.
+                original.probe(limit=MAX_DOWNLOAD_BYTES if purpose == 'download' else MAX_FILE_BYTES)
                 if asset.path != original.path:
-                    asset.read('bytes=0-0')
+                    asset.probe()
                 data['can_' + purpose] = True
                 data[purpose + '_reason'] = None
                 if purpose == 'preview':
@@ -93,9 +99,9 @@ class DocumentDelivery:
         asset, original = self.assets.resolve(binding, purpose)
         if purpose == 'download' and not self._download_allowed(actor, binding, original.sha256):
             raise unavailable('DOWNLOAD_NOT_AUTHORIZED')
-        original.read('bytes=0-0')
+        original.probe(limit=MAX_DOWNLOAD_BYTES if purpose == 'download' else MAX_FILE_BYTES)
         if asset.path != original.path:
-            asset.read('bytes=0-0')
+            asset.probe()
         self.runtime.provider.revalidate(plan)
         if purpose == 'download' and not self._download_allowed(actor, binding, original.sha256):
             raise unavailable('DOWNLOAD_NOT_AUTHORIZED')
@@ -143,31 +149,60 @@ class DocumentDelivery:
         if purpose == 'download' and not self._download_allowed(actor, binding, original.sha256):
             raise unavailable('DOWNLOAD_NOT_AUTHORIZED')
         if asset.path != original.path:
+            # A derived preview never replaces source verification: the original
+            # is still hashed on every content request.
             original.read('bytes=0-0')
-        body, status, start, end, size = asset.read(range_header)
+        size = asset.probe(limit=MAX_DOWNLOAD_BYTES)
+        if range_header is not None or size <= MAX_FILE_BYTES:
+            # A bounded range or a normally sized file is verified and returned
+            # in one piece; the range path still verifies the whole file first
+            # and still re-checks the current authorization before any byte.
+            body, status, start, end, size = asset.read(range_header)
+            self.runtime.checkpoint('document_delivery_before_final')
+            self.runtime.provider.revalidate(plan)
+            if purpose == 'download' and not self._download_allowed(actor, binding, original.sha256):
+                raise unavailable('DOWNLOAD_NOT_AUTHORIZED')
+            if record['expires_at'] <= self.clock():
+                raise unavailable('TICKET_EXPIRED')
+            self._deliver_log(actor, record, purpose, size, streamed=False)
+            headers = self._headers(asset, purpose, status, size)
+            if status == 206:
+                headers['Content-Range'] = f'bytes {start}-{end}/{size}'
+            return Content(body, status, headers)
+        # A full file is verified in one pass and then streamed, so a large
+        # published standard never sits in the worker's memory.
+        stream, size = asset.open_stream()
         self.runtime.checkpoint('document_delivery_before_final')
         self.runtime.provider.revalidate(plan)
         if purpose == 'download' and not self._download_allowed(actor, binding, original.sha256):
+            stream.close()
             raise unavailable('DOWNLOAD_NOT_AUTHORIZED')
-        # An expiry crossed during a bounded file read does not extend a ticket.
+        # An expiry crossed during the verified read does not extend a ticket.
         if record['expires_at'] <= self.clock():
+            stream.close()
             raise unavailable('TICKET_EXPIRED')
+        self._deliver_log(actor, record, purpose, size, streamed=True)
+        headers = self._headers(asset, purpose, 200, size)
+        headers['Accept-Ranges'] = 'none'
+        return Content(None, 200, headers, stream=stream)
+
+    def _deliver_log(self, actor, record, purpose, size, *, streamed):
         action = 'document.preview' if purpose == 'preview' else 'document.download'
         self.runtime.audit.record(actor.user_ref, action.replace('.', '_'), 'SUCCESS', 1)
         _LOG.info(json.dumps({'event': 'DOCUMENT_DELIVERED', 'action': action,
                              'document_sha256': hashlib.sha256(record['document_id'].encode()).hexdigest(),
-                             'bytes': len(body), 'partial': status == 206}))
-        headers = {'Content-Type': asset.content_type,
-                   'Content-Disposition': disposition(asset.filename, purpose == 'preview'),
-                   'X-Content-Type-Options': 'nosniff',
-                   'Cache-Control': 'private, no-store, max-age=0', 'Pragma': 'no-cache',
-                   'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'SAMEORIGIN',
-                   'Cross-Origin-Resource-Policy': 'same-origin',
-                   'Content-Security-Policy': "sandbox; default-src 'none'; frame-ancestors 'self'",
-                   'Accept-Ranges': 'bytes', 'Content-Length': str(len(body))}
-        if status == 206:
-            headers['Content-Range'] = f'bytes {start}-{end}/{size}'
-        return Content(body, status, headers)
+                             'bytes': size, 'streamed': streamed}))
+
+    @staticmethod
+    def _headers(asset, purpose, status, size):
+        return {'Content-Type': asset.content_type,
+                'Content-Disposition': disposition(asset.filename, purpose == 'preview'),
+                'X-Content-Type-Options': 'nosniff',
+                'Cache-Control': 'private, no-store, max-age=0', 'Pragma': 'no-cache',
+                'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'SAMEORIGIN',
+                'Cross-Origin-Resource-Policy': 'same-origin',
+                'Content-Security-Policy': "sandbox; default-src 'none'; frame-ancestors 'self'",
+                'Accept-Ranges': 'bytes', 'Content-Length': str(size)}
 
 
 def build_delivery(runtime, cfg, state):

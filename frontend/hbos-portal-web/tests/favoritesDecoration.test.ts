@@ -41,6 +41,9 @@ async function view() {
 }
 
 beforeEach(() => {
+  // Each test is a fresh tab: the per-identity workspace store must not
+  // carry a previous case's filters into this one.
+  window.sessionStorage.clear()
   vi.clearAllMocks()
   api.page.mockImplementation((_kind: string, page: number, pageSize: number) =>
     Promise.resolve({ items: [bookmark(`B${page}`)], page, page_size: pageSize, has_more: page === 1 }))

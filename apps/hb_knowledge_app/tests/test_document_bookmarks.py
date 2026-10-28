@@ -38,8 +38,10 @@ def test_revoke_after_write_prevents_return_of_stale_saved_reference(monkeypatch
     with pytest.raises(KnowledgeError) as failure:activity.save_document(app,b.canonical_document_id,b.version_id,'request')
     assert failure.value.code=='SCOPE_REJECTED'
 
-def test_catalog_explicitly_requires_future_download_permission():
+def test_catalog_states_the_server_download_decision_without_exposing_a_channel():
     from hb_knowledge_app.hb_knowledge.reference_admin import get_catalog_page
-    app,actor,_,_=catalog_runtime();doc=get_catalog_page(app,actor)['documents'][0]
-    assert doc['download_state']=='permission_required' and doc['version_id']=='VERSION_TEST'
+    app,actor,repo,_=catalog_runtime();doc=get_catalog_page(app,actor)['documents'][0]
+    assert doc['download_state'] in ('available','unavailable') and doc['version_id']=='VERSION_TEST'
+    # The catalog never carries a URL, a path or a direct original handle; the
+    # reader asks the delivery endpoint and the server re-decides every time.
     assert not any(key in doc for key in ('url','get_source','download_url','original'))

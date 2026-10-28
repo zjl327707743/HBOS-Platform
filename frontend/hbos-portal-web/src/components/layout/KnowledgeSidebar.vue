@@ -6,7 +6,7 @@
       <RouterLink v-for="item in items" :key="item.path" :to="item.path" :class="{active: route.path === item.path}" :aria-current="route.path === item.path ? 'page' : undefined"><component :is="item.icon" /><span>{{ item.label }}</span></RouterLink>
     </nav>
     <div class="kb-sidebar-bottom">
-      <div class="kb-quiet-note"><SafetyCertificateOutlined /><span>只查已共享、当前有效的资料</span></div>
+      <div class="kb-quiet-note"><SafetyCertificateOutlined /><span>查阅已共享资料</span></div>
       <RouterLink v-if="!maintenance" to="/hbos/knowledge/history?tab=feedback"><MessageOutlined />反馈与建议</RouterLink>
       <RouterLink v-if="canMaintain && !maintenance" to="/hbos/knowledge/maintenance"><SettingOutlined />知识维护</RouterLink>
       <RouterLink v-if="maintenance" to="/hbos/knowledge"><SearchOutlined />返回查知识</RouterLink>

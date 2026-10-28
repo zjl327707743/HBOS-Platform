@@ -7,6 +7,9 @@ vi.mock('@/services/frappeClient', () => ({ callFrappePostMethod: transport.post
 const emptyResult = { ok: true, data: { request_id: 'REQ_SYNTHETIC', mode: 'retrieval', results: [] } }
 
 beforeEach(() => {
+  // Each test is a fresh tab: the per-identity workspace store must not
+  // carry a previous case's filters into this one.
+  window.sessionStorage.clear()
   vi.clearAllMocks()
   transport.post.mockResolvedValue(emptyResult)
 })

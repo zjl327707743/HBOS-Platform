@@ -76,7 +76,7 @@ function deferred<T = unknown>() {
 
 const revision = (w: VueWrapper) => Number(w.get('[data-test="revision"]').text())
 
-beforeEach(() => { provider.getPortalData.mockReset(); provider.getPortalData.mockResolvedValue(data()) })
+beforeEach(() => { window.sessionStorage.clear(); provider.getPortalData.mockReset(); provider.getPortalData.mockResolvedValue(data()) })
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks() })
 
 describe('tab resume keeps the working state', () => {

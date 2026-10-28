@@ -105,6 +105,9 @@ async function runSearch(wrapper: VueWrapper, results: Record<string, unknown>[]
 }
 
 beforeEach(() => {
+  // Each test is a fresh tab: the per-identity workspace store must not
+  // carry a previous case's filters into this one.
+  window.sessionStorage.clear()
   vi.clearAllMocks()
   useKnowledgeReturnStore().clearAll()
   portalBox.user = { id: 'USER_QA_DEMO' }
@@ -132,7 +135,7 @@ describe('source drawer reader entry', () => {
     wrappers.push(wrapper)
     const button = wrapper.find('[data-reader-open]')
     expect(button.attributes('disabled')).toBeUndefined()
-    expect(wrapper.text()).toContain('当前来源未附版本记录')
+    expect(wrapper.text()).toContain('打开时会重新核验当前身份与版本')
     await button.trigger('click')
     expect(wrapper.emitted('read')?.[0]).toEqual([{ documentId: 'DOC_A_DEMO' }])
   })

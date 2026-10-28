@@ -131,45 +131,62 @@ class InternalSharedReferenceProvider(LegacyHbosPolicyProvider):
     provider_kind='INTERNAL_SHARED_REFERENCE'
 
     def authorize_download(self, actor, client, binding, source_sha256):
-        """A narrow document.download extension of this same policy provider.
+        """The one download decision, made by the server for this binding.
 
-        Reader/search grants never imply this action. Candidate grants name an
-        existing role, subject, space, immutable version and original hash. A
-        future IAM provider can implement the same port without another IAM DB.
-        The configuration is server-owned and reloaded with each HTTP request.
+        Reading and searching still need their own grants; this is the separate
+        ``document.download`` action. Under the configured
+        ``shared_all_authenticated`` scope every normally enabled business user
+        may take the original of a current published shared document without a
+        per-file grant. Under ``department_scoped`` the same entry point consults
+        IAM/department scope and legacy per-file grants instead. Withdrawal,
+        publication state, the current version, an explicitly withheld original,
+        synthetic bindings and original delivery being switched off are refused
+        in both scopes, and the configuration is server-owned and reloaded with
+        each HTTP request.
         """
-        from .download_policy import document_download_decision
+        from .download_policy import (DEPARTMENT_SCOPED, SHARED_ALL_AUTHENTICATED,
+                                      document_download_decision)
         from .execution_plan import validate_admission
         snapshot = self._current(actor, client)
         if binding not in snapshot.bindings:
             return False
         validate_admission(binding, self.environment, self.clock())
         cfg = self.repository.config
-        approvals = cfg.get('document_download_grants', [])
-        if not isinstance(approvals, list) or len(approvals) > 100:
+        scope = cfg.get('document_download_scope', SHARED_ALL_AUTHENTICATED)
+        if not isinstance(scope, str):
             return False
-        allowed = False
-        for grant in approvals:
-            if not isinstance(grant, dict) or set(grant) != {
-                    'action', 'role_ref', 'subject_refs', 'space_id', 'document_id',
-                    'version_id', 'source_sha256'}:
-                continue
-            subjects = grant['subject_refs']
-            if (not isinstance(subjects, list) or not subjects or len(subjects) > 20
-                    or not all(isinstance(s, str) for s in subjects)):
-                continue
-            if (grant['action'] == 'document.download'
-                    and grant['role_ref'] in snapshot.actor_state.roles
-                    and actor.user_ref in subjects
-                    and grant['space_id'] == binding.space_id
-                    and binding.space_id in snapshot.active_spaces
-                    and binding.space_id not in snapshot.denied_spaces
-                    and grant['document_id'] == binding.canonical_document_id
-                    and grant['version_id'] == binding.version_id
-                    and grant['source_sha256'] == source_sha256):
-                allowed = True
-                break
+        withheld = cfg.get('document_download_withheld_versions', [])
+        if not isinstance(withheld, list) or len(withheld) > 500:
+            return False
+        approved = False
+        if scope == DEPARTMENT_SCOPED:
+            approvals = cfg.get('document_download_grants', [])
+            if not isinstance(approvals, list) or len(approvals) > 100:
+                return False
+            for grant in approvals:
+                if not isinstance(grant, dict) or set(grant) != {
+                        'action', 'role_ref', 'subject_refs', 'space_id', 'document_id',
+                        'version_id', 'source_sha256'}:
+                    continue
+                subjects = grant['subject_refs']
+                if (not isinstance(subjects, list) or not subjects or len(subjects) > 20
+                        or not all(isinstance(s, str) for s in subjects)):
+                    continue
+                if (grant['action'] == 'document.download'
+                        and grant['role_ref'] in snapshot.actor_state.roles
+                        and actor.user_ref in subjects
+                        and grant['space_id'] == binding.space_id
+                        and binding.space_id in snapshot.active_spaces
+                        and binding.space_id not in snapshot.denied_spaces
+                        and grant['document_id'] == binding.canonical_document_id
+                        and grant['version_id'] == binding.version_id
+                        and grant['source_sha256'] == source_sha256):
+                    approved = True
+                    break
         return document_download_decision(
-            subject_enabled=actor.enabled, version_current=True,
-            iam_allowed=allowed, department_allowed=allowed,
-            delivery_enabled=cfg.get('document_delivery_enabled') is True).allowed
+            subject_enabled=actor.enabled, version_current=True, scope=scope,
+            iam_allowed=approved, department_allowed=approved,
+            delivery_enabled=cfg.get('document_delivery_enabled') is True,
+            withheld=(binding.version_id in withheld
+                      or binding.canonical_document_id in withheld),
+            synthetic=binding.source_type == 'SYNTHETIC_TEST').allowed

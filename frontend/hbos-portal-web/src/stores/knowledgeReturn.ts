@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { loadWorkspace, saveWorkspace } from '@/services/knowledgeWorkspace'
 import type {
   KnowledgeReturnSnapshot,
   KnowledgeToolsReturnState,
@@ -20,6 +21,37 @@ const snapshot = ref<KnowledgeReturnSnapshot | null>(null)
 const snapshotOwner = ref<string | null>(null)
 const positions = ref<Record<string, ReaderPosition>>({})
 const positionsOwner = ref<string | null>(null)
+
+// The same tab may reload or be discarded by the browser. Reading positions and
+// a small navigation snapshot are mirrored into sessionStorage per identity, so
+// the page comes back where it was without keeping any content or credential.
+function hydrate(subject: string | null) {
+  if (!subject || positionsOwner.value === subject) return
+  const saved = loadWorkspace(subject)
+  positions.value = Object.fromEntries(
+    Object.entries(saved?.positions || {}).map(([key, value]) => [key, { ...value, updatedAt: Date.now() }]),
+  )
+  positionsOwner.value = subject
+}
+
+function persist() {
+  const subject = positionsOwner.value
+  if (!subject) return
+  const saved = loadWorkspace(subject)
+  saveWorkspace(subject, {
+    query: saved?.query || '',
+    mode: saved?.mode || 'ask',
+    selectedSpace: saved?.selectedSpace || '',
+    catalogQuery: saved?.catalogQuery || '',
+    catalogPage: saved?.catalogPage || 1,
+    catalogPageSize: saved?.catalogPageSize || 20,
+    lawCategory: saved?.lawCategory || '',
+    sourceFolder: saved?.sourceFolder || 'SOURCE_ROOT',
+    view: saved?.view || 'query',
+    scrollTop: saved?.scrollTop || 0,
+    positions: positions.value,
+  })
+}
 
 /** Save the workspace immediately before navigating into the reader. */
 function capture(subject: string | null, value: KnowledgeReturnSnapshot) {
@@ -58,17 +90,19 @@ function rememberPosition(
   subject: string | null,
   documentId: string,
   versionId: string | null | undefined,
-  position: { page: number; searchQuery: string },
+  position: { page: number; zoom?: number; searchQuery: string },
 ) {
   if (!subject || !documentId) return
   if (positionsOwner.value !== subject) {
     positions.value = {}
     positionsOwner.value = subject
+    hydrate(subject)
   }
   const key = positionKey(documentId, versionId)
   const next: Record<string, ReaderPosition> = {
     ...positions.value,
-    [key]: { page: position.page, searchQuery: position.searchQuery, updatedAt: Date.now() },
+    [key]: { page: position.page, zoom: position.zoom || 0,
+             searchQuery: position.searchQuery, updatedAt: Date.now() },
   }
   const keys = Object.keys(next)
   if (keys.length > MAX_READER_POSITIONS) {
@@ -76,10 +110,12 @@ function rememberPosition(
     delete next[oldest]
   }
   positions.value = next
+  persist()
 }
 
 function positionFor(subject: string | null, documentId: string, versionId: string | null | undefined): ReaderPosition | null {
-  if (!subject || positionsOwner.value !== subject) return null
+  if (!subject) return null
+  if (positionsOwner.value !== subject) { positions.value = {}; positionsOwner.value = subject; hydrate(subject) }
   return positions.value[positionKey(documentId, versionId)] || null
 }
 
@@ -98,6 +134,8 @@ function snapshotTools(): KnowledgeToolsReturnState | null {
 }
 
 const knowledgeReturnStore = {
+  hydrate,
+  persist,
   capture,
   takeFor,
   peek,

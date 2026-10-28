@@ -29,6 +29,9 @@ async function askMode(wrapper: ReturnType<typeof mount>) { await clickText(wrap
 async function search(wrapper: ReturnType<typeof mount>) { await wrapper.get('#knowledge-query').setValue('合成关键词'); await wrapper.get('.knowledge-search').trigger('submit'); await flushPromises() }
 
 beforeEach(() => {
+  // Each test is a fresh tab: the per-identity workspace store must not
+  // carry a previous case's filters into this one.
+  window.sessionStorage.clear()
   vi.clearAllMocks(); session.user = { id: 'USER_N1_DEMO' }; route.query = {}; route.path='/hbos/knowledge'
   api.status.mockResolvedValue(ready); api.spaces.mockResolvedValue([{ space_id: 'SPACE_N1_DEMO', title: '合成部门', document_count: 25 }, { space_id: 'SPACE_N1_SECOND', title: '另一合成部门', document_count: 0 }])
   api.documents.mockImplementation((_query: string, _space: string, page: number, pageSize: number) => Promise.resolve({ documents: [doc], total: 25, page, page_size: pageSize }))
@@ -67,8 +70,8 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     session.user = { id: 'USER_N1_OTHER' }; await flushPromises(); pending.resolve({ ...answer, answer: 'OLD_USER_PRIVATE' }); await flushPromises(); expect(w.text()).not.toContain('OLD_USER_PRIVATE'); expect(w.get('#knowledge-query').element).toHaveProperty('value', '')
   })
   it('reads catalog pages from the server without model calls and resets filters to page one', async () => {
-    const w = await view(); await clickText(w,'资料目录'); await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 4, undefined, 'SOURCE_ROOT')
-    vi.useFakeTimers(); await w.get('#catalog-query').setValue('合成标题'); await vi.advanceTimersByTimeAsync(200); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('合成标题', '', 1, 4, undefined, 'SOURCE_ROOT'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
+    const w = await view(); await clickText(w,'资料目录'); await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 20, undefined, 'SOURCE_ROOT')
+    vi.useFakeTimers(); await w.get('#catalog-query').setValue('合成标题'); await vi.advanceTimersByTimeAsync(200); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('合成标题', '', 1, 20, undefined, 'SOURCE_ROOT'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
   })
   it.each(['department', 'filter'])('catalog %s changes show pending state through debounce and only show empty after completion', async change => {
     const w = await view(); await clickText(w,'资料目录'); const pending = deferred(); api.documents.mockReturnValueOnce(pending.promise); vi.useFakeTimers()
@@ -76,7 +79,7 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     else await w.get('#catalog-query').setValue('未匹配合成词')
     expect(w.get('.catalog-heading').text()).toContain('更新中'); expect(w.find('.catalog-content [data-loading]').exists()).toBe(true); expect(w.find('.catalog-content [data-empty]').exists()).toBe(false)
     await vi.advanceTimersByTimeAsync(200); await flushPromises(); expect(w.get('.catalog-heading').text()).toContain('更新中'); expect(w.find('.catalog-content [data-empty]').exists()).toBe(false)
-    pending.resolve({ documents: [], total: 0, page: 1, page_size: 4 }); await flushPromises()
+    pending.resolve({ documents: [], total: 0, page: 1, page_size: 20 }); await flushPromises()
     expect(w.get('.catalog-heading').text()).toContain('0 份'); expect(w.find('.catalog-content [data-loading]').exists()).toBe(false); expect(w.get('.catalog-content [data-empty]').text()).toContain(change === 'department' ? '当前范围暂无' : '没有匹配的资料')
   })
   it('returning to the catalogue retains rows during a fresh authorization refresh', async () => {
@@ -92,8 +95,8 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     expect(api.ask).not.toHaveBeenCalled()
   })
   it('late old catalog responses cannot refill a newly selected department', async () => {
-    const old = deferred(); api.documents.mockReturnValueOnce(old.promise); const w = await view(); await clickText(w,'资料目录'); vi.useFakeTimers(); await w.get('#catalog-department').setValue('SPACE_N1_SECOND'); api.documents.mockResolvedValue({ documents: [], total: 0, page: 1, page_size: 4 }); await vi.advanceTimersByTimeAsync(200); await flushPromises()
-    old.resolve({ documents: [{ ...doc, title: 'OLD_SCOPE_CATALOG' }], total: 1, page: 1, page_size: 4 }); await flushPromises(); expect(w.text()).not.toContain('OLD_SCOPE_CATALOG'); expect(w.text()).toContain('当前范围暂无可查阅')
+    const old = deferred(); api.documents.mockReturnValueOnce(old.promise); const w = await view(); await clickText(w,'资料目录'); vi.useFakeTimers(); await w.get('#catalog-department').setValue('SPACE_N1_SECOND'); api.documents.mockResolvedValue({ documents: [], total: 0, page: 1, page_size: 20 }); await vi.advanceTimersByTimeAsync(200); await flushPromises()
+    old.resolve({ documents: [{ ...doc, title: 'OLD_SCOPE_CATALOG' }], total: 1, page: 1, page_size: 20 }); await flushPromises(); expect(w.text()).not.toContain('OLD_SCOPE_CATALOG'); expect(w.text()).toContain('当前范围暂无可查阅')
   })
   it('saved replay restores its own context and displays that range before fresh search', async () => {
     route.query = { equipment_id: 'EQ_CURRENT_DEMO', asset_id: 'ASSET_CURRENT_DEMO' }
@@ -267,12 +270,17 @@ describe('N1 knowledge experience — synthetic components, no real model or Ses
     api.spaces.mockResolvedValue([{ space_id: 'SPACE_N1_DEMO', title: '合成部门', document_count: 1 }, { space_id: 'DEPT_PUBLIC_LAW', title: '公司公共法律法规知识', document_count: 25 }])
     const law = { ...doc, document_id: 'DOC_LAW_SYNTHETIC', space_id: 'DEPT_PUBLIC_LAW', title: '合成法规', legal_metadata: { category: '国家法律法规', level: null, issuer: null, published_date: null, region: null, applicability: null, effective_status: '待核' } }
     api.documents.mockImplementation((_q: string, space: string, page: number, size: number) => Promise.resolve({ documents: space === 'SPACE_N1_DEMO' ? [doc] : [law], total: 25, page, page_size: size }))
-    const w = await view(); await clickText(w, '资料目录'); expect(w.text()).toContain('效力待核'); expect(w.text()).toContain('发布机构待核')
-    await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 4, undefined, 'SOURCE_ROOT')
+    const w = await view(); await clickText(w, '资料目录')
+    // An unknown effectiveness or issuer is not printed as a "to be verified"
+    // label any more, and no pseudo legal guarantee is invented either.
+    expect(w.text()).not.toContain('效力待核')
+    expect(w.text()).not.toContain('发布机构待核')
+    expect(w.text()).not.toContain('现行有效')
+    await w.get('[data-next-page]').trigger('click'); await flushPromises(); expect(api.documents).toHaveBeenLastCalledWith('', '', 2, 20, undefined, 'SOURCE_ROOT')
     vi.useFakeTimers(); await w.get('#catalog-law-category').setValue('国家法律法规'); await vi.advanceTimersByTimeAsync(200); await flushPromises()
-    expect(api.documents).toHaveBeenLastCalledWith('', '', 1, 4, '国家法律法规', 'SOURCE_ROOT'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
+    expect(api.documents).toHaveBeenLastCalledWith('', '', 1, 20, '国家法律法规', 'SOURCE_ROOT'); expect(api.ask).not.toHaveBeenCalled(); expect(api.search).not.toHaveBeenCalled()
     await w.get('#catalog-department').setValue('SPACE_N1_DEMO'); await vi.advanceTimersByTimeAsync(200); await flushPromises()
-    expect(w.find('#catalog-law-category').exists()).toBe(false); expect(api.documents).toHaveBeenLastCalledWith('', 'SPACE_N1_DEMO', 1, 4, undefined, 'SOURCE_ROOT')
+    expect(w.find('#catalog-law-category').exists()).toBe(false); expect(api.documents).toHaveBeenLastCalledWith('', 'SPACE_N1_DEMO', 1, 20, undefined, 'SOURCE_ROOT')
   })
 
   it('UAT5 restores an authorized answer after route, mode and department props settle without generation', async () => {

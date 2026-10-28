@@ -10,6 +10,9 @@ const card = {
 }
 
 beforeEach(() => {
+  // Each test is a fresh tab: the per-identity workspace store must not
+  // carry a previous case's filters into this one.
+  window.sessionStorage.clear()
   vi.clearAllMocks()
   transport.post.mockResolvedValue({ ok: true, data: card })
 })

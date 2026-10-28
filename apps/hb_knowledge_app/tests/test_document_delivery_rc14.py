@@ -203,9 +203,10 @@ def test_capabilities_keep_text_reading_when_preview_or_original_missing(setup):
 
 
 @pytest.mark.parametrize('field',['action','role_ref','subject_refs','space_id','document_id','version_id','source_sha256'])
-def test_real_provider_requires_every_independent_download_dimension(setup,field,monkeypatch):
+def test_department_scope_still_requires_every_independent_download_dimension(setup,field,monkeypatch):
     # Only the production import surface is stubbed; the policy decision itself
     # below is the real provider method and uses the real authority snapshot.
+    # Under the future department scope each grant dimension still has to match.
     monkeypatch.setitem(sys.modules,'pymysql',ModuleType('pymysql'))
     cipher=ModuleType('cryptography.fernet');cipher.Fernet=lambda *a:None
     monkeypatch.setitem(sys.modules,'cryptography.fernet',cipher)
@@ -217,14 +218,70 @@ def test_real_provider_requires_every_independent_download_dimension(setup,field
     grant={'action':'document.download','role_ref':'ROLE_QA','subject_refs':[s.actor.user_ref],
            'space_id':binding.space_id,'document_id':binding.canonical_document_id,
            'version_id':binding.version_id,'source_sha256':s.sha}
-    s.repo.config={'document_delivery_enabled':True,'document_download_grants':[grant]}
+    s.repo.config={'document_delivery_enabled':True,'document_download_scope':'department_scoped',
+                   'document_download_grants':[grant]}
     provider=InternalSharedReferenceProvider(s.repo,environment='production',clock=s.app.provider.clock)
     assert provider.authorize_download(s.actor,s.app.client,binding,s.sha)
     grant[field]=['OTHER'] if field=='subject_refs' else 'OTHER'
     assert not provider.authorize_download(s.actor,s.app.client,binding,s.sha)
 
 
-def test_unknown_download_permissions_and_feature_default_deny():
+def test_shared_scope_needs_no_per_file_grant_but_keeps_every_safety_check(setup,monkeypatch):
+    # The current business scope: a normally enabled reader of a current,
+    # published, shared document may download the original without any grant.
+    monkeypatch.setitem(sys.modules,'pymysql',ModuleType('pymysql'))
+    cipher=ModuleType('cryptography.fernet');cipher.Fernet=lambda *a:None
+    monkeypatch.setitem(sys.modules,'cryptography.fernet',cipher)
+    from hb_knowledge_app.hb_knowledge.shared_reference import InternalSharedReferenceProvider
+    s=setup
+    binding=replace(s.binding,source_type='ORDINARY_INTERNAL_KNOWLEDGE',authority_status='INTERNAL_REFERENCE_REVIEWED')
+    s.repo.test_only=False
+    s.repo.snapshot=replace(s.repo.snapshot,bindings=(binding,),provider=ProviderStamp('INTERNAL_SHARED_REFERENCE','P',None))
+    s.repo.config={'document_delivery_enabled':True,'document_download_scope':'shared_all_authenticated',
+                   'document_download_grants':[]}
+    provider=InternalSharedReferenceProvider(s.repo,environment='production',clock=s.app.provider.clock)
+    assert provider.authorize_download(s.actor,s.app.client,binding,s.sha)
+    # A disabled account, a synthetic binding, a withdrawn version, a withheld
+    # original and a switched-off channel are each refused inside the shared
+    # scope - by raising the admission/policy error or by returning False, never
+    # by silently granting the action.
+    def refused(actor, candidate):
+        try:return provider.authorize_download(actor,s.app.client,candidate,s.sha) is not True
+        except KnowledgeError:return True
+    assert refused(replace(s.actor,enabled=False),binding)
+    synthetic=replace(binding,source_type='SYNTHETIC_TEST')
+    s.repo.snapshot=replace(s.repo.snapshot,bindings=(synthetic,))
+    assert refused(s.actor,synthetic)
+    withdrawn=replace(binding,withdrawn=True)
+    s.repo.snapshot=replace(s.repo.snapshot,bindings=(withdrawn,))
+    assert refused(s.actor,withdrawn)
+    s.repo.snapshot=replace(s.repo.snapshot,bindings=(binding,))
+    s.repo.config={'document_delivery_enabled':True,'document_download_scope':'shared_all_authenticated',
+                   'document_download_withheld_versions':[binding.version_id]}
+    assert refused(s.actor,binding)
+    s.repo.config={'document_delivery_enabled':False,'document_download_scope':'shared_all_authenticated'}
+    assert refused(s.actor,binding)
+    s.repo.config={'document_delivery_enabled':True,'document_download_scope':'unknown_scope'}
+    assert refused(s.actor,binding)
+
+
+def test_shared_scope_allows_the_action_and_every_other_check_still_denies():
+    assert document_download_decision(subject_enabled=True,version_current=True,
+                                      delivery_enabled=True).allowed
+    # Delivery switched off, a stale version, a disabled subject, a withheld
+    # original and a synthetic binding each still deny inside the shared scope.
     assert not document_download_decision(subject_enabled=True,version_current=True).allowed
-    assert not document_download_decision(subject_enabled=True,version_current=True,iam_allowed=True,department_allowed=True).allowed
-    assert document_download_decision(subject_enabled=True,version_current=True,iam_allowed=True,department_allowed=True,delivery_enabled=True).allowed
+    assert not document_download_decision(subject_enabled=True,version_current=False,delivery_enabled=True).allowed
+    assert not document_download_decision(subject_enabled=False,version_current=True,delivery_enabled=True).allowed
+    assert not document_download_decision(subject_enabled=True,version_current=True,delivery_enabled=True,withheld=True).allowed
+    assert not document_download_decision(subject_enabled=True,version_current=True,delivery_enabled=True,synthetic=True).allowed
+    # An unknown scope denies instead of falling back to the shared one.
+    unknown=document_download_decision(subject_enabled=True,version_current=True,
+                                       scope='something_else',delivery_enabled=True)
+    assert not unknown.allowed and unknown.reason=='DOWNLOAD_SCOPE_UNKNOWN'
+    # Department scope keeps the independent IAM/department requirement.
+    assert not document_download_decision(subject_enabled=True,version_current=True,
+                                          scope='department_scoped',delivery_enabled=True).allowed
+    assert document_download_decision(subject_enabled=True,version_current=True,
+                                      scope='department_scoped',iam_allowed=True,
+                                      department_allowed=True,delivery_enabled=True).allowed

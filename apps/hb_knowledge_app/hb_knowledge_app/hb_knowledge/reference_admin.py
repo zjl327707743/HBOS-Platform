@@ -242,8 +242,13 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
 def _catalog_projection(runtime, snapshot):
     from .public_strings import safe_string
     from .spaces import authorized_spaces
+    from .download_policy import document_download_decision
     allowed=authorized_spaces(snapshot,actions=('knowledge.spaces','knowledge.search'))
     titles=dict(snapshot.space_titles);seen=set();out=[]
+    cfg=getattr(runtime.provider.repository,'config',{}) or {}
+    scope=cfg.get('document_download_scope','shared_all_authenticated')
+    withheld=cfg.get('document_download_withheld_versions') or []
+    delivery=cfg.get('document_delivery_enabled') is True
     for b in snapshot.bindings:
         key=(b.space_id,b.canonical_document_id,b.version_id)
         if (key in seen or b.space_id not in allowed
@@ -251,15 +256,20 @@ def _catalog_projection(runtime, snapshot):
         try:validate_admission(b,runtime.profile,runtime.provider.clock())
         except KnowledgeError:continue
         seen.add(key)
-        from .download_policy import document_download_decision
-        download=document_download_decision(subject_enabled=True,version_current=True)
+        # The catalog states what the server would decide for this exact binding
+        # right now; it never widens or narrows the actual content request.
+        download=document_download_decision(
+            subject_enabled=snapshot.actor_state.actor.enabled,version_current=True,
+            scope=scope if isinstance(scope,str) else 'UNKNOWN',iam_allowed=False,
+            department_allowed=False,delivery_enabled=delivery,
+            withheld=b.version_id in withheld or b.canonical_document_id in withheld,
+            synthetic=b.source_type=='SYNTHETIC_TEST')
         item={'document_id':safe_string(b.canonical_document_id,120),'title':safe_string(b.title,240,nullable=True),
             'space_id':safe_string(b.space_id,120),'department':safe_string(titles.get(b.space_id,''),120),
             'document_number':safe_string(b.document_number,120,nullable=True),'version':b.business_version,
             'version_id':safe_string(b.version_id,120),
-            'download_state':'permission_required','download_note':'待部门文档下载权限上线',
-            'status_note':'内部参考／有效性待核' if b.authority_status in {'CONTROLLED_REFERENCE_REVIEWED','INTERNAL_REFERENCE_REVIEWED'} else b.authority_status}
-        if download.allowed:raise KnowledgeError('POLICY_UNAVAILABLE')
+            'download_state':'available' if download.allowed else 'unavailable',
+            'status_note':'内部参考' if b.authority_status in {'CONTROLLED_REFERENCE_REVIEWED','INTERNAL_REFERENCE_REVIEWED'} else b.authority_status}
         from .legal_metadata import LAW_SPACE,for_version
         if b.space_id==LAW_SPACE:item['legal_metadata']=for_version(b.version_id)
         from .source_directory import directories
