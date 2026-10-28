@@ -16,6 +16,8 @@ from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 import frappe
 from frappe.rate_limiter import rate_limit
 
+from hbos_portal.auth import write_receipts
+
 PROOF_TTL = 300
 PENDING_COOKIE = "hbos_account_pending"
 PENDING_TTL = 480
@@ -89,6 +91,13 @@ def require_post() -> None:
 
 def no_store() -> None:
     frappe.local.response_headers["Cache-Control"] = "private, no-store, max-age=0"
+
+
+def _rollback_safely() -> None:
+    """Rollback without assuming a real Frappe database handle (unit fakes)."""
+    db = getattr(frappe, "db", None)
+    if db is not None:
+        db.rollback()
 
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
@@ -344,27 +353,15 @@ def _bound_identity(user: str, *, lock: bool = False):
 
 
 def _write_receipt(user: str, request_id: str, action: str, *, save=False):
+    """Compatibility shim: read the durable receipt (Redis fast path, DB authority).
+
+    The old Redis-only writer is gone.  New writes claim and settle a database
+    row inside the business transaction; the parameter is kept so existing
+    call sites and tests keep their shape.
+    """
     if not request_id:
         return None
-    # An identifier is an idempotency key, never an authorization credential.
-    # Receipts are only readable after ordinary authorization for the same User.
-    from uuid import UUID
-    try:
-        UUID(request_id)
-    except (ValueError, TypeError, AttributeError):
-        frappe.throw("提交编号无效，请重新打开安全操作。")
-    key = "hbos:account:write-result:" + digest(user + ":" + request_id)
-    if save:
-        try:
-            frappe.cache.set_value(key, {"completed": True, "action": action}, expires_in_sec=RECOVERY_TTL)
-        except Exception:
-            # The SQL mutation is committed; a receipt failure cannot undo it
-            # or turn the successful response into an instruction to repeat it.
-            pass
-        return None
-    result = frappe.cache.get_value(key)
-    if result and action and result.get("action") != action:
-        frappe.throw("此提交编号已用于另一项安全操作。")
+    result = write_receipts.read_receipt(user, request_id, action)
     return result
 
 
@@ -394,36 +391,84 @@ def get_security(request_id: str = "") -> dict:
 
 
 @frappe.whitelist(methods=["POST"])
+@rate_limit(limit=8, seconds=300)
+def seal_unknown_write(request_id: str, action: str = "", confirm: str = "") -> dict:
+    """Explicitly end one unresolved security write without claiming success.
+
+    Requires the current account, a fresh password proof and an explicit
+    confirmation. It never creates a new operation and never re-dispatches the
+    old identifier.
+    """
+    require_post()
+    user = require_user()
+    if str(confirm or "") != "unknown-outcome":
+        frappe.throw("请明确确认原提交结果未知后再结束该请求。", frappe.ValidationError)
+    proof = require_proof(user, consume=True)
+    if proof["method"] != "password":
+        frappe.throw("结束未决安全操作须重新验证本人密码及原有二次认证。", frappe.AuthenticationError)
+    result = write_receipts.seal(user, request_id, action)
+    audit("seal_unknown_write", user)
+    frappe.db.commit()
+    no_store()
+    return result
+
+
+@frappe.whitelist(methods=["POST"])
 def admin_issue_recovery(user: str, reason: str, request_id: str = '') -> dict:
     require_post()
     administrator = require_user()
     if administrator != "Administrator" and "System Manager" not in frappe.get_roles(administrator):
         frappe.throw("仅管理员可执行受控恢复。", frappe.PermissionError)
-    if _write_receipt(administrator, request_id, 'recovery_issue'):
-        return {'already_issued': True, 'recovery_url': '', 'target': None, 'expires_in': 0}
-    proof = require_proof(administrator, consume=True)
-    if proof["method"] != "password":
-        frappe.throw("签发恢复链接须重新验证管理员密码及原有二次认证。", frappe.AuthenticationError)
-    # The form accepts the employee's login alias as well as canonical User ID.
-    # A bad target is a workflow validation error, not the issuer's login error.
-    user = str(user or '').strip()
-    user = user if frappe.db.exists('User', user) else frappe.db.get_value('User', {'username': user}, 'name')
-    if not user:
-        frappe.throw('未找到该员工账号，请核对登录名或账号。', frappe.ValidationError)
+    claim = None
+    target = ""
+
+    def resolve_target() -> str:
+        # The form accepts the employee's login alias as well as canonical User ID.
+        # A bad target is a workflow validation error, not the issuer's login error.
+        value = str(user or '').strip()
+        value = value if frappe.db.exists('User', value) else frappe.db.get_value('User', {'username': value}, 'name')
+        if not value:
+            frappe.throw('未找到该员工账号，请核对登录名或账号。', frappe.ValidationError)
+        if value == "Administrator" or len(str(reason).strip()) < 12:
+            frappe.throw("Administrator 保留原生应急恢复；其他账号恢复须填写身份核验依据。")
+        return value
+
+    if request_id:
+        # The receipt binds the issuer's actor namespace and the precise subject.
+        # Resolving the target is read-only, so claiming it before the proof keeps
+        # concurrent duplicates out of the side effect without weakening auth.
+        target = resolve_target()
+        claim = write_receipts.claim(actor=administrator, subject=target, action='recovery_issue',
+                                     request_id=request_id)
+        if claim["status"] == "replayed":
+            # The original link is deliberately not readable or re-issued.
+            return {'already_issued': True, 'recovery_url': '', 'target': None, 'expires_in': 0}
     try:
-        require_user(user)
-    except (frappe.AuthenticationError, frappe.PermissionError):
-        frappe.throw('该员工账号当前不可恢复，请核对启用状态和归属。', frappe.ValidationError)
-    if user == "Administrator" or len(str(reason).strip()) < 12:
-        frappe.throw("Administrator 保留原生应急恢复；其他账号恢复须填写身份核验依据。")
-    doc = frappe.get_doc("User", user)
-    link = doc._reset_password(send_email=False)
-    audit("administrator_recovery_issued", user)
-    frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": "User", "reference_name": user, "content": "管理员受控恢复：" + frappe.utils.escape_html(reason[:1000])}).insert(ignore_permissions=True)
-    frappe.db.commit()
-    _write_receipt(administrator, request_id, 'recovery_issue', save=True)
-    no_store()
-    return {"recovery_url": recovery_url(link), "target": recovery_target(doc), "expires_in": RECOVERY_TTL, "delivery": "仅私下交付给已核验的账号本人；管理员不设置员工密码"}
+        proof = require_proof(administrator, consume=True)
+        if proof["method"] != "password":
+            frappe.throw("签发恢复链接须重新验证管理员密码及原有二次认证。", frappe.AuthenticationError)
+        if not target:
+            target = resolve_target()
+        try:
+            require_user(target)
+        except (frappe.AuthenticationError, frappe.PermissionError):
+            frappe.throw('该员工账号当前不可恢复，请核对启用状态和归属。', frappe.ValidationError)
+        doc = frappe.get_doc("User", target)
+        link = doc._reset_password(send_email=False)
+        audit("administrator_recovery_issued", target)
+        frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": "User", "reference_name": target, "content": "管理员受控恢复：" + frappe.utils.escape_html(reason[:1000])}).insert(ignore_permissions=True)
+        if claim:
+            write_receipts.mark_committed(claim, {'issued': True})
+        frappe.db.commit()
+        if claim:
+            write_receipts.publish_cache(claim)
+        no_store()
+        return {"recovery_url": recovery_url(link), "target": recovery_target(doc), "expires_in": RECOVERY_TTL, "delivery": "仅私下交付给已核验的账号本人；管理员不设置员工密码"}
+    except Exception as exc:
+        _rollback_safely()
+        if claim:
+            write_receipts.abort(claim, failure_code=type(exc).__name__)
+        raise
 
 
 @frappe.whitelist(methods=["POST"])
@@ -560,7 +605,7 @@ def verify_feishu_code(code: str, otp: str = "", tmp_id: str = "") -> dict:
     return {"verified": True, "expires_in": PROOF_TTL}
 
 
-def _write_password(user: str, new_password: str) -> None:
+def _write_password(user: str, new_password: str, *, receipt=None) -> None:
     from frappe.core.doctype.user.user import test_password_strength, handle_password_test_fail
     from frappe.utils.password import update_password as write_standard_password
 
@@ -588,7 +633,13 @@ def _write_password(user: str, new_password: str) -> None:
     revoke_sessions(user)
     invalidate_user_tickets(user)
     audit("password_changed", user)
+    if receipt:
+        # The durable receipt is settled in the SAME transaction as the password
+        # hash, lifecycle settlement and audit row. A rollback leaves neither.
+        write_receipts.mark_committed(receipt, {"changed": True})
     frappe.db.commit()
+    if receipt:
+        write_receipts.publish_cache(receipt)
     frappe.local.login_manager.login_as(user)
 
 
@@ -596,34 +647,55 @@ def _write_password(user: str, new_password: str) -> None:
 def set_password(new_password: str, request_id: str = "") -> dict:
     require_post()
     user = require_user()
-    if _write_receipt(user, request_id, "password"):
-        return {"changed": True, "login_name": frappe.db.get_value("User", user, "username") or user, "replayed": True}
-    require_proof(user, consume=True)
-    _write_password(user, new_password)
-    _write_receipt(user, request_id, "password", save=True)
-    return {"changed": True, "login_name": frappe.db.get_value("User", user, "username") or user, "session_rotated": True}
+    claim = None
+    if request_id:
+        claim = write_receipts.claim(actor=user, subject=user, action="password", request_id=request_id,
+                                     payload_digest=write_receipts.password_payload_digest(new_password))
+        if claim["status"] == "replayed":
+            return {"changed": True, "login_name": frappe.db.get_value("User", user, "username") or user, "replayed": True}
+    try:
+        require_proof(user, consume=True)
+        _write_password(user, new_password, receipt=claim)
+        return {"changed": True, "login_name": frappe.db.get_value("User", user, "username") or user, "session_rotated": True}
+    except Exception as exc:
+        _rollback_safely()
+        if claim:
+            write_receipts.abort(claim, failure_code=type(exc).__name__)
+        raise
 
 
 @frappe.whitelist(methods=["POST"])
 def unlink_feishu(request_id: str = "") -> dict:
     require_post()
     user = require_user()
-    if _write_receipt(user, request_id, "unlink"):
-        return {"unlinked": True, "replayed": True}
-    proof = require_proof(user, consume=True)
-    if proof["method"] != "password":
-        frappe.throw("解绑须验证已可用的本地密码及原有二次认证。", frappe.AuthenticationError)
-    if not has_password(user) or frappe.get_system_settings("disable_user_pass_login"):
-        frappe.throw("飞书是当前唯一可用登录方式，请先设置并启用本地密码。")
-    frappe.db.sql("SELECT name FROM `tabUser` WHERE name=%s FOR UPDATE", (user,))
-    row = _bound_identity(user)
-    if row:
-        frappe.db.set_value("HBOS External Identity", row.name, {"enabled": 0, "active_user_key": None})
-    invalidate_user_tickets(user)
-    audit("unlink", user)
-    frappe.db.commit()
-    _write_receipt(user, request_id, "unlink", save=True)
-    return {"unlinked": True}
+    claim = None
+    if request_id:
+        claim = write_receipts.claim(actor=user, subject=user, action="unlink", request_id=request_id)
+        if claim["status"] == "replayed":
+            return {"unlinked": True, "replayed": True}
+    try:
+        proof = require_proof(user, consume=True)
+        if proof["method"] != "password":
+            frappe.throw("解绑须验证已可用的本地密码及原有二次认证。", frappe.AuthenticationError)
+        if not has_password(user) or frappe.get_system_settings("disable_user_pass_login"):
+            frappe.throw("飞书是当前唯一可用登录方式，请先设置并启用本地密码。")
+        frappe.db.sql("SELECT name FROM `tabUser` WHERE name=%s FOR UPDATE", (user,))
+        row = _bound_identity(user)
+        if row:
+            frappe.db.set_value("HBOS External Identity", row.name, {"enabled": 0, "active_user_key": None})
+        invalidate_user_tickets(user)
+        audit("unlink", user)
+        if claim:
+            write_receipts.mark_committed(claim, {"unlinked": True})
+        frappe.db.commit()
+        if claim:
+            write_receipts.publish_cache(claim)
+        return {"unlinked": True}
+    except Exception as exc:
+        _rollback_safely()
+        if claim:
+            write_receipts.abort(claim, failure_code=type(exc).__name__)
+        raise
 
 
 def mail_ready() -> bool:
@@ -743,6 +815,22 @@ def update_password(new_password: str, logout_all_sessions: int = 1, key: str | 
     """Secure the framework's historical public password-update path as well."""
     require_post()
     if key:
+        payload_digest = write_receipts.password_payload_digest(new_password)
+        # A response lost after a committed recovery write consumes the one-time
+        # key.  The same page still holds the original recovery context, which
+        # is the only credential accepted for reconciliation; a bare request id
+        # is never enough.
+        if request_id and recovery_context:
+            replay = write_receipts.read_guest_recovery(request_id=request_id, context=recovery_context,
+                                                        payload_digest=payload_digest)
+            if replay:
+                if replay.get("completed"):
+                    return "/hbos/profile"
+                if replay.get("sealed"):
+                    frappe.throw("该提交编号已按未知结果封存，不会再次执行。", frappe.ValidationError)
+                if replay.get("processing"):
+                    frappe.throw("上次提交仍在处理中，请稍后再次查询；不要重复提交。", frappe.ValidationError)
+                # ABORTED: definitely not executed; a real retry may proceed.
         record, _ = _recovery_record(key)
         recovery_proof = _require_recovery_context(recovery_context, key, record.name)
         challenge = verify_mfa(record.name, otp=otp, tmp_id=tmp_id)
@@ -763,10 +851,22 @@ def update_password(new_password: str, logout_all_sessions: int = 1, key: str | 
         if locked.name != record.name:
             frappe.throw("恢复验证已失效。", frappe.AuthenticationError)
         _require_recovery_context(recovery_context, key, locked.name)
-        _write_password(record.name, new_password)
-        _write_receipt(record.name, request_id, "recovery", save=True)
-        frappe.cache.delete_value("hbos:account:recovery:" + digest(recovery_context))
-        frappe.local.cookie_manager.delete_cookie(RECOVERY_COOKIE)
+        receipt = None
+        if request_id:
+            receipt = write_receipts.claim_guest_recovery(actor=record.name, action="recovery",
+                                                          request_id=request_id, context=recovery_context,
+                                                          payload_digest=payload_digest)
+            if receipt["status"] == "replayed":
+                return "/hbos/profile"
+        try:
+            _write_password(record.name, new_password, receipt=receipt)
+            frappe.cache.delete_value("hbos:account:recovery:" + digest(recovery_context))
+            frappe.local.cookie_manager.delete_cookie(RECOVERY_COOKIE)
+        except Exception as exc:
+            _rollback_safely()
+            if receipt:
+                write_receipts.abort(receipt, failure_code=type(exc).__name__)
+            raise
     else:
         user = require_user()
         if old_password:
