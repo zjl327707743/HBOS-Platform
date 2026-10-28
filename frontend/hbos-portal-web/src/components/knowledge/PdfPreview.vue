@@ -10,9 +10,9 @@
       </label>
       <a-button :disabled="page>=pages || painting" data-pdf-next @click="page++">下一页</a-button>
       <span class="kb-pdf-zoom" role="group" aria-label="缩放">
-        <a-button :disabled="scale<=0.5 || painting" data-pdf-zoom-out @click="setScale(scale-0.25)">缩小</a-button>
-        <button type="button" class="kb-pdf-scale" data-pdf-fit @click="fitWidth" title="按栏宽显示">{{scale ? Math.round(scale*100) + '%' : '适宽'}}</button>
-        <a-button :disabled="scale>=3 || painting" data-pdf-zoom-in @click="setScale(scale+0.25)">放大</a-button>
+        <a-button :disabled="(scale || 1) <= 0.5 || painting" data-pdf-zoom-out @click="zoomBy(-0.25)">缩小</a-button>
+        <button type="button" class="kb-pdf-scale" data-pdf-fit @click="fitWidth" title="按栏宽显示">{{Math.round((scale || 1) * 100)}}%</button>
+        <a-button :disabled="scale >= 3 || painting" data-pdf-zoom-in @click="zoomBy(0.25)">放大</a-button>
       </span>
     </div>
     <div ref="surface" class="kb-pdf-surface" data-pdf-surface><canvas ref="canvas" v-show="!error && pages" role="img" :aria-label="'文件第 '+page+' 页'"/></div>
@@ -64,6 +64,11 @@ function setScale(next: number) {
   if (value === scale.value) return
   scale.value = value
   void draw()
+}
+
+/** Step from the fitted view (scale 0 = fit) into an explicit scale. */
+function zoomBy(delta: number) {
+  setScale((scale.value || 1) + delta)
 }
 
 function fitWidth() {
