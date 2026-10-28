@@ -123,7 +123,7 @@ const router = createRouter({
         { path: 'stability/samples', name: 'lims-stability-samples', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 样品入箱台账', limsCapability: 'stability' } },
         { path: 'stability/results', name: 'lims-stability-results', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 稳定性结果', limsCapability: 'stability' } },
         { path: 'stability/trend', name: 'lims-stability-trend', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 趋势分析', limsCapability: 'stability' } },
-        { path: 'roles', component: () => import('@/views/admin/RolesAdminView.vue'), meta: { title: '角色与权限', iamCapability: 'iam.roles.read' } },
+        { path: 'roles', component: () => import('@/views/admin/RolesAdminView.vue'), meta: { title: '角色与权限', iam: true, iamCapability: 'iam.roles.read' } },
           { path: 'audit', name: 'lims-audit', component: () => import('@/views/LimsAuditView.vue'), meta: { title: 'LIMS · 合规审计', limsCapability: 'audit' } },
         { path: 'samples/new', name: 'lims-sample-new', component: () => import('@/views/LimsPendingView.vue'), meta: { title: 'LIMS · 登记样品', limsCapability: 'samples' } },
         { path: 'samples', name: 'lims-samples', component: () => import('@/views/LimsPendingView.vue'), meta: { title: 'LIMS · 样品与检验', limsCapability: 'samples' } },
@@ -256,7 +256,7 @@ router.beforeEach(async (to) => {
     if (to.meta.iam) {
       if (to.path === '/hbos/admin/unavailable') return true
       if (to.path === '/hbos/admin' || to.path === '/hbos/admin/') {
-        const entry = [['iam.people.read','people'],['iam.departments.read','departments'],['iam.access.read','access'],['iam.audit.read','audit']].find(([cap]) => canIam(cap!))
+        const entry = [['iam.people.read','people'],['iam.departments.read','departments'],['iam.access.read','access'],['iam.roles.read','roles'],['iam.audit.read','audit']].find(([cap]) => canIam(cap!))
         return entry ? '/hbos/admin/' + entry[1] : '/hbos/admin/unavailable'
       }
       if (typeof to.meta.iamCapability !== 'string' || !canIam(to.meta.iamCapability)) return '/hbos/admin/unavailable'

@@ -1,4 +1,4 @@
-export interface PageResult<T> { groups_available?: boolean; items: T[]; total: number; page: number; page_size: number }
+export interface PageResult<T> { groups_available?: boolean; unavailable?: boolean; items: T[]; total: number; page: number; page_size: number }
 export interface EmployeeSummary {
   verification_group?: 'daily'|'technical'
   id: string; name: string; employee_number: string; department: string; department_name: string
