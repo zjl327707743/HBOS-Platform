@@ -612,7 +612,7 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
   .r6-dept-app-switch{gap:6px;margin-bottom:14px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
   .r6-dept-app-switch-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .r6-dept-app-chip{min-height:44px;padding:8px 10px;flex:none}
-  .r6-dept-footer-actions{width:100%;justify-content:flex-start}
+  .r6-dept-footer-actions{width:auto;justify-content:flex-end}
   .r6-dept-app-facts>div{grid-template-columns:1fr;gap:3px}
   .r6-department-tree :deep(.r6-panel-scroll){overflow:visible;padding:14px 12px}
   .r6-department-tree :deep(.r6-panel-header){display:none}
