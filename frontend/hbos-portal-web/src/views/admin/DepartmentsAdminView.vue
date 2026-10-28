@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { ApartmentOutlined, FilterOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
@@ -38,10 +38,19 @@ let departmentReadGeneration = 0, departmentActionGeneration = 0, departmentRequ
 
 const departmentDirty = computed(() => Boolean(departmentCurrent.value) && departmentChoice.value !== currentDepartmentChoice())
 const baselineLoading = computed(() => baselineStatus.value === 'loading')
+const departmentHasScope = computed(() => canManageDepartmentRole.value && baselineStatus.value === 'ready' && Boolean(departmentCurrent.value))
+const departmentCanEdit = computed(() => departmentHasScope.value && !departmentMustRead.value)
 const baselineLegacy = computed(() => departmentCurrent.value?.has_role_default === false)
 const currentDepartmentText = computed(() => !departmentCurrent.value ? '待核对' : departmentCurrent.value.has_role_default === false ? '沿用已有安排' : departmentCurrent.value.role_key === 'staff' ? '普通员工' : '不默认开通')
 const nextDepartmentText = computed(() => departmentChoice.value === 'LEGACY' ? '沿用已有安排' : departmentChoice.value === 'staff' ? '普通员工' : '不默认开通')
-const canSubmitDepartment = computed(() => Boolean(departmentPreview.value?.changed) && departmentProof.valid.value && departmentProof.method.value === 'password' && !departmentBusy.value && !departmentMustRead.value && canManageDepartmentRole.value)
+const departmentReadOnlyMessage = computed(() => {
+  if (baselineLoading.value) return '正在核对部门默认和跟随范围，请稍候。'
+  if (baselineStatus.value === 'error') return baselineError.value || '当前无法核对部门影响范围，请重试。'
+  if (baselineError.value) return baselineError.value
+  return '当前账号只有查看权限，部门成员和个人安排仍可查看。'
+})
+const departmentFooterMessage = computed(() => departmentMustRead.value ? '请先读取最新部门安排；当前草稿会保留。' : baselineStatus.value === 'error' ? '请先重试核对当前部门安排。' : '当前部门安排只读；已有个人安排与限制保持不变。')
+const canSubmitDepartment = computed(() => Boolean(departmentPreview.value?.changed) && departmentProof.valid.value && departmentProof.method.value === 'password' && !departmentBusy.value && departmentCanEdit.value)
 const baselineMembers = computed(() => baselineImpact.value?.members || [])
 const candidateMembers = computed(() => departmentPreview.value?.members || [])
 const baselineRestrictions = computed(() => baselineLegacy.value ? [] : baselineMembers.value.filter(row => /禁止|暂停|期限|失效|过期|停用|待复核|限制|待确认/.test(row.reason || '')))
@@ -130,8 +139,11 @@ async function loadDepartmentRole(preserve = false) {
     } catch (e) {
       if (disposed || run !== departmentReadGeneration || selected.value !== id) return
       baselineImpact.value = null
-      baselineError.value = iamMessage(e)
-      baselineStatus.value = 'error'
+      const status = (e as { status?: number }).status
+      baselineError.value = status === 403
+        ? '当前账号不能核对这个部门的影响范围。请联系具备该部门权限的其他管理员处理。'
+        : iamMessage(e)
+      baselineStatus.value = status === 403 ? 'unavailable' : 'error'
     }
   } catch (e) {
     if (disposed || run !== departmentReadGeneration || selected.value !== id) return
@@ -142,7 +154,7 @@ async function loadDepartmentRole(preserve = false) {
   }
 }
 async function prepareDepartmentRole() {
-  if (departmentBusy.value || departmentMustRead.value || !canManageDepartmentRole.value || !departmentDirty.value) return
+  if (departmentBusy.value || departmentMustRead.value || !departmentCanEdit.value || !departmentDirty.value) return
   if (!['staff', ''].includes(departmentChoice.value)) { departmentError.value = '请选择普通员工或不默认开通后再核对。'; return }
   const run = ++departmentActionGeneration
   const id = selected.value, version = departmentCurrent.value?.version, choice = departmentChoice.value
@@ -196,6 +208,28 @@ async function commitDepartmentRole() {
   }
 }
 function closeDepartmentPreview() { departmentPreview.value = null; departmentProof.invalidate() }
+
+function viewEmployeeAssignment(id: string) {
+  if (!canIam('iam.people.read')) return
+  employeeId.value = id
+  drawerOpen.value = true
+}
+
+function revealSelectedDepartment() {
+  if (typeof document === 'undefined') return
+  const row = document.querySelector<HTMLElement>('.r6-department-row[aria-current="page"]')
+  const panel = row?.closest<HTMLElement>('.r6-panel-scroll')
+  if (!row || !panel) return
+  const panelRect = panel.getBoundingClientRect()
+  const rowRect = row.getBoundingClientRect()
+  if (rowRect.top < panelRect.top) panel.scrollTop -= panelRect.top - rowRect.top
+  else if (rowRect.bottom > panelRect.bottom) panel.scrollTop += rowRect.bottom - panelRect.bottom
+}
+
+watch([selected, departmentEntries], async () => {
+  await nextTick()
+  revealSelectedDepartment()
+})
 
 async function loadApps() {
   const run = ++appRead, id = selected.value; apps.value = []
@@ -291,7 +325,7 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 
 <template>
   <section class="r6-page r6-departments-page">
-    <PageHeading eyebrow="组织管理" title="部门安排" description="为部门设置基础默认，特殊职责逐人设置。" />
+    <PageHeading eyebrow="组织管理" title="部门安排" description="给部门提供基础安排，特殊职责为员工单独设置。" />
     <a-skeleton v-if="loading" active />
     <div v-else class="r6-dual-panels">
       <PanelFrame as="aside" region="department-list" label="组织部门目录" class="r6-navigation r6-department-tree">
@@ -325,24 +359,34 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
               <template v-if="iamSession.rolesEnabled">
                 <div v-if="departmentError" class="r6-resource-error"><a-alert :message="departmentError" type="warning" show-icon /><a-button :disabled="departmentBusy" @click="loadDepartmentRole(true)">读取最新部门安排，保留草稿</a-button></div>
                 <div class="r6-dept-info"><InfoCircleOutlined aria-hidden="true" /><div><strong>部门默认只提供普通员工的基础角色</strong><p>仅影响选择跟随部门安排的员工；个人安排和已有限制保留。</p></div></div>
-                <a-radio-group v-if="canManageDepartmentRole && departmentCurrent" v-model:value="departmentChoice" :disabled="departmentBusy || departmentMustRead || Boolean(departmentPreview)" class="department-default-options" aria-label="部门默认角色">
+                <a-radio-group v-if="departmentHasScope" v-model:value="departmentChoice" :disabled="departmentBusy || departmentMustRead || Boolean(departmentPreview)" class="department-default-options" aria-label="部门默认角色">
                   <a-radio v-if="baselineLegacy" value="LEGACY" disabled><span><strong>沿用已有安排</strong><small>当前未设置新的部门默认，保留现有跟随安排。</small></span><StatusTag tone="neutral">只读</StatusTag></a-radio>
                   <a-radio value="staff"><span><strong>普通员工</strong><small>跟随者可查看自己的考勤，不查看同部门其他人。</small></span></a-radio>
                   <a-radio value=""><span><strong>不默认开通</strong><small>跟随者不从部门默认获得角色功能。</small></span></a-radio>
                 </a-radio-group>
                 <div v-else-if="!departmentCurrent" class="r6-dept-readonly"><strong>当前部门默认待核对</strong><StatusTag tone="neutral">待核对</StatusTag><p>读取失败或尚未完成，请重试核对或查看部门成员。</p></div>
-                <div v-else class="r6-dept-readonly"><strong>{{ currentDepartmentText }}</strong><StatusTag tone="neutral">只读</StatusTag><p>当前账号可以查看部门默认，但不能核对或保存新的默认。</p></div>
+                <div v-else class="r6-dept-readonly r6-dept-permission-state">
+                  <strong>{{ currentDepartmentText }}</strong>
+                  <StatusTag :tone="baselineStatus === 'ready' ? 'neutral' : 'warning'">{{ baselineStatus === 'loading' ? '正在核对' : baselineStatus === 'error' ? '待重试' : '只读' }}</StatusTag>
+                  <p>{{ departmentReadOnlyMessage }}</p>
+                  <div class="r6-dept-baseline-actions">
+                    <a-button v-if="baselineStatus === 'error'" :disabled="departmentBusy" @click="loadDepartmentRole(true)">重试核对</a-button>
+                    <a-button @click="changeTab('members')">查看部门成员</a-button>
+                  </div>
+                </div>
 
-                <div class="r6-dept-counts" aria-label="当前部门默认影响">
+                <div v-if="baselineStatus === 'ready'" class="r6-dept-counts" aria-label="当前部门默认影响">
                   <div><strong>{{ countText(baselineImpact?.reference_count) }}</strong><span>跟随人数</span></div>
                   <div><strong>{{ countText(baselineImpact?.personal_preserved) }}</strong><span>单独安排保留</span></div>
                 </div>
-                <p v-if="baselineLoading" class="r6-dept-note" role="status">正在核对当前跟随范围…</p>
-                <div v-else-if="baselineStatus === 'error'" class="r6-dept-baseline-error"><a-alert :message="baselineError" type="warning" show-icon /><div class="r6-dept-baseline-actions"><a-button @click="loadDepartmentRole(true)">重试核对</a-button><a-button @click="changeTab('members')">查看部门成员</a-button></div></div>
-                <p v-else-if="baselineStatus === 'unavailable'" class="r6-dept-note">当前账号不能核对跟随人数，可在部门成员中查看人员。</p>
+                <p v-if="baselineLoading" class="r6-dept-note" role="status">正在读取当前跟随范围…</p>
                 <template v-else-if="baselineStatus === 'ready'">
                   <div class="r6-dept-follow-head"><h4>跟随此安排的同事</h4><a-button type="link" @click="changeTab('members')">查看部门成员</a-button></div>
-                  <ul v-if="baselineMembers.length" class="r6-dept-followers"><li v-for="member in baselineMembers" :key="member.employee"><strong>{{ member.name }}</strong><span>{{ member.before_allowed ? '当前有可用考勤' : '当前暂不可用' }}</span></li></ul>
+                  <ul v-if="baselineMembers.length" class="r6-dept-followers"><li v-for="member in baselineMembers" :key="member.employee">
+                    <div class="r6-dept-follower-main"><a-avatar :size="34">{{ member.name?.slice(-1) || '员' }}</a-avatar><div><strong>{{ member.name }}</strong><small>{{ member.employee_number || '员工档案' }}</small></div></div>
+                    <span>{{ member.changed ? '随部门默认变化' : member.before_allowed ? '现有权限保持' : '当前暂不可用' }}</span>
+                    <a-button v-if="canIam('iam.people.read')" type="link" @click="viewEmployeeAssignment(member.employee)">查看安排</a-button>
+                  </li></ul>
                   <p v-else-if="(baselineImpact?.reference_count || 0) === 0" class="r6-dept-note">当前没有跟随者。</p>
                   <div v-else class="r6-dept-baseline-error"><p class="r6-dept-note">核对结果未返回跟随成员名单。</p><a-button @click="changeTab('members')">查看部门成员</a-button></div>
                   <details v-if="baselineRestrictions.length" class="r6-dept-restrictions"><summary>已有限制详情（{{ baselineRestrictions.length }}）</summary><p v-for="member in baselineRestrictions" :key="member.employee"><strong>{{ member.name }}</strong>：{{ member.reason }}</p></details>
@@ -367,14 +411,14 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
         </div>
         <a-empty v-if="!current" description="暂无可管理部门" />
         <template #footer>
-          <div v-if="activeTab === 'apps' && iamSession.rolesEnabled && current?.confirmed && !editingApp" class="r6-dept-role-actions">
+          <div v-if="activeTab === 'apps' && iamSession.rolesEnabled && current?.confirmed && !editingApp && departmentCanEdit" class="r6-dept-role-actions">
             <span>{{ departmentDirty ? '有未保存的修改' : departmentMustRead ? '请先读取最新部门安排' : '与当前部门默认一致' }}</span>
             <div>
               <a-button v-if="canManageDepartmentRole" :disabled="departmentBusy" @click="cancelDepartmentEdit">取消修改</a-button>
-              <a-button v-if="canManageDepartmentRole" type="primary" :disabled="!departmentDirty || departmentMustRead || departmentBusy || baselineLoading || !departmentCurrent || Boolean(departmentPreview)" :loading="departmentBusy" @click="prepareDepartmentRole">核对部门变化</a-button>
-              <span v-else class="aux">只读</span>
+              <a-button type="primary" :disabled="!departmentDirty || departmentMustRead || departmentBusy || !departmentCurrent || Boolean(departmentPreview)" :loading="departmentBusy" @click="prepareDepartmentRole">核对部门变化</a-button>
             </div>
           </div>
+          <div v-else-if="activeTab === 'apps' && iamSession.rolesEnabled && current?.confirmed && !editingApp" class="r6-dept-role-actions"><span>{{ departmentFooterMessage }}</span><span class="aux">只读</span></div>
           <span v-else class="aux">保存前会核对跟随者、单独安排与已有限制；个人暂停与禁止不会因部门默认解除。</span>
         </template>
       </PanelFrame>
@@ -397,6 +441,7 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 
 <style scoped>
 .r6-dept-lead{margin:0 0 16px;color:var(--r6-secondary,#566780);font-size:13px;line-height:21px}.department-default-options{display:grid;gap:10px;width:100%;margin-bottom:18px}.department-default-options :deep(.ant-radio-wrapper){display:flex;align-items:flex-start;margin:0;padding:15px 16px;border:1px solid #e5e9f2;border-radius:11px;min-height:76px;white-space:normal}.department-default-options :deep(.ant-radio-wrapper-checked){border-color:#bab5ea;background:#f7f6ff}.department-default-options :deep(.ant-radio-wrapper-disabled){background:#f8f9fc;border-color:#e5e9f2}.department-default-options :deep(.ant-radio){margin-top:4px;flex:none}.department-default-options strong,.department-default-options small{display:block}.department-default-options strong{font-size:14px}.department-default-options small{margin-top:4px;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.department-default-options .r6-status-tag{margin-left:8px}.r6-dept-readonly{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border:1px solid #e5e9f2;border-radius:10px;background:#f8f9fc}.r6-dept-readonly p{margin:0;color:var(--r6-muted,#5f6e86);font-size:12px;flex-basis:100%}.r6-dept-counts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}.r6-dept-counts>div{padding:16px 18px;border:1px solid #e5e9f2;border-radius:12px;background:#f8f9fc}.r6-dept-counts strong{display:block;font-size:26px;line-height:34px}.r6-dept-counts span{display:block;margin-top:4px;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px}.r6-dept-follow-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 6px}.r6-dept-follow-head h4{margin:0;font-size:14px}.r6-dept-followers{list-style:none;margin:0;padding:0;display:grid;gap:8px}.r6-dept-followers li{display:flex;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid #e5e9f2;border-radius:9px;font-size:13px}.r6-dept-followers span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-note{margin:10px 0 0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.r6-dept-baseline-error{display:grid;gap:10px;justify-items:start;margin-top:12px}.r6-dept-baseline-actions{display:flex;gap:8px;flex-wrap:wrap}.r6-dept-restrictions{margin-top:14px;border-top:1px solid #e5e9f2;padding-top:10px}.r6-dept-restrictions summary{cursor:pointer;font-size:12px;color:var(--r6-muted,#5f6e86);min-height:34px;display:flex;align-items:center}.r6-dept-restrictions p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.r6-dept-role-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.r6-dept-role-actions>span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-role-actions>div{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.r6-dept-other-apps{margin-top:22px;border-top:1px solid #e5e9f2;padding-top:6px}.r6-dept-other-apps .field-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:16px 0 6px}.r6-dept-other-apps .field-section-title h3{margin:0;font-size:15px}.r6-dept-other-apps .field-section-title span{color:var(--r6-muted,#5f6e86);font-size:12px}.r6-dept-other-apps .r6-department-app:last-child{border-bottom:0}.r6-department-app>div{min-width:0}.r6-department-app strong{font-size:14px}.r6-department-app p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.r6-department-app .ant-btn{flex:none}.role-preview{display:grid;gap:14px}.role-preview-subject{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}.role-preview-subject strong{font-size:16px}.role-preview-subject span{color:var(--r6-muted,#5f6e86);font-size:12px}.role-department-impact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.role-department-impact>div{padding:12px;border:1px solid #e5e9f2;border-radius:10px;background:#f8f9fc}.role-department-impact strong{display:block;font-size:22px;line-height:30px}.role-department-impact span{display:block;margin-top:4px;color:var(--r6-muted,#5f6e86);font-size:11px;line-height:18px}.role-member-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.role-member-list li{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;padding:10px 12px;border:1px solid #e5e9f2;border-radius:8px;font-size:12px}.role-member-list span{color:var(--r6-secondary,#566780)}.role-scope-caption{margin:0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.role-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid #e5e9f2}@media(max-width:760px){.r6-dept-counts,.role-department-impact{grid-template-columns:1fr}.r6-dept-follow-head{align-items:flex-start}.r6-dept-followers li{flex-wrap:wrap}.r6-dept-role-actions{align-items:flex-start}.r6-dept-role-actions>div{width:100%;justify-content:flex-end}}
+.r6-dept-followers li{align-items:center}.r6-dept-followers li>span{text-align:right}.r6-dept-follower-main{display:flex;align-items:center;gap:10px;min-width:160px;flex:1}.r6-dept-follower-main>div{min-width:0}.r6-dept-follower-main strong,.r6-dept-follower-main small{display:block;overflow-wrap:anywhere}.r6-dept-follower-main small{margin-top:2px;color:var(--r6-muted,#5f6e86);font-size:11px;line-height:18px}.r6-dept-followers li>.ant-btn{flex:none}.r6-dept-permission-state .r6-dept-baseline-actions{margin-top:2px}
 </style>
 
 <style scoped>

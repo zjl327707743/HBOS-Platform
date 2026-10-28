@@ -216,6 +216,34 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     w.unmount()
   })
 
+  it('keeps a denied department impact preview read-only and explains the limit', async () => {
+    api.command.mockRejectedValueOnce(Object.assign(new Error('不能为自己审批或修改授权与账号状态。'), { status: 403 }))
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+
+    expect(w.find('.r6-dept-permission-state').exists()).toBe(true)
+    expect(w.find('.r6-dept-permission-state').text()).toContain('不能核对这个部门的影响范围')
+    expect(w.find('.department-default-options').exists()).toBe(false)
+    expect(w.find('.r6-dept-counts').exists()).toBe(false)
+    expect(w.find('.r6-dept-role-actions button').exists()).toBe(false)
+  })
+
+  it('scrolls the selected department into the visible directory area', async () => {
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+
+    const scroll = w.get('.r6-navigation .r6-panel-scroll').element as HTMLElement
+    const selected = w.findAll('button.r6-department-row')[1].element as HTMLElement
+    Object.defineProperty(scroll, 'clientHeight', { configurable: true, value: 100 })
+    vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 100, top: 100, bottom: 200, left: 0, right: 240, width: 240, height: 100, toJSON: () => ({}) } as DOMRect)
+    vi.spyOn(selected, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 260, top: 260, bottom: 308, left: 0, right: 240, width: 240, height: 48, toJSON: () => ({}) } as DOMRect)
+
+    await click(w, '生产二部')
+
+    expect(scroll.scrollTop).toBeGreaterThan(0)
+    expect(w.find('button.r6-department-row[aria-current="page"]').text()).toContain('生产二部')
+  })
+
   it('shows role cards only for a direct assignment and keeps real effective functions separate', async () => {
     const w = await render(RoleSettings, { props: { subjectKind: 'employee', subjectId: 'E1', embedded: true, subjectLabel: '合成员工' } })
     await flushPromises()
@@ -325,7 +353,7 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     expect(api.command).toHaveBeenCalledWith('preview_department_role', expect.objectContaining({ department: 'D1', role_key: '', expected_version: 4 }))
     expect(api.command.mock.calls.some(call => call[0] === 'save_department_role')).toBe(false)
     expect(w.text()).not.toContain('实际权限将变化')
-    expect(w.text()).toContain('当前有可用考勤')
+    expect(w.text()).toContain('现有权限保持')
 
     await setRadio(w, 'staff')
     await click(w, '核对部门变化')
@@ -349,7 +377,7 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     expect(w.text()).toContain('单独安排保留')
     expect(w.text()).toContain('3')
     expect(w.text()).toContain('合成员工')
-    expect(w.text()).toContain('当前有可用考勤')
+    expect(w.text()).toContain('现有权限保持')
     expect(w.text()).toContain('仓库管理')
     expect(api.command).toHaveBeenCalledWith('preview_department_role', expect.objectContaining({ department: 'D1', role_key: '', expected_version: 4 }))
     expect(api.command.mock.calls.some(call => call[0] === 'save_department_role')).toBe(false)
@@ -678,8 +706,8 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     await flushPromises()
     expect(api.query).toHaveBeenCalledWith('get_department_role', expect.objectContaining({ department: 'D1' }))
     expect(api.command.mock.calls.some(call => call[0] === 'preview_department_role')).toBe(false)
-    expect(w.text()).toContain('当前账号不能核对跟随人数')
-    expect(w.text()).toContain('待核对')
+    expect(w.text()).toContain('当前账号只有查看权限')
+    expect(w.text()).toContain('只读')
     expect(w.find('input[type="radio"][value="staff"]').exists()).toBe(false)
   })
 
@@ -688,7 +716,7 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     const w = await render(DepartmentsAdminView)
     await flushPromises()
     expect(w.text()).toContain('部门影响读取被拒绝')
-    expect(w.text()).toContain('待核对')
+    expect(w.text()).toContain('待重试')
     expect(w.text()).toContain('查看部门成员')
     expect(w.text()).not.toContain('0跟随人数')
   })

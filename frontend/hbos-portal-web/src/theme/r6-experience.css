@@ -249,6 +249,13 @@
 .r6-experience .r6-context-row a {
   text-decoration: none;
 }
+.r6-experience .r6-global-nav a,
+.r6-experience .r6-local-nav a,
+.r6-experience .r6-mobile-local a,
+.r6-experience .r6-more-tools a,
+.r6-experience a.ant-btn {
+  text-decoration: none;
+}
 .r6-context-row>.ant-breadcrumb {
   font-size: 12px;
 }
