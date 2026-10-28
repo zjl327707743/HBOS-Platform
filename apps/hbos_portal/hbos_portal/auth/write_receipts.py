@@ -261,11 +261,22 @@ def evaluate_claim(
     return {"status": "unknown"}
 
 
+def _current_naive_time() -> datetime:
+    """Current Site-local naive time, matching how Frappe stores Datetime fields."""
+    try:
+        parsed = as_datetime(frappe.utils.now_datetime())
+        if parsed is not None:
+            return parsed.replace(tzinfo=None)
+    except Exception:
+        pass
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def public_state(row: dict | None, *, now: datetime | None = None, lease_seconds: int = CLAIM_LEASE_SECONDS) -> dict | None:
     """Browser-facing receipt shape.  Only non-sensitive state is exposed."""
     if not row:
         return None
-    now = now or datetime.now(timezone.utc).replace(tzinfo=None)
+    now = now or _current_naive_time()
     state = str(row.get("state") or "")
     action = str(row.get("action") or "")
     if state == COMMITTED:
