@@ -1009,7 +1009,7 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     expect(w.findAll('button').some(row => row.text() === '取消修改')).toBe(false)
     const primary = w.findAll('button').find(row => row.text().includes('预览影响'))!
     expect(primary.attributes('disabled')).toBeDefined()
-    expect(w.find('.r6-dept-primary-reason').text()).toContain('没有未保存的修改')
+    expect(w.find('.r6-dept-role-actions').text()).toContain('没有未保存的修改')
     expect(w.find('.r6-dept-counts-four').text()).toContain('当前可见成员')
     expect(w.find('.r6-dept-counts-four').text()).toContain('保存前预览')
     expect(w.find('.r6-dept-counts-four').text()).not.toContain('0\n实际权限变化')

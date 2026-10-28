@@ -546,7 +546,7 @@
   border: 1px solid transparent;
   background: transparent;
   border-radius: 10px;
-  padding: 16px 10px;
+  padding: 13px 10px;
   color: var(--r6-ink);
   text-align: left;
   cursor: pointer;
@@ -560,7 +560,8 @@
   font-size: 14px;
 }
 .r6-choice-list small {
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 18px;
   color: var(--r6-muted);
 }
 .r6-choice-trail {
@@ -610,7 +611,7 @@
 }
 .r6-profile {
   width: 100%;
-  max-width: 1160px;
+  max-width: 1150px;
   margin-inline: auto;
 }
 .r6-profile .r6-context-row {
@@ -620,7 +621,7 @@
   position: relative;
   top: auto;
   overflow: hidden;
-  padding: 24px 28px;
+  padding: 22px 28px;
   background: linear-gradient(120deg,#fff 55%,#f5f3ff);
 }
 .r6-identity-card::before {
@@ -643,7 +644,7 @@
   display: flex;
   align-items: center;
   gap: 22px;
-  margin: 28px 0 24px;
+  margin: 22px 0 20px;
 }
 .r6-identity-main h2 {
   font-size: 26px;
@@ -731,6 +732,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  min-height: 112px;
   padding: 26px 0;
   border-top: 1px solid var(--r6-line);
 }
@@ -1478,6 +1480,7 @@
   .r6-security-row {
     flex-wrap: wrap;
     gap: 12px;
+    min-height: auto;
     padding: 22px 0;
   }
   .r6-security-content {
@@ -1611,3 +1614,32 @@
   }
 }
 .r6-audit-query{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 16px}.r6-audit-query .ant-form-item{margin:0;min-width:0}.r6-audit-query .ant-input,.r6-audit-query .ant-input-affix-wrapper,.r6-audit-query .ant-select{width:100%;max-width:none;min-width:0}.r6-audit-query>.ant-space{grid-column:1/-1}.r6-review-dialog .ant-modal-body{max-height:calc(100dvh - 180px);overflow-y:auto}.r6-assignment-compare>section{min-width:0;overflow-wrap:anywhere}@media(max-width:760px){.r6-audit-query{grid-template-columns:1fr}.r6-audit-query>.ant-space{grid-column:auto}}
+
+.r6-people-tabs-row .ant-tabs-tab {
+  padding: 18px 0;
+}
+
+.r6-feature-toolbar .ant-input-affix-wrapper {
+  width: 175px;
+  height: 34px;
+  font-size: 12px;
+}
+
+@media(min-width:761px) and (max-width:1280px) {
+  .r6-roles-page .r6-dual-panels {
+    grid-template-columns: 190px minmax(0,1fr);
+  }
+}
+@media(min-width:761px) and (max-width:1100px) {
+  .r6-roles-page .r6-dual-panels {
+    grid-template-columns: 168px minmax(0,1fr);
+  }
+}
+@media(max-width:760px) {
+  .r6-profile .profile-avatar {
+    width: 62px!important;
+    height: 62px!important;
+    line-height: 62px!important;
+    font-size: 22px!important;
+  }
+}
