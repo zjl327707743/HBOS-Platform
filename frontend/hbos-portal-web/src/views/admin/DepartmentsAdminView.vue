@@ -407,17 +407,18 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
               <a-button v-else-if="activeTab === 'members' && canReadApps" type="text" @click="changeTab('apps')">返回部门应用权限</a-button>
             </div>
           </div>
-          <div v-if="appEntries.length" class="r6-dept-app-switch" role="tablist" aria-label="选择应用">
-            <button v-for="app in appEntries" :key="app.app_id" type="button" role="tab" class="r6-dept-app-chip" :class="{ selected: activeAppId === app.app_id }" :aria-selected="activeAppId === app.app_id" @click="selectApp(app.app_id)">
-              <strong>{{ app.title }}</strong>
-              <small>{{ app.integrated ? (app.app_id === 'attendance' ? '部门默认权限' : '已接入') : '尚未接入' }}</small>
-            </button>
-          </div>
         </template>
         <div v-if="error" class="r6-resource-error r6-resource-error-inline"><a-alert :message="error" type="warning" show-icon /><a-button @click="load">重试读取</a-button></div>
         <div v-show="activeTab === 'apps' && canReadApps && current">
           <WorkSettings v-if="editingApp && current?.confirmed" :key="selected + ':' + editingApp" ref="settings" subject-kind="department" :subject-id="selected" :app-id="editingApp" @back="selectApp('attendance')" @saved="loadApps" />
           <div v-show="!editingApp">
+          <div v-if="appEntries.length" class="r6-dept-app-switch" role="tablist" aria-label="选择应用">
+            <span class="r6-dept-app-switch-label">选择应用</span>
+            <button v-for="app in appEntries" :key="app.app_id" type="button" role="tab" class="r6-dept-app-chip" :class="{ selected: activeAppId === app.app_id }" :aria-selected="activeAppId === app.app_id" @click="selectApp(app.app_id)">
+              <strong>{{ app.title }}</strong>
+              <small>{{ app.integrated ? (app.app_id === 'attendance' ? '部门默认权限' : '已接入') : '尚未接入' }}</small>
+            </button>
+          </div>
           <template v-if="current">
             <template v-if="current.confirmed">
               <template v-if="iamSession.rolesEnabled">
@@ -427,8 +428,8 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
                   <div class="r6-dept-default-heading"><h3>部门默认权限</h3><span>只作用于考勤应用</span></div>
                   <div class="r6-dept-info"><InfoCircleOutlined aria-hidden="true" /><div><strong>部门默认提供普通员工的考勤基础安排</strong><p>只影响选择跟随部门安排的员工；个人单独设置、暂停与既有限制保留。其他应用按各自授权分别管理。</p></div></div>
 
-                  <div v-if="baselineLegacy" class="r6-dept-legacy-state" role="status">
-                    <div class="r6-dept-legacy-title"><strong>当前状态：沿用已有考勤权限</strong><StatusTag tone="neutral">当前状态</StatusTag></div>
+                  <div v-if="baselineLegacy && departmentHasScope" class="r6-dept-legacy-state" role="status">
+                    <div class="r6-dept-legacy-title"><strong>当前状态：沿用已有考勤权限</strong><StatusTag tone="neutral">兼容状态</StatusTag></div>
                     <p>当前仍沿用原有考勤权限；在选择并保存新的部门默认前不会自动转换。具体影响以服务端预览为准。</p>
                   </div>
 
@@ -570,7 +571,8 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 .r6-dept-app-subtitle{display:flex;align-items:center;gap:7px;margin:5px 0 0;color:#4d5f8a;font-size:14px;line-height:22px;font-weight:600}
 .r6-dept-app-subtitle .anticon{font-size:15px;color:#6f6bd6}
 .r6-dept-meta{margin:3px 0 0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px;overflow-wrap:anywhere}
-.r6-dept-app-switch{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+.r6-dept-app-switch{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 16px}
+.r6-dept-app-switch-label{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px;flex:none}
 .r6-dept-app-chip{display:flex;align-items:center;gap:8px;min-height:38px;padding:7px 12px;border:1px solid #e3e7f0;border-radius:10px;background:#fff;color:#34456e;font:inherit;font-size:13px;line-height:20px;cursor:pointer;transition:background .16s ease,border-color .16s ease}
 .r6-dept-app-chip:hover{border-color:#c9c3ef;background:#faf9ff}
 .r6-dept-app-chip.selected{border-color:#cdc7f3;background:#f3f0ff;box-shadow:0 1px 4px #6b57bb14}
@@ -603,5 +605,20 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 .r6-dept-app-facts dt{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}
 .r6-dept-app-facts dd{margin:0;color:#34456e;font-size:13px;line-height:20px;overflow-wrap:anywhere}
 @media(max-width:1280px){.r6-dept-counts-four{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:760px){.r6-dept-app-switch{gap:6px}.r6-dept-app-chip{min-height:44px;padding:8px 10px}.r6-dept-footer-actions{width:100%;justify-content:flex-start}.r6-dept-app-facts>div{grid-template-columns:1fr;gap:3px}}
+@media(max-width:760px){
+  .r6-dept-app-switch{gap:6px;margin-bottom:14px}
+  .r6-dept-app-switch-label{width:100%}
+  .r6-dept-app-chip{min-height:44px;padding:8px 10px}
+  .r6-dept-footer-actions{width:100%;justify-content:flex-start}
+  .r6-dept-app-facts>div{grid-template-columns:1fr;gap:3px}
+  .r6-department-tree .r6-panel-scroll{overflow:visible;padding:14px 12px}
+  .r6-department-tree .r6-panel-header{display:none}
+  .r6-department-tree .r6-panel-footer{display:none}
+  .r6-department-rows{display:flex;gap:8px;overflow-x:auto;align-content:initial;padding-bottom:2px}
+  .r6-department-row{flex:none;width:auto;min-height:44px;padding:9px 11px;white-space:nowrap}
+  .r6-department-row>span{flex:none;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal}
+  .r6-department-row>.anticon:last-child{display:none}
+  .r6-department-filter-toggle{display:none}
+  .r6-department-filters{display:none!important}
+}
 </style>
