@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
-import { ApartmentOutlined, FilterOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons-vue'
+import { ApartmentOutlined, AppstoreOutlined, CalendarOutlined, FilterOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
 import { listDepartments } from '@/services/iamDepartments'
@@ -24,7 +24,12 @@ const departments = ref<DepartmentSummary[]>([]), selected = ref(''), apps = ref
 const settings = ref<InstanceType<typeof WorkSettings> | null>(null)
 const current = computed(() => departments.value.find(row => row.id === selected.value))
 const members = computed(() => (current.value?.members || []).filter(row => !search.value || [row.name, row.employee_number, row.position].join(' ').toLowerCase().includes(search.value.toLowerCase())))
-const otherApps = computed(() => apps.value.filter(row => row.app_id !== 'attendance'))
+const activeAppId = ref('attendance'), unavailableAppId = ref('')
+const appEntries = computed(() => [...apps.value].sort((left, right) => left.app_id === 'attendance' ? -1 : right.app_id === 'attendance' ? 1 : left.title.localeCompare(right.title)))
+const activeAppTitle = computed(() => appEntries.value.find(row => row.app_id === activeAppId.value)?.title || (activeAppId.value === 'attendance' ? '考勤管理' : activeAppId.value))
+const unavailableAppTitle = computed(() => appEntries.value.find(row => row.app_id === unavailableAppId.value)?.title || unavailableAppId.value)
+const integratedAppNames = computed(() => appEntries.value.filter(row => row.integrated).map(row => row.title).join('、') || '无')
+const visibleMemberCount = computed(() => current.value?.member_count ?? current.value?.members?.length)
 const canReadApps = computed(() => canIam('iam.access.read'))
 const canManageDepartmentRole = computed(() => canIam('iam.departments.manage') && canIam('iam.roles.assign'))
 const columns = [{ title: '姓名 / 工号', key: 'name', width: '30%' }, { title: '岗位', dataIndex: 'position', width: '28%' }, { title: '账号状态', key: 'status', width: '22%' }, { title: '操作', key: 'action', width: '20%' }]
@@ -50,7 +55,26 @@ const departmentReadOnlyMessage = computed(() => {
   if (baselineError.value) return baselineError.value
   return '当前账号只有查看权限，部门成员和个人安排仍可查看。'
 })
-const departmentFooterMessage = computed(() => departmentMustRead.value ? '请先读取最新部门安排；当前草稿会保留。' : baselineStatus.value === 'error' ? '请先重试核对当前部门安排。' : '当前部门安排只读；已有个人安排与限制保持不变。')
+const departmentFooterMessage = computed(() => departmentMustRead.value ? '请先读取最新部门安排；当前草稿会保留。' : baselineStatus.value === 'error' ? '暂无法读取当前部门安排；未显示任何计数。' : '当前账号没有该部门的修改权限；已有个人安排与限制保持不变。')
+const departmentFooterStateText = computed(() => {
+  if (departmentMustRead.value) return '暂无法确认最新内容；草稿已保留'
+  if (baselineStatus.value === 'error') return '暂无法读取当前部门安排'
+  if (!canManageDepartmentRole.value) return '只读：当前账号没有该部门的修改权限'
+  if (baselineStatus.value === 'unavailable') return '只读：当前账号不能核对这个部门的影响范围'
+  if (baselineStatus.value === 'loading') return '正在核对当前部门安排…'
+  if (departmentDirty.value) return '有未保存的修改'
+  if (departmentPreview.value) return '已打开影响预览'
+  return '与当前部门默认一致'
+})
+const departmentPrimaryDisabledReason = computed(() => {
+  if (!departmentCanEdit.value) return ''
+  if (departmentBusy.value) return '正在读取或保存，请稍候'
+  if (departmentMustRead.value) return '请先读取最新部门安排'
+  if (!departmentCurrent.value) return '请先读取当前部门默认'
+  if (departmentPreview.value) return '请先完成预览中的保存或返回修改'
+  if (!departmentDirty.value) return '没有未保存的修改'
+  return ''
+})
 const canSubmitDepartment = computed(() => Boolean(departmentPreview.value?.changed) && departmentProof.valid.value && departmentProof.method.value === 'password' && !departmentBusy.value && departmentCanEdit.value)
 const baselineMembers = computed(() => baselineImpact.value?.members || [])
 const candidateMembers = computed(() => departmentPreview.value?.members || [])
@@ -95,6 +119,7 @@ function clearDepartmentState() {
   baselineImpact.value = null; baselineStatus.value = 'idle'; baselineError.value = ''
   departmentError.value = ''; departmentMustRead.value = false
   departmentRequestId = ''; departmentRequestPayload = ''
+  activeAppId.value = 'attendance'; unavailableAppId.value = ''; editingApp.value = null
   departmentProof.invalidate()
 }
 async function confirmDiscardDepartmentDraft() {
@@ -284,6 +309,8 @@ async function applyLink(refreshRole = false) {
     editingApp.value = current.value?.confirmed && activeTab.value === 'apps' && target.app && apps.value.some(row => row.app_id === target.app && row.integrated) ? target.app : current.value?.confirmed && activeTab.value === 'apps' && apps.value.some(row => row.app_id === 'attendance' && row.integrated) ? 'attendance' : null
     if (target.app && editingApp.value !== target.app) error.value = '该部门或应用当前不可查看，已返回可用部门。'
   }
+  activeAppId.value = editingApp.value || 'attendance'
+  unavailableAppId.value = ''
 }
 async function load() {
   if (!await requestLeave()) return
@@ -315,7 +342,17 @@ async function selectDepartment(id: string) {
 async function changeCompany(value: string) { if (!await requestLeave()) return; company.value = value; selected.value = ''; editingApp.value = null; await load() }
 async function changeGroup(value: string) { if (!await requestLeave()) return; viewGroup.value = value; selected.value = ''; editingApp.value = null; await load() }
 function changeTab(value: string) { activeTab.value = value }
-function openOtherApp(appId: string) { editingApp.value = appId }
+async function selectApp(appId: string) {
+  if (appId === activeAppId.value) return
+  if (settings.value && !await settings.value.requestLeave()) return
+  const entry = appEntries.value.find(row => row.app_id === appId)
+  activeAppId.value = appId
+  departmentError.value = ''
+  if (appId === 'attendance' || !entry) { editingApp.value = null; unavailableAppId.value = ''; return }
+  if (entry.integrated) { editingApp.value = appId; unavailableAppId.value = '' }
+  else { editingApp.value = null; unavailableAppId.value = appId }
+}
+function openOtherApp(appId: string) { void selectApp(appId) }
 onBeforeRouteLeave(() => requestLeave())
 onBeforeRouteUpdate(() => requestLeave())
 watch(() => route.query, () => { routeRevision++; if (!loading.value) void applyLink().catch(e => { if (!disposed) error.value = iamMessage(e) }) })
@@ -333,7 +370,7 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 
 <template>
   <section class="r6-page r6-departments-page">
-    <PageHeading eyebrow="组织管理" title="部门安排" description="给部门提供基础安排，特殊职责为员工单独设置。" />
+    <PageHeading eyebrow="组织管理" title="部门应用权限" description="设置本部门员工在各应用中的默认权限。" />
     <a-skeleton v-if="loading" active />
     <div v-else class="r6-dual-panels">
       <PanelFrame as="aside" region="department-list" label="组织部门目录" class="r6-navigation r6-department-tree">
@@ -356,66 +393,108 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
         </nav>
         <template #footer>部门默认与个人单独安排分别核对。</template>
       </PanelFrame>
-      <PanelFrame region="department-detail" label="部门默认安排与成员">
+      <PanelFrame region="department-detail" label="部门应用默认权限与成员">
         <template v-if="current" #header>
           <div class="r6-department-panel-heading">
-            <div class="r6-department-title"><h2>{{ current.name }}</h2><p>{{ current.company }} · 当前可见主部门成员 {{ current.members?.length || 0 }} 人（仅当前部门）</p></div>
+            <div class="r6-department-title">
+              <h2>{{ current.name }}</h2>
+              <p class="r6-dept-app-subtitle"><CalendarOutlined v-if="activeAppId === 'attendance'" aria-hidden="true" /><AppstoreOutlined v-else aria-hidden="true" />{{ activeAppTitle }} · 部门默认权限</p>
+              <p class="r6-dept-meta">{{ current.company }} · 主部门可见成员 {{ countText(visibleMemberCount) }} 人（仅当前部门）</p>
+            </div>
             <div class="r6-department-view-toggle">
               <StatusTag v-if="!current.confirmed" tone="warning">尚未确认，暂不安排人员或权限</StatusTag>
               <a-button v-if="activeTab === 'apps' && canReadApps" type="text" @click="changeTab('members')">查看部门成员</a-button>
-              <a-button v-else-if="activeTab === 'members' && canReadApps" type="text" @click="changeTab('apps')">返回默认角色与应用</a-button>
+              <a-button v-else-if="activeTab === 'members' && canReadApps" type="text" @click="changeTab('apps')">返回部门应用权限</a-button>
             </div>
+          </div>
+          <div v-if="appEntries.length" class="r6-dept-app-switch" role="tablist" aria-label="选择应用">
+            <button v-for="app in appEntries" :key="app.app_id" type="button" role="tab" class="r6-dept-app-chip" :class="{ selected: activeAppId === app.app_id }" :aria-selected="activeAppId === app.app_id" @click="selectApp(app.app_id)">
+              <strong>{{ app.title }}</strong>
+              <small>{{ app.integrated ? (app.app_id === 'attendance' ? '部门默认权限' : '已接入') : '尚未接入' }}</small>
+            </button>
           </div>
         </template>
         <div v-if="error" class="r6-resource-error r6-resource-error-inline"><a-alert :message="error" type="warning" show-icon /><a-button @click="load">重试读取</a-button></div>
         <div v-show="activeTab === 'apps' && canReadApps && current">
-          <WorkSettings v-if="editingApp && current?.confirmed" :key="selected + ':' + editingApp" ref="settings" subject-kind="department" :subject-id="selected" :app-id="editingApp" @back="editingApp = null" @saved="loadApps" />
+          <WorkSettings v-if="editingApp && current?.confirmed" :key="selected + ':' + editingApp" ref="settings" subject-kind="department" :subject-id="selected" :app-id="editingApp" @back="selectApp('attendance')" @saved="loadApps" />
           <div v-show="!editingApp">
           <template v-if="current">
             <template v-if="current.confirmed">
               <template v-if="iamSession.rolesEnabled">
                 <div v-if="departmentError" class="r6-resource-error"><a-alert :message="departmentError" type="warning" show-icon /><a-button :disabled="departmentBusy" @click="loadDepartmentRole(true)">读取最新部门安排，保留草稿</a-button></div>
-                <div class="r6-dept-info"><InfoCircleOutlined aria-hidden="true" /><div><strong>部门默认只提供普通员工的基础角色</strong><p>仅影响选择跟随部门安排的员工；个人安排和已有限制保留。</p></div></div>
-                <a-radio-group v-if="departmentHasScope" v-model:value="departmentChoice" :disabled="departmentBusy || departmentMustRead || Boolean(departmentPreview)" class="department-default-options" aria-label="部门默认角色">
-                  <a-radio v-if="baselineLegacy" value="LEGACY" disabled><span><strong>沿用已有安排</strong><small>当前未设置新的部门默认，保留现有跟随安排。</small></span><StatusTag tone="neutral">只读</StatusTag></a-radio>
-                  <a-radio value="staff"><span><strong>普通员工</strong><small>跟随者可查看自己的考勤，不查看同部门其他人。</small></span></a-radio>
-                  <a-radio value=""><span><strong>不默认开通</strong><small>跟随者不从部门默认获得角色功能。</small></span></a-radio>
-                </a-radio-group>
-                <div v-else-if="!departmentCurrent" class="r6-dept-readonly"><strong>当前部门默认待核对</strong><StatusTag tone="neutral">待核对</StatusTag><p>读取失败或尚未完成，请重试核对或查看部门成员。</p></div>
-                <div v-else class="r6-dept-readonly r6-dept-permission-state">
-                  <strong>{{ currentDepartmentText }}</strong>
-                  <StatusTag :tone="baselineStatus === 'ready' ? 'neutral' : 'warning'">{{ baselineStatus === 'loading' ? '正在核对' : baselineStatus === 'error' ? '待重试' : '只读' }}</StatusTag>
-                  <p>{{ departmentReadOnlyMessage }}</p>
-                  <div v-if="baselineStatus === 'error'" class="r6-dept-baseline-actions">
-                    <a-button :disabled="departmentBusy" @click="loadDepartmentRole(true)">重试核对</a-button>
-                  </div>
-                </div>
 
-                <div v-if="baselineStatus === 'ready'" class="r6-dept-counts" aria-label="当前部门默认影响">
-                  <div><strong>{{ countText(baselineImpact?.reference_count) }}</strong><span>跟随人数</span></div>
-                  <div><strong>{{ countText(baselineImpact?.personal_preserved) }}</strong><span>单独安排保留</span></div>
-                </div>
-                <p v-if="baselineLoading" class="r6-dept-note" role="status">正在读取当前跟随范围…</p>
-                <template v-else-if="baselineStatus === 'ready'">
-                  <div class="r6-dept-follow-head"><h4>跟随此安排的同事</h4></div>
-                  <ul v-if="baselineMembers.length" class="r6-dept-followers"><li v-for="member in baselineMembers" :key="member.employee">
-                    <div class="r6-dept-follower-main"><a-avatar :size="34">{{ member.name?.slice(-1) || '员' }}</a-avatar><div><strong>{{ member.name }}</strong><small>{{ member.employee_number || '员工档案' }}</small></div></div>
-                    <span>{{ member.changed ? '随部门默认变化' : member.before_allowed ? '现有权限保持' : '当前暂不可用' }}</span>
-                    <a-button v-if="canIam('iam.people.read')" type="link" @click="viewEmployeeAssignment(member.employee)">查看安排</a-button>
-                  </li></ul>
-                  <p v-else-if="(baselineImpact?.reference_count || 0) === 0" class="r6-dept-note">当前没有跟随者。</p>
-                  <div v-else class="r6-dept-baseline-error"><p class="r6-dept-note">核对结果未返回跟随成员名单。</p></div>
-                  <details v-if="baselineRestrictions.length" class="r6-dept-restrictions"><summary>已有限制详情（{{ baselineRestrictions.length }}）</summary><p v-for="member in baselineRestrictions" :key="member.employee"><strong>{{ member.name }}</strong>：{{ member.reason }}</p></details>
+                <template v-if="activeAppId === 'attendance'">
+                  <div class="r6-dept-default-heading"><h3>部门默认权限</h3><span>只作用于考勤应用</span></div>
+                  <div class="r6-dept-info"><InfoCircleOutlined aria-hidden="true" /><div><strong>部门默认提供普通员工的考勤基础安排</strong><p>只影响选择跟随部门安排的员工；个人单独设置、暂停与既有限制保留。其他应用按各自授权分别管理。</p></div></div>
+
+                  <div v-if="baselineLegacy" class="r6-dept-legacy-state" role="status">
+                    <div class="r6-dept-legacy-title"><strong>当前状态：沿用已有考勤权限</strong><StatusTag tone="neutral">当前状态</StatusTag></div>
+                    <p>当前仍沿用原有考勤权限；在选择并保存新的部门默认前不会自动转换。具体影响以服务端预览为准。</p>
+                  </div>
+
+                  <template v-if="departmentHasScope">
+                    <a-radio-group v-model:value="departmentChoice" :disabled="departmentBusy || departmentMustRead || Boolean(departmentPreview)" class="department-default-options" aria-label="部门默认考勤权限">
+                      <a-radio value="staff"><span><strong>查看本人考勤</strong><small>内部角色：普通员工（staff）。跟随者可查看本人的考勤记录与月度结果，不查看同部门其他人。</small></span></a-radio>
+                      <a-radio value=""><span><strong>不默认开通</strong><small>不通过本部门分配考勤角色；单独授权不受此项影响。</small></span></a-radio>
+                    </a-radio-group>
+                  </template>
+                  <div v-else-if="!canManageDepartmentRole" class="r6-dept-readonly r6-dept-permission-state">
+                    <strong>{{ currentDepartmentText }}</strong>
+                    <StatusTag tone="neutral">只读</StatusTag>
+                    <p>{{ departmentReadOnlyMessage }}</p>
+                  </div>
+                  <div v-else-if="!departmentCurrent" class="r6-dept-readonly">
+                    <strong>暂无法读取当前部门安排</strong><StatusTag tone="warning">读取失败</StatusTag>
+                    <p>未显示任何跟随人数或权限结果；请重试读取，不沿用旧状态。</p>
+                    <div class="r6-dept-baseline-actions"><a-button :disabled="departmentBusy" @click="loadDepartmentRole(true)">重试读取部门安排</a-button></div>
+                  </div>
+                  <div v-else class="r6-dept-readonly r6-dept-permission-state">
+                    <strong>{{ currentDepartmentText }}</strong>
+                    <StatusTag tone="warning">{{ baselineStatus === 'loading' ? '正在读取' : baselineStatus === 'error' ? '暂无法读取' : '只读' }}</StatusTag>
+                    <p>{{ departmentReadOnlyMessage }}</p>
+                    <div v-if="baselineStatus === 'error'" class="r6-dept-baseline-actions"><a-button :disabled="departmentBusy" @click="loadDepartmentRole(true)">重试读取影响范围</a-button></div>
+                  </div>
+
+                  <template v-if="baselineStatus === 'ready'">
+                    <div class="r6-dept-counts r6-dept-counts-four" aria-label="当前部门默认影响">
+                      <div><strong>{{ countText(visibleMemberCount) }}</strong><span>当前可见成员</span><small>仅当前主部门</small></div>
+                      <div><strong>{{ countText(baselineImpact?.reference_count) }}</strong><span>跟随部门默认</span><small>按服务端预览</small></div>
+                      <div><strong>{{ countText(baselineImpact?.personal_preserved) }}</strong><span>个人单独安排</span><small>保持不变</small></div>
+                      <div class="r6-dept-count-pending"><strong>保存前预览</strong><span>实际权限变化</span><small>由服务端核对</small></div>
+                    </div>
+                    <p v-if="baselineLoading" class="r6-dept-note" role="status">正在读取当前跟随范围…</p>
+                    <template v-else-if="baselineStatus === 'ready'">
+                      <div class="r6-dept-follow-head"><h4>跟随此安排的同事</h4></div>
+                      <ul v-if="baselineMembers.length" class="r6-dept-followers"><li v-for="member in baselineMembers" :key="member.employee">
+                        <div class="r6-dept-follower-main"><a-avatar :size="34">{{ member.name?.slice(-1) || '员' }}</a-avatar><div><strong>{{ member.name }}</strong><small>{{ member.employee_number || '员工档案' }}</small></div></div>
+                        <span>{{ member.changed ? '随部门默认变化' : member.before_allowed ? '现有权限保持' : '当前暂不可用' }}</span>
+                        <a-button v-if="canIam('iam.people.read')" type="link" @click="viewEmployeeAssignment(member.employee)">查看安排</a-button>
+                      </li></ul>
+                      <p v-else-if="(baselineImpact?.reference_count || 0) === 0" class="r6-dept-note">当前没有跟随部门默认的成员。</p>
+                      <div v-else class="r6-dept-baseline-error"><p class="r6-dept-note">核对结果未返回跟随成员名单。</p></div>
+                      <details v-if="baselineRestrictions.length" class="r6-dept-restrictions"><summary>已有限制详情（{{ baselineRestrictions.length }}）</summary><p v-for="member in baselineRestrictions" :key="member.employee"><strong>{{ member.name }}</strong>：{{ member.reason }}</p></details>
+                    </template>
+                  </template>
+                  <div v-else-if="baselineStatus === 'error'" class="r6-dept-note">暂无法读取部门影响范围；未显示任何计数，也不沿用旧数据。</div>
                 </template>
+
+                <section v-else class="r6-dept-app-unavailable">
+                  <div class="application-heading"><span class="app-icon"><AppstoreOutlined /></span><div><h3>{{ unavailableAppTitle }}</h3><p>这个应用尚未接入统一的部门默认权限。</p></div><StatusTag tone="neutral">尚未接入</StatusTag></div>
+                  <a-alert type="info" show-icon message="本页只显示注册状态，不提供开关" description="不能把“有入口”当作已授权；本页不会为该应用保存部门默认或个人权限。" />
+                  <dl class="r6-dept-app-facts">
+                    <div><dt>服务端注册</dt><dd>{{ unavailableAppTitle }}（{{ unavailableAppId }}）</dd></div>
+                    <div><dt>部门默认</dt><dd>未接入</dd></div>
+                    <div><dt>个人单独设置</dt><dd>未接入</dd></div>
+                    <div><dt>数据范围</dt><dd>未读取，不能从入口推断已授权</dd></div>
+                    <div><dt>当前处理方式</dt><dd>沿用该应用原有授权；需要新增后端合同的能力集中登记，不在本页扩权。</dd></div>
+                  </dl>
+                  <p class="aux">已接入部门默认的应用：{{ integratedAppNames }}。其余应用需各自完成授权接入后再提供默认设置。</p>
+                </section>
               </template>
               <template v-else>
                 <a-alert type="info" show-icon message="应用角色功能尚未启用" description="以下保留原有应用权限兼容入口，不新增角色选择。" />
                 <article v-for="app in apps" :key="app.app_id" class="r6-department-app"><div><strong>{{ app.title }}</strong><p>{{ app.integrated ? app.summary : '尚未接入此管理功能，暂不能在此调整。' }}</p></div><a-button v-if="app.integrated" :disabled="!current.confirmed" @click="openOtherApp(app.app_id)">{{ canIam('iam.departments.manage') ? '设置安排' : '查看安排' }}</a-button></article>
               </template>
-              <details v-if="iamSession.rolesEnabled && otherApps.length" class="r6-dept-other-apps">
-                <summary><strong>其他应用安排</strong><span>不改变考勤默认</span></summary>
-                <article v-for="app in otherApps" :key="app.app_id" class="r6-department-app"><div><strong>{{ app.title }}</strong><p>{{ app.integrated ? app.summary : '尚未接入此管理功能，暂不能在此调整。' }}</p></div><a-button v-if="app.integrated" :disabled="!current.confirmed" @click="openOtherApp(app.app_id)">{{ canIam('iam.departments.manage') ? '设置安排' : '查看安排' }}</a-button></article>
-              </details>
             </template>
             <a-alert v-else type="warning" show-icon message="部门尚未确认，暂不安排默认角色或人员" description="请先完成部门确认；部门成员仍可在下方查看。" />
           </template>
@@ -427,15 +506,20 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
         </div>
         <a-empty v-if="!current" description="暂无可管理部门" />
         <template #footer>
-          <div v-if="activeTab === 'apps' && iamSession.rolesEnabled && current?.confirmed && !editingApp && departmentCanEdit" class="r6-dept-role-actions">
-            <span>{{ departmentDirty ? '有未保存的修改' : departmentMustRead ? '请先读取最新部门安排' : '与当前部门默认一致' }}</span>
-            <div>
-              <a-button v-if="canManageDepartmentRole" :disabled="departmentBusy" @click="cancelDepartmentEdit">取消修改</a-button>
-              <a-button type="primary" :disabled="!departmentDirty || departmentMustRead || departmentBusy || !departmentCurrent || Boolean(departmentPreview)" :loading="departmentBusy" @click="prepareDepartmentRole">核对部门变化</a-button>
+          <template v-if="activeTab === 'apps' && iamSession.rolesEnabled && current?.confirmed">
+            <div v-if="editingApp" class="r6-dept-role-actions"><span>其他应用沿用各自原有授权；保存由该应用设置页完成。</span></div>
+            <div v-else-if="unavailableAppId" class="r6-dept-role-actions"><span>该应用尚未接入统一部门默认权限；本页不保存任何权限。</span></div>
+            <div v-else class="r6-dept-role-actions">
+              <span>{{ departmentFooterStateText }}</span>
+              <div class="r6-dept-footer-actions">
+                <span v-if="departmentPrimaryDisabledReason" class="r6-dept-primary-reason">{{ departmentPrimaryDisabledReason }}</span>
+                <a-button v-if="departmentDirty" :disabled="departmentBusy" @click="cancelDepartmentEdit">取消修改</a-button>
+                <a-button v-if="departmentCanEdit" type="primary" :disabled="!departmentDirty || departmentMustRead || departmentBusy || !departmentCurrent || Boolean(departmentPreview)" :loading="departmentBusy" @click="prepareDepartmentRole">预览影响</a-button>
+                <span v-else class="aux">只读</span>
+              </div>
             </div>
-          </div>
-          <div v-else-if="activeTab === 'apps' && iamSession.rolesEnabled && current?.confirmed && !editingApp" class="r6-dept-role-actions"><span>{{ departmentFooterMessage }}</span><span class="aux">只读</span></div>
-          <span v-else class="aux">保存前会核对跟随者、单独安排与已有限制；个人暂停与禁止不会因部门默认解除。</span>
+          </template>
+          <span v-else class="aux">{{ activeTab === 'apps' ? departmentFooterMessage : '保存前会核对跟随者、个人安排与已有限制；个人暂停与禁止不会因部门默认解除。' }}</span>
         </template>
       </PanelFrame>
     </div>
@@ -480,4 +564,44 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 .r6-dept-info strong{display:block;color:#34456e;font-size:13px;font-weight:600;line-height:21px}
 .r6-dept-info p{margin:3px 0 0;color:#566780;font-size:12px;line-height:20px}
 @media(max-width:760px){.r6-department-directory-heading h3{font-size:14px}.r6-department-row{min-height:46px}.r6-dept-info{padding:13px 12px}}
+</style>
+
+<style scoped>
+.r6-dept-app-subtitle{display:flex;align-items:center;gap:7px;margin:5px 0 0;color:#4d5f8a;font-size:14px;line-height:22px;font-weight:600}
+.r6-dept-app-subtitle .anticon{font-size:15px;color:#6f6bd6}
+.r6-dept-meta{margin:3px 0 0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px;overflow-wrap:anywhere}
+.r6-dept-app-switch{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+.r6-dept-app-chip{display:flex;align-items:center;gap:8px;min-height:38px;padding:7px 12px;border:1px solid #e3e7f0;border-radius:10px;background:#fff;color:#34456e;font:inherit;font-size:13px;line-height:20px;cursor:pointer;transition:background .16s ease,border-color .16s ease}
+.r6-dept-app-chip:hover{border-color:#c9c3ef;background:#faf9ff}
+.r6-dept-app-chip.selected{border-color:#cdc7f3;background:#f3f0ff;box-shadow:0 1px 4px #6b57bb14}
+.r6-dept-app-chip strong{font-weight:600;white-space:nowrap}
+.r6-dept-app-chip small{color:var(--r6-muted,#5f6e86);font-size:11px;line-height:18px;white-space:nowrap}
+.r6-dept-app-chip.selected small{color:#6558b8}
+.r6-dept-default-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:2px 0 12px}
+.r6-dept-default-heading h3{margin:0;font-size:16px;line-height:24px}
+.r6-dept-default-heading span{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px}
+.r6-dept-legacy-state{padding:14px 16px;border:1px solid #e3e7f0;border-radius:10px;background:#f8f9fc;margin:0 0 12px}
+.r6-dept-legacy-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.r6-dept-legacy-title strong{font-size:13px;line-height:21px;color:#34456e}
+.r6-dept-legacy-state p{margin:6px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}
+.r6-dept-counts-four{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.r6-dept-counts-four>div{padding:14px 16px}
+.r6-dept-counts-four strong{font-size:24px;line-height:32px}
+.r6-dept-counts-four>div small{display:block;margin-top:3px;color:var(--r6-muted,#5f6e86);font-size:11px;line-height:18px}
+.r6-dept-count-pending strong{font-size:14px!important;line-height:32px!important;color:#6b5fc4}
+.r6-dept-footer-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.r6-dept-primary-reason{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:19px}
+.r6-dept-app-unavailable{display:grid;gap:14px}
+.r6-dept-app-unavailable .application-heading{display:flex;align-items:center;gap:13px;margin:2px 0 0}
+.r6-dept-app-unavailable .application-heading>div{flex:1;min-width:0}
+.r6-dept-app-unavailable .application-heading h3{margin:0;font-size:17px;line-height:25px}
+.r6-dept-app-unavailable .application-heading p{margin:4px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}
+.r6-dept-app-unavailable .app-icon{display:grid;place-items:center;width:42px;height:44px;margin:0;border-radius:12px;background:linear-gradient(140deg,#7663e9,#7976df);color:#fff;font-size:21px;flex:none}
+.r6-dept-app-facts{display:grid;gap:0;margin:0;padding:0;border:1px solid #e5e9f2;border-radius:12px;overflow:hidden}
+.r6-dept-app-facts>div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;padding:12px 16px;border-bottom:1px solid #edf0f6;background:#fff}
+.r6-dept-app-facts>div:last-child{border-bottom:0}
+.r6-dept-app-facts dt{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}
+.r6-dept-app-facts dd{margin:0;color:#34456e;font-size:13px;line-height:20px;overflow-wrap:anywhere}
+@media(max-width:1280px){.r6-dept-counts-four{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.r6-dept-app-switch{gap:6px}.r6-dept-app-chip{min-height:44px;padding:8px 10px}.r6-dept-footer-actions{width:100%;justify-content:flex-start}.r6-dept-app-facts>div{grid-template-columns:1fr;gap:3px}}
 </style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { UserOutlined, InfoCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons-vue'
+import { UserOutlined, InfoCircleOutlined, ArrowLeftOutlined, RightOutlined } from '@ant-design/icons-vue'
 import AccountSecurity from '@/components/account/AccountSecurity.vue'
 import AppDiagnostics from '@/components/account/AppDiagnostics.vue'
 import PageHeading from '@/components/iam/PageHeading.vue'
@@ -66,7 +66,7 @@ onBeforeUnmount(() => { generation++; employee.value = null; security.value = nu
         <div class="r6-identity-status"><StatusTag :tone="system || linked ? 'success' : 'warning'">{{ system ? '系统账号' : identityLoading ? '正在核对' : linked ? '员工档案已关联' : employee?.status === 'conflict' ? '员工归属存在冲突' : '员工档案待关联' }}</StatusTag><small>{{ system ? '员工档案不适用' : linked ? '工作身份由人事资料提供' : '核对后可查看本人考勤' }}</small></div>
       </div>
       <a-alert v-if="identityError" :message="identityError" type="warning" show-icon /><a-button v-if="identityError" @click="loadIdentity">重新核对员工档案</a-button>
-      <div class="r6-identity-facts"><div><span>工号</span><strong>{{ fact(employee?.employee_number) }}</strong></div><div><span>所属部门</span><strong>{{ fact(archiveDepartment) }}</strong></div><div><span>岗位</span><strong>{{ system ? '不适用' : linked ? employee?.position || '待补充' : '待核对' }}</strong></div><a-button v-if="!system" type="text" :disabled="identityLoading || Boolean(identityError)" @click="employeeDialog = true">{{ identityLoading ? '正在核对' : linked ? '查看员工资料' : '核对关联' }}</a-button></div>
+      <div class="r6-identity-facts"><div><span>工号</span><strong>{{ fact(employee?.employee_number) }}</strong></div><div><span>所属部门</span><strong>{{ fact(archiveDepartment) }}</strong></div><div><span>岗位</span><strong>{{ system ? '不适用' : linked ? employee?.position || '待补充' : '待核对' }}</strong></div><a-button v-if="!system" type="text" :disabled="identityLoading || Boolean(identityError)" @click="employeeDialog = true">{{ identityLoading ? '正在核对' : linked ? '查看员工资料' : '核对关联' }}<RightOutlined /></a-button></div>
       <p v-if="system" class="r6-system-note"><InfoCircleOutlined />内置系统管理账号不关联员工档案。飞书绑定仅用于本人登录。</p>
     </section>
     <AccountSecurity :identity="portal.user?.id" @status-change="updateSecurity" />

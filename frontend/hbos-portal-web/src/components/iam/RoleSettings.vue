@@ -5,7 +5,7 @@ import { Modal, message } from 'ant-design-vue'
 import { canIam, iamMessage } from '@/services/iamAccess'
 import { listDepartments } from '@/services/iamDepartments'
 import { roleQuery, roleCommand, assertRolePreview, type RoleAssignment, type RolePreview, type RoleScope } from '@/services/iamRoles'
-import type { DepartmentSummary } from '@/types/iam'
+import type { DepartmentSummary, RoleEditorSummary } from '@/types/iam'
 import OwnAccountVerification from '@/components/account/OwnAccountVerification.vue'
 import ChangeReview from './ChangeReview.vue'
 import StatusTag from './StatusTag.vue'
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
   embedded?: boolean
   subjectLabel?: string
 }>(), { embedded: false, subjectLabel: '' })
-const emit = defineEmits<{ back: []; saved: []; dirty: [boolean] }>()
+const emit = defineEmits<{ back: []; saved: []; dirty: [boolean]; summary: [value: RoleEditorSummary | null] }>()
 
 const loading = ref(true), busy = ref(false), error = ref(''), scopeError = ref('')
 const current = ref<RoleAssignment | null>(null), choice = ref(''), scopeRefs = ref<string[]>([])
@@ -126,6 +126,39 @@ const actualFunctions = computed(() => {
   }
   return [...result.values()]
 })
+const selfReadAllowed = computed(() => {
+  const operations = (current.value?.effective_access?.operations || []) as Array<{ operation_id?: string; allowed: boolean; scope_type?: string }>
+  return operations.some(row => row.allowed && row.operation_id === 'attendance.read' && row.scope_type === 'SELF')
+})
+const currentRoleKey = computed(() => {
+  if (!current.value) return ''
+  if (current.value.mode === 'DIRECT') return current.value.role_key || ''
+  if (current.value.mode === 'FOLLOW_DEPARTMENT') return resolved.value.role_key || ''
+  return ''
+})
+const roleScopeSplitVisible = computed(() => Boolean(own.value && current.value && current.value.mode !== 'LEGACY' && ['clerk', 'admin'].includes(currentRoleKey.value)))
+const roleScopeSplitCaption = computed(() => currentRoleKey.value === 'clerk' ? '明确负责的部门，不自动包含下级' : '明确负责的一个公司')
+const roleStatusCode = computed(() => {
+  if (!current.value) return '待核对'
+  if (own.value && current.value.mode === 'NONE') return '未安排该角色'
+  if (effectiveAllowed.value === false) return '当前暂不可用'
+  return '安排已生效'
+})
+const roleStatusReason = computed(() => effectiveReason.value || currentReason.value || restrictionReasons.value[0] || '')
+const editorSummary = computed<RoleEditorSummary | null>(() => {
+  if (!current.value) return null
+  return {
+    source: currentSourceText.value || (own.value ? '来源待核对' : '本部门默认'),
+    role: currentLabel.value || '待核对',
+    scopes: currentScopeText.value || '待核对',
+    functions: actualFunctions.value,
+    status: own.value ? roleStatusCode.value : '部门默认已记录',
+    reason: roleStatusReason.value,
+    publishedRevision: publishedRevision.value,
+  }
+})
+watch(editorSummary, value => emit('summary', value), { deep: true, immediate: true })
+
 const departmentOptions = computed(() => {
   const rows = departments.value.filter(row => row.confirmed).map(row => ({ value: row.id, label: `${row.name} · ${companyLabels.value.get(row.company) || row.company}` }))
   const seen = new Set(rows.map(row => row.value))
@@ -382,7 +415,20 @@ defineExpose({ requestLeave, isDirty, loadLatest: () => load(true) })
           <p>{{ currentSourceText }}<span v-if="currentScopeText"> · </span>{{ currentScopeText }}</p>
           <p v-if="currentReason" class="role-reason">{{ currentReason }}</p>
           <p v-if="effectiveReason" class="role-reason">{{ effectiveReason }}</p>
-          <div v-if="own && actualFunctions.length" class="role-effective"><span>当前实际可用功能</span><ul><li v-for="item in actualFunctions" :key="item">{{ item }}</li></ul></div>
+          <div v-if="own && actualFunctions.length" class="role-effective"><span>当前实际可用功能（按已发布角色与服务端结果）</span><ul><li v-for="item in actualFunctions" :key="item">{{ item }}</li></ul></div>
+          <div v-if="roleScopeSplitVisible" class="role-scope-split" aria-label="本人与明确负责范围">
+            <div>
+              <span>本人考勤</span>
+              <strong>{{ selfReadAllowed ? '已包含：可查看本人考勤' : '已发布角色未包含本人考勤读取' }}</strong>
+              <small v-if="!selfReadAllowed" class="role-scope-warning">不能只凭角色名称推断；需由角色管理员核对已发布功能。</small>
+              <small v-else>该范围来自已发布角色的实际功能，不是页面推断。</small>
+            </div>
+            <div>
+              <span>明确负责</span>
+              <strong>{{ currentScopeText }}</strong>
+              <small>{{ roleScopeSplitCaption }}；主部门变动不会自动扩大负责范围。</small>
+            </div>
+          </div>
         </div>
         <div class="role-current-tags">
           <StatusTag v-if="publishedRevision" tone="success">发布版本 v{{ publishedRevision }}</StatusTag>
@@ -409,9 +455,10 @@ defineExpose({ requestLeave, isDirty, loadLatest: () => load(true) })
               <a-radio-button value="DIRECT">为此人单独设置</a-radio-button>
               <a-radio-button value="NONE">不安排此角色</a-radio-button>
             </a-radio-group>
+            <p class="role-scope-caption">单独设置只替换此人的考勤默认，不影响其他应用；返回部门安排不会解除已有的禁止与暂停。</p>
             <div v-if="source === 'FOLLOW_DEPARTMENT'" class="role-follow-note">
               <strong>跟随部门安排</strong>
-              <p>使用所属部门当前的默认角色。个人单独设置会被替换；个人安排和已有限制保留。</p>
+              <p>使用所属部门当前的默认角色。单独设置只替换此人的考勤默认，不影响其他应用；个人安排和已有限制保留。</p>
             </div>
             <div v-else-if="source === 'NONE'" class="role-follow-note">
               <strong>不安排此角色</strong>
@@ -446,21 +493,33 @@ defineExpose({ requestLeave, isDirty, loadLatest: () => load(true) })
             </template>
           </template>
           <template v-else>
-            <div class="field-section-title"><h3>部门默认安排</h3><span>只影响跟随部门安排的员工</span></div>
-            <a-radio-group v-model:value="choice" class="department-default-options" aria-label="部门默认角色">
-              <a-radio v-if="legacyForDepartment" value="LEGACY"><span><strong>沿用已有安排</strong><small>尚未设置新的部门默认，保留现有跟随安排。</small></span></a-radio>
-              <a-radio value="staff"><span><strong>普通员工</strong><small>跟随者可查看自己的考勤，不查看同部门其他人。</small></span></a-radio>
-              <a-radio value=""><span><strong>不默认开通</strong><small>跟随者不从部门默认获得角色功能。</small></span></a-radio>
+            <div class="field-section-title"><h3>考勤 · 部门默认权限</h3><span>只影响跟随部门安排的员工</span></div>
+            <div v-if="legacyForDepartment" class="role-legacy-state" role="status">
+              <div><strong>当前状态：沿用已有考勤权限</strong><StatusTag tone="neutral">当前状态</StatusTag></div>
+              <p>当前仍沿用原有考勤权限；选择并保存新的部门默认前不会自动转换。具体影响以服务端预览为准。</p>
+            </div>
+            <a-radio-group v-model:value="choice" class="department-default-options" aria-label="部门默认考勤权限">
+              <a-radio value="staff"><span><strong>查看本人考勤</strong><small>内部角色：普通员工（staff）。跟随者可查看本人的考勤记录与月度结果，不查看同部门其他人。</small></span></a-radio>
+              <a-radio value=""><span><strong>不默认开通</strong><small>不通过本部门分配考勤角色；单独授权不受此项影响。</small></span></a-radio>
             </a-radio-group>
-            <p class="role-scope-caption">部门考勤员与考勤管理员需要逐人单独设置，不能从部门默认获得。个人单独安排、暂停、个人禁止与期限限制保持不变。</p>
+            <p class="role-scope-caption">部门默认只作用于考勤应用。部门考勤员与考勤管理员需要逐人单独设置；个人单独安排、暂停、个人禁止与期限限制保持不变。</p>
           </template>
           <div class="role-actions">
             <span class="role-draft-state" role="status">{{ dirty ? '有未保存的修改' : '与当前安排一致' }}</span>
-            <a-button :disabled="busy" @click="cancelEdit">取消修改</a-button>
-            <a-button type="primary" :disabled="!dirty || mustRead || busy || Boolean(preview)" :loading="busy" @click="prepare">{{ own ? '核对实际结果' : '核对部门变化' }}</a-button>
+            <span v-if="!dirty" class="role-disabled-reason">{{ mustRead ? '请先读取最新安排' : '没有未保存的修改' }}</span>
+            <a-button v-if="dirty" :disabled="busy" @click="cancelEdit">取消修改</a-button>
+            <a-button type="primary" :disabled="!dirty || mustRead || busy || Boolean(preview)" :loading="busy" @click="prepare">{{ own ? '核对实际结果' : '预览影响' }}</a-button>
           </div>
         </fieldset>
         <p v-if="!own" class="role-withheld">仅影响选择跟随部门安排的员工；个人安排和已有限制保留。</p>
+        <div v-else class="role-state-distinction" aria-label="三种状态的区别">
+          <strong>三种状态分开处理</strong>
+          <ul>
+            <li><b>不安排该角色</b>：不通过角色获得考勤功能；登录账号和其他应用不变。</li>
+            <li><b>暂停考勤应用</b>：临时不能使用考勤，角色与负责范围保留；在应用操作中单独确认。</li>
+            <li><b>停用账号</b>：整个登录账号不可用，须在“登录账号”页单独处理。</li>
+          </ul>
+        </div>
       </template>
       <p v-else class="role-readonly">只读：当前账号没有分配或修改角色安排的权限，页面不提供可提交的角色选择。</p>
     </template>
@@ -503,5 +562,21 @@ defineExpose({ requestLeave, isDirty, loadLatest: () => load(true) })
 </template>
 
 <style scoped>
+.role-legacy-state{padding:13px 15px;border:1px solid #e3e7f0;border-radius:10px;background:#f8f9fc;margin:0 0 14px}
+.role-legacy-state>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.role-legacy-state strong{font-size:13px;line-height:21px;color:#34456e}
+.role-legacy-state p{margin:6px 0 0;color:var(--r6-secondary);font-size:12px;line-height:20px}
+.role-scope-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #e5e9f2}
+.role-scope-split>div{min-width:0;padding:13px 15px;border:1px solid #e5e9f2;border-radius:10px;background:#fff}
+.role-scope-split span{display:block;color:var(--r6-muted);font-size:11px;line-height:18px}
+.role-scope-split strong{display:block;margin-top:3px;font-size:14px;line-height:22px;color:#192a45;overflow-wrap:anywhere}
+.role-scope-split small{display:block;margin-top:5px;color:var(--r6-muted);font-size:11px;line-height:18px}
+.role-scope-warning{color:#94600e!important}
+.role-state-distinction{margin-top:2px;padding:13px 15px;border:1px solid #efe2c7;border-radius:10px;background:#fffbf2;color:#836e49}
+.role-state-distinction strong{display:block;font-size:12px;line-height:20px;color:#906722}
+.role-state-distinction ul{margin:6px 0 0;padding-left:18px;font-size:12px;line-height:20px}
+.role-state-distinction b{font-weight:600}
+.role-disabled-reason{align-self:center;color:var(--r6-muted);font-size:12px;line-height:19px}
+@media(max-width:760px){.role-scope-split{grid-template-columns:1fr}}
 .role-settings{display:grid;gap:16px;font-size:14px;min-width:0}.role-settings.is-embedded{gap:18px}.role-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.role-heading h2{margin:0;font-size:20px}.role-error{display:grid;gap:10px;justify-items:start}.role-current{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:17px 20px;border:1px solid #e8eaf3;border-radius:12px;background:#f7f8fc;min-width:0}.role-current>div{min-width:0}.role-current-label{display:block;margin-bottom:4px;color:var(--r6-muted);font-size:12px}.role-current strong{font-size:15px;overflow-wrap:anywhere}.role-current p{margin:6px 0 0;color:var(--r6-secondary);font-size:13px;line-height:21px;overflow-wrap:anywhere}.role-current .role-reason{color:var(--r6-muted);font-size:12px}.role-effective{margin-top:12px;padding-top:10px;border-top:1px solid #e5e9f2}.role-effective span{display:block;color:var(--r6-muted);font-size:11px;margin-bottom:4px}.role-effective ul{list-style:none;margin:0;padding:0;display:grid;gap:3px;color:var(--r6-secondary);font-size:12px;line-height:19px}.role-card-icon{display:grid;place-items:center;width:28px;height:30px;border-radius:8px;background:#f0f2f8;color:#7a72bf;font-size:16px}.role-card-capability{margin:2px 0 0!important;color:var(--r6-muted)!important;font-size:11px!important;line-height:18px!important}.role-current-tags{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;flex:none}.role-caveat,.role-readonly,.role-withheld{margin:0;padding:12px 14px;border:1px solid #efe2c7;border-radius:10px;background:#fffbf2;color:#836e49;font-size:12px;line-height:20px}.role-readonly{background:#f7f8fc;border-color:#e5e9f2;color:var(--r6-secondary)}.role-withheld{border-color:#dfe4f8;background:#f4f6ff;color:#525c88}.role-restriction{padding:14px 16px;border:1px solid #efe2c7;border-radius:10px;background:#fffbf2;color:#906722;font-size:12px;line-height:20px}.role-restriction summary{cursor:pointer;font-size:12px;min-height:30px;display:flex;align-items:center}.role-restriction p{margin:5px 0 0}.field-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:22px 0 12px}.field-section-title h3{margin:0;font-size:15px}.field-section-title>span{font-size:12px;color:var(--r6-muted);text-align:right}.role-role-title{margin-top:20px}.role-scope-title{margin-top:18px}.source-options{display:flex;width:100%}.source-options :deep(.ant-radio-button-wrapper){flex:1;display:flex;align-items:center;justify-content:center;padding:0 10px;font-size:13px;white-space:nowrap;background:#fff;text-align:center;height:auto;min-height:40px;line-height:20px}.source-options :deep(.ant-radio-button-wrapper-checked){background:#f1efff!important;box-shadow:none!important}.role-follow-note{padding:17px 18px;border:1px dashed #d6d5eb;border-radius:12px;margin-top:16px;background:#fafaff}.role-follow-note strong{font-size:14px}.role-follow-note p{margin:7px 0 0;color:var(--r6-secondary);font-size:12px;line-height:20px}.r6-role-cards{margin:14px 0 0}.r6-role-card{align-content:start;cursor:pointer}.r6-role-card.selected{border-color:#b6a6ff;background:#f6f2ff;box-shadow:0 0 0 1px #b6a6ff}.r6-role-card ul{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:2px;color:var(--r6-muted);font-size:11px;line-height:18px}.role-self-scope{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px 15px;border:1px solid #e5e9f2;border-radius:10px;background:#f5f7fb}.role-self-scope span{color:var(--r6-muted);font-size:12px}.role-scope-caption{margin:10px 0 0;color:var(--r6-muted);font-size:12px;line-height:20px}.department-default-options{display:grid;gap:10px;width:100%}.department-default-options :deep(.ant-radio-wrapper){display:flex;align-items:flex-start;margin:0;padding:15px 16px;border:1px solid #e5e9f2;border-radius:11px;min-height:76px}.department-default-options :deep(.ant-radio-wrapper-checked){border-color:#bab5ea;background:#f7f6ff}.department-default-options :deep(.ant-radio){margin-top:4px}.department-default-options strong,.department-default-options small{display:block}.department-default-options strong{font-size:14px}.department-default-options small{margin-top:4px;color:var(--r6-secondary);font-size:12px;line-height:20px}.role-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:20px;padding-top:16px;border-top:1px solid #e5e9f2}.role-draft-state{margin-right:auto;color:var(--r6-muted);font-size:12px}.role-preview{display:grid;gap:14px}.role-preview-subject{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}.role-preview-subject strong{font-size:16px}.role-preview-subject span{color:var(--r6-muted);font-size:12px}.r6-assignment-compare>div{min-width:0}.r6-assignment-compare p{margin:6px 0 0;overflow-wrap:anywhere}.r6-assignment-compare strong{display:block;margin-top:8px;overflow-wrap:anywhere}.role-diff{padding:4px 2px}.role-diff-label{display:inline-flex;margin-top:8px;font-size:13px;font-weight:600}.role-diff-label.added{color:#227451}.role-diff-label.removed{color:#ad4b60}.role-diff ul{margin:8px 0 0;padding-left:18px;color:var(--r6-secondary);font-size:12px;line-height:22px;overflow-wrap:anywhere}.role-diff p{margin:4px 0 0;color:var(--r6-secondary);font-size:12px}.role-preview-effect{margin:0;color:var(--r6-secondary);font-size:13px;line-height:21px}.role-preview-restriction{padding:13px 15px;border:1px solid #efe2c7;border-radius:10px;background:#fffbf2;color:#836e49;font-size:12px;line-height:20px}.role-preview-restriction summary{cursor:pointer;font-weight:600;min-height:28px;display:flex;align-items:center}.role-preview-restriction p{margin:5px 0 0}.role-department-impact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.role-department-impact>div{padding:12px;border:1px solid #e5e9f2;border-radius:10px;background:#f8f9fc}.role-department-impact strong{display:block;font-size:22px;line-height:30px}.role-department-impact span{display:block;margin-top:4px;color:var(--r6-muted);font-size:11px;line-height:18px}.role-member-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.role-member-list li{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;padding:10px 12px;border:1px solid #e5e9f2;border-radius:8px;font-size:12px}.role-member-list span{color:var(--r6-secondary)}.role-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid #e5e9f2}.full-width{width:100%}fieldset{border:0;padding:0;margin:0;min-width:0}.ant-select{width:100%}@media(max-width:760px){.source-options{display:grid;grid-template-columns:1fr}.source-options :deep(.ant-radio-button-wrapper){border-radius:8px!important;margin:0 0 6px}.role-current{flex-direction:column}.role-current-tags{justify-content:flex-start}.role-department-impact{grid-template-columns:1fr}.role-actions{justify-content:stretch}.role-actions .ant-btn{flex:1}.role-draft-state{width:100%;margin:0}}
 </style>

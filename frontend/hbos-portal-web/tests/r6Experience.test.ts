@@ -56,7 +56,7 @@ describe('R6 formal data and role contracts', () => {
     const w = await render(Roles, '/hbos/admin/roles')
     expect(w.findAll('.r6-feature-read').map(row => row.text())).toEqual(expect.arrayContaining(['查看自己的考勤已启用', '查看部门考勤面板未启用']))
     expect(w.find('input[type=checkbox]').exists()).toBe(false)
-    await click(w, '待发布草稿')
+    await click(w, '待发布修改')
     expect(w.findAll('.r6-feature-read').find(row => row.text().includes('部门'))!.text()).toContain('已启用')
     expect(api.roleCommand).not.toHaveBeenCalled()
   })
@@ -174,7 +174,7 @@ describe('R6 formal data and role contracts', () => {
     api.getEmployeeMetadata.mockResolvedValue({ version: 'meta-1', required_fields: [],
       companies: [{ value: 'C1', label: '公司甲' }], departments: [{ value: 'D1', label: '部门甲', company: 'C1' }], genders: [{ value: 'Female', label: '女' }] })
     api.createEmployee.mockRejectedValue(Object.assign(new Error('提交结果待核对'), { status: 500 }))
-    const w = await render(People, '/hbos/admin/people'); await click(w, '新增员工档案')
+    const w = await render(People, '/hbos/admin/people'); await click(w, '新增员工')
     const item = (label: string) => w.findAllComponents({ name: 'AFormItem' }).find(row => row.props('label') === label)!
     for (const [label, value] of [['公司', 'C1'], ['主部门', 'D1'], ['性别', 'Female']]) {
       item(label!).findComponent({ name: 'ASelect' }).vm.$emit('update:value', value); await flushPromises()
@@ -203,7 +203,7 @@ describe('R6 formal data and role contracts', () => {
       { fieldname: 'first_name', label: 'First Name', fieldtype: 'Data' },
       { fieldname: 'gender', label: 'Gender', fieldtype: 'Link' },
     ], companies: [], departments: [], genders: [] })
-    const w = await render(People, '/hbos/admin/people'); await click(w, '新增员工档案')
+    const w = await render(People, '/hbos/admin/people'); await click(w, '新增员工')
     const labels = Array.from(document.querySelectorAll('.ant-modal label')).map(item => item.textContent)
     expect(labels).toContain('姓名'); expect(labels).toContain('工号'); expect(labels).toContain('性别')
     expect(labels).not.toContain('Series'); expect(labels).not.toContain('First Name')

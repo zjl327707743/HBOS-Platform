@@ -6,7 +6,7 @@ import { Modal, message } from 'ant-design-vue'
 import {
   TeamOutlined, UserOutlined, CalendarOutlined, CheckCircleFilled, MinusCircleOutlined, SearchOutlined, EditOutlined,
   DashboardOutlined, BankOutlined, ScheduleOutlined, ImportOutlined, SettingOutlined, BarChartOutlined, ExportOutlined,
-  EyeOutlined, SafetyCertificateOutlined, ClockCircleOutlined, SwapOutlined,
+  EyeOutlined, SafetyCertificateOutlined, ClockCircleOutlined, SwapOutlined, RightOutlined,
 } from '@ant-design/icons-vue'
 import { canIam, iamMessage } from '@/services/iamAccess'
 import { loadRoles, roleCommand, assertRolePreview, type AppRole, type RoleFeature, type RolePreview } from '@/services/iamRoles'
@@ -431,9 +431,9 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
         <template #header>
           <p class="aux">选择应用</p>
           <div class="r6-role-app"><span class="r6-role-app-icon"><CalendarOutlined /></span><a-select value="attendance" aria-label="角色所属应用"><a-select-option value="attendance">考勤管理</a-select-option></a-select></div>
-          <p class="aux" style="margin:20px 0 0">角色模板 · {{ items.length }}</p>
+          <p class="r6-role-library-label">角色模板 <span>{{ items.length }}</span></p>
         </template>
-        <div class="r6-choice-list"><button v-for="item in items" :key="item.role_key" :disabled="busy || loading || mustRead" :aria-pressed="selected === item.role_key" @click="select(item.role_key)"><span class="r6-choice-icon"><component :is="icons[item.role_key as keyof typeof icons] || UserOutlined" /></span><span><strong>{{ item.title }}</strong><small>{{ item.boundary_kind === 'SELF' ? '仅本人' : item.boundary_kind === 'DEPARTMENT' ? '指定部门' : '指定公司' }}</small></span></button></div>
+        <div class="r6-choice-list"><button v-for="item in items" :key="item.role_key" :disabled="busy || loading || mustRead" :aria-pressed="selected === item.role_key" @click="select(item.role_key)"><span class="r6-choice-icon"><component :is="icons[item.role_key as keyof typeof icons] || UserOutlined" /></span><span><strong>{{ item.title }}</strong><small>{{ item.boundary_kind === 'SELF' ? '仅本人' : item.boundary_kind === 'DEPARTMENT' ? '指定部门' : '指定公司' }}</small></span><RightOutlined class="r6-choice-trail" aria-hidden="true" /></button></div>
         <template #footer>角色定义功能，员工设置负责范围。</template>
       </PanelFrame>
       <PanelFrame v-if="role" region="role-detail" label="角色功能与职责">
@@ -449,10 +449,10 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
             <div><strong>{{ pendingTitle }}</strong><p>{{ pendingDetail }}</p></div>
             <a-button v-if="canPublish" type="primary" :disabled="busy || mustRead || Boolean(error)" @click="openPublishReview">查看发布影响</a-button>
           </div>
-          <div class="r6-role-versions"><a-button :aria-pressed="versionTab === 'published' && !editing" :disabled="editing" @click="showTab('published')">当前生效版本</a-button><a-button :aria-pressed="versionTab === 'draft' || editing" :disabled="editing" @click="showTab('draft')">待发布草稿 <span v-if="unpublished"> · 有变更</span></a-button><span>{{ editing ? `编辑中 · 待发布草稿 v${role.draft_version}` : versionTab === 'published' ? role.published_revision ? `当前生效 v${role.published_revision}` : '尚无当前生效版本' : `待发布草稿 v${role.draft_version} · 尚未生效` }}</span></div>
+          <div class="r6-role-versions"><a-button :aria-pressed="versionTab === 'published' && !editing" :disabled="editing" @click="showTab('published')">当前生效</a-button><a-button :aria-pressed="versionTab === 'draft' || editing" :disabled="editing" @click="showTab('draft')">待发布修改 <span v-if="unpublished"> · 有变更</span></a-button><span>{{ editing ? `编辑中 · 待发布修改 v${role.draft_version}` : versionTab === 'published' ? role.published_revision ? `生效版本 v${role.published_revision}` : '尚无当前生效版本' : `待发布修改 v${role.draft_version} · 尚未生效` }}</span></div>
         </template>
         <div v-if="editing" class="r6-editing-guide"><EditOutlined /><span>勾选或取消功能后先保存草稿；保存后查看哪些员工权限会变化，再确认发布。</span></div>
-        <div class="r6-feature-toolbar"><h3>功能与职责 <small class="aux">{{ displayed.length }} 项{{ editing ? '已选择' : versionTab === 'published' ? '已启用' : '在草稿' }}</small></h3><a-input v-model:value="search" allow-clear placeholder="搜索功能" aria-label="搜索角色功能"><template #prefix><SearchOutlined /></template></a-input></div>
+        <div class="r6-feature-toolbar"><h3>功能与职责 <small class="aux">{{ displayed.length }} 项{{ editing ? '已选择' : versionTab === 'published' ? '已启用' : '在草稿' }} · {{ featureGroups.length }} 个功能组</small></h3><a-input v-model:value="search" allow-clear placeholder="搜索功能" aria-label="搜索角色功能"><template #prefix><SearchOutlined /></template></a-input></div>
         <div class="r6-feature-groups"><details v-for="group in featureGroups" :key="group.key" class="r6-feature-group" open><summary><span class="r6-group-icon"><component :is="groupIcon(group.key)" /></span><strong>{{ group.title }}</strong><small>{{ group.rows.filter(row => displayed.includes(roleFeatureKey(row))).length }} / {{ group.rows.length }}</small></summary><div v-for="row in group.rows" :key="roleFeatureKey(row)" class="r6-feature-row"><a-checkbox v-if="editing" :checked="checked.includes(roleFeatureKey(row))" :disabled="busy || mustRead || !row.allowed" @change="toggle(roleFeatureKey(row))">{{ row.title }}</a-checkbox><div v-else class="r6-feature-read" :class="{ 'is-off': !displayed.includes(roleFeatureKey(row)) }"><CheckCircleFilled v-if="displayed.includes(roleFeatureKey(row))" /><MinusCircleOutlined v-else /><span>{{ row.title }}</span><span>{{ displayed.includes(roleFeatureKey(row)) ? '已启用' : '未启用' }}</span></div><small>{{ !row.allowed ? '超过此角色上限' : !row.integrated ? row.reason : roleScopeLabel(row.scope_binding) }}</small></div></details></div>
         <a-empty v-if="!featureGroups.length" description="没有匹配的功能" />
         <div v-if="editing || versionTab === 'draft'" class="r6-role-change-summary" aria-live="polite">

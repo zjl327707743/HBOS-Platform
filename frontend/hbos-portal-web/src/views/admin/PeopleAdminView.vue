@@ -3,7 +3,7 @@ import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
 import { computed, getCurrentInstance, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { Modal, message } from 'ant-design-vue'
-import { SearchOutlined, PlusOutlined, TeamOutlined, KeyOutlined, LinkOutlined, ColumnHeightOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, PlusOutlined, TeamOutlined, KeyOutlined, LinkOutlined, ColumnHeightOutlined, ApartmentOutlined } from '@ant-design/icons-vue'
 import { listPeople, getEmployeeMetadata, createEmployee } from '@/services/iamPeople'
 import { canIam, iamMessage } from '@/services/iamAccess'
 import { developmentObservation } from '@/services/frappeClient'
@@ -131,7 +131,7 @@ onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; cle
 <template>
   <section class="r6-page r6-people-page" :data-view-instance="viewInstance">
     <output v-if="developmentObservation">本机页面实例 {{ viewInstance }}</output>
-    <PageHeading eyebrow="组织管理" title="员工管理" description="找到同事，安排账号与应用角色。"><a-button v-if="canIam('iam.people.create')" type="primary" @click="beginCreate"><PlusOutlined />新增员工档案</a-button></PageHeading>
+    <PageHeading eyebrow="组织管理" title="员工管理" description="找到同事，安排账号与应用角色。"><a-button v-if="canIam('iam.people.create')" type="primary" @click="beginCreate"><PlusOutlined />新增员工</a-button></PageHeading>
     <div v-if="category === 'employees'" class="r6-people-overview">
       <div class="r6-surface r6-overview"><span class="r6-overview-icon"><TeamOutlined /></span><div><span>匹配的员工档案</span><strong>{{ loading || error ? '—' : total }}</strong><small>筛选结果</small></div></div>
       <button type="button" class="r6-surface r6-overview" :disabled="loading || Boolean(error) || !unopened" :aria-label="`本页待开通账号 ${unopened} 位，定位第一位`" @click="jumpTo('unopened')"><span class="r6-overview-icon"><KeyOutlined /></span><div><span>本页待开通账号</span><strong>{{ loading || error ? '—' : unopened }}</strong><small>已有档案，核验后开户</small></div><span class="r6-overview-trail">去处理</span></button>
@@ -139,10 +139,14 @@ onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; cle
     </div>
     <p v-if="category === 'employees' && overviewNotice" class="r6-overview-notice" role="status">{{ overviewNotice }}</p>
     <section class="r6-surface r6-people-panel">
-      <a-alert v-if="groupsAvailable" type="info" show-icon message="当前按人员分组展示，统计仅包含所选分组。" />
-      <a-tabs v-model:activeKey="category"><a-tab-pane key="employees" tab="员工档案" /><a-tab-pane key="pending" tab="待关联账号" /><a-tab-pane key="other" tab="其他账号" /></a-tabs>
+      <div class="r6-people-tabs-row">
+        <a-tabs v-model:activeKey="category"><a-tab-pane key="employees" tab="员工档案" /><a-tab-pane key="pending" tab="待关联账号" /><a-tab-pane key="other" tab="其他账号" /></a-tabs>
+        <div class="r6-people-scope">
+          <span class="r6-people-scope-label"><ApartmentOutlined />你的管理范围内</span>
+          <a-select v-if="groupsAvailable && category === 'employees'" v-model:value="viewGroup" aria-label="员工分组" :title="'统计仅包含所选分组'"><a-select-option value="daily">日常员工</a-select-option><a-select-option value="technical">技术验证员工</a-select-option><a-select-option value="all">全部员工</a-select-option></a-select>
+        </div>
+      </div>
       <div class="r6-filter-toolbar">
-        <a-select v-if="groupsAvailable && category === 'employees'" v-model:value="viewGroup" aria-label="员工分组"><a-select-option value="daily">日常员工</a-select-option><a-select-option value="technical">技术验证员工</a-select-option><a-select-option value="all">全部员工</a-select-option></a-select>
         <a-input v-model:value="search" allow-clear class="r6-search" :placeholder="category === 'employees' ? '搜索姓名或工号' : '搜索账号'" aria-label="搜索人员"><template #prefix><SearchOutlined /></template></a-input>
         <a-select v-if="category === 'employees'" v-model:value="department" show-search allow-clear option-filter-prop="label" aria-label="筛选部门" placeholder="全部部门" :options="departmentOptions" />
         <a-select v-if="category === 'employees'" v-model:value="accountStatus" aria-label="账号状态"><a-select-option value="">全部账号状态</a-select-option><a-select-option value="active">已开通</a-select-option><a-select-option value="unopened">待开通</a-select-option><a-select-option value="disabled">已停用</a-select-option></a-select>
@@ -185,6 +189,18 @@ button.r6-overview { width: 100%; font: inherit; color: inherit; text-align: lef
 button.r6-overview:disabled { cursor: default; opacity: .68; }
 .r6-overview-trail { margin-left: auto; flex: none; color: var(--r6-brand, #5754df); font-size: 12px; white-space: nowrap; }
 .r6-overview-notice { margin: -8px 2px 14px; font-size: 12px; line-height: 20px; color: var(--r6-muted, #5f6e86); }
+.r6-people-tabs-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 24px; border-bottom: 1px solid var(--r6-line, #e5e9f2); }
+.r6-people-tabs-row .ant-tabs { margin-bottom: -1px; min-width: 0; }
+.r6-people-tabs-row :deep(.ant-tabs-nav) { margin: 0; }
+.r6-people-tabs-row :deep(.ant-tabs-nav::before) { border-bottom: 0; }
+.r6-people-scope { display: flex; align-items: center; gap: 10px; flex: none; }
+.r6-people-scope-label { display: inline-flex; align-items: center; gap: 5px; color: var(--r6-muted, #5f6e86); font-size: 12px; line-height: 19px; white-space: nowrap; }
+.r6-people-scope :deep(.ant-select) { width: 132px; }
+@media (max-width: 760px) {
+  .r6-people-tabs-row { padding: 0 16px; flex-wrap: wrap; gap: 8px; }
+  .r6-people-scope { width: 100%; justify-content: space-between; padding-bottom: 10px; }
+  .r6-people-scope :deep(.ant-select) { width: 150px; }
+}
 .r6-task-link { border: 0; background: none; padding: 0; color: #896720; font-size: 12px; line-height: 20px; text-align: left; cursor: pointer; }
 .r6-task-link:hover { text-decoration: underline; }
 .r6-mobile-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }

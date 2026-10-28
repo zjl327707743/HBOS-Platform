@@ -22,6 +22,7 @@ export interface OwnershipEvidence { employee_number: string; company: string; a
 export interface PersonResult { employee: EmployeeSummary; version: string; replayed?: boolean; temporary_password?: string }
 export interface DepartmentSummary {
   id: string; name: string; parent_department?: string | null; company: string; confirmed: boolean; version?: string
+  member_count?: number
   members?: EmployeeSummary[]
 }
 export interface AuditEvent { subject_type?: string; version?: number; request_id?: string; name?: string; actor: string; operation: string; subject_name: string; result: string; reason?: string; occurred_at: string }
@@ -44,5 +45,6 @@ export interface WorkSummary { subject_type: 'User' | 'Department'; subject_name
 export interface WorkChange { operation_id: string; enabled: boolean; scopes: WorkScope[] }
 export interface WorkTarget { subject_type: 'User' | 'Department'; subject_name: string; app_id: string; employee_id?: string }
 export interface WorkPreview { version: number; context_revision: string; changed: boolean; summary: string; after: WorkApp; impact?: { changed: number; personal_preserved: number; unavailable: number; employees: Array<{ name: string; result?:string; before?: string; after?: string; personal_preserved?: boolean }> }; warnings?: string[] }
+export interface RoleEditorSummary { source: string; role: string; scopes: string; functions: string[]; status: string; reason: string; publishedRevision: number | null }
 export interface AttendanceRow { source?: 'Attendance' | 'Employee Checkin' | string; id: string; date: string; time?: string; log_type?: string; status?: string }
 export interface MyAttendance { rows: AttendanceRow[]; total: number; page: number; page_size: number; date_from?: string; date_to?: string; site_today?: string; site_timezone?: string; summary: { records: number; days: number } }

@@ -5,7 +5,7 @@ import { onBeforeRouteLeave } from 'vue-router'
 import { getPerson, getEmployeeMetadata, previewLink, linkUser, createUser, transferEmployee, previewTransferEmployee, type TransferPreview, disableUser, resetTemporaryPassword } from '@/services/iamPeople'
 import { getWorkSubject, getWorkSummary } from '@/services/iamWork'
 import { canIam, iamMessage, iamSession } from '@/services/iamAccess'
-import type { EmployeeDetail, EmployeeMetadata, OwnershipEvidence, WorkSummary } from '@/types/iam'
+import type { EmployeeDetail, EmployeeMetadata, OwnershipEvidence, RoleEditorSummary, WorkSummary } from '@/types/iam'
 import OwnAccountVerification from '@/components/account/OwnAccountVerification.vue'
 import { useAccountProof } from '@/composables/useAccountProof'
 import { cycleDialogTab } from '@/services/dialogKeyboard'
@@ -29,6 +29,30 @@ const targetUser = ref(''), department = ref(''), evidence = ref('')
 const accountMode = ref<'create' | 'link'>('create'), belongs = ref(false), accountReview = ref(false), accountDone = ref(false)
 const roleDirty = ref(false), lowToolsOpen = ref(false), appsVisited = ref(false)
 const work = ref<WorkSummary | null>(null), workLoading = ref(false), workError = ref('')
+const attendanceSummary = ref<RoleEditorSummary | null>(null)
+type AppAccessCard = { appId: string; title: string; integrated: boolean; source: string; role: string; scopes: string; status: string; reason: string }
+const appAccessCards = computed<AppAccessCard[]>(() => {
+  const cards: AppAccessCard[] = []
+  const attendanceWork = (work.value?.apps || []).find(app => app.app_id === 'attendance')
+  cards.push({
+    appId: 'attendance', title: attendanceWork?.title || '考勤管理', integrated: true,
+    source: attendanceSummary.value?.source || (attendanceWork ? (attendanceWork.permission_mode === 'department' ? '跟随所属部门默认' : '为此员工单独设置') : '待核对'),
+    role: attendanceSummary.value?.role || '待核对',
+    scopes: attendanceSummary.value?.scopes || '待核对',
+    status: attendanceWork?.suspended ? '已暂停' : attendanceSummary.value?.status || '待核对',
+    reason: attendanceWork?.suspended ? '考勤应用已临时暂停；角色安排仍保留，可在下方单独恢复。' : attendanceSummary.value?.reason || '',
+  })
+  for (const app of otherApps.value) cards.push({
+    appId: app.app_id, title: app.title, integrated: app.integrated,
+    source: app.integrated ? (app.permission_mode === 'department' ? '跟随所属部门默认' : '为此员工单独设置') : '各应用原有授权',
+    role: app.integrated ? app.summary : '未在本页管理',
+    scopes: app.integrated ? ((app.operations || []).filter(row => row.enabled).flatMap(row => row.scopes.map(scope => scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref))).filter((value, index, all) => all.indexOf(value) === index).join('、') || '待核对') : '未读取',
+    status: app.integrated ? (app.suspended ? '已暂停' : app.status) : '尚未接入',
+    reason: app.integrated ? '' : '原有业务入口保持现有授权；本页不启用、不关闭、不套用考勤角色接口。',
+  })
+  return cards
+})
+function onRoleSummary(value: RoleEditorSummary | null) { attendanceSummary.value = value }
 const proof = useAccountProof(() => { secret.value = '' })
 let generation = 0, workGeneration = 0, accountRequestId = '', accountPreviewVersion = '', assistRequestId = '', assistRequestAction = ''
 let returnFocus: HTMLElement | null = null
@@ -255,7 +279,7 @@ watch(tab, value => { if (value === 'apps') appsVisited.value = true })
 watch(() => [props.open, props.employeeId], () => {
   generation++; workGeneration++; person.value = null; secret.value = ''; action.value = ''; assistOpen.value = false; error.value = ''
   accountReview.value = false; accountDone.value = false; belongs.value = false; evidence.value = ''; targetUser.value = ''; accountMode.value = 'create'; accountRequestId = ''; accountPreviewVersion = ''; assistRequestId = ''; assistRequestAction = ''
-  transferPreview.value = null; department.value = ''; metadata.value = null; roleDirty.value = false; work.value = null; workError.value = ''; mustRead.value = false; appsVisited.value = false
+  transferPreview.value = null; department.value = ''; metadata.value = null; roleDirty.value = false; work.value = null; workError.value = ''; attendanceSummary.value = null; mustRead.value = false; appsVisited.value = false
   proof.invalidate()
   if (props.open && props.employeeId) {
     tab.value = normalizeTab(props.initialApp ? 'apps' : props.initialTab)
@@ -397,7 +421,26 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
           <div v-show="!editingApp">
           <template v-if="iamSession.rolesEnabled">
             <a-alert v-if="employee.account_status !== 'active'" type="warning" show-icon message="登录账号尚未可用" description="应用角色可在此核对；账号可用前实际功能不会生效。" />
-            <RoleSettings ref="roleSettings" embedded subject-kind="employee" :subject-id="employeeId" :subject-label="employee.name" @dirty="onRoleDirty" @saved="onRoleSaved" />
+            <section class="r6-app-access-overview" aria-label="按应用查看权限">
+              <div class="field-section-title"><h3>按应用查看权限</h3><span>来源、实际能力、数据范围与状态</span></div>
+              <a-skeleton v-if="workLoading" active />
+              <p v-else-if="workError" class="r6-app-access-error">其他应用状态暂无法读取：{{ workError }}</p>
+              <article v-for="entry in appAccessCards" :key="entry.appId" class="r6-app-access-card" :class="{ 'not-integrated': !entry.integrated }">
+                <div class="r6-app-access-head">
+                  <strong>{{ entry.title }}</strong>
+                  <StatusTag :tone="entry.integrated ? (entry.status === '已暂停' ? 'warning' : entry.status === '待核对' ? 'neutral' : 'success') : 'neutral'">{{ entry.integrated ? entry.status : '尚未接入' }}</StatusTag>
+                </div>
+                <dl class="r6-app-access-facts">
+                  <div><dt>来源</dt><dd>{{ entry.source }}</dd></div>
+                  <div><dt>角色 / 实际能力</dt><dd>{{ entry.role }}</dd></div>
+                  <div><dt>数据范围</dt><dd>{{ entry.scopes }}</dd></div>
+                  <div><dt>有效状态与受限原因</dt><dd>{{ entry.reason || (entry.integrated ? '未发现额外限制；以服务端实际结果为准。' : '本页未读取；不能从入口推断已授权。') }}</dd></div>
+                </dl>
+                <p v-if="!entry.integrated" class="app-note">该应用尚未接入统一权限视图；本页不提供开关，也不把考勤角色接口套用到它。</p>
+              </article>
+              <p class="aux">“不安排该角色”“暂停应用”“停用账号”彼此独立；停用账号在“登录账号”页单独处理。</p>
+            </section>
+            <RoleSettings ref="roleSettings" embedded subject-kind="employee" :subject-id="employeeId" :subject-label="employee.name" @dirty="onRoleDirty" @saved="onRoleSaved" @summary="onRoleSummary" />
             <section v-if="showAttendanceOps && attendanceApp" class="r6-attendance-more">
               <div class="field-section-title"><h3>更多考勤操作</h3><span>低频 · 独立于角色保存</span></div>
               <article class="r6-other-app">
@@ -486,5 +529,6 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
 .drawer-top{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.drawer-identity-block{min-width:0}.drawer-eyebrow{display:block;margin-bottom:4px;color:var(--r6-muted,#5f6e86);font-size:11px;letter-spacing:.5px}.drawer-identity{display:flex;align-items:center;gap:13px;min-width:0}.drawer-avatar{background:#eeedff;color:#5754df;font-size:16px;flex:none}.drawer-identity h2{margin:0;font-size:21px;line-height:30px;font-weight:600;overflow-wrap:anywhere}.drawer-identity p{margin:4px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px;overflow-wrap:anywhere}.drawer-identity p span{margin-inline:7px;color:#a5acc1}.drawer-close{flex:none;color:var(--r6-secondary,#566780)}.drawer-tabs{margin-top:4px}.employee-drawer{display:grid;gap:16px;font-size:14px;min-width:0}.drawer-section-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}.drawer-section-heading h3{margin:0;font-size:16px}.drawer-section-heading.spaced{margin-top:24px}.detail-link-card{display:flex;align-items:center;gap:14px;padding:17px 0;border-bottom:1px solid #e5e9f2}.detail-link-card>div{flex:1;min-width:0}.detail-link-card strong{font-size:14px;font-weight:500}.detail-link-card p{margin:5px 0 0;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px;overflow-wrap:anywhere}.drawer-inline-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid #e5e9f2}.drawer-inline-tools span{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.drawer-details{margin-top:4px;border-top:1px solid #e5e9f2;padding-top:12px}.drawer-details summary{cursor:pointer;font-weight:600;font-size:13px;min-height:36px;display:flex;align-items:center}.drawer-details p{color:var(--r6-secondary,#566780);font-size:12px;line-height:20px;overflow-wrap:anywhere}.inline-notice{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border:1px solid #dfe4f8;border-radius:10px;background:#f4f6ff;color:#525c88;font-size:13px;line-height:21px}.inline-notice strong{font-size:14px}.inline-notice p{margin:5px 0 0;font-size:12px;line-height:20px}.account-steps{margin:22px 0 8px}.field-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:16px 0 12px;font-size:16px}.account-choice{display:grid;gap:11px;width:100%;margin-bottom:18px}.account-choice :deep(.ant-radio-wrapper){display:flex;align-items:flex-start;margin:0;padding:15px 17px;border:1px solid #e5e9f2;border-radius:12px;min-height:76px;white-space:normal}.account-choice :deep(.ant-radio-wrapper-checked){border-color:#bab5ea;background:#f7f6ff}.account-choice :deep(.ant-radio){margin-top:4px;flex:none}.account-choice strong,.account-choice small{display:block}.account-choice strong{font-size:14px;font-weight:500}.account-choice small{margin-top:5px;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.account-form{margin-top:6px}.account-form :deep(.ant-input),.account-form :deep(.ant-input-affix-wrapper),.account-form :deep(textarea){font-size:14px}.field-help{display:block;margin-top:5px;color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.account-form-actions{display:flex;justify-content:flex-end;margin-top:18px}.account-status-card{display:flex;align-items:center;gap:16px;padding:20px 22px;border:1px solid #e3ece6;border-radius:14px;background:#f7faf8}.account-status-card>div{flex:1;min-width:0}.account-status-card h3{margin:0;font-size:16px}.account-status-card p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:13px;overflow-wrap:anywhere}.drawer-next-step{margin-top:24px;padding:22px;border:1px solid #e5e1f6;border-radius:14px;background:linear-gradient(120deg,#f7f5ff,#fbfcff)}.drawer-next-step h3{margin:0;font-size:16px}.drawer-next-step p{margin:8px 0 16px;color:var(--r6-secondary,#566780);font-size:13px;line-height:21px}.account-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}.secret{display:grid;gap:12px;margin-top:20px;padding:20px;border:1px solid #d6e3da;border-radius:12px;background:#f4f8f5}.secret p{margin:0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.r6-other-apps{margin-top:22px;border-top:1px solid #e5e9f2;padding-top:6px}.r6-other-app{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0;border-bottom:1px solid #e5e9f2}.r6-other-app>div{min-width:0}.r6-other-app strong{font-size:14px;margin-right:8px}.r6-other-app p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px;overflow-wrap:anywhere}.r6-other-app .app-note{display:block;margin-top:4px;color:var(--r6-muted,#5f6e86);font-size:11px;line-height:18px}.r6-other-actions{display:flex;align-items:center;gap:8px;flex:none}.low-tools{margin-top:20px}.r6-drawer-footer{display:flex;align-items:center;justify-content:space-between;gap:12px}.r6-drawer-footer span{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px;overflow-wrap:anywhere}.drawer-review{display:grid;gap:16px}.drawer-review .review-lead{margin:0;color:var(--r6-secondary,#566780);font-size:13px;line-height:21px}.drawer-review .spaced-small{margin-top:8px}.role-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid #e5e9f2}.transfer-preview{display:grid;gap:10px;padding:16px;border:1px solid #e5e9f2;border-radius:12px;background:#f8f9fc}.transfer-preview h4{margin:0;font-size:14px}.transfer-preview article{padding-top:10px;border-top:1px solid #e5e9f2}.transfer-preview p{margin:5px 0 0;color:var(--r6-secondary,#566780);font-size:12px;line-height:20px}.spaced{margin-top:4px}.employee-drawer :deep(.ant-descriptions-item-content){overflow-wrap:anywhere;font-size:14px}.employee-drawer :deep(.ant-descriptions-item-label){font-size:12px}.employee-drawer :deep(.ant-tabs-nav){position:sticky;top:-24px;z-index:3;background:#fff}
 .r6-attendance-more{margin-top:18px;border-top:1px solid #e5e9f2;padding-top:14px}
 .r6-association-review{margin-bottom:16px}
-@media (max-width:760px){:global(.iam-employee-drawer .ant-drawer-content-wrapper){width:100%!important;max-width:100vw}.drawer-top{gap:8px}.drawer-identity h2{font-size:19px}.drawer-identity p{font-size:11px}.drawer-close{padding-inline:6px}.detail-link-card{flex-wrap:wrap;align-items:flex-start}.detail-link-card .ant-btn{margin-left:0}.account-status-card{flex-wrap:wrap}.r6-other-app{flex-wrap:wrap}.r6-other-actions{margin-left:0}.r6-drawer-footer{flex-wrap:wrap}}
+.r6-app-access-overview{display:grid;gap:10px}.r6-app-access-overview .field-section-title{margin:2px 0 0}.r6-app-access-card{padding:13px 15px;border:1px solid #e5e9f2;border-radius:12px;background:#fbfbfe;min-width:0}.r6-app-access-card.not-integrated{background:#f8f9fc}.r6-app-access-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.r6-app-access-head strong{font-size:14px;line-height:22px;color:#192a45}.r6-app-access-facts{display:grid;gap:5px;margin:9px 0 0}.r6-app-access-facts>div{display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px}.r6-app-access-facts dt{color:var(--r6-muted,#5f6e86);font-size:12px;line-height:20px}.r6-app-access-facts dd{margin:0;color:#34456e;font-size:12px;line-height:20px;overflow-wrap:anywhere}.r6-app-access-error{margin:0;color:#94600e;font-size:12px;line-height:20px}.r6-app-access-overview .app-note{font-size:11px;line-height:18px;color:var(--r6-muted,#5f6e86)}
+@media (max-width:760px){:global(.iam-employee-drawer .ant-drawer-content-wrapper){width:100%!important;max-width:100vw}.r6-app-access-facts>div{grid-template-columns:1fr;gap:2px}.drawer-top{gap:8px}.drawer-identity h2{font-size:19px}.drawer-identity p{font-size:11px}.drawer-close{padding-inline:6px}.detail-link-card{flex-wrap:wrap;align-items:flex-start}.detail-link-card .ant-btn{margin-left:0}.account-status-card{flex-wrap:wrap}.r6-other-app{flex-wrap:wrap}.r6-other-actions{margin-left:0}.r6-drawer-footer{flex-wrap:wrap}}
 </style>

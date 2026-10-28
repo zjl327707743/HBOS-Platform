@@ -220,7 +220,7 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
 
     const error = w.find('.r6-resource-error-inline')
     expect(error.exists()).toBe(true)
-    expect(error.element.closest('.r6-panel-frame')?.querySelector('[data-scroll-region="department-detail"]')?.getAttribute('aria-label')).toBe('部门默认安排与成员')
+    expect(error.element.closest('.r6-panel-frame')?.querySelector('[data-scroll-region="department-detail"]')?.getAttribute('aria-label')).toBe('部门应用默认权限与成员')
     expect(w.findAll('.r6-panel-frame')).toHaveLength(2)
   })
 
@@ -385,20 +385,20 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     })
     const w = await render(DepartmentsAdminView)
     await flushPromises()
-    expect(w.text()).toContain('沿用已有安排')
-    expect(w.text()).toContain('只读')
-    expect((w.find('input[type="radio"][value="LEGACY"]').element as HTMLInputElement).checked).toBe(true)
-    expect((w.find('input[type="radio"][value="LEGACY"]').element as HTMLInputElement).disabled).toBe(true)
+    expect(w.text()).toContain('沿用已有考勤权限')
+    expect(w.text()).toContain('不会自动转换')
+    expect(w.text()).toContain('当前状态')
+    expect(w.find('input[type="radio"][value="LEGACY"]').exists()).toBe(false)
     expect((w.find('input[type="radio"][value=""]').element as HTMLInputElement).checked).toBe(false)
     expect((w.find('input[type="radio"][value="staff"]').element as HTMLInputElement).checked).toBe(false)
-    expect(w.findAll('button').find(row => row.text().includes('核对部门变化'))!.attributes('disabled')).toBeDefined()
+    expect(w.findAll('button').find(row => row.text().includes('预览影响'))!.attributes('disabled')).toBeDefined()
     expect(api.command).toHaveBeenCalledWith('preview_department_role', expect.objectContaining({ department: 'D1', role_key: '', expected_version: 4 }))
     expect(api.command.mock.calls.some(call => call[0] === 'save_department_role')).toBe(false)
     expect(w.text()).not.toContain('实际权限将变化')
     expect(w.text()).toContain('现有权限保持')
 
     await setRadio(w, 'staff')
-    await click(w, '核对部门变化')
+    await click(w, '预览影响')
     expect(api.command).toHaveBeenCalledWith('preview_department_role', expect.objectContaining({ department: 'D1', role_key: 'staff', expected_version: 4 }))
   })
 
@@ -413,10 +413,10 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     const w = await render(DepartmentsAdminView)
     await flushPromises()
     expect(api.getDepartmentWork).toHaveBeenCalledWith('D1')
-    expect(w.text()).toContain('仅影响选择跟随部门安排的员工；个人安排和已有限制保留。')
-    expect(w.text()).toContain('跟随人数')
+    expect(w.text()).toContain('只影响选择跟随部门安排的员工；个人单独设置、暂停与既有限制保留。')
+    expect(w.text()).toContain('跟随部门默认')
     expect(w.text()).toContain('2')
-    expect(w.text()).toContain('单独安排保留')
+    expect(w.text()).toContain('个人单独安排')
     expect(w.text()).toContain('3')
     expect(w.text()).toContain('合成员工')
     expect(w.text()).toContain('现有权限保持')
@@ -428,11 +428,11 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     await click(w, '查看部门成员')
     await flushPromises()
     expect((w.find('input[type="radio"][value="staff"]').element as HTMLInputElement).checked).toBe(true)
-    await click(w, '返回默认角色与应用')
+    await click(w, '返回部门应用权限')
     await flushPromises()
     expect((w.find('input[type="radio"][value="staff"]').element as HTMLInputElement).checked).toBe(true)
     expect(w.text()).toContain('有未保存的修改')
-    await click(w, '核对部门变化')
+    await click(w, '预览影响')
     expect(api.command).toHaveBeenCalledWith('preview_department_role', expect.objectContaining({ department: 'D1', role_key: 'staff' }))
     expect(bodyText()).toContain('跟随默认 2 人')
     expect(bodyText()).toContain('个人安排保留 3 人')
@@ -845,9 +845,10 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     const w = await render(DepartmentsAdminView)
     await flushPromises()
     expect(w.text()).toContain('部门影响读取被拒绝')
-    expect(w.text()).toContain('待重试')
+    expect(w.text()).toContain('暂无法读取')
     expect(w.text()).toContain('查看部门成员')
     expect(w.text()).not.toContain('0跟随人数')
+    expect(w.text()).toContain('未显示任何计数')
   })
 
   it('ignores a delayed old department link response', async () => {
@@ -952,7 +953,7 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     const w = await render(DepartmentsAdminView)
     await flushPromises()
     await setRadio(w, 'staff')
-    await click(w, '核对部门变化')
+    await click(w, '预览影响')
     proof.valid.value = true
     await nextTick()
     await click(w, '确认保存')
@@ -967,6 +968,116 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     await click(w, '读取最新部门安排，保留草稿')
     expect((w.find('input[type="radio"][value="staff"]').element as HTMLInputElement).checked).toBe(true)
     expect(w.text()).not.toContain('部门保存冲突')
+  })
+
+
+  it('promotes department applications into a fixed selector and never draws unsupported apps as working switches', async () => {
+    api.getDepartmentWork.mockResolvedValue({ subject_type: 'Department', subject_name: 'D1', apps: [
+      { app_id: 'attendance', title: '考勤管理', integrated: true, synthetic: false, status: '可以使用', summary: '部门默认普通员工', source_text: '', suspended: false, permission_mode: 'department', version: 1, context_revision: 'r1', operations: [] },
+      { app_id: 'knowledge', title: '知识库', integrated: false, synthetic: false, status: '暂不可用', summary: '', source_text: '', suspended: false, version: 0, context_revision: 'r2', operations: [] },
+    ] })
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+
+    expect(w.find('.r6-dept-app-switch').exists()).toBe(true)
+    expect(w.find('.r6-department-panel-heading').text()).toContain('考勤管理 · 部门默认权限')
+    expect(w.findAll('.r6-dept-app-chip')).toHaveLength(2)
+    expect(w.find('.r6-dept-app-chip.selected').text()).toContain('考勤管理')
+
+    const knowledge = w.findAll('.r6-dept-app-chip').find(row => row.text().includes('知识库'))!
+    expect(knowledge.text()).toContain('尚未接入')
+    await knowledge.trigger('click')
+    await flushPromises()
+
+    expect(w.find('.r6-dept-app-unavailable').exists()).toBe(true)
+    expect(w.find('.r6-dept-app-unavailable').text()).toContain('知识库')
+    expect(w.find('.r6-dept-app-unavailable').text()).toContain('未接入')
+    expect(w.find('.r6-dept-app-unavailable').text()).toContain('不提供开关')
+    expect(w.find('.department-default-options').exists()).toBe(false)
+    expect(w.findAll('input[type="radio"]')).toHaveLength(0)
+    expect(w.find('.r6-dept-app-facts').text()).toContain('数据范围')
+    expect(w.find('.r6-dept-app-facts').text()).not.toContain('已生效')
+    expect(w.find('.r6-dept-role-actions').text()).toContain('不保存任何权限')
+  })
+
+  it('never renders a cancel action or a saturated primary button when the department draft is clean', async () => {
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+
+    expect(w.find('.r6-dept-legacy-state').exists()).toBe(true)
+    expect(w.find('input[type="radio"][value="LEGACY"]').exists()).toBe(false)
+    expect(w.findAll('button').some(row => row.text() === '取消修改')).toBe(false)
+    const primary = w.findAll('button').find(row => row.text().includes('预览影响'))!
+    expect(primary.attributes('disabled')).toBeDefined()
+    expect(w.find('.r6-dept-primary-reason').text()).toContain('没有未保存的修改')
+    expect(w.find('.r6-dept-counts-four').text()).toContain('当前可见成员')
+    expect(w.find('.r6-dept-counts-four').text()).toContain('保存前预览')
+    expect(w.find('.r6-dept-counts-four').text()).not.toContain('0\n实际权限变化')
+  })
+
+  it('shows the two independent clerk scopes from published capability instead of inferring them from the role name', async () => {
+    api.query.mockResolvedValue({
+      ...structuredClone(employeeAssignment), mode: 'DIRECT', role_key: 'clerk', responsibilities: [{ scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2', include_descendants: 0 }],
+      selected_role: { ...structuredClone(employeeAssignment.selected_role), source_mode: 'direct', role_key: 'clerk', title: '部门考勤员', responsibilities: [{ scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2' }] },
+      effective_access: { allowed: true, reason: '', operations: [
+        { operation_id: 'attendance.read', label: '查看自己的考勤', scope_type: 'SELF', scope_ref: '', allowed: true },
+        { operation_id: 'attendance.department.board.read', label: '查看部门考勤面板', scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2', allowed: true },
+      ] },
+    })
+    const w = await render(RoleSettings, { props: { subjectKind: 'employee', subjectId: 'E1', embedded: true, subjectLabel: '质量员工' } })
+    await flushPromises()
+    const split = w.find('.role-scope-split')
+    expect(split.exists()).toBe(true)
+    expect(split.text()).toContain('本人考勤')
+    expect(split.text()).toContain('已包含：可查看本人考勤')
+    expect(split.text()).toContain('明确负责')
+    expect(split.text()).toContain('不含下级')
+    expect(w.text()).toContain('单独设置只替换此人的考勤默认，不影响其他应用')
+    expect(w.find('.role-state-distinction').text()).toContain('不安排该角色')
+    expect(w.find('.role-state-distinction').text()).toContain('暂停考勤应用')
+    expect(w.find('.role-state-distinction').text()).toContain('停用账号')
+  })
+
+  it('warns when a published clerk role does not actually include the employee own attendance read', async () => {
+    api.query.mockResolvedValue({
+      ...structuredClone(employeeAssignment), mode: 'DIRECT', role_key: 'clerk', responsibilities: [{ scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2', include_descendants: 0 }],
+      selected_role: { ...structuredClone(employeeAssignment.selected_role), source_mode: 'direct', role_key: 'clerk', title: '部门考勤员' },
+      effective_access: { allowed: true, reason: '', operations: [
+        { operation_id: 'attendance.department.board.read', label: '查看部门考勤面板', scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2', allowed: true },
+      ] },
+    })
+    const w = await render(RoleSettings, { props: { subjectKind: 'employee', subjectId: 'E1', embedded: true } })
+    await flushPromises()
+    expect(w.find('.role-scope-split').text()).toContain('已发布角色未包含本人考勤读取')
+    expect(w.find('.role-scope-split').text()).toContain('不能只凭角色名称推断')
+  })
+
+  it('summarizes every application independently in the employee drawer without enabling unsupported ones', async () => {
+    api.getPerson.mockResolvedValue({
+      employee: { ...structuredClone(person.employee), user_id: 'user-a', account_status: 'active', attendance_status: 'confirmed' },
+      account: { user_id: 'user-a' }, association: { employee_id: 'E1', user_id: 'user-a' }, history: [],
+    })
+    api.getWorkSummary.mockResolvedValue({ subject_type: 'User', subject_name: 'user-a', apps: [
+      attendanceWorkApp(),
+      { app_id: 'inventory', title: '仓库管理', integrated: false, synthetic: false, status: '暂不可用', summary: '', source_text: '', suspended: false, version: 0, context_revision: 'inventory-r1', operations: [] },
+    ] })
+    await render(EmployeeDrawer, { props: { open: true, employeeId: 'E1', initialTab: 'apps' }, path: '/hbos/admin/people' })
+    await flushPromises()
+
+    const overview = new DOMWrapper(document.body.querySelector<HTMLElement>('.r6-app-access-overview')!)
+    expect(overview.text()).toContain('按应用查看权限')
+    const cards = overview.findAll('.r6-app-access-card')
+    expect(cards.length).toBe(2)
+    expect(cards[0].text()).toContain('考勤管理')
+    expect(cards[0].text()).toContain('来源')
+    expect(cards[0].text()).toContain('角色 / 实际能力')
+    expect(cards[0].text()).toContain('数据范围')
+    expect(cards[0].text()).toContain('有效状态与受限原因')
+    expect(cards[1].text()).toContain('仓库管理')
+    expect(cards[1].text()).toContain('尚未接入')
+    expect(cards[1].text()).toContain('不套用考勤角色接口')
+    const buttons = cards[1].findAll('button')
+    expect(buttons.filter(row => /启用|开通|保存|开关/.test(row.text())).length).toBe(0)
   })
 
 })
