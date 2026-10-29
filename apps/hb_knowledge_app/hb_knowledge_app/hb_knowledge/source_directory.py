@@ -37,7 +37,16 @@ def directories(binding):
 def folder_id(parts):
     return ROOT if not parts else 'FOLDER_'+hashlib.sha256(json.dumps(parts,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()[:24]
 
-def select(documents, selected=ROOT):
+def select(documents, selected=ROOT, filtered_documents=None):
+    """Resolve `selected` against the authorized rows, then list `visible` rows.
+
+    `documents` is the freshly authorized set and decides whether the folder
+    exists at all; `filtered_documents` (the same set narrowed by the caller's
+    department, category and keyword filters) decides which rows and which
+    child counts are shown. Counting children from the unfiltered set is what
+    let a folder badge promise 208 documents while the list under it, filtered
+    differently, was empty.
+    """
     if not isinstance(selected,str) or len(selected)>40:raise KnowledgeError('INVALID_REQUEST')
     selected=selected or ROOT
     paths={ROOT:[]}
@@ -46,8 +55,9 @@ def select(documents, selected=ROOT):
             for end in range(1,len(parts)+1):paths[folder_id(parts[:end])]=parts[:end]
     # A guessed folder cannot reveal its name, descendants or count.
     if selected not in paths:raise KnowledgeError('SCOPE_REJECTED')
+    visible=documents if filtered_documents is None else filtered_documents
     prefix=paths[selected];chosen=[];children={}
-    for doc in documents:
+    for doc in visible:
         relevant=[parts for parts in doc.get('source_directories',[]) if parts[:len(prefix)]==prefix]
         if not prefix or relevant:chosen.append(doc)
         for parts in relevant:

@@ -8,7 +8,7 @@
       <a-alert v-if="!globalError && (pageError || (!statusError && !tools?.hasQueryError && queryAvailabilityMessage))" type="error" show-icon :message="pageError || queryAvailabilityMessage" class="kb-alert kb-query-alert"><template #action><a-button :loading="statusLoading" @click="refreshStatus">刷新状态</a-button></template></a-alert>
       <section v-if="mode === 'search' || !hasConversation" class="kb-composer hbos-glass-g3" aria-label="知识查询">
         <form class="knowledge-search" @submit.prevent="submitComposer">
-          <div class="kb-composer-top"><div class="kb-modes" role="group" aria-label="知识使用方式"><button type="button" :aria-pressed="mode === 'ask'" :disabled="!status?.ask_enabled" @click="setMode('ask')">问知识</button><button type="button" :aria-pressed="mode === 'search'" @click="setMode('search')">搜资料</button></div><label class="sr-only" for="knowledge-space">查询部门范围</label><select id="knowledge-space" v-model="selectedSpace" class="kb-scope-select" :disabled="!spaces.length"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select></div>
+          <div class="kb-composer-top"><div class="kb-modes" role="group" aria-label="知识使用方式"><button type="button" :aria-pressed="mode === 'ask'" :disabled="!status?.ask_enabled" @click="setMode('ask')">问知识</button><button type="button" :aria-pressed="mode === 'search'" @click="setMode('search')">搜资料</button></div><label class="sr-only" for="knowledge-space">查询部门范围</label><select id="knowledge-space" :value="selectedSpace" class="kb-scope-select" :disabled="!spaces.length" @change="changeDepartmentScope"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select></div>
           <label class="sr-only" for="knowledge-query">知识问题</label><textarea id="knowledge-query" v-model="query" :maxlength="mode === 'ask' ? 280 : 500" :disabled="working" :placeholder="mode === 'ask' ? '描述你想了解的问题…' : '输入资料标题、文号或关键词…'" rows="3" @compositionstart="composing = true" @compositionend="composing = false" @keydown="composerKeydown" />
           <div class="kb-composer-bottom"><span>{{ mode === 'ask' ? '企业问题核对来源，一般问题明确标示通用 AI' : '直接查找资料与相关依据' }}<small class="kb-keyboard"> · ⌘ / Ctrl + Enter</small></span><a-button type="primary" html-type="submit" :loading="working" :disabled="working || !canSubmit || !query.trim() || inputTooLong">{{ mode === 'ask' ? '提问' : '搜索' }}<ArrowRightOutlined /></a-button></div>
         </form>
@@ -21,11 +21,12 @@
     <KnowledgeTools v-if="status?.environment === 'production' && status.can_enter && subjectKey" ref="tools" :subject="subjectKey" :query="query" :selected-space="selectedSpace" :spaces="spaces" :ask-enabled="Boolean(status?.ask_enabled) && status?.answer_availability?.available !== false" :retrieval-blocked="retrievalBlocked" :model-alias="selectedModel" :knowledge-only="knowledgeOnly" :mode="mode" :search-mode="searchMode" :view="view" composer-external @busy="askBusy = $event" @conversation="hasConversation = $event" @replay="replaySaved" @restored="restoreSaved" @records-view="router.push($event === 'feedback' ? '/hbos/knowledge/history?tab=feedback' : '/hbos/knowledge/history')" @document="showDocumentSummary" @evidence="openCitationEvidence" @upstream-error="refreshStatus" @access-error="applyError" @evidence-invalidated="invalidateEvidence">
       <template #catalog>
         <section class="kb-panel hbos-glass-g1">
-          <form class="kb-list-toolbar catalog-filter" @submit.prevent="refreshCatalog"><label class="sr-only" for="catalog-query">查找标题或文号</label><a-input-search id="catalog-query" v-model:value="catalogQuery" placeholder="查找标题或文号" aria-label="查找标题或文号" @search="refreshCatalog" /><label class="sr-only" for="catalog-department">筛选部门</label><select id="catalog-department" v-model="selectedSpace" class="kb-scope-select"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select><template v-if="showLawFilter"><label class="sr-only" for="catalog-law-category">筛选公共法规类别</label><select id="catalog-law-category" v-model="lawCategory" class="kb-scope-select"><option value="">全部法规类别</option><option v-for="category in knowledgeLawCategories" :key="category" :value="category">{{ category }}</option></select></template></form>
-          <div class="kb-list-caption catalog-heading"><span>{{ catalogLoading ? '更新中' : `${catalogTotal} 份资料` }}</span><span>登录员工可直接阅读与下载已发布资料</span></div>
-          <nav class="kb-source-breadcrumb" aria-label="资料原目录"><a-button type="link" size="small" @click="sourceFolder = 'SOURCE_ROOT'">全部原目录</a-button><template v-for="crumb in sourceDirectory?.breadcrumbs || []" :key="crumb.folder_id"><span aria-hidden="true"> / </span><a-button type="link" size="small" @click="sourceFolder = crumb.folder_id">{{ crumb.name }}</a-button></template></nav>
-          <div v-if="sourceDirectory?.children.length" class="kb-source-folders"><a-button v-for="folder in sourceDirectory.children" :key="folder.folder_id" @click="sourceFolder = folder.folder_id">{{ folder.name }}（{{ folder.count }}）</a-button></div>
-          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading && !catalog.length" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogQuery.trim() ? '没有匹配的资料，请调整标题、文号或部门范围。' : '当前范围暂无可查阅的已收录资料。'" /><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small v-for="(path, pathIndex) in rowPaths(doc)" :key="pathIndex" class="kb-muted">{{ path.join(' / ') }}</small><small v-if="doc.legal_metadata" class="kb-law-meta">{{ [doc.legal_metadata.category, doc.legal_metadata.issuer].filter(Boolean).join(' · ') }}<a-tag v-if="doc.legal_metadata.effective_status === '现行有效'" color="green">现行有效</a-tag><a-tag v-else-if="doc.legal_metadata.effective_status === '已废止'" color="red">已废止</a-tag></small><small>{{ rowMeta(doc) }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-button type="text" :disabled="askBusy || !doc.version_id" aria-label="阅读并下载 " @click="openCatalogReader(doc)"><DownloadOutlined /></a-button></div></article></template></div>
+          <form class="kb-list-toolbar catalog-filter" @submit.prevent="refreshCatalog"><label class="sr-only" for="catalog-query">查找标题或文号</label><a-input-search id="catalog-query" v-model:value="catalogQuery" placeholder="查找标题或文号" aria-label="查找标题或文号" @search="refreshCatalog" /><label class="sr-only" for="catalog-department">筛选部门</label><select id="catalog-department" :value="selectedSpace" class="kb-scope-select" @change="changeDepartmentScope"><option value="">全部已共享资料</option><option v-for="space in spaces" :key="space.space_id" :value="space.space_id">{{ space.title }}</option></select><template v-if="showLawFilter"><label class="sr-only" for="catalog-law-category">筛选公共法规类别</label><select id="catalog-law-category" v-model="lawCategory" class="kb-scope-select"><option value="">全部法规类别</option><option v-for="category in knowledgeLawCategories" :key="category" :value="category">{{ category }}</option></select></template></form>
+          <div class="kb-list-caption catalog-heading"><span>{{ catalogLoading ? '更新中' : (catalogError ? '数量暂不可用' : `${catalogTotal} 份资料`) }}</span><span>登录员工可直接阅读与下载已发布资料</span></div>
+          <nav class="kb-source-breadcrumb" aria-label="资料原目录"><a-button type="link" size="small" :class="{ 'kb-nav-current': sourceFolder === 'SOURCE_ROOT' }" @click="navigateSourceFolder('SOURCE_ROOT')">全部原目录</a-button><template v-for="crumb in sourceDirectory?.breadcrumbs || []" :key="crumb.folder_id"><span aria-hidden="true"> / </span><a-button type="link" size="small" :class="{ 'kb-nav-current': sourceFolder === crumb.folder_id }" @click="navigateSourceFolder(crumb.folder_id)">{{ crumb.name }}</a-button></template></nav>
+          <p v-if="catalogBrowseNote" class="kb-browse-note" role="status">{{ catalogBrowseNote }}</p>
+          <div v-if="sourceDirectory?.children.length" class="kb-source-folders"><a-button v-for="folder in sourceDirectory.children" :key="folder.folder_id" @click="navigateSourceFolder(folder.folder_id)">{{ folder.name }}（{{ folder.count }}）</a-button></div>
+          <div class="catalog-content" :aria-busy="catalogLoading"><a-skeleton v-if="catalogLoading && !catalog.length" active :paragraph="{rows:4}" /><a-alert v-else-if="catalogError" type="error" show-icon :message="catalogError" /><a-empty v-else-if="!catalog.length" :description="catalogEmptyText"><a-button v-if="catalogHasFilters" type="primary" @click="clearCatalogFilters">清除全部筛选</a-button></a-empty><template v-else><article v-for="doc in catalog" :key="doc.document_id" class="kb-doc-row catalog-row"><div class="kb-doc-icon"><FileTextOutlined /></div><button class="kb-doc-main" type="button" @click="openDocumentSummary(doc)"><strong>{{ doc.title || '未标注标题' }}</strong><p>{{ doc.status_note }}</p><small v-for="(path, pathIndex) in rowPaths(doc)" :key="pathIndex" class="kb-muted">{{ path.join(' / ') }}</small><small v-if="doc.legal_metadata" class="kb-law-meta">{{ [doc.legal_metadata.category, doc.legal_metadata.issuer].filter(Boolean).join(' · ') }}<a-tag v-if="doc.legal_metadata.effective_status === '现行有效'" color="green">现行有效</a-tag><a-tag v-else-if="doc.legal_metadata.effective_status === '已废止'" color="red">已废止</a-tag></small><small>{{ rowMeta(doc) }}<a-tag color="green">已共享</a-tag></small></button><div class="kb-doc-actions"><a-button type="text" :disabled="askBusy || !doc.version_id" :aria-label="(tools?.isBookmarked(doc) ? '取消收藏 ' : '收藏 ') + doc.title" @click="tools?.toggleDocumentBookmark(doc)"><StarFilled v-if="tools?.isBookmarked(doc)" class="kb-star" /><StarOutlined v-else /></a-button><a-button type="text" :disabled="askBusy || !doc.version_id" aria-label="阅读并下载 " @click="openCatalogReader(doc)"><DownloadOutlined /></a-button></div></article></template></div>
           <div class="kb-pagination"><a-pagination v-model:current="catalogPage" v-model:page-size="catalogPageSize" :page-size-options="['20', '50']" :total="catalogTotal" :show-size-changer="true" :disabled="catalogLoading" :show-less-items="true" /></div>
         </section>
       </template>
@@ -148,6 +149,53 @@ const sourceFolder = ref('SOURCE_ROOT')
 const sourceDirectory = ref<import('@/contracts/p1').KnowledgeSourceDirectory | null>(null)
 const lawCategory = ref<import('@/contracts/p1').KnowledgeLawCategory | ''>('')
 const showLawFilter = computed(() => spaces.value.some(space => space.space_id === 'DEPT_PUBLIC_LAW') && (!selectedSpace.value || selectedSpace.value === 'DEPT_PUBLIC_LAW'))
+const SOURCE_ROOT = 'SOURCE_ROOT'
+// The original directory and the department are two ways of browsing, not a
+// filter intersection: employees should never have to work out why a folder
+// holding 208 documents shows none. Entering an original directory therefore
+// makes that directory the range and drops the department, category and keyword
+// conditions that were narrowing it; choosing a department instead leaves the
+// directory for the root. Both paths run through the same setters so a stored
+// workspace, a browser back/forward and a fresh click all end in the same state.
+const catalogBrowseNote = ref('')
+const catalogHasFilters = computed(() => Boolean(selectedSpace.value || lawCategory.value || catalogQuery.value.trim() || sourceFolder.value !== SOURCE_ROOT))
+const catalogEmptyText = computed(() => {
+  if (!catalogHasFilters.value) return '当前范围暂无可查阅的已收录资料。'
+  return `当前条件没有匹配的资料（当前范围暂无可查阅的已收录资料）。${catalogQuery.value.trim() ? '可调整关键词、部门或目录，或直接清除筛选。' : '可调整部门、法规类别或目录，或直接清除筛选。'}`
+})
+function clearCatalogFilters() {
+  const hadFolder = sourceFolder.value !== SOURCE_ROOT
+  selectedSpace.value = ''; lawCategory.value = ''; catalogQuery.value = ''; sourceFolder.value = SOURCE_ROOT
+  catalogBrowseNote.value = hadFolder ? '已回到全部原目录，并清除部门、法规类别和关键词筛选。' : '已清除部门、法规类别和关键词筛选。'
+}
+function navigateSourceFolder(folderId: string) {
+  if (!folderId) return
+  const dropped = selectedSpace.value || lawCategory.value || catalogQuery.value.trim()
+  sourceFolder.value = folderId
+  selectedSpace.value = ''; lawCategory.value = ''; catalogQuery.value = ''
+  catalogBrowseNote.value = folderId === SOURCE_ROOT
+    ? (dropped ? '已回到全部原目录，并清除部门、法规类别和关键词筛选。' : '')
+    : (dropped ? '已切换到原目录浏览，并清除与目录冲突的部门、法规类别和关键词筛选。' : '')
+}
+function changeDepartmentScope(event: Event) {
+  const next = (event.target as HTMLSelectElement).value
+  const leftFolder = next && sourceFolder.value !== SOURCE_ROOT
+  selectedSpace.value = next
+  if (leftFolder) { sourceFolder.value = SOURCE_ROOT; catalogBrowseNote.value = '已按部门筛选，并回到全部原目录。' }
+  else if (!next) catalogBrowseNote.value = ''
+}
+// One place decides what a stored or returned navigation state may mean. A
+// department filter next to an original directory is not a valid combination,
+// so the directory wins; the caller then refetches once.
+function normalizeBrowseState(state: { selectedSpace?: string; sourceFolder?: string; lawCategory?: string; catalogQuery?: string }) {
+  const folder = typeof state.sourceFolder === 'string' && state.sourceFolder ? state.sourceFolder : SOURCE_ROOT
+  if (folder === SOURCE_ROOT) return SOURCE_ROOT
+  if (state.selectedSpace || state.lawCategory) {
+    selectedSpace.value = ''; lawCategory.value = ''; catalogQuery.value = ''
+    catalogBrowseNote.value = '已回到原目录浏览，并清除与目录冲突的部门、法规类别和关键词筛选。'
+  }
+  return folder
+}
 // A directory path that only repeats the department (its own one-segment
 // source folder) is not shown twice; the metadata line carries what is known
 // and silently omits what is not.
@@ -224,6 +272,10 @@ if (restoredReturn && restoredReturn.view === view.value) {
   restoredScrollTop = restoredReturn.scrollTop
   scrollRestored = restoredScrollTop <= 0
 }
+// A reload, a browser back/forward or a reader return must not resurrect the
+// combination that produced an empty list, so the restored state is canonicalised
+// here rather than only in the click handlers.
+sourceFolder.value = normalizeBrowseState({ selectedSpace: selectedSpace.value, sourceFolder: sourceFolder.value, lawCategory: lawCategory.value, catalogQuery: catalogQuery.value })
 
 async function applyReturnedScroll() {
   if (scrollRestored) return
@@ -483,6 +535,16 @@ async function refreshCatalog() {
     if (catalogPage.value > lastPage) catalogPage.value = lastPage
   } catch (error) {
     if (generation === catalogGeneration && subject === subjectKey.value) {
+      // A stored folder can disappear when its last document is withdrawn. The
+      // list then has no valid range at all, so return to the root instead of
+      // restoring an identifier that can only ever answer "0".
+      if (error instanceof DomainApiError && error.code === 'SCOPE_REJECTED' && sourceFolder.value !== SOURCE_ROOT) {
+        sourceFolder.value = SOURCE_ROOT; selectedSpace.value = ''; lawCategory.value = ''; catalogPage.value = 1
+        catalogBrowseNote.value = '原目录已不可用，已回到全部原目录。'
+        catalogError.value = ''; catalogLoading.value = false
+        void refreshCatalog()
+        return
+      }
       catalog.value = []; catalogTotal.value = 0; catalogError.value = error instanceof DomainApiError ? error.message : '资料目录暂时不可用。'
       if (error instanceof DomainApiError && accessFailureCodes.includes(error.code)) applyError(error)
     }
@@ -529,4 +591,6 @@ onMounted(async () => {
 
 <style scoped>
 .kb-source-breadcrumb{display:flex;flex-wrap:wrap;align-items:center;margin:8px 0}.kb-source-folders{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 16px}.kb-source-folders button{height:auto;white-space:normal;text-align:left;max-width:100%}
+.kb-source-breadcrumb .kb-nav-current{font-weight:600}
+.kb-browse-note{margin:0 0 8px;color:var(--hbos-muted,#6b7280);font-size:12px}
 </style>
