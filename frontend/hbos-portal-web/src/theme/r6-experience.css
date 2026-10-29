@@ -108,7 +108,7 @@
   gap: 10px;
 }
 .r6-experience .current-identity strong {
-  font-size: 13px;
+  font-size: 16px;
 }
 .r6-experience .current-identity span {
   font-size: 11px;
@@ -270,10 +270,11 @@
   text-decoration: none;
 }
 .r6-context-row>.ant-breadcrumb {
-  font-size: 12px;
+  font-size: 14px;
 }
 .r6-context-row>span {
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 22px;
 }
 .r6-mobile-local {
   display: none;
@@ -282,8 +283,9 @@
   flex: none;
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
-  color: var(--r6-muted);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--r6-secondary);
   padding-top: 12px;
   margin-top: auto;
 }
@@ -777,7 +779,8 @@
   margin: 0;
 }
 .r6-security-content p {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 22px;
   margin: 8px 0 0;
   color: var(--r6-secondary);
 }
@@ -908,7 +911,8 @@
 .r6-role-head p {
   margin: 4px 0 0;
   color: var(--r6-secondary);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 22px;
 }
 .r6-role-boundary {
   display: flex;
@@ -1065,7 +1069,8 @@
 }
 .r6-department-app p {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 22px;
   color: var(--r6-secondary);
 }
 .r6-role-cards {
@@ -1399,7 +1404,8 @@
     line-height: 34px;
   }
   .r6-page-heading p {
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 22px;
   }
   .r6-heading-actions {
     width: 100%;
@@ -1552,7 +1558,8 @@
     margin-bottom: 12px;
   }
   .r6-mobile-person p {
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 22px;
     color: var(--r6-secondary);
     overflow-wrap: anywhere;
   }
@@ -1679,7 +1686,7 @@
     font-size: 16px;
   }
   .r6-roles-page .r6-choice-list strong {
-    font-size: 13px;
+    font-size: 14px;
   }
   .r6-roles-page .r6-choice-trail {
     display: none;
@@ -1705,12 +1712,12 @@
     display: none;
   }
   .r6-roles-page .r6-choice-list strong {
-    font-size: 13px;
-    line-height: 21px;
+    font-size: 14px;
+    line-height: 22px;
   }
   .r6-roles-page .r6-choice-list small {
-    font-size: 10px;
-    line-height: 18px;
+    font-size: 14px;
+    line-height: 20px;
   }
   .r6-personal .r6-identity-main {
     flex-wrap: wrap;
@@ -2078,9 +2085,9 @@ button.r6-entity-name__label:hover { color: var(--r6-brand); }
 .r6-dept-review { display: grid; gap: 14px; min-width: 0; }
 .r6-dept-review__subject { display: grid; gap: 4px; }
 .r6-dept-review__subject strong { font-size: 16px; line-height: 24px; overflow-wrap: anywhere; }
-.r6-dept-review__subject span { color: var(--r6-muted); font-size: 12px; line-height: 20px; overflow-wrap: anywhere; }
+.r6-dept-review__subject span { color: var(--r6-secondary); font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
 .r6-dept-review__members { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.r6-dept-review__members li { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--r6-line); border-radius: var(--r6-radius-control); font-size: 13px; line-height: 21px; }
+.r6-dept-review__members li { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--r6-line); border-radius: var(--r6-radius-control); font-size: 14px; line-height: 22px; }
 .r6-dept-review__members span { color: var(--r6-secondary); }
 .r6-dept-empty { display: grid; gap: 8px; padding: 16px; border: 1px solid var(--r6-line); border-radius: var(--r6-radius-control); background: var(--r6-subtle); }
 .r6-dept-empty p { margin: 0; color: var(--r6-secondary); font-size: 14px; line-height: 22px; }

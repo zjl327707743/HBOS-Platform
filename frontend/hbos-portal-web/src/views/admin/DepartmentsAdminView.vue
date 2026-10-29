@@ -755,7 +755,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .r6-dept-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
-.r6-dept-picker > span { color: var(--r6-muted); font-size: 12px; line-height: 20px; }
+.r6-dept-picker > span { color: var(--r6-secondary); font-size: 14px; line-height: 22px; }
 .r6-dept-picker :deep(.ant-select) { min-width: 0; flex: 1 1 180px; max-width: 320px; }
 .r6-dept-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .r6-dept-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--r6-secondary); font-size: 14px; line-height: 22px; }
