@@ -288,6 +288,39 @@ class AdmissionTransitionTest(unittest.TestCase):
         from hbos_portal.iam.role_models import ADMISSION_TRANSITIONS
         self.assertFalse([pair for pair in ADMISSION_TRANSITIONS if pair[0] not in {'PENDING', 'CONFIRMED', 'REVOKED'}])
 
+    def test_a_revoked_row_is_the_cleanup_path_for_a_changed_context(self):
+        """Revoking must work when the stored hash no longer matches.
+
+        The hash binds identity/release/scope. After a transfer or a new release
+        an existing CONFIRMED row is stale; the department save has to be able to
+        revoke it, otherwise every later save fails and the row can never be
+        cleaned up. A CONFIRMED/PENDING row must still match its hash exactly.
+        """
+        fake = types.SimpleNamespace(
+            PermissionError=PermissionDenied, ValidationError=Invalid,
+            throw=lambda message, kind=PermissionDenied: (_ for _ in ()).throw(kind(message)),
+            db=types.SimpleNamespace(
+                exists=lambda doctype, name: True,
+                get_value=lambda *args, **kwargs: employee(),
+            ))
+        doc = Attr(app_id='attendance', department='D1', employee='EMP-001', role='role-clerk', role_key='clerk',
+                   responsibilities_json='[{"scope_type": "DEPARTMENT", "scope_ref": "D1", "include_descendants": 0}]',
+                   config_hash='stale', status='REVOKED', version=2, confirmed_by='hr', confirmed_at='2026-10-01',
+                   revoked_by='hr', revoked_at='2026-10-02',
+                   get_doc_before_save=lambda: Attr(status='CONFIRMED', version=1, department='D1', app_id='attendance',
+                                                    employee='EMP-001', role='role-clerk', role_key='clerk'))
+        doc.admission_key = roles.admission_key('D1', 'attendance', 'EMP-001')
+        with patch.object(role_models, 'frappe', fake), \
+             patch.object(role_models.guards, 'require_controlled_write'), \
+             patch.object(role_models.roles, 'document', side_effect=lambda doctype, name, **kwargs: role_doc() if doctype == role_models.roles.ROLE else release_doc()), \
+             patch.object(role_models.roles, 'management_companies', return_value=['C']), \
+             patch.object(role_models.roles, 'normalize_scopes', return_value=[dict(scope_type='DEPARTMENT', scope_ref='D1', include_descendants=0)]), \
+             patch.object(role_models.roles, 'admission_hash', return_value='fresh'):
+            role_models.validate_department_admission(doc)  # stale hash on a REVOKED row is accepted
+            doc.status = 'CONFIRMED'
+            with self.assertRaises(PermissionDenied):
+                role_models.validate_department_admission(doc)
+
 
 if __name__ == "__main__":
     unittest.main()

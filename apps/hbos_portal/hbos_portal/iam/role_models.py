@@ -114,7 +114,12 @@ def validate_department_admission(doc):
         deny('准入范围不是服务器清单。')
     scopes = roles.normalize_scopes(scopes, role.boundary_kind, roles.management_companies(role))
     expected = roles.admission_hash(doc.department, doc.app_id, employee, role, release, scopes)
-    if doc.config_hash != expected:
+    # The hash binds the grant to one exact identity/release/scope context, so a
+    # CONFIRMED row must match it. A REVOKED row grants nothing and is exactly the
+    # cleanup path for a context that has already changed (transfer, employee
+    # edit, new release); requiring a fresh hash there made such a row
+    # unrevocable and blocked every later department save with 403.
+    if doc.status != 'REVOKED' and doc.config_hash != expected:
         deny('准入上下文已变化，请重新读取后再确认。')
     if doc.status not in {'PENDING', 'CONFIRMED', 'REVOKED'}:
         deny('准入状态无效。')
