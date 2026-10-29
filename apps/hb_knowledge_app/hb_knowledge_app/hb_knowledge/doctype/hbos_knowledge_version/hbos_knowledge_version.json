@@ -1,0 +1,51 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Version",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "field:version_id",
+  "field_order": [
+    "version_id",
+    "canonical_document_id",
+    "version_json"
+  ],
+  "fields": [
+    {
+      "fieldname": "version_id",
+      "fieldtype": "Data",
+      "label": "Version Id",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "canonical_document_id",
+      "fieldtype": "Link",
+      "label": "Canonical Document Id",
+      "options": "HBOS Knowledge Document",
+      "reqd": 1
+    },
+    {
+      "fieldname": "version_json",
+      "fieldtype": "Long Text",
+      "label": "Version Json",
+      "reqd": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0,
+      "export": 0,
+      "print": 0,
+      "report": 0,
+      "share": 0,
+      "email": 0
+    }
+  ],
+  "allow_rename": 0,
+  "index_web_pages_for_search": 0,
+  "track_changes": 0
+}
