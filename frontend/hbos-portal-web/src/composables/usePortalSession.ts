@@ -49,10 +49,12 @@ export function usePortalSession() {
       try {
         if (refresh) {
           const generation = portalSession.generation
-          // The resume re-check needs the identity and the manifest, not the
-          // home feed: a light bootstrap keeps metrics, tasks, pulse and the
-          // LIMS queue that this payload does not carry.
-          await portal.bootstrap({ light: true })
+          // The knowledge workspace asks for a light re-check: it needs the
+          // identity and the manifest, not the home feed, and the manifest's
+          // empty arrays would otherwise blank metrics, tasks, pulse and the
+          // LIMS queue. Every other shell keeps the platform's full refresh, so
+          // its resume path behaves exactly as before this merge.
+          await portal.bootstrap({ light: /^\/hbos\/(knowledge|twin)(?:\/|$)/.test(route.path) })
           if (disposed || generation !== portalSession.generation) return false
           if (portal.user?.id !== portalSession.security?.user) {
             resetPortalSession(false)
