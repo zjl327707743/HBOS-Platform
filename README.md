@@ -1,3 +1,5 @@
+> **2026-10-27 R6 独立安全修复 / G4_IMPLEMENTING**：既有受控开户/关联中仅为Website User准备精确Employee和Company原生限制，保留原生钩子和角色/类型/启用状态核验，并拒绝范围增长或原限制丢失。基线实际产品22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b；Owner本轮明确授权独立兼容修复与18191合成验证，提案补丁e2fe046269f5f5cd983b908191b84e27ea315da21d5a566178bc91c63708d115。本分支未合并、真实UAT未部署、标签及团队发布未获授权，TEAM_PULL_READY=PENDING。详见 `docs/milestones/Portal_R6_具名HR原生关联兼容修复.md`。下列带日期的状态保留历史含义。
+
 # 新乡海滨智能运营管理平台
 
 
