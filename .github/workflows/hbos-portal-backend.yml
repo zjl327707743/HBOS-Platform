@@ -6,6 +6,7 @@ on:
       - feature/hbos-portal-product
     paths:
       - 'apps/hbos_portal/**'
+      - 'apps/hb_knowledge_app/**'
       - 'apps/hb_lims_app/hb_lims_app/hooks.py'
       - 'apps/hb_lims_app/hb_lims_app/hbos_lims/portal/**'
       - 'apps/hb_lims_app/tests/test_portal_provider_contract.py'
@@ -23,6 +24,7 @@ on:
       - feature/hbos-portal-product
     paths:
       - 'apps/hbos_portal/**'
+      - 'apps/hb_knowledge_app/**'
       - 'apps/hb_lims_app/hb_lims_app/hooks.py'
       - 'apps/hb_lims_app/hb_lims_app/hbos_lims/portal/**'
       - 'apps/hb_lims_app/tests/test_portal_provider_contract.py'
@@ -144,3 +146,22 @@ jobs:
 
       - name: Portal Backend Gate 通过
         run: echo "HBOS Portal backend skeleton gate PASS"
+
+  knowledge-domain:
+    name: Knowledge 权限与资料目录
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: 记录实际检出 SHA
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 安装锁定测试依赖
+        run: |
+          pip install --only-binary=:all: --require-hashes -r apps/hb_knowledge_app/requirements-test.lock
+      - name: 知识领域离线权限与目录回归
+        run: python apps/hb_knowledge_app/run_tests.py apps/hb_knowledge_app/tests -q

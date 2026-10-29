@@ -106,11 +106,35 @@ def policy_for_subject(
     )
 
 
+def _required_scope(cfg: Mapping[str, Any], key: str) -> tuple[str, ...]:
+    """An approved-scope list from the reference profile, or a policy error.
+
+    ``configuration()`` validates the profile envelope but not these two keys,
+    and the only writer of the profile is the operator's JSON file. Reading
+    them with ``cfg[key]`` turned a missing key into a bare KeyError (a 500
+    inside the Portal access context). The alias list is also kept separate
+    from ``approved_dataset_ids``: they are different identifiers, and
+    substituting one for the other would either narrow or widen authorization.
+    """
+    values = _string_tuple(cfg.get(key))
+    if not values:
+        raise KnowledgeError("POLICY_UNAVAILABLE")
+    return values
+
+
 def load_current_policy() -> SubjectPolicy:
     import frappe
     from hbos_portal.services.internal_users import load_internal_user_decision
 
     decision = load_internal_user_decision(frappe.session.user)
+    import os
+    if os.environ.get('HBOS_KNOWLEDGE_REFERENCE_CONFIG'):
+        from .shared_reference import configuration
+        cfg=configuration()
+        eligible=decision.allowed and cfg['reader_role'] in frappe.get_roles(frappe.session.user)
+        return SubjectPolicy(frappe.session.user,eligible,(SEARCH_CAPABILITY,) if eligible else (),
+            _required_scope(cfg,'dataset_aliases'),_required_scope(cfg,'approved_document_ids'),
+            cfg['policy_revision'])
     return policy_for_subject(
         frappe.conf.get("hbos_knowledge_policy"),
         frappe.session.user,

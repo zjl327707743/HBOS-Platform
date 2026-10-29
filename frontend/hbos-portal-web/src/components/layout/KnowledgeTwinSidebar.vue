@@ -10,7 +10,7 @@
         <ReadOutlined v-else />
       </div>
       <div>
-        <strong>{{ isTwin ? '设备与工艺' : '知识助理' }}</strong>
+        <strong>{{ isTwin ? '设备与工艺' : '知识库' }}</strong>
         <small>{{ isTwin ? 'Equipment workspace' : 'Knowledge workspace' }}</small>
       </div>
     </div>
@@ -18,7 +18,7 @@
     <nav class="kt-local-nav">
       <span>应用导航</span>
       <RouterLink to="/hbos/knowledge" :class="{ active: !isTwin }">
-        <SearchOutlined /> 知识探索
+        <SearchOutlined /> 知识检索
       </RouterLink>
       <RouterLink to="/hbos/twin" :class="{ active: isTwin }">
         <DeploymentUnitOutlined /> 设备认知
