@@ -1,0 +1,6 @@
+{
+  "base_url": "http://ragflow:9380",
+  "internal_service_host": "ragflow",
+  "token": "REPLACE_WITH_RESTORED_NATIVE_ADMIN_TOKEN_IN_PRIVATE_RUNTIME_ONLY",
+  "tenant_id": "REPLACE_WITH_ORIGINAL_APPROVED_TENANT_ID"
+}
