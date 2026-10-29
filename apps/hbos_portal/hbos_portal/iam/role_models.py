@@ -1,4 +1,4 @@
-"""Server-only validation of the five bounded role persistence models."""
+"""Server-only validation of the bounded role persistence models, including department admissions."""
 from __future__ import annotations
 
 import json
@@ -68,8 +68,10 @@ def validate_assignment(doc):
         role = roles.document(roles.ROLE, doc.role)
         if role.app_id != doc.app_id or not role.enabled or not role.published_release:
             deny('只能关联已启用、已发布的同应用角色。')
-        if doc.subject_type == 'Department' and role.role_key != 'staff':
-            deny('部门默认只能提供普通员工角色。')
+        if doc.subject_type == 'Department' and role.role_key not in roles.BLUEPRINTS:
+            deny('部门默认只能选择已登记的考勤角色。')
+        # Same published role catalogue and same boundary/scope pairing for both
+        # a department default and one employee's direct assignment.
         roles.normalize_scopes([roles.scope_dict(row) for row in doc.responsibilities], role.boundary_kind, roles.management_companies(role))
     previous = doc.get_doc_before_save()
     if previous:
@@ -80,6 +82,51 @@ def validate_assignment(doc):
     duplicates = frappe.db.sql('select name from `tabHBOS IAM Role Assignment` where app_id=%s and subject_type=%s and subject_name=%s and name!=%s for update', (doc.app_id, doc.subject_type, doc.subject_name, doc.name or ''), as_dict=True)
     if duplicates:
         deny('考勤初版每位员工或部门只能选择一种角色来源。')
+
+
+def validate_department_admission(doc):
+    """A management-role admission is bound to one employee and one exact context."""
+    guards.require_controlled_write()
+    if doc.app_id != 'attendance' or not frappe.db.exists('Department', doc.department) or not frappe.db.exists('Employee', doc.employee):
+        deny('部门管理角色准入对象无效。')
+    employee = frappe.db.get_value('Employee', doc.employee,
+        ['name', 'user_id', 'department', 'company', 'status', 'modified'], as_dict=True, for_update=True)
+    if not employee or employee.department != doc.department:
+        deny('准入成员与当前主部门不一致，须重新核对。')
+    role = roles.document(roles.ROLE, doc.role)
+    if role.app_id != doc.app_id or role.role_key != doc.role_key or role.role_key not in roles.MANAGEMENT_ROLE_KEYS:
+        deny('准入角色不是当前可用的管理型部门角色。')
+    if not role.enabled or not role.published_release:
+        deny('只有已启用、已发布的角色才能确认准入。')
+    release = roles.document(roles.RELEASE, role.published_release)
+    try:
+        scopes = json.loads(doc.responsibilities_json or '[]')
+    except (ValueError, TypeError):
+        deny('准入范围不是服务器清单。')
+    scopes = roles.normalize_scopes(scopes, role.boundary_kind, roles.management_companies(role))
+    expected = roles.admission_hash(doc.department, doc.app_id, employee, role, release, scopes)
+    if doc.config_hash != expected:
+        deny('准入上下文已变化，请重新读取后再确认。')
+    if doc.status not in {'PENDING', 'CONFIRMED', 'REVOKED'}:
+        deny('准入状态无效。')
+    if doc.status == 'CONFIRMED' and (not doc.confirmed_by or not doc.confirmed_at):
+        deny('确认准入必须记录确认人和时间。')
+    if doc.status == 'REVOKED' and (not doc.revoked_by or not doc.revoked_at):
+        deny('撤销准入必须记录撤销人和时间。')
+    previous = doc.get_doc_before_save()
+    if previous:
+        if any(doc.get(key) != previous.get(key) for key in ('department', 'app_id', 'employee', 'role', 'role_key')):
+            deny('准入对象、角色不可改名或替换。')
+        if int(doc.version) != int(previous.version) + 1:
+            deny('准入变更必须在受控事务中递增版本。')
+        allowed = {('PENDING', 'CONFIRMED'), ('PENDING', 'REVOKED'), ('CONFIRMED', 'REVOKED'),
+                   ('CONFIRMED', 'PENDING'), ('REVOKED', 'PENDING'), ('REVOKED', 'CONFIRMED')}
+        if (previous.status, doc.status) not in allowed:
+            deny('准入状态转换无效。')
+    elif doc.status not in {'PENDING', 'CONFIRMED'}:
+        deny('新建准入只能进入待确认或已确认状态。')
+    if doc.admission_key != roles.admission_key(doc.department, doc.app_id, doc.employee):
+        deny('准入唯一标识必须由服务器生成。')
 
 
 def validate_child(doc, kind):

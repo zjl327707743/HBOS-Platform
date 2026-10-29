@@ -228,10 +228,17 @@ def preview_role_publish(app_id, role_key, expected_draft_version, expected_rele
     for employee in members:
         resolved = roles.resolve(employee)
         before = _effective(employee, resolved)
-        after = _effective(employee, resolved, features=features)
+        management_department = bool(resolved and resolved.get('source_mode') == 'department'
+                                     and resolved.get('role_key') in roles.MANAGEMENT_ROLE_KEYS)
+        # A new release changes the accepted role content, so management-role
+        # followers must re-confirm their admission before the published change
+        # can take effect. Preview the eventual result but flag the recheck.
+        after_resolved = roles.resolve(employee, admission_override=True) if management_department else resolved
+        after = _effective(employee, after_resolved, features=features)
         people.append(dict(employee=employee.name, name=employee.employee_name, employee_number=employee.employee_number,
                            source_mode=(resolved or {}).get('source_mode', ''), before_allowed=before['allowed'], after_allowed=after['allowed'],
-                           changed=_signature(before) != _signature(after), reason=after['reason']))
+                           changed=_signature(before) != _signature(after), reason=after['reason'],
+                           admission_recheck=management_department))
     revision = roles.digest(dict(role=role.as_dict(), references=context, actor_revision=policy.current_revision(), registry=roles.registry(role_key)))
     return dict(role=role.name, role_key=role_key, draft_version=role.draft_version, published_release=role.published_release or '',
                 context_revision=revision, reference_count=len(people), effective_changed_count=sum(row['changed'] for row in people), members=people,
@@ -360,26 +367,64 @@ def get_assignment(employee_id, app_id):
                 roles=[{'role_key': key, 'title': title, 'boundary_kind': boundary} for key, (title, boundary) in roles.BLUEPRINTS.items()])
 
 
-def _department_plan(department, app_id, role_key, expected_version):
-    roles.require_available()
-    if app_id != 'attendance' or role_key not in {'', 'staff', None}:
-        frappe.throw('部门默认只能选择普通员工或不默认开通。', frappe.PermissionError)
+def _department_target(department):
     target = frappe.db.get_value('Department', department, ['name', 'company', 'disabled'], as_dict=True, for_update=True)
     if not target or target.disabled:
         frappe.throw('部门不存在或已失效。', frappe.PermissionError)
+    return target
+
+
+def _department_role(role_key):
+    return _role('attendance', role_key) if role_key else None
+
+
+def _department_scope(role, responsibilities):
+    if not role:
+        if responsibilities not in (None, [], '[]'):
+            frappe.throw('不通过部门分配时不能携带角色范围。', frappe.ValidationError)
+        return []
+    return roles.normalize_scopes(responsibilities, role.boundary_kind, roles.management_companies(role))
+
+
+def _admission_values(department, app_id, employee, role, release, scopes):
+    return dict(department=department, app_id=app_id, employee=employee.name, role=role.name, role_key=role.role_key,
+                responsibilities_json=json.dumps(roles._normalized_scope_rows(scopes), ensure_ascii=False, sort_keys=True),
+                config_hash=roles.admission_hash(department, app_id, employee, role, release, scopes),
+                admission_key=roles.admission_key(department, app_id, employee.name))
+
+
+def _department_plan(department, app_id, role_key, responsibilities, expected_version):
+    roles.require_available()
+    if app_id != 'attendance' or role_key not in {'', 'staff', 'clerk', 'admin', None}:
+        frappe.throw('部门默认只能选择已发布的考勤角色或不通过部门分配。', frappe.PermissionError)
+    target = _department_target(department)
     guards.require_capability('iam.departments.manage', department=department, company=target.company, app_id=app_id)
     guards.require_capability('iam.roles.assign', department=department, company=target.company, app_id=app_id)
     existing = roles.assignments('Department', department, app_id)
     existing = existing[0] if existing else None
     if _version(expected_version) != int(policy.value(existing, 'version', 0)):
         conflict()
-    role = _role(app_id, role_key) if role_key else None
-    if role and (not role.enabled or not role.published_release or target.company not in roles.management_companies(role)):
-        frappe.throw('该普通角色尚未发布，或部门不在管理域内。', frappe.PermissionError)
-    proposed = frappe._dict(dict(name=policy.value(existing, 'name'), app_id=app_id, mode='DIRECT' if role else 'NONE', role=policy.value(role, 'name'),
-        enabled=1, version=int(policy.value(existing, 'version', 0)) + 1, responsibilities=[], review_required=0))
+    role_key = role_key or ''
+    role = _department_role(role_key)
+    if role:
+        if not role.enabled or not role.published_release:
+            frappe.throw('该角色尚未发布或已停用。', frappe.PermissionError)
+        if target.company not in roles.management_companies(role):
+            frappe.throw('该角色不在本部门已确认的管理域内。', frappe.PermissionError)
+        scopes = _department_scope(role, responsibilities)
+        _scope_authority(scopes, 'iam.departments.manage')
+        _scope_authority(scopes, 'iam.roles.assign')
+        release = roles.document(roles.RELEASE, role.published_release)
+        if release.role != role.name:
+            frappe.throw('发布版本来源不一致，已拒绝授权。', frappe.PermissionError)
+    else:
+        scopes = _department_scope(None, responsibilities)
+        release = None
+    proposed = frappe._dict(dict(name=policy.value(existing, 'name'), app_id=app_id, mode='DIRECT' if role else 'NONE',
+        role=policy.value(role, 'name'), enabled=1, version=int(policy.value(existing, 'version', 0)) + 1,
+        review_required=0, responsibilities=scopes))
     employees = frappe.db.sql('select ' + EMPLOYEE_FIELDS + ' from `tabEmployee` where department=%s order by name for update', (department,), as_dict=True)
-    people, contexts, personal_preserved = [], [], 0
+    people, contexts, personal, personal_preserved, pending, confirmed = [], [], [], 0, 0, 0
     for employee in employees:
         guards.require_capability('iam.people.read', department=employee.department, company=employee.company, app_id='iam')
         guards.require_capability('iam.access.manage', department=employee.department, company=employee.company, app_id=app_id, target_user=employee.user_id or None)
@@ -388,39 +433,141 @@ def _department_plan(department, app_id, role_key, expected_version):
         own = context['direct'][0] if context['direct'] else None
         if own and own['mode'] != 'FOLLOW_DEPARTMENT' or not own and roles.preserves_legacy_personal(employee):
             personal_preserved += 1
+            personal.append(dict(employee=employee.name, name=employee.employee_name, employee_number=employee.employee_number,
+                                 mode=(own or {}).get('mode') or ('LEGACY' if not own else 'NONE'),
+                                 reason='个人单独设置或既有安排保持不变'))
             continue
         before = _effective(employee, roles.resolve(employee))
-        after = _effective(employee, roles.resolve(employee, default_override=proposed))
+        admission_state, admission_hash = 'AUTO', ''
+        if role and role.role_key in roles.MANAGEMENT_ROLE_KEYS:
+            admission_hash = roles.admission_hash(department, app_id, employee, role, release, scopes)
+            row = roles.admission_row(department, app_id, employee.name)
+            admission_state = 'CONFIRMED' if row and row.get('status') == 'CONFIRMED' and row.get('config_hash') == admission_hash else 'PENDING'
+            if admission_state == 'CONFIRMED':
+                confirmed += 1
+            else:
+                pending += 1
+            after_context = roles.resolve(employee, default_override=proposed, admission_override=True)
+        else:
+            after_context = roles.resolve(employee, default_override=proposed)
+        after = _effective(employee, after_context)
         people.append(dict(employee=employee.name, name=employee.employee_name, employee_number=employee.employee_number,
-                           before_allowed=before['allowed'], after_allowed=after['allowed'], changed=_signature(before) != _signature(after), reason=after['reason']))
-    context_revision = roles.digest(dict(target=target, existing=existing.as_dict() if existing else None, members=contexts, proposed=dict(proposed), role=role.as_dict() if role else None, actor_revision=policy.current_revision()))
-    return dict(target=target, existing=existing, proposed=proposed, context_revision=context_revision,
-                reference_count=len(people), effective_changed_count=sum(row['changed'] for row in people), personal_preserved=personal_preserved, members=people,
-                changed=not existing or existing.mode != proposed.mode or existing.role != proposed.role)
+                           company=employee.company, department=employee.department,
+                           admission_state=admission_state, admission_hash=admission_hash,
+                           before_allowed=before['allowed'], after_allowed=after['allowed'],
+                           before_operations=_signature(before), after_operations=_signature(after),
+                           changed=_signature(before) != _signature(after),
+                           reason=after['reason'] if not after['allowed'] else ''))
+    context_revision = roles.digest(dict(
+        target=target, existing=existing.as_dict() if existing else None, members=contexts,
+        proposed=dict(proposed), role=role.as_dict() if role else None,
+        release=release.as_dict() if release else None, personal=personal,
+        actor_revision=policy.current_revision()))
+    return dict(target=target, existing=existing, proposed=proposed, role=role, release=release, scopes=scopes,
+                context_revision=context_revision, reference_count=len(people),
+                effective_changed_count=sum(row['changed'] for row in people),
+                personal_preserved=personal_preserved, pending_count=pending, confirmed_count=confirmed,
+                members=people, personal=personal,
+                changed=not existing or existing.mode != proposed.mode or existing.role != proposed.role
+                or [roles.scope_dict(row) for row in existing.responsibilities] != scopes)
 
 
 def _department_preview(plan):
-    return {key: plan[key] for key in ('context_revision', 'reference_count', 'effective_changed_count', 'personal_preserved', 'members', 'changed')} | {
-        'department': plan['target'].name, 'version': int(policy.value(plan['existing'], 'version', 0)), 'selected_role': plan['proposed'].role}
+    return {key: plan[key] for key in ('context_revision', 'reference_count', 'effective_changed_count', 'personal_preserved',
+                                        'pending_count', 'confirmed_count', 'members', 'personal', 'changed')} | {
+        'department': plan['target'].name, 'version': int(policy.value(plan['existing'], 'version', 0)),
+        'role_key': policy.value(plan['role'], 'role_key', '') if plan['role'] else '',
+        'selected_role': policy.value(plan['role'], 'name', ''),
+        'responsibilities': [roles.scope_dict(row) for row in plan['scopes']]}
 
 
-def preview_department_role(department, app_id, role_key, expected_version):
-    return _department_preview(_department_plan(department, app_id, role_key, expected_version))
+def preview_department_role(department, app_id, expected_version, role_key='', responsibilities=None):
+    return _department_preview(_department_plan(department, app_id, role_key, responsibilities, expected_version))
 
 
-def save_department_role(department, app_id, role_key, expected_version, context_revision, request_id):
+def _apply_department_admissions(plan):
+    """Persist pending/revoked admission rows inside the department-save transaction."""
+    department, app_id = plan['target'].name, 'attendance'
+    role = plan['role']
+    managed = bool(role and role.role_key in roles.MANAGEMENT_ROLE_KEYS)
+    rows = frappe.db.sql('select name,employee,status,version from `tab' + roles.ADMISSION + '` where department=%s and app_id=%s order by name for update',
+                         (department, app_id), as_dict=True)
+    by_employee = {row.employee: row for row in rows}
+    followers = {member['employee']: member for member in plan['members']} if managed else {}
+    changes = []
+    from frappe.utils import now_datetime
+    user = policy.get_current_user()
+    for employee_name, member in followers.items():
+        if member['admission_state'] == 'CONFIRMED':
+            continue
+        row = by_employee.get(employee_name)
+        values = _admission_values(department, app_id, _employee_context_placeholder(employee_name),
+                                   role, plan['release'], plan['scopes'])
+        if row:
+            doc = frappe.get_doc(roles.ADMISSION, row.name, for_update=True)
+            doc.update({key: values[key] for key in ('role', 'role_key', 'responsibilities_json', 'config_hash')})
+            doc.status = 'PENDING'
+            doc.version = int(row.version) + 1
+            doc.confirmed_by = None
+            doc.confirmed_at = None
+            doc.revoked_by = None
+            doc.revoked_at = None
+            doc.reason = '部门管理角色配置变化，待重新确认'
+            doc.save(ignore_permissions=True)
+            changes.append({'employee': employee_name, 'action': 'pending_updated', 'version': doc.version})
+        else:
+            doc = frappe.get_doc(dict(doctype=roles.ADMISSION, status='PENDING', version=1,
+                                      reason='部门管理角色待确认', **values)).insert(ignore_permissions=True)
+            changes.append({'employee': employee_name, 'action': 'pending_created', 'version': doc.version})
+    for employee_name, row in by_employee.items():
+        if employee_name in followers and row.status != 'REVOKED':
+            continue
+        if row.status == 'REVOKED':
+            continue
+        doc = frappe.get_doc(roles.ADMISSION, row.name, for_update=True)
+        doc.status = 'REVOKED'
+        doc.version = int(row.version) + 1
+        doc.revoked_by = user
+        doc.revoked_at = now_datetime()
+        doc.reason = '部门默认已调整或成员不再跟随'
+        doc.save(ignore_permissions=True)
+        changes.append({'employee': employee_name, 'action': 'revoked', 'version': doc.version})
+    return changes
+
+
+def _employee_context_placeholder(employee_name):
+    # Validators/values only need stable employee identity; read it directly here.
+    employee = frappe.db.get_value('Employee', employee_name,
+        ['name', 'user_id', 'department', 'company', 'status', 'modified', 'employee_name', 'employee_number'],
+        as_dict=True, for_update=True)
+    if not employee:
+        frappe.throw('部门成员已变化，请重新预览。', frappe.PermissionError)
+    return employee
+
+
+def save_department_role(department, app_id, expected_version, context_revision, request_id, role_key='', responsibilities=None):
     guards.require_post()
     with serialize('iam-work', 'site'):
         guards.require_capability('iam.departments.manage', department=department, app_id=app_id)
         guards.require_capability('iam.roles.assign', department=department, app_id=app_id)
-        payload = dict(app_id=app_id, role_key=role_key, expected_version=_version(expected_version), context_revision=context_revision)
+        target = _department_target(department)
+        role = _department_role(role_key or '')
+        if role:
+            if not role.enabled or not role.published_release:
+                frappe.throw('该角色尚未发布或已停用。', frappe.PermissionError)
+            if target.company not in roles.management_companies(role):
+                frappe.throw('该角色不在本部门已确认的管理域内。', frappe.PermissionError)
+            scopes = _department_scope(role, responsibilities)
+        else:
+            scopes = []
+        payload = dict(app_id=app_id, role_key=role_key or '', responsibilities=scopes,
+                       expected_version=_version(expected_version))
         replayed = audit.replay(request_id, 'role.department_default', 'Department', department, payload)
         if replayed is not None:
-            # A default can affect a changed set since the original command.
             current = roles.assignments('Department', department, app_id)
-            _department_plan(department, app_id, role_key, current[0].version if current else 0)
+            _department_plan(department, app_id, role_key, responsibilities, current[0].version if current else 0)
             return {**replayed, 'replayed': True}
-        plan = _department_plan(department, app_id, role_key, expected_version)
+        plan = _department_plan(department, app_id, role_key, responsibilities, expected_version)
         if not context_revision or context_revision != plan['context_revision']:
             conflict()
         _proof(consume=True)
@@ -429,10 +576,14 @@ def save_department_role(department, app_id, role_key, expected_version, context
         with guards.controlled_write():
             doc = plan['existing'] or frappe.get_doc(dict(doctype=roles.ASSIGNMENT, app_id=app_id, subject_type='Department', subject_name=department))
             doc.update({key: plan['proposed'][key] for key in ('mode', 'role', 'enabled', 'version', 'review_required')})
-            doc.set('responsibilities', [])
+            doc.set('responsibilities', plan['proposed'].responsibilities)
             doc.save(ignore_permissions=True)
-            after = dict(department=department, assignment=doc.name, role=doc.role, source_mode=doc.mode, version=doc.version, changed=True,
-                         reference_count=plan['reference_count'], effective_changed_count=plan['effective_changed_count'])
+            admission_changes = _apply_department_admissions(plan)
+            after = dict(department=department, assignment=doc.name, role=doc.role, source_mode=doc.mode, version=doc.version,
+                         changed=True, role_key=policy.value(plan['role'], 'role_key', ''),
+                         responsibilities=scopes, reference_count=plan['reference_count'],
+                         effective_changed_count=plan['effective_changed_count'], pending_count=plan['pending_count'],
+                         confirmed_count=plan['confirmed_count'], admission_changes=admission_changes)
             _event(request_id, 'role.department_default', 'Department', department, payload, {'version': _version(expected_version)}, after, doc.version)
         return after
 
@@ -444,8 +595,139 @@ def get_department_role(department, app_id):
     guards.require_capability('iam.access.read', department=department, app_id=app_id)
     current = roles.assignments('Department', department, app_id)
     current = current[0] if current else None
-    return dict(department=department, version=int(policy.value(current, 'version', 0)), role_key='staff' if current and current.mode == 'DIRECT' else '',
-                selected_role=policy.value(current, 'role'), has_role_default=current is not None)
+    role = roles.document(roles.ROLE, current.role) if current and current.role else None
+    admissions = {'pending': 0, 'confirmed': 0, 'revoked': 0}
+    if frappe.db.exists('DocType', roles.ADMISSION):
+        for row in frappe.db.sql('select status,count(*) as total from `tab' + roles.ADMISSION + '` where department=%s and app_id=%s group by status',
+                                 (department, app_id), as_dict=True):
+            if row.status.lower() in admissions:
+                admissions[row.status.lower()] = int(row.total)
+    return dict(department=department, version=int(policy.value(current, 'version', 0)),
+                role_key=policy.value(role, 'role_key', '') if current and current.mode == 'DIRECT' else '',
+                responsibilities=[roles.scope_dict(row) for row in current.responsibilities] if current else [],
+                has_role_default=current is not None,
+                selected_role=policy.value(role, 'name', '') if role else '',
+                admissions=admissions)
+
+
+def _admission_plan(department, app_id, employee_id, expected_version, action):
+    roles.require_available()
+    if app_id != 'attendance' or action not in {'confirm', 'revoke'}:
+        frappe.throw('准入操作无效。', frappe.ValidationError)
+    department_row = _department_target(department)
+    current = roles.assignments('Department', department, app_id)
+    current = current[0] if current else None
+    if not current or current.mode != 'DIRECT' or not current.role:
+        frappe.throw('该部门当前没有可逐人确认的管理型角色。', frappe.PermissionError)
+    role = roles.document(roles.ROLE, current.role)
+    if role.role_key not in roles.MANAGEMENT_ROLE_KEYS:
+        frappe.throw('当前部门默认不是管理型角色，无需逐人准入确认。', frappe.PermissionError)
+    if not role.enabled or not role.published_release:
+        frappe.throw('该角色尚未发布或已停用。', frappe.PermissionError)
+    release = roles.document(roles.RELEASE, role.published_release)
+    scopes = roles.normalize_scopes([roles.scope_dict(row) for row in current.responsibilities],
+                                    role.boundary_kind, roles.management_companies(role))
+    employee = _employee(employee_id, 'iam.access.manage', write=True)
+    if employee.department != department:
+        frappe.throw('该员工已不在本部门，不能确认此部门角色。', frappe.PermissionError)
+    guards.require_capability('iam.departments.manage', department=department, company=department_row.company, app_id=app_id)
+    guards.require_capability('iam.roles.assign', department=department, company=department_row.company, app_id=app_id)
+    _scope_authority(scopes, 'iam.roles.assign')
+    _scope_authority(scopes, 'iam.departments.manage')
+    own = roles.assignments('Employee', employee.name, app_id)
+    own = own[0] if own else None
+    if own and own.mode != 'FOLLOW_DEPARTMENT':
+        frappe.throw('该员工使用个人单独设置或不安排角色，不继承部门管理角色。', frappe.PermissionError)
+    if not own and roles.preserves_legacy_personal(employee):
+        frappe.throw('该员工仍有既有独立安排，须先核对个人例外。', frappe.PermissionError)
+    if _version(expected_version) != int(policy.value(current, 'version', 0)):
+        conflict()
+    row = roles.admission_row(department, app_id, employee.name, for_update=True)
+    expected_hash = roles.admission_hash(department, app_id, employee, role, release, scopes)
+    confirmed = bool(row and row.get('status') == 'CONFIRMED' and row.get('config_hash') == expected_hash)
+    status = str(policy.value(row, 'status', 'NONE') or 'NONE').upper()
+    before = _effective(employee, roles.resolve(employee))
+    after = _effective(employee, roles.resolve(employee, default_override=current, admission_override=action == 'confirm'))
+    context_revision = roles.digest(dict(
+        department=department, app_id=app_id, assignment=current.as_dict(), role=role.as_dict(), release=release.as_dict(),
+        responsibilities=scopes, employee=_member_context(employee), admission=row, expected_hash=expected_hash,
+        action=action, actor_revision=policy.current_revision()))
+    return dict(department=department, app_id=app_id, employee=employee.name, employee_record=employee,
+                employee_name=employee.employee_name,
+                employee_number=employee.employee_number, role=role.name, role_key=role.role_key,
+                responsibilities=scopes, assignment_version=int(policy.value(current, 'version', 0)),
+                admission_status=status, admission_hash=expected_hash, confirmed=confirmed,
+                expected_hash=expected_hash, action=action,
+                can_confirm=action == 'confirm' and not confirmed,
+                can_revoke=action == 'revoke' and bool(row and row.get('status') != 'REVOKED'),
+                duplicate_confirm=action == 'confirm' and confirmed,
+                row=row, before=before, after=after,
+                changed=(action == 'confirm' and not confirmed) or (action == 'revoke' and bool(row and row.get('status') != 'REVOKED')),
+                context_revision=context_revision)
+
+
+def preview_department_admission(department, app_id, employee_id, expected_version, action='confirm'):
+    return _admission_plan(department, app_id, employee_id, expected_version, action)
+
+
+def save_department_admission(department, app_id, employee_id, action, expected_version, context_revision, request_id):
+    guards.require_post()
+    with serialize('iam-work', 'site'):
+        # Re-check the current target/scope authorization before replay.
+        _employee(employee_id, 'iam.access.manage', write=True)
+        plan = _admission_plan(department, app_id, employee_id, expected_version, action)
+        payload = dict(action=action, expected_hash=plan['expected_hash'], expected_version=_version(expected_version))
+        replayed = audit.replay(request_id, 'role.department_admission', 'Department', department, payload)
+        if replayed is not None:
+            return {**replayed, 'replayed': True}
+        if not context_revision or context_revision != plan['context_revision']:
+            conflict()
+        _proof(consume=True)
+        if not plan['changed']:
+            return {'department': department, 'app_id': app_id, 'employee': employee_id, 'action': action,
+                    'status': plan['admission_status'], 'changed': False, 'replayed': False}
+        from frappe.utils import now_datetime
+        user = policy.get_current_user()
+        now = now_datetime()
+        with guards.controlled_write():
+            row = plan['row']
+            if action == 'confirm':
+                role_doc = roles.document(roles.ROLE, plan['role'])
+                release_doc = roles.document(roles.RELEASE, role_doc.published_release)
+                values = _admission_values(department, app_id, plan['employee_record'], role_doc, release_doc,
+                                           [dict(scope_type=item['scope_type'], scope_ref=item['scope_ref'], include_descendants=0)
+                                            for item in plan['responsibilities']])
+                if row:
+                    doc = frappe.get_doc(roles.ADMISSION, row.name, for_update=True)
+                    doc.update({key: values[key] for key in ('role', 'role_key', 'responsibilities_json', 'config_hash')})
+                    doc.status = 'CONFIRMED'
+                    doc.version = int(row.get('version') or 0) + 1
+                    doc.confirmed_by = user
+                    doc.confirmed_at = now
+                    doc.revoked_by = None
+                    doc.revoked_at = None
+                    doc.reason = ''
+                    doc.save(ignore_permissions=True)
+                else:
+                    doc = frappe.get_doc(dict(doctype=roles.ADMISSION, status='CONFIRMED', version=1,
+                                              confirmed_by=user, confirmed_at=now, **values)).insert(ignore_permissions=True)
+                after = dict(department=department, app_id=app_id, employee=employee_id, role=doc.role,
+                             role_key=doc.role_key, status='CONFIRMED', version=doc.version, requested_version=_version(expected_version))
+            else:
+                if not row:
+                    return {'department': department, 'app_id': app_id, 'employee': employee_id, 'action': action,
+                            'status': 'REVOKED', 'changed': False, 'replayed': False}
+                doc = frappe.get_doc(roles.ADMISSION, row.name, for_update=True)
+                doc.status = 'REVOKED'
+                doc.version = int(row.get('version') or 0) + 1
+                doc.revoked_by = user
+                doc.revoked_at = now
+                doc.reason = '管理员撤销部门管理角色准入'
+                doc.save(ignore_permissions=True)
+                after = dict(department=department, app_id=app_id, employee=employee_id, role=doc.role,
+                             role_key=doc.role_key, status='REVOKED', version=doc.version, requested_version=_version(expected_version))
+            _event(request_id, 'role.department_admission', 'Department', department, payload, {'version': _version(expected_version)}, after, doc.version)
+        return {**after, 'changed': True, 'replayed': False}
 
 
 def restore_role_release(app_id, role_key, source_release, expected_draft_version, request_id):
