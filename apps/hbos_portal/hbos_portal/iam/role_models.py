@@ -115,8 +115,23 @@ def validate_department_admission(doc):
         deny('撤销准入必须记录撤销人和时间。')
     previous = doc.get_doc_before_save()
     if previous:
-        if any(doc.get(key) != previous.get(key) for key in ('department', 'app_id', 'employee', 'role', 'role_key')):
-            deny('准入对象、角色不可改名或替换。')
+        if any(doc.get(key) != previous.get(key) for key in ('department', 'app_id', 'employee')):
+            deny('准入对象不可改名或替换。')
+        role_changed = any(doc.get(key) != previous.get(key) for key in ('role', 'role_key'))
+        if role_changed:
+            # A department default can be re-baselined to another management role.
+            # That is only a PENDING re-confirmation; the new role must equal the
+            # current department default (never an arbitrary substitution).
+            if doc.status != 'PENDING':
+                deny('角色变化只能由部门默认重置为待确认。')
+            current = roles.assignments('Department', doc.department, doc.app_id)
+            current = current[0] if current else None
+            if not current or current.mode != 'DIRECT' or current.role != doc.role:
+                deny('准入角色与当前部门默认不一致。')
+            current_scopes = roles.normalize_scopes([roles.scope_dict(row) for row in current.responsibilities],
+                                                     role.boundary_kind, roles.management_companies(role))
+            if current_scopes != scopes:
+                deny('准入范围与当前部门默认不一致。')
         if int(doc.version) != int(previous.version) + 1:
             deny('准入变更必须在受控事务中递增版本。')
         allowed = {('PENDING', 'CONFIRMED'), ('PENDING', 'REVOKED'), ('CONFIRMED', 'REVOKED'),
