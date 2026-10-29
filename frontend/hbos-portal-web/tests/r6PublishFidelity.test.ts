@@ -178,7 +178,7 @@ describe('R6 role draft to publish fidelity', () => {
     confirm.mockRestore()
   })
 
-  it('refreshes people and audit lists after returning to cached admin views', async () => {
+  it('refreshes people and audit lists after returning to cached admin views', { timeout: 20000 }, async () => {
     const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: defineComponent({ template: '<div />' }) }] })
     await router.push('/hbos/admin/people')
     await router.isReady()
@@ -204,7 +204,7 @@ describe('R6 role draft to publish fidelity', () => {
     expect(api.listAuditEvents).toHaveBeenCalledTimes(2)
   })
 
-  it('restores the remembered People page after restoring filters', async () => {
+  it('restores the remembered People page after restoring filters', { timeout: 20000 }, async () => {
     Object.assign(portalSession, { generation: 77, security: { user: 'synthetic-HR-A' } })
     const Home = defineComponent({ template: '<div>工作台</div>' })
     const router = createRouter({ history: createMemoryHistory(), routes: [

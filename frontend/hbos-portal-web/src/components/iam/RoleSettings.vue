@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { UserOutlined, TeamOutlined, SafetyCertificateOutlined } from '@ant-design/icons-vue'
 import { Modal, message } from 'ant-design-vue'
 import { canIam, iamMessage } from '@/services/iamAccess'
 import { listDepartments } from '@/services/iamDepartments'
@@ -9,6 +8,9 @@ import type { DepartmentSummary, RoleEditorSummary } from '@/types/iam'
 import OwnAccountVerification from '@/components/account/OwnAccountVerification.vue'
 import ChangeReview from './ChangeReview.vue'
 import StatusTag from './StatusTag.vue'
+import RoleChoiceGroup from './RoleChoiceGroup.vue'
+import ScopeSelector from './ScopeSelector.vue'
+import { roleTitle } from '@/services/assignmentPresentation'
 import { useAccountProof } from '@/composables/useAccountProof'
 
 const props = withDefaults(defineProps<{
@@ -28,12 +30,10 @@ const own = computed(() => props.subjectKind === 'employee')
 const canEdit = computed(() => canIam('iam.roles.assign') && canIam(own.value ? 'iam.access.manage' : 'iam.departments.manage'))
 const label = computed(() => props.subjectLabel || (own.value ? '这位员工' : props.subjectId))
 
-const roles = [
-  { key: 'staff', title: '普通员工', purpose: '查看自己的考勤', scope: '仅本人', icon: UserOutlined, capabilitySummary: '本人考勤记录与月度结果' },
-  { key: 'clerk', title: '部门考勤员', purpose: '协助负责部门核对日常考勤', scope: '明确负责的部门，不含下级', icon: TeamOutlined, capabilitySummary: '部门考勤面板与员工考勤' },
-  { key: 'admin', title: '考勤管理员', purpose: '在获准公司内办理考勤管理', scope: '明确指定的一个公司', icon: SafetyCertificateOutlined, capabilitySummary: '公司考勤、班次、更正与导出' },
-]
-const titleFor = (value?: string) => roles.find(row => row.key === value)?.title || (value === 'FOLLOW_DEPARTMENT' ? '跟随部门安排' : value === 'NONE' || value === '' ? '不安排角色' : value === 'LEGACY' ? '沿用已有安排' : '角色尚未确认')
+// The role definition lives in one display adapter; the published catalogue from
+// the server decides what may actually be granted. This page never invents an
+// ability list from a role name (no hard-coded export or "all management").
+const titleFor = (value?: string) => value === 'FOLLOW_DEPARTMENT' ? '跟随部门安排' : value === 'NONE' || value === '' ? '不安排角色' : value === 'LEGACY' ? '沿用已有安排' : roleTitle(value, current.value?.roles?.find(row => row.role_key === value)?.title)
 
 type ResolvedRole = { title?: string; role_key?: string; responsibilities?: RoleScope[]; published_revision?: number; reason?: string }
 const resolved = computed(() => (current.value?.selected_role || {}) as ResolvedRole)
@@ -201,13 +201,8 @@ function selectRole(value: string) {
   preview.value = null
   requestPayload = ''
 }
-function selectDepartmentScope(values: unknown) {
-  scopeRefs.value = Array.isArray(values) ? values.map(String) : []
-  preview.value = null
-  requestPayload = ''
-}
-function selectCompanyScope(value: string) {
-  scopeRefs.value = value ? [String(value)] : []
+function selectScope(values: string[]) {
+  scopeRefs.value = values
   preview.value = null
   requestPayload = ''
 }
@@ -445,7 +440,7 @@ defineExpose({ requestLeave, isDirty, loadLatest: () => load(true) })
       </details>
       <p v-else class="role-caveat">保存角色来源或负责范围，不会解除已有的暂停、个人禁止或期限限制。</p>
 
-      <template v-if="canEdit">
+      <template v-if="canEdit && own">
         <fieldset :disabled="busy || mustRead || Boolean(preview)">
           <template v-if="own">
             <div class="field-section-title"><h3>角色来源</h3><span>只采用一种安排</span></div>
@@ -469,40 +464,11 @@ defineExpose({ requestLeave, isDirty, loadLatest: () => load(true) })
               <p>当前仍沿用已有独立安排。要改为明确安排，请选择上方来源；本页不会自动改写。</p>
             </div>
             <template v-else>
-              <div class="field-section-title role-role-title"><h3>选择考勤角色</h3><span>仅作用于考勤应用</span></div>
-              <div class="r6-role-cards" role="radiogroup" aria-label="选择考勤角色">
-                <label v-for="item in roles" :key="item.key" class="r6-role-card" :class="{ selected: choice === item.key }">
-                  <span class="role-card-icon"><component :is="item.icon" /></span>
-                  <input type="radio" :name="`role-${subjectKind}-${subjectId}`" :value="item.key" :checked="choice === item.key" @change="selectRole(item.key)" />
-                  <strong>{{ item.title }}</strong>
-                  <span>{{ item.purpose }}</span>
-                  <small>{{ item.scope }}</small>
-                  <p class="role-card-capability">典型能力：{{ item.capabilitySummary }}</p>
-                </label>
-              </div>
+              <div class="field-section-title role-role-title"><h3>选择考勤角色</h3><span>与部门页使用同一已发布角色目录</span></div>
+              <RoleChoiceGroup :model-value="choice" :catalog="current.roles || null" :disabled="busy || mustRead || Boolean(preview)" :name="`role-${subjectKind}-${subjectId}`" label="选择考勤角色" @update:model-value="selectRole" />
               <div class="field-section-title role-scope-title"><h3>负责范围</h3><span v-if="choice === 'clerk'">不自动包含下级部门</span><span v-else-if="choice === 'admin'">仅限一个公司</span><span v-else>无需另外选择</span></div>
-              <div v-if="choice === 'staff'" class="role-self-scope"><strong>仅本人</strong><span>本人查询始终只看本人，无需另外选择范围。</span></div>
-              <template v-else-if="choice === 'clerk'">
-                <a-select :value="scopeRefs" mode="multiple" show-search option-filter-prop="label" :options="departmentOptions" placeholder="搜索并选择负责部门，可多选" aria-label="负责部门" class="full-width" @update:value="selectDepartmentScope" />
-                <p class="role-scope-caption">已选择 {{ scopeRefs.length }} 个部门{{ scopeRefs.length ? '，仅限这些部门' : '' }}。不会自动包含下级部门。</p>
-              </template>
-              <template v-else-if="choice === 'admin'">
-                <a-select :value="scopeRefs[0]" show-search option-filter-prop="label" :options="companyOptions" placeholder="选择一个负责公司" aria-label="负责公司" class="full-width" @update:value="selectCompanyScope" />
-                <p class="role-scope-caption">只限所选公司，不授予平台管理能力。</p>
-              </template>
+              <ScopeSelector :role-key="choice" :model-value="scopeRefs" :departments="departmentOptions" :companies="companyOptions" :disabled="busy || mustRead || Boolean(preview)" :loading="Boolean(loading)" @update:model-value="selectScope" />
             </template>
-          </template>
-          <template v-else>
-            <div class="field-section-title"><h3>考勤 · 部门默认权限</h3><span>只影响跟随部门安排的员工</span></div>
-            <div v-if="legacyForDepartment" class="role-legacy-state" role="status">
-              <div><strong>当前状态：沿用已有考勤权限</strong><StatusTag tone="neutral">当前状态</StatusTag></div>
-              <p>当前仍沿用原有考勤权限；选择并保存新的部门默认前不会自动转换。具体影响以服务端预览为准。</p>
-            </div>
-            <a-radio-group v-model:value="choice" class="department-default-options" aria-label="部门默认考勤权限">
-              <a-radio value="staff"><span><strong>查看本人考勤</strong><small>内部角色：普通员工（staff）。跟随者可查看本人的考勤记录与月度结果，不查看同部门其他人。</small></span></a-radio>
-              <a-radio value=""><span><strong>不默认开通</strong><small>不通过本部门分配考勤角色；单独授权不受此项影响。</small></span></a-radio>
-            </a-radio-group>
-            <p class="role-scope-caption">部门默认只作用于考勤应用。部门考勤员与考勤管理员需要逐人单独设置；个人单独安排、暂停、个人禁止与期限限制保持不变。</p>
           </template>
           <div class="role-actions">
             <span class="role-draft-state" role="status">{{ dirty ? '有未保存的修改' : '与当前安排一致' }}</span>
@@ -511,8 +477,7 @@ defineExpose({ requestLeave, isDirty, loadLatest: () => load(true) })
             <a-button type="primary" :disabled="!dirty || mustRead || busy || Boolean(preview)" :loading="busy" @click="prepare">{{ own ? '核对实际结果' : '预览影响' }}</a-button>
           </div>
         </fieldset>
-        <p v-if="!own" class="role-withheld">仅影响选择跟随部门安排的员工；个人安排和已有限制保留。</p>
-        <div v-else class="role-state-distinction" aria-label="三种状态的区别">
+        <div class="role-state-distinction" aria-label="三种状态的区别">
           <strong>三种状态分开处理</strong>
           <ul>
             <li><b>不安排该角色</b>：不通过角色获得考勤功能；登录账号和其他应用不变。</li>
@@ -521,6 +486,7 @@ defineExpose({ requestLeave, isDirty, loadLatest: () => load(true) })
           </ul>
         </div>
       </template>
+      <p v-else-if="canEdit" class="role-readonly">部门默认只在“部门应用权限”页设置一次；本页不再提供第二套部门编辑器，避免同一对象两处配置不一致。<RouterLink to="/hbos/admin/departments">前往部门应用权限</RouterLink></p>
       <p v-else class="role-readonly">只读：当前账号没有分配或修改角色安排的权限，页面不提供可提交的角色选择。</p>
     </template>
 

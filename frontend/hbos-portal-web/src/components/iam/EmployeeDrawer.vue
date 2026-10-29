@@ -16,6 +16,7 @@ import RoleSettings from './RoleSettings.vue'
 import ChangeReview from './ChangeReview.vue'
 import StatusTag from './StatusTag.vue'
 import AppAccessAction from './AppAccessAction.vue'
+import EntityName from './EntityName.vue'
 
 const props = withDefaults(defineProps<{ open: boolean; employeeId: string; initialTab?: string; initialApp?: string | null }>(), { initialTab: 'basic', initialApp: null })
 const emit = defineEmits<{ close: []; changed: [] }>()
@@ -78,8 +79,6 @@ const accountUserIdText = computed(() => {
   if (employee.value?.user_id) return '账号标识待核对'
   return '尚未开通'
 })
-const nameExpanded = ref(false)
-const employeeNameIsLong = computed(() => [...String(employee.value?.name || '')].length > 24)
 const loginPrimaryText = computed(() => {
   const username = person.value?.account?.username
   if (typeof username === 'string' && username.trim()) return username.trim()
@@ -295,7 +294,7 @@ async function close() {
 watch(tab, value => { if (value === 'apps') appsVisited.value = true })
 watch(() => [props.open, props.employeeId], () => {
   generation++; workGeneration++; person.value = null; secret.value = ''; action.value = ''; assistOpen.value = false; error.value = ''
-  nameExpanded.value = false; accountReview.value = false; accountDone.value = false; belongs.value = false; evidence.value = ''; targetUser.value = ''; accountMode.value = 'create'; accountRequestId = ''; accountPreviewVersion = ''; assistRequestId = ''; assistRequestAction = ''
+  accountReview.value = false; accountDone.value = false; belongs.value = false; evidence.value = ''; targetUser.value = ''; accountMode.value = 'create'; accountRequestId = ''; accountPreviewVersion = ''; assistRequestId = ''; assistRequestAction = ''
   transferPreview.value = null; department.value = ''; metadata.value = null; roleDirty.value = false; work.value = null; workError.value = ''; attendanceSummary.value = null; mustRead.value = false; appsVisited.value = false
   proof.invalidate()
   if (props.open && props.employeeId) {
@@ -318,14 +317,9 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
           <span class="drawer-eyebrow">员工详情</span>
           <div class="drawer-identity">
             <a-avatar :size="44" class="drawer-avatar">{{ (employee?.name || '员').slice(-1) }}</a-avatar>
-            <div>
-              <h2 id="employee-detail-title" :class="{ 'r6-name-clamp': employeeNameIsLong && !nameExpanded }">{{ employee?.name || '员工资料' }}</h2>
-              <p :class="{ 'r6-name-meta-clamp': employeeNameIsLong && !nameExpanded }">{{ employee?.employee_number || '工号待核对' }} <span>·</span> {{ employee?.department_name || employee?.department || '部门待核对' }} <span>·</span> {{ employee?.company || '公司待核对' }}</p>
-              <div v-if="employeeNameIsLong" class="drawer-name-expand">
-                <button type="button" :aria-expanded="nameExpanded" @click="nameExpanded = !nameExpanded">{{ nameExpanded ? '收起完整姓名' : '展开完整姓名' }}</button>
-                <div v-if="nameExpanded" class="r6-name-full">{{ employee?.name }}</div>
-              </div>
-            </div>
+            <EntityName
+              :name="employee?.name || '员工资料'" as="h2"
+              :meta="`${employee?.employee_number || '工号待核对'} · ${employee?.department_name || employee?.department || '部门待核对'} · ${employee?.company || '公司待核对'}`" />
           </div>
         </div>
         <a-button type="text" class="drawer-close" aria-label="关闭员工详情" @click="close">关闭</a-button>

@@ -30,18 +30,14 @@ describe('Role source and authorization changes',()=>{
     wrapper.unmount()
   })
 
-  it('distinguishes an unset department source from an explicit no-default choice',async()=>{
+  it('keeps a single department default editor: the legacy state is read-only here and points to the department page',async()=>{
     api.query.mockResolvedValue({version:0,role_key:'',has_role_default:false})
     const wrapper=mount(RoleSettings,{props:{subjectKind:'department',subjectId:'D1'},global:{plugins:[Antd],stubs}})
     await flushPromises()
     expect(wrapper.text()).toContain('沿用已有安排')
-    expect(wrapper.text()).toContain('当前状态：沿用已有考勤权限')
-    expect(wrapper.text()).toContain('不会自动转换')
-    expect(wrapper.find('input[type=radio][value="LEGACY"]').exists()).toBe(false)
-    expect((wrapper.get('input[type=radio][value=""]').element as HTMLInputElement).checked).toBe(false)
-    await wrapper.get('input[type=radio][value=""]').setValue(true)
-    expect(wrapper.findAll('button').find(row=>row.text()==='预览影响')!.attributes('disabled')).toBeUndefined()
-    await wrapper.findAll('button').find(row=>row.text()==='取消修改')!.trigger('click')
+    expect(wrapper.text()).toContain('部门默认只在“部门应用权限”页设置一次')
+    expect(wrapper.find('input[type=radio]').exists()).toBe(false)
+    expect(wrapper.findAll('button').some(row=>row.text()==='预览影响')).toBe(false)
     expect(api.command).not.toHaveBeenCalled()
     wrapper.unmount()
   })
