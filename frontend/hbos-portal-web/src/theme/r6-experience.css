@@ -1232,8 +1232,10 @@
     padding-inline: 12px;
   }
   .r6-global-nav a {
+    /* v1.4: the global nav is a reading control on every management page too,
+     * so it holds the 14px floor; width is recovered with padding. */
     padding-inline: 8px;
-    font-size: 12px;
+    font-size: 14px;
   }
   .r6-experience .brand-wrap {
     min-width: 145px;
