@@ -686,8 +686,16 @@ onBeforeUnmount(() => { disposed = true; generation++; appRead++; linkRead++; de
 .r6-dept-details{margin-top:6px;font-size:12px;line-height:20px;color:var(--r6-muted,#5f6e86)}
 .r6-dept-details summary{cursor:pointer;min-height:30px;display:flex;align-items:center}
 .r6-dept-details p{margin:6px 0 0}
-.r6-role-cards.is-department{margin-top:12px}
-.r6-role-cards.is-department .r6-role-card{min-height:126px}
+.r6-role-cards.is-department{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0 2px}
+.r6-role-cards.is-department .r6-role-card{display:flex;flex-direction:column;gap:5px;min-height:0;padding:13px 12px;position:relative}
+.r6-role-cards.is-department .r6-role-card input{position:absolute;top:11px;right:10px;width:16px;height:16px;margin:0}
+.r6-role-cards.is-department .role-card-icon{width:28px;height:30px;font-size:15px}
+.r6-role-cards.is-department strong{display:block;font-size:13.5px;line-height:21px;padding-right:18px}
+.r6-role-cards.is-department .r6-role-card>span:not(.role-card-icon){font-size:11.5px;line-height:18px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.r6-role-cards.is-department small{font-size:10.5px;line-height:17px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.r6-role-cards.is-department .role-card-capability{font-size:10.5px!important;line-height:17px!important;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:0!important}
+@media(max-width:1280px){.r6-role-cards.is-department{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.r6-role-cards.is-department{grid-template-columns:1fr}.r6-role-cards.is-department .r6-role-card{min-height:96px}.r6-role-cards.is-department .role-card-capability{-webkit-line-clamp:2}}
 .r6-role-cards.is-department .r6-role-card.disabled{opacity:.72;cursor:not-allowed}
 .r6-dept-app-subtitle{display:flex;align-items:center;gap:7px;margin:5px 0 0;color:#4d5f8a;font-size:14px;line-height:22px;font-weight:600}
 .r6-dept-app-subtitle .anticon{font-size:15px;color:#6f6bd6}
