@@ -1372,9 +1372,10 @@
     flex: none;
     padding: 8px 10px;
     color: var(--r6-secondary);
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 22px;
     border-radius: 8px;
-    min-height: 40px;
+    min-height: 44px;
   }
   .r6-mobile-local a.router-link-active {
     background: #eeedff;
