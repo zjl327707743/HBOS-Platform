@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-ALLOWED = {"hbos_external_identity.json", "hbos_account_operation.json", "hbos_account_change_event.json", "hbos_account_security.json", "hbos_iam_policy.json", "hbos_iam_rule.json", "hbos_iam_change_event.json", "hbos_iam_app_role.json", "hbos_iam_role_release.json", "hbos_iam_role_feature.json", "hbos_iam_role_assignment.json", "hbos_iam_role_scope.json"}
-MODEL_NAMES = {"hbos_external_identity": "HBOS External Identity", "hbos_account_operation": "HBOS Account Operation", "hbos_account_change_event": "HBOS Account Change Event", "hbos_account_security": "HBOS Account Security", "hbos_iam_policy": "HBOS IAM Policy", "hbos_iam_rule": "HBOS IAM Rule", "hbos_iam_change_event": "HBOS IAM Change Event", "hbos_iam_app_role": "HBOS IAM App Role", "hbos_iam_role_release": "HBOS IAM Role Release", "hbos_iam_role_feature": "HBOS IAM Role Feature", "hbos_iam_role_assignment": "HBOS IAM Role Assignment", "hbos_iam_role_scope": "HBOS IAM Role Scope"}
+ALLOWED = {"hbos_external_identity.json", "hbos_account_operation.json", "hbos_account_change_event.json", "hbos_account_security.json", "hbos_iam_policy.json", "hbos_iam_rule.json", "hbos_iam_change_event.json", "hbos_iam_app_role.json", "hbos_iam_role_release.json", "hbos_iam_role_feature.json", "hbos_iam_role_assignment.json", "hbos_iam_role_scope.json", "hbos_iam_department_role_admission.json"}
+MODEL_NAMES = {"hbos_external_identity": "HBOS External Identity", "hbos_account_operation": "HBOS Account Operation", "hbos_account_change_event": "HBOS Account Change Event", "hbos_account_security": "HBOS Account Security", "hbos_iam_policy": "HBOS IAM Policy", "hbos_iam_rule": "HBOS IAM Rule", "hbos_iam_change_event": "HBOS IAM Change Event", "hbos_iam_app_role": "HBOS IAM App Role", "hbos_iam_role_release": "HBOS IAM Role Release", "hbos_iam_role_feature": "HBOS IAM Role Feature", "hbos_iam_role_assignment": "HBOS IAM Role Assignment", "hbos_iam_role_scope": "HBOS IAM Role Scope", "hbos_iam_department_role_admission": "HBOS IAM Department Role Admission"}
 
 
 class IAMDocTypeGateTest(unittest.TestCase):
@@ -32,7 +32,7 @@ class IAMDocTypeGateTest(unittest.TestCase):
                 path.write_text('{}')
             return subprocess.run(["bash", "-euo", "pipefail", "-c", self.command()], cwd=directory, capture_output=True).returncode
 
-    def test_exact_twelve_approved_model_names_pass_the_actual_shell_gate(self):
+    def test_exact_thirteen_approved_model_names_pass_the_actual_shell_gate(self):
         self.assertEqual(self.run_gate(), 0)
 
     def test_unknown_hbos_model_and_arbitrary_json_still_fail(self):
@@ -49,6 +49,15 @@ class IAMDocTypeGateTest(unittest.TestCase):
             self.assertEqual(data["allow_rename"], 0)
             if slug in {"rule", "role_feature", "role_scope"}:
                 self.assertEqual(data["istable"], 1)
+        import json as _json
+        admission = _json.loads((ROOT / "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_iam_department_role_admission/hbos_iam_department_role_admission.json").read_text())
+        self.assertEqual(admission["permissions"], [])
+        self.assertEqual(admission["allow_rename"], 0)
+        self.assertEqual(admission["name"], "HBOS IAM Department Role Admission")
+        self.assertNotEqual(admission.get("istable"), 1)
+        fields = {row["fieldname"]: row for row in admission["fields"]}
+        self.assertEqual(fields["admission_key"].get("unique"), 1)
+        self.assertEqual(fields["status"]["options"], "PENDING\nCONFIRMED\nREVOKED")
 
     def test_model_locations_and_declared_names_cannot_smuggle_an_extra_doctype(self):
         import json

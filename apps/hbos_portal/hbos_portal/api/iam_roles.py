@@ -102,18 +102,34 @@ def get_department_role(department, app_id='attendance', **kwargs):
 
 
 @frappe.whitelist(methods=['POST'])
-def preview_department_role(department, app_id, expected_version, role_key='', **kwargs):
+def preview_department_role(department, app_id, expected_version, role_key='', responsibilities=None, **kwargs):
     def run():
-        _only(kwargs, ('department', 'app_id', 'expected_version', 'role_key'))
-        return commands.preview_department_role(department, app_id, role_key, expected_version)
+        _only(kwargs, ('department', 'app_id', 'expected_version', 'role_key', 'responsibilities'))
+        return commands.preview_department_role(department, app_id, expected_version, role_key, responsibilities)
     return _call(run, read_only=True)
 
 
 @frappe.whitelist(methods=['POST'])
-def save_department_role(department, app_id, expected_version, context_revision, request_id, role_key='', **kwargs):
+def save_department_role(department, app_id, expected_version, context_revision, request_id, role_key='', responsibilities=None, **kwargs):
     def run():
-        _only(kwargs, ('department', 'app_id', 'expected_version', 'context_revision', 'request_id', 'role_key'))
-        return commands.save_department_role(department, app_id, role_key, expected_version, context_revision, request_id)
+        _only(kwargs, ('department', 'app_id', 'expected_version', 'context_revision', 'request_id', 'role_key', 'responsibilities'))
+        return commands.save_department_role(department, app_id, expected_version, context_revision, request_id, role_key, responsibilities)
+    return _call(run)
+
+
+@frappe.whitelist(methods=['POST'])
+def preview_department_admission(department, app_id, employee_id, expected_version, action='confirm', **kwargs):
+    def run():
+        _only(kwargs, ('department', 'app_id', 'employee_id', 'expected_version', 'action'))
+        return commands.preview_department_admission(department, app_id, employee_id, expected_version, action)
+    return _call(run, read_only=True)
+
+
+@frappe.whitelist(methods=['POST'])
+def save_department_admission(department, app_id, employee_id, action, expected_version, context_revision, request_id, **kwargs):
+    def run():
+        _only(kwargs, ('department', 'app_id', 'employee_id', 'action', 'expected_version', 'context_revision', 'request_id'))
+        return commands.save_department_admission(department, app_id, employee_id, action, expected_version, context_revision, request_id)
     return _call(run)
 
 
