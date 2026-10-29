@@ -27,6 +27,7 @@ interface PreviewMember {
   after_allowed: boolean
   changed: boolean
   reason: string
+  admission_recheck?: boolean
 }
 interface RolePreviewView extends RolePreview {
   role?: string
@@ -506,7 +507,8 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
                 <div v-if="preview.members?.length" class="r6-publish-members">
                   <article v-for="person in preview.members" :key="person.employee" class="r6-publish-member">
                     <div><strong>{{ person.name }}</strong><small v-if="person.employee_number">{{ person.employee_number }}</small><p>{{ memberMode(person.source_mode) }} · {{ person.before_allowed ? '当前可用' : '当前不可用' }} → {{ person.after_allowed ? '发布后可用' : '发布后不可用' }}</p><p v-if="person.reason">{{ person.reason }}</p></div>
-                    <StatusTag :tone="person.changed ? 'warning' : 'neutral'">{{ person.changed ? '实际权限将变化' : '实际权限保持' }}</StatusTag>
+                    <StatusTag v-if="person.admission_recheck" tone="warning">发布后需重新确认准入</StatusTag>
+                    <StatusTag v-else :tone="person.changed ? 'warning' : 'neutral'">{{ person.changed ? '实际权限将变化' : '实际权限保持' }}</StatusTag>
                   </article>
                 </div>
                 <p v-else-if="preview.reference_count === 0" class="aux">当前没有员工使用此角色。</p>

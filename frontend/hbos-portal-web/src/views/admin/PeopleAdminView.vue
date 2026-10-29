@@ -19,6 +19,10 @@ const viewGroup = ref('daily'), groupsAvailable = ref(false), compact = ref(fals
 const rows = ref<EmployeeSummary[]>([]), total = ref(0), page = ref(1), category = ref('employees'), search = ref(''), department = ref<string>(), accountStatus = ref(''), loading = ref(true), error = ref(''), metadataError = ref(''), unavailable = ref(false)
 const selected = ref(''), selectedTab = ref('basic'), drawerOpen = ref(false), createOpen = ref(false), metadata = ref<EmployeeMetadata | null>(null), creating = ref(false), createError = ref(''), recheck = ref(false)
 const overviewNotice = ref('')
+const expandedNames = ref<Set<string>>(new Set())
+function isLongName(name?: string | null) { return [...String(name || '')].length > 24 }
+function toggleName(id: string) { const next = new Set(expandedNames.value); if (next.has(id)) next.delete(id); else next.add(id); expandedNames.value = next }
+
 const fields = reactive<Record<string, string>>({}), proof = useAccountProof(() => undefined)
 let generation = 0, metadataGeneration = 0, disposed = false, refreshOnActivation = false, timer: ReturnType<typeof setTimeout> | undefined, requestId = '', requestSignature = ''
 const unopened = computed(() => rows.value.filter(row => row.account_status === 'unopened').length)
@@ -162,7 +166,7 @@ onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; cle
       </div>
       <a-table v-if="category === 'employees' || !unavailable" class="r6-desktop-people" :locale="{ emptyText: '没有符合条件的员工或账号' }" :columns="columns" :data-source="rows" row-key="id" table-layout="fixed" :size="compact ? 'small' : 'middle'" :loading="loading" :sticky="tableSticky" :scroll="{ x: 680 }" :pagination="false" :custom-row="personRow">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'name'"><div class="r6-employee-cell"><a-avatar :size="40">{{ record.name?.slice(-1) }}</a-avatar><div><button v-if="category === 'employees'" class="iam-name" :aria-label="`查看${record.name}，工号${record.employee_number}`" @click="open(record)"><strong>{{ record.name }}</strong></button><strong v-else>{{ record.name }}</strong><span class="iam-code">{{ record.employee_number || record.id }}</span></div></div></template>
+          <template v-if="column.key === 'name'"><div class="r6-employee-cell"><a-avatar :size="40">{{ record.name?.slice(-1) }}</a-avatar><div><button v-if="category === 'employees'" class="iam-name" :class="{ 'r6-name-clamp': isLongName(record.name) && !expandedNames.has(record.id) }" :aria-label="`查看${record.name}，工号${record.employee_number}`" @click="open(record)"><strong>{{ record.name }}</strong></button><strong v-else>{{ record.name }}</strong><button v-if="isLongName(record.name)" type="button" class="r6-name-expand" :aria-expanded="expandedNames.has(record.id)" @click.stop="toggleName(record.id)">{{ expandedNames.has(record.id) ? '收起完整姓名' : '展开完整姓名' }}</button><div v-if="expandedNames.has(record.id)" class="r6-name-full">{{ record.name }}</div><span class="iam-code">{{ record.employee_number || record.id }}</span></div></div></template>
           <template v-else-if="column.key === 'department'">{{ record.department_name }}<span class="iam-code">{{ record.position || '岗位待补充' }}</span></template>
           <template v-else-if="column.key === 'account'"><StatusTag :tone="record.account_status === 'active' ? 'success' : record.account_status === 'unopened' ? 'warning' : 'neutral'">{{ accountLabel(record) }}</StatusTag></template>
           <template v-else-if="column.key === 'task'"><button v-if="taskActionable(record)" type="button" class="r6-task-link" data-task-action :title="taskHint(record)" :aria-label="`${taskLabel(record)}：${record.name}`" @click="open(record, taskTab(record))">{{ taskLabel(record) }}</button><span v-else class="r6-person-task">无需处理</span></template>
@@ -174,7 +178,7 @@ onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; cle
         <a-skeleton v-if="loading" active />
         <a-empty v-else-if="!rows.length" description="没有符合条件的员工或账号" />
         <article v-for="row in rows" :key="row.id" class="r6-mobile-person" :data-person-id="row.id">
-          <div class="r6-employee-cell"><a-avatar :size="40">{{ row.name?.slice(-1) }}</a-avatar><div><button v-if="category === 'employees'" class="iam-name" :aria-label="`查看${row.name}，工号${row.employee_number}`" @click="open(row)"><strong>{{ row.name }}</strong></button><strong v-else>{{ row.name }}</strong><span class="iam-code">{{ row.employee_number || row.id }}</span></div></div>
+          <div class="r6-employee-cell"><a-avatar :size="40">{{ row.name?.slice(-1) }}</a-avatar><div><button v-if="category === 'employees'" class="iam-name" :class="{ 'r6-name-clamp': isLongName(row.name) && !expandedNames.has(row.id) }" :aria-label="`查看${row.name}，工号${row.employee_number}`" @click="open(row)"><strong>{{ row.name }}</strong></button><strong v-else>{{ row.name }}</strong><button v-if="isLongName(row.name)" type="button" class="r6-name-expand" :aria-expanded="expandedNames.has(row.id)" @click.stop="toggleName(row.id)">{{ expandedNames.has(row.id) ? '收起完整姓名' : '展开完整姓名' }}</button><div v-if="expandedNames.has(row.id)" class="r6-name-full">{{ row.name }}</div><span class="iam-code">{{ row.employee_number || row.id }}</span></div></div>
           <p>{{ category === 'employees' ? `${row.department_name} · ${row.position || '岗位待补充'}` : row.user_id }}</p>
           <div class="r6-mobile-person-foot"><StatusTag :tone="row.account_status === 'active' ? 'success' : row.account_status === 'unopened' ? 'warning' : 'neutral'">{{ accountLabel(row) }}</StatusTag><div class="r6-mobile-actions"><button v-if="taskActionable(row)" type="button" class="r6-task-link" data-task-action :title="taskHint(row)" :aria-label="`${taskLabel(row)}：${row.name}`" @click="open(row, taskTab(row))">{{ taskLabel(row) }}</button><a-button v-if="category === 'employees'" data-row-action :aria-label="`${actionLabel(row)}：${row.name}`" @click="open(row, actionTab(row))">{{ actionLabel(row) }}</a-button></div></div>
         </article>
@@ -197,6 +201,9 @@ button.r6-overview:disabled { cursor: default; opacity: .68; }
 .r6-people-scope { display: flex; align-items: center; gap: 10px; flex: none; }
 .r6-people-scope-label { display: inline-flex; align-items: center; gap: 5px; color: var(--r6-muted, #5f6e86); font-size: 12px; line-height: 19px; white-space: nowrap; }
 .r6-overview-label-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.iam-name.r6-name-clamp strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.r6-name-expand{border:0;background:none;padding:0;color:var(--r6-brand,#5754df);font-size:11px;line-height:18px;text-align:left;cursor:pointer;min-height:24px}
+.r6-name-full{margin-top:2px;padding:7px 9px;border:1px dashed #ddd9f2;border-radius:7px;background:#faf9ff;font-size:12px;line-height:20px;overflow-wrap:anywhere;max-height:124px;overflow:auto}
 .r6-overview-label-row small { font-size: 11px; line-height: 16px; color: var(--r6-muted, #5f6e86); }
 .r6-mobile-group { display: none; }
 .r6-people-scope :deep(.ant-select) { width: 132px; }

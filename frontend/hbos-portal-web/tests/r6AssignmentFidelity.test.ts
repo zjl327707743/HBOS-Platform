@@ -1070,4 +1070,78 @@ describe('R6-A2.2 employee apps and assignment fidelity', () => {
     expect(buttons.filter(row => /启用|开通|保存|开关/.test(row.text())).length).toBe(0)
   })
 
+
+  it('offers the same published role catalogue on the department page and previews explicit scope', async () => {
+    api.query.mockImplementation((method: string) => {
+      if (method === 'get_department_role') return Promise.resolve({
+        version: 5, role_key: 'clerk', has_role_default: true, selected_role: 'role-clerk',
+        responsibilities: [{ scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2', include_descendants: 0 }],
+        roles: [
+          { role_key: 'staff', title: '普通员工', boundary_kind: 'SELF', grantable: false, reason: '当前账号没有授予这个角色所需的管理范围。' },
+          { role_key: 'clerk', title: '部门考勤员', boundary_kind: 'DEPARTMENT', grantable: true },
+          { role_key: 'admin', title: '考勤管理员', boundary_kind: 'COMPANY', grantable: true },
+        ],
+      })
+      return Promise.resolve(structuredClone(employeeAssignment))
+    })
+    api.command.mockResolvedValue({ context_revision: 'd'.repeat(64), changed: true, reference_count: 2, effective_changed_count: 1, personal_preserved: 1, pending_count: 1, confirmed_count: 0, members: [{ employee: 'E1', name: '合成员工', changed: true, before_allowed: true, after_allowed: true, reason: '待确认准入', admission_state: 'PENDING' }], personal: [] })
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+
+    const cards = w.findAll('.r6-role-cards.is-department .r6-role-card')
+    expect(cards.length).toBe(4)
+    expect(w.text()).toContain('普通员工')
+    expect(w.text()).toContain('部门考勤员')
+    expect(w.text()).toContain('考勤管理员')
+    expect(w.text()).toContain('不通过部门分配')
+    expect(w.text()).toContain('当前账号没有授予这个角色所需的管理范围')
+    expect((w.find('input[type="radio"][value="clerk"]').element as HTMLInputElement).checked).toBe(true)
+
+    await click(w, '预览影响')
+    expect(api.command).toHaveBeenCalledWith('preview_department_role', expect.objectContaining({
+      department: 'D1', role_key: 'clerk', expected_version: 5,
+      responsibilities: [{ scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2', include_descendants: 0 }],
+    }))
+    expect(bodyText()).toContain('待确认准入')
+    expect(bodyText()).toContain('部门考勤员')
+
+    await setRadio(w, 'admin')
+    await click(w, '预览影响')
+    expect(w.text()).toContain('考勤管理员必须明确选择一个公司')
+    expect(api.command.mock.calls.filter(call => call[0] === 'preview_department_role').length).toBe(1)
+  })
+
+  it('confirms one department management admission through the server preview, proof and request id', async () => {
+    api.query.mockImplementation((method: string) => {
+      if (method === 'get_department_role') return Promise.resolve({
+        version: 5, role_key: 'clerk', has_role_default: true, selected_role: 'role-clerk',
+        responsibilities: [{ scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2', include_descendants: 0 }],
+        roles: [{ role_key: 'clerk', title: '部门考勤员', boundary_kind: 'DEPARTMENT', grantable: true }],
+      })
+      return Promise.resolve(structuredClone(employeeAssignment))
+    })
+    const baseline = { context_revision: 'd'.repeat(64), changed: false, reference_count: 1, effective_changed_count: 0, personal_preserved: 0, pending_count: 1, confirmed_count: 0, members: [{ employee: 'E1', name: '合成员工', employee_number: 'T001', changed: false, before_allowed: false, after_allowed: false, reason: '部门管理角色准入待确认。', admission_state: 'PENDING' }], personal: [] }
+    const admissionPreview = { department: 'D1', app_id: 'attendance', employee: 'E1', employee_name: '合成员工', employee_number: 'T001', role: 'role-clerk', role_key: 'clerk', responsibilities: [{ scope_type: 'DEPARTMENT', scope_ref: 'DEPT-2', include_descendants: 0 }], assignment_version: 5, admission_status: 'PENDING', admission_hash: 'h'.repeat(64), confirmed: false, action: 'confirm', can_confirm: true, can_revoke: false, changed: true, context_revision: 'a'.repeat(64), before: { allowed: false, reason: '部门管理角色准入待确认。', operations: [] }, after: { allowed: true, reason: '', operations: [] } }
+    api.command.mockImplementation((method: string) => {
+      if (method === 'preview_department_admission') return Promise.resolve(admissionPreview)
+      if (method === 'save_department_admission') return Promise.resolve({ status: 'CONFIRMED', changed: true })
+      return Promise.resolve(baseline)
+    })
+    const w = await render(DepartmentsAdminView)
+    await flushPromises()
+    expect(w.text()).toContain('待确认准入')
+    await click(w, '确认准入')
+    await flushPromises()
+    expect(api.command).toHaveBeenCalledWith('preview_department_admission', expect.objectContaining({ department: 'D1', employee_id: 'E1', action: 'confirm' }))
+    expect(bodyText()).toContain('确认部门管理角色准入')
+    const verify = Array.from(document.body.querySelectorAll('button')).find(row => row.textContent?.includes('完成测试核验'))
+    expect(verify).toBeDefined()
+    verify!.click()
+    await flushPromises()
+    const confirm = Array.from(document.body.querySelectorAll('button')).filter(row => row.textContent?.trim() === '确认准入').pop()
+    expect(confirm).toBeDefined()
+    confirm!.click()
+    await flushPromises()
+    expect(api.command).toHaveBeenCalledWith('save_department_admission', expect.objectContaining({ department: 'D1', employee_id: 'E1', action: 'confirm', expected_version: 5, context_revision: 'a'.repeat(64), request_id: expect.any(String) }))
+  })
 })

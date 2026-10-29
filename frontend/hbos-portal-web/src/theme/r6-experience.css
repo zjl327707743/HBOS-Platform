@@ -691,6 +691,7 @@
   border-top: 1px solid var(--r6-line);
   padding-top: 18px;
 }
+.r6-identity-facts>.ant-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .r6-identity-facts span {
   display: block;
   font-size: 12px;
