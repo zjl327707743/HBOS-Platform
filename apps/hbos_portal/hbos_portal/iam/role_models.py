@@ -135,7 +135,7 @@ def validate_department_admission(doc):
         if int(doc.version) != int(previous.version) + 1:
             deny('准入变更必须在受控事务中递增版本。')
         allowed = {('PENDING', 'CONFIRMED'), ('PENDING', 'REVOKED'), ('CONFIRMED', 'REVOKED'),
-                   ('CONFIRMED', 'PENDING'), ('REVOKED', 'PENDING'), ('REVOKED', 'CONFIRMED')}
+                   ('CONFIRMED', 'PENDING'), ('REVOKED', 'PENDING'), ('REVOKED', 'CONFIRMED'), ('PENDING', 'PENDING')}
         if (previous.status, doc.status) not in allowed:
             deny('准入状态转换无效。')
     elif doc.status not in {'PENDING', 'CONFIRMED'}:
