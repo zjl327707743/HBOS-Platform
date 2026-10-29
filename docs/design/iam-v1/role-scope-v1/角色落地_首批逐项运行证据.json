@@ -1,0 +1,165 @@
+{
+  "status": "PARTIAL_IMPLEMENTING_NOT_MERGE_READY",
+  "source_base": "09dd8d68a9d4fa05dc01c33673a2b903598a4f87",
+  "product_base": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+  "design": "90185653853d508a52cbfb9bb49b6e0cf0bc5a5d",
+  "tests": [
+    {
+      "case": "database_fault_after_release_and_pointer_rolls_back_all_permission_and_audit_effects",
+      "status": "PASS",
+      "layer": "NATIVE_DB_FAULT_INJECTION",
+      "password_proof": "stubbed_in_this_layer_only_HTTP_proof_tested_separately"
+    },
+    {
+      "case": "isolated_migrate_first",
+      "status": "PASS",
+      "role_flag": false,
+      "role_counts": {
+        "HBOS IAM App Role": 0,
+        "HBOS IAM Role Release": 0,
+        "HBOS IAM Role Assignment": 0
+      },
+      "legacy_rule_fingerprint": "08575020d61d2735ba31b89cdeb121d7dbb15f0b86ade447ed5c06ecdab4f8ef"
+    },
+    {
+      "case": "isolated_migrate_second",
+      "status": "PASS",
+      "role_flag": false,
+      "role_counts": {
+        "HBOS IAM App Role": 0,
+        "HBOS IAM Role Release": 0,
+        "HBOS IAM Role Assignment": 0
+      },
+      "legacy_rule_fingerprint": "08575020d61d2735ba31b89cdeb121d7dbb15f0b86ade447ed5c06ecdab4f8ef"
+    },
+    {
+      "case": "publish_staff_immutable_version_and_idempotent_replay",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "two_real_users_assigned_published_role_can_read_self",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "saved_draft_does_not_change_either_user",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "cancel_publish_leaves_current_rights_and_pointer",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "stale_draft_409_no_permission_effect",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "one_publish_revokes_next_request_for_both_users",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "restore_feature_as_new_version_restores_both_users",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "forged_subject_and_non_manager_role_reads_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "non_native_HR_publisher_releases_and_assigns_named_department_role",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "department_board_real_rows_and_forged_department_employee_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "three_existing_reports_share_bounded_rows_totals_and_forged_employee_denial",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "employee_records_share_personal_query_with_history_and_current_roster_bounds",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "unproved_history_external_sync_and_IAM_role_read_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "legacy_native_unscoped_report_remains_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "company_role_publish_and_assignment_without_any_native_HR_or_System_Manager_role",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "company_rule_configuration_and_employee_roster_do_not_cross_company",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "native_rule_creation_binding_and_invalid_replacement_preserve_existing_bindings",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "company_scope_enforced_before_each_write_and_native_immutable_rule_versions_retained",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "actual_company_dashboard_aggregates_exclude_other_company_and_signal_unproved_history",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    },
+    {
+      "case": "attendance_business_admin_is_not_IAM_publisher_and_native_resource_bypass_is_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP"
+    }
+  ],
+  "limitations": [
+    "Full company write acceptance, staging, imports, corrections, recalculation and exports remain incomplete.",
+    "New model CI allowlist requires the platform writer to apply the exact candidate patch.",
+    "Site clock remains Asia/Kolkata; no China factory production readiness claim.",
+    "Native UI inspection is separate from HTTP writes; no browser credential changes or permission submission performed."
+  ],
+  "checks": {
+    "frontend": {
+      "files": 32,
+      "tests": 263,
+      "status": "PASS"
+    },
+    "typecheck_build": "PASS",
+    "attendance": {
+      "tests": 562,
+      "status": "PASS"
+    },
+    "portal": {
+      "tests": 193,
+      "passed": 192,
+      "failed": 1,
+      "failure": "old exact-seven-model CI gate; platform patch pending"
+    },
+    "CI_candidate_patch": {
+      "tests": 4,
+      "status": "PASS",
+      "scope": "applied to temporary test files only; shared workflow unchanged"
+    }
+  }
+}

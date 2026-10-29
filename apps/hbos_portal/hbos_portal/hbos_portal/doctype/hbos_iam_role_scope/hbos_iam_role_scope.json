@@ -1,0 +1,38 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS IAM Role Scope",
+ "module": "HBOS Portal",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "scope_type",
+  "scope_ref",
+  "include_descendants"
+ ],
+ "fields": [
+  {
+   "fieldname": "scope_type",
+   "fieldtype": "Select",
+   "label": "Scope Type",
+   "options": "DEPARTMENT\nCOMPANY",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scope_ref",
+   "fieldtype": "Data",
+   "label": "Scope Ref",
+   "reqd": 1
+  },
+  {
+   "fieldname": "include_descendants",
+   "fieldtype": "Check",
+   "label": "Include Descendants",
+   "default": "0"
+  }
+ ],
+ "permissions": [],
+ "istable": 1
+}

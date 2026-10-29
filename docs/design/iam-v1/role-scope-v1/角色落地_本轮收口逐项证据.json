@@ -1,0 +1,147 @@
+{
+  "status": "ENGINEERING_CANDIDATE_COMPLETE_NOT_MERGE_READY",
+  "date": "2026-10-19",
+  "integrated_operations": 32,
+  "total_operations": 32,
+  "tests": [
+    {
+      "case": "follow_native_IAM_transfer_D1_D2_D1_default_follows_and_named_responsibility_stays_old_session_revoked_historical_foreign_keys_unchanged",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_NATIVE_DB_FINGERPRINT",
+      "private_evidence_file": "transfer-chain.json"
+    },
+    {
+      "case": "direct_native_IAM_transfer_D1_D2_D1_default_follows_and_named_responsibility_stays_old_session_revoked_historical_foreign_keys_unchanged",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_NATIVE_DB_FINGERPRINT",
+      "private_evidence_file": "transfer-chain.json"
+    },
+    {
+      "case": "roles_flag_off_same_sessions_restore_exact_legacy_SELF_and_native_HR_while_company_and_role_commands_fail_closed",
+      "status": "PASS",
+      "layer": "REAL_HTTP_AND_ISOLATED_CONFIG_RESTART",
+      "private_evidence_file": "flag-rollback-chain.json"
+    },
+    {
+      "case": "flag_reenable_restores_role_execution_and_keeps_all_role_rows_and_later_legacy_deny_without_database_restore_then_exact_fixture_CAS_cleanup",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_NATIVE_DB_SOURCE_FINGERPRINT",
+      "private_evidence_file": "flag-rollback-chain.json"
+    },
+    {
+      "case": "monthly_existing_renderer_real_private_xlsx_bounded_data_and_current_authority_download",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "exceptions_existing_renderer_real_private_xlsx_bounded_data_and_current_authority_download",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "roster_existing_renderer_real_private_xlsx_bounded_data_and_current_authority_download",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "cross_company_AI_parameter_raw_File_alias_and_native_all_row_report_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "same_session_download_rechecks_new_release_and_refuses_all_old_artifacts_after_revocation",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "restored_publication_allows_the_same_artifacts_only_after_current_scope_revalidation",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "chrome_import_type_choice_survives_same_subject_tab_return",
+      "status": "PASS",
+      "layer": "NATIVE_CHROME_UI",
+      "limits": "界面读取/本地编辑/取消；最终产品保存或发布由Owner抽查，不冒充人工通过。"
+    },
+    {
+      "case": "chrome_role_feature_local_edit_cancel_restores_original_no_publish",
+      "status": "PASS",
+      "layer": "NATIVE_CHROME_UI",
+      "limits": "界面读取/本地编辑/取消；最终产品保存或发布由Owner抽查，不冒充人工通过。"
+    },
+    {
+      "case": "chrome_employee_follow_source_named_department_choice_and_cancel",
+      "status": "PASS",
+      "layer": "NATIVE_CHROME_UI",
+      "limits": "界面读取/本地编辑/取消；最终产品保存或发布由Owner抽查，不冒充人工通过。"
+    },
+    {
+      "case": "chrome_department_default_staff_or_none_only_cancel_restores",
+      "status": "PASS",
+      "layer": "NATIVE_CHROME_UI",
+      "limits": "界面读取/本地编辑/取消；最终产品保存或发布由Owner抽查，不冒充人工通过。"
+    },
+    {
+      "case": "chrome_changed_attendance_revision_clears_selected_employee_and_rule_modal",
+      "status": "PASS",
+      "layer": "NATIVE_CHROME_UI",
+      "limits": "界面读取/本地编辑/取消；最终产品保存或发布由Owner抽查，不冒充人工通过。"
+    },
+    {
+      "case": "safari_original_employee_session_date_draft_and_applied_range_remain_distinct",
+      "status": "PASS",
+      "layer": "NATIVE_SAFARI_UI",
+      "limits": "界面读取/本地编辑/取消；最终产品保存或发布由Owner抽查，不冒充人工通过。"
+    },
+    {
+      "case": "safari_company_dashboard_current_range_scope_warning_and_capability_navigation",
+      "status": "PASS",
+      "layer": "NATIVE_SAFARI_UI",
+      "limits": "界面读取/本地编辑/取消；最终产品保存或发布由Owner抽查，不冒充人工通过。"
+    },
+    {
+      "case": "safari_export_roster_choice_survives_same_subject_tab_return",
+      "status": "PASS",
+      "layer": "NATIVE_SAFARI_UI",
+      "limits": "界面读取/本地编辑/取消；最终产品保存或发布由Owner抽查，不冒充人工通过。"
+    }
+  ],
+  "verification": {
+    "attendance_unit": {
+      "total": 577,
+      "passed": 577
+    },
+    "frontend_vitest": {
+      "files": 34,
+      "total": 267,
+      "passed": 267
+    },
+    "frontend_typecheck": "PASS",
+    "frontend_final_build": "PASS_WITH_EXISTING_LARGE_CHUNK_WARNING",
+    "portal_unit": {
+      "total": 196,
+      "passed": 195,
+      "failed": 1,
+      "failure": "旧七模型精确名单；本线不编辑共享门禁"
+    },
+    "exact_ci_candidate_copy": {
+      "tests": 4,
+      "passed": 4,
+      "actual_shared_files_modified": false
+    }
+  },
+  "limitations": [
+    "最终提交的实际CI以PR #52和输出总报告的固定HEAD记录为准，不继承旧HEAD绿色。",
+    "Owner最终三个产品任务尚待人工抽查。",
+    "Site/User时区仍Asia/Kolkata；9条旧naive临时口令期限不改；未做实际时区切换，不能称中国工厂生产就绪。",
+    "真实飞书OAuth未运行；不启用外部同步。",
+    "原生UI的本地编辑/取消证据不替代后端真实HTTP写链；DB故障注入和RQ证据分别标层。"
+  ]
+}

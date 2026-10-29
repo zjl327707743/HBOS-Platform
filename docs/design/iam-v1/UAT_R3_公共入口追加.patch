@@ -1,0 +1,72 @@
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,9 @@
+ # 新乡海滨智能运营管理平台
++
++## IAM UAT-R3 追加状态 — 2026-10-19
++
++IAM继续PR #52/feature/iam-v1。有限界面修正已交付；角色编辑/员工关联仅5199合成设计，PENDING_OWNER，无后端实施授权。原有Owner日期/切回/换人通过保留。入口：[IAM UAT-R3](docs/design/iam-v1/UAT_R3_总报告.md)。其他领域里程碑不由本轮关闭；以下旧阶段叙述保留为历史，由平台集成线核对。
++
+ 
+ ## 并行权限治理 IAM-0 — 2026-10-01
+ 
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -1,4 +1,9 @@
+ # 项目状态
++
++## IAM UAT-R3 追加状态 — 2026-10-19
++
++IAM继续PR #52/feature/iam-v1。有限界面修正已交付；角色编辑/员工关联仅5199合成设计，PENDING_OWNER，无后端实施授权。原有Owner日期/切回/换人通过保留。入口：[IAM UAT-R3](design/iam-v1/UAT_R3_总报告.md)。其他领域里程碑不由本轮关闭；以下旧阶段叙述保留为历史，由平台集成线核对。
++
+ 
+ ## 2026-10-10 HBOS 多 APP 集成治理（产品分支）
+ 
+--- a/docs/CURRENT_MILESTONE.md
++++ b/docs/CURRENT_MILESTONE.md
+@@ -1,4 +1,9 @@
+ # Current Milestone
++
++## IAM UAT-R3 追加状态 — 2026-10-19
++
++IAM继续PR #52/feature/iam-v1。有限界面修正已交付；角色编辑/员工关联仅5199合成设计，PENDING_OWNER，无后端实施授权。原有Owner日期/切回/换人通过保留。入口：[IAM UAT-R3](design/iam-v1/UAT_R3_总报告.md)。其他领域里程碑不由本轮关闭；以下旧阶段叙述保留为历史，由平台集成线核对。
++
+ 
+ ## Portal 产品分支合并后 Gate — 2026-10-01
+ 
+--- a/docs/AI_CONTEXT.md
++++ b/docs/AI_CONTEXT.md
+@@ -1,4 +1,9 @@
+ # AI Context
++
++## IAM UAT-R3 追加状态 — 2026-10-19
++
++IAM继续PR #52/feature/iam-v1。有限界面修正已交付；角色编辑/员工关联仅5199合成设计，PENDING_OWNER，无后端实施授权。原有Owner日期/切回/换人通过保留。入口：[IAM UAT-R3](design/iam-v1/UAT_R3_总报告.md)。其他领域里程碑不由本轮关闭；以下旧阶段叙述保留为历史，由平台集成线核对。
++
+ 
+ 最新事实：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
+ 
+--- a/docs/READING_GUIDE.md
++++ b/docs/READING_GUIDE.md
+@@ -1,4 +1,9 @@
+ # Reading Guide
++
++## IAM UAT-R3 追加状态 — 2026-10-19
++
++IAM继续PR #52/feature/iam-v1。有限界面修正已交付；角色编辑/员工关联仅5199合成设计，PENDING_OWNER，无后端实施授权。原有Owner日期/切回/换人通过保留。入口：[IAM UAT-R3](design/iam-v1/UAT_R3_总报告.md)。其他领域里程碑不由本轮关闭；以下旧阶段叙述保留为历史，由平台集成线核对。
++
+ 
+ PR #21 已完成 FINAL_REVIEW_PASS 并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Browser final-submit 3/3 与 Owner 最新无破坏验收均已 PASS；旧 #22 已关闭，IAM-0 由 clean Draft PR #23 承接。PR #15 仍 Draft，main 未放行。以 [本轮主记录](milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 顶部的合并后收口状态为准；下方 BLOCKED/WAITING 文字均为历史。
+ 
+--- a/docs/milestones/M1_START_GATE.md
++++ b/docs/milestones/M1_START_GATE.md
+@@ -1,4 +1,9 @@
+ # M1 启动门禁
++
++## IAM UAT-R3 追加状态 — 2026-10-19
++
++IAM继续PR #52/feature/iam-v1。有限界面修正已交付；角色编辑/员工关联仅5199合成设计，PENDING_OWNER，无后端实施授权。原有Owner日期/切回/换人通过保留。入口：[IAM UAT-R3](../design/iam-v1/UAT_R3_总报告.md)。其他领域里程碑不由本轮关闭；以下旧阶段叙述保留为历史，由平台集成线核对。
++
+ 
+ ## PR #21 最终 Gate — 2026-10-01
+ 

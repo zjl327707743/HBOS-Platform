@@ -1,0 +1,21 @@
+--- a/.github/workflows/hbos-portal-backend.yml
++++ b/.github/workflows/hbos-portal-backend.yml
+@@ -140 +140 @@
+-          if find apps/hbos_portal -type f -path '*/doctype/*/*.json' ! -name hbos_external_identity.json ! -name hbos_account_operation.json ! -name hbos_account_change_event.json ! -name hbos_account_security.json ! -name hbos_iam_policy.json ! -name hbos_iam_rule.json ! -name hbos_iam_change_event.json | grep -q .; then
++          if find apps/hbos_portal -type f -path '*/doctype/*/*.json' ! -name hbos_external_identity.json ! -name hbos_account_operation.json ! -name hbos_account_change_event.json ! -name hbos_account_security.json ! -name hbos_iam_policy.json ! -name hbos_iam_rule.json ! -name hbos_iam_change_event.json ! -name hbos_iam_app_role.json ! -name hbos_iam_role_release.json ! -name hbos_iam_role_feature.json ! -name hbos_iam_role_assignment.json ! -name hbos_iam_role_scope.json | grep -q .; then
+--- a/apps/hbos_portal/tests/test_iam_doctype_gate.py
++++ b/apps/hbos_portal/tests/test_iam_doctype_gate.py
+@@ -10,2 +10,2 @@
+-ALLOWED = {"hbos_external_identity.json", "hbos_account_operation.json", "hbos_account_change_event.json", "hbos_account_security.json", "hbos_iam_policy.json", "hbos_iam_rule.json", "hbos_iam_change_event.json"}
+-MODEL_NAMES = {"hbos_external_identity": "HBOS External Identity", "hbos_account_operation": "HBOS Account Operation", "hbos_account_change_event": "HBOS Account Change Event", "hbos_account_security": "HBOS Account Security", "hbos_iam_policy": "HBOS IAM Policy", "hbos_iam_rule": "HBOS IAM Rule", "hbos_iam_change_event": "HBOS IAM Change Event"}
++ALLOWED = {"hbos_external_identity.json", "hbos_account_operation.json", "hbos_account_change_event.json", "hbos_account_security.json", "hbos_iam_policy.json", "hbos_iam_rule.json", "hbos_iam_change_event.json", "hbos_iam_app_role.json", "hbos_iam_role_release.json", "hbos_iam_role_feature.json", "hbos_iam_role_assignment.json", "hbos_iam_role_scope.json"}
++MODEL_NAMES = {"hbos_external_identity": "HBOS External Identity", "hbos_account_operation": "HBOS Account Operation", "hbos_account_change_event": "HBOS Account Change Event", "hbos_account_security": "HBOS Account Security", "hbos_iam_policy": "HBOS IAM Policy", "hbos_iam_rule": "HBOS IAM Rule", "hbos_iam_change_event": "HBOS IAM Change Event", "hbos_iam_app_role": "HBOS IAM App Role", "hbos_iam_role_release": "HBOS IAM Role Release", "hbos_iam_role_feature": "HBOS IAM Role Feature", "hbos_iam_role_assignment": "HBOS IAM Role Assignment", "hbos_iam_role_scope": "HBOS IAM Role Scope"}
+@@ -35 +35 @@
+-    def test_exact_seven_approved_model_names_pass_the_actual_shell_gate(self):
++    def test_exact_twelve_approved_model_names_pass_the_actual_shell_gate(self):
+@@ -44 +44 @@
+-        for slug in ("policy", "rule", "change_event"):
++        for slug in ("policy", "rule", "change_event", "app_role", "role_release", "role_feature", "role_assignment", "role_scope"):
+@@ -50 +50 @@
+-            if slug == "rule":
++            if slug in {"rule", "role_feature", "role_scope"}:

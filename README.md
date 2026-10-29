@@ -1,127 +1,210 @@
 # 新乡海滨智能运营管理平台
 
-新乡海滨智能运营管理平台面向企业级智能运营管理，长期目标是在 Frappe/ERPNext 开源底座上建设海滨自定义业务 App、外部 AI/视频/算法服务、Vue/React 驾驶舱、飞书集成与 Docker 部署体系。
 
-准确架构叫法：Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
+## 当前集成状态 — 2026-10-19
 
-## 当前阶段
+**四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](docs/PROJECT_STATUS.md)。
 
-当前 M0 已完成并封板。M1 产品交付仍在 M1-FIX 功能补漏中，尚未完成；当前轮次为 **M1-FIX-F（REVIEWING / 两阶段均已上线）**：调休模块——一阶段把飞书调休审批接入并按「加班日提取 → 打卡核实」产出结论（119 条入库、41 已核实 / 53 核实不通过 / 14 解析失败）；二阶段把已核实调休日**接入考勤判定豁免与看板**（不再判缺勤、看板显示「请假（调休）」）。2026-09-24 追加完成名单单一来源收敛（行政班、无菌各收敛为一份）与 PR 审查 5 项修复。M1-FIX-B2 为 COMPLETED；M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING；M1-FIX-C/D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`，主文档 `docs/milestones/M2_STOCK_R1_库存模块隔离实施记录.md`；M2 其余轮次未启动。
+**合并前精确组合：PASS。** [R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 全部 10 jobs SUCCESS，五个原生域与离线／契约／构建在本次 #43 来源和产品基线的真实组合上通过；该组合树与实际 Squash 树相同。
 
-当前真实进度以以下文件为准：
+**实际产品合并后回归：PASS。** [R11 39195037712](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 全部 10 jobs SUCCESS；五个原生域均直接运行业务合并基线 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，无额外 merge，实际单父与树一致，双 migrate 与清理均成功。LIMS 原有 32 项、新增审计 9 项、独立 Todo 1 项合计 42 项原生测试全部通过；Todo 只有 1 项，归属 LIMS。
 
-- `docs/PROJECT_STATUS.md`
-- `docs/CURRENT_MILESTONE.md`
-- `docs/milestones/README.md`
-- `docs/milestones/M0.md`
+四项完整业务 PR 已形成统一产品开发基线。IAM #52 保持独立，#37 不在任务范围；OCR、真实样本、实体打印和生产 UAT／部署未由本轮代码集成完成。库存单据取消与账务反转不等于 LIMS 质量放行撤回。本轮仅使用远端源码和云端合成 Site，未操作 Owner Mac 项目或真实业务库。 既有 Draft #15 自动质量门禁暴露的 Python 3.10 测试夹具兼容问题单独收口，两处仅测试修复须在固定候选 SHA 的 Python 3.10／3.12 检查通过后方可合并，实际结果以收尾 PR 最新 Owner 裁定及最终报告所列 SHA／Job 为准，见[项目状态](docs/PROJECT_STATUS.md)。
 
-当前状态摘要：
+业务合并基线与文档保存后的 HEAD 分开记录。Run1–9 的历史失败、未合并及 `NOT_PRODUCT_COMPOSITION` 均按各自日期、来源和作业保留，详见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；最新业务与回归状态以本节和项目状态为准。
 
-- M0-R1 工程骨架与 AI 上下文治理已完成
-- M0-R2 环境设计、里程碑治理与 Skill 路由规范已完成
-- M0-R2E 公共入口文件收尾规则补强已完成
-- M0-R3A Frappe / Docker 最小环境落地已完成，Docker 镜像已拉取，容器已启动，测试 site 已初始化，Frappe Desk 登录页已验证
-- M0-R3B Frappe HR / HRMS 安装前评估已完成并通过 Codex 审查
-- M0-R3C Frappe HR / HRMS 安装验证已完成，HRMS 已安装到本地 `frontend` site，基础 HR 模块可访问
-- M0-R3C-FIX HRMS 前端资源与 Roster 白屏诊断修复已完成，Frappe HR 图标、基础 HR 模块和 Roster 页面已验证可访问
-- M0-R3D HRMS 能力盘点与 M1 考勤一期边界设计已完成
-- M0-R3E HRMS 环境可复现性收口已完成，并已通过 Codex 审查
-- M0 整体已完成并封板
-- M0-REMOTE GitHub Private remote 创建、`origin` 绑定和 `main` 首次 push 已完成
-- M1-R0 平台入口、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断方案已完成，并已通过 Codex 独立审查
-- M1-R1 HRMS 原生考勤对象模型验证记录已完成，并已通过 Codex 独立审查，状态为 COMPLETED
-- M1-R2 HRMS 原生考勤配置试运行方案已完成文档交付，并已通过 Codex 独立审查，状态为 COMPLETED
-- M1-R3 HRMS 原生考勤最小测试数据试运行已执行并通过 Codex 审查，最终状态为 BLOCKED；本轮未完成 14 场景闭环
-- M1-R3A 运行态阻断诊断与 TEST 数据隔离 / 清理方案已通过 Codex 审查并收口为 COMPLETED
-- M1-R3B 运行态最小修复方案已通过 Codex 审查并收口为 COMPLETED；本轮未执行修复、未清理 TEST 数据、未继续试运行
-- M1-R3B-FIX 已通过 Codex 审查并收口为 COMPLETED；该轮只执行 `docker compose up -d redis-cache redis-queue`，Redis / worker / scheduler / bench doctor / login 已恢复或改善
-- M1-R3C HRMS 原生考勤最小试运行复测已通过 Codex 审查并收口为 COMPLETED，结论为 PARTIAL / GAP_IDENTIFIED；14 个场景中 8 个通过，6 个为 GAP / PARTIAL；Attendance 可由 HRMS 原生生成，但迟到 / 早退未置位、缺卡 / 缺勤口径、请假 Leave Allocation、加班业务口径仍需 M1-R3D 诊断
-- M1-R3D HRMS 原生考勤异常口径与配置 Gap 诊断已通过 Codex 审查并收口为 COMPLETED；结论为 Gap 四类分类、均不需要立即创建 `hb_attendance_app`
-- M1-R3E 配置复核清单与业务口径确认表已通过 Codex 审查并收口为 COMPLETED；配置清单已覆盖 8 类配置复核项，业务口径表已确认 8/10 项阻塞 M1-R4
-- M1-R3F 业务口径确认包已通过 Codex 审查并收口为 COMPLETED；9 项确认主题中 7 项必须确认，2 项可先按默认值推进
-- M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口为 COMPLETED；四份设计文档交付完成
-- M1-R4 Demo 技术方案与实施路线拆分已通过 Codex 审查并收口为 COMPLETED
-- M1-R5 HRMS 配置基线、考勤工作台与月度汇总 Demo 已通过 Codex 审查并收口为 COMPLETED；本轮未创建 App / DocType，未写入站点数据库，未启动 R6/R7
-- M1-R6A Excel 导入与异常流程落地方案 / Gate 判定已通过 Codex 审查并收口为 COMPLETED
-- M1-R6B 脱敏打卡流水导入最小实现已通过 Codex 审查并收口为 COMPLETED；本轮未提交 Excel / CSV，未创建 App / DocType，未启动 R6C/R7
-- M1-R6C 异常识别与异常说明流程最小实现当前为 COMPLETED；已通过 Codex 审查并 closeout
-- M1-FIX-B 已按 Owner 授权创建轻量 `hb_attendance_app`、导入日志和 `海滨考勤工作台`，并使用 Owner 本地真实 Excel 完成导入闭环验证；M1-FIX-B-FIX 已补齐 `导入考勤机导出表` 浏览器入口、中文 `打卡流水` / `考勤结果` 报表、重复导入可读日志和默认白班/行政班 08:30-17:30；M1-FIX-B4 已收敛桌面入口、Workspace Sidebar、导入页归属和 HBOS / HRMS 入口口径；M1-FIX-B5 已核查真实 Employee / Checkin / Attendance / 月度暂存链路，并收敛 HBOS 报表和 HRMS 技术核查入口；2026-08-21 后续修正：四车间 10 人行政班误判迟到修复、质量控制部四班次人员「满 8 小时算正常」口径收敛、配对上限 13h→14h（李明 8/19 无菌班 13.17h 案例）、分机孤立卡误判缺勤修复（陈雨欣 8/19 案例：方向不同的相邻卡不合并 + 当天已有完整上下班结构时孤立卡不判缺勤）、跨天夜班下班误刷上班机修复（吕玉升/庞冠军 8/16 案例）；2026-08-27 后续修正：配对上限 14h→16h、有卡就不判缺勤、连续无打卡 1-2 天不判缺勤 3 天起判（8/15-26 缺勤 489→134 误判率大幅下降）、月度考勤汇总新增「导出异常考勤」按钮、2026 年度离职名单批量处理；真实 Excel、真实员工清单和导入产物不提交 Git
+## 知识库（Knowledge）应用
 
-M0 阶段用于约束后续规划、执行、审查与验收。当前已完成 Frappe / ERPNext / Docker 最小环境启动验证、Frappe HR / HRMS 安装验证、HRMS 前端资源修复、M1 考勤一期边界设计、HRMS 环境可复现性收口、GitHub Private remote 首次同步、M1-R0 规划诊断收口、M1-R1 对象模型验证记录、M1-R2 配置试运行方案设计、M1-R3 局部试运行记录、M1-R3A 阻断诊断方案、M1-R3B 运行态最小修复方案、M1-R3B-FIX 运行态最小修复执行记录、M1-R3C 原生考勤最小试运行复测记录、M1-R3D 异常口径与 Gap 诊断、M1-R3E 配置复核与业务口径确认表、M1-R3F 业务口径确认包、M1 需求设计四份文档、M1-R4 Demo 技术方案与实施路线拆分、M1-R5 HRMS 配置基线、考勤工作台与月度汇总 Demo、M1-R6A Gate 判定和 M1-R6B 脱敏打卡流水导入最小验证；M1 仍未进入完整考勤业务开发。
+PR #30（`codex/knowledge-autonomous-r1` → `feature/hbos-portal-product`）把知识应用合入产品分支：知识目录与六类分类、PDF/Office 阅读、原件受控下载、带来源的真实问答、维护入口与个人助手（MCP）四工具闭集。身份、范围、逻辑文档与发布收据仍由 Frappe 负责；RAGFlow v0.27.0 提供物理文件、chunk 与原千问 1024 维向量，rerank 默认关闭。
 
-## 仓库定位
+**独立知识服务不在本仓库。** 合并本 PR 不等于服务源码、RAGFlow 数据与预览资产已进入 HBOS；服务源码、镜像与配置以 Owner 私有联合锁交付，克隆本仓库不能单独运行知识问答。
 
-当前仓库用于承载 M0 工程启动文档、AI 协作规则、里程碑状态、阅读指南、计划文档、架构决策记录、最小 Docker 环境配置和经 Owner 授权创建的 M1-FIX 轻量自定义 App。
+当前知识候选：[RC14 V2 员工体验候选](docs/milestones/M1_KB_RC14_员工体验候选.md)，仅在本机隔离候选（RC154）上验收。Owner 本人会话、Hermes 复测与恢复演练均未执行；P1、main、正式员工范围与生产部署不因本 PR 改变。真实问答按严格口径计量：已部署 HTTP 28 题严格完成 17/28（P50 18.64 s、P95 23.25 s），这是该样本的结果，不是全库准确率。
 
-当前已包含 `apps/hb_attendance_app`。该 App 仅用于考勤导入入口、导入日志和 M1-FIX 必需扩展，不代表启动大而全 HR App。
+### 历史回归 — 2026-10-18 Run8（#39 合并后）
 
-## 主技术栈
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
 
-- Frappe Framework
-- ERPNext
-- Frappe HR
-- Python
-- JavaScript
-- MariaDB/MySQL 兼容体系
-- Redis
-- Docker
-- Docker Compose
-- Vue/React
-- ECharts
-- FastAPI
+## 验证历史 — 2026-10-18 Run6
 
-## 长期仓库规划
+[报表、扫码及附件验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810152) **74 PASS / 0 FAIL**；[事务验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810103) **6 PASS / 2 FAIL**。余两项失败为按单一 URL 误选 Batch File 的测试定位错误，LIMS 放行后两种外发 submit/cancel 仍 **NOT_REACHED**，完整仓储门禁未通过。
 
-长期建议按职责拆分仓库，当前仅记录规划，不在未批准轮次创建这些仓库：
+## 验证历史 — 2026-10-18 Run5
 
-- `haibin-hbos-infra`：基础设施、部署、环境编排与运维脚本
-- `hb_core_app`：海滨核心主数据、权限、组织与平台扩展
-- `hb_attendance_app`：考勤业务扩展
-- `hb_feishu_app`：飞书集成扩展
-- `hb_production_app`：生产运营扩展
-- `hb_quality_app`：质量管理扩展
-- `hb_safety_app`：安全管理扩展
-- `hb_ai_ops_app`：AI 运营、视频、算法服务对接扩展
-- `hbos-dashboard-web`：Vue/React 驾驶舱与大屏前端
+以下保留 Run5 当时的观察与判断，其中“当前”“尚未通过”“原因待定位”均指该次验证；后续状态以页首“当前集成状态”和实际 PR 记录为准。
 
-## 当前禁止事项
+完整 [#42 考勤](https://github.com/zjl327707743/HBOS-Platform/pull/42) 与 [#46 生产](https://github.com/zjl327707743/HBOS-Platform/pull/46) 已实际合并到唯一目标 `feature/hbos-portal-product`；本记录已核对产品为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。[#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) 仍在技术门禁中，尚未合并；[#56](https://github.com/zjl327707743/HBOS-Platform/pull/56) 保存固定源码组合的隔离验证，不能以 CI 候选替代实际产品合并。
 
-当前 M1-FIX 仍处于功能补漏阶段。继续禁止：
+后续来源、CI、审批、合并与回归以 [项目状态](docs/PROJECT_STATUS.md)、[当前里程碑](docs/CURRENT_MILESTONE.md) 及上述 PR 最新记录为准。#43 LIMS 独立增量后置；本次仅使用远端源码与云端合成环境，未更新 Owner 的 Mac 项目、真实数据库或生产部署。IAM #52 保持独立，#37 不在本任务范围。
 
-- 未经 Owner 明确授权，不创建新的自定义 Frappe App
-- 不创建 `hb_core_app`、`hb_feishu_app`
-- 不把 `hb_attendance_app` 扩大为大而全 HR App
-- 不把 HRMS 安装验证等同于考勤业务开发完成
-- 不提交真实 `.env` 或真实密钥
-- 不提交备份文件、数据库、Docker volume 或运行时数据
-- 不开发业务
-- 不接飞书真实写入
-- 不做前端驾驶舱
-- 不浏览或搬运大量 Obsidian 长文
-- 不执行 `docker compose down -v`
-- 不删除 volume
-- 不重建 `frontend` site
+## 历史阶段记录
 
-**独立前端开发规则**：凡涉及独立前端、驾驶舱、AI 工作台、复杂交互页面，必须先完成原型设计/视觉方案，经 Owner 人工审查通过后再进行前端复刻开发，最后接入真实页面功能和数据。详见 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`。
+下方 PR #55、PR #21 的 SHA、账号验收与各阶段“本轮”描述保留其原日期的含义，不代表当前产品 HEAD 或本次部署。
 
-后续路线只记录，不代表已启动：
+> 2026-10-18 代码集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
 
-1. M1-R3C 已通过 Codex 审查并收口，试运行完成但业务闭环未完成。
-2. M1-R3D 已通过 Codex 审查并收口，Gap 已四类分类，均不需要立即创建 App。
-3. M1-R3E 已通过 Codex 审查并收口，配置复核清单与业务口径确认表已交付。
-4. M1-R3F 已通过 Codex 审查并收口，业务口径确认包已交付。
-5. M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口，需求设计四份文档全部完成。
-6. M1-R4 已通过 Codex 审查并收口为 COMPLETED；M1-R4 定位为 Demo 技术方案与实施路线拆分，后续 R5/R6/R7 按递进拆分。
-7. M1-R5 已通过 Codex 审查并收口为 COMPLETED；本轮定位为 HRMS 配置基线、考勤工作台与月度汇总 Demo，未启动 R6/R7。
-8. M1-R6A 已通过 Codex 审查并收口为 COMPLETED；本轮定位为 Excel 导入与异常流程落地方案 / Gate 判定，已 closeout。
-9. M1-R6B 已通过 Codex 审查并收口为 COMPLETED；M1-R6C 为 COMPLETED。M1-R7 已通过 Codex 审查并 closeout 为 COMPLETED。
-10. M1-FIX-B 已完成 Excel 导入与真实本地数据闭环实现，M1-FIX-B-FIX 已补齐浏览器导入与中文体验修复，M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS 但数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING。
+## 并行权限治理 IAM-0 — 2026-10-01
 
-## AI 协作方式
+Owner 已批准进入统一身份与权限治理。当前仅交付设计、角色—动作—范围矩阵、只读源码盘点工具与本机任务书；实际 Site 盘点和隔离验收仍为 NOT_RUN，不修改账号、角色或业务数据，不替代原账号收尾。入口：[IAM-0 治理资料](docs/governance/iam/README.md)。
 
-- ChatGPT：负责规划、拆解、上下文整理与方案边界确认
-- Claude：负责按计划执行文档或代码变更
-- Codex：负责工程审查、边界检查、验证与交付复核
-- 用户：负责最终验收、取舍确认与里程碑放行
+历史账号验收基线（2026-10-01）：PR #21 已在 FINAL_REVIEW_PASS 后 squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS、浏览器设密/改密/恢复 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。IAM-0 已由 clean Draft PR #23 承接，旧 #22 已关闭且未合并；PR #15 仍为 Draft，main 未变化。[当前 Gate](docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 记录本轮收口事实。
 
-每轮任务开始前，AI 必须说明本轮读取了哪些文档。默认只读 `CLAUDE.md`、`AGENTS.md`、`docs/AI_CONTEXT.md`、`docs/PROJECT_STATUS.md`、`docs/CURRENT_MILESTONE.md`，禁止默认递归读取整个 `docs/`。
+Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
+
+## 历史交付 — 2026-10-01
+
+本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；团队后续 Portal 代码以产品分支为准。PR #15 仍 Draft，不推 main；IAM 由 Draft PR #23 单独承接。
+
+平台已包含考勤、仓储库存、LIMS、Portal、知识助理与设备/数字孪生自定义 App。密码和飞书使用同一 Frappe User；原有业务权限仍由原 App 约束。业务通知、生成式知识回答、现场遥测、工艺动画及偏好同步尚未实现，具体状态见前端完整性矩阵。安全变更通知单独记录真实发送状态，不能等同业务通知能力完成。
+
+- [项目状态](docs/PROJECT_STATUS.md)
+- [当前里程碑](docs/CURRENT_MILESTONE.md)
+- [Mac 常用启动与团队同步](docs/deployment/Mac本地运行与团队同步.md)
+- [团队部署、备份与回退](docs/deployment/统一账号与Portal正式部署说明.md)
+- [前端完整性矩阵](docs/frontend/统一账号发布与前端完整性矩阵.md)
+
+## 团队构建
+
+在已审查的 clean checkout 使用 Node 22 执行 `bash scripts/release/build_bundle.sh`，生成同源 Portal 和 LIMS 编译资产及六 App 部署包。通用 Gateway 位于 `services/hbos_gateway`，依赖、基线与 HRMS commit 见 `scripts/release/依赖版本锁.json`。既有目标版本不得为了匹配基线而降级。
+
+升级必须保留已确认原 Site/数据库，先备份并验证恢复，再迁移及核对原账号/角色/权限/业务关联。制品或 PR 不包含账号数据库、Secret、私有知识索引/原文或真实模型；这些经批准私下部署。
+
+## 协作与边界
+
+`AGENTS.md`、`CLAUDE.md` 为规则入口；进度以状态台账与对应里程碑为准。Portal 本轮不改变其他考勤/库存里程碑的 Owner 验收状态。禁止创建未知替代库、覆盖未知数据库、重置原密码/角色、发布凭据或私有资料。
+
+团队后续 Portal 代码来源：远端最新 `feature/hbos-portal-product`；固定 SHA 见本轮 PR 实际合并记录。PR #21 保留为已合并的审查与发布证据；Mac 本地运行与本人验收分开记录，公司生产尚未部署。
+
+
+## 知识专项历史记录
+
+本节保留知识轮次原文及其原日期含义（当时的“当前”“尚未通过”等判断只指当时）；产品分支状态以上文“当前集成状态”为准。
+
+## 2026-10-19 UAT5 执行补充当前检查点
+
+**运行补充（2026-10-19）：** Owner已授权整体Docker资源调整，现为10 GiB内存／4 GiB Swap，Docker Desktop界面恢复可操作。原44个运行容器及原ES恢复，其他原停止容器保持停止；原数据卷、索引UUID和应用配置语义保留。首轮有限计划已收束为359份完成、1份已知阅读器异常，跳过此前260份成功项；扩展255份全文技术版本已全部完成首次解析，有限工作进程已结束；各组按最多4份及至少1 GiB内存余量保护执行。当前无写入、Docker连接或必要模型网络权限拒绝。带时间戳的发布总量、15个Dataset数量和逐份收据在Owner本机闭合台账，解析完成不代表允许共享。
+
+**UAT5_PARTIAL / LOCAL_UAT / OWNER_NOT_RUN / ROLLOUT_PENDING。** 当前隔离候选安装独立服务 **0.6.22**；原知识领域与独立前端保留。安装包逐文件核对一致，服务505项、知识前端154项检查通过；这些不代替真实业务及Owner验收。PR #30 保持Draft，不合并、不切P1、不开放正式员工。
+
+已定位并修复完整原句仍遭拒绝的实际原因：提取结构标签与正文混合、条件在义务词规范化前提取、全角标点规范化后与片段边界不一致。数字、单位大小写、否定、真实条件、主宾关系、完整单元、生成后来源及权限复核继续保留。同源索引修复采用新版本与原件哈希、父绑定和当前发布比较校验，原件、原发布历史不删除。
+
+新增封闭证据单元选择契约，由服务端按完整原文要点分别组织并引用，明确显示“按所引原文整理”。四个旧自然语言失败问题的最新逐题收据均获得可核验原文整理回答，8/8个来源重新打开；其中前三题在0.6.21、剩余一题在0.6.22完成，不能写成0.6.22全量基准通过。0.6.20原四题自由措辞仍0/4通过；原文整理不能计作模型自由归纳通过。原73题未重新大批重放。 Docker资源恢复后新增1个工程清单业务题使用deepseek-flash实测，回答及预期引用1/1通过、来源复开1/1；仍为原文整理模式，不能据单题证明全库自然归纳通过。
+
+全目录闭合台账保持每个唯一内容一个去向，别名另列；不覆盖初始盘点。已发布、原件上传、原生解析、完整索引验证、OCR提取及最终共享质量分别计数。通过原件、身份、全文、向量和授权质量的具体资料继续发布；OCR、表格/图示、隐私及保密疑点继续逐份核对。既有成功项跳过，失败和不确定请求不自动重放。原OCR318份补齐2个缺失页后形成13695页结构记录，两处具体敏感线索经原页核对，1处为真实供应商联系方式待共享／脱敏判断，1处为表格数字拼接误报；另对0页阅读器异常资料完成25页离线OCR，单独保留冻结计划。工程3表的15工作表、1070非空单元格已逐页预览与独立值对照，明确保留作废／未签批／未生效及合并行关系；其中2份已用保留完整行关系的新文本版本索引并作为参考发布，原件及旧版本保留；另1份图例关联待明确。CAD112份已完成本地有界导出尝试，104份DXF仍待几何核验、5份达到输出上限、3份读取错误，未自动发布。
+
+本机两次Docker虚拟机整体内存耗尽终止ES的内核global_oom证据已保存。此前批次在完整组末停止；最新Owner授权资源维护已恢复原容器、挂载和索引，现按有限批次续跑。整体Docker受控重启前已备份数据库与容器清单，P1路由、应用版本和既有数据不变。一个原PDF在原生阅读器读成0页的问题已完成保留原件的结构修复，尚不据此宣告完整质量通过。
+
+三名获批候选测试账号的定向换密和旧会话撤销已完成；Owner已登录现有RAGFlow管理页，现有15个Dataset文件页面均有真实访问证据。收藏保存/重开/跨用户拒绝、既有历史重开、维护员允许与员工拒绝，以及既有隔离MCP连接的真实检索/来源链已复验；原UAT4隔离MCP令牌已按既有TTL到期；另用临时候选连接完成真实协议检索和来源展开并立即撤销，未更改个人配置或旧连接。
+
+自动生成测试只用deepseek-flash；禁止Claude-opus-5及其他未批准模型、付费子Agent。员工默认gpt-6-luna、个人偏好、千问Embedding/1024维和默认零rerank保持。真实题目、原文、凭据、完整计数、批次及调用收据均只保存在Owner本机私有交付；当前剩余门槛仍包括自然归纳、更多资料质量及Owner人工验收。
+
+## 当前知识专项：HBOS Knowledge UAT5 — 2026-10-15
+
+**UAT5_PARTIAL / LOCAL_UAT / OWNER_NOT_RUN / ROLLOUT_PENDING。** 本轮以真实检索、回答和来源质量为验收依据。已修复跨部门候选汇总、单个异常片段拖垮检索、在线来源/会话续租及问答错误跨页面显示；增加公共法规分类和独立原文下载决策点，原件下载仍关闭。真实回答的自然归纳支持率、更多资料的逐份质量与授权仍有缺口，不能据 CI 或 HTTP200 宣布 READY。
+
+全目录已完成递归哈希盘点、历史身份对账和分阶段质量检查；解析完成与已发布分别计数。仅精确获准且质量通过的子集可发布，个人/保密和授权冲突资料维持待核。测试仅 DeepSeek-Flash，员工默认 GPT-6-luna、原千问 Embedding/维度和默认零 rerank 保持。PR #30 保持 Draft，不合并，不切 P1。
+
+本轮证据范围与剩余门槛见 [UAT5质量候选](docs/milestones/M1_KB_UAT5_检索可靠性与全目录质量候选.md)；详细真实问题、原文、账号、目录和完整漏斗仅留 Owner 本机交付。
+
+## 历史：HBOS Knowledge UAT4 — 2026-10-11
+
+**LOCAL_UAT / REVIEWING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 个人助手入口简化为客户端选择、一次私密安装和最近真实知识使用。状态只在本人连接实际检索并打开同一检索来源后更新；个人 Token 与无凭据使用规则分开存储。已批准的成功资料按精确子集分批发布，完整性未过关的资料保持待核；解析许可不能代替共享许可。原 15 份、UAT2 样式、四回答模型、千问 Embedding 和默认零外部 rerank 保留。
+
+本轮事实、最终统计及制品边界见 [UAT4 验收候选](docs/milestones/M1_KB_UAT4_极简接入与真实资料发布候选.md)；Owner 私有联合锁为数量、运行源码、CI 和 wheel 的最终依据。PR #30 保持 Draft，不合并、不切 P1、不开放正式员工。公司 HTTPS 入口待部署，本机地址仅用于本机 Owner 验收。
+
+## 历史：HBOS Knowledge UAT3 — 2026-10-11
+
+**UAT3_READY_FOR_OWNER / LOCAL_UAT / OWNER_NOT_RUN。** 四模型服务端白名单、明确通用/知识回答和真实 OpenClaw/Hermes MCP 工具收据已在既有本机候选完成关键流程实测。保留 UAT2 风格、15 份已发布资料和旧数据；PR #30 仍为 Draft，不合并、不切 P1。实际调用、两轮修复、证据边界与未运行子项见 [UAT3 验收候选](docs/milestones/M1_KB_UAT3_四模型与真实助手验收候选.md)。Owner 人工验收和公司服务器上线仍待执行。
+
+## 历史：HBOS Knowledge UAT2 — 2026-10-10
+
+**UAT2_IMPLEMENTATION_CANDIDATE / PROTOTYPE_APPROVED / OWNER_NOT_RUN / ROLLOUT_PENDING。** Owner 已正式批准知识库交互设计 V1，本轮原型审批门禁已满足。知识模块按批准原型完成独立首页、资料目录、本人收藏/记录、六步 MCP 向导和维护员资料/上传/版本/反馈页面；接入原生 Frappe/API，保留 15 份真实共享资料、GPT-6-luna、千问 Embedding、用户权限及关闭原件下载。按两轮截图与实际操作复验，最终运行源码、构建资产和 CI 以本机 Owner 交付联合锁为准。人工产品验收与真实服务器上线是独立 Gate；PR #30 保持 Draft，不合并、不切 P1、不开放全员。
+
+主记录：[M1-KB-UAT2 完整业务与迁移候选](docs/milestones/M1_KB_UAT2_完整业务与迁移候选.md)。下文 UAT1/N1 的旧财务阻断为历史事实，服从本轮最新 Owner 决策。
+
+## HBOS Knowledge UAT-1 当前候选 — 2026-10-10
+
+**PARTIAL / ACCOUNTING_PENDING / LOCAL_UAT / COMPANY_ROLLOUT_PENDING。** 本轮直接实现并装配个人 MCP、页面维护、默认标准检索、有限会话和反馈闭环；未达到完整人工验收放行。旧事件的 Owner 风险例外已按原信封追加，但新增生成未知和在途 embedding 未结算使付费查询、问答、解析暂停，不扩大旧例外。
+
+生产发布 13（原 12 + 本轮 1），人事/安全发布 0；旧 224 解析成功、78 失败保留。MCP 认证/发现/撤销可用；停止前 Hermes 的真实检索/来源通过，OpenClaw 完整问答未通过。维护 UI 的去重、质量、发布、下架/恢复及反馈处理通过，新资料完整解析和换版查询链待补。原生 API/索引不重建，批量 worker 和自动付费测试停止，Owner 1.5 元控制预留留在原两个信封内但当前受对账门槛阻断。
+
+最终标准领域入口 132 项（114 领域 + 18 本地准入）、服务 185 项、前端 148 项分别通过，不能代替功能验收。PR #30 保持 Draft、人工验收前不合并；P1、main、其他 PR 和真实员工范围不改。
+
+当前主记录：[M1-KB-UAT1 完整功能人工验收候选](docs/milestones/M1_KB_UAT1_完整功能人工验收候选.md)；两轮审查和真实缺口在主记录中，以下 N1 / R2 条目为历史记录。
+
+## 历史：HBOS Knowledge N1 夜间候选 — 2026-10-10
+
+状态：N1_PARTIAL_WITH_INDEPENDENT_WORK_COMPLETED / ACCOUNTING_PENDING / LOCAL_CANDIDATE_ONLY。原生 rerank 协议适配进入固定 RAGFlow 的实际模型注册入口；严格校验本请求的索引、分数、usage 和 request_id，其他模型保持原实现。生产参考装配缺原预算绑定时拒绝调用。旧 UNKNOWN 没有结清依据，普通模型调用、旧失败项解析和新资料在线发布继续关闭，不能以离线适配或此前单次成功宣称业务恢复。
+
+本轮完成知识目录的服务端分页及筛选、本人反馈与处理状态、统一搜索/问答输入、一般反馈、历史/收藏上下文重放及多部门明确选择。修复同版本撤权后的旧活动标题泄漏、跨请求身份清理和数据库并发收藏幂等。新资料仅本地准入、身份去重、隔离及冻结计划；真实原文、问题、账号、运行配置和费用证据不进入公共 Git 或开发包。
+
+领域106、本地准入18、独立服务163（原冻结包162项，补充1项）、前端143项合同已运行通过；层级有重叠，不相加，合成测试不代替真实来源/答案质量。最终原生数据库、HTTP、浏览器、远端 CI 和安装制品证据分别在联合交付中核对。PR #30 继续 Draft；只有全部业务、审查、CI、制品和部署边界门槛同时通过才可合入产品分支。此次不切 P1 或开放员工，其他 PR 和 main 不变。
+
+
+补充复核已完成：独立服务仅增加普通预算双 OS 进程锁入口握手回归，本地提交 `7485bae3073ce11511d7946578329a8090a8574e`；0.3.11 运行源码与原冻结 wheel 逐文件一致，删锁和子进程异常反例独立复核通过。两新目录发现703条路径；本地计划修订技术准入240条、200个新唯一内容，隔离463条。原238/198/465冻结及失败证据保留；修订未上传、入库、质量批准或发布，技术准入不宣称公司业务生效。补充原生 Chrome 键盘操作确认预算拦截，系统中文 IME 候选仍未核验，不能据此称完整在线验收通过。
+
+本轮主记录：[M1-KB-N1 夜间连续候选](docs/milestones/M1_KB_N1_夜间连续候选.md)。以下 R2.1 / R2 / R1 条目保留为历史事实。
+
+## HBOS Knowledge R2.1 单次诊断 — 2026-10-10
+
+PARTIAL / ACCOUNTING_PENDING / NOT_RELEASED。服务0.3.10增加维护入口专用的一次短合成rerank许可，绑定Owner指令、原预算/账本/配置、旧事件、原模型/空间/Key指纹、精确payload和有效期；同一锁中先消耗后发送，重放、并发、重启、SDK重试或重定向均不能形成第二次调用。许可/结果追加到原账本哈希链，旧calls与停止状态不改，新估算纳入原信封；成功不解锁普通调用或批次。嵌套/扁平结构计量包含查询在每篇文档中的重复贡献，并校验类型和长度。
+
+本轮仅一次合成实测，结果 RERANK_SINGLE_PROBE_PASS；具体请求ID、用量、费用、操作与账本摘要仅在Owner层。核对现有客户端协议后，本次按该模型官方原生路径和嵌套结构精确诊断，provider/北京业务空间/Key/模型保持；普通检索配置未自动切换，旧403原因仍未知。单次成功不证明HBOS检索恢复、首组或整批质量通过。原12、原220、新成功4份、用户数据保持；224成功/78失败/0在途/新发布0，worker停止，无重解析、embedding/Flash调用、合并或P1切换。
+
+必要新增8项一次性/两进程/重放/停止与计量反例通过，完整服务120项、原领域76与核心207项分别通过；既有前端和业务证据保留。后续需旧事件有依据对账，或Owner独立批准可核实上界的保守处置；再接入已验证原生协议，只重验失败的原固定检索及来源，补首组回归，之后按原累计预算有界推进。当前仍无新资料在线质量或精确子集发布的PASS。当前源码、安装wheel、联合锁和CI独立核对；不以它们代替业务验收。
+
+## HBOS Knowledge R2.1 既有恢复记录 — 2026-10-09
+
+状态：PARTIAL / STOPPED_UNVERIFIABLE_RERANK_USAGE / NOT_RELEASED。继续 Draft PR #30 与同一候选。Owner 已确认原模型额度恢复、允许按量付费并批准本轮累计预算；准确审批与费用记录仅在 Owner 层。优先原 embedding，Flash 仅备用，未探测或切换；原索引、provider、Key 与维度保持。
+
+原 12 份曾完成实际召回、来源和一个代表问答，历史与收藏重新检索、跨用户打开拒绝通过。随后首组解析后的原资料回归遇到 rerank HTTP403，响应无可核实用量；计量器停止新增调用，worker 已安全停止，剩余组未入队。不能把较早的恢复成功写成当前持续可用，也不能把403统一断言为欠费：当前错误码、实际账单、账户余额均 UNKNOWN，准确请求ID在 Owner 收据中。
+
+本次恢复起点220成功、82失败；原冻结批次首组4份已解析成功，物理ID、三字段metadata与原件hash均核对，但原资料在线回归阻塞，首组整体验收未通过。当前302上传=224成功+78失败+0在途，重复1另列，新发布0。224份离线文本/身份检查通过，逐份新资料在线召回和多部门答案质量仍 QUALITY_VERIFICATION_PENDING。敏感草稿继续排除，不阻塞其余批准资料。
+
+只读索引全行hash对比确认原12份的159行、原220成功项的2994行、新成功4份的25行（含向量）完整保留；实际唯一索引行与后端chunk计数分开记录。原49条活动、7个用户指纹、文档/版本/绑定/空间逐字段保留。历史窗口只显示最近30项，不据窗口缺项断言删除。普通真实原批次重放仍12 NOOP、0写入。
+
+服务0.3.9离线修复诊断覆盖：兼容嵌套/顶层code和type、Body/Header请求ID及冲突、Retry-After，非JSON403仍保存HTTP状态；token别名冲突或非整数值拒绝；非200合法usage只作观察，不能认定成功或实际账单。白名单、格式与长度限制隔离错误正文和凭据。旧停止守卫保留，SDK重试继续阻断；本次诊断修复不新增模型调用，也不能据合成输入推断实际403原因。原冻结清单、模型、维度与解析配置保持。
+
+旧事件不改写；诊断补充、用量/金额对账、明确未执行不计费确认均绑定原请求、输入摘要、原行摘要与实际Owner证据，并在锁内追加哈希链事件。重复或并发相同对账只计一次；金额核实时token仍可UNKNOWN。账务结算与rerank恢复确认分别门禁，未知预留保持；禁止初始化覆盖旧ledger、直接READY或重开预算。恢复进程互斥，首组仅重验失败的原资料检索与来源，4份解析成功项不重做。剩余78项沿用原累计预算，最多20组、每组4份、并发1。
+
+领域76、服务112、原核心207合成回归分别通过；前端89与原生合成发布10项既有证据保留；真实Chrome18项阻塞可用性检查通过（390/768/1440、目录/历史/收藏、状态读取、诊断权限、深链接仅预填、阻塞守卫，模型请求0）。配置与业务可用性分开，观察过期为UNKNOWN；当前费用收据未结算的阻断不会靠刷新清除。新资料来源、引用问答、发布和多部门前端仍未执行，不以这些回归或CI代替整批PASS。
+
+普通发布不恢复下架或指回旧版；replace/restore需独立精确批准，首次发布冻结16字段、事务复核并写不可变收据。精确质量子集绑定原batch与质量摘要，冻结items不改。同内容改名复用身份；新内容经显式版本关系建立新版；同部门沿用确切Dataset。后续在本轮既有批准预算内有界连续推进，无需逐组批准，但必须先取得对应请求的诊断、用量/金额证据及独立rerank恢复确认，再完成失败回归。公共Git和开发包不含真实目录/题目/摘录/对象ID/账单/审批/凭据。不合并、不切换P1。
+
+## HBOS Knowledge R2 — 2026-10-08
+
+状态：REAL_CORPUS_SEARCH_AND_REFERENCE_ASK_CANDIDATE_PASS / NOT_RELEASED。承接 Draft PR #30 的 `codex/knowledge-autonomous-r1`，按最新 Owner 共享范围实现部门分类，无复杂部门 ACL。12 份已批准资料在固定本机 RAGFlow v0.27.0 完成解析，原始哈希、部门映射与实际解析证据仅保留 Owner 本机。
+
+已完成原生登录/CSRF/启用状态、精确版本与下架再核验、真实检索、部门筛选、来源摘要、资料目录、按用户的历史/收藏和维护人反馈处理。受控来源保留 COMPANY_CONTROLLED，内部参考收录单独标记 CONTROLLED_REFERENCE_REVIEWED，不伪造 GMP 生效状态。gpt-6-luna 在获准的数据流下仅接收必要摘录，回答后再次核验来源，证据不足不调用模型。
+
+原核心 207 项、领域 58 项、独立服务 14 项、前端 85 项及类型/构建通过；最终真实验收 14 项全部通过，原失败原因与修复重测证据保留。真实浏览器流程、窄屏与最终源码/制品锁分别记录。v0.27 Word positions 仅为片段序号，参考装配将未核验页码留空，避免错误定位。测试范围重叠，不相加。CI 修复已提交 `b47c6afa`，该提交两条 PR 工作流均 SUCCESS；最终功能 head 的远端 CI 独立跟踪。
+
+本轮仅独立本机候选，未合并或切换现行 P1，未升级/重建旧 RAGFlow 存储，旧 synthetic lease 不延长。服务 0.3.1 通过本地独立提交与 wheel 联合固定；未提供服务远端，不伪造远端服务 PR。员工 MCP、复杂 ACL、公司服务器与生产 TLS 留在后续范围。当前任务依据已收到的 R2 文件和 Owner 最新目录/模型授权，不依赖丢失的旧总任务书。
+
+执行说明见 `docs/milestones/M1_KB_R2_真实部门知识候选.md`。以下 R1 记录为历史事实，不能当作当前 R2 阻塞清单。
+
+## 知识候选连续执行 R1 — 2026-10-08
+
+状态：PARTIAL_CANDIDATE_VERIFIED / NOT_RELEASED；整批总任务尚未完成。专用分支 `codex/knowledge-autonomous-r1`，Draft PR #30，固定产品基线 `72e5b1728981b7ef102a2c9ee033ce0452c400e7`。已核验 K1C2 归档与独立评审；恢复已审候选到独立源码副本，修复 Binding 列/JSON/关联身份一致性与写入守卫、搜索网格和局部字号，并实现授权空间列表、范围选择与当前文档数量。
+
+核心/进程内 HTTP 与新增领域回归 241 PASS，候选/保留 P1 契约 56 PASS，前端 83 PASS、typecheck/frappe 构建 PASS；新 Site 的元数据/跨连接版本/空间 HTTP 14 PASS，原生 HTTP/共享状态完整重跑 19 PASS，真实 Chrome 12 项检查 PASS。前端复制遗漏已纠正，以新构建产物复跑空间筛选、隔离标识、桌面/移动/键盘/依据/撤权/切人；114 项安装源码哈希及 6 项原生框架文件一致，6 个新服务出站连接拒绝。测试存在范围重叠，不作为总验收数量相加。
+
+本批新登记 9 容器已停止、4 卷保留，95 个既有容器身份/镜像/启停/重启/网络/挂载核验一致；这不等于数据内容备份或个人 MCP 健康验收。原环境与 lease 不改，未合并或切换正式部署。独立服务 0.2.1 本地提交 `d28c7e9a3219fc94db234302e2be14451fa10d2e`，尚无提供的远端，不声称已建立服务仓 PR。
+
+后端 GitHub CI FAIL：当前 OAuth 凭据缺 `workflow` scope，GitHub 拒绝更新工作流；修复补丁单独交付，应用检查和全新依赖环境的本地等价复测通过。远端前端与普通 bundle 构建 PASS；普通 bundle 不包含联合 service，不能据此部署知识功能。主任务书 `HBOS_KNOWLEDGE_AUTONOMOUS_MASTER_TASK_R1.md` 未随已提供三附件出现，本机按名称检索未找到，时间/资源/完整依赖与分仓目标未核对。真实 RAGFlow、受控模型问答、员工 MCP、历史/收藏/反馈/资料维护、旧库恢复、生产 IAM/TLS 与发布仍未完成；模型与 MCP 路由保持关闭。执行事实见 `docs/milestones/M1_KB_AUTO_R1_知识候选连续执行.md`；以下旧轮次条目保留为历史与其他业务范围。
+
+### UAT5 执行补充：长文档书签校验修复（2026-10-16）
+
+同一真实候选中，一份 PDF 已 DONE 且 39 个片段存在，三个保护身份一致；551 条原生合法书签触发旧 512 条上限，导致误隔离。修复只接纳有界、闭合结构的原生书签（最多4096条、标题总计131072字符），身份差异、未知元数据字段及无效结构继续拒绝。领域检查258项通过；原生已完成任务按状态读取恢复，不重复embedding。
+
+无关资料发布引起进行中查询 SCOPE_REJECTED 的真实前后对照已通过：原授权与来源保持一致，新版为 ALLOWED。Owner 批准的三个非管理员候选账号已定向换密、清除旧会话并更新私有访问文件，偏好/MCP连接/知识历史ID未变。RAGFlow管理窗口已由Owner登录，实际Dataset及文件界面正在核对。整体仍为 UAT5_PARTIAL；PR30保持Draft，不切P1。
+
+### UAT5 执行补充：同源完整索引修复候选（2026-10-16）
+
+5个原失败案例的完整原件与当前索引逐一对照，均证实旧解析分隔配置删除句末标点；只有在诊断中剥离同一组标点后才覆盖100%，该诊断不作质量通过。原件SHA与保护身份均一致。新增同源完整文本索引的封闭校验：父版本、原件SHA、业务版次、文号、标题、权限空间和原Dataset保持一致，原物理索引保留，通过质量检查后由既有replace事务原子更新逻辑文档索引。不得用此路径恢复已撤回资料、改变业务事实或取得新授权。
+
+领域检查263项、独立服务检查438项通过；5个来源的本机实际解析/引用/回答验证仍须完成。当时安装0.6.14的三原失败问答实测：3/3包含原预期来源、11/11来源可重新打开；1/3形成受支持自然回答、2/3仅来源可核验，零系统请求错误。该小样本不替代原73题命中率，也不能宣布UAT5_READY_FOR_OWNER。继续UAT5_PARTIAL、PR30 Draft与本机候选，不切P1。
+
+## Knowledge UAT6 RC1
+
+当前候选与边界见 [RC1 入口](docs/milestones/M1_KB_UAT6_RC1_可用候选.md)；实际结果绑定 Owner 本机联合锁，PR #30 保持 Draft。

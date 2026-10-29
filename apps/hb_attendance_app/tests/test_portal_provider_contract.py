@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+import sys
+import types
+import unittest
+
+from hb_attendance_app import hooks
+from hb_attendance_app.hbos_attendance.portal.access import (
+    ATTENDANCE_PORTAL_ROLES,
+    READ_CAPABILITY,
+    build_access_context,
+)
+from hb_attendance_app.hbos_attendance.portal.manifest import get_manifest
+from hb_attendance_app.hbos_attendance.portal.provider import get_provider
+from hb_attendance_app.hbos_attendance.portal.routes import (
+    EMBEDDED_ROUTES,
+    NATIVE_PATHS,
+    REGISTERED_PATHS,
+    resolve_stable_route,
+)
+from hb_attendance_app.hbos_attendance.portal.summary import project_dashboard_summary
+
+
+class AttendancePortalManifestTest(unittest.TestCase):
+    def test_hook_registers_provider(self):
+        self.assertEqual(
+            ["hb_attendance_app.hbos_attendance.portal.provider.get_provider"],
+            hooks.hbos_portal_provider,
+        )
+
+    def test_manifest_registers_native_stable_entry_only(self):
+        manifest = get_manifest()
+        self.assertEqual(1, manifest["contract_version"])
+        self.assertEqual("attendance", manifest["id"])
+        self.assertEqual("/hbos/attendance", manifest["route"])
+        self.assertEqual("native", manifest["migration_mode"])
+        self.assertEqual(["summary"], manifest["capabilities"])
+
+
+class AttendancePortalAccessTest(unittest.TestCase):
+    def test_guest_and_ordinary_employee_are_not_exposed_yet(self):
+        self.assertFalse(build_access_context("Guest", ["HR User"])["can_enter"])
+        self.assertFalse(build_access_context("emp@example.com", ["Employee"])["can_enter"])
+
+    def test_current_hr_roles_can_enter(self):
+        # 字面量钉死角色集合：若直接遍历 ATTENDANCE_PORTAL_ROLES，期望值
+        # 就来自被测对象，后续悄悄放宽角色（如加入 All）也测不出来。
+        self.assertEqual(
+            {"HR User", "HR Manager", "System Manager"},
+            set(ATTENDANCE_PORTAL_ROLES),
+        )
+        for role in sorted(ATTENDANCE_PORTAL_ROLES):
+            with self.subTest(role=role):
+                access = build_access_context("hr@example.com", [role])
+                self.assertTrue(access["can_enter"])
+                self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+    def test_broad_non_hr_role_cannot_enter(self):
+        self.assertFalse(build_access_context("user@example.com", ["All"])["can_enter"])
+
+    def test_administrator_break_glass_entry(self):
+        self.assertTrue(build_access_context("Administrator", [])["can_enter"])
+
+    def test_access_does_not_expose_raw_roles(self):
+        access = build_access_context("hr@example.com", ["HR User"])
+        self.assertEqual(
+            {"app_id", "can_enter", "capabilities", "scopes"},
+            set(access),
+        )
+        self.assertNotIn("HR User", str(access))
+
+
+class AttendancePortalRouteTest(unittest.TestCase):
+    def test_native_routes_resolve_to_themselves(self):
+        for path in sorted(NATIVE_PATHS):
+            with self.subTest(path=path):
+                self.assertEqual(path, resolve_stable_route(path))
+
+    def test_employees_subroute_is_registered(self):
+        self.assertEqual(
+            "/hbos/attendance/employees",
+            resolve_stable_route("/hbos/attendance/employees"),
+        )
+
+    def test_board_subroute_is_registered(self):
+        self.assertEqual(
+            "/hbos/attendance/board",
+            resolve_stable_route("/hbos/attendance/board"),
+        )
+
+    def test_query_is_preserved(self):
+        self.assertEqual(
+            "/hbos/attendance?range=week",
+            resolve_stable_route("/hbos/attendance?range=week"),
+        )
+
+    def test_embedded_routes_map_to_their_desk_paths(self):
+        # 2026-10-08 起，报表 / 列表 / 上传页改为门户原生渲染，不再登记为内嵌路由；
+        # 只剩班次管理一项（Owner 裁定保留 Desk 实现）。逐条钉死映射目标——
+        # 只断言「不等于自身」测不出映射写错到别的页面。
+        expected = {
+            "/hbos/attendance/shifts": "/app/hbos-shift-management",
+        }
+        self.assertEqual(expected, dict(EMBEDDED_ROUTES))
+        for stable_path, desk_path in expected.items():
+            with self.subTest(stable=stable_path):
+                self.assertEqual(desk_path, resolve_stable_route(stable_path))
+
+    def test_embedded_targets_stay_inside_the_desk_namespace(self):
+        # 结构不变量：所有内嵌目标必须落在 /app/ 下。若将来有人把它改成
+        # 站外地址或 /logout 之类的敏感本地路径，这条会先失败。
+        for stable_path, desk_path in EMBEDDED_ROUTES.items():
+            with self.subTest(stable=stable_path):
+                self.assertTrue(desk_path.startswith("/app/"), desk_path)
+
+    def test_registered_set_is_exactly_native_plus_embedded(self):
+        self.assertEqual(
+            NATIVE_PATHS | frozenset(EMBEDDED_ROUTES),
+            REGISTERED_PATHS,
+        )
+
+    def test_native_and_embedded_never_collide(self):
+        # 同一个稳定路径若同时在两张表里，原生判定优先、内嵌静默失效。
+        self.assertEqual(set(), NATIVE_PATHS & set(EMBEDDED_ROUTES))
+
+    def test_stable_paths_are_ascii(self):
+        # 稳定路径保持纯 ASCII：它要经 axios 查询参数与 urlsplit/urlunsplit 往返，
+        # 中文只应出现在映射目标里。
+        for path in REGISTERED_PATHS:
+            with self.subTest(path=path):
+                self.assertTrue(path.isascii(), path)
+
+    def test_unregistered_or_unsafe_paths_are_rejected(self):
+        for path in (
+            "/hbos/inventory",
+            "https://evil.example/hbos/attendance",
+            "/hbos/attendance/%2e%2e/admin",
+            # 只应在映射目标里出现、不得当作稳定路径使用
+            "/hbos/attendance/report",
+            "/hbos/attendance/feishu",
+            "/hbos/attendance/reports/monthly",
+            # 曾登记、现已改原生的旧内嵌路由（不应再被解析）
+            "/hbos/attendance/report/monthly",
+            "/hbos/attendance/feishu/leave",
+        ):
+            with self.subTest(path=path):
+                with self.assertRaises(ValueError):
+                    resolve_stable_route(path)
+
+
+class AttendancePortalSummaryTest(unittest.TestCase):
+    def test_projects_existing_dashboard_facts(self):
+        projected = project_dashboard_summary(
+            {
+                "anomaly_people": 5,
+                "total_late": 8,
+                "total_early": 2,
+                "total_absent": 1,
+            }
+        )
+        self.assertEqual("attendance", projected["app_id"])
+        self.assertEqual("attention", projected["status"])
+        values = {metric["id"]: metric["value"] for metric in projected["metrics"]}
+        self.assertEqual(5, values["attendance_anomaly_people"])
+        self.assertEqual(8, values["attendance_late"])
+        self.assertEqual(2, values["attendance_early"])
+        self.assertEqual(1, values["attendance_absent"])
+        self.assertTrue(
+            all(
+                metric["deep_link"] == "/hbos/attendance/dashboard"
+                for metric in projected["metrics"]
+            )
+        )
+
+    def test_zero_dashboard_is_non_alarm(self):
+        projected = project_dashboard_summary({})
+        self.assertEqual("normal", projected["status"])
+        self.assertEqual(4, len(projected["metrics"]))
+
+
+class AttendancePortalProviderRuntimeBoundaryTest(unittest.TestCase):
+    def tearDown(self):
+        sys.modules.pop("frappe", None)
+
+    def test_provider_uses_frappe_session_identity(self):
+        fake_frappe = types.SimpleNamespace(
+            conf={},  # Legacy provider fixture: IAM remains disabled.
+            session=types.SimpleNamespace(user="hr@example.com"),
+            get_roles=lambda user: ["HR User"] if user == "hr@example.com" else [],
+            # summary 会落到 dashboard_data.get_data()：给出空 db 存根，
+            # 让真实投影路径跑通，而不是只断言 bound method 可调用。
+            db=types.SimpleNamespace(
+                get_all=lambda *args, **kwargs: [],
+                sql=lambda *args, **kwargs: [],
+            ),
+            # 本移植保留了 base 版 dashboard_data.get_data() 的角色门禁
+            # （frappe.only_for([...])，head 版删掉了它）。会话身份是
+            # HR User，真实 only_for 会放行；这里存根成 no-op 以模拟授权用户。
+            only_for=lambda *args, **kwargs: None,
+            whitelist=lambda *args, **kwargs: (lambda fn: fn),
+        )
+        sys.modules["frappe"] = fake_frappe
+        # summary() 会经 dashboard_data.get_data() 导入 api 模块，而 api.py 顶层
+        # `import requests`。本契约测试只验会话身份边界、不做出站调用，CI 的
+        # Backend Gate 也不装 requests，故与 frappe 同样存根掉，
+        # 避免把「测试环境缺依赖」误报成契约失败。
+        sys.modules.setdefault("requests", types.ModuleType("requests"))
+
+        provider = get_provider()
+        access = provider.access_context()
+        self.assertTrue(access["can_enter"])
+        self.assertEqual("attendance", provider.summary()["app_id"])
+        self.assertEqual(4, len(provider.summary()["metrics"]))
+        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+
+
+if __name__ == "__main__":
+    unittest.main()

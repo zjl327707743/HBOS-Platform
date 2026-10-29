@@ -1,5 +1,20 @@
 # Milestones
 
+## 当前产品集成索引 — 2026-10-19
+
+#42 考勤、#46 生产、#39 仓储、#43 LIMS 四项完整业务 PR 已实际合入 `feature/hbos-portal-product`。业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护；接续工作读取远端最新产品 HEAD。[R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 全部 10 jobs SUCCESS；[R11 实际产品回归](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 全部 10 jobs SUCCESS，五个原生域直接运行业务合并基线并通过双 migrate 与清理；LIMS 原 32 + 审计 9 + 独立 Todo 1，共 42 项原生测试通过。Todo 只有 1 项，归属 LIMS。
+
+当前阅读入口：[项目状态与四项合并来源](../PROJECT_STATUS.md)、[当前轮次](../CURRENT_MILESTONE.md)、[M2-LIMS 门禁](M2_START_GATE.md)、[M3 门禁](M3_START_GATE.md)。以下旧里程碑表和下一步路线保留当时的产品验收状态，不因本次代码合并统一改为 COMPLETED；旧编号“M2 飞书集成”也不改写为本次 LIMS。IAM #52、OCR、实体样本／打印、生产 UAT／部署及质量放行撤回不由本轮 closeout。
+
+> 知识专项（PR #30，分支 `codex/knowledge-autonomous-r1`）：以下为知识轮次自己的状态记录，保留其原日期含义；是否合入、验收与部署以 [PR #30](https://github.com/zjl327707743/HBOS-Platform/pull/30) 的实际记录为准。
+
+## 知识专项历史：HBOS Knowledge UAT4 — 2026-10-11
+
+**LOCAL_UAT / REVIEWING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 个人助手入口简化为客户端选择、一次私密安装和最近真实知识使用。状态只在本人连接实际检索并打开同一检索来源后更新；个人 Token 与无凭据使用规则分开存储。已批准的成功资料按精确子集分批发布，完整性未过关的资料保持待核；解析许可不能代替共享许可。原 15 份、UAT2 样式、四回答模型、千问 Embedding 和默认零外部 rerank 保留。
+
+本轮事实、最终统计及制品边界见 [UAT4 验收候选](M1_KB_UAT4_极简接入与真实资料发布候选.md)；Owner 私有联合锁为数量、运行源码、CI 和 wheel 的最终依据。PR #30 保持 Draft，不合并、不切 P1、不开放正式员工。公司 HTTPS 入口待部署，本机地址仅用于本机 Owner 验收。
+
+
 本目录用于记录新乡海滨智能运营管理平台的全项目里程碑索引和状态总览。
 
 ## 文件定位
@@ -56,7 +71,7 @@
 - `BLOCKED`：受阻，等待用户决策或外部条件。
 - `CANCELLED`：已取消。
 
-## 当前里程碑表
+## 历史里程碑表
 
 | 里程碑 | 名称 | 状态 |
 | --- | --- | --- |
@@ -94,7 +109,7 @@
 | M2-STOCK-R1 | 库存模块隔离（独立 stock 站点 + hb_stock_app + 海滨库存工作台） | IN_PROGRESS（分支 `m2-stock-r1`） |
 | M2 | 飞书集成（长期轮次） | NOT STARTED |
 
-## 下一步路线
+## 历史下一步路线
 
 1. M1-REQ-DESIGN-DRAFT 已通过 Codex 审查并收口，四份设计文档全部完成。
 2. M1-R4 已通过 Codex 审查并收口为 COMPLETED，主文档 `M1_R4_Demo技术方案与实施路线拆分.md` 已交付。
@@ -112,3 +127,6 @@ M1 已完成 M1-R0 规划收口，M1-R1 已通过 Codex 独立审查并收口为
 - `docs/PROJECT_STATUS.md`
 - `docs/CURRENT_MILESTONE.md`
 - 对应的 `docs/milestones/*.md`
+
+
+- `M1_RP3_统一账号飞书绑定与正式发布.md`：Portal Mac 本地部署与团队同步，LOCAL_RUNNING / FUNCTION_VERIFIED / LIVE_OWNER_PENDING；服务器后续。

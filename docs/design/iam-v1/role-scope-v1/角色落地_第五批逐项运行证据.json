@@ -1,0 +1,139 @@
+{
+  "status": "IMPLEMENTED_PENDING_FINAL_REVIEW",
+  "integrated_operations": 32,
+  "total_operations": 32,
+  "tests": [
+    {
+      "case": "department_clerk_SQL_row_filter_before_staging_payload_and_company_import_log_denial",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-chain.json"
+    },
+    {
+      "case": "whole_workbook_cross_company_and_unproved_history_rejected_before_any_source_or_business_write",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-chain.json"
+    },
+    {
+      "case": "raw_import_real_native_shift_calculation_submitted_attendance_source_and_idempotency",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-chain.json"
+    },
+    {
+      "case": "monthly_import_only_native_staging_no_fabricated_checkins_or_attendance",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-chain.json"
+    },
+    {
+      "case": "existing_schedule_parser_and_source_writer_real_positive",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-chain.json"
+    },
+    {
+      "case": "provenance_bounded_native_log_list_and_monthly_staging_real_rows",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-chain.json"
+    },
+    {
+      "case": "import_source_content_hash_tamper_denied_CAS_restored_and_raw_File_download_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-security.json"
+    },
+    {
+      "case": "current_source_version_change_causes_409_before_business_write",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-security.json"
+    },
+    {
+      "case": "same_session_old_import_preview_rechecks_current_release_revocation_then_restore_and_native_duplicate_skip",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-security.json"
+    },
+    {
+      "case": "forged_identity_native_global_import_and_server_file_path_bypasses_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "import-security.json"
+    },
+    {
+      "case": "private_import_source_File_log_filesystem_and_event_atomic_rollback",
+      "status": "PASS",
+      "layer": "NATIVE_DB_FAULT_INJECTION",
+      "private_evidence_file": "import-fault.json"
+    },
+    {
+      "case": "attendance_native_business_and_log_rollback_after_actual_write_before_audit",
+      "status": "PASS",
+      "layer": "NATIVE_DB_FAULT_INJECTION",
+      "private_evidence_file": "import-fault.json"
+    },
+    {
+      "case": "schedule_native_business_and_log_rollback_after_actual_write_before_audit",
+      "status": "PASS",
+      "layer": "NATIVE_DB_FAULT_INJECTION",
+      "private_evidence_file": "import-fault.json"
+    },
+    {
+      "case": "actual_RQ_worker_rechecks_stored_enqueue_user_and_refuses_old_unbounded_import_before_data_access",
+      "status": "PASS",
+      "layer": "REAL_RQ_WORKER",
+      "private_evidence_file": "real-rq-guard.json"
+    },
+    {
+      "case": "bounded_old_allow_deny_expiry_source_fingerprints_repeatable_readonly_dry_run",
+      "status": "PASS",
+      "layer": "NATIVE_DB",
+      "private_evidence_file": "migration-dry-run.json"
+    },
+    {
+      "case": "repeat_identical_role_migration_writes_no_assignment_no_audit_and_preserves_native_User_Employee_roles_password_hashes",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_NATIVE_DB_FINGERPRINT",
+      "private_evidence_file": "veto-noop-chain.json"
+    },
+    {
+      "case": "user_deny_veto_current_published_company_role",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_SOURCE_FIXTURE",
+      "private_evidence_file": "veto-noop-chain.json"
+    },
+    {
+      "case": "department_deny_veto_published_SELF_while_department_source_cannot_grant_company_operation",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_SOURCE_FIXTURE",
+      "private_evidence_file": "veto-noop-chain.json"
+    },
+    {
+      "case": "user_temporary_suspension_survives_role_save_veto_current_published_company_role",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_SOURCE_FIXTURE",
+      "private_evidence_file": "veto-noop-chain.json"
+    },
+    {
+      "case": "user_expiry_veto_current_published_company_role",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_SOURCE_FIXTURE",
+      "private_evidence_file": "veto-noop-chain.json"
+    },
+    {
+      "case": "pending_first_password_denies_business_without_password_or_expiry_rewrite_and_exact_CAS_restore",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_STATE_FIXTURE",
+      "private_evidence_file": "veto-noop-chain.json"
+    }
+  ],
+  "limitations": [
+    "人工最终三项产品抽查待Owner",
+    "实际共享CI旧七模型名单仍待平台唯一写者应用精确补丁",
+    "真实飞书OAuth未运行",
+    "Site/User时区与旧naive临时口令截止迁移未闭合，不称中国工厂生产就绪"
+  ]
+}
