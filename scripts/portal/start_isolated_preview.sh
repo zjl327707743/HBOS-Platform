@@ -18,6 +18,8 @@ PROJECT="${HBOS_PREVIEW_PROJECT:-hbos-portal-preview}"
 SITE_NAME="${HBOS_PREVIEW_SITE:-portal-preview.localhost}"
 FRAPPE_PORT="${HBOS_PREVIEW_FRAPPE_PORT:-18091}"
 PORTAL_PORT="${HBOS_PREVIEW_PORTAL_PORT:-5179}"
+# Only inside the private Compose network; never points at a real running Site.
+PREVIEW_HOST_NAME="http://frontend:8080"
 STATE_DIR="${HBOS_PREVIEW_STATE_DIR:-${TMPDIR:-/tmp}/hbos-portal-preview-${USER:-local}}"
 ENV_FILE="$STATE_DIR/preview.env"
 PREVIEW_COMPOSE="$ROOT_DIR/scripts/portal/docker-compose.isolated-preview.yml"
@@ -43,6 +45,7 @@ command -v docker >/dev/null 2>&1 || fail "未找到 docker"
 docker compose version >/dev/null 2>&1 || fail "docker compose 不可用"
 command -v node >/dev/null 2>&1 || fail "未找到 Node.js"
 command -v npm >/dev/null 2>&1 || fail "未找到 npm"
+command -v python3 >/dev/null 2>&1 || fail "Preview 卷隔离守卫需要 python3"
 
 if [[ ! -d runtime/apps/hrms/.git ]]; then
   info "准备隔离 worktree 的 HRMS v16 source"
@@ -135,13 +138,10 @@ dc() {
 info "1/7 校验隔离 Compose"
 dc config --quiet
 
-ASSET_MOUNT_COUNT="$(
-  dc config |
-    grep -c '/home/frappe/frappe-bench/sites/assets' || true
-)"
-if [[ "$ASSET_MOUNT_COUNT" -lt 8 ]]; then
-  fail "Preview Compose 未对所有 Frappe 服务显式命名 sites/assets 卷（当前命中 $ASSET_MOUNT_COUNT）"
-fi
+# Validate resolved source volumes, not misleading sites/assets mount counts.
+# Frappe v16's entrypoint must replace sites/assets with a symlink; mounting
+# that nested path causes EBUSY and a restart loop.
+dc config --format json | python3 scripts/portal/preview_compose_guard.py --project "$PROJECT"
 
 if docker ps --format '{{.Names}}' | grep -q '^hbos-m0-r3a-'; then
   echo "检测到原项目容器正在运行；本预览将使用独立 project '$PROJECT'，不会停止它们。"
@@ -181,6 +181,23 @@ fi
 
 # Ensure the existing isolated site is aligned with the current worktree.
 dc exec -T backend bench --site "$SITE_NAME" migrate >/dev/null
+
+# PDF rendering / get_url() must reach the in-network nginx listener.  This
+# updates only the dedicated Preview Site and never a shared or production Site.
+EXISTING_HOST_NAME="$(
+  dc exec -T -e HBOS_PREVIEW_SITE_NAME="$SITE_NAME" backend python3 -c '
+import json
+import os
+from pathlib import Path
+site = os.environ["HBOS_PREVIEW_SITE_NAME"]
+config = json.loads((Path("/home/frappe/frappe-bench/sites") / site / "site_config.json").read_text())
+print(config.get("host_name") or "")
+'
+)"
+if [[ "$EXISTING_HOST_NAME" != "$PREVIEW_HOST_NAME" ]]; then
+  dc exec -T backend bench --site "$SITE_NAME" set-config host_name "$PREVIEW_HOST_NAME" >/dev/null
+  info "仅隔离 Site 更新 PDF host_name 为内部 nginx 地址"
+fi
 
 APPS="$(dc exec -T backend bench --site "$SITE_NAME" list-apps)"
 printf '%s\n' "$APPS"
@@ -239,6 +256,7 @@ echo "State file:     $ENV_FILE"
 echo
 echo "隔离检查：启动期间新增的 Docker container / volume 均受 '$PROJECT' 命名空间约束。"
 echo "原项目 8080 / frontend Site / 原 Docker volumes 未被停止或复用。"
+echo "空的隔离 Site 需要合成 Company/UOM/Item/Warehouse 测试夹具；本脚本不会创建真实人员或业务数据。"
 echo "按 Ctrl+C 只会停止 Vite；隔离 Docker 环境继续保留。"
 echo "完全停止预览：bash scripts/portal/stop_isolated_preview.sh"
 echo "彻底删除预览 volumes：bash scripts/portal/stop_isolated_preview.sh --purge"
