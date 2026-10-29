@@ -1,0 +1,13 @@
+{
+  "authority": "Owner 2026-10-27 explicitly fixed R6-A2.2 and HBOS Design System v1.3 for formal implementation",
+  "source_directory": "HBOS/design/r6-experience-v2",
+  "copied_verbatim_sha256": {
+    "HBOS_DESIGN_SYSTEM_V1_1.md": "6829b38005215a6da8e1f55ed33dee80e0f21728843ff65918947bdfe6f64c51",
+    "HBOS_DESIGN_SYSTEM_V1_2.md": "066589767760e77c63643321a7bd1bebe39117f0515cf7c0f3246f76bcac98c7",
+    "HBOS_DESIGN_SYSTEM_V1_3_CANDIDATE.md": "85227b41c3f771ee28b3cf4d8ca4ea310c1a3051af634d81bf46dd3c43f19fec",
+    "R6A2_2_ROOT_CAUSE_AND_REVIEW.md": "21d4bbab6c5b3d3f7d0c8de6c48157525b72abe8e8f12704bed0b4ee8fc79d66",
+    "ENGINEERING_MAPPING.md": "89b0ce6d3d98a344811576c722b28b90b9b40536398722287b4427c34b09e59d",
+    "engineering/operation-scope-map.json": "cd4de1db02a4a79e8de867221e7a7a2342fceefab99567942c435e912e1c3da3"
+  },
+  "prototype_code_dependencies_mock_and_credentials_included": false
+}

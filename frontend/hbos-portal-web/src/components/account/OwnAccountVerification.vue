@@ -17,11 +17,11 @@
   </section>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref, useId, onBeforeUnmount } from 'vue'
+import { computed, onMounted, ref, useId, onBeforeUnmount, onDeactivated } from 'vue'
 import { getSecurity, reauthenticate, requestFeishuCode, verifyFeishuCode, type SecurityStatus, type ProofStatus } from '@/services/accountApi'
 import { useAccountProof } from '@/composables/useAccountProof'
 import { accountErrorMessage } from '@/services/accountErrors'
-const props = defineProps<{ passwordOnly?: boolean }>(), emit = defineEmits<{ verified: [proof: ProofStatus]; invalidated: [] }>()
+const props = withDefaults(defineProps<{ passwordOnly?: boolean; adoptExisting?: boolean }>(), { adoptExisting: true }), emit = defineEmits<{ verified: [proof: ProofStatus]; invalidated: [] }>()
 const fieldId = useId(), status = ref<SecurityStatus | null>(null), useInbox = ref(false)
 const password = ref(''), code = ref(''), otp = ref(''), tmpId = ref(''), error = ref(''), notice = ref(''), busy = ref(false), loading = ref(true), expired = ref(false)
 const proof = useAccountProof(() => { clearSecrets(); expired.value = true; emit('invalidated') })
@@ -29,7 +29,7 @@ const passwordMode = computed(() => props.passwordOnly || Boolean(status.value?.
 let generation = 0, disposed = false
 function clearSecrets() { password.value = ''; code.value = ''; otp.value = ''; tmpId.value = '' }
 function reset() { generation++; clearSecrets(); proof.invalidate(); error.value = ''; notice.value = '' }
-async function load() { loading.value = true; error.value = ''; try { const result = await getSecurity(); if (!disposed) { status.value = result; if (result.proof?.valid && (!props.passwordOnly || result.proof.method === 'password')) { proof.sync(result.proof); emit('verified', result.proof) } } } catch (e) { if (!disposed) error.value = accountErrorMessage(e, '无法读取验证方式，请重试。') } finally { if (!disposed) loading.value = false } }
+async function load() { loading.value = true; error.value = ''; try { const result = await getSecurity(); if (!disposed) { status.value = result; if (props.adoptExisting && result.proof?.valid && (!props.passwordOnly || result.proof.method === 'password')) { proof.sync(result.proof); emit('verified', result.proof) } } } catch (e) { if (!disposed) error.value = accountErrorMessage(e, '无法读取验证方式，请重试。') } finally { if (!disposed) loading.value = false } }
 async function sendCode() { if (busy.value) return; busy.value = true; error.value = ''; notice.value = ''; try { const result = await requestFeishuCode(); if (!disposed) { if (!result.sent) error.value = result.error || '飞书未确认发送，请稍后重试。'; else notice.value = '飞书已确认发送，请本人查收验证码。' } } catch (e) { if (!disposed) error.value = accountErrorMessage(e, '发送未完成，请稍后重试。') } finally { if (!disposed) busy.value = false } }
 function onEnter(event: KeyboardEvent) { if (event.isComposing || event.keyCode === 229) return; event.preventDefault(); event.stopPropagation(); void verify() }
 async function verify() {
@@ -44,6 +44,7 @@ async function verify() {
   } catch (e) { if (!disposed && version === generation) { clearSecrets(); proof.invalidate(); error.value = accountErrorMessage(e, '本人验证未通过，请核对当前密码或验证码。') } }
   finally { if (!disposed && version === generation) busy.value = false }
 }
+onDeactivated(() => { generation++; clearSecrets(); proof.invalidate(); busy.value = false; emit('invalidated') })
 onMounted(load)
 onBeforeUnmount(() => { disposed = true; generation++; clearSecrets() })
 </script>

@@ -12,5 +12,5 @@ export async function claimInitialPassword() {
   try { return await callFrappePostMethod<{ claimed: boolean; temporary_password?: string; expires_at?: string; generation: number }>('hbos_portal.auth.accounts.claim_initial_password') }
   finally { clearFrappeCsrfToken() }
 }
-export interface MyEmployeeStatus { status: 'linked' | 'unlinked' | 'conflict'; employee_id?: string; employee_number?: string; department?: string; initial_password_pending?: boolean }
+export interface MyEmployeeStatus { status: 'linked' | 'unlinked' | 'conflict'; employee_id?: string; employee_number?: string; department?: string; position?: string | null; initial_password_pending?: boolean }
 export const getMyEmployeeStatus = () => iamQuery<MyEmployeeStatus>('hbos_portal.api.iam_people.get_my_employee_status')

@@ -1,7 +1,7 @@
 <template>
-  <div class="portal-page" :data-document-instance="development ? frappeDiagnostics.document : undefined" :data-session-phase="development ? portalSession.phase : undefined" :data-security-reads="development ? frappeDiagnostics.security : undefined" :data-capability-reads="development ? frappeDiagnostics.capabilities : undefined" :data-bootstrap-reads="development ? frappeDiagnostics.bootstrap : undefined" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
+  <div class="portal-page" :class="{ 'r6-experience': r6Experience, 'r6-personal': personal, 'r6-fit': fitPage, 'r6-natural': naturalPanels, 'motion-paused': motionPaused }" :data-document-instance="development ? frappeDiagnostics.document : undefined" :data-session-phase="development ? portalSession.phase : undefined" :data-security-reads="development ? frappeDiagnostics.security : undefined" :data-capability-reads="development ? frappeDiagnostics.capabilities : undefined" :data-bootstrap-reads="development ? frappeDiagnostics.bootstrap : undefined" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
-    <PointerAtmosphere />
+    <PointerAtmosphere :paused="motionPaused" />
     <div class="aurora aurora-a"></div>
     <div class="aurora aurora-b"></div>
     <div class="aurora aurora-c"></div>
@@ -14,12 +14,15 @@
         :context-label="portal.branding?.workspaceName"
         :apps="portal.apps"
         :session-blocked="masked"
+        :management-experience="r6Experience"
+        :motion-paused="motionPaused"
+        @toggle-motion="motionPaused = !motionPaused"
         @open-command="!masked && (ui.commandOpen = true)"
       />
 
       <div class="portal-layout-grid">
-        <PortalSidebar :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
-        <main id="main-content" class="portal-route-content" tabindex="-1">
+        <PortalSidebar v-if="!personal" :management="r6Experience" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
+        <main id="main-content" ref="mainContent" class="portal-route-content" tabindex="-1">
           <template v-if="portalDataSource === 'mock'">
             <a-skeleton v-if="sessionPending" active /><a-alert v-else-if="sessionError" type="error" :message="sessionError" /><RouterView v-else :key="portal.user?.id" />
           </template>
@@ -36,7 +39,7 @@
             </div>
             <div v-if="portalSession.security?.first_password_required" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined"><FirstPasswordGate :key="portalSession.generation" :subject-user="portalSession.security.user" :security="portalSession.security" @ready="retrySession" /></div>
             <div v-if="portalSession.mounted" :key="portalSession.generation" class="session-content" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" :aria-hidden="masked || undefined">
-              <RouterView />
+              <RouterView v-slot="{ Component }"><KeepAlive include="HbosManagementWorkspace" :max="1"><component :is="Component" /></KeepAlive></RouterView>
             </div>
             <a-skeleton v-else-if="(!portalSession.security && portalSession.phase === 'initial') || portalSession.phase === 'logging_out'" active :paragraph="{ rows: 6 }" />
           </template>
@@ -44,7 +47,7 @@
       </div>
     </div>
 
-    <MobilePortalNav :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
+    <MobilePortalNav v-if="!r6Experience" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
 
     <CommandPalette :open="ui.commandOpen" @close="ui.commandOpen = false" />
     <aside v-if="developmentObservation" class="development-observation" aria-label="本机验收观测">
@@ -71,6 +74,7 @@ import { canIam } from '@/services/iamAccess'
 import { Modal } from 'ant-design-vue'
 import { developmentObservation, frappeDiagnostics } from '@/services/frappeClient'
 import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
+import { useReadablePanels } from '@/composables/useReadablePanels'
 import { attendanceObservation } from '@/services/attendanceObservation'
 
 const portal = usePortalStore()
@@ -79,6 +83,13 @@ const ui = reactive({ commandOpen: false })
 const actionableCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
 const { sessionPending, sessionError } = portalDataSource === 'mock' ? usePortalSession() : { sessionPending: ref(true), sessionError: ref<string | null>(null) }
 const route = useRoute(), router = useRouter()
+const personal = computed(() => route.path === '/hbos/profile')
+const r6Experience = computed(() => personal.value || route.path.startsWith('/hbos/admin'))
+const fitPage = computed(() => ['/hbos/admin/departments', '/hbos/admin/roles'].includes(route.path))
+const motionPaused = ref(false)
+const mainContent = ref<HTMLElement | null>(null)
+const naturalPanels = useReadablePanels(fitPage, mainContent)
+watch(() => route.path, () => { if (mainContent.value) mainContent.value.scrollTop = 0 }, { flush: 'sync' })
 const routeDenied = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !canIam(route.meta.iamCapability))
 const masked = computed(() => ['unconfirmed', 'guest', 'logging_out'].includes(portalSession.phase) || routeDenied.value)
 let maskedFocus: {element:HTMLElement;generation:number}|null = null

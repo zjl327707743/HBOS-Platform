@@ -51,3 +51,10 @@ export const hbosAntdTheme: ThemeConfig = {
     },
   },
 }
+
+// R6 uses the fixed v1.3 values only in its existing Portal routes.
+export const hbosManagementTheme: ThemeConfig = {
+  ...hbosAntdTheme,
+  token: { ...hbosAntdTheme.token, colorPrimary: '#5754df', colorText: '#192a45', colorTextSecondary: '#566780', colorBorder: '#8793aa', colorSuccess: '#16835c', colorWarning: '#94600e', colorError: '#c34056', borderRadius: 10 },
+  components: { ...hbosAntdTheme.components, Button: { borderRadius: 10, controlHeight: 40 }, Input: { borderRadius: 10, controlHeight: 40 }, Select: { borderRadius: 10, controlHeight: 40 } },
+}

@@ -1,5 +1,3 @@
-# M1 启动门禁
-
 当前知识专项：[RC14 V2 员工体验候选](M1_KB_RC14_员工体验候选.md)。仅隔离验收，Owner 未验收，PR #30 保持 Draft；旧轮次记录为历史，不代表当前通过。
 
 ## 2026-10-19 UAT5 执行补充当前检查点
@@ -300,3 +298,179 @@ M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审
 5个原失败案例的完整原件与当前索引逐一对照，均证实旧解析分隔配置删除句末标点；只有在诊断中剥离同一组标点后才覆盖100%，该诊断不作质量通过。原件SHA与保护身份均一致。新增同源完整文本索引的封闭校验：父版本、原件SHA、业务版次、文号、标题、权限空间和原Dataset保持一致，原物理索引保留，通过质量检查后由既有replace事务原子更新逻辑文档索引。不得用此路径恢复已撤回资料、改变业务事实或取得新授权。
 
 领域检查263项、独立服务检查438项通过；5个来源的本机实际解析/引用/回答验证仍须完成。当时安装0.6.14的三原失败问答实测：3/3包含原预期来源、11/11来源可重新打开；1/3形成受支持自然回答、2/3仅来源可核验，零系统请求错误。该小样本不替代原73题命中率，也不能宣布UAT5_READY_FOR_OWNER。继续UAT5_PARTIAL、PR30 Draft与本机候选，不切P1。
+> **2026-10-29 R6 部门应用权限解释与原型保真 / REVIEWING**：按《HBOS R6 部门应用权限解释与原型保真》单 Agent 任务书，在 #63 定向整改“部门按应用设置默认权限”和“员工按应用单独设置”的页面语义，并对个人中心、员工管理、部门页面、角色与权限、变更记录逐页核对 R6-A2.2 / v1.3 原型。部门页新增固定应用标题与紧凑应用选择、把 LEGACY 兼容状态从第三个灰色单选改为独立状态说明、无修改时不显示取消修改并统一禁用主按钮样式、影响摘要区分服务端可见成员/跟随者/个人安排/实际变化；员工抽屉新增按应用权限总览，考勤兼岗显示“本人考勤”与“明确负责（不含下级）”两个独立范围，未接入应用不绘制为可生效开关。前端 50 文件/466 测试、TypeScript、构建与改动文件 ESLint 通过；未改后端权限合同、未新增授予、不把知识库/LIMS/仓储/生产写成已接入。合成 18191 固定候选、多视口同尺寸对照与 Owner 两条理解回执仍待完成；未合并、未转 Ready、无标签、main 与团队发布。详见统一入口 `R6_DEPARTMENT_SEMANTICS_AND_FIDELITY_20261029.md`。以下按日期保留历史。
+
+> **G4 分页边界修复（2026-10-27）**：真实浏览器在初次读取前点击分页曾发出page=0并进入400；人员/审计分页现仅接受已加载范围内的正整数页，加载及空态禁用。40文件326测试、typecheck及改动lint通过，须新组合复测。Owner已批准的两项独立后端修复在#65/#66实施，当前测试7a的HR开户/首次改密/关联14项及副作用核验PASS，未合并。TEAM_PULL_READY=PENDING。下列按日期保留历史。
+
+# M1 启动门禁
+
+> **2026-10-27 R6-B / G4_UAT_IN_PROGRESS**：#62 与 #61 已分别按 Owner 精确授权正常 Squash，实际产品基线为 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。实际提交四个 CI 作业通过。R6 从该 SHA 的 `feat/hbos-r6b-experience-v1` 实施，固定设计依据 R6-A2.2 / v1.3；G4 真实权限与浏览器验收、G5 独立审查及固定 SHA 合并、G6 统一构建/标签/团队发布尚未完成。`TEAM_PULL_READY=PENDING`，未生产上线。详见 [本轮主记录](Portal_R6B_正式管理体验与稳定集成.md)。以下按日期保留的旧状态为历史。
+
+
+## PR #21 最终 Gate — 2026-10-01
+
+FINAL_REVIEW_BLOCKED：既有原生 MFA 跨请求证明 blocker 已最小修复；新 HEAD 的全部 CI/构建/历史扫描仍须最终核对。Browser final-submit 三项尚未实际完成，Owner 最新无破坏验收为 WAITING_OWNER_ACCEPTANCE。只有两项实际 PASS 且其余 Gate 全通过才 squash #21 到产品分支；#22 已冻结待安全承接，#15/main 不合并。真人验证码/新员工开户/高风险交接/实体手机软键盘未执行仍 NOT_RUN，按本轮授权不统一阻塞产品分支合入。
+
+## 账号小范围收尾 — 2026-10-01
+
+本轮接续交付基线 `eee1c5e22c57be3436244e77c65e189bd7eee242` 与 PR #21，仅做资料登录渠道、唯一个人导航、折叠偏好说明、飞书头像同步及 C03/C07/C09/F03 缺项补测；不重新全量审计、重画页面或新增账号功能。真实 Administrator 已成功飞书登录为 USER_CONFIRMED_SUCCESS，绑定、密码、MFA、Secret、企业与回调保留。本机沿用既有 P1 Site/Compose/入口，发布分支不合并、不强推、不推 main/base。 补测确认并修复参与页期限遗漏与 GET 回调未提交记录，原矩阵历史保持；最终浏览器新凭据步骤由工具要求人工接手，团队脚本与未执行状态单列。
+
+
+项目名称：新乡海滨智能运营管理平台。
+
+## Portal 账号审修独立授权门禁 — 2026-10-01
+
+本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 head `codex/portal-unified-account-release`、base `feature/hbos-portal-product`；不强推、不自动合并、不推 main/base。
+
+本机验收顺序：已确定 P1 的保护备份 → 同库更新且保留账号/权限/关联 → 保留已成功的 Administrator 本人飞书路径 → 新版本正常登录复核 → 第二位获准企业身份首次开户及重复登录 → 可选本人验证码设密、恢复与拒绝边界。真实验收不能由 configured、许可标记或测试替身代替。公司服务器首次部署、固定 IP 和 HTTPS 为后续独立工作，不能阻塞本轮 Mac、PR 或制品。其他考勤/库存里程碑不由此 closeout。
+
+团队通用交付已发布至 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21)（Draft、未合并），本轮复用 P1，不以原库/服务器/HTTPS 为前置条件；本人授权与公司生产分开验收。
+
+## 文件定位
+
+本文件记录 M1 启动前必须满足的门禁条件。M1 规划轮次已历史收口，但产品交付仍在 M1-FIX 中；M1-FIX-B2 已 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块）为 REVIEWING / 两阶段均已上线**。M1-FIX-C/D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`；M2 其余轮次未启动。
+
+## 必须满足的前置条件
+
+- M0 状态必须为 COMPLETED。
+- M0-REMOTE 必须完成：创建 GitHub Private remote、添加 `origin`、首次 push `main`。（已完成，见 `docs/milestones/M0_REMOTE.md`。）
+- `git status` 必须 clean。
+- 不允许提交 `.env`、备份文件、密钥、数据库、Docker volume 或运行时数据。
+- 当前 Frappe / ERPNext / HRMS 环境应保持可访问；如 HRMS 丢失，必须先恢复环境，再讨论 M1。
+
+## M1 初期范围
+
+M1-R0 只做：
+
+- 平台入口治理。
+- 账号体系。
+- 角色权限。
+- 飞书 SSO 可行性。
+- 中文化 / 本地化诊断。
+
+M1-R0 当前状态：COMPLETED，已通过 Codex 独立审查。方案文件见 `docs/milestones/M1_R0_平台入口账号权限与本地化诊断方案.md`。
+
+M1-R0 不做：
+
+- 不开发考勤业务。
+- 不创建 `hb_attendance_app`。
+- 不接飞书真实写入。
+- 不实现 Vue / React 驾驶舱。
+- 不修改 Frappe / ERPNext / HRMS 核心源码。
+
+M1-R1 才验证 HRMS 原生考勤对象模型。M1-R1 当前状态：COMPLETED，已通过 Codex 独立审查，验证记录见 `docs/milestones/M1_R1_HRMS原生考勤对象模型验证记录.md`。
+
+M1-R2 当前状态：COMPLETED，已通过 Codex 独立审查。M1-R2 只做 HRMS 原生考勤配置试运行方案，未执行配置，未创建测试数据，未创建 App，未接真实考勤机，未接真实飞书，未录入生产数据。方案文件见 `docs/milestones/M1_R2_HRMS原生考勤配置试运行方案.md`。
+
+M1-R3 当前状态：BLOCKED。M1-R3 已使用 `TEST-HBOS-M1R3-` 前缀尝试虚构最小测试数据试运行 HRMS 原生考勤配置；部分 TEST 数据已落库，但 Attendance 闭环与 14 个场景验证未完成。Codex 审查 PASS，但该轮不是成功完成，不得标记为 COMPLETED。记录见 `docs/milestones/M1_R3_HRMS原生考勤最小测试数据试运行记录.md`。
+
+M1-R3A 当前状态：COMPLETED。M1-R3A 已完成运行态阻断诊断与 TEST 数据隔离 / 清理方案，并已通过 Codex 审查，记录见 `docs/milestones/M1_R3A_运行态阻断诊断与TEST数据隔离清理方案.md`。本轮未继续创建测试数据，未执行配置试运行，未清理数据。
+
+M1-R3B 当前状态：COMPLETED。M1-R3B 已完成运行态最小修复方案，并已通过 Codex 审查，记录见 `docs/milestones/M1_R3B_运行态最小修复方案.md`。本轮只是修复方案和状态收口，不是修复执行；未执行修复，未启动或重启服务，未清理 TEST 数据，未继续试运行。
+
+M1-R3B-FIX 当前状态：COMPLETED。M1-R3B-FIX 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_R3B_FIX_运行态最小修复执行记录.md`。该轮只执行 `docker compose up -d redis-cache redis-queue`，`redis-cache`、`redis-queue`、queue worker、scheduler、`bench doctor` 和 `/login` 已恢复或改善；未清理 TEST 数据，未继续创建 TEST 数据，未执行 HRMS 考勤试运行。
+
+M1-R3C 当前状态：COMPLETED。M1-R3C 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；结论为 PARTIAL / GAP_IDENTIFIED。M1-R3C 已在用户授权下使用 `TEST-HBOS-M1R3C-*` / `test-hbos-m1r3c-*` 虚构 TEST 数据重新试运行；Company / User / Employee 写入阻断已解除，13 条 Attendance 已生成，14 个场景中 8 个通过、6 个为 GAP / PARTIAL。迟到 / 早退未置位、缺卡 / 缺勤口径、请假 Leave Allocation、加班业务口径仍是后续 Gap。记录见 `docs/milestones/M1_R3C_HRMS原生考勤最小试运行复测记录.md`。
+
+M1-R3D 当前状态：COMPLETED。M1-R3D 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_R3D_异常口径与Gap诊断.md`。结论为 Gap 四类分类（HRMS 配置、原生 / 自定义报表、海滨业务规则定义、未来自定义 App 候选），8 个 Gap 均不需要立即创建 `hb_attendance_app`。本轮未继续试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码，未接真实考勤机、真实飞书或 SSO。
+
+M1-R3E 当前状态：COMPLETED。M1-R3E 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_R3E_配置复核与业务口径确认表.md`。本轮仅做文档交付，未试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。配置复核清单覆盖 8 类问题，业务口径确认表覆盖 10 项业务口径，8/10 项阻塞 M1-R4。
+
+M1-R3F 当前状态：COMPLETED。M1-R3F 已通过 Codex 审查，审查结果 PASS，并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_R3F_业务口径确认包.md`。本轮完成文档交付并已收口，未试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码。确认包共 9 项确认主题，7 项必须业务负责人确认才能进入 M1-R4。
+
+M1-REQ-DESIGN-DRAFT 当前状态：COMPLETED。M1-REQ-DESIGN-DRAFT 已通过 Codex 审查，审查结果 PASS（初审员工姓名脱敏 blocker 已修复，提交 `69aec6a`），并从 REVIEWING 收口为 COMPLETED；记录见 `docs/milestones/M1_考勤一期真实需求确认.md`、`docs/milestones/M1_考勤一期产品需求说明书.md`、`docs/milestones/M1_考勤一期技术设计方案.md`、`docs/milestones/M1_Demo实施路线图.md`。本轮只写文档，未试运行，未创建、删除或清理 TEST 数据，未创建 App / DocType / 代码，不修改核心源码。已补齐 M1 真实需求、PRD、技术设计、Demo 实施路线图四份文档。M1-R4 定位为 Demo 技术方案与实施路线拆分。
+
+M1-R4 当前状态：COMPLETED。M1-R4 已完成 Demo 技术方案与实施路线拆分，主文档 `docs/milestones/M1_R4_Demo技术方案与实施路线拆分.md` 已交付。审查记录：Codex 初审 FAIL（发现 3 类 blocker：Git 同步门槛、公共入口 M1-R4 过期状态残留、阶段文字错误），已在 `2fbb6dc` 中修复；Codex 复审 PASS。M1-R4 定位为规划拆分轮，已完成 R5/R6/R7 后续轮次拆分，未开发、未试运行、未创建 App/DocType/代码。
+
+M1-R5 当前状态：COMPLETED。M1-R5 已完成 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 展示路径与 Excel 月报导出路径文档交付，主文档 `docs/milestones/M1_R5_HRMS配置基线工作台月报Demo.md` 已交付。审查记录：Codex 审查 PASS，已从 REVIEWING 收口为 COMPLETED。
+
+M1-R6A 当前状态：COMPLETED。M1-R6A 已完成 Excel 导入与异常流程落地方案 / Gate 判定文档交付，主文档 `docs/milestones/M1_R6A_Excel导入与异常流程落地方案.md` 已交付。审查记录：Codex 初审 FAIL（未提交、工作区不 clean），复审 PASS（修复后 closeout 收口为 COMPLETED）。本轮未导入 Excel、未创建 App、未创建 DocType、未写代码。
+
+M1-R6B 当前状态：COMPLETED。M1-R6B 已完成脱敏打卡流水导入最小实现，主文档 `docs/milestones/M1_R6B_脱敏打卡流水导入最小实现.md` 已交付并完成 closeout。审查记录：Codex 审查 PASS，closeout 已完成。本轮先将 Owner 提供 Excel 判定为混合表，未将其作为 Employee Checkin 导入源；使用脱敏 Demo 原始打卡流水写入 5 条 Employee Checkin，并通过 HRMS 原生 Auto Attendance 生成 3 条 Attendance。本轮未提交 Excel / CSV，未创建 App，未创建自定义 DocType，未启动 R6C/R7。
+
+M1-R6C 当前状态：COMPLETED。M1-R6C 已完成异常识别与异常说明流程最小实现，主文档 `docs/milestones/M1_R6C_异常识别与异常说明流程最小实现.md` 已交付并完成 closeout。审查记录：执行审查 PASS，closeout 已完成。异常识别 7 个场景已验证通过；`late_entry`/`early_exit` 在 Shift Type 配置修复后正确置位；11 个 Custom Field 已在 HRMS 原生 Attendance Request 上扩展完成；HRMS 原生 `validate_no_attendance_to_create()` 在已有 Attendance 场景下阻止 Attendance Request 创建已记录为后续 Owner 授权点。本轮未创建 App、未创建 DocType、未修改核心源码、未提交 Excel / CSV。
+
+M1-R7 当前状态：COMPLETED。M1-R7 已完成飞书 OAuth 登录方案设计、领导汇总 Demo 指标定义与实现路径、M1 Demo 演示路径整理和 M1 收口准备项清单。审查记录：Codex 初审 FAIL（3 类 blocker），已在 `e812e32` 中修复；复审 PASS，已 closeout 为 COMPLETED。
+
+M1 总收口历史 closeout 已完成；Owner UI 验收发现功能缺口后，当前 M1 产品交付仍在 M1-FIX 中，尚未完成。
+
+M1 规划收口已完成，但产品交付仍在 M1-FIX 中，尚未完成；M1-FIX-B2 为 COMPLETED，M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过，M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题，M1-FIX-B5 为 REVIEWING，当前 **M1-FIX-F（调休模块）为 REVIEWING / 两阶段均已上线**。M1-FIX-C/D/E 未启动。**M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS**，分支 `m2-stock-r1`；M2 其余轮次未启动。
+M1-R8 当前状态：PLANNED（可选缓冲轮，不预先承诺一定执行）。
+
+## 中文化与核心源码边界
+
+中文化问题只诊断，不改 Frappe / ERPNext / HRMS 核心源码。
+
+优先使用：
+
+- 原生配置。
+- 角色权限。
+- DocType。
+- 报表。
+- 导入。
+- API。
+- 低代码定制。
+
+## 自定义 App 决策边界
+
+M1 初期不创建 `hb_attendance_app`。M1-FIX-B 已经 Owner 明确授权创建轻量 `hb_attendance_app`，仅用于导入入口、导入日志和 M1-FIX 必需扩展。
+
+优先复用 HRMS 原生考勤能力。只有 HRMS 原生能力无法覆盖新乡海滨特有规则，或用户明确批准进入自定义 App 阶段时，才考虑创建自定义 App。
+
+自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。
+
+## 飞书边界
+
+飞书真实写入必须用户明确授权。
+
+飞书真实写入包括但不限于：
+
+- 群消息发送。
+- 多维表格写入。
+- 通讯录修改。
+- 审批操作。
+- 邮件发送。
+- 云文档编辑。
+- 任务创建或修改。
+
+## 环境保护规则
+
+- 不得执行 `docker compose down -v`。
+- 不得删除 Docker volume。
+- 不得删除或重建 `frontend` site。
+- 不得重新初始化 ERPNext。
+- 不得提交 `.env`、备份文件、密钥、数据库、Docker volume 或运行时数据。
+
+## 启动顺序
+
+1. M1-R0：平台入口治理、账号体系、角色权限、飞书 SSO 可行性、中文化 / 本地化诊断。
+2. M1-R1：HRMS 原生考勤对象模型验证。
+3. M1-R2：HRMS 原生考勤配置试运行方案。
+4. M1-R3：HRMS 原生考勤最小测试数据试运行。
+5. M1-R3A：运行态阻断诊断与 TEST 数据隔离 / 清理方案。
+6. M1-R3B：运行态最小修复方案。
+7. M1-R3B-FIX：运行态最小修复执行，当前为 COMPLETED。
+8. M1-R3C：HRMS 原生考勤最小试运行复测，当前为 COMPLETED。
+9. M1-R3D：HRMS 原生考勤异常口径与配置 Gap 诊断，当前为 COMPLETED。
+10. M1-R3E：配置复核清单与业务口径确认表，当前为 COMPLETED。
+11. M1-R3F：业务口径确认包，当前为 COMPLETED。
+12. M1-REQ-DESIGN-DRAFT：M1 考勤一期需求设计草案，当前为 COMPLETED。
+13. M1-R4：M1 Demo 技术方案与实施路线拆分，当前为 COMPLETED。
+14. M1-R5：HRMS 配置基线、考勤工作台与月度汇总 Demo，当前为 COMPLETED。
+15. M1-R6A：Excel 导入与异常流程落地方案 / Gate 判定，当前为 COMPLETED。
+16. M1-R6B：脱敏打卡流水导入最小实现，当前为 COMPLETED。
+17. M1-R6C：异常识别与异常说明流程最小实现，当前为 COMPLETED。
+18. M1-R7：飞书登录、领导汇总 Demo 与 M1 收口准备，当前为 COMPLETED。
+19. M1 总收口：M1 考勤一期历史 closeout 已完成；当前产品交付仍在 M1-FIX 中。
+20. M1-R8：M1 Demo 验收修复与文档收口（可选缓冲轮），当前为 PLANNED。
+21. M1-FIX-A：功能补漏差距盘点与实施方案，当前为 REVIEWING。
+22. M1-FIX-B：Excel 导入与真实本地数据闭环，当前为 REVIEWING。
+23. M1-FIX-B-FIX：Excel 导入与中文体验修复，当前为 REVIEWING。
+24. M1-FIX-B2：导入口径、安全与准确性修复，当前为 COMPLETED。
+25. M1-FIX-B3：考勤工作台入口、App 命名与 HRMS 数据一致性修复，当前为 REVIEWING / Owner UI 验收未通过。
+26. M1-FIX-B4：考勤模块架构收敛与单一入口重整，当前为 REVIEWING / Claude PASS，Owner 数据链路验收发现后续问题。
+27. M1-FIX-B5：导入数据链路核查与报表口径收敛，当前为 REVIEWING（2026-09-02 已追加：规则看板 Tab 三类规则可视化 + 班次人员维护表导出 5-sheet；2026-09-03 再追加：月度考勤汇总 AI复核 enable_ai 临时列）。
+28. M1-FIX-C/D/E：后续补漏轮次，当前为 PLANNED。
+29. M2：飞书集成（长期轮次）。M2-STOCK-R1（库存模块隔离）为 IN_PROGRESS，分支 `m2-stock-r1`；飞书集成等其余 M2 轮次为 NOT STARTED / 待 Owner 授权。
+
+M0-REMOTE 已完成。M1-R0 已完成。M1-R1 已完成并通过 Codex 独立审查。M1-R2 已完成并通过 Codex 独立审查。M1-R3 已通过 Codex 审查并收口为 BLOCKED。M1-R3A 已通过 Codex 审查并收口为 COMPLETED。M1-R3B 已通过 Codex 审查并收口为 COMPLETED。M1-R3B-FIX 为 COMPLETED。M1-R3C 为 COMPLETED。M1-R3D 为 COMPLETED。M1-R3E 为 COMPLETED。M1-R3F 为 COMPLETED。M1-REQ-DESIGN-DRAFT 为 COMPLETED。M1-R4 为 COMPLETED，已通过 Codex 审查并收口。M1-R5 为 COMPLETED。M1-R6A 为 COMPLETED。M1-R6B 为 COMPLETED。M1-R6C 为 COMPLETED。M1-R7 当前为 COMPLETED。M1 总收口历史 closeout 已完成；当前产品交付仍在 M1-FIX 中。M1-R8 为 PLANNED（可选缓冲轮）。

@@ -1,9 +1,3 @@
-# AI Context
-
-> **2026-10-27 #62 旧站点登录兼容修复 / REVIEWING**：Owner 已授权修复旧站点在非试点且关闭自动开户时可能重新开放飞书登录的问题。修复保留该旧关闭语义，并仅在显式试点名单有效时允许关闭自动开户的受控登录；原身份、权限和 proof 合同不变。新增入口及旧回调拒绝负例，Python 3.11/3.12 各 248 项本地测试通过。当前候选尚未部署，最终 GitHub HEAD 的 CI、非作者身份安全审查和固定 HEAD/base 的独立合并授权仍须核对；#61/#62 均未合并，未批准标签或生产发布。历史首通证据见下文。
-
-> **2026-10-26 R5-B 真实首通已核验 / REVIEWING**：产品基线 `1a0d44de1399afca513855f3688eb06c1978429e`。Owner 已本人完成 Administrator 绑定并确认飞书登录；官方回调、企业和在职成员校验成功，真实飞书签发会话的同 User、工作台/IAM/库存/LIMS 读取、原生退出与旧会话重放拒绝已核验，密码登录仍有效，未复制 User/Employee 或新增角色。仅本人 Administrator 试点，自动开户关闭。视觉 Draft #61、认证 Draft #62 均暂缓合并；最终页面/管理员使用验收和专门审查门禁分别记录，不代表生产发布。见 [本轮记录](milestones/Portal_R5B_受控飞书登录候选.md)。以下各日期内容保留历史含义。
-
 ## 当前集成状态 — 2026-10-19
 
 **四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](PROJECT_STATUS.md)。
@@ -332,3 +326,216 @@ Portal 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts
 5个原失败案例的完整原件与当前索引逐一对照，均证实旧解析分隔配置删除句末标点；只有在诊断中剥离同一组标点后才覆盖100%，该诊断不作质量通过。原件SHA与保护身份均一致。新增同源完整文本索引的封闭校验：父版本、原件SHA、业务版次、文号、标题、权限空间和原Dataset保持一致，原物理索引保留，通过质量检查后由既有replace事务原子更新逻辑文档索引。不得用此路径恢复已撤回资料、改变业务事实或取得新授权。
 
 领域检查263项、独立服务检查438项通过；5个来源的本机实际解析/引用/回答验证仍须完成。当时安装0.6.14的三原失败问答实测：3/3包含原预期来源、11/11来源可重新打开；1/3形成受支持自然回答、2/3仅来源可核验，零系统请求错误。该小样本不替代原73题命中率，也不能宣布UAT5_READY_FOR_OWNER。继续UAT5_PARTIAL、PR30 Draft与本机候选，不切P1。
+> **2026-10-29 R6 部门应用权限解释与原型保真 / REVIEWING**：按《HBOS R6 部门应用权限解释与原型保真》单 Agent 任务书，在 #63 定向整改“部门按应用设置默认权限”和“员工按应用单独设置”的页面语义，并对个人中心、员工管理、部门页面、角色与权限、变更记录逐页核对 R6-A2.2 / v1.3 原型。部门页新增固定应用标题与紧凑应用选择、把 LEGACY 兼容状态从第三个灰色单选改为独立状态说明、无修改时不显示取消修改并统一禁用主按钮样式、影响摘要区分服务端可见成员/跟随者/个人安排/实际变化；员工抽屉新增按应用权限总览，考勤兼岗显示“本人考勤”与“明确负责（不含下级）”两个独立范围，未接入应用不绘制为可生效开关。前端 50 文件/466 测试、TypeScript、构建与改动文件 ESLint 通过；未改后端权限合同、未新增授予、不把知识库/LIMS/仓储/生产写成已接入。合成 18191 固定候选、多视口同尺寸对照与 Owner 两条理解回执仍待完成；未合并、未转 Ready、无标签、main 与团队发布。详见统一入口 `R6_DEPARTMENT_SEMANTICS_AND_FIDELITY_20261029.md`。以下按日期保留历史。
+
+> **2026-10-27 · 原型整改代码候选**：员工/部门/个人中心/草稿发布完整流程已重做并完成离线复核：44文件409测试、TypeScript及18个改动文件lint通过。浏览器工具在Owner启用后仍返回禁用，同状态原型复核与新构建真实UAT未通过。TEAM_PULL_READY=BLOCKED，不提交整体验收、不发布。详见本轮主记录末节。
+
+> **2026-10-27 · G3/G4 原型完整性重新实施**：Owner否决753候选的员工应用角色、部门安排、个人中心和角色发布理解体验。按固定R6-A2.2/v1.3补齐完整正式流程，旧接口/权限分项结果不代表整体验收。原生200%仅Owner确认753版本；新候选待测。本地DeepSeek按文件执行A/B/C，总实施Codex统一复核、Git及运行验收。浏览器工具当前禁用，新视觉证据待补；TEAM_PULL_READY=BLOCKED_G3_G4_FIDELITY，未生产上线。
+
+> **G4 分页边界修复（2026-10-27）**：真实浏览器在初次读取前点击分页曾发出page=0并进入400；人员/审计分页现仅接受已加载范围内的正整数页，加载及空态禁用。40文件326测试、typecheck及改动lint通过，须新组合复测。Owner已批准的两项独立后端修复在#65/#66实施，当前测试7a的HR开户/首次改密/关联14项及副作用核验PASS，未合并。TEAM_PULL_READY=PENDING。下列按日期保留历史。
+
+# AI Context
+
+> **2026-10-27 R6-B / G4_UAT_IN_PROGRESS**：#62 与 #61 已分别按 Owner 精确授权正常 Squash，实际产品基线为 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。实际提交四个 CI 作业通过。R6 从该 SHA 的 `feat/hbos-r6b-experience-v1` 实施，固定设计依据 R6-A2.2 / v1.3；G4 真实权限与浏览器验收、G5 独立审查及固定 SHA 合并、G6 统一构建/标签/团队发布尚未完成。`TEAM_PULL_READY=PENDING`，未生产上线。详见 [本轮主记录](milestones/Portal_R6B_正式管理体验与稳定集成.md)。以下按日期保留的旧状态为历史。
+
+
+> **2026-10-27 #62 旧站点登录兼容修复 / REVIEWING**：Owner 已授权修复旧站点在非试点且关闭自动开户时可能重新开放飞书登录的问题。修复保留该旧关闭语义，并仅在显式试点名单有效时允许关闭自动开户的受控登录；原身份、权限和 proof 合同不变。新增入口及旧回调拒绝负例，Python 3.11/3.12 各 248 项本地测试通过。当前候选尚未部署，最终 GitHub HEAD 的 CI、非作者身份安全审查和固定 HEAD/base 的独立合并授权仍须核对；#61/#62 均未合并，未批准标签或生产发布。历史首通证据见下文。
+
+> **2026-10-26 R5-B 真实首通已核验 / REVIEWING**：产品基线 `1a0d44de1399afca513855f3688eb06c1978429e`。Owner 已本人完成 Administrator 绑定并确认飞书登录；官方回调、企业和在职成员校验成功，真实飞书签发会话的同 User、工作台/IAM/库存/LIMS 读取、原生退出与旧会话重放拒绝已核验，密码登录仍有效，未复制 User/Employee 或新增角色。仅本人 Administrator 试点，自动开户关闭。视觉 Draft #61、认证 Draft #62 均暂缓合并；最终页面/管理员使用验收和专门审查门禁分别记录，不代表生产发布。见 [本轮记录](milestones/Portal_R5B_受控飞书登录候选.md)。以下各日期内容保留历史含义。
+
+
+## 历史集成状态 — 2026-10-19
+
+**四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](PROJECT_STATUS.md)。
+
+**合并前精确组合：PASS。** [R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 全部 10 jobs SUCCESS，五个原生域与离线／契约／构建在本次 #43 来源和产品基线的真实组合上通过；该组合树与实际 Squash 树相同。
+
+**实际产品合并后回归：PASS。** [R11 39195037712](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 全部 10 jobs SUCCESS；五个原生域均直接运行业务合并基线 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，无额外 merge，实际单父与树一致，双 migrate 与清理均成功。LIMS 原有 32 项、新增审计 9 项、独立 Todo 1 项合计 42 项原生测试全部通过；Todo 只有 1 项，归属 LIMS。
+
+接续时先读本节、[项目状态](PROJECT_STATUS.md)及远端产品 ref。[#43 Owner Approve 5566593947](https://github.com/zjl327707743/HBOS-Platform/pull/43#pullrequestreview-5566593947) 对应最终来源 `06e4639fe8efeda9d1874b0eb5d5d33706be98d2`；#39 的 Owner 裁定及旧 Review 闭环继续保留。R11 实际产品回归及 LIMS 独立 Todo 1 项补证已经通过，不再将 #43 记为 source-only；后续收口只另行记录两处 Python 3.10 测试夹具兼容修复，本收尾 PR 必须在固定候选 SHA 的 Python 3.10／3.12 检查通过后方可合并，实际结果以本 PR 最新 Owner 裁定及最终报告所列 SHA／Job 为准。IAM #52、OCR、实体样本／打印和生产 UAT 保留各自门禁。
+
+业务合并基线与文档保存后的 HEAD 分开记录。Run1–9 的历史失败、未合并及 `NOT_PRODUCT_COMPOSITION` 均按各自日期、来源和作业保留，详见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；最新业务与回归状态以本节和项目状态为准。
+
+### 历史回归 — 2026-10-18 Run8（#39 合并后）
+
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
+
+## 验证历史 — 2026-10-18 Run6
+
+[报表、扫码及附件验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810152) **74 PASS / 0 FAIL**；[事务验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810103) **6 PASS / 2 FAIL**。余两项失败为按单一 URL 误选 Batch File 的测试定位错误，LIMS 放行后两种外发 submit/cancel 仍 **NOT_REACHED**，完整仓储门禁未通过。
+
+## 验证历史 — 2026-10-18 Run5
+
+以下保留 Run5 当时的观察与判断，其中“当前”“尚未通过”“原因待定位”均指该次验证；后续状态以页首“当前集成状态”和实际 PR 记录为准。
+
+当前工作是 Owner 授权的远端业务 PR 集成：完整 #42 考勤、#46 生产已实际合并，已核对产品基线为 `feature/hbos-portal-product@4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。[#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) 尚未合并，继续技术门禁；[#56](https://github.com/zjl327707743/HBOS-Platform/pull/56) 是固定组合验证入口。#43 LIMS 独立增量后置，独立契约通过不代表产品组合通过。
+
+按 [项目状态](PROJECT_STATUS.md)、[当前里程碑](CURRENT_MILESTONE.md)、[Owner 本批次裁定](governance/HBOS_Owner_业务集成批次裁定_20261018.md) 与 [M3 门禁](milestones/M3_START_GATE.md) 接续工作，每次合并后重读远端 HEAD。#39 候选扫码仅展示原生 Warehouse 授权范围；全批次卡证读取要求全仓范围，受控收货自动制证不授予读取或手动再生权限。本轮使用云端合成环境，不操作 Mac、真实业务库或生产；#37 排除，IAM #52 独立。
+
+## 历史阶段记录
+
+下方账号、M1 与 Portal 阶段记录保留其原日期的背景和验收结果；旧“当前”“本轮”“Authority”不覆盖本页首 R3 记录。#55 已合入的物料只读范围不能代表完整 #39 完成。
+
+> 2026-10-18 代码集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
+
+历史账号验收事实（2026-10-01）：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
+
+## 账号小范围收尾 — 2026-10-01
+
+本轮接续交付基线 `eee1c5e22c57be3436244e77c65e189bd7eee242` 与 PR #21，仅做资料登录渠道、唯一个人导航、折叠偏好说明、飞书头像同步及 C03/C07/C09/F03 缺项补测；不重新全量审计、重画页面或新增账号功能。真实 Administrator 已成功飞书登录为 USER_CONFIRMED_SUCCESS，绑定、密码、MFA、Secret、企业与回调保留。本机沿用既有 P1 Site/Compose/入口，发布分支不合并、不强推、不推 main/base。 补测确认并修复参与页期限遗漏与 GET 回调未提交记录，原矩阵历史保持；最终浏览器新凭据步骤由工具要求人工接手，团队脚本与未执行状态单列。
+
+
+项目名称：新乡海滨智能运营管理平台。
+
+## 架构定案
+
+准确叫法：Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
+
+长期架构包括：
+
+- Frappe/ERPNext 开源底座
+- 海滨自定义 Frappe App
+- 外部 AI/视频/算法服务
+- Vue/React 驾驶舱
+- 飞书集成
+- Docker 部署
+
+主技术栈：Frappe Framework、ERPNext、Frappe HR、Python、JavaScript、MariaDB/MySQL 兼容体系、Redis、Docker、Docker Compose、Vue/React、ECharts、FastAPI。
+
+## 历史账号上下文 — 2026-10-01
+
+本轮账号 UI、统一账号、飞书、Knowledge/Twin 与发布收口已经通过 PR #21 完成并进入产品分支。该账号轮次历史 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 真人飞书基线和浏览器密码生命周期 3/3 均已通过，未执行的真人高风险交接/实体设备项目继续按历史记录保留。公司服务器仍 NOT_DEPLOYED。
+
+其他业务里程碑以各自已登记主文档为准，本轮不扩大考勤/库存范围。新增代码通过独立净化发布分支交付；私有运行报告、账号、知识和模型不进入新可达对象。
+
+## AI 默认读取规则
+
+默认只读以下文件：
+
+- `CLAUDE.md`
+- `AGENTS.md`
+- `docs/AI_CONTEXT.md`
+- `docs/PROJECT_STATUS.md`
+- `docs/CURRENT_MILESTONE.md`
+
+禁止默认递归读取整个 `docs/`。
+
+默认不读取：
+
+- `docs/archive`
+- `docs/research`
+- `docs/legacy`
+
+每轮任务开始前，必须说明本轮读取了哪些文档。
+
+只有任务明确涉及当前里程碑时，才读取：
+
+- `docs/plans/m0_engineering_bootstrap.md`
+
+只有架构决策变更时，才读取：
+
+- `docs/adr/`
+
+## Skill 路由
+
+本项目通过 `docs/AI技能路由规范.md` 管理不同任务类型对应的 AI skill 使用规则。
+
+当前已确认拥有 / 可用的 skill：
+
+- `superpowers`
+- `frontend-design`
+- `lark-cli`（飞书官方 CLI 工具，不是统一总 skill）
+- `lark-shared`（飞书官方共享基础 skill）
+- `lark-*` 官方领域 skills（详见 `docs/AI技能路由规范.md`）
+
+未安装 skill 只能进入候选池，不得直接调用。任何 Agent 在执行开发、审查、前端设计、集成、文档维护前，必须先根据该文件判断本轮应使用的 skill。
+
+## 提交与文档命名
+
+本项目后续 Git 提交描述优先使用中文。可以保留 `docs`、`fix`、`feat`、`chore` 等 conventional commit 前缀，但冒号后的描述应使用中文。
+
+新增文档名称优先使用中文或中英混合命名。技术专有名词可以保留英文，例如 Frappe、Docker、ERPNext、FastAPI、API、Skill。
+
+Skill 路由规范文件为：
+
+- `docs/AI技能路由规范.md`
+
+## 历史路线背景（不覆盖 R3 集成队列）
+
+后续路线只记录，不代表已启动：
+
+1. M1-R5 已通过 Codex 审查并收口为 COMPLETED，已交付 HRMS 配置基线、考勤工作台入口、月度汇总 Demo 和 Excel 月报导出路径。
+2. M1 历史 closeout 已完成，但产品交付仍在 M1-FIX 中，尚未完成。M1-FIX-B3 为 REVIEWING / Owner UI 验收未通过；M1-FIX-B4 为 REVIEWING / Claude PASS，但 Owner 数据链路验收发现后续问题；M1-FIX-B5 为 REVIEWING。库存 M2-STOCK-R1 保持 IN_PROGRESS；其余 M2 轮次不由本任务推进。
+
+## 前端实施流程规范
+
+独立前端（Vue/React 驾驶舱、AI 工作台、复杂交互页面）开发必须遵循"原型先行 + Owner 审查 + 复刻实现 + 功能接入"流程。详见：
+
+- `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`
+
+核心规则：凡涉及漂亮页面、驾驶舱、AI 工作台、复杂交互页面，必须先使用 `frontend-design` skill 产出原型/视觉方案，Owner 人工审查通过后再进入前端复刻和功能接入。Frappe Desk 后台页面不要强行重做成独立前端。
+
+## 边界提醒
+
+不直接修改 Frappe / ERPNext / HRMS 核心源码。优先使用原生配置、角色权限、DocType、报表、导入、API 和低代码定制。自定义 App 只用于海滨特有规则，不用于重写 HRMS 已有功能。`hb_attendance_app` 已在 M1-FIX-B 经 Owner 授权创建，后续不得擅自扩大为大而全 HR App。任何飞书真实写入必须由用户明确授权。
+
+任何海滨自定义 App 生成、业务模型实现、真实业务数据配置、飞书真实写入、前端驾驶舱、AI 视频服务实现，以及 Docker volume 删除、site 重建或环境重构，都属于后续轮次或后续明确授权范围。
+
+
+## HBOS Portal 并行工作流（Owner 已授权）
+
+2026-09-24，Owner 已明确授权正式启动 HBOS Workspace / Portal 产品线。
+
+该工作流与既有 Attendance / Inventory / LIMS 治理线并行；Portal 是 Experience Shell，不替代业务 App 的领域 Authority。
+
+该历史 Portal 阶段 Authority：
+
+- 分支：`feature/hbos-portal-product`
+- Draft PR：#15
+- 设计文档：`docs/experience/`
+- 前端规范：`docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`
+- Portal 前端：`frontend/hbos-portal-web/`
+- Portal Platform App：`apps/hbos_portal/`
+
+既有设计 / 实施基线（正式发布进度以 RP3 主记录为准）：
+
+```text
+EA-1～EA-4 = BASELINE
+EA-5 Owner Visual Gate = APPROVED
+EA-5.3 = BASELINE
+EA-5.4 = DESIGN ENGINEERING BASELINE
+EA-5.5 = COMPLETE / OWNER APPROVED
+
+P2 Portal Skeleton / Bootstrap / Runtime = PASS
+P3 Three-App Registry = PASS
+
+LIMS       = entry + summary + tasks + search
+Attendance = entry + HR summary
+Inventory  = entry + permission-aware summary
+```
+
+Inventory Summary 不直接消费现有 raw-SQL 库存报表。Inventory App 先使用当前 Frappe Session 的 permission-aware Warehouse 可见范围，再显式限制 Bin 查询，并只向 Portal 投影计数型指标；不同 UOM 的库存数量不跨物料求和。
+
+Attendance 普通员工个人入口、Attendance / Inventory Tasks 与 Search 仍未开放。
+
+真实 Frappe 模式禁止用 Mock 数据补齐缺失业务能力。Mock 仅用于 UI / Experience 开发。
+
+本地工作台：
+
+```bash
+bash scripts/portal/start_local_workspace.sh
+```
+
+完整本地运行态验收：
+
+```bash
+bash scripts/portal/p3_workspace_runtime_smoke.sh
+```
+
+本地 smoke 会验证七个 Site App、三 Provider、Bootstrap、Inventory Summary、三 Stable Route、Administrator Frappe Session 以及 Vite → Frappe API proxy；它不删除 volume、不重建 Site、不写三业务 App 的业务事实。
+
+当前推进 RP3 的原账号 Site 确认、部署与真实统一账号验收；其他前端研究不自动启动。必须继续遵守 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`：独立前端先做原型 / 视觉方案与 Owner Gate，再实施；Desk 后台页面不得为了“好看”被整体重写成独立前端。
+
+Portal 技术栈：Vue 3 + Ant Design Vue + Vue Router + Pinia + Axios；ECharts 按需使用。
+
+团队通用交付已通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 合入产品分支；后续团队基线为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。PR #15/main 仍需独立 Gate。
