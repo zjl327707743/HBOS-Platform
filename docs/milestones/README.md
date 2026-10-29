@@ -6,6 +6,15 @@
 
 当前阅读入口：[项目状态与四项合并来源](../PROJECT_STATUS.md)、[当前轮次](../CURRENT_MILESTONE.md)、[M2-LIMS 门禁](M2_START_GATE.md)、[M3 门禁](M3_START_GATE.md)。以下旧里程碑表和下一步路线保留当时的产品验收状态，不因本次代码合并统一改为 COMPLETED；旧编号“M2 飞书集成”也不改写为本次 LIMS。IAM #52、OCR、实体样本／打印、生产 UAT／部署及质量放行撤回不由本轮 closeout。
 
+> 知识专项（PR #30，分支 `codex/knowledge-autonomous-r1`）：以下为知识轮次自己的状态记录，保留其原日期含义；是否合入、验收与部署以 [PR #30](https://github.com/zjl327707743/HBOS-Platform/pull/30) 的实际记录为准。
+
+## 知识专项历史：HBOS Knowledge UAT4 — 2026-10-11
+
+**LOCAL_UAT / REVIEWING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 个人助手入口简化为客户端选择、一次私密安装和最近真实知识使用。状态只在本人连接实际检索并打开同一检索来源后更新；个人 Token 与无凭据使用规则分开存储。已批准的成功资料按精确子集分批发布，完整性未过关的资料保持待核；解析许可不能代替共享许可。原 15 份、UAT2 样式、四回答模型、千问 Embedding 和默认零外部 rerank 保留。
+
+本轮事实、最终统计及制品边界见 [UAT4 验收候选](M1_KB_UAT4_极简接入与真实资料发布候选.md)；Owner 私有联合锁为数量、运行源码、CI 和 wheel 的最终依据。PR #30 保持 Draft，不合并、不切 P1、不开放正式员工。公司 HTTPS 入口待部署，本机地址仅用于本机 Owner 验收。
+
+
 本目录用于记录新乡海滨智能运营管理平台的全项目里程碑索引和状态总览。
 
 ## 文件定位
