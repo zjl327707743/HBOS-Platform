@@ -1,5 +1,5 @@
 <template>
-  <AccountLayout :title="kindLabel(kind)" wide description="逐步核对身份、账号归属与生效影响。提交前原绑定继续可用。">
+  <AccountLayout variant="r5" :title="kindLabel(kind)" wide description="逐步核对身份、账号归属与生效影响。提交前原绑定继续可用。">
     <RouterLink to="/hbos/profile">返回账号与安全</RouterLink>
     <a-alert v-if="error" :message="error" type="warning" show-icon /><a-alert v-if="notice" :message="notice" type="info" show-icon />
     <a-skeleton v-if="loading" active />

@@ -1,0 +1,415 @@
+diff --git a/apps/hbos_portal/hbos_portal/api/iam_departments.py b/apps/hbos_portal/hbos_portal/api/iam_departments.py
+index fce28e8..98b7766 100644
+--- a/apps/hbos_portal/hbos_portal/api/iam_departments.py
++++ b/apps/hbos_portal/hbos_portal/api/iam_departments.py
+@@ -7,22 +7,20 @@ from hbos_portal.iam import guards, policy
+ 
+ 
+ @frappe.whitelist()
+-def list_departments(view_group="daily", **kwargs):
++def list_departments(view_group="daily", target_department=None, company=None, **kwargs):
+     def load():
+-        _only(kwargs, {"view_group"})
++        _only(kwargs, {"view_group", "target_department", "company"})
+         rows = _current_departments("iam.departments.read")
+         if not rows:
+             frappe.throw("没有可读取的部门管理范围。", frappe.PermissionError)
+-        from hbos_portal.iam.organization import filter_rows, group_filter
++        from hbos_portal.iam.organization import department_view, group_filter
+         grouped = group_filter("Department", view_group, frappe.conf)[1]
+-        rows = filter_rows(rows, "Department", view_group, conf=frappe.conf)
++        rows, company_ids, selected_company = department_view(rows, view_group, target_department, company, conf=frappe.conf)
+         rows.sort(key=lambda row: (row.lft or 0, row.name))
+-        items, companies = [], set()
++        items = []
+         for row in rows:
+             employees = _authorized_employees(_current_employees([row.name]), "iam.departments.read")
+             members = [_work_person(employee, row) for employee in employees]
+             items.append({"id": row.name, "name": row.department_name or row.name, "parent_department": row.parent_department, "company": row.company, "confirmed": not bool(row.disabled), "member_count": len(members), "members": members})
+-            if row.company:
+-                companies.add(row.company)
+-        return {"groups_available": grouped, "items": items, "companies": [{"id": name, "name": name} for name in sorted(companies)]}
++        return {"groups_available": grouped, "items": items, "companies": [{"id": name, "name": name} for name in company_ids], "selected_company": selected_company}
+     return _call(load, read_only=True)
+diff --git a/apps/hbos_portal/hbos_portal/iam/organization.py b/apps/hbos_portal/hbos_portal/iam/organization.py
+index 74e3197..a105f66 100644
+--- a/apps/hbos_portal/hbos_portal/iam/organization.py
++++ b/apps/hbos_portal/hbos_portal/iam/organization.py
+@@ -102,3 +102,38 @@ def apply_source_organization(company, nodes, source_sha256, expected_revision):
+         except Exception:
+             frappe.db.rollback(save_point='iam_source_organization')
+             raise
++
++
++def department_view(rows, group='daily', target_department=None, company=None, conf=None):
++    """Presentation only, applied after management authorization.
++
++    A deep link can add its exact authorized target and ancestors in the chosen
++    company. It cannot turn daily organization into an all-company query.
++    """
++    conf = frappe.conf if conf is None else conf
++    for value in (target_department, company):
++        if value is not None and (not isinstance(value, str) or len(value) > 140):
++            frappe.throw('部门或公司筛选不正确。', frappe.ValidationError)
++    visible = filter_rows(rows, 'Department', group, conf=conf)
++    company_ids = sorted({policy.value(row, 'company') for row in visible if policy.value(row, 'company')})
++    selected = company or (company_ids[0] if company_ids else '')
++    if company and company not in company_ids:
++        frappe.throw('该公司当前不可查看。', frappe.PermissionError)
++    visible = [row for row in visible if policy.value(row, 'company') == selected]
++    authorized = {policy.value(row, 'name'): row for row in rows}
++    target = authorized.get(target_department)
++    if target is not None and policy.value(target, 'company') == selected:
++        visible.append(target)
++    # Include only authorized ancestors; never fetch outside the caller's scope.
++    included = {policy.value(row, 'name'): row for row in visible}
++    for row in list(visible):
++        parent = policy.value(row, 'parent_department')
++        seen = set()
++        while parent and parent not in seen:
++            seen.add(parent)
++            ancestor = authorized.get(parent)
++            if ancestor is None or policy.value(ancestor, 'company') != selected:
++                break
++            included[parent] = ancestor
++            parent = policy.value(ancestor, 'parent_department')
++    return list(included.values()), company_ids, selected
+diff --git a/apps/hbos_portal/tests/test_iam_organization.py b/apps/hbos_portal/tests/test_iam_organization.py
+index 7a8fd94..3d865c7 100644
+--- a/apps/hbos_portal/tests/test_iam_organization.py
++++ b/apps/hbos_portal/tests/test_iam_organization.py
+@@ -30,3 +30,18 @@ class OrganizationContractTest(unittest.TestCase):
+             for user,request in [('ordinary',None),('Administrator',object())]:
+                 self.fake.session.user=user;self.fake.local.request=request
+                 with self.assertRaises(PermissionDenied):organization._root()
++
++    def test_deep_link_adds_only_exact_authorized_target_and_ancestors_in_selected_company(self):
++        rows=[Attr(name='root-a',company='A',parent_department=''),Attr(name='daily',company='A',parent_department='root-a'),Attr(name='tech',company='A',parent_department='root-a'),Attr(name='sibling',company='A',parent_department='root-a'),Attr(name='other',company='B',parent_department='')]
++        conf=Attr(hbos_iam_test_site=1,hbos_iam_technical_department_ids=['tech','sibling','other'])
++        visible,companies,selected=organization.department_view(rows,target_department='tech',conf=conf)
++        self.assertEqual({r.name for r in visible},{'root-a','daily','tech'})
++        self.assertEqual(companies,['A']);self.assertEqual(selected,'A')
++        for target in ['unknown','other']:
++            visible,_,_=organization.department_view(rows,target_department=target,conf=conf)
++            self.assertEqual({r.name for r in visible},{'root-a','daily'})
++        with self.assertRaises(PermissionDenied):organization.department_view(rows,company='B',conf=conf)
++    def test_same_label_never_merges_companies_or_reveals_unauthorized_ancestors(self):
++        rows=[Attr(name='a',company='A',parent_department='secret'),Attr(name='b',company='B',parent_department='secret')]
++        visible,companies,selected=organization.department_view(rows,company='B',conf=Attr())
++        self.assertEqual([r.name for r in visible],['b']);self.assertEqual(companies,['A','B'])
+diff --git a/frontend/hbos-portal-web/src/components/iam/AppAccessAction.vue b/frontend/hbos-portal-web/src/components/iam/AppAccessAction.vue
+new file mode 100644
+index 0000000..9253425
+--- /dev/null
++++ b/frontend/hbos-portal-web/src/components/iam/AppAccessAction.vue
+@@ -0,0 +1,35 @@
++<script setup lang="ts">
++import { ref, watch } from 'vue'
++import { message } from 'ant-design-vue'
++import { previewWork, workAction, type WorkDraft } from '@/services/iamWork'
++import { iamMessage } from '@/services/iamAccess'
++import type { WorkApp, WorkPreview, WorkTarget } from '@/types/iam'
++const props=defineProps<{app:WorkApp;target:WorkTarget}>()
++const emit=defineEmits<{saved:[]}>()
++const busy=ref(false),open=ref(false),error=ref(''),preview=ref<WorkPreview|null>(null),draft=ref<WorkDraft|null>(null),reenable=ref(false)
++let generation=0
++watch(()=>[props.target.subject_name,props.app.app_id],()=>{generation++;open.value=false;preview.value=null;draft.value=null;busy.value=false;error.value=''})
++async function prepare(){
++ if(busy.value)return
++ const run=++generation
++ busy.value=true;error.value='';preview.value=null;open.value=true;reenable.value=Boolean(props.app.suspended)
++ draft.value={target:{...props.target},changes:[],expected_version:props.app.version,context_revision:props.app.context_revision}
++ try{const result=await previewWork(draft.value,reenable.value?'reenable':'suspend');if(run===generation)preview.value=result}catch(e){if(run===generation)error.value=iamMessage(e)}finally{if(run===generation)busy.value=false}
++}
++async function commit(){
++ if(busy.value||!preview.value||!draft.value)return
++ const run=generation,confirmed=preview.value,input=draft.value
++ busy.value=true;error.value=''
++ try{await workAction(reenable.value?'reenable_app':'suspend_app',input.target,confirmed.version,confirmed.context_revision,crypto.randomUUID());if(run!==generation)return;open.value=false;message.success('应用访问状态已更新。');emit('saved')}catch(e){if(run===generation){error.value=iamMessage(e);preview.value=null}}finally{if(run===generation)busy.value=false}
++}
++function cancel(){if(!busy.value){generation++;open.value=false;preview.value=null;draft.value=null}}
++</script>
++<template>
++ <a-dropdown :trigger="['click']"><a-button :disabled="busy" :aria-label="`${app.title}的更多操作`">更多</a-button><template #overlay><a-menu><a-menu-item key="access" @click="prepare">{{app.suspended?'解除临时禁用':`临时禁用${app.app_id==='attendance'?'考勤':app.title}`}}</a-menu-item></a-menu></template></a-dropdown>
++ <a-modal :open="open" :title="reenable?'解除临时禁用':`临时禁用${app.app_id==='attendance'?'考勤':app.title}`" :confirm-loading="busy" :ok-button-props="{disabled:!preview || Boolean(error)}" :cancel-button-props="{disabled:busy}" :closable="!busy" :mask-closable="false" :ok-text="reenable?'确认解除临时禁用':'确认临时禁用'" cancel-text="取消" @ok="commit" @cancel="cancel">
++  <p>{{reenable?'解除后重新核对账号状态、当前权限、其他限制和期限；不会返还已过期权限。':'仅停止该员工访问这个应用，保留现有权限和历史数据。'}}不会停止考勤机采集，也不会停用整个账号。</p>
++  <a-alert v-if="error" :message="error" type="warning" show-icon/>
++  <p v-else-if="!preview" role="status">正在核对实际结果…</p>
++  <section v-if="preview" aria-live="polite"><h3>确认后的实际结果</h3><p>{{preview.after.suspended?'已临时禁用':preview.after.summary}}</p><p v-for="row in preview.after.operations.filter(item=>!item.important)" :key="row.operation_id">{{row.label}}：{{row.enabled?'按当前有效范围访问':row.reason || '当前不可用'}}</p><p>原权限来源保持，其他应用不受影响。</p></section>
++ </a-modal>
++</template>
+diff --git a/frontend/hbos-portal-web/src/components/iam/AppUsageList.vue b/frontend/hbos-portal-web/src/components/iam/AppUsageList.vue
+index 0df9cb3..0604575 100644
+--- a/frontend/hbos-portal-web/src/components/iam/AppUsageList.vue
++++ b/frontend/hbos-portal-web/src/components/iam/AppUsageList.vue
+@@ -1,14 +1,16 @@
+ <script setup lang="ts">
+ import { ref, watch } from 'vue'
+ import { getWorkSummary } from '@/services/iamWork'
+-import { iamMessage } from '@/services/iamAccess'
+-import type { WorkApp } from '@/types/iam'
++import { canIam, iamMessage } from '@/services/iamAccess'
++import AppAccessAction from './AppAccessAction.vue'
++import type { WorkApp, WorkTarget } from '@/types/iam'
+ const props = withDefaults(defineProps<{ employeeId: string; canEdit?: boolean; configurationAppId?:string }>(), { canEdit: true })
+ const emit = defineEmits<{ modify: [appId: string] }>()
++const target=ref<Pick<WorkTarget,'subject_type'|'subject_name'>|null>(null)
+ const apps = ref<WorkApp[]>([]), loading = ref(true), error = ref('')
+ let run = 0
+-async function load() { const current = ++run; loading.value = true; error.value = ''; try { const data = await getWorkSummary(props.employeeId,props.configurationAppId); if (run === current) apps.value = data.apps } catch (e) { if (run === current) { apps.value = []; error.value = iamMessage(e) } } finally { if (run === current) loading.value = false } }
++async function load() { const current = ++run; loading.value = true; error.value = ''; try { const data = await getWorkSummary(props.employeeId,props.configurationAppId); if (run === current) { apps.value = data.apps; target.value={subject_type:data.subject_type,subject_name:data.subject_name} } } catch (e) { if (run === current) { apps.value = []; error.value = iamMessage(e) } } finally { if (run === current) loading.value = false } }
+ watch(() => props.employeeId, load, { immediate: true }); defineExpose({ reload: load })
+ </script>
+-<template><div class="app-usage"><a-skeleton v-if="loading" active /><a-alert v-else-if="error" :message="error" type="warning" /><a-empty v-else-if="!apps.length" description="暂无已注册应用" /><article v-for="app in apps" :key="app.app_id" class="usage-row"><div><h3>{{ app.title }} <a-tag>{{ app.integrated ? app.status : '尚未接入此管理功能' }}</a-tag></h3><p>{{ app.integrated ? app.summary : '原有业务入口保持现有授权，暂不能在此调整。' }}</p><small v-if="app.synthetic">隔离合成规则验证，非库存业务接入</small><small v-if="app.source_text">{{ app.source_text }}</small></div><a-button v-if="canEdit && app.integrated" @click="emit('modify', app.app_id)">设置权限</a-button></article><a-button v-if="error" @click="load">重试读取</a-button></div></template>
+-<style scoped>.app-usage{display:grid;gap:var(--hbos-space-4);font-size:16px}.usage-row{display:flex;align-items:center;justify-content:space-between;gap:var(--hbos-space-4);padding:var(--hbos-space-4);border:1px solid var(--hbos-border-subtle,#dde5e8);border-radius:var(--hbos-radius-md)}.usage-row>div{min-width:0}.usage-row h3{font-size:16px;margin:0 0 8px;overflow-wrap:anywhere}.usage-row p{margin:0;line-height:1.6}.usage-row small{font-size:14px;color:var(--hbos-text-secondary)}@media(max-width:600px){.usage-row{align-items:flex-start;flex-direction:column}}</style>
++<template><div class="app-usage"><a-skeleton v-if="loading" active /><a-alert v-else-if="error" :message="error" type="warning" /><a-empty v-else-if="!apps.length" description="暂无已注册应用" /><article v-for="app in apps" :key="app.app_id" class="usage-row"><div><h3>{{ app.title }} <a-tag>{{ app.integrated ? app.status : '尚未接入此管理功能' }}</a-tag></h3><p>{{ app.integrated ? app.summary : '原有业务入口保持现有授权，暂不能在此调整。' }}</p><small v-if="app.synthetic">隔离合成规则验证，非库存业务接入</small><small v-if="app.source_text">{{ app.source_text }}</small></div><div v-if="canEdit && app.integrated" class="usage-actions"><a-button @click="emit('modify', app.app_id)">设置权限</a-button><AppAccessAction v-if="target?.subject_type==='User' && canIam('iam.access.manage')" :app="app" :target="{...target,app_id:app.app_id}" @saved="load"/></div></article><a-button v-if="error" @click="load">重试读取</a-button></div></template>
++<style scoped>.app-usage{display:grid;gap:var(--hbos-space-4);font-size:16px}.usage-row{display:flex;align-items:center;justify-content:space-between;gap:var(--hbos-space-4);padding:var(--hbos-space-4);border:1px solid var(--hbos-border-subtle,#dde5e8);border-radius:var(--hbos-radius-md)}.usage-actions{display:flex;gap:8px;flex-wrap:wrap}.usage-row>div{min-width:0}.usage-row h3{font-size:16px;margin:0 0 8px;overflow-wrap:anywhere}.usage-row p{margin:0;line-height:1.6}.usage-row small{font-size:14px;color:var(--hbos-text-secondary)}@media(max-width:600px){.usage-row{align-items:flex-start;flex-direction:column}}</style>
+diff --git a/frontend/hbos-portal-web/src/components/iam/WorkSettings.vue b/frontend/hbos-portal-web/src/components/iam/WorkSettings.vue
+index 232f92c..9c72107 100644
+--- a/frontend/hbos-portal-web/src/components/iam/WorkSettings.vue
++++ b/frontend/hbos-portal-web/src/components/iam/WorkSettings.vue
+@@ -12,20 +12,20 @@ const props = defineProps<{ subjectKind: 'employee' | 'department'; subjectId: s
+ const viewInstance = import.meta.env.DEV ? getCurrentInstance()?.uid : undefined
+ const emit = defineEmits<{ back: []; saved: [] }>()
+ const app = ref<WorkApp | null>(null), target = ref<WorkTarget | null>(null), loading = ref(true), busy = ref(false), error = ref(''), editing = ref(false), canConfigure = ref(false)
+-const identity = ref(''), accessState = ref<'normal'|'paused'>('normal'), permissionMode = ref<'department'|'personal'>('department')
++const identity = ref(''), permissionMode = ref<'department'|'personal'>('department')
+ const original = ref<WorkChange[]>([]), draft = ref<WorkChange[]>([]), preview = ref<WorkPreview | null>(null)
+ const explicitlyEdited = ref<Set<string>>(new Set())
+ let generation = 0
+-const changes = computed(() => changedWork(original.value, draft.value)), dirty = computed(() => editing.value && (changes.value.length > 0 || explicitlyEdited.value.size > 0 || accessState.value !== (app.value?.suspended ? 'paused' : 'normal') || permissionMode.value !== app.value?.permission_mode))
++const changes = computed(() => changedWork(original.value, draft.value)), dirty = computed(() => editing.value && (changes.value.length > 0 || explicitlyEdited.value.size > 0 || permissionMode.value !== app.value?.permission_mode))
+ const ordinary = computed(() => app.value?.operations.filter(row => !row.important && row.available !== false) || []), important = computed(() => app.value?.operations.filter(row => row.important) || [])
+-const effectiveStatus = computed(() => app.value?.suspended ? '已暂停' : ordinary.value.some(row=>row.enabled) ? `${props.subjectKind==='department'?'已默认开通：成员':'已开通：'}${ordinary.value.flatMap(row=>row.scopes).every(scope=>scope.scope_type==='SELF') ? '仅本人' : app.value?.summary}` : `未开通：${ordinary.value.find(row=>row.reason)?.reason || '当前没有有效功能授权'}`)
++const effectiveStatus = computed(() => app.value?.suspended ? '已临时禁用' : ordinary.value.some(row=>row.enabled) ? `${props.subjectKind==='department'?'已默认开通：成员':'已开通：'}${ordinary.value.flatMap(row=>row.scopes).every(scope=>scope.scope_type==='SELF') ? '仅本人' : app.value?.summary}` : `未开通：${ordinary.value.find(row=>row.reason)?.reason || '当前没有有效功能授权'}`)
+ const canManageApp = computed(() => canConfigure.value && canIam(props.subjectKind === 'department' ? 'iam.departments.manage' : 'iam.access.manage') && app.value?.integrated)
+ const canEditWork = computed(() => canManageApp.value && ordinary.value.some(row => row.editable))
+ const scopeKey = (scope: WorkScope) => JSON.stringify([scope.scope_type, scope.scope_ref])
+-function setDraft() { explicitlyEdited.value = new Set(); accessState.value = app.value?.suspended ? 'paused' : 'normal'; permissionMode.value = app.value?.permission_mode || (props.subjectKind === 'department' ? 'personal' : 'department'); original.value = (app.value?.operations.filter(row => row.editable && !row.important) || []).map(row => ({ operation_id: row.operation_id, enabled: row.enabled, scopes: row.scopes.map(({scope_type,scope_ref}) => ({scope_type,scope_ref})) })); draft.value = JSON.parse(JSON.stringify(original.value)); preview.value = null }
+-async function load(preserve = false) { const run = ++generation; loading.value = true; error.value = ''; try { let subjectName = props.subjectId; if (props.subjectKind === 'employee') { const person = canIam('iam.people.read') ? await getPerson(props.subjectId) : await getWorkSubject(props.subjectId,props.appId); identity.value = `${person.employee.name || '所选员工'} · 工号 ${person.employee.employee_number || '待核对'}`; subjectName = person.employee.user_id || ''; canConfigure.value = Boolean(subjectName) && person.employee.account_status === 'active'; if (!subjectName) throw new Error('尚未开通员工账号，请先完成开户或关联。部门默认安排可在应用清单查看。') } else { const departments = await listDepartments('all'); canConfigure.value = departments.items.some(row => row.id === props.subjectId && row.confirmed === true) }; const next = { subject_type: props.subjectKind === 'employee' ? 'User' as const : 'Department' as const, subject_name: subjectName, app_id: props.appId }; const saved = await getEffectiveWork(next); if (run !== generation) return; target.value = next; app.value = saved; if (!preserve) { setDraft(); editing.value = false } else original.value = saved.operations.filter(row => row.editable && !row.important).map(row => ({ operation_id: row.operation_id, enabled: row.enabled, scopes: row.scopes.map(({scope_type,scope_ref}) => ({scope_type,scope_ref})) })); preview.value = null } catch (e) { if (run === generation) error.value = iamMessage(e) } finally { if (run === generation) loading.value = false } }
++function setDraft() { explicitlyEdited.value = new Set(); permissionMode.value = app.value?.permission_mode || (props.subjectKind === 'department' ? 'personal' : 'department'); original.value = (app.value?.operations.filter(row => row.editable && !row.important) || []).map(row => ({ operation_id: row.operation_id, enabled: row.enabled, scopes: row.scopes.map(({scope_type,scope_ref}) => ({scope_type,scope_ref})) })); draft.value = JSON.parse(JSON.stringify(original.value)); preview.value = null }
++async function load(preserve = false) { const run = ++generation; loading.value = true; error.value = ''; try { let subjectName = props.subjectId; if (props.subjectKind === 'employee') { const person = canIam('iam.people.read') ? await getPerson(props.subjectId) : await getWorkSubject(props.subjectId,props.appId); identity.value = `${person.employee.name || '所选员工'} · 工号 ${person.employee.employee_number || '待核对'}`; subjectName = person.employee.user_id || ''; canConfigure.value = Boolean(subjectName) && person.employee.account_status === 'active'; if (!subjectName) throw new Error('尚未开通员工账号，请先完成开户或关联。部门默认安排可在应用清单查看。') } else { const departments = await listDepartments('daily', props.subjectId); canConfigure.value = departments.items.some(row => row.id === props.subjectId && row.confirmed === true) }; const next = { subject_type: props.subjectKind === 'employee' ? 'User' as const : 'Department' as const, subject_name: subjectName, app_id: props.appId }; const saved = await getEffectiveWork(next); if (run !== generation) return; target.value = next; app.value = saved; if (!preserve) { setDraft(); editing.value = false } else original.value = saved.operations.filter(row => row.editable && !row.important).map(row => ({ operation_id: row.operation_id, enabled: row.enabled, scopes: row.scopes.map(({scope_type,scope_ref}) => ({scope_type,scope_ref})) })); preview.value = null } catch (e) { if (run === generation) error.value = iamMessage(e) } finally { if (run === generation) loading.value = false } }
+ function workDraft(): WorkDraft { if (!app.value || !target.value) throw new Error('请先读取已保存设置。'); return { target: target.value, changes: changes.value, expected_version: app.value.version, context_revision: app.value.context_revision } }
+-function settings(): AppSettings { return {access_state:accessState.value, permission_mode:permissionMode.value, changes:permissionMode.value === 'department' ? [] : (app.value?.permission_mode === 'department' ? draft.value : draft.value.filter(row => explicitlyEdited.value.has(row.operation_id) || changes.value.some(change=>change.operation_id===row.operation_id)))} }
++function settings(): AppSettings { return {access_state:app.value?.suspended ? 'paused' : 'normal', permission_mode:permissionMode.value, changes:permissionMode.value === 'department' ? [] : (app.value?.permission_mode === 'department' ? draft.value : draft.value.filter(row => explicitlyEdited.value.has(row.operation_id) || changes.value.some(change=>change.operation_id===row.operation_id)))} }
+ async function prepare() {
+   if (busy.value || !canManageApp.value || !dirty.value) return
+   error.value = ''; if (settings().changes.some(row => row.enabled && !row.scopes.length)) { error.value = '请为每项功能选择可查看的数据。'; return }
+@@ -57,7 +57,6 @@ watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { imm
+     <AttendanceAccessSummary v-if="app.app_id === 'attendance' && subjectKind === 'employee'" :app="app" />
+     <a-alert v-if="!app.integrated || !canConfigure" :message="!app.integrated ? '尚未接入此管理功能。' : '员工账号尚未确认，当前只读。'" type="info" />
+     <a-button v-if="!editing && canManageApp" type="primary" @click="setDraft(); editing = true">设置权限</a-button>
+-    <a-button v-if="!editing && canManageApp && app.suspended" @click="setDraft(); accessState = 'normal'; editing = true">恢复访问</a-button>
+     <a-form v-if="editing" layout="vertical" @submit.prevent="prepare">
+       <fieldset :disabled="busy || Boolean(preview)">
+         <a-form-item v-if="subjectKind === 'employee'" label="权限来源"><a-radio-group v-model:value="permissionMode"><a-radio value="department">使用部门默认权限</a-radio><a-radio value="personal">为此员工单独设置</a-radio></a-radio-group></a-form-item>
+@@ -65,12 +64,11 @@ watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { imm
+         <template v-else>
+           <section v-for="row in draft" :key="row.operation_id" class="work-row"><a-checkbox v-model:checked="row.enabled" @change="toggleWork(row)">{{ ordinary.find(item => item.operation_id === row.operation_id)?.label }}</a-checkbox><template v-if="row.enabled && !fixedSelfScope(ordinary.find(item=>item.operation_id===row.operation_id))"><label>可查看的数据</label><a-checkbox-group :value="row.scopes.map(scopeKey)" @change="(values: unknown[]) => changeScopes(row, values)"><a-checkbox v-for="scope in ordinary.find(item => item.operation_id === row.operation_id)?.objects || []" :key="scopeKey(scope)" :value="scopeKey(scope)">{{ scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref) }}</a-checkbox></a-checkbox-group></template></section>
+         </template>
+-        <details v-if="subjectKind==='employee'"><summary>暂停此应用</summary><a-form-item label="应用总限制"><a-radio-group v-model:value="accessState"><a-radio value="normal">解除暂停，按有效权限访问</a-radio><a-radio value="paused">暂停此员工使用{{ app.title }}</a-radio></a-radio-group><p class="aux">暂停保留原权限。解除暂停仍受其他禁止和期限限制。</p></a-form-item></details>
+       </fieldset>
+       <div class="work-footer"><a-button :disabled="busy" @click="editing = false; setDraft()">取消修改</a-button><a-button type="primary" :disabled="!dirty || Boolean(preview)" :loading="busy" html-type="submit">核对变更</a-button></div>
+     </a-form>
+     <details v-if="important.length"><summary>重要权限（仅查看）</summary><p class="aux">重要权限不会随普通部门权限获得，也不能在此授予。</p><article v-for="row in important" :key="row.operation_id" class="work-row"><strong>{{ row.label }}</strong><span>{{ row.reason || (row.enabled ? '请通过专门流程核验资格与用途' : '未授予') }}</span><small>{{ row.source_text }}</small></article></details>
+-    <section v-if="preview" class="preview" aria-live="polite"><h3>保存后的实际结果</h3><p>{{ preview.summary }}</p><p>访问状态：{{ preview.after.suspended ? '已暂停' : '正常' }}；权限来源：{{ subjectKind === 'department' ? '本部门默认权限' : preview.after.permission_mode === 'personal' ? '为此员工单独设置' : '来自所属部门' }}</p><p v-for="row in preview.after.operations.filter(item => !item.important)" :key="row.operation_id">{{ row.label }}：{{ row.enabled ? row.scopes.map(scope => scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref)).join('、') : row.reason || '当前不可用' }}</p>
++    <section v-if="preview" class="preview" aria-live="polite"><h3>保存后的实际结果</h3><p>{{ preview.summary }}</p><p>访问状态：{{ preview.after.suspended ? '已临时禁用' : '正常' }}；权限来源：{{ subjectKind === 'department' ? '本部门默认权限' : preview.after.permission_mode === 'personal' ? '为此员工单独设置' : '来自所属部门' }}</p><p v-for="row in preview.after.operations.filter(item => !item.important)" :key="row.operation_id">{{ row.label }}：{{ row.enabled ? row.scopes.map(scope => scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref)).join('、') : row.reason || '当前不可用' }}</p>
+       <template v-if="subjectKind === 'department' && preview.impact"><p>跟随变化 {{ preview.impact.changed }} 人；个人权限保留 {{ preview.impact.personal_preserved }} 人；不可用 {{ preview.impact.unavailable }} 人。</p><details><summary>查看全部受影响员工</summary><p v-for="(row,index) in preview.impact.employees" :key="index">{{ row.name }}：{{ impactResult(row) }}{{ row.personal_preserved ? '（保留个人权限）' : '' }}</p></details></template>
+       <p class="aux">保存时再次核对管理范围、来源、期限和资格；本次变更一次保存。</p><a-button :disabled="busy" @click="preview = null">返回核对</a-button><a-button type="primary" :loading="busy" @click="commit">确认保存</a-button>
+     </section>
+@@ -78,5 +76,5 @@ watch(() => [props.subjectKind,props.subjectId,props.appId], () => load(), { imm
+ </section>
+ </template>
+ <style scoped>
+-.work-settings{display:grid;gap:16px;min-width:0;width:100%;font-size:16px}.work-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.work-head h2{font-size:20px;margin:0}.target-identity{margin:0;font-weight:600}.current-result{display:grid;gap:12px}.current-result h3,.current-result p{margin:0}.work-row{display:grid;gap:8px;padding:16px;border:1px solid var(--hbos-border-subtle,#dce5e0);border-radius:12px}.work-row small,.aux{font-size:14px;color:var(--hbos-text-secondary);line-height:1.6}.work-footer{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:12px;background:var(--hbos-surface-solid,#fff);padding:16px 0}.preview{padding:20px;border:1px solid #8eaf9c;border-radius:12px;background:#f2f8f4}.preview .ant-btn+.ant-btn{margin-left:12px}summary{cursor:pointer;font-size:14px;font-weight:600}fieldset{border:0;padding:0;margin:0;min-width:0}.ant-radio-group{display:flex;gap:12px;flex-wrap:wrap}
++.work-settings{display:grid;gap:16px;min-width:0;width:100%;font-size:16px}.work-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.work-head h2{font-size:20px;margin:0}.target-identity{margin:0;font-weight:600}.current-result{display:grid;gap:12px}.current-result h3,.current-result p{margin:0}.work-row{display:grid;gap:8px;padding:16px;border:1px solid var(--hbos-border-subtle,#dce5e0);border-radius:12px}.work-row small,.aux{font-size:14px;color:var(--hbos-text-secondary);line-height:1.6}.work-footer{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:12px;background:var(--hbos-surface-solid,#fff);padding:16px 0}.preview{padding:20px;border:1px solid var(--hbos-border-strong);border-radius:12px;background:var(--hbos-bg-surface)}.preview .ant-btn+.ant-btn{margin-left:12px}summary{cursor:pointer;font-size:14px;font-weight:600}fieldset{border:0;padding:0;margin:0;min-width:0}.ant-radio-group{display:flex;gap:12px;flex-wrap:wrap}
+ </style>
+diff --git a/frontend/hbos-portal-web/src/services/iamDepartments.ts b/frontend/hbos-portal-web/src/services/iamDepartments.ts
+index 9591ab5..e1cdaa1 100644
+--- a/frontend/hbos-portal-web/src/services/iamDepartments.ts
++++ b/frontend/hbos-portal-web/src/services/iamDepartments.ts
+@@ -1,7 +1,7 @@
+ import { iamQuery, IamError } from './iamAccess'
+ import type { DepartmentSummary } from '@/types/iam'
+-export async function listDepartments(view_group='daily') {
+-  const data = await iamQuery<{groups_available?:boolean;items: DepartmentSummary[]; companies: Array<{id: string; name: string}>}>('hbos_portal.api.iam_departments.list_departments', {view_group})
++export async function listDepartments(view_group='daily', target_department?:string, company?:string) {
++  const data = await iamQuery<{groups_available?:boolean;selected_company?:string;items: DepartmentSummary[]; companies: Array<{id: string; name: string}>}>('hbos_portal.api.iam_departments.list_departments', {view_group,...(target_department ? {target_department} : {}),...(company ? {company} : {})})
+   if (!Array.isArray(data.items)) throw new IamError('部门列表格式无法确认。')
+   return data
+ }
+diff --git a/frontend/hbos-portal-web/src/services/iamWork.ts b/frontend/hbos-portal-web/src/services/iamWork.ts
+index 4ef841a..aac528e 100644
+--- a/frontend/hbos-portal-web/src/services/iamWork.ts
++++ b/frontend/hbos-portal-web/src/services/iamWork.ts
+@@ -9,7 +9,7 @@ export async function listAppPeople(app_id: string, query: {search?:string;depar
+ export async function getWorkSubject(employee_id: string, app_id: string) { const data=await iamQuery<{employee:EmployeeSummary;account:{status:string;user_id:string};association:{status:string};configuration_only:true}>(prefix + 'get_work_subject', {employee_id,app_id});if(data.configuration_only!==true||data.employee?.id!==employee_id)throw new IamError('配置目标与当前选择不符，请重新读取。');return data }
+ export function projectWork(raw: EffectiveWork, meta: RegisteredApp): WorkApp {
+   if (!raw || raw.app_id !== meta.id || !Array.isArray(raw.operations) || typeof raw.version !== 'number' || typeof raw.context_revision !== 'string' || raw.operations.some(row=>typeof row.allowed!=='boolean'||typeof row.available!=='boolean'||!Array.isArray(row.scopes))) throw new IamError('应用安排格式无法确认，请重新读取。')
+-  return { app_id: meta.id, title: meta.title, integrated: meta.integrated, synthetic: meta.synthetic, status: raw.suspended ? '已暂停' : raw.operations.some(row => row.available && row.allowed) ? '可以使用' : '暂不可用', summary: raw.summary, source_text: '', suspended: raw.suspended, permission_mode: raw.permission_mode, department_default: raw.department_default, version: raw.version, context_revision: raw.context_revision,
++  return { app_id: meta.id, title: meta.title, integrated: meta.integrated, synthetic: meta.synthetic, status: raw.suspended ? '已临时禁用' : raw.operations.some(row => row.available && row.allowed) ? '可以使用' : '暂不可用', summary: raw.summary, source_text: '', suspended: raw.suspended, permission_mode: raw.permission_mode, department_default: raw.department_default, version: raw.version, context_revision: raw.context_revision,
+     objects: meta.operations.flatMap(row => row.objects),
+     operations: raw.operations.map(row => { const definition = meta.operations.find(item => item.id === row.operation_id); return { operation_id: row.operation_id, label: row.label, available: meta.integrated && row.available, enabled: row.allowed, scopes: row.scopes.map(scope => ({ ...scope, label: definition?.objects.find(obj => obj.scope_type === scope.scope_type && obj.scope_ref === scope.scope_ref)?.label })), source_text: row.source.replace(/部门安排/g,'来自所属部门').replace(/个人设置/g,'为此员工单独设置'), objects: definition?.objects || [], editable: meta.integrated && row.available && row.editable !== false && definition?.ordinary === true, important: definition?.ordinary === false, reason: !meta.integrated ? '尚未接入此管理功能' : !row.available ? '暂未开放' : row.editable === false && definition?.ordinary ? '存量特别安排仅供查看，请专门核对' : row.reason } }) }
+ }
+diff --git a/frontend/hbos-portal-web/src/views/admin/AdminWorkspaceView.vue b/frontend/hbos-portal-web/src/views/admin/AdminWorkspaceView.vue
+index 764243d..0d870ec 100644
+--- a/frontend/hbos-portal-web/src/views/admin/AdminWorkspaceView.vue
++++ b/frontend/hbos-portal-web/src/views/admin/AdminWorkspaceView.vue
+@@ -6,4 +6,4 @@ const links = computed(() => [{path:'/hbos/admin/people',label:'员工管理',ca
+ const route=useRoute()
+ </script>
+ <template><section class="iam-workspace"><div class="iam-title"><span>组织与应用权限</span><p>按当前账号获准的管理范围处理，每项操作由服务端核验。</p></div><nav aria-label="管理中心"><RouterLink v-for="link in links" :key="link.path" :to="link.path">{{ link.label }}</RouterLink></nav><a-alert v-if="!iamSession.ready && !route?.path.endsWith('/unavailable')" :message="iamSession.error || '正在确认当前账号的管理能力，暂不显示管理内容。'" :type="iamSession.error?'warning':'info'" /><RouterView v-if="iamSession.ready || route?.path.endsWith('/unavailable')" /></section></template>
+-<style scoped>.iam-workspace{min-width:0;font-size:16px;line-height:1.6}.iam-title>span{font-size:14px;font-weight:600;color:#426b55}.iam-title p{font-size:14px;color:var(--hbos-text-secondary);margin:4px 0 16px}.iam-workspace nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;padding:8px;background:#eef5ef;border-radius:12px}.iam-workspace nav a{padding:9px 18px;border-radius:8px;color:var(--hbos-text-primary)}.iam-workspace nav a.router-link-active{background:#fff;box-shadow:0 2px 8px #23452a10;color:#285a3b;font-weight:600}.iam-workspace :deep(.iam-panel){background:var(--hbos-surface-solid,#fff);border:1px solid var(--hbos-border-subtle,#dce5e0);border-radius:16px;padding:24px;min-width:0}.iam-workspace :deep(.iam-heading){display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}.iam-workspace :deep(h1){font-size:26px;line-height:1.4;margin:0 0 8px}.iam-workspace :deep(.iam-heading p){margin:0;color:var(--hbos-text-secondary)}.iam-workspace :deep(.iam-toolbar){display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}.iam-workspace :deep(.iam-search){flex:1;min-width:180px}.iam-workspace :deep(.iam-name){border:0;background:none;padding:0;color:var(--hbos-text-primary);font:inherit;text-align:left;cursor:pointer;max-width:100%;overflow-wrap:anywhere}.iam-workspace :deep(.iam-name strong){display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.iam-workspace :deep(.iam-code){display:block;font-size:14px;color:var(--hbos-text-secondary);white-space:nowrap}.iam-workspace :deep(.ant-table-cell){font-size:16px;vertical-align:top;overflow-wrap:anywhere}.iam-workspace :deep(.ant-table-thead .ant-table-cell){font-size:14px}.iam-workspace :deep(.aux){font-size:14px;color:var(--hbos-text-secondary)}@media(max-width:700px){.iam-workspace :deep(.iam-panel){padding:16px}.iam-workspace :deep(.iam-heading){flex-direction:column}}</style>
++<style scoped>.iam-workspace{min-width:0;font-size:16px;line-height:1.6}.iam-title>span{font-size:16px;font-weight:600;color:var(--hbos-text-secondary)}.iam-title p{font-size:14px;color:var(--hbos-text-secondary);margin:4px 0 16px}.iam-workspace nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;padding:8px;background:var(--hbos-bg-surface);border-radius:12px}.iam-workspace nav a{padding:9px 18px;border-radius:8px;color:var(--hbos-text-primary)}.iam-workspace nav a.router-link-active{background:var(--hbos-bg-elevated);box-shadow:0 2px 8px #675fff10;color:var(--hbos-brand-violet);font-weight:600}.iam-workspace :deep(.iam-panel){background:var(--hbos-surface-solid,#fff);border:1px solid var(--hbos-border-subtle,#dce5e0);border-radius:16px;padding:24px;min-width:0}.iam-workspace :deep(.iam-heading){display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}.iam-workspace :deep(h1){font-size:26px;line-height:1.4;margin:0 0 8px}.iam-workspace :deep(.iam-heading p){margin:0;color:var(--hbos-text-secondary)}.iam-workspace :deep(.iam-toolbar){display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}.iam-workspace :deep(.iam-search){flex:1;min-width:180px}.iam-workspace :deep(.iam-name){border:0;background:none;padding:0;color:var(--hbos-text-primary);font:inherit;text-align:left;cursor:pointer;max-width:100%;overflow-wrap:anywhere}.iam-workspace :deep(.iam-name strong){display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.iam-workspace :deep(.iam-code){display:block;font-size:14px;color:var(--hbos-text-secondary);white-space:nowrap}.iam-workspace :deep(.ant-table-cell){font-size:16px;vertical-align:top;overflow-wrap:anywhere}.iam-workspace :deep(.ant-table-thead .ant-table-cell){font-size:14px}.iam-workspace :deep(.aux){font-size:14px;color:var(--hbos-text-secondary)}@media(max-width:700px){.iam-workspace :deep(.iam-panel){padding:16px}.iam-workspace :deep(.iam-heading){flex-direction:column}}</style>
+diff --git a/frontend/hbos-portal-web/src/views/admin/DepartmentsAdminView.vue b/frontend/hbos-portal-web/src/views/admin/DepartmentsAdminView.vue
+index d930b01..a5fea48 100644
+--- a/frontend/hbos-portal-web/src/views/admin/DepartmentsAdminView.vue
++++ b/frontend/hbos-portal-web/src/views/admin/DepartmentsAdminView.vue
+@@ -8,19 +8,33 @@ import type { DepartmentSummary, WorkApp } from '@/types/iam'
+ import WorkSettings from '@/components/iam/WorkSettings.vue'
+ import EmployeeDrawer from '@/components/iam/EmployeeDrawer.vue'
+ const route=useRoute(),activeTab=ref('members')
+-const viewGroup=ref(typeof route.query.department==='string'?'all':'daily'),groupsAvailable=ref(false)
++const viewGroup=ref('daily'),groupsAvailable=ref(false)
++const companies=ref<Array<{id:string;name:string}>>([]),company=ref(''),treeSearch=ref(''),expanded=ref<string[]>([])
++const linkTarget=()=>typeof route.query.department==='string'?route.query.department:undefined
+ const departments=ref<DepartmentSummary[]>([]),selected=ref(''),apps=ref<WorkApp[]>([]),editingApp=ref<string|null>(null),search=ref(''),page=ref(1),loading=ref(true),error=ref(''),employeeId=ref(''),drawerOpen=ref(false)
+ const settings=ref<InstanceType<typeof WorkSettings>|null>(null)
+ const current=computed(()=>departments.value.find(row=>row.id===selected.value)),members=computed(()=>(current.value?.members||[]).filter(row=>!search.value || [row.name,row.employee_number,row.position].join(' ').toLowerCase().includes(search.value.toLowerCase())))
+-const tree=computed(()=>{const build=(parent:string|null):unknown[]=>departments.value.filter(row=>(row.parent_department||null)===parent || (parent===null && row.parent_department && !departments.value.some(item=>item.id===row.parent_department))).map(row=>({key:row.id,title:row.name,children:build(row.id)}));return build(null)})
++const tree=computed(()=>{
++  const included=new Set<string>(),query=treeSearch.value.trim().toLowerCase()
++  for(const row of departments.value.filter(row=>!query||row.name.toLowerCase().includes(query))){
++    let current:DepartmentSummary|undefined=row
++    while(current&&!included.has(current.id)){included.add(current.id);current=departments.value.find(item=>item.id===current!.parent_department)}
++  }
++  const build=(parent:string|null):unknown[]=>departments.value.filter(row=>included.has(row.id)&&((row.parent_department||null)===parent || (parent===null&&row.parent_department&&!departments.value.some(item=>item.id===row.parent_department)))).map(row=>({key:row.id,title:row.name,children:build(row.id)}))
++  return build(null)
++})
++const expandedKeys=computed(()=>treeSearch.value?departments.value.filter(row=>departments.value.some(item=>item.parent_department===row.id)).map(row=>row.id):expanded.value)
++function revealSelection(){let row=current.value;const keys=new Set(expanded.value);while(row?.parent_department&&!keys.has(row.parent_department)){keys.add(row.parent_department);row=departments.value.find(item=>item.id===row!.parent_department)}expanded.value=[...keys]}
++
+ const columns=[{title:'姓名 / 工号',key:'name',width:'30%'},{title:'岗位',dataIndex:'position',width:'28%'},{title:'账号状态',key:'status',width:'22%'},{title:'操作',key:'action',width:'20%'}]
+-async function load(){loading.value=true;error.value='';try{const data=await listDepartments(viewGroup.value);departments.value=data.items;groupsAvailable.value=data.groups_available===true;if(!departments.value.some(row=>row.id===selected.value))selected.value=departments.value[0]?.id||'';await loadApps();await applyLink()}catch(e){error.value=iamMessage(e)}finally{loading.value=false}}
++async function load(){loading.value=true;error.value='';try{const data=await listDepartments(viewGroup.value,linkTarget(),company.value||undefined);departments.value=data.items;companies.value=data.companies;company.value=data.selected_company||'';groupsAvailable.value=data.groups_available===true;if(!departments.value.some(row=>row.id===selected.value))selected.value=departments.value[0]?.id||'';revealSelection();await loadApps();await applyLink()}catch(e){error.value=iamMessage(e)}finally{loading.value=false}}
+ async function applyLink(){
+   const id=typeof route.query.department==='string'?route.query.department:''
+   if(!id)return
++  if(!departments.value.some(row=>row.id===id)){const data=await listDepartments(viewGroup.value,id,company.value||undefined);departments.value=data.items;}
+   if(!departments.value.some(row=>row.id===id)){editingApp.value=null;activeTab.value='members';error.value='该部门或应用当前不可查看，已返回可用部门。';return}
+   if(settings.value&&!await settings.value.requestLeave())return
+-  selected.value=id;await loadApps()
++  selected.value=id;revealSelection();await loadApps()
+   const app=typeof route.query.app==='string'?route.query.app:''
+   activeTab.value=route.query.tab==='apps'&&canIam('iam.access.read')?'apps':'members'
+   editingApp.value=activeTab.value==='apps'&&apps.value.some(row=>row.app_id===app&&row.integrated)?app:null
+@@ -29,9 +43,11 @@ async function applyLink(){
+ let appRead=0
+ async function loadApps(){const run=++appRead,id=selected.value;apps.value=[];if(canIam('iam.access.read')&&id){const result=await getDepartmentWork(id);if(run===appRead&&selected.value===id)apps.value=result.apps}}
+ async function select(keys:unknown[]){const id=String(keys[0]||'');if(!id||id===selected.value)return;if(settings.value&&!await settings.value.requestLeave())return;selected.value=id;editingApp.value=null;search.value='';page.value=1;try{await loadApps()}catch(e){error.value=iamMessage(e)}}
++async function changeCompany(value:string){if(settings.value&&!await settings.value.requestLeave())return;company.value=value;selected.value='';expanded.value=[];editingApp.value=null;await load()}
+ onBeforeRouteLeave(()=>settings.value?settings.value.requestLeave():true)
+ watch(()=>route.query,()=>{if(!loading.value)void applyLink().catch(e=>{error.value=iamMessage(e)})});
+-watch(viewGroup,async()=>{if(settings.value&&!await settings.value.requestLeave())return;selected.value='';editingApp.value=null;await load()});onMounted(load)
++async function changeGroup(value:string){if(settings.value&&!await settings.value.requestLeave())return;viewGroup.value=value;selected.value='';expanded.value=[];editingApp.value=null;await load()}
++onMounted(load)
+ </script>
+-<template><section><div class="iam-heading"><div><h1>部门管理</h1><p>查看组织、主部门成员与普通应用权限。</p></div></div><a-alert v-if="error" :message="error" type="warning"/><a-skeleton v-if="loading" active/><div v-else class="department-layout"><aside class="iam-panel department-tree"><h2>组织部门</h2><a-select v-if="groupsAvailable" v-model:value="viewGroup" aria-label="部门分组" style="width:100%;margin-bottom:16px"><a-select-option value="daily">日常组织</a-select-option><a-select-option value="technical">技术验证夹具</a-select-option><a-select-option value="all">全部部门</a-select-option></a-select><a-tree :tree-data="tree" :selected-keys="[selected]" default-expand-all block-node @select="select"><template #title="{title}"><span :title="title">{{title}}</span></template></a-tree></aside><section class="iam-panel department-main"><template v-if="current"><div class="department-summary"><h2>{{current.name}}</h2><p>{{current.company}} · 主部门员工 {{current.members?.length || 0}} 人</p><a-tag v-if="!current.confirmed" color="gold">尚未确认，暂不安排人员或权限</a-tag></div><WorkSettings v-if="editingApp" ref="settings" subject-kind="department" :subject-id="selected" :app-id="editingApp" @back="editingApp=null" @saved="loadApps"/><a-tabs v-else v-model:active-key="activeTab"><a-tab-pane key="members" tab="部门成员"><div class="iam-toolbar"><a-input v-model:value="search" class="iam-search" placeholder="搜索姓名、工号或岗位" aria-label="搜索部门成员" allow-clear @change="page=1"/></div><div class="member-table"><a-table :columns="columns" :data-source="members" row-key="id" table-layout="fixed" :scroll="{x:620}" :pagination="{current:page,pageSize:10,total:members.length,showSizeChanger:false,onChange:(value:number)=>page=value}"><template #bodyCell="{column,record}"><template v-if="column.key==='name'"><button v-if="canIam('iam.people.read')" class="iam-name" :aria-label="`查看${record.name}，工号${record.employee_number}`" @click="employeeId=record.id;drawerOpen=true"><strong>{{record.name}}</strong></button><strong v-else>{{record.name}}</strong><span class="iam-code">{{record.employee_number}}</span></template><template v-else-if="column.key==='status'">{{record.account_status==='active'?'已开通':record.account_status==='disabled'?'已停用':'未开通'}}</template><template v-else-if="column.key==='action'"><a-button v-if="canIam('iam.people.read')" type="link" @click="employeeId=record.id;drawerOpen=true">查看员工</a-button><span v-else class="aux">仅成员状态</span></template></template></a-table></div><p class="aux">此处仅列主部门成员；兼岗不会自动叠加所属部门权限。</p></a-tab-pane><a-tab-pane v-if="canIam('iam.access.read')" key="apps" tab="默认应用权限"><p class="aux">部门默认权限只包含普通工作，为员工单独设置的权限保留；重要权限不会自动获得。</p><article v-for="app in apps" :key="app.app_id" class="department-app"><div><strong>{{app.title}}</strong><p>{{app.integrated?app.summary:'尚未接入此管理功能，暂不能在此调整。'}}</p></div><a-button v-if="app.integrated" :disabled="!current.confirmed" @click="editingApp=app.app_id">{{canIam('iam.departments.manage') ? '设置权限' : '查看权限'}}</a-button></article></a-tab-pane></a-tabs></template><a-empty v-else description="暂无可管理部门"/></section></div><EmployeeDrawer :open="drawerOpen" :employee-id="employeeId" @close="drawerOpen=false" @changed="load"/></section></template>
+-<style scoped>.department-layout{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:24px;align-items:start}.department-tree{min-height:520px;overflow-wrap:anywhere}.department-main{width:100%;min-width:0}.department-summary h2{font-size:22px;margin:0 0 8px;overflow-wrap:anywhere}.department-summary p{font-size:14px;color:var(--hbos-text-secondary);margin:0 0 16px}.department-tree h2{font-size:16px;margin:0 0 16px}.member-table{width:100%;min-height:280px}.department-app{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 0;border-bottom:1px solid var(--hbos-border-subtle,#dde5e0)}.department-app>div{min-width:0}.department-app p{margin:8px 0 0}.department-main .iam-toolbar{width:100%}.department-tree :deep(.ant-tree-title){white-space:normal;overflow-wrap:anywhere;line-height:1.6}.department-tree :deep(.ant-tree-node-content-wrapper){min-width:0}@media(max-width:1000px){.department-layout{grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:16px}}@media(max-width:760px){.department-layout{grid-template-columns:minmax(0,1fr)}.department-tree{min-height:0}.department-app{align-items:flex-start;flex-direction:column}}</style>
++<template><section><div class="iam-heading"><div><h1>部门管理</h1><p>查看组织、主部门成员与普通应用权限。</p></div></div><a-alert v-if="error" :message="error" type="warning"/><a-skeleton v-if="loading" active/><div v-else class="department-layout"><aside class="iam-panel department-tree"><h2>组织部门</h2><a-select v-if="groupsAvailable" :value="viewGroup" aria-label="部门分组" @change="changeGroup" style="width:100%;margin-bottom:16px"><a-select-option value="daily">日常组织</a-select-option><a-select-option value="technical">技术验证夹具</a-select-option><a-select-option value="all">全部部门</a-select-option></a-select><a-select v-if="companies.length>1" :value="company" aria-label="部门所属公司" style="width:100%;margin-bottom:12px" @change="changeCompany"><a-select-option v-for="item in companies" :key="item.id" :value="item.id">{{item.name}}</a-select-option></a-select><a-input v-model:value="treeSearch" placeholder="搜索部门" aria-label="搜索组织部门" allow-clear/><div class="tree-scroll"><a-tree :tree-data="tree" :selected-keys="[selected]" :expanded-keys="expandedKeys" block-node @expand="(keys:unknown[])=>expanded=keys.map(String)" @select="select"><template #title="{title}"><span :title="title">{{title}}</span></template></a-tree></div></aside><section class="iam-panel department-main"><template v-if="current"><div class="department-summary"><h2>{{current.name}}</h2><p>{{current.company}} · 主部门员工 {{current.members?.length || 0}} 人</p><a-tag v-if="!current.confirmed" color="gold">尚未确认，暂不安排人员或权限</a-tag></div><WorkSettings v-if="editingApp" ref="settings" subject-kind="department" :subject-id="selected" :app-id="editingApp" @back="editingApp=null" @saved="loadApps"/><a-tabs v-else v-model:active-key="activeTab"><a-tab-pane key="members" tab="部门成员"><div class="iam-toolbar"><a-input v-model:value="search" class="iam-search" placeholder="搜索姓名、工号或岗位" aria-label="搜索部门成员" allow-clear @change="page=1"/></div><div class="member-table"><a-table :columns="columns" :data-source="members" row-key="id" table-layout="fixed" :scroll="{x:620}" :pagination="{current:page,pageSize:10,total:members.length,showSizeChanger:false,onChange:(value:number)=>page=value}"><template #bodyCell="{column,record}"><template v-if="column.key==='name'"><button v-if="canIam('iam.people.read')" class="iam-name" :aria-label="`查看${record.name}，工号${record.employee_number}`" @click="employeeId=record.id;drawerOpen=true"><strong>{{record.name}}</strong></button><strong v-else>{{record.name}}</strong><span class="iam-code">{{record.employee_number}}</span></template><template v-else-if="column.key==='status'">{{record.account_status==='active'?'已开通':record.account_status==='disabled'?'已停用':'未开通'}}</template><template v-else-if="column.key==='action'"><a-button v-if="canIam('iam.people.read')" type="link" @click="employeeId=record.id;drawerOpen=true">查看员工</a-button><span v-else class="aux">仅成员状态</span></template></template></a-table></div><p class="aux">此处仅列主部门成员；兼岗不会自动叠加所属部门权限。</p></a-tab-pane><a-tab-pane v-if="canIam('iam.access.read')" key="apps" tab="默认应用权限"><p class="aux">部门默认权限只包含普通工作，为员工单独设置的权限保留；重要权限不会自动获得。</p><article v-for="app in apps" :key="app.app_id" class="department-app"><div><strong>{{app.title}}</strong><p>{{app.integrated?app.summary:'尚未接入此管理功能，暂不能在此调整。'}}</p></div><a-button v-if="app.integrated" :disabled="!current.confirmed" @click="editingApp=app.app_id">{{canIam('iam.departments.manage') ? '设置权限' : '查看权限'}}</a-button></article></a-tab-pane></a-tabs></template><a-empty v-else description="暂无可管理部门"/></section></div><EmployeeDrawer :open="drawerOpen" :employee-id="employeeId" @close="drawerOpen=false" @changed="load"/></section></template>
++<style scoped>.department-layout{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:24px;align-items:start}.department-tree{overflow-wrap:anywhere;min-width:0}.tree-scroll{max-height:clamp(240px,calc(100dvh - 400px),640px);overflow:auto;margin-top:12px;overscroll-behavior:contain}.department-main{width:100%;min-width:0}.department-summary h2{font-size:22px;margin:0 0 8px;overflow-wrap:anywhere}.department-summary p{font-size:14px;color:var(--hbos-text-secondary);margin:0 0 16px}.department-tree h2{font-size:16px;margin:0 0 16px}.member-table{width:100%;min-height:280px}.department-app{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 0;border-bottom:1px solid var(--hbos-border-subtle,#dde5e0)}.department-app>div{min-width:0}.department-app p{margin:8px 0 0}.department-main .iam-toolbar{width:100%}.department-tree :deep(.ant-tree-title){white-space:normal;overflow-wrap:anywhere;line-height:1.6}.department-tree :deep(.ant-tree-node-content-wrapper){min-width:0}@media(max-width:1000px){.department-layout{grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:16px}}@media(max-width:760px){.department-layout{grid-template-columns:minmax(0,1fr)}.tree-scroll{max-height:280px}.department-app{align-items:flex-start;flex-direction:column}}</style>
+diff --git a/frontend/hbos-portal-web/src/views/attendance/MyAttendanceView.vue b/frontend/hbos-portal-web/src/views/attendance/MyAttendanceView.vue
+index a59b051..81f624b 100644
+--- a/frontend/hbos-portal-web/src/views/attendance/MyAttendanceView.vue
++++ b/frontend/hbos-portal-web/src/views/attendance/MyAttendanceView.vue
+@@ -53,5 +53,5 @@ const permissionsChanged=(event:Event)=>{const apps=(event as CustomEvent<{apps:
+ onMounted(()=>{observeAttendance({mounts:attendanceObservation.mounts+1,instance:viewInstance||0});observation();void load(applied.value,true);window.addEventListener('hbos:permissions-changed',permissionsChanged);window.addEventListener('scroll',persist,{passive:true})})
+ onBeforeUnmount(()=>{persist();generation++;observeAttendance({unmounts:attendanceObservation.unmounts+1});window.removeEventListener('hbos:permissions-changed',permissionsChanged);window.removeEventListener('scroll',persist)})
+ </script>
+-<template><section class="my-attendance" :data-view-instance="viewInstance"><output v-if="developmentObservation">本机页面实例 {{ viewInstance }}</output><div class="page-heading"><div><h1>我的考勤</h1><p>查看本人的原始打卡与每日考勤结果。</p></div></div><section class="attendance-panel glass-surface"><div v-if="initialized" class="attendance-toolbar"><label>开始日期<a-input v-model:value="draft.date_from" type="date" aria-label="考勤开始日期"/></label><label>结束日期<a-input v-model:value="draft.date_to" type="date" aria-label="考勤结束日期"/></label><a-button type="primary" @click="query">查询本人考勤</a-button><span v-if="loading" role="status">正在查询…</span></div><p v-else>正在读取站点日期与本人关联… <a-button v-if="error" @click="load(null)">重试读取</a-button></p><p v-if="applied" class="applied-range" aria-live="polite">{{ succeeded ? '结果查询范围' : '上次成功查询范围' }}：{{applied.date_from}} 至 {{applied.date_to}} · 第 {{applied.page}} 页<span v-if="timezone">（{{timezone}}）</span></p><p v-if="modified" role="status" class="draft-notice">条件已修改，点击查询生效。下方结果仍属于已应用范围。</p><a-alert v-if="error" :message="error" type="warning" show-icon/><a-table :columns="columns" :data-source="rows" row-key="id" table-layout="fixed" :scroll="{x:600}" :loading="loading" :pagination="{current:applied?.page||1,pageSize:20,total,showSizeChanger:false,onChange:changePage}" :locale="{emptyText:error?'当前无法读取本人考勤':'所选日期暂无本人考勤记录'}"><template #bodyCell="{column,record}"><template v-if="column.key === 'source'">{{ record.source === 'Attendance' ? '每日考勤结果' : record.source === 'Employee Checkin' ? '原始打卡' : '待核对的记录类型' }}</template><template v-else-if="column.key === 'log_type'">{{ record.source === 'Attendance' ? '—' : logLabels[record.log_type || ''] || '未识别类型' }}</template><template v-else-if="column.key === 'status'">{{ record.source === 'Employee Checkin' ? '—' : statusLabels[record.status || ''] || '未识别状态' }}</template></template></a-table><p class="attendance-note">历史记录随原员工档案保留。</p></section></section></template>
+-<style scoped>.my-attendance{font-size:16px;line-height:1.6;min-width:0}.attendance-panel{padding:24px;min-width:0}.attendance-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;margin-bottom:24px}.attendance-toolbar label{display:grid;gap:8px;font-size:14px}.attendance-note{font-size:14px;color:var(--hbos-text-secondary)}.my-attendance :deep(.ant-table-cell){font-size:16px}.my-attendance :deep(.ant-table-thead .ant-table-cell){font-size:14px}</style>
++<template><section class="my-attendance" :data-view-instance="viewInstance"><output v-if="developmentObservation">本机页面实例 {{ viewInstance }}</output><div class="page-heading"><div><h1>我的考勤</h1><p>查看本人的原始打卡与每日考勤结果。</p></div></div><section class="attendance-panel glass-surface"><div v-if="initialized" class="attendance-toolbar"><label>开始日期<a-input v-model:value="draft.date_from" type="date" aria-label="考勤开始日期"/></label><label>结束日期<a-input v-model:value="draft.date_to" type="date" aria-label="考勤结束日期"/></label><a-button type="primary" @click="query">查询本人考勤</a-button><span v-if="loading" role="status">正在查询…</span></div><p v-else>正在读取站点日期与本人关联… <a-button v-if="error" @click="load(null)">重试读取</a-button></p><p v-if="applied" class="applied-range" aria-live="polite">{{ succeeded ? '结果查询范围' : '上次成功查询范围' }}：{{applied.date_from}} 至 {{applied.date_to}} · 第 {{applied.page}} 页<small v-if="timezone" class="timezone">{{timezone === 'Asia/Shanghai' ? '北京时间' : '站点时区：' + timezone}}</small></p><p v-if="modified" role="status" class="draft-notice">条件已修改，点击查询生效。下方结果仍属于已应用范围。</p><a-alert v-if="error" :message="error" type="warning" show-icon/><a-table :columns="columns" :data-source="rows" row-key="id" table-layout="fixed" :scroll="{x:600}" :loading="loading" :pagination="{current:applied?.page||1,pageSize:20,total,showSizeChanger:false,onChange:changePage}" :locale="{emptyText:error?'当前无法读取本人考勤':'所选日期暂无本人考勤记录'}"><template #bodyCell="{column,record}"><template v-if="column.key === 'source'">{{ record.source === 'Attendance' ? '每日考勤结果' : record.source === 'Employee Checkin' ? '原始打卡' : '待核对的记录类型' }}</template><template v-else-if="column.key === 'log_type'">{{ record.source === 'Attendance' ? '—' : logLabels[record.log_type || ''] || '未识别类型' }}</template><template v-else-if="column.key === 'status'">{{ record.source === 'Employee Checkin' ? '—' : statusLabels[record.status || ''] || '未识别状态' }}</template></template></a-table><p class="attendance-note">历史记录随原员工档案保留。</p></section></section></template>
++<style scoped>.my-attendance{font-size:16px;line-height:1.6;min-width:0}.attendance-panel{padding:24px;min-width:0}.attendance-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;margin-bottom:24px}.attendance-toolbar label{display:grid;gap:8px;font-size:14px}.page-heading{margin-bottom:24px}.page-heading h1{font-size:var(--hbos-font-page-title);line-height:1.4;margin:0 0 8px}.page-heading p{margin:0;color:var(--hbos-text-secondary)}.applied-range{margin:0 0 12px}.timezone{display:inline-block;margin-left:12px;font-size:14px;color:var(--hbos-text-secondary)}.draft-notice{font-size:14px;color:var(--hbos-text-secondary);margin:0 0 16px}.attendance-note{font-size:14px;color:var(--hbos-text-secondary)}.my-attendance :deep(.ant-table-cell){font-size:16px}.my-attendance :deep(.ant-table-thead .ant-table-cell){font-size:14px}</style>
+diff --git a/frontend/hbos-portal-web/tests/iamManagement.test.ts b/frontend/hbos-portal-web/tests/iamManagement.test.ts
+index 152cf8e..c736a05 100644
+--- a/frontend/hbos-portal-web/tests/iamManagement.test.ts
++++ b/frontend/hbos-portal-web/tests/iamManagement.test.ts
+@@ -1,14 +1,15 @@
+ import {expect,it,vi,beforeEach} from 'vitest'
+ import {mount,flushPromises} from '@vue/test-utils'
+ import Antd, {message} from 'ant-design-vue'
+-vi.mock('@/services/iamWork',async(importOriginal)=>({...await importOriginal<object>(),getWorkSummary:vi.fn(),getEffectiveWork:vi.fn(),previewAppSettings:vi.fn(),saveAppSettings:vi.fn()}))
++vi.mock('@/services/iamWork',async(importOriginal)=>({...await importOriginal<object>(),getWorkSummary:vi.fn(),getEffectiveWork:vi.fn(),previewAppSettings:vi.fn(),saveAppSettings:vi.fn(),previewWork:vi.fn(),workAction:vi.fn()}))
+ vi.mock('@/services/iamPeople',()=>({getPerson:vi.fn()}))
+-import {getWorkSummary,getEffectiveWork,previewAppSettings,saveAppSettings} from '@/services/iamWork'
++import {getWorkSummary,getEffectiveWork,previewAppSettings,saveAppSettings,previewWork,workAction} from '@/services/iamWork'
+ import {getPerson} from '@/services/iamPeople'
+ import {clearIamAccess,iamSession} from '@/services/iamAccess'
+ import AdminWorkspace from '@/views/admin/AdminWorkspaceView.vue'
+ import AppUsageList from '@/components/iam/AppUsageList.vue'
+ import AttendanceAccessSummary from '@/components/iam/AttendanceAccessSummary.vue'
++import AppAccessAction from '@/components/iam/AppAccessAction.vue'
+ import WorkSettings from '@/components/iam/WorkSettings.vue'
+ const app={app_id:'attendance',title:'考勤',integrated:true,status:'可以使用',summary:'只显示本人考勤',source_text:'来自所属部门',permission_mode:'personal' as const,operations:[],version:1,context_revision:'r1'}
+ beforeEach(()=>{clearIamAccess();vi.resetAllMocks()})
+@@ -43,21 +44,28 @@ it('retains an edited work draft after a real conflict and emits no saved succes
+   expect(wrapper.text()).toContain('草稿已保留');expect((wrapper.find('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(false);expect(wrapper.emitted('saved')).toBeUndefined();expect(success).not.toHaveBeenCalled()
+   wrapper.unmount();success.mockRestore()
+ })
+-it('coordinates pause/restore with the existing source even when timed ordinary rules are read-only',async()=>{
++it('keeps a temporary disable while changing ordinary permissions and removes pause from the ordinary form',async()=>{
+   Object.assign(iamSession,{ready:true,user:'manager',capabilities:['iam.people.read','iam.access.manage']})
+-  vi.mocked(getPerson).mockResolvedValue({employee:{id:'EMP-a',name:'合成员工',employee_number:'0001',user_id:'user-a',account_status:'active'}} as never)
+-  for(const suspended of [false,true]) {
+-    const configured={...app,suspended,operations:[{operation_id:'attendance.read',label:'查看自己的考勤',enabled:true,scopes:[{scope_type:'SELF',scope_ref:''}],source_text:'有期限的个人权限',editable:false}]}
+-    vi.mocked(getEffectiveWork).mockResolvedValue(configured)
+-    vi.mocked(previewAppSettings).mockResolvedValue({version:1,context_revision:'r1',changed:true,summary:'服务端已重验权限',after:configured})
+-    vi.mocked(previewAppSettings).mockClear()
+-    const wrapper=mount(WorkSettings,{props:{subjectKind:'employee',subjectId:'EMP-a',appId:'attendance'},global:{plugins:[Antd]}})
+-    await flushPromises(); await wrapper.findAll('button').find(row=>row.text()===(suspended?'恢复访问':'设置权限'))!.trigger('click'); await flushPromises()
+-    if(!suspended) await wrapper.find('input[value="paused"]').setValue(true)
+-    await wrapper.find('form').trigger('submit');await flushPromises()
+-    expect(previewAppSettings).toHaveBeenCalledWith(expect.objectContaining({target:{subject_type:'User',subject_name:'user-a',app_id:'attendance'}}),{access_state:suspended?'normal':'paused',permission_mode:'personal',changes:[]})
+-    expect(wrapper.text()).toContain('保存后的实际结果');wrapper.unmount()
+-  }
++  vi.mocked(getPerson).mockResolvedValue({employee:{id:'EMP-a',user_id:'user-a',account_status:'active'}} as never)
++  const configured={...app,suspended:true,operations:[{operation_id:'attendance.read',label:'查看自己的考勤',enabled:false,scopes:[],objects:[{scope_type:'SELF',scope_ref:''}],source_text:'个人设置',editable:true}]}
++  vi.mocked(getEffectiveWork).mockResolvedValue(configured)
++  vi.mocked(previewAppSettings).mockResolvedValue({version:1,context_revision:'r1',changed:true,summary:'仍临时禁用',after:configured})
++  const w=mount(WorkSettings,{props:{subjectKind:'employee',subjectId:'EMP-a',appId:'attendance'},global:{plugins:[Antd]}})
++  await flushPromises();await w.findAll('button').find(row=>row.text()==='设置权限')!.trigger('click')
++  expect(w.text()).not.toContain('应用总限制');expect(w.find('input[value="paused"]').exists()).toBe(false)
++  await w.find('input[type="checkbox"]').setValue(true);await w.find('form').trigger('submit');await flushPromises()
++  expect(previewAppSettings).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({access_state:'paused',changes:[{operation_id:'attendance.read',enabled:true,scopes:[{scope_type:'SELF',scope_ref:''}]}]}));w.unmount()
++})
++it('uses a single more action with server preview, cancellation and the original constrained command',async()=>{
++  const configured={...app,suspended:false}
++  vi.mocked(previewWork).mockResolvedValue({version:1,context_revision:'confirmed',changed:true,summary:'已禁用',after:{...configured,suspended:true}})
++  vi.mocked(workAction).mockResolvedValue({} as never)
++  const w=mount(AppAccessAction,{attachTo:document.body,props:{app:configured,target:{subject_type:'User',subject_name:'user-a',app_id:'attendance'}},global:{plugins:[Antd]}})
++  const open=async()=>{await w.find('button').trigger('click');await flushPromises();(document.querySelector('[role="menuitem"]') as HTMLElement).click();await flushPromises()}
++  await open();expect(previewWork).toHaveBeenCalledWith(expect.objectContaining({changes:[],expected_version:1}),'suspend')
++  let buttons=Array.from(document.querySelectorAll('.ant-modal button'));(buttons.find(b=>b.textContent?.replace(/\s/g,'')==='取消') as HTMLElement).click();await flushPromises();expect(workAction).not.toHaveBeenCalled()
++  await open();buttons=Array.from(document.querySelectorAll('.ant-modal button'));(buttons.find(b=>b.textContent?.includes('确认临时禁用')) as HTMLElement).click();await flushPromises()
++  expect(workAction).toHaveBeenCalledWith('suspend_app',{subject_type:'User',subject_name:'user-a',app_id:'attendance'},1,'confirmed',expect.any(String));expect(w.emitted('saved')).toHaveLength(1);w.unmount()
+ })
+ it('keeps an individual preview summary without department impact counts or employee lists',async()=>{
+   Object.assign(iamSession,{ready:true,user:'manager',capabilities:['iam.people.read','iam.access.manage']})
+@@ -65,7 +73,7 @@ it('keeps an individual preview summary without department impact counts or empl
+   vi.mocked(getEffectiveWork).mockResolvedValue(app)
+   vi.mocked(previewAppSettings).mockResolvedValue({version:1,context_revision:'r1',changed:true,summary:'服务端影响已核对',after:app,impact:{changed:1,personal_preserved:1,unavailable:0,employees:[{name:'员工甲',result:'本次只停用该员工的考勤入口，已有工作安排保留。',personal_preserved:true}]}})
+   const wrapper=mount(WorkSettings,{props:{subjectKind:'employee',subjectId:'EMP-a',appId:'attendance'},global:{plugins:[Antd]}})
+-  await flushPromises();await wrapper.findAll('button').find(row=>row.text()==='设置权限')!.trigger('click');await wrapper.find('input[value="paused"]').setValue(true);await wrapper.find('form').trigger('submit');await flushPromises()
++  await flushPromises();await wrapper.findAll('button').find(row=>row.text()==='设置权限')!.trigger('click');await wrapper.find('input[value="department"]').setValue(true);await wrapper.find('form').trigger('submit');await flushPromises()
+   expect(wrapper.text()).toContain('服务端影响已核对')
+   expect(wrapper.text()).not.toContain('跟随变化');expect(wrapper.text()).not.toContain('查看全部受影响员工');expect(wrapper.text()).not.toContain('员工甲')
+   expect(wrapper.text()).not.toContain('undefined');expect(wrapper.text()).not.toContain('→')
+@@ -77,7 +85,7 @@ it('cancels all combined settings without a preview or save request',async()=>{
+   vi.mocked(getPerson).mockResolvedValue({employee:{id:'EMP-a',user_id:'user-a',account_status:'active'}} as never)
+   vi.mocked(getEffectiveWork).mockResolvedValue(app)
+   const wrapper=mount(WorkSettings,{props:{subjectKind:'employee',subjectId:'EMP-a',appId:'attendance'},global:{plugins:[Antd]}})
+-  await flushPromises();await wrapper.findAll('button').find(row=>row.text()==='设置权限')!.trigger('click');await wrapper.find('input[value="paused"]').setValue(true)
++  await flushPromises();await wrapper.findAll('button').find(row=>row.text()==='设置权限')!.trigger('click');await wrapper.find('input[value="department"]').setValue(true)
+   await wrapper.findAll('button').find(row=>row.text()==='取消修改')!.trigger('click');await flushPromises()
+   expect(previewAppSettings).not.toHaveBeenCalled();expect(saveAppSettings).not.toHaveBeenCalled();expect(wrapper.emitted('saved')).toBeUndefined();wrapper.unmount()
+ })

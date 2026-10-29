@@ -51,39 +51,68 @@ def run() -> dict[str, object]:
 
     if manifest["route"] != "/hbos/lims":
         raise AssertionError("LIMS stable route mismatch")
-    if manifest["capabilities"] != ["summary", "tasks", "search"]:
+    if manifest["capabilities"] != [
+        "summary", "tasks", "search", "results", "ledger", "audit",
+        "coa", "specifications", "retains", "stability",
+    ]:
         raise AssertionError(
-            "P3-LIMS-5 must expose summary/tasks/search and no unreviewed capability"
+            "LIMS Portal must expose the reviewed summary/tasks/search/results/ledger/audit/coa/specifications/retains capabilities"
         )
 
     access = evaluate_access(entry)
     if not access.can_enter:
         raise AssertionError("Administrator must receive LIMS break-glass entry access")
+    if "lims.audit.read" not in access.capabilities:
+        raise AssertionError("Administrator must receive the semantic LIMS audit read capability")
+    for capability in (
+        "lims.results.read",
+        "lims.ledger.read",
+        "lims.retention.read",
+    ):
+        if capability not in access.capabilities:
+            raise AssertionError(
+                f"Administrator must receive the semantic LIMS capability: {capability}"
+            )
 
     inventory_manifest = registry.entries["inventory"].manifest.to_dict()
     if inventory_manifest["capabilities"] != ["summary"]:
         raise AssertionError("Inventory must expose only permission-aware summary")
+    if inventory_manifest["migration_mode"] != "hybrid":
+        raise AssertionError(
+            "Inventory must be hybrid: native overview + Desk photo intake"
+        )
 
     route_result = resolve_stable_route(
         "lims",
-        "/hbos/lims/tasks?scope=mine&task=TASK-001",
+        "/hbos/lims/tasks?view=my-testing&task=TASK-001",
     )
-    if route_result["resolved_path"] != "/hbos-lims/tasks?scope=mine&task=TASK-001":
+    if route_result["resolved_path"] != "/hbos-lims/tasks?view=my-testing&task=TASK-001":
         raise AssertionError("LIMS stable route adapter mismatch")
 
+    # 考勤已迁到门户原生 SPA：稳定路由解析回自身，由前端 /hbos/ 前缀命中 Vue 路由。
+    # （班次管理仍内嵌到 Desk 实现，见 hb_attendance_app 的 portal/routes.py。）
     attendance_route = resolve_stable_route(
         "attendance",
         "/hbos/attendance",
     )
-    if attendance_route["resolved_path"] != "/app/hbos-attendance-dashboard":
+    if attendance_route["resolved_path"] != "/hbos/attendance":
         raise AssertionError("Attendance stable route adapter mismatch")
 
     inventory_route = resolve_stable_route(
         "inventory",
         "/hbos/inventory",
     )
-    if inventory_route["resolved_path"] != "/app/hbos-photo-intake":
-        raise AssertionError("Inventory stable route adapter mismatch")
+    if inventory_route["resolved_path"] != "/hbos/inventory":
+        raise AssertionError("Inventory overview route must stay inside the Portal SPA")
+
+    inventory_intake_route = resolve_stable_route(
+        "inventory",
+        "/hbos/inventory/intake",
+    )
+    if inventory_intake_route["resolved_path"] != "/hbos/inventory/intake":
+        raise AssertionError(
+            "Inventory photo intake is now native and must stay inside the Portal SPA"
+        )
 
     inventory_summary_dispatch = dispatch_provider("inventory", "summary")
     inventory_summary = inventory_summary_dispatch["data"]

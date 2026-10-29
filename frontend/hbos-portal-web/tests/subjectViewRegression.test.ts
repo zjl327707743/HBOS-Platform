@@ -6,8 +6,15 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import PortalLayout from '@/components/layout/PortalLayout.vue'
 import KnowledgeTwinLayout from '@/components/layout/KnowledgeTwinLayout.vue'
 import { usePortalStore } from '@/stores/portal'
+// The knowledge shell follows the platform session policy: a re-check masks
+// content (never destroys it), so the draft in the test below survives it.
+// ``sessionChecking`` drives pending (skeleton) and masked (hidden, kept) apart.
 const sessionChecking=ref(false)
-vi.mock('@/composables/usePortalSession', () => ({usePortalSession: () => ({sessionPending:sessionChecking,sessionError:ref(null)})}))
+vi.mock('@/services/portalProvider', () => ({ portalDataSource: 'mock' }))
+vi.mock('@/composables/usePortalSession', () => ({usePortalSession: () => ({
+  sessionPending: ref(false), sessionError: ref(null), sessionRevision: ref(0),
+  sessionBlocked: sessionChecking,
+})}))
 vi.mock('@/services/p1Api',async original=>({...await original<typeof import('@/services/p1Api')>(),getKnowledgeStatus:async()=>({can_enter:true,can_maintain:false})}))
 const SubjectView = defineComponent({setup() { const mountedFor = usePortalStore().user?.id; return {mountedFor} },template:'<p data-test="subject-view">{{mountedFor}}</p>'})
 it.each([['Portal',PortalLayout],['Knowledge/Twin',KnowledgeTwinLayout]])('A07: %s remounts route-local evidence when the authenticated user changes', async (_name,Layout) => {

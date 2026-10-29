@@ -1,0 +1,277 @@
+{
+  "status": "PARTIAL_IMPLEMENTING",
+  "layer_limits": "真实HTTP、原生DB故障、组件和浏览器证据分别标记；不包含私有原始数据。",
+  "tests": [
+    {
+      "case": "publish_staff_immutable_version_and_idempotent_replay",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "first-chain.json"
+    },
+    {
+      "case": "two_real_users_assigned_published_role_can_read_self",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "first-chain.json"
+    },
+    {
+      "case": "saved_draft_does_not_change_either_user",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "first-chain.json"
+    },
+    {
+      "case": "cancel_publish_leaves_current_rights_and_pointer",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "first-chain.json"
+    },
+    {
+      "case": "stale_draft_409_no_permission_effect",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "first-chain.json"
+    },
+    {
+      "case": "one_publish_revokes_next_request_for_both_users",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "first-chain.json"
+    },
+    {
+      "case": "restore_feature_as_new_version_restores_both_users",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "first-chain.json"
+    },
+    {
+      "case": "forged_subject_and_non_manager_role_reads_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "first-chain.json"
+    },
+    {
+      "case": "non_native_HR_publisher_releases_and_assigns_named_department_role",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "business-chain.json"
+    },
+    {
+      "case": "department_board_real_rows_and_forged_department_employee_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "business-chain.json"
+    },
+    {
+      "case": "three_existing_reports_share_bounded_rows_totals_and_forged_employee_denial",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "business-chain.json"
+    },
+    {
+      "case": "employee_records_share_personal_query_with_history_and_current_roster_bounds",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "business-chain.json"
+    },
+    {
+      "case": "unproved_history_external_sync_and_IAM_role_read_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "business-chain.json"
+    },
+    {
+      "case": "legacy_native_unscoped_report_remains_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "business-chain.json"
+    },
+    {
+      "case": "company_role_publish_and_assignment_without_any_native_HR_or_System_Manager_role",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "company-chain.json"
+    },
+    {
+      "case": "company_rule_configuration_and_employee_roster_do_not_cross_company",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "company-chain.json"
+    },
+    {
+      "case": "native_rule_creation_binding_and_invalid_replacement_preserve_existing_bindings",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "company-chain.json"
+    },
+    {
+      "case": "company_scope_enforced_before_each_write_and_native_immutable_rule_versions_retained",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "company-chain.json"
+    },
+    {
+      "case": "actual_company_dashboard_aggregates_exclude_other_company_and_signal_unproved_history",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "company-chain.json"
+    },
+    {
+      "case": "attendance_business_admin_is_not_IAM_publisher_and_native_resource_bypass_is_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "company-chain.json"
+    },
+    {
+      "case": "default_preview_preserves_direct_and_legacy_personal_sources_and_excludes_disabled_unopened_gains",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "default-chain.json"
+    },
+    {
+      "case": "new_department_member_after_preview_causes_409_and_no_default_update",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "default-chain.json"
+    },
+    {
+      "case": "saved_default_grants_follower_self_without_changing_legacy_personal_source",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "default-chain.json"
+    },
+    {
+      "case": "explicit_no_default_revokes_follower_but_preserves_direct_legacy_personal_and_native_HR",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "default-chain.json"
+    },
+    {
+      "case": "publish_revalidates_direct_inherited_and_changed_member_set_without_partial_revocation",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "default-chain.json"
+    },
+    {
+      "case": "correction_native_draft_and_idempotent_audit_without_native_HR_role",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "correction-chain.json"
+    },
+    {
+      "case": "correction_cross_company_identity_injection_and_raw_native_resource_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "correction-chain.json"
+    },
+    {
+      "case": "native_submit_creates_real_attendance_visible_in_the_scoped_business_query",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "correction-chain.json"
+    },
+    {
+      "case": "native_cancel_cancels_only_linked_attendance_and_scoped_reads_exclude_it",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "correction-chain.json"
+    },
+    {
+      "case": "amendment_creates_editable_linked_draft_and_preserves_cancelled_history",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "correction-chain.json"
+    },
+    {
+      "case": "explicit_native_company_conflict_refuses_scoped_read_and_correction_without_partial_business_or_audit_write",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_NATIVE_DB_FAULT_FIXTURE",
+      "private_evidence_file": "integrity-chain.json"
+    },
+    {
+      "case": "native_policy_configuration_and_replay_scoped_without_HR_role_cross_company_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "calculation-chain.json"
+    },
+    {
+      "case": "rotation_generation_uses_existing_engine_with_employee_date_bounds_and_human_schedule_protection",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "calculation-chain.json"
+    },
+    {
+      "case": "changed_source_after_preview_returns_409_before_business_write",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "calculation-chain.json"
+    },
+    {
+      "case": "real_recalculation_writes_company_attributed_result_preserves_other_employees_dates_and_native_manual_corrections",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "calculation-chain.json"
+    },
+    {
+      "case": "company_boundary_unproven_history_forged_identity_and_readonly_clerk_cannot_compute",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "calculation-chain.json"
+    },
+    {
+      "case": "calculation_failure_after_native_writes_rolls_back_all_schedule_attendance_and_audit",
+      "status": "PASS",
+      "layer": "NATIVE_DB_FAULT_INJECTION",
+      "private_evidence_file": "calculation-atomic-fault.json"
+    },
+    {
+      "case": "native_versioned_status_preserves_original_rejects_stale_and_cross_company",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "shift-status-chain.json"
+    },
+    {
+      "case": "native_only_unreferenced_draft_delete_positive_and_history_company_negatives",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_FIXTURE",
+      "private_evidence_file": "shift-status-chain.json"
+    }
+  ],
+  "local_checks": {
+    "frontend": {
+      "files": 34,
+      "passed": 267
+    },
+    "attendance": {
+      "passed": 568
+    },
+    "portal": {
+      "passed": 195,
+      "failed": 1,
+      "failure": "旧CI七模型精确名单，平台单写候选补丁待应用"
+    },
+    "typecheck": "PASS"
+  },
+  "browser": [
+    {
+      "case": "company_menu_scope_applied_range",
+      "status": "PASS",
+      "layer": "CHROME_NATIVE_UI"
+    },
+    {
+      "case": "correction_unsaved_draft_tab_return_and_cancel",
+      "status": "PASS",
+      "layer": "CHROME_NATIVE_UI"
+    },
+    {
+      "case": "shifts_existing_configuration_render",
+      "status": "PASS",
+      "layer": "CHROME_NATIVE_UI"
+    },
+    {
+      "case": "new_business_Safari_cross_validation",
+      "status": "NOT_RUN",
+      "layer": "SAFARI_NATIVE_UI"
+    }
+  ]
+}

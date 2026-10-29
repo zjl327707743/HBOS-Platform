@@ -1,0 +1,808 @@
+{
+  "recorded_at": "2026-10-17T17:09:33.946595+00:00",
+  "status": "IAM_V1_UAT_R1_READY_FOR_OWNER",
+  "owner_uat": "待Owner复验；不是Owner通过",
+  "review_baseline": "fa500b73e58fa595ad5425f869743135e8feb15f",
+  "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+  "evidence": [
+    {
+      "id": "R01",
+      "result": "PASS",
+      "layer": [
+        "原生Chrome实际标签切换",
+        "真实Vue组件测试"
+      ],
+      "actual": {
+        "people_rounds": 10,
+        "attendance_rounds": 10,
+        "people": [
+          {
+            "round": 1,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 2；能力读取 2；业务初始化 1；恢复事件 3；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 2,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 2；能力读取 2；业务初始化 1；恢复事件 6；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 3,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 2；能力读取 2；业务初始化 1；恢复事件 9；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 4,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 2；能力读取 2；业务初始化 1；恢复事件 12；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 5,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 3；能力读取 3；业务初始化 1；恢复事件 15；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 6,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 3；能力读取 3；业务初始化 1；恢复事件 18；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 7,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 3；能力读取 3；业务初始化 1；恢复事件 21；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 8,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 3；能力读取 3；业务初始化 1；恢复事件 24；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 9,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 4；能力读取 4；业务初始化 1；恢复事件 27；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 10,
+            "diagnostic": "文档 afa9f026-475f-46f3-9d9d-b7bded01e749；安全读取 4；能力读取 4；业务初始化 1；恢复事件 30；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 100",
+              "本机页面实例 621"
+            ],
+            "draft_own_attendance": "复选框 查看自己的考勤  , Value: 0",
+            "search_retained": true,
+            "fixed_date_retained": false
+          }
+        ],
+        "attendance": [
+          {
+            "round": 1,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 2；能力读取 2；业务初始化 1；恢复事件 3；主体代次 1；阶段 checking",
+            "vue_instances": [
+              "本机页面实例 89"
+            ],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": true
+          },
+          {
+            "round": 2,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 3；能力读取 3；业务初始化 1；恢复事件 6；主体代次 1；阶段 checking",
+            "vue_instances": [
+              "本机页面实例 89"
+            ],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": true
+          },
+          {
+            "round": 3,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 3；能力读取 3；业务初始化 1；恢复事件 9；主体代次 1；阶段 unconfirmed",
+            "vue_instances": [],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 4,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 3；能力读取 3；业务初始化 1；恢复事件 12；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 89"
+            ],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": true
+          },
+          {
+            "round": 5,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 3；能力读取 3；业务初始化 1；恢复事件 15；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 89"
+            ],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": true
+          },
+          {
+            "round": 6,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 3；能力读取 3；业务初始化 1；恢复事件 18；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 89"
+            ],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": true
+          },
+          {
+            "round": 7,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 4；能力读取 4；业务初始化 1；恢复事件 21；主体代次 1；阶段 checking",
+            "vue_instances": [
+              "本机页面实例 89"
+            ],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": true
+          },
+          {
+            "round": 8,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 4；能力读取 4；业务初始化 1；恢复事件 24；主体代次 1；阶段 unconfirmed",
+            "vue_instances": [],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": false
+          },
+          {
+            "round": 9,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 4；能力读取 4；业务初始化 1；恢复事件 27；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 89"
+            ],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": true
+          },
+          {
+            "round": 10,
+            "diagnostic": "文档 6d32fabd-c1fc-47ae-b542-7468cc7ef25d；安全读取 4；能力读取 4；业务初始化 1；恢复事件 30；主体代次 1；阶段 ready",
+            "vue_instances": [
+              "本机页面实例 89"
+            ],
+            "draft_own_attendance": null,
+            "search_retained": false,
+            "fixed_date_retained": true
+          }
+        ],
+        "bootstrap_before_after": [
+          1,
+          1
+        ],
+        "document_and_vue_instance_unchanged": true,
+        "attendance_vue_instance": 89,
+        "attendance_date": "2026-10-14",
+        "nonzero_scroll_before_after_200percent": "截图位置一致；额外切回一轮",
+        "attendance_source_blob_matches_final_head": true
+      },
+      "limits": "慢检查时遮蔽内容，AX暂不返回结果；恢复后实例89及日期/结果仍在。截图不单独作为生命周期证明。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R02",
+      "result": "PASS",
+      "layer": [
+        "真实组件合并事件测试",
+        "原生Chrome恢复事件计数"
+      ],
+      "actual": {
+        "native_events_per_round": 3,
+        "resumes_total": 30,
+        "security_and_capabilities_before_after": [
+          1,
+          4
+        ],
+        "bootstrap_before_after": [
+          1,
+          1
+        ],
+        "mock_slow_failure_retains_draft_masks_and_blocks_writes": true,
+        "native_slow_check_observed": true
+      },
+      "limits": "原生3事件组合来自标签隐藏/显示/焦点；pageshow近同时组合另由真实组件派发事件测试，不能冒充原生pageshow。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R03",
+      "result": "PASS_WITH_LAYERED_COVERAGE",
+      "layer": [
+        "本轮实际HTTP",
+        "客户端错误矩阵",
+        "后端proof单元测试"
+      ],
+      "actual": {
+        "guest_protected": {
+          "status": 403,
+          "exception": "PermissionError",
+          "contains_user": false
+        },
+        "guest_probe": {
+          "status": 200,
+          "authenticated": false,
+          "no_context": true,
+          "no_csrf": true
+        },
+        "authenticated_contract": {
+          "security_status": 200,
+          "caps_status": 200,
+          "context_matches": true,
+          "identity_present": true
+        },
+        "real_unregistered": {
+          "status": 417,
+          "exception": "ValidationError"
+        },
+        "unregistered_still_authenticated": true,
+        "logout_status": 200,
+        "logout_confirmed_guest": true,
+        "prior_sid_rejected": true,
+        "wrong_password_reauthentication": {
+          "wrong_reauth_status": 401,
+          "followup_probe_status": 200,
+          "same_cookie_still_authenticated": true
+        }
+      },
+      "matrix": {
+        "Guest403": "实际HTTP已确认Guest；客户端进入统一登录恢复",
+        "Guest417": "Frappe错误形状单元测试；本机Guest实际返回403",
+        "已登录未注册417": "实际HTTP；最小状态仍已登录，分类为带编号中文服务错误",
+        "业务403": "实际HTTP及原员工甲浏览器明确无权",
+        "错误密码/OTP": "错误本人密码：实际HTTP401后同Cookie仍已登录；OTP分类为单元测试，本轮未重新触发原生OTP",
+        "proof过期": "后端与前端单元测试",
+        "CSRF旋转": "R06实际Native400→新CSRF退出成功",
+        "限流": "429/锁定错误形状单元测试；未刻意触发原生限流",
+        "网络失败": "客户端无response测试；浏览器实际另测服务停止502",
+        "服务故障": "实际隔离backend停止/恢复及中文恢复出口"
+      },
+      "not_run": [
+        "本轮原生OTP错误输入",
+        "原生429限流压测",
+        "真实飞书OAuth"
+      ],
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员",
+      "limits": "补充HTTP夹具登录曾出现401，未留足当次分阶段响应；原生口令/账号核对正常，后续全新上下文登录及受限API复验通过。瞬时诱因未证实，保留私有诊断，不归因为错误密码或已证明的限流。"
+    },
+    {
+      "id": "R04",
+      "result": "PASS",
+      "layer": [
+        "原生Chrome同profile切换",
+        "IAB实际Gate退出",
+        "实际HTTP旧SID拒绝"
+      ],
+      "actual": {
+        "sequence": "管理员→正常退出→原A(0001)→退出结果未知→服务恢复重试退出→管理员",
+        "same_A_original_password_worked": true,
+        "normal_logout_guest_confirmed": true,
+        "gate_header_logout_guest_confirmed": true,
+        "outage_did_not_claim_logout_success": true,
+        "outage_sensitive_content_masked": true,
+        "recovery_without_clearing_cookie": true
+      },
+      "limits": "实际故障是自身backend停止导致代理502；不冒充操作系统物理断网。已过期会话的HTTP拒绝及退出分支另有测试。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R05",
+      "result": "PASS",
+      "layer": [
+        "原生浏览器切换和独立上下文",
+        "请求代次/真实组件测试"
+      ],
+      "actual": {
+        "IAB_admin_and_native_Chrome_employee_separate_cookie_contexts": true,
+        "A_has_no_management_entry": true,
+        "late_security_capability_business_success_and_401_do_not_overwrite_new_subject": true,
+        "same_user_new_native_context_clears_old_tree": true,
+        "logout_BroadcastChannel_suspend_and_guest_checked": true
+      },
+      "limits": "旧响应迟到通过受控异步组件/客户端测试重现；未以生产网络人为拖慢方式注入旧响应。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R06",
+      "result": "PASS",
+      "layer": [
+        "实际HTTP",
+        "原生数据库计数",
+        "实际Gate浏览器"
+      ],
+      "actual": {
+        "same_native_employee": true,
+        "employee_count_unchanged_on_provision": true,
+        "one_native_user_created": true,
+        "temporary_login_gated": true,
+        "permanent_password_works": true,
+        "old_temporary_rejected": true,
+        "native_session_rotated": true,
+        "stale_csrf_logout_status": 400,
+        "logout_confirmed_guest": true,
+        "layer": "actual isolated HTTP + native DB counts"
+      },
+      "limits": "首次改密提交由隔离API验证；浏览器仅验证Gate与退出，未代替Owner在UI输入新口令。原体验A/B原密码保留。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R07",
+      "result": "PASS",
+      "layer": [
+        "原员工甲实际浏览器",
+        "实际HTTP+原生审计计数"
+      ],
+      "actual": {
+        "canonical_employee": "HR-EMP-00001",
+        "string_number": "0001",
+        "date": "2026-10-14",
+        "baseline_and_restored_original_times": [
+          "08:11:00",
+          "17:21:00"
+        ],
+        "deny": {
+          "action": "deny",
+          "http_status": 200,
+          "mode": "personal",
+          "self_allowed": false,
+          "request_replayed": true,
+          "native_audit_events": 1,
+          "same_canonical_user": true,
+          "same_employee": "HR-EMP-00001",
+          "fixed_date": "2026-10-14"
+        },
+        "restore": {
+          "action": "restore",
+          "http_status": 200,
+          "mode": "department",
+          "self_allowed": true,
+          "request_replayed": true,
+          "native_audit_events": 1,
+          "same_canonical_user": true,
+          "same_employee": "HR-EMP-00001",
+          "fixed_date": "2026-10-14"
+        },
+        "same_native_browser_session_next_query_denied_then_restored": true,
+        "draft_cancel_no_commit": true
+      },
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R08",
+      "result": "PASS_WITH_LAYERED_COVERAGE",
+      "layer": [
+        "实际HTTP组合命令",
+        "policy/命令单元测试"
+      ],
+      "actual": {
+        "initial": 200,
+        "personal_deny": 403,
+        "paused": 403,
+        "restored_still_personal_deny": 403,
+        "department_default_same_subject_date": 200,
+        "department_result_source": "department",
+        "replay": true,
+        "concurrent_statuses": [
+          200,
+          409
+        ],
+        "transfer_preview_lost_self": true,
+        "old_session_after_transfer": 403,
+        "d2_denied": 403,
+        "d1_restored_same_employee_date": 200
+      },
+      "covered_in_unit": [
+        "部门拒绝保留",
+        "有限期限不能被普通面板覆盖",
+        "期限到期不继续授权",
+        "未关联/关联冲突状态",
+        "首次改密待完成不能声称实际可用"
+      ],
+      "limits": "期限推进和部分身份错误为可控时钟/数据库替身测试，未以本机等待到期冒充SQL/HTTP复验。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R09",
+      "result": "PASS",
+      "layer": [
+        "真实并发HTTP",
+        "真实MariaDB事务故障注入",
+        "原生审计计数",
+        "组件单次命令测试"
+      ],
+      "actual": {
+        "concurrent_statuses": [
+          200,
+          409
+        ],
+        "idempotent_replay_single_native_audit": true,
+        "atomic_failure": {
+          "actual_native_database_rollback": true,
+          "success_event_count": 0,
+          "fault_after_policy_save_before_audit": true,
+          "layer": "real MariaDB service transaction; only audit append injected, not an HTTP fault endpoint"
+        }
+      },
+      "limits": "注入点为服务内Policy保存后、审计追加前；没有增加公开HTTP故障端点。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R10",
+      "result": "PASS",
+      "layer": [
+        "实际HTTP",
+        "受限策略测试"
+      ],
+      "actual": {
+        "department_changes_preserve_personal_deny": true,
+        "actual_bounded_object_http": {
+          "query_a": 200,
+          "query_b": 403,
+          "update_a": 403,
+          "update_b": 403
+        },
+        "new_object_stale_preview_rejected": 409,
+        "new_object_c_not_granted": 403,
+        "rejected_inventory": 403,
+        "rejected_iam_demo": 403
+      },
+      "limits": "A/B仓为隔离技术demo对象，测试后demo两个开关均为0。库存等正式业务仍未接入IAM设置。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R11",
+      "result": "PASS",
+      "layer": [
+        "实际HTTP调岗预览/提交",
+        "原生数据库前后主键与口令指纹核对",
+        "实际受限管理者预览"
+      ],
+      "actual": {
+        "D1_D2_D1": {
+          "initial": 200,
+          "personal_deny": 403,
+          "paused": 403,
+          "restored_still_personal_deny": 403,
+          "department_default_same_subject_date": 200,
+          "department_result_source": "department",
+          "replay": true,
+          "concurrent_statuses": [
+            200,
+            409
+          ],
+          "transfer_preview_lost_self": true,
+          "old_session_after_transfer": 403,
+          "d2_denied": 403,
+          "d1_restored_same_employee_date": 200
+        },
+        "identity": {
+          "same_native_employee": true,
+          "same_canonical_user": true,
+          "same_string_number": true,
+          "returned_original_department": true,
+          "original_password_hash_unchanged": true,
+          "original_checkin_primary_keys_unchanged": true,
+          "original_attendance_primary_keys_unchanged": true
+        },
+        "management_scopes": {
+          "missing_context_commit": 409,
+          "mismatched_context_commit": 409,
+          "rejected_transfer_no_employee_write": true,
+          "rejected_transfer_success_audit_events": 0,
+          "authorised_source_and_destination_preview": 200,
+          "destination_outside_management_scope": 403,
+          "source_outside_management_scope": 403,
+          "read_only_no_transfer_submitted": true
+        }
+      },
+      "limits": "真实部门调岗授权与Employee上下文版本由服务端重验；公开证据使用独立合成D1/D2，日常A的中文原生部门未用于破坏性回归。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R12",
+      "result": "PASS",
+      "layer": [
+        "实际原生HTTP64条",
+        "真实RQ burst及原生CSV任务"
+      ],
+      "actual": {
+        "http_checks": 64,
+        "all_pass": true,
+        "covers": [
+          "仅IAM管理不获得考勤业务权",
+          "普通员工管理入口/API拒绝",
+          "native v1/v2/列表/计数/报表/导出/附件/别名/参数注入",
+          "未纳管HR既有业务回归"
+        ],
+        "RQ": {
+          "initially_authorised": true,
+          "revoked_before_worker": true,
+          "job_failed": true,
+          "permission_error": true,
+          "registered_guard_trace": true,
+          "files_before": 1,
+          "files_after": 1,
+          "csv_files": 0,
+          "worker_exit": 0,
+          "queue": "iam_uat_r1 only; burst exited",
+          "layer": "real RQ process + native CSV job + registered before_job hook; no Mock"
+        },
+        "ordinary_management_http": {
+          "ordinary_employee_management_endpoints_denied": [
+            {
+              "endpoint": "hbos_portal.api.iam_people.list_people",
+              "status": 403
+            },
+            {
+              "endpoint": "hbos_portal.api.iam_people.get_person",
+              "status": 403
+            },
+            {
+              "endpoint": "hbos_portal.api.iam_access.get_effective_access",
+              "status": 403
+            }
+          ],
+          "no_management_snapshot": true
+        }
+      },
+      "limits": "RQ历史Prepared Report/File以原生测试夹具准备；实际任务用已注册before_job再鉴权，未新增worker常驻。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R13",
+      "result": "PASS",
+      "layer": [
+        "只读Excel来源核对",
+        "原生Company/Department导入",
+        "重复运行",
+        "组织冲突单元测试"
+      ],
+      "actual": {
+        "native_department_created": 27,
+        "second_run_created": 0,
+        "second_run_reused": 27,
+        "new_real_employees": 0,
+        "new_real_users": 0,
+        "default_daily_synthetic_employees": 3,
+        "old_technical_fixtures_preserved": true,
+        "source_birthday_values_present": 0,
+        "source_birthday_rows": 205
+      },
+      "limits": "实际部门明细、来源行和原生映射只存本机私有计划；候选真实员工缺原生必填生日，未编造，也未开户。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R14",
+      "result": "PASS",
+      "layer": [
+        "实际IAB CSS视口",
+        "原生Chrome200%",
+        "实际键盘及分页"
+      ],
+      "actual": {
+        "widths": [
+          {
+            "requestedWidth": 1280,
+            "metrics": {
+              "clientWidth": 1280,
+              "dpr": 1,
+              "drawers": [
+                {
+                  "scrollWidth": 720,
+                  "width": 720
+                }
+              ],
+              "innerHeight": 900,
+              "innerWidth": 1280,
+              "scrollWidth": 1280,
+              "title": "合成验收专用超长姓名用于验证人员列表和共享员工抽屉在窄屏下的连续中文及英文SyntheticNameWrap可访问换行效果请勿用于真实人员 · 工号 C16-LONG-001"
+            }
+          },
+          {
+            "requestedWidth": 1440,
+            "metrics": {
+              "clientWidth": 1440,
+              "dpr": 1,
+              "drawers": [
+                {
+                  "scrollWidth": 720,
+                  "width": 720
+                }
+              ],
+              "innerHeight": 900,
+              "innerWidth": 1440,
+              "scrollWidth": 1440,
+              "title": "合成验收专用超长姓名用于验证人员列表和共享员工抽屉在窄屏下的连续中文及英文SyntheticNameWrap可访问换行效果请勿用于真实人员 · 工号 C16-LONG-001"
+            }
+          },
+          {
+            "requestedWidth": 1920,
+            "metrics": {
+              "clientWidth": 1920,
+              "dpr": 1,
+              "drawers": [
+                {
+                  "scrollWidth": 720,
+                  "width": 720
+                }
+              ],
+              "innerHeight": 900,
+              "innerWidth": 1920,
+              "scrollWidth": 1920,
+              "title": "合成验收专用超长姓名用于验证人员列表和共享员工抽屉在窄屏下的连续中文及英文SyntheticNameWrap可访问换行效果请勿用于真实人员 · 工号 C16-LONG-001"
+            }
+          }
+        ],
+        "keyboard": {
+          "focus": "查看复验分页夹具09（合成），工号R1-PAGE-009",
+          "innerWidth": 1280,
+          "page": "2",
+          "rows": 4,
+          "scrollWidth": 1265,
+          "tag": "BUTTON"
+        },
+        "native_zoom_toolbar": "缩放比例：200%",
+        "native_zoom_restored": "100%",
+        "empty_text": "没有符合条件的员工或账号",
+        "long_chinese_wrap": true,
+        "nonzero_scroll_retained": true
+      },
+      "limits": "视口能力只作用于当前可见IAB标签；初次未生效尝试不计入通过。3个最终宽度均以window.innerWidth实测。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    },
+    {
+      "id": "R15",
+      "result": "PASS_AT_SOURCE_HEAD",
+      "layer": [
+        "当前源码单元回归/typecheck/build",
+        "精确SHA的GitHub CI",
+        "实际运行内容比对"
+      ],
+      "actual": {
+        "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+        "frontend_test_files": 22,
+        "frontend_tests": 177,
+        "backend_portal_tests": 166,
+        "attendance_tests": 498,
+        "typecheck_and_build": true,
+        "ci": [
+          {
+            "name": "contracts",
+            "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431437/job/117450648322"
+          },
+          {
+            "name": "production-bundle",
+            "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431437/job/117450648054"
+          },
+          {
+            "name": "platform-clean-site",
+            "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431376/job/117450648016"
+          },
+          {
+            "name": "Portal 前端构建",
+            "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431368/job/117450647960"
+          },
+          {
+            "name": "Portal 后端骨架",
+            "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431381/job/117450647934"
+          },
+          {
+            "name": "lims-frontend",
+            "head_sha": "134d76fbd6b34aef34e91b4636717db891a08d33",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/zjl327707743/HBOS-Platform/actions/runs/39051431376/job/117450647819"
+          }
+        ],
+        "runtime_frontend_files_verified": 104,
+        "served_modules_verified": 9,
+        "runtime_backend_files_verified": 202,
+        "review_baseline": "fa500b73e58fa595ad5425f869743135e8feb15f"
+      },
+      "limits": "最终交付追记仅文档/脱敏证据，最终PR HEAD的CI另在本机交付追记和PR检查保留，不用旧B/C CI替代。",
+      "source_head": "134d76fbd6b34aef34e91b4636717db891a08d33",
+      "site": "iam-r4-b.localhost",
+      "subject": "隔离合成账号；原A另标0001；无真实人员"
+    }
+  ]
+}

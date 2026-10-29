@@ -29,7 +29,10 @@
       :error="portal.twinOverviewError"
     />
 
-    <section class="section-panel glass-surface home-foot-section">
+    <!-- "继续工作" only renders when there is a real, app-specific entry. The
+         generic "全部应用" card duplicated the App Center already present in
+         the sidebar and header, and rendered an empty 0-entry panel. -->
+    <section v-if="hasKnowledgeApp || hasTwinApp" class="section-panel glass-surface home-foot-section">
       <div class="section-head">
         <div>
           <span class="section-kicker">最近与快捷操作</span>
@@ -44,9 +47,6 @@
         <RouterLink v-if="hasTwinApp" class="recent-action" to="/hbos/twin">
           <DeploymentUnitOutlined /><strong>设备模型</strong><span>{{ twinEquipmentLabel }}</span>
         </RouterLink>
-        <RouterLink class="recent-action" to="/hbos/apps">
-          <AppstoreOutlined /><strong>全部应用</strong><span>{{ portal.apps.length }} 个可用入口</span>
-        </RouterLink>
       </div>
     </section>
   </div>
@@ -59,7 +59,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { AppstoreOutlined, DeploymentUnitOutlined, ReadOutlined } from '@ant-design/icons-vue'
+import { DeploymentUnitOutlined, ReadOutlined } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
 import AppCenter from '@/components/portal/AppCenter.vue'
 import BusinessPulse from '@/components/portal/BusinessPulse.vue'

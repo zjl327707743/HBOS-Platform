@@ -1,6 +1,84 @@
 # 新乡海滨智能运营管理平台
 
-当前知识专项：[RC14 V2 员工体验候选](docs/milestones/M1_KB_RC14_员工体验候选.md)。仅隔离验收，Owner 未验收，PR #30 保持 Draft；旧轮次记录为历史，不代表当前通过。
+
+## 当前集成状态 — 2026-10-19
+
+**四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](docs/PROJECT_STATUS.md)。
+
+**合并前精确组合：PASS。** [R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 全部 10 jobs SUCCESS，五个原生域与离线／契约／构建在本次 #43 来源和产品基线的真实组合上通过；该组合树与实际 Squash 树相同。
+
+**实际产品合并后回归：PASS。** [R11 39195037712](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 全部 10 jobs SUCCESS；五个原生域均直接运行业务合并基线 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，无额外 merge，实际单父与树一致，双 migrate 与清理均成功。LIMS 原有 32 项、新增审计 9 项、独立 Todo 1 项合计 42 项原生测试全部通过；Todo 只有 1 项，归属 LIMS。
+
+四项完整业务 PR 已形成统一产品开发基线。IAM #52 保持独立，#37 不在任务范围；OCR、真实样本、实体打印和生产 UAT／部署未由本轮代码集成完成。库存单据取消与账务反转不等于 LIMS 质量放行撤回。本轮仅使用远端源码和云端合成 Site，未操作 Owner Mac 项目或真实业务库。 既有 Draft #15 自动质量门禁暴露的 Python 3.10 测试夹具兼容问题单独收口，两处仅测试修复须在固定候选 SHA 的 Python 3.10／3.12 检查通过后方可合并，实际结果以收尾 PR 最新 Owner 裁定及最终报告所列 SHA／Job 为准，见[项目状态](docs/PROJECT_STATUS.md)。
+
+业务合并基线与文档保存后的 HEAD 分开记录。Run1–9 的历史失败、未合并及 `NOT_PRODUCT_COMPOSITION` 均按各自日期、来源和作业保留，详见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；最新业务与回归状态以本节和项目状态为准。
+
+## 知识库（Knowledge）应用
+
+PR #30（`codex/knowledge-autonomous-r1` → `feature/hbos-portal-product`）把知识应用合入产品分支：知识目录与六类分类、PDF/Office 阅读、原件受控下载、带来源的真实问答、维护入口与个人助手（MCP）四工具闭集。身份、范围、逻辑文档与发布收据仍由 Frappe 负责；RAGFlow v0.27.0 提供物理文件、chunk 与原千问 1024 维向量，rerank 默认关闭。
+
+**独立知识服务不在本仓库。** 合并本 PR 不等于服务源码、RAGFlow 数据与预览资产已进入 HBOS；服务源码、镜像与配置以 Owner 私有联合锁交付，克隆本仓库不能单独运行知识问答。
+
+当前知识候选：[RC14 V2 员工体验候选](docs/milestones/M1_KB_RC14_员工体验候选.md)，仅在本机隔离候选（RC154）上验收。Owner 本人会话、Hermes 复测与恢复演练均未执行；P1、main、正式员工范围与生产部署不因本 PR 改变。真实问答按严格口径计量：已部署 HTTP 28 题严格完成 17/28（P50 18.64 s、P95 23.25 s），这是该样本的结果，不是全库准确率。
+
+### 历史回归 — 2026-10-18 Run8（#39 合并后）
+
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
+
+## 验证历史 — 2026-10-18 Run6
+
+[报表、扫码及附件验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810152) **74 PASS / 0 FAIL**；[事务验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810103) **6 PASS / 2 FAIL**。余两项失败为按单一 URL 误选 Batch File 的测试定位错误，LIMS 放行后两种外发 submit/cancel 仍 **NOT_REACHED**，完整仓储门禁未通过。
+
+## 验证历史 — 2026-10-18 Run5
+
+以下保留 Run5 当时的观察与判断，其中“当前”“尚未通过”“原因待定位”均指该次验证；后续状态以页首“当前集成状态”和实际 PR 记录为准。
+
+完整 [#42 考勤](https://github.com/zjl327707743/HBOS-Platform/pull/42) 与 [#46 生产](https://github.com/zjl327707743/HBOS-Platform/pull/46) 已实际合并到唯一目标 `feature/hbos-portal-product`；本记录已核对产品为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。[#39 仓储](https://github.com/zjl327707743/HBOS-Platform/pull/39) 仍在技术门禁中，尚未合并；[#56](https://github.com/zjl327707743/HBOS-Platform/pull/56) 保存固定源码组合的隔离验证，不能以 CI 候选替代实际产品合并。
+
+后续来源、CI、审批、合并与回归以 [项目状态](docs/PROJECT_STATUS.md)、[当前里程碑](docs/CURRENT_MILESTONE.md) 及上述 PR 最新记录为准。#43 LIMS 独立增量后置；本次仅使用远端源码与云端合成环境，未更新 Owner 的 Mac 项目、真实数据库或生产部署。IAM #52 保持独立，#37 不在本任务范围。
+
+## 历史阶段记录
+
+下方 PR #55、PR #21 的 SHA、账号验收与各阶段“本轮”描述保留其原日期的含义，不代表当前产品 HEAD 或本次部署。
+
+> 2026-10-18 代码集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
+
+## 并行权限治理 IAM-0 — 2026-10-01
+
+Owner 已批准进入统一身份与权限治理。当前仅交付设计、角色—动作—范围矩阵、只读源码盘点工具与本机任务书；实际 Site 盘点和隔离验收仍为 NOT_RUN，不修改账号、角色或业务数据，不替代原账号收尾。入口：[IAM-0 治理资料](docs/governance/iam/README.md)。
+
+历史账号验收基线（2026-10-01）：PR #21 已在 FINAL_REVIEW_PASS 后 squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS、浏览器设密/改密/恢复 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。IAM-0 已由 clean Draft PR #23 承接，旧 #22 已关闭且未合并；PR #15 仍为 Draft，main 未变化。[当前 Gate](docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 记录本轮收口事实。
+
+Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
+
+## 历史交付 — 2026-10-01
+
+本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；团队后续 Portal 代码以产品分支为准。PR #15 仍 Draft，不推 main；IAM 由 Draft PR #23 单独承接。
+
+平台已包含考勤、仓储库存、LIMS、Portal、知识助理与设备/数字孪生自定义 App。密码和飞书使用同一 Frappe User；原有业务权限仍由原 App 约束。业务通知、生成式知识回答、现场遥测、工艺动画及偏好同步尚未实现，具体状态见前端完整性矩阵。安全变更通知单独记录真实发送状态，不能等同业务通知能力完成。
+
+- [项目状态](docs/PROJECT_STATUS.md)
+- [当前里程碑](docs/CURRENT_MILESTONE.md)
+- [Mac 常用启动与团队同步](docs/deployment/Mac本地运行与团队同步.md)
+- [团队部署、备份与回退](docs/deployment/统一账号与Portal正式部署说明.md)
+- [前端完整性矩阵](docs/frontend/统一账号发布与前端完整性矩阵.md)
+
+## 团队构建
+
+在已审查的 clean checkout 使用 Node 22 执行 `bash scripts/release/build_bundle.sh`，生成同源 Portal 和 LIMS 编译资产及六 App 部署包。通用 Gateway 位于 `services/hbos_gateway`，依赖、基线与 HRMS commit 见 `scripts/release/依赖版本锁.json`。既有目标版本不得为了匹配基线而降级。
+
+升级必须保留已确认原 Site/数据库，先备份并验证恢复，再迁移及核对原账号/角色/权限/业务关联。制品或 PR 不包含账号数据库、Secret、私有知识索引/原文或真实模型；这些经批准私下部署。
+
+## 协作与边界
+
+`AGENTS.md`、`CLAUDE.md` 为规则入口；进度以状态台账与对应里程碑为准。Portal 本轮不改变其他考勤/库存里程碑的 Owner 验收状态。禁止创建未知替代库、覆盖未知数据库、重置原密码/角色、发布凭据或私有资料。
+
+团队后续 Portal 代码来源：远端最新 `feature/hbos-portal-product`；固定 SHA 见本轮 PR 实际合并记录。PR #21 保留为已合并的审查与发布证据；Mac 本地运行与本人验收分开记录，公司生产尚未部署。
+
+
+## 知识专项历史记录
+
+本节保留知识轮次原文及其原日期含义（当时的“当前”“尚未通过”等判断只指当时）；产品分支状态以上文“当前集成状态”为准。
 
 ## 2026-10-19 UAT5 执行补充当前检查点
 
@@ -28,13 +106,11 @@
 
 本轮证据范围与剩余门槛见 [UAT5质量候选](docs/milestones/M1_KB_UAT5_检索可靠性与全目录质量候选.md)；详细真实问题、原文、账号、目录和完整漏斗仅留 Owner 本机交付。
 
-
 ## 历史：HBOS Knowledge UAT4 — 2026-10-11
 
 **LOCAL_UAT / REVIEWING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 个人助手入口简化为客户端选择、一次私密安装和最近真实知识使用。状态只在本人连接实际检索并打开同一检索来源后更新；个人 Token 与无凭据使用规则分开存储。已批准的成功资料按精确子集分批发布，完整性未过关的资料保持待核；解析许可不能代替共享许可。原 15 份、UAT2 样式、四回答模型、千问 Embedding 和默认零外部 rerank 保留。
 
 本轮事实、最终统计及制品边界见 [UAT4 验收候选](docs/milestones/M1_KB_UAT4_极简接入与真实资料发布候选.md)；Owner 私有联合锁为数量、运行源码、CI 和 wheel 的最终依据。PR #30 保持 Draft，不合并、不切 P1、不开放正式员工。公司 HTTPS 入口待部署，本机地址仅用于本机 Owner 验收。
-
 
 ## 历史：HBOS Knowledge UAT3 — 2026-10-11
 
@@ -45,7 +121,6 @@
 **UAT2_IMPLEMENTATION_CANDIDATE / PROTOTYPE_APPROVED / OWNER_NOT_RUN / ROLLOUT_PENDING。** Owner 已正式批准知识库交互设计 V1，本轮原型审批门禁已满足。知识模块按批准原型完成独立首页、资料目录、本人收藏/记录、六步 MCP 向导和维护员资料/上传/版本/反馈页面；接入原生 Frappe/API，保留 15 份真实共享资料、GPT-6-luna、千问 Embedding、用户权限及关闭原件下载。按两轮截图与实际操作复验，最终运行源码、构建资产和 CI 以本机 Owner 交付联合锁为准。人工产品验收与真实服务器上线是独立 Gate；PR #30 保持 Draft，不合并、不切 P1、不开放全员。
 
 主记录：[M1-KB-UAT2 完整业务与迁移候选](docs/milestones/M1_KB_UAT2_完整业务与迁移候选.md)。下文 UAT1/N1 的旧财务阻断为历史事实，服从本轮最新 Owner 决策。
-
 
 ## HBOS Knowledge UAT-1 当前候选 — 2026-10-10
 
@@ -108,7 +183,6 @@ PARTIAL / ACCOUNTING_PENDING / NOT_RELEASED。服务0.3.10增加维护入口专�
 
 执行说明见 `docs/milestones/M1_KB_R2_真实部门知识候选.md`。以下 R1 记录为历史事实，不能当作当前 R2 阻塞清单。
 
-
 ## 知识候选连续执行 R1 — 2026-10-08
 
 状态：PARTIAL_CANDIDATE_VERIFIED / NOT_RELEASED；整批总任务尚未完成。专用分支 `codex/knowledge-autonomous-r1`，Draft PR #30，固定产品基线 `72e5b1728981b7ef102a2c9ee033ce0452c400e7`。已核验 K1C2 归档与独立评审；恢复已审候选到独立源码副本，修复 Binding 列/JSON/关联身份一致性与写入守卫、搜索网格和局部字号，并实现授权空间列表、范围选择与当前文档数量。
@@ -119,45 +193,11 @@ PARTIAL / ACCOUNTING_PENDING / NOT_RELEASED。服务0.3.10增加维护入口专�
 
 后端 GitHub CI FAIL：当前 OAuth 凭据缺 `workflow` scope，GitHub 拒绝更新工作流；修复补丁单独交付，应用检查和全新依赖环境的本地等价复测通过。远端前端与普通 bundle 构建 PASS；普通 bundle 不包含联合 service，不能据此部署知识功能。主任务书 `HBOS_KNOWLEDGE_AUTONOMOUS_MASTER_TASK_R1.md` 未随已提供三附件出现，本机按名称检索未找到，时间/资源/完整依赖与分仓目标未核对。真实 RAGFlow、受控模型问答、员工 MCP、历史/收藏/反馈/资料维护、旧库恢复、生产 IAM/TLS 与发布仍未完成；模型与 MCP 路由保持关闭。执行事实见 `docs/milestones/M1_KB_AUTO_R1_知识候选连续执行.md`；以下旧轮次条目保留为历史与其他业务范围。
 
-## 并行权限治理 IAM-0 — 2026-10-01
-
-Owner 已批准进入统一身份与权限治理。当前仅交付设计、角色—动作—范围矩阵、只读源码盘点工具与本机任务书；实际 Site 盘点和隔离验收仍为 NOT_RUN，不修改账号、角色或业务数据，不替代原账号收尾。入口：[IAM-0 治理资料](docs/governance/iam/README.md)。
-
-最新产品基线：PR #21 已在 FINAL_REVIEW_PASS 后 squash 合入 `feature/hbos-portal-product`，产品 HEAD `e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS、浏览器设密/改密/恢复 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。IAM-0 已由 clean Draft PR #23 承接，旧 #22 已关闭且未合并；PR #15 仍为 Draft，main 未变化。[当前 Gate](docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 记录本轮收口事实。
-
-Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服务扩展。
-
-## 当前交付
-
-本轮（2026-10-01）接续 PR #21，执行登录账号模块 UI 规范回归与全功能审修。Owner 已亲自确认 Administrator 能通过本人飞书验证并登录，记为 OWNER_CONFIRMED_SUCCESS；历史成员权限待审批或登录失败记录不再代表当前事实。保留真实绑定、密码、MFA、Secret、企业与回调；不要求重复配置。认证页沿用已有 Ant Design Vue / ConfigProvider / typography / tokens，修复表单、证明期限、错误状态、同路由目标与提交结果处理。破坏性、并发与交接只在独立合成 Site 验证。新版本真人 OAuth、本人收到验证码、第二位真人交接与移动软键盘结果单独记录，未执行不写 PASS。复用现有 P1 / Compose / 卷与常用入口，最终本机 SHA/build ID、远端提交、CI 和制品须一致。公司服务器为 NOT_DEPLOYED。主记录：`docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；团队后续 Portal 代码以产品分支为准。PR #15 仍 Draft，不推 main；IAM 由 Draft PR #23 单独承接。
-
-平台已包含考勤、仓储库存、LIMS、Portal、知识助理与设备/数字孪生自定义 App。密码和飞书使用同一 Frappe User；原有业务权限仍由原 App 约束。业务通知、现场遥测、工艺动画及偏好同步尚未实现；内部参考知识回答在 R2 独立候选实现，具体状态见前端完整性矩阵。安全变更通知单独记录真实发送状态，不能等同业务通知能力完成。
-
-- [项目状态](docs/PROJECT_STATUS.md)
-- [当前里程碑](docs/CURRENT_MILESTONE.md)
-- [Mac 常用启动与团队同步](docs/deployment/Mac本地运行与团队同步.md)
-- [团队部署、备份与回退](docs/deployment/统一账号与Portal正式部署说明.md)
-- [前端完整性矩阵](docs/frontend/统一账号发布与前端完整性矩阵.md)
-
-## 团队构建
-
-在已审查的 clean checkout 使用 Node 22 执行 `bash scripts/release/build_bundle.sh`，生成同源 Portal 和 LIMS 编译资产及六 App 部署包。通用 Gateway 位于 `services/hbos_gateway`，依赖、基线与 HRMS commit 见 `scripts/release/依赖版本锁.json`。既有目标版本不得为了匹配基线而降级。
-
-升级必须保留已确认原 Site/数据库，先备份并验证恢复，再迁移及核对原账号/角色/权限/业务关联。制品或 PR 不包含账号数据库、Secret、私有知识索引/原文或真实模型；这些经批准私下部署。
-
-## 协作与边界
-
-`AGENTS.md`、`CLAUDE.md` 为规则入口；进度以状态台账与对应里程碑为准。Portal 本轮不改变其他考勤/库存里程碑的 Owner 验收状态。禁止创建未知替代库、覆盖未知数据库、重置原密码/角色、发布凭据或私有资料。
-
-团队后续 Portal 代码来源：`feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。PR #21 保留为已合并的审查与发布证据；Mac 本地运行与本人验收分开记录，公司生产尚未部署。
-
-
 ### UAT5 执行补充：长文档书签校验修复（2026-10-16）
 
 同一真实候选中，一份 PDF 已 DONE 且 39 个片段存在，三个保护身份一致；551 条原生合法书签触发旧 512 条上限，导致误隔离。修复只接纳有界、闭合结构的原生书签（最多4096条、标题总计131072字符），身份差异、未知元数据字段及无效结构继续拒绝。领域检查258项通过；原生已完成任务按状态读取恢复，不重复embedding。
 
 无关资料发布引起进行中查询 SCOPE_REJECTED 的真实前后对照已通过：原授权与来源保持一致，新版为 ALLOWED。Owner 批准的三个非管理员候选账号已定向换密、清除旧会话并更新私有访问文件，偏好/MCP连接/知识历史ID未变。RAGFlow管理窗口已由Owner登录，实际Dataset及文件界面正在核对。整体仍为 UAT5_PARTIAL；PR30保持Draft，不切P1。
-
 
 ### UAT5 执行补充：同源完整索引修复候选（2026-10-16）
 

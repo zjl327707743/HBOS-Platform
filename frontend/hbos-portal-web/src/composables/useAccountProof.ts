@@ -1,5 +1,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { getSecurity, type ProofStatus } from '@/services/accountApi'
+import { type ProofStatus } from '@/services/accountApi'
+import { refreshAccountProof } from '@/services/portalSessionCoordinator'
 
 export function useAccountProof(onInvalidated: () => void = () => undefined) {
   const deadline = ref(0), now = ref(Date.now()), method = ref<string | null>(null)
@@ -20,11 +21,13 @@ export function useAccountProof(onInvalidated: () => void = () => undefined) {
     if (disposed || document.visibilityState === 'hidden' || !deadline.value) return
     const version = revision
     try {
-      const status = await getSecurity()
+      const status = await refreshAccountProof()
       if (!disposed && version === revision) sync(status.proof)
     } catch { if (!disposed && version === revision) invalidate() }
   }
   function resume() { now.value = Date.now(); if (deadline.value && !valid.value) invalidate(); void recheck() }
+  function confirmed(event: Event) { sync((event as CustomEvent<ProofStatus>).detail) }
+  function boundary() { invalidate(); onInvalidated() }
   onMounted(() => {
     timer = setInterval(() => {
       now.value = Date.now()
@@ -33,11 +36,15 @@ export function useAccountProof(onInvalidated: () => void = () => undefined) {
     }, 1000)
     window.addEventListener('focus', resume); window.addEventListener('pageshow', resume)
     document.addEventListener('visibilitychange', resume)
+    window.addEventListener('hbos:session-boundary', boundary)
+    window.addEventListener('hbos:security-confirmed', confirmed)
   })
   onBeforeUnmount(() => {
     disposed = true; invalidate(); if (timer) clearInterval(timer)
     window.removeEventListener('focus', resume); window.removeEventListener('pageshow', resume)
     document.removeEventListener('visibilitychange', resume)
+    window.removeEventListener('hbos:session-boundary', boundary)
+    window.removeEventListener('hbos:security-confirmed', confirmed)
   })
   return { valid, remaining, method, sync, grant, invalidate, recheck }
 }

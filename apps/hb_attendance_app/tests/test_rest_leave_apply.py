@@ -80,7 +80,7 @@ class VerifiedRestDatesContractTest(unittest.TestCase):
 
     def test_query_call_site_uses_the_constant(self):
         """定义了 FILTERS 却不用（改成内联字面量或 dict(FILTERS)）也要失败。"""
-        self.assertRegex(self.src, r"filters\s*=\s*FILTERS")
+        self.assertRegex(self.src, r"filters\s*=\s*\{\*\*FILTERS")
 
 
 class SingleSourceOfTruthTest(unittest.TestCase):

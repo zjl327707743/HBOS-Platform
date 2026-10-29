@@ -1,0 +1,80 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS IAM App Role",
+ "module": "HBOS Portal",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "app_id",
+  "role_key",
+  "title",
+  "boundary_kind",
+  "enabled",
+  "draft_version",
+  "draft_features",
+  "published_release",
+  "management_scopes"
+ ],
+ "fields": [
+  {
+   "fieldname": "app_id",
+   "fieldtype": "Data",
+   "label": "App Id",
+   "reqd": 1
+  },
+  {
+   "fieldname": "role_key",
+   "fieldtype": "Data",
+   "label": "Role Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "boundary_kind",
+   "fieldtype": "Select",
+   "label": "Boundary Kind",
+   "options": "SELF\nDEPARTMENT\nCOMPANY",
+   "reqd": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "draft_version",
+   "fieldtype": "Int",
+   "label": "Draft Version",
+   "default": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "draft_features",
+   "fieldtype": "Table",
+   "label": "Draft Features",
+   "options": "HBOS IAM Role Feature"
+  },
+  {
+   "fieldname": "published_release",
+   "fieldtype": "Link",
+   "label": "Published Release",
+   "options": "HBOS IAM Role Release"
+  },
+  {
+   "fieldname": "management_scopes",
+   "fieldtype": "Table",
+   "label": "Management Scopes",
+   "options": "HBOS IAM Role Scope"
+  }
+ ],
+ "permissions": []
+}

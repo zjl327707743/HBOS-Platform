@@ -1,4 +1,5 @@
 import frappe
+from hb_attendance_app.hbos_attendance.portal.role_scope import report_sql
 
 
 STATUS_LABELS = {
@@ -9,9 +10,16 @@ STATUS_LABELS = {
 	"Work From Home": "正常出勤",
 }
 def execute(filters=None):
+	# Fail closed until scoped legacy Script Reports are query-time filtered.
+	from hb_attendance_app.hbos_attendance.report_scope import require_unrestricted_employee_read
+	require_unrestricted_employee_read("Attendance", "Employee Checkin")
 	filters = filters or {}
 	conditions = ["a.docstatus < 2"]
 	values = {}
+	from hb_attendance_app.hbos_attendance.portal.role_scope import report_predicate
+	iam_predicate = report_predicate('a', values)
+	if iam_predicate:
+		conditions.append(iam_predicate)
 	if filters.get("from_date"):
 		conditions.append("a.attendance_date >= %(from_date)s")
 		values["from_date"] = filters["from_date"]
@@ -38,7 +46,7 @@ def execute(filters=None):
 		quoted = ",".join("'%s'" % v.replace("'", "") for v in sorted(EXEMPT_NUMS))
 		conditions.append("emp.employee_number NOT IN (%s)" % quoted)
 	where = " and ".join(conditions)
-	rows = frappe.db.sql(
+	rows = report_sql(
 		f"""
 		select
 			a.name,

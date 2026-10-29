@@ -146,6 +146,67 @@ class RecoverySecurityTest(unittest.TestCase):
                 self.assertTrue(result["mfa_required"])
             write.assert_not_called()
 
+    def test_repeatable_read_snapshot_cannot_revive_current_revoked_disabled_or_expired_key(self):
+        utility = types.SimpleNamespace(now_datetime=lambda: self.now, get_datetime=lambda value: value)
+        old = self.record()
+        current_rows = [None, self.record(enabled=0),
+            self.record(last_reset_password_key_generated_on=self.now - dt.timedelta(seconds=900)),
+            self.record(name="another-employee@example.test")]
+        for current in current_rows:
+            reads = []
+            def get_value(doctype, filters, fields, **kwargs):
+                reads.append(kwargs.get("for_update", False))
+                if isinstance(filters, str) and fields == "reset_password_key":
+                    return accounts.digest(self.key)  # old RR snapshot
+                return current if kwargs.get("for_update") else old
+            fake = types.SimpleNamespace(flags=Flags(),
+                db=types.SimpleNamespace(get_value=get_value, sql=Mock(return_value=[])),
+                throw=reject, AuthenticationError=Rejected, ValidationError=Rejected,
+                QueryDeadlockError=type('Deadlock', (Exception,), {}), QueryTimeoutError=type('LockTimeout', (Exception,), {}))
+            with self.subTest(current=current), patch.dict(sys.modules, {"frappe.utils": utility}), \
+                    patch.object(accounts, "frappe", fake), patch.object(accounts, "require_post"), \
+                    patch.object(accounts, "require_user", return_value=self.user), \
+                    patch.object(accounts, "_require_recovery_context", return_value={"epoch": 7}), \
+                    patch.object(accounts, "verify_mfa", return_value=None), \
+                    patch.object(accounts, "_write_password") as write:
+                with self.assertRaises(Rejected):
+                    accounts.update_password("synthetic-new-password", key=self.key, recovery_context="context-A")
+                write.assert_not_called()
+                self.assertIn(True, reads)
+
+    def test_recovery_rechecks_context_after_user_lock_and_keeps_original_proof_epoch(self):
+        utility = types.SimpleNamespace(now_datetime=lambda: self.now, get_datetime=lambda value: value)
+        context = {"user": self.user, "key_hash": accounts.digest(self.key),
+            "browser_hash": accounts.digest("synthetic-browser"), "session": "session-A", "epoch": 7}
+        fake = types.SimpleNamespace(flags=Flags(),
+            db=types.SimpleNamespace(get_value=lambda *a, **kw: self.record()),
+            cache=types.SimpleNamespace(get_value=lambda key: context),
+            local=types.SimpleNamespace(request=types.SimpleNamespace(cookies={accounts.RECOVERY_COOKIE: "synthetic-browser"})),
+            throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
+        with patch.dict(sys.modules, {"frappe.utils": utility}), patch.object(accounts, "frappe", fake), \
+                patch.object(accounts, "require_post"), patch.object(accounts, "require_user", return_value=self.user), \
+                patch.object(accounts, "session_digest", return_value="session-A"), \
+                patch.object(accounts, "epoch", side_effect=[7, 8]), \
+                patch.object(accounts, "verify_mfa", return_value=None), patch.object(accounts, "_write_password") as write:
+            with self.assertRaises(Rejected):
+                accounts.update_password("synthetic-new-password", key=self.key, recovery_context="context-A")
+            self.assertEqual((self.user, 7), fake.flags.hbos_iam_password_proof_epoch)
+            write.assert_not_called()
+
+    def test_password_writer_rejects_recovery_epoch_revoked_at_user_lock(self):
+        native_write = Mock()
+        fake = types.SimpleNamespace(flags=Flags(hbos_iam_password_proof_epoch=(self.user, 7)),
+            db=types.SimpleNamespace(sql=Mock(return_value=[(1,)]), commit=Mock()),
+            throw=reject, AuthenticationError=Rejected)
+        modules = {"frappe.utils.password": types.SimpleNamespace(update_password=native_write),
+            "frappe.core.doctype.user.user": types.SimpleNamespace(test_password_strength=Mock(), handle_password_test_fail=Mock())}
+        with patch.dict(sys.modules, modules), patch.object(accounts, "frappe", fake), \
+                patch.object(accounts, "require_user", return_value=self.user), patch.object(accounts, "epoch", return_value=8):
+            with self.assertRaises(Rejected):
+                accounts._write_password(self.user, "synthetic-new-password")
+        native_write.assert_not_called()
+        fake.db.commit.assert_not_called()
+
     def test_recovery_link_uses_fragment_and_preserves_exact_key(self):
         fake = types.SimpleNamespace(conf={"hbos_portal_origin": "https://hbos.example.test"}, throw=reject, AuthenticationError=Rejected, ValidationError=Rejected)
         from urllib.parse import parse_qs, urlsplit
@@ -211,6 +272,89 @@ class RecoverySecurityTest(unittest.TestCase):
             with self.assertRaises(Rejected):
                 accounts.require_post()
         self.assertEqual({"user": self.user}, metadata)
+
+
+class AuthenticatedRequestDispatchTest(unittest.TestCase):
+    def setUp(self):
+        from hbos_portal.iam import guards, policy, temporary_passwords
+        self.guards, self.policy, self.temporary = guards, policy, temporary_passwords
+        self.attendance = Mock()
+        self.fake = types.SimpleNamespace(conf={"hbos_iam_enabled": 1},
+            session=types.SimpleNamespace(user="api-user@example.test", sid="Guest", data={}),
+            get_installed_apps=Mock(return_value=["frappe", "hbos_portal", "hb_attendance_app"]),
+            get_attr=Mock(return_value=self.attendance),
+            get_hooks=Mock(side_effect=AssertionError("no arbitrary auth hook dispatcher")))
+        for target in (guards, policy):
+            context = patch.object(target, "frappe", self.fake)
+            context.start(); self.addCleanup(context.stop)
+
+    def test_feature_off_does_not_inspect_apps_or_dispatch_guards(self):
+        self.fake.conf["hbos_iam_enabled"] = 0
+        with patch.object(self.guards, "check_identity_request") as identity:
+            self.guards.check_authenticated_request()
+        identity.assert_not_called()
+        self.fake.get_installed_apps.assert_not_called()
+        self.fake.get_attr.assert_not_called()
+        self.fake.get_hooks.assert_not_called()
+
+    def test_enabled_api_actor_runs_only_the_fixed_installed_attendance_guard(self):
+        self.fake.get_installed_apps.return_value += ["unknown_external_auth_app"]
+        with patch.object(self.guards, "check_identity_request") as identity:
+            self.guards.check_authenticated_request()
+        identity.assert_called_once_with()
+        self.fake.get_attr.assert_called_once_with("hb_attendance_app.hbos_attendance.portal.permissions.check_request")
+        self.attendance.assert_called_once_with()
+        self.fake.get_hooks.assert_not_called()
+
+    def test_uninstalled_attendance_is_not_imported_and_broken_installed_guard_fails_closed(self):
+        with patch.object(self.guards, "check_identity_request") as identity:
+            self.fake.get_installed_apps.return_value = ["frappe", "hbos_portal"]
+            self.guards.check_authenticated_request()
+            self.fake.get_attr.assert_not_called()
+            self.fake.get_installed_apps.return_value.append("hb_attendance_app")
+            self.fake.get_attr.side_effect = ImportError("installed guard missing")
+            with self.assertRaises(ImportError):
+                self.guards.check_authenticated_request()
+        self.assertEqual(2, identity.call_count)
+
+    def test_native_token_actor_is_checked_after_the_guest_before_request_stage(self):
+        # Native API-key/OAuth authentication starts with Guest sid and sets
+        # the actor before invoking auth_hooks. A cookie sid is not required.
+        calls = []
+        self.fake.session.user = "Guest"
+        self.fake.get_attr.return_value = lambda: calls.append(("attendance", self.fake.session.user))
+        with patch.object(accounts, "frappe", self.fake), \
+                patch.object(accounts, "require_user", side_effect=lambda: calls.append(("user", self.fake.session.user))), \
+                patch.object(security, "check_request", side_effect=lambda: calls.append(("security", self.fake.session.user))), \
+                patch.object(self.temporary, "check_request", side_effect=lambda: calls.append(("temporary", self.fake.session.user))), \
+                patch.object(self.guards, "check_identity_request", side_effect=lambda: calls.append(("identity", self.fake.session.user))):
+            accounts.check_request()  # before_request, before native token parsing
+            self.assertEqual([], calls)
+            self.fake.session.user = "native-token-user@example.test"
+            accounts.check_request()  # original auth_hook, after native token parsing
+        self.assertEqual([(name, "native-token-user@example.test") for name in ("user", "security", "temporary", "identity", "attendance")], calls)
+        self.assertEqual("Guest", self.fake.session.sid)
+        self.fake.get_hooks.assert_not_called()
+
+    def test_existing_custody_inventory_still_rejects_an_unknown_auth_hook(self):
+        from hbos_portal.auth import operations
+        fake = types.SimpleNamespace(conf={"hbos_administrator_custody_handover_enabled": 1},
+            get_hooks=Mock(return_value=["hbos_portal.auth.accounts.check_request", "external_auth_app.authenticate"]),
+            get_doc=Mock(), throw=reject, PermissionError=Rejected)
+        operation = types.SimpleNamespace(target_user="Administrator", initiator="Administrator", credential_verified=True)
+        with patch.object(operations, "frappe", fake), self.assertRaises(Rejected):
+            operations._custody_cutover(operation)
+        fake.get_doc.assert_not_called()
+
+    def test_only_the_original_auth_hook_remains_registered(self):
+        import runpy
+        from pathlib import Path
+        from hbos_portal import hooks
+        self.assertEqual(["hbos_portal.auth.accounts.check_request"], hooks.auth_hooks)
+        attendance_hooks = runpy.run_path(str(Path(__file__).resolve().parents[2] / "hb_attendance_app" / "hb_attendance_app" / "hooks.py"))
+        self.assertNotIn("auth_hooks", attendance_hooks)
+        self.assertIn("hbos_portal.iam.guards.check_identity_request", hooks.before_request)
+        self.assertEqual(["hb_attendance_app.hbos_attendance.portal.permissions.check_request"], attendance_hooks["before_request"])
 
 
 if __name__ == "__main__":

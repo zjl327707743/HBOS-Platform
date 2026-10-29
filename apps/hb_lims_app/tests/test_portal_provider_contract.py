@@ -7,7 +7,14 @@ import unittest
 from hb_lims_app import hooks
 from hb_lims_app.hbos_lims import workflow_contract as wf
 from hb_lims_app.hbos_lims.portal.access import (
+    AUDIT_READ_CAPABILITY,
+    LEDGER_READ_CAPABILITY,
     READ_CAPABILITY,
+    RESULTS_APPROVE_CAPABILITY,
+    RESULTS_READ_CAPABILITY,
+    RESULTS_REVIEW_CAPABILITY,
+    RESULTS_SUBMIT_CAPABILITY,
+    RETENTION_READ_CAPABILITY,
     build_access_context,
 )
 from hb_lims_app.hbos_lims.portal.manifest import get_manifest
@@ -35,7 +42,13 @@ class PortalManifestContractTest(unittest.TestCase):
         self.assertEqual("native", manifest["migration_mode"])
         self.assertEqual("ExperimentOutlined", manifest["icon"])
         self.assertEqual("lims", manifest["accent"])
-        self.assertEqual(["summary", "tasks", "search"], manifest["capabilities"])
+        self.assertEqual(
+            [
+                "summary", "tasks", "search", "results", "ledger", "audit",
+                "coa", "specifications", "retains", "stability",
+            ],
+            manifest["capabilities"],
+        )
 
 
 class PortalRouteContractTest(unittest.TestCase):
@@ -95,6 +108,26 @@ class PortalRouteContractTest(unittest.TestCase):
             ),
         )
 
+    def test_frontend_alias_routes_map_to_current_native_paths(self):
+        self.assertEqual(
+            "/hbos-lims/results/ledger",
+            resolve_stable_route("/hbos/lims/ledger"),
+        )
+        self.assertEqual(
+            "/hbos-lims/samples",
+            resolve_stable_route("/hbos/lims/samples/new"),
+        )
+
+    def test_native_alias_routes_project_back_to_stable_paths(self):
+        self.assertEqual(
+            "/hbos/lims/ledger",
+            build_stable_deep_link("/results/ledger"),
+        )
+        self.assertEqual(
+            "/hbos/lims/samples",
+            build_stable_deep_link("/samples"),
+        )
+
     def test_rejects_paths_outside_lims_namespace(self):
         for path in (
             "/hbos/inventory/tasks",
@@ -116,12 +149,29 @@ class PortalAccessContractTest(unittest.TestCase):
     def test_lims_business_role_can_enter(self):
         access = build_access_context("analyst@example.com", [wf.ROLE_ANALYST])
         self.assertTrue(access["can_enter"])
-        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+        self.assertEqual(
+            [READ_CAPABILITY, RESULTS_READ_CAPABILITY, LEDGER_READ_CAPABILITY,
+             RETENTION_READ_CAPABILITY, RESULTS_SUBMIT_CAPABILITY],
+            access["capabilities"],
+        )
 
-    def test_system_manager_has_read_entry_only(self):
+    def test_system_manager_has_audit_read_entry(self):
         access = build_access_context("ops@example.com", [wf.ROLE_SYSTEM])
         self.assertTrue(access["can_enter"])
-        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+        self.assertEqual(
+            [READ_CAPABILITY, RESULTS_READ_CAPABILITY, LEDGER_READ_CAPABILITY,
+             RETENTION_READ_CAPABILITY, AUDIT_READ_CAPABILITY],
+            access["capabilities"],
+        )
+
+    def test_quality_roles_do_not_receive_result_or_ledger_read(self):
+        qa_access = build_access_context("qa@example.com", [wf.ROLE_LIMS_QA])
+        qa_manager_access = build_access_context("qa-manager@example.com", [wf.ROLE_LIMS_QA_MANAGER])
+
+        self.assertIn(RETENTION_READ_CAPABILITY, qa_access["capabilities"])
+        for access in (qa_access, qa_manager_access):
+            self.assertNotIn(RESULTS_READ_CAPABILITY, access["capabilities"])
+            self.assertNotIn(LEDGER_READ_CAPABILITY, access["capabilities"])
 
     def test_unrelated_role_cannot_enter(self):
         access = build_access_context("user@example.com", ["Employee"])
@@ -130,6 +180,16 @@ class PortalAccessContractTest(unittest.TestCase):
     def test_administrator_is_break_glass_entry(self):
         access = build_access_context("Administrator", [])
         self.assertTrue(access["can_enter"])
+
+    def test_administrator_receives_portal_read_capabilities(self):
+        access = build_access_context("Administrator", [])
+        self.assertTrue(
+            {
+                RESULTS_READ_CAPABILITY,
+                LEDGER_READ_CAPABILITY,
+                RETENTION_READ_CAPABILITY,
+            }.issubset(access["capabilities"])
+        )
 
     def test_access_contract_does_not_expose_role_names(self):
         access = build_access_context("analyst@example.com", [wf.ROLE_ANALYST])
@@ -183,36 +243,44 @@ class PortalSummaryProjectionContractTest(unittest.TestCase):
                         "retention": 1,
                     },
                 },
+                "scope_label": "检验范围",
+                "semantic": {
+                    "pending_testing": 2,
+                    "in_testing": 1,
+                    "pending_review": 3,
+                    "pending_coa_publish": 1,
+                },
                 "generated_at": "2026-09-25T02:00:00+08:00",
             }
         )
 
         self.assertEqual("lims", projected["app_id"])
         self.assertEqual("attention", projected["status"])
+        self.assertEqual("检验范围", projected["scope_label"])
         self.assertEqual(4, len(projected["metrics"]))
         values = {item["id"]: item["value"] for item in projected["metrics"]}
-        self.assertEqual(7, values["my_lims_work"])
-        self.assertEqual(2, values["my_lims_overdue"])
-        self.assertEqual(4, values["my_lims_testing"])
-        self.assertEqual(2, values["my_lims_stability"])
-        self.assertTrue(
-            all(
-                item["deep_link"] == "/hbos/lims/tasks?scope=mine"
-                for item in projected["metrics"]
-            )
-        )
+        self.assertEqual(2, values["my_testing"])
+        self.assertEqual(1, values["in_testing"])
+        self.assertEqual(3, values["my_review"])
+        self.assertEqual(1, values["coa_publish"])
+        links = {item["id"]: item["deep_link"] for item in projected["metrics"]}
+        self.assertEqual("/hbos/lims/tasks?view=my-testing", links["my_testing"])
+        self.assertIn("status=%E6%A3%80%E9%AA%8C%E4%B8%AD", links["in_testing"])
+        self.assertEqual("/hbos/lims/tasks?view=my-review", links["my_review"])
+        self.assertEqual("/hbos/lims/tasks?view=my-approval", links["coa_publish"])
 
     def test_zero_summary_uses_non_alarm_tones(self):
         projected = project_todo_summary(
             {
                 "summary": {"total": 0, "overdue": 0, "by_module": {}},
+                "semantic": {},
                 "generated_at": "",
             }
         )
         by_id = {item["id"]: item for item in projected["metrics"]}
         self.assertEqual("normal", projected["status"])
-        self.assertEqual("success", by_id["my_lims_overdue"]["tone"])
-        self.assertEqual("neutral", by_id["my_lims_work"]["tone"])
+        self.assertEqual("success", by_id["coa_publish"]["tone"])
+        self.assertEqual("neutral", by_id["my_testing"]["tone"])
 
 
 class PortalProviderRuntimeBoundaryTest(unittest.TestCase):
@@ -224,6 +292,13 @@ class PortalProviderRuntimeBoundaryTest(unittest.TestCase):
         self.assertTrue(callable(provider.summary))
         self.assertTrue(callable(provider.my_tasks))
         self.assertTrue(callable(provider.search))
+        self.assertTrue(callable(provider.results))
+        self.assertTrue(callable(provider.ledger))
+        self.assertTrue(callable(provider.audit))
+        self.assertTrue(callable(provider.coa))
+        self.assertTrue(callable(provider.specifications))
+        self.assertTrue(callable(provider.retains))
+        self.assertTrue(callable(provider.stability))
 
     def test_provider_derives_identity_from_frappe_session(self):
         fake_frappe = types.SimpleNamespace(
@@ -235,7 +310,12 @@ class PortalProviderRuntimeBoundaryTest(unittest.TestCase):
         access = get_provider().access_context()
 
         self.assertTrue(access["can_enter"])
-        self.assertEqual([READ_CAPABILITY], access["capabilities"])
+        self.assertEqual(
+            [READ_CAPABILITY, RESULTS_READ_CAPABILITY, LEDGER_READ_CAPABILITY,
+             RETENTION_READ_CAPABILITY, RESULTS_REVIEW_CAPABILITY,
+             RESULTS_APPROVE_CAPABILITY, AUDIT_READ_CAPABILITY],
+            access["capabilities"],
+        )
 
 
 if __name__ == "__main__":

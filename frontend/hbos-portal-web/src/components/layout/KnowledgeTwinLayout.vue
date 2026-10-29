@@ -40,7 +40,7 @@
         <KnowledgeHeader :maintenance="isMaintenance" />
         <div class="kb-layout">
           <KnowledgeSidebar :can-maintain="permissionState === 'granted'" :maintenance="isMaintenance" />
-          <main id="kt-main-content" class="kb-main" tabindex="-1" :aria-busy="sessionPending || permissionPending">
+          <main id="kt-main-content" class="kb-main" tabindex="-1" :aria-busy="sessionPending || sessionBlocked || permissionPending">
             <a-skeleton v-if="sessionPending || permissionPending" active :paragraph="{rows:6}" />
             <a-alert v-if="sessionError" type="error" show-icon :message="sessionError" />
             <a-result v-if="!sessionPending && !permissionPending && isMaintenance && permissionState === 'denied'" status="403" title="当前账号没有知识维护权限" />
@@ -48,7 +48,7 @@
               <p>维护权限状态暂时无法确认，这不是“没有权限”。当前网络或知识状态接口暂时不可用。</p>
               <a-button size="small" @click="checkPermission()">重试</a-button>
             </div>
-            <div v-if="portal.user && !sessionError" v-show="!sessionPending && !permissionPending && (!isMaintenance || permissionState === 'granted')">
+            <div v-if="portal.user && !sessionError" v-show="!sessionPending && !permissionPending && (!isMaintenance || permissionState === 'granted')" :class="{ 'kb-session-masked': sessionBlocked }" :inert="sessionBlocked || undefined" :aria-hidden="sessionBlocked || undefined">
               <RouterView v-slot="{ Component }"><component :is="Component" :key="portal.user.id" :session-revision="sessionRevision" /></RouterView>
             </div>
           </main>
@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { usePortalStore } from '@/stores/portal'
 import '@/styles/knowledge.css'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
@@ -73,9 +73,13 @@ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import KnowledgeTwinSidebar from '@/components/layout/KnowledgeTwinSidebar.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
 import { usePortalSession } from '@/composables/usePortalSession'
+import { portalSession } from '@/services/portalSessionCoordinator'
+import { portalDataSource } from '@/services/portalProvider'
+import { accountRedirect } from '@/services/accountNavigation'
 
 const portal = usePortalStore()
 const route = useRoute()
+const router = useRouter()
 const commandOpen = ref(false)
 const isTwin = computed(() => route.path.startsWith('/hbos/twin'))
 const isMaintenance = computed(() => route.path.startsWith('/hbos/knowledge/maintenance'))
@@ -83,7 +87,7 @@ const knowledgeTheme = { ...hbosAntdTheme, token: { ...hbosAntdTheme.token, colo
 // ``sessionRevision`` comes from the composable and advances only after a
 // *successful* re-verification, so a failed or transient resume does not look
 // like an authorization change to the child views.
-const { sessionPending, sessionError, sessionRevision } = usePortalSession()
+const { sessionPending, sessionError, sessionBlocked, sessionRevision } = usePortalSession()
 const permissionPending = ref(false)
 // 'unknown' is a status endpoint that failed for a reason other than an explicit
 // denial. Rendering it as a 403 told real maintainers they had lost access.
@@ -129,6 +133,14 @@ watch([() => route.path, () => sessionPending.value], () => {
   if (checkedPermission || !portal.user?.id) return
   void checkPermission()
 })
+// A confirmed sign-out finishes at the login page, exactly as in PortalLayout.
+// A transient failure leaves the phase 'unconfirmed' and keeps this page with
+// its recovery control, so it is never mistaken for a revocation.
+watch(() => portalSession.phase, phase => {
+  if (phase === 'guest' && portalDataSource === 'frappe' && route.path.startsWith('/hbos/knowledge')) {
+    void router.replace({ path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(route.fullPath) } })
+  }
+})
 
 const contextLabel = computed(() => route.path.startsWith('/hbos/twin') ? '设备与工艺' : '知识库')
 
@@ -153,6 +165,9 @@ onBeforeUnmount(() => { permissionEpoch++; window.removeEventListener('keydown',
 }
 .kt-route-content { min-width: 0; }
 .kt-bootstrap-error { border-radius: 16px; }
+/* A resume re-check hides what is on screen without destroying it: the answer,
+   draft, filters and scroll position are all still there when it clears. */
+.kb-session-masked { visibility: hidden; pointer-events: none; }
 @media (max-width: 900px) {
   .kt-layout-grid { grid-template-columns: 1fr; }
 }

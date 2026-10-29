@@ -9,7 +9,7 @@ import { DomainApiError } from '@/services/p1Api'
 
 const api = vi.hoisted(() => ({ status: vi.fn() }))
 vi.mock('@/composables/usePortalSession', () => ({
-  usePortalSession: () => ({ sessionPending: ref(false), sessionError: ref(null), sessionRevision: ref(0) }),
+  usePortalSession: () => ({ sessionPending: ref(false), sessionError: ref(null), sessionRevision: ref(0), sessionMasked: ref(false) }),
 }))
 vi.mock('@/services/p1Api', async original => ({
   ...(await original<typeof import('@/services/p1Api')>()),

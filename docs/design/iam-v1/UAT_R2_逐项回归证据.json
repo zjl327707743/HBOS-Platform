@@ -1,0 +1,1734 @@
+{
+  "date": "2026-10-18",
+  "A_status": "IAM_UAT_R2_PARTIAL",
+  "B_status": "IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER",
+  "new_roles_and_department_company_LIMS_implementation": "NOT_AUTHORIZED / NOT_RUN",
+  "owner_experience_acceptance": "PENDING_OWNER; R1 history not overwritten",
+  "source_head": "e59292e6136b2bc05fdfbb9e8024c31230a602b4",
+  "matrix": [
+    {
+      "id": "R2-01",
+      "result": "PARTIAL",
+      "UI": {
+        "Safari_26_4_employee_tabs": [
+          {
+            "round": 1,
+            "document": "5ba8478b-7cc8-4688-b914-79e8e26a94d4",
+            "bootstrap": "1",
+            "security_reads": "12",
+            "capabilities_reads": "12",
+            "resume_events": "33",
+            "view": "433",
+            "mount_unmount": "4/3",
+            "query_complete_discard": "7/6/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          },
+          {
+            "round": 2,
+            "document": "5ba8478b-7cc8-4688-b914-79e8e26a94d4",
+            "bootstrap": "1",
+            "security_reads": "12",
+            "capabilities_reads": "12",
+            "resume_events": "37",
+            "view": "433",
+            "mount_unmount": "4/3",
+            "query_complete_discard": "7/6/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          },
+          {
+            "round": 3,
+            "document": "5ba8478b-7cc8-4688-b914-79e8e26a94d4",
+            "bootstrap": "1",
+            "security_reads": "12",
+            "capabilities_reads": "12",
+            "resume_events": "41",
+            "view": "433",
+            "mount_unmount": "4/3",
+            "query_complete_discard": "7/6/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          },
+          {
+            "round": 4,
+            "document": "5ba8478b-7cc8-4688-b914-79e8e26a94d4",
+            "bootstrap": "1",
+            "security_reads": "13",
+            "capabilities_reads": "13",
+            "resume_events": "45",
+            "view": "433",
+            "mount_unmount": "4/3",
+            "query_complete_discard": "7/6/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          },
+          {
+            "round": 5,
+            "document": "5ba8478b-7cc8-4688-b914-79e8e26a94d4",
+            "bootstrap": "1",
+            "security_reads": "13",
+            "capabilities_reads": "13",
+            "resume_events": "49",
+            "view": "433",
+            "mount_unmount": "4/3",
+            "query_complete_discard": "7/6/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          }
+        ],
+        "Safari_26_4_admin_private_window_tabs": [
+          {
+            "round": 1,
+            "document": "04f6b4ea-8a8f-4fce-9f03-ad46281cf885",
+            "bootstrap": "1",
+            "security_reads": "5",
+            "capabilities_reads": "4",
+            "resume_events": "13",
+            "view": null,
+            "mount_unmount": null,
+            "query_complete_discard": null,
+            "permission_events": null,
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          },
+          {
+            "round": 2,
+            "document": "04f6b4ea-8a8f-4fce-9f03-ad46281cf885",
+            "bootstrap": "1",
+            "security_reads": "5",
+            "capabilities_reads": "4",
+            "resume_events": "15",
+            "view": null,
+            "mount_unmount": null,
+            "query_complete_discard": null,
+            "permission_events": null,
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          },
+          {
+            "round": 3,
+            "document": "04f6b4ea-8a8f-4fce-9f03-ad46281cf885",
+            "bootstrap": "1",
+            "security_reads": "5",
+            "capabilities_reads": "4",
+            "resume_events": "17",
+            "view": null,
+            "mount_unmount": null,
+            "query_complete_discard": null,
+            "permission_events": null,
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          },
+          {
+            "round": 4,
+            "document": "04f6b4ea-8a8f-4fce-9f03-ad46281cf885",
+            "bootstrap": "1",
+            "security_reads": "5",
+            "capabilities_reads": "4",
+            "resume_events": "19",
+            "view": null,
+            "mount_unmount": null,
+            "query_complete_discard": null,
+            "permission_events": null,
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          },
+          {
+            "round": 5,
+            "document": "04f6b4ea-8a8f-4fce-9f03-ad46281cf885",
+            "bootstrap": "1",
+            "security_reads": "5",
+            "capabilities_reads": "4",
+            "resume_events": "21",
+            "view": null,
+            "mount_unmount": null,
+            "query_complete_discard": null,
+            "permission_events": null,
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          }
+        ],
+        "Chrome_155_0_8059_84_employee_incognito_tabs": [
+          {
+            "round": 1,
+            "document": "82ae31fe-c667-4663-8755-5ec82f04f59f",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "3",
+            "view": "89",
+            "mount_unmount": "1/0",
+            "query_complete_discard": "2/2/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          },
+          {
+            "round": 2,
+            "document": "82ae31fe-c667-4663-8755-5ec82f04f59f",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "6",
+            "view": "89",
+            "mount_unmount": "1/0",
+            "query_complete_discard": "2/2/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          },
+          {
+            "round": 3,
+            "document": "82ae31fe-c667-4663-8755-5ec82f04f59f",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "9",
+            "view": "89",
+            "mount_unmount": "1/0",
+            "query_complete_discard": "2/2/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          },
+          {
+            "round": 4,
+            "document": "82ae31fe-c667-4663-8755-5ec82f04f59f",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "12",
+            "view": "89",
+            "mount_unmount": "1/0",
+            "query_complete_discard": "2/2/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          },
+          {
+            "round": 5,
+            "document": "82ae31fe-c667-4663-8755-5ec82f04f59f",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "15",
+            "view": "89",
+            "mount_unmount": "1/0",
+            "query_complete_discard": "2/2/0",
+            "permission_events": "0",
+            "actual_date_14": true,
+            "personal_mode_selected": false,
+            "self_option_still_off": false,
+            "filter_R1_0001": false
+          }
+        ],
+        "Chrome_admin_unsaved_draft_tabs": [
+          {
+            "round": 1,
+            "document": "1e98f675-05cd-4530-8b01-9458527d0f55",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "3",
+            "view": "0",
+            "mount_unmount": "0/0",
+            "query_complete_discard": "0/0/0",
+            "permission_events": "0",
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          },
+          {
+            "round": 2,
+            "document": "1e98f675-05cd-4530-8b01-9458527d0f55",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "6",
+            "view": "0",
+            "mount_unmount": "0/0",
+            "query_complete_discard": "0/0/0",
+            "permission_events": "0",
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          },
+          {
+            "round": 3,
+            "document": "1e98f675-05cd-4530-8b01-9458527d0f55",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "9",
+            "view": "0",
+            "mount_unmount": "0/0",
+            "query_complete_discard": "0/0/0",
+            "permission_events": "0",
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          },
+          {
+            "round": 4,
+            "document": "1e98f675-05cd-4530-8b01-9458527d0f55",
+            "bootstrap": "1",
+            "security_reads": "2",
+            "capabilities_reads": "2",
+            "resume_events": "12",
+            "view": "0",
+            "mount_unmount": "0/0",
+            "query_complete_discard": "0/0/0",
+            "permission_events": "0",
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          },
+          {
+            "round": 5,
+            "document": "1e98f675-05cd-4530-8b01-9458527d0f55",
+            "bootstrap": "1",
+            "security_reads": "3",
+            "capabilities_reads": "3",
+            "resume_events": "15",
+            "view": "0",
+            "mount_unmount": "0/0",
+            "query_complete_discard": "0/0/0",
+            "permission_events": "0",
+            "actual_date_14": false,
+            "personal_mode_selected": true,
+            "self_option_still_off": true,
+            "filter_R1_0001": true
+          }
+        ],
+        "independent_browser_subjects": true,
+        "macOS_application_switch": "NOT_PROVEN"
+      },
+      "HTTP": "native security/capability reads observed; bootstrap stays 1",
+      "native_database_or_queue": "not a database mutation",
+      "limitations": [
+        "macOS Cmd-Tab / AX Raise attempts did not produce independent focus/visibility proof, not counted as PASS.",
+        "Chrome admin five-tab record is abf2bb4; later 2b9678c changed department-result wording only. Other current native checks + identical employee-state source are supplemental, not a new exact-build admin loop."
+      ]
+    },
+    {
+      "id": "R2-02",
+      "result": "PASS_WITH_SCOPE",
+      "UI": {
+        "Safari_route_rounds": 5,
+        "Chrome_route_rounds": 5,
+        "both_native_history_forward_and_back": true,
+        "Safari_nonzero_scroll_before": 1,
+        "Safari_nonzero_scroll_returned": 0.994186,
+        "Chrome_real_pagination_route_return": "page 2, four rows, same applied range"
+      },
+      "HTTP": "route remount re-reads applied conditions; no cached business rows",
+      "native_database_or_queue": "native original date rows preserved",
+      "limitations": [
+        "A route return remount is expected and recorded; tab resumption keeps the same view."
+      ]
+    },
+    {
+      "id": "R2-03",
+      "result": "PASS",
+      "UI": {
+        "same_native_Chrome_document": "82ae31fe-c667-4663-8755-5ec82f04f59f",
+        "unrelated_user_and_app_no_attendance_reload": true,
+        "revoked_rows_cleared_and_chinese_denial": true,
+        "same_session_restore_date_14_three_rows": true
+      },
+      "HTTP": {
+        "unrelated_user": {
+          "action": "other_user",
+          "attendance_digest_unchanged": true,
+          "overall_changed": false,
+          "iam_digest_changed": false
+        },
+        "unrelated_app": {
+          "action": "other_app",
+          "attendance_digest_unchanged": true,
+          "overall_changed": true,
+          "iam_digest_changed": true
+        },
+        "native_revoked_request": 403,
+        "restore": 200
+      },
+      "native_database_or_queue": {
+        "deny_audit": 1,
+        "restore_audit": 1,
+        "exact_unrelated_fixture_rules_restored": true
+      },
+      "limitations": []
+    },
+    {
+      "id": "R2-04",
+      "result": "PARTIAL",
+      "UI": {
+        "Safari_and_Chrome_14th_three_rows_18th_empty": true,
+        "draft_applied_notice": true,
+        "Safari_empty_date_rejected": true,
+        "Chrome_native_3G_query_retains_view_and_applied_range": true,
+        "native_frontend_paging": {
+          "first": 20,
+          "second": 4,
+          "date": "2026-10-12",
+          "dedicated_E_only": true
+        },
+        "actual_browser_reverse_response_order": "NOT_PROVEN",
+        "component_reverse_order": "PASS"
+      },
+      "HTTP": {
+        "checks": [
+          {
+            "case": "14th",
+            "wire_parameters": {
+              "date_from": "2026-10-14",
+              "date_to": "2026-10-14"
+            },
+            "http": 200,
+            "expected": 200,
+            "rows": 3,
+            "total": 3,
+            "range_echo_matches": true,
+            "all_rows_within_range": true
+          },
+          {
+            "case": "18th",
+            "wire_parameters": {
+              "date_from": "2026-10-18",
+              "date_to": "2026-10-18"
+            },
+            "http": 200,
+            "expected": 200,
+            "rows": 0,
+            "total": 0,
+            "range_echo_matches": true,
+            "all_rows_within_range": true
+          },
+          {
+            "case": "month_boundary",
+            "wire_parameters": {
+              "date_from": "2026-09-30",
+              "date_to": "2026-10-14"
+            },
+            "http": 200,
+            "expected": 200,
+            "rows": 3,
+            "total": 3,
+            "range_echo_matches": true,
+            "all_rows_within_range": true
+          },
+          {
+            "case": "year_boundary",
+            "wire_parameters": {
+              "date_from": "2025-12-31",
+              "date_to": "2026-01-01"
+            },
+            "http": 200,
+            "expected": 200,
+            "rows": 0,
+            "total": 0,
+            "range_echo_matches": true,
+            "all_rows_within_range": true
+          },
+          {
+            "case": "leap_day",
+            "wire_parameters": {
+              "date_from": "2024-02-29",
+              "date_to": "2024-03-01"
+            },
+            "http": 200,
+            "expected": 200,
+            "rows": 0,
+            "total": 0,
+            "range_echo_matches": true,
+            "all_rows_within_range": true
+          },
+          {
+            "case": "page_one",
+            "wire_parameters": {
+              "date_from": "2026-10-14",
+              "date_to": "2026-10-14",
+              "page": 1,
+              "page_size": 2
+            },
+            "http": 200,
+            "expected": 200,
+            "rows": 2,
+            "total": 3,
+            "range_echo_matches": true,
+            "all_rows_within_range": true
+          },
+          {
+            "case": "page_two",
+            "wire_parameters": {
+              "date_from": "2026-10-14",
+              "date_to": "2026-10-14",
+              "page": 2,
+              "page_size": 2
+            },
+            "http": 200,
+            "expected": 200,
+            "rows": 1,
+            "total": 3,
+            "range_echo_matches": true,
+            "all_rows_within_range": true
+          },
+          {
+            "case": "empty_date",
+            "wire_parameters": {
+              "date_from": "",
+              "date_to": "2026-10-18"
+            },
+            "http": 417,
+            "expected": 417
+          },
+          {
+            "case": "inverted",
+            "wire_parameters": {
+              "date_from": "2026-10-18",
+              "date_to": "2026-10-14"
+            },
+            "http": 417,
+            "expected": 417
+          },
+          {
+            "case": "exceeds_367",
+            "wire_parameters": {
+              "date_from": "2025-01-01",
+              "date_to": "2026-10-18"
+            },
+            "http": 417,
+            "expected": 417
+          },
+          {
+            "case": "invalid",
+            "wire_parameters": {
+              "date_from": "2026-02-30",
+              "date_to": "2026-03-01"
+            },
+            "http": 417,
+            "expected": 417
+          },
+          {
+            "case": "unbounded_page",
+            "wire_parameters": {
+              "date_from": "2026-10-14",
+              "date_to": "2026-10-14",
+              "page_size": 500
+            },
+            "http": 417,
+            "expected": 417
+          },
+          {
+            "case": "subject_injection",
+            "wire_parameters": {
+              "date_from": "2026-10-14",
+              "date_to": "2026-10-14",
+              "employee": "HR-EMP-00002"
+            },
+            "http": 403,
+            "expected": 403
+          },
+          {
+            "case": "site_default",
+            "http": 200,
+            "actual_range": [
+              "2026-09-18",
+              "2026-10-18"
+            ],
+            "site_timezone": "Asia/Kolkata",
+            "site_today": "2026-10-18",
+            "explicit_echo": true
+          }
+        ],
+        "paging_no_duplicate_or_missing_rows": true
+      },
+      "native_database_or_queue": {
+        "dedicated_R2_existing_E_employee_only": true,
+        "new_synthetic_checkins": 24,
+        "total": 24,
+        "fixed_date": "2026-10-12",
+        "skip_auto_attendance": true,
+        "original_A_B_and_pending_untouched": true
+      },
+      "limitations": [
+        "3G native UI exercised slow completion and draft editing; no strictly reversed response order was manufactured in the native browser. Component tests cover this deterministically and are not substituted for native proof."
+      ]
+    },
+    {
+      "id": "R2-05",
+      "result": "PASS",
+      "UI": {
+        "native_admin_to_A_to_admin": true,
+        "logout_notice_once_and_absent_on_new_workbench": true,
+        "native_first_password_gate": true,
+        "offline_with_DevTools_kept_open": "local content hidden, server logout unconfirmed",
+        "restored_network_retry": "signed_out only after confirmed Guest"
+      },
+      "HTTP": {
+        "native_revoked_example": 403,
+        "stale_csrf_logout": 400,
+        "fresh_logout_confirmed_guest": true
+      },
+      "native_database_or_queue": "no Owner password reset",
+      "limitations": [
+        "First attempt closed DevTools, which stopped offline emulation; retained as failed fault setup, not as network-unknown evidence."
+      ]
+    },
+    {
+      "id": "R2-06",
+      "result": "PASS_WITH_SCOPE",
+      "UI": {
+        "SELF_second_scope_checkbox_removed": true,
+        "native_exact_department_and_attendance_jump": true,
+        "return_to_selected_default_apps_tab": true
+      },
+      "HTTP": [
+        {
+          "subject": "accessonly",
+          "source_summary_http": 200,
+          "source_exact_minimal_fields": true,
+          "can_open_department": false,
+          "department_list_http": 403,
+          "preview_http": 200,
+          "personal_attendance_http": 403
+        },
+        {
+          "subject": "manager1",
+          "source_summary_http": 200,
+          "source_exact_minimal_fields": true,
+          "can_open_department": true,
+          "department_list_http": 200,
+          "preview_http": 200,
+          "personal_attendance_http": 403
+        },
+        {
+          "subject": "synthetic_access_read_only",
+          "read_http": 200,
+          "manage_preview_http": 403,
+          "can_open_department": false,
+          "no_department_member_or_attendance_fields": true
+        },
+        {
+          "forged_scope": "ALL",
+          "http": 400,
+          "rejected": true
+        },
+        {
+          "forged_scope": "DEPARTMENT",
+          "http": 400,
+          "rejected": true
+        },
+        {
+          "forged_scope": "COMPANY",
+          "http": 400,
+          "rejected": true
+        },
+        {
+          "fixed_SELF_preview_http": 200,
+          "preview_cancel_no_policy_write": true
+        }
+      ],
+      "native_database_or_queue": "preview cancellation leaves policy version unchanged",
+      "limitations": [
+        "Restricted-source/no-management negatives are actual HTTP and component evidence; no claim of a separate native restricted-admin profile walkthrough."
+      ]
+    },
+    {
+      "id": "R2-07",
+      "result": "PASS",
+      "UI": {
+        "copy_and_controls_component_covered": true
+      },
+      "HTTP": {
+        "initial": 200,
+        "personal_deny": 403,
+        "paused": 403,
+        "restored_still_personal_deny": 403,
+        "department_default_same_subject_date": 200,
+        "department_result_source": "department",
+        "replay": true,
+        "concurrent_statuses": [
+          409,
+          200
+        ],
+        "transfer_preview_lost_self": true,
+        "old_session_after_transfer": 403,
+        "d2_denied": 403,
+        "d1_restored_same_employee_date": 200
+      },
+      "native_database_or_queue": {
+        "R2-08": {
+          "department_default_changes_preserve_personal_exclusion": true,
+          "personal_policy_rules_and_version_unchanged_across_department_off_on": true,
+          "personal_exclusion_removed_only_by_explicit_restore": true,
+          "same_actor_date_restored": true
+        },
+        "department_deny_survives_pause_restore": true,
+        "expired_allow_survives_pause_restore_without_inherited_fallback": true,
+        "changed_command_audits_exactly_once": 10,
+        "all_changed_command_audit_counts_one": true,
+        "actor_baseline_restored": true
+      },
+      "limitations": []
+    },
+    {
+      "id": "R2-08",
+      "result": "PASS",
+      "UI": {
+        "owner_not_required_to_hand_execute_D1": true
+      },
+      "HTTP": "actual finite preview/save APIs + same actor read 403/200",
+      "native_database_or_queue": {
+        "department_default_changes_preserve_personal_exclusion": true,
+        "personal_policy_rules_and_version_unchanged_across_department_off_on": true,
+        "personal_exclusion_removed_only_by_explicit_restore": true,
+        "same_actor_date_restored": true
+      },
+      "limitations": []
+    },
+    {
+      "id": "R2-09",
+      "result": "PASS_HTTP_DB",
+      "UI": {
+        "transfer_component_chinese_confirmation": "covered by current frontend suite",
+        "native_transfer_form_final_submit": "NOT_RUN"
+      },
+      "HTTP": {
+        "initial": 200,
+        "personal_deny": 403,
+        "paused": 403,
+        "restored_still_personal_deny": 403,
+        "department_default_same_subject_date": 200,
+        "department_result_source": "department",
+        "replay": true,
+        "concurrent_statuses": [
+          409,
+          200
+        ],
+        "transfer_preview_lost_self": true,
+        "old_session_after_transfer": 403,
+        "d2_denied": 403,
+        "d1_restored_same_employee_date": 200
+      },
+      "native_database_or_queue": {
+        "same_native_employee": true,
+        "same_canonical_user": true,
+        "same_string_number": true,
+        "returned_original_department": true,
+        "original_password_hash_unchanged": true,
+        "original_checkin_primary_keys_unchanged": true,
+        "original_attendance_primary_keys_unchanged": true
+      },
+      "limitations": [
+        "Transfer source/destination scope and stale preview actual HTTP evidence in R11_scope_http_evidence.json."
+      ]
+    },
+    {
+      "id": "R2-10",
+      "result": "PARTIAL",
+      "UI": {
+        "native_first_password_gate": "PASS on a separate dedicated Gate identity",
+        "native_E_permanent_login_and_logout": "PASS",
+        "native_new_credential_entry_confirmation_submit": "NOT_RUN"
+      },
+      "HTTP": {
+        "same_native_employee": true,
+        "employee_count_unchanged_on_provision": true,
+        "one_native_user_created": true,
+        "temporary_login_gated": true,
+        "permanent_password_works": true,
+        "old_temporary_rejected": true,
+        "native_session_rotated": true,
+        "stale_csrf_logout_status": 400,
+        "logout_confirmed_guest": true,
+        "layer": "actual isolated HTTP + native DB counts"
+      },
+      "native_database_or_queue": {
+        "same_employee_no_duplicate": true,
+        "original_owner_pending_still_unopened": "checked in final freeze"
+      },
+      "limitations": [
+        "Computer Use instructions require human takeover before any NEW credential is entered, even when pre-authorized. No new credential was entered through UI. Actual dedicated synthetic HTTP password lifecycle completed; this does not constitute full UI E PASS.",
+        "No bulk Owner regression checklist is delegated."
+      ]
+    },
+    {
+      "id": "R2-11",
+      "result": "PASS_WITH_SCOPE",
+      "UI": {
+        "not_inferred_from_hidden_UI": true
+      },
+      "HTTP": {
+        "checks": [
+          {
+            "name": "v1 Attendance list",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v2 Attendance list",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v2 Checkin list",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native get_list",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native get_count",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native get_all not whitelisted",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native reportview list",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "query report run",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "query report prepared dn",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "query report export",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native export",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "print REST target",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "Prepared Report metadata",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "Prepared Report native download",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "Prepared Report native conversion",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "Prepared Report native creation",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "File metadata",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "File innocent alias metadata",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "private attachment URL",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "zip innocent alias",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "File generic download",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "SQL not public method",
+            "subject": "managedhr",
+            "http_status": 417,
+            "response_type": "ValidationError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v1 single Attendance",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v2 single Attendance",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native getdoc Attendance",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native print Attendance",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v1 single Employee Checkin",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v2 single Employee Checkin",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native getdoc Employee Checkin",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native print Employee Checkin",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "personal subject injection",
+            "subject": "managedhr",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v1 Attendance list",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v2 Attendance list",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v2 Checkin list",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native get_list",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native get_count",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native get_all not whitelisted",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native reportview list",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "query report run",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "query report prepared dn",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "query report export",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native export",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "print REST target",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "Prepared Report metadata",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "Prepared Report native download",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "Prepared Report native conversion",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "Prepared Report native creation",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "File metadata",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "File innocent alias metadata",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "private attachment URL",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "zip innocent alias",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "File generic download",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "SQL not public method",
+            "subject": "manager1",
+            "http_status": 417,
+            "response_type": "ValidationError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v1 single Attendance",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v2 single Attendance",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native getdoc Attendance",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native print Attendance",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v1 single Employee Checkin",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "v2 single Employee Checkin",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native getdoc Employee Checkin",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "native print Employee Checkin",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "personal subject injection",
+            "subject": "manager1",
+            "http_status": 403,
+            "response_type": "PermissionError",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "legacy native login",
+            "subject": "legacyhr",
+            "http_status": 200,
+            "response_type": "json",
+            "forbidden_marker": false,
+            "result": "PASS"
+          },
+          {
+            "name": "unmanaged HR existing query report",
+            "subject": "legacyhr",
+            "http_status": 200,
+            "response_type": "json",
+            "forbidden_marker": true,
+            "result": "PASS"
+          }
+        ],
+        "background_dispatch": {
+          "invocations": [
+            {
+              "method": "generate_report",
+              "native_method_reached": false,
+              "result": "DENIED"
+            },
+            {
+              "method": "convert_json_to_csv",
+              "native_method_reached": false,
+              "result": "DENIED"
+            },
+            {
+              "method": "generate_report",
+              "native_method_reached": false,
+              "result": "DENIED"
+            }
+          ],
+          "files_before": 1,
+          "files_after": 1,
+          "real_rq_worker": "NOT_RUN",
+          "execution": "actual registered before_job hook dispatch followed by native method only if allowed; no Mock"
+        },
+        "source": "current source, repeated actual requests; historical fixture metadata only",
+        "ordinary_employee": {
+          "checks": [
+            {
+              "name": "v1 Attendance list",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "v2 Attendance list",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "json",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "v2 Checkin list",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "json",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native get_list",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native get_count",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native get_all not whitelisted",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native reportview list",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "query report run",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "query report prepared dn",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "query report export",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native export",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "print REST target",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "Prepared Report metadata",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "Prepared Report native download",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "Prepared Report native conversion",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "Prepared Report native creation",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "File metadata",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "File innocent alias metadata",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "private attachment URL",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "zip innocent alias",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "File generic download",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "SQL not public method",
+              "subject": "ordinaryemployee",
+              "http_status": 417,
+              "response_type": "ValidationError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "v1 single Attendance",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "v2 single Attendance",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "json",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native getdoc Attendance",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native print Attendance",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "v1 single Employee Checkin",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "v2 single Employee Checkin",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "json",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native getdoc Employee Checkin",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "native print Employee Checkin",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "personal subject injection",
+              "subject": "ordinaryemployee",
+              "http_status": 403,
+              "response_type": "PermissionError",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "legacy native login",
+              "subject": "legacyhr",
+              "http_status": 200,
+              "response_type": "json",
+              "forbidden_marker": false,
+              "result": "PASS"
+            },
+            {
+              "name": "unmanaged HR existing query report",
+              "subject": "legacyhr",
+              "http_status": 200,
+              "response_type": "json",
+              "forbidden_marker": true,
+              "result": "PASS"
+            }
+          ],
+          "only_own_isolated_paths": true,
+          "all_expected": true
+        }
+      },
+      "native_database_or_queue": {
+        "management": {
+          "ordinary_employee_management_endpoints_denied": [
+            {
+              "endpoint": "hbos_portal.api.iam_people.list_people",
+              "status": 403
+            },
+            {
+              "endpoint": "hbos_portal.api.iam_people.get_person",
+              "status": 403
+            },
+            {
+              "endpoint": "hbos_portal.api.iam_access.get_effective_access",
+              "status": 403
+            }
+          ],
+          "no_management_snapshot": true
+        },
+        "real_RQ": {
+          "files_before": 1,
+          "initially_authorised": true,
+          "revoked_before_worker": true,
+          "job_failed": true,
+          "permission_error": true,
+          "registered_guard_trace": true,
+          "files_after": 1,
+          "csv_files": 0,
+          "worker_exit": 0,
+          "queue": "iam_uat_r2 only; burst exited",
+          "layer": "real RQ process + native CSV job + registered before_job hook; no Mock"
+        }
+      },
+      "limitations": [
+        "64 actual HTTP cases cover the named managed HR and delegated admin, plus legacy HR positive control; ordinary employee management endpoints separately 403."
+      ]
+    },
+    {
+      "id": "R2-12",
+      "result": "PASS_WITH_SCOPE",
+      "UI": {
+        "preview_cancel_component_and_native_draft": "PASS",
+        "native_two_admin_final_submit_UI": "NOT_RUN"
+      },
+      "HTTP": {
+        "concurrent_actual_POST_statuses": [
+          409,
+          200
+        ],
+        "replay_same_request": true,
+        "transfer_scope_and_stale_preview": {
+          "missing_context_commit": 409,
+          "mismatched_context_commit": 409,
+          "rejected_transfer_no_employee_write": true,
+          "rejected_transfer_success_audit_events": 0,
+          "authorised_source_and_destination_preview": 200,
+          "destination_outside_management_scope": 403,
+          "source_outside_management_scope": 403,
+          "read_only_no_transfer_submitted": true
+        }
+      },
+      "native_database_or_queue": {
+        "actual_native_database_rollback": true,
+        "success_event_count": 0,
+        "fault_after_policy_save_before_audit": true,
+        "layer": "real MariaDB service transaction; only audit append injected, not an HTTP fault endpoint"
+      },
+      "limitations": [
+        "Rollback is real MariaDB transaction with only audit append failure injected in-process; not a public HTTP fault endpoint.",
+        "No write command is automatically replayed."
+      ]
+    },
+    {
+      "id": "R2-13",
+      "result": "PASS_WITH_SCOPE",
+      "UI": {
+        "Chrome_native_responsive_widths": [
+          1280,
+          1440
+        ],
+        "Chrome_actual_zoom_percent": 200,
+        "zoom_restored": 100,
+        "long_department_names_and_buttons_checked": true,
+        "native_date_keyboard_and_focus": true,
+        "design_drawer_shift_tab_wrap_and_escape_restore": true
+      },
+      "HTTP": "not an HTTP security proof",
+      "native_database_or_queue": "screenshots containing real organization labels kept private",
+      "limitations": [
+        "Native 1280/1440 screenshots are responsive viewport emulation; 200% is an actual browser zoom test, separately recorded."
+      ]
+    },
+    {
+      "id": "R2-14",
+      "result": "LOCAL_PASS_CI_VERIFY_ON_DELIVERY_HEAD",
+      "UI": {
+        "frontend_vitest": {
+          "files": 23,
+          "tests": 190
+        },
+        "typecheck": "PASS",
+        "production_build": "PASS",
+        "served": "Vite DEV 5198, distinct from dist"
+      },
+      "HTTP": "native source module URLs observed in Chrome Network; served raw/transformed module hashes independently verified",
+      "native_database_or_queue": {
+        "portal_tests": 172,
+        "attendance_tests": 499,
+        "source_head": "e59292e6136b2bc05fdfbb9e8024c31230a602b4",
+        "CI": "read exact final delivery head check runs; final record attached in PR and local output"
+      },
+      "limitations": [
+        "Backend and Attendance run under own native Python3.14 dependency environment; initial package-root harness failures retained, not counted as product passes.",
+        "Runtime/source fingerprint file records all inputs; docs-only delivery does not change app sources."
+      ]
+    }
+  ],
+  "retained_failures": [
+    "Safari initial visually today but actually empty dates and a different backend default.",
+    "Safari first tab check lost focus behind a slow security mask, then fixed.",
+    "Development HMR remount and a conflict retained separately from ordinary resumption.",
+    "Parallel department reads before fix 12/24 fail; three-attempt intermediate cold/warm runs each 1/24 fail; four-attempt final 0/24 fail.",
+    "Technical policy fixture mistakenly replaced unrelated rows; controller rejected restoration, then original four child keys recovered from own pre-window backup and corrected driver rerun.",
+    "Native full-page fixed-drawer screenshot distorted by capture tool; viewport capture replaced it."
+  ]
+}

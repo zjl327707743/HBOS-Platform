@@ -90,7 +90,9 @@ def parse_xlsx_matrix(file_path):
         all_rows = []
         for sheet_name, rid in sheets:
             target = rel_map[rid]
-            if not target.startswith('xl/'):
+            if target.startswith('/'):
+                target = target.lstrip('/')
+            elif not target.startswith('xl/'):
                 target = 'xl/' + target.lstrip('/')
             if target not in zf.namelist():
                 continue

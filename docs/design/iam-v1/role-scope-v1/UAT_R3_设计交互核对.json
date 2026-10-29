@@ -1,0 +1,245 @@
+{
+  "scope": "本机 IAB 5199 合成设计；不是 Frappe 授权验收",
+  "tests": [
+    {
+      "test": "新考勤员须明确确认范围",
+      "pass": true
+    },
+    {
+      "test": "取消保留原角色",
+      "pass": true
+    },
+    {
+      "test": "未存草稿不能发布",
+      "pass": true
+    },
+    {
+      "test": "角色发布预览列出2人及独立部门",
+      "pass": true
+    },
+    {
+      "test": "部门默认关闭保留单独角色与范围",
+      "pass": true
+    },
+    {
+      "test": "空负责部门拒绝保存",
+      "pass": true
+    },
+    {
+      "test": "保存草稿及取消发布不改变成员功能",
+      "pass": true
+    },
+    {
+      "test": "发布错误状态 forbidden",
+      "pass": true
+    },
+    {
+      "test": "发布错误状态 conflict",
+      "pass": true
+    },
+    {
+      "test": "发布错误状态 failure",
+      "pass": true
+    },
+    {
+      "test": "发布错误状态 disabled",
+      "pass": true
+    },
+    {
+      "test": "发布错误状态 deleted",
+      "pass": true
+    },
+    {
+      "test": "发布同步成员 0001",
+      "pass": true
+    },
+    {
+      "test": "发布同步成员 0002",
+      "pass": true
+    },
+    {
+      "test": "临时禁用在换角色后保留",
+      "pass": true
+    },
+    {
+      "test": "解除仅移除临时禁用并保留角色和其他禁止",
+      "pass": true
+    },
+    {
+      "test": "1440px 员工管理 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 1425,
+        "font": "16px",
+        "scroll": 1425
+      }
+    },
+    {
+      "test": "1440px 部门管理 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 1425,
+        "font": "16px",
+        "scroll": 1425
+      }
+    },
+    {
+      "test": "1440px 角色与权限 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 1425,
+        "font": "16px",
+        "scroll": 1425
+      }
+    },
+    {
+      "test": "1440px 抽屉底部可见",
+      "pass": true,
+      "metrics": {
+        "bottom": 942,
+        "viewport": 960
+      }
+    },
+    {
+      "test": "1440px Escape 关闭抽屉",
+      "pass": true
+    },
+    {
+      "test": "1280px 员工管理 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 1265,
+        "font": "16px",
+        "scroll": 1265
+      }
+    },
+    {
+      "test": "1280px 部门管理 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 1265,
+        "font": "16px",
+        "scroll": 1265
+      }
+    },
+    {
+      "test": "1280px 角色与权限 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 1265,
+        "font": "16px",
+        "scroll": 1265
+      }
+    },
+    {
+      "test": "1280px 抽屉底部可见",
+      "pass": true,
+      "metrics": {
+        "bottom": 942,
+        "viewport": 960
+      }
+    },
+    {
+      "test": "1280px Escape 关闭抽屉",
+      "pass": true
+    },
+    {
+      "test": "780px 员工管理 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 765,
+        "font": "16px",
+        "scroll": 765
+      }
+    },
+    {
+      "test": "780px 部门管理 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 765,
+        "font": "16px",
+        "scroll": 765
+      }
+    },
+    {
+      "test": "780px 角色与权限 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 765,
+        "font": "16px",
+        "scroll": 765
+      }
+    },
+    {
+      "test": "780px 抽屉底部可见",
+      "pass": true,
+      "metrics": {
+        "bottom": 944,
+        "viewport": 960
+      }
+    },
+    {
+      "test": "780px Escape 关闭抽屉",
+      "pass": true
+    },
+    {
+      "test": "390px 员工管理 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 375,
+        "font": "16px",
+        "scroll": 375
+      }
+    },
+    {
+      "test": "390px 部门管理 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 375,
+        "font": "16px",
+        "scroll": 375
+      }
+    },
+    {
+      "test": "390px 角色与权限 无文档横向溢出",
+      "pass": true,
+      "metrics": {
+        "client": 375,
+        "font": "16px",
+        "scroll": 375
+      }
+    },
+    {
+      "test": "390px 抽屉底部可见",
+      "pass": true,
+      "metrics": {
+        "bottom": 944,
+        "viewport": 960
+      }
+    },
+    {
+      "test": "390px Escape 关闭抽屉",
+      "pass": true
+    },
+    {
+      "test": "未接入应用只读占位",
+      "pass": true
+    },
+    {
+      "test": "搜索空态",
+      "pass": true
+    },
+    {
+      "test": "普通员工无第二个本人范围复选框",
+      "pass": true
+    },
+    {
+      "test": "抽屉键盘焦点回到关闭按钮",
+      "pass": true
+    },
+    {
+      "test": "调岗不自动扩大独立负责部门",
+      "pass": true
+    }
+  ]
+}

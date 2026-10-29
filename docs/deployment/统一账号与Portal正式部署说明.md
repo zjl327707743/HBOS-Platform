@@ -57,12 +57,14 @@ bash /opt/hbos-release/scripts/release/apply_existing_site.sh \
 ./env/bin/python /opt/hbos-release/scripts/release/configure_feishu.py \
   --bench /home/frappe/frappe-bench --site "$HBOS_SITE" \
   --app-id "$EXISTING_FEISHU_APP_ID" --origin "$HTTPS_ORIGIN" \
-  --enable-inbox-stepup --enable-disable-sync
+  --pilot-user "$APPROVED_EXISTING_HBOS_USER"
 ```
+
+受控配置必须显式指定一至两个已有具名账号（重复 `--pilot-user`）；本地 `scripts/local/manage.py feishu-config` 同样传此参数。脚本解析原生 User.name，先关闭入口，再写入试点名单及自动开户关闭，最后启用入口；中途失败保持关闭。机器人收件及停用同步为独立显式可选项，默认不启用。
 
 缺 Secret 时只通过 `getpass` 隐藏输入至 Site/private 0600 文件。已有有效 Secret 复用；仅实际失效或需处置泄露时使用 `--replace-secret`。企业信息由应用服务端凭据取得，Owner 只核对企业名称及控制台配置。首次真实授权、机器人收件验证码、二次认证和成员权限须在网页实测。未通过时保持入口关闭并报告实际缺项，不关闭 CSRF、state 或 tenant 校验。
 
-旧用户：原密码登录 → 我的 → 账号与安全 → 验证原密码/原 MFA → 绑定本人飞书 → 授权后明确确认当前账号。无绑定记录的获准普通成员首次授权自动开通并绑定永久 User，直接进入工作台；已停用或撤销记录不绕过。新 User 无 Desk/管理员/审批角色及默认密码，拼音唯一登录名使用 Frappe 原生用户名；可仅用飞书工作，按需通过本人收件验证（及已有 MFA）设密，仍是同一 User。换绑与三类交接见 `飞书自动开户与受控账号变更.md`；真实交接必须另有人员、目标及双方页面确认。
+旧用户：原密码登录 → 我的 → 账号与安全 → 验证原密码/原 MFA → 绑定本人飞书 → 授权后明确确认当前账号。本配置工具建立的受控试点不自动开户；未知飞书身份必须由本人先以获准已有账号验证密码/MFA 后显式绑定。既有非试点自动开户策略未被本补丁扩展；已停用或撤销记录不绕过。新 User 无 Desk/管理员/审批角色及默认密码，拼音唯一登录名使用 Frappe 原生用户名；可仅用飞书工作，按需通过本人收件验证（及已有 MFA）设密，仍是同一 User。换绑与三类交接见 `飞书自动开户与受控账号变更.md`；真实交接必须另有人员、目标及双方页面确认。
 
 改密后清除所有旧会话与恢复票据并颁发标准新会话。已有密码的绑定用户忘记密码时，可在网页切换本人飞书消息验证码验证，再更新同一 User 的密码；收件能力未启用时明确提示，不能仅凭现有 SSO 会话改密。解绑须验证可用本地密码，最后一种登录方式不能解绑。冲突不转移、不按姓名/邮箱合并；恢复使用验证邮箱短时单次 key 或管理员重新认证后填写核验依据并签发恢复凭据。Administrator 保留原密码应急入口，外部绑定默认关闭，须 Owner 单独启用；绝不自动授予新飞书用户 Administrator。
 
@@ -88,3 +90,9 @@ Gateway 挂载私有 `gateway_token`、`gateway_policy.json`、`index.jsonl`，�
 ## 接口依据
 
 企业查询使用应用 tenant token，返回企业名称及 tenant_key；成员核验使用明确 UserStatus 字段。契约已对照[飞书官方 SDK 企业模型](https://github.com/larksuite/oapi-sdk-python/blob/0b9e6e48b74bb4b34462fc67b7e738b27e73e697/lark_oapi/api/tenant/v2/model/tenant.py)及[官方成员状态模型](https://github.com/larksuite/oapi-sdk-python/blob/0b9e6e48b74bb4b34462fc67b7e738b27e73e697/lark_oapi/api/contact/v3/model/user_status.py)。这只证明接口字段依据，不代替该应用真实权限/OAuth/PKCE 现场验证。
+
+### Owner 明确指定本人绑定 Administrator 的例外
+
+默认仍禁止保留账户。只有 Owner 明确指定其本人飞书绑定当前内置 Administrator 时，操作员才使用 `--pilot-user Administrator --allow-administrator-link`（本地 `feishu-config` 也传同名选项）。此开关仅批准该现有 User 的绑定目标，不创建/授予 Administrator，不读取或重置其密码，不批准其他人员。名单不含 Administrator 或未显式启用时仍拒绝；Guest 始终禁止。自动开户保持关闭。
+
+本人须使用当前有效管理员密码及已有 MFA 完成 proof，授权真实企业身份，核对并确认绑定。仅 OAuth 登录不替代管理写入所需的密码 proof。停用此例外时同时关闭开关或移除试点名单；已有绑定的处置使用正式解绑与会话撤销流程，保留审计。

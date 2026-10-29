@@ -1,0 +1,204 @@
+{
+  "date": "2026-10-19",
+  "A_source_sha": "35e241ff0b4fabe7fb2aaa0586ff7908d671f70e",
+  "B_design_sha": "90185653853d508a52cbfb9bb49b6e0cf0bc5a5d",
+  "B_status": "PENDING_OWNER / NO_BACKEND_AUTHORIZATION",
+  "checks": [
+    {
+      "id": "A1",
+      "status": "PASS",
+      "layer": "source/component/native UI",
+      "result": "Portal中性/紫色Token；本人原始打卡/每日结果区分，已应用范围与草稿提示保持；Chrome管理路径、Safari本人范围/辅助时区文字验证"
+    },
+    {
+      "id": "A2",
+      "status": "PASS",
+      "layer": "component + real HTTP",
+      "result": "更多动作→服务端预览→单次受控禁用/解除；普通编辑保留禁用；C3个人拒绝/部门拒绝/过期允许恢复仍拒绝；UI仅预览与取消，未宣称原生UI最终改权提交"
+    },
+    {
+      "id": "A3",
+      "status": "PASS",
+      "layer": "native backup + metadata/reference scan + native delete + HTTP",
+      "before": 59,
+      "deleted": 24,
+      "retained": 35,
+      "daily_reviewed": 27,
+      "technical_or_native_retained": 8,
+      "reference_scan": {
+        "static_link_fields": 63,
+        "dynamic_link_fields": 2,
+        "extra": [
+          "IAM范围/关联",
+          "原生默认",
+          "岗位排班等所有Department Link字段",
+          "Version/审计历史"
+        ]
+      },
+      "retained_reasons": {
+        "native_root": 1,
+        "referenced_regression_or_legacy": 5,
+        "historical_version_reference": 2
+      },
+      "result": "按准确ID及Company默认创建来源删除；frappe.delete_doc无force/无绕Link；未重挂Employee或删除考勤；日常27部门及精确来源跳转真实HTTP通过"
+    },
+    {
+      "id": "A4",
+      "status": "PARTIAL",
+      "layer": "source + native SQL/HTTP",
+      "site_timezone": "Asia/Kolkata",
+      "all_current_user_timezones": [
+        "Asia/Kolkata"
+      ],
+      "native_boundaries": "两个合成本地日期各00:00:00/23:59:59通过；新增4条仅专用合成员工；原考勤全部保留",
+      "configuration_change": "NOT_APPLIED：9个临时密码到期值共用naive Site时钟；单改+2.5h会改变期限语义，需要时间模型审查",
+      "different_browser_timezones": "NOT_RUN：当前浏览器接口无独立timezone context；未改用户真实浏览器/系统时区"
+    },
+    {
+      "id": "C3_D1_D2",
+      "status": "PASS",
+      "layer": "real HTTP + native database",
+      "result": {
+        "initial": 200,
+        "personal_deny": 403,
+        "paused": 403,
+        "restored_still_personal_deny": 403,
+        "department_default_same_subject_date": 200,
+        "department_result_source": "department",
+        "replay": true,
+        "concurrent_statuses": [
+          200,
+          409
+        ],
+        "transfer_preview_lost_self": true,
+        "old_session_after_transfer": 403,
+        "d2_denied": 403,
+        "d1_restored_same_employee_date": 200
+      },
+      "default_and_limits": {
+        "R2-08": {
+          "department_default_changes_preserve_personal_exclusion": true,
+          "personal_policy_rules_and_version_unchanged_across_department_off_on": true,
+          "personal_exclusion_removed_only_by_explicit_restore": true,
+          "same_actor_date_restored": true
+        },
+        "department_deny_survives_pause_restore": true,
+        "expired_allow_survives_pause_restore_without_inherited_fallback": true,
+        "changed_command_audits_exactly_once": 10,
+        "all_changed_command_audit_counts_one": true,
+        "actor_baseline_restored": true
+      }
+    },
+    {
+      "id": "limited_and_bypass",
+      "status": "PASS",
+      "layer": "real HTTP",
+      "native_bypass_cases": 33,
+      "result": "普通员工管理入口及原生列表/单条/报表/导出/打印/文件等拒绝；受限管理员不能借管理权读考勤；旧Legacy HR正向路径保留",
+      "limited_management_http": [
+        {
+          "subject": "accessonly",
+          "configuration_read": 200,
+          "no_business_payload": true,
+          "personal_and_forged_subjects": [
+            403,
+            403,
+            403
+          ],
+          "department_read": 403
+        },
+        {
+          "subject": "manager1",
+          "configuration_read": 200,
+          "no_business_payload": true,
+          "personal_and_forged_subjects": [
+            403,
+            403,
+            403
+          ],
+          "department_read": 200
+        }
+      ]
+    },
+    {
+      "id": "native_tabs",
+      "status": "PASS",
+      "layer": "macOS native AX",
+      "Chrome": {
+        "cycles": 5,
+        "retained": "日常组织分组与精确来源URL"
+      },
+      "Safari": {
+        "cycles": 5,
+        "retained": "乙身份与14日已应用范围"
+      },
+      "limits": "AX状态检查，不将相同截图当作组件实例/网络时序证据"
+    },
+    {
+      "id": "owner_prior_acceptance",
+      "status": "USER_CONFIRMED_PASS",
+      "source": "2026-10-19本轮任务书的Owner人工通过记录",
+      "items": [
+        "本人14日08:11、17:21和出勤共3条",
+        "14日/18日草稿与已应用条件、查询后空态",
+        "标签/Finder/站内返回三类各5次",
+        "退出换人无重复提示或前人残留"
+      ],
+      "result": "独立保留，不要求Owner重跑"
+    },
+    {
+      "id": "E_new_credential_UI",
+      "status": "NOT_RUN",
+      "reason": "Computer Use要求在输入新凭据前人工接手；本轮未设置/输入/提交任何新密码，未弱化proof/MFA。既有R2 HTTP生命周期证据保留，未改称UI通过"
+    },
+    {
+      "id": "strict_native_response_reorder",
+      "status": "NOT_PROVEN",
+      "reason": "沿用R2限制；确定性组件乱序检查通过，不冒充原生网络乱序实证"
+    },
+    {
+      "id": "native_os_focus_event_timing",
+      "status": "NOT_PROVEN",
+      "reason": "本轮没有新增独立focus/visibility事件时序证据；Owner三类切回人工通过保持"
+    },
+    {
+      "id": "new_OAuth",
+      "status": "NOT_RUN",
+      "reason": "本轮未触发真实OAuth/企业开户；旧人工通过基线不改写"
+    },
+    {
+      "id": "unit_build",
+      "status": "PASS",
+      "frontend": 191,
+      "portal": 174,
+      "attendance": 499,
+      "typecheck": "PASS",
+      "vite_build": "PASS",
+      "warnings": [
+        "既有chunk>500KB",
+        "单测环境既有Vue组件解析警告"
+      ]
+    },
+    {
+      "id": "native_invariants",
+      "status": "PASS",
+      "Role": 53,
+      "Role_Profile": 6,
+      "role_rows_exact_unchanged": true,
+      "native_assignment_meaning_unchanged": true,
+      "native_assignment_child_metadata": "D2原生User保存使部分Has Role行元数据变化；844条分配含义一致",
+      "Employee": 29,
+      "original_checkins": 29,
+      "checkins_after": 33,
+      "original_attendance": 3,
+      "auth_hashes_exact_preserved": true,
+      "new_role_assignment_model": false
+    },
+    {
+      "id": "harness_repairs",
+      "status": "RESOLVED",
+      "result": "初次本地驱动导入路径、R2专用08:00/17:00与Owner08:11/17:21的错误假设、整数0归一化及原型原生confirm阻塞均已纠正；原失败留私有日志，不记产品PASS。短时登录拒绝后等待正常窗口，没有清限流/放宽认证。"
+    }
+  ],
+  "B_design_checks": 41
+}

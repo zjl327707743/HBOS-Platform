@@ -5,7 +5,7 @@ from typing import Any
 
 from hbos_portal.contracts.errors import PortalException, new_trace_id
 from hbos_portal.portal.constants import CAPABILITY_METHODS
-from hbos_portal.services.access import require_app_access, require_authenticated_user
+from hbos_portal.services.access import require_authenticated_user, require_provider_capability
 from hbos_portal.services.registry import RegistryEntry, build_registry
 
 
@@ -37,7 +37,7 @@ def dispatch_provider(
         )
 
     entry = get_entry(app_id)
-    require_app_access(entry)
+    require_provider_capability(entry, capability)
 
     if capability not in entry.manifest.capabilities:
         raise PortalException(

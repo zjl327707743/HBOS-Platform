@@ -1,5 +1,42 @@
 # Reading Guide
 
+## 当前集成状态 — 2026-10-19
+
+**四个完整业务 PR 已实际合并：#42 考勤、#46 生产、#39 仓储、#43 LIMS。** 唯一目标为 `feature/hbos-portal-product`；业务合并基线为 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，状态文档在其后维护。[#43](https://github.com/zjl327707743/HBOS-Platform/pull/43) 于 2026-10-19 03:28:29 UTC 正常 Squash Merge；来源、父提交与树见[项目状态](PROJECT_STATUS.md)。
+
+**合并前精确组合：PASS。** [R10 39184807396](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 全部 10 jobs SUCCESS，五个原生域与离线／契约／构建在本次 #43 来源和产品基线的真实组合上通过；该组合树与实际 Squash 树相同。
+
+**实际产品合并后回归：PASS。** [R11 39195037712](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 全部 10 jobs SUCCESS；五个原生域均直接运行业务合并基线 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`，无额外 merge，实际单父与树一致，双 migrate 与清理均成功。LIMS 原有 32 项、新增审计 9 项、独立 Todo 1 项合计 42 项原生测试全部通过；Todo 只有 1 项，归属 LIMS。
+
+阅读顺序为页首当前状态 → [PROJECT_STATUS](PROJECT_STATUS.md) 的四项实际合并表、R10 与 R11 → M2／M3 当前门禁 → [审计兼容边界](experience/LIMS_审计指纹与锚定版本兼容边界.md) → 按需追溯旧 Run。后续工作读取远端最新产品 HEAD；AGENTS／CLAUDE 继续维护协作规则。旧 Mac、OCR、样本及打印记录不构成本轮操作或验收授权。
+
+业务合并基线与文档保存后的 HEAD 分开记录。Run1–9 的历史失败、未合并及 `NOT_PRODUCT_COMPOSITION` 均按各自日期、来源和作业保留，详见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)；最新业务与回归状态以本节和项目状态为准。
+
+### 历史回归 — 2026-10-18 Run8（#39 合并后）
+
+**合并后回归：PASS。** [Run8 39107944012](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39107944012) 全部 8 jobs SUCCESS；四个业务域直接检出实际产品 `a1cc65dde73cfad656faf290264f75fb1a25c32b`，记录 `post_merge_baseline`，源码树为 `43b59653ebbe61db530f523ea980163c88f1899e`、唯一父提交为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`。仓储事务 8/8、报表22项HTTP与8项跨仓CSV、卡证权限74/74、考勤原生范围及生产28项检查均通过；所有原生Site双migrate与清理通过。完整来源与后续文档提交见 [PR #56](https://github.com/zjl327707743/HBOS-Platform/pull/56)，不以文档提交后的新HEAD冒充上述已运行提交。
+
+## 验证历史 — 2026-10-18 Run6
+
+[报表、扫码及附件验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810152) **74 PASS / 0 FAIL**；[事务验证](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39103298497/job/117603810103) **6 PASS / 2 FAIL**。余两项失败为按单一 URL 误选 Batch File 的测试定位错误，LIMS 放行后两种外发 submit/cancel 仍 **NOT_REACHED**，完整仓储门禁未通过。
+
+## 验证历史 — 2026-10-18 Run5
+
+以下保留 Run5 当时的观察与判断，其中“当前”“尚未通过”“原因待定位”均指该次验证；后续状态以页首“当前集成状态”和实际 PR 记录为准。
+
+当前业务集成先读 [项目状态](PROJECT_STATUS.md)、[当前里程碑](CURRENT_MILESTONE.md)、[多 App 集成规范](governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md) 与 [Owner 本批次裁定](governance/HBOS_Owner_业务集成批次裁定_20261018.md)。完整 #42、#46 已合并，已核对产品为 `4ddf9bebe5bd9f0d73cdb84bd4ddfa9b8615ad30`；[#39](https://github.com/zjl327707743/HBOS-Platform/pull/39) 仍在技术门禁中，未合并，验证证据见 [#56](https://github.com/zjl327707743/HBOS-Platform/pull/56)。#43 后置；独立 LIMS 契约结果不能替代产品组合。
+
+仓储任务定向读取 [M3 门禁](milestones/M3_START_GATE.md) 和 M3-R4/R5/R6 页首 R3 补记；不因读取旧文档启动 Mac 服务或迁移真实 Site。最新来源和实际合并以 PR #39、PR #56 及远端产品 ref 为准。下方 PR #21、#55 与早期阶段的“本轮”“当前”均为历史背景，不覆盖此读取入口。
+
+## 历史阶段记录
+
+> 2026-10-18 代码集成窗口：仓储物料只读浏览由 [PR #55](https://github.com/zjl327707743/HBOS-Platform/pull/55) 独立承接；当前代码来源以远端 `feature/hbos-portal-product` 与该 PR 实际合并 SHA 为准。下方 PR #21 的 SHA/账号验收是历史记录，不代表最新产品 HEAD。完整业务 #42/#43/#46/#39 和 IAM #52 各自保留独立门禁；本轮不安装或部署真实环境。
+
+PR #21 已完成 FINAL_REVIEW_PASS 并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Browser final-submit 3/3 与 Owner 最新无破坏验收均已 PASS；旧 #22 已关闭，IAM-0 由 clean Draft PR #23 承接。PR #15 仍 Draft，main 未放行。以 [本轮主记录](milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 顶部的合并后收口状态为准；下方 BLOCKED/WAITING 文字均为历史。
+
+> 知识专项（PR #30，分支 `codex/knowledge-autonomous-r1`）：以下为知识轮次自己的状态记录，保留其原日期含义；是否合入、验收与部署以 [PR #30](https://github.com/zjl327707743/HBOS-Platform/pull/30) 的实际记录为准。
+
+
 当前知识专项：[RC14 V2 员工体验候选](milestones/M1_KB_RC14_员工体验候选.md)。仅隔离验收，Owner 未验收，PR #30 保持 Draft；旧轮次记录为历史，不代表当前通过。
 
 ## 当前知识专项：HBOS Knowledge UAT5 — 2026-10-15
@@ -10,13 +47,11 @@
 
 本轮证据范围与剩余门槛见 [UAT5质量候选](milestones/M1_KB_UAT5_检索可靠性与全目录质量候选.md)；详细真实问题、原文、账号、目录和完整漏斗仅留 Owner 本机交付。
 
-
 ## 历史：HBOS Knowledge UAT4 — 2026-10-11
 
 **LOCAL_UAT / REVIEWING / OWNER_NOT_RUN / ROLLOUT_PENDING。** 个人助手入口简化为客户端选择、一次私密安装和最近真实知识使用。状态只在本人连接实际检索并打开同一检索来源后更新；个人 Token 与无凭据使用规则分开存储。已批准的成功资料按精确子集分批发布，完整性未过关的资料保持待核；解析许可不能代替共享许可。原 15 份、UAT2 样式、四回答模型、千问 Embedding 和默认零外部 rerank 保留。
 
 本轮事实、最终统计及制品边界见 [UAT4 验收候选](milestones/M1_KB_UAT4_极简接入与真实资料发布候选.md)；Owner 私有联合锁为数量、运行源码、CI 和 wheel 的最终依据。PR #30 保持 Draft，不合并、不切 P1、不开放正式员工。公司 HTTPS 入口待部署，本机地址仅用于本机 Owner 验收。
-
 
 ## 历史：HBOS Knowledge UAT3 — 2026-10-11
 
@@ -27,7 +62,6 @@
 **UAT2_IMPLEMENTATION_CANDIDATE / PROTOTYPE_APPROVED / OWNER_NOT_RUN / ROLLOUT_PENDING。** Owner 已正式批准知识库交互设计 V1，本轮原型审批门禁已满足。知识模块按批准原型完成独立首页、资料目录、本人收藏/记录、六步 MCP 向导和维护员资料/上传/版本/反馈页面；接入原生 Frappe/API，保留 15 份真实共享资料、GPT-6-luna、千问 Embedding、用户权限及关闭原件下载。按两轮截图与实际操作复验，最终运行源码、构建资产和 CI 以本机 Owner 交付联合锁为准。人工产品验收与真实服务器上线是独立 Gate；PR #30 保持 Draft，不合并、不切 P1、不开放全员。
 
 主记录：[M1-KB-UAT2 完整业务与迁移候选](milestones/M1_KB_UAT2_完整业务与迁移候选.md)。下文 UAT1/N1 的旧财务阻断为历史事实，服从本轮最新 Owner 决策。
-
 
 ## HBOS Knowledge UAT-1 当前候选 — 2026-10-10
 
@@ -89,7 +123,6 @@ PARTIAL / ACCOUNTING_PENDING / NOT_RELEASED。服务0.3.10增加维护入口专�
 本轮仅独立本机候选，未合并或切换现行 P1，未升级/重建旧 RAGFlow 存储，旧 synthetic lease 不延长。服务 0.3.1 通过本地独立提交与 wheel 联合固定；未提供服务远端，不伪造远端服务 PR。员工 MCP、复杂 ACL、公司服务器与生产 TLS 留在后续范围。当前任务依据已收到的 R2 文件和 Owner 最新目录/模型授权，不依赖丢失的旧总任务书。
 
 执行说明见 `docs/milestones/M1_KB_R2_真实部门知识候选.md`。以下 R1 记录为历史事实，不能当作当前 R2 阻塞清单。
-
 
 ## 知识候选连续执行 R1 — 2026-10-08
 
@@ -194,7 +227,6 @@ M0 历史任务曾允许读取：
 
 不得因 HRMS 已安装而擅自创建新的海滨自定义 Frappe App；`hb_attendance_app` 仅限 M1-FIX-B 已授权的轻量导入能力，不得扩大范围；不得接飞书真实写入；不得做前端驾驶舱；不得提交真实 `.env` 或真实密钥。
 
-
 ## HBOS Portal 并行工作流读取规则
 
 当任务明确涉及 HBOS Portal / Workspace / Experience Architecture 时，可在默认入口文件之外读取：
@@ -206,16 +238,15 @@ M0 历史任务曾允许读取：
 
 不得因此递归读取整个 `docs/`。
 
-Portal 产品 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；原 `codex/portal-unified-account-release` 仅保留为已合并 PR #21 的历史来源。
-
+该 PR #21 历史发布 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；原 `codex/portal-unified-account-release` 仅保留为已合并 PR #21 的历史来源。当前业务集成读取本页首 R3 入口。
 
 ## Portal 统一账号与正式发布
 
-当前任务定向读取 `docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`、`docs/deployment/统一账号与Portal正式部署说明.md`、`docs/frontend/统一账号发布与前端完整性矩阵.md`。旧预览/试点记录是历史背景，不能替代原账号或正式 Site 验收。真实目标清单、备份与内部报告私下保存。
+涉及该历史统一账号发布任务时，定向读取 `docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md`、`docs/deployment/统一账号与Portal正式部署说明.md`、`docs/frontend/统一账号发布与前端完整性矩阵.md`。旧预览/试点记录是历史背景，不能替代原账号或正式 Site 验收。真实目标清单、备份与内部报告私下保存。
 
-团队通用交付已经通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 进入产品分支。当前后续代码以 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea` 为准；公司服务器/HTTPS 和尚未执行的真人高风险场景仍按独立后续 Gate 管理。
+团队通用交付已经通过 [PR #21](https://github.com/zjl327707743/HBOS-Platform/pull/21) 进入产品分支，该历史发布代码基线为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；公司服务器/HTTPS 和尚未执行的真人高风险场景仍按独立后续 Gate 管理。当前后续代码以远端最新产品 ref 及本页首 R3 记录为准。
 
-当前 Portal 本轮门禁以 RP3 主记录和 `deployment/Mac本地运行与团队同步.md` 为准；原库选择、公司服务器和 HTTPS 不阻塞已授权 Mac 运行。
+该历史 Portal 账号发布轮次门禁以 RP3 主记录和 `deployment/Mac本地运行与团队同步.md` 为准；原库选择、公司服务器和 HTTPS 不阻塞当时已授权 Mac 运行，不构成本次云端集成的 Mac 操作授权。
 
 当前飞书成员拒绝、自动开户/拼音登录名与受控换绑/交接，定向阅读 `docs/deployment/飞书自动开户与受控账号变更.md`。2026-10-01 Owner 已确认 Administrator 本人飞书成功登录；旧成员权限待审批记录为历史，当前新版本真人回归及其他真人操作单独记录，不恢复旧的原库/服务器/HTTPS门禁。
 
