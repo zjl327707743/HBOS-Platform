@@ -181,3 +181,19 @@ describe('v1.4 shared components', () => {
     expect(rows[0].find('.r6-department-row__more').exists()).toBe(false)
   })
 })
+
+describe('v1.4 status tone: never green for an unusable or unknown state', () => {
+  it('maps unusable, limited, unknown and usable states to distinct tones', async () => {
+    const { statusTone } = await import('@/services/assignmentPresentation')
+    expect(statusTone('当前暂不可用')).toBe('warning')
+    expect(statusTone('已确认 · 仍受限')).toBe('warning')
+    expect(statusTone('待核对')).toBe('warning')
+    expect(statusTone('待确认角色')).toBe('warning')
+    expect(statusTone('已撤销确认')).toBe('warning')
+    expect(statusTone('安排已生效')).toBe('success')
+    expect(statusTone('可使用')).toBe('success')
+    expect(statusTone(undefined)).toBe('neutral')
+    expect(statusTone('')).toBe('neutral')
+    expect(statusTone('可使用', true)).toBe('warning')
+  })
+})

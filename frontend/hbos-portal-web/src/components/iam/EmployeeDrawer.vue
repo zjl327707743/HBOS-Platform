@@ -31,7 +31,10 @@ const accountMode = ref<'create' | 'link'>('create'), belongs = ref(false), acco
 const roleDirty = ref(false), lowToolsOpen = ref(false), appsVisited = ref(false)
 const work = ref<WorkSummary | null>(null), workLoading = ref(false), workError = ref('')
 const attendanceSummary = ref<RoleEditorSummary | null>(null)
-type AppAccessCard = { appId: string; title: string; integrated: boolean; source: string; role: string; scopes: string; status: string; reason: string }
+type AppAccessCard = { appId: string; title: string; integrated: boolean; source: string; role: string; scopes: string; status: string; reason: string; tone?: 'neutral' | 'brand' | 'success' | 'warning' | 'error' }
+// §5.6: one tone rule shared with the tests; a status chip must never say
+// "success" for a state that is not usable, and an unknown read stays neutral.
+import { statusTone as accessTone } from '@/services/assignmentPresentation'
 const appAccessCards = computed<AppAccessCard[]>(() => {
   const cards: AppAccessCard[] = []
   const attendanceWork = (work.value?.apps || []).find(app => app.app_id === 'attendance')
@@ -42,6 +45,7 @@ const appAccessCards = computed<AppAccessCard[]>(() => {
     scopes: attendanceSummary.value?.scopes || '待核对',
     status: attendanceWork?.suspended ? '已暂停' : attendanceSummary.value?.status || '待核对',
     reason: attendanceWork?.suspended ? '考勤应用已临时暂停；角色安排仍保留，可在下方单独恢复。' : attendanceSummary.value?.reason || '',
+    tone: accessTone(attendanceWork?.suspended ? '已暂停' : attendanceSummary.value?.status, attendanceWork?.suspended),
   })
   for (const app of otherApps.value) cards.push({
     appId: app.app_id, title: app.title, integrated: app.integrated,
@@ -50,6 +54,7 @@ const appAccessCards = computed<AppAccessCard[]>(() => {
     scopes: app.integrated ? ((app.operations || []).filter(row => row.enabled).flatMap(row => row.scopes.map(scope => scope.label || (scope.scope_type === 'SELF' ? '本人' : scope.scope_ref))).filter((value, index, all) => all.indexOf(value) === index).join('、') || '待核对') : '未读取',
     status: app.integrated ? (app.suspended ? '已暂停' : app.status) : '尚未接入',
     reason: app.integrated ? '' : '原有业务入口保持现有授权；本页不启用、不关闭、不套用考勤角色接口。',
+    tone: app.integrated ? accessTone(app.suspended ? '已暂停' : app.status, app.suspended) : 'neutral',
   })
   return cards
 })
@@ -449,7 +454,7 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
               <article v-for="entry in appAccessCards" :key="entry.appId" class="r6-app-access-card" :class="{ 'not-integrated': !entry.integrated }">
                 <div class="r6-app-access-head">
                   <strong>{{ entry.title }}</strong>
-                  <StatusTag :tone="entry.integrated ? (entry.status === '已暂停' ? 'warning' : entry.status === '待核对' ? 'neutral' : 'success') : 'neutral'">{{ entry.integrated ? entry.status : '尚未接入' }}</StatusTag>
+                  <StatusTag :tone="entry.integrated ? (entry.tone || 'neutral') : 'neutral'">{{ entry.integrated ? entry.status : '尚未接入' }}</StatusTag>
                 </div>
                 <dl v-if="entry.integrated" class="r6-app-access-facts">
                   <div><dt>来源</dt><dd>{{ entry.source }}</dd></div>

@@ -71,3 +71,15 @@ export const managementRole = (roleKey?: string | null) => roleKey === 'clerk' |
 export function scopeRefsOf(rows?: Array<{ scope_ref?: string }> | null) {
   return (rows || []).map(row => row.scope_ref || '').filter(Boolean)
 }
+
+/**
+ * §5.6 for status chips: a state that is not usable is never green, and an
+ * unknown read is neutral rather than an optimistic default.
+ */
+export function statusTone(status?: string | null, suspended?: boolean): 'neutral' | 'success' | 'warning' {
+  if (suspended) return 'warning'
+  if (!status) return 'neutral'
+  if (/不可用|受限|待确认|待核对|待开通|暂停|已撤销|未分配|沿用/.test(status)) return 'warning'
+  if (/可使用|有可用功能|已生效|已确认/.test(status)) return 'success'
+  return 'neutral'
+}
