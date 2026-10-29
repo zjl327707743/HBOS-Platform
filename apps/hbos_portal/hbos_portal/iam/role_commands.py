@@ -364,7 +364,9 @@ def get_assignment(employee_id, app_id):
                 mode=own[0].mode if own else 'LEGACY' if roles.preserves_legacy_personal(employee) else 'FOLLOW_DEPARTMENT', role_key=policy.value(resolved, 'role_key', ''),
                 selected_role=resolved, effective_access=_effective(employee, resolved),
                 responsibilities=[roles.scope_dict(row) for row in own[0].responsibilities] if own else [],
-                roles=[{'role_key': key, 'title': title, 'boundary_kind': boundary} for key, (title, boundary) in roles.BLUEPRINTS.items()])
+                # Read-only projection of the same published catalogue the department
+                # page uses, so one picker component can show grantability honestly.
+                roles=_department_role_catalog(employee.department, employee.company))
 
 
 def _department_target(department):

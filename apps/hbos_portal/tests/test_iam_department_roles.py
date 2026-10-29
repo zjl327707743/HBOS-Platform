@@ -225,5 +225,46 @@ class DepartmentAssignmentValidationTest(unittest.TestCase):
                 role_models.validate_assignment(self.doc(role="role-clerk", **overrides))
 
 
+class EmployeeAssignmentCatalogueTest(unittest.TestCase):
+    """The employee page must read the same published catalogue as the department.
+
+    A read-only projection only: no grant is implied, and a role that cannot be
+    read stays not-grantable with its reason instead of becoming an offer.
+    """
+
+    def setUp(self):
+        self.fake = types.SimpleNamespace(
+            PermissionError=PermissionDenied, ValidationError=Invalid,
+            throw=lambda message, kind=PermissionDenied: (_ for _ in ()).throw(kind(message)),
+            db=types.SimpleNamespace(exists=lambda doctype, name: True, sql=lambda *args, **kwargs: []))
+        patcher = patch.object(role_commands, "frappe", self.fake)
+        patcher.start(); self.addCleanup(patcher.stop)
+        patcher = patch.object(role_commands.roles, "require_available")
+        patcher.start(); self.addCleanup(patcher.stop)
+        patcher = patch.object(role_commands, "_employee", return_value=employee())
+        patcher.start(); self.addCleanup(patcher.stop)
+        patcher = patch.object(role_commands.roles, "assignments", return_value=[])
+        patcher.start(); self.addCleanup(patcher.stop)
+        patcher = patch.object(role_commands.roles, "resolve", return_value=None)
+        patcher.start(); self.addCleanup(patcher.stop)
+        patcher = patch.object(role_commands.roles, "preserves_legacy_personal", return_value=False)
+        patcher.start(); self.addCleanup(patcher.stop)
+        patcher = patch.object(role_commands, "_effective", return_value={"allowed": False, "reason": "", "operations": []})
+        patcher.start(); self.addCleanup(patcher.stop)
+
+    def test_get_assignment_projects_the_shared_published_catalogue(self):
+        catalog = [
+            {"role_key": "staff", "title": "普通员工", "boundary_kind": "SELF", "grantable": True, "reason": "", "published_revision": 2},
+            {"role_key": "clerk", "title": "部门考勤员", "boundary_kind": "DEPARTMENT", "grantable": False, "reason": "角色尚未发布，暂不能授予。", "published_revision": 0},
+        ]
+        with patch.object(role_commands, "_department_role_catalog", return_value=catalog) as projection:
+            result = role_commands.get_assignment("EMP-001", "attendance")
+        projection.assert_called_once_with("D1", "C")
+        self.assertEqual(result["roles"], catalog)
+        # Reading the catalogue never grants anything.
+        self.assertEqual(result["mode"], "FOLLOW_DEPARTMENT")
+        self.assertNotIn("changed", result)
+
+
 if __name__ == "__main__":
     unittest.main()
