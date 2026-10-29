@@ -588,11 +588,42 @@ def save_department_role(department, app_id, expected_version, context_revision,
         return after
 
 
+def _department_role_catalog(department, company):
+    catalog = []
+    for key, (title, boundary) in roles.BLUEPRINTS.items():
+        item = {'role_key': key, 'title': title, 'boundary_kind': boundary, 'grantable': False, 'reason': '',
+                'published_revision': 0}
+        try:
+            role = _role('attendance', key)
+            release = roles.document(roles.RELEASE, role.published_release) if role.published_release else None
+            item['published_revision'] = int(policy.value(release, 'revision', 0))
+        except frappe.PermissionError:
+            item['reason'] = '该角色尚未初始化或当前不可读取。'
+            catalog.append(item)
+            continue
+        if not role.enabled:
+            item['reason'] = '角色已停用，暂不能授予。'
+        elif not role.published_release:
+            item['reason'] = '角色尚未发布，暂不能授予。'
+        elif company not in roles.management_companies(role):
+            item['reason'] = '该角色不在本部门公司管理域内。'
+        else:
+            try:
+                _role_authority(role, 'iam.roles.assign')
+                guards.require_capability('iam.roles.assign', department=department, company=company, app_id='attendance')
+                item['grantable'] = True
+            except frappe.PermissionError:
+                item['reason'] = '当前账号没有授予这个角色所需的管理范围。'
+        catalog.append(item)
+    return catalog
+
+
 def get_department_role(department, app_id):
     roles.require_available()
     if app_id != 'attendance':
         frappe.throw('本轮仅接入考勤角色。', frappe.PermissionError)
     guards.require_capability('iam.access.read', department=department, app_id=app_id)
+    target = frappe.db.get_value('Department', department, ['name', 'company', 'disabled'], as_dict=True)
     current = roles.assignments('Department', department, app_id)
     current = current[0] if current else None
     role = roles.document(roles.ROLE, current.role) if current and current.role else None
@@ -607,6 +638,7 @@ def get_department_role(department, app_id):
                 responsibilities=[roles.scope_dict(row) for row in current.responsibilities] if current else [],
                 has_role_default=current is not None,
                 selected_role=policy.value(role, 'name', '') if role else '',
+                roles=_department_role_catalog(department, policy.value(target, 'company')) if target else [],
                 admissions=admissions)
 
 
