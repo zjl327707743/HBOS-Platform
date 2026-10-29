@@ -266,5 +266,28 @@ class EmployeeAssignmentCatalogueTest(unittest.TestCase):
         self.assertNotIn("changed", result)
 
 
+class AdmissionTransitionTest(unittest.TestCase):
+    """Every status pair the command layer can produce must be accepted.
+
+    Regression: a member whose admission context changed (for example after a
+    transfer back into the department) keeps an existing CONFIRMED row. The save
+    rewrites that row as CONFIRMED with a new hash, and the missing
+    CONFIRMED -> CONFIRMED pair made the legitimate re-confirmation fail with
+    "准入状态转换无效" (403).
+    """
+
+    def test_reconfirming_an_existing_confirmation_is_allowed(self):
+        from hbos_portal.iam.role_models import ADMISSION_TRANSITIONS
+        self.assertIn(('CONFIRMED', 'CONFIRMED'), ADMISSION_TRANSITIONS)
+        self.assertIn(('PENDING', 'CONFIRMED'), ADMISSION_TRANSITIONS)
+        self.assertIn(('REVOKED', 'CONFIRMED'), ADMISSION_TRANSITIONS)
+        self.assertIn(('CONFIRMED', 'REVOKED'), ADMISSION_TRANSITIONS)
+        self.assertIn(('REVOKED', 'PENDING'), ADMISSION_TRANSITIONS)
+
+    def test_no_transition_can_jump_out_of_an_unknown_state(self):
+        from hbos_portal.iam.role_models import ADMISSION_TRANSITIONS
+        self.assertFalse([pair for pair in ADMISSION_TRANSITIONS if pair[0] not in {'PENDING', 'CONFIRMED', 'REVOKED'}])
+
+
 if __name__ == "__main__":
     unittest.main()

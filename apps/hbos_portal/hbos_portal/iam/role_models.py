@@ -7,6 +7,15 @@ import frappe
 
 from hbos_portal.iam import guards, role_access as roles
 
+# Re-confirming an already confirmed admission is a real, idempotent action: the
+# operator may deliberately refresh a stale row, so CONFIRMED -> CONFIRMED must
+# be accepted (it was missing, which made a repeat confirmation fail with 403).
+ADMISSION_TRANSITIONS = {
+    ('PENDING', 'CONFIRMED'), ('PENDING', 'REVOKED'), ('PENDING', 'PENDING'),
+    ('CONFIRMED', 'CONFIRMED'), ('CONFIRMED', 'REVOKED'), ('CONFIRMED', 'PENDING'),
+    ('REVOKED', 'PENDING'), ('REVOKED', 'CONFIRMED'),
+}
+
 
 def deny(message):
     frappe.throw(message, frappe.PermissionError)
@@ -134,9 +143,7 @@ def validate_department_admission(doc):
                 deny('准入范围与当前部门默认不一致。')
         if int(doc.version) != int(previous.version) + 1:
             deny('准入变更必须在受控事务中递增版本。')
-        allowed = {('PENDING', 'CONFIRMED'), ('PENDING', 'REVOKED'), ('CONFIRMED', 'REVOKED'),
-                   ('CONFIRMED', 'PENDING'), ('REVOKED', 'PENDING'), ('REVOKED', 'CONFIRMED'), ('PENDING', 'PENDING')}
-        if (previous.status, doc.status) not in allowed:
+        if (previous.status, doc.status) not in ADMISSION_TRANSITIONS:
             deny('准入状态转换无效。')
     elif doc.status not in {'PENDING', 'CONFIRMED'}:
         deny('新建准入只能进入待确认或已确认状态。')
