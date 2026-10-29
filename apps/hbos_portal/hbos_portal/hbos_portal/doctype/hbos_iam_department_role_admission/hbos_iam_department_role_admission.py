@@ -4,7 +4,7 @@ from frappe.model.document import Document
 from hbos_portal.iam import guards, role_models
 
 
-class HBOSIAMDepartmentAdmission(Document):
+class HBOSIAMDepartmentRoleAdmission(Document):
     def validate(self):
         role_models.validate_department_admission(self)
 
