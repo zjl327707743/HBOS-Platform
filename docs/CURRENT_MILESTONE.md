@@ -1,5 +1,80 @@
 # Current Milestone
 
+## OCR 服务自启与识别链路 — 2026-10-27
+
+当前轮次：**OCR 服务自启**。分支 `p4/production-dashboard`。
+
+入库拍照识别报「识别服务不可达」，根因是宿主机 8100 **没有任何进程在监听**——该服务一直没有自启配置。已补 launchd plist（KeepAlive + RunAtLoad）、启动脚本（只读 `HBOS_OCR_*`、缺令牌 fail-fast、默认绑 0.0.0.0）、两组契约测试，README 补上三种失败态的区分方法。运行态已验证到「容器能看到服务 + 带令牌识别 200 + kill -9 自动拉起」。
+
+主记录见 `docs/PROJECT_STATUS.md` 同名章节。
+
+## 第三轮复审修复 — 2026-10-27
+
+当前轮次：**第三轮复审修复**。分支 `p4/production-dashboard`。
+
+5 个严重（缓存旧 generation 覆盖新数据、AI 重复行清理删新留旧、非 FeishuError 异常 500、Desk 指纹 7 vs 16 字段、跨源导出打在 Portal 自己）+ 5 个一般（草稿页批次错误态、runlock errno、拣货短缺按批次、v-html、防抖 timer 未清）全部修复，每项都有复现或回归测试。主记录见 `docs/PROJECT_STATUS.md` 同名章节。
+
+`npm test` 184 passed（含 typecheck）、`npm run build` 通过、无 circular chunk；生产服务 133、AI 95、库存 160 全绿。
+
+仍未验证：Frappe 真实 Site / Redis 真实原子性 / PDF。文档治理两处历史冲突仍未处理。
+
+## 第二轮整体审查修复 — 2026-10-27
+
+当前轮次：**第二轮整体审查修复**。分支 `p4/production-dashboard`。
+
+一个发布阻断项（`npm run build` 失败）+ 三个高危逻辑问题（缓存等待竞态、看板失败态重试后不切回、幂等指纹漏 9 个字段）+ 若干一般项。**`npm run build` 现已通过**，`npm test` 已并入 typecheck 作为门禁。主记录见 `docs/PROJECT_STATUS.md` 同名章节。
+
+仍未验证：Frappe 真实事务 / User Permission / Redis 原子性 / PDF（需真实 Site）。文档治理三处不一致属历史遗留，未在本轮处理。
+
+## 优化项（包体 / N+1 / 搜索 / 运行态测试）— 2026-10-27
+
+当前轮次：**复审优化项**。分支 `p4/production-dashboard`。
+
+四件事：前端包体（发现并删掉残留的 `vite.config.js` —— 它让 `.ts` 配置一直没生效；主包 1975 kB → 132 kB）、扫码页包装 N+1（逐批查 → 一次批量）、搜索先前缀再回退包含、以及服务层的运行态测试（真 uvicorn / 真跨进程锁 / 真实表结构契约）。主记录见 `docs/PROJECT_STATUS.md` 同名章节。
+
+Frappe 侧运行态（真实事务、User Permission 矩阵、PDF）仍缺，需要真实 Site。
+
+## C 批复审修复 — 2026-10-27
+
+当前轮次：**复审幂等边界与数据保全修复（C 批）**。分支 `p4/production-dashboard`。
+
+修的是「静默丢数据 / 幂等失效 / 换了模型却重跑不起来」这一类：包装 `null` 与 `[]` 的语义分清（前后端 + Desk 三条路径）、幂等键绑定操作生命周期并校验内容指纹、并发建单用 `setnx` 抢占、AI 指纹纳入模型与端点、跨进程运行锁、LLM 只重试可重试错误、落盘防旧快照覆盖、货位短码歧义、若干请求序号。主记录见 `docs/PROJECT_STATUS.md` 同名章节。
+
+剩余为优化项（包体、N+1、前置通配符、运行态测试）与致命 1/2（按 Owner 决定不修）。
+
+## B 批复审修复 — 2026-10-27
+
+当前轮次：**复审失败路径语义修复（B 批）**。分支 `p4/production-dashboard`。
+
+修的是「数据源部分/全部失败仍显示成正常业务结论」这一类问题：生产看板区分四种失败原因并显式标注部分口径、批次/物料/货位下拉/入库上下文各自有 error 态、`/production/yesterday` 返回真实昨日日期。主记录见 `docs/PROJECT_STATUS.md` 同名章节。
+
+C 批（包装清空、幂等生命周期、AI 指纹覆盖模型、其余并发/重试/请求序号项）**未修**。致命 1/2 按 Owner 决定不修。
+
+## A 批复审修复 — 2026-10-27
+
+当前轮次：**复审回归修复 A 批**。分支 `p4/production-dashboard`。
+
+修的是上一轮引入的回归（缓存 single-flight 失败路径、`_plausible` 抛 TypeError、预热误判读超时、`unit_weight` 过严、收率分母、`runSeq` 时序、EOF 空行），加上 Owner 拍板的 `is_excluded()` 删除。主记录见 `docs/PROJECT_STATUS.md` 同名章节。
+
+B / C 批（部分数据源失败展示、包装清空、幂等生命周期、AI 指纹覆盖模型、其余失败路径）**未修**。致命 1/2 按 Owner 决定不修。
+
+## 库存 / 生产看板审查修复（第 1–3 轮）— 2026-10-27
+
+当前轮次：**P4 生产看板 + 库存审查修复，非权限部分**。分支 `p4/production-dashboard`。
+
+Owner 授权范围：审查报告的**第 1、2 轮 + 第 3 轮非权限部分**；**不合并 #39 / #46**。
+
+明确不在本轮范围（保持开放，风险不变）：
+
+```text
+致命 1 生产取数服务无身份/权限校验        NOT FIXED
+致命 2 库存扫码与报表绕过仓库权限          NOT FIXED
+is_excluded() 死代码                      NOT TOUCHED
+货位卡 PDF 后端识别标识                   NOT TOUCHED
+```
+
+主记录见 `docs/PROJECT_STATUS.md` 同名章节。状态台账已更新；`M1_START_GATE.md` / `AI_CONTEXT.md` 的旧阶段描述属历史遗留，本轮未改。
+
 ## Portal 产品分支合并后 Gate — 2026-10-01
 
 当前：**PR21_FINAL_REVIEW_PASS / PRODUCT_BRANCH_ACTIVE**。PR #21 已 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 最新无破坏验收与 Browser final-submit 3/3 已通过，新 squash 四项 CI SUCCESS。旧 #22 已关闭且未合并，IAM-0 由 clean Draft PR #23 单独承接；#15 仍 Open Draft，main 未变化。

@@ -36,6 +36,8 @@ Frappe/ERPNext 开源底座 + Frappe 多 App 模块化架构 + 外部独立服�
 
 生产看板（**浅色精致版**，与 Frappe / ERPNext 无关，数据源为飞书多维表格的批生产记录台账）已交付原型与视觉方案 REV 8，**已复刻进 Portal 并接通真实数据**。共两页：基层管理人员看板 / 生产管理中心看板。数据经独立取数服务 `services/hbos_production`（本机 8101，只读飞书）聚合；「工艺提升与改进方案」由独立 AI 分析服务 `services/hbos_production_ai`（每天 16:30 定时，覆盖全部 6 个在产产品）生成后写回飞书结果表。
 
+> ⚠️ **当前分支 `p4/production-dashboard` 上取数服务只绑 `127.0.0.1`、无身份校验**，库存扫码页与报表也未受仓库级权限约束。这两项在 `feature/hbos-portal-product` 上已由 #39 / #46 修复，本分支尚未合并。部署到服务器或开放局域网访问前必须先处理，详见 `docs/PROJECT_STATUS.md`。
+
 - `docs/frontend/P4_生产看板原型.html`
 - `docs/frontend/P4_生产看板视觉方案与页面结构.md`
 - `docs/frontend/P4_生产看板_AI分析服务规格.md`

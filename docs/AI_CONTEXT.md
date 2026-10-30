@@ -26,6 +26,8 @@
 
 ## 当前上下文
 
+**最新一轮（2026-10-27）**：分支 `p4/production-dashboard` 已完成 1–3 轮、A/B/C 批、优化项、第二轮与第三轮整体审查的全部修复；`npm test` 184 passed（含 typecheck）、`npm run build` 通过且无 circular chunk。详见 `docs/PROJECT_STATUS.md` 章节「第三轮复审修复」。生产取数服务的身份校验、库存扫码与报表的仓库权限约束**仍未修**（产品分支上已有 #39 / #46 的实现，本分支未合并）。当前环境无可用 Frappe Site，权限矩阵、Redis 原子性、PDF 生成均为 NOT_VERIFIED。
+
 本轮账号 UI、统一账号、飞书、Knowledge/Twin 与发布收口已经通过 PR #21 完成并进入产品分支。当前产品 Authority 为 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`；Owner 真人飞书基线和浏览器密码生命周期 3/3 均已通过，未执行的真人高风险交接/实体设备项目继续按历史记录保留。公司服务器仍 NOT_DEPLOYED。
 
 其他业务里程碑以各自已登记主文档为准，本轮不扩大考勤/库存范围。新增代码通过独立净化发布分支交付；私有运行报告、账号、知识和模型不进入新可达对象。
