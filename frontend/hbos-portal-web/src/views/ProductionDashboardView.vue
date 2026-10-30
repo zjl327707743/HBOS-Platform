@@ -22,7 +22,9 @@
           <!-- 刷新完成后短暂显示「已更新」：时间戳只到分钟，刚点完刷新往往看不出变化，
               会让人以为没生效。 -->
           <span v-if="justRefreshed" class="pb-updated">已更新</span>
-          <span v-else-if="refreshFailed" class="pb-refresh-failed">刷新失败，仍是旧数据</span>
+          <span v-else-if="refreshFailed" class="pb-refresh-failed" :title="refreshFailMessage">
+            刷新失败，仍是旧数据<template v-if="refreshFailMessage">（{{ refreshFailMessage }}）</template>
+          </span>
           <button class="pb-refresh" :disabled="refreshing" title="重新从飞书多维表格取数（约 1 分钟）" @click="refreshBoard">
             <ReloadOutlined :spin="refreshing" />
             {{ refreshing ? `取数中 ${refreshElapsed}s` : '刷新' }}
@@ -44,15 +46,24 @@
       <p class="pb-skel-note">正在取生产数据…（首次打开约需 1~2 分钟，之后当天打开是秒开）</p>
     </section>
 
-    <!-- 未接入：**取不到**才显示。数据接通前不显示任何数字 -->
+    <!-- 取不到：**显示具体原因**，三种情况的下一步动作完全不同 ——
+         未接入 → 等配置；连不上/上游失败 → 重试；无权限 → 重新登录。
+         统一写「还没接通」会让人去联系管理员，而实际只需要再点一次。 -->
     <section v-else-if="phase === 'unavailable'" class="pb-panel pb-state">
       <ThunderboltOutlined class="pb-state-ic" />
-      <h3>看板数据还没接通</h3>
+      <h3>{{ boardFailureTitle }}</h3>
       <p>
         这一页的数字来自飞书多维表格，经独立取数服务聚合后提供。
-        取数服务暂时不可用，所以这里<b>不显示任何数字</b>——宁可不给，也不给一个看起来像真实产量的占位值。
+        现在拿不到数据，所以这里<b>不显示任何数字</b>——宁可不给，也不给一个看起来像真实产量的占位值。
       </p>
-      <p>页面结构与字段口径已经定稿，数据接通后按同一套结构填充，不再改版。</p>
+      <p v-if="boardFailure?.message" class="pb-state-reason">原因：{{ boardFailure.message }}</p>
+      <p v-else>页面结构与字段口径已经定稿，数据接通后按同一套结构填充，不再改版。</p>
+      <div v-if="boardFailure?.kind !== 'not_configured'" class="pb-state-actions">
+        <button class="pb-refresh" :disabled="refreshing" @click="refreshBoard">
+          <ReloadOutlined :spin="refreshing" />
+          {{ refreshing ? `取数中 ${refreshElapsed}s` : '重试' }}
+        </button>
+      </div>
     </section>
 
     <!-- `v-else-if="board"` 而不是 `v-else` —— 让 TS 把 board 收窄成非 null
@@ -61,14 +72,20 @@
       <!-- 月度关键指标 -->
       <section class="pb-kpis" aria-label="月度关键指标">
         <div class="pb-panel pb-kpi">
-          <div class="pb-kpi-top"><span class="pb-kpi-lb">当月计划完成率</span><span class="pb-kpi-vl">{{ planRateText }}</span></div>
-          <div class="pb-bar"><i :style="{ width: planRatePct + '%' }" /></div>
-          <div class="pb-kpi-fn">{{ planRateNote }}</div>
+          <div class="pb-kpi-top">
+            <span class="pb-kpi-lb">当月计划完成率</span>
+            <span class="pb-kpi-vl" :class="{ 'pb-tbd': planRatePct === null }">{{ planRateText }}</span>
+          </div>
+          <div v-if="planRatePct !== null" class="pb-bar"><i :style="{ width: planRatePct + '%' }" /></div>
+          <div class="pb-kpi-fn" :class="{ 'pb-kpi-fn-gap': planRatePct === null }">{{ planRateNote }}</div>
         </div>
         <div class="pb-panel pb-kpi">
-          <div class="pb-kpi-top"><span class="pb-kpi-lb">收率达标率</span><span class="pb-kpi-vl">{{ yieldRateText }}</span></div>
-          <div class="pb-bar"><i :style="{ width: yieldRatePct + '%' }" /></div>
-          <div class="pb-kpi-fn">{{ yieldRateNote }}</div>
+          <div class="pb-kpi-top">
+            <span class="pb-kpi-lb">收率达标率</span>
+            <span class="pb-kpi-vl" :class="{ 'pb-tbd': yieldRatePct === null }">{{ yieldRateText }}</span>
+          </div>
+          <div v-if="yieldRatePct !== null" class="pb-bar"><i :style="{ width: yieldRatePct + '%' }" /></div>
+          <div class="pb-kpi-fn" :class="{ 'pb-kpi-fn-gap': yieldRatePct === null }">{{ yieldRateNote }}</div>
         </div>
         <div class="pb-panel pb-kpi">
           <div class="pb-kpi-top">
@@ -155,14 +172,15 @@
             <section class="pb-panel">
               <div class="pb-sec-head"><i class="warn" /><h2>产品收率质量跟踪</h2></div>
               <ul class="pb-list">
-                <li v-for="row in yieldRows" :key="row.label">
+                <li v-for="row in yieldRowsAll" :key="row.label">
                   <span>
                     <b>{{ row.label }}</b>
                     {{ (row.yieldRate! * 100).toFixed(1) }}%<template v-if="row.targetYieldRate !== null">
-                      ，目标 {{ (row.targetYieldRate * 100).toFixed(1) }}%，差 {{ deltaText(row) }}pt</template>
+                      ，目标 {{ (row.targetYieldRate * 100).toFixed(1) }}%，差 {{ deltaText(row) }}pt</template><template v-else>
+                      ，<b>目标收率未录入</b></template>
                   </span>
                 </li>
-                <li v-if="!yieldRows.length"><span class="pb-dim">本月尚无收率数据</span></li>
+                <li v-if="!yieldRowsAll.length"><span class="pb-dim">本月尚无收率数据</span></li>
               </ul>
             </section>
 
@@ -176,7 +194,10 @@
                   <span><b>{{ biggestTarget.label }}</b> 目标 {{ biggestTarget.target }} 批，为全场最大</span>
                 </li>
                 <li>
-                  <span>收率达标 {{ metCount }} / {{ yieldRows.length }}</span>
+                  <span>
+                    收率达标 {{ metCount }} / {{ yieldRows.length }}<template v-if="yieldMissingTarget.length">
+                      <span class="pb-dim">（另有 {{ yieldMissingTarget.length }} 个缺目标收率，未计入）</span></template>
+                  </span>
                 </li>
               </ul>
             </section>
@@ -219,6 +240,9 @@
                   <template v-if="anomaly.undated > 0">
                     <br><b>{{ anomaly.undated }} 条</b>记录没有日期，未计入。
                   </template>
+                  <template v-if="anomalySourceNote">
+                    <br><b class="pb-warn-text">{{ anomalySourceNote }}</b>。
+                  </template>
                 </div>
               </template>
             </section>
@@ -234,9 +258,14 @@
       <section v-if="isCenter" class="pb-panel pb-ai">
         <div class="pb-sec-head">
           <i class="warn" /><h2>工艺提升与改进方案</h2>
-          <span class="pb-note">{{ aiLoading ? 'AI 分析 · 读取中' : (aiRows.length ? 'AI 分析 · 每天 16:30 更新' : 'AI 分析 · 暂无结果') }}</span>
+          <span class="pb-note">{{ aiLoading ? 'AI 分析 · 读取中' : (aiUnavailable ? 'AI 分析 · 读取失败' : (aiRows.length ? 'AI 分析 · 每天 16:30 更新' : 'AI 分析 · 暂无结果')) }}</span>
         </div>
         <div v-if="aiLoading" class="pb-foot-note">正在读取分析结果…</div>
+        <div v-else-if="aiUnavailable" class="pb-foot-note">
+          <b>AI 结论暂时读取不到。</b>{{ aiUnavailable }}<br>
+          这不等于「还没有分析结果」——分析服务可能正忙或暂时不可用。
+          <a class="pb-retry-link" href="javascript:void(0)" @click.prevent="loadAiAnalysis">重试</a>
+        </div>
         <div v-else-if="!aiRows.length" class="pb-foot-note">
           会议口径：基于各产品的<b>工艺描述文档与生产台账数据</b>，由 AI 自动分析生成优化建议。<br>
           结果表里还没有数据。分析服务每天 16:30 生成一次；若无结果，可能是模型不可用或校验未通过
@@ -338,6 +367,8 @@ import {
   fetchProductionBoard,
   fetchAiAnalysis,
   fetchAiReport,
+  invalidateAiReportCache,
+  type BoardResult,
   type ProductionBoardData,
   type ProductionRow,
   type AiAnalysisRow,
@@ -348,6 +379,8 @@ const isCenter = computed(() => route.path === PRODUCTION_CENTER_PATH)
 
 /** 加载 → 取不到 → 就绪。**三态分开**，见模板里的说明。 */
 const phase = ref<'loading' | 'unavailable' | 'ready'>('loading')
+/** 取不到时的具体原因 —— 「未接入 / 连不上 / 上游失败 / 无权限」动作完全不同。 */
+const boardFailure = ref<{ kind: BoardResult['state']; message: string } | null>(null)
 const board = ref<ProductionBoardData | null>(null)
 const aiRows = ref<AiAnalysisRow[]>([])
 /**
@@ -361,6 +394,11 @@ const anomaly = computed(() => {
   return a
 })
 const aiLoading = ref(false)
+/**
+ * AI 结论读取失败的说明。**与「结果为空」分开**：
+ * 服务宕机/权限错误/503 被显示成「暂无结果」会掩盖故障（早先就是这样）。
+ */
+const aiUnavailable = ref<string | null>(null)
 
 // --- AI 工艺分析面板：排序 + 计数 + 折叠 ---
 /** 未展开时最多显示多少行（62 道工序全铺开太长）。 */
@@ -409,16 +447,24 @@ const reportLoading = ref(false)
 /** `null` = 没取到（区别于「取到了但是空」）—— 显示重试提示，不拿摘要顶替。 */
 const reportText = ref<string | null>(null)
 const reportTitle = ref('')
+/**
+ * 报告请求序号 —— 先点 A、再点 B 时，A 后返回会把 B 的正文写进 B 的标题下。
+ * 响应回来前校验「当前打开的仍是同一道工序」。
+ */
+let reportSeq = 0
 
 async function openReport(row: AiAnalysisRow) {
+  const seq = ++reportSeq
   reportTitle.value = `${row.product} · ${row.process}`
   reportText.value = null
   reportLoading.value = true
   reportOpen.value = true
   try {
-    reportText.value = await fetchAiReport(row.product, row.process)
+    const text = await fetchAiReport(row.product, row.process)
+    if (seq !== reportSeq) return        // 期间打开了另一道工序
+    reportText.value = text
   } finally {
-    reportLoading.value = false
+    if (seq === reportSeq) reportLoading.value = false
   }
 }
 
@@ -450,15 +496,34 @@ const refreshElapsed = ref(0)
 const justRefreshed = ref(false)
 /** 上一次刷新**失败**了（服务端 502 / 网络错误）—— 必须让用户看见，不能静默。 */
 const refreshFailed = ref(false)
+/** 刷新失败的具体原因 —— 「上游限流」和「服务没起」的下一步动作不同。 */
+const refreshFailMessage = ref('')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 let justRefreshedTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * 取不到时的标题 —— 按原因分开，别把「服务挂了」说成「还没接」。
+ */
+const boardFailureTitle = computed(() => {
+  switch (boardFailure.value?.kind) {
+    case 'not_configured':
+      return '看板数据还没接通'
+    case 'unreachable':
+      return '连不上生产数据服务'
+    case 'upstream_error':
+      return '取数暂时失败'
+    case 'unauthorized':
+      return '没有权限读取生产数据'
+    default:
+      return '看板数据暂时不可用'
+  }
+})
 
 /**
  * 这批数据是什么时候取回来的。**取不到就返回空串** —— 调用方整段不渲染，
  * 不编「xx 起累计」这类字样（用户反馈那串看着别扭）。
  */
-const dataAsOfText = computed(() => {
-  const iso = board.value?.dataAsOf
+function formatAsOf(iso: string | null | undefined): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
@@ -470,7 +535,9 @@ const dataAsOfText = computed(() => {
     d.getDate() === today.getDate()
   const hm = `${p(d.getHours())}:${p(d.getMinutes())}`
   return sameDay ? hm : `${d.getMonth() + 1}-${p(d.getDate())} ${hm}`
-})
+}
+
+const dataAsOfText = computed(() => formatAsOf(board.value?.dataAsOf))
 
 /**
  * 手动刷新 —— 让服务端**同步**重取（`?refresh=1`），不是先给旧值。
@@ -485,11 +552,23 @@ async function refreshBoard() {
   refreshing.value = true
   refreshElapsed.value = 0
   refreshFailed.value = false
+  refreshFailMessage.value = ''
+  // 上一次「已更新」还没消失时又点刷新：先撤掉它，否则本次失败会继续显示「已更新」
+  justRefreshed.value = false
+  if (justRefreshedTimer) clearTimeout(justRefreshedTimer)
   refreshTimer = setInterval(() => { refreshElapsed.value += 1 }, 1000)
+  // 报告缓存也要一起失效：16:30 之后 AI 结论变了，只刷 board 会继续读到旧报告
+  invalidateAiReportCache()
   try {
-    const data = await fetchProductionBoard({ refresh: true })
-    if (data) {
-      board.value = data
+    const result = await fetchProductionBoard({ refresh: true })
+    if (result.state === 'ready') {
+      board.value = result.data
+      // **必须同时切回 ready**：失败态模板优先于 board 模板，
+      // 只更新 board 不切 phase，用户点了「重试」拿到数据后仍停在失败页。
+      phase.value = 'ready'
+      boardFailure.value = null
+      refreshFailed.value = false
+      refreshFailMessage.value = ''
       justRefreshed.value = true
       if (justRefreshedTimer) clearTimeout(justRefreshedTimer)
       justRefreshedTimer = setTimeout(() => { justRefreshed.value = false }, 4000)
@@ -499,7 +578,11 @@ async function refreshBoard() {
       // 页面上什么都没有变，看起来像「刷新成功但时间没动」（实测踩到过）。
       // 旧数据保留（比打回「未接入」好），但要明确告诉用户这次没刷上。
       refreshFailed.value = true
+      refreshFailMessage.value =
+        result.state === 'not_configured' ? '取数服务尚未接入。' : result.message
     }
+    // 刷新也顺带重取 AI 摘要：否则 16:30 之后点刷新，面板还停在旧结论
+    if (isCenter.value) await loadAiAnalysis()
   } finally {
     if (refreshTimer) clearInterval(refreshTimer)
     refreshTimer = null
@@ -513,24 +596,59 @@ onBeforeUnmount(() => {
 })
 
 // --- KPI 汇总（口径：只计入目标 > 0 的行，避免未排产行稀释分母）---
+//
+// ⚠️ **分母为 0 时返回 null，不是 0**。月初还没导入计划、或上游暂时缺数时，
+// 显示 `0.0%` 会被读成「生产完全没完成」，而事实是「还没有数据可以算」。
+// 真实完成了 0% 属于另一回事 —— 那种情况分母 > 0，会照常算出 0。
 const targetRows = computed(() => (board.value?.rows || []).filter((r) => r.target > 0))
 const totalDone = computed(() => targetRows.value.reduce((s, r) => s + r.done, 0))
 const totalTarget = computed(() => targetRows.value.reduce((s, r) => s + r.target, 0))
-const planRatePct = computed(() =>
-  totalTarget.value > 0 ? (totalDone.value / totalTarget.value) * 100 : 0,
+const planRatePct = computed<number | null>(() =>
+  totalTarget.value > 0 ? (totalDone.value / totalTarget.value) * 100 : null,
 )
-const planRateText = computed(() => `${planRatePct.value.toFixed(1)}%`)
-const planRateNote = computed(() => `${totalDone.value} / ${totalTarget.value} 批 · 批数口径`)
+const planRateText = computed(() =>
+  planRatePct.value === null ? '—' : `${planRatePct.value.toFixed(1)}%`,
+)
+const planRateNote = computed(() =>
+  totalTarget.value > 0
+    ? `${totalDone.value} / ${totalTarget.value} 批 · 批数口径`
+    : '暂无月度计划数据',
+)
 
-const yieldRows = computed(() => (board.value?.rows || []).filter((r) => r.yieldRate !== null))
+// 收率达标率的分母**只算「实际收率 + 目标收率」都有的品种**。
+//
+// 早先只要求 `yieldRate !== null`，但 `yieldMeets()` 还要求目标收率 ——
+// 于是「有实际收率、目标没录」的品种会进分母却永远不达标，
+// 等价于被系统当成未达标：目标产能表少录一个产品，整个 KPI 就被人为拉低。
+const yieldRows = computed(() =>
+  (board.value?.rows || []).filter((r) => r.yieldRate !== null && r.targetYieldRate !== null),
+)
+/** 有实际收率、但缺目标收率 —— 单独点名，不混进达标率。 */
+const yieldMissingTarget = computed(() =>
+  (board.value?.rows || []).filter((r) => r.yieldRate !== null && r.targetYieldRate === null),
+)
+/** 有实际收率的全部品种 —— 明细列表用这个，缺目标也要显示出来。 */
+const yieldRowsAll = computed(() =>
+  (board.value?.rows || []).filter((r) => r.yieldRate !== null),
+)
 const metCount = computed(() => yieldRows.value.filter((r) => yieldMeets(r)).length)
-const yieldRatePct = computed(() =>
-  yieldRows.value.length > 0 ? (metCount.value / yieldRows.value.length) * 100 : 0,
+const yieldRatePct = computed<number | null>(() =>
+  yieldRows.value.length > 0 ? (metCount.value / yieldRows.value.length) * 100 : null,
 )
-const yieldRateText = computed(() => `${yieldRatePct.value.toFixed(1)}%`)
-const yieldRateNote = computed(() =>
-  yieldRows.value.length ? `${metCount.value} / ${yieldRows.value.length} 个有收率数据的品种达标` : '本月尚无收率数据',
+const yieldRateText = computed(() =>
+  yieldRatePct.value === null ? '—' : `${yieldRatePct.value.toFixed(1)}%`,
 )
+const yieldRateNote = computed(() => {
+  if (!yieldRows.value.length) {
+    return yieldMissingTarget.value.length
+      ? `${yieldMissingTarget.value.length} 个品种有收率但缺目标收率，无法判定达标`
+      : '本月尚无收率数据'
+  }
+  const base = `${metCount.value} / ${yieldRows.value.length} 个有收率数据的品种达标`
+  return yieldMissingTarget.value.length
+    ? `${base} · 另有 ${yieldMissingTarget.value.length} 个缺目标收率未计入`
+    : base
+})
 
 const biggestTarget = computed(() =>
   [...targetRows.value].sort((a, b) => b.target - a.target)[0] || null,
@@ -558,13 +676,39 @@ const qualityRateText = computed(() =>
 const qualityNote = computed(() => {
   const q = quality.value
   if (!q) return ''
+  const failedInfo = qualitySourceNote.value
   // 取数失败 ≠ 没检测：前者是「没取到」，后者是「真没检」。不点产品名。
-  if (q.rate === null) return q.failedLabels.length ? '质量数据暂不可用' : '本月尚无已检批次'
+  if (q.rate === null) return failedInfo || '本月尚无已检批次'
   const parts = [`${q.tested} / ${q.tested + q.failed} 批已检`]
   if (q.failed > 0) parts.push(`不合格 ${q.failed} 批`)
   // 未检批数只在**真的还有没检的**时候出现 —— 全检完的月份不挂这一句
   if (q.untested > 0) parts.push(`未检 ${q.untested} 批`)
+  // 部分 QC 表取不到时，这个率是**部分口径** —— 不说明会被当成全厂合格率
+  if (failedInfo) parts.push(failedInfo)
+  // 质量缓存与 board 缓存寿命不同（一天 vs 12 小时），两者常常不是同一时刻。
+  // 只在**确实不同**时才标出来，免得每个页面都挂一句冗余时间。
+  const qAt = formatAsOf(board.value?.qualityDataAsOf)
+  if (qAt && qAt !== dataAsOfText.value) parts.push(`质量数据截至 ${qAt}`)
   return parts.join(' · ')
+})
+
+/**
+ * 质量数据源失败时的说明；全部正常时为空串。
+ *
+ * 后端逐源 try/except，**部分失败仍然会算出一个率** —— 早先前端只在
+ * `rate === null` 时才提「暂不可用」，于是「4 张 QC 表挂了 1 张」会被
+ * 当成完整合格率显示。这里把部分失败也说出来。
+ */
+const qualitySourceNote = computed(() => {
+  const q = quality.value
+  if (!q) return ''
+  const failed = q.failedLabels || []
+  if (!failed.length) return ''
+  const total = typeof q.sourceCount === 'number' ? q.sourceCount : null
+  if (total !== null && failed.length >= total) return '质量数据全部取不到'
+  return total !== null
+    ? `${failed.length} / ${total} 个产品质量数据取不到，合格率为部分口径`
+    : `${failed.length} 个产品质量数据取不到，合格率为部分口径`
 })
 
 const anomalyRatePct = computed(() =>
@@ -573,13 +717,40 @@ const anomalyRatePct = computed(() =>
 const anomalyRateText = computed(() =>
   anomalyRatePct.value === null ? null : `${anomalyRatePct.value.toFixed(1)}%`,
 )
+/**
+ * 异常数据源失败时的说明；全部正常时为空串。
+ *
+ * 关键区分：**「全部车间都取不到」绝不能显示成「当月无异常记录」** ——
+ * 那会把数据源故障说成「确实没有异常」，是最容易误导管理层的一种。
+ */
+const anomalySourceNote = computed(() => {
+  const a = anomaly.value
+  if (!a) return ''
+  const failed = a.failedWorkshops || []
+  if (!failed.length) return ''
+  const total = typeof a.sourceCount === 'number' ? a.sourceCount : null
+  if (total !== null && failed.length >= total) return '异常数据全部取不到'
+  return total !== null
+    ? `${failed.length} / ${total} 个车间异常数据取不到，闭环率为部分口径`
+    : `${failed.length} 个车间异常数据取不到，闭环率为部分口径`
+})
+
 const anomalyNote = computed(() => {
   const a = anomaly.value
   if (!a) return '异常数据暂不可用'
-  if (a.rate === null) return '近 12 个月无异常记录'
+  const failedInfo = anomalySourceNote.value
+  const total = typeof a.sourceCount === 'number' ? a.sourceCount : null
+  // **全部失败**时 total=0 且 rate=null，与「本月真的没异常」长得一模一样。
+  if (failedInfo && total !== null && (a.failedWorkshops || []).length >= total) {
+    return failedInfo
+  }
+  // 口径已改为**只看当月**（Owner 2026-10-20），文案不能还写整年窗口 ——
+  // 那会让人以为系统检查了整年，从而弱化对当月缺数据的警惕。
+  if (a.rate === null) return failedInfo || '当月无异常记录'
   // **不报「共 N 个车间」** —— 车间是陆续收集的（五车间还没到），
   // 写总数会让人以为是全部车间，而实际只有已收集的那几个。
-  return `${a.closed} / ${a.total} 条`
+  const base = `${a.closed} / ${a.total} 条`
+  return failedInfo ? `${base} · ${failedInfo}` : base
 })
 
 function completion(row: ProductionRow): number {
@@ -592,8 +763,16 @@ function gradeClass(grade: string): string {
   if (grade === '未达标') return 'bad'
   return 'lack'
 }
-function pctText(v: number): string {
-  return v > 0 ? `${(v * 100).toFixed(1)}%` : '—'
+/**
+ * 完成率 → 文本。
+ *
+ * ⚠️ 只有 `null`/`NaN` 显示 `—`。**真实的 0% 要显示 `0.0%`** ——
+ * 早先写成 `v > 0 ? … : '—'`，把「一批都没完成」显示成「无数据」，
+ * 而 KPI 那边又反过来把「没有目标」显示成 0.0%，两处语义正好相反。
+ */
+function pctText(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—'
+  return `${(v * 100).toFixed(1)}%`
 }
 function yieldMeets(row: ProductionRow): boolean {
   return row.yieldRate !== null && row.targetYieldRate !== null && row.yieldRate >= row.targetYieldRate
@@ -611,8 +790,15 @@ function deltaText(row: ProductionRow): string {
  */
 async function loadAiAnalysis() {
   aiLoading.value = true
+  aiUnavailable.value = null
   try {
-    aiRows.value = await fetchAiAnalysis()
+    const result = await fetchAiAnalysis()
+    if (result.state === 'unavailable') {
+      aiUnavailable.value = result.message
+      aiRows.value = []
+      return
+    }
+    aiRows.value = result.state === 'ready' ? result.rows : []
   } finally {
     aiLoading.value = false
   }
@@ -620,12 +806,17 @@ async function loadAiAnalysis() {
 
 onMounted(async () => {
   // 两个页面共用同一份看板数据（原型 §4.3：上区逐字一致）
-  const data = await fetchProductionBoard()
-  if (data) {
-    board.value = data
+  const result = await fetchProductionBoard()
+  if (result.state === 'ready') {
+    board.value = result.data
+    boardFailure.value = null
     phase.value = 'ready'
-    void autoRefreshIfStale(data)
+    void autoRefreshIfStale(result.data)
   } else {
+    boardFailure.value = {
+      kind: result.state,
+      message: result.state === 'not_configured' ? '' : result.message,
+    }
     phase.value = 'unavailable'
   }
   if (isCenter.value) await loadAiAnalysis()
@@ -663,7 +854,7 @@ async function autoRefreshIfStale(first: ProductionBoardData) {
   try {
     const fresh = await fetchProductionBoard({ refresh: true })
     // 失败就保持原样：页面上「数据截至 10-19」本身就是提示，用户可以手动刷新
-    if (fresh) board.value = fresh
+    if (fresh.state === 'ready') board.value = fresh.data
   } finally {
     if (refreshTimer) clearInterval(refreshTimer)
     refreshTimer = null
@@ -701,6 +892,10 @@ watch(isCenter, (now) => {
 .pb-updated { color: #0e9f6e; font-weight: 600; }
 /* 刷新失败用告警色，但**不是红色错误** —— 数据还在，只是这一下没刷上 */
 .pb-refresh-failed { color: var(--hbos-text-muted); font-weight: 600; }
+/* 「部分口径」提示：不是错误红色，但要能一眼看到数据源有问题 */
+.pb-warn-text { color: #b45309; }
+.pb-state-reason { color: var(--hbos-text-muted); font-size: 13px; }
+.pb-state-actions { margin-top: 14px; }
 
 /* --- 完整报告弹窗 --- */
 /* 工序名做成按钮：整行不可点（表格里点空白处没反馈会让人以为坏了），
