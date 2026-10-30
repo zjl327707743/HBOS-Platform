@@ -61,9 +61,14 @@ BASE_OPERATIONS = "NGSdbumUGa8oWQsT5E9cwviWn0c"   # 营运数据（明细 + 计�
 BASE_AI = "Dl45bIEEya78fWsL4DXcwuJtn8c"           # AI 分析结果
 AI_TABLE = "tblXD7oAwbU8U040"
 
-#: 排除规则（会议 2026-10-02）。
-EXCLUDE_KEYWORDS = ("欧盟", "混粉", "晶种", "USP")
-EXCLUDE_EXACT = ("碳酸氢钠", "碳酸钠（EP）", "比阿培南")
+# 说明：这里**没有**「排除产品」的名单。
+#
+# 会议 2026-10-02 曾有一份按产品名排除的规则（欧盟 / 混粉 / 晶种 / USP /
+# 碳酸氢钠 …）。实际生产路径从来没有调用过它 —— 真正的排除靠
+# `ROW_MEMBERS` 白名单（只有列进去的六个看板行才会被聚合），
+# 加上四车间的「按表来源」排除（见 `build_rows` 的 `members_excluded`）。
+# 那份名单留在这里只会让人误以为有两套口径，故删除；
+# 口径由 `tests/test_contract.py` 的 `test_row_members_whitelist_*` 守。
 
 
 # ---------------------------------------------------------------------------
@@ -402,15 +407,16 @@ _DATE_IN_TEXT = re.compile(
 
 
 def _as_date(value) -> Optional[str]:
-    """datetime 字段 → `YYYY-MM-DD`。飞书 API 返回**毫秒时间戳**，
-    lark-cli 返回 ISO 字符串 —— 两种形态都要认。"""
-    if isinstance(value, (int, float)):
-        try:
-            return datetime.fromtimestamp(value / 1000, tz=_CN_TZ).strftime("%Y-%m-%d")
-        except (OSError, ValueError, OverflowError):
-            return None
-    v = _as_text(value)
-    return v[:10] if v else None
+    """datetime 字段 → `YYYY-MM-DD`。
+
+    **复用 `parse_month_day`**，不再自己截前 10 位。
+
+    踩过（2026-10-27）：早先字符串分支只做 `v[:10]`，`2026.10.20` 会原样返回；
+    再与 `2026-11-01` 做**字符串比较**时 `.`(0x2E) 大于 `-`(0x2D)，记录被判成
+    「晚于窗口终点」而排除 —— 而且它既不计入 `total` 也不计入 `undated`，
+    页面上完全看不出少了一条。
+    """
+    return parse_month_day(value)
 
 
 def resolve_anomaly_date(record: dict, src: "AnomalySource") -> Optional[str]:
@@ -688,13 +694,6 @@ def aggregate_day_qty(
             continue
         out[r.product] = out.get(r.product, 0.0) + r.qty
     return out
-
-
-def is_excluded(product: str) -> bool:
-    """会议排除规则。四车间的不靠产品名排（那是车间维度），此处只排产品名。"""
-    if product in EXCLUDE_EXACT:
-        return True
-    return any(k in product.upper() for k in EXCLUDE_KEYWORDS)
 
 
 # ---------------------------------------------------------------------------

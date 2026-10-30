@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 import sys
 from datetime import date
+from enum import Enum
 
 import httpx
 
@@ -38,20 +39,48 @@ logging.basicConfig(level=config.LOG_LEVEL)
 log = logging.getLogger("hbos_production.warm")
 
 
-def _warm_via_service(timeout: float = 300.0) -> bool:
-    """打本地服务接口，让它同步重取。成功返回 True。"""
+class WarmResult(Enum):
+    """预热结果 —— **三态**，不是布尔。
+
+    布尔丢掉了「服务活着但取数失败」这一种：日志里写着 502 时不要直连，
+    但 `False` 让调用方无法区分「服务没起（该回退直连）」与「服务起了但
+    飞书失败（不该再打一遍）」。实测后果是 502 后立刻又全量拉一遍飞书。
+    """
+
+    SUCCESS = "success"
+    UNREACHABLE = "unreachable"     # 连接层失败 → 可以回退直连
+    FAILED = "failed"               # 服务返回错误（含 502/503/504）→ 不要回退
+
+
+def _warm_via_service(timeout: float = 300.0) -> WarmResult:
+    """打本地服务接口，让它同步重取。"""
     url = f"http://{config.HOST}:{config.PORT}/production/monthly"
     try:
         r = httpx.get(url, params={"refresh": "1"}, timeout=timeout)
-    except httpx.HTTPError as exc:
+    except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+        # **只有连接层失败**才说明「服务没起」→ 可以直连兜底
         log.info("服务不可达（%s），改为直接取数", type(exc).__name__)
-        return False
+        return WarmResult.UNREACHABLE
+    except httpx.HTTPError as exc:
+        # 读超时 / 协议中断：服务**是活的**，很可能正在慢慢拉飞书。
+        # 早先把这类也当「不可达」→ 直连又拉一轮，把慢变成双倍请求。
+        log.warning("调用服务失败（%s），但服务可能仍在运行，不直连兜底", type(exc).__name__)
+        return WarmResult.FAILED
     if r.status_code != 200:
         # 502 = 服务活着但飞书取数失败。这时**不要**再直连重试一次 ——
         # 多半是撞了限流，再打一遍只会更糟。等下一轮。
         log.warning("服务返回 %s：%s", r.status_code, r.text[:120])
-        return False
-    data = r.json()
+        return WarmResult.FAILED
+    # 200 也可能是代理错误页 / 截断 JSON —— 这里解析失败要当作 FAILED，
+    # 而不是让异常冒到调度器把整个任务打成「脚本出错」。
+    try:
+        data = r.json()
+    except ValueError:
+        log.warning("服务返回 200 但响应不是 JSON（前 80 字符：%s）", r.text[:80])
+        return WarmResult.FAILED
+    if not isinstance(data, dict):
+        log.warning("服务返回的 JSON 不是对象：%s", type(data).__name__)
+        return WarmResult.FAILED
     log.info(
         "预热完成（经服务）：%s 行，异常 %s/%s，质量 %s",
         len(data.get("rows") or []),
@@ -59,7 +88,7 @@ def _warm_via_service(timeout: float = 300.0) -> bool:
         (data.get("anomaly") or {}).get("total"),
         (data.get("quality") or {}).get("rate"),
     )
-    return True
+    return WarmResult.SUCCESS
 
 
 def _warm_direct() -> bool:
@@ -67,6 +96,8 @@ def _warm_direct() -> bool:
     today = date.today()
     try:
         data = main._board_data(today)
+        # 质量与 board 已解耦（见 `main.monthly`），这里也各存各的 key。
+        quality = main._quality_cached(today.strftime("%Y-%m"), today)
     except Exception as exc:  # noqa: BLE001 - 定时任务失败要记为非零退出，但别抛栈
         log.error("直接取数失败：%s", str(exc)[:200])
         return False
@@ -79,13 +110,13 @@ def _warm_direct() -> bool:
     with main._CACHE_LOCK:
         main._store(
             "board",
-            {"rows": data["rows"], "anomaly": data["anomaly"], "quality": data["quality"]},
+            {"rows": data["rows"], "anomaly": data["anomaly"]},
             today,
             persist_async=False,
         )
         main._store(
             "quality",
-            data["quality"],
+            quality,
             today,
             config.QUALITY_CACHE_TTL_SECONDS,
             persist_async=False,
@@ -100,8 +131,14 @@ def main_entry() -> int:
     if not config.feishu_configured():
         log.error("飞书凭据未配置，跳过预热")
         return 1
-    ok = _warm_via_service() or _warm_direct()
-    return 0 if ok else 1
+    result = _warm_via_service()
+    if result is WarmResult.SUCCESS:
+        return 0
+    if result is WarmResult.FAILED:
+        # 服务在跑但取数失败（多半是限流）。**不回退直连** —— 再打一遍
+        # 只会让限流更严重，等下一个调度周期。
+        return 1
+    return 0 if _warm_direct() else 1
 
 
 if __name__ == "__main__":

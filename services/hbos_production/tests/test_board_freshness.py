@@ -53,12 +53,15 @@ def test_board_data_does_not_carry_time_fields(monkeypatch):
     """沉到缓存的 `_board_data` **不得**返回时间类字段。
 
     它一旦返回，就会随缓存一起过期 —— 这正是「12 号显示 10 天」的成因。
+
+    `quality` 也**不在**这里：它在响应时独立读自己的缓存，否则会被冻进
+    board 快照，页面再把上一天的质量标成新数据（见 `test_quality_snapshot_*`）。
     """
     main, _ = _client(monkeypatch)
     monkeypatch.setattr(main, "_fetch_all", lambda: _empty_fetch(main))
 
     data = main._board_data(date(2026, 10, 12))
-    assert set(data) == {"rows", "anomaly", "quality"}
+    assert set(data) == {"rows", "anomaly"}
 
 
 def test_fetch_all_requests_every_table_the_board_needs(monkeypatch):
@@ -129,7 +132,7 @@ def test_day_rollover_invalidates_cache(monkeypatch):
     main._CACHE["board"]["built_on"] = today - timedelta(days=1)
     main._CACHE["board"]["stale_at"] = 9e18  # TTL 远未到 —— 单靠 TTL 不会刷
     main._cached("board", producer, built_on=today)
-    assert "board" in main._REFRESHING or len(calls) > 1, "跨天没有触发刷新"
+    assert "board" in main._INTENTS or len(calls) > 1, "跨天没有触发刷新"
 
 
 def test_dataAsOf_reflects_fetch_time_not_request_time(monkeypatch):
@@ -147,3 +150,133 @@ def test_dataAsOf_reflects_fetch_time_not_request_time(monkeypatch):
     body = client.get("/production/monthly").json()
     assert body["dataAsOf"] is not None
     assert body["dataAsOf"].startswith("2025-")  # 2026-10 之前的时刻
+
+
+# --- 质量快照与 board 解耦 ---------------------------------------------------
+
+
+def test_quality_is_read_fresh_not_from_board_snapshot(monkeypatch):
+    """质量缓存在响应时独立读 —— 不能被冻进 board 快照。
+
+    重构前的复现：board 立即返回 rate=0.9（旧），质量缓存刷新成 0.8 后，
+    接口仍返回 board 快照里的 0.9，而 `dataAsOf` 标的是 board 的时刻 ——
+    页面把上一天的质量结论当成刚取的。
+    """
+    main, client = _client(monkeypatch)
+    monkeypatch.setattr(
+        main, "_board_data", lambda today: {"rows": [], "anomaly": {"byWorkshop": []}}
+    )
+
+    main._CACHE.clear()
+    main._CACHE["board"] = {
+        "value": {"rows": [], "anomaly": {"byWorkshop": [], "windowStart": "2026-10-01"}},
+        "stale_at": 9e18,
+        "built_at": 1_760_000_000.0,
+        "built_on": date.today(),
+    }
+    # 质量缓存是**新**的，且与 board 的快照时间不同
+    main._CACHE["quality"] = {
+        "value": {"byLabel": [], "rate": 0.8},
+        "stale_at": 9e18,
+        "built_at": 1_760_000_100.0,
+        "built_on": date.today(),
+    }
+
+    body = client.get("/production/monthly").json()
+    assert body["quality"]["rate"] == 0.8
+    assert body["qualityDataAsOf"] is not None
+    assert body["qualityDataAsOf"] != body["dataAsOf"]
+
+
+def test_quality_failure_does_not_break_board(monkeypatch):
+    """QC 取不到时看板仍要出数 —— 产量比质量重要，不能一起 502。"""
+    main, client = _client(monkeypatch)
+    monkeypatch.setattr(
+        main, "_board_data", lambda today: {"rows": [], "anomaly": {"byWorkshop": []}}
+    )
+
+    def boom(month, today):
+        raise RuntimeError("QC 表挂了")
+
+    monkeypatch.setattr(main, "_quality_cached", boom)
+
+    main._CACHE.clear()
+    main._CACHE["board"] = {
+        "value": {"rows": [], "anomaly": {"byWorkshop": [], "windowStart": "2026-10-01"}},
+        "stale_at": 9e18,
+        "built_at": 1_760_000_000.0,
+        "built_on": date.today(),
+    }
+    body = client.get("/production/monthly").json()
+    assert body["quality"] is None
+    assert body["qualityDataAsOf"] is None
+    assert body["rows"] == []
+
+
+# --- 数据源部分失败 / 全部失败 ----------------------------------------------
+
+
+def test_partial_anomaly_source_failure_is_reported(monkeypatch):
+    """一个车间取不到时，must 标出该车间 —— 合计数是部分口径。"""
+    main, client = _client(monkeypatch)
+    monkeypatch.setattr(
+        main, "_board_data", lambda today: {"rows": [], "anomaly": {"byWorkshop": []}}
+    )
+    monkeypatch.setattr(
+        main,
+        "_quality_cached",
+        lambda month, today: {"byLabel": [], "rate": None, "failedLabels": [], "sourceCount": 4},
+    )
+
+    main._CACHE.clear()
+    main._CACHE["board"] = {
+        "value": {"rows": [], "anomaly": {"byWorkshop": [], "windowStart": "2026-10-01"}},
+        "stale_at": 9e18,
+        "built_at": 1_760_000_000.0,
+        "built_on": date.today(),
+    }
+
+    def fake_list(*spec):
+        if spec[1] == main.contract.ANOMALY_SOURCES[0].table_id:
+            return []
+        raise main.feishu.FeishuError(1254607, "not ready")
+
+    monkeypatch.setattr(main.feishu, "list_records", fake_list)
+    result = main._load_anomalies(date(2026, 10, 20))
+
+    assert len(result["failedWorkshops"]) == len(main.contract.ANOMALY_SOURCES) - 1
+    assert result["sourceCount"] == len(main.contract.ANOMALY_SOURCES)
+
+
+def test_all_anomaly_sources_failed_is_distinguishable(monkeypatch):
+    """全部失败时 total=0 / rate=None —— 前端必须能据此区分「真没异常」。"""
+    main, _ = _client(monkeypatch)
+
+    def boom(*spec):
+        raise main.feishu.FeishuError(1254607, "not ready")
+
+    monkeypatch.setattr(main.feishu, "list_records", boom)
+    result = main._load_anomalies(date(2026, 10, 20))
+    assert result["total"] == 0
+    assert result["rate"] is None
+    assert len(result["failedWorkshops"]) == result["sourceCount"]
+
+
+def test_yesterday_returns_actual_yesterday_date(monkeypatch):
+    """`/production/yesterday` 必须返回**昨日**日期，不是今天。"""
+    main, client = _client(monkeypatch)
+    monkeypatch.setattr(
+        main,
+        "monthly",
+        lambda **kw: {
+            "month": "2026-10",
+            "daysElapsed": 20,
+            "updatedAt": "2026-10-20",
+            "dataAsOf": None,
+            "rows": [],
+            "anomaly": {},
+            "quality": None,
+        },
+    )
+    body = client.get("/production/yesterday").json()
+    assert body["date"] == (date.today() - timedelta(days=1)).isoformat()

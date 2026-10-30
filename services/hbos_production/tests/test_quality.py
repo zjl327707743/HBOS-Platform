@@ -183,3 +183,67 @@ def test_qc_sources_cover_only_rows_that_have_tables():
     assert labels <= set(contract.ROW_MEMBERS)
     assert "无菌美罗培南" not in labels
     assert "无菌亚胺培南" not in labels
+
+
+# --- 数据源部分失败 ----------------------------------------------------------
+
+
+def test_quality_reports_failed_label_count(monkeypatch):
+    """部分 QC 表取不到时，结果里要能看出「有几张挂了 / 一共几张」。
+
+    前端据此标「部分口径」；只给 failedLabels 而不给总数，前端无法判断
+    是「挂了 1 张」还是「全挂了」。
+    """
+    from app import main as main_mod
+
+    def fake_list(base, table_id, page_size=500):
+        if table_id == main_mod.contract.QC_SOURCES[0].table_id:
+            return []
+        raise main_mod.feishu.FeishuError(1254607, "not ready")
+
+    monkeypatch.setattr(main_mod.feishu, "list_records", fake_list)
+    result = main_mod._load_quality("2026-10")
+
+    assert len(result["failedLabels"]) == len(main_mod.contract.QC_SOURCES) - 1
+    assert result["sourceCount"] == len(main_mod.contract.QC_SOURCES)
+
+
+def test_conversion_error_counts_as_source_failure(monkeypatch):
+    """单源数据格式异常（ValueError/TypeError）要算该源失败，不能整块 500。
+
+    早先只兜 `FeishuError`；上游字段形状一变，`to_anomaly_record` 抛
+    `TypeError` 就把整个 `/production/monthly` 打成 500 —— 其余车间/产品的
+    数据一起没了，而且看不出是哪张表的问题。
+    """
+    from app import main as main_mod
+
+    def fake_list(base, table_id, page_size=500):
+        return [{"record_id": "r1", "fields": {"生产日期": "坏数据"}}]
+
+    def boom(src, rows, month):
+        raise TypeError("字段形状变了")
+
+    monkeypatch.setattr(main_mod.feishu, "list_records", fake_list)
+    monkeypatch.setattr(main_mod.contract, "quality_stats", boom)
+    result = main_mod._load_quality("2026-10")
+
+    assert len(result["failedLabels"]) == len(main_mod.contract.QC_SOURCES)
+    assert result["rate"] is None
+
+
+def test_anomaly_conversion_error_counts_as_source_failure(monkeypatch):
+    from datetime import date as _date
+
+    from app import main as main_mod
+
+    def fake_list(*spec):
+        return [{"record_id": "r1", "fields": {}}]
+
+    def boom(src, rows, start, end):
+        raise ValueError("日期解析炸了")
+
+    monkeypatch.setattr(main_mod.feishu, "list_records", fake_list)
+    monkeypatch.setattr(main_mod.contract, "anomaly_stats", boom)
+    result = main_mod._load_anomalies(_date(2026, 10, 20))
+
+    assert len(result["failedWorkshops"]) == len(main_mod.contract.ANOMALY_SOURCES)

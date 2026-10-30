@@ -120,16 +120,47 @@ def test_aggregate_day_qty_sums_by_receipt_date():
 
 
 # ---------------------------------------------------------------------------
-# 排除规则（会议 2026-10-02）
+# 行白名单口径（会议 2026-10-02）
 # ---------------------------------------------------------------------------
+#
+# 早先这里测的是 `is_excluded()` —— 一个**从没被生产路径调用过**的函数。
+# 测试通过只能证明那个函数本身对，不能证明欧盟/混粉/晶种/USP 的数据
+# 真的被排除。真正的口径是 `ROW_MEMBERS`：只有列进去的产品才参与聚合。
+# 所以改为直接断言白名单。
 
-def test_exclusion_by_keyword_and_exact():
-    for name in ("F12-欧盟", "美罗培南混粉", "美罗培南混粉USP", "美罗培南晶种"):
-        assert contract.is_excluded(name), name
-    for name in ("碳酸氢钠", "碳酸钠（EP）", "比阿培南"):
-        assert contract.is_excluded(name), name
-    for name in ("4BMA", "F9", "美罗培南B", "国内规范粗品"):
-        assert not contract.is_excluded(name), name
+def test_row_members_is_the_only_inclusion_rule():
+    """看板行必须恰好是这六个 —— 加产品要走这里，不能靠别处的黑名单。"""
+    assert list(contract.ROW_MEMBERS) == [
+        "4BMA", "F9", "F12", "F13", "无菌美罗培南", "无菌亚胺培南",
+    ]
+
+
+def test_products_outside_whitelist_never_reach_rows():
+    """不在 `ROW_MEMBERS` 里的产品，无论叫什么名字，都不会进看板。
+
+    这比旧的黑名单强：黑名单只能挡住列出来的名字，白名单默认挡住一切。
+    """
+    members = {m for members in contract.ROW_MEMBERS.values() for m in members}
+    for name in ("碳酸氢钠", "碳酸钠（EP）", "比阿培南", "F12-欧盟", "美罗培南混粉"):
+        assert name not in members, name
+
+
+def test_rows_built_from_noise_products_are_empty():
+    """喂一批全是不在白名单里的产品 → 六行全为 0，不会被悄悄计入。"""
+    details = [
+        contract.DetailRecord(product=p, batch="B1", received_on="2026-10-01", yield_rate=0.9)
+        for p in ("碳酸氢钠", "F12-欧盟", "美罗培南混粉USP", "美罗培南晶种")
+    ]
+    rows = contract.build_rows(
+        month="2026-10",
+        yesterday="2026-09-30",
+        details=details,
+        members_excluded=set(),
+        plan_by_product={},
+        yield_by_product={},
+    )
+    assert len(rows) == len(contract.ROW_MEMBERS)
+    assert all(r.done == 0 for r in rows), [r.label for r in rows if r.done]
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +345,46 @@ def test_undated_records_are_reported_not_silently_dropped():
     st = contract.anomaly_stats(_src(), recs, "2025-11-01")
     assert st.total == 1
     assert st.undated == 1
+
+
+def test_dotted_date_is_normalized_not_dropped():
+    """点号日期必须归一成 ISO，否则会被**静默排除**。
+
+    实测复现（2026-10-27）：`_as_date` 对字符串只做 `v[:10]`，
+    `2026.10.20` 原样返回；与上界 `2026-11-01` 做字符串比较时
+    `.`(0x2E) > `-`(0x2D)，记录被判成「晚于窗口」——
+    而且既不计入 total 也不计入 undated，页面上完全看不出少了一条。
+    """
+    recs = [{"事件内容": "点号日期", "发生时间": "2026.10.20", "事件原因": ""}]
+    st = contract.anomaly_stats(_src(), recs, "2026-10-01", "2026-11-01")
+    assert st.total == 1
+    assert st.undated == 0
+
+
+def test_slash_and_cn_dates_are_normalized_too():
+    for raw in ("2026/10/20", "2026年10月20日", "2026-10-20T00:00:00.000+08:00"):
+        recs = [{"事件内容": "x", "发生时间": raw, "事件原因": ""}]
+        st = contract.anomaly_stats(_src(), recs, "2026-10-01", "2026-11-01")
+        assert st.total == 1, f"{raw} 被静默漏算了"
+
+
+def test_invalid_calendar_date_counts_as_undated():
+    """非法日期（2 月 31 日）算不出日期 → 计入 undated，不是静默消失。"""
+    recs = [{"事件内容": "x", "发生时间": "2026-02-31", "事件原因": ""}]
+    st = contract.anomaly_stats(_src(), recs, "2026-01-01", "2026-12-01")
+    assert st.total == 0
+    assert st.undated == 1
+
+
+def test_future_date_outside_window_is_excluded_but_counted_nowhere():
+    """未来日期在下界内、上界外 —— 排除是正确行为（不是「漏算」）。
+
+    这里钉住的是：它走的是**窗口比较**这条路，而不是因为格式没归一被挤出去。
+    """
+    recs = [{"事件内容": "x", "发生时间": "2026-12-01", "事件原因": ""}]
+    st = contract.anomaly_stats(_src(), recs, "2026-10-01", "2026-11-01")
+    assert st.total == 0
+    assert st.undated == 0
 
 
 def test_closure_field_is_uniform_across_workshops():

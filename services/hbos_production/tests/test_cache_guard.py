@@ -11,25 +11,87 @@ from __future__ import annotations
 
 import pytest
 
-from app import main
+from app import contract, main
+
+
+def _row(label: str, **overrides) -> dict:
+    row = {
+        "label": label,
+        "done": 1,
+        "target": 2,
+        "yieldRate": 0.9,
+        "targetYieldRate": 0.91,
+        "yesterdayInbound": 12.5,
+    }
+    row.update(overrides)
+    return row
+
+
+def _rows() -> list[dict]:
+    return [_row(label) for label in contract.ROW_MEMBERS]
+
+
+def _board(**overrides) -> dict:
+    value = {"rows": _rows(), "anomaly": {"byWorkshop": [], "windowStart": "2026-10-01"}}
+    value.update(overrides)
+    return value
 
 
 # --- 各 key 的正常形状 -------------------------------------------------------
 
 
 def test_board_accepts_real_shape():
-    assert main._plausible(
-        "board",
-        {"rows": [], "anomaly": {"byWorkshop": [], "windowStart": "2026-10-01"}},
-    )
+    assert main._plausible("board", _board())
+
+
+def test_board_rejects_empty_rows():
+    """`rows: []` 正是「看板 0 个产品」那个坏缓存的形态。
+
+    早先这条测试把它断言成**合法**（`test_board_accepts_real_shape` 用空数组），
+    等于把错误形状固化成正常。真实 `build_rows()` 恒返回六个固定行。
+    """
+    assert not main._plausible("board", _board(rows=[]))
+
+
+def test_board_rejects_wrong_label_set():
+    rows = _rows()[:-1]           # 少一行
+    assert not main._plausible("board", _board(rows=rows))
+    rows = _rows() + [_row("不存在")]   # 多一行
+    assert not main._plausible("board", _board(rows=rows))
+
+
+def test_board_rejects_bad_cell_types():
+    """任意对象列表不该过关 —— 前端算术拿到 undefined 会算出 NaN。"""
+    rows = _rows()
+    rows[0]["done"] = "36"
+    assert not main._plausible("board", _board(rows=rows))
+
+    rows = _rows()
+    rows[1]["target"] = None
+    assert not main._plausible("board", _board(rows=rows))
+
+    rows = _rows()
+    rows[2]["yieldRate"] = "0.9"
+    assert not main._plausible("board", _board(rows=rows))
+
+    rows = _rows()
+    rows[3]["yesterdayInbound"] = float("nan")
+    assert not main._plausible("board", _board(rows=rows))
+
+
+def test_board_allows_null_optional_numbers():
+    """收率/昨日入库确实可能没有 —— null 是合法值，不能当成坏形状。"""
+    rows = _rows()
+    rows[0].update({"yieldRate": None, "targetYieldRate": None, "yesterdayInbound": None})
+    assert main._plausible("board", _board(rows=rows))
 
 
 def test_board_rejects_missing_anomaly():
     # 这就是那次白屏的元凶：rows 有、anomaly 是 {} —— 前端 windowStart 为 undefined
-    assert not main._plausible("board", {"rows": []})
-    assert not main._plausible("board", {"rows": [], "anomaly": "x"})
+    assert not main._plausible("board", {"rows": _rows()})
+    assert not main._plausible("board", _board(anomaly="x"))
     # `{}` 也是 dict —— 只判 isinstance 挡不住它（这一条钉住那个坑）
-    assert not main._plausible("board", {"rows": [], "anomaly": {}})
+    assert not main._plausible("board", _board(anomaly={}))
 
 
 def test_quality_accepts_real_shape():
@@ -124,3 +186,73 @@ def test_ai_cache_survives_persist_and_restore(cache_dir):
     main._restore("ai")
     assert "ai" in main._CACHE
     assert main._CACHE["ai"]["value"][0]["fields"]["产品"] == "4BMA"
+
+
+def test_restore_rejects_non_numeric_time_fields(cache_dir):
+    """`stale_at` 是字符串时必须丢弃 —— 否则 `now >= "x"` 会在请求路径上抛 TypeError。"""
+    import json
+    from datetime import date
+
+    (cache_dir / "quality.json").write_text(
+        json.dumps(
+            {
+                "value": {"byLabel": [], "rate": 1.0},
+                "stale_at": "later",          # 坏类型
+                "built_at": 1.0,
+                "built_on": date.today().isoformat(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    main._restore("quality")
+    assert "quality" not in main._CACHE
+
+
+def test_board_cache_survives_persist_and_restore(cache_dir):
+    """真实形状必须能落盘并读回 —— 收紧校验不能把正常缓存也挡了。"""
+    import time
+    from datetime import date
+
+    main._CACHE["board"] = {
+        "value": _board(),
+        "stale_at": time.time() + 3600,
+        "built_at": time.time(),
+        "built_on": date.today(),
+    }
+    main._persist("board")
+    assert (cache_dir / "board.json").exists()
+
+    main._CACHE.clear()
+    main._restore("board")
+    assert "board" in main._CACHE
+    assert len(main._CACHE["board"]["value"]["rows"]) == len(contract.ROW_MEMBERS)
+
+
+def test_plausible_does_not_raise_on_mixed_label_types():
+    """坏行里的 `label` 是 None/数字时**必须返回 False，不能抛异常**。
+
+    踩过（复审 2026-10-27）：早先直接 `sorted(labels)`，混入 `None` 时抛
+    `TypeError: '<' not supported between 'str' and 'NoneType'` ——
+    而 `_persist()` 只捕获 `OSError`，异常会打穿到落盘的 daemon 线程。
+    """
+    bad = _board(rows=[{"label": None}, {"label": "4BMA"}])
+    assert main._plausible("board", bad) is False
+
+    bad = _board(rows=[{"label": 123} for _ in range(len(contract.ROW_MEMBERS))])
+    assert main._plausible("board", bad) is False
+
+    bad = _board(rows=["not-a-dict"] * len(contract.ROW_MEMBERS))
+    assert main._plausible("board", bad) is False
+
+
+def test_persist_survives_malformed_cache(tmp_path, monkeypatch):
+    """落盘遇到结构异常时只记日志 —— 不能把异常抛到后台线程。"""
+    monkeypatch.setattr(main.config, "CACHE_DIR", tmp_path)
+    main._CACHE["board"] = {
+        "value": {"rows": [{"label": None}], "anomaly": {"byWorkshop": [], "windowStart": "x"}},
+        "stale_at": 9e18,
+        "built_at": 1.0,
+        "built_on": None,
+    }
+    main._persist("board")          # 不抛
+    assert not (tmp_path / "board.json").exists()

@@ -35,6 +35,28 @@ class FeishuError(RuntimeError):
         self.msg = msg
 
 
+#: 飞书「token 失效/无效」类业务码。
+#:
+#: 早先只在本地按 `expires_at` 判过期；飞书侧提前撤销、或换了应用凭据时，
+#: 本地缓存仍有效 → 后续请求一路 401/403，**持续 502 直到进程重启**。
+#: 命中这些码时清掉本地 token 并**只重试一次**（真权限问题不该无限重试）。
+AUTH_ERROR_CODES = frozenset({99991661, 99991663, 99991664, 99991668, 99991677})
+
+
+def _json_body(r: httpx.Response, what: str):
+    """把 HTTP 响应解析成 JSON；网络/解析错误统一转成 `FeishuError`。
+
+    **为什么必须在客户端边界做**：端点层只捕获 `FeishuError`。
+    `httpx.ReadTimeout`、`JSONDecodeError`、token 响应缺字段的 `KeyError`
+    都会一路穿透成 FastAPI 500 —— 实测把取数函数换成抛 `ReadTimeout`
+    后，接口直接 500，而不是可解释的 502。
+    """
+    try:
+        return r.json()
+    except ValueError as exc:
+        raise FeishuError(-1, f"{what} 返回了非 JSON 响应（HTTP {r.status_code}）") from exc
+
+
 def _token() -> str:
     """取 tenant_access_token（进程内缓存，提前 60 秒过期）。"""
     now = time.time()
@@ -48,15 +70,34 @@ def _token() -> str:
             return _TOKEN["value"]
 
         url = f"{config.FEISHU_BASE}/open-apis/auth/v3/tenant_access_token/internal"
-        with httpx.Client(timeout=config.TIMEOUT_SECONDS) as c:
-            r = c.post(url, json={"app_id": config.FEISHU_APP_ID, "app_secret": config.FEISHU_APP_SECRET})
-        body = r.json()
+        try:
+            with httpx.Client(timeout=config.TIMEOUT_SECONDS) as c:
+                r = c.post(
+                    url,
+                    json={"app_id": config.FEISHU_APP_ID, "app_secret": config.FEISHU_APP_SECRET},
+                )
+        except httpx.HTTPError as exc:
+            raise FeishuError(-1, f"取 tenant_access_token 网络失败：{type(exc).__name__}") from exc
+        body = _json_body(r, "tenant_access_token")
+        if not isinstance(body, dict):
+            raise FeishuError(-1, "tenant_access_token 响应不是对象")
         if body.get("code") != 0:
             # 错误信息里可能带凭据相关提示，因此只记 code 不记 msg 全文
             raise FeishuError(int(body.get("code", -1)), "tenant_access_token 获取失败")
-        _TOKEN["value"] = body["tenant_access_token"]
+        token = body.get("tenant_access_token")
+        if not token:
+            # 缺字段 → KeyError 会穿透成 500，这里明确转成业务错误
+            raise FeishuError(-1, "tenant_access_token 响应缺字段")
+        _TOKEN["value"] = token
         _TOKEN["expires_at"] = now + int(body.get("expire", 7200)) - 60
         return _TOKEN["value"]
+
+
+def _clear_token() -> None:
+    """作废本地 token —— 上游判定它无效时调用，下一次 `_token()` 会重新换。"""
+    with _TOKEN_LOCK:
+        _TOKEN["value"] = ""
+        _TOKEN["expires_at"] = 0.0
 
 
 #: 值得重试的飞书错误码。
@@ -81,8 +122,13 @@ def _get_with_retry(c: httpx.Client, url: str, params: dict) -> dict:
       - 读超时（飞书偶尔很慢 —— 实测单张 400 行的表要 5~7 秒，
         大表翻页时更容易超）
       - `RETRYABLE_CODES` 里的业务码
+
+    另有一种**每次调用最多一次**的补救：上游判定 token 失效（`AUTH_ERROR_CODES`）
+    时清空本地缓存并立刻重试 —— 否则 token 被提前撤销后，服务会一路 502
+    直到进程重启（本地 `expires_at` 还没到）。
     """
     last: Exception | None = None
+    token_refreshed = False
     for attempt in range(RETRY_ATTEMPTS):
         if attempt:
             time.sleep(RETRY_BACKOFF * (2 ** (attempt - 1)))
@@ -98,8 +144,19 @@ def _get_with_retry(c: httpx.Client, url: str, params: dict) -> dict:
             log.warning("HTTP %s，第 %d 次重试", r.status_code, attempt + 1)
             continue
 
-        body = r.json()
+        body = _json_body(r, "bitable 查询")
+        if not isinstance(body, dict):
+            raise FeishuError(-1, "bitable 响应不是对象")
         code = int(body.get("code", -1))
+        if code in AUTH_ERROR_CODES:
+            if token_refreshed:
+                # 换过 token 仍然不行 → 凭据/权限问题，立刻失败
+                raise FeishuError(code, str(body.get("msg", ""))[:120])
+            token_refreshed = True
+            log.warning("飞书 token 失效（code=%s），作废本地缓存并重试一次", code)
+            _clear_token()
+            last = FeishuError(code, str(body.get("msg", ""))[:120])
+            continue
         if code != 0 and code in RETRYABLE_CODES:
             last = FeishuError(code, str(body.get("msg", ""))[:120])
             log.warning("飞书业务码 %s，第 %d 次重试", code, attempt + 1)
@@ -116,9 +173,19 @@ def list_records(base_token: str, table_id: str, page_size: int = 500) -> list[d
     `page_size` 上限 500（飞书限制）。翻页用 `page_token`。
     GET 走 `_get_with_retry` —— 见那里的说明（不重试会导致整块 502）。
     """
+    # 读超时给足：实测单张 400 行的表要 5~7 秒，大表翻页更慢。
+    #
+    # 整个分页过程包在 try 里：`httpx.Client` 构造、连接、读超时都可能抛
+    # `httpx.HTTPError`，端点层只捕获 `FeishuError` —— 不包就会变成 500。
+    try:
+        return _list_records_paged(base_token, table_id, page_size)
+    except httpx.HTTPError as exc:
+        raise FeishuError(-1, f"拉表网络失败：{type(exc).__name__}") from exc
+
+
+def _list_records_paged(base_token: str, table_id: str, page_size: int) -> list[dict]:
     out: list[dict] = []
     page_token = ""
-    # 读超时给足：实测单张 400 行的表要 5~7 秒，大表翻页更慢。
     with httpx.Client(timeout=httpx.Timeout(config.TIMEOUT_SECONDS, read=90.0)) as c:
         while True:
             params = {"page_size": page_size}

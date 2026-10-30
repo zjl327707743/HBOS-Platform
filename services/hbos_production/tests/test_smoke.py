@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -60,3 +61,65 @@ def test_secret_never_appears_in_health(monkeypatch):
     c = _client(monkeypatch, "cli_fake", "super-secret-value")
     r = c.get("/health")
     assert "super-secret-value" not in r.text
+
+
+# ---------------------------------------------------------------------------
+# token 失效补救：清缓存 + 只重试一次
+# ---------------------------------------------------------------------------
+
+def test_auth_error_clears_token_and_retries_once(monkeypatch):
+    """飞书判定 token 无效时，必须清掉本地缓存并重试 —— 否则一路 502 到重启。"""
+    from app import feishu
+
+    calls = {"get": 0, "token": 0}
+
+    monkeypatch.setattr(feishu, "_token", lambda: calls.__setitem__("token", calls["token"] + 1) or "tok")
+    monkeypatch.setattr(feishu, "_clear_token", lambda: None)
+
+    class Resp:
+        status_code = 200
+
+        def __init__(self, code):
+            self._code = code
+
+        def json(self):
+            return {"code": self._code, "msg": "invalid token"}
+
+    class Client:
+        def get(self, url, params=None, headers=None):
+            calls["get"] += 1
+            # 第一次返回 token 失效，之后正常
+            return Resp(99991663 if calls["get"] == 1 else 0)
+
+    body = feishu._get_with_retry(Client(), "http://x", {})
+    assert body["code"] == 0
+    assert calls["get"] == 2, "应当只重试一次就成功"
+
+
+def test_auth_error_does_not_retry_forever(monkeypatch):
+    """真正的权限问题不该无限重试 —— 每次调用最多补救一次。"""
+    from app import feishu
+
+    calls = {"get": 0}
+    cleared = {"n": 0}
+
+    monkeypatch.setattr(feishu, "_token", lambda: "tok")
+    monkeypatch.setattr(feishu, "_clear_token", lambda: cleared.__setitem__("n", cleared["n"] + 1))
+    monkeypatch.setattr(feishu.time, "sleep", lambda s: None)
+
+    class Resp:
+        status_code = 200
+
+        def json(self):
+            return {"code": 99991663, "msg": "invalid token"}
+
+    class Client:
+        def get(self, url, params=None, headers=None):
+            calls["get"] += 1
+            return Resp()
+
+    with pytest.raises(feishu.FeishuError):
+        feishu._get_with_retry(Client(), "http://x", {})
+
+    assert cleared["n"] == 1, "清 token 只该发生一次"
+    assert calls["get"] == 2, "换过 token 仍然失效 → 立刻失败，不再空转"
