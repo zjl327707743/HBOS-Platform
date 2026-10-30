@@ -24,7 +24,7 @@ import logging
 import sys
 from datetime import date
 
-from . import config, llm, parse, prompt, sources, stats, writer
+from . import config, llm, parse, prompt, runlock, sources, stats, writer
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
@@ -33,18 +33,53 @@ logging.basicConfig(
 log = logging.getLogger("hbos_production_ai")
 
 
-def _fingerprint(product: str, craft, ledger) -> str:
+def _engine_signature() -> str:
+    """**分析引擎**的标识 —— 模型与调用参数。
+
+    切换模型后指纹必须变，否则探活成功、整轮显示 ok，但所有行因指纹相同被
+    `skipped`，看板继续展示旧模型的结果 —— 新模型实际上从没跑过。
+    端点和温度同理：它们都会实质改变输出。
+    """
+    return "|".join(
+        [
+            config.AI_BASE_URL or "",
+            config.AI_MODEL or "",
+            "" if config.AI_TEMPERATURE is None else str(config.AI_TEMPERATURE),
+        ]
+    )
+
+
+def _fingerprint(
+    product: str,
+    craft,
+    ledger,
+    *,
+    stats_parts: list[str] | None = None,
+) -> str:
     """数据指纹 —— 源数据**或分析规格**变了才重跑。
 
-    取「产品 + 工艺描述全文 + 台账内容 + 提示词版本」的哈希。
+    取「产品 + 工艺描述全文 + 台账内容 + 统计输入 + 提示词版本 + 分析引擎」的哈希。
     **刻意不含运行时间** —— 否则每次跑指纹都不同，幂等就失效了。
 
     ⚠️ `prompt.PROMPT_VERSION` 必须参与 —— 踩过：2026-10-26 改了提示词和
     报告结构，但指纹只看源数据；那几个产品当天台账没变，指纹相同 → 全部
     `skipped`，结果表里 55 行仍是旧格式（没有「改进建议」段）。
     改提示词却不改版本号 = 新逻辑只对新数据生效，老行永远停在旧格式。
+
+    ⚠️ `stats_parts` 也必须参与 —— 提示词里的统计来自 `AI_STATS_BATCHES`
+    批台账（默认 400），而 `ledger` 只有最近 30 批。早先只看 `ledger`，
+    于是第 31~400 批被补录/修正后，**提示词变了但指纹没变**，写回层直接
+    跳过 —— 用户改了历史数据却看不到重新分析。
+
+    ⚠️ `_engine_signature()` 也要参与 —— 换模型/换温度/换端点都是「换了
+    分析规格」，源数据不变也该重跑（见那里）。
     """
-    parts = [prompt.PROMPT_VERSION, *sources.fingerprint_parts(product, craft, ledger)]
+    parts = [
+        prompt.PROMPT_VERSION,
+        _engine_signature(),
+        *sources.fingerprint_parts(product, craft, ledger),
+        *(stats_parts or []),
+    ]
     h = hashlib.sha256()
     for p in parts:
         h.update(p.encode("utf-8"))
@@ -75,7 +110,12 @@ def analyze_product(product: str) -> dict:
         len(ledger_stats.effects),
     )
 
-    fp = _fingerprint(product, craft, ledger)
+    fp = _fingerprint(
+        product,
+        craft,
+        ledger,
+        stats_parts=sources.stats_fingerprint_parts(stat_ledger, stats.render(ledger_stats)),
+    )
     user = prompt.build_user_prompt(product, craft, ledger, ledger_stats)
 
     raw = llm.complete(prompt.SYSTEM_PROMPT, user)
@@ -87,17 +127,26 @@ def analyze_product(product: str) -> dict:
         return {"product": product, "status": "invalid", "reason": str(exc), "raw": raw[:500]}
 
     records = parse.to_records(product, analyses, date.today().isoformat(), fp)
-    stats_ = writer.write_results(records, fp, dry_run=config.DRY_RUN)
+    # 本次有效工序清单 —— writer 用它清理「表里还有、但这次没产出」的旧行
+    result = writer.write_results(
+        records,
+        fp,
+        dry_run=config.DRY_RUN,
+        valid_processes=[a.name for a in analyses],
+    )
     grades = [a.grade for a in analyses]
     n_sug = sum(len(a.suggestions) for a in analyses)
     log.info("  评级分布：%s；建议 %d 条", {g: grades.count(g) for g in set(grades)}, n_sug)
 
+    # 清理失效行失败 → 状态是 **partial**，不是 ok。
+    # 废行还在表里、看板还会读到它；报 ok 会让调度系统以为一切正常。
+    status = "partial" if result.get("cleanupFailed") else "ok"
     return {
         "product": product,
-        "status": "ok",
+        "status": status,
         "processes": len(analyses),
         "suggestions": n_sug,
-        **stats_,
+        **result,
     }
 
 
@@ -146,6 +195,24 @@ def main() -> int:
     # 踩过：早先是 `[analyze_product(p) for p in ...]`，4BMA 一次超时抛异常就把
     # 后面 5 个产品全带走，等于整轮白跑（一次调用要 300+ 秒，代价很高）。
     # 现在逐个 try/except，失败的记进结果表继续下一个。
+    #
+    # 整轮套一把**跨进程锁**：定时任务与手动任务同时跑时，两边都会读到
+    # 「这条工序不存在」而各建一行 —— 重复行就是这么来的（见 runlock）。
+    try:
+        with runlock.run_lock():
+            results = _analyze_all()
+    except runlock.LockBusy as exc:
+        log.warning("%s —— 本轮跳过", exc)
+        return 0
+
+    log.info("=== 汇总 ===")
+    for r in results:
+        log.info("  %-12s %s", r["product"], r["status"])
+    failed = [r for r in results if r["status"] not in ("ok", "skipped")]
+    return 1 if failed else 0
+
+
+def _analyze_all() -> list[dict]:
     results: list[dict] = []
     for p in config.AI_PRODUCTS:
         try:
@@ -153,12 +220,7 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 - 一个产品失败不该拖垮其余
             log.error("%s 分析失败：%s", p, str(exc)[:200])
             results.append({"product": p, "status": "error", "reason": str(exc)[:200]})
-
-    log.info("=== 汇总 ===")
-    for r in results:
-        log.info("  %-12s %s", r["product"], r["status"])
-    failed = [r for r in results if r["status"] not in ("ok", "skipped")]
-    return 1 if failed else 0
+    return results
 
 
 if __name__ == "__main__":

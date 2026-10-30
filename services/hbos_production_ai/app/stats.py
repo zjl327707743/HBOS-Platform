@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence
@@ -33,6 +34,9 @@ from typing import Optional, Sequence
 from .sources import LedgerBatch
 
 _CN_TZ = timezone(timedelta(hours=8))
+
+#: 与 `sources._date_key` 同一套日期前缀正则（含中文年月日）。
+_DATE_PREFIX = re.compile(r"^\s*(\d{4})\s*[.\-/年]\s*(\d{1,2})\s*[.\-/月]\s*(\d{1,2})")
 
 #: 各产品的**收率字段**（分子/分母关系的源头）。
 YIELD_FIELD: dict[str, str] = {
@@ -169,20 +173,35 @@ def _month(value) -> Optional[str]:
     ⚠️ 台账里的日期经 `sources._text()` 已经**转成字符串**了：毫秒时间戳会变成
     `'1792425600000'`。早先只判 `isinstance(value, int)`，于是把时间戳的前 7 位
     当成年月 —— 报告里出现 `1791561` 这种月份（实测踩到）。
+
+    ⚠️ 中文日期 `2026年10月01日` 走的是 `s[:7]` = `2026年10`，替换只处理了
+    `/` 和 `.` —— `年` 留了下来，却被当成合法月份（实测：按字符串排进趋势图）。
+    现在用与 `sources._date_key` 同一套解析，统一成 `YYYY-MM`。
     """
-    if isinstance(value, (int, float)):
-        ms = float(value)
-    else:
-        s = str(value or "").strip()
-        if not s:
-            return None
-        # 纯数字串 = 毫秒时间戳（13 位）
-        if s.isdigit() and len(s) >= 10:
-            ms = float(s)
-        else:
-            # `2026-10-01` / `2026.10.01` / `2026/10/01` / `2026年10月01日`
-            norm = s[:7].replace("/", "-").replace(".", "-")
-            return norm if len(norm) == 7 else None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return _month_from_ms(float(value))
+    s = str(value or "").strip()
+    if not s:
+        return None
+    # 纯数字串 = 毫秒时间戳（13 位）或秒级（10 位）
+    if s.isdigit() and len(s) >= 10:
+        return _month_from_ms(float(s))
+    m = _DATE_PREFIX.match(s)
+    if not m:
+        return None
+    try:
+        year, month = int(m.group(1)), int(m.group(2))
+        datetime(year, month, 1)
+    except ValueError:
+        return None
+    return f"{year:04d}-{month:02d}"
+
+
+def _month_from_ms(ms: float) -> Optional[str]:
+    if ms <= 0:
+        return None
+    if ms < 1e11:        # 10 位 → 秒级
+        ms *= 1000
     try:
         return datetime.fromtimestamp(ms / 1000, tz=_CN_TZ).strftime("%Y-%m")
     except (OSError, ValueError, OverflowError):

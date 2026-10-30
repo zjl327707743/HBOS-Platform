@@ -235,3 +235,31 @@ def test_blank_placeholder_not_a_category():
     cat = next((c for c in st.categories if c.name == "规格"), None)
     if cat:      # 组数够才会出现
         assert "/" not in [g[0] for g in cat.groups]
+
+
+# ---------------------------------------------------------------------------
+# 月份解析：中文日期不能被截成 `2026年10`
+# ---------------------------------------------------------------------------
+
+def test_month_accepts_chinese_date():
+    """`2026年10月01日` 早先取 `s[:7]` 得到 `2026年10`，被当成合法月份。
+
+    它会被排进趋势图，且与 `2026-10` 分属两个「月」—— 月度对比凭空多一组。
+    """
+    assert stats._month("2026年10月01日") == "2026-10"
+    assert stats._month("2026.10.20") == "2026-10"
+    assert stats._month("2026/03/05") == "2026-03"
+    assert stats._month("2026-10-01") == "2026-10"
+
+
+def test_month_accepts_timestamp_string_and_number():
+    assert stats._month("1767225600000") == "2026-01"
+    assert stats._month(1767225600000) == "2026-01"
+    assert stats._month(1767225600) == "2026-01"      # 10 位秒级
+
+
+def test_month_rejects_unparseable():
+    assert stats._month("n/a") is None
+    assert stats._month("2026-13-01") is None
+    assert stats._month("") is None
+    assert stats._month(None) is None

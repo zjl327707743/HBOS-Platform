@@ -94,6 +94,19 @@ def update_record(base_token: str, table_id: str, record_id: str, fields: dict) 
         raise FeishuError(int(body.get("code", -1)), str(body.get("msg", ""))[:200])
 
 
+def delete_record(base_token: str, table_id: str, record_id: str) -> None:
+    """删一条记录 —— 只用于清理失效工序的历史行（见 `writer._stale_rows`）。"""
+    url = (
+        f"{config.FEISHU_BASE}/open-apis/bitable/v1/apps/{base_token}"
+        f"/tables/{table_id}/records/{record_id}"
+    )
+    with httpx.Client(timeout=config.FEISHU_TIMEOUT) as c:
+        r = c.delete(url, headers={"Authorization": f"Bearer {_token()}"})
+    body = r.json()
+    if body.get("code") != 0:
+        raise FeishuError(int(body.get("code", -1)), str(body.get("msg", ""))[:200])
+
+
 def health() -> dict:
     """探活：不写任何东西，只确认凭据能换到 token。"""
     try:

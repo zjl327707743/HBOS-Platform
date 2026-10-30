@@ -108,6 +108,11 @@ def parse_response(raw: str, expected_processes: list[str]) -> list[ProcessAnaly
             raise ParseError(f"工序「{name}」的评级非法：{grade!r}（只允许 {'/'.join(GRADES)}）")
         if not summary:
             raise ParseError(f"工序「{name}」缺结论摘要")
+        # `完整报告` 是看板「查看详情」的全部内容。空报告能通过校验的话，
+        # 看板会显示有效评级 + 摘要，点进去却是空白 —— 车间拿不到依据，
+        # 却以为有。宁可本轮不写回。
+        if not report:
+            raise ParseError(f"工序「{name}」缺完整报告")
         suggestions = _parse_suggestions(name, item.get("suggestions"))
         out.append(
             ProcessAnalysis(

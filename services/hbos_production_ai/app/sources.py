@@ -8,10 +8,18 @@
 
 from __future__ import annotations
 
+import logging
+import re
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from . import feishu
+
+log = logging.getLogger("hbos_production_ai.sources")
+
+#: 与取数服务同一口径：飞书日期字段是北京时间午夜的毫秒时间戳。
+_CN_TZ = timezone(timedelta(hours=8))
 
 #: 生产台账 Base（工艺描述 + 台账都在这）。
 BASE_MAIN = "IiYMb9NO2a6TGOsDS7YcxO8In4c"
@@ -189,30 +197,62 @@ def fetch_craft(product: str) -> CraftDescription:
     return parse_craft_records(product, records)
 
 
-def _sort_key(record: dict, date_field: str) -> int:
-    """取日期字段的可排序值（**整数比较**，不是字符串）。
+_DATE_PREFIX = re.compile(r"^\s*(\d{4})\s*[.\-/年]\s*(\d{1,2})\s*[.\-/月]\s*(\d{1,2})")
 
-    踩过：早先写成 `str(v)` 做字符串排序 —— 同一张表里日期既有毫秒时间戳
-    也有字符串（`2026-10-01` / `2026.10.01` / `2026/10/01`，实测各表混用），
-    13 位字符串比大小碰巧对，但混进别的格式就静默排错。
+
+def _date_key(value) -> Optional[int]:
+    """日期值 → `YYYYMMDD` 整数；解析不了返回 None（**不当成 0**）。
+
+    同一天的所有格式必须落到**同一个数量级**上。踩过（2026-10-27）：
+    毫秒时间戳返回 `int(v)` ≈ 1.7e12，字符串返回 `20261001`，
+    两者混排时**所有时间戳都排在所有字符串前面**，与真实日期顺序无关 ——
+    「取最近 N 批」于是取错了批次，而且不抛异常。
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        # 毫秒/秒时间戳都按毫秒解释：秒级只有 10 位，×1000 后仍然远大于
+        # `YYYYMMDD`，所以下面统一转成日期再取 YYYYMMDD。
+        ms = float(value)
+        if ms <= 0:
+            return None
+        if ms < 1e11:        # 10 位 → 秒级
+            ms *= 1000
+        try:
+            d = datetime.fromtimestamp(ms / 1000, tz=_CN_TZ)
+        except (OSError, ValueError, OverflowError):
+            return None
+        return d.year * 10000 + d.month * 100 + d.day
+    s = str(value or "").strip()
+    if not s:
+        return None
+    if s.isdigit() and len(s) >= 10:
+        return _date_key(int(s))
+    m = _DATE_PREFIX.match(s)
+    if not m:
+        return None
+    try:
+        year, month, day = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        datetime(year, month, day)          # 让 2026-13-45 这类直接判无效
+    except ValueError:
+        return None
+    return year * 10000 + month * 100 + day
+
+
+def _sort_key(record: dict, date_field: str) -> int:
+    """取日期字段的可排序值（**统一换算成 `YYYYMMDD` 整数**）。
+
+    踩过两次：
+      1. 早先 `str(v)` 做字符串排序 —— 混格式时静默排错；
+      2. 后来「时间戳用原值、字符串转 YYYYMMDD」—— **量纲仍然不同**，
+         时间戳(1.7e12) 恒排在字符串(20261001) 前面，等于按格式而不是按日期排。
     「取最近 N 批」排错 = **分析的是错的批次**，而且看不出来。
 
-    缺失返回 0（排最后），不是 None —— 避免比较时报错。
+    解析不出来的返回 0（排最后），并在 `fetch_ledger` 里单独计数告警 ——
+    静默当成「最早的一批」会把坏数据塞进分析窗口。
     """
     f = record.get("fields") or {}
-    v = f.get(date_field)
-    if isinstance(v, (int, float)):
-        return int(v)
-    s = str(v or "").strip()
-    if not s:
-        return 0
-    # 日期字符串 → 归一成 `YYYYMMDD` 整数
-    import re as _re
-
-    m = _re.match(r"(\d{4})[.\-/年](\d{1,2})[.\-/月](\d{1,2})", s)
-    if m:
-        return int(f"{m.group(1)}{int(m.group(2)):02d}{int(m.group(3)):02d}")
-    return 0
+    return _date_key(f.get(date_field)) or 0
 
 
 def fetch_ledger(product: str, limit: int) -> list[LedgerBatch]:
@@ -220,10 +260,28 @@ def fetch_ledger(product: str, limit: int) -> list[LedgerBatch]:
 
     只取最近 N 批 —— 台账有 1200+ 行，全喂会撑爆上下文且没必要：
     分析看的是近期工艺稳定性。
+
+    **日期解析不出来的行单独计数**，不静默当成「最早的一批」：
+    它们会被排到末尾（key=0），如果整个表都解析不出来，说明日期字段名
+    或格式变了 —— 这时候「最近 N 批」实际取的是无意义的任意 N 行。
     """
     src = PRODUCTS[product]
     records = feishu.list_records(BASE_MAIN, src.ledger_table)
-    records.sort(key=lambda r: _sort_key(r, src.ledger_date_field), reverse=True)
+    keys = [_sort_key(r, src.ledger_date_field) for r in records]
+    undated = sum(1 for k in keys if k == 0)
+    if undated:
+        log.warning(
+            "%s 台账有 %d/%d 行日期解析不出来（字段 %s）—— 这些行按「最旧」排",
+            product, undated, len(records), src.ledger_date_field,
+        )
+    if records and undated == len(records):
+        # 全部解析失败 = 取「最近 N 批」这条前提已经不成立
+        raise ValueError(
+            f"{product} 台账日期字段「{src.ledger_date_field}」全部无法解析，"
+            "拒绝按错误的顺序做「最近 N 批」分析"
+        )
+    order = sorted(range(len(records)), key=lambda i: keys[i], reverse=True)
+    records = [records[i] for i in order]
 
     out: list[LedgerBatch] = []
     for rec in records[:limit]:
@@ -263,6 +321,10 @@ def fingerprint_parts(
 
     覆盖范围 = **实际喂给模型的那批数据**（即 `ledger`，已按上限截断）。
     这样「输入没变就不重跑」是精确的 —— 窗口外的批次被改不影响判断。
+
+    ⚠️ 但提示词里**同时**有服务端算好的统计（来自 `AI_STATS_BATCHES` 批，
+    远多于 `ledger`）。那部分由 `_fingerprint(..., stats_parts=…)` 单独补充，
+    不能只看这里的 `ledger`。
     """
     parts = [product]
     for proc in sorted(craft.processes):
@@ -270,6 +332,20 @@ def fingerprint_parts(
         parts.append(craft.craft.get(proc, ""))
         parts.append(craft.standard.get(proc, ""))
     for b in ledger:
+        parts.append(b.batch)
+        parts.append("|".join(f"{k}={v}" for k, v in sorted(b.values.items())))
+    return parts
+
+
+def stats_fingerprint_parts(stat_ledger: list[LedgerBatch], rendered: str) -> list[str]:
+    """统计输入的指纹部分 —— 训练数据变了，AI 结论就必须重算。
+
+    `render()` 的产物是**提示词里逐字出现的那段统计文本**，把它整段纳入比
+    自己再挑几个字段更可靠：渲染逻辑一变（指标口径、四舍五入、新增维度），
+    指纹也跟着变，不会出现「提示词变了但指纹没变」的旧格式问题。
+    """
+    parts = [f"stats-batches={len(stat_ledger)}", rendered]
+    for b in stat_ledger:
         parts.append(b.batch)
         parts.append("|".join(f"{k}={v}" for k, v in sorted(b.values.items())))
     return parts

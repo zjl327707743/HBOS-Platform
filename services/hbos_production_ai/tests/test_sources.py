@@ -135,3 +135,47 @@ def test_process_list_is_union_across_rows():
     cd = parse_craft_records("X", recs)
     assert cd.processes == ["A", "B"]
     assert cd.standard["B"] == "只有这行有"
+
+
+# ---------------------------------------------------------------------------
+# 台账排序：所有日期格式必须换算到**同一个量纲**
+# ---------------------------------------------------------------------------
+
+from app.sources import _sort_key  # noqa: E402
+
+
+def _dated(value):
+    return {"fields": {"生产日期": value}}
+
+
+def test_sort_key_unifies_timestamp_and_string():
+    """毫秒时间戳与日期字符串必须落在同一量纲（YYYYMMDD）。
+
+    踩过（2026-10-27）：时间戳返回原值 ≈1.7e12，字符串返回 20261001，
+    混排时**所有时间戳都排在所有字符串前面** —— 与真实日期顺序无关，
+    「取最近 N 批」于是取错批次，而且不抛异常。
+    """
+    ts_2026_10 = 1767225600001     # 2026-01-01（时间戳，量纲与字符串不同）
+    assert _sort_key(_dated(ts_2026_10), "生产日期") == 20260101
+    assert _sort_key(_dated("2026-10-01"), "生产日期") == 20261001
+    assert _sort_key(_dated("2026.10.01"), "生产日期") == 20261001
+    assert _sort_key(_dated("2026/10/01"), "生产日期") == 20261001
+    assert _sort_key(_dated("2026年10月1日"), "生产日期") == 20261001
+
+
+def test_sort_key_orders_across_formats():
+    """跨格式排序必须按**真实日期**，不是按格式。"""
+    rows = [
+        _dated("2026-10-01"),        # 字符串，较新
+        _dated(1767225600000),       # 时间戳，2026-01-01，较旧
+        _dated("2026.03.05"),        # 较旧
+    ]
+    ordered = sorted(rows, key=lambda r: _sort_key(r, "生产日期"), reverse=True)
+    assert ordered[0] is rows[0]
+    assert ordered[-1] is rows[1]
+
+
+def test_sort_key_invalid_is_zero_not_silently_earliest_valid():
+    assert _sort_key(_dated("n/a"), "生产日期") == 0
+    assert _sort_key(_dated("2026-13-45"), "生产日期") == 0
+    assert _sort_key(_dated(None), "生产日期") == 0

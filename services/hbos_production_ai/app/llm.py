@@ -120,5 +120,25 @@ def complete(system: str, user: str) -> str:
             return choices[0].get("message", {}).get("content", "") or ""
         except (httpx.HTTPError, LLMError) as exc:
             last = exc if isinstance(exc, LLMError) else LLMError(str(exc))
+            # **不可重试的错误立刻失败**：400/401/403/404 说明请求本身有问题
+            # （模型名错、密钥错、参数不支持）。重试只会在 600 秒超时上再等几轮，
+            # 把一次快速失败拖成十几分钟，还刷满日志。
+            if not _retryable(last):
+                raise last
             log.warning("第 %d 次调用失败：%s", attempt + 1, str(last)[:120])
     raise last or LLMError("调用失败")
+
+
+#: 值得重试的 HTTP 状态码。其余 4xx 一律不重试。
+_RETRYABLE_STATUS = frozenset({408, 429, 500, 502, 503, 504})
+
+
+def _retryable(exc: LLMError) -> bool:
+    """这次失败重试有没有意义。
+
+    - `status == 0` = 网络层错误（超时、连接中断）→ 可以重试；
+    - 有状态码 → 只有 408/429/5xx 值得重试，4xx 立刻失败。
+    """
+    if not exc.status:
+        return True
+    return exc.status in _RETRYABLE_STATUS

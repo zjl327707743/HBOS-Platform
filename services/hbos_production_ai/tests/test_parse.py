@@ -141,3 +141,24 @@ def test_date_field_is_millisecond_timestamp_beijing():
 def test_grades_constant_matches_feishu_options():
     # 结果表的单选选项就是这个四档 —— 改了这里必须同步改飞书表的选项
     assert GRADES == ("已达标", "部分达到", "数据不足", "未达标")
+
+
+def test_reject_empty_report():
+    """空报告必须判失败 —— 否则看板显示有效评级，点「查看详情」却是空白。"""
+    import json
+
+    from app.parse import ParseError, parse_response
+
+    payload = {
+        "processes": [
+            {
+                "name": "锌粉活化",
+                "grade": "已达标",
+                "summary": "控温稳定",
+                "report": "   ",
+                "suggestions": [{"action": "保持当前参数", "priority": "低"}],
+            }
+        ]
+    }
+    with pytest.raises(ParseError, match="完整报告"):
+        parse_response(json.dumps(payload, ensure_ascii=False), ["锌粉活化"])
