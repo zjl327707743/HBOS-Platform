@@ -1,6 +1,6 @@
 import type { Router } from 'vue-router'
 import { portalDataSource, resolveBusinessRoute } from '@/services/portalProvider'
-import { message } from 'ant-design-vue'
+import message from 'ant-design-vue/es/message'
 import { alignLoopbackHost, callFrappeMethod, FrappeRequestError } from '@/services/frappeClient'
 import { frontendModules } from '@/data/mockPortal'
 import { isNativePortalPath } from '@/router/nativeRoutes'

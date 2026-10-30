@@ -60,7 +60,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import message from 'ant-design-vue/es/message'
 import { QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import AppSwitcher from '@/components/global/AppSwitcher.vue'
 import NotificationCenter from '@/components/global/NotificationCenter.vue'

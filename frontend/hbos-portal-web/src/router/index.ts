@@ -10,21 +10,7 @@ import NotFoundView from '@/views/NotFoundView.vue'
 import LimsHomeView from '@/views/LimsHomeView.vue'
 import LimsResultReviewView from '@/views/LimsResultReviewView.vue'
 import InventoryLayout from '@/components/layout/InventoryLayout.vue'
-import InventoryOverviewView from '@/views/InventoryOverviewView.vue'
-import InventoryIntakeView from '@/views/InventoryIntakeView.vue'
-import InventoryDraftReviewView from '@/views/InventoryDraftReviewView.vue'
-import InventoryBatchView from '@/views/InventoryBatchView.vue'
-import InventoryReportView from '@/views/InventoryReportView.vue'
-import InventoryItemView from '@/views/InventoryItemView.vue'
-import InventoryBatchPickerView from '@/views/InventoryBatchPickerView.vue'
-import InventoryWarehouseView from '@/views/InventoryWarehouseView.vue'
-import InventoryPendingView from '@/views/InventoryPendingView.vue'
-import InventoryEntryView from '@/views/InventoryEntryView.vue'
-import InventoryPickView from '@/views/InventoryPickView.vue'
-import InventoryReconcileView from '@/views/InventoryReconcileView.vue'
-import InventoryUnavailableView from '@/views/InventoryUnavailableView.vue'
 import ProductionLayout from '@/components/layout/ProductionLayout.vue'
-import ProductionDashboardView from '@/views/ProductionDashboardView.vue'
 
 const KnowledgeTwinLayout = () => import('@/components/layout/KnowledgeTwinLayout.vue')
 const KnowledgeView = () => import('@/views/KnowledgeView.vue')
@@ -64,12 +50,12 @@ const router = createRouter({
       path: '/hbos/inventory',
       component: InventoryLayout,
       children: [
-        { path: '', name: 'inventory-overview', component: InventoryOverviewView, meta: { title: '仓储库存' } },
-        { path: 'intake', name: 'inventory-intake', component: InventoryIntakeView, meta: { title: '入库拍照识别' } },
+        { path: '', name: 'inventory-overview', component: () => import('@/views/InventoryOverviewView.vue'), meta: { title: '仓储库存' } },
+        { path: 'intake', name: 'inventory-intake', component: () => import('@/views/InventoryIntakeView.vue'), meta: { title: '入库拍照识别' } },
         {
           path: 'draft/:draftName',
           name: 'inventory-draft',
-          component: InventoryDraftReviewView,
+          component: () => import('@/views/InventoryDraftReviewView.vue'),
           meta: { title: '草稿复核' },
         },
         {
@@ -80,13 +66,13 @@ const router = createRouter({
           // 可选参数会让它在缺失时渲染出空壳。
           path: 'batch',
           name: 'inventory-batch-picker',
-          component: InventoryBatchPickerView,
+          component: () => import('@/views/InventoryBatchPickerView.vue'),
           meta: { title: '批次' },
         },
         {
           path: 'batch/:batchName',
           name: 'inventory-batch',
-          component: InventoryBatchView,
+          component: () => import('@/views/InventoryBatchView.vue'),
           meta: { title: '批次' },
         },
         {
@@ -94,7 +80,7 @@ const router = createRouter({
           // 给四条路由而不是一个下拉：报表需要可分享、可后退的 Deep Link（EA-5.4 §37）。
           path: 'report/:reportId',
           name: 'inventory-report',
-          component: InventoryReportView,
+          component: () => import('@/views/InventoryReportView.vue'),
           meta: { title: '库存报表' },
         },
         {
@@ -102,13 +88,13 @@ const router = createRouter({
           // 详情靠可选的 :itemCode / :warehouseName 落到选中态，刷新/分享都能还原。
           path: 'item/:itemCode?',
           name: 'inventory-item',
-          component: InventoryItemView,
+          component: () => import('@/views/InventoryItemView.vue'),
           meta: { title: '物料' },
         },
         {
           path: 'warehouse/:warehouseName?',
           name: 'inventory-warehouse',
-          component: InventoryWarehouseView,
+          component: () => import('@/views/InventoryWarehouseView.vue'),
           meta: { title: '货位' },
         },
         {
@@ -116,7 +102,7 @@ const router = createRouter({
           // 可写页 —— 建/改/提交/删除，放行门禁由 release_gate.py 兜底。
           path: 'entry/:entryName?',
           name: 'inventory-entry',
-          component: InventoryEntryView,
+          component: () => import('@/views/InventoryEntryView.vue'),
           meta: { title: '库存单据' },
         },
         {
@@ -124,27 +110,27 @@ const router = createRouter({
           // 前一步是「先保存」——定位货位要求单据已存在（见 inventoryPick 的注释）。
           path: 'pick/:pickName?',
           name: 'inventory-pick',
-          component: InventoryPickView,
+          component: () => import('@/views/InventoryPickView.vue'),
           meta: { title: '拣货单' },
         },
         {
           // 库存对账：列表（新建）与详情共用一条路由。**会调账**。
           path: 'reconcile/:reconcileName?',
           name: 'inventory-reconcile',
-          component: InventoryReconcileView,
+          component: () => import('@/views/InventoryReconcileView.vue'),
           meta: { title: '库存对账' },
         },
         {
           // 只读工作台：放行由 LIMS 投影写入，仓库侧无权改（见 quality_projection.py）
           path: 'pending',
           name: 'inventory-pending',
-          component: InventoryPendingView,
+          component: () => import('@/views/InventoryPendingView.vue'),
           meta: { title: '待检批次' },
         },
         {
           path: 'unavailable/:itemId',
           name: 'inventory-unavailable',
-          component: InventoryUnavailableView,
+          component: () => import('@/views/InventoryUnavailableView.vue'),
           meta: { title: '暂未实现' },
         },
       ],
@@ -156,8 +142,8 @@ const router = createRouter({
       path: '/hbos/production',
       component: ProductionLayout,
       children: [
-        { path: '', name: 'production-baseline', component: ProductionDashboardView, meta: { title: '生产看板' } },
-        { path: 'center', name: 'production-center', component: ProductionDashboardView, meta: { title: '生产管理中心看板' } },
+        { path: '', name: 'production-baseline', component: () => import('@/views/ProductionDashboardView.vue'), meta: { title: '生产看板' } },
+        { path: 'center', name: 'production-center', component: () => import('@/views/ProductionDashboardView.vue'), meta: { title: '生产管理中心看板' } },
       ],
     },
     {

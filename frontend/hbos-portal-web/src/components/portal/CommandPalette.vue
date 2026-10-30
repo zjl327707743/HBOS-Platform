@@ -59,7 +59,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import message from 'ant-design-vue/es/message'
 import {
   ArrowRightOutlined,
   ClockCircleOutlined,
