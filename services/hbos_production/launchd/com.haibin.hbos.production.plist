@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  生产看板取数服务（hbos_production）—— 开机自启 + 崩溃自动拉起。
+
+  ## 为什么需要它
+
+  2026-10-29：排查 OCR 时用了 `pkill -f "port 8101"`，把当时正在跑的生产服务
+  一起杀了 —— 那条命令行里就含 `port 8101` 参数。页面立刻变成
+  「无法连接生产数据服务」，和「代码坏了」看起来完全一样。
+
+  这个服务在此之前**一直没有自启配置**，一直靠手动起。机器重启、终端关掉、
+  被别人 pkill 命中，都会静默消失。
+
+  ## 与另外三个 plist 的关系
+
+    com.haibin.hbos.ocr          常驻（KeepAlive）
+    com.haibin.hbos.production  ← 本文件，常驻（KeepAlive）
+    com.haibin.hbos.production-warm / -ai   定时（StartCalendarInterval）
+
+  ## 安装
+
+    cp services/hbos_production/launchd/com.haibin.hbos.production.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.haibin.hbos.production.plist
+
+    # 验证
+    launchctl list | grep hbos
+    curl -s http://127.0.0.1:8101/health
+
+    # 手动重启（改了 app/ 下的代码必须重启：启动没开热重载）
+    launchctl kickstart -k gui/$(id -u)/com.haibin.hbos.production
+
+  ## 日志
+
+    /tmp/hbos-production.log   服务输出
+    /tmp/hbos-production.err   启动失败原因（缺飞书凭据 / venv 不存在）
+
+  ⚠️ 启动脚本 `scripts/start.sh`：
+       - 只挑 HBOS_PRODUCTION_* / HBOS_FEISHU_* 注入，不 source 整个 .env
+       - **外部已设置的变量优先**（临时换端口不会被 .env 覆盖）
+       - 缺飞书凭据时 exit 2，而不是起一个所有接口都 503 的服务
+
+  ⚠️ 只绑 127.0.0.1 —— 这个服务目前**没有身份校验**，暴露到局域网等于
+     公开生产数据。服务器部署时经 nginx 反代同源，不要直接开端口。
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.haibin.hbos.production</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/xinxianghaibinzhiliang/test/HBOS-Platform/services/hbos_production/scripts/start.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/xinxianghaibinzhiliang/test/HBOS-Platform/services/hbos_production</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- 崩溃后不要疯狂重启：至少间隔 10 秒 -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/hbos-production.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/hbos-production.err</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

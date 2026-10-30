@@ -184,17 +184,55 @@ ERPNext 的 `Batch.expiry_date` 是 Date 字段，存不下"只有年月"，所�
 
 ### 一、启动识别服务（在跑 Frappe 的那台 Mac 上）
 
+**推荐：用 launchd 常驻**（开机自启 + 崩溃自动拉起，机器重启后不用再管）。
+
 ```bash
-cd services/hbos_ocr
-HBOS_OCR_BACKEND=c2_ocr uv run uvicorn app.main:app --host 0.0.0.0 --port 8100
+cp services/hbos_ocr/launchd/com.haibin.hbos.ocr.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.haibin.hbos.ocr.plist
+
+# 验证
+launchctl list | grep hbos.ocr
+curl -s http://127.0.0.1:8100/health
 ```
+
+改完 `app/` 下的代码要重启（启动命令不带 `--reload`）：
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.haibin.hbos.ocr
+```
+
+卸载：
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.haibin.hbos.ocr.plist
+rm ~/Library/LaunchAgents/com.haibin.hbos.ocr.plist
+```
+
+**临时前台跑**（排查用，Ctrl-C 停）：
+
+```bash
+services/hbos_ocr/scripts/start.sh
+```
+
+脚本只从仓库根 `.env` 里挑 `HBOS_OCR_*` 注入（不 `source` 整个文件——里面还有
+DB 密码与飞书密钥）；令牌缺失时**直接退出 exit 2**，不会起一个
+「`/health` 200 但 recognize 一律 503」的半残服务。
 
 **必须绑 `0.0.0.0`**，否则 Frappe 容器连不上（容器走 `host.docker.internal`），
 页面会显示「识别服务当前不可用」。验证连通：
 
 ```bash
-docker exec hbos-m0-r3a-backend-1 curl -s http://host.docker.internal:8100/health
+docker exec hbos-portal-preview-backend-1 curl -s http://host.docker.internal:8100/health
+docker exec hbos-portal-preview-backend-1 bench --site portal-preview.localhost \
+  execute hb_inventory_app.hbos_inventory.api.get_intake_context
 ```
+
+> ⚠ **必须带 `HBOS_OCR_SHARED_TOKEN`**，且要与 Frappe 容器里那个**同一个值**。
+> 服务端没配令牌时 `/api/v1/recognize` 直接返回 **503「OCR 内部认证未配置」**
+> —— 页面同样显示「识别服务当前不可用」，但 `/health` 是 200，很容易误判成
+> 「服务已经起来了」。**只 curl `/health` 不足以证明识别链路可用。**
+> `get_intake_context` 里那个 `available: true` 也只代表 `/health` 通，
+> 不代表 recognize 能过鉴权。
 
 > ⚠ **改了 `app/` 下的代码必须重启服务**——启动命令没带 `--reload`，
 > 进程只在启动那一刻读一次代码。改完不重启，页面用的仍是旧逻辑，
@@ -233,7 +271,8 @@ docker exec hbos-m0-r3a-backend-1 curl -s http://host.docker.internal:8100/healt
 
 | 现象 | 原因 / 处理 |
 | --- | --- |
-| 页面提示「识别服务当前不可用」 | 服务没启动，或没绑 `0.0.0.0`；照第一节起服务 |
+| 页面提示「识别服务当前不可用」 | ① 服务没启动 → 起服务；② 没绑 `0.0.0.0` → 容器连不上；③ **进程启动时没载入 `HBOS_OCR_SHARED_TOKEN`** → `/health` 200 但 recognize 503，最容易漏 |
+| 页面显示「识别服务不可达（ConnectionError）」 | 宿主机 8100 没有监听。先 `lsof -nP -iTCP:8100 -sTCP:LISTEN`，再 `docker exec <backend> curl http://host.docker.internal:8100/health` |
 | 识别后某些字段是**空的** | 模型没读出来。**这不是 bug**，按标签手填即可 |
 | 字段被**橙色高亮** | 有需要核对的地方（如"识别只读到年月"、形近字母纠正过）。**必须核对** |
 | 「物料未建档」 | 该物料代码还没进 Item 主数据。**先建物料**，或核对代码是否取错 |

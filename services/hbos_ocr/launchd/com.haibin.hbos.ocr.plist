@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  入库拍照识别服务（hbos_ocr）—— 开机自启 + 崩溃自动拉起。
+
+  ## 为什么需要它
+
+  2026-10-27 实测：宿主机 8100 端口**没有任何进程在监听**，页面报
+  「识别服务不可达（ConnectionError）」。原因是这个服务一直没有自启配置——
+  机器重启、或者手动开的终端关掉，它就没了，而页面上看到的那句话
+  和「代码有 bug」长得一样。
+
+  ## 与另外两个 plist 的区别
+
+    production-warm / production-ai 是**定时跑完即退**（StartCalendarInterval）。
+    本服务是**常驻**：KeepAlive + RunAtLoad。
+
+  ## 安装
+
+    # 1) 确认路径（下面的绝对路径是本机实际路径，换机器要改）
+    cp services/hbos_ocr/launchd/com.haibin.hbos.ocr.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.haibin.hbos.ocr.plist
+
+    # 查看是否在跑
+    launchctl list | grep hbos
+    curl -s http://127.0.0.1:8100/health
+
+    # 手动重启（改了 app/ 下的代码必须重启：启动命令没开热重载）
+    launchctl kickstart -k gui/$(id -u)/com.haibin.hbos.ocr
+
+    # 卸载（先 unload 再删文件；只 unload 的话下次登录还会起来）
+    launchctl unload ~/Library/LaunchAgents/com.haibin.hbos.ocr.plist
+    rm ~/Library/LaunchAgents/com.haibin.hbos.ocr.plist
+
+  ## 日志
+
+    /tmp/hbos-ocr.log      服务输出
+    /tmp/hbos-ocr.err      启动失败原因（缺令牌 / venv 不存在会写在这里）
+
+  ⚠️ 启动脚本 `scripts/start.sh` 会做两件事：
+     1. 从仓库根 `.env` **只挑 HBOS_OCR_\*** 注入环境（不 source 整个文件，
+        里面还有 DB 密码和飞书密钥，识别服务不需要）；
+     2. 令牌缺失时**直接退出（exit 2）**，而不是起一个「/health 200 但
+        recognize 一律 503」的半残服务。
+
+  ⚠️ 绑 `0.0.0.0` 是为了让 Frappe 容器经 host.docker.internal 连进来。
+     同局域网其他机器也能访问 8100 —— 正式部署时应收窄暴露面
+     （见 services/hbos_ocr/README.md 的「网络与安全」）。
+
+  ⚠️ 部署到服务器时不要用这个 plist —— 换 systemd unit 或容器编排。
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.haibin.hbos.ocr</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/xinxianghaibinzhiliang/test/HBOS-Platform/services/hbos_ocr/scripts/start.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/xinxianghaibinzhiliang/test/HBOS-Platform/services/hbos_ocr</string>
+
+    <!-- 登录即起，退出即拉起 -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- 崩溃后不要疯狂重启：至少间隔 10 秒 -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/hbos-ocr.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/hbos-ocr.err</string>
+
+    <!-- launchd 的 PATH 只有 /usr/bin:/bin:/usr/sbin:/sbin；
+         显式补上 Homebrew 前缀，避免脚本里调 sed 之类找不到
+         （/usr/bin/sed 存在，这里只是防御性补充）。 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
