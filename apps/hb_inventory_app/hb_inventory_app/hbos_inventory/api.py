@@ -17,6 +17,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import math
+import time
 import uuid
 
 import frappe
@@ -366,6 +370,7 @@ def create_intake_draft(
 	supplier_batch_no: str | None = None,
 	packaging: str | None = None,
 	label_text: str | None = None,
+	request_id: str | None = None,
 ) -> dict:
 	"""把校对后的识别结果落成**草稿入库单**，照片作为附件。
 
@@ -401,6 +406,140 @@ def create_intake_draft(
 	warehouse = (warehouse or "").strip()
 	qty = flt(qty)
 
+	# **幂等**：网络超时后客户端重试、或操作员连点两次，不该生成两张相同的草稿
+	# 入库单（还会把包装构成重复替换一遍）。命中同一个 request_id 就返回原单据。
+	#
+	# 三件事必须同时成立，否则这个机制会反过来伤人：
+	#   1. 键里带用户名 —— request_id 由客户端生成，不能让 A 的重放命中 B 的单据；
+	#   2. 键里带 **payload 哈希** —— 同一个 id 携不同内容说明是另一次操作
+	#      （用户改了物料/批次/数量后复用了旧 id），必须报冲突而不是返回旧单据；
+	#   3. **原子抢占** —— 两个并发请求同时 cache miss 时只有一个能建单，
+	#      另一个等它的结果。早先是 check-then-set，两边都会建一张单。
+	payload_fp = _intake_payload_fingerprint(
+		item_code=item_code,
+		batch_no=batch_no,
+		warehouse=warehouse,
+		qty=qty,
+		file_url=file_url,
+		source_type=source_type,
+		manufacturing_date=manufacturing_date,
+		expiry_date=expiry_date,
+		storage_condition=storage_condition,
+		workshop=workshop,
+		shelf_life_type=shelf_life_type,
+		supplier_name=supplier_name,
+		manufacturer=manufacturer,
+		supplier_batch_no=supplier_batch_no,
+		packaging=packaging,
+		label_text=label_text,
+	)
+	idem_key = (request_id or "").strip()
+	idem_cache_key = (
+		f"hbos_intake_draft:{frappe.session.user}:{idem_key}" if idem_key else ""
+	)
+	if idem_cache_key:
+		cache = frappe.cache()
+		cached = cache.get_value(idem_cache_key)
+		if cached:
+			if cached.get("payload_fingerprint") == payload_fp:
+				return cached["result"]
+			frappe.throw(
+				_("同一个请求号提交了不同的内容，已拒绝。请刷新页面重新录入，避免生成错误的入库单。"),
+				frappe.ValidationError,
+				title=_("请求内容已变化"),
+			)
+		# 原子抢占：抢到才继续建单，抢不到说明另一个请求正在建。
+		# 必须用 **raw redis `set(nx=True)`** —— `set_value()` 没有 nx 参数
+		# （早先写成 `set_value(..., nx=True)` 会直接 TypeError）。
+		lock_key = cache.make_key(f"{idem_cache_key}:lock")
+		if not cache.set(lock_key, "1", ex=60, nx=True):
+			# 等对方写结果（最多 2 秒）—— 等到了就返回它建的那张，
+			# 等不到就明确告诉用户「正在生成」，而不是让他再点一次。
+			for _ in range(20):
+				ready = cache.get_value(idem_cache_key)
+				if ready:
+					if ready.get("payload_fingerprint") == payload_fp:
+						return ready["result"]
+					break
+				time.sleep(0.1)
+			frappe.throw(
+				_("这张入库单正在生成中，请稍等几秒后刷新页面查看，不要重复提交。"),
+				title=_("正在生成"),
+			)
+
+	try:
+		result, filled = _create_intake_draft_inner(
+			item_code=item_code,
+			batch_no=batch_no,
+			warehouse=warehouse,
+			qty=qty,
+			file_url=file_url,
+			file_name=file_name,
+			source_type=source_type,
+			manufacturing_date=manufacturing_date,
+			expiry_date=expiry_date,
+			storage_condition=storage_condition,
+			workshop=workshop,
+			shelf_life_type=shelf_life_type,
+			supplier_name=supplier_name,
+			manufacturer=manufacturer,
+			supplier_batch_no=supplier_batch_no,
+			packaging=packaging,
+			label_text=label_text,
+		)
+	except BaseException:
+		# 建单失败必须释放锁 —— 否则 60 秒内同一张草稿的重试会一直等/被拒。
+		if idem_cache_key:
+			cache.delete(cache.make_key(f"{idem_cache_key}:lock"))
+		raise
+
+	if idem_cache_key:
+		# 与 `_IDEMPOTENCY_TTL` 一致：5 分钟内重放返回同一张单。
+		# 除了结果本身，还要存 **payload 指纹** —— 下次同 id 不同内容能判出冲突。
+		#
+		# **缓存写失败不能让请求失败**：草稿已经建好了，返回错误会让用户重试，
+		# 而重试时缓存里没有记录、锁也已释放 —— 会再建一张单。
+		# 所以这里逐项兜住，只记日志；锁仍然在 finally 里释放。
+		try:
+			cache.set_value(
+				idem_cache_key,
+				{"payload_fingerprint": payload_fp, "result": result},
+				expires_in_sec=300,
+			)
+		except Exception:  # noqa: BLE001 - 建单已成功，缓存只是加速与去重
+			frappe.log_error(
+				title="HBOS 入库草稿幂等缓存写入失败",
+				message=f"entry={result.get('name')} request_id={idem_key}",
+			)
+		finally:
+			try:
+				cache.delete(cache.make_key(f"{idem_cache_key}:lock"))
+			except Exception:  # noqa: BLE001 - 锁有 60 秒 TTL，删不掉也会自己过期
+				pass
+	return result
+
+
+def _create_intake_draft_inner(
+	*,
+	item_code: str,
+	batch_no: str,
+	warehouse: str,
+	qty: float,
+	file_url: str,
+	file_name: str | None,
+	source_type: str | None,
+	manufacturing_date: str | None,
+	expiry_date: str | None,
+	storage_condition: str | None,
+	workshop: str | None,
+	shelf_life_type: str | None,
+	supplier_name: str | None,
+	manufacturer: str | None,
+	supplier_batch_no: str | None,
+	packaging,
+	label_text: str | None,
+) -> tuple[dict, list]:
+	"""建单主体 —— 从 `create_intake_draft` 里拆出来，只为让锁的释放集中在一处。"""
 	if not item_code:
 		frappe.throw(_("物料代码不能为空。"))
 	if not batch_no:
@@ -484,13 +623,67 @@ def create_intake_draft(
 
 	_attach_photo(file_url, "Stock Entry", entry.name, file_name=file_name)
 
-	return {
+	result = {
 		"name": entry.name,
 		"docstatus": entry.docstatus,
 		"batch": batch_no,
 		# 本次真正补进物料主数据的字段，供界面如实回显
 		"filled": filled,
 	}
+	return result, filled
+
+
+def _intake_payload_fingerprint(
+	*,
+	item_code: str,
+	batch_no: str,
+	warehouse: str,
+	qty: float,
+	file_url: str,
+	source_type=None,
+	manufacturing_date=None,
+	expiry_date=None,
+	storage_condition=None,
+	workshop=None,
+	shelf_life_type=None,
+	supplier_name=None,
+	manufacturer=None,
+	supplier_batch_no=None,
+	packaging=None,
+	label_text=None,
+) -> str:
+	"""这次入库请求的**内容指纹** —— 用来判断「同一个请求号是不是同一件事」。
+
+	**凡会改变建单结果的字段都要算**。早先只取 7 个（物料/批次/货位/数量/
+	照片/包装/标签原文），于是「改了来源类型或供应商后重试」会被当成同一次
+	操作，直接返回上一张草稿 —— 修改静默丢失。
+	与前端 `intake.ts::FINGERPRINT_FIELDS` **必须保持同一组字段**。
+
+	刻意不含时间戳：同一张草稿的重试必须得到同一个指纹。
+	"""
+	raw = json.dumps(
+		[
+			item_code,
+			batch_no,
+			warehouse,
+			f"{qty:.6f}",
+			file_url or "",
+			source_type or "",
+			manufacturing_date or "",
+			expiry_date or "",
+			storage_condition or "",
+			workshop or "",
+			shelf_life_type or "",
+			supplier_name or "",
+			manufacturer or "",
+			supplier_batch_no or "",
+			packaging if isinstance(packaging, str) else "",
+			label_text or "",
+		],
+		ensure_ascii=False,
+		sort_keys=False,
+	)
+	return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
 def _require_item_ready(item_code: str) -> None:
@@ -670,10 +863,17 @@ def _parse_packaging(raw) -> list[dict] | None:
 			)
 		if count <= 0:
 			frappe.throw(_("包装构成：{0} 的件数必须大于 0。").format(container))
+		# **允许只填件数、不填单件重量**：DocType 里 `unit_weight` 非必填，
+		# `print_utils.hbos_packaging_spec()` 也明确支持「10瓶」这种只印件数的形态。
+		# 这里只拦住**负数 / 非有限值** —— 负重量会直接污染货位卡印刷内容，
+		# 而空值/0 是合法的「重量未维护」。
+		unit = flt(weight or 0)
+		if not math.isfinite(unit) or unit < 0:
+			frappe.throw(_("包装构成：{0} 的单件重量无效（不能为负数）。").format(container))
 		out.append(
 			{
 				"container_type": container,
-				"unit_weight": flt(weight) or 0,
+				"unit_weight": unit,
 				"count": count,
 				"is_tail": cint(row.get("is_tail")),
 				"remark": (row.get("remark") or "").strip(),
@@ -852,6 +1052,9 @@ def _attach_photo(
 			"content": content,
 			"attached_to_doctype": doctype,
 			"attached_to_name": docname,
+			# 附件身份标记 —— 前端按它认「这张是标签照片」，不靠扩展名/创建时间。
+			# 见 setup.py 的 File.hbos_attachment_kind 与 doc_gen.KIND_*。
+			"hbos_attachment_kind": "标签照片",
 		}
 	)
 	copy_doc.insert(ignore_permissions=True)

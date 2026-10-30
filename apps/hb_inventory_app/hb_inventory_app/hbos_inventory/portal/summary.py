@@ -32,7 +32,9 @@ def project_inventory_summary(
         actual_qty = _number(row.get("actual_qty"))
         projected_qty = _number(row.get("projected_qty"))
 
-        if item_code and actual_qty != 0:
+        # **`> 0` 而不是 `!= 0`**：只有负库存的物料不该同时计入「有库存物料」——
+        # 那会让同一个物料在两个指标里各出现一次，而且「有库存」是假的。
+        if item_code and actual_qty > 0:
             stocked_items.add(item_code)
         if actual_qty < 0:
             negative_bins += 1

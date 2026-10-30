@@ -28,7 +28,57 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 		// 标签原文按行拆开（OCR 返回的 raw_text），每行可编辑
 		rawLines: [],
 		itemCode: "",
+		// 幂等键的「操作 nonce」。换照片 = 新一次入库操作，必须换。
+		//
+		// 不传 request_id 的话，后端那套幂等保护在这条路径上完全没生效
+		// （Portal 有、Desk 没有 = 两条路径行为不一致，更难排查）。
+		opNonce: newId(),
 	};
+
+	function newId() {
+		if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+		return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	}
+
+	//: 影响「这是不是同一次入库操作」的字段 —— **与 Portal
+	//: （`intake.ts::FINGERPRINT_FIELDS`）和后端（`_intake_payload_fingerprint`）
+	//: 必须完全一致**。少一个就会出现「Desk 重试被判成另一次操作」或反过来。
+	//:
+	//: 早先 Desk 只取 7 个字段，缺来源类型/日期/供应商等 9 个 —— 用户改了
+	//: 这些再重试时 request_id 不变，但后端指纹变了，于是被判「请求内容已变化」
+	//: 直接拒绝，Desk 这条路径的幂等等于失效。
+	const FINGERPRINT_FIELDS = [
+		"item_code",
+		"batch_no",
+		"warehouse",
+		"file_url",
+		"source_type",
+		"manufacturing_date",
+		"expiry_date",
+		"storage_condition",
+		"workshop",
+		"shelf_life_type",
+		"supplier_name",
+		"manufacturer",
+		"supplier_batch_no",
+		"label_text",
+	];
+
+	/** 只取会改变建单结果的字段 —— 同一张草稿的重试必须得到同一个 id。 */
+	function requestIdFor(args) {
+		const parts = [String(args.qty)];
+		for (const key of FINGERPRINT_FIELDS) parts.push(args[key] == null ? null : args[key]);
+		parts.push(args.packaging || null);
+		const payload = JSON.stringify(parts);
+		let h1 = 0x811c9dc5;
+		let h2 = 0x01000193;
+		for (let i = 0; i < payload.length; i++) {
+			const c = payload.charCodeAt(i);
+			h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+			h2 = Math.imul(h2 + c, 0x85ebca6b) >>> 0;
+		}
+		return `${String(state.opNonce).slice(0, 8)}-${h1.toString(36)}${h2.toString(36)}`;
+	}
 
 	const esc =
 		(frappe.utils && frappe.utils.escape_html) ||
@@ -228,6 +278,8 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 				}
 				state.fileUrl = msg.file_url;
 				state.fileDocName = msg.name; // File docname，用于精确定位附件
+				// 换照片 = 新一次入库操作 → 换幂等 nonce
+				state.opNonce = newId();
 				state.result = null;
 				state.corrections = {};
 				// 换照片 = 换一张标签，上一张的手工补录不能留
@@ -754,33 +806,40 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 				ext[key] = v || null;
 			});
 
+		// 包装构成：**没有有效行时传 null（本次不动），不传 `[]`（清空）**。
+		// 后端把两者区分得很清楚；传 `[]` 会把库里已有的包装清掉。
+		const pkgRows =
+			state.packagingRows && state.packagingRows.length
+				? state.packagingRows
+				: collectPackaging();
+		const packagingArg = pkgRows && pkgRows.length ? JSON.stringify(pkgRows) : null;
+
+		const args = {
+			item_code: merged.item_code,
+			batch_no: merged.batch_no,
+			qty: qty,
+			warehouse: wh,
+			file_url: state.fileUrl,
+			file_name: state.fileDocName,
+			source_type: $sourceType.val(),
+			manufacturing_date: merged.manufacturing_date || null,
+			expiry_date: merged.expiry_date || null,
+			storage_condition: ext.storage_condition,
+			workshop: ext.workshop,
+			shelf_life_type: ext.shelf_life_type,
+			supplier_name: ext.supplier_name,
+			manufacturer: ext.manufacturer,
+			supplier_batch_no: ext.supplier_batch_no,
+			packaging: packagingArg,
+			// 逐行校对后的标签原文。空行会被后端丢掉，只留非空行
+			label_text: state.rawLines.join("\n"),
+		};
+		// 幂等键：同一张草稿的重试得到同一个 id，换照片/改关键字段则是新操作
+		args.request_id = requestIdFor(args);
+
 		frappe.call({
 			method: "hb_inventory_app.hbos_inventory.api.create_intake_draft",
-			args: {
-				item_code: merged.item_code,
-				batch_no: merged.batch_no,
-				qty: qty,
-				warehouse: wh,
-				file_url: state.fileUrl,
-				file_name: state.fileDocName,
-				source_type: $sourceType.val(),
-				manufacturing_date: merged.manufacturing_date || null,
-				expiry_date: merged.expiry_date || null,
-				storage_condition: ext.storage_condition,
-				workshop: ext.workshop,
-				shelf_life_type: ext.shelf_life_type,
-				supplier_name: ext.supplier_name,
-				manufacturer: ext.manufacturer,
-				supplier_batch_no: ext.supplier_batch_no,
-				// 以 state 为准（DOM 是它的渲染产物），避免取值时机不一致
-				packaging: JSON.stringify(
-					state.packagingRows && state.packagingRows.length
-						? state.packagingRows
-						: collectPackaging()
-				),
-				// 逐行校对后的标签原文。空行会被后端丢掉，只留非空行
-				label_text: state.rawLines.join("\n"),
-			},
+			args,
 			callback(r) {
 				$(page.body).find('[data-action="create"]').prop("disabled", false);
 				if (!r.message) return;

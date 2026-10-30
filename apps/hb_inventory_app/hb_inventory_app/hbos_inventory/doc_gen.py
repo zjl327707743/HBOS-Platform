@@ -92,11 +92,20 @@ def _render(doctype: str, name: str, print_format: str, options: dict) -> bytes:
     return get_pdf(html, options=options)
 
 
+#: 附件类型标记（`File.hbos_attachment_kind`，见 setup.py 的自定义字段）。
+#: 前端按它识别附件，**不再靠文件名正则或扩展名猜**。
+KIND_CARD = "待检证+货位卡"
+KIND_LABEL_PHOTO = "标签照片"
+
+
 def _attach_pdf(batch_name: str, filename: str, content: bytes) -> str:
     """把 PDF 挂到 `Batch` 上，返回 `File` 的 docname。
 
     与 `api.py::_attach_photo` 同一套做法（`File` 存内网，随单据走）。
     内容直接以字节传入，不落中间文件。
+
+    **写入 `hbos_attachment_kind`**：这是附件身份的唯一真相。文件名会被
+    Frappe 重名后缀改写、也可能被人工上传的文件撞名，靠名字认附件迟早出错。
     """
     f = frappe.get_doc(
         {
@@ -106,6 +115,7 @@ def _attach_pdf(batch_name: str, filename: str, content: bytes) -> str:
             "attached_to_doctype": "Batch",
             "attached_to_name": batch_name,
             "content": content,
+            "hbos_attachment_kind": KIND_CARD,
         }
     )
     f.flags.ignore_permissions = True
@@ -114,20 +124,40 @@ def _attach_pdf(batch_name: str, filename: str, content: bytes) -> str:
 
 
 def _purge_previous(batch_name: str, filename: str) -> int:
-    """删掉本 App 之前给这个批次生成的那一份（按文件名精确匹配）。
+    """删掉本 App 之前给这个批次生成的那一份。
 
-    只删同名文件——**人工上传的附件名字不会长这样，动不到**。
-    重提（amend）时不这么做，附件会越堆越多。
+    **按 `hbos_attachment_kind` 标记删，不按文件名。**
+    早先只按 `file_name` 精确匹配 + `force=True`：如果人工上传的附件恰好
+    用了同一个系统文件名（改名后上传是可能的），会被无提示地删掉，且不可逆。
+
+    标记为空的老数据（本字段引入前生成的）仍然按文件名兜底清一次 ——
+    只清**同名的**，且要求它是 PDF，风险面比原来小但仍存在；
+    这是为了不让历史批次重生成时堆出两份。
     """
     stale = frappe.get_all(
         "File",
         filters={
             "attached_to_doctype": "Batch",
             "attached_to_name": batch_name,
-            "file_name": filename,
+            "hbos_attachment_kind": KIND_CARD,
         },
         pluck="name",
     )
+    if not stale:
+        legacy = frappe.get_all(
+            "File",
+            filters={
+                "attached_to_doctype": "Batch",
+                "attached_to_name": batch_name,
+                "file_name": filename,
+            },
+            pluck="name",
+        )
+        stale = [
+            n
+            for n in legacy
+            if frappe.db.get_value("File", n, "hbos_attachment_kind") in (None, "")
+        ]
     for name in stale:
         frappe.delete_doc("File", name, force=True, ignore_permissions=True)
     return len(stale)

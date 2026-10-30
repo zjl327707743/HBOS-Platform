@@ -152,6 +152,21 @@ def sync_custom_fields():
                     ),
                 },
             ],
+            "File": [
+                {
+                    "fieldname": "hbos_attachment_kind",
+                    "label": "HBOS 附件类型",
+                    "fieldtype": "Select",
+                    "options": "\n待检证+货位卡\n标签照片",
+                    "insert_after": "file_name",
+                    "read_only": 1,
+                    "description": (
+                        "本系统自动生成的附件打这个标记，前端**按它识别**，"
+                        "不再靠文件名正则或扩展名猜。"
+                        "人工上传的附件留空 —— 因此永远不会被误认成货位卡或原始凭证。"
+                    ),
+                },
+            ],
             "Stock Entry": [
                 {
                     "fieldname": "hbos_intake_batch",

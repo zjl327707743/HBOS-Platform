@@ -35,7 +35,11 @@
   <div class="summary">
     {% if is_group %}库位汇总（含下级货位）{% else %}货位明细{% endif %}
     &nbsp;·&nbsp; 批次数 {{ batch_count }} &nbsp;·&nbsp; 物料数 {{ item_count }}
-    &nbsp;·&nbsp; 合计 {{ "%.3f"|format(total_qty) }} kg
+    {% if uom_totals %}
+      &nbsp;·&nbsp; 合计
+      {# 按计量单位分别求和：同一货位可能同时有 kg / 瓶 / 袋，不能加在一起 #}
+      {% for t in uom_totals %}{{ "%.3f"|format(t.qty) }} {{ t.uom }}{% if not loop.last %} + {% endif %}{% endfor %}
+    {% endif %}
   </div>
 
   {% if not rows %}

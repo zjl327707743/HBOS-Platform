@@ -47,23 +47,68 @@ def hbos_fmt_weight(value):
 	return s if len(decimals) >= 2 else f"{flt(value):.2f}"
 
 
-def hbos_packaging_spec(batch):
-	"""包装规格：如 `5.00kg*9件 4.95kg*1件 0.03kg*4听`。"""
-	if not batch:
-		return ""
+def load_packaging_map(batches):
+	"""一次性取多个批次的包装明细 → `{batch: [row, ...]}`（按 idx 排序）。
+
+	**为什么要有这个**：货位扫码页一屏可能有几十个批次，逐个调
+	`hbos_packaging_spec()` / `hbos_packaging_count()` 会打出 N+1 次查询
+	（每个函数各查一次子表，也就是每行 2 次）。这里一次查完再内存分组。
+
+	无包装的批次不会出现在结果里 —— 调用方用 `.get(batch)` 拿 None 即可。
+	"""
+	names = [b for b in dict.fromkeys(batches or []) if b]
+	if not names:
+		return {}
 	rows = frappe.get_all(
 		"HBOS Packaging Detail",
-		filters={"parent": batch, "parenttype": "Batch"},
-		fields=["container_type", "unit_weight", "count", "is_tail"],
-		order_by="idx",
+		filters={"parent": ["in", names], "parenttype": "Batch"},
+		fields=["parent", "container_type", "unit_weight", "count", "is_tail"],
+		order_by="parent asc, idx asc",
 	)
-	parts = []
+	out: dict[str, list] = {}
 	for r in rows:
+		out.setdefault(r.parent, []).append(r)
+	return out
+
+
+def format_packaging_spec(rows):
+	"""包装规格文本。`rows` 是**已经取好的**包装明细（见 `load_packaging_map`）。"""
+	parts = []
+	for r in rows or []:
 		if r.unit_weight:
 			parts.append(f"{hbos_fmt_weight(r.unit_weight)}kg*{r.count}{r.container_type}")
 		else:
 			parts.append(f"{r.count}{r.container_type}")
 	return "  ".join(parts) if parts else BLANK
+
+
+def format_packaging_count(rows):
+	"""件数文本：按容器类型汇总，保留首次出现顺序（见 `hbos_packaging_count`）。"""
+	if not rows:
+		return BLANK
+	totals = {}
+	order = []
+	for r in rows:
+		key = r.container_type or ""
+		if key not in totals:
+			totals[key] = 0
+			order.append(key)
+		totals[key] += int(r.count or 0)
+	return "".join(f"{totals[k]}{k}" for k in order)
+
+
+def hbos_packaging_spec(batch):
+	"""包装规格：如 `5.00kg*9件 4.95kg*1件 0.03kg*4听`。"""
+	if not batch:
+		return ""
+	return format_packaging_spec(
+		frappe.get_all(
+			"HBOS Packaging Detail",
+			filters={"parent": batch, "parenttype": "Batch"},
+			fields=["container_type", "unit_weight", "count", "is_tail"],
+			order_by="idx",
+		)
+	)
 
 
 def hbos_packaging_count(batch):
@@ -76,23 +121,14 @@ def hbos_packaging_count(batch):
 	"""
 	if not batch:
 		return ""
-	rows = frappe.get_all(
-		"HBOS Packaging Detail",
-		filters={"parent": batch, "parenttype": "Batch"},
-		fields=["container_type", "count"],
-		order_by="idx",
+	return format_packaging_count(
+		frappe.get_all(
+			"HBOS Packaging Detail",
+			filters={"parent": batch, "parenttype": "Batch"},
+			fields=["container_type", "count"],
+			order_by="idx",
+		)
 	)
-	if not rows:
-		return BLANK
-	totals = {}
-	order = []
-	for r in rows:
-		key = r.container_type or ""
-		if key not in totals:
-			totals[key] = 0
-			order.append(key)
-		totals[key] += int(r.count or 0)
-	return "".join(f"{totals[k]}{k}" for k in order)
 
 
 def hbos_batch_bins(batch):

@@ -42,6 +42,7 @@ def get_context(context):
 	context.is_group = False
 	context.error = None
 	context.total_qty = 0.0
+	context.uom_totals = []
 	context.batch_count = 0
 	context.item_count = 0
 
@@ -50,6 +51,14 @@ def get_context(context):
 		return
 
 	warehouses, warehouse_doc, is_group = _resolve_warehouse(code)
+	if isinstance(warehouses, _Ambiguous):
+		# **不自动取第一个**：短码前缀命中多个货位时，静默选一个会让操作员
+		# 看到另一个货位的库存（二维码内容损坏、或手输短了都会走到这里）。
+		context.error = (
+			f"货位编号「{code}」匹配到多个货位：{'、'.join(warehouses.candidates)}。"
+			"请扫描货架上完整的二维码，或在网址后填写完整货位号。"
+		)
+		return
 	if not warehouses:
 		context.error = f"未找到货位「{code}」。请确认二维码是否有效。"
 		return
@@ -58,10 +67,31 @@ def get_context(context):
 	context.warehouse_label = _short(warehouse_doc.name)
 	context.is_group = is_group
 	context.rows = _fetch_rows(warehouses)
+	context.uom_totals = _group_by_uom(context.rows)
 	context.total_qty = sum(r["qty"] for r in context.rows)
 	context.batch_count = len({r["batch_no"] for r in context.rows if r["batch_no"]})
 	context.item_count = len({r["item_code"] for r in context.rows})
 	return context
+
+
+def _group_by_uom(rows):
+	"""按计量单位分组求和。
+
+	**不能把所有 qty 直接相加**：同一货位可能同时有 kg、瓶、袋、听，
+	「合计 1234.5」这个数没有业务意义（早先模板还硬编码成 kg）。
+	"""
+	totals = {}
+	for r in rows:
+		uom = r.get("uom") or "（无单位）"
+		totals[uom] = totals.get(uom, 0.0) + r["qty"]
+	return [{"uom": uom, "qty": qty} for uom, qty in sorted(totals.items())]
+
+
+class _Ambiguous:
+	"""前缀匹配命中多个货位 —— 携带候选，由调用方给出明确提示。"""
+
+	def __init__(self, candidates):
+		self.candidates = candidates
 
 
 def _short(name):
@@ -95,18 +125,24 @@ def _resolve_warehouse(code):
 		if r.name == code:
 			doc = r
 			break
-	# 2) 短码精确
+	# 2) 短码精确 —— **同样不能静默取第一个**：
+	#    不同公司可能存在同名仓库（`3904 六车间 - HB` / `3904 六车间 - HB2`），
+	#    短码相同、公司后缀不同。取第一个会让扫码人看到另一个公司的库存。
 	if doc is None:
-		for r in target:
-			if _short(r.name) == code:
-				doc = r
-				break
+		exact_hits = [r for r in target if _short(r.name) == code]
+		if len(exact_hits) > 1:
+			return _Ambiguous([r.name for r in exact_hits[:5]]), None, False
+		if exact_hits:
+			doc = exact_hits[0]
 	# 3) 短码前缀
 	if doc is None:
-		for r in target:
-			if _short(r.name).startswith(code):
-				doc = r
-				break
+		prefix_hits = [r for r in target if _short(r.name).startswith(code)]
+		if len(prefix_hits) > 1:
+			# 多个货位共享前缀时**不能**静默取第一个 —— 结果会依赖 `lft` 顺序，
+			# 操作员看到的可能是另一个货位的库存。
+			return _Ambiguous([_short(r.name) for r in prefix_hits[:5]]), None, False
+		if prefix_hits:
+			doc = prefix_hits[0]
 
 	if doc is None:
 		return [], None, False
@@ -171,12 +207,19 @@ def _fetch_rows(warehouses):
 	)
 
 	from hb_inventory_app.hbos_inventory.print_utils import (
-		hbos_packaging_count,
-		hbos_packaging_spec,
+		format_packaging_count,
+		format_packaging_spec,
+		load_packaging_map,
 	)
+
+	# **一次批量取包装明细**，不要在循环里逐批查。
+	# 早先是每行调 `hbos_packaging_spec()` + `hbos_packaging_count()`，
+	# 两个函数各查一次子表 —— 一屏 50 个批次就是 100 次查询（N+1）。
+	packaging = load_packaging_map([r.batch_no for r in rows])
 
 	out = []
 	for r in rows:
+		pkg_rows = packaging.get(r.batch_no)
 		out.append(
 			{
 				"warehouse": _short(r.warehouse),
@@ -196,8 +239,8 @@ def _fetch_rows(warehouses):
 				"manufacturer": r.manufacturer,
 				"workshop": r.workshop,
 				"shelf_life_type": r.shelf_life_type,
-				"packaging_spec": hbos_packaging_spec(r.batch_no),
-				"packaging_count": hbos_packaging_count(r.batch_no),
+				"packaging_spec": format_packaging_spec(pkg_rows),
+				"packaging_count": format_packaging_count(pkg_rows),
 			}
 		)
 	return out
