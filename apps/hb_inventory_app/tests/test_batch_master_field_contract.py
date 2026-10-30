@@ -160,7 +160,9 @@ class BatchMasterFieldContractTest(unittest.TestCase):
         for prop in ("storageCondition", "workshop", "shelfLifeType"):
             self.assertRegex(
                 body,
-                rf"{prop}:\s*master\.",
+                # 允许 `master?.x ?? ''`：主数据查询失败时 master 为 null，
+                # 界面据此显示「暂不可用」而不是「未建档」
+                rf"{prop}:\s*master\??\.",
                 f"getBatch 的 {prop} 应从 master（Item）取，不该从批次文档读",
             )
             self.assertNotRegex(

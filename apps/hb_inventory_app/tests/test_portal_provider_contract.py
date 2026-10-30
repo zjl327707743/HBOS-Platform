@@ -570,7 +570,10 @@ class InventoryPortalSummaryTest(unittest.TestCase):
         self.assertEqual(
             {
                 "inventory_visible_warehouses": 2,
-                "inventory_stocked_items": 2,
+                # ITEM-B 只有**负库存**，不算「有库存物料」——
+                # 早先判 `!= 0` 会把它同时计入「有库存」和「负库存项」，
+                # 同一个物料在两个指标里各出现一次，而且「有库存」是假的。
+                "inventory_stocked_items": 1,
                 "inventory_negative_bins": 1,
                 "inventory_projected_shortage_bins": 2,
             },
