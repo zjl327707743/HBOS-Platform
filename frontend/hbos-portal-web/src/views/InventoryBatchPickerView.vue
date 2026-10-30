@@ -5,8 +5,11 @@
         <h1>批次</h1>
         <p>按批号、物料或来源查批次；批次详情里有货位卡与待检证。</p>
       </div>
-      <div v-if="state === 'ready'" class="master-count">
-        共 <b class="master-mono">{{ total }}</b> 个批次
+      <div v-if="state === 'ready' && total !== null" class="master-count">
+        共 <b class="master-mono">{{ total }}</b> 个批次<template v-if="truncated">（列表最多显示 {{ BATCH_LIST_LIMIT }} 个）</template>
+      </div>
+      <div v-else-if="state === 'ready'" class="master-count">
+        列表最多显示 {{ BATCH_LIST_LIMIT }} 个<template v-if="truncated">，可能还有更多</template>
       </div>
     </div>
 
@@ -32,7 +35,10 @@
             @search="runSearch"
             @change="onKeywordChange"
           />
-          <div v-if="state === 'ready'" class="master-hint">匹配 <b>{{ total }}</b> 个</div>
+          <div v-if="state === 'ready'" class="master-hint">
+            <template v-if="total !== null">匹配 <b>{{ total }}</b> 个</template>
+            <template v-else>匹配数暂时取不到</template>
+          </div>
         </div>
 
         <div class="master-list-body">
@@ -101,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import {
   DatabaseOutlined,
@@ -109,7 +115,7 @@ import {
   LockOutlined,
   StopOutlined,
 } from '@ant-design/icons-vue'
-import { searchBatches, type BatchListRow } from '@/services/inventoryDocs'
+import { searchBatches, BATCH_LIST_LIMIT, type BatchListRow } from '@/services/inventoryDocs'
 import { releaseTone } from '@/services/inventoryDocs'
 
 const router = useRouter()
@@ -118,17 +124,25 @@ type ViewState = 'loading' | 'ready' | 'empty' | 'error'
 
 const keyword = ref('')
 const rows = ref<BatchListRow[]>([])
-const total = ref(0)
+const total = ref<number | null>(0)
+const truncated = ref(false)
 const state = ref<ViewState>('loading')
 
+/** 请求序号 —— 快速改关键词时，旧响应不能覆盖新结果。 */
+let searchSeq = 0
+
 async function runSearch() {
+  const seq = ++searchSeq
   state.value = 'loading'
   try {
     const result = await searchBatches(keyword.value)
+    if (seq !== searchSeq) return       // 迟到的响应：关键词已经变了
     rows.value = result.rows
     total.value = result.total
+    truncated.value = result.truncated
     state.value = result.rows.length ? 'ready' : 'empty'
   } catch {
+    if (seq !== searchSeq) return
     state.value = 'error'
   }
 }
@@ -150,4 +164,10 @@ onMounted(() => {
   keyword.value = String(router.currentRoute.value.query.q || '')
   void runSearch()
 })
+// 卸载时清掉防抖 timer —— 否则回调会在组件已销毁后仍执行。
+// 批次/物料页的 timer 回调里有 `router.replace()`，会把用户从别的页面拽回列表。
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
+
 </script>

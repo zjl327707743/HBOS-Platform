@@ -5,8 +5,11 @@
         <h1>物料</h1>
         <p>查物料代码、名称、分类与效期/储存信息</p>
       </div>
-      <div v-if="state === 'ready'" class="master-count">
+      <div v-if="state === 'ready' && total !== null" class="master-count">
         共 <b class="master-mono">{{ total }}</b> 条<template v-if="truncated">（列表最多显示 {{ ITEM_LIST_LIMIT }} 条）</template>
+      </div>
+      <div v-else-if="state === 'ready'" class="master-count">
+        列表最多显示 {{ ITEM_LIST_LIMIT }} 条<template v-if="truncated">，可能还有更多</template>
       </div>
     </div>
 
@@ -33,7 +36,8 @@
             @change="onKeywordChange"
           />
           <div v-if="state === 'ready'" class="master-hint">
-            匹配 <b>{{ total }}</b> 条
+            <template v-if="total !== null">匹配 <b>{{ total }}</b> 条</template>
+            <template v-else>匹配数暂时取不到</template>
           </div>
         </div>
 
@@ -91,6 +95,19 @@
             <div class="master-skel master-skel-row"></div>
             <div class="master-skel master-skel-row"></div>
             <div class="master-skel master-skel-row"></div>
+          </div>
+        </div>
+
+        <!-- 读取失败（非 404）—— 与「物料不存在」分开 -->
+        <div v-else-if="detailState === 'error'" class="inventory-dest glass-surface">
+          <div class="inventory-state err" style="padding: 32px 20px">
+            <StopOutlined class="inventory-state-icon" />
+            <h3>读取物料详情失败</h3>
+            <p>{{ detailError }}</p>
+            <div class="inventory-state-actions">
+              <a-button type="primary" @click="loadDetail(selectedCode)">重试</a-button>
+              <a-button @click="$router.push('/hbos/inventory/item')">回到物料列表</a-button>
+            </div>
           </div>
         </div>
 
@@ -179,7 +196,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   InboxOutlined,
@@ -201,29 +218,37 @@ const route = useRoute()
 const router = useRouter()
 
 type ListState = 'loading' | 'ready' | 'empty' | 'error'
-type DetailState = 'loading' | 'ready' | 'missing' | 'none'
+type DetailState = 'loading' | 'ready' | 'missing' | 'error' | 'none'
 
 const keyword = ref(String(route.query.q || ''))
 const rows = ref<ItemRow[]>([])
-const total = ref(0)
+const total = ref<number | null>(0)
 const truncated = ref(false)
 const state = ref<ListState>('loading')
 
 const detail = ref<ItemRow | null>(null)
 const detailState = ref<DetailState>('none')
+/** 详情读取失败的原因 —— 与「物料不存在」区分，下一步动作不同。 */
+const detailError = ref('')
 
 const selectedCode = computed(() => String(route.params.itemCode || ''))
 const gaps = computed(() => (detail.value ? itemMasterGaps(detail.value) : []))
 
+/** 请求序号 —— 快速改关键词时，旧响应不能覆盖新结果。 */
+let searchSeq = 0
+
 async function runSearch() {
+  const seq = ++searchSeq
   state.value = 'loading'
   try {
     const result = await searchItems(keyword.value)
+    if (seq !== searchSeq) return       // 迟到的响应：关键词已经变了
     rows.value = result.rows
     total.value = result.total
     truncated.value = result.truncated
     state.value = result.rows.length ? 'ready' : 'empty'
   } catch {
+    if (seq !== searchSeq) return
     state.value = 'error'
   }
 }
@@ -247,16 +272,31 @@ function goReport(reportId: string, query: Record<string, string>) {
   void router.push({ path: `/hbos/inventory/report/${reportId}`, query })
 }
 
+/** 详情请求序号 —— 快速切换物料时，旧响应不能覆盖新物料。 */
+let detailSeq = 0
+
 async function loadDetail(code: string) {
+  const seq = ++detailSeq
   if (!code) {
     detail.value = null
     detailState.value = 'none'
     return
   }
   detailState.value = 'loading'
-  const doc = await getItem(code)
-  detail.value = doc
-  detailState.value = doc ? 'ready' : 'missing'
+  const result = await getItem(code)
+  if (seq !== detailSeq) return          // 期间切到了别的物料
+  if (result.kind === 'found') {
+    detail.value = result.item
+    detailState.value = 'ready'
+    return
+  }
+  detail.value = null
+  if (result.kind === 'not_found') {
+    detailState.value = 'missing'
+    return
+  }
+  detailError.value = result.message
+  detailState.value = 'error'
 }
 
 onMounted(async () => {
@@ -268,4 +308,10 @@ onMounted(async () => {
 watch(selectedCode, (code) => {
   void loadDetail(code)
 })
+// 卸载时清掉防抖 timer —— 否则回调会在组件已销毁后仍执行。
+// 批次/物料页的 timer 回调里有 `router.replace()`，会把用户从别的页面拽回列表。
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+})
+
 </script>

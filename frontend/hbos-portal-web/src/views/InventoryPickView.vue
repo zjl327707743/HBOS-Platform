@@ -63,6 +63,15 @@
       </div>
     </div>
 
+    <!-- 货位选项没取到：明确提示，别让人以为是「系统里没有货位」 -->
+    <div v-if="warehouseOptionsState === 'error'" class="entry-verdict warn">
+      <WarningOutlined />
+      <div>
+        <b>货位列表没取到。</b>这不是「没有可存货位」——是这一次查询失败了。
+        <a class="entry-link" href="javascript:void(0)" @click.prevent="loadWarehouses">重试</a>
+      </div>
+    </div>
+
     <!-- ① 范围 -->
     <div class="inventory-dest glass-surface">
       <div class="entry-pane-head">
@@ -218,8 +227,9 @@
           <WarningOutlined />
           <div>
             <b>有 {{ shortages.length }} 项凑不够。</b>
-            <div v-for="s in shortages" :key="s.itemCode" style="margin-top: 6px">
-              <span class="entry-mono">{{ s.itemCode }}</span>：要拣 {{ fmt(s.required) }}，
+            <div v-for="s in shortages" :key="`${s.itemCode}|${s.batchNo}`" style="margin-top: 6px">
+              <span class="entry-mono">{{ s.itemCode }}</span><template v-if="s.batchNo">
+                <span class="entry-mono entry-muted"> · 批号 {{ s.batchNo }}</span></template>：要拣 {{ fmt(s.required) }}，
               全部货位加起来只有 {{ fmt(s.located) }}——<b>差 {{ fmt(s.gap) }}</b>。
             </div>
             可以改小数量，或先在库存单据里入库。
@@ -305,7 +315,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Modal } from 'ant-design-vue'
+import Modal from 'ant-design-vue/es/modal'
 import {
   AimOutlined,
   CheckCircleOutlined,
@@ -328,14 +338,16 @@ import {
   listPickLists,
   explainEmptyLocate,
   locatePickList,
+  shortageKey,
   submitPickList,
+  updatePickList,
   type PickListRow,
   type PickLocation,
   type PickShortage,
 } from '@/services/inventoryPick'
 import { getWarehouseSnapshot, selectableWarehouses } from '@/services/inventoryMaster'
 import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
-import { FrappeHttpError } from '@/services/frappeClient'
+import { callFrappeMethod, FrappeHttpError } from '@/services/frappeClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -421,26 +433,38 @@ function filterWarehouse(input: string, option?: { label?: string }) {
   return String(option?.label || '').toLowerCase().includes(input.toLowerCase())
 }
 
+/**
+ * 单位查询的**按行**序号。早先是组件级单值，快速依次编辑两行时
+ * 前一行的响应会被判成「过期」丢掉，那一行的单位就空着。
+ */
+const rowLookupSeq = new WeakMap<(typeof rows.value)[number], number>()
+
 async function onItemChange(row: (typeof rows.value)[number]) {
   const code = String(row.itemCode || '').trim()
   if (!code) {
     row.uom = ''
     return
   }
+  const seq = (rowLookupSeq.get(row) || 0) + 1
+  rowLookupSeq.set(row, seq)
   try {
-    const { callFrappeMethod } = await import('@/services/frappeClient')
     const item = await callFrappeMethod<{ stock_uom?: string } | null>('frappe.client.get_value', {
       doctype: 'Item',
       filters: JSON.stringify({ name: code }),
       fieldname: JSON.stringify(['stock_uom']),
     })
+    if (rowLookupSeq.get(row) !== seq) return   // 这一行又改了
     row.uom = String(item?.stock_uom || '')
   } catch {
     /* 取不到不阻塞 */
   }
 }
 
+/** 货位选项的加载状态 —— 失败不能表现成「空下拉」。 */
+const warehouseOptionsState = ref<'loading' | 'ready' | 'error'>('loading')
+
 async function loadWarehouses() {
+  warehouseOptionsState.value = 'loading'
   try {
     const snap = await getWarehouseSnapshot()
     // 能选的货位 = 非分组 + 未停用（规则见 inventoryMaster.isSelectableWarehouse）。
@@ -449,8 +473,10 @@ async function loadWarehouses() {
       value: w.name,
       label: shortLabel(w.name),
     }))
+    warehouseOptionsState.value = 'ready'
   } catch {
     warehouseOptions.value = []
+    warehouseOptionsState.value = 'error'
   }
 }
 
@@ -555,16 +581,18 @@ async function save() {
 }
 
 async function update() {
-  const { updatePickList } = await import('@/services/inventoryPick')
   return updatePickList(name.value, payload())
 }
 
 function rememberRequired() {
+  // 键是「物料 + 批次」，与 `findShortages` 一致 —— 只按物料汇总会把
+  // 「两个批次各要 5kg、只有一个批次凑到 10kg」误判为凑够。
   const map: Record<string, number> = {}
   for (const r of rows.value) {
     const code = r.itemCode.trim()
     if (!code) continue
-    map[code] = (map[code] || 0) + Number(r.qty ?? 0)
+    const key = shortageKey(code, r.batchNo)
+    map[key] = (map[key] || 0) + Number(r.qty ?? 0)
   }
   required.value = map
 }

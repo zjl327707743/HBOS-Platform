@@ -143,6 +143,9 @@
         <InboxOutlined class="inventory-state-icon" />
         <h3>{{ meta.emptyTitle }}</h3>
         <p>{{ meta.emptyBody }}</p>
+        <!-- 服务端**只返回合计行**时也会走到这里（过滤后为空）——
+             必须说清楚「不是没数据，是只有合计行」，否则用户以为查错了。 -->
+        <p v-if="truncatedNote" class="report-truncated" style="margin-top: 8px">{{ truncatedNote }}</p>
         <div class="inventory-state-actions">
           <a-button @click="clearFilters">清空筛选条件</a-button>
         </div>
@@ -186,7 +189,8 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message, Modal } from 'ant-design-vue'
+import message from 'ant-design-vue/es/message'
+import Modal from 'ant-design-vue/es/modal'
 import {
   DownloadOutlined,
   FilterOutlined,
@@ -405,12 +409,29 @@ function filtersForServer(): Record<string, unknown> {
   return out
 }
 
+/**
+ * 报表请求序号 —— 快速切换报表 / 连点「查询」时，旧请求后返回会覆盖新结果。
+ *
+ * 表现是「明明切到了效期预警，显示的却是货位明细表的行」，而且不会报错。
+ *
+ * ⚠️ 序号必须在**进入 `run()` 的第一时间**递增。早先放在必填校验之后，
+ * 于是「切到一个缺必填筛选的报表」时序号不推进，上一个请求的响应仍然
+ * 会通过 `seq === runSeq` 校验并覆盖新报表的内容。
+ */
+let runSeq = 0
+
 async function run() {
+  const seq = ++runSeq
+
   // 必填先在前端拦一次：省掉一次必然失败的请求，也让提示更即时
   const missing = [...meta.value.primaryFilters, ...meta.value.extraFilters].filter(
     (f) => f.required && !String(filters.value[f.fieldname] ?? '').trim(),
   )
   if (missing.length) {
+    // 校验失败也要**清掉上一个报表的结果**，否则用户看到的是旧报表的数据
+    state.value = 'empty'
+    rows.value = []
+    truncatedNote.value = ''
     message.warning(`请填写：${missing.map((f) => f.label).join('、')}`)
     return
   }
@@ -426,22 +447,21 @@ async function run() {
       filtersForServer(),
       meta.value.params,
     )
+    if (seq !== runSeq) return        // 迟到的响应：期间又发起了新的查询
+
     columns.value = result.columns
     rows.value = result.rows
     queriedAt.value = timeLabel()
 
-    if (!result.rows.length) {
-      state.value = 'empty'
-      return
+    // 只比较原始行数与过滤后行数 —— 即使**只剩合计行**（过滤后为空）也要提示，
+    // 早先还要求 `rows.length > 0`，那条分支在纯合计行时永远不触发。
+    if (typeof result.rawRowCount === 'number' && result.rawRowCount > result.rows.length) {
+      truncatedNote.value = '服务端返回的合计行已略过。'
     }
 
-    // 报表若开了合计行会被上面过滤掉——如实说明，不静默少渲染
-    if (result.columns.length && !result.rows.length) {
-      truncatedNote.value = '服务端返回了合计行，已略过。'
-    }
-
-    state.value = 'ready'
+    state.value = result.rows.length ? 'ready' : 'empty'
   } catch (error) {
+    if (seq !== runSeq) return
     // 无权限与其它错误分开呈现：用户的下一步动作完全不同
     if (error instanceof FrappeHttpError && (error.status === 403 || error.status === 417)) {
       state.value = 'denied'

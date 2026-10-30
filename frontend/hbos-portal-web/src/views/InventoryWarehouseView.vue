@@ -398,7 +398,11 @@ async function load() {
   }
 }
 
+/** 请求序号 —— 快速切换货位时，旧响应不能覆盖新货位的库存。 */
+let stockSeq = 0
+
 async function loadStock() {
+  const seq = ++stockSeq
   const row = current.value
   if (!row || !snapshot.value) {
     stock.value = []
@@ -410,7 +414,9 @@ async function loadStock() {
   try {
     // 分组节点：它自己不能存货，但下级有。**下级展开由报表完成**
     // （它的 `_warehouse_scope` 按 lft/rgt 展开整棵子树）——这里只传节点名。
-    stock.value = await getWarehouseStock(row.name)
+    const rows = await getWarehouseStock(row.name)
+    if (seq !== stockSeq) return        // 期间切到了别的货位
+    stock.value = rows
 
     // 「来自 N 个下级货位」是**显示用的范围计数**，不是库存数据本身。
     // 库存数据只有一个来源（报表）；这里只是拿已取到的树算个标签数字。
@@ -420,6 +426,7 @@ async function loadStock() {
 
     stockState.value = 'ready'
   } catch {
+    if (seq !== stockSeq) return
     // 查不到 ≠ 没有。界面必须分成两个状态。
     stockState.value = 'error'
   }

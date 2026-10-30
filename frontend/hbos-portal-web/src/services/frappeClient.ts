@@ -375,6 +375,30 @@ export function alignLoopbackHost(origin: string): string {
  *
  * 同源部署时 `VITE_FRAPPE_APP_ORIGIN` 为空，返回原相对地址即可。
  */
+/**
+ * 拼出**面向 Frappe 的绝对地址**（同源时保持相对路径）。
+ *
+ * 用于「不能走 axios 实例」的请求 —— 比如用原生 `fetch` 取二进制导出。
+ * 早先 `exportReport()` 直接写 `fetch('/api/...')`：同源部署没事，但
+ * Portal 与 Frappe **跨源**时，请求会打到 Portal 自己身上，导出稳定失败。
+ *
+ * 优先 `VITE_FRAPPE_BASE_URL`（axios 用的那个），没有再用
+ * `VITE_FRAPPE_APP_ORIGIN`。两者都没有时返回原路径（同源部署）。
+ */
+export function frappeApiUrl(path: string): string {
+  const value = String(path || '')
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value)) return value
+
+  const base = String(
+    import.meta.env.VITE_FRAPPE_BASE_URL || import.meta.env.VITE_FRAPPE_APP_ORIGIN || '',
+  )
+    .trim()
+    .replace(/\/+$/, '')
+  if (!base) return value
+  return `${alignLoopbackHost(base)}${value.startsWith('/') ? value : `/${value}`}`
+}
+
 export function frappeAssetUrl(path: string): string {
   const value = String(path || '')
   if (!value) return ''

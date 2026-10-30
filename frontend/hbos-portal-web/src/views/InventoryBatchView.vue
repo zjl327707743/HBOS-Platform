@@ -40,6 +40,20 @@
       </div>
     </div>
 
+    <div v-else-if="state === 'error'" class="inventory-dest glass-surface">
+      <div class="intake-pane-body">
+        <div class="inventory-state err">
+          <StopOutlined class="inventory-state-icon" />
+          <h3>读取批次失败</h3>
+          <p>{{ batchError }}</p>
+          <div class="inventory-state-actions">
+            <a-button type="primary" @click="loadAll">重试</a-button>
+            <a-button @click="$router.push('/hbos/inventory')">返回库存概览</a-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-else-if="state === 'missing'" class="inventory-dest glass-surface">
       <div class="intake-pane-body">
         <div class="inventory-state err">
@@ -63,8 +77,18 @@
               <span class="intake-sub">提交入库时自动生成</span>
             </div>
             <div class="intake-pane-body">
+              <!-- 附件列表读不到：**不能**说成「卡片没生成」 -->
+              <div v-if="attachmentsState === 'error'" class="draft-verdict warn" style="margin: 0">
+                <WarningOutlined />
+                <div>
+                  <b>无法读取附件列表。</b><br />
+                  {{ attachmentsError }}卡片是否已生成<b>暂时无法确认</b>——
+                  <a class="entry-link" href="javascript:void(0)" @click.prevent="loadAll">重试</a>
+                </div>
+              </div>
+
               <!-- 有附件 -->
-              <div v-if="cardFile" class="draft-attach">
+              <div v-else-if="cardFile" class="draft-attach">
                 <div class="draft-attach-ic"><FilePdfOutlined /></div>
                 <div class="draft-attach-main">
                   <b>{{ cardFile.fileName }}</b>
@@ -94,6 +118,14 @@
                       <ReloadOutlined /> 重新生成
                     </a-button>
                   </div>
+                </div>
+              </div>
+
+              <div v-else-if="entrySubmitted === null" class="draft-verdict info" style="margin: 0">
+                <InfoCircleOutlined />
+                <div>
+                  <b>无法确认这张入库单是否已提交。</b><br />
+                  这是查询失败，<b>不代表卡片本该不存在</b>。请稍后刷新页面重试。
                 </div>
               </div>
 
@@ -144,7 +176,7 @@
                 </div>
                 <div v-for="row in detailRows" :key="row.label">
                   <dt>{{ row.label }}</dt>
-                  <dd :class="{ 'draft-muted': !row.value }">{{ row.value || '未填' }}</dd>
+                  <dd :class="{ 'draft-muted': !row.value }">{{ row.value || row.empty || '未填' }}</dd>
                 </div>
               </dl>
               <p class="draft-note">
@@ -274,7 +306,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { Modal } from 'ant-design-vue'
+import Modal from 'ant-design-vue/es/modal'
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -293,6 +325,7 @@ import {
   hasSubmittedIntakeEntry,
   regenerateBatchCards,
   releaseTone,
+  ATTACHMENT_KIND_CARD,
   type BatchDetail,
   type BatchStockRow,
 } from '@/services/inventoryDocs'
@@ -300,7 +333,7 @@ import { FrappeHttpError } from '@/services/frappeClient'
 
 const route = useRoute()
 
-type ViewState = 'loading' | 'ready' | 'missing'
+type ViewState = 'loading' | 'ready' | 'missing' | 'error'
 const state = ref<ViewState>('loading')
 
 const batch = ref<BatchDetail | null>(null)
@@ -308,20 +341,52 @@ const stock = ref<BatchStockRow[]>([])
 // 'error' 与「空」必须分开：查不到 ≠ 没有
 const stockState = ref<'loading' | 'ready' | 'error'>('loading')
 const cardFile = ref<{ url: string; fileName: string; createdAt?: string; size?: number } | null>(null)
+/** 附件列表的读取状态 —— 「读不到」和「没有附件」必须分开。 */
+const attachmentsState = ref<'loading' | 'ready' | 'error'>('loading')
+const attachmentsError = ref('')
+/** 批次详情本身读取失败的原因（非 404）。 */
+const batchError = ref('')
 const regenerating = ref(false)
 /** 该批次有没有已提交的拍照识别入库单——决定「卡片为何不在」的文案 */
-const entrySubmitted = ref(false)
+const entrySubmitted = ref<boolean | null>(false)
+
+/**
+ * 货位卡 / 待检证的**文件名判据** —— 与后端 `doc_gen.FILENAME_TPL` 严格对齐：
+ *
+ *     HBOS-{batch_id}-待检证+货位卡.pdf      （Frappe 重名时追加 6 位随机后缀）
+ *
+ * **不能用「第一个 .pdf」**：批次上还可能有 COA、合格证、人工上传的其他 PDF，
+ * 按 `creation desc` 排序取第一个会把最新的那份当成货位卡 —— 现场打印出来
+ * 贴到货位上的就是错的东西。
+ */
+const CARD_FILE_RE = /^HBOS-.+-待检证\+货位卡[A-Za-z0-9]{0,6}\.pdf$/i
+
+function pickCardFile(
+  files: Array<{ url: string; fileName: string; createdAt?: string; size?: number; kind?: string }>,
+): { url: string; fileName: string; createdAt?: string; size?: number } | null {
+  // **优先按后端写的类型标记认**（`File.hbos_attachment_kind`）——
+  // 文件名会被 Frappe 重名后缀改写，也可能被人工上传的文件撞名。
+  const byKind = files.find((f) => f.kind === ATTACHMENT_KIND_CARD)
+  if (byKind) return byKind
+  // 老数据（标记字段引入前生成的附件）没有 kind，退回文件名正则。
+  return files.find((f) => CARD_FILE_RE.test(f.fileName)) || null
+}
 
 const batchName = computed(() => String(route.params.batchName || ''))
 
-const detailRows = computed(() => [
-  { label: '供货单位', value: batch.value?.supplierName },
-  { label: '生产单位', value: batch.value?.manufacturer },
-  { label: '原厂批号', value: batch.value?.supplierBatchNo },
-  { label: '储存条件', value: batch.value?.storageCondition },
-  { label: '生产车间', value: batch.value?.workshop },
-  { label: '效期类型', value: batch.value?.shelfLifeType },
-])
+const detailRows = computed(() => {
+  // 物料主数据三项没查到（网络/权限/5xx）时不能写「未填」——
+  // 那会让人以为物料没建档，去补一遍并不存在的空。
+  const masterUnknown = batch.value?.masterUnavailable ? '暂不可用' : '未填'
+  return [
+    { label: '供货单位', value: batch.value?.supplierName },
+    { label: '生产单位', value: batch.value?.manufacturer },
+    { label: '原厂批号', value: batch.value?.supplierBatchNo },
+    { label: '储存条件', value: batch.value?.storageCondition, empty: masterUnknown },
+    { label: '生产车间', value: batch.value?.workshop, empty: masterUnknown },
+    { label: '效期类型', value: batch.value?.shelfLifeType, empty: masterUnknown },
+  ]
+})
 
 const rawLines = computed(() =>
   (batch.value?.labelText || '').split('\n').filter((line) => line.trim() !== ''),
@@ -396,9 +461,10 @@ function confirmRegenerate() {
 async function doRegenerate() {
   if (!batch.value) return
   regenerating.value = true
+  let generated = false
   try {
     await regenerateBatchCards(batch.value.name)
-    await loadAttachments()
+    generated = true
     // 生成成功后卡片就位，这张批次必然已有提交过的入库单
     entrySubmitted.value = true
   } catch (error) {
@@ -409,19 +475,43 @@ async function doRegenerate() {
           ? error.message
           : '生成未成功。若反复失败，请联系管理员查看错误日志。',
     })
+    return
   } finally {
     regenerating.value = false
   }
+  // **生成与回读分开报错**：生成成功了但附件列表拉不到时，早先外层 catch
+  // 会把两件事混成「重新生成失败」，诱导用户反复点重新生成（每次都成功）。
+  if (generated) await loadAttachments()
 }
 
 async function loadAttachments() {
-  const files = await getAttachments('Batch', batchName.value)
-  cardFile.value = files.find((f) => f.fileName.toLowerCase().endsWith('.pdf')) || null
+  try {
+    const files = await getAttachments('Batch', batchName.value)
+    cardFile.value = pickCardFile(files)
+    attachmentsState.value = 'ready'
+  } catch (error) {
+    // 附件读不到 ≠ 没有附件。早先这里直接抛，页面会显示「卡片尚未生成」。
+    attachmentsState.value = 'error'
+    attachmentsError.value =
+      error instanceof FrappeHttpError ? error.message : '无法读取附件列表，请重试。'
+  }
 }
 
-onMounted(async () => {
+async function loadAll() {
+  state.value = 'loading'
+  batchError.value = ''
   try {
-    batch.value = await getBatch(batchName.value)
+    const result = await getBatch(batchName.value)
+    if (result.kind === 'not_found') {
+      state.value = 'missing'
+      return
+    }
+    if (result.kind === 'error') {
+      batchError.value = result.message
+      state.value = 'error'
+      return
+    }
+    batch.value = result.batch
     state.value = 'ready'
 
     // 库存与附件各自独立取，任一失败不影响其余内容
@@ -438,12 +528,22 @@ onMounted(async () => {
       stockState.value = 'error'
     }
     if (filesResult.status === 'fulfilled') {
-      cardFile.value =
-        filesResult.value.find((f) => f.fileName.toLowerCase().endsWith('.pdf')) || null
+      cardFile.value = pickCardFile(filesResult.value)
+      attachmentsState.value = 'ready'
+    } else {
+      // 附件读不到**不等于**「卡片没生成」—— 早先这个区别被抹掉了
+      attachmentsState.value = 'error'
+      attachmentsError.value = '无法读取附件列表，请重试。'
     }
     if (entryResult.status === 'fulfilled') entrySubmitted.value = entryResult.value
-  } catch {
-    state.value = 'missing'
+    else entrySubmitted.value = null
+  } catch (error) {
+    // 走到这里说明是意料之外的异常 —— 明确报错，别伪装成「找不到批次」
+    batchError.value =
+      error instanceof FrappeHttpError ? error.message : '读取批次失败，请重试。'
+    state.value = 'error'
   }
-})
+}
+
+onMounted(() => void loadAll())
 </script>

@@ -67,6 +67,15 @@
       </div>
     </div>
 
+    <!-- 货位选项没取到：明确提示，别让人以为是「系统里没有货位」 -->
+    <div v-if="warehouseOptionsState === 'error'" class="entry-verdict warn">
+      <WarningOutlined />
+      <div>
+        <b>货位列表没取到。</b>这不是「没有可存货位」——是这一次查询失败了。
+        <a class="entry-link" href="javascript:void(0)" @click.prevent="loadWarehouses">重试</a>
+      </div>
+    </div>
+
     <!-- ① 基本信息 -->
     <div class="inventory-dest glass-surface">
       <div class="entry-pane-head">
@@ -281,9 +290,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Modal } from 'ant-design-vue'
+import Modal from 'ant-design-vue/es/modal'
 import {
   CheckCircleOutlined,
   CloseOutlined,
@@ -313,7 +322,7 @@ import {
 } from '@/services/inventoryReconcile'
 import { getWarehouseSnapshot, selectableWarehouses } from '@/services/inventoryMaster'
 import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
-import { FrappeHttpError } from '@/services/frappeClient'
+import { callFrappeMethod, FrappeHttpError } from '@/services/frappeClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -432,7 +441,6 @@ async function refreshAll() {
 
 async function lookupUom(itemCode: string): Promise<string> {
   try {
-    const { callFrappeMethod } = await import('@/services/frappeClient')
     const item = await callFrappeMethod<{ stock_uom?: string } | null>('frappe.client.get_value', {
       doctype: 'Item',
       filters: JSON.stringify({ name: itemCode }),
@@ -444,7 +452,11 @@ async function lookupUom(itemCode: string): Promise<string> {
   }
 }
 
+/** 货位选项的加载状态 —— 失败不能表现成「空下拉」。 */
+const warehouseOptionsState = ref<'loading' | 'ready' | 'error'>('loading')
+
 async function loadWarehouses() {
+  warehouseOptionsState.value = 'loading'
   try {
     const snap = await getWarehouseSnapshot()
     // 能选的货位 = 非分组 + 未停用（规则见 inventoryMaster.isSelectableWarehouse）
@@ -452,8 +464,10 @@ async function loadWarehouses() {
       value: w.name,
       label: warehouseShortLabel(w.name),
     }))
+    warehouseOptionsState.value = 'ready'
   } catch {
     warehouseOptions.value = []
+    warehouseOptionsState.value = 'error'
   }
 }
 
@@ -623,4 +637,10 @@ watch(isExisting, async (nowExisting) => {
     await loadList()
   }
 })
+// 卸载时清掉防抖 timer —— 否则回调会在组件已销毁后仍执行。
+// 批次/物料页的 timer 回调里有 `router.replace()`，会把用户从别的页面拽回列表。
+onBeforeUnmount(() => {
+  if (lookupTimer) clearTimeout(lookupTimer)
+})
+
 </script>

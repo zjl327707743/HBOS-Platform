@@ -75,6 +75,16 @@
       </div>
     </div>
 
+    <!-- 货位选项没取到：明确提示并给重试，别让人以为是「系统里没有货位」 -->
+    <div v-if="warehouseOptionsState === 'error'" class="entry-verdict warn">
+      <WarningOutlined />
+      <div>
+        <b>货位列表没取到。</b>这不是「没有可存货位」——是这一次查询失败了，
+        下面的货位选择框不可用。
+        <a class="entry-link" href="javascript:void(0)" @click.prevent="loadWarehouses">重试</a>
+      </div>
+    </div>
+
     <!-- ① 单据类型 -->
     <div class="inventory-dest glass-surface">
       <div class="entry-pane-head">
@@ -307,7 +317,11 @@
       <LockOutlined />
       <div>
         <b>提交被拦下：{{ blockedError.title }}</b><br />
-        <span v-html="blockedError.detail"></span>
+        <!-- **用插值，不用 v-html**：detail 来自服务端 `_server_messages`，
+             客户端只是用正则删了 HTML 标签 —— 那不等价于转义（实体编码、
+             属性里的内容、未来错误格式变化都可能漏过去）。
+             这里当纯文本渲染，服务端想带的格式就没了，但不会执行脚本。 -->
+        <span>{{ blockedError.detail }}</span>
         <div style="margin-top: 12px">
           <a-button size="small" @click="$router.push('/hbos/inventory/pending')">
             去看待检批次
@@ -386,7 +400,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Modal } from 'ant-design-vue'
+import Modal from 'ant-design-vue/es/modal'
 import {
   CheckCircleOutlined,
   CloseOutlined,
@@ -421,7 +435,7 @@ import {
 } from '@/services/inventoryEntry'
 import { getWarehouseSnapshot, selectableWarehouses } from '@/services/inventoryMaster'
 import { docState as docStateOf, warehouseShortLabel } from '@/services/inventoryDocs'
-import { FrappeHttpError } from '@/services/frappeClient'
+import { callFrappeMethod, FrappeHttpError } from '@/services/frappeClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -562,22 +576,28 @@ function pickType(t: EntryType) {
 }
 
 // --- 物料代码变化 → 取单位（单位不让人填）---
-let lookupSeq = 0
+//
+// ⚠️ **按行独立编号**，不是组件级单值。早先 `lookupSeq` 是全局变量：
+// 快速依次编辑第 1 行和第 2 行时，第 1 行的响应回来发现 `seq !== lookupSeq`
+// 就被丢弃 —— 那一行的单位永远空着，用户无法确认 ERPNext 将用哪个单位。
+const rowLookupSeq = new WeakMap<EntryItem, number>()
+
 async function onItemChange(row: EntryItem) {
   const code = String(row.itemCode || '').trim()
   if (!code) {
     row.uom = ''
     return
   }
-  const seq = ++lookupSeq
+  const seq = (rowLookupSeq.get(row) || 0) + 1
+  rowLookupSeq.set(row, seq)
   try {
-    const { callFrappeMethod } = await import('@/services/frappeClient')
     const item = await callFrappeMethod<{ stock_uom?: string } | null>('frappe.client.get_value', {
       doctype: 'Item',
       filters: JSON.stringify({ name: code }),
       fieldname: JSON.stringify(['stock_uom']),
     })
-    if (seq !== lookupSeq) return
+    // 只有**这一行**又改了才丢弃（别的行改了不影响）
+    if (rowLookupSeq.get(row) !== seq) return
     row.uom = String(item?.stock_uom || '')
   } catch {
     /* 取不到单位不阻塞填写；提交时 ERPNext 会用自己的默认 */
@@ -617,18 +637,37 @@ function scheduleReleaseCheck() {
   checkTimer = setTimeout(() => void runReleaseCheck(), 400)
 }
 
+/**
+ * 放行预检的请求序号。
+ *
+ * 用户先输入批次 A 发起检查、随即改成 B 时，若 A 的响应最后回来，
+ * 早先会用 A 的结果覆盖 B 的检查，界面进入 `ready` —— 后端门禁仍会拦，
+ * 但前端会给出「可以提交」的误导状态。
+ *
+ * 这里记的是**发起时的批号快照**：响应回来时只有「当前批号集合仍与发起时
+ * 一致」才写入结果，任何变化都丢弃。
+ */
+let releaseSeq = 0
+
 async function runReleaseCheck() {
   const wanted = batchNos.value
   if (!wanted.length) {
+    releaseSeq += 1
     checks.value = []
     checkState.value = 'idle'
     return
   }
+  const seq = ++releaseSeq
   checkState.value = 'loading'
   try {
-    checks.value = await checkReleaseForBatches(wanted)
+    const result = await checkReleaseForBatches(wanted)
+    if (seq !== releaseSeq) return
+    // 双保险：批号集合变了也丢弃（比如 watch 没来得及再触发一次）
+    if (batchNos.value.join('|') !== wanted.join('|')) return
+    checks.value = result
     checkState.value = 'ready'
   } catch {
+    if (seq !== releaseSeq) return
     // 核对失败**不能**当成「手续齐全」。界面会明确说「请勿据此提交」。
     checkState.value = 'error'
   }
@@ -637,7 +676,14 @@ async function runReleaseCheck() {
 watch(batchNos, scheduleReleaseCheck)
 
 // --- 加载 ---
+/**
+ * 货位选项的加载状态。**失败不能表现成「空下拉」** ——
+ * 那会让人以为系统里没有可存货位，从而去反馈「货位没配」。
+ */
+const warehouseOptionsState = ref<'loading' | 'ready' | 'error'>('loading')
+
 async function loadWarehouses() {
+  warehouseOptionsState.value = 'loading'
   try {
     const snap = await getWarehouseSnapshot()
     // 能选的货位 = 非分组 + 未停用（规则见 inventoryMaster.isSelectableWarehouse）
@@ -645,8 +691,10 @@ async function loadWarehouses() {
       value: w.name,
       label: warehouseShortLabel(w.name),
     }))
+    warehouseOptionsState.value = 'ready'
   } catch {
     warehouseOptions.value = []
+    warehouseOptionsState.value = 'error'
   }
 }
 

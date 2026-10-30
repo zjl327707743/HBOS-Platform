@@ -44,6 +44,21 @@
       </div>
     </div>
 
+    <!-- 读取失败（非 404）—— 不能显示成「找不到」 -->
+    <div v-else-if="state === 'error'" class="inventory-dest glass-surface">
+      <div class="intake-pane-body">
+        <div class="inventory-state err">
+          <StopOutlined class="inventory-state-icon" />
+          <h3>{{ errorTitle }}</h3>
+          <p>{{ errorText }}</p>
+          <div class="inventory-state-actions">
+            <a-button type="primary" @click="reload">重试</a-button>
+            <a-button @click="$router.push('/hbos/inventory/intake')">回到入库拍照识别</a-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 不是拍照识别建的草稿 -->
     <div v-else-if="state === 'notIntake'" class="inventory-dest glass-surface">
       <div class="intake-pane-body">
@@ -141,7 +156,8 @@
                 </div>
               </dl>
               <p class="draft-note">
-                单据类型固定为「物料入库」。数量可在下方动作条修改，改完提交即生效。
+                单据类型固定为「物料入库」。<b>数量与货位在本页不能改</b>——
+                要改请点下方「放弃这张草稿」，回到入库页重新录入。
               </p>
             </div>
           </div>
@@ -153,10 +169,17 @@
               <span class="intake-sub">识别读不到、由操作员照标签补的</span>
             </div>
             <div class="intake-pane-body">
+              <div v-if="batchLookupState === 'error'" class="draft-verdict warn">
+                <WarningOutlined />
+                <div>
+                  <b>批次信息暂时读不到。</b>这不代表主数据没填——是这一次查询失败了，
+                  下面几栏显示「暂不可用」。复核本身不受影响，可以继续提交。
+                </div>
+              </div>
               <dl class="draft-kv">
                 <div v-for="row in batchRows" :key="row.label">
                   <dt>{{ row.label }}</dt>
-                  <dd :class="{ 'draft-muted': !row.value }">{{ row.value || '未填' }}</dd>
+                  <dd :class="{ 'draft-muted': !row.value }">{{ row.value || row.empty || '未填' }}</dd>
                 </div>
               </dl>
               <div v-if="missingBatchFields.length" class="draft-verdict" :class="isOutsourced ? 'warn' : 'info'">
@@ -241,6 +264,10 @@
                   <ZoomInOutlined /> 放大查看
                 </button>
               </div>
+              <p v-else-if="attachmentsState === 'error'" class="draft-note" style="margin: 0">
+                <b>无法读取附件列表。</b>照片是否已上传<b>暂时无法确认</b>——
+                这不代表原始凭证丢了，请刷新页面重试。
+              </p>
               <p v-else class="draft-note" style="margin: 0">
                 这张草稿上没有照片。识别时未上传，或照片已被移除——不影响入库，但就没有原始凭证可对了。
               </p>
@@ -285,7 +312,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Modal } from 'ant-design-vue'
+import Modal from 'ant-design-vue/es/modal'
 import {
   CheckCircleOutlined,
   DeleteOutlined,
@@ -297,6 +324,7 @@ import {
   ZoomInOutlined,
 } from '@ant-design/icons-vue'
 import {
+  ATTACHMENT_KIND_LABEL_PHOTO,
   cancelIntakeDraft,
   discardIntakeDraft,
   getAttachments,
@@ -312,12 +340,51 @@ import { FrappeHttpError } from '@/services/frappeClient'
 const route = useRoute()
 const router = useRouter()
 
-type ViewState = 'loading' | 'ready' | 'missing' | 'notIntake' | 'submitted' | 'cancelled'
+type ViewState = 'loading' | 'ready' | 'missing' | 'error' | 'notIntake' | 'submitted' | 'cancelled'
 
 const state = ref<ViewState>('loading')
 const draft = ref<IntakeDraft | null>(null)
 const batch = ref<BatchDetail | null>(null)
 const photo = ref<{ url: string; fileName: string } | null>(null)
+/** 附件（原始凭证）的读取状态 —— 「读不到」和「没有照片」必须分开。 */
+const attachmentsState = ref<'loading' | 'ready' | 'error'>('loading')
+/** 批次信息本身的查询结果 —— 与「查到了但没有该字段」区分。 */
+const batchLookupState = ref<'loading' | 'found' | 'not_found' | 'error'>('loading')
+
+const PHOTO_RE = /\.(png|jpe?g|webp)$/i
+
+/**
+ * 从单据附件里认出**标签照片**。
+ *
+ * 后端 `_attach_photo` 复制上传文件时**保留原始文件名**（`source.file_name`），
+ * 所以这里只能按扩展名筛选 —— 但与早先的 `find(第一个图片)` 有两处不同：
+ *
+ *   1. 只认**图片扩展名**（与后端 `_validate_intake_file` 的白名单一致）；
+ *   2. 多张图片时优先 **`creation` 最早**的那张 —— 入库照片是提交时挂上的，
+ *      之后人工追加的图片（复核截图等）更新时间更晚，不该顶替原始凭证。
+ *
+ * 文件名不是稳定标识（内容相同的上传会得到 `label.jpg` / `label-abc123.jpg`），
+ * 彻底解决要靠后端写入专用 File 类型；在那之前至少不要「随手取最后一张」。
+ */
+function pickIntakePhoto(
+  files: Array<{ url: string; fileName: string; createdAt?: string; kind?: string }>,
+): { url: string; fileName: string } | null {
+  // **优先按后端写的类型标记认**（`File.hbos_attachment_kind`）。
+  const tagged = files.filter((f) => f.kind === ATTACHMENT_KIND_LABEL_PHOTO)
+  if (tagged.length) {
+    tagged.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
+    const first = tagged[0]!
+    return { url: first.url, fileName: first.fileName }
+  }
+  // 老数据没有标记 —— 退回扩展名筛选 + 最早创建的那张
+  const images = files.filter((f) => PHOTO_RE.test(f.fileName))
+  if (!images.length) return null
+  images.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
+  const first = images[0]
+  return first ? { url: first.url, fileName: first.fileName } : null
+}
+const errorTitle = ref('')
+const errorText = ref('')
 
 const submitting = ref(false)
 const discarding = ref(false)
@@ -335,14 +402,20 @@ const rawLines = computed(() =>
   (batch.value?.labelText || '').split('\n').filter((line) => line.trim() !== ''),
 )
 
-const batchRows = computed(() => [
-  { label: '供货单位', value: batch.value?.supplierName },
-  { label: '生产单位', value: batch.value?.manufacturer },
-  { label: '原厂批号', value: batch.value?.supplierBatchNo },
-  { label: '储存条件', value: batch.value?.storageCondition },
-  { label: '生产车间', value: batch.value?.workshop },
-  { label: '效期类型', value: batch.value?.shelfLifeType },
-])
+const batchRows = computed(() => {
+  // 物料主数据没查到 ≠ 没建档：显示「暂不可用」，别让人以为该去补建档。
+  // 批次整体没查到时同理。
+  const masterUnknown =
+    !batch.value || batch.value.masterUnavailable ? '暂不可用' : '未填'
+  return [
+    { label: '供货单位', value: batch.value?.supplierName },
+    { label: '生产单位', value: batch.value?.manufacturer },
+    { label: '原厂批号', value: batch.value?.supplierBatchNo },
+    { label: '储存条件', value: batch.value?.storageCondition, empty: masterUnknown },
+    { label: '生产车间', value: batch.value?.workshop, empty: masterUnknown },
+    { label: '效期类型', value: batch.value?.shelfLifeType, empty: masterUnknown },
+  ]
+})
 
 /** 只有「外购料待检证要用」的那三项值得提醒；储存/车间/效期是物料级，缺了也不阻塞 */
 const BATCH_CRITICAL = new Set(['供货单位', '生产单位', '原厂批号'])
@@ -363,7 +436,8 @@ function goBatch() {
   if (name) void router.push(`/hbos/inventory/batch/${encodeURIComponent(name)}`)
 }
 
-onMounted(async () => {
+async function loadDraft() {
+  state.value = 'loading'
   try {
     const loaded = await getIntakeDraft(draftName.value)
 
@@ -391,22 +465,60 @@ onMounted(async () => {
       getAttachments('Stock Entry', loaded.name),
     ])
 
-    if (batchResult.status === 'fulfilled') batch.value = batchResult.value
+    if (batchResult.status === 'fulfilled' && batchResult.value) {
+      // `getBatch` 返回 found/not_found/error —— **error 不能当成「没有批次信息」**：
+      // 那会让储存条件/车间/效期显示成「未填」，操作员以为主数据缺失。
+      const lookup = batchResult.value
+      if (lookup.kind === 'found') {
+        batch.value = lookup.batch
+      } else {
+        batch.value = null
+        batchLookupState.value = lookup.kind
+      }
+    } else {
+      batchLookupState.value = 'error'
+    }
 
     if (files.status === 'fulfilled') {
-      const found = files.value.find((f) => /\.(png|jpe?g|webp)$/i.test(f.fileName))
-      if (found) photo.value = { url: found.url, fileName: found.fileName }
+      photo.value = pickIntakePhoto(files.value)
+      attachmentsState.value = 'ready'
+    } else {
+      // 附件读不到 ≠ 没有照片 —— 早先会显示「这张草稿上没有照片」，
+      // 让人以为原始凭证丢了。
+      attachmentsState.value = 'error'
     }
 
     state.value = 'ready'
   } catch (error) {
+    // **只有 404 才是「找不到」**。早先这里把网络中断、500、403 全归成 missing，
+    // 用户被告知「单号可能已被删除」，实际是服务或权限问题 —— 下一步动作完全不同。
     if (error instanceof FrappeHttpError) {
-      state.value = error.status === 404 ? 'missing' : 'missing'
+      if (error.status === 404) {
+        state.value = 'missing'
+        return
+      }
+      if (error.status === 401 || error.status === 403) {
+        errorTitle.value = '没有权限查看这张草稿'
+        errorText.value = '当前账号无权读取这张入库单。若你刚切换了身份，请重新登录后再试。'
+        state.value = 'error'
+        return
+      }
+      errorTitle.value = '读取草稿失败'
+      errorText.value = `${error.message || '服务端返回了错误。'} 这不是「草稿不存在」，请重试。`
+      state.value = 'error'
       return
     }
-    state.value = 'missing'
+    errorTitle.value = '读取草稿失败'
+    errorText.value = '无法连接服务，请检查网络后重试。这不是「草稿不存在」。'
+    state.value = 'error'
   }
-})
+}
+
+onMounted(() => void loadDraft())
+
+function reload() {
+  void loadDraft()
+}
 
 function confirmSubmit() {
   if (!draft.value) return

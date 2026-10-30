@@ -7,6 +7,23 @@
       </div>
     </div>
 
+    <!-- 入库上下文没取到（货位清单、来源类型）—— 不能说成「没有货位」 -->
+    <div v-if="contextState === 'error'" class="inventory-dest glass-surface" style="margin-bottom: 16px">
+      <div class="intake-pane-body">
+        <div class="inventory-state err">
+          <StopOutlined class="inventory-state-icon" />
+          <h3>入库上下文没取到</h3>
+          <p>
+            货位清单和来源类型这一次没读到——<b>不是「系统里没有可存货位」</b>。
+            下面④「生成草稿」的货位选择在恢复前不可用。
+          </p>
+          <div class="inventory-state-actions">
+            <a-button type="primary" @click="loadContext">重试</a-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ① ② ③ ④ 是真序列：顺序不能换，跳过会出错，所以编号有意义 -->
     <ol class="intake-steps" aria-label="当前进度">
       <li v-for="s in steps" :key="s.n" :class="s.state">
@@ -411,7 +428,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   CameraOutlined,
@@ -424,6 +441,7 @@ import {
   ZoomInOutlined,
 } from '@ant-design/icons-vue'
 import {
+  beginIntakeOperation,
   createIntakeDraft,
   getIntakeContext,
   lookupItemMaster,
@@ -474,6 +492,33 @@ const packagingRows = ref<DraftPackagingRow[]>([])
 
 function addPackagingRow() {
   packagingRows.value.push({ container_type: '', unit_weight: null, count: null })
+}
+
+/**
+ * 包装构成的提交值。
+ *
+ * **没有有效行 → `null`（本次不改），不是 `[]`（清空）。**
+ * 后端把两者区分得很清楚：`None` = 不动，`[]` = 清空。早先前端无条件发一个
+ * 数组，于是「同批次补录时没填包装」会把库里已有的包装构成清空。
+ *
+ * 另外**半填的行要报错，不能静默丢弃**：用户填了件数却忘了选容器，
+ * 静默过滤后等于什么都没填，上面那条清空逻辑就会真的执行。
+ */
+function packagingPayload(): Array<{ container_type: string; unit_weight: number; count: number }> | null {
+  const filled = packagingRows.value.filter(
+    (r) => r.container_type || r.unit_weight !== null || r.count !== null,
+  )
+  if (!filled.length) return null
+  const rows = filled.map((r) => ({
+    container_type: String(r.container_type || '').trim(),
+    unit_weight: Number(r.unit_weight ?? 0),
+    count: Number(r.count ?? 0),
+  }))
+  const bad = rows.findIndex((r) => !r.container_type || r.count <= 0)
+  if (bad !== -1) {
+    throw new Error(`包装构成第 ${bad + 1} 行不完整：容器类型必选、件数必须大于 0。`)
+  }
+  return rows
 }
 
 const warehouse = ref<string | undefined>(undefined)
@@ -564,12 +609,25 @@ function filterWarehouse(input: string, option: { children?: string }) {
 }
 
 // --- 生命周期 ---
-onMounted(async () => {
+/** 入库上下文（货位清单、来源类型）的加载状态 —— 失败不能表现成「没有货位」。 */
+const contextState = ref<'loading' | 'ready' | 'error'>('loading')
+
+async function loadContext() {
+  contextState.value = 'loading'
   try {
     context.value = await getIntakeContext()
+    contextState.value = 'ready'
   } catch {
     context.value = null
+    contextState.value = 'error'
   }
+}
+
+onMounted(() => {
+  // 每次进入页面都是一次**新的入库操作** —— 必须有新 nonce。
+  // 早先幂等键是模块级变量，离开再进来仍留着旧 id，5 分钟内会命中上一张单。
+  beginIntakeOperation()
+  void loadContext()
 })
 
 // --- ① 选照片 ---
@@ -597,6 +655,10 @@ async function onPickFile(event: Event) {
 }
 
 function resetRecognitionState() {
+  // 识别状态清零 = 这是一张**新的**草稿 → 换一个操作 nonce。
+  // 幂等键 = nonce + 关键字段哈希，所以「同一张草稿超时重试」仍命中同一 id，
+  // 而「换了照片/物料」自然是新 id。
+  beginIntakeOperation()
   result.value = null
   fields.value = {}
   rawFields.value = {}
@@ -686,15 +748,24 @@ async function refreshItemMaster(code: string) {
     return
   }
 
-  const master = await lookupItemMaster(trimmed)
+  const lookup = await lookupItemMaster(trimmed)
   // 迟到的响应：期间代码又变了，丢弃
   if (seq !== lookupSeq) return
 
-  if (!master) {
+  // **「查不到」和「没查到」必须分开**：把网络/权限故障说成「未建档」，
+  // 会把操作员引导去建一个新物料 —— SAP 代码体系下重复建档会污染
+  // 库存、批次和全部报表。
+  if (lookup.kind === 'error') {
+    masterState.value = {}
+    itemHint.value = `<b>主数据读取失败</b>：${lookup.message} 请勿据此判断该物料是否已建档。`
+    return
+  }
+  if (lookup.kind === 'not_found') {
     masterState.value = {}
     itemHint.value = '<b>该物料尚未建档</b>，无法带出主数据；请先建档再入库。'
     return
   }
+  const master = lookup.data
 
   const next: Record<string, { has: boolean } | null> = {}
   let emptyCount = 0
@@ -752,18 +823,21 @@ async function createDraft() {
       supplier_name: payload.supplier_name,
       manufacturer: payload.manufacturer,
       supplier_batch_no: payload.supplier_batch_no,
-      packaging: packagingRows.value
-        .filter((r) => r.container_type)
-        .map((r) => ({
-          container_type: r.container_type,
-          unit_weight: r.unit_weight ?? 0,
-          count: r.count ?? 0,
-        })),
+      // ⚠️ **没有包装行时传 `null`，不是 `[]`**。
+      //
+      // 后端约定：`packaging=None` = 本次不动包装构成；`packaging=[]` = 明确清空。
+      // 早先这里无条件传一个数组（`input.packaging || []`），于是「同批次补录
+      // 时没填包装」会把库里原有的包装构成**清空**，而且没有任何提示。
+      packaging: packagingPayload(),
       label_text: rawLines.value.join('\n'),
     })
   } catch (error) {
     createError.value =
-      error instanceof FrappeHttpError ? error.message : '生成失败，请重试。'
+      error instanceof FrappeHttpError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : '生成失败，请重试。'
   } finally {
     creating.value = false
   }
@@ -790,4 +864,10 @@ function resetForNext() {
 }
 
 void router
+// 卸载时清掉防抖 timer —— 否则回调会在组件已销毁后仍执行。
+// 批次/物料页的 timer 回调里有 `router.replace()`，会把用户从别的页面拽回列表。
+onBeforeUnmount(() => {
+  if (lookupTimer) clearTimeout(lookupTimer)
+})
+
 </script>

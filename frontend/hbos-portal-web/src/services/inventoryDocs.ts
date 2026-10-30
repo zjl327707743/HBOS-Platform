@@ -43,6 +43,21 @@ interface FileDoc {
   file_url: string
   creation?: string
   file_size?: number
+  /** 系统写的附件类型标记（见后端 `File.hbos_attachment_kind`）。 */
+  hbos_attachment_kind?: string | null
+}
+
+/** 附件类型标记 —— 与后端 `doc_gen.KIND_*` / `api._attach_photo` 保持一致。 */
+export const ATTACHMENT_KIND_CARD = '待检证+货位卡'
+export const ATTACHMENT_KIND_LABEL_PHOTO = '标签照片'
+
+export interface Attachment {
+  name: string
+  fileName: string
+  url: string
+  createdAt?: string
+  size?: number
+  kind: string
 }
 
 /**
@@ -51,14 +66,18 @@ interface FileDoc {
  * **权限**：`frappe.client.get_list` 会按会话用户过滤，看不到的不会返回——
  * 所以这里不需要也不应该自己判权限。
  */
-export async function getAttachments(
-  doctype: string,
-  name: string,
-): Promise<Array<{ name: string; fileName: string; url: string; createdAt?: string; size?: number }>> {
+export async function getAttachments(doctype: string, name: string): Promise<Attachment[]> {
   const rows = await callFrappeMethod<FileDoc[] | null>('frappe.client.get_list', {
     doctype: 'File',
     filters: JSON.stringify({ attached_to_doctype: doctype, attached_to_name: name }),
-    fields: JSON.stringify(['name', 'file_name', 'file_url', 'creation', 'file_size']),
+    fields: JSON.stringify([
+      'name',
+      'file_name',
+      'file_url',
+      'creation',
+      'file_size',
+      'hbos_attachment_kind',
+    ]),
     order_by: 'creation desc',
     limit_page_length: 0,
   })
@@ -70,6 +89,7 @@ export async function getAttachments(
     url: frappeAssetUrl(row.file_url),
     createdAt: row.creation,
     size: row.file_size,
+    kind: String(row.hbos_attachment_kind || ''),
   }))
 }
 
@@ -80,13 +100,6 @@ interface ItemMasterInfo {
   shelfLifeType: string
 }
 
-const EMPTY_ITEM_MASTER: ItemMasterInfo = {
-  itemName: '',
-  storageCondition: '',
-  workshop: '',
-  shelfLifeType: '',
-}
-
 /**
  * 「储存条件 / 生产车间 / 效期类型」是**物料主数据**字段 —— `setup.py` 把它们
  * 建在 `Item` 上，**`Batch` 上没有这三个字段**。从批次上读只会得到 undefined，
@@ -94,9 +107,13 @@ const EMPTY_ITEM_MASTER: ItemMasterInfo = {
  * 同一份事实两处不一致。
  *
  * 所以回查 `Item`。**一次取回四个字段**，不拆成四趟请求。
+ *
+ * 返回 `null` 表示**没查到**（网络/权限/5xx），不是「主数据为空」——
+ * 两者在界面上必须分开：把取数失败显示成「主数据为空」会让人以为
+ * 该物料的三项都没建档。
  */
-async function getItemMasterInfo(itemCode: string): Promise<ItemMasterInfo> {
-  if (!itemCode) return EMPTY_ITEM_MASTER
+async function getItemMasterInfo(itemCode: string): Promise<ItemMasterInfo | null> {
+  if (!itemCode) return null
   try {
     const row = await callFrappeMethod<{
       item_name?: string
@@ -120,7 +137,7 @@ async function getItemMasterInfo(itemCode: string): Promise<ItemMasterInfo> {
       shelfLifeType: String(row?.hbos_shelf_life_type || ''),
     }
   } catch {
-    return EMPTY_ITEM_MASTER
+    return null
   }
 }
 
@@ -208,7 +225,7 @@ export async function getIntakeDraft(name: string): Promise<IntakeDraft> {
     isIntakeDraft: Boolean(doc.hbos_intake_batch),
     item: {
       itemCode,
-      itemName: master.itemName,
+      itemName: master?.itemName || '',
       qty: Number(row.qty ?? 0),
       uom: String(row.uom || row.stock_uom || ''),
       batchNo: String(row.batch_no || doc.hbos_intake_batch || ''),
@@ -298,6 +315,8 @@ export interface BatchDetail {
   storageCondition?: string | null
   workshop?: string | null
   shelfLifeType?: string | null
+  /** 物料主数据**没查到**（网络/权限/5xx），不是「三项都没建档」 */
+  masterUnavailable?: boolean
 
   packaging: BatchPackaging[]
   labelText: string
@@ -328,44 +347,71 @@ interface RawBatch {
   }>
 }
 
-export async function getBatch(name: string): Promise<BatchDetail> {
-  const doc = await callFrappeMethod<RawBatch | null>('frappe.client.get', {
-    doctype: 'Batch',
-    name,
-  })
-  if (!doc || !doc.name) throw new Error('找不到这个批次。')
+/**
+ * 批次详情查询结果 —— **区分「没有」和「没查到」**。
+ *
+ * 早先 `getBatch()` 直接抛，调用方只有一个 catch 分支 → 网络错误、403、500
+ * 全部显示成「找不到这个批次，可能已被删除」。批次页据此让用户以为数据没了，
+ * 而实际只是没读到。
+ */
+export type BatchLookup =
+  | { kind: 'found'; batch: BatchDetail }
+  | { kind: 'not_found' }
+  | { kind: 'error'; message: string }
+
+export async function getBatch(name: string): Promise<BatchLookup> {
+  let doc: RawBatch | null
+  try {
+    doc = await callFrappeMethod<RawBatch | null>('frappe.client.get', {
+      doctype: 'Batch',
+      name,
+    })
+  } catch (error) {
+    const status = (error as { status?: number } | null)?.status
+    if (status === 404) return { kind: 'not_found' }
+    if (status === 401) return { kind: 'error', message: '登录状态已失效，请重新登录后再试。' }
+    if (status === 403) return { kind: 'error', message: '当前账号没有读取该批次的权限。' }
+    if (status && status >= 500) return { kind: 'error', message: '服务端暂时不可用，请稍后重试。' }
+    return { kind: 'error', message: '读取批次失败，请检查网络后重试。' }
+  }
+  if (!doc || !doc.name) return { kind: 'not_found' }
 
   const itemCode = String(doc.item || '')
   // Batch 上通常已带 item_name；没有才回查主数据
   const master = await getItemMasterInfo(itemCode)
-  const itemName = String(doc.item_name || '') || master.itemName
+  const itemName = String(doc.item_name || '') || master?.itemName || ''
 
   return {
-    name: doc.name,
-    batchId: String(doc.batch_id || doc.name),
-    itemCode,
-    itemName,
-    manufacturingDate: doc.manufacturing_date,
-    expiryDate: doc.expiry_date,
-    sourceType: doc.hbos_source_type,
-    releaseStatus: doc.hbos_release_status,
-    releaseDate: doc.hbos_release_date,
-    certificateNo: doc.hbos_certificate_no,
-    limsReference: doc.hbos_lims_reference,
-    releaseSource: doc.hbos_release_source,
-    supplierName: doc.hbos_supplier_name,
-    manufacturer: doc.hbos_manufacturer,
-    supplierBatchNo: doc.hbos_supplier_batch_no,
-    // 三项取自**物料主数据**，不是批次（见 getItemMasterInfo）
-    storageCondition: master.storageCondition,
-    workshop: master.workshop,
-    shelfLifeType: master.shelfLifeType,
-    packaging: (doc.hbos_packaging || []).map((row) => ({
-      containerType: String(row.container_type || ''),
-      unitWeight: Number(row.unit_weight ?? 0),
-      count: Number(row.count ?? 0),
-    })),
-    labelText: String(doc.hbos_label_text || ''),
+    kind: 'found',
+    batch: {
+      name: doc.name,
+      batchId: String(doc.batch_id || doc.name),
+      itemCode,
+      itemName,
+      manufacturingDate: doc.manufacturing_date,
+      expiryDate: doc.expiry_date,
+      sourceType: doc.hbos_source_type,
+      releaseStatus: doc.hbos_release_status,
+      releaseDate: doc.hbos_release_date,
+      certificateNo: doc.hbos_certificate_no,
+      limsReference: doc.hbos_lims_reference,
+      releaseSource: doc.hbos_release_source,
+      supplierName: doc.hbos_supplier_name,
+      manufacturer: doc.hbos_manufacturer,
+      supplierBatchNo: doc.hbos_supplier_batch_no,
+      // 三项取自**物料主数据**，不是批次（见 getItemMasterInfo）
+      // 主数据没查到 → 空串 + `masterUnavailable`，界面提示「暂不可用」而不是「未设置」
+      storageCondition: master?.storageCondition ?? '',
+      workshop: master?.workshop ?? '',
+      shelfLifeType: master?.shelfLifeType ?? '',
+      masterUnavailable: master === null,
+      packaging: (doc.hbos_packaging || []).map((row) => ({
+        containerType: String(row.container_type || ''),
+        unitWeight: Number(row.unit_weight ?? 0),
+        count: Number(row.count ?? 0),
+      })),
+      labelText: String(doc.hbos_label_text || ''),
+    },
   }
 }
 
@@ -419,8 +465,12 @@ export async function getBatchStock(batchName: string): Promise<BatchStockRow[]>
  *
  * 用途：区分两种情况——「入库单还没提交」（所以卡片本就不该有）与
  * 「提交了但卡片没生成出来」。两者的下一步动作完全不同，不能共用一句文案。
+ *
+ * 返回 `null` 表示**查不到**（网络/权限/5xx）。早先这里 `catch` 成 `false`，
+ * 与函数自己的注释（「不知道时给中性文案」）矛盾 —— 查询失败会被显示成
+ * 「入库单还没提交」，把操作员引向错误的操作。
  */
-export async function hasSubmittedIntakeEntry(batchName: string): Promise<boolean> {
+export async function hasSubmittedIntakeEntry(batchName: string): Promise<boolean | null> {
   if (!batchName) return false
   try {
     const rows = await callFrappeMethod<Array<{ name: string }> | null>(
@@ -434,8 +484,7 @@ export async function hasSubmittedIntakeEntry(batchName: string): Promise<boolea
     )
     return Boolean(rows && rows.length)
   } catch {
-    // 查不到就当作「不知道」，由调用方给中性文案——不猜
-    return false
+    return null
   }
 }
 
@@ -592,7 +641,15 @@ export interface BatchListRow {
 
 export interface BatchListResult {
   rows: BatchListRow[]
-  total: number
+  /**
+   * 匹配总数；`null` = 没查到（计数请求失败）。
+   *
+   * 早先直接把「本次返回的行数」当总数 —— 取满 200 条时界面显示
+   * 「共 200 条」，用户以为这就是全部，实际可能还有更多。
+   */
+  total: number | null
+  /** 是否可能被 `BATCH_LIST_LIMIT` 截断（取满上限即视为可能截断）。 */
+  truncated: boolean
 }
 
 export const BATCH_LIST_LIMIT = 200
@@ -620,28 +677,37 @@ export async function searchBatches(keyword: string): Promise<BatchListResult> {
     limit_page_length: BATCH_LIST_LIMIT,
   }
 
-  const params = q
-    ? {
-        ...base,
-        or_filters: JSON.stringify([
-          ['name', 'like', `%${q}%`],
-          ['item', 'like', `%${q}%`],
-          ['item_name', 'like', `%${q}%`],
-        ]),
-      }
-    : base
+  type RawBatchRow = {
+    name: string
+    item?: string
+    item_name?: string
+    expiry_date?: string | null
+    hbos_source_type?: string | null
+    hbos_release_status?: string | null
+  }
 
-  const raw =
-    (await callFrappeMethod<
-      Array<{
-        name: string
-        item?: string
-        item_name?: string
-        expiry_date?: string | null
-        hbos_source_type?: string | null
-        hbos_release_status?: string | null
-      }> | null
-    >('frappe.client.get_list', params)) || []
+  const fetchWith = (pattern: string) =>
+    callFrappeMethod<RawBatchRow[] | null>('frappe.client.get_list', {
+      ...base,
+      or_filters: batchFilters(pattern),
+    })
+
+  let raw: RawBatchRow[] = []
+  // 记下实际生效的模式：计数必须用**同一个**，否则「匹配 N 个」与列表对不上
+  let usedPattern = ''
+  if (!q) {
+    raw = (await callFrappeMethod<RawBatchRow[] | null>('frappe.client.get_list', base)) || []
+  } else {
+    // **先前缀（走索引）、没命中再退到包含匹配** —— 同 searchItems 的口径。
+    usedPattern = `${q}%`
+    raw = (await fetchWith(usedPattern)) || []
+    if (!raw.length) {
+      usedPattern = `%${q}%`
+      raw = (await fetchWith(usedPattern)) || []
+    }
+  }
+
+  const total = raw.length >= BATCH_LIST_LIMIT ? await countBatches(usedPattern) : raw.length
 
   return {
     rows: raw.map((r) => ({
@@ -652,6 +718,27 @@ export async function searchBatches(keyword: string): Promise<BatchListResult> {
       sourceType: r.hbos_source_type,
       releaseStatus: r.hbos_release_status,
     })),
-    total: raw.length,
+    total,
+    truncated: total === null ? raw.length >= BATCH_LIST_LIMIT : total > raw.length,
+  }
+}
+
+function batchFilters(pattern: string): string {
+  return JSON.stringify([
+    ['name', 'like', pattern],
+    ['item', 'like', pattern],
+    ['item_name', 'like', pattern],
+  ])
+}
+
+/** 计数失败返回 `null` —— 「不知道有多少」和「没有」是两回事。 */
+async function countBatches(pattern: string): Promise<number | null> {
+  const params: Record<string, unknown> = { doctype: 'Batch' }
+  if (pattern) params.or_filters = batchFilters(pattern)
+  try {
+    const n = await callFrappeMethod<number>('frappe.client.get_count', params)
+    return Number(n) || 0
+  } catch {
+    return null
   }
 }

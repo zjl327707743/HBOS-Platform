@@ -50,9 +50,40 @@ const ITEM_FIELDS = [
 
 export interface ItemListResult {
   rows: ItemRow[]
-  /** 匹配总数。列表最多取 ITEM_LIST_LIMIT 条，所以总数与行数可能不等 */
-  total: number
+  /**
+   * 匹配总数。列表最多取 ITEM_LIST_LIMIT 条，所以总数与行数可能不等。
+   *
+   * **`null` = 没查到**（计数请求失败）。早先失败返回 0，列表取满 200 条时
+   * `truncated` 会算成 false —— 用户以为看到了全部，实际漏了。
+   */
+  total: number | null
   truncated: boolean
+  /** 本次结果来自「包含匹配」回退（前缀没命中才退到全表扫）。 */
+  substringFallback?: boolean
+}
+
+/**
+ * 关键词 → 两组 like 模式。
+ *
+ * **先前缀、再包含**：
+ *   `name like 'q%'`    能用 B-tree 索引（前缀匹配走索引）；
+ *   `name like '%q%'`   必须全表扫，数据量一大就慢。
+ *
+ * 但直接砍掉包含匹配会让用户搜不到「美罗培南」里含「培南」的物料 ——
+ * 所以保留它作为**回退**：前缀命中就不查，没命中才退一次。
+ */
+function likePrefix(q: string): string {
+  return `${q}%`
+}
+function likeContains(q: string): string {
+  return `%${q}%`
+}
+
+function itemFilters(pattern: string): string {
+  return JSON.stringify([
+    ['name', 'like', pattern],
+    ['item_name', 'like', pattern],
+  ])
 }
 
 /**
@@ -70,58 +101,87 @@ export async function searchItems(keyword: string): Promise<ItemListResult> {
     limit_page_length: ITEM_LIST_LIMIT,
   }
 
-  const params = q
-    ? {
-        ...base,
-        or_filters: JSON.stringify([
-          ['name', 'like', `%${q}%`],
-          ['item_name', 'like', `%${q}%`],
-        ]),
-      }
-    : base
-
-  const rows = await callFrappeMethod<ItemRow[] | null>('frappe.client.get_list', params)
-  const list = rows || []
-
-  // 总数只在真的需要「被截断了吗」时才算，省一次往返
-  let total = list.length
-  if (list.length >= ITEM_LIST_LIMIT) {
-    total = await countItems(q)
+  if (!q) {
+    const rows = (await callFrappeMethod<ItemRow[] | null>('frappe.client.get_list', base)) || []
+    return { rows, total: rows.length, truncated: false }
   }
 
-  return { rows: list, total, truncated: total > list.length }
+  // 1) 前缀匹配（走索引）
+  let list =
+    (await callFrappeMethod<ItemRow[] | null>('frappe.client.get_list', {
+      ...base,
+      or_filters: itemFilters(likePrefix(q)),
+    })) || []
+  let fallback = false
+
+  // 2) 前缀没命中才退到包含匹配（全表扫，作为兼容）
+  if (!list.length) {
+    list =
+      (await callFrappeMethod<ItemRow[] | null>('frappe.client.get_list', {
+        ...base,
+        or_filters: itemFilters(likeContains(q)),
+      })) || []
+    fallback = list.length > 0
+  }
+
+  // 总数只在真的需要「被截断了吗」时才算，省一次往返
+  let total: number | null = list.length
+  if (list.length >= ITEM_LIST_LIMIT) {
+    total = await countItems(q, fallback)
+  }
+
+  // `total === null` 表示计数没查到 —— 此时**不能**判 false：
+  // 列表已经取满了，确实可能存在更多，只是不知道有多少。
+  return {
+    rows: list,
+    total,
+    truncated: total === null ? list.length >= ITEM_LIST_LIMIT : total > list.length,
+    substringFallback: fallback,
+  }
 }
 
-async function countItems(q: string): Promise<number> {
-  const base = { doctype: 'Item' }
-  const params = q
-    ? {
-        ...base,
-        or_filters: JSON.stringify([
-          ['name', 'like', `%${q}%`],
-          ['item_name', 'like', `%${q}%`],
-        ]),
-      }
-    : base
+/** 计数失败返回 `null` —— 不是 0（0 会让「被截断了吗」判错）。 */
+async function countItems(q: string, contains: boolean): Promise<number | null> {
+  const params = {
+    doctype: 'Item',
+    or_filters: itemFilters(contains ? likeContains(q) : likePrefix(q)),
+  }
   try {
     const n = await callFrappeMethod<number>('frappe.client.get_count', params)
     return Number(n) || 0
   } catch {
-    return 0
+    return null
   }
 }
 
-export async function getItem(itemCode: string): Promise<ItemRow | null> {
+/**
+ * 物料详情查询结果 —— **区分「没有」和「没查到」**。
+ *
+ * 早先所有异常都 catch 成 `null`，详情页据此显示「找不到这个物料，
+ * 可能已被删除」—— 网络中断、500、403 都被说成「物料不存在」。
+ * 与已经改好的 `lookupItemMaster()` 保持同一套语义。
+ */
+export type ItemLookup =
+  | { kind: 'found'; item: ItemRow }
+  | { kind: 'not_found' }
+  | { kind: 'error'; message: string }
+
+export async function getItem(itemCode: string): Promise<ItemLookup> {
   const code = itemCode.trim()
-  if (!code) return null
+  if (!code) return { kind: 'not_found' }
   try {
     const doc = await callFrappeMethod<ItemRow | null>('frappe.client.get', {
       doctype: 'Item',
       name: code,
     })
-    return doc && doc.name ? doc : null
-  } catch {
-    return null
+    return doc && doc.name ? { kind: 'found', item: doc } : { kind: 'not_found' }
+  } catch (error) {
+    const status = (error as { status?: number } | null)?.status
+    if (status === 404) return { kind: 'not_found' }
+    if (status === 401) return { kind: 'error', message: '登录状态已失效，请重新登录后再试。' }
+    if (status === 403) return { kind: 'error', message: '当前账号没有读取该物料的权限。' }
+    if (status && status >= 500) return { kind: 'error', message: '服务端暂时不可用，请稍后重试。' }
+    return { kind: 'error', message: '读取物料详情失败，请检查网络后重试。' }
   }
 }
 

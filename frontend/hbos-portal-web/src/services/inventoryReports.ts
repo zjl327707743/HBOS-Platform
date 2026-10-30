@@ -1,4 +1,4 @@
-import { callFrappeMethod, csrfHeaders } from '@/services/frappeClient'
+import { callFrappeMethod, csrfHeaders, frappeApiUrl } from '@/services/frappeClient'
 
 /**
  * 库存报表 —— 前端侧接口层。
@@ -27,6 +27,14 @@ export interface ReportResult {
   rows: Array<Record<string, unknown>>
   /** 服务端给的可选图表/汇总，本轮不渲染，留着免得将来再加一次调用 */
   executionTime?: number
+  /**
+   * 服务端返回的原始行数（过滤合计行**之前**）。
+   *
+   * 早先界面用 `columns.length && !rows.length` 判「只返回了合计行」——
+   * 但那个分支写在 `if (!rows.length) return` **之后**，永远到不了。
+   * 现在把原始行数带回来，界面能如实说明「N 行里有合计行，已略过」。
+   */
+  rawRowCount?: number
 }
 
 interface RawReportPayload {
@@ -76,6 +84,7 @@ export async function runReport(
     columns: payload?.columns || [],
     rows,
     executionTime: payload?.execution_time,
+    rawRowCount: raw.length,
   }
 }
 
@@ -87,6 +96,29 @@ function cleanFilters(filters: Record<string, unknown>): Record<string, unknown>
     out[key] = value
   }
   return out
+}
+
+/**
+ * CSV 公式注入防护。
+ *
+ * 表格软件会把 `=`、`+`、`-`、`@`、Tab、CR 开头的单元格当公式执行。物料名、
+ * 供应商、批号、备注都可能来自外部标签或人工录入 —— 一条 `=HYPERLINK(...)`
+ * 就能把文件内容带出去，DDE 在旧版 Excel 上还能执行命令。
+ *
+ * 两条约束必须同时满足：
+ *   1. **数值不加前缀** —— 否则 `-1` 会被写成 `'-1`，列就变成文本了；
+ *   2. 文本命中公式前缀时前面加 `'`（Excel 的「按文本处理」标记）。
+ */
+export function neutralizeFormula(quoted: string, raw: unknown): string {
+  if (typeof raw === 'number' || typeof raw === 'bigint') return quoted
+  // 字符串形式的负数（报表里数量列常是字符串）：`-1` 不是公式，
+  // 加前缀会把它变成文本，下游没法求和。只放行**完整**的数字串。
+  if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(quoted)) return quoted
+  // 已经是 `"..."` 形式时，前缀必须写在引号**里面**
+  if (quoted.startsWith('"')) {
+    return /^"[=+\-@\t\r]/.test(quoted) ? `"'${quoted.slice(1)}` : quoted
+  }
+  return /^[=+\-@\t\r]/.test(quoted) ? `'${quoted}` : quoted
 }
 
 /**
@@ -141,12 +173,12 @@ export async function exportReport(
     ...(await csrfHeaders()),
   }
 
-  const response = await fetch('/api/method/frappe.desk.query_report.export_query', {
-    method: 'POST',
-    credentials: 'include',
-    headers,
-    body: form,
-  })
+  // **必须走 Frappe 的绝对地址**：Portal 与 Frappe 跨源部署时，
+  // 裸 `/api/...` 会打到 Portal 自己身上，导出稳定失败。
+  const response = await fetch(
+    frappeApiUrl('/api/method/frappe.desk.query_report.export_query'),
+    { method: 'POST', credentials: 'include', headers, body: form },
+  )
 
   if (!response.ok) {
     // 服务端会带中文业务提示；这里只兜一句可读的语义，不暴露状态码
@@ -159,7 +191,14 @@ export async function exportReport(
 
   // 不读 Content-Disposition —— 见函数头注释：浏览器读非 ASCII header 会乱码
   const filename = `${reportName}.xlsx`
-  const blob = await response.blob()
+  const buffer = await response.arrayBuffer()
+
+  // 200 也可能是 HTML 错误页（网关/登录跳转）。XLSX 是 zip，前两字节必须是 `PK`。
+  // 不校验的话会把一个 HTML 存成 .xlsx，用户双击才发现打不开。
+  assertXlsxBytes(new Uint8Array(buffer))
+  const blob = new Blob([buffer], {
+    type: response.headers.get('Content-Type') || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
 
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -170,6 +209,26 @@ export async function exportReport(
   link.remove()
   // 立刻撤销会让部分浏览器来不及开始下载，给一帧
   setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+/**
+ * XLSX 是 zip 容器，前两字节必须是 `PK`。
+ *
+ * 服务端 200 也可能是 HTML 错误页（网关错误页 / 登录跳转 / 上面那段说的
+ * 「没有要导出的数据」）。不校验就把 HTML 存成 `.xlsx`，用户双击才发现打不开 ——
+ * 比直接报错更浪费人的时间。
+ */
+export function assertXlsxBytes(bytes: Uint8Array): void {
+  // `PK` = zip 魔数。XLSX 本质是 zip。
+  if (bytes.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4b) return
+
+  const head = new TextDecoder('utf-8', { fatal: false })
+    .decode(bytes.slice(0, 200))
+    .toLowerCase()
+  if (head.includes('<!doctype') || head.includes('<html')) {
+    throw new Error('服务端返回的是网页而不是 Excel（多半是没有可导出的数据）。')
+  }
+  throw new Error('导出内容不是有效的 Excel 文件，请稍后重试。')
 }
 
 /**
@@ -189,7 +248,8 @@ export function exportRowsAsCsv(
   const escape = (raw: unknown): string => {
     const text = raw === null || raw === undefined ? '' : String(raw)
     // 含分隔符 / 引号 / 换行时必须加引号，内部引号翻倍（RFC 4180）
-    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+    const quoted = /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+    return neutralizeFormula(quoted, raw)
   }
 
   const lines = [

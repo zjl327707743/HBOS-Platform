@@ -280,16 +280,27 @@ export async function discardPickList(name: string): Promise<void> {
 
 export interface PickShortage {
   itemCode: string
+  /** 批次；无批号管理的物料为空串。 */
+  batchNo: string
   required: number
   located: number
   gap: number
 }
 
+/** 短缺比较的键 —— **物料 + 批次**。 */
+export function shortageKey(itemCode: string, batchNo?: string | null): string {
+  return `${itemCode}\u0000${String(batchNo || '').trim()}`
+}
+
 /**
- * 逐物料比较「要拣多少」与「定位到多少」。
+ * 逐「物料 + 批次」比较「要拣多少」与「定位到多少」。
  *
  * **定位会替换掉明细行**，所以「要拣数量」在调用前先记下来，事后拿它比对——
  * 否则用户填的数字会被 ERPNext 算出的行冲掉，就无从判断够不够了。
+ *
+ * ⚠️ 键必须带批次。早先只按 `itemCode` 汇总：同一物料两个批次各要 5kg 时，
+ * 只要任一批次定位到 10kg 就判「凑够了」—— 批次级拣货数量是错的，
+ * 操作员据此做的移库单/领用单也会错。
  */
 export function findShortages(
   required: Record<string, number>,
@@ -298,14 +309,16 @@ export function findShortages(
   const located: Record<string, number> = {}
   for (const row of locations) {
     if (!row.itemCode) continue
-    located[row.itemCode] = (located[row.itemCode] || 0) + Number(row.qty || 0)
+    const key = shortageKey(row.itemCode, row.batchNo)
+    located[key] = (located[key] || 0) + Number(row.qty || 0)
   }
 
   return Object.entries(required)
-    .map(([itemCode, need]) => {
-      const got = Number((located[itemCode] || 0).toFixed(3))
+    .map(([key, need]) => {
+      const [itemCode, batchNo] = key.split('\u0000')
+      const got = Number((located[key] || 0).toFixed(3))
       const gap = Number((need - got).toFixed(3))
-      return { itemCode, required: need, located: got, gap }
+      return { itemCode: itemCode || '', batchNo: batchNo || '', required: need, located: got, gap }
     })
     .filter((row) => row.gap > 0)
 }
