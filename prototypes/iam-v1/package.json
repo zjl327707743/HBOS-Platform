@@ -1,0 +1,24 @@
+{
+  "name": "hbos-iam-v1-prototype",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5197 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5197 --strictPort",
+    "test": "node --test tests/*.test.js",
+    "start": "node scripts/server.mjs start",
+    "stop": "node scripts/server.mjs stop",
+    "status": "node scripts/server.mjs status"
+  },
+  "dependencies": {
+    "vue": "3.5.21",
+    "ant-design-vue": "4.2.6",
+    "@ant-design/icons-vue": "7.0.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.1",
+    "vite": "7.1.5"
+  }
+}
