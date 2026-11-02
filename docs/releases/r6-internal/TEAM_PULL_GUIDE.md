@@ -8,11 +8,14 @@
 
 ## 1. 拉取准确源码
 
-需 Git、Python 3.12+、Docker Compose（支持 `!override`）和最终清单记录的 Node/npm 精确版本。镜像 digest、HRMS 完整 revision、工具链、锁文件摘要和制品摘要缺失时先停；不能用可移动 tag 或 `version-16` 分支 tip 代填。
+下面所有 shell 代码块在**同一个新 Bash 会话**中按顺序执行；不要分别启动子 shell 丢失变量。首先执行 `bash`，然后执行 `set -euo pipefail`。任一断言/命令失败即停止本次流程，保留证据后排查，不继续下一段。
+
+需 Git、Python 3.12+、Docker Compose（支持 `!override`）和最终清单记录的 Node/npm 精确版本。镜像 digest、HRMS 完整 revision、工具链、锁文件摘要和制品摘要缺失时先停；不能用可移动 tag 或 `version-16` 分支 tip 代填。当前18191所用 HRMS 已按1553个tracked blob及文件模式核验为 `e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1` / tree `07f4c5ee8552369fac45ab87fef5b7f17110d444` / v16.13.0；clean安装沿用这个独立副本，不使用旧依赖锁中的16.20.0升级共享目录。最终清单应登记此准确来源。
 
 下面的路径须指向本机已登记的短期演练目录或团队自己的项目根；每轮使用新的空目录。`HBOS_TEAM_MANIFEST` 是该版本随附的最终外部清单，不是仓库内 template。
 
 ```bash
+set -euo pipefail
 export HBOS_TEAM_MANIFEST='/absolute/path/to/approved/RELEASE_MANIFEST.json'
 export HBOS_TEAM_CHECKOUT='/absolute/path/to/empty/r6-checkout'
 export HBOS_TEAM_PRIVATE='/absolute/path/to/new/private-r6-runtime'
@@ -40,7 +43,7 @@ for path,want in m['build']['lock_sha256'].items():
 for executable,key in [('node','node'),('npm','npm')]:
     assert subprocess.check_output([executable,'--version'],text=True).strip()==m['build']['toolchain'][key], key
 assert m['dependencies']['frappe_base']['reference'].split('@sha256:')[1]
-assert len(m['dependencies']['hrms']['commit'])==40
+assert m['dependencies']['hrms']['commit']=='e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1'
 PY
 ```
 
@@ -108,7 +111,7 @@ Administrator 密码是新隔离 Site 的本机私有值；使用自己的密码
 
 ## 3. 隔离安装与启动
 
-下面的 overlay 给全部自有 App 增加只读挂载，覆盖旧 LIMS dist 卷，显式固定 DB/Redis/Node 镜像，且前端仅监听回环地址。base Compose 的 `create-site` 默认命令没有逐条失败保护，因此安装时使用显式 `bash -ec`；本段只适用于新建空 Site。所有运行镜像与 mount 必须记录到本次复现收据。
+下面的 overlay 给全部自有 App 增加只读挂载，覆盖旧 LIMS dist 卷，显式固定 DB/Redis/Node 镜像，且前端仅监听回环地址。八个 Frappe 服务都显式挂载本 project 的同一 `assets-data` 到 `sites/assets`；backend/frontend 的 `bench/assets` 也沿用此卷。base Compose 的 `create-site` 默认命令没有逐条失败保护，因此安装时使用显式 `bash -ec`；本段只适用于新建空 Site。所有运行镜像与 mount 必须记录到本次复现收据。
 
 ```bash
 python3 - <<'PY'
@@ -125,6 +128,7 @@ py=':'.join(bench+'/apps/'+a for a in ['hrms']+apps)
 services={}
 for name in ['backend','frontend','websocket','configurator','create-site','scheduler','queue-short','queue-long']:
     mounts=list(code)
+    mounts.append({'type':'volume','source':'assets-data','target':bench+'/sites/assets'})
     if name!='websocket':mounts.append(mount(r/'apps/hb_lims_app/hb_lims_app/public/hbos-lims',bench+'/apps/hb_lims_app/hb_lims_app/public/hbos-lims'))
     services[name]={'image':image,'volumes':mounts,'environment':{'PYTHONPATH':py}}
 services['db']={'image':m['dependencies']['mariadb']['reference']}
@@ -150,10 +154,61 @@ hbteam run --rm --no-deps --entrypoint bash create-site -ec '
   bench new-site "$SITE_NAME" --mariadb-user-host-login-scope="%" --admin-password="$ADMIN_PASSWORD" --db-root-username=root --db-root-password="$DB_ROOT_PASSWORD" --install-app erpnext --set-default
   for app in hrms hb_attendance_app hb_inventory_app hb_lims_app hbos_portal hb_knowledge_app hb_twin_app; do bench --site "$SITE_NAME" install-app "$app"; done
 '
+```
+
+新 clone 没有 HRMS 和考勤的已编译 Desk bundle。先在私有构建副本中构建，不能借用共享 HRMS 的 `public/dist`、已有 Site 的 assets.json，也不能对只读运行源码执行 `bench build`。此处使用固定 Frappe 镜像内已安装的 esbuild 工具链；直接运行其 production 命令，只构建 HRMS/考勤 Desk bundles，不执行 HRMS 的 PWA/roster自定义构建。这两个额外前端不在本版团队验收范围。
+
+本段命令已从当前固定镜像的实际 `frappe/build.py`、`apps/frappe/package.json`、`esbuild/esbuild.js` 核对接口，仍须最终 M 的干净 Site 实际执行。当前实读工具链为 Node `v24.12.0`、Yarn `1.22.22`；最终 manifest须分别记录容器Desk构建工具链与前面Portal/LIMS主机构建的Node/npm。
+
+```bash
+python3 - <<'PY_DESK_PREP'
+import json,os,shutil
+from pathlib import Path
+p=Path(os.environ['HBOS_TEAM_PRIVATE']); c=Path(os.environ['HBOS_TEAM_CHECKOUT']); stage=p/'desk-build-source'
+assert not stage.exists(); stage.mkdir()
+shutil.copytree(c/'runtime/apps/hrms',stage/'hrms',ignore=shutil.ignore_patterns('.git','node_modules','__pycache__','*.pyc'))
+shutil.copytree(p/'release/apps/hb_attendance_app',stage/'hb_attendance_app',ignore=shutil.ignore_patterns('node_modules','__pycache__','*.pyc'))
+PY_DESK_PREP
+hbteam run --rm --no-deps --entrypoint bash \
+  --volume "$HBOS_TEAM_PRIVATE/desk-build-source/hrms:/home/frappe/frappe-bench/apps/hrms" \
+  --volume "$HBOS_TEAM_PRIVATE/desk-build-source/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app" \
+  create-site -ec '
+    test "$(node --version)" = "v24.12.0"
+    test "$(yarn --version)" = "1.22.22"
+    cd /home/frappe/frappe-bench/apps/hrms
+    yarn install --frozen-lockfile --ignore-scripts --non-interactive
+    test -f yarn.lock
+    cd /home/frappe/frappe-bench
+    for app in hrms hb_attendance_app; do ln -sfn "/home/frappe/frappe-bench/apps/$app/$app/public" "sites/assets/$app"; done
+    cd apps/frappe
+    CI=1 yarn run production --apps hrms,hb_attendance_app
+  '
+python3 - <<'PY_DESK_VERIFY'
+import hashlib,json,os
+from pathlib import Path
+p=Path(os.environ['HBOS_TEAM_PRIVATE']); manifest=json.load(open(os.environ['HBOS_TEAM_MANIFEST']))
+files={}
+for app in ['hrms','hb_attendance_app']:
+    dist=p/'desk-build-source'/app/app/'public/dist'
+    assert dist.is_dir(), 'Desk编译产物缺失: '+app
+    for f in sorted(dist.rglob('*')):
+        if f.is_file():files[app+'/'+str(f.relative_to(dist))]=hashlib.sha256(f.read_bytes()).hexdigest()
+assert files
+payload=json.dumps(files,sort_keys=True,separators=(',',':')).encode()
+assert hashlib.sha256(payload).hexdigest()==manifest['artifact']['desk_assets']['manifest_sha256'], 'Desk产物与最终版本清单不符'
+(p/'desk-assets-manifest.json').write_bytes(payload+b'\n')
+# 构建结束后才给长期服务添加生成目录的只读挂载；release原包保持不变。
+config=json.loads((p/'compose.code.json').read_text())
+for service in ['backend','frontend','websocket','configurator','create-site','scheduler','queue-short','queue-long']:
+    for app in ['hrms','hb_attendance_app']:
+        config['services'][service]['volumes'].append({'type':'bind','source':str(p/'desk-build-source'/app/app/'public/dist'),'target':'/home/frappe/frappe-bench/apps/'+app+'/'+app+'/public/dist','read_only':True})
+(p/'compose.code.json').write_text(json.dumps(config,indent=2))
+PY_DESK_VERIFY
+hbteam config --quiet
 hbteam up -d --no-deps backend
 hbteam exec -T backend bench --site "$HBOS_TEAM_SITE" migrate
 hbteam exec -T backend bench --site "$HBOS_TEAM_SITE" migrate
-hbteam exec -T backend bash -ec 'for app in hb_attendance_app hb_inventory_app hb_lims_app hbos_portal hb_knowledge_app hb_twin_app; do ln -sfn "/home/frappe/frappe-bench/apps/$app/$app/public" "/home/frappe/frappe-bench/assets/$app"; done'
+hbteam exec -T backend bash -ec 'for app in hrms hb_attendance_app hb_inventory_app hb_lims_app hbos_portal hb_knowledge_app hb_twin_app; do ln -sfn "/home/frappe/frappe-bench/apps/$app/$app/public" "/home/frappe/frappe-bench/assets/$app"; done'
 hbteam exec -T backend bench --site "$HBOS_TEAM_SITE" set-config host_name "http://$HBOS_TEAM_SITE:$HBOS_TEAM_PORT"
 hbteam exec -T backend bench --site "$HBOS_TEAM_SITE" set-config hbos_portal_origin "http://$HBOS_TEAM_SITE:$HBOS_TEAM_PORT"
 hbteam up -d --no-deps websocket frontend
@@ -165,7 +220,7 @@ curl --noproxy '*' -fsS "http://$HBOS_TEAM_SITE:$HBOS_TEAM_PORT/assets/hbos_port
 curl --noproxy '*' -fsS -o /dev/null "http://$HBOS_TEAM_SITE:$HBOS_TEAM_PORT/hbos/login"
 ```
 
-确认 ping=pong、build-info 的完整 commit=M/dirty=false/build_id 与本次制品一致，Portal/LIMS manifest 中每个资产均可获取且摘要相同。`list-apps` 缺应用或 migrate 出错即失败；不得用私有 monkeypatch、合成 Site 名特判或关闭安全校验继续。
+确认 ping=pong、build-info 的完整 commit=M/dirty=false/build_id 与本次制品一致，Portal/LIMS manifest 中每个资产均可获取且摘要相同；同时核对 served `/assets/assets.json` 中 `hrms.bundle.js`、`hrms.bundle.css`、`hbos_attendance.bundle.js`、`hbos_attendance.bundle.css` 都指向本轮真实存在的资源，并逐项 HTTP 获取验证摘要。`list-apps` 缺应用或 migrate 出错即失败；不得用私有 monkeypatch、合成 Site 名特判或关闭安全校验继续。
 
 默认不启动 scheduler/queue，不发送消息或外部同步；如本版验收依赖后台服务，按最终清单指定的获准范围补启动并记录，不能把未运行异步链记为 PASS。
 
@@ -183,7 +238,8 @@ hbteam exec -T backend bench --site "$HBOS_TEAM_SITE" init-roles --company "$HBO
 # 阅读预览后才加 --apply，命令只创建草稿，不发布、不分配、不授予原生角色。
 hbteam exec -T backend bench --site "$HBOS_TEAM_SITE" init-roles --company "$HBOS_TEAM_COMPANY" --actor team-local-operator --reason '初始化本地隔离验收考勤角色' --apply
 hbteam exec -T backend bench --site "$HBOS_TEAM_SITE" delegate-admin --user "$HBOS_TEAM_ADMIN_USER" --company "$HBOS_TEAM_COMPANY" --actor team-local-operator --reason '建立本地合成管理账号的公司范围委派'
-# 确认预览仅含此公司后，再执行同命令加 --apply。
+# 确认预览仅含此公司后执行写入，仍只影响自己的隔离Site。
+hbteam exec -T backend bench --site "$HBOS_TEAM_SITE" delegate-admin --user "$HBOS_TEAM_ADMIN_USER" --company "$HBOS_TEAM_COMPANY" --actor team-local-operator --reason '建立本地合成管理账号的公司范围委派' --apply
 ```
 
 随后从 `/hbos/login` 用各自账号登录，在“角色与权限”按服务端影响预览及本人密码 proof 发布角色；通过管理中心分配部门默认和个人例外，管理型部门默认须逐人确认。新 Site 未初始化角色、未发布或未关联 Employee 时，空态/拒绝是预期，不能宣称自动拥有全部权限。不要设置 `hbos_iam_test_site`、`hbos_account_test_site` 或 demo bypass 来走通产品流程。

@@ -126,7 +126,17 @@
     },
     "started_at": null,
     "completed_at": null,
-    "build_log_sha256": null
+    "build_log_sha256": null,
+    "desk_toolchain": {
+      "image_id": null,
+      "node": "v24.12.0",
+      "yarn": "1.22.22",
+      "frappe_esbuild_source": "Inherited from the exact approved frappe_base image digest",
+      "hrms_yarn_lock_sha256": null,
+      "command": "CI=1 yarn run production --apps hrms,hb_attendance_app",
+      "custom_hrms_pwa_roster_builds_included": false,
+      "status": "NOT_RUN_ON_FINAL_M"
+    }
   },
   "dependencies": {
     "frappe_base": {
@@ -157,10 +167,13 @@
     },
     "hrms": {
       "source": "https://github.com/frappe/hrms.git",
-      "commit": null,
-      "version": null,
+      "commit": "e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1",
+      "version": "16.13.0",
       "snapshot_sha256": null,
-      "rule": "Record actual reviewed revision/snapshot. Existing synthetic snapshot reports 16.13.0; repository historical dependency lock reports 16.20.0/c0a04b80. Do not silently upgrade shared/existing HRMS."
+      "rule": "Record actual reviewed revision/snapshot. Existing synthetic snapshot reports 16.13.0; repository historical dependency lock reports 16.20.0/c0a04b80. Do not silently upgrade shared/existing HRMS.",
+      "tree": "07f4c5ee8552369fac45ab87fef5b7f17110d444",
+      "snapshot_tracked_manifest_sha256": "e0dae31c2543285288ac5b02c9a50f2e14046b595dc19d49354a87817887dbc7",
+      "source_evidence": "1553/1553 tracked file blobs and modes match the immutable synthetic HRMS snapshot; no missing/modified/extra snapshot files; collected 2026-11-02T14:54:36.494352+08:00"
     },
     "optional_knowledge_service": {
       "included": false,
@@ -184,7 +197,15 @@
     "portal_asset_manifest_sha256": null,
     "lims_asset_manifest_sha256": null,
     "files_verified": null,
-    "download_url": null
+    "download_url": null,
+    "desk_assets": {
+      "manifest_sha256": null,
+      "files": {},
+      "source_commit": null,
+      "hrms_commit": "e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1",
+      "canonical_hash_rule": "sha256(json.dumps(files,sort_keys=True,separators=(',',':')).encode()); exclude final newline",
+      "evidence": null
+    }
   },
   "database": {
     "schema_source_commit": null,
@@ -300,7 +321,7 @@
     "unknowns": [
       "Final product M not yet formed",
       "Fresh install/guide reproduction not executed",
-      "Final exact HRMS source and all runtime dependency digests to be audited"
+      "All runtime dependency digests and Desk assets hashes must be filled from actual final-M build/reproduction"
     ],
     "scope_excluded": [
       "main",

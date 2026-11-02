@@ -1,83 +1,88 @@
 {
-  "status": "SYNTAX_ONLY_NOT_REPRODUCED",
+  "at": "2026-11-02T14:58:13.011233+08:00",
+  "kind": "syntax-only; no runtime/build command executed",
   "checks": [
     {
-      "file": "TEAM_PULL_GUIDE.md",
       "fence": 1,
-      "type": "bash syntax only",
+      "type": "Bash syntax",
       "ok": true,
       "error": ""
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
       "fence": 2,
-      "type": "bash syntax only",
+      "type": "Bash syntax",
       "ok": true,
       "error": ""
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
       "fence": 3,
-      "type": "bash syntax only",
+      "type": "Bash syntax",
       "ok": true,
       "error": ""
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
       "fence": 4,
-      "type": "bash syntax only",
+      "type": "Bash syntax",
       "ok": true,
       "error": ""
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
       "fence": 5,
-      "type": "bash syntax only",
+      "type": "Bash syntax",
       "ok": true,
       "error": ""
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
       "fence": 6,
-      "type": "bash syntax only",
+      "type": "Bash syntax",
       "ok": true,
       "error": ""
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
       "fence": 7,
-      "type": "bash syntax only",
+      "type": "Bash syntax",
       "ok": true,
       "error": ""
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
-      "python_here_doc": 1,
-      "type": "Python AST only",
+      "fence": 8,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "marker": "PY",
+      "type": "Python AST",
       "ok": true
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
-      "python_here_doc": 2,
-      "type": "Python AST only",
+      "marker": "PY",
+      "type": "Python AST",
       "ok": true
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
-      "python_here_doc": 3,
-      "type": "Python AST only",
+      "marker": "PY",
+      "type": "Python AST",
       "ok": true
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
-      "python_here_doc": 4,
-      "type": "Python AST only",
+      "marker": "PY",
+      "type": "Python AST",
       "ok": true
     },
     {
-      "file": "TEAM_PULL_GUIDE.md",
-      "python_here_doc": 5,
-      "type": "Python AST only",
+      "marker": "PY",
+      "type": "Python AST",
+      "ok": true
+    },
+    {
+      "marker": "PY_DESK_PREP",
+      "type": "Python AST",
+      "ok": true
+    },
+    {
+      "marker": "PY_DESK_VERIFY",
+      "type": "Python AST",
       "ok": true
     }
   ]
