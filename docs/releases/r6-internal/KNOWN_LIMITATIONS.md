@@ -22,7 +22,7 @@
 3. `scripts/ci/platform_clean_site_smoke.sh` 默认端口 18090，并带 `down -v` 清理 trap；这不是保留团队环境的安装器，不得原样在本机运行。其 clean-site 顺序在安装 Portal 后才装 pypinyin；本指南预先构建 hash 锁定依赖运行镜像，实际安装仍需验证。
 4. 旧 `docs/team/04_Docker开发环境复现手册.md` 是历史开发环境，含 main/8080、可移动依赖和破坏性清理示例，不作为本版固定版本指南。
 5. `deploy/build_candidate.py` / `release_candidate.py` 是知识 RC1 专用，硬编码其他 project 与任务私有路径；不能作为 R6 通用安装/升级入口。
-6. 仓库 `scripts/release/依赖版本锁.json` 的 HRMS 基线为 16.20.0/c0a04b80，而既有合成只读快照的 `hrms.__version__` 为 16.13.0（目录无 .git）。最终清单必须记录实际完整 revision或可核验快照摘要；不据旧锁自动升级现有共享 HRMS。
-7. 当前指南生成的本地配置/全 App overlay/管理员引导尚未实际复现。未发现已有可直接继承的“最终产品 M 干净安装通过”证据，故不声明团队可拉取复现。
+6. 仓库 `scripts/release/依赖版本锁.json` 的历史 HRMS 基线为16.20.0/c0a04b80；现有合成只读快照已于2026-11-02逐个核对1553个tracked blob及文件模式，完全等于 `e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1` / tree `07f4c5ee8552369fac45ab87fef5b7f17110d444` / v16.13.0，无额外文件。当前源锁采用此实读版本，clean安装使用独立clone；不升级或修改共享HRMS。
+7. 当前指南生成的本地配置、全App只读overlay、同卷sites/assets、HRMS/考勤Desk资产构建和管理员引导尚未在最终M实际复现；命令接口/语法核验不等于执行通过。Portal/LIMS制品以外的Desk产物须单独登记hash，不能借用共享HRMS或旧Site资产。HRMS PWA/roster未构建，不属本版验收入口。未发现可继承的“最终产品M干净安装通过”证据，故不声明团队可拉取复现。
 
 上述限制影响不同门禁；关键重复执行/越权或恢复失败不能用风险偏差放行。原生缩放、首次理解等未测项单列范围，由准确批次决定处理。最终以主执行者的固定候选报告和逐项收据替换草稿状态，不回写历史 PASS。
