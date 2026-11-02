@@ -1,23 +1,4 @@
-> **2026-10-27 #65 旧站点兼容性回归**：IAM未启用时在导入可选Portal包前返回；启用IAM后的请求前读取重试和权限语义保留。Python3.11/3.12各582考勤测试PASS。尚未合并，最新组合及最终产品SHA验收分别记录；TEAM_PULL_READY=PENDING。下列状态按日期保留历史含义。
-
-> **2026-10-27 R6 独立安全修复 / G4_IMPLEMENTING**：请求前只读guard复用current_read，最多4次、回滚后全量重鉴权；拒绝及非读取错误不重试，业务命令不重放。基线实际产品22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b；Owner本轮明确授权独立安全修复与18191合成验证，提案补丁567d2f8fb2180db60edb72d1fb7acf798011dde0d251b165355ba9fa12bb6b7b。本分支未合并、真实UAT未部署、标签及团队发布未获授权，TEAM_PULL_READY=PENDING。详见 `docs/milestones/Portal_R6_请求前鉴权读取并发修复.md`。下列带日期的状态保留历史含义。
-
 # 新乡海滨智能运营管理平台
-
-> **2026-10-27 · 原型整改代码候选**：员工/部门/个人中心/草稿发布完整流程已重做并完成离线复核：44文件409测试、TypeScript及18个改动文件lint通过。浏览器工具在Owner启用后仍返回禁用，同状态原型复核与新构建真实UAT未通过。TEAM_PULL_READY=BLOCKED，不提交整体验收、不发布。详见本轮主记录末节。
-
-> **2026-10-27 · G3/G4 原型完整性重新实施**：Owner否决753候选的员工应用角色、部门安排、个人中心和角色发布理解体验。按固定R6-A2.2/v1.3补齐完整正式流程，旧接口/权限分项结果不代表整体验收。原生200%仅Owner确认753版本；新候选待测。本地DeepSeek按文件执行A/B/C，总实施Codex统一复核、Git及运行验收。浏览器工具当前禁用，新视觉证据待补；TEAM_PULL_READY=BLOCKED_G3_G4_FIDELITY，未生产上线。
-
-> **G4 分页边界修复（2026-10-27）**：真实浏览器在初次读取前点击分页曾发出page=0并进入400；人员/审计分页现仅接受已加载范围内的正整数页，加载及空态禁用。40文件326测试、typecheck及改动lint通过，须新组合复测。Owner已批准的两项独立后端修复在#65/#66实施，当前测试7a的HR开户/首次改密/关联14项及副作用核验PASS，未合并。TEAM_PULL_READY=PENDING。下列按日期保留历史。
-
-> **2026-10-27 R6-B / G4_UAT_IN_PROGRESS**：#62 与 #61 已分别按 Owner 精确授权正常 Squash，实际产品基线为 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。实际提交四个 CI 作业通过。R6 从该 SHA 的 `feat/hbos-r6b-experience-v1` 实施，固定设计依据 R6-A2.2 / v1.3；G4 真实权限与浏览器验收、G5 独立审查及固定 SHA 合并、G6 统一构建/标签/团队发布尚未完成。`TEAM_PULL_READY=PENDING`，未生产上线。详见 [本轮主记录](docs/milestones/Portal_R6B_正式管理体验与稳定集成.md)。以下按日期保留的旧状态为历史。
-
-
-> **2026-10-27 R6 独立安全修复 / G4_IMPLEMENTING**：既有受控开户/关联中仅为Website User准备精确Employee和Company原生限制，保留原生钩子和角色/类型/启用状态核验，并拒绝范围增长或原限制丢失。基线实际产品22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b；Owner本轮明确授权独立兼容修复与18191合成验证，提案补丁e2fe046269f5f5cd983b908191b84e27ea315da21d5a566178bc91c63708d115。本分支未合并、真实UAT未部署、标签及团队发布未获授权，TEAM_PULL_READY=PENDING。详见 `docs/milestones/Portal_R6_具名HR原生关联兼容修复.md`。下列带日期的状态保留历史含义。
-
-
-> **2026-10-27 R6 只读 DTO / CODE_REVIEW_CANDIDATE**：#62/#61 已正常集成，实际产品基线 `22b47dcdcc17e8dfd0f0640d2b9a04ec14303b0b`。Owner 已授权独立补齐本人岗位、审计筛选和脱敏详情；本分支仅含三个后端文件、合同测试及文档，前端另在 PR #63。Python 3.11/3.12 各 261 测试 PASS；真实 Site/HTTP 联调与固定 SHA 合并仍待完成。未生产上线，`TEAM_PULL_READY=PENDING`。见 [本轮主记录](docs/milestones/Portal_R6_只读DTO合同补齐.md)。下列旧状态按日期保留历史含义。
-
 
 
 ## 当前集成状态 — 2026-10-19
