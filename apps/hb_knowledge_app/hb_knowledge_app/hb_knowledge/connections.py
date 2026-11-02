@@ -1,0 +1,237 @@
+"""User-owned, expiring app connections; no Frappe sid or upstream key export."""
+import hashlib, hmac, json, re, secrets, time
+from datetime import datetime, timezone
+from .errors import KnowledgeError
+from .execution_plan import Actor, Client
+from .repositories import ActorState
+from .service_http import canonical
+from .public_strings import safe_string
+
+DOCTYPE = 'HBOS Knowledge Connection'
+TOOLS = ('list_knowledge_spaces', 'search_knowledge', 'get_evidence', 'ask_knowledge')
+AUDIENCE = 'hbos-knowledge-mcp'
+
+def _user(cur, user, cfg):
+    from .frappe_authority import rows
+    from hbos_portal.services.internal_users import classify_internal_user
+    accounts=rows(cur,'SELECT enabled,user_type FROM `tabUser` WHERE name=%s',(user,))
+    roles=tuple(sorted(r['role'] for r in rows(cur,'SELECT role FROM `tabHas Role` WHERE parent=%s AND parenttype=%s',(user,'User'))))
+    security=rows(cur,'SELECT security_version,blocked FROM `tabHBOS Account Security` WHERE user=%s',(user,))
+    version=int(security[0]['security_version']) if security else 0
+    if (not accounts or not classify_internal_user(user,account=accounts[0],roles=roles,config=cfg).allowed
+            or cfg['reader_role'] not in roles or (security and security[0]['blocked'])):
+        raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    return roles,version
+
+def _connection(cur, name, cfg):
+    from .frappe_authority import rows
+    records=rows(cur,'SELECT name,owner_user,token_hash,security_version,audience,expires_at,revoked FROM `tabHBOS Knowledge Connection` WHERE name=%s',(name,))
+    if len(records)!=1:raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    r=records[0]
+    expires=r['expires_at'].replace(tzinfo=timezone.utc).timestamp()
+    roles,version=_user(cur,r['owner_user'],cfg)
+    if r['revoked'] or r['audience']!=AUDIENCE or expires<=time.time() or version!=r['security_version']:
+        raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    return r,roles,expires
+
+def authenticate(token, cfg):
+    from .frappe_authority import committed_view
+    if not isinstance(token,str) or not re.fullmatch(r'hbos_mcp_[0-9a-f]{32}\.[A-Za-z0-9_-]{43}',token):
+        raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    name,secret=token.removeprefix('hbos_mcp_').split('.')
+    with committed_view() as cur:r,roles,expires=_connection(cur,name,cfg)
+    if not hmac.compare_digest(hashlib.sha256(secret.encode()).hexdigest(),r['token_hash']):
+        raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    return r,roles,expires
+
+def issue_actor(token, cfg, state):
+    r,_,expires=authenticate(token,cfg)
+    generation=hmac.new(cfg['proof_key'].encode(),canonical([r['name'],r['token_hash'],r['security_version']]).encode(),hashlib.sha256).hexdigest()
+    ref=hmac.new(cfg['proof_key'].encode(),canonical([cfg['site'],cfg['run_id'],r['name'],generation,AUDIENCE]).encode(),hashlib.sha256).hexdigest()
+    proof={'site':cfg['site'],'instance':cfg['run_id'],'user':r['owner_user'],'generation':generation,
+           'client':cfg['portal_client_id'],'purpose':'knowledge.read','expires':min(expires,time.time()+600),
+           'connection_ref':r['name']}
+    state.set('private-proof:'+ref,canonical(proof),ex=600)
+    return Actor(r['owner_user'],ref,generation,True)
+
+def resolve_actor(actor, client, proof, cfg):
+    from .frappe_authority import committed_view
+    if (proof.get('site'),proof.get('instance'),proof.get('user'),proof.get('client'),proof.get('purpose')) != (
+            cfg['site'],cfg['run_id'],actor.user_ref,client.client_id,'knowledge.read') or proof.get('expires',0)<=time.time():
+        raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    with committed_view() as cur:r,roles,_=_connection(cur,proof['connection_ref'],cfg)
+    generation=hmac.new(cfg['proof_key'].encode(),canonical([r['name'],r['token_hash'],r['security_version']]).encode(),hashlib.sha256).hexdigest()
+    ref=hmac.new(cfg['proof_key'].encode(),canonical([cfg['site'],cfg['run_id'],r['name'],generation,AUDIENCE]).encode(),hashlib.sha256).hexdigest()
+    if (r['owner_user']!=actor.user_ref or not actor.enabled or not hmac.compare_digest(ref,actor.session_ref)
+            or not hmac.compare_digest(generation,actor.session_revision) or generation!=proof['generation']):
+        raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    return ActorState(actor,roles,True)
+
+def create(runtime,label,client_name):
+    import frappe
+    from .shared_reference import configuration
+    cfg=configuration();actor=runtime.actor();runtime.provider._current(actor,runtime.client)
+    if client_name not in {'OpenClaw','Hermes'}:raise KnowledgeError('INVALID_REQUEST')
+    label=safe_string(label or client_name,80).strip()
+    if not label:raise KnowledgeError('INVALID_REQUEST')
+    # Serialize the per-owner active-connection cap across native requests.
+    frappe.db.sql('SELECT name FROM `tabUser` WHERE name=%s FOR UPDATE',(actor.user_ref,))
+    active=frappe.db.count(DOCTYPE,{'owner_user':actor.user_ref,'revoked':0,'expires_at':['>',datetime.now(timezone.utc).replace(tzinfo=None)]})
+    if active>=8:raise KnowledgeError('RATE_LIMITED')
+    name=secrets.token_hex(16);secret=secrets.token_urlsafe(32)
+    verification_data={'client_receipt':None,'server_ready':None,'knowledge_usage':None,'pending_searches':[]}
+    expires=datetime.fromtimestamp(time.time()+7*86400,timezone.utc).replace(tzinfo=None)
+    from .frappe_authority import committed_view
+    with committed_view() as cur:_,version=_user(cur,actor.user_ref,cfg)
+    frappe.get_doc({'doctype':DOCTYPE,'connection_id':name,'owner_user':actor.user_ref,'label':label,
+        'client_name':client_name,'token_hash':hashlib.sha256(secret.encode()).hexdigest(),'security_version':version,
+        'audience':AUDIENCE,'expires_at':expires,'revoked':0,'stage':'Configured','verification_json':canonical(verification_data)}).insert(ignore_permissions=True)
+    runtime.provider._current(actor,runtime.client)
+    return {'id':name,'token':'hbos_mcp_'+name+'.'+secret,'expires_at':expires.isoformat()+'Z',
+            'auth_type':'PERSONAL_BEARER_TOKEN','tools':list(TOOLS)}
+
+def list_owned(runtime):
+    import frappe
+    actor=runtime.actor();runtime.provider._current(actor,runtime.client)
+    rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref},fields=['name','label','client_name','expires_at','revoked','last_used_at','stage','verification_json'],order_by='creation desc',limit_page_length=50)
+    return {'items':[{'id':r.name,'label':safe_string(r.label,80),'client':r.client_name,
+        'expires_at':r.expires_at.isoformat()+'Z','revoked':bool(r.revoked),'expired':r.expires_at<=datetime.now(timezone.utc).replace(tzinfo=None),
+        'last_used_at':r.last_used_at.isoformat()+'Z' if r.last_used_at else None,'stage':r.stage,
+        'checks':verification(getattr(r,'verification_json',None)),
+        'verification_state':verification_state(getattr(r,'verification_json',None)),
+        'knowledge_used_at':knowledge_used_at(getattr(r,'verification_json',None)),
+        'is_test':bool(re.search(r'\bUAT\d*\b|隔离测试',r.label or '',re.I)),
+        'client_receipt':verification(getattr(r,'verification_json',None)).get('client_receipt'),
+        'agent_conversation':'CLIENT_TEST_NOT_RUN'} for r in rows],
+        'tools':list(TOOLS),'auth_type':'PERSONAL_BEARER_TOKEN','ttl_days':7,
+        'portal_logout_revokes_connection':False,'deployment':endpoint_deployment(),
+        'query_blocked':__import__(__package__+'.api',fromlist=['_availability'])._availability(runtime).get('blocked',True),
+        'endpoint':cfg_endpoint(),'client_versions':configuration_metadata('versions'),
+        'client_verification':configuration_metadata('verification')}
+
+def configuration_metadata(field):
+    from .shared_reference import configuration
+    value=configuration().get('mcp_client_validation',{}).get(field,{})
+    allowed={'VERIFIED_TOOLS_ONLY_QUERY_BLOCKED','VERIFIED_QUERY_AND_SOURCE_BEFORE_BUDGET_STOP','PENDING_REAL_CLIENT_TEST',
+             'VERIFIED_SEARCH_AND_EVIDENCE','VERIFIED_AGENT_CONVERSATION'}
+    return {client:safe_string(value.get(client,'PENDING_REAL_CLIENT_TEST' if field=='verification' else '未验证'),80)
+            if field!='verification' or value.get(client) in allowed else 'PENDING_REAL_CLIENT_TEST'
+            for client in ('OpenClaw','Hermes')}
+
+def cfg_endpoint():
+    from .shared_reference import configuration
+    from urllib.parse import urlsplit
+    value=configuration().get('mcp_public_url')
+    if not isinstance(value,str):raise KnowledgeError('POLICY_UNAVAILABLE')
+    try:
+        endpoint=urlsplit(value)
+        local=endpoint.hostname in {'knowledge-r2.localhost','localhost','127.0.0.1','::1'}
+        valid=(endpoint.scheme in {'http','https'} and endpoint.hostname and endpoint.path=='/mcp'
+               and not endpoint.username and not endpoint.password and not endpoint.query and not endpoint.fragment
+               and (endpoint.scheme=='https' or local))
+        endpoint.port  # Reject malformed ports before returning an installation address.
+    except ValueError:valid=False
+    if not valid:raise KnowledgeError('POLICY_UNAVAILABLE')
+    if local and configuration().get('mcp_deployment_mode','LOCAL_UAT')!='LOCAL_UAT':
+        raise KnowledgeError('POLICY_UNAVAILABLE')
+    return value
+
+def endpoint_deployment():
+    from urllib.parse import urlsplit
+    return 'LOCAL_UAT' if urlsplit(cfg_endpoint()).hostname in {'knowledge-r2.localhost','localhost','127.0.0.1','::1'} else 'SERVER_HTTPS'
+
+def revoke(runtime,name):
+    import frappe
+    actor=runtime.actor();runtime.provider._current(actor,runtime.client)
+    if not isinstance(name,str) or not re.fullmatch(r'[0-9a-f]{32}',name):raise KnowledgeError('INVALID_REQUEST')
+    records=frappe.db.sql('SELECT name FROM `tabHBOS Knowledge Connection` WHERE name=%s AND owner_user=%s FOR UPDATE',(name,actor.user_ref))
+    if len(records)!=1:raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    frappe.db.set_value(DOCTYPE,name,{'revoked':1,'stage':'Revoked'})
+    return {'revoked':True}
+
+CHECKS={'Authenticated':'authenticated','Tools Discovered':'tools_discovered',
+        'Search Passed':'search_passed','Evidence Opened':'evidence_opened','Answer Generated':'answer_generated'}
+
+def verification(value):
+    try:parsed=json.loads(value or '{}')
+    except (ValueError,TypeError):raise KnowledgeError('POLICY_UNAVAILABLE') from None
+    if not isinstance(parsed,dict) or set(parsed)-set(CHECKS.values())-{'server_ready','client_receipt','challenge','knowledge_usage','pending_searches'}:raise KnowledgeError('POLICY_UNAVAILABLE')
+    return {**{key:parsed.get(key) for key in CHECKS.values()},**{k:parsed.get(k) for k in ('server_ready','client_receipt','challenge','knowledge_usage','pending_searches')}}
+
+def knowledge_used_at(value):
+    facts=verification(value)
+    usage=facts.get('knowledge_usage') or {}
+    if (usage.get('assurance')=='CONNECTION_SEARCH_AND_EVIDENCE' and usage.get('search_request_id')
+            and usage.get('evidence_request_id') and usage.get('knowledge_used_at')):
+        return usage['knowledge_used_at']
+    # Keep actual UAT3 search/source receipts, without requiring their expired
+    # installation challenge for future natural use of the same connection.
+    receipt=facts.get('client_receipt') or {}
+    if (receipt.get('assurance')=='BOUND_CHALLENGE_TOOL_CALLS' and receipt.get('search_request_id')
+            and receipt.get('evidence_request_id') and receipt.get('knowledge_used_at')):
+        return receipt['knowledge_used_at']
+    return None
+
+def verification_state(value):
+    facts=verification(value);receipt=facts.get('client_receipt') or {}
+    if knowledge_used_at(value):return 'KNOWLEDGE_USED'
+    if receipt.get('authenticated_at') and receipt.get('tools_at'):return 'CLIENT_CONNECTED'
+    if facts.get('server_ready'):return 'SERVER_READY'
+    return 'CLIENT_NOT_VERIFIED'
+
+def observe(name,stage,observation=None,*,result=None,arguments=None):
+    import frappe
+    stages={'Authenticated':1,'Tools Discovered':2,'Knowledge Used':3,'Search Passed':3,'Evidence Opened':4,'Answer Generated':3}
+    if stage not in stages:raise KnowledgeError('INVALID_REQUEST')
+    rows=frappe.db.sql('SELECT stage,revoked,verification_json FROM `tabHBOS Knowledge Connection` WHERE name=%s FOR UPDATE',(name,),as_dict=True)
+    if len(rows)!=1 or rows[0]['revoked']:raise KnowledgeError('AUTHENTICATION_REQUIRED')
+    current=rows[0]['stage'];new=stage if stages.get(current,0)<stages[stage] else current
+    now=datetime.now(timezone.utc).replace(tzinfo=None)
+    facts={k:v for k,v in verification(rows[0].get('verification_json')).items() if v is not None}
+    if stage in CHECKS:facts[CHECKS[stage]]=now.isoformat()+'Z'
+    # Legacy timestamp observations are retained; only the new separated facts
+    # can establish UAT3 client success.
+    observation=observation or {};channel=observation.get('channel')
+    if channel=='PORTAL_SELF_CHECK':
+        if stage=='Tools Discovered':facts['server_ready']=now.isoformat()+'Z'
+    elif channel=='CLIENT':
+        # The signed bridge has authenticated this user's connection token and
+        # the tool result has already passed normal source authorization. App
+        # headers are advisory; neither a challenge nor tools/list is required.
+        pending=[p for p in facts.get('pending_searches') or [] if isinstance(p,dict) and p.get('expires_at',0)>time.time()]
+        if stage=='Search Passed' and isinstance(result,dict) and result.get('request_id'):
+            hashes=[hashlib.sha256(r['evidence_id'].encode()).hexdigest() for r in result.get('results',[])
+                    if isinstance(r,dict) and isinstance(r.get('evidence_id'),str)]
+            if hashes:
+                pending.append({'request_id':result['request_id'],'evidence_hashes':hashes[:50],'expires_at':time.time()+600})
+        elif stage=='Evidence Opened' and isinstance(result,dict) and result.get('request_id') and arguments:
+            handle=arguments.get('evidence_id')
+            digest=hashlib.sha256(handle.encode()).hexdigest() if isinstance(handle,str) else None
+            matches=[p for p in pending if digest in p.get('evidence_hashes',[])]
+            if matches:
+                facts['knowledge_usage']={'connection_id':name,'assurance':'CONNECTION_SEARCH_AND_EVIDENCE',
+                    'search_request_id':matches[-1]['request_id'],'evidence_request_id':result['request_id'],
+                    'knowledge_used_at':now.isoformat()+'Z'}
+                new='Knowledge Used'
+        facts['pending_searches']=pending[-16:]
+        # Existing UAT3 challenge receipts remain append-only compatibility
+        # evidence. They do not gate or identify the executing application.
+        challenge=facts.get('challenge') or {}
+        client=frappe.db.get_value(DOCTYPE,name,'client_name')
+        if (observation.get('challenge_id')==challenge.get('id') and challenge.get('expires_at',0)>time.time()
+            and observation.get('client_name')==client):
+            receipt=facts.get('client_receipt') or {'connection_id':name,'client':client,'challenge_id':challenge['id'],
+                'assurance':'BOUND_CHALLENGE_TOOL_CALLS','authenticated_at':None,'tools_at':None,
+                'search_request_id':None,'evidence_request_id':None,'knowledge_used_at':None,'evidence_hashes':[]}
+            stamp=now.isoformat()+'Z'
+            if stage=='Authenticated':receipt['authenticated_at']=stamp
+            elif stage=='Tools Discovered':receipt['tools_at']=stamp
+            elif stage=='Search Passed' and receipt.get('tools_at') and isinstance(result,dict):
+                receipt['search_request_id']=result.get('request_id');receipt['knowledge_used_at']=None
+                receipt['evidence_hashes']=[hashlib.sha256(r['evidence_id'].encode()).hexdigest() for r in result.get('results',[]) if isinstance(r.get('evidence_id'),str)]
+            elif stage=='Evidence Opened' and receipt.get('search_request_id') and arguments:
+                handle=arguments.get('evidence_id','')
+                if hashlib.sha256(handle.encode()).hexdigest() in receipt['evidence_hashes']:
+                    receipt['evidence_request_id']=(result or {}).get('request_id');receipt['knowledge_used_at']=stamp
+            facts['client_receipt']=receipt
+    frappe.db.set_value(DOCTYPE,name,{'stage':new,'last_used_at':now,'verification_json':canonical(facts)})

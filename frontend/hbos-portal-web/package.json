@@ -21,6 +21,7 @@
     "@ant-design/icons-vue": "^7.0.1",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.12.2",
+    "pdfjs-dist": "6.4.299",
     "pinia": "^3.0.3",
     "three": "^0.186.0",
     "vue": "^3.5.21",
