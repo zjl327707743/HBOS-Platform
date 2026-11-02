@@ -94,9 +94,12 @@ class IAMDocTypeGateTest(unittest.TestCase):
         self.assertEqual(fields["state"]["options"], "PENDING\nCOMMITTED\nABORTED\nSEALED")
 
     def test_model_locations_and_declared_names_cannot_smuggle_an_extra_doctype(self):
+        self.assert_model_catalog(ROOT)
+
+    def assert_model_catalog(self, root):
         import json
-        app = ROOT / "apps/hbos_portal"
-        expected = {app / f"hbos_portal/hbos_portal/doctype/{slug}/{slug}.json" for slug in expected_model_names()}
+        app = root / "apps/hbos_portal"
+        expected = {app / f"hbos_portal/hbos_portal/doctype/{slug}/{slug}.json" for slug in expected_model_names(root)}
         actual = {path for path in app.rglob("*.json") if "/doctype/" in str(path)}
         self.assertEqual(actual, expected)
         for path in actual:
@@ -105,12 +108,38 @@ class IAMDocTypeGateTest(unittest.TestCase):
             self.assertEqual(data["module"], "HBOS Portal")
 
     def test_feature_declarations_require_their_schema_even_when_json_is_missing(self):
+        import json
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             app = root / "apps/hbos_portal/hbos_portal"
             (app / "auth").mkdir(parents=True)
             (app / "iam").mkdir()
-            (app / "auth/write_receipts.py").write_text('"""receipt implementation"""')
-            (app / "iam/role_models.py").write_text("def validate_department_admission(doc):\n    pass\n")
-            self.assertEqual(set(expected_model_names(root)), set(MODEL_NAMES))
-            self.assertFalse((app / "hbos_portal/doctype").exists())
+            def model(slug):
+                path = app / f"hbos_portal/doctype/{slug}/{slug}.json"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps({"name": MODEL_NAMES[slug], "module": "HBOS Portal"}))
+            for slug in expected_model_names(root):
+                model(slug)
+            self.assert_model_catalog(root)
+            receipt = app / "auth/write_receipts.py"
+            admission = app / "iam/role_models.py"
+            receipt.write_text('"""receipt implementation"""')
+            with self.assertRaises(AssertionError):
+                self.assert_model_catalog(root)
+            model("hbos_account_write_receipt")
+            self.assert_model_catalog(root)
+            admission.write_text("def validate_department_admission(doc):\n    pass\n")
+            with self.assertRaises(AssertionError):
+                self.assert_model_catalog(root)
+            model("hbos_iam_department_role_admission")
+            self.assert_model_catalog(root)
+            receipt.unlink()
+            with self.assertRaises(AssertionError):
+                self.assert_model_catalog(root)
+            receipt.write_text('"""receipt implementation"""')
+            admission.write_text('"""no admission implementation"""')
+            with self.assertRaises(AssertionError):
+                self.assert_model_catalog(root)
+            admission.write_text("def broken syntax")
+            with self.assertRaises(SyntaxError):
+                self.assert_model_catalog(root)
