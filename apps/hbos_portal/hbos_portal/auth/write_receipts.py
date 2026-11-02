@@ -358,6 +358,38 @@ def _update(name: str, values: dict) -> None:
     frappe.db.set_value(DOCTYPE, name, values, update_modified=False)
 
 
+def _locked_row(name: str) -> dict | None:
+    # InnoDB locking reads see the latest committed version even when the
+    # request already established a REPEATABLE READ snapshot.
+    fields = ", ".join("`" + field + "`" for field in _fields())
+    try:
+        rows = frappe.db.sql(
+            f"SELECT {fields} FROM `tabHBOS Account Write Receipt` WHERE name=%s FOR UPDATE",
+            (name,), as_dict=True,
+        )
+    except Exception as exc:
+        # The pinned MariaDB can reject a changed RR snapshot with 1020,
+        # surfaced by Frappe as a transaction conflict. Never retry a write
+        # behind the caller's back or return a raw database failure.
+        conflicts = tuple(t for t in (
+            getattr(frappe, "QueryDeadlockError", None),
+            getattr(frappe, "QueryTimeoutError", None),
+        ) if isinstance(t, type))
+        if isinstance(exc, conflicts):
+            _reject(ReceiptProcessing("安全收据在处理期间已变化，请重新查询；本次未执行。"))
+        raise
+    return dict(rows[0]) if rows else None
+
+
+def _current_claim(request_key: str) -> dict | None:
+    row = _get_by_key(request_key)
+    if row:
+        row = _locked_row(row["name"])
+        if not row:
+            _reject(ReceiptUnknown("安全收据状态已变化，请重新核对。"))
+    return row
+
+
 def _now() -> datetime:
     return frappe.utils.now_datetime()
 
@@ -417,7 +449,7 @@ def claim(
     intent = intent_digest(secret, site=site, actor=actor, subject=subject, action=action,
                            payload_digest=payload_digest)
     request_key = session_request_key(secret, site=site, actor=actor, request_id=request_id)
-    existing = _get_by_key(request_key)
+    existing = _current_claim(request_key)
     decision = evaluate_claim(existing, action=action, subject=subject, intent=intent, now=_now())
     status = decision["status"]
     if status == "replayed":
@@ -438,7 +470,7 @@ def claim(
             "failure_code": None, "attempt_count": attempt,
         })
         frappe.db.commit()
-        row = _get_by_key(request_key) or existing
+        row = {**existing, "state": PENDING, "attempt_count": attempt}
         return {"status": "claimed", "request_key": request_key, "row": row,
                 "public": None, "attempt": attempt}
     created = _create_claim({
@@ -482,7 +514,7 @@ def claim_guest_recovery(
     key = guest_request_key(secret, site=site, request_id=request_id, context=context)
     intent = intent_digest(secret, site=site, actor=actor, subject=actor, action=action,
                            payload_digest=payload_digest)
-    existing = _get_by_key(key)
+    existing = _current_claim(key)
     decision = evaluate_claim(existing, action=action, subject=actor, intent=intent, now=_now())
     status = decision["status"]
     if status == "replayed":
@@ -501,7 +533,7 @@ def claim_guest_recovery(
         _update(existing["name"], {"state": PENDING, "claimed_at": _now(), "failed_at": None,
                                    "failure_code": None, "attempt_count": attempt})
         frappe.db.commit()
-        row = _get_by_key(key) or existing
+        row = {**existing, "state": PENDING, "attempt_count": attempt}
         return {"status": "claimed", "request_key": key, "row": row, "public": None, "attempt": attempt}
     created = _create_claim({
         "request_key": key, "channel": "guest_recovery", "request_id": request_id,
@@ -547,22 +579,25 @@ def read_guest_recovery(
     return public_state(row)
 
 
-def mark_committed(token: dict, outcome: dict | None = None) -> None:
-    """Settle a claim inside the caller's business transaction (no commit here).
-
-    The row is locked and re-read first: if the caller sealed or settled this
-    identifier in the meantime, the business transaction must roll back rather
-    than commit behind a receipt that says the result is unknown.
-    """
+def assert_active(token: dict) -> None:
+    """Lock the current attempt until business commit/rollback, before effects."""
     if not token or not token.get("row"):
         return
     name = token["row"]["name"]
-    locked = frappe.db.sql(
-        "SELECT state FROM `tabHBOS Account Write Receipt` WHERE name=%s FOR UPDATE",
-        (name,), as_dict=True,
-    )
-    if not locked or str(locked[0].get("state") or "") != PENDING:
+    locked = _locked_row(name)
+    if (not locked or locked.get("state") != PENDING
+            or not token.get("attempt")
+            or int(locked.get("attempt_count") or 0) != int(token["attempt"])
+            or locked.get("request_key") != token.get("request_key")):
         _reject(ReceiptSealed("该提交在处理期间已被结束或确认，本次未写入，请重新核对。"))
+
+
+def mark_committed(token: dict, outcome: dict | None = None) -> None:
+    """Settle only this attempt inside the business transaction (no commit)."""
+    if not token or not token.get("row"):
+        return
+    assert_active(token)
+    name = token["row"]["name"]
     _update(name, {
         "state": COMMITTED, "committed_at": _now(),
         "outcome_json": json.dumps(outcome or {}, ensure_ascii=False, sort_keys=True)[:2000],
@@ -576,21 +611,22 @@ def abort(token: dict, failure_code: str = "") -> None:
     transaction committed (for example while rotating the session) must leave
     the committed row untouched.
     """
-    if not token or not token.get("request_key"):
+    if not token or not token.get("request_key") or not token.get("attempt"):
         return
     name = (token.get("row") or {}).get("name")
     try:
         if name:
             frappe.db.sql(
                 "UPDATE `tabHBOS Account Write Receipt` SET state=%s, failed_at=%s, failure_code=%s "
-                "WHERE name=%s AND state=%s AND committed_at IS NULL",
-                (ABORTED, _now(), str(failure_code or "")[:140], name, PENDING),
+                "WHERE name=%s AND request_key=%s AND attempt_count=%s AND state=%s AND committed_at IS NULL",
+                (ABORTED, _now(), str(failure_code or "")[:140], name,
+                 token["request_key"], token["attempt"], PENDING),
             )
         else:
             frappe.db.sql(
                 "UPDATE `tabHBOS Account Write Receipt` SET state=%s, failed_at=%s, failure_code=%s "
-                "WHERE request_key=%s AND state=%s AND committed_at IS NULL",
-                (ABORTED, _now(), str(failure_code or "")[:140], token["request_key"], PENDING),
+                "WHERE request_key=%s AND attempt_count=%s AND state=%s AND committed_at IS NULL",
+                (ABORTED, _now(), str(failure_code or "")[:140], token["request_key"], token["attempt"], PENDING),
             )
         frappe.db.commit()
     except Exception:
@@ -642,6 +678,12 @@ def seal(actor: str, request_id: str, action: str = "", *, secret: Any = None) -
     key = session_request_key(secret, site=site, actor=actor, request_id=request_id)
     row = _get_by_key(key)
     if row:
+        previous_attempt = int(row.get("attempt_count") or 0)
+        row = _locked_row(row["name"])
+        if not row or int(row.get("attempt_count") or 0) != previous_attempt:
+            _reject(ReceiptProcessing("该提交尝试已变化，请重新核对；本次未封存。"))
+        if action and str(row.get("action") or "") != action:
+            _reject(ReceiptConflict("此提交编号已用于另一项安全操作，不能按当前操作封存。"))
         state = str(row.get("state") or "")
         if state == COMMITTED:
             return {"sealed": False, "state": COMMITTED, "completed": True,
@@ -659,18 +701,7 @@ def seal(actor: str, request_id: str, action: str = "", *, secret: Any = None) -
         payload_action = str(row.get("action") or action or "password")
         if action and payload_action != action:
             _reject(ReceiptConflict("此提交编号已用于另一项安全操作，不能按当前操作封存。"))
-        locked = frappe.db.sql(
-            "SELECT state FROM `tabHBOS Account Write Receipt` WHERE name=%s FOR UPDATE",
-            (row["name"],), as_dict=True,
-        )
-        locked_state = str((locked[0].get("state") if locked else "") or "")
-        if locked_state == COMMITTED:
-            return {"sealed": False, "state": COMMITTED, "completed": True,
-                    "alreadysettled": True, "message": "原提交已确认完成，无需封存。"}
-        if locked_state == SEALED:
-            return {"sealed": True, "state": SEALED, "alreadysealed": True,
-                    "message": "该未决请求此前已封存。"}
-        if locked_state != PENDING:
+        if state != PENDING:
             _reject(ReceiptProcessing("该提交状态正在变化，请稍后再次查询。"))
         _update(row["name"], {"state": SEALED, "sealed_at": _now(), "sealed_by": actor})
         frappe.db.commit()

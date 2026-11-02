@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "at": "2026-11-02T14:40:59.010489+08:00",
+  "restored_tables": 955,
+  "restored_receipts": 82,
+  "database_query_completed": true,
+  "replay": "replayed",
+  "wrong_key_cannot_locate_result": true,
+  "receipt_signing_key_present": true,
+  "receipt_key_sha256": "71e607141730d7c2b5a08d3a5b9076455f6fd25ea10384726da7895fed4ca862",
+  "encryption_key_present": true,
+  "scope": "full synthetic SQL restored, original site config restored, production receipt module SQL query/replay; not a full Frappe boot or final-product installation",
+  "database_backup_sha256": "471aac3104a755ec60b0d6082da4cf7a4ea11cfa3bd2e3dde74da586e148d770",
+  "site_archive_sha256": "58c4520bd3ff863899057be80406ba2f1038c09165ea20c94e8c1ab9ad5601ce",
+  "archived_file_count": 26,
+  "archive_files_verified": true
+}

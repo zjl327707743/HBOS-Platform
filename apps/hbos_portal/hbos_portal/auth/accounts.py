@@ -444,6 +444,8 @@ def admin_issue_recovery(user: str, reason: str, request_id: str = '') -> dict:
             # The original link is deliberately not readable or re-issued.
             return {'already_issued': True, 'recovery_url': '', 'target': None, 'expires_in': 0}
     try:
+        if claim:
+            write_receipts.assert_active(claim)
         proof = require_proof(administrator, consume=True)
         if proof["method"] != "password":
             frappe.throw("签发恢复链接须重新验证管理员密码及原有二次认证。", frappe.AuthenticationError)
@@ -609,6 +611,8 @@ def _write_password(user: str, new_password: str, *, receipt=None) -> None:
     from frappe.core.doctype.user.user import test_password_strength, handle_password_test_fail
     from frappe.utils.password import update_password as write_standard_password
 
+    if receipt:
+        write_receipts.assert_active(receipt)
     require_user(user)
     locked = frappe.db.sql("SELECT enabled FROM `tabUser` WHERE name=%s FOR UPDATE", (user,))
     if not locked or not locked[0][0]:
@@ -654,6 +658,8 @@ def set_password(new_password: str, request_id: str = "") -> dict:
         if claim["status"] == "replayed":
             return {"changed": True, "login_name": frappe.db.get_value("User", user, "username") or user, "replayed": True}
     try:
+        if claim:
+            write_receipts.assert_active(claim)
         require_proof(user, consume=True)
         _write_password(user, new_password, receipt=claim)
         return {"changed": True, "login_name": frappe.db.get_value("User", user, "username") or user, "session_rotated": True}
@@ -674,6 +680,8 @@ def unlink_feishu(request_id: str = "") -> dict:
         if claim["status"] == "replayed":
             return {"unlinked": True, "replayed": True}
     try:
+        if claim:
+            write_receipts.assert_active(claim)
         proof = require_proof(user, consume=True)
         if proof["method"] != "password":
             frappe.throw("解绑须验证已可用的本地密码及原有二次认证。", frappe.AuthenticationError)

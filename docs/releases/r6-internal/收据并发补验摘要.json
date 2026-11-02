@@ -1,0 +1,30 @@
+{
+  "before-read-committed": {
+    "at": "2026-11-02T14:41:24.516147+08:00",
+    "source_sha256": "3d2e58534a82a344ab6d1d447480100cadbb6fe0b9a5b0844d5d9556690a1ea8",
+    "passed": 4,
+    "failed": 12,
+    "file_sha256": "0b39f67eda199a3b41d5a658349df37917639d001919510f62a67986a9050bdc"
+  },
+  "after-read-committed": {
+    "at": "2026-11-02T14:41:25.753811+08:00",
+    "source_sha256": "660b35d1a983b56ca2f925d2ff03f93966056ddd16d04f9d6e08e55afeaf605e",
+    "passed": 16,
+    "failed": 0,
+    "file_sha256": "b32f4f52746c2317e37c33d8c06b33612bfb033b997eaadad3034693c28ccb4a"
+  },
+  "before-repeatable-read": {
+    "at": "2026-11-02T14:41:27.424741+08:00",
+    "source_sha256": "3d2e58534a82a344ab6d1d447480100cadbb6fe0b9a5b0844d5d9556690a1ea8",
+    "passed": 4,
+    "failed": 12,
+    "file_sha256": "547515e695cc9745c878d4c400104241cac80e13effeedb42efe34265bcfa5a2"
+  },
+  "after-repeatable-read": {
+    "at": "2026-11-02T14:41:29.536514+08:00",
+    "source_sha256": "660b35d1a983b56ca2f925d2ff03f93966056ddd16d04f9d6e08e55afeaf605e",
+    "passed": 16,
+    "failed": 0,
+    "file_sha256": "c98a72754e5d325019823c49479cedfb61571d77c7fa1f8f45de9aa26e9a487f"
+  }
+}
