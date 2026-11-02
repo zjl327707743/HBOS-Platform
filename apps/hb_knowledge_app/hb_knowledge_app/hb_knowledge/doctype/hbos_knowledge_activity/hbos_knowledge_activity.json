@@ -1,0 +1,73 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Activity",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "field:activity_id",
+  "field_order": [
+    "activity_id",
+    "owner_user",
+    "kind",
+    "payload_json",
+    "status",
+    "publication_id"
+  ],
+  "fields": [
+    {
+      "fieldname": "activity_id",
+      "fieldtype": "Data",
+      "label": "Activity Id",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "owner_user",
+      "fieldtype": "Link",
+      "label": "Owner User",
+      "reqd": 1,
+      "options": "User"
+    },
+    {
+      "fieldname": "kind",
+      "fieldtype": "Select",
+      "label": "Kind",
+      "reqd": 1,
+      "options": "History\nBookmark\nFeedback"
+    },
+    {
+      "fieldname": "payload_json",
+      "fieldtype": "Long Text",
+      "label": "Payload Json",
+      "reqd": 1
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "reqd": 1,
+      "options": "Saved\nPending\nIn Review\nResolved"
+    },
+    {
+      "fieldname": "publication_id",
+      "fieldtype": "Data",
+      "label": "Publication Id",
+      "reqd": 0
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1,
+      "export": 0,
+      "share": 0,
+      "print": 0,
+      "email": 0
+    }
+  ],
+  "track_changes": 0,
+  "allow_rename": 0,
+  "index_web_pages_for_search": 0
+}

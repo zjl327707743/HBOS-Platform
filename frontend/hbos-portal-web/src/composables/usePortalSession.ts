@@ -14,13 +14,33 @@ export function usePortalSession() {
   let disposed = false, initialized = false, detach: (() => void) | undefined, domainFlight: Promise<boolean> | null = null
   const accessChecking = ref(false), accessError = ref<string | null>(null)
   const accessApproved = ref(false)
-  watch(() => portalSession.generation, () => { accessApproved.value = false }, { flush: 'sync' })
+  // Advances only after a *successful* re-verification that changed the signed-in
+  // subject or the authorized app set. The knowledge workspace watches it to
+  // refresh authorization in place; a resume with nothing new must not look like
+  // a refresh to the views, or every tab switch re-pulls the catalogue and the
+  // reader loses its position.
+  const sessionRevision = ref(0)
+  let identitySignature = ''
+  watch(() => portalSession.generation, () => {
+    accessApproved.value = false
+    // A confirmed session boundary (login, logout, subject change) after this
+    // page had already verified an identity is always worth a re-read. The
+    // boundary raised while the first identity is being established is not a
+    // change: the views are mounting and read their own state.
+    if (identitySignature) sessionRevision.value++
+    identitySignature = ''
+  }, { flush: 'sync' })
   const real = portalDataSource === 'frappe'
   const sessionPending = computed(() => real ? !portalSession.mounted && portalSession.phase === 'initial' : mockPending.value)
   const sessionError = computed(() => real ? portalSession.error || accessError.value || null : mockError.value)
   const sessionReady = computed(() => accessApproved.value && (real ? portalSession.mounted : !mockPending.value && !!portal.user))
   const sessionGeneration = computed(() => real ? portalSession.generation : 0)
   const sessionBlocked = computed(() => real && (!accessApproved.value || accessChecking.value || !!accessError.value || !portalSession.mounted || ['unconfirmed','guest','logging_out','password_required'].includes(portalSession.phase)))
+  function recordVerifiedIdentity() {
+    const next = `${portal.user?.id ?? ''}|${portal.apps.map(app => app.id).join(',')}`
+    if (identitySignature && next !== identitySignature) sessionRevision.value++
+    identitySignature = next
+  }
   function checkAccess(refresh = false): Promise<boolean> {
     if (domainFlight) return domainFlight
     const pending = (async () => {
@@ -29,7 +49,12 @@ export function usePortalSession() {
       try {
         if (refresh) {
           const generation = portalSession.generation
-          await portal.bootstrap()
+          // The knowledge workspace asks for a light re-check: it needs the
+          // identity and the manifest, not the home feed, and the manifest's
+          // empty arrays would otherwise blank metrics, tasks, pulse and the
+          // LIMS queue. Every other shell keeps the platform's full refresh, so
+          // its resume path behaves exactly as before this merge.
+          await portal.bootstrap({ light: /^\/hbos\/(knowledge|twin)(?:\/|$)/.test(route.path) })
           if (disposed || generation !== portalSession.generation) return false
           if (portal.user?.id !== portalSession.security?.user) {
             resetPortalSession(false)
@@ -55,6 +80,7 @@ export function usePortalSession() {
           }
         }
         accessApproved.value = true
+        recordVerifiedIdentity()
         return true
       } catch (error) {
         if (!disposed) accessError.value = error instanceof Error ? error.message : '暂时无法核对应用权限，请重试。'
@@ -88,5 +114,5 @@ export function usePortalSession() {
   }
   onMounted(() => { if (real) { detach = attachPortalSession(); window.addEventListener('hbos:security-confirmed', confirmed) }; void synchronize() })
   onBeforeUnmount(() => { disposed = true; detach?.(); window.removeEventListener('hbos:security-confirmed', confirmed) })
-  return { sessionPending, sessionError, sessionReady, sessionBlocked, sessionGeneration, synchronize }
+  return { sessionPending, sessionError, sessionReady, sessionBlocked, sessionGeneration, sessionRevision, synchronize }
 }

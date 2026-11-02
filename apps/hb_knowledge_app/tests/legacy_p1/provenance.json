@@ -1,0 +1,6 @@
+{
+  "purpose": "Preserve original P1 gateway assertions on original transport; not candidate integration evidence",
+  "source_commit": "72e5b1728981b7ef102a2c9ee033ce0452c400e7",
+  "source_path": "apps/hb_knowledge_app/hb_knowledge_app/hb_knowledge/gateway.py",
+  "sha256": "a7768c83a8007396ed80a6a0360df1ec1be28ae0525629f9fcc18dbae4aed704"
+}

@@ -839,3 +839,29 @@ export function blockFrappeWrites(blocked: boolean) { writesBlocked = blocked }
 export function invalidateFrappeRequests() { requestEpoch++; clearFrappeCsrfToken() }
 export const frappeDiagnostics = { document: import.meta.env.DEV ? crypto.randomUUID() : '', security: 0, capabilities: 0, bootstrap: 0 }
 export const developmentObservation = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('iam_uat') === '1'
+
+// ---------------------------------------------------------------------------
+// Knowledge maintenance upload (知识维护：multipart write)
+// ---------------------------------------------------------------------------
+
+/**
+ * A multipart write carries the same guarantees as the other writes on this
+ * client: it is refused while a session re-check is blocking writes, it is
+ * bound to the CSRF generation it started with, and a result that arrives
+ * after the session boundary is discarded instead of being applied.
+ */
+export async function callFrappeUploadMethod<T>(method: string, form: FormData): Promise<T> {
+  if (writesBlocked) throw new FrappeRequestError('SESSION_UNCONFIRMED', '正在核对当前登录状态，请稍后再提交。')
+  const epoch = requestEpoch
+  const generation = csrfGeneration
+  try {
+    const token = await getCsrfToken()
+    assertCsrfGeneration(generation)
+    const response = await http.post<FrappeMethodResponse<T>>(`/api/method/${method}`, form, { hbosCsrfGeneration: generation } as SessionGuardedRequestConfig)
+    assertCsrfGeneration(generation)
+    assertEpoch(epoch); return response.data.message
+  } catch (error) {
+    assertCsrfGeneration(generation, error)
+    throw await requestError(error, method, epoch)
+  }
+}
