@@ -16,11 +16,15 @@ RELEASE = 'HBOS IAM Role Release'
 FEATURE = 'HBOS IAM Role Feature'
 ASSIGNMENT = 'HBOS IAM Role Assignment'
 SCOPE = 'HBOS IAM Role Scope'
+ADMISSION = 'HBOS IAM Department Role Admission'
 BLUEPRINTS = {
     'staff': ('普通员工', 'SELF'),
     'clerk': ('部门考勤员', 'DEPARTMENT'),
     'admin': ('考勤管理员', 'COMPANY'),
 }
+# These roles are broad enough that following a department default must not add
+# them to a person without an explicit, server-verified admission confirmation.
+MANAGEMENT_ROLE_KEYS = {'clerk', 'admin'}
 # An entry becomes publishable only when its actual executor is integrated.
 OPERATIONS = {
     'attendance.read': ('查看自己的考勤', 'self', 'SELF', True),
@@ -200,7 +204,55 @@ def preserves_legacy_personal(employee):
     return bool({policy.value(row,'role') for row in native}&{'HR User','HR Manager','System Manager'})
 
 
-def resolve(employee, app_id='attendance', *, own_override=_UNSET, default_override=_UNSET):
+def _normalized_scope_rows(scopes):
+    return sorted([
+        {'scope_type': policy.value(row, 'scope_type'), 'scope_ref': policy.value(row, 'scope_ref'),
+         'include_descendants': int(policy.value(row, 'include_descendants') or 0)}
+        for row in scopes
+    ], key=lambda row: (row['scope_type'], row['scope_ref']))
+
+
+def admission_key(department, app_id, employee_name):
+    return hashlib.sha256(('hbos-iam-admission\x1f' + app_id + '\x1f' + department + '\x1f' + employee_name).encode()).hexdigest()
+
+
+def admission_hash(department, app_id, employee, role, release, scopes):
+    """Server-only identity/version binding for a management-role admission."""
+    snapshot = {
+        'department': department, 'app_id': app_id,
+        'employee': {
+            'name': policy.value(employee, 'name'), 'user_id': policy.value(employee, 'user_id'),
+            'department': policy.value(employee, 'department'), 'company': policy.value(employee, 'company'),
+            'status': policy.value(employee, 'status'), 'modified': str(policy.value(employee, 'modified') or ''),
+        },
+        'role': role.name, 'role_key': role.role_key,
+        'release': release.name, 'revision': release.revision, 'content_hash': release.content_hash,
+        'responsibilities': _normalized_scope_rows(scopes),
+    }
+    return digest(snapshot)
+
+
+def admission_row(department, app_id, employee_name, *, for_update=False):
+    if not frappe.db.exists('DocType', ADMISSION):
+        # A runtime without the bounded migration cannot claim management rights.
+        return None
+    rows = frappe.db.sql(
+        'select * from `tab' + ADMISSION + '` where department=%s and app_id=%s and employee=%s order by name limit 2'
+        + (' for update' if for_update else ''),
+        (department, app_id, employee_name), as_dict=True)
+    if len(rows) > 1:
+        frappe.throw('部门管理角色准入存在冲突，已拒绝授权。', frappe.PermissionError)
+    return rows[0] if rows else None
+
+
+def admission_confirmed(department, app_id, employee, role, release, scopes):
+    row = admission_row(department, app_id, policy.value(employee, 'name'))
+    expected = admission_hash(department, app_id, employee, role, release, scopes)
+    confirmed = bool(row and row.get('status') == 'CONFIRMED' and row.get('config_hash') == expected)
+    return confirmed, row, expected
+
+
+def resolve(employee, app_id='attendance', *, own_override=_UNSET, default_override=_UNSET, admission_override=_UNSET):
     """None means this subject is still on the exact legacy evaluator."""
     if not enabled() or app_id != 'attendance':
         return None
@@ -249,6 +301,13 @@ def resolve(employee, app_id='attendance', *, own_override=_UNSET, default_overr
             return {**result, 'reason': '发布版本内容来源待复核。'}
     except (frappe.PermissionError, frappe.ValidationError):
         return {**result, 'reason': '角色功能或负责范围待复核。'}
+    if selected is inherited and role.role_key in MANAGEMENT_ROLE_KEYS and admission_override is not True:
+        confirmed, row, expected = admission_confirmed(policy.value(employee, 'department'), app_id, employee, role, release, scopes)
+        status = str(policy.value(row, 'status') or 'NONE').lower() if row else 'none'
+        if not confirmed:
+            reason = '部门管理角色准入待确认。' if status != 'confirmed' else '部门管理角色准入上下文已变化，需重新确认。'
+            return {**result, 'admission_status': status, 'admission_hash': expected, 'reason': reason}
+        result.update(admission_status='confirmed', admission_hash=expected)
     return {**result, 'release': release.name, 'published_revision': release.revision, 'content_hash': release.content_hash,
             'features': features, 'responsibilities': scopes, 'reason': ''}
 

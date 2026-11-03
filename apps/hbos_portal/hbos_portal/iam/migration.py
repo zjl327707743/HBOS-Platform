@@ -34,6 +34,9 @@ def migrate():
         ('HBOS IAM Role Assignment', ['role', 'app_id', 'enabled'], 'hbos_iam_role_assignment_role', False),
         ('HBOS IAM Role Assignment', ['subject_type', 'subject_name', 'app_id'], 'hbos_iam_role_assignment_subject', False),
         ('HBOS IAM Role Scope', ['parenttype', 'parent', 'parentfield', 'scope_type', 'scope_ref'], 'hbos_iam_role_scope_lookup', False),
+        ('HBOS IAM Department Role Admission', ['department', 'app_id', 'employee'], 'hbos_iam_department_admission_lookup', True),
+        ('HBOS IAM Department Role Admission', ['department', 'app_id', 'status'], 'hbos_iam_department_admission_status', False),
+        ('HBOS IAM Department Role Admission', ['employee', 'app_id', 'status'], 'hbos_iam_department_admission_employee', False),
     ]
     for doctype, fields, name, unique in role_indexes:
         if frappe.db.table_exists(doctype):
