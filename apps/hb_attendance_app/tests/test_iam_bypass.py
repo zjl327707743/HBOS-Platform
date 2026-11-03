@@ -179,3 +179,69 @@ class AttendanceBypassTest(unittest.TestCase):
         self.request("/api/resource/Attendance/ATT-B")
         boundary.guard_file(self.doc(attached_to_doctype="Attendance", is_private=0), "before_insert")
 
+    def test_request_guard_rechecks_revoked_authority_after_read_conflict(self):
+        from hbos_portal.iam import policy
+        conflict = type('ReadConflict', (Exception,), {})
+        self.fake.QueryDeadlockError = conflict
+        self.fake.db.rollback = Mock()
+        # The first attempt cannot finish its authority read. The current
+        # transaction after rollback has no native HR authority.
+        with patch.object(policy, 'frappe', self.fake), patch('time.sleep'), \
+                patch.object(boundary, 'legacy_hr', side_effect=[conflict(), False]) as authority:
+            with self.assertRaises(Denied):
+                self.request('/api/resource/Attendance/ATT-B')
+        self.assertEqual(2, authority.call_count)
+        self.fake.db.rollback.assert_called_once_with()
+
+    def test_request_read_conflicts_are_bounded_and_never_allow_dispatch(self):
+        from hbos_portal.iam import policy
+        for name in ('QueryDeadlockError', 'QueryTimeoutError'):
+            conflict = type(name, (Exception,), {})
+            setattr(self.fake, name, conflict)
+            self.fake.db.rollback = Mock()
+            endpoint = Mock()
+            with self.subTest(name=name), patch.object(policy, 'frappe', self.fake), \
+                    patch('time.sleep') as delay, \
+                    patch.object(boundary, 'legacy_hr', side_effect=conflict()) as authority:
+                with self.assertRaises(conflict):
+                    self.request('/api/method/frappe.client.save')
+                    endpoint()
+                self.assertEqual(4, authority.call_count)
+                self.assertEqual(4, self.fake.db.rollback.call_count)
+                self.assertEqual(3, delay.call_count)
+                endpoint.assert_not_called()
+
+    def test_recovered_pre_dispatch_read_does_not_repeat_endpoint_command(self):
+        from hbos_portal.iam import policy
+        conflict = type('ReadConflict', (Exception,), {})
+        self.fake.QueryDeadlockError = conflict
+        self.fake.db.rollback = Mock()
+        endpoint = Mock()
+        with patch.object(policy, 'frappe', self.fake), patch('time.sleep'), \
+                patch.object(boundary, 'legacy_hr', side_effect=[conflict(), False]):
+            self.request('/api/method/frappe.client.save')
+            endpoint()
+        endpoint.assert_called_once_with()
+
+    def test_request_permission_denial_is_never_retried(self):
+        from hbos_portal.iam import policy
+        self.fake.db.rollback = Mock()
+        with patch.object(policy, 'frappe', self.fake), patch('time.sleep') as delay, \
+                patch.object(boundary, 'legacy_hr', side_effect=Denied()) as authority:
+            with self.assertRaises(Denied):
+                self.request('/api/resource/Attendance/ATT-B')
+        authority.assert_called_once()
+        delay.assert_not_called()
+        self.fake.db.rollback.assert_not_called()
+
+    def test_disabled_iam_does_not_import_optional_portal_package(self):
+        import builtins
+        original = builtins.__import__
+        def without_portal(name, *args, **kwargs):
+            if name.startswith('hbos_portal'):
+                raise ModuleNotFoundError('optional Portal is not installed')
+            return original(name, *args, **kwargs)
+        self.fake.conf.hbos_iam_enabled = 0
+        with patch('builtins.__import__', side_effect=without_portal):
+            self.request('/api/resource/Attendance/ATT-B')
+
