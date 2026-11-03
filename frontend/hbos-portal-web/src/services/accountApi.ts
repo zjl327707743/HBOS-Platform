@@ -2,14 +2,24 @@ import axios from 'axios'
 import { callFrappeMethod, callFrappePostMethod } from './frappeClient'
 
 export interface ProofStatus { valid: boolean; expires_in: number; method: string | null }
+export interface AccountWriteReceipt {
+  completed: boolean; action: string
+  // Durable receipt state (PR: account write receipts). Optional so cached or
+  // older server responses keep their version-1 "completed" semantics.
+  state?: 'PENDING' | 'COMMITTED' | 'ABORTED' | 'SEALED' | 'UNKNOWN'
+  processing?: boolean; retryable?: boolean; sealed?: boolean; unknown?: boolean
+  committed_at?: string | null; legacy?: boolean
+}
 export interface SecurityStatus {
   user: string; login_name: string; has_password: boolean; password_login_available?: boolean; feishu_bound: boolean
+  identity?: { display_name: string; employee_number: string; department: string; login_name: string }
   feishu_configured: boolean; feishu_stepup_available: boolean; desk_access: boolean
   administrator: boolean; administrator_link_enabled: boolean; mail_recovery_available: boolean
   can_admin_recover: boolean
   proof?: ProofStatus
-  write_result?: { completed: boolean; action: string }
+  write_result?: AccountWriteReceipt
 }
+export interface AccountWriteSealResult { sealed: boolean; state: string; message?: string; retryable?: boolean; completed?: boolean }
 export interface MfaResult { mfa_required?: boolean; tmp_id?: string; verified?: boolean; expires_in?: number }
 export interface PendingAccount { intent: 'choose' | 'link' | 'login_mfa'; user?: string; display_name: string; csrf: string; expires_in: number }
 export interface RecoveryChannels { site: string; feishu_login: boolean; feishu_password_recovery: boolean; verified_email: boolean; administrator_assistance: boolean }
@@ -27,6 +37,9 @@ export const unlinkFeishu = (request_id = '') => callFrappePostMethod(prefix + '
 export const startLink = () => callFrappePostMethod<{ authorize_url: string }>('hbos_portal.auth.feishu.start_link')
 export const getPending = () => callFrappeMethod<PendingAccount>(prefix + 'get_pending')
 export const adminIssueRecovery = (user: string, reason: string, request_id = '') => callFrappePostMethod<RecoveryLink>(prefix + 'admin_issue_recovery', { user, reason, request_id })
+// Ends ONE unresolved request after a fresh proof. It never claims success and
+// never re-dispatches the original identifier.
+export const sealUnknownWrite = (request_id: string, action: string, confirm: string) => callFrappePostMethod<AccountWriteSealResult>(prefix + 'seal_unknown_write', { request_id, action, confirm })
 export const getRecoveryChannels = () => callFrappeMethod<RecoveryChannels>(prefix + 'get_recovery_channels')
 
 // Guest account selection and recovery have no persistent Frappe CSRF session.

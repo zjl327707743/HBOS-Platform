@@ -20,13 +20,22 @@ export async function getEffectiveWork(target: WorkTarget, meta?: RegisteredApp)
   if(raw.subject_type!==target.subject_type||raw.subject_name!==target.subject_name)throw new IamError('服务端配置主体与当前目标不符。')
   return projectWork(raw, app)
 }
-async function summary(subject_type: 'User' | 'Department', subject_name: string, onlyApp?: string): Promise<WorkSummary> {
+let summaryQueue: Promise<void> = Promise.resolve()
+function enqueueSummary<T>(read: () => Promise<T>): Promise<T> {
+  const task = summaryQueue.then(read, read)
+  summaryQueue = task.then(() => undefined, () => undefined)
+  return task
+}
+async function readSummary(subject_type: 'User' | 'Department', subject_name: string, onlyApp?: string): Promise<WorkSummary> {
   const { apps } = await getRegisteredApps()
-  const items = await Promise.all(apps.filter(app => app.id !== 'iam' && (!app.synthetic || app.integrated) && (!onlyApp || app.id===onlyApp)).map(app => getEffectiveWork({ subject_type, subject_name, app_id: app.id }, app)))
+  const items: WorkApp[] = []
+  for (const app of apps.filter(app => app.id !== 'iam' && (!app.synthetic || app.integrated) && (!onlyApp || app.id===onlyApp))) {
+    items.push(await getEffectiveWork({ subject_type, subject_name, app_id: app.id }, app))
+  }
   return { subject_type, subject_name, apps: items }
 }
-export async function getWorkSummary(employee_id: string, appId?:string) { const person = canIam('iam.people.read') ? await getPerson(employee_id) : await getWorkSubject(employee_id,appId||'attendance'); return { ...await summary(person.employee.user_id ? 'User' : 'Department', person.employee.user_id || person.employee.department,appId), employee_id } }
-export const getDepartmentWork = (department: string) => summary('Department', department)
+export function getWorkSummary(employee_id: string, appId?:string) { return enqueueSummary(async () => { const person = canIam('iam.people.read') ? await getPerson(employee_id) : await getWorkSubject(employee_id,appId||'attendance'); return { ...await readSummary(person.employee.user_id ? 'User' : 'Department', person.employee.user_id || person.employee.department,appId), employee_id } }) }
+export const getDepartmentWork = (department: string) => enqueueSummary(() => readSummary('Department', department))
 export interface WorkDraft { target: WorkTarget; changes: WorkChange[]; expected_version: number; context_revision: string }
 function payload(draft: WorkDraft) { return { subject_type: draft.target.subject_type, subject_name: draft.target.subject_name, app_id: draft.target.app_id, changes: draft.changes, expected_version: draft.expected_version, context_revision: draft.context_revision } }
 interface RawPreview { before: EffectiveWork; after: EffectiveWork; changed: boolean; context_revision: string; impact?: WorkPreview['impact'] }

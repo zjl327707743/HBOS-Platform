@@ -4,8 +4,9 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+const props = withDefaults(defineProps<{ paused?: boolean }>(), { paused: false })
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const x = ref(typeof window !== 'undefined' ? window.innerWidth * 0.5 : 0)
 const y = ref(typeof window !== 'undefined' ? window.innerHeight * 0.28 : 0)
@@ -106,7 +107,7 @@ function stop() {
   particles.length = 0; running = false
 }
 function synchronizeMotion() {
-  if (document.visibilityState === 'hidden' || motion?.matches) { stop(); return }
+  if (props.paused || document.visibilityState === 'hidden' || motion?.matches) { stop(); return }
   if (running) return
   running = true
   pointerHandler = (event: PointerEvent) => {
@@ -120,6 +121,7 @@ function synchronizeMotion() {
   window.addEventListener('pointermove', pointerHandler, { passive: true })
   animatePointer(); setupCanvas()
 }
+watch(() => props.paused, synchronizeMotion)
 onMounted(() => {
   motion = window.matchMedia('(prefers-reduced-motion: reduce)')
   motion.addEventListener('change', synchronizeMotion)

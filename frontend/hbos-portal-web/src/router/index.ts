@@ -58,16 +58,16 @@ const router = createRouter({
         { path: '', name: 'portal-home', component: () => import('@/views/PortalHome.vue'), meta: { title: 'HBOS 首页' } },
         { path: 'work', name: 'my-work', component: () => import('@/views/MyWorkView.vue'), meta: { title: '我的工作' } },
         { path: 'apps', name: 'apps', component: () => import('@/views/AppCenterView.vue'), meta: { title: '应用中心' } },
-        { path: 'profile', name: 'profile', component: () => import('@/views/ProfileSettingsView.vue'), meta: { title: '我的与设置' } },
+        { path: 'profile', name: 'profile', component: () => import('@/views/ProfileSettingsView.vue'), meta: { title: '个人中心' } },
         { path: 'inventory/item/:itemCode?', name: 'inventory-item-readonly', component: () => import('@/views/InventoryItemReadOnlyView.vue'), meta: { title: '仓储 · 物料只读浏览' } },
         { path: 'attendance/me', component: () => import('@/views/attendance/MyAttendanceView.vue'), meta: { title: '我的考勤', attendanceSelf: true } },
         { path: 'admin', component: () => import('@/views/admin/AdminWorkspaceView.vue'), meta: { title: '管理中心', iam: true }, children: [
           { path: '', component: () => import('@/views/admin/AdminAccessUnavailableView.vue') },
           { path: 'people', component: () => import('@/views/admin/PeopleAdminView.vue'), meta: { title: '员工管理', iamCapability: 'iam.people.read' } },
-          { path: 'departments', component: () => import('@/views/admin/DepartmentsAdminView.vue'), meta: { title: '部门管理', iamCapability: 'iam.departments.read' } },
+          { path: 'departments', component: () => import('@/views/admin/DepartmentsAdminView.vue'), meta: { title: '部门应用权限', iamCapability: 'iam.departments.read' } },
           { path: 'access', component: () => import('@/views/admin/AccessAdminView.vue'), meta: { title: '应用权限', iamCapability: 'iam.access.read' } },
           { path: 'roles', component: () => import('@/views/admin/RolesAdminView.vue'), meta: { title: '角色与权限', iamCapability: 'iam.roles.read' } },
-          { path: 'audit', component: () => import('@/views/admin/AuditAdminView.vue'), meta: { title: '变更审计', iamCapability: 'iam.audit.read' } },
+          { path: 'audit', component: () => import('@/views/admin/AuditAdminView.vue'), meta: { title: '变更记录', iamCapability: 'iam.audit.read' } },
           { path: 'unavailable', component: () => import('@/views/admin/AdminAccessUnavailableView.vue'), meta: { title: '管理功能暂不可用' } },
         ] },
         { path: '403', name: 'forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { title: '无权限' } },
@@ -123,7 +123,7 @@ const router = createRouter({
         { path: 'stability/samples', name: 'lims-stability-samples', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 样品入箱台账', limsCapability: 'stability' } },
         { path: 'stability/results', name: 'lims-stability-results', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 稳定性结果', limsCapability: 'stability' } },
         { path: 'stability/trend', name: 'lims-stability-trend', component: () => import('@/views/LimsStabilityWorkbenchView.vue'), meta: { title: 'LIMS · 趋势分析', limsCapability: 'stability' } },
-        { path: 'roles', component: () => import('@/views/admin/RolesAdminView.vue'), meta: { title: '角色与权限', iamCapability: 'iam.roles.read' } },
+        { path: 'roles', component: () => import('@/views/admin/RolesAdminView.vue'), meta: { title: '角色与权限', iam: true, iamCapability: 'iam.roles.read' } },
           { path: 'audit', name: 'lims-audit', component: () => import('@/views/LimsAuditView.vue'), meta: { title: 'LIMS · 合规审计', limsCapability: 'audit' } },
         { path: 'samples/new', name: 'lims-sample-new', component: () => import('@/views/LimsPendingView.vue'), meta: { title: 'LIMS · 登记样品', limsCapability: 'samples' } },
         { path: 'samples', name: 'lims-samples', component: () => import('@/views/LimsPendingView.vue'), meta: { title: 'LIMS · 样品与检验', limsCapability: 'samples' } },
@@ -270,7 +270,7 @@ router.beforeEach(async (to) => {
     if (to.meta.iam) {
       if (to.path === '/hbos/admin/unavailable') return true
       if (to.path === '/hbos/admin' || to.path === '/hbos/admin/') {
-        const entry = [['iam.people.read','people'],['iam.departments.read','departments'],['iam.access.read','access'],['iam.audit.read','audit']].find(([cap]) => canIam(cap!))
+        const entry = [['iam.people.read','people'],['iam.departments.read','departments'],['iam.access.read','access'],['iam.roles.read','roles'],['iam.audit.read','audit']].find(([cap]) => canIam(cap!))
         return entry ? '/hbos/admin/' + entry[1] : '/hbos/admin/unavailable'
       }
       if (typeof to.meta.iamCapability !== 'string' || !canIam(to.meta.iamCapability)) return '/hbos/admin/unavailable'
