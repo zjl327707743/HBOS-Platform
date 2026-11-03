@@ -141,10 +141,20 @@ def run() -> dict:
             request_id = str(uuid4())
             accounts.set_password(new_password=credentials[1], request_id=request_id)
             assert not accounts.proof_status(user)['valid']
-            assert accounts.get_security(request_id=request_id)['write_result'] == {'completed': True, 'action': 'password'}
+            committed = accounts.get_security(request_id=request_id)['write_result']
+            # Backward-compatible superset: the v1 keys remain present and the
+            # durable state is additive. Enriching the DTO is the approved scope,
+            # the old keys are never removed or renamed.
+            assert committed.get('completed') is True and committed.get('action') == 'password'
+            assert committed.get('state') == 'COMMITTED'
             assert accounts._write_receipt(users[1], request_id, '') is None
-            replay = accounts.set_password(new_password=credentials[0], request_id=request_id)
+            replay = accounts.set_password(new_password=credentials[1], request_id=request_id)
             assert replay['replayed']; check_password(user, credentials[1])
+            # Same identifier with a DIFFERENT new password is a conflicting
+            # intent: it must be rejected and must not claim the new password.
+            expect_error(lambda: accounts.set_password(new_password=credentials[0], request_id=request_id),
+                         'same_request_id_with_different_password_is_rejected')
+            check_password(user, credentials[1])
             checks.append('committed_password_receipt_same_user_query_and_replay_never_repeat_write')
             assert frappe.db.count("Sessions", {"user": user}) == 0
             checks.append("password_rotation_revokes_over_one_hundred_native_sessions")

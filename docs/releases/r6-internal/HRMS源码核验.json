@@ -1,0 +1,33 @@
+{
+  "shared": {
+    "root": "/Users/hb/Projects/HBOS/platform/runtime/apps/hrms",
+    "commit_comparison": "e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1",
+    "tracked_count": 1553,
+    "matched": 1553,
+    "missing": [],
+    "modified": [],
+    "extra_count": 5,
+    "extra_prefixes": [
+      "hrms/public",
+      "hrms/translations"
+    ],
+    "extra_examples": [
+      "hrms/public/dist/css/hrms.bundle.WMRA2YZH.css.map",
+      "hrms/public/dist/css/hrms.bundle.WMRA2YZH.css",
+      "hrms/public/dist/css-rtl/hrms.bundle.AWS5WKXJ.css.map",
+      "hrms/public/dist/css-rtl/hrms.bundle.AWS5WKXJ.css",
+      "hrms/translations/zh.csv"
+    ]
+  },
+  "synthetic_snapshot": {
+    "root": "/Users/hb/Documents/Codex/2026-10-27/hbos-r6-b-agent-r6-a2/work/pr61-synthetic-preflight/hrms",
+    "commit_comparison": "e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1",
+    "tracked_count": 1553,
+    "matched": 1553,
+    "missing": [],
+    "modified": [],
+    "extra_count": 0,
+    "extra_prefixes": [],
+    "extra_examples": []
+  }
+}

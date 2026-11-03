@@ -1,14 +1,34 @@
 from __future__ import annotations
 
 import re
+import ast
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-ALLOWED = {"hbos_external_identity.json", "hbos_account_operation.json", "hbos_account_change_event.json", "hbos_account_security.json", "hbos_iam_policy.json", "hbos_iam_rule.json", "hbos_iam_change_event.json", "hbos_iam_app_role.json", "hbos_iam_role_release.json", "hbos_iam_role_feature.json", "hbos_iam_role_assignment.json", "hbos_iam_role_scope.json"}
-MODEL_NAMES = {"hbos_external_identity": "HBOS External Identity", "hbos_account_operation": "HBOS Account Operation", "hbos_account_change_event": "HBOS Account Change Event", "hbos_account_security": "HBOS Account Security", "hbos_iam_policy": "HBOS IAM Policy", "hbos_iam_rule": "HBOS IAM Rule", "hbos_iam_change_event": "HBOS IAM Change Event", "hbos_iam_app_role": "HBOS IAM App Role", "hbos_iam_role_release": "HBOS IAM Role Release", "hbos_iam_role_feature": "HBOS IAM Role Feature", "hbos_iam_role_assignment": "HBOS IAM Role Assignment", "hbos_iam_role_scope": "HBOS IAM Role Scope"}
+ALLOWED = {"hbos_account_change_event.json", "hbos_account_operation.json", "hbos_account_security.json", "hbos_account_write_receipt.json", "hbos_external_identity.json", "hbos_iam_app_role.json", "hbos_iam_change_event.json", "hbos_iam_department_role_admission.json", "hbos_iam_policy.json", "hbos_iam_role_assignment.json", "hbos_iam_role_feature.json", "hbos_iam_role_release.json", "hbos_iam_role_scope.json", "hbos_iam_rule.json"}
+MODEL_NAMES = {"hbos_account_change_event": "HBOS Account Change Event", "hbos_account_operation": "HBOS Account Operation", "hbos_account_security": "HBOS Account Security", "hbos_account_write_receipt": "HBOS Account Write Receipt", "hbos_external_identity": "HBOS External Identity", "hbos_iam_app_role": "HBOS IAM App Role", "hbos_iam_change_event": "HBOS IAM Change Event", "hbos_iam_department_role_admission": "HBOS IAM Department Role Admission", "hbos_iam_policy": "HBOS IAM Policy", "hbos_iam_role_assignment": "HBOS IAM Role Assignment", "hbos_iam_role_feature": "HBOS IAM Role Feature", "hbos_iam_role_release": "HBOS IAM Role Release", "hbos_iam_role_scope": "HBOS IAM Role Scope", "hbos_iam_rule": "HBOS IAM Rule"}
+
+
+def expected_model_names(root=ROOT):
+    """Require every baseline model plus each explicitly declared feature.
+
+    Independent PRs can precede the two additive features. Never derive this
+    expectation from the JSONs themselves: removing an implemented feature's
+    schema must fail, and the complete integration must require all fourteen.
+    """
+    names = dict(MODEL_NAMES)
+    app = root / "apps/hbos_portal/hbos_portal"
+    if not (app / "auth/write_receipts.py").exists():
+        names.pop("hbos_account_write_receipt")
+    role_models = app / "iam/role_models.py"
+    functions = {node.name for node in ast.parse(role_models.read_text()).body
+                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))} if role_models.exists() else set()
+    if "validate_department_admission" not in functions:
+        names.pop("hbos_iam_department_role_admission")
+    return names
 
 
 class IAMDocTypeGateTest(unittest.TestCase):
@@ -32,7 +52,7 @@ class IAMDocTypeGateTest(unittest.TestCase):
                 path.write_text('{}')
             return subprocess.run(["bash", "-euo", "pipefail", "-c", self.command()], cwd=directory, capture_output=True).returncode
 
-    def test_exact_twelve_approved_model_names_pass_the_actual_shell_gate(self):
+    def test_exact_fourteen_approved_model_names_pass_the_actual_shell_gate(self):
         self.assertEqual(self.run_gate(), 0)
 
     def test_unknown_hbos_model_and_arbitrary_json_still_fail(self):
@@ -49,14 +69,77 @@ class IAMDocTypeGateTest(unittest.TestCase):
             self.assertEqual(data["allow_rename"], 0)
             if slug in {"rule", "role_feature", "role_scope"}:
                 self.assertEqual(data["istable"], 1)
+        # The durable write-receipt model carries no native role permission,
+        # desktop entry, rename or export surface either.
+        import json as _json
+        if "hbos_account_write_receipt" not in expected_model_names():
+            self.assertFalse((ROOT / "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_write_receipt/hbos_account_write_receipt.json").exists())
+            return
+        receipt = _json.loads((ROOT / "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_write_receipt/hbos_account_write_receipt.json").read_text())
+        self.assertEqual(receipt["permissions"], [])
+        self.assertEqual(receipt["allow_rename"], 0)
+        self.assertEqual(receipt["name"], "HBOS Account Write Receipt")
+
+    def test_receipt_model_has_exact_fields_and_unique_request_key(self):
+        import json
+        if "hbos_account_write_receipt" not in expected_model_names():
+            self.assertFalse((ROOT / "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_write_receipt/hbos_account_write_receipt.json").exists())
+            return
+        data = json.loads((ROOT / "apps/hbos_portal/hbos_portal/hbos_portal/doctype/hbos_account_write_receipt/hbos_account_write_receipt.json").read_text())
+        fields = {row["fieldname"]: row for row in data["fields"]}
+        self.assertEqual(data["module"], "HBOS Portal")
+        self.assertEqual(data["autoname"], "hash")
+        self.assertEqual(fields["request_key"]["unique"], 1)
+        self.assertEqual(data.get("allow_rename"), 0)
+        self.assertEqual(fields["state"]["options"], "PENDING\nCOMMITTED\nABORTED\nSEALED")
 
     def test_model_locations_and_declared_names_cannot_smuggle_an_extra_doctype(self):
+        self.assert_model_catalog(ROOT)
+
+    def assert_model_catalog(self, root):
         import json
-        app = ROOT / "apps/hbos_portal"
-        expected = {app / f"hbos_portal/hbos_portal/doctype/{slug}/{slug}.json" for slug in MODEL_NAMES}
+        app = root / "apps/hbos_portal"
+        expected = {app / f"hbos_portal/hbos_portal/doctype/{slug}/{slug}.json" for slug in expected_model_names(root)}
         actual = {path for path in app.rglob("*.json") if "/doctype/" in str(path)}
         self.assertEqual(actual, expected)
         for path in actual:
             data = json.loads(path.read_text())
             self.assertEqual(data["name"], MODEL_NAMES[path.stem])
             self.assertEqual(data["module"], "HBOS Portal")
+
+    def test_feature_declarations_require_their_schema_even_when_json_is_missing(self):
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = root / "apps/hbos_portal/hbos_portal"
+            (app / "auth").mkdir(parents=True)
+            (app / "iam").mkdir()
+            def model(slug):
+                path = app / f"hbos_portal/doctype/{slug}/{slug}.json"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps({"name": MODEL_NAMES[slug], "module": "HBOS Portal"}))
+            for slug in expected_model_names(root):
+                model(slug)
+            self.assert_model_catalog(root)
+            receipt = app / "auth/write_receipts.py"
+            admission = app / "iam/role_models.py"
+            receipt.write_text('"""receipt implementation"""')
+            with self.assertRaises(AssertionError):
+                self.assert_model_catalog(root)
+            model("hbos_account_write_receipt")
+            self.assert_model_catalog(root)
+            admission.write_text("def validate_department_admission(doc):\n    pass\n")
+            with self.assertRaises(AssertionError):
+                self.assert_model_catalog(root)
+            model("hbos_iam_department_role_admission")
+            self.assert_model_catalog(root)
+            receipt.unlink()
+            with self.assertRaises(AssertionError):
+                self.assert_model_catalog(root)
+            receipt.write_text('"""receipt implementation"""')
+            admission.write_text('"""no admission implementation"""')
+            with self.assertRaises(AssertionError):
+                self.assert_model_catalog(root)
+            admission.write_text("def broken syntax")
+            with self.assertRaises(SyntaxError):
+                self.assert_model_catalog(root)

@@ -1,0 +1,353 @@
+{
+  "schema": 1,
+  "document_kind": "template_only_not_release_manifest",
+  "status": "GUIDE_PREPARED",
+  "created_at": "2026-11-02T14:43:11.258703+08:00",
+  "repository": "zjl327707743/HBOS-Platform",
+  "target_branch": "feature/hbos-portal-product",
+  "source": {
+    "commit": null,
+    "tree": null,
+    "dirty": null,
+    "source_rule": "Actual final remote product squash SHA M after all six approved merges; no candidate/test-merge substitution"
+  },
+  "tag": {
+    "proposed_name": "hbos-v1.0-rc2",
+    "name": null,
+    "annotated_object": null,
+    "peeled_commit": null,
+    "authorization_url": null,
+    "exists_checked_at": null,
+    "trigger_audit": null
+  },
+  "source_prs": [
+    {
+      "number": 64,
+      "branch": "feat/hbos-r6-readonly-dto-v1",
+      "final_head": null,
+      "observed_starting_head": "310ce08d1d81fec9a53ff304f5b273ce2c306516",
+      "archive_ref_or_bundle": null,
+      "squash_sha": null,
+      "target_before": null,
+      "squash_tree": null
+    },
+    {
+      "number": 65,
+      "branch": "fix/hbos-request-guard-read-retry",
+      "final_head": null,
+      "observed_starting_head": "438eaed46aabfc6cf3e0e617befdb2b9eadf94b6",
+      "archive_ref_or_bundle": null,
+      "squash_sha": null,
+      "target_before": null,
+      "squash_tree": null
+    },
+    {
+      "number": 66,
+      "branch": "fix/hbos-hr-user-permission-compat",
+      "final_head": null,
+      "observed_starting_head": "8792430c2e5959aa1f73c2a0a2b161f50f69547e",
+      "archive_ref_or_bundle": null,
+      "squash_sha": null,
+      "target_before": null,
+      "squash_tree": null
+    },
+    {
+      "number": 67,
+      "branch": "fix/hbos-account-write-receipts",
+      "final_head": null,
+      "observed_starting_head": "cad7f9cc454050e50b6e4c84e6b65549679d10ce",
+      "archive_ref_or_bundle": null,
+      "squash_sha": null,
+      "target_before": null,
+      "squash_tree": null
+    },
+    {
+      "number": 68,
+      "branch": "feat/hbos-department-role-default-v1",
+      "final_head": null,
+      "observed_starting_head": "843ce569be49be2b4d71ca68ff43033d688a0203",
+      "archive_ref_or_bundle": null,
+      "squash_sha": null,
+      "target_before": null,
+      "squash_tree": null
+    },
+    {
+      "number": 63,
+      "branch": "feat/hbos-r6b-experience-v1",
+      "final_head": null,
+      "observed_starting_head": "c04e1cf8c23750062f5f74dfd97b1d2cd7b8eb85",
+      "archive_ref_or_bundle": null,
+      "squash_sha": null,
+      "target_before": null,
+      "squash_tree": null
+    }
+  ],
+  "reviewed_candidate": {
+    "commit": null,
+    "tree": null,
+    "generation_ledger_sha256": null,
+    "merge_order": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      63
+    ],
+    "final_product_tree_equal": null,
+    "approved_document_only_diff": []
+  },
+  "build": {
+    "source_commit": null,
+    "source_tree": null,
+    "source_dirty": null,
+    "builder": "scripts/release/build_bundle.sh",
+    "builder_sha256": null,
+    "commands": [
+      "npm ci --no-audit --no-fund",
+      "Portal: VITE_PORTAL_DATA_MODE=frappe VITE_BASE=/assets/hbos_portal/portal/ VITE_FRAPPE_BASE_URL= VITE_FRAPPE_APP_ORIGIN= npm run build",
+      "LIMS: npm run build:prod",
+      "python3 scripts/release/validate_bundle.py <archive> --source-commit <M>"
+    ],
+    "toolchain": {
+      "node": null,
+      "npm": null,
+      "python": null,
+      "docker": null,
+      "compose": null,
+      "architecture": null,
+      "os": null
+    },
+    "lock_sha256": {
+      "frontend/hbos-portal-web/package-lock.json": null,
+      "frontend/hbos-lims-web/package-lock.json": null,
+      "apps/hbos_portal/requirements.txt": null,
+      "scripts/release/依赖版本锁.json": null
+    },
+    "started_at": null,
+    "completed_at": null,
+    "build_log_sha256": null,
+    "desk_toolchain": {
+      "image_id": null,
+      "node": "v24.12.0",
+      "yarn": "1.22.22",
+      "frappe_esbuild_source": "Inherited from the exact approved frappe_base image digest",
+      "hrms_yarn_lock_sha256": null,
+      "command": "CI=1 yarn run production --apps hrms,hb_attendance_app",
+      "custom_hrms_pwa_roster_builds_included": false,
+      "status": "NOT_RUN_ON_FINAL_M"
+    }
+  },
+  "dependencies": {
+    "frappe_base": {
+      "reference": null,
+      "image_id": null,
+      "frappe_version": null,
+      "erpnext_version": null,
+      "must_use": "Exact approved registry digest; distinguish it from derived Portal runtime image"
+    },
+    "portal_runtime": {
+      "reference": null,
+      "image_id": null,
+      "dockerfile": "scripts/release/Dockerfile.portal",
+      "pypinyin_version": "0.55.0",
+      "requirements_hash_checked": null
+    },
+    "mariadb": {
+      "reference": null,
+      "image_id": null
+    },
+    "redis": {
+      "reference": null,
+      "image_id": null
+    },
+    "node_builder": {
+      "reference": null,
+      "image_id": null
+    },
+    "hrms": {
+      "source": "https://github.com/frappe/hrms.git",
+      "commit": "e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1",
+      "version": "16.13.0",
+      "snapshot_sha256": null,
+      "rule": "Record actual reviewed revision/snapshot. Existing synthetic snapshot reports 16.13.0; repository historical dependency lock reports 16.20.0/c0a04b80. Do not silently upgrade shared/existing HRMS.",
+      "tree": "07f4c5ee8552369fac45ab87fef5b7f17110d444",
+      "snapshot_tracked_manifest_sha256": "e0dae31c2543285288ac5b02c9a50f2e14046b595dc19d49354a87817887dbc7",
+      "source_evidence": "1553/1553 tracked file blobs and modes match the immutable synthetic HRMS snapshot; no missing/modified/extra snapshot files; collected 2026-11-02T14:54:36.494352+08:00"
+    },
+    "optional_knowledge_service": {
+      "included": false,
+      "source_commit": null,
+      "image_digest": null,
+      "not_configured_behavior": "Explicit unavailable state; no mock or private data distributed"
+    },
+    "fonts": {
+      "NotoSerifSC-Regular.otf": "e8f396decc1f0963a016a989c3d8852e863d1350996f573860a80767c83a1cd3",
+      "NotoSerifSC-Bold.otf": "24693d48bdb9152f0a06b02af625638a1097abd6de4010ebba027f6e82710527"
+    }
+  },
+  "artifact": {
+    "filename": "hbos-portal-release.tar.gz",
+    "source_commit": null,
+    "source_dirty": null,
+    "build_id": null,
+    "sha256": null,
+    "bytes": null,
+    "release_json_sha256": null,
+    "portal_asset_manifest_sha256": null,
+    "lims_asset_manifest_sha256": null,
+    "files_verified": null,
+    "download_url": null,
+    "desk_assets": {
+      "manifest_sha256": null,
+      "files": {},
+      "source_commit": null,
+      "hrms_commit": "e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1",
+      "canonical_hash_rule": "sha256(json.dumps(files,sort_keys=True,separators=(',',':')).encode()); exclude final newline",
+      "evidence": null
+    }
+  },
+  "database": {
+    "schema_source_commit": null,
+    "new_or_upgrade_objects": [
+      "HBOS Account Write Receipt",
+      "request_key unique index",
+      "hbos_account_write_receipt_key in private Site configuration",
+      "HBOS IAM Department Role Admission and indexes"
+    ],
+    "migrate_runs_required": 2,
+    "schema_seed_rule": "No automatic real members, company, grants, role publication or employee assignments",
+    "clean_install_evidence": null,
+    "upgrade_evidence": null,
+    "paired_receipt_key_restore_evidence": null
+  },
+  "configuration": {
+    "private_key_names_only": [
+      "db_name",
+      "db_password",
+      "encryption_key",
+      "hbos_account_write_receipt_key"
+    ],
+    "public_local_keys": [
+      "host_name",
+      "hbos_portal_origin",
+      "hbos_iam_enabled",
+      "hbos_iam_roles_enabled"
+    ],
+    "external_defaults": {
+      "HBOS_FEISHU_SYNC_ENABLED": 0,
+      "HBOS_DELICLOUD_SYNC_ENABLED": 0,
+      "HBOS_AI_ENABLED": 0,
+      "HBOS_AI_ALLOW_PII": 0,
+      "HBOS_NOTIFY_DRY_RUN": 1,
+      "hbos_feishu_auto_provision_internal": 0
+    },
+    "iam_bootstrap": "Migrate does not enable IAM/role flags or seed company/roles; use normal local initialization and explicit CLI preview/apply. No test-site bypass.",
+    "secrets_values_included": false
+  },
+  "runtime": {
+    "shared_acceptance_origin": "http://pr61-synth.localhost:18191",
+    "shared_acceptance_path": "/hbos/login",
+    "compose_project": "hbos-pr61-synth-20261027",
+    "compose_file_sha256": {},
+    "image_ids": {},
+    "mount_manifest_sha256": null,
+    "source_read_only": null,
+    "product_worktree_mount_count": null,
+    "backups_evidence": null
+  },
+  "verification": {
+    "OWNER_VISUAL_ACCEPTANCE": {
+      "status": "PASS",
+      "source": "Owner instruction 2026-11-02: 视觉验收完毕",
+      "conversation_url": "https://github.com/zjl327707743/HBOS-Platform/pull/63#issuecomment-6570464404",
+      "exact_build_binding": null
+    },
+    "RECEIPT_RETRY_CONCURRENCY": {
+      "status": "NOT_FILLED",
+      "evidence": null
+    },
+    "CACHE_FAILURE": {
+      "status": "NOT_FILLED",
+      "evidence": null
+    },
+    "RECEIPT_KEY_RESTORE": {
+      "status": "NOT_FILLED",
+      "evidence": null
+    },
+    "ci_head_and_actual_checkout_matrix": [],
+    "review_records": [],
+    "non_author_approvals": null,
+    "merge_authorization_url": null,
+    "FINAL_BUILD_SOURCE_MATCH": {
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    "CLEAN_INSTALL": {
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    "UPGRADE_DOUBLE_MIGRATE": {
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    "FINAL_UAT": {
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    "TEAM_PULL_REPRODUCED": {
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    "TEAM_PULL_READY": "NO",
+    "PRODUCTION_READY": "NO",
+    "ALL_EMPLOYEES_ENABLED": "NO",
+    "NATIVE_CHROME_ZOOM_200": {
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    "HUMAN_FIRST_USE_COMPREHENSION": {
+      "status": "NOT_RUN",
+      "evidence": null
+    },
+    "SCREEN_READER": {
+      "status": "NOT_RUN",
+      "evidence": null
+    }
+  },
+  "risks": {
+    "blocking_defects": [],
+    "accepted_scoped_deviations": [],
+    "unknowns": [
+      "Final product M not yet formed",
+      "Fresh install/guide reproduction not executed",
+      "All runtime dependency digests and Desk assets hashes must be filled from actual final-M build/reproduction"
+    ],
+    "scope_excluded": [
+      "main",
+      "production deployment or production GitHub Release",
+      "real employee rollout",
+      "all-employee Feishu enablement",
+      "real business/knowledge/model data distribution",
+      "unrelated workspaces and shared dependencies"
+    ]
+  },
+  "rollback": {
+    "source_commit": null,
+    "source_tree": null,
+    "artifact_sha256": null,
+    "compose_file_sha256": {},
+    "database_and_private_files_backup_sha256": null,
+    "encryption_and_receipt_keys_paired": null,
+    "isolated_restore_evidence": null,
+    "audit_retained": null,
+    "frontend_only_is_full_rollback": false
+  },
+  "guides": {
+    "TEAM_PULL_GUIDE.md": null,
+    "TEAM_PULL_CHECKLIST.md": null,
+    "KNOWN_LIMITATIONS.md": null,
+    "RELEASE_NOTES.md": null
+  },
+  "anti_self_reference": "Keep this template without final M in source. Fill final M/tree/build digest and guide hashes in an external approved version artifact/annotation after merge; do not change M to insert its own SHA."
+}

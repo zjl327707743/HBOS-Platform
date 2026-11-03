@@ -7,11 +7,13 @@ app_license = "MIT"
 
 after_migrate = [
     "hbos_portal.auth.migration.migrate_identity_constraints",
+    "hbos_portal.auth.write_receipts.migrate",
     "hbos_portal.auth.export_policy.enforce_sensitive_export_boundary",
     "hbos_portal.iam.migration.migrate",
 ]
 after_install = [
     "hbos_portal.auth.migration.migrate_identity_constraints",
+    "hbos_portal.auth.write_receipts.migrate",
     "hbos_portal.auth.export_policy.enforce_sensitive_export_boundary",
     "hbos_portal.iam.migration.migrate",
 ]
