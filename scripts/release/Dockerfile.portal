@@ -2,4 +2,7 @@ ARG FRAPPE_IMAGE=frappe/erpnext:v16.26.2
 FROM ${FRAPPE_IMAGE}
 USER frappe
 COPY --chown=frappe:frappe apps/hbos_portal/requirements.txt /tmp/hbos-portal-requirements.txt
-RUN /home/frappe/frappe-bench/env/bin/pip install --no-cache-dir --only-binary=:all: --require-hashes -r /tmp/hbos-portal-requirements.txt
+COPY --chown=frappe:frappe scripts/release/requirements-runtime-knowledge.txt /tmp/hbos-knowledge-runtime-requirements.txt
+RUN /home/frappe/frappe-bench/env/bin/pip install --no-cache-dir --only-binary=:all: --require-hashes -r /tmp/hbos-portal-requirements.txt -r /tmp/hbos-knowledge-runtime-requirements.txt \
+    && /home/frappe/frappe-bench/env/bin/pip check \
+    && /home/frappe/frappe-bench/env/bin/python -c "from importlib.metadata import version; from jsonschema import Draft202012Validator, FormatChecker; from pypinyin import lazy_pinyin; import referencing, rpds; assert version('jsonschema') == '4.26.0'; assert version('pypinyin') == '0.55.0'"
