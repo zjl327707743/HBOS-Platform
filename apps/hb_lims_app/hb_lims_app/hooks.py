@@ -27,6 +27,12 @@ website_route_rules = [
 	{"from_route": "/hbos-lims/<path:app_path>", "to_route": "hbos-lims"},
 ]
 
+# HBOS Portal experience provider.
+# Portal discovers this adapter dynamically; hbos_portal never imports LIMS internals.
+hbos_portal_provider = [
+	"hb_lims_app.hbos_lims.portal.provider.get_provider",
+]
+
 # 合规审计日志：全量 doc_events 捕获（创建/修改/删除），write-once
 doc_events = {
 	"HBOS Sample": {
@@ -178,6 +184,7 @@ scheduler_events = {
 		"30 0 * * *": [
 			"hb_lims_app.hbos_lims.retention_service.scheduler_scan",
 			"hb_lims_app.hbos_lims.stability_service.scheduler_scan",
+			"hb_lims_app.hbos_lims.audit_anchor_service.scheduler_scan",
 		],
 	},
 }

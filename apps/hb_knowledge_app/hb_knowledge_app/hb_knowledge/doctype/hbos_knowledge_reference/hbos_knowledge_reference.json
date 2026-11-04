@@ -1,0 +1,73 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Reference",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "field:reference_id",
+  "field_order": [
+    "reference_id",
+    "actor_key",
+    "publication_id",
+    "reference_json",
+    "publication_state",
+    "consume_until"
+  ],
+  "fields": [
+    {
+      "fieldname": "reference_id",
+      "fieldtype": "Data",
+      "label": "Reference Id",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "actor_key",
+      "fieldtype": "Data",
+      "label": "Actor Key",
+      "reqd": 1
+    },
+    {
+      "fieldname": "publication_id",
+      "fieldtype": "Data",
+      "label": "Publication Id",
+      "reqd": 1
+    },
+    {
+      "fieldname": "reference_json",
+      "fieldtype": "Long Text",
+      "label": "Reference Json",
+      "reqd": 1
+    },
+    {
+      "fieldname": "publication_state",
+      "fieldtype": "Select",
+      "label": "Publication State",
+      "options": "Pending\nActive\nAborted",
+      "default": "Pending",
+      "reqd": 1
+    },
+    {
+      "fieldname": "consume_until",
+      "fieldtype": "Float",
+      "label": "Consume Until",
+      "reqd": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 0,
+      "export": 0,
+      "print": 0,
+      "report": 0,
+      "share": 0,
+      "email": 0
+    }
+  ],
+  "allow_rename": 0,
+  "index_web_pages_for_search": 0,
+  "track_changes": 0
+}

@@ -1,0 +1,1 @@
+"""HBOS controlled knowledge domain."""

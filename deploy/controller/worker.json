@@ -1,0 +1,42 @@
+{
+  "schema": "rc13-native-worker-contract-v1",
+  "approval_ref_template": "NATIVE_IMPORT_JOB:{job_id}",
+  "scope_path_template": "{private_work}/worker-scope-{job_id}.json",
+  "scope_schema": {
+    "approval_ref": "NATIVE_IMPORT_JOB:<job id>",
+    "expires_at": "unix seconds; worker enforces it",
+    "tenant_id": "RAGFlow tenant id (private, never returned to the browser)",
+    "embedding_model": "the approved department embedding model string",
+    "items": [
+      {
+        "dataset_id": "32 hex chars (private)",
+        "ragflow_document_id": "32 hex chars (private)",
+        "parser_profile": "optional approved parser profile for verified derivatives"
+      }
+    ]
+  },
+  "max_documents_per_job": 4,
+  "lease_seconds": 1800,
+  "required_worker_environment": [
+    "HBOS_MODEL_CALLER=DOCUMENT_PARSE",
+    "HBOS_MODEL_REQUEST_ID=<job id>",
+    "HBOS_RECOVERY_PROVIDER_BUDGET",
+    "HBOS_RECOVERY_PHASE=BATCH",
+    "HBOS_PROVIDER_ACCOUNTING_MODE",
+    "MAX_CONCURRENT_TASKS=1",
+    "MAX_CONCURRENT_CHUNK_BUILDERS=1",
+    "REGISTER_ENABLED=0"
+  ],
+  "registered_worker_record_fields": [
+    "pid",
+    "args",
+    "source",
+    "mode",
+    "started_at_utc"
+  ],
+  "notes": [
+    "This file documents the native worker boundary; the controller writes the live scope file under private_work.",
+    "The controller never reschedules a model call by time; only a maintainer-approved queued job is executed.",
+    "The registered worker record is read-only evidence for the next controller start; a live pid blocks a second worker."
+  ]
+}

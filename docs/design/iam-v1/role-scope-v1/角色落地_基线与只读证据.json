@@ -1,0 +1,199 @@
+{
+  "date": "2026-10-19T12:13:16.976516+08:00",
+  "status": "BASE_SYNC_REQUESTED_CONTRACT_MAPPING_ONLY",
+  "request_url": "https://github.com/zjl327707743/HBOS-Platform/pull/52#issuecomment-6259398120",
+  "workspace": "/Users/hb/Projects/HBOS-IAM-R4-B",
+  "branch": "feature/iam-v1",
+  "pr": 52,
+  "source_head": "a38a15ce04bdfd1b8604775c63c5f3db9e458a4b",
+  "source_tree": "9db3a654727b19aaadd6c1df12065e8947970494",
+  "approved_design": "90185653853d508a52cbfb9bb49b6e0cf0bc5a5d",
+  "product_candidate": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+  "product_tree": "1352d978e022125952db20b2535fabd08c614401",
+  "merge_base": "39366822a5b5d6041b9eea94da4f77255ad26761",
+  "iam_changed_count": 128,
+  "product_changed_count": 386,
+  "overlap": [
+    "apps/hb_attendance_app/hb_attendance_app/hooks.py",
+    "apps/hbos_portal/hbos_portal/hooks.py",
+    "frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue",
+    "frontend/hbos-portal-web/src/router/index.ts",
+    "frontend/hbos-portal-web/src/services/frappeClient.ts",
+    "frontend/hbos-portal-web/src/views/ProfileSettingsView.vue"
+  ],
+  "premerge": {
+    "command": "git merge-tree --write-tree --messages --name-only SOURCE PRODUCT",
+    "exit_code": 1,
+    "diagnostic_tree_not_runtime": "0c9b961f2c187ad84a4ffbde10f0299afeb5ed46",
+    "conflicts": [
+      "frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue",
+      "frontend/hbos-portal-web/src/router/index.ts",
+      "frontend/hbos-portal-web/src/services/frappeClient.ts"
+    ],
+    "messages": [
+      "Auto-merging apps/hb_attendance_app/hb_attendance_app/hooks.py",
+      "Auto-merging apps/hbos_portal/hbos_portal/hooks.py",
+      "Auto-merging frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue",
+      "CONFLICT (content): Merge conflict in frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue",
+      "Auto-merging frontend/hbos-portal-web/src/router/index.ts",
+      "CONFLICT (content): Merge conflict in frontend/hbos-portal-web/src/router/index.ts",
+      "Auto-merging frontend/hbos-portal-web/src/services/frappeClient.ts",
+      "CONFLICT (content): Merge conflict in frontend/hbos-portal-web/src/services/frappeClient.ts",
+      "Auto-merging frontend/hbos-portal-web/src/views/ProfileSettingsView.vue"
+    ]
+  },
+  "portal_hook_has_permission_assignments": 1,
+  "portal_hook_identity_guards_preserved_in_diagnostic_tree": true,
+  "semantic_seams": [
+    {
+      "source": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+      "path": "frontend/hbos-portal-web/src/router/portalGuard.ts",
+      "sha256": "70495f3604749a5744818ffcdd93dfcdd85077f4ff55e9cc808a68e6ab9079d8",
+      "anchors": [
+        {
+          "line": 14,
+          "text": "if (!(await portal.ensureSession())) {"
+        },
+        {
+          "line": 35,
+          "text": "typeof to.meta.limsCapability === 'string'"
+        },
+        {
+          "line": 39,
+          "text": "if (!capabilities.has(to.meta.limsCapability as LimsShellCapability)) {"
+        },
+        {
+          "line": 42,
+          "text": "return limsApp?.capabilities?.includes(to.meta.limsCapability) ? { name: 'forbidden' } : { name: 'lims-pending' }"
+        }
+      ],
+      "evidence_layer": "SOURCE_ONLY_NOT_RUNTIME_TEST"
+    },
+    {
+      "source": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+      "path": "frontend/hbos-portal-web/src/composables/usePortalSession.ts",
+      "sha256": "da0556f02a4b7138b7a76a708f402d2eccf6b438c45a16a8ce0a1505447ce767",
+      "anchors": [
+        {
+          "line": 23,
+          "text": "if (/^\\/hbos\\/(lims|knowledge|twin|inventory|production)(?:\\/|$)/.test(route.path)) sessionPending.value = true"
+        },
+        {
+          "line": 25,
+          "text": "await portal.bootstrap()"
+        },
+        {
+          "line": 60,
+          "text": "window.addEventListener('focus', resume)"
+        }
+      ],
+      "evidence_layer": "SOURCE_ONLY_NOT_RUNTIME_TEST"
+    },
+    {
+      "source": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+      "path": "frontend/hbos-portal-web/src/components/layout/AttendanceLayout.vue",
+      "sha256": "6a3a069ecec705b77af8ccde6b360d79b1a6d36992a96cc4ed9b844ef6d21d55",
+      "anchors": [
+        {
+          "line": 63,
+          "text": "await portal.bootstrap()"
+        }
+      ],
+      "evidence_layer": "SOURCE_ONLY_NOT_RUNTIME_TEST"
+    },
+    {
+      "source": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+      "path": "frontend/hbos-portal-web/src/components/layout/LimsLayout.vue",
+      "sha256": "605972224844422f083348d283e2fe7c92452e6935219f61de77ce5d0387fb6d",
+      "anchors": [
+        {
+          "line": 31,
+          "text": "<a-skeleton v-else-if=\"sessionPending\" active :paragraph=\"{ rows: 6 }\" />"
+        },
+        {
+          "line": 32,
+          "text": "<RouterView v-else :key=\"portal.user?.id\" />"
+        }
+      ],
+      "evidence_layer": "SOURCE_ONLY_NOT_RUNTIME_TEST"
+    },
+    {
+      "source": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+      "path": "frontend/hbos-portal-web/src/components/layout/InventoryLayout.vue",
+      "sha256": "827d6b4054439c299d160723c84978faff7b29ec743a03195d06fcee036bf8dd",
+      "anchors": [
+        {
+          "line": 69,
+          "text": "const { sessionPending, sessionError } = usePortalSession()"
+        }
+      ],
+      "evidence_layer": "SOURCE_ONLY_NOT_RUNTIME_TEST"
+    },
+    {
+      "source": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+      "path": "frontend/hbos-portal-web/src/components/layout/ProductionLayout.vue",
+      "sha256": "00d1aa419460ce8128425988879a662394fbd8e51ba85ee274c941c1dbbcfee0",
+      "anchors": [
+        {
+          "line": 65,
+          "text": "const { sessionPending, sessionError } = usePortalSession()"
+        }
+      ],
+      "evidence_layer": "SOURCE_ONLY_NOT_RUNTIME_TEST"
+    }
+  ],
+  "health": [
+    {
+      "label": "portal",
+      "url": "http://127.0.0.1:5198/hbos",
+      "status": 200,
+      "sha256": "21baad017e0f28d0d7343340710052a4f99ede5c86e4a54143225bef74bd03a3"
+    },
+    {
+      "label": "design",
+      "url": "http://127.0.0.1:5199/%E8%A7%92%E8%89%B2%E4%B8%8E%E8%8C%83%E5%9B%B4%E9%A2%84%E8%A7%88.html",
+      "status": 200,
+      "sha256": "e3c7883df1df4eeec7ae8441256f47986482906c016732edc0095a7c4b95ca7c",
+      "matches_approved_design": true
+    },
+    {
+      "label": "backend",
+      "url": "http://127.0.0.1:8198/api/method/ping",
+      "status": 200,
+      "sha256": "535e0f7e4562372c2262737b55d250b8a0fc4d3ed4237fc0b23a73b062ad645c",
+      "ping_message": "pong"
+    }
+  ],
+  "owned_containers": [
+    "hbos-iam-r4-b-20261015-backend-1|d349cceb8969|127.0.0.1:8198->8000/tcp",
+    "hbos-iam-r4-b-20261015-websocket-1|d349cceb8969|127.0.0.1:9198->9000/tcp",
+    "hbos-iam-r4-b-20261015-redis-queue-1|c9ab371a96b0|6379/tcp",
+    "hbos-iam-r4-b-20261015-redis-cache-1|c9ab371a96b0|6379/tcp",
+    "hbos-iam-r4-b-20261015-db-1|efb4959ef2c8|3306/tcp"
+  ],
+  "port_listeners": [
+    "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME",
+    "Python  35866   hb    4u  IPv4 0xe0a00380f70c39cc      0t0  TCP 127.0.0.1:5199 (LISTEN)",
+    "node    93506   hb   16u  IPv4 0xbd795534417cbf2d      0t0  TCP 127.0.0.1:5198 (LISTEN)"
+  ],
+  "baseline_sync": "NOT_RUN_PENDING_PLATFORM_CONFIRMATION",
+  "role_schema_installed": false,
+  "role_business_integration": "NOT_RUN",
+  "three_roles_acceptance": "NOT_RUN",
+  "timezone_changed": false,
+  "database_migration_run": false,
+  "site_backup_run_this_phase": false,
+  "services_stopped_this_phase": false,
+  "production_published": false,
+  "new_clone_site_worktree_pr_compose_created": false,
+  "inventory_source": "e3f6a5a04c72f90a17948191665bc82fd7fb00bf",
+  "inventory_http_endpoint_count": 36,
+  "inventory_internal_only_count": 2,
+  "documentation_checks": {
+    "structured_evidence_and_inventory": "PASS",
+    "public_patch_fixed_product_temporary_index_check": "PASS",
+    "public_patch_files": 7,
+    "source_business_tests_this_phase": "NOT_RUN_DOCUMENTATION_ONLY",
+    "previous_uat_results": "HISTORICAL_NOT_INHERITED"
+  }
+}

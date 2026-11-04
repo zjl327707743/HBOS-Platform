@@ -12,6 +12,10 @@
 
 主技术栈：Frappe Framework、ERPNext、Frappe HR、Python、JavaScript、MariaDB/MySQL 兼容体系、Redis、Docker、Docker Compose、Vue/React、ECharts、FastAPI。
 
+## 多 APP 并行集成基线
+
+所有 Agent 开始 Portal 或业务 APP 任务前必须读取 `docs/governance/HBOS_CONCURRENT_APP_INTEGRATION_V1.md`：以最新 `feature/hbos-portal-product` 为产品 PR 基线、每 PR 单一领域、平台共享文件单写、后端授权不可绕过、合并后重新核验 SHA/CI。长期分支禁止全量 `--ours/--theirs` 覆盖，禁止因拉取代码自动迁移真实 Site。该规定是协作覆盖层，不解除原有 IAM 和发布门禁。
+
 ## 协作规则与进度来源
 
 `CLAUDE.md` 和 `AGENTS.md` 是协作规则文件，不承载具体项目进度。
@@ -27,6 +31,9 @@
 所有 Agent 必须以用户当前指令和上述进度文件为准。
 
 ## 当前里程碑边界
+
+默认边界服从用户当轮明确授权。Owner 已授权的 Portal v3 覆盖旧的“不实现 SSO / 不 push / 不创建 PR”限制，范围以 `docs/CURRENT_MILESTONE.md` 与对应主文档为准；原账号目标、备份恢复、安全检查和 Owner 真实验收门禁继续适用。这是协作规则，不在本文件维护轮次进度。
+
 
 每轮任务必须按当前里程碑工作，不得擅自扩大范围或提前进入下一里程碑。
 
@@ -137,3 +144,8 @@ Codex 审查时必须检查：
 Agent 必须以用户当前指令为准。若用户只要求审查，则只审查不修改；若用户要求执行，则仅在当前范围内执行。
 
 **独立前端开发规则**：凡涉及独立前端、驾驶舱、AI 工作台、复杂交互页面，必须先原型设计、Owner 审查通过后再复刻实现。详见 `docs/frontend/FRONTEND_IMPLEMENTATION_GUIDE.md`。
+
+
+## 2026-10-10 Knowledge UAT2 批准范围
+
+Owner 已正式批准既有知识交互设计 V1，本轮知识 Vue 实装无需重复原型审批。真实产品人工验收仍待执行；PR #30 保持 Draft、不合并、不切 P1、不影响其他应用。当前事实见 `docs/milestones/M1_KB_UAT2_完整业务与迁移候选.md` 及本机 Owner 联合交付锁。该批准仅适用于本轮既有知识原型。

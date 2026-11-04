@@ -7,8 +7,8 @@ resp = requests.post("https://open.feishu.cn/open-apis/auth/v3/tenant_access_tok
     json={"app_id": app_id, "app_secret": app_secret}, timeout=10)
 token = resp.json().get("tenant_access_token")
 
-APP_TOKEN = "E1O7bnNhnasUoYsHy7qcAf2DnuU"
-TABLE_ID = "tblbLOZa1A8nDJuM"
+APP_TOKEN = os.environ["HBOS_FEISHU_EXCEPTION_APP_TOKEN"]
+TABLE_ID = os.environ["HBOS_FEISHU_EXCEPTION_TABLE_ID"]
 headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
 
 records = frappe.db.sql("""

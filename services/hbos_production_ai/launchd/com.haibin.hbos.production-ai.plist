@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AI 工艺分析服务 —— 每天 16:30 定时跑（Owner 2026-10-02 定）。
+
+  与既有 openclaw 项目的 `ai.openclaw.dailyreport.1630.plist` 同构：
+  launchd 定时触发，脚本跑完即退（非常驻服务）。
+
+  安装：
+    # 1) 填两个占位路径（__VENV_PYTHON__ / __SERVICE_DIR__）
+    # 2) 拷进 LaunchAgents 并加载
+    cp launchd/com.haibin.hbos.production-ai.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.haibin.hbos.production-ai.plist
+
+    # 查看
+    launchctl list | grep hbos
+    # 手动触发一次（不等 16:30）
+    launchctl start com.haibin.hbos.production-ai
+
+    # 卸载
+    launchctl unload ~/Library/LaunchAgents/com.haibin.hbos.production-ai.plist
+
+  先手动跑一次确认能通（不写库）：
+    cd services/hbos_production_ai
+    HBOS_AI_DRY_RUN=1 .venv/bin/python -m app.main
+
+  ⚠️ 为什么用 venv 的 python 而不是 `uv run`：
+     launchd 的环境极简（PATH 只有 /usr/bin:/bin:/usr/sbin:/sbin），
+     `uv run` 还要解析项目/依赖，多一层不确定性。venv 里的解释器是绝对路径、
+     依赖已装好，最稳。
+
+  ⚠️ 本机 16:30 若处于睡眠，launchd 会在唤醒后补跑一次（StartCalendarInterval 的
+     合并语义）—— 这与「错过就不跑」的 cron 不同，是有意的。
+
+  部署到服务器时**不要用这个 plist** —— 换 systemd timer 或 cron，见 README。
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.haibin.hbos.production-ai</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__VENV_PYTHON__</string>
+        <string>-m</string>
+        <string>app.main</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__SERVICE_DIR__</string>
+
+    <!-- 每天 16:30 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>16</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <!-- 跑完即退，不常驻；日志追加到同一文件（不覆盖历史） -->
+    <key>StandardOutPath</key>
+    <string>/tmp/hbos-production-ai.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/hbos-production-ai.err</string>
+
+    <!-- 不在加载时立刻跑（避免装完就花 token）；要立即验证用 launchctl start -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

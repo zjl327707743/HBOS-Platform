@@ -77,6 +77,8 @@ export function submitResult(params: {
   calc_input_json?: string
   calculation_used?: string
   instrument_used?: string
+  /** L10-P0-03：提交人非该记录检验人时必填（Manager 代提交），写入合规审计 */
+  proxy_reason?: string
 }) {
   return callMethod('hb_lims_app.hbos_lims.lims_service.submit_result', params)
 }
@@ -134,6 +136,8 @@ export function createSpecification(params: {
   version?: string
   items?: SpecItemInput[]
   remarks?: string
+  /** L10-P0-04：升版时声明被替代的上一版本（须为同一 spec_code 的既有版本） */
+  supersedes?: string
 }) {
   return callMethod<string>('hb_lims_app.hbos_lims.lims_service.create_specification', params)
 }

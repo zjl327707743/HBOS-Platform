@@ -1,0 +1,37 @@
+{
+  "status": "IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER",
+  "data": "synthetic only",
+  "implementation": "NOT_AUTHORIZED / NOT_RUN",
+  "preview": "127.0.0.1:5199; static self-contained HTML, not referenced by real router/build",
+  "observed_UI": {
+    "independent_role_scope_and_expiry": true,
+    "multi_role_preview_and_memory_save": true,
+    "inherited_assignment_not_individually_removable": true,
+    "remove_draft_cancel_retains_saved": true,
+    "saved_removed_LIMS_role_not_readded_on_app_switch": true,
+    "no_default_removes_inherited_row_but_keeps_independent_role": true,
+    "department_deny_distinct_hard_limit": true,
+    "LIMS_review_A_test_B_has_no_review_B": true,
+    "shift_tab_wraps_within_drawer": true,
+    "escape_closes_and_returns_focus_to_settings": true,
+    "viewport_1280_720_no_document_horizontal_overflow": true,
+    "viewport_1440_900_no_document_horizontal_overflow": true,
+    "drawer_width_720_body_scrolls_footer_visible": true
+  },
+  "source_checks": {
+    "node_syntax": true,
+    "connect_src_none": true,
+    "form_action_none": true,
+    "no_fetch_xhr_websocket_or_browser_storage_in_script": true
+  },
+  "limitations": [
+    "This is a design simulation, never permission evidence.",
+    "Only SELF business function currently integrated; all role templates/assignments unimplemented.",
+    "Full-page screenshot of fixed modal distorted by capture tool; final screenshot uses verified viewport capture."
+  ],
+  "screenshots": [
+    "screenshots/person.png",
+    "screenshots/department.png",
+    "screenshots/templates.png"
+  ]
+}

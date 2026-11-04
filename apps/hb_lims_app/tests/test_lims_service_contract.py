@@ -217,5 +217,37 @@ class TestTaskBoardReportContract(unittest.TestCase):
         self.assertIn("ORDER BY t.creation DESC", source)
 
 
+class TestSignatureBoundaryContract(unittest.TestCase):
+    """L10-P0-07：签署能力的命名与能力边界（Owner 2026-09-15 决策路线 ①）。
+
+    本板块写入的是「含义串 + 用户 + 时间」的**操作归属记录**，不等同 GMP 合规电子签名；
+    正式 e-signature 由平台后续统一专项实施（路线 ②）。测试锁两件事：口径不得回退成
+    强声明；签署串形状保持稳定（路线 ② 接入只需替换 `_signature()` 一处）。
+    """
+
+    def test_signature_documented_as_operation_attribution(self):
+        source = SERVICE.read_text(encoding="utf-8")
+        self.assertIn("不是 GMP 合规电子签名", source)
+        self.assertIn("不等同", source)
+        self.assertIn("只需替换本函数", source, "应保留「路线 ② 单点替换」的接入承诺")
+        # 签署串形状：含义 + 操作人 + 时间（接入点结构稳定）
+        self.assertIn('f"{meaning}: {_user()} @ {_now():%Y-%m-%d %H:%M:%S}"', source)
+
+    def test_no_e_signature_claim_in_views_and_print_format(self):
+        """界面与打印模板（对外质量文件）不得再宣称电子签名。"""
+        repo = APP_ROOT.parents[1]
+        targets = [
+            DOCTYPES.parent / "print_format" / "hbos_coa" / "hbos_coa.html",
+            repo / "frontend" / "hbos-lims-web" / "src" / "views" / "CoaListView.vue",
+            repo / "frontend" / "hbos-lims-web" / "src" / "views" / "ResultEntryView.vue",
+            repo / "frontend" / "hbos-lims-web" / "src" / "views" / "ResultLedgerView.vue",
+        ]
+        if not all(path.exists() for path in targets):
+            self.skipTest("仓库根未挂载（容器内只挂 apps/），前端检查仅在宿主机生效")
+        for path in targets:
+            self.assertNotIn("电子签名", path.read_text(encoding="utf-8"),
+                             f"{path.name} 仍宣称电子签名")
+
+
 if __name__ == "__main__":
     unittest.main()

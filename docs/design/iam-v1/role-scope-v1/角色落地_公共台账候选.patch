@@ -1,0 +1,84 @@
+--- a/README.md
++++ b/README.md
+@@ -1,0 +2,9 @@
++
++## IAM V1 角色工程候选收口（2026-10-19）
++
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
++
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
++
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
++
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -1,0 +2,9 @@
++
++## IAM V1 角色工程候选收口（2026-10-19）
++
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
++
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
++
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
++
+--- a/docs/CURRENT_MILESTONE.md
++++ b/docs/CURRENT_MILESTONE.md
+@@ -1,0 +2,9 @@
++
++## IAM V1 角色工程候选收口（2026-10-19）
++
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
++
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
++
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
++
+--- a/docs/AI_CONTEXT.md
++++ b/docs/AI_CONTEXT.md
+@@ -1,0 +2,9 @@
++
++## IAM V1 角色工程候选收口（2026-10-19）
++
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
++
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
++
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
++
+--- a/docs/READING_GUIDE.md
++++ b/docs/READING_GUIDE.md
+@@ -1,0 +2,9 @@
++
++## IAM V1 角色工程候选收口（2026-10-19）
++
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
++
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
++
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
++
+--- a/docs/milestones/M1_START_GATE.md
++++ b/docs/milestones/M1_START_GATE.md
+@@ -1,0 +2,9 @@
++
++## IAM V1 角色工程候选收口（2026-10-19）
++
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
++
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
++
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
++
+--- a/docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md
++++ b/docs/milestones/M1_RP3_统一账号飞书绑定与正式发布.md
+@@ -1,0 +2,9 @@
++
++## IAM V1 角色工程候选收口（2026-10-19）
++
++Owner已采用设计90185653853d508a52cbfb9bb49b6e0cf0bc5a5d并批准产品e3f6a5a04c72f90a17948191665bc82fd7fb00bf及分工；原feature/iam-v1/Draft #52普通同步09dd8d68a9d4fa05dc01c33673a2b903598a4f87。有限32项功能及分层隔离正反例已完成工程候选，状态NOT_MERGE_READY。此条优先于早期等待基线和未实施记录，保留旧文。
++
++原5198正式Vue、5199设计、5197历史；无新Site/clone/PR，不自动合并、生产发布或迁移真实人员。Attendance577、前端267及构建通过；Portal196中195通过，唯一失败是旧七模型精确名单；五模型精确候选须由平台单写应用并验最终固定HEAD及实际集成组合。最终HEAD与实际CI见PR #52当前说明，不能用旧HEAD替代。
++
++入口：docs/design/iam-v1/README.md。Owner最后仅三个产品抽查；时区仍Kolkata，未做生产切换，不称中国工厂生产就绪。该patch仅是本线给平台唯一写者的候选，未直接改公共台账。
++

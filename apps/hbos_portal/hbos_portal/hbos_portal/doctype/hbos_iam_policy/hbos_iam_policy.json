@@ -1,0 +1,54 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS IAM Policy",
+ "module": "HBOS Portal",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "field_order": [
+  "subject_type",
+  "subject_name",
+  "version",
+  "enabled",
+  "rules"
+ ],
+ "fields": [
+  {
+   "fieldname": "subject_type",
+   "fieldtype": "Select",
+   "label": "Subject Type",
+   "reqd": 1,
+   "options": "User\nDepartment"
+  },
+  {
+   "fieldname": "subject_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Subject Name",
+   "reqd": 1,
+   "options": "subject_type"
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Version",
+   "reqd": 1,
+   "default": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "rules",
+   "fieldtype": "Table",
+   "label": "Rules",
+   "options": "HBOS IAM Rule"
+  }
+ ],
+ "permissions": []
+}

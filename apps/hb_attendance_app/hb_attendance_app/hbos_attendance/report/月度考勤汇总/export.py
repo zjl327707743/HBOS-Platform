@@ -1,9 +1,12 @@
 import frappe
+from hb_attendance_app.hbos_attendance.portal.role_scope import report_sql
 
 EXPORT_ROLES = {"HR User", "HR Manager", "System Manager"}
 
 
 def _require_export_permission():
+    from hb_attendance_app.hbos_attendance.portal import export_scope
+    if export_scope.active('monthly') or export_scope.active('exceptions'):return
     if not (set(frappe.get_roles()) & EXPORT_ROLES):
         frappe.throw("你无权导出考勤数据。", frappe.PermissionError)
 
@@ -43,6 +46,8 @@ def export_xlsx(month=None, year=None, from_date=None, to_date=None, employee=No
     # Run the report
     from hb_attendance_app.hbos_attendance.report.月度考勤汇总.月度考勤汇总 import execute
     columns, data = execute(filters)
+    from hb_attendance_app.hbos_attendance.portal.role_scope import temporal_report_rows
+    temporal_report_rows(data)
 
     if not data:
         frappe.throw("没有数据可导出")
@@ -107,6 +112,8 @@ def export_xlsx(month=None, year=None, from_date=None, to_date=None, employee=No
     # Save to temp file
     tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
     tmp.close()
+    from hb_attendance_app.hbos_attendance.portal import export_scope
+    export_scope.annotate(wb)
     wb.save(tmp.name)
 
     # Read and return as file
@@ -126,7 +133,8 @@ def export_xlsx(month=None, year=None, from_date=None, to_date=None, employee=No
         "attached_to_name": "月度考勤汇总",
     })
     file_doc.insert(ignore_permissions=True)
-    frappe.db.commit()
+    from hb_attendance_app.hbos_attendance.portal import export_scope
+    if not export_scope.active():frappe.db.commit()
 
     return file_doc.file_url
 
@@ -179,10 +187,13 @@ def export_exceptions(month=None, year=None, from_date=None, to_date=None, emplo
         quoted = ",".join("'%s'" % v.replace("'", "") for v in sorted(EXEMPT_NUMS))
         conditions.append("emp.employee_number NOT IN (%s)" % quoted)
 
+    from hb_attendance_app.hbos_attendance.portal.role_scope import report_predicate
+    predicate=report_predicate('a',values)
+    if predicate:conditions.extend([predicate,'a.docstatus<2'])
     where = " AND ".join(conditions)
-    records = frappe.db.sql(
+    records = report_sql(
         f"""
-        SELECT emp.employee_name, emp.employee_number, emp.department,
+        SELECT a.employee, emp.employee_name, emp.employee_number, emp.department,
                a.attendance_date, a.status, a.shift, a.late_entry, a.early_exit,
                ROUND(a.working_hours, 2) AS working_hours,
                EXISTS(SELECT 1 FROM `tabEmployee Checkin` ec
@@ -196,6 +207,8 @@ def export_exceptions(month=None, year=None, from_date=None, to_date=None, emplo
         as_dict=True,
     )
 
+    from hb_attendance_app.hbos_attendance.portal.role_scope import temporal_report_rows
+    temporal_report_rows(records)
     if not records:
         frappe.throw("没有异常考勤记录")
 
@@ -413,6 +426,8 @@ def export_exceptions(month=None, year=None, from_date=None, to_date=None, emplo
     # ============ 保存 ============
     tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
     tmp.close()
+    from hb_attendance_app.hbos_attendance.portal import export_scope
+    export_scope.annotate(wb)
     wb.save(tmp.name)
     with open(tmp.name, "rb") as f:
         file_content = f.read()
@@ -428,6 +443,7 @@ def export_exceptions(month=None, year=None, from_date=None, to_date=None, emplo
         "attached_to_name": "月度考勤汇总",
     })
     file_doc.insert(ignore_permissions=True)
-    frappe.db.commit()
+    from hb_attendance_app.hbos_attendance.portal import export_scope
+    if not export_scope.active():frappe.db.commit()
 
     return file_doc.file_url

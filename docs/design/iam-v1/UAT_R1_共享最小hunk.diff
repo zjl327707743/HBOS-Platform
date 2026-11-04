@@ -1,0 +1,643 @@
+diff --git a/apps/hbos_portal/hbos_portal/auth/accounts.py b/apps/hbos_portal/hbos_portal/auth/accounts.py
+index 5c57d82..6b25ed9 100644
+--- a/apps/hbos_portal/hbos_portal/auth/accounts.py
++++ b/apps/hbos_portal/hbos_portal/auth/accounts.py
+@@ -97 +97,24 @@ def get_request_security() -> dict:
+-    return {"csrf_token": frappe.sessions.get_csrf_token() if frappe.session.user != "Guest" else None}
++    authenticated = bool(frappe.session.user and frappe.session.user != "Guest")
++    return {"authenticated": authenticated,
++        "session_context": browser_session_context() if authenticated else None,
++        "csrf_token": frappe.sessions.get_csrf_token() if authenticated else None}
++
++
++def browser_session_context() -> str:
++    """Non-authorizing, in-memory comparison marker. Never return the SID.
++
++    Comparing User alone misses a logout/login or native session rotation for
++    the same User. This one-way marker is never accepted by any endpoint as a
++    credential, proof, CSRF token or authorization source.
++    """
++    return digest(f"hbos-ui:{frappe.local.site}:{frappe.session.sid}")
++
++
++def browser_identity(user: str, account) -> dict:
++    rows = frappe.get_all("Employee", filters={"user_id": user, "status": "Active"},
++        fields=["employee_name", "employee_number", "department"], limit_page_length=2)
++    employee = rows[0] if len(rows) == 1 else None
++    department = frappe.db.get_value("Department", employee.department, "department_name") if employee and employee.department else ""
++    return {"display_name": employee.employee_name if employee else account.full_name,
++        "employee_number": str(employee.employee_number or "") if employee else "",
++        "department": department or "", "login_name": account.username or user}
+@@ -359 +382,2 @@ def get_security(request_id: str = "") -> dict:
+-        "user": user, "login_name": account.username or user, "has_password": has_password(user),
++        "user": user, "session_context": browser_session_context(), "identity": browser_identity(user, account),
++        "login_name": account.username or user, "has_password": has_password(user),
+diff --git a/apps/hbos_portal/hbos_portal/iam/audit.py b/apps/hbos_portal/hbos_portal/iam/audit.py
+index 715fe84..668715d 100644
+--- a/apps/hbos_portal/hbos_portal/iam/audit.py
++++ b/apps/hbos_portal/hbos_portal/iam/audit.py
+@@ -13,0 +14 @@ SAFE_KEYS = {
++    "settings", "access_state", "permission_mode", "changes",
+diff --git a/frontend/hbos-portal-web/src/components/account/FirstPasswordGate.vue b/frontend/hbos-portal-web/src/components/account/FirstPasswordGate.vue
+index d1b4635..323bf11 100644
+--- a/frontend/hbos-portal-web/src/components/account/FirstPasswordGate.vue
++++ b/frontend/hbos-portal-web/src/components/account/FirstPasswordGate.vue
+@@ -11 +11 @@ import InitialPasswordDelivery from './InitialPasswordDelivery.vue'
+-const props = defineProps<{ subjectUser: string }>()
++const props = defineProps<{ subjectUser: string; security?: IamSecurity }>()
+@@ -25 +25,2 @@ async function checkOutcome() { busy.value = true; try { const result = await ge
+-watch(() => props.subjectUser, () => { status.value = null; uncertain.value = false; proof.invalidate(); void load() }, { immediate: true })
++watch(() => props.subjectUser, () => { status.value = props.security || null; loading.value = !props.security; uncertain.value = false; proof.invalidate(); if (!props.security) void load() }, { immediate: true })
++watch(() => props.security, value => { if (value) { status.value = value; loading.value = false } })
+diff --git a/frontend/hbos-portal-web/src/components/account/OwnAccountVerification.vue b/frontend/hbos-portal-web/src/components/account/OwnAccountVerification.vue
+index fc728fd..e864f60 100644
+--- a/frontend/hbos-portal-web/src/components/account/OwnAccountVerification.vue
++++ b/frontend/hbos-portal-web/src/components/account/OwnAccountVerification.vue
+@@ -3 +3 @@
+-    <p>{{ passwordOnly ? '验证当前负责人的密码与已有二次认证。' : '安全操作前，请验证本人身份。' }}</p>
++    <p>{{ passwordOnly ? '使用当前账号的密码与已有二次认证核验本人身份。' : '安全操作前，请验证本人身份。' }}</p>
+diff --git a/frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue b/frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue
+index 770cdab..d7bf6b5 100644
+--- a/frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue
++++ b/frontend/hbos-portal-web/src/components/layout/GlobalHeader.vue
+@@ -14 +14 @@
+-    <button class="global-search" type="button" aria-label="打开全局搜索" @click="$emit('open-command')">
++    <button class="global-search" type="button" aria-label="打开全局搜索" :disabled="sessionBlocked" @click="$emit('open-command')">
+@@ -21,2 +21 @@
+-      <AppSwitcher :apps="apps" />
+-      <NotificationCenter />
++      <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" /><NotificationCenter /></div>
+@@ -35,0 +35 @@
++      <div class="current-identity" aria-label="当前登录人"><strong>{{ currentIdentity?.display_name || (portalSession.phase === 'unconfirmed' ? '正在核验账号' : portal.user?.displayName) || 'HBOS' }}</strong><span>{{ identityCaption }}</span></div>
+@@ -43,0 +44,2 @@
++            <a-menu-item disabled>{{ currentIdentity?.login_name || '当前登录账号' }}</a-menu-item>
++            <a-menu-item v-if="currentIdentity?.department" disabled>{{ currentIdentity.department }}</a-menu-item>
+@@ -61 +63 @@
+-import { ref } from 'vue'
++import { computed, ref } from 'vue'
+@@ -68 +70,2 @@ import type { AppManifestDTO } from '@/contracts/portal'
+-import { logoutFrappeSession } from '@/services/frappeClient'
++import { portalSession, signOutPortalSession } from '@/services/portalSessionCoordinator'
++import { hasManagementAccess } from '@/services/iamAccess'
+@@ -74,0 +78,2 @@ const helpOpen = ref(false)
++const currentIdentity = computed(() => ['ready','checking','password_required'].includes(portalSession.phase) ? portalSession.security?.identity : null)
++const identityCaption = computed(() => !currentIdentity.value ? '身份待确认' : currentIdentity.value.employee_number ? `工号 ${currentIdentity.value.employee_number}` : portalSession.security?.administrator || hasManagementAccess() ? '管理账号' : '工号待关联')
+@@ -80 +85 @@ async function handleLogout() {
+-    if (portal.dataSource === 'frappe') await logoutFrappeSession()
++    if (portal.dataSource === 'frappe') await signOutPortalSession()
+@@ -95,0 +101 @@ defineProps<{
++  sessionBlocked?: boolean
+@@ -99,0 +106,3 @@ defineEmits<{ (e: 'open-command'): void }>()
++
++<style scoped>.current-identity{display:grid;gap:2px;text-align:right;font-size:14px}.current-identity strong{font-size:16px}.current-identity span{color:var(--hbos-text-secondary)}@media(max-width:700px){.current-identity{max-width:120px}.current-identity strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}</style>
++<style scoped>.session-app-controls{display:flex;align-items:center;gap:12px}.controls-hidden{visibility:hidden;pointer-events:none}</style>
+diff --git a/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue b/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
+index 6ea10af..fe6f489 100644
+--- a/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
++++ b/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
+@@ -2 +2 @@
+-  <div class="portal-page">
++  <div class="portal-page" :data-document-instance="development ? frappeDiagnostics.document : undefined" :data-session-phase="development ? portalSession.phase : undefined" :data-security-reads="development ? frappeDiagnostics.security : undefined" :data-capability-reads="development ? frappeDiagnostics.capabilities : undefined" :data-bootstrap-reads="development ? frappeDiagnostics.bootstrap : undefined" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
+@@ -11,2 +11,2 @@
+-        :avatar-text="portal.user?.avatarText || 'HB'"
+-        :avatar-url="portal.user?.avatarUrl"
++        :avatar-text="masked ? '?' : portal.user?.avatarText || 'HB'"
++        :avatar-url="masked ? undefined : portal.user?.avatarUrl"
+@@ -16 +16,2 @@
+-        @open-command="ui.commandOpen = true"
++        :session-blocked="masked"
++        @open-command="!masked && (ui.commandOpen = true)"
+@@ -20 +21 @@
+-        <PortalSidebar :work-count="actionableCount" />
++        <PortalSidebar :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
+@@ -22,10 +23,17 @@
+-          <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
+-          <a-alert
+-            v-else-if="sessionError"
+-            type="error"
+-            show-icon
+-            class="portal-bootstrap-error"
+-            :message="sessionError"
+-          />
+-          <FirstPasswordGate v-else-if="securityUser" :key="securityUser" :subject-user="securityUser" @blocked="sessionReady = false; clearIamAccess()" @ready="finishSession"><RouterView v-if="sessionReady" :key="portal.user?.id" /><a-skeleton v-else active /></FirstPasswordGate>
+-          <RouterView v-else-if="portalDataSource === 'mock'" :key="portal.user?.id" />
++          <template v-if="portalDataSource === 'mock'">
++            <a-skeleton v-if="sessionPending" active /><a-alert v-else-if="sessionError" type="error" :message="sessionError" /><RouterView v-else :key="portal.user?.id" />
++          </template>
++          <template v-else>
++            <div v-if="masked" class="session-recovery" role="status">
++              <a-alert type="warning" show-icon :message="routeDenied ? '当前账号已无此页面的管理权限，不能继续办理。可返回工作台或退出登录。' : portalSession.error || '正在重新核对登录状态，页面内容暂时隐藏，草稿仍保留。'" />
++              <RouterLink v-if="routeDenied" to="/hbos">返回工作台</RouterLink>
++              <a-button :loading="portalSession.phase === 'checking'" @click="retrySession">重试核验</a-button>
++              <a-button @click="recoverLogout">退出当前账号</a-button>
++              <a-button v-if="portalSession.phase === 'unconfirmed'" @click="returnToLogin">前往登录页</a-button>
++            </div>
++            <div v-if="portalSession.security?.first_password_required" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined"><FirstPasswordGate :key="portalSession.generation" :subject-user="portalSession.security.user" :security="portalSession.security" @ready="retrySession" /></div>
++            <div v-if="portalSession.mounted" :key="portalSession.generation" class="session-content" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" :aria-hidden="masked || undefined">
++              <RouterView />
++            </div>
++            <a-skeleton v-else-if="(!portalSession.security && portalSession.phase === 'initial') || portalSession.phase === 'logging_out'" active :paragraph="{ rows: 6 }" />
++          </template>
+@@ -36 +44 @@
+-    <MobilePortalNav :work-count="actionableCount" />
++    <MobilePortalNav :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
+@@ -38,0 +47,3 @@
++    <aside v-if="developmentObservation" class="development-observation" aria-label="本机验收观测">
++      <details><summary>本机验收观测（开发模式）</summary><output>文档 {{ frappeDiagnostics.document }}；安全读取 {{ frappeDiagnostics.security }}；能力读取 {{ frappeDiagnostics.capabilities }}；业务初始化 {{ frappeDiagnostics.bootstrap }}；恢复事件 {{ portalSession.resumeEvents }}；主体代次 {{ portalSession.generation }}；阶段 {{ portalSession.phase }}</output></details>
++    </aside>
+@@ -43 +54 @@
+-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
++import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+@@ -53,3 +64 @@ import { portalDataSource } from '@/services/portalProvider'
+-import { getIamSecurity } from '@/services/iamAccount'
+-import { clearIamAccess, loadIamAccess } from '@/services/iamAccess'
+-import { isUnauthenticatedError } from '@/services/frappeClient'
++import { attachPortalSession, ensurePortalSession, portalSession, resetPortalSession, signOutPortalSession } from '@/services/portalSessionCoordinator'
+@@ -56,0 +66,3 @@ import { accountRedirect } from '@/services/accountNavigation'
++import { canIam } from '@/services/iamAccess'
++import { Modal } from 'ant-design-vue'
++import { developmentObservation, frappeDiagnostics } from '@/services/frappeClient'
+@@ -59,0 +72 @@ const portal = usePortalStore()
++const development = import.meta.env.DEV
+@@ -63,20 +76,12 @@ const { sessionPending, sessionError } = portalDataSource === 'mock' ? usePortal
+-const route = useRoute(), router = useRouter(), securityUser = ref(''), sessionReady = ref(false)
+-let disposed = false, checking = false, bootstrapping = false
+-async function finishSession() {
+-  if (disposed || bootstrapping) return
+-  bootstrapping = true
+-  try { await portal.bootstrap(); if (disposed) return; if (portal.user?.id !== securityUser.value) throw new Error('当前会话已改变，请重新核对。'); try { await loadIamAccess(securityUser.value) } catch { /* Keep the failed capability state; ordinary workspace uses its own server gates. */ }; sessionReady.value = true }
+-  catch (e) { await sessionFailure(e) } finally { bootstrapping = false }
+-}
+-async function sessionFailure(error: unknown) {
+-  sessionReady.value = false; portal.clearSession(); clearIamAccess()
+-  if (isUnauthenticatedError(error)) { portal.clearSession(); securityUser.value = ''; await router.replace({path:'/hbos/login',query:{status:'session_required',redirect_to:accountRedirect(route.fullPath)}}) }
+-  else sessionError.value = error instanceof Error ? error.message : '当前会话暂时无法确认，请重试。'
+-}
+-async function synchronize() {
+-  if (disposed || checking || portalDataSource !== 'frappe') return
+-  checking = true; sessionPending.value = true; sessionError.value = null
+-  try { const security = await getIamSecurity(); if (disposed) return; if (portal.user?.id && portal.user.id !== security.user) { portal.clearSession(); clearIamAccess() }; securityUser.value = security.user; if (security.first_password_required) { portal.clearSession(); sessionReady.value = false; clearIamAccess() } else await finishSession() }
+-  catch (e) { if (!disposed) await sessionFailure(e) } finally { if (!disposed) sessionPending.value = false; checking = false }
+-}
+-const resume = () => { if (document.visibilityState !== 'hidden') void synchronize() }
++const route = useRoute(), router = useRouter()
++const routeDenied = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !canIam(route.meta.iamCapability))
++const masked = computed(() => ['unconfirmed', 'guest', 'logging_out'].includes(portalSession.phase) || routeDenied.value)
++watch(masked, value => { document.body.classList.toggle('hbos-session-shield', value); if(value) ui.commandOpen=false }, { immediate:true })
++const closeSecurityDialogs = () => Modal.destroyAll()
++let detach: (() => void) | undefined
++async function retrySession() { try { await ensurePortalSession({ force: true }) } catch { /* Local recovery stays available. */ } }
++async function recoverLogout() { try { await signOutPortalSession(); await router.replace({ path: '/hbos/login', query: { status: 'signed_out' } }) } catch { /* Do not claim a server logout without confirmation. */ } }
++async function returnToLogin() { resetPortalSession(false); await router.replace({path:'/hbos/login',query:{status:'logout_unconfirmed',redirect_to:accountRedirect(route.fullPath)}}) }
++watch(() => portalSession.phase, phase => {
++  if (phase === 'guest' && portalDataSource === 'frappe') void router.replace({ path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(route.fullPath) } })
++})
+@@ -84,0 +90 @@ function onShortcut(event: KeyboardEvent) {
++  if (masked.value) return
+@@ -92,2 +98,2 @@ function onShortcut(event: KeyboardEvent) {
+-onMounted(() => { window.addEventListener('keydown', onShortcut); if (portalDataSource === 'frappe') { void synchronize(); window.addEventListener('focus',resume); window.addEventListener('pageshow',resume); document.addEventListener('visibilitychange',resume) } })
+-onBeforeUnmount(() => { disposed = true; clearIamAccess(); window.removeEventListener('keydown', onShortcut); window.removeEventListener('focus',resume); window.removeEventListener('pageshow',resume); document.removeEventListener('visibilitychange',resume) })
++onMounted(() => { window.addEventListener('keydown', onShortcut); window.addEventListener('hbos:session-boundary', closeSecurityDialogs); if (portalDataSource === 'frappe') { detach = attachPortalSession(); void ensurePortalSession().catch(() => undefined) } })
++onBeforeUnmount(() => { window.removeEventListener('keydown', onShortcut); window.removeEventListener('hbos:session-boundary', closeSecurityDialogs); document.body.classList.remove('hbos-session-shield'); detach?.() })
+@@ -94,0 +101,5 @@ onBeforeUnmount(() => { disposed = true; clearIamAccess(); window.removeEventLis
++<style scoped>
++.session-content{min-width:0;width:100%}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}
++.development-observation{position:fixed;bottom:0;left:8px;z-index:2000;max-width:min(700px,90vw);padding:4px 8px;background:#fff;border:1px solid #ccd5e0;font-size:12px}.development-observation output{display:block;overflow-wrap:anywhere}
++:global(body.hbos-session-shield .ant-drawer),:global(body.hbos-session-shield .ant-modal-root),:global(body.hbos-session-shield .ant-popover){visibility:hidden!important;pointer-events:none!important}
++</style>
+diff --git a/frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue b/frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue
+index c47f830..1a2f3fa 100644
+--- a/frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue
++++ b/frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue
+@@ -4 +4 @@
+-    <RouterLink v-for="item in mainNav" :key="item.path" :to="item.path" class="portal-nav-item" :title="item.label">
++    <RouterLink v-for="item in mainNav" :key="item.path" :to="item.path" class="portal-nav-item" :title="item.label" :aria-label="item.label">
+@@ -10 +10 @@
+-    <RouterLink v-if="hasManagementAccess()" to="/hbos/admin" class="portal-nav-item" title="管理中心"><TeamOutlined /><span>管理中心</span></RouterLink>
++    <RouterLink v-if="hasManagementAccess()" to="/hbos/admin" class="portal-nav-item" title="管理中心" aria-label="管理中心"><TeamOutlined /><span>管理中心</span></RouterLink>
+@@ -14 +14 @@
+-    <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="我的与设置">
++    <RouterLink to="/hbos/profile" class="portal-nav-item subtle" title="我的与设置" aria-label="我的与设置">
+@@ -42,0 +43,6 @@ const mainNav = [
++<style scoped>
++@media(min-width:761px) and (max-width:1180px){
++  .portal-nav-item :deep(.anticon){display:inline-flex}
++  .portal-side-note{display:none}
++}
++</style>
+diff --git a/frontend/hbos-portal-web/src/composables/useAccountProof.ts b/frontend/hbos-portal-web/src/composables/useAccountProof.ts
+index 0588d13..11ccbbe 100644
+--- a/frontend/hbos-portal-web/src/composables/useAccountProof.ts
++++ b/frontend/hbos-portal-web/src/composables/useAccountProof.ts
+@@ -2 +2,2 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+-import { getSecurity, type ProofStatus } from '@/services/accountApi'
++import { type ProofStatus } from '@/services/accountApi'
++import { refreshAccountProof } from '@/services/portalSessionCoordinator'
+@@ -23 +24 @@ export function useAccountProof(onInvalidated: () => void = () => undefined) {
+-      const status = await getSecurity()
++      const status = await refreshAccountProof()
+@@ -27,0 +29,2 @@ export function useAccountProof(onInvalidated: () => void = () => undefined) {
++  function confirmed(event: Event) { sync((event as CustomEvent<ProofStatus>).detail) }
++  function boundary() { invalidate(); onInvalidated() }
+@@ -35,0 +39,2 @@ export function useAccountProof(onInvalidated: () => void = () => undefined) {
++    window.addEventListener('hbos:session-boundary', boundary)
++    window.addEventListener('hbos:security-confirmed', confirmed)
+@@ -40,0 +46,2 @@ export function useAccountProof(onInvalidated: () => void = () => undefined) {
++    window.removeEventListener('hbos:session-boundary', boundary)
++    window.removeEventListener('hbos:security-confirmed', confirmed)
+diff --git a/frontend/hbos-portal-web/src/router/index.ts b/frontend/hbos-portal-web/src/router/index.ts
+index 4797084..8b16e77 100644
+--- a/frontend/hbos-portal-web/src/router/index.ts
++++ b/frontend/hbos-portal-web/src/router/index.ts
+@@ -12,2 +12,3 @@ import LimsResultReviewView from '@/views/LimsResultReviewView.vue'
+-import { loadIamAccess, canIam, iamSession } from '@/services/iamAccess'
+-import { getIamSecurity } from '@/services/iamAccount'
++import { canIam } from '@/services/iamAccess'
++import { ensurePortalSession } from '@/services/portalSessionCoordinator'
++import { accountRedirect } from '@/services/accountNavigation'
+@@ -79 +80 @@ router.beforeEach(async (to) => {
+-    const security = await getIamSecurity()
++    const security = await ensurePortalSession()
+@@ -82 +82,0 @@ router.beforeEach(async (to) => {
+-    await loadIamAccess(security.user)
+@@ -89,2 +89 @@ router.beforeEach(async (to) => {
+-    if (isUnauthenticatedError(e)) return { path: '/hbos/login', query: { status: 'session_required', redirect_to: to.fullPath } }
+-    iamSession.ready = false
++    if (isUnauthenticatedError(e)) return { path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(to.fullPath) } }
+diff --git a/frontend/hbos-portal-web/src/services/accountErrors.ts b/frontend/hbos-portal-web/src/services/accountErrors.ts
+index 77032a7..97bba08 100644
+--- a/frontend/hbos-portal-web/src/services/accountErrors.ts
++++ b/frontend/hbos-portal-web/src/services/accountErrors.ts
+@@ -6 +6 @@ export function isUncertainWrite(error: unknown): boolean {
+-  return !(error instanceof FrappeRequestError) || ['NETWORK_ERROR', 'SERVICE_ERROR'].includes(error.code)
++  return !(error instanceof FrappeRequestError) || ['NETWORK_ERROR', 'SERVICE_ERROR', 'STALE_RESPONSE', 'SESSION_UNCONFIRMED'].includes(error.code)
+diff --git a/frontend/hbos-portal-web/src/services/frappeClient.ts b/frontend/hbos-portal-web/src/services/frappeClient.ts
+index 92b9a80..2f9d050 100644
+--- a/frontend/hbos-portal-web/src/services/frappeClient.ts
++++ b/frontend/hbos-portal-web/src/services/frappeClient.ts
+@@ -3,12 +3,2 @@ import axios from 'axios'
+-interface FrappeMethodResponse<T> {
+-  message: T
+-}
+-
+-const http = axios.create({
+-  baseURL: import.meta.env.VITE_FRAPPE_BASE_URL || '',
+-  withCredentials: true,
+-  headers: {
+-    'X-Requested-With': 'XMLHttpRequest',
+-  },
+-})
+-
++interface FrappeMethodResponse<T> { message: T }
++const http = axios.create({ baseURL: import.meta.env.VITE_FRAPPE_BASE_URL || '', withCredentials: true, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+@@ -16,13 +6,17 @@ let csrfToken: string | null = null
+-
+-export function clearFrappeCsrfToken() { csrfToken = null }
+-
+-export type FrappeRequestErrorCode =
+-  | 'UNAUTHENTICATED'
+-  | 'INVALID_CREDENTIALS'
+-  | 'CSRF_MISMATCH'
+-  | 'FORBIDDEN'
+-  | 'NETWORK_ERROR'
+-  | 'SERVICE_ERROR'
+-  | 'VALIDATION_ERROR'
+-  | 'RATE_LIMITED'
+-
++let csrfFlight: Promise<string> | null = null
++let requestEpoch = 0
++let writesBlocked = false
++// DEV-only, non-authorizing lifecycle evidence. No URL, subject, SID, token,
++// proof or payload is retained. These values never control a component key.
++export const frappeDiagnostics = { document: import.meta.env.DEV ? crypto.randomUUID() : '', security: 0, capabilities: 0, bootstrap: 0 }
++export const developmentObservation = import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('iam_uat') === '1'
++function recordRead(method: string) {
++  if (!import.meta.env.DEV) return
++  if (method === 'hbos_portal.auth.accounts.get_security') frappeDiagnostics.security++
++  if (method === 'hbos_portal.api.iam_access.get_capabilities') frappeDiagnostics.capabilities++
++  if (method === 'hbos_portal.api.bootstrap.get_bootstrap') frappeDiagnostics.bootstrap++
++}
++export function clearFrappeCsrfToken() { csrfToken = null; csrfFlight = null }
++export function invalidateFrappeRequests() { requestEpoch++; clearFrappeCsrfToken() }
++export function blockFrappeWrites(blocked: boolean) { writesBlocked = blocked }
++export type FrappeRequestErrorCode = 'UNAUTHENTICATED' | 'INVALID_CREDENTIALS' | 'PROOF_REQUIRED' | 'SESSION_UNCONFIRMED' | 'STALE_RESPONSE' | 'CSRF_MISMATCH' | 'FORBIDDEN' | 'NETWORK_ERROR' | 'SERVICE_ERROR' | 'VALIDATION_ERROR' | 'RATE_LIMITED'
+@@ -30,9 +24 @@ export class FrappeRequestError extends Error {
+-  code: FrappeRequestErrorCode
+-  status?: number
+-
+-  constructor(code: FrappeRequestErrorCode, message: string, status?: number) {
+-    super(message)
+-    this.name = 'FrappeRequestError'
+-    this.code = code
+-    this.status = status
+-  }
++  constructor(public code: FrappeRequestErrorCode, message: string, public status?: number, public diagnosticId?: string) { super(message); this.name = 'FrappeRequestError' }
+@@ -40 +26 @@ export class FrappeRequestError extends Error {
+-
++interface SessionFact { authenticated: boolean; session_context: string | null; csrf_token?: string | null }
+@@ -44,7 +30 @@ function responseText(data: unknown): string {
+-  return [
+-    payload.exc_type,
+-    payload.exception,
+-    payload.message,
+-    payload._error_message,
+-    payload._server_messages,
+-  ].filter(Boolean).join(' ')
++  return [payload.exc_type, payload.exception, payload.message, payload._error_message, payload._server_messages].filter(Boolean).join(' ')
+@@ -52,2 +32,15 @@ function responseText(data: unknown): string {
+-
+-export function normalizeFrappeError(error: unknown, method?: string): FrappeRequestError {
++function diagnostic(status?: number) {
++  const id = globalThis.crypto?.randomUUID?.().slice(0, 8) || Math.random().toString(16).slice(2, 10)
++  // Log metadata only: never framework payloads, URLs, identities or credentials.
++  console.warn('[HBOS 服务诊断]', { id, status })
++  return new FrappeRequestError('SERVICE_ERROR', `服务暂时无法完成请求，请重试或联系管理员。诊断编号：${id}`, status, id)
++}
++function safeAccountMessage(data: unknown): string | null {
++  try {
++    const messages = JSON.parse(String((data as Record<string, unknown>)._server_messages || '[]'))
++    const message = JSON.parse(messages[0] || '{}').message
++    if (typeof message === 'string' && /[\u3400-\u9fff]/.test(message) && !/Traceback|File \\"|hbos_portal\.|frappe\.|<script|exception/i.test(message)) return message.replace(/<[^>]*>/g, '').slice(0, 200)
++  } catch { /* Only a bounded, user-facing Chinese message may leave this boundary. */ }
++  return null
++}
++export function normalizeFrappeError(error: unknown, method?: string, fact?: Pick<SessionFact, 'authenticated'>): FrappeRequestError {
+@@ -55,41 +48,25 @@ export function normalizeFrappeError(error: unknown, method?: string): FrappeReq
+-  if (!axios.isAxiosError(error)) {
+-    return new FrappeRequestError('SERVICE_ERROR', 'HBOS 服务暂时不可用，请稍后重试。')
+-  }
+-  if (!error.response) {
+-    return new FrappeRequestError('NETWORK_ERROR', '无法连接 HBOS 服务，请检查本机服务状态。')
+-  }
+-
+-  const status = error.response.status
+-  const detail = responseText(error.response.data)
+-  const isBootstrap = method === 'hbos_portal.api.bootstrap.get_bootstrap'
+-  const isGuestPermission = /\bGuest\b|not permitted to access this method|login to access/i.test(detail)
+-  if (status === 429 || /RateLimitExceededError/.test(detail)) return new FrappeRequestError('RATE_LIMITED', '请求较频繁，请稍后再试。', status)
+-  if (/SecurityException/.test(detail) && /account has been locked|账号.*锁定/i.test(detail)) {
+-    return new FrappeRequestError('RATE_LIMITED', '验证尝试较多，当前暂不可用。请稍后重试。', status)
+-  }
+-  if (method === 'login_mfa' && /AuthenticationError|ExpiredLoginException/.test(detail)) {
+-    return new FrappeRequestError('INVALID_CREDENTIALS', '二次认证未通过或已过期。请重新登录并输入当前验证码。', status)
+-  }
+-  const accountMethod = method?.startsWith('hbos_portal.auth.') && !method.endsWith('password_login')
+-  if (accountMethod && /ValidationError|AuthenticationError|PermissionError/.test(String((error.response.data as Record<string, unknown>)?.exc_type))) {
+-    try {
+-      const data = error.response.data as Record<string, unknown>
+-      const messages = JSON.parse(String(data._server_messages || '[]'))
+-      const first = JSON.parse(messages[0] || '{}')
+-      if (typeof first.message === 'string') return new FrappeRequestError('VALIDATION_ERROR', first.message.replace(/<[^>]*>/g, '').slice(0, 500), status)
+-    } catch { /* Never show framework exceptions or request metadata. */ }
+-  }
+-  if (/AuthenticationError|invalid login|incorrect password/i.test(detail)) {
+-    return new FrappeRequestError('INVALID_CREDENTIALS', '账号或密码不正确。', status)
+-  }
+-  if (status === 401 || ((status === 403 || status === 417) && (isBootstrap || isGuestPermission))) {
+-    return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
+-  }
+-  if (/CSRFTokenError|csrf token/i.test(detail)) {
+-    csrfToken = null
+-    return new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请刷新页面后重试。', status)
+-  }
+-  if (status === 403 || status === 417) {
+-    return new FrappeRequestError('FORBIDDEN', '当前账号没有执行此操作的权限。', status)
+-  }
+-  return new FrappeRequestError('SERVICE_ERROR', 'HBOS 服务请求失败，请稍后重试。', status)
++  if (!axios.isAxiosError(error)) return diagnostic()
++  if (!error.response) return new FrappeRequestError('NETWORK_ERROR', '网络连接中断，操作结果尚未确认。请恢复连接后重试。')
++  const status = error.response.status, detail = responseText(error.response.data)
++  const credentialMethod = method === 'login' || method === 'login_mfa' || method?.endsWith('.password_login') || method?.endsWith('.reauthenticate') || method?.endsWith('.verify_feishu_code')
++  const loginStep = method === 'login' || method === 'login_mfa' || method?.endsWith('.password_login')
++  if (/account has been locked|账号.*锁定/i.test(detail)) return new FrappeRequestError('RATE_LIMITED', '验证尝试较多，当前暂不可用。请稍后重试。', status)
++  if (status === 429 || /RateLimitExceededError/i.test(detail)) return new FrappeRequestError('RATE_LIMITED', '验证或请求较频繁，请稍后再试。', status)
++  if (/CSRFTokenError|csrf token/i.test(detail)) { clearFrappeCsrfToken(); return new FrappeRequestError('CSRF_MISMATCH', '安全会话已更新，请重新核对后再提交。', status) }
++  if (fact?.authenticated === false && !loginStep) return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
++  if (credentialMethod && /AuthenticationError|ExpiredLoginException|incorrect password|invalid login/i.test(detail)) return new FrappeRequestError('INVALID_CREDENTIALS', method === 'login_mfa' ? '二次认证未通过或已过期。请重新登录并输入当前验证码。' : (method === 'login' || method?.endsWith('.password_login') ? '账号或密码不正确。' : '密码或验证码不正确，请重新核对。'), status)
++  // Account validation messages must never hide a confirmed Guest boundary.
++  if (fact?.authenticated === false || (status === 401 && !credentialMethod)) return new FrappeRequestError('UNAUTHENTICATED', '登录状态已失效，请重新登录。', status)
++  const wire = (error.response.data as {message?: {error?: {code?:string;message?:string}}})?.message?.error
++  if (wire?.code === 'PROOF_REQUIRED') return new FrappeRequestError('PROOF_REQUIRED', '本人身份验证已过期，请重新验证后再保存。', status)
++  if (/not whitelisted|not permitted to access this method|Failed to get method/i.test(detail)) return fact?.authenticated ? diagnostic(status) : new FrappeRequestError('SESSION_UNCONFIRMED', '暂时无法确认登录状态，请重试核验或退出登录。', status)
++  if (/AuthenticationError/.test(detail) && fact?.authenticated) return new FrappeRequestError('PROOF_REQUIRED', '本人身份验证已过期，请重新验证后再保存。', status)
++  const accountMethod = method?.startsWith('hbos_portal.auth.') && !credentialMethod
++  if (accountMethod && /ValidationError|AuthenticationError|PermissionError/.test(detail)) {
++    const safe = safeAccountMessage(error.response.data)
++    if (safe) return new FrappeRequestError('VALIDATION_ERROR', safe, status)
++  }
++  if (status === 403 || status === 417) return new FrappeRequestError('FORBIDDEN', '当前账号没有执行此操作的权限。', status)
++  if (wire && ['INVALID_REQUEST','CONFLICT','VERSION_CONFLICT','STALE_PREVIEW','INVALID_RULE'].includes(wire.code || '') && typeof wire.message === 'string' && /[\u3400-\u9fff]/.test(wire.message) && !/Traceback|frappe\.|hbos_portal\.|<script/i.test(wire.message)) return new FrappeRequestError('VALIDATION_ERROR', wire.message.replace(/<[^>]*>/g, '').slice(0, 200), status)
++  if (status === 400 && /ValidationError/.test(detail)) return new FrappeRequestError('VALIDATION_ERROR', '提交内容未通过核验，请检查填写内容。', status)
++  return diagnostic(status)
+@@ -97,3 +74,8 @@ export function normalizeFrappeError(error: unknown, method?: string): FrappeReq
+-
+-export function isUnauthenticatedError(error: unknown): boolean {
+-  return error instanceof FrappeRequestError && error.code === 'UNAUTHENTICATED'
++export const isUnauthenticatedError = (error: unknown) => error instanceof FrappeRequestError && error.code === 'UNAUTHENTICATED'
++export async function probeFrappeSession(): Promise<SessionFact> {
++  try {
++    const response = await http.get<FrappeMethodResponse<SessionFact>>('/api/method/hbos_portal.auth.accounts.get_request_security', { headers: { 'Cache-Control': 'no-cache' } })
++    const value = response.data.message
++    if (typeof value?.authenticated !== 'boolean' || (value.authenticated && (typeof value.session_context !== 'string' || value.session_context.length !== 64))) throw new FrappeRequestError('SESSION_UNCONFIRMED', '暂时无法确认登录状态，请重试核验。')
++    return value
++  } catch (error) { throw normalizeFrappeError(error, 'session_probe') }
+@@ -101,8 +83,10 @@ export function isUnauthenticatedError(error: unknown): boolean {
+-
+-function bootstrapCsrfToken(): string | null {
+-  const runtime = window as Window & {
+-    csrf_token?: string
+-    frappe?: { csrf_token?: string }
+-  }
+-  const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
+-  return runtime.frappe?.csrf_token || runtime.csrf_token || meta || null
++async function requestError(error: unknown, method: string, epoch: number): Promise<FrappeRequestError> {
++  assertEpoch(epoch)
++  let fact: SessionFact | undefined
++  if (axios.isAxiosError(error) && error.response && [401, 403, 417].includes(error.response.status) && !['login', 'login_mfa'].includes(method)) {
++    try { fact = await probeFrappeSession() } catch { /* An inconclusive probe cannot establish Guest. */ }
++  }
++  const normalized = normalizeFrappeError(error, method, fact)
++  assertEpoch(epoch)
++  if (normalized.code === 'UNAUTHENTICATED' && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('hbos:session-expired'))
++  return normalized
+@@ -110 +94 @@ function bootstrapCsrfToken(): string | null {
+-
++function assertEpoch(epoch: number) { if (epoch !== requestEpoch) throw new FrappeRequestError('STALE_RESPONSE', '会话已改变，已丢弃先前请求的结果。') }
+@@ -112 +95,0 @@ async function getCsrfToken(): Promise<string> {
+-  csrfToken ||= bootstrapCsrfToken()
+@@ -114,6 +97,5 @@ async function getCsrfToken(): Promise<string> {
+-
+-  try {
+-    const response = await http.get<FrappeMethodResponse<{
+-      ok: boolean
+-      data?: { csrf_token: string }
+-    }>>('/api/method/hbos_portal.api.csrf.get_token')
++  if (csrfFlight) return csrfFlight
++  const epoch = requestEpoch
++  const flight = (async () => {
++    const response = await http.get<FrappeMethodResponse<{ ok: boolean; data?: { csrf_token: string } }>>('/api/method/hbos_portal.api.csrf.get_token')
++    assertEpoch(epoch)
+@@ -121,8 +103,5 @@ async function getCsrfToken(): Promise<string> {
+-    if (!payload.ok || !payload.data?.csrf_token) {
+-      throw new FrappeRequestError('UNAUTHENTICATED', '当前会话无法建立安全请求，请重新登录。')
+-    }
+-    csrfToken = payload.data.csrf_token
+-    return csrfToken
+-  } catch (error) {
+-    throw normalizeFrappeError(error, 'hbos_portal.api.csrf.get_token')
+-  }
++    if (!payload.ok || !payload.data?.csrf_token) throw new FrappeRequestError('UNAUTHENTICATED', '当前会话无法建立安全请求，请重新登录。')
++    return csrfToken = payload.data.csrf_token
++  })()
++  csrfFlight = flight
++  try { return await flight } catch (error) { throw await requestError(error, 'hbos_portal.api.csrf.get_token', epoch) } finally { if (csrfFlight === flight) csrfFlight = null }
+@@ -130,14 +109,5 @@ async function getCsrfToken(): Promise<string> {
+-
+-export async function callFrappeMethod<T>(
+-  method: string,
+-  params?: Record<string, unknown>,
+-): Promise<T> {
+-  try {
+-    const response = await http.get<FrappeMethodResponse<T>>(
+-      `/api/method/${method}`,
+-      { params },
+-    )
+-    return response.data.message
+-  } catch (error) {
+-    throw normalizeFrappeError(error, method)
+-  }
++export async function callFrappeMethod<T>(method: string, params?: Record<string, unknown>): Promise<T> {
++  const epoch = requestEpoch
++  recordRead(method)
++  try { const response = await http.get<FrappeMethodResponse<T>>(`/api/method/${method}`, { params }); assertEpoch(epoch); return response.data.message }
++  catch (error) { throw await requestError(error, method, epoch) }
+@@ -145,6 +115,3 @@ export async function callFrappeMethod<T>(
+-
+-export async function callFrappePostMethod<T>(
+-  method: string,
+-  data?: Record<string, unknown>,
+-  extraHeaders?: Record<string, string>,
+-): Promise<T> {
++export async function callFrappePostMethod<T>(method: string, data?: Record<string, unknown>, extraHeaders?: Record<string, string>): Promise<T> {
++  const epoch = requestEpoch
++  if (writesBlocked) throw new FrappeRequestError('SESSION_UNCONFIRMED', '正在核对当前登录状态，请稍后再提交。')
+@@ -152,16 +119,5 @@ export async function callFrappePostMethod<T>(
+-    const token = await getCsrfToken()
+-    const response = await http.post<FrappeMethodResponse<T>>(
+-      `/api/method/${method}`,
+-      data || {},
+-      {
+-        headers: {
+-          'X-Frappe-CSRF-Token': token,
+-          'Content-Type': 'application/json',
+-          ...extraHeaders,
+-        },
+-      },
+-    )
+-    return response.data.message
+-  } catch (error) {
+-    throw normalizeFrappeError(error, method)
+-  }
++    const token = await getCsrfToken(); assertEpoch(epoch)
++    if (writesBlocked) throw new FrappeRequestError('SESSION_UNCONFIRMED', '请先恢复当前登录状态，再保存草稿。')
++    const response = await http.post<FrappeMethodResponse<T>>(`/api/method/${method}`, data || {}, { headers: { 'X-Frappe-CSRF-Token': token, 'Content-Type': 'application/json', ...extraHeaders } })
++    assertEpoch(epoch); return response.data.message
++  } catch (error) { throw await requestError(error, method, epoch) }
+@@ -169 +124,0 @@ export async function callFrappePostMethod<T>(
+-
+@@ -173,9 +128,4 @@ export async function loginWithPassword(username: string, password: string, otp
+-    const security = await http.get<{message: {csrf_token?: string}}>('/api/method/hbos_portal.auth.accounts.get_request_security')
+-    const result = await http.post<{message: PasswordLoginResult}>('/api/method/hbos_portal.auth.accounts.password_login', { username, password, otp, tmp_id: tmpId }, {
+-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(security.data.message.csrf_token ? {'X-Frappe-CSRF-Token': security.data.message.csrf_token} : {}) },
+-    })
+-    csrfToken = null
+-    return result.data.message
+-  } catch (error) {
+-    throw normalizeFrappeError(error, tmpId ? 'login_mfa' : 'login')
+-  }
++    const security = await probeFrappeSession()
++    const result = await http.post<{message: PasswordLoginResult}>('/api/method/hbos_portal.auth.accounts.password_login', { username, password, otp, tmp_id: tmpId }, { headers: { 'Content-Type': 'application/json', ...(security.csrf_token ? { 'X-Frappe-CSRF-Token': security.csrf_token } : {}) } })
++    invalidateFrappeRequests(); return result.data.message
++  } catch (error) { throw normalizeFrappeError(error, tmpId ? 'login_mfa' : 'login') }
+@@ -183 +132,0 @@ export async function loginWithPassword(username: string, password: string, otp
+-
+@@ -185,11 +134,24 @@ export async function logoutFrappeSession(): Promise<void> {
+-  try {
+-    const token = await getCsrfToken()
+-    await http.post('/api/method/logout', {}, {
+-      headers: {
+-        'X-Frappe-CSRF-Token': token,
+-        'Content-Type': 'application/json',
+-      },
+-    })
+-    csrfToken = null
+-  } catch (error) {
+-    throw normalizeFrappeError(error, 'logout')
++  // Only logout may retry once after a native CSRF rotation. Business writes
++  // are never replayed, even if their outcome is uncertain.
++  const epoch = requestEpoch
++  let fact = await probeFrappeSession(); assertEpoch(epoch)
++  const originalContext = fact.session_context
++  if (!fact.authenticated) { clearFrappeCsrfToken(); return }
++  for (let attempt = 0; attempt < 2; attempt++) {
++    try {
++      await http.post('/api/method/logout', {}, { headers: { 'X-Frappe-CSRF-Token': fact.csrf_token || '', 'Content-Type': 'application/json' } })
++      assertEpoch(epoch)
++      const after = await probeFrappeSession(); assertEpoch(epoch)
++      if (after.authenticated) throw new FrappeRequestError('SESSION_UNCONFIRMED', '服务端尚未确认退出，请重试退出。')
++      clearFrappeCsrfToken(); return
++    } catch (error) {
++      const normalized = normalizeFrappeError(error, 'logout')
++      assertEpoch(epoch)
++      if (attempt === 0 && normalized.code === 'CSRF_MISMATCH') {
++        fact = await probeFrappeSession(); assertEpoch(epoch)
++        if (!fact.authenticated) return
++        if (fact.session_context !== originalContext) throw new FrappeRequestError('SESSION_UNCONFIRMED', '当前登录会话已变化，请核对身份后重新退出。')
++        continue
++      }
++      throw normalized
++    }
+diff --git a/frontend/hbos-portal-web/src/services/iamAccess.ts b/frontend/hbos-portal-web/src/services/iamAccess.ts
+index 44fc570..95ca067 100644
+--- a/frontend/hbos-portal-web/src/services/iamAccess.ts
++++ b/frontend/hbos-portal-web/src/services/iamAccess.ts
+@@ -21 +21 @@ export function iamMessage(error: unknown): string {
+-export interface Capabilities { schema_version: 1; subject_user: string; policy_revision: string; capabilities: string[] }
++export interface Capabilities { schema_version: 1; subject_user: string; session_context?: string; policy_revision: string; capabilities: string[] }
+@@ -30,0 +31,8 @@ export function validateCapabilities(raw: unknown, expectedUser?: string): Capab
++export async function fetchIamAccess(expectedUser: string, context: string) {
++  const result = validateCapabilities(await iamQuery('hbos_portal.api.iam_access.get_capabilities'), expectedUser)
++  if (result.session_context !== context) throw new IamError('登录状态已改变，请重新核验。', 'SESSION_CHANGED')
++  return result
++}
++export function applyIamAccess(result: Capabilities) {
++  Object.assign(iamSession, { user: result.subject_user, revision: result.policy_revision, capabilities: result.capabilities, ready: true, loading: false, error: '' })
++}
+diff --git a/frontend/hbos-portal-web/src/services/iamAccount.ts b/frontend/hbos-portal-web/src/services/iamAccount.ts
+index b760b52..83b6726 100644
+--- a/frontend/hbos-portal-web/src/services/iamAccount.ts
++++ b/frontend/hbos-portal-web/src/services/iamAccount.ts
+@@ -4 +4 @@ import { iamQuery, IamError } from './iamAccess'
+-export interface IamSecurity extends SecurityStatus { temporary_password_state: { pending: boolean; temporary: boolean; expires_at: string | null; generation: number; can_claim: boolean }; first_password_required: boolean }
++export interface IamSecurity extends SecurityStatus { session_context: string; identity: { display_name: string; employee_number: string; department: string; login_name: string }; temporary_password_state: { pending: boolean; temporary: boolean; expires_at: string | null; generation: number; can_claim: boolean }; first_password_required: boolean }
+@@ -8 +8 @@ export async function getIamSecurity(expectedUser?: string) {
+-  if (!status?.user || status.user === 'Guest' || (expectedUser && status.user !== expectedUser) || !state || typeof status.first_password_required !== 'boolean' || typeof state.pending !== 'boolean' || typeof state.temporary !== 'boolean' || typeof state.can_claim !== 'boolean' || !Number.isInteger(state.generation)) throw new IamError('无法确认本人账号安全状态，请重新登录或重试。')
++  if (!status?.user || status.user === 'Guest' || (expectedUser && status.user !== expectedUser) || !/^[a-f0-9]{64}$/.test(status.session_context || '') || !state || typeof status.first_password_required !== 'boolean' || typeof state.pending !== 'boolean' || typeof state.temporary !== 'boolean' || typeof state.can_claim !== 'boolean' || !Number.isInteger(state.generation)) throw new IamError('无法确认本人账号安全状态，请重新登录或重试。')
+diff --git a/frontend/hbos-portal-web/src/views/FeishuLoginView.vue b/frontend/hbos-portal-web/src/views/FeishuLoginView.vue
+index ba31e29..71844aa 100644
+--- a/frontend/hbos-portal-web/src/views/FeishuLoginView.vue
++++ b/frontend/hbos-portal-web/src/views/FeishuLoginView.vue
+@@ -4 +4 @@
+-    <template v-if="authenticated"><a-alert message="登录已完成，工作台暂未加载。请重试加载，无需再次输入密码。" type="info" show-icon role="status" /><a-button size="large" type="primary" block :loading="submitting" @click="resumeWorkspace">重试加载工作台</a-button></template>
++    <template v-if="authenticated"><a-alert :message="submitting ? '登录已完成，正在加载工作台…' : '登录已完成，工作台暂未加载。请重试加载，无需再次输入密码。'" type="info" show-icon role="status" /><a-button v-if="!submitting" size="large" type="primary" block @click="resumeWorkspace">重试加载工作台</a-button></template>
+@@ -30 +30 @@ import { accountRedirect } from '@/services/accountNavigation'
+-import { getIamSecurity } from '@/services/iamAccount'
++import { ensurePortalSession, resetPortalSession } from '@/services/portalSessionCoordinator'
+@@ -35,0 +36 @@ const statusMessages: Record<string,string> = {
++ logout_unconfirmed:'本机内容已清理，服务端退出尚未确认。连接恢复后请重新登录，或返回后重试退出。',
+@@ -45 +46 @@ watch(() => route.query.status, () => { cancelMfa(); authenticated.value = false
+-async function resumeWorkspace() { if (submitting.value) return; submitting.value = true; error.value = ''; try { const security = await getIamSecurity(); if (!security.first_password_required) await portal.bootstrap(); if (!disposed) await router.replace(accountRedirect(route.query.redirect_to)) } catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '工作台暂时无法加载，请重试。' } finally { if (!disposed) submitting.value = false } }
++async function resumeWorkspace() { if (submitting.value) return; submitting.value = true; error.value = ''; try { await ensurePortalSession({ force: true }); if (!disposed) await router.replace(accountRedirect(route.query.redirect_to)) } catch (e) { if (!disposed) error.value = e instanceof FrappeRequestError ? e.message : '工作台暂时无法加载，请重试。' } finally { if (!disposed) submitting.value = false } }
+@@ -48 +49 @@ async function submitAccountLogin() {
+- try { const result = await loginWithPassword(username.value.trim(),password.value,otp.value,tmpId.value); if (disposed) return; if (result.tmp_id && result.verification) { tmpId.value = result.tmp_id; return }; cancelMfa(); authenticated.value = true; portal.clearSession() }
++ try { const result = await loginWithPassword(username.value.trim(),password.value,otp.value,tmpId.value); if (disposed) return; if (result.tmp_id && result.verification) { tmpId.value = result.tmp_id; return }; cancelMfa(); authenticated.value = true; resetPortalSession() }

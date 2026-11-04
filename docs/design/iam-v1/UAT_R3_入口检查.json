@@ -1,0 +1,20 @@
+{
+  "checked": [
+    "README.md",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "docs/AI_CONTEXT.md",
+    "docs/READING_GUIDE.md",
+    "docs/PROJECT_STATUS.md",
+    "docs/CURRENT_MILESTONE.md",
+    "docs/milestones/M1_START_GATE.md"
+  ],
+  "dedicated_entry_updated": "docs/design/iam-v1/README.md",
+  "public_status": "WARN: shared single-writer documents contain old IAM/PR21 current statements; patch supplied without overwriting other domains",
+  "skill_rules_changed": false,
+  "missing_skills": [
+    "superpowers",
+    "frontend-design"
+  ],
+  "fallback": "repository-prescribed equivalent manual engineering checks"
+}

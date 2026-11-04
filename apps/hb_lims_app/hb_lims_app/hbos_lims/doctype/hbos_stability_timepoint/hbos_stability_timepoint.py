@@ -22,8 +22,30 @@ class HBOSStabilityTimepoint(Document):
 
 	def validate(self):
 		guards.guard_system_fields(self, guards.TIMEPOINT_SYSTEM_FIELDS)
+		self._guard_delays()
 		self._check_items_unique()
 		self._check_zero_month()
+
+	def _guard_delays(self):
+		"""延期历史只由 apply/approve/reject_delay 经父单保存（方案 8.6）。"""
+		if self.flags.get("allow_system_fields"):
+			return
+		before = self.get_doc_before_save()
+		if not before:
+			if self.delays:
+				frappe.throw("延期记录只能通过延期申请、批准或驳回操作写入，禁止新建时直接填写。")
+			return
+		guards.guard_child_table_frozen(self, "delays")
+		# 内容必须绑定原行及 idx；无序内容集合会放过交换两行签署的写法。
+		fields = [df.fieldname for df in frappe.get_meta("HBOS Stability Timepoint Delay").fields
+			if df.fieldname and df.fieldtype not in ("Section Break", "Column Break", "Tab Break")]
+
+		def history(rows):
+			return [(row.name, row.idx, tuple("" if row.get(field) is None else str(row.get(field)) for field in fields))
+				for row in (rows or [])]
+
+		if history(before.delays) != history(self.delays):
+			frappe.throw("延期记录只能通过延期申请、批准或驳回操作写入，禁止替换、重排或修改历史行。")
 
 	def _check_items_unique(self):
 		"""父单级项目防重复（方案 5.3.2 P1-6）。"""

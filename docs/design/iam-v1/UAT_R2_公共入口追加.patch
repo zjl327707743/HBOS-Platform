@@ -1,0 +1,73 @@
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,8 @@
+ # 新乡海滨智能运营管理平台
++
++## IAM 专属 UAT-R2 追加记录 — 2026-10-18
++
++A：`IAM_UAT_R2_PARTIAL`；角色范围设计：`IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER`。沿用 Draft #52 与自身隔离 Site，未合并/发布；新角色、部门/公司考勤与 LIMS 新授权未实施。Owner 10月18日A1仍未通过，旧R1结果只作历史。见 [IAM当前入口](docs/design/iam-v1/README.md) 和 [R2交付](docs/design/iam-v1/UAT_R2_修复交付.md)。本段仅追加 IAM 状态，其他产品/业务阶段由产品集成线维护，以下历史不据此改写。
+
+ ## 并行权限治理 IAM-0 — 2026-10-01
+
+diff --git a/docs/AI_CONTEXT.md b/docs/AI_CONTEXT.md
+--- a/docs/AI_CONTEXT.md
++++ b/docs/AI_CONTEXT.md
+@@ -1,4 +1,8 @@
+ # AI Context
++
++## IAM 专属 UAT-R2 追加记录 — 2026-10-18
++
++A：`IAM_UAT_R2_PARTIAL`；角色范围设计：`IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER`。沿用 Draft #52 与自身隔离 Site，未合并/发布；新角色、部门/公司考勤与 LIMS 新授权未实施。Owner 10月18日A1仍未通过，旧R1结果只作历史。见 [IAM当前入口](design/iam-v1/README.md) 和 [R2交付](design/iam-v1/UAT_R2_修复交付.md)。本段仅追加 IAM 状态，其他产品/业务阶段由产品集成线维护，以下历史不据此改写。
+
+ 最新事实：PR #21 已完成 FINAL_REVIEW_PASS，并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Owner 最新无破坏验收 PASS，团队合成浏览器 final-submit 3/3 PASS，新 squash 四项 CI SUCCESS。旧 #22 已关闭未合并，IAM-0 由 clean Draft PR #23 承接；PR #15 仍 Draft，main 未变化。真实 Owner 凭据、绑定、MFA 与 P1 原卷保持不变。下方 BLOCKED/WAITING 记录仅为合并前历史，不再代表当前 Gate。
+
+diff --git a/docs/READING_GUIDE.md b/docs/READING_GUIDE.md
+--- a/docs/READING_GUIDE.md
++++ b/docs/READING_GUIDE.md
+@@ -1,4 +1,8 @@
+ # Reading Guide
++
++## IAM 专属 UAT-R2 追加记录 — 2026-10-18
++
++A：`IAM_UAT_R2_PARTIAL`；角色范围设计：`IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER`。沿用 Draft #52 与自身隔离 Site，未合并/发布；新角色、部门/公司考勤与 LIMS 新授权未实施。Owner 10月18日A1仍未通过，旧R1结果只作历史。见 [IAM当前入口](design/iam-v1/README.md) 和 [R2交付](design/iam-v1/UAT_R2_修复交付.md)。本段仅追加 IAM 状态，其他产品/业务阶段由产品集成线维护，以下历史不据此改写。
+
+ PR #21 已完成 FINAL_REVIEW_PASS 并 squash 合入 `feature/hbos-portal-product@e4b16ee80aaaf21aac2304246a4de1f9fe8995ea`。Browser final-submit 3/3 与 Owner 最新无破坏验收均已 PASS；旧 #22 已关闭，IAM-0 由 clean Draft PR #23 承接。PR #15 仍 Draft，main 未放行。以 [本轮主记录](milestones/M1_RP3_统一账号飞书绑定与正式发布.md) 顶部的合并后收口状态为准；下方 BLOCKED/WAITING 文字均为历史。
+
+diff --git a/docs/PROJECT_STATUS.md b/docs/PROJECT_STATUS.md
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -1,4 +1,8 @@
+ # 项目状态
++
++## IAM 专属 UAT-R2 追加记录 — 2026-10-18
++
++A：`IAM_UAT_R2_PARTIAL`；角色范围设计：`IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER`。沿用 Draft #52 与自身隔离 Site，未合并/发布；新角色、部门/公司考勤与 LIMS 新授权未实施。Owner 10月18日A1仍未通过，旧R1结果只作历史。见 [IAM当前入口](design/iam-v1/README.md) 和 [R2交付](design/iam-v1/UAT_R2_修复交付.md)。本段仅追加 IAM 状态，其他产品/业务阶段由产品集成线维护，以下历史不据此改写。
+
+ ## 2026-10-10 HBOS 多 APP 集成治理（产品分支）
+
+diff --git a/docs/CURRENT_MILESTONE.md b/docs/CURRENT_MILESTONE.md
+--- a/docs/CURRENT_MILESTONE.md
++++ b/docs/CURRENT_MILESTONE.md
+@@ -1,4 +1,8 @@
+ # Current Milestone
++
++## IAM 专属 UAT-R2 追加记录 — 2026-10-18
++
++A：`IAM_UAT_R2_PARTIAL`；角色范围设计：`IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER`。沿用 Draft #52 与自身隔离 Site，未合并/发布；新角色、部门/公司考勤与 LIMS 新授权未实施。Owner 10月18日A1仍未通过，旧R1结果只作历史。见 [IAM当前入口](design/iam-v1/README.md) 和 [R2交付](design/iam-v1/UAT_R2_修复交付.md)。本段仅追加 IAM 状态，其他产品/业务阶段由产品集成线维护，以下历史不据此改写。
+
+ ## Portal 产品分支合并后 Gate — 2026-10-01
+
+diff --git a/docs/milestones/M1_START_GATE.md b/docs/milestones/M1_START_GATE.md
+--- a/docs/milestones/M1_START_GATE.md
++++ b/docs/milestones/M1_START_GATE.md
+@@ -1,4 +1,8 @@
+ # M1 启动门禁
++
++## IAM 专属 UAT-R2 追加记录 — 2026-10-18
++
++A：`IAM_UAT_R2_PARTIAL`；角色范围设计：`IAM_ROLE_SCOPE_DESIGN_REVIEW_READY / PENDING_OWNER`。沿用 Draft #52 与自身隔离 Site，未合并/发布；新角色、部门/公司考勤与 LIMS 新授权未实施。Owner 10月18日A1仍未通过，旧R1结果只作历史。见 [IAM当前入口](../design/iam-v1/README.md) 和 [R2交付](../design/iam-v1/UAT_R2_修复交付.md)。本段仅追加 IAM 状态，其他产品/业务阶段由产品集成线维护，以下历史不据此改写。
+
+ ## PR #21 最终 Gate — 2026-10-01
+
+# End of R2 review patch; not applied to product integration.

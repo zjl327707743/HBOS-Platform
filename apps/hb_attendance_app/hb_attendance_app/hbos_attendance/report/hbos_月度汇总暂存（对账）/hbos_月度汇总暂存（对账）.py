@@ -5,6 +5,9 @@ from frappe.utils import getdate
 
 
 def execute(filters=None):
+	# Fail closed until scoped legacy Script Reports are query-time filtered.
+	from hb_attendance_app.hbos_attendance.report_scope import require_unrestricted_employee_read
+	require_unrestricted_employee_read("HBOS Attendance Import Log")
 	filters = filters or {}
 	log_filters = {"monthly_summary_staging": ("is", "set")}
 	if filters.get("import_log"):

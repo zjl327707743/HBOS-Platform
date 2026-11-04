@@ -13,6 +13,7 @@ after_migrate = "hb_inventory_app.hbos_inventory.setup.after_migrate"
 doc_events = {
     "Batch": {
         "validate": "hb_inventory_app.hbos_inventory.quality_projection.guard_batch_projection",
+        "before_print": "hb_inventory_app.hbos_inventory.card_permissions.validate_inventory_card_print",
     },
     "Delivery Note": {
         "before_submit": "hb_inventory_app.hbos_inventory.release_gate.validate_release",
@@ -24,6 +25,18 @@ doc_events = {
         # 而 ERPNext 的 on_submit 先建 SLE，我们的钩子在其后跑。详见 doc_gen.py。
         "on_submit": "hb_inventory_app.hbos_inventory.doc_gen.generate_for_stock_entry",
     },
+}
+
+# Inventory cards are full-batch snapshots. Add a deny-only boundary for these
+# files without replacing Frappe's File controller or other apps' permissions.
+has_permission = {
+    "File": "hb_inventory_app.hbos_inventory.card_permissions.inventory_file_has_permission",
+}
+permission_query_conditions = {
+    "File": "hb_inventory_app.hbos_inventory.card_permissions.inventory_file_query_conditions",
+}
+extend_doctype_class = {
+    "File": ["hb_inventory_app.hbos_inventory.card_permissions.InventoryCardFileMixin"],
 }
 
 # 表单上的自定义行为：
@@ -54,3 +67,10 @@ jinja = {
         "hb_inventory_app.hbos_inventory.qr_utils",
     ]
 }
+
+
+# HBOS Portal experience provider.
+# Inventory owns access and current Desk routing; Portal only consumes the contract.
+hbos_portal_provider = [
+    "hb_inventory_app.hbos_inventory.portal.provider.get_provider",
+]

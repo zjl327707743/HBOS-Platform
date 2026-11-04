@@ -1,0 +1,48 @@
+/* Approved R5 account presentation. Opt-in keeps reset/password/security pages isolated. */
+.account-r5{--r5-primary:#4f56e6;--r5-primary-hover:#4349d4;--r5-focus:#2f6fe0;--r5-control-border:#7d8aa3;--r5-placeholder:#63718a;color:var(--hbos-text-primary,#17253c)}
+.account-r5.account-page{background:radial-gradient(ellipse at 0 0,rgba(103,95,255,.09),transparent 52%),radial-gradient(ellipse at 100% 100%,rgba(72,214,189,.10),transparent 52%),var(--hbos-bg-canvas,#f4f8fd)}
+.account-r5 .account-card{background:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.9);box-shadow:0 24px 78px rgba(47,72,117,.11);overflow-wrap:anywhere}
+.account-r5 .account-card .ant-btn-primary:not(:disabled):not(.ant-btn-dangerous){background:var(--r5-primary);border-color:var(--r5-primary);color:#fff}
+.account-r5 .account-card .ant-btn-primary:not(:disabled):not(.ant-btn-dangerous):hover{background:var(--r5-primary-hover);border-color:var(--r5-primary-hover)}
+.account-r5 :is(a,button,input,[tabindex]):focus-visible{outline:2px solid var(--r5-focus);outline-offset:3px}
+.account-r5 .ant-input-affix-wrapper:focus-within,.account-r5 .ant-input:focus{outline:2px solid var(--r5-focus);outline-offset:2px}
+.account-r5 .ant-input,.account-r5 .ant-input-affix-wrapper{border-color:var(--r5-control-border);font-size:16px}
+.account-r5 .ant-input-affix-wrapper .ant-input{outline:none}
+.account-r5 .ant-input::placeholder,.account-r5 input::placeholder{color:var(--r5-placeholder);opacity:1}
+.account-r5 .account-card a:not(.account-brand){color:var(--r5-primary)}
+.account-r5 .account-card .ant-btn-lg,.account-login .account-card .ant-btn{min-height:44px;height:auto;white-space:normal;line-height:22px;padding:10px 14px;font-size:15px}
+.account-r5 .account-card .ant-btn:disabled{background:#e7ebf3;color:#4d5d78;border-color:#b1bbce}
+.account-r5 .ant-alert{align-items:flex-start;border-radius:12px;padding:12px 14px}
+.account-r5 .ant-alert-message,.account-r5 .ant-alert-description{font-size:13px;line-height:21px;overflow-wrap:anywhere}
+.account-r5 .ant-alert-info{background:#eaf3ff;border-color:#cbe0ff}.account-r5 .ant-alert-info :is(.ant-alert-message,.ant-alert-description,.anticon){color:#1f5fbf}
+.account-r5 .ant-alert-warning{background:#fff6e5;border-color:#e8b45c}.account-r5 .ant-alert-warning :is(.ant-alert-message,.ant-alert-description,.anticon){color:#8a5400}
+
+/* Owner-supplied local background; a solid canvas keeps the form usable if it fails. */
+.account-login.account-page{display:flex;flex-direction:column;padding:0;background-color:#edf5fb;background-image:var(--account-login-background,none);background-size:cover;background-position:left center;background-repeat:no-repeat}
+.account-login .account-login-main{flex:1;width:min(1280px,100%);margin:0 auto;padding:40px 40px 24px;display:grid;grid-template-columns:minmax(0,420px);justify-content:center;grid-template-rows:1fr auto auto 1fr;column-gap:64px;row-gap:22px;align-content:center;align-items:start}
+.account-login .account-story{grid-column:1;grid-row:2;min-width:0;padding:0 4px}
+.account-login .account-story .account-brand{margin-bottom:22px;color:var(--hbos-text-primary)}
+.account-login .account-brand .brand-mark{display:none}
+.account-login .account-brand .brand-name{font-size:24px;line-height:30px;font-weight:650;letter-spacing:.02em}
+.account-login .account-brand .brand-caption{font-size:12px;line-height:20px;color:#425675}
+.account-login .account-story h1{margin:0;font-size:30px;line-height:42px;font-weight:600;letter-spacing:-.4px;color:#10243e}
+.account-login .account-story .story-lede{margin:6px 0 0;font-size:15px;line-height:24px;color:#425675}
+.account-login .account-card{grid-column:1;grid-row:3;width:100%;min-width:0;padding:28px;border-radius:22px;background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.95);box-shadow:0 20px 60px rgba(28,67,111,.16)}
+.account-login .account-heading{text-align:left;margin:0 0 22px}
+.account-login .account-heading h2{margin:0;font-size:23px;line-height:32px;font-weight:600}
+.account-login .account-heading p{margin:6px 0 0;font-size:13px;line-height:21px}
+.account-login .account-form{margin-top:18px}.account-login .ant-form-item{margin-bottom:18px}
+.account-login .ant-form-item-label>label{font-size:14px;line-height:22px;color:#17253c}
+.account-login .ant-input-lg,.account-login .ant-input-affix-wrapper-lg{min-height:44px;border-radius:10px}
+.account-login .ant-input-affix-wrapper-lg .ant-input{min-height:0}
+.account-login .ant-btn-lg{border-radius:10px}.account-login .ant-btn-block + .ant-btn-block{margin-top:12px}
+.account-login .account-meta{font-size:13px;line-height:21px;margin:12px 0 0;color:#425675}
+.account-login .account-divider{margin:20px 0 16px}.account-login .account-buttons{margin:16px 0 0;font-size:13px;line-height:21px}
+.account-login .account-footer{margin-top:22px;padding-top:16px;font-size:12px;line-height:20px;color:#425675}
+.account-login .status-retry{margin-top:8px}
+.account-login .login-foot{width:min(1280px,100%);margin:0 auto;padding:12px 44px 22px;display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between;font-size:12px;line-height:20px;color:#425675}
+@media(min-width:960px){.account-login.has-login-background .account-login-main{grid-template-columns:minmax(0,1fr) 420px;justify-content:normal}.account-login.has-login-background .account-story,.account-login.has-login-background .account-card{grid-column:2}}
+@media(min-width:960px) and (max-width:1099px){.account-login.has-login-background .account-login-main{grid-template-columns:minmax(0,1fr) 390px;padding-left:28px;padding-right:28px;column-gap:28px}}
+@media(max-width:959px){.account-login.account-page{background-image:none;background-color:#f1f6fc}.account-login .account-login-main{display:flex;flex-direction:column;width:min(500px,100%);padding:30px 24px 24px;gap:22px;align-items:stretch}.account-login .account-story{padding:0 4px}.account-login .account-story .account-brand{margin-bottom:18px}.account-login .account-story h1{font-size:25px;line-height:34px}.account-login .account-card{padding:26px}.account-login .login-foot{width:min(500px,100%);padding:8px 28px 22px}}
+@media(max-width:479px){.account-login .account-login-main{padding:24px 16px 18px;gap:20px}.account-login .account-story .account-brand{margin-bottom:16px}.account-login .account-brand .brand-name{font-size:22px;line-height:28px}.account-login .account-story h1{font-size:23px;line-height:32px}.account-login .account-story .story-lede{font-size:14px;line-height:22px}.account-login .account-card{padding:24px 20px;border-radius:18px}.account-login .login-foot{padding:8px 20px 20px}.account-r5.account-page:not(.account-login){padding:16px}}
+@media(prefers-reduced-motion:reduce){.account-r5 *{animation:none!important;transition:none!important}}

@@ -448,7 +448,9 @@ class DataLayerContractTest(unittest.TestCase):
         """整分支审查拍板：API 角色门禁、时区 +8、通用倒班兜底入应出勤。"""
         content = DATA_PY.read_text()
         # get_data 与 live_sync 两处均需门禁
-        self.assertGreaterEqual(content.count("frappe.only_for"), 2)
+        self.assertIn("require('attendance.department.board.read'", content)
+        self.assertIn('historical_employees(bound, target, target)', content)
+        self.assertGreaterEqual(content.count("frappe.only_for"), 1)
         self.assertIn("TZ_PLUS8", content)
         self.assertIn('timezone(timedelta(hours=8))', content)
         # 通用倒班兜底：非名单命中的无排班员工计入应出勤分母
