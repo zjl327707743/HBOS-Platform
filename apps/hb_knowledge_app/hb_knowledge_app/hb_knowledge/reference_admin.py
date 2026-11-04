@@ -306,14 +306,31 @@ def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=1
         from .legal_metadata import LAW_CATEGORIES
         if law_category not in LAW_CATEGORIES:raise KnowledgeError('INVALID_REQUEST')
     def project(docs):
-        directory=None
-        if folder_id is not None:
-            from .source_directory import select
-            docs,directory=select(docs,folder_id)
-        selected=[d for d in docs if (not space_id or d['space_id']==space_id)
-                  and (not law_category or d.get('legal_metadata',{}).get('category')==law_category)
-                  and (not query or any(query in (d[k] or '').casefold()
-                                       for k in ('title','document_number','department')))]
+        # One filter context decides both the rows and the child-folder counts.
+        # Resolving `folder_id` still uses the complete authorized set, so a
+        # filtered-out folder stays reachable and a guessed one stays refused.
+        def visible(document):
+            return ((not space_id or document['space_id']==space_id)
+                    and (not law_category or document.get('legal_metadata',{}).get('category')==law_category)
+                    and (not query or any(query in (document[k] or '').casefold()
+                                          for k in ('title','document_number','department'))))
+        matched=[d for d in docs if visible(d)]
+        if folder_id is None:
+            selected=matched
+            directory=None
+        else:
+            from .source_directory import ROOT, select
+            if folder_id in ('', ROOT):
+                # The six original directories are the map of what this identity
+                # may enter, so their badges count the authorized documents and
+                # stay reachable while a department or keyword filter is active.
+                selected=matched
+                directory=select(docs,ROOT)[1]
+            else:
+                # Inside a directory the badges are the list under the current
+                # filters: never 208 above an empty page.
+                selected,directory=select(docs,folder_id,filtered_documents=matched)
+                directory={**directory,'children':[c for c in directory['children'] if c['count']>0]}
         start=(page-1)*page_size
         value={'documents':selected[start:start+page_size],'total':len(selected),'page':page,'page_size':page_size}
         if directory is not None:value['source_directory']=directory
