@@ -122,7 +122,9 @@
       "frontend/hbos-portal-web/package-lock.json": null,
       "frontend/hbos-lims-web/package-lock.json": null,
       "apps/hbos_portal/requirements.txt": null,
-      "scripts/release/依赖版本锁.json": null
+      "scripts/release/依赖版本锁.json": null,
+      "scripts/release/requirements-runtime-knowledge.txt": null,
+      "apps/hb_knowledge_app/pyproject.toml": null
     },
     "started_at": null,
     "completed_at": null,
@@ -204,7 +206,12 @@
       "source_commit": null,
       "hrms_commit": "e0142b17b6b21d0f94aec8788e80c0a8bd0b44f1",
       "canonical_hash_rule": "sha256(json.dumps(files,sort_keys=True,separators=(',',':')).encode()); exclude final newline",
-      "evidence": null
+      "evidence": null,
+      "normalizer_version": "frappe-v16-css-map-tmp-v1",
+      "normalized_manifest_sha256": null,
+      "normalized_files": {},
+      "byte_reproducible": false,
+      "byte_reproducibility_scope": "Fixed vendor CSS maps contain random temporary source directory and derived CSS filenames. Preserve raw hashes; compare all content using the narrowly guarded Guide normalizer. JS and JS maps remain byte-exact."
     }
   },
   "database": {

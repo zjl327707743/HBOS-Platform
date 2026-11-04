@@ -2,7 +2,7 @@
 
 状态：`GUIDE_PREPARED`；`TEAM_PULL_REPRODUCED=NOT_RUN`；`TEAM_PULL_READY=NO`。2026-11-02（Asia/Shanghai）。本指南须由主执行者在最终六 PR 合并后的干净产品提交 M 上实际执行并补收据，才可标记可复现。下列操作只用于每人新建的隔离合成环境。
 
-仓库：[zjl327707743/HBOS-Platform](https://github.com/zjl327707743/HBOS-Platform)。产品分支 `feature/hbos-portal-product`。完整 SHA 和可用标签以随版本交付、经校验的外部 `RELEASE_MANIFEST.json` 为准；当前没有最终 M，`02f574ca…` 是历史组合，不能填作最终产品。建议标签 `hbos-v1.0-rc2` 尚未授权创建。
+仓库：[zjl327707743/HBOS-Platform](https://github.com/zjl327707743/HBOS-Platform)。产品分支 `feature/hbos-portal-product`。完整 SHA 和可用标签以随版本交付、经校验的外部 `RELEASE_MANIFEST.json` 为准；六 PR 已形成产品提交，但干净安装修复仍需独立审定及最终版本验证。`02f574ca…` 是历史组合，不能填作最终产品。`hbos-v1.0-rc2` 仅在最终版本全部验证通过且取得准确目标许可后创建。
 
 共同验收入口是 `http://pr61-synth.localhost:18191/hbos/login`，由主执行者维护。团队各自在本机创建新的 project、Site、卷与回环端口，不接管这个入口。本机保护端口 18090、8080，以及其他工作位、真实账号/飞书绑定、main、RC1、共享 HRMS 和真实业务库均不使用。
 
@@ -111,6 +111,8 @@ Administrator 密码是新隔离 Site 的本机私有值；使用自己的密码
 
 ## 3. 隔离安装与启动
 
+固定运行镜像按 Portal 与 Knowledge 运行锁安装声明的必要 Python 依赖，构建时执行 pip check 和关键符号导入预检；不启动独立知识服务或导入真实资料。新 project 首次准备 assets-data 时，从固定镜像复制原生资产，将该新卷归属 uid/gid 1000，并核对原生资产链接，随后才运行正常安装钩子。该准备只允许空卷，不覆盖任何已有 Site。
+
 下面的 overlay 给全部自有 App 增加只读挂载，覆盖旧 LIMS dist 卷，显式固定 DB/Redis/Node 镜像，且前端仅监听回环地址。八个 Frappe 服务都显式挂载本 project 的同一 `assets-data` 到 `sites/assets`；backend/frontend 的 `bench/assets` 也沿用此卷。base Compose 的 `create-site` 默认命令没有逐条失败保护，因此安装时使用显式 `bash -ec`；本段只适用于新建空 Site。所有运行镜像与 mount 必须记录到本次复现收据。
 
 ```bash
@@ -131,6 +133,11 @@ for name in ['backend','frontend','websocket','configurator','create-site','sche
     mounts.append({'type':'volume','source':'assets-data','target':bench+'/sites/assets'})
     if name!='websocket':mounts.append(mount(r/'apps/hb_lims_app/hb_lims_app/public/hbos-lims',bench+'/apps/hb_lims_app/hb_lims_app/public/hbos-lims'))
     services[name]={'image':image,'volumes':mounts,'environment':{'PYTHONPATH':py}}
+# The fixed image's wrapper removes sites/assets before exec, which conflicts
+# with the explicit volume mounted there. Keep the native service commands.
+for name in ['backend','frontend','websocket','scheduler','queue-short','queue-long']:
+    services[name]['entrypoint']=[]
+services['backend']['command']=['/usr/local/bin/start.sh']
 services['db']={'image':m['dependencies']['mariadb']['reference']}
 services['redis-cache']={'image':m['dependencies']['redis']['reference']}
 services['redis-queue']={'image':m['dependencies']['redis']['reference']}
@@ -144,6 +151,18 @@ hbteam() {
   docker compose --project-directory "$HBOS_TEAM_CHECKOUT" --env-file "$HBOS_TEAM_PRIVATE/compose.env" -p "$HBOS_TEAM_PROJECT" -f "$HBOS_TEAM_CHECKOUT/docker-compose.yml" -f "$HBOS_TEAM_PRIVATE/compose.code.json" -f "$HBOS_TEAM_PRIVATE/compose.loopback.yml" "$@"
 }
 hbteam config --quiet
+hbteam run --rm --no-deps --user 0 --env SITE_NAME="$HBOS_TEAM_SITE" --entrypoint bash configurator -ec '
+  test ! -e "sites/$SITE_NAME/site_config.json"
+  test -z "$(find sites/assets -mindepth 1 -maxdepth 1 -print -quit)"
+  cp -a assets/. sites/assets/
+  chown -R 1000:1000 sites/assets
+  test "$(stat -c %u sites/assets)" = 1000
+  test -f sites/assets/assets.json
+  for app in frappe erpnext; do
+    test -L "sites/assets/$app"
+    test "$(readlink -f "sites/assets/$app")" = "$(readlink -f "apps/$app/$app/public")"
+  done
+'
 hbteam up -d db redis-cache redis-queue
 hbteam run --rm --no-deps configurator
 hbteam run --rm --no-deps --entrypoint bash create-site -ec '
@@ -158,6 +177,8 @@ hbteam run --rm --no-deps --entrypoint bash create-site -ec '
 
 新 clone 没有 HRMS 和考勤的已编译 Desk bundle。先在私有构建副本中构建，不能借用共享 HRMS 的 `public/dist`、已有 Site 的 assets.json，也不能对只读运行源码执行 `bench build`。此处使用固定 Frappe 镜像内已安装的 esbuild 工具链；直接运行其 production 命令，只构建 HRMS/考勤 Desk bundles，不执行 HRMS 的 PWA/roster自定义构建。这两个额外前端不在本版团队验收范围。
 
+固定 Frappe 的 postcss 会把随机临时目录写入四个 CSS/RTL sourcemap，连带改变 CSS 文件名；Desk CSS 的全字节复现为 `NO`。下段不改写资产，只对四对已知 CSS/map 的派生文件名、唯一末尾 map 引用和严格匹配的临时 source 路径作规范化；CSS 规则、sourcesContent、mappings、其他 map 字段及全部 JS/map 内容仍比较。未知路径、额外字段、重复 JSON 键、缺失/新增内容或规范化摘要不符均停止。每轮原始文件清单与摘要另存，不能用内容比较通过冒称全字节一致。
+
 本段命令已从当前固定镜像的实际 `frappe/build.py`、`apps/frappe/package.json`、`esbuild/esbuild.js` 核对接口，仍须最终 M 的干净 Site 实际执行。当前实读工具链为 Node `v24.12.0`、Yarn `1.22.22`；最终 manifest须分别记录容器Desk构建工具链与前面Portal/LIMS主机构建的Node/npm。
 
 ```bash
@@ -168,11 +189,14 @@ p=Path(os.environ['HBOS_TEAM_PRIVATE']); c=Path(os.environ['HBOS_TEAM_CHECKOUT']
 assert not stage.exists(); stage.mkdir()
 shutil.copytree(c/'runtime/apps/hrms',stage/'hrms',ignore=shutil.ignore_patterns('.git','node_modules','__pycache__','*.pyc'))
 shutil.copytree(p/'release/apps/hb_attendance_app',stage/'hb_attendance_app',ignore=shutil.ignore_patterns('node_modules','__pycache__','*.pyc'))
+bench='/home/frappe/frappe-bench'
+# CLI --volume does not clear read_only inherited from the service definition.
+# This overlay applies only to the one-off build, using private source copies.
+volumes=[{'type':'bind','source':str(stage/app),'target':bench+'/apps/'+app,'read_only':False}
+         for app in ['hrms','hb_attendance_app']]
+(p/'compose.desk-build.json').write_text(json.dumps({'services':{'create-site':{'volumes':volumes}}},indent=2))
 PY_DESK_PREP
-hbteam run --rm --no-deps --entrypoint bash \
-  --volume "$HBOS_TEAM_PRIVATE/desk-build-source/hrms:/home/frappe/frappe-bench/apps/hrms" \
-  --volume "$HBOS_TEAM_PRIVATE/desk-build-source/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app" \
-  create-site -ec '
+hbteam -f "$HBOS_TEAM_PRIVATE/compose.desk-build.json" run --rm --no-deps --entrypoint bash create-site -ec '
     test "$(node --version)" = "v24.12.0"
     test "$(yarn --version)" = "1.22.22"
     cd /home/frappe/frappe-bench/apps/hrms
@@ -184,20 +208,78 @@ hbteam run --rm --no-deps --entrypoint bash \
     CI=1 yarn run production --apps hrms,hb_attendance_app
   '
 python3 - <<'PY_DESK_VERIFY'
-import hashlib,json,os
+import hashlib,json,os,pathlib,re
 from pathlib import Path
+NORMALIZER_VERSION = 'frappe-v16-css-map-tmp-v1'
+
+def unique_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        assert key not in result, 'Duplicate JSON key: ' + key
+        result[key] = value
+    return result
+
+def manifests(stage):
+    raw, normalized, differences = {}, {}, []
+    for app in ['hrms', 'hb_attendance_app']:
+        dist = pathlib.Path(stage) / app / app / 'public/dist'
+        assert dist.is_dir(), app
+        for f in sorted(dist.rglob('*')):
+            if not f.is_file():
+                continue
+            relative = f.relative_to(dist).as_posix()
+            key, content = app + '/' + relative, f.read_bytes()
+            raw[key] = hashlib.sha256(content).hexdigest()
+            logical = key
+            if '.css' in f.name:
+                bundle = 'hrms.bundle' if app == 'hrms' else 'hbos_attendance.bundle'
+                assert re.fullmatch(r'css(?:-rtl)?/' + re.escape(bundle) + r'\.[A-Z0-9]{8}\.css(?:\.map)?', relative), key
+                logical = re.sub(r'\.[A-Z0-9]{8}(\.css(?:\.map)?)$', r'\1', key)
+            if f.name.endswith('.css.map'):
+                value = json.loads(content, object_pairs_hook=unique_keys)
+                assert set(value) == {'version', 'sources', 'sourcesContent', 'mappings', 'names'}, key
+                assert value['version'] == 3 and isinstance(value['mappings'], str), key
+                assert isinstance(value['names'], list) and all(isinstance(x, str) for x in value['names']), key
+                assert isinstance(value['sources'], list) and len(value['sources']) == 1 and isinstance(value['sources'][0], str), key
+                assert isinstance(value['sourcesContent'], list) and len(value['sourcesContent']) == 1 and isinstance(value['sourcesContent'][0], str), key
+                source = value['sources'][0]
+                pattern = r'(?:\.\./){8}tmp/tmp-[0-9]+-[A-Za-z0-9]+/' + app + '/' + app + r'/public/(?:scss|css)/' + re.escape(bundle) + r'\.css'
+                assert re.fullmatch(pattern, source), (key, source)
+                value['sources'][0], count = re.subn(r'/tmp-[0-9]+-[A-Za-z0-9]+/', '/HBOS_CSS_BUILD_TMP/', source)
+                assert count == 1
+                content = json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+                differences.append({'file': key, 'normalization': 'Only random postcss temporary source directory; all other map values retained'})
+            elif f.name.endswith('.css'):
+                suffix = b'\n/*# sourceMappingURL=' + f.name.encode() + b'.map */\n'
+                assert f.with_name(f.name + '.map').is_file(), key
+                assert content.endswith(suffix) and content.count(b'sourceMappingURL=') == 1, key
+                content = content[:-len(suffix)] + b'\n/*# sourceMappingURL=' + pathlib.PurePosixPath(logical).name.encode() + b'.map */\n'
+                differences.append({'file': key, 'normalization': 'Only exact terminal sourcemap filename; CSS rules unchanged'})
+            else:
+                assert logical == key, key
+            assert logical not in normalized, logical
+            normalized[logical] = hashlib.sha256(content).hexdigest()
+    assert raw and len(raw) == len(normalized)
+    assert len(differences) == 8, 'Expected exactly four known CSS/map pairs'
+    return raw, normalized, differences
+
+def digest(files):
+    return hashlib.sha256(json.dumps(files, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
 p=Path(os.environ['HBOS_TEAM_PRIVATE']); manifest=json.load(open(os.environ['HBOS_TEAM_MANIFEST']))
-files={}
-for app in ['hrms','hb_attendance_app']:
-    dist=p/'desk-build-source'/app/app/'public/dist'
-    assert dist.is_dir(), 'Desk编译产物缺失: '+app
-    for f in sorted(dist.rglob('*')):
-        if f.is_file():files[app+'/'+str(f.relative_to(dist))]=hashlib.sha256(f.read_bytes()).hexdigest()
-assert files
-payload=json.dumps(files,sort_keys=True,separators=(',',':')).encode()
-assert hashlib.sha256(payload).hexdigest()==manifest['artifact']['desk_assets']['manifest_sha256'], 'Desk产物与最终版本清单不符'
-(p/'desk-assets-manifest.json').write_bytes(payload+b'\n')
+c=Path(os.environ['HBOS_TEAM_CHECKOUT'])
+raw,normalized,_=manifests(p/'desk-build-source')
+expected=manifest['artifact']['desk_assets']
+assert expected['normalizer_version']==NORMALIZER_VERSION
+assert digest(normalized)==expected['normalized_manifest_sha256'], 'Desk内容与最终版本清单不符'
+for name,files in [('desk-assets-manifest.json',raw),('desk-assets-normalized.json',normalized)]:
+    (p/name).write_text(json.dumps(files,sort_keys=True,separators=(',',':'))+'\n')
+print(json.dumps({'Desk_content':'PASS_SCOPED','Desk_BYTE_REPRODUCIBLE':'NO','raw_manifest_sha256':digest(raw),'normalized_manifest_sha256':digest(normalized)}))
 # 构建结束后才给长期服务添加生成目录的只读挂载；release原包保持不变。
+# Nested mount destinations must exist before their parent code bind is RO.
+for app in ['hrms','hb_attendance_app']:
+    root=c/'runtime/apps/hrms' if app=='hrms' else p/'release/apps'/app
+    (root/app/'public/dist').mkdir(parents=True,exist_ok=True)
 config=json.loads((p/'compose.code.json').read_text())
 for service in ['backend','frontend','websocket','configurator','create-site','scheduler','queue-short','queue-long']:
     for app in ['hrms','hb_attendance_app']:
