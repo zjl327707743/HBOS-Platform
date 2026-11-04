@@ -1,0 +1,255 @@
+diff --git a/apps/hbos_portal/hbos_portal/auth/onboarding.py b/apps/hbos_portal/hbos_portal/auth/onboarding.py
+--- a/apps/hbos_portal/hbos_portal/auth/onboarding.py
++++ b/apps/hbos_portal/hbos_portal/auth/onboarding.py
+@@ -100,6 +100,7 @@
+     are tombstones and require a separate explicitly authorized recovery.
+     """
+     from hbos_portal.auth import accounts
++    from hbos_portal.iam.onboarding import resolve_proven_precreated_user, register_verified_user
+     from hbos_portal.auth.feishu import FeishuLoginError, identity_key, _validate_login_account
+
+     key = identity_key(provider='feishu', tenant_key=identity['tenant_key'], app_id=settings.app_id,
+@@ -114,12 +115,22 @@
+                     raise FeishuLoginError('account_disabled', '对应 HBOS 账号已停用。')
+                 if not row.enabled:
+                     raise FeishuLoginError('identity_revoked', '此身份的旧绑定已撤销或更换；请验证原账号或通过受控归属流程恢复。')
+-                return _validate_login_account(row.user), False
+-            user = insert_ordinary_user(settings, identity)
++                user = _validate_login_account(row.user)
++                register_verified_user(user, settings=settings, identity=identity, created=False)
++                return user, False
++            # Candidate resolver needs server-verified ownership evidence.
++            # Names, pinyin, email and phone never establish account ownership.
++            user = resolve_proven_precreated_user(settings, identity)
++            created = user is None
++            if created:
++                user = insert_ordinary_user(settings, identity)
+             accounts.bind_identity(settings, identity, user)
+-            accounts.audit('verified_feishu_automatic_onboarding', user)
++            # Register pending state only for a new User. No password is
++            # generated, cached or returned by the OAuth flow.
++            register_verified_user(user, settings=settings, identity=identity, created=created)
++            accounts.audit('verified_feishu_automatic_onboarding' if created else 'verified_feishu_precreated_account_link', user)
+             frappe.db.commit()
+-            return user, True
++            return user, created
+         except Exception:
+             frappe.db.rollback()
+             raise
+diff --git a/apps/hbos_portal/hbos_portal/auth/accounts.py b/apps/hbos_portal/hbos_portal/auth/accounts.py
+--- a/apps/hbos_portal/hbos_portal/auth/accounts.py
++++ b/apps/hbos_portal/hbos_portal/auth/accounts.py
+@@ -344,12 +344,17 @@
+     user = require_user()
+     from hbos_portal.auth.feishu import load_settings
+
++    from hbos_portal.iam.temporary_passwords import get_temporary_password_status_for_current_session
++
+     settings = load_settings()
+     account = frappe.get_doc("User", user)
+     bound = _bound_identity(user)
++    temporary_password_state = get_temporary_password_status_for_current_session()
+     return {"user": user, "login_name": account.username or user, "has_password": has_password(user),
+         "password_login_available": has_password(user) and not bool(frappe.get_system_settings("disable_user_pass_login")),
+         "proof": proof_status(user),
++        "temporary_password_state": temporary_password_state,
++        "first_password_required": bool(temporary_password_state["pending"] or temporary_password_state["temporary"]),
+         "write_result": _write_receipt(user, request_id, ""),
+         "feishu_bound": bool(bound), "feishu_configured": settings.configured,
+         "feishu_stepup_available": bool(bound and settings.configured and frappe.conf.get("hbos_feishu_inbox_recovery_enabled")),
+@@ -546,6 +551,9 @@
+     audit("password_changed", user)
+     frappe.db.commit()
+     frappe.local.login_manager.login_as(user)
++    # Candidate success marker only; retain every existing proof, password,
++    # session revocation and session rotation step.
++    frappe.flags.hbos_iam_password_changed_user = user
+
+
+ @frappe.whitelist(methods=["POST"])
+@@ -747,6 +755,8 @@
+         actor = require_user()
+         if actor != doc.name and actor != "Administrator" and "System Manager" not in frappe.get_roles(actor):
+             frappe.throw("请在账号与安全页面修改本人密码。", frappe.PermissionError)
++        from hbos_portal.iam.guards import guard_password_target
++        guard_password_target(actor=actor, target=doc.name)
+         require_proof(actor, consume=True)
+         doc.flags.hbos_password_written = True
+
+@@ -757,6 +767,7 @@
+         invalidate_user_tickets(doc.name)
+         frappe.db.set_value("User", doc.name, "reset_password_key", "", update_modified=False)
+         audit("document_password_changed", doc.name)
++        frappe.flags.hbos_iam_password_changed_user = doc.name
+     if not doc.enabled:
+         revoke_sessions(doc.name)
+         invalidate_user_tickets(doc.name)
+@@ -771,6 +782,8 @@
+         require_user(login_manager.user)
+         from hbos_portal.auth.security import require_custody_mfa_for_login
+         require_custody_mfa_for_login(login_manager.user)
++        from hbos_portal.iam.guards import enforce_login_gate
++        enforce_login_gate(login_manager)
+
+
+ def check_request() -> None:
+@@ -778,6 +791,19 @@
+         require_user()
+         from hbos_portal.auth.security import check_request as check_version
+         check_version()
++        from hbos_portal.iam.guards import enforce_request_gate
++        enforce_request_gate()
++
++
++@frappe.whitelist(methods=['POST'])
++def claim_initial_password(request_id: str = '') -> dict:
++    # Separate candidate endpoint: claim once for the verified current session.
++    # Never append a password to OAuth responses, headers, redirects or logs.
++    require_post()
++    require_user()
++    no_store()
++    from hbos_portal.iam.temporary_passwords import claim_initial_password_for_current_session
++    return claim_initial_password_for_current_session(request_id=request_id)
+
+
+ @frappe.whitelist(allow_guest=True, methods=['POST'])
+diff --git a/apps/hbos_portal/hbos_portal/hooks.py b/apps/hbos_portal/hbos_portal/hooks.py
+--- a/apps/hbos_portal/hbos_portal/hooks.py
++++ b/apps/hbos_portal/hbos_portal/hooks.py
+@@ -8,18 +8,37 @@
+ after_migrate = [
+     "hbos_portal.auth.migration.migrate_identity_constraints",
+     "hbos_portal.auth.export_policy.enforce_sensitive_export_boundary",
++    "hbos_portal.iam.migration.migrate_iam_v1",
+ ]
+ after_install = [
+     "hbos_portal.auth.migration.migrate_identity_constraints",
+     "hbos_portal.auth.export_policy.enforce_sensitive_export_boundary",
++    "hbos_portal.iam.migration.migrate_iam_v1",
+ ]
+ on_login = ["hbos_portal.auth.accounts.check_login"]
+ on_session_creation = ['hbos_portal.auth.security.on_session_creation']
+ auth_hooks = ['hbos_portal.auth.accounts.check_request']
+ before_request = ["hbos_portal.auth.accounts.check_request"]
+ on_logout = ["hbos_portal.auth.accounts.on_logout"]
++after_request = ["hbos_portal.iam.guards.finalize_password_transition"]
+ doc_events = {
+-    "User": {"before_validate": "hbos_portal.auth.accounts.guard_document_password", "on_update": "hbos_portal.auth.accounts.user_updated"},
++    "User": {
++        "before_validate": ["hbos_portal.auth.accounts.guard_document_password", "hbos_portal.iam.guards.guard_managed_document"],
++        "on_update": ["hbos_portal.auth.accounts.user_updated", "hbos_portal.iam.guards.on_managed_document_updated"],
++    },
++    "Employee": {
++        "before_validate": "hbos_portal.iam.guards.guard_managed_document",
++        "on_update": "hbos_portal.iam.guards.on_managed_document_updated",
++    },
++    "Department": {
++        "before_validate": "hbos_portal.iam.guards.guard_managed_document",
++        "on_update": "hbos_portal.iam.guards.on_managed_document_updated",
++    },
++    # Limit protection to managed records/fields; do not disable HR/ERP globally.
++    "Role": {"before_validate": "hbos_portal.iam.guards.guard_managed_document", "on_trash": "hbos_portal.iam.guards.guard_managed_document"},
++    "Role Profile": {"before_validate": "hbos_portal.iam.guards.guard_managed_document", "on_trash": "hbos_portal.iam.guards.guard_managed_document"},
++    "User Permission": {"before_validate": "hbos_portal.iam.guards.guard_managed_document", "on_trash": "hbos_portal.iam.guards.guard_managed_document"},
++    "DocShare": {"before_validate": "hbos_portal.iam.guards.guard_managed_document", "on_trash": "hbos_portal.iam.guards.guard_managed_document"},
+     "Social Login Key": {"validate": "hbos_portal.auth.migration.guard_social_login"},
+     # UserType.on_update regenerates Custom DocPerm without writing `export`,
+     # so saved rows fall back to that field's default of "1" and an ordinary
+@@ -40,4 +59,7 @@
+ #     "some_app.portal.provider.get_provider"
+ # ]
+ #
+-# hbos_portal itself intentionally registers no business provider.
++# Candidate synthetic extension only: its provider must deny entry unless the
++# isolated Site explicitly enables hbos_iam_demo_enabled AND authorizes the user.
++# This switch and provider never enable a real business app or production data.
++hbos_portal_provider = ["hbos_portal.iam.demo_provider.get_provider"]
+diff --git a/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/access.py b/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/access.py
+--- a/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/access.py
++++ b/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/access.py
+@@ -15,28 +15,11 @@
+     user: str | None,
+     roles: Sequence[str] | None,
+ ) -> dict[str, object]:
+-    """Translate current Attendance authority into Portal semantic access.
++    """Candidate adapter retaining the existing callable and DTO shape.
+
+-    P3-ATT-1 intentionally exposes only the existing HR/management surface.
+-    Ordinary employee access will be enabled only after a native personal
+-    attendance experience and its authorization contract are ready.
++    The roles argument remains for caller compatibility and grants no personal
++    scope. Bind user to the current session in the authoritative resolver.
+     """
++    from hb_attendance_app.hbos_attendance.portal.permissions import build_authorized_access_context
+
+-    normalized_user = str(user or "").strip()
+-    role_set = {str(role) for role in (roles or ())}
+-
+-    can_enter = bool(
+-        normalized_user
+-        and normalized_user != "Guest"
+-        and (
+-            normalized_user == "Administrator"
+-            or bool(role_set.intersection(ATTENDANCE_PORTAL_ROLES))
+-        )
+-    )
+-
+-    return {
+-        "app_id": APP_ID,
+-        "can_enter": can_enter,
+-        "capabilities": [READ_CAPABILITY] if can_enter else [],
+-        "scopes": {},
+-    }
++    return build_authorized_access_context(user=user, operation_id=READ_CAPABILITY)
+diff --git a/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/provider.py b/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/provider.py
+--- a/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/provider.py
++++ b/apps/hb_attendance_app/hb_attendance_app/hbos_attendance/portal/provider.py
+@@ -16,14 +16,23 @@
+         import frappe
+
+         user = frappe.session.user
+-        roles = frappe.get_roles(user) if user and user != "Guest" else []
+-        return build_access_context(user, roles)
++        return build_access_context(user, None)
+
+     def summary(self) -> dict[str, object]:
+-        return get_summary_projection()
++        from hb_attendance_app.hbos_attendance.portal.personal import get_authorized_summary_projection
++
++        # The old loader reads the HR dashboard. A new personal scope must not
++        # invoke it merely because can_enter or attendance.read is true.
++        return get_authorized_summary_projection(
++            access=self.access_context(), legacy_summary=get_summary_projection,
++        )
+
+     def resolve_route(self, stable_path: str) -> str:
+-        return resolve_stable_route(stable_path)
++        from hb_attendance_app.hbos_attendance.portal.personal import resolve_authorized_route
++
++        return resolve_authorized_route(
++            stable_path, access=self.access_context(), legacy_resolver=resolve_stable_route,
++        )
+
+
+ def get_provider() -> AttendancePortalProvider:
+diff --git a/apps/hb_attendance_app/hb_attendance_app/hooks.py b/apps/hb_attendance_app/hb_attendance_app/hooks.py
+--- a/apps/hb_attendance_app/hb_attendance_app/hooks.py
++++ b/apps/hb_attendance_app/hb_attendance_app/hooks.py
+@@ -7,6 +7,17 @@
+ app_license = "MIT"
+ required_apps = ["frappe", "erpnext", "hrms"]
+ after_migrate = "hb_attendance_app.hbos_attendance.setup.after_migrate"
++
++# Candidate hooks for permission-aware lists and single native documents.
++# They do not constrain raw SQL/get_all/ignore_permissions or old reports.
++permission_query_conditions = {
++    "Employee Checkin": "hb_attendance_app.hbos_attendance.portal.permissions.checkin_query_conditions",
++    "Attendance": "hb_attendance_app.hbos_attendance.portal.permissions.attendance_query_conditions",
++}
++has_permission = {
++    "Employee Checkin": "hb_attendance_app.hbos_attendance.portal.permissions.has_checkin_permission",
++    "Attendance": "hb_attendance_app.hbos_attendance.portal.permissions.has_attendance_permission",
++}
+
+ scheduler_events = {
+     "cron": {
