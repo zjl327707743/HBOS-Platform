@@ -79,12 +79,18 @@ jobs:
 
           test -f scripts/portal/docker-compose.isolated-preview.yml
 
-          ASSET_MOUNTS="$(
-            grep -cE '^[[:space:]]*-[[:space:]]*assets-data:/home/frappe/frappe-bench/sites/assets[[:space:]]*$'               scripts/portal/docker-compose.isolated-preview.yml
-          )"
-          test "$ASSET_MOUNTS" -eq 8
+          # Frappe v16 replaces sites/assets with a symlink at startup.
+          # The previous gate required eight nested mounts, causing EBUSY.
+          # Instead assert resolved namespace isolation and reject nested mounts.
+          python3 -m unittest discover -s scripts/portal -p 'test_preview_compose_guard.py' -v
 
-          docker compose             --env-file .env.example             -f docker-compose.yml             -f scripts/portal/docker-compose.isolated-preview.yml             config --quiet
+          docker compose --env-file .env.example -p hbos-portal-preview \
+            -f docker-compose.yml -f scripts/portal/docker-compose.isolated-preview.yml \
+            config --quiet
+
+          docker compose --env-file .env.example -p hbos-portal-preview \
+            -f docker-compose.yml -f scripts/portal/docker-compose.isolated-preview.yml \
+            config --format json | python3 scripts/portal/preview_compose_guard.py --project hbos-portal-preview
 
       - name: 隔离 Preview 不得扫描全局 backend
         run: |
