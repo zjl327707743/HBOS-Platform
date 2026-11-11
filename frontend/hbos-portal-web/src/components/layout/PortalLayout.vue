@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <MobilePortalNav v-if="(portalDesign && !route.path.startsWith('/hbos/admin')) || !r6Experience" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
+    <MobilePortalNav :compact="portalDesign" v-if="(portalDesign && !route.path.startsWith('/hbos/admin') && route.path !== '/hbos/403') || (!portalDesign && !r6Experience)" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
 
     <dialog v-if="portalDesign" ref="navigationDialog" class="v10-nav-dialog" aria-label="工作空间导航" @click.self="closeNavigation">
       <PortalSidebar :work-count="actionableCount" portal-design in-drawer @toggle="closeNavigation" />
@@ -134,6 +134,7 @@ watch(() => portalSession.phase, phase => {
 function onShortcut(event: KeyboardEvent) {
   if (masked.value || event.defaultPrevented || event.isComposing || event.keyCode === 229 || navigationDialog.value?.open) return
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    if (event.target instanceof HTMLElement && event.target.closest('[aria-modal="true"], [role="dialog"], dialog[open]')) return
     event.preventDefault()
     ui.commandOpen = true
   }

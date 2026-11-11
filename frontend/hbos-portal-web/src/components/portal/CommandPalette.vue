@@ -6,6 +6,8 @@
     width="700px"
     wrap-class-name="command-modal v10-dialog"
     title="搜索工作空间"
+    :focus-trigger-after-close="false"
+    :after-close="restoreFocus"
     @cancel="$emit('close')"
   >
     <div class="command-search">
@@ -21,7 +23,7 @@
       <kbd>ESC</kbd>
     </div>
 
-    <div class="command-section-title">{{ query ? '搜索结果' : '建议' }}</div>
+    <div class="command-section-title" role="status" aria-live="polite">{{ loading ? '正在搜索' : query ? '搜索结果 · ' + results.length + ' 项' : '查找你可用的应用与工作事项' }}</div>
     <button
       v-for="(result, index) in results"
       :key="result.id"
@@ -64,6 +66,12 @@ const query = ref('')
 const { results, errorMessage, loading } = useDebouncedSearch(query, toRef(props, 'open'), searchPortal)
 const selectedIndex = ref(0)
 const inputRef = ref()
+let returnFocus: HTMLElement | null = null
+function restoreFocus() {
+  const element = returnFocus
+  returnFocus = null
+  if (element?.isConnected && !element.closest('[inert]')) element.focus({ preventScroll: true })
+}
 
 function handleKey(event: KeyboardEvent) {
   if (event.isComposing || event.keyCode === 229) return
@@ -94,9 +102,10 @@ function openResult(result: SearchResultDTO) {
 
 watch(() => props.open, async (value) => {
   if (value) {
+    returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     await nextTick()
     inputRef.value?.focus?.()
   }
-})
+}, { flush: 'sync' })
 watch(results, () => { selectedIndex.value = 0 })
 </script>

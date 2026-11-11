@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PortalState from '@/components/portal/PortalState.vue'
 import PortalSelect from '@/components/portal/PortalSelect.vue'
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
@@ -88,11 +89,14 @@ onBeforeUnmount(() => { disposed = true; generation++; rows.value = []; closeDet
         <div class="v10-audit-actions"><a-button @click="clear">清除筛选</a-button><a-button type="primary" html-type="submit" :loading="loading">查询</a-button></div>
       </a-form>
       <p class="aux">仅显示当前账号获准读取的脱敏记录；日期、操作、结果及对象筛选遵循同一读取范围。</p>
-      <h2 class="v10-audit-results">查询结果</h2>
+      <div class="v10-audit-results"><div><h2>查询结果</h2><p class="aux">修改条件后点击“查询”更新下方记录。</p></div><StatusTag v-if="!loading && !error" tone="neutral">{{ total }} 条</StatusTag></div>
       <ResourceState :loading="loading" :error="error" @retry="load">
+        <PortalState v-if="!rows.length" title="没有匹配的变更记录" description="可以调整查询条件，或稍后再次查看。" />
+        <template v-else>
         <a-table class="r6-desktop-people" :columns="columns" :data-source="rows" row-key="name" :scroll="{x:920}" :pagination="false"><template #bodyCell="{column,record}"><template v-if="column.key==='subject'">{{record.subject_name}}<span class="iam-code">{{record.subject_type}}</span></template><template v-else-if="column.key==='operation'">{{auditOperationLabel(record.operation)}}</template><template v-else-if="column.key==='result'"><StatusTag :tone="record.result==='success'?'success':'warning'">{{auditResultLabel(record.result)}}</StatusTag></template><template v-else-if="column.key==='detail'"><button class="r6-audit-row-button" :aria-label="`查看${record.occurred_at}的变更记录`" @click="openDetail(record)">查看详情</button></template></template></a-table>
-        <div class="r6-mobile-people"><a-empty v-if="!rows.length" description="暂无可见变更记录" /><article v-for="row in rows" :key="row.name" class="r6-mobile-person"><strong>{{auditOperationLabel(row.operation)}}</strong><p>{{row.subject_name}}</p><p>{{row.occurred_at}} · {{row.actor}}</p><a-button @click="openDetail(row)">查看详情</a-button></article></div>
+        <div class="r6-mobile-people"><article v-for="row in rows" :key="row.name" class="r6-mobile-person"><strong>{{auditOperationLabel(row.operation)}}</strong><p>{{row.subject_name}}</p><p>{{row.occurred_at}} · {{row.actor}}</p><a-button @click="openDetail(row)">查看详情</a-button></article></div>
         <footer class="r6-people-foot"><span class="aux">共 {{total}} 条可见记录</span><a-pagination :current="page" :total="total" :page-size="20" :disabled="loading || !total" :show-size-changer="false" @change="changePage" /></footer>
+        </template>
       </ResourceState>
     </section>
     <a-modal :open="Boolean(selected)" title="变更记录详情" wrap-class-name="v10-dialog" :width="880" :footer="null" @cancel="closeDetail">

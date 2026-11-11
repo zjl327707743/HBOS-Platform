@@ -145,7 +145,7 @@ function outside(event: Event) {
   const target = event.target as Node | null
   if (!anchor.value?.contains(target) && !popup.value?.contains(target)) close()
 }
-function scrollOutside(event: Event) { if (!popup.value?.contains(event.target as Node)) close() }
+function scrollOutside(event: Event) { if (!(event.target instanceof Node) || !popup.value?.contains(event.target)) close() }
 function resize() { close() }
 function attach() {
   document.addEventListener('pointerdown', outside, true)
@@ -183,10 +183,10 @@ onBeforeUnmount(detach)
       :aria-label="ariaLabel ? '清除' + ariaLabel : '清除选择'" @click="clear"><CloseOutlined /></button>
     <span v-else class="v10-choice-cue" aria-hidden="true">选择</span>
     <Teleport to="body">
-      <ul v-if="opened" :id="listId" ref="popup" class="v10-choice-popup" role="listbox" :aria-label="ariaLabel || label || placeholder || '可选项'" :style="position" @mousedown.prevent>
+      <ul v-if="opened" :id="listId" ref="popup" class="v10-choice-popup" role="listbox" :aria-label="ariaLabel || label || placeholder || '可选项'" :style="position">
         <li v-for="(option, i) in matches" :id="optionId(i)" :key="option.value" role="option"
           :aria-selected="option.value === value" :aria-disabled="option.disabled || undefined" :data-active="active === i"
-          @pointermove="!option.disabled && active !== i && setActive(i)" @click="choose(i)">
+          @mousedown.prevent @pointermove="!option.disabled && active !== i && setActive(i)" @click="choose(i)">
           <span>{{ option.label }}</span><CheckOutlined v-if="option.value === value" aria-hidden="true" />
         </li>
         <li v-if="!matches.length" class="v10-choice-empty" role="presentation">没有匹配选项</li>

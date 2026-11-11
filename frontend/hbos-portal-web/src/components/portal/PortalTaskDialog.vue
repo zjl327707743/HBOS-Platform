@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
 import { openBusinessRoute } from '@/services/businessNavigation'
@@ -6,6 +7,15 @@ import { openBusinessRoute } from '@/services/businessNavigation'
 const props = defineProps<{ task: UnifiedTaskDTO | null }>()
 const emit = defineEmits<{ close: [] }>()
 const router = useRouter()
+let returnFocus: HTMLElement | null = null
+watch(() => props.task, (task, previous) => {
+  if (task && !previous) returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+}, { flush: 'sync' })
+function restoreFocus() {
+  const element = returnFocus
+  returnFocus = null
+  if (element?.isConnected && !element.closest('[inert]')) element.focus({ preventScroll: true })
+}
 
 function enter() {
   const task = props.task
@@ -15,7 +25,7 @@ function enter() {
 }
 </script>
 <template>
-  <a-modal :open="Boolean(task)" :title="task?.title" :footer="null" :width="640" wrap-class-name="v10-dialog" @cancel="$emit('close')">
+  <a-modal :open="Boolean(task)" :title="task?.title" :footer="null" :width="640" wrap-class-name="v10-dialog" :focus-trigger-after-close="false" :after-close="restoreFocus" @cancel="$emit('close')">
     <div v-if="task" class="v10-task-dialog">
       <a-tag>{{ task.appTitle }}</a-tag>
       <p>{{ task.description }}</p>

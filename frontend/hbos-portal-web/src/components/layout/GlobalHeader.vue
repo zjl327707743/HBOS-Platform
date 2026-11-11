@@ -34,7 +34,7 @@
       </a-dropdown>
       <a-button v-if="managementExperience && !portalDesign" class="r6-motion-toggle" type="text" :aria-pressed="motionPaused" :aria-label="motionPaused ? '恢复背景动效' : '暂停背景动效'" @click="$emit('toggle-motion')"><PlayCircleOutlined v-if="motionPaused" /><PauseCircleOutlined v-else /></a-button>
       <img v-if="portalDesign" :src="joincareMark" alt="健康元集团" class="v10-group-logo" width="112" height="36" />
-      <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" /><NotificationCenter v-if="!portalDesign && portalDataSource === 'mock'" /></div>
+      <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" :portal-design="portalDesign" /><NotificationCenter v-if="!portalDesign && portalDataSource === 'mock'" /></div>
 
       <div v-if="!portalDesign && groupLogoUrl" class="group-brand" aria-label="健康元集团标识">
         <span class="header-divider" aria-hidden="true"></span>

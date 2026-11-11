@@ -845,3 +845,60 @@ body.hbos-session-shield .v10-header-menu-popup { visibility: hidden; pointer-ev
   .v10-welcome h1 span, .v10-story-title span { -webkit-text-fill-color: currentColor; }
   .v10-status-code { color: CanvasText; }
 }
+
+/* Browser comparison corrections */
+.v10-portal :is(a,button,input,textarea,summary,[tabindex]) { scroll-margin-block: 96px 84px; }
+.v10-work-page > .v10-page-heading > .ant-btn { flex: none; white-space: nowrap; }
+.v10-profile .v10-page-heading a.ant-btn { padding: 7px 14px; border: 1px solid #d2ddf0; background: #ffffffb8; }
+.v10-portal .v10-admin .r6-overview-label-row { display: grid; gap: 4px; }
+.v10-portal .v10-admin .r6-feature-groups { grid-template-columns: minmax(0,1fr); }
+.v10-admin .r6-feature-group > summary { padding-block: 12px; }
+.v10-admin .r6-feature-row { padding-block: 12px; }
+.v10-audit-results { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.v10-audit-results p { margin: 5px 0 0; color: var(--v10-copy); }
+.v10-access-panel .v10-choice { flex: 1 0 100%; }
+.v10-status-code { color: #8e81c5; }
+.v10-auth-back-button { border: 0; background: none; min-height: 36px; color: var(--v10-copy); padding: 0; cursor: pointer; font: inherit; }
+.v10-auth-back-button:hover { text-decoration: underline; }
+.v10-auth-back-button:disabled { color: var(--v10-muted); cursor: not-allowed; }
+.v10-recovery-channel { display: grid; gap: 8px; }
+.v10-recovery-channel > p { font-size: 12px; }
+.v10-auth-disclosure {
+  border: 1px solid #dfe5f1; border-radius: 12px; background: #f8faff65; padding: 0 12px;
+}
+.v10-auth-disclosure summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; list-style: none;
+  color: var(--v10-copy); min-height: 48px; cursor: pointer; font-weight: 600;
+}
+.v10-auth-disclosure summary::-webkit-details-marker { display: none; }
+.v10-auth-disclosure[open] { padding-bottom: 12px; }
+.v10-switcher-overlay .ant-popover-inner {
+  background: linear-gradient(130deg,#fffffffa,#f2f5ff); border: 1px solid #fff; border-radius: 15px; box-shadow: 0 14px 35px #445b8530;
+}
+.v10-switcher-overlay .app-switcher-panel { width: min(520px, calc(100vw - 46px)); }
+@media (max-width: 1100px) { .portal-page.v10-portal .current-identity { display: none; } }
+@media (max-width: 767px) {
+  .portal-page.v10-portal .hbos-header { height: 58px; }
+  .v10-portal .v10-brand strong { white-space: nowrap; }
+  .v10-portal .header-actions { flex: none; }
+  .v10-portal .v10-app-featured .v10-app-card { min-height: 118px; }
+  .v10-work-summary > small { display: none; }
+  .v10-work-toolbar .ant-segmented { width: 100%; overflow-x: auto; scrollbar-width: thin; }
+  .v10-work-toolbar .ant-segmented-group { flex-wrap: nowrap; }
+  .v10-work-toolbar .ant-segmented-item-label { padding-inline: 7px; }
+  .v10-portal .v10-profile .r6-security-row { grid-template-columns: 42px minmax(0,1fr); grid-template-rows: auto auto; }
+  .v10-profile .r6-security-row > .ant-btn { grid-column: 1/-1; }
+  .v10-portal .v10-admin .r6-page-heading .r6-heading-actions { margin-left: auto; width: auto; }
+  .v10-admin .r6-people-tabs-row { display: grid; gap: 7px; }
+  .v10-admin .r6-people-tabs-row .ant-tabs { width: fit-content; max-width: 100%; }
+  .v10-login .v10-auth-fields .v10-auth-link-button { display: flex; justify-content: center; width: 100%; }
+  .v10-login .v10-auth-fields > .account-buttons { display: block; }
+  .v10-auth-back-button { min-height: 30px; }
+}
+@media (max-width: 359px) {
+  .v10-portal .hbos-header { gap: 3px; padding-inline: 6px; }
+  .v10-portal .v10-header-start { gap: 4px; }
+  .v10-portal .hbos-header .v10-brand strong { font-size: 12px; }
+  .v10-portal .hbos-header .v10-brand img { width: 25px; }
+  .v10-portal .hbos-header .v10-brand small { letter-spacing: .5px; }
+}

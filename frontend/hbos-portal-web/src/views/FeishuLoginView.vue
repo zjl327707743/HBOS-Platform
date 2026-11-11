@@ -25,6 +25,7 @@
         <a-button size="large" type="primary" block html-type="submit" :loading="submitting" :disabled="!canSubmit">{{ tmpId ? '验证并进入工作台' : '登录' }}</a-button>
       </a-form>
       <div class="account-buttons"><RouterLink class="v10-auth-link-button" :to="username.trim().toLowerCase() === 'administrator' ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password'">忘记密码？</RouterLink></div>
+      <details v-if="!showPassword && !loading" class="v10-auth-disclosure"><summary>登录帮助 <span class="v10-disclosure-cue" aria-hidden="true"></span></summary><p>请使用已开通的本人账号。飞书未绑定时，可以用原账号密码登录。</p></details>
     </template>
     <template #footer>首次使用或无法登录，请联系系统管理员。</template>
     <template #version><span v-if="candidateLabel">{{ candidateLabel }}</span></template>

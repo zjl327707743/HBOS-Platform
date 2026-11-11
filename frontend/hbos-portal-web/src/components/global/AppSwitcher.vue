@@ -1,11 +1,12 @@
 <template>
   <a-popover
+    v-model:open="opened"
     trigger="click"
     placement="bottomRight"
-    overlay-class-name="hbos-app-switcher-overlay"
+    :overlay-class-name="portalDesign ? 'hbos-app-switcher-overlay v10-switcher-overlay' : 'hbos-app-switcher-overlay'"
   >
     <template #content>
-      <div class="app-switcher-panel">
+      <div ref="panel" class="app-switcher-panel" @keydown.esc="onEscape">
         <div class="app-switcher-head">
           <div>
             <strong>应用</strong>
@@ -32,7 +33,7 @@
             <a-badge v-if="app.pendingCount" :count="app.pendingCount" />
           </button>
 
-          <button type="button" class="app-switcher-item" @click="go('/hbos/apps')">
+          <button v-if="!portalDesign" type="button" class="app-switcher-item" @click="go('/hbos/apps')">
             <div class="app-switcher-icon digital-twin"><NodeIndexOutlined /></div>
             <div>
               <strong>数字孪生</strong>
@@ -45,7 +46,9 @@
 
     <a-tooltip title="应用">
       <a-button
+        ref="trigger"
         class="top-icon-button"
+        @keydown.esc="onEscape"
         type="text"
         shape="circle"
         aria-label="打开应用切换器"
@@ -58,8 +61,8 @@
 
 <script setup lang="ts">
 import { iconMap } from '@/components/appIcons'
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   AppstoreOutlined,
   NodeIndexOutlined,
@@ -67,18 +70,40 @@ import {
 import type { AppManifestDTO } from '@/contracts/portal'
 import { openBusinessRoute } from '@/services/businessNavigation'
 
-const props = defineProps<{ apps: AppManifestDTO[] }>()
-const router = useRouter()
+const props = defineProps<{ apps: AppManifestDTO[]; portalDesign?: boolean }>()
+const router = useRouter(), route = useRoute()
+const opened = ref(false)
+const panel = ref<HTMLElement | null>(null)
+const trigger = ref<{ $el: HTMLElement } | null>(null)
+function close(focus = false) {
+  if (!opened.value) return
+  opened.value = false
+  if (focus) trigger.value?.$el?.focus()
+}
+function onEscape(event: KeyboardEvent) {
+  if (!opened.value || event.isComposing) return
+  event.preventDefault()
+  event.stopPropagation()
+  close(true)
+}
+watch(opened, async value => {
+  if (!value || !props.portalDesign) return
+  await nextTick()
+  panel.value?.querySelector<HTMLElement>('button')?.focus()
+})
+watch(() => route.fullPath, () => close())
 
 const visibleApps = computed(() =>
   props.apps.filter((app) => ['knowledge', 'twin', 'lims', 'inventory', 'attendance', 'equipment', 'production'].includes(app.id)),
 )
 
 function go(path: string) {
+  close()
   void router.push(path)
 }
 
 function openApp(app: AppManifestDTO) {
+  close()
   void openBusinessRoute(router, app.id, app.route)
 }
 </script>

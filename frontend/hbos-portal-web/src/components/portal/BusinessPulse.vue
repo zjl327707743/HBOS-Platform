@@ -5,7 +5,7 @@
         <h2>业务概览</h2>
         <p>查看你有权使用的业务汇总</p>
       </div>
-      <a-tag v-if="live" color="success">真实汇总</a-tag>
+      <a-tag v-if="live" color="success">来源应用汇总</a-tag>
       <a-tag v-else>Mock · 演示汇总</a-tag>
     </div>
 

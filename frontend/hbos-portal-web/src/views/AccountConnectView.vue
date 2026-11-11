@@ -1,11 +1,12 @@
 <template>
   <AccountLayout v10 variant="r5" :title="completed ? '账号已就绪' : pending?.intent === 'link' ? '确认绑定本人飞书' : pending?.intent === 'login_mfa' ? '完成二次认证' : '确认你的账号'" description="核对本人身份和目标账号，再继续。">
-    <template v-if="!pending || !remaining" #back><RouterLink to="/hbos/login">返回登录</RouterLink></template>
+    <template #back><button v-if="pending && remaining" type="button" class="v10-auth-back-button" :disabled="busy" @click="cancel">返回登录</button><RouterLink v-else to="/hbos/login">返回登录</RouterLink></template>
     <a-alert v-if="error" :message="error" type="warning" show-icon role="alert" /><a-skeleton v-if="loading" active />
     <template v-else-if="completed"><a-result status="success" :title="completed.created ? '普通账号已开通' : '账号验证已完成'" sub-title="密码和飞书进入同一个账号。" /><p>登录名：<strong>{{ completed.login_name }}</strong></p><p v-if="completed.password_optional">可直接使用飞书工作。需要密码时，在账号与安全中按需设置。</p><a-alert v-if="workspaceError" :message="workspaceError" type="info" show-icon /><a-button size="large" type="primary" block :loading="busy" @click="enterWorkspace">{{ workspaceError ? '重试加载工作台' : '进入工作台' }}</a-button></template>
     <template v-else-if="uncertain"><a-alert message="账号操作的结果尚未确认。请先查询当前账号，避免重复绑定或开户。" type="warning" show-icon /><a-button size="large" :loading="busy" @click="checkOutcome">查询当前账号状态</a-button><div class="account-buttons"><RouterLink to="/hbos/profile">查看账号与安全</RouterLink><RouterLink to="/hbos/login">返回登录</RouterLink></div></template>
+    <a-alert v-else-if="pending && !remaining" message="本次授权已过期。请返回登录并重新授权。" type="warning" show-icon role="alert" />
     <template v-else-if="pending && remaining">
-      <dl class="v10-auth-facts"><div><dt>本次飞书身份</dt><dd>{{ pending.display_name }}</dd></div><div v-if="pending.user"><dt>目标账号</dt><dd>{{ pending.user }}</dd></div></dl>
+      <dl class="v10-auth-facts"><div><dt>本次飞书身份</dt><dd>{{ pending.display_name }}</dd></div><div v-if="pending.user || pending.intent === 'choose'"><dt>目标账号</dt><dd>{{ pending.user || '由本人选择并验证' }}</dd></div></dl>
       <p class="account-meta" role="status">授权剩余 {{ remaining }} 秒</p>
       <template v-if="pending.intent === 'link'"><p>将绑定到当前账号：<strong>{{ pending.user }}</strong>，保留原密码、角色和资料。</p><a-button size="large" type="primary" block :loading="busy" @click="complete('confirm_link')">确认绑定</a-button></template>
       <template v-else><p v-if="pending.intent === 'choose'">已有账号请验证并绑定原账号；首次开户使用永久普通账号。</p><a-form class="account-form" layout="vertical" @submit.prevent="complete(pending.intent === 'login_mfa' ? 'login_mfa' : 'bind_existing')">

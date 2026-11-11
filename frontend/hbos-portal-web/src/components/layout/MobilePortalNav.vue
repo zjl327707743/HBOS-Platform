@@ -1,8 +1,8 @@
 <template>
   <nav class="mobile-portal-nav glass-surface" aria-label="HBOS 移动端导航">
-    <RouterLink v-for="item in items" :key="item.path" :to="item.path" class="mobile-nav-item">
+    <RouterLink v-for="item in items" :key="item.path" :to="item.path" class="mobile-nav-item" :aria-label="item.label">
       <component :is="item.icon" />
-      <span>{{ item.label }}</span>
+      <span>{{ compact && item.path === '/hbos/profile' ? '个人' : item.label }}</span>
       <b v-if="item.path === '/hbos/work' && workCount > 0">{{ workCount }}</b>
     </RouterLink>
   </nav>
@@ -16,7 +16,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 
-defineProps<{ workCount: number }>()
+defineProps<{ workCount: number; compact?: boolean }>()
 
 const items = [
   { path: '/hbos', label: '首页', icon: HomeOutlined },

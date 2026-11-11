@@ -304,7 +304,7 @@ router.beforeEach(async (to) => {
 router.afterEach((to, _from, failure) => {
   if (failure || router.currentRoute.value.fullPath !== to.fullPath) return
   const title = typeof to.meta.title === 'string' ? to.meta.title : 'HBOS'
-  document.title = title === 'HBOS 首页' ? 'HBOS · 海滨智能运营工作台' : `${title} · HBOS`
+  document.title = title === 'HBOS 首页' ? 'HBOS · 海滨智能工作平台' : `${title} · HBOS`
 })
 
 export default router
