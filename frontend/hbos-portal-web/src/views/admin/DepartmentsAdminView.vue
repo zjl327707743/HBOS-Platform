@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
+import { departmentGroups } from '@/components/iam/managementChoices'
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
@@ -31,7 +33,7 @@ const activeTab = ref<TabKey>(route.query.tab === 'members' ? 'members' : 'defau
 const mode = ref<'reading' | 'editing'>('reading')
 
 const viewGroup = ref('daily'), groupsAvailable = ref(false), companies = ref<Array<{ id: string; name: string }>>([]), company = ref('')
-const treeSearch = ref(''), directoryFiltersOpen = ref(false)
+const treeSearch = ref(''), directoryFiltersOpen = ref(true)
 // Below 1024 the directory becomes a real search selector (§7.2); it must not
 // survive as a long list that pushes the panel off-screen on a phone.
 const compactDirectory = ref(false)
@@ -523,7 +525,7 @@ onBeforeUnmount(() => {
   <section class="r6-page r6-departments-page">
     <PageHeading eyebrow="管理中心" title="部门应用权限" description="为部门设置默认角色，特殊职责到员工中单独安排。" />
     <a-skeleton v-if="loading" active />
-    <div v-else class="r6-dual-panels">
+    <div v-else class="r6-dual-panels" :class="{ 'v10-dept-stack': compactDirectory }">
       <PanelFrame v-if="!compactDirectory" as="aside" region="department-list" label="组织部门目录" class="r6-navigation r6-department-tree">
         <DepartmentNavigator
           :entries="departmentEntries" :selected="selected" :search="treeSearch"
@@ -534,19 +536,20 @@ onBeforeUnmount(() => {
           @update:view-group="changeGroup" @update:company="changeCompany" />
       </PanelFrame>
 
+      <section v-if="compactDirectory" class="r6-surface v10-dept-compact">
+        <h3>组织目录</h3>
+        <p>仅列出你可以管理的部门。</p>
+              <div class="r6-dept-picker">
+                <PortalSelect :value="selected" :options="departmentOptions" searchable aria-label="选择部门" :disabled="departmentBusy" @change="selectDepartment" />
+                <PortalSelect v-if="groupsAvailable" :value="viewGroup" :options="departmentGroups" aria-label="部门分组" :disabled="departmentBusy" @change="changeGroup" />
+              </div>
+        <PortalSelect v-if="companies.length > 1" :value="company" :options="companies.map(item => ({value:item.id,label:item.name}))" aria-label="部门所属公司" :disabled="departmentBusy" @change="changeCompany" />
+      </section>
+
       <PanelFrame region="department-detail" label="部门应用权限与成员">
         <template v-if="current" #header>
           <div class="r6-dept-panel-heading">
             <div class="r6-dept-head">
-              <div v-if="compactDirectory" class="r6-dept-picker">
-                <span>部门</span>
-                <a-select :value="selected" :options="departmentOptions" show-search option-filter-prop="label" aria-label="选择部门" :disabled="departmentBusy" @update:value="selectDepartment" />
-                <a-select v-if="groupsAvailable" :value="viewGroup" aria-label="部门分组" :disabled="departmentBusy" @change="changeGroup">
-                  <a-select-option value="daily">日常组织</a-select-option>
-                  <a-select-option value="technical">技术验证夹具</a-select-option>
-                  <a-select-option value="all">全部部门</a-select-option>
-                </a-select>
-              </div>
               <h2 :title="current.name">{{ current.name }}</h2>
               <p>{{ current.company || '公司待核对' }}<template v-if="typeof memberTotal === 'number'"> · 可见成员 {{ memberTotal }} 人</template></p>
               <AppContextSelector v-model="activeAppId" :apps="appEntries.map(row => ({ app_id: row.app_id, title: row.title, integrated: row.integrated }))" />
@@ -696,7 +699,7 @@ onBeforeUnmount(() => {
 
     <EmployeeDrawer :open="drawerOpen" :employee-id="employeeId" initial-tab="apps" :initial-app="'attendance'" @close="drawerOpen = false" @changed="loadDepartmentRole(true)" />
 
-    <ChangeReview :open="Boolean(departmentPreview)" :busy="departmentBusy" title="确认部门默认权限" @cancel="closeDepartmentPreview">
+    <ChangeReview v10 :open="Boolean(departmentPreview)" :busy="departmentBusy" title="确认部门默认权限" @cancel="closeDepartmentPreview">
       <section v-if="departmentPreview" class="r6-dept-review" aria-live="polite">
         <div class="r6-dept-review__subject">
           <strong>{{ current?.name }} · {{ activeAppTitle }}</strong>
@@ -731,7 +734,7 @@ onBeforeUnmount(() => {
       </section>
     </ChangeReview>
 
-    <ChangeReview :open="Boolean(admissionTarget)" :busy="admissionBusy" :title="admissionTitle" @cancel="closeAdmission">
+    <ChangeReview v10 :open="Boolean(admissionTarget)" :busy="admissionBusy" :title="admissionTitle" @cancel="closeAdmission">
       <section v-if="admissionTarget" class="r6-dept-review" aria-live="polite">
         <div class="r6-dept-review__subject"><strong>{{ admissionTarget.name }}</strong><span v-if="admissionTarget.number">{{ admissionTarget.number }}</span><span>{{ admissionTarget.action === 'revoke' ? '撤销本部门管理角色确认' : '确认本部门管理角色' }}</span></div>
         <a-alert v-if="admissionError" :message="admissionError" type="warning" show-icon />

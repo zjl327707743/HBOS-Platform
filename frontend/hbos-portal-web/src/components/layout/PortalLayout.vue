@@ -1,5 +1,5 @@
 <template>
-  <div class="portal-page" :class="{ 'v10-portal': portalDesign, 'v10-sidebar-collapsed': sidebarCollapsed, 'r6-experience': r6Experience, 'r6-personal': personal, 'r6-fit': fitPage, 'r6-natural': naturalPanels, 'motion-paused': motionPaused, 'v10-backgrounded': backgrounded }" :data-document-instance="development ? frappeDiagnostics.document : undefined" :data-session-phase="development ? portalSession.phase : undefined" :data-security-reads="development ? frappeDiagnostics.security : undefined" :data-capability-reads="development ? frappeDiagnostics.capabilities : undefined" :data-bootstrap-reads="development ? frappeDiagnostics.bootstrap : undefined" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
+  <div class="portal-page" :class="{ 'v10-portal': portalDesign, 'v10-sidebar-collapsed': sidebarCollapsed, 'v10-management': portalDesign && route.path.startsWith('/hbos/admin'), 'r6-experience': r6Experience, 'r6-personal': personal, 'r6-fit': fitPage, 'r6-natural': naturalPanels, 'motion-paused': motionPaused, 'v10-backgrounded': backgrounded }" :data-document-instance="development ? frappeDiagnostics.document : undefined" :data-session-phase="development ? portalSession.phase : undefined" :data-security-reads="development ? frappeDiagnostics.security : undefined" :data-capability-reads="development ? frappeDiagnostics.capabilities : undefined" :data-bootstrap-reads="development ? frappeDiagnostics.bootstrap : undefined" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <PointerAtmosphere :paused="motionPaused" />
     <div class="aurora aurora-a"></div>
@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <MobilePortalNav v-if="portalDesign || !r6Experience" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
+    <MobilePortalNav v-if="(portalDesign && !route.path.startsWith('/hbos/admin')) || !r6Experience" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
 
     <dialog v-if="portalDesign" ref="navigationDialog" class="v10-nav-dialog" aria-label="工作空间导航" @click.self="closeNavigation">
       <PortalSidebar :work-count="actionableCount" portal-design in-drawer @toggle="closeNavigation" />

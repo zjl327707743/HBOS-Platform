@@ -144,9 +144,10 @@ describe('v1.4 shared components', () => {
     await confirm.trigger('click')
     expect(w.emitted('confirm')).toHaveLength(1)
     // Filtering by source narrows the list without inventing rows.
-    const selects = w.findAllComponents({ name: 'ASelect' })
-    selects[0].vm.$emit('update:value', 'DIRECT')
-    await nextTick()
+    const source = w.get('[role="combobox"][aria-label="按权限来源筛选"]')
+    await source.trigger('keydown', { key: 'ArrowDown' })
+    await source.trigger('keydown', { key: 'End' })
+    await source.trigger('keydown', { key: 'Enter' })
     expect(w.text()).toContain('单独员工')
     expect(w.text()).not.toContain('待确认员工')
   })

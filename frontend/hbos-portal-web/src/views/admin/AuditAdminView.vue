@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
 import { listAuditEvents, getAuditEvent, type AuditSubjectFilter } from '@/services/iamAudit'
@@ -11,6 +12,8 @@ import StatusTag from '@/components/iam/StatusTag.vue'
 import AuditSnapshot from '@/components/iam/AuditSnapshot.vue'
 const rows = ref<AuditEvent[]>([]), page = ref(1), total = ref(0), loading = ref(true), error = ref('')
 const subjectType = ref<string>(), subjectName = ref(''), dateFrom = ref(''), dateTo = ref(''), operation = ref<string>(), resultFilter = ref<string>()
+const subjects = [{value:'Employee',label:'员工档案'},{value:'User',label:'登录账号'},{value:'Department',label:'部门'},{value:'HBOS IAM App Role',label:'应用角色'}]
+const outcomes = [{value:'success',label:'成功'},{value:'refused',label:'被拒绝'},{value:'conflict',label:'冲突'}]
 const selected = ref<AuditEvent | null>(null), detail = ref<AuditEventDetail | null>(null), detailLoading = ref(false), detailError = ref('')
 const appliedType = ref<string>(), appliedName = ref(''), appliedFrom = ref(''), appliedTo = ref(''), appliedOperation = ref<string>(), appliedResult = ref<string>()
 // Defence in depth for the audit dialog: the server already redacts before/after
@@ -73,24 +76,26 @@ onBeforeUnmount(() => { disposed = true; generation++; rows.value = []; closeDet
 <template>
   <section class="r6-page r6-audit-page">
     <PageHeading eyebrow="管理记录" title="变更记录" description="核对谁在何时调整了账号、角色与工作安排。" />
-    <section class="r6-surface">
+    <section class="r6-surface v10-audit-panel">
+      <h2>查询记录</h2>
       <a-form class="r6-audit-filter r6-audit-query" layout="vertical" @submit.prevent="apply">
-        <a-form-item label="对象类型"><a-select v-model:value="subjectType" allow-clear aria-label="筛选对象类型" placeholder="全部对象"><a-select-option value="Employee">员工档案</a-select-option><a-select-option value="User">登录账号</a-select-option><a-select-option value="Department">部门</a-select-option><a-select-option value="HBOS IAM App Role">应用角色</a-select-option></a-select></a-form-item>
+        <a-form-item label="对象类型"><PortalSelect v-model:value="subjectType" :options="subjects" allow-clear aria-label="筛选对象类型" placeholder="全部对象" /></a-form-item>
         <a-form-item label="对象标识"><a-input v-model:value="subjectName" allow-clear aria-label="准确对象标识" placeholder="填写准确标识" /></a-form-item>
         <a-form-item label="开始日期"><a-input v-model:value="dateFrom" type="date" aria-label="审计开始日期" /></a-form-item>
         <a-form-item label="结束日期（含当天）"><a-input v-model:value="dateTo" type="date" aria-label="审计结束日期" /></a-form-item>
-        <a-form-item label="操作"><a-select v-model:value="operation" allow-clear show-search option-filter-prop="label" aria-label="筛选变更操作" placeholder="全部操作" :options="auditOperations" /></a-form-item>
-        <a-form-item label="结果"><a-select v-model:value="resultFilter" allow-clear aria-label="筛选变更结果" placeholder="全部结果"><a-select-option value="success">成功</a-select-option><a-select-option value="refused">被拒绝</a-select-option><a-select-option value="conflict">冲突</a-select-option></a-select></a-form-item>
-        <a-space wrap><a-button type="primary" html-type="submit" :loading="loading">查询记录</a-button><a-button @click="clear">清除筛选</a-button></a-space>
+        <a-form-item label="操作"><PortalSelect v-model:value="operation" allow-clear searchable aria-label="筛选变更操作" placeholder="全部操作" :options="auditOperations" /></a-form-item>
+        <a-form-item label="结果"><PortalSelect v-model:value="resultFilter" :options="outcomes" allow-clear aria-label="筛选变更结果" placeholder="全部结果" /></a-form-item>
+        <div class="v10-audit-actions"><a-button @click="clear">清除筛选</a-button><a-button type="primary" html-type="submit" :loading="loading">查询</a-button></div>
       </a-form>
       <p class="aux">仅显示当前账号获准读取的脱敏记录；日期、操作、结果及对象筛选遵循同一读取范围。</p>
+      <h2 class="v10-audit-results">查询结果</h2>
       <ResourceState :loading="loading" :error="error" @retry="load">
         <a-table class="r6-desktop-people" :columns="columns" :data-source="rows" row-key="name" :scroll="{x:920}" :pagination="false"><template #bodyCell="{column,record}"><template v-if="column.key==='subject'">{{record.subject_name}}<span class="iam-code">{{record.subject_type}}</span></template><template v-else-if="column.key==='operation'">{{auditOperationLabel(record.operation)}}</template><template v-else-if="column.key==='result'"><StatusTag :tone="record.result==='success'?'success':'warning'">{{auditResultLabel(record.result)}}</StatusTag></template><template v-else-if="column.key==='detail'"><button class="r6-audit-row-button" :aria-label="`查看${record.occurred_at}的变更记录`" @click="openDetail(record)">查看详情</button></template></template></a-table>
         <div class="r6-mobile-people"><a-empty v-if="!rows.length" description="暂无可见变更记录" /><article v-for="row in rows" :key="row.name" class="r6-mobile-person"><strong>{{auditOperationLabel(row.operation)}}</strong><p>{{row.subject_name}}</p><p>{{row.occurred_at}} · {{row.actor}}</p><a-button @click="openDetail(row)">查看详情</a-button></article></div>
         <footer class="r6-people-foot"><span class="aux">共 {{total}} 条可见记录</span><a-pagination :current="page" :total="total" :page-size="20" :disabled="loading || !total" :show-size-changer="false" @change="changePage" /></footer>
       </ResourceState>
     </section>
-    <a-modal :open="Boolean(selected)" title="变更记录详情" :width="880" :footer="null" @cancel="closeDetail">
+    <a-modal :open="Boolean(selected)" title="变更记录详情" wrap-class-name="v10-dialog" :width="880" :footer="null" @cancel="closeDetail">
       <a-descriptions v-if="selected" :column="1" class="r6-audit-detail" bordered><a-descriptions-item label="时间">{{selected.occurred_at}}</a-descriptions-item><a-descriptions-item label="操作者">{{selected.actor}}</a-descriptions-item><a-descriptions-item label="对象">{{selected.subject_type}} · {{selected.subject_name}}</a-descriptions-item><a-descriptions-item label="操作">{{auditOperationLabel(selected.operation)}}</a-descriptions-item><a-descriptions-item label="结果">{{auditResultLabel(selected.result)}}</a-descriptions-item><a-descriptions-item label="说明">{{selected.reason || '未提供附加说明'}}</a-descriptions-item></a-descriptions>
       <ResourceState :loading="detailLoading" :error="detailError" @retry="selected && openDetail(selected)"><p class="aux">仅显示脱敏后的前后快照；密码、令牌、验证凭证、Cookie 与签到明细不展示。</p><div v-if="redactedDetail" class="r6-assignment-compare"><section><h3>变更前</h3><AuditSnapshot :value="redactedDetail.before" /></section><section><h3>变更后</h3><AuditSnapshot :value="redactedDetail.after" /></section></div></ResourceState>
       <a-button @click="closeDetail">关闭</a-button>

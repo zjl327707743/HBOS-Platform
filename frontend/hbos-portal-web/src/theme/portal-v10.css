@@ -655,3 +655,193 @@ details[open] > summary .v10-disclosure-cue::before { content: "收起"; }
   .v10-login .v10-auth-heading h1 { font-size: 24px; }
 }
 @media (max-width: 360px) { .v10-change-options { grid-template-columns: minmax(0,1fr); } }
+
+/* Administration only. RolesAdminView is also rendered in LIMS; it does not
+   get the v10-admin ancestor there. Keep that layout and its routes intact. */
+.v10-portal .v10-admin { width: 100%; height: auto; max-width: none; }
+.v10-admin-nav {
+  display: flex; width: fit-content; max-width: 100%; overflow-x: auto;
+  align-items: stretch; gap: 5px; margin-bottom: 22px; padding: 6px;
+  border: 1px solid #fff; border-radius: 16px; background: #ffffff83; scrollbar-width: thin;
+}
+.v10-admin-nav a {
+  display: flex; align-items: center; gap: 8px; flex: none; min-height: 44px; padding: 8px 14px;
+  color: var(--v10-copy); font-size: 14px; text-decoration: none; border-radius: 11px;
+}
+.v10-admin-nav a:is(:hover, .router-link-exact-active) { color: #5442d7; background: #fff; }
+.v10-admin-nav a.router-link-exact-active { box-shadow: 0 4px 14px #6d66ae12; font-weight: 600; }
+.v10-admin .r6-page-heading { min-height: 72px; margin: 0 0 22px; }
+.v10-portal .v10-admin .r6-page-heading h1 { font-size: 30px; font-weight: 650; line-height: 1.4; color: var(--v10-ink); margin: 0 0 7px; }
+.v10-admin .r6-page-heading p { color: var(--v10-copy); font-size: 14px; line-height: 1.75; }
+.v10-admin .r6-page-heading .r6-eyebrow { display: none; }
+.v10-admin .r6-page-heading .r6-heading-actions { min-width: 0; }
+.v10-portal .v10-admin .r6-surface {
+  border: 1px solid #ffffffed; border-radius: 18px;
+  background: var(--v10-glass); box-shadow: var(--v10-shadow); backdrop-filter: var(--v10-blur);
+}
+.v10-portal .v10-admin .r6-dual-panels { grid-template-columns: minmax(0,232px) minmax(0,1fr); gap: 24px; height: auto; }
+.v10-portal .v10-admin .r6-dual-panels.v10-dept-stack { grid-template-columns: minmax(0,1fr); }
+.v10-portal .v10-admin .r6-panel-frame { min-height: 0; height: auto; max-height: none; }
+.v10-portal .v10-admin .r6-panel-scroll {
+  min-height: 0; max-height: none; overflow: visible; overscroll-behavior: auto; scrollbar-gutter: auto;
+}
+.v10-admin .r6-department-rows { max-height: none; overflow: visible; }
+.v10-admin .r6-department-directory__search { min-height: 40px; }
+.v10-admin .r6-department-directory__filters { display: grid; gap: 10px; }
+.v10-admin .r6-navigation :is(.r6-department-directory__head, .r6-role-library-label) { color: var(--v10-ink); }
+.v10-admin .r6-department-directory__head h3 { font-size: 16px; }
+.v10-admin .r6-panel-frame.r6-navigation .r6-panel-scroll { padding: 22px 23px; }
+.v10-admin .r6-panel-frame.r6-navigation .r6-panel-header { padding: 22px 23px 0; }
+.v10-admin .r6-panel-footer { background: #f7faff80; }
+.v10-admin .r6-choice-list button { min-height: 50px; background: #ffffff50; }
+.v10-admin .r6-choice-list button[aria-pressed="true"] { background: #eee9ff; }
+.v10-admin .r6-feature-toolbar { flex-wrap: wrap; gap: 10px; }
+.v10-admin .r6-feature-toolbar .v10-choice { flex: 1 1 140px; }
+.v10-admin .r6-feature-toolbar .ant-input-affix-wrapper { max-width: 100%; }
+.v10-admin .r6-feature-group { border: 1px solid #e1e8f7; border-radius: 14px; background: #f7f9ff99; }
+.v10-admin .r6-feature-group > summary { background: #ffffff99; }
+.v10-admin .r6-role-versions { flex-wrap: wrap; }
+.v10-admin .r6-dept-picker { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 0; }
+.v10-admin .r6-dept-picker .v10-choice { flex: 1 1 145px; }
+.v10-dept-compact { padding: 18px; display: grid; gap: 10px; }
+.v10-dept-compact h3, .v10-dept-compact p { margin: 0; }
+.v10-dept-compact p { color: var(--v10-copy); }
+
+.v10-portal .v10-admin .r6-people-overview {
+  display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0; overflow: hidden;
+  margin-bottom: 24px; border: 1px solid #fff; border-radius: 17px; background: #ffffffbd;
+}
+.v10-portal .v10-admin .r6-people-overview .r6-overview {
+  min-height: 96px; display: flex; align-items: center; padding: 18px 22px;
+  border: 0; border-radius: 0; box-shadow: none; background: transparent; backdrop-filter: none;
+}
+.v10-portal .v10-admin .r6-people-overview .r6-overview + .r6-overview { border-inline-start: 1px solid #dbe3f1; }
+.v10-portal .v10-admin .r6-overview :is(.r6-overview-icon, .r6-overview-trail) { display: none; }
+.v10-admin .r6-overview > div { flex: 1; display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0; }
+.v10-admin .r6-overview-label-row { display: grid; gap: 4px; color: var(--v10-ink); font-weight: 650; }
+.v10-admin .r6-overview-label-row small { font-size: 12px; font-weight: 400; color: var(--v10-copy); }
+.v10-admin .r6-overview strong { flex: none; font-size: 28px; line-height: 36px; }
+.v10-admin .r6-people-tabs-row { align-items: center; padding-top: 20px; border: 0; }
+.v10-admin .r6-people-tabs-row h2, .v10-audit-panel h2, .v10-access-panel h2 { font-size: 16px; margin: 0; font-weight: 650; }
+.v10-admin .r6-people-tabs-row .ant-tabs-nav { padding: 3px; border-radius: 11px; background: #edf0f8; }
+.v10-admin .r6-people-tabs-row .ant-tabs-tab { margin: 0; padding: 8px 12px; border-radius: 10px; }
+.v10-admin .r6-people-tabs-row .ant-tabs-tab-active { background: #fff; box-shadow: 0 2px 8px #39457d0d; }
+.v10-admin .r6-people-tabs-row .ant-tabs-ink-bar { display: none; }
+.v10-admin .r6-filter-toolbar { padding-block: 16px 20px; align-items: center; }
+.v10-admin .r6-filter-toolbar .r6-search { flex: 2 1 200px; min-width: 0; }
+.v10-admin .r6-filter-toolbar > .v10-choice { flex: 1 1 112px; }
+.v10-people-filter-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.v10-admin .r6-people-panel .r6-desktop-people { margin-inline: 24px; }
+.v10-admin .ant-table-wrapper { min-width: 0; }
+.v10-admin .ant-table { border: 1px solid #dfe6f2; border-radius: 13px; background: #f8f9fd; }
+.v10-admin .ant-table-container { border-radius: 13px; overflow: clip; }
+.v10-admin .ant-table-thead > tr > th { background: #f0f3fa; color: var(--v10-copy); border-bottom-color: #dce4f0; }
+.v10-admin .ant-table-tbody > tr > td { border-bottom-color: #e1e8f3; overflow-wrap: anywhere; }
+.v10-admin .ant-table:not(.ant-table-small) .ant-table-tbody > tr > td { padding-block: 18px; }
+.v10-admin .r6-employee-cell .ant-avatar { width: 32px !important; height: 32px !important; line-height: 30px !important; font-size: 12px; }
+.v10-admin .r6-desktop-people .ant-btn-sm { min-height: 34px; }
+
+.v10-portal .v10-admin .v10-audit-panel { padding: 24px; }
+.v10-audit-panel .r6-audit-query { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px 18px; margin: 18px 0; }
+.v10-audit-panel .ant-form-item { margin: 0; min-width: 0; }
+.v10-audit-panel .ant-form-item .v10-choice, .v10-audit-panel .ant-form-item :is(.ant-input,.ant-input-affix-wrapper) { width: 100%; min-width: 0; max-width: none; }
+.v10-audit-panel .ant-form-item :is(.ant-input,.ant-input-affix-wrapper):not(.ant-input-affix-wrapper input) { min-height: 44px; border-radius: 10px; }
+.v10-audit-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; grid-column: 1/-1; gap: 10px; }
+.v10-audit-results { padding-top: 20px; margin-block: 16px !important; border-top: 1px solid var(--v10-line); }
+.v10-access-apps {
+  display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; padding: 7px; margin-bottom: 16px;
+  background: #ffffff9e; border: 1px solid #fff; border-radius: 15px;
+}
+.v10-access-apps button {
+  display: flex; align-items: center; gap: 10px; text-align: start; width: 100%; min-width: 0;
+  min-height: 68px; padding: 12px; border-radius: 10px; border: 1px solid transparent;
+  background: transparent; color: var(--v10-copy); font: inherit; cursor: pointer;
+}
+.v10-access-apps button[aria-pressed="true"] { background: #eeeafe; border-color: #d4c9fc; }
+.v10-access-apps .anticon { padding: 7px; border-radius: 10px; background: #e6e1fb; color: #6253b8; }
+.v10-access-apps button > span:not(.anticon, .r6-status-tag) { display: grid; gap: 4px; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.v10-access-apps button small { color: var(--v10-muted); font-size: 11px; }
+.v10-access-panel header p { color: var(--v10-copy); margin: 5px 0 14px; }
+.v10-access-panel .iam-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+.v10-access-panel .v10-search-field { width: min(270px,100%); }
+.v10-access-panel .v10-choice { flex: 1 1 175px; }
+.v10-access-panel .ant-pagination { margin-top: 14px; }
+.v10-admin .r6-mobile-person { min-width: 0; overflow-wrap: anywhere; }
+.v10-admin .r6-mobile-person-foot { flex-wrap: wrap; gap: 8px; }
+.v10-dialog .ant-modal { max-width: calc(100vw - 24px); top: clamp(10px,5vh,50px); }
+.v10-dialog .ant-modal-content { display: flex; flex-direction: column; max-height: calc(95dvh - 18px); }
+.v10-dialog .ant-modal-body { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.v10-dialog .ant-modal-body .v10-choice { width: 100%; }
+.v10-dialog.iam-employee-drawer .ant-drawer-content-wrapper { max-width: calc(100vw - 24px); inset-block: 16px; right: 12px; height: calc(100dvh - 32px); }
+.v10-dialog.iam-employee-drawer .ant-drawer-content {
+  border-radius: 22px; border: 1px solid #fff; overflow: hidden;
+  background: linear-gradient(140deg,#fcfdff,#f1f5fc); box-shadow: 0 16px 54px #33497730;
+}
+.v10-dialog.iam-employee-drawer .ant-drawer-header, .v10-dialog.iam-employee-drawer .ant-drawer-footer { background: #f8faffb8; }
+.v10-dialog.iam-employee-drawer .ant-drawer-body { overscroll-behavior: contain; }
+body.hbos-session-shield .v10-header-menu-popup { visibility: hidden; pointer-events: none; }
+
+@media (max-width: 1100px) {
+  .v10-portal .v10-admin .r6-dual-panels { gap: 18px; }
+  .v10-admin .r6-panel-header, .v10-admin .r6-panel-scroll { padding-inline: 20px; }
+  .v10-admin .r6-filter-toolbar > .v10-choice { flex-basis: 120px; }
+}
+@media (max-width: 850px) {
+  .v10-portal .v10-admin .r6-dual-panels { grid-template-columns: minmax(0,1fr); }
+  .v10-admin .r6-choice-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(135px,1fr)); gap: 7px; }
+  .v10-admin .r6-choice-list button { min-width: 0; }
+}
+@media (max-width: 767px) {
+  .portal-page.v10-portal.v10-management .portal-shell { padding-bottom: 24px; }
+  .v10-admin-nav { margin-bottom: 16px; }
+  .v10-admin-nav a { padding-inline: 10px; font-size: 13px; }
+  .v10-admin-nav .anticon { display: none; }
+  .v10-portal .v10-admin .r6-page-heading h1 { font-size: 27px; }
+  .v10-admin .r6-page-heading { flex-wrap: wrap; gap: 12px; }
+  .v10-admin .r6-page-heading .r6-heading-actions { margin-inline-start: auto; }
+  .v10-portal .v10-admin .r6-people-overview { grid-template-columns: minmax(0,1fr); }
+  .v10-portal .v10-admin .r6-people-overview .r6-overview { min-height: 76px; padding: 14px 18px; }
+  .v10-portal .v10-admin .r6-people-overview .r6-overview + .r6-overview { border-inline-start: 0; border-top: 1px solid #e1e7f2; }
+  .v10-admin .r6-overview strong { font-size: 25px; }
+  .v10-admin .r6-people-tabs-row { padding: 14px 16px 0; }
+  .v10-admin .r6-people-tabs-row .ant-tabs-tab { padding: 7px 8px; }
+  .v10-admin .r6-filter-toolbar { padding: 14px 16px; gap: 8px; }
+  .v10-admin .r6-filter-toolbar .r6-search { flex-basis: 100%; }
+  .v10-admin .r6-filter-toolbar > .v10-choice { flex-basis: 95px; }
+  .v10-admin .r6-filter-toolbar .v10-choice-trigger { padding-inline-end: 37px; }
+  .v10-portal .v10-admin .v10-audit-panel { padding: 16px; }
+  .v10-audit-panel .r6-audit-query { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+  .v10-audit-panel .ant-form-item input[type="date"] { font-size: 13px; padding-inline: 7px; }
+  .v10-access-apps { grid-template-columns: minmax(0,1fr); }
+  .v10-access-apps button { min-height: 55px; }
+  .v10-access-panel .v10-search-field, .v10-access-panel .v10-choice { width: 100%; flex-basis: 100%; }
+  .v10-dialog.iam-employee-drawer .ant-drawer-content-wrapper { right: 10px; max-width: calc(100vw - 20px) !important; inset-block: 10px; height: calc(100dvh - 20px); }
+}
+
+/* Refusal and missing-page states have the same surface without fetching a
+   session for the public catch-all route. */
+.v10-status-screen {
+  min-height: 460px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 15px; padding: 46px 24px; border-radius: 23px; text-align: center;
+}
+.v10-status-screen.v10-status-no-code { min-height: 412px; }
+.v10-status-code { color: #958bc8; font-size: clamp(56px, 6vw, 76px); font-weight: 650; line-height: 1; letter-spacing: -.06em; }
+:is(.v10-portal, .v10-standalone) .v10-status-screen :is(h1,h2) { margin: 0; font-size: 24px; line-height: 1.4; font-weight: 670; color: var(--v10-ink); }
+.v10-status-screen p { max-width: 44ch; margin: 2px 0 10px; font-size: 14px; color: var(--v10-copy); line-height: 1.75; overflow-wrap: anywhere; }
+.v10-status-screen .v10-actions { justify-content: center; }
+.v10-standalone { min-height: 100dvh; padding: 16px 24px 26px; background: var(--v10-canvas) fixed; }
+.v10-standalone-brand, .v10-standalone-content { margin-inline: auto; max-width: 1752px; }
+.v10-standalone-brand { display: flex; align-items: center; min-height: 64px; padding: 0 20px; border: 1px solid #fff; border-radius: 20px; background: var(--v10-shell-glass); box-shadow: var(--v10-shadow); }
+.v10-standalone-content { margin-top: 18px; }
+.v10-standalone-content .v10-context { justify-content: flex-start; }
+.v10-standalone-content .v10-context [aria-current]::before { content: "/"; margin-inline-end: 8px; font-weight: 400; }
+@media (max-width: 767px) {
+  .v10-standalone { padding: 10px 12px 24px; }
+  .v10-standalone-brand { min-height: 58px; border-radius: 17px; }
+  .v10-status-screen { min-height: 430px; border-radius: 18px; }
+  :is(.v10-portal,.v10-standalone) .v10-status-screen :is(h1,h2) { font-size: 21px; }
+}
+@media (forced-colors: active) {
+  .v10-welcome h1 span, .v10-story-title span { -webkit-text-fill-color: currentColor; }
+  .v10-status-code { color: CanvasText; }
+}
