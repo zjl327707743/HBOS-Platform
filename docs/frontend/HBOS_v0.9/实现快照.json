@@ -1,0 +1,875 @@
+{
+  "$description": "HBOS v0.9 实现快照，不替代已接受源码或生产主题。",
+  "$extensions": {
+    "version": "0.9-implementation-snapshot",
+    "status": "accepted visual reference; not production acceptance",
+    "sourceCommit": "2aa21d078c215f29d43bfe977bdf3241f732bd40",
+    "productReferenceCommit": "31f0af395318d846b8f1141a83c7819aaddd57ec",
+    "name": "海滨智能工作平台",
+    "purpose": "按已接受原型复刻与验证。不是已归一化主题，原型未加载本快照CSS。Vue/Ant适配需保留作用域与具体状态。",
+    "staticStylesheetOrder": [
+      "style.css",
+      "polish.css",
+      "polish-admin.css",
+      "refinement.css"
+    ],
+    "dynamicStyles": "account-module.js injects scoped style inside rendered HTML; include it in cascade analysis",
+    "notCovered": "All interaction states, hover/focus variations, every breakpoint, all browser/OS fonts, production data/API/security",
+    "sourceSHA256": {
+      "index.html": "f6370e7f42299c30b120b13daac681f276fe0830f4f19871145c26db52abec5c",
+      "polish-admin.css": "de2db5adc500bd8dc95f75a03b51f049363bf9410e8d10d92b606af5bc59eeef",
+      "refinement.js": "74c8a7e48c2568b0a5ad59ad7ebd5b78f30d85adbfbd6036ac1ff4364a013d12",
+      "feishu-logo.png": "cfd2b879c472a2674520492c84a0304c537a19964b8a2dcd3562c57de773268b",
+      "icons.js": "1f67773f7e7a9d166ad92c8d7964b8c48b2782edacb45d11a8630966cbc7386a",
+      "hbos-logo.png": "438d3800830fad4fab607a6fab3dfb5d0a622ff20f462611277437b2aa1edc02",
+      "account-module.js": "bf5513d0f6e763691c82c198c30b428276ddd43892c817bf78e3b7cd606d3f09",
+      "style.css": "987ae6fb748597f2a72eefa2dc1df3151acbba9742b63ddfa9b282aeff290935",
+      "portal.js": "18f5123c78ffe4986c2a9af57e8b51c5517f3857a24fa8c18821278e25975c49",
+      "twin-overview.svg": "97c8925de453b40e85a04b2ab52f7c98ccc2863c6ec0adb0572a5ee66dac0248",
+      "spec-module.js": "70391edee1abd05646504e8b4f56ef1eacfa3bca109d6b6478c8dbcce112a7e9",
+      "controls.js": "6b5f687f5a4d9063f94b90214ac04290e6dca66d35c1704f38a8af98df8743b9",
+      "admin-module.js": "aaabd8e839d862db4917e72541287cfa6f48f018a47079e8e3c8a02d2e37aede",
+      "polish.css": "9f52656142596641d7f0a1c530daba411c0860652579362c0dca6defe7fcefd7",
+      "joincare-logo.png": "53112e4adc3ad900bfc2097fd4dc1ec584512ca673005708cca7faaa53c467b2",
+      "refinement.css": "b4591f130ac29370f3baa12dcd363aa2e314b6e8f422af9851cacc166572344f"
+    },
+    "legacyTokens": "v0.1 remains historical, not used as v0.9 authority; no relabelling",
+    "interpretation": "root variables are final unconditional :root declarations only. Per-component overrides can differ. Computed samples are viewport/route-specific, not universal constants."
+  },
+  "rootCustomProperties": {
+    "--ink": {
+      "value": "#253650",
+      "source": "refinement.css",
+      "line": 17,
+      "selector": ":root"
+    },
+    "--muted": {
+      "value": "#596b84",
+      "source": "refinement.css",
+      "line": 17,
+      "selector": ":root"
+    },
+    "--brand": {
+      "value": "#5b50e8",
+      "source": "polish.css",
+      "line": 2,
+      "selector": ":root"
+    },
+    "--strong": {
+      "value": "#5b50e8",
+      "source": "style.css",
+      "line": 4,
+      "selector": ":root"
+    },
+    "--line": {
+      "value": "#e1e7f1",
+      "source": "polish.css",
+      "line": 2,
+      "selector": ":root"
+    },
+    "--mint": {
+      "value": "#eef0ff",
+      "source": "style.css",
+      "line": 4,
+      "selector": ":root"
+    },
+    "--paper": {
+      "value": "#ffffffed",
+      "source": "polish.css",
+      "line": 2,
+      "selector": ":root"
+    },
+    "--shadow": {
+      "value": "0 12px 38px #49628d0a",
+      "source": "polish.css",
+      "line": 2,
+      "selector": ":root"
+    },
+    "--radius": {
+      "value": "22px",
+      "source": "polish.css",
+      "line": 2,
+      "selector": ":root"
+    },
+    "--font": {
+      "value": "Inter,\"SF Pro Display\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+      "source": "polish.css",
+      "line": 2,
+      "selector": ":root"
+    },
+    "--glass-surface": {
+      "value": "linear-gradient(130deg,#ffffffb8,#f7f4ff8c 50%,#eefbff94)",
+      "source": "refinement.css",
+      "line": 29,
+      "selector": ":root"
+    },
+    "--glass-line": {
+      "value": "#fffffff5",
+      "source": "refinement.css",
+      "line": 29,
+      "selector": ":root"
+    },
+    "--glass-shadow": {
+      "value": "inset 0 1px 0 #fff,inset 1px 0 0 #ffffff80,inset 0 -1px 0 #fff7,0 16px 44px #5164a01a",
+      "source": "refinement.css",
+      "line": 29,
+      "selector": ":root"
+    },
+    "--accent": {
+      "value": "#6754db",
+      "source": "refinement.css",
+      "line": 17,
+      "selector": ":root"
+    },
+    "--focus": {
+      "value": "#5945d6",
+      "source": "refinement.css",
+      "line": 17,
+      "selector": ":root"
+    },
+    "--ease": {
+      "value": "cubic-bezier(.2,.75,.25,1)",
+      "source": "refinement.css",
+      "line": 17,
+      "selector": ":root"
+    }
+  },
+  "rootDeclarationHistory": {
+    "--ink": [
+      {
+        "value": "#191a3a",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#17253c",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      },
+      {
+        "value": "#17253c",
+        "source": "polish.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#253650",
+        "source": "refinement.css",
+        "line": 17,
+        "selector": ":root"
+      }
+    ],
+    "--muted": [
+      {
+        "value": "#626377",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#536580",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      },
+      {
+        "value": "#5e6f89",
+        "source": "polish.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#596b84",
+        "source": "refinement.css",
+        "line": 17,
+        "selector": ":root"
+      }
+    ],
+    "--brand": [
+      {
+        "value": "#1d2171",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#675fff",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      },
+      {
+        "value": "#5b50e8",
+        "source": "polish.css",
+        "line": 2,
+        "selector": ":root"
+      }
+    ],
+    "--strong": [
+      {
+        "value": "#10145e",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#5b50e8",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      }
+    ],
+    "--line": [
+      {
+        "value": "#dddde6",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#dce4f2",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      },
+      {
+        "value": "#e1e7f1",
+        "source": "polish.css",
+        "line": 2,
+        "selector": ":root"
+      }
+    ],
+    "--mint": [
+      {
+        "value": "#e8e8f2",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#eef0ff",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      }
+    ],
+    "--paper": [
+      {
+        "value": "#ffffffc9",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "rgba(255,255,255,.68)",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      },
+      {
+        "value": "#ffffffed",
+        "source": "polish.css",
+        "line": 2,
+        "selector": ":root"
+      }
+    ],
+    "--shadow": [
+      {
+        "value": "0 10px 34px #24274a10",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "0 18px 56px rgba(47,72,117,.09)",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      },
+      {
+        "value": "0 12px 38px #49628d0a",
+        "source": "polish.css",
+        "line": 2,
+        "selector": ":root"
+      }
+    ],
+    "--radius": [
+      {
+        "value": "20px",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "24px",
+        "source": "style.css",
+        "line": 4,
+        "selector": ":root"
+      },
+      {
+        "value": "22px",
+        "source": "polish.css",
+        "line": 2,
+        "selector": ":root"
+      }
+    ],
+    "--font": [
+      {
+        "value": "Inter,\"SF Pro Display\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+        "source": "style.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "Inter,\"SF Pro Display\",\"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif",
+        "source": "polish.css",
+        "line": 2,
+        "selector": ":root"
+      }
+    ],
+    "--glass-surface": [
+      {
+        "value": "linear-gradient(135deg,#ffffffbd,#f1f4ff78 58%,#edfaff88)",
+        "source": "refinement.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "linear-gradient(130deg,#ffffffb8,#f7f4ff8c 50%,#eefbff94)",
+        "source": "refinement.css",
+        "line": 29,
+        "selector": ":root"
+      }
+    ],
+    "--glass-line": [
+      {
+        "value": "#fffffff0",
+        "source": "refinement.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "#fffffff5",
+        "source": "refinement.css",
+        "line": 29,
+        "selector": ":root"
+      }
+    ],
+    "--glass-shadow": [
+      {
+        "value": "inset 0 1px 0 #fff,inset 0 -1px 0 #ffffff75,0 12px 36px #475f8910",
+        "source": "refinement.css",
+        "line": 2,
+        "selector": ":root"
+      },
+      {
+        "value": "inset 0 1px 0 #fff,inset 1px 0 0 #ffffff80,inset 0 -1px 0 #fff7,0 16px 44px #5164a01a",
+        "source": "refinement.css",
+        "line": 29,
+        "selector": ":root"
+      }
+    ],
+    "--accent": [
+      {
+        "value": "#6754db",
+        "source": "refinement.css",
+        "line": 17,
+        "selector": ":root"
+      }
+    ],
+    "--focus": [
+      {
+        "value": "#5945d6",
+        "source": "refinement.css",
+        "line": 17,
+        "selector": ":root"
+      }
+    ],
+    "--ease": [
+      {
+        "value": "cubic-bezier(.2,.75,.25,1)",
+        "source": "refinement.css",
+        "line": 17,
+        "selector": ":root"
+      }
+    ]
+  },
+  "computedSamples": {
+    "sourceCommit": "2aa21d078c215f29d43bfe977bdf3241f732bd40",
+    "method": "Chromium rendered accepted source in same-origin iframes at 1280×900 and 390×900; read getComputedStyle after all scripts including injected account styles; CSS-pixel dimensions. A classic 15px scrollbar can reduce layout body width to 1265/375. These samples are not independent global design tokens.",
+    "fontColumns": [
+      "fontSize",
+      "fontWeight",
+      "lineHeight"
+    ],
+    "controlColumns": [
+      "fontSize",
+      "fontWeight",
+      "lineHeight",
+      "height",
+      "padding",
+      "borderRadius",
+      "backgroundColor"
+    ],
+    "sharedBodyFont": [
+      "14px",
+      "400",
+      "22.4px"
+    ],
+    "bodyBackgroundImage": "radial-gradient(at 8% 8%, rgba(108, 99, 255, 0.13), rgba(0, 0, 0, 0) 46%), radial-gradient(at 90% 12%, rgba(69, 166, 255, 0.13), rgba(0, 0, 0, 0) 45%), radial-gradient(at 70% 84%, rgba(84, 224, 192, 0.1), rgba(0, 0, 0, 0) 48%), linear-gradient(rgb(247, 250, 255), rgb(244, 248, 253) 44%, rgb(238, 245, 252))",
+    "shell": [
+      {
+        "viewport": 1280,
+        "bodyWidth": 1265,
+        "topbar": {
+          "height": "64px",
+          "width": "1217px",
+          "marginLeft": "24px",
+          "padding": "0px 20px",
+          "borderRadius": "20px"
+        },
+        "sidebar": {
+          "width": "216px",
+          "padding": "18px 12px",
+          "borderRadius": "21px"
+        },
+        "main": {
+          "width": "977px",
+          "marginLeft": "240px",
+          "padding": "0px"
+        },
+        "backdropFilter": "blur(32px) saturate(1.5)"
+      },
+      {
+        "viewport": 390,
+        "bodyWidth": 375,
+        "topbar": {
+          "height": "58px",
+          "width": "351px",
+          "marginLeft": "12px",
+          "padding": "0px 12px",
+          "borderRadius": "17px"
+        },
+        "sidebar": {
+          "width": "226px",
+          "padding": "14px 10px",
+          "borderRadius": "18px",
+          "note": "Off-canvas and closed by default"
+        },
+        "main": {
+          "width": "351px",
+          "marginLeft": "0px",
+          "padding": "0px"
+        },
+        "backdropFilter": "blur(32px) saturate(1.5)"
+      },
+      {
+        "viewport": 1280,
+        "state": "collapsed",
+        "sidebar": {
+          "width": "76px",
+          "padding": "16px 8px 12px"
+        },
+        "main": {
+          "width": "1125px",
+          "marginLeft": "92px"
+        }
+      }
+    ],
+    "samples": [
+      {
+        "page": "home",
+        "viewport": 1280,
+        "bodyWidth": 1265,
+        "bodyScrollWidth": 1265,
+        "fonts": {
+          ".welcome h1": [
+            "37.12px",
+            "650",
+            "50.112px"
+          ],
+          ".section-heading h2": [
+            "20px",
+            "700",
+            "28px"
+          ],
+          ".panel-heading h2": [
+            "20px",
+            "700",
+            "28px"
+          ],
+          ".metric-value": [
+            "34px",
+            "600",
+            "36.72px"
+          ]
+        },
+        "firstButton": [
+          "14px",
+          "550",
+          "20px",
+          "40px",
+          "9px 15px",
+          "11px",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "glass": {
+          "padding": "26px 30px 20px",
+          "borderRadius": "24px",
+          "backdropFilter": "blur(32px) saturate(1.5)"
+        },
+        "panel": {
+          "padding": "24px",
+          "borderRadius": "20px"
+        }
+      },
+      {
+        "page": "home",
+        "viewport": 390,
+        "bodyWidth": 375,
+        "bodyScrollWidth": 375,
+        "fonts": {
+          ".welcome h1": [
+            "31px",
+            "650",
+            "41.85px"
+          ],
+          ".section-heading h2": [
+            "19px",
+            "700",
+            "28px"
+          ],
+          ".panel-heading h2": [
+            "19px",
+            "700",
+            "28px"
+          ],
+          ".metric-value": [
+            "30px",
+            "600",
+            "32.4px"
+          ]
+        },
+        "firstButton": [
+          "14px",
+          "550",
+          "20px",
+          "39px",
+          "8px 13px",
+          "11px",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "glass": {
+          "padding": "26px 30px 20px",
+          "borderRadius": "20px",
+          "backdropFilter": "blur(32px) saturate(1.5)"
+        },
+        "panel": {
+          "padding": "18px",
+          "borderRadius": "18px"
+        }
+      },
+      {
+        "page": "work",
+        "viewport": 1280,
+        "bodyWidth": 1265,
+        "bodyScrollWidth": 1265,
+        "fonts": {
+          ".page-top h1": [
+            "30px",
+            "700",
+            "39px"
+          ]
+        },
+        "firstButton": [
+          "14px",
+          "550",
+          "20px",
+          "42px",
+          "9px 15px",
+          "11px",
+          "rgba(255, 255, 255, 0.93)"
+        ],
+        "firstInput": [
+          "13px",
+          "400",
+          "22px",
+          "22px",
+          "0px",
+          "0px",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "panel": {
+          "padding": "24px",
+          "borderRadius": "20px",
+          "backdropFilter": "blur(32px) saturate(1.5)"
+        }
+      },
+      {
+        "page": "work",
+        "viewport": 390,
+        "bodyWidth": 375,
+        "bodyScrollWidth": 375,
+        "fonts": {
+          ".page-top h1": [
+            "27px",
+            "700",
+            "35.1px"
+          ]
+        },
+        "firstButton": [
+          "12px",
+          "550",
+          "20px",
+          "34px",
+          "6px 10px",
+          "11px",
+          "rgba(255, 255, 255, 0.93)"
+        ],
+        "firstInput": [
+          "12px",
+          "400",
+          "22px",
+          "22px",
+          "0px",
+          "0px",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "panel": {
+          "padding": "18px",
+          "borderRadius": "18px",
+          "backdropFilter": "blur(32px) saturate(1.5)"
+        }
+      },
+      {
+        "page": "profile",
+        "viewport": 1280,
+        "bodyWidth": 1265,
+        "bodyScrollWidth": 1265,
+        "fonts": {
+          ".a-profile-head h1": [
+            "30px",
+            "700",
+            "39px"
+          ]
+        },
+        "firstInput": [
+          "13px",
+          "400",
+          "19.5px",
+          "40px",
+          "11px 13px",
+          "10px",
+          "rgba(255, 255, 255, 0.72)"
+        ],
+        "inputNote": "First input is in initially hidden profile editor; not a visible viewport measurement",
+        "panel": {
+          "padding": "24px",
+          "borderRadius": "20px",
+          "backdropFilter": "blur(32px) saturate(1.5)"
+        }
+      },
+      {
+        "page": "profile",
+        "viewport": 390,
+        "bodyWidth": 375,
+        "bodyScrollWidth": 375,
+        "fonts": {
+          ".a-profile-head h1": [
+            "30px",
+            "700",
+            "39px"
+          ]
+        },
+        "firstInput": [
+          "13px",
+          "400",
+          "19.5px",
+          "40px",
+          "11px 13px",
+          "10px",
+          "rgba(255, 255, 255, 0.72)"
+        ],
+        "inputNote": "First input is in initially hidden profile editor; not a visible viewport measurement",
+        "panel": {
+          "padding": "18px",
+          "borderRadius": "20px",
+          "backdropFilter": "blur(32px) saturate(1.5)"
+        }
+      },
+      {
+        "page": "people",
+        "viewport": 1280,
+        "bodyWidth": 1265,
+        "bodyScrollWidth": 1265,
+        "fonts": {
+          ".page-top h1": [
+            "30px",
+            "700",
+            "37.5px"
+          ]
+        },
+        "firstButton": [
+          "14px",
+          "550",
+          "20px",
+          "38px",
+          "8px 14px",
+          "9px",
+          "rgb(91, 80, 232)"
+        ],
+        "firstInput": [
+          "14px",
+          "400",
+          "22px",
+          "22px",
+          "0px",
+          "0px",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "panel": {
+          "padding": "24px",
+          "borderRadius": "18px",
+          "backdropFilter": "blur(32px) saturate(1.5)"
+        }
+      },
+      {
+        "page": "people",
+        "viewport": 390,
+        "bodyWidth": 375,
+        "bodyScrollWidth": 375,
+        "fonts": {
+          ".page-top h1": [
+            "27px",
+            "700",
+            "33.75px"
+          ]
+        },
+        "firstButton": [
+          "12px",
+          "550",
+          "20px",
+          "34px",
+          "6px 10px",
+          "9px",
+          "rgb(91, 80, 232)"
+        ],
+        "firstInput": [
+          "14px",
+          "400",
+          "22px",
+          "22px",
+          "0px",
+          "0px",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "panel": {
+          "padding": "18px",
+          "borderRadius": "14px",
+          "backdropFilter": "blur(32px) saturate(1.5)"
+        }
+      },
+      {
+        "page": "login",
+        "viewport": 1280,
+        "bodyWidth": 1280,
+        "bodyScrollWidth": 1280,
+        "bodyPadding": "32px",
+        "fonts": {
+          ".auth-form-wrap h2": [
+            "30px",
+            "700",
+            "42px"
+          ],
+          ".auth-story h1": [
+            "36px",
+            "650",
+            "48.6px"
+          ]
+        },
+        "firstButton": [
+          "15px",
+          "600",
+          "21px",
+          "56px",
+          "11px 16px",
+          "14px",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "expandedInput": [
+          "14px",
+          "400",
+          "21px",
+          "44px",
+          "11px 13px",
+          "10px",
+          "rgba(255, 255, 255, 0.72)"
+        ],
+        "authPage": {
+          "padding": "14px",
+          "borderRadius": "36px",
+          "backdropFilter": "blur(36px) saturate(1.55)"
+        },
+        "authForm": {
+          "padding": "40px 38px",
+          "borderRadius": "26px"
+        }
+      },
+      {
+        "page": "login",
+        "viewport": 390,
+        "bodyWidth": 390,
+        "bodyScrollWidth": 390,
+        "bodyPadding": "16px",
+        "fonts": {
+          ".auth-form-wrap h2": [
+            "24px",
+            "700",
+            "33.6px"
+          ]
+        },
+        "firstButton": [
+          "15px",
+          "600",
+          "21px",
+          "56px",
+          "11px 16px",
+          "14px",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "expandedInput": [
+          "14px",
+          "400",
+          "21px",
+          "44px",
+          "11px 13px",
+          "10px",
+          "rgba(255, 255, 255, 0.72)"
+        ],
+        "authPage": {
+          "padding": "8px",
+          "borderRadius": "28px",
+          "backdropFilter": "blur(36px) saturate(1.55)"
+        },
+        "authForm": {
+          "padding": "26px 22px",
+          "borderRadius": "22px"
+        }
+      }
+    ],
+    "authBackgrounds": {
+      ".auth-page": "linear-gradient(130deg, rgba(255, 255, 255, 0.72), rgba(229, 230, 255, 0.51) 48%, rgba(224, 243, 255, 0.84))",
+      ".auth-form-wrap": "linear-gradient(140deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.77) 58%, rgba(244, 246, 255, 0.85))",
+      ".auth-story": "radial-gradient(at 18% 24%, rgba(174, 161, 255, 0.2), rgba(0, 0, 0, 0) 60%), radial-gradient(at 84% 76%, rgba(128, 213, 237, 0.2), rgba(0, 0, 0, 0) 60%)"
+    },
+    "missingImagesAcrossSamples": 0,
+    "activeExternalAssetsAcrossSamples": 0,
+    "notes": [
+      "Do not infer all titles are 30px or all mobile titles 27px. Account selectors and injected styles can override the refinement stylesheet.",
+      "Button and input values are selected component samples. Search fields, auth fields, admin controls and profile editor differ.",
+      "The single HTML is the complete visual/interaction reference; implementation snapshot tokens are supporting documentation, not a universal replacement stylesheet."
+    ]
+  }
+}

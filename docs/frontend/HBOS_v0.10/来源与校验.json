@@ -1,0 +1,61 @@
+{
+  "version": "0.10",
+  "prototypeSourceCommit": "f9a752bcb8db1cc11b0733e13a7a544dab596cb0",
+  "productReferenceCommit": "31f0af395318d846b8f1141a83c7819aaddd57ec",
+  "scope": "Selector-only supplement; v0.9 complete specification and tokens remain historical baseline; no production acceptance",
+  "files": [
+    {
+      "name": "HBOS_v0.10_离线交互原型.html",
+      "sha256": "15a5f726488aea19edb7dd5575906e4d6235486f5f9f681d2fefe65e2ec8f1b5",
+      "bytes": 642582
+    },
+    {
+      "name": "HBOS_v0.10_设计实施交接包.zip",
+      "sha256": "9b8a46113d8a07b2e0ae8d8fde81b6f86313aaac77d03ccc1bca097d6b0adcd1",
+      "bytes": 810835
+    },
+    {
+      "name": "HBOS_统一选择器规范_v0.10.md",
+      "sha256": "66c895324d4f8461ebbf1d66c80f92222db073d03926e50ea05fb7b1d72010a5",
+      "bytes": 2703
+    }
+  ],
+  "sourceBaseline": {
+    "prototypeVersion": "0.10",
+    "sourceCommit": "f9a752bcb8db1cc11b0733e13a7a544dab596cb0",
+    "productReferenceCommit": "31f0af395318d846b8f1141a83c7819aaddd57ec",
+    "hashAlgorithm": "sha256",
+    "files": {
+      "dist/account-module.js": "bf5513d0f6e763691c82c198c30b428276ddd43892c817bf78e3b7cd606d3f09",
+      "dist/admin-module.js": "aaabd8e839d862db4917e72541287cfa6f48f018a47079e8e3c8a02d2e37aede",
+      "dist/controls.js": "3f162ddf95bac324d599c689c04f8556ae1f7dd6ad539c84616f4a2986882af8",
+      "dist/design-system/HBOS_Portal_统一设计规范_v0.9_设计交接版.docx": "8e18b89a6b9067e6986cacdb8e682729fad279f94e2414e892c6635e56c73b3a",
+      "dist/design-system/HBOS_Portal_统一设计规范_vNext_0.1_建议稿.docx": "1c399239255e18c8bfdcc870df237a343b64a07bf563d6ace993f14ab33d1f15",
+      "dist/design-system/HBOS_Portal_统一设计规范_vNext_0.2_建议稿.docx": "811efbdf48f5ddc5e58e748699b873b13c715532a730037db40cf041de1b82d8",
+      "dist/design-system/HBOS_v0.9_实现快照校验包.zip": "e4d5a63cc47e787edb23101cd38060159e41a53296e7229fa624b75e261b9877",
+      "dist/design-system/HBOS_vNext_0.1_建议Tokens.zip": "4aba4716b8bee55eb72429cea589f64b2b6afe4550b99d97a59ef2fbba4a16f1",
+      "dist/design-system/HBOS_统一选择器规范_v0.10.md": "66c895324d4f8461ebbf1d66c80f92222db073d03926e50ea05fb7b1d72010a5",
+      "dist/design-system/TOKEN_SNAPSHOT_README.txt": "35a521b578d8d21081e9fc789ebbc92bd3ba5efc73b602711bd1cbd48bda9b3a",
+      "dist/design-system/computed-style-evidence.json": "0361f05792a25263d1b26d314ee827377cd4a43a2a72bb2f9b7074071c27b5e1",
+      "dist/design-system/hbos-v02-overrides.json": "8d47d63dbfaa1247430dcdf4c32c2f13dedbaa485203822222da0a4d2069bb7a",
+      "dist/design-system/hbos-v09.implementation-tokens.css": "8829fe863566ece07e39b91cbeb66f030c86faee7533f52d3bbcb577e9009e55",
+      "dist/design-system/hbos-v09.implementation-tokens.json": "5ce1793933f2d387afb8b3f58c2678f76e8454accd2c9d0e88a32c6ae93c2162",
+      "dist/design-system/hbos-vnext.tokens.css": "7c213dc17412c2f6c97c31ed3b911d1c6719c2ef55611f2f896e20b387baa969",
+      "dist/design-system/hbos-vnext.tokens.json": "933002bf3125197a19811702063c4196bd6788c76669bac98696e4b24fe44d68",
+      "dist/design-system/validate_tokens.py": "19d57e4f157c76b85b06dd4be86f4309783831c6c2a99d4da07d66bc1cc093bc",
+      "dist/feishu-logo.png": "cfd2b879c472a2674520492c84a0304c537a19964b8a2dcd3562c57de773268b",
+      "dist/hbos-logo.png": "438d3800830fad4fab607a6fab3dfb5d0a622ff20f462611277437b2aa1edc02",
+      "dist/icons.js": "1f67773f7e7a9d166ad92c8d7964b8c48b2782edacb45d11a8630966cbc7386a",
+      "dist/index.html": "f6370e7f42299c30b120b13daac681f276fe0830f4f19871145c26db52abec5c",
+      "dist/joincare-logo.png": "53112e4adc3ad900bfc2097fd4dc1ec584512ca673005708cca7faaa53c467b2",
+      "dist/polish-admin.css": "de2db5adc500bd8dc95f75a03b51f049363bf9410e8d10d92b606af5bc59eeef",
+      "dist/polish.css": "9f52656142596641d7f0a1c530daba411c0860652579362c0dca6defe7fcefd7",
+      "dist/portal.js": "18f5123c78ffe4986c2a9af57e8b51c5517f3857a24fa8c18821278e25975c49",
+      "dist/refinement.css": "df54ca2fb5e92aadef50f71ce34209069b0c66972e4dc095c8c258fb4b152692",
+      "dist/refinement.js": "74c8a7e48c2568b0a5ad59ad7ebd5b78f30d85adbfbd6036ac1ff4364a013d12",
+      "dist/spec-module.js": "895bd766e38131c926fc945c102feadee9f30f5684ecc3d44ba14742c8d96231",
+      "dist/style.css": "987ae6fb748597f2a72eefa2dc1df3151acbba9742b63ddfa9b282aeff290935",
+      "dist/twin-overview.svg": "97c8925de453b40e85a04b2ab52f7c98ccc2863c6ec0adb0572a5ee66dac0248"
+    }
+  }
+}

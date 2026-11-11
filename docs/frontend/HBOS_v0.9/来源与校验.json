@@ -1,0 +1,53 @@
+{
+  "version": "HBOS v0.9",
+  "purpose": "Documentation reference; not runtime theme or production acceptance",
+  "prototypeSourceCommit": "2aa21d078c215f29d43bfe977bdf3241f732bd40",
+  "productReferenceCommit": "31f0af395318d846b8f1141a83c7819aaddd57ec",
+  "files": [
+    {
+      "name": "HBOS_Portal_统一设计规范_v0.9_设计交接版.docx",
+      "sha256": "8e18b89a6b9067e6986cacdb8e682729fad279f94e2414e892c6635e56c73b3a",
+      "bytes": 71072
+    },
+    {
+      "name": "HBOS_v0.9_离线交互原型.html",
+      "sha256": "d907cf19a4926db189068e9dd76a18bbe3cf00e52384011264dcab64b6e5e779",
+      "bytes": 633162
+    },
+    {
+      "name": "HBOS_v0.9_设计实施交接包.zip",
+      "sha256": "0cefb0f66f56d64eefd5a10cd7a4eca61b500e54a92fcb3fb8760a65eea6d14c",
+      "bytes": 654952
+    }
+  ],
+  "sourceBaseline": {
+    "prototypeVersion": "0.9",
+    "sourceCommit": "2aa21d078c215f29d43bfe977bdf3241f732bd40",
+    "productReferenceCommit": "31f0af395318d846b8f1141a83c7819aaddd57ec",
+    "hashAlgorithm": "sha256",
+    "files": {
+      "dist/account-module.js": "bf5513d0f6e763691c82c198c30b428276ddd43892c817bf78e3b7cd606d3f09",
+      "dist/admin-module.js": "aaabd8e839d862db4917e72541287cfa6f48f018a47079e8e3c8a02d2e37aede",
+      "dist/controls.js": "6b5f687f5a4d9063f94b90214ac04290e6dca66d35c1704f38a8af98df8743b9",
+      "dist/design-system/HBOS_Portal_统一设计规范_vNext_0.1_建议稿.docx": "1c399239255e18c8bfdcc870df237a343b64a07bf563d6ace993f14ab33d1f15",
+      "dist/design-system/HBOS_Portal_统一设计规范_vNext_0.2_建议稿.docx": "811efbdf48f5ddc5e58e748699b873b13c715532a730037db40cf041de1b82d8",
+      "dist/design-system/HBOS_vNext_0.1_建议Tokens.zip": "4aba4716b8bee55eb72429cea589f64b2b6afe4550b99d97a59ef2fbba4a16f1",
+      "dist/design-system/hbos-v02-overrides.json": "8d47d63dbfaa1247430dcdf4c32c2f13dedbaa485203822222da0a4d2069bb7a",
+      "dist/design-system/hbos-vnext.tokens.css": "7c213dc17412c2f6c97c31ed3b911d1c6719c2ef55611f2f896e20b387baa969",
+      "dist/design-system/hbos-vnext.tokens.json": "933002bf3125197a19811702063c4196bd6788c76669bac98696e4b24fe44d68",
+      "dist/feishu-logo.png": "cfd2b879c472a2674520492c84a0304c537a19964b8a2dcd3562c57de773268b",
+      "dist/hbos-logo.png": "438d3800830fad4fab607a6fab3dfb5d0a622ff20f462611277437b2aa1edc02",
+      "dist/icons.js": "1f67773f7e7a9d166ad92c8d7964b8c48b2782edacb45d11a8630966cbc7386a",
+      "dist/index.html": "f6370e7f42299c30b120b13daac681f276fe0830f4f19871145c26db52abec5c",
+      "dist/joincare-logo.png": "53112e4adc3ad900bfc2097fd4dc1ec584512ca673005708cca7faaa53c467b2",
+      "dist/polish-admin.css": "de2db5adc500bd8dc95f75a03b51f049363bf9410e8d10d92b606af5bc59eeef",
+      "dist/polish.css": "9f52656142596641d7f0a1c530daba411c0860652579362c0dca6defe7fcefd7",
+      "dist/portal.js": "18f5123c78ffe4986c2a9af57e8b51c5517f3857a24fa8c18821278e25975c49",
+      "dist/refinement.css": "b4591f130ac29370f3baa12dcd363aa2e314b6e8f422af9851cacc166572344f",
+      "dist/refinement.js": "74c8a7e48c2568b0a5ad59ad7ebd5b78f30d85adbfbd6036ac1ff4364a013d12",
+      "dist/spec-module.js": "70391edee1abd05646504e8b4f56ef1eacfa3bca109d6b6478c8dbcce112a7e9",
+      "dist/style.css": "987ae6fb748597f2a72eefa2dc1df3151acbba9742b63ddfa9b282aeff290935",
+      "dist/twin-overview.svg": "97c8925de453b40e85a04b2ab52f7c98ccc2863c6ec0adb0572a5ee66dac0248"
+    }
+  }
+}
