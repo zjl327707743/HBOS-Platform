@@ -26,7 +26,18 @@
         <PortalSidebar v-if="portalDesign || !personal" :management="r6Experience" :work-count="actionableCount" :portal-design="portalDesign" :collapsed="sidebarCollapsed" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" @toggle="sidebarCollapsed = !sidebarCollapsed" />
         <main id="main-content" ref="mainContent" class="portal-route-content" tabindex="-1">
           <div v-if="portalDesign" class="v10-context">
-            <nav aria-label="当前位置"><RouterLink to="/hbos">工作台</RouterLink><template v-if="route.path.startsWith('/hbos/admin')"><span aria-hidden="true">/</span><RouterLink v-if="managementAvailable && !masked" to="/hbos/admin">管理中心</RouterLink><span v-else>管理中心</span></template><template v-if="route.path !== '/hbos'"><span aria-hidden="true">/</span><span aria-current="page">{{ route.meta.title }}</span></template></nav>
+            <nav aria-label="当前位置">
+              <RouterLink to="/hbos">工作台</RouterLink>
+              <template v-if="route.path.startsWith('/hbos/admin')">
+                <span aria-hidden="true">/</span>
+                <RouterLink v-if="managementAvailable" to="/hbos/admin">管理中心</RouterLink>
+                <span v-else>管理中心</span>
+              </template>
+              <template v-if="route.path !== '/hbos'">
+                <span aria-hidden="true">/</span>
+                <span aria-current="page">{{ route.meta.title }}</span>
+              </template>
+            </nav>
             <span v-if="previewLabel" class="v10-mock-badge" role="status">{{ previewLabel }}</span>
           </div>
           <template v-if="portalDataSource === 'mock'">
@@ -81,7 +92,6 @@ import { portalDataSource } from '@/services/portalProvider'
 import { attachPortalSession, ensurePortalSession, portalSession, resetPortalSession, signOutPortalSession } from '@/services/portalSessionCoordinator'
 import { accountRedirect } from '@/services/accountNavigation'
 import { canIam } from '@/services/iamAccess'
-import { managementLinks } from '@/services/managementNavigation'
 import { Modal } from 'ant-design-vue'
 import { developmentObservation, frappeDiagnostics } from '@/services/frappeClient'
 import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
@@ -96,7 +106,6 @@ const actionableCount = computed(() => portal.tasks.filter((task) => task.status
 const { sessionPending, sessionError } = portalDataSource === 'mock' ? usePortalSession() : { sessionPending: ref(true), sessionError: ref<string | null>(null) }
 const route = useRoute(), router = useRouter()
 const portalDesign = computed(() => /^\/hbos(?:\/?|\/(?:work|apps|profile|403|admin(?:\/[^/]+)?)\/?)$/.test(route.path))
-const managementAvailable = computed(() => managementLinks().length > 0)
 const sidebarCollapsed = ref(false)
 const navigationDialog = ref<HTMLDialogElement | null>(null)
 function openNavigation() { if (!masked.value && !navigationDialog.value?.open) navigationDialog.value?.showModal() }
@@ -112,6 +121,7 @@ const naturalPanels = useReadablePanels(fitPage, mainContent)
 watch(() => route.path, () => { closeNavigation(); if (mainContent.value) mainContent.value.scrollTop = 0 }, { flush: 'sync' })
 const routeDenied = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !canIam(route.meta.iamCapability))
 const masked = computed(() => ['unconfirmed', 'guest', 'logging_out'].includes(portalSession.phase) || routeDenied.value)
+const managementAvailable = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !masked.value)
 let maskedFocus: {element:HTMLElement;generation:number}|null = null
 watch(masked, async value => {
   if(value && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) maskedFocus={element:document.activeElement,generation:portalSession.generation}

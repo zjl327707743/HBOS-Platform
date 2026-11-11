@@ -17,7 +17,7 @@ function revealCurrent() {
   if (inner.left < outer.left + 6) nav.scrollLeft -= outer.left - inner.left + 6
 }
 onMounted(revealCurrent)
-watch(() => route.path, revealCurrent, { flush: 'post' })
+watch(() => route?.path, revealCurrent, { flush: 'post' })
 const links = computed(() => {
   const primary = managementLinks()
   const access = canIam('iam.access.read') ? [{ path: '/hbos/admin/access', label: '其他应用权限', cap: 'iam.access.read', icon: 'access' }] : []
@@ -32,7 +32,7 @@ const icons = { people: UsergroupAddOutlined, department: ApartmentOutlined, rol
     <nav v-if="links.length" ref="navigation" class="v10-admin-nav" aria-label="管理中心页面">
       <RouterLink v-for="link in links" :key="link.path" :to="link.path">
         <component :is="icons[link.icon as keyof typeof icons]" aria-hidden="true" />
-        {{ link.cap === 'iam.departments.read' ? '部门权限' : link.label }}
+        {{ link.label }}
       </RouterLink>
     </nav>
     <a-alert v-if="!iamSession.ready && !route?.path.endsWith('/unavailable')" :message="iamSession.error || '正在确认当前账号的管理能力，暂不显示管理内容。'" :type="iamSession.error ? 'warning' : 'info'" />

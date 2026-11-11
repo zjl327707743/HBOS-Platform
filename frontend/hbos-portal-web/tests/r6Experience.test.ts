@@ -37,6 +37,18 @@ async function click(w: VueWrapper, text: string) {
   await vi.waitFor(() => expect(action(w, text), text).toBeDefined())
   await action(w, text)!.trigger('click'); await flushPromises()
 }
+function selectOptions(trigger: DOMWrapper<Element>) {
+  const list = document.getElementById(trigger.attributes('aria-controls') || '')
+  expect(list?.getAttribute('role')).toBe('listbox')
+  return [...list!.querySelectorAll('[role="option"]')]
+}
+async function chooseOption(trigger: DOMWrapper<Element>, label: string) {
+  await trigger.trigger('click')
+  const option = selectOptions(trigger).find(item => item.textContent?.trim() === label)
+  expect(option, label).toBeDefined()
+  await new DOMWrapper(option!).trigger('click')
+  await flushPromises()
+}
 beforeEach(() => {
   vi.resetAllMocks(); permissions.clear(); permissions.add('iam.roles.read'); permissions.add('iam.roles.edit'); permissions.add('iam.roles.publish')
   actor.id = 'hr@example.test'; api.loadRoles.mockResolvedValue([structuredClone(baseRole)])
@@ -159,15 +171,17 @@ describe('R6 formal data and role contracts', () => {
       .mockReturnValueOnce(new Promise(resolve => { finishTechnical = resolve }))
     api.listPeople.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, groups_available: true })
     const w = await render(People, '/hbos/admin/people')
-    const group = w.findAllComponents({ name: 'ASelect' }).find(item => item.attributes('aria-label') === '员工分组')!
-    expect(group.exists()).toBe(true)
-    group.vm.$emit('update:value', 'technical'); await flushPromises()
+    const group = w.get('[role="combobox"][aria-label="员工分组"]')
+    await chooseOption(group, '技术验证员工')
     finishTechnical({ version: 'technical', companies: [], genders: [], required_fields: [], departments: [{ value: 'TECH', label: '当前分组部门', company: 'C1' }] })
     await flushPromises()
     finishDaily({ version: 'daily', companies: [], genders: [], required_fields: [], departments: [{ value: 'OLD', label: '旧分组部门', company: 'C1' }] })
     await flushPromises()
-    const department = w.findAllComponents({ name: 'ASelect' }).find(item => item.attributes('aria-label') === '筛选部门')!
-    expect(department.props('options')).toEqual([{ value: 'TECH', label: '当前分组部门 · C1' }])
+    const department = w.get('[role="combobox"][aria-label="筛选部门"]')
+    await department.trigger('click')
+    expect(selectOptions(department).map(item => item.textContent?.trim())).toEqual(['当前分组部门 · C1'])
+    await chooseOption(department, '当前分组部门 · C1')
+    expect(api.listPeople).toHaveBeenLastCalledWith(expect.objectContaining({ department: 'TECH' }))
   })
   it('uses a new submission identity when a rechecked employee draft changes, while preserving its original uncertain request', async () => {
     permissions.add('iam.people.create')
@@ -176,8 +190,10 @@ describe('R6 formal data and role contracts', () => {
     api.createEmployee.mockRejectedValue(Object.assign(new Error('提交结果待核对'), { status: 500 }))
     const w = await render(People, '/hbos/admin/people'); await click(w, '新增员工')
     const item = (label: string) => w.findAllComponents({ name: 'AFormItem' }).find(row => row.props('label') === label)!
-    for (const [label, value] of [['公司', 'C1'], ['主部门', 'D1'], ['性别', 'Female']]) {
-      item(label!).findComponent({ name: 'ASelect' }).vm.$emit('update:value', value); await flushPromises()
+    for (const [field, label] of [['company', '公司甲'], ['department', '部门甲'], ['gender', '女']]) {
+      const trigger = document.getElementById('v10-employee-' + field)
+      expect(trigger?.getAttribute('role')).toBe('combobox')
+      await chooseOption(new DOMWrapper(trigger!), label!)
     }
     for (const [label, value] of [['姓名', '合成建档一'], ['工号', 'CREATE-01'], ['出生日期', '1990-01-01'], ['入职日期', '2026-10-01']]) await item(label!).get('input').setValue(value)
     await click(w, '完成测试核验')

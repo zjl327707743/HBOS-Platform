@@ -15,7 +15,6 @@ let generation = 0
 const system = computed(() => portal.user?.id === 'Administrator')
 const linked = computed(() => !system.value && employee.value?.status === 'linked')
 const conflicted = computed(() => !system.value && employee.value?.status === 'conflict')
-const roleTag = computed(() => system.value ? '系统管理账号' : linked.value ? '员工账号' : '工作账号')
 const archiveIdentity = computed(() => {
   const currentSecurity = security.value
   const employeeRow = employee.value
