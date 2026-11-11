@@ -18,7 +18,7 @@
         :key="task.taskId"
         type="button"
         class="task-row task-row-button"
-        @click="openTask(task)"
+        @click="selectedTask = task"
       >
         <div class="task-icon" :class="task.appId"><component :is="appIcon(task.appId)" /></div>
         <div class="task-copy">
@@ -36,29 +36,26 @@
       <strong>当前没有需要你处理的事项</strong>
       <span>当前可用应用的待办会汇总到这里。</span>
     </div>
+    <PortalTaskDialog :task="selectedTask" @close="selectedTask = null" />
   </section>
 </template>
 
 <script setup lang="ts">
 import PortalState from './PortalState.vue'
 import { appIcon, chineseApp } from '@/components/appIcons'
-import { useRouter } from 'vue-router'
+import { ref } from 'vue'
+import PortalTaskDialog from './PortalTaskDialog.vue'
 import {
   CheckCircleOutlined,
   RightOutlined,
 } from '@ant-design/icons-vue'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
-import { openBusinessRoute } from '@/services/businessNavigation'
 
 withDefaults(defineProps<{ tasks: UnifiedTaskDTO[]; loading?: boolean; error?: string | null }>(), {
   loading: false,
 })
 defineEmits<{ retry: [] }>()
-const router = useRouter()
-
-function openTask(task: UnifiedTaskDTO) {
-  void openBusinessRoute(router, task.appId, task.deepLink)
-}
+const selectedTask = ref<UnifiedTaskDTO | null>(null)
 
 function tagText(task: UnifiedTaskDTO) {
   if (task.overdue) return '已超期'
