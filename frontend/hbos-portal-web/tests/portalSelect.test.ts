@@ -30,7 +30,9 @@ it('skips disabled choices, distinguishes active and selected, and applies one b
 it('Escape only closes the open list and preserves the value and label association', async () => {
   wrapper = mount(PortalSelect, { attachTo: document.body, props: { value: 'all', options, id: 'app-selector', ariaRequired: true, ariaInvalid: true, ariaDescribedby: 'app-help' } })
   const trigger = wrapper.get('#app-selector')
+  expect(document.activeElement).not.toBe(trigger.element)
   await trigger.trigger('click')
+  expect(document.activeElement).toBe(trigger.element)
   const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
   trigger.element.dispatchEvent(event)
   expect(event.defaultPrevented).toBe(true)

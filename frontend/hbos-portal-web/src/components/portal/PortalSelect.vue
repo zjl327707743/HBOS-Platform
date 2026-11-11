@@ -68,6 +68,7 @@ function setActive(index: number) {
 }
 function open(last = false) {
   if (opened.value || props.disabled) return
+  trigger.value?.focus({ preventScroll: true })
   place()
   opened.value = true
   const current = matches.value.findIndex(option => option.value === props.value && !option.disabled)
