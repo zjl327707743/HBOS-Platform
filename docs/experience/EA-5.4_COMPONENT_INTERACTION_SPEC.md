@@ -1,3 +1,5 @@
+> **2026-11-11 视觉覆盖层**：新阶段 Portal 以 [HBOS v0.9 前端设计与实施规范](../frontend/HBOS_v0.9_前端设计与实施规范.md)及其21章正文为实施依据（本 PR 合并后适用）。本文件保留历史基线；旧字号、玻璃与几何实值不得覆盖已接受 v0.9。EA-5.4 第44节旧硬限制在 v0.9 覆盖页面内被新规范取代；业务权限、Provider、领域主权、未覆盖应用与发布门禁不变。下方历史“当前/完成”按原日期理解。
+
 # HBOS Experience Architecture
 ## EA-5.4 — HBOS Component & Interaction Specification v1
 
@@ -1456,3 +1458,4 @@ Portal Hero 为唯一展示型例外：
 - `src/theme/tokens.css` 提供 HBOS semantic alias；
 - `src/theme/typography.css` 只做语义映射；
 - 组件禁止硬编码随机字号。
+
