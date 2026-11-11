@@ -4,7 +4,8 @@
     :footer="null"
     :closable="false"
     width="700px"
-    wrap-class-name="command-modal"
+    wrap-class-name="command-modal v10-dialog"
+    title="搜索工作空间"
     @cancel="$emit('close')"
   >
     <div class="command-search">
@@ -13,12 +14,9 @@
         ref="inputRef"
         v-model:value="query"
         bordered="false"
-        placeholder="搜索应用与业务事项…"
+        placeholder="搜索应用与工作事项"
         aria-label="全局搜索"
-        @keydown.down.prevent="move(1)"
-        @keydown.up.prevent="move(-1)"
-        @keydown.enter.prevent="activateSelected"
-        @keydown.esc.prevent="$emit('close')"
+        @keydown="handleKey"
       />
       <kbd>ESC</kbd>
     </div>
@@ -67,6 +65,14 @@ const { results, errorMessage, loading } = useDebouncedSearch(query, toRef(props
 const selectedIndex = ref(0)
 const inputRef = ref()
 
+function handleKey(event: KeyboardEvent) {
+  if (event.isComposing || event.keyCode === 229) return
+  if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
+    event.preventDefault()
+    if (event.key === 'Enter') activateSelected()
+    else move(event.key === 'ArrowDown' ? 1 : -1)
+  }
+}
 function move(delta: number) {
   const total = results.value.length
   if (!total) return

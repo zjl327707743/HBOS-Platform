@@ -1,5 +1,5 @@
 <template>
-  <div class="portal-page" :class="{ 'r6-experience': r6Experience, 'r6-personal': personal, 'r6-fit': fitPage, 'r6-natural': naturalPanels, 'motion-paused': motionPaused }" :data-document-instance="development ? frappeDiagnostics.document : undefined" :data-session-phase="development ? portalSession.phase : undefined" :data-security-reads="development ? frappeDiagnostics.security : undefined" :data-capability-reads="development ? frappeDiagnostics.capabilities : undefined" :data-bootstrap-reads="development ? frappeDiagnostics.bootstrap : undefined" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
+  <div class="portal-page" :class="{ 'v10-portal': portalDesign, 'v10-sidebar-collapsed': sidebarCollapsed, 'r6-experience': r6Experience, 'r6-personal': personal, 'r6-fit': fitPage, 'r6-natural': naturalPanels, 'motion-paused': motionPaused, 'v10-backgrounded': backgrounded }" :data-document-instance="development ? frappeDiagnostics.document : undefined" :data-session-phase="development ? portalSession.phase : undefined" :data-security-reads="development ? frappeDiagnostics.security : undefined" :data-capability-reads="development ? frappeDiagnostics.capabilities : undefined" :data-bootstrap-reads="development ? frappeDiagnostics.bootstrap : undefined" :data-session-resumes="development ? portalSession.resumeEvents : undefined" :data-session-generation="development ? portalSession.generation : undefined">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <PointerAtmosphere :paused="motionPaused" />
     <div class="aurora aurora-a"></div>
@@ -15,14 +15,20 @@
         :apps="portal.apps"
         :session-blocked="masked"
         :management-experience="r6Experience"
+        :portal-design="portalDesign"
+        @open-navigation="openNavigation"
         :motion-paused="motionPaused"
         @toggle-motion="motionPaused = !motionPaused"
         @open-command="!masked && (ui.commandOpen = true)"
       />
 
       <div class="portal-layout-grid">
-        <PortalSidebar v-if="!personal" :management="r6Experience" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
+        <PortalSidebar v-if="portalDesign || !personal" :management="r6Experience" :work-count="actionableCount" :portal-design="portalDesign" :collapsed="sidebarCollapsed" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" @toggle="sidebarCollapsed = !sidebarCollapsed" />
         <main id="main-content" ref="mainContent" class="portal-route-content" tabindex="-1">
+          <div v-if="portalDesign" class="v10-context">
+            <nav aria-label="当前位置"><RouterLink to="/hbos">工作台</RouterLink><template v-if="route.path.startsWith('/hbos/admin')"><span aria-hidden="true">/</span><RouterLink v-if="managementAvailable && !masked" to="/hbos/admin">管理中心</RouterLink><span v-else>管理中心</span></template><template v-if="route.path !== '/hbos'"><span aria-hidden="true">/</span><span aria-current="page">{{ route.meta.title }}</span></template></nav>
+            <span v-if="portalDataSource === 'mock'" class="v10-mock-badge">Mock · 演示数据</span>
+          </div>
           <template v-if="portalDataSource === 'mock'">
             <a-skeleton v-if="sessionPending" active /><a-alert v-else-if="sessionError" type="error" :message="sessionError" /><RouterView v-else :key="portal.user?.id" />
           </template>
@@ -43,12 +49,16 @@
             </div>
             <a-skeleton v-else-if="(!portalSession.security && portalSession.phase === 'initial') || portalSession.phase === 'logging_out'" active :paragraph="{ rows: 6 }" />
           </template>
+          <footer v-if="portalDesign" class="v10-footer">海滨智能工作平台 <span>HBOS · WORKSPACE</span></footer>
         </main>
       </div>
     </div>
 
-    <MobilePortalNav v-if="!r6Experience" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
+    <MobilePortalNav v-if="portalDesign || !r6Experience" :work-count="actionableCount" :class="{ 'session-content-hidden': masked }" :inert="masked || undefined" />
 
+    <dialog v-if="portalDesign" ref="navigationDialog" class="v10-nav-dialog" aria-label="工作空间导航" @click.self="closeNavigation">
+      <PortalSidebar :work-count="actionableCount" portal-design in-drawer @toggle="closeNavigation" />
+    </dialog>
     <CommandPalette :open="ui.commandOpen" @close="ui.commandOpen = false" />
     <aside v-if="developmentObservation" class="development-observation" aria-label="本机验收观测">
       <details><summary>本机验收观测（开发模式）</summary><output>文档 {{ frappeDiagnostics.document }}；安全读取 {{ frappeDiagnostics.security }}；能力读取 {{ frappeDiagnostics.capabilities }}；业务初始化 {{ frappeDiagnostics.bootstrap }}；恢复事件 {{ portalSession.resumeEvents }}；主体代次 {{ portalSession.generation }}；阶段 {{ portalSession.phase }}</output>
@@ -71,6 +81,7 @@ import { portalDataSource } from '@/services/portalProvider'
 import { attachPortalSession, ensurePortalSession, portalSession, resetPortalSession, signOutPortalSession } from '@/services/portalSessionCoordinator'
 import { accountRedirect } from '@/services/accountNavigation'
 import { canIam } from '@/services/iamAccess'
+import { managementLinks } from '@/services/managementNavigation'
 import { Modal } from 'ant-design-vue'
 import { developmentObservation, frappeDiagnostics } from '@/services/frappeClient'
 import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
@@ -83,20 +94,28 @@ const ui = reactive({ commandOpen: false })
 const actionableCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
 const { sessionPending, sessionError } = portalDataSource === 'mock' ? usePortalSession() : { sessionPending: ref(true), sessionError: ref<string | null>(null) }
 const route = useRoute(), router = useRouter()
+const portalDesign = computed(() => /^\/hbos(?:\/?|\/(?:work|apps|profile|403|admin(?:\/[^/]+)?)\/?)$/.test(route.path))
+const managementAvailable = computed(() => managementLinks().length > 0)
+const sidebarCollapsed = ref(false)
+const navigationDialog = ref<HTMLDialogElement | null>(null)
+function openNavigation() { if (!masked.value && !navigationDialog.value?.open) navigationDialog.value?.showModal() }
+function closeNavigation() { if (navigationDialog.value?.open) navigationDialog.value.close() }
 const personal = computed(() => route.path === '/hbos/profile')
 const r6Experience = computed(() => personal.value || route.path.startsWith('/hbos/admin'))
 const fitPage = computed(() => ['/hbos/admin/departments', '/hbos/admin/roles'].includes(route.path))
 const motionPaused = ref(false)
+const backgrounded = ref(document.hidden)
+function syncVisibility() { backgrounded.value = document.hidden }
 const mainContent = ref<HTMLElement | null>(null)
 const naturalPanels = useReadablePanels(fitPage, mainContent)
-watch(() => route.path, () => { if (mainContent.value) mainContent.value.scrollTop = 0 }, { flush: 'sync' })
+watch(() => route.path, () => { closeNavigation(); if (mainContent.value) mainContent.value.scrollTop = 0 }, { flush: 'sync' })
 const routeDenied = computed(() => portalSession.mounted && typeof route.meta.iamCapability === 'string' && !canIam(route.meta.iamCapability))
 const masked = computed(() => ['unconfirmed', 'guest', 'logging_out'].includes(portalSession.phase) || routeDenied.value)
 let maskedFocus: {element:HTMLElement;generation:number}|null = null
 watch(masked, async value => {
   if(value && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) maskedFocus={element:document.activeElement,generation:portalSession.generation}
   document.body.classList.toggle('hbos-session-shield', value)
-  if(value) ui.commandOpen=false
+  if(value) { closeNavigation(); ui.commandOpen=false }
   else {
     const prior=maskedFocus;maskedFocus=null;await nextTick()
     if(prior?.generation===portalSession.generation && prior.element.isConnected && !masked.value && portalSession.phase==='ready') prior.element.focus({preventScroll:true})
@@ -112,7 +131,7 @@ watch(() => portalSession.phase, phase => {
 })
 
 function onShortcut(event: KeyboardEvent) {
-  if (masked.value) return
+  if (masked.value || event.defaultPrevented || event.isComposing || event.keyCode === 229 || navigationDialog.value?.open) return
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
     ui.commandOpen = true
@@ -120,8 +139,8 @@ function onShortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') ui.commandOpen = false
 }
 
-onMounted(() => { window.addEventListener('keydown', onShortcut); window.addEventListener('hbos:session-boundary', closeSecurityDialogs); if (portalDataSource === 'frappe') { detach = attachPortalSession(); void ensurePortalSession().catch(() => undefined) } })
-onBeforeUnmount(() => { window.removeEventListener('keydown', onShortcut); window.removeEventListener('hbos:session-boundary', closeSecurityDialogs); document.body.classList.remove('hbos-session-shield'); detach?.() })
+onMounted(() => { document.addEventListener('visibilitychange', syncVisibility); window.addEventListener('keydown', onShortcut); window.addEventListener('hbos:session-boundary', closeSecurityDialogs); if (portalDataSource === 'frappe') { detach = attachPortalSession(); void ensurePortalSession().catch(() => undefined) } })
+onBeforeUnmount(() => { document.removeEventListener('visibilitychange', syncVisibility); window.removeEventListener('keydown', onShortcut); window.removeEventListener('hbos:session-boundary', closeSecurityDialogs); document.body.classList.remove('hbos-session-shield'); detach?.() })
 </script>
 <style scoped>
 .session-content{min-width:0;width:100%}.session-checking{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:14px;color:var(--hbos-text-secondary);background:var(--hbos-bg-surface)}.session-content-hidden{visibility:hidden;pointer-events:none}.session-recovery{display:flex;flex-wrap:wrap;gap:12px;padding:16px}.session-recovery .ant-alert{width:100%}

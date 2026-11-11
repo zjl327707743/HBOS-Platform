@@ -1,6 +1,10 @@
 <template>
   <header class="hbos-header glass-surface">
-    <button class="brand-wrap" type="button" aria-label="返回 HBOS 首页" @click="$router.push('/hbos')">
+    <div v-if="portalDesign" class="v10-header-start">
+      <button class="v10-header-menu" type="button" aria-label="打开工作空间导航" :disabled="sessionBlocked" @click="$emit('open-navigation')"><UnorderedListOutlined /></button>
+      <PortalBrand />
+    </div>
+    <button v-else class="brand-wrap" type="button" aria-label="返回 HBOS 首页" @click="$router.push('/hbos')">
       <div class="brand-mark" :class="{ 'brand-mark-image': companyLogoUrl }">
         <img v-if="companyLogoUrl" :src="companyLogoUrl" alt="" class="company-logo-image" />
         <span v-else>H</span>
@@ -11,7 +15,7 @@
       </div>
     </button>
 
-    <nav v-if="managementExperience" class="r6-global-nav" aria-label="工作台导航" :inert="sessionBlocked || undefined">
+    <nav v-if="managementExperience && !portalDesign" class="r6-global-nav" aria-label="工作台导航" :inert="sessionBlocked || undefined">
       <RouterLink to="/hbos" :class="{ active: route.path === '/hbos' }"><HomeOutlined />首页</RouterLink>
       <RouterLink to="/hbos/work"><UnorderedListOutlined />我的工作</RouterLink>
       <RouterLink to="/hbos/apps"><AppstoreOutlined />应用中心</RouterLink>
@@ -19,24 +23,25 @@
     </nav>
     <button v-else class="global-search" type="button" aria-label="打开全局搜索" :disabled="sessionBlocked" @click="$emit('open-command')">
       <SearchOutlined />
-      <span>搜索应用与业务事项…</span>
+      <span>搜索应用与工作事项</span>
       <kbd>⌘ K</kbd>
     </button>
 
     <div class="header-actions">
-      <a-dropdown v-if="managementExperience" :trigger="['click']" class="r6-mobile-global">
+      <a-dropdown v-if="managementExperience && !portalDesign" :trigger="['click']" class="r6-mobile-global">
         <a-button aria-label="打开工作台导航"><MenuOutlined /></a-button>
         <template #overlay><a-menu><a-menu-item @click="router.push('/hbos')">首页</a-menu-item><a-menu-item @click="router.push('/hbos/work')">我的工作</a-menu-item><a-menu-item @click="router.push('/hbos/apps')">应用中心</a-menu-item><a-menu-item :disabled="sessionBlocked" @click="$emit('open-command')">搜索</a-menu-item><a-menu-item v-if="hasManagementAccess()" @click="router.push('/hbos/admin')">管理中心</a-menu-item></a-menu></template>
       </a-dropdown>
-      <a-button v-if="managementExperience" class="r6-motion-toggle" type="text" :aria-pressed="motionPaused" :aria-label="motionPaused ? '恢复背景动效' : '暂停背景动效'" @click="$emit('toggle-motion')"><PlayCircleOutlined v-if="motionPaused" /><PauseCircleOutlined v-else /></a-button>
-      <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" /><NotificationCenter v-if="portalDataSource === 'mock'" /></div>
+      <a-button v-if="managementExperience && !portalDesign" class="r6-motion-toggle" type="text" :aria-pressed="motionPaused" :aria-label="motionPaused ? '恢复背景动效' : '暂停背景动效'" @click="$emit('toggle-motion')"><PlayCircleOutlined v-if="motionPaused" /><PauseCircleOutlined v-else /></a-button>
+      <img v-if="portalDesign" :src="joincareMark" alt="健康元集团" class="v10-group-logo" width="112" height="36" />
+      <div class="session-app-controls" :class="{ 'controls-hidden': sessionBlocked }" :inert="sessionBlocked || undefined"><AppSwitcher :apps="apps" /><NotificationCenter v-if="!portalDesign && portalDataSource === 'mock'" /></div>
 
-      <div v-if="groupLogoUrl" class="group-brand" aria-label="健康元集团标识">
+      <div v-if="!portalDesign && groupLogoUrl" class="group-brand" aria-label="健康元集团标识">
         <span class="header-divider" aria-hidden="true"></span>
         <img :src="groupLogoUrl" alt="健康元集团标识" class="group-logo-image" />
       </div>
 
-      <a-tooltip title="帮助">
+      <a-tooltip v-if="!portalDesign" title="帮助">
         <a-button
           class="top-icon-button"
           type="text"
@@ -48,8 +53,8 @@
         </a-button>
       </a-tooltip>
 
-      <div class="current-identity" aria-label="当前登录人"><strong>{{ currentIdentity?.display_name || (portalSession.phase === 'unconfirmed' ? '正在核验账号' : portal.user?.displayName) || 'HBOS' }}</strong><span>{{ identityCaption }}</span></div>
-      <a-dropdown :trigger="['click']">
+      <div v-if="!portalDesign || !sessionBlocked" class="current-identity" aria-label="当前登录人"><strong>{{ currentIdentity?.display_name || (portalSession.phase === 'unconfirmed' ? '正在核验账号' : portal.user?.displayName) || 'HBOS' }}</strong><span>{{ identityCaption }}</span></div>
+      <a-dropdown :trigger="['click']" :overlay-class-name="portalDesign ? 'v10-header-menu-popup' : undefined">
         <button type="button" class="avatar-button" aria-label="打开个人菜单">
           <a-avatar class="user-avatar" :src="avatarUrl || undefined">
             {{ avatarText }}
@@ -59,7 +64,8 @@
           <a-menu>
             <a-menu-item disabled>{{ currentIdentity?.login_name || '当前登录账号' }}</a-menu-item>
             <a-menu-item v-if="currentIdentity?.department" disabled>{{ currentIdentity.department }}</a-menu-item>
-            <a-menu-item @click="$router.push('/hbos/profile')">个人中心</a-menu-item>
+            <a-menu-item :disabled="sessionBlocked" @click="$router.push('/hbos/profile')">个人中心</a-menu-item>
+            <a-menu-item v-if="portalDesign" @click="helpOpen = true">工作台使用引导</a-menu-item>
             <a-menu-divider />
             <a-menu-item :disabled="signingOut" @click="handleLogout">退出登录</a-menu-item>
           </a-menu>
@@ -80,6 +86,8 @@ import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { QuestionCircleOutlined, SearchOutlined, HomeOutlined, UnorderedListOutlined, AppstoreOutlined, SafetyCertificateOutlined, MenuOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons-vue'
+import PortalBrand from '@/components/portal/PortalBrand.vue'
+import joincareMark from '@/assets/portal-v10/joincare-logo.png'
 import AppSwitcher from '@/components/global/AppSwitcher.vue'
 import NotificationCenter from '@/components/global/NotificationCenter.vue'
 import type { AppManifestDTO } from '@/contracts/portal'
@@ -119,10 +127,11 @@ defineProps<{
   contextLabel?: string
   sessionBlocked?: boolean
   managementExperience?: boolean
+  portalDesign?: boolean
   motionPaused?: boolean
 }>()
 
-defineEmits<{ (e: 'open-command'): void; (e: 'toggle-motion'): void }>()
+defineEmits<{ (e: 'open-command'): void; (e: 'toggle-motion'): void; (e: 'open-navigation'): void }>()
 </script>
 
 <style scoped>.current-identity{display:grid;gap:2px;text-align:right;font-size:14px}.current-identity strong{font-size:16px}.current-identity span{color:var(--hbos-text-secondary)}@media(max-width:700px){.current-identity{max-width:120px}.current-identity strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}</style>
