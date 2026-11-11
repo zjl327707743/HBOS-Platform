@@ -1,6 +1,6 @@
 <template>
-  <AccountLayout variant="r5" :title="kindLabel(kind)" wide description="逐步核对身份、账号归属与生效影响。提交前原绑定继续可用。">
-    <RouterLink to="/hbos/profile">返回账号与安全</RouterLink>
+  <AccountLayout v10 variant="r5" :title="kindLabel(kind)" wide description="逐步核对身份、账号归属与生效影响。提交前原绑定继续可用。">
+    <template #back><RouterLink to="/hbos/profile">返回账号与安全</RouterLink></template>
     <a-alert v-if="error" :message="error" type="warning" show-icon /><a-alert v-if="notice" :message="notice" type="info" show-icon />
     <a-skeleton v-if="loading" active />
     <a-alert v-if="uncertain" message="提交结果尚未确认，请先刷新实际状态。若会话已变化，请重新登录后在账号与安全查询，避免再次提交。" type="warning" show-icon />
@@ -8,11 +8,17 @@
     <template v-if="completed || change?.state === 'Completed'"><p>安全变更已完成，请重新登录。旧访问路径已撤销，通知的实际发送结果可在账号与安全查看。</p><a-button size="large" type="primary" @click="router.replace('/hbos/login?status=account_changed')">重新登录</a-button></template>
     <template v-else-if="change && ['Cancelled','Expired'].includes(change.state || '')"><a-result status="info" :title="stateLabel(change.state || '')" sub-title="本次申请已结束，原绑定保留。"><template #extra><a-button size="large" @click="router.replace('/hbos/profile')">返回账号与安全</a-button></template></a-result></template>
     <template v-else-if="!loading && !change && !participant && actions && !error">
-      <a-alert v-if="kind === 'custody'" message="此为独立高风险交接，需要 专项授权。接任者在自己的浏览器验证身份、设置并验证新密码及 MFA，最终由当前负责人再次验证并确认。" type="warning" show-icon />
+      <div class="v10-change-options" aria-label="安全变更类型">
+        <button v-for="item in changeOptions" :key="item.kind" type="button" :aria-pressed="kind === item.kind" :disabled="busy || uncertain" @click="selectChangeKind(item.kind)">
+          <component :is="item.icon" aria-hidden="true" />
+          <span><strong>{{ kindLabel(item.kind) }}</strong><small>{{ item.description }}</small></span>
+        </button>
+      </div>
+      <a-alert v-if="kind === 'custody'" message="此为独立高风险交接，需要专项授权。接任者在自己的浏览器验证身份、设置并验证新密码及 MFA，最终由当前负责人再次验证并确认。" type="warning" show-icon />
       <p v-else-if="kind === 'roles'">使用双方永久个人账号，仅交接逐项选择的角色。接任者须已有本人账号；不合并账号或业务资料。</p>
       <p v-else-if="kind === 'identity_restore'">原飞书身份不可用时，由获准组织管理员核验本人和归属。仅恢复到本人普通账号，保留历史，不继承原管理员权限。</p>
       <p v-else>原账号、密码、角色和资料保留。旧飞书在新身份验证、冲突检查和明确确认完成后才失效。</p>
-      <a-form class="change-form" layout="vertical" @submit.prevent="begin">
+      <a-form class="change-form" layout="vertical" @submit.prevent="begin" @input="draftTouched = true">
         <label for="change-reason">本人或组织核验依据（12–500 字，请勿填写密码或验证码）</label><a-textarea id="change-reason" v-model:value="reason" :maxlength="500" />
         <template v-if="kind === 'roles'"><label>明确选择交接的角色</label><a-checkbox-group v-model:value="roles" :options="actions?.role_choices || []" /></template>
         <template v-if="kind === 'identity_restore'"><a-checkbox v-model:checked="newPersonal">本人尚无个人账号，验证后开通永久普通账号</a-checkbox><template v-if="!newPersonal"><label for="change-target">已核验本人的普通账号登录名</label><a-input size="large" id="change-target" v-model:value="target" autocomplete="off" /></template></template>
@@ -50,10 +56,15 @@
       </template>
       <div class="buttons"><a-button size="large" :loading="busy" @click="refresh">刷新实际验证状态</a-button><a-button size="large" v-if="participant && ownerOperation" @click="returnToOwner">返回发起人确认</a-button><a-button size="large" v-if="participant && change.new_identity" danger :loading="busy" @click="rejectParticipation">拒绝并取消本次变更</a-button><a-button size="large" v-if="!participant" danger :loading="busy" @click="cancel">取消申请，保留旧绑定</a-button></div>
     </template>
+    <a-modal :open="Boolean(pendingKind)" title="放弃已填写的内容？" wrap-class-name="v10-dialog"
+      ok-text="放弃并切换" cancel-text="继续填写" @ok="confirmChangeKind" @cancel="pendingKind = null">
+      切换类型会清除本次填写内容和本人核验。尚未提交的内容不会生效。
+    </a-modal>
   </AccountLayout>
 </template>
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { IdcardOutlined, SafetyCertificateOutlined, TeamOutlined, UserSwitchOutlined } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import AccountLayout from '@/components/account/AccountLayout.vue'
 import { useAccountProof } from '@/composables/useAccountProof'
@@ -63,6 +74,24 @@ import { changeActions, getChange, getParticipant, changePost, kindLabel, stateL
 import { clearFrappeCsrfToken } from '@/services/frappeClient'
 const route = useRoute(), router = useRouter(), change = ref<AccountChange | null>(null), actions = ref<ChangeActions | null>(null)
 const participant = ref(false), ownerOperation = ref(String(route.query.operation || '')), kind = ref<ChangeKind>(['rebind','roles','custody','identity_restore'].includes(String(route.query.kind)) ? route.query.kind as ChangeKind : 'rebind')
+const draftTouched = ref(false), pendingKind = ref<ChangeKind | null>(null)
+const optionCatalog = [
+ {kind:'rebind', icon:UserSwitchOutlined, description:'核验本人的新飞书'},
+ {kind:'roles', icon:TeamOutlined, description:'逐项选择需要交接的角色'},
+ {kind:'custody', icon:SafetyCertificateOutlined, description:'需专项授权及双方验证'},
+ {kind:'identity_restore', icon:IdcardOutlined, description:'核验本人普通账号归属'},
+] as const
+const changeOptions = computed(() => optionCatalog.filter(item => actions.value?.[item.kind]))
+function selectChangeKind(next: ChangeKind) {
+ if (next === kind.value || busy.value || uncertain.value || !actions.value?.[next]) return
+ if (draftTouched.value || proof.valid.value || roles.value.length || newPersonal.value) pendingKind.value = next
+ else void router.replace({path:'/hbos/account-change',query:{kind:next}})
+}
+function confirmChangeKind() {
+ const next = pendingKind.value
+ pendingKind.value = null
+ if (next && !busy.value && !uncertain.value) void router.replace({path:'/hbos/account-change',query:{kind:next}})
+}
 const reason = ref(''), roles = ref<string[]>([]), target = ref(''), newPersonal = ref(false), invitationUrl = ref(''), proofKey = ref(0)
 const busy = ref(false), error = ref(''), notice = ref(''), completed = ref(false), accepted = ref(false), migrationConfirmed = ref(false)
 const sourcePassword = ref(''), sourceOtp = ref(''), sourceTmp = ref(''), newPassword = ref(''), confirmation = ref(''), mfaQr = ref(''), credentialPassword = ref(''), credentialOtp = ref('')
@@ -99,6 +128,7 @@ async function cancel() { await run(async () => { await post('cancel',{operation
 async function rejectParticipation() { await run(async () => { await post('cancel_participation'); mfaQr.value = ''; change.value = null; notice.value = '本次变更已取消，原绑定与账号保留。'; await router.replace('/hbos/login?status=cancelled') }) }
 function clearSecrets() { sourcePassword.value = ''; sourceOtp.value = ''; sourceTmp.value = ''; newPassword.value = ''; confirmation.value = ''; mfaQr.value = ''; credentialPassword.value = ''; credentialOtp.value = ''; invitationUrl.value = ''; accepted.value = false; migrationConfirmed.value = false; reason.value = ''; roles.value = []; target.value = ''; newPersonal.value = false; consumeProof() }
 async function initialize() {
+ draftTouched.value = false; pendingKind.value = null
  generation++; const version = generation; clearSecrets(); change.value = null; actions.value = null; error.value = ''; notice.value = ''; completed.value = false; uncertain.value = false; beginRequest = ''; participant.value = false; busy.value = false; loading.value = true; ownerOperation.value = String(route.query.operation || '')
  kind.value = ['rebind','roles','custody','identity_restore'].includes(String(route.query.kind)) ? route.query.kind as ChangeKind : 'rebind'
  const parts = new URLSearchParams(route.hash.slice(1)), token = parts.get('invitation'), operation = parts.get('operation')

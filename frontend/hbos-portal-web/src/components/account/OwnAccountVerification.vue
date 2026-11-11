@@ -3,7 +3,10 @@
     <p>{{ passwordOnly ? '使用当前账号的密码与已有二次认证核验本人身份。' : '安全操作前，请验证本人身份。' }}</p>
     <a-skeleton v-if="loading" active :paragraph="{ rows: 1 }" />
     <template v-else-if="status">
-      <a-radio-group v-if="!passwordOnly && status.has_password && status.feishu_bound" v-model:value="useInbox" :disabled="busy" @change="reset"><a-radio :value="false">当前密码</a-radio><a-radio :value="true" :disabled="!status.feishu_stepup_available">本人飞书验证码</a-radio></a-radio-group>
+      <div v-if="!passwordOnly && status.has_password && status.feishu_bound" class="v10-proof-mode">
+        <label :for="fieldId + '-method'">验证方式</label>
+        <PortalSelect :id="fieldId + '-method'" :value="useInbox ? 'feishu' : 'password'" :options="verificationOptions" :disabled="busy" @change="changeMethod" />
+      </div>
       <template v-if="passwordMode"><label :for="fieldId + '-password'">当前密码</label><a-input-password :id="fieldId + '-password'" v-model:value="password" size="large" autocomplete="current-password" :disabled="busy" /></template>
       <template v-else><a-button size="large" html-type="button" :disabled="busy || !status.feishu_stepup_available" @click="sendCode">发送验证码到本人飞书</a-button><label :for="fieldId + '-code'">本人收件验证码</label><a-input-password :id="fieldId + '-code'" v-model:value="code" size="large" inputmode="numeric" autocomplete="one-time-code" :disabled="busy" /><p v-if="!status.feishu_stepup_available">当前无法发送安全验证码，请使用恢复邮箱或联系管理员协助。</p></template>
       <template v-if="tmpId"><label :for="fieldId + '-otp'">二次认证验证码</label><a-input-password :id="fieldId + '-otp'" v-model:value="otp" size="large" inputmode="numeric" autocomplete="one-time-code" :disabled="busy" /><a-button html-type="button" :disabled="busy" @click="reset">取消二次认证</a-button></template>
@@ -17,6 +20,7 @@
   </section>
 </template>
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
 import { computed, onMounted, ref, useId, onBeforeUnmount, onDeactivated } from 'vue'
 import { getSecurity, reauthenticate, requestFeishuCode, verifyFeishuCode, type SecurityStatus, type ProofStatus } from '@/services/accountApi'
 import { useAccountProof } from '@/composables/useAccountProof'
@@ -25,6 +29,11 @@ const props = withDefaults(defineProps<{ passwordOnly?: boolean; adoptExisting?:
 const fieldId = useId(), status = ref<SecurityStatus | null>(null), useInbox = ref(false)
 const password = ref(''), code = ref(''), otp = ref(''), tmpId = ref(''), error = ref(''), notice = ref(''), busy = ref(false), loading = ref(true), expired = ref(false)
 const proof = useAccountProof(() => { clearSecrets(); expired.value = true; emit('invalidated') })
+const verificationOptions = computed(() => [
+  {value:'password', label:'当前密码'},
+  {value:'feishu', label:'本人飞书验证码', disabled: !status.value?.feishu_stepup_available},
+])
+function changeMethod(value: string) { useInbox.value = value === 'feishu'; reset() }
 const passwordMode = computed(() => props.passwordOnly || Boolean(status.value?.has_password && !useInbox.value))
 let generation = 0, disposed = false
 function clearSecrets() { password.value = ''; code.value = ''; otp.value = ''; tmpId.value = '' }

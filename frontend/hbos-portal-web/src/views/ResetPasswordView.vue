@@ -1,6 +1,7 @@
 <template>
-  <AccountLayout title="找回密码与账号恢复" description="选择可用恢复方式，核对目标账号后设置新密码。">
+  <AccountLayout v10 title="找回密码" description="选择可用恢复方式，核对目标账号后设置新密码。">
     <RouterLink to="/hbos/login">返回登录</RouterLink>
+    <template #back><RouterLink to="/hbos/login">返回登录</RouterLink></template>
     <a-alert v-if="notice" :message="notice" type="info" show-icon role="status" /><a-alert v-if="error" :message="error" type="warning" show-icon role="alert" />
     <a-skeleton v-if="loading" active />
     <a-result v-else-if="completed" status="success" title="密码已保存" sub-title="原账号和角色保留，旧会话已失效。"><template #extra><a-button size="large" type="primary" @click="router.replace('/hbos/profile')">进入账号与安全</a-button></template></a-result>
@@ -16,7 +17,7 @@
       </a-form>
     </template>
     <template v-else-if="channels">
-      <section v-if="channels.feishu_login && !administrator" class="account-section"><h2>使用本人飞书</h2><p>登录已绑定的本人飞书，进入账号与安全。</p><p>{{ channels.feishu_password_recovery ? '本人查收安全验证码并完成验证后，可按需设置或重设密码。' : '当前无法使用本人收件验证码重设密码，请联系管理员协助。' }}</p><a-button size="large" type="primary" @click="recoverWithFeishu">使用飞书登录</a-button></section>
+      <section v-if="channels.feishu_login && !administrator" class="account-section"><h2>使用本人飞书</h2><p>登录已绑定的本人飞书，进入账号与安全。</p><p>{{ channels.feishu_password_recovery ? '本人查收安全验证码并完成验证后，可按需设置或重设密码。' : '当前无法使用本人收件验证码重设密码，请联系管理员协助。' }}</p><a-button class="v10-feishu-button" block size="large" type="primary" @click="recoverWithFeishu"><img :src="feishuMark" alt="" width="24" height="24" />使用飞书登录</a-button></section>
       <section v-if="channels.verified_email && !administrator" class="account-section"><h2>使用已验证邮箱</h2><a-form class="account-form" layout="vertical" @submit.prevent="request"><a-form-item label="登录名或已验证邮箱" html-for="reset-user"><a-input id="reset-user" v-model:value="username" size="large" autocomplete="username" :disabled="busy" /></a-form-item><a-button size="large" html-type="submit" :loading="busy" :disabled="busy || !username.trim()">发送邮箱恢复说明</a-button></a-form></section>
       <section v-if="!administrator" class="account-section"><h2>联系管理员协助</h2><p>由管理员核对本人和原账号，私下交付短时单次链接。最终密码由您自行设置。</p></section>
       <details :open="administrator" class="account-section"><summary>管理员应急恢复</summary><p>Administrator 使用当前 Mac 的本地应急设密，由本人隐藏输入新密码并完成已有二次认证。普通员工请使用上述渠道。</p><p>在当前环境的 HBOS 启动器执行 <code>admin-password</code>，核对目标环境后由本人操作。</p></details>
@@ -27,6 +28,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import feishuMark from '@/assets/portal-v10/feishu-logo.png'
 import AccountLayout from '@/components/account/AccountLayout.vue'
 import { getRecoveryChannels, getSecurity, guestAccountPost, type MfaResult, type RecoveryChannels, type RecoveryValidation } from '@/services/accountApi'
 import { clearFrappeCsrfToken } from '@/services/frappeClient'

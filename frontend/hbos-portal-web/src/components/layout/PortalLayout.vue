@@ -27,7 +27,7 @@
         <main id="main-content" ref="mainContent" class="portal-route-content" tabindex="-1">
           <div v-if="portalDesign" class="v10-context">
             <nav aria-label="当前位置"><RouterLink to="/hbos">工作台</RouterLink><template v-if="route.path.startsWith('/hbos/admin')"><span aria-hidden="true">/</span><RouterLink v-if="managementAvailable && !masked" to="/hbos/admin">管理中心</RouterLink><span v-else>管理中心</span></template><template v-if="route.path !== '/hbos'"><span aria-hidden="true">/</span><span aria-current="page">{{ route.meta.title }}</span></template></nav>
-            <span v-if="portalDataSource === 'mock'" class="v10-mock-badge">Mock · 演示数据</span>
+            <span v-if="previewLabel" class="v10-mock-badge" role="status">{{ previewLabel }}</span>
           </div>
           <template v-if="portalDataSource === 'mock'">
             <a-skeleton v-if="sessionPending" active /><a-alert v-else-if="sessionError" type="error" :message="sessionError" /><RouterView v-else :key="portal.user?.id" />
@@ -90,6 +90,7 @@ import { attendanceObservation } from '@/services/attendanceObservation'
 
 const portal = usePortalStore()
 const development = import.meta.env.DEV
+const previewLabel = development ? import.meta.env.VITE_ACCOUNT_PREVIEW_LABEL : ''
 const ui = reactive({ commandOpen: false })
 const actionableCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
 const { sessionPending, sessionError } = portalDataSource === 'mock' ? usePortalSession() : { sessionPending: ref(true), sessionError: ref<string | null>(null) }
