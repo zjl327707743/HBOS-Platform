@@ -2,13 +2,14 @@
   <section class="section-panel glass-surface">
     <div class="section-head">
       <div>
-        <h2>业务脉搏</h2>
-        <p>根据当前用户可见能力动态出现</p>
+        <h2>业务概览</h2>
+        <p>查看你有权使用的业务汇总</p>
       </div>
       <a-tag v-if="live" color="success">真实汇总</a-tag>
-      <a-segmented v-else v-model:value="range" :options="['本周', '本月']" size="small" />
+      <a-tag v-else>Mock · 演示汇总</a-tag>
     </div>
 
+    <PortalState v-if="error" kind="error" title="部分业务汇总暂时不可用" :description="error" retry @retry="$emit('retry')" />
     <div v-if="loading" class="pulse-grid pulse-loading" aria-label="正在读取业务汇总">
       <article v-for="index in 4" :key="index" class="pulse-card"><a-skeleton active :paragraph="false" /></article>
     </div>
@@ -28,7 +29,7 @@
         </svg>
       </article>
     </div>
-    <div v-else class="home-panel-empty">
+    <div v-else-if="!error" class="home-panel-empty">
       <BarChartOutlined />
       <strong>当前没有可展示的业务汇总</strong>
       <span>有业务数据且当前账号获准查看时，会显示相应汇总。</span>
@@ -37,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import PortalState from './PortalState.vue'
 import { BarChartOutlined } from '@ant-design/icons-vue'
 import type { BusinessPulseDTO } from '@/contracts/portal'
 
@@ -45,11 +46,12 @@ withDefaults(defineProps<{
   items: BusinessPulseDTO[]
   loading?: boolean
   live?: boolean
+  error?: string | null
 }>(), {
   loading: false,
   live: false,
 })
-const range = ref('本周')
+defineEmits<{ retry: [] }>()
 
 function points(values: number[]) {
   const min = Math.min(...values)

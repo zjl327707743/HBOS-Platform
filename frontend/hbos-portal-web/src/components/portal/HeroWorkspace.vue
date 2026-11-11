@@ -1,86 +1,36 @@
+<script setup lang="ts">
+import { AppstoreOutlined, NodeIndexOutlined, UnorderedListOutlined, UserOutlined } from '@ant-design/icons-vue'
+
+defineProps<{
+  userName: string; totalActions: number; appCount: number; tasksLoading?: boolean
+  tasksError?: boolean; showTwinPreview: boolean; twinStateLabel: string
+}>()
+</script>
+
 <template>
-  <section class="hero-workspace glass-hero">
-    <div class="hero-main">
-      <div class="eyebrow">HBOS · 企业运营工作空间</div>
-      <div class="hello">你好，{{ userName }}</div>
-      <h1>今天有 <span>{{ totalActions }} 项工作</span><br />需要你处理</h1>
-      <p>
-        查看本人待办、业务汇总与可用应用，从当前工作继续。
-      </p>
-
-      <div class="hero-actions">
-        <a-button type="primary" size="large" @click="$router.push('/hbos/work')">进入我的工作</a-button>
-        <a-button size="large" @click="$router.push('/hbos/apps')">查看应用中心</a-button>
+  <section class="v10-home-hero" aria-labelledby="portal-welcome">
+    <div class="v10-welcome v10-surface">
+      <div class="v10-home-orbit" aria-hidden="true" />
+      <div class="v10-hero-top"><span>HBOS · 工作平台</span><span>你好，{{ userName }}</span></div>
+      <h1 id="portal-welcome">把工作连起来，<br /><span>把专注留给创造。</span></h1>
+      <p>查看待办，找到常用应用，从这里开始今天的工作。</p>
+      <div class="v10-actions">
+        <a-button type="primary" @click="$router.push('/hbos/work')">查看我的工作</a-button>
+        <a-button @click="$router.push('/hbos/apps')">浏览应用</a-button>
       </div>
-
-      <div class="hero-metrics">
-        <article v-for="metric in metrics" :key="metric.id" class="metric-glass">
-          <strong :class="`tone-${metric.tone}`">{{ metric.value }}</strong>
-          <span>{{ metric.label }}</span>
-          <small>{{ metric.meta }}</small>
-        </article>
+      <div class="v10-hero-summary">
+        <span :class="{ 'v10-summary-warning': tasksError }">{{ tasksLoading ? '正在读取待办' : tasksError ? '部分待办暂不可用' : totalActions ? totalActions + ' 项工作需要你处理' : '当前没有待处理事项' }}</span><span>{{ appCount }} 个可用应用</span>
       </div>
     </div>
-
-    <aside class="hero-aside">
-      <div class="status-glass">
-        <div class="status-title">
-          <span>工作台状态</span>
-          <a-tag :color="portal.authenticated ? 'success' : 'default'">{{ sessionLabel }}</a-tag>
-        </div>
-        <div class="status-row"><i class="blue"></i><span>统一身份与会话</span><b>{{ sessionLabel }}</b></div>
-        <div class="status-row"><i class="violet"></i><span>我的可用应用</span><b>{{ appCount }}</b></div>
-        <div class="status-row"><i class="green"></i><span>需要我处理</span><b>{{ totalActions }}</b></div>
+    <aside class="v10-home-aside v10-surface">
+      <div class="v10-hero-top"><span>工作概览</span></div>
+      <h2>应用与待办，<br />集中在这里。</h2>
+      <div class="v10-overview-links">
+        <RouterLink to="/hbos/profile"><UserOutlined /><strong>我的账号</strong><small>查看个人中心</small></RouterLink>
+        <RouterLink to="/hbos/apps"><AppstoreOutlined /><strong>{{ appCount }} 个应用</strong><small>按你的权限提供</small></RouterLink>
+        <RouterLink to="/hbos/work"><UnorderedListOutlined /><strong>{{ tasksLoading || tasksError ? '查看待办' : totalActions + ' 项待办' }}</strong><small>集中查看待办</small></RouterLink>
       </div>
-
-      <button
-        v-if="showTwinPreview"
-        class="mini-twin-glass mini-twin-button"
-        type="button"
-        @click="$router.push('/hbos/twin')"
-      >
-        <div class="status-title">
-          <span>数字孪生概览</span>
-          <a-tag :color="twinReady ? 'success' : 'processing'">{{ twinStateLabel }}</a-tag>
-        </div>
-        <svg viewBox="0 0 420 160" fill="none" aria-label="数字孪生概览示意">
-          <defs>
-            <linearGradient id="hero-line" x1="0" x2="1">
-              <stop stop-color="#6c63ff"/>
-              <stop offset=".58" stop-color="#48a8ff"/>
-              <stop offset="1" stop-color="#45d7bd"/>
-            </linearGradient>
-          </defs>
-          <path d="M32 119 L137 61 L245 92 L341 46" stroke="url(#hero-line)" stroke-width="3" stroke-dasharray="8 8"/>
-          <circle cx="137" cy="61" r="6" fill="#6c63ff"/>
-          <circle cx="245" cy="92" r="6" fill="#48a8ff"/>
-          <circle cx="341" cy="46" r="6" fill="#45d7bd"/>
-          <rect x="111" y="70" width="48" height="55" rx="8" class="twin-box violet"/>
-          <rect x="220" y="100" width="52" height="57" rx="8" class="twin-box blue"/>
-          <rect x="317" y="56" width="48" height="52" rx="8" class="twin-box green"/>
-        </svg>
-        <span class="mini-twin-link">进入设备与工艺空间 <ArrowRightOutlined /></span>
-      </button>
+      <RouterLink v-if="showTwinPreview" to="/hbos/twin" class="v10-overview-twin"><NodeIndexOutlined /><span><strong>设备与工艺空间</strong><small>{{ twinStateLabel }}</small></span></RouterLink>
     </aside>
   </section>
 </template>
-
-<script setup lang="ts">
-import { computed } from 'vue'
-import { ArrowRightOutlined } from '@ant-design/icons-vue'
-import { usePortalStore } from '@/stores/portal'
-import type { SummaryMetricDTO } from '@/contracts/portal'
-
-const portal = usePortalStore()
-const sessionLabel = computed(() => portal.dataSource === 'mock' ? '演示会话' : portal.authenticated ? '会话已验证' : '会话待验证')
-
-defineProps<{
-  userName: string
-  totalActions: number
-  metrics: SummaryMetricDTO[]
-  appCount: number
-  showTwinPreview: boolean
-  twinReady: boolean
-  twinStateLabel: string
-}>()
-</script>

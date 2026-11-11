@@ -1,74 +1,27 @@
-<template>
-  <section class="section-panel glass-surface app-center">
-    <div class="section-head">
-      <div>
-        <span class="section-kicker">APPLICATIONS</span>
-        <h2>应用中心</h2>
-        <p>从这里进入当前账号可使用的业务应用。</p>
-      </div>
-      <a-button type="link" @click="$router.push('/hbos/apps')">全部应用 <RightOutlined /></a-button>
-    </div>
-
-    <div class="app-grid refined-app-grid">
-      <button
-        v-for="app in primaryApps"
-        :key="app.id"
-        class="app-tile"
-        :class="{ 'digital-twin-app': app.id === 'twin' }"
-        type="button"
-        @click="open(app)"
-      >
-        <div class="app-icon" :class="app.accent">
-          <component :is="iconMap[app.icon]" />
-        </div>
-        <div class="app-text">
-          <strong>{{ displayTitle(app) }}</strong>
-          <small>{{ app.meta || app.description }}</small>
-        </div>
-        <a-badge v-if="app.pendingCount" :count="app.pendingCount" class="pending-badge" />
-      </button>
-
-      <button class="app-tile future" type="button" @click="$router.push('/hbos/apps')">
-        <div class="app-icon more"><AppstoreAddOutlined /></div>
-        <div class="app-text">
-          <strong>更多应用</strong>
-          <small>查看全部可用应用</small>
-        </div>
-      </button>
-    </div>
-    <a-button v-if="apps.some(app => app.id === 'inventory')" type="link" @click="$router.push('/hbos/inventory/item')">仓储 · 物料只读浏览 <RightOutlined /></a-button>
-  </section>
-</template>
-
 <script setup lang="ts">
-import { iconMap } from '@/components/appIcons'
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import {
-  AppstoreAddOutlined,
-  RightOutlined,
-} from '@ant-design/icons-vue'
+import PortalAppCard from './PortalAppCard.vue'
+import PortalState from './PortalState.vue'
 import type { AppManifestDTO } from '@/contracts/portal'
-import { openBusinessRoute } from '@/services/businessNavigation'
 
 const props = defineProps<{ apps: AppManifestDTO[] }>()
-const router = useRouter()
-
-const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'equipment', 'twin', 'production']
+const appOrder = ['lims', 'inventory', 'attendance', 'knowledge', 'twin', 'equipment', 'production']
+const order = (id: string) => appOrder.includes(id) ? appOrder.indexOf(id) : appOrder.length
 const primaryApps = computed(() => props.apps
-  .filter((app) => appOrder.includes(app.id))
-  .sort((left, right) => appOrder.indexOf(left.id) - appOrder.indexOf(right.id)))
-
-function displayTitle(app: AppManifestDTO) {
-  return ({
-    attendance: '考勤',
-    inventory: '仓储',
-    knowledge: '知识助理',
-    equipment: '设备',
-    twin: '数字孪生',
-  } as Record<string, string>)[app.id] || app.shortTitle
-}
-function open(app: AppManifestDTO) {
-  void openBusinessRoute(router, app.id, app.route)
-}
+  .filter(app => app.featured || appOrder.includes(app.id))
+  .sort((left, right) => order(left.id) - order(right.id)))
 </script>
+
+<template>
+  <section class="section-panel glass-surface v10-home-entry">
+    <div class="section-head">
+      <div><h2>你的业务入口</h2><p>从熟悉的应用，继续今天的工作。</p></div>
+      <RouterLink to="/hbos/apps">全部应用</RouterLink>
+    </div>
+    <div v-if="primaryApps.length" class="v10-app-grid">
+      <PortalAppCard v-for="app in primaryApps" :key="app.id" :app="app" />
+    </div>
+    <PortalState v-else title="当前没有常用应用" description="可以前往应用中心查看已开放的入口。" />
+    <RouterLink v-if="apps.some(app => app.id === 'inventory')" class="v10-minor-link" to="/hbos/inventory/item">仓储 · 物料只读浏览</RouterLink>
+  </section>
+</template>
