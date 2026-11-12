@@ -1,0 +1,191 @@
+diff --git a/frontend/hbos-portal-web/src/router/index.ts b/frontend/hbos-portal-web/src/router/index.ts
+--- a/frontend/hbos-portal-web/src/router/index.ts
++++ b/frontend/hbos-portal-web/src/router/index.ts
+@@ -9,6 +9,9 @@
+ import NotFoundView from '@/views/NotFoundView.vue'
+ import LimsHomeView from '@/views/LimsHomeView.vue'
+ import LimsResultReviewView from '@/views/LimsResultReviewView.vue'
++import { accountRedirect } from '@/services/accountNavigation'
++import { FrappeRequestError, isUnauthenticatedError } from '@/services/frappeClient'
++import { fetchIamCapabilities, IAM_ADMIN_PAGES } from '@/services/iamAccess'
+
+ const KnowledgeTwinLayout = () => import('@/components/layout/KnowledgeTwinLayout.vue')
+ const KnowledgeView = () => import('@/views/KnowledgeView.vue')
+@@ -31,6 +34,20 @@
+         { path: 'work', name: 'my-work', component: MyWorkView, meta: { title: '我的工作' } },
+         { path: 'apps', name: 'apps', component: AppCenterView, meta: { title: '应用中心' } },
+         { path: 'profile', name: 'profile', component: ProfileSettingsView, meta: { title: '我的与设置' } },
++        { path: 'attendance/me', name: 'my-attendance', component: () => import('@/views/attendance/MyAttendanceView.vue'), meta: { title: '我的考勤' } },
++        { path: 'admin-unavailable', name: 'iam-access-unavailable', component: () => import('@/views/admin/AdminAccessUnavailableView.vue'), meta: { title: '管理服务暂不可用' } },
++        {
++          path: 'admin',
++          name: 'iam-admin',
++          component: () => import('@/views/admin/AdminWorkspaceView.vue'),
++          meta: { title: '管理中心', requiresIamAccess: true },
++          children: [
++            { path: 'people', name: 'iam-admin-people', component: () => import('@/views/admin/PeopleAdminView.vue'), meta: { title: '人员管理', iamCapability: 'iam.people.read' } },
++            { path: 'departments', name: 'iam-admin-departments', component: () => import('@/views/admin/DepartmentsAdminView.vue'), meta: { title: '部门组织', iamCapability: 'iam.departments.read' } },
++            { path: 'access', name: 'iam-admin-access', component: () => import('@/views/admin/AccessAdminView.vue'), meta: { title: '应用权限', iamCapability: 'iam.access.read' } },
++            { path: 'audit', name: 'iam-admin-audit', component: () => import('@/views/admin/AuditAdminView.vue'), meta: { title: '变更记录', iamCapability: 'iam.audit.read' } },
++          ],
++        },
+         { path: '403', name: 'forbidden', component: ForbiddenView, meta: { title: '无权限' } },
+       ],
+     },
+@@ -61,6 +78,31 @@
+   scrollBehavior: () => ({ top: 0 }),
+ })
+
++// Design candidate: page guards only shape navigation. Every backend operation
++// must independently authorize the current session, target and requested scope.
++router.beforeEach(async (to) => {
++  if (!to.matched.some(record => record.meta.requiresIamAccess)) return true
++  try {
++    const access = await fetchIamCapabilities()
++    const available = IAM_ADMIN_PAGES.filter(page => access.capabilities.includes(page.capability))
++    if (!available.length) return { path: '/hbos/403', query: { app: 'iam' } }
++    if (to.name === 'iam-admin') return available[0].path
++    const required = to.meta.iamCapability
++    if (typeof required !== 'string' || !access.capabilities.includes(required)) {
++      return { path: '/hbos/403', query: { app: 'iam' } }
++    }
++    return true
++  } catch (error) {
++    if (isUnauthenticatedError(error)) {
++      return { path: '/hbos/login', query: { status: 'session_required', redirect_to: accountRedirect(to.fullPath) } }
++    }
++    if (error instanceof FrappeRequestError && error.code === 'FORBIDDEN') {
++      return { path: '/hbos/403', query: { app: 'iam' } }
++    }
++    return { name: 'iam-access-unavailable', query: { redirect_to: accountRedirect(to.fullPath) } }
++  }
++})
++
+ router.afterEach((to) => {
+   const title = typeof to.meta.title === 'string' ? to.meta.title : 'HBOS'
+   document.title = title === 'HBOS 首页' ? 'HBOS · 海滨智能运营工作台' : `${title} · HBOS`
+diff --git a/frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue b/frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue
+--- a/frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue
++++ b/frontend/hbos-portal-web/src/components/layout/PortalSidebar.vue
+@@ -5,6 +5,10 @@
+       <component :is="item.icon" />
+       <span>{{ item.label }}</span>
+       <b v-if="item.path === '/hbos/work' && workCount > 0">{{ workCount }}</b>
++    </RouterLink>
++
++    <RouterLink v-if="managementPath" :to="managementPath" class="portal-nav-item" title="管理中心">
++      <SafetyCertificateOutlined /><span>管理中心</span>
+     </RouterLink>
+
+     <div class="nav-divider"></div>
+@@ -24,11 +28,12 @@
+ import {
+   AppstoreOutlined,
+   HomeOutlined,
++  SafetyCertificateOutlined,
+   UnorderedListOutlined,
+   UserOutlined,
+ } from '@ant-design/icons-vue'
+
+-defineProps<{ workCount: number }>()
++defineProps<{ workCount: number; managementPath?: string | null }>()
+
+ const mainNav = [
+   { path: '/hbos', label: '首页', icon: HomeOutlined },
+diff --git a/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue b/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
+--- a/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
++++ b/frontend/hbos-portal-web/src/components/layout/PortalLayout.vue
+@@ -17,7 +17,7 @@
+       />
+
+       <div class="portal-layout-grid">
+-        <PortalSidebar :work-count="actionableCount" />
++        <PortalSidebar :work-count="actionableCount" :management-path="managementPath" />
+         <main id="main-content" class="portal-route-content" tabindex="-1">
+           <a-skeleton v-if="sessionPending" active :paragraph="{ rows: 6 }" />
+           <a-alert
+@@ -27,7 +27,18 @@
+             class="portal-bootstrap-error"
+             :message="sessionError"
+           />
+-          <RouterView v-else :key="portal.user?.id" />
++          <template v-else>
++            <a-alert v-if="managementError" type="warning" show-icon :message="managementError">
++              <template #action><a-button size="small" @click="loadManagementEntry">重试</a-button></template>
++            </a-alert>
++            <FirstPasswordGate :key="portal.user?.id" @ready="accountGateReady = true">
++              <template #initial-password="{ onSettled }">
++                <InitialPasswordDelivery @settled="onSettled" @session-required="onSettled" />
++              </template>
++              <template #identity><EmployeeIdentityStatus /></template>
++              <template #ready><RouterView :key="portal.user?.id" /></template>
++            </FirstPasswordGate>
++          </template>
+         </main>
+       </div>
+     </div>
+@@ -39,7 +50,7 @@
+ </template>
+
+ <script setup lang="ts">
+-import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
++import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+ import { usePortalStore } from '@/stores/portal'
+ import GlobalHeader from '@/components/layout/GlobalHeader.vue'
+ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
+@@ -47,11 +58,45 @@
+ import MobilePortalNav from '@/components/layout/MobilePortalNav.vue'
+ import CommandPalette from '@/components/portal/CommandPalette.vue'
+ import { usePortalSession } from '@/composables/usePortalSession'
++import FirstPasswordGate from '@/components/account/FirstPasswordGate.vue'
++import InitialPasswordDelivery from '@/components/account/InitialPasswordDelivery.vue'
++import EmployeeIdentityStatus from '@/components/account/EmployeeIdentityStatus.vue'
++import { fetchIamCapabilities, IAM_ADMIN_PAGES } from '@/services/iamAccess'
++import { isUnauthenticatedError } from '@/services/frappeClient'
+
+ const portal = usePortalStore()
+ const ui = reactive({ commandOpen: false })
+ const actionableCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
+ const { sessionPending, sessionError } = usePortalSession()
++const accountGateReady = ref(false)
++const managementPath = ref<string | null>(null)
++const managementError = ref<string | null>(null)
++let managementGeneration = 0
++
++async function loadManagementEntry() {
++  const generation = ++managementGeneration
++  const subject = portal.user?.id
++  managementPath.value = null
++  managementError.value = null
++  if (sessionPending.value || !subject || !accountGateReady.value) return
++  try {
++    // This service is a future same-origin session endpoint, never localStorage
++    // or a frontend Role/Admin check. Unknown capability data hides the entry.
++    const access = await fetchIamCapabilities()
++    if (generation !== managementGeneration || portal.user?.id !== subject) return
++    managementPath.value = IAM_ADMIN_PAGES.some(page => access.capabilities.includes(page.capability))
++      ? '/hbos/admin'
++      : null
++  } catch (error) {
++    if (generation !== managementGeneration || portal.user?.id !== subject) return
++    if (!isUnauthenticatedError(error)) managementError.value = '管理能力检查暂不可用，请重试。'
++  }
++}
++
++// Bootstrap refresh replaces portal.user, including focus/session refresh.
++// Clear the entry before each refresh and reject a late response from an old user.
++watch(() => portal.user?.id, () => { accountGateReady.value = false }, { flush: 'sync' })
++watch([sessionPending, () => portal.user, accountGateReady], () => { void loadManagementEntry() }, { immediate: true })
+
+ function onShortcut(event: KeyboardEvent) {
+   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+@@ -62,5 +107,8 @@
+ }
+
+ onMounted(() => window.addEventListener('keydown', onShortcut))
+-onBeforeUnmount(() => window.removeEventListener('keydown', onShortcut))
++onBeforeUnmount(() => {
++  managementGeneration++
++  window.removeEventListener('keydown', onShortcut)
++})
+ </script>
