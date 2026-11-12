@@ -58,5 +58,26 @@ class RestLeaveExemptionContractTest(unittest.TestCase):
         self.assertNotIn("tabHBOS Rest Leave Record", fn)
 
 
+class RegenerationWindowGuardTest(unittest.TestCase):
+    """重算窗口必须保持 base 的 bounded DELETE。
+
+    移植决策已裁定(A)：丢弃 head 的 35 天回溯窗口
+    (`REGENERATE_LOOKBACK_DAYS` + 第二条 `DELETE ... attendance_date > %s`)。
+    窄窗口重算绝不能删除 range_end 之后的正式考勤。
+    """
+
+    def setUp(self):
+        self.src = API.read_text()
+
+    def test_regenerate_has_no_unbounded_delete(self):
+        self.assertNotIn("attendance_date > %s", self.src)
+
+    def test_regenerate_delete_stays_bounded(self):
+        self.assertIn("attendance_date BETWEEN %s AND %s", self.src)
+
+    def test_no_lookback_window_constant(self):
+        self.assertNotIn("REGENERATE_LOOKBACK_DAYS", self.src)
+
+
 if __name__ == "__main__":
     unittest.main()

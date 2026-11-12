@@ -154,7 +154,7 @@ const recentSamples = computed(() => sampleStore.samples.slice(0, 5))
 
 const columns = [
   { title: '样品编号', key: 'name', width: 180 },
-  { title: '物料名称', key: 'material_name' },
+  { title: '物料名称', key: 'material_name', dataIndex: 'material_name' },
   { title: '批号', key: 'batch_no', width: 130 },
   { title: '优先级', key: 'priority', width: 90 },
   { title: '状态', key: 'status', width: 110 },

@@ -1,0 +1,15 @@
+.git
+.env
+**/.env
+**/*.local
+**/node_modules
+**/__pycache__
+runtime
+sites
+backups
+reports
+.release
+**/*.pdf
+**/*.glb
+**/*.xlsx
+**/*.sqlite

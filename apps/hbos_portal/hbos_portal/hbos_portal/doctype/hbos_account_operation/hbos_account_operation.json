@@ -1,0 +1,251 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Account Operation",
+ "module": "HBOS Portal",
+ "autoname": "Prompt",
+ "engine": "InnoDB",
+ "field_order": [
+  "kind",
+  "state",
+  "target_user",
+  "initiator",
+  "initiator_session",
+  "initiator_epoch",
+  "target_version",
+  "expires_at",
+  "reason",
+  "tenant_key",
+  "app_id",
+  "old_identity",
+  "new_identity_key",
+  "new_identity_sealed",
+  "source_user",
+  "source_epoch",
+  "source_verified_at",
+  "participant_nonce_hash",
+  "invite_hash",
+  "invite_redeemed",
+  "recipient_accepted",
+  "recipient_accepted_at",
+  "allow_source_migration",
+  "roles_json",
+  "credential_sealed",
+  "mfa_sealed",
+  "credential_verified",
+  "completed_at",
+  "notification_status",
+  "restore_personal_account"
+ ],
+ "fields": [
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Kind",
+   "read_only": 1,
+   "options": "rebind\nroles\ncustody\nidentity_restore",
+   "reqd": 1
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "label": "State",
+   "read_only": 1,
+   "options": "Invited\nIdentity Verified\nReady\nCompleted\nCancelled\nExpired",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_user",
+   "fieldtype": "Link",
+   "label": "Target User",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "initiator",
+   "fieldtype": "Link",
+   "label": "Initiator",
+   "read_only": 1,
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "initiator_session",
+   "fieldtype": "Data",
+   "label": "Initiator Session",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "initiator_epoch",
+   "fieldtype": "Int",
+   "label": "Initiator Epoch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "target_version",
+   "fieldtype": "Int",
+   "label": "Target Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expires_at",
+   "fieldtype": "Datetime",
+   "label": "Expires At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tenant_key",
+   "fieldtype": "Data",
+   "label": "Tenant Key",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "app_id",
+   "fieldtype": "Data",
+   "label": "App Id",
+   "read_only": 1
+  },
+  {
+   "fieldname": "old_identity",
+   "fieldtype": "Link",
+   "label": "Old Identity",
+   "read_only": 1,
+   "options": "HBOS External Identity"
+  },
+  {
+   "fieldname": "new_identity_key",
+   "fieldtype": "Data",
+   "label": "New Identity Key",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "new_identity_sealed",
+   "fieldtype": "Long Text",
+   "label": "New Identity Sealed",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "source_user",
+   "fieldtype": "Link",
+   "label": "Source User",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "source_epoch",
+   "fieldtype": "Int",
+   "label": "Source Epoch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_verified_at",
+   "fieldtype": "Datetime",
+   "label": "Source Verified At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "participant_nonce_hash",
+   "fieldtype": "Data",
+   "label": "Participant Nonce Hash",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "invite_hash",
+   "fieldtype": "Data",
+   "label": "Invite Hash",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "invite_redeemed",
+   "fieldtype": "Check",
+   "label": "Invite Redeemed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recipient_accepted",
+   "fieldtype": "Check",
+   "label": "Recipient Accepted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "recipient_accepted_at",
+   "fieldtype": "Datetime",
+   "label": "Recipient Accepted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "allow_source_migration",
+   "fieldtype": "Check",
+   "label": "Allow Source Migration",
+   "read_only": 1
+  },
+  {
+   "fieldname": "roles_json",
+   "fieldtype": "Long Text",
+   "label": "Roles Json",
+   "read_only": 1
+  },
+  {
+   "fieldname": "credential_sealed",
+   "fieldtype": "Long Text",
+   "label": "Credential Sealed",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "mfa_sealed",
+   "fieldtype": "Long Text",
+   "label": "Mfa Sealed",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "credential_verified",
+   "fieldtype": "Check",
+   "label": "Credential Verified",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notification_status",
+   "fieldtype": "Small Text",
+   "label": "Notification Status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "restore_personal_account",
+   "fieldtype": "Check",
+   "label": "Restore Personal Account",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "HBOS Account Handover Manager",
+   "read": 1
+  }
+ ],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "creation": "2026-09-30 00:00:00.000000",
+ "modified": "2026-09-30 00:00:00.000000",
+ "owner": "Administrator",
+ "modified_by": "Administrator"
+}

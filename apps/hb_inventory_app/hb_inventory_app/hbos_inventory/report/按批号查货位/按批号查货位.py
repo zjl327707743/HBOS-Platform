@@ -9,6 +9,8 @@
 
 import frappe
 
+from hb_inventory_app.hbos_inventory.warehouse_scope import resolve_scope
+
 
 def execute(filters=None):
 	filters = filters or {}
@@ -21,9 +23,19 @@ def execute(filters=None):
 	if filters.get("item_code"):
 		conditions.append("sbe.item_code = %(item_code)s")
 		values["item_code"] = filters["item_code"]
-	if filters.get("warehouse"):
-		conditions.append("sbe.warehouse = %(warehouse)s")
-		values["warehouse"] = filters["warehouse"]
+
+	# 货位范围先与**当前用户可见范围**求交：本报表用 raw SQL 查
+	# `Serial and Batch Entry`，而 raw SQL 不走 Frappe 权限过滤。
+	# 为空即「没有可见货位」，直接给空结果（拼 `in ()` 是无效 SQL）。
+	scope = resolve_scope(filters)
+	if not scope:
+		return _columns(), []
+
+	placeholders = ", ".join(f"%(wh_{i})s" for i in range(len(scope)))
+	conditions.append(f"sbe.warehouse in ({placeholders})")
+	for i, name in enumerate(scope):
+		values[f"wh_{i}"] = name
+
 	if filters.get("release_status"):
 		conditions.append("b.hbos_release_status = %(release_status)s")
 		values["release_status"] = filters["release_status"]

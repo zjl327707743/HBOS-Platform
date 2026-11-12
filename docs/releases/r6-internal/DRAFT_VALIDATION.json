@@ -1,0 +1,89 @@
+{
+  "at": "2026-11-02T14:58:13.011233+08:00",
+  "kind": "syntax-only; no runtime/build command executed",
+  "checks": [
+    {
+      "fence": 1,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "fence": 2,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "fence": 3,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "fence": 4,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "fence": 5,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "fence": 6,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "fence": 7,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "fence": 8,
+      "type": "Bash syntax",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "marker": "PY",
+      "type": "Python AST",
+      "ok": true
+    },
+    {
+      "marker": "PY",
+      "type": "Python AST",
+      "ok": true
+    },
+    {
+      "marker": "PY",
+      "type": "Python AST",
+      "ok": true
+    },
+    {
+      "marker": "PY",
+      "type": "Python AST",
+      "ok": true
+    },
+    {
+      "marker": "PY",
+      "type": "Python AST",
+      "ok": true
+    },
+    {
+      "marker": "PY_DESK_PREP",
+      "type": "Python AST",
+      "ok": true
+    },
+    {
+      "marker": "PY_DESK_VERIFY",
+      "type": "Python AST",
+      "ok": true
+    }
+  ]
+}

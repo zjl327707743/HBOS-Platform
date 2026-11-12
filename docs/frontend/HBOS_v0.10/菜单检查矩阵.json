@@ -1,0 +1,1418 @@
+[
+  {
+    "w": 390,
+    "r": "/hbos",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/work",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "work-app",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "待办应用",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/apps",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/profile",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "a-admin-outcome",
+        "visible": false
+      },
+      {
+        "enhanced": true,
+        "id": "a-profile-scenario",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/admin/people",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-group",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-department",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-status",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "员工分组",
+        "options": 3
+      },
+      {
+        "inBounds": true,
+        "label": "部门",
+        "options": 7
+      },
+      {
+        "inBounds": true,
+        "label": "账号状态",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/admin/departments",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-dept-group",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-dept-company",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "组织分组",
+        "options": 3
+      },
+      {
+        "inBounds": true,
+        "label": "公司",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/admin/roles",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-role-filter",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-role-history",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "启用状态",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/admin/audit",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-audit-type",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-audit-result",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "对象类型",
+        "options": 5
+      },
+      {
+        "inBounds": true,
+        "label": "结果",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/admin/access",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-access-group",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "员工分组",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/admin/unavailable",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/login",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-login-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 390,
+    "r": "/hbos/account-connect",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-connect-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 390,
+    "r": "/hbos/reset-password",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-reset-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 390,
+    "r": "/hbos/account-change",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-change-method",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "a-change-scenario",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "验证方式（演示）",
+        "options": 2
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/403",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/404",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/design-system",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "spec-select",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "选择状态",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 390,
+    "r": "/hbos/prototype-map",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/work",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "work-app",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "待办应用",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/apps",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/profile",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "a-admin-outcome",
+        "visible": false
+      },
+      {
+        "enhanced": true,
+        "id": "a-profile-scenario",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/admin/people",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-group",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-department",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-status",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "员工分组",
+        "options": 3
+      },
+      {
+        "inBounds": true,
+        "label": "部门",
+        "options": 7
+      },
+      {
+        "inBounds": true,
+        "label": "账号状态",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/admin/departments",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-dept-group",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-dept-company",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "组织分组",
+        "options": 3
+      },
+      {
+        "inBounds": true,
+        "label": "公司",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/admin/roles",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-role-filter",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-role-history",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "启用状态",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/admin/audit",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-audit-type",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-audit-result",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "对象类型",
+        "options": 5
+      },
+      {
+        "inBounds": true,
+        "label": "结果",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/admin/access",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-access-group",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "员工分组",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/admin/unavailable",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/login",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-login-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 768,
+    "r": "/hbos/account-connect",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-connect-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 768,
+    "r": "/hbos/reset-password",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-reset-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 768,
+    "r": "/hbos/account-change",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-change-method",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "a-change-scenario",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "验证方式（演示）",
+        "options": 2
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/403",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/404",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/design-system",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "spec-select",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "选择状态",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 768,
+    "r": "/hbos/prototype-map",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/work",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "work-app",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "待办应用",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/apps",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/profile",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "a-admin-outcome",
+        "visible": false
+      },
+      {
+        "enhanced": true,
+        "id": "a-profile-scenario",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/admin/people",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-group",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-department",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-people-status",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "员工分组",
+        "options": 3
+      },
+      {
+        "inBounds": true,
+        "label": "部门",
+        "options": 7
+      },
+      {
+        "inBounds": true,
+        "label": "账号状态",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/admin/departments",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-dept-group",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-dept-company",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "组织分组",
+        "options": 3
+      },
+      {
+        "inBounds": true,
+        "label": "公司",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/admin/roles",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-role-filter",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-role-history",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "启用状态",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/admin/audit",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-audit-type",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-audit-result",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "对象类型",
+        "options": 5
+      },
+      {
+        "inBounds": true,
+        "label": "结果",
+        "options": 4
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/admin/access",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "adm-access-group",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "员工分组",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/admin/unavailable",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/login",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-login-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/account-connect",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-connect-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/reset-password",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-reset-scenario",
+        "visible": false
+      }
+    ],
+    "menus": []
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/account-change",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "a-change-method",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "a-change-scenario",
+        "visible": false
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "验证方式（演示）",
+        "options": 2
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/403",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/404",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/design-system",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      },
+      {
+        "enhanced": true,
+        "id": "spec-select",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      },
+      {
+        "inBounds": true,
+        "label": "选择状态",
+        "options": 3
+      }
+    ]
+  },
+  {
+    "w": 1280,
+    "r": "/hbos/prototype-map",
+    "clipped": [],
+    "overflow": 0,
+    "selects": [
+      {
+        "enhanced": true,
+        "id": "prototype-scenario",
+        "visible": true
+      }
+    ],
+    "menus": [
+      {
+        "inBounds": true,
+        "label": "原型状态",
+        "options": 6
+      }
+    ]
+  }
+]

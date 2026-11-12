@@ -1,0 +1,103 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Publication",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "field:receipt_id",
+  "allow_rename": 0,
+  "index_web_pages_for_search": 0,
+  "track_changes": 0,
+  "field_order": [
+    "receipt_id",
+    "canonical_document_id",
+    "target_version",
+    "batch_sha256",
+    "operation",
+    "expected_current_version",
+    "source_hash",
+    "reason",
+    "approval_ref",
+    "outcome"
+  ],
+  "fields": [
+    {
+      "fieldname": "receipt_id",
+      "fieldtype": "Data",
+      "label": "Receipt Id",
+      "read_only": 1,
+      "unique": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "canonical_document_id",
+      "fieldtype": "Link",
+      "label": "Canonical Document Id",
+      "read_only": 1,
+      "options": "HBOS Knowledge Document"
+    },
+    {
+      "fieldname": "target_version",
+      "fieldtype": "Link",
+      "label": "Target Version",
+      "read_only": 1,
+      "options": "HBOS Knowledge Version"
+    },
+    {
+      "fieldname": "batch_sha256",
+      "fieldtype": "Data",
+      "label": "Batch Sha256",
+      "read_only": 1
+    },
+    {
+      "fieldname": "operation",
+      "fieldtype": "Select",
+      "label": "Operation",
+      "read_only": 1,
+      "options": "publish\nreplace\nrestore\nwithdraw"
+    },
+    {
+      "fieldname": "expected_current_version",
+      "fieldtype": "Data",
+      "label": "Expected Current Version",
+      "read_only": 1
+    },
+    {
+      "fieldname": "source_hash",
+      "fieldtype": "Data",
+      "label": "Source Hash",
+      "read_only": 1
+    },
+    {
+      "fieldname": "reason",
+      "fieldtype": "Small Text",
+      "label": "Reason",
+      "read_only": 1
+    },
+    {
+      "fieldname": "approval_ref",
+      "fieldtype": "Small Text",
+      "label": "Approval Ref",
+      "read_only": 1
+    },
+    {
+      "fieldname": "outcome",
+      "fieldtype": "Data",
+      "label": "Outcome",
+      "read_only": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "create": 1,
+      "write": 0,
+      "delete": 0,
+      "export": 0,
+      "print": 0,
+      "report": 0,
+      "share": 0,
+      "email": 0
+    }
+  ]
+}

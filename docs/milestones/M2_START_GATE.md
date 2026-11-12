@@ -1,12 +1,20 @@
 # M2-LIMS 启动门禁
 
+## 当前产品集成 — 2026-10-19
+
+#43 LIMS 已于 2026-10-19 03:28:29 UTC 正常 Squash Merge，与 #42 考勤、#46 生产、#39 仓储形成统一业务合并基线 `04e0bb033cb2e7156e407cf49a7b6966b0d2a022`；状态文档在其后维护。本批次唯一目标为 `feature/hbos-portal-product`，接续工作读取该分支最新远端 HEAD。来源、审查、单父与树见[项目状态](../PROJECT_STATUS.md)。
+
+[R10 精确组合](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39184807396) 与 [R11 实际产品回归](https://github.com/zjl327707743/HBOS-Platform/actions/runs/39195037712) 均为全部 10 jobs SUCCESS；R11 LIMS 原有 32 项、新增审计 9 项、独立 Todo 1 项共 42 项原生测试全部通过，Todo 属于 LIMS 且只有 1 项。R3 runner 47 组检查全部 PASS，无 FAIL／NOT_RUN，五个原生域双 migrate 与清理均成功。代码集成不代表现场 UAT、生产部署、IAM #52、质量放行撤回或旧 M2 子轮 Owner 验收已经完成。
+
+下列 M2-R8 等子轮与 Git 工作线保留当时事实，不能作为本批次新工作的目标分支；本次验证只使用远端源码和云端合成 Site。
+
 项目名称：新乡海滨智能运营管理平台。
 
 ## 文件定位
 
 本文件记录 M2-LIMS（实验室信息管理系统板块）启动前必须满足的门禁条件，以及 M2-LIMS 的范围边界与并行事项记录。
 
-## 当前子轮状态
+## 历史子轮状态 — 截至 2026-09-23
 
 - **M2-R8K（我的待办身份绑定）**：**REVIEWING / 真实 Frappe 冒烟已通过，待 Owner 测试路径验收**。完成基于当前 Frappe 会话身份的检验 / 稳定性 / 留样待办聚合，合并「指派给我」与「我的角色待处理」并明确区分；补齐 Administrator 特判、稳定性项目粒度跨模块收敛、六类深链定位、原业务 API 动作调度、个人摘要缓存和前台轮询控制；本轮修复 Frappe fullname / today API、子表父单权限读取、无读权限降级、业务覆盖误报、检验批准 SoD 字段、ISO 日期序列化，以及前端错误态 / 筛选 / 测试默认值问题。验证：前端单测 **7 passed**、LIMS 后端测试集 **395 passed**、生产构建通过、真实 Frappe 冒烟 **1 passed**。生产页面已可访问「我的待办」，其既有发布来源待核；本次仅同步侧栏资源。提交 `1c55a14` + `3fe0e05`（基线）。主文档：`docs/milestones/M2_R8K_我的待办身份绑定.md`。
 
@@ -59,7 +67,7 @@ M2-LIMS 是实验室信息管理系统板块（HB LIMS）的开发里程碑，�
 - M1-FIX-B3 / B4 / B5 为 REVIEWING，等待 Owner 和 Claude 审查；M1-FIX-C/D/E 为 PLANNED，未启动。
 - M1-FIX 未决事项不阻塞 M2-LIMS 开发；M2-LIMS 工作线在独立分支 `m2-lims` 上进行，与 M1-FIX 工作线互不干扰。
 
-## Git 工作线
+## 历史 Git 工作线
 
 - M2-LIMS MVP（R1~R5）工作在分支 `m2-lims`（自 `m1-fix-frontend-zh` 切出）上进行。
 - **M2-LIMS 延伸工作线（Owner 2026-09-07 拍板分支策略 b）**：自 R6C/R6D 起，M2 后续工作（R6 系列 Vue 复刻与生产部署、R7 留样板块及其子轮 R7A~D）在 `m2-r6` 分支上进行，作为 M2-LIMS 的延伸工作线，不回并 `m2-lims`；`m2-lims` 保留为 MVP 历史线。

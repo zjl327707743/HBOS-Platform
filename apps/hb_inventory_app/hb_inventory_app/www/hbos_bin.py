@@ -1,18 +1,20 @@
 """货位扫码页（Frappe 原生 Web 页）
 
-扫码目标：贴在货架上的二维码，内容为 `{site}/hbos-bin?bin={货位短码}`。
+扫码目标：贴在货架上的二维码，内容为 `{site}/hbos_bin?bin={货位短码}`。
 
 设计要点：
 - **二维码不存静态物料信息**，扫码后由本页实时查库，信息动态更新（Owner 在 M3-R0 已定）。
-- 展示**全部字段、不做脱敏**（Owner 在 M3-R5 确认）。
-- 需登录访问：未登录跳转登录页，登录后回到本页。这是 Frappe 的默认安全边界，
-  与"字段不脱敏"并不冲突——字段对**已登录的普通员工**全开放。
+- 展示**获授权仓库的全部字段、不做脱敏**（保留 Owner 在 M3-R5 确认的字段口径）。
+- 需登录访问：未登录跳转登录页，登录后回到本页。仓库范围沿用原生
+  Warehouse read / User Permission，与四张库存报表一致（R2）。
 
 数据源：`Serial and Batch Entry` 关联 `Serial and Batch Bundle`
 （v16 中 `Stock Ledger Entry.batch_no` 为空列不可用，详见 M3-R1 主文档第四节）。
 """
 
 import frappe
+
+from hb_inventory_app.hbos_inventory.warehouse_scope import resolve_scope
 
 BIN_QUERY_KEY = "bin"
 
@@ -112,19 +114,12 @@ def _resolve_warehouse(code):
 		return [], None, False
 
 	warehouse_doc = frappe.get_doc("Warehouse", doc.name)
+	warehouse_doc.check_permission("read")
 
-	if not doc.is_group:
-		return [doc.name], warehouse_doc, False
-
-	# 分组节点：取子树内的叶子货位
-	leaves = frappe.db.sql(
-		"""select name from `tabWarehouse`
-		   where lft >= %(lft)s and rgt <= %(rgt)s and is_group = 0
-		   order by lft""",
-		{"lft": doc.lft, "rgt": doc.rgt},
-		pluck=True,
-	)
-	return leaves, warehouse_doc, True
+	# 上面的查询只解析二维码对应的 Warehouse。库存 SQL 执行前必须先完成
+	# 与报表相同的权限过滤；分组可读不代表其全部子仓都可读。
+	leaves = resolve_scope({"warehouse": doc.name, "include_children": bool(doc.is_group)})
+	return leaves, warehouse_doc, bool(doc.is_group)
 
 
 def _fetch_rows(warehouses):

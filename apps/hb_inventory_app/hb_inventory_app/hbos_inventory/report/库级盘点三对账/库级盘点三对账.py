@@ -20,24 +20,7 @@
 
 import frappe
 
-
-def _warehouse_scope(filters):
-	warehouse = filters.get("warehouse")
-	if not warehouse:
-		return None, {}
-	if not filters.get("include_children"):
-		return [warehouse], {}
-
-	descendants = frappe.db.sql(
-		"""
-		select name from `tabWarehouse`
-		where lft >= (select lft from `tabWarehouse` where name = %(root)s)
-		  and rgt <= (select rgt from `tabWarehouse` where name = %(root)s)
-		""",
-		{"root": warehouse},
-		pluck=True,
-	)
-	return descendants, {}
+from hb_inventory_app.hbos_inventory.warehouse_scope import resolve_scope
 
 
 def execute(filters=None):
@@ -45,12 +28,17 @@ def execute(filters=None):
 	conditions = []
 	values = {}
 
-	scope, _ = _warehouse_scope(filters)
-	if scope is not None:
-		placeholders = ", ".join(f"%(wh_{i})s" for i in range(len(scope)))
-		conditions.append(f"sbe.warehouse in ({placeholders})")
-		for i, name in enumerate(scope):
-			values[f"wh_{i}"] = name
+	# 与「货位明细表」同一份修法：货位范围先与**当前用户可见范围**求交，
+	# 因为本报表同样用 raw SQL 查 `Serial and Batch Entry`，不过权限过滤。
+	# 为空即「没有可见货位」，直接返回空结果；继续拼 `in ()` 会得到无效 SQL，报表 500。
+	scope = resolve_scope(filters)
+	if not scope:
+		return _columns(), []
+
+	placeholders = ", ".join(f"%(wh_{i})s" for i in range(len(scope)))
+	conditions.append(f"sbe.warehouse in ({placeholders})")
+	for i, name in enumerate(scope):
+		values[f"wh_{i}"] = name
 
 	if filters.get("item_code"):
 		conditions.append("sbe.item_code = %(item_code)s")

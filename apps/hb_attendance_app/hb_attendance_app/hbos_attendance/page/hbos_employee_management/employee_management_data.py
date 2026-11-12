@@ -24,9 +24,14 @@ def get_employees(department=None, search=None, fixed_shift=None):
 
     filters: department(可选), search(姓名/工号模糊), fixed_shift(可选)
     """
-    _require_hr_read()
+    from hb_attendance_app.hbos_attendance.portal.role_scope import require, check_fields
+    bound=require('attendance.department.records.read',department=department)
+    if bound:check_fields({'department','search','fixed_shift'})
     conditions = ["e.status = 'Active'"]
     values = {}
+    if bound:
+        from hb_attendance_app.hbos_attendance.portal.role_scope import employee_predicate
+        conditions.append(employee_predicate(bound,'e',values))
     if department:
         conditions.append("e.department = %(department)s")
         values["department"] = department
@@ -46,13 +51,22 @@ def get_employees(department=None, search=None, fixed_shift=None):
         WHERE {where}
         ORDER BY e.department, e.employee_number
     """, values, as_dict=True)
+    if bound:
+        for row in rows:row['department']=row.department or ''
     return rows
 
 
 @frappe.whitelist()
 def get_departments():
     """部门列表(带人数), 用于筛选下拉。"""
-    _require_hr_read()
+    from hb_attendance_app.hbos_attendance.portal.role_scope import require, check_fields
+    bound=require('attendance.department.records.read')
+    if bound:
+        check_fields(set())
+        from hb_attendance_app.hbos_attendance.portal.role_scope import employee_predicate
+        params={}
+        predicate=employee_predicate(bound,'tabEmployee',params)
+        return frappe.db.sql(f"select department,count(*) cnt from `tabEmployee` where status='Active' and {predicate} group by department order by department",params,as_dict=True)
     rows = frappe.db.sql("""
         SELECT department, COUNT(*) cnt FROM tabEmployee
         WHERE status = 'Active' GROUP BY department ORDER BY department
@@ -113,3 +127,23 @@ def bulk_bind_shift(employees, shift_rule):
             bound += 1
     return {"bound": bound, "shift_rule": code or None}
 
+
+
+@frappe.whitelist(methods=['GET'])
+def get_department_attendance(employee, department, date_from=None, date_to=None, page=1, page_size=20, **kwargs):
+    from hbos_portal.iam import policy
+    from hb_attendance_app.hbos_attendance.portal import role_scope, personal
+    def run():
+        role_scope.check_fields({'employee','department','date_from','date_to','page','page_size'})
+        bound=role_scope.require('attendance.department.records.read',department=department)
+        start,end,current,size=personal.bounded_request(date_from,date_to,page,page_size)
+        if bound:
+            people=role_scope.historical_employees(bound,start,end)
+            if employee not in {row.name for row in people}:
+                frappe.throw('该员工不属于此历史期间的负责部门。',frappe.PermissionError)
+        elif frappe.db.get_value('Employee',employee,'department',for_update=True)!=department:
+            frappe.throw('员工与部门不一致。',frappe.PermissionError)
+        data=personal._record_page(employee,start,end,current,size,locking_sources=bool(bound))
+        role_scope.require('attendance.department.records.read',department=department)
+        return {'ok':True,'data':data}
+    return policy.current_read(run)

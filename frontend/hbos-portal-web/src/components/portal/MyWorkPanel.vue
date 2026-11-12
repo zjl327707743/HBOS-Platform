@@ -1,0 +1,72 @@
+<template>
+  <section class="section-panel glass-surface">
+    <div class="section-head">
+      <div>
+        <h2>我的工作</h2>
+        <p>今天、超期与高优先级事项优先</p>
+      </div>
+      <a-button type="link" @click="$router.push('/hbos/work')">查看全部 <RightOutlined /></a-button>
+    </div>
+
+    <PortalState v-if="error" kind="error" title="部分待办暂时无法加载" :description="error" retry @retry="$emit('retry')" />
+    <div v-if="loading" class="task-list" aria-label="正在读取待办">
+      <div v-for="index in 3" :key="index" class="task-row"><a-skeleton active :paragraph="false" /></div>
+    </div>
+    <div v-else-if="tasks.length" class="task-list">
+      <button
+        v-for="task in tasks"
+        :key="task.taskId"
+        type="button"
+        class="task-row task-row-button"
+        @click="selectedTask = task"
+      >
+        <div class="task-icon" :class="task.appId"><component :is="appIcon(task.appId)" /></div>
+        <div class="task-copy">
+          <strong>{{ task.title }}</strong>
+          <span>{{ chineseApp(task.appId) }} · {{ task.description }}</span>
+        </div>
+        <div class="task-meta">
+          <b :class="{ overdue: task.overdue }">{{ task.dueLabel }}</b>
+          <a-tag :color="tagColor(task)">{{ tagText(task) }}</a-tag>
+        </div>
+      </button>
+    </div>
+    <div v-else-if="!error" class="home-panel-empty">
+      <CheckCircleOutlined />
+      <strong>当前没有需要你处理的事项</strong>
+      <span>当前可用应用的待办会汇总到这里。</span>
+    </div>
+    <PortalTaskDialog :task="selectedTask" @close="selectedTask = null" />
+  </section>
+</template>
+
+<script setup lang="ts">
+import PortalState from './PortalState.vue'
+import { appIcon, chineseApp } from '@/components/appIcons'
+import { ref } from 'vue'
+import PortalTaskDialog from './PortalTaskDialog.vue'
+import {
+  CheckCircleOutlined,
+  RightOutlined,
+} from '@ant-design/icons-vue'
+import type { UnifiedTaskDTO } from '@/contracts/portal'
+
+withDefaults(defineProps<{ tasks: UnifiedTaskDTO[]; loading?: boolean; error?: string | null }>(), {
+  loading: false,
+})
+defineEmits<{ retry: [] }>()
+const selectedTask = ref<UnifiedTaskDTO | null>(null)
+
+function tagText(task: UnifiedTaskDTO) {
+  if (task.overdue) return '已超期'
+  if (task.priority === 'high') return '高优先级'
+  if (task.priority === 'critical') return '紧急'
+  return '待处理'
+}
+
+function tagColor(task: UnifiedTaskDTO) {
+  if (task.overdue || task.priority === 'critical') return 'error'
+  if (task.priority === 'high') return 'warning'
+  return 'processing'
+}
+</script>

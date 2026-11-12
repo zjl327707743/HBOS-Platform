@@ -2,13 +2,18 @@
 """M2-R4 COA 与报表契约测试：COA DocType / Print Format / 4 个报表 / COA 服务方法（源码即文档）。"""
 
 import json
+import sys
 import unittest
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(APP_ROOT))
+
 HBOS_LIMS = APP_ROOT / "hb_lims_app" / "hbos_lims"
 SERVICE = HBOS_LIMS / "lims_service.py"
 REPORT_DIR = HBOS_LIMS / "report"
+
+from hb_lims_app.hbos_lims import workflow_contract as wf
 
 
 class TestCOAServiceContract(unittest.TestCase):
@@ -42,6 +47,51 @@ class TestCOAServiceContract(unittest.TestCase):
         self.assertIn("仅检验完成且无 OOS 锁定的样品可生成 COA", source)
         self.assertIn("没有已批准且非 OOS 的检验结果", source)
         self.assertIn("已存在未发布 COA", source)
+
+
+def _function_body(source, name):
+    """取某个顶层函数的源码片段（从 `def name(` 到下一个顶层 `def`）。"""
+    start = source.index(f"def {name}(")
+    end = source.find("\ndef ", start + 10)
+    return source[start:end if end != -1 else len(source)]
+
+
+class TestCoaActionMatrixContract(unittest.TestCase):
+    """L10-P0-11：COA 拥有独立动作，不再借用 Sample / Result 的动作名。
+
+    角色口径对齐稳定性「报告」：复核可由 Reviewer，**发布归 QA 线**（且不得自审自发）。
+    """
+
+    def test_coa_actions_registered_with_qa_publish_line(self):
+        """COA 独立动作的角色集（与 main 集成后采用平台既有口径：普通链不含 System Manager）。
+
+        口径依据：技术管理员不是质量批准人 —— 平台集成时已把 `ROLE_SYSTEM` 从检验流程
+        各动作中移除，稳定性的报告/变更类动作仍保留；COA 属普通链，故不支持 System Manager。
+        """
+        self.assertEqual(wf.ACTION_ROLES["create_coa"],
+                         {wf.ROLE_REVIEWER, wf.ROLE_MANAGER})
+        self.assertEqual(wf.ACTION_ROLES["review_coa"],
+                         {wf.ROLE_REVIEWER, wf.ROLE_LIMS_QA, wf.ROLE_MANAGER})
+        self.assertEqual(wf.ACTION_ROLES["publish_coa"],
+                         {wf.ROLE_LIMS_QA, wf.ROLE_MANAGER})
+        # 报告书是对外质量凭证：发布归 QA 线，Reviewer / Analyst 均不得发布
+        for role in (wf.ROLE_REVIEWER, wf.ROLE_ANALYST):
+            self.assertNotIn(role, wf.ACTION_ROLES["publish_coa"])
+
+    def test_service_does_not_borrow_foreign_actions(self):
+        source = SERVICE.read_text(encoding="utf-8")
+        for fn, borrowed in (("create_coa", "release_sample"),
+                             ("review_coa", "review_result"),
+                             ("publish_coa", "review_result")):
+            body = _function_body(source, fn)
+            self.assertNotIn(f'_check_action("{borrowed}")', body,
+                             f"{fn} 仍在借用 {borrowed}")
+            self.assertIn(f'_check_action("{fn}")', body, f"{fn} 未用独立动作校验")
+
+    def test_publish_requires_separation_of_duties(self):
+        body = _function_body(SERVICE.read_text(encoding="utf-8"), "publish_coa")
+        self.assertIn("发布人不得为审核人", body)
+        self.assertIn("_sod_reject(", body, "SoD 拦截须复用 P0-01 的留痕助手")
 
 
 class TestCOADoctypeContracts(unittest.TestCase):
@@ -78,12 +128,42 @@ class TestCOADoctypeContracts(unittest.TestCase):
         self.assertEqual(fields["pdf_attachment"]["fieldtype"], "Attach")
         self.assertEqual(fields["pdf_attachment"]["read_only"], 1)
 
+    def test_coa_content_fingerprint_field(self):
+        """内容指纹：只读，由服务在发布时固化（L10-P0-05）。"""
+        fields = self._fields(self.coa)
+        self.assertEqual(fields["content_fingerprint"]["fieldtype"], "Data")
+        self.assertEqual(fields["content_fingerprint"]["read_only"], 1)
+
     def test_coa_validate_locks_snapshot(self):
+        """审核/发布后整份快照冻结：头字段 + 备注 + items 每行内容与行序（L10-P0-05）。"""
         source = (HBOS_LIMS / "doctype" / "hbos_coa" / "hbos_coa.py").read_text(encoding="utf-8")
         self.assertIn("def _validate_locked_after_review(self):", source)
         self.assertIn("COA_LOCKED_FIELDS", source)
-        self.assertIn("item_signature(self.items)", source)
-        self.assertIn("检验项目明细内容不可增删改", source)
+        self.assertIn("guard_content_frozen(self, COA_LOCKED_FIELDS, COA_FROZEN_STATUSES", source)
+        self.assertIn("ordered_table_fields=COA_ITEM_TABLE_FIELDS", source)
+        # 受控状态须同时覆盖审核与发布两个终态
+        self.assertIn("COA_FROZEN_STATUSES = (COA_STATUS_REVIEWED, COA_STATUS_PUBLISHED)", source)
+
+    def test_coa_snapshot_covers_all_business_content(self):
+        """冻结集覆盖报告头与备注；判据为保存前状态（原实现判当前状态，状态回退即可绕过）。"""
+        source = (HBOS_LIMS / "doctype" / "hbos_coa" / "hbos_coa.py").read_text(encoding="utf-8")
+        self.assertIn('"sample", "batch_no", "material_code", "material_name"', source)
+        self.assertIn('"spec_version", "remarks"', source)
+        self.assertIn('status_field="report_status"', source)
+
+    def test_coa_content_fingerprint_recorded_and_verifiable(self):
+        """发布时固化内容指纹，并提供只读校验接口（L10-P0-05）。"""
+        source = SERVICE.read_text(encoding="utf-8")
+        self.assertIn("def _coa_content_fingerprint(coa):", source)
+        self.assertIn("hashlib.sha256", source)
+        self.assertIn("coa.content_fingerprint = _coa_content_fingerprint(coa)", source)
+        self.assertIn("def verify_coa_content(coa_name):", source)
+        idx = source.index("def verify_coa_content")
+        self.assertIn("@frappe.whitelist()", source[max(0, idx - 200):idx])
+        self.assertIn('_check_action("verify_coa_content")', source)
+        # 指纹字段属系统字段：只能由服务写入，不随内容一起被改
+        self.assertIn("content_fingerprint", wf.HBOS_COA_SYSTEM_FIELDS)
+        self.assertIn("verify_coa_content", wf.ACTION_ROLES)
 
 
 class TestPrintFormatContract(unittest.TestCase):

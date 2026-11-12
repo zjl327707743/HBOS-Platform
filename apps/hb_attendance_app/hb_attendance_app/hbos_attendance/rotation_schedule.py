@@ -45,7 +45,7 @@ def _assignment_for_day(versions, target_date):
     return chosen
 
 
-def generate_rotation_schedule(end_date):
+def generate_rotation_schedule(end_date, *, employees=None, start_date=None):
     """Generate ROTATION-owned schedules without overwriting human decisions.
 
     Rules:
@@ -59,7 +59,8 @@ def generate_rotation_schedule(end_date):
     if isinstance(end_date, str):
         end_date = date.fromisoformat(end_date[:10])
 
-    rows = get_rotation_assignments(end_date)
+    rows = get_rotation_assignments(end_date, employees=employees) if employees is not None else get_rotation_assignments(end_date)
+    lower_bound = date.fromisoformat(str(start_date)[:10]) if start_date else None
     by_employee = _versions_by_employee(rows)
 
     created = 0
@@ -70,6 +71,8 @@ def generate_rotation_schedule(end_date):
             for r in versions
             if r.effective_from
         )
+        if lower_bound:
+            start_date = max(start_date, lower_bound)
         if start_date > end_date:
             continue
 
@@ -94,6 +97,7 @@ def generate_rotation_schedule(end_date):
                 {"employee": employee, "schedule_date": d.isoformat()},
                 ["name", "source_type"],
                 as_dict=True,
+                for_update=employees is not None,
             )
             if existing:
                 protected += 1

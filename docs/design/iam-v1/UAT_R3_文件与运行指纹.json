@@ -1,0 +1,225 @@
+{
+  "source_sha": "35e241ff0b4fabe7fb2aaa0586ff7908d671f70e",
+  "design_sha": "90185653853d508a52cbfb9bb49b6e0cf0bc5a5d",
+  "site": "iam-r4-b.localhost",
+  "compose_project": "hbos-iam-r4-b-20261015",
+  "ports": {
+    "portal": 5198,
+    "backend": 8198,
+    "socket": 9198,
+    "design": 5199
+  },
+  "frontend_mode": "Vite DEV source; dist built separately, not production deployment",
+  "frontend_source_count": 107,
+  "served_modules": [
+    {
+      "path": "src/components/layout/PortalLayout.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "dd4078679adfe21613697d3c14487745b0d2f43eb4d539c1c3d243fe690f2e28",
+      "served_module_sha256": "d5f093ddf1e6b2be0496bcbcc41f679e3ca3292e14a595eada3ce2b61741c983",
+      "etag": "W/\"4969-WgP1ghBOlBgFX3q2XYhbHbpP9mQ\""
+    },
+    {
+      "path": "src/components/layout/GlobalHeader.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "90259b4f23501c0da82c530cd50ba38af7ad60d00bfd6c0550be6bb533003556",
+      "served_module_sha256": "ad3c997a6c5c6bf92c0677170ccc992b9255c1eeaabfe7067d7cdeb2c4c1012a",
+      "etag": "W/\"389c-zWB3jn40TntZdJ8ryzyESwyqi+8\""
+    },
+    {
+      "path": "src/services/frappeClient.ts",
+      "raw_source_matches_head": true,
+      "source_sha256": "80343e1ee0ad4ac82d698502c0f58d5013e6235e8f570ee03e2d079475e4268d",
+      "served_module_sha256": "2d2d3b48c83c4b5594c0b1ab36b1da86a31b2ed054e399ef37a2bd5590aeeb68",
+      "etag": "W/\"2e11-T4p7U9TvNd+ZzFVUSKENcUn4g/4\""
+    },
+    {
+      "path": "src/services/portalSessionCoordinator.ts",
+      "raw_source_matches_head": true,
+      "source_sha256": "9241362af87f8aed52b03f5c7ccd06fe672a72cc9b1664f4979954289f004da6",
+      "served_module_sha256": "29557140fa92bbf0ded5567b9974d911d379e3e5ba6ed2451777ebcae78a778a",
+      "etag": "W/\"21da-YpGQhTJwNneI5YZVYG3oBF1VZok\""
+    },
+    {
+      "path": "src/views/admin/PeopleAdminView.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "56ba9a254b17f1255955289d9c029c174caa0e70b1fe7f6f5f538e3067189dc5",
+      "served_module_sha256": "0300947c46372dbde9d4b7ca713d6044c77ac53c3e1c3d08ed2f8415f447f56e",
+      "etag": "W/\"643e-2IvGTEVuGiIUzmIPafbQOjz8NcE\""
+    },
+    {
+      "path": "src/components/iam/EmployeeDrawer.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "e9971a06335259305630d5e6f34196171f2194ea33edd439b888b3de48f93032",
+      "served_module_sha256": "d0616c483b4a57c411b9f94c9c3498ec4298b8be3514af7866696318ba2b4460",
+      "etag": "W/\"a80c-VNb/ovGsP+Z3MRjazp2630RowBo\""
+    },
+    {
+      "path": "src/components/iam/WorkSettings.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "1a9f12a82b346fb08e94fdfa7f62b61a33367ee566633e59d86f28cc5705fdc9",
+      "served_module_sha256": "45bef4d1288bf5fd18457d5a1609c3186a8aed218c3f3ba1bbd6800cd5ac1711",
+      "etag": "W/\"79be-JMtiUCGkX10N1NP+WQgruyTyOBM\""
+    },
+    {
+      "path": "src/components/iam/AppAccessAction.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "cda47d45b0d760164ec3f3612336498144e2430d91ac9199c76fd54ef5f6ad43",
+      "served_module_sha256": "0540a584dbabb15d89376d9cf4456b50fddd62ccf7580559e57f28eeb150ba43",
+      "etag": "W/\"2664-NEon2vKMHxmn/W5rjaKKuIAuQ8k\""
+    },
+    {
+      "path": "src/views/admin/DepartmentsAdminView.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "3d49c39715f1750c881a75b7bcad9fa46a12c15e48e71950cb74d43fe99b8f3e",
+      "served_module_sha256": "95777f7b7baa16c6cfff6c068527c861eed36462a2ae64ad2e8199c440fe11f5",
+      "etag": "W/\"6718-9uld4aaYeBhg03fE2JCX1s5Qrqw\""
+    },
+    {
+      "path": "src/views/admin/AdminWorkspaceView.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "e9c60d3cb763c0702f858b456981bd7b6dfa3b0a7ca7630af05be80d337c6ace",
+      "served_module_sha256": "440e979a878055ced813476afdb2eac95663ffb2ac2d350feb12e2cd67e015cc",
+      "etag": "W/\"11ff-bhiG4+GHQ4OIpfpC7SnyaxUJGLg\""
+    },
+    {
+      "path": "src/views/attendance/MyAttendanceView.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "4d18c1b4d70fae7afb9fd5004f964baa65098a6b7fa1b1052c732fa214cfe0f4",
+      "served_module_sha256": "7c8ccd767aa2403142db3d2faf73dc502b54754240099aa180db382af839fff1",
+      "etag": "W/\"3fb7-2wavjea/jezRv27CrA7GFNaVKnU\""
+    },
+    {
+      "path": "src/views/FeishuLoginView.vue",
+      "raw_source_matches_head": true,
+      "source_sha256": "a24cc092405972ab648bb6fdfe18abd966f4db9c677e6e618df84f25157e2a94",
+      "served_module_sha256": "21c7195333b6a2e8770ecc1611ad774fb405305445d83a44386cc8cc3f9f3f7f",
+      "etag": "W/\"4c13-rYgwy6gTurKMem5GZ08I0KUkJWA\""
+    }
+  ],
+  "backend_source_count": 202,
+  "frappe_version": "16.26.3",
+  "backend_started_at": "2026-10-19T02:58:14.638193847Z",
+  "all_runtime_source_matches": true,
+  "dist": [
+    {
+      "path": "assets/AccessAdminView-DtnVAJ9q.css",
+      "sha256": "60fb044e13ccf91259c88325bbae74ec1017ca5c6a07a82742d4c13b5b5683ce"
+    },
+    {
+      "path": "assets/AccessAdminView-hPe9bk5c.js",
+      "sha256": "8a9dfb45b513932a871b2c9675b440ec36fcba25ffade6c28317b41a451a0464"
+    },
+    {
+      "path": "assets/AccountChangeView-DbWh1iCq.js",
+      "sha256": "5ccb821397cb64bc973ccea216a703942db594cb1d401d2909ef0c407bab4765"
+    },
+    {
+      "path": "assets/AccountChangeView-Nfq-aQVL.css",
+      "sha256": "b424b76ad28ced7cb25b2b55c7f088718180dc4caf2a77ebc0e4b274ef967602"
+    },
+    {
+      "path": "assets/AccountConnectView-HZJYEZyR.js",
+      "sha256": "7a431433716908ac42354eee345843283d19913aac17350b24e50cd3f6c9f73a"
+    },
+    {
+      "path": "assets/AccountLayout.vue_vue_type_script_setup_true_lang-B6ahwQTQ.js",
+      "sha256": "de26aca3a5dfca72cf3b16fdfef655c357ae3e44dfc63c4ec8836090e29764c4"
+    },
+    {
+      "path": "assets/AdminAccessUnavailableView-DEkqm0kP.js",
+      "sha256": "61362aca79c47d2838c3959dc4bcf63680c63e984eb839722f9334ad3d6ab9b2"
+    },
+    {
+      "path": "assets/AdminWorkspaceView-BdYDLlwj.css",
+      "sha256": "5c95452326f43f9a3fd30620f8914513b47364de6a8281b714d1c392bf183bfe"
+    },
+    {
+      "path": "assets/AdminWorkspaceView-D11M9DNL.js",
+      "sha256": "a6082d57a3adbb4136a1468352a5f91f272626aa3e8654649c5a3b9c8db2dbfe"
+    },
+    {
+      "path": "assets/AuditAdminView-B1QlpJJz.js",
+      "sha256": "3359850ba8b64b8063855ff9e8b1dd466af845f9667425f6666eab7efcde15da"
+    },
+    {
+      "path": "assets/DepartmentsAdminView-CBxGxrS2.css",
+      "sha256": "f0945ee32e3d023fd4cb1792cf38f2562a1f44a1a8b7b1738b2ad0101375f1e0"
+    },
+    {
+      "path": "assets/DepartmentsAdminView-Cde_tIUy.js",
+      "sha256": "ad8d7434c0c866e30ea13a86679c14bde353deec9041dc7ff31113ed9069e119"
+    },
+    {
+      "path": "assets/EmployeeDrawer-BFOCjvOr.js",
+      "sha256": "5f694018f5fe999696d9b9a609e85a4938afa60a27896e6fa06b07f160c17475"
+    },
+    {
+      "path": "assets/EmployeeDrawer-CoLSds5O.css",
+      "sha256": "12cab9a71b06856d077fa2e7418668364a21cb8dfea5e69d98cffd331b3c72a8"
+    },
+    {
+      "path": "assets/FeishuLoginView-C0suyl7x.js",
+      "sha256": "25ffc5fcd6fd309bf753cbd9c85d0e2668dd554d93ad420c3d5b90d967cc5666"
+    },
+    {
+      "path": "assets/KnowledgeTwinLayout-BPHLbNW-.js",
+      "sha256": "cc5eac71349ae292429585c29056b208fb5e6c94d62372b74f1f7bf91b6763bf"
+    },
+    {
+      "path": "assets/KnowledgeTwinLayout-XnX5e2si.css",
+      "sha256": "b55b4c2baf6b868f1f45df2d6a5147405a5e8514a1dec0876556f924df9d8167"
+    },
+    {
+      "path": "assets/KnowledgeView-B6XBhbNh.css",
+      "sha256": "1753b22ad9327ffe885c466f0dfefbf7875f7d5ac8a9d0b3f4632a2ca21624f1"
+    },
+    {
+      "path": "assets/KnowledgeView-VwFo7gnS.js",
+      "sha256": "5a85a13dd7947b08aff6cb6960c77081382eb76f67d3263e1c08d68cb19e470a"
+    },
+    {
+      "path": "assets/MyAttendanceView-Cmx7L-uZ.css",
+      "sha256": "05351bb9386147976d2b3d23bc43f502fb33109e7547667d7dcd1fd3d5d5e2af"
+    },
+    {
+      "path": "assets/MyAttendanceView-DYsdm_xL.js",
+      "sha256": "e6241857a5e16d2006a4f9223bb78870e562aaf49a32284f42fa7d376dc7dac0"
+    },
+    {
+      "path": "assets/PeopleAdminView-BD4bQdiL.js",
+      "sha256": "76f6ec8eaf585d4ef8038f25a3808f96e6a2ea7916f3b5dae25620447778b0c0"
+    },
+    {
+      "path": "assets/ResetPasswordView-CxDcykt0.js",
+      "sha256": "a20e2d963c3401f6c36e3edaf6d182500dd63508260a95a106bd4cccf26588c8"
+    },
+    {
+      "path": "assets/TwinView-DQKTbqps.css",
+      "sha256": "676ae1ab2a34769846bc42efdd30f28dd267f2221eb5e99f9246cc568bd105c6"
+    },
+    {
+      "path": "assets/TwinView-DhsHWIDz.js",
+      "sha256": "fc7fb229f236041d3ceff20091b9505d1e67a838ebcf0e2dee84644ada696abe"
+    },
+    {
+      "path": "assets/index-BCnTRcg6.css",
+      "sha256": "6aeb237c94c067f827faad5c4c3d5a05989f2665ba1ab61457a6a4d7beafc37b"
+    },
+    {
+      "path": "assets/index-D6vxYdPG.js",
+      "sha256": "91496e4b5afd657dfffc22b512d142af72da99f43e1f161d123feb4aedafbe37"
+    },
+    {
+      "path": "index.html",
+      "sha256": "d412359701dbb2b59bf862434d956fc366e9f96efc6c1cb9c5fedb032debf7c1"
+    }
+  ],
+  "design_html_sha256": "e3c7883df1df4eeec7ae8441256f47986482906c016732edc0095a7c4b95ca7c",
+  "input_manifest_files": 9,
+  "input_manifest_all_match": true,
+  "old_design_sha": "4d4ed6223e53d84d9efbca287d8e0e25c1ce3e8a",
+  "frozen_PR_base": "39366822a5b5d6041b9eea94da4f77255ad26761",
+  "fetched_product_tip": "366b3ad5ceba7fbc417bb3cd8ba93b12e57a7857",
+  "base_changed_by_this_task": false
+}

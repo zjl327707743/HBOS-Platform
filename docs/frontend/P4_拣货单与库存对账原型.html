@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HBOS 仓储库存 · 拣货单 / 库存对账 原型</title>
+<style>
+/* ============================================================
+   HBOS 仓储库存 — 拣货单（Pick List） / 库存对账（Stock Reconciliation）
+   Authority:
+   - EA-4 Design System v1 / EA-5.4 §23 Form / §44 Typography Contract v2.0
+   - 业务 Authority：ERPNext 两个 DocType；无 HBOS 自定义字段
+   规格见 docs/frontend/P4_拣货单与库存对账视觉方案与页面结构.md
+   ============================================================ */
+:root{
+  --bg-canvas:#F4F8FD; --bg-surface:#FFFFFF; --bg-subtle:#F7F9FC; --bg-inset:#F1F4F9;
+  --text-primary:#17253C; --text-secondary:#425675; --text-muted:#72829D;
+  --border-default:rgba(65,91,138,.10); --border-strong:rgba(65,91,138,.18);
+  --radius-card:16px; --radius-control:12px; --radius-pill:999px;
+  --shadow-card:0 1px 2px rgba(47,72,117,.06), 0 8px 24px rgba(47,72,117,.05);
+  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px; --sp8:32px;
+  --f-page:30px; --lh-page:38px; --f-section:20px; --lh-section:28px;
+  --f-card:16px; --lh-card:24px; --f-body:14px; --lh-body:22px;
+  --f-meta:12px; --lh-meta:20px;
+  --w-reg:400; --w-med:500; --w-str:600;
+  --domain:#F5A821; --domain-strong:#8F5E0C; --domain-soft:rgba(245,168,33,.14);
+  --st-success:#1BBC86; --st-warning:#F4A523; --st-critical:#ED5A72; --st-info:#4B9CFF;
+  --font-sans:Inter,"SF Pro Display","PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --font-mono:"SFMono-Regular","JetBrains Mono",Consolas,ui-monospace,monospace;
+  --ease:cubic-bezier(.2,0,0,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg-canvas);color:var(--text-primary);font-family:var(--font-sans);font-size:var(--f-body);line-height:var(--lh-body)}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:2px solid rgba(73,168,255,.9);outline-offset:2px}
+
+.hb-header{position:sticky;top:0;z-index:20;height:72px;display:flex;align-items:center;gap:var(--sp4);padding:0 var(--sp6);background:rgba(255,255,255,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--border-default)}
+.hb-mark{width:40px;height:40px;flex:0 0 40px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:var(--w-str);font-size:var(--f-card);line-height:1;background:linear-gradient(135deg,#6C63FF,#49A9FF 65%,#4BD8BF)}
+.hb-brand{display:flex;flex-direction:column;gap:var(--sp1);min-width:0}
+.hb-brand b{font-size:var(--f-card);line-height:var(--lh-card);font-weight:var(--w-str)}
+.hb-brand span{font-size:var(--f-meta);line-height:var(--lh-meta);color:var(--text-muted)}
+.hb-gap{flex:1}
+.hb-icon{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;border:0;border-radius:var(--radius-control);background:transparent;color:var(--text-secondary)}
+.hb-icon:hover{background:var(--bg-inset)}
+.hb-icon svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9}
+.hb-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:50%;display:grid;place-items:center;font-size:var(--f-body);font-weight:var(--w-str);background:rgba(114,130,157,.16);color:var(--text-secondary)}
+
+.hb-shell{display:grid;grid-template-columns:240px minmax(0,1fr);gap:var(--sp6);padding:var(--sp6);max-width:1600px;margin:0 auto;align-items:start}
+.hb-side{position:sticky;top:88px;display:flex;flex-direction:column;gap:var(--sp2);padding:var(--sp4) var(--sp3);max-height:calc(100vh - 112px);border-radius:var(--radius-card);background:var(--bg-surface);border:1px solid var(--border-default);box-shadow:var(--shadow-card)}
+.hb-back{display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);margin-bottom:var(--sp2);border-radius:var(--radius-control);text-decoration:none;color:var(--text-muted);font-size:var(--f-meta);line-height:var(--lh-meta)}
+.hb-back:hover{background:var(--bg-inset);color:var(--text-secondary)}
+.hb-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.hb-navlabel{padding:var(--sp3) var(--sp3) var(--sp1);font-size:var(--f-meta);color:var(--text-muted)}
+.hb-navitem{display:flex;align-items:center;gap:var(--sp3);width:100%;min-height:42px;padding:0 var(--sp3);border:0;border-radius:var(--radius-control);background:transparent;text-align:left;text-decoration:none;color:var(--text-secondary);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-navitem:hover{background:var(--bg-inset);color:var(--text-primary)}
+.hb-navitem[aria-current="page"]{background:var(--domain-soft);color:var(--domain-strong);font-weight:var(--w-med)}
+.hb-navitem svg{width:18px;height:18px;flex:0 0 18px;stroke:currentColor;fill:none;stroke-width:1.8}
+.hb-navitem span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-navdiv{height:1px;margin:var(--sp3) var(--sp3);background:var(--border-default)}
+
+.hb-main{min-width:0;display:flex;flex-direction:column;gap:var(--sp5)}
+.hb-pagehead{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp4);flex-wrap:wrap}
+.hb-pagehead h1{margin:0 0 var(--sp1);font-size:var(--f-page);line-height:var(--lh-page);font-weight:var(--w-str);letter-spacing:-.4px}
+.hb-pagehead p{margin:0;color:var(--text-secondary);font-size:var(--f-body)}
+.hb-docno{font-family:var(--font-mono);font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-str);color:var(--text-secondary)}
+
+.hb-pane{border-radius:var(--radius-card);background:var(--bg-surface);border:1px solid var(--border-default);box-shadow:var(--shadow-card);overflow:hidden}
+.hb-pane-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp3);padding:var(--sp4) var(--sp5);border-bottom:1px solid var(--border-default);flex-wrap:wrap}
+.hb-pane-head h2{margin:0;font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-str)}
+.hb-pane-head .hb-sub{color:var(--text-muted);font-size:var(--f-meta);line-height:var(--lh-meta)}
+.hb-pane-body{padding:var(--sp5)}
+
+.hb-field{display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4)}
+.hb-field:last-child{margin-bottom:0}
+.hb-field > span{color:var(--text-secondary);font-size:var(--f-meta);line-height:var(--lh-meta);font-weight:var(--w-med)}
+.hb-field > span em{color:var(--st-critical);font-style:normal;font-weight:var(--w-reg)}
+.hb-input,.hb-select{height:42px;padding:0 var(--sp3);border:1px solid var(--border-strong);border-radius:var(--radius-control);background:#fff;color:var(--text-primary);font-size:var(--f-body);font-family:inherit}
+.hb-head-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp4)}
+.hb-note{margin:var(--sp2) 0 0;color:var(--text-muted);font-size:var(--f-meta);line-height:1.6}
+
+.hb-items-wrap{overflow-x:auto}
+.hb-items{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--f-meta);min-width:820px}
+.hb-items th{text-align:left;padding:var(--sp3);background:var(--bg-subtle);border-bottom:1px solid var(--border-default);color:var(--text-muted);font-weight:var(--w-med);white-space:nowrap}
+.hb-items th.num,.hb-items td.num{text-align:right}
+.hb-items td{padding:var(--sp2) var(--sp3);border-bottom:1px solid var(--border-default);vertical-align:middle;color:var(--text-secondary)}
+.hb-items tbody tr:last-child td{border-bottom:0}
+.hb-items input,.hb-items select{height:38px;padding:0 var(--sp2);border:1px solid var(--border-strong);border-radius:8px;background:#fff;font-size:var(--f-meta);font-family:inherit;width:100%}
+.hb-items input[readonly]{background:var(--bg-inset);color:var(--text-muted)}
+.hb-mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.hb-row-del{width:34px;height:34px;display:grid;place-items:center;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text-muted)}
+.hb-row-del:hover{background:rgba(237,90,114,.1);color:var(--st-critical);border-color:rgba(237,90,114,.3)}
+.hb-row-del svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.hb-addrow{margin-top:var(--sp3);min-height:38px;padding:0 var(--sp4);display:inline-flex;align-items:center;gap:var(--sp2);border:1px dashed var(--border-strong);border-radius:var(--radius-control);background:transparent;color:var(--text-secondary);font-size:var(--f-meta)}
+.hb-addrow:hover{border-color:var(--st-info);color:var(--st-info)}
+.hb-addrow svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* 差异：非 0 才强调（对账页的核心信息） */
+.hb-diff{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:var(--w-med)}
+.hb-diff.plus{color:#0c6b4c}
+.hb-diff.minus{color:var(--st-critical)}
+.hb-diff.zero{color:var(--text-muted);font-weight:var(--w-reg)}
+
+.hb-verdict{display:flex;gap:var(--sp3);align-items:flex-start;padding:var(--sp3) var(--sp4);border-radius:var(--radius-card);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-verdict svg{width:20px;height:20px;flex:0 0 20px;margin-top:1px;stroke:currentColor;fill:none;stroke-width:1.9}
+.hb-verdict.info{background:rgba(75,156,255,.08);border:1px solid rgba(75,156,255,.26);color:#2b5fa8}
+.hb-verdict.warn{background:rgba(244,165,35,.10);border:1px solid rgba(244,165,35,.30);color:#8a5a0b}
+.hb-verdict.err{background:rgba(237,90,114,.08);border:1px solid rgba(237,90,114,.26);color:#96334a}
+.hb-verdict.ok{background:rgba(27,188,134,.08);border:1px solid rgba(27,188,134,.26);color:#0c6b4c}
+
+.hb-tag{display:inline-flex;align-items:center;gap:4px;padding:0 var(--sp2);border-radius:var(--radius-pill);border:1px solid transparent;font-size:var(--f-meta);line-height:18px;font-weight:var(--w-med);white-space:nowrap}
+.hb-tag.draft{background:rgba(244,165,35,.12);border-color:rgba(244,165,35,.34);color:#8a5a0b}
+.hb-tag.submitted{background:rgba(27,188,134,.10);border-color:rgba(27,188,134,.28);color:#0c6b4c}
+.hb-tag.pending{background:rgba(75,156,255,.10);border-color:rgba(75,156,255,.30);color:#2b5fa8}
+
+.hb-state{display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp2);padding:var(--sp8) var(--sp5)}
+.hb-state > svg{width:30px;height:30px;margin-bottom:var(--sp2);stroke:currentColor;fill:none;stroke-width:1.7}
+.hb-state h3{margin:0;font-size:var(--f-section);line-height:var(--lh-section);font-weight:var(--w-str)}
+.hb-state p{margin:0;max-width:60ch;color:var(--text-secondary);font-size:var(--f-body);line-height:var(--lh-body)}
+.hb-state .hb-actions{display:flex;gap:var(--sp3);margin-top:var(--sp4);flex-wrap:wrap}
+.hb-state.ok > svg{color:var(--st-success)}
+.hb-state.err > svg{color:var(--st-critical)}
+
+.hb-actionbar{position:sticky;bottom:0;z-index:10;display:flex;align-items:center;gap:var(--sp3);flex-wrap:wrap;padding:var(--sp4) var(--sp5);border-radius:var(--radius-card) var(--radius-card) 0 0;background:#fff;border:1px solid var(--border-default);border-bottom:0;box-shadow:0 -8px 24px rgba(47,72,117,.07)}
+.hb-actionbar .hb-note2{flex:1;min-width:220px;color:var(--text-muted);font-size:var(--f-meta);line-height:var(--lh-meta)}
+.hb-btn{min-height:42px;padding:0 var(--sp5);display:inline-flex;align-items:center;gap:var(--sp2);border:1px solid var(--border-strong);border-radius:var(--radius-control);background:#fff;color:var(--text-primary);font-size:var(--f-body);white-space:nowrap}
+.hb-btn:hover{background:var(--bg-subtle)}
+.hb-btn.primary{background:#8F5E0C;border-color:#8F5E0C;color:#fff;font-weight:var(--w-med)}
+.hb-btn.primary:hover{background:#7A5009}
+.hb-btn.primary:disabled{background:var(--bg-inset);border-color:var(--border-default);color:var(--text-muted);cursor:not-allowed}
+.hb-btn.big{min-height:46px;padding:0 var(--sp6)}
+.hb-btn svg{width:18px;height:18px;flex:0 0 18px;stroke:currentColor;fill:none;stroke-width:1.9}
+
+[hidden]{display:none !important}
+
+.hb-scaffold{position:sticky;top:72px;z-index:19;display:flex;align-items:center;gap:var(--sp3);flex-wrap:wrap;padding:var(--sp3) var(--sp6);background:#17253C;color:#E7EEF9;font-size:var(--f-meta);line-height:var(--lh-meta)}
+.hb-scaffold b{font-weight:var(--w-str)}
+.hb-scaffold button{min-height:32px;padding:0 var(--sp3);border:1px solid rgba(255,255,255,.28);border-radius:var(--radius-pill);background:transparent;color:#E7EEF9;font-size:var(--f-meta)}
+.hb-scaffold button[aria-pressed="true"]{background:#fff;color:#17253C;border-color:#fff;font-weight:var(--w-med)}
+.hb-scaffold .hb-sep{width:1px;height:20px;background:rgba(255,255,255,.22)}
+
+@media (max-width:1199px){
+  .hb-shell{grid-template-columns:76px minmax(0,1fr);gap:var(--sp4)}
+  .hb-side{padding:var(--sp3) var(--sp2);align-items:center}
+  .hb-back span,.hb-navlabel,.hb-navitem span{display:none}
+  .hb-back,.hb-navitem{justify-content:center;padding:0}
+  .hb-head-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:767px){
+  .hb-header{height:64px;padding:0 var(--sp4);gap:var(--sp2)}
+  .hb-brand span{display:none}
+  .hb-scaffold{position:static}
+  .hb-shell{grid-template-columns:minmax(0,1fr);padding:var(--sp4)}
+  .hb-side{display:none}
+  .hb-pagehead{flex-direction:column;gap:var(--sp2)}
+  .hb-pane-body{padding:var(--sp4)}
+  .hb-head-fields{grid-template-columns:minmax(0,1fr)}
+  .hb-actionbar{padding:var(--sp3) var(--sp4)}
+  .hb-actionbar > .hb-btn{flex:1;justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:1ms !important;animation-iteration-count:1 !important;transition-duration:1ms !important}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+<symbol id="i-apps" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7v.3"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l3.5-3.5"/><path d="M20.5 16a9 9 0 1 0-17 0"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.2"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4M9 12h6M9 16h4"/></symbol>
+<symbol id="i-in" viewBox="0 0 24 24"><path d="M12 3v10"/><path d="M8.5 9.5L12 13l3.5-3.5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M12 13V3"/><path d="M8.5 6.5L12 3l3.5 3.5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+<symbol id="i-batch" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4-8 4z"/><path d="M4 8v8l8 4 8-4V8"/><path d="M12 12v8"/></symbol>
+<symbol id="i-shelf" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="15" width="18" height="5" rx="1"/><path d="M6 9v6M18 9v6"/></symbol>
+<symbol id="i-item" viewBox="0 0 24 24"><path d="M20 7.5L12 3 4 7.5v9L12 21l8-4.5z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+<symbol id="i-report" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 15l3-4 3 3 4-6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></symbol>
+<symbol id="i-off" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l8.5 15H3.5z"/><path d="M12 10v4M12 17h.01"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5z"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+</defs></svg>
+
+<!-- ============ 原型脚手架 ============ -->
+<div class="hb-scaffold">
+  <b>原型脚手架</b>
+  <span>页面：</span>
+  <button type="button" data-page="pick" aria-pressed="true">拣货单</button>
+  <button type="button" data-page="reconcile" aria-pressed="false">库存对账</button>
+  <span class="hb-sep"></span>
+  <span>状态：</span>
+  <span id="hb-states" style="display:flex;gap:8px;flex-wrap:wrap"></span>
+  <span style="flex:1 1 100%;color:#9FB0CC">单号、数量、账面数均为<b>示意值</b>，接入时以真实数据为准。</span>
+</div>
+
+<header class="hb-header">
+  <div class="hb-mark" aria-hidden="true">H</div>
+  <div class="hb-brand"><b>HBOS</b><span>仓储库存工作台</span></div>
+  <div class="hb-gap"></div>
+  <button class="hb-icon" type="button" aria-label="应用切换器"><svg aria-hidden="true"><use href="#i-apps"/></svg></button>
+  <button class="hb-icon" type="button" aria-label="通知"><svg aria-hidden="true"><use href="#i-bell"/></svg></button>
+  <button class="hb-icon" type="button" aria-label="帮助"><svg aria-hidden="true"><use href="#i-help"/></svg></button>
+  <div class="hb-avatar" aria-label="当前用户 Administrator">AD</div>
+</header>
+
+<div class="hb-shell">
+  <aside class="hb-side">
+    <a class="hb-back" href="#" aria-label="返回 HBOS 工作台">
+      <svg aria-hidden="true"><use href="#i-back"/></svg><span>返回 HBOS 工作台</span>
+    </a>
+    <div class="hb-navlabel">工作台</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-gauge"/></svg><span>库存概览</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">入库作业</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-camera"/></svg><span>入库拍照识别</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-doc"/></svg><span>库存单据</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-in"/></svg><span>采购入库</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-check"/></svg><span>待检批次</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">出库作业</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-out"/></svg><span>销售出库</span></a>
+    <a class="hb-navitem" href="#" data-nav="pick"><svg aria-hidden="true"><use href="#i-list"/></svg><span>拣货单</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">盘点与对账</div>
+    <a class="hb-navitem" href="#" data-nav="reconcile"><svg aria-hidden="true"><use href="#i-report"/></svg><span>库存对账</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-report"/></svg><span>库级盘点三对账</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">主数据</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-batch"/></svg><span>批次</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-shelf"/></svg><span>货位</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-item"/></svg><span>物料</span></a>
+    <div class="hb-navdiv"></div>
+    <div class="hb-navlabel">报表</div>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-report"/></svg><span>库存余额</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-clock"/></svg><span>效期预警</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-search"/></svg><span>按批号查货位</span></a>
+    <a class="hb-navitem" href="#"><svg aria-hidden="true"><use href="#i-report"/></svg><span>货位明细表</span></a>
+  </aside>
+
+  <!-- ==================== 页面 A：拣货单 ==================== -->
+  <main class="hb-main" data-page-view="pick">
+    <div class="hb-pagehead">
+      <div>
+        <h1>拣货单</h1>
+        <p>填要拣的物料与数量，系统告诉你它们在哪些货位。</p>
+      </div>
+      <div style="text-align:right" data-view="ready loading">
+        <div class="hb-docno">STO-PICK-2026-00001</div>
+        <div style="margin-top:var(--sp2)" data-view="ready"><span class="hb-tag draft">草稿 · 未拣</span></div>
+      </div>
+    </div>
+
+    <div class="hb-pane" data-view="loading">
+      <div class="hb-pane-body">
+        <div style="height:20px;width:38%;border-radius:12px;background:rgba(114,130,157,.11);margin-bottom:16px"></div>
+        <div style="height:42px;border-radius:12px;background:rgba(114,130,157,.11);margin-bottom:12px"></div>
+        <div style="height:42px;border-radius:12px;background:rgba(114,130,157,.11)"></div>
+      </div>
+    </div>
+
+    <div class="hb-pane" data-view="done" hidden>
+      <div class="hb-state ok">
+        <svg aria-hidden="true"><use href="#i-check"/></svg>
+        <h3>已提交拣货单</h3>
+        <p>接下来按货位把货拣出来，再开一张移库单把货挪到目标货位。拣货单本身不动库存。</p>
+        <div class="hb-actions">
+          <a class="hb-btn primary" href="#">去建移库单</a>
+          <a class="hb-btn" href="#">再建一张</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="hb-pane" data-view="error" hidden>
+      <div class="hb-state err">
+        <svg aria-hidden="true"><use href="#i-off"/></svg>
+        <h3>取不到这张拣货单</h3>
+        <p>单号可能已被删除，或链接不对。</p>
+        <div class="hb-actions"><a class="hb-btn primary" href="#">回到拣货单列表</a></div>
+      </div>
+    </div>
+
+    <div data-view="ready">
+      <!-- ① 说明：拣货单不动库存 -->
+      <div class="hb-verdict info" style="margin-bottom:20px">
+        <svg aria-hidden="true"><use href="#i-info"/></svg>
+        <div>
+          <b>拣货单本身不动账面。</b>它的作用是<i>告诉你货在哪、拣哪些</i>；
+          真正把货挪走要再开一张<b>移库单</b>（或用库存单据里的领用出库）。
+          这也是 ERPNext 的分工，本页不改。
+        </div>
+      </div>
+
+      <!-- ② 表头 -->
+      <div class="hb-pane" style="margin-bottom:20px">
+        <div class="hb-pane-head">
+          <h2>① 范围</h2>
+          <span class="hb-sub">从哪个仓库范围内找货</span>
+        </div>
+        <div class="hb-pane-body">
+          <div class="hb-head-fields">
+            <label class="hb-field">
+              <span>拣货用途</span>
+              <select class="hb-select"><option>内部移货</option></select>
+            </label>
+            <label class="hb-field">
+              <span>查找范围</span>
+              <select class="hb-select">
+                <option>3904 六车间中间库</option>
+                <option>全部货位</option>
+              </select>
+            </label>
+            <label class="hb-field">
+              <span>过账日期</span>
+              <input class="hb-input" type="date" value="2026-09-25" />
+            </label>
+          </div>
+          <p class="hb-note">
+            范围选一个<b>库位</b>时，定位会在它的全部下级货位里找——与报表的「含下级」同一套口径。
+          </p>
+        </div>
+      </div>
+
+      <!-- ③ 明细 -->
+      <div class="hb-pane" style="margin-bottom:20px">
+        <div class="hb-pane-head">
+          <h2>② 要拣什么</h2>
+          <span class="hb-sub">先只填物料与数量，货位待定位</span>
+        </div>
+        <div class="hb-pane-body" style="padding:0 0 20px">
+          <div class="hb-items-wrap">
+            <table class="hb-items">
+              <thead>
+                <tr>
+                  <th style="min-width:150px">物料代码</th>
+                  <th class="num" style="width:110px">要拣数量</th>
+                  <th style="width:70px">单位</th>
+                  <th style="min-width:170px">货位</th>
+                  <th class="num" style="width:110px">该货位库存</th>
+                  <th style="width:44px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input class="hb-mono" value="13000901" /></td>
+                  <td><input class="hb-mono" type="number" value="50.000" /></td>
+                  <td><span class="hb-mono" style="color:var(--text-muted)">Kg</span></td>
+                  <td><select><option>16-03-206（原料库）</option><option>16-03-207（原料库）</option></select></td>
+                  <td class="num"><span class="hb-mono">3.000</span></td>
+                  <td><button class="hb-row-del" type="button" aria-label="删除本行"><svg aria-hidden="true"><use href="#i-x"/></svg></button></td>
+                </tr>
+                <tr>
+                  <td><input class="hb-mono" value="13000894" /></td>
+                  <td><input class="hb-mono" type="number" value="6.000" /></td>
+                  <td><span class="hb-mono" style="color:var(--text-muted)">Kg</span></td>
+                  <td><select><option>16-03-212（原料库）</option></select></td>
+                  <td class="num"><span class="hb-mono">6.000</span></td>
+                  <td><button class="hb-row-del" type="button" aria-label="删除本行"><svg aria-hidden="true"><use href="#i-x"/></svg></button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="padding:0 20px">
+            <button class="hb-addrow" type="button"><svg aria-hidden="true"><use href="#i-plus"/></svg>添加一行</button>
+            <button class="hb-btn" type="button" style="margin-left:var(--sp3);min-height:38px">
+              <svg aria-hidden="true"><use href="#i-target"/></svg>定位货位
+            </button>
+            <p class="hb-note">
+              「定位货位」调的是 ERPNext 自己的 <code style="font-family:var(--font-mono)">set_item_locations</code>——
+              它按库存、预留、批次规则去找，与本页无关的规则一条都不重写。
+              <b>但它要求单据先保存过</b>（它是单据方法，需要单号），所以新建时要先保存再定位。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ 定位结果 -->
+      <div class="hb-pane" style="margin-bottom:20px" data-view="ready">
+        <div class="hb-pane-head">
+          <h2>③ 定位结果</h2>
+          <span class="hb-sub">逐条列出每个货位能拣多少</span>
+        </div>
+        <div class="hb-pane-body">
+          <div class="hb-verdict warn" id="pick-short">
+            <svg aria-hidden="true"><use href="#i-alert"/></svg>
+            <div>
+              <b>有 1 项凑不够。</b>
+              硝酸钠要 100，全部货位加起来只有 3——差 97。
+              可以改小数量，或先在库存单据里入库。
+            </div>
+          </div>
+          <table class="hb-items" style="margin-top:var(--sp3)">
+            <thead>
+              <tr><th>物料</th><th>货位</th><th class="num">可拣</th><th class="num">要拣</th><th>够不够</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>13000901 硝酸钠</td><td class="hb-mono">16-03-206</td>
+                <td class="num hb-mono">3.000</td><td class="num hb-mono">100.000</td>
+                <td><span class="hb-tag pending">不足</span></td>
+              </tr>
+              <tr>
+                <td>13000894 美罗培南</td><td class="hb-mono">16-03-212</td>
+                <td class="num hb-mono">6.000</td><td class="num hb-mono">6.000</td>
+                <td><span class="hb-tag submitted">刚好</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="hb-actionbar">
+        <span class="hb-note2"><b>先保存，再定位。</b>提交后拣货单锁定，货位不再变。</span>
+        <button class="hb-btn" type="button"><svg aria-hidden="true"><use href="#i-trash"/></svg>放弃</button>
+        <button class="hb-btn" type="button">保存草稿</button>
+        <button class="hb-btn primary big" type="button" data-action="submit"><svg aria-hidden="true"><use href="#i-send"/></svg>提交</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== 页面 B：库存对账 ==================== -->
+  <main class="hb-main" data-page-view="reconcile" hidden>
+    <div class="hb-pagehead">
+      <div>
+        <h1>库存对账</h1>
+        <p>按实盘数调账。填之前先看到账面是多少——差异自己就出来了。</p>
+      </div>
+      <div style="text-align:right" data-view="ready loading">
+        <div class="hb-docno">MAT-RECO-2026-00002</div>
+        <div style="margin-top:var(--sp2)" data-view="ready"><span class="hb-tag draft">草稿 · 未调账</span></div>
+      </div>
+    </div>
+
+    <div class="hb-pane" data-view="loading">
+      <div class="hb-pane-body">
+        <div style="height:20px;width:38%;border-radius:12px;background:rgba(114,130,157,.11);margin-bottom:16px"></div>
+        <div style="height:42px;border-radius:12px;background:rgba(114,130,157,.11);margin-bottom:12px"></div>
+        <div style="height:42px;border-radius:12px;background:rgba(114,130,157,.11)"></div>
+      </div>
+    </div>
+
+    <div class="hb-pane" data-view="done" hidden>
+      <div class="hb-state ok">
+        <svg aria-hidden="true"><use href="#i-check"/></svg>
+        <h3>已调账</h3>
+        <p>账面已按实盘数调整，差异记入差异科目。可在库存余额里复核。</p>
+        <div class="hb-actions">
+          <a class="hb-btn primary" href="#">看库存余额</a>
+          <a class="hb-btn" href="#">再建一张</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="hb-pane" data-view="error" hidden>
+      <div class="hb-state err">
+        <svg aria-hidden="true"><use href="#i-off"/></svg>
+        <h3>取不到这张对账单</h3>
+        <p>单号可能已被删除，或链接不对。<b>草稿还没调账</b>——账面不受影响。</p>
+        <div class="hb-actions"><a class="hb-btn primary" href="#">回到对账列表</a></div>
+      </div>
+    </div>
+
+    <div data-view="ready">
+      <div class="hb-verdict info" style="margin-bottom:20px">
+        <svg aria-hidden="true"><use href="#i-info"/></svg>
+        <div>
+          <b>只填「实盘数」，差额由系统算。</b>
+          账面数在你填完物料与货位后自动查出来，差异列立刻跟着变；
+          提交后按差额调账，记入差异科目。
+        </div>
+      </div>
+
+      <div class="hb-pane" style="margin-bottom:20px">
+        <div class="hb-pane-head">
+          <h2>① 基本信息</h2>
+          <span class="hb-sub">过账日期决定用哪一天的账面做基准</span>
+        </div>
+        <div class="hb-pane-body">
+          <div class="hb-head-fields">
+            <label class="hb-field">
+              <span>对账用途</span>
+              <select class="hb-select"><option>库存对账</option></select>
+            </label>
+            <label class="hb-field">
+              <span>过账日期 <em>*</em></span>
+              <input class="hb-input" type="date" value="2026-09-25" />
+            </label>
+            <label class="hb-field">
+              <span>默认货位</span>
+              <select class="hb-select"><option>（不设）</option><option>16-03-206（原料库）</option></select>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="hb-pane" style="margin-bottom:20px">
+        <div class="hb-pane-head">
+          <h2>② 盘点明细</h2>
+          <span class="hb-sub">一行一个「物料 + 批次 + 货位」</span>
+        </div>
+        <div class="hb-pane-body" style="padding:0 0 20px">
+          <div class="hb-items-wrap">
+            <table class="hb-items">
+              <thead>
+                <tr>
+                  <th style="min-width:140px">物料代码</th>
+                  <th style="min-width:120px">批次</th>
+                  <th style="min-width:150px">货位</th>
+                  <th style="width:70px">单位</th>
+                  <th class="num" style="width:110px">账面数</th>
+                  <th class="num" style="width:110px">实盘数</th>
+                  <th class="num" style="width:120px">差异</th>
+                  <th style="width:44px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input class="hb-mono" value="13000894" /></td>
+                  <td><input class="hb-mono" value="B2507343" /></td>
+                  <td><select><option>16-03-212（原料库）</option></select></td>
+                  <td><span class="hb-mono" style="color:var(--text-muted)">Kg</span></td>
+                  <td class="num"><span class="hb-mono" style="color:var(--text-muted)">6.000</span></td>
+                  <td><input class="hb-mono" type="number" value="5.000" /></td>
+                  <td class="num"><span class="hb-diff minus">-1.000</span></td>
+                  <td><button class="hb-row-del" type="button" aria-label="删除本行"><svg aria-hidden="true"><use href="#i-x"/></svg></button></td>
+                </tr>
+                <tr>
+                  <td><input class="hb-mono" value="13000912" /></td>
+                  <td><input class="hb-mono" value="BMT2609001" /></td>
+                  <td><select><option>16-03-211（原料库）</option></select></td>
+                  <td><span class="hb-mono" style="color:var(--text-muted)">Kg</span></td>
+                  <td class="num"><span class="hb-mono" style="color:var(--text-muted)">160.000</span></td>
+                  <td><input class="hb-mono" type="number" value="160.000" /></td>
+                  <td class="num"><span class="hb-diff zero">0.000</span></td>
+                  <td><button class="hb-row-del" type="button" aria-label="删除本行"><svg aria-hidden="true"><use href="#i-x"/></svg></button></td>
+                </tr>
+                <tr>
+                  <td><input class="hb-mono" value="13000900" /></td>
+                  <td><input class="hb-mono" value="BMT2407502" /></td>
+                  <td><select><option>16-03-206（原料库）</option></select></td>
+                  <td><span class="hb-mono" style="color:var(--text-muted)">Kg</span></td>
+                  <td class="num"><span class="hb-mono" style="color:var(--text-muted)">3.000</span></td>
+                  <td><input class="hb-mono" type="number" value="8.000" /></td>
+                  <td class="num"><span class="hb-diff plus">+5.000</span></td>
+                  <td><button class="hb-row-del" type="button" aria-label="删除本行"><svg aria-hidden="true"><use href="#i-x"/></svg></button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="padding:0 20px">
+            <button class="hb-addrow" type="button"><svg aria-hidden="true"><use href="#i-plus"/></svg>添加一行</button>
+            <p class="hb-note">
+              账面数由 <code style="font-family:var(--font-mono)">get_stock_balance_for</code> 查出，与本页无关的估值规则不重写。
+              <b>批号管理的物料必须填批次</b>——不填服务端会拒（实测报「请为物料…添加序列号和批次包」）。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="hb-pane" style="margin-bottom:20px">
+        <div class="hb-pane-head">
+          <h2>③ 差异合计</h2>
+          <span class="hb-sub">提交前先看这里</span>
+        </div>
+        <div class="hb-pane-body">
+          <div class="hb-verdict warn">
+            <svg aria-hidden="true"><use href="#i-alert"/></svg>
+            <div>
+              <b>3 行里有 2 行对不上。</b>
+              合计：盘亏 1.000 Kg、盘盈 5.000 Kg。
+              <b>差异会记入差异科目</b>——这是财务口径的调整，不只是改个数字。提交前请确认实盘数没错。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hb-actionbar">
+        <span class="hb-note2"><b>提交后按差额调账。</b>提交前请核对实盘数。</span>
+        <button class="hb-btn" type="button"><svg aria-hidden="true"><use href="#i-trash"/></svg>放弃</button>
+        <button class="hb-btn" type="button">保存草稿</button>
+        <button class="hb-btn primary big" type="button" data-action="submit"><svg aria-hidden="true"><use href="#i-send"/></svg>提交</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// 原型脚手架。正式实现不得包含本段。
+(function () {
+  const PAGES = {
+    pick: { label: '拣货单', nav: 'pick', title: '拣货单' },
+    reconcile: { label: '库存对账', nav: 'reconcile', title: '库存对账' },
+  };
+  const STATES = { ready: '正常（草稿）', loading: '加载中', done: '已提交', error: '取不到' };
+
+  let curPage = 'pick';
+  let curState = 'ready';
+  const $ = (s) => document.querySelector(s);
+
+  function render() {
+    const P = PAGES[curPage];
+
+    document.querySelectorAll('[data-page-view]').forEach((n) => {
+      n.hidden = n.dataset.pageView !== curPage;
+    });
+    document.querySelectorAll('.hb-scaffold button[data-page]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.page === curPage));
+    });
+
+    document.querySelectorAll('[data-view]').forEach((n) => {
+      n.hidden = (n.dataset.view || '').split(/\s+/).indexOf(curState) === -1;
+    });
+
+    document.querySelectorAll('.hb-navitem[data-nav]').forEach((a) => {
+      if (a.dataset.nav === P.nav) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+    document.title = P.title + ' · HBOS';
+
+    const bar = $('#hb-states');
+    bar.innerHTML = '';
+    Object.entries(STATES).forEach(([key, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.dataset.state = key;
+      b.setAttribute('aria-pressed', String(key === curState));
+      b.addEventListener('click', () => { curState = key; render(); });
+      bar.appendChild(b);
+    });
+  }
+
+  document.querySelectorAll('.hb-scaffold button[data-page]').forEach((b) => {
+    b.addEventListener('click', () => { curPage = b.dataset.page; curState = 'ready'; render(); });
+  });
+  document.querySelectorAll('[data-action="submit"]').forEach((b) => {
+    b.addEventListener('click', () => { curState = 'done'; render(); });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

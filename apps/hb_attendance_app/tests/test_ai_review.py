@@ -116,3 +116,88 @@ class AiMonthlyReportContractTest(unittest.TestCase):
         self.assertIn("ai_review_preview", content)
         self.assertIn("enable_ai", content)
         self.assertIn("confirm", content)
+
+
+class WeekdayHintTest(unittest.TestCase):
+    """把星期写进 prompt —— 修「推理烧光输出预算、正文返回空」。
+
+    实测：缺勤类 prompt 下模型会自己演算「2026-10-07 是星期几」，1200 token
+    预算全被 reasoning 吃掉，content 为空 → 复核显示「无有效返回」。
+    日期与其星期是给定事实，不该让模型推。
+    """
+
+    def test_weekday_cn_formats_known_dates(self):
+        from hb_attendance_app.hbos_attendance.ai_review import weekday_cn
+
+        self.assertEqual("2026-10-07（星期三）", weekday_cn("2026-10-07"))
+        self.assertEqual("2026-10-05（星期一）", weekday_cn("2026-10-05"))
+        self.assertEqual("2026-10-10（星期六）", weekday_cn("2026-10-10"))
+
+    def test_weekday_cn_passes_through_bad_input(self):
+        from hb_attendance_app.hbos_attendance.ai_review import weekday_cn
+
+        # 非法输入不能抛错——它是 prompt 构造的一部分，不该让整批复核挂掉
+        self.assertEqual("bad", weekday_cn("bad"))
+        self.assertEqual("", weekday_cn(""))
+
+    def test_prompt_carries_weekday_for_each_date(self):
+        from hb_attendance_app.hbos_attendance.ai_review import build_prompt
+
+        prompt = build_prompt(
+            {"name": "测试", "num": "1", "dept": "技术部"},
+            [("2026-10-07", "缺勤")], "无打卡记录", "行政班",
+        )
+        self.assertIn("2026-10-07（星期三）|缺勤", prompt)
+        # 也要明确告知不必推算，压住推理
+        self.assertIn("无需推算", prompt)
+
+
+class ParseReviewDateNormalizationTest(unittest.TestCase):
+    """模型回抄日期有多种写法，都要能对上 anomaly_keys。
+
+    对不上就是**静默丢结果**（整批被当成「不在待复核集里」），比报错更难查。
+    """
+
+    def setUp(self):
+        from hb_attendance_app.hbos_attendance.ai_review import parse_review
+
+        self.parse = parse_review
+        self.keys = ["2026-10-05", "2026-10-07"]
+
+    def test_accepts_plain_date(self):
+        got = self.parse("2026-10-07|缺勤|属实|无打卡", self.keys)
+        self.assertEqual("属实：无打卡", got["2026-10-07"])
+
+    def test_accepts_date_with_cn_parens(self):
+        # prompt 里给的就是这个形态，模型多半原样回抄
+        got = self.parse("2026-10-07（星期三）|缺勤|非异常|周末", self.keys)
+        self.assertEqual("非异常：周末", got["2026-10-07"])
+
+    def test_accepts_date_with_ascii_parens(self):
+        got = self.parse("2026-10-07(周三)|缺勤|存疑|不确定", self.keys)
+        self.assertEqual("存疑：不确定", got["2026-10-07"])
+
+    def test_accepts_month_day_only(self):
+        got = self.parse("10-07|缺勤|属实|无打卡", self.keys)
+        self.assertEqual("属实：无打卡", got["2026-10-07"])
+
+    def test_unknown_date_still_dropped(self):
+        got = self.parse("2026-10-09（星期五）|缺勤|属实|无打卡", self.keys)
+        self.assertEqual({}, got)
+
+
+class MaxTokensBudgetTest(unittest.TestCase):
+    """输出预算必须给推理留余量（原为 1200，推理吃满导致正文为空）。"""
+
+    def test_budget_is_generous_enough_for_reasoning(self):
+        from hb_attendance_app.hbos_attendance.ai_review import AI_MAX_TOKENS
+
+        self.assertGreater(AI_MAX_TOKENS, 1200)
+
+    def test_call_llm_uses_the_constant(self):
+        import pathlib
+
+        src = (pathlib.Path(__file__).resolve().parent.parent
+               / "hb_attendance_app" / "hbos_attendance" / "ai_review.py").read_text(encoding="utf-8")
+        self.assertIn('"max_tokens": AI_MAX_TOKENS', src)
+        self.assertNotIn('"max_tokens": 1200', src)

@@ -92,7 +92,7 @@
           <div class="coa-sig-item"><div>QA 审核</div><div class="mono">{{ currentCoa.qa_reviewer || '—' }}</div></div>
           <div class="coa-sig-item"><div>批准发布</div><div class="mono">{{ currentCoa.published_by || '—' }}</div></div>
         </div>
-        <div class="coa-foot">本报告仅对来样负责。电子签名与审计追踪由 HBOS LIMS 系统保障。</div>
+        <div class="coa-foot">本报告仅对来样负责。系统操作签署与审计追踪由 HBOS LIMS 记录。</div>
       </div>
       <div class="modal-footer">
         <a-button @click="showPreview = false">关闭</a-button>

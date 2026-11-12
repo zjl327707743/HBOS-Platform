@@ -1,0 +1,78 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Import Batch",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "field:batch_id",
+  "fields": [
+    {
+      "fieldname": "batch_id",
+      "fieldtype": "Data",
+      "label": "Batch Id",
+      "reqd": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "label",
+      "fieldtype": "Data",
+      "label": "Label"
+    },
+    {
+      "fieldname": "department_key",
+      "fieldtype": "Data",
+      "label": "Department Key"
+    },
+    {
+      "fieldname": "creator_user",
+      "fieldtype": "Link",
+      "label": "Creator User",
+      "options": "User"
+    },
+    {
+      "fieldname": "frozen_json",
+      "fieldtype": "Long Text",
+      "label": "Frozen Json"
+    },
+    {
+      "fieldname": "state_json",
+      "fieldtype": "Long Text",
+      "label": "State Json"
+    },
+    {
+      "fieldname": "quality_json",
+      "fieldtype": "Long Text",
+      "label": "Quality Json"
+    },
+    {
+      "fieldname": "job_json",
+      "fieldtype": "Long Text",
+      "label": "Job Json"
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Data",
+      "label": "Status"
+    },
+    {
+      "fieldname": "last_error",
+      "fieldtype": "Data",
+      "label": "Last Error"
+    }
+  ],
+  "field_order": [
+    "batch_id",
+    "label",
+    "department_key",
+    "creator_user",
+    "frozen_json",
+    "state_json",
+    "quality_json",
+    "job_json",
+    "status",
+    "last_error"
+  ],
+  "permissions": [],
+  "allow_rename": 0,
+  "track_changes": 0,
+  "index_web_pages_for_search": 0
+}

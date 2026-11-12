@@ -59,7 +59,6 @@ frappe.pages["hbos-photo-intake"].on_page_load = function (wrapper) {
 						照片仅在内网处理，不出内网。
 					</p>
 				</div>
-				<button class="btn btn-default" data-route="Workspaces/仓库工作台">返回仓库工作台</button>
 			</div>
 
 			<div class="hbos-pi-status" data-region="status"></div>

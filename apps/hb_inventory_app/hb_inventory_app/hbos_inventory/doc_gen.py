@@ -87,7 +87,10 @@ def _render(doctype: str, name: str, print_format: str, options: dict) -> bytes:
     用 `frappe.get_print(as_pdf=False)` 先取 HTML，是为了能插入覆盖 CSS——
     直接 `as_pdf=True` 拿不到注入前的 HTML。
     """
-    html = frappe.get_print(doctype, name, print_format=print_format, as_pdf=False)
+    from hb_inventory_app.hbos_inventory.card_permissions import _automatic_print_permission
+
+    with _automatic_print_permission(doctype, name, print_format):
+        html = frappe.get_print(doctype, name, print_format=print_format, as_pdf=False)
     html = html.replace("</head>", _FRAME_OVERRIDE + "</head>", 1)
     return get_pdf(html, options=options)
 
@@ -228,10 +231,11 @@ def _fix_tounicode_cmap(text: str) -> str:
             return re.sub(_HEX4, fix_hex, line) if line.count("<") > 2 else _fix_pair(line)
 
         def _fix_pair(line):
-            parts = re.findall(_HEX4, line)
+            parts = list(re.finditer(_HEX4, line))
             if len(parts) != 2:
                 return line
-            return f"{parts[0]} {_kangxi_to_han(parts[1])}"
+            target = parts[1]
+            return line[:target.start()] + _kangxi_to_han(target.group(0)) + line[target.end():]
 
         body = "".join(one_line(l) for l in m.group(1).splitlines(keepends=True))
         return "beginbfchar" + body + "endbfchar"
@@ -245,10 +249,12 @@ def _fix_tounicode_cmap(text: str) -> str:
                     line,
                     flags=re.S,
                 )
-            parts = re.findall(_HEX4, line)
+            parts = list(re.finditer(_HEX4, line))
             if len(parts) != 3:
                 return line
-            return f"{parts[0]} {parts[1]} {_kangxi_to_han(parts[2])}"
+            # 保留原空白和换行，避免把下一条 range 粘到本行后丢失字符映射。
+            target = parts[2]
+            return line[:target.start()] + _kangxi_to_han(target.group(0)) + line[target.end():]
 
         body = "".join(one_line(l) for l in m.group(1).splitlines(keepends=True))
         return "beginbfrange" + body + "endbfrange"
@@ -282,6 +288,13 @@ def generate_for_batch(batch_name: str) -> dict:
 
     **不做异常兜底**——由调用方决定失败怎么处理（入库流程要吞掉，手动按钮要抛）。
     """
+    from hb_inventory_app.hbos_inventory.card_permissions import _is_automatic_batch, require_full_card_scope
+
+    # A readable / shared Batch is not permission to replace its attachments.
+    # Keep this before rendering, purging old files, or the privileged insert.
+    if not _is_automatic_batch(batch_name):
+        frappe.get_doc("Batch", batch_name).check_permission("write")
+    require_full_card_scope(batch_name=batch_name)
     batch_id = frappe.db.get_value("Batch", batch_name, "batch_id") or batch_name
     filename = FILENAME_TPL.format(batch_id=batch_id)
     card_fmt = _card_format_for(batch_name)
@@ -334,7 +347,10 @@ def generate_for_stock_entry(doc, method: str | None = None) -> None:
         done, failed = [], []
         for batch_name in batches:
             try:
-                done.append(generate_for_batch(batch_name))
+                from hb_inventory_app.hbos_inventory.card_permissions import _automatic_receipt_card
+
+                with _automatic_receipt_card(doc, batch_name):
+                    done.append(generate_for_batch(batch_name))
             except Exception as exc:  # noqa: BLE001
                 failed.append(batch_name)
                 frappe.log_error(
@@ -407,7 +423,7 @@ def _distinct_batches(doc) -> list[str]:
     return seen
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def regenerate_for_batch(batch_name: str) -> dict:
     """供「重新生成」按钮调用：白名单方法，带权限检查，失败要抛给界面看。
 

@@ -2,59 +2,79 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper, title: __("部门看板"), single_column: true,
 	});
+	// HBOS 共享样式层的挂载点：只影响本容器内部，Desk 框架不受影响。
+	$(wrapper).addClass("hbos-surface");
+
 
 	// 设计: 概览优先。KPI 一行 → 部门汇总表（可展开）→ 人员明细内联展开。
 	// 用发丝分隔线替代卡片阴影; 数字 tabular-nums 右对齐; 唯一的大数字是出勤率。
+	// 部门看板自己的样式。
+	//
+	// 色值与字号一律走 var(--h-*)（由 hbos_attendance.bundle.css 在 .hbos-surface
+	// 下定义），不再写死——写死就会与门户和其它页面漂移。
+	// 字号只取契约 v2.0 允许的 30 / 20 / 16 / 14 / 12（EA-5.4 §44）。
+	//
+	// 强度：本页与考勤仪表盘同级，按 V2 dashboard 处理——KPI 用卡片，
+	// 明细表保留密集行（V1 操作面），两者共存。
 	$("<style>").text(
-		".db-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;background:#fff;border-bottom:1px solid #e6e9ee;margin-bottom:18px;}" +
-		".db-toolbar label{font-size:13px;color:#4b5563;margin:0;font-weight:500;}" +
+		// ---- 工具条：玻璃面板，与门户顶部一致 ----
+		".db-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;background:var(--h-surface);border:1px solid var(--h-glass-border);border-radius:var(--h-radius-panel);box-shadow:var(--h-shadow);backdrop-filter:var(--h-glass-blur);-webkit-backdrop-filter:var(--h-glass-blur);margin-bottom:16px;}" +
+		".db-toolbar label{font-size:12px;line-height:20px;color:var(--h-text-2);margin:0;font-weight:500;}" +
 		".db-toolbar .db-ctl{display:inline-flex;align-items:center;gap:6px;}" +
-		".db-wrap{padding:0 18px 40px;}" +
+		// 内容区也是一块玻璃面板，表格浮在画布之上
+		".db-wrap{padding:20px 20px 28px;background:var(--h-surface);border:1px solid var(--h-glass-border);border-radius:var(--h-radius-panel);box-shadow:var(--h-shadow);backdrop-filter:var(--h-glass-blur);-webkit-backdrop-filter:var(--h-glass-blur);}" +
 		".db-num{font-variant-numeric:tabular-nums;font-feature-settings:'tnum';}" +
-		// KPI
-		".db-kpi{display:flex;align-items:flex-end;gap:34px;flex-wrap:wrap;padding:4px 2px 18px;border-bottom:1px solid #e6e9ee;}" +
-		".db-hero{line-height:1;}" +
-		".db-hero .v{font-size:38px;font-weight:650;color:#1c2126;letter-spacing:-0.02em;}" +
-		".db-hero .k{font-size:12px;color:#6b7684;margin-top:8px;}" +
-		".db-kpis{display:flex;gap:26px;flex-wrap:wrap;padding-bottom:3px;}" +
-		".db-kpi-i{min-width:64px;}" +
-		".db-kpi-i .v{font-size:19px;font-weight:600;color:#1c2126;}" +
-		".db-kpi-i .k{font-size:12px;color:#6b7684;margin-top:4px;}" +
-		".db-kpi-i.warn .v{color:#b26a00;}" +
-		".db-kpi-i.bad .v{color:#b3261e;}" +
-		// 分节标题
-		".db-sec{display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 8px;}" +
-		".db-sec h5{margin:0;font-size:14px;font-weight:600;color:#1c2126;}" +
-		".db-sec .hint{font-size:12px;color:#8b95a1;}" +
-		// 表格
-		".db-tbl{width:100%;border-collapse:collapse;font-size:13px;}" +
-		".db-tbl th{text-align:left;font-weight:500;font-size:12px;color:#6b7684;padding:8px 10px;border-bottom:1px solid #e6e9ee;white-space:nowrap;}" +
-		".db-tbl td{padding:9px 10px;border-bottom:1px solid #f0f2f5;color:#1c2126;vertical-align:middle;}" +
+
+		// ---- KPI：V2 玻璃卡（与门户 .glass-surface 同一做法）----
+		".db-kpi{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 16px;}" +
+		".db-hero,.db-kpi-i{flex:1;min-width:140px;background:var(--h-surface);border:1px solid var(--h-glass-border);border-radius:var(--h-radius-card);box-shadow:var(--h-shadow);backdrop-filter:var(--h-glass-blur);-webkit-backdrop-filter:var(--h-glass-blur);padding:20px 16px;text-align:center;transition:transform var(--h-motion) var(--h-ease),box-shadow var(--h-motion) var(--h-ease),background var(--h-motion) var(--h-ease);}" +
+		".db-hero:hover,.db-kpi-i:hover{transform:translateY(-5px);background:rgba(255,255,255,.91);box-shadow:var(--h-shadow-hover);}" +
+		// 出勤率是这组里唯一的主数字，用域色条强调；其余用同一条但更短更淡
+		".db-hero::before,.db-kpi-i::before{content:'';display:block;height:3px;width:32px;margin:0 auto 12px;border-radius:var(--h-radius-pill);background:var(--h-accent);}" +
+		".db-kpi-i::before{opacity:.45;}" +
+		".db-hero .v{font-size:30px;line-height:38px;font-weight:600;color:var(--h-text);letter-spacing:-0.01em;}" +
+		".db-hero .k{font-size:12px;line-height:20px;color:var(--h-muted);margin-top:4px;}" +
+		".db-kpis{display:contents;}" +
+		".db-kpi-i .v{font-size:30px;line-height:38px;font-weight:600;color:var(--h-text);}" +
+		".db-kpi-i .k{font-size:12px;line-height:20px;color:var(--h-muted);margin-top:4px;}" +
+		".db-kpi-i.warn .v{color:var(--h-warning);}" +
+		".db-kpi-i.bad .v{color:var(--h-critical);}" +
+
+		// ---- 分节标题 ----
+		".db-sec{display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 12px;}" +
+		".db-sec h5{margin:0;font-size:16px;line-height:24px;font-weight:600;color:var(--h-text);}" +
+		".db-sec .hint{font-size:12px;line-height:20px;color:var(--h-muted);}" +
+
+		// ---- 明细表（V1 操作面：密集行、表头吸顶）----
+		".db-tbl{width:100%;border-collapse:collapse;font-size:14px;line-height:22px;}" +
+		".db-tbl th{text-align:left;font-weight:500;font-size:12px;line-height:20px;color:var(--h-text-2);padding:10px 12px;border-bottom:1px solid var(--h-border-strong);white-space:nowrap;background:var(--h-subtle);position:sticky;top:0;z-index:1;}" +
+		".db-tbl td{padding:9px 12px;border-bottom:1px solid var(--h-border);color:var(--h-text);vertical-align:middle;}" +
 		".db-tbl th.r,.db-tbl td.r{text-align:right;}" +
-		".db-tbl tbody tr:hover td{background:#fafbfc;}" +
+		".db-tbl tbody tr:hover td{background:var(--h-subtle);}" +
 		".db-dept-row{cursor:pointer;}" +
 		".db-dept-row .nm{font-weight:500;}" +
-		".db-dept-row .caret{display:inline-block;width:12px;color:#8b95a1;font-size:10px;transition:transform .12s ease;}" +
+		".db-dept-row .caret{display:inline-block;width:12px;color:var(--h-muted);font-size:12px;transition:transform var(--h-motion) var(--h-ease);}" +
 		".db-dept-row.open .caret{transform:rotate(90deg);}" +
-		".db-zero{color:#c3c9d2;}" +
+		".db-zero{color:var(--h-muted);opacity:.5;}" +
 		".db-strong{font-weight:600;}" +
-		".db-detail td{background:#fbfcfd;padding:0;border-bottom:1px solid #e6e9ee;}" +
+		".db-detail td{background:var(--h-subtle);padding:0;border-bottom:1px solid var(--h-border);}" +
 		".db-detail .inner{padding:2px 10px 8px 26px;}" +
-		".db-tbl.mini th{font-size:11px;color:#8b95a1;padding:6px 10px;border-bottom:1px solid #eceff3;}" +
-		".db-tbl.mini td{padding:6px 10px;font-size:12.5px;border-bottom:1px solid #f4f6f8;}" +
+		".db-tbl.mini th{font-size:12px;color:var(--h-muted);padding:6px 10px;border-bottom:1px solid var(--h-border);}" +
+		".db-tbl.mini td{padding:6px 10px;font-size:12px;line-height:20px;border-bottom:1px solid var(--h-border);}" +
 		".db-tbl.mini tbody tr:last-child td{border-bottom:none;}" +
-		// 状态色块
-		".db-s{display:inline-block;padding:1px 8px;border-radius:3px;font-size:12px;line-height:18px;white-space:nowrap;}" +
-		".s-green{background:#e8f6ee;color:#1e7f4f;}" +
-		".s-red{background:#fdecea;color:#b3261e;}" +
-		".s-amber{background:#fdf3e3;color:#b26a00;}" +
-		".s-blue{background:#e9f1fd;color:#2c7be5;}" +
-		".s-purple{background:#f3ecfb;color:#6b3fa0;}" +
-		".s-grey{background:#eef0f3;color:#6b7684;}" +
-		".db-chip{font-size:11px;color:#8b95a1;margin-left:6px;}" +
-		".db-note{font-size:12px;color:#6b7684;padding:2px 2px 10px;}" +
-		".db-empty{padding:26px 2px;text-align:center;color:#8b95a1;font-size:13px;}" +
-		".db-updating{font-size:12px;color:#8b95a1;margin-left:auto;opacity:0;transition:opacity .15s ease;}" +
+
+		// ---- 状态色块：统一走 status token，一律「色 + 文字」----
+		".db-s{display:inline-block;padding:2px 8px;border-radius:var(--h-radius-pill);font-size:12px;line-height:18px;white-space:nowrap;font-weight:500;}" +
+		".s-green{background:rgba(27,188,134,.12);color:var(--h-success);}" +
+		".s-red{background:rgba(237,90,114,.12);color:var(--h-critical);}" +
+		".s-amber{background:rgba(244,165,35,.14);color:var(--h-warning);}" +
+		".s-blue{background:rgba(75,156,255,.12);color:var(--h-info);}" +
+		".s-purple{background:rgba(103,95,255,.12);color:var(--h-processing);}" +
+		".s-grey{background:rgba(114,130,157,.12);color:var(--h-neutral);}" +
+		".db-chip{font-size:12px;color:var(--h-muted);margin-left:6px;}" +
+		".db-note{font-size:12px;line-height:20px;color:var(--h-text-2);padding:4px 2px 10px;}" +
+		".db-empty{padding:32px 16px;text-align:center;color:var(--h-muted);font-size:14px;}" +
+		".db-updating{font-size:12px;color:var(--h-muted);margin-left:auto;opacity:0;transition:opacity var(--h-motion) var(--h-ease);}" +
 		".db-updating.on{opacity:1;}"
 	).appendTo("head");
 
@@ -203,9 +223,9 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 			h += '<td class="r db-num">' + d.total + '</td>';
 			h += '<td class="r db-num">' + d.expected + '</td>';
 			h += '<td class="r db-num">' + d.present + '</td>';
-			h += '<td class="r db-num">' + (d.late ? '<span class="db-strong" style="color:#b3261e;">' + d.late + '</span>' : '<span class="db-zero">0</span>') + '</td>';
-			h += '<td class="r db-num">' + (d.noCard ? '<span class="db-strong" style="color:#b26a00;">' + d.noCard + '</span>' : '<span class="db-zero">0</span>') + '</td>';
-			h += '<td class="r db-num">' + (d.absent ? '<span class="db-strong" style="color:#b3261e;">' + d.absent + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (d.late ? '<span class="db-strong" style="color:var(--h-critical);">' + d.late + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (d.noCard ? '<span class="db-strong" style="color:var(--h-warning);">' + d.noCard + '</span>' : '<span class="db-zero">0</span>') + '</td>';
+			h += '<td class="r db-num">' + (d.absent ? '<span class="db-strong" style="color:var(--h-critical);">' + d.absent + '</span>' : '<span class="db-zero">0</span>') + '</td>';
 			h += '<td class="r db-num">' + (d.leave ? d.leave : '<span class="db-zero">0</span>') + '</td>';
 			h += '</tr>';
 			if (open) h += detailRowHtml(byDept[d.dept] || [], 8);
@@ -328,7 +348,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 				state.inFlight = false;
 				$("#db-updating").removeClass("on");
 				if (r.message && r.message.meta) render(r.message);
-				else $("#db-content").html('<div class="db-empty" style="color:#b3261e;">' + __("无法加载数据") + "</div>");
+				else $("#db-content").html('<div class="db-empty" style="color:var(--h-critical);">' + __("无法加载数据") + "</div>");
 			},
 			error: function (r) {
 				state.inFlight = false;
@@ -338,7 +358,7 @@ frappe.pages["hbos-department-board"].on_page_load = function (wrapper) {
 				var msg = (r && r.message)
 					? frappe.utils.escape_html(String(r.message))
 					: __("加载失败，请重试");
-				if (!silent) $("#db-content").html('<div class="db-empty" style="color:#b3261e;">' + msg + "</div>");
+				if (!silent) $("#db-content").html('<div class="db-empty" style="color:var(--h-critical);">' + msg + "</div>");
 			}
 		});
 	}

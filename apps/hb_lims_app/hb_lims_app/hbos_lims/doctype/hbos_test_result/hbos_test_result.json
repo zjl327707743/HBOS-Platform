@@ -190,7 +190,7 @@
   {
    "fieldname": "signature_section",
    "fieldtype": "Section Break",
-   "label": "用户签署记录"
+   "label": "操作签署"
   },
   {
    "fieldname": "analyst",

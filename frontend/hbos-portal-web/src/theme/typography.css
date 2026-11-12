@@ -1,0 +1,214 @@
+/*
+ * HBOS Typography Contract v2.0
+ *
+ * Authority:
+ * - Ant Design official type scale supplied by Owner
+ * - Ordinary product pages must stay within 3–5 font sizes
+ * - Hero Display 52px is the only Portal presentation exception
+ *
+ * Allowed product scale:
+ * 52 (Hero only) / 30 / 20 / 16 / 14 / 12
+ */
+
+body,
+button,
+input,
+textarea,
+select {
+  font-size: var(--hbos-font-body);
+  line-height: var(--hbos-line-body);
+  font-weight: var(--hbos-weight-regular);
+}
+
+/* Brand */
+.brand-name {
+  font-size: var(--hbos-font-section-title);
+  line-height: var(--hbos-line-section-title);
+  font-weight: var(--hbos-weight-strong);
+}
+
+.brand-caption {
+  font-size: var(--hbos-font-meta);
+  line-height: var(--hbos-line-small);
+  font-weight: var(--hbos-weight-regular);
+}
+
+/* Hero — the only presentation exception */
+.hero-main h1 {
+  font-size: var(--hbos-font-hero);
+  line-height: 56px;
+  letter-spacing: -1.6px;
+  font-weight: var(--hbos-weight-strong);
+}
+
+.hello {
+  font-size: var(--hbos-font-section-title);
+  line-height: var(--hbos-line-section-title);
+  font-weight: var(--hbos-weight-medium);
+}
+
+/* Page title — Ant H2 */
+.page-heading h1,
+.apps-hero h1,
+.lims-app-hero h1,
+.review-title-row h1,
+.system-state-page h1 {
+  font-size: var(--hbos-font-page-title);
+  line-height: var(--hbos-line-page-title);
+  font-weight: var(--hbos-weight-strong);
+  letter-spacing: -.4px;
+}
+
+/* Section title — Ant H4 */
+.section-head h2,
+.workhead h2,
+.operation-card-head h2 {
+  font-size: var(--hbos-font-section-title);
+  line-height: var(--hbos-line-section-title);
+  font-weight: var(--hbos-weight-strong);
+}
+
+/* Important text / navigation — Ant LG / H5 */
+.portal-nav-item,
+.local-nav,
+.global-search span,
+.app-text strong,
+.app-tile > strong,
+.directory-app strong,
+.featured-title strong,
+.task-copy strong,
+.work-list-copy strong,
+.operation-card-head h3,
+.context-card h3,
+.recent-grid strong,
+.status-title,
+.ant-btn {
+  font-size: var(--hbos-font-card-title);
+  line-height: var(--hbos-line-important);
+  font-weight: var(--hbos-weight-medium);
+}
+
+/* Body — Ant Base */
+.hero-main > p,
+.page-heading p,
+.apps-hero p,
+.lims-app-hero p,
+.section-body,
+.setting-row,
+.profile-card,
+.operation-card,
+.context-card {
+  font-size: var(--hbos-font-body);
+  line-height: var(--hbos-line-body);
+  font-weight: var(--hbos-weight-regular);
+}
+
+/* KPI — reuse Ant H2, do not create another size */
+.metric-glass strong,
+.pulse-card > strong,
+.work-stat strong,
+.lims-stat strong,
+.lab-pulse-grid strong {
+  font-size: var(--hbos-font-kpi);
+  line-height: var(--hbos-line-page-title);
+  font-weight: var(--hbos-weight-strong);
+}
+
+/* Meta / Small — Ant SM */
+.metric-glass span,
+.metric-glass small,
+.section-head p,
+.app-text small,
+.app-tile > small,
+.directory-app > span,
+.featured-copy p,
+.featured-meta,
+.task-copy span,
+.work-list-copy > span,
+.task-meta b,
+.work-list-due b,
+.pulse-card > span,
+.pulse-card > small,
+.status-row,
+.status-row b,
+.status-card span,
+.status-card small,
+.twin-head span,
+.recent-grid span,
+.app-switcher-head span,
+.app-switcher-item span,
+.notification-copy p,
+.portal-side-note,
+.eyebrow,
+.page-kicker,
+.section-kicker,
+.nav-section-label,
+.migration,
+.task-meta small,
+.work-list-due small,
+.notification-group-title,
+.notification-title-row span,
+.notification-copy small {
+  font-size: var(--hbos-font-meta);
+  line-height: var(--hbos-line-small);
+  font-weight: var(--hbos-weight-regular);
+}
+
+/* Small labels that need emphasis remain 12px; only weight changes */
+.eyebrow,
+.page-kicker,
+.section-kicker,
+.nav-section-label,
+.notification-group-title {
+  font-weight: var(--hbos-weight-medium);
+}
+
+/*
+ * Responsive rule:
+ * Keep the same Ant scale whenever possible.
+ * Only Hero presentation typography reduces on narrow viewports.
+ */
+@media (max-width: 1199px) {
+  .hero-main h1 {
+    font-size: 48px;
+    line-height: 52px;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero-main h1 {
+    font-size: 40px;
+    line-height: 44px;
+  }
+
+  .page-heading h1,
+  .apps-hero h1,
+  .lims-app-hero h1,
+  .review-title-row h1,
+  .system-state-page h1 {
+    font-size: 30px;
+    line-height: 38px;
+  }
+
+  .section-head h2,
+  .workhead h2,
+  .operation-card-head h2 {
+    font-size: 20px;
+    line-height: 28px;
+  }
+}
+
+
+/* Navigation labels that previously carried local prototype sizes */
+.mobile-nav-item,
+.mobile-app-nav-item {
+  font-size: var(--hbos-font-meta);
+  line-height: var(--hbos-line-small);
+  font-weight: var(--hbos-weight-medium);
+}
+
+.mobile-nav-item b {
+  font-size: var(--hbos-font-meta);
+  line-height: 1;
+  font-weight: var(--hbos-weight-strong);
+}

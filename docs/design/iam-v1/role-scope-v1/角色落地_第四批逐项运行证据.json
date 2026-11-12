@@ -1,0 +1,133 @@
+{
+  "status": "PARTIAL_IMPLEMENTING",
+  "integrated_operations": 26,
+  "total_operations": 32,
+  "tests": [
+    {
+      "case": "feishu-leave_real_rows_count_pagination_options_and_cross_company_temporal_bounds",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "record-list-chain.json"
+    },
+    {
+      "case": "feishu-overtime_real_rows_count_pagination_options_and_cross_company_temporal_bounds",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "record-list-chain.json"
+    },
+    {
+      "case": "feishu-rest-leave_real_rows_count_pagination_options_and_cross_company_temporal_bounds",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "record-list-chain.json"
+    },
+    {
+      "case": "unpublished_clerk_feature_unproven_history_and_identity_injection_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "record-list-chain.json"
+    },
+    {
+      "case": "named_company_includes_its_departmentless_employee_current_roster_and_proven_history",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_FIXTURE",
+      "private_evidence_file": "company-no-department-chain.json"
+    },
+    {
+      "case": "company_calculation_and_correction_selectors_include_departmentless_employee_department_clerk_is_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_SYNTHETIC_DB_FIXTURE",
+      "private_evidence_file": "company-no-department-chain.json"
+    },
+    {
+      "case": "monthly_existing_renderer_real_private_xlsx_bounded_data_and_current_authority_download",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "exceptions_existing_renderer_real_private_xlsx_bounded_data_and_current_authority_download",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "roster_existing_renderer_real_private_xlsx_bounded_data_and_current_authority_download",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "cross_company_AI_parameter_raw_File_alias_and_native_all_row_report_denied",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "same_session_download_rechecks_new_release_and_refuses_all_old_artifacts_after_revocation",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "restored_publication_allows_the_same_artifacts_only_after_current_scope_revalidation",
+      "status": "PASS",
+      "layer": "REAL_HTTP",
+      "private_evidence_file": "export-chain.json"
+    },
+    {
+      "case": "immutable_export_manifest_rejects_changed_file_content_and_allows_exact_CAS_restoration",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_NATIVE_DB_FAULT_FIXTURE",
+      "private_evidence_file": "export-fault-chain.json"
+    },
+    {
+      "case": "native_File_and_filesystem_and_event_rollback_on_audit_failure",
+      "status": "PASS",
+      "layer": "NATIVE_DB_FAULT_INJECTION",
+      "private_evidence_file": "export-fault-chain.json"
+    },
+    {
+      "case": "unproved_full_leave_period_and_declared_department_conflict_do_not_enter_monthly_data_and_block_corresponding_calculation",
+      "status": "PASS",
+      "layer": "REAL_HTTP_WITH_NATIVE_DB_FAULT_FIXTURE",
+      "private_evidence_file": "report-source-integrity.json"
+    },
+    {
+      "case": "real_RR_snapshot_native_builder_report_and_union_sources_use_current_rows",
+      "status": "PASS",
+      "layer": "NATIVE_DB_TWO_CONNECTIONS",
+      "private_evidence_file": "current-business-read-probe.json"
+    },
+    {
+      "case": "installed_native_roster_timeline_bulk_attendance_years_and_old_user_jobs_do_not_borrow_worker_or_stale_native_role_authority",
+      "status": "PASS",
+      "layer": "REAL_HTTP_AND_NATIVE_JOB_HOOK",
+      "http_paths": 5,
+      "rejected_old_jobs": 3,
+      "private_evidence_file": "native-alias-chain.json"
+    }
+  ],
+  "local_checks": {
+    "frontend": {
+      "files": 34,
+      "passed": 267
+    },
+    "attendance": {
+      "passed": 573
+    },
+    "typecheck": "PASS"
+  },
+  "pending": [
+    "import_preview",
+    "import_execute",
+    "import_monthly",
+    "schedule_import",
+    "staging",
+    "import_log",
+    "migration_rollback",
+    "final_native_UI",
+    "timezone",
+    "final_CI_runtime"
+  ]
+}

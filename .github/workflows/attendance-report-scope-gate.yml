@@ -1,0 +1,100 @@
+name: HBOS Attendance Report Scope Gate
+
+on:
+  pull_request:
+    branches:
+      - feature/hbos-attendance-transplant
+      - feature/hbos-portal-product
+      - main
+    paths:
+      - 'apps/hb_attendance_app/**'
+      - 'scripts/ci/attendance_report_scope_smoke.sh'
+      - 'scripts/ci/platform_clean_site_smoke.sh'
+      - '.github/workflows/attendance-report-scope-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: attendance-report-scope-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report-scope-regression:
+    name: Report scope and attendance regression (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12']
+    env:
+      HBOS_FEISHU_SYNC_ENABLED: '0'
+      HBOS_DELICLOUD_SYNC_ENABLED: '0'
+      HBOS_AI_ENABLED: '0'
+      HBOS_AI_ALLOW_PII: '0'
+      HBOS_NOTIFY_DRY_RUN: '1'
+    steps:
+      - name: Checkout candidate merge
+        uses: actions/checkout@v4
+      - name: Record tested commits
+        env:
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          printf 'PR head: %s\nPR base: %s\n' "$PR_HEAD" "$PR_BASE"
+          git rev-parse HEAD
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install isolated test dependency
+        run: python -m pip install 'openpyxl==3.1.5'
+      - name: Compile attendance sources
+        run: python -m compileall -q apps/hb_attendance_app
+      - name: Report scope tests in a clean process
+        env:
+          PYTHONPATH: apps/hb_attendance_app
+        run: python -m unittest discover -s apps/hb_attendance_app/tests -p 'test_report_scope_gate.py' -v
+      - name: Full attendance regression (no live Site or outbound writes)
+        env:
+          PYTHONPATH: apps/hb_attendance_app
+        run: python -m unittest discover -s apps/hb_attendance_app/tests -v
+
+  native-report-runtime:
+    name: Native Frappe report permission and same-session revocation
+    needs: report-scope-regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Record runtime authority
+        env:
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          printf 'Runtime PR head: %s\nRuntime PR base: %s\n' "$PR_HEAD" "$PR_BASE"
+          git rev-parse HEAD
+      - name: Build same-site Portal assets
+        run: |
+          bash scripts/release/build_bundle.sh
+          tar -xzf .release/hbos-portal-release.tar.gz apps/hbos_portal/hbos_portal/public/portal
+      - name: Prepare pinned HRMS source
+        run: |
+          mkdir -p runtime/apps
+          git init runtime/apps/hrms
+          git -C runtime/apps/hrms remote add origin https://github.com/frappe/hrms.git
+          git -C runtime/apps/hrms fetch --depth 1 origin c0a04b80eeb721417b75cea758e831464d0da041
+          git -C runtime/apps/hrms checkout --detach FETCH_HEAD
+      - name: Validate isolated probe syntax
+        run: |
+          bash -n scripts/ci/attendance_report_scope_smoke.sh
+          bash -n scripts/ci/platform_clean_site_smoke.sh
+      - name: Real database and HTTP scope tests on a disposable Site
+        run: bash scripts/ci/attendance_report_scope_smoke.sh

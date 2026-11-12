@@ -1,0 +1,43 @@
+# Preview-only Compose hardening.
+#
+# frappe/erpnext v16-era images may declare /home/frappe/frappe-bench/sites/assets
+# as a nested VOLUME. docker compose run / temporary containers can otherwise
+# create anonymous volumes outside the Compose project namespace.
+#
+# Reuse the Preview project's named assets-data volume at that exact mountpoint
+# for every Frappe/ERPNext service. This keeps all generated volumes under the
+# hbos-portal-preview project namespace and makes sites/assets and bench/assets
+# see the same Preview-owned asset storage.
+
+services:
+  backend:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  configurator:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  create-site:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  frontend:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  queue-long:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  queue-short:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  scheduler:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets
+
+  websocket:
+    volumes:
+      - assets-data:/home/frappe/frappe-bench/sites/assets

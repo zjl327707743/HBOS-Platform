@@ -8,8 +8,8 @@ resp = requests.post("https://open.feishu.cn/open-apis/auth/v3/tenant_access_tok
 token = resp.json().get("tenant_access_token")
 headers = {"Authorization": "Bearer " + token}
 
-APP_TOKEN = "PwSXbltzha1uG1sr38hcQzMrnwb"
-TABLE_ID = "tblmcJzOXsi6zfy3"
+APP_TOKEN = os.environ["HBOS_FEISHU_LEAVE_APP_TOKEN"]
+TABLE_ID = os.environ["HBOS_FEISHU_LEAVE_TABLE_ID"]
 
 # Read all records
 all_recs = []

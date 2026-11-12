@@ -46,6 +46,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -53,7 +54,7 @@ services:
       - logs:/home/frappe/frappe-bench/logs
       - assets-data:/home/frappe/frappe-bench/assets
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app:/home/frappe/frappe-bench/apps/hbos_portal"
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -101,7 +102,7 @@ services:
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port $$SOCKETIO_PORT;
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app:/home/frappe/frappe-bench/apps/hbos_portal"
       DB_HOST: ${MARIADB_HOST}
       DB_PORT: "${DB_PORT}"
       REDIS_CACHE: ${REDIS_CACHE}
@@ -112,6 +113,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
@@ -132,6 +134,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
@@ -168,10 +171,11 @@ services:
         bench --site $SITE_NAME install-app hb_attendance_app;
         bench --site $SITE_NAME install-app hb_inventory_app;
         bench --site $SITE_NAME install-app hb_lims_app;
+        bench --site $SITE_NAME install-app hbos_portal;
         bench --site $SITE_NAME migrate;
         bench --site $SITE_NAME list-apps;
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app:/home/frappe/frappe-bench/apps/hbos_portal"
       SITE_NAME: ${SITE_NAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DB_HOST: ${MARIADB_HOST}
@@ -225,6 +229,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - hbos-lims-dist:/home/frappe/frappe-bench/apps/hb_lims_app/hb_lims_app/public/hbos-lims:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -249,13 +254,14 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app:/home/frappe/frappe-bench/apps/hbos_portal"
       TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
@@ -302,13 +308,14 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app:/home/frappe/frappe-bench/apps/hbos_portal"
       TZ: Asia/Shanghai
       FRAPPE_REDIS_CACHE: redis://${REDIS_CACHE}
       FRAPPE_REDIS_QUEUE: redis://${REDIS_QUEUE}
@@ -363,7 +370,7 @@ services:
       - bench
       - schedule
     environment:
-      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app"
+      PYTHONPATH: "/home/frappe/frappe-bench/apps/hrms:/home/frappe/frappe-bench/apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_lims_app:/home/frappe/frappe-bench/apps/hbos_portal"
       HBOS_FEISHU_SYNC_ENABLED: ${HBOS_FEISHU_SYNC_ENABLED:-0}
       HBOS_DELICLOUD_SYNC_ENABLED: ${HBOS_DELICLOUD_SYNC_ENABLED:-0}
       HBOS_OCR_URL: ${HBOS_OCR_URL:-http://host.docker.internal:8100}
@@ -396,6 +403,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - ./runtime/fonts:/usr/share/fonts/truetype/hbos:ro
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
@@ -418,6 +426,7 @@ services:
       - ./apps/hb_attendance_app:/home/frappe/frappe-bench/apps/hb_attendance_app
       - ./apps/hb_inventory_app:/home/frappe/frappe-bench/apps/hb_inventory_app
       - ./apps/hb_lims_app:/home/frappe/frappe-bench/apps/hb_lims_app
+      - ./apps/hbos_portal:/home/frappe/frappe-bench/apps/hbos_portal
       - frappe-dist:/home/frappe/frappe-bench/apps/frappe/frappe/public/dist
       - erpnext-dist:/home/frappe/frappe-bench/apps/erpnext/erpnext/public/dist
       - sites:/home/frappe/frappe-bench/sites

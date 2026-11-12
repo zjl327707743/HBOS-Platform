@@ -553,3 +553,33 @@ class NightOutDupTest(unittest.TestCase):
         atts = pair_employee_checkins(cks, "E1", "11005002", fake_shift_fn,
                                       terminal_aware=True, now_dt=datetime(2026, 9, 11, 4, 0))
         self.assertIn(("2026-09-10", "Absent", "", 0, 0), statuses(atts))
+
+
+class LongDutyPairingTest(unittest.TestCase):
+    """设备动力部 24 小时连班放宽（Owner 2026-10-01：早班 8 点上班卡 + 次日 8 点下班卡）。
+
+    上班卡 08:05 → 次日 08:40 间隔约 24.58h，超过统一配对上限 18h；
+    long_duty=True 且形状匹配时配对成功，否则仍按「漏下班卡」判缺勤。
+    """
+
+    def _ck(self, day, hour, minute, sn):
+        return {"time": datetime(2026, 9, day, hour, minute),
+                "employee_name": "测试", "department": "设备动力部",
+                "hbos_terminal_sn": sn}
+
+    def _cards(self):
+        return [self._ck(25, 8, 5, "13750CS_D7C69C16EC0B2447"),
+                self._ck(26, 8, 40, "13750CS_9FB66A86CF3487D7")]
+
+    def test_long_duty_shape_pairs(self):
+        atts = pair_employee_checkins(self._cards(), "E1", "11008001", fake_shift_fn,
+                                      terminal_aware=True, long_duty=True)
+        s = statuses(atts)
+        self.assertIn(("2026-09-25", "Present", "早班", 1, 24.58), s)
+        self.assertNotIn(("2026-09-25", "Absent", "", 0, 0), s)
+        self.assertNotIn(("2026-09-26", "Absent", "", 0, 0), s)
+
+    def test_long_duty_off_still_absent(self):
+        atts = pair_employee_checkins(self._cards(), "E1", "11008001", fake_shift_fn,
+                                      terminal_aware=True, long_duty=False)
+        self.assertIn(("2026-09-25", "Absent", "", 0, 0), statuses(atts))

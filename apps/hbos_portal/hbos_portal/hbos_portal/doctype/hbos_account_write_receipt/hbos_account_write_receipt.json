@@ -1,0 +1,185 @@
+{
+ "doctype": "DocType",
+ "name": "HBOS Account Write Receipt",
+ "module": "HBOS Portal",
+ "autoname": "hash",
+ "engine": "InnoDB",
+ "field_order": [
+  "request_key",
+  "channel",
+  "request_id",
+  "site_name",
+  "actor",
+  "subject",
+  "action",
+  "state",
+  "intent_digest",
+  "claimed_at",
+  "committed_at",
+  "failed_at",
+  "sealed_at",
+  "sealed_by",
+  "failure_code",
+  "attempt_count",
+  "outcome_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "request_key",
+   "fieldtype": "Data",
+   "label": "Request Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "label": "Channel",
+   "options": "session\nguest_recovery",
+   "read_only": 1,
+   "reqd": 1,
+   "default": "session",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "request_id",
+   "fieldtype": "Data",
+   "label": "Request Id",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "site_name",
+   "fieldtype": "Data",
+   "label": "Site",
+   "read_only": 1,
+   "reqd": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "actor",
+   "fieldtype": "Link",
+   "label": "Actor",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "subject",
+   "fieldtype": "Link",
+   "label": "Subject",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "label": "Action",
+   "options": "password\nunlink\nrecovery_issue\nrecovery\nunknown",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "label": "State",
+   "options": "PENDING\nCOMMITTED\nABORTED\nSEALED",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "intent_digest",
+   "fieldtype": "Data",
+   "label": "Intent Digest",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "claimed_at",
+   "fieldtype": "Datetime",
+   "label": "Claimed At",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "committed_at",
+   "fieldtype": "Datetime",
+   "label": "Committed At",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "failed_at",
+   "fieldtype": "Datetime",
+   "label": "Failed At",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sealed_at",
+   "fieldtype": "Datetime",
+   "label": "Sealed At",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sealed_by",
+   "fieldtype": "Link",
+   "label": "Sealed By",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "failure_code",
+   "fieldtype": "Data",
+   "label": "Failure Code",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "attempt_count",
+   "fieldtype": "Int",
+   "label": "Attempt Count",
+   "read_only": 1,
+   "default": "0",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "outcome_json",
+   "fieldtype": "Small Text",
+   "label": "Outcome Json",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1
+  }
+ ],
+ "permissions": [],
+ "allow_rename": 0,
+ "track_changes": 0,
+ "index_web_pages_for_search": 0,
+ "creation": "2026-10-28 00:00:00.000000",
+ "modified": "2026-10-28 00:00:00.000000",
+ "owner": "Administrator",
+ "modified_by": "Administrator"
+}

@@ -20,10 +20,11 @@ from hb_lims_app.hbos_lims.todo_contract import (
 	TodoRule,
 	TODO_RULES,
 	business_roles_for_user,
-	deduplicate_todos,
-	find_rule,
-	make_todo_key,
-	sort_todos,
+    deduplicate_todos,
+    find_rule,
+    make_todo_key,
+    PORTAL_TASK_VIEW_ACTIONS,
+    sort_todos,
 	testing_task_is_covered,
 )
 
@@ -293,9 +294,16 @@ def _route_params(
 	for field in rule.route_param_fields:
 		if field == "scope":
 			params[field] = "mine"
+		elif field == "view":
+			if rule.action in PORTAL_TASK_VIEW_ACTIONS["my-testing"]:
+				params[field] = "my-testing"
+			elif rule.action in PORTAL_TASK_VIEW_ACTIONS["my-review"]:
+				params[field] = "my-review"
+			else:
+				params[field] = "my-approval"
 		elif field in context:
 			params[field] = context[field]
-		elif field in ("task", "result", "sample", "usage", "disposal"):
+		elif field in ("task", "result", "sample", "usage", "disposal", "coa"):
 			params[field] = task_name or source_name
 		elif field == "timepoint":
 			params[field] = source_name
