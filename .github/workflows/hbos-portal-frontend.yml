@@ -7,6 +7,7 @@ on:
     paths:
       - 'frontend/hbos-portal-web/**'
       - 'frontend/hbos-knowledge-*/**'
+      - 'scripts/portal/mock_content_gate.mjs'
       - '.github/workflows/hbos-portal-frontend.yml'
   pull_request:
     branches:
@@ -15,6 +16,7 @@ on:
     paths:
       - 'frontend/hbos-portal-web/**'
       - 'frontend/hbos-knowledge-*/**'
+      - 'scripts/portal/mock_content_gate.mjs'
       - '.github/workflows/hbos-portal-frontend.yml'
   workflow_dispatch:
 
@@ -52,7 +54,14 @@ jobs:
         run: npm test
 
       - name: Vue / TypeScript / Vite 构建
+        env:
+          VITE_PORTAL_DATA_MODE: frappe
         run: npm run build
+
+      - name: 验证 Mock 门禁正负例与正式产物
+        run: |
+          npm run test:mock-gate -- --self-test
+          npm run test:mock-gate
 
       - name: 验证构建产物
         run: |

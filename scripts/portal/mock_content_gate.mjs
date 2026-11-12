@@ -29,8 +29,28 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+// 使用前端已锁定的直接依赖，不执行产物；字符串、注释和相等比较不是模式赋值。
+const requireFrontend = createRequire(path.join(repoRoot, 'frontend/hbos-portal-web/package.json'))
+const ts = requireFrontend('typescript')
+
+function assignedModes(content, filename) {
+  const source = ts.createSourceFile(filename, content, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS)
+  if (source.parseDiagnostics.length) throw new Error('JS 分块无法解析，不能确认数据模式')
+  const modes = new Set()
+  const pending = [source]
+  while (pending.length) {
+    const node = pending.pop()
+    let value = ts.isVariableDeclaration(node) ? node.initializer
+      : ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken ? node.right : undefined
+    while (value && ts.isParenthesizedExpression(value)) value = value.expression
+    if (value && ts.isStringLiteralLike(value) && ['frappe', 'mock'].includes(value.text)) modes.add(value.text)
+    ts.forEachChild(node, child => { pending.push(child) })
+  }
+  return modes
+}
 
 function listFiles(distDir) {
   const files = []
@@ -64,13 +84,14 @@ function scanDirectory(distDir) {
   //    Vite 把 import.meta.env.VITE_PORTAL_DATA_MODE 内联成字符串常量，
   //    产物形态如 `an="frappe"` / `const an="frappe"`（逗号或 const 起头
   //    都会出现，取决于压缩上下文）。
-  const entryJs = files.filter(file => file.endsWith('.js'))
   let sawModeConstant = false
-  for (const file of entryJs) {
+  for (const file of jsFiles) {
     const content = fs.readFileSync(file, 'utf8')
-    if (/(?:const\s+)?[\w$]+\s*=\s*["']frappe["']/.test(content)) sawModeConstant = true
-    const mockConst = content.match(/[=,]\s*(?:const\s+)?[\w$]+\s*=\s*["']mock["']/)
-    if (mockConst) errors.push(`${rel(file)}：数据模式常量为 "mock"（VITE_PORTAL_DATA_MODE 泄漏）`)
+    try {
+      const modes = assignedModes(content, file)
+      if (modes.has('frappe')) sawModeConstant = true
+      if (modes.has('mock')) errors.push(`${rel(file)}：数据模式常量为 "mock"（VITE_PORTAL_DATA_MODE 泄漏）`)
+    } catch (error) { errors.push(`${rel(file)}：${error.message}`) }
   }
   if (!sawModeConstant) {
     errors.push('产物中未找到 "frappe" 数据模式常量；无法证明这是 frappe 构建（入口被改坏或模式未固化）')
@@ -101,6 +122,43 @@ function selfTest() {
   fs.writeFileSync(path.join(cleanAssets, 'index.js'), 'const e="frappe";const portalDataSource=e;portalDataSource==="mock"&&f()')
   const cleanResult = scanDirectory(path.join(base, 'clean'))
   if (!cleanResult.ok) failure.push(`干净产物被误判失败：${cleanResult.errors.join('；')}`)
+
+  // 正例：普通文案、代码示例、注释和比较中的 mock 不应被当成赋值。
+  const copyAssets = make(path.join(base, 'copy'))
+  fs.writeFileSync(path.join(copyAssets, 'index.js'), [
+    'const e="frappe";const message=\'Mock · 演示汇总；const mode="mock"\';',
+    'const example=`const mode="mock"`;const labels={mock:"mock"};',
+    '// const mode="mock"',
+    '/* const mode="mock" */ console.log("mock",e==="mock",e!=="mock");',
+  ].join('\n'))
+  const copyResult = scanDirectory(path.join(base, 'copy'))
+  if (!copyResult.ok) failure.push(`无关文案被误判：${copyResult.errors.join('；')}`)
+
+  // 混合负例必须真的命中 mock，不能只是因缺少 frappe 而碰巧失败。
+  const mixedSources = [
+    'const activeMode="mock";const otherMode="frappe";',
+    'const otherMode="frappe";const activeMode="mock";',
+    'const otherMode="frappe";let activeMode="mock";',
+    'const otherMode="frappe";var activeMode="mock";',
+    'const otherMode="frappe",activeMode="mock";',
+    'const otherMode="frappe";let activeMode;activeMode="mock";',
+    'const otherMode="frappe";const activeMode=("mock");',
+    'const otherMode="frappe";const activeMode=`mock`;',
+  ]
+  mixedSources.forEach((content, index) => {
+    const dir = path.join(base, `mixed-${index}`), assets = make(dir)
+    fs.writeFileSync(path.join(assets, 'index.js'), content)
+    const result = scanDirectory(dir)
+    if (result.ok || !result.errors.some(error => error.includes('数据模式常量为 "mock"'))) failure.push(`混合模式漏检：${content}`)
+  })
+  const splitDir = path.join(base, 'split'), splitAssets = make(splitDir)
+  fs.writeFileSync(path.join(splitAssets, 'index.js'), 'const e="frappe";import("./other.js");')
+  fs.writeFileSync(path.join(splitAssets, 'other.js'), 'export const mode="mock";')
+  if (scanDirectory(splitDir).ok) failure.push('跨分块的混合模式漏检')
+
+  const quotedDir = path.join(base, 'quoted'), quotedAssets = make(quotedDir)
+  fs.writeFileSync(path.join(quotedAssets, 'index.js'), 'const text=\'const e="frappe"\';')
+  if (scanDirectory(quotedDir).ok) failure.push('字符串中的 frappe 被误当成模式赋值')
 
   // 负例 1：mock 模式常量必须被拒绝。
   const leakModeAssets = make(path.join(base, 'leak-mode'))
