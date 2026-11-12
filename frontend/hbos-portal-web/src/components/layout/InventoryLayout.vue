@@ -48,7 +48,6 @@ import PointerAtmosphere from '@/components/layout/PointerAtmosphere.vue'
 import InventoryLocalSidebar from '@/components/layout/InventoryLocalSidebar.vue'
 import MobileAppNav, { type MobileNavGroup } from '@/components/layout/MobileDomainNav.vue'
 import CommandPalette from '@/components/portal/CommandPalette.vue'
-import ForbiddenView from '@/views/ForbiddenView.vue'
 import {
   INVENTORY_NAV_GROUPS,
   INVENTORY_OVERVIEW_PATH,

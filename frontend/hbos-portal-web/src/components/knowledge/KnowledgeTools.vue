@@ -111,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRightOutlined, FileTextOutlined, StarFilled, StarOutlined, HistoryOutlined, MessageOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons-vue'
+import { ArrowRightOutlined, FileTextOutlined, StarFilled, StarOutlined, HistoryOutlined, MessageOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useSlots, watch } from 'vue'
 import type { KnowledgeActivity, KnowledgeAnswer, KnowledgeEvidence, KnowledgeFeedback, KnowledgeSearchContext, KnowledgeSavedQuery, KnowledgeDocument, KnowledgeSpace } from '@/contracts/p1'
 import type { KnowledgeToolsReturnState } from '@/contracts/knowledgeReturn'

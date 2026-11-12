@@ -63,7 +63,9 @@ export interface MobileNavGroup {
  * 生产与仓储通过 props 传入各自导航；LIMS 保留独立的 MobileAppNav，
  * 避免本域菜单适配覆盖 LIMS 的后续能力过滤。
  */
-const props = withDefaults(
+// 模板直接消费这些 props（ariaLabel/homePath/appPath/quick* /groups），脚本
+// 侧不额外读取，因此不保留 props 绑定。
+withDefaults(
   defineProps<{
     ariaLabel?: string
     drawerTitle?: string

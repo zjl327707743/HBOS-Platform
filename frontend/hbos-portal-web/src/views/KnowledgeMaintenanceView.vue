@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { PlusOutlined, FileTextOutlined, UploadOutlined, ArrowRightOutlined, MessageOutlined, HistoryOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, FileTextOutlined, UploadOutlined, ArrowRightOutlined, MessageOutlined } from '@ant-design/icons-vue'
 import { DomainApiError, getKnowledgeStatus } from '@/services/p1Api'
 import { getMaintenance, getMaintenanceFeedbackPage, maintenanceAction, previewImport, uploadKnowledge, planImport, submitImport, getBatchProgress, pauseImport, resumeImport, reclaimImport, type ImportItem, type MaintenanceDashboard, type QualityPreview, type MaintenanceFeedback, type VersionTarget, type BatchPlan, type BatchSubmitReceipt, type BatchProgress, type BatchRetrievalVerified, type MaintenanceBatchEntry, type MaintenanceLookupState } from '@/services/knowledgeMaintenanceApi'
 const route=useRoute(),router=useRouter()
@@ -222,7 +222,7 @@ function batchLookupMetadataPresent(result:MaintenanceDashboard){
  * the previous 6-batch scan, so legacy behaviour stays compatible.
  */
 async function locateBatchForDocument(doc:{document_id:string;version_id?:string},current:number){
- let located:MaintenanceDashboard|null=null
+ let located:MaintenanceDashboard
  try{located=await getMaintenance(undefined,1,undefined,{batch_document_id:doc.document_id,batch_page:1,batch_page_size:100})}
  catch(e){if(accessDenied(e))throw e;return undefined}
  if(current!==epoch||!detailOpen.value)return null

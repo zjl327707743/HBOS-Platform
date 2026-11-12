@@ -51,6 +51,7 @@ const method=(name:string)=>`hb_knowledge_app.hb_knowledge.api.${name}`
 const messages:Record<string,string>={SCOPE_REJECTED:'当前账号没有知识维护权限。',AUTHENTICATION_REQUIRED:'登录已失效，请重新登录。',INVALID_REQUEST:'文件或操作无效，请核对格式、大小和当前状态。',IDENTITY_CONFLICT:'身份或当前版本冲突，请选择明确的换版关系。',IMPORT_BUSY:'该批次正在处理，请等待本次完成。',QUALITY_REQUIRED:'请先完成本版本的质量核对。',IMPORT_BUDGET_BLOCKED:'解析费用待核验或预算不可用，解析已暂停。'}
 function unwrap<T>(value:DomainEnvelope<T>):T { if(!value.ok||value.data===undefined) { const code=value.error?.code||'SERVICE_ERROR';throw new DomainApiError(code,messages[code]||'维护服务暂不可用。',Boolean(value.error?.retryable)) } return value.data }
 const LOOKUP_DOCUMENT_ID=/^DOC_[A-Za-z0-9_-]{1,96}$/
+// eslint-disable-next-line no-control-regex -- 查找参数就是要拒绝控制字符，匹配它们是有意的
 const LOOKUP_CONTROL=/[\u0000-\u0008\u000b\u000c\u000e-\u001f\r\n]/
 function lookupText(value:unknown):string {
   if(typeof value!=='string')throw new DomainApiError('INVALID_REQUEST','维护查找参数无效。')

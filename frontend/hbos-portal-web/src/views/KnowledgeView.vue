@@ -248,7 +248,6 @@ watch(tools, value => {
   void applyReturnedScroll()
 }, { flush: 'post' })
 
-const currentScopeLabel = computed(() => spaces.value.find(s => s.space_id === selectedSpace.value)?.title || '全部已收录资料')
 const retrievalBlocked = computed(() => Boolean(status.value?.retrieval_availability?.blocked))
 const queryAvailabilityMessage = computed(() => retrievalBlocked.value ? '查询暂不可用，请稍后重试；目录与个人记录仍可查看。' : mode.value === 'ask' && status.value?.answer_availability?.available === false ? '回答服务暂时不可用，可切换搜资料查找依据。' : '')
 const canSubmit = computed(() => Boolean(subjectKey.value && status.value?.can_enter && status.value?.can_search && status.value?.gateway_configured && !retrievalBlocked.value && !modelSaving.value && !savedScopeNeedsSelection.value && (mode.value === 'search' || (status.value?.ask_enabled && status.value?.answer_availability?.available !== false))))
@@ -315,8 +314,6 @@ function cancelPending() {
   searchGeneration++; searching.value = false; searchState.value = 'cancelled'; hasSearched.value = false; results.value = []; pageError.value = null; pageErrorCode.value = null; tools.value?.cancelPending(); askBusy.value = false
   composerNotice.value = '已返回编辑，晚响应不会覆盖当前页面。'
 }
-function startNewQuestion() { tools.value?.newConversation(); query.value = ''; composerNotice.value = ''; document.getElementById('knowledge-query')?.focus() }
-function selectDepartment(id: string) { selectedSpace.value = id; document.getElementById('knowledge-query')?.focus() }
 function composerKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter') return
   if (composing.value || event.isComposing || event.keyCode === 229) return
