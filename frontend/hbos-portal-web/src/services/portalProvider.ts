@@ -3,17 +3,22 @@ import {
   getFrappePortalData, getFrappeSummariesForApps, getFrappeTasksForApps,
   getFrappeTaskPage, resolveFrappeRoute, searchFrappePortal,
 } from '@/services/portalApi'
+import { loadMockPortalData } from '@/services/mockPortalLoader'
 import type { AppManifestDTO, LimsTaskQuery, PortalBranding, TaskPage } from '@/contracts/portal'
 
 export const portalDataSource = resolvePortalDataMode(import.meta.env.VITE_PORTAL_DATA_MODE)
-const mockData = () => import('@/data/mockPortal')
+// Mock 数据只允许在 mock 构建中出现。直接比较 Vite 编译期内联的环境常量：
+// frappe 构建里条件是 'frappe' !== 'frappe'（恒假），Rollup 常量折叠后
+// loadMockPortalData 及 mockPortal chunk 整体剔除；mock 构建则保留。
+// scripts/portal/mock_content_gate.mjs 在产物层复核这一保证。
+const mockData = import.meta.env.VITE_PORTAL_DATA_MODE !== 'frappe' ? loadMockPortalData : null
 const mockBranding: PortalBranding = {
   productName: 'HBOS', companyName: '海滨', logoUrl: null, workspaceName: '海滨智能运营工作台',
 }
 
 export async function getPortalData() {
   if (portalDataSource === 'frappe') return getFrappePortalData()
-  const data = await mockData()
+  const data = await mockData!()
   return {
     user: data.portalUser, branding: mockBranding, apps: data.appManifests,
     heroMetrics: data.heroMetrics, tasks: data.tasks, businessPulse: data.businessPulse,
@@ -23,12 +28,12 @@ export async function getPortalData() {
 
 export async function getPortalSummaries(apps: AppManifestDTO[]) {
   if (portalDataSource === 'frappe') return getFrappeSummariesForApps(apps)
-  return { items: (await mockData()).heroMetrics, errors: [] }
+  return { items: (await mockData!()).heroMetrics, errors: [] }
 }
 
 export async function getPortalTasks(apps: AppManifestDTO[], query: LimsTaskQuery = {}) {
   if (portalDataSource === 'frappe') return getFrappeTasksForApps(apps, query)
-  return { items: (await mockData()).tasks, errors: [] }
+  return { items: (await mockData!()).tasks, errors: [] }
 }
 
 export async function getPortalTaskPage(app: AppManifestDTO, query: LimsTaskQuery = {}): Promise<TaskPage> {
@@ -38,7 +43,7 @@ export async function getPortalTaskPage(app: AppManifestDTO, query: LimsTaskQuer
     'my-review': ['review_result', 'review_observation', 'eval_trend'],
     'my-approval': ['approve_result', 'publish_coa', 'confirm_stock'],
   }
-  const items = (await mockData()).tasks.filter(task => task.appId === app.id)
+  const items = (await mockData!()).tasks.filter(task => task.appId === app.id)
     .filter(task => !query.view || !task.action || actions[query.view].includes(task.action))
     .filter(task => !query.status || task.domainStatus === query.status)
     .filter(task => !query.priority || task.priority === query.priority)
@@ -60,7 +65,7 @@ export async function searchPortal(query: string) {
     if (!normalizedQuery) return []
     return searchFrappePortal(normalizedQuery)
   }
-  const { searchResults } = await mockData()
+  const { searchResults } = await mockData!()
   const q = normalizedQuery.toLowerCase()
   return q ? searchResults.filter(item =>
     `${item.title} ${item.subtitle} ${item.appTitle} ${item.typeLabel}`.toLowerCase().includes(q)) : searchResults

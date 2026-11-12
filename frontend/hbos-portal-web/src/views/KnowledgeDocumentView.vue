@@ -136,12 +136,10 @@ const delivery = reactive<DeliveryState>({
 })
 let deliveryGeneration = 0
 let previewRequest: Promise<string | null> | null = null
-let lastPreviewKind: 'preview' | 'download' | null = null
 
 function resetDelivery() {
   deliveryGeneration++
   previewRequest = null
-  lastPreviewKind = null
   Object.assign(delivery, {
     capabilities: null, loadingCapabilities: false, preparing: false, preparingMessage: '',
     previewUrl: null, previewKind: null, previewFilename: '', previewUnavailable: '',
@@ -231,7 +229,6 @@ async function downloadOriginal() {
   const generation = deliveryGeneration, subject = subjectKey.value
   delivery.downloadBusy = true
   delivery.notice = ''
-  lastPreviewKind = 'download'
   try {
     const value = await createDocumentDelivery(documentId.value, currentVersion(), 'download')
     if (generation !== deliveryGeneration || subject !== subjectKey.value) return

@@ -1,2 +1,15 @@
-<script setup lang="ts">import { iamSession } from '@/services/iamAccess'</script>
-<template><section class="iam-panel"><h1>暂不能进入此管理页面</h1><p>{{ iamSession.error || '当前账号没有此项管理能力，或服务端尚未确认访问范围。' }}</p><p>管理权和业务数据读取权分别核验，请联系对应负责人。</p><RouterLink to="/hbos">返回工作台</RouterLink></section></template>
+<script setup lang="ts">
+import { iamSession } from '@/services/iamAccess'
+import PageHeading from '@/components/iam/PageHeading.vue'
+import PortalStatusScreen from '@/components/portal/PortalStatusScreen.vue'
+</script>
+
+<template>
+  <section class="r6-page">
+    <PageHeading title="暂不能进入此管理页面" description="管理权限尚未确认，暂时不能在此操作。" />
+    <PortalStatusScreen
+      title="暂未确认管理权限"
+      :description="iamSession.error || '管理权限与业务数据查看权限分别核验。请联系管理员确认你的管理范围。'"
+      home-label="返回工作台" />
+  </section>
+</template>

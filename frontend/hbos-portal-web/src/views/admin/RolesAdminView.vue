@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
+import PortalSelect from '@/components/portal/PortalSelect.vue'
 import { Modal, message } from 'ant-design-vue'
 import {
   TeamOutlined, UserOutlined, CalendarOutlined, CheckCircleFilled, MinusCircleOutlined, SearchOutlined, EditOutlined,
@@ -40,6 +41,10 @@ interface RolePreviewView extends RolePreview {
 }
 interface PublishResult { changed?: boolean; release?: string; published_revision?: number; replayed?: boolean }
 
+const route = useRoute()
+const portalManagement = computed(() => route.path.startsWith('/hbos/admin'))
+const featureFilter = ref('all')
+const featureOptions = [{value:'all',label:'全部功能'},{value:'on',label:'已启用'},{value:'off',label:'未启用'}]
 const items = ref<AppRole[]>([])
 const selected = ref('clerk')
 const loading = ref(true)
@@ -69,7 +74,7 @@ const displayed = computed(() => role.value ? editing.value ? checked.value : (v
 const featureGroups = computed(() => {
   const registry = role.value?.registry || [], knownGroups = roleGroups.map(([key, title]) => ({ key, title })) as Array<{ key: string; title: string }>
   for (const item of registry) if (!knownGroups.some(group => group.key === item.group)) knownGroups.push({ key: item.group, title: '其他已登记功能' })
-  return knownGroups.map(group => ({ ...group, rows: registry.filter(row => row.allowed && row.group === group.key && (!search.value || row.title.toLowerCase().includes(search.value.toLowerCase()))) })).filter(group => group.rows.length)
+  return knownGroups.map(group => ({ ...group, rows: registry.filter(row => row.allowed && row.group === group.key && (!search.value || row.title.toLowerCase().includes(search.value.toLowerCase())) && (!portalManagement.value || editing.value || featureFilter.value === 'all' || displayed.value.includes(roleFeatureKey(row)) === (featureFilter.value === 'on'))) })).filter(group => group.rows.length)
 })
 const descriptions: Record<string, string> = { staff: '查看自己的考勤', clerk: '协助负责部门核对日常考勤', admin: '在明确获准的公司内办理考勤管理' }
 const icons = { staff: UserOutlined, clerk: TeamOutlined, admin: ScheduleOutlined }
@@ -430,8 +435,8 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
     <div v-else class="r6-dual-panels">
       <PanelFrame as="aside" region="role-navigation" label="应用与角色模板" class="r6-navigation">
         <template #header>
-          <p class="aux">选择应用</p>
-          <div class="r6-role-app"><span class="r6-role-app-icon"><CalendarOutlined /></span><a-select value="attendance" aria-label="角色所属应用"><a-select-option value="attendance">考勤管理</a-select-option></a-select></div>
+          <p class="aux">{{ portalManagement ? '应用与角色' : '选择应用' }}</p>
+          <div class="r6-role-app"><span class="r6-role-app-icon"><CalendarOutlined /></span><strong v-if="portalManagement">考勤管理</strong><a-select v-else value="attendance" aria-label="角色所属应用"><a-select-option value="attendance">考勤管理</a-select-option></a-select></div>
           <p class="r6-role-library-label">角色模板 <span>{{ items.length }}</span></p>
         </template>
         <div class="r6-choice-list"><button v-for="item in items" :key="item.role_key" :disabled="busy || loading || mustRead" :aria-pressed="selected === item.role_key" @click="select(item.role_key)"><span class="r6-choice-icon"><component :is="icons[item.role_key as keyof typeof icons] || UserOutlined" /></span><span><strong>{{ item.title }}</strong><small>{{ item.boundary_kind === 'SELF' ? '仅本人' : item.boundary_kind === 'DEPARTMENT' ? '指定部门' : '指定公司' }}</small></span><RightOutlined class="r6-choice-trail" aria-hidden="true" /></button></div>
@@ -453,7 +458,7 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
           <div class="r6-role-versions"><a-button :aria-pressed="versionTab === 'published' && !editing" :disabled="editing" @click="showTab('published')">当前生效</a-button><a-button :aria-pressed="versionTab === 'draft' || editing" :disabled="editing" @click="showTab('draft')">待发布修改 <span v-if="unpublished"> · 有变更</span></a-button><span>{{ editing ? `编辑中 · 待发布修改 v${role.draft_version}` : versionTab === 'published' ? role.published_revision ? `生效版本 v${role.published_revision}` : '尚无当前生效版本' : `待发布修改 v${role.draft_version} · 尚未生效` }}</span></div>
         </template>
         <div v-if="editing" class="r6-editing-guide"><EditOutlined /><span>勾选或取消功能后先保存草稿；保存后查看哪些员工权限会变化，再确认发布。</span></div>
-        <div class="r6-feature-toolbar"><h3>功能与职责 <small class="aux">{{ displayed.length }} 项{{ editing ? '已选择' : versionTab === 'published' ? '已启用' : '在草稿' }} · {{ featureGroups.length }} 个功能组</small></h3><a-input v-model:value="search" allow-clear placeholder="搜索功能" aria-label="搜索角色功能"><template #prefix><SearchOutlined /></template></a-input></div>
+        <div class="r6-feature-toolbar"><h3>功能与职责 <small class="aux">{{ displayed.length }} 项{{ editing ? '已选择' : versionTab === 'published' ? '已启用' : '在草稿' }} · {{ featureGroups.length }} 个功能组</small></h3><a-input v-model:value="search" allow-clear placeholder="搜索功能名称" aria-label="搜索角色功能"><template #prefix><SearchOutlined /></template></a-input><PortalSelect v-if="portalManagement && !editing" :value="featureFilter" :options="featureOptions" aria-label="按功能状态筛选" @change="featureFilter = $event" /></div>
         <div class="r6-feature-groups"><details v-for="group in featureGroups" :key="group.key" class="r6-feature-group" open><summary><span class="r6-group-icon"><component :is="groupIcon(group.key)" /></span><strong>{{ group.title }}</strong><small>{{ group.rows.filter(row => displayed.includes(roleFeatureKey(row))).length }} / {{ group.rows.length }}</small></summary><div v-for="row in group.rows" :key="roleFeatureKey(row)" class="r6-feature-row"><a-checkbox v-if="editing" :checked="checked.includes(roleFeatureKey(row))" :disabled="busy || mustRead || !row.allowed" @change="toggle(roleFeatureKey(row))">{{ row.title }}</a-checkbox><div v-else class="r6-feature-read" :class="{ 'is-off': !displayed.includes(roleFeatureKey(row)) }"><CheckCircleFilled v-if="displayed.includes(roleFeatureKey(row))" /><MinusCircleOutlined v-else /><span>{{ row.title }}</span><span>{{ displayed.includes(roleFeatureKey(row)) ? '已启用' : '未启用' }}</span></div><small>{{ !row.allowed ? '超过此角色上限' : !row.integrated ? row.reason : roleScopeLabel(row.scope_binding) }}</small></div></details></div>
         <a-empty v-if="!featureGroups.length" description="没有匹配的功能" />
         <div v-if="editing || versionTab === 'draft'" class="r6-role-change-summary" aria-live="polite">
@@ -465,7 +470,7 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
           <p v-else class="aux">待发布草稿 v{{ role.draft_version }} 尚未生效；下一步：查看发布影响。</p>
         </div>
         <details v-if="role.registry.some(row => !row.allowed)" class="r6-profile-tools"><summary>不在此角色范围内的功能</summary><p v-for="row in role.registry.filter(item => !item.allowed)" :key="roleFeatureKey(row)" class="aux">{{ row.title }} · 超过此角色上限</p></details>
-        <ChangeReview :open="reviewOpen" :busy="busy" :title="reviewMode === 'draft' ? '保存角色修改' : '发布前查看影响'" @cancel="closeReview">
+        <ChangeReview :v10="portalManagement" :open="reviewOpen" :busy="busy" :title="reviewMode === 'draft' ? '保存角色修改' : '发布前查看影响'" @cancel="closeReview">
           <section v-if="reviewMode === 'draft' && role" class="r6-publish-review" aria-live="polite">
             <div class="r6-publish-subject">
               <span class="r6-publish-hero"><component :is="roleIcon" /></span>
@@ -530,7 +535,7 @@ useManagementViewMemory('RolesAdminView.vue', { selected, versionTab, search })
             <a-button v-else-if="reviewMode === 'publish'" type="primary" :loading="busy" :disabled="!preview?.changed || !hasPasswordProof || busy || mustRead || !canPublish" @click="publish">{{ publishButtonLabel }}</a-button>
           </div>
         </ChangeReview>
-        <details v-if="role.releases.length && canEdit && !editing" class="r6-profile-tools"><summary>从历史发布内容恢复草稿</summary><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-select v-model:value="restore" aria-label="历史发布版本" style="width:100%" @change="requestId = ''"><a-select-option v-for="release in role.releases" :key="release.name" :value="release.name">v{{ release.revision }} · {{ release.published_at }}</a-select-option></a-select><a-button :disabled="!restore || !hasPasswordProof || busy || mustRead" @click="restoreDraft">恢复为草稿</a-button><p class="aux">恢复只写入草稿，不会自动发布；还需查看发布影响、本人验证并确认发布。</p></details>
+        <details v-if="role.releases.length && canEdit && !editing" class="r6-profile-tools"><summary>从历史发布内容恢复草稿</summary><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><PortalSelect v-if="portalManagement" :value="restore" :options="role.releases.map(release => ({value:release.name,label:'v' + release.revision + ' · ' + release.published_at}))" aria-label="历史发布版本" style="width:100%" @change="restore = $event; requestId = ''" /><a-select v-else v-model:value="restore" aria-label="历史发布版本" style="width:100%" @change="requestId = ''"><a-select-option v-for="release in role.releases" :key="release.name" :value="release.name">v{{ release.revision }} · {{ release.published_at }}</a-select-option></a-select><a-button :disabled="!restore || !hasPasswordProof || busy || mustRead" @click="restoreDraft">恢复为草稿</a-button><p class="aux">恢复只写入草稿，不会自动发布；还需查看发布影响、本人验证并确认发布。</p></details>
         <template #footer>
           <div class="r6-role-foot">
             <StatusTag :tone="statusTone">{{ statusLabel }}</StatusTag>

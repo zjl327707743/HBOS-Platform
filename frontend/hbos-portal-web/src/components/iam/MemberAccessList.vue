@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
 import { computed, ref } from 'vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import StatusTag from './StatusTag.vue'
@@ -69,8 +70,8 @@ function changePage(next: number) { if (Number.isInteger(next) && next >= 1 && n
       <a-input v-model:value="search" allow-clear class="r6-members__search" placeholder="搜索姓名或工号" aria-label="搜索部门成员" @update:value="resetPage">
         <template #prefix><SearchOutlined /></template>
       </a-input>
-      <a-select v-model:value="sourceFilter" :options="sourceOptions" aria-label="按权限来源筛选" class="r6-members__filter" @update:value="resetPage" />
-      <a-select v-model:value="statusFilter" :options="statusOptions" aria-label="按当前状态筛选" class="r6-members__filter" @update:value="resetPage" />
+      <PortalSelect :value="sourceFilter" :options="sourceOptions" aria-label="按权限来源筛选" class="r6-members__filter" @change="sourceFilter = $event; resetPage()" />
+      <PortalSelect :value="statusFilter" :options="statusOptions" aria-label="按当前状态筛选" class="r6-members__filter" @change="statusFilter = $event; resetPage()" />
     </div>
     <div v-if="error" class="r6-resource-error" role="alert">
       <a-alert :message="error" type="warning" show-icon />

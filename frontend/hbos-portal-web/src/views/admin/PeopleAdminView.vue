@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
+import { employeeGroups } from '@/components/iam/managementChoices'
 import { useManagementViewMemory } from '@/composables/useManagementViewMemory'
 import { computed, getCurrentInstance, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { Modal, message } from 'ant-design-vue'
-import { SearchOutlined, PlusOutlined, TeamOutlined, KeyOutlined, LinkOutlined, ColumnHeightOutlined, ApartmentOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, PlusOutlined, TeamOutlined, KeyOutlined, LinkOutlined, ColumnHeightOutlined } from '@ant-design/icons-vue'
 import { listPeople, getEmployeeMetadata, createEmployee } from '@/services/iamPeople'
 import { canIam, iamMessage } from '@/services/iamAccess'
 import { developmentObservation } from '@/services/frappeClient'
@@ -25,6 +27,7 @@ const fields = reactive<Record<string, string>>({}), proof = useAccountProof(() 
 let generation = 0, metadataGeneration = 0, disposed = false, refreshOnActivation = false, timer: ReturnType<typeof setTimeout> | undefined, requestId = '', requestSignature = ''
 const unopened = computed(() => rows.value.filter(row => row.account_status === 'unopened').length)
 const pending = computed(() => rows.value.filter(needsAssociationReview).length)
+const accountStatuses = [{value:'',label:'全部账号状态'},{value:'active',label:'已开通'},{value:'unopened',label:'待开通'},{value:'disabled',label:'已停用'}]
 const departmentOptions = computed(() => metadata.value?.departments.map(row => ({ value: row.value, label: `${row.label} · ${row.company}` })) || [])
 const filtered = computed(() => Boolean(search.value || department.value || accountStatus.value))
 const columns = computed(() => category.value === 'employees' ? [{ title: '员工 / 工号', key: 'name', width: '25%' }, { title: '部门 / 岗位', key: 'department', width: '25%' }, { title: '账号状态', key: 'account', width: '15%' }, { title: '需要处理', key: 'task', width: '18%' }, { title: '操作', key: 'action', width: '17%' }] : [{ title: '账号名称', key: 'name', width: '30%' }, { title: '账号主键', dataIndex: 'user_id', width: '45%' }, { title: '分类', key: 'category', width: '25%' }])
@@ -133,7 +136,7 @@ onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; cle
 <template>
   <section class="r6-page r6-people-page" :data-view-instance="viewInstance">
     <output v-if="developmentObservation">本机页面实例 {{ viewInstance }}</output>
-    <PageHeading eyebrow="组织管理" title="员工管理" description="找到同事，安排账号与应用角色。"><a-button v-if="canIam('iam.people.create')" type="primary" @click="beginCreate"><PlusOutlined />新增员工</a-button></PageHeading>
+    <PageHeading eyebrow="组织管理" title="员工管理" description="维护员工资料、开通登录账号，并设置各应用的访问权限。"><a-button v-if="canIam('iam.people.create')" type="primary" @click="beginCreate"><PlusOutlined />新增员工</a-button></PageHeading>
     <div v-if="category === 'employees'" class="r6-people-overview">
       <div class="r6-surface r6-overview"><span class="r6-overview-icon"><TeamOutlined /></span><div><span class="r6-overview-label-row"><span>当前员工档案</span><small>筛选结果</small></span><strong>{{ loading || error ? '—' : total }}</strong></div></div>
       <button type="button" class="r6-surface r6-overview" :disabled="loading || Boolean(error) || !unopened" :aria-label="`本页待开通账号 ${unopened} 位，定位第一位`" @click="jumpTo('unopened')"><span class="r6-overview-icon"><KeyOutlined /></span><div><span class="r6-overview-label-row"><span>本页待开通账号</span><small>核验后开户</small></span><strong>{{ loading || error ? '—' : unopened }}</strong></div><span class="r6-overview-trail">去处理</span></button>
@@ -142,20 +145,20 @@ onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; cle
     <p v-if="category === 'employees' && overviewNotice" class="r6-overview-notice" role="status">{{ overviewNotice }}</p>
     <section class="r6-surface r6-people-panel">
       <div class="r6-people-tabs-row">
+        <h2>人员与账号</h2>
         <a-tabs v-model:activeKey="category"><a-tab-pane key="employees" tab="员工档案" /><a-tab-pane key="pending" tab="待关联账号" /><a-tab-pane key="other" tab="其他账号" /></a-tabs>
-        <div class="r6-people-scope">
-          <span class="r6-people-scope-label"><ApartmentOutlined />你的管理范围内</span>
-          <a-select v-if="groupsAvailable && category === 'employees'" v-model:value="viewGroup" aria-label="员工分组" class="r6-people-scope-select" :title="'统计仅包含所选分组'"><a-select-option value="daily">日常员工</a-select-option><a-select-option value="technical">技术验证员工</a-select-option><a-select-option value="all">全部员工</a-select-option></a-select>
-        </div>
       </div>
       <div class="r6-filter-toolbar">
-        <a-select v-if="groupsAvailable && category === 'employees'" v-model:value="viewGroup" aria-label="员工分组（移动端）" class="r6-mobile-group"><a-select-option value="daily">日常员工</a-select-option><a-select-option value="technical">技术验证员工</a-select-option><a-select-option value="all">全部员工</a-select-option></a-select>
-        <a-input v-model:value="search" allow-clear class="r6-search" :placeholder="category === 'employees' ? '搜索姓名或工号' : '搜索账号'" aria-label="搜索人员"><template #prefix><SearchOutlined /></template></a-input>
-        <a-select v-if="category === 'employees'" v-model:value="department" show-search allow-clear option-filter-prop="label" aria-label="筛选部门" placeholder="全部部门" :options="departmentOptions" />
-        <a-select v-if="category === 'employees'" v-model:value="accountStatus" aria-label="账号状态"><a-select-option value="">全部账号状态</a-select-option><a-select-option value="active">已开通</a-select-option><a-select-option value="unopened">待开通</a-select-option><a-select-option value="disabled">已停用</a-select-option></a-select>
-        <a-button :aria-pressed="compact" aria-label="切换表格密度" @click="compact = !compact"><ColumnHeightOutlined /></a-button>
+                <a-input v-model:value="search" allow-clear class="r6-search v10-search-field" :placeholder="category === 'employees' ? '搜索姓名、工号或账号' : '搜索账号'" aria-label="搜索人员"><template #prefix><SearchOutlined /></template></a-input>
+        <PortalSelect v-if="groupsAvailable && category === 'employees'" :value="viewGroup" :options="employeeGroups" aria-label="员工分组" @change="viewGroup = $event" />
+        <PortalSelect v-if="category === 'employees'" v-model:value="department" searchable allow-clear aria-label="筛选部门" placeholder="全部部门" :options="departmentOptions" />
+        <PortalSelect v-if="category === 'employees'" :value="accountStatus" :options="accountStatuses" aria-label="账号状态" @change="accountStatus = $event" />
+        <div class="v10-people-filter-actions">
+          <a-button size="small" :aria-pressed="compact" aria-label="切换表格密度" @click="compact = !compact"><ColumnHeightOutlined />{{ compact ? '舒适显示' : '紧凑显示' }}</a-button>
+          <a-button size="small" :disabled="!filtered" @click="clearFilters">清除筛选</a-button>
+        </div>
       </div>
-      <div v-if="filtered && !(category !== 'employees' && unavailable)" class="r6-active-filters"><span>筛选结果 {{ total }} {{ category === 'employees' ? '位' : '个' }}</span><a-tag v-if="search" closable @close="search = ''">搜索：{{ search }}</a-tag><a-tag v-if="department" closable @close="department = undefined">{{ departmentOptions.find(row => row.value === department)?.label || department }}</a-tag><a-tag v-if="accountStatus" closable @close="accountStatus = ''">{{ accountStatus === 'active' ? '已开通' : accountStatus === 'disabled' ? '已停用' : '待开通' }}</a-tag><a-button type="link" @click="clearFilters">清除筛选</a-button></div>
+      <div v-if="filtered && !(category !== 'employees' && unavailable)" class="r6-active-filters"><span>筛选结果 {{ total }} {{ category === 'employees' ? '位' : '个' }}</span><a-tag v-if="search" closable @close="search = ''">搜索：{{ search }}</a-tag><a-tag v-if="department" closable @close="department = undefined">{{ departmentOptions.find(row => row.value === department)?.label || department }}</a-tag><a-tag v-if="accountStatus" closable @close="accountStatus = ''">{{ accountStatus === 'active' ? '已开通' : accountStatus === 'disabled' ? '已停用' : '待开通' }}</a-tag></div>
       <div v-if="error || metadataError" class="r6-resource-error"><a-alert :message="error || metadataError" type="warning" show-icon /><a-button @click="load(); loadMetadata()">重试读取</a-button></div>
       <p v-if="category !== 'employees' && !unavailable" class="aux" style="padding:0 24px">{{ category === 'pending' ? '这些账号尚未明确关联员工档案。请先查找已有员工，再在其“登录账号”中输入准确账号并核验归属。' : '服务与应急管理账号独立列示，不计入员工档案。' }}</p>
       <div v-if="category !== 'employees' && unavailable" class="r6-unavailable-state" role="status">
@@ -168,7 +171,7 @@ onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; cle
           <template v-else-if="column.key === 'department'">{{ record.department_name }}<span class="iam-code">{{ record.position || '岗位待补充' }}</span></template>
           <template v-else-if="column.key === 'account'"><StatusTag :tone="record.account_status === 'active' ? 'success' : record.account_status === 'unopened' ? 'warning' : 'neutral'">{{ accountLabel(record) }}</StatusTag></template>
           <template v-else-if="column.key === 'task'"><button v-if="taskActionable(record)" type="button" class="r6-task-link" data-task-action :title="taskHint(record)" :aria-label="`${taskLabel(record)}：${record.name}`" @click="open(record, taskTab(record))">{{ taskLabel(record) }}</button><span v-else class="r6-person-task">无需处理</span></template>
-          <template v-else-if="column.key === 'action'"><a-button type="link" data-row-action :aria-label="`${actionLabel(record)}：${record.name}`" @click="open(record, actionTab(record))">{{ actionLabel(record) }}</a-button></template>
+          <template v-else-if="column.key === 'action'"><a-button size="small" data-row-action :aria-label="`${actionLabel(record)}：${record.name}`" @click="open(record, actionTab(record))">{{ actionLabel(record) }}</a-button></template>
           <template v-else-if="column.key === 'category'">{{ category === 'pending' ? '员工待关联' : '非员工主体' }}</template>
         </template>
       </a-table>
@@ -184,7 +187,7 @@ onBeforeUnmount(() => { disposed = true; generation++; metadataGeneration++; cle
       <footer v-if="category === 'employees' || !unavailable" class="r6-people-foot"><span class="aux">{{ groupsAvailable ? '当前统计以所选分组为准；' : '' }}已停用或个人受限不自动成为待办。</span><a-pagination :current="page" :total="total" :page-size="20" :disabled="loading || !total" :show-size-changer="false" :show-total="(value: number) => `共 ${value} 条`" @change="changePage" /></footer>
     </section>
     <EmployeeDrawer :open="drawerOpen" :employee-id="selected" :initial-tab="selectedTab" @close="drawerOpen = false" @changed="load" />
-    <a-modal :open="createOpen" title="新增员工档案" :footer="null" :mask-closable="false" @cancel="closeCreate"><p>此步骤只建立员工档案。已有员工请从列表选择“处理账号”，避免重复建档。</p><a-alert v-if="createError" :message="createError" type="warning" show-icon /><a-button v-if="recheck" @click="recheckCreate">核对最新结果</a-button><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-form layout="vertical" @submit.prevent="saveEmployee"><a-form-item v-for="field in formFields" :key="field.fieldname" :label="field.label" required><a-select v-if="options(field.fieldname)" v-model:value="fields[field.fieldname]" :disabled="creating" show-search option-filter-prop="label" :options="options(field.fieldname)" /><a-input v-else v-model:value="fields[field.fieldname]" :disabled="creating" :type="field.fieldtype === 'Date' ? 'date' : 'text'" autocomplete="off" /></a-form-item><a-space><a-button :disabled="creating" @click="closeCreate">取消</a-button><a-button type="primary" html-type="submit" :loading="creating" :disabled="recheck || !proof.valid.value">保存员工档案</a-button></a-space></a-form></a-modal>
+    <a-modal :open="createOpen" title="新增员工档案" wrap-class-name="v10-dialog" :width="640" :footer="null" :mask-closable="false" @cancel="closeCreate"><p>此步骤只建立员工档案。已有员工请从列表选择“处理账号”，避免重复建档。</p><a-alert v-if="createError" :message="createError" type="warning" show-icon /><a-button v-if="recheck" @click="recheckCreate">核对最新结果</a-button><OwnAccountVerification password-only @verified="proof.sync" @invalidated="proof.invalidate" /><a-form layout="vertical" @submit.prevent="saveEmployee"><a-form-item v-for="field in formFields" :key="field.fieldname" :label="field.label" :html-for="'v10-employee-' + field.fieldname" required><PortalSelect v-if="options(field.fieldname)" :id="'v10-employee-' + field.fieldname" :value="fields[field.fieldname]" :disabled="creating" searchable aria-required :options="options(field.fieldname) || []" @change="fields[field.fieldname] = $event" /><a-input v-else :id="'v10-employee-' + field.fieldname" v-model:value="fields[field.fieldname]" :disabled="creating" :type="field.fieldtype === 'Date' ? 'date' : 'text'" autocomplete="off" /></a-form-item><a-space><a-button :disabled="creating" @click="closeCreate">取消</a-button><a-button type="primary" html-type="submit" :loading="creating" :disabled="recheck || !proof.valid.value">保存员工档案</a-button></a-space></a-form></a-modal>
   </section>
 </template>
 <style scoped>
@@ -196,17 +199,10 @@ button.r6-overview:disabled { cursor: default; opacity: .68; }
 .r6-people-tabs-row .ant-tabs { margin-bottom: -1px; min-width: 0; }
 .r6-people-tabs-row :deep(.ant-tabs-nav) { margin: 0; }
 .r6-people-tabs-row :deep(.ant-tabs-nav::before) { border-bottom: 0; }
-.r6-people-scope { display: flex; align-items: center; gap: 10px; flex: none; }
-.r6-people-scope-label { display: inline-flex; align-items: center; gap: 5px; color: var(--r6-secondary, #566780); font-size: 14px; line-height: 22px; white-space: nowrap; }
 .r6-overview-label-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .r6-overview-label-row small { font-size: 14px; line-height: 22px; color: var(--r6-secondary, #566780); }
-.r6-mobile-group { display: none; }
-.r6-people-scope :deep(.ant-select) { width: 132px; }
 @media (max-width: 760px) {
   .r6-people-tabs-row { padding: 0 16px; flex-wrap: wrap; gap: 8px; }
-  .r6-people-scope { width: 100%; justify-content: space-between; padding-bottom: 10px; }
-  .r6-people-scope { display: none; }
-  .r6-filter-toolbar .r6-mobile-group { display: block; flex: 1; min-width: 130px; }
 }
 .r6-task-link { border: 0; background: none; padding: 0; color: #7a5a12; font-size: 14px; line-height: 22px; text-align: left; cursor: pointer; }
 .r6-task-link:hover { text-decoration: underline; }

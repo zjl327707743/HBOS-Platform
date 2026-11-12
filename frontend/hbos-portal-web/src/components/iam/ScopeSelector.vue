@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
 import { computed } from 'vue'
 
 // The responsible scope is never inferred from the person's or department's own
@@ -44,7 +45,7 @@ function update(value: unknown) {
       <p v-else class="r6-field-hint">{{ hint }} {{ selectionText }}。</p>
     </template>
     <template v-else-if="roleKey === 'admin'">
-      <a-select :value="modelValue[0]" show-search option-filter-prop="label" :options="companies" placeholder="选择一个负责公司" aria-label="负责公司" :disabled="disabled || loading" class="r6-scope-control" :status="error ? 'error' : undefined" @update:value="update" />
+      <PortalSelect :value="modelValue[0]" searchable :options="companies" placeholder="选择一个负责公司" aria-label="负责公司" :disabled="disabled || loading" class="r6-scope-control" :aria-invalid="Boolean(error)" @update:value="update" />
       <p v-if="error" class="r6-field-error" role="alert">{{ error }}</p>
       <p v-else class="r6-field-hint">{{ hint }}</p>
     </template>

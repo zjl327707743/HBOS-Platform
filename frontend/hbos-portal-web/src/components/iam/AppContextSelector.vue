@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
 import { computed } from 'vue'
 
 // The application is part of the page's identity, never inferred from the URL.
@@ -23,7 +24,7 @@ function change(value: unknown) {
 <template>
   <div class="r6-app-context">
     <span class="r6-app-context__label">当前应用</span>
-    <a-select v-if="options.length > 1" :value="modelValue" :options="options" :disabled="disabled" aria-label="当前应用" class="r6-app-context__select" @update:value="change" />
+    <PortalSelect v-if="options.length > 1" :value="modelValue" :options="options" :disabled="disabled" aria-label="当前应用" class="r6-app-context__select" @change="change" />
     <strong v-else class="r6-app-context__fixed">{{ current?.title || '考勤管理' }}</strong>
     <span v-if="current" class="r6-app-context__state">已接入统一角色</span>
     <details v-if="others.length" class="r6-app-context__others">

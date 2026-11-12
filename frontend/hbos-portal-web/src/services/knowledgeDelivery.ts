@@ -66,6 +66,7 @@ function identifier(value: unknown, maximum: number): string {
 }
 
 function filename(value: unknown): string {
+  // eslint-disable-next-line no-control-regex -- 服务端文件名必须拒绝控制字符，此处就是要匹配它们
   if (typeof value !== 'string' || !value.trim() || value.length > 240 || /[\x00-\x1f\x7f/\\]/.test(value)) invalid()
   return value
 }

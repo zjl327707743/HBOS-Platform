@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
 import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { onBeforeRouteLeave } from 'vue-router'
@@ -315,7 +316,7 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
 </script>
 
 <template>
-  <a-drawer root-class-name="iam-employee-drawer" :open="open" :width="780" :closable="false" :mask-closable="false" :keyboard="true" :body-style="{ padding: '24px 28px 28px' }" @close="close" @after-open-change="afterOpenChange">
+  <a-drawer root-class-name="iam-employee-drawer v10-dialog" :open="open" :width="760" :closable="false" :mask-closable="false" :keyboard="true" :body-style="{ padding: '24px 28px 28px' }" @close="close" @after-open-change="afterOpenChange">
     <template #title>
       <div class="drawer-top">
         <div class="drawer-identity-block">
@@ -514,7 +515,7 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
     <template #footer><div class="r6-drawer-footer"><span class="r6-drawer-object" :title="`当前对象：${employee?.name || '读取中'} · ${employee?.employee_number || ''}`">{{ tab === 'apps' && iamSession.rolesEnabled && roleDirty ? '应用角色有未保存的修改' : `当前对象：${employee?.name || '读取中'} · ${employee?.employee_number || ''}` }}</span><a-button :disabled="busy" @click="close">关闭详情</a-button></div></template>
   </a-drawer>
 
-  <ChangeReview :open="accountReview" :title="accountMode === 'link' ? '确认关联已有登录账号' : '确认开通登录账号'" :busy="busy" @cancel="accountReview = false; proof.invalidate()">
+  <ChangeReview v10 :open="accountReview" :title="accountMode === 'link' ? '确认关联已有登录账号' : '确认开通登录账号'" :busy="busy" @cancel="accountReview = false; proof.invalidate()">
     <section v-if="person && employee" class="drawer-review">
       <a-descriptions :column="1" bordered size="small" class="r6-confirm-fields" :label-style="confirmLabelStyle" :content-style="confirmContentStyle">
         <a-descriptions-item label="员工">{{ employee.name }} · {{ employee.employee_number }}</a-descriptions-item>
@@ -529,12 +530,12 @@ onBeforeUnmount(() => { generation++; workGeneration++; secret.value = ''; proof
     </section>
   </ChangeReview>
 
-  <ChangeReview :open="assistOpen" :title="assistTitle" :busy="busy" @cancel="closeAssist">
+  <ChangeReview v10 :open="assistOpen" :title="assistTitle" :busy="busy" @cancel="closeAssist">
     <section v-if="employee" class="drawer-review">
       <a-alert v-if="error" :message="error" type="warning" show-icon />
       <template v-if="action === 'transfer'">
         <p class="review-lead">{{ employee.name }} 当前主部门：{{ employee.department_name || employee.department || '待核对' }}。调岗会重新计算部门默认权限。</p>
-        <a-select v-model:value="department" :disabled="busy" :options="metadata?.departments" placeholder="选择现有目标部门" aria-label="目标主部门" style="width:100%" />
+        <PortalSelect :value="department" searchable @change="department = $event" :disabled="busy" :options="metadata?.departments || []" placeholder="选择现有目标部门" aria-label="目标主部门" style="width:100%" />
         <a-button class="spaced-small" :disabled="!department || busy" @click="readTransfer">核对调岗影响</a-button>
         <section v-if="transferPreview" class="transfer-preview" aria-live="polite">
           <h4>{{ transferPreview.from_department }} → {{ transferPreview.to_department }}</h4>

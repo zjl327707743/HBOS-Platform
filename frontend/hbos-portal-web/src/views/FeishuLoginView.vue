@@ -1,5 +1,5 @@
 <template>
-  <AccountLayout variant="login" title="登录工作台">
+  <AccountLayout v10 variant="login" title="欢迎回来" description="登录海滨智能工作平台。">
     <a-alert v-if="callbackMessage" id="login-feedback" :type="callbackTone" show-icon :message="callbackMessage" role="alert" />
     <template v-if="authenticated">
       <a-alert :message="exiting ? '正在退出当前账号，请稍候…' : submitting ? '已登录，正在加载工作台…' : '已登录，工作台暂未加载。请重试。'" type="info" show-icon role="status" />
@@ -7,12 +7,12 @@
       <a-button size="large" block :loading="exiting" :disabled="submitting && !exiting" @click="exitCurrentAccount">退出并换一个账号</a-button>
     </template>
     <template v-else>
-      <template v-if="loading"><div role="status" aria-live="polite"><a-skeleton active :paragraph="{ rows: 1 }" /><p class="account-meta">正在读取可用的登录方式…</p></div><a-button v-if="!showPassword" size="large" block @click="revealPassword"><KeyOutlined aria-hidden="true" />使用账号密码</a-button></template>
+      <template v-if="loading"><div role="status" aria-live="polite"><a-skeleton active :paragraph="{ rows: 1 }" /><p class="account-meta">正在读取可用的登录方式…</p></div><a-button v-if="!showPassword" class="v10-password-trigger" size="large" block @click="revealPassword">使用账号密码</a-button></template>
       <template v-else>
         <template v-if="status?.configured && !statusError">
-          <a-button size="large" :type="showPassword ? 'default' : 'primary'" block :disabled="submitting" @click="beginFeishuLogin"><MessageOutlined aria-hidden="true" />使用飞书登录</a-button>
-          <div class="account-divider"><span>或</span></div>
-          <a-button v-if="!showPassword" size="large" block @click="revealPassword"><KeyOutlined aria-hidden="true" />使用账号密码</a-button>
+          <a-button class="v10-feishu-button" size="large" :type="showPassword ? 'default' : 'primary'" block :disabled="submitting" @click="beginFeishuLogin"><img :src="feishuMark" alt="" width="24" height="24" />使用飞书登录</a-button>
+          <div class="account-divider"><span>或使用账号密码</span></div>
+          <a-button v-if="!showPassword" class="v10-password-trigger" size="large" block @click="revealPassword">使用账号密码</a-button>
         </template>
         <a-alert v-else-if="statusError" :message="statusError" type="warning" show-icon role="alert" />
         <a-alert v-else message="飞书登录尚未开通，请使用已设置的账号密码。" type="info" show-icon role="status" />
@@ -24,7 +24,8 @@
         <a-form-item v-if="tmpId" label="二次认证验证码" html-for="login-otp" help="请输入当前账号已有认证器或已授权渠道的验证码。"><a-input-password id="login-otp" v-model:value="otp" size="large" inputmode="numeric" autocomplete="one-time-code" :disabled="submitting" /><a-button html-type="button" :disabled="submitting" @click="cancelMfa">取消二次认证</a-button></a-form-item>
         <a-button size="large" type="primary" block html-type="submit" :loading="submitting" :disabled="!canSubmit">{{ tmpId ? '验证并进入工作台' : '登录' }}</a-button>
       </a-form>
-      <div class="account-buttons"><RouterLink :to="username.trim().toLowerCase() === 'administrator' ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password'">忘记密码？</RouterLink></div>
+      <div class="account-buttons"><RouterLink class="v10-auth-link-button" :to="username.trim().toLowerCase() === 'administrator' ? '/hbos/reset-password?administrator=1' : '/hbos/reset-password'">忘记密码？</RouterLink></div>
+      <details v-if="!showPassword && !loading" class="v10-auth-disclosure"><summary>登录帮助 <span class="v10-disclosure-cue" aria-hidden="true"></span></summary><p>请使用已开通的本人账号。飞书未绑定时，可以用原账号密码登录。</p></details>
     </template>
     <template #footer>首次使用或无法登录，请联系系统管理员。</template>
     <template #version><span v-if="candidateLabel">{{ candidateLabel }}</span></template>
@@ -33,7 +34,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { KeyOutlined, MessageOutlined } from '@ant-design/icons-vue'
+import feishuMark from '@/assets/portal-v10/feishu-logo.png'
 import AccountLayout from '@/components/account/AccountLayout.vue'
 import type { FeishuLoginStatus } from '@/contracts/p1'
 import { FrappeRequestError, loginWithPassword } from '@/services/frappeClient'

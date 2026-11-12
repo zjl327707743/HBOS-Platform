@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PortalSelect from '@/components/portal/PortalSelect.vue'
+import { departmentGroups } from './managementChoices'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ApartmentOutlined, FilterOutlined } from '@ant-design/icons-vue'
 
@@ -61,19 +63,13 @@ watch(() => props.entries, rowsNow => {
 <template>
   <div class="r6-department-directory">
     <div class="r6-department-directory__head">
-      <h3>部门目录</h3>
+      <h3>组织目录</h3>
       <a-button type="text" class="r6-department-directory__filter" :aria-expanded="filtersOpen" @click="emit('update:filtersOpen', !filtersOpen)"><FilterOutlined /> 筛选</a-button>
     </div>
     <a-input :value="search" placeholder="搜索部门" aria-label="搜索部门" allow-clear class="r6-department-directory__search" @update:value="(value: string) => emit('update:search', value)" />
     <div v-if="filtersOpen" class="r6-department-directory__filters">
-      <a-select v-if="groupsAvailable" :value="viewGroup" aria-label="部门分组" @change="(value: string) => emit('update:viewGroup', value)">
-        <a-select-option value="daily">日常组织</a-select-option>
-        <a-select-option value="technical">技术验证夹具</a-select-option>
-        <a-select-option value="all">全部部门</a-select-option>
-      </a-select>
-      <a-select v-if="companies.length > 1" :value="company" aria-label="部门所属公司" @change="(value: string) => emit('update:company', value)">
-        <a-select-option v-for="item in companies" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
-      </a-select>
+      <PortalSelect v-if="groupsAvailable" :value="viewGroup" :options="departmentGroups" aria-label="部门分组" :disabled="disabled" @change="emit('update:viewGroup', $event)" />
+      <PortalSelect v-if="companies.length > 1" :value="company" :options="companies.map(item => ({value:item.id,label:item.name}))" aria-label="部门所属公司" :disabled="disabled" @change="emit('update:company', $event)" />
     </div>
     <nav ref="rowsRef" class="r6-department-rows" aria-label="部门列表">
       <div v-for="item in rows" :key="item.id" class="r6-department-row" :class="{ selected: selected === item.id, long: item.long }" :style="{ '--department-indent': `${Math.min(item.depth, 3) * 12}px` }">

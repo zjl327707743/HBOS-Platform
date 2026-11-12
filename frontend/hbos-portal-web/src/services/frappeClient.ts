@@ -130,6 +130,7 @@ const CSRF_REASON_MESSAGES: Record<string, string> = {
 }
 
 const CSRF_DEFAULT_MESSAGE = '安全会话已更新，请刷新页面后重试。'
+export { CSRF_DEFAULT_MESSAGE }
 
 
 function firstServerMessage(data: unknown): string {
@@ -655,6 +656,7 @@ function toFrappeError(error: unknown): FrappeHttpError {
   }
   return new FrappeHttpError(0, 'HBOS 服务不可达')
 }
+export { toFrappeError }
 
 
 /** Frappe 把业务错误塞在 `_server_messages` 里，结构是「JSON 数组的 JSON 字符串」 */
@@ -855,9 +857,9 @@ export async function callFrappeUploadMethod<T>(method: string, form: FormData):
   const epoch = requestEpoch
   const generation = csrfGeneration
   try {
-    const token = await getCsrfToken()
+    const headers = await withCsrf()
     assertCsrfGeneration(generation)
-    const response = await http.post<FrappeMethodResponse<T>>(`/api/method/${method}`, form, { hbosCsrfGeneration: generation } as SessionGuardedRequestConfig)
+    const response = await http.post<FrappeMethodResponse<T>>(`/api/method/${method}`, form, { headers, hbosCsrfGeneration: generation } as SessionGuardedRequestConfig)
     assertCsrfGeneration(generation)
     assertEpoch(epoch); return response.data.message
   } catch (error) {

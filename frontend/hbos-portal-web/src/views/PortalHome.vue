@@ -1,23 +1,31 @@
 <template>
-  <div v-if="portal.user" class="route-stack">
+  <div v-if="portal.user" class="v10-home route-stack">
     <HeroWorkspace
       :user-name="portal.user.displayName"
       :total-actions="actionCount"
-      :metrics="portal.heroMetrics"
+      :tasks-loading="portal.tasksLoading"
+      :tasks-error="Boolean(portal.tasksError)"
       :app-count="portal.apps.length"
       :show-twin-preview="hasTwinApp"
-      :twin-ready="twinReady"
       :twin-state-label="twinPreviewLabel"
     />
 
+    <section v-if="portal.heroMetrics.length" class="v10-metrics" aria-label="业务指标">
+      <article v-for="metric in portal.heroMetrics" :key="metric.id" class="v10-metric v10-surface" :data-tone="metric.tone">
+        <span>{{ metric.label }}<component :is="appIcon(metric.appId)" aria-hidden="true" /></span>
+        <div><strong>{{ metric.value }}</strong><small>{{ metric.meta || chineseApp(metric.appId) }}</small></div>
+      </article>
+    </section>
     <AppCenter :apps="portal.apps" />
 
-    <div class="two-column">
-      <MyWorkPanel :tasks="actionableTasks" :loading="portal.tasksLoading" />
+    <div class="two-column v10-home-secondary">
+      <MyWorkPanel :tasks="actionableTasks" :loading="portal.tasksLoading" :error="portal.tasksError" @retry="portal.refreshTasks" />
       <BusinessPulse
         :items="portal.businessPulse"
         :loading="portal.summariesLoading"
         :live="portal.dataSource === 'frappe'"
+        :error="portal.summariesError"
+        @retry="portal.refreshSummaries"
       />
     </div>
 
@@ -51,7 +59,8 @@
     </section>
   </div>
 
-  <div v-else class="loading-grid">
+  <PortalState v-else-if="portal.bootstrapError" class="v10-surface" kind="error" title="工作台暂时无法加载" :description="portal.bootstrapError" retry @retry="portal.bootstrap().catch(() => undefined)" />
+  <div v-else class="loading-grid" aria-label="正在加载工作台">
     <a-skeleton active />
     <a-skeleton active />
   </div>
@@ -61,6 +70,8 @@
 import { computed } from 'vue'
 import { DeploymentUnitOutlined, ReadOutlined } from '@ant-design/icons-vue'
 import { usePortalStore } from '@/stores/portal'
+import { appIcon, chineseApp } from '@/components/appIcons'
+import PortalState from '@/components/portal/PortalState.vue'
 import AppCenter from '@/components/portal/AppCenter.vue'
 import BusinessPulse from '@/components/portal/BusinessPulse.vue'
 import DigitalTwinPanel from '@/components/portal/DigitalTwinPanel.vue'
@@ -71,7 +82,7 @@ const portal = usePortalStore()
 
 const actionableTasks = computed(() => portal.tasks.filter((task) => task.status === 'open').slice(0, 4))
 const actionCount = computed(() => portal.tasks.filter((task) => task.status === 'open').length)
-const hasTwinApp = computed(() => portal.apps.some((app) => app.id === 'twin' || app.id === 'equipment'))
+const hasTwinApp = computed(() => portal.apps.some(app => app.id === 'twin' || (app.id === 'equipment' && app.route === '/hbos/twin')))
 const hasKnowledgeApp = computed(() => portal.apps.some((app) => app.id === 'knowledge'))
 const twinReady = computed(() => portal.twinStatuses.some(
   (status) => status.id === 'model' && status.value === '已配置',

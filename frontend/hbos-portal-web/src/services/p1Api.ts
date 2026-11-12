@@ -412,7 +412,7 @@ export async function askKnowledgeReference(question: string, space?: string, co
 }
 function validateKnowledgeAnswer(data: import('@/contracts/p1').KnowledgeAnswer, space?: string,historical=false): import('@/contracts/p1').KnowledgeAnswer {
   if (!data || typeof data!=='object' || Array.isArray(data)) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
-  if (Object.keys(data).some(k => !['request_id','turn_id','conversation_id','mode','answer_status','answerable','answer','citations','answer_origin','model_alias'].includes(k)) || !Array.isArray(data.citations) || data.citations.length>5 || !(modelAliases.includes(data.model_alias as any)||(historical&&data.model_alias===null)) || !['KNOWLEDGE','GENERAL'].includes(data.answer_origin || '')) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
+  if (Object.keys(data).some(k => !['request_id','turn_id','conversation_id','mode','answer_status','answerable','answer','citations','answer_origin','model_alias'].includes(k)) || !Array.isArray(data.citations) || data.citations.length>5 || !((typeof data.model_alias==='string' && modelAliases.includes(data.model_alias))||(historical&&data.model_alias===null)) || !['KNOWLEDGE','GENERAL'].includes(data.answer_origin || '')) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。')
   safeKnowledgeString(data.answer,2000);safeKnowledgeString(data.turn_id,128)
   safeKnowledgeString(data.request_id,128)
   if (data.conversation_id !== undefined) { safeKnowledgeString(data.conversation_id,128); if (data.conversation_id !== data.turn_id) throw new DomainApiError('SERVICE_ERROR','知识服务返回了无效响应。') }

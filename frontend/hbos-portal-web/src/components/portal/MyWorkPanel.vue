@@ -8,6 +8,7 @@
       <a-button type="link" @click="$router.push('/hbos/work')">查看全部 <RightOutlined /></a-button>
     </div>
 
+    <PortalState v-if="error" kind="error" title="部分待办暂时无法加载" :description="error" retry @retry="$emit('retry')" />
     <div v-if="loading" class="task-list" aria-label="正在读取待办">
       <div v-for="index in 3" :key="index" class="task-row"><a-skeleton active :paragraph="false" /></div>
     </div>
@@ -17,7 +18,7 @@
         :key="task.taskId"
         type="button"
         class="task-row task-row-button"
-        @click="openTask(task)"
+        @click="selectedTask = task"
       >
         <div class="task-icon" :class="task.appId"><component :is="appIcon(task.appId)" /></div>
         <div class="task-copy">
@@ -30,32 +31,31 @@
         </div>
       </button>
     </div>
-    <div v-else class="home-panel-empty">
+    <div v-else-if="!error" class="home-panel-empty">
       <CheckCircleOutlined />
       <strong>当前没有需要你处理的事项</strong>
       <span>当前可用应用的待办会汇总到这里。</span>
     </div>
+    <PortalTaskDialog :task="selectedTask" @close="selectedTask = null" />
   </section>
 </template>
 
 <script setup lang="ts">
+import PortalState from './PortalState.vue'
 import { appIcon, chineseApp } from '@/components/appIcons'
-import { useRouter } from 'vue-router'
+import { ref } from 'vue'
+import PortalTaskDialog from './PortalTaskDialog.vue'
 import {
   CheckCircleOutlined,
   RightOutlined,
 } from '@ant-design/icons-vue'
 import type { UnifiedTaskDTO } from '@/contracts/portal'
-import { openBusinessRoute } from '@/services/businessNavigation'
 
-withDefaults(defineProps<{ tasks: UnifiedTaskDTO[]; loading?: boolean }>(), {
+withDefaults(defineProps<{ tasks: UnifiedTaskDTO[]; loading?: boolean; error?: string | null }>(), {
   loading: false,
 })
-const router = useRouter()
-
-function openTask(task: UnifiedTaskDTO) {
-  void openBusinessRoute(router, task.appId, task.deepLink)
-}
+defineEmits<{ retry: [] }>()
+const selectedTask = ref<UnifiedTaskDTO | null>(null)
 
 function tagText(task: UnifiedTaskDTO) {
   if (task.overdue) return '已超期'

@@ -22,7 +22,7 @@
             <div class="r6-security-title"><h4>登录密码</h4><StatusTag :tone="status.has_password && status.password_login_available !== false ? 'success' : 'warning'">{{ status.has_password ? status.password_login_available === false ? '密码登录暂不可用' : '已设置' : '尚未设置' }}</StatusTag></div>
             <p>使用账号和密码登录；修改前需验证本人，并确认可用的恢复渠道。</p>
           </div>
-          <a-button :disabled="busy || stale" @click="open('password', $event)">{{ status.has_password ? '修改密码' : '设置密码' }} <RightOutlined /></a-button>
+          <a-button :disabled="busy || stale" @click="open('password', $event)">{{ status.has_password ? '修改密码' : '设置密码' }}</a-button>
         </div>
         <div class="r6-security-row">
           <span class="r6-security-icon blue"><LinkOutlined /></span>
@@ -30,7 +30,7 @@
             <div class="r6-security-title"><h4>飞书登录</h4><StatusTag :tone="feishuTag.tone">{{ feishuTag.label }}</StatusTag></div>
             <p>{{ status.feishu_bound ? status.feishu_configured ? '已绑定本人的飞书，可用飞书进入工作台。' : '已绑定本人的飞书，但当前渠道暂不可用；请继续使用密码登录。' : status.feishu_configured ? '飞书登录仅限已开放账号；绑定前将核对账号范围。' : '当前可用密码登录；飞书登录仅限已开放账号。' }}</p>
           </div>
-          <a-button :disabled="busy || stale" @click="open('feishu', $event)">{{ status.feishu_bound ? '管理绑定' : '查看登录方式' }} <RightOutlined /></a-button>
+          <a-button :disabled="busy || stale" @click="open('feishu', $event)">{{ status.feishu_bound ? '管理绑定' : '查看登录方式' }}</a-button>
         </div>
         <div class="r6-security-row">
           <span class="r6-security-icon amber"><KeyOutlined /></span>
@@ -38,7 +38,7 @@
             <div class="r6-security-title"><h4>账号恢复</h4><StatusTag :tone="status.mail_recovery_available ? 'success' : 'warning'">{{ status.mail_recovery_available ? '恢复邮箱可用' : '暂无恢复邮箱' }}</StatusTag></div>
             <p>忘记密码时，可使用已验证的恢复邮箱，或联系管理员核对账号归属并协助恢复。</p>
           </div>
-          <a-button :disabled="busy || stale" @click="open('recovery', $event)">查看恢复方式 <RightOutlined /></a-button>
+          <a-button :disabled="busy || stale" @click="open('recovery', $event)">查看恢复方式</a-button>
         </div>
       </div>
 
@@ -65,14 +65,14 @@
       </a-collapse>
 
       <details class="account-more-tools">
-        <summary>更多账号工具</summary>
+        <summary>更多账号工具 <span class="v10-disclosure-cue" aria-hidden="true"></span></summary>
         <p class="r6-tools-note">仅在需要更换飞书或交接职责时使用；不影响上方登录与安全操作。</p>
         <AccountChangeActions />
       </details>
     </template>
   </section>
 
-  <a-modal :open="modalOpen" :title="panelTitle" :width="600" :footer="null" :get-container="false" :destroy-on-close="true" :closable="!busy" :mask-closable="!busy" :keyboard="!busy" @cancel="close">
+  <a-modal :open="modalOpen" :title="panelTitle" :width="600" wrap-class-name="v10-dialog" :footer="null" :get-container="false" :destroy-on-close="true" :closable="!busy" :mask-closable="!busy" :keyboard="!busy" @cancel="close">
       <div v-if="panel === 'password'" class="account-dialog">
         <a-alert v-if="error" :message="error" type="warning" show-icon role="alert" />
         <a-alert v-if="notice" :message="notice" type="success" show-icon role="status" />
@@ -145,7 +145,7 @@
   </a-modal>
 </template>
 <script setup lang="ts">
-import { LockOutlined, LinkOutlined, KeyOutlined, RightOutlined, MailOutlined, TeamOutlined } from '@ant-design/icons-vue'
+import { LockOutlined, LinkOutlined, KeyOutlined, MailOutlined, TeamOutlined } from '@ant-design/icons-vue'
 import StatusTag from '@/components/iam/StatusTag.vue'
 import { computed, onMounted, onBeforeUnmount, ref, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
