@@ -10,20 +10,30 @@ import frappe
 def _previous_session_token(sid):
     from frappe.sessions import get_expired_threshold, get_expiry_in_seconds
 
-    sessions = frappe.qb.DocType("Sessions")
-    records = (
-        frappe.qb.from_(sessions)
-        .select(sessions.sessiondata)
-        .where(sessions.sid == unquote(sid))
-        .where(sessions.status == "Active")
-        .where(sessions.lastupdate > get_expired_threshold())
-        .limit(1)
-    ).run()
-    if not records:
-        return None
+    sid = unquote(sid)
+    cached = frappe.cache.hget("session", sid)
+    if cached:
+        data = cached.get("data")
+    else:
+        sessions = frappe.qb.DocType("Sessions")
+        records = (
+            frappe.qb.from_(sessions)
+            .select(sessions.sessiondata)
+            .where(sessions.sid == sid)
+            .where(sessions.status == "Active")
+            .where(sessions.lastupdate > get_expired_threshold())
+            .limit(1)
+        ).run()
+        if not records:
+            return None
+        try:
+            data = frappe.parse_json(records[0][0])
+        except (TypeError, ValueError):
+            return None
     try:
-        data = frappe.parse_json(records[0][0])
         if not isinstance(data, dict):
+            return None
+        if cached and not data.get("last_updated"):
             return None
         if data.get("last_updated") and frappe.utils.time_diff_in_seconds(
             frappe.utils.now(), data["last_updated"]

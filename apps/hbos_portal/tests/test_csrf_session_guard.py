@@ -108,6 +108,7 @@ class SessionTokenGuardTest(unittest.TestCase):
         query.limit.return_value = query
         query.run.return_value = [('{"csrf_token":"valid-token"}',)]
         self.fake.qb = types.SimpleNamespace(DocType=lambda name: table, from_=lambda value: query)
+        self.fake.cache = types.SimpleNamespace(hget=lambda *args: None)
         self.fake.parse_json = json.loads
         self.fake.utils = types.SimpleNamespace(now=lambda: "now", time_diff_in_seconds=lambda now, then: 100)
         sessions = types.SimpleNamespace(get_expired_threshold=lambda: "threshold", get_expiry_in_seconds=lambda value: 60)
@@ -127,6 +128,14 @@ class SessionTokenGuardTest(unittest.TestCase):
             self.assertIsNone(csrf._previous_session_token("expired"))
             query.run.return_value = [('{"csrf_token":"token","session_end":"2000-01-01T00:00:00+00:00"}',)]
             self.assertIsNone(csrf._previous_session_token("expired"))
+            self.fake.utils.time_diff_in_seconds = lambda now, then: 0
+            self.fake.cache.hget = lambda *args: {"data": {"csrf_token": "cached-token", "last_updated": "recent"}}
+            self.assertEqual("cached-token", csrf._previous_session_token("cached"))
+            self.fake.utils.time_diff_in_seconds = lambda now, then: 100
+            self.fake.cache.hget = lambda *args: {"data": {"csrf_token": "token", "last_updated": "earlier"}}
+            self.assertIsNone(csrf._previous_session_token("expired-cache"))
+            self.fake.cache.hget = lambda *args: {"data": {"csrf_token": "token"}}
+            self.assertIsNone(csrf._previous_session_token("invalid-cache"))
 
     def test_security_hooks_are_registered(self):
         from hbos_portal import hooks
