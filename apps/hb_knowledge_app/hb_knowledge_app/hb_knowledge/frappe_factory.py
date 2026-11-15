@@ -137,15 +137,9 @@ class HttpGateway:
         from .public_strings import safe_string
         answer=safe_string(raw['answer'],ANSWER_MAX_CODEPOINTS)
         if not isinstance(raw['labels'],list) or len(set(raw['labels']))!=len(raw['labels']) or not isinstance(raw['results'],list) or len(raw['results'])>5:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
-        from knowledge_service.hbos_gateway.response_projection import public_evidence
-        records=[];labels=[];selected={b.binding_ref:b for b in ticket.plan.bindings}
-        for item in raw['results']:
-            if not isinstance(item,dict) or set(item)!={'binding_ref','version_id','chunk_id','excerpt','page_number','score','citation_label'}:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
-            b=selected.get(item['binding_ref']);label=item['citation_label']
-            if not b or b.version_id!=item['version_id'] or label not in {'C1','C2','C3','C4','C5'} or label in labels:raise KnowledgeError('UPSTREAM_SCOPE_VIOLATION')
-            r=EvidenceRecord(b.canonical_document_id,b.title,b.business_version,'内部参考／有效性待核',b.section,item['page_number'],item['excerpt'],item['chunk_id'],b.dataset_alias,b.space_id,b.version_id,b.binding_ref,b)
-            public_evidence(r,'ASK_PROJECTION_CHECK',environment='production');records.append(r);labels.append(label)
-        if set(labels)!=set(raw['labels']):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        selected={b.binding_ref:b for b in ticket.plan.bindings}
+        from .ask_projection import project_ask_results
+        records,labels,isolated=project_ask_results(raw['results'],raw['labels'],selected,answer_status=raw['answer_status'])
         return answer,labels,records,raw['answer_origin'],raw['model_alias'],raw['answer_status']
 
 def cfg_environment(gateway):
