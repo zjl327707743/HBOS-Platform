@@ -109,6 +109,11 @@ function statusLabel(status: string) {
   --feedback-gap: 15px;
 }
 .kb-staff-feedback-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+/* P09: match the v1.7 fixed first-row anchor at each measured breakpoint; this only
+   adjusts the gap after the heading (and one hint margin at desktop), not the catalog. */
+@media (max-width: 389px) { .kb-staff-feedback-heading { margin-bottom: 2px; } }
+@media (min-width: 390px) and (max-width: 1164px) { .kb-staff-feedback-heading { margin-bottom: 12px; } }
+@media (min-width: 1165px) { .kb-staff-feedback-heading { margin-bottom: 0; } .kb-staff-feedback-tools + p { margin-bottom: 11px; } }
 .kb-staff-feedback-title h2 { margin: 0; font-size: 18px; }
 .kb-staff-feedback-title { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 .kb-staff-feedback-count { color: #526984; background: #eef2f8; border-radius: 12px; padding: 2px 8px; font-size: 11px; }

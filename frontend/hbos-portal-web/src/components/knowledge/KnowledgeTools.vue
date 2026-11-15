@@ -109,7 +109,7 @@
     <slot v-if="view==='catalog'" name="catalog"/>
     <section v-if="['favorites','history','feedback'].includes(view)" class="kb-panel hbos-glass-g1">
       <template v-if="view==='favorites'"><div class="kb-list-heading"><h2>收藏资料</h2><span v-if="!refreshing && !recordsError" class="kb-list-count">本页 {{ shown.length }} 份</span></div><div class="kb-list-toolbar kb-favorite-toolbar"><a-input-search id="favorite-query" v-model:value="favoriteQuery" placeholder="查找标题或文号" aria-label="查找收藏标题或文号"/><PortalSelect v-model:value="favoriteSpace" aria-label="筛选收藏部门" :options="[{ value: '', label: '全部已共享资料' }, ...(spaces || []).map(space => ({ value: space.space_id, label: space.title }))]" /></div><div class="kb-list-caption"><span>{{refreshing?'更新中':favoriteFilterActive?filteredFavorites.length+' 项匹配收藏':'本页 '+bookmarks.length+' 项收藏'}} · 仅本人可见</span><span>登录员工可直接阅读与下载已发布资料</span></div></template>
-      <div v-if="view==='history'||view==='feedback'" class="kb-record-toolbar">
+      <div v-if="view==='history'||view==='feedback'" :class="['kb-record-toolbar', view==='history' ? 'kb-record-toolbar-history' : '']">
         <div class="kb-record-tabs" role="group" aria-label="我的记录视图">
           <button type="button" :aria-pressed="view==='history'" :class="{active:view==='history'}" @click="emit('records-view','history')">查阅记录</button>
           <button type="button" :aria-pressed="view==='feedback'" :class="{active:view==='feedback'}" @click="emit('records-view','feedback')">我的反馈</button>

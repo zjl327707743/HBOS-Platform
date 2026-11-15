@@ -1566,6 +1566,16 @@
   margin-bottom: 4px;
 }
 
+/* P04: align the first record row with the v1.7 fixed anchor without changing the
+   compact toolbar itself; the prototype toolbar reserves more vertical space. */
+.kb-scope .kb-record-toolbar-history { margin-bottom: 49px; }
+@media (min-width: 390px) and (max-width: 1164px) {
+  .kb-scope .kb-record-toolbar-history { margin-bottom: 39px; }
+}
+@media (min-width: 1165px) {
+  .kb-scope .kb-record-toolbar-history { margin-bottom: 33px; }
+}
+
 .kb-scope .kb-record-tabs {
   display: flex;
   align-items: center;

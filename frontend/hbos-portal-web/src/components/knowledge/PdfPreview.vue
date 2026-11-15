@@ -193,7 +193,8 @@ defineExpose({ page, pages, scale, reload: load })
 .kb-pdf-jump input{width:68px;padding:5px 8px;border:1px solid var(--hbos-border-strong);border-radius:8px;font:inherit;color:var(--hbos-text-primary);background:var(--hbos-bg-surface)}
 .kb-pdf-zoom{display:flex;align-items:center;gap:6px;margin-left:auto}
 .kb-pdf-scale{min-width:62px;padding:5px 8px;border:1px solid var(--hbos-border-strong);border-radius:8px;background:var(--hbos-bg-surface);font:inherit;font-size:13px;color:var(--hbos-text-primary);cursor:pointer}
-.kb-pdf-surface{width:100%;overflow:auto;min-width:0;background:#eef1f4;border-radius:10px;padding:8px}
+.kb-pdf-surface{width:100%;overflow:auto;min-width:0;background:#eef1f4;border-radius:10px;padding:8px;margin-top:33px}
+@media(min-width:390px) and (max-width:1164px){.kb-pdf-surface{margin-top:39px}}
 .kb-pdf-surface canvas{display:block;margin:auto;max-width:100%;height:auto;background:white;box-shadow:0 2px 10px rgba(32,59,102,.12)}
 .kb-pdf-surface.kb-pdf-enlarged canvas{max-width:none;margin-inline:0}
 .kb-pdf-preview p{font-size:12px;line-height:1.7;color:var(--hbos-text-secondary);margin:0}
