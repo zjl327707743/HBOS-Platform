@@ -489,9 +489,9 @@ def ask(**business_fields):
             runtime.decisions.online(ServicePrincipal(runtime.client,True),ticket.call('revalidate','final_publish'))
             runtime.audit.record(actor.user_ref,'ask','SUCCESS',len(citations))
             return data
-        from .spaces import list_spaces
+        from .spaces import authorized_title_records
         with phase('list_spaces'):
-            titles=_space_titles(list_spaces(runtime,actor)['spaces'],raw.get('space_ids'))
+            titles=_space_titles(authorized_title_records(runtime,actor),raw.get('space_ids'))
         request=normalize_search({'query':question,**_with_titles(titles),
             **{k:v for k,v in raw.items() if k in ('space_ids','context','search_mode')},**options})
         with phase('plan_issue'):
