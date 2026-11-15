@@ -47,6 +47,7 @@ function persist() {
     catalogPageSize: saved?.catalogPageSize || 20,
     lawCategory: saved?.lawCategory || '',
     sourceFolder: saved?.sourceFolder || 'SOURCE_ROOT',
+    includeDescendants: saved?.includeDescendants,
     view: saved?.view || 'query',
     scrollTop: saved?.scrollTop || 0,
     positions: positions.value,

@@ -4,6 +4,7 @@
       :from="from"
       :document="document"
       :body="body"
+      :navigation="navigation"
       :page="page"
       :page-count="pageCount"
       :loading="loading"
@@ -56,6 +57,7 @@ import { usePortalStore } from '@/stores/portal'
 import DocumentReader from '@/components/knowledge/DocumentReader.vue'
 import {
   createDocumentDelivery,
+  startDocumentDownload,
   deliveryFailureMessage,
   fetchDocumentCapabilities,
   isRetryableDelivery,
@@ -87,10 +89,20 @@ const from = computed<ReaderSource>(() => {
   const value = String(route.query.from || '')
   return value === 'ask' || value === 'search' || value === 'catalog' ? value : 'search'
 })
+// A verified physical PDF page from the evidence entry, in canonical decimal
+// form only. Arrays, signs, decimals, exponents and overflow are ignored rather
+// than guessed at. This number locates the file view only: it is not a
+// body/chunk page and never decides authorization or the current version.
+const physicalPage = computed<number | null>(() => {
+  const value = route.query.physical_page
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return null
+  const page = Number(value)
+  return Number.isSafeInteger(page) && page <= 10000 ? page : null
+})
 
 const reader = useDocumentReader(() => subjectKey.value)
 const {
-  document, body, loading, pageLoading, page, pageCount,
+  document, body, navigation, loading, pageLoading, page, pageCount,
   failure, pageFailure, searchQuery, searching, searchRan, searchFailure, matches,
   searchedBlocks, searchCapped, highlightBlockId, highlightQuery,
   open, goToPage, runSearch, clearSearch, jumpToMatch,
@@ -112,6 +124,7 @@ interface DeliveryState {
   preparing: boolean
   preparingMessage: string
   previewUrl: string | null
+  previewSha256: string
   previewKind: 'ORIGINAL_PDF' | 'DERIVED_PDF' | null
   previewFilename: string
   previewUnavailable: string
@@ -126,6 +139,7 @@ const delivery = reactive<DeliveryState>({
   preparing: false,
   preparingMessage: '',
   previewUrl: null,
+  previewSha256: '',
   previewKind: null,
   previewFilename: '',
   previewUnavailable: '',
@@ -142,7 +156,7 @@ function resetDelivery() {
   previewRequest = null
   Object.assign(delivery, {
     capabilities: null, loadingCapabilities: false, preparing: false, preparingMessage: '',
-    previewUrl: null, previewKind: null, previewFilename: '', previewUnavailable: '',
+    previewUrl: null, previewSha256:'', previewKind: null, previewFilename: '', previewUnavailable: '',
     downloadBusy: false, canDownload: false, downloadReason: '', notice: '',
   })
 }
@@ -183,7 +197,7 @@ async function loadCapabilities() {
 }
 
 /** Ask for a fresh ticket; never shown to the reader as a ticket. */
-async function requestPreview(): Promise<string | null> {
+async function requestPreview(publishUrl=true): Promise<string | null> {
   if (!documentId.value || !document.value) return null
   const generation = deliveryGeneration, subject = subjectKey.value
   delivery.preparing = true
@@ -192,7 +206,11 @@ async function requestPreview(): Promise<string | null> {
   try {
     const value = await createDocumentDelivery(documentId.value, currentVersion(), 'preview')
     if (generation !== deliveryGeneration || subject !== subjectKey.value) return null
-    delivery.previewUrl = value.content_url
+    if (!publishUrl && delivery.previewSha256 && value.sha256!==delivery.previewSha256) {
+      throw new DomainApiError('SCOPE_REJECTED','资料状态已变化，请重新打开资料。')
+    }
+    // Renewing a range must not change the prop and restart the PDF worker.
+    if(publishUrl){delivery.previewUrl=value.content_url;delivery.previewSha256=value.sha256}
     delivery.previewKind = value.kind === 'DERIVED_PDF' ? 'DERIVED_PDF' : 'ORIGINAL_PDF'
     delivery.previewFilename = value.filename
     delivery.preparing = false
@@ -220,8 +238,9 @@ function ensurePreview() {
 
 /** Called by the file view when its short-lived ticket lapses mid-read. */
 async function renewPreview(): Promise<string | null> {
-  if (delivery.preparing) return previewRequest
-  return requestPreview()
+  if (delivery.preparing && previewRequest) return previewRequest
+  previewRequest=requestPreview(false)
+  return previewRequest
 }
 
 async function downloadOriginal() {
@@ -232,13 +251,7 @@ async function downloadOriginal() {
   try {
     const value = await createDocumentDelivery(documentId.value, currentVersion(), 'download')
     if (generation !== deliveryGeneration || subject !== subjectKey.value) return
-    const link = window.document.createElement('a')
-    link.href = value.content_url
-    link.download = value.filename
-    link.rel = 'noopener'
-    window.document.body.appendChild(link)
-    link.click()
-    setTimeout(() => link.remove(), 0)
+    startDocumentDownload(value)
     delivery.notice = value.kind === 'ORIGINAL_FILE'
       ? '已开始下载原文件，文件由服务端核验当前身份与版本后提供。'
       : '已开始下载。'
@@ -296,9 +309,17 @@ function rememberPosition() {
 
 function openCurrent() {
   const saved = storedPosition()
-  position.value = { page: saved && saved.page >= 1 ? saved.page : 1, zoom: saved?.zoom || 0 }
-  void open({ documentId: documentId.value, versionId: versionId.value, page: position.value.page })
+  const physical = physicalPage.value
+  position.value = { page: physical || (saved && saved.page >= 1 ? saved.page : 1), zoom: saved?.zoom || 0 }
+  // A physical-page entry still opens the body at page 1: the physical PDF page
+  // must never be requested as an index-text page.
+  void open({ documentId: documentId.value, versionId: versionId.value, page: physical ? 1 : position.value.page })
 }
+// A later entry for the same document may carry a different verified page; the
+// already-authorized file view moves there without re-reading the body.
+watch(physicalPage, value => {
+  if (value) position.value.page = value
+})
 
 function goBack() {
   rememberPosition()

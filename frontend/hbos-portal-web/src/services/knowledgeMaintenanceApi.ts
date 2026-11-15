@@ -1,10 +1,12 @@
 import type { DomainEnvelope } from '@/contracts/p1'
 import { callFrappeMethod, callFrappePostMethod, callFrappeUploadMethod } from './frappeClient'
 import { DomainApiError } from './p1Api'
-export interface ImportItem { document_id:string; version_id:string; title:string; filename:string; sha256:string; relationship:string; expected_version:string|null; parse_status:string; progress:number; chunk_count:number; quality_status:string; shared_approved?:boolean; quality_note:string; current_version:string|null; publication_status:string }
+export interface EffectiveParseTemplate {parser?:string;parser_version?:string;parser_patch_sha256?:string;profile_sha256?:string;chunk_tokens?:number;overlap_percent?:number;table_context?:number;image_context?:number;embedding_model?:string;embedding_dimensions?:number;input_kind?:string;input_sha256?:string;effective_document_profile:boolean;provenance?:{actual_ocr_pages?:number[];actual_ocr_engine?:string[];extra_ocr_requested?:boolean}}
+export interface AutomaticQuality {status:string;queue:string;reasons:string[];text_check?:{source_lines:number;matched_lines:number;missing_number_occurrences:number}}
+export interface ImportItem {effective_template?:EffectiveParseTemplate;automatic_quality?:AutomaticQuality; document_id:string; version_id:string; title:string; filename:string; sha256:string; relationship:string; expected_version:string|null; parse_status:string; progress:number; chunk_count:number; quality_status:string; shared_approved?:boolean; quality_note:string; current_version:string|null; publication_status:string; lifecycle_receipt_id?:string|null }
 export interface ImportBatch { batch_id:string; label:string; department:string; status:string; last_error:string|null; items:ImportItem[]; total:number; page:number; page_size:number; counts:{parsed:number;failed:number;quality_passed:number} }
 export interface MaintenanceFeedback { id:string; category:string; note:string; status:string; reply?:string; maintenance_reply?:string; title?:string }
-export interface VersionTarget { document_id:string; version_id:string; current_version:string; title:string; department:string; document_number?:string|null }
+export interface VersionTarget { document_id:string; version_id:string; current_version:string; title:string; department:string; document_number?:string|null; allowed_actions?:string[] }
 export interface DepartmentFunnel {department:string;title:string;discovered:number;shared_approved:number;uploaded:number;parsed:number;validated:number;published:number;pending_review:number;isolated:number;sensitive:number;failed:number;sharing_pending:number}
 export interface MaintenanceBatchEntry { name:string; label:string; department_key:string; status:string; document_page?:number }
 export type MaintenanceLookupState = 'FOUND' | 'NOT_FOUND' | null
@@ -19,7 +21,18 @@ export interface MaintenanceLookup {
   batch_page?: number
   batch_page_size?: number
 }
+export interface MaintenanceOverview { published_total:number; pending_quality_check:number; sharing_pending:number; feedback_pending:number }
+export interface VersionLineageEntry {
+  version_id:string; enabled:boolean; created_at:string|null; source_hash:string|null
+  publication_state:'PUBLISHED'|'HISTORICAL'|'UNPUBLISHED'|string; quality_state:'VERIFIED'|'NOT_RECORDED'|string
+  rollback_eligible:boolean; superseded_by:string|null; supersedes:string|null
+}
+export interface VersionLineage {
+  document_id:string; current_version:string; versions:VersionLineageEntry[]
+  total:number; page:number; page_size:number; has_more:boolean
+}
 export interface MaintenanceDashboard {
+  overview?:MaintenanceOverview
   department_funnel?:DepartmentFunnel[]
   published_documents:VersionTarget[]
   published_total?:number
@@ -45,12 +58,13 @@ export interface MaintenanceDashboard {
   selected:ImportBatch|null
   feedback:{items:MaintenanceFeedback[]}
   import_availability:{can_parse:boolean;can_batch?:boolean;configured:boolean;blocked:boolean}
+  upload_policy?:{max_source_bytes:number;native_templates_enabled:boolean;templates:{key:string;title:string}[]}
 }
 export interface QualityPreview { title:string; fragments:{text:string;location:string}[]; chunk_count:number; source_sha256:string; version_id:string }
 const method=(name:string)=>`hb_knowledge_app.hb_knowledge.api.${name}`
 const messages:Record<string,string>={SCOPE_REJECTED:'当前账号没有知识维护权限。',AUTHENTICATION_REQUIRED:'登录已失效，请重新登录。',INVALID_REQUEST:'文件或操作无效，请核对格式、大小和当前状态。',IDENTITY_CONFLICT:'身份或当前版本冲突，请选择明确的换版关系。',IMPORT_BUSY:'该批次正在处理，请等待本次完成。',QUALITY_REQUIRED:'请先完成本版本的质量核对。',IMPORT_BUDGET_BLOCKED:'解析费用待核验或预算不可用，解析已暂停。'}
 function unwrap<T>(value:DomainEnvelope<T>):T { if(!value.ok||value.data===undefined) { const code=value.error?.code||'SERVICE_ERROR';throw new DomainApiError(code,messages[code]||'维护服务暂不可用。',Boolean(value.error?.retryable)) } return value.data }
-const LOOKUP_DOCUMENT_ID=/^DOC_[A-Za-z0-9_-]{1,96}$/
+const LOOKUP_DOCUMENT_ID=/^(?:DOC_[A-Za-z0-9_-]{1,96}|N1DOC-[0-9a-f]{24})$/
 // eslint-disable-next-line no-control-regex -- 查找参数就是要拒绝控制字符，匹配它们是有意的
 const LOOKUP_CONTROL=/[\u0000-\u0008\u000b\u000c\u000e-\u001f\r\n]/
 function lookupText(value:unknown):string {
@@ -102,13 +116,26 @@ export async function getMaintenance(batch_id?:string,page=1,locate?:string,look
   return unwrap(await callFrappeMethod<DomainEnvelope<MaintenanceDashboard>>(method('get_maintenance'),params))
 }
 export async function maintenanceAction(name:string,args:Record<string,unknown>):Promise<unknown> { return unwrap(await callFrappePostMethod<DomainEnvelope<unknown>>(method(name),args)) }
-export async function getMaintenanceFeedbackPage(page=1,status=''):Promise<{items:MaintenanceFeedback[];page:number;page_size:number;has_more:boolean}> {
-  const data=unwrap(await callFrappeMethod<DomainEnvelope<{items:MaintenanceFeedback[];page:number;page_size:number;has_more:boolean}>>(method('get_feedback_queue'),{page,page_size:6,status}))
+export async function getMaintenanceFeedbackPage(page=1,status='',query=''):Promise<{items:MaintenanceFeedback[];page:number;page_size:number;has_more:boolean}> {
+  const needle=String(query||'').trim()
+  if(needle.length>120)throw new DomainApiError('INVALID_REQUEST','反馈搜索最多 120 个字符。')
+  const params:Record<string,unknown>={page,page_size:6,status}
+  // Bounded, read-only server-side substring search (Main minimal interface). An older
+  // candidate without the query parameter rejects the request; the view keeps an honest
+  // fallback instead of filtering client-side.
+  if(needle)params.query=needle
+  const data=unwrap(await callFrappeMethod<DomainEnvelope<{items:MaintenanceFeedback[];page:number;page_size:number;has_more:boolean}>>(method('get_feedback_queue'),params))
   if(!Array.isArray(data.items)||data.items.length>6||data.page!==page||data.page_size!==6||typeof data.has_more!=='boolean')throw new DomainApiError('SERVICE_ERROR','反馈分页响应无效。')
   return data
 }
+
+export async function getVersionLineage(document_id:string,page=1,page_size=12):Promise<VersionLineage> {
+  if (!/^(?:DOC_|N1DOC-)[A-Za-z0-9_-]{8,96}$/.test(document_id)) throw new DomainApiError('INVALID_REQUEST','文档标识无效。')
+  if (!Number.isSafeInteger(page) || page < 1 || page > 100000 || !Number.isSafeInteger(page_size) || page_size < 1 || page_size > 50) throw new DomainApiError('INVALID_REQUEST','版本沿革分页参数无效。')
+  return unwrap(await callFrappeMethod<DomainEnvelope<VersionLineage>>('hb_knowledge_app.hb_knowledge.api.get_version_lineage',{document_id,page,page_size}))
+}
 export async function previewImport(batch_id:string,document_id:string):Promise<QualityPreview> { return unwrap(await callFrappePostMethod<DomainEnvelope<QualityPreview>>(method('preview_import'),{batch_id,document_id})) }
-export async function uploadKnowledge(file:File,department:string,sharing:boolean,replace?:VersionTarget):Promise<{batch_id:string;relationship:string}> { const form=new FormData();form.append('file',file);form.append('department',department);form.append('sharing',sharing?'1':'0');if(replace){form.append('replace_document',replace.document_id);form.append('expected_version',replace.current_version||replace.version_id)}return unwrap(await callFrappeUploadMethod<DomainEnvelope<{batch_id:string;relationship:string}>>(method('upload_knowledge'),form)) }
+export async function uploadKnowledge(file:File,department:string,sharing:boolean,replace?:VersionTarget,parseTemplate='auto'):Promise<{batch_id:string;relationship:string}> { const form=new FormData();form.append('file',file);form.append('department',department);form.append('sharing',sharing?'1':'0');form.append('parse_template',parseTemplate);form.append('auto_process','1');if(replace){form.append('replace_document',replace.document_id);form.append('expected_version',replace.current_version||replace.version_id)}return unwrap(await callFrappeUploadMethod<DomainEnvelope<{batch_id:string;relationship:string}>>(method('upload_knowledge'),form)) }
 
 // RC13 batch pipeline: preview -> submit -> fenced progress -> retrieval receipt.
 export type BatchDisposition='NEW'|'DUPLICATE'|'BUSINESS_UPDATE'|'TECHNICAL_REPAIR'|'NEW_UPLOAD_REQUIRED'|'ANOMALY'

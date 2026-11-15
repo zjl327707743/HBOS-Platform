@@ -1,8 +1,10 @@
 <template>
-  <a-drawer :open="open" title="连接个人助手" width="min(640px, 100vw)" root-class-name="kb-drawer kb-scope" :destroy-on-close="true" @close="close">
+  <a-drawer :open="open" title="连接个人助手" width="min(640px, calc(100vw - 24px))" root-class-name="kb-drawer kb-scope kb-inset-drawer kb-connection-drawer" @after-open-change="onDrawerOpenChange" @close="close">
     <ol class="kb-connect-steps" aria-label="连接步骤">
-      <li v-for="item in steps" :key="item.step" :class="{ active: step === item.step, done: step > item.step }">
-        <span class="kb-step-no">{{ step > item.step ? '✓' : item.step }}</span>{{ item.title }}
+      <li v-for="item in steps" :key="item.step" :class="{ active: step === item.step, done: step > item.step }" :aria-current="step === item.step ? 'step' : undefined">
+        <button type="button" :disabled="busy || item.step > furthestStep" @click="step = item.step">
+          <span class="kb-step-no">{{ step > item.step ? '✓' : item.step }}</span>{{ item.title }}
+        </button>
       </li>
     </ol>
 
@@ -11,14 +13,24 @@
 
     <template v-if="info">
       <!-- 1 · 选择助手 -->
-      <section v-show="step === 1" class="kb-wizard-body" data-step="1">
+      <section v-if="oauthMode" v-show="step === 1" class="kb-wizard-body" data-step="1">
+        <p class="kb-wizard-body-copy">复制一次连接说明到你的助手。助手发起连接后，在浏览器由你本人确认账号与权限。</p>
+        <button type="button" class="kb-copy-primary" data-copy-guidance @click="copyGuidance"><CopyOutlined />复制到我的助手</button>
+        <p v-if="notice" class="kb-notice" role="status">{{ notice }}</p>
+        <details class="kb-advanced"><KnowledgeDisclosureSummary>查看连接说明（不含凭据）</KnowledgeDisclosureSummary><div class="kb-prompt-preview">{{ guidanceText }}</div></details>
+        <p v-if="info.deployment === 'LOCAL_UAT'" class="kb-muted">当前入口只用于这台电脑的验收。跨机器接入需要受控 HTTPS 服务。</p>
+        <div class="kb-wizard-footer"><a-button type="primary" @click="step = 2; startPolling()">下一步：浏览器本人授权</a-button></div>
+      </section>
+      <section v-else v-show="step === 1" class="kb-wizard-body" data-step="1">
         <p class="kb-wizard-body-copy">选择你实际在用的助手。只列出经实测支持的版本；其它客户端暂未验证。</p>
+        <div class="kb-assistant-options">
         <button v-for="name in ['OpenClaw','Hermes'] as const" :key="name" :class="['kb-assistant-option', { selected: client === name }]" :disabled="busy" @click="client = name">
           <strong>{{ name }}</strong>
           <span>{{ clientPurpose(name) }}</span>
           <small class="kb-muted">支持版本：{{ clientVersion(name) }}</small>
           <CheckCircleOutlined v-if="client === name" />
         </button>
+        </div>
         <p v-if="info.deployment === 'LOCAL_UAT'" class="kb-muted">当前为本机验收入口，仅这台电脑可用；公司服务器上线后使用统一 HTTPS 地址。</p>
         <div class="kb-wizard-footer">
           <a-button type="primary" data-step-continue @click="step = 2">下一步：复制连接指引</a-button>
@@ -27,7 +39,7 @@
 
       <!-- 2 · 复制连接指引：复制出去的内容不含凭据 -->
       <section v-show="step === 2" class="kb-wizard-body" data-step="2">
-        <p class="kb-wizard-body-copy">复制下面这段文字，粘贴到你的助手里。它只包含服务器地址、安装命令和使用规则，不含任何凭据，可以放心贴给助手看。</p>
+        <p class="kb-wizard-body-copy">{{ oauthMode ? '在助手里发起连接，打开它给出的 HBOS 授权页面并由你本人确认。授权后回到助手真实试问。' : '复制下面这段文字，粘贴到你的助手里。它只包含服务器地址、安装命令和使用规则，不含任何凭据。' }}</p>
 
         <button type="button" class="kb-copy-primary" :disabled="busy" data-copy-guidance @click="copyGuidance">
           <CopyOutlined />复制到我的助手
@@ -35,11 +47,11 @@
         <p v-if="notice" class="kb-notice" role="status" data-copy-notice>{{ notice }}</p>
 
         <details class="kb-advanced" data-guidance-details>
-          <summary>查看复制内容（可展开，不含凭据）</summary>
+          <KnowledgeDisclosureSummary>查看复制内容（可展开，不含凭据）</KnowledgeDisclosureSummary>
           <div class="kb-prompt-preview" tabindex="0" aria-label="连接指引全文">{{ guidanceText }}</div>
         </details>
 
-        <div class="kb-credential">
+        <div v-if="!oauthMode" class="kb-credential">
           <h2>本人凭据</h2>
           <p class="kb-muted">凭据等同你的身份，只放进助手自己的私密设置或终端命令，<strong>不要粘贴到对话里</strong>。这里不显示凭据内容。</p>
           <a-button v-if="!createdId" data-create-connection :loading="busy" :disabled="busy" @click="prepareConnection">生成本人连接</a-button>
@@ -51,7 +63,7 @@
             <p class="kb-muted">只在本页复制一次；关闭后无法再取回，需要时撤销旧连接后重新生成。</p>
           </template>
           <details class="kb-advanced" data-private-installer>
-            <summary>高级：由本机安装文件写入客户端私密设置（凭据不进入对话）</summary>
+            <KnowledgeDisclosureSummary>高级：由本机安装文件写入客户端私密设置（凭据不进入对话）</KnowledgeDisclosureSummary>
             <p class="kb-muted">下载一个只在本机运行的安装文件，它会把这一个连接写进 {{ client }} 的私密配置并备份原有文件；成功后自动删除自身。凭据不经过任何模型。</p>
             <a-button v-if="!createdId" :disabled="busy" @click="prepareConnection">先生成本人连接</a-button>
             <a-button v-else :disabled="busy" data-download-installer @click="installPrivate"><DownloadOutlined />{{ installerName ? '复制安装指令' : '下载并复制安装指令' }}</a-button>
@@ -61,7 +73,7 @@
 
         <div class="kb-wizard-footer">
           <a-button @click="step = 1">上一步</a-button>
-          <a-button type="primary" data-step-continue :disabled="!anyConnection" @click="goTrial">下一步：在助手里试问</a-button>
+          <a-button type="primary" data-step-continue :disabled="!oauthMode && !anyConnection" @click="goTrial">下一步：在助手里试问</a-button>
         </div>
       </section>
 
@@ -103,7 +115,7 @@
           <CopyOutlined />{{ exampleQuestion2 }}
         </button>
         <h2>常见问题</h2>
-        <details v-for="entry in CONNECTION_FAQ" :key="entry.question" class="kb-faq"><summary>{{ entry.question }}</summary><p class="kb-muted">{{ entry.answer }}</p></details>
+        <details v-for="entry in CONNECTION_FAQ" :key="entry.question" class="kb-faq"><KnowledgeDisclosureSummary>{{ entry.question }}</KnowledgeDisclosureSummary><p class="kb-muted">{{ entry.answer }}</p></details>
         <div class="kb-connection-manage" data-connection-manage>
           <h2>连接管理</h2>
           <div v-if="currentConnection" class="connection-management">
@@ -116,7 +128,7 @@
             </a-popconfirm>
           </div>
           <p v-else class="kb-muted">还没有可用连接。</p>
-          <details v-if="history.length"><summary>历史连接（{{ history.length }}）</summary><article v-for="item in history" :key="item.id" class="connection-management"><div><strong>{{ item.label }}</strong><p class="kb-muted">{{ item.client }} · {{ stageText(item) }}</p></div><a-popconfirm v-if="!item.revoked && !item.expired" title="确认撤销此连接？" ok-text="撤销" cancel-text="取消" @confirm="revoke(item.id)"><a-button danger size="small" :disabled="busy">撤销</a-button></a-popconfirm></article></details>
+          <details v-if="history.length"><KnowledgeDisclosureSummary>历史连接（{{ history.length }}）</KnowledgeDisclosureSummary><article v-for="item in history" :key="item.id" class="connection-management"><div><strong>{{ item.label }}</strong><p class="kb-muted">{{ item.client }} · {{ stageText(item) }}</p></div><a-popconfirm v-if="!item.revoked && !item.expired" title="确认撤销此连接？" ok-text="撤销" cancel-text="取消" @confirm="revoke(item.id)"><a-button danger size="small" :disabled="busy">撤销</a-button></a-popconfirm></article></details>
         </div>
         <div class="kb-wizard-footer">
           <a-button @click="step = 3">上一步</a-button>
@@ -127,12 +139,15 @@
   </a-drawer>
 </template>
 <script setup lang="ts">
+import { handleDrawerLayerChange } from '@/components/knowledge/drawerDialogA11y'
+import KnowledgeDisclosureSummary from '@/components/knowledge/KnowledgeDisclosureSummary.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { CheckCircleOutlined, ClockCircleOutlined, CopyOutlined, DownloadOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { getKnowledgeConnections, createKnowledgeConnection, revokeKnowledgeConnection, DomainApiError } from '@/services/p1Api'
 import type { ConnectionInfo, PersonalConnection } from '@/services/p1Api'
 import { connectionGuidance, credentialFreePrompt, guidanceHasNoSecret, TOOL_HELP, CONNECTION_FAQ } from '@/services/knowledgeHelp'
 import { localInstaller } from '@/services/knowledgeInstaller'
+import { oauthConnectionGuidance } from '@/services/knowledgeOAuthGuidance'
 
 /**
  * The journey: pick the assistant, copy one guidance block, (optionally)
@@ -145,16 +160,22 @@ const props = defineProps<{ open: boolean; subject: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const info = ref<ConnectionInfo | null>(null)
+const oauthMode = computed(() => info.value?.auth_type === 'OAUTH_PKCE')
+let initialConnectionIds: Set<string> | null = null
+const oauthStarted = ref(false)
 const client = ref<'OpenClaw' | 'Hermes'>('OpenClaw')
 const loading = ref(false), busy = ref(false), error = ref(''), notice = ref('')
 const step = ref<1 | 2 | 3 | 4>(1)
+const furthestStep = ref(1)
+watch(step, value => { furthestStep.value = Math.max(furthestStep.value, value) })
+
 const createdId = ref('')
 const createdCredential = ref('')
 
 const steps = computed(() => [
-  { step: 1 as const, title: '选择助手' },
-  { step: 2 as const, title: '复制连接指引' },
-  { step: 3 as const, title: '在助手里试问' },
+  { step: 1 as const, title: oauthMode.value ? '连接说明' : '选择助手' },
+  { step: 2 as const, title: oauthMode.value ? '本人授权' : '连接指引' },
+  { step: 3 as const, title: '试问核验' },
   { step: 4 as const, title: '使用帮助' },
 ])
 const exampleQuestion = '搜索培养箱使用前检查的相关 SOP，并打开其中一条来源核对版本。'
@@ -163,8 +184,9 @@ const exampleQuestion2 = '我们岗位安全培训要用哪份资料？请给出
 const liveToolHelp = computed(() => TOOL_HELP.filter(tool => info.value?.tools.includes(tool.name)))
 const anyConnection = computed(() => Boolean(info.value?.items.some(item => !item.revoked && !item.expired)))
 const currentConnection = computed(() =>
-  info.value?.items.find(item => item.id === createdId.value && !item.revoked && !item.expired)
-  || info.value?.items.find(item => item.client === client.value && !item.revoked && !item.expired && !item.is_test))
+  (oauthMode.value ? info.value?.items.find(item => oauthStarted.value && !initialConnectionIds?.has(item.id) && !item.revoked && !item.expired) : undefined)
+  || (!oauthMode.value ? info.value?.items.find(item => item.id === createdId.value && !item.revoked && !item.expired) : undefined)
+  || (!oauthMode.value ? info.value?.items.find(item => item.client === client.value && !item.revoked && !item.expired && !item.is_test) : undefined))
 const history = computed(() => info.value?.items.filter(item => item.id !== currentConnection.value?.id) || [])
 
 function clientVersion(name: 'OpenClaw' | 'Hermes') { return info.value?.client_versions?.[name] || '以助手官方版本为准' }
@@ -194,7 +216,7 @@ const stateTitle = computed(() => ({
 }[state.value]))
 const stateDetail = computed(() => {
   const connection = currentConnection.value
-  if (state.value === 'none') return '先在第 2 步生成本人连接。'
+  if (state.value === 'none') return oauthMode.value ? '等待助手发起连接并由你在浏览器确认授权。' : '先在第 2 步生成本人连接。'
   if (state.value === 'connected') return `助手已完成一次资料检索并打开了来源（${date(connection?.knowledge_used_at || '')}）。`
   return '在助手里问上面的例句；检索并打开来源后这里会自动更新。'
 })
@@ -207,6 +229,7 @@ function commandFor(name: 'OpenClaw' | 'Hermes', endpoint: string) {
 }
 const guidanceText = computed(() => {
   if (!info.value) return ''
+  if (oauthMode.value) return oauthConnectionGuidance(info.value.endpoint, exampleQuestion)
   return connectionGuidance({
     client: client.value,
     endpoint: info.value.endpoint,
@@ -230,7 +253,8 @@ async function copyGuidance() {
   if (!info.value) return
   const text = guidanceText.value
   if (!guidanceHasNoSecret(text)) { error.value = '复制内容检查未通过，已停止复制。'; return }
-  await copyText(text, '已复制连接指引（不含凭据）。粘贴到你的助手里，再按指引完成凭据设置。')
+  if (oauthMode.value) oauthStarted.value = true
+  await copyText(text, oauthMode.value ? '连接说明已复制。粘贴到助手后，在浏览器由你本人授权。' : '已复制连接指引（不含凭据）。粘贴到你的助手里，再按指引完成凭据设置。')
 }
 function copyEndpoint() {
   if (!info.value) return
@@ -282,12 +306,15 @@ function startPolling() {
   }, 8000)
 }
 
-function reset() {
+function reset(preserveStep = false) {
   generation++; stopPolling()
   info.value = null; error.value = ''; notice.value = ''; busy.value = false; loading.value = false
-  createdId.value = ''; createdCredential.value = ''; step.value = 1
+  createdId.value = ''; createdCredential.value = ''
+  if (!preserveStep) { step.value = 1; furthestStep.value = 1 }
+
+  initialConnectionIds = null; oauthStarted.value = false
 }
-function close() { reset(); emit('close') }
+function close() { emit('close') }
 function fail(e: unknown) { error.value = e instanceof DomainApiError ? e.message : e instanceof Error ? e.message : '连接操作暂时不可用。' }
 
 async function refresh() {
@@ -296,6 +323,7 @@ async function refresh() {
   try {
     const value = await getKnowledgeConnections()
     if (current !== generation || seq !== refreshGeneration) return
+    if (initialConnectionIds === null) initialConnectionIds = new Set(value.items.map(item => item.id))
     info.value = value
     if (createdId.value && value.items.some(item => item.id === createdId.value && item.knowledge_used_at)) {
       createdCredential.value = ''
@@ -349,29 +377,35 @@ watch(client, () => {
 })
 watch(() => props.subject, () => { reset(); if (props.open && props.subject) void refresh() }, { flush: 'sync' })
 watch(() => props.open, value => {
-  if (value && props.subject) { void refresh(); }
-  else { reset() }
+  if (value && props.subject) { void refresh(); if (step.value === 3) startPolling() }
+  else { reset(true) }
 }, { immediate: true })
 watch(state, value => { if (value === 'connected') stopPolling() })
 onBeforeUnmount(() => { generation++; stopPolling(); reset() })
+function onDrawerOpenChange(open: boolean) {
+  handleDrawerLayerChange('kb-connection-drawer', '连接个人助手', open)
+}
 </script>
 <style scoped>
 .kb-connect-steps{display:flex;gap:4px;list-style:none;margin:0 0 12px;padding:0;font-size:14px;color:var(--hbos-text-muted);flex-wrap:wrap}
-.kb-connect-steps li{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px}
-.kb-connect-steps li.active{background:#dff2ee;color:#147e70;font-weight:500}
+.kb-connect-steps li{border-radius:10px}
+.kb-connect-steps li button{display:flex;align-items:center;gap:6px;padding:6px 10px;border:0;background:transparent;color:inherit;cursor:pointer}
+.kb-connect-steps li button:disabled{cursor:default}
+.kb-connect-steps li.active{background:#eee8ff;color:#5144bd;font-weight:500}
 .kb-connect-steps li.done{color:#159b89}
 .kb-step-no{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:999px;background:#edf3f3;font-size:12px}
 .kb-connect-steps li.active .kb-step-no{background:#fff}
 .kb-wizard-body{display:grid;gap:12px}
 .kb-wizard-body-copy{font-size:14px;color:#425675;line-height:24px;margin:0}
 .kb-wizard-body h2{font-size:16px;margin:8px 0 0;color:#203b66}
+.kb-assistant-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .kb-assistant-option{display:block;position:relative;text-align:left;width:100%;padding:18px;background:#f7fafb;border:1px solid #e0e9ee;border-radius:16px;cursor:pointer}
 .kb-assistant-option strong{display:block;font-size:16px;color:#17253c}
 .kb-assistant-option span{display:block;font-size:14px;color:#72829d;margin-top:6px}
 .kb-assistant-option small{display:block;margin-top:6px}
 .kb-assistant-option.selected{border-color:#68baac;background:#f0f8f5}
 .kb-assistant-option svg{position:absolute;right:18px;top:18px;color:#159b89}
-.kb-copy-primary{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;border:0;border-radius:14px;background:#159b89;color:#fff;font-size:16px;font-weight:600;cursor:pointer}
+.kb-copy-primary{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;border:0;border-radius:14px;background:#5b50e8;color:#fff;font-size:16px;font-weight:600;cursor:pointer}
 .kb-copy-primary:disabled{opacity:.6}
 .kb-copy-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:12px 14px;background:#f0f8f5;border:1px solid #68baac;border-radius:12px;color:#147e70;font-size:14px;cursor:pointer;overflow-wrap:anywhere}
 .kb-copy-row:disabled{opacity:.6}
@@ -398,8 +432,13 @@ onBeforeUnmount(() => { generation++; stopPolling(); reset() })
 .connection-management{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:10px 0;border-bottom:1px solid var(--hbos-border-default);font-size:14px}
 .connection-management>div{min-width:0;overflow-wrap:anywhere}
 .kb-wizard-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--hbos-border-default);flex-wrap:wrap}
+@media (max-height:700px){
+  .kb-prompt-preview{max-height:none;overflow:visible}
+}
 @media (max-width:480px){
-  .kb-connect-steps li{padding:4px 6px;font-size:12px}
+  .kb-assistant-option{padding:12px}
+  .kb-assistant-option svg{right:8px;top:8px}
+  .kb-connect-steps li button{padding:4px 6px;font-size:12px}
   .kb-copy-primary{padding:14px;font-size:15px}
   .kb-wizard-footer .ant-btn{flex:1 1 auto}
 }

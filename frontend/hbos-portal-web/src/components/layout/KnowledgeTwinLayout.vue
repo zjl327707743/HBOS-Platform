@@ -34,13 +34,25 @@
   </div>
   <a-config-provider v-else :theme="knowledgeTheme" :locale="zhCN">
     <div class="kb-scope kb-canvas">
-      <div class="kb-candidate-note">本机验收候选 · 已共享资料可查阅</div>
       <a class="skip-link" href="#kt-main-content">跳到主要内容</a>
       <div class="kb-shell">
-        <KnowledgeHeader :maintenance="isMaintenance" />
+        <KnowledgeHeader :mobile="mobile" :navigation-open="navigationOpen" @open-navigation="openNavigation" />
+        <dialog v-if="mobile" id="kb-mobile-navigation" ref="navigation" class="kb-mobile-navigation" aria-label="知识库导航" @close="onNavigationClosed" @click.self="closeNavigation">
+          <div class="kb-mobile-navigation-sheet">
+            <button type="button" class="kb-mobile-close" aria-label="关闭导航" autofocus @click="closeNavigation">关闭</button>
+            <KnowledgeSidebar :can-maintain="permissionState === 'granted'" :maintenance="isMaintenance" @navigate="closeNavigation" />
+          </div>
+        </dialog>
         <div class="kb-layout">
-          <KnowledgeSidebar :can-maintain="permissionState === 'granted'" :maintenance="isMaintenance" />
+          <KnowledgeSidebar v-if="!mobile" :can-maintain="permissionState === 'granted'" :maintenance="isMaintenance" />
           <main id="kt-main-content" class="kb-main" tabindex="-1" :aria-busy="sessionPending || sessionBlocked || permissionPending">
+            <nav class="kb-breadcrumb" aria-label="面包屑">
+              <RouterLink to="/hbos">工作台</RouterLink><span aria-hidden="true">/</span>
+              <RouterLink to="/hbos/knowledge" :aria-current="route.name === 'knowledge' ? 'page' : undefined">知识库</RouterLink>
+              <template v-if="route.name !== 'knowledge'">
+                <span aria-hidden="true">/</span><strong aria-current="page">{{ route.meta.title }}</strong>
+              </template>
+            </nav>
             <a-skeleton v-if="sessionPending || permissionPending" active :paragraph="{rows:6}" />
             <a-alert v-if="sessionError" type="error" show-icon :message="sessionError" />
             <a-result v-if="!sessionPending && !permissionPending && isMaintenance && permissionState === 'denied'" status="403" title="当前账号没有知识维护权限" />
@@ -48,7 +60,7 @@
               <p>维护权限状态暂时无法确认，这不是“没有权限”。当前网络或知识状态接口暂时不可用。</p>
               <a-button size="small" @click="checkPermission()">重试</a-button>
             </div>
-            <div v-if="portal.user && !sessionError" v-show="!sessionPending && !permissionPending && (!isMaintenance || permissionState === 'granted')" :class="{ 'kb-session-masked': sessionBlocked }" :inert="sessionBlocked || undefined" :aria-hidden="sessionBlocked || undefined">
+            <div v-if="portal.user && sessionReady && !sessionError" v-show="!sessionPending && !permissionPending && (!isMaintenance || permissionState === 'granted')" :class="{ 'kb-session-masked': sessionBlocked }" :inert="sessionBlocked || undefined" :aria-hidden="sessionBlocked || undefined">
               <RouterView v-slot="{ Component }"><component :is="Component" :key="portal.user.id" :session-revision="sessionRevision" /></RouterView>
             </div>
           </main>
@@ -63,6 +75,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePortalStore } from '@/stores/portal'
 import '@/styles/knowledge.css'
+import '@/styles/knowledgeUploadV17.css'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
 import { hbosAntdTheme } from '@/theme/antdTheme'
 import { getKnowledgeStatus, DomainApiError } from '@/services/p1Api'
@@ -83,11 +96,39 @@ const router = useRouter()
 const commandOpen = ref(false)
 const isTwin = computed(() => route.path.startsWith('/hbos/twin'))
 const isMaintenance = computed(() => route.path.startsWith('/hbos/knowledge/maintenance'))
-const knowledgeTheme = { ...hbosAntdTheme, token: { ...hbosAntdTheme.token, colorPrimary:'#159b89', colorLink:'#159b89' } }
+const knowledgeTheme = { ...hbosAntdTheme, token: { ...hbosAntdTheme.token, colorPrimary:'#5b50e8', colorLink:'#5144bd' } }
 // ``sessionRevision`` comes from the composable and advances only after a
 // *successful* re-verification, so a failed or transient resume does not look
 // like an authorization change to the child views.
-const { sessionPending, sessionError, sessionBlocked, sessionRevision } = usePortalSession()
+const { sessionPending, sessionError, sessionBlocked, sessionRevision, sessionReady } = usePortalSession()
+const navigation = ref<HTMLDialogElement | null>(null)
+const navigationOpen = ref(false)
+const mobile = ref(false)
+let navigationTrigger: HTMLElement | null = null
+let mobileMedia: MediaQueryList | undefined
+
+function openNavigation(event: MouseEvent) {
+  if (!navigation.value || navigation.value.open) return
+  navigationTrigger = event.currentTarget as HTMLElement
+  navigation.value.showModal()
+  navigationOpen.value = true
+}
+
+function closeNavigation() { navigation.value?.close() }
+
+function onNavigationClosed() {
+  navigationOpen.value = false
+  if (navigationTrigger?.isConnected) navigationTrigger.focus({ preventScroll: true })
+  navigationTrigger = null
+}
+
+function updateMobile() {
+  const next = mobileMedia?.matches ?? false
+  if (!next) { closeNavigation(); navigationOpen.value = false }
+  mobile.value = next
+}
+
+watch(() => route.fullPath, closeNavigation)
 const permissionPending = ref(false)
 // 'unknown' is a status endpoint that failed for a reason other than an explicit
 // denial. Rendering it as a 403 told real maintainers they had lost access.
@@ -152,8 +193,17 @@ function shortcut(event: KeyboardEvent) {
   if (event.key === 'Escape') commandOpen.value = false
 }
 
-onMounted(() => window.addEventListener('keydown', shortcut))
-onBeforeUnmount(() => { permissionEpoch++; window.removeEventListener('keydown', shortcut) })
+onMounted(() => {
+  mobileMedia = window.matchMedia('(max-width: 767px)')
+  updateMobile()
+  mobileMedia.addEventListener('change', updateMobile)
+  window.addEventListener('keydown', shortcut)
+})
+onBeforeUnmount(() => {
+  permissionEpoch++
+  mobileMedia?.removeEventListener('change', updateMobile)
+  window.removeEventListener('keydown', shortcut)
+})
 </script>
 
 <style scoped>

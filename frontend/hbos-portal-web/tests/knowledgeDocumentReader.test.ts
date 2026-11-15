@@ -128,7 +128,7 @@ const wrappers: VueWrapper[] = []
 const PdfPreviewStub = defineComponent({
   props: ['url', 'page', 'zoom', 'renew'],
   emits: ['update:page', 'update:zoom', 'access-lost'],
-  template: '<div data-pdf><button data-pdf-page-3 @click="$emit(\'update:page\', 3)">p3</button><button data-pdf-zoom @click="$emit(\'update:zoom\', 1.5)">z</button><button data-pdf-renew @click="renew()">renew</button></div>',
+  template: '<div data-pdf><slot name="toolbar-extra"/><button data-pdf-page-3 @click="$emit(\'update:page\', 3)">p3</button><button data-pdf-zoom @click="$emit(\'update:zoom\', 1.5)">z</button><button data-pdf-renew @click="renew()">renew</button></div>',
 })
 
 function mountReader(overrides: Record<string, unknown> = {}) {

@@ -1,5 +1,6 @@
 import type {
   KnowledgeAnswer,
+  KnowledgeCatalogSort,
   KnowledgeEvidence,
   KnowledgeLawCategory,
   KnowledgeOperationState,
@@ -32,8 +33,13 @@ export interface KnowledgeReturnSnapshot {
   catalog: {
     query: string
     page: number
-    lawCategory: KnowledgeLawCategory | ''
+    lawCategory?: KnowledgeLawCategory | ''
     sourceFolder: string
+    includeDescendants?: boolean
+    format?: string
+    sort?: KnowledgeCatalogSort
+    pageSize?: number
+    focusDocument?: string
   }
   scrollTop: number
 }

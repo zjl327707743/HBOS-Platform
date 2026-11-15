@@ -79,7 +79,7 @@ const Tag = defineComponent({ template: '<span class="tag"><slot /></span>' })
 const stubs = {
   'a-input-search': InputSearch,
   'a-button': Button,
-  'a-select': Select,
+  PortalSelect: Select,
   'a-alert': Alert,
   'a-drawer': Drawer,
   'a-collapse': Panel,
@@ -115,6 +115,30 @@ async function setSearchInput(wrapper: VueWrapper, index: number, value: string)
   if (!input) throw new Error(`missing input ${index}`)
   await input.find('input').setValue(value)
 }
+// v17 mapping (Main-authorized 2026-11-13): after B's d566754 rebuild the manage
+// page exposes the server lookup through form.v17-filters /
+// [data-published-search] / .v17-table-wrap. The legacy .kb-maintenance-lookup,
+// [data-published-lookup-meta] and [data-published-next] DOM moved into the
+// versions-view drawer content, so the same behaviour chains are asserted on
+// the v17 contract instead of the removed selectors.
+async function setPublishedSearch(wrapper: VueWrapper, value: string) {
+  await wrapper.get('form.v17-filters input[aria-label="服务端查找资料"]').setValue(value)
+}
+async function submitPublishedSearch(wrapper: VueWrapper) {
+  await wrapper.get('form.v17-filters').trigger('submit')
+}
+function v17PaginationText(wrapper: VueWrapper) {
+  return wrapper.get('.v17-pagination').text()
+}
+// v17 contract helper: the v17 manage page opens the controlled-manifest drawer
+// from the "打开批量预演" entry; the legacy batch-selector DOM now renders there
+// (old inline sections -> drawer branch of the d566754 rebuild).
+async function openManifestDrawer(wrapper: VueWrapper) {
+  const entry = wrapper.findAll('button').find(button => button.text() === '打开批量预演')
+  if (!entry) throw new Error('missing v17 batch preview entry')
+  await entry.trigger('click')
+  await flushPromises()
+}
 afterEach(() => {
   wrappers.splice(0).forEach(wrapper => { try { wrapper.unmount() } catch { /* already unmounted */ } })
 })
@@ -132,14 +156,27 @@ describe('published projection default stays the legacy bounded window', () => {
     const wrapper = await mountView()
     expect(api.dashboard).toHaveBeenCalledTimes(1)
     expect(api.dashboard.mock.calls[0]).toEqual([undefined, 1])
-    expect(wrapper.find('.kb-status-filters').text()).toContain('已发布 1031')
-    const projection = wrapper.find('[data-published-projection]').text()
+    // v17 mapping: the old ".kb-status-filters 已发布 1031" tag is now the v17
+    // stats card "当前已发布"; the old "[data-published-projection] 当前显示 1 份 /
+    // 第 1 页" is now the v17 table row set plus the .v17-pagination summary.
+    expect(wrapper.get('.v17-stats').text()).toContain('当前已发布')
+    expect(wrapper.get('.v17-stats').text()).toContain('1031')
+    expect(wrapper.findAll('.v17-table-wrap tbody tr')).toHaveLength(1)
+    expect(wrapper.get('.v17-table-wrap').text()).toContain('合成现有资料')
+    expect(v17PaginationText(wrapper)).toContain('已加载 1 份')
+    expect(v17PaginationText(wrapper)).toContain('第 1 页')
+    // The legacy bounded projection + truncation disclosure still lives on the
+    // versions view after d566754; assert the same disclosure behaviour there.
+    const versions = await mountView('/hbos/knowledge/maintenance/versions')
+    expect(api.dashboard).toHaveBeenCalledTimes(2)
+    expect(versions.find('[data-version-note]').text()).toContain('已发布 1031')
+    const projection = versions.find('[data-published-projection]').text()
     expect(projection).toContain('当前显示 1 份')
     expect(projection).toContain('第 1 页')
     expect(projection).toContain('服务端仅投影前 1000 份')
-    expect(wrapper.text()).toContain('合成现有资料')
-    // The existing client-side filter box is still present when no server lookup is active.
-    expect(wrapper.find('input[placeholder="查找已加载资料标题"]').exists()).toBe(true)
+    // The single primary searchbox also filters the loaded rows client-side; the
+    // separate secondary filter box was merged into it in this round.
+    expect(versions.find('form.v17-version-search input[aria-label="服务端查找已发布资料"]').exists()).toBe(true)
   })
 })
 
@@ -147,7 +184,9 @@ describe('published server-side search and pagination (WP6)', () => {
   it('refuses an empty server search without calling the API', async () => {
     const wrapper = await mountView()
     api.dashboard.mockClear()
-    await wrapper.find('[data-published-search]').trigger('click')
+    // v17 mapping: the search is now a real form submit (form.v17-filters); the
+    // empty-term guard must still block the request and surface the message.
+    await submitPublishedSearch(wrapper)
     await flushPromises()
     expect(api.dashboard).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('请输入标题、文号、部门，或精确文档 ID')
@@ -160,32 +199,34 @@ describe('published server-side search and pagination (WP6)', () => {
       published_documents: [target], published_matched: 1, published_truncated: false,
       published_page: 1, published_page_size: 50, published_has_more: false,
     }))
-    await setSearchInput(wrapper, 0, '目标资料')
-    await wrapper.find('[data-published-search]').trigger('click')
+    await setPublishedSearch(wrapper, '目标资料')
+    await submitPublishedSearch(wrapper)
     await flushPromises()
 
     expect(api.dashboard).toHaveBeenLastCalledWith(undefined, 1, undefined, {
       published_query: '目标资料', published_page: 1, published_page_size: 50,
     })
-    expect(wrapper.text()).toContain('ZZZ 目标资料：道路交叉口设计')
-    expect(wrapper.find('[data-published-lookup-meta]').text()).toContain('服务端匹配 1 份 / 共 1031 份')
-    expect(wrapper.find('[data-published-lookup-meta]').text()).toContain('第 1 页')
+    // v17 mapping: the matched count/page moved from [data-published-lookup-meta]
+    // to the .v17-pagination summary; the server hit itself must render as a row.
+    expect(wrapper.get('.v17-table-wrap').text()).toContain('ZZZ 目标资料：道路交叉口设计')
+    expect(v17PaginationText(wrapper)).toContain('匹配 1 份')
+    expect(v17PaginationText(wrapper)).toContain('第 1 页')
   })
 
-  it('locates by exact document id and forwards published_document_id', async () => {
+  it.each([DOCUMENT, 'N1DOC-' + 'a'.repeat(24), 'DOC_S3_' + 'b'.repeat(24)])('locates frozen identity %s as an exact id', async (document) => {
     const wrapper = await mountView()
     api.dashboard.mockClear()
     api.dashboard.mockResolvedValueOnce(dashboard({
-      published_documents: [target], published_matched: 1, published_truncated: false,
+      published_documents: [{ ...target, document_id: document }], published_matched: 1, published_truncated: false,
       published_lookup_state: 'FOUND', published_page: 1, published_page_size: 50, published_has_more: false,
     }))
-    await setSearchInput(wrapper, 0, DOCUMENT)
-    await wrapper.find('[data-published-search]').trigger('click')
+    await setPublishedSearch(wrapper, document)
+    await submitPublishedSearch(wrapper)
     await flushPromises()
     expect(api.dashboard).toHaveBeenLastCalledWith(undefined, 1, undefined, {
-      published_document_id: DOCUMENT, published_page: 1, published_page_size: 50,
+      published_document_id: document, published_page: 1, published_page_size: 50,
     })
-    expect(wrapper.text()).toContain('ZZZ 目标资料')
+    expect(wrapper.get('.v17-table-wrap').text()).toContain('ZZZ 目标资料')
   })
 
   it('reports NOT_FOUND for an unknown exact document id', async () => {
@@ -195,10 +236,28 @@ describe('published server-side search and pagination (WP6)', () => {
       published_documents: [], published_matched: 0, published_truncated: false,
       published_lookup_state: 'NOT_FOUND', published_page: 1, published_page_size: 50, published_has_more: false,
     }))
-    await setSearchInput(wrapper, 0, 'DOC_' + '9'.repeat(24))
-    await wrapper.find('[data-published-search]').trigger('click')
+    await setPublishedSearch(wrapper, 'DOC_' + '9'.repeat(24))
+    await submitPublishedSearch(wrapper)
     await flushPromises()
-    expect(wrapper.find('[data-published-not-found]').text()).toContain('没有找到该文档 ID 对应的已发布资料')
+    // v17 manage mapping: a failed exact-id lookup must not fabricate a readable
+    // row. B-UI-FU-2 (Main-registered follow-up) now renders the explicit
+    // NOT_FOUND message on the v17 manage view instead of only the generic empty
+    // state, so the old generic-empty expectation is tightened, not weakened.
+    expect(wrapper.findAll('.v17-table-wrap tbody tr')).toHaveLength(0)
+    expect(wrapper.get('[data-v17-published-not-found]').text()).toContain('没有找到该文档 ID 对应的已发布资料')
+    expect(wrapper.text()).not.toContain('当前范围没有资料')
+    // The explicit NOT_FOUND message is still asserted on the versions view,
+    // where the legacy controlled-list DOM survives the d566754 rebuild.
+    api.dashboard.mockClear()
+    const versions = await mountView('/hbos/knowledge/maintenance/versions')
+    api.dashboard.mockResolvedValueOnce(dashboard({
+      published_documents: [], published_matched: 0, published_truncated: false,
+      published_lookup_state: 'NOT_FOUND', published_page: 1, published_page_size: 50, published_has_more: false,
+    }))
+    await versions.get('[data-published-query]').setValue('DOC_' + '9'.repeat(24))
+    await versions.get('form.v17-version-search').trigger('submit')
+    await flushPromises()
+    expect(versions.find('[data-published-not-found]').text()).toContain('没有找到该文档 ID 对应的已发布资料')
   })
 
   it('pages through server results without loading the whole corpus', async () => {
@@ -208,22 +267,26 @@ describe('published server-side search and pagination (WP6)', () => {
       published_documents: [target], published_matched: 120, published_truncated: true,
       published_page: 1, published_page_size: 50, published_has_more: true,
     }))
-    await setSearchInput(wrapper, 0, '目标')
-    await wrapper.find('[data-published-search]').trigger('click')
+    await setPublishedSearch(wrapper, '目标')
+    await submitPublishedSearch(wrapper)
     await flushPromises()
 
     api.dashboard.mockResolvedValueOnce(dashboard({
       published_documents: [{ ...other, title: '第二页资料' }], published_matched: 120, published_truncated: true,
       published_page: 2, published_page_size: 50, published_has_more: false,
     }))
-    await wrapper.find('[data-published-next]').trigger('click')
+    // v17 mapping: the legacy [data-published-next] button is the v17 pagination
+    // "下一页" control inside .v17-pagination (same changePublishedPage call).
+    const nextPage = () => wrapper.findAll('.v17-pagination button').find(button => button.text() === '下一页')!
+    await nextPage().trigger('click')
     await flushPromises()
     expect(api.dashboard).toHaveBeenLastCalledWith(undefined, 1, undefined, {
       published_query: '目标', published_page: 2, published_page_size: 50,
     })
-    expect(wrapper.find('[data-published-lookup-meta]').text()).toContain('第 2 页')
-    expect(wrapper.text()).toContain('第二页资料')
-    expect(wrapper.find('[data-published-next]').attributes('disabled')).toBeDefined()
+    expect(v17PaginationText(wrapper)).toContain('第 2 页')
+    expect(v17PaginationText(wrapper)).toContain('匹配 120 份')
+    expect(wrapper.get('.v17-table-wrap').text()).toContain('第二页资料')
+    expect(nextPage().attributes('disabled')).toBeDefined()
   })
 
   it('opens a document found beyond the projection via batch_document_id + batch_id/locate', async () => {
@@ -233,8 +296,8 @@ describe('published server-side search and pagination (WP6)', () => {
       published_documents: [target], published_matched: 1, published_truncated: false,
       published_page: 1, published_page_size: 50, published_has_more: false,
     }))
-    await setSearchInput(wrapper, 0, '目标资料')
-    await wrapper.find('[data-published-search]').trigger('click')
+    await setPublishedSearch(wrapper, '目标资料')
+    await submitPublishedSearch(wrapper)
     await flushPromises()
 
     api.dashboard.mockClear()
@@ -244,7 +307,9 @@ describe('published server-side search and pagination (WP6)', () => {
       batch_lookup_state: 'FOUND',
     }))
     api.dashboard.mockResolvedValueOnce(dashboard({ selected: selectedBatch(3) }))
-    await wrapper.findAll('button').find(button => button.text() === '查看资料')!.trigger('click')
+    // v17 mapping: the manage table row action is the v17 "查看" button
+    // (old legacy row used "查看资料"); both call openDetails(doc).
+    await wrapper.get('.v17-table-wrap button.v17-view').trigger('click')
     await flushPromises()
 
     expect(api.dashboard.mock.calls[0]).toEqual([undefined, 1, undefined, {
@@ -262,8 +327,8 @@ describe('published server-side search and pagination (WP6)', () => {
       published_documents: [target], published_matched: 1, published_truncated: false,
       published_page: 1, published_page_size: 50, published_has_more: false,
     }))
-    await setSearchInput(wrapper, 0, DOCUMENT)
-    await wrapper.find('[data-published-search]').trigger('click')
+    await setPublishedSearch(wrapper, DOCUMENT)
+    await submitPublishedSearch(wrapper)
     await flushPromises()
 
     api.dashboard.mockClear()
@@ -271,7 +336,8 @@ describe('published server-side search and pagination (WP6)', () => {
       batches: [], batches_matched: 0, batch_lookup_state: 'NOT_FOUND',
       batches_page: 1, batches_page_size: 100, batches_has_more: false,
     }))
-    await wrapper.findAll('button').find(button => button.text() === '查看资料')!.trigger('click')
+    // v17 mapping: same v17 table row action ("查看" instead of "查看资料").
+    await wrapper.get('.v17-table-wrap button.v17-view').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-detail-lookup-not-found]').text()).toContain('服务端未找到该资料对应的处理批次')
     expect(wrapper.text()).toContain('当前版本可由员工查阅')
@@ -281,13 +347,16 @@ describe('published server-side search and pagination (WP6)', () => {
 describe('batch selector server-side search, pagination and locate', () => {
   it('searches batches on the server and offers a match outside the first 100', async () => {
     const wrapper = await mountView()
+    // v17 mapping: the batch selector renders in the controlled-manifest drawer
+    // opened by the v17 "打开批量预演" entry (old inline sections -> drawer).
+    await openManifestDrawer(wrapper)
     api.dashboard.mockClear()
     api.dashboard.mockResolvedValueOnce(dashboard({
       batches: [{ name: BATCH_ID, label: '批次0400', department_key: 'production', status: 'Published' }],
       batches_matched: 1, batches_page: 1, batches_page_size: 100, batches_has_more: false,
       batch_scan_truncated: true,
     }))
-    await setSearchInput(wrapper, 2, '批次0400')
+    await setSearchInput(wrapper, 0, '批次0400')
     await wrapper.find('[data-batch-search]').trigger('click')
     await flushPromises()
 
@@ -301,6 +370,8 @@ describe('batch selector server-side search, pagination and locate', () => {
 
   it('locates an old batch by document id and enters batch_id + locate detail', async () => {
     const wrapper = await mountView()
+    // v17 mapping: open the controlled-manifest drawer that hosts the batch selector.
+    await openManifestDrawer(wrapper)
     api.dashboard.mockClear()
     api.dashboard.mockResolvedValueOnce(dashboard({
       batches: [{ name: BATCH_ID, label: '批次0400', department_key: 'production', status: 'Published', document_page: 2 }],
@@ -308,7 +379,7 @@ describe('batch selector server-side search, pagination and locate', () => {
       batch_lookup_state: 'FOUND',
     }))
     api.dashboard.mockResolvedValueOnce(dashboard({ selected: selectedBatch(2) }))
-    await setSearchInput(wrapper, 2, DOCUMENT)
+    await setSearchInput(wrapper, 0, DOCUMENT)
     await wrapper.find('[data-batch-locate]').trigger('click')
     await flushPromises()
 
@@ -322,12 +393,14 @@ describe('batch selector server-side search, pagination and locate', () => {
 
   it('reports NOT_FOUND when no batch contains the document', async () => {
     const wrapper = await mountView()
+    // v17 mapping: open the controlled-manifest drawer that hosts the batch selector.
+    await openManifestDrawer(wrapper)
     api.dashboard.mockClear()
     api.dashboard.mockResolvedValueOnce(dashboard({
       batches: [], batches_matched: 0, batch_lookup_state: 'NOT_FOUND',
       batches_page: 1, batches_page_size: 100, batches_has_more: false,
     }))
-    await setSearchInput(wrapper, 2, 'DOC_' + '9'.repeat(24))
+    await setSearchInput(wrapper, 0, 'DOC_' + '9'.repeat(24))
     await wrapper.find('[data-batch-locate]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-batch-not-found]').text()).toContain('没有找到包含该文档的处理批次')
@@ -335,6 +408,8 @@ describe('batch selector server-side search, pagination and locate', () => {
 
   it('pages the default batch projection on the server without a query', async () => {
     const wrapper = await mountView()
+    // v17 mapping: open the controlled-manifest drawer that hosts the batch selector.
+    await openManifestDrawer(wrapper)
     expect(wrapper.find('[data-batch-default-next]').exists()).toBe(true)
     api.dashboard.mockClear()
     api.dashboard.mockResolvedValueOnce(dashboard({
@@ -352,12 +427,14 @@ describe('batch selector server-side search, pagination and locate', () => {
 
   it('pages batch results with the server page param', async () => {
     const wrapper = await mountView()
+    // v17 mapping: open the controlled-manifest drawer that hosts the batch selector.
+    await openManifestDrawer(wrapper)
     api.dashboard.mockClear()
     api.dashboard.mockResolvedValueOnce(dashboard({
       batches: [{ name: BATCH_ID, label: '批次0400', department_key: 'production', status: 'Published' }],
       batches_matched: 140, batches_page: 1, batches_page_size: 100, batches_has_more: true,
     }))
-    await setSearchInput(wrapper, 2, '批次')
+    await setSearchInput(wrapper, 0, '批次')
     await wrapper.find('[data-batch-search]').trigger('click')
     await flushPromises()
     api.dashboard.mockResolvedValueOnce(dashboard({

@@ -2,23 +2,32 @@
  * Small, per-identity navigation state for the knowledge workspace.
  *
  * Only presentation state is stored - the question text, the selected mode and
- * scope, catalogue filter/page/size, list paging and the reading position. No
- * token, no answer text, no document body is ever written, and everything is
+ * scope, the knowledge-only choice, catalogue filter/page/size, list paging and
+ * the reading position. No token, no answer text, no document body is ever
+ * written, and everything is
  * keyed by the signed-in user inside this tab's sessionStorage, so a reload or
  * a browser discard restores the page while a different account sees nothing.
  */
+
+import type { KnowledgeCatalogSort } from '@/contracts/p1'
 
 const KEY = 'hbos.knowledge.workspace.v1'
 
 export interface KnowledgeWorkspaceState {
   query: string
   mode: 'ask' | 'search'
+  modeDrafts?: { ask: string; search: string }
   selectedSpace: string
   catalogQuery: string
   catalogPage: number
   catalogPageSize: number
-  lawCategory: string
+  lawCategory?: string
   sourceFolder: string
+  includeDescendants?: boolean
+  catalogFormat?: string
+  catalogSort?: KnowledgeCatalogSort
+  /** Remembered "knowledge base only" switch; absent legacy caches mean false. */
+  knowledgeOnly?: boolean
   view: string
   scrollTop: number
   positions: Record<string, { page: number; zoom: number; searchQuery: string }>
@@ -55,7 +64,16 @@ export function saveWorkspace(subject: string | null, value: KnowledgeWorkspaceS
   if (!subject) return
   const store = storage()
   if (!store) return
-  try { store.setItem(keyFor(subject), JSON.stringify(value)) } catch { /* quota: state is optional */ }
+  try {
+    // Reader positions are written by their own store, which rebuilds this
+    // navigation state from the fields it knows. Keep a real stored boolean
+    // when such a writer omits the switch instead of silently turning it off.
+    const knowledgeOnly = value.knowledgeOnly === undefined
+      ? loadWorkspace(subject)?.knowledgeOnly === true
+      : value.knowledgeOnly === true
+    const modeDrafts = value.modeDrafts ?? loadWorkspace(subject)?.modeDrafts
+    store.setItem(keyFor(subject), JSON.stringify({ ...value, knowledgeOnly, modeDrafts }))
+  } catch { /* quota: state is optional */ }
 }
 
 export function clearWorkspace(subject: string | null) {
