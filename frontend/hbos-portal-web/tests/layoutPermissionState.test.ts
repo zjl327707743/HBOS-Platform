@@ -4,12 +4,14 @@ import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import KnowledgeTwinLayout from '@/components/layout/KnowledgeTwinLayout.vue'
+import KnowledgeSidebar from '@/components/layout/KnowledgeSidebar.vue'
 import { usePortalStore } from '@/stores/portal'
 import { DomainApiError } from '@/services/p1Api'
 
 const api = vi.hoisted(() => ({ status: vi.fn() }))
+const ready = ref(true), blocked = ref(false)
 vi.mock('@/composables/usePortalSession', () => ({
-  usePortalSession: () => ({ sessionPending: ref(false), sessionError: ref(null), sessionRevision: ref(0), sessionMasked: ref(false) }),
+  usePortalSession: () => ({ sessionPending: ref(false), sessionError: ref(null), sessionRevision: ref(0), sessionReady: ready, sessionBlocked: blocked }),
 }))
 vi.mock('@/services/p1Api', async original => ({
   ...(await original<typeof import('@/services/p1Api')>()),
@@ -17,6 +19,45 @@ vi.mock('@/services/p1Api', async original => ({
 }))
 
 const Page = defineComponent({ template: '<p data-test="page">maintenance</p>' })
+
+it('keeps Reader routes available and shows maintenance routes only when granted', async () => {
+  const reader = ['/hbos/knowledge', '/hbos/knowledge/catalog', '/hbos/knowledge/favorites', '/hbos/knowledge/history']
+  const maintenance = ['/hbos/knowledge/maintenance', '/hbos/knowledge/maintenance/upload',
+    '/hbos/knowledge/maintenance/versions', '/hbos/knowledge/maintenance/feedback']
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [...reader, ...maintenance].map(path => ({ path, component: Page })),
+  })
+  await router.push(maintenance[0])
+  const wrapper = mount(KnowledgeSidebar, {
+    props: { canMaintain: false, maintenance: true },
+    global: { plugins: [router] },
+  })
+  const readerNav = 'nav[aria-label="知识库导航"]'
+  const maintenanceNav = 'nav[aria-labelledby="kb-maintenance-nav-label"]'
+  const links = (selector: string) => wrapper.get(selector).findAll('a').map(link => link.attributes('href'))
+  try {
+    expect(links(readerNav)).toEqual(reader)
+    expect(wrapper.find(maintenanceNav).exists()).toBe(false)
+    await wrapper.setProps({ canMaintain: true })
+    expect(wrapper.get('#kb-maintenance-nav-label').text()).toBe('资料维护')
+    expect(links(readerNav)).toEqual(reader)
+    expect(links(maintenanceNav)).toEqual(maintenance)
+    for (const path of maintenance) {
+      await router.push(path)
+      expect(wrapper.findAll('nav [aria-current="page"]').map(link => link.attributes('href'))).toEqual([path])
+    }
+    await router.push(reader[0])
+    await wrapper.setProps({ maintenance: false })
+    expect(links(maintenanceNav)).toEqual(maintenance)
+    expect(wrapper.get('nav [aria-current="page"]').attributes('href')).toBe(reader[0])
+    await wrapper.setProps({ canMaintain: false })
+    expect(wrapper.find(maintenanceNav).exists()).toBe(false)
+    expect(links(readerNav)).toEqual(reader)
+  } finally {
+    wrapper.unmount()
+  }
+})
 
 async function mountAt(path = '/hbos/knowledge/maintenance') {
   const pinia = createPinia(); setActivePinia(pinia)
@@ -46,9 +87,24 @@ async function mountAt(path = '/hbos/knowledge/maintenance') {
   return { wrapper, router }
 }
 
-beforeEach(() => { api.status.mockReset() })
+beforeEach(() => { api.status.mockReset(); ready.value = true; blocked.value = false })
 
 describe('maintenance permission state is not conflated with a 403', () => {
+  it('waits for confirmed initial access before mounting a document, then retains it during a background check', async () => {
+    api.status.mockResolvedValue({ can_maintain: true })
+    ready.value = false; blocked.value = true
+    const { wrapper } = await mountAt('/hbos/knowledge')
+    try {
+      // Bootstrap already supplied the user, but POST reads are still blocked.
+      expect(wrapper.find('[data-test="page"]').exists()).toBe(false)
+      ready.value = true; blocked.value = false; await flushPromises()
+      const page = wrapper.find('[data-test="page"]').element
+      blocked.value = true; await flushPromises()
+      expect(wrapper.find('[data-test="page"]').element).toBe(page)
+      blocked.value = false; await flushPromises()
+      expect(wrapper.find('[data-test="page"]').element).toBe(page)
+    } finally { wrapper.unmount() }
+  })
   it('shows a service-unknown state instead of "no permission" when the status endpoint fails', async () => {
     api.status.mockRejectedValue(new DomainApiError('SERVICE_ERROR', '知识服务暂时不可用。'))
     const { wrapper } = await mountAt()

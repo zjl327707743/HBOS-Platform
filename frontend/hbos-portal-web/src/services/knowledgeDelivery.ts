@@ -186,3 +186,13 @@ export async function createDocumentDelivery(
   if (versionId) payload.version_id = versionId
   return mapDelivery(unwrapDelivery(await callFrappePostMethod<DomainEnvelope<unknown>>(DELIVERY_METHOD, payload)))
 }
+
+export function startDocumentDownload(value: DocumentDelivery) {
+  const link = document.createElement('a')
+  link.href = value.content_url
+  link.download = value.filename
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  setTimeout(() => link.remove(), 0)
+}

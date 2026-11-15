@@ -1,5 +1,5 @@
 <template>
-  <a-drawer :open="open" title="资料来源" width="min(560px, 100vw)" root-class-name="kb-drawer kb-scope evidence-drawer-root" @close="$emit('close')">
+  <a-drawer :open="open" title="资料来源" width="min(560px, calc(100vw - 24px))" root-class-name="kb-drawer kb-scope kb-inset-drawer evidence-drawer-root" @after-open-change="onDrawerOpenChange" @close="$emit('close')">
     <a-skeleton v-if="open && loading" active :paragraph="{rows:6}" />
     <div v-else-if="open && error" class="evidence-failure" role="status"><h2>{{failureTitle}}</h2><a-alert :type="permissionFailure?'warning':'error'" show-icon :message="error" :description="failureHelp"/><a-button @click="$emit('close')">返回查阅</a-button></div>
     <template v-else-if="open && evidence"><h2 class="kb-drawer-title">{{evidence.title || '来源依据'}}</h2><p class="kb-source-meta">{{[evidence.document_number, evidence.version].filter(Boolean).join(' · ')}}</p><div class="kb-source-status"><CheckCircleOutlined/>{{evidence.status_note==='INTERNAL_REFERENCE_REVIEWED'||evidence.status_note==='内部参考'?'内部参考':(evidence.status_note || '已共享资料')}}</div><div class="kb-source-excerpt"><strong>相关依据</strong><blockquote>{{evidence.excerpt}}</blockquote><p v-if="evidence.page_number || evidence.section" class="kb-muted">{{evidence.page_number ? '第 '+evidence.page_number+' 页' : ''}} {{evidence.section}}</p></div><div class="kb-drawer-actions"><a-button type="primary" data-reader-open @click="openReader"><ReadOutlined/>阅读全文</a-button><a-button @click="$emit('bookmark',evidence)"><StarFilled v-if="bookmarked" class="kb-star"/><StarOutlined v-else/>{{bookmarked?'取消收藏':'收藏资料'}}</a-button><a-button data-evidence-open-reader @click="openReader"><DownloadOutlined/>阅读并下载</a-button></div><p class="kb-muted">打开时会重新核验当前身份与版本；文件按原版式显示，可直接下载原文件。</p><a-button type="link" @click="$emit('feedback',evidence)"><MessageOutlined/>反馈来源问题</a-button></template>
@@ -8,6 +8,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { StarOutlined, StarFilled, DownloadOutlined, MessageOutlined, CheckCircleOutlined, ReadOutlined } from '@ant-design/icons-vue'
+import { handleDrawerLayerChange } from '@/components/knowledge/drawerDialogA11y'
 import type { KnowledgeEvidence } from '@/contracts/p1'
 
 const props = defineProps<{
@@ -39,13 +40,25 @@ const emit = defineEmits<{
   close: []
   bookmark: [evidence: KnowledgeEvidence]
   feedback: [evidence: KnowledgeEvidence]
-  read: [payload: { documentId: string; versionId?: string }]
+  read: [payload: { documentId: string; versionId?: string; physicalPage?: number }]
 }>()
+
+// Only a verified physical PDF page may locate the file view. It is never a
+// body/chunk page; entries without one keep the per-document remembered page.
+const physicalPage = computed(() => {
+  const value = props.evidence?.page_number
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= 10000 ? value : null
+})
 
 function openReader() {
   if (!props.evidence?.document_id) return
-  const versionId = props.versionId || undefined
-  emit('read', versionId ? { documentId: props.evidence.document_id, versionId } : { documentId: props.evidence.document_id })
+  const payload: { documentId: string; versionId?: string; physicalPage?: number } = { documentId: props.evidence.document_id }
+  if (props.versionId) payload.versionId = props.versionId
+  if (physicalPage.value) payload.physicalPage = physicalPage.value
+  emit('read', payload)
+}
+function onDrawerOpenChange(open: boolean) {
+  handleDrawerLayerChange('evidence-drawer-root', '资料来源', open)
 }
 </script>
 

@@ -220,14 +220,15 @@ const router = createRouter({
       component: KnowledgeTwinLayout,
       children: [
         { path: '', name: 'knowledge', component: KnowledgeView, meta: { title: '知识库' } },
+        { path: 'oauth', name: 'knowledge-oauth-consent', component: () => import('@/views/KnowledgeOAuthReturnView.vue'), meta: { title: '连接我的助手' } },
         { path: 'catalog', name: 'knowledge-catalog', component: KnowledgeView, meta: { title: '资料目录' } },
         { path: 'favorites', name: 'knowledge-favorites', component: KnowledgeView, meta: { title: '我的收藏' } },
         { path: 'history', name: 'knowledge-history', component: KnowledgeView, meta: { title: '我的记录' } },
         // One controlled reader for the answer citation, search result and
         // catalogue entry points. Query: optional version_id, from and turn.
         { path: 'document/:documentId', name: 'knowledge-document', component: () => import('@/views/KnowledgeDocumentView.vue'), meta: { title: '资料阅读' } },
-        ...['upload', 'versions', 'feedback'].map(view => ({ path: `maintenance/${view}`, component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '知识维护' } })),
-        { path: 'maintenance', name: 'knowledge-maintenance', component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '知识维护' } },
+        ...Object.entries({ upload: '新增资料', versions: '版本管理', feedback: '员工反馈' }).map(([view, title]) => ({ path: `maintenance/${view}`, component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title } })),
+        { path: 'maintenance', name: 'knowledge-maintenance', component: () => import('@/views/KnowledgeMaintenanceView.vue'), meta: { title: '资料管理' } },
       ],
     },
     {

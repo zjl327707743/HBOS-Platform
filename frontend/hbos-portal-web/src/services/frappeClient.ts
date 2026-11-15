@@ -710,6 +710,14 @@ export async function hasFrappeSession(): Promise<boolean> {
 // 账号 / 会话（账号线：统一账号发布带入）
 // ---------------------------------------------------------------------------
 
+const knowledgeRetainedIndexReads = new Set([
+  'hb_knowledge_app.hb_knowledge.api.search',
+  'hb_knowledge_app.hb_knowledge.api.resolve_evidence',
+  'hb_knowledge_app.hb_knowledge.api.open_document',
+  'hb_knowledge_app.hb_knowledge.api.read_document_page',
+  'hb_knowledge_app.hb_knowledge.api.search_document',
+])
+
 export async function callFrappePostMethod<T>(
   method: string,
   data?: Record<string, unknown>,
@@ -721,10 +729,16 @@ export async function callFrappePostMethod<T>(
   try {
     const token = await getCsrfToken()
     assertCsrfGeneration(generation)
+    // An authorized legacy read can briefly wait before dispatch while the
+    // retained query service switches or rolls back.
+    const timeout = method === 'hb_knowledge_app.hb_knowledge.api.ask'
+      ? 90000
+      : knowledgeRetainedIndexReads.has(method) ? 40000 : undefined
     const response = await http.post<FrappeMethodResponse<T>>(
       `/api/method/${method}`,
       data || {},
       {
+        ...(timeout === undefined ? {} : { timeout }),
         hbosCsrfGeneration: generation,
         headers: {
           'X-Frappe-CSRF-Token': token,
@@ -819,7 +833,9 @@ function safeAccountMessage(data: unknown): string | null {
 interface SessionFact { authenticated: boolean; session_context: string | null; csrf_token?: string | null }
 export async function probeFrappeSession(): Promise<SessionFact> {
   try {
-    const response = await http.get<FrappeMethodResponse<SessionFact>>('/api/method/hbos_portal.auth.accounts.get_request_security', { headers: { 'Cache-Control': 'no-cache' } })
+    const { knowledgeNativeSessionEnabled } = await import('./knowledgeSessionMode')
+    const method = knowledgeNativeSessionEnabled() ? 'hb_knowledge_app.hb_knowledge.native_session.get_request_security' : 'hbos_portal.auth.accounts.get_request_security'
+    const response = await http.get<FrappeMethodResponse<SessionFact>>('/api/method/' + method, { headers: { 'Cache-Control': 'no-cache' } })
     const value = response.data.message
     if (typeof value?.authenticated !== 'boolean' || (value.authenticated && (typeof value.session_context !== 'string' || value.session_context.length !== 64))) throw new FrappeRequestError('SESSION_UNCONFIRMED', '暂时无法确认登录状态，请重试核验。')
     return value

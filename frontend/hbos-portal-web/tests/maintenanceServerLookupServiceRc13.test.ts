@@ -51,16 +51,16 @@ describe('bounded published/batch lookup parameters', () => {
     })
   })
 
-  it('forwards exact document id and batch document locate params', async () => {
-    await getMaintenance(undefined, 1, undefined, { published_document_id: DOCUMENT, published_page: 1, published_page_size: 50 })
+  it.each([DOCUMENT, 'N1DOC-' + 'a'.repeat(24), 'DOC_S3_' + 'b'.repeat(24)])('forwards frozen document identity %s unchanged', async (document) => {
+    await getMaintenance(undefined, 1, undefined, { published_document_id: document, published_page: 1, published_page_size: 50 })
     expect(transport.get).toHaveBeenLastCalledWith('hb_knowledge_app.hb_knowledge.api.get_maintenance', {
       batch_id: undefined, page: 1, page_size: 12,
-      published_document_id: DOCUMENT, published_page: 1, published_page_size: 50,
+      published_document_id: document, published_page: 1, published_page_size: 50,
     })
-    await getMaintenance(undefined, 1, undefined, { batch_document_id: DOCUMENT, batch_page: 1, batch_page_size: 100 })
+    await getMaintenance(undefined, 1, undefined, { batch_document_id: document, batch_page: 1, batch_page_size: 100 })
     expect(transport.get).toHaveBeenLastCalledWith('hb_knowledge_app.hb_knowledge.api.get_maintenance', {
       batch_id: undefined, page: 1, page_size: 12,
-      batch_document_id: DOCUMENT, batch_page: 1, batch_page_size: 100,
+      batch_document_id: document, batch_page: 1, batch_page_size: 100,
     })
   })
 
@@ -76,6 +76,8 @@ describe('bounded published/batch lookup parameters', () => {
     { published_query: 'x'.repeat(121) },
     { published_document_id: 'DOC_../escape' },
     { published_document_id: '' },
+    { published_document_id: 'N1DOC-' + 'a'.repeat(23) },
+    { batch_document_id: 'N1DOC-' + 'a'.repeat(24) + '/extra' },
     { published_page: 0 },
     { published_page: 1.5 },
     { published_page: 'x' as unknown as number },

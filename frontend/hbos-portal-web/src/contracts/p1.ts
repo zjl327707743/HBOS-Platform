@@ -150,6 +150,8 @@ export interface KnowledgeDocument {
   version_id?: string
   legal_metadata?: KnowledgeLegalMetadata
   source_directories?: string[][]
+  source_occurrence_id?: string
+  source_filename?: string
   download_state?: 'available' | 'unavailable'
   download_note?: string
 }
@@ -158,6 +160,12 @@ export interface KnowledgeSourceDirectory {
   folder_id: string
   breadcrumbs: {folder_id: string; name: string}[]
   children: {folder_id: string; name: string; count: number}[]
+  // Documents stored directly in this folder, shown apart from the child
+  // folders so 303 = 1 direct + 208 + 93 + 1 is visible on the page itself.
+  direct_count?: number
+  recursive_count?: number
+  unique_document_count?: number
+  count_kind?: 'SOURCE_OCCURRENCES'
 }
 
 export interface KnowledgeDocumentPage {
@@ -166,6 +174,26 @@ export interface KnowledgeDocumentPage {
   total: number
   page: number
   page_size: number
+}
+
+export interface KnowledgeCatalogCategory { category_id: string; path: string[] }
+export type KnowledgeCatalogSort = 'relevance' | 'title' | 'title_desc'
+export interface KnowledgeCatalogFilters {
+  query: string
+  category_ids: string[]
+  format: string | null
+  sort: KnowledgeCatalogSort
+}
+export interface KnowledgeEmployeeCatalogPage {
+  documents: (KnowledgeDocument & { file_formats: string[] })[]
+  total_documents: number
+  page: number
+  page_size: number
+  category_options: KnowledgeCatalogCategory[]
+  format_options: string[]
+  applied_filters: KnowledgeCatalogFilters
+  corpus_revision: string
+  directory_revision: string
 }
 
 export interface KnowledgeFeedback {
@@ -204,4 +232,8 @@ export interface KnowledgeAnswer {
 }
 
 export type KnowledgeModelAlias = 'gpt-6-luna' | 'deepseek-flash' | 'gemini-3.8-flash' | 'kimi-k3'
-export interface KnowledgeModels { default: 'gpt-6-luna'; selected_alias: KnowledgeModelAlias; models: {alias:KnowledgeModelAlias;available:boolean;reason:null|'CONFIGURATION_NOT_VERIFIED'}[] }
+export interface KnowledgeModels {
+  default: 'deepseek-flash'
+  selected_alias: 'deepseek-flash'
+  models: { alias: 'deepseek-flash'; available: boolean; reason: null | 'CONFIGURATION_NOT_VERIFIED' }[]
+}

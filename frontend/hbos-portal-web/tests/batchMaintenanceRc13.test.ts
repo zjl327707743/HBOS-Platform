@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { config, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -100,6 +100,13 @@ const stubs = {
   'a-empty': true, 'a-input-search': true,
 }
 
+// v17 mapping (Main-authorized 2026-11-13): after B's d566754 rebuild the
+// advanced controlled-manifest panel is no longer an inline <details> on the
+// manage view; it renders inside the drawer branch opened by the v17
+// "打开批量预演" entry. The drawer is stubbed, so render stub default slots to
+// keep the same user-visible flow assertable.
+config.global.renderStubDefaultSlot = true
+
 let wrapper: ReturnType<typeof mount> | undefined
 async function view() {
   const pinia = createPinia(); setActivePinia(pinia)
@@ -111,9 +118,18 @@ async function view() {
 }
 async function previewPlan() {
   const w = await view()
-  await w.findAll('button').find(button => button.text() === '直接粘贴清单 JSON')!.trigger('click')
-  await w.get('textarea').setValue(JSON.stringify({ schema_version: 2, sharing_confirmed: true, items: [] }))
-  await w.findAll('button').find(button => button.text() === '预演清单')!.trigger('click')
+  // v17 contract: the visible "打开批量预演" entry must expose the controlled
+  // manifest panel (old inline <details> contract -> drawer branch). It already
+  // sets showAdvancedImport=true, so the legacy toggle must NOT be clicked again
+  // (that would collapse the manifest textarea the user needs).
+  await button(w, '打开批量预演').trigger('click')
+  await flushPromises()
+  const entry = w.get<HTMLDetailsElement>('details.maintenance-batch-entry')
+  entry.element.open = true
+  const panel = w.get('.batch-import-panel')
+  await panel.get('[aria-controls=kb-batch-manifest-text]').trigger('click')
+  await panel.get('textarea').setValue(JSON.stringify({ schema_version: 2, sharing_confirmed: true, items: [] }))
+  await panel.findAll('button').find(button => button.text() === '预演清单')!.trigger('click')
   await flushPromises()
   return w
 }
@@ -138,6 +154,9 @@ afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.useRealTimers() })
 describe('batch import preview', () => {
   it('shows plan_sha256, per-item classification, pages and target directory', async () => {
     const w = await previewPlan()
+    // v17 mapping: the drawer entry must reveal the manifest input area itself
+    // (old inline <details> contract -> opened drawer branch), not just a button.
+    expect(w.find('.batch-import-panel textarea').exists()).toBe(true)
     expect(api.plan).toHaveBeenCalledTimes(1)
     const text = w.text()
     expect(text).toContain('plan_sha256 ' + digest)
@@ -166,6 +185,7 @@ describe('batch submit and progress', () => {
     const w = await previewPlan()
     const approval = w.findAll('input').find(input => (input.attributes('placeholder') || '').includes('OWNER_RC13'))!
     await approval.setValue('OWNER_SYNTHETIC_APPROVAL')
+    await w.get('[data-batch-confirmation]').setValue(true)
     const submit = button(w, '提交批量入库')
     await submit.trigger('click')
     await submit.trigger('click')
@@ -190,6 +210,7 @@ describe('batch submit and progress', () => {
     const w = await previewPlan()
     const approval = w.findAll('input').find(input => (input.attributes('placeholder') || '').includes('OWNER_RC13'))!
     await approval.setValue('OWNER_SYNTHETIC_APPROVAL')
+    await w.get('[data-batch-confirmation]').setValue(true)
     await button(w, '提交批量入库').trigger('click')
     await flushPromises()
     expect(w.text()).toContain('检索验证已失效（已下架）')

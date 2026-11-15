@@ -11,9 +11,13 @@ import { usePortalStore } from '@/stores/portal'
 // ``sessionChecking`` drives pending (skeleton) and masked (hidden, kept) apart.
 const sessionChecking=ref(false)
 vi.mock('@/services/portalProvider', () => ({ portalDataSource: 'mock' }))
+// Fixture fix (Main-authorized 2026-11-13): KnowledgeTwinLayout gates its
+// RouterView on ``sessionReady`` (already present at B_BASE b711de8); the mock
+// omitted it, so the routed subject never mounted. Keep the same session-policy
+// assertions; only supply the missing ready flag.
 vi.mock('@/composables/usePortalSession', () => ({usePortalSession: () => ({
   sessionPending: ref(false), sessionError: ref(null), sessionRevision: ref(0),
-  sessionBlocked: sessionChecking,
+  sessionBlocked: sessionChecking, sessionReady: ref(true),
 })}))
 vi.mock('@/services/p1Api',async original=>({...await original<typeof import('@/services/p1Api')>(),getKnowledgeStatus:async()=>({can_enter:true,can_maintain:false})}))
 const SubjectView = defineComponent({setup() { const mountedFor = usePortalStore().user?.id; return {mountedFor} },template:'<p data-test="subject-view">{{mountedFor}}</p>'})

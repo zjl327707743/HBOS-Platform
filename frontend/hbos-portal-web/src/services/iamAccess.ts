@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { callFrappeMethod, callFrappePostMethod } from './frappeClient'
+import { knowledgeNativeSessionEnabled } from './knowledgeSessionMode'
 
 export class IamError extends Error { constructor(message: string, public code = 'INVALID_RESPONSE') { super(message); this.name = 'IamError' } }
 interface Envelope<T> { ok: boolean; data?: T; error?: { code?: string; message?: string } }
@@ -32,6 +33,7 @@ export function validateCapabilities(raw: unknown, expectedUser?: string): Capab
   return value
 }
 export async function fetchIamAccess(expectedUser: string, context: string) {
+  if (knowledgeNativeSessionEnabled()) return { schema_version: 1, subject_user: expectedUser, session_context: context, policy_revision: 'knowledge-native-v4-v1', app_roles_enabled: false, app_revisions: {}, capabilities: [] } satisfies Capabilities
   const result = validateCapabilities(await iamQuery('hbos_portal.api.iam_access.get_capabilities'), expectedUser)
   if (result.session_context !== context) throw new IamError('登录状态已改变，请重新核验。', 'SESSION_CHANGED')
   return result

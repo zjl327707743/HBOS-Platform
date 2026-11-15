@@ -1,7 +1,7 @@
 <template>
   <a-config-provider :theme="theme" :locale="zhCN">
-    <div :class="{ 'portal-demo-mode': portalDataSource === 'mock' }">
-      <div v-if="portalDataSource === 'mock'" class="portal-demo-banner" role="status">演示数据 · 当前为 Mock 模式，业务操作不可写入真实系统</div>
+    <div :class="{ 'portal-demo-mode': showMockBanner }">
+      <div v-if="showMockBanner" class="portal-demo-banner" role="status">演示数据 · 当前为 Mock 模式，业务操作不可写入真实系统</div>
       <RouterView />
     </div>
   </a-config-provider>
@@ -14,5 +14,7 @@ import { useRoute } from 'vue-router'
 import { hbosAntdTheme, hbosManagementTheme } from '@/theme/antdTheme'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
 const route = useRoute()
+const showMockBanner = computed(() => portalDataSource === 'mock' &&
+  !(import.meta.env.MODE === 'knowledge-preview' && /^\/hbos\/knowledge(?:\/|$)/.test(route.path)))
 const theme = computed(() => route.path === '/hbos/profile' || route.path.startsWith('/hbos/admin') ? hbosManagementTheme : hbosAntdTheme)
 </script>

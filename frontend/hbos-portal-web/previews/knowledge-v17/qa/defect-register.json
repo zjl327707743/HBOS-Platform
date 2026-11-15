@@ -1,0 +1,125 @@
+{
+  "source": "Owner takeover package (00_唯一执行任务.md) sections 3-6, the structural rework Markdown, and the independent read-only reviewer findings D1-D11",
+  "checks": {
+    "V01": "Auxiliary labels occupy independent horizontal rows",
+    "V02": "Feedback icon, content, status and action align with the header",
+    "V03": "Feedback has its own copy and no upload CTA",
+    "V04": "Feedback content search uses the bounded server query when the candidate supports it; a pre-interface candidate keeps one honest limitation and never filters client-side",
+    "V05": "Existing disclosure keyboard flow and absence of native marker",
+    "V06": "Identical feedback geometry in all tested navigation orders"
+  },
+  "closed_this_round": {
+    "V07": {
+      "status": "CLOSED",
+      "defect": "Shared drawer a11y sync wrote one label into every open .ant-drawer.",
+      "fix": "Per-instance root class naming; each open instance keeps its own aria-label/aria-labelledby; only the top layer is aria-modal, covered layers inert; per-instance focus restore and Escape layering.",
+      "evidence": "qa/final-check.mjs drawer-single / drawer-stacked-names / drawer-stack-modal / drawer-close-top / drawer-focus-after-close / drawer-close-all / drawer-reopen-order / drawer-route-leave"
+    },
+    "V08": {
+      "status": "CLOSED",
+      "defect": "P05 at 320x500 stacked title, download/full-screen card, file header and PDF controls so the paper page fell out of the short first screen.",
+      "fix": "Identity, page/zoom and download/full-screen reorganized into one compact reader toolbar; the real PDF page starts in the first screen; real render/fit/zoom/paging/download/full-screen and desktop 650px two-column kept.",
+      "evidence": "qa/final-check.mjs p05-paper-visible-320x500 / p05-paper-in-first-screen-*"
+    },
+    "V09": {
+      "status": "CLOSED",
+      "defect": "P08 versions page stacked capability note, statistics, refresh, server search, local search and department filter before the list; first row ~260px late.",
+      "fix": "One primary toolbar with a single prototype-aligned search control; secondary 更多筛选 disclosure (department, refresh, projection detail); lineage moved to a collapsed section under the list; phones not later than prototype +24px; desktop difference recorded (see differences).",
+      "evidence": "qa/final-check.mjs p08-first-item-* / p08-single-search-trigger"
+    },
+    "V10": {
+      "status": "CLOSED",
+      "defect": "P04 records used a two-row large-button toolbar instead of the prototype's compact tabs + refresh row.",
+      "fix": "Compact tab group + feedback link + icon refresh in one row, count caption, text action on desktop / icon on phones, on-demand pagination; refresh, delete and continue-reading kept.",
+      "evidence": "qa/final-check.mjs p04-toolbar-rows-* / p04-first-item-* ; flows.mjs"
+    },
+    "V11": {
+      "status": "CLOSED",
+      "defect": "P06/P07 main card about 50px late at 320px due to a shared page header carrying an English eyebrow and 14px description.",
+      "fix": "Non-Q&A pages hide the English eyebrow; prototype mobile type scale wins over the older query-page override; positions re-measured.",
+      "evidence": "qa/final-check.mjs eyebrow-hidden-* / p06-main-card-* / p07-main-card-*"
+    },
+    "D1": {
+      "status": "CLOSED",
+      "defect": "Drawer top layer was decided by DOM order; a drawer whose portal mounted later could cover a newer one and be marked inert.",
+      "fix": "Explicit monotonic open order in drawerDialogA11y.ts; open order is set on first open, forgotten on close/reopen; top layer chosen by order, not DOM. Covered layers inert.",
+      "evidence": "qa/final-check.mjs drawer-stacked-names / drawer-reopen-order / drawer-cross-component-stack (portal order inversion simulated by separate components). The reviewer's manage-bulk portal-inversion path is not reproducible in the synthetic preview without fake service state; covered by the explicit-order implementation."
+    },
+    "D2": {
+      "status": "CLOSED",
+      "defect": "Evidence drawer + feedback drawer could both be aria-modal=true with no inert when stacked across components.",
+      "fix": "Shared layer manager used by EvidenceDrawer, KnowledgeConnections, KnowledgeTools feedback drawer and all maintenance drawers; open/close re-ranks the whole knowledge drawer stack.",
+      "evidence": "qa/final-check.mjs drawer-cross-component-stack"
+    },
+    "D3": {
+      "status": "CLOSED",
+      "defect": "Preview fixture fabricated a fixed version lineage for every state while the UI claimed server lineage.",
+      "fix": "Lineage chain is served only by ?state=visual (explicitly synthetic); the default preview returns an honest unavailable state; inherited 'live' comments corrected to candidate contract without claiming real-service verification.",
+      "evidence": "previews/knowledge-v17/fixture.mjs get_version_lineage; report CAPABILITY_GAP"
+    },
+    "D4": {
+      "status": "CLOSED",
+      "defect": "P08 toolbar had two search triggers (input-search plus a separate 查找 button) and default Ant appearance.",
+      "fix": "Single custom searchbox styled per the v1.7 toolbar with one submit trigger; secondary controls moved behind 更多筛选.",
+      "evidence": "qa/final-check.mjs p08-single-search-trigger"
+    },
+    "D5": {
+      "status": "CLOSED",
+      "defect": "Local title/department filter silently no-op while a server lookup result was shown.",
+      "fix": "visibleDocs applies the typed term and department filter to lookup rows as well as the loaded list.",
+      "evidence": "src/views/KnowledgeMaintenanceView.vue visibleDocs; unit tests maintenanceServerLookupViewRc13"
+    },
+    "D6": {
+      "status": "RECORDED_DIFFERENCE",
+      "defect": "P08 desktop first row can be earlier than the prototype; a 2px anchor cannot be met across the reorganized toolbar.",
+      "fix": "Phones assert a late bound (+24px) and pass (+18 / -8); desktop deviation is emitted as DIFFERENCE_RECORDED with delta and cause in v17-final-result.json instead of an invented PASS tolerance.",
+      "evidence": "qa/final-check.mjs recordDifference / differences"
+    },
+    "D7": {
+      "status": "CLOSED",
+      "defect": "Drawer focus-restore timers were not cleaned up and stale focus targets could be reused.",
+      "fix": "All drawer timers go through a registered set cleared on route change/unmount; the focus target is consumed on close and the map entry cleared immediately.",
+      "evidence": "src/views/KnowledgeMaintenanceView.vue scheduleDrawer / clearDrawerTimers / restoreDrawerFocus"
+    },
+    "D8": {
+      "status": "CLOSED",
+      "defect": "P04 row primary action was icon-only on desktop while the prototype keeps a text action.",
+      "fix": "Text action (继续查阅 / 查看资料) on >=768px with a 100px target; icon-only on phones.",
+      "evidence": "src/components/knowledge/KnowledgeTools.vue .kb-record-open; qa/final-check.mjs P04 shots"
+    },
+    "D9": {
+      "status": "CLOSED",
+      "defect": "Mobile page-head size overrides were dead because an older higher-specificity query-page rule won.",
+      "fix": "Matching-specificity overrides at the end of knowledge.css for <=600 and <=380.",
+      "evidence": "src/styles/knowledge.css final overrides; geometry measured by qa/final-check.mjs"
+    },
+    "D10": {
+      "status": "CLOSED",
+      "defect": "P08 phone row action wrapped below the main text and left-aligned.",
+      "fix": "Phone row is a 3-column grid (icon / main / action) with the action right-aligned.",
+      "evidence": "src/views/KnowledgeMaintenanceView.vue .v17-version-row media rules; vue-P08-*.png evidence"
+    },
+    "D11": {
+      "status": "CLOSED",
+      "defect": "Acceptance evidence was not bound to the final SHA.",
+      "fix": "qa/final-check.mjs reads git rev-parse HEAD and git status --porcelain and writes finalSha/worktreeDirty into v17-final-result.json; the final run is executed on the clean delivered commit.",
+      "evidence": "outputs/v17-final/v17-final-result.json finalSha"
+    },
+    "P09_SEARCH_INTERFACE": {
+      "status": "CLOSED_PENDING_RELEASE_2",
+      "defect": "P09 had no content search (live get_feedback_queue without query returned INVALID_REQUEST for a query parameter).",
+      "fix": "Main implemented a bounded read-only feedback_queue(query=) filter in the isolated tree; B wired getMaintenanceFeedbackPage(page,status,query), the enabled search box, status+query filtering and an honest INVALID_REQUEST fallback. Evidence: fixture adds the same bounded query contract plus ?state=feedback-no-search; unit tests cover supported and fallback paths; final-check p09-server-search-supported / p09-server-search-filters / p09-unsupported-fallback.",
+      "note": "Real search becomes observable only after release #2 pairs the new frontend with the patched BFF; until then the released candidate keeps the limitation line."
+    }
+  },
+  "capability_gaps": {
+    "P09_content_search": "CAPABILITY_GAP — the service contract has no feedback content search; the control stays disabled with one honest limitation line.",
+    "P08_version_lineage": "Candidate contract GET get_version_lineage (inherited W1 commit). Browser-verified against the synthetic visual scene only; the real service availability was not verified in this workspace and is reported as an integration dependency, not as production-verified."
+  },
+  "not_verified": [
+    "Real backend/API/permissions/session behaviour (synthetic preview only).",
+    "Physical devices, Safari/Firefox, full screen readers, system Chinese IME on a real OS.",
+    "P05 fullscreen re-checked only in isolated headless Chrome with real mouse gestures, not on a physical display.",
+    "The reviewer's bulk-drawer portal inversion could not be driven from the synthetic preview (no selectable quality rows); D1 is covered by the explicit open-order implementation and the reopen/cross-component regressions."
+  ]
+}

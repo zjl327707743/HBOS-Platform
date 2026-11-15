@@ -50,8 +50,8 @@ describe('C01/C04 actual knowledge client; Frappe transport stub is not Session/
   it.each([
     {...card,file_path:'/SYNTHETIC/original.pdf'},
     {...card,metadata:{nested:{download_url:'https://SYNTHETIC.invalid'}}},
-    {...card,excerpt:'SYNTHETIC /SYNTHETIC/original.pdf'},
-    {...card,excerpt:'https%3A%2F%2FSYNTHETIC.invalid%2Foriginal'},
+    {...card,excerpt:'SYNTHETIC ../private/original.pdf'},
+    {...card,excerpt:'javascript%3Aalert(1)'},
     {...card,excerpt:'<b>SYNTHETIC</b>'},
     {...card,page_number:-1},
   ])('rejects unsafe card fields/strings/locator case %#',async value => {
@@ -167,12 +167,12 @@ describe('N1 current-user feedback and paginated catalog projections', () => {
 
 describe('N1 bounded follow-up responses', () => {
   const refusal = '无法可靠定位前一回答中的具体条目。请指出步骤名称或关键词后再问；当前资料不足以直接回答这个追问。'
-  const unanswered = { request_id: 'REQ_FOLLOWUP_DEMO', turn_id: 'TURN_FOLLOWUP_DEMO', conversation_id: 'TURN_FOLLOWUP_DEMO', mode: 'authorized_generation', answer_status: 'INSUFFICIENT_EVIDENCE', answerable: false, answer: refusal, citations: [], answer_origin:'KNOWLEDGE', model_alias:'gpt-6-luna' }
+  const unanswered = { request_id: 'REQ_FOLLOWUP_DEMO', turn_id: 'TURN_FOLLOWUP_DEMO', conversation_id: 'TURN_FOLLOWUP_DEMO', mode: 'authorized_generation', answer_status: 'INSUFFICIENT_EVIDENCE', answerable: false, answer: refusal, citations: [], answer_origin:'KNOWLEDGE', model_alias:null }
   it('shows the exact server clarification for an ambiguous reference without invented citations', async () => {
     const { askKnowledgeReference } = await import('@/services/p1Api')
     transport.post.mockResolvedValue({ ok: true, data: unanswered })
     expect(await askKnowledgeReference('上面第二条是什么意思？', 'SPACE_QA_DEMO', 'PREVIOUS_TURN_DEMO')).toEqual(unanswered)
-    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.ask', { model_alias:'gpt-6-luna',knowledge_only:false,search_mode:'STANDARD', question: '上面第二条是什么意思？', space_ids: ['SPACE_QA_DEMO'], conversation_id: 'PREVIOUS_TURN_DEMO' })
+    expect(transport.post).toHaveBeenCalledWith('hb_knowledge_app.hb_knowledge.api.ask', { knowledge_only:false,search_mode:'STANDARD', question: '上面第二条是什么意思？', space_ids: ['SPACE_QA_DEMO'], conversation_id: 'PREVIOUS_TURN_DEMO' })
   })
   it.each([
     { ...unanswered, answer_status: 'CLARIFIED' },
@@ -222,16 +222,16 @@ describe('UAT2 signed-service compatibility in the existing Portal layout', () =
   })
 })
 
-describe('UAT3 model selection and authentic source states; synthetic transport only',()=>{
- const general={request_id:'REQUEST_DEMO',turn_id:'TURN_DEMO',mode:'general_generation',answer_status:'GENERAL_ANSWERED',answerable:true,answer:'你好',citations:[],answer_origin:'GENERAL',model_alias:'gpt-6-luna'}
- it('accepts a closed general answer and binds it to the selected model and knowledge-only option',async()=>{
+describe('R2 fixed model and authentic source states; synthetic transport only',()=>{
+ const general={request_id:'REQUEST_DEMO',turn_id:'TURN_DEMO',mode:'general_generation',answer_status:'GENERAL_ANSWERED',answerable:true,answer:'你好',citations:[],answer_origin:'GENERAL',model_alias:'deepseek-flash'}
+ it('accepts the fixed model and preserves the knowledge-only option',async()=>{
   const {askKnowledgeReference}=await import('@/services/p1Api')
   transport.post.mockResolvedValue({ok:true,data:general})
   expect((await askKnowledgeReference('你好')).answer_origin).toBe('GENERAL')
-  await expect(askKnowledgeReference('你好',undefined,undefined,'STANDARD','kimi-k3')).rejects.toBeInstanceOf(DomainApiError)
-  await expect(askKnowledgeReference('你好',undefined,undefined,'STANDARD','gpt-6-luna',true)).rejects.toBeInstanceOf(DomainApiError)
+  expect(transport.post.mock.lastCall?.[1]).not.toHaveProperty('model_alias')
+  await expect(askKnowledgeReference('你好',undefined,undefined,'STANDARD',true)).rejects.toBeInstanceOf(DomainApiError)
  })
- it.each([{...general,citations:[{...card,citation_label:'C1'}]},{...general,answer:'你好 [C1]'},{...general,model_alias:'claude'},{...general,provider_key:'PRIVATE_DEMO'}])('rejects fabricated general provenance or provider field %#',async data=>{
+ it.each([{...general,citations:[{...card,citation_label:'C1'}]},{...general,answer:'你好 [C1]'},{...general,model_alias:'gpt-6-luna'},{...general,model_alias:'claude'},{...general,provider_key:'PRIVATE_DEMO'}])('rejects fabricated general provenance or provider field %#',async data=>{
   const {askKnowledgeReference}=await import('@/services/p1Api');transport.post.mockResolvedValue({ok:true,data})
   await expect(askKnowledgeReference('你好')).rejects.toBeInstanceOf(DomainApiError)
  })
@@ -256,7 +256,7 @@ describe('UAT5 bounded failure classifications', () => {
     ['MODEL_REQUEST_FORMAT', '回答服务未接受请求格式'],
     ['MODEL_REQUEST_INVALID', '模型服务拒绝了请求格式'],
     ['MODEL_AUTH_FAILED', '模型服务认证或授权失败'],
-    ['MODEL_RATE_LIMITED', '所选模型当前限流'],
+    ['MODEL_RATE_LIMITED', '回答服务当前限流'],
     ['ANSWER_SCHEMA_INVALID', '回答格式未通过校验'],
     ['CITATION_SUPPORT_FAILED', '回答未通过来源支持校验'],
     ['RETRIEVAL_EMPTY', '没有找到可核实的公司依据'],
@@ -307,9 +307,9 @@ it('retains verified sources without presenting a rejected summary as answered',
   const data={request_id:'REQ_SOURCE_ONLY',turn_id:'TURN_SOURCE_ONLY',mode:'reference_only',answer_status:'REFERENCE_ONLY',answerable:false,
     answer:'已找到并核实以下资料，但本次未形成可核验的归纳。请先查看来源。',citations:[{...card,citation_label:'C1'}],answer_origin:'KNOWLEDGE',model_alias:'deepseek-flash'}
   transport.post.mockResolvedValue({ok:true,data})
-  expect(await askKnowledgeReference('合成资料要求',undefined,undefined,'STANDARD','deepseek-flash',true)).toEqual(data)
+  expect(await askKnowledgeReference('合成资料要求',undefined,undefined,'STANDARD',true)).toEqual(data)
   for (const change of [{answerable:true},{citations:[]},{answer:'未经核验的合成模型结论。'},{answer_origin:'GENERAL'}]) {
     transport.post.mockResolvedValue({ok:true,data:{...data,...change}})
-    await expect(askKnowledgeReference('合成资料要求',undefined,undefined,'STANDARD','deepseek-flash',true)).rejects.toBeInstanceOf(DomainApiError)
+    await expect(askKnowledgeReference('合成资料要求',undefined,undefined,'STANDARD',true)).rejects.toBeInstanceOf(DomainApiError)
   }
 })
