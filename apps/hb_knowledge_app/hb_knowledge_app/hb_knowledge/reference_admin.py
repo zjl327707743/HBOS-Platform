@@ -5,7 +5,7 @@ from pathlib import Path
 from .execution_plan import Binding, iso, validate_admission
 from .metadata_integrity import physical_pair_key, IDENTITY_FIELDS
 from .service_http import canonical
-from .publication import PublicationConflict, decide, receipt_id, verify_frozen_target, select_publication_items
+from .publication import PublicationConflict, decide, latest_lifecycle_receipt, receipt_id, verify_frozen_target, select_publication_items
 from .errors import KnowledgeError
 
 def _require(condition, message):
@@ -16,7 +16,8 @@ def _require(condition, message):
 def _verify_backend(cfg, item):
     """Private admin port; employees never receive credentials or originals."""
     import requests
-    auth = json.loads(Path(cfg['publication_ragflow_auth_file']).read_text())
+    auth_file=cfg.get('publication_ragflow_auth_files',{}).get(item['dataset_id'],cfg['publication_ragflow_auth_file'])
+    auth = json.loads(Path(auth_file).read_text())
     from knowledge_service.ingestion import validate_admin_base
     try:base=validate_admin_base(auth,allow_host_bridge=True)
     except ValueError:raise PublicationConflict('Unregistered publication backend') from None
@@ -39,6 +40,13 @@ def _verify_backend(cfg, item):
             actual = docs[0]
             indexed = int(actual.get('chunk_count', 0)) > 0 and str(actual.get('run')).upper() in {'DONE', '3'}
             _require(indexed, 'Backend binding is not indexed')
+            if item.get('parser_input')=='VERIFIED_ORIGINAL_NATIVE':
+                from knowledge_service.native_job_contract import validate_profile
+                from knowledge_service.ingestion import retry_parser_config_matches
+                profile=validate_profile(item.get('native_profile'))
+                _require(actual.get('chunk_method')==profile['parser_id']
+                    and retry_parser_config_matches(actual.get('parser_config'),profile['parser_config']),
+                    'Native parser configuration changed after indexing')
             if identity_metadata_matches(actual.get('meta_fields'), expected):break
             if attempt == 2:raise PublicationConflict('Backend binding is not indexed')
             time.sleep(1)
@@ -113,7 +121,7 @@ def _verify_same_source_reindex(cfg,item,current,expected,space_id):
 
 
 def publish(manifest_path, operation='publish', expected_current_version=None, reason=None, approval_ref=None,
-            selected_document_ids=None, *, registered_batch_id=None):
+            selected_document_ids=None, *, registered_batch_id=None, expected_withdrawal_receipt=None):
     import frappe
     from .shared_reference import configuration
     if registered_batch_id:
@@ -172,6 +180,10 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
             if operation=='repair':
                 _require(registered_batch_id is not None,'Technical repair requires a registered maintenance batch')
                 _verify_technical_repair(cfg,item,current,expected_current_version,space_id)
+            if expected_withdrawal_receipt is not None:
+                _require(operation=='restore' and registered_batch_id is not None and
+                    latest_lifecycle_receipt(doc,version,withdrawn=True,lock=True)==expected_withdrawal_receipt,
+                    'Current withdrawal changed since the restore was requested')
             outcome=decide(current,version,operation,expected_current_version)
             receipt=receipt_id(state['batch_sha256'],item,operation,expected_current_version,approval_ref if operation!='publish' else None)
             if outcome=='SKIPPED_WITHDRAWN':
@@ -239,10 +251,12 @@ def publish(manifest_path, operation='publish', expected_current_version=None, r
             'batch_sha256':state['batch_sha256'],'selection_sha256':selection_hash,
             'selected_documents':len(items),'frozen_items':len(state['items']),'results':results}
 
-def _catalog_projection(runtime, snapshot):
+def _catalog_projection(runtime, snapshot, *, employee=False):
     from .public_strings import safe_string
     from .spaces import authorized_spaces
     from .download_policy import document_download_decision
+    from .source_directory import directories, employee_locations, registry_entries
+    registry = registry_entries()
     allowed=authorized_spaces(snapshot,actions=('knowledge.spaces','knowledge.search'))
     titles=dict(snapshot.space_titles);seen=set();out=[]
     cfg=getattr(runtime.provider.repository,'config',{}) or {}
@@ -272,17 +286,19 @@ def _catalog_projection(runtime, snapshot):
             'status_note':'内部参考' if b.authority_status in {'CONTROLLED_REFERENCE_REVIEWED','INTERNAL_REFERENCE_REVIEWED'} else b.authority_status}
         from .legal_metadata import LAW_SPACE,for_version
         if b.space_id==LAW_SPACE:item['legal_metadata']=for_version(b.version_id)
-        from .source_directory import directories
-        source_directories=directories(b)
+        source_directories=directories(b, registry=registry)
         if source_directories:item['source_directories']=source_directories
+        if employee:
+            item['_source_locations'] = employee_locations(item, registry)
+            item['_binding_revision'] = b.binding_revision
         out.append(item)
     return sorted(out,key=lambda d:(d['department'],d['title'] or '',d['document_id'],d['space_id']))
 
 
-def _catalog_read(runtime,actor,project):
-    value=project(_catalog_projection(runtime,runtime.provider._current(actor,runtime.client)))
+def _catalog_read(runtime,actor,project,*,employee=False):
+    value=project(_catalog_projection(runtime,runtime.provider._current(actor,runtime.client),employee=employee))
     runtime.checkpoint('before_catalog_return')
-    if value!=project(_catalog_projection(runtime,runtime.provider._current(actor,runtime.client))):
+    if value!=project(_catalog_projection(runtime,runtime.provider._current(actor,runtime.client),employee=employee)):
         raise KnowledgeError('SCOPE_REJECTED')
     return value
 
@@ -297,7 +313,40 @@ def _page_number(value,maximum):
     return value
 
 
-def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=12,law_category=None,folder_id=None):
+def get_employee_catalog_page(runtime, actor, *, query=None, category_ids=None, file_format=None,
+                              sort=None, page=1, page_size=20):
+    from .public_strings import safe_string
+    from .source_directory import employee_page
+
+    query = '' if query is None else safe_string(query, 240).strip()
+    if isinstance(category_ids, str):
+        try:
+            category_ids = json.loads(category_ids) if len(category_ids) <= 512 else False
+        except ValueError:
+            raise KnowledgeError('INVALID_REQUEST') from None
+        if category_ids is None:
+            raise KnowledgeError('INVALID_REQUEST')
+    if category_ids is None:
+        category_ids = []
+    if (not isinstance(category_ids, list) or len(category_ids) > 12
+            or any(not isinstance(value, str) or not re.fullmatch(r'FOLDER_[0-9a-f]{24}', value)
+                   for value in category_ids)):
+        raise KnowledgeError('INVALID_REQUEST')
+    category_ids = sorted(set(category_ids))
+    if file_format is not None and (not isinstance(file_format, str) or not re.fullmatch(r'[a-z0-9]{1,12}', file_format)):
+        raise KnowledgeError('INVALID_REQUEST')
+    sort = 'relevance' if sort is None else sort
+    if sort not in ('relevance', 'title', 'title_desc'):
+        raise KnowledgeError('INVALID_REQUEST')
+    page, page_size = _page_number(page, 100000), _page_number(page_size, 50)
+
+    return _catalog_read(runtime, actor, lambda docs: employee_page(
+        docs, query=query, category_ids=category_ids, file_format=file_format, sort=sort,
+        page=page, page_size=page_size,
+    ), employee=True)
+
+
+def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=12,law_category=None,folder_id=None,include_descendants=None):
     from .public_strings import safe_string
     page=_page_number(page,100000);page_size=_page_number(page_size,50)
     if query is not None:query=safe_string(query,240).strip().casefold()
@@ -305,15 +354,46 @@ def get_catalog_page(runtime,actor,*,query=None,space_id=None,page=1,page_size=1
     if law_category is not None:
         from .legal_metadata import LAW_CATEGORIES
         if law_category not in LAW_CATEGORIES:raise KnowledgeError('INVALID_REQUEST')
+    if include_descendants not in (None, '0', '1'):
+        raise KnowledgeError('INVALID_REQUEST')
     def project(docs):
-        directory=None
-        if folder_id is not None:
-            from .source_directory import select
-            docs,directory=select(docs,folder_id)
-        selected=[d for d in docs if (not space_id or d['space_id']==space_id)
-                  and (not law_category or d.get('legal_metadata',{}).get('category')==law_category)
-                  and (not query or any(query in (d[k] or '').casefold()
-                                       for k in ('title','document_number','department')))]
+        # One filter context decides both the rows and the child-folder counts.
+        # Resolving `folder_id` still uses the complete authorized set, so a
+        # filtered-out folder stays reachable and a guessed one stays refused.
+        def visible(document):
+            return ((not space_id or document['space_id']==space_id)
+                    and (not law_category or document.get('legal_metadata',{}).get('category')==law_category)
+                    and (not query or any(query in (document[k] or '').casefold()
+                                          for k in ('title','document_number','department'))))
+        matched=[d for d in docs if visible(d)]
+        if folder_id is None:
+            selected=matched
+            directory=None
+        else:
+            from .source_directory import ROOT, select
+            if folder_id in ('', ROOT):
+                # The six original directories are the map of what this identity
+                # may enter, so their badges count the authorized documents and
+                # stay reachable while a department or keyword filter is active.
+                selected,directory=select(docs,ROOT,filtered_documents=matched)
+                # Legacy V4 keeps its deduplicated root listing. Version 2
+                # lists source positions and counts them under one filter.
+                if directory.get('count_kind')!='SOURCE_OCCURRENCES':
+                    selected=matched;directory=select(docs,ROOT)[1]
+            else:
+                # Inside a directory the badges are the list under the current
+                # filters: never 208 above an empty page.
+                selected,directory=select(docs,folder_id,filtered_documents=matched)
+                directory={**directory,'children':[c for c in directory['children'] if c['count']>0]}
+        if directory is not None and directory.get('count_kind') == 'SOURCE_OCCURRENCES':
+            directory = {
+                **directory,
+                'recursive_count': len(selected),
+                'unique_document_count': len({d['document_id'] for d in selected}),
+            }
+            if include_descendants == '0':
+                depth = len(directory['breadcrumbs'])
+                selected = [d for d in selected if len(d['source_directories'][0]) == depth]
         start=(page-1)*page_size
         value={'documents':selected[start:start+page_size],'total':len(selected),'page':page,'page_size':page_size}
         if directory is not None:value['source_directory']=directory

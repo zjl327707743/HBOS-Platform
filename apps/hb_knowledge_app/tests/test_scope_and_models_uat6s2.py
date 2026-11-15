@@ -1,22 +1,10 @@
-"""Gate A3: space titles and personal model defaults must follow the grant set.
-
-Two defects share one cause: a value was built from *all* spaces or from the
-hard-coded default model instead of from what this request may actually use.
-
-- ``space_titles`` was always sent, and the SearchRequest contract rejects an
-  empty map or more than 20 entries. A user with no space grants therefore got
-  ``INVALID_REQUEST`` for every question instead of ``EMPTY_SCOPE``, and a user
-  with 21+ spaces could not ask at all.
-- ``_personal_models`` fell back to ``DEFAULT_MODEL`` without checking that it
-  was available, so an unverified default made every ask fail with
-  ``MODEL_UNAVAILABLE`` while a verified alias existed.
-"""
+"""Space titles follow current grants and every new ask has one model route."""
 import sys
 from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from hb_knowledge_app.hb_knowledge.answer_policy import ALIASES, DEFAULT_MODEL
+from hb_knowledge_app.hb_knowledge.answer_policy import DEFAULT_MODEL
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
 
 
@@ -56,41 +44,31 @@ def _api(monkeypatch, *, models, user_default=None, raises=None):
 
 
 def _catalog(available):
-    return [{'alias': alias, 'available': alias in available,
-             'reason': None if alias in available else 'CONFIGURATION_NOT_VERIFIED'}
-            for alias in ALIASES]
+    return [{'alias': DEFAULT_MODEL, 'available': available,
+             'reason': None if available else 'CONFIGURATION_NOT_VERIFIED'}]
 
 
-def test_only_an_unverified_default_falls_back_to_a_verified_alias(monkeypatch):
-    api, runtime, actor = _api(monkeypatch, models=_catalog({'deepseek-flash'}))
-    selected = api._personal_models(runtime, actor)['selected_alias']
-    assert selected == 'deepseek-flash'
-
-
-def test_a_stored_verified_preference_is_kept(monkeypatch):
-    api, runtime, actor = _api(monkeypatch, models=_catalog({'gpt-6-luna', 'deepseek-flash'}),
-                               user_default='deepseek-flash')
+def test_a_stored_legacy_preference_has_no_effect(monkeypatch):
+    api, runtime, actor = _api(monkeypatch, models=_catalog(True), user_default='gpt-6-luna')
     assert api._personal_models(runtime, actor)['selected_alias'] == 'deepseek-flash'
 
 
-def test_a_stored_but_unverified_preference_does_not_select_it(monkeypatch):
-    api, runtime, actor = _api(monkeypatch, models=_catalog({'gpt-6-luna'}),
-                               user_default='deepseek-flash')
-    selected = api._personal_models(runtime, actor)['selected_alias']
-    assert selected in {'gpt-6-luna'}
-    assert selected != 'deepseek-flash'
-
-
-def test_no_verified_model_reports_unavailable_instead_of_the_default(monkeypatch):
-    api, runtime, actor = _api(monkeypatch, models=_catalog(set()))
+def test_a_gateway_catalog_with_an_extra_model_is_rejected(monkeypatch):
+    models = _catalog(True) + [{'alias': 'gpt-6-luna', 'available': True, 'reason': None}]
+    api, runtime, actor = _api(monkeypatch, models=models)
     with pytest.raises(KnowledgeError) as caught:
         api._personal_models(runtime, actor)
-    assert caught.value.code == 'MODEL_UNAVAILABLE'
+    assert caught.value.code == 'UPSTREAM_INVALID_RESULT'
+
+
+def test_unavailable_fixed_route_reports_unavailable_without_fallback(monkeypatch):
+    api, runtime, actor = _api(monkeypatch, models=_catalog(False))
+    assert api._personal_models(runtime, actor)['models'] == _catalog(False)
 
 
 def test_a_stored_preference_is_never_rewritten_by_reading_the_catalog(monkeypatch):
     written = []
-    api, runtime, actor = _api(monkeypatch, models=_catalog({'deepseek-flash'}),
+    api, runtime, actor = _api(monkeypatch, models=_catalog(True),
                                user_default='kimi-k3')
     api.frappe.defaults.set_user_default = lambda key, value, user=None: written.append(value)
     api._personal_models(runtime, actor)

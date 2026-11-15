@@ -20,8 +20,13 @@ def authenticate_connection(**ignored):
         raw,principal,_=_service_request()
         if set(raw)-{'token','stage','observation'}:raise KnowledgeError('INVALID_REQUEST')
         if raw.get('stage','Authenticated') not in ('Authenticated','Tools Discovered'):raise KnowledgeError('INVALID_REQUEST')
-        _,name=_bound(raw,principal)
+        runtime,name=_bound(raw,principal)
         connections.observe(name,raw.get('stage','Authenticated'),raw.get('observation'))
+        from .shared_reference import configuration
+        cfg=configuration()
+        if (cfg.get('shared_gateway_bridge') or {}).get('enabled') is True:
+            from .shared_gateway import actor_binding
+            return {'authenticated':True,'actor_binding':actor_binding(runtime.actor().user_ref,cfg)}
         return {'authenticated':True}
     return _authority_envelope(run)
 

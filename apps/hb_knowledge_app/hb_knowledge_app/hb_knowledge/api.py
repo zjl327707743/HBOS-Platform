@@ -7,7 +7,7 @@ from .r1_contract import normalize_search, normalize_evidence, validate_structur
 from .runtime import load_runtime
 from .gateway import load_gateway_client
 from .execution_plan import ServicePrincipal
-from .evidence import issue_evidence, resolve_evidence as resolve_cached_evidence
+from .evidence import issue_evidence, issue_evidence_stage, resolve_evidence as resolve_cached_evidence
 
 _UNSET=object()
 
@@ -115,13 +115,25 @@ def get_status():
         runtime=load_runtime()
         actor=runtime.actor()
         from .maintenance_access import permitted
-        answer_status=runtime.gateway.answer_status() if hasattr(runtime.gateway,'answer_status') else {'configured':False,'available':False,'budget_status':'UNAVAILABLE'}
+        answer_status={'configured':False,'available':False,'budget_status':'UNAVAILABLE'}
+        catalog=None
+        try:
+            if hasattr(runtime.gateway,'answer_status'):
+                answer_status=runtime.gateway.answer_status()
+            if hasattr(runtime.gateway,'models'):
+                catalog=_personal_models(runtime,actor)
+        except KnowledgeError as error:
+            if error.code not in {'MODEL_UNAVAILABLE','UPSTREAM_INVALID_RESULT','UPSTREAM_UNAVAILABLE'}:
+                raise
+            answer_status={**answer_status,'available':False}
+        if catalog is not None:
+            answer_status={**answer_status,'available':answer_status['available'] and catalog['models'][0]['available']}
         return {"can_enter":bool(actor.enabled),"can_search":_can_search(runtime,actor),
                 "policy_revision":None,"gateway_configured":runtime.gateway.configured,
                 "ask_enabled":_ask_enabled(runtime),"can_maintain":permitted(),"mode":"retrieval","environment":runtime.profile,
                 "answer_availability":{k:answer_status[k] for k in ('configured','available')},
                 "retrieval_availability":_availability(runtime),
-                **({'model_catalog':_personal_models(runtime,actor)} if hasattr(runtime.gateway,'models') else {})}
+                **({'model_catalog':catalog} if catalog is not None else {})}
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])
@@ -174,7 +186,7 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
                 runtime.gateway.authorize_evidence(ticket,records,phase="pre_issue")
         with phase('provider_revalidate'):
             runtime.provider.revalidate(ticket.plan)
-        from knowledge_service.hbos_gateway.response_projection import public_evidence
+        from .employee_evidence import public_evidence
         # Per-record projection isolation (RC13 b07 defect): one authorized
         # excerpt that cannot be displayed safely is skipped and counted; it
         # must not fail the other returned sources. ONLY the content-hygiene
@@ -196,9 +208,9 @@ def search(query=None, limit=_UNSET, equipment_id=_UNSET, asset_id=_UNSET, compo
         # Entire response quota reserved by HBOS once; Gateway never double charges.
         runtime.quota.reserve_output(actor.user_ref,sum(len(r.excerpt) for r in safe_records))
         with phase('issue_evidence'):
-            for record in safe_records:
+            for record,evidence_id,issue_error in issue_evidence_stage(runtime.cache,ticket,safe_records,runtime=runtime):
                 try:
-                    evidence_id=issue_evidence(runtime.cache,ticket,record,runtime=runtime)
+                    if issue_error is not None:raise issue_error
                     card=public_evidence(record,evidence_id,environment=runtime.profile)
                 except KnowledgeError as error:
                     if error.code!="UPSTREAM_INVALID_RESULT":raise
@@ -341,7 +353,7 @@ def resolve_evidence(evidence_id=None, **business_fields):
         record,ticket=resolve_cached_evidence(runtime.cache,actor,runtime.client,value,
                                              runtime=runtime,request_id=request_id)
         if getattr(runtime,"publication",None): runtime.publication.plan=ticket.plan
-        from knowledge_service.hbos_gateway.response_projection import public_evidence
+        from .employee_evidence import public_evidence
         data=public_evidence(record,value,environment=runtime.profile)
         runtime.quota.reserve_output(actor.user_ref,len(record.excerpt))
         # Actual consumer final check, after projection/quota and before return.
@@ -408,24 +420,14 @@ def ask(**business_fields):
             raw=_framework_business(business_fields,'ask');validate_structure('AskRequest',raw)
         with phase('load_runtime_actor'):
             runtime=load_runtime();actor=runtime.actor()
-        from .answer_policy import model_alias,DEFAULT_MODEL
+        from .answer_policy import DEFAULT_MODEL
         import frappe
-        from .catalog_direct import is_catalog_question
         with phase('personal_models'):
-            # A directory question needs no generation, so an unverified model
-            # must not block it. It is still recorded as the plan's alias when
-            # one is known; a null alias is refused by the phase store for the
-            # generation phases, which this path never reaches.
-            if isinstance(raw.get('question'),str) and is_catalog_question(
-                    raw['question'],knowledge_only=bool(raw.get('knowledge_only')),
-                    context=raw.get('context') or (),history=()):
-                try:selected=model_alias(raw.get('model_alias') or (DEFAULT_MODEL if getattr(frappe.local,'hbos_mcp_connection',None) else _personal_models(runtime,actor)['selected_alias']))
-                except KnowledgeError as error:
-                    if error.code not in {'MODEL_UNAVAILABLE','UPSTREAM_INVALID_RESULT'}:raise
-                    selected=None
-            else:
-                selected=model_alias(raw.get('model_alias') or (DEFAULT_MODEL if getattr(frappe.local,'hbos_mcp_connection',None) else _personal_models(runtime,actor)['selected_alias']))
-        options={'model_alias':selected,'knowledge_only':raw.get('knowledge_only',False),
+            if raw.get('model_alias') not in (None, DEFAULT_MODEL):
+                raise KnowledgeError('MODEL_NOT_APPROVED')
+        # The signed plan permits only the fixed route. The gateway decides
+        # whether the authorized request needs to use it.
+        options={'model_alias':DEFAULT_MODEL,'knowledge_only':raw.get('knowledge_only',False),
                  'answer_caller':'MCP' if getattr(frappe.local,'hbos_mcp_connection',None) else 'PORTAL'}
         if not _ask_enabled(runtime):raise KnowledgeError('MODEL_NOT_APPROVED')
         from .activity import owned,current as activity_current,bindings_for,write
@@ -462,7 +464,7 @@ def ask(**business_fields):
             answer,labels,records,origin,actual_alias,answer_status=runtime.gateway.ask(ticket=ticket)
             if records:runtime.gateway.authorize_evidence(ticket,records,phase='pre_issue')
             runtime.provider.revalidate(ticket.plan)
-            from knowledge_service.hbos_gateway.response_projection import public_evidence
+            from .employee_evidence import public_evidence
             citations=[]
             runtime.quota.reserve_output(actor.user_ref,len(answer)+sum(len(r.excerpt) for r in records))
             for label,record in zip(labels,records):
@@ -503,7 +505,7 @@ def ask(**business_fields):
             if records:runtime.gateway.authorize_evidence(ticket,records,phase='pre_issue')
         with phase('provider_revalidate'):
             runtime.provider.revalidate(ticket.plan)
-        from knowledge_service.hbos_gateway.response_projection import public_evidence
+        from .employee_evidence import public_evidence
         citations=[]
         runtime.quota.reserve_output(actor.user_ref,len(answer)+sum(len(r.excerpt) for r in records))
         for label,record in zip(labels,records):
@@ -546,9 +548,6 @@ def _catalog_direct(runtime,phase,ticket,titles,question,request,options,request
     with phase('catalog_direct'):
         answer,found=render(ticket.plan,titles,question)
     if not found:
-        # Nothing matched inside this scope. The catalogue gateway would say the
-        # same thing in a full round trip; returning None keeps that single
-        # wording rather than growing a second one.
         return None
     from .activity import write
     principal=ServicePrincipal(runtime.client,True)
@@ -560,17 +559,15 @@ def _catalog_direct(runtime,phase,ticket,titles,question,request,options,request
         runtime.decisions.online(principal,ticket.call('revalidate','pre_projection'))
     from .r1_contract import validate_ask_data
     from .answer_policy import answer_presentation
-    alias=ticket.plan.model_alias
     data={'request_id':request_id,'turn_id':request_id,
         **answer_presentation(answer,False,state='CATALOG_RESULTS'),
-        'answer':answer,'citations':[],'answer_origin':'KNOWLEDGE'}
-    if alias:data['model_alias']=alias
+        'answer':answer,'citations':[],'answer_origin':'KNOWLEDGE','model_alias':None}
     with phase('validate_ask_data'):
         validate_ask_data(data,environment=runtime.profile)
     with phase('write_history'):
         turn=write('History',request.query,request.space_ids,(),runtime,
             conversation_id=None,context=request.context,answer=answer,labels=(),question=question,
-            search_mode=request.search_mode,answer_origin='KNOWLEDGE',model_alias=alias)
+            search_mode=request.search_mode,answer_origin='KNOWLEDGE',model_alias=None)
     data['turn_id']=turn;data['conversation_id']=turn
     with phase('final_online'):
         runtime.decisions.online(principal,ticket.call('revalidate','final_publish'))
@@ -609,26 +606,16 @@ def _space_titles(spaces, requested=None):
 
 
 def _personal_models(runtime,actor):
-    import frappe
-    from .answer_policy import ALIASES,DEFAULT_MODEL
+    from .answer_policy import DEFAULT_MODEL
     runtime.provider._current(actor,runtime.client)
     data=runtime.gateway.models()
     if (not isinstance(data,dict) or set(data)!={'default','models'} or data['default']!=DEFAULT_MODEL
-        or not isinstance(data['models'],list) or [m.get('alias') for m in data['models']]!=list(ALIASES)
+        or not isinstance(data['models'],list) or len(data['models'])!=1 or not isinstance(data['models'][0],dict)
+        or data['models'][0].get('alias')!=DEFAULT_MODEL
         or any(set(m)!={'alias','available','reason'} or type(m['available']) is not bool or m['reason'] not in (None,'CONFIGURATION_NOT_VERIFIED') for m in data['models'])):
         raise KnowledgeError('UPSTREAM_INVALID_RESULT')
-    selected=frappe.defaults.get_user_default('hbos_knowledge_model',user=actor.user_ref)
-    available={m['alias'] for m in data['models'] if m['available']}
-    if selected not in available:
-        # The default is only a fallback when it is itself verified. Picking it
-        # blindly made every ask fail with MODEL_UNAVAILABLE on a deployment
-        # where only another alias had been verified. The stored user
-        # preference is never rewritten here.
-        if DEFAULT_MODEL in available:selected=DEFAULT_MODEL
-        else:selected=next((m['alias'] for m in data['models'] if m['available']),None)
-        if selected is None:raise KnowledgeError('MODEL_UNAVAILABLE')
     runtime.provider._current(actor,runtime.client)
-    return {**data,'selected_alias':selected}
+    return {**data,'selected_alias':DEFAULT_MODEL}
 
 
 @frappe.whitelist(methods=['GET'])
@@ -643,14 +630,12 @@ def get_models(**business_fields):
 def set_model_preference(model_alias=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'set_model_preference'):raise KnowledgeError('INVALID_REQUEST')
-        from .answer_policy import model_alias as validate
-        import frappe
-        selected=validate(model_alias);runtime=load_runtime();actor=runtime.actor()
+        from .answer_policy import DEFAULT_MODEL
+        if model_alias != DEFAULT_MODEL:raise KnowledgeError('MODEL_NOT_APPROVED')
+        runtime=load_runtime();actor=runtime.actor()
         catalog=_personal_models(runtime,actor)
-        if not any(m['alias']==selected and m['available'] for m in catalog['models']):raise KnowledgeError('MODEL_UNAVAILABLE')
-        frappe.defaults.set_user_default('hbos_knowledge_model',selected,user=actor.user_ref)
-        runtime.provider._current(actor,runtime.client)
-        return {'selected_alias':selected}
+        if not catalog['models'][0]['available']:raise KnowledgeError('MODEL_UNAVAILABLE')
+        return {'selected_alias':DEFAULT_MODEL}
     return _run(current)
 
 
@@ -664,12 +649,23 @@ def get_documents(**business_fields):
 
 
 @frappe.whitelist(methods=['GET'])
-def get_documents_page(query=None,space_id=None,page=1,page_size=12,law_category=None,folder_id=None,**business_fields):
+def get_documents_page(query=None,space_id=None,page=1,page_size=None,law_category=None,folder_id=None,
+                       include_descendants=None,contract_version=None,category_ids=None,format=None,sort=None,
+                       **business_fields):
     def current(request_id):
         if _framework_business(business_fields,'get_documents_page'):raise KnowledgeError('INVALID_REQUEST')
-        from .reference_admin import get_catalog_page
+        from .reference_admin import get_catalog_page, get_employee_catalog_page
         runtime=load_runtime()
-        return get_catalog_page(runtime,runtime.actor(),query=query,space_id=space_id,page=page,page_size=page_size,law_category=law_category,folder_id=folder_id)
+        if contract_version == '2' or type(contract_version) is int and contract_version == 2:
+            if any(value is not None for value in (space_id,law_category,folder_id,include_descendants)):
+                raise KnowledgeError('INVALID_REQUEST')
+            return get_employee_catalog_page(runtime,runtime.actor(),query=query,category_ids=category_ids,
+                file_format=format,sort=sort,page=page,page_size=20 if page_size is None else page_size)
+        if contract_version is not None or any(value is not None for value in (category_ids,format,sort)):
+            raise KnowledgeError('INVALID_REQUEST')
+        return get_catalog_page(runtime,runtime.actor(),query=query,space_id=space_id,page=page,
+            page_size=12 if page_size is None else page_size,law_category=law_category,
+            folder_id=folder_id,include_descendants=include_descendants)
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])
@@ -761,6 +757,37 @@ def get_connections(**business_fields):
     return _run(current)
 
 @frappe.whitelist(methods=['POST'])
+def shared_gateway_authorize(nonce=None,**business_fields):
+    """Nginx auth_request completes before forwarding to the native Gateway."""
+    def current(request_id):
+        if _framework_business(business_fields,'shared_gateway_authorize'):raise KnowledgeError('INVALID_REQUEST')
+        from .shared_reference import configuration
+        from .shared_gateway import issue_actor_context
+        runtime=load_runtime();actor=runtime.actor()
+        runtime.provider._current(actor,runtime.client)
+        if not actor.enabled or not _can_search(runtime,actor):raise KnowledgeError('SCOPE_REJECTED')
+        context=issue_actor_context(actor.user_ref,configuration(),nonce)
+        frappe.local.response_headers['X-HBOS-Actor-Proof']=context['proof']
+        return {'authorized':True}
+    value=_run(current)
+    if not value.get('ok'):
+        # auth_request uses HTTP status, not the Frappe JSON error envelope.
+        frappe.local.response['http_status_code']=403
+    return value
+
+@frappe.whitelist(methods=['POST'])
+def shared_gateway_context(nonce=None,**business_fields):
+    def current(request_id):
+        if _framework_business(business_fields,'shared_gateway_context'):raise KnowledgeError('INVALID_REQUEST')
+        from .shared_reference import configuration
+        from .shared_gateway import issue_actor_context
+        runtime=load_runtime();actor=runtime.actor()
+        runtime.provider._current(actor,runtime.client)
+        if not actor.enabled or not _can_search(runtime,actor):raise KnowledgeError('SCOPE_REJECTED')
+        return issue_actor_context(actor.user_ref,configuration(),nonce)
+    return _run(current)
+
+@frappe.whitelist(methods=['POST'])
 def create_connection(label=None,client_name=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'create_connection'):raise KnowledgeError('INVALID_REQUEST')
@@ -793,6 +820,56 @@ def _maintenance_action(method,fields,fn):
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])
+def get_maintenance_spaces(**fields):
+    from .maintenance_spaces import catalog
+    return _maintenance_action('get_maintenance_spaces',fields,catalog)
+
+@frappe.whitelist(methods=['POST'])
+def create_knowledge_space(title=None,source_space_id=None,**fields):
+    from .maintenance_spaces import create
+    return _maintenance_action('create_knowledge_space',fields,lambda:create(title,source_space_id))
+
+@frappe.whitelist(methods=['POST'])
+def copy_knowledge_template(space_id=None,source_space_id=None,**fields):
+    from .maintenance_spaces import copy_template
+    return _maintenance_action('copy_knowledge_template',fields,lambda:copy_template(space_id,source_space_id))
+
+@frappe.whitelist(methods=['POST'])
+def precheck_knowledge_upload(items=None,department=None,**fields):
+    from .maintenance_browser import precheck
+    return _maintenance_action('precheck_knowledge_upload',fields,lambda:precheck(items,department))
+
+@frappe.whitelist(methods=['GET'])
+def get_maintenance_pipeline(**fields):
+    from .maintenance_browser import pipeline
+    return _maintenance_action('get_maintenance_pipeline',fields,pipeline)
+
+@frappe.whitelist(methods=['GET'])
+def get_maintenance_templates(**fields):
+    from .maintenance_browser import template_catalog
+    return _maintenance_action('get_maintenance_templates',fields,template_catalog)
+
+@frappe.whitelist(methods=['POST'])
+def begin_maintenance_reader_check(batch_id=None,document_id=None,version_id=None,query_sha256=None,**fields):
+    from .maintenance_browser import begin_reader_check
+    return _maintenance_action('begin_maintenance_reader_check',fields,
+        lambda:begin_reader_check(batch_id,document_id,version_id,query_sha256))
+
+@frappe.whitelist(methods=['POST'])
+def prepare_maintenance_source(batch_id=None,document_id=None,**fields):
+    from .maintenance_browser import source_ticket
+    return _maintenance_action('prepare_maintenance_source',fields,lambda:source_ticket(batch_id,document_id))
+
+@frappe.whitelist(methods=['GET'])
+def get_maintenance_source(token=None,**fields):
+    from .maintenance_browser import source
+    try:
+        if _framework_business(fields,'get_maintenance_source'):raise KnowledgeError('INVALID_REQUEST')
+        return source(token)
+    except KnowledgeError as error:
+        return error_payload(error,'maintenance-source')
+
+@frappe.whitelist(methods=['GET'])
 def get_maintenance(batch_id=None,page=1,page_size=12,locate=None,
                     published_query=None,published_document_id=None,published_page=1,
                     published_page_size=None,batch_query=None,batch_page=1,
@@ -806,9 +883,19 @@ def get_maintenance(batch_id=None,page=1,page_size=12,locate=None,
         batch_document_id=batch_document_id))
 
 @frappe.whitelist(methods=['POST'])
-def upload_knowledge(department=None,label=None,sharing=None,replace_document=None,expected_version=None,**fields):
+def upload_knowledge(department=None,label=None,sharing=None,replace_document=None,expected_version=None,parse_template='auto',
+                     relative_path=None,auto_process=False,space_id=None,workflow_id=None,relative_paths=None,**fields):
     from .maintenance import upload
-    return _maintenance_action('upload_knowledge',fields,lambda:upload(department,label,sharing,replace_document,expected_version))
+    from .maintenance_browser import with_workflow
+    if relative_paths is not None:
+        from .maintenance_upload_group import upload_group
+        def grouped():
+            if any(value is not None for value in (label,replace_document,expected_version,relative_path)):
+                raise KnowledgeError('INVALID_REQUEST')
+            return upload_group(department,sharing,relative_paths,space_id)
+        return _maintenance_action('upload_knowledge',fields,lambda:with_workflow(workflow_id,grouped))
+    return _maintenance_action('upload_knowledge',fields,lambda:with_workflow(workflow_id,lambda:upload(department,label,sharing,replace_document,
+        expected_version,parse_template,relative_path,auto_process,space_id)))
 
 @frappe.whitelist(methods=['POST'])
 def queue_import(batch_id=None,document_ids=None,operation='parse',**fields):
@@ -826,9 +913,10 @@ def review_import(batch_id=None,document_id=None,checks=None,note=None,**fields)
     return _maintenance_action('review_import',fields,lambda:review(batch_id,document_id,checks,note))
 
 @frappe.whitelist(methods=['POST'])
-def review_import_batch(batch_id=None,document_ids=None,checks=None,note=None,**fields):
+def review_import_batch(batch_id=None,document_ids=None,checks=None,note=None,workflow_id=None,**fields):
     from .maintenance import review_batch
-    return _maintenance_action('review_import_batch',fields,lambda:review_batch(batch_id,document_ids,checks,note))
+    from .maintenance_browser import with_workflow
+    return _maintenance_action('review_import_batch',fields,lambda:with_workflow(workflow_id,lambda:review_batch(batch_id,document_ids,checks,note)))
 
 @frappe.whitelist(methods=['POST'])
 def hold_import_quality(batch_id=None,document_ids=None,note=None,**fields):
@@ -841,11 +929,15 @@ def approve_import_sharing(batch_id=None,document_ids=None,note=None,**fields):
     return _maintenance_action('approve_import_sharing',fields,lambda:approve_sharing(batch_id,document_ids,note))
 
 @frappe.whitelist(methods=['POST'])
-def publish_import(batch_id=None,document_ids=None,operation='publish',expected_version=None,reason=None,**fields):
+def publish_import(batch_id=None,document_ids=None,operation='publish',expected_version=None,reason=None,
+                   workflow_id=None,expected_lifecycle_receipt=None,**fields):
     from .maintenance import publish
-    return _maintenance_action('publish_import',fields,lambda:publish(batch_id,document_ids,operation,expected_version,reason))
+    from .maintenance_browser import with_workflow
+    return _maintenance_action('publish_import',fields,lambda:with_workflow(workflow_id,lambda:publish(
+        batch_id,document_ids,operation,expected_version,reason,expected_lifecycle_receipt=expected_lifecycle_receipt)))
 
 @frappe.whitelist(methods=['POST'])
-def withdraw_import(batch_id=None,document_id=None,expected_version=None,reason=None,**fields):
+def withdraw_import(batch_id=None,document_id=None,expected_version=None,reason=None,expected_lifecycle_receipt=None,**fields):
     from .maintenance import withdraw
-    return _maintenance_action('withdraw_import',fields,lambda:withdraw(batch_id,document_id,expected_version,reason))
+    return _maintenance_action('withdraw_import',fields,lambda:withdraw(
+        batch_id,document_id,expected_version,reason,expected_lifecycle_receipt=expected_lifecycle_receipt))

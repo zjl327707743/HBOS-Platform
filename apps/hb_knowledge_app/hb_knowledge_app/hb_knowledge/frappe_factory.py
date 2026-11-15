@@ -12,7 +12,7 @@ from .gateway import search_body, EvidenceRecord
 from .service_http import SignedHttp, authenticate, MAX_BODY
 from .errors import KnowledgeError
 from .internal_contract import InternalRequest
-from .r1_contract import normalize_search, validate_structure
+from .r1_contract import normalize_search, validate_structure, ANSWER_MAX_CODEPOINTS
 
 def setup_request():
     import frappe
@@ -110,10 +110,16 @@ class HttpGateway:
         if getattr(self,'profile',None)!='production':raise KnowledgeError('MODEL_NOT_APPROVED')
         raw=self.http.post('/v1/knowledge/ask',search_body(ticket),ticket.plan.client.client_id)
         if not isinstance(raw,dict) or set(raw)!={'status','answer','labels','results','answer_origin','model_alias','answer_status'} or raw['status']!='SUCCESS':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
-        from .answer_policy import model_alias
-        model_alias(raw['model_alias'])
+        from .answer_policy import DEFAULT_MODEL
         allowed_status={'GENERATED_WITH_SOURCES','CATALOG_RESULTS','GENERAL_ANSWER','CLARIFICATION','REFERENCE_EXCERPTS','FAILED','INSUFFICIENT_EVIDENCE'}
-        if raw['answer_status'] not in allowed_status or raw['model_alias']!=ticket.plan.model_alias or raw['answer_origin'] not in ('KNOWLEDGE','GENERAL'):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        if raw['answer_status'] not in allowed_status or raw['answer_origin'] not in ('KNOWLEDGE','GENERAL'):
+            raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        alias=raw['model_alias']
+        generated=raw['answer_status'] in ('GENERAL_ANSWER','GENERATED_WITH_SOURCES')
+        if ((generated and alias is None)
+                or (alias is not None and (alias!=DEFAULT_MODEL or alias!=ticket.plan.model_alias))
+                or (alias is not None and raw['answer_status'] in ('CATALOG_RESULTS','CLARIFICATION'))):
+            raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         if raw['answer_origin']=='GENERAL' and (raw['results'] or raw['labels'] or ticket.plan.knowledge_only):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         if raw['answer_status'] in ('CATALOG_RESULTS','CLARIFICATION') and (raw['labels'] or raw['results']):raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         if raw['answer_status'] in ('GENERAL_ANSWER','CLARIFICATION') and ticket.plan.knowledge_only:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
@@ -125,9 +131,11 @@ class HttpGateway:
             if expected!='CATALOG':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         elif raw['answer_status']=='CLARIFICATION':
             if expected!='CLARIFICATION':raise KnowledgeError('UPSTREAM_INVALID_RESULT')
+        elif expected=='CATALOG' and raw['answer_status']=='INSUFFICIENT_EVIDENCE':
+            if raw['labels'] or raw['results'] or alias is not None:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         elif raw['answer_origin']!=expected:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         from .public_strings import safe_string
-        answer=safe_string(raw['answer'],2000)
+        answer=safe_string(raw['answer'],ANSWER_MAX_CODEPOINTS)
         if not isinstance(raw['labels'],list) or len(set(raw['labels']))!=len(raw['labels']) or not isinstance(raw['results'],list) or len(raw['results'])>5:raise KnowledgeError('UPSTREAM_INVALID_RESULT')
         from knowledge_service.hbos_gateway.response_projection import public_evidence
         records=[];labels=[];selected={b.binding_ref:b for b in ticket.plan.bindings}
@@ -208,16 +216,50 @@ def authority_call(**ignored):
     return _authority_envelope(run)
 
 @frappe.whitelist(allow_guest=True,methods=['POST'])
+def authority_revalidate(**ignored):
+    def run():
+        raw,principal,decisions=_service_request()
+        call=InternalRequest.from_wire(raw)
+        if call.operation != 'revalidate' or call.references:
+            raise KnowledgeError('INVALID_REQUEST')
+        # No cached allow, and no skipped phase: Redis ticket, fresh DB policy,
+        # actor, grants, expiry, binding version and revocation checks all run.
+        response=decisions.respond(principal,call).to_revalidation_receipt(call,principal)
+        validate_structure('InternalRevalidationReceipt',response)
+        return response
+    return _authority_envelope(run)
+
+@frappe.whitelist(allow_guest=True,methods=['POST'])
+def authority_evidence_scope(**ignored):
+    def run():
+        from dataclasses import asdict
+        raw,principal,decisions=_service_request()
+        call=InternalRequest.from_wire(raw)
+        if (call.operation!='authorize-evidence' or call.phase not in ('pre_issue','evidence_read')
+                or not 1<=len(call.references)<=5):
+            raise KnowledgeError('INVALID_REQUEST')
+        response=decisions.respond(principal,call)
+        plan=response.require_plan()
+        exact={(proof.binding_ref,proof.version_id) for proof in call.references}
+        bindings=[asdict(binding) for binding in plan.bindings if (binding.binding_ref,binding.version_id) in exact]
+        if len(bindings)!=len(exact):
+            raise KnowledgeError('SCOPE_REJECTED')
+        receipt={**raw,'client_id':principal.client.client_id,'bindings':bindings}
+        return validate_structure('InternalEvidenceScopeReceipt',receipt)
+    return _authority_envelope(run)
+
+@frappe.whitelist(allow_guest=True,methods=['POST'])
 def authority_search(**ignored):
     def run():
         raw,principal,decisions=_service_request()
         validate_structure('InternalSearchCompat',raw)
         if raw['client_id']!=principal.client.client_id: raise KnowledgeError('CLIENT_AUTH_FAILED')
         business={k:v for k,v in raw.items() if k in {'query','limit','space_ids','context','search_mode','model_alias','knowledge_only','answer_caller','history','space_titles'}}
-        decisions.verify_request(raw['decision_ref'],normalize_search(business))
         from knowledge_service.hbos_gateway.policy_client import InProcessPolicyClient
         call=InProcessPolicyClient.make_call(raw,'introspect','introspect')
-        response=decisions.online(principal,call)
+        # Match the normalized business request against the same live ticket
+        # whose authority is revalidated, without deserializing the plan twice.
+        response=decisions.online(principal,call,request=normalize_search(business))
         plan=response.require_plan()
         if (raw['subject']!=plan.subject.user_ref or raw['policy_revision']!=plan.policy_revision
             or set(raw['dataset_ids'])!={b.dataset_alias for b in plan.bindings}

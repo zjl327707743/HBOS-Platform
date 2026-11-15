@@ -78,3 +78,40 @@ def test_binding_expiry_is_rechecked_after_its_shape_was_cached():
     with validation_scope():
         validate_plan(plan,now=app.provider.clock())
         with pytest.raises(KnowledgeError):validate_plan(plan,now=deadline+1)
+
+
+def test_shape_reuse_across_requests_keeps_mutated_wire_validation_exact():
+    from hb_knowledge_app.hb_knowledge.r1_contract import _validated_binding_shape
+    _,_,_,_,plan=fixture();wire=plan.to_wire();_validated_binding_shape.cache_clear()
+    with validation_scope():assert accepts(wire)
+    before=_validated_binding_shape.cache_info()
+    with validation_scope():assert accepts(copy.deepcopy(wire))
+    assert _validated_binding_shape.cache_info().hits>before.hits
+    for key in wire['bindings'][0]:
+        trial=copy.deepcopy(wire);trial['bindings'][0][key]={'invalid':'nested mutation'}
+        with validation_scope():assert accepts(trial)==oracle(trial)
+    trial=copy.deepcopy(wire);trial['bindings'][0]['unexpected']=True
+    with validation_scope():assert not accepts(trial)
+
+
+@pytest.mark.parametrize('transition',['withdraw','version','role','disabled','physical_pair'])
+def test_warm_shape_in_a_new_request_still_reads_current_authority(transition):
+    app,actor,repo,binding,plan=fixture()
+    with validation_scope():validate_plan(plan,now=app.provider.clock());app.provider.revalidate(plan)
+    if transition=='withdraw':repo.snapshot=replace(repo.snapshot,bindings=(replace(binding,withdrawn=True),))
+    elif transition=='version':repo.snapshot=replace(repo.snapshot,bindings=(replace(binding,version_id='NEW_VERSION'),))
+    elif transition=='physical_pair':repo.snapshot=replace(repo.snapshot,bindings=(replace(binding,document_id='OTHER_PHYSICAL'),))
+    elif transition=='role':repo.snapshot=replace(repo.snapshot,actor_state=ActorState(actor,(),True))
+    else:repo.snapshot=replace(repo.snapshot,actor_state=ActorState(actor,('ROLE_QA',),False))
+    with validation_scope():
+        validate_plan(plan,now=app.provider.clock())
+        with pytest.raises(KnowledgeError):app.provider.revalidate(plan)
+
+
+def test_warm_shapes_never_reuse_expiry_or_actor_acceptance_across_requests():
+    from hb_knowledge_app.hb_knowledge.execution_plan import timestamp
+    app,actor,_,_,plan=fixture()
+    with validation_scope():validate_plan(plan,now=app.provider.clock())
+    with validation_scope():
+        with pytest.raises(KnowledgeError):validate_plan(plan,now=timestamp(plan.expires_at))
+        with pytest.raises(KnowledgeError):validate_plan(plan,now=app.provider.clock(),actor=replace(actor,user_ref='OTHER_USER'))

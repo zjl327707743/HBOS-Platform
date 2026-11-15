@@ -8,6 +8,7 @@ ERRORS = {
     "CITATION_SUPPORT_FAILED": (422,"回答未通过来源支持校验，本次未展示回答。请查阅来源或调整问题。",True),
     "RETRIEVAL_EMPTY": (404,"没有找到可核实的公司依据，请调整关键词或资料范围。",False),
     "RETRIEVAL_UPSTREAM_FAILED": (503,"资料检索暂时失败，请稍后重试；目录和个人记录仍可查看。",True),
+    "HISTORY_REINDEX_REVIEW_REQUIRED": (409, "资料已重新解析，历史依据暂未匹配。请用保留的问题重新检索。", True),
     "SOURCE_VERSION_STALE": (409,"来源已换版、下架或授权变化，请重新检索并核对当前来源。",True),
     # One display-unsafe source excerpt is skipped per record; this code is only
     # returned when every candidate source fails the safety projection, so it is

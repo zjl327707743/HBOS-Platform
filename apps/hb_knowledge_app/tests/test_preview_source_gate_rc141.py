@@ -14,7 +14,7 @@ gate refuses (credentials, markup, traversal).
 """
 import json
 import sys
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -66,3 +66,46 @@ def test_credentials_markup_and_traversal_are_still_refused(monkeypatch, excerpt
         activity.write('History', '合成问题', ['SPACE'], [_record(excerpt)], runtime,
                        search_mode='STANDARD')
     assert not captured
+
+
+@pytest.mark.parametrize('excerpt,allowed', [
+    ('资料印刷链接 https://example.invalid/reference.pdf', True),
+    ('资料中的 token: fixture-token', False),
+    ('资料中的 <script>alert(1)</script>', False),
+    ('资料中的 ../../private/source', False),
+])
+def test_maintainer_preview_uses_source_hygiene(monkeypatch,tmp_path,excerpt,allowed):
+    import requests
+    monkeypatch.setitem(sys.modules,'frappe',SimpleNamespace())
+    monkeypatch.setitem(sys.modules,'pymysql',ModuleType('pymysql'))
+    cipher=ModuleType('cryptography.fernet')
+    cipher.Fernet=object
+    monkeypatch.setitem(sys.modules,'cryptography.fernet',cipher)
+    from hb_knowledge_app.hb_knowledge import maintenance,reference_admin
+
+    source=tmp_path/'auth.json'
+    source.write_text(json.dumps({'base_url':'http://localhost:19380','token':'fixture'}))
+    item={'canonical_document_id':'DOC','version_id':'VER','title':'合成资料','sha256':'a'*64,
+          'status':'parsed/indexed','chunk_count':1,'dataset_id':'b'*32,'ragflow_document_id':'c'*32}
+    monkeypatch.setattr(maintenance,'require',lambda:None)
+    monkeypatch.setattr(maintenance,'_row',lambda batch:({}, {}, {'items':[item]}))
+    monkeypatch.setattr(maintenance,'configuration',lambda:{'publication_ragflow_auth_file':str(source)})
+    monkeypatch.setattr(reference_admin,'_verify_backend',lambda cfg,selected:None)
+
+    class Session:
+        def __enter__(self):
+            self.headers={}
+            return self
+
+        def __exit__(self,*_):
+            return None
+
+        def get(self,*args,**kwargs):
+            return SimpleNamespace(raise_for_status=lambda:None,json=lambda:{'code':0,'data':{'chunks':[{'content':excerpt}]}})
+
+    monkeypatch.setattr(requests,'Session',Session)
+    if allowed:
+        assert maintenance.preview('IMP_FIXTURE','DOC')['fragments'][0]['text']==excerpt
+    else:
+        with pytest.raises(KnowledgeError):
+            maintenance.preview('IMP_FIXTURE','DOC')

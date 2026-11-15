@@ -16,6 +16,11 @@ from .errors import KnowledgeError
 
 SCHEMA_ROOT = Path(__file__).parent / "schemas"
 CONTRACT_VERSION = "k1c1-r1.1"
+# V4: one answer may carry a complex, structured explanation. The same width is
+# used by the AskData schema, the BFF projection, activity storage and the
+# catalog fast path so no layer silently cuts a complete answer.
+ANSWER_MAX_CODEPOINTS = 12000
+
 INSUFFICIENT_TEXT = "当前授权资料不足以形成回答。"
 LEGACY_REFERENCE_TEXT = "仅供参考，请核对获准依据。"
 REFERENCE_TEXT = "已找到并核实以下资料，但本次未形成可核验的归纳。请先查看来源。"
@@ -26,11 +31,12 @@ _binding_shapes=contextvars.ContextVar('hbos_request_binding_shapes',default=Non
 
 @contextlib.contextmanager
 def validation_scope():
-    """Cache successful immutable *structure* checks within one request only.
+    """Track successful immutable binding shapes during a request.
 
     Identity, current publication, version, expiry and authority snapshots are
-    never cached here. Every cache key includes the complete binding value and
-    the exact binding schema. An edited value is validated again.
+    never cached here. Pure binding JSON-schema computation can be reused by
+    complete serialized value plus schema fingerprint; an edited value is
+    validated again. The request set avoids repeated LRU lookups within a call.
     """
     if _binding_shapes.get() is not None:
         yield;return
@@ -62,6 +68,24 @@ def _validators(root,name,plan,split):
     checker=FormatChecker()
     return Draft202012Validator(schema,format_checker=checker), (Draft202012Validator(binding,format_checker=checker) if binding is not None else None),fingerprint
 
+
+@functools.lru_cache(maxsize=4096)
+def _validated_binding_shape(root, name, plan, fingerprint, serialized):
+    """Bounded memo of a pure schema calculation, never an authority result.
+
+    The key holds every binding field and the exact schema. No decision, actor,
+    grant, expiry result, Redis value or current DB snapshot is retained. Outer
+    plan/response validation and all time/current-authority checks run normally.
+    Failed checks are not memoized by lru_cache.
+    """
+    _outer, validator, current = _validators(root, name, plan, True)
+    if current != fingerprint or validator is None:
+        raise KnowledgeError('INVALID_REQUEST')
+    if next(validator.iter_errors(json.loads(serialized)), None):
+        raise KnowledgeError('INVALID_REQUEST')
+    return True
+
+
 def validate_structure(name: str, value, *, plan: bool = False):
     cache=_binding_shapes.get()
     split=cache is not None and (plan or name=='InternalDecisionResponse')
@@ -75,7 +99,7 @@ def validate_structure(name: str, value, *, plan: bool = False):
             try:key=(fingerprint,json.dumps(binding,sort_keys=True,ensure_ascii=True,separators=(',',':'),allow_nan=False))
             except (TypeError,ValueError):raise KnowledgeError('INVALID_REQUEST') from None
             if key in cache:continue
-            if next(binding_validator.iter_errors(binding),None):raise KnowledgeError('INVALID_REQUEST')
+            _validated_binding_shape(str(SCHEMA_ROOT),name,plan,fingerprint,key[1])
             if len(cache)<4096:cache.add(key)
     return value
 
@@ -149,7 +173,7 @@ def normalize_search(raw: dict, *, legacy: bool = False) -> SearchRequest:
                 or any(not isinstance(turn, dict) or set(turn) != {"role", "content"}
                        or turn["role"] not in ("user", "assistant")
                        or not isinstance(turn["content"], str) or not turn["content"].strip()
-                       or len(turn["content"]) > 2000
+                       or len(turn["content"]) > 20000
                        or any(ch in turn["content"] for ch in ("\x00", "\r"))
                        for turn in history)):
             raise KnowledgeError("INVALID_REQUEST")

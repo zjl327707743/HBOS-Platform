@@ -73,12 +73,25 @@ def tracked_batch(state, *, status='parsed/indexed', version='VER_' + 'd' * 24,
     return batch_id, document, version
 
 
-def test_server_verified_employee_evidence_is_persisted_and_replayed(monkeypatch):
+def actual_target(document, version, **changes):
+    fields={'canonical_document_id':document,'version_id':version,
+            'dataset_id':'a'*32,'document_id':'b'*32,
+            'binding_revision':'BR_'+'e'*24,'space_id':'DEPT_PRODUCTION'}
+    return SimpleNamespace(**(fields|changes))
+
+
+@pytest.mark.parametrize('document,version', [
+    ('DOC_' + 'c' * 24, 'VER_' + 'd' * 24),
+    ('N1DOC-' + 'c' * 24, 'VER_' + 'd' * 24),
+    ('N1DOC-' + 'c' * 24, 'N1VER-' + 'd' * 24),
+    ('DOC_S3_' + 'c' * 24, 'VER_S3_' + 'd' * 24),
+])
+def test_server_verified_employee_evidence_is_persisted_and_replayed(monkeypatch, document, version):
     batch, maintenance, frappe, state = load_modules(monkeypatch)
-    batch_id, document, version = tracked_batch(state)
+    batch_id, document, version = tracked_batch(state, document=document, version=version)
     state['documents'][document] = {'current_version': version, 'withdrawn': 0,
                                     'ingestion_status': 'published'}
-    verified = {'actor_user': 'employee@example.test'}
+    verified = {'actor_user': 'employee@example.test','binding':actual_target(document,version)}
     monkeypatch.setattr(batch, '_evidence_verification',
                         lambda evidence_id, document_id, version_id: verified)
     monkeypatch.setattr(batch, '_history_verification',
@@ -102,9 +115,15 @@ def test_server_verified_employee_evidence_is_persisted_and_replayed(monkeypatch
     assert len([write for write in state['writes'] if write[2] == 'quality_json']) == writes
 
 
-def test_a_browser_claim_without_server_evidence_is_rejected(monkeypatch):
+@pytest.mark.parametrize('document,version', [
+    ('DOC_' + 'c' * 24, 'VER_' + 'd' * 24),
+    ('N1DOC-' + 'c' * 24, 'VER_' + 'd' * 24),
+    ('N1DOC-' + 'c' * 24, 'N1VER-' + 'd' * 24),
+    ('DOC_S3_' + 'c' * 24, 'VER_S3_' + 'd' * 24),
+])
+def test_a_browser_claim_without_server_evidence_is_rejected(monkeypatch, document, version):
     batch, maintenance, frappe, state = load_modules(monkeypatch)
-    batch_id, document, version = tracked_batch(state)
+    batch_id, document, version = tracked_batch(state, document=document, version=version)
     state['documents'][document] = {'current_version': version, 'withdrawn': 0,
                                     'ingestion_status': 'published'}
     def reject(*args, **kwargs):
@@ -124,12 +143,66 @@ def test_search_history_must_match_the_same_query_and_reference(monkeypatch):
     state['documents'][document] = {'current_version': version, 'withdrawn': 0,
                                     'ingestion_status': 'published'}
     monkeypatch.setattr(batch, '_evidence_verification',
-                        lambda *args: {'actor_user': 'employee@example.test'})
+                        lambda *args: {'actor_user': 'employee@example.test','binding':actual_target(document,version)})
     monkeypatch.setattr(batch, '_history_verification', lambda *args: None)
     with pytest.raises(KnowledgeError) as error:
         batch.record_verification(batch_id, document, version, 'evidence', 'f' * 64)
     assert error.value.code == 'EVIDENCE_UNAVAILABLE'
     assert state['writes'] == []
+
+
+@pytest.mark.parametrize('version', ['N1VER-' + 'd' * 23, 'N1VER-' + 'd' * 25,
+                                   'N1VER-' + 'D' * 24, 'N1VER-' + '../' * 8])
+def test_malformed_legacy_version_never_reaches_evidence_or_writes(monkeypatch, version):
+    batch, maintenance, frappe, state = load_modules(monkeypatch)
+    batch_id, document, _ = tracked_batch(state, version=version)
+    def forbidden(*args):
+        pytest.fail('Malformed identity must be rejected before evidence lookup')
+    monkeypatch.setattr(batch, '_evidence_verification', forbidden)
+    with pytest.raises(KnowledgeError) as error:
+        batch.record_verification(batch_id, document, version, 'evidence', 'f' * 64)
+    assert error.value.code == 'INVALID_REQUEST'
+    assert state['writes'] == []
+
+
+@pytest.mark.parametrize('document,version', [
+    ('N1DOC-' + 'c' * 24, 'VER_' + 'd' * 24),
+    ('N1DOC-' + 'c' * 24, 'N1VER-' + 'd' * 24),
+    ('DOC_S3_' + 'c' * 24, 'VER_S3_' + 'd' * 24),
+])
+@pytest.mark.parametrize('published', [None,
+    {'current_version': 'VER_' + '9' * 24, 'withdrawn': 0, 'ingestion_status': 'published'},
+    {'withdrawn': 1, 'ingestion_status': 'retired'},
+])
+def test_rebuild_identity_cannot_verify_absent_withdrawn_or_superseded_document(
+        monkeypatch, document, version, published):
+    batch, maintenance, frappe, state = load_modules(monkeypatch)
+    batch_id, _, _ = tracked_batch(state, document=document, version=version)
+    if published is not None:
+        state['documents'][document] = published
+    def unexpected_evidence_lookup(*args):
+        pytest.fail('Stale publication must be rejected before evidence lookup')
+    monkeypatch.setattr(batch, '_evidence_verification', unexpected_evidence_lookup)
+    with pytest.raises(KnowledgeError) as error:
+        batch.record_verification(batch_id, document, version, 'evidence', 'f' * 64)
+    assert error.value.code == 'SOURCE_VERSION_STALE'
+    assert state['writes'] == []
+
+
+@pytest.mark.parametrize('changed',[
+    {'dataset_id':'9'*32},{'document_id':'8'*32},
+    {'binding_revision':'BR_old_parse'},{'space_id':'OTHER_SPACE'}])
+def test_same_business_version_evidence_from_old_index_cannot_verify_new_parse(monkeypatch,changed):
+    batch, maintenance, frappe, state=load_modules(monkeypatch)
+    batch_id,document,version=tracked_batch(state)
+    state['documents'][document]={'current_version':version,'withdrawn':0,'ingestion_status':'published'}
+    monkeypatch.setattr(batch,'_evidence_verification',lambda *a:{
+        'actor_user':'employee@example.test','binding':actual_target(document,version,**changed)})
+    monkeypatch.setattr(batch,'_history_verification',lambda *a:'OLD_REAL_HISTORY_SAME_VERSION')
+    with pytest.raises(KnowledgeError) as error:
+        batch.record_verification(batch_id,document,version,'old-index-evidence','f'*64)
+    assert error.value.code=='EVIDENCE_UNAVAILABLE'
+    assert state['writes']==[]
 
 
 def test_withdrawn_version_is_invalidated_without_losing_history(monkeypatch):

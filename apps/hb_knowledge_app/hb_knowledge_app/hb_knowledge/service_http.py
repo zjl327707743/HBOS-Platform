@@ -1,11 +1,73 @@
 """Bounded signed service HTTP. Only synthetic internal-network HTTP is admitted."""
 from __future__ import annotations
-import hashlib, hmac, json, secrets, time
+import hashlib, hmac, json, logging, math, re, secrets, time
 import requests
 from .errors import KnowledgeError
 from .execution_plan import Client, ServicePrincipal
 
 MAX_BODY = 4*1048576  # Bounded for at most 1024 explicitly authorized bindings.
+
+LOGGER = logging.getLogger(__name__)
+# These are the actual signed wire paths; an unknown path maps to OTHER.
+OPERATIONS = {
+    '/api/method/hb_knowledge_app.hb_knowledge.frappe_factory.'+name: name
+    for name in ('authority_call','authority_search','authority_revalidate')
+}
+OPERATIONS.update({'/v1/knowledge/'+path:operation for path,operation in (
+    ('search','knowledge_search'),('ask','knowledge_ask'),
+    ('authorize-evidence','authorize_evidence'),('document-page','document_page'),
+    ('document-search','document_search'),('models','models'),
+    ('answer-status','answer_status'),('availability','availability'))})
+_REQUEST_ID = re.compile(r'[A-Za-z0-9_-]{1,128}')
+
+class _BodyLimit(Exception):
+    pass
+
+class _UnexpectedResponse(Exception):
+    pass
+
+def _safe_request_id(payload):
+    value = payload.get('request_id') if isinstance(payload, dict) else None
+    return value if isinstance(value, str) and _REQUEST_ID.fullmatch(value) else None
+
+def _declared_phase(payload):
+    from .internal_contract import PHASES
+    value = payload.get('phase') if isinstance(payload, dict) else None
+    return value if isinstance(value, str) and value in PHASES else None
+
+def _exception_class(error):
+    # Arbitrary class names can themselves contain secrets. Only fixed types
+    # are named, even if an unknown class happens to look like an identifier.
+    for cls,name in ((requests.exceptions.ConnectTimeout,'ConnectTimeout'),
+                     (requests.exceptions.ReadTimeout,'ReadTimeout'),
+                     (requests.exceptions.ConnectionError,'ConnectionError'),
+                     (requests.exceptions.ChunkedEncodingError,'ChunkedEncodingError'),
+                     (requests.exceptions.ContentDecodingError,'ContentDecodingError'),
+                     (json.JSONDecodeError,'JSONDecodeError'),
+                     (UnicodeDecodeError,'UnicodeDecodeError'),
+                     (_BodyLimit,'BodyLimit'),(_UnexpectedResponse,'UnexpectedResponse'),
+                     (KnowledgeError,'KnowledgeError')):
+        if isinstance(error,cls):return name
+    return 'Exception'
+
+def _failure_category(error):
+    if isinstance(error, requests.exceptions.ConnectTimeout):
+        return 'CONNECT_TIMEOUT'
+    if isinstance(error, requests.exceptions.ReadTimeout):
+        return 'READ_TIMEOUT'
+    if isinstance(error, (requests.exceptions.ConnectionError,
+                          requests.exceptions.ChunkedEncodingError,
+                          requests.exceptions.ContentDecodingError)):
+        return 'CONNECTION_ERROR'
+    if isinstance(error, _BodyLimit):
+        return 'BODY_LIMIT'
+    if isinstance(error, (json.JSONDecodeError, UnicodeDecodeError)):
+        return 'INVALID_JSON'
+    if isinstance(error, _UnexpectedResponse):
+        return 'UNEXPECTED_HTTP'
+    if isinstance(error, KnowledgeError):
+        return 'UPSTREAM_ERROR'
+    return 'UNKNOWN_ERROR'
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=True, separators=(',', ':'))
@@ -49,34 +111,66 @@ class SignedHttp:
         if not url.startswith('http://') or 'host.docker.internal' in url:
             raise KnowledgeError('POLICY_UNAVAILABLE')
         self.url, self.key, self.caller = url.rstrip('/'), key, caller
+    def _receipt(self, payload, path, status, started, read_timeout, error=None,
+                 category='UNKNOWN_ERROR', observed_bytes=None):
+        try:
+            receipt = {
+                'event': 'signed_http_failure',
+                'request_id': _safe_request_id(payload),
+                'operation': OPERATIONS.get(path, 'OTHER'),
+                'phase': _declared_phase(payload),
+                'failure_category': category,
+                'exception_class': _exception_class(error) if error is not None else None,
+                'http_status': status if type(status) is int and 100<=status<=599 else None,
+                'elapsed_ms': max(0, int((time.monotonic()-started)*1000)),
+                'read_timeout': read_timeout if type(read_timeout) in (int,float) and math.isfinite(read_timeout) and 0<read_timeout<=600 else None,
+                'response_bytes': observed_bytes if type(observed_bytes) is int and 0<=observed_bytes<=MAX_BODY+8192 else None,
+            }
+            if isinstance(error, KnowledgeError):
+                receipt['error_code'] = error.code
+            LOGGER.warning(json.dumps(receipt, sort_keys=True, separators=(',', ':')))
+        except Exception:
+            pass
     def post(self, path, payload, origin):
         body = canonical(payload).encode()
         bound=getattr(self,'max_body',MAX_BODY)
         if len(body) > bound:
             raise KnowledgeError('INVALID_REQUEST')
+        started = time.monotonic()
+        status, observed = None, None
+        read_timeout = getattr(self, 'read_timeout', 6)
         try:
             with requests.Session() as session:
                 session.trust_env = False
                 headers=sign(self.key,self.caller,path,origin,body)
-                request_id=payload.get('request_id') if isinstance(payload,dict) else None
-                if isinstance(request_id,str) and __import__('re').fullmatch(r'[A-Za-z0-9_-]{1,128}',request_id):
+                request_id=_safe_request_id(payload)
+                if request_id:
                     headers['X-HBOS-Request-ID']=request_id
                 if getattr(self,'site',None): headers['X-Frappe-Site-Name']=self.site
                 with session.post(self.url+path, data=body,
-                     headers=headers,timeout=(2,getattr(self,"read_timeout",6)),stream=True,
+                     headers=headers,timeout=(2,read_timeout),stream=True,
                      allow_redirects=False) as response:
+                    status = response.status_code
                     data=bytearray()
+                    observed = 0
                     for part in response.iter_content(8192):
                         data.extend(part)
-                        if len(data)>bound: raise ValueError()
+                        observed = len(data)
+                        if len(data)>bound: raise _BodyLimit()
                     raw=json.loads(data)
-                    if response.status_code != 200:
+                    if status != 200:
                         if isinstance(raw,dict) and isinstance(raw.get('error'),dict):
                             from .document_reader_contract import READ_STATES
                             state=raw['error'].get('state')
                             raise KnowledgeError(raw['error'].get('code','UPSTREAM_UNAVAILABLE'),
                                 state=state if state in READ_STATES else None)
-                        raise ValueError()
+                        raise _UnexpectedResponse()
                     return raw
-        except KnowledgeError: raise
-        except Exception: raise KnowledgeError('UPSTREAM_UNAVAILABLE') from None
+        except KnowledgeError as error:
+            self._receipt(payload, path, status, started, read_timeout, error=error,
+                          category='UPSTREAM_ERROR', observed_bytes=observed)
+            raise
+        except Exception as error:
+            self._receipt(payload, path, status, started, read_timeout, error=error,
+                          category=_failure_category(error), observed_bytes=observed)
+            raise KnowledgeError('UPSTREAM_UNAVAILABLE') from None

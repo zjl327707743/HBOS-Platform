@@ -19,10 +19,12 @@ import re
 from .errors import KnowledgeError
 
 UNRESOLVED_FOLLOWUP = '无法可靠定位前一回答中的具体条目。请指出步骤名称或关键词后再问；当前资料不足以直接回答这个追问。'
+CATALOG_HISTORY_REFRESH = '目录摘要按本次授权重新计算。'
+HISTORY_ANSWER_HIDDEN = '已保留原问题。请按当前授权资料重新提问。'
 
 MAX_TURNS = 2          # Previous turn plus the turn before it, bounded.
 MAX_TOTAL_CHARS = 12000
-MAX_TURN_CHARS = 2000
+MAX_TURN_CHARS = 20000
 
 
 def validate_followup_scope(previous,space_ids,context):
@@ -38,6 +40,19 @@ def _turn(role,text):
     return {'role':role,'content':value}
 
 
+def historical_catalogue(item):
+    from .catalog_direct import is_catalog_question
+    return is_catalog_question(item.get('question') or item['query'], context=item.get('context') or ())
+
+
+def _context_answer(item):
+    if item.get('references') or item.get('answer_origin') == 'GENERAL':
+        return item.get('answer')
+    if not item.get('answer'):
+        return None
+    return CATALOG_HISTORY_REFRESH if historical_catalogue(item) else HISTORY_ANSWER_HIDDEN
+
+
 def conversation_history(previous, *, older=None):
     """Bounded dialogue turns (user/assistant) in chronological order.
 
@@ -49,10 +64,10 @@ def conversation_history(previous, *, older=None):
     """
     history=[]
     if older is not None:
-        user=_turn('user',older.get('query'));assistant=_turn('assistant',older.get('answer'))
+        user=_turn('user',older.get('question') or older.get('query'));assistant=_turn('assistant',_context_answer(older))
         if user is not None and assistant is not None:
             history.append(user);history.append(assistant)
-    user=_turn('user',previous.get('query'));assistant=_turn('assistant',previous.get('answer'))
+    user=_turn('user',previous.get('question') or previous.get('query'));assistant=_turn('assistant',_context_answer(previous))
     if user is not None and assistant is not None:
         history.append(user);history.append(assistant)
     total=sum(len(t['content']) for t in history)

@@ -8,6 +8,7 @@ def test_connection_expiry_does_not_use_the_site_local_timezone(monkeypatch):
     row=SimpleNamespace(name="SYNTHETIC",label="SYNTHETIC",client_name="Hermes",expires_at=now+timedelta(hours=1),revoked=0,last_used_at=None,stage="Configured")
     fake=SimpleNamespace(get_all=lambda *a,**k:[row],utils=SimpleNamespace(now_datetime=lambda:now+timedelta(hours=8)))
     monkeypatch.setitem(sys.modules,"frappe",fake)
+    monkeypatch.setitem(sys.modules,"hb_knowledge_app.hb_knowledge.shared_reference",SimpleNamespace(configuration=lambda:{}))
     monkeypatch.setattr(connections,"cfg_endpoint",lambda:"http://local.test/mcp")
     monkeypatch.setattr(connections,"configuration_metadata",lambda field:{})
     monkeypatch.setitem(sys.modules,"hb_knowledge_app.hb_knowledge.api",SimpleNamespace(_availability=lambda runtime:{"blocked":True}))

@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from functools import lru_cache
 
 from .errors import KnowledgeError
 from .execution_plan import Binding
@@ -32,11 +33,23 @@ def _unique_object(pairs):
     return value
 
 
+def _decode_binding(value):
+    raw = json.loads(value, object_pairs_hook=_unique_object)
+    if not isinstance(raw, dict) or any(isinstance(item, (dict, list)) for item in raw.values()):
+        raise ValueError('Binding metadata must use scalar values')
+    binding = Binding(**raw)
+    return binding, physical_pair_key(binding.backend, binding.dataset_id, binding.document_id)
+
+
+_cached_binding = lru_cache(maxsize=2048)(_decode_binding)
+
+
 def binding_from_row(row: Mapping) -> Binding:
     """Validate both representations and joined identities from one snapshot."""
     try:
-        raw = json.loads(row['binding_json'], object_pairs_hook=_unique_object)
-        binding = Binding(**raw)
+        value = row['binding_json']
+        decode = _cached_binding if isinstance(value, str) and len(value) <= 2048 else _decode_binding
+        binding, pair_key = decode(value)
         for field in IDENTITY_FIELDS:
             value = row[field]
             if not isinstance(value, str) or not value.strip() or value != value.strip():
@@ -45,7 +58,7 @@ def binding_from_row(row: Mapping) -> Binding:
                 raise ValueError('Metadata projection drift')
         if row['name'] != row['binding_ref']:
             raise ValueError('Binding primary key drift')
-        if row['pair_key'] != physical_pair_key(binding.backend, binding.dataset_id, binding.document_id):
+        if row['pair_key'] != pair_key:
             raise ValueError('Physical pair drift')
         if (row['space_record_id'] != binding.space_id
                 or row['version_record_id'] != binding.version_id
