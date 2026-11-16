@@ -395,18 +395,65 @@ def list_feedback(runtime,page=1,page_size=12,status=None):
     if final_actor!=actor:raise KnowledgeError('SCOPE_REJECTED')
     return {'items':out[:page_size],'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
 
-def feedback_queue(runtime,page=1,page_size=12,status=None):
+def _feedback_payload_text(row):
+    raw=row['payload_json'] if isinstance(row,dict) else row.payload_json
+    try:data=json.loads(raw)
+    except (ValueError,TypeError):return None
+    # Match the decoded JSON text so non-ASCII values (stored with
+    # ensure_ascii=True by service_http.canonical) are searchable, while ASCII
+    # keys/values keep the same substring semantics as the previous raw LIKE.
+    return json.dumps(data,ensure_ascii=False,sort_keys=True,separators=(',',':'))
+
+def feedback_queue(runtime,page=1,page_size=12,status=None,query=None):
+    """Maintenance feedback queue. Optional page-bounded substring filter over
+    the decoded stored feedback payload (read-only; same maintainer scope).
+
+    payload_json is stored with ensure_ascii=True, so a SQL LIKE on the raw
+    column cannot match non-ASCII input. The feedback queue is small and
+    maintenance-scoped, so the filter scans at most MAX_SCAN rows in the stable
+    creation order, decodes each payload and pages the exact matches. Output is
+    still bounded to page_size items. scan_truncated is True only when the
+    safety cap was reached before the whole queue could be examined.
+    """
     import frappe
     from .maintenance_access import require
     require()
     from .reference_admin import _page_number
     page=_page_number(page,100000);page_size=_page_number(page_size,50)
     if status not in (None,'','Pending','In Review','Resolved'):raise KnowledgeError('INVALID_REQUEST')
+    needle=None
+    if query not in (None,''):
+        if not isinstance(query,str):raise KnowledgeError('INVALID_REQUEST')
+        needle=query.strip()
+        if not 1<=len(needle)<=120:raise KnowledgeError('INVALID_REQUEST')
     filters={'kind':'Feedback'}
     if status:filters['status']=status
-    rows=frappe.get_all(DOCTYPE,filters=filters,fields=['name','payload_json','status','creation'],order_by='creation desc,name desc',limit_start=(page-1)*page_size,limit_page_length=page_size+1)
-    return {'items':[{'id':r.name,'status':r.status,'created_at':str(r.creation),**json.loads(r.payload_json)} for r in rows[:page_size]],
-            'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
+    fields=['name','payload_json','status','creation']
+    order='creation desc,name desc'
+    if needle is None:
+        rows=frappe.get_all(DOCTYPE,filters=filters,fields=fields,order_by=order,
+                            limit_start=(page-1)*page_size,limit_page_length=page_size+1)
+        matches=None
+    else:
+        MAX_SCAN=5000;CHUNK=500;need=(page-1)*page_size+page_size+1
+        matches=[];start=0
+        while start<MAX_SCAN and len(matches)<need:
+            batch=frappe.get_all(DOCTYPE,filters=filters,fields=fields,order_by=order,
+                                 limit_start=start,limit_page_length=CHUNK)
+            if not batch:break
+            for row in batch:
+                text=_feedback_payload_text(row)
+                if text is not None and needle.casefold() in text.casefold():matches.append(row)
+            start+=len(batch)
+            if len(batch)<CHUNK:break
+        scan_truncated=start>=MAX_SCAN and len(matches)<need
+        rows=matches[(page-1)*page_size:(page-1)*page_size+page_size+1]
+    items=[{'id':r['name'] if isinstance(r,dict) else r.name,'status':r['status'] if isinstance(r,dict) else r.status,
+            'created_at':str(r['creation'] if isinstance(r,dict) else r.creation),**(json.loads(r['payload_json'] if isinstance(r,dict) else r.payload_json))}
+           for r in rows[:page_size]]
+    response={'items':items,'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
+    if matches is not None:response['scan_truncated']=scan_truncated
+    return response
 
 def review_feedback(runtime,name,status,reply=''):
     import frappe

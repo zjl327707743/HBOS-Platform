@@ -183,6 +183,32 @@ def is_published_target(item,current):
         'binding_revision':item['binding_revision'],'enabled':1}))
 
 
+def _allowed_actions(publication_status,quality_status,shared_approved):
+    """Server-derived maintainer actions for one row.
+
+    Ordered, deduplicated and fail-closed: an action is only offered when the
+    server state proves it is legal. The client never infers an action.
+    """
+    actions=['open','view']
+    if quality_status!='Passed':actions.append('quality_check')
+    if not shared_approved:actions.append('approve_sharing')
+    if shared_approved and quality_status=='Passed' and publication_status=='Unpublished':actions.append('publish')
+    if publication_status=='Published':actions.extend(['withdraw','replace'])
+    if publication_status=='Withdrawn':actions.extend(['restore','replace'])
+    ordered=[]
+    for action in actions:
+        if action not in ordered:ordered.append(action)
+    return ordered
+
+
+def overview_counts(published_total,pending_review,sharing_pending,feedback_pending):
+    """Bounded dashboard overview: counts only, never a document list."""
+    return {'published_total':int(published_total or 0),
+            'pending_quality_check':int(pending_review or 0),
+            'sharing_pending':int(sharing_pending or 0),
+            'feedback_pending':int(feedback_pending or 0)}
+
+
 def _projection(row,frozen,state,page,page_size,locate=None):
     from .publication import UNRECORDED_ACTIVATION, latest_lifecycle_receipt
     quality=_json(row,'quality_json',{});items=[]
@@ -217,7 +243,9 @@ def _projection(row,frozen,state,page,page_size,locate=None):
             'retrieval_verified':review.get('retrieval_verified'),
             'effective_template':public_template(item),
             'automatic_quality':item.get('automatic_quality'),
-            'publication_status':publication_status,'lifecycle_receipt_id':lifecycle_receipt})
+            'publication_status':publication_status,'lifecycle_receipt_id':lifecycle_receipt,
+            'allowed_actions':_allowed_actions(publication_status,review.get('status','Pending'),
+                                               bool(item.get('internal_sharing_confirmed') and item.get('owner_inclusion_confirmed')))})
     return {'batch_id':row['name'],'label':row['label'],'department':row['department_key'],'status':row['status'],
         'last_error':row.get('last_error'),'items':items,'total':len(state['items']),'page':page,'page_size':page_size,
         'counts':{'parsed':sum(i['status']=='parsed/indexed' for i in state['items']),
@@ -359,6 +387,8 @@ def dashboard(batch_id=None,page=1,page_size=12,locate=None,*,published_query=No
         for b in snapshot.bindings if b.dataset_id in snapshot.allowed_datasets}
     published_view=_published_projection(published,query=published_query,
         document_id=published_document_id,page=published_page,page_size=published_page_size)
+    for document in published_view['documents']:
+        document['allowed_actions']=_allowed_actions('Published','Passed',True)
     availability=__import__(__package__+'.api',fromlist=['_availability'])._availability(runtime)
     availability['can_parse']=bool(availability['configured'] and not availability['blocked'])
     try:
@@ -366,7 +396,17 @@ def dashboard(batch_id=None,page=1,page_size=12,locate=None,*,published_query=No
         availability['can_batch']=batch_available()
     except Exception:
         availability['can_batch']=False
-    return {'departments':[{'key':k,'title':v} for k,v in DEPARTMENTS.items()],
+    feedback_items=feedback_queue(load_runtime())
+    funnel=department_funnel(published)
+    funnel_rows=funnel.values() if isinstance(funnel,dict) else ()
+    pending_review=sum(int((value or {}).get('pending_review',0) or 0) for value in funnel_rows)
+    sharing_pending=sum(int((value or {}).get('sharing_pending',0) or 0) for value in funnel_rows)
+    if isinstance(feedback_items,dict):feedback_pending=len(feedback_items.get('items') or [])
+    elif isinstance(feedback_items,list):feedback_pending=len(feedback_items)
+    else:feedback_pending=0
+    overview=overview_counts(published_view['total'],pending_review,sharing_pending,feedback_pending)
+    return {'overview':overview,
+            'departments':[{'key':k,'title':v} for k,v in DEPARTMENTS.items()],
             'batches':batch_view['batches'],'selected':selected,
             'batches_total':batch_view['total'],'batches_matched':batch_view['matched'],
             'batches_page':batch_view['page'],'batches_page_size':batch_view['page_size'],
@@ -374,7 +414,7 @@ def dashboard(batch_id=None,page=1,page_size=12,locate=None,*,published_query=No
             'batch_query':batch_view['query'],'batch_document_id':batch_view['document_id'],
             'batch_lookup_state':batch_view['lookup_state'],
             'batch_scan_truncated':batch_view['scan_truncated'],
-            'feedback':feedback_queue(load_runtime()),
+            'feedback':feedback_items,
             'published_documents':published_view['documents'],
             'published_total':published_view['total'],
             'published_matched':published_view['matched'],
@@ -387,7 +427,71 @@ def dashboard(batch_id=None,page=1,page_size=12,locate=None,*,published_query=No
             'published_lookup_state':published_view['lookup_state'],
             'import_availability':availability,
             'upload_policy':__import__(__package__+'.maintenance_native_upload',fromlist=['upload_policy']).upload_policy(configuration()),
-            'department_funnel':department_funnel(published)}
+            'department_funnel':funnel}
+
+def _lineage_rows(document_id,current_version,binding_rows,batch_rows,page,page_size):
+    """Build one canonical document's version lineage from bindings and batches.
+
+    Pure helper: no database access, so it can be tested with synthetic rows.
+    A version is PUBLISHED when it is the document's current version, HISTORICAL
+    when an enabled binding still points at it, and UNPUBLISHED otherwise.
+    Lineage order follows the owning import batch's modified time, then the
+    version id, so the chain is deterministic and never invented.
+    """
+    seen={}
+    for row in binding_rows:
+        version=row.get('version_id')
+        if not version:continue
+        item=seen.setdefault(version,{'version_id':version,'enabled':False,'created_at':None,'source_hash':None})
+        item['enabled']=item['enabled'] or bool(row.get('enabled'))
+        if row.get('source_hash'):item['source_hash']=row['source_hash']
+    for row in batch_rows or ():
+        state=row.get('state') if isinstance(row,dict) else None
+        if state is None:
+            state=_json(row,'state_json',{})
+        for item in state.get('items',[]):
+            if item.get('canonical_document_id')!=document_id:continue
+            if item.get('disposition')=='SAME_CONTENT_SKIP':continue
+            version=item.get('version_id')
+            if not version:continue
+            entry=seen.setdefault(version,{'version_id':version,'enabled':False,'created_at':None,'source_hash':None})
+            entry['created_at']=entry['created_at'] or (row.get('modified') or None)
+            entry['source_hash']=entry['source_hash'] or item.get('sha256')
+    versions=sorted(seen.values(),key=lambda item:(item['created_at'] or '',item['version_id']))
+    for index,entry in enumerate(versions):
+        entry['publication_state']=('PUBLISHED' if entry['version_id']==current_version
+                                    else 'HISTORICAL' if entry['enabled'] else 'UNPUBLISHED')
+        entry['quality_state']=('VERIFIED' if entry['source_hash'] else 'NOT_RECORDED')
+        entry['rollback_eligible']=bool(entry['enabled'] and entry['version_id']!=current_version)
+        entry['superseded_by']=(versions[index+1]['version_id'] if index+1<len(versions) else None)
+        entry['supersedes']=(versions[index-1]['version_id'] if index>0 else None)
+    total=len(versions)
+    start=(page-1)*page_size
+    chunk=versions[start:start+page_size]
+    return {'document_id':document_id,'current_version':current_version,'versions':chunk,
+            'total':total,'page':page,'page_size':page_size,'has_more':start+len(chunk)<total}
+
+
+def version_lineage(document_id,page=1,page_size=12):
+    """Read one canonical document's version lineage for the maintenance UI.
+
+    Bounded: it reads one document row, its backend bindings and at most 1000
+    import-batch rows. It never scans the corpus and never mutates anything.
+    """
+    from .reference_admin import _page_number
+    require()
+    page=_page_number(page,100000);page_size=_page_number(page_size,50)
+    if (not isinstance(document_id,str) or not re.fullmatch(r'(?:DOC_|N1DOC-)[A-Za-z0-9_-]{8,80}',document_id)):
+        raise KnowledgeError('INVALID_REQUEST')
+    document=frappe.db.get_value('HBOS Knowledge Document',document_id,
+                                  ['name','current_version','source_hash'],as_dict=True)
+    if not document or not document.get('current_version'):
+        raise KnowledgeError('SCOPE_REJECTED')
+    bindings=frappe.db.sql('SELECT version_id,enabled FROM `tabHBOS Knowledge Backend Binding` '
+                           'WHERE canonical_document_id=%s ORDER BY version_id',(document_id,),as_dict=True)
+    batches=frappe.get_all(TABLE,fields=['name','modified','state_json'],order_by='modified asc',limit_page_length=1000)
+    return _lineage_rows(document_id,document['current_version'],bindings,batches,page,page_size)
+
 
 def _published_documents_for_dashboard(published,limit=1000):
     """Bounded catalogue for the maintenance picker; the corpus may exceed 1000.

@@ -334,6 +334,17 @@ def search_document(document_id=None, version_id=None, query=None, limit=None,
 
 
 @frappe.whitelist(methods=["GET"])
+def get_version_lineage(document_id=None,page=None,page_size=None,**business_fields):
+    def current(request_id):
+        raw=_framework_business(business_fields,'get_version_lineage')
+        raw['document_id']=document_id
+        raw['page']=1 if page is None else page
+        raw['page_size']=12 if page_size is None else page_size
+        from .maintenance import version_lineage
+        return version_lineage(raw['document_id'],raw['page'],raw['page_size'])
+    return _run(current)
+
+@frappe.whitelist(methods=["GET"])
 def get_spaces(**business_fields):
     def current(request_id):
         if _framework_business(business_fields, 'get_spaces'):
@@ -733,11 +744,11 @@ def submit_feedback(evidence_id=None,category=None,note='',**business_fields):
     return _run(current)
 
 @frappe.whitelist(methods=['GET'])
-def get_feedback_queue(page=1,page_size=12,status=None,**business_fields):
+def get_feedback_queue(page=1,page_size=12,status=None,query=None,**business_fields):
     def current(request_id):
         if _framework_business(business_fields,'get_feedback_queue'):raise KnowledgeError('INVALID_REQUEST')
         from .activity import feedback_queue
-        return feedback_queue(load_runtime(),page,page_size,status)
+        return feedback_queue(load_runtime(),page,page_size,status,query)
     return _run(current)
 
 @frappe.whitelist(methods=['POST'])
