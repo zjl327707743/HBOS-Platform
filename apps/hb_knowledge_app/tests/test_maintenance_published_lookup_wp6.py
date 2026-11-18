@@ -114,6 +114,7 @@ def install(monkeypatch, *, published=None, batches=None, require=None):
     frappe = FakeFrappe(batches)
     monkeypatch.setattr(maintenance, 'frappe', frappe, raising=False)
     monkeypatch.setattr(maintenance, 'require', require or (lambda: None))
+    monkeypatch.setattr(maintenance, 'configuration', lambda: {'maintenance_max_source_bytes':20*1024*1024})
     monkeypatch.setattr(maintenance, 'department_funnel', lambda published: [])
     monkeypatch.setattr(activity, 'feedback_queue', lambda runtime: {'items': []})
     monkeypatch.setattr(runtime_module, 'load_runtime', lambda: fake_runtime(published, batches))
@@ -217,10 +218,27 @@ def test_published_pagination_reaches_late_pages(monkeypatch):
     assert beyond_last['published_truncated'] is False
 
 
+@pytest.mark.parametrize('document', ['N1DOC-' + 'a' * 24, 'DOC_S3_' + 'a' * 24])
+def test_frozen_rebuild_identity_lookup_uses_only_authorized_snapshot(monkeypatch, document):
+    install(monkeypatch, published=published_fixture(target=document),
+            batches=batch_fixture(document_id=document))
+    found = call_dashboard(published_document_id=document, batch_document_id=document)
+    assert [d['document_id'] for d in found['published_documents']] == [document]
+    assert found['published_lookup_state'] == found['batch_lookup_state'] == 'FOUND'
+    assert len(found['batches']) == 1
+    # Valid syntax never adds a document absent from the authorized snapshot.
+    missing = call_dashboard(published_document_id=document.replace('a', 'b'))
+    assert missing['published_documents'] == []
+    assert missing['published_lookup_state'] == 'NOT_FOUND'
+
+
 @pytest.mark.parametrize('kwargs', [
     {'published_query': 'x' * 121}, {'published_page': 0}, {'published_page': 'x'},
     {'published_page_size': 51}, {'published_page_size': 0},
     {'published_document_id': 'DOC_../escape'}, {'published_document_id': ''},
+    {'published_document_id': 'N1DOC-' + 'a' * 23},
+    {'published_document_id': 'N1DOC-' + 'g' * 24},
+    {'batch_document_id': 'N1DOC-' + 'a' * 24 + '/extra'},
     {'published_query': '目标', 'published_document_id': TARGET_ID},
 ])
 def test_invalid_published_lookup_parameters_are_rejected(monkeypatch, kwargs):

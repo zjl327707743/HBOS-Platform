@@ -33,3 +33,37 @@ def test_already_invalid_saved_item_stays_removable_without_old_source_title(mon
     assert activity.list_activity(object(),'Bookmark')['items'][0]['titles']==[]
     configure(monkeypatch,[(subject(),{}),(subject(),{})])
     assert activity.list_activity(object(),'Bookmark')['items'][0]['available'] is False
+
+
+def test_reindex_requires_current_source_hash_and_a_matching_adoption_receipt(monkeypatch):
+    source = 'a' * 64
+    new = SimpleNamespace(binding_ref='new-binding')
+    doc = SimpleNamespace(current_version='version', source_hash=source, withdrawn=0,
+                          ingestion_status='published')
+    receipt = dict(schema='hbos.parse-revision.v1', business_version_changed=False,
+                   canonical_document_id='document', version_id='version',
+                   parent_binding_ref='old-binding', new_binding_ref='new-binding',
+                   source_sha256=source)
+    db = SimpleNamespace(get_value=lambda *a, **k: doc)
+    monkeypatch.setitem(sys.modules, 'frappe', SimpleNamespace(
+        db=db, get_all=lambda *a, **k: [SimpleNamespace(receipt_json=json.dumps(receipt))],
+    ))
+    data = {'references': [('document', 'version', 'old-binding', 'old-chunk')]}
+    mapping = {('document', 'version'): new}
+    assert activity.bindings_for(data, mapping, allow_reindex=True) == [new]
+    receipt.update(schema='hbos.parse-rollback.v1', old_authorization_snapshot_restored=False,
+                   current_binding_ref='old-binding', return_binding_ref='new-binding')
+    assert activity.bindings_for(data, mapping, allow_reindex=True) == [new]
+    receipt['old_authorization_snapshot_restored'] = True
+    with pytest.raises(KnowledgeError, match='证据不可用'):
+        activity.bindings_for(data, mapping, allow_reindex=True)
+    receipt['old_authorization_snapshot_restored'] = False
+    with pytest.raises(KnowledgeError, match='证据不可用'):
+        activity.bindings_for(data, {}, allow_reindex=True)
+    doc.source_hash = 'b' * 64
+    with pytest.raises(KnowledgeError, match='证据不可用'):
+        activity.bindings_for(data, mapping, allow_reindex=True)
+    doc.source_hash = source
+    doc.withdrawn = 1
+    with pytest.raises(KnowledgeError, match='证据不可用'):
+        activity.bindings_for(data, mapping, allow_reindex=True)

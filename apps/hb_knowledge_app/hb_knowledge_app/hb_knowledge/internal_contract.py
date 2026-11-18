@@ -1,6 +1,6 @@
 """Shared R1.1 internal contract. Not an employee-facing identity/proxy API."""
 from __future__ import annotations
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, fields
 from .execution_plan import AuthorizedExecutionPlan
 from .errors import KnowledgeError
 from .r1_contract import CONTRACT_VERSION
@@ -60,6 +60,24 @@ class InternalResponse:
         return self.plan
 
     def to_wire(self):
-        value = asdict(self)
+        value = {field.name:getattr(self,field.name) for field in fields(self) if field.name!='plan'}
         value["plan"] = self.plan.to_wire() if self.plan else None
         return value
+
+    def to_revalidation_receipt(self, call, principal):
+        """A fresh phase result; never serialize or reissue an authority plan.
+
+        The caller must still obtain this response from DecisionStore.respond,
+        which performs the same ticket, phase and current-authority checks.
+        Only revalidation consumers that already hold the signed plan use it.
+        """
+        if call.operation != 'revalidate' or call.references:
+            raise KnowledgeError('INVALID_REQUEST')
+        if self.outcome == 'ALLOWED' and self.plan is None:
+            raise KnowledgeError('POLICY_UNAVAILABLE')
+        return {name: getattr(self, name) for name in (
+            'contract_version', 'outcome', 'request_id', 'phase', 'plan_digest',
+            'deadline_at', 'budget_owner', 'error_code')} | {
+            'operation': 'revalidate', 'decision_ref': call.decision_ref,
+            'request_fingerprint': call.request_fingerprint,
+            'client_id': principal.client.client_id}

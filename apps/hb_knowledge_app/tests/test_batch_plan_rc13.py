@@ -1,6 +1,7 @@
 """RC13 batch preview: read-only, stable digest, honest classifications."""
 import hashlib
 import importlib
+import importlib.util
 import json
 import sys
 from types import ModuleType, SimpleNamespace
@@ -8,6 +9,24 @@ from types import ModuleType, SimpleNamespace
 import pytest
 
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
+
+
+def _require_joint_service():
+    try:
+        available = all(importlib.util.find_spec(name) is not None for name in (
+            'knowledge_service.overlap_experiment', 'knowledge_service.native_job_contract'))
+    except (ModuleNotFoundError, ValueError):
+        available = False
+    if not available:
+        pytest.skip('requires hbos_knowledge_service; covered by the joint service integration run')
+
+
+def test_native_legacy_excel_source_path_is_admitted_without_relaxing_path_safety(monkeypatch):
+    batch, *_ = load_modules(monkeypatch,{})
+    assert batch._safe_relative_path('安全部门/法兰规格.XLS')=='安全部门/法兰规格.XLS'
+    for value in ['../private/file.xls','/private/file.xls','安全部门/.hidden.xls',
+                  '安全部门/file.xls/../../secret','安全部门/file.xlsm']:
+        with pytest.raises(KnowledgeError):batch._safe_relative_path(value)
 
 
 def install_framework(monkeypatch, user='maintainer@example.test'):
@@ -307,3 +326,79 @@ def test_invalid_manifest_is_rejected_before_any_write(monkeypatch, tmp_path, mu
         batch.plan_batch(body)
     assert error.value.code == 'INVALID_REQUEST'
     assert state['writes'] == [] and state['commits'] == [] and calls['register'] == 0
+
+
+def _native_locked_fixture(monkeypatch,tmp_path):
+    from knowledge_service.overlap_experiment import build_pair
+    from knowledge_service.native_job_contract import build_profile,sha
+    source,cfg=workspace(tmp_path);original=source/'合成.pdf';original.write_bytes(b'%PDF synthetic immutable original')
+    source_sha=hashlib.sha256(original.read_bytes()).hexdigest();doc='DOC_'+'1'*24;version='VER_'+'2'*24;jobs=[]
+    for candidate,pair in zip(['B','C'],build_pair('overlap')):
+        profile=build_profile('naive',pair['parser_config'],'a'*64)
+        item={'canonical_document_id':doc,'version_id':version,'relative_path':original.name,'original_filename':original.name,
+            'title':'合成资料','extension':'.pdf','sha256':source_sha,'size_bytes':original.stat().st_size,'department_key':'production','department_title':'生产',
+            'space_id':'DEPT_PRODUCTION','binding_revision':'BR_'+sha([version,profile['profile_sha256']])[:24],
+            'parser_input':'VERIFIED_ORIGINAL_NATIVE','native_profile':profile,'parser_config':profile['parser_config'],
+            'disposition':'TECHNICAL_REINDEX','expected_current_version':version,'owner_inclusion_confirmed':True,
+            'internal_sharing_confirmed':True,'owner_processing_confirmed':True,'status':'planned','native_parent_binding':{'document_id':'9'*32},
+            'native_source_proof':{'source_sha256':source_sha,'original_page_count':1,'covered_pages':[1],'full_source_requested':True,'prepared_asset':None}}
+        jobs.append({'job_id':'JOB-'+candidate,'source_root':str(source),'candidate_dataset_id':'c'*32,'candidate_id':candidate,'item':item})
+    path=tmp_path/'native-execution.json';path.write_text(json.dumps({'schema':'hbos.native-execution-manifest.v1','jobs':jobs},ensure_ascii=False));path.chmod(0o600)
+    cfg.update(native_import_enabled=True,native_execution_manifest_file=str(path),native_execution_manifest_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),maintenance_embedding_model='approved@instance@provider')
+    batch,m,frappe,state,calls=load_modules(monkeypatch,cfg);monkeypatch.setattr(m,'_registry',lambda:{'documents':[]})
+    state['documents'][doc]={'current_version':version,'withdrawn':False,'ingestion_status':'published','source_hash':source_sha}
+    return batch,m,frappe,state,calls,cfg,doc,version,{'schema_version':3,'sharing_confirmed':True,'label':'原生对照','job_manifest_sha256':cfg['native_execution_manifest_sha256'],'items':[{'job_id':j['job_id']} for j in jobs]}
+
+
+def test_native_plan_submit_retains_one_business_version_two_parse_revisions(monkeypatch,tmp_path):
+    _require_joint_service()
+    batch,m,frappe,state,calls,cfg,doc,version,raw=_native_locked_fixture(monkeypatch,tmp_path)
+    planned=batch.plan_batch(raw);assert planned['submittable'];assert planned['counts']['total']==2;assert state['writes']==[]
+    result=batch.submit_batch(planned['plan_sha256'],'MAIN_FROZEN_NATIVE_TEST','原生对照');assert len(result['batches'])==2;assert calls['register']==2
+    frozen=[json.loads(row['frozen_json']) for row in state['rows'].values()];items=[f['items'][0] for f in frozen]
+    assert {i['version_id'] for i in items}=={version};assert len({i['binding_revision'] for i in items})==2
+    assert all(i['canonical_document_id']==doc and i['ragflow_document_id'] is None for i in items)
+    assert all(f['source_root']==cfg['maintenance_batch_source_roots'][0] for f in frozen)
+    replay=batch.submit_batch(planned['plan_sha256'],'MAIN_FROZEN_NATIVE_TEST','原生对照');assert replay['replayed'];assert calls['register']==2
+
+
+def test_native_submit_refuses_withdrawal_or_manifest_drift(monkeypatch,tmp_path):
+    _require_joint_service()
+    batch,m,frappe,state,calls,cfg,doc,version,raw=_native_locked_fixture(monkeypatch,tmp_path)
+    planned=batch.plan_batch(raw);state['documents'][doc]['withdrawn']=True
+    with pytest.raises(KnowledgeError):batch.submit_batch(planned['plan_sha256'],'MAIN_TEST','原生对照')
+    assert calls['register']==0
+    path=__import__('pathlib').Path(cfg['native_execution_manifest_file']);path.write_text(path.read_text()+' ')
+    with pytest.raises(KnowledgeError):batch.plan_batch(raw)
+
+
+@pytest.mark.parametrize('extension',['.ppt','.wps'])
+def test_locked_office_plan_submit_retains_original_and_verified_pdf(monkeypatch,tmp_path,extension):
+    _require_joint_service()
+    from pathlib import Path
+    from knowledge_service.native_job_contract import binding_revision_for
+    batch,m,frappe,state,calls,cfg,doc,version,raw=_native_locked_fixture(monkeypatch,tmp_path)
+    path=Path(cfg['native_execution_manifest_file']);locked=json.loads(path.read_text())
+    job=locked['jobs'][0];item=job['item'];root=Path(job['source_root'])
+    original=root/'合成.pdf';office=original.with_suffix(extension);original.rename(office)
+    prepared=tmp_path/'converted-full.pdf';prepared.write_bytes(b'%PDF-1.7 synthetic prepared')
+    item.update(relative_path=office.name,original_filename=office.name,extension=extension,
+                native_binding_format='PREPARED_SOURCE_V2')
+    item['native_source_proof'].update(original_page_count=None,covered_pages=[],
+        prepared_asset={'kind':'LOCAL_OFFICE_TO_PDF','path':str(prepared),
+            'sha256':hashlib.sha256(prepared.read_bytes()).hexdigest(),
+            'receipt_sha256':'e'*64,'parent_source_sha256':item['sha256']})
+    item['binding_revision']=binding_revision_for(item)
+    locked['jobs']=[job];path.write_text(json.dumps(locked,ensure_ascii=False))
+    cfg['native_execution_manifest_sha256']=hashlib.sha256(path.read_bytes()).hexdigest()
+    raw.update(job_manifest_sha256=cfg['native_execution_manifest_sha256'],items=[{'job_id':job['job_id']}])
+    planned=batch.plan_batch(raw);assert planned['submittable'] and not state['writes']
+    result=batch.submit_batch(planned['plan_sha256'],'MAIN_FROZEN_OFFICE','原件保留')
+    assert len(result['batches'])==1 and calls['register']==1
+    frozen=json.loads(next(iter(state['rows'].values()))['frozen_json'])['items'][0]
+    assert frozen['extension']==extension and frozen['relative_path']==office.name
+    assert frozen['sha256']==hashlib.sha256(office.read_bytes()).hexdigest()
+    assert frozen['native_source_proof']['prepared_asset']==item['native_source_proof']['prepared_asset']
+    # A locked path admission still cannot send raw legacy Office to native.
+    item['native_source_proof']['prepared_asset']=None
+    with pytest.raises(ValueError):binding_revision_for(item)

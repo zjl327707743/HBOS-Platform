@@ -8,7 +8,12 @@
     "space_id",
     "title",
     "required_role",
-    "enabled"
+    "enabled",
+    "maintenance_department",
+    "maintenance_template",
+    "template_json",
+    "parent_space",
+    "space_admission_json"
   ],
   "fields": [
     {
@@ -36,6 +41,12 @@
       "label": "Enabled",
       "default": "1"
     }
+    ,
+    {"fieldname":"maintenance_department","fieldtype":"Data","label":"维护资料部门","read_only":1},
+    {"fieldname":"maintenance_template","fieldtype":"Select","label":"默认资料模板","options":"auto\ntext_pdf\nscan_pdf","default":"auto"},
+    {"fieldname":"template_json","fieldtype":"Long Text","label":"已批准模板快照","read_only":1},
+    {"fieldname":"parent_space","fieldtype":"Link","label":"创建来源空间","options":"HBOS Knowledge Space","read_only":1},
+    {"fieldname":"space_admission_json","fieldtype":"Long Text","label":"空间创建授权回执","read_only":1}
   ],
   "permissions": [
     {

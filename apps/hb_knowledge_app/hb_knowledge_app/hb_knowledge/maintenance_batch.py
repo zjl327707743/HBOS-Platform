@@ -68,10 +68,12 @@ MAX_RECLAIM_HISTORY = 20
 VERIFICATION_WINDOW_SECONDS = 1800
 HEX64 = re.compile(r'[0-9a-f]{64}')
 PHYSICAL_ID = re.compile(r'[0-9a-f]{32}')
-DOCUMENT_ID = re.compile(r'DOC_[0-9a-f]{24}')
-VERSION_ID = re.compile(r'VER_[0-9a-f]{24}')
+# Existing approved rebuild identities must reach the same state/evidence gates;
+# syntax acceptance never creates a document, version, or publication binding.
+DOCUMENT_ID = re.compile(r'(?:DOC_(?:S3_)?|N1DOC-)[0-9a-f]{24}')
+VERSION_ID = re.compile(r'(?:VER_(?:S3_)?|N1VER-)[0-9a-f]{24}')
 BATCH_ID = re.compile(r'IMP_[0-9a-f]{32}')
-SOURCE_EXTENSIONS = {'.doc', '.docx', '.pdf', '.xlsx', '.pptx', '.txt', '.md'}
+SOURCE_EXTENSIONS = {'.doc', '.docx', '.pdf', '.xls', '.xlsx', '.ppt', '.pptx', '.wps', '.txt', '.md'}
 DERIVATIVE_EXTENSIONS = {'.doc', '.docx', '.pdf', '.xlsx', '.pptx', '.md'}
 PAGE_METHODS = {'native', 'cached_ocr', 'cached_ocr_sparse', 'local_fulltext',
                 'local_ocr', 'office_text', 'symbol_normalized', 'ocr'}
@@ -387,6 +389,9 @@ def _normalize_manifest(raw, cfg):
     _require(isinstance(raw, dict))
     if len(canonical(raw)) > MAX_PLAN_MANIFEST_BYTES:
         raise KnowledgeError('MANIFEST_SIZE_LIMIT_EXCEEDED')
+    if raw.get('schema_version')==3:
+        from .native_import import normalize
+        return normalize(raw,cfg)
     budget = source_size_budget(cfg)
     _require(set(raw) <= MANIFEST_KEYS)
     if 'schema_version' in raw:
@@ -543,6 +548,9 @@ def _result(item, disposition, *, submittable, reason=None, pages=None, page_met
 
 
 def _classify_item(item, index):
+    if item.get('native_job') is not None:
+        from .native_import import classify
+        return classify(item,index)
     department = item['department']
     version_id = item['version_id']
     page_methods = list(item['page_methods'])
@@ -705,7 +713,7 @@ def plan_batch(manifest):
     results = _classify(cfg, normalized, registry)
     seen_manifest = {}
     for item in normalized['items']:
-        key = (item['source_sha256'], item['text_sha256'], item['department'])
+        key = (item['source_sha256'], (item.get('native_job') or {}).get('item',{}).get('native_profile',{}).get('profile_sha256',item['text_sha256']), item['department'])
         if key in seen_manifest:
             results[item['index']] = _result(item, 'ANOMALY', submittable=False,
                                              reason='DUPLICATE_IN_MANIFEST')
@@ -810,6 +818,9 @@ def _derivation_receipt(item):
 
 
 def _derivative_item(item, classification, approval_ref):
+    if item.get('native_job') is not None:
+        from .native_import import frozen_item
+        return frozen_item(item,classification,approval_ref)
     """Exact RC12 shape: existing uploaded original + verified page-complete text."""
     from knowledge_service.ingestion import RUNTIME_ITEM_FIELDS
     candidate = classification['candidate']
@@ -893,7 +904,7 @@ def _chunk_groups(normalized, results):
             continue
         _require(classification['disposition'] == 'NEW', 'BATCH_PLAN_BLOCKED')
         candidate = classification['candidate']
-        key = (item['department'], candidate['dataset_id'])
+        key = (item['department'], candidate['dataset_id'],(item.get('native_job') or {}).get('candidate_id'))
         if not groups or groups[-1]['key'] != key or len(groups[-1]['items']) == 4:
             groups.append({'key': key, 'items': []})
         groups[-1]['items'].append((item, classification))
@@ -1007,6 +1018,12 @@ def _freeze_group(plan_dir, plan_sha256, normalized, group, approval_ref, contex
                  for item, classification in group['items']]
         source_root = None
         expected_dataset = None
+    elif all(item.get('native_job') is not None for item,_ in group['items']):
+        roots={item['source_root'] for item,_ in group['items']}
+        _require(len(roots)==1,'BATCH_PLAN_BLOCKED')
+        source_root=Path(next(iter(roots)))
+        items=[_derivative_item(item,classification,approval_ref) for item,classification in group['items']]
+        expected_dataset=group['dataset_id']
     else:
         budget = source_size_budget(context['cfg'])
         batch_source_bytes = sum(int(item.get('source_size') or 0)
@@ -1027,7 +1044,7 @@ def _freeze_group(plan_dir, plan_sha256, normalized, group, approval_ref, contex
               'approval_ref': None, 'approval_status': 'OWNER_APPROVED',
               'instruction_ref': 'RC13_BATCH_SUBMIT:' + plan_sha256[:16],
               'registry_sha256': hashlib.sha256(_canonical_bytes(registry)).hexdigest(),
-              'source_scope': DERIVATIVE_SCOPE, 'items': items, 'excluded': []}
+              'source_scope': ('EXACT_SHA_MAIN_LOCKED_NATIVE_V1' if any(i.get('native_profile') for i in items) else DERIVATIVE_SCOPE), 'items': items, 'excluded': []}
     if expected_dataset is not None:
         frozen['expected_dataset_id'] = expected_dataset
     frozen['batch_sha256'] = _frozen_digest(frozen)
@@ -1054,7 +1071,8 @@ def _submit_group(plan_dir, plan_sha256, normalized, group, approval_ref, contex
     batch_id = 'IMP_' + frozen['batch_sha256'][:32]
     job_id = _job_id(plan_sha256, group)
     if group['kind'] == 'derivative':
-        _write_derivatives(context['derivative_root'], batch_id,
+        if not all(item.get('native_job') is not None for item,_ in group['items']):
+            _write_derivatives(context['derivative_root'], batch_id,
                            [item for item, _classification in group['items']])
         _write_dataset_map(context['derivative_root'], batch_id, frozen,
                            _embedding_model(context['cfg'], group))
@@ -1095,7 +1113,7 @@ def _submit_group(plan_dir, plan_sha256, normalized, group, approval_ref, contex
            'lease_generation': 0, 'nonce': None, 'lease_expires_at': None,
            'pause_requested': False, 'plan_sha256': plan_sha256,
            'approval_ref': approval_ref, 'reclaims': [],
-           'source_scope': DERIVATIVE_SCOPE}
+           'source_scope': frozen.get('source_scope',DERIVATIVE_SCOPE)}
     frappe.db.set_value(TABLE, batch_id, {'job_json': canonical(job), 'status': 'Queued',
                                           'last_error': None})
     return {'batch_id': batch_id, 'department': group['department'],
@@ -1114,10 +1132,15 @@ def submit_batch(plan_sha256, approval_ref, label):
         plan_input = _load_json(plan_dir / 'plan-input.json', 'BATCH_PLAN_STALE')
         if _digest_bytes(plan_input) != plan_sha256:
             raise KnowledgeError('BATCH_PLAN_STALE')
-        normalized = {'plan_sha256': plan_sha256, 'normalized': plan_input,
-                      'items': _runtime_items_from_input(plan_dir, plan_input),
-                      'label': plan_input.get('label'),
-                      'departments': sorted({item['department'] for item in plan_input['items']})}
+        if plan_input.get('schema_version')==3:
+            from .native_import import normalize
+            normalized=normalize(plan_input,cfg)
+            _require(normalized['plan_sha256']==plan_sha256,'BATCH_PLAN_STALE')
+        else:
+            normalized = {'plan_sha256': plan_sha256, 'normalized': plan_input,
+                          'items': _runtime_items_from_input(plan_dir, plan_input),
+                          'label': plan_input.get('label'),
+                          'departments': sorted({item['department'] for item in plan_input['items']})}
         if not normalized['items']:
             raise KnowledgeError('BATCH_PLAN_STALE')
         plan_public = _load_json(plan_dir / 'plan.json', 'BATCH_PLAN_STALE')
@@ -1146,14 +1169,14 @@ def submit_batch(plan_sha256, approval_ref, label):
                    'approval_ref': approval_ref, 'label': label_value,
                    'submitted_at': time.time(),
                    'actor_hash': hashlib.sha256(str(frappe.session.user).encode()).hexdigest()[:16],
-                   'source_scope': DERIVATIVE_SCOPE,
+                   'source_scope': ('EXACT_SHA_MAIN_LOCKED_NATIVE_V1' if plan_input.get('schema_version')==3 else DERIVATIVE_SCOPE),
                    'batches': submitted, 'replayed': False}
         _save_json(receipt_path, receipt)
         return receipt
 
 
 # -------------------------------------------------------------------- progress
-def _verification_view(receipt, published, version_id):
+def _verification_view(receipt, published, version_id, item=None):
     if not isinstance(receipt, dict):
         return None
     status = receipt.get('status')
@@ -1170,6 +1193,8 @@ def _verification_view(receipt, published, version_id):
         return {**base, 'status': 'INVALIDATED', 'reason': 'VERSION_SUPERSEDED'}
     if published.get('ingestion_status') != 'published':
         return {**base, 'status': 'INVALIDATED', 'reason': 'UNPUBLISHED'}
+    if item and item.get('native_profile') and not m.is_published_target(item,published):
+        return {**base,'status':'INVALIDATED','reason':'PARSE_REVISION_SUPERSEDED'}
     return base
 
 
@@ -1227,7 +1252,7 @@ def progress_batch(batch_id, page=1, limit=20):
         published = frappe.db.get_value('HBOS Knowledge Document', document_id,
                                         ['current_version', 'withdrawn', 'ingestion_status'], as_dict=True)
         verification = _verification_view(quality.get(version_id, {}).get('retrieval_verified'),
-                                          published, version_id)
+                                          published, version_id, item)
         if isinstance(verification, dict):
             if verification['status'] == 'VERIFIED':
                 counts['verified'] += 1
@@ -1241,7 +1266,10 @@ def progress_batch(batch_id, page=1, limit=20):
                       'progress': max(0.0, min(1.0, float(item.get('progress') or 0))),
                       'chunk_count': int(item.get('chunk_count') or 0),
                       'error_code': _item_error(item),
-                      'publication_status': _publication_state(published, version_id),
+                      'publication_status': ('Unpublished' if item.get('native_profile')
+                          and _publication_state(published,version_id)=='Published'
+                          and not m.is_published_target(item,published)
+                          else _publication_state(published, version_id)),
                       'retrieval_verified': verification})
     lease = job.get('lease_expires_at')
     expired = isinstance(lease, (int, float)) and float(lease) < now
@@ -1295,12 +1323,26 @@ def resume_batch(batch_id):
         return {'batch_id': row['name'], 'status': 'Running', 'pause_requested': False}
     if job.get('status') == 'Queued' and row.get('status') == 'Queued':
         raise KnowledgeError('IMPORT_BUSY')
+    if job.get('managed_admission'):
+        from .maintenance_managed import can_validate_existing_result, safe_resume, should_revalidate
+        if job.get('status')=='Running' or job.get('nonce') or not safe_resume(state,job):
+            raise KnowledgeError('IMPORT_BUSY')
+        selected=[item for item in state['items'] if item['canonical_document_id'] in job['document_ids']]
+        if can_validate_existing_result(state,job) and any(should_revalidate(item) for item in selected):
+            job.update(status='Queued',operation='validate',pause_requested=False,resume_requested_at=time.time())
+            frappe.db.set_value(TABLE,row['name'],{'job_json':canonical(job),'status':'Queued','last_error':None})
+            from .maintenance_browser import record_manual_action
+            record_manual_action(batch_id,'REVALIDATE')
+            frappe.db.commit()
+            return {'batch_id':row['name'],'status':'Queued','operation':'validate'}
     resumable = [item for item in state['items'] if item.get('status') in
                  ('planned', 'uploaded', 'parse_queued', 'parse_intent', 'upload_intent')]
     _require(resumable, 'INVALID_REQUEST')
     was_claimed = bool(job.get('claimed_at'))
     job['status'] = 'Queued'
     job['operation'] = 'resume' if was_claimed or job.get('operation') == 'resume' else 'parse'
+    if job.get('managed_admission') and not job.get('r2_prepared_manifest'):
+        job['operation']='parse'  # Only the existing no-provider preparation phase.
     job['pause_requested'] = False
     job['resume_requested_at'] = time.time()
     frappe.db.set_value(TABLE, row['name'], {'job_json': canonical(job), 'status': 'Queued',
@@ -1403,6 +1445,9 @@ def _reclaim_one(batch_id, actor, reason, now):
     lease = job.get('lease_expires_at')
     if isinstance(lease, (int, float)) and float(lease) >= now:
         return None
+    if job.get('managed_admission'):
+        from .maintenance_managed import safe_resume
+        if not safe_resume(state,job):return None
     previous_generation = int(job.get('lease_generation') or 0)
     nonce = job.get('nonce')
     entry = {'at': now,
@@ -1417,6 +1462,8 @@ def _reclaim_one(batch_id, actor, reason, now):
     job['lease_expires_at'] = None
     job['status'] = 'Queued'
     job['pause_requested'] = False
+    if job.get('managed_admission') and job.get('operation')!='validate':
+        job['operation']='resume' if job.get('r2_prepared_manifest') else 'parse'
     job['reclaims'] = (list(job.get('reclaims') or []) + [entry])[-MAX_RECLAIM_HISTORY:]
     frappe.db.set_value(TABLE, row['name'], {'job_json': canonical(job), 'status': 'Queued',
                                              'last_error': None})
@@ -1454,6 +1501,9 @@ def mark_retrieval_pending(batch_id, publish_result):
         return {'pending': 0}
     row, frozen, state = m._row(batch_id, True)
     quality = m._json(row, 'quality_json', {})
+    job = m._json(row, 'job_json', {})
+    intents = job.get('reader_verification_intents') or {}
+    job_changed = False
     by_document = {item['canonical_document_id']: item for item in state['items']
                    if item.get('disposition') not in ('SAME_CONTENT_SKIP', 'ALIAS')}
     pending = 0
@@ -1465,7 +1515,21 @@ def mark_retrieval_pending(batch_id, publish_result):
             continue
         record = quality.setdefault(item['version_id'], {})
         existing = record.get('retrieval_verified')
-        if isinstance(existing, dict) and existing.get('status') in ('PENDING', 'VERIFIED'):
+        fresh_restore = bool(job.get('managed_admission') and result['outcome'] == 'RESTORED'
+            and result.get('receipt_id') and isinstance(existing, dict)
+            and existing.get('status') == 'VERIFIED'
+            and existing.get('publication_receipt_id') != result['receipt_id'])
+        if fresh_restore:
+            intent = intents.get(item['version_id'])
+            if intent and intent.get('status') != 'VERIFIED':
+                continue
+            if intent:
+                history = job.setdefault('reader_verification_history', [])
+                job['reader_verification_history'] = (history + [intents.pop(item['version_id'])])[-20:]
+                job_changed = True
+            history = record.get('retrieval_verified_history') or []
+            record['retrieval_verified_history'] = (history + [existing])[-5:]
+        elif isinstance(existing, dict) and existing.get('status') in ('PENDING', 'VERIFIED'):
             continue
         record['retrieval_verified'] = {
             'schema': VERIFICATION_SCHEMA, 'status': 'PENDING', 'at': time.time(),
@@ -1477,6 +1541,8 @@ def mark_retrieval_pending(batch_id, publish_result):
         pending += 1
     if pending:
         frappe.db.set_value(TABLE, batch_id, 'quality_json', canonical(quality))
+        if job_changed:
+            frappe.db.set_value(TABLE, batch_id, 'job_json', canonical(job))
         frappe.db.commit()
     return {'pending': pending}
 
@@ -1543,6 +1609,15 @@ def _evidence_verification(evidence_id, document_id, version_id):
     now = runtime.provider.clock()
     if not isinstance(reference.expires_at, (int, float)) or now >= reference.expires_at:
         raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+    # A historical search of this business version does not prove the current
+    # parse. Reauthorize the actual employee and the exact retained binding.
+    from .r1_contract import normalize_search
+    request=normalize_search({'query':'EVIDENCE_LOOKUP','space_ids':[binding.space_id]})
+    plan=runtime.provider.evaluate(reference.actor,reference.client,'knowledge.evidence',
+                                   request,'MAINTENANCE_RETRIEVAL_VERIFICATION')
+    if binding not in plan.bindings or reference.policy_revision!=plan.policy_revision:
+        raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+    runtime.provider.revalidate(plan)
     return {'reference': reference, 'binding': binding, 'actor_user': reference.actor.user_ref}
 
 
@@ -1576,12 +1651,30 @@ def record_verification(batch_id, document_id, version_id, evidence_id, query_sh
             or published.get('ingestion_status') != 'published'):
         raise KnowledgeError('SOURCE_VERSION_STALE')
     verified = _evidence_verification(evidence_id, document_id, version_id)
+    binding=verified.get('binding')
+    target_fields={'canonical_document_id':'canonical_document_id','version_id':'version_id',
+                   'space_id':'space_id','dataset_id':'dataset_id',
+                   'document_id':'ragflow_document_id','binding_revision':'binding_revision'}
+    if binding is None or any(getattr(binding,left,None)!=item.get(right)
+                              for left,right in target_fields.items()):
+        raise KnowledgeError('EVIDENCE_UNAVAILABLE')
     activity = _history_verification(verified['actor_user'], query_sha256, document_id, version_id)
     if not activity:
         raise KnowledgeError('EVIDENCE_UNAVAILABLE')
     evidence_id_hash = hashlib.sha256(evidence_id.encode()).hexdigest()
     quality = m._json(row, 'quality_json', {})
     record = quality.setdefault(version_id, {})
+    reader_paths=None
+    job=m._json(row,'job_json',{})
+    intent=(job.get('reader_verification_intents') or {}).get(version_id)
+    if job.get('managed_admission'):
+        from .runtime import load_runtime
+        reader_paths=load_runtime().delivery.reader_paths(verified['actor_user'],binding,item['sha256'])
+        if reader_paths is None or record.get('status')!='Passed':
+            raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+        if intent and (intent.get('requested_by')!=verified['actor_user'] or intent.get('query_sha256')!=query_sha256
+                       or intent.get('binding_revision')!=binding.binding_revision):
+            raise KnowledgeError('EVIDENCE_UNAVAILABLE')
     existing = record.get('retrieval_verified')
     if (isinstance(existing, dict) and existing.get('status') == 'VERIFIED'
             and existing.get('query_sha256') == query_sha256
@@ -1595,8 +1688,14 @@ def record_verification(batch_id, document_id, version_id, evidence_id, query_sh
                'activity_ref': hashlib.sha256(str(activity).encode()).hexdigest()[:16],
                'document_id': document_id, 'version_id': version_id,
                'binding': {'space_id': item.get('space_id'), 'dataset_id': item.get('dataset_id'),
+                           'document_id':item.get('ragflow_document_id'),
                            'binding_revision': item.get('binding_revision')},
                'published_current_version': published.get('current_version')}
+    if reader_paths is not None:
+        receipt['reader_paths_verified']=True
+        receipt['reader_path_proof_sha256']=hashlib.sha256(_canonical_bytes(reader_paths)).hexdigest()
+        if isinstance(existing, dict) and existing.get('publication_receipt_id'):
+            receipt['publication_receipt_id'] = existing['publication_receipt_id']
     receipt['receipt_sha256'] = hashlib.sha256(_canonical_bytes(receipt)).hexdigest()
     history = list(record.get('retrieval_verified_history') or [])
     if isinstance(existing, dict):
@@ -1605,6 +1704,9 @@ def record_verification(batch_id, document_id, version_id, evidence_id, query_sh
         record['retrieval_verified_history'] = history
     record['retrieval_verified'] = receipt
     frappe.db.set_value(TABLE, batch_id, 'quality_json', canonical(quality))
+    if intent:
+        intent.update(status='VERIFIED',receipt_sha256=receipt['receipt_sha256'],finished_at=time.time())
+        frappe.db.set_value(TABLE,batch_id,'job_json',canonical(job))
     frappe.db.commit()
     return {'batch_id': batch_id, 'document_id': document_id, 'version_id': version_id,
             'receipt': receipt, 'replayed': False}

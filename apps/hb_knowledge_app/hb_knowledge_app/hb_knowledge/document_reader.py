@@ -190,6 +190,8 @@ def _page(runtime, actor, request, page, request_id):
     # withdrawal/version bump/role removal during the read rejects the page.
     runtime.decisions.online(principal, ticket.call("revalidate", "final_publish"))
     _record_audit(runtime, actor, binding, page, body, request_id)
+    note=getattr(getattr(runtime,'delivery',None),'note_reader_path',None)
+    if callable(note) and body['blocks']:note(actor.user_ref,binding,'body')
     return data
 
 

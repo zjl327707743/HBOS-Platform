@@ -41,7 +41,8 @@ def test_duplicate_path_never_blocks_withdrawal_of_current_version(monkeypatch):
     m,writes,commits=setup(monkeypatch);row,frozen,state=m._row('BATCH');state['batch_sha256']='c'*64
     state['items'].append({**state['items'][0],'disposition':'SAME_CONTENT_SKIP'})
     monkeypatch.setattr(m,'_row',lambda *a:(row,frozen,state))
-    monkeypatch.setattr(m.frappe.db,'sql',lambda *a,**k:[{'current_version':'VER_ONE','withdrawn':False,'source_hash':'a'*64}],raising=False)
+    monkeypatch.setattr(m.frappe.db,'sql',lambda sql,*a,**k:[{'current_version':'VER_ONE','withdrawn':False,
+        'source_hash':'a'*64}] if 'Knowledge Document' in sql else [],raising=False)
     monkeypatch.setattr(m.frappe,'get_doc',lambda *a:SimpleNamespace(insert=lambda **k:None),raising=False)
     assert m.withdraw('BATCH','ONE','VER_ONE','原文缺失待修复')['outcome']=='WITHDRAWN'
     assert len(writes)==1 and commits==[True]

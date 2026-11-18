@@ -26,6 +26,7 @@ from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
 from hb_knowledge_app.hb_knowledge.execution_plan import Binding, Client
 from hb_knowledge_app.hb_knowledge.gateway import EvidenceRecord
 from hb_knowledge_app.hb_knowledge.r1_contract import validate_structure
+from hb_knowledge_app.hb_knowledge.evidence import issue_evidence_stage
 
 CLIENT = Client('CLIENT_READER')
 DATASET = '54982854c48411f199f5b578948a93a2'
@@ -171,6 +172,46 @@ def test_multiple_unsafe_records_are_all_skipped_and_counted(monkeypatch):
     data = call_search(api)
     assert [row['excerpt'] for row in data['results']] == [SAFE_EXCERPT]
     assert data['omitted_results'] == 2
+
+
+def test_issue_stage_revalidates_once_and_final_publish_denial_fails(monkeypatch):
+    binding = make_binding()
+    records = [evidence_record(binding, SAFE_EXCERPT, chunk_id=f'CHUNK_{n}')
+               for n in range(3)]
+    runtime, _, references, _, _ = fake_runtime(records=records)
+    revalidations = []
+    final_phases = []
+    runtime.provider.revalidate = lambda plan: revalidations.append(plan)
+
+    def final_check(principal, call):
+        final_phases.append(call.phase)
+        if call.phase == 'final_publish':
+            raise KnowledgeError('SCOPE_REJECTED')
+
+    runtime.decisions.online=final_check
+    api = install_api(monkeypatch, runtime, runtime.gateway)
+    result = api.search(query='道路设计', limit=5)
+
+    assert result['ok'] is False and result['error']['code'] == 'SCOPE_REJECTED'
+    # One pre-issue and one fresh issue-stage check regardless of card count.
+    assert len(revalidations) == 2
+    assert final_phases == ['final_publish']
+    assert len(references) == 3
+
+
+def test_issue_stage_keeps_each_record_inside_the_authorized_plan():
+    authorized=make_binding()
+    other=make_binding(document='DOC_OTHER',version='VER_OTHER',binding_ref='BIND_OTHER')
+    runtime,ticket,_,_,_=fake_runtime(bindings=(authorized,))
+    revalidations = []
+    runtime.provider.revalidate = lambda plan: revalidations.append(plan)
+
+    with pytest.raises(KnowledgeError) as failure:
+        list(issue_evidence_stage(runtime.cache,ticket,
+                                 [evidence_record(other, SAFE_EXCERPT)], runtime=runtime))
+
+    assert failure.value.code=='UPSTREAM_SCOPE_VIOLATION'
+    assert len(revalidations) == 1
 
 
 # ---------------------------------------------------------------------------

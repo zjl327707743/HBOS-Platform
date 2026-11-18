@@ -7,10 +7,12 @@ Manifest body size and per-item source size stay separate decisions with
 separate error codes.
 """
 import importlib
+import importlib.util
 import io
 import json
 import sys
 from types import ModuleType, SimpleNamespace
+from pathlib import Path
 
 import pytest
 
@@ -25,6 +27,15 @@ from hb_knowledge_app.hb_knowledge.maintenance_contract import (
 )
 
 MIB = 1024 * 1024
+
+
+def _require_joint_service():
+    try:
+        available = importlib.util.find_spec('knowledge_service.ingestion') is not None
+    except (ModuleNotFoundError, ValueError):
+        available = False
+    if not available:
+        pytest.skip('requires hbos_knowledge_service; covered by the joint service integration run')
 
 
 def test_normal_limit_defaults_to_64_mib_and_is_configurable_down_to_20_mib():
@@ -204,6 +215,34 @@ def test_upload_reads_configured_limit_and_reports_size_specific_error(monkeypat
     with pytest.raises(KnowledgeError) as error:
         maintenance.upload('production', 'synthetic', True)
     assert error.value.code == 'SOURCE_SIZE_LIMIT_EXCEEDED'
+
+
+def test_normal_upload_registers_original_and_selected_directory_before_publication(monkeypatch,tmp_path):
+    _require_joint_service()
+    source,cfg=workspace(tmp_path)
+    registry=tmp_path/'source-registry';registry.mkdir()
+    assets=registry/'assets.json';directories=registry/'source-directory.json'
+    assets.write_text(json.dumps({'schema':'hbos-document-assets-v1','by_version':{}}))
+    directories.write_text(json.dumps({'schema_version':2,'by_version':{}}))
+    cfg.update(maintenance_source_registry_enabled=True,
+               document_asset_roots={'uploads':cfg['maintenance_upload_root']},
+               document_asset_manifest=str(assets),source_directory_path=str(directories))
+    batch,maintenance,state=load_batch(monkeypatch,cfg)
+    maintenance.frappe.local=SimpleNamespace(request=SimpleNamespace(files={'file':SimpleNamespace(filename='S6新资料.txt',stream=io.BytesIO(b'Actual disposable S6 upload fixture.'))}))
+    monkeypatch.setattr(maintenance,'configuration',lambda:cfg)
+    monkeypatch.setattr(maintenance,'require',lambda:None)
+    registered=[]
+    monkeypatch.setattr(maintenance,'register_batch',lambda frozen,state,label,creator:registered.append(frozen) or 'IMP_'+'a'*32)
+    result=maintenance.upload('production','S6 test',True)
+    assert result['relationship']=='NEW' and len(state['commits'])==1
+    frozen=registered[0];item=frozen['items'][0]
+    assert item['relative_path']=='生产部门/S6新资料.txt'
+    entry=json.loads(assets.read_text())['by_version'][item['version_id']]
+    original=Path(cfg['maintenance_upload_root'])/entry['original']['relative_path']
+    assert original.read_bytes()==b'Actual disposable S6 upload fixture.'
+    directory=json.loads(directories.read_text())['by_version'][item['version_id']]
+    assert directory['directories']==[['生产部门']]
+    assert directory['source_origin']=='MANAGED_UPLOAD'
 
 
 def test_submission_group_total_bytes_guard_uses_the_batch_budget(monkeypatch, tmp_path):

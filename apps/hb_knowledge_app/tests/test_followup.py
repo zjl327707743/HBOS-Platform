@@ -5,27 +5,47 @@ from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
 
 class FollowupTests(unittest.TestCase):
     def test_previous_turn_is_passed_as_real_dialogue_not_a_query_prefix(self):
-        previous={'query':'水质监控需要哪些项目','answer':'需要监测pH和电导率。[C1]'}
+        previous={'query':'水质监控需要哪些项目','answer':'需要监测pH和电导率。[C1]',
+                  'references': [('DOC_WATER', 'VER_WATER', 'BIND_WATER', 'CHUNK_1')]}
         self.assertEqual(conversation_history(previous),(
             {'role':'user','content':'水质监控需要哪些项目'},
             {'role':'assistant','content':'需要监测pH和电导率。[C1]'}))
 
     def test_two_turns_are_bounded_and_keep_the_newest(self):
-        older={'query':'培养箱怎么用','answer':'按规程检查密封性。[C1]'}
-        previous={'query':'温度条件是什么','answer':'低于25℃不得启动。[C2]'}
+        older={'query':'培养箱怎么用','answer':'按规程检查密封性。[C1]',
+               'references': [('DOC_SOP', 'VER_SOP', 'BIND_SOP', 'CHUNK_1')]}
+        previous={'query':'温度条件是什么','answer':'低于25℃不得启动。[C2]',
+                  'references': [('DOC_SOP', 'VER_SOP', 'BIND_SOP', 'CHUNK_2')]}
         turns=conversation_history(previous,older=older)
         self.assertEqual([t['role'] for t in turns],['user','assistant','user','assistant'])
         self.assertEqual(turns[-1]['content'],'低于25℃不得启动。[C2]')
 
     def test_history_is_bounded_in_size(self):
+        # V4: one stored turn may carry a long structured answer, so the per-turn
+        # bound follows the widened answer field; the conversation total still
+        # bounds what reaches the model.
         previous={'query':'前'*3000,'answer':'答'*3000}
         turns=conversation_history(previous)
         self.assertTrue(turns)
-        self.assertLessEqual(sum(len(t['content']) for t in turns),12000)
-        self.assertLessEqual(max(len(t['content']) for t in turns),2000)
+        from hb_knowledge_app.hb_knowledge.followup import MAX_TOTAL_CHARS, MAX_TURN_CHARS
+        self.assertLessEqual(sum(len(t['content']) for t in turns),MAX_TOTAL_CHARS)
+        self.assertLessEqual(max(len(t['content']) for t in turns),MAX_TURN_CHARS)
+        too_long={'query':'前'*(MAX_TURN_CHARS+500),'answer':'答'}
+        self.assertLessEqual(max(len(t['content']) for t in conversation_history(too_long)),MAX_TURN_CHARS)
 
     def test_missing_answer_text_contributes_no_fabricated_turn(self):
         self.assertEqual(conversation_history({'query':'问','answer':''}),())
+
+    def test_catalogue_history_passes_the_question_without_stale_counts(self):
+        from hb_knowledge_app.hb_knowledge.followup import CATALOG_HISTORY_REFRESH
+        turns = conversation_history({'query': '知识库共有多少份文件', 'answer': '旧目录 53 份',
+                                      'answer_origin': 'KNOWLEDGE', 'references': []})
+        self.assertEqual(turns[-1]['content'], CATALOG_HISTORY_REFRESH)
+
+    def test_general_history_without_sources_retains_the_answer(self):
+        turns = conversation_history({'query': '什么是光合作用', 'answer': '光能转化为化学能。',
+                                      'answer_origin': 'GENERAL', 'model_alias': 'gpt-6-luna'})
+        self.assertEqual(turns[-1]['content'], '光能转化为化学能。')
 
     def test_followup_cannot_carry_question_across_scope_or_context(self):
         prior={'space_ids':['A','B'],'context':{'equipment_id':'SYNTHETIC_MACHINE'}}

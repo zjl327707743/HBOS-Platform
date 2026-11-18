@@ -146,9 +146,10 @@ class RedisDecisions:
             return ticket
         plan=self.provider.evaluate(actor,client,action,request,request_id)
         self.quota.reserve_request(actor.user_ref,request_id,action+':'+fp+':'+actor.session_ref+':'+client.client_id)
-        digest=hashlib.sha256(json.dumps(plan.to_wire(),sort_keys=True,ensure_ascii=True).encode()).hexdigest()
+        wire=plan.to_wire()
+        digest=hashlib.sha256(json.dumps(wire,sort_keys=True,ensure_ascii=True).encode()).hexdigest()
         ref=secrets.token_urlsafe(32)
-        row=canonical({'plan':plan.to_wire(),'request':request.to_wire(),'fingerprint':fp,'digest':digest,
+        row=canonical({'plan':wire,'request':request.to_wire(),'fingerprint':fp,'digest':digest,
                        'deadline':iso(min(time.time()+self.deadline_seconds,timestamp(plan.expires_at)))})
         selected=self.state.eval(ISSUE_LUA,['identity:'+ik,'decision:'+ref],[ref,row])
         ticket=self._read(selected)
@@ -157,13 +158,15 @@ class RedisDecisions:
         return ticket
     def verify_request(self,ref,request):
         if self._read(ref).request_fingerprint!=self.fingerprint(request): raise KnowledgeError('REPLAY_REJECTED')
-    def online(self,principal,call):
+    def online(self,principal,call,*,request=None):
         if not principal.authenticated: raise KnowledgeError('CLIENT_AUTH_FAILED')
         if call.contract_version!=CONTRACT_VERSION or call.phase not in PHASES: raise KnowledgeError('INVALID_REQUEST')
         ticket=self._read(call.decision_ref); plan=ticket.plan
         if principal.client!=plan.client: raise KnowledgeError('CLIENT_AUTH_FAILED')
         if (call.request_id,call.action,call.request_fingerprint,call.plan_digest,call.deadline_at)!=(
              plan.request_id,plan.action,ticket.request_fingerprint,ticket.plan_digest,ticket.deadline_at):
+            raise KnowledgeError('REPLAY_REJECTED')
+        if request is not None and ticket.request_fingerprint!=self.fingerprint(request):
             raise KnowledgeError('REPLAY_REJECTED')
         expected={'introspect':'introspect','cache_read':'introspect','pre_issue':'authorize-evidence',
                   'evidence_read':'authorize-evidence','document_read':'authorize-evidence',

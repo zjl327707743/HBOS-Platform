@@ -248,9 +248,12 @@ def _conversion_filter(source):
     return 'pdf'
 
 
-def prepare_office(source, destination, *, soffice, allow_legacy=False, allow_external_links=False):
+def prepare_office(source, destination, *, soffice, allow_legacy=False, allow_external_links=False, allow_text=False):
     source=Path(source)
-    if allow_legacy and source.suffix.lower() in LEGACY_OFFICE:
+    plain_text = allow_text and source.suffix.lower()=='.txt'
+    if plain_text:
+        text = source.read_text(encoding='utf-8')
+    elif allow_legacy and source.suffix.lower() in LEGACY_OFFICE:
         # Offline builder only: the binary format cannot be inspected as a
         # package, so the converter runs headless with macros disabled, in a
         # disposable profile, under the sandbox policy below - and its output is
@@ -263,7 +266,10 @@ def prepare_office(source, destination, *, soffice, allow_legacy=False, allow_ex
     destination=Path(destination);destination.parent.mkdir(parents=True,exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='rc14-office-',dir=destination.parent) as temp:
         work=Path(temp);original=work/('source'+Path(source).suffix.lower())
-        shutil.copyfile(source,original)
+        if plain_text:
+            original.write_text(text,encoding='utf-8-sig')
+        else:
+            shutil.copyfile(source,original)
         profile=work/'profile';(profile/'user').mkdir(parents=True)
         (profile/'user/registrymodifications.xcu').write_text('''<?xml version="1.0" encoding="UTF-8"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry">

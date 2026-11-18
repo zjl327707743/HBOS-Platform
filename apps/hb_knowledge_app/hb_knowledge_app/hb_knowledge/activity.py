@@ -1,7 +1,7 @@
 """Native user-owned activity, with bounded answer/preview snapshots for restoration."""
 import hashlib,json,secrets
 from .errors import KnowledgeError
-from .r1_contract import normalize_search
+from .r1_contract import normalize_search, ANSWER_MAX_CODEPOINTS
 from .public_strings import safe_string, source_string
 from .gateway import EvidenceRecord
 from .service_http import canonical
@@ -64,13 +64,15 @@ def write(kind,query,spaces,records,runtime,*,conversation_id=None,category=None
         if len(data['previews'])>5:raise KnowledgeError('INVALID_REQUEST')
         data['search_mode']=search_mode
     if answer is not None:
-        data['answer']=safe_string(answer,2000)
+        data['answer']=safe_string(answer,ANSWER_MAX_CODEPOINTS)
         data['labels']=list(labels or [])
         data['question']=safe_string(question or query,500)
         if answer_origin is not None:
             from .answer_policy import model_alias as validate
-            if answer_origin not in ('GENERAL','KNOWLEDGE') or (answer_origin=='GENERAL' and (records or labels)):raise KnowledgeError('INVALID_REQUEST')
-            data.update(answer_origin=answer_origin,model_alias=validate(model_alias))
+            if (answer_origin not in ('GENERAL','KNOWLEDGE')
+                    or (answer_origin=='GENERAL' and (records or labels or model_alias is None))):
+                raise KnowledgeError('INVALID_REQUEST')
+            data.update(answer_origin=answer_origin,model_alias=None if model_alias is None else validate(model_alias))
     if context:data['context']=dict(context)
     if conversation_id:data['conversation_id']=conversation_id
     if category:data.update(category=category,note=safe_string(note or '',500))
@@ -127,11 +129,50 @@ def owned(name,actor,kinds=('History','Bookmark')):
         raise KnowledgeError('EVIDENCE_UNAVAILABLE')
     return row,json.loads(row.payload_json)
 
-def bindings_for(data,mapping):
+def _same_source_revision(document, version, reference, binding):
+    """Require an immutable adoption receipt for this exact authorized pair."""
+    import frappe
+    import re
+
+    current = frappe.db.get_value('HBOS Knowledge Document', document,
+                                  ['current_version', 'source_hash', 'withdrawn', 'ingestion_status'],
+                                  as_dict=True)
+    if (not current or current.current_version != version or current.withdrawn
+            or current.ingestion_status != 'published'
+            or not re.fullmatch('[0-9a-f]{64}', current.source_hash or '')):
+        return False
+    rows = frappe.get_all('HBOS Knowledge Parse Revision', filters={
+        'canonical_document_id': document, 'version_id': version,
+        'parent_binding_ref': reference, 'target_binding_ref': binding.binding_ref,
+    }, fields=['receipt_json'], limit_page_length=2)
+    if len(rows) != 1:
+        return False
+    receipt = json.loads(rows[0].receipt_json)
+    schema = receipt.get('schema')
+    approved_direction = schema == 'hbos.parse-revision.v1' or (
+        schema == 'hbos.parse-rollback.v1'
+        and receipt.get('old_authorization_snapshot_restored') is False
+        and receipt.get('current_binding_ref') == reference
+        and receipt.get('return_binding_ref') == binding.binding_ref
+    )
+    return (approved_direction
+            and receipt.get('business_version_changed') is False
+            and receipt.get('canonical_document_id') == document
+            and receipt.get('version_id') == version
+            and receipt.get('parent_binding_ref') == reference
+            and receipt.get('new_binding_ref') == binding.binding_ref
+            and receipt.get('source_sha256') == current.source_hash)
+
+
+def bindings_for(data,mapping,*,allow_reindex=False):
     selected=[]
     for document,version,reference,chunk in data['references']:
         b=mapping.get((document,version))
-        if not b or b.binding_ref!=reference:raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+        if not b:
+            raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+        if b.binding_ref != reference:
+            if not allow_reindex or not _same_source_revision(document, version, reference, b):
+                raise KnowledgeError('EVIDENCE_UNAVAILABLE')
         selected.append(b)
     return selected
 
@@ -148,7 +189,7 @@ def list_activity(runtime,kind,page=1,page_size=12):
             if row.publication_id and not frappe.db.exists('HBOS Knowledge Audit',{'publication_id':row.publication_id,'publication_state':'Complete'}):continue
             data=json.loads(row.payload_json)
             try:
-                bindings=bindings_for(data,current_mapping);available=True
+                bindings=bindings_for(data,current_mapping,allow_reindex='previews' in data);available=True
             except KnowledgeError:bindings=[];available=False
             out.append({'id':row.name,'query':safe_string(data.get('question',data['query']),500),'created_at':str(row.creation),
                 'available':available,'titles':[safe_string(b.title,240,nullable=True) for b in bindings],
@@ -227,11 +268,12 @@ def save_document(runtime,document_id,version_id,request_id):
 def restore(runtime,row,data,actor,mapping,request_id):
     """A fresh session gets fresh handles only after present source authorization.
 
-    Opening a saved conversation does no vector search and no model generation.
-    A missing/changed publication fails closed before restoring its answer.
+    Unchanged bindings are reauthorized directly. A technical successor must
+    also return a matching excerpt under the new binding before any old answer
+    can be displayed. No model generation is used.
     """
     from .evidence import issue_evidence
-    from knowledge_service.hbos_gateway.response_projection import public_evidence
+    from .employee_evidence import public_evidence
     chain=[(row.name,data)]
     if 'answer' in data:
         seen={row.name}
@@ -243,7 +285,7 @@ def restore(runtime,row,data,actor,mapping,request_id):
             seen.add(parent);chain.append((parent_row.name,parent_data))
         chain.reverse()
     # Validate the complete chain before issuing any handle or answer.
-    for _,item in chain:bindings_for(item,mapping)
+    for _,item in chain:bindings_for(item,mapping,allow_reindex=True)
     turns=[];results=[]
     for index,(turn,item) in enumerate(chain):
         request=normalize_search({'query':item['query'],**({'space_ids':item['space_ids']} if item['space_ids'] else {}),
@@ -252,36 +294,72 @@ def restore(runtime,row,data,actor,mapping,request_id):
         runtime.publication.plan=ticket.plan
         previews=item['previews'];records=[]
         if not isinstance(previews,list) or len(previews)>5:raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+        fresh = None
         for preview in previews:
-            document,version,reference,chunk=preview['reference'];b=mapping.get((document,version))
-            if not b or b.binding_ref!=reference:raise KnowledgeError('EVIDENCE_UNAVAILABLE')
-            records.append(EvidenceRecord(document,b.title,b.business_version,'内部参考／有效性待核',b.section,
-                preview['page_number'],source_string(preview['excerpt'],500),chunk,b.dataset_alias,b.space_id,b.version_id,reference,b))
-        runtime.decisions.online(__principal(runtime),ticket.call('introspect','introspect'))
-        runtime.decisions.online(__principal(runtime),ticket.call('introspect','cache_read'))
-        runtime.decisions.online(__principal(runtime),ticket.call('revalidate','pre_projection'))
+            document,version,reference,chunk=preview['reference']
+            b=mapping.get((document,version))
+            if not b:
+                raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+            excerpt = source_string(preview['excerpt'],500)
+            if b.binding_ref != reference:
+                if not _same_source_revision(document, version, reference, b):
+                    raise KnowledgeError('EVIDENCE_UNAVAILABLE')
+                if fresh is None:
+                    fresh = runtime.gateway.search(ticket=ticket)
+                expected = ' '.join(excerpt.split())
+                matches = [r for r in fresh if r.binding == b
+                           and expected and expected in ' '.join(r.excerpt.split())]
+                if len(matches) != 1:
+                    raise KnowledgeError('HISTORY_REINDEX_REVIEW_REQUIRED')
+                records.append(matches[0])
+            else:
+                records.append(EvidenceRecord(document,b.title,b.business_version,'内部参考／有效性待核',b.section,
+                    preview['page_number'],excerpt,chunk,b.dataset_alias,b.space_id,b.version_id,reference,b))
+        if fresh is None:
+            runtime.decisions.online(__principal(runtime),ticket.call('introspect','introspect'))
+            runtime.decisions.online(__principal(runtime),ticket.call('introspect','cache_read'))
+            runtime.decisions.online(__principal(runtime),ticket.call('revalidate','pre_projection'))
         if records:
             runtime.gateway.authorize_evidence(ticket,records,phase='evidence_read')
         runtime.provider.revalidate(ticket.plan)
-        runtime.quota.reserve_output(actor.user_ref,sum(len(r.excerpt) for r in records)+len(item.get('answer','')))
+        answer=item.get('answer')
+        alias=item.get('model_alias')
+        general=item.get('answer_origin')=='GENERAL'
+        presentation=None
+        if answer is not None and not records and not general:
+            from .followup import historical_catalogue, HISTORY_ANSWER_HIDDEN
+            alias=None
+            if historical_catalogue(item):
+                from .catalog_direct import render
+                from .spaces import list_spaces
+                titles={space['space_id']:space['title'] for space in list_spaces(runtime,actor)['spaces']}
+                answer, found = render(ticket.plan, titles, item.get('question') or item['query'])
+                presentation='CATALOG_RESULTS' if found else 'INSUFFICIENT_EVIDENCE'
+            else:
+                answer=HISTORY_ANSWER_HIDDEN
+                presentation='INSUFFICIENT_EVIDENCE'
+        runtime.quota.reserve_output(actor.user_ref,sum(len(r.excerpt) for r in records)+len(answer or ''))
         output=[public_evidence(r,issue_evidence(runtime.cache,ticket,r,runtime=runtime),environment=runtime.profile) for r in records]
         if 'answer' in item:
             labels=item.get('labels',[])
             if len(labels)!=len(output):raise KnowledgeError('EVIDENCE_UNAVAILABLE')
             citations=[dict(source,citation_label=label) for source,label in zip(output,labels)]
-            general=item.get('answer_origin')=='GENERAL'
             if general and (records or citations):raise KnowledgeError('EVIDENCE_UNAVAILABLE')
             from .answer_policy import answer_presentation
-            turns.append({'request_id':request_id,'turn_id':turn,'conversation_id':turn,**answer_presentation(item['answer'],bool(citations),general),
-                'answer':item['answer'],'citations':citations,'question':item.get('question',item['query']),
-                'answer_origin':item.get('answer_origin','KNOWLEDGE'),'model_alias':item.get('model_alias')})
+            turns.append({'request_id':request_id,'turn_id':turn,'conversation_id':turn,
+                **answer_presentation(answer,bool(citations),general,state=presentation),
+                'answer':answer,'citations':citations,'question':item.get('question',item['query']),
+                'answer_origin':item.get('answer_origin','KNOWLEDGE'),'model_alias':alias})
         else:results=output
         runtime.decisions.online(__principal(runtime),ticket.call('revalidate','final_publish'))
     final_actor,final_mapping=current(runtime)
     if final_actor!=actor:raise KnowledgeError('SCOPE_REJECTED')
-    for _,item in chain:bindings_for(item,final_mapping)
+    for _,item in chain:
+        if (bindings_for(item,final_mapping,allow_reindex=True)
+                != bindings_for(item,mapping,allow_reindex=True)):
+            raise KnowledgeError('SCOPE_REJECTED')
     # Persistent handles require a Complete audit from the same publication.
-    # Restoring issues fresh handles without doing a new search/model call.
+    # All returned handles were issued against authorized current bindings.
     runtime.audit.record(actor.user_ref,'restore','SUCCESS',len(turns) or len(results))
     return {'query':data.get('question',data['query']),'space_ids':data['space_ids'],
         **({'context':data['context']} if data.get('context') else {}),
@@ -317,18 +395,65 @@ def list_feedback(runtime,page=1,page_size=12,status=None):
     if final_actor!=actor:raise KnowledgeError('SCOPE_REJECTED')
     return {'items':out[:page_size],'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
 
-def feedback_queue(runtime,page=1,page_size=12,status=None):
+def _feedback_payload_text(row):
+    raw=row['payload_json'] if isinstance(row,dict) else row.payload_json
+    try:data=json.loads(raw)
+    except (ValueError,TypeError):return None
+    # Match the decoded JSON text so non-ASCII values (stored with
+    # ensure_ascii=True by service_http.canonical) are searchable, while ASCII
+    # keys/values keep the same substring semantics as the previous raw LIKE.
+    return json.dumps(data,ensure_ascii=False,sort_keys=True,separators=(',',':'))
+
+def feedback_queue(runtime,page=1,page_size=12,status=None,query=None):
+    """Maintenance feedback queue. Optional page-bounded substring filter over
+    the decoded stored feedback payload (read-only; same maintainer scope).
+
+    payload_json is stored with ensure_ascii=True, so a SQL LIKE on the raw
+    column cannot match non-ASCII input. The feedback queue is small and
+    maintenance-scoped, so the filter scans at most MAX_SCAN rows in the stable
+    creation order, decodes each payload and pages the exact matches. Output is
+    still bounded to page_size items. scan_truncated is True only when the
+    safety cap was reached before the whole queue could be examined.
+    """
     import frappe
     from .maintenance_access import require
     require()
     from .reference_admin import _page_number
     page=_page_number(page,100000);page_size=_page_number(page_size,50)
     if status not in (None,'','Pending','In Review','Resolved'):raise KnowledgeError('INVALID_REQUEST')
+    needle=None
+    if query not in (None,''):
+        if not isinstance(query,str):raise KnowledgeError('INVALID_REQUEST')
+        needle=query.strip()
+        if not 1<=len(needle)<=120:raise KnowledgeError('INVALID_REQUEST')
     filters={'kind':'Feedback'}
     if status:filters['status']=status
-    rows=frappe.get_all(DOCTYPE,filters=filters,fields=['name','payload_json','status','creation'],order_by='creation desc,name desc',limit_start=(page-1)*page_size,limit_page_length=page_size+1)
-    return {'items':[{'id':r.name,'status':r.status,'created_at':str(r.creation),**json.loads(r.payload_json)} for r in rows[:page_size]],
-            'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
+    fields=['name','payload_json','status','creation']
+    order='creation desc,name desc'
+    if needle is None:
+        rows=frappe.get_all(DOCTYPE,filters=filters,fields=fields,order_by=order,
+                            limit_start=(page-1)*page_size,limit_page_length=page_size+1)
+        matches=None
+    else:
+        MAX_SCAN=5000;CHUNK=500;need=(page-1)*page_size+page_size+1
+        matches=[];start=0
+        while start<MAX_SCAN and len(matches)<need:
+            batch=frappe.get_all(DOCTYPE,filters=filters,fields=fields,order_by=order,
+                                 limit_start=start,limit_page_length=CHUNK)
+            if not batch:break
+            for row in batch:
+                text=_feedback_payload_text(row)
+                if text is not None and needle.casefold() in text.casefold():matches.append(row)
+            start+=len(batch)
+            if len(batch)<CHUNK:break
+        scan_truncated=start>=MAX_SCAN and len(matches)<need
+        rows=matches[(page-1)*page_size:(page-1)*page_size+page_size+1]
+    items=[{'id':r['name'] if isinstance(r,dict) else r.name,'status':r['status'] if isinstance(r,dict) else r.status,
+            'created_at':str(r['creation'] if isinstance(r,dict) else r.creation),**(json.loads(r['payload_json'] if isinstance(r,dict) else r.payload_json))}
+           for r in rows[:page_size]]
+    response={'items':items,'page':page,'page_size':page_size,'has_more':len(rows)>page_size}
+    if matches is not None:response['scan_truncated']=scan_truncated
+    return response
 
 def review_feedback(runtime,name,status,reply=''):
     import frappe

@@ -2,7 +2,7 @@
 import re, unicodedata
 from .errors import KnowledgeError
 ALIASES=('gpt-6-luna','deepseek-flash','gemini-3.8-flash','kimi-k3')
-DEFAULT_MODEL='gpt-6-luna'
+DEFAULT_MODEL='deepseek-flash'
 COMPANY_INSUFFICIENT='没有可核验的企业依据。请提供已发布且有权查阅的资料。'
 
 def guard_restricted_request(question):

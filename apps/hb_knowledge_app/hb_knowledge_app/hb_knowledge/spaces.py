@@ -43,3 +43,19 @@ def list_spaces(runtime, actor):
     if output != project(runtime.provider._current(actor, runtime.client)):
         raise KnowledgeError('SCOPE_REJECTED')
     return output
+
+
+def authorized_title_records(runtime, actor):
+    """Display-only space titles for the authorized spaces.
+
+    The ask path only needs the title map for space-scoped evidence labels; the
+    full list_spaces projection also validates every binding, which is not part
+    of this display step. Scope is enforced by the decision ticket and the
+    evidence authorization phases, so this avoids a redundant 1103-binding loop.
+    """
+    snapshot = runtime.provider._current(actor, runtime.client)
+    allowed = authorized_spaces(snapshot)
+    if len(allowed) > 100:
+        raise KnowledgeError('POLICY_UNAVAILABLE')
+    titles = dict(snapshot.space_titles)
+    return [{'space_id': space, 'title': titles.get(space, '知识空间')} for space in sorted(allowed)]

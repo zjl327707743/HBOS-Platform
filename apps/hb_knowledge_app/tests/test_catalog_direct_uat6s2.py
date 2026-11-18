@@ -182,6 +182,7 @@ def test_the_answer_comes_from_the_plan_without_the_gateway(monkeypatch):
     assert ask_calls == []
     assert out['answer_status'] == 'CATALOG_RESULTS'
     assert out['citations'] == []
+    assert out['model_alias'] is None
     assert '2 份' in out['answer']
     import json
     payload = json.loads(inserted[0]['payload_json'])
@@ -231,6 +232,17 @@ def test_a_named_subject_narrows_the_count(monkeypatch):
     bindings = [_binding('DEPT_A', 'DOC_1', '生产规程'), _binding('DEPT_SAFETY', 'DOC_2', '安全培训手册')]
     out, *_ = _call(monkeypatch, bindings, '安全培训资料一共有多少份', titles=TITLES)
     assert '1 份' in out['answer']
+
+
+def test_explicit_department_count_uses_all_titles_in_that_authorized_space(monkeypatch):
+    bindings = [_binding('DEPT_A', 'DOC_1', '设备清洗记录'),
+                _binding('DEPT_A', 'DOC_2', '岗位交接表'),
+                _binding('DEPT_SAFETY', 'DOC_3', '安全培训手册')]
+    out, *_ = _call(monkeypatch, bindings, '知识库中生产部门共有多少份文件？', titles=TITLES)
+    assert '【生产部门】共 2 份' in out['answer']
+    assert '安全培训手册' not in out['answer']
+    unknown, *_ = _call(monkeypatch, bindings, '知识库中质量部门共有多少份文件？', titles=TITLES)
+    assert unknown is None
 
 
 def test_the_plan_never_counts_a_space_it_does_not_authorize(monkeypatch):

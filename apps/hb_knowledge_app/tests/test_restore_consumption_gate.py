@@ -1,4 +1,4 @@
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 import sys
 import pytest
 from hb_knowledge_app.hb_knowledge import activity, evidence
@@ -15,8 +15,21 @@ def fixture(monkeypatch, *, revoked=False):
           'answer':'已存答案[C1]','labels':['C1']}
     # The domain unit tests exercise publication, not the separately shipped
     # service projector. Its real implementation is covered by service and HTTP tests.
-    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway.response_projection',
-        SimpleNamespace(public_evidence=lambda record,handle,**kwargs:{'evidence_id':handle,'document_id':record.document_id,'excerpt':record.excerpt}))
+    service=ModuleType('knowledge_service');service.__path__=[]
+    gateway=ModuleType('knowledge_service.hbos_gateway');gateway.__path__=[]
+    response=ModuleType('knowledge_service.hbos_gateway.response_projection')
+    response.public_evidence=lambda record,handle,**kwargs:{
+        'evidence_id':handle,'document_id':record.document_id,'excerpt':record.excerpt}
+    reviewed=ModuleType('knowledge_service.hbos_gateway.reviewed_excerpts')
+    reviewed.has_review=lambda binding:False
+    reviewed.reviewed_presentation=lambda binding,excerpt,**kwargs:(excerpt,None)
+    service.hbos_gateway=gateway
+    gateway.response_projection=response
+    gateway.reviewed_excerpts=reviewed
+    monkeypatch.setitem(sys.modules,'knowledge_service',service)
+    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway',gateway)
+    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway.response_projection',response)
+    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway.reviewed_excerpts',reviewed)
     audits=[];ticket=SimpleNamespace(plan=object(),call=lambda *args:object())
     runtime=SimpleNamespace(client=object(),profile='production',cache=object(),publication=SimpleNamespace(plan=None),
         decisions=SimpleNamespace(issue=lambda *args:ticket,online=lambda *args:None),

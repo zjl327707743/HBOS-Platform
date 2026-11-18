@@ -1,7 +1,10 @@
 """Explicit real internal-reference profile using native Frappe identity."""
 from __future__ import annotations
+from collections import OrderedDict
 import hashlib, json, os
+from functools import lru_cache
 from pathlib import Path
+from threading import Lock
 from .errors import KnowledgeError
 from .execution_plan import Client, GrantPair, ProviderStamp
 from .repositories import AuthoritySnapshot
@@ -23,16 +26,9 @@ def configuration():
         raise KnowledgeError('POLICY_UNAVAILABLE')
     return cfg
 
-# The registry projection (which version, dataset and binding revision were
-# quality-passed and share-confirmed) is the same for every reader, and it was
-# rebuilt on every request by parsing all import batches. That work belongs to
-# the registry, not to a reader: it is cached under a key made of the site, the
-# projection schema, the approved-config revision and the batch table's own
-# revision (count plus newest modification). A batch write updates `modified`,
-# so a new registration cannot be served from a stale key. The cache holds no
-# per-actor conclusion - bindings, withdrawals and roles are still read from the
-# database on every request and every accepted binding is matched against these
-# pairs.
+# Registry admission remains fresh per HTTP request. Only the projection inside
+# one request is reused; no count/MAX(modified) aggregate authorizes cached data.
+# Full bodies are needed only after current quality metadata has a Passed entry.
 _REGISTRY_SCHEMA='registry-v1'
 
 def _registry_revision(cur):
@@ -43,6 +39,50 @@ def _registry_revision(cur):
     except Exception:
         return None
 
+def _project_registry_row(frozen_json, state_json, quality_json):
+    from .maintenance_contract import registered
+
+    frozen = json.loads(frozen_json)
+    state = json.loads(state_json)
+    quality = json.loads(quality_json or '{}')
+    if not isinstance(quality, dict):
+        return ()
+    registered(frozen, state)
+    pairs = []
+    for item in state['items']:
+        review = quality.get(item['version_id'], {})
+        if (item['status'] == 'parsed/indexed' and item.get('disposition') != 'SAME_CONTENT_SKIP'
+                and item.get('internal_sharing_confirmed') is True
+                and item.get('owner_inclusion_confirmed') is True
+                and review.get('status') == 'Passed' and review.get('source_sha256') == item['sha256']
+                and review.get('upload_sha256') == item.get('upload_sha256')):
+            pairs.append((item['canonical_document_id'], item['version_id'], item['dataset_id'],
+                          item['ragflow_document_id'], item['binding_revision']))
+    return tuple(pairs)
+
+
+_cached_registry_row = lru_cache(maxsize=512)(_project_registry_row)
+_large_registry_rows = OrderedDict()
+_large_registry_lock = Lock()
+
+
+def _project_large_registry_row(*values):
+    # The digest keys the complete bytes of each field from the fresh snapshot.
+    # Keep the projection only so the cache does not retain large manifests.
+    key = tuple(hashlib.sha256(value.encode()).digest() for value in values)
+    with _large_registry_lock:
+        if key in _large_registry_rows:
+            _large_registry_rows.move_to_end(key)
+            return _large_registry_rows[key]
+    pairs = _project_registry_row(*values)
+    with _large_registry_lock:
+        _large_registry_rows[key] = pairs
+        _large_registry_rows.move_to_end(key)
+        if len(_large_registry_rows) > 256:
+            _large_registry_rows.popitem(last=False)
+    return pairs
+
+
 def _registry_pairs(cur,config,rows_fn):
     """Registry pairs for this request.
 
@@ -50,29 +90,40 @@ def _registry_pairs(cur,config,rows_fn):
     MAX(modified) cannot prove that a registry row changed from Passed to
     Rejected or lost its sharing confirmation, because such an update can keep
     both aggregates identical, and the registry does take part in authorization.
-    Until a revision maintained in the same transaction as every registry write
-    exists, the projection is rebuilt once per request - which measured 107 ms
-    and therefore was never the source of the six-second wait.
+    Rebuild the set from rows read in the current request. Reuse only immutable
+    results of validating an identical frozen, state and quality payload.
     """
-    from .maintenance_contract import registered
     import frappe
     cached=getattr(frappe.local,'_hbos_registry_value',None)
     if cached is not None:
         return cached
     pairs=set();datasets=set()
-    batches=rows_fn(cur,'SELECT frozen_json,state_json,quality_json FROM `tabHBOS Knowledge Import Batch`')
+    # Quality is read afresh from this committed snapshot. A batch without any
+    # Passed review cannot contribute a registered pair, so do not load its
+    # potentially large frozen/source-page/profile JSON. This is a conservative
+    # preselection, not an authorization cache: selected rows are read again and
+    # still pass every existing frozen, state, sharing and checksum check below.
+    reviews=rows_fn(cur,'SELECT name,quality_json FROM `tabHBOS Knowledge Import Batch`')
+    eligible=[]
+    for entry in reviews:
+        try:quality=json.loads(entry['quality_json'] or '{}')
+        except (ValueError,TypeError,KeyError):continue
+        if isinstance(quality,dict) and any(isinstance(q,dict) and q.get('status')=='Passed' for q in quality.values()):
+            eligible.append(entry['name'])
+    batches=[]
+    for start in range(0,len(eligible),128):
+        ids=eligible[start:start+128]
+        batches.extend(rows_fn(cur,'SELECT frozen_json,state_json,quality_json FROM `tabHBOS Knowledge Import Batch` WHERE name IN ('+
+                               ','.join(['%s']*len(ids))+')',tuple(ids)))
     for entry in batches:
         try:
-            frozen=json.loads(entry['frozen_json']);batch_state=json.loads(entry['state_json']);quality=json.loads(entry['quality_json'] or '{}')
-            registered(frozen,batch_state)
-            for item in batch_state['items']:
-                q=quality.get(item['version_id'],{})
-                if (item['status']=='parsed/indexed' and item.get('disposition')!='SAME_CONTENT_SKIP' and
-                    item.get('internal_sharing_confirmed') is True and item.get('owner_inclusion_confirmed') is True and
-                    q.get('status')=='Passed' and q.get('source_sha256')==item['sha256'] and
-                    q.get('upload_sha256')==item.get('upload_sha256')):
-                    pairs.add((item['canonical_document_id'],item['version_id'],item['dataset_id'],item['ragflow_document_id'],item['binding_revision']))
-                    datasets.add(item['dataset_id'])
+            values = entry['frozen_json'], entry['state_json'], entry['quality_json']
+            project = _project_registry_row
+            if all(isinstance(value, str) for value in values):
+                project = _cached_registry_row if sum(map(len, values)) <= 32768 else _project_large_registry_row
+            accepted = project(*values)
+            pairs.update(accepted)
+            datasets.update(pair[2] for pair in accepted)
         except (ValueError,KeyError,TypeError,KnowledgeError):
             continue
     value=(pairs,datasets)
@@ -92,8 +143,13 @@ class InternalSharedAuthority(FrappePairedAuthority):
         if self.config['reader_role'] not in state.roles:
             raise KnowledgeError('SCOPE_REJECTED')
         with committed_view() as cur:
-            spaces=rows(cur,'SELECT name,title,required_role FROM `tabHBOS Knowledge Space` WHERE enabled=1')
-            spaces=[s for s in spaces if s['name'] in self.config['approved_space_ids'] and s['required_role']==self.config['reader_role']]
+            extra=(',maintenance_department,template_json,parent_space,space_admission_json'
+                   if self.config.get('maintenance_space_creation_enabled') is True else '')
+            spaces=rows(cur,'SELECT name,title,required_role'+extra+' FROM `tabHBOS Knowledge Space` WHERE enabled=1')
+            from .maintenance_spaces import approved_child_spaces
+            permitted_spaces=approved_child_spaces(spaces,self.config)
+            spaces=[s for s in spaces if s['name'] in permitted_spaces and s['required_role']==self.config['reader_role']]
+            space_ids={space['name'] for space in spaces}
             data=rows(cur,'SELECT b.*,s.name as space_record_id,s.enabled as space_enabled, '
                 'v.name as version_record_id,v.version_id as version_record_identity, '
                 'v.canonical_document_id as version_document_id, '
@@ -113,9 +169,9 @@ class InternalSharedAuthority(FrappePairedAuthority):
             for row in data:
                 try:b=binding_from_row(row)
                 except KnowledgeError:continue
-                if (b.space_id in {s['name'] for s in spaces} and b.dataset_id in self.config['approved_dataset_ids']
+                if (b.space_id in space_ids and b.dataset_id in self.config['approved_dataset_ids']
                     and b.canonical_document_id in allowed_documents and b.source_type!='SYNTHETIC_TEST') or (
-                    b.space_id in {s['name'] for s in spaces} and b.source_type!='SYNTHETIC_TEST' and
+                    b.space_id in space_ids and b.source_type!='SYNTHETIC_TEST' and
                     (b.canonical_document_id,b.version_id,b.dataset_id,b.document_id,b.binding_revision) in registered_pairs):
                     accepted.append(b)
         bindings=tuple(accepted)

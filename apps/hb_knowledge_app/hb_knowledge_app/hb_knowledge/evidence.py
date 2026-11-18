@@ -15,8 +15,7 @@ EVIDENCE_NAMESPACE = "hbos:k1c2:knowledge:evidence:"
 def _evidence_key(evidence_id):
     return EVIDENCE_NAMESPACE + evidence_id
 
-def issue_evidence(cache, ticket, record: EvidenceRecord, *, runtime):
-    runtime.provider.revalidate(ticket.plan)
+def _issue_evidence_for_revalidated_plan(cache, ticket, record: EvidenceRecord, *, runtime):
     if record.binding not in ticket.plan.bindings or record.binding_ref != record.binding.binding_ref:
         raise KnowledgeError("UPSTREAM_SCOPE_VIOLATION")
     b=record.binding
@@ -35,6 +34,32 @@ def issue_evidence(cache, ticket, record: EvidenceRecord, *, runtime):
         {"schema":EVIDENCE_SCHEMA,"reference_id":reference.reference_id,"expires_at":reference.expires_at},
         expires_in_sec=EVIDENCE_TTL_SECONDS)
     return evidence_id
+
+def issue_evidence(cache, ticket, record: EvidenceRecord, *, runtime):
+    runtime.provider.revalidate(ticket.plan)
+    return _issue_evidence_for_revalidated_plan(cache,ticket,record,runtime=runtime)
+
+def issue_evidence_stage(cache, ticket, records, *, runtime):
+    """Issue one search response's evidence after one fresh stage check.
+
+    The search route already has a separate pre-issue check. This adds one
+    fresh current-state check for the issue stage, then retains exact plan and
+    record binding checks for every card. It is request-scoped only; callers
+    must keep the independent final-publish revalidation.
+    """
+    records=tuple(records)
+    if not records:
+        return
+    runtime.provider.revalidate(ticket.plan)
+    for record in records:
+        try:
+            evidence_id=_issue_evidence_for_revalidated_plan(cache,ticket,record,runtime=runtime)
+        except KnowledgeError as error:
+            if error.code!="UPSTREAM_INVALID_RESULT":
+                raise
+            yield record,None,error
+        else:
+            yield record,evidence_id,None
 
 def resolve_evidence(cache, actor, client, evidence_id, *, runtime, request_id):
     if not isinstance(evidence_id,str) or not 1 <= len(evidence_id) <= 128:
@@ -83,8 +108,9 @@ def resolve_evidence(cache, actor, client, evidence_id, *, runtime, request_id):
         persist_diagnostic({'stage':'SOURCE_RESOLUTION_FAILED','request_id':safe_request,
             'reason':error.code,'detail_reason':phase,
             'document_hashes':[hashlib.sha256(reference.binding.canonical_document_id.encode()).hexdigest()]})
-        if error.code in {"POLICY_UNAVAILABLE","UPSTREAM_UNAVAILABLE","MODEL_NOT_APPROVED",
-                          "RATE_LIMITED","EXTRACTION_LIMITED","DECISION_EXPIRED"}:
+        if error.code in {"POLICY_UNAVAILABLE", "UPSTREAM_UNAVAILABLE", "MODEL_NOT_APPROVED",
+                          "RETRIEVAL_UPSTREAM_FAILED", "SERVICE_ERROR",
+                          "RATE_LIMITED", "EXTRACTION_LIMITED", "DECISION_EXPIRED"}:
             raise
         raise KnowledgeError("EVIDENCE_UNAVAILABLE") from None
 

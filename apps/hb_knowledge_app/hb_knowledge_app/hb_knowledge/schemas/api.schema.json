@@ -94,7 +94,7 @@
        "content": {
         "type": "string",
         "minLength": 1,
-        "maxLength": 2000
+        "maxLength": 12000
        }
       },
       "required": [
@@ -537,7 +537,7 @@
     "answer": {
      "type": "string",
      "minLength": 1,
-     "maxLength": 2000
+     "maxLength": 12000
     },
     "citations": {
      "type": "array",
@@ -554,6 +554,7 @@
     },
     "model_alias": {
      "enum": [
+      null,
       "gpt-6-luna",
       "deepseek-flash",
       "gemini-3.8-flash",
@@ -612,7 +613,7 @@
        "answer": {
         "type": "string",
         "minLength": 1,
-        "maxLength": 2000
+        "maxLength": 12000
        }
       }
      }
@@ -1186,7 +1187,7 @@
        "content": {
         "type": "string",
         "minLength": 1,
-        "maxLength": 2000
+        "maxLength": 12000
        }
       },
       "required": [
@@ -1900,7 +1901,7 @@
       "max_answer_codepoints": {
        "type": "integer",
        "minimum": 1,
-       "maximum": 2000
+       "maximum": 12000
       },
       "requests_per_minute": {
        "type": "integer",
@@ -2143,6 +2144,165 @@
        "plan": {
         "const": null
        },
+       "plan_digest": {
+        "const": null
+       },
+       "deadline_at": {
+        "const": null
+       },
+       "error_code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+       }
+      }
+     }
+    }
+   ]
+  },
+  "InternalEvidenceScopeReceipt": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["contract_version", "operation", "phase", "decision_ref", "request_id", "action",
+                "request_fingerprint", "plan_digest", "deadline_at", "references", "client_id", "bindings"],
+   "properties": {
+    "contract_version": {"$ref": "#/$defs/InternalDecisionRequest/properties/contract_version"},
+    "operation": {"const": "authorize-evidence"},
+    "phase": {"enum": ["pre_issue", "evidence_read"]},
+    "decision_ref": {"$ref": "#/$defs/InternalDecisionRequest/properties/decision_ref"},
+    "request_id": {"$ref": "#/$defs/InternalDecisionRequest/properties/request_id"},
+    "action": {"$ref": "#/$defs/InternalDecisionRequest/properties/action"},
+    "request_fingerprint": {"$ref": "#/$defs/InternalDecisionRequest/properties/request_fingerprint"},
+    "plan_digest": {"$ref": "#/$defs/InternalDecisionRequest/properties/plan_digest"},
+    "deadline_at": {"$ref": "#/$defs/InternalDecisionRequest/properties/deadline_at"},
+    "references": {"$ref": "#/$defs/InternalDecisionRequest/properties/references"},
+    "client_id": {"$ref": "#/$defs/InternalRevalidationReceipt/properties/client_id"},
+    "bindings": {
+     "type": "array",
+     "minItems": 1,
+     "maxItems": 5,
+     "items": {"$ref": "#/$defs/AuthorizedExecutionPlan/properties/bindings/items"}
+    }
+   }
+  },
+  "InternalRevalidationReceipt": {
+   "type": "object",
+   "properties": {
+    "contract_version": {
+     "const": "k1c1-r1.1"
+    },
+    "outcome": {
+     "enum": [
+      "ALLOWED",
+      "DENIED",
+      "UNAVAILABLE"
+     ]
+    },
+    "request_id": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 128
+    },
+    "phase": {
+     "enum": [
+      "pre_retrieval",
+      "post_retrieval",
+      "pre_projection",
+      "final_publish",
+      "pre_general_generation",
+      "post_general_generation"
+     ]
+    },
+    "plan_digest": {
+     "anyOf": [
+      {
+       "type": "string",
+       "pattern": "^[0-9a-f]{64}$"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "deadline_at": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "format": "date-time"
+    },
+    "budget_owner": {
+     "const": "HBOS"
+    },
+    "error_code": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "maxLength": 80
+    },
+    "operation": {
+     "const": "revalidate"
+    },
+    "decision_ref": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 128
+    },
+    "request_fingerprint": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{64}$"
+    },
+    "client_id": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 128
+    }
+   },
+   "required": [
+    "contract_version",
+    "outcome",
+    "request_id",
+    "phase",
+    "plan_digest",
+    "deadline_at",
+    "budget_owner",
+    "error_code",
+    "operation",
+    "decision_ref",
+    "request_fingerprint",
+    "client_id"
+   ],
+   "additionalProperties": false,
+   "allOf": [
+    {
+     "if": {
+      "properties": {
+       "outcome": {
+        "const": "ALLOWED"
+       }
+      },
+      "required": [
+       "outcome"
+      ]
+     },
+     "then": {
+      "properties": {
+       "plan_digest": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+       },
+       "deadline_at": {
+        "type": "string",
+        "format": "date-time"
+       },
+       "error_code": {
+        "const": null
+       }
+      }
+     },
+     "else": {
+      "properties": {
        "plan_digest": {
         "const": null
        },

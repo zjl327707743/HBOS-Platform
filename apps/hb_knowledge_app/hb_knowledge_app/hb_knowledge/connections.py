@@ -71,7 +71,7 @@ def create(runtime,label,client_name):
     import frappe
     from .shared_reference import configuration
     cfg=configuration();actor=runtime.actor();runtime.provider._current(actor,runtime.client)
-    if client_name not in {'OpenClaw','Hermes'}:raise KnowledgeError('INVALID_REQUEST')
+    if client_name not in {'OpenClaw','Hermes','MCP Client'}:raise KnowledgeError('INVALID_REQUEST')
     label=safe_string(label or client_name,80).strip()
     if not label:raise KnowledgeError('INVALID_REQUEST')
     # Serialize the per-owner active-connection cap across native requests.
@@ -92,6 +92,7 @@ def create(runtime,label,client_name):
 
 def list_owned(runtime):
     import frappe
+    from .shared_reference import configuration
     actor=runtime.actor();runtime.provider._current(actor,runtime.client)
     rows=frappe.get_all(DOCTYPE,filters={'owner_user':actor.user_ref},fields=['name','label','client_name','expires_at','revoked','last_used_at','stage','verification_json'],order_by='creation desc',limit_page_length=50)
     return {'items':[{'id':r.name,'label':safe_string(r.label,80),'client':r.client_name,
@@ -103,7 +104,7 @@ def list_owned(runtime):
         'is_test':bool(re.search(r'\bUAT\d*\b|隔离测试',r.label or '',re.I)),
         'client_receipt':verification(getattr(r,'verification_json',None)).get('client_receipt'),
         'agent_conversation':'CLIENT_TEST_NOT_RUN'} for r in rows],
-        'tools':list(TOOLS),'auth_type':'PERSONAL_BEARER_TOKEN','ttl_days':7,
+        'tools':list(TOOLS),'auth_type':'OAUTH_PKCE' if configuration().get('mcp_oauth_enabled') else 'PERSONAL_BEARER_TOKEN','ttl_days':7,
         'portal_logout_revokes_connection':False,'deployment':endpoint_deployment(),
         'query_blocked':__import__(__package__+'.api',fromlist=['_availability'])._availability(runtime).get('blocked',True),
         'endpoint':cfg_endpoint(),'client_versions':configuration_metadata('versions'),
@@ -125,7 +126,7 @@ def cfg_endpoint():
     if not isinstance(value,str):raise KnowledgeError('POLICY_UNAVAILABLE')
     try:
         endpoint=urlsplit(value)
-        local=endpoint.hostname in {'knowledge-r2.localhost','localhost','127.0.0.1','::1'}
+        local=endpoint.hostname in {'knowledge-r2.localhost','knowledge-rebuild.localhost','localhost','127.0.0.1','::1'}
         valid=(endpoint.scheme in {'http','https'} and endpoint.hostname and endpoint.path=='/mcp'
                and not endpoint.username and not endpoint.password and not endpoint.query and not endpoint.fragment
                and (endpoint.scheme=='https' or local))
@@ -138,7 +139,7 @@ def cfg_endpoint():
 
 def endpoint_deployment():
     from urllib.parse import urlsplit
-    return 'LOCAL_UAT' if urlsplit(cfg_endpoint()).hostname in {'knowledge-r2.localhost','localhost','127.0.0.1','::1'} else 'SERVER_HTTPS'
+    return 'LOCAL_UAT' if urlsplit(cfg_endpoint()).hostname in {'knowledge-r2.localhost','knowledge-rebuild.localhost','localhost','127.0.0.1','::1'} else 'SERVER_HTTPS'
 
 def revoke(runtime,name):
     import frappe

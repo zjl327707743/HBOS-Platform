@@ -19,7 +19,9 @@ principal as the normal path - nothing here fabricates a phase.
 """
 from __future__ import annotations
 
+import re
 import time
+from .r1_contract import ANSWER_MAX_CODEPOINTS
 
 # Same caps the service catalogue uses, so the web and MCP answers to the same
 # question stay recognisably the same and the header can never disagree with
@@ -43,11 +45,21 @@ SUBJECTS = (
     (('生产', '工艺', '规程', 'SOP'), '生产部门资料',
      ('DEPT_PRODUCTION',), ('生产', '工艺', '规程', '操作')),
 )
+_DEPARTMENT_COUNT = re.compile(
+    r'^(?:知识库[中里]?)?(?P<title>[\u3400-\u9fff]{1,12}部门)(?:中|里|的)?'
+    r'(?:共有|总共有|共|有|一共|总共)?(?:多少|几)[份分个]?(?:资料|文件|文档)[？?。]?$'
+)
 
 
 def focus(query, titles):
     """The spaces a directory question names, and its title matcher."""
-    q = (query or '').casefold()
+    q = (query or '').strip().casefold()
+    named = _DEPARTMENT_COUNT.fullmatch(q)
+    if named:
+        title = named['title']
+        spaces = tuple(space for space, label in titles.items() if label.strip().casefold() == title)
+        return {'kind': 'NAMED_DEPARTMENT', 'label': title, 'spaces': spaces,
+                'match': lambda binding: binding.space_id in spaces}
     for words, label, spaces, title_words in SUBJECTS:
         if any(word.casefold() in q for word in words):
             lowered = tuple(word.casefold() for word in title_words)
@@ -123,7 +135,7 @@ def render(plan, titles, query, *, now=None):
         header = head + f'\n\n已为你整理已共享资料的分类目录，共 {total} 份：'
     answer = header + '\n\n' + '\n\n'.join(lines)
     answer += '\n\n如需逐条查看，请打开“资料目录”，或选择部门后继续提问。'
-    return answer[:2000], True
+    return answer[:ANSWER_MAX_CODEPOINTS], True
 
 
 def is_catalog_question(question, *, knowledge_only=False, context=(), history=()):

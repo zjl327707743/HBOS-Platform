@@ -1,10 +1,29 @@
 """Publication decisions are state transitions, never a reusable restore grant."""
 import hashlib
+import re
 from .service_http import canonical
 
 
 class PublicationConflict(ValueError):
     pass
+
+
+UNRECORDED_ACTIVATION = 'UNRECORDED'
+
+
+def valid_lifecycle_receipt(value):
+    return isinstance(value, str) and (value == UNRECORDED_ACTIVATION
+        or re.fullmatch(r'PUB_[0-9a-f]{64}', value) is not None)
+
+
+def latest_lifecycle_receipt(document_id, version_id, *, withdrawn, lock=False):
+    import frappe
+    outcomes = ('WITHDRAWN',) if withdrawn else ('PUBLISHED', 'REPLACED', 'RESTORED', 'REPAIRED')
+    rows = frappe.db.sql('SELECT receipt_id FROM `tabHBOS Knowledge Publication` '
+        'WHERE canonical_document_id=%s AND target_version=%s AND outcome IN %s '
+        'ORDER BY creation DESC,name DESC LIMIT 1' + (' FOR UPDATE' if lock else ''),
+        (document_id, version_id, outcomes), as_dict=True)
+    return rows[0]['receipt_id'] if rows else None
 
 
 FROZEN_PUBLICATION_FIELDS = (

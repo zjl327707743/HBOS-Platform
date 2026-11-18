@@ -1,0 +1,80 @@
+{
+  "doctype": "DocType",
+  "name": "HBOS Knowledge Parse Revision",
+  "module": "HB Knowledge",
+  "engine": "InnoDB",
+  "autoname": "field:revision_ref",
+  "allow_rename": 0,
+  "track_changes": 0,
+  "field_order": [
+    "revision_ref",
+    "canonical_document_id",
+    "version_id",
+    "parent_binding_ref",
+    "target_binding_ref",
+    "profile_sha256",
+    "receipt_json"
+  ],
+  "fields": [
+    {
+      "fieldname": "revision_ref",
+      "fieldtype": "Data",
+      "label": "Revision Ref",
+      "reqd": 1,
+      "read_only": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "canonical_document_id",
+      "fieldtype": "Link",
+      "label": "Canonical Document Id",
+      "reqd": 1,
+      "read_only": 1,
+      "options": "HBOS Knowledge Document"
+    },
+    {
+      "fieldname": "version_id",
+      "fieldtype": "Link",
+      "label": "Version Id",
+      "reqd": 1,
+      "read_only": 1,
+      "options": "HBOS Knowledge Version"
+    },
+    {
+      "fieldname": "parent_binding_ref",
+      "fieldtype": "Link",
+      "label": "Parent Binding Ref",
+      "reqd": 1,
+      "read_only": 1,
+      "options": "HBOS Knowledge Backend Binding"
+    },
+    {
+      "fieldname": "target_binding_ref",
+      "fieldtype": "Link",
+      "label": "Target Binding Ref",
+      "reqd": 1,
+      "read_only": 1,
+      "options": "HBOS Knowledge Backend Binding"
+    },
+    {
+      "fieldname": "profile_sha256",
+      "fieldtype": "Data",
+      "label": "Profile Sha256",
+      "reqd": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "receipt_json",
+      "fieldtype": "Long Text",
+      "label": "Receipt Json",
+      "reqd": 1,
+      "read_only": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1
+    }
+  ]
+}

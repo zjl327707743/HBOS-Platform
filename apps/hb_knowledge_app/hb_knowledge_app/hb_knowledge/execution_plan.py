@@ -87,7 +87,7 @@ class ProviderStamp:
 class Limits:
     max_results: int = 5
     max_excerpt_codepoints: int = 500
-    max_answer_codepoints: int = 2000
+    max_answer_codepoints: int = 12000
     requests_per_minute: int = 12
     external_codepoints_per_minute: int = 30000
 

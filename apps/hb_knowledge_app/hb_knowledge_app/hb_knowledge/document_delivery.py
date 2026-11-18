@@ -40,6 +40,29 @@ class Content:
 class DocumentDelivery:
     def __init__(self, runtime, assets, state, *, clock=time.time):
         self.runtime, self.assets, self.state, self.clock = runtime, assets, state, clock
+        self.reader_proofs_enabled=False
+
+    @staticmethod
+    def _reader_proof_key(user,binding,purpose):
+        return 'managed-reader-path:'+hashlib.sha256(json.dumps([user,binding.canonical_document_id,
+            binding.version_id,binding.binding_revision,purpose]).encode()).hexdigest()
+
+    def note_reader_path(self,user,binding,purpose,*,source_sha256=None,asset_sha256=None):
+        if not self.reader_proofs_enabled:return
+        try:self.state.set(self._reader_proof_key(user,binding,purpose),json.dumps({
+            'at':self.clock(),'purpose':purpose,'source_sha256':source_sha256,'asset_sha256':asset_sha256}),ex=900)
+        except Exception:pass  # A missing metric cannot change reader authorization.
+
+    def reader_paths(self,user,binding,source_sha256):
+        if not self.reader_proofs_enabled:return None
+        try:
+            rows={p:json.loads(self.state.get(self._reader_proof_key(user,binding,p)) or 'null')
+                  for p in ('body','preview','download')}
+            if (not all(isinstance(row,dict) and 0<=self.clock()-row['at']<=900 for row in rows.values())
+                    or any(rows[p]['source_sha256']!=source_sha256 for p in ('preview','download'))
+                    or rows['download']['asset_sha256']!=source_sha256):return None
+            return rows
+        except (ValueError,TypeError,KeyError):return None
 
     def _authorize(self, document_id, version_id, request_id):
         raw = {'document_id': document_id}
@@ -170,6 +193,7 @@ class DocumentDelivery:
             if record['expires_at'] <= self.clock():
                 raise unavailable('TICKET_EXPIRED')
             self._deliver_log(actor, record, purpose, size, streamed=False)
+            self.note_reader_path(actor.user_ref,binding,purpose,source_sha256=original.sha256,asset_sha256=asset.sha256)
             headers = self._headers(asset, purpose, status, size)
             if status == 206:
                 headers['Content-Range'] = f'bytes {start}-{end}/{size}'
@@ -187,6 +211,7 @@ class DocumentDelivery:
             stream.close()
             raise unavailable('TICKET_EXPIRED')
         self._deliver_log(actor, record, purpose, size, streamed=True)
+        self.note_reader_path(actor.user_ref,binding,purpose,source_sha256=original.sha256,asset_sha256=asset.sha256)
         headers = self._headers(asset, purpose, 200, size)
         headers['Accept-Ranges'] = 'none'
         return Content(None, 200, headers, stream=stream)
@@ -212,5 +237,7 @@ class DocumentDelivery:
 
 def build_delivery(runtime, cfg, state):
     from .document_assets import LocalDocumentAssets, current_source_hash
-    return DocumentDelivery(runtime, LocalDocumentAssets(
+    delivery=DocumentDelivery(runtime, LocalDocumentAssets(
         cfg.get('document_asset_manifest'), cfg.get('document_asset_roots'), current_source_hash), state)
+    delivery.reader_proofs_enabled=cfg.get('maintenance_managed_policy') is not None
+    return delivery
