@@ -7,6 +7,7 @@ Manifest body size and per-item source size stay separate decisions with
 separate error codes.
 """
 import importlib
+import importlib.util
 import io
 import json
 import sys
@@ -26,6 +27,15 @@ from hb_knowledge_app.hb_knowledge.maintenance_contract import (
 )
 
 MIB = 1024 * 1024
+
+
+def _require_joint_service():
+    try:
+        available = importlib.util.find_spec('knowledge_service.ingestion') is not None
+    except (ModuleNotFoundError, ValueError):
+        available = False
+    if not available:
+        pytest.skip('requires hbos_knowledge_service; covered by the joint service integration run')
 
 
 def test_normal_limit_defaults_to_64_mib_and_is_configurable_down_to_20_mib():
@@ -208,6 +218,7 @@ def test_upload_reads_configured_limit_and_reports_size_specific_error(monkeypat
 
 
 def test_normal_upload_registers_original_and_selected_directory_before_publication(monkeypatch,tmp_path):
+    _require_joint_service()
     source,cfg=workspace(tmp_path)
     registry=tmp_path/'source-registry';registry.mkdir()
     assets=registry/'assets.json';directories=registry/'source-directory.json'

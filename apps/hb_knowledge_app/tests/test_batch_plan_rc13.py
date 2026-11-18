@@ -1,6 +1,7 @@
 """RC13 batch preview: read-only, stable digest, honest classifications."""
 import hashlib
 import importlib
+import importlib.util
 import json
 import sys
 from types import ModuleType, SimpleNamespace
@@ -8,6 +9,16 @@ from types import ModuleType, SimpleNamespace
 import pytest
 
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
+
+
+def _require_joint_service():
+    try:
+        available = all(importlib.util.find_spec(name) is not None for name in (
+            'knowledge_service.overlap_experiment', 'knowledge_service.native_job_contract'))
+    except (ModuleNotFoundError, ValueError):
+        available = False
+    if not available:
+        pytest.skip('requires hbos_knowledge_service; covered by the joint service integration run')
 
 
 def test_native_legacy_excel_source_path_is_admitted_without_relaxing_path_safety(monkeypatch):
@@ -340,6 +351,7 @@ def _native_locked_fixture(monkeypatch,tmp_path):
 
 
 def test_native_plan_submit_retains_one_business_version_two_parse_revisions(monkeypatch,tmp_path):
+    _require_joint_service()
     batch,m,frappe,state,calls,cfg,doc,version,raw=_native_locked_fixture(monkeypatch,tmp_path)
     planned=batch.plan_batch(raw);assert planned['submittable'];assert planned['counts']['total']==2;assert state['writes']==[]
     result=batch.submit_batch(planned['plan_sha256'],'MAIN_FROZEN_NATIVE_TEST','原生对照');assert len(result['batches'])==2;assert calls['register']==2
@@ -351,6 +363,7 @@ def test_native_plan_submit_retains_one_business_version_two_parse_revisions(mon
 
 
 def test_native_submit_refuses_withdrawal_or_manifest_drift(monkeypatch,tmp_path):
+    _require_joint_service()
     batch,m,frappe,state,calls,cfg,doc,version,raw=_native_locked_fixture(monkeypatch,tmp_path)
     planned=batch.plan_batch(raw);state['documents'][doc]['withdrawn']=True
     with pytest.raises(KnowledgeError):batch.submit_batch(planned['plan_sha256'],'MAIN_TEST','原生对照')
@@ -361,6 +374,7 @@ def test_native_submit_refuses_withdrawal_or_manifest_drift(monkeypatch,tmp_path
 
 @pytest.mark.parametrize('extension',['.ppt','.wps'])
 def test_locked_office_plan_submit_retains_original_and_verified_pdf(monkeypatch,tmp_path,extension):
+    _require_joint_service()
     from pathlib import Path
     from knowledge_service.native_job_contract import binding_revision_for
     batch,m,frappe,state,calls,cfg,doc,version,raw=_native_locked_fixture(monkeypatch,tmp_path)

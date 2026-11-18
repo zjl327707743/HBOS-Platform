@@ -76,6 +76,14 @@ def test_credentials_markup_and_traversal_are_still_refused(monkeypatch, excerpt
 ])
 def test_maintainer_preview_uses_source_hygiene(monkeypatch,tmp_path,excerpt,allowed):
     import requests
+    service=ModuleType('knowledge_service');service.__path__=[]
+    gateway=ModuleType('knowledge_service.hbos_gateway');gateway.__path__=[]
+    native=ModuleType('knowledge_service.hbos_gateway.native_text')
+    native.native_text=lambda content:content
+    service.hbos_gateway=gateway;gateway.native_text=native
+    monkeypatch.setitem(sys.modules,'knowledge_service',service)
+    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway',gateway)
+    monkeypatch.setitem(sys.modules,'knowledge_service.hbos_gateway.native_text',native)
     monkeypatch.setitem(sys.modules,'frappe',SimpleNamespace())
     monkeypatch.setitem(sys.modules,'pymysql',ModuleType('pymysql'))
     cipher=ModuleType('cryptography.fernet')

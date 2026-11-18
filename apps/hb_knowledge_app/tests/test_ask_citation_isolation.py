@@ -1,13 +1,20 @@
 """R2 citation isolation: one unprojectable citation must not fail a REFERENCE_EXCERPTS answer."""
+import importlib.util
 import sys
 from pathlib import Path
+import pytest
 
 APP = Path(__file__).resolve().parents[1]
 if str(APP) not in sys.path:
     sys.path.insert(0, str(APP))
-SERVICE = Path('/Users/hb/Documents/Codex/2026-11-09/hbos-knowledge-release-r2-20261109-main/work/r2-data-first-fusion-cutoff')
-if SERVICE.exists() and str(SERVICE) not in sys.path:
-    sys.path.insert(0, str(SERVICE))
+try:
+    _service_projection = importlib.util.find_spec(
+        'knowledge_service.hbos_gateway.response_projection')
+except (ModuleNotFoundError, ValueError):
+    _service_projection = None
+if _service_projection is None:
+    pytest.skip('requires hbos_knowledge_service; covered by the joint service integration run',
+                allow_module_level=True)
 
 from hb_knowledge_app.hb_knowledge.ask_projection import project_ask_results
 from hb_knowledge_app.hb_knowledge.execution_plan import Binding

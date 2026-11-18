@@ -159,6 +159,15 @@ def test_unknown_send_cannot_be_reclaimed_and_manifest_edits_fail_closed(scenari
 def test_only_proven_before_wire_title_can_resume_without_replaying_probe(
         scenario, tmp_path, monkeypatch, preclaim_stops, postclaim_stop):
     from hb_knowledge_app.hb_knowledge import maintenance_api, maintenance_no_wire
+    service = ModuleType('knowledge_service')
+    service.__path__ = []
+    provider_epoch = ModuleType('knowledge_service.provider_epoch')
+    provider_epoch.local_epoch = lambda: SimpleNamespace()
+    provider_budget = ModuleType('knowledge_service.provider_budget')
+    provider_budget.BudgetStopped = type('BudgetStopped', (Exception,), {})
+    monkeypatch.setitem(sys.modules, 'knowledge_service', service)
+    monkeypatch.setitem(sys.modules, 'knowledge_service.provider_epoch', provider_epoch)
+    monkeypatch.setitem(sys.modules, 'knowledge_service.provider_budget', provider_budget)
     from knowledge_service import provider_epoch
 
     path = _task_manifest(scenario, tmp_path)

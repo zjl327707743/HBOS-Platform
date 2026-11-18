@@ -1,8 +1,23 @@
 """New maintenance uploads reuse explicit locked profiles; never alter old batches."""
+import importlib.util
 import copy,hashlib,json
 import pytest
 from hb_knowledge_app.hb_knowledge.maintenance_native_upload import apply_profile,upload_policy
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
+
+
+def _module_available(name):
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ModuleNotFoundError, ValueError):
+        return False
+
+
+if not all(_module_available(name) for name in (
+        'knowledge_service.native_job_contract', 'knowledge_service.ingestion')):
+    pytest.skip('requires hbos_knowledge_service; covered by the joint service integration run',
+                allow_module_level=True)
+
 from knowledge_service.native_job_contract import build_profile,validate_native_item
 
 def profile(layout):

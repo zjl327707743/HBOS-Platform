@@ -1,12 +1,54 @@
 """Browser jobs cannot mint arbitrary source, template, space or task authority."""
 import copy
+import hashlib
+import importlib.util
 import json
 
 import pytest
 
 from hb_knowledge_app.hb_knowledge.errors import KnowledgeError
 from hb_knowledge_app.hb_knowledge import maintenance_managed as managed
-from knowledge_service.native_job_contract import build_profile,binding_revision_for
+
+
+def _module_available(name):
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ModuleNotFoundError, ValueError):
+        return False
+
+
+_JOINT_SERVICE_AVAILABLE = all(_module_available(name) for name in (
+    'knowledge_service.native_job_contract', 'knowledge_service.ingestion'))
+
+if _JOINT_SERVICE_AVAILABLE:
+    from knowledge_service.native_job_contract import build_profile, binding_revision_for
+else:
+    # The public app-only CI has no private service wheel. Keep claim-selector
+    # unit fixtures self-contained; service-backed admission tests skip below.
+    def _canonical(value):
+        return json.dumps(value, sort_keys=True, ensure_ascii=True,
+                          separators=(',', ':'), allow_nan=False)
+
+    def _sha(value):
+        return hashlib.sha256(_canonical(value).encode()).hexdigest()
+
+    def build_profile(parser_id, config, candidate_patch_sha256):
+        profile = {'schema': 'hbos.native-execution-profile.v1',
+            'ragflow_base_commit': 'ec9c08d809f63ba2815090182fa225899d2437d5',
+            'candidate_patch_sha256': candidate_patch_sha256, 'parser_id': parser_id,
+            'parser_config': config, 'embedding_model': 'qwen3.7-text-embedding',
+            'embedding_dimensions': 1024}
+        profile['profile_sha256'] = _sha(profile)
+        return profile
+
+    def binding_revision_for(item):
+        return 'BR_' + _sha([item.get('version_id'),
+                             item['native_profile']['profile_sha256']])[:24]
+
+
+def _require_joint_service():
+    if not _JOINT_SERVICE_AVAILABLE:
+        pytest.skip('requires hbos_knowledge_service; covered by the joint service integration run')
 
 
 def sample(tmp_path,monkeypatch):
@@ -37,6 +79,7 @@ def sample(tmp_path,monkeypatch):
 
 
 def test_exact_browser_admission_creates_its_own_bounded_prepare_permit(tmp_path,monkeypatch):
+    _require_joint_service()
     cfg,frozen,job=sample(tmp_path,monkeypatch)
     managed.admit(cfg,frozen,job,now=100)
     permit=managed.batch_permit(cfg,'IMP_'+'e'*32,frozen,job,now=101)
@@ -47,6 +90,7 @@ def test_exact_browser_admission_creates_its_own_bounded_prepare_permit(tmp_path
 
 @pytest.mark.parametrize('field,value',[('source_sha256','0'*64),('requested_by','other'),('write_dataset_id','f'*32)])
 def test_client_cannot_change_a_stored_admission(tmp_path,monkeypatch,field,value):
+    _require_joint_service()
     cfg,frozen,job=sample(tmp_path,monkeypatch);managed.admit(cfg,frozen,job,now=100)
     if field=='source_sha256':job['managed_admission']['identities'][0]['sha256']=value
     else:job['managed_admission'][field]=value
@@ -54,6 +98,7 @@ def test_client_cannot_change_a_stored_admission(tmp_path,monkeypatch,field,valu
 
 
 def test_withdrawn_authority_template_drift_and_budget_expiry_fail_closed(tmp_path,monkeypatch):
+    _require_joint_service()
     cfg,frozen,job=sample(tmp_path,monkeypatch);managed.admit(cfg,frozen,job,now=100)
     changed=copy.deepcopy(frozen);changed['items'][0]['internal_sharing_confirmed']=False
     with pytest.raises(KnowledgeError):managed.batch_permit(cfg,'IMP_'+'e'*32,changed,job,now=101)
@@ -64,7 +109,17 @@ def test_withdrawn_authority_template_drift_and_budget_expiry_fail_closed(tmp_pa
 
 def test_a_clone_cannot_expand_roles_or_bypass_its_approved_parent():
     import sys
-    from types import SimpleNamespace
+    from types import ModuleType, SimpleNamespace
+
+    # The assertion is over pure scope projection. Do not make the app-only
+    # contract suite install database/crypto runtime clients just to import it.
+    sys.modules.setdefault('pymysql', ModuleType('pymysql'))
+    crypto = ModuleType('cryptography')
+    fernet = ModuleType('cryptography.fernet')
+    fernet.Fernet = lambda *args, **kwargs: SimpleNamespace()
+    crypto.fernet = fernet
+    sys.modules.setdefault('cryptography', crypto)
+    sys.modules.setdefault('cryptography.fernet', fernet)
     sys.modules.setdefault('frappe',SimpleNamespace(whitelist=lambda **kwargs:lambda function:function))
     from hb_knowledge_app.hb_knowledge.maintenance_spaces import approved_child_spaces,can_manage_spaces,space_admission
     cfg={'approved_space_ids':['DEPT_PRODUCTION'],'reader_role':'Reader','maintenance_space_creation_enabled':True,
@@ -109,6 +164,9 @@ def test_validation_requires_exact_acknowledged_native_results():
 
 
 def test_one_upload_packet_queues_normal_files_together_and_isolates_a_broken_pdf(tmp_path,monkeypatch):
+    _require_joint_service()
+    if not _module_available('werkzeug.datastructures'):
+        pytest.skip('requires the Frappe/Werkzeug runtime; covered by the joint service integration run')
     from io import BytesIO
     from types import SimpleNamespace
     import time
